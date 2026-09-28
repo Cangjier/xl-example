@@ -1,0 +1,5 @@
+# xl 源文件必须是 UTF-8 无 BOM + LF（否则报 E0005），
+# 而 ts 产物要跟 C# 生成的基准逐字节比对，所以把检出也钉成 LF：
+# 否则在 Windows 上克隆（core.autocrlf=true）会把每个 *.xl.md 变成 CRLF，
+# 每个检查都会失败。
+* text=auto eol=lf

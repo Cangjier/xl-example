@@ -1,0 +1,163 @@
+# dependencies
+```xl
+import { IOwner } from "../../owners/i-owner.xl.md"
+import { CommonUtil } from "../common-util.xl.md"
+import { Source } from "./source.xl.md"
+import { SyntaxContext } from "./syntax-context.xl.md"
+import { Token } from "./token.xl.md"
+import { Template } from "./templates/template.xl.md"
+```
+
+# namespace cangjie
+
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+
+块 token：把连续的同类字符吞进 `Temp`，最后整块吐成一个 XML 文本节点。标识符、数字、符号都是它——`<Common>abc</Common>` 就是这么来的。
+
+# class BlockToken<ValueType = any> extends Token
+
+块数据。
+
+类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）。
+
+## field Temp:Array<ValueType> = []
+
+本块累积的字符。原 C# 是 `List<ValueType> Temp { get; private set; }`。
+
+## constructor:(owner:IOwner, template:Template<ValueType>)=>void
+
+原 C# 只是转调基类构造器。
+
+```ts
+super(owner, template);
+```
+
+## method TempToString:()=>string
+
+把累积的字符拼成字符串。
+
+原 C# 用 `Temp.Join("")`——那是 `Core/Extensions/ListExtension.cs` 里的扩展方法。ts 的数组本来就有 `join`，直接用它（M11）。
+
+```ts
+return this.Temp.join("");
+```
+
+## method AppendAndSignOut:(source:Source<ValueType>)=>BlockToken<ValueType>
+
+先签出到 `source`，再把该字符追加进 `Temp`，返回自身。
+
+```ts
+this.SignOut(source);
+this.Temp.push(source.Value);
+return this;
+```
+
+## method AppendValueAndSignOut:(value:ValueType, source:Source<ValueType>)=>BlockToken<ValueType>
+
+同上，但追加的是显式给的值而不是 `source.Value`。
+
+原 C# 是重载 `AppendAndSignOut(ValueType value, Source<ValueType> source)`，与单参版参数个数不同，按 M14(c) 改名。
+
+```ts
+this.SignOut(source);
+this.Temp.push(value);
+return this;
+```
+
+## method IsAppend:(source:Source<ValueType>)=>bool
+
+当前字符能不能并进本块。
+
+原 C# 是 `public abstract`，由各 token 实现。
+
+```ts
+throw new Error("abstract member: IsAppend");
+```
+
+## method Process:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+
+处理一个字符：有挂载单元就转给它，否则走 `Default`。
+
+原 C# 覆写了基类的调度——块 token **不跑跳转队列**，只认挂载单元和自己。
+
+```ts
+if (this.MountedUnit !== null) {
+  this.MountedUnit.Process(context, source);
+  return;
+}
+this.Default(context, source);
+this.LastSource = source;
+```
+
+## method Undo:(source:Source<ValueType>)=>void
+
+回退一个字符。
+
+原 C# 分两种情况：有子单元覆盖该位置就交给它；否则从 `Temp` 弹掉最后一个字符，并在「已经退到最前」或「`Temp` 空了」时把自己从父单元里摘掉，否则把终点退回前一个位置。
+
+```ts
+const undoUnit = this.WhichUnitRangeContains(source);
+if (undoUnit !== null) {
+  undoUnit.Undo(source);
+  return;
+}
+this.Temp.splice(this.Temp.length - 1, 1);
+const previous = source.Pre();
+if (previous === null) {
+  this.Parent!.Data.splice(this.Parent!.Data.indexOf(this), 1);
+} else if (this.Temp.length === 0) {
+  this.Parent!.Data.splice(this.Parent!.Data.indexOf(this), 1);
+} else {
+  this.SignOut(previous);
+}
+```
+
+## method IsUndo:(source:Source<ValueType>)=>bool
+
+块 token 永远可以回退。
+
+原 C# 是 `public override bool IsUndo(Source<ValueType> source) => true;`。
+
+```ts
+return true;
+```
+
+## protected method Default:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+
+原 C# 直接抛 `NotImplementedException`——块 token 必须靠挂载单元或自己的覆写来消费字符。
+
+```ts
+throw new Error("NotImplementedException");
+```
+
+## method SignOut:(source:Source<ValueType>)=>void
+
+签出。
+
+原 C# 覆写了基类的签出：**只设终点，不递归子单元，也不检查是否已设过**。
+
+```ts
+this.SourceRange.End = source;
+```
+
+## method ToXmlString:()=>string
+
+产出 XML：标签名是运行时类型名，内容是本块累积的字符（先转义）。
+
+原 C# 用 `GetType().Name`（按 M17 换成 `this.constructor.name`）与 `CommonUtil.XmlDecode(Temp.Join(""))`。
+
+```ts
+const name = this.constructor.name;
+return `<${name}>${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
+```
+
+## method Release:()=>void
+
+释放：先清空自己的字符块，再走基类的释放。
+
+原 C# 是 `public override void Release()`。
+
+```ts
+this.Temp.length = 0;
+super.Release();
+```

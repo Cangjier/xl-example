@@ -1,0 +1,1 @@
+<Root><Statement><Let fieldName="f" /><Symbol>=</Symbol><Lamda><LamdaParameters><LamdaParameter><Common>a</Common></LamdaParameter><LamdaParameter><Common>b</Common></LamdaParameter></LamdaParameters><LamdaBody><Statement><Common>a</Common><Symbol>+</Symbol><Common>b</Common></Statement></LamdaBody></Lamda></Statement></Root>

@@ -1,0 +1,22 @@
+{
+  // 把 xl 直出的 ts 编成 CommonJS 的 JS，供 tools/parse.cjs 与 tools/regression.cjs 运行。
+  //
+  // 为什么是 CommonJS：xl 产物的 import 是不带扩展名的相对路径（`from "./common"`）。
+  // Node 的 ESM 解析器要求显式扩展名，而 CJS 的解析器会自动补 `.js`，所以走 CJS 最省事。
+  //
+  //   tsc -p tsconfig.build.json     →  build/**/*.js
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "noEmit": false,
+    "outDir": "build",
+    "rootDir": "dist",
+    "skipLibCheck": true,
+    "sourceMap": false,
+    // moduleResolution=Node 在新版 tsc 里已弃用但仍是 CJS 的正确选择
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["dist/**/*.ts"]
+}

@@ -1,0 +1,15 @@
+{
+  "build": {
+    "target": ["ts"],
+    "out": "dist",
+    "naming": "idiomatic",
+    "header": true,
+    "cacheDir": ".xl",
+    "cacheVersions": 5
+  },
+  "check": {
+    "ignore": [],
+    "strict": false,
+    "maxWarnings": null
+  }
+}

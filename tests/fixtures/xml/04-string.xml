@@ -1,0 +1,1 @@
+<Root><Statement><String IsSupportInterpolation=False IsSupportVerbatim=False IsSupportRaw=False InterpolationCount=0 RawQuoteCount=1><ConstString>hello</ConstString></String><Symbol>+</Symbol><String IsSupportInterpolation=False IsSupportVerbatim=False IsSupportRaw=False InterpolationCount=0 RawQuoteCount=1><ConstString>x</ConstString></String></Statement></Root>

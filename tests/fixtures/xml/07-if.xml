@@ -1,0 +1,1 @@
+<Root><IfSet><IfSegment Key="if"><IfCondition><Common>a</Common></IfCondition><IfStatement><Statement><Common>b</Common></Statement></IfStatement></IfSegment></IfSet></Root>

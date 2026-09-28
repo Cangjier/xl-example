@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Cangjie.XlExample.Golden</RootNamespace>
+    <AssemblyName>Golden</AssemblyName>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      原 Cangjie 项目（C# 事实来源）。它多目标 net6.0;net8.0;net10.0，
+      本机只有 .NET 10 SDK，所以把引用项目的 TargetFrameworks 钉到 net10.0。
+    -->
+    <ProjectReference Include="..\..\..\cangjie-publish\cangjie\Cangjie.csproj"
+                      AdditionalProperties="TargetFrameworks=net10.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,1 @@
+<Root><Statement><Let fieldName="a" /><Symbol>=</Symbol><String IsSupportInterpolation=False IsSupportVerbatim=False IsSupportRaw=False InterpolationCount=1 RawQuoteCount=1><ConstString>x</ConstString><InterpolationString><Common>b</Common></InterpolationString><ConstString>y</ConstString></String></Statement></Root>

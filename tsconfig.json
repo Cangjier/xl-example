@@ -1,0 +1,15 @@
+{
+  // 这个项目只有 *.xl.md 源文件；tsconfig 的唯一用途是验证 xl 直出的产物：
+  //   tsc -p tsconfig.json
+  // 目录里没有 package.json / node_modules，所以 tsc 需要来自全局或 npx。
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["dist/**/*.ts"]
+}

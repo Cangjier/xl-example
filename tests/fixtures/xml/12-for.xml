@@ -1,0 +1,1 @@
+<Root><For><ForInitial><Let fieldName="i" /><Symbol>=</Symbol><Common>0</Common></ForInitial><ForCompare><Common>i</Common><Symbol>&lt;</Symbol><Common>3</Common></ForCompare><ForNext><Common>i</Common><Symbol>++</Symbol></ForNext><ForBody><Statement><Common>a</Common></Statement></ForBody></For><Statement></Statement></Root>

@@ -1,0 +1,1 @@
+<Root><Import><Bracket StartBracketChar="{" EndBracketChar="}"><Common>x</Common></Bracket><Common>from</Common><String IsSupportInterpolation=False IsSupportVerbatim=False IsSupportRaw=False InterpolationCount=0 RawQuoteCount=1><ConstString>./y</ConstString></String></Import><Statement></Statement></Root>

@@ -1,0 +1,1 @@
+<Root><Try><TryBody><Statement><Common>a</Common></Statement></TryBody><CatchDefine><Common>e</Common></CatchDefine><CatchBody><Statement><Common>b</Common></Statement></CatchBody><FinallyBody><Statement><Common>c</Common></Statement></FinallyBody></Try><Statement></Statement></Root>
