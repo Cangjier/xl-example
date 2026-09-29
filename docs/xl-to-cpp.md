@@ -11,6 +11,10 @@
 > 完整的现约定见 `dist/cpp/PORT-CONVENTIONS.md`，交付说明与偏离记录见 `dist/cpp/README.md`。
 > 已经落实的两条文档要求是 **§1.1 的 `std::shared_ptr` 所有权**与 **§1.10 的异常继承
 > `std::runtime_error`**。
+>
+> **新增 §7**：把 104 个源真的编过一遍（winlibs MinGW-w64 GCC 16.2.0 + CMake 4.4.3，`-std=c++20`，
+> `configure` / `build` / 链接出 `cjcli.exe` 均通过，并用仓库夹具做了运行验收）之后总结的
+> **生成陷阱清单**。静态审计查不出那一节里的任何一条，**生成器请把它当硬性检查项**。
 
 「为什么必须这样」——两遍构建、`shared_ptr` 所有权、`TypeName()` 反射这三条结构性决定的
 论证与被证伪的替代方案——见 [cpp-design-notes.md](cpp-design-notes.md)。
@@ -583,6 +587,10 @@ int main(int argc, char** argv) {
 > 工具链下载/两遍包含/`-DXL_CPP_*` 开关的描述属于早期方案，当前未启用。
 > 另：验收可与仓库自带的夹具对照 —— `samples/hello.cj` + `samples/hello.expected.xml`、
 > `samples/generic.cj` + `samples/generic.expected.xml`。
+>
+> **该流程已从零跑通**（winlibs GCC 16.2.0 + CMake 4.4.3，`configure`/`build` 均 exit 0，
+> 链接出 `cjcli.exe`；运行验收结果见 §7.8）。构建脚本本身在 §7.7 修过一处 `GLOB` 问题
+> （必须排除 `/build/`）。
 
 工具链（本机没有 cmake / g++ / ninja，脚本会下载免安装版到 `.tools/`，已被 `.gitignore` 忽略）：
 
@@ -633,3 +641,113 @@ CMake 也会自动重建；它不属于任何一份规范。
 
 `build-cpp.ps1` 会把 `warning: '#pragma once' in main file` 过滤掉——那对每个产物都会出现，
 是「产物既是头文件又是翻译单元」的必然结果，不是问题。
+
+## 7. 真实编译逼出来的陷阱清单（生成器必读）
+
+§1–§6 是「映射规则」；这一节是**把 104 个源真的编过一遍**之后补的**经验**。验证用的工具链是
+winlibs MinGW-w64 **GCC 16.2.0** + CMake 4.4.3，`-std=c++20`（文首「地道的 C++17」是早期口径，
+现口径是 **C++20**：`CMakeLists.txt` 里 `CMAKE_CXX_STANDARD 20`），
+`cmake --build` 能链接出 `cjcli.exe`。
+
+**关键前提**：静态审计（include 解析、声明-定义一致性、`XmlName` 覆盖、ODR、XML 保真）
+**一条都查不出下面 7.1–7.7**。它们只在真实编译时暴露，所以生成链路里必须有**真实编译器**这一步。
+
+### 7.1 类型名被成员名遮蔽（最高频）
+
+同一个类里只要有一个**成员名**与某个类型同名，类作用域内该类型名就被遮蔽：
+
+- `Token` 有 `SourceRange()` → `std::shared_ptr<SourceRange>`、`std::make_shared<SourceRange>()` 会被解析成
+  「成员函数」→ `type/value mismatch at argument 1 in template parameter list for 'std::shared_ptr'`。
+  必须写 **`cangjie::SourceRange`**。
+- `Source` 有 `Document()`、`Try` 有 `TryBody()`/`FinallyBody()`、`TextContext` 有 `Root()`、
+  `Template` 有 `BranchTemplate()`/`SymbolTemplate()` —— **同一规则**。
+- **`.cpp` 的类外定义里同样生效**：写 `Source::Source(const std::shared_ptr<Document>&, int32_t)` 时，
+  形参表是在 `Source` 的**类作用域**里查找的，`Document` 命中成员函数。
+  **规则：`.cpp` 里凡可能被遮蔽的类型，一律写 `cangjie::X`。**
+- 差别只在**声明点**：被遮蔽成员**自己那一行**、以及它**之前**的类型位置不受影响；
+  **函数体内**与它**之后**的声明都受影响。为省心：**一律限定**。
+- **构造函数名/注入类名**还会遮蔽**基类的同名访问器**：`Temp::Clone()` 里写 `Temp()` 会解析成构造函数
+  → `invalid use of 'cangjie::Temp::Temp'`。正确写法是 **`BlockToken::Temp()`**。
+
+> 生成建议：产物是「一个类型一个头」，可以让类内所有**类型位置**都输出 `cangjie::X` 来整体免疫；
+> 想省掉限定就必须维护「类 → 成员名集合」并做遮蔽判断。
+
+### 7.2 谓词型泛型参数不能用 `std::function`
+
+`core/extensions/list-extension.xl.md` 的 9 个工具函数原先把谓词写成模板形参
+`const std::function<bool(const T&)>&`，在本工具链下**无法从 lambda 或函数名推导**
+（`no matching function for call to 'SkipNext(...)'`，note 是
+`'<lambda(…)>' is not derived from 'const std::function<bool(const T&)>'`）。最小复现（`-std=c++20`）：
+
+| 调用形式 | 结果 |
+| --- | --- |
+| `A(v, i, [](const std::shared_ptr<T>& c){ … })` | ❌ 推导失败 |
+| `A(v, i, freePred)` | ❌ 推导失败 |
+| `A(v, i, std::function<bool(const std::shared_ptr<T>&)>(lambda))` | ✅ |
+| `template <typename T, typename Predicate> B(…, Predicate p)` | ✅ |
+
+**规则：泛型工具里「接受谓词/回调」的模板形参一律写成可推导的 `typename Predicate`**
+（对 lambda / 函数指针 / `std::function` 全兼容，调用点不用改）。不要把 `const std::function<…>&`
+当模板形参。
+
+### 7.3 缺 include 的表现是「无法转换」，不是「未声明」
+
+- `shared_ptr<Derived>` → `shared_ptr<Base>` 要求**两个类型都完整**。`Derived` 只有前置声明时，
+  整张 braced-init-list 会整体失败：`could not convert '{…}' from '<brace-enclosed initializer list>'
+  to 'std::vector<std::shared_ptr<Branch>>'`，而且**不指名是哪个元素**
+  （逐个去掉元素都还失败 → 只能二分/排除定位）。
+- 头里 `static std::shared_ptr<XBranch> JumpIn;` 这样的成员**只需前置声明就能写**，
+  但**消费它**（转换、解引用、`dynamic_pointer_cast`）必须包含 `XBranch` 定义所在的头。
+  `parse_pipeline.cpp` 就因此需要补 10 个 `*_branch.h`。
+- 类型不完整还会表现为 `cannot convert 'shared_ptr<X>' to 'const shared_ptr<Token>&'`
+  以及 `invalid use of incomplete type`。
+  **规则：`.cpp` 里凡要转换/解引用/取成员的类，都要 include 它的定义头 —— 「只声明本类」的那个头不够。**
+
+### 7.4 `# type` 的属性必须带真字段
+
+`StringGuide` 生成了成对的 `IsSupportInterpolation()` / `set_IsSupportInterpolation()`，却**没有对应字段**
+→ `'IsSupportInterpolation_' was not declared in this scope`。
+**规则：只要生成 `x()`/`set_x()` 内联访问器，就必须同时生成 `x_` 字段。** 源里是**计算属性**（带体 getter、
+没有后备字段）时，应输出**声明 + `.cpp` 定义**，不要内联读 `x_`。
+
+### 7.5 字符索引语义：ts 的 `s[i]` 是字符串，C++ 是 `char`
+
+`Common.Is` / `Symbol.Is` 里 `Temp()[i] != value[i]`（`Temp` 是 `std::vector<std::string>`）落成了
+`std::string != char`（GCC 16 下没有匹配的 `operator!=`）。
+**规则：ts 里按 `s[i]` 取「单字符」再参与字符串比较/拼接的位置，一律落成 `s.substr(i, 1)`**
+（与 §1.7 的字符语义一致）。
+
+### 7.6 委托别名别双重包装
+
+`T` 已经是**元素所有权形态**（`SequenceTemplate<std::shared_ptr<Branch>>`）时，IR 的 `Action<T>` 必须落成
+`std::function<void(T&)>`，**不能**写成 `std::shared_ptr<T>&` —— 那是 `shared_ptr<shared_ptr<…>>&`，
+与调用点 `modify->second(item)`（`item` 是 `T&`）不匹配。
+
+### 7.7 构建脚本：GLOB 必须排除构建树
+
+`GLOB_RECURSE` 收 `dist/cpp/**` 时，构建树默认在 `dist/cpp/build/`，而 CMake 会往里写
+`CMakeFiles/<ver>/CompilerIdCXX/CMakeCXXCompilerId.cpp`（**自带 `main`**），第二次 configure 就会被卷进库。
+**规则：除 `/.xl/` 外还要排除 `/build/`**（或把构建树放到源树之外）。
+
+### 7.8 这些不算产物缺陷
+
+- **两份夹具的排版模式不同**：`hello.expected.xml` 是「紧凑 stdout」形式，`generic.expected.xml` 是
+  「缩进 `-o` 文件」形式。验收按通道分别比：stdout ↔ 紧凑夹具（**去掉尾部换行**后逐字符相同；
+  程序会在 stdout 末尾输出 `\r\n`），`-o` 写出的文件 ↔ 缩进夹具（**逐字节相同**）；
+  或统一「去掉标签间空白」再比内容。
+- 运行 `cjcli.exe` 需要 MinGW 运行库在 `PATH` 上（`libstdc++-6.dll`、`libgcc_s_seh-1.dll`、
+  `libwinpthread-1.dll`）；要免依赖链接时加 `-static`。
+- 在受限沙箱里运行本程序时，**子进程可能只能写工作区内**的路径：`-o` 指到 `%TEMP%` 会静默不产出文件，
+  而按 IR 移植的 `CjcliWriteFile` 不检查流状态、仍打印「已写入」。验收请把输出写到工作区内。
+
+### 7.9 验证方法论（同一批踩坑的副产物）
+
+- **`xl_emit` 的结构回读只校验「类型集合 / 成员名 / 参数个数」**，不校验类型正确性、完整性与可编译性 ——
+  7.1–7.7 一条都查不出来。生成链路里必须有**真实编译器**这一步，`xl_plan` 的 `reusable: yes` 只说明
+  「产物路径齐、指纹对」，不等于能编译。
+- **不要拿 grep 的结论当最终证据**：检索索引可能给旧快照（同一文件 grep 返回重构前内容、直读返回新内容）。
+  关键结论要用「直读文件」或「脚本逐文件读」复核。
+- **Windows PowerShell 5.1 的 `Get-Content` 默认按 ANSI 解码**：UTF-8 产物会变乱码，而且 GBK 尾字节会**吞掉**
+  紧随多字节字符的 ASCII 标点（`{`/`(` 等）—— 拿它做「括号平衡」这类检查会得到成片假阳性。
+  **脚本读产物必须显式 `-Encoding UTF8`**；剥离顺序是「先字符串、再注释、最后字符字面量」，
+  且注释里出现 `"""` / `@"…"` 时仍会误判：**脚本只当启发式，命中要人眼确认**。
