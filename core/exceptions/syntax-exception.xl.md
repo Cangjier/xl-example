@@ -7,7 +7,7 @@ import { SourceRange } from "../syntax/source-range.xl.md"
 
 语义解析异常：语法层里任何一步抛错都会被包成它，并带上出错的位置范围。
 
-# class SyntaxException<ValueType>
+# class SyntaxException
 
 语义解析异常。
 
@@ -25,7 +25,7 @@ import { SourceRange } from "../syntax/source-range.xl.md"
 
 原 C# 侧由 `Exception.InnerException` 承载；xl 里 BCL 类型按 M20 记为 `any`。
 
-## constructor:(sourceRange:SourceRange<ValueType>, message:string, innerException:any, callerLineNumber?:int)=>void
+## constructor:(sourceRange:SourceRange, message:string, innerException:any, callerLineNumber?:int)=>void
 
 带自定义信息的构造。
 
@@ -36,33 +36,31 @@ this.Message = `throw by line ${callerLineNumber ?? 0}, ${message} ---> \r\n${so
 this.InnerException = innerException;
 ```
 
-## static method FromSourceRange:(sourceRange:SourceRange<any>, callerLineNumber?:int)=>SyntaxException<any>
+## static method FromSourceRange:(sourceRange:SourceRange, callerLineNumber?:int)=>SyntaxException
 
 原 C# 构造器 `SyntaxException(SourceRange<ValueType> sourceRange, [CallerLineNumber] int callerLineNumber = 0)` 的替代：信息就是位置所在的行。
 
-按 M27，泛型类的静态成员不能引用类的类型参数，所以这里用 `SourceRange<any>`。
-
 ```ts
-const result = new SyntaxException<any>(sourceRange, "", null, callerLineNumber ?? 0);
+const result = new SyntaxException(sourceRange, "", null, callerLineNumber ?? 0);
 result.Message = `throw by line ${callerLineNumber ?? 0} ---> \r\n${sourceRange.GetRangLines()}`;
 return result;
 ```
 
-## static method FromMessage:(sourceRange:SourceRange<any>, message:string, callerLineNumber?:int)=>SyntaxException<any>
+## static method FromMessage:(sourceRange:SourceRange, message:string, callerLineNumber?:int)=>SyntaxException
 
 原 C# 构造器 `SyntaxException(SourceRange<ValueType> sourceRange, string message, [CallerLineNumber] int callerLineNumber = 0)` 的替代：信息里带自定义文本。
 
 ```ts
-const result = new SyntaxException<any>(sourceRange, message, null, callerLineNumber ?? 0);
+const result = new SyntaxException(sourceRange, message, null, callerLineNumber ?? 0);
 return result;
 ```
 
-## static method FromInner:(sourceRange:SourceRange<any>, innerException:any, callerLineNumber?:int)=>SyntaxException<any>
+## static method FromInner:(sourceRange:SourceRange, innerException:any, callerLineNumber?:int)=>SyntaxException
 
 原 C# 构造器 `SyntaxException(SourceRange<ValueType> sourceRange, Exception innerException, [CallerLineNumber] int callerLineNumber = 0)` 的替代：不额外加信息，只挂内层异常。
 
 ```ts
-const result = new SyntaxException<any>(sourceRange, "", innerException, callerLineNumber ?? 0);
+const result = new SyntaxException(sourceRange, "", innerException, callerLineNumber ?? 0);
 result.Message = `throw by line ${callerLineNumber ?? 0} ---> \r\n${sourceRange.GetRangLines()}`;
 return result;
 ```

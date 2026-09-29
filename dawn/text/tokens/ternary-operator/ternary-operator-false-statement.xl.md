@@ -20,7 +20,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 它不消费字符：整段内容由 `TernaryOperatorReorganization.Process` 用 `TakeRange` 切出来后塞进 `Data`。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -28,7 +28,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 super(owner, template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

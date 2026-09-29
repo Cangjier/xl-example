@@ -36,7 +36,7 @@ Lambda 表达式：把 `()=>{}` / `p1=>statement` / `():xxx=>{}` 这三种形态
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 §4 的等价写法落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：它得是 `=>`，而且左边最近的（跳过软换行的）单元是括号或 `Common`。
 
@@ -59,7 +59,7 @@ if (previousIsCommon || previousIsParameters) {
 return false;
 ```
 
-## static method IsMethod:(unit:Token<string> | null)=>bool
+## static method IsMethod:(unit:Token | null)=>bool
 
 某个单元算不算「方法调用形态」——要么它本身就是 `Method`，要么它是一个 `(...)` 圆括号。
 
@@ -74,7 +74,7 @@ if (unit instanceof Method) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 执行重组，**返回新的下标**。
 
@@ -113,7 +113,7 @@ if (asyncUnit instanceof Common && asyncUnit.Is("async")) {
   result.IsAsync = true;
 }
 if (previous instanceof Bracket) {
-  const tempParameters: Token<string>[] = [];
+  const tempParameters: Token[] = [];
   for (let i = 0; i < previous.Data.length; i++) {
     const item = previous.Data[i];
     if (item instanceof Symbol && item.Is(",")) {
@@ -202,7 +202,7 @@ Lambda 表达式。
 
 这个 lambda 前面是不是有 `async`。原 C# 是 `public bool IsAsync { get; set; } = false;`，按 M12 落成字段（纯数据，没有 `private set`）。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 原 C# 构造体是空的，只是转调基类构造器。
 
@@ -279,7 +279,7 @@ result.set("body", this.Body.ToDictionary());
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

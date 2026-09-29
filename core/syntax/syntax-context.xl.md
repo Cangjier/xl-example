@@ -20,17 +20,15 @@ C# 的 `Process` 有三个同名重载（参数表不同），xl 同一类型内
 
 `Dictionary<string, object>` 里的 C# `object` 在 ts 侧映射成 `any`——ts 的 `object` 只表示「非原始值」，装不下 `string` / `number`。
 
-# class SyntaxContext<ValueType = any> implements IReleasable
+# class SyntaxContext implements IReleasable
 
 语法上下文。
-
-类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）：`Dawn/Text` 的 `TextContext` 要写 `extends SyntaxContext`。
 
 ## field Owner:IOwner
 
 上下文所属的负责人。
 
-## field Messages:Array<Message<ValueType>> = []
+## field Messages:Array<Message> = []
 
 待消费的消息队列。
 
@@ -40,15 +38,15 @@ C# 的 `Process` 有三个同名重载（参数表不同），xl 同一类型内
 
 原 C# 是 `Dictionary<string, object> VariableMap { get; private set; }`。
 
-## field Root:Token<ValueType>
+## field Root:Token
 
 根单元。整个解析从它开始，所有 token 最终都挂在它的 `Data` 下。
 
-## field SourceQueue:Array<ProcessSource<ValueType>> = []
+## field SourceQueue:Array<ProcessSource> = []
 
 待处理位置的队列。原 C# 侧是私有字段。
 
-## constructor:(owner:IOwner, root:Token<ValueType>)=>void
+## constructor:(owner:IOwner, root:Token)=>void
 
 以根单元创建上下文，并把自身登记到 `owner`。
 
@@ -96,7 +94,7 @@ return null;
 return this.VariableMap.has(key);
 ```
 
-## method Set:(key:string, value:any)=>SyntaxContext<ValueType>
+## method Set:(key:string, value:any)=>SyntaxContext
 
 设变量，返回自身便于链式调用。
 
@@ -105,7 +103,7 @@ this.VariableMap.set(key, value);
 return this;
 ```
 
-## method Process:(documents:Document<ValueType>)=>void
+## method Process:(documents:Document)=>void
 
 处理整个文档：逐位置处理，最后一个位置处理完后给根签出，最后把根关掉。
 
@@ -122,25 +120,25 @@ for (let i = 0; i < count; i++) {
 this.Root.TryToClose();
 ```
 
-## method ProcessSingle:(item:Source<ValueType>)=>void
+## method ProcessSingle:(item:Source)=>void
 
 处理单个位置，处理者用根单元。
 
 原 C# 是重载 `void Process(Source<ValueType> item)`。
 
 ```ts
-this.SourceQueue.push(new ProcessSource<ValueType>(this.Owner, this.Root, item));
+this.SourceQueue.push(new ProcessSource(this.Owner, this.Root, item));
 this.DrainQueue();
 ```
 
-## method ProcessAt:(processOwner:Token<ValueType>, item:Source<ValueType>)=>void
+## method ProcessAt:(processOwner:Token, item:Source)=>void
 
 处理单个位置，处理者是指定单元。
 
 原 C# 是重载 `void Process(Token<ValueType> processOwner, Source<ValueType> item)`。
 
 ```ts
-this.SourceQueue.push(new ProcessSource<ValueType>(this.Owner, processOwner, item));
+this.SourceQueue.push(new ProcessSource(this.Owner, processOwner, item));
 this.DrainQueue();
 ```
 
@@ -159,7 +157,7 @@ while (this.SourceQueue.length > 0) {
 }
 ```
 
-## protected method HandleMessage:(message:Message<ValueType>)=>void
+## protected method HandleMessage:(message:Message)=>void
 
 消费一条非插队消息的钩子。
 
@@ -179,7 +177,7 @@ while (this.Messages.length > 0) {
     this.SourceQueue.splice(
       0,
       0,
-      new ProcessSource<ValueType>(this.Owner, item.ProcessOwner ?? this.Root, item.Source),
+      new ProcessSource(this.Owner, item.ProcessOwner ?? this.Root, item.Source),
     );
   } else {
     this.HandleMessage(item);

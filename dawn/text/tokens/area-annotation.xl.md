@@ -25,11 +25,11 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 
 原 C# 是嵌套类 `AreaAnnotation.Branch`（M32 展平改名）。它永远不进 `Data`、不进 XML，所以 ts 类名与 C# 的 `Type.Name` 不一致无害。
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符是 `*`——也就是 `/*` 的开头。
 
-原 C# 是 `var Pre = source.Pre(); return Pre is { Value: '/' } && unit.IsUndo(Pre.Value) && source.Value == '*';`。这里的 `Pre` 是 `Source<char>?`，所以 `unit.IsUndo(Pre.Value)` 那个 `.Value` 是**可空结构体解包**（解出来的是前一个 `Source` 本身，不是字符），ts 侧 `Pre()` 已经是 `Source<string> | null`，直接传 `pre`。C# 的 `return …` 靠 `bool` 到 `BranchConditionResult` 的隐式转换，ts 里展开成「建结果、赋 `Success`」。
+原 C# 是 `var Pre = source.Pre(); return Pre is { Value: '/' } && unit.IsUndo(Pre.Value) && source.Value == '*';`。这里的 `Pre` 是 `Source<char>?`，所以 `unit.IsUndo(Pre.Value)` 那个 `.Value` 是**可空结构体解包**（解出来的是前一个 `Source` 本身，不是字符），ts 侧 `Pre()` 已经是 `Source | null`，直接传 `pre`。C# 的 `return …` 靠 `bool` 到 `BranchConditionResult` 的隐式转换，ts 里展开成「建结果、赋 `Success`」。
 
 ```ts
 const pre = source.Pre();
@@ -38,7 +38,7 @@ result.Success = pre !== null && pre.Value === "/" && unit.IsUndo(pre) && source
 return result;
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 认下 `/*`：先回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `AreaAnnotation` 并用同一个 `/` 签入。
 
@@ -63,7 +63,7 @@ unit.AddToMounted(new AreaAnnotation(unit.Owner, unit.Template)).SignIn(source.P
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `AreaAnnotation`。
 
@@ -73,7 +73,7 @@ unit.AddToMounted(new AreaAnnotation(unit.Owner, unit.Template)).SignIn(source.P
 return Get(units, index) instanceof AreaAnnotation;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `AreaAnnotation` 删掉，**返回新的下标**。
 
@@ -98,7 +98,7 @@ return index - 1;
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列取出来；本类不设重组队列（摘除动作由 `Root` 的通用重组队列驱动）。
 
@@ -115,7 +115,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 原 C# 是 `public StringBuilder Tmp = new();`。按 §3.8 写成 `string`：`Tmp.Append(c)` → `this.Tmp += c`，`Tmp.Remove(Tmp.Length - 1, 1)` → `this.Tmp.slice(0, this.Tmp.length - 1)`。它只被本类读写，没有被别处当容器用，换成字符串不失语义。
 
-## method Undo:(source:Source<string>)=>void
+## method Undo:(source:Source)=>void
 
 回退一个字符。
 
@@ -130,7 +130,7 @@ if (undoUnit !== null) {
 }
 ```
 
-## method IsUndo:(source:Source<string>)=>bool
+## method IsUndo:(source:Source)=>bool
 
 能不能回退。范围已经签出（`SourceRange.End` 非空）就不能；否则看覆盖该位置的子单元，没有子单元时返回 `true`。
 
@@ -155,7 +155,7 @@ return true;
 this.Closed = true;
 ```
 
-## protected method Default:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
@@ -165,7 +165,7 @@ this.Closed = true;
 this.Tmp += source.Value;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext<string>, source:Source<string>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 遇到 `*/` 就退出：前一个字符是 `*` 且当前字符是 `/` 时，签出到当前字符、把那个 `*` 回退掉（`*` 是结束标记，不该进正文）、关闭自己并跑重组、从父单元卸载，返回 `Done`；否则返回 `Undo`。
 
@@ -209,7 +209,7 @@ result.set("value", this.Tmp);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

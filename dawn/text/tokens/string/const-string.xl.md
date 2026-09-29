@@ -30,7 +30,7 @@ import { String } from "./string.xl.md"
 
 注意这里的 `String` 是**本项目**的 `String` 类（`dawn/text/tokens/string/string.xl.md`），与 C# 的 `System.String` 无关；C# 侧写成 `String` 只是因为它在 `Cangjie.Dawn.Text.Tokens.String` 命名空间里。ts 侧这个 import 会遮蔽全局 `String`，这是**故意的**。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -38,7 +38,7 @@ import { String } from "./string.xl.md"
 super(owner, Template);
 ```
 
-## method IsAppend:(Src:Source<string>)=>bool
+## method IsAppend:(Src:Source)=>bool
 
 常量块的字符永远由 `String` 显式推给它，不接受「自己并进自己」的判定，所以恒为 `false`。
 
@@ -48,7 +48,7 @@ super(owner, Template);
 return false;
 ```
 
-## method IsUndo:(source:Source<string>)=>bool
+## method IsUndo:(source:Source)=>bool
 
 块 token 可以回退；常量块额外永远允许——`Undo` 由它自己实现。
 
@@ -58,7 +58,7 @@ return false;
 return true;
 ```
 
-## method Undo:(source:Source<string>)=>void
+## method Undo:(source:Source)=>void
 
 回退一个字符：`Temp` 的**最后一个**字符必须正好是 `source.Value`，是就弹掉它，否则抛错。
 
@@ -82,7 +82,7 @@ if (this.Temp[this.Temp.length - 1] === source.Value) {
 this.Closed = true;
 ```
 
-## method TrySignIn:(Src:Source<string>)=>ConstString
+## method TrySignIn:(Src:Source)=>ConstString
 
 「没签入过就签入」：`SourceRange.Start` 为 `null` 时才 `SignIn`，然后返回自身便于链式调用。
 
@@ -350,7 +350,7 @@ result.set("value", this.Temp.join(""));
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

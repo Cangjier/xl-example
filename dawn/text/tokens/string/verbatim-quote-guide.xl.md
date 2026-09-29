@@ -22,9 +22,7 @@ import { String } from "./string.xl.md"
 
 原 C# 侧是 `public class VerbatimQuoteGuide : GuideToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
 
-按 M29，`extends` 只写裸名字：`GuideToken` 已带默认类型参数 `any`。
-
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -44,7 +42,7 @@ super(owner, Template);
 return (this.Parent as String)!;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 
@@ -54,7 +52,7 @@ return (this.Parent as String)!;
 throw new Error("NotImplementedException");
 ```
 
-## protected method Navigate:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
 当前字符是不是引号，决定这次引号是转义还是结尾。
 

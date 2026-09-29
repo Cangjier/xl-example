@@ -10,11 +10,11 @@ import { SourceRange } from "./source-range.xl.md"
 
 文档：按「下标 → 值」抽象出来的字符来源。语法层不关心底层是字符串、文件还是别的什么，只通过 `Document` 取长度、取值、取行号。`Dawn/Text` 里的 `TextDocument` 是它唯一的实现。
 
-# type ValueGetter = (index:number)=>any
+# type ValueGetter = (index:number)=>string
 
 「按下标取值」的委托。
 
-原 C# 侧是 `Func<int, ValueType>`。按 M22，参数表里不直接写函数类型，改用这个别名；别名不支持泛型参数，所以泛型实参退化成 `any`（`ValueType` 的具体类型由使用处保证）。按 M26，右侧直接写 ts 语法。
+原 C# 侧是 `Func<int, ValueType>`。按 M22，参数表里不直接写函数类型，改用这个别名；`ValueType` 在规范里定死为 `string`（M31）。按 M26，右侧直接写 ts 语法。
 
 # type CountGetter = ()=>number
 
@@ -22,11 +22,9 @@ import { SourceRange } from "./source-range.xl.md"
 
 原 C# 侧是 `Func<int>`。
 
-# class Document<ValueType = any> implements IReleasable
+# class Document implements IReleasable
 
 文档。
-
-类型参数带默认值 `any`，因为 `# class` 的 `extends` 只接受裸名字（M29）：`Dawn/Text` 的 `TextDocument` 要写 `extends Document`，靠这个默认值在 ts 侧实例化成 `Document<any>`。
 
 原 C# 侧还有 `this[int index]` 索引器，按 M19 映射成 `At(index)` 方法。
 
@@ -46,11 +44,11 @@ import { SourceRange } from "./source-range.xl.md"
 
 原 C# 侧是 `Func<int> GetCount { get; private set; }`。
 
-## field Parent:SourceRange<ValueType> | null = null
+## field Parent:SourceRange | null = null
 
 父范围；文档可以嵌在另一个文档的范围里，顶层文档为 `null`。
 
-## constructor:(owner:IOwner, getValue:ValueGetter, getCount:CountGetter, Parent?:SourceRange<ValueType> | null)=>void
+## constructor:(owner:IOwner, getValue:ValueGetter, getCount:CountGetter, Parent?:SourceRange | null)=>void
 
 以取值器、长度器与父范围创建，并把自身登记到 `owner`。
 
@@ -64,17 +62,17 @@ this.Owner = owner;
 owner.Add([this]);
 ```
 
-## method At:(index:int)=>Source<ValueType>
+## method At:(index:int)=>Source
 
 取下标对应的**位置**。
 
 原 C# 是索引器 `public Source<ValueType> this[int index] => new(this, index);`。每次访问都新建一个 `Source`，调用点不要依赖对象身份。
 
 ```ts
-return new Source<ValueType>(this, index);
+return new Source(this, index);
 ```
 
-## method GetRangeString:(range:SourceRange<ValueType>)=>string
+## method GetRangeString:(range:SourceRange)=>string
 
 范围的可读字符串。
 
@@ -84,7 +82,7 @@ return new Source<ValueType>(this, index);
 return range.ToString();
 ```
 
-## method GetRangeLines:(range:SourceRange<ValueType>)=>string
+## method GetRangeLines:(range:SourceRange)=>string
 
 范围所在的行。
 

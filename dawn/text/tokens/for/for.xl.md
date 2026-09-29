@@ -45,7 +45,7 @@ C 风格 `for` 语句：把 `for` `(` … `)` `{` … `}` 这一串单元重组�
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按「静态属性 → 静态只读字段」落成字段，调用点 `ForReorganization.Instance` 的形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点。
 
@@ -64,7 +64,7 @@ if (common instanceof Common && common.Is("for")) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：把 `for` 头、条件括号、循环体收进一个 `For`，**返回新的下标**。
 
@@ -157,7 +157,7 @@ C 风格 `for` 语句单元。
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<For>` 里依次是 Initial、Compare、Next、Body 四段的 XML。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器（`base(owner, template)`），没有自己的字段要初始化。
 
@@ -269,7 +269,7 @@ result.set("body", this.Body.ToList());
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

@@ -19,7 +19,7 @@ C# 的 `units.SkipPreviousWrapSymbol(i)` 在 ts 里写成 `SkipPreviousWrapSymbo
 这一组函数全是「跳过 `WrapSymbol`」的变体——软换行在语法结构里不该挡住相邻单元的判断，
 所以「上一个 / 下一个**实义**单元」的查找必须跨过它们。
 
-# method SkipNextWrapSymbol:(units:Array<Token<string>>, index:int)=>int
+# method SkipNextWrapSymbol:(units:Array<Token>, index:int)=>int
 
 从 `index + 1` 起向后跳过所有 `WrapSymbol`，返回第一个非 `WrapSymbol` 的下标。
 
@@ -29,7 +29,7 @@ C# 的 `units.SkipPreviousWrapSymbol(i)` 在 ts 里写成 `SkipPreviousWrapSymbo
 return SkipNext(units, index, (item) => item instanceof WrapSymbol);
 ```
 
-# method SkipPreviousWrapSymbol:(units:Array<Token<string>>, index:int)=>int
+# method SkipPreviousWrapSymbol:(units:Array<Token>, index:int)=>int
 
 从 `index - 1` 起向前跳过所有 `WrapSymbol`，返回第一个非 `WrapSymbol` 的下标；一路跳到底返回 `-1`。
 
@@ -39,7 +39,7 @@ return SkipNext(units, index, (item) => item instanceof WrapSymbol);
 return SkipPrevious(units, index, (item) => item instanceof WrapSymbol);
 ```
 
-# method GetSkipNextWrapSymbol:(units:Array<Token<string>>, index:int)=>Token<string> | null
+# method GetSkipNextWrapSymbol:(units:Array<Token>, index:int)=>Token | null
 
 `SkipNextWrapSymbol` 之后再取值；越界给 `null`。
 
@@ -49,7 +49,7 @@ return SkipPrevious(units, index, (item) => item instanceof WrapSymbol);
 return GetSkipNext(units, index, (item) => item instanceof WrapSymbol);
 ```
 
-# method GetSkipPreviousWrapSymbol:(units:Array<Token<string>>, index:int)=>Token<string> | null
+# method GetSkipPreviousWrapSymbol:(units:Array<Token>, index:int)=>Token | null
 
 `SkipPreviousWrapSymbol` 之后再取值；越界给 `null`。
 
@@ -57,7 +57,7 @@ return GetSkipNext(units, index, (item) => item instanceof WrapSymbol);
 return GetSkipPrevious(units, index, (item) => item instanceof WrapSymbol);
 ```
 
-# method InitialStatementReorganizationQueue:(unit:Token<string>)=>void
+# method InitialStatementReorganizationQueue:(unit:Token)=>void
 
 给一个单元装上报废语句用的重组队列。
 

@@ -21,7 +21,7 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 与 `TryBody` / `CatchBody` 同构，但它在 `Try` 里是**单数**的：`Try.FinallyBody` 只取第一个，`Try.ToDictionary()` 把它放在 `finally` 键下（`try` / `catch` / `finally` 三段里唯一不带数组语义的一段）。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建时先把语句重组队列挂上。
 
@@ -32,7 +32,7 @@ super(owner, template);
     InitialStatementReorganizationQueue(this);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

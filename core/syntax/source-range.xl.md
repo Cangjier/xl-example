@@ -9,7 +9,7 @@ import { SourceException } from "../exceptions/source-exception.xl.md"
 
 来源的**范围**：一段起止位置。语法树里每个 token 都靠它记录自己覆盖了源码的哪一段，`Undo` / `IsInRange` 这类回退逻辑全靠它判断。
 
-# class SourceRange<ValueType>
+# class SourceRange
 
 一段来源范围。
 
@@ -17,15 +17,15 @@ import { SourceException } from "../exceptions/source-exception.xl.md"
 
 `Start` / `End` 是允许为 `null` 的 `Source`。`Source` 事实不可变（`Index` 只在构造时赋值），所以这里直接持有引用、不做深拷贝；只有整体赋值一个 `SourceRange` 时才需要 `Clone()`。
 
-## field Start:Source<ValueType> | null = null
+## field Start:Source | null = null
 
 起点；`null` 表示尚未签入。
 
-## field End:Source<ValueType> | null = null
+## field End:Source | null = null
 
 终点；`null` 表示尚未签出。
 
-## constructor:(start?:Source<ValueType> | null, end?:Source<ValueType> | null)=>void
+## constructor:(start?:Source | null, end?:Source | null)=>void
 
 以起点与终点创建；都不传即 C# 的 `new SourceRange()`（两个字段都是 `null`）。
 
@@ -38,14 +38,12 @@ this.Start = start ?? null;
 this.End = end ?? null;
 ```
 
-## static method FromRanges:(start:SourceRange<any>, end:SourceRange<any>)=>SourceRange<any>
+## static method FromRanges:(start:SourceRange, end:SourceRange)=>SourceRange
 
 原 C# 构造器 `SourceRange(SourceRange<ValueType> start, SourceRange<ValueType> end)` 的替代：取 `start` 的起点与 `end` 的终点。
 
-按 M27，泛型类的静态成员不能引用类的类型参数，所以参数与返回类型都写 `SourceRange<any>`。
-
 ```ts
-const result = new SourceRange<any>();
+const result = new SourceRange();
 result.Start = start.Start;
 result.End = end.End;
 return result;
@@ -75,7 +73,7 @@ return this.Start!.Index;
 return this.End!.Index;
 ```
 
-## property Document:Document<ValueType>
+## property Document:Document
 
 所在的文档：优先取起点，其次取终点，都没有则抛错。
 
@@ -209,7 +207,7 @@ if (this.End === null) {
 return this.End.Document.GetLineInfo(this.End.Index);
 ```
 
-## method IsInRange:(source:Source<ValueType>)=>bool
+## method IsInRange:(source:Source)=>bool
 
 某个位置是否落在本范围内。
 
@@ -238,7 +236,7 @@ return Source.Same(this.Start, other.Start)
   && this.Start?.Document === other.Start?.Document;
 ```
 
-## static method Same:(left:SourceRange<any> | null, right:SourceRange<any> | null)=>bool
+## static method Same:(left:SourceRange | null, right:SourceRange | null)=>bool
 
 `==` 运算符的替代：两边都为 `null` 视为相等。
 
@@ -252,7 +250,7 @@ if (right === null || right === undefined) {
 return left.Equals(right);
 ```
 
-## static method Different:(left:SourceRange<any> | null, right:SourceRange<any> | null)=>bool
+## static method Different:(left:SourceRange | null, right:SourceRange | null)=>bool
 
 `!=` 运算符的替代。
 
@@ -270,7 +268,7 @@ return !SourceRange.Same(left, right);
 return this.Start === null ? 0 : this.Start.Index;
 ```
 
-## method Clone:()=>SourceRange<ValueType>
+## method Clone:()=>SourceRange
 
 值语义复制的显式入口。
 
@@ -279,7 +277,7 @@ return this.Start === null ? 0 : this.Start.Index;
 `Source` 不可变，所以这里浅拷贝两个引用就够了。
 
 ```ts
-const copy = new SourceRange<ValueType>();
+const copy = new SourceRange();
 copy.Start = this.Start;
 copy.End = this.End;
 return copy;

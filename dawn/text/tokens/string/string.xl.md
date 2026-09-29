@@ -64,7 +64,7 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 `Translate` 来自同目录的 `translate.xl.md`（`Dawn/Text/Tokens/String/Translate.cs`），本文件只用到它的 `IsTranslating` / `Append` / `DecodeClear` 三个成员。
 
-## private field LastTranslateSource:Source<string> | null = null
+## private field LastTranslateSource:Source | null = null
 
 上一次解码转义序列时用的位置。原 C# 是 `private Source<char> LastTranslateSource;`——C# 的结构体字段不能为 `null`，默认值是「`Document` 为 `null` 的那个 `Source`」；ts 侧用 `null` 表达这个「还没设过」的状态，与 C# 的默认值在下面的比较里行为一致（`Source.Same` 对 `null` 与非 `null` 判不等）。
 
@@ -76,7 +76,7 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 原始字符串去掉的缩进宽度，由 `FormatRawIndent` 算出来。
 
-## constructor:(owner:IOwner, template:Template<string>, stringChar:string)=>void
+## constructor:(owner:IOwner, template:Template, stringChar:string)=>void
 
 以负责人、模板与引号字符创建，并顺手把本单元的跳转/重组队列从模板上取下来。
 
@@ -89,7 +89,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
-## method IsUndo:(source:Source<string>)=>bool
+## method IsUndo:(source:Source)=>bool
 
 字符串单元自己不可回退，恒为 `false`。
 
@@ -99,7 +99,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 return false;
 ```
 
-## method Undo:(source:Source<string>)=>void
+## method Undo:(source:Source)=>void
 
 回退转交给**最后一个**子单元；它不是 `ConstString` 就抛错。
 
@@ -124,7 +124,7 @@ if (!(last instanceof ConstString)) {
 this.Closed = true;
 ```
 
-## method AppendToLastConstString:(value:string | null, signSource:Source<string>)=>ConstString
+## method AppendToLastConstString:(value:string | null, signSource:Source)=>ConstString
 
 把 `value` 追加到最后一个常量块上，并返回那个常量块。
 
@@ -150,7 +150,7 @@ if (value !== null) {
 return result;
 ```
 
-## protected method Default:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 兜底处理：按五个开关分流，把当前字符要么攒进常量块，要么引给一个新的引导单元。
 
@@ -239,7 +239,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 }
 ```
 
-## method ForceExit:(source:Source<string>)=>void
+## method ForceExit:(source:Source)=>void
 
 强制退出：签出、尝试关闭、然后从父单元卸载自己。
 
@@ -299,7 +299,7 @@ for (const i of this.Data) {
 }
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext<string>, source:Source<string>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 问自己「当前字符是让我退出，还是继续前移」。
 
@@ -363,7 +363,7 @@ result.set("children", data);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身：连同五个开关/计数与所有子单元的克隆一起复制。
 

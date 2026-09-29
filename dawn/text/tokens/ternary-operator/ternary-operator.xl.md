@@ -34,7 +34,7 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个可以当作三元运算符的 `:`。
 
@@ -43,7 +43,7 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 ```ts
 const current = Get(units, index);
 if (current instanceof Symbol && current.Is(":")) {
-  const questionIndex = SearchFront(units, index, (item: Token<string>) => item instanceof Symbol && item.Is("?"));
+  const questionIndex = SearchFront(units, index, (item: Token) => item instanceof Symbol && item.Is("?"));
   if (questionIndex === -1) {
     return false;
   }
@@ -55,7 +55,7 @@ if (current instanceof Symbol && current.Is(":")) {
 return false;
 ```
 
-## static method IsTernaryOperatorStart:(current:Token<string>)=>bool
+## static method IsTernaryOperatorStart:(current:Token)=>bool
 
 `current` 能不能当作三元运算符表达式的**起点**。
 
@@ -82,7 +82,7 @@ if (current instanceof Common && current.Is("return")) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：切出条件 / 真值 / 假值三段，组装成 `TernaryOperator`，**返回新的下标**。
 
@@ -97,11 +97,11 @@ return false;
 ```ts
 const current = Get(units, index)!;
 const elseIndex = index;
-const questionIndex = SearchFront(units, index, (item: Token<string>) => item instanceof Symbol && item.Is("?"));
+const questionIndex = SearchFront(units, index, (item: Token) => item instanceof Symbol && item.Is("?"));
 const startIndex = SearchFront(units, questionIndex, TernaryOperatorReorganization.IsTernaryOperatorStart);
 const parentIsJsonObject = JsonObjectReorganization.Instance.IsObject(current.Parent);
 const splitSymbol = parentIsJsonObject ? "," : ";";
-let endIndex = SearchBack(units, elseIndex, (item: Token<string>) => item instanceof Symbol && item.Is(splitSymbol));
+let endIndex = SearchBack(units, elseIndex, (item: Token) => item instanceof Symbol && item.Is(splitSymbol));
 if (endIndex === -1) {
   endIndex = units.length;
 }
@@ -136,7 +136,7 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 
 它**没有覆写 `ToXmlString`**，XML 由基类 `Token` 产出：`<TernaryOperator>…</TernaryOperator>`，内容是三个子单元的串接。它的 `ToDictionary` 也是少数**不带 `type` 键**的实现——只有 `condition` / `trueStatement` / `falseStatement` 三个键。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -226,7 +226,7 @@ result.set("falseStatement", this.FalseStatement.ToList());
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

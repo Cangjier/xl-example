@@ -16,13 +16,11 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「先问退出条件、再跑跳转队列、最后兜底」这套调度固定下来。
 
-# class UnitToken<ValueType = any> extends Token
+# class UnitToken extends Token
 
 单元。
 
-类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）。
-
-## constructor:(owner:IOwner, template:Template<ValueType>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -30,7 +28,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 super(owner, template);
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 判断当前字符是让本单元「退出」还是「前移」。
 
@@ -40,7 +38,7 @@ super(owner, template);
 throw new Error("abstract member: ExitOrPre");
 ```
 
-## method Process:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+## method Process:(context:SyntaxContext, source:Source)=>void
 
 处理一个字符。
 
@@ -70,7 +68,7 @@ try {
   this.LastSource = source;
 } catch (e) {
   const previous = source.Pre();
-  const range = new SourceRange<ValueType>(previous, source);
+  const range = new SourceRange(previous, source);
   throw SyntaxException.FromInner(range, e);
 }
 ```

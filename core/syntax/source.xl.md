@@ -8,13 +8,13 @@ import { SourceRange } from "./source-range.xl.md"
 
 来源：文档里的**一个位置**。执行器按位置而不是按字符推进，所以每一步都要带上 `Source`。
 
-# class Source<ValueType>
+# class Source
 
 文档中的一个位置。
 
 原 C# 侧是 `struct Source<ValueType>`（值类型，赋值即复制），并重载了 `==` / `!=`。按 M16 声明成 `# class` 并提供 `Clone`；按 M19 把两个运算符换成静态方法 `Same`。
 
-## field Document:Document<ValueType>
+## field Document:Document
 
 该位置所属的文档。
 
@@ -22,7 +22,7 @@ import { SourceRange } from "./source-range.xl.md"
 
 该位置在文档里的下标。原 C# 侧是公开可变字段。
 
-## property Parent:SourceRange<ValueType> | null
+## property Parent:SourceRange | null
 
 文档的父范围，直接透传 `Document.Parent`。
 
@@ -32,7 +32,7 @@ import { SourceRange } from "./source-range.xl.md"
 return this.Document.Parent;
 ```
 
-## property Value:ValueType
+## property Value:string
 
 该位置上的值。
 
@@ -42,7 +42,7 @@ return this.Document.Parent;
 return this.Document.GetValue(this.Index);
 ```
 
-## constructor:(document:Document<ValueType>, index:int)=>void
+## constructor:(document:Document, index:int)=>void
 
 以文档与下标创建。
 
@@ -51,7 +51,7 @@ this.Document = document;
 this.Index = index;
 ```
 
-## method Pre:(skipChars?:Array<ValueType>)=>Source<ValueType> | null
+## method Pre:(skipChars?:Array<string>)=>Source | null
 
 前一个位置。
 
@@ -65,7 +65,7 @@ if (skip.length === 0) {
   }
   return this.Document.At(this.Index - 1);
 }
-let last: Source<ValueType> | null = this.Pre();
+let last: Source | null = this.Pre();
 while (last !== null) {
   if (skip.includes(last.Value)) {
     last = last.Pre();
@@ -86,11 +86,9 @@ return null;
 return other instanceof Source && other.Document === this.Document && other.Index === this.Index;
 ```
 
-## static method Same:(left:Source<any> | null, right:Source<any> | null)=>bool
+## static method Same:(left:Source | null, right:Source | null)=>bool
 
 `==` 运算符的替代：两边都为 `null` 视为相等。
-
-ts 的静态成员不能引用类的类型参数，所以这里的类型写成 `Source<any>`。
 
 ```ts
 if (left === null || left === undefined) {
@@ -112,12 +110,12 @@ return left.Equals(right);
 return this.Index;
 ```
 
-## method Clone:()=>Source<ValueType>
+## method Clone:()=>Source
 
 值语义复制的显式入口。
 
 原 C# 侧 `Source` 是 struct，赋值、作参数、存进字段时都会隐式复制；ts 里这些位置必须显式调用 `Clone()`。
 
 ```ts
-return new Source<ValueType>(this.Document, this.Index);
+return new Source(this.Document, this.Index);
 ```

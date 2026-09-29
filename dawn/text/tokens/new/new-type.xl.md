@@ -22,7 +22,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<NewType>` 里是类型名各部分的 XML。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -30,7 +30,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 super(owner, template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

@@ -26,9 +26,7 @@ import { String } from "./string.xl.md"
 
 原 C# 侧是 `public class InterpolationString : UnitToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
 
-按 M29，`extends` 只写裸名字：`UnitToken` 已带默认类型参数 `any`。
-
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建时按自己的运行时类型取跳转队列与重组队列。
 
@@ -62,7 +60,7 @@ return (this.Parent as String)!;
 this.Closed = true;
 ```
 
-## protected method Default:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 兜底：碰上空白字符（`\r` / `\n` / 空格 / `\t`）直接忽略。
 
@@ -75,7 +73,7 @@ if (Value === "\r" || Value === "\n" || Value === " " || Value === "\t") {
 }
 ```
 
-## method ForceExit:(context:SyntaxContext<string>, source:Source<string>)=>void
+## method ForceExit:(context:SyntaxContext, source:Source)=>void
 
 强制退出：签出到 `source`，尝试关闭（关自己并跑重组），再从父单元卸载自己。
 
@@ -87,7 +85,7 @@ this.TryToClose();
 this.Quit();
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext<string>, source:Source<string>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 遇到 `}` 就把退出向导挂到自己身上，并把当前 `}` 重新插回队首，让向导拿到它。
 
@@ -104,7 +102,7 @@ if (source.Value === "}") {
 return BranchStates.Undo;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

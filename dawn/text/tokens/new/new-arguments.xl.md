@@ -20,7 +20,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<NewArguments>` 里是各实参的 XML。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建时把本类型的重组规则挂上来——实参之间靠逗号切分成表达式。
 
@@ -31,7 +31,7 @@ super(owner, template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

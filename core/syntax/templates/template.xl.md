@@ -14,23 +14,23 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 一个 `Template` 实例就是一套语言配置，`TextContext` 构造时把它交给 `Root`。
 
-# type TemplateInitializer = (template:any)=>void
+# type TemplateInitializer = (template:Template)=>void
 
 「拿模板做初始化」的委托。
 
-原 C# 侧是 `Action<Template<ValueType>>`。按 M22，参数表里用别名而不是直接写函数类型；`# type` 不支持泛型参数，所以这里写 `any`。按 M26，右侧直接写 ts 语法。
+原 C# 侧是 `Action<Template<ValueType>>`。按 M22，参数表里用别名而不是直接写函数类型。按 M26，右侧直接写 ts 语法。
 
-# class Template<ValueType>
+# class Template
 
 模板：一个上下文里所有单元共用的规则表。
 
 原 C# 只有一个无参构造器，五个模板字段都在初值里 `new` 出来。
 
-## field BranchTemplate:SequenceTemplate<Branch<ValueType>> = new SequenceTemplate<Branch<ValueType>>()
+## field BranchTemplate:SequenceTemplate<Branch> = new SequenceTemplate<Branch>()
 
 跳转模板：按单元类型给出该单元要跑哪些 `Branch`。
 
-## field ReorganizationTemplate:SequenceTemplate<Reorganization<ValueType>> = new SequenceTemplate<Reorganization<ValueType>>()
+## field ReorganizationTemplate:SequenceTemplate<Reorganization> = new SequenceTemplate<Reorganization>()
 
 重组模板：按单元类型给出该单元要跑哪些 `Reorganization`。注释被移出语法树就是这一步做的。
 
@@ -46,7 +46,7 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 方法名模板。
 
-## method Initialize:(onInitialize:TemplateInitializer)=>Template<ValueType>
+## method Initialize:(onInitialize:TemplateInitializer)=>Template
 
 拿自身跑一遍初始化回调，然后返回自身，便于 `new Template<char>().Initialize(...)` 这样链式写。
 

@@ -37,7 +37,7 @@ import { Symbol } from "./symbol.xl.md"
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 §4 的等价写法落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个复合赋值符号。
 
@@ -51,7 +51,7 @@ const current = Get(units, index);
 return current instanceof Symbol && template.SymbolTemplate.IsCompoundAssignmentSymbol(current.TempToString());
 ```
 
-## static method IsCompoundAssignmentOperatorStart:(current:Token<string>)=>bool
+## static method IsCompoundAssignmentOperatorStart:(current:Token)=>bool
 
 `current` 能不能当作**赋值表达式的起点**——`Process` 用它向前找「这段赋值从哪儿开始」。
 
@@ -79,7 +79,7 @@ if (current instanceof Common && current.Is("return")) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 切开复合赋值符号、补一份运算符副本，**返回新的下标**。
 
@@ -109,7 +109,7 @@ current.Temp.splice(0, 1);
 const startIndex = SearchFront(units, index, CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart);
 const front = units.slice(startIndex + 1, index);
 const frontClones = front.map((item) => item.Clone());
-const insertUnits: Token<string>[] = [...frontClones, operatorSymbol];
+const insertUnits: Token[] = [...frontClones, operatorSymbol];
 ReplaceRangeAt(units, index + 1, 0, insertUnits);
 return index;
 ```

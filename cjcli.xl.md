@@ -99,7 +99,7 @@ return [
 原 C# 宿主里那份「读文件 → `TextContext` → `Console.WriteLine`」的胶水代码就是本方法的对应物，
 只是这里多了参数解析、stdin 与错误收敛。
 
-`Template<string>` 与 `Owner` 每次调用都新建：`Root` 构造时会往 `template.BranchTemplate.DefaultValue` /
+`Template` 与 `Owner` 每次调用都新建：`Root` 构造时会往 `template.BranchTemplate.DefaultValue` /
 `ReorganizationTemplate.DefaultValue` 上装通用队列，模板是**有状态**的，跨次复用会把上一份上下文的解析痕迹带进来。
 
 `-o` 时按 `><` 断行，仅此而已——XML 的**内容**仍是 `Root.ToString()` 的原样输出，不改写任何标签。
@@ -210,7 +210,7 @@ return options;
 `Owner` 是资源持有者：`TextDocument` / `TextContext` 以及整棵树都登记在它身上，所以解析完必须 `Release`——
 原 C# 宿主用的是 `using (var owner = new Owner())`，这里对应 try/finally。
 
-`Template<string>` 不能省：`TextContext` 的构造器要求一个模板，`Root` 再往它上面装通用跳转队列与重组队列。
+`Template` 不能省：`TextContext` 的构造器要求一个模板，`Root` 再往它上面装通用跳转队列与重组队列。
 
 异常收敛到 `null`：`SyntaxException` 的 `Message` 里已经带了出错位置那段带 `^` 下划线的文本（`TextDocument.GetRangeLines` 的产物），
 直接打出来比让宿主栈回溯更有用。布局是「`cjcli: 解析失败`」一行 + 诊断正文——信息里本来就带换行，所以不再拼多余前缀。
@@ -218,7 +218,7 @@ return options;
 ```ts
 const owner = new Owner();
 try {
-  const template = new Template<string>();
+  const template = new Template();
   const document = new TextDocument(owner, content);
   document.FilePath = filePath;
   const context = new TextContext(owner, template);

@@ -24,11 +24,11 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 原 C# 是嵌套类 `PreprocessorDirectives.Branch`（M32 展平改名）。它永远不进 `Data`、不进 XML，所以 ts 类名与 C# 的 `Type.Name` 不一致无害。
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 只有「行首的 `#`」才成立：向前跳过空格与制表符之后，要么是换行符，要么已经走到文档开头。
 
-原 C# 是 `var Pre = source.Pre(' ', '\t'); return (Pre is { Value: '\n' } || Pre is null) && source.Value == '#';`。C# 的 `Pre(params ValueType[] skipChars)` 是可变形参，ts 侧 `Pre` 收一个 `Array<ValueType>`，所以写成 `source.Pre([" ", "\t"])`（M2）。`Pre` 在 C# 里是 `Source<char>?`，ts 已是 `Source<string> | null`，`Pre.Value` 那层可空解包不再需要。
+原 C# 是 `var Pre = source.Pre(' ', '\t'); return (Pre is { Value: '\n' } || Pre is null) && source.Value == '#';`。C# 的 `Pre(params ValueType[] skipChars)` 是可变形参，ts 侧 `Pre` 收一个 `Array<string>`，所以写成 `source.Pre([" ", "\t"])`（M2）。`Pre` 在 C# 里是 `Source<char>?`，ts 已是 `Source | null`，`Pre.Value` 那层可空解包不再需要。
 
 ```ts
 const pre = source.Pre([" ", "\t"]);
@@ -37,7 +37,7 @@ result.Success = (pre === null || pre.Value === "\n") && source.Value === "#";
 return result;
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 认下这个 `#`：新建一个 `PreprocessorDirectives`，挂到 `unit` 上并签入。
 
@@ -61,7 +61,7 @@ unit.AddToMounted(new PreprocessorDirectives(unit.Owner, unit.Template)).SignIn(
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列取出来；本类没有重组队列。
 
@@ -78,7 +78,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 原 C# 是 `public StringBuilder Tmp = new();`。按 §3.8，`StringBuilder` 在 ts 侧退化成字符串拼接，所以这里写成 `string`：`Tmp.Append(c)` → `this.Tmp += c`，`Tmp.Remove(Tmp.Length - 1, 1)` → `this.Tmp.slice(0, this.Tmp.length - 1)`。它只被本类读写，没有被别处当容器用，换成字符串不失语义。
 
-## method IsUndo:(source:Source<string>)=>bool
+## method IsUndo:(source:Source)=>bool
 
 能不能回退。范围已经签出（`SourceRange.End` 非空）就不能；否则看覆盖该位置的子单元，没有子单元时返回 `true`。
 
@@ -106,7 +106,7 @@ const name = this.constructor.name;
 return `<${name}>${this.Tmp}</${name}>`;
 ```
 
-## method Undo:(source:Source<string>)=>void
+## method Undo:(source:Source)=>void
 
 回退一个字符。
 
@@ -129,7 +129,7 @@ if (undoUnit instanceof UnitToken) {
 this.Closed = true;
 ```
 
-## protected method Default:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
@@ -139,7 +139,7 @@ this.Closed = true;
 this.Tmp += source.Value;
 ```
 
-## private static method PreSourceIs:(source:Source<string>, onPredicate:(item:Source<string> | null)=>bool)=>bool
+## private static method PreSourceIs:(source:Source, onPredicate:(item:Source | null)=>bool)=>bool
 
 判断「`source` 之前那个非空白字符」是否满足 `onPredicate`。
 
@@ -160,7 +160,7 @@ while (pre !== null && (pre.Value === " " || pre.Value === "\t")) {
 return onPredicate(pre);
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext<string>, source:Source<string>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 遇到换行就退出——除非这个换行被 `\` 续行。
 
@@ -199,7 +199,7 @@ result.set("value", this.Tmp);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

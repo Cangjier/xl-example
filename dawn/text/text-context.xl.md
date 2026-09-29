@@ -16,27 +16,26 @@ import { Root } from "./tokens/root.xl.md"
 它只做三件事：构造时把根单元换成 `Root`、把 `HandleMessage` 压成空实现、把 `Release` 原样转发。
 **它也是整个解析的入口**——调用方拿到的 `textContext.Root.ToString()` 就是验收用的 XML。
 
-原 C# 侧是 `public class TextContext : SyntaxContext<char>`。按 M29，基类类型参数带默认值，
-所以 `extends SyntaxContext` 在 ts 侧实例化成 `SyntaxContext<any>`。
+原 C# 侧是 `public class TextContext : SyntaxContext<char>`。语法层把 `ValueType` 定死为 `string`（M31），`SyntaxContext` 不再带类型参数。
 
 # class TextContext extends SyntaxContext
 
 文本上下文。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 以负责人与模板创建，根单元是 `Root`。
 
 原 C# 是 `public TextContext(IOwner owner, Template<char> Template) : base(owner, new Root(owner, Template))`。
 
 参数名 `Template` 与类型名 `Template` 同名，这是照抄 C# 的写法；ts 里参数名不会遮蔽类型位置上的
-`Template<string>`，所以合法。
+`Template`，所以合法。
 
 ```ts
 super(owner, new Root(owner, Template));
 ```
 
-## protected method HandleMessage:(Message:Message<string>)=>void
+## protected method HandleMessage:(Message:Message)=>void
 
 消费一条非插队消息的钩子。
 

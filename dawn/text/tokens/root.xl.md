@@ -75,7 +75,7 @@ C# 里那些 `X.Reorganization.Instance` 现在都指向展平后的顶层类（
 
 原 C# 侧是 `public class Root : UnitToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把两套通用队列装进模板。
 
@@ -91,7 +91,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 InitialStatementReorganizationQueue(this);
 ```
 
-## static method CreateGeneralQueue:()=>Sequence<Branch<string>>
+## static method CreateGeneralQueue:()=>Sequence<Branch>
 
 通用跳转队列：处理每个字符时按这个顺序问每个 `Branch` 要不要接手。
 
@@ -101,12 +101,12 @@ InitialStatementReorganizationQueue(this);
 调用点是 `Root` 自己的构造器，改名不影响其它文件。
 
 `new Sequence<...>(...)` 的参数要写成**一个数组**：C# 的 `Sequence(params T[] items)` 按 M2 落成 `constructor(items?: Array<T>)`，
-所以 `new Sequence<Branch<string>>([a, b, …])`。
+所以 `new Sequence<Branch>([a, b, …])`。
 
 顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → 括号 → 软换行 → 符号 → 通用字符。
 
 ```ts
-return new Sequence<Branch<string>>([
+return new Sequence<Branch>([
   AreaAnnotation.JumpIn,
   LineAnnotation.JumpIn,
   PreprocessorDirectives.JumpIn,
@@ -119,7 +119,7 @@ return new Sequence<Branch<string>>([
 ]);
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization<string>> = new Sequence<Reorganization<string>>([LineAnnotationReorganization.Instance, AreaAnnotationReorganization.Instance, LetReorganization.Instance, KeywordReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, JsonObjectReorganization.Instance, JsonArrayReorganization.Instance, ImportReorganization.Instance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, AsReorganization.Instance, TypeAssignReorganization.Instance, TypeDefineReorganization.Instance, LamdaReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance])
+## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([LineAnnotationReorganization.Instance, AreaAnnotationReorganization.Instance, LetReorganization.Instance, KeywordReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, JsonObjectReorganization.Instance, JsonArrayReorganization.Instance, ImportReorganization.Instance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, AsReorganization.Instance, TypeAssignReorganization.Instance, TypeDefineReorganization.Instance, LamdaReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance])
 
 通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 
@@ -142,7 +142,7 @@ if (last !== null) {
 }
 ```
 
-## protected method Default:(Context:SyntaxContext<string>, Src:Source<string>)=>void
+## protected method Default:(Context:SyntaxContext, Src:Source)=>void
 
 所有跳转都不接手时的兜底。
 
@@ -162,7 +162,7 @@ switch (Src.Value) {
 }
 ```
 
-## protected method ExitOrPre:(Context:SyntaxContext<string>, Src:Source<string>)=>BranchStates
+## protected method ExitOrPre:(Context:SyntaxContext, Src:Source)=>BranchStates
 
 根单元永远不「退出」，一律交给跳转队列。
 
@@ -188,7 +188,7 @@ for (const item of this.Data) {
 return `<${name}>${temp.join("")}</${name}>`;
 ```
 
-## method Process:(Context:SyntaxContext<string>, Src:Source<string>)=>void
+## method Process:(Context:SyntaxContext, Src:Source)=>void
 
 处理一个字符：第一次处理时把范围起点钉在第一个字符上，然后走基类的调度。
 
@@ -202,7 +202,7 @@ if (this.SourceRange.Start === null) {
 super.Process(Context, Src);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆整棵树。
 

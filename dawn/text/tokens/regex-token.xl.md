@@ -28,7 +28,7 @@ import { Common } from "./common.xl.md"
 
 原 C# 是嵌套类 `RegexToken.Branch`（M32 展平改名）。它永远不进 `Data`、不进 XML，所以 ts 类名与 C# 的 `Type.Name` 不一致无害。
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符**不是** `/`——也就是「第二个斜杠」的位置。
 
@@ -60,11 +60,11 @@ if (last instanceof Common) {
 return result;
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 认下这段正则的**开头**：先把那个已经被吃掉的 `/` 回退掉（它归 `RegexToken` 所有，不属于前一个单元），然后挂一个新的 `RegexToken`，用同一个 `/` 签入，再把当前字符补进去。
 
-原 C# 是 `var preUnit = source.Pre()!.Value; unit.Undo(preUnit); …`——按 §7.2，`source.Pre()!` 在 ts 里已经是 `Source<string>`，后面那层 `.Value` 是可空结构体解包，去掉。
+原 C# 是 `var preUnit = source.Pre()!.Value; unit.Undo(preUnit); …`——按 §7.2，`source.Pre()!` 在 ts 里已经是 `Source`，后面那层 `.Value` 是可空结构体解包，去掉。
 
 ```ts
 const preUnit = source.Pre()!;
@@ -88,7 +88,7 @@ regexToken.Append(source);
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列与重组队列都取出来。
 
@@ -134,7 +134,7 @@ this.Closed = true;
 
 原 C# 是 `public StringBuilder Flags { get; } = new();`，按 §3.8 写成 `string`。
 
-## method Append:(source:Source<string>)=>void
+## method Append:(source:Source)=>void
 
 把当前字符补进 `Temp`。
 
@@ -144,7 +144,7 @@ this.Closed = true;
 this.Temp += source.Value;
 ```
 
-## protected method Default:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 跳转队列没接手时，把字符并进 `Temp`。
 
@@ -154,7 +154,7 @@ this.Temp += source.Value;
 this.Temp += source.Value;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext<string>, source:Source<string>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 本类的调度核心，三个状态：
 
@@ -214,7 +214,7 @@ result.set("flags", this.Flags);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

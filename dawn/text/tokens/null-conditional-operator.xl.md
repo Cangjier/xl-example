@@ -29,7 +29,7 @@ import { Symbol } from "./symbol.xl.md"
 
 唯一的实例。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是 `?.`。
 
@@ -38,7 +38,7 @@ const current = Get(units, index);
 return current instanceof Symbol && current.Is("?.");
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 从 `?.` 之后一路收集到下一个「断点」，收成一个单元，**返回新的下标**。
 
@@ -99,7 +99,7 @@ return nextIndex;
 
 空条件运算符单元。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 在构造器里执行 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`；`GetType()` 按 M17 写成 `this.constructor`。
 
@@ -108,7 +108,7 @@ super(owner, template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

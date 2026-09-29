@@ -32,7 +32,7 @@ import { GetSkipPreviousWrapSymbol, SkipPreviousWrapSymbol } from "../text-commo
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是「方法名 + `(`」这个形状。
 
@@ -46,7 +46,7 @@ const current = Get(units, index);
 return previous instanceof Common && template.MethodNameTemplate.IsMethodName(previous.TempToString()) && current instanceof Bracket && current.StartBracketChar === "(";
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把「`index` 处的括号单元」和「它前一个方法名单元」合并成一个 `Method`，**返回新的下标**。
 
@@ -86,7 +86,7 @@ return index;
 
 方法名。原 C# 是 `public string MethodName { get; set; } = string.Empty;`。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把本类型的重组队列取出来。
 
@@ -151,7 +151,7 @@ result.set("children", children);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

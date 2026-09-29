@@ -35,7 +35,7 @@ import { IfSegment } from "./if-segment.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `if` 的 `Common`，紧跟（跳过 `WrapSymbol` 软换行）一个 `(` 开头的 `Bracket`。
 
@@ -52,7 +52,7 @@ const next = GetSkipNextWrapSymbol(units, index);
 return next instanceof Bracket && next.StartBracketChar === "(";
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：把整条 `if / else if / else` 链收进一个 `IfSet`，**返回新的下标**。
 
@@ -64,7 +64,7 @@ return next instanceof Bracket && next.StartBracketChar === "(";
 
 几点与 C# 逐句对应的说明：
 
-1. **签入 / 签出取的是 `Source` 本身**。C# 的 `SourceRange.Start` 是 `Nullable<Source<char>>`，所以 `units.Get(i)!.SourceRange.Start!.Value` 里的 `.Value` 是**可空结构体的 `.Value`**，取出来的是 `Source` 而不是字符。ts 侧的 `Start` 已经是 `Source<string> | null`，因此一律去掉 `.Value`，写成 `Get(units, i)!.SourceRange.Start!`。若照抄 `.Value` 会取到字符，`SignIn` 拿到的就不是位置而是值。
+1. **签入 / 签出取的是 `Source` 本身**。C# 的 `SourceRange.Start` 是 `Nullable<Source<char>>`，所以 `units.Get(i)!.SourceRange.Start!.Value` 里的 `.Value` 是**可空结构体的 `.Value`**，取出来的是 `Source` 而不是字符。ts 侧的 `Start` 已经是 `Source | null`，因此一律去掉 `.Value`，写成 `Get(units, i)!.SourceRange.Start!`。若照抄 `.Value` 会取到字符，`SignIn` 拿到的就不是位置而是值。
 2. **`ifKey` 的取法**：C# 是 `(units.Get(lastKeyIndex) as Common)!.TempToString()`——关键字所在单元按 `Common` 取文本（`if` / `else`）。
 3. **第一段与后续段的签入点不同**（原实现如此，照抄）：第一段（`Data.Count == 1`）从关键字自身签入；`else if` 从关键字**前一个**单元签入（带上 `else`），`else` 从关键字自身签入。
 4. **条件括号**：`if` 后面必须跟一个 `Bracket`，把括号里的子单元整体 `MoveDataTo` 给新建的 `IfCondition`，再按括号的起止签入签出。
@@ -153,11 +153,9 @@ return index;
 
 原 C# 侧是 `public class IfSet : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-按 M29，`extends` 只写裸名字：`IndependentToken` 已带默认类型参数 `any`。
-
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<IfSet>` 里依次是各个 `IfSegment` 的 XML。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器（体是空的）。
 
@@ -165,7 +163,7 @@ return index;
 super(owner, template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

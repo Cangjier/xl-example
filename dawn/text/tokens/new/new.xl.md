@@ -35,7 +35,7 @@ import { NewType } from "./new-type.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `new` 的 `Common`。后面有没有括号由 `Process` 负责检查。
 
@@ -45,7 +45,7 @@ import { NewType } from "./new-type.xl.md"
 return Get(units, index) instanceof Common && (Get(units, index) as Common).Is("new");
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：从 `index` 起向后找第一个 `Bracket`，把它之前的内容收进 Type 段、把括号内容搬进 Arguments 段，整段换成一个 `New`，**返回新的下标**。
 
@@ -92,7 +92,7 @@ return ReplaceCountAt(units, index, bracketIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<New>` 里依次是 Type 与 Arguments 两段的 XML。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -160,7 +160,7 @@ result.set("arguments", this.Arguments.ToList());
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

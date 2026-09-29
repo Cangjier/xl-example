@@ -25,7 +25,7 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 它永远不进 `Data`、不进 XML，所以 ts 类名与 C# 的 `Type.Name` 不一致无害（M32）。
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 只有三种开括号字符才成立。
 
@@ -38,7 +38,7 @@ result.Success = value === "(" || value === "{" || value === "[";
 return result;
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 认下这个开括号：新建一个 `Bracket`、用当前字符配成对应的括号对、挂到 `unit` 上并签入。
 
@@ -62,7 +62,7 @@ unit.AddToMounted(new Bracket(unit.Owner, unit.Template)).Use(source.Value).Sign
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列取出来。
 
@@ -127,13 +127,13 @@ return this;
 this.Closed = true;
 ```
 
-## protected method Default:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 兜底处理。
 
 原 C# 的覆写是**空的**——括号既不吞字符也不跑跳转，字符全交给挂载的子单元。按 M30 不写 ts 体，打印器产出空方法。
 
-## protected method ExitOrPre:(context:SyntaxContext<string>, source:Source<string>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 遇到配对的结束括号就退出：先签出到该字符，再尝试关闭（关自己并跑重组），然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
 
@@ -185,7 +185,7 @@ if (this.Data.length !== 0) {
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

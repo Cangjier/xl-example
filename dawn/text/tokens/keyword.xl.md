@@ -27,7 +27,7 @@ import { Common } from "./common.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Common` 的内容是不是关键字。
 
@@ -38,7 +38,7 @@ const unit = Get(units, index);
 return unit instanceof Common && unit.Template.KeywordTemplate.IsKeyword(unit.TempToString());
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把这个 `Common` 换成一个 `Keyword`，**返回新的下标**。
 
@@ -67,7 +67,7 @@ return ReplaceCountAt(units, index, 1, keyword);
 
 它覆写了 `ToXmlString`，且标签名是**写死的 `Keyword`**（不是 `GetType().Name`）——这一点与大多数 token 不同，照抄。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -104,7 +104,7 @@ result.set("value", this.Value);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

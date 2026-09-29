@@ -18,47 +18,45 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转与重组。
 
-# class Token<ValueType = any> implements IReleasable
+# class Token implements IReleasable
 
 Token，语法树的地基。
 
 原 C# 侧是 `public abstract class Token<ValueType> : IReleasable`。xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个抽象成员写成抛错桩。
 
-类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）：`UnitToken` / `BlockToken` / `GuideToken` / `IndependentToken` 都写 `extends Token`。
-
 ## field Owner:IOwner
 
 本单元所属的负责人，构造时登记进去。
 
-## field Template:Template<ValueType>
+## field Template:Template
 
 本单元使用的模板。
 
-## field ProcessQueue:Sequence<Branch<ValueType>> | null = null
+## field ProcessQueue:Sequence<Branch> | null = null
 
 从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。原 C# 是 `protected set`。
 
-## field ReorganizationQueue:Sequence<Reorganization<ValueType>> | null = null
+## field ReorganizationQueue:Sequence<Reorganization> | null = null
 
 本单元关闭时要跑的重组队列。原 C# 是 `internal protected set`。
 
-## field Parent:Token<ValueType> | null = null
+## field Parent:Token | null = null
 
 父单元。
 
-## field Data:Array<Token<ValueType>> = []
+## field Data:Array<Token> = []
 
 子单元。原 C# 是 `List<Token<ValueType>> Data { get; private set; }`。
 
-## field MountedUnit:Token<ValueType> | null = null
+## field MountedUnit:Token | null = null
 
 当前挂载的子单元：非空时本单元把 `Process` 直接转给它。
 
-## field SourceRange:SourceRange<ValueType> = new SourceRange<ValueType>()
+## field SourceRange:SourceRange = new SourceRange()
 
 本单元覆盖的源码范围。原 C# 是公开字段（`public SourceRange<ValueType> SourceRange = new()`）。
 
-## field LastSource:Source<ValueType> | null = null
+## field LastSource:Source | null = null
 
 上一次处理的字符位置。
 
@@ -66,7 +64,7 @@ Token，语法树的地基。
 
 本单元是否已关闭；关闭后不再接收字符。
 
-## constructor:(owner:IOwner, template:Template<ValueType>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把自身登记到 `owner`。
 
@@ -76,7 +74,7 @@ owner.Add([this]);
 this.Owner = owner;
 ```
 
-## method Last:(index?:int)=>Token<ValueType> | null
+## method Last:(index?:int)=>Token | null
 
 倒数第 `index` 个子单元；越界返回 `null`。
 
@@ -90,7 +88,7 @@ if (position >= 0 && position < this.Data.length) {
 return null;
 ```
 
-## protected method Default:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 所有跳转都不接手时的兜底处理。
 
@@ -143,7 +141,7 @@ for (const item of this.ReorganizationQueue.Data) {
 }
 ```
 
-## method MoveDataTo:(target:Token<ValueType>)=>void
+## method MoveDataTo:(target:Token)=>void
 
 把所有子单元搬给 `target`，然后清空自己的。
 
@@ -154,7 +152,7 @@ for (const item of this.Data) {
 this.Data.length = 0;
 ```
 
-## method Add:<Item extends Token<ValueType>>(item:Item)=>Item
+## method Add:<Item extends Token>(item:Item)=>Item
 
 加一个子单元，并把它的父设为自己。
 
@@ -166,7 +164,7 @@ this.Data.push(item);
 return item;
 ```
 
-## method AddRange:<Item extends Token<ValueType>>(items:Array<Item>)=>Token<ValueType>
+## method AddRange:<Item extends Token>(items:Array<Item>)=>Token
 
 加一批子单元，返回自身。
 
@@ -180,7 +178,7 @@ this.Data.push(...items);
 return this;
 ```
 
-## method AddAndCloseLast:<Item extends Token<ValueType>>(item:Item)=>Item
+## method AddAndCloseLast:<Item extends Token>(item:Item)=>Item
 
 加一个子单元；如果最后一个子单元还没关闭，先关掉它。
 
@@ -192,7 +190,7 @@ if (last !== null && !last.Closed) {
 return this.Add(item);
 ```
 
-## method AddToMounted:<Item extends Token<ValueType>>(item:Item)=>Item
+## method AddToMounted:<Item extends Token>(item:Item)=>Item
 
 加一个子单元并把它设为 `MountedUnit`。
 
@@ -201,7 +199,7 @@ this.MountedUnit = this.AddAndCloseLast(item);
 return item;
 ```
 
-## method Quit:()=>Token<ValueType> | null
+## method Quit:()=>Token | null
 
 从父单元卸载自己，返回父单元。
 
@@ -212,7 +210,7 @@ if (this.Parent !== null) {
 return this.Parent;
 ```
 
-## method Process:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+## method Process:(context:SyntaxContext, source:Source)=>void
 
 处理一个字符。
 
@@ -222,7 +220,7 @@ return this.Parent;
 throw new Error("abstract member: Process");
 ```
 
-## method SignIn:(source:Source<ValueType>)=>Token<ValueType>
+## method SignIn:(source:Source)=>Token
 
 签入：把范围起点设为 `source`。起点只能设一次。
 
@@ -236,7 +234,7 @@ if (this.SourceRange.Start === null) {
 throw SourceException.SourceRangeStartIsSetted;
 ```
 
-## method SignInToken:(token:Token<ValueType>)=>Token<ValueType>
+## method SignInToken:(token:Token)=>Token
 
 用另一个单元的起点签入。
 
@@ -249,7 +247,7 @@ if (token.SourceRange.Start === null) {
 return this.SignIn(token.SourceRange.Start);
 ```
 
-## method SignOut:(source:Source<ValueType>)=>void
+## method SignOut:(source:Source)=>void
 
 签出：把范围终点设为 `source`，并让最后一个子单元递归签出。终点只能设一次。
 
@@ -266,7 +264,7 @@ if (this.SourceRange.End === null) {
 }
 ```
 
-## private method TrySignOut:(source:Source<ValueType>)=>void
+## private method TrySignOut:(source:Source)=>void
 
 递归签出：只在终点还没设过时往下传。
 
@@ -281,7 +279,7 @@ if (this.SourceRange.End === null) {
 }
 ```
 
-## method SignOutToken:(token:Token<ValueType>)=>void
+## method SignOutToken:(token:Token)=>void
 
 用另一个单元的终点签出。
 
@@ -294,7 +292,7 @@ if (token.SourceRange.End === null) {
 this.SignOut(token.SourceRange.End);
 ```
 
-## method Sign:(token:Token<ValueType>)=>void
+## method Sign:(token:Token)=>void
 
 用另一个单元同时签入与签出。
 
@@ -305,7 +303,7 @@ this.SignInToken(token);
 this.SignOutToken(token);
 ```
 
-## method Undo:(source:Source<ValueType>)=>void
+## method Undo:(source:Source)=>void
 
 回退：找到覆盖 `source` 的子单元，让它回退。
 
@@ -318,7 +316,7 @@ if (undoUnit !== null) {
 }
 ```
 
-## method IsUndo:(source:Source<ValueType>)=>bool
+## method IsUndo:(source:Source)=>bool
 
 能不能回退。
 
@@ -332,7 +330,7 @@ if (undoUnit !== null) {
 return false;
 ```
 
-## method WhichUnitRangeContains:(source:Source<ValueType>)=>Token<ValueType> | null
+## method WhichUnitRangeContains:(source:Source)=>Token | null
 
 从后往前找第一个覆盖了 `source` 的子单元。
 
@@ -345,7 +343,7 @@ for (let i = this.Data.length - 1; i >= 0; i--) {
 return null;
 ```
 
-## method Replace:<Item extends Token<ValueType>>(item:Item)=>Item
+## method Replace:<Item extends Token>(item:Item)=>Item
 
 在父单元里用 `item` 顶替自己，位置不变。
 
@@ -447,7 +445,7 @@ for (const item of this.Data) {
 return result;
 ```
 
-## method Clone:()=>Token<ValueType>
+## method Clone:()=>Token
 
 克隆自身。
 

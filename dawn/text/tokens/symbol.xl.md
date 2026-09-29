@@ -31,7 +31,7 @@ import { Common } from "./common.xl.md"
    **注意这条在 C# 里排在「上一个单元也是 Symbol」之后**，所以只有上一个不是 `Symbol` 时才会走到。
 4. 其余：当前字符算符号就接手，`Message = 0`。
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判断要不要接手当前字符，以及是「新增」还是「追加」。
 
@@ -66,7 +66,7 @@ result.Message = 0;
 return result;
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 `Message` 为 `0` 就开一个新 `Symbol` 并签入，为 `1` 就追加到上一个。
 
@@ -78,7 +78,7 @@ if (result.Message === 0) {
 }
 ```
 
-## method Failed:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Failed:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 失败时把上一个 `Symbol` 关掉。
 
@@ -99,7 +99,7 @@ if (last instanceof Symbol) {
 
 把 `SymbolBranch` 注册进通用跳转队列用的实例。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -107,7 +107,7 @@ if (last instanceof Symbol) {
 super(owner, template);
 ```
 
-## method IsAppend:(Src:Source<string>)=>bool
+## method IsAppend:(Src:Source)=>bool
 
 能不能把 `Src` 并进本块。
 
@@ -186,7 +186,7 @@ result.set("value", this.TempToString());
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

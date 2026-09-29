@@ -24,7 +24,7 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 
 原 C# 是嵌套类 `WrapSymbol.Branch`（M32 展平改名）。
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 只有换行符才认。
 
@@ -36,7 +36,7 @@ result.Success = source.Value === "\n";
 return result;
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 认下这个换行：新建一个 `WrapSymbol`，签入签出后立刻关掉。
 
@@ -56,7 +56,7 @@ unit.AddAndCloseLast(new WrapSymbol(unit.Owner, unit.Template)).AppendAndSignOut
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `WrapSymbol`。
 
@@ -66,7 +66,7 @@ unit.AddAndCloseLast(new WrapSymbol(unit.Owner, unit.Template)).AppendAndSignOut
 return Get(units, index) instanceof WrapSymbol;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `WrapSymbol` 删掉，**返回新的下标**。
 
@@ -87,7 +87,7 @@ return index - 1;
 
 把 `WrapSymbolBranch` 注册进通用跳转队列用的实例。原 C# 是 `public static Branch AppendIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -95,7 +95,7 @@ return index - 1;
 super(owner, Template);
 ```
 
-## method IsAppend:(Src:Source<string>)=>bool
+## method IsAppend:(Src:Source)=>bool
 
 软换行永远不把字符并进自己——每个 `\n` 都是独立的一个单元。
 
@@ -124,7 +124,7 @@ const name = this.constructor.name;
 return `<${name} />`;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

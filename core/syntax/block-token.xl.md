@@ -14,17 +14,15 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 块 token：把连续的同类字符吞进 `Temp`，最后整块吐成一个 XML 文本节点。标识符、数字、符号都是它——`<Common>abc</Common>` 就是这么来的。
 
-# class BlockToken<ValueType = any> extends Token
+# class BlockToken extends Token
 
 块数据。
 
-类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）。
-
-## field Temp:Array<ValueType> = []
+## field Temp:Array<string> = []
 
 本块累积的字符。原 C# 是 `List<ValueType> Temp { get; private set; }`。
 
-## constructor:(owner:IOwner, template:Template<ValueType>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -42,7 +40,7 @@ super(owner, template);
 return this.Temp.join("");
 ```
 
-## method AppendAndSignOut:(source:Source<ValueType>)=>BlockToken<ValueType>
+## method AppendAndSignOut:(source:Source)=>BlockToken
 
 先签出到 `source`，再把该字符追加进 `Temp`，返回自身。
 
@@ -52,7 +50,7 @@ this.Temp.push(source.Value);
 return this;
 ```
 
-## method AppendValueAndSignOut:(value:ValueType, source:Source<ValueType>)=>BlockToken<ValueType>
+## method AppendValueAndSignOut:(value:string, source:Source)=>BlockToken
 
 同上，但追加的是显式给的值而不是 `source.Value`。
 
@@ -64,7 +62,7 @@ this.Temp.push(value);
 return this;
 ```
 
-## method IsAppend:(source:Source<ValueType>)=>bool
+## method IsAppend:(source:Source)=>bool
 
 当前字符能不能并进本块。
 
@@ -74,7 +72,7 @@ return this;
 throw new Error("abstract member: IsAppend");
 ```
 
-## method Process:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+## method Process:(context:SyntaxContext, source:Source)=>void
 
 处理一个字符：有挂载单元就转给它，否则走 `Default`。
 
@@ -89,7 +87,7 @@ this.Default(context, source);
 this.LastSource = source;
 ```
 
-## method Undo:(source:Source<ValueType>)=>void
+## method Undo:(source:Source)=>void
 
 回退一个字符。
 
@@ -112,7 +110,7 @@ if (previous === null) {
 }
 ```
 
-## method IsUndo:(source:Source<ValueType>)=>bool
+## method IsUndo:(source:Source)=>bool
 
 块 token 永远可以回退。
 
@@ -122,7 +120,7 @@ if (previous === null) {
 return true;
 ```
 
-## protected method Default:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 原 C# 直接抛 `NotImplementedException`——块 token 必须靠挂载单元或自己的覆写来消费字符。
 
@@ -130,7 +128,7 @@ return true;
 throw new Error("NotImplementedException");
 ```
 
-## method SignOut:(source:Source<ValueType>)=>void
+## method SignOut:(source:Source)=>void
 
 签出。
 

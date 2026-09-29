@@ -42,7 +42,7 @@ if (!this.StringChars.includes(item)) {
 }
 ```
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 当前字符是不是字符串起点。
 
@@ -52,7 +52,7 @@ if (!this.StringChars.includes(item)) {
 return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 认下这个引号：新建一个 `StringGuide`，向前回看前缀，再把它挂到 `unit` 上。
 
@@ -62,8 +62,8 @@ return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
 
 ```ts
 const item = new StringGuide(unit.Owner, unit.Template, source.Value);
-const undoSources: Source<string>[] = [];
-let last: Source<string> | null = source;
+const undoSources: Source[] = [];
+let last: Source | null = source;
 while (true) {
   last = last!.Pre();
   if (last !== null && (last.Value === "$" || last.Value === "@")) {
@@ -120,7 +120,7 @@ unit.AddToMounted(item).SignIn(source);
 
 原 C# 是只读属性 `public char StringChar { get; }`，只在构造器里赋值一次；ts 侧按字段表达，构造器里写一次即可。
 
-## constructor:(owner:IOwner, template:Template<string>, stringChar:string)=>void
+## constructor:(owner:IOwner, template:Template, stringChar:string)=>void
 
 以负责人、模板与引号字符创建。
 
@@ -131,7 +131,7 @@ super(owner, template);
 this.StringChar = stringChar;
 ```
 
-## protected method Navigate:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
 引到目标：按已经吃到的引号个数决定这是哪种字符串，然后把自己替换成对应的 `String`。
 
@@ -218,7 +218,7 @@ if (this.QuoteCount === 2) {
 super.Close();
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身——原 C# 直接 `throw new NotImplementedException();`，即**没有实现**。
 

@@ -13,13 +13,11 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 引导 token：不自己持有字符，只负责把后续字符**引到别的单元**去。字符串引号、插值引号、正则分隔符都是它。
 
-# class GuideToken<ValueType = any> extends Token
+# class GuideToken extends Token
 
 引导。
 
-类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）。
-
-## constructor:(owner:IOwner, Template:Template<ValueType>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -37,13 +35,13 @@ super(owner, Template);
 this.Closed = true;
 ```
 
-## protected method Default:(context:SyntaxContext<ValueType>, Src:Source<ValueType>)=>void
+## protected method Default:(context:SyntaxContext, Src:Source)=>void
 
 兜底处理。
 
 原 C# 的 `Default` 是空实现——引导 token 把所有字符都交给 `Navigate`，不走兜底。按 M30 不写 ts 体。
 
-## protected method Navigate:(context:SyntaxContext<ValueType>, Src:Source<ValueType>)=>void
+## protected method Navigate:(context:SyntaxContext, Src:Source)=>void
 
 把当前字符引到目标单元。
 
@@ -53,7 +51,7 @@ this.Closed = true;
 throw new Error("abstract member: Navigate");
 ```
 
-## method Process:(Context:SyntaxContext<ValueType>, Src:Source<ValueType>)=>void
+## method Process:(Context:SyntaxContext, Src:Source)=>void
 
 处理一个字符：有挂载单元就转给它，否则走 `Navigate`。
 

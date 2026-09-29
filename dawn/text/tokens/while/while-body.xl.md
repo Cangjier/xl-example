@@ -23,7 +23,7 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<WhileBody>` 里是循环体的 XML。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建后立刻把语句重组规则挂上自己的重组队列——循环体里是一串语句。
 
@@ -34,7 +34,7 @@ super(owner, template);
 InitialStatementReorganizationQueue(this);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

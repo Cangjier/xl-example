@@ -13,7 +13,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 待处理队列里的一条：某个位置，交给某个单元去处理。
 
-# class ProcessSource<ValueType> implements IReleasable
+# class ProcessSource implements IReleasable
 
 一条待处理的「位置 + 处理者」。
 
@@ -23,15 +23,15 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 本条目所属的负责人。
 
-## field ProcessOwner:Token<ValueType>
+## field ProcessOwner:Token
 
 处理这条位置的单元。
 
-## field Source:Source<ValueType>
+## field Source:Source
 
 要处理的位置。原 C# 是 `Source<ValueType> Source { get; set; }`。
 
-## constructor:(owner:IOwner, processOwner:Token<ValueType>, source:Source<ValueType>)=>void
+## constructor:(owner:IOwner, processOwner:Token, source:Source)=>void
 
 创建条目并登记到 `owner`。
 
@@ -43,7 +43,7 @@ this.Source = source;
 this.Owner = owner.Add([this]);
 ```
 
-## method Process:(context:SyntaxContext<ValueType>)=>void
+## method Process:(context:SyntaxContext)=>void
 
 把这条位置交给 `ProcessOwner` 处理。
 

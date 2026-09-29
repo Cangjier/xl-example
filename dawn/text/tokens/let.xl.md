@@ -46,7 +46,7 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一条 `let` 声明的开头。
 
@@ -67,7 +67,7 @@ if (next instanceof Common) {
 return next instanceof Bracket && (next.Is("[", "]") || next.Is("{", "}"));
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把整段声明收成一个 `Let`，**返回新的下标**。
 
@@ -127,7 +127,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, letUnit);
 
 它覆写了 `ToXmlString`，而且**三种形态的 XML 完全不同**——标签名后的属性名随 `LetType` 走，都是自闭合标签。这是验收核心，与 C# 逐字对照。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -190,7 +190,7 @@ if (this.LetType === LetType.Object) {
 throw new Error("InvalidOperationException");
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

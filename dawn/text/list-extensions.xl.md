@@ -22,7 +22,7 @@ token 列表专用工具：原 C# 的 `Dawn/Text/ListExtensions.cs`，一个 `st
 这四个方法名与 `core/extensions/list-extension.xl.md` 里的同名函数**撞名**（那边是多一个判定器参数的通用版）。
 为了不引入 import 别名，这里**直接实现循环**，不转调核心版——两边逻辑本来就只有判定器不同。
 
-# method SkipNext:(units:Array<Token<string>>, index:int)=>int
+# method SkipNext:(units:Array<Token>, index:int)=>int
 
 从 `index + 1` 起向后走，跳过所有软换行与注释，返回第一个**实义**单元的下标。
 
@@ -40,7 +40,7 @@ for (; i < units.length; i++) {
 return i;
 ```
 
-# method SkipPrevious:(units:Array<Token<string>>, index:int)=>int
+# method SkipPrevious:(units:Array<Token>, index:int)=>int
 
 从 `index - 1` 起向前走，跳过所有软换行与注释，返回第一个**实义**单元的下标；一路走到开头返回 `-1`。
 
@@ -58,7 +58,7 @@ for (; i >= 0; i--) {
 return i;
 ```
 
-# method FindNext:(units:Array<Token<string>>, index:int)=>int
+# method FindNext:(units:Array<Token>, index:int)=>int
 
 与 `SkipNext` 同款查找，但**找不到时返回 `-1`**（而不是越界的 `units.Count`）。
 
@@ -76,7 +76,7 @@ for (; i < units.length; i++) {
 return -1;
 ```
 
-# method FindPrevious:(units:Array<Token<string>>, index:int)=>int
+# method FindPrevious:(units:Array<Token>, index:int)=>int
 
 与 `SkipPrevious` 同款查找，但找不到时返回 `-1`（与 `SkipPrevious` 一致，因为向前走到头本来就是 `-1`）。
 

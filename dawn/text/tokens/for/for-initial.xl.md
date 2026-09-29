@@ -22,7 +22,7 @@ C 风格 `for` 语句的三段头之一：`for(initial; compare; next)` 里第�
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<ForInitial>` 里是内容的 XML。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把模板里按本单元类型准备的重组队列挂上。
 
@@ -33,7 +33,7 @@ super(owner, template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

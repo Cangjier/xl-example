@@ -19,13 +19,11 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 原 C# 侧是 `public class IfStatement : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-按 M29，`extends` 只写裸名字：`IndependentToken` 已带默认类型参数 `any`。
-
 它与 `ForBody` / `ForeachBody` / `WhileBody` / `TryBody` / `LamdaBody` / `CatchBody` / `FinallyBody` / `Root` 是同一族：构造时都要挂上「语句重组」队列。
 
 只覆写了 `Clone`；`Process` / `Close` / `Default` 沿用 `IndependentToken` 的空实现。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建语句体单元，并挂上语句重组队列。
 
@@ -38,7 +36,7 @@ super(owner, template);
 InitialStatementReorganizationQueue(this);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

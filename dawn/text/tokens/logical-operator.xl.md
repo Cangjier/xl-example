@@ -47,7 +47,7 @@ this.Operator = operator;
 
 `&&` 口径的实例。原 C# 是静态属性 `public static Reorganization AndInstance { get; } = new("&&");`。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本规则认的那个运算符符号。
 
@@ -58,7 +58,7 @@ const current = Get(units, index);
 return current instanceof Symbol && current.Is(this.Operator);
 ```
 
-## method IsLogicalOperatorStart:(current:Token<string>, logicalOperatorSymbol:string)=>bool
+## method IsLogicalOperatorStart:(current:Token, logicalOperatorSymbol:string)=>bool
 
 `current` 是不是「逻辑运算符段的起点」。
 
@@ -90,7 +90,7 @@ if (current instanceof Common && current.Is("return")) {
 return current instanceof LogicalOperator && current.Operator === logicalOperatorSymbol;
 ```
 
-## method IsLogicalOperatorEnd:(current:Token<string>, logicalOperatorSymbol:string)=>bool
+## method IsLogicalOperatorEnd:(current:Token, logicalOperatorSymbol:string)=>bool
 
 `current` 是不是「逻辑运算符段的终点」。比 `IsLogicalOperatorStart` 窄：只认 `,` / `;` / `?` / `:`，以及「本规则是 `&&`、`current` 是 `||`」这一条；**不**认赋值符号、`=>`、`return`。
 
@@ -109,7 +109,7 @@ if (current instanceof Symbol) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 按运算符切分 `[startIndex + 1, endIndex)`，把每一段操作数收成一个 `LogicalOperator`，**返回新的下标**。
 
@@ -166,7 +166,7 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, logicalO
 
 它覆写了 `ToXmlString`：标签名是运行时类名，另外把 `"||"` / `"&&"` 翻译成 `Or` / `And` 放进 `Operator` 属性（**不是**原样的 `||` / `&&`）。这是验收核心，与 C# 逐字对照。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
@@ -199,7 +199,7 @@ const operatorName = this.Operator === "||" ? "Or" : "And";
 return `<${name} Operator="${operatorName}">${temp.join("")}</${name}>`;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

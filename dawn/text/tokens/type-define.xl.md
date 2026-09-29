@@ -30,7 +30,7 @@ import { Symbol } from "./symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个类型标注的开头。
 
@@ -55,7 +55,7 @@ if (current.Parent !== null && JsonObjectReorganization.Instance.IsObject(curren
 return true;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把冒号之后那一段收成一个 `TypeDefine`，**返回新的下标**。
 
@@ -73,7 +73,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("NullReferenceException: current");
 }
-const items: Token<string>[] = [];
+const items: Token[] = [];
 let endIndex = -1;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
@@ -105,7 +105,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有**覆写 `ToXmlString` / `ToDictionary`，所以 XML 由基类产出：`<TypeDefine>段内子单元的 XML 串接</TypeDefine>`（标签名即运行时类名，M17）。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -113,7 +113,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 super(owner, template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

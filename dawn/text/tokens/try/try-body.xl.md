@@ -21,7 +21,7 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 它自己**不消费任何字符**（独立单元，`Process` 由基类留空），构造时把语句层级的重组队列挂上，之后靠 `TryReorganization` 把整个 `try` 结构打包成一个 `Try`。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建时先把语句重组队列挂上——花括号里的内容是一串语句。
 
@@ -34,7 +34,7 @@ super(owner, template);
     InitialStatementReorganizationQueue(this);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

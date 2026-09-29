@@ -23,7 +23,7 @@ Lambda 的形参列表。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaParameters>各个形参的 XML</LamdaParameters>`。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 原 C# 构造体是空的，只是转调基类构造器。
 
@@ -31,7 +31,7 @@ Lambda 的形参列表。
 super(owner, Template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

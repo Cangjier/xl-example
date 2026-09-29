@@ -20,7 +20,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 它不消费字符：`TernaryOperatorReorganization.Process` 用 `TakeRange` 从单元列表里切出条件段，再整段塞进它的 `Data`，然后签入签出并关闭。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -28,7 +28,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 super(owner, template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

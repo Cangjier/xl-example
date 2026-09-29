@@ -18,8 +18,6 @@ import { IfStatement } from "./if-statement.xl.md"
 
 原 C# 侧是 `public class IfSegment : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-按 M29，`extends` 只写裸名字：`IndependentToken` 已带默认类型参数 `any`。
-
 它覆写了 `ToXmlString`——这一步直接决定 XML 产物，是本文件的核心。
 
 ## field Key:string = ""
@@ -144,7 +142,7 @@ if (statement !== null) {
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

@@ -21,7 +21,7 @@ Lambda 的体。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaBody>子单元</LamdaBody>`。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 转调基类构造器，然后把「语句体」那一组默认重组规则装进自己的重组队列。
 
@@ -36,7 +36,7 @@ InitialStatementReorganizationQueue(this);
 
 这个体是「语句形态」（`=>` 右边没有花括号，靠 `Process` 截断出来的）还是「块形态」（`{}` 搬家过来的）。原 C# 是 `public bool IsStatement { get; set; } = false;`，按 M12 落成字段。
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

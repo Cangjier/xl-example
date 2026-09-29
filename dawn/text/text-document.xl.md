@@ -75,7 +75,7 @@ return this.Content;
 return this.FilePath;
 ```
 
-## method GetRangeString:(range:SourceRange<string>)=>string
+## method GetRangeString:(range:SourceRange)=>string
 
 把范围所在的那一行连同下一行 `^` 下划线一起输出。
 
@@ -136,7 +136,7 @@ if (this.FilePath !== "") {
 return result;
 ```
 
-## method GetRangeLines:(range:SourceRange<string>)=>string
+## method GetRangeLines:(range:SourceRange)=>string
 
 同上，但每一行都加上 `line <行号>: ` 前缀。
 

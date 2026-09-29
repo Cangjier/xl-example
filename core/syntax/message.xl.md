@@ -20,11 +20,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 - case None
 无类型。目前所有消息都是它。
 
-# class Message<ValueType = any> implements IReleasable
+# class Message implements IReleasable
 
 消息。
-
-类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）：`ReloadMessage` 要写 `extends Message`。
 
 原 C# 侧是 `public abstract class Message<ValueType> : IReleasable`，`Type` 是抽象属性，写成抛错桩（M13）。
 
@@ -32,15 +30,15 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 消息所属的负责人。
 
-## field Target:Token<ValueType>
+## field Target:Token
 
 消息的目标单元。
 
-## field ProcessOwner:Token<ValueType> | null = null
+## field ProcessOwner:Token | null = null
 
 处理本消息时要切换到的单元；`null` 表示用上下文的根。原 C# 是 `Token<ValueType>? ProcessOwner { get; set; }`。
 
-## constructor:(owner:IOwner, Target:Token<ValueType>)=>void
+## constructor:(owner:IOwner, Target:Token)=>void
 
 创建消息并登记到 `owner`。
 

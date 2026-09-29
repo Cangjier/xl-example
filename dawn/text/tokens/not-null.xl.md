@@ -33,7 +33,7 @@ import { Symbol } from "./symbol.xl.md"
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 §4 的等价写法落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个可以删掉的非空断言 `!`。
 
@@ -52,7 +52,7 @@ if (!(current as Symbol).Is("!")) {
 return previous instanceof Common || previous instanceof Bracket || previous instanceof Method;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `!` 从 `units` 里删掉，**返回新的下标**。
 

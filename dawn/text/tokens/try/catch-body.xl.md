@@ -21,7 +21,7 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 与 `TryBody` 同构：不消费字符，只作为 `TryReorganization` 打包出来的一个子单元，挂在 `Try` 下并进 `Try.ToDictionary()` 的 `catches` 数组。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建时先把语句重组队列挂上。
 
@@ -32,7 +32,7 @@ super(owner, template);
     InitialStatementReorganizationQueue(this);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

@@ -22,7 +22,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 原 C# 侧是 `public class Temp : BlockToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -30,7 +30,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 super(owner, template);
 ```
 
-## method IsAppend:(Src:Source<string>)=>bool
+## method IsAppend:(Src:Source)=>bool
 
 能不能把 `Src` 并进本块——**永远可以**。
 
@@ -49,7 +49,7 @@ return true;
 this.Closed = true;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

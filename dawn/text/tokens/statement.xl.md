@@ -49,7 +49,7 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是语句边界。
 
@@ -71,7 +71,7 @@ if (parent instanceof Bracket && parent.StartBracketChar === "(") {
 return true;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把 `frontIndex + 1` 到 `index` 之间的单元收成一个 `Statement`，**返回新的下标**。
 
@@ -128,7 +128,7 @@ return ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
 
 唯一的实例。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是软换行或语句符号。
 
@@ -142,7 +142,7 @@ const isStatementSymbol = current instanceof Symbol && template.SymbolTemplate.I
 return isWrap || isStatementSymbol;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值。
 
@@ -217,7 +217,7 @@ return nextIndex;
 
 唯一的实例。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 是不是最后一个单元。
 
@@ -225,7 +225,7 @@ return nextIndex;
 return units.length - 1 === index;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值。注意「什么都不做」的那条早退
 在原 C# 里是 `return`（不动下标），所以 ts 侧返回原 `index`。
@@ -267,7 +267,7 @@ return nextIndex;
 构造时就把自己的重组队列从模板上取出来——`InitialStatementReorganizationQueue` 会把
 两个语句重组类插到默认队列的前面。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 在构造器里执行 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`；
 `GetType()` 按 M17 写成 `this.constructor`。
@@ -277,7 +277,7 @@ super(owner, template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
-## static method IsStatementUnit:(item:Token<string>)=>bool
+## static method IsStatementUnit:(item:Token)=>bool
 
 这个单元本身是不是一个「语句级」结构。
 
@@ -303,7 +303,7 @@ return item instanceof IfSet
 return symbol.Template.SymbolTemplate.IsStatementSymbol(symbol.TempToString()) === false;
 ```
 
-## static method IsInStatement:(units:Array<Token<string>>, index:int)=>bool
+## static method IsInStatement:(units:Array<Token>, index:int)=>bool
 
 `index` 是否落在一条语句**内部**：跨过软换行看左右两侧，任一侧是非语句符号就算在语句内。
 
@@ -329,7 +329,7 @@ if (nextUnit instanceof Symbol && Statement.IsInStatementSymbol(nextUnit)) {
 return false;
 ```
 
-## static method SearchStatementEnd:(units:Array<Token<string>>, index:int, statementEndSymbols?:Array<string>)=>int
+## static method SearchStatementEnd:(units:Array<Token>, index:int, statementEndSymbols?:Array<string>)=>int
 
 从 `index` 向后找这条语句的结束符号，返回下标；找不到返回 `-1`。
 
@@ -339,7 +339,7 @@ return false;
 return SearchBackIndexed(units, index, (itemIndex, item) => Statement.IsStatementEnd(units, itemIndex, statementEndSymbols));
 ```
 
-## static method IsStatementEnd:(units:Array<Token<string>>, itemIndex:int, statementEndSymbols?:Array<string>)=>bool
+## static method IsStatementEnd:(units:Array<Token>, itemIndex:int, statementEndSymbols?:Array<string>)=>bool
 
 `itemIndex` 处是不是语句结束位置。
 
@@ -373,7 +373,7 @@ if (item instanceof WrapSymbol) {
 return false;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

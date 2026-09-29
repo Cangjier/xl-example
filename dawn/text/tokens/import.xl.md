@@ -33,7 +33,7 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是 `import` 这个词。
 
@@ -42,7 +42,7 @@ const current = Get(units, index);
 return current instanceof Common && current.TempToString() === "import";
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 从 `import` 开始往后收集单元，直到遇到 `;` 或软换行，收成一个 `Import`，**返回新的下标**。
 
@@ -58,7 +58,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("NullReferenceException: current");
 }
-const items: Token<string>[] = [];
+const items: Token[] = [];
 let endIndex = index;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
@@ -105,7 +105,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 导入语句。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -119,7 +119,7 @@ super(owner, template);
 
 原 C# 是 `public string? From { get; set; } = null;`。`TtsScriptEngine` 用它去加载依赖文件；为空表示这条导入没有可解析的目标。
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

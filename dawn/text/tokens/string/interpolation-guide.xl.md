@@ -23,8 +23,6 @@ import { String } from "./string.xl.md"
 
 原 C# 侧是 `public class InterpolationGuide : GuideToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
 
-按 M29，`extends` 只写裸名字：`GuideToken` 已带默认类型参数 `any`。
-
 ## property ParentString:String
 
 本向导所属的那层字符串——`Parent` 直接就是 `String`。
@@ -37,7 +35,7 @@ import { String } from "./string.xl.md"
 return (this.Parent as String)!;
 ```
 
-## private field Items:Array<Source<string>> = []
+## private field Items:Array<Source> = []
 
 已经数过的左花括号位置（每个 `{` 一个），按遇到顺序排列。因为两个分支都会提前 `return`，方法末尾那句 `push` 实际上只在「当前字符就是 `{`」时执行，所以这里只装 `{`。
 
@@ -49,7 +47,7 @@ return (this.Parent as String)!;
 
 原 C# 是 `private int BracketCount = 0;`。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -57,7 +55,7 @@ return (this.Parent as String)!;
 super(owner, template);
 ```
 
-## protected method Navigate:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
 当前字符还是 `{` 就接着数；一旦遇到别的字符，就用数到的个数做结论。
 
@@ -103,7 +101,7 @@ if (Value !== "{") {
 this.Items.push(source);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

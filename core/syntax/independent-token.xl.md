@@ -13,13 +13,11 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 独立单元：关闭之后就不再参与字符处理。它靠重组（`Reorganization`）被造出来，本身不消费字符。
 
-# class IndependentToken<ValueType = any> extends Token
+# class IndependentToken extends Token
 
 独立单元。
 
-类型参数带默认值 `any`，因为 `extends` 只接受裸名字（M29）。
-
-## constructor:(owner:IOwner, template:Template<ValueType>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -27,7 +25,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 super(owner, template);
 ```
 
-## method Process:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+## method Process:(context:SyntaxContext, source:Source)=>void
 
 处理一个字符。
 
@@ -43,7 +41,7 @@ super(owner, template);
 this.Closed = true;
 ```
 
-## protected method Default:(context:SyntaxContext<ValueType>, source:Source<ValueType>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 兜底处理。
 

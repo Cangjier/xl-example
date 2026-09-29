@@ -30,7 +30,7 @@ Json 对象：把 `{...}` 这种字面量从「一个花括号 + 里面的内容
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 §4 的等价写法落成静态只读字段。
 
-## method IsObjectAt:(units:Array<Token<string>>, index:int)=>bool
+## method IsObjectAt:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `{` 是不是一个 Json 对象的开头。
 
@@ -58,7 +58,7 @@ if (current instanceof Bracket && current.StartBracketChar === "{") {
 return false;
 ```
 
-## method IsObject:(unit:Token<string> | null)=>bool
+## method IsObject:(unit:Token | null)=>bool
 
 某个单元本身是不是 `JsonObject`；不是的话，回头看它所在的列表中它所在的位置是不是一个对象开头。
 
@@ -77,7 +77,7 @@ if (unit.Parent === null) {
 return this.IsObjectAt(unit.Parent.Data, unit.Parent.Data.indexOf(unit));
 ```
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点——直接问 `IsObjectAt`。
 
@@ -87,7 +87,7 @@ return this.IsObjectAt(unit.Parent.Data, unit.Parent.Data.indexOf(unit));
 return this.IsObjectAt(units, index);
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `{` 连同内容收成一个 `JsonObject`，**返回新的下标**。
 
@@ -118,7 +118,7 @@ Json 对象。
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<JsonObject>子单元的 XML 串接</JsonObject>`（标签名即运行时类名，M17）。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
@@ -146,7 +146,7 @@ result.set("children", data);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

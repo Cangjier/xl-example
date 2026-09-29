@@ -32,7 +32,7 @@ import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-ut
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## private method NextIsCommonFlowerBracket:(units:Array<Token<string>>, index:int)=>bool
+## private method NextIsCommonFlowerBracket:(units:Array<Token>, index:int)=>bool
 
 `index` 后面是不是「一个 `Common` 名字 + 一个 `{` 括号」——即不带 `extends` 的形状。
 
@@ -53,7 +53,7 @@ if (!(bracket instanceof Bracket)) {
 return bracket.StartBracketChar === "{";
 ```
 
-## private method NextIsCommonExtendsCommonFlowerBracket:(units:Array<Token<string>>, index:int, interfaceInstance:Interface | null)=>int
+## private method NextIsCommonExtendsCommonFlowerBracket:(units:Array<Token>, index:int, interfaceInstance:Interface | null)=>int
 
 `index` 后面是不是「`Common` 名字 + `extends` + `Common` 名 + 任意多个 `, Common` + `{` 括号」——即带 `extends` 的形状。匹配成功时返回**结束下标**（那个 `{` 括号的位置）；不匹配返回 `-1`。
 
@@ -114,7 +114,7 @@ if (interfaceInstance !== null) {
 return nextIndex;
 ```
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个接口声明的起点。
 
@@ -135,7 +135,7 @@ if (
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把一个接口声明折成一个 `Interface`，**返回新的下标**。
 
@@ -198,7 +198,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, interfaceIns
 
 **类名必须与 C# 完全一致**（M17）：`constructor.name` 就是它的 XML 标签名。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -206,7 +206,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, interfaceIns
 super(owner, template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

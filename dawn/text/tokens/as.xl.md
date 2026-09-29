@@ -32,7 +32,7 @@ import { Statement } from "./statement.xl.md"
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 §4 的等价写法落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `as` 关键字块。
 
@@ -44,7 +44,7 @@ const current = Get(units, index);
 return current instanceof Common && current.TempToString() === "as";
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把 `as` 及其后的类型表达式收成一个 `As`，**返回新的下标**。
 
@@ -55,7 +55,7 @@ return current instanceof Common && current.TempToString() === "as";
 - **`items` 只装 `as` 之后的单元**，不含 `as` 本身。
 - 父单元照抄 `current.Parent`；`result.Add(items)` 按 M14(c) 写成 `AddRange`。
 - 范围两头直接取 `current.SourceRange.Start!` 与 `items` 末项的 `SourceRange.End!`：
-  C# 的 `.Start!.Value` / `.End!.Value` 是在解 `Nullable<Source<char>>`，ts 的 `Start` / `End` 本身就是 `Source<T> | null`，
+  C# 的 `.Start!.Value` / `.End!.Value` 是在解 `Nullable<Source<char>>`，ts 的 `Start` / `End` 本身就是 `Source | null`，
   按 §7.2 **去掉 `.Value`**，否则会把字符塞进范围字段。
 - 最后 `units.ReplaceAt(index, endIndex - index + 1, result)` 是**四参重载**，按 §7.3 在 ts 里叫 `ReplaceCountAt`，
   返回值即新下标。C# 的 `items.Last()` 在 ts 里写成 `items[items.length - 1]`。
@@ -67,7 +67,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("NullReferenceException: current");
 }
-const items: Token<string>[] = [];
+const items: Token[] = [];
 let endIndex = -1;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
@@ -100,7 +100,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token` 产出：`<As>子单元的 XML 串接</As>`（标签名即运行时类名，M17）。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -120,7 +120,7 @@ super(owner, template);
 return super.ToDictionary();
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

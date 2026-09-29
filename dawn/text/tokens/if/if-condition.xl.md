@@ -18,11 +18,9 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 原 C# 侧是 `public class IfCondition : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-按 M29，`extends` 只写裸名字：`IndependentToken` 已带默认类型参数 `any`。
-
 它只覆写了 `Clone`；`Process` / `Close` / `Default` 都沿用 `IndependentToken` 的空实现。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 创建条件单元，并从重组模板里取出本类型的重组队列。
 
@@ -33,7 +31,7 @@ super(owner, template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

@@ -31,7 +31,7 @@ import { Symbol } from "./symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个类型赋值的开头。
 
@@ -51,7 +51,7 @@ const nextSymbol = Get(units, nextIndex2);
 return nextSymbol instanceof Symbol && nextSymbol.Is("=");
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把整段类型赋值收成一个 `TypeAssign`，**返回新的下标**。
 
@@ -96,7 +96,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 原 C# 文件里有一句 `using Cangjie.Dawn.Text.Tokens.Json;`，但整个文件没有用到 Json 名字空间的任何类型，所以 ts 侧**不**引 `json/` 下的任何文件。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -104,7 +104,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 super(owner, template);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

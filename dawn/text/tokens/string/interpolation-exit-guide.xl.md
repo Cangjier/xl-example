@@ -22,8 +22,6 @@ import { String } from "./string.xl.md"
 
 原 C# 侧是 `public class InterpolationExitGuide : GuideToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
 
-按 M29，`extends` 只写裸名字：`GuideToken` 已带默认类型参数 `any`。
-
 ## property AncestorString:String
 
 本向导所属插值单元**外面那一层**字符串：`Parent` 是 `InterpolationString`，从它那里再取 `ParentString`。
@@ -42,13 +40,13 @@ return (this.Parent as InterpolationString)!.ParentString;
 
 原 C# 是 `protected int BracketCount = 0;`。
 
-## protected field Items:Array<Source<string>> = []
+## protected field Items:Array<Source> = []
 
 数括号过程中经过的位置。
 
-原 C# 是 `protected List<Source<char>> Items = new();`；按 M31 写成 `Array<Source<string>>`。
+原 C# 是 `protected List<Source<char>> Items = new();`；按 M31 写成 `Array<Source>`。
 
-## constructor:(owner:IOwner, Template:Template<string>)=>void
+## constructor:(owner:IOwner, Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -56,7 +54,7 @@ return (this.Parent as InterpolationString)!.ParentString;
 super(owner, Template);
 ```
 
-## protected method Navigate:(context:SyntaxContext<string>, Src:Source<string>)=>void
+## protected method Navigate:(context:SyntaxContext, Src:Source)=>void
 
 只认右花括号，按数到的个数分四种走法。
 
@@ -87,7 +85,7 @@ if (Value === "}") {
 this.Items.push(Src);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

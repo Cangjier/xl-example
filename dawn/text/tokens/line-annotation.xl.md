@@ -26,7 +26,7 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 
 原 C# 是嵌套类 `LineAnnotation.Branch`（M32 展平改名）。它永远不进 `Data`、不进 XML，所以 ts 类名与 C# 的 `Type.Name` 不一致无害。
 
-## method Condition:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>)=>BranchConditionResult
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符也是 `/`——也就是 `//` 的开头。
 
@@ -39,7 +39,7 @@ result.Success = preUnit !== null && preUnit.Value === "/" && unit.IsUndo(preUni
 return result;
 ```
 
-## method Success:(context:SyntaxContext<string>, unit:Token<string>, source:Source<string>, result:BranchConditionResult)=>void
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 认下 `//`：先回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `LineAnnotation` 并用同一个 `/` 签入。
 
@@ -63,7 +63,7 @@ unit.AddToMounted(new LineAnnotation(unit.Owner, unit.Template)).SignIn(preUnit)
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `LineAnnotation`。
 
@@ -73,7 +73,7 @@ unit.AddToMounted(new LineAnnotation(unit.Owner, unit.Template)).SignIn(preUnit)
 return Get(units, index) instanceof LineAnnotation;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `LineAnnotation` 删掉，**返回新的下标**。
 
@@ -98,7 +98,7 @@ return index - 1;
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列取出来；本类不设重组队列（摘除动作由 `Root` 的通用重组队列驱动）。
 
@@ -126,7 +126,7 @@ const name = this.constructor.name;
 return `<${name}>${this.Tmp}</${name}>`;
 ```
 
-## method Undo:(source:Source<string>)=>void
+## method Undo:(source:Source)=>void
 
 回退一个字符。
 
@@ -141,7 +141,7 @@ if (undoUnit !== null) {
 }
 ```
 
-## method IsUndo:(source:Source<string>)=>bool
+## method IsUndo:(source:Source)=>bool
 
 能不能回退。范围已经签出（`SourceRange.End` 非空）就不能；否则看覆盖该位置的子单元，没有子单元时返回 `true`。
 
@@ -166,7 +166,7 @@ return true;
 this.Closed = true;
 ```
 
-## protected method Default:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
@@ -176,7 +176,7 @@ this.Closed = true;
 this.Tmp += source.Value;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext<string>, source:Source<string>)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 遇到换行就退出，并且**要处理 CRLF**：前一个字符是 `\r` 时先把 `\r` 回退掉（`\r` 不该进注释正文），再签出到 `\r` 的**前一个**字符；否则直接签出到前一个字符。然后关闭自己并跑重组、从父单元卸载，再插一条 `ReloadMessage` 让当前换行重新处理一遍（换行本身不属于注释），返回 `Done`；其余情况返回 `Undo`。
 
@@ -212,7 +212,7 @@ result.set("value", this.Tmp);
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

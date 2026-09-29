@@ -22,8 +22,6 @@ import { String } from "./string.xl.md"
 
 原 C# 侧是 `public class RawQuoteExitGuide : GuideToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
 
-按 M29，`extends` 只写裸名字：`GuideToken` 已带默认类型参数 `any`。
-
 ## property ParentString:String
 
 本向导所属的那层字符串——`Parent` 直接就是 `String`。
@@ -42,7 +40,7 @@ return (this.Parent as String)!;
 
 原 C# 是 `private int QuoteCount = 0;`。
 
-## private field Items:Array<Source<string>> = []
+## private field Items:Array<Source> = []
 
 数引号过程中经过的位置：一旦发现这串引号不是结尾，就把它们按顺序还给常量字符串。
 
@@ -54,7 +52,7 @@ return (this.Parent as String)!;
 
 原 C# 是自动属性 `public char StringChar { get; set; } = '\"';`，按 M12 落成字段。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -62,7 +60,7 @@ return (this.Parent as String)!;
 super(owner, template);
 ```
 
-## protected method Navigate:(context:SyntaxContext<string>, source:Source<string>)=>void
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
 按当前字符是不是引号分两条路。
 
@@ -105,7 +103,7 @@ if (value === this.StringChar) {
 this.Items.push(source);
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 

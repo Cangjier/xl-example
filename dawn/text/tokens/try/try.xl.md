@@ -36,7 +36,7 @@ import { TryBody } from "./try-body.xl.md"
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>bool
+## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是 `try` 关键字。
 
@@ -50,23 +50,23 @@ if (current instanceof Common) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template<string>, units:Array<Token<string>>, index:int)=>int
+## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：扫描并打包整个 `try` 结构，**返回新的下标**。
 
 原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值——`units` 在这里被就地改写，下标也变了。
 
-C# 各处用 `units.Get(endIndex)` 取「跳过 `WrapSymbol` 之后的下一个单元」；`Get` 是扩展方法（M11 改成模块级函数 `Get(units, …)`）。`SyntaxException<char>` 按 M27 写成 `SyntaxException<string>`，第三个参数（内层异常）C# 侧省略，ts 侧显式给 `null`。
+C# 各处用 `units.Get(endIndex)` 取「跳过 `WrapSymbol` 之后的下一个单元」；`Get` 是扩展方法（M11 改成模块级函数 `Get(units, …)`）。`SyntaxException<char>` 在规范里写成 `SyntaxException`，第三个参数（内层异常）C# 侧省略，ts 侧显式给 `null`。
 
 ```ts
 const current = Get(units, index)!;
-let endIndex = SkipNext(units, index, (item: Token<string>) => item instanceof WrapSymbol);
+let endIndex = SkipNext(units, index, (item: Token) => item instanceof WrapSymbol);
 const next = Get(units, endIndex);
 if (next === null) {
-  throw new SyntaxException<string>(current.SourceRange, "next is null", null);
+  throw new SyntaxException(current.SourceRange, "next is null", null);
 }
 if (!(next instanceof Bracket)) {
-  throw new SyntaxException<string>(next.SourceRange, "next is not Bracket", null);
+  throw new SyntaxException(next.SourceRange, "next is not Bracket", null);
 }
 const bracket = next;
 const result = new Try(owner, template);
@@ -79,7 +79,7 @@ bracket.MoveDataTo(tryBody);
 tryBody.TryToClose();
 // endIndex 就是 tryBody 的下标
 const tryBodyEndIndex = endIndex;
-endIndex = SkipNext(units, endIndex, (item: Token<string>) => item instanceof WrapSymbol);
+endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof WrapSymbol);
 let containsCatch = false;
 // endIndex 是 catch 或 finally 关键字的下标
 while (true) {
@@ -91,10 +91,10 @@ while (true) {
     break;
   }
   containsCatch = true;
-  endIndex = SkipNext(units, endIndex, (item: Token<string>) => item instanceof WrapSymbol);
+  endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof WrapSymbol);
   const catchSecond = Get(units, endIndex)!;
   if (!(catchSecond instanceof Bracket)) {
-    throw new SyntaxException<string>(catchSecond.SourceRange, "catchSecond is not Bracket", null);
+    throw new SyntaxException(catchSecond.SourceRange, "catchSecond is not Bracket", null);
   }
   const catchSecondBracket = catchSecond;
   if (catchSecondBracket.StartBracketChar === "(") {
@@ -103,11 +103,11 @@ while (true) {
     catchDefine.Sign(catchSecondBracket);
     catchDefine.TryToClose();
     // endIndex 是 catchDefine 的下标
-    endIndex = SkipNext(units, endIndex, (item: Token<string>) => item instanceof WrapSymbol);
+    endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof WrapSymbol);
     // endIndex 是 catchBody 的下标
     const catchThird = Get(units, endIndex)!;
     if (!(catchThird instanceof Bracket)) {
-      throw new SyntaxException<string>(catchThird.SourceRange, "catchThird is not Bracket", null);
+      throw new SyntaxException(catchThird.SourceRange, "catchThird is not Bracket", null);
     }
     const catchThirdBracket = catchThird;
     if (catchThirdBracket.StartBracketChar === "{") {
@@ -116,7 +116,7 @@ while (true) {
       catchBody.Sign(catchThirdBracket);
       catchBody.TryToClose();
     } else {
-      throw new SyntaxException<string>(catchThird.SourceRange, "catchThirdBracket.StartBracketChar is not '{'", null);
+      throw new SyntaxException(catchThird.SourceRange, "catchThirdBracket.StartBracketChar is not '{'", null);
     }
   } else if (catchSecondBracket.StartBracketChar === "{") {
     const catchBody = result.CreateCatchBody();
@@ -124,19 +124,19 @@ while (true) {
     catchBody.Sign(catchSecondBracket);
     catchBody.TryToClose();
   } else {
-    throw new SyntaxException<string>(catchSecondBracket.SourceRange, "catchSecondBracket.StartBracketChar is not '(' or '{'", null);
+    throw new SyntaxException(catchSecondBracket.SourceRange, "catchSecondBracket.StartBracketChar is not '(' or '{'", null);
   }
 }
 // endIndex 是 catch body 的下标
-endIndex = SkipNext(units, endIndex, (item: Token<string>) => item instanceof WrapSymbol);
+endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof WrapSymbol);
 // endIndex 是 finally 关键字的下标
 const finiallyKeyword = Get(units, endIndex);
 if (finiallyKeyword instanceof Common && finiallyKeyword.Is("finally")) {
-  endIndex = SkipNext(units, endIndex, (item: Token<string>) => item instanceof WrapSymbol);
+  endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof WrapSymbol);
   // endIndex 是 finally body 的下标
   const finiallySecond = Get(units, endIndex)!;
   if (!(finiallySecond instanceof Bracket)) {
-    throw new SyntaxException<string>(finiallySecond.SourceRange, "finiallySecond is not Bracket", null);
+    throw new SyntaxException(finiallySecond.SourceRange, "finiallySecond is not Bracket", null);
   }
   if (finiallySecond.StartBracketChar === "{") {
     const finiallyBody = result.CreateFinallyBody();
@@ -144,7 +144,7 @@ if (finiallyKeyword instanceof Common && finiallyKeyword.Is("finally")) {
     finiallyBody.Sign(finiallySecond);
     finiallyBody.TryToClose();
   } else {
-    throw new SyntaxException<string>(finiallySecond.SourceRange, "finiallySecondBracket.StartBracketChar is not '{'", null);
+    throw new SyntaxException(finiallySecond.SourceRange, "finiallySecondBracket.StartBracketChar is not '{'", null);
   }
 } else {
   endIndex--;
@@ -162,7 +162,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有覆写 `ToXmlString`**，所以 XML 由基类 `Token` 产出：标签名是运行时类名 `Try`，内容是全部子单元的 XML 串接。子单元的顺序是 `TryBody`、若干 `CatchDefine` / `CatchBody`、可选的 `FinallyBody`——这个顺序由 `TryReorganization.Process` 的扫描顺序决定。
 
-## constructor:(owner:IOwner, template:Template<string>)=>void
+## constructor:(owner:IOwner, template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
@@ -216,16 +216,16 @@ return this.Add(new CatchDefine(this.Owner, this.Template));
 return this.Add(new CatchBody(this.Owner, this.Template));
 ```
 
-## property Catches:Array<Token<string>>
+## property Catches:Array<Token>
 
 全部 `catch` 相关的子单元：`CatchDefine` 与 `CatchBody` 混合，保持它们在 `Data` 里的原始顺序。
 
 ### get
 
-原 C# 是 `public Token<char>[] Catches => Data.Where(item => item is CatchDefine || item is CatchBody).ToArray();`。ts 侧按类型收窄成 `Array<Token<string>>`；注意子单元是**引用**而不是克隆，与原实现一致。
+原 C# 是 `public Token<char>[] Catches => Data.Where(item => item is CatchDefine || item is CatchBody).ToArray();`。ts 侧按类型收窄成 `Array<Token>`；注意子单元是**引用**而不是克隆，与原实现一致。
 
 ```ts
-const result: Token<string>[] = [];
+const result: Token[] = [];
 for (const item of this.Data) {
   if (item instanceof CatchDefine || item instanceof CatchBody) {
     result.push(item);
@@ -282,7 +282,7 @@ if (finallyBody !== null) {
 return result;
 ```
 
-## method Clone:()=>Token<string>
+## method Clone:()=>Token
 
 克隆自身。
 
