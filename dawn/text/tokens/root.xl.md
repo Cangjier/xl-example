@@ -4,44 +4,12 @@ import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
-import { Sequence } from "../../../core/syntax/templates/sequence.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { InitialStatementReorganizationQueue } from "../text-common-util.xl.md"
-import { AreaAnnotation, AreaAnnotationReorganization } from "./area-annotation.xl.md"
-import { AsReorganization } from "./as.xl.md"
-import { Bracket } from "./bracket.xl.md"
-import { Common } from "./common.xl.md"
-import { CompoundAssignmentOperatorReorganization } from "./compound-assignment-operator.xl.md"
-import { ForReorganization } from "./for/for.xl.md"
-import { ForeachReorganization } from "./foreach/foreach.xl.md"
-import { IfSetReorganization } from "./if/if-set.xl.md"
-import { ImportReorganization } from "./import.xl.md"
-import { InterfaceReorganization } from "./interface/interface.xl.md"
-import { JsonArrayReorganization } from "./json/json-array.xl.md"
-import { JsonObjectReorganization } from "./json/json-object.xl.md"
-import { KeywordReorganization } from "./keyword.xl.md"
-import { LamdaReorganization } from "./lamda/lamda.xl.md"
-import { LetReorganization } from "./let.xl.md"
-import { LineAnnotation, LineAnnotationReorganization } from "./line-annotation.xl.md"
-import { LogicalOperatorReorganization } from "./logical-operator.xl.md"
-import { MethodReorganization } from "./method.xl.md"
-import { NotNullReorganization } from "./not-null.xl.md"
-import { NullConditionalOperatorReorganization } from "./null-conditional-operator.xl.md"
-import { NewReorganization } from "./new/new.xl.md"
-import { PreprocessorDirectives } from "./preprocessor-directives.xl.md"
-import { RegexToken } from "./regex-token.xl.md"
-import { StringGuide } from "./string/string-guide.xl.md"
-import { Symbol } from "./symbol.xl.md"
-import { TernaryOperatorReorganization } from "./ternary-operator/ternary-operator.xl.md"
-import { TryReorganization } from "./try/try.xl.md"
-import { TypeAssignReorganization } from "./type-assign.xl.md"
-import { TypeDefineReorganization } from "./type-define.xl.md"
-import { WhileReorganization } from "./while/while.xl.md"
-import { WrapSymbol, WrapSymbolReorganization } from "./wrap-symbol.xl.md"
+import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -50,24 +18,22 @@ import { WrapSymbol, WrapSymbolReorganization } from "./wrap-symbol.xl.md"
 
 根单元：整棵语法树的顶点。**`textContext.Root.ToString()` 就是验收用的那份 XML。**
 
-它同时是整套 token 的**总装配点**：两个静态字段把「通用跳转队列」与「通用重组队列」按固定顺序
-拼出来，交给 `Template` 当默认值。所以只要 `Root` 存在，下面列到的每个 token 类就必须存在——
-这也是为什么 `Root` 必须放在 token 层全部完成之后才能写。
+它只做顶点该做的事：关闭子单元、给出兜底与不退出行为、产出 XML、克隆。
+**装配职责已经摘走**（见 `../parse-pipeline.xl.md`）——它不再 import 任何具体 token，
+也不再持有 `GeneralQueue` / `GeneralReorganize`。原先它俩是 `Root` 的静态成员，
+逼着 `Root` 认识整个 token 层，而 token 层又反过来依赖 `Root`（循环依赖）。
 
-注意两个静态成员的语义差别，移植时不能合并：
+构造器里保留一条契约检查：装配是**调用方**的责任，漏了必须当场炸，而不是等到 XML 里
+少一堆节点才发现。检查必须在取到 `ProcessQueue` 之后立刻做——`BranchTemplate.Get` 在没装配时给
+`null`，那正是「模板没装过流水线」的判据（`Root` 在 C# 里靠 `template.BranchTemplate.Get(GetType())`
+拿到同一个值，只是当时它自己刚设过默认值，所以永远不为 `null`）。
 
-| C# | ts | 语义 |
-| --- | --- | --- |
-| `static Sequence<Branch<char>> GeneralQueue => new(...)` | `## static method CreateGeneralQueue` | **每次访问都新建**一个序列 |
-| `static Sequence<Reorganization<char>> GeneralReorganize { get; } = new(...)` | `## static readonly field` | 只建一次，全体共享 |
+检查**只能放在 `super` 之后**：取队列要写 `this.constructor`，而派生类构造器里访问 `this` 必须在
+`super` 之后。所以顺序是 `super` → 取队列 → 判空 → 赋值。
 
-`GeneralQueue` 必须是「每次新建」：`Root` 的构造器把它交给 `template.BranchTemplate.DefaultValue`，
-而每个 `TextContext` 都有自己的 `Template`；共享一个序列对象会让不同模板之间互相串味。
-
-C# 里那些 `X.Reorganization.Instance` 现在都指向展平后的顶层类（M32），例如
-`LineAnnotation.Reorganization.Instance` → `LineAnnotationReorganization.Instance`。
-`String.StringGuide.JumpIn` 里的 `String` 是**命名空间段**，不是嵌套类，所以 ts 里就是
-`StringGuide.JumpIn`。
+`Root` 的构造器**不再往模板上写任何东西**：模板归调用方，根单元只读。
+这也顺带说明了为什么 `Root` 能安全地保持无状态——队列那份「每次新建」的语义现在由
+`ParsePipeline.Install` 负责。
 
 # class Root extends UnitToken
 
@@ -77,56 +43,24 @@ C# 里那些 `X.Reorganization.Instance` 现在都指向展平后的顶层类（
 
 ## constructor:(owner:IOwner, template:Template)=>void
 
-以负责人与模板创建，并把两套通用队列装进模板。
+以负责人与模板创建；模板必须已经装配过通用队列。
 
 原 C# 的构造器顺序是：设 `BranchTemplate.DefaultValue` → 设 `ReorganizationTemplate.DefaultValue`
 → `ProcessQueue = template.BranchTemplate.Get(GetType())` → `InitialStatementReorganizationQueue()`。
-`GetType()` 按 M17 写成 `this.constructor`。
+前两步与第四步都搬到了 `ParsePipeline`（`Install` / `InitialStatementReorganizationQueue`），
+这里只剩取 `ProcessQueue` 与那条契约检查。
 
 ```ts
 super(owner, template);
-template.BranchTemplate.DefaultValue = Root.CreateGeneralQueue();
-template.ReorganizationTemplate.DefaultValue = Root.GeneralReorganize;
-this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
-InitialStatementReorganizationQueue(this);
+const processQueue = template.BranchTemplate.Get(this.constructor);
+if (processQueue === null) {
+  throw new Error(
+    "Root: the template is not installed. Call new Template().Initialize(ParsePipeline.Install) first.",
+  );
+}
+this.ProcessQueue = processQueue;
+ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
-
-## static method CreateGeneralQueue:()=>Sequence<Branch>
-
-通用跳转队列：处理每个字符时按这个顺序问每个 `Branch` 要不要接手。
-
-原 C# 是 `public static Sequence<Branch<char>> GeneralQueue => new(...)`——**表达式体属性，每次访问都新建**。
-按 M19 本该落成 `## static property` + `### get`，但**实测 xl 的打印器不会给 property 输出 `static`**——那样会变成一个实例 getter，
-`Root.GeneralQueue` 就取不到了。所以改成静态方法 `CreateGeneralQueue()`，由构造器显式调用：既保住「每次新建」，也保住「静态」。
-调用点是 `Root` 自己的构造器，改名不影响其它文件。
-
-`new Sequence<...>(...)` 的参数要写成**一个数组**：C# 的 `Sequence(params T[] items)` 按 M2 落成 `constructor(items?: Array<T>)`，
-所以 `new Sequence<Branch>([a, b, …])`。
-
-顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → 括号 → 软换行 → 符号 → 通用字符。
-
-```ts
-return new Sequence<Branch>([
-  AreaAnnotation.JumpIn,
-  LineAnnotation.JumpIn,
-  PreprocessorDirectives.JumpIn,
-  RegexToken.JumpIn,
-  StringGuide.JumpIn,
-  Bracket.JumpIn,
-  WrapSymbol.AppendIn,
-  Symbol.AppendIn,
-  Common.AppendIn,
-]);
-```
-
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([LineAnnotationReorganization.Instance, AreaAnnotationReorganization.Instance, LetReorganization.Instance, KeywordReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, JsonObjectReorganization.Instance, JsonArrayReorganization.Instance, ImportReorganization.Instance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, AsReorganization.Instance, TypeAssignReorganization.Instance, TypeDefineReorganization.Instance, LamdaReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance])
-
-通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
-
-原 C# 是 `public static Sequence<Reorganization<char>> GeneralReorganize { get; } = new(...)`——静态只读属性加初值，只求值一次，全体共享。
-
-**顺序即语义**：注释与软换行先被摘掉，语句级结构（`Let` / `Keyword` / …）再依次尝试，
-控制流（`IfSet` / `For` / `Foreach` / `While` / `Try`）最后兜底。改顺序会直接改变 XML。
 
 ## protected method Close:()=>void
 
@@ -208,6 +142,8 @@ super.Process(Context, Src);
 
 原 C# 是先建一个 `Root`，再把每个子单元克隆后 `Add` 进去；注意它**没有**调 `TryToClose`，
 也没有签入签出范围——与其它 token 的 `Clone` 不同，照抄。
+
+克隆出来的根单元共用同一个模板，所以模板上已经装好的队列照旧可用；契约检查也照旧通过。
 
 ```ts
 const root = new Root(this.Owner, this.Template);

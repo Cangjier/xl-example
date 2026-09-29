@@ -210,7 +210,8 @@ return options;
 `Owner` 是资源持有者：`TextDocument` / `TextContext` 以及整棵树都登记在它身上，所以解析完必须 `Release`——
 原 C# 宿主用的是 `using (var owner = new Owner())`，这里对应 try/finally。
 
-`Template` 不能省：`TextContext` 的构造器要求一个模板，`Root` 再往它上面装通用跳转队列与重组队列。
+`Template` 不能省：`TextContext` 的构造器要求一个模板，并会在造根单元之前**自动装上**通用跳转队列与
+重组队列（见 `dawn/text/parse-pipeline.xl.md`），所以这里只需 `new Template()`。
 
 异常收敛到 `null`：`SyntaxException` 的 `Message` 里已经带了出错位置那段带 `^` 下划线的文本（`TextDocument.GetRangeLines` 的产物），
 直接打出来比让宿主栈回溯更有用。布局是「`cjcli: 解析失败`」一行 + 诊断正文——信息里本来就带换行，所以不再拼多余前缀。

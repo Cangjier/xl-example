@@ -4,7 +4,7 @@ import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
-import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -13,7 +13,7 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 `foreach` / `for...in` 的循环体段：`Foreach.Process` 把 `{ ... }` 那对括号的内容搬进来，或直接把单条语句收进来，之后这一段自己再跑一遍语句重组把里面啃成语句树。
 
-`InitialStatementReorganizationQueue` 是 `Dawn/Text/TextCommonUtil.cs` 里的扩展方法，按 M11 改成模块级函数调用。
+语句重组队列的装配在 `../../parse-pipeline.xl.md`（原 C# 是 `Dawn/Text/TextCommonUtil.cs` 里的扩展方法），调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
 
 # class ForeachBody extends IndependentToken
 
@@ -31,7 +31,7 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 ```ts
 super(owner, template);
-InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
 ## method Clone:()=>Token

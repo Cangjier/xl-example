@@ -4,7 +4,7 @@ import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
-import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -25,11 +25,11 @@ Lambda 的体。
 
 转调基类构造器，然后把「语句体」那一组默认重组规则装进自己的重组队列。
 
-原 C# 构造体只有一句 `this.InitialStatementReorganizationQueue()`——那是 `Dawn/Text/TextCommonUtil.cs` 里的扩展方法（`Token<char>` 上的），按 M11 落成模块级函数，所以 ts 侧写成 `InitialStatementReorganizationQueue(this)`。
+原 C# 构造体只有一句 `this.InitialStatementReorganizationQueue()`——那是 `Dawn/Text/TextCommonUtil.cs` 里的扩展方法（`Token<char>` 上的），它读的是通用重组队列，所以并到了 `../../parse-pipeline.xl.md`，ts 侧写成 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
 
 ```ts
 super(owner, Template);
-InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
 ## field IsStatement:bool = false

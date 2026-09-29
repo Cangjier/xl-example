@@ -4,7 +4,7 @@ import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
-import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -29,11 +29,11 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 原 C# 是 `public IfStatement(IOwner owner, Template<char> template) : base(owner, template)`，体里只有 `this.InitialStatementReorganizationQueue();`。
 
-`InitialStatementReorganizationQueue` 在 C# 里是 `Dawn/Text/TextCommonUtil.cs` 上的扩展方法；按 M11，ts 侧是模块级函数，所以写成 `InitialStatementReorganizationQueue(this)` 并 import 该名字。
+`InitialStatementReorganizationQueue` 在 C# 里是 `Dawn/Text/TextCommonUtil.cs` 上的扩展方法；它读的是通用重组队列，所以并到了 `../../parse-pipeline.xl.md`，ts 侧写成 `ParsePipeline.InitialStatementReorganizationQueue(this)` 并 import 该类。
 
 ```ts
 super(owner, template);
-InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
 ## method Clone:()=>Token

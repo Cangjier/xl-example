@@ -4,7 +4,7 @@ import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
-import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -27,11 +27,11 @@ import { InitialStatementReorganizationQueue } from "../../text-common-util.xl.m
 
 原 C# 签名是 `TryBody(IOwner owner, Template<char> template) : base(owner, template)`，体里只调 `this.InitialStatementReorganizationQueue()`。
 
-`InitialStatementReorganizationQueue` 是原 C# 里挂在 `IndependentToken` 上的扩展方法，负责把「语句级重组」那一串 `Reorganization` 取出来赋给 `ReorganizationQueue`。本次任务范围内没有它的移植版本，所以这里只保留基类构造这一层。
+`InitialStatementReorganizationQueue` 是原 C# 里挂在 `IndependentToken` 上的扩展方法，负责把「语句级重组」那一串 `Reorganization` 取出来赋给 `ReorganizationQueue`；它读的是通用重组队列，所以已经并到 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
 
 ```ts
 super(owner, template);
-    InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
 ## method Clone:()=>Token

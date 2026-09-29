@@ -37,7 +37,8 @@ import { Sequence } from "./sequence.xl.md"
 
 ## field DefaultValue:Sequence<T> | null = null
 
-没有专门覆盖时使用的默认序列。`Root` 构造时会把 `BranchTemplate.DefaultValue` 设成通用跳转队列。
+没有专门覆盖时使用的默认序列。`TextContext` 构造时会通过 `ParsePipeline.Install` 把
+`BranchTemplate.DefaultValue` 设成通用跳转队列。
 
 ## field CoverData:Map<any, Sequence<T> | null> = new Map()
 

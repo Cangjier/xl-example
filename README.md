@@ -17,7 +17,23 @@ node build/cjcli.js samples/hello.cj
 
 `npm run build` 就是上面前两步的串联（`xl build && tsc`）。
 
-生成物：`dist/` 下 106 个 `.ts`、`build/` 下 106 个 `.js`。两者都在 `.gitignore` 里。
+生成物：`dist/` 下 107 个 `.ts`、`build/` 下 107 个 `.js`。两者都在 `.gitignore` 里。
+
+## 解析优先级在哪
+
+token 层的公共契约——**跳转优先级**与**重组优先级**——只在 `dawn/text/parse-pipeline.xl.md`（→ `dist/dawn/text/parse-pipeline.ts`）里：
+
+- `ParsePipeline.CreateGeneralQueue()`：每处理一个字符，按这个顺序问每个 `Branch` 要不要接手；
+- `ParsePipeline.GeneralReorganize`：每个单元关闭时，按这个顺序把子单元合并成更高层结构；
+- `ParsePipeline.Install(template)`：往模板上装这两张表。`TextContext` 构造时调它，
+  所以调用方只需要 `new Template()`。
+
+要看「这个语言的解析优先级是什么」，读这一个文件就够了；新增 token 的改动点也在这里。
+
+原先这两张表是 `Root` 的静态成员、装配动作写在 `Root` 的构造器里，于是 `Root` 必须 import 每一个
+token 类，而 token 类又反过来依赖 `Root`（循环依赖）。现在依赖是单向的
+`TextContext → ParsePipeline → tokens`，`Root` 退回纯粹的「语法树顶点」。
+
 
 ## cjcli
 
