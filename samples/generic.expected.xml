@@ -1,0 +1,274 @@
+<Root>
+<Statement>
+<Common>class</Common>
+<Common>Foo</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>T</Common>
+</GenericType>
+<Bracket StartBracketChar="{" EndBracketChar="}">
+<WrapSymbol />
+<Common>let</Common>
+<Common>value</Common>
+<Symbol>:</Symbol>
+<Common>T</Common>
+<WrapSymbol />
+</Bracket>
+</Statement>
+<Statement>
+<Let fieldName="numbers" />
+<TypeDefine>
+<Common>Array</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+</TypeDefine>
+<Symbol>=</Symbol>
+<Method MethodName="Array">
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+<Common>3</Common>
+</Method>
+</Statement>
+<Statement>
+<Let fieldName="table" />
+<TypeDefine>
+<Common>HashMap</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>String</Common>
+<Symbol>,</Symbol>
+<Common>Int64</Common>
+</GenericType>
+</TypeDefine>
+<Symbol>=</Symbol>
+<Method MethodName="HashMap">
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>String</Common>
+<Symbol>,</Symbol>
+<Common>Int64</Common>
+</GenericType>
+</Method>
+</Statement>
+<Statement>
+<Let fieldName="nested" />
+<TypeDefine>
+<Common>Array</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Array</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+</GenericType>
+</TypeDefine>
+<Symbol>=</Symbol>
+<Method MethodName="Array">
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Array</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+</GenericType>
+<Common>1</Common>
+</Method>
+</Statement>
+<Statement>
+<Let fieldName="spread" />
+<TypeDefine>
+<Common>HashMap</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>String</Common>
+<Symbol>,</Symbol>
+<Common>Int64</Common>
+</GenericType>
+</TypeDefine>
+<Symbol>=</Symbol>
+<Method MethodName="HashMap">
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>String</Common>
+<Symbol>,</Symbol>
+<Common>Int64</Common>
+</GenericType>
+</Method>
+</Statement>
+<Statement>
+<Let fieldName="commented" />
+<TypeDefine>
+<Common>HashMap</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>String</Common>
+<Symbol>,</Symbol>
+<Common>Int64</Common>
+</GenericType>
+</TypeDefine>
+<Symbol>=</Symbol>
+<Method MethodName="HashMap">
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>String</Common>
+<Symbol>,</Symbol>
+<Common>Int64</Common>
+</GenericType>
+</Method>
+</Statement>
+<Statement>
+<Let fieldName="made" />
+<Symbol>=</Symbol>
+<New>
+<NewType>
+<Common>Array</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+</NewType>
+<NewArguments>
+<Common>3</Common>
+</NewArguments>
+</New>
+</Statement>
+<Statement>
+<Let fieldName="called" />
+<Symbol>=</Symbol>
+<Method MethodName="identity">
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+<Common>1</Common>
+</Method>
+</Statement>
+<Statement>
+<Let fieldName="lt" />
+<Symbol>=</Symbol>
+<Common>a</Common>
+<Symbol>&lt;</Symbol>
+<Common>b</Common>
+</Statement>
+<Statement>
+<Let fieldName="le" />
+<Symbol>=</Symbol>
+<Common>a</Common>
+<Symbol>&lt;=</Symbol>
+<Common>b</Common>
+</Statement>
+<Statement>
+<Let fieldName="tight" />
+<Symbol>=</Symbol>
+<Common>a</Common>
+<Symbol>&lt;</Symbol>
+<Common>b</Common>
+</Statement>
+<Statement>
+<Let fieldName="spanning" />
+<Symbol>=</Symbol>
+<Common>a</Common>
+<Symbol>&lt;</Symbol>
+<Common>b</Common>
+<Symbol>&gt;</Symbol>
+<Common>c</Common>
+</Statement>
+<Statement>
+<Method MethodName="print">
+<Common>a</Common>
+<Symbol>&lt;</Symbol>
+<Common>b</Common>
+<Symbol>,</Symbol>
+<Common>c</Common>
+<Symbol>&gt;</Symbol>
+<Common>d</Common>
+</Method>
+</Statement>
+<IfSet>
+<IfSegment Key="if">
+<IfCondition>
+<Common>a</Common>
+<Symbol>&lt;</Symbol>
+<Common>b</Common>
+</IfCondition>
+<IfStatement>
+<Statement>
+<Method MethodName="print">
+<String IsSupportInterpolation=False IsSupportVerbatim=False IsSupportRaw=False InterpolationCount=0 RawQuoteCount=1>
+<ConstString>lt</ConstString>
+</String>
+</Method>
+</Statement>
+</IfStatement>
+</IfSegment>
+</IfSet>
+<IfSet>
+<IfSegment Key="if">
+<IfCondition>
+<LogicalOperator Operator="And">
+<Common>a</Common>
+<Symbol>&lt;</Symbol>
+<Common>b</Common>
+</LogicalOperator>
+<LogicalOperator Operator="And">
+<Common>c</Common>
+<Symbol>&gt;</Symbol>
+<Common>d</Common>
+</LogicalOperator>
+</IfCondition>
+<IfStatement>
+<Statement>
+<Method MethodName="print">
+<String IsSupportInterpolation=False IsSupportVerbatim=False IsSupportRaw=False InterpolationCount=0 RawQuoteCount=1>
+<ConstString>mp</ConstString>
+</String>
+</Method>
+</Statement>
+</IfStatement>
+</IfSegment>
+</IfSet>
+<For>
+<ForInitial>
+<Let fieldName="i" />
+<Symbol>=</Symbol>
+<Common>0</Common>
+</ForInitial>
+<ForCompare>
+<Common>i</Common>
+<Symbol>&lt;</Symbol>
+<Common>10</Common>
+</ForCompare>
+<ForNext>
+<Common>i</Common>
+<Symbol>++</Symbol>
+</ForNext>
+<ForBody>
+<Statement>
+<Method MethodName="print">
+<Common>i</Common>
+</Method>
+</Statement>
+</ForBody>
+</For>
+<Statement>
+<Let fieldName="text" />
+<Symbol>=</Symbol>
+<String IsSupportInterpolation=False IsSupportVerbatim=False IsSupportRaw=False InterpolationCount=0 RawQuoteCount=1>
+<ConstString>a &lt; b</ConstString>
+</String>
+</Statement>
+<Statement>
+<Let fieldName="cast" />
+<Symbol>=</Symbol>
+<Common>value</Common>
+<As>
+<Common>Array</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+</As>
+</Statement>
+<Statement>
+<TypeAssign>
+<Common>type</Common>
+<Common>Pair</Common>
+<Symbol>=</Symbol>
+<Common>Array</Common>
+<GenericType StartBracketChar="&lt;" EndBracketChar="&gt;">
+<Common>Int64</Common>
+</GenericType>
+<WrapSymbol />
+</TypeAssign>
+</Statement>
+</Root>

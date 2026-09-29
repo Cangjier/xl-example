@@ -7,6 +7,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../../core/extensions/list-extension.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Common } from "../common.xl.md"
+import { GenericType } from "../generic-type.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { WrapSymbol } from "../wrap-symbol.xl.md"
 ```
@@ -37,7 +38,9 @@ Json 对象：把 `{...}` 这种字面量从「一个花括号 + 里面的内容
 
 与 `JsonArray` 那套判定的差别：这里**没有** `NullConditionalOperator` 的 `?.[` 检查，也**没有** `JsonArray` / `String` / `Method` 三个排除项。
 
-判定链条（任一条命中就**不是**对象）：上一个跳过软换行的单元是 `Common` 且不属于 `return` / `typeof`；是 `Bracket`；是 `=>` 符号。
+判定链条（任一条命中就**不是**对象）：上一个跳过软换行的单元是 `Common` 且不属于 `return` / `typeof`；是 `Bracket`；是 `GenericType`；是 `=>` 符号。
+
+**`GenericType` 那一支是本移植新增的**（原 C# 的 `GenericType` 是空类，永远不会出现在这个位置上）：泛型实参段后面跟的 `{` 是块，不是对象字面量——`class Foo<T> {` 要与 `class Foo {` 同解，`func f<T>(): Array<U> {` 也要与不带泛型的写法同解，否则那个 `{` 会从 `Bracket` 变成 `JsonObject`。
 
 ```ts
 const current = Get(units, index);
@@ -46,6 +49,8 @@ if (current instanceof Bracket && current.StartBracketChar === "{") {
   if (previous instanceof Common && previous.IsAny(["return", "typeof"]) === false) {
     return false;
   } else if (previous instanceof Bracket) {
+    return false;
+  } else if (previous instanceof GenericType) {
     return false;
   } else if (previous instanceof Symbol) {
     if (previous.Is("=>")) {

@@ -3,3 +3,4 @@ build
 .xl
 node_modules
 bin
+.tools

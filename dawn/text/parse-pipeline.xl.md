@@ -12,6 +12,7 @@ import { Common } from "./tokens/common.xl.md"
 import { CompoundAssignmentOperatorReorganization } from "./tokens/compound-assignment-operator.xl.md"
 import { ForReorganization } from "./tokens/for/for.xl.md"
 import { ForeachReorganization } from "./tokens/foreach/foreach.xl.md"
+import { GenericType } from "./tokens/generic-type.xl.md"
 import { IfSetReorganization } from "./tokens/if/if-set.xl.md"
 import { ImportReorganization } from "./tokens/import.xl.md"
 import { InterfaceReorganization } from "./tokens/interface/interface.xl.md"
@@ -81,7 +82,9 @@ property 输出 `static`——那样会变成实例 getter，调用点就取不�
 `new Sequence<...>(...)` 的参数要写成**一个数组**：C# 的 `Sequence(params T[] items)` 按 M2
 落成 `constructor(items?: Array<T>)`，所以 `new Sequence<Branch>([a, b, …])`。
 
-顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → 括号 → 软换行 → 符号 → 通用字符。
+顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → 括号 → 泛型 → 软换行 → 符号 → 通用字符。
+
+**泛型必须排在符号之前**：`<` / `>` 同时是符号，`Symbol.AppendIn` 排在前面的话，`<…>` 永远轮不到 `GenericTypeBranch` 判断。排在 `Bracket.JumpIn` 之后则是形状上的就近——两者都是「认下一个字符、挂一个子单元」的单元，且 `( [ {` 与 `<` 不重叠。
 
 ```ts
 return new Sequence<Branch>([
@@ -91,6 +94,7 @@ return new Sequence<Branch>([
   RegexToken.JumpIn,
   StringGuide.JumpIn,
   Bracket.JumpIn,
+  GenericType.JumpIn,
   WrapSymbol.AppendIn,
   Symbol.AppendIn,
   Common.AppendIn,
