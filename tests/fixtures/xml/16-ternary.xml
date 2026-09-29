@@ -1,1 +1,0 @@
-<Root><Statement><TernaryOperator><TernaryOperatorCondition><Common>a</Common></TernaryOperatorCondition><TernaryOperatorTrueStatement><Common>b</Common></TernaryOperatorTrueStatement><TernaryOperatorFalseStatement><Common>c</Common><WrapSymbol /></TernaryOperatorFalseStatement></TernaryOperator></Statement></Root>

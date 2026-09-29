@@ -1,1 +1,0 @@
-<Root><Foreach><ForeachDefine><Let fieldName="x" /></ForeachDefine><ForeachEnumable><Common>list</Common></ForeachEnumable><ForeachBody><Statement><Common>a</Common></Statement></ForeachBody></Foreach><Statement></Statement></Root>

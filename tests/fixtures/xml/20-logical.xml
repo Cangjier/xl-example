@@ -1,1 +1,0 @@
-<Root><Statement><LogicalOperator Operator="Or"><LogicalOperator Operator="And"><Common>a</Common></LogicalOperator><LogicalOperator Operator="And"><Common>b</Common></LogicalOperator></LogicalOperator><LogicalOperator Operator="Or"><Symbol>!</Symbol><Common>c</Common></LogicalOperator></Statement></Root>
