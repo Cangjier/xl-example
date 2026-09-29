@@ -3,6 +3,19 @@
 `docs/xl-to-cpp.md` 写的是「怎么写」；这一份写「为什么只能这么写」。这三条不是风格选择，
 而是 C++ 与 ts 之间无法绕开的差异，每一条都先被证伪过别的方案才定下来。
 
+> **这三条在实际实现里的状态**（详见 `docs/xl-to-cpp.md` 文首的修订说明与
+> `dist/cpp/README.md`）：
+> - **第二条（`std::shared_ptr` 所有权）已按要求落实**，全树规范类都用 `std::shared_ptr<T>`。
+> - **第一条（两遍构建 + `CANGJIE_BODIES` + `xl-tree.cpp` 索引）没有采用**：实际产物是
+>   `xl_plan` 报出的 `.h`/`.cpp` 拆分（`layout = type`）。它要解决的「89 个源同处一个依赖环」
+>   由等价手段解决 —— 声明放 `.h`，需要完整类型的体放 `.cpp` 并各自 include，
+>   于是每个 `.cpp` 就是一次「类型已完整」的解析。
+> - **第三条（`TypeName()` 字符串反射）没有采用**：实际用
+>   `protected virtual const char* XmlName() const` + `std::type_index` 作模板键，
+>   语义等价且不动结构回读要求的成员名。
+> - 文首提到的 `runtime/any-value.hpp` 也没有采用：`any` 一律 `std::any`，手写支撑层是
+>   `dist/cpp/cangjie_support.h`。
+
 ## 一、构建必须分两遍：声明段 + 主体段
 
 **事实。** 把 104 个规范的 `# dependencies` 抽出来做图，其中 **89 个处在同一个强连通分量**里，

@@ -1,8 +1,16 @@
 # xl → C++ 移植规范
 
 本文件是 `dist/cpp/**` 的唯一生成契约。`*.xl.md` 是事实来源；C++ 产物由本文件描述的
-映射规则直出，**一个 `*.xl.md` 对应一个 `dist/cpp/<同路径>.cpp`**（路径镜像源文件，
-扩展名 `.cpp`）。
+映射规则直出，**一个 `*.xl.md` 对应 `dist/cpp/` 下按 `xl_plan` 报出的若干个部件**
+（`layout = type`：每个类型一个 `.h` + 一个 `.cpp`，模块级成员合并进 `<源基名>_module.{h,cpp}`）。
+
+> **修订说明（与实际实现对齐）。** 本文件早期版本描述的「一个源 = 一个 `.cpp`、内含声明段 +
+> `#ifdef CANGJIE_BODIES` 主体段、由 `xl-tree.cpp` 索引包含两遍」的形状**没有采用**：`xl_emit`
+> 只接受 `xl_plan`/`xl_context` 报出的路径（越界即 `E2001`），而 `xl_plan` 对本工程报的就是
+> `layout = type` 的多文件拆分。凡本文件与下述「实际实现」不一致的地方，**以实际实现为准**；
+> 完整的现约定见 `dist/cpp/PORT-CONVENTIONS.md`，交付说明与偏离记录见 `dist/cpp/README.md`。
+> 已经落实的两条文档要求是 **§1.1 的 `std::shared_ptr` 所有权**与 **§1.10 的异常继承
+> `std::runtime_error`**。
 
 「为什么必须这样」——两遍构建、`shared_ptr` 所有权、`TypeName()` 反射这三条结构性决定的
 论证与被证伪的替代方案——见 [cpp-design-notes.md](cpp-design-notes.md)。
@@ -44,10 +52,10 @@
 | `string`（普通文本） | `std::string` |
 | `string`（单字符：`Value` / `Temp` 元素 / `char`） | `std::string`（长度 0 或 1） |
 | `void` | `void` |
-| `any` | `AnyValue`（`runtime/any-value.hpp`） |
-| `Array<T>` / `ReadonlyArray<T>` / `T[]` | `std::vector<T>` |
-| `Array<any>` | `AnyList`（= `std::vector<AnyValue>`） |
-| `Map<string, any>` | `AnyMap`（= `std::map<std::string, AnyValue>`） |
+| `any` | `std::any` |
+| `Array<T>` / `ReadonlyArray<T>` / `T[]` | `std::vector<T>`（`T` 是规范类时写作 `std::vector<std::shared_ptr<T>>`） |
+| `Array<any>` | `std::vector<std::any>` |
+| `Map<string, any>` | `std::map<std::string, std::any>` |
 | `Map<K, V>`（其他键） | `std::map<K, V>` |
 | `Set<T>` | `std::set<T>` |
 | `T \| null` / `T?`（**规范内声明的类**） | `std::shared_ptr<T>` |
@@ -128,6 +136,11 @@ if (it != map.end()) { /* it->second */ }
 
 ### 1.4 反射（`this.constructor`）
 
+> **实际实现**：用 `protected virtual const char* XmlName() const`（基类返回 `"Token"`，每个 Token 族
+> 派生类内联覆写成自己的 IR 类名），调用点 `this->XmlName()`；`SequenceTemplate` 的类型键是
+> **`std::type_index(typeid(*this))`**，不是字符串。理由：不动结构回读所要求的成员名，且不需要
+> 为模板派发引入字符串键。语义与本节等价（`constructor.name` ↔ 运行时类名）。
+
 ts 用 `this.constructor` / `this.constructor.name` 做**类型派发**与 **XML 标签名**（M17）。
 C++ 没有这个对象，统一落成一个虚方法：
 
@@ -143,6 +156,13 @@ virtual std::string TypeName() const { return "Token"; }   // 每个类覆写成
 **类名必须与规范一字不差**：它同时是 XML 标签名。
 
 ### 1.5 泛型容器 `Sequence<T>` / `SequenceTemplate<T>`
+
+> **实际实现**：`Sequence<T>` 的 `Data` 是 `std::vector<T>`，`T` 由实参侧决定 —— 队列一律实例化成
+> `Sequence<std::shared_ptr<Branch>>` / `Sequence<std::shared_ptr<Reorganization>>`（`shared_ptr` 允许
+> 被指类型不完整）。持有队列的字段是 `std::shared_ptr<Sequence<…>>`。`SequenceTemplate<T>` 的派发表
+> 键是 `std::type_index`，值一律 `std::shared_ptr<Sequence<T>>`。`Get` 保留**两个重载**（单参走默认队列；
+> 双参且传空则「不要默认队列」，与 `arguments.length` 的区分一一对应），第二参类型是
+> `const DefaultValueResolver<T>&`（`std::function<std::shared_ptr<Sequence<T>>(std::shared_ptr<Sequence<T>>)>`）。
 
 ```cpp
 template <typename T>
@@ -180,6 +200,13 @@ inline std::vector<T> ReplaceAt(std::vector<T>& self, int index, const T& newVal
 **调用点不要加命名空间限定，也不要重新实现这些函数。**
 
 ### 1.7 数值与字符串
+
+> **实际实现**：**没有** `runtime/any-value.hpp`。手写支撑层是 `dist/cpp/cangjie_support.h`
+> （`cangjie::support::` 里的 `inline` 函数：`Join` / `Split` / `Substring` / `Slice` / `CharAt` /
+> `IndexOf` / `CharCodeAt` / `FromCharCode` / `ParseInt` / `ParseNumber` / `IsNaN` / `Trim` /
+> `ToUpper` / `ToLower` / `StartsWith` / `EndsWith` / `ToString` 重载）。
+> 文本拼接用 `support::ToString(x)` 或直接 `+`（`std::string` 与字面量），没有 `JsText`/`JsNumberToString`。
+> `any` 一律 `std::any`；字符语义与本节一致（单字符就是长度 1 的 `std::string`，`value.substr(i, 1)`）。
 
 ```cpp
 #include "runtime/any-value.hpp"
@@ -264,6 +291,18 @@ class SourceException : public std::runtime_error {
 ## 2. 声明映射
 
 ### 2.1 文件骨架：声明段 + 主体段（**必须照做**）
+
+> **实际实现（形状不同，理由见文首修订说明）**：采用 `xl_plan` 报出的 `layout = type` 多文件拆分，
+> **不使用** `CANGJIE_BODIES` 两段式单文件，也**没有** `dist/cpp/xl-tree.cpp` 索引。具体形状：
+> - 每个类型一个 `<snake_case>.h`（类定义、方法签名、内联的字段访问器与一行体）+ 一个同名 `.cpp`
+>   （类外定义，`.cpp` 第一行 `#include` 自己的头）；模块级 `# type`/`# const`/`# method`/`# statement`
+>   合并进 `<源基名>_module.{h,cpp}`（模块文件保留源基名的连字符）。
+> - 头文件保护用 `#ifndef <产物相对 dist/cpp 的完整路径大写>_H`；`#include` 路径 = 目标产物相对
+>   `dist/cpp/` 的路径；前向声明用于只以指针/`shared_ptr` 出现、且只声明不访问成员的位置。
+> - 需要完整类型的地方（`make_shared`、`dynamic_pointer_cast`、`shared_from_this()`、访问成员）
+>   一律写在 `.cpp` 里，靠 `.cpp` 各自 include 打破 89 个规范之间的依赖环 —— 这与本节「两遍解析」
+>   的效果等价，只是把「第 2 遍」落到了每个 `.cpp` 翻译单元上。
+> - 产物头由 `xl_emit` 追加；`@generated` 行不要手写。
 
 **为什么。** 104 个规范里有 **89 个处在同一个依赖环**里（`token → branch → syntax-context
 → token`、`document ⟷ source-range`、`template ⟷ token` …），所以：
@@ -443,6 +482,13 @@ enum class BranchStates { Undo = 0, Done = 1 };
 
 ### 2.5 `# statement`
 
+> **实际实现**：`cjcli_module.cpp` 的匿名命名空间里保留一个 `[[maybe_unused]] const bool kStatement1`
+> 占位对象并注明原因（C++ 既没有加载期执行钩子，加载期也拿不到 `argv`）。真正的进程入口是**手写**的
+> `dist/cpp/cjcli_main.cpp`：切掉 `argv[0]` 后调用 `cangjie::Main(args)`。`process.exitCode = 1; return;`
+> 一律落成 `std::exit(1);`（源里这些位置的下一句都是 `return`，语义等价），因此不需要 `CjcliExitCode()`。
+> 全工程只有一个 `main`，它在 `cjcli_main.cpp` 里（`cjcli_main.cpp` 与 `CMakeLists.txt`、
+> `cangjie_support.h` 一样属于**手写文件**，不是 xl 的产物）。
+
 `# statement` 的围栏内容是**模块级执行语句**，在 C++ 里落成入口函数，并在同一个翻译单元里
 定义 `main`：
 
@@ -492,6 +538,22 @@ int main(int argc, char** argv) {
 
 ## 5. 完成前自查
 
+> **实际实现下的自查项**（替换下面与两段式/无 include 有关的条目）：
+> - [ ] 产物是 `xl_plan` 报出的**部件集合**：每个类型 `.h` + `.cpp` 都要交，模块级成员进 `_module.{h,cpp}`；
+>       `xl_plan` 对全部 104 个源报 `reusable: yes`。
+> - [ ] 头文件保护是「产物相对 `dist/cpp/` 的完整路径大写 + `_H`」；`#include` 路径 = 目标产物相对
+>       `dist/cpp/` 的路径（**允许**产物之间 include，这正是打破依赖环的手段）。
+> - [ ] 规范内声明的类一律 `std::shared_ptr<T>`；`new X(…)` 已换成 `std::make_shared<X>(…)`；
+>       需要 `shared_from_this()` 的层次根继承了 `std::enable_shared_from_this<X>`。
+> - [ ] 异常族继承 `std::runtime_error`；`throw X::Static;` 抛副本，可被 `catch (const std::exception&)` 捕获。
+> - [ ] 反射用 `XmlName()`（不是 `TypeName()`）；`SequenceTemplate` 键是 `std::type_index`。
+> - [ ] `any` 用 `std::any`；支撑层是 `cangjie_support.h`（不是 `runtime/any-value.hpp`）。
+> - [ ] 构建文件是 `dist/cpp/CMakeLists.txt`（不是仓库根 CMake + `.tools/`）。
+>
+> 以下原始条目中，**「产物是两段结构」「产物里没有任何指向其它产物的 include」「`#pragma once` 在
+> 产物头之后第一行」三条已不适用**（我们用 `#ifndef` 保护 + `.h`/`.cpp` 拆分 + 产物间 include）；
+> 其余条目（成员名/参数个数/`override`/虚析构/无 `using namespace std;`）仍然有效。
+
 - [ ] 规范声明的**每一个**类型名、字段名、方法名、property 名、枚举成员名都出现在产物里
       （结构校验按名字逐个查）。
 - [ ] 每个方法的**参数个数**与规范一致（校验会数逗号）。
@@ -508,6 +570,19 @@ int main(int argc, char** argv) {
 ---
 
 ## 6. 构建与自查
+
+> **实际实现**：构建只用生成树里那份**手写**的 `dist/cpp/CMakeLists.txt`（`GLOB_RECURSE` 收产物、
+> 排除 `.xl/`、`target_include_directories` 指向 `dist/cpp`），外加手写的 `cjcli_main.cpp` 提供 `main`：
+>
+> ```console
+> $ cd dist/cpp && cmake -B build && cmake --build build     # 构建树恒在 dist/cpp/build/
+> $ ./build/cjcli samples/hello.cj                           # 与 samples/hello.expected.xml 对照
+> ```
+>
+> 本仓库**没有** `.tools/` 脚本、没有 `dist/cpp/xl-tree.cpp`、也没有 `ctest` 测试目标；下面这套
+> 工具链下载/两遍包含/`-DXL_CPP_*` 开关的描述属于早期方案，当前未启用。
+> 另：验收可与仓库自带的夹具对照 —— `samples/hello.cj` + `samples/hello.expected.xml`、
+> `samples/generic.cj` + `samples/generic.expected.xml`。
 
 工具链（本机没有 cmake / g++ / ninja，脚本会下载免安装版到 `.tools/`，已被 `.gitignore` 忽略）：
 
