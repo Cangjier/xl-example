@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -29,7 +28,7 @@ import { Symbol } from "./symbol.xl.md"
 
 唯一的实例。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是 `?.`。
 
@@ -38,7 +37,7 @@ const current = Get(units, index);
 return current instanceof Symbol && current.Is("?.");
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 从 `?.` 之后一路收集到下一个「断点」，收成一个单元，**返回新的下标**。
 
@@ -81,7 +80,7 @@ const endIndex = SearchBack(units, index + 1, (item) => {
   }
   return false;
 });
-const result = new NullConditionalOperator(owner, template);
+const result = new NullConditionalOperator(template);
 result.SignInToken(current);
 const count = endIndex === -1 ? units.length - index - 1 : endIndex - index - 1;
 result.AddRange(TakeRange(units, index + 1, count));
@@ -99,12 +98,12 @@ return nextIndex;
 
 空条件运算符单元。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 在构造器里执行 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`；`GetType()` 按 M17 写成 `this.constructor`。
 
 ```ts
-super(owner, template);
+super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -115,7 +114,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；批量 `Add` 按 M14(c) 写成 `AddRange`。
 
 ```ts
-const result = new NullConditionalOperator(this.Owner, this.Template);
+const result = new NullConditionalOperator(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

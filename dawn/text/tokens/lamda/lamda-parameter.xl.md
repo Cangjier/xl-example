@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -21,14 +20,14 @@ Lambda 的一个形参。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaParameter>子单元</LamdaParameter>`。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
 原 C# 参数名是小写 `template`，构造体只有一句 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType())`；`GetType()` 按 M17 落成 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
 
 ```ts
-super(owner, Template);
+super(Template);
 this.ReorganizationQueue = Template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -57,7 +56,7 @@ return second instanceof Symbol && second.TempToString() === "?";
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；`Add` 收到的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)）。
 
 ```ts
-const result = new LamdaParameter(this.Owner, this.Template);
+const result = new LamdaParameter(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
 import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
 import { Source } from "./source.xl.md"
@@ -20,12 +19,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
@@ -69,7 +68,7 @@ return result;
 ```ts
 const preUnit = source.Pre()!;
 unit.Undo(preUnit);
-const regexToken = unit.AddToMounted(new RegexToken(unit.Owner, unit.Template));
+const regexToken = unit.AddToMounted(new RegexToken(unit.Template));
 regexToken.SignIn(preUnit);
 regexToken.Append(source);
 ```
@@ -88,7 +87,7 @@ regexToken.Append(source);
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列与重组队列都取出来。
 
@@ -97,7 +96,7 @@ regexToken.Append(source);
 注意 `ReorganizationTemplate` 取出来的是**默认队列**：本类没有嵌套的 `Reorganization`，把正则从单元列表里摘掉是执行层 `RegexStep.Parser` 干的事（不在本次移植范围）。
 
 ```ts
-super(owner, template);
+super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor, null);
 ```
@@ -180,7 +179,7 @@ if (!this.IsTranslate) {
       this.SignOut(source);
       this.TryToClose();
       this.Quit();
-      context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
     return BranchStates.Done;
   }
@@ -221,7 +220,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Temp.Append(Temp)` → `Flags.Append(Flags)` → `TryToClose()`。
 
 ```ts
-const result = new RegexToken(this.Owner, this.Template);
+const result = new RegexToken(this.Template);
 result.Sign(this);
 result.Temp += this.Temp;
 result.Flags += this.Flags;

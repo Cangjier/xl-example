@@ -1,7 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
-import { IReleasable } from "../../owners/i-releasable.xl.md"
 import { Token } from "./token.xl.md"
 ```
 
@@ -20,15 +18,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 - case None
 无类型。目前所有消息都是它。
 
-# class Message implements IReleasable
+# class Message
 
 消息。
 
 原 C# 侧是 `public abstract class Message<ValueType> : IReleasable`，`Type` 是抽象属性，写成抛错桩（M13）。
-
-## field Owner:IOwner
-
-消息所属的负责人。
+资源归属层已移除：`IReleasable`、`Owner` 字段与 `Release` 都没有对应物（见 README「资源生命周期：交给 GC」）。
 
 ## field Target:Token
 
@@ -38,14 +33,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 处理本消息时要切换到的单元；`null` 表示用上下文的根。原 C# 是 `Token<ValueType>? ProcessOwner { get; set; }`。
 
-## constructor:(owner:IOwner, Target:Token)=>void
+## constructor:(Target:Token)=>void
 
-创建消息并登记到 `owner`。
+创建消息。
 
 ```ts
 this.Target = Target;
-this.Owner = owner;
-owner.Add([this]);
 ```
 
 ## property Type:MessageTypes
@@ -58,14 +51,4 @@ owner.Add([this]);
 
 ```ts
 throw new Error("abstract member: Type");
-```
-
-## method Release:()=>void
-
-释放消息。
-
-原 C# 在这里把 `Target` / `ProcessOwner` / `Owner` 逐个置 `null`；按 M23，置空交 GC 的部分不写，只断开那个可为空的引用。
-
-```ts
-this.ProcessOwner = null;
 ```

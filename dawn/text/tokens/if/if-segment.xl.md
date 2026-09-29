@@ -62,7 +62,7 @@ if (value !== null) {
 原 C# 是 `public IfCondition CreateCondition() => Add(new IfCondition(Owner, Template));`。
 
 ```ts
-return this.Add(new IfCondition(this.Owner, this.Template));
+return this.Add(new IfCondition(this.Template));
 ```
 
 ## property Statement:IfStatement | null
@@ -101,7 +101,7 @@ if (value !== null) {
 原 C# 是 `public IfStatement CreateStatement() => Add(new IfStatement(Owner, Template));`。
 
 ```ts
-return this.Add(new IfStatement(this.Owner, this.Template));
+return this.Add(new IfStatement(this.Template));
 ```
 
 ## method ToXmlString:()=>string
@@ -149,7 +149,7 @@ return result;
 原 C# 是 `public override Token<char> Clone()`：新建一个、**先把 `Key` 复制过去**（漏了它克隆体就丢掉关键字）、`Sign(this)`、把子单元逐个克隆后 `Add`（ts 侧 `AddRange`，M14(c)）、最后 `TryToClose()`。
 
 ```ts
-const result = new IfSegment(this.Owner, this.Template);
+const result = new IfSegment(this.Template);
 result.Key = this.Key;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));

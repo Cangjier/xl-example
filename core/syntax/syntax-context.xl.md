@@ -1,7 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
-import { IReleasable } from "../../owners/i-releasable.xl.md"
 import { Document } from "./document.xl.md"
 import { Message } from "./message.xl.md"
 import { ProcessSource } from "./process-source.xl.md"
@@ -20,13 +18,11 @@ C# 的 `Process` 有三个同名重载（参数表不同），xl 同一类型内
 
 `Dictionary<string, object>` 里的 C# `object` 在 ts 侧映射成 `any`——ts 的 `object` 只表示「非原始值」，装不下 `string` / `number`。
 
-# class SyntaxContext implements IReleasable
+# class SyntaxContext
 
 语法上下文。
 
-## field Owner:IOwner
-
-上下文所属的负责人。
+原 C# 侧还实现 `IReleasable`、持有 `Owner` 字段；资源归属层已移除，`Release` 也没有对应物（见 README「资源生命周期：交给 GC」）。
 
 ## field Messages:Array<Message> = []
 
@@ -46,14 +42,14 @@ C# 的 `Process` 有三个同名重载（参数表不同），xl 同一类型内
 
 待处理位置的队列。原 C# 侧是私有字段。
 
-## constructor:(owner:IOwner, root:Token)=>void
+## constructor:(root:Token)=>void
 
-以根单元创建上下文，并把自身登记到 `owner`。
+以根单元创建上下文。
+
+原 C# 是 `SyntaxContext(IOwner owner, Token<ValueType> root)`，体内还把自己登记进 `owner`；`owner` 形参与登记随资源归属层移除。
 
 ```ts
 this.Root = root;
-this.Owner = owner;
-owner.Add([this]);
 ```
 
 ## method GetDefault:<Item>(key:string, defaultValue?:Item | null)=>Item | null
@@ -127,7 +123,7 @@ this.Root.TryToClose();
 原 C# 是重载 `void Process(Source<ValueType> item)`。
 
 ```ts
-this.SourceQueue.push(new ProcessSource(this.Owner, this.Root, item));
+this.SourceQueue.push(new ProcessSource(this.Root, item));
 this.DrainQueue();
 ```
 
@@ -138,7 +134,7 @@ this.DrainQueue();
 原 C# 是重载 `void Process(Token<ValueType> processOwner, Source<ValueType> item)`。
 
 ```ts
-this.SourceQueue.push(new ProcessSource(this.Owner, processOwner, item));
+this.SourceQueue.push(new ProcessSource(processOwner, item));
 this.DrainQueue();
 ```
 
@@ -177,22 +173,10 @@ while (this.Messages.length > 0) {
     this.SourceQueue.splice(
       0,
       0,
-      new ProcessSource(this.Owner, item.ProcessOwner ?? this.Root, item.Source),
+      new ProcessSource(item.ProcessOwner ?? this.Root, item.Source),
     );
   } else {
     this.HandleMessage(item);
   }
 }
-```
-
-## method Release:()=>void
-
-释放上下文。
-
-原 C# 在这里把 `Messages` / `VariableMap` / `Root` / `SourceQueue` / `Owner` 逐个清空或置 `null`；按 M23，置空交 GC 的部分不写，只保留真正清空容器的三个动作。
-
-```ts
-this.Messages.length = 0;
-this.VariableMap.clear();
-this.SourceQueue.length = 0;
 ```

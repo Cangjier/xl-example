@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -37,7 +36,7 @@ import { Symbol } from "./symbol.xl.md"
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 §4 的等价写法落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个复合赋值符号。
 
@@ -79,7 +78,7 @@ if (current instanceof Common && current.Is("return")) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 切开复合赋值符号、补一份运算符副本，**返回新的下标**。
 
@@ -99,7 +98,7 @@ return false;
 - `insertUnits = [.. frontClone, operatorSymbol]`——C# 的集合表达式，ts 里写成 `[...frontClones, operatorSymbol]`。
 - `units.ReplaceRangeAt(index + 1, 0, insertUnits)`——在 `index + 1` 处**删除 0 个、插入一批**，即纯插入。
 
-`Process` 的 `owner` / `template` 两个形参在原 C# 里也没用到（基类签名要求），照实保留。
+`Process` 的 `template` 形参在原 C# 里也没用到（基类签名要求），照实保留。
 
 ```ts
 const current = Get(units, index) as Symbol;

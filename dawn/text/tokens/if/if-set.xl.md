@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
@@ -35,7 +34,7 @@ import { IfSegment } from "./if-segment.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `if` 的 `Common`，紧跟（跳过 `WrapSymbol` 软换行）一个 `(` 开头的 `Bracket`。
 
@@ -52,7 +51,7 @@ const next = GetSkipNextWrapSymbol(units, index);
 return next instanceof Bracket && next.StartBracketChar === "(";
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：把整条 `if / else if / else` 链收进一个 `IfSet`，**返回新的下标**。
 
@@ -72,7 +71,7 @@ return next instanceof Bracket && next.StartBracketChar === "(";
 6. **续段判定**：语句体之后再跳掉软换行，若遇到内容为 `else` 的 `Common`，就再看它后面是不是 `if`：是则把 `lastKeyIndex` / `currentIndex` 都推到那个 `if`（`else if`），否则把 `lastKeyIndex` 设到 `else`（最后一段）；不是 `else` 就把 `endIndex = currentIndex - 1` 并收尾。
 
 ```ts
-const result = new IfSet(owner, template);
+const result = new IfSet(template);
 result.Parent = Get(units, index)!.Parent;
 result.SignIn(Get(units, index)!.SourceRange.Start!);
 const startIndex = index;
@@ -80,7 +79,7 @@ let endIndex = index;
 let currentIndex = index;
 let lastKeyIndex = index;
 while (true) {
-  const ifSeg = result.Add(new IfSegment(owner, template));
+  const ifSeg = result.Add(new IfSegment(template));
   const ifKey = (Get(units, lastKeyIndex) as Common).TempToString();
   if (result.Data.length === 1) {
     ifSeg.SignIn(Get(units, lastKeyIndex)!.SourceRange.Start!);
@@ -155,12 +154,12 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<IfSet>` 里依次是各个 `IfSegment` 的 XML。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器（体是空的）。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method Clone:()=>Token
@@ -170,7 +169,7 @@ super(owner, template);
 原 C# 是 `public override Token<char> Clone()`：新建一个、`Sign(this)`、把子单元逐个克隆后 `Add`（ts 侧 `AddRange`，M14(c)）、最后 `TryToClose()`。
 
 ```ts
-const result = new IfSet(this.Owner, this.Template);
+const result = new IfSet(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

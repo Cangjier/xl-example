@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -22,12 +21,12 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<NewType>` 里是类型名各部分的 XML。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method Clone:()=>Token
@@ -37,7 +36,7 @@ super(owner, template);
 原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是**一批**克隆出来的子单元，按 M14(c) 用 `AddRange`（C# 的 `Add<T>(IEnumerable<T>)` 重载改名）。
 
 ```ts
-const result = new NewType(this.Owner, this.Template);
+const result = new NewType(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

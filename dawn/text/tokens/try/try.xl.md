@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { SyntaxException } from "../../../../core/exceptions/syntax-exception.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
@@ -36,7 +35,7 @@ import { TryBody } from "./try-body.xl.md"
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是 `try` 关键字。
 
@@ -50,7 +49,7 @@ if (current instanceof Common) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：扫描并打包整个 `try` 结构，**返回新的下标**。
 
@@ -69,7 +68,7 @@ if (!(next instanceof Bracket)) {
   throw new SyntaxException(next.SourceRange, "next is not Bracket", null);
 }
 const bracket = next;
-const result = new Try(owner, template);
+const result = new Try(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 const tryBody = result.CreateTryBody();
@@ -162,12 +161,12 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有覆写 `ToXmlString`**，所以 XML 由基类 `Token` 产出：标签名是运行时类名 `Try`，内容是全部子单元的 XML 串接。子单元的顺序是 `TryBody`、若干 `CatchDefine` / `CatchBody`、可选的 `FinallyBody`——这个顺序由 `TryReorganization.Process` 的扫描顺序决定。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method CreateTryBody:()=>TryBody
@@ -177,7 +176,7 @@ super(owner, template);
 原 C# 是 `TryBody CreateTryBody() => Add(new TryBody(Owner, Template));`。
 
 ```ts
-return this.Add(new TryBody(this.Owner, this.Template));
+return this.Add(new TryBody(this.Template));
 ```
 
 ## property TryBody:TryBody
@@ -203,7 +202,7 @@ return result;
 原 C# 是 `CatchDefine CreateCatchDefine() => Add(new CatchDefine(Owner, Template));`。
 
 ```ts
-return this.Add(new CatchDefine(this.Owner, this.Template));
+return this.Add(new CatchDefine(this.Template));
 ```
 
 ## method CreateCatchBody:()=>CatchBody
@@ -213,7 +212,7 @@ return this.Add(new CatchDefine(this.Owner, this.Template));
 原 C# 是 `CatchBody CreateCatchBody() => Add(new CatchBody(Owner, Template));`。
 
 ```ts
-return this.Add(new CatchBody(this.Owner, this.Template));
+return this.Add(new CatchBody(this.Template));
 ```
 
 ## property Catches:Array<Token>
@@ -241,7 +240,7 @@ return result;
 原 C# 是 `FinallyBody CreateFinallyBody() => Add(new FinallyBody(Owner, Template));`。
 
 ```ts
-return this.Add(new FinallyBody(this.Owner, this.Template));
+return this.Add(new FinallyBody(this.Template));
 ```
 
 ## property FinallyBody:FinallyBody | null
@@ -289,7 +288,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。注意 `Try.Clone` **没有**拷贝静态注册信息，`TryReorganization` 也不参与克隆。
 
 ```ts
-const result = new Try(this.Owner, this.Template);
+const result = new Try(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

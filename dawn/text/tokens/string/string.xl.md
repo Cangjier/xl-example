@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { BranchStates } from "../../../../core/syntax/branch-states.xl.md"
 import { ReloadMessage } from "../../../../core/syntax/messages/reload-message.xl.md"
 import { Source } from "../../../../core/syntax/source.xl.md"
@@ -76,14 +75,14 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 原始字符串去掉的缩进宽度，由 `FormatRawIndent` 算出来。
 
-## constructor:(owner:IOwner, template:Template, stringChar:string)=>void
+## constructor:(template:Template, stringChar:string)=>void
 
 以负责人、模板与引号字符创建，并顺手把本单元的跳转/重组队列从模板上取下来。
 
 原 C# 是 `public String(IOwner owner, Template<char> template, char stringChar) : base(owner, template)`，体内三句：记下 `StringChar`，`ProcessQueue = template.BranchTemplate.Get(GetType(), null)`，`ReorganizationQueue = template.ReorganizationTemplate.Get(GetType())`。`GetType()` 按 M17 写成 `this.constructor`（`SequenceTemplate` 以**构造器对象**为键做派发）。
 
 ```ts
-super(owner, template);
+super(template);
 this.StringChar = stringChar;
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
@@ -136,7 +135,7 @@ this.Closed = true;
 
 ```ts
 if (this.Data.length === 0 || !(this.Last() instanceof ConstString)) {
-  const created = new ConstString(this.Owner, this.Template);
+  const created = new ConstString(this.Template);
   created.ParentString = this;
   created.SignIn(signSource);
   this.AddAndCloseLast(created);
@@ -170,9 +169,9 @@ return result;
 const value = source.Value;
 if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (value === this.StringChar) {
-    this.AddToMounted(new VerbatimQuoteGuide(this.Owner, this.Template)).SignIn(source);
+    this.AddToMounted(new VerbatimQuoteGuide(this.Template)).SignIn(source);
   } else if (value === "{") {
-    this.AddToMounted(new InterpolationString(this.Owner, this.Template)).SignIn(source);
+    this.AddToMounted(new InterpolationString(this.Template)).SignIn(source);
   } else {
     this.AppendToLastConstString(value, source);
   }
@@ -185,35 +184,35 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     if (value === "\\") {
       this.Translate.IsTranslating = true;
     } else if (value === "{") {
-      this.AddToMounted(new InterpolationString(this.Owner, this.Template)).SignIn(source);
+      this.AddToMounted(new InterpolationString(this.Template)).SignIn(source);
     } else {
       this.AppendToLastConstString(value, source);
     }
   }
 } else if (!this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (value === this.StringChar) {
-    this.AddToMounted(new VerbatimQuoteGuide(this.Owner, this.Template)).SignIn(source);
+    this.AddToMounted(new VerbatimQuoteGuide(this.Template)).SignIn(source);
   } else {
     this.AppendToLastConstString(value, source);
   }
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
   if (value === this.StringChar) {
-    const guide = new RawQuoteExitGuide(this.Owner, this.Template);
+    const guide = new RawQuoteExitGuide(this.Template);
     guide.StringChar = this.StringChar;
     this.AddToMounted(guide).SignIn(source);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else {
     this.AppendToLastConstString(value, source);
   }
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
   if (value === "{") {
-    this.AddToMounted(new InterpolationGuide(this.Owner, this.Template)).SignIn(source);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    this.AddToMounted(new InterpolationGuide(this.Template)).SignIn(source);
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else if (value === this.StringChar) {
-    const guide = new RawQuoteExitGuide(this.Owner, this.Template);
+    const guide = new RawQuoteExitGuide(this.Template);
     guide.StringChar = this.StringChar;
     this.AddToMounted(guide).SignIn(source);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   } else {
     this.AppendToLastConstString(value, source);
   }
@@ -229,7 +228,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     } else if (value === "{" && source.Pre()?.Value === "$" && !Source.Same(source.Pre(), this.LastTranslateSource) && this.StringChar === "`") {
       this.InterpolationCount = 1;
       this.Undo(source.Pre()!);
-      this.AddToMounted(new InterpolationString(this.Owner, this.Template)).SignIn(source);
+      this.AddToMounted(new InterpolationString(this.Template)).SignIn(source);
     } else {
       this.AppendToLastConstString(value, source);
     }
@@ -370,7 +369,7 @@ return result;
 原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → 逐个复制开关 → `Add(i.Clone())` → `TryToClose()`。
 
 ```ts
-const result = new String(this.Owner, this.Template, this.StringChar);
+const result = new String(this.Template, this.StringChar);
 result.Sign(this);
 result.IsSupportInterpolation = this.IsSupportInterpolation;
 result.IsSupportVerbatim = this.IsSupportVerbatim;

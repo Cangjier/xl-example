@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
@@ -48,7 +47,7 @@ return result;
 ```ts
 const preUnit = source.Pre()!;
 unit.Undo(preUnit);
-unit.AddToMounted(new LineAnnotation(unit.Owner, unit.Template)).SignIn(preUnit);
+unit.AddToMounted(new LineAnnotation(unit.Template)).SignIn(preUnit);
 ```
 
 # class LineAnnotationReorganization extends Reorganization
@@ -63,7 +62,7 @@ unit.AddToMounted(new LineAnnotation(unit.Owner, unit.Template)).SignIn(preUnit)
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `LineAnnotation`。
 
@@ -73,7 +72,7 @@ unit.AddToMounted(new LineAnnotation(unit.Owner, unit.Template)).SignIn(preUnit)
 return Get(units, index) instanceof LineAnnotation;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `LineAnnotation` 删掉，**返回新的下标**。
 
@@ -98,14 +97,14 @@ return index - 1;
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列取出来；本类不设重组队列（摘除动作由 `Root` 的通用重组队列驱动）。
 
 原 C# 是 `public LineAnnotation(IOwner owner, Template<char> template) : base(owner, template)`，体里只有 `ProcessQueue = template.BranchTemplate.Get(GetType(), null);`——`GetType()` 按 M17 写成 `this.constructor`。
 
 ```ts
-super(owner, template);
+super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 ```
 
@@ -195,7 +194,7 @@ if (preSource !== null && preSource.Value === "\r") {
 }
 this.TryToClose();
 this.Quit();
-context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 return BranchStates.Done;
 ```
 
@@ -219,7 +218,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Tmp.Append(Tmp)` → `TryToClose()`。
 
 ```ts
-const result = new LineAnnotation(this.Owner, this.Template);
+const result = new LineAnnotation(this.Template);
 result.Sign(this);
 result.Tmp += this.Tmp;
 result.TryToClose();

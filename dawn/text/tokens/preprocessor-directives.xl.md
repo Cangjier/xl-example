@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
@@ -44,7 +43,7 @@ return result;
 原 C# 把整条链写成一句 `unit.AddToMounted(new PreprocessorDirectives(unit.Owner, unit.Template)).SignIn(source);`。
 
 ```ts
-unit.AddToMounted(new PreprocessorDirectives(unit.Owner, unit.Template)).SignIn(source);
+unit.AddToMounted(new PreprocessorDirectives(unit.Template)).SignIn(source);
 ```
 
 # class PreprocessorDirectives extends UnitToken
@@ -61,14 +60,14 @@ unit.AddToMounted(new PreprocessorDirectives(unit.Owner, unit.Template)).SignIn(
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列取出来；本类没有重组队列。
 
 原 C# 是 `public PreprocessorDirectives(IOwner owner, Template<char> template) : base(owner, template)`，体里只有 `ProcessQueue = template.BranchTemplate.Get(GetType(), null);`——`GetType()` 按 M17 写成 `this.constructor`。
 
 ```ts
-super(owner, template);
+super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 ```
 
@@ -182,7 +181,7 @@ if (pre !== null && pre.Value === "\r") {
 this.SignOut(source);
 this.TryToClose();
 this.Quit();
-context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 return BranchStates.Done;
 ```
 
@@ -206,7 +205,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Tmp.Append(Tmp)` → `TryToClose()`。
 
 ```ts
-const result = new PreprocessorDirectives(this.Owner, this.Template);
+const result = new PreprocessorDirectives(this.Template);
 result.Sign(this);
 result.Tmp += this.Tmp;
 result.TryToClose();

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { SyntaxException } from "../../../../core/exceptions/syntax-exception.xl.md"
@@ -35,7 +34,7 @@ import { NewType } from "./new-type.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `new` 的 `Common`。后面有没有括号由 `Process` 负责检查。
 
@@ -45,7 +44,7 @@ import { NewType } from "./new-type.xl.md"
 return Get(units, index) instanceof Common && (Get(units, index) as Common).Is("new");
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：从 `index` 起向后找第一个 `Bracket`，把它之前的内容收进 Type 段、把括号内容搬进 Arguments 段，整段换成一个 `New`，**返回新的下标**。
 
@@ -64,7 +63,7 @@ if (bracketIndex === -1) {
   throw SyntaxException.FromMessage(current.SourceRange, "new 后面没有找到括号");
 }
 const bracket = Get(units, bracketIndex) as Bracket;
-const result = new New(owner, template);
+const result = new New(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(bracket.SourceRange.End!);
@@ -92,12 +91,12 @@ return ReplaceCountAt(units, index, bracketIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<New>` 里依次是 Type 与 Arguments 两段的 XML。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method CreateType:()=>NewType
@@ -107,7 +106,7 @@ super(owner, template);
 原 C# 是 `public NewType CreateType()`。
 
 ```ts
-return this.Add(new NewType(this.Owner, this.Template));
+return this.Add(new NewType(this.Template));
 ```
 
 ## property Type:NewType
@@ -131,7 +130,7 @@ return this.Data.find((x) => x instanceof NewType) as NewType;
 原 C# 是 `public NewArguments CreateArguments()`。
 
 ```ts
-return this.Add(new NewArguments(this.Owner, this.Template));
+return this.Add(new NewArguments(this.Template));
 ```
 
 ## property Arguments:NewArguments
@@ -167,7 +166,7 @@ return result;
 原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是**一批**克隆出来的子单元，按 M14(c) 用 `AddRange`（C# 的 `Add<T>(IEnumerable<T>)` 重载改名）。
 
 ```ts
-const result = new New(this.Owner, this.Template);
+const result = new New(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

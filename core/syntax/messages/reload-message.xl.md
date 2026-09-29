@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Message, MessageTypes } from "../message.xl.md"
 import { Source } from "../source.xl.md"
 import { Token } from "../token.xl.md"
@@ -22,24 +21,24 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 要重新处理的位置。原 C# 侧是公开字段 `public Source<ValueType> Source;`。
 
-## constructor:(owner:IOwner, processOwner:Token | null, target:Token, source:Source)=>void
+## constructor:(processOwner:Token | null, target:Token, source:Source)=>void
 
 带处理者的构造；`processOwner` 允许为 `null`，表示消费时回退到上下文的根。
 
 原 C# 签名是 `ReloadMessage(IOwner owner, Token<ValueType> processOwner, Token<ValueType> target, Source<ValueType> source) : base(owner, target)`。
 
 ```ts
-super(owner, target);
+super(target);
 this.Source = source;
 this.ProcessOwner = processOwner;
 ```
 
-## static method WithoutProcessOwner:(owner:IOwner, target:Token, source:Source)=>ReloadMessage
+## static method WithoutProcessOwner:(target:Token, source:Source)=>ReloadMessage
 
 原 C# 构造器 `ReloadMessage(IOwner owner, Token<ValueType> target, Source<ValueType> source)` 的替代：不指定处理者。
 
 ```ts
-return new ReloadMessage(owner, null, target, source);
+return new ReloadMessage(null, target, source);
 ```
 
 ## property Type:MessageTypes

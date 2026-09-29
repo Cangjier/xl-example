@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
@@ -114,7 +113,7 @@ if (interfaceInstance !== null) {
 return nextIndex;
 ```
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个接口声明的起点。
 
@@ -135,7 +134,7 @@ if (
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把一个接口声明折成一个 `Interface`，**返回新的下标**。
 
@@ -151,7 +150,7 @@ return false;
 let startIndex = index;
 let endIndex = index;
 const previousIndex = SkipPreviousWrapSymbol(units, index);
-const interfaceInstance = new Interface(owner, template);
+const interfaceInstance = new Interface(template);
 const previous = Get(units, previousIndex);
 if (previous instanceof Common && previous.Is("export")) {
   startIndex = previousIndex;
@@ -198,12 +197,12 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, interfaceIns
 
 **类名必须与 C# 完全一致**（M17）：`constructor.name` 就是它的 XML 标签名。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method Clone:()=>Token
@@ -215,7 +214,7 @@ super(owner, template);
 **注意原 C# 的 `Clone` 不复制** `IsExport` / `InterfaceName` / `ExtendsInterfaceNames` 三个字段——克隆体三个字段都是初值。看着像漏写，但这是原实现的行为，照抄。
 
 ```ts
-const result = new Interface(this.Owner, this.Template);
+const result = new Interface(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

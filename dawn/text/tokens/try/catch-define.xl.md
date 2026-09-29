@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -20,7 +19,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 注意它与 `TryBody` / `CatchBody` / `FinallyBody` 的差别：它构造时挂的**不是**语句重组队列，而是从 `ReorganizationTemplate` 里按自己的运行时类型取队列——圆括号里是「类型 + 变量名」，走的是另一套重组规则。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 创建时按自己的运行时类型取重组队列。
 
@@ -29,7 +28,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 按 M17，C# 的 `GetType()` 在 ts 侧写成 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键派发）。
 
 ```ts
-super(owner, template);
+super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -40,7 +39,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。
 
 ```ts
-const result = new CatchDefine(this.Owner, this.Template);
+const result = new CatchDefine(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

@@ -1,7 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
-import { IReleasable } from "../../owners/i-releasable.xl.md"
 import { Source } from "./source.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
@@ -13,15 +11,14 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 待处理队列里的一条：某个位置，交给某个单元去处理。
 
-# class ProcessSource implements IReleasable
+# class ProcessSource
 
 一条待处理的「位置 + 处理者」。
 
 `SyntaxContext` 把要处理的字符排成这个队列，逐个弹出后调用 `Process`。
 
-## field Owner:IOwner
-
-本条目所属的负责人。
+原 C# 侧还实现 `IReleasable`、持有 `Owner` 字段；资源归属层已移除（见 README「资源生命周期：交给 GC」），
+所以这里只有「处理者 + 位置」两件事。
 
 ## field ProcessOwner:Token
 
@@ -31,16 +28,16 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 要处理的位置。原 C# 是 `Source<ValueType> Source { get; set; }`。
 
-## constructor:(owner:IOwner, processOwner:Token, source:Source)=>void
+## constructor:(processOwner:Token, source:Source)=>void
 
-创建条目并登记到 `owner`。
+创建条目。
 
-原 C# 里 `this.Owner = owner.Add(this)`——`Add` 返回的是 `owner` 自身，所以 ts 侧直接写 `owner.Add([this])`。
+原 C# 是 `ProcessSource(IOwner owner, Token<ValueType> processOwner, Source<ValueType> source)`，体内还写
+`this.Owner = owner.Add(this)` 把自己登记进持有者；`owner` 形参与这次登记都随资源归属层移除。
 
 ```ts
 this.ProcessOwner = processOwner;
 this.Source = source;
-this.Owner = owner.Add([this]);
 ```
 
 ## method Process:(context:SyntaxContext)=>void
@@ -50,9 +47,3 @@ this.Owner = owner.Add([this]);
 ```ts
 this.ProcessOwner.Process(context, this.Source);
 ```
-
-## method Release:()=>void
-
-释放条目。
-
-原 C# 只把 `ProcessOwner` 置 `null`；按 M23 这是纯粹的置空交 GC，ts 侧没有可做的事，所以按 M30 不写 ts 体。

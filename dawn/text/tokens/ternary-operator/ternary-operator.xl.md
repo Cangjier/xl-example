@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
@@ -34,7 +33,7 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个可以当作三元运算符的 `:`。
 
@@ -82,7 +81,7 @@ if (current instanceof Common && current.Is("return")) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：切出条件 / 真值 / 假值三段，组装成 `TernaryOperator`，**返回新的下标**。
 
@@ -105,7 +104,7 @@ let endIndex = SearchBack(units, elseIndex, (item: Token) => item instanceof Sym
 if (endIndex === -1) {
   endIndex = units.length;
 }
-const ternaryOperator = new TernaryOperator(owner, template);
+const ternaryOperator = new TernaryOperator(template);
 ternaryOperator.Parent = current.Parent;
 const condition = ternaryOperator.CreateCondition();
 const trueStatement = ternaryOperator.CreateTrueStatement();
@@ -136,12 +135,12 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 
 它**没有覆写 `ToXmlString`**，XML 由基类 `Token` 产出：`<TernaryOperator>…</TernaryOperator>`，内容是三个子单元的串接。它的 `ToDictionary` 也是少数**不带 `type` 键**的实现——只有 `condition` / `trueStatement` / `falseStatement` 三个键。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## property Condtion:TernaryOperatorCondition
@@ -165,7 +164,7 @@ return this.Data.find((item) => item instanceof TernaryOperatorCondition)!;
 原 C# 是 `public TernaryOperatorCondition CreateCondition() { return Add(new TernaryOperatorCondition(Owner, Template)); }`。
 
 ```ts
-return this.Add(new TernaryOperatorCondition(this.Owner, this.Template));
+return this.Add(new TernaryOperatorCondition(this.Template));
 ```
 
 ## property TrueStatement:TernaryOperatorTrueStatement
@@ -187,7 +186,7 @@ return this.Data.find((item) => item instanceof TernaryOperatorTrueStatement)!;
 原 C# 是 `public TernaryOperatorTrueStatement CreateTrueStatement() { return Add(new TernaryOperatorTrueStatement(Owner, Template)); }`。
 
 ```ts
-return this.Add(new TernaryOperatorTrueStatement(this.Owner, this.Template));
+return this.Add(new TernaryOperatorTrueStatement(this.Template));
 ```
 
 ## property FalseStatement:TernaryOperatorFalseStatement
@@ -209,7 +208,7 @@ return this.Data.find((item) => item instanceof TernaryOperatorFalseStatement)!;
 原 C# 是 `public TernaryOperatorFalseStatement CreateFalseStatement() { return Add(new TernaryOperatorFalseStatement(Owner, Template)); }`。
 
 ```ts
-return this.Add(new TernaryOperatorFalseStatement(this.Owner, this.Template));
+return this.Add(new TernaryOperatorFalseStatement(this.Template));
 ```
 
 ## method ToDictionary:()=>Map<string, any>
@@ -233,7 +232,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(x => x.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。
 
 ```ts
-const result = new TernaryOperator(this.Owner, this.Template);
+const result = new TernaryOperator(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

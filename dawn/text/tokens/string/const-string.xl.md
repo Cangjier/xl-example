@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { BlockToken } from "../../../../core/syntax/block-token.xl.md"
 import { Source } from "../../../../core/syntax/source.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
@@ -30,12 +29,12 @@ import { String } from "./string.xl.md"
 
 注意这里的 `String` 是**本项目**的 `String` 类（`dawn/text/tokens/string/string.xl.md`），与 C# 的 `System.String` 无关；C# 侧写成 `String` 只是因为它在 `Cangjie.Dawn.Text.Tokens.String` 命名空间里。ts 侧这个 import 会遮蔽全局 `String`，这是**故意的**。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, Template);
+super(Template);
 ```
 
 ## method IsAppend:(Src:Source)=>bool
@@ -357,7 +356,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Temp.AddRange(Temp)` → `TryToClose()`。
 
 ```ts
-const result = new ConstString(this.Owner, this.Template);
+const result = new ConstString(this.Template);
 result.Sign(this);
 result.Temp.push(...this.Temp);
 result.TryToClose();

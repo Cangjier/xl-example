@@ -1,7 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
-import { IReleasable } from "../../owners/i-releasable.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { Branch } from "./branch.xl.md"
 import { Reorganization } from "./reorganization.xl.md"
@@ -18,15 +16,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转与重组。
 
-# class Token implements IReleasable
+# class Token
 
 Token，语法树的地基。
 
-原 C# 侧是 `public abstract class Token<ValueType> : IReleasable`。xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个抽象成员写成抛错桩。
-
-## field Owner:IOwner
-
-本单元所属的负责人，构造时登记进去。
+原 C# 侧是 `public abstract class Token<ValueType> : IReleasable`。**本移植移除了资源归属层**：`Token` 不再实现
+`IReleasable`、不再持有 `Owner` 字段、构造器也不收 `owner`，释放交给 GC（见 README「资源生命周期：交给 GC」）。
+xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个抽象成员写成抛错桩。
 
 ## field Template:Template
 
@@ -64,14 +60,15 @@ Token，语法树的地基。
 
 本单元是否已关闭；关闭后不再接收字符。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
-以负责人与模板创建，并把自身登记到 `owner`。
+以模板创建。
+
+原 C# 是 `Token(IOwner owner, Template<char> template)`，体内除了记下模板还把自身 `owner.Add(this)` 登记进持有者。
+资源归属层移除后这两件事只剩一件，登记与 `Release` 都没有对应物。
 
 ```ts
 this.Template = template;
-owner.Add([this]);
-this.Owner = owner;
 ```
 
 ## method Last:(index?:int)=>Token | null
@@ -134,8 +131,8 @@ if (this.ReorganizationQueue === null) {
 }
 for (const item of this.ReorganizationQueue.Data) {
   for (let i = 0; i < this.Data.length; i++) {
-    if (item.Previous(this.Owner, this.Template, this.Data, i)) {
-      i = item.Process(this.Owner, this.Template, this.Data, i);
+    if (item.Previous(this.Template, this.Data, i)) {
+      i = item.Process(this.Template, this.Data, i);
     }
   }
 }
@@ -453,14 +450,4 @@ return result;
 
 ```ts
 throw new Error("abstract member: Clone");
-```
-
-## method Release:()=>void
-
-释放本单元。
-
-原 C# 在这里清空 `Data` 并把 `Parent` / `MountedUnit` / `LastSource` / `ProcessQueue` / `Owner` 逐个置 `null`；按 M23，置空交 GC 的部分不写，只保留真正清空容器的动作。
-
-```ts
-this.Data.length = 0;
 ```

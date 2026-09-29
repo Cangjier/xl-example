@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
 import { CommonUtil } from "../common-util.xl.md"
 import { Source } from "./source.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -22,12 +21,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 本块累积的字符。原 C# 是 `List<ValueType> Temp { get; private set; }`。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method TempToString:()=>string
@@ -147,15 +146,4 @@ this.SourceRange.End = source;
 ```ts
 const name = this.constructor.name;
 return `<${name}>${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
-```
-
-## method Release:()=>void
-
-释放：先清空自己的字符块，再走基类的释放。
-
-原 C# 是 `public override void Release()`。
-
-```ts
-this.Temp.length = 0;
-super.Release();
 ```

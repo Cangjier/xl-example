@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -21,14 +20,14 @@ Lambda 的体。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaBody>子单元</LamdaBody>`。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 转调基类构造器，然后把「语句体」那一组默认重组规则装进自己的重组队列。
 
 原 C# 构造体只有一句 `this.InitialStatementReorganizationQueue()`——那是 `Dawn/Text/TextCommonUtil.cs` 里的扩展方法（`Token<char>` 上的），它读的是通用重组队列，所以并到了 `../../parse-pipeline.xl.md`，ts 侧写成 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
 
 ```ts
-super(owner, Template);
+super(Template);
 ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
@@ -43,7 +42,7 @@ ParsePipeline.InitialStatementReorganizationQueue(this);
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；`Add` 收到的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)）。注意**不拷 `IsStatement`**——这是原实现的行为，照抄。
 
 ```ts
-const result = new LamdaBody(this.Owner, this.Template);
+const result = new LamdaBody(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

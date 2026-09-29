@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -23,7 +22,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 只覆写了 `Clone`；`Process` / `Close` / `Default` 沿用 `IndependentToken` 的空实现。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 创建语句体单元，并挂上语句重组队列。
 
@@ -32,7 +31,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 `InitialStatementReorganizationQueue` 在 C# 里是 `Dawn/Text/TextCommonUtil.cs` 上的扩展方法；它读的是通用重组队列，所以并到了 `../../parse-pipeline.xl.md`，ts 侧写成 `ParsePipeline.InitialStatementReorganizationQueue(this)` 并 import 该类。
 
 ```ts
-super(owner, template);
+super(template);
 ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
@@ -43,7 +42,7 @@ ParsePipeline.InitialStatementReorganizationQueue(this);
 原 C# 是 `public override Token<char> Clone()`：新建一个、`Sign(this)`、把子单元逐个克隆后 `Add`（ts 侧 `AddRange`，M14(c)）、最后 `TryToClose()`。
 
 ```ts
-const result = new IfStatement(this.Owner, this.Template);
+const result = new IfStatement(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

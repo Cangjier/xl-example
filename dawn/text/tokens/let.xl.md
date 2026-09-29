@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -46,7 +45,7 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一条 `let` 声明的开头。
 
@@ -67,7 +66,7 @@ if (next instanceof Common) {
 return next instanceof Bracket && (next.Is("[", "]") || next.Is("{", "}"));
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把整段声明收成一个 `Let`，**返回新的下标**。
 
@@ -77,7 +76,7 @@ return next instanceof Bracket && (next.Is("[", "]") || next.Is("{", "}"));
 - `endIndex` 由 `units.SkipNext(index)` 得到——这是 `Dawn/Text/ListExtensions.cs` 里那个跳过「软换行与注释」的一参版 `SkipNext`，ts 侧从 `../list-extensions.xl.md` 取。
 - 终点单元的形态决定 `LetType`：`Common` → `Field`（记 `FieldName`）；`[]` → `Array`（记 `UnpackArrayFieldNames`）；`{}` → `Object`（记 `UnpackObjectFieldNames`）；三者都不是就抛错。
 - 两组解构名都是「括号子单元里所有 `Common` 的文本」。
-- 最后 `units.ReplaceAt(startIndex, count, let)` 是 4 参重载，按 M14(c) 落在 `ReplaceCountAt` 上，返回的 `startIndex` 就是新下标；被替换掉的两个单元各自 `Release()`。
+- 最后 `units.ReplaceAt(startIndex, count, let)` 是 4 参重载，按 M14(c) 落在 `ReplaceCountAt` 上，返回的 `startIndex` 就是新下标；被替换掉的两个单元不再显式释放，交给 GC。
 
 原 C# 把新单元命名为局部变量 `let`，ts 里 `let` 是关键字，改叫 `letUnit`（语义不变）。
 
@@ -97,7 +96,7 @@ const next = Get(units, endIndex);
 if (next === null) {
   throw new Error("NullReferenceException: next");
 }
-const letUnit = new Let(owner, template);
+const letUnit = new Let(template);
 letUnit.SignIn(current.SourceRange.Start!);
 letUnit.SignOut(next.SourceRange.End!);
 if (next instanceof Common) {
@@ -115,8 +114,6 @@ if (next instanceof Common) {
   throw new Error("InvalidOperationException");
 }
 letUnit.TryToClose();
-current.Release();
-next.Release();
 return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, letUnit);
 ```
 
@@ -127,12 +124,12 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, letUnit);
 
 它覆写了 `ToXmlString`，而且**三种形态的 XML 完全不同**——标签名后的属性名随 `LetType` 走，都是自闭合标签。这是验收核心，与 C# 逐字对照。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## field LetType:LetType = LetType.Field
@@ -197,7 +194,7 @@ throw new Error("InvalidOperationException");
 原 C# 的顺序是 `Sign(this)` → 抄 `FieldName` → `TryToClose()`。注意它**只抄 `FieldName`**：`LetType` 与两组解构名都不抄（`LetType` 回到默认的 `Field`）——这是原实现的行为，照抄不补齐。
 
 ```ts
-const result = new Let(this.Owner, this.Template);
+const result = new Let(this.Template);
 result.Sign(this);
 result.FieldName = this.FieldName;
 result.TryToClose();

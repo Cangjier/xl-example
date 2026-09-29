@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { GuideToken } from "../../../../core/syntax/guide-token.xl.md"
 import { Source } from "../../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
@@ -22,12 +21,12 @@ import { String } from "./string.xl.md"
 
 原 C# 侧是 `public class VerbatimQuoteGuide : GuideToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, Template);
+super(Template);
 ```
 
 ## property ParentString:String
@@ -78,6 +77,6 @@ if (value === "\"") {
   //手动强制退出
   this.ParentString.ForceExit(source.Pre()!);
   //最后一个字符需要重载
-  context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 }
 ```

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
 import { Document } from "../../core/syntax/document.xl.md"
 import { SourceRange } from "../../core/syntax/source-range.xl.md"
 ```
@@ -31,14 +30,14 @@ import { SourceRange } from "../../core/syntax/source-range.xl.md"
 
 每一行起始下标。原 C# 侧是私有字段 `int[] LineStartOffsets`。
 
-## constructor:(owner:IOwner, content:string)=>void
+## constructor:(content:string)=>void
 
 以文本创建，并把两个取值器交给基类。
 
 原 C# 签名是 `TextDocument(IOwner owner, string content) : base(owner, index => content[index], () => content.Length, null)`。
 
 ```ts
-super(owner, (index: number) => content[index], () => content.length, null);
+super((index: number) => content[index], () => content.length, null);
 this.Content = content;
 this.ProcessLineStartOffsets();
 ```

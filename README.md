@@ -17,7 +17,7 @@ node build/cjcli.js samples/hello.cj
 
 `npm run build` 就是上面前两步的串联（`xl build && tsc`）。
 
-生成物：`dist/` 下 107 个 `.ts`、`build/` 下 107 个 `.js`。两者都在 `.gitignore` 里。
+生成物：`dist/` 下 104 个 `.ts`、`build/` 下 104 个 `.js`。两者都在 `.gitignore` 里。
 
 ## 解析优先级在哪
 
@@ -34,6 +34,18 @@ token 层的公共契约——**跳转优先级**与**重组优先级**——只
 token 类，而 token 类又反过来依赖 `Root`（循环依赖）。现在依赖是单向的
 `TextContext → ParsePipeline → tokens`，`Root` 退回纯粹的「语法树顶点」。
 
+## 资源生命周期：交给 GC
+
+原 C# 侧有一层资源归属（`Owners/`）：`IOwner` 收集 `IReleasable`，每个 `Token` / `Document` / `Message` /
+`ProcessSource` / `SyntaxContext` 构造时把自己 `owner.Add(this)` 登记进去，宿主再在
+`using (var owner = new Owner())` 结束时统一 `Release()` 掉整棵树。
+
+**本移植把这层整个去掉了**：没有 `Owners/` 目录，构造器不收 `owner`，`Owner` / `IReleasable` 字段与
+`Release` 方法都不存在，连 `Reorganization.Previous` / `Process` 的第一个形参也不再是 `owner`。
+对象一旦不再被引用就交给 GC——丢掉 `TextContext` 与 `Root` 的最后一个引用，整棵树随之回收；
+中途被重组替换掉的单元（`conditionBracket` / `nameUnit` 之类）同理，不需要显式清理。
+
+各文件「原 C# 是 …」的说明里仍然写着 `IOwner owner` 形参，那是**原实现的写法**；规范里的签名才是移植后的形态。
 
 ## cjcli
 

@@ -13,7 +13,7 @@ import { RuntimeVariable } from "./runtime-variable.xl.md"
 
 运行时作用域。
 
-原 C# 侧还实现 `IDisposable` / `IAsyncDisposable`；与 `Owner` 同理，BCL 接口写在正文，`Dispose` / `DisposeAsync` 本身仍是规范内成员。
+原 C# 侧还实现 `IDisposable` / `IAsyncDisposable`；xl 的 `implements` 只能列规范内声明的接口，BCL 接口写在正文，`Dispose` / `DisposeAsync` 本身仍是规范内成员。
 
 ## field Type:RuntimeScopeType = RuntimeScopeType.Common
 

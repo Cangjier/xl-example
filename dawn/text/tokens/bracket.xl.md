@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
@@ -45,7 +44,7 @@ return result;
 原 C# 把整条链写成一句 `unit.AddToMounted(new Bracket(unit.Owner,unit.Template)).Use(source.Value).SignIn(source);`。
 
 ```ts
-unit.AddToMounted(new Bracket(unit.Owner, unit.Template)).Use(source.Value).SignIn(source);
+unit.AddToMounted(new Bracket(unit.Template)).Use(source.Value).SignIn(source);
 ```
 
 # class Bracket extends UnitToken
@@ -62,14 +61,14 @@ unit.AddToMounted(new Bracket(unit.Owner, unit.Template)).Use(source.Value).Sign
 
 原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 以负责人与模板创建，并把本类型的跳转队列取出来。
 
 原 C# 是 `public Bracket(IOwner owner,Template<char> template) : base(owner, template)`，体里只有 `ProcessQueue = template.BranchTemplate.Get(GetType());`——`GetType()` 按 M17 写成 `this.constructor`。
 
 ```ts
-super(owner, template);
+super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 ```
 
@@ -192,7 +191,7 @@ return result;
 原 C# 的顺序是：`Sign(this)` → 抄两个括号字符 → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `ReorganizationQueue` 赋值。`Add` 传的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)：C# 的 `Add<T>(IEnumerable<T>)` 重载改名 `AddRange`）。
 
 ```ts
-const result = new Bracket(this.Owner, this.Template);
+const result = new Bracket(this.Template);
 result.Sign(this);
 result.StartBracketChar = this.StartBracketChar;
 result.EndBracketChar = this.EndBracketChar;

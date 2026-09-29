@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -31,7 +30,7 @@ import { Symbol } from "./symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个类型赋值的开头。
 
@@ -51,7 +50,7 @@ const nextSymbol = Get(units, nextIndex2);
 return nextSymbol instanceof Symbol && nextSymbol.Is("=");
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把整段类型赋值收成一个 `TypeAssign`，**返回新的下标**。
 
@@ -78,7 +77,7 @@ let endIndex = SearchBack(units, index, (item) => item instanceof Symbol && item
 if (endIndex === -1) {
   endIndex = units.length - 1;
 }
-const result = new TypeAssign(owner, template);
+const result = new TypeAssign(template);
 result.Parent = current.Parent;
 result.AddRange(TakeRange(units, startIndex, endIndex - startIndex + 1));
 result.SignIn(current.SourceRange.Start!);
@@ -96,12 +95,12 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 原 C# 文件里有一句 `using Cangjie.Dawn.Text.Tokens.Json;`，但整个文件没有用到 Json 名字空间的任何类型，所以 ts 侧**不**引 `json/` 下的任何文件。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method Clone:()=>Token
@@ -111,7 +110,7 @@ super(owner, template);
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；批量 `Add` 按 M14(c) 写成 `AddRange`。
 
 ```ts
-const result = new TypeAssign(this.Owner, this.Template);
+const result = new TypeAssign(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

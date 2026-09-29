@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -47,7 +46,7 @@ this.Operator = operator;
 
 `&&` 口径的实例。原 C# 是静态属性 `public static Reorganization AndInstance { get; } = new("&&");`。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本规则认的那个运算符符号。
 
@@ -109,7 +108,7 @@ if (current instanceof Symbol) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 按运算符切分 `[startIndex + 1, endIndex)`，把每一段操作数收成一个 `LogicalOperator`，**返回新的下标**。
 
@@ -141,7 +140,7 @@ for (let i = startIndex + 1; i < endIndex; i++) {
     itemLogicalOperator = null;
   } else {
     if (itemLogicalOperator === null) {
-      itemLogicalOperator = new LogicalOperator(owner, template);
+      itemLogicalOperator = new LogicalOperator(template);
       itemLogicalOperator.Parent = current.Parent;
       itemLogicalOperator.Operator = this.Operator;
     }
@@ -166,14 +165,14 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, logicalO
 
 它覆写了 `ToXmlString`：标签名是运行时类名，另外把 `"||"` / `"&&"` 翻译成 `Or` / `And` 放进 `Operator` 属性（**不是**原样的 `||` / `&&`）。这是验收核心，与 C# 逐字对照。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
 原 C# 的构造体只有一句 `ReorganizationQueue = template.ReorganizationTemplate.Get(typeof(LogicalOperator));`；`typeof(X)` 按 §3.8 落成类对象 `X`（`SequenceTemplate` 以类对象为键）。
 
 ```ts
-super(owner, template);
+super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(LogicalOperator);
 ```
 
@@ -206,7 +205,7 @@ return `<${name} Operator="${operatorName}">${temp.join("")}</${name}>`;
 原 C# 的顺序是：`new LogicalOperator(...) { Operator = Operator }`（对象初始化器）→ `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；ts 侧把初始化器拆成先 `new` 再赋值，批量 `Add` 按 M14(c) 写成 `AddRange`。
 
 ```ts
-const result = new LogicalOperator(this.Owner, this.Template);
+const result = new LogicalOperator(this.Template);
 result.Operator = this.Operator;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
 import { Template } from "./templates/template.xl.md"
 import { Token } from "./token.xl.md"
 ```
@@ -17,9 +16,12 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 原 C# 侧是 `public abstract class Reorganization<ValueType>`，两个抽象方法，都写成抛错桩（M13）。
 
+C# 的两个方法都以 `IOwner owner` 开头；资源归属层移除后这个形参一并去掉（见 README「资源生命周期：交给 GC」），
+所以规范签名从 `template` 开始。
+
 `Process` 的 C# 签名带 `ref int index`，按 M15 改成返回值——调用点写成 `i = item.Process(..., i)`。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 下标 `index` 处是不是本次重组的起点。
 
@@ -29,7 +31,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 throw new Error("abstract member: Previous");
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组，**返回新的下标**。
 

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -23,12 +22,12 @@ Lambda 的形参列表。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaParameters>各个形参的 XML</LamdaParameters>`。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 原 C# 构造体是空的，只是转调基类构造器。
 
 ```ts
-super(owner, Template);
+super(Template);
 ```
 
 ## method Clone:()=>Token
@@ -38,7 +37,7 @@ super(owner, Template);
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；`Add` 收到的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)）。
 
 ```ts
-const result = new LamdaParameters(this.Owner, this.Template);
+const result = new LamdaParameters(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

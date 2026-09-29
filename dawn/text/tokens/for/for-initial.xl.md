@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -22,14 +21,14 @@ C 风格 `for` 语句的三段头之一：`for(initial; compare; next)` 里第�
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<ForInitial>` 里是内容的 XML。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 以负责人与模板创建，并把模板里按本单元类型准备的重组队列挂上。
 
 原 C# 是 `public ForInitial(IOwner owner, Template<char> template) : base(owner, template)`，构造体里只有 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`——`GetType()` 按 M17 写成 `this.constructor`，`SequenceTemplate.Get` 按构造器对象派发。
 
 ```ts
-super(owner, template);
+super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -40,7 +39,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是**一批**克隆出来的子单元，按 M14(c) 用 `AddRange`（C# 的 `Add<T>(IEnumerable<T>)` 重载改名）。
 
 ```ts
-const result = new ForInitial(this.Owner, this.Template);
+const result = new ForInitial(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

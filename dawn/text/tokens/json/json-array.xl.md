@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
@@ -88,7 +87,7 @@ if (unit.Parent === null) {
 return this.IsArrayAt(unit.Parent.Data, unit.Parent.Data.indexOf(unit));
 ```
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点——直接问 `IsArrayAt`。
 
@@ -98,7 +97,7 @@ return this.IsArrayAt(unit.Parent.Data, unit.Parent.Data.indexOf(unit));
 return this.IsArrayAt(units, index);
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `[` 连同内容收成一个 `JsonArray`，**返回新的下标**。
 
@@ -111,7 +110,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("JsonArray.Reorganization.Process: current is null");
 }
-const result = new JsonArray(owner, template);
+const result = new JsonArray(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(current.SourceRange.End!);
@@ -129,14 +128,14 @@ Json 数组。
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<JsonArray>子单元的 XML 串接</JsonArray>`（标签名即运行时类名，M17）。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
 原 C# 参数名是小写 `template`，构造体只有一句 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType())`；`GetType()` 按 M17 落成 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
 
 ```ts
-super(owner, Template);
+super(Template);
 this.ReorganizationQueue = Template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -164,7 +163,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 收到的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)：C# 的 `Add<T>(IEnumerable<T>)` 重载在 ts 里改名 `AddRange`）。
 
 ```ts
-const result = new JsonArray(this.Owner, this.Template);
+const result = new JsonArray(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
@@ -23,14 +22,14 @@ C 风格 `for` 语句的循环体段：`for(...)` 后面那对 `{ }` 的内容�
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<ForBody>` 里是循环体的 XML。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 创建后立刻把语句重组规则挂上自己的重组队列——循环体里是一串语句。
 
 原 C# 侧是 `public ForBody(IOwner owner, Template<char> template) : base(owner, template)`，构造体里只有一句 `this.InitialStatementReorganizationQueue()`。
 
 ```ts
-super(owner, template);
+super(template);
 ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
@@ -41,7 +40,7 @@ ParsePipeline.InitialStatementReorganizationQueue(this);
 原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是**一批**克隆出来的子单元，按 M14(c) 用 `AddRange`（C# 的 `Add<T>(IEnumerable<T>)` 重载改名）。
 
 ```ts
-const result = new ForBody(this.Owner, this.Template);
+const result = new ForBody(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

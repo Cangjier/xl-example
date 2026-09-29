@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { GuideToken } from "../../../../core/syntax/guide-token.xl.md"
 import { Source } from "../../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
@@ -47,12 +46,12 @@ return (this.Parent as String)!;
 
 原 C# 是 `private int BracketCount = 0;`。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## protected method Navigate:(context:SyntaxContext, source:Source)=>void
@@ -83,8 +82,8 @@ if (Value !== "{") {
         Const.TrySignIn(Item);
       }
     }
-    this.ParentString.AddToMounted(new InterpolationString(this.Owner, this.Template)).SignIn(this.Items[0]);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    this.ParentString.AddToMounted(new InterpolationString(this.Template)).SignIn(this.Items[0]);
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     return;
   } else {
     //不满足情况
@@ -92,7 +91,7 @@ if (Value !== "{") {
     for (const i of this.Items) {
       this.ParentString.AppendToLastConstString(i.Value, i).TrySignIn(i);
     }
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   }
 } else {
   this.BracketCount++;

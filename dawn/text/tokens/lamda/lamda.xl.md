@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
@@ -36,7 +35,7 @@ Lambda 表达式：把 `()=>{}` / `p1=>statement` / `():xxx=>{}` 这三种形态
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 §4 的等价写法落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：它得是 `=>`，而且左边最近的（跳过软换行的）单元是括号或 `Common`。
 
@@ -74,7 +73,7 @@ if (unit instanceof Method) {
 return false;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组，**返回新的下标**。
 
@@ -94,10 +93,11 @@ return false;
 - `throw new NullReferenceException($"{nameof(previous)}")` → `throw new Error("previous")`；`throw new Exception("参数错误")` → `throw new Error("参数错误")`。
 - `Json.JsonObject.Reorganization.IsObject(...)` 按 M32 写成 `JsonObjectReorganization.IsObject(...)`；它是单参数版（`IsObjectAt` 才是列表版）。
 - `current?.Parent` 在 ts 里可能是 `undefined`，而 `IsObject` / `IsMethod` 的形参只接受 `null`，所以补 `?? null`。
+- 末尾 `if (previous is Bracket) …Release()` 只是提前释放那个临时括号；资源归属层移除后整句消失，交给 GC。
 
 ```ts
 const current = Get(units, index);
-const result = new Lamda(owner, template);
+const result = new Lamda(template);
 result.Parent = Get(units, index)!.Parent;
 const parameters = result.CreateParameters();
 let startIndex = SkipPreviousWrapSymbol(units, index);
@@ -118,7 +118,7 @@ if (previous instanceof Bracket) {
     const item = previous.Data[i];
     if (item instanceof Symbol && item.Is(",")) {
       if (tempParameters.length !== 0) {
-        const parameter = new LamdaParameter(owner, template);
+        const parameter = new LamdaParameter(template);
         parameter.SignIn(tempParameters[0].SourceRange.Start!);
         parameter.SignOut(tempParameters[tempParameters.length - 1].SourceRange.End!);
         parameter.AddRange(tempParameters);
@@ -128,7 +128,7 @@ if (previous instanceof Bracket) {
       }
     } else if (i === previous.Data.length - 1) {
       tempParameters.push(item);
-      const parameter = new LamdaParameter(owner, template);
+      const parameter = new LamdaParameter(template);
       parameter.SignIn(tempParameters[0].SourceRange.Start!);
       parameter.SignOut(tempParameters[tempParameters.length - 1].SourceRange.End!);
       parameter.AddRange(tempParameters);
@@ -140,7 +140,7 @@ if (previous instanceof Bracket) {
     }
   }
 } else if (previous instanceof Common) {
-  const parameter = new LamdaParameter(owner, template);
+  const parameter = new LamdaParameter(template);
   parameter.SignIn(previous.SourceRange.Start!);
   parameter.SignOut(previous.SourceRange.End!);
   parameter.Add(previous);
@@ -183,10 +183,6 @@ if (next instanceof Bracket && next.StartBracketChar === "{") {
 body.TryToClose();
 result.TryToClose();
 index = ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
-
-if (previous instanceof Bracket) {
-  previous.Release();
-}
 return index;
 ```
 
@@ -202,12 +198,12 @@ Lambda 表达式。
 
 这个 lambda 前面是不是有 `async`。原 C# 是 `public bool IsAsync { get; set; } = false;`，按 M12 落成字段（纯数据，没有 `private set`）。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 原 C# 构造体是空的，只是转调基类构造器。
 
 ```ts
-super(owner, Template);
+super(Template);
 ```
 
 ## method CreateParameters:()=>LamdaParameters
@@ -217,7 +213,7 @@ super(owner, Template);
 原 C# 是 `public LamdaParameters CreateParameters() => Add(new LamdaParameters(Owner, Template));`——`Add<T>` 返回加进去的那个单元，所以这里直接返回。
 
 ```ts
-return this.Add(new LamdaParameters(this.Owner, this.Template));
+return this.Add(new LamdaParameters(this.Template));
 ```
 
 ## property Parameters:LamdaParameters
@@ -249,7 +245,7 @@ return this.Parameters.Data.length;
 原 C# 是 `public LamdaBody CreateBody() => Add(new LamdaBody(Owner, Template));`。
 
 ```ts
-return this.Add(new LamdaBody(this.Owner, this.Template));
+return this.Add(new LamdaBody(this.Template));
 ```
 
 ## property Body:LamdaBody
@@ -286,7 +282,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → 拷 `IsAsync` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；`Add` 收到的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)）。
 
 ```ts
-const result = new Lamda(this.Owner, this.Template);
+const result = new Lamda(this.Template);
 result.Sign(this);
 result.IsAsync = this.IsAsync;
 result.AddRange(this.Data.map((item) => item.Clone()));

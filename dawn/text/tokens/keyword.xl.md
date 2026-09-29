@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -27,7 +26,7 @@ import { Common } from "./common.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Common` 的内容是不是关键字。
 
@@ -38,25 +37,24 @@ const unit = Get(units, index);
 return unit instanceof Common && unit.Template.KeywordTemplate.IsKeyword(unit.TempToString());
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把这个 `Common` 换成一个 `Keyword`，**返回新的下标**。
 
 原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值。要点：
 
-- 新单元用的是**被替换单元自己的** `Owner` 与 `Template`（`commonUnit.Owner` / `commonUnit.Template`），不是 `Process` 的入参 `owner` / `template`——照抄，不要「顺手」改成入参。
+- 新单元用的是**被替换单元自己的** `Template`（`commonUnit.Template`），不是 `Process` 的入参 `template`——照抄，不要「顺手」改成入参。
 - 它的范围直接沿用那个 `Common` 的起止。
-- `units.ReplaceAt(index, 1, keyword)` 是 4 参重载，按 M14(c) 落在 `ReplaceCountAt` 上，返回的 `index` 就是新下标；被替换掉的 `Common` 随后 `Release()`。
+- `units.ReplaceAt(index, 1, keyword)` 是 4 参重载，按 M14(c) 落在 `ReplaceCountAt` 上，返回的 `index` 就是新下标；被替换掉的 `Common` 交给 GC。
 - 原 C# 写 `(units.Get(index) as Common)!`：`as` 加空断言，ts 侧落成 `as Common`。
 
 ```ts
 const commonUnit = Get(units, index) as Common;
-const keyword = new Keyword(commonUnit.Owner, commonUnit.Template);
+const keyword = new Keyword(commonUnit.Template);
 keyword.SignIn(commonUnit.SourceRange.Start!);
 keyword.SignOut(commonUnit.SourceRange.End!);
 keyword.Value = commonUnit.TempToString();
 keyword.TryToClose();
-commonUnit.Release();
 return ReplaceCountAt(units, index, 1, keyword);
 ```
 
@@ -67,12 +65,12 @@ return ReplaceCountAt(units, index, 1, keyword);
 
 它覆写了 `ToXmlString`，且标签名是**写死的 `Keyword`**（不是 `GetType().Name`）——这一点与大多数 token 不同，照抄。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## field Value:string = ""
@@ -111,7 +109,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → 抄 `Value` → `TryToClose()`。
 
 ```ts
-const result = new Keyword(this.Owner, this.Template);
+const result = new Keyword(this.Template);
 result.Sign(this);
 result.Value = this.Value;
 result.TryToClose();

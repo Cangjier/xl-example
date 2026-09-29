@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { Branch } from "../../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../../core/syntax/branch-condition-result.xl.md"
 import { GuideToken } from "../../../../core/syntax/guide-token.xl.md"
@@ -61,7 +60,7 @@ return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
 注意 C# 的 `last!.Value.Pre()` 里 `.Value` 是**可空结构体的 `.Value`**，取出来的是前一个 `Source` 本身、不是字符，所以 ts 侧写成 `last!.Pre()`；ts 的 `Source` 是可空引用，`last is { Value: '$' }` 这种模式匹配等价于 `last !== null && last.Value === "$"`。
 
 ```ts
-const item = new StringGuide(unit.Owner, unit.Template, source.Value);
+const item = new StringGuide(unit.Template, source.Value);
 const undoSources: Source[] = [];
 let last: Source | null = source;
 while (true) {
@@ -120,14 +119,14 @@ unit.AddToMounted(item).SignIn(source);
 
 原 C# 是只读属性 `public char StringChar { get; }`，只在构造器里赋值一次；ts 侧按字段表达，构造器里写一次即可。
 
-## constructor:(owner:IOwner, template:Template, stringChar:string)=>void
+## constructor:(template:Template, stringChar:string)=>void
 
 以负责人、模板与引号字符创建。
 
 原 C# 只是转调基类构造器并记下 `stringChar`。
 
 ```ts
-super(owner, template);
+super(template);
 this.StringChar = stringChar;
 ```
 
@@ -149,31 +148,31 @@ if (this.QuoteCount === 1) {
   if (value === this.StringChar) {
     this.QuoteCount++;
   } else {
-    const item = new String(this.Owner, this.Template, this.StringChar);
+    const item = new String(this.Template, this.StringChar);
     item.IsSupportInterpolation = this.IsSupportInterpolation;
     item.IsSupportRaw = false;
     item.IsSupportVerbatim = this.IsSupportVerbatim;
     item.InterpolationCount = this.InterpolationCount;
     item.RawQuoteCount = 1;
     this.Replace(item).SignIn(source.Pre()!);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   }
 } else if (this.QuoteCount === 2) {
   if (value === this.StringChar) {
     this.QuoteCount++;
     if (this.IsSupportVerbatim) {
-      const item = new String(this.Owner, this.Template, this.StringChar);
+      const item = new String(this.Template, this.StringChar);
       item.IsSupportInterpolation = this.IsSupportInterpolation;
       item.IsSupportRaw = false;
       item.IsSupportVerbatim = this.IsSupportVerbatim;
       item.InterpolationCount = this.InterpolationCount;
       item.RawQuoteCount = 1;
       this.Replace(item).SignIn(source.Pre()!.Pre()!);
-      context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source.Pre()!));
-      context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source.Pre()!));
+      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
   } else {
-    const item = new String(this.Owner, this.Template, this.StringChar);
+    const item = new String(this.Template, this.StringChar);
     item.IsSupportInterpolation = this.IsSupportInterpolation;
     item.IsSupportRaw = false;
     item.IsSupportVerbatim = this.IsSupportVerbatim;
@@ -181,20 +180,20 @@ if (this.QuoteCount === 1) {
     item.RawQuoteCount = 1;
     this.Replace(item).SignIn(source.Pre()!.Pre()!).SignOut(source.Pre()!);
     this.Parent!.MountedUnit = null;
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   }
 } else {
   if (value === this.StringChar) {
     this.QuoteCount++;
   } else {
-    const item = new String(this.Owner, this.Template, this.StringChar);
+    const item = new String(this.Template, this.StringChar);
     item.IsSupportInterpolation = this.IsSupportInterpolation;
     item.IsSupportRaw = true;
     item.IsSupportVerbatim = this.IsSupportVerbatim;
     item.InterpolationCount = this.InterpolationCount;
     item.RawQuoteCount = this.QuoteCount;
     this.Replace(item).SignIn(this.SourceRange.Start!);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   }
 }
 ```
@@ -207,7 +206,7 @@ if (this.QuoteCount === 1) {
 
 ```ts
 if (this.QuoteCount === 2) {
-  const item = new String(this.Owner, this.Template, this.StringChar);
+  const item = new String(this.Template, this.StringChar);
   item.IsSupportInterpolation = this.IsSupportInterpolation;
   item.IsSupportRaw = false;
   item.IsSupportVerbatim = this.IsSupportVerbatim;

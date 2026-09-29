@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { Get } from "../../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
 import { TakeRange } from "../../../../core/extensions/list-extension.xl.md"
@@ -39,7 +38,7 @@ import { WhileCompare } from "./while-compare.xl.md"
 
 原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按「静态属性 → 静态只读字段」落成字段，调用点 `WhileReorganization.Instance` 的形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点。
 
@@ -53,7 +52,7 @@ const bracket = GetSkipNextWrapSymbol(units, index);
 return common instanceof Common && common.Is("while") && bracket instanceof Bracket && bracket.StartBracketChar === "(";
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：把 `while` 头、条件括号、循环体收进一个 `While`，**返回新的下标**。
 
@@ -66,8 +65,6 @@ return common instanceof Common && common.Is("while") && bracket instanceof Brac
 
 `throw new Exception(...)` 抛的是 BCL 的 `System.Exception`，按 M20 不进规范类型位，ts 侧落成 `throw new Error(...)`，语义（不被 `catch (SyntaxException)` 单独接住）保持一致。
 
-`conditionBracket.Release()` 按 M23 只保留真正有副作用的清理（原 C# 在这里还清空 `Data` 并把若干字段置 `null`，置空交 GC 的部分不写）。
-
 原 C# 的 `units.Skip(a).Take(n)` 是 LINQ，ts 侧落成 `TakeRange(self, a, n)`（对应 `Core/Extensions/ListExtension.cs` 的同名扩展方法），所以 `Skip(currentIndex).Take(endIndex - currentIndex + 1)` 写成 `TakeRange(units, currentIndex, endIndex - currentIndex + 1)`。
 
 两处**照抄不补**的原实现痕迹：
@@ -77,7 +74,7 @@ return common instanceof Common && common.Is("while") && bracket instanceof Brac
 
 ```ts
 const unit = Get(units, index)!;
-const result = new While(owner, template);
+const result = new While(template);
 result.Parent = unit.Parent;
 result.SignIn(unit.SourceRange.Start!);
 let endIndex = index;
@@ -111,7 +108,6 @@ forStatement.TryToClose();
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - startIndex + 1, result);
-conditionBracket.Release();
 return index;
 ```
 
@@ -123,12 +119,12 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<While>` 里依次是 Compare、Body 两段的 XML。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器（`base(owner, template)`），没有自己的字段要初始化。注意 C# 的构造器参数名写成 `Template`（与字段同名），ts 侧按惯例用小写 `template`。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method CreateCompare:()=>WhileCompare
@@ -138,7 +134,7 @@ super(owner, template);
 原 C# 是 `public WhileCompare CreateCompare()`，体里是 `Add(new WhileCompare(Owner, Template))`。
 
 ```ts
-return this.Add(new WhileCompare(this.Owner, this.Template));
+return this.Add(new WhileCompare(this.Template));
 ```
 
 ## property Compare:WhileCompare
@@ -160,7 +156,7 @@ return this.Data.find((x) => x instanceof WhileCompare) as WhileCompare;
 原 C# 是 `public WhileBody CreateBody()`，体里是 `Add(new WhileBody(Owner, Template))`。
 
 ```ts
-return this.Add(new WhileBody(this.Owner, this.Template));
+return this.Add(new WhileBody(this.Template));
 ```
 
 ## property Body:WhileBody
@@ -196,7 +192,7 @@ return result;
 原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → `Add(Data.Select(x => x.Clone()))` → `TryToClose()`。`Add` 传的是**一批**克隆出来的子单元，按 M14(c) 用 `AddRange`（C# 的 `Add<T>(IEnumerable<T>)` 重载改名）。
 
 ```ts
-const result = new While(this.Owner, this.Template);
+const result = new While(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((x) => x.Clone()));
 result.TryToClose();

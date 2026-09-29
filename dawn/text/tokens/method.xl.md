@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -32,7 +31,7 @@ import { GetSkipPreviousWrapSymbol, SkipPreviousWrapSymbol } from "../text-commo
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是「方法名 + `(`」这个形状。
 
@@ -46,7 +45,7 @@ const current = Get(units, index);
 return previous instanceof Common && template.MethodNameTemplate.IsMethodName(previous.TempToString()) && current instanceof Bracket && current.StartBracketChar === "(";
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把「`index` 处的括号单元」和「它前一个方法名单元」合并成一个 `Method`，**返回新的下标**。
 
@@ -54,13 +53,11 @@ return previous instanceof Common && template.MethodNameTemplate.IsMethodName(pr
 
 原 C# 的范围抄法是 `nameUnit.SourceRange.Start!.Value` 与 `bracketUnit.SourceRange.End!.Value`——这里的 `.Value` 是**可空结构体的 `.Value`**（`SourceRange.Start` 是 `Source<char>?`），取出来的是 `Source` 本身，所以 ts 侧直接写 `Start!` / `End!`。
 
-最后两行的 `nameUnit.Release()` / `bracketUnit.Release()` 是真有副作用的释放（清空被替换掉的两个单元的子单元表），照抄。
-
 ```ts
 const bracketUnit = Get(units, index)! as Bracket;
 const nameIndex = SkipPreviousWrapSymbol(units, index);
 const nameUnit = Get(units, nameIndex)! as Common;
-const method = new Method(nameUnit.Owner, nameUnit.Template);
+const method = new Method(nameUnit.Template);
 method.SignIn(nameUnit.SourceRange.Start!);
 method.SignOut(bracketUnit.SourceRange.End!);
 method.MethodName = nameUnit.TempToString();
@@ -69,8 +66,6 @@ for (const item of bracketUnit.Data) {
 }
 method.TryToClose();
 index = ReplaceCountAt(units, nameIndex, index - nameIndex + 1, method);
-nameUnit.Release();
-bracketUnit.Release();
 return index;
 ```
 
@@ -86,14 +81,14 @@ return index;
 
 方法名。原 C# 是 `public string MethodName { get; set; } = string.Empty;`。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 以负责人与模板创建，并把本类型的重组队列取出来。
 
 原 C# 是 `public Method(IOwner owner, Template<char> template) : base(owner, template)`，体里只有 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`——`GetType()` 按 M17 写成 `this.constructor`。
 
 ```ts
-super(owner, template);
+super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -158,7 +153,7 @@ return result;
 原 C# 的顺序是：`Sign(this)` → 抄 `MethodName` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)：C# 的 `Add<T>(IEnumerable<T>)` 重载改名 `AddRange`）。
 
 ```ts
-const result = new Method(this.Owner, this.Template);
+const result = new Method(this.Template);
 result.Sign(this);
 result.MethodName = this.MethodName;
 result.AddRange(this.Data.map((item) => item.Clone()));

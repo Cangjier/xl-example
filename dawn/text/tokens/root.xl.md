@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
@@ -41,7 +40,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 原 C# 侧是 `public class Root : UnitToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 以负责人与模板创建；模板必须已经装配过通用队列。
 
@@ -51,7 +50,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 这里只剩取 `ProcessQueue` 与那条契约检查。
 
 ```ts
-super(owner, template);
+super(template);
 const processQueue = template.BranchTemplate.Get(this.constructor);
 if (processQueue === null) {
   throw new Error(
@@ -146,7 +145,7 @@ super.Process(Context, Src);
 克隆出来的根单元共用同一个模板，所以模板上已经装好的队列照旧可用；契约检查也照旧通过。
 
 ```ts
-const root = new Root(this.Owner, this.Template);
+const root = new Root(this.Template);
 for (const item of this.Data) {
   root.Add(item.Clone());
 }

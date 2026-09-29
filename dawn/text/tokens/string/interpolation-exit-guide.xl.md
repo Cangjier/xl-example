@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { GuideToken } from "../../../../core/syntax/guide-token.xl.md"
 import { Source } from "../../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
@@ -46,12 +45,12 @@ return (this.Parent as InterpolationString)!.ParentString;
 
 原 C# 是 `protected List<Source<char>> Items = new();`；按 M31 写成 `Array<Source>`。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, Template);
+super(Template);
 ```
 
 ## protected method Navigate:(context:SyntaxContext, Src:Source)=>void

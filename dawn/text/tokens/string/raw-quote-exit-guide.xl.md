@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { GuideToken } from "../../../../core/syntax/guide-token.xl.md"
 import { Source } from "../../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
@@ -52,12 +51,12 @@ return (this.Parent as String)!;
 
 原 C# 是自动属性 `public char StringChar { get; set; } = '\"';`，按 M12 落成字段。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## protected method Navigate:(context:SyntaxContext, source:Source)=>void
@@ -95,7 +94,7 @@ if (value === this.StringChar) {
   }
 
   //将非双引号字符重载
-  context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 
   return;
 }

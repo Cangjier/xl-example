@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { BlockToken } from "../../../core/syntax/block-token.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -22,12 +21,12 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 原 C# 侧是 `public class Temp : BlockToken<char>`。按 M31，`char` 在规范里写 `string`。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method IsAppend:(Src:Source)=>bool
@@ -57,7 +56,7 @@ this.Closed = true;
 批量 `Add` 按 M14(c) 改名 `AddRange`；`Temp.AddRange(Temp)` 在 ts 侧照抄成展开推入。
 
 ```ts
-const result = new Temp(this.Owner, this.Template);
+const result = new Temp(this.Template);
 result.Sign(this);
 result.Temp.push(...this.Temp);
 result.AddRange(this.Data.map((item) => item.Clone()));

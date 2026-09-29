@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { BlockToken } from "../../../core/syntax/block-token.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
@@ -43,7 +42,7 @@ return result;
 原 C# 把整条链写成一句：`AddAndCloseLast` 返回新单元，`AppendAndSignOut` 收字符，`SignIn` 签入，最后 `TryToClose`。
 
 ```ts
-unit.AddAndCloseLast(new WrapSymbol(unit.Owner, unit.Template)).AppendAndSignOut(source).SignIn(source).TryToClose();
+unit.AddAndCloseLast(new WrapSymbol(unit.Template)).AppendAndSignOut(source).SignIn(source).TryToClose();
 ```
 
 # class WrapSymbolReorganization extends Reorganization
@@ -56,7 +55,7 @@ unit.AddAndCloseLast(new WrapSymbol(unit.Owner, unit.Template)).AppendAndSignOut
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `WrapSymbol`。
 
@@ -66,7 +65,7 @@ unit.AddAndCloseLast(new WrapSymbol(unit.Owner, unit.Template)).AppendAndSignOut
 return Get(units, index) instanceof WrapSymbol;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把 `index` 处的 `WrapSymbol` 删掉，**返回新的下标**。
 
@@ -87,12 +86,12 @@ return index - 1;
 
 把 `WrapSymbolBranch` 注册进通用跳转队列用的实例。原 C# 是 `public static Branch AppendIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类。
 
-## constructor:(owner:IOwner, Template:Template)=>void
+## constructor:(Template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, Template);
+super(Template);
 ```
 
 ## method IsAppend:(Src:Source)=>bool
@@ -131,7 +130,7 @@ return `<${name} />`;
 原 C# 的顺序是：`Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `Temp.AddRange(Temp)` → `TryToClose()`。注意 `Add` 传的是**一批克隆出来的子单元**，所以 ts 侧用 `AddRange`（M14(c)：C# 的 `Add<T>(IEnumerable<T>)` 重载改名 `AddRange`）。
 
 ```ts
-const result = new WrapSymbol(this.Owner, this.Template);
+const result = new WrapSymbol(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.Temp.push(...this.Temp);

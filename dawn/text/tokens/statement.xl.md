@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -49,7 +48,7 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是语句边界。
 
@@ -71,7 +70,7 @@ if (parent instanceof Bracket && parent.StartBracketChar === "(") {
 return true;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把 `frontIndex + 1` 到 `index` 之间的单元收成一个 `Statement`，**返回新的下标**。
 
@@ -98,7 +97,7 @@ if (children.length === 1) {
   units.splice(index, 1);
   return index - 1;
 }
-const statement = new Statement(owner, template);
+const statement = new Statement(template);
 statement.Parent = Get(units, index)!.Parent;
 statement.AddRange(children.slice(0, children.length - 1));
 const first = children[0];
@@ -128,7 +127,7 @@ return ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
 
 唯一的实例。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是软换行或语句符号。
 
@@ -142,7 +141,7 @@ const isStatementSymbol = current instanceof Symbol && template.SymbolTemplate.I
 return isWrap || isStatementSymbol;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值。
 
@@ -159,7 +158,7 @@ if (currentIsInEnd) {
     return Statement.IsStatementUnit(item);
   });
   const children = units.slice(frontIndex + 1, index + 1);
-  const statement = new Statement(owner, template);
+  const statement = new Statement(template);
   statement.Parent = Get(units, index)!.Parent;
   statement.AddRange(children.slice(0, children.length - 1));
   const first = children[0];
@@ -190,7 +189,7 @@ if (children.length === 1) {
   units.splice(index, 1);
   return index - 1;
 }
-const statement = new Statement(owner, template);
+const statement = new Statement(template);
 statement.Parent = Get(units, index)!.Parent;
 statement.AddRange(children.slice(0, children.length - 1));
 const first = children[0];
@@ -217,7 +216,7 @@ return nextIndex;
 
 唯一的实例。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 是不是最后一个单元。
 
@@ -225,7 +224,7 @@ return nextIndex;
 return units.length - 1 === index;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值。注意「什么都不做」的那条早退
 在原 C# 里是 `return`（不动下标），所以 ts 侧返回原 `index`。
@@ -242,7 +241,7 @@ const children = units.slice(frontIndex + 1, index + 1);
 if (children.length === 1 && Statement.IsStatementUnit(children[0])) {
   return index;
 }
-const statement = new Statement(owner, template);
+const statement = new Statement(template);
 statement.Parent = Get(units, index)!.Parent;
 statement.AddRange(children);
 const first = children[0];
@@ -267,13 +266,13 @@ return nextIndex;
 构造时就把自己的重组队列从模板上取出来——`InitialStatementReorganizationQueue` 会把
 两个语句重组类插到默认队列的前面。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 在构造器里执行 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`；
 `GetType()` 按 M17 写成 `this.constructor`。
 
 ```ts
-super(owner, template);
+super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -381,7 +380,7 @@ return false;
 批量 `Add` 按 M14(c) 写成 `AddRange`。
 
 ```ts
-const result = new Statement(this.Owner, this.Template);
+const result = new Statement(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

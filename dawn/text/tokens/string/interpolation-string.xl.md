@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { UnitToken } from "../../../../core/syntax/unit-token.xl.md"
 import { BranchStates } from "../../../../core/syntax/branch-states.xl.md"
 import { Source } from "../../../../core/syntax/source.xl.md"
@@ -26,14 +25,14 @@ import { String } from "./string.xl.md"
 
 原 C# 侧是 `public class InterpolationString : UnitToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 创建时按自己的运行时类型取跳转队列与重组队列。
 
 原 C# 是 `public InterpolationString(IOwner owner, Template<char> template) : base(owner, template)`，体里两句 `ProcessQueue = template.BranchTemplate.Get(GetType());` 与 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`。按 M17，`GetType()` 在 ts 侧写成 `this.constructor`。
 
 ```ts
-super(owner, template);
+super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
@@ -95,8 +94,8 @@ this.Quit();
 
 ```ts
 if (source.Value === "}") {
-  this.AddToMounted(new InterpolationExitGuide(this.Owner, this.Template));
-  context.Messages.push(ReloadMessage.WithoutProcessOwner(this.Owner, this, source));
+  this.AddToMounted(new InterpolationExitGuide(this.Template));
+  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
   return BranchStates.Done;
 }
 return BranchStates.Undo;
@@ -109,7 +108,7 @@ return BranchStates.Undo;
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)：C# 的 `Add<T>(IEnumerable<T>)` 重载改名 `AddRange`）。
 
 ```ts
-const result = new InterpolationString(this.Owner, this.Template);
+const result = new InterpolationString(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

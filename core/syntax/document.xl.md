@@ -1,7 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../owners/i-owner.xl.md"
-import { IReleasable } from "../../owners/i-releasable.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 ```
@@ -22,15 +20,14 @@ import { SourceRange } from "./source-range.xl.md"
 
 原 C# 侧是 `Func<int>`。
 
-# class Document implements IReleasable
+# class Document
 
 文档。
 
 原 C# 侧还有 `this[int index]` 索引器，按 M19 映射成 `At(index)` 方法。
 
-## field Owner:IOwner
-
-文档所属的负责人，构造时登记进去。
+原 C# 侧这个类还实现 `IReleasable`、持有 `Owner` 字段；资源归属层已移除，这些成员与 `Release` 都没有对应物
+（见 README「资源生命周期：交给 GC」）。
 
 ## field GetValue:ValueGetter
 
@@ -48,18 +45,17 @@ import { SourceRange } from "./source-range.xl.md"
 
 父范围；文档可以嵌在另一个文档的范围里，顶层文档为 `null`。
 
-## constructor:(owner:IOwner, getValue:ValueGetter, getCount:CountGetter, Parent?:SourceRange | null)=>void
+## constructor:(getValue:ValueGetter, getCount:CountGetter, Parent?:SourceRange | null)=>void
 
-以取值器、长度器与父范围创建，并把自身登记到 `owner`。
+以取值器、长度器与父范围创建。
 
 参数允许显式传 `null`——原 C# 签名是 `Document(IOwner owner, Func<int, ValueType> getValue, Func<int> getCount, SourceRange<ValueType>? Parent = null)`，调用点会直接写 `null`。
+开头的 `owner` 随资源归属层移除，所以规范签名从 `getValue` 开始。
 
 ```ts
 this.GetValue = getValue;
 this.GetCount = getCount;
 this.Parent = Parent ?? null;
-this.Owner = owner;
-owner.Add([this]);
 ```
 
 ## method At:(index:int)=>Source
@@ -140,14 +136,4 @@ throw new Error("NotImplementedException");
 
 ```ts
 throw new Error("NotImplementedException");
-```
-
-## method Release:()=>void
-
-释放文档。
-
-原 C# 侧在这里把 `GetValue` / `GetCount` / `Parent` / `Owner` 逐个置 `null`。按 M23，置空交 GC 的部分不写，只断开那个可为空的引用。
-
-```ts
-this.Parent = null;
 ```

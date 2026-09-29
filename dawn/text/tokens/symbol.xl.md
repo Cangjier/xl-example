@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { BlockToken } from "../../../core/syntax/block-token.xl.md"
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
@@ -72,7 +71,7 @@ return result;
 
 ```ts
 if (result.Message === 0) {
-  unit.AddAndCloseLast(new Symbol(unit.Owner, unit.Template)).AppendAndSignOut(source).SignIn(source);
+  unit.AddAndCloseLast(new Symbol(unit.Template)).AppendAndSignOut(source).SignIn(source);
 } else {
   (unit.Last() as Symbol)!.AppendAndSignOut(source);
 }
@@ -99,12 +98,12 @@ if (last instanceof Symbol) {
 
 把 `SymbolBranch` 注册进通用跳转队列用的实例。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method IsAppend:(Src:Source)=>bool
@@ -193,7 +192,7 @@ return result;
 原 C# 的顺序是 `Sign(this)` → `Temp.AddRange(Temp)` → `TryToClose()`。
 
 ```ts
-const result = new Symbol(this.Owner, this.Template);
+const result = new Symbol(this.Template);
 result.Sign(this);
 result.Temp.push(...this.Temp);
 result.TryToClose();

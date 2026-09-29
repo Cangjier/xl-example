@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Owner } from "./owners/owner.xl.md"
 import { Template } from "./core/syntax/templates/template.xl.md"
 import { SyntaxException } from "./core/exceptions/syntax-exception.xl.md"
 import { TextDocument } from "./dawn/text/text-document.xl.md"
@@ -25,7 +24,7 @@ import { TextContext } from "./dawn/text/text-context.xl.md"
 退出码：`0` 成功；`1` 表示用法错误 / 读不到文件 / 解析抛错。
 
 依赖路径的写法：`# dependencies` 里的 import 既决定 ts 产物里的 import，也决定「被依赖的规范文件」必须存在。
-本项目根目录下的入口写 `./owners/...`、`./core/...`，产物里就是 `./owners/owner` 这类**相对 `dist/` 根**的路径。
+本项目根目录下的入口写 `./core/...`、`./dawn/...`，产物里就是 `./core/syntax/token` 这类**相对 `dist/` 根**的路径。
 
 **产物链路**：
 
@@ -99,7 +98,7 @@ return [
 原 C# 宿主里那份「读文件 → `TextContext` → `Console.WriteLine`」的胶水代码就是本方法的对应物，
 只是这里多了参数解析、stdin 与错误收敛。
 
-`Template` 与 `Owner` 每次调用都新建：`Root` 构造时会往 `template.BranchTemplate.DefaultValue` /
+`Template` 每次调用都新建：`Root` 构造时会往 `template.BranchTemplate.DefaultValue` /
 `ReorganizationTemplate.DefaultValue` 上装通用队列，模板是**有状态**的，跨次复用会把上一份上下文的解析痕迹带进来。
 
 `-o` 时按 `><` 断行，仅此而已——XML 的**内容**仍是 `Root.ToString()` 的原样输出，不改写任何标签。
@@ -207,8 +206,9 @@ return options;
 
 把一段源码解析成 XML；出错时把诊断打到标准错误并返回 `null`。
 
-`Owner` 是资源持有者：`TextDocument` / `TextContext` 以及整棵树都登记在它身上，所以解析完必须 `Release`——
-原 C# 宿主用的是 `using (var owner = new Owner())`，这里对应 try/finally。
+`Owner` 那层资源归属已经移除（见 README「资源生命周期：交给 GC」）：`TextDocument` / `TextContext` 与整棵树
+不再登记到任何持有者身上，解析完也不需要 `Release`——原 C# 宿主的 `using (var owner = new Owner())` 在这里没有对应物，
+所以只剩 `try/catch` 一层，用来做异常收敛。
 
 `Template` 不能省：`TextContext` 的构造器要求一个模板，并会在造根单元之前**自动装上**通用跳转队列与
 重组队列（见 `dawn/text/parse-pipeline.xl.md`），所以这里只需 `new Template()`。
@@ -217,19 +217,16 @@ return options;
 直接打出来比让宿主栈回溯更有用。布局是「`cjcli: 解析失败`」一行 + 诊断正文——信息里本来就带换行，所以不再拼多余前缀。
 
 ```ts
-const owner = new Owner();
 try {
   const template = new Template();
-  const document = new TextDocument(owner, content);
+  const document = new TextDocument(content);
   document.FilePath = filePath;
-  const context = new TextContext(owner, template);
+  const context = new TextContext(template);
   context.Process(document);
   return context.Root.ToString();
 } catch (error) {
   process.stderr.write("cjcli: 解析失败\n" + CjcliErrorText(error) + "\n");
   return null;
-} finally {
-  owner.Release();
 }
 ```
 

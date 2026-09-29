@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { SyntaxException } from "../../../../core/exceptions/syntax-exception.xl.md"
@@ -40,7 +39,7 @@ import { ForeachEnumable } from "./foreach-enumable.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `for` 或 `foreach` 的 `Common`，紧跟（跳过 `WrapSymbol` 软换行）一个 `(` 开头的 `Bracket`，且括号里至少有一个内容为 `in` 或 `of` 的 `Common`。
 
@@ -62,13 +61,11 @@ const bracket = next;
 return bracket.StartBracketChar === "(" && bracket.Data.some((item) => item instanceof Common && ((item as Common).Is("in") || (item as Common).Is("of")));
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组：把 `foreach` / `for` 头连同条件括号与语句体收进一个 `Foreach`，**返回新的下标**。
 
 原 C# 是 `public override void Process(IOwner owner, Template<char> template, List<Token<char>> units, ref int index)`：它既改写 `units`，又通过 `ref` 推进外层循环的下标，按 M15 改成返回值；方法体末尾的 `units.ReplaceAt(index, bracketIndex - index + 1, result)` 会把这批单元换成一个 `Foreach`。
-
-`conditionBracket.Release()` 按 M23 只保留真正有副作用的清理（原 C# 在这里还清空 `Data` 并把若干字段置 `null`，置空交 GC 的部分不写）。
 
 三分段的取法照抄原实现：
 
@@ -82,7 +79,7 @@ return bracket.StartBracketChar === "(" && bracket.Data.some((item) => item inst
 
 ```ts
 const current = Get(units, index)!;
-const result = new Foreach(owner, template);
+const result = new Foreach(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 let currentIndex = index;
@@ -131,7 +128,6 @@ forBody.TryToClose();
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - startIndex + 1, result);
-conditionBracket.Release();
 return index;
 ```
 
@@ -143,12 +139,12 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<Foreach>` 里依次是 Define、Enumable、Body 三段的 XML。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method CreateDefine:()=>ForeachDefine
@@ -158,7 +154,7 @@ super(owner, template);
 原 C# 是 `public ForeachDefine CreateDefine()`。
 
 ```ts
-return this.Add(new ForeachDefine(this.Owner, this.Template));
+return this.Add(new ForeachDefine(this.Template));
 ```
 
 ## property Define:ForeachDefine
@@ -180,7 +176,7 @@ return this.Data.find((x) => x instanceof ForeachDefine) as ForeachDefine;
 原 C# 是 `public ForeachEnumable CreateEnumable()`。
 
 ```ts
-return this.Add(new ForeachEnumable(this.Owner, this.Template));
+return this.Add(new ForeachEnumable(this.Template));
 ```
 
 ## property Enumable:ForeachEnumable
@@ -200,7 +196,7 @@ return this.Data.find((x) => x instanceof ForeachEnumable) as ForeachEnumable;
 原 C# 是 `public ForeachBody CreateBody()`。
 
 ```ts
-return this.Add(new ForeachBody(this.Owner, this.Template));
+return this.Add(new ForeachBody(this.Template));
 ```
 
 ## property Body:ForeachBody
@@ -235,7 +231,7 @@ return result;
 原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是**一批**克隆出来的子单元，按 M14(c) 用 `AddRange`（C# 的 `Add<T>(IEnumerable<T>)` 重载改名）。
 
 ```ts
-const result = new Foreach(this.Owner, this.Template);
+const result = new Foreach(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

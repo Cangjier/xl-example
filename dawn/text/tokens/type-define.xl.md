@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { IOwner } from "../../../owners/i-owner.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -30,7 +29,7 @@ import { Symbol } from "./symbol.xl.md"
 
 唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 M19 落成静态只读字段。
 
-## method Previous:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>bool
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个类型标注的开头。
 
@@ -55,7 +54,7 @@ if (current.Parent !== null && JsonObjectReorganization.Instance.IsObject(curren
 return true;
 ```
 
-## method Process:(owner:IOwner, template:Template, units:Array<Token>, index:int)=>int
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把冒号之后那一段收成一个 `TypeDefine`，**返回新的下标**。
 
@@ -89,7 +88,7 @@ for (let i = index + 1; i < units.length; i++) {
 if (endIndex === -1) {
   endIndex = units.length - 1;
 }
-const result = new TypeDefine(owner, template);
+const result = new TypeDefine(template);
 result.Parent = current.Parent;
 result.AddRange(items);
 result.SignIn(current.SourceRange.Start!);
@@ -105,12 +104,12 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有**覆写 `ToXmlString` / `ToDictionary`，所以 XML 由基类产出：`<TypeDefine>段内子单元的 XML 串接</TypeDefine>`（标签名即运行时类名，M17）。
 
-## constructor:(owner:IOwner, template:Template)=>void
+## constructor:(template:Template)=>void
 
 原 C# 只是转调基类构造器。
 
 ```ts
-super(owner, template);
+super(template);
 ```
 
 ## method Clone:()=>Token
@@ -120,7 +119,7 @@ super(owner, template);
 原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；批量 `Add` 按 M14(c) 写成 `AddRange`。
 
 ```ts
-const result = new TypeDefine(this.Owner, this.Template);
+const result = new TypeDefine(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
