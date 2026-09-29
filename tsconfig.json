@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
+    "rootDir": "dist",
+    "outDir": "build",
+    "strict": true,
+    "declaration": false,
+    "sourceMap": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["dist/**/*.ts"]
+}

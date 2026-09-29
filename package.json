@@ -1,0 +1,23 @@
+{
+  "name": "xl-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Cangjie 语法层的 xl 移植：xl.md → dist/**/*.ts → build/**/*.js，另带一个命令行入口 cjcli",
+  "bin": {
+    "cjcli": "./bin/cjcli.js"
+  },
+  "scripts": {
+    "check": "xl check",
+    "build": "xl build && tsc",
+    "compile": "tsc",
+    "cjcli": "node ./build/cjcli.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=22.3.0"
+  }
+}
