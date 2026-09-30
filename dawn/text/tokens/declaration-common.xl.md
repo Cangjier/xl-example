@@ -272,6 +272,23 @@ if (
       hops = hops + 1;
       continue;
     }
+    // **计算名的那对方括号要当成名字本身跨过去**（实测补的）：
+    // `readonly [Symbol.iterator]: () => Y` 里，`[Symbol.iterator]` 是一个括号、
+    // 后面紧跟的才是 `:`。不跨它的话循环停在这个括号上，
+    // `afterNames` 拿到 `[` → 判不出边界 → **整条成员被上一个字段吞进 `TypeDefine`**
+    // （实测 `interface I { readonly entries: () => X<string>` 换行
+    //  `readonly [Symbol.iterator]: () => Y` 只出 1 个 `Field`）。
+    //
+    // **判据是「括号里有没有内容」，不是 `Context`**（实测踩过）：
+    // 计算名 `[Symbol.iterator]` 的 `Context` 在这里是 `type`
+    // （`readonly` 这类修饰词把它推到了类型位），与数组后缀 `X<string>[]` 的
+    // `Context` **完全一样**，拿 `Context` 判会漏。而两者在**内容**上一定不同：
+    // 数组后缀是**空的** `[]`，计算名里一定装着东西。
+    if (probeUnit instanceof Bracket && probeUnit.StartBracketChar === "[" && probeUnit.Data.length > 0) {
+      probe = SkipNextWrapSymbol(units, probe);
+      hops = hops + 1;
+      continue;
+    }
     break;
   }
   const afterNames = Get(units, probe);
