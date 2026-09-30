@@ -103,6 +103,19 @@ this.Operators = operators;
 
 `x instanceof C`。
 
+## static readonly field LogicalAssignmentInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["&&", "||"])
+
+`&&=` / `||=` 展开出来的那一步。
+
+`CompoundAssignmentOperatorReorganization` 把 `a &&= b` 展开成 `a = a && b` 时，
+中间那个 `&&` 是本规则（`BinaryOperator`）收的——但普通的 `a && b` 走的是 `LogicalOperator`，
+于是**同一族运算符在两种来源下落到不同节点**（实测：`a &&= b` 的产物是
+`<LogicalOperator Operator="And">`，而 TypeScript 把它记成 `BinaryExpression` +
+`AmpersandAmpersandEqualsToken`）。这一支让它统一折成 `BinaryOperator`。
+
+`Symbol.FromCompoundAssignment` 标记正好是判据：只有**复合赋值切开后插回来的**那份运算符
+带这个标记，所以 `IsOperator` 认它、而普通的 `a && b` 仍然照旧走 `LogicalOperator`。
+
 ## static readonly field CommaInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization([","])
 
 逗号（序列）表达式 `(a, b)`，优先级最低。
@@ -164,7 +177,15 @@ const text = this.OperatorText(current);
 if (text === "") {
   return false;
 }
-return this.Operators.indexOf(text) !== -1;
+if (this.Operators.indexOf(text) === -1) {
+  return false;
+}
+// `&&` / `||` 只认**复合赋值切开后插回来的**那一份（见 LogicalAssignmentInstance）：
+// 普通的 `a && b` 归 `LogicalOperator`，不能在这里抢。
+if ((text === "&&" || text === "||") && !(current instanceof Symbol && current.FromCompoundAssignment)) {
+  return false;
+}
+return true;
 ```
 
 ## private method IsOperand:(unit:Token | null)=>bool
