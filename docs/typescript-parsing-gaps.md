@@ -1553,3 +1553,57 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 2. **类里带实现体的重载**（需要先能区分「体在下一行」与「下一条成员」；
    方向是让 `Process` 把「同一行内的 `: 类型`」标成一段）。
 3. 三层以上嵌套三元。
+
+## 第 47 轮：嵌套对象字面量、两趟重组、装饰器表达式、两处仪表口径
+
+真缺 18 → 13（1255 文件、解析失败 0；用例 893 全绿；samples 三份逐字节一致）。
+
+| 缺口 | 根因 | 差额 |
+| --- | --- | --- |
+| 嵌套对象字面量 `{ a: { b: 1 } }` | `JsonObjectReorganization` 先成形，内层 `{` 已是 `JsonObject` 子单元，而 `TypeLiteralReorganization.IsTypePosition` 往前扫撞上 `a:` 的冒号就判类型位（对象字面量的冒号是**键分隔符**） | 对象字面量 3 → 1 |
+| 右结合嵌套三元 `a ? b : c ? d : e` | `Previous` 的第四层把假值段让给内层 `?`，而 `Reorganize` 单趟时**外侧已经扫过去了** | 三元 1 → 0 |
+| `@(expr)` 装饰器表达式 | `DecoratorReorganization` 的两支都只认「`@` 后面跟 `Common` 名字」 | 装饰器 1 → 0 |
+| ASI 后的 `{ a: 1 }` | **口径**：TS 把它读成 Block（里面 `a:` 成 LabeledStatement），本工程按对象字面量收 | 标签 1 → 0 |
+
+### 两趟重组：可以做，但必须同时修掉「时序依赖」
+
+「扫到没有改动为止」曾经 OOM（`Process` 每次报告改动的规则会发散）；
+**固定两趟有上界**，不会发散，893 条用例仍是 ~1 秒跑完。
+
+两趟立刻暴露出一个**隐藏的时序依赖**，这是本轮最有价值的发现：
+
+> `TernaryOperatorReorganization.IsTypePosition`（判「括号里的条件类型」）原来写的是
+> `item instanceof Common && item.Is("extends")`。`extends` 在**第一趟**还是 `Common`，
+> 第一趟结束时已被 `KeywordReorganization` 收成 `Keyword` ——
+> 于是**第二趟这个判据全部失灵**，`type-cond-nested` / `type-cond-union-member`
+> 两条用例当场报「不该有 TernaryOperator」。
+
+改成「`Common` 按 `Is` 判、`Keyword` 按 `Value` 判」即可。**教训**：
+凡是「按单元类型判文本」的判据，都要问一句「这个单元在第一趟之后会不会变成另一种类型」。
+
+（附带一条易踩的 API 事实：**`Common` 与 `Keyword` 没有共同的取文本方法**——
+`Keyword` 既没有 `Is` 也没有 `TempToString`，只有 `Value` 字段。
+写成 `item.TempToString()` / `item.Is(...)` 会在运行期抛 TypeError，本轮连踩两轮。）
+
+### 两条被改正的旧用例期望
+
+`expr-object-nested.ts` 与 `decl-obj-destructure-nested.ts` 当初把**错误产物**
+（内层 `TypeLiteral` + `Field`）钉成了期望，本轮一并改成正确的 `JsonObject:2`。
+
+### 剩余（真缺 13）
+
+| 组 | 真缺 | 性质 |
+| --- | ---: | --- |
+| 二元运算 | 5 | `&&=`/`||=`（TS 记 LogicalExpression，本工程是 `左值 = 左值 && 右值`，**两侧口径不同**）、`for` 初始化式多声明符的 `,`、`i++, j--` 边界 |
+| 成员·方法 | 4 | 类里「无体重载 + 带体实现」（`BodyIndex` 跨换行找到下一条签名的 `{`） |
+| 函数 | 2 | `typescript.d.ts` 一处（同形状在别处正常，属文件特有上下文） |
+| 数组 / 字段 / 对象 | 各 1 | 解构模式里**有意丢弃**的默认值 `= []` / `= {}`、`readonly [Symbol.iterator]: () => …` |
+| **整族未做** | — | 类 `static {}`、JSX/TSX |
+
+### 下一轮入口
+
+1. **类型位文法**（联合/交叉/条件/映射/元组/函数类型）——最本质的一块空白。
+2. **类里带实现体的重载**：两趟之后有了新可能——让 `Previous` 在「见过 `:` 之后遇到换行」时
+   先不成，等下一趟（但要注意别把一行一条的 `get x(): number` 打掉，那正是本轮之前两次净回归的原因）。
+3. **`Symbol.FromCompoundAssignment` 之后的复合赋值口径对齐**（TS 侧把 `&&=` 记成
+   LogicalExpression，要不要在账上按「两侧都不计」处理，是个**口径决定**而不是解析器改动）。
