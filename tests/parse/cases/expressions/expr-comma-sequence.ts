@@ -3,7 +3,9 @@
 //  都不是运算符，判据要看那个 `(` 外面紧邻的实义单元是不是名字或语句关键字）
 // `if (a, b)` 保守地不折：它的 `(` 已经被 `IfCondition` 吸收，判据看不到那个括号
 // （宁可少折一个，也不能把参数表折成序列表达式）
-// xl:expect BinaryOperator:1,JsonArray,JsonObject,Method:2
+// `for (…; …; i++, j--)` 的更新子句与语句层的 `a, b;` 都要折；
+// 但枚举体的 `,` 是成员分隔符，不能折
+// xl:expect BinaryOperator:3,JsonArray,JsonObject,Method:2,Enum
 const r = (a, b);
 if (a, b) {
 }
@@ -13,3 +15,10 @@ const obj = { a: 1, b: 2 };
 const multi = 1,
   other = 2;
 function fn(p, q) {}
+enum Color {
+  Red,
+  Green = 2,
+}
+for (let i = 0; i < n; i++, j--) {
+}
+i++, j--;

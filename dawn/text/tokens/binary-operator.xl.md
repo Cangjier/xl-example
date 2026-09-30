@@ -338,6 +338,22 @@ const current = Get(units, index);
 if (!(current instanceof Symbol) || current.Is(",") === false) {
   return true;
 }
+// `for (…; …; i++, j--)` 的**更新子句**：那里的 `,` 天然就是序列表达式
+// （`ForNext` 这个容器只可能出现在第三段，声明列表在 `ForInitial` 里）。
+if (current.Parent !== null && current.Parent.constructor.name === "ForNext") {
+  return true;
+}
+// 语句层的 `,`（`a, b;` / `i++, j--;`）：同样是序列表达式。
+// **但枚举体里的 `,` 是成员分隔符**（`EnumBody` 也把内容包在 `Statement` 里），
+// 所以还要看那个 `Statement` 的归属不是 `EnumBody`。实测漏了这一条时
+// `enum Color { Red, Green = 2 }` 会被折成一个 CommaOperator（`declarations.ts` 样例当场 DIFF）。
+if (current.Parent !== null && current.Parent.constructor.name === "Statement") {
+  const owner = current.Parent.Parent;
+  if (owner === null || (owner.constructor.name !== "EnumBody" && owner.constructor.name !== "JsonObject")) {
+    return true;
+  }
+  return false;
+}
 // 最近的括号可能在**同一层**（`(a, b)` 收成 Bracket 之前的形态），
 // 也可能**就是 `Parent`**（括号已经收好了，当前列表是它的内容）——两种都要看。
 // 两种情况下「括号外面的前一个单元」来自**不同的列表**，所以各自就地取好 `outside`，
