@@ -6,3 +6,7 @@ build
 # 依赖与本地工具
 node_modules
 .tools
+
+# 临时排查脚本与它们的输出（历史上在仓库根目录堆积过 47 个：
+# 探针脚本 tmp-*.mjs / 输出 tmp-*.txt / 旧 build 快照 tmp-build/）
+tmp-*
