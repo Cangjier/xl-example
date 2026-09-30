@@ -33,6 +33,14 @@ import { Common } from "./common.xl.md"
 
 那种情况下再看 `unit.Data` 的最后两个单元里的**倒数第二个**：单元数不超过 1 就直接成立；否则它是 `Common` 或 `Bracket` 时**不**成立（那两个抢走了解释权），其余类型成立。
 
+**`Common` 那一支要放关键字进来**：`return /re/.test(s)` / `typeof /re/` 里的前一个实义单元
+是 `return` / `typeof`——它们在**词法阶段还是 `Common`**（`KeywordReorganization` 排在通用队列最后，
+那时早得很），但它显然是关键字、后面正好该跟一个表达式。
+判据直接查那个 `Common` 自己的模板（`last.Template.KeywordTemplate`）。
+不放行的话 `return /x/` 里的第一个 `/` 退化成除号，整条正则碎成 `Symbol` + `Common`
+（`expr-regex-after-return` / `lex-regex-after-return-same-line` 两条用例）。
+而 `a / b / c` 里 `a` 不是关键字，仍然按除号读 ✓。
+
 `Token.Last(index)` 的语义是「倒数第 `index` 个子单元」，所以写成 `unit.Last(1)`。返回值不是 `bool` 而是 `BranchConditionResult`，所以展开成「建结果、赋 `Success`」两步。
 
 ```ts
@@ -50,7 +58,7 @@ if (unit.Data.length <= 1) {
 const last = unit.Last(1);
 const result = new BranchConditionResult();
 if (last instanceof Common) {
-  result.Success = false;
+  result.Success = last.Template.KeywordTemplate.IsKeyword(last.TempToString());
 } else if (last instanceof Bracket) {
   result.Success = false;
 } else {

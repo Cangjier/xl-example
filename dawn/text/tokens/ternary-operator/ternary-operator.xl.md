@@ -10,6 +10,8 @@ import { JsonObjectReorganization } from "../json/json-object.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { TernaryOperatorCondition } from "./ternary-operator-condition.xl.md"
 import { TernaryOperatorFalseStatement } from "./ternary-operator-false-statement.xl.md"
+import { Bracket } from "../bracket.xl.md"
+import { GenericType } from "../generic-type.xl.md"
 import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.xl.md"
 ```
 
@@ -34,10 +36,16 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 `index` 处是不是一个可以当作三元运算符的 `:`。
 
 条件是三层：先要求是 `Symbol` 且 `Is(":")`，再往前找 `?`；`?` 不存在（`-1`）或紧邻（`questionIndex == index - 1`）都算不成立。
+**第三层是位置**：处在类型位的 `? :` 是**条件类型**，不是三元表达式（判据见下面的 `IsTypePosition`）。
+少了这一层，括号里的条件类型会长出一个 `TernaryOperator` 节点
+（`type-cond-nested` / `type-cond-union-member` 两条用例报的 `不该有 TernaryOperator` 就是它）。
 
 ```ts
 const current = Get(units, index);
 if (current instanceof Symbol && current.Is(":")) {
+  if (this.IsTypePosition(current)) {
+    return false;
+  }
   const questionIndex = SearchFront(units, index, (item: Token) => item instanceof Symbol && item.Is("?"));
   if (questionIndex === -1) {
     return false;
@@ -48,6 +56,36 @@ if (current instanceof Symbol && current.Is(":")) {
   return true;
 }
 return false;
+```
+
+## private method IsTypePosition:(current:Token)=>bool
+
+这个 `:` 是不是处在**类型位**（那么它的 `? :` 是条件类型而不是三元表达式）。
+
+两处判据，都只用**此刻手上有的东西**：
+
+- 父单元是 `GenericType`——泛型实参段里的 `? :`（`Wrap<T extends U ? A : B>`）；
+- 父单元是**括号**、且括号里含 `extends`——`(T extends U ? A : B)` 这种**括号里的条件类型**。
+
+第二条为什么看「括号里有没有 `extends`」而不是看「括号的父单元是不是类型宿主」：
+括号**有自己的队列**，条件类型是在**括号关闭那一刻**成形的，那时它的父单元还是**语句**
+（`TypeAssign` 要等更晚的通用队列才把它收走）。第一版就是按父单元判的，跑出来毫无效果。
+`extends` 是个够用的信号：它不是值运算符，值位的三元里不会出现
+（`(a instanceof B ? c : d)` 里是 `instanceof`，不是它）。
+`let x: A = (cond ? a : b)` 的括号里没有 `extends`，三元照旧成立 ✓。
+
+```ts
+const parent = current.Parent;
+if (parent === null) {
+  return false;
+}
+if (parent instanceof GenericType) {
+  return true;
+}
+if (!(parent instanceof Bracket)) {
+  return false;
+}
+return parent.Data.some((item) => item instanceof Common && item.Is("extends"));
 ```
 
 ## static method IsTernaryOperatorStart:(current:Token)=>bool

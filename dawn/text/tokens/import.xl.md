@@ -1,10 +1,13 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
+import { CommonUtil } from "../../../core/common-util.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
+import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { Bracket } from "./bracket.xl.md"
 import { Common } from "./common.xl.md"
 import { Symbol } from "./symbol.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
@@ -32,11 +35,29 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是 `import` 这个词。
+`index` 处是不是 `import` 这个词，**而且它是一个导入声明**。
+
+`import` 后面紧跟 `(` 的是**动态导入**——它是调用表达式（`await import("m")` / `import("m").then(…)`），
+不是导入声明。少了这一条，`import("m")` 会被收成 `<Import><Bracket>…`，
+既挡住调用规则收 `Method`，也让 `xl:absent Import` 的用例失败。
+
+**后面紧跟 `.` 的是元属性 `import.meta`**（不是导入声明）：它是 TypeScript / ESM 里的一个表达式，
+收成 `Import` 会把 `import.meta.url` 整段吞进一个假的导入节点里（`expr-call-import-meta` 那条用例）。
+合法的导入声明后面跟的是 `{` / `*` / 一个名字 / 一个字符串，不会是 `.`。
 
 ```ts
 const current = Get(units, index);
-return current instanceof Common && current.TempToString() === "import";
+if (!(current instanceof Common) || current.TempToString() !== "import") {
+  return false;
+}
+const next = Get(units, SkipNextWrapSymbol(units, index));
+if (next instanceof Bracket && next.StartBracketChar === "(") {
+  return false;
+}
+if (next instanceof Symbol && next.Is(".")) {
+  return false;
+}
+return true;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
@@ -91,6 +112,7 @@ if (fromIndex !== -1) {
     result.From = constString.TempToString();
   }
 }
+result.ReadClause(items);
 result.AddRange(items);
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(items[items.length - 1].SourceRange.End!);
@@ -116,15 +138,122 @@ super(template);
 
 加载依赖文件时用它；为空表示这条导入没有可解析的目标。
 
+## field IsTypeOnly:boolean = false
+
+`import type …` 的 type-only 导入。
+
+**判据是收集到的第一个单元就是内容为 `type` 的 `Common`**：`import type { A } from "m"` ✓；
+`import { type A } from "m"`（逐项 type 修饰）不算整条 type-only ✓。
+
+## field DefaultName:string = ""
+
+默认导入的本地名（`import Default from "m"` → `Default`）。
+
+## field NamespaceName:string = ""
+
+命名空间导入的本地名（`import * as ns from "m"` → `ns`）。
+
+## field ImportedNames:Array<string> = []
+
+具名导入的**本地名**列表（`import { A, B as C } from "m"` → `A,C`）。
+
+取的是每一项的**最后一个 `Common`**：`A` 取 `A`、`B as C` 取 `C`、`type B` 取 `B` ✓。
+空列表表示这条导入没有具名子句（`import "m"` / 默认导入 / 命名空间导入）。
+
+**为什么这些属性值得加**（`known-gaps.json` 的 `_notes.imports-unstructured`）：
+原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
+而且 `From` **根本没有进 XML**（`Import` 没有覆写 `ToXmlString`）——下游拿不到路径。
+现在这些信息都成了属性，`ToXmlString` 一并渲染。
+
+## method ReadClause:(items:Array<Token>)=>void
+
+从子句里读出 `IsTypeOnly` / `DefaultName` / `NamespaceName` / `ImportedNames`。
+
+`Process` 在把 `items` 装进 `Data` **之前**调用它（那时这些单元还没被关闭，读起来最方便）。
+
+三种子句的形态互斥、按顺序判：
+
+- 头一个是 `type` → `IsTypeOnly`，后面按「剩下的部分」继续判；
+- 紧跟 `*`：命名空间导入，`as` 之后的那个 `Common` 是本地名；
+- 头一个是 `Common`（不是 `from`）：默认导入；
+- 有 `{` 括号：具名导入，括号里按 `,` 分段、每段取最后一个 `Common`。
+
+```ts
+let start = 0;
+if (items.length > 0 && items[0] instanceof Common && (items[0] as Common).Is("type")) {
+  this.IsTypeOnly = true;
+  start = 1;
+}
+if (start >= items.length) {
+  return;
+}
+const head = items[start];
+if (head instanceof Symbol && head.Is("*")) {
+  const asIndex = items.findIndex((item) => item instanceof Common && (item as Common).Is("as"));
+  if (asIndex !== -1 && asIndex + 1 < items.length && items[asIndex + 1] instanceof Common) {
+    this.NamespaceName = (items[asIndex + 1] as Common).TempToString();
+  }
+  return;
+}
+if (head instanceof Common && head.Is("from") === false) {
+  this.DefaultName = head.TempToString();
+  return;
+}
+if (head instanceof Bracket && head.StartBracketChar === "{") {
+  const names: string[] = [];
+  let lastCommon: Common | null = null;
+  for (const item of head.Data) {
+    if (item instanceof Common) {
+      lastCommon = item;
+      continue;
+    }
+    if (item instanceof Symbol && item.Is(",")) {
+      if (lastCommon !== null) {
+        names.push(lastCommon.TempToString());
+        lastCommon = null;
+      }
+    }
+  }
+  if (lastCommon !== null) {
+    names.push(lastCommon.TempToString());
+  }
+  this.ImportedNames = names;
+}
+```
+
+## method ToXmlString:()=>string
+
+产出 XML：标签名是运行时类型名，开标签上带 `From` / `IsTypeOnly` / `DefaultName` / `NamespaceName` / `ImportedNames`。
+
+`From` 要过一遍 `CommonUtil.XmlDecode`（路径里可能有 `&` 这类字符）。
+
+`IsTypeOnly` 写成 `true` / `false`——与 `Interface` 的 `IsExport` 同款。
+
+```ts
+const name = this.constructor.name;
+let body = "";
+for (const item of this.Data) {
+  body = body + item.ToXmlString();
+}
+const from = this.From === null ? "" : CommonUtil.XmlDecode(this.From);
+const isTypeOnly = this.IsTypeOnly ? "true" : "false";
+return `<${name} From="${from}" IsTypeOnly="${isTypeOnly}" DefaultName="${this.DefaultName}" NamespaceName="${this.NamespaceName}" ImportedNames="${this.ImportedNames.join(",")}">${body}</${name}>`;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。
 
-顺序是 `Sign(this)` → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
+顺序是 `Sign(this)` → 抄五个字段 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
 
 ```ts
 const result = new Import(this.Template);
 result.Sign(this);
+result.From = this.From;
+result.IsTypeOnly = this.IsTypeOnly;
+result.DefaultName = this.DefaultName;
+result.NamespaceName = this.NamespaceName;
+result.ImportedNames = this.ImportedNames.slice();
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

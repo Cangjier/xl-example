@@ -8,6 +8,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { DecideBracketContext } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -39,9 +40,25 @@ return result;
 
 认下这个开括号：新建一个 `Bracket`、用当前字符配成对应的括号对、挂到 `unit` 上并签入。
 
+**语句位置的 `{`（块）由 `LabelReorganization` 补语句队列**，这里不补：
+`{` 括号一律不设队列是既定设计（对象字面量的内容要保持平铺，函数体 / 分支体的队列由各自的规则
+从括号内容另建单元时装），在词法阶段判断「这个 `{` 是不是裸块」既不可靠（那时树还是平的）、
+也会让函数体 / `switch` 体被**重复重组**一遍。
+
 ```ts
-unit.AddToMounted(new Bracket(unit.Template)).Use(source.Value).SignIn(source);
+const bracket = new Bracket(unit.Template);
+bracket.Context = DecideBracketContext(unit, source.Value);
+unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
 ```
+
+**`Context` 在**开括号这一刻**就算好（方案 A）**：那时 `unit.Data` 里躺着的是**词法阶段的平列表** ——
+前文的 `Common` / `Symbol` 全都就位，没有任何「后来才建出来的节点」，所以这个判定
+**不随重组时序变化** ✓。
+
+原来这件事是**事后**做的（`TypeLiteralReorganization` / `BinaryOperatorReorganization` /
+`SpreadReorganization` 各自往上找祖先），而规则被询问时树还不是最终的树 ——
+实测同一个 `[` 在早期询问时 `Parent` 还指着 `Root`（`JsonArray < Root`），
+最终树里却是 `TypeAssign < Statement < Root` ✗。祖先判据因此天然时序相关（第 32、34 轮三版皆败）。
 
 # class Bracket extends UnitToken
 
@@ -74,6 +91,16 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 
 结束括号字符。
 
+## field Context:string = ""
+
+这个括号是在**类型位**还是**值位**上打开的：`"type"` / `"value"` / `""`（`{` / `[` 之外一律为空）。
+
+**在创建时刻算好**（见 `Success`）：那时前文还是词法阶段的平列表，判定结果与重组时序无关。
+`TypeLiteralReorganization` / `BinaryOperatorReorganization` / `SpreadReorganization` 用它的值代替
+「往上找祖先」——那条路走不通，因为规则被询问时树还不是最终的树（`Parent` 可能还没更新）。
+
+判定逻辑在 `../text-common-util.xl.md` 的 `DecideBracketContext`。
+
 ## method Is:(start:string, end:string)=>bool
 
 判断本括号是不是 `start` / `end` 这一对——只比每对的**第一个字符**。
@@ -90,7 +117,8 @@ return this.StartBracketChar === start[0] && this.EndBracketChar === end[0];
 
 未知字符抛 `Exception("未知括号")`。
 
-注意 `{` 分支里没有 `ReorganizationQueue = ...`（见类正文），这是刻意的，不要「顺手」补上。
+注意 `{` 分支里没有 `ReorganizationQueue = ...`（见类正文），这是刻意的，不要「顺手」补上——
+**唯一的例外**是语句位置的块（标签后面的那个），那一支由 `label.xl.md` 的 `Process` 事后补一条语句队列。
 
 ```ts
 if (value === "(") {

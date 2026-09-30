@@ -82,9 +82,72 @@ if (!(bracket instanceof Bracket)) {
 return bracket.StartBracketChar === "{";
 ```
 
+## private method SkipExtendsName:(units:Array<Token>, index:int)=>int
+
+跳过 `extends` 名单里的一项**实体名**：一个 `Common`，后面可以跟任意多个 `.` + `Common`（`A.B.C`）。返回名字之后的下标（跳过软换行）；`index` 处不是 `Common` 时返回 `-1`。
+
+**为什么要认点号**：`interface I extends a.b.Base` 是合法的 TypeScript，实体名是一个限定名而不是单个词。原来只认一个 `Common`，`a.b.Base` 就匹配不上，整条接口声明反而消失。
+
+```ts
+let nextIndex = index;
+if (!(Get(units, nextIndex) instanceof Common)) {
+  return -1;
+}
+nextIndex = SkipNextWrapSymbol(units, nextIndex);
+while (true) {
+  const dot = Get(units, nextIndex);
+  if (!(dot instanceof Symbol) || dot.Is(".") === false) {
+    return nextIndex;
+  }
+  const nameIndex = SkipNextWrapSymbol(units, nextIndex);
+  if (!(Get(units, nameIndex) instanceof Common)) {
+    return nextIndex;
+  }
+  nextIndex = SkipNextWrapSymbol(units, nameIndex);
+}
+```
+
+## private method ExtendsNameText:(units:Array<Token>, start:int, end:int)=>string
+
+把 `[start, end)` 这段单元拼成实体名的文本：`Common` 取它的文本，`Symbol` 里的点号补一个 `.`。
+
+**为什么不能只取第一个 `Common` 的文本**：限定名由多个 `Common` 和一个 `Symbol(".")` 组成，只取第一个会把 `a.b.Base` 记成 `a`——`ExtendsInterfaceNames` 是给人看的产物属性，记错比不记更糟。
+
+```ts
+let text = "";
+let index = start;
+while (index < end) {
+  const item = Get(units, index);
+  if (item instanceof Common) {
+    text += item.TempToString();
+  } else if (item instanceof Symbol && item.Is(".")) {
+    text += ".";
+  }
+  index++;
+}
+return text;
+```
+
+## private method TakeExtendsTypeArguments:(units:Array<Token>, index:int, interfaceInstance:Interface | null)=>int
+
+`extends` 名单里某一项后面的类型实参段（`Base<T>` 的 `<T>`）：`index` 处是 `GenericType` 就把它搬进 `interfaceInstance`（非空时）并返回它之后的下标；不是就原样返回 `index`。
+
+**必须搬进 `Interface`**，理由与 `TakeTypeParameters` 完全相同：这些单元落在 `ReplaceCountAt` 要替换的区间里，不搬就从产物里消失了。
+
+```ts
+const current = Get(units, index);
+if (!(current instanceof GenericType)) {
+  return index;
+}
+if (interfaceInstance !== null) {
+  interfaceInstance.Add(current);
+}
+return SkipNextWrapSymbol(units, index);
+```
+
 ## private method NextIsCommonExtendsCommonFlowerBracket:(units:Array<Token>, index:int, interfaceInstance:Interface | null)=>int
 
-`index` 后面是不是「`Common` 名字 + `extends` + `Common` 名 + 任意多个 `, Common` + `{` 括号」——即带 `extends` 的形状。匹配成功时返回**结束下标**（那个 `{` 括号的位置）；不匹配返回 `-1`。
+`index` 后面是不是「`Common` 名字 + `extends` + 实体名（可带类型实参，可带点号）+ 任意多个 `, 实体名` + `{` 括号」——即带 `extends` 的形状。匹配成功时返回**结束下标**（那个 `{` 括号的位置）；不匹配返回 `-1`。
 
 返回值是一个下标：匹配成功时是那个 `{` 括号的位置，不匹配返回 `-1`。原来分开的 `bool` 结果与结束下标
 合并成这一个返回值——**返回结束下标，`-1` 表示不匹配**。匹配成功时下标一定有效（`Get` 越界会先让类型判定失败），所以 `-1` 做哨兵没有歧义。调用方按 `>= 0` 判成立。
@@ -116,21 +179,22 @@ if (!(extendsCommon instanceof Common) || extendsCommon.Is("extends") === false)
   return -1;
 }
 nextIndex = SkipNextWrapSymbol(units, nextIndex);
-const firstExtendsInterfaceName = Get(units, nextIndex);
-if (!(firstExtendsInterfaceName instanceof Common)) {
+let nameStart = nextIndex;
+let nameEnd = this.SkipExtendsName(units, nameStart);
+if (nameEnd < 0) {
   return -1;
 }
-extendsInterfaceNames?.push(firstExtendsInterfaceName.TempToString());
-nextIndex = SkipNextWrapSymbol(units, nextIndex);
+extendsInterfaceNames?.push(this.ExtendsNameText(units, nameStart, nameEnd));
+nextIndex = this.TakeExtendsTypeArguments(units, nameEnd, interfaceInstance);
 let symbolUnit = Get(units, nextIndex);
 while (symbolUnit instanceof Symbol && symbolUnit.Is(",")) {
-  nextIndex = SkipNextWrapSymbol(units, nextIndex);
-  const extendsInterfaceName = Get(units, nextIndex);
-  if (!(extendsInterfaceName instanceof Common)) {
+  nameStart = SkipNextWrapSymbol(units, nextIndex);
+  nameEnd = this.SkipExtendsName(units, nameStart);
+  if (nameEnd < 0) {
     return -1;
   }
-  extendsInterfaceNames?.push(extendsInterfaceName.TempToString());
-  nextIndex = SkipNextWrapSymbol(units, nextIndex);
+  extendsInterfaceNames?.push(this.ExtendsNameText(units, nameStart, nameEnd));
+  nextIndex = this.TakeExtendsTypeArguments(units, nameEnd, interfaceInstance);
   symbolUnit = Get(units, nextIndex);
 }
 const bracket = Get(units, nextIndex);

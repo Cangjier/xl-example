@@ -12,6 +12,7 @@ import { ClassReorganization } from "./tokens/class/class.xl.md"
 import { Common } from "./tokens/common.xl.md"
 import { CompoundAssignmentOperatorReorganization } from "./tokens/compound-assignment-operator.xl.md"
 import { Decorator, DecoratorReorganization } from "./tokens/decorator.xl.md"
+import { DoWhileReorganization } from "./tokens/do-while/do-while.xl.md"
 import { EnumReorganization } from "./tokens/enum/enum.xl.md"
 import { FieldReorganization } from "./tokens/field.xl.md"
 import { ForReorganization } from "./tokens/for/for.xl.md"
@@ -20,9 +21,11 @@ import { FunctionReorganization } from "./tokens/function/function.xl.md"
 import { GenericType } from "./tokens/generic-type.xl.md"
 import { IfSetReorganization } from "./tokens/if/if-set.xl.md"
 import { ImportReorganization } from "./tokens/import.xl.md"
+import { ExportReorganization } from "./tokens/export.xl.md"
 import { InterfaceReorganization } from "./tokens/interface/interface.xl.md"
+import { NamespaceReorganization } from "./tokens/namespace/namespace.xl.md"
 import { JsonArrayReorganization } from "./tokens/json/json-array.xl.md"
-import { JsonObjectReorganization } from "./tokens/json/json-object.xl.md"
+import { BlockReorganization, JsonObjectReorganization } from "./tokens/json/json-object.xl.md"
 import { KeywordReorganization } from "./tokens/keyword.xl.md"
 import { LabelReorganization } from "./tokens/label.xl.md"
 import { LamdaReorganization } from "./tokens/lamda/lamda.xl.md"
@@ -32,16 +35,21 @@ import { LogicalOperatorReorganization } from "./tokens/logical-operator.xl.md"
 import { MethodReorganization } from "./tokens/method.xl.md"
 import { MethodDeclarationReorganization } from "./tokens/function/method-declaration.xl.md"
 import { NotNullReorganization } from "./tokens/not-null.xl.md"
+import { UnaryOperatorReorganization } from "./tokens/unary-operator.xl.md"
+import { BinaryOperatorReorganization } from "./tokens/binary-operator.xl.md"
+import { SpreadReorganization } from "./tokens/spread.xl.md"
 import { NullConditionalOperatorReorganization } from "./tokens/null-conditional-operator.xl.md"
 import { NewReorganization } from "./tokens/new/new.xl.md"
 import { PreprocessorDirectives } from "./tokens/preprocessor-directives.xl.md"
 import { RegexToken } from "./tokens/regex-token.xl.md"
+import { SignatureReorganization } from "./tokens/signature/signature.xl.md"
 import { StatementReorganization2, StatementReorganization3 } from "./tokens/statement.xl.md"
-import { StringGuide } from "./tokens/string/string-guide.xl.md"
+import { StringGuide, StringGuideBranch } from "./tokens/string/string-guide.xl.md"
 import { SwitchReorganization } from "./tokens/switch/switch.xl.md"
 import { Symbol } from "./tokens/symbol.xl.md"
 import { TernaryOperatorReorganization } from "./tokens/ternary-operator/ternary-operator.xl.md"
 import { TryReorganization } from "./tokens/try/try.xl.md"
+import { TypeLiteralReorganization } from "./tokens/type-literal/type-literal.xl.md"
 import { TypeAssignReorganization } from "./tokens/type-assign.xl.md"
 import { TypeDefineReorganization } from "./tokens/type-define.xl.md"
 import { WhileReorganization } from "./tokens/while/while.xl.md"
@@ -99,7 +107,7 @@ return new Sequence<Branch>([
 ]);
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, JsonObjectReorganization.Instance, JsonArrayReorganization.Instance, ImportReorganization.Instance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, AsReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, KeywordReorganization.Instance])
+## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, JsonArrayReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, AsReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, KeywordReorganization.Instance])
 
 通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。
@@ -143,18 +151,18 @@ return new Sequence<Branch>([
 表里**不收**字面量（`true` / `false` / `null`）：它们是 `Common` 的值语义（`IsBool` 等判定挂在 `Common` 上），
 不是上下文关键字。
 
-表里也**不收** `in` 与 `of`——它们正是「只有结合上下文才算关键字」的典型：
+表里**收** `in` 与 `of`（第 25 轮接上）：
 
-- `of` 在 TypeScript 里根本不是保留字（上下文关键字）；
-- `in` 虽然是保留字，但它的三种用法（`for (x in y)`、`k in o`、映射类型的 `[K in keyof T]`）全靠上下文区分；
-- 更要紧的是**实现上的依赖**：`ForReorganization` / `ForeachReorganization` 判定「括号里有没有 `in` / `of`」
-  靠的是 `item instanceof Common && item.Is("in")`，而那个括号（`(` 开的括号）**有自己的重组队列**，
-  里面的 `in` / `of` 在括号关闭时就跑过一次升级了。升级成 `Keyword` 之后，
-  两条规则都认不出它，`for (var name in all)` 会被 `ForReorganization` 接走并抛
-  「`(...)`中语句不满足格式要求」——这是真出现过的回归（`typescript.js` 就是在这儿炸的）。
+- `of` 在 TypeScript 里不是保留字，但它是**上下文关键字**，`for (x of y)` 里的它就是关键字；
+- `in` 是保留字，三种用法（`for (x in y)`、`k in o`、映射类型的 `[K in keyof T]`）都该有 `Keyword` 标签；
+- **代价是两条既有规则要跟着改**：`ForReorganization` / `ForeachReorganization` 判定「括号里有没有 `in` / `of`」
+  原来靠 `item instanceof Common && item.Is("in")`，而那个括号（`(` 开的括号）**有自己的重组队列**，
+  里面的 `in` / `of` 在括号关闭时就跑过一次升级了——升级成 `Keyword` 之后两条规则都认不出它，
+  `for (var name in all)` 会被 `ForReorganization` 接走并抛「`(...)`中语句不满足格式要求」
+  （这是真出现过的回归，`typescript.js` 就是在这儿炸的）。
 
-  要让 `in` / `of` 也能升级，得把 `For` / `Foreach` 的判定改成「`Common` 或 `Keyword` 都认」，
-  那要动两条既有规则的形状；等重新梳理类型位置上的关键字时再一并处理更合适。
+  所以本轮把四个调用点一起换成 `declaration-common.xl.md` 的 **`IsWordUnit`**（`Common` 或 `Keyword` 都认）：
+  `For`、`Foreach` 的两处、以及 `field.xl.md` 里 `BracketNameText` 认 `[K in T]` 的那一处。
 
 ```ts
 return [
@@ -186,6 +194,7 @@ return [
   "if",
   "implements",
   "import",
+  "in",
   "infer",
   "instanceof",
   "interface",
@@ -195,6 +204,7 @@ return [
   "module",
   "namespace",
   "new",
+  "of",
   "override",
   "private",
   "protected",
@@ -252,6 +262,13 @@ return [
 ];
 ```
 
+**`import` 不在这里**（试过、退回来了）：把 `import` 加进禁用表能挡住
+`typeof import("assert")` 被收成 `MethodDeclaration MethodName="import"`，
+但**连带**挡住了动态 `import("m")` 的 `Method`（调用）节点——那张表是「能不能当方法名」的**唯一**判据，
+调用规则与声明规则共用它。所以两处改成各自精确地拒一次：
+`MethodDeclarationReorganization.Previous` 拒 `import`（见 `tokens/function/method-declaration.xl.md`），
+`ImportReorganization.Previous` 拒 `import` 后面紧跟 `(` 的情形（动态 `import` 是调用、不是导入声明）。
+
 ## static method Install:(template:Template)=>void
 
 把两张通用队列**与这套语言的关键字配置**装进一个模板。
@@ -273,7 +290,58 @@ template.Initialize((self: Template) => {
   self.ReorganizationTemplate.DefaultValue = ParsePipeline.GeneralReorganize;
   self.KeywordTemplate.Allow(ParsePipeline.KeyWords());
   self.MethodNameTemplate.Ban(ParsePipeline.BanedMethodNames());
+  self.BranchTemplate.AddModifyItem(StringGuideBranch, ParsePipeline.ExtendStringStarts);
 });
+```
+
+## static method InitialKeywordReorganizationQueue:(unit:Token)=>void
+
+给一个**装类型文本**的单元装上报废类型用的重组队列：`KeywordReorganization` 与 `WrapSymbolReorganization` 两条。
+
+与 `InitialStatementReorganizationQueue` 是同一个思路的两半：那一条装「语句队列」，
+这一条装「类型队列」。
+
+**为什么不是通用队列**：`TypeDefine` / `TypeAssign` 的内容是类型，通用队列里的
+`TernaryOperatorReorganization` 会把**条件类型** `T extends U ? A : B` 收成表达式三元
+（`type X = T extends Array<infer U> ? U : never` 于是长出一个 `TernaryOperator` 节点），
+那是错的——类型位的 `? :` 是条件类型，不是三元表达式。
+类型位要的只是「把 `keyof` / `typeof` / `readonly` / `is` / `asserts` / `interface` 这些词升级成 `Keyword`」，
+所以就装这一条。
+
+```ts
+unit.ReorganizationQueue = new Sequence<Reorganization>([KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
+```
+
+**两条规则、不是一条**：`KeywordReorganization` 把类型位的关键词升级成 `Keyword`；
+`WrapSymbolReorganization` 把类型文本里的**软换行**摘掉——类型可以折行排版，
+那些换行是版面而不是内容（`Array<String,` 换行 `Int64>` 里那个换行不该留在产物里）。
+通用队列里能做这两件事的就是这两条，其余的一律不要（见上）。
+
+## static method ExtendStringStarts:(branch:any)=>void
+
+把**单引号**加进「字符串起点」集合（见 `../dawn/text/tokens/string/string-guide.xl.md` 的 `AddStringChar`）。
+
+`StringGuideBranch.StringChars` 的初值只有双引号，单引号与反引号要靠这条就地修改器补上——
+机制早就写好了（`SequenceTemplate.AddModifyItem`），但**调用点一直缺失**：没有它，
+`'abc'` 不被当成字符串，里面的每个字符都退化成 `Symbol` / `Common`。
+
+**为什么这条比看上去重要**：TypeScript 的模块说明符常用单引号（`import … from './x'`），
+说明符里的 `/` 会被正则词法接手，把**同一文件后面的内容整段吞掉**——
+实测 `@types/node` 的 undici 系文件（`fetch.d.ts` / `dispatcher.d.ts` / `webidl.d.ts` …）
+因此丢掉全部 interface / class / function / type alias 节点。
+
+反引号与单引号一次加齐。**模板字符串的内插不需要额外改动**：
+`string.xl.md` 的 `Default` 第 6 条分支（三个开关全关，正是反引号串走的那条）早就写好了——
+`{` 且前一个字符是 `$`、`StringChar` 是反引号时，置 `InterpolationCount = 1`、
+把那个 `$` 从单元上 `Undo` 掉、挂 `InterpolationString`。
+缺的只是「反引号被当成字符串起点」这一步，和当初单引号那处一模一样。
+
+引号字符本身由 `StringGuide` 记着（`new StringGuide(unit.Template, source.Value)`），
+退出向导按同一个字符收尾，反引号不需要额外的退出规则。
+
+```ts
+branch.AddStringChar("'");
+branch.AddStringChar("`");
 ```
 
 ## static method InitialStatementReorganizationQueue:(unit:Token)=>void

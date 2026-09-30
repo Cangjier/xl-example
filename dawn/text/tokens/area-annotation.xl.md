@@ -3,6 +3,7 @@
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { CommonUtil } from "../../../core/common-util.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -52,7 +53,7 @@ unit.AddToMounted(new AreaAnnotation(unit.Template)).SignIn(source.Pre()!);
 
 单元值类型是单字符的 `string`。
 
-它覆写了 `ToXmlString`（`<AreaAnnotation>正文</AreaAnnotation>`，**不转义**）；由于摘除注释的那个重组已经移除，这个覆写就是注释在 XML 里的最终形态。
+它覆写了 `ToXmlString`（`<AreaAnnotation>正文</AreaAnnotation>`，内容过 `CommonUtil.XmlDecode`）；由于摘除注释的那个重组已经移除，这个覆写就是注释在 XML 里的最终形态。
 
 ## static readonly field JumpIn:AreaAnnotationBranch = new AreaAnnotationBranch()
 
@@ -145,11 +146,12 @@ return BranchStates.Undo;
 
 产出 XML：`<AreaAnnotation>注释正文</AreaAnnotation>`。
 
-标签名取 `this.constructor.name`；内容**不做 XML 转义**（与 `BlockToken` 不同）。
+标签名取 `this.constructor.name`；内容过 `CommonUtil.XmlDecode`——块注释同样是任意文本，
+JSDoc 里的 `@type {Array<T>}` 这类写法必须转义，否则产物不是合法 XML（与 `LineAnnotation` 同一处理）。
 
 ```ts
 const name = this.constructor.name;
-return `<${name}>${this.Tmp}</${name}>`;
+return `<${name}>${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 
 ## method Clone:()=>Token

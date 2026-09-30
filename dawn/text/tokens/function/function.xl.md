@@ -47,17 +47,28 @@ import { WrapSymbol } from "../wrap-symbol.xl.md"
 
 ## private method ParameterIndex:(units:Array<Token>, index:int)=>int
 
-取参数表括号的下标：`index` 是 `function` 关键字，往后的第一个实义单元是名字，
+取参数表括号的下标：`index` 是 `function` 关键字，往后的第一个实义单元是名字（**生成器函数的名字前面还有一个 `*`**），
 名字后面允许夹一个类型参数段（`GenericType`，或者没被认下来的裸 `<…>`），再往后就是 `(` 括号。形状不对时返回 `-1`。
+
+**`*` 那一支是生成器函数**：`function* g() {}` / `async function* g() {}`。
+不认它时「名字 + `(`」这一串凑不出来，整条 `Function` 丢掉——
+后面跟着的 `g()` 反而被 `MethodDeclaration` 当成方法收走（实测产物是
+`<Keyword>function</Keyword><Symbol>*</Symbol><MethodDeclaration MethodName="g">`，
+生成器声明于是**降级成方法声明**）。
 
 `Previous` 与 `Process` 共用它——两边对「参数表在哪」的判断必须一致。
 
 ```ts
-const nameIndex = SkipNextWrapSymbol(units, index);
-if (!(Get(units, nameIndex) instanceof Common)) {
+let nameIndex = SkipNextWrapSymbol(units, index);
+const star = Get(units, nameIndex);
+if (star instanceof Symbol && star.Is("*")) {
+  nameIndex = SkipNextWrapSymbol(units, nameIndex);
+}
+const named = Get(units, nameIndex) instanceof Common;
+if (named === false && Get(units, nameIndex) instanceof Bracket === false) {
   return -1;
 }
-let i = SkipNextWrapSymbol(units, nameIndex);
+let i = named ? SkipNextWrapSymbol(units, nameIndex) : nameIndex;
 if (Get(units, i) instanceof GenericType) {
   i = SkipNextWrapSymbol(units, i);
 }
@@ -67,6 +78,13 @@ if (!(parameters instanceof Bracket) || parameters.StartBracketChar !== "(") {
 }
 return i;
 ```
+
+**函数名可以省**（`function () { … }`）：匿名函数表达式，`export default function () { … }`
+与 IIFE `(function () { … })()` 都是这个形状。名字缺失时名字下标就是参数表本身，
+`Process` 里把 `FunctionName` 留空。
+
+**名字后面那个 `(` 与「名字缺失」不能混**：`function (` 里 `(` 的下标既是「没有名字」的证据、
+又是参数表——所以判定用「名字那个位置是不是 `Common`」，是才往后找参数表。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
@@ -87,6 +105,8 @@ return this.ParameterIndex(units, index) >= 0;
 两段扫描：
 
 1. **头部**：起点由 `DeclarationStart` 往前吃掉一串修饰词与装饰器；名字与参数表之间允许一个 `GenericType`。
+   生成器函数的 `*` 夹在 `function` 与名字之间——它作为子单元留在 `Function` 里（**不能丢**：
+   丢了就分不出「生成器」与「普通函数」，两者的产物会一模一样）。
 2. **尾部**：`ScanDeclarationBody` 给出函数体那个 `{` 的下标（没有体时 `-1`），
    `ScanDeclarationTailEnd` 给出返回类型段的末尾下标（没有返回类型时 `-1`）。
    返回类型整段搬给 `ReturnType` 并 `TryToClose()`——**必须自成一段**，否则 `TypeDefine` 会从 `:`
@@ -108,19 +128,29 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const startIndex = DeclarationStart(units, index);
-const nameIndex = SkipNextWrapSymbol(units, index);
+let nameIndex = SkipNextWrapSymbol(units, index);
+const generatorStar = Get(units, nameIndex);
+if (generatorStar instanceof Symbol && generatorStar.Is("*")) {
+  nameIndex = SkipNextWrapSymbol(units, nameIndex);
+}
 const parametersIndex = this.ParameterIndex(units, index);
 if (parametersIndex < 0) {
   throw new Error("function 语句不满足格式要求：function Name(...){...}");
 }
 const result = new Function(template);
 result.Parent = current.Parent;
-result.FunctionName = (Get(units, nameIndex) as Common).TempToString();
+const nameUnit = Get(units, nameIndex);
+if (nameUnit instanceof Common) {
+  result.FunctionName = nameUnit.TempToString();
+}
 result.Modifiers = DeclarationModifiers(units, startIndex, index).join(",");
 for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
   result.AddAndCloseLast(item);
 }
-let i = SkipNextWrapSymbol(units, nameIndex);
+if (generatorStar !== null && generatorStar instanceof Symbol) {
+  result.AddAndCloseLast(generatorStar);
+}
+let i = nameUnit instanceof Common ? SkipNextWrapSymbol(units, nameIndex) : nameIndex;
 while (i < parametersIndex) {
   result.AddAndCloseLast(Get(units, i)!);
   i = SkipNextWrapSymbol(units, i);

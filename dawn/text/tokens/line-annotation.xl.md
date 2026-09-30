@@ -3,6 +3,7 @@
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { CommonUtil } from "../../../core/common-util.xl.md"
 import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -54,7 +55,11 @@ unit.AddToMounted(new LineAnnotation(unit.Template)).SignIn(preUnit);
 
 单元值类型是单字符的 `string`。
 
-它覆写了 `ToXmlString`（`<LineAnnotation>正文</LineAnnotation>`，**不转义**）；由于摘除注释的那个重组已经移除，这个覆写就是注释在 XML 里的最终形态，不再有单元在它之前把它删掉。
+它覆写了 `ToXmlString`（`<LineAnnotation>正文</LineAnnotation>`，内容过一遍 `CommonUtil.XmlDecode`）；由于摘除注释的那个重组已经移除，这个覆写就是注释在 XML 里的最终形态，不再有单元在它之前把它删掉。
+
+**转义是必须的**：注释正文是任意文本，`// a < b` 里的 `<` 直接写进文本节点会产出**不合法的 XML**
+（原来这一处刻意不转义，理由是「注释不该被改写」，但产物是 XML，合法性优先）。
+转义走 `CommonUtil.XmlDecode`，与 `ConstString` 用的是同一张表（换行变 `\n`、`< > &` 变实体）。
 
 ## static readonly field JumpIn:LineAnnotationBranch = new LineAnnotationBranch()
 
@@ -81,11 +86,12 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 产出 XML：`<LineAnnotation>注释正文</LineAnnotation>`。
 
-标签名取 `this.constructor.name`；内容**不做 XML 转义**（与 `BlockToken` 不同）。
+标签名取 `this.constructor.name`；内容过 `CommonUtil.XmlDecode`——注释是任意文本，
+里面的 `<` / `>` / `&` 必须转义，否则产物不是合法 XML。
 
 ```ts
 const name = this.constructor.name;
-return `<${name}>${this.Tmp}</${name}>`;
+return `<${name}>${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 
 ## method Undo:(source:Source)=>void

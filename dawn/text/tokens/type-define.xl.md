@@ -4,6 +4,9 @@ import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { IsMemberBoundary } from "./declaration-common.xl.md"
+import { WrapSymbol } from "./wrap-symbol.xl.md"
+import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Get, ReplaceCountAt, SearchFront } from "../../../core/extensions/list-extension.xl.md"
 import { JsonObjectReorganization } from "./json/json-object.xl.md"
 import { Symbol } from "./symbol.xl.md"
@@ -59,6 +62,7 @@ return true;
 要点：
 
 - 从 `index + 1` 往后扫，遇到内容为 `;` / `,` 的 `Symbol`，或者 `template.SymbolTemplate.IsAssignmentSymbol(...)` 认下的赋值符号，就停在它**前一位**（`endIndex = i - 1`）并跳出。
+- **遇到成员边界（换行 + 下一行像新成员）也停**（`IsMemberBoundary`，见下）。
 - 一路没遇到终止符就把 `endIndex` 取成 `units.length - 1`。
 - 收集期间每个单元都要非空，取不到就抛错。
 - 新单元用**当前单元**（`index` 处那个）作为 `Parent` 的来源：先 `new` 再赋值。
@@ -78,6 +82,10 @@ for (let i = index + 1; i < units.length; i++) {
     throw new Error("item 为空");
   }
   if (item instanceof Symbol && (item.Is(";") || item.Is(",") || template.SymbolTemplate.IsAssignmentSymbol(item.TempToString()))) {
+    endIndex = i - 1;
+    break;
+  }
+  if (item instanceof WrapSymbol && IsMemberBoundary(units, i)) {
     endIndex = i - 1;
     break;
   }
@@ -104,10 +112,22 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器。
+转调基类构造器，**并且把自己的重组队列装上**。
+
+本单元是重组规则建出来的，它的内容（`:` 之后的类型文本）**没有**再被外层扫过一遍：
+外层那一趟里 `KeywordReorganization` 排在**最后**（这是必须的，结构规则要先看到 `Common`），
+而 `TypeDefine` 在它之前就把类型文本收走了——类型位的关键词于是永远停在 `Common` 上
+（`function f(): void {}` 的 `void`、`let x: readonly string[]` 的 `readonly` 都这样）。
+给本单元挂上**类型队列**（只有 `KeywordReorganization` 一条，见
+`../../parse-pipeline.xl.md` 的 `InitialKeywordReorganizationQueue`）之后，它关闭时会再跑一趟，
+`KeywordReorganization` 这一趟就能看见里面的词。
+
+用类型队列而不是通用队列：通用队列里的 `TernaryOperatorReorganization` 会把**条件类型**
+`T extends U ? A : B` 收成表达式三元——类型位的 `? :` 不是三元表达式。
 
 ```ts
 super(template);
+ParsePipeline.InitialKeywordReorganizationQueue(this);
 ```
 
 ## method Clone:()=>Token

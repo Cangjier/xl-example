@@ -8,6 +8,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Common } from "./common.xl.md"
+import { IsUnicodeEscapeStart } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -23,6 +24,8 @@ import { Common } from "./common.xl.md"
 判定顺序：
 
 1. 当前字符不是符号 → 失败。
+   **例外**：`\` 后面跟着 `u` 加十六进制时**也让路**（那是标识符里的 Unicode 转义，
+   由 `CommonBranch` 接手；判据是 `../text-common-util.xl.md` 的 `IsUnicodeEscapeStart`）。
 2. 上一个单元也是 `Symbol`：已关闭就开新的（`Message = 0`）；没关闭就看它的 `IsAppend`，能续就 `Message = 1`，不能续也开新的（`Message = 0`）。
 3. 上一个单元是 `Common` 且当前字符是 `.`、且那个 `Common` 是纯数字 → 失败（小数点交给 `Common` 自己吃）。
    **注意这条排在「上一个单元也是 Symbol」之后**，所以只有上一个不是 `Symbol` 时才会走到。
@@ -35,6 +38,11 @@ import { Common } from "./common.xl.md"
 ```ts
 const value = source.Value;
 if (!unit.Template.SymbolTemplate.IsSymbol(value)) {
+  const result = new BranchConditionResult();
+  result.Success = false;
+  return result;
+}
+if (value === "\\" && IsUnicodeEscapeStart(source.Document, source.Index)) {
   const result = new BranchConditionResult();
   result.Success = false;
   return result;

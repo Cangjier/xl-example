@@ -12,7 +12,10 @@
     "build": "xl build && tsc",
     "compile": "tsc",
     "samples": "node ./samples/check.mjs",
-    "cjcli": "node ./build/ts/cjcli.js"
+    "cjcli": "node ./build/ts/cjcli.js",
+    "cases:check": "node ./tests/parse/validate.mjs",
+    "cases:run": "node ./tests/parse/run.mjs",
+    "cases:diff": "node ./tests/parse/differential.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

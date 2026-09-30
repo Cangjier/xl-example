@@ -6,11 +6,12 @@ import { SyntaxException } from "../../../../core/exceptions/syntax-exception.xl
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../../core/extensions/list-extension.xl.md"
-import { SearchBack } from "../../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Common } from "../common.xl.md"
+import { Symbol } from "../symbol.xl.md"
+import { WrapSymbol } from "../wrap-symbol.xl.md"
 import { NewArguments } from "./new-arguments.xl.md"
 import { NewType } from "./new-type.xl.md"
 ```
@@ -48,46 +49,101 @@ const current = Get(units, index);
 if (!(current instanceof Common) || !current.Is("new")) {
   return false;
 }
-return GetSkipNextWrapSymbol(units, index) instanceof Common;
+const nextIndex = SkipNextWrapSymbol(units, index);
+const next = Get(units, nextIndex);
+if (next instanceof Bracket) {
+  if (next.StartBracketChar !== "(") {
+    return false;
+  }
+  const afterBracket = Get(units, SkipNextWrapSymbol(units, nextIndex));
+  if (afterBracket instanceof Symbol && afterBracket.Is("=>")) {
+    return false;
+  }
+  return true;
+}
+return next instanceof Common;
 ```
+
+**`(` 括号那一支是给「括号里的被构造者」的**：`new (class {})()` / `new (getCtor())()`——
+被构造的表达式可以先用括号包起来。不认这一支时 `new` 留在树里、拿不到 `New` 节点。
+
+**但类型位的构造签名 `new (a: number) => A` 要留在门外**（它属于类型层，标签表里没有 `New` 的位置）：
+判据是括号后面紧跟 `=>`。少了这一条，`lib.es5.d.ts` 里满地的构造签名会被收成 `New` 表达式
+（`type-fn-new` 那条用例当场报出来）。
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
-执行重组：从 `index` 起向后找第一个 `Bracket`，把它之前的内容收进 Type 段、把括号内容搬进 Arguments 段，整段换成一个 `New`，**返回新的下标**。
+执行重组：从 `index` 起向后找类型名与可选的实参括号，整段换成一个 `New`，**返回新的下标**。
 
 重组把多个子单元换成一个，下标必须跟着走。
 
 几处行为：
 
-- 找不到括号时抛 `SyntaxException`（「new 后面没有找到括号」），走静态工厂 `SyntaxException.FromMessage`，把范围与消息一起带上。
-- 括号本身也在这段范围内，`result` 的 `SignOut` 取的是**括号的终点**，所以 `new Foo(a)` 的 XML 范围覆盖到 `)`。
+- **实参括号是可选的**：TypeScript 里 `new A` / `new A<T>` / `new a.b.C` 都合法（没有实参表）。
+  所以扫描不是「找第一个括号」，而是「往前走到边界」：遇到圆括号就收实参，遇到软换行 / `;` / `,` /
+  `.` 以外的符号就停——不然 `new A` 会把下一条语句的括号当成自己的实参表（
+  `const b = new A` 换行 `const c = new B()` 就是一个真实的反例）。
+- 有括号时括号本身也在这段范围内，`result` 的 `SignOut` 取的是**括号的终点**；
+  没有括号时取类型名的终点，`NewArguments` 是一个空段（标签仍在，形状与 `new A()` 对齐）。
 - `bracket.MoveDataTo(newArguments)` 把括号内容整体搬走，括号随后就不在单元列表里了（它被 `ReplaceCountAt` 换掉）。
+- **`new` 后面紧跟一个 `(` 括号时，那个括号是「被构造者」**（`new (class {})()` / `new (getCtor())()`），
+  它进 `NewType` 段，实参括号是它**后面**那一个。所以扫描先跳过它一格再找实参括号。
+- 一个类型单元都没有时（`new` 后面直接是换行之类）抛 `SyntaxException`。
 
 ```ts
 const current = Get(units, index) as Common;
-const bracketIndex = SearchBack(units, index + 1, (item) => item instanceof Bracket);
-if (bracketIndex === -1) {
-  throw SyntaxException.FromMessage(current.SourceRange, "new 后面没有找到括号");
+let i = index + 1;
+let bracketIndex = -1;
+const callee = Get(units, i);
+if (callee instanceof Bracket && callee.StartBracketChar === "(") {
+  i = i + 1;
 }
-const bracket = Get(units, bracketIndex) as Bracket;
+while (i < units.length) {
+  const item = Get(units, i);
+  if (item instanceof Bracket) {
+    if (item.StartBracketChar === "(") {
+      bracketIndex = i;
+    }
+    break;
+  }
+  if (item instanceof WrapSymbol) {
+    break;
+  }
+  if (item instanceof Symbol && item.Is(".") === false) {
+    break;
+  }
+  i = i + 1;
+}
+const typeEnd = bracketIndex === -1 ? i - 1 : bracketIndex - 1;
+if (typeEnd < index + 1) {
+  throw SyntaxException.FromMessage(current.SourceRange, "new 后面没有找到类型名");
+}
 const result = new New(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
-result.SignOut(bracket.SourceRange.End!);
 const newType = result.CreateType();
 newType.SignIn(current.SourceRange.Start!);
-newType.SignOut(current.SourceRange.End!);
-for (let i = index + 1; i < bracketIndex; i++) {
-  newType.Add(Get(units, i)!);
+for (let t = index + 1; t <= typeEnd; t++) {
+  newType.Add(Get(units, t)!);
 }
+newType.SignOut(Get(units, typeEnd)!.SourceRange.End!);
 const newArguments = result.CreateArguments();
-newArguments.SignIn(bracket.SourceRange.Start!);
-newArguments.SignOut(bracket.SourceRange.End!);
-bracket.MoveDataTo(newArguments);
+if (bracketIndex === -1) {
+  newArguments.SignIn(Get(units, typeEnd)!.SourceRange.End!);
+  newArguments.SignOut(Get(units, typeEnd)!.SourceRange.End!);
+  result.SignOut(Get(units, typeEnd)!.SourceRange.End!);
+} else {
+  const bracket = Get(units, bracketIndex) as Bracket;
+  newArguments.SignIn(bracket.SourceRange.Start!);
+  newArguments.SignOut(bracket.SourceRange.End!);
+  bracket.MoveDataTo(newArguments);
+  result.SignOut(bracket.SourceRange.End!);
+}
 newType.TryToClose();
 newArguments.TryToClose();
 result.TryToClose();
-return ReplaceCountAt(units, index, bracketIndex - index + 1, result);
+const lastIndex = bracketIndex === -1 ? typeEnd : bracketIndex;
+return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 ```
 
 # class New extends IndependentToken

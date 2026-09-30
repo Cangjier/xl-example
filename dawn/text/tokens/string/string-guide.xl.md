@@ -55,6 +55,10 @@ return BranchConditionResult.FromBool(this.StringChars.includes(source.Value));
 
 注意 `last!.Pre()` 取出的是前一个 `Source` 本身、不是字符；`last` 是可空引用，`last !== null && last.Value === "$"` 用来判「前一个字符是 `$`」。
 
+**反引号不走这里**：模板字符串的内插不靠前缀，`String` 的三个开关保持全关，
+由 `string.xl.md` 的 `Default` 第 6 条分支在 `{` 处自己判（`InterpolationCount = 1` + 退掉 `$`）。
+所以这里不需要为反引号做任何事。
+
 ```ts
 const item = new StringGuide(unit.Template, source.Value);
 const undoSources: Source[] = [];

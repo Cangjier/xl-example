@@ -85,17 +85,31 @@ return name;
 这里跨过它就行——那些单元的文本由 `Process` 原样搬进 `Class`，不丢。
 
 两条防御性早退：`;` 不可能出现在类头里（命中就说明这不是一个类头），
-`extends` 后面必须紧跟一个名字（否则是 `class A extends { }` 这种残形）。
+`extends` 后面必须紧跟一个名字、一个括号（调用 / 括号表达式），或干脆直接是类体。
+
+**三种放宽都是真实写法需要的**：
+
+- **匿名类** `export default class { … }`：名字可以没有，`class` 后面直接就是 `{`（或 `extends`）；
+- **继承表达式** `class A extends mixin(B) {}` / `class D extends (Base) {}`：
+  `extends` 后面不一定是一个类型名，也可以是一次调用或一个括号表达式。
+  放宽之前这两种形状整条类都认不出来——后面那个 `mixin(B) { … }` 反而被
+  `MethodDeclarationReorganization` 当成「方法名 + 参数表 + 方法体」收走，
+  产物里出现 `MethodDeclaration MethodName="mixin"`（类体成了它的方法体）；
+- **跳过继承表达式里的括号**：向后找类体时，`(` / `[` 括号属于继承表达式，只有 `{` 才是类体。
 
 ```ts
 const nameIndex = SkipNextWrapSymbol(units, index);
 const name = Get(units, nameIndex);
-if (!(name instanceof Common)) {
+const isAnonymous = name instanceof Bracket && name.StartBracketChar === "{";
+if (isAnonymous === false && !(name instanceof Common)) {
   return -1;
 }
-let i = SkipNextWrapSymbol(units, nameIndex);
-if (Get(units, i) instanceof GenericType) {
-  i = SkipNextWrapSymbol(units, i);
+let i = nameIndex;
+if (isAnonymous === false) {
+  i = SkipNextWrapSymbol(units, nameIndex);
+  if (Get(units, i) instanceof GenericType) {
+    i = SkipNextWrapSymbol(units, i);
+  }
 }
 let extendsName = "";
 let implementsNames: string[] = [];
@@ -103,14 +117,19 @@ const extendsUnit = Get(units, i);
 if (extendsUnit instanceof Common && extendsUnit.Is("extends")) {
   i = SkipNextWrapSymbol(units, i);
   const baseName = Get(units, i);
-  if (!(baseName instanceof Common)) {
+  if (baseName instanceof Common) {
+    extendsName = this.TakeDottedName(units, i);
+  } else if (!(baseName instanceof Bracket)) {
     return -1;
   }
-  extendsName = this.TakeDottedName(units, i);
   while (i < units.length) {
     const item = Get(units, i);
     if (item instanceof Bracket) {
-      break;
+      if (item.StartBracketChar === "{") {
+        break;
+      }
+      i = SkipNextWrapSymbol(units, i);
+      continue;
     }
     if (item instanceof Symbol && item.Is(";")) {
       return -1;
@@ -127,7 +146,11 @@ if (implementsUnit instanceof Common && implementsUnit.Is("implements")) {
   while (i < units.length) {
     const item = Get(units, i);
     if (item instanceof Bracket) {
-      break;
+      if (item.StartBracketChar === "{") {
+        break;
+      }
+      i = SkipNextWrapSymbol(units, i);
+      continue;
     }
     if (item instanceof Symbol && item.Is(";")) {
       return -1;
@@ -143,7 +166,9 @@ if (!(body instanceof Bracket) || body.StartBracketChar !== "{") {
   return -1;
 }
 if (classInstance !== null) {
-  classInstance.ClassName = name.TempToString();
+  if (isAnonymous === false && name instanceof Common) {
+    classInstance.ClassName = name.TempToString();
+  }
   classInstance.ExtendsClassName = extendsName;
   classInstance.ImplementsInterfaceNames = implementsNames;
 }

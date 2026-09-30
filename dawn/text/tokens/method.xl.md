@@ -58,8 +58,39 @@ return previousIndex;
 const nameIndex = this.NameIndex(units, index);
 const nameUnit = Get(units, nameIndex);
 const current = Get(units, index);
-return nameUnit instanceof Common && template.MethodNameTemplate.IsMethodName(nameUnit.TempToString()) && current instanceof Bracket && current.StartBracketChar === "(";
+if (current instanceof Bracket === false || current.StartBracketChar !== "(") {
+  return false;
+}
+if (current.Parent instanceof GenericType) {
+  return false;
+}
+if (nameUnit instanceof Bracket && nameUnit.StartBracketChar === "(") {
+  const beforeIndex = SkipPreviousWrapSymbol(units, nameIndex);
+  const before = Get(units, beforeIndex);
+  if (before instanceof Common && before.IsAny(["if", "for", "foreach", "while", "switch", "catch", "function", "with"])) {
+    return false;
+  }
+  return true;
+}
+return nameUnit instanceof Common && template.MethodNameTemplate.IsMethodName(nameUnit.TempToString());
 ```
+
+**类型实参段里没有调用**：父单元是 `GenericType` 时一律不成立。
+类型参数列表里到处都是「名字 + 括号」——`<T extends (a: any) => any>` 里的 `extends(a: any)`
+会被当成一次调用收成 `Method`，接着把类型的尾巴（`=> any`）搅散，
+**整条声明跟着塌**（`lib.es5.d.ts` 的 `Parameters` / `ReturnType`、`lib.decorators.d.ts` 的
+`…DecoratorContext`、`typescript.d.ts` 的 `visitNodes` 全是这个形状，实测 23 处）。
+
+**括号作被调用者**（`(function () { … })()` / `(() => 1)()` / `f(a)(b)`）：
+前一单元是 `(` 开头的括号时也算——**括号表达式的结果可以被调用**
+（括号单元记的是**起始**字符，所以判的是 `StartBracketChar === "("`，不是 `)`）。
+`MethodName` 留空（没有名字），被调用者那个括号作为子单元留在 `Method` 里。
+
+但**控制结构的头要挡掉**：`if (x) (y)` 里第二个括号前面也是 `)` 括号，
+那对括号是 `if` 的条件表，不是被调用者。判据是「再往前一个实义单元是不是控制流关键字」
+（`if` / `for` / `while` / `switch` / `catch` / `function` / `with`）。
+本规则排在 `IfSet` / `For` / `While` 这些**之前**（它们最后兜底），
+不挡的话 `if` 的条件表会被当成一次调用，整条 `if` 跟着塌。
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
@@ -74,11 +105,16 @@ return nameUnit instanceof Common && template.MethodNameTemplate.IsMethodName(na
 ```ts
 const bracketUnit = Get(units, index)! as Bracket;
 const nameIndex = this.NameIndex(units, index);
-const nameUnit = Get(units, nameIndex)! as Common;
+const nameUnit = Get(units, nameIndex)!;
 const method = new Method(nameUnit.Template);
 method.SignIn(nameUnit.SourceRange.Start!);
 method.SignOut(bracketUnit.SourceRange.End!);
-method.MethodName = nameUnit.TempToString();
+if (nameUnit instanceof Common) {
+  method.MethodName = nameUnit.TempToString();
+}
+if (nameUnit instanceof Bracket) {
+  method.AddAndCloseLast(nameUnit);
+}
 for (let i = nameIndex + 1; i < index; i++) {
   method.AddAndCloseLast(Get(units, i)!);
 }

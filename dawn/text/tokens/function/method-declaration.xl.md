@@ -5,14 +5,21 @@ import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, DeclarationModifiers, DeclarationStart, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationEnd, DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { BracketNameText } from "../field.xl.md"
+import { JsonArray } from "../json/json-array.xl.md"
+import { ClassBody } from "../class/class-body.xl.md"
 import { Common } from "../common.xl.md"
 import { GenericType } from "../generic-type.xl.md"
+import { InterfaceBody } from "../interface/interface-body.xl.md"
 import { MethodBody } from "./method-body.xl.md"
+import { TypeLiteralBody } from "../type-literal/type-literal-body.xl.md"
 import { ReturnType } from "./return-type.xl.md"
 import { Symbol } from "../symbol.xl.md"
+import { ConstString } from "../string/const-string.xl.md"
+import { String } from "../string/string.xl.md"
 import { WrapSymbol } from "../wrap-symbol.xl.md"
 ```
 
@@ -33,9 +40,16 @@ import { WrapSymbol } from "../wrap-symbol.xl.md"
 这也是本规则必须排在 `MethodReorganization` **之前**的原因（见 `../parse-pipeline.xl.md`）：
 `Method` 一旦先成形，名字与参数就都被它装走了，这里再也看不到「名字 + `(`」。
 
-**没有方法体的声明不收**：`abstract f(): void;` / `declare f(): void` 这类形状在括号后面是 `;`，
-与「一条以 `;` 收尾的调用语句」完全同形，收它就是拿 `foo(a);` 去换一个假的方法声明。
-这类成员这一轮仍旧落成 `Method` + `TypeDefine`（见 README 的已知缺口）。
+**没有方法体的成员签名也收**：`abstract f(): void;` / 接口里的 `m(): void` / 重载签名
+`calls(exact?: number): () => void;` 都是**成员签名**，它们该有自己的节点。
+
+原来这一条不收，理由是「括号后面是 `;`，与一条以 `;` 收尾的调用语句完全同形」。
+那个理由只在**语句位置**成立：在类体 / 接口体里，直接成员不可能是调用语句——
+`f(1);` 只能是某个字段初始化式的一部分，而那种情况下 `Field`（排在方法声明之后，但它的起点更靠左）
+会先把整条 `x = f(1);` 收走，`f` 根本轮不到这里。
+
+所以判据是**父单元**：只有 `ClassBody` / `InterfaceBody` 的直接成员才允许无体形状，
+其余位置仍然要 `{` 才收——`foo(a);` 这类语句不会因此变成假的方法声明。
 
 `MethodDeclarationReorganization` 写在 `MethodDeclaration` **之前**。
 
@@ -60,13 +74,24 @@ return ScanDeclarationBody(units, index);
 
 ## private method ParameterIndex:(units:Array<Token>, index:int)=>int
 
-取参数表括号的下标：`index` 是方法名，名字后面允许夹一个类型参数段（`GenericType`），
+取参数表括号的下标：`index` 是方法名，名字后面允许夹一个**可选标记 `?`** 与一段类型参数段（`GenericType`），
 再往后就是 `(` 括号。形状不对时返回 `-1`。
+
+`?` 排在最前：TypeScript 的可选成员签名写作 `m?()` / `m?<T>()`，`?` 在类型参数之前。
+没有这个 `?`，接口里的可选方法签名就永远匹配不上（`Get(units, i)` 拿到的是 `Symbol("?")` 而不是括号）。
+
+**`*` 是生成器方法**（`class C { *g() {} }`）：它在**名字前面**，所以由 `Process` 在头部先吃掉、
+而这里只需要知道「名字之后」的形状——`*` 不在名字之后，`ParameterIndex` 因此不用为它加分支。
+（`Previous` 那一侧用 `GeneratorMark` 先把游标越过 `*`，见 `Previous` 的说明。）
 
 `Previous` 与 `Process` 共用它。
 
 ```ts
 let i = SkipNextWrapSymbol(units, index);
+const mark = Get(units, i);
+if (mark instanceof Symbol && mark.Is("?")) {
+  i = SkipNextWrapSymbol(units, i);
+}
 if (Get(units, i) instanceof GenericType) {
   i = SkipNextWrapSymbol(units, i);
 }
@@ -77,6 +102,114 @@ if (!(parameters instanceof Bracket) || parameters.StartBracketChar !== "(") {
 return i;
 ```
 
+## private method GeneratorMark:(units:Array<Token>, index:int)=>Token | null
+
+`index` 处如果是生成器方法的 `*`，返回它，否则返回 `null`。
+
+`class C { *g() {} }` / `interface I { *g(): void }` 里的 `*` 在**名字前面**：
+只认「名字 + `(`」的判定会在 `*` 处断掉，整条方法声明降级成
+`<Symbol>*</Symbol>` 加一串散单元（实测生成器方法就是这么丢的）。
+
+`*` 只认一次（`*` 与名字之间允许软换行）；拿到之后**要留在节点里**——
+丢了就分不出生成器方法与普通方法。
+
+```ts
+const item = Get(units, index);
+if (item instanceof Symbol && item.Is("*")) {
+  return item;
+}
+return null;
+```
+
+## private method SignatureTailEnd:(units:Array<Token>, parametersIndex:int)=>int
+
+成员签名的返回类型段末尾：与 `ScanDeclarationTailEnd` 的区别是**软换行就是成员边界**。
+
+为什么不能直接用 `ScanDeclarationTailEnd`：它的四条终止条件里没有「换行」——那是为「返回类型可以折行」设计的。
+但签名在没有 `;` 的写法里靠换行分隔成员：`interface I {` 换行 `m?(): void` 换行 `n?<T>(x: T): T` 换行 `}`。
+用 `ScanDeclarationTailEnd` 会把 `n?<T>(x: T): T` 整条吞进 `m` 的返回类型里（实测产物里能看到 `m` 的
+`ReturnType` 里跟着 `Common(n)`）。
+
+折行仍然要支持（`m(): A |` 换行 `B`），所以判法与 `Field.MemberEnd` 同源：
+换行前一个实义单元是 `;` / `,` 以外的**符号**时才继续扫，否则换行即边界。其余四条终止条件照样生效。
+
+```ts
+let tailEnd = -1;
+let i = parametersIndex + 1;
+while (i < units.length) {
+  const item = Get(units, i);
+  if (item instanceof Symbol && (item.Is(";") || item.Is(","))) {
+    break;
+  }
+  if (item instanceof WrapSymbol) {
+    const previous = Get(units, i - 1);
+    const continues = previous instanceof Symbol && !previous.Is(";") && !previous.Is(",");
+    if (continues === false) {
+      break;
+    }
+    i = i + 1;
+    continue;
+  }
+  if (IsDeclarationTailStop(units, i)) {
+    break;
+  }
+  tailEnd = i;
+  i = i + 1;
+}
+return tailEnd;
+```
+
+## private method IsMemberSignature:(units:Array<Token>, index:int, parametersIndex:int)=>bool
+
+`index` 处的「名字 + 参数表」是不是一条**没有方法体的成员签名**。
+
+两条都要成立：
+
+1. `current.Parent` 是 `ClassBody` 或 `InterfaceBody`——只有成员位置上无体形状才没有歧义（见文件头的说明）；
+2. 参数表之后只剩下「返回类型」，并且以一个 `;`、一个软换行或列表结尾收住。
+
+第 2 条用 `ScanDeclarationTailEnd` 找到返回类型的末尾，再看它**紧接着的一个单元**：
+`;` / 软换行 / 结尾之外都不算签名——例如 `x = f(1)` 里 `f` 后面跟的是 `)`（属于外面的括号），
+`foo(a).bar()` 里跟的是 `.`，这些都必须留给别的规则。
+
+```ts
+const current = Get(units, index);
+if (current === null) {
+  return false;
+}
+const parent = current.Parent;
+if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(parent instanceof TypeLiteralBody)) {
+  return false;
+}
+const tailEnd = this.SignatureTailEnd(units, parametersIndex);
+const afterTail = Get(units, tailEnd >= 0 ? tailEnd + 1 : parametersIndex + 1);
+if (afterTail === null || afterTail instanceof WrapSymbol) {
+  return true;
+}
+return afterTail instanceof Symbol && afterTail.Is(";");
+```
+
+## private method MethodNameOf:(unit:Token)=>string
+
+取方法名的文本：`Common` 直接取；**字符串字面量名字**（`"m"() { }`）取它第一个 `ConstString` 子单元的文本。
+
+TypeScript 允许成员名写成字符串字面量（`class C { "m"() { } }`），
+与 `Field` 那边的 `NameText` 是同一套处理——只认 `Common` 时这些成员整个丢掉。
+
+```ts
+if (unit instanceof Common) {
+  return unit.TempToString();
+}
+if (unit instanceof String) {
+  for (const item of unit.Data) {
+    if (item instanceof ConstString) {
+      return item.TempToString();
+    }
+  }
+}
+return "";
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个方法声明的名字：一个能当方法名的 `Common`，后面紧跟（允许夹一段类型参数）`(` 括号，
@@ -85,16 +218,50 @@ return i;
 名字判定用的是 `template.MethodNameTemplate`——`switch` / `function` / `typeof` 这类
 「名字 + 括号」的关键字在 `../parse-pipeline.xl.md` 的 `BanedMethodNames` 里已经被挡掉了。
 
+**`import` 单独在这里再挡一次**：`typeof import("assert")`（模块查询类型）也是「名字 + 括号」的形状，
+但 `import` **不能**加进 `BanedMethodNames`——那张表是「能不能当方法名」的唯一判据，
+调用规则（`Method`）与声明规则共用它，加进去会连带挡掉动态 `import("m")` 的调用节点。
+所以这里就地拒一次：`import` 不在成员位置当方法名。
+
+**成员位置反而要放开禁用表**：`class A { delete() {} if() {} for() {} new() {} }` /
+`interface I { for(): void }` 里的方法名正是关键字——它们是**成员名**，不存在
+「`if (x)` 被误当成调用」的风险（那个风险只属于表达式位）。所以名字的父单元是成员体时不再查
+`MethodNameTemplate`，只查语句位的那一支。
+
+**计算成员名 `[`m`]()` / `[x]()` 也算名字**：它是一个 `[` 括号，
+名字由 `field.xl.md` 的 `BracketNameText` 拼出来（与 `[key: string]` 索引签名同一套）。
+不认这一支时那个 `[...]` 会被收成 `JsonArray`，整条方法声明散架。
+
 ```ts
-const current = Get(units, index);
-if (!(current instanceof Common) || !template.MethodNameTemplate.IsMethodName(current.TempToString())) {
+let nameIndex = index;
+const generator = this.GeneratorMark(units, index);
+if (generator !== null) {
+  nameIndex = SkipNextWrapSymbol(units, index);
+}
+const current = Get(units, nameIndex);
+const isPrivateName = current instanceof Symbol && current.Is("#");
+if (isPrivateName) {
+  nameIndex = SkipNextWrapSymbol(units, nameIndex);
+}
+const name = Get(units, nameIndex);
+const isComputedName = (name instanceof Bracket && name.StartBracketChar === "[") || name instanceof JsonArray;
+if (isComputedName === false && !(name instanceof Common) && !(name instanceof String)) {
   return false;
 }
-const parametersIndex = this.ParameterIndex(units, index);
+const inMemberBody =
+  name !== null &&
+  (name.Parent instanceof ClassBody || name.Parent instanceof InterfaceBody || name.Parent instanceof TypeLiteralBody);
+if (isComputedName === false && inMemberBody === false && name instanceof Common && !template.MethodNameTemplate.IsMethodName(name.TempToString())) {
+  return false;
+}
+if (name instanceof Common && name.Is("import")) {
+  return false;
+}
+const parametersIndex = this.ParameterIndex(units, nameIndex);
 if (parametersIndex < 0) {
   return false;
 }
-return this.BodyIndex(units, parametersIndex) >= 0;
+return this.BodyIndex(units, parametersIndex) >= 0 || this.IsMemberSignature(units, nameIndex, parametersIndex);
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
@@ -117,6 +284,8 @@ return this.BodyIndex(units, parametersIndex) >= 0;
   `Statement`（见 `../declaration-common.xl.md`）。
 - 方法体括号的**内容**整体搬给 `MethodBody`，括号本身不再留在树里；`MethodBody` 有自己的语句队列，
   搬完要 `TryToClose()` 一次。
+- **没有方法体时**（成员签名）：`memberEnd` 取返回类型的末尾，并把紧跟的一个 `;` 一起吃掉，
+  再交给 `DeclarationEnd`。`MethodBody` 那一段整个跳过——签名本来就没有体。
 
 ```ts
 const current = Get(units, index);
@@ -124,22 +293,52 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const startIndex = DeclarationStart(units, index);
-const parametersIndex = this.ParameterIndex(units, index);
+let nameIndex = index;
+const generator = this.GeneratorMark(units, index);
+if (generator !== null) {
+  nameIndex = SkipNextWrapSymbol(units, index);
+}
+const markUnit = Get(units, nameIndex);
+const privateMark = markUnit instanceof Symbol && markUnit.Is("#") ? markUnit : null;
+if (privateMark !== null) {
+  nameIndex = SkipNextWrapSymbol(units, nameIndex);
+}
+const parametersIndex = this.ParameterIndex(units, nameIndex);
 if (parametersIndex < 0) {
   throw new Error("方法声明不满足格式要求：name(...) { ... }");
 }
 const bodyIndex = this.BodyIndex(units, parametersIndex);
-if (bodyIndex < 0) {
+const isSignature = bodyIndex < 0;
+if (isSignature && this.IsMemberSignature(units, nameIndex, parametersIndex) === false) {
   throw new Error("方法声明不满足格式要求：name(...) { ... }");
 }
-const tailEnd = ScanDeclarationTailEnd(units, parametersIndex);
+const tailEnd = isSignature
+  ? this.SignatureTailEnd(units, parametersIndex)
+  : ScanDeclarationTailEnd(units, parametersIndex);
 const tailStart = SkipNextWrapSymbol(units, parametersIndex);
 const result = new MethodDeclaration(template);
 result.Parent = current.Parent;
-result.MethodName = (Get(units, index) as Common).TempToString();
+const nameUnit = Get(units, nameIndex)!;
+const computedName = nameUnit instanceof Bracket || nameUnit instanceof JsonArray;
+if (computedName) {
+  result.MethodName = BracketNameText(nameUnit);
+} else if (privateMark === null) {
+  result.MethodName = this.MethodNameOf(nameUnit);
+} else {
+  result.MethodName = "#" + this.MethodNameOf(nameUnit);
+}
 result.Modifiers = DeclarationModifiers(units, startIndex, index).join(",");
 for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
   result.AddAndCloseLast(item);
+}
+if (computedName) {
+  result.AddAndCloseLast(nameUnit);
+}
+if (generator !== null) {
+  result.AddAndCloseLast(generator);
+}
+if (privateMark !== null) {
+  result.AddAndCloseLast(privateMark);
 }
 let i = index + 1;
 while (i < parametersIndex) {
@@ -162,14 +361,25 @@ if (tailStart <= tailEnd) {
   returnType.SignOut(Get(units, tailEnd)!.SourceRange.End!);
   returnType.TryToClose();
 }
+let memberEnd = tailEnd >= 0 ? tailEnd : parametersIndex;
+if (bodyIndex >= 0) {
+  memberEnd = bodyIndex;
+} else {
+  const semicolon = Get(units, memberEnd + 1);
+  if (semicolon instanceof Symbol && semicolon.Is(";")) {
+    memberEnd = memberEnd + 1;
+  }
+}
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
-const endIndex = DeclarationEnd(units, bodyIndex);
+const endIndex = DeclarationEnd(units, memberEnd);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
-const body = Get(units, bodyIndex) as Bracket;
-const methodBody = result.CreateBody();
-body.MoveDataTo(methodBody);
-methodBody.Sign(body);
-methodBody.TryToClose();
+if (bodyIndex >= 0) {
+  const body = Get(units, bodyIndex) as Bracket;
+  const methodBody = result.CreateBody();
+  body.MoveDataTo(methodBody);
+  methodBody.Sign(body);
+  methodBody.TryToClose();
+}
 result.TryToClose();
 return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```

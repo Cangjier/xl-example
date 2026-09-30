@@ -7,6 +7,7 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { IsUnicodeEscapeStart } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -34,6 +35,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 ```ts
 const value = source.Value;
 const last = unit.Last();
+const escapeStart = value === "\\" && IsUnicodeEscapeStart(source.Document, source.Index);
 if (last instanceof Common) {
   if (value === "." && unit.Template.SymbolTemplate.IsSymbol(value)) {
     const result = new BranchConditionResult();
@@ -45,20 +47,26 @@ if (last instanceof Common) {
   }
   if (last.Closed) {
     const result = new BranchConditionResult();
-    result.Success = !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
+    result.Success = escapeStart || !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
     result.Message = 0;
     return result;
   }
   const result = new BranchConditionResult();
-  result.Success = last.IsAppend(source);
+  result.Success = escapeStart || last.IsAppend(source);
   result.Message = 1;
   return result;
 }
 const result = new BranchConditionResult();
-result.Success = !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
+result.Success = escapeStart || !(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(source.Value));
 result.Message = 0;
 return result;
 ```
+
+**`escapeStart` 那一项是给标识符里的 Unicode 转义的**（`const \u0061bc = 1`）：
+`\` 是符号，靠「不是符号」这条判定它进不来，所以要单独放行。
+判据是 `../text-common-util.xl.md` 的 `IsUnicodeEscapeStart`，
+它要求 `\` 后面跟 `u` 加十六进制数字，所以普通的反斜杠不受影响。
+（`SymbolBranch` 那边同时让了路，两边配合才成立。）
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 

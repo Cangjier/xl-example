@@ -53,6 +53,12 @@ return Get(units, index + 1) instanceof Common;
 可以接下去的形状只有四种——名字（`Common`）、点号（`.`，用于 `@ns.Name`）、泛型实参段（`GenericType`，防御性）、
 以及调用括号（`(`，收下它之后立刻收尾）。其余任何单元（包括 `WrapSymbol`）都表示装饰器到此结束。
 
+**`Common` 那一支还要挡关键字**：`@sealed class C {}` 里 `sealed`、`class`、`C` 是三个挨着的 `Common`，
+不挡的话装饰器名会拼成 `sealed.class.C`，**整条类声明被吞进装饰器**（产物里只剩
+`<Decorator DecoratorName="sealed.class.C">` 加一个空对象）。
+关键字表就在这个 `Common` 自己的模板上（`item.Template.KeywordTemplate`），直接查即可——
+不必等 `KeywordReorganization`（它排在通用队列最后，此刻还没跑）。
+
 `DecoratorName` 是名字段按 `.` 拼起来的文本；实参括号里的内容跟在它后面进 `Data`，所以
 `@Component({ size: 1 })` 的产物是 `<Decorator DecoratorName="Component">` 里带一个 `Bracket`。
 
@@ -70,6 +76,9 @@ let i = index + 1;
 while (i < units.length) {
   const item = Get(units, i);
   if (item instanceof Common) {
+    if (item.Template.KeywordTemplate.IsKeyword(item.TempToString())) {
+      break;
+    }
     names.push(item.TempToString());
     endIndex = i;
     i++;

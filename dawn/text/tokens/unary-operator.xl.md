@@ -1,0 +1,283 @@
+# dependencies
+```xl
+import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
+import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
+import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { Bracket } from "./bracket.xl.md"
+import { Common } from "./common.xl.md"
+import { CommonUtil } from "../../../core/common-util.xl.md"
+import { IsWordUnit } from "./declaration-common.xl.md"
+import { GenericType } from "./generic-type.xl.md"
+import { Keyword } from "./keyword.xl.md"
+import { Method } from "./method.xl.md"
+import { NotNull } from "./not-null.xl.md"
+import { Symbol } from "./symbol.xl.md"
+import { WrapSymbol } from "./wrap-symbol.xl.md"
+import { ParsePipeline } from "../parse-pipeline.xl.md"
+```
+
+# namespace cangjie
+
+`Dawn/Text`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
+
+一元运算符：`!x` / `-x` / `+x` / `~x` / `typeof x` / `void x` / `delete x` 与 `x++` / `x--`，
+收成一个 `UnaryOperator` 节点（运算符与被操作者都装在里面，`Operator` 属性记下运算符文本）。
+
+“完整解析 TypeScript”最后一块缺口就是表达式层（见 `tests/parse/known-gaps.json` 的
+`_notes.expr-tree-absent`）：二元 / 一元 / 赋值 / 序列 / 括号表达式原本都只有 `Symbol` + `Common`。
+本规则先补**一元**这一支——它的形状最规整：运算符只跟**紧邻的**一个单元。
+
+**只收紧邻的那一个单元**：本工程还没有优先级 / 结合性那一层，`-a.b` 只会把 `a` 收进来、
+`.b` 留在外面（与「二元表达式还没有节点」是同一个层次的问题，等二元那一步一起解决）。
+`Operator` 属性把运算符文本记下来，所以下游不必再回到子单元里找。
+
+`UnaryOperatorReorganization` 写在 `UnaryOperator` 之前；
+`Root` 会在自己的重组队列里持有 `UnaryOperatorReorganization.Instance`，所以顺序不能反。
+
+# class UnaryOperatorReorganization extends Reorganization
+
+## static readonly field Instance:UnaryOperatorReorganization = new UnaryOperatorReorganization()
+
+唯一的实例。
+
+## private method IsOperand:(unit:Token | null)=>bool
+
+`unit` 能不能当**被操作者**。
+
+能当的：`Common` / `Keyword` / `NotNull` / `Method`（`f(x)` 的结果）/ `Bracket`（`(…)` 或 `[…]`）。
+`Method` 与 `Bracket` 这两支是「已经是节点的操作数」——`!flag` 里 `flag` 是 `Common`，
+`!(a > b)` 里是括号，`f(x)!` 与 `!f(x)` 里是 `Method`。
+
+**`-` / `+` 的二义性靠它分野**：`a - b` 里 `-` 前面是 `Common`（操作数）→ 那是二元减号，不收；
+`x = -1` 里 `-` 前面是 `=`（符号）→ 那是一元负号，收。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Common) {
+  const text = unit.TempToString();
+  if (
+    text === "return" ||
+    text === "throw" ||
+    text === "case" ||
+    text === "default" ||
+    text === "else" ||
+    text === "do" ||
+    text === "break" ||
+    text === "continue"
+  ) {
+    return false;
+  }
+  return true;
+}
+return (
+  unit instanceof Keyword ||
+  unit instanceof NotNull ||
+  unit instanceof Method ||
+  unit instanceof Bracket
+);
+```
+
+**`Common` 那一支同样要排掉「语句关键字」**（与 `binary-operator.xl.md` 的 `IsOperand` 同一条）：
+本规则跑在 `KeywordReorganization`（队列最后）**之前**，`return` 那时还是 `Common` ✓。
+不排的话 `return -1;` 里 `-` 前面「看起来是操作数」→ 被当成二元减号而放走 ✗，
+一元那一支永远收不到它（实测：`UnaryOperator` 差 38 个里 29 个是「方法体里 `return -1`」这种形状）。
+
+`!` / `~` / `typeof` 这些前缀运算符不受影响——它们的 `after` 判定与「前一个是不是操作数」无关 ✓。
+
+## private method IsPrefixSymbol:(current:Token)=>bool
+
+`current` 是不是一个**只可能做前缀**的一元运算符：`!` / `~` / `typeof` / `void` / `delete`。
+
+`-` / `+` 不在其列（它们既是一元也是二元，要再看前面），`++` / `--` 也不在（前缀后缀都行）。
+
+`typeof` / `void` / `delete` 走 `IsWordUnit`：位次上 `KeywordReorganization` 可能已经把
+它们升级成 `Keyword` 了，「找一个词」必须 `Common` 与 `Keyword` 都认（见 `declaration-common.xl.md`）。
+
+```ts
+if (current instanceof Symbol) {
+  return current.Is("!") || current.Is("~");
+}
+return IsWordUnit(current, "typeof") || IsWordUnit(current, "void") || IsWordUnit(current, "delete");
+```
+
+## private method IsPlusMinus:(current:Token)=>bool
+
+`current` 是不是 `-` 或 `+`（既可能是一元也可能是一元以外的运算）。
+
+```ts
+return current instanceof Symbol && (current.Is("-") || current.Is("+"));
+```
+
+## private method IsPlusPlus:(current:Token)=>bool
+
+`current` 是不是 `++` / `--`（前缀、后缀都算）。
+
+```ts
+return current instanceof Symbol && (current.Is("++") || current.Is("--"));
+```
+
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
+
+`index` 处是不是一个一元运算符的起点。
+
+三种命中：
+
+- 只可能做前缀的（`!` / `~` / `typeof` / `void` / `delete`）：后面是操作数即可；
+- `-` / `+`：后面是操作数，**而且前面不是操作数**（否则那是二元加减）；
+- `++` / `--`：前面或后面是操作数即可。
+
+`!x` 与「非空断言 `x!`」的分别由 `NotNullReorganization` 负责（它只认后面那种），
+两边不会抢：`!` 做前缀时它那边不成立，本规则才接手。
+
+**类型参数列表里的 `typeof` 不是一元运算**：`<Request extends typeof IncomingMessage = typeof IncomingMessage>`
+里的 `typeof X` 在 TypeScript 的 AST 里是 `TypeQueryNode`（类型查询），**不**产生 `PrefixUnaryExpression`。
+父单元是 `GenericType` 时一律不成立——实测 `@types/node/http.d.ts` 20 处、`http2.d.ts` 82 处
+全是这个形状（与 `MethodReorganization` 挡「类型实参段里的调用」是同一个道理）。
+
+```ts
+const current = Get(units, index);
+if (current === null) {
+  return false;
+}
+if (current.Parent instanceof GenericType) {
+  return false;
+}
+const afterIndex = SkipNextWrapSymbol(units, index);
+const after = Get(units, afterIndex);
+if (this.IsPrefixSymbol(current)) {
+  return this.IsOperand(after);
+}
+if (this.IsPlusPlus(current)) {
+  if (this.IsOperand(after)) {
+    return true;
+  }
+  return this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index)));
+}
+if (this.IsPlusMinus(current) === false) {
+  return false;
+}
+if (this.IsOperand(after) === false) {
+  return false;
+}
+return this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index))) === false;
+```
+
+## private method OperatorText:(current:Token)=>string
+
+运算符的文本：`Symbol` / `Common` 用 `TempToString()`，`Keyword` 用它的 `Value`
+（三种都要认：`typeof` 这类词可能在别的位次上已经升级成 `Keyword` 了）。
+
+```ts
+if (current instanceof Symbol) {
+  return current.TempToString();
+}
+if (current instanceof Common) {
+  return current.TempToString();
+}
+if (current instanceof Keyword) {
+  return current.Value;
+}
+return "";
+```
+
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
+
+把运算符与它的被操作者收成一个 `UnaryOperator`，**返回新的下标**。
+
+取被操作者分两路：**后面**那个（前缀）优先，否则取**前面**那个（后缀）。
+两路都取不到就把下标往前推一格（本规则不改动任何单元）。
+
+```ts
+const current = Get(units, index);
+if (current === null) {
+  throw new Error("UnaryOperatorReorganization.Process: current is null");
+}
+const afterIndex = SkipNextWrapSymbol(units, index);
+const after = Get(units, afterIndex);
+if (this.IsOperand(after)) {
+  const result = new UnaryOperator(template);
+  result.Parent = current.Parent;
+  result.Operator = this.OperatorText(current);
+  result.SignIn(current.SourceRange.Start!);
+  result.SignOut(after!.SourceRange.End!);
+  result.AddAndCloseLast(current);
+  for (let i = index + 1; i <= afterIndex; i++) {
+    const item = Get(units, i);
+    if (item !== null && !(item instanceof WrapSymbol)) {
+      result.AddAndCloseLast(item);
+    }
+  }
+  result.TryToClose();
+  return ReplaceCountAt(units, index, afterIndex - index + 1, result);
+}
+const beforeIndex = SkipPreviousWrapSymbol(units, index);
+const before = Get(units, beforeIndex);
+if (this.IsOperand(before)) {
+  const result = new UnaryOperator(template);
+  result.Parent = current.Parent;
+  result.Operator = this.OperatorText(current);
+  result.SignIn(before!.SourceRange.Start!);
+  result.SignOut(current.SourceRange.End!);
+  for (let i = beforeIndex; i < index; i++) {
+    const item = Get(units, i);
+    if (item !== null && !(item instanceof WrapSymbol)) {
+      result.AddAndCloseLast(item);
+    }
+  }
+  result.AddAndCloseLast(current);
+  result.TryToClose();
+  return ReplaceCountAt(units, beforeIndex, index - beforeIndex + 1, result);
+}
+return index + 1;
+```
+
+# class UnaryOperator extends IndependentToken
+
+一元运算 `op expr` 或 `expr op`。
+
+**类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
+
+它覆写了 `ToXmlString`：在基类的串接之外带上 `Operator` 属性。
+
+## constructor:(template:Template)=>void
+
+转调基类构造器。
+
+```ts
+super(template);
+ParsePipeline.InitialKeywordReorganizationQueue(this);
+```
+
+## field Operator:string = ""
+
+运算符文本（`!` / `-` / `typeof` / `++` …）。
+
+## method ToXmlString:()=>string
+
+产出 XML：标签名是运行时类型名，开标签上带 `Operator`。
+
+```ts
+const name = this.constructor.name;
+let body = "";
+for (const item of this.Data) {
+  body = body + item.ToXmlString();
+}
+return `<${name} Operator="${CommonUtil.XmlDecode(this.Operator)}">${body}</${name}>`;
+```
+
+## method Clone:()=>Token
+
+克隆自身。
+
+```ts
+const result = new UnaryOperator(this.Template);
+result.Sign(this);
+result.Operator = this.Operator;
+result.TryToClose();
+return result;
+```

@@ -1,0 +1,12 @@
+{
+  "_notes": {
+    "variable-modifiers": "变量声明的修饰词**已经补上**（Let 带 Modifiers 属性，含 const/let/var 自身与 export/declare/default，逗号分隔、按源码顺序），export const a = 1 与 const a = 1 产物不再相同。剩下的同类问题是 Import/Export 的结构化属性（见 imports-unstructured）。",
+    "nonnull-dropped": "非空断言**已经补上**：expr! 收成一个 NotNull 节点（里面装着被断言者与 ! 本身），TypeScript 的 AST 里它就是 NonNullExpression，差分引擎直接对得上；连写 b!! 会嵌套。类体里的明确赋值断言 a!: number 仍然按成员声明处理（那在 AST 里只是属性上的 exclamationToken、不产生 NonNullExpression）。",
+    "expr-tree-absent": "表达式层仍无文法：二元 / 一元 / 赋值 / 序列 / 括号表达式都没有节点（只有 Symbol + Common）。第 26 轮把它**登记成用例并量化**：新增 expr-binary-operator / expr-unary-operator / expr-spread 三条（在案缺口 3 条），差分引擎加了映射，实测语料需要 BinaryOperator 3048、UnaryOperator 385、Spread 32 个节点。注意：**纯 .d.ts 语料里这些构造是 0**（@types + lib.*.d.ts 一个二元表达式都没有），所以「真实 .d.ts 语料无缺口」这一条不受影响；受影响的是实现文件（本项目自己的 dist/ts/** 里就有 3000+ 个二元表达式）。",
+    "type-position-keywords": "类型位与表达式位的关键词**已经齐了**：keyof / typeof / readonly / this / void / is / asserts / infer 在第 10 轮接上类型队列后成为 Keyword，in / of 在第 25 轮进关键字表（For / Foreach 与 BracketNameText 三处判定一起换成 IsWordUnit，Common 或 Keyword 都认）。",
+    "label-container": "Label 按设计是**标记节点**（与被标语句平级，不把它装进去），块语句标签 / 表达式语句标签都识别（blk: { … } / expr: x = 1）。本轮修掉了它带出来的一个真问题：语句位的 { 在第二次扫描时被收成 JsonObject（父亲已是 Statement、而 Statement 不在 IsStatementList 白名单里），现在正确保持成块括号 Bracket，块里补语句队列并当场跑一遍。注意「Label 不含被标语句」这一点与用例里的期望一致，是有意为之。",
+    "imports-unstructured": "**已经补上**：Import 现在带 From / IsTypeOnly / DefaultName / NamespaceName / ImportedNames 五个属性，并且覆写了 ToXmlString 把它们渲染进 XML（原来 From 根本没进 XML）。ImportedNames 取的是本地名（B as C 取 C）。剩同类问题在 export 一侧（export 的结构化属性）。",
+    "exports-no-node": "export 家族**已经有节点**，第 38 轮又补上了结构化属性：Export 现在带 From / IsTypeOnly / NamespaceName / ExportedNames，并覆写了 ToXmlString 把它们渲染进 XML（原来 From 根本没进 XML）。ExportedNames 取的是**对外名**（export { a as b } 取 b）。至此 import / export 两侧的结构化信息都齐了。",
+    "escape-a-bell": "`\\a` 解成响铃字符（U+0007）而不是字母 `a`：这是本项目语言配置（Cangjie）的取舍，见 translate.xl.md 的转义表。TypeScript 里 `\"\\a\"` 等于 `\"a\"`，要完全对齐 TS 只需把 `case \"a\"` 改掉——属于语言配置问题，不混在语法层修。"
+  }
+}

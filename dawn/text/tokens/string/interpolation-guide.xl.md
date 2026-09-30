@@ -52,7 +52,19 @@ super(template);
 
 两条支路：
 
-- **够数**（`BracketCount >= ParentString.InterpolationCount`）：先把自己摘掉，然后把多出来的 `Next = BracketCount - InterpolationCount` 个 `{` 当作字面量还给常量字符串（`AppendToLastConstString`，并在 `i == 0` 时用 `TrySignIn` 给新建的常量字符串签入）；接着挂一个新的 `InterpolationString` 并用 `Items[0]` 签入，最后把当前字符 `ReloadMessage` 回队首重新处理一遍，然后返回。
+- **够数**（`BracketCount >= ParentString.InterpolationCount`）：先把自己摘掉，
+  再把紧邻的那个 `$` 从常量块里退掉（`ConstString.Undo`）——
+  **模板字符串的 `$` 是内插标记、不是字面量**，不退掉产物里会多一个 `$`（`a$` 而不是 `a`）；
+  注意 `$"…"` 那条路的 `$` 是**前缀**、早在 `StringGuide.Success` 里就从父单元退掉了，
+  所以这里 `source.Pre()` 不会是 `$`，两种写法互不干扰。
+
+  **找 `$` 要从第一个 `{` 往前看，不能从当前字符往前看**：这个分支是在遇到 `{` 之后的**第一个非 `{` 字符**
+  时才下结论的（`{` 只累加 `BracketCount`），此刻 `source` 已经是内插体里的第一个字符了，
+  `source.Pre()` 是 `{` 而不是 `$`（第一版就是这么写的，产物里于是留着 `a$`）。
+  接着把多出来的
+  `Next = BracketCount - InterpolationCount` 个 `{` 当作字面量还给常量字符串（`AppendToLastConstString`，
+  并在 `i == 0` 时用 `TrySignIn` 给新建的常量字符串签入）；接着挂一个新的 `InterpolationString` 并用
+  `Items[0]` 签入，最后把当前字符 `ReloadMessage` 回队首重新处理一遍，然后返回。
   - 注意 `Items[0]` 是**第一个** `{` 的位置（不是第 `Next` 个）——这里就是这样实现的，不"修正"。
 - **不够数**（`BracketCount < ParentString.InterpolationCount`）：这串 `{` 全是字面量，逐个 `AppendToLastConstString(…).TrySignIn(…)` 还回去，再 `ReloadMessage`。
 

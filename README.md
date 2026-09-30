@@ -81,8 +81,10 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | --- | --- | --- |
 | `class A<T = {}> extends B implements C, D { … }` | `<Class>` + `<ClassBody>` | `ClassName` `ExtendsClassName` `ImplementsInterfaceNames` `Modifiers` |
 | `interface I<T = {}> extends A, B { … }` | `<Interface>` + `<InterfaceBody>` | `InterfaceName` `ExtendsInterfaceNames` `IsExport` |
+| `namespace N { … }` / `module M { … }` / `declare global { … }` | `<Namespace>` + `<NamespaceBody>` | `NamespaceName` `Modifiers`（`export` / `declare`） |
 | `function f<T>(x: T): U { … }` / `declare function f(): void` | `<Function>` + `<FunctionBody>` | `FunctionName` `Modifiers` |
 | 类/对象成员 `m<T>(x): U { … }` | `<MethodDeclaration>` + `<MethodBody>` | `MethodName` `Modifiers` |
+| `class A { m<T>(x): U { … } }` / 接口与类里的成员签名 `m?(x): U;` | `<MethodDeclaration>`（**签名没有 `<MethodBody>`**） | `MethodName` `Modifiers` |
 | 成员字段 `private n = 1` / `readonly name: string` / `count?: T[]` | `<Field>` | `FieldName` `Modifiers` |
 | 返回类型段（`function` / 方法 / 箭头函数） | `<ReturnType>` | — |
 | `enum Color { … }` / `const enum Flag { … }` | `<Enum>` + `<EnumBody>` | `EnumName` `Modifiers` |
@@ -90,8 +92,10 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `@Component({…})` | `<Decorator>` | `DecoratorName` |
 | `outer:` | `<Label>`（自闭合） | `LabelName` |
 | `let` / `const` / `var`（含解构） | `<Let>`（自闭合） | `fieldName` / `unpackArrayFieldNames` / `unpackObjectFieldNames` |
-| `if` / `for` / `foreach` / `while` / `try` | `<IfSet>` `<For>` `<Foreach>` `<While>` `<Try>` 及各自的分段 | 见各自文件 |
+| `if` / `for` / `foreach` / `while` / `do…while` / `try` | `<IfSet>` `<For>` `<Foreach>` `<While>` `<DoWhile>` `<Try>` 及各自的分段 | 见各自文件 |
 | `name(...)`（调用）/ `name: Type`（类型标注） | `<Method>` / `<TypeDefine>` | `MethodName` |
+| `type X = { a: number }` / `let x: { m(): void }`（**类型位**的对象类型） | `<TypeLiteral>` + `<TypeLiteralBody>`（成员是 `Field` / `MethodDeclaration` / `Signature`） | — |
+| `interface I { (a: number): string }` / `new (a: number): I` | `<Signature Kind="call">` / `<Signature Kind="construct">` | `Kind` |
 | 泛型实参段与类型参数段（`Array<T>` / `<T extends X = Y>`） | `<GenericType>` | `StartBracketChar` `EndBracketChar` |
 | 字符串（常量 / 内插 / 逐字 / 原始 / 模板） | `<String>` + `<ConstString>` / `<InterpolationString>` | 见 `tokens/string/` |
 | `async` / `await` / `return` / `throw` / `readonly` … | `<Keyword>` | — |
@@ -122,16 +126,19 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 ## 已知缺口
 
-- **`type X = { a: number }` 这种类型字面量里没有成员节点**：`interface` 的成员已经有节点（`InterfaceBody` +
-  `Field`），但类型别名右侧那对 `{ }` 还是 `Common` / `Symbol` 序列。
-- **没有方法体的成员声明**（`abstract f(): void;`、接口里的 `m(): void`）与「以 `;` 收尾的调用语句」同形，
-  仍然落成 `<Statement>` + `<Method>` + `<TypeDefine>`；类里的 `static { … }` 块也没有节点。
+> 完整的缺口清单（可回归、可逐步清空）在 [tests/parse/known-gaps.json](tests/parse/known-gaps.json)：
+> `npm run cases:run` 会报告「新增缺口 / 台账过期」，`npm run cases:diff` 用 TypeScript 自带 AST 做差分找缺口。
+> 下面只列结构性的那几条。
+
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label LabelName="outer" /><While>…</While>`）：
-  标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
-- **模板字符串**（`` `a${b}c` ``）与 `$"…"` 内插走的还是老的字符串路径，产物不对。
+  标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界；块语句上的标签（`outer: { … }`）完全不识别。
+- **`export =` 与 `export default` 没有节点**（`export { … } from` / `export * from` / `export * as ns from` /
+  `export type { … } from` 已经有 `Export` 节点——真实语料 92 处 ExportDeclaration 全部成形）。
+- **`declare module "x" { … }` 没有节点**（标识符形式 `module M { … }` 有 `Namespace` 节点，字符串形式还没有）。
+- **类里的 `static { … }` 块**没有节点。
 - **JSX / TSX** 没有支持。
-- 实测：`node_modules` 下 200 个真实 `.d.ts`（`lib.es5` / `lib.dom` / `@types/node` / undici-types）
-  全部解析成功、零异常；TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
+- 实测：`node_modules` 下 226 个真实 `.d.ts` + 123 个本项目产物 `.ts` **全部解析成功、零异常**；
+  TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
   JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
 
 ## cjcli

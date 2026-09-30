@@ -1,0 +1,2778 @@
+{
+ "totals": {
+  "ModuleDeclarationString": {
+   "src": 130
+  },
+  "ImportDeclaration": {
+   "src": 1260
+  },
+  "FunctionDeclaration": {
+   "src": 2144
+  },
+  "ModuleDeclaration": {
+   "src": 248
+  },
+  "ExportDeclaration": {
+   "src": 109
+  },
+  "ExportAssignment": {
+   "src": 64
+  },
+  "VariableDeclaration": {
+   "src": 3971
+  },
+  "TypeAliasDeclaration": {
+   "src": 1460
+  },
+  "InterfaceDeclaration": {
+   "src": 4595
+  },
+  "PropertySignature": {
+   "src": 19002
+  },
+  "ConstructSignatureDeclaration": {
+   "src": 1196
+  },
+  "ClassDeclaration": {
+   "src": 478
+  },
+  "PropertyDeclaration": {
+   "src": 1176
+  },
+  "MethodDeclaration": {
+   "src": 2704
+  },
+  "MethodSignature": {
+   "src": 8702
+  },
+  "IndexSignatureDeclaration": {
+   "src": 113
+  },
+  "CallSignatureDeclaration": {
+   "src": 169
+  },
+  "GetAccessor": {
+   "src": 100
+  },
+  "SetAccessor": {
+   "src": 40
+  },
+  "EnumDeclaration": {
+   "src": 96
+  },
+  "PrefixUnaryExpression": {
+   "src": 285
+  },
+  "BinaryExpression": {
+   "src": 1992
+  },
+  "PostfixUnaryExpression": {
+   "src": 148
+  },
+  "SpreadElement": {
+   "src": 46
+  },
+  "NonNullExpression": {
+   "src": 277
+  },
+  "ClassExpression": {
+   "src": 5
+  },
+  "SpreadAssignment": {
+   "src": 6
+  }
+ },
+ "noTag": {},
+ "mismatches": [
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\child_process.d.ts",
+   "line": 309,
+   "ctx": "类体",
+   "text": "kill(signal?: NodeJS.Signals | number): boolean;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\dgram.d.ts",
+   "line": 130,
+   "ctx": "类体",
+   "text": "addMembership(multicastAddress: string, multicastInterface?: string): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\fs\\promises.d.ts",
+   "line": 117,
+   "ctx": "interface 体",
+   "text": "appendFile("
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\fs\\promises.d.ts",
+   "line": 135,
+   "ctx": "interface 体",
+   "text": "chown(uid: number, gid: number): Promise<void>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\fs.d.ts",
+   "line": 47,
+   "ctx": "interface 体",
+   "text": "isFile(): boolean;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\fs.d.ts",
+   "line": 209,
+   "ctx": "类体",
+   "text": "isFile(): boolean;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\fs.d.ts",
+   "line": 48,
+   "ctx": "interface 体",
+   "text": "isDirectory(): boolean;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\globals.d.ts",
+   "line": 52,
+   "ctx": "interface 体",
+   "text": "captureStackTrace(targetObject: object, constructorOpt?: Function): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\globals.d.ts",
+   "line": 56,
+   "ctx": "interface 体",
+   "text": "prepareStackTrace(err: Error, stackTraces: NodeJS.CallSite[]): any;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\globals.d.ts",
+   "line": 78,
+   "ctx": "interface 体",
+   "text": "getColumnNumber(): number | null;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 332,
+   "ctx": "类体",
+   "text": "aggregate(name: string, options: AggregateOptions): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 722,
+   "ctx": "interface 体",
+   "text": "changeset(): NodeJS.NonSharedUint8Array;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 333,
+   "ctx": "类体",
+   "text": "aggregate<T extends SQLInputValue>(name: string, options: AggregateOptions<T>): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 732,
+   "ctx": "interface 体",
+   "text": "patchset(): NodeJS.NonSharedUint8Array;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 339,
+   "ctx": "类体",
+   "text": "close(): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 738,
+   "ctx": "interface 体",
+   "text": "close(): void;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 360,
+   "ctx": "类体",
+   "text": "loadExtension(path: string, entryPoint?: string): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\sqlite.d.ts",
+   "line": 743,
+   "ctx": "interface 体",
+   "text": "[Symbol.dispose](): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\timers.d.ts",
+   "line": 39,
+   "ctx": "interface 体",
+   "text": "hasRef(): boolean;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\timers.d.ts",
+   "line": 50,
+   "ctx": "interface 体",
+   "text": "ref(): this;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\timers.d.ts",
+   "line": 59,
+   "ctx": "interface 体",
+   "text": "unref(): this;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\timers.d.ts",
+   "line": 64,
+   "ctx": "interface 体",
+   "text": "[Symbol.dispose](): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\ts5.7\\compatibility\\float16array.d.ts",
+   "line": 14,
+   "ctx": "interface 体",
+   "text": "at(index: number): number | undefined;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\v8.d.ts",
+   "line": 441,
+   "ctx": "interface 体",
+   "text": "stop(): string;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\v8.d.ts",
+   "line": 531,
+   "ctx": "类体",
+   "text": "writeHeader(): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\@types\\node\\v8.d.ts",
+   "line": 446,
+   "ctx": "interface 体",
+   "text": "[Symbol.dispose](): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3190,
+   "ctx": "类型字面量体",
+   "text": "acceptNode(node: Node): number;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3880,
+   "ctx": "interface 体",
+   "text": "get textContent(): string;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3881,
+   "ctx": "interface 体",
+   "text": "set textContent(value: string | null);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3211,
+   "ctx": "类型字面量体",
+   "text": "lookupNamespaceURI(prefix: string | null): string | null;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5367,
+   "ctx": "interface 体",
+   "text": "get style(): CSSStyleDeclaration;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5368,
+   "ctx": "interface 体",
+   "text": "set style(cssText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3224,
+   "ctx": "interface 体",
+   "text": "drawArraysInstancedANGLE(mode: GLenum, first: GLint, count: GLsizei, primcount: GLsizei): void;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5499,
+   "ctx": "interface 体",
+   "text": "get media(): MediaList;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5500,
+   "ctx": "interface 体",
+   "text": "set media(mediaText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3230,
+   "ctx": "interface 体",
+   "text": "drawElementsInstancedANGLE(mode: GLenum, count: GLsizei, type: GLenum, offset: GLintptr, primcount: "
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5537,
+   "ctx": "interface 体",
+   "text": "get style(): CSSStyleDeclaration;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5538,
+   "ctx": "interface 体",
+   "text": "set style(cssText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3236,
+   "ctx": "interface 体",
+   "text": "vertexAttribDivisorANGLE(index: GLuint, divisor: GLuint): void;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5827,
+   "ctx": "interface 体",
+   "text": "get media(): MediaList;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5828,
+   "ctx": "interface 体",
+   "text": "set media(mediaText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3364,
+   "ctx": "interface 体",
+   "text": "abort(reason?: any): void;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5872,
+   "ctx": "interface 体",
+   "text": "get style(): CSSStyleDeclaration;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 5873,
+   "ctx": "interface 体",
+   "text": "set style(cssText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3401,
+   "ctx": "interface 体",
+   "text": "throwIfAborted(): void;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 6031,
+   "ctx": "interface 体",
+   "text": "get style(): CSSPageDescriptors;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 6032,
+   "ctx": "interface 体",
+   "text": "set style(cssText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3402,
+   "ctx": "interface 体",
+   "text": "addEventListener<K extends keyof AbortSignalEventMap>(type: K, listener: (this: AbortSignal, ev: Abo"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 6229,
+   "ctx": "interface 体",
+   "text": "get style(): CSSPositionTryDescriptors;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 6230,
+   "ctx": "interface 体",
+   "text": "set style(cssText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3403,
+   "ctx": "interface 体",
+   "text": "addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | Add"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 9810,
+   "ctx": "interface 体",
+   "text": "get style(): CSSStyleDeclaration;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 9811,
+   "ctx": "interface 体",
+   "text": "set style(cssText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3404,
+   "ctx": "interface 体",
+   "text": "removeEventListener<K extends keyof AbortSignalEventMap>(type: K, listener: (this: AbortSignal, ev: "
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 10640,
+   "ctx": "interface 体",
+   "text": "get textContent(): string;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 10641,
+   "ctx": "interface 体",
+   "text": "set textContent(value: string | null);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3405,
+   "ctx": "interface 体",
+   "text": "removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | "
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 12779,
+   "ctx": "interface 体",
+   "text": "get location(): Location;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 12780,
+   "ctx": "interface 体",
+   "text": "set location(href: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3416,
+   "ctx": "类型字面量体",
+   "text": "abort(reason?: any): AbortSignal;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13198,
+   "ctx": "interface 体",
+   "text": "get textContent(): null;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13227,
+   "ctx": "interface 体",
+   "text": "set textContent(value: string | null);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3422,
+   "ctx": "类型字面量体",
+   "text": "any(signals: AbortSignal[]): AbortSignal;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13226,
+   "ctx": "interface 体",
+   "text": "get textContent(): string;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13521,
+   "ctx": "interface 体",
+   "text": "set classList(value: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3428,
+   "ctx": "类型字面量体",
+   "text": "timeout(milliseconds: number): AbortSignal;"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13306,
+   "ctx": "interface 体",
+   "text": "get textContent(): null;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13600,
+   "ctx": "interface 体",
+   "text": "set part(value: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3481,
+   "ctx": "interface 体",
+   "text": "addEventListener<K extends keyof AbstractWorkerEventMap>(type: K, listener: (this: AbstractWorker, e"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13520,
+   "ctx": "interface 体",
+   "text": "get classList(): DOMTokenList;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13914,
+   "ctx": "interface 体",
+   "text": "set textContent(value: string | null);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3482,
+   "ctx": "interface 体",
+   "text": "addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | Add"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13599,
+   "ctx": "interface 体",
+   "text": "get part(): DOMTokenList;"
+  },
+  {
+   "kind": "SetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13931,
+   "ctx": "interface 体",
+   "text": "set style(cssText: string);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 3483,
+   "ctx": "interface 体",
+   "text": "removeEventListener<K extends keyof AbstractWorkerEventMap>(type: K, listener: (this: AbstractWorker"
+  },
+  {
+   "kind": "GetAccessor",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.dom.d.ts",
+   "line": 13913,
+   "ctx": "interface 体",
+   "text": "get textContent(): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.generator.d.ts",
+   "line": 21,
+   "ctx": "interface 体",
+   "text": "next(...[value]: [] | [TNext]): IteratorResult<T, TReturn>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 41,
+   "ctx": "interface 体",
+   "text": "next(...[value]: [] | [TNext]): IteratorResult<T, TReturn>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 42,
+   "ctx": "interface 体",
+   "text": "return?(value?: TReturn): IteratorResult<T, TReturn>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 43,
+   "ctx": "interface 体",
+   "text": "throw?(e?: any): IteratorResult<T, TReturn>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 47,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): Iterator<T, TReturn, TNext>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 54,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): IterableIterator<T, TReturn, TNext>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 61,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): IteratorObject<T, TReturn, TNext>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 71,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): ArrayIterator<T>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 76,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): ArrayIterator<T>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 81,
+   "ctx": "interface 体",
+   "text": "entries(): ArrayIterator<[number, T]>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 86,
+   "ctx": "interface 体",
+   "text": "keys(): ArrayIterator<number>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 91,
+   "ctx": "interface 体",
+   "text": "values(): ArrayIterator<T>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 99,
+   "ctx": "interface 体",
+   "text": "from<T>(iterable: Iterable<T> | ArrayLike<T>): T[];"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 107,
+   "ctx": "interface 体",
+   "text": "from<T, U>(iterable: Iterable<T> | ArrayLike<T>, mapfn: (v: T, k: number) => U, thisArg?: any): U[];"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 112,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): ArrayIterator<T>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 117,
+   "ctx": "interface 体",
+   "text": "entries(): ArrayIterator<[number, T]>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 122,
+   "ctx": "interface 体",
+   "text": "keys(): ArrayIterator<number>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 127,
+   "ctx": "interface 体",
+   "text": "values(): ArrayIterator<T>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 132,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): ArrayIterator<any>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 136,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): MapIterator<T>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 141,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): MapIterator<[K, V]>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 146,
+   "ctx": "interface 体",
+   "text": "entries(): MapIterator<[K, V]>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 151,
+   "ctx": "interface 体",
+   "text": "keys(): MapIterator<K>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 156,
+   "ctx": "interface 体",
+   "text": "values(): MapIterator<V>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.iterable.d.ts",
+   "line": 161,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): MapIterator<[K, V]>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 85,
+   "ctx": "interface 体",
+   "text": "[Symbol.toPrimitive](hint: string): symbol;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 114,
+   "ctx": "interface 体",
+   "text": "[Symbol.toPrimitive](hint: \"default\"): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 118,
+   "ctx": "interface 体",
+   "text": "[Symbol.toPrimitive](hint: \"string\"): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 122,
+   "ctx": "interface 体",
+   "text": "[Symbol.toPrimitive](hint: \"number\"): number;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 131,
+   "ctx": "interface 体",
+   "text": "[Symbol.toPrimitive](hint: string): string | number;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 162,
+   "ctx": "interface 体",
+   "text": "[Symbol.hasInstance](value: any): boolean;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 187,
+   "ctx": "interface 体",
+   "text": "[Symbol.match](string: string): RegExpMatchArray | null;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 196,
+   "ctx": "interface 体",
+   "text": "[Symbol.replace](string: string, replaceValue: string): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 204,
+   "ctx": "interface 体",
+   "text": "[Symbol.replace](string: string, replacer: (substring: string, ...args: any[]) => string): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 212,
+   "ctx": "interface 体",
+   "text": "[Symbol.search](string: string): number;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 226,
+   "ctx": "interface 体",
+   "text": "[Symbol.split](string: string, limit?: number): string[];"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 239,
+   "ctx": "interface 体",
+   "text": "match(matcher: { [Symbol.match](string: string): RegExpMatchArray | null; }): RegExpMatchArray | nul"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 239,
+   "ctx": "类型字面量体",
+   "text": "[Symbol.match](string: string): RegExpMatchArray | null;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 246,
+   "ctx": "interface 体",
+   "text": "replace(searchValue: { [Symbol.replace](string: string, replaceValue: string): string; }, replaceVal"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 246,
+   "ctx": "类型字面量体",
+   "text": "[Symbol.replace](string: string, replaceValue: string): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2015.symbol.wellknown.d.ts",
+   "line": 253,
+   "ctx": "interface 体",
+   "text": "replace(searchValue: { [Symbol.replace](string: string, replacer: (substring: string, ...args: any[]"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2018.asyncgenerator.d.ts",
+   "line": 21,
+   "ctx": "interface 体",
+   "text": "next(...[value]: [] | [TNext]): Promise<IteratorResult<T, TReturn>>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2018.asynciterable.d.ts",
+   "line": 30,
+   "ctx": "interface 体",
+   "text": "next(...[value]: [] | [TNext]): Promise<IteratorResult<T, TReturn>>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2018.asynciterable.d.ts",
+   "line": 31,
+   "ctx": "interface 体",
+   "text": "return?(value?: TReturn | PromiseLike<TReturn>): Promise<IteratorResult<T, TReturn>>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2018.asynciterable.d.ts",
+   "line": 32,
+   "ctx": "interface 体",
+   "text": "throw?(e?: any): Promise<IteratorResult<T, TReturn>>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2019.array.d.ts",
+   "line": 34,
+   "ctx": "interface 体",
+   "text": "flatMap<U, This = undefined>("
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2019.array.d.ts",
+   "line": 45,
+   "ctx": "interface 体",
+   "text": "flat<A, D extends number = 1>("
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2020.bigint.d.ts",
+   "line": 110,
+   "ctx": "interface 体",
+   "text": "toString(radix?: number): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2020.bigint.d.ts",
+   "line": 113,
+   "ctx": "interface 体",
+   "text": "toLocaleString(locales?: Intl.LocalesArgument, options?: BigIntToLocaleStringOptions): string;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2020.symbol.wellknown.d.ts",
+   "line": 29,
+   "ctx": "interface 体",
+   "text": "[Symbol.iterator](): RegExpStringIterator<T>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2020.symbol.wellknown.d.ts",
+   "line": 38,
+   "ctx": "interface 体",
+   "text": "[Symbol.matchAll](str: string): RegExpStringIterator<RegExpExecArray>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2022.intl.d.ts",
+   "line": 45,
+   "ctx": "interface 体",
+   "text": "segment(input: string): Segments;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2022.intl.d.ts",
+   "line": 51,
+   "ctx": "interface 体",
+   "text": "resolvedOptions(): ResolvedSegmenterOptions;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2025.float16.d.ts",
+   "line": 49,
+   "ctx": "interface 体",
+   "text": "at(index: number): number | undefined;"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.es2025.iterator.d.ts",
+   "line": 27,
+   "ctx": "类体",
+   "text": "abstract next(value?: TNext): IteratorResult<T, TResult>;"
+  },
+  {
+   "kind": "ConstructSignatureDeclaration",
+   "tag": "Signature",
+   "file": "node_modules\\typescript\\lib\\lib.es5.d.ts",
+   "line": 154,
+   "ctx": "interface 体",
+   "text": "new (value?: any): Object;"
+  },
+  {
+   "kind": "CallSignatureDeclaration",
+   "tag": "Signature",
+   "file": "node_modules\\typescript\\lib\\lib.es5.d.ts",
+   "line": 155,
+   "ctx": "interface 体",
+   "text": "(): any;"
+  },
+  {
+   "kind": "ConstructSignatureDeclaration",
+   "tag": "Signature",
+   "file": "node_modules\\typescript\\lib\\lib.es5.d.ts",
+   "line": 312,
+   "ctx": "interface 体",
+   "text": "new (...args: string[]): Function;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.esnext.disposable.d.ts",
+   "line": 34,
+   "ctx": "interface 体",
+   "text": "[Symbol.dispose](): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.esnext.disposable.d.ts",
+   "line": 38,
+   "ctx": "interface 体",
+   "text": "[Symbol.asyncDispose](): PromiseLike<void>;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.esnext.disposable.d.ts",
+   "line": 61,
+   "ctx": "interface 体",
+   "text": "dispose(): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.esnext.disposable.d.ts",
+   "line": 67,
+   "ctx": "interface 体",
+   "text": "use<T extends Disposable | null | undefined>(value: T): T;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1522,
+   "ctx": "interface 体",
+   "text": "drawArraysInstancedANGLE(mode: GLenum, first: GLint, count: GLsizei, primcount: GLsizei): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1528,
+   "ctx": "interface 体",
+   "text": "drawElementsInstancedANGLE(mode: GLenum, count: GLsizei, type: GLenum, offset: GLintptr, primcount: "
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1534,
+   "ctx": "interface 体",
+   "text": "vertexAttribDivisorANGLE(index: GLuint, divisor: GLuint): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1555,
+   "ctx": "interface 体",
+   "text": "abort(reason?: any): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1592,
+   "ctx": "interface 体",
+   "text": "throwIfAborted(): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1593,
+   "ctx": "interface 体",
+   "text": "addEventListener<K extends keyof AbortSignalEventMap>(type: K, listener: (this: AbortSignal, ev: Abo"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1594,
+   "ctx": "interface 体",
+   "text": "addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | Add"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1595,
+   "ctx": "interface 体",
+   "text": "removeEventListener<K extends keyof AbortSignalEventMap>(type: K, listener: (this: AbortSignal, ev: "
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1596,
+   "ctx": "interface 体",
+   "text": "removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | "
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1607,
+   "ctx": "类型字面量体",
+   "text": "abort(reason?: any): AbortSignal;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1613,
+   "ctx": "类型字面量体",
+   "text": "any(signals: AbortSignal[]): AbortSignal;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1619,
+   "ctx": "类型字面量体",
+   "text": "timeout(milliseconds: number): AbortSignal;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1629,
+   "ctx": "interface 体",
+   "text": "addEventListener<K extends keyof AbstractWorkerEventMap>(type: K, listener: (this: AbstractWorker, e"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1630,
+   "ctx": "interface 体",
+   "text": "addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | Add"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1631,
+   "ctx": "interface 体",
+   "text": "removeEventListener<K extends keyof AbstractWorkerEventMap>(type: K, listener: (this: AbstractWorker"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1632,
+   "ctx": "interface 体",
+   "text": "removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | "
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1637,
+   "ctx": "interface 体",
+   "text": "cancelAnimationFrame(handle: number): void;"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\typescript\\lib\\lib.webworker.d.ts",
+   "line": 1639,
+   "ctx": "interface 体",
+   "text": "requestAnimationFrame(callback: FrameRequestCallback): number;"
+  },
+  {
+   "kind": "PropertySignature",
+   "tag": "Field",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 134,
+   "ctx": "interface 体",
+   "text": "seq: number;"
+  },
+  {
+   "kind": "IndexSignatureDeclaration",
+   "tag": "Field",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 1184,
+   "ctx": "interface 体",
+   "text": "[option: string]: CompilerOptionsValue | undefined;"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 2579,
+   "ctx": "类体",
+   "text": "protected readonly installTypingHost: InstallTypingHost;"
+  },
+  {
+   "kind": "PropertySignature",
+   "tag": "Field",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 138,
+   "ctx": "interface 体",
+   "text": "type: \"request\" | \"response\" | \"event\";"
+  },
+  {
+   "kind": "IndexSignatureDeclaration",
+   "tag": "Field",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 3188,
+   "ctx": "interface 体",
+   "text": "[name: string]: {"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 2580,
+   "ctx": "类体",
+   "text": "private readonly globalCachePath;"
+  },
+  {
+   "kind": "FunctionDeclaration",
+   "tag": "Function",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 2738,
+   "ctx": "namespace / declare global 体内",
+   "text": "function createInstallTypingsRequest(project: Project, typeAcquisition: TypeAcquisition, unresolvedI"
+  },
+  {
+   "kind": "FunctionDeclaration",
+   "tag": "Function",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 2739,
+   "ctx": "namespace / declare global 体内",
+   "text": "function toNormalizedPath(fileName: string): NormalizedPath;"
+  },
+  {
+   "kind": "CallSignatureDeclaration",
+   "tag": "Signature",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 8084,
+   "ctx": "interface 体",
+   "text": "<TIn extends Node | undefined, TVisited extends Node | undefined, TOut extends Node>(node: TIn, visi"
+  },
+  {
+   "kind": "CallSignatureDeclaration",
+   "tag": "Signature",
+   "file": "node_modules\\typescript\\lib\\typescript.d.ts",
+   "line": 8085,
+   "ctx": "interface 体",
+   "text": "<TIn extends Node | undefined, TVisited extends Node | undefined>(node: TIn, visitor: Visitor<NonNul"
+  },
+  {
+   "kind": "PropertySignature",
+   "tag": "Field",
+   "file": "node_modules\\undici-types\\cache-interceptor.d.ts",
+   "line": 9,
+   "ctx": "interface 体",
+   "text": "store: CacheStore"
+  },
+  {
+   "kind": "PropertySignature",
+   "tag": "Field",
+   "file": "node_modules\\undici-types\\cache-interceptor.d.ts",
+   "line": 11,
+   "ctx": "interface 体",
+   "text": "cacheByDefault?: number"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 4,
+   "ctx": "interface 体",
+   "text": "match (request: RequestInfo, options?: MultiCacheQueryOptions): Promise<Response | undefined>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 5,
+   "ctx": "interface 体",
+   "text": "has (cacheName: string): Promise<boolean>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 6,
+   "ctx": "interface 体",
+   "text": "open (cacheName: string): Promise<Cache>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 7,
+   "ctx": "interface 体",
+   "text": "delete (cacheName: string): Promise<boolean>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 8,
+   "ctx": "interface 体",
+   "text": "keys (): Promise<string[]>"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 17,
+   "ctx": "interface 体",
+   "text": "match (request: RequestInfo, options?: CacheQueryOptions): Promise<Response | undefined>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 18,
+   "ctx": "interface 体",
+   "text": "matchAll (request?: RequestInfo, options?: CacheQueryOptions): Promise<readonly Response[]>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 19,
+   "ctx": "interface 体",
+   "text": "add (request: RequestInfo): Promise<undefined>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 20,
+   "ctx": "interface 体",
+   "text": "addAll (requests: RequestInfo[]): Promise<undefined>,"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\cache.d.ts",
+   "line": 21,
+   "ctx": "interface 体",
+   "text": "put (request: RequestInfo, response: Response): Promise<undefined>,"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "node_modules\\undici-types\\fetch.d.ts",
+   "line": 31,
+   "ctx": "类体",
+   "text": "readonly body: ReadableStream | null"
+  },
+  {
+   "kind": "PropertySignature",
+   "tag": "Field",
+   "file": "node_modules\\undici-types\\mock-interceptor.d.ts",
+   "line": 40,
+   "ctx": "interface 体",
+   "text": "path: string | RegExp | ((path: string) => boolean);"
+  },
+  {
+   "kind": "PropertySignature",
+   "tag": "Field",
+   "file": "node_modules\\undici-types\\mock-interceptor.d.ts",
+   "line": 42,
+   "ctx": "interface 体",
+   "text": "method?: string | RegExp | ((method: string) => boolean);"
+  },
+  {
+   "kind": "PropertySignature",
+   "tag": "Field",
+   "file": "node_modules\\undici-types\\mock-interceptor.d.ts",
+   "line": 44,
+   "ctx": "interface 体",
+   "text": "body?: string | RegExp | ((body: string) => boolean);"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\webidl.d.ts",
+   "line": 18,
+   "ctx": "interface 体",
+   "text": "exception (opts: { header: string, message: string }): TypeError"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\webidl.d.ts",
+   "line": 22,
+   "ctx": "interface 体",
+   "text": "conversionFailed (opts: {"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\webidl.d.ts",
+   "line": 30,
+   "ctx": "interface 体",
+   "text": "invalidArgument (opts: {"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\webidl.d.ts",
+   "line": 52,
+   "ctx": "interface 体",
+   "text": "Type (object: unknown): WebIDLTypes[keyof WebIDLTypes]"
+  },
+  {
+   "kind": "MethodSignature",
+   "tag": "MethodDeclaration",
+   "file": "node_modules\\undici-types\\webidl.d.ts",
+   "line": 54,
+   "ctx": "interface 体",
+   "text": "TypeValueToString (o: unknown):"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\cjcli.ts",
+   "line": 37,
+   "ctx": "顶层或其它位置",
+   "text": "CjcliVersion() + \"\\n\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\cjcli.ts",
+   "line": 40,
+   "ctx": "顶层或其它位置",
+   "text": "options.Error !== undefined"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\cjcli.ts",
+   "line": 41,
+   "ctx": "顶层或其它位置",
+   "text": "\"cjcli: \" + options.Error + \"\\n\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\cjcli.ts",
+   "line": 41,
+   "ctx": "顶层或其它位置",
+   "text": "\"cjcli: \" + options.Error"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\cjcli.ts",
+   "line": 47,
+   "ctx": "顶层或其它位置",
+   "text": "options.Input === \"\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\cjcli.ts",
+   "line": 52,
+   "ctx": "顶层或其它位置",
+   "text": "\"cjcli: 找不到输入文件：\" + options.Input + \"\\n\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\cjcli.ts",
+   "line": 52,
+   "ctx": "顶层或其它位置",
+   "text": "\"cjcli: 找不到输入文件：\" + options.Input"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\extensions\\list-extension.ts",
+   "line": 17,
+   "ctx": "顶层或其它位置",
+   "text": "index + newValues.length - 1"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\extensions\\list-extension.ts",
+   "line": 17,
+   "ctx": "顶层或其它位置",
+   "text": "index + newValues.length"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\syntax\\source-range.ts",
+   "line": 14,
+   "ctx": "类体",
+   "text": "start ?? null"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\core\\syntax\\source-range.ts",
+   "line": 124,
+   "ctx": "类体",
+   "text": "!(other instanceof SourceRange)"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\core\\syntax\\templates\\sequence-template.ts",
+   "line": 21,
+   "ctx": "类体",
+   "text": "!this.CompletedData.has(target)"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\syntax\\templates\\sequence-template.ts",
+   "line": 22,
+   "ctx": "类体",
+   "text": "arguments.length >= 2"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\syntax\\templates\\sequence-template.ts",
+   "line": 24,
+   "ctx": "类体",
+   "text": "this.CoverData.get(target) ?? null"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\syntax\\templates\\sequence-template.ts",
+   "line": 25,
+   "ctx": "类体",
+   "text": "onDefaultValue == null"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\core\\syntax\\templates\\symbol-template.ts",
+   "line": 113,
+   "ctx": "类体",
+   "text": "!this.IsNumber(ch)"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\syntax\\token.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "this.Data.length - 1 - (index ?? 0)"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\syntax\\token.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "this.Data.length - 1"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\core\\syntax\\token.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "index ?? 0"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\parse-pipeline.ts",
+   "line": 191,
+   "ctx": "类体",
+   "text": "defaultValue == null"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\as.ts",
+   "line": 18,
+   "ctx": "类体",
+   "text": "current instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\class\\class.ts",
+   "line": 27,
+   "ctx": "类体",
+   "text": "item instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\class\\class.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "name === \"\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\class\\class.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "name + \".\" + item.TempToString()"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\common.ts",
+   "line": 18,
+   "ctx": "类体",
+   "text": "value === \"\\\\\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\common.ts",
+   "line": 19,
+   "ctx": "类体",
+   "text": "last instanceof Common"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\common.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "!(unit.Template.SymbolTemplate.IsSymbol(source.Value) || unit.Template.SymbolTemplate.IsWhiteSpace(s"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\declaration-common.ts",
+   "line": 31,
+   "ctx": "顶层或其它位置",
+   "text": "!(item instanceof Common)"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\export.ts",
+   "line": 25,
+   "ctx": "类体",
+   "text": "current instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\export.ts",
+   "line": 25,
+   "ctx": "类体",
+   "text": "current.TempToString() !== \"export\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\export.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "maybeType instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\export.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "maybeType.TempToString() === \"type\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\export.ts",
+   "line": 34,
+   "ctx": "类体",
+   "text": "next instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\export.ts",
+   "line": 37,
+   "ctx": "类体",
+   "text": "next instanceof Symbol"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\field.ts",
+   "line": 28,
+   "ctx": "顶层或其它位置",
+   "text": "-1"
+  },
+  {
+   "kind": "PostfixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\field.ts",
+   "line": 30,
+   "ctx": "顶层或其它位置",
+   "text": "i++"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\for\\for.ts",
+   "line": 26,
+   "ctx": "类体",
+   "text": "common instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\for\\for.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "bracket instanceof Bracket"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\for\\for.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "bracket.StartBracketChar === \"(\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\for\\for.ts",
+   "line": 29,
+   "ctx": "类体",
+   "text": "item instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\for\\for.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "hasSeparator === false"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\foreach\\foreach.ts",
+   "line": 27,
+   "ctx": "类体",
+   "text": "unit instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\foreach\\foreach.ts",
+   "line": 34,
+   "ctx": "类体",
+   "text": "next instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\foreach\\foreach.ts",
+   "line": 35,
+   "ctx": "类体",
+   "text": "item instanceof WrapSymbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\function\\function.ts",
+   "line": 26,
+   "ctx": "类体",
+   "text": "star instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\function\\method-declaration.ts",
+   "line": 37,
+   "ctx": "类体",
+   "text": "mark instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\function\\method-declaration.ts",
+   "line": 40,
+   "ctx": "类体",
+   "text": "Get(units, i) instanceof GenericType"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\function\\method-declaration.ts",
+   "line": 44,
+   "ctx": "类体",
+   "text": "parameters instanceof Bracket"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\function\\method-declaration.ts",
+   "line": 44,
+   "ctx": "类体",
+   "text": "parameters.StartBracketChar !== \"(\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\function\\method-declaration.ts",
+   "line": 52,
+   "ctx": "类体",
+   "text": "item instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\function\\method-declaration.ts",
+   "line": 60,
+   "ctx": "类体",
+   "text": "parametersIndex + 1"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\generic-type.ts",
+   "line": 35,
+   "ctx": "类体",
+   "text": "!(beforeMark instanceof Common)"
+  },
+  {
+   "kind": "PostfixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\generic-type.ts",
+   "line": 81,
+   "ctx": "类体",
+   "text": "angleDepth++"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\import.ts",
+   "line": 24,
+   "ctx": "类体",
+   "text": "current instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\import.ts",
+   "line": 24,
+   "ctx": "类体",
+   "text": "current.TempToString() !== \"import\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\import.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "next instanceof Bracket"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\import.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "next.StartBracketChar === \"(\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\import.ts",
+   "line": 31,
+   "ctx": "类体",
+   "text": "next instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\import.ts",
+   "line": 39,
+   "ctx": "类体",
+   "text": "current === null"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\lamda\\lamda.ts",
+   "line": 29,
+   "ctx": "类体",
+   "text": "previous instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\lamda\\lamda.ts",
+   "line": 38,
+   "ctx": "类体",
+   "text": "first === null"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\lamda\\lamda.ts",
+   "line": 39,
+   "ctx": "类体",
+   "text": "-1"
+  },
+  {
+   "kind": "PostfixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\lamda\\lamda.ts",
+   "line": 110,
+   "ctx": "类体",
+   "text": "t++"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\logical-operator.ts",
+   "line": 25,
+   "ctx": "类体",
+   "text": "current instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\logical-operator.ts",
+   "line": 29,
+   "ctx": "类体",
+   "text": "current instanceof Symbol"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\new\\new.ts",
+   "line": 24,
+   "ctx": "类体",
+   "text": "!(current instanceof Common)"
+  },
+  {
+   "kind": "PostfixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\new\\new.ts",
+   "line": 75,
+   "ctx": "类体",
+   "text": "t++"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\new\\new.ts",
+   "line": 24,
+   "ctx": "类体",
+   "text": "current instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\new\\new.ts",
+   "line": 29,
+   "ctx": "类体",
+   "text": "next instanceof Bracket"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\new\\new.ts",
+   "line": 30,
+   "ctx": "类体",
+   "text": "next.StartBracketChar !== \"(\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\new\\new.ts",
+   "line": 34,
+   "ctx": "类体",
+   "text": "afterBracket instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\null-conditional-operator.ts",
+   "line": 17,
+   "ctx": "类体",
+   "text": "current instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\null-conditional-operator.ts",
+   "line": 22,
+   "ctx": "类体",
+   "text": "current instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\null-conditional-operator.ts",
+   "line": 25,
+   "ctx": "类体",
+   "text": "index + 1"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\null-conditional-operator.ts",
+   "line": 26,
+   "ctx": "类体",
+   "text": "item instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\null-conditional-operator.ts",
+   "line": 54,
+   "ctx": "类体",
+   "text": "endIndex === -1"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\null-conditional-operator.ts",
+   "line": 54,
+   "ctx": "类体",
+   "text": "units.length - index - 1"
+  },
+  {
+   "kind": "PrefixUnaryExpression",
+   "tag": "UnaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\null-conditional-operator.ts",
+   "line": 22,
+   "ctx": "类体",
+   "text": "!(current instanceof Symbol)"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\statement.ts",
+   "line": 34,
+   "ctx": "类体",
+   "text": "item instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\statement.ts",
+   "line": 41,
+   "ctx": "类体",
+   "text": "parent instanceof Bracket"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\statement.ts",
+   "line": 41,
+   "ctx": "类体",
+   "text": "parent.StartBracketChar === \"(\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\statement.ts",
+   "line": 49,
+   "ctx": "类体",
+   "text": "item instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\string\\string.ts",
+   "line": 44,
+   "ctx": "类体",
+   "text": "last instanceof ConstString"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\string\\translate.ts",
+   "line": 12,
+   "ctx": "类体",
+   "text": "head === \"u\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\string\\translate.ts",
+   "line": 13,
+   "ctx": "类体",
+   "text": "this.Temp.length === 1"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\string\\translate.ts",
+   "line": 16,
+   "ctx": "类体",
+   "text": "this.Temp[1] === \"{\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\string\\translate.ts",
+   "line": 17,
+   "ctx": "类体",
+   "text": "this.Temp[this.Temp.length - 1] === \"}\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\switch\\switch.ts",
+   "line": 23,
+   "ctx": "类体",
+   "text": "current instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\switch\\switch.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "compare instanceof Bracket"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\switch\\switch.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "compare.StartBracketChar !== \"(\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\switch\\switch.ts",
+   "line": 33,
+   "ctx": "类体",
+   "text": "body instanceof Bracket"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\switch\\switch.ts",
+   "line": 33,
+   "ctx": "类体",
+   "text": "body.StartBracketChar === \"{\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\switch\\switch.ts",
+   "line": 38,
+   "ctx": "类体",
+   "text": "current === null"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\switch\\switch.ts",
+   "line": 58,
+   "ctx": "类体",
+   "text": "item instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\symbol.ts",
+   "line": 23,
+   "ctx": "类体",
+   "text": "value === \"\\\\\""
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\ternary-operator\\ternary-operator.ts",
+   "line": 24,
+   "ctx": "类体",
+   "text": "current instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\ternary-operator\\ternary-operator.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "item instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\ternary-operator\\ternary-operator.ts",
+   "line": 29,
+   "ctx": "类体",
+   "text": "questionIndex === -1"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\type-assign.ts",
+   "line": 25,
+   "ctx": "类体",
+   "text": "current instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\type-assign.ts",
+   "line": 28,
+   "ctx": "类体",
+   "text": "Get(units, nextIndex1) instanceof Common"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\type-assign.ts",
+   "line": 32,
+   "ctx": "类体",
+   "text": "Get(units, nextIndex2) instanceof GenericType"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "dist\\ts\\dawn\\text\\tokens\\type-define.ts",
+   "line": 21,
+   "ctx": "类体",
+   "text": "current instanceof Symbol"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "samples\\declarations.ts",
+   "line": 24,
+   "ctx": "类体",
+   "text": "hit ?? undefined"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "tests\\parse\\cases\\declarations\\cls-computed-member.ts",
+   "line": 5,
+   "ctx": "类体",
+   "text": "[\"x\" + 1] = 2"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\declarations\\cls-computed-member.ts",
+   "line": 5,
+   "ctx": "类体",
+   "text": "\"x\" + 1"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "tests\\parse\\cases\\declarations\\cls-declare-fields.ts",
+   "line": 4,
+   "ctx": "类体",
+   "text": "declare x: number"
+  },
+  {
+   "kind": "ClassExpression",
+   "tag": "Class",
+   "file": "tests\\parse\\cases\\declarations\\cls-expression.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "class extends B {}"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "tests\\parse\\cases\\declarations\\cls-method-overloads.ts",
+   "line": 4,
+   "ctx": "类体",
+   "text": "f(a: string): void"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "tests\\parse\\cases\\declarations\\cls-method-overloads.ts",
+   "line": 5,
+   "ctx": "类体",
+   "text": "f(a: number): void"
+  },
+  {
+   "kind": "VariableDeclaration",
+   "tag": "Let",
+   "file": "tests\\parse\\cases\\declarations\\decl-await-using-basic.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "res = openAsync()"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "tests\\parse\\cases\\declarations\\decl-class-computed-member.ts",
+   "line": 5,
+   "ctx": "类体",
+   "text": "[KEY] = 1"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "tests\\parse\\cases\\declarations\\decl-class-computed-template-field.ts",
+   "line": 5,
+   "ctx": "类体",
+   "text": "[`${KEY}2`] = 1"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "tests\\parse\\cases\\declarations\\decl-class-method-overloads.ts",
+   "line": 4,
+   "ctx": "类体",
+   "text": "m(x: string): string"
+  },
+  {
+   "kind": "MethodDeclaration",
+   "tag": "MethodDeclaration",
+   "file": "tests\\parse\\cases\\declarations\\decl-class-method-overloads.ts",
+   "line": 5,
+   "ctx": "类体",
+   "text": "m(x: number): number"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\declarations\\decl-enum-computed-member.ts",
+   "line": 4,
+   "ctx": "顶层或其它位置",
+   "text": "1 << 2"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\declarations\\decl-enum-computed-member.ts",
+   "line": 5,
+   "ctx": "顶层或其它位置",
+   "text": "A | 8"
+  },
+  {
+   "kind": "ModuleDeclaration",
+   "tag": "Namespace",
+   "file": "tests\\parse\\cases\\declarations\\decl-namespace-dotted.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "namespace A.B.C {"
+  },
+  {
+   "kind": "ModuleDeclaration",
+   "tag": "Namespace",
+   "file": "tests\\parse\\cases\\declarations\\decl-namespace-dotted.ts",
+   "line": 3,
+   "ctx": "namespace / declare global 体内",
+   "text": "B.C {"
+  },
+  {
+   "kind": "VariableDeclaration",
+   "tag": "Let",
+   "file": "tests\\parse\\cases\\declarations\\decl-using-basic.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "res = open()"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\declarations\\enum-heterogeneous.ts",
+   "line": 6,
+   "ctx": "顶层或其它位置",
+   "text": "1 << 2"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\declarations\\enum-initializers.ts",
+   "line": 6,
+   "ctx": "顶层或其它位置",
+   "text": "A | B"
+  },
+  {
+   "kind": "VariableDeclaration",
+   "tag": "Let",
+   "file": "tests\\parse\\cases\\declarations\\vars-await-using.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "res = open()"
+  },
+  {
+   "kind": "PropertyDeclaration",
+   "tag": "Field",
+   "file": "tests\\parse\\cases\\declarations\\vars-definite.ts",
+   "line": 4,
+   "ctx": "类体",
+   "text": "x!: number"
+  },
+  {
+   "kind": "VariableDeclaration",
+   "tag": "Let",
+   "file": "tests\\parse\\cases\\declarations\\vars-using.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "res = open()"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\ex-comma.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a, b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\ex-comma.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "a++, b++"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\ex-division.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "(a + b) / 2 / 3"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\ex-logical-assign.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a ??= 1"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\ex-logical-assign.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "a &&= 2"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\ex-logical-assign.ts",
+   "line": 4,
+   "ctx": "顶层或其它位置",
+   "text": "a ||= 3"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-arith-mod-exp.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a % b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-assign-logical-and.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a &&= b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-assign-logical-or.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a ||= b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-assign-nullish.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a ??= b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-binary-operator.ts",
+   "line": 5,
+   "ctx": "顶层或其它位置",
+   "text": "1 + 2"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-bitwise-and-or.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a & b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-bitwise-and-or.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "a | b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-bitwise-xor.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a ^ b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-comma-sequence.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a, b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-div-not-regex.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "a / b / c"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-shift-left-right.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a << b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-shift-left-right.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "a >> b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\expressions\\expr-shift-unsigned.ts",
+   "line": 2,
+   "ctx": "顶层或其它位置",
+   "text": "a >>> b"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\lexical\\lex-division-after-paren.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "(4) / 2"
+  },
+  {
+   "kind": "ModuleDeclaration",
+   "tag": "Namespace",
+   "file": "tests\\parse\\cases\\modules\\ns-nested.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "namespace A.B.C {"
+  },
+  {
+   "kind": "ModuleDeclaration",
+   "tag": "Namespace",
+   "file": "tests\\parse\\cases\\modules\\ns-nested.ts",
+   "line": 3,
+   "ctx": "namespace / declare global 体内",
+   "text": "B.C {"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\statements\\st-for-multi.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "i++, j--"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\statements\\stmt-for-comma-update.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "i++, j--"
+  },
+  {
+   "kind": "BinaryExpression",
+   "tag": "BinaryOperator",
+   "file": "tests\\parse\\cases\\statements\\stmt-parenthesized-sequence.ts",
+   "line": 3,
+   "ctx": "顶层或其它位置",
+   "text": "f(), g()"
+  }
+ ],
+ "parseFailures": 0,
+ "files": 1241
+}

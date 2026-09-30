@@ -12,6 +12,7 @@ import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Common } from "../common.xl.md"
+import { IsWordUnit } from "../declaration-common.xl.md"
 import { Statement } from "../statement.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { ForBody } from "./for-body.xl.md"
@@ -60,7 +61,7 @@ if (common instanceof Common && common.Is("for")) {
     if (hasSeparator === false) {
       return false;
     }
-    return bracket.Data.some((item) => item instanceof Common && (item.Is("in") || item.Is("of"))) === false;
+    return bracket.Data.some((item) => IsWordUnit(item, "in") || IsWordUnit(item, "of")) === false;
   }
 }
 return false;

@@ -8,12 +8,16 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../../core/extensions/list-extension.xl.md"
 import { SearchBack } from "../../../../core/extensions/list-extension.xl.md"
 import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { GetSkipNext } from "../../../../core/extensions/list-extension.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
 import { TakeRange } from "../../../../core/extensions/list-extension.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { IsWordUnit } from "../declaration-common.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Common } from "../common.xl.md"
 import { Statement } from "../statement.xl.md"
+import { WrapSymbol } from "../wrap-symbol.xl.md"
 import { ForeachBody } from "./foreach-body.xl.md"
 import { ForeachDefine } from "./foreach-define.xl.md"
 import { ForeachEnumable } from "./foreach-enumable.xl.md"
@@ -39,7 +43,13 @@ import { ForeachEnumable } from "./foreach-enumable.xl.md"
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是本次重组的起点：一个内容为 `for` 或 `foreach` 的 `Common`，紧跟（跳过 `WrapSymbol` 软换行）一个 `(` 开头的 `Bracket`，且括号里至少有一个内容为 `in` 或 `of` 的 `Common`。
+`index` 处是不是本次重组的起点：一个内容为 `for` 或 `foreach` 的 `Common`，
+**可选的一个 `await`**，紧跟（跳过 `WrapSymbol` 软换行）一个 `(` 开头的 `Bracket`，
+且括号里至少有一个内容为 `in` 或 `of` 的 `Common`。
+
+`await` 那一跳是给 `for await (const v of xs)` 的：异步迭代的 `await` 夹在 `for` 与括号之间，
+不跳的话判定在这一步就断了、整条 `Foreach` 认不出来（`st-for-await` / `stmt-for-await` 两条用例）。
+注意 `for` 与 `(` 之间只有 `await` 需要跳——`for (…)` 本身不能多跳。
 
 ```ts
 const unit = Get(units, index);
@@ -49,12 +59,15 @@ if (!(unit instanceof Common)) {
 if (!(unit.Is("for") || unit.Is("foreach"))) {
   return false;
 }
-const next = GetSkipNextWrapSymbol(units, index);
+let next = GetSkipNextWrapSymbol(units, index);
+if (next instanceof Common && next.Is("await")) {
+  next = GetSkipNext(units, index, (item) => item instanceof WrapSymbol || (item instanceof Common && item.Is("await")));
+}
 if (!(next instanceof Bracket)) {
   return false;
 }
 const bracket = next;
-return bracket.StartBracketChar === "(" && bracket.Data.some((item) => item instanceof Common && ((item as Common).Is("in") || (item as Common).Is("of")));
+return bracket.StartBracketChar === "(" && bracket.Data.some((item) => IsWordUnit(item, "in") || IsWordUnit(item, "of"));
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
@@ -69,6 +82,11 @@ return bracket.StartBracketChar === "(" && bracket.Data.some((item) => item inst
 2. **Enumable**（`xs`）：上述位置之后到括号末尾。位置后面没有内容时同样抛 `SyntaxException`。
 3. **Body**：括号后面若是 `{` 开头的 `Bracket`，把它整块搬进来；否则从当前位置起找语句结尾（`Statement.SearchStatementEnd`）。找不到结尾时抛 `SyntaxException`。
 
+`for` 与条件括号之间可以夹一个 `await`（`for await (… of …)`），取括号前要跳掉它——
+`Previous` 与 `Process` 必须跳同样多的东西，只改一边会在这里对不上：
+`Process` 会把那个 `await` 当成括号去取 `Data`，`SearchBack(undefined, …)` 直接抛。
+（这是真实发生过的一次：`Previous` 放宽之后，`fn-async-generator` 那条基线用例开始抛 `SyntaxException`。）
+
 顺序取前面一段用 `TakeRange`（取出不移除）：`Take(n)` 即 `TakeRange(self, 0, n)`。注意 `defineEnd == -1` 这条路径上会切出空数组、不抛错。
 
 三处抛错走静态工厂 `SyntaxException.FromMessage`，把范围与消息一起带上。
@@ -80,8 +98,17 @@ result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 let currentIndex = index;
 currentIndex = SkipNextWrapSymbol(units, currentIndex);
+const headUnit = Get(units, currentIndex);
+let awaitUnit: Token | null = null;
+if (headUnit instanceof Common && headUnit.Is("await")) {
+  awaitUnit = headUnit;
+  currentIndex = SkipNextWrapSymbol(units, currentIndex);
+}
+if (awaitUnit !== null) {
+  result.AddAndCloseLast(awaitUnit);
+}
 const conditionBracket = Get(units, currentIndex) as Bracket;
-const defineEnd = SearchBack(conditionBracket.Data, -1, (x) => x instanceof Common && ((x as Common).Is("in") || (x as Common).Is("of")));
+const defineEnd = SearchBack(conditionBracket.Data, -1, (x) => IsWordUnit(x, "in") || IsWordUnit(x, "of"));
 if (defineEnd === -1) {
   throw SyntaxException.FromMessage(conditionBracket.SourceRange, "foreach/for(...){...} 的`(...)`中语句不满足格式要求：`(... in/of ...)`");
 }
@@ -135,10 +162,19 @@ return index;
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器。
+转调基类构造器，**并且把它自己的队列装上**。
+
+`for await (… of …)` 里的 `await` 是作为子单元留在 `Foreach` 里的（见 `Process`），
+而本单元是重组造出来的——关闭时通用队列早跑完了（`KeywordReorganization` 排在**最后**），
+不补这一趟那个 `await` 就停在 `Common` 上（`st-for-await` 那条用例要的 `Keyword` 就是它）。
+
+装的是一条精简队列（`KeywordReorganization` + `WrapSymbolReorganization`，
+见 `../parse-pipeline.xl.md` 的 `InitialKeywordReorganizationQueue`）——本单元的内容都是
+已经收好的语句段，不该再跑一遍表达式 / 语句规则。
 
 ```ts
 super(template);
+ParsePipeline.InitialKeywordReorganizationQueue(this);
 ```
 
 ## method CreateDefine:()=>ForeachDefine

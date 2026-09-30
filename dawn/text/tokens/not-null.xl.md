@@ -1,28 +1,37 @@
 # dependencies
 ```xl
+import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get } from "../../../core/extensions/list-extension.xl.md"
+import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Common } from "./common.xl.md"
 import { Method } from "./method.xl.md"
 import { Symbol } from "./symbol.xl.md"
+import { TypeDefine } from "./type-define.xl.md"
+import { WrapSymbol } from "./wrap-symbol.xl.md"
 ```
 
 # namespace cangjie
 
 `Dawn/Text`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-非空断言 `!`：把 `expr!` 里的那个 `!` 从单元列表里删掉——它没有语法结构意义，只是给编译器的标注。
+非空断言 `!`：把 `expr!` 收成一个 **`NotNull` 节点**（里面装着被断言的那个单元与 `!` 本身）。
+
+**原来是把 `!` 直接删掉的**，理由是「它没有语法结构意义」——但那样一来 `a!` 与 `a` 的产物**完全一样**，
+信息整体丢失（`known-gaps.json` 的 `_notes.nonnull-dropped`）。现在保留成一个节点：
+TypeScript 自己的 AST 里它就是 `NonNullExpression`，差分引擎能直接对上，
+下游也终于分得清「取了值」与「断言过非空」。
 
 `NotNullReorganization` 写在 `NotNull` 之前；
 `Root` 会在自己的重组队列里持有 `NotNullReorganization.Instance`，所以顺序不能反。
 
 # class NotNullReorganization extends Reorganization
 
-它的 `Previous` 是**三路判定**：`index` 处必须是内容为 `!` 的 `Symbol`，且它前一个单元必须是 `Common` / `Bracket` / `Method` 之一。
-换句话说：只有「标识符!」「(...)!」「方法(...)!」这三种形状才当非空断言，别的 `!`（如 `!=`）不动。
+它的 `Previous` 是**四路判定**：`index` 处必须是内容为 `!` 的 `Symbol`，且它前一个单元必须是 `Common` / `Bracket` / `Method` / `NotNull` 之一。
+换句话说：只有「标识符!」「(...)!」「方法(...)!」以及**连着再断言一次**（`b!!`）这几种形状才当非空断言，别的 `!`（如 `!=`、`!==`、前缀 `!x`）不动。
 
 ## static readonly field Instance:NotNullReorganization = new NotNullReorganization()
 
@@ -30,10 +39,13 @@ import { Symbol } from "./symbol.xl.md"
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是一个可以删掉的非空断言 `!`。
+`index` 处是不是一个非空断言的 `!`。
 
-先取 `index - 1` 处的单元存进 `previous`，再判定 `index` 处是不是 `!`，以及 `previous` 是不是 `Common` / `Bracket` / `Method` 之一；
+先取 `index - 1` 处的单元存进 `previous`，再判定 `index` 处是不是 `!`，以及 `previous` 是不是 `Common` / `Bracket` / `Method` / `NotNull` 之一；
 这里拆成早返回，语义相同。`Get` 越界给 `null`，所以下标 `0` 处的 `!` 自然落到 `false`。
+
+`NotNull` 那一支是给**连写**的（`b!!`）：第一次断言已经把 `b!` 收成节点，
+第二个 `!` 前面于是不再是 `Common`——不认它的话第二个 `!` 会留在原地成为悬空符号。
 
 ```ts
 const previous = Get(units, index - 1);
@@ -44,23 +56,112 @@ if (!(current instanceof Symbol)) {
 if (!(current as Symbol).Is("!")) {
   return false;
 }
-return previous instanceof Common || previous instanceof Bracket || previous instanceof Method;
+if (this.IsDefiniteAssignment(units, index)) {
+  return false;
+}
+return (
+  previous instanceof Common ||
+  previous instanceof Bracket ||
+  previous instanceof Method ||
+  previous instanceof NotNull
+);
+```
+
+**类体里的 `a!: number` 不是非空断言，是「明确赋值断言」**：`!` 属于**成员声明**的一部分
+（TypeScript 的 AST 里它只是属性上的一个 `exclamationToken`，**不**产生 `NonNullExpression`）。
+把类体里的形状挡掉，`Field` 才拿得到 `a` 这个名字（不挡的话整条成员声明塌成一个 `NotNull`，
+字段名也丢了）。判据见 `IsDefiniteAssignment`。
+
+## private method IsDefiniteAssignment:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `!` 是不是**成员声明上的明确赋值断言**（`a!: number`）。
+
+两条同时成立才算：
+
+- `!` **后面**（跳过软换行）跟着类型标注：一个已经成形的 `TypeDefine` 节点，
+  或者 `:` / `?:` / `!:` 符号（位次上 `TypeDefineReorganization` 可能已经先跑过，
+  那时看到的就是节点；词法层也会把 `!:` 拼成一个符号，所以四种写法都要认）；
+- 名字**前面**是成员起点：`{` 括号 / `;` / 软换行 / 什么都没有。
+
+**为什么不看「父亲是不是 `ClassBody`」**：本规则的位次比较靠前，
+跑的时候类体未必已经成型，`Parent` 还指不到 `ClassBody`（实测那条判据一次都没命中）。
+形状判据不依赖树的成型时机。
+
+第二条把三元表达式的 `cond ? a! : b` 排除掉：那里的 `a` 前面是 `?`，不是成员起点 ✓。
+
+```ts
+const after = Get(units, SkipNextWrapSymbol(units, index));
+if (after instanceof TypeDefine) {
+  return true;
+}
+if (!(after instanceof Symbol)) {
+  return false;
+}
+const afterText = after.TempToString();
+if (afterText !== ":" && afterText !== "?:" && afterText !== "!:") {
+  return false;
+}
+const nameIndex = index - 1;
+const beforeIndex = SkipPreviousWrapSymbol(units, nameIndex);
+const before = Get(units, beforeIndex);
+if (before === null) {
+  return true;
+}
+if (before instanceof Bracket && before.StartBracketChar === "{") {
+  return true;
+}
+if (before instanceof Symbol && before.Is(";")) {
+  return true;
+}
+return before instanceof WrapSymbol;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
-把 `index` 处的 `!` 从 `units` 里删掉，**返回新的下标**。
+把 `index - 1` 与 `index` 两个单元（被断言者与 `!`）换成一个 `NotNull`，**返回新的下标**。
 
-删除 `index` 处的单元之后要返回 `index - 1`，让外层循环重新看同一个位置（删除会让后面的单元整体前移一格）。
+返回 `index - 1`：替换之后这个位置就是新节点，外层循环从它继续。
+
+替换用四参数的 `ReplaceCountAt`（三个参数的版本才叫 `ReplaceAt`）。
 
 ```ts
-units.splice(index, 1);
-return index - 1;
+const previous = Get(units, index - 1);
+const current = Get(units, index);
+if (previous === null || current === null) {
+  throw new Error("非空断言两侧缺单元");
+}
+const notNull = new NotNull(template);
+notNull.SignIn(previous.SourceRange.Start!);
+notNull.SignOut(current.SourceRange.End!);
+notNull.AddAndCloseLast(previous);
+notNull.AddAndCloseLast(current);
+notNull.TryToClose();
+return ReplaceCountAt(units, index - 1, 2, notNull);
 ```
 
-# class NotNull
+# class NotNull extends IndependentToken
 
-非空断言的**容器类**，本身没有任何成员。
+非空断言 `expr!`。
 
-它不继承 `Token`，只是 `NotNullReorganization` 的宿主。
-`Root` 引用的是 `NotNullReorganization.Instance`，所以这个空壳类不参与解析流程，也不会进 `Data` / XML。
+**类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
+
+它不覆写 `ToXmlString`，所以 XML 由基类产出：`<NotNull>被断言者 + !</NotNull>`。
+
+## constructor:(template:Template)=>void
+
+转调基类构造器。
+
+```ts
+super(template);
+```
+
+## method Clone:()=>Token
+
+克隆自身。
+
+```ts
+const result = new NotNull(this.Template);
+result.Sign(this);
+result.TryToClose();
+return result;
+```

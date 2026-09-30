@@ -2,7 +2,7 @@
 ```xl
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Common } from "./common.xl.md"
@@ -14,9 +14,11 @@ import { Function } from "./function/function.xl.md"
 import { IfSet } from "./if/if-set.xl.md"
 import { Import } from "./import.xl.md"
 import { Interface } from "./interface/interface.xl.md"
+import { Keyword } from "./keyword.xl.md"
 import { Label } from "./label.xl.md"
 import { MethodDeclaration } from "./function/method-declaration.xl.md"
 import { Statement } from "./statement.xl.md"
+import { String } from "./string/string.xl.md"
 import { Switch } from "./switch/switch.xl.md"
 import { Symbol } from "./symbol.xl.md"
 import { Try } from "./try/try.xl.md"
@@ -220,6 +222,102 @@ return item.IsAny([
   "await",
   "yield",
 ]);
+```
+
+# method IsMemberBoundary:(units:Array<Token>, index:int)=>bool
+
+`index` 处的换行是不是**两个成员之间的那道边界**。
+
+TypeScript 允许成员之间只靠换行分隔（不写 `;`）：
+`declare class C {` 换行 `readonly blob: () => Promise<Blob>` 换行 `readonly bytes: () => Promise<Uint8Array>` 换行 `}`。
+类型的扫描（`TypeDefine` 收集类型文本）必须在这里停下，否则**第一段会把后面整张成员表吞掉**。
+
+两条都成立才算边界：
+
+- **换行后面看起来像新成员**：跳过换行后的第一个实义单元是 `Common` / `String` / `[` 括号，
+  而且**再往后跨过名字与修饰词**（`readonly` / `public` / `static` …）紧跟 `:` / `?:` / `(` / `=` / `;` 之一；
+- **换行前面不是续行符号**：`|` / `&` / `,` / `=>` / `->` / `=` / `:` / `(` / `[` / `<` / `.` / `?`
+  之后换行说明这一行的类型还没写完（`a: A |` 换行 `B` 这种折行排版），不算边界。
+
+```ts
+const afterIndex = SkipNextWrapSymbol(units, index);
+const after = Get(units, afterIndex);
+if (after === null) {
+  return false;
+}
+const isNameLike =
+  after instanceof Common ||
+  after instanceof String ||
+  (after instanceof Bracket && after.StartBracketChar === "[");
+if (isNameLike === false) {
+  return false;
+}
+const follower = Get(units, SkipNextWrapSymbol(units, afterIndex));
+if (
+  !(follower instanceof Symbol) ||
+  !(follower.Is(":") || follower.Is("?:") || follower.Is("(") || follower.Is("=") || follower.Is(";"))
+) {
+  let probe = afterIndex;
+  let hops = 0;
+  while (hops < 4) {
+    const probeUnit = Get(units, probe);
+    if (probeUnit instanceof Common || probeUnit instanceof String) {
+      probe = SkipNextWrapSymbol(units, probe);
+      hops = hops + 1;
+      continue;
+    }
+    break;
+  }
+  const afterNames = Get(units, probe);
+  if (
+    !(afterNames instanceof Symbol) ||
+    !(afterNames.Is(":") || afterNames.Is("?:") || afterNames.Is("(") || afterNames.Is("=") || afterNames.Is(";"))
+  ) {
+    return false;
+  }
+}const before = GetSkipPreviousWrapSymbol(units, index);
+if (before instanceof Symbol) {
+  const text = before.TempToString();
+  if (
+    text === "|" ||
+    text === "&" ||
+    text === "," ||
+    text === "=>" ||
+    text === "->" ||
+    text === "=" ||
+    text === ":" ||
+    text === "?:" ||
+    text === "(" ||
+    text === "[" ||
+    text === "<" ||
+    text === "." ||
+    text === "?"
+  ) {
+    return false;
+  }
+}
+return true;
+```
+
+# method IsWordUnit:(unit:Token | null, word:string)=>bool
+
+`unit` 是不是**文本等于 `word` 的词**——`Common` 与 `Keyword` 都算。
+
+**为什么需要它**：`KeywordReorganization` 会把命中的词从 `Common` 升级成 `Keyword`，
+而 `Keyword` 与 `Common` **没有继承关系**（两条分支各造各的单元）。于是「找一个词」的判定
+必须两种都认，否则某处一旦先跑过升级，后面按 `Common` 找词的规则就再也找不到它
+（`in` / `of` 正是这么被坑过：见 `../parse-pipeline.xl.md` 的 `KeyWords`）。
+
+文本取法两边不同：`Common` 用 `TempToString()`，`Keyword` 用它的 `Value` 字段。
+
+```ts
+if (unit instanceof Common) {
+  return unit.TempToString() === word;
+}
+if (unit instanceof Keyword) {
+  return unit.Value === word;
+}
+return false;
 ```
 
 # method IsDeclarationBoundary:(item:Token | null)=>bool

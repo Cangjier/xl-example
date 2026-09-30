@@ -70,6 +70,17 @@ return this;
 
 内置符号表就是下面这个 `switch`。
 
+**下划线 `_` 与美元号 `$` 都不在表里**：它们都是**标识符字符**
+（`A_b`、`_Blob`、`MIN_EXT`、`$x`、`a$b`、`I$X` 都是一个词）。
+原来把它们当符号，`Common` 的 `IsAppend` 就会在那里断开，
+于是任何一个带下划线的标识符都被拆成 `Common(A)` `Symbol(_)` `Common(b)` 三段——
+`interface ANGLE_instanced_arrays { … }` 的接口规则要求「名字之后紧跟 `{`」，三段里第二段是符号，
+整条接口声明于是不成形（实测 `lib.dom.d.ts` 里 1540 个接口有 38 个直接消失、6496 个接口属性少了 1342 个）。
+
+`$` 多一层顾虑：它同时是 `$"…"` 内插字符串的**前缀**。前缀的识别不靠符号表
+（`string-guide.xl.md` 的 `StringGuideBranch.Success` 是拿 `source.Pre()` 回看字符、再 `unit.Undo` 退掉它），
+所以 `$` 从符号表里去掉之后 `$"a{1}b"` 照旧工作——两件事互不依赖。
+
 ```ts
 if (this.BanedSymbol.includes(item)) {
   return false;
@@ -92,7 +103,6 @@ switch (item) {
   case "\\":
   case "|":
   case "-":
-  case "_":
   case "=":
   case "+":
   case "`":
@@ -100,7 +110,6 @@ switch (item) {
   case "!":
   case "@":
   case "#":
-  case "$":
   case "%":
   case "^":
   case "&":
@@ -213,7 +222,12 @@ return Value >= "0" && Value <= "9";
 
 是不是空白字符。
 
-空白只有四个：空格、`\t`、`\r`、`\n`。
+空白有五个：空格、`\t`、`\r`、`\n`，以及**字节序标记 U+FEFF**。
+
+BOM 那一项是必须的：带 BOM 的文件里 `\ufeff` 是**第一个**字符，
+不算空白的话它会被 `CommonBranch` 吞进紧随其后的标识符里——
+`\ufeffconst a = 1` 于是成了 `<Common>\ufeffconst</Common>`，
+关键字再也对不上，整条 `const` 声明不成形（`lex-bom` 那条用例，真实文件里也很常见）。
 
 ```ts
 switch (item) {
@@ -221,6 +235,7 @@ switch (item) {
   case "\t":
   case "\r":
   case "\n":
+  case "\ufeff":
     return true;
   default:
     return false;

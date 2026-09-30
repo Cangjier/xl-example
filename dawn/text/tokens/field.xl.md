@@ -5,11 +5,16 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "./declaration-common.xl.md"
+import { DeclarationEnd, DeclarationModifiers, DeclarationStart, IsMemberBoundary, IsWordUnit, TakeDeclarationDecorators } from "./declaration-common.xl.md"
 import { ClassBody } from "./class/class-body.xl.md"
+import { Bracket } from "./bracket.xl.md"
 import { Common } from "./common.xl.md"
 import { InterfaceBody } from "./interface/interface-body.xl.md"
-import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { TypeLiteralBody } from "./type-literal/type-literal-body.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { ConstString } from "./string/const-string.xl.md"
+import { Keyword } from "./keyword.xl.md"
+import { String } from "./string/string.xl.md"
 import { Symbol } from "./symbol.xl.md"
 import { WrapSymbol } from "./wrap-symbol.xl.md"
 ```
@@ -33,6 +38,56 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 `FieldReorganization` 写在 `Field` **之前**：后者的静态字段 `Instance` 在类定义时就 `new FieldReorganization()`，
 写反了会命中暂时性死区（TDZ）。
 
+# method BracketNameText:(unit:Token)=>string
+
+把 `[ … ]` 里的成员名拼成文本：`Common` 取文本、点号补 `.`、`:` 之前的都算名字。
+
+参数取 `Token` 而不是 `Bracket`：同一段内容在**不同时机**可能已经是 `JsonArray`
+（`JsonArrayReorganization` 排在成员规则之后，但类体的队列会跑不止一遍——
+`[`m`]()` 这种计算成员名在 `Process` 里常常已经变成 `JsonArray` 了），
+这里只用 `Data`，两种单元都合适。
+
+**为什么需要它**：`[` 开头的成员名有两种，都是 TypeScript 的常见写法——
+
+- **索引签名**：`interface I { [key: string]: number }`——名字是 `key`，`string` 是键类型；
+- **计算属性名**：`[Symbol.iterator]: number`——名字是 `Symbol.iterator`。
+
+它们的成员名不是 `Common` / `String`，而是一个 `[` 括号。`Field` 的判定因此多了「括号当名字」这一支：
+括号在成员位置上、后面紧跟 `:` / `?:` 就算一条成员。
+不认这一支时，`[` 那段会被更晚的 `JsonArrayReorganization` 接手，产物变成 `JsonArray` + `TypeDefine`，
+成员整个丢掉（实测真实语料 102 处索引签名 + 计算属性名）。
+
+这里只取到第一个 `:` 之前的部分（`key: string` 取 `key`）；
+`:`、`,` 之外的符号不并进名字，免得把键类型也拼进来；
+**遇到 `in` 就停**——映射类型的成员写作 `[K in keyof T]`，名字是 `K`，
+不停的话会拼成 `KinT` 这种把运算符也读进名字的怪东西；
+**字符串字面量按内容取**——`` [`m`] `` / `["a-b"]` 的名字分别是 `m` / `a-b`
+（与 `Field` 那边认字符串名字是同一套）。
+
+```ts
+let text = "";
+const data = unit.Data;
+const colonIndex = data.findIndex((item) => item instanceof Symbol && item.Is(":"));
+const inIndex = data.findIndex((item) => IsWordUnit(item, "in"));
+const end = colonIndex === -1 ? data.length : colonIndex;
+const limit = inIndex !== -1 && inIndex < end ? inIndex : end;
+for (let i = 0; i < limit; i++) {
+  const item = data[i];
+  if (item instanceof Common) {
+    text += item.TempToString();
+  } else if (item instanceof String) {
+    for (const inner of item.Data) {
+      if (inner instanceof ConstString) {
+        text += inner.TempToString();
+      }
+    }
+  } else if (item instanceof Symbol && item.Is(".")) {
+    text += ".";
+  }
+}
+return text;
+```
+
 # class FieldReorganization extends Reorganization
 
 ## static readonly field Instance:FieldReorganization = new FieldReorganization()
@@ -51,6 +106,13 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 `level:` 换行 `number` 是「类型标注折了行」，`a = b +` 换行 `c` 是「表达式没写完」，
 这时继续往后扫。不然 `:` 会成为一个悬空的成员（`Field` 自己的队列里 `TypeDefine` 收不到任何内容）。
 
+**但那条「前一个是符号就续行」太粗**：函数类型的成员以 `>` 收尾
+（`a: () => Promise<B>` 换行 `b: () => Promise<C>`），`>` 是符号、于是被当成「没写完」，
+第二行乃至整张成员表都被吞进第一个字段 ✗。
+所以先问 `./declaration-common.xl.md` 的 `IsMemberBoundary`——
+它同时看「下一行像不像新成员」与「前一个是不是续行符号」（`>` 不在续行符号之列），
+判出边界就停；判不出再退回原来那条粗判据。
+
 ```ts
 let i = index + 1;
 while (i < units.length) {
@@ -59,15 +121,117 @@ while (i < units.length) {
     return i;
   }
   if (item instanceof WrapSymbol) {
+    if (IsMemberBoundary(units, i)) {
+      return i - 1;
+    }
     const previous = Get(units, i - 1);
     const continues = previous instanceof Symbol && !previous.Is(";") && !previous.Is(",");
     if (continues === false) {
       return i - 1;
     }
   }
+  if (this.IsDeclarationTailEnd(item, Get(units, i + 1))) {
+    return i;
+  }
   i = i + 1;
 }
 return units.length - 1;
+```
+
+## private method IsDeclarationTailEnd:(item:Token | null, next:Token | null)=>bool
+
+`item` 是一个**已经成形、且会把结尾分号与软换行一起吃掉**的声明节点，
+而 `next` 又像是**下一个成员的起点**——这时当前字段到此为止。
+
+**为什么需要这一条**（实测抓出来的）：`public static readonly A: T = new R(1);` 里
+`R(1)` 会被 `MethodDeclarationReorganization` 收成方法声明，而它按 `DeclarationEnd` 的约定
+**连同结尾的 `;` 与随后的软换行一起收走**。于是字段 A 的 `MemberEnd` 往后扫时：
+
+- 看不到 `;`（已经进了方法声明）；
+- 也看不到软换行（同样被吃掉了）；
+
+一路扫到**字段 B 的 `;`** 才停 ✗ —— B（乃至后面每一个成员）都被吞进 A。
+`New` 那条规则也没能成形（`new R(1)` 的 `R(1)` 先被当成方法声明的名字），
+所以产物里连 `<New>` 都没有。
+
+判据用**类名白名单**（这里是「会吃掉尾部分号」的那些声明节点），
+与 `../text-common-util.xl.md` 的 `IsStatementList` 同一个理由：向上 import 这些类会绕出循环依赖。
+
+**后面那个词还得不是「续接词」**：`A: T = f(1) as B` 里 `f(1)` 是方法节点、后面跟着 `as`
+（已经是 `Keyword` 了）——按「后面像成员起点」会把它当成下一个成员、把这条字段**劈成两半** ✗。
+所以**只要后面是 `Keyword` 就不算边界**（`as` / `satisfies` / `instanceof` / `in` / `of` / `typeof`
+这些词之后类型或表达式都还在继续），`Common` 里再点名排除同族的几个词。
+（这条是**加完第一版之后差分引擎报出 −20 个 Field 多出来**才定位到的：
+`undici-types/cache.d.ts` −3、`websocket.d.ts` −4、`dist/ts/cjcli.ts` −4 …… 全是这个形状。）
+
+```ts
+if (item === null || next === null) {
+  return false;
+}
+if (!(next instanceof Common || next instanceof Keyword)) {
+  return false;
+}
+if (next instanceof Keyword) {
+  return false;
+}
+if (next instanceof Common) {
+  const text = next.TempToString();
+  if (text === "as" || text === "satisfies" || text === "instanceof" || text === "in" || text === "of") {
+    return false;
+  }
+}
+const name = item.constructor.name;
+return (
+  name === "MethodDeclaration" ||
+  name === "Class" ||
+  name === "Function" ||
+  name === "Enum" ||
+  name === "Interface" ||
+  name === "Namespace"
+);
+```
+
+**白名单只收「按 `DeclarationEnd` 约定会吃掉结尾分号与软换行」的那一族**：
+第一版把 `Method` / `New` / `Lamda` / `JsonObject` / `JsonArray` 也放了进去，
+结果差分引擎报出**多出 20 个 `Field`**（`undici-types/websocket.d.ts` −4、`dist/ts/cjcli.ts` −4 …）——
+那些节点**不会**吃掉尾部分号，`;` 本来就在列表里看得见，把它们也算边界只会让
+`A: T = { … };` 这类字段**被劈成两半**（每一半都能凑出一个 `Field`，于是多出节点）✗。
+收窄到 `MethodDeclaration` 一族之后两个问题一起解决：该停的停、不该劈的不劈。
+
+## private method IsNameUnit:(unit:Token | null)=>bool
+
+这个单元能不能当成员名：`Common`（普通标识符）**或 `String`（字符串字面量名字）**。
+
+字符串名字在 TypeScript 里很常见——`lib.dom.d.ts` 的事件表与标签名表整张都是这种形状：
+`interface GlobalEventHandlersEventMap {` 换行 `"abort": UIEvent;` 换行 `"animationcancel": AnimationEvent;` 换行 `}`。
+
+只认 `Common` 时，这些接口的成员**一个都收不到**（实测 `lib.dom.d.ts` 里 6496 个接口属性有 569 个是这么丢的，
+`HTMLElementTagNameMap` 一个接口就丢 112 个）。
+
+```ts
+return unit instanceof Common || unit instanceof String;
+```
+
+## private method NameText:(unit:Token)=>string
+
+取成员名的文本：`Common` 直接取 `TempToString()`；`String` 取它第一个 `ConstString` 子单元的文本
+（字符串字面量的引号与转义都已经在那一层解掉了）；`[` 括号取里面拼出来的名字（见下一条）。
+
+```ts
+if (unit instanceof Common) {
+  return unit.TempToString();
+}
+if (unit instanceof String) {
+  for (const item of unit.Data) {
+    if (item instanceof ConstString) {
+      return item.TempToString();
+    }
+  }
+}
+if (unit instanceof Bracket) {
+  return BracketNameText(unit);
+}
+return "";
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
@@ -76,7 +240,8 @@ return units.length - 1;
 
 三条都成立才算：
 
-1. 它是 `Common`，而且处在成员位置——父单元是 `ClassBody` 或 `InterfaceBody`；
+1. 它是 `Common` 或 `String`（字符串字面量名字）**或 `[` 括号**（索引签名 / 计算属性名），
+   而且处在成员位置——父单元是 `ClassBody` / `InterfaceBody` / `TypeLiteralBody`；
 2. **它前面不是「半个表达式」**：前一个实义单元不能是 `;` / `,` 以外的符号——
    `m(): void` 里 `void` 前面是 `:`，`handle = (a) => a` 里右边的 `a` 前面是 `=>`，`a: A | B` 里 `B` 前面是 `|`，
    它们都不是成员名。前一个单元是上一个成员节点（`Field` / `MethodDeclaration` / …）、修饰词、`Decorator`
@@ -84,16 +249,34 @@ return units.length - 1;
 3. 它后面紧挨着的东西是「成员该有的延续」：`:` / `?:` / `=` / `;` / `,` 符号，或者**软换行**（只有名字的字段）、
    或者它是列表末尾（成员到区块结尾）。
 
+**私有名 `#x` 是「两个单元一个名字」**：`#` 是符号、`x` 是 `Common`。
+所以这里多一支——`index` 处的 `#` 成立时把游标推到下一个实义单元，
+后面所有判定（延续符号、成员名文本）都按那个单元来，`#` 本身留在 `FieldName` 里（名字就是 `#x`）。
+不认这一支时 `#x = 1` 会散成 `<Symbol>#</Symbol><Common>x</Common><Symbol>=</Symbol>…`，成员节点全丢。
+
 第 3 条同时把「修饰词被当成名字」挡掉了：`private n = 1` 里 `private` 后面紧跟的是 `n`（`Common`），
 不是延续符号，所以 `private` 不会被认成字段名，而 `n` 会——`DeclarationStart` 再往前把 `private` 收进 `Modifiers`。
 
 ```ts
 const current = Get(units, index);
-if (!(current instanceof Common)) {
+if (current === null) {
   return false;
 }
 const parent = current.Parent;
-if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody)) {
+if (!(parent instanceof ClassBody) && !(parent instanceof InterfaceBody) && !(parent instanceof TypeLiteralBody)) {
+  return false;
+}
+let nameIndex = index;
+const isPrivateName = current instanceof Symbol && current.Is("#");
+if (isPrivateName) {
+  nameIndex = SkipNextWrapSymbol(units, index);
+}
+const name = Get(units, nameIndex);
+const isBracketName = name instanceof Bracket && name.StartBracketChar === "[";
+if (isBracketName === false && isPrivateName === false && !this.IsNameUnit(name)) {
+  return false;
+}
+if (isPrivateName && !this.IsNameUnit(name)) {
   return false;
 }
 const previousIndex = SkipPreviousWrapSymbol(units, index);
@@ -101,7 +284,13 @@ const previous = Get(units, previousIndex);
 if (previous instanceof Symbol && !(previous.Is(";") || previous.Is(","))) {
   return false;
 }
-const immediate = Get(units, index + 1);
+const immediate = Get(units, nameIndex + 1);
+if (isBracketName) {
+  if (immediate instanceof Symbol) {
+    return immediate.Is(":") || immediate.Is("?:");
+  }
+  return false;
+}
 if (immediate === null || immediate instanceof WrapSymbol) {
   return true;
 }
@@ -117,7 +306,8 @@ return false;
 
 - 起点由 `DeclarationStart` 往前吃掉一串修饰词与装饰器；修饰词折进 `Modifiers`（`join(",")`），
   装饰器作为子单元搬进 `Field`。
-- 名字进 `FieldName` 属性，不再作为子单元（与 `MethodDeclaration` 一致）。
+- 名字进 `FieldName` 属性，不再作为子单元（与 `MethodDeclaration` 一致）；私有名 `#x` 的 `#` 留在名字里
+  （`FieldName="#x"`），同时作为子单元留在节点里。
 - 名字之后到成员终点之间的单元**原样**搬进 `Field`：`: T`、`?: T`、`= 初始值` 都不丢，
   它们在 `Field` 自己的重组队列里继续成形（`TypeDefine` / `Lamda` / `Method` 都会跑）。
 - 终点用 `DeclarationEnd` 把紧跟的软换行一并收进来——否则那个换行会在语句重组阶段变成一个空的
@@ -129,18 +319,30 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const startIndex = DeclarationStart(units, index);
-const memberIndex = this.MemberEnd(units, index);
+let nameIndex = index;
+const isPrivateName = current instanceof Symbol && current.Is("#");
+if (isPrivateName) {
+  nameIndex = SkipNextWrapSymbol(units, index);
+}
+const memberIndex = this.MemberEnd(units, nameIndex);
 const endIndex = DeclarationEnd(units, memberIndex);
 const result = new Field(template);
 result.Parent = current.Parent;
-result.FieldName = (current as Common).TempToString();
+const name = Get(units, nameIndex)!;
+result.FieldName = isPrivateName ? "#" + this.NameText(name) : this.NameText(name);
 result.Modifiers = DeclarationModifiers(units, startIndex, index).join(",");
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
   result.AddAndCloseLast(item);
 }
-for (let i = index + 1; i <= memberIndex; i++) {
+if (isPrivateName) {
+  result.AddAndCloseLast(current);
+}
+if (name instanceof Bracket) {
+  result.AddAndCloseLast(name);
+}
+for (let i = nameIndex + 1; i <= memberIndex; i++) {
   const item = Get(units, i);
   if (item instanceof Symbol && (item.Is(";") || item.Is(","))) {
     continue;

@@ -3,6 +3,7 @@
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { Document } from "../../../core/syntax/document.xl.md"
 import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -23,17 +24,84 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 它永远不进 `Data`、不进 XML。
 
+## method IsWordChar:(item:string)=>bool
+
+`item` 是不是标识符字符（字母、数字、`_`、`$`）——读指令名用。
+
+```ts
+if (item === "") {
+  return false;
+}
+const code = item.charCodeAt(0);
+const isDigit = code >= 48 && code <= 57;
+const isUpper = code >= 65 && code <= 90;
+const isLower = code >= 97 && code <= 122;
+return isDigit || isUpper || isLower || item === "_" || item === "$";
+```
+
+## method FollowingWord:(document:Document, index:int)=>string
+
+读 `index`（那个 `#`）后面紧跟的一个词：`#` 之后连续吃掉标识符字符，遇到别的字符就停。
+
+`#!`（shebang）单算：`#` 后面紧跟 `!` 时直接返回 `"!"`。
+
+**它管的是「这个 `#` 到底是不是预处理指令」**。TypeScript 的私有名写作 `#x` / `#m()`，
+和 Cangjie 的 `#if` / `#region` 长得一样（都是 `#` 加一个词），唯一的分辨办法就是看那个词
+是不是已知的指令名——所以这里要把词读出来交给 `DirectiveNames` 比。
+
+```ts
+let text = "";
+let i = index + 1;
+while (i < document.GetCount()) {
+  const item = document.GetValue(i);
+  if (item === "!" && text === "") {
+    return "!";
+  }
+  if (this.IsWordChar(item)) {
+    text += item;
+    i = i + 1;
+    continue;
+  }
+  break;
+}
+return text;
+```
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
-只有「行首的 `#`」才成立：向前跳过空格与制表符之后，要么是换行符，要么已经走到文档开头。
+两条都成立才算「预处理指令」：
+
+1. **行首的 `#`**：向前跳过空格与制表符之后，要么是换行符，要么已经走到文档开头；
+2. **后面跟的是已知指令名**（`#if` / `#endif` / `#region` / `#define` …，见 `DirectiveNames`）。
+
+第 2 条是**后加的**，也是必须的：只有第 1 条时，类体里行首的私有名 `#x = 1` 会被整段吃掉，
+产物变成 `<PreprocessorDirectives>x = 1</PreprocessorDirectives>`——成员节点全丢
+（实测 5 条用例，`decl-class-private-field` / `lex-private-field` / `lex-private-in` …）。
 
 `Pre` 收一个 `Array<string>`，所以写 `source.Pre([" ", "\t"])`；它返回 `Source | null`，判定里直接用结果。
 
 ```ts
 const pre = source.Pre([" ", "\t"]);
 const result = new BranchConditionResult();
-result.Success = (pre === null || pre.Value === "\n") && source.Value === "#";
+if (!((pre === null || pre.Value === "\n") && source.Value === "#")) {
+  result.Success = false;
+  return result;
+}
+const word = this.FollowingWord(source.Document, source.Index);
+result.Success = PreprocessorDirectivesBranch.DirectiveNames().includes(word);
 return result;
+```
+
+## static method DirectiveNames:()=>Array<string>
+
+这套语言认的预处理指令名（`#` 后面那个词）。
+
+它与 `../parse-pipeline.xl.md` 的 `KeyWords` 是一类东西——都属于「这套语言怎么解析」。
+放在这里而不是 `ParsePipeline`，是因为它只被这一条分支用、改语言的成本是改一个数组；
+真要多语言共用时，按 `KeyWords` 的样子挪到 `ParsePipeline` 里即可。
+
+```ts
+return ["if", "else", "elif", "endif", "define", "undef", "include", "region", "endregion", "error", "warning", "pragma", "line", "suppress", "!"];
 ```
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void

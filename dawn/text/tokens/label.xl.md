@@ -6,7 +6,9 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { IsDeclarationModifier } from "./declaration-common.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { IsStatementStart, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { ParsePipeline } from "../parse-pipeline.xl.md"
+import { Bracket } from "./bracket.xl.md"
 import { Common } from "./common.xl.md"
 import { Symbol } from "./symbol.xl.md"
 ```
@@ -41,17 +43,39 @@ import { Symbol } from "./symbol.xl.md"
 
 `index` 处是不是一条「可以带标签的语句」的开头。
 
-判定只看**关键字 `Common`**：`for` / `foreach` / `while` / `do` / `switch` / `try` / `if`。
-不必也不该去认已经成形的语句单元——本规则排在 `Try` / `IfSet` / `For` / `Foreach` / `While`
-**之前**（见 `../parse-pipeline.xl.md`），轮到它时后面那条语句一定还是散着的 `Common`。
-只认关键字还顺带避开了一圈循环 import（`while.xl.md` → `statement.xl.md` 已经反向依赖本文件）。
+三种都算：
+
+- **循环 / 分支关键字**：`for` / `foreach` / `while` / `do` / `switch` / `try` / `if`。
+  不必也不该去认已经成形的语句单元——本规则排在 `Try` / `IfSet` / `For` / `Foreach` / `While`
+  **之前**（见 `../parse-pipeline.xl.md`），轮到它时后面那条语句一定还是散着的 `Common`。
+- **一个 `{` 括号**（块语句）：`outer: { … }` / `block: { … }`。
+- **任意 `Common`**（表达式语句，或又一个标签）：`done: f()` / `a: b: for(;;) { … }`。
+
+第 2、3 条是后加的：只认关键字时，块语句上的标签与「标签 + 表达式语句」都认不出来，
+`outer:` 会被更晚的 `TypeDefineReorganization` 当成类型标注收走
+（产物里出现 `TypeDefine` 里面套 `TypeLiteral`——一个标签加一个块，被读成了「变量名 + 对象类型」）。
+
+放宽不会误伤类型标注：`Previous` 里的「语句开头」那一关（`IsStatementStart`）已经把
+`let x: T` / `a ? b : c` 这类同形写法挡在外面。
 
 ```ts
 const item = Get(units, index);
+if (item === null) {
+  return false;
+}
+if (item instanceof Symbol && item.Is("{")) {
+  return true;
+}
+if (item instanceof Bracket) {
+  return item.StartBracketChar === "{";
+}
 if (!(item instanceof Common)) {
   return false;
 }
-return item.IsAny(["for", "foreach", "while", "do", "switch", "try", "if"]);
+if (item.IsAny(["for", "foreach", "while", "do", "switch", "try", "if"])) {
+  return true;
+}
+return true;
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
@@ -65,6 +89,9 @@ return item.IsAny(["for", "foreach", "while", "do", "switch", "try", "if"]);
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Common) || IsDeclarationModifier(current)) {
+  return false;
+}
+if (IsStatementStart(units, index) === false) {
   return false;
 }
 const colonIndex = SkipNextWrapSymbol(units, index);
@@ -83,12 +110,30 @@ return this.IsLabeledStatement(units, statementIndex);
 两个单元（名字与冒号）都被这个单元吸收掉，所以产物是自闭合的 `<Label LabelName="outer" />`——
 与 `Let` 吸收掉 `let` 与字段名是同一种做法。
 
+**被标的语句是 `{` 块时要给它补一条语句队列、并且当场跑一遍**：`{` 括号一律不带队列（对象字面量的内容保持平铺），
+而块里装的是语句——不补的话 `outer: { break outer }` 里的 `break` 会退化成散着的
+`Common`，块里一个节点都收不到。补队列的时机在这里是安全的：块括号早就关闭了，
+但它此刻还没有跑过任何重组（没有队列就不会跑），`TryToClose` 之后这一条队列才生效。
+
+**`Reorganize()` 那次显式调用不能省**（与 `BlockReorganization` 同款）：
+装队列只是装，「谁来跑」得自己叫——原来少了这一句，
+块里的内容全靠后面某趟重组的**顺带**（那时块还是个 `JsonObject`）才成形，
+一旦块正确地保持成 `Bracket`（见 `text-common-util.xl.md` 的 `IsStatementList` 那一节），
+里面的 `let` / `break` 就全成了散单元 ✗。实测三条标签块的用例（`decl-label-block` /
+`st-label-block` / `stmt-label-block`）正是这样报出来的。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
   throw new Error("current 为空");
 }
 const colonIndex = SkipNextWrapSymbol(units, index);
+const statementIndex = SkipNextWrapSymbol(units, colonIndex);
+const statement = Get(units, statementIndex);
+if (statement instanceof Bracket && statement.StartBracketChar === "{") {
+  ParsePipeline.InitialStatementReorganizationQueue(statement);
+  statement.Reorganize();
+}
 const result = new Label(template);
 result.Parent = current.Parent;
 result.LabelName = (current as Common).TempToString();
