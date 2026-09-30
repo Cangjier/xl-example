@@ -18,10 +18,14 @@ import { Symbol } from "./symbol.xl.md"
 
 以 `a += b` 为例（单元序列 `a` `+=` `b`，下标 0 / 1 / 2）：
 
-1. `current`（`+=`）丢掉**第一个**字符，`operatorSymbol` 副本丢掉**第二个**字符。
+1. `current`（`+=`）丢掉**除最后一个字符以外**的字符（`+=` → `=`，`<<=` → `=`），
+   `operatorSymbol` 副本丢掉**最后一个**字符（`+=` → `+`，`<<=` → `<<`）。
 2. 副本被塞进「本次插入的一批单元」的**末尾**。
 3. 用 `SearchFront` 从 `index - 1` 往前找赋值表达式起点，把起点之后到 `index` 之间的单元**逐个克隆**，排在副本前面。
 4. 整批在 `index + 1` 处纯插入。
+
+于是 `a += b` 的单元序列变成 `a` `=` `a` `+` `b`，下游的二元规则再把 `a + b` 折成一个节点；
+`a <<= b` 同样得到 `a` `=` `a` `<<` `b`（**三字符运算符靠第 1 步按长度切**，见 `Process` 的说明）。
 
 `CompoundAssignmentOperatorReorganization` 写在 `CompoundAssignmentOperator` 之前——
 它的 `Instance` 静态字段在类定义时立即求值，而 `Root` 的重组队列会直接引用 `CompoundAssignmentOperatorReorganization.Instance`。
@@ -107,8 +111,12 @@ return false;
 const current = Get(units, index) as Symbol;
 const operatorSymbol = current.Clone() as Symbol;
 operatorSymbol.FromCompoundAssignment = true;
-operatorSymbol.Temp.splice(1, 1);
-current.Temp.splice(0, 1);
+// 「保留最后一个字符」的切法，**不能写死下标**：`+=` 是两个字符，`<<=` / `>>>=` / `??=` 是三个。
+// 写死 `splice(1, 1)` / `splice(0, 1)` 时 `<<=` 会被切成 `<` 与 `<=`
+// （实测产物是两层 `BinaryOperator Operator="<="`），`??=` 切成 `?=` 与 `?=`。
+const lastIndex = operatorSymbol.Temp.length - 1;
+operatorSymbol.Temp.splice(lastIndex, 1);
+current.Temp.splice(0, lastIndex);
 const startIndex = SearchFront(units, index, CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart);
 const front = units.slice(startIndex + 1, index);
 const frontClones = front.map((item) => item.Clone());
@@ -116,6 +124,11 @@ const insertUnits: Token[] = [...frontClones, operatorSymbol];
 ReplaceRangeAt(units, index + 1, 0, insertUnits);
 return index;
 ```
+
+**`lastIndex` 那一对 splice 是这条规则的核心**（实测踩过）：本规则的输入是**一个**复合赋值符号，
+要把它拆成「运算符」与「`=`」两份——`operatorSymbol` 留下运算符（去掉最后一个字符），
+`current` 变成 `=`（去掉前面所有字符）。两者都必须按 `Temp.length` 算，
+因为 TypeScript 的复合赋值有三字符的（`<<=` `>>=` `>>>=` `**=` `&&=` `||=` `??=`）。
 
 **`FromCompoundAssignment` 这个标记是必需的**（实测踩过）：
 `Process` 会把 `&&=` 切成 `=` 与一份 `&&` 副本插回去。那份 `&&` **本身也在
@@ -132,21 +145,9 @@ return index;
 它不继承 `Token`，只是 `CompoundAssignmentOperatorReorganization` 的宿主。
 `Root` 引用的是 `CompoundAssignmentOperatorReorganization.Instance`，所以这个空壳类不参与解析流程，也不会进 `Data` / XML。
 
-**已知缺口：切分逻辑是坏的，除了 `+= -= *= /=` 之外的写法都产出畸形单元。**
-
-实测（`a &= b;`，`&=` 不在 `CompoundAssignmentSymbols` 里、因此它按普通符号对处理）：
-
-产物是 `Common(a)` `Symbol(=)` `Common(a)` `Symbol(&)` `Common(b)` ——
-补出来的 `&` 落在 `=` **右边**，正解应是 `a = a & b`（`&` 在 `a` 与 `b` 之间）。
-`a <<= b` 更明显：词法阶段断成 `<` 与 `<=`，产物是两层 `BinaryOperator Operator="<="`
-（实测形状）。也就是说：
-
-- `Process` 里 `operatorSymbol.Temp.splice(1, 1)` 与 `current.Temp.splice(0, 1)` 的切法，
-  与 `ReplaceRangeAt(units, index + 1, 0, insertUnits)` 的插入位置合起来**顺序不对**；
-- 把 11 个符号补进 `IsCombinedSymbol` 并不能修好它，只会让症状换个样子
-  （`a &&= b` 变成 `Common(a)` `Symbol(&=)` `Common(a)` `Symbol(&=)` `Common(b)`）。
-
-**能安全补的前提已经铺好**：`Symbol.FromCompoundAssignment` 标记解决了「切开后插回的
-运算符副本又被同一条规则处理」的自反馈（不解决时 `run.mjs` 会 OOM）——
-所以下一次修这条时不会重蹈那个坑。要修的是 `Process` 的**切分与插入顺序**：
-先把左值那段按原样留在 `=` 左边、再把 `op` 与右值拼到右边，而不是现在这种"插一批克隆 + 一个运算符"。
+**切分必须按 `Temp.length`**：`Process` 要把**一个**复合赋值符号拆成「运算符」与「`=`」两份，
+而 TypeScript 的复合赋值有三字符的（`<<=` `>>=` `>>>=` `**=` `&&=` `||=` `??=`）。
+原来写死 `operatorSymbol.Temp.splice(1, 1)` 与 `current.Temp.splice(0, 1)`，
+只对两字符的 `+=` 这类成立——`a <<= b` 被切成 `<` 与 `<=`（产物是两层
+`BinaryOperator Operator="<="`），`a ??= b` 被切成 `?=` 与 `?=`。
+改成「保留最后一个字符」之后，15 种写法都产出 `左值 = 左值 op 右值`。

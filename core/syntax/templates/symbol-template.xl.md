@@ -26,15 +26,21 @@
 
 比较符号。
 
-## field CompoundAssignmentSymbols:Array<string> = ["+=", "-=", "*=", "/="]
+## field CompoundAssignmentSymbols:Array<string> = ["+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "&&=", "||=", "??="]
 
 复合赋值符号。
 
-**只有这 4 个**，与 `IsCombinedSymbol` 保持一致（那张表里也刻意不放另外 11 个）。
-补全它们**不解决问题**：`CompoundAssignmentOperatorReorganization.Process` 的切分逻辑本身是坏的，
-连 `a &= b` 都会产出畸形单元（`a` `=` `a` `&` `b`，那个 `&` 本该在 `=` 左边）——
-缺的符号只是让 `a <<= b` 断成 `<` 与 `<=`，是同一个病的另一种表现。
-见 `dawn/text/tokens/compound-assignment-operator.xl.md` 的已知缺口说明。
+**TypeScript 的复合赋值一共 15 个，一次列齐**，且必须与 `IsCombinedSymbol` 的那张 switch 同步：
+两边不同步时词法会把 `&=` 断成 `&` 与 `=`，`CompoundAssignmentOperatorReorganization.Process`
+于是从错误的起点克隆左值（实测产物 `Common(a) Symbol(=) Common(a) Symbol(&) Common(b)`，
+`&` 掉到了 `=` 右边）。
+
+早期补全它们会让 `run.mjs` OOM——根因是 `Process` 插回的运算符副本又被同一条规则处理的自反馈；
+现在 `Symbol.FromCompoundAssignment` 标记把那份副本排除掉了，可以安全补全。
+
+**注意**：光补这张表还不够，`Process` 的切分也必须按 `Temp.length` 走
+（原来写死 `splice(0, 1)` / `splice(1, 1)`，只对两字符运算符成立：`<<=` 会被切成 `<` 与 `<=`、
+`??=` 切成 `?=` 与 `?=`）。两处都改对之后，15 种写法才都产出 `左值 = 左值 op 右值`。
 
 ## field MemberSymbol:Array<string> = ["."]
 
@@ -141,11 +147,14 @@ switch (item) {
 于是 `PowerInstance`（`**`）与 `ShiftInstance`（`<< >> >>>`）这两条实例**永远命不中**，
 是死规则：`a << b` 的产物是 `<Common>a</Common><Symbol>&lt;</Symbol><Symbol>&lt;</Symbol><Common>b</Common>`。
 
-**复合赋值（`%=` `**=` `<<=` `>>=` `>>>=` `&=` `|=` `^=` `&&=` `||=` `??=`）刻意不在这里**：
-补全它们**不解决问题**——`CompoundAssignmentOperatorReorganization.Process` 的切分逻辑本身是坏的，
-连原有的 `&= b` 都会产出畸形单元（实测 `a &= b` → `Common(a)` `Symbol(=)` `Common(a)` `Symbol(&)` `Common(b)`，
-那个 `&` 本该在 `=` 左边）。缺的符号只是让 `a <<= b` 断成 `<` 与 `<=`，是同一个病的另一种表现。
-详见 `dawn/text/tokens/compound-assignment-operator.xl.md` 的已知缺口说明。
+**复合赋值的 15 个也在这张表里**（与 `CompoundAssignmentSymbols` 字段同步）：
+不在表里时 `a &= b` 会被断成 `Common(a)` `Symbol(&)` `Symbol(=)` `Common(b)`，
+`CompoundAssignmentOperatorReorganization.Process` 从错误的起点克隆左值，
+产物里 `&` 掉到 `=` 右边；`a ??= b` 更会断成 `?=` 与 `?=`。
+
+**光补这张表不够**：`Process` 的切分也必须按 `Temp.length` 保留最后一个字符
+（原来写死 `splice(0, 1)` / `splice(1, 1)`，三字符的 `<<=` 会被切成 `<` 与 `<=`）。
+两处都改对之后，15 种写法才都得到 `左值 = 左值 op 右值`。
 
 ```ts
 if (this.BanedCombinedSymbol.includes(item)) {
@@ -159,6 +168,17 @@ switch (item) {
   case "-=":
   case "*=":
   case "/=":
+  case "%=":
+  case "**=":
+  case "<<=":
+  case ">>=":
+  case ">>>=":
+  case "&=":
+  case "|=":
+  case "^=":
+  case "&&=":
+  case "||=":
+  case "??=":
   case "==":
   case "!=":
   case "===":
