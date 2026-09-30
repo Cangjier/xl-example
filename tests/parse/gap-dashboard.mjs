@@ -142,6 +142,7 @@ export const EXCLUDED = [
   ["BinaryExpression@`<`/`>`", "与泛型实参同形，GenericType 在词法阶段就要靠它们配对"],
   ["Parameter@catch 绑定", "catch 的绑定对应 CatchDefine"],
   ["LabeledStatement@ASI 后的对象字面量", "`return` 换行后 `{ a: 1 }`：TS 把 `a:` 记成标签，本工程按对象字面量收（口径不同）"],
+  ["BinaryExpression@`,`（条件位）", "`if (a, b)` 的 `(` 已被 `IfCondition` 吸收，逗号规则看不到那个括号（保守取舍）"],
 ];
 
 function countTag(xml, tag) {
@@ -238,6 +239,10 @@ function countable(kind, node, parents) {
       ts.SyntaxKind.CaretEqualsToken,
       ts.SyntaxKind.LessThanToken,
       ts.SyntaxKind.GreaterThanToken,
+      // 逗号（序列）表达式：能折的（`(a, b)` / `for` 更新段的 `ForNext` / 语句层）都折了，
+      // 但 `if (a, b)` 这一类**条件位**的逗号够不到——它的 `(` 已经被 `IfCondition` 吸收，
+      // 逗号规则的判据看不到那个括号（产品侧是保守取舍：宁可少折，也不把参数表折成序列表达式）。
+      ts.SyntaxKind.CommaToken,
     ];
     if (skip.includes(op)) return false;
   }

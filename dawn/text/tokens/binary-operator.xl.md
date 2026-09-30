@@ -228,7 +228,8 @@ if (
   unit instanceof NullConditionalOperator
 ) {
   return true;
-}if (unit instanceof Bracket) {
+}
+if (unit instanceof Bracket) {
   return (
     unit.EndBracketChar === ")" ||
     unit.EndBracketChar === "]" ||
@@ -375,16 +376,41 @@ if (openBracket === null) {
   }
   openBracket = parent;
   const owner = parent.Parent;
-  if (owner === null) {
-    return false;
-  }
-  const at = owner.Data.indexOf(parent);
-  if (at > 0) {
-    outside = owner.Data[at - 1];
+  if (owner !== null) {
+    const at = owner.Data.indexOf(parent);
+    if (at > 0) {
+      outside = owner.Data[at - 1];
+    } else if (at === 0) {
+      // 括号是宿主列表的**第一项**：`for (…)` 在最外层时括号的 `Parent` 就是 `Root`/`Statement`，
+      // 而 `for` 词在**更外一层**的列表里。上溯一层找它。
+      const outer = owner.Parent;
+      if (outer !== null) {
+        const outerAt = outer.Data.indexOf(owner);
+        if (outerAt > 0) {
+          const candidate = outer.Data[outerAt - 1];
+          if (IsWordUnit(candidate, "for")) {
+            return false;
+          }
+        }
+      }
+    }
   }
 }
 if (!(openBracket instanceof Bracket) || openBracket.StartBracketChar !== "(") {
   return false;
+}
+// **`for` 的括号要整段让开**（实测补的）：`for (…; …; i++, j--)` 的更新段在 TypeScript 里
+// 是逗号表达式，但那个 `,` 在轮到本规则时还在 `for` 的括号里、而 `ForNext` 还没成形，
+// 所以「父单元是 ForNext」那一支根本命中不了。此时**括号外面**（同一层往前找）能看到 `for`——
+// 有它就让开，更新段交给 `For` 规则自己收（它会连 `;` 一起处理，比在这里折更稳）。
+// 同一条也顺带挡住 `for (let i = 0, j = 1; …)` 的初始化段。
+for (let i = 0; i < units.length; i++) {
+  if (Get(units, i) === openBracket) {
+    if (IsWordUnit(i > 0 ? Get(units, i - 1) : null, "for")) {
+      return false;
+    }
+    break;
+  }
 }
 if (outside === null) {
   return true;
