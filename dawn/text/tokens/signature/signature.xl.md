@@ -214,8 +214,41 @@ if (current instanceof Common && current.Is("new")) {
   }
   return this.HasSignatureTail(units, parametersIndex);
 }
+if (current instanceof GenericType) {
+  let immediateIndex = index - 1;
+  const immediate = Get(units, immediateIndex);
+  if (immediate instanceof Symbol && immediate.Is("?")) {
+    immediateIndex = immediateIndex - 1;
+  }
+  const before = Get(units, immediateIndex);
+  if (before instanceof Common || before instanceof String || before instanceof GenericType) {
+    return false;
+  }
+  if (this.IsComputedMemberName(before)) {
+    return false;
+  }
+  const parametersIndex = SkipNextWrapSymbol(units, index);
+  const parameters = Get(units, parametersIndex);
+  if (!(parameters instanceof Bracket) || parameters.StartBracketChar !== "(") {
+    return false;
+  }
+  return this.HasSignatureTail(units, parametersIndex);
+}
 return false;
 ```
+
+**`<T …>(…)` 是第三种起点：泛型调用签名**（实测补的）。
+TypeScript 允许成员签名自己带类型参数段：`interface I { <TIn extends Node>(node: TIn): void }`
+（`typescript.d.ts` 里成片存在）。这一支原来完全没有起点——
+`Previous` 只认「`(` 开头」与「`new` 开头」，于是那个 `<TIn …>` 散成裸的 `<` `Common` `extends` …，
+`Signature` 本身产不出来。判据与 `new` 那一支同构：跳过类型参数段之后必须是 `(` 括号，
+且 `(` 之后有 `: 返回类型` 收尾。
+
+**但 `<` 前面有名字时要让给方法声明**（实测踩过）：
+`interface I { m<T>(x: T): T }` 里的 `m` 是**方法名**、`<T>` 只是它的类型参数段，
+那是 `MethodDeclaration` 的形状。少了这条守卫，本规则（位次在 `MethodDeclarationReorganization`
+**之前**）会把 `m<T>(…)` 收成一个 `Signature`，丢掉 `MethodDeclaration`
+（`decl-interface-method-generics` / `type-object-method-generic` 两条用例当场报缺）。
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
@@ -234,9 +267,13 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const isConstruct = current instanceof Common;
+const isGenericCall = current instanceof GenericType;
 let parametersIndex = isConstruct ? SkipNextWrapSymbol(units, index) : index;
 if (isConstruct && Get(units, parametersIndex) instanceof GenericType) {
   parametersIndex = SkipNextWrapSymbol(units, parametersIndex);
+}
+if (isGenericCall) {
+  parametersIndex = SkipNextWrapSymbol(units, index);
 }
 const parameters = Get(units, parametersIndex);
 if (!(parameters instanceof Bracket)) {
@@ -250,7 +287,7 @@ if (tailEnd < 0 || tailStart > tailEnd) {
 const result = new Signature(template);
 result.Parent = current.Parent;
 result.Kind = isConstruct ? "construct" : "call";
-if (isConstruct) {
+if (isConstruct || isGenericCall) {
   result.AddAndCloseLast(current);
   for (let i = index + 1; i < parametersIndex; i++) {
     const item = Get(units, i);
