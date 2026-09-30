@@ -300,10 +300,26 @@ if (immediate === null || immediate instanceof WrapSymbol) {
   return true;
 }
 if (immediate instanceof Symbol) {
-  return immediate.Is(":") || immediate.Is("?:") || immediate.Is("=") || immediate.Is(";") || immediate.Is(",") || immediate.Is("!");
+  return (
+    immediate.Is(":") ||
+    immediate.Is("?:") ||
+    immediate.Is("=") ||
+    immediate.Is(";") ||
+    immediate.Is(",") ||
+    immediate.Is("!") ||
+    immediate.Is("?")
+  );
 }
 return false;
 ```
+
+**单独的 `?` 也要认**（实测补的）：TypeScript 允许「可选但**没有类型标注**」的成员，
+`private compilerHost?;` / `a?;` / `readonly a?;` 都是合法写法——
+这里的 `?` 后面直接是 `;`，**不会被合并成 `?:` 符号**，于是落不进上面那一串，
+整条成员散成 `<Statement><Keyword>private</Keyword><Common>compilerHost</Common><Symbol>?</Symbol></Statement>`。
+`typescript.d.ts` 里这种写法不少（`suppressDiagnosticEvents?: boolean` 之外的
+`private compilerHost?;` / `private pendingOpenFileProjectUpdates?;` / `noGetErrOnBackgroundUpdate?: boolean`
+一族，共 6 处字段差额全来自它）。
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
