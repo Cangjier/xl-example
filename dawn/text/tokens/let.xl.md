@@ -48,7 +48,13 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 `index` 处是不是一条 `let` 声明的开头。
 
-判定是：`index` 处是内容为 `let` / `const` / `var` 的 `Common`，并且跳过软换行后的下一个单元要么是 `Common`，要么是 `Is("[", "]")` / `Is("{", "}")` 的 `Bracket`。这里把两个小括号判定合成一句 `||`，其余拆成早返回，语义相同。
+判定是：`index` 处是内容为 `let` / `const` / `var` / **`using`** 的 `Common`，并且跳过软换行后的下一个单元要么是 `Common`，要么是 `Is("[", "]")` / `Is("{", "}")` 的 `Bracket`。这里把两个小括号判定合成一句 `||`，其余拆成早返回，语义相同。
+
+**`using` 是显式资源管理声明**（`using res = open()`）：形态与 `const` 完全一样，
+TypeScript 的 AST 里它同样是 `VariableDeclaration`（`VariableDeclarationList` 上带 `Using` 标志），
+所以它该有自己的 `Let` 节点。少了这一条，`using res = open()` 整条退化成
+`<Common>using</Common><Common>res</Common><Symbol>=</Symbol><Method>…`——名字与声明结构一起丢。
+`await using res = open()` 里的 `await` 由 `Process` 往前收进 `Modifiers`。
 
 **父单元是 `GenericType` 时一律不成立**：类型参数列表里的 `const` 是**类型参数修饰符**
 （`type X<const T> = T`），不是变量声明。少了这一条，`const T` 会被收成一个 `Let`
@@ -62,7 +68,7 @@ if (!(unit instanceof Common)) {
 if (unit.Parent instanceof GenericType) {
   return false;
 }
-if (!(unit.Is("let") || unit.Is("const") || unit.Is("var"))) {
+if (!(unit.Is("let") || unit.Is("const") || unit.Is("var") || unit.Is("using"))) {
   return false;
 }
 const next = GetSkipNext(units, index, (item) => item instanceof WrapSymbol);
@@ -110,6 +116,14 @@ while (true) {
     cursor = previousIndex;
     continue;
   }
+  // `await using res = open()`：`await` 是显式资源管理声明的一部分，
+  // 收进 Modifiers 才不会留成一个悬空的关键词。
+  if (previousUnit instanceof Common && previousUnit.Is("await") && current.Is("using")) {
+    modifiers.unshift(previousUnit.TempToString());
+    startIndex = previousIndex;
+    cursor = previousIndex;
+    continue;
+  }
   break;
 }
 modifiers.push(current.TempToString());
@@ -119,7 +133,7 @@ if (next === null) {
   throw new Error("next 为空");
 }
 const letUnit = new Let(template);
-letUnit.SignIn(current.SourceRange.Start!);
+letUnit.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 letUnit.SignOut(next.SourceRange.End!);
 letUnit.Modifiers = modifiers.join(",");
 if (next instanceof Common) {

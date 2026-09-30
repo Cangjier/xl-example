@@ -257,6 +257,17 @@ return "";
 第 3 条同时把「修饰词被当成名字」挡掉了：`private n = 1` 里 `private` 后面紧跟的是 `n`（`Common`），
 不是延续符号，所以 `private` 不会被认成字段名，而 `n` 会——`DeclarationStart` 再往前把 `private` 收进 `Modifiers`。
 
+**`[` 开头的计算名 / 索引签名**：它允许的延续符号与普通名字**同一套**（`:` / `?:` / `=` / `;` / `,` / 软换行），
+不能只认 `:` 与 `?:`。原来只认那两个，`class C { [KEY] = 1 }` 就被判否，整条成员散成
+`<JsonArray>KEY</JsonArray><Symbol>=</Symbol><Common>1</Common>`（实测：字段类真缺里就有这一条）。
+索引签名 `[k: string]: T` 走的是 `:` 那一支，计算名初始化式 `[KEY] = v` 走的是 `=` 那一支，
+两边共用下面这段就都成立。
+
+**`!` 是明确赋值断言**（`class C { x!: number }`）：TypeScript 里它只是属性上的一个 `exclamationToken`，
+成员本身仍是字段。`!` 不在原来的延续符号集合里，于是 `x!: number` 被判否、
+整条成员散成 `<Common>x</Common><Symbol>!</Symbol><TypeDefine>…`（实测同样是字段真缺的一条）。
+把 `!` 加进集合；`Process` 那边不用特别处理——`MemberEnd` 会把 `!` 与类型标注一起圈进这条成员。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
@@ -285,17 +296,11 @@ if (previous instanceof Symbol && !(previous.Is(";") || previous.Is(","))) {
   return false;
 }
 const immediate = Get(units, nameIndex + 1);
-if (isBracketName) {
-  if (immediate instanceof Symbol) {
-    return immediate.Is(":") || immediate.Is("?:");
-  }
-  return false;
-}
 if (immediate === null || immediate instanceof WrapSymbol) {
   return true;
 }
 if (immediate instanceof Symbol) {
-  return immediate.Is(":") || immediate.Is("?:") || immediate.Is("=") || immediate.Is(";") || immediate.Is(",");
+  return immediate.Is(":") || immediate.Is("?:") || immediate.Is("=") || immediate.Is(";") || immediate.Is(",") || immediate.Is("!");
 }
 return false;
 ```

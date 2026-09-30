@@ -372,7 +372,12 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 规则：
 
 - 宿主自己就是 `GenericType` → 类型位（嵌套 `Array<Array<T>>`、`Map<String, Int64>` 的内层直接成立）。
-- 最近的边界是 `:` 或 `->` → 类型位（类型标注、返回类型、`<:` 约束）。
+- 最近的边界是 `:` / `?:` 或 `->` → 类型位（类型标注、可选成员的标注、返回类型、`<:` 约束）。
+  **`?:` 必须单独列出来**：可选成员 / 可选参数的类型标注整体是一个 `?:` 符号（见 `symbol.xl.md`
+  的符号合并），不是 `?` 与 `:` 两个单元。少了它，`interface I { h?: Record<string, string> }` 的
+  `<` 会被判成表达式位（退回比较运算符），泛型再也合不起来——实测产物会把这条成员**劈成两半**：
+  `<Field FieldName="h"><TypeDefine><Common>Record</Common><Symbol>&lt;</Symbol><Common>string</Common></TypeDefine></Field>`
+  后面还跟着一个 `<Statement><Common>string</Common><Symbol>&gt;</Symbol></Statement>`。
 - `.` 与 `,` 是**透明**的：限定名 `a.b.C<T>` 的点、以及参数表 / 父接口列表里的逗号，都不改变类型位判定——继续往前找真正的边界。TypeScript 里带类型实参的名字几乎总是出现在这两种位置（`extends a.b.Base<T>`、`function f(a: A, b: B<T>)`），把它们当边界会让这些写法整条退回比较运算符。
 - 最近的边界是 `=` → 记下「跨过赋值」继续往前找：再遇到 `type` 就是类型位（`type X = Array<Int64>` 的右端是类型），遇到 `let` / `var` / `const` 则是表达式位（`let x = Array<Int64>(3)` 的右端是值）。两个 `=` 之间没有结论也算表达式位。
 - 最近的边界是括号单元或 `;` / 其它符号 → 表达式位（实参、下标、语句边界都不保证期望类型）。
@@ -400,7 +405,7 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
     if (text === "." || text === ",") {
       continue;
     }
-    if (text === ":" || text === "->") {
+    if (text === ":" || text === "?:" || text === "->") {
       return true;
     }
     if (text === "=" && !crossedAssignment) {

@@ -222,6 +222,7 @@ return [
   "type",
   "typeof",
   "unique",
+  "using",
   "var",
   "void",
   "while",
