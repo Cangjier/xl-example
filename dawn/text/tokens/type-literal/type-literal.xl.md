@@ -9,6 +9,7 @@ import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-ut
 import { Bracket } from "../bracket.xl.md"
 import { Common } from "../common.xl.md"
 import { GenericType } from "../generic-type.xl.md"
+import { JsonObject } from "../json/json-object.xl.md"
 import { LineAnnotation } from "../line-annotation.xl.md"
 import { AreaAnnotation } from "../area-annotation.xl.md"
 import { Symbol } from "../symbol.xl.md"
@@ -163,6 +164,14 @@ if (current === null) {
 }
 if (current.Parent instanceof GenericType) {
   return true;
+}
+// **父单元已经是 JsonObject 时一定是对象字面量**（实测补的）：
+// `JsonObjectReorganization` 排在 `TypeLiteralReorganization` 之前，外层对象先成形，
+// 内层那个 `{` 于是已经是 `JsonObject` 的子单元——`const o = { a: { b: 1 } }` 里
+// 内层往前扫会撞上 `a:` 的冒号，按类型位判就变成 `TypeLiteral`（实测产物确实如此，
+// 内层 `b` 还成了一个 `Field`）。对象字面量的冒号是**键分隔符**，不是类型标注。
+if (current.Parent instanceof JsonObject) {
+  return false;
 }
 let crossedAssignment = false;
 for (let i = index - 1; i >= 0; i--) {
