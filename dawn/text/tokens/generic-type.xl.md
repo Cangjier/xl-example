@@ -457,9 +457,21 @@ return false;
 
 配对 `>` 之后跟着什么，决定这次试读算不算数。
 
-类型位给的是「名字或类型收尾」这一档：标识符字符、`) ] } [ , ; > < . = ( : { ?`、行尾或文件尾。表达式位只给 `(`——TypeScript 的泛型调用形状（`f<Int64>(x)`）：在表达式里，`<…>` 后面不接 `(` 的写法一律按比较运算符读，这样 `f(a<b, c>d)`、`a<b>c` 都会退回 `Symbol`。
+类型位给的是「名字或类型收尾」这一档：标识符字符、`) ] } [ , ; > < . = ( : { ? | &`、行尾或文件尾。表达式位只给 `(`——TypeScript 的泛型调用形状（`f<Int64>(x)`）：在表达式里，`<…>` 后面不接 `(` 的写法一律按比较运算符读，这样 `f(a<b, c>d)`、`a<b>c` 都会退回 `Symbol`。
 
-**`[` 必须单独列出来**（实测补的）：数组类型后缀 `X<A, D>[]` / `Map<string, number>[]` 里，
+**`|` 与 `&` 必须单独列出来**（实测补的）：**嵌套泛型的实参后面跟联合 / 交叉**是极常见的写法，
+`T extends Array<X> | Y`、`Record<string, X> | undefined` 都是它。
+白名单里没有这两个符号时，那次试读被判否，整个 `<…>` 退回 `Symbol`——
+于是**类型参数段认不出来、整条声明跟着塌掉**：
+
+实测 `node_modules/typescript/lib/typescript.d.ts` 的
+`function visitNodes<TIn extends Node, TInArray extends NodeArray<TIn> | undefined, TOut extends Node>(…)`
+两个重载**一个都产不出**（全语料 `Function` 真缺 2 处全部来自它）。
+
+（注意这与「`|` 在 `ScanArguments` 的字母表里」是**两件事**：字母表决定「扫得进去」，
+后继闸决定「这次试读算不算数」。两边都得认 `|` / `&`。）
+
+**`[` 也必须单独列出来**（同一次实测补的）：数组类型后缀 `X<A, D>[]` / `Map<string, number>[]` 里，
 配对 `>` 后面紧跟的就是 `[`。白名单里只有 `)` 与 `]` 而没有 `[` 时，这次试读被判否，
 泛型只吃到 `X<A` 就闭合——于是**整条成员声明认不出来**：
 `interface I { m(): X<A, D>[] }` 的产物是 `<Statement><Method MethodName="m"></Method>…`，
@@ -513,6 +525,8 @@ switch (item) {
   case ":":
   case "{":
   case "?":
+  case "|":
+  case "&":
     return true;
   default:
     return false;
