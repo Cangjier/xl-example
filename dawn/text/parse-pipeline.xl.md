@@ -167,6 +167,7 @@ return new Sequence<Branch>([
 ```ts
 return [
   "abstract",
+  "accessor",
   "as",
   "asserts",
   "async",

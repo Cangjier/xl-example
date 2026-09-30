@@ -31,12 +31,14 @@ npm run cases:check    # 用例体检（用例本身合不合格）
 npm run cases:run      # 用例对解析器（台账必须仍然是空的）
 ```
 
-再跑三把「不需要期望值」的尺子（CI 判据，有问题退出码 1）：
+再跑五把「不需要期望值」的尺子（CI 判据，有问题退出码 1）：
 
 ```bash
-npm run cases:diff       # 与 TypeScript 自带 AST 的构造数差分
-npm run cases:matrix     # 上下文 × 构造 全组合
-npm run cases:lossless   # 名字与字面量的值有没有被吃掉
+npm run cases:diff        # 与 TypeScript 自带 AST 的构造数差分（净额）
+npm run cases:dashboard   # 正 / 负差额分开统计（净额会互相抵消，这个不会）
+npm run cases:matrix      # 上下文 × 构造 全组合
+npm run cases:lossless    # 名字与字面量的值有没有被吃掉
+npm run cases:structure   # 嵌套形状：括号归属与源码一致吗（带 --self-test 变异自检）
 ```
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
@@ -120,7 +122,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `async` / `await` / `return` / `throw` / `readonly` … | `<Keyword>` | — |
 
 `Modifiers` 是声明前面那一串修饰词按源码顺序 `join(",")`（`export` / `declare` / `default` / `abstract` /
-`async` / `public` / `private` / `protected` / `static` / `readonly` / `override` / `get` / `set` / `const`）。
+`async` / `public` / `private` / `protected` / `static` / `readonly` / `override` / `accessor` / `get` / `set` / `const`）。
 
 [samples/declarations.ts](samples/declarations.ts) 把上表逐项走了一遍，产物是
 [samples/declarations.expected.xml](samples/declarations.expected.xml)。
@@ -149,37 +151,78 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 > `npm run cases:run` 会报告「新增缺口 / 台账过期」，`npm run cases:diff` 用 TypeScript 自带 AST 做差分找缺口。
 > 下面只列结构性的那几条。
 
-**四把尺子**（互相补位，任何一把红都不算「完整解析」）：
+**六把尺子**（互相补位，任何一把红都不算「完整解析」）：
 
 | 命令 | 口径 |
 | --- | --- |
 | `npm run cases:run` | 手写期望值：已经想到的构造有没有做对 |
-| `npm run cases:diff` | 源码构造数 − 产物节点数：哪一类节点整片没产出 |
+| `npm run cases:diff` | 源码构造数 − 产物节点数：哪一类节点整片没产出（净额） |
+| `npm run cases:dashboard` | 正 / 负差额分开统计：净额互相抵消时看真相 |
 | `npm run cases:matrix` | `上下文 × 构造` 全组合：同一构造换到别的上下文会不会翻车 |
 | `npm run cases:lossless` | 名字与字面量的值：产物里有没有内容被吃掉 |
+| `npm run cases:structure` | **嵌套形状**：产物的括号归属与源码文本是否一致 |
 
-后两把不需要维护期望值（候选先交给 TypeScript 判定是否合法 TS），
-`matrix` 覆盖 13889 条候选、`lossless` 覆盖 1246 个文件，退出码都能直接当 CI 判据。
+后四把不需要维护期望值（候选先交给 TypeScript 判定是否合法 TS）。
+`structure.mjs` 还带一个 `--self-test`：故意把产物改坏，尺子必须报警——
+**一个永远绿的尺子比没有尺子更危险**，所以它的牙口是被证明过的。
 
-结构性缺口：
+### 当前状态（实测，`npm run` 六个脚本全绿）
+
+| 判据 | 结果 |
+| --- | --- |
+| `cases:run` | 914 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:diff` | **没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
+| `cases:dashboard` | **真缺 0 个节点** |
+| `cases:lossless` | 1263 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1263 个文件、括号归属不符 **0**（8 个文件因对齐不可信被跳过，见下） |
+| `samples` | declarations / generic / hello 三份逐字节一致 |
+
+结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label LabelName="outer" /><While>…</While>`）：
   标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
-- **类里的 `static { … }` 块**没有节点（内容收在 `<Statement><Keyword>static</Keyword><Bracket>{…}</Bracket></Statement>` 里）。
-- **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
+- **类里的 `static { … }` 块**没有专属标签（TS 里是 `ClassStaticBlockDeclaration`）：内容完整收在
+  `<Statement><Keyword>static</Keyword><Bracket>{…}</Bracket></Statement>` 里——**内容没丢**，只是没有标签。
 - **不做 ASI**：`const v = x as A` 换行 `y = 2` 在 TypeScript 里是两条语句，这里读成一条。
   换行只在少数几处（成员边界、声明尾部、`as` 后面的类型折行）被当成边界，见台账 `_notes.asi-not-implemented`。
+- **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
+  这是**独立于 TypeScript 的语法扩展**，不在 `.ts` 范围内。
+- **嵌套解构的绑定名进的是同一张逗号分隔表**（`unpackArrayFieldNames`），丢的是**结构**而不是名字：
+  `const [[a, b], [, c = 0]] = m` 记成 `a,b,c,0`。
+- **`<RegexToken>` 是空标签**：正则正文与标志在单元的 `Temp` / `Flags` 字段上、刻意不渲染进 XML
+  （见 [dawn/text/tokens/regex-token.xl.md](dawn/text/tokens/regex-token.xl.md)）。
 - **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
   `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器
   （见台账 `_notes.escape-a-bell` / `_notes.at-before-string-is-verbatim`）。
-- **`<RegexToken>` 是空标签**：正则正文与标志在单元的 `Temp` / `Flags` 字段上、刻意不渲染进 XML
-  （见 [dawn/text/tokens/regex-token.xl.md](dawn/text/tokens/regex-token.xl.md)）。
-- **嵌套解构的绑定名进的是同一张逗号分隔表**（`unpackArrayFieldNames`），丢的是**结构**而不是名字：
-  `const [[a, b], [, c = 0]] = m` 记成 `a,b,c,0`。
-- 实测：`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 912 条用例
-  **全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1261 个文件）。
-  TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
-  JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
+
+### `structure.mjs` 为什么只覆盖 1255 / 1263 个文件
+
+它要靠「产物叶子 ≈ 源码 token」这条对应关系把括号落回源码。有 8 个文件的对应率低于 60%
+（`@types/node/cluster.d.ts`、`typescript/lib/lib.es2016.array.include.d.ts`、`lib.es2017.object.d.ts`、
+`lib.es2019.object.d.ts`、`lib.es2020.promise.d.ts`、`lib.es2022.array.d.ts`、`lib/typescript.d.ts`、
+`tests/parse/cases/types/ty-mapped-as-remap.ts`），原因是这批文件里注释碎片与模板串把叶子链
+拉得很稀疏，对齐会滑。尺子对这种情况**主动跳过**并如实报告数量——
+**宁可少查，也不要拿错的对齐去报假缺口**。其余 1255 个文件（含全部回归用例、
+全部实现文件、绝大部分 `.d.ts`）逐个对账通过。
+
+### 按 `structure.mjs` 修掉的两处真缺口（第 50 轮）
+
+形状尺子第一次跑起来就抓到两处**六个计数器都看不见**的结构错位：
+
+| 缺口 | 根因 |
+| --- | --- |
+| 类成员的 `accessor` 修饰符（TS 4.9 自动访问器）不认 | 它不在修饰词表里，于是被当成裸名字，成员退化成 `<Statement><Common>accessor</Common><Field …/></Statement>`——**多包一层 `Statement`**，而「Field 在不在」「有几个」这类计数完全不变。`static accessor` / `abstract accessor` 同理 |
+| `@dec x = 1` 把字段名吞进装饰器 | 装饰器的名字扫描把任何非关键字 `Common` 都吃下去，`x` 被拼成 `DecoratorName="dec.x"`，**字段整个消失**（只剩 `<Symbol>=</Symbol><Common>1</Common>`）。判据改成「名字之间必须有 `.`」：`@ns.dec` 才是多段名字 |
+
+两处都有回归用例：`decl-class-accessor`（三条 `Field` 计数）、`cls-accessor-keyword`、
+`cls-decorator-field`、`cls-decorator-qualified-name`。
+
+### 实测规模
+
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 914 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1263 个文件）。
+TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
+JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
 
 ## cjcli
 

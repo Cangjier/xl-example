@@ -403,7 +403,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 ## field Modifiers:string = ""
 
 声明前面的修饰词（`public` / `private` / `protected` / `static` / `readonly` / `abstract` / `override` /
-`declare`），按源码顺序用 `,` 连接；没有修饰词时是空串。
+`declare` / `accessor`），按源码顺序用 `,` 连接；没有修饰词时是空串。
 
 ## method ToXmlString:()=>string
 

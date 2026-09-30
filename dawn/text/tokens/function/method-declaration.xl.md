@@ -564,7 +564,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 ## field Modifiers:string = ""
 
 声明前面的修饰词（`public` / `private` / `protected` / `static` / `readonly` / `abstract` / `override` /
-`declare` / `async` / `get` / `set`），按源码顺序用 `,` 连接；没有修饰词时是空串。
+`declare` / `accessor` / `async` / `get` / `set`），按源码顺序用 `,` 连接；没有修饰词时是空串。
 
 ## method CreateBody:()=>MethodBody
 

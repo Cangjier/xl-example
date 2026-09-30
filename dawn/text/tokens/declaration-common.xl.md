@@ -47,8 +47,14 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 这个单元是不是一个声明修饰词。
 
 判定是「`Common` 且文本命中修饰词表」。表里收的是 TypeScript 里能出现在**声明之前**的那些词：
-访问修饰符（`public` / `private` / `protected`）、成员修饰符（`static` / `readonly` / `abstract` / `override` / `declare`）、
+访问修饰符（`public` / `private` / `protected`）、成员修饰符（`static` / `readonly` / `abstract` / `override` / `declare` / `accessor`）、
 函数修饰符（`async`）、访问器前缀（`get` / `set`）、导出修饰符（`export` / `default`）、枚举前缀（`const`）。
+
+`accessor` 是 TypeScript 4.9 的**自动访问器**修饰符（`class A { accessor x = 1 }`）。
+它必须在这张表里，否则成员起点的判定看不到它：`accessor` 会先被当成裸名字，
+整个成员退化成 `<Statement><Common>accessor</Common><Field …/></Statement>`——
+成员被多包了一层 `Statement`，结构就错了（实测）。
+`static accessor x` / `abstract accessor x` 同理，前一个修饰词一起吃掉即可。
 
 `constructor` 不在表里：它是方法名而不是修饰词。`in` / `out` 这类只出现在类型参数位置上的词也不在表里。
 
@@ -61,6 +67,7 @@ return item.IsAny([
   "declare",
   "default",
   "abstract",
+  "accessor",
   "async",
   "public",
   "private",

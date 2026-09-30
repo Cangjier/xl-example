@@ -17,7 +17,9 @@
     "cases:run": "node ./tests/parse/run.mjs",
     "cases:diff": "node ./tests/parse/differential.mjs",
     "cases:matrix": "node ./tests/parse/matrix.mjs",
-    "cases:lossless": "node ./tests/parse/lossless.mjs"
+    "cases:lossless": "node ./tests/parse/lossless.mjs",
+    "cases:structure": "node ./tests/parse/structure.mjs",
+    "cases:dashboard": "node ./tests/parse/gap-dashboard.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

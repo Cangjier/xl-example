@@ -76,6 +76,17 @@ return next instanceof Bracket && next.StartBracketChar === "(";
 关键字表就在这个 `Common` 自己的模板上（`item.Template.KeywordTemplate`），直接查即可——
 不必等 `KeywordReorganization`（它排在通用队列最后，此刻还没跑）。
 
+**名字段之间必须有一个 `.`**：`@dec x = 1` 是一个装饰器加一个**字段**，
+但 `dec` 与 `x` 都是 `Common`、`x` 也不在关键字表里，于是原来会把名字拼成 `dec.x`——
+**字段名被吞进装饰器**，产物退化成
+`<Decorator DecoratorName="dec.x"><Symbol>@</Symbol><Common>dec</Common><Common>x</Common></Decorator><Symbol>=</Symbol><Common>1</Common>`（实测）。
+
+判据不能看「有没有空白」：`@dec x` 与 `@ns.dec` 在单元列表里都有东西夹在中间，
+而单元此刻的 `SourceRange.End` 并不可靠（未关闭的单元还没定下终点）。
+真正稳的事实是：**装饰器名里两个 `Common` 之间一定夹着一个 `.`**
+（`@ns.Name` 才需要多段名字）。所以记住「上一个吃进来的名字是怎么进来的」——
+是点号进来的才允许再接一个名字，直接挨着进来的名字到此为止。
+
 `DecoratorName` 是名字段按 `.` 拼起来的文本；实参括号里的内容跟在它后面进 `Data`，所以
 `@Component({ size: 1 })` 的产物是 `<Decorator DecoratorName="Component">` 里带一个 `Bracket`。
 
@@ -89,6 +100,7 @@ decorator.Parent = current.Parent;
 decorator.SignIn(current.SourceRange.Start!);
 const names: string[] = [];
 let endIndex = index;
+let afterDot = false;
 let i = index + 1;
 while (i < units.length) {
   const item = Get(units, i);
@@ -96,13 +108,19 @@ while (i < units.length) {
     if (item.Template.KeywordTemplate.IsKeyword(item.TempToString())) {
       break;
     }
+    // 名字之间必须有 `.`：`@dec x = 1` 的 `x` 是字段名，不是装饰器名字的一部分。
+    if (names.length > 0 && !afterDot) {
+      break;
+    }
     names.push(item.TempToString());
     endIndex = i;
+    afterDot = false;
     i++;
     continue;
   }
   if (item instanceof Symbol && item.Is(".")) {
     endIndex = i;
+    afterDot = true;
     i++;
     continue;
   }
