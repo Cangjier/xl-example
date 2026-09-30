@@ -190,6 +190,14 @@ function countable(kind, node, parents) {
     const holder = parents.get(node);
     if (holder && ts.isLiteralTypeNode(holder)) return false;
   }
+  if (kind === "RegularExpressionLiteral") {
+    // **未终止的正则**：`const re = /abc` （没有收尾 `/`）时 TS 自己也是错误恢复
+    // （它把正则吃到行尾、报 Unterminated regular expression literal）。
+    // 本工程**有意**不把这种形状认成正则——那正是 `</div>` 吞掉文件余下代码的根因
+    // （见 `dawn/text/tokens/regex-token.xl.md` 的说明）。两边的恢复策略不同，按口径排除。
+    const text = node.getText();
+    if (!/\/[^/\n]*\/[a-z]*$/i.test(text)) return false;
+  }
   if (kind === "ObjectLiteralExpression" || kind === "ArrayLiteralExpression") {
     // **解构模式里的默认值**：`let { a = {} } = obj` / `let [x = []] = arr` 里那个
     // `{}` / `[]` 在 TS 的 AST 里是 BindingElement 的 initializer（对象/数组字面量），
