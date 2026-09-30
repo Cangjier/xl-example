@@ -103,6 +103,15 @@ this.Operators = operators;
 
 `x instanceof C`。
 
+## static readonly field CommaInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization([","])
+
+逗号（序列）表达式 `(a, b)`，优先级最低。
+
+**这一支必须有额外判据**（`IsCommaExpressionComma`），因为 `,` 在 TypeScript 里
+绝大多数场合**不是运算符**：函数参数表、调用实参表、数组字面量、对象字面量、
+变量声明的多声明符、`for` 子句——它们的分隔符都是 `,`。
+判据只认一种形状：**`(` 括号内部的顶层 `,`**（参数表 / 实参表同样是 `(`，靠调用方排除）。
+
 ## static readonly field BitwiseInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["|", "&", "^"])
 
 位运算 `a | b` / `a & b` / `a ^ b`（值位）。
@@ -219,8 +228,7 @@ if (
   unit instanceof NullConditionalOperator
 ) {
   return true;
-}
-if (unit instanceof Bracket) {
+}if (unit instanceof Bracket) {
   return (
     unit.EndBracketChar === ")" ||
     unit.EndBracketChar === "]" ||
@@ -286,6 +294,9 @@ if (current.Parent instanceof Bracket && current.Parent.Context === "type") {
 if (this.IsValuePositionBitwise(current) === false) {
   return false;
 }
+if (this.IsCommaExpressionComma(units, index) === false) {
+  return false;
+}
 if (this.IsOperator(current) === false) {
   return false;
 }
@@ -293,6 +304,96 @@ if (this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index))) === false) 
   return false;
 }
 return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
+```
+
+## private method IsCommaExpressionComma:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `,` 是不是**逗号（序列）表达式**里的那个，而不是各种列表的分隔符。
+
+不是本实例管的符号（`+` `-` 之类）一律返回 `true`——那些走原来的路径。
+
+判据两条，都要成立：
+
+1. **向前找到最近的括号**：从 `index - 1` 往前扫，遇到的第一个括号必须是 `(`。
+   扫到列表开头都没有括号 → 不是（`,` 在语句层只能是列表分隔符）。
+   括号先于 `,` 之前的任何括号出现，就说明这个 `,` 落在那一层括号的最外层；
+   若遇到的是 `[` 或 `{`，那是数组 / 对象字面量的元素分隔符，**不是**运算符。
+2. **那个 `(` 不是参数表 / 实参表**：看 `(` 前面那个实义单元。
+   它是 `Common`（`f(a, b)` 的名字、`function` 也是 `Common`）→ 参数表；
+   它的**类名**是 `Method` / `Function` / `MethodDeclaration` → 参数表或实参表；
+   它的**类名**是 `Keyword` 且文本属于 `function` / `if` / `for` / `while` / `switch` / `catch` → 参数表；
+   其余（`=` `return` `(` `,` 语句边界…）→ **是逗号表达式**。
+
+**为什么用类名而不是 import 那些类**：本文件是核心算符规则，`Function` / `MethodDeclaration`
+那几条规则又（间接）依赖它，直接 import 会绕出循环依赖
+（与 `declaration-common.xl.md` 的白名单判据同一个理由）。
+`constructor.name` 就是 XML 标签名，判它等价于判类型。
+
+**为什么不能只看「`(` 里面」**：`f(a, b)` 的参数括号同样满足第 1 条，
+差别只在「括号前面有没有一个被调用 / 被声明的名字」。实测只判第 1 条时，
+`f(a, b)` 的实参会被折成一个 `CommaOperator`（全语料多出上千个）。
+
+```ts
+const current = Get(units, index);
+if (!(current instanceof Symbol) || current.Is(",") === false) {
+  return true;
+}
+// 最近的括号可能在**同一层**（`(a, b)` 收成 Bracket 之前的形态），
+// 也可能**就是 `Parent`**（括号已经收好了，当前列表是它的内容）——两种都要看。
+// 两种情况下「括号外面的前一个单元」来自**不同的列表**，所以各自就地取好 `outside`，
+// 不能只记一个下标再去 `Get(units, …)`（那样会拿错列表——实测踩过）。
+let openBracket: Token | null = null;
+let outside: Token | null = null;
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item instanceof Bracket) {
+    openBracket = item;
+    outside = i > 0 ? Get(units, i - 1) : null;
+    break;
+  }
+}
+if (openBracket === null) {
+  const parent = current.Parent;
+  if (!(parent instanceof Bracket)) {
+    return false;
+  }
+  openBracket = parent;
+  const owner = parent.Parent;
+  if (owner === null) {
+    return false;
+  }
+  const at = owner.Data.indexOf(parent);
+  if (at > 0) {
+    outside = owner.Data[at - 1];
+  }
+}
+if (!(openBracket instanceof Bracket) || openBracket.StartBracketChar !== "(") {
+  return false;
+}
+if (outside === null) {
+  return true;
+}
+if (outside instanceof Common) {
+  return false;
+}
+const outsideName = outside.constructor.name;
+if (outsideName === "Method" || outsideName === "Function" || outsideName === "MethodDeclaration") {
+  return false;
+}
+if (outsideName === "Keyword") {
+  const text = (outside as Keyword).Value;
+  if (
+    text === "function" ||
+    text === "if" ||
+    text === "for" ||
+    text === "while" ||
+    text === "switch" ||
+    text === "catch"
+  ) {
+    return false;
+  }
+}
+return true;
 ```
 
 ## private method IsValuePositionBitwise:(unit:Token)=>bool
