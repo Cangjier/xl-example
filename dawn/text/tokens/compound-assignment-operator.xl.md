@@ -42,8 +42,18 @@ import { Symbol } from "./symbol.xl.md"
 
 ```ts
 const current = Get(units, index);
-return current instanceof Symbol && template.SymbolTemplate.IsCompoundAssignmentSymbol(current.TempToString());
+if (!(current instanceof Symbol)) {
+  return false;
+}
+if (current.FromCompoundAssignment) {
+  return false;
+}
+return template.SymbolTemplate.IsCompoundAssignmentSymbol(current.TempToString());
 ```
+
+**`FromCompoundAssignment` 那一支是防自反馈的**：`Process` 会插回一份运算符副本
+（`&&=` 切出来的 `&&`），那份副本本身也在 `CompoundAssignmentSymbols` 的判据范围内，
+不挡掉就会被反复切开、单元数量来回翻倍（实测 `run.mjs` OOM）。见 `Process` 的说明。
 
 ## static method IsCompoundAssignmentOperatorStart:(current:Token)=>bool
 
@@ -96,6 +106,7 @@ return false;
 ```ts
 const current = Get(units, index) as Symbol;
 const operatorSymbol = current.Clone() as Symbol;
+operatorSymbol.FromCompoundAssignment = true;
 operatorSymbol.Temp.splice(1, 1);
 current.Temp.splice(0, 1);
 const startIndex = SearchFront(units, index, CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart);
@@ -106,9 +117,36 @@ ReplaceRangeAt(units, index + 1, 0, insertUnits);
 return index;
 ```
 
+**`FromCompoundAssignment` 这个标记是必需的**（实测踩过）：
+`Process` 会把 `&&=` 切成 `=` 与一份 `&&` 副本插回去。那份 `&&` **本身也在
+`CompoundAssignmentSymbols` 的判据范围内**——新一轮扫描时它又被当成复合赋值去切，
+切出来的东西又被处理，于是单元数量来回翻倍，`node tests/parse/run.mjs` 直接
+`FATAL ERROR: heap out of memory`（单条用例都在 200ms 内跑完，整份
+`expressions/ex-logical-assign` 就发散——是 `Process` 里那条自反馈，不是规则数量的问题）。
+打上标记之后 `Previous` 直接放行这一份副本，它只作为普通运算符参与二元/逻辑折算。
+
 # class CompoundAssignmentOperator
 
 复合赋值运算符的**容器类**，本身没有任何成员。
 
 它不继承 `Token`，只是 `CompoundAssignmentOperatorReorganization` 的宿主。
 `Root` 引用的是 `CompoundAssignmentOperatorReorganization.Instance`，所以这个空壳类不参与解析流程，也不会进 `Data` / XML。
+
+**已知缺口：切分逻辑是坏的，除了 `+= -= *= /=` 之外的写法都产出畸形单元。**
+
+实测（`a &= b;`，`&=` 不在 `CompoundAssignmentSymbols` 里、因此它按普通符号对处理）：
+
+产物是 `Common(a)` `Symbol(=)` `Common(a)` `Symbol(&)` `Common(b)` ——
+补出来的 `&` 落在 `=` **右边**，正解应是 `a = a & b`（`&` 在 `a` 与 `b` 之间）。
+`a <<= b` 更明显：词法阶段断成 `<` 与 `<=`，产物是两层 `BinaryOperator Operator="<="`
+（实测形状）。也就是说：
+
+- `Process` 里 `operatorSymbol.Temp.splice(1, 1)` 与 `current.Temp.splice(0, 1)` 的切法，
+  与 `ReplaceRangeAt(units, index + 1, 0, insertUnits)` 的插入位置合起来**顺序不对**；
+- 把 11 个符号补进 `IsCombinedSymbol` 并不能修好它，只会让症状换个样子
+  （`a &&= b` 变成 `Common(a)` `Symbol(&=)` `Common(a)` `Symbol(&=)` `Common(b)`）。
+
+**能安全补的前提已经铺好**：`Symbol.FromCompoundAssignment` 标记解决了「切开后插回的
+运算符副本又被同一条规则处理」的自反馈（不解决时 `run.mjs` 会 OOM）——
+所以下一次修这条时不会重蹈那个坑。要修的是 `Process` 的**切分与插入顺序**：
+先把左值那段按原样留在 `=` 左边、再把 `op` 与右值拼到右边，而不是现在这种"插一批克隆 + 一个运算符"。

@@ -100,6 +100,16 @@ if (last instanceof Symbol) {
 
 单元值类型是单字符的 `string`。
 
+## field FromCompoundAssignment:bool = false
+
+这个符号是**复合赋值切开后插回来的运算符副本**（`CompoundAssignmentOperatorReorganization.Process`
+把 `&&=` 切成 `=` 与一份 `&&`）。
+
+**为什么需要它**：那份副本本身也在 `CompoundAssignmentSymbols` 的判据范围内，
+不排除的话同一趟会被反复切开，单元数量来回翻倍——实测 `run.mjs` 直接
+`FATAL ERROR: heap out of memory`。`Clone` **不复制**这个字段（默认 `false`），
+所以只有 `Process` 显式打标记的那份副本会被排除。
+
 ## static readonly field AppendIn:SymbolBranch = new SymbolBranch()
 
 把 `SymbolBranch` 注册进通用跳转队列用的实例。

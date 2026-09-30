@@ -30,10 +30,11 @@
 
 复合赋值符号。
 
-**只有这 4 个**，与 `IsCombinedSymbol` 保持一致（那张表里也刻意不放另外 11 个）：
-`CompoundAssignmentOperatorReorganization` 的 Process 是「切成 `op` + `=` 再把左值克隆一份」，
-把更多符号放进来会让 `expressions/ex-logical-assign` 那份文件解析时内存失控
-（单条用例正常、整份文件发散，见 `IsCombinedSymbol` 的说明）。
+**只有这 4 个**，与 `IsCombinedSymbol` 保持一致（那张表里也刻意不放另外 11 个）。
+补全它们**不解决问题**：`CompoundAssignmentOperatorReorganization.Process` 的切分逻辑本身是坏的，
+连 `a &= b` 都会产出畸形单元（`a` `=` `a` `&` `b`，那个 `&` 本该在 `=` 左边）——
+缺的符号只是让 `a <<= b` 断成 `<` 与 `<=`，是同一个病的另一种表现。
+见 `dawn/text/tokens/compound-assignment-operator.xl.md` 的已知缺口说明。
 
 ## field MemberSymbol:Array<string> = ["."]
 
@@ -141,12 +142,10 @@ switch (item) {
 是死规则：`a << b` 的产物是 `<Common>a</Common><Symbol>&lt;</Symbol><Symbol>&lt;</Symbol><Common>b</Common>`。
 
 **复合赋值（`%=` `**=` `<<=` `>>=` `>>>=` `&=` `|=` `^=` `&&=` `||=` `??=`）刻意不在这里**：
-试过把它们一起补上，结果 `node tests/parse/run.mjs` 在
-`expressions/ex-logical-assign`（`a ??= 1` / `a &&= 2` / `a ||= 3` / `a **= 2` / `a >>>= 1`）
-上**内存失控**（单条都正常，整份文件就爆；5 秒超时 + 768MB 堆直接 OOM）。
-`CompoundAssignmentOperatorReorganization.Process` 的做法是「把 `op=` 切成 `op` 与 `=`，
-再把左值克隆一份插回去」；新符号与「克隆出来的单元又被同一条规则重新处理」叠在一起就会发散。
-在这一条被修好之前，这 11 个符号只能停在「被拆成错误符号对」的旧状态。
+补全它们**不解决问题**——`CompoundAssignmentOperatorReorganization.Process` 的切分逻辑本身是坏的，
+连原有的 `&= b` 都会产出畸形单元（实测 `a &= b` → `Common(a)` `Symbol(=)` `Common(a)` `Symbol(&)` `Common(b)`，
+那个 `&` 本该在 `=` 左边）。缺的符号只是让 `a <<= b` 断成 `<` 与 `<=`，是同一个病的另一种表现。
+详见 `dawn/text/tokens/compound-assignment-operator.xl.md` 的已知缺口说明。
 
 ```ts
 if (this.BanedCombinedSymbol.includes(item)) {
