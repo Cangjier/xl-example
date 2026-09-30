@@ -1436,3 +1436,24 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 2. `As` 挂队列（`a as B + c`），与三元分支段那次是同一类修法。
 3. 类型位文法（联合 / 交叉 / 条件 / 映射 / 元组 / 函数类型）——现在类型位只是"整段收进节点"，
    这是「完整解析 TypeScript」最本质的一块空白。
+
+## 第 44 轮（继续清账）：类型位两处 + 泛型调用签名
+
+本轮真缺 57 → 31（1251 文件，解析失败 0；用例 889 → 891，全绿；samples 三份逐字节一致）。
+
+| 缺口 | 根因 | 差额 |
+| --- | --- | --- |
+| 函数类型的返回类型字面量 `(opts: X) => { a: number }` | `TypeLiteralReorganization.IsTypePosition` 往前扫到 `=>` 落到「其它符号 → 值位」那一支，整个 `{ … }` 退化成裸 Bracket | 类型字面量 6 → 0 |
+| 泛型调用签名 `<TIn extends Node>(node: TIn): void` | `SignatureReorganization.Previous` 只有「`(` 开头」与「`new` 开头」两种起点 | 成员·签名 5 → 0 |
+
+两条**中性或净回归**的尝试（记下来避免重犯）：
+
+- `IsTypeLiteralBracket` 加 `=>`：中性——那个方法只服务 `Function` / `MethodDeclaration` 的体判定。
+- `Lamda` 语句体的 `units.slice(index + 1, endIndex + 1)` 改成 `endIndex`：净回归（3 条用例失败），已回退。
+- 泛型调用签名那一支**必须同时加「`<` 前面有名字就让给方法声明」的守卫**，
+  否则 `m<T>(x: T): T` 会被抢成 Signature（`Signature` 规则的位次在
+  `MethodDeclarationReorganization` 之前）。
+
+**当前剩余 31**：二元 17（多为有意排除的值位 `|` `&` `^` 与逗号表达式）、
+成员·方法 4、对象字面量 3、函数 2、数组 1、字段 1、三元 1、装饰器 1、标签 1，以及若干仪表口径；
+**整族未做**：类 `static {}` 初始化块、JSX/TSX。
