@@ -1,8 +1,8 @@
 // 打印完整诊断（cjcli 只截了一部分）
 import fs from "node:fs";
 import { Template } from "../build/ts/core/syntax/templates/template.js";
-import { TextDocument } from "../build/ts/dawn/text/text-document.js";
-import { TextContext } from "../build/ts/dawn/text/text-context.js";
+import { TextDocument } from "../build/ts/typescript/text-document.js";
+import { TextContext } from "../build/ts/typescript/text-context.js";
 
 const content = fs.readFileSync(process.argv[2], "utf8");
 const template = new Template();

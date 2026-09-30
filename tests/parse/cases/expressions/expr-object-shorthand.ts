@@ -1,3 +1,3 @@
 // xl:note 对象字面量简写属性 { a }
-// xl:expect JsonObject
+// xl:expect ObjectLiteral
 const o = { a };

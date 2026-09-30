@@ -15,14 +15,14 @@
 // 判据（representation-independent，不需要标签映射）：
 //
 //   源码文本里每个配对成功的括号（`(…)` / `[…]` / `{…}`）都是一个区间。
-//   产物里「一个单元 = 一对括号」的那些标签（`Bracket` / `JsonObject` / …）也各有一个区间。
+//   产物里「一个单元 = 一对括号」的那些标签（`Bracket` / `ObjectLiteral` / …）也各有一个区间。
 //   把两侧的区间按**先序**对齐后，不变量是：
 //
 //     **两对括号在源码里是包含关系 ⇔ 它们在产物树里是祖先关系。**
 //
 //   这直接抓「括号被收进错误的单元」：配对错、整段内容被搬到别的深度、成员跑出类体。
 //   它不去猜「哪个标签代表哪个括号」——只要求两边对**同一对括号**给出同一个区间；
-//   认领不到括号的标签（`Root`、各种 `*Body`、`Symbol` 装的括号）不参与，不会误报。
+//   认领不到括号的标签（`Root`、各种 `*Body`、`SymbolToken` 装的括号）不参与，不会误报。
 
 import fs from "node:fs";
 import path from "node:path";
@@ -35,14 +35,14 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
-const { TextDocument } = require(path.join(root, "build", "ts", "dawn", "text", "text-document.js"));
-const { TextContext } = require(path.join(root, "build", "ts", "dawn", "text", "text-context.js"));
+const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
+const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
 
 // ---------------------------------------------------------------------------
 // 产物侧：XML → 带父亲的树
 // ---------------------------------------------------------------------------
 
-// 标签扫描要**认得引号**：本工程的属性值里会出现 `>`（`Modifiers="export,default"`、
+// 标签扫描要**认得引号**：本工程的属性值里会出现 `>`（`modifiers="export,default"`、
 // 说明性属性），用 `[^<>]*` 偷懒会在引号里误判定界。
 const TAG_RE = /<(\/?)([A-Za-z_][A-Za-z0-9_]*)((?:"[^"]*"|'[^']*'|[^<>"'])*?)(\/?)>/g;
 
@@ -552,8 +552,8 @@ function tokenIndexAt(tokens, pos) {
 
 /** 产物的这个叶子是不是「一对定界符」；是就返回开字符。 */
 function leafBracketChars(node) {
-  const open = node.attrs.StartBracketChar;
-  const close = node.attrs.EndBracketChar;
+  const open = node.attrs.startBracket;
+  const close = node.attrs.endBracket;
   if (open === undefined || close === undefined) return undefined;
   if (open.length !== 1 || OPENERS[open] !== close) return undefined;
   return open;
@@ -603,11 +603,11 @@ function spanOf(node, posOf) {
 /**
  * 产物里**一个单元 = 一对括号**的标签。
  *
- * 两类：literal 括号（`Bracket` / `JsonObject` / …）与**块体**（`*Body` / `IfStatement`…）。
+ * 两类：literal 括号（`Bracket` / `ObjectLiteral` / …）与**块体**（`*Body` / `IfStatement`…）。
  * `Root` 不在此列：它对应文件本身，没有括号。
  */
 const BRACKET_TAGS = new Set([
-  "Bracket", "JsonObject", "JsonArray", "Decorator", "NewArguments", "Signature", "LamdaParameters",
+  "Bracket", "ObjectLiteral", "ArrayLiteral", "Decorator", "NewArguments", "Signature", "LamdaParameters",
   "ClassBody", "InterfaceBody", "NamespaceBody", "EnumBody", "TypeLiteralBody",
   "FunctionBody", "MethodBody", "LamdaBody", "GetAccessorBody", "SetAccessorBody",
   "ForBody", "ForeachBody", "WhileBody", "DoWhile", "IfStatement", "SwitchStatement",
@@ -624,7 +624,7 @@ const BRACKET_TAGS = new Set([
  *   - 闭括号必须在最后一个内容叶之后、且中间只有空白。
  *
  * 先序保证外层先认领，嵌套关系自然正确；认领不到就跳过（这个标签不是括号）。
- * 字符类型也要对得上：`JsonArray` 只认 `[…]`，`Bracket` 看它的 `StartBracketChar`。
+ * 字符类型也要对得上：`ArrayLiteral` 只认 `[…]`，`Bracket` 看它的 `startBracket`。
  */
 export function anchorBrackets(source, tree, located) {
   const delims = scanDelimiters(source);
@@ -658,8 +658,8 @@ export function anchorBrackets(source, tree, located) {
 function allowedChars(node) {
   const explicit = leafBracketChars(node);
   if (explicit !== undefined) return new Set([explicit]);
-  if (node.name === "JsonObject") return new Set(["{", "Z"]);
-  if (node.name === "JsonArray") return new Set(["[", "A"]);
+  if (node.name === "ObjectLiteral") return new Set(["{", "Z"]);
+  if (node.name === "ArrayLiteral") return new Set(["[", "A"]);
   return undefined;
 }
 
@@ -667,7 +667,7 @@ function allowedChars(node) {
  * 不变量：两对括号在**源码文本**里是包含关系 ⇔ 它们在**产物树**里是祖先关系。
  *
  * 只比「产物里真的认领到括号」的那些单元，所以不依赖「哪个标签代表哪个括号」这一层
- * 映射；未认领的括号（例如本工程把 `(` `)` 收成 `Symbol`）不参与，不会误报。
+ * 映射；未认领的括号（例如本工程把 `(` `)` 收成 `SymbolToken`）不参与，不会误报。
  */
 export function containmentProblems(anchors) {
   const bad = [];
@@ -787,7 +787,7 @@ function selfTest() {
       failures++;
       continue;
     }
-    // 变异一：把两个 JsonObject 的内容互换
+    // 变异一：把两个 ObjectLiteral 的内容互换
     const mutated = mutateSwap(xml);
     if (mutated !== null) {
       try {
@@ -805,15 +805,15 @@ function selfTest() {
   return failures;
 }
 
-/** 把 XML 里前两个 `<JsonObject>` 的内容互换，用来验证「括号配错」能被抓到。 */
+/** 把 XML 里前两个 `<ObjectLiteral>` 的内容互换，用来验证「括号配错」能被抓到。 */
 function mutateSwap(xml) {
   const spans = [];
-  const re = /<JsonObject>([\s\S]*?)<\/JsonObject>/g;
+  const re = /<ObjectLiteral>([\s\S]*?)<\/ObjectLiteral>/g;
   let m;
   while ((m = re.exec(xml)) !== null) spans.push({ start: m.index, end: re.lastIndex, inner: m[1] });
   if (spans.length < 2) return null;
   const [a, b] = spans;
-  return xml.slice(0, a.start) + `<JsonObject>${b.inner}</JsonObject>` + xml.slice(a.end, b.start) + `<JsonObject>${a.inner}</JsonObject>` + xml.slice(b.end);
+  return xml.slice(0, a.start) + `<ObjectLiteral>${b.inner}</ObjectLiteral>` + xml.slice(a.end, b.start) + `<ObjectLiteral>${a.inner}</ObjectLiteral>` + xml.slice(b.end);
 }
 
 function main() {

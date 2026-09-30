@@ -24,8 +24,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
-const { TextDocument } = require(path.join(root, "build", "ts", "dawn", "text", "text-document.js"));
-const { TextContext } = require(path.join(root, "build", "ts", "dawn", "text", "text-context.js"));
+const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
+const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
 
 const ESCAPES = { n: "\n", r: "\r", t: "\t", b: "\b", f: "\f", v: "\u000b", a: "\u0007", "0": "\0" };
 
@@ -168,7 +168,7 @@ function main() {
         kindName = "Number";
       } else if (node.kind === ts.SyntaxKind.RegularExpressionLiteral) {
         // 正则正文与标志存在 `RegexToken.Temp` / `.Flags` 上，**刻意不渲染进 XML**
-        // （见 `dawn/text/tokens/regex-token.xl.md`：产物里就是 `<RegexToken></RegexToken>`）。
+        // （见 `typescript/tokens/regex-token.xl.md`：产物里就是 `<RegexToken></RegexToken>`）。
         // 所以这里只断言「它成了一个 RegexToken」，正文由用例与执行层负责。
         candidates = hasRegexToken ? [node.getText(sf), ""] : [node.getText(sf)];
         kindName = "Regex";

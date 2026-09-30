@@ -11,7 +11,7 @@ import { Template } from "./templates/template.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-块 token：把连续的同类字符吞进 `Temp`，最后整块吐成一个 XML 文本节点。标识符、数字、符号都是它——`<Common>abc</Common>` 就是这么来的。
+块 token：把连续的同类字符吞进 `Temp`，最后整块吐成一个 XML 文本节点。标识符、数字、符号都是它——`<Identifier>abc</Identifier>` 就是这么来的。
 
 # class BlockToken extends Token
 

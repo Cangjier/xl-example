@@ -29,7 +29,7 @@
 规范正文里的代码块是 **ts**，不是 C++：它描述的是语义，不是目标语法。生成时必须保持
 语义（尤其 XML 产物、解析优先级、重组顺序），但写成地道的 C++17。
 
-- 目录镜像：`dawn/text/tokens/keyword.xl.md` → `dist/cpp/dawn/text/tokens/keyword.cpp`
+- 目录镜像：`typescript/tokens/keyword.xl.md` → `dist/cpp/typescript/tokens/keyword.cpp`
 - 命名空间：所有规范都声明 `# namespace cangjie`，产物统一包在 `namespace cangjie { … }`
 - 产物头由 `xl emit` 自动添加，不要自己写
 
@@ -75,7 +75,7 @@
 `# class` / `# interface` 一律用 `std::shared_ptr<T>` 持有，理由是它同时解决三件事：
 
 1. **可空**：`T | null` 就是空 `shared_ptr`；
-2. **多态**：`shared_ptr<Token>` 指向 `Common`、`Bracket` 等派生类，与 ts 的引用语义一致；
+2. **多态**：`shared_ptr<Token>` 指向 `Identifier`、`Bracket` 等派生类，与 ts 的引用语义一致；
 3. **共享**：同一个 `SourceRange` / `Sequence` 对象可能被多处引用，`shared_ptr` 保证它活着。
 
 因此：
@@ -351,7 +351,7 @@ namespace cangjie {
 class Token;
 class Source;
 class Bracket;
-class Symbol;
+class SymbolToken;
 class Template;
 }
 
@@ -386,7 +386,7 @@ inline std::shared_ptr<Token> Frame::Clone() {
 
 inline bool Frame::IsFrame(const std::shared_ptr<Source>& source) {
   auto bracket = std::dynamic_pointer_cast<Bracket>(this->Last());  // 完整类型，合法
-  return bracket != nullptr && bracket->StartBracketChar == source->Value();
+  return bracket != nullptr && bracket->startBracket == source->Value();
 }
 
 inline std::shared_ptr<Frame> Frame::Instance = std::make_shared<Frame>(nullptr);
@@ -405,9 +405,9 @@ inline std::shared_ptr<Frame> Frame::Instance = std::make_shared<Frame>(nullptr)
 - 访问另一个类的成员（`x->Field`）、调用另一个类的方法。
 - 按值使用其它规范类（`Sequence<Branch>` 这种按值模板实参也不行——写成
   `std::shared_ptr<Sequence<std::shared_ptr<Branch>>>`）。
-- 依赖**枚举成员**的默认值（如 `RuntimeScopeType Type = RuntimeScopeType::Common;`）：
+- 依赖**枚举成员**的默认值（如 `RuntimeScopeType Type = RuntimeScopeType::Identifier;`）：
   `enum class` 的前向声明里没有成员，所以这种初始化器必须搬到主体段
-  （声明段写 `RuntimeScopeType Type = RuntimeScopeType::Common;` 会失败 → 改成
+  （声明段写 `RuntimeScopeType Type = RuntimeScopeType::Identifier;` 会失败 → 改成
   `RuntimeScopeType Type;` 并在构造函数里赋值，构造函数本体在主体段）。
 
 **声明段里可以做**：
@@ -706,14 +706,14 @@ winlibs MinGW-w64 **GCC 16.2.0** + CMake 4.4.3，`-std=c++20`（文首「地道�
 
 ### 7.4 `# type` 的属性必须带真字段
 
-`StringGuide` 生成了成对的 `IsSupportInterpolation()` / `set_IsSupportInterpolation()`，却**没有对应字段**
-→ `'IsSupportInterpolation_' was not declared in this scope`。
+`StringGuide` 生成了成对的 `interpolation()` / `set_interpolation()`，却**没有对应字段**
+→ `'interpolation_' was not declared in this scope`。
 **规则：只要生成 `x()`/`set_x()` 内联访问器，就必须同时生成 `x_` 字段。** 源里是**计算属性**（带体 getter、
 没有后备字段）时，应输出**声明 + `.cpp` 定义**，不要内联读 `x_`。
 
 ### 7.5 字符索引语义：ts 的 `s[i]` 是字符串，C++ 是 `char`
 
-`Common.Is` / `Symbol.Is` 里 `Temp()[i] != value[i]`（`Temp` 是 `std::vector<std::string>`）落成了
+`Identifier.Is` / `SymbolToken.Is` 里 `Temp()[i] != value[i]`（`Temp` 是 `std::vector<std::string>`）落成了
 `std::string != char`（GCC 16 下没有匹配的 `operator!=`）。
 **规则：ts 里按 `s[i]` 取「单字符」再参与字符串比较/拼接的位置，一律落成 `s.substr(i, 1)`**
 （与 §1.7 的字符语义一致）。

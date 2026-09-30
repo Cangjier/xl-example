@@ -28,9 +28,9 @@ export const AREAS = ["declarations", "statements", "expressions", "types", "mod
 /** 允许出现在 xl:expect / xl:absent 里的标签（与 README.md 的表一致；写错标签会造出假缺口）。 */
 export const TAGS = new Set([
   "Root", "Statement", "Let", "Field",
-  "Symbol", "Common", "Keyword", "String", "ConstString", "InterpolationString",
+  "SymbolToken", "Identifier", "Keyword", "String", "ConstString", "InterpolationString",
   "VerbatimQuoteGuide", "InterpolationGuide", "InterpolationExitGuide", "RawQuoteExitGuide", "RegexToken",
-  "LineAnnotation", "AreaAnnotation", "PreprocessorDirectives", "Bracket", "WrapSymbol",
+  "LineAnnotation", "AreaAnnotation", "PreprocessorDirectives", "Bracket", "LineWrap",
   "GenericType", "Method", "Signature", "TypeDefine", "TypeAssign", "As", "LogicalOperator", "NullConditionalOperator", "NotNull",
   "BinaryOperator", "UnaryOperator", "Spread",
   "TernaryOperator", "TernaryOperatorCondition", "TernaryOperatorTrueStatement", "TernaryOperatorFalseStatement",
@@ -44,7 +44,7 @@ export const TAGS = new Set([
   "For", "ForInitial", "ForCompare", "ForNext", "ForBody",
   "Foreach", "ForeachDefine", "ForeachEnumable", "ForeachBody",
   "While", "WhileCompare", "WhileBody", "DoWhile",
-  "JsonObject", "JsonArray",
+  "ObjectLiteral", "ArrayLiteral",
 ]);
 
 export const CASES_DIR = path.join(here, "cases");

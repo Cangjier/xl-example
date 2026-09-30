@@ -1,6 +1,6 @@
 # TypeScript 解析一致性验收集
 
-目的：把「`Dawn/Text` 离完整解析 TypeScript 还差什么」变成可回归的事实。
+目的：把「`typescript/tokens` 离完整解析 TypeScript 还差什么」变成可回归的事实。
 
 ```
 tests/parse/
@@ -34,7 +34,7 @@ tests/parse/
 （一个节点套错父亲，计数不变）；`lossless` 与嵌套无关。于是补这一把：
 
 > 源码文本里每个配对成功的括号（`(…)` / `[…]` / `{…}`）都是一个区间。
-> 产物里「一个单元 = 一对括号」的标签（`Bracket` / `JsonObject` / `*Body`…）也各有一个区间。
+> 产物里「一个单元 = 一对括号」的标签（`Bracket` / `ObjectLiteral` / `*Body`…）也各有一个区间。
 > **不变量：两对括号在源码里是包含关系 ⇔ 它们在产物树里是祖先关系。**
 
 它不需要标签映射——只要求两边对**同一对括号**给出同一个区间；认领不到括号的标签不参与，不会误报。
@@ -91,9 +91,9 @@ interface I {
 
 ```
 Root Statement BlockToken Let Field
-Symbol Common Keyword String ConstString InterpolationString
+SymbolToken Identifier Keyword String ConstString InterpolationString
 VerbatimQuoteGuide InterpolationGuide InterpolationExitGuide RawQuoteExitGuide RegexToken
-LineAnnotation AreaAnnotation PreprocessorDirectives Bracket WrapSymbol
+LineAnnotation AreaAnnotation PreprocessorDirectives Bracket LineWrap
 GenericType Method Signature TypeDefine TypeAssign As LogicalOperator NullConditionalOperator
 TernaryOperator TernaryOperatorCondition TernaryOperatorTrueStatement TernaryOperatorFalseStatement
 Lamda LamdaParameters LamdaParameter LamdaBody
@@ -106,7 +106,7 @@ Try TryBody CatchDefine CatchBody FinallyBody
 For ForInitial ForCompare ForNext ForBody
 Foreach ForeachDefine ForeachEnumable ForeachBody
 While WhileCompare WhileBody DoWhile
-JsonObject JsonArray
+ObjectLiteral ArrayLiteral
 ```
 
 ## 跑
@@ -134,8 +134,8 @@ node tests/parse/lossless.mjs real     # 只跑真实语料
   `xl:expect Statement:2`（两条指令注释各占一个）而不是 `xl:absent Statement`。
 - **计数断言要按当前产物校准**，但期望值写的仍是「TypeScript 解析正确时本该有的结构」：
   两个数字决定的是**能不能区分对错**，不是「现状是什么」。
-  例如 `const a = .5;` 里 `Symbol` 只有 `=`（`;` 本来就不进产物），
-  被拆坏时 `.` 会多出一个 `Symbol`——于是 `Symbol:1` 正好钉住它。
+  例如 `const a = .5;` 里 `SymbolToken` 只有 `=`（`;` 本来就不进产物），
+  被拆坏时 `.` 会多出一个 `SymbolToken`——于是 `SymbolToken:1` 正好钉住它。
 - **拿不准就往 `matrix.mjs` / `lossless.mjs` 上加料**，别硬写成例：
   那两把尺子不需要维护期望值，回归时自己会红。
 

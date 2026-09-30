@@ -23,8 +23,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
-const { TextDocument } = require(path.join(root, "build", "ts", "dawn", "text", "text-document.js"));
-const { TextContext } = require(path.join(root, "build", "ts", "dawn", "text", "text-context.js"));
+const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
+const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
 
 /**
  * 构造组：一组 TS 构造 → 产物里的一个标签。
@@ -125,8 +125,8 @@ export const GROUPS = [
   },
   { id: "new", label: "new 表达式 (NewExpression → New)", kinds: [["NewExpression", ts.isNewExpression]], tag: "New" },
   { id: "arrow", label: "箭头函数 (ArrowFunction → Lamda)", kinds: [["ArrowFunction", ts.isArrowFunction]], tag: "Lamda" },
-  { id: "array", label: "数组字面量 (ArrayLiteralExpression → JsonArray)", kinds: [["ArrayLiteralExpression", ts.isArrayLiteralExpression]], tag: "JsonArray" },
-  { id: "object", label: "对象字面量 (ObjectLiteralExpression → JsonObject)", kinds: [["ObjectLiteralExpression", ts.isObjectLiteralExpression]], tag: "JsonObject" },
+  { id: "array", label: "数组字面量 (ArrayLiteralExpression → ArrayLiteral)", kinds: [["ArrayLiteralExpression", ts.isArrayLiteralExpression]], tag: "ArrayLiteral" },
+  { id: "object", label: "对象字面量 (ObjectLiteralExpression → ObjectLiteral)", kinds: [["ObjectLiteralExpression", ts.isObjectLiteralExpression]], tag: "ObjectLiteral" },
   { id: "regex", label: "正则 (RegularExpressionLiteral → RegexToken)", kinds: [["RegularExpressionLiteral", ts.isRegularExpressionLiteral]], tag: "RegexToken" },
   { id: "label", label: "标签语句 (LabeledStatement → Label)", kinds: [["LabeledStatement", ts.isLabeledStatement]], tag: "Label" },
 ];
@@ -143,8 +143,8 @@ export const EXCLUDED = [
   ["Parameter@catch 绑定", "catch 的绑定对应 CatchDefine"],
   ["LabeledStatement@ASI 后的对象字面量", "`return` 换行后 `{ a: 1 }`：TS 把 `a:` 记成标签，本工程按对象字面量收（口径不同）"],
   ["BinaryExpression@`,`（条件位）", "`if (a, b)` 的 `(` 已被 `IfCondition` 吸收，逗号规则看不到那个括号（保守取舍）"],
-  ["ObjectLiteralExpression/ArrayLiteralExpression@解构默认值", "`{ a = {} }` / `[x = []]` 的默认值不产出 Json 节点（解构形状收进 `Let` 的 unpack*FieldNames，补回来只会让「真多」更大；名字本身**递归收集**，见 let.xl.md 的 CollectFieldNames）"],
-  ["MethodSignature/MethodDeclaration@成员位的 `abstract new`", "`interface I { abstract new (): A }`：TS 读成「名叫 `new` 的方法」，本工程读成抽象构造签名（`<Signature Kind=\"construct\">`）。类型位两边一致，只有成员位口径不同"],
+  ["ObjectLiteralExpression/ArrayLiteralExpression@解构默认值", "`{ a = {} }` / `[x = []]` 的默认值不产出 ObjectLiteral / ArrayLiteral 节点（解构形状收进 `Let` 的 `arrayPattern` / `objectPattern`，补回来只会让「真多」更大；名字本身**递归收集**，见 let.xl.md 的 CollectFieldNames）"],
+  ["MethodSignature/MethodDeclaration@成员位的 `abstract new`", "`interface I { abstract new (): A }`：TS 读成「名叫 `new` 的方法」，本工程读成抽象构造签名（`<Signature kind=\"construct\">`）。类型位两边一致，只有成员位口径不同"],
 ];
 
 function countTag(xml, tag) {
@@ -155,7 +155,7 @@ function countTag(xml, tag) {
  * 产物侧的计数：`<New>` 里的 `<Signature>` 也要算上。
  *
  * 构造签名 `new (value?: any): Object` 的产物形状是
- * `<Signature Kind="construct"><New><NewType>…</NewType><NewArguments/></New></Signature>`——
+ * `<Signature kind="construct"><New><NewType>…</NewType><NewArguments/></New></Signature>`——
  * `Signature` 被 `New` 包了一层。原来只数 `Signature` 标签本身，于是这类成员被报成「缺」，
  * 而它其实有节点（`lib.es5.d.ts` 的 `Function.apply` 那几条就是这么被误报的）。
  */
@@ -170,7 +170,7 @@ function countTagDeep(xml, tag) {
  * 新加一条**映射类型的成员**：`{ [K in keyof T]: V }` 在 TS 的 AST 里是 `MappedTypeNode`，
  * 里面的 `K` 是**类型参数**而不是 `PropertySignature`。仪表如果按 `PropertySignature` 去数产物里的
  * `Field`，就会把 `[K in keyof T]?: V` 当成一个「没产出节点的成员」——
- * 而产物那边是正确的：它就是一个 `<Field FieldName="K">`。
+ * 而产物那边是正确的：它就是一个 `<Field name="K">`。
  * 这条属于**仪表口径**问题（见 `docs/typescript-parsing-gaps.md` 的坑地图），不要改解析器。
  */
 function countable(kind, node, parents) {
@@ -195,15 +195,15 @@ function countable(kind, node, parents) {
     // **未终止的正则**：`const re = /abc` （没有收尾 `/`）时 TS 自己也是错误恢复
     // （它把正则吃到行尾、报 Unterminated regular expression literal）。
     // 本工程**有意**不把这种形状认成正则——那正是 `</div>` 吞掉文件余下代码的根因
-    // （见 `dawn/text/tokens/regex-token.xl.md` 的说明）。两边的恢复策略不同，按口径排除。
+    // （见 `typescript/tokens/regex-token.xl.md` 的说明）。两边的恢复策略不同，按口径排除。
     const text = node.getText();
     if (!/\/[^/\n]*\/[a-z]*$/i.test(text)) return false;
   }
   if (kind === "ObjectLiteralExpression" || kind === "ArrayLiteralExpression") {
     // **解构模式里的默认值**：`let { a = {} } = obj` / `let [x = []] = arr` 里那个
     // `{}` / `[]` 在 TS 的 AST 里是 BindingElement 的 initializer（对象/数组字面量），
-    // 而本工程把解构形状收进 `Let` 的 `unpackObjectFieldNames` 属性、**有意丢弃默认值**。
-    // 补回来只会让「真多」更大（JsonObject 真多 17、JsonArray 真多 578），所以按口径排除。
+    // 而本工程把解构形状收进 `Let` 的 `objectPattern` 属性、**有意丢弃默认值**。
+    // 补回来只会让「真多」更大（ObjectLiteral 真多 17、ArrayLiteral 真多 582），所以按口径排除。
     let p = parents.get(node);
     while (p) {
       if (ts.isBindingElement(p)) return false;
@@ -244,7 +244,7 @@ function countable(kind, node, parents) {
   if (kind === "MethodSignature" || kind === "MethodDeclaration") {
     // **成员位上的 `abstract new (): A`**：TypeScript 把它读成「名字叫 `new` 的方法」
     // （`modifiers=[abstract]` + `Identifier «new»`），本工程读成**抽象构造签名**
-    // （`<Signature Kind="construct">`，`abstract` 是签名的第一个子单元）。
+    // （`<Signature kind="construct">`，`abstract` 是签名的第一个子单元）。
     // 类型位两边一致（TS 那边是带 `abstract` 的 ConstructorType），只有成员位这一处口径不同。
     // 本工程这一侧的读法更贴语义：`abstract new (…)` 是抽象构造签名，不是名叫 `new` 的方法。
     const name = node.name;

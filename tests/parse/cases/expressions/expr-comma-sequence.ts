@@ -5,7 +5,7 @@
 // （宁可少折一个，也不能把参数表折成序列表达式）
 // `for (…; …; i++, j--)` 的更新子句与语句层的 `a, b;` 都要折；
 // 但枚举体的 `,` 是成员分隔符，不能折
-// xl:expect BinaryOperator:3,JsonArray,JsonObject,Method:2,Enum
+// xl:expect BinaryOperator:3,ArrayLiteral,ObjectLiteral,Method:2,Enum
 const r = (a, b);
 if (a, b) {
 }

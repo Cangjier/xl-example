@@ -6,7 +6,7 @@ import { SourceRange } from "./source-range.xl.md"
 
 # namespace cangjie
 
-文档：按「下标 → 值」抽象出来的字符来源。语法层不关心底层是字符串、文件还是别的什么，只通过 `Document` 取长度、取值、取行号。`Dawn/Text` 里的 `TextDocument` 是它唯一的实现。
+文档：按「下标 → 值」抽象出来的字符来源。语法层不关心底层是字符串、文件还是别的什么，只通过 `Document` 取长度、取值、取行号。`typescript/tokens` 里的 `TextDocument` 是它唯一的实现。
 
 # type ValueGetter = (index:number)=>string
 

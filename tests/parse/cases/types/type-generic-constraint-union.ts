@@ -1,6 +1,6 @@
 // xl:note 泛型约束里「嵌套泛型 + 联合/交叉」：`T extends Array<X> | Y`
 //（`ScanArguments` 的字母表认 `|`，但后继闸 IsAllowedFollower 的类型位白名单里没有它——
-//  于是那次试读被判否、整个 <…> 退回 Symbol，整条声明跟着塌掉。
+//  于是那次试读被判否、整个 <…> 退回 SymbolToken，整条声明跟着塌掉。
 //  实测 typescript.d.ts 的 `visitNodes<TIn extends Node, TInArray extends NodeArray<TIn> | undefined, TOut extends Node>`
 //  两个重载一个都产不出）
 // xl:expect Function:6,GenericType:12

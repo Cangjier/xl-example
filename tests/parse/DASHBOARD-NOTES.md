@@ -18,8 +18,8 @@
 | `<` / `>` | 与泛型实参同形，`GenericTypeBranch` 在词法阶段就要靠它们配对 |
 | 映射类型的成员 `{ [K in keyof T]: V }` | 在 TS 里是 `MappedTypeNode`，`K` 是**类型参数**而不是 `PropertySignature`；产物那边是正确的（一个 `Field`） |
 | catch 子句的绑定 | 对应 `CatchDefine`，不是 `Let` |
-| 构造签名被 `<New>` 包住 | 按**后代**计数，不是只看直系（`Signature Kind="construct"` 里有 `<New>`） |
-| 成员位的 `abstract new (): A` | TypeScript 把它读成「名字叫 `new` 的方法」（`MethodSignature modifiers=[abstract]`），本工程读成**抽象构造签名**（`<Signature Kind="construct">` 里带 `abstract`）。类型位两边一致（TS 那边是带 `abstract` 的 `ConstructorType`），只有成员位这一处口径不同 |
+| 构造签名被 `<New>` 包住 | 按**后代**计数，不是只看直系（`Signature kind="construct"` 里有 `<New>`） |
+| 成员位的 `abstract new (): A` | TypeScript 把它读成「名字叫 `new` 的方法」（`MethodSignature modifiers=[abstract]`），本工程读成**抽象构造签名**（`<Signature kind="construct">` 里带 `abstract`）。类型位两边一致（TS 那边是带 `abstract` 的 `ConstructorType`），只有成员位这一处口径不同 |
 
 ## 二、真缺里混着的「口径差」——不是解析器的问题
 
@@ -39,10 +39,10 @@
 
 ## 三、负向差额（真多）大多是**故意的**
 
-`<JsonArray>` / `<Lamda>` / `<New>` 的「真多」动辄上千，原因是**同一批语法在两侧的归类口径不同**：
+`<ArrayLiteral>` / `<Lamda>` / `<New>` 的「真多」动辄上千，原因是**同一批语法在两侧的归类口径不同**：
 
 - `a[0]` 的下标括号在 TS 里是 `ElementAccessExpression`，本工程里那个 `[` 是一个 `Bracket`
-  （或 `JsonArray`）——仪表按 `ArrayLiteralExpression` 计 TS 侧，于是产物侧"多"；
+  （或 `ArrayLiteral`）——仪表按 `ArrayLiteralExpression` 计 TS 侧，于是产物侧"多"；
 - 类型位的函数类型 / 元组也一样：TS 有 `FunctionTypeNode` / `TupleTypeNode`，本工程把括号原样收着。
 
 所以**判断进展只看「真缺」**；「真多」只在同一组的两个方向同时异常时才值得看

@@ -58,7 +58,7 @@ import { Sequence } from "./sequence.xl.md"
 
 **但两种用法不能靠「第二参是否为 `null`」区分**：显式传 `null` 表示「**不要默认队列**」；不传第二参时直接用默认序列，给了解析器则用解析器的返回值。
 `String` 的构造器正是这么用的（第二参传 `null` → `ProcessQueue` 为 `null`，字符串内容才会走自己的 `Default` 去建 `ConstString`）。
-若把显式 `null` 当成单参用法，`String` 会拿到通用队列，`Common` 就会在字符串内部开花。
+若把显式 `null` 当成单参用法，`String` 会拿到通用队列，`Identifier` 就会在字符串内部开花。
 
 因此这里用 `arguments.length` 区分「一个实参」与「两个实参」：一个实参走默认值，两个实参且显式传 `null` 就得 `null`。
 

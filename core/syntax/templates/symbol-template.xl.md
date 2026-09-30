@@ -2,7 +2,7 @@
 
 模板层：每个单元（token）的跳转与重组规则都从 `Template` 上取。
 
-符号模板是整套解析器里**最基础的一张表**：它决定一个字符算不算「符号」、算不算「空白」、算不算「数字」。`Common` token 就是靠 `IsSymbol` / `IsWhiteSpace` 决定要不要把字符吞进自己肚子里的。
+符号模板是整套解析器里**最基础的一张表**：它决定一个字符算不算「符号」、算不算「空白」、算不算「数字」。`Identifier` token 就是靠 `IsSymbol` / `IsWhiteSpace` 决定要不要把字符吞进自己肚子里的。
 
 这里的字符都是 `string`（单字符）：xl 的中立类型表里没有字符类型，单字符统一以 `string` 表示。
 
@@ -32,11 +32,11 @@
 
 **TypeScript 的复合赋值一共 15 个，一次列齐**，且必须与 `IsCombinedSymbol` 的那张 switch 同步：
 两边不同步时词法会把 `&=` 断成 `&` 与 `=`，`CompoundAssignmentOperatorReorganization.Process`
-于是从错误的起点克隆左值（实测产物 `Common(a) Symbol(=) Common(a) Symbol(&) Common(b)`，
+于是从错误的起点克隆左值（实测产物 `Identifier(a) SymbolToken(=) Identifier(a) SymbolToken(&) Identifier(b)`，
 `&` 掉到了 `=` 右边）。
 
 早期补全它们会让 `run.mjs` OOM——根因是 `Process` 插回的运算符副本又被同一条规则处理的自反馈；
-现在 `Symbol.FromCompoundAssignment` 标记把那份副本排除掉了，可以安全补全。
+现在 `SymbolToken.FromCompoundAssignment` 标记把那份副本排除掉了，可以安全补全。
 
 **注意**：光补这张表还不够，`Process` 的切分也必须按 `Temp.length` 走
 （原来写死 `splice(0, 1)` / `splice(1, 1)`，只对两字符运算符成立：`<<=` 会被切成 `<` 与 `<=`、
@@ -84,8 +84,8 @@ return this;
 
 **下划线 `_` 与美元号 `$` 都不在表里**：它们都是**标识符字符**
 （`A_b`、`_Blob`、`MIN_EXT`、`$x`、`a$b`、`I$X` 都是一个词）。
-原来把它们当符号，`Common` 的 `IsAppend` 就会在那里断开，
-于是任何一个带下划线的标识符都被拆成 `Common(A)` `Symbol(_)` `Common(b)` 三段——
+原来把它们当符号，`Identifier` 的 `IsAppend` 就会在那里断开，
+于是任何一个带下划线的标识符都被拆成 `Identifier(A)` `SymbolToken(_)` `Identifier(b)` 三段——
 `interface ANGLE_instanced_arrays { … }` 的接口规则要求「名字之后紧跟 `{`」，三段里第二段是符号，
 整条接口声明于是不成形（实测 `lib.dom.d.ts` 里 1540 个接口有 38 个直接消失、6496 个接口属性少了 1342 个）。
 
@@ -141,14 +141,14 @@ switch (item) {
 判定顺序是禁用表 → 允许表 → 内置表。
 
 **移位、幂必须在这张表里**（实测补的）：词法阶段靠 `IsCombinedSymbol(已有文本 + 当前字符)`
-决定要不要把下一个字符吞进同一个 `Symbol`（见 `dawn/text/tokens/symbol.xl.md` 的 `IsAppend`）。
+决定要不要把下一个字符吞进同一个 `SymbolToken`（见 `typescript/tokens/symbol-token.xl.md` 的 `IsAppend`）。
 `<<` / `>>` / `>>>` / `**` 不在表里时它们会被拆成**两个 / 三个单字符符号**，
 而 `BinaryOperatorReorganization` 的 `IsOperator` 比的是**一个**单元的文本——
 于是 `PowerInstance`（`**`）与 `ShiftInstance`（`<< >> >>>`）这两条实例**永远命不中**，
-是死规则：`a << b` 的产物是 `<Common>a</Common><Symbol>&lt;</Symbol><Symbol>&lt;</Symbol><Common>b</Common>`。
+是死规则：`a << b` 的产物是 `<Identifier>a</Identifier><SymbolToken>&lt;</SymbolToken><SymbolToken>&lt;</SymbolToken><Identifier>b</Identifier>`。
 
 **复合赋值的 15 个也在这张表里**（与 `CompoundAssignmentSymbols` 字段同步）：
-不在表里时 `a &= b` 会被断成 `Common(a)` `Symbol(&)` `Symbol(=)` `Common(b)`，
+不在表里时 `a &= b` 会被断成 `Identifier(a)` `SymbolToken(&)` `SymbolToken(=)` `Identifier(b)`，
 `CompoundAssignmentOperatorReorganization.Process` 从错误的起点克隆左值，
 产物里 `&` 掉到 `=` 右边；`a ??= b` 更会断成 `?=` 与 `?=`。
 
@@ -269,7 +269,7 @@ return Value >= "0" && Value <= "9";
 
 BOM 那一项是必须的：带 BOM 的文件里 `\ufeff` 是**第一个**字符，
 不算空白的话它会被 `CommonBranch` 吞进紧随其后的标识符里——
-`\ufeffconst a = 1` 于是成了 `<Common>\ufeffconst</Common>`，
+`\ufeffconst a = 1` 于是成了 `<Identifier>\ufeffconst</Identifier>`，
 关键字再也对不上，整条 `const` 声明不成形（`lex-bom` 那条用例，真实文件里也很常见）。
 
 ```ts

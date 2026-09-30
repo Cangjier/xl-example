@@ -1,6 +1,6 @@
 # TypeScript 解析缺口核查报告
 
-对当前提交 `b78fa3a` 的 `Dawn/Text` 做了一次缺口核查，回答一个问题：**离「完整解析 TypeScript」还差什么。**
+对当前提交 `b78fa3a` 的 `typescript/tokens` 做了一次缺口核查，回答一个问题：**离「完整解析 TypeScript」还差什么。**
 
 核查时的仓库状态：`xl check` 123 文件 / 0 error / 0 warning，`npm run samples` 3/3 通过，`git status` 干净。
 下面每一条都有最小复现与观测到的产物，不是推测。
@@ -23,7 +23,7 @@
 - **L2 结构丢失**：能跑完，但节点缺失或错位——这是主战场；
 - **L3 无校验 / 边界敏感**：非法输入被接受；缺一个文件尾换行就会改变产出。
 
-顺带一提，`dawn/text/tokens/interface/interface.xl.md:286` 自己就写着
+顺带一提，`typescript/tokens/interface/interface.xl.md:286` 自己就写着
 「字段明明已经读出来了却不渲染，**对「解析完整的 TypeScript」是个漏洞**」——
 说明这个目标本来就是工程内的既定标准，本报告只是把它量化。
 
@@ -38,8 +38,8 @@
 | `new C<T>`（无实参表） | `const a = new Map<string, number>` | `SyntaxException`，且 **`Message` 是 `null`** | `new` 规则要求类型实参后必须跟括号 |
 
 真实影响：`dist/ts` 里 3 个文件正是因 `\x` / `\u` 而整体解析失败——
-`core/common-util.ts`、`dawn/text/tokens/string/const-string.ts`、
-`dawn/text/tokens/string/translate.ts`（后者是**它自己生成的产物**）。
+`core/common-util.ts`、`typescript/tokens/string/const-string.ts`、
+`typescript/tokens/string/translate.ts`（后者是**它自己生成的产物**）。
 也就是说 `README.md:133` 那句「200 个真实 `.d.ts` 全部解析成功、零异常」是对的，
 但它只覆盖 `.d.ts`：真实的 `.ts` 里写 `"\x41"` 就炸。
 
@@ -50,14 +50,14 @@
 ```ts
 declare namespace N { interface I { a: number } }
 ```
-产物里只有 `<Keyword>declare</Keyword><Keyword>namespace</Keyword><Common>N</Common><Bracket>…`，
-**没有 `<Interface>`，也没有 `<Class>` / `<Function>` / `<Let>`**——体内所有子单元都停在 `Common` / `Symbol`。
+产物里只有 `<Keyword>declare</Keyword><Keyword>namespace</Keyword><Identifier>N</Identifier><Bracket>…`，
+**没有 `<Interface>`，也没有 `<Class>` / `<Function>` / `<Let>`**——体内所有子单元都停在 `Identifier` / `SymbolToken`。
 
-- 根因有明确自述：`dawn/text/tokens/bracket.xl.md:52` ——
+- 根因有明确自述：`typescript/tokens/bracket.xl.md:52` ——
   「`Use("{")` **不设** `ReorganizationQueue`，而 `Use("(")` / `Use("[")` 会设……
   `{}` 里的子单元不跑重组」。类体 / 函数体 / 接口体之所以能成形，是因为它们各自 `CreateBody()`
   时挂了语句队列（`interface.xl.md:312-313`）；`namespace` 没有这样一段，于是体就是裸括号。
-- **不一致点**：`declare module "a" { … }` 的体是 `JsonObject`，反而**会**解析。
+- **不一致点**：`declare module "a" { … }` 的体是 `ObjectLiteral`，反而**会**解析。
   同样是「模块体」，字符串名会、标识符名不会。
 
 用 TypeScript parser 逐条分类后，真实语料的丢失量可以精确归因：
@@ -77,14 +77,14 @@ declare namespace N { interface I { a: number } }
 ### 2.2 `interface … extends X<…>` 让整条 Interface 节点消失
 
 ```ts
-interface I extends A<T> {}     // 无 <Interface>，整条退化成 Statement + Common/Symbol
+interface I extends A<T> {}     // 无 <Interface>，整条退化成 Statement + Identifier/SymbolToken
 interface I extends A {}        // 正常
 interface I extends A, B {}     // 正常
 interface I<T> extends A {}     // 正常
 ```
-根因：`tokens/interface/interface.xl.md:119-143`，`extends` 名单的解析只接受 `Common`——
+根因：`tokens/interface/interface.xl.md:119-143`，`extends` 名单的解析只接受 `Identifier`——
 第一个名字之后若跟着 `GenericType`（`A<T>`），`Get(units, nextIndex)` 拿到的不是 `Bracket`，直接 `return -1`。
-把 `extends` 名单的每一项改成「`Common` 可选跟 `GenericType`」即可。
+把 `extends` 名单的每一项改成「`Identifier` 可选跟 `GenericType`」即可。
 
 这一条与 README 的表述有出入：`README.md:83` 声称支持
 `interface I<T = {}> extends A, B { … }`，那种写法只是**恰好**每个父接口都没带类型实参。
@@ -92,9 +92,9 @@ interface I<T> extends A {}     // 正常
 ### 2.3 生成器：`function*` 断成两截
 
 ```ts
-function* g() {}          // → <Statement><Keyword>function</Keyword><Symbol>*</Symbol><MethodDeclaration …>
+function* g() {}          // → <Statement><Keyword>function</Keyword><SymbolToken>*</SymbolToken><MethodDeclaration …>
 const g = function* () {} // 连 MethodDeclaration 都没有
-class A { *m() {} }       // → Statement + Symbol * + MethodDeclaration（Modifiers 也丢了）
+class A { *m() {} }       // → Statement + SymbolToken * + MethodDeclaration（modifiers 也丢了）
 async function* g() {}    // 同样
 ```
 `function` 与其后名字之间夹了一个 `*`，`FunctionReorganization` 就不再认这条声明。
@@ -103,13 +103,13 @@ async function* g() {}    // 同样
 ### 2.4 `class … extends` 后跟表达式 → Class 节点丢失
 
 ```ts
-class A extends mixin(B) {}   // → <Keyword>class</Keyword><Common>A</Common>… <MethodDeclaration MethodName="mixin">
-class A extends (B) {}        // → MethodDeclaration MethodName="extends"
+class A extends mixin(B) {}   // → <Keyword>class</Keyword><Identifier>A</Identifier>… <MethodDeclaration name="mixin">
+class A extends (B) {}        // → MethodDeclaration name="extends"
 class A extends B.C {}        // 正常
 class A extends B<T> {}       // 正常
 ```
 `cls-extends-expression` 这种 mixin 写法在真实代码里很常见。原因是 Class 规则只接受
-「`extends` + Common（可带泛型实参）」，遇到调用形状的括号就把 `mixin(B)` 认成了方法声明。
+「`extends` + Identifier（可带泛型实参）」，遇到调用形状的括号就把 `mixin(B)` 认成了方法声明。
 
 ### 2.5 `for await` → 没有 Foreach
 
@@ -122,11 +122,11 @@ async function f() { for await (const v of xs) {} }
 ### 2.6 类型别名没有节点，类型字面量与对象字面量同形
 
 ```ts
-type A = number        // → <TypeAssign><Common>type</Common><Common>A</Common><Symbol>=</Symbol>…
-type B = { a: number } // → JsonObject，叶子是 Common/Symbol
-const o = { a: 1 }     // → JsonObject，形状完全一样
+type A = number        // → <TypeAssign><Identifier>type</Identifier><Identifier>A</Identifier><SymbolToken>=</SymbolToken>…
+type B = { a: number } // → ObjectLiteral，叶子是 Identifier/SymbolToken
+const o = { a: 1 }     // → ObjectLiteral，形状完全一样
 ```
-- 没有 `TypeAlias` 节点，`type` 只是 `TypeAssign` 里的一个 `Common`；连续两条 `type` 还会被
+- 没有 `TypeAlias` 节点，`type` 只是 `TypeAssign` 里的一个 `Identifier`；连续两条 `type` 还会被
   软换行串进**同一个** `TypeAssign`（`results-nl` 中 `ty-primitive` 两条合并）。
 - 类型字面量与对象字面量不可区分——这正是 README「已知缺口」第 1 条，确认存在，但比它写的更宽：
   不是「成员没有节点」，而是**整个类型别名没有专属节点**。
@@ -136,9 +136,9 @@ const o = { a: 1 }     // → JsonObject，形状完全一样
 | 写法 | 产物 | 问题 |
 | --- | --- | --- |
 | `class A { "m"() {} }` | Statement + String + 两个 Bracket | string 方法名不成成员 |
-| `class A { [k]() {} }` | Statement + JsonArray + Bracket | 计算属性名不成成员 |
-| `class A { [k: string]: number }` | Statement + JsonArray + TypeDefine | index signature 不成成员 |
-| `class A { x!: number }` | Statement + Common `x` + TypeDefine | **definite 断言 `!` 让 Field 消失**（`x?: number` 正常） |
+| `class A { [k]() {} }` | Statement + ArrayLiteral + Bracket | 计算属性名不成成员 |
+| `class A { [k: string]: number }` | Statement + ArrayLiteral + TypeDefine | index signature 不成成员 |
+| `class A { x!: number }` | Statement + Identifier `x` + TypeDefine | **definite 断言 `!` 让 Field 消失**（`x?: number` 正常） |
 | `abstract class A { abstract f(): void }` | Statement + Keyword `abstract` + Method + TypeDefine | 与 README 缺口第 2 条一致 |
 | `class A { static { … } }` | Statement + Keyword `static` + Bracket | static 块无节点，README 已记 |
 | `interface I { m?(): void }` | **`<TernaryOperator>`** | 可选方法签名被认成三元表达式，最意外的错位 |
@@ -149,7 +149,7 @@ const o = { a: 1 }     // → JsonObject，形状完全一样
 ### 2.8 表达式层没有文法 —— 「完整解析」最本质的缺口
 
 `a + b * c`、`f(g(x))`、`o.a.b`、`x = y` 这些**没有任何节点**，产物就是一条平铺的
-`Common` / `Symbol` 序列；对象字面量 / 数组字面量是 `JsonObject` / `JsonArray`，
+`Identifier` / `SymbolToken` 序列；对象字面量 / 数组字面量是 `ObjectLiteral` / `ArrayLiteral`，
 成员与元素同样只有平铺叶子。有结构的只有被**枚举出来的那几类**：三元、Lamda、New、Method 调用、
 GenericType、NotNull（且 `!` 被刻意删掉，见 `tokens/not-null.xl.md:17`）、NullConditionalOperator。
 
@@ -166,9 +166,9 @@ export { a as b } from "x"
 export {}
 export type { A } from "x"
 ```
-以上全部退化成 `Keyword export` + `Symbol` / `Bracket` / `As` 的组合，没有 `Export` 节点
+以上全部退化成 `Keyword export` + `SymbolToken` / `Bracket` / `As` 的组合，没有 `Export` 节点
 （`Import` 有节点，`Export` 没有）。声明上的 `export` 只能通过 `Class` / `Interface` 的
-`Modifiers` / `IsExport` 间接看到。真实语料 12 个 `export =`、20 个 `export type`。
+`modifiers` / `export` 间接看到。真实语料 12 个 `export =`、20 个 `export type`。
 
 ### 2.10 import 只有路径，没有结构；且缺尾换行时会重复出节点
 
@@ -176,7 +176,7 @@ export type { A } from "x"
 - **重复节点**：`import a from "x"`（文件以它结尾且**没有换行**）→
   `<Import>…</Import><Statement>…</Statement>`，同一段内容出现两次。
   根因在 `tokens/import.xl.md:59-70`：`endIndex` 初值是 `index`，只有循环里遇到
-  `;` 或 `WrapSymbol` 才会更新；到文件尾都没遇到时，第 98 行的
+  `;` 或 `LineWrap` 才会更新；到文件尾都没遇到时，第 98 行的
   `ReplaceCountAt(units, index, endIndex - index + 1, result)` 只替换了 `import` 这一个词，
   其余单元既留在父级、又成了 `Import` 的子单元。
   带尾换行时不会重复（`Root.Data.length = 1`）。
@@ -193,13 +193,13 @@ export type { A } from "x"
 
 | 写法 | 产物 |
 | --- | --- |
-| `a %= 1` | `<Symbol>%</Symbol><Symbol>=</Symbol>` |
-| `a **= 1` | `<Symbol>*</Symbol><Symbol>=</Symbol>` + 多余左值 |
-| `a <<= 1` | `<Symbol>&lt;</Symbol><Symbol>&lt;=</Symbol>` |
-| `a >>= 1` / `a >>>= 1` | `<Symbol>&gt;</Symbol><Symbol>&gt;=</Symbol>` / `>`,`>`,`>=` |
+| `a %= 1` | `<SymbolToken>%</SymbolToken><SymbolToken>=</SymbolToken>` |
+| `a **= 1` | `<SymbolToken>*</SymbolToken><SymbolToken>=</SymbolToken>` + 多余左值 |
+| `a <<= 1` | `<SymbolToken>&lt;</SymbolToken><SymbolToken>&lt;=</SymbolToken>` |
+| `a >>= 1` / `a >>>= 1` | `<SymbolToken>&gt;</SymbolToken><SymbolToken>&gt;=</SymbolToken>` / `>`,`>`,`>=` |
 | `a &= 1` / `a \|= 1` / `a ^= 1` | 拆散 |
 | `a &&= 1` / `a \|\|= 1` | 嵌套 `LogicalOperator` |
-| `a ??= 1` | `<Symbol>??</Symbol><Symbol>=</Symbol>` |
+| `a ??= 1` | `<SymbolToken>??</SymbolToken><SymbolToken>=</SymbolToken>` |
 
 注：`a += 1` → `a` `=` `a` `+` `1` 是**刻意**的（`compound-assignment-operator.xl.md:15-24`，
 为了给执行层留一份可单独取出的运算符符号），不算缺陷。
@@ -208,50 +208,50 @@ export type { A } from "x"
 
 | 写法 | 产物 | 说明 |
 | --- | --- | --- |
-| `'x'` | `<Symbol>\'</Symbol><Common>x</Common><Symbol>\'</Symbol>` | **单引号字符串根本不成为字符串**（本项目只实现 `"` / `@"` / `$"` / `"""`）。真实语料 125 个文件含 `'` |
-| `import x from './a'` | `Import` + `Symbol` `.` + **`RegexToken`** | 单引号里的 `/` 触发正则词法，把**后面整条声明吞掉**：`import x from './a'` 之后的 `interface C {}` 无节点。`'abc'`（无 `/`）则不影响——这解释了 undici-types 里 `cache.d.ts` / `webidl.d.ts` / `websocket.d.ts` 三个文件节点数为 0 |
-| `` `x` `` | `Symbol(反引号)` + `Common` + `Symbol(反引号)` | 模板字符串不是 `String` 也不是任何节点 |
-| `` `a${b}c` `` | Symbol + Common + `$` + `JsonObject` | 内插被当成对象字面量，README 已记「产物不对」——实际比它写的更彻底 |
-| `class A { #x = 1 }` | `<Symbol>#</Symbol><Common>x</Common>` | 私有名不成 Field；**行首** `#x` 更会变成 `<PreprocessorDirectives>x = 1</PreprocessorDirectives>`（`#` 是预处理指令前缀）。真实语料 60 个文件含 `#` |
-| `const a = 1_000` | `Common(1)` + `Symbol(_)` + `Common(000)` | 数字分隔符不成词；`0xFF_FF`、`1_000.5` 同样。12 个真实文件使用 |
-| `const a = .5` | `Symbol(.)` + `Common(5)` | 前导小数点不成词 |
-| `const \u0061bc = 1` | `Symbol(\\)` + `Common(u0061bc)` | 标识符里的 `\u` 转义不支持 |
-| `/ab+c/gi` | `<RegexToken/>`，**flags 不见**（`d` 会让 `dgimsuy` 断成 `Common`） | RegexToken 不承载正文与 flags；`/[/]/` 断成 `RegexToken` + `]` + `RegexToken` |
-| `return /a/` | `Symbol(/)` + `Common` + `Symbol(/)` | `return` 之后的同行正则不识别（换行之后反而识别） |
+| `'x'` | `<SymbolToken>\'</SymbolToken><Identifier>x</Identifier><SymbolToken>\'</SymbolToken>` | **单引号字符串根本不成为字符串**（本项目只实现 `"` / `@"` / `$"` / `"""`）。真实语料 125 个文件含 `'` |
+| `import x from './a'` | `Import` + `SymbolToken` `.` + **`RegexToken`** | 单引号里的 `/` 触发正则词法，把**后面整条声明吞掉**：`import x from './a'` 之后的 `interface C {}` 无节点。`'abc'`（无 `/`）则不影响——这解释了 undici-types 里 `cache.d.ts` / `webidl.d.ts` / `websocket.d.ts` 三个文件节点数为 0 |
+| `` `x` `` | `SymbolToken(反引号)` + `Identifier` + `SymbolToken(反引号)` | 模板字符串不是 `String` 也不是任何节点 |
+| `` `a${b}c` `` | SymbolToken + Identifier + `$` + `ObjectLiteral` | 内插被当成对象字面量，README 已记「产物不对」——实际比它写的更彻底 |
+| `class A { #x = 1 }` | `<SymbolToken>#</SymbolToken><Identifier>x</Identifier>` | 私有名不成 Field；**行首** `#x` 更会变成 `<PreprocessorDirectives>x = 1</PreprocessorDirectives>`（`#` 是预处理指令前缀）。真实语料 60 个文件含 `#` |
+| `const a = 1_000` | `Identifier(1)` + `SymbolToken(_)` + `Identifier(000)` | 数字分隔符不成词；`0xFF_FF`、`1_000.5` 同样。12 个真实文件使用 |
+| `const a = .5` | `SymbolToken(.)` + `Identifier(5)` | 前导小数点不成词 |
+| `const \u0061bc = 1` | `SymbolToken(\\)` + `Identifier(u0061bc)` | 标识符里的 `\u` 转义不支持 |
+| `/ab+c/gi` | `<RegexToken/>`，**flags 不见**（`d` 会让 `dgimsuy` 断成 `Identifier`） | RegexToken 不承载正文与 flags；`/[/]/` 断成 `RegexToken` + `]` + `RegexToken` |
+| `return /a/` | `SymbolToken(/)` + `Identifier` + `SymbolToken(/)` | `return` 之后的同行正则不识别（换行之后反而识别） |
 | `"\101"` | `ConstString` 内容 `\u000101` | 八进制转义解错 |
 
 ### 2.13 装饰器必须跟在软换行之后
 
 ```ts
-@d class A {}        // 坏：DecoratorName="d.class.A" + JsonObject，Class 节点丢失
+@d class A {}        // 坏：name="d.class.A" + ObjectLiteral，Class 节点丢失
 @d
 class A {}           // 好
-class A { @d m() {} }   // 坏：Decorator DecoratorName="d.m" + JsonObject
+class A { @d m() {} }   // 坏：Decorator name="d.m" + ObjectLiteral
 class A { @d x = 1 }    // 坏：Decorator + Statement（Field 丢失）
-@(expr) class A {}      // 坏：@ 只是 Symbol
+@(expr) class A {}      // 坏：@ 只是 SymbolToken
 ```
 参数装饰器 `m(@d() p: T)` 反而正常。真实语料 131 个文件含装饰器。
 
 ### 2.14 标签
 
-`outer: while (...) {}` 正常（`<Label LabelName="outer" />` 标记节点）；
+`outer: while (...) {}` 正常（`<Label label="outer" />` 标记节点）；
 但 `outer: { break outer }` 无 `Label`，`outer: x = 1`、`outer: var x = 1` 被吞进 `TypeDefine`。
 README 缺口第 3 条确认，并补充：**块语句上的标签完全不识别**。
 
 ### 2.15 其余零散项
 
 - `with (o) { a = 1 }`：`with` 只是 Keyword，体内不跑语句队列（与 2.1 同根）。
-- `using res = open()` / `await using`：不支持，落成 Common。
-- `enum E { A = 1 }`：只有 `Enum` + `EnumBody`，成员没有节点（一堆 `Common` + `Symbol(,)`）。
-- 类型谓词 `x is T`、`asserts x is T`：`ReturnType` 里是平铺 Common。
-- 类型位关键字不一致：`type A = keyof T` 里 `keyof` 是 `Common`，mapped type 里是 `Keyword`；
+- `using res = open()` / `await using`：不支持，落成 Identifier。
+- `enum E { A = 1 }`：只有 `Enum` + `EnumBody`，成员没有节点（一堆 `Identifier` + `SymbolToken(,)`）。
+- 类型谓词 `x is T`、`asserts x is T`：`ReturnType` 里是平铺 Identifier。
+- 类型位关键字不一致：`type A = keyof T` 里 `keyof` 是 `Identifier`，mapped type 里是 `Keyword`；
   `typeof` / `readonly` 同样。
-- `type A = import("./x").B` → `<Method MethodName="import">`；`abstract new () => A` 不识别；
+- `type A = import("./x").B` → `<Method name="import">`；`abstract new () => A` 不识别；
   mapped type 的 `as` 重映射、`` `a${string}b` `` 模板字面量类型、`infer U extends X` 都只是勉强的
-  Symbol/JsonObject 组合。
-- `type F = (a: number) => void`：有时是 `Bracket` + `Symbol(=>)`，有时（如 `type A<in T> = (x: T) => void`）
+  SymbolToken/ObjectLiteral 组合。
+- `type F = (a: number) => void`：有时是 `Bracket` + `SymbolToken(=>)`，有时（如 `type A<in T> = (x: T) => void`）
   变成 **`<Lamda>`**——函数**类型**被当成箭头函数**值**。类型/值不分。
-- `const a = <string>x`（尖括号断言）：只是 `Symbol(<) Common Symbol(>)`。
+- `const a = <string>x`（尖括号断言）：只是 `SymbolToken(<) Identifier SymbolToken(>)`。
 - JSX/TSX：`<div a="1">x</div>` 里 `/div>` 被吃成 `RegexToken`（README 第 5 条确认，且是**静默错解**而非报错）。
 
 ## 3. L3 无校验 / 边界敏感
@@ -261,19 +261,19 @@ README 缺口第 3 条确认，并补充：**块语句上的标签完全不识�
 | 输入 | 产物 |
 | --- | --- |
 | `class {` | `<Keyword>class</Keyword><Bracket>{}</Bracket>` |
-| `f(` | `<Method MethodName="f"></Method>` |
+| `f(` | `<Method name="f"></Method>` |
 | `const a = "x`（未闭合字符串） | 正常的 `<String>` |
 | `/* x`（未闭合注释） | `<AreaAnnotation> x</AreaAnnotation>` |
-| `let a = = 1` | 两个 `Symbol(=)` |
-| `}` | `<Symbol>}</Symbol>` |
-| `` const a = `x `` | Symbol + Common |
+| `let a = = 1` | 两个 `SymbolToken(=)` |
+| `}` | `<SymbolToken>}</SymbolToken>` |
+| `` const a = `x `` | SymbolToken + Identifier |
 
 **抛错类型不统一**：`do-while`、`if (a)`、`while (a)` 抛**裸 `Error`**（不是 `SyntaxException`），
 `new Map<string, number>` 抛 `Message` 为 `null` 的 `SyntaxException`。
 `cjcli` 只有 `SyntaxException` 分支能给出带 `^` 的位置，裸 `Error` 会退化成一行业务文本。
 
 **EOF 敏感**：189 条语料里有 **28 条**在「文件尾有没有换行」下产物不同——
-因为多条规则把尾随 `WrapSymbol` 当成声明/语句终止符。
+因为多条规则把尾随 `LineWrap` 当成声明/语句终止符。
 最典型的是 2.10 的 import 重复节点；`ty-*` 的类型别名合并、`ex-ternary` 的三元吞掉下一条声明也属此类。
 用 cjcli 跑文件时通常无感（源文件一般以换行结尾），但作为库调用（`TextDocument` 直接喂字符串）就会碰上。
 
@@ -310,7 +310,7 @@ README 未记录、本次新增的主要缺口：第 2.1（namespace 体）、2.
 | 优先级 | 项 | 理由 |
 | --- | --- | --- |
 | **P0** | 2.1 namespace / declare global 体挂语句队列 | 一项覆盖真实语料 87% 的 interface 丢失；改法与 `InterfaceBody` / `ClassBody` 同型，是既有模式 |
-| **P0** | 2.2 `interface … extends X<…>` 接受泛型实参 | 一处 `instanceof Common` 判定，91 个真实声明 + 语义正确性 |
+| **P0** | 2.2 `interface … extends X<…>` 接受泛型实参 | 一处 `instanceof Identifier` 判定，91 个真实声明 + 语义正确性 |
 | **P0** | L1 的 `\x` / `\u` 转义 | 直接让真实 `.ts` 文件解析失败（含本项目自己的产物） |
 | **P0** | L1 的 do-while | 唯一「合法 TS 直接抛裸 Error」的语句 |
 | **P1** | 2.12 单引号字符串、模板字符串 | 词法层，130+ 真实文件受影响；单引号还会引发正则误吞后续声明 |
@@ -390,7 +390,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 新发现 | 证据 |
 | --- | --- |
-| 变量声明的修饰词整体丢失 | `export const a = 1` 与 `const a = 1` 产物完全相同（`<Let fieldName="a" />`），`const` / `export` 都看不到；`Let` 没有 Modifiers 属性 |
+| 变量声明的修饰词整体丢失 | `export const a = 1` 与 `const a = 1` 产物完全相同（`<Let fieldName="a" />`），`const` / `export` 都看不到；`Let` 没有 modifiers 属性 |
 | 保留字当方法名会被当成语句 | `class A { if() {} }` → `IfSet` / `IfCondition` / `IfStatement`，没有 `MethodDeclaration` |
 | 匿名 `export default class {}` / `export default function () {}` | 无 `Class` / `Function` 节点（具名版本正常） |
 | `export type T = ...` | 无 `TypeDefine` |
@@ -399,8 +399,8 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 | 对象类型字面量的**属性**签名不成 `TypeDefine` | 而 index signature 却成——同一容器里两种成员两种结果 |
 | `import.meta.url` 被误当 import 语句 | 产物里出现 `Import` 节点（唯一一处 `absent: Import` 被触发） |
 | 条件类型被当成三元表达式 | 嵌套 / 加括号 / 位于泛型实参里的条件类型都产出 `TernaryOperator`（基础形式反而不产出） |
-| BOM 会污染第一个 token | `lex-bom.ts`（真的带 BOM）：`const a = 1;` 的第一行并成一个 `Common`，`Let` 不出现——`TextDocument` 不剥 BOM，只有 `cjcli` 剥 |
-| 类型位关键词不升级 | `keyof` / `typeof` / `readonly` / `this` / `void` / `is` / `asserts` 在类型位置多是 `Common`，同一个词在别的上下文又是 `Keyword` |
+| BOM 会污染第一个 token | `lex-bom.ts`（真的带 BOM）：`const a = 1;` 的第一行并成一个 `Identifier`，`Let` 不出现——`TextDocument` 不剥 BOM，只有 `cjcli` 剥 |
+| 类型位关键词不升级 | `keyof` / `typeof` / `readonly` / `this` / `void` / `is` / `asserts` 在类型位置多是 `Identifier`，同一个词在别的上下文又是 `Keyword` |
 
 两条**不是缺口**、但值得记下来别误修：
 
@@ -430,8 +430,8 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **namespace / declare global 体不成形**（真实语料 87% 的 interface 丢失都源于此） | 新增 `dawn/text/tokens/namespace/namespace.xl.md` + `namespace-body.xl.md`：`Namespace` 认下 `namespace N` / `module M` / `declare global` / `global {` 四种形状，`NamespaceBody` 在构造时挂语句队列（与 `InterfaceBody` / `ClassBody` 同款），规则注册进 `parse-pipeline` 的通用重组队列 | `namespace N { interface I {} }` → `<Namespace><NamespaceBody><Interface>…`；`@types/node/buffer.d.ts` 的 Namespace 2/2、Function 6/6、Let 7/7、Class 2/2 |
-| **`interface … extends X<…>` 整条节点消失** | `interface.xl.md` 新增 `SkipExtendsName` / `ExtendsNameText` / `TakeExtendsTypeArguments`，extends 名单支持「限定名 + 类型实参」；`generic-type.xl.md` 的 `IsTypePosition` 把 `.` 与 `,` 改成透明——否则 `<T>` 会退回比较符号 | 8 种 extends 形状全部产出 `Interface`，`ExtendsInterfaceNames` 正确（含 `a.b.Base`、`A<B<string>, C[]>`） |
+| **namespace / declare global 体不成形**（真实语料 87% 的 interface 丢失都源于此） | 新增 `typescript/tokens/namespace/namespace.xl.md` + `namespace-body.xl.md`：`Namespace` 认下 `namespace N` / `module M` / `declare global` / `global {` 四种形状，`NamespaceBody` 在构造时挂语句队列（与 `InterfaceBody` / `ClassBody` 同款），规则注册进 `parse-pipeline` 的通用重组队列 | `namespace N { interface I {} }` → `<Namespace><NamespaceBody><Interface>…`；`@types/node/buffer.d.ts` 的 Namespace 2/2、Function 6/6、Let 7/7、Class 2/2 |
+| **`interface … extends X<…>` 整条节点消失** | `interface.xl.md` 新增 `SkipExtendsName` / `ExtendsNameText` / `TakeExtendsTypeArguments`，extends 名单支持「限定名 + 类型实参」；`generic-type.xl.md` 的 `IsTypePosition` 把 `.` 与 `,` 改成透明——否则 `<T>` 会退回比较符号 | 8 种 extends 形状全部产出 `Interface`，`extends` 正确（含 `a.b.Base`、`A<B<string>, C[]>`） |
 | **`\xNN` / `\uNNNN` / `\u{…}` 直接抛错** | `translate.xl.md`：`Append` 按 TS 词法收 3 / 5 / 到 `}` 个字符；`DecodeClear` 支持 `x`、`u{…}`（含手工代理对）与「未知单字符原样返回」；新增 `IsHexText` 严格判十六进制，堵掉 `"\u00"` 静默产出 NUL 的路径 | 16 条转义探针全绿；**真实语料解析失败数 3 → 0** |
 
 ### 量化变化（同一批 352 个真实文件，差分引擎实测）
@@ -466,8 +466,8 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
 | **没有方法体的成员签名**（接口方法签名 185 处、类内重载签名 211 处） | `method-declaration.xl.md`：新增 `IsMemberSignature` 与 `SignatureTailEnd`；`ParameterIndex` 支持可选标记 `?`；`Process` 在无体时取「返回类型末尾 + 一个 `;`」并跳过 `MethodBody`。判据是**父单元**是 `ClassBody` / `InterfaceBody`——语句位置仍然要求 `{`，`foo(a);` 不会变成假声明 | 接口方法签名、可选签名 `m?<T>()`、类内重载签名全部产出 `MethodDeclaration`；真实语料 `MethodDeclaration` 节点 **626 → 10963**（差额 2048 → 403） |
-| **可选标记后的类型参数** `m?<T>()` | `generic-type.xl.md` 的名字闸加一条：最后一个是 `?`、它前面是 `Common` 时也算数。不加这条 `<T>` 退回比较符号，整条签名被三元表达式抢走 | `interface I { m?(): void; n?<T>(x: T): T }` 现在产出两个 `MethodDeclaration`（此前 `n` 被吞进 `m` 的返回类型） |
-| **`do…while`**（唯一还抛裸 `Error` 的语句） | 新增 `dawn/text/tokens/do-while/do-while.xl.md`：`DoWhile` 收 `do` 语句 `while` `(条件)` `;`，体段复用 `WhileBody`、条件段复用 `WhileCompare`；体的结尾按「必然紧跟的那个 `while` 词」定位（`do x++` 换行 `while (…)` 这种 ASI 写法此前的报错就出在这里） | 4 种形状（带块体 / 单语句 / 带分号 / 换行体）全部产出 `DoWhile` |
+| **可选标记后的类型参数** `m?<T>()` | `generic-type.xl.md` 的名字闸加一条：最后一个是 `?`、它前面是 `Identifier` 时也算数。不加这条 `<T>` 退回比较符号，整条签名被三元表达式抢走 | `interface I { m?(): void; n?<T>(x: T): T }` 现在产出两个 `MethodDeclaration`（此前 `n` 被吞进 `m` 的返回类型） |
+| **`do…while`**（唯一还抛裸 `Error` 的语句） | 新增 `typescript/tokens/do-while/do-while.xl.md`：`DoWhile` 收 `do` 语句 `while` `(条件)` `;`，体段复用 `WhileBody`、条件段复用 `WhileCompare`；体的结尾按「必然紧跟的那个 `while` 词」定位（`do x++` 换行 `while (…)` 这种 ASI 写法此前的报错就出在这里） | 4 种形状（带块体 / 单语句 / 带分号 / 换行体）全部产出 `DoWhile` |
 | **`new A` / `new A<T>` / `new a.b.C` 抛 `SyntaxException`（且 `Message` 为 null）** | `new.xl.md` 的 `Process` 改成「走到边界」而不是「找第一个括号」：实参表可选，没有时产出空 `NewArguments` | 9 种 `new` 形状全部成形；顺带修掉 `const b = new A` 换行 `const c = new B()` 会把后一条的括号当自己实参表的**误吞** |
 | **注释里的 `<` 产出不合法 XML** | `line-annotation.xl.md` / `area-annotation.xl.md` 的 `ToXmlString` 过 `CommonUtil.XmlDecode`（原来刻意不转义） | `// a < b`、JSDoc 里的 `Array<T>` 不再破坏 XML |
 | **跑分器缺少产物合法性检查** | `run.mjs` 增加不变量：XML 里每个 `<` 后面必须跟 `/` 或大写字母，否则记 `malformed-xml` | 修完 12 条命中；它还顺带暴露了一个**假通过**——`lex-bom` 用例此前之所以「通过」，是因为它自己的注释里写了 `<Let>`，未转义的原文满足了 `expect Let` |
@@ -495,7 +495,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **泛型类型别名整条不成形**（`type Box<T> = …`，`@types` 里 112 处） | `type-assign.xl.md`：`Previous` 允许名字与 `=` 之间夹一段 `GenericType`；`Process` 新增 `AliasEnd`，并加 `AliasName` / `Modifiers` 两个属性（`type` 与名字不再留作散单元） | `type B<T>` / `type C<T extends X = Y>` 全部产出 `TypeAssign`；9 条 `type-param-*` 用例转绿 |
+| **泛型类型别名整条不成形**（`type Box<T> = …`，`@types` 里 112 处） | `type-assign.xl.md`：`Previous` 允许名字与 `=` 之间夹一段 `GenericType`；`Process` 新增 `AliasEnd`，并加 `alias` / `modifiers` 两个属性（`type` 与名字不再留作散单元） | `type B<T>` / `type C<T extends X = Y>` 全部产出 `TypeAssign`；9 条 `type-param-*` 用例转绿 |
 | **相邻别名被并成一个 `TypeAssign`** | 同一个 `AliasEnd`：`;` 或「软换行 + 下一行是声明关键字」就是结尾。原来「找不到 `;` 就收到列表末尾」会把 `type A = number` 换行 `type B = string` 并成一条；同时**不能**见到换行就停，否则 `type X =` 换行 `\| A` 换行 `\| B` 的联合会截断 | 连续 3 条别名产出 3 个节点；多行联合仍是 1 个 |
 | **单引号字符串不是字符串**（连带吞掉后续声明） | `parse-pipeline.xl.md` 的 `Install` 补上**一直缺失的调用点** `BranchTemplate.AddModifyItem(StringGuideBranch, ExtendStringStarts)`：机制（`SequenceTemplate.AddModifyItem` / `AddStringChar`）早就写好、散文也写了，但没有人调用，于是单引号从来没进「字符串起点」集合 | `'x'` → `String` + `ConstString`；`'a/b'` 不再触发正则词法；`import … from './a'` 之后的声明照常成形 |
 
@@ -534,8 +534,8 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 | --- | --- | --- |
 | **标识符里的 `_` 被当成符号** | `core/syntax/templates/symbol-template.xl.md` 的内置符号表里**删掉 `case "_"`** | `interface A_b { … }` 从「整条消失」变成正常成形；`lex-ident-underscore-*` 8 条新用例转绿 |
 
-`Common` 的 `IsAppend` 判据是「不是符号、也不是空白」，所以 `_` 一旦算符号，
-**任何带下划线的标识符都会被拆成 `Common(A)` `Symbol(_)` `Common(b)` 三段**；
+`Identifier` 的 `IsAppend` 判据是「不是符号、也不是空白」，所以 `_` 一旦算符号，
+**任何带下划线的标识符都会被拆成 `Identifier(A)` `SymbolToken(_)` `Identifier(b)` 三段**；
 接口规则要求「名字之后紧跟 `{`」，第二段是符号，于是整条声明不成形。
 这是本轮之前所有「渐进式丢失」的主因——文件越长、下划线标识符越多，丢得越多
 （`lib.dom.d.ts` 里 1540 个接口有 38 个直接消失、6496 个接口属性少 1342 个）。
@@ -576,7 +576,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **无名的调用签名与构造签名没有任何节点**（`interface I { (): void }` / `new (): I`，真实语料 1355 处） | 新增 `dawn/text/tokens/signature/signature.xl.md`：`Signature` 收两种形状，靠 `Kind`（`call` / `construct`）区分；参数表进子单元、返回类型单独成 `ReturnType` 段；规则注册在 `MethodDeclaration` **之前** | `lib.es5.d.ts` / `@types/node` 里 interface 内的签名全部成形（真实语料 514 处）；7 条既有用例补上 `Signature` 期望 |
+| **无名的调用签名与构造签名没有任何节点**（`interface I { (): void }` / `new (): I`，真实语料 1355 处） | 新增 `typescript/tokens/signature/signature.xl.md`：`Signature` 收两种形状，靠 `kind`（`call` / `construct`）区分；参数表进子单元、返回类型单独成 `ReturnType` 段；规则注册在 `MethodDeclaration` **之前** | `lib.es5.d.ts` / `@types/node` 里 interface 内的签名全部成形（真实语料 514 处）；7 条既有用例补上 `Signature` 期望 |
 
 三处「只能是这么写」的取舍，都写进了规范：
 
@@ -615,7 +615,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **类型字面量的成员没有节点**（`type X = { a: number }`，`Field` 差额 5300 的主因） | 新增 `dawn/text/tokens/type-literal/`：`TypeLiteral` + `TypeLiteralBody`；`TypeLiteralReorganization` 排在 `JsonObjectReorganization` **之前**，把**类型位**的 `{ }` 认走，体内跑成员规则；`Field` / `MethodDeclaration` / `Signature` 的成员位置判据加上 `TypeLiteralBody` | 类型位对象类型全部成形（类型别名右侧、类型标注、返回类型、泛型实参、联合/交叉项、参数标注、`as` 断言）；值位仍是 `JsonObject`（对象字面量、三元分支、实参、箭头返回、数组元素）——实测 `Field` 差额 **5300 → 1512** |
+| **类型字面量的成员没有节点**（`type X = { a: number }`，`Field` 差额 5300 的主因） | 新增 `typescript/tokens/type-literal/`：`TypeLiteral` + `TypeLiteralBody`；`TypeLiteralReorganization` 排在 `JsonObjectReorganization` **之前**，把**类型位**的 `{ }` 认走，体内跑成员规则；`Field` / `MethodDeclaration` / `Signature` 的成员位置判据加上 `TypeLiteralBody` | 类型位对象类型全部成形（类型别名右侧、类型标注、返回类型、泛型实参、联合/交叉项、参数标注、`as` 断言）；值位仍是 `ObjectLiteral`（对象字面量、三元分支、实参、箭头返回、数组元素）——实测 `Field` 差额 **5300 → 1512** |
 | **成员名是字符串字面量时没有成员节点**（`"a": HTMLAnchorElement`，`lib.dom.d.ts` 的事件表 / 标签名表整张如此） | `field.xl.md` 新增 `IsNameUnit` / `NameText`：成员名接受 `String`，名字取它第一个 `ConstString` 的文本；`method-declaration.xl.md` 对称地加 `MethodNameOf`（`class C { "m"() { } }`） | `lib.dom.d.ts` 的接口属性 **5927/6496 → 6496/6496**；`Field` 差额 **1512 → 761** |
 
 类型位的判定是这一轮唯一需要小心的地方：只看「`{` 前面是不是 `:` / `=`」是不够的——
@@ -681,7 +681,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **`$` 被当成符号**：`const $x = 1` / `interface I$X { … }` / `a$b` 全被拆成 `Symbol` + `Common`，声明不成形 | `symbol-template.xl.md` 的内置符号表删掉 `case "$"` | `const $x = 1` → `Let`；`interface I$X` → `Interface` + `InterfaceBody` + `Field`；`a$b` / `$$` / 单独的 `$` 都成一个词 |
+| **`$` 被当成符号**：`const $x = 1` / `interface I$X { … }` / `a$b` 全被拆成 `SymbolToken` + `Identifier`，声明不成形 | `symbol-template.xl.md` 的内置符号表删掉 `case "$"` | `const $x = 1` → `Let`；`interface I$X` → `Interface` + `InterfaceBody` + `Field`；`a$b` / `$$` / 单独的 `$` 都成一个词 |
 
 这是第 4 轮那处下划线修复的**同族残件**：`_` 与 `$` 是 TypeScript 里仅有的两个非字母标识符字符，
 而它们当时都在符号表里。`$` 比 `_` 多一层顾虑——它同时是 `$"…{…}…"` 内插的**前缀**，
@@ -710,11 +710,11 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 | **模板字符串**（`` `a${b}c` ``）：反引号不是字符串起点，`${…}` 被当成对象字面量 | `parse-pipeline.xl.md` 的 `ExtendStringStarts` 多注册一个反引号 | 8 条既有用例（无内插 / 一个 / 两个 / 跨行 / 嵌套 / 带标签 / `String.raw` / 成员访问作标签）**全部转绿** |
 
 **内插那部分一行都不用写**：`string.xl.md` 的 `Default` 第 6 条分支（三个开关全关、正是反引号串走的那条）
-早就实现了——`{` 且前一个字符是 `$`、`StringChar` 是反引号时，置 `InterpolationCount = 1`、
+早就实现了——`{` 且前一个字符是 `$`、`StringChar` 是反引号时，置 `interpolationCount = 1`、
 把那个 `$` 从单元上 `Undo` 掉、挂 `InterpolationString`。缺的只是「反引号被当成字符串起点」这一步，
 和当初单引号那处一模一样（那处也写着「机制早就写好了，但调用点一直缺失」）。
 
-**这一轮我先走错了路，值得记下来**：我先想到的是「给反引号置 `IsSupportInterpolation` + 在
+**这一轮我先走错了路，值得记下来**：我先想到的是「给反引号置 `interpolation` + 在
 `interpolation-guide` 里退 `$`」，结果产物里一直留着 `a$`。
 原因有两层，都是「想当然」而不是读代码：
 
@@ -740,10 +740,10 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **类型位的关键词停在 `Common`**（`type X = keyof T` / `function f(): void` / `let x: readonly T[]` / `x is T` / `asserts x` / `typeof import("…")`，共 27 条用例） | 新增 `ParsePipeline.InitialTypeReorganizationQueue`：给装类型文本的单元挂一条**只含 `KeywordReorganization`** 的队列；`TypeDefine` 与 `TypeAssign` 的构造器调它 | **22 条用例转绿**，0 条新增缺口；`Let` 差额 **49 → 0** |
+| **类型位的关键词停在 `Identifier`**（`type X = keyof T` / `function f(): void` / `let x: readonly T[]` / `x is T` / `asserts x` / `typeof import("…")`，共 27 条用例） | 新增 `ParsePipeline.InitialTypeReorganizationQueue`：给装类型文本的单元挂一条**只含 `KeywordReorganization`** 的队列；`TypeDefine` 与 `TypeAssign` 的构造器调它 | **22 条用例转绿**，0 条新增缺口；`Let` 差额 **49 → 0** |
 
 **根因是队列里的次序**：`KeywordReorganization` 排在通用队列的**最后一位**——
-这是必须的，结构规则（`TypeAssignReorganization` 认 `type`、`ForReorganization` 认 `in`）要先看到 `Common`。
+这是必须的，结构规则（`TypeAssignReorganization` 认 `type`、`ForReorganization` 认 `in`）要先看到 `Identifier`。
 但 `TypeDefine` / `TypeAssign` 是**重组规则建出来的单元**，它们的内容（冒号或 `=` 之后的类型文本）
 从此不再被外层扫到，那一趟永远轮不到里面的 `keyof`。
 
@@ -763,13 +763,13 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 1. **零头**：`Field` 498 / `Interface` 23 / `TypeAssign` 16 / `Function` 3 —— 多为 `declare module "x"` 体内的归属问题。
 2. **标签**（5 条用例）、**`export` 节点**（142 处）、**EOF 敏感的 `import` 重复节点**（`Import` 差额 −53）。
 3. **P3 表达式文法**：二元 / 一元 / 赋值表达式仍然没有节点 —— 这是「完整解析」最后的、也是最大的一块结构性空白。
-4. **`in` / `of` 的关键词化**：要先把 `For` / `Foreach` 的判定改成「`Common` 或 `Keyword` 都认」，那是两处既有规则的形状改动。
+4. **`in` / `of` 的关键词化**：要先把 `For` / `Foreach` 的判定改成「`Identifier` 或 `Keyword` 都认」，那是两处既有规则的形状改动。
 
 ### 第 11 轮：生成器函数与方法
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **生成器函数 `function* g() {}` 丢掉整条 `Function`**，降级成 `<Keyword>function</Keyword><Symbol>*</Symbol><MethodDeclaration MethodName="g">` | `function.xl.md` 的 `ParameterIndex` 允许名字前的一个 `*`；`Process` 把 `*` 作为子单元留在节点里 | 4 条用例转绿（`function*` / `async function*` 与它们的基线用例） |
+| **生成器函数 `function* g() {}` 丢掉整条 `Function`**，降级成 `<Keyword>function</Keyword><SymbolToken>*</SymbolToken><MethodDeclaration name="g">` | `function.xl.md` 的 `ParameterIndex` 允许名字前的一个 `*`；`Process` 把 `*` 作为子单元留在节点里 | 4 条用例转绿（`function*` / `async function*` 与它们的基线用例） |
 | **生成器方法 `*g() {}` 同样丢节点** | `method-declaration.xl.md` 新增 `GeneratorMark`，`Previous` / `Process` 先把游标越过 `*`；`*` 留在节点里 | 类里与接口里的生成器方法都成形（新增用例 `decl-method-generator`） |
 
 两处的共同点：`*` 夹在**关键字与名字之间**（`function` `*` `g`）或**名字之前**（`*` `g`），
@@ -792,12 +792,12 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
 | **`#x` / `#m()` 变成 `<PreprocessorDirectives>x = 1</PreprocessorDirectives>`**（行首的 `#` 命中了预处理器分支） | `preprocessor-directives.xl.md` 新增 `FollowingWord`（读 `#` 后面那个词）与 `DirectiveNames`（已知指令名表），`Condition` 多要求一条「后面跟的是已知指令名」 | `#if` / `#endif` 照旧（`lex-preprocessor-if` 守住），`#x` 不再被吞 |
-| **私有名是「两个单元一个名字」**（`#` 是符号、`x` 是 `Common`），成员规则认不出 | `field.xl.md` 与 `method-declaration.xl.md` 各多一支：`index` 处的 `#` 成立时把游标推到下一个实义单元，后续判定都按那个单元来；`#` 留在 `FieldName` / `MethodName` 里（`"#a"` / `"#m"`） | **4 条用例转绿**（`decl-class-private-field` / `decl-class-private-field-in-operator` / `lex-private-field` / `lex-private-in`），新补一条私有方法用例 |
+| **私有名是「两个单元一个名字」**（`#` 是符号、`x` 是 `Identifier`），成员规则认不出 | `field.xl.md` 与 `method-declaration.xl.md` 各多一支：`index` 处的 `#` 成立时把游标推到下一个实义单元，后续判定都按那个单元来；`#` 留在 `fieldName` / `name` 里（`"#a"` / `"#m"`） | **4 条用例转绿**（`decl-class-private-field` / `decl-class-private-field-in-operator` / `lex-private-field` / `lex-private-in`），新补一条私有方法用例 |
 
 **这一轮的关键是「先分清谁该管 `#`」**：预处理器与私有名在词法上长得一样（都是 `#` 加一个词），
 唯一的分辨办法是看那个词是不是已知指令名。所以先给 `Condition` 加了前瞻那一刀（`FollowingWord` + `DirectiveNames`），
 把 `#` 交还给普通词法之后，成员规则才有机会工作——这一步做完时产物是
-`<Symbol>#</Symbol><Common>x</Common>`，还**没有**成员节点，于是第二步才让成员规则认「`#` + 名字」。
+`<SymbolToken>#</SymbolToken><Identifier>x</Identifier>`，还**没有**成员节点，于是第二步才让成员规则认「`#` + 名字」。
 
 两处都留了防回归的东西：预处理器老用例继续守着 `#if` / `#endif`；
 私有名的私有方法形态补了新用例（`decl-method-private-name`），
@@ -810,7 +810,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 1. **零头**：`Field` 498 / `Interface` 23 / `TypeAssign` 16 / `Function` 3 —— 多为 `declare module "x"` 体内的归属问题。
 2. **标签**（5 条）、**`export` 节点**（142 处）、**EOF 敏感的 `import` 重复节点**（`Import` 差额 −53）。
 3. **P3 表达式文法**：二元 / 一元 / 赋值表达式仍然没有节点 —— 这是「完整解析」最后的、也是最大的一块结构性空白。
-4. **`in` / `of` 的关键词化**：要先把 `For` / `Foreach` 的判定改成「`Common` 或 `Keyword` 都认」。
+4. **`in` / `of` 的关键词化**：要先把 `For` / `Foreach` 的判定改成「`Identifier` 或 `Keyword` 都认」。
 
 ### 第 13 轮：import 类型 + 泛型箭头
 
@@ -820,7 +820,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 | **泛型箭头函数 / 泛型函数类型的 `<T>` 不成 `GenericType`**（`<T>(x: T): T => x`、`type X = <T>(x: T) => T`） | `generic-type.xl.md` 的名字闸多一支：宿主最后一个是**「操作数起点」**（`=` / `=>` / `:` / `;` / `,`、括号、软换行）时也算数 | 2 条用例转绿（`expr-arrow-generic` / `type-fn-generic`）；放宽的风险由「左侧必须有操作数」兜住 |
 
 **名字闸那一支是这一轮的关键**：`<T>` 在泛型箭头前面**没有名字**，只有 `=` 或者什么都没有，
-原来的名字闸（要求前一个是 `Common`）直接判否，`<T>` 退回符号、`Lamda` 与函数类型一起散架。
+原来的名字闸（要求前一个是 `Identifier`）直接判否，`<T>` 退回符号、`Lamda` 与函数类型一起散架。
 放宽是安全的：比较式 `a < b > (c)` 的 `<` 前面**是** `a`（走原来那一支），
 而「操作数起点」位置上按定义还没有左操作数，`<…>` 只可能是类型参数段。
 
@@ -842,7 +842,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | 缺口 | 改动 | 验证 |
 | --- | --- | --- |
-| **`export { … } from "m"` / `export * from "m"` / `export * as ns from "m"` / `export type { … } from "m"` / 本地 `export { a }` 全都没有节点**（真实语料 92 处 ExportDeclaration） | 新增 `dawn/text/tokens/export.xl.md`（`Export` + `ExportReorganization`），按 `import.xl.md` 的形状对称实现；注册在 `ImportReorganization` 之后 | 5 条用例转绿；**`Export` 92/92，差额 0** |
+| **`export { … } from "m"` / `export * from "m"` / `export * as ns from "m"` / `export type { … } from "m"` / 本地 `export { a }` 全都没有节点**（真实语料 92 处 ExportDeclaration） | 新增 `typescript/tokens/export.xl.md`（`Export` + `ExportReorganization`），按 `import.xl.md` 的形状对称实现；注册在 `ImportReorganization` 之后 | 5 条用例转绿；**`Export` 92/92，差额 0** |
 
 三处「只能是这么写」的取舍：
 
@@ -856,7 +856,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 `Export` 的构造器装了「只含 `KeywordReorganization`」的那条队列（复用它最早的两个用户的名字），
 于是 `export` / `type` / `from` 这些词在节点内部也会升级成 `Keyword`——
-不装的话它们停在 `Common` 上，一条既有基线用例（`ex-named`）的 `xl:expect Keyword` 会失败。
+不装的话它们停在 `Identifier` 上，一条既有基线用例（`ex-named`）的 `xl:expect Keyword` 会失败。
 
 用例侧：**870 条不变**（5 条导出用例的期望从 `Import` 改成 `Export`——原来那个 `Import` 是标签表里没有
 `Export` 时的替身），在案缺口 **52 → 47**，台账 `throw` 分组仍然是 0。
@@ -918,7 +918,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | **第九批** | 改动 | 结果 |
 | --- | --- | --- |
-| **变量声明的修饰词整体丢失** | `Let` 加 `Modifiers` 属性（`const` / `let` / `var` 自身 + `export` / `declare` / `default`，逗号分隔、按源码顺序），`Process` 往前一路收、`ToXmlString` 三种形态都带上、`Clone` 一并抄 | `export const a = 1` 与 `const a = 1` 产物**不再相同**（`Modifiers="export,const"` / `"const"`）；`_notes.variable-modifiers` 从「缺口」改成「已补」 |
+| **变量声明的修饰词整体丢失** | `Let` 加 `modifiers` 属性（`const` / `let` / `var` 自身 + `export` / `declare` / `default`，逗号分隔、按源码顺序），`Process` 往前一路收、`ToXmlString` 三种形态都带上、`Clone` 一并抄 | `export const a = 1` 与 `const a = 1` 产物**不再相同**（`modifiers="export,const"` / `"const"`）；`_notes.variable-modifiers` 从「缺口」改成「已补」 |
 
 | **第十批** | 改动 | 结果 |
 | --- | --- | --- |
@@ -927,20 +927,20 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | **第十一批** | 改动 | 结果 |
 | --- | --- | --- |
-| **语句位的 `{` 被收成 `JsonObject`** | `IsStatementList` 的白名单加上 `Statement`。这是**调试打印抓出来的**：`{ let y = 2; }` 第一趟问 `IsObjectAt` 时括号的父亲还是 `Root`、判断正确 ✓；但 `StatementReorganization` 排在很后面，它把这对方括号收进一个 `Statement` 之后**同一个问题会被再问一次**，这一回父亲成了 `Statement`、不在白名单里 → 判成值位 → `JsonObjectReorganization` 把块抢走 ✗ | `{ let y = 2; }` 保持 `Bracket`（块），`let o = { a: 1 }` 仍是对象 ✓；用例 `stmt-object-vs-block` 补上 `xl:expect Bracket,Label,Statement` / `xl:absent JsonObject` |
-| **标签块里收不到节点** | `LabelReorganization.Process` 给被标的块装了语句队列却没**跑**它 —— 原来块里的内容全靠后面某趟重组的顺带（那时块还是个 `JsonObject`）；块一旦正确保持成 `Bracket`，里面的 `let` / `break` 就全成了散单元 ✗ | 补一句显式的 `statement.Reorganize()`（与 `BlockReorganization` 同款）；三条标签块用例恢复 ✓ |
+| **语句位的 `{` 被收成 `ObjectLiteral`** | `IsStatementList` 的白名单加上 `Statement`。这是**调试打印抓出来的**：`{ let y = 2; }` 第一趟问 `IsObjectAt` 时括号的父亲还是 `Root`、判断正确 ✓；但 `StatementReorganization` 排在很后面，它把这对方括号收进一个 `Statement` 之后**同一个问题会被再问一次**，这一回父亲成了 `Statement`、不在白名单里 → 判成值位 → `JsonObjectReorganization` 把块抢走 ✗ | `{ let y = 2; }` 保持 `Bracket`（块），`let o = { a: 1 }` 仍是对象 ✓；用例 `stmt-object-vs-block` 补上 `xl:expect Bracket,Label,Statement` / `xl:absent ObjectLiteral` |
+| **标签块里收不到节点** | `LabelReorganization.Process` 给被标的块装了语句队列却没**跑**它 —— 原来块里的内容全靠后面某趟重组的顺带（那时块还是个 `ObjectLiteral`）；块一旦正确保持成 `Bracket`，里面的 `let` / `break` 就全成了散单元 ✗ | 补一句显式的 `statement.Reorganize()`（与 `BlockReorganization` 同款）；三条标签块用例恢复 ✓ |
 
-**这两处是一对**：第二处是第一处暴露出来的。修好「块保持成块」之后，原先被 `JsonObject` 顺带跑掉的队列就没人跑了 —— 这类**相互托底**的隐式依赖正是这一路上最费时间的坑（前几轮的泛型收尾「三处必须一致」也是同一类）。
+**这两处是一对**：第二处是第一处暴露出来的。修好「块保持成块」之后，原先被 `ObjectLiteral` 顺带跑掉的队列就没人跑了 —— 这类**相互托底**的隐式依赖正是这一路上最费时间的坑（前几轮的泛型收尾「三处必须一致」也是同一类）。
 
 | **第十二批** | 改动 | 结果 |
 | --- | --- | --- |
-| **`in` / `of` 没被关键词化** | 把两个词加进 `KeyWords()`。**代价是四处判定要跟着改**：`ForReorganization` / `ForeachReorganization`（两处）与 `field.xl.md` 的 `BracketNameText` 原来都写 `item instanceof Common && item.Is("in")`；`Keyword` 与 `Common` **没有继承关系**，升级之后这些判定就再也找不到它（`for (var name in all)` 会被 `For` 接走并抛错 —— 这条回归历史上真炸过 `typescript.js`） | 新增共享判据 **`IsWordUnit(unit, word)`**（`Common` 或 `Keyword` 都认），四处统一换掉；`k in o` 现在给 `Keyword` 标签，for-in / for-of / 普通 for 都照旧 |
+| **`in` / `of` 没被关键词化** | 把两个词加进 `KeyWords()`。**代价是四处判定要跟着改**：`ForReorganization` / `ForeachReorganization`（两处）与 `field.xl.md` 的 `BracketNameText` 原来都写 `item instanceof Identifier && item.Is("in")`；`Keyword` 与 `Identifier` **没有继承关系**，升级之后这些判定就再也找不到它（`for (var name in all)` 会被 `For` 接走并抛错 —— 这条回归历史上真炸过 `typescript.js`） | 新增共享判据 **`IsWordUnit(unit, word)`**（`Identifier` 或 `Keyword` 都认），四处统一换掉；`k in o` 现在给 `Keyword` 标签，for-in / for-of / 普通 for 都照旧 |
 
 用例 `lex-keyword-in-of` 把四种用法一起钉住（for-in、for-of、`k in o`、映射类型 `[K in keyof T]`）。
 
 | **第十五批** | 改动 | 结果 |
 | --- | --- | --- |
-| **二元运算符没有节点** | 新增 `binary-operator.xl.md`：`BinaryOperatorReorganization` + `BinaryOperator`（带 `Operator` 属性），**按优先级注册 8 个实例**（`**` → `* / %` → `+ -` → 移位 → `<= >=` → `== != === !==` → `in` → `instanceof`），排在 `UnaryOperator` 之后、`KeywordReorganization` 之前 | 用例 `expr-binary-operator` 转绿，台账 **2 → 1**；`BinaryOperator` 差额 3157 → **1423**（差额全在刻意排除的运算符族里，见下） |
+| **二元运算符没有节点** | 新增 `binary-operator.xl.md`：`BinaryOperatorReorganization` + `BinaryOperator`（带 `op` 属性），**按优先级注册 8 个实例**（`**` → `* / %` → `+ -` → 移位 → `<= >=` → `== != === !==` → `in` → `instanceof`），排在 `UnaryOperator` 之后、`KeywordReorganization` 之前 | 用例 `expr-binary-operator` 转绿，台账 **2 → 1**；`BinaryOperator` 差额 3157 → **1423**（差额全在刻意排除的运算符族里，见下） |
 | **用例只能查「有没有」、不能查「有几个」** | `xl:expect` 加了**个数写法** `Tag:2`（`run.mjs` 按个数比对、`validate.mjs` 校验写法） | 这一类 bug 从此能被用例抓住 —— 本轮就是它把下面那条抓出来的 |
 
 | **第十六批** | 改动 | 结果 |
@@ -949,7 +949,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | **第十八批** | 改动 | 结果 |
 | --- | --- | --- |
-| **`Spread` 的 −16 假阳性（第一版尝试）** | 试了两版判据（「`JsonArray` 的父亲不能是括号」→ 压掉 5 处；「父亲的父亲必须是调用 / `new` / 数组 / 对象」） | **两版都撤掉了**：它们把 `f([...xs])` 也压成 **0 个 `Spread`** ✗ —— 那个数组字面量的父亲正好是调用的实参括号，两层之内分不出「实参括号」与「参数表括号」 |
+| **`Spread` 的 −16 假阳性（第一版尝试）** | 试了两版判据（「`ArrayLiteral` 的父亲不能是括号」→ 压掉 5 处；「父亲的父亲必须是调用 / `new` / 数组 / 对象」） | **两版都撤掉了**：它们把 `f([...xs])` 也压成 **0 个 `Spread`** ✗ —— 那个数组字面量的父亲正好是调用的实参括号，两层之内分不出「实参括号」与「参数表括号」 |
 
 | **第十九批** | 改动 | 结果 |
 | --- | --- | --- |
@@ -974,11 +974,11 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | **第二十四批** | 改动 | 结果 |
 | --- | --- | --- |
-| **`Import` 没有结构化信息**（`_notes.imports-unstructured`） | 加五个属性：`From` / `IsTypeOnly` / `DefaultName` / `NamespaceName` / `ImportedNames`，并新增 `ToXmlString` 把它们渲染进 XML —— **原来 `From` 根本没进 XML**（`Import` 没有覆写），下游拿不到路径。`ReadClause` 从子句里读出后三种子句形态（默认 / 命名空间 / 具名） | `import { A, B as C } from "m"` → `ImportedNames="A,C"`（取**本地名**）；`import type { A }` → `IsTypeOnly="true"`；`import * as ns` → `NamespaceName="ns"`；`import Default from "m"` → `DefaultName="Default"`；`import "m"` → 只有 `From` ✓ |
+| **`Import` 没有结构化信息**（`_notes.imports-unstructured`） | 加五个属性：`From` / `typeOnly` / `defaultImport` / `namespace` / `imported`，并新增 `ToXmlString` 把它们渲染进 XML —— **原来 `From` 根本没进 XML**（`Import` 没有覆写），下游拿不到路径。`ReadClause` 从子句里读出后三种子句形态（默认 / 命名空间 / 具名） | `import { A, B as C } from "m"` → `imported="A,C"`（取**本地名**）；`import type { A }` → `typeOnly="true"`；`import * as ns` → `namespace="ns"`；`import Default from "m"` → `defaultImport="Default"`；`import "m"` → 只有 `From` ✓ |
 
 | **第二十五批** | 改动 | 结果 |
 | --- | --- | --- |
-| **`Export` 没有结构化信息**（`_notes.exports-no-node` 的剩余部分） | 与 `Import`（第 37 轮）对称：加 `IsTypeOnly` / `NamespaceName` / `ExportedNames`，`ToXmlString` 把 `From` 与三者一并渲染（**原来 `From` 也没进 XML**）；`ReadClause` 处理花括号列表、`*` 转发、`type` 前缀三种形态 | `export { a as b, c }` → `ExportedNames="b,c"`（**对外名**，与 `Import.ImportedNames` 取本地名正好相反）；`export * as ns` → `NamespaceName="ns"`；`export type { A }` → `IsTypeOnly="true"` ✓ |
+| **`Export` 没有结构化信息**（`_notes.exports-no-node` 的剩余部分） | 与 `Import`（第 37 轮）对称：加 `typeOnly` / `namespace` / `exported`，`ToXmlString` 把 `From` 与三者一并渲染（**原来 `From` 也没进 XML**）；`ReadClause` 处理花括号列表、`*` 转发、`type` 前缀三种形态 | `export { a as b, c }` → `exported="b,c"`（**对外名**，与 `Import.imported` 取本地名正好相反）；`export * as ns` → `namespace="ns"`；`export type { A }` → `typeOnly="true"` ✓ |
 
 | **第二十六批** | 改动 | 结果 |
 | --- | --- | --- |
@@ -989,7 +989,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 | --- | --- | --- |
 | **`<` / `>` 的比较被算进 `BinaryOperator` 的账** | 从**源码侧**也剔掉（它们是刻意不收的：与泛型实参同形） | `BinaryOperator` 差额 **144 → 0** ✓ |
 | **负数**字面量类型**被算进 `UnaryOperator` 的账** | 源码侧剔掉「父节点是 `LiteralType` 的 `PrefixUnaryExpression`」（`-1 \| 0 \| 1`，TS 的记法与本工程不同） | 52 → 38 |
-| **`return -1` 折成了二元节点** | 两个运算符规则的 `IsOperand` 都排掉**语句关键字**（`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`）—— 本规则跑在 `KeywordReorganization` **之前**，这些词那时还是 `Common` ✗ | `UnaryOperator` 差额 **38 → −1**（几乎精确）；`return -1` 正确收成一元 ✓ |
+| **`return -1` 折成了二元节点** | 两个运算符规则的 `IsOperand` 都排掉**语句关键字**（`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`）—— 本规则跑在 `KeywordReorganization` **之前**，这些词那时还是 `Identifier` ✗ | `UnaryOperator` 差额 **38 → −1**（几乎精确）；`return -1` 正确收成一元 ✓ |
 
 | **第二十八批** | 改动 | 结果 |
 | --- | --- | --- |
@@ -1004,7 +1004,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 这与第 32 轮「祖先链过期」是同一类问题的另一面：**判据本身没错，是那批单元后来没再被扫到**。
 要修得先弄清「哪些节点收了内容却不给它队列」，属于下一轮的事（本轮到此为止）。
 | **负数**字面量类型**被算进 `UnaryOperator` 的账** | 源码侧剔掉「父节点是 `LiteralType` 的 `PrefixUnaryExpression`」（`-1 \| 0 \| 1`，TS 的记法与本工程不同） | 52 → 38 |
-| **`return -1` 折成了二元节点** | 两个运算符规则的 `IsOperand` 都排掉**语句关键字**（`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`）—— 本规则跑在 `KeywordReorganization` **之前**，这些词那时还是 `Common` ✗ | `UnaryOperator` 差额 **38 → −1**（几乎精确）；`return -1` 正确收成一元 ✓ |
+| **`return -1` 折成了二元节点** | 两个运算符规则的 `IsOperand` 都排掉**语句关键字**（`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`）—— 本规则跑在 `KeywordReorganization` **之前**，这些词那时还是 `Identifier` ✗ | `UnaryOperator` 差额 **38 → −1**（几乎精确）；`return -1` 正确收成一元 ✓ |
 
 **第一版判据写宽了**：`IsOperand` 里用 `unit.Template.KeywordTemplate.IsKeyword(text)` 一律拒收 ——
 把 **`await` / `yield` / `new` / `typeof` 这些表达式类关键字**也拒了 ✗，
@@ -1029,7 +1029,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 **至此 import / export 两侧的结构化信息都齐了**（`_notes.imports-unstructured` 与 `exports-no-node`
 两条都改写成「已补」）。`samples/*.expected.xml` 三份按新形状重新生成。
 
-**两侧判据的唯一区别**记在代码里：同样取「每段最后一个 `Common`」——
+**两侧判据的唯一区别**记在代码里：同样取「每段最后一个 `Identifier`」——
 `Import` 拿到的是**本地名**（`import { B as C }` → `C`），`Export` 拿到的是**对外名**（`export { a as b }` → `b`）✓。
 
 `samples/*.expected.xml` 三份按新形状重新生成（`Import` 的属性进了产物，这正是逐字节校验要锁的东西）。
@@ -1049,10 +1049,10 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 **元组里连写两个 `...`** 的形状（`[...A, ...B]`），每个 `...` 的右边是 `,` / `]`，
 与数组字面量 `[...a, b]` 的形状完全重合，用「右边紧邻」分不开 ✗ —— 留在差分账上，
 需要一条真正能分辨「元组类型」与「数组字面量」的判据（列在遗留清单第 2 条）。
-| **元组类型的 `...`（上一轮登记的用例）** | 复查了祖先链：`JsonArray < Root` —— 那对 `[` 在 `TypeAssign` 收走它之后**父指针没有更新**，所以任何「往上找类型宿主」的判据都不可靠 ✗ | 用例继续留在台账（1 条），已记下「判据不能依赖祖先链」这一条 |
+| **元组类型的 `...`（上一轮登记的用例）** | 复查了祖先链：`ArrayLiteral < Root` —— 那对 `[` 在 `TypeAssign` 收走它之后**父指针没有更新**，所以任何「往上找类型宿主」的判据都不可靠 ✗ | 用例继续留在台账（1 条），已记下「判据不能依赖祖先链」这一条 |
 
-**元组那一条的复查结论值得记**：我用调试打印看到 `...` 的祖先链是 `JsonArray < Root`，
-而同一份产物里那个 `JsonArray` 明明在 `TypeAssign` 里面 —— 说明**单元被上层规则收走之后，
+**元组那一条的复查结论值得记**：我用调试打印看到 `...` 的祖先链是 `ArrayLiteral < Root`，
+而同一份产物里那个 `ArrayLiteral` 明明在 `TypeAssign` 里面 —— 说明**单元被上层规则收走之后，
 `Parent` 指针没有跟着更新**。所以「往上找类型宿主」这条路本身走不通（第 32 轮那三版判据失败也是这个原因）；
 要判元组得换一条不依赖祖先链的判据（例如看那个 `[` 的**兄弟**里有没有 `,` 分隔的类型元素）。
 
@@ -1078,16 +1078,16 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | **第十七批** | 改动 | 结果 |
 | --- | --- | --- |
-| **展开运算符没有节点**（最后一条在案用例） | 新增 `spread.xl.md`：`SpreadReorganization` + `Spread`。**难点是它与 rest 参数的歧义** —— `(...args: T[])` 在 AST 里是 `Parameter` 上的 `dotDotDotToken`，**不**产生 `SpreadElement`，而 rest 参数比 spread 多得多。判据用「`...` 的父亲是谁」：`Method`（调用）/ `JsonArray` / `JsonObject` / `NewArguments` 收 ✓，参数括号 / `LamdaParameter` / `[` 解构括号不收 ✗ | 用例 `expr-spread` 转绿 —— **在案缺口归零（878/878 全部通过）** |
+| **展开运算符没有节点**（最后一条在案用例） | 新增 `spread.xl.md`：`SpreadReorganization` + `Spread`。**难点是它与 rest 参数的歧义** —— `(...args: T[])` 在 AST 里是 `Parameter` 上的 `dotDotDotToken`，**不**产生 `SpreadElement`，而 rest 参数比 spread 多得多。判据用「`...` 的父亲是谁」：`Method`（调用）/ `ArrayLiteral` / `ObjectLiteral` / `NewArguments` 收 ✓，参数括号 / `LamdaParameter` / `[` 解构括号不收 ✗ | 用例 `expr-spread` 转绿 —— **在案缺口归零（878/878 全部通过）** |
 
-四种形状的父亲是**实测**出来的（`call(...args)` → `Method`、`[...items]` → `JsonArray`、
-`{ ...base }` → `JsonObject`、`new Foo(...args)` → `NewArguments`；
+四种形状的父亲是**实测**出来的（`call(...args)` → `Method`、`[...items]` → `ArrayLiteral`、
+`{ ...base }` → `ObjectLiteral`、`new Foo(...args)` → `NewArguments`；
 `function f(...args: T[])` / `class C { m(...args) {} }` / `(...args) => 1` / `type F = (...args) => void`
 → 参数括号或 `LamdaParameter`）——这一张表就是判据本身。
 
 **遗留 −16**：`Spread` 产物比源码多 16 个（`lib.es5.d.ts` 8、`sqlite.d.ts` 6、`events.d.ts` / `stream.d.ts` 各 1），
 全是**调用签名 / 函数类型里的 rest 参数**（`interface X { f(...args: A[]): void }`）——
-`A[]` 的 `[` 先长成 `JsonArray`，那个 `...` 于是正好落进一个「`JsonArray` 父亲」里。
+`A[]` 的 `[` 先长成 `ArrayLiteral`，那个 `...` 于是正好落进一个「`ArrayLiteral` 父亲」里。
 补了 `IsInTypePosition`（往上八层撞 `TypeDefine` / `TypeAssign` / `GenericType` 就退出）之后
 数字**没变**，说明这些 `...` 的祖先链里没有这三个节点，需要换个判据（下一轮的第一件事）。
 
@@ -1125,10 +1125,10 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
    已经被类型规则收走；`&&` / `||` 早就有 `LogicalOperator` 了；
 2. **`[` 括号里一律不成立**：那是**映射类型**（`{ [K in keyof T]: T[K] }`）与索引签名的地盘，
    `in` 是类型语法的一部分。不挡的话四条映射类型用例全炸；
-3. **`Operator` 属性要过 `CommonUtil.XmlDecode`**：`<=` 里的 `<` 直接写进属性会**破坏 XML**
+3. **`op` 属性要过 `CommonUtil.XmlDecode`**：`<=` 里的 `<` 直接写进属性会**破坏 XML**
    （`expr-compare-lt-le` 报的 `XML 里出现没转义的 <` 就是它）；
 4. **两个运算符类都要挂 `InitialKeywordReorganizationQueue`**：节点是重组规则建出来的，
-   里面的 `in` / `instanceof` / `typeof` 不会再被外层扫到，不挂队列就永远停在 `Common`
+   里面的 `in` / `instanceof` / `typeof` 不会再被外层扫到，不挂队列就永远停在 `Identifier`
    （`ex-unary-ops` / `lex-keyword-in-of` / `type-mapped-basic` 三条用例报的 `缺 Keyword` 就是它）。
 
 **已知的优先级不准确一处**：`a && b + c` 里 `&&` 的规则位次比四则**早**（历史位次），
@@ -1141,7 +1141,7 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 
 | **第十四批** | 改动 | 结果 |
 | --- | --- | --- |
-| **一元运算符没有节点** | 新增 `unary-operator.xl.md`：`UnaryOperatorReorganization` + `UnaryOperator`（带 `Operator` 属性），注册在 `NotNullReorganization` 之后、`KeywordReorganization` 之前。`!x` / `-x` / `+x` / `~x` / `typeof x` / `void x` / `delete x` / `x++` / `x--` 都收成节点 | 用例 `expr-unary-operator` 转绿，台账 **3 → 2**；`UnaryOperator` 差额 389 → **50** |
+| **一元运算符没有节点** | 新增 `unary-operator.xl.md`：`UnaryOperatorReorganization` + `UnaryOperator`（带 `op` 属性），注册在 `NotNullReorganization` 之后、`KeywordReorganization` 之前。`!x` / `-x` / `+x` / `~x` / `typeof x` / `void x` / `delete x` / `x++` / `x--` 都收成节点 | 用例 `expr-unary-operator` 转绿，台账 **3 → 2**；`UnaryOperator` 差额 389 → **50** |
 
 **三处「不能收」的判据，每一处都是实测踩出来的**：
 
@@ -1208,8 +1208,8 @@ Field 20131/20132
 后者是标签表表达不了的语义信息（表达式文法、`NotNull` 被丢、变量修饰词、`Label` 不含被标语句、
 `Import` 无结构化属性、`escape-a-bell` 的语言配置取舍等）。
 | **关键字方法名**（2 条） | `MethodDeclaration` 在**成员位置**不再查 `MethodNameTemplate`：`class A { delete() {} if() {} for() {} new() {} }` / `interface I { for(): void }` 里的名字正是关键字，而禁用表防的是表达式位的 `if (x)` | 2 条转绿 |
-| **计算成员名上的方法**（2 条） | `MethodDeclaration` 认 `[...]` 作名字（复用 `field.xl.md` 的 `BracketNameText`）。两处细节都是踩出来的：`BracketNameText` 的参数类型要放宽成 `Token`（`Process` 跑到时那个括号**已经**是 `JsonArray` 了），名字里的字符串字面量要按内容取（`` [`m`] `` → `m`） | 2 条转绿 |
-| **`return` 后面的正则**（2 条） | `RegexTokenBranch.Condition` 里「前一个实义单元是 `Common` 就不算正则」要放**关键字**进来：`return` / `typeof` 在词法阶段还是 `Common`，判据改查它自己的 `KeywordTemplate` | 2 条转绿，`a / b / c` 仍按除号读 |
+| **计算成员名上的方法**（2 条） | `MethodDeclaration` 认 `[...]` 作名字（复用 `field.xl.md` 的 `BracketNameText`）。两处细节都是踩出来的：`BracketNameText` 的参数类型要放宽成 `Token`（`Process` 跑到时那个括号**已经**是 `ArrayLiteral` 了），名字里的字符串字面量要按内容取（`` [`m`] `` → `m`） | 2 条转绿 |
+| **`return` 后面的正则**（2 条） | `RegexTokenBranch.Condition` 里「前一个实义单元是 `Identifier` 就不算正则」要放**关键字**进来：`return` / `typeof` 在词法阶段还是 `Identifier`，判据改查它自己的 `KeywordTemplate` | 2 条转绿，`a / b / c` 仍按除号读 |
 | **文件开头的 BOM**（1 条） | `SymbolTemplate.IsWhiteSpace` 认 U+FEFF：不算空白的话它会被 `CommonBranch` 吞进紧随的标识符（`\uFEFFconst`），关键字再也对不上 | 1 条转绿 |
 | **`import.meta`**（1 条） | `ImportReorganization` 除了拒「后面紧跟 `(`」（动态导入），再拒「后面紧跟 `.`」——那是元属性，不是导入声明 | 1 条转绿 |
 | **`new (…)`**（2 条） | `NewReorganization` 接受 `new` 后面紧跟的 `(` 括号（括号里的被构造者）；`Process` 先跳过它一格再找实参括号。**但类型位的构造签名 `new (a) => A` 要留在门外**——判据是括号后面紧跟 `=>` | 2 条转绿，`ex-new-variants` 的五种写法都成 `New` |
@@ -1223,8 +1223,8 @@ Field 20131/20132
 **又一批期望纠正**（都记了理由）：`mod-export-default-function-{named,anon}` 的 `ReturnType`
 （源码里没有返回类型标注）、`mod-export-equals-qualified` 的 `TypeDefine`（把 `export =` 的 `=` 当成了类型标注）、
 `ex-new-variants` 的 `Keyword`（`new (…)` 认下之后不再有裸的 `new` 词）、
-`decl-class-string-method-name` 的 `Method` + `String`（`Method` 是**调用**节点；字符串名现在进 `MethodName` / `FieldName` 属性）、
-`itf-methods` 的 `Interface,Field`（取值器折成 `Modifiers="get"` / `"set"` 的方法声明）、
+`decl-class-string-method-name` 的 `Method` + `String`（`Method` 是**调用**节点；字符串名现在进 `name` / `fieldName` 属性）、
+`itf-methods` 的 `Interface,Field`（取值器折成 `modifiers="get"` / `"set"` 的方法声明）、
 `mod-export-type` 与 `mod-import-dynamic-type-position` 的 `TypeDefine`（别名右侧没有冒号）。
 
 到这里：**在案缺口 47 → 6**（两轮共清 41 条），测试集 870 条 / 864 通过 / 0 新增 / 0 过期；
@@ -1294,7 +1294,7 @@ Field 20131/20132
 4. **`declare module "x" { … }`**（ModuleDeclarationString 115 处）与 **`export =` / `export default`**
    （ExportAssignment 50 处）——标签表里最后两块没有节点的构造。
 5. **零头**：`Field` 338 / `TypeAssign` 15 / `Interface` 6 / `Function` 1（多为 `declare module` 体内与类型字面量的边角）。
-6. **`in` / `of` 的关键词化**：要先把 `For` / `Foreach` 的判定改成「`Common` 或 `Keyword` 都认」。
+6. **`in` / `of` 的关键词化**：要先把 `For` / `Foreach` 的判定改成「`Identifier` 或 `Keyword` 都认」。
 7. **JSX / TSX**、类里的 `static { … }` 块。
 
 ---
@@ -1330,9 +1330,9 @@ Field 20131/20132
 
 ## 交给下一轮的「坑地图」（每条都是实测换来的）
 
-1. **祖先链不可靠**：单元被上层规则收走之后 `Parent` 指针是**过期的**（调试打印里 `JsonArray` 的祖先链是 `JsonArray < Root`，而它在产物里明明位于 `TypeAssign` 里面）。**判据要落在不受搬移影响的形状上** —— 元组 `...` 的修法（看操作数右边是不是空 `[]`）就是这条教训的产物。
+1. **祖先链不可靠**：单元被上层规则收走之后 `Parent` 指针是**过期的**（调试打印里 `ArrayLiteral` 的祖先链是 `ArrayLiteral < Root`，而它在产物里明明位于 `TypeAssign` 里面）。**判据要落在不受搬移影响的形状上** —— 元组 `...` 的修法（看操作数右边是不是空 `[]`）就是这条教训的产物。
 2. **判据宽一点点，后果是几十个节点消失**：反斜杠（`IsUnicodeEscapeStart`）、续行符号（`IsMemberBoundary`）、类型标注（`IsRestParameter`）、关键字表（`IsOperand`）—— 四处都这么踩出来。**改判据后先跑差分引擎**，数字会立刻告诉你有没有误伤。
-3. **位次决定语义**：同一形状在不同队列位次上结果不同（`Field` 早于 `JsonObject`、`TernaryOperator` 早于 `TypeAssign`、`LogicalOperator` 原来早于四则导致优先级错）。**给节点装队列**（`InitialKeywordReorganizationQueue` / `InitialStatementReorganizationQueue`）是补位次的常规手段。
+3. **位次决定语义**：同一形状在不同队列位次上结果不同（`Field` 早于 `ObjectLiteral`、`TernaryOperator` 早于 `TypeAssign`、`LogicalOperator` 原来早于四则导致优先级错）。**给节点装队列**（`InitialKeywordReorganizationQueue` / `InitialStatementReorganizationQueue`）是补位次的常规手段。
 4. **量化工具的账目错了，会把人引到错的地方**：`BinaryOperator` 曾报出 1518 的缺口，其中一半以上另有归属（赋值、`LogicalOperator`），真正该修的只有 165。**先按维度数一遍，再动手**。
 5. **用例可能编码错误期望**：6 条 type-only import/export 用例是照着**当时错的产物**写的；修正要按 AST 的真实结构断言，并写 note 说明理由。
 
@@ -1384,18 +1384,18 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 
 | 缺口 | 根因 | 差额变化 |
 | --- | --- | --- |
-| 计算名方法无体 `[Symbol.iterator](): T` | `SignatureReorganization` 排在方法声明规则之前，`(` 的判据只挡 `Common`/`GenericType`，挡不住 `[` | 方法类真缺 172 → 23，假 Signature 172 → 2 |
+| 计算名方法无体 `[Symbol.iterator](): T` | `SignatureReorganization` 排在方法声明规则之前，`(` 的判据只挡 `Identifier`/`GenericType`，挡不住 `[` | 方法类真缺 172 → 23，假 Signature 172 → 2 |
 | 字段初始化器里的 `new` `A = new C("x")` | 成员签名判据只看「名字父单元是不是成员体」，而初始化式里的名字也在成员体里 | `new` 真缺 84 → 0 |
 | 字段三形状：`[KEY] = 1` / `x!: T` / `h?: Record<A,B>` | 计算名只认 `:` `?:`；`!` 不在延续集；`IsTypePosition` 不认 `?:` | 字段 17 → 0（后续再修 `?`） |
 | `using` / `await using` | `Let` 不认 `using`，也不在关键字表 | 变量声明 4 → 0 |
 | 匿名类表达式 `class extends B {}` | 匿名判定只认「`class` 后面直接是 `{`」 | 类 1 → 0 |
 | 嵌套三元（右结合两层） | 外层先从左边的 `:` 触发、把内层切碎；`Process` 的真值段又越过内层 `?` | 三元 3 → 1 |
-| `namespace A.B.C {}` 不嵌套 | 只出一个扁平的 `NamespaceName="A.B.C"`；TS 里是三层嵌套 ModuleDeclaration | 命名空间 4 → 0 |
+| `namespace A.B.C {}` 不嵌套 | 只出一个扁平的 `namespace="A.B.C"`；TS 里是三层嵌套 ModuleDeclaration | 命名空间 4 → 0 |
 | 二元四条根因（见下） | 括号判据写错字段（死代码）/ 一元名单不齐 / `[` 守卫过宽 / 组合符号表缺 `<< >> >>> **` | 二元 117 → 17 |
 | 三元三个分支段没有队列 | 构造器只 `super`，`ReorganizationQueue` 为 null → 内部一趟重组都不跑 | 二元再降（三处分支里的算符） |
 | 泛型后继闸缺 `[` | `X<A, D>[]` 的 `>` 后面是 `[`，试读被判否，泛型只吃到 `X<A` | 方法类 23 → 18 |
 | 可选但无类型标注 `private x?;` | `?` 后面直接 `;`、不合并成 `?:`，落不进 Field 的延续集 | 字段 10 → 0（第 2 次） |
-| `return !(x)` 被收成非空断言 | `return` 在 `KeywordReorganization` 之前还是 `Common`，被 `NotNull` 当成被断言者 | 一元 5 → 0 |
+| `return !(x)` 被收成非空断言 | `return` 在 `KeywordReorganization` 之前还是 `Identifier`，被 `NotNull` 当成被断言者 | 一元 5 → 0 |
 
 **净效果：真缺 435 → 57**（语料 1248 个文件，解析失败 0；用例 879 → 889，全绿；samples 三份逐字节一致）。
 
@@ -1474,9 +1474,9 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 
 - **OOM 的根因找到了**：`CompoundAssignmentOperatorReorganization.Process` 把 `&&=` 切成 `=`
   与一份 `&&` 副本插回列表，**那份副本本身也在 `CompoundAssignmentSymbols` 的判据范围内**，
-  被反复切开导致单元数翻倍。加 `Symbol.FromCompoundAssignment` 标记排除该副本后不再 OOM。
+  被反复切开导致单元数翻倍。加 `SymbolToken.FromCompoundAssignment` 标记排除该副本后不再 OOM。
 - 但**补全符号并不能修好产物**：`Process` 的切分/插入顺序本身是坏的——
-  `a &= b` → `a` `=` `a` `&` `b`（`&` 掉到 `=` 右边）、`a <<= b` → 两层 `BinaryOperator Operator="<="`。
+  `a &= b` → `a` `=` `a` `&` `b`（`&` 掉到 `=` 右边）、`a <<= b` → 两层 `BinaryOperator op="<="`。
   所以符号表回退到 4 个，缺口与修法方向写进 `compound-assignment-operator.xl.md`。
 
 ### 新增 `tests/parse/DASHBOARD-NOTES.md`
@@ -1512,9 +1512,9 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
    `a &= b` 被断成 `&` 与 `=`、`a ??= b` 断成 `?` 与 `=`。
 2. **`Process` 的切分写死了下标**：`splice(1, 1)` / `splice(0, 1)` 只对两字符运算符成立，
    而 TypeScript 有 7 个三字符的（`<<=` `>>=` `>>>=` `**=` `&&=` `||=` `??=`）。
-   `a <<= b` 于是被切成 `<` 与 `<=`（两层 `Operator="<="`）。改成按 `Temp.length` 保留最后一个字符。
+   `a <<= b` 于是被切成 `<` 与 `<=`（两层 `op="<="`）。改成按 `Temp.length` 保留最后一个字符。
 
-安全前提是上一轮加的 `Symbol.FromCompoundAssignment`（否则插回的运算符副本会被同一条规则
+安全前提是上一轮加的 `SymbolToken.FromCompoundAssignment`（否则插回的运算符副本会被同一条规则
 反复切开 → OOM）。实测 15 种写法全部产出 `左值 = 左值 op 右值`。
 
 ### 逗号（序列）表达式（二元 8 → 5）
@@ -1560,9 +1560,9 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 
 | 缺口 | 根因 | 差额 |
 | --- | --- | --- |
-| 嵌套对象字面量 `{ a: { b: 1 } }` | `JsonObjectReorganization` 先成形，内层 `{` 已是 `JsonObject` 子单元，而 `TypeLiteralReorganization.IsTypePosition` 往前扫撞上 `a:` 的冒号就判类型位（对象字面量的冒号是**键分隔符**） | 对象字面量 3 → 1 |
+| 嵌套对象字面量 `{ a: { b: 1 } }` | `JsonObjectReorganization` 先成形，内层 `{` 已是 `ObjectLiteral` 子单元，而 `TypeLiteralReorganization.IsTypePosition` 往前扫撞上 `a:` 的冒号就判类型位（对象字面量的冒号是**键分隔符**） | 对象字面量 3 → 1 |
 | 右结合嵌套三元 `a ? b : c ? d : e` | `Previous` 的第四层把假值段让给内层 `?`，而 `Reorganize` 单趟时**外侧已经扫过去了** | 三元 1 → 0 |
-| `@(expr)` 装饰器表达式 | `DecoratorReorganization` 的两支都只认「`@` 后面跟 `Common` 名字」 | 装饰器 1 → 0 |
+| `@(expr)` 装饰器表达式 | `DecoratorReorganization` 的两支都只认「`@` 后面跟 `Identifier` 名字」 | 装饰器 1 → 0 |
 | ASI 后的 `{ a: 1 }` | **口径**：TS 把它读成 Block（里面 `a:` 成 LabeledStatement），本工程按对象字面量收 | 标签 1 → 0 |
 
 ### 两趟重组：可以做，但必须同时修掉「时序依赖」
@@ -1573,22 +1573,22 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 两趟立刻暴露出一个**隐藏的时序依赖**，这是本轮最有价值的发现：
 
 > `TernaryOperatorReorganization.IsTypePosition`（判「括号里的条件类型」）原来写的是
-> `item instanceof Common && item.Is("extends")`。`extends` 在**第一趟**还是 `Common`，
+> `item instanceof Identifier && item.Is("extends")`。`extends` 在**第一趟**还是 `Identifier`，
 > 第一趟结束时已被 `KeywordReorganization` 收成 `Keyword` ——
 > 于是**第二趟这个判据全部失灵**，`type-cond-nested` / `type-cond-union-member`
 > 两条用例当场报「不该有 TernaryOperator」。
 
-改成「`Common` 按 `Is` 判、`Keyword` 按 `Value` 判」即可。**教训**：
+改成「`Identifier` 按 `Is` 判、`Keyword` 按 `Value` 判」即可。**教训**：
 凡是「按单元类型判文本」的判据，都要问一句「这个单元在第一趟之后会不会变成另一种类型」。
 
-（附带一条易踩的 API 事实：**`Common` 与 `Keyword` 没有共同的取文本方法**——
+（附带一条易踩的 API 事实：**`Identifier` 与 `Keyword` 没有共同的取文本方法**——
 `Keyword` 既没有 `Is` 也没有 `TempToString`，只有 `Value` 字段。
 写成 `item.TempToString()` / `item.Is(...)` 会在运行期抛 TypeError，本轮连踩两轮。）
 
 ### 两条被改正的旧用例期望
 
 `expr-object-nested.ts` 与 `decl-obj-destructure-nested.ts` 当初把**错误产物**
-（内层 `TypeLiteral` + `Field`）钉成了期望，本轮一并改成正确的 `JsonObject:2`。
+（内层 `TypeLiteral` + `Field`）钉成了期望，本轮一并改成正确的 `ObjectLiteral:2`。
 
 ### 剩余（真缺 13）
 
@@ -1605,7 +1605,7 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 1. **类型位文法**（联合/交叉/条件/映射/元组/函数类型）——最本质的一块空白。
 2. **类里带实现体的重载**：两趟之后有了新可能——让 `Previous` 在「见过 `:` 之后遇到换行」时
    先不成，等下一趟（但要注意别把一行一条的 `get x(): number` 打掉，那正是本轮之前两次净回归的原因）。
-3. **`Symbol.FromCompoundAssignment` 之后的复合赋值口径对齐**（TS 侧把 `&&=` 记成
+3. **`SymbolToken.FromCompoundAssignment` 之后的复合赋值口径对齐**（TS 侧把 `&&=` 记成
    LogicalExpression，要不要在账上按「两侧都不计」处理，是个**口径决定**而不是解析器改动）。
 
 ## 第 48 轮：类里的重载、泛型后继闸补 `|`/`&`
@@ -1636,7 +1636,7 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 ### 泛型后继闸缺 `|` / `&`（函数 2 → 0）
 
 `T extends Array<X> | Y`：`ScanArguments` 的字母表**认** `|`（扫得进去），
-但后继闸 `IsAllowedFollower` 的类型位白名单没有它 → 试读被判否 → 整个 `<…>` 退回 `Symbol`
+但后继闸 `IsAllowedFollower` 的类型位白名单没有它 → 试读被判否 → 整个 `<…>` 退回 `SymbolToken`
 → 类型参数段认不出 → **整条声明塌掉**。
 
 影响面：`typescript.d.ts` 的
@@ -1684,7 +1684,7 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 | 缺口 | 根因 |
 | --- | --- |
 | `for` 头部的 `,` 折错位置（二元 5 → 2） | 逗号规则在 `ForNext` 成形前看不到 `for`，字面上会折、折出来是错的位置；改成让给 `For` 规则 |
-| `&&=` / `||=` 展开出的 `&&` / `||` 节点类型不对（二元 2 → 0） | 同一族运算符在两种来源下落到不同节点（普通走 `LogicalOperator`、复合赋值展开走 `BinaryOperator`）；用 `Symbol.FromCompoundAssignment` 标记区分 |
+| `&&=` / `||=` 展开出的 `&&` / `||` 节点类型不对（二元 2 → 0） | 同一族运算符在两种来源下落到不同节点（普通走 `LogicalOperator`、复合赋值展开走 `BinaryOperator`）；用 `SymbolToken.FromCompoundAssignment` 标记区分 |
 | 计算名字段被上一个字段吞掉（字段 1 → 0） | `IsMemberBoundary` 跳裸名字的循环停在计算名的 `[` 上；判据用「括号里有没有内容」（**不能用 `Context`**：`readonly` 会把计算名的括号推到类型位，与数组后缀同值） |
 | **JSX 闭合标签吞掉文件余下代码** | `</div>` 的 `/` 被当成正则开头、后面没有收尾 `/`，`RegexToken` 吃到文件尾；判据加「本行内必须能找到配对的 `/`」 |
 | 两处仪表口径 | 未终止的正则（两边恢复策略不同）、解构模式里的默认值（有意丢弃） |
@@ -1708,7 +1708,7 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 - **只往前看、按「像不像」猜形状的判据必然误伤**；可判定的文本事实
   （参数表原文比较、`Bracket.Data.length`）才稳。
 - **趟数相关的隐藏依赖**：任何「按单元类型判文本」的判据，都要问
-  「这个单元在下一趟会不会变成另一种类型」（`Common` vs `Keyword`）。
+  「这个单元在下一趟会不会变成另一种类型」（`Identifier` vs `Keyword`）。
 
 ## 第 50 轮：补上**形状**这把尺子，并修掉它抓到的两处真缺口
 
@@ -1759,8 +1759,8 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
 
 | 缺口 | 根因 | 为什么计数看不见 |
 | --- | --- | --- |
-| 类成员的 `accessor` 修饰符（TS 4.9 自动访问器） | 不在修饰词表里 → 被当成裸名字 → 成员退化成 `<Statement><Common>accessor</Common><Field …/></Statement>` | `Field` 还是 1 个、`ClassBody` 还是在，**只是多包了一层 `Statement`**。而且原用例的期望只写了 `Class,ClassBody`，等于没断言 |
-| `@dec x = 1` 把字段名吞进装饰器 | 装饰器名字扫描把任何非关键字 `Common` 都吃下去 → `DecoratorName="dec.x"` | 产物里 `Decorator` 还是 1 个，**字段却整个消失**（只剩 `<Symbol>=</Symbol><Common>1</Common>`），`differential` 的 `Decorator` 计数甚至还是对的 |
+| 类成员的 `accessor` 修饰符（TS 4.9 自动访问器） | 不在修饰词表里 → 被当成裸名字 → 成员退化成 `<Statement><Identifier>accessor</Identifier><Field …/></Statement>` | `Field` 还是 1 个、`ClassBody` 还是在，**只是多包了一层 `Statement`**。而且原用例的期望只写了 `Class,ClassBody`，等于没断言 |
+| `@dec x = 1` 把字段名吞进装饰器 | 装饰器名字扫描把任何非关键字 `Identifier` 都吃下去 → `name="dec.x"` | 产物里 `Decorator` 还是 1 个，**字段却整个消失**（只剩 `<SymbolToken>=</SymbolToken><Identifier>1</Identifier>`），`differential` 的 `Decorator` 计数甚至还是对的 |
 
 修法：
 
@@ -1768,11 +1768,11 @@ node samples/check.mjs                        # 三个样例的逐字节 XML 校
   它必须两边都进：只进关键字表会被 `Decorator` 的「挡关键字」逻辑影响到成员起点判定，
   只进修饰词表则成员起点判定看不到它。
 - 装饰器名字之间**必须有 `.`**：`@ns.Name` 才需要多段名字，
-  连续两个裸 `Common`（`@dec x`）说明第一个名字已经结束。
+  连续两个裸 `Identifier`（`@dec x`）说明第一个名字已经结束。
   **不能用「有没有空白」判**：`@dec x` 与 `@ns.dec` 在单元列表里都有东西夹在中间；
-  也**不能用 `SourceRange` 判**：此刻 `@` 这个 `Symbol` 还没关闭，
+  也**不能用 `SourceRange` 判**：此刻 `@` 这个 `SymbolToken` 还没关闭，
   `SourceRange.End` 是 `null`——试过，它把 `@Component({...})` 一起打坏了
-  （产物退化成空 `DecoratorName`，说明这条判据在**所有**装饰器上都为假）。
+  （产物退化成空 `name`，说明这条判据在**所有**装饰器上都为假）。
 
 两处都有回归用例：`decl-class-accessor`（三条 `Field` 计数）、`cls-accessor-keyword`、
 `cls-decorator-field`、`cls-decorator-qualified-name`。

@@ -1,30 +1,31 @@
 # dependencies
 ```xl
+import { CommonUtil } from "./core/common-util.xl.md"
 import { Template } from "./core/syntax/templates/template.xl.md"
 import { SyntaxException } from "./core/exceptions/syntax-exception.xl.md"
-import { TextDocument } from "./dawn/text/text-document.xl.md"
-import { TextContext } from "./dawn/text/text-context.xl.md"
+import { TextDocument } from "./typescript/text-document.xl.md"
+import { TextContext } from "./typescript/text-context.xl.md"
 ```
 
 # namespace cangjie
 
 `cjcli`：命令行入口。**本文件不属于语法层本体**：它把 token 树接上命令行——
-`Dawn/Text` 这棵 token 树因此真正能被调用。
+`typescript/tokens` 这棵 token 树因此真正能被调用。
 
-链路只有四步：读源文件 → `TextDocument` 包成文档 → `TextContext.Process` 驱动解析 → 把 `Root` 的 XML 打到标准输出。
+链路只有四步：读源文件 → `TextDocument` 包成文档 → `TextContext.Process` 驱动解析 → 把 `Root` 的 XML 缩进后打到标准输出。
 
 | 命令 | 行为 |
 | --- | --- |
-| `cjcli <文件>` | 解析文件，XML 打到标准输出 |
-| `cjcli <文件> -o <文件>` | 解析后写入指定文件 |
+| `cjcli <文件>` | 解析文件，**缩进** XML 打到标准输出 |
+| `cjcli <文件> -o <文件>` | 解析后写入指定文件（同一份缩进文本） |
 | `cjcli -h` / `cjcli --help` | 打印用法 |
 | `cjcli -v` / `cjcli --version` | 打印版本 |
-| `cjcli`（无参数） | 从标准输入读，解析后打 XML |
+| `cjcli`（无参数） | 从标准输入读，解析后打缩进 XML |
 
 退出码：`0` 成功；`1` 表示用法错误 / 读不到文件 / 解析抛错。
 
 依赖路径的写法：`# dependencies` 里的 import 既决定 ts 产物里的 import，也决定「被依赖的规范文件」必须存在。
-本项目根目录下的入口写 `./core/...`、`./dawn/...`，产物里就是 `./core/syntax/token` 这类**相对 `dist/` 根**的路径。
+本项目根目录下的入口写 `./core/...`、`./typescript/...`，产物里就是 `./core/syntax/token` 这类**相对 `dist/` 根**的路径。
 
 **产物链路**：
 
@@ -79,8 +80,8 @@ return [
   "cjcli — Cangjie 语法层命令行",
   "",
   "用法：",
-  "  cjcli <文件>              解析源文件，XML 打到标准输出",
-  "  cjcli <文件> -o <文件>    解析后写入指定文件",
+  "  cjcli <文件>              解析源文件，缩进 XML 打到标准输出",
+  "  cjcli <文件> -o <文件>    解析后写入指定文件（同一份缩进文本）",
   "  cjcli                    从标准输入读源码",
   "  cjcli -h, --help         打印本说明",
   "  cjcli -v, --version      打印版本",
@@ -98,7 +99,10 @@ return [
 `Template` 每次调用都新建：`Root` 构造时会往 `template.BranchTemplate.DefaultValue` /
 `ReorganizationTemplate.DefaultValue` 上装通用队列，模板是**有状态**的，跨次复用会把上一份上下文的解析痕迹带进来。
 
-`-o` 时按 `><` 断行，仅此而已——XML 的**内容**仍是 `Root.ToString()` 的原样输出，不改写任何标签。
+打印走 `CommonUtil.FormatXml`：**每个元素一行、两格缩进**，叶子（只有文本的元素）留在同一行。
+缩进只动空白、不动任何标签或属性值——`Root.ToString()` 的紧凑形态仍然是测试与差分用的那一份。
+
+`-o` 与标准输出**打的是同一份缩进文本**，两种出口不再有形态差异。
 
 ```ts
 const options = CjcliParseArguments(args);
@@ -139,13 +143,13 @@ if (xml === null) {
   process.exitCode = 1;
   return;
 }
-const text = options.Output === "" ? xml : xml.split("><").join(">\n<");
+const text = CommonUtil.FormatXml(xml);
 if (options.Output === "") {
-  process.stdout.write(text + "\n");
+  process.stdout.write(text);
   return;
 }
 const outputPath = CjcliAbsolutePath(options.Output);
-CjcliWriteFile(outputPath, text + "\n");
+CjcliWriteFile(outputPath, text);
 process.stdout.write("已写入 " + outputPath + "\n");
 ```
 
@@ -207,7 +211,7 @@ return options;
 解析完也不需要显式释放，所以这里只剩 `try/catch` 一层，用来做异常收敛。
 
 `Template` 不能省：`TextContext` 的构造器要求一个模板，并会在造根单元之前**自动装上**通用跳转队列与
-重组队列（见 `dawn/text/parse-pipeline.xl.md`），所以这里只需 `new Template()`。
+重组队列（见 `typescript/parse-pipeline.xl.md`），所以这里只需 `new Template()`。
 
 异常收敛到 `null`：`SyntaxException` 的 `Message` 里已经带了出错位置那段带 `^` 下划线的文本（`TextDocument.GetRangeLines` 的产物），
 直接打出来比让调用栈回溯更有用。布局是「`cjcli: 解析失败`」一行 + 诊断正文——信息里本来就带换行，所以不再拼多余前缀。

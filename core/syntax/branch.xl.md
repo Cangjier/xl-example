@@ -41,7 +41,7 @@ throw new Error("abstract member: Success");
 
 条件不成立时的钩子。
 
-默认空实现，只有少数子类重写（如 `Common.Branch.Failed` 会关掉上一个单元）。这里不写 ts 体，打印器产出空方法。
+默认空实现，只有少数子类重写（如 `Identifier.Branch.Failed` 会关掉上一个单元）。这里不写 ts 体，打印器产出空方法。
 
 ## method Transit:(Context:SyntaxContext, Host:Token, Src:Source)=>BranchStates
 

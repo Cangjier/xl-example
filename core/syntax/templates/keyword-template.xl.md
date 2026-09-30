@@ -6,7 +6,7 @@
 
 关键字模板：判定一个标识符是不是当前语言的关键字。
 
-判定是「白名单优先、黑名单否决」的两张表，`Dawn/Text` 的 `Keyword` token 用它。
+判定是「白名单优先、黑名单否决」的两张表，`typescript/tokens` 的 `Keyword` token 用它。
 
 ## field BanedKeywords:Array<string> = []
 

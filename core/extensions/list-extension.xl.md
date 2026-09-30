@@ -4,7 +4,7 @@
 
 这些操作在 xl.md 里落成**模块级 `# method`**，ts 侧就是模块级函数，列表作为第一个参数传入：`SkipNext(units, i, pred)`。
 
-这些函数被 `Dawn/Text` 的 token 大量使用——重组逻辑基本全靠「向前/向后跳过包装符号」这一组操作。
+这些函数被 `typescript/tokens` 的 token 大量使用——重组逻辑基本全靠「向前/向后跳过包装符号」这一组操作。
 
 `Get` 越界时统一返回 `null`；对 token 这类引用类型元素，`null` 就是「没有」。
 

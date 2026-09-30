@@ -86,7 +86,7 @@ C++ 必须选一个所有权模型。
 | 裸指针 + 手工 `delete` | 规范里根本没有所有权信息可以照着写；`Replace`/`MoveDataTo`/重组会把单元从一处搬到另一处，谁该删说不清 |
 | `std::unique_ptr` | 树里到处是共享引用，`Source` 被多个 `SourceRange` 指着，独占所有权直接表达不了 |
 | 值语义（`Token` 按值，`Clone` 复制） | 与规范冲突：`Parent`/`MountedUnit` 是**反向**指针，值语义会复制出两棵树；而且 `Token` 是多态基类，按值会切片 |
-| **`std::shared_ptr`** | 一个对象一个控制块，引用到哪都活着；`T | null` 就是空 `shared_ptr`；多态（`shared_ptr<Token>` 指向 `Common`）成立 |
+| **`std::shared_ptr`** | 一个对象一个控制块，引用到哪都活着；`T | null` 就是空 `shared_ptr`；多态（`shared_ptr<Token>` 指向 `Identifier`）成立 |
 
 **配套约定**（`docs/xl-to-cpp.md` §1.1/§1.2）：
 

@@ -23,8 +23,8 @@ const root = path.resolve(here, "..", "..");
 const LEDGER_PATH = path.join(here, "known-gaps.json");
 
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
-const { TextDocument } = require(path.join(root, "build", "ts", "dawn", "text", "text-document.js"));
-const { TextContext } = require(path.join(root, "build", "ts", "dawn", "text", "text-context.js"));
+const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
+const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
 
 /** 解析一段源码。返回 { xml } 或 { error }。 */
 function parseSource(source, filePath) {

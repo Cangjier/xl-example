@@ -14,8 +14,8 @@ const require = createRequire(import.meta.url);
 const root = process.cwd();
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
-const { TextDocument } = require(path.join(root, "build", "ts", "dawn", "text", "text-document.js"));
-const { TextContext } = require(path.join(root, "build", "ts", "dawn", "text", "text-context.js"));
+const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
+const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
 
 const args = process.argv.slice(2);
 const fileAt = args.indexOf("--file");

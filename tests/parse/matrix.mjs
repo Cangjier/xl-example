@@ -25,8 +25,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
-const { TextDocument } = require(path.join(root, "build", "ts", "dawn", "text", "text-document.js"));
-const { TextContext } = require(path.join(root, "build", "ts", "dawn", "text", "text-context.js"));
+const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
+const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
 
 // ── 表达式原子 ─────────────────────────────────────────────────────
 const EXPR = {
@@ -743,7 +743,7 @@ function run() {
             kindName = "Number";
           } else if (node.kind === ts.SyntaxKind.RegularExpressionLiteral) {
             // 正则正文与标志存在 `RegexToken.Temp` / `.Flags` 上，**刻意不渲染进 XML**
-            // （见 `dawn/text/tokens/regex-token.xl.md`）。这里只断言它成了一个 RegexToken。
+            // （见 `typescript/tokens/regex-token.xl.md`）。这里只断言它成了一个 RegexToken。
             candidates = hasRegexToken ? [node.getText(sf), ""] : [node.getText(sf)];
             kindName = "Regex";
           }

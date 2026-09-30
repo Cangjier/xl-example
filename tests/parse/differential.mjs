@@ -20,8 +20,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
-const { TextDocument } = require(path.join(root, "build", "ts", "dawn", "text", "text-document.js"));
-const { TextContext } = require(path.join(root, "build", "ts", "dawn", "text", "text-context.js"));
+const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
+const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
 
 // TypeScript 构造 → 它「本该」产出的节点标签。null 表示当前标签表里根本没有对应节点。
 const MAP = {
@@ -114,7 +114,7 @@ const KIND_OF = [
 function kindOf(node) {
   for (const [test, name] of KIND_OF) {
     if (name === "ModuleDeclaration" && ts.isModuleDeclaration(node)) {
-      // 字符串名字的 `declare module "x" {}` 体走 JsonObject 那条路，没有 Namespace 节点；
+      // 字符串名字的 `declare module "x" {}` 体走 ObjectLiteral 那条路，没有 Namespace 节点；
       // 标识符名字的 namespace / module 与 declare global 才应该有。
       return node.name.kind === ts.SyntaxKind.StringLiteral ? "ModuleDeclarationString" : "ModuleDeclaration";
     }

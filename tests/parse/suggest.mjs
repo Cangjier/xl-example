@@ -47,8 +47,8 @@ function suggestionsFor(source, name) {
     if (ts.isNewExpression(node)) add("New", "NewType", "NewArguments");
     if (ts.isRegularExpressionLiteral(node)) add("RegexToken");
     if (ts.isAsExpression(node)) add("As");
-    if (ts.isArrayLiteralExpression(node)) add("JsonArray");
-    if (ts.isObjectLiteralExpression(node)) add("JsonObject");
+    if (ts.isArrayLiteralExpression(node)) add("ArrayLiteral");
+    if (ts.isObjectLiteralExpression(node)) add("ObjectLiteral");
     if (ts.isStringLiteral(node)) {
       // 只钉「值是字符串字面量」的位置：import/export 说明符与类型位不算
       const p = parents.get(node);

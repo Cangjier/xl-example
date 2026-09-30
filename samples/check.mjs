@@ -1,11 +1,14 @@
-// 样本验收：samples/*.cj 与其 *.expected.xml 逐字节对照。
+// 样本验收：samples/*.ts 与其 *.expected.xml 逐字节对照。
 //
 //   node samples/check.mjs            比对，全部一致时退出码 0
 //   node samples/check.mjs --update   用当前产物重写 *.expected.xml
 //
-// 走 `cjcli <文件> -o <临时文件>` 而不是管道：cjcli 的 `-o` 形式会把 `><` 拆成换行，
-// 于是两端都在「文件」这一层读写，不经过控制台编码，中文注释不会在比对里被搅坏。
-// 比对前把拆行还原成一行——夹具文件是单行 XML（与 hello.expected.xml 同形）。
+// 走 `cjcli <文件> -o <临时文件>` 而不是管道：两端都在「文件」这一层读写，
+// 不经过控制台编码，中文注释不会在比对里被搅坏。
+//
+// `cjcli` 现在打印**缩进**过的 XML，而夹具是紧凑单行。比对前把标签之间的空白全部去掉，
+// 于是「缩进怎么排」不再是判据——判据回到「标签、属性、文本内容是否逐字节相同」。
+// 属性值里的空白不受影响：`CommonUtil.XmlDecode` 把换行 / 制表符都写成了 `\n` / `\t` 转义。
 
 import fs from "node:fs";
 import os from "node:os";
@@ -18,9 +21,9 @@ const root = path.resolve(here, "..");
 const cli = path.join(root, "build", "ts", "cjcli.js");
 const update = process.argv.includes("--update");
 
-/** 产物拆行 ↔ 单行夹具之间的换算：`>\n<` 与 `><` 等价。 */
+/** 缩进形态 ↔ 紧凑形态之间的换算：标签之间的一切空白都丢掉。 */
 function normalize(text) {
-  return text.split(">\n<").join("><").trim();
+  return text.replace(/>\s+</g, "><").trim();
 }
 
 const samples = fs
