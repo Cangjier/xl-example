@@ -18,7 +18,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+以模板创建。独立单元没有自己的状态，构造器里只有转调。
 
 ```ts
 super(template);
@@ -28,13 +28,11 @@ super(template);
 
 处理一个字符。
 
-原 C# 的覆写是**空的**：独立单元不接收任何字符。按 M30 不写 ts 体，打印器产出空方法。
+独立单元不接收任何字符，所以这个覆写是**空的**：不写 ts 体，打印器产出空方法。
 
 ## protected method Close:()=>void
 
 关闭：只把自己标记为已关闭。
-
-原 C# 是 `protected override void Close()`。
 
 ```ts
 this.Closed = true;
@@ -44,4 +42,4 @@ this.Closed = true;
 
 兜底处理。
 
-原 C# 是空实现。按 M30 不写 ts 体。
+空实现，不写 ts 体。

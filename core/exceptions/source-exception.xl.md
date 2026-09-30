@@ -6,9 +6,9 @@ Cangjie 的异常族。`Core/Exceptions/` 是语法层与执行层共用的叶�
 
 源于位置的错误。
 
-原 C# 侧是 `public class SourceException : Exception`。xl 的 `extends` 只能指向规范内声明过的类型（`E1104`），BCL 的 `Exception` 不进 `extends`（M20）：ts 侧用 `Message` 字段承载基类那条信息，正文负责记录 C# 侧的基类关系。
+xl 的 `extends` 只能指向规范内声明过的类型（`E1104`），BCL 的 `Exception` 不进 `extends`：ts 侧用 `Message` 字段承载基类那条信息。
 
-原 C# 的 5 个静态属性每次访问都 `new` 一个实例；ts 侧写成 5 个静态只读字段，共享同一份实例。这些对象不可变，行为等价。
+这 5 个异常实例写成静态只读字段，共享同一份实例；对象不可变，共享是安全的。
 
 ## field Message:string = ""
 
@@ -17,8 +17,6 @@ Cangjie 的异常族。`Core/Exceptions/` 是语法层与执行层共用的叶�
 ## constructor:(Msg:string)=>void
 
 以信息创建。
-
-原 C# 签名是 `SourceException(string Msg) : base(Msg)`。
 
 ```ts
 this.Message = Msg;

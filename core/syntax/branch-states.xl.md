@@ -2,7 +2,7 @@
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-本目录（`core/syntax/`）对应原 C# 项目的 `Core/Syntax/`，是整个解析器的骨架。
+本目录（`core/syntax/`）是整个解析器的骨架。
 
 # enum BranchStates
 

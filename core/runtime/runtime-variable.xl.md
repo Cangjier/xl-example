@@ -13,13 +13,13 @@ import { RuntimeObject } from "./runtime-object.xl.md"
 
 ## field Name:string = ""
 
-变量名。原 C# 侧是 `string Name { get; set; } = string.Empty`。
+变量名。
 
 ## field Value:RuntimeObject
 
 变量值。
 
-原 C# 侧是无初始化器的 `RuntimeObject Value { get; set; }`，依赖 `default(RuntimeObject)`——两个字段都是 `null`。ts 的严格属性初始化不允许无初值的字段，因此这里显式写出等价的默认值。
+ts 的严格属性初始化不允许无初值的字段，因此这里显式写出默认值：`Type` 与 `Value` 都是 `null`。
 ```ts
 new RuntimeObject(null, null)
 ```

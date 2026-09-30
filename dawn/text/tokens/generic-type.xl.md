@@ -21,11 +21,11 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 泛型实参段：`Array<Int64>` 里的 `<Int64>`、`Map<String, Int64>` 里的 `<String, Int64>`。
 
-**这是本移植里第一个超出 C# 基线的特性**：原 C# 的 `Dawn/Text/Tokens/GenericType.cs` 只是一个四行的空类 `public class GenericType { }`，既没有基类也没有成员，在整个 C# 工程里没有任何一处引用。所以这一处**没有「与基准逐字节一致」可对照**——**本文件定义的形状就是基准**（XML 形状见 `GenericType.ToXmlString`），后来者不要拿旧夹具来比。
+**这个特性完全由本文件定义**——`GenericType` 的形状与 XML 产出格式都以这里为准（XML 形状见 `GenericType.ToXmlString`）。
 
 难度只有一个：`<` 与 `>` 同时是比较运算符（`SymbolTemplate.CompareSymbols` 里就有 `>` `<` `>=` `<=`），而词法层拿不到「这里期望一个类型」这种语法上下文。判定因此按**先试读、读不通就退回比较运算符**来组织，口径参考 TypeScript 的泛型实参消解：**不看空白**，看能不能凑出一个合法的类型实参表，以及 `>` 后面跟着什么。
 
-四道闸门，任一不过就返回失败，`<` 继续由 `Symbol` 接手（老行为）：
+四道闸门，任一不过就返回失败，`<` 继续由 `Symbol` 接手当比较运算符：
 
 1. **名字闸**：宿主单元最后一个子单元必须是 `Common`，且不是数字 / 布尔字面量。`3 < 4`、`true < false`、行首的 `<`、`(` 后面的 `<` 都直接判否。
 2. **内容闸**（`ScanArguments`）：从 `<` 之后按「类型实参字母表」扫到配对的 `>`，带尖括号 / 圆括号 / 方括号嵌套；换行只在嵌套未归零、或上一个非空字符是 `,` / `<` 时才续扫，否则视为语句到此为止。
@@ -39,7 +39,7 @@ import { WrapSymbol } from "./wrap-symbol.xl.md"
 
 残余误判都被样本钉住（见 `samples/generic.cj` 与 README）：**类型位**里写出来的零空格比较链（如 Json 对象里的 `{a: b<c>d}`）仍会被读成泛型。要根治得引入整句语法上下文，本层不做。
 
-按 M33，展平出来的嵌套类 `GenericTypeBranch` 写在 `GenericType` **之前**——`GenericType` 的静态字段 `JumpIn` 在类定义时立即 `new GenericTypeBranch()`，写反了会命中 ts 的暂时性死区（TDZ）。
+`GenericTypeBranch` 写在 `GenericType` **之前**：后者的静态字段 `JumpIn` 在类定义时立即 `new GenericTypeBranch()`，写反了会命中 ts 的暂时性死区（TDZ）。
 
 # class GenericTypeBranch extends Branch
 
@@ -61,7 +61,7 @@ return result;
 
 认下这个 `<`：新建一个 `GenericType` 挂到宿主上，并用 `<` 签入。
 
-结构照抄 `BracketBranch.Success`——`<` 这个字符本身不进 `Temp`、不进 `Data`，它由 `GenericType.StartBracketChar` 记着；后续字符由挂载单元自己啃。
+结构与 `BracketBranch.Success` 一致——`<` 这个字符本身不进 `Temp`、不进 `Data`，它由 `GenericType.StartBracketChar` 记着；后续字符由挂载单元自己啃。
 
 ```ts
 unit.AddToMounted(new GenericType(unit.Template)).SignIn(source);
@@ -90,7 +90,15 @@ return this.IsAllowedFollower(unit, source, closeIndex);
 
 从 `<` 之后扫到配对的 `>`，返回那个 `>` 的下标；扫不通返回 `-1`。
 
-扫描器只认「类型实参字母表」：标识符字符、`_`、`.`、`,`、`?`，加上成对的 `< >` / `( )` / `[ ]`，以及 `->`（函数类型）。其余字符一律中止：`=`、`+`、`/`、`%`、`&`、`|`、`^`、`~`、`!`、`@`、`#`、`$`、`:`、`"`、`'`、`` ` ``、`{`、`}`、`;`，以及**括号层级为 0 时**的 `)` / `]`（它闭合的是 `<` 外面的东西，说明这里根本不是泛型）。
+扫描器只认「类型实参字母表」：标识符字符、`_`、`.`、`,`、`?`、`=`（类型参数的默认值）、`:`（类型字面量里的键），
+加上成对的 `< >` / `( )` / `[ ]` / `{ }`，以及 `->`（函数类型）。其余字符一律中止：
+`+`、`/`、`%`、`&`、`|`、`^`、`~`、`!`、`@`、`#`、`$`、`"`、`'`、`` ` ``、`;`，
+以及**括号层级为 0 时**的 `)` / `]` / `}`（它闭合的是 `<` 外面的东西，说明这里根本不是泛型）。
+
+**`=` / `:` / `{ }` 三个字符是「类型参数段」需要的**：`<T = unknown>`、`<T extends object = {}>`、
+`<T = { a: number }>` 这些写法里它们必然出现，而 TypeScript 的类型位到处是它们。
+放开这三个字符不会把表达式里的 `<` 误读成泛型——最后一道闸门是 `IsAllowedFollower`：
+表达式位里 `<…>` 后面必须紧跟 `(` 才算数（`a<b, c=d>e` 这类写法在那一关被挡回去）。
 
 换行的取舍：泛型实参表允许折行，但折行不能是「语句结束」。所以只有**嵌套未归零**（`angleDepth > 1` 或 `groupDepth > 0`）、或**上一个非空字符是 `,` / `<`**（明显的续行信号）时才跨过换行，否则判否——`let n = a<b` 后面另起一行 `foo(bar) > x` 这种跨语句误吞就是这样挡掉的。
 
@@ -135,18 +143,24 @@ while (index < count) {
     }
     return -1;
   }
-  if (item === "(" || item === "[") {
+  if (item === "(" || item === "[" || item === "{") {
     groupDepth++;
     seenArgument = true;
     lastSignificant = item;
     index++;
     continue;
   }
-  if (item === ")" || item === "]") {
+  if (item === ")" || item === "]" || item === "}") {
     if (groupDepth === 0) {
       return -1;
     }
     groupDepth--;
+    seenArgument = true;
+    lastSignificant = item;
+    index++;
+    continue;
+  }
+  if (item === "=" || item === ":") {
     seenArgument = true;
     lastSignificant = item;
     index++;
@@ -338,9 +352,7 @@ switch (item) {
 
 `UnitToken` 的调度把「先问退出条件、再跑跳转队列」固定下来，这正是它要的：**`ExitOrPre` 抢在 `Symbol` 前面**处理配对的 `>`，`>=` 因此没有机会被拼出来（`Array<Int64>=x` 里那个 `>` 仍然是收尾，后面的 `=` 才轮到 `Symbol`）。
 
-它覆写了 `ToXmlString` 与 `ToDictionary`，形状对齐 `Bracket`：尖括号本身做属性（`StartBracketChar` / `EndBracketChar`），子单元照常串在标签里。属性值必须过一遍 `CommonUtil.XmlDecode`——`<` 直接写进属性会破坏 XML，而 `Bracket` 的 `(` / `)` 没有这个问题，所以那边没有这一步。
-
-`ToDictionary` 里的属性值保持原字符（那是数据不是 XML），与 `Bracket` 一致。
+它覆写了 `ToXmlString`，形状对齐 `Bracket`：尖括号本身做属性（`StartBracketChar` / `EndBracketChar`），子单元照常串在标签里。属性值必须过一遍 `CommonUtil.XmlDecode`——`<` 直接写进属性会破坏 XML，而 `Bracket` 的 `(` / `)` 没有这个问题，所以那边没有这一步。
 
 ## static readonly field JumpIn:GenericTypeBranch = new GenericTypeBranch()
 
@@ -352,7 +364,7 @@ switch (item) {
 
 跳转队列取默认值就是**通用跳转队列**：泛型实参表里要能长出 `Common` / `Symbol` / 嵌套 `GenericType`，靠的正是它。
 
-重组队列也取默认值（通用重组队列）——与 `Bracket.Use("(")` 那一支同款，好处是表内的软换行与注释会被正常摘掉；`Statement` 那两条只挂在 `Root` 上，所以泛型内部不会长出语句节点。
+重组队列也取默认值（通用重组队列）——与 `Bracket.Use("(")` 那一支同款，好处是表内的软换行会被正常摘掉（注释则不再被摘掉，见 `../parse-pipeline.xl.md` 的 `GeneralReorganize`）；`Statement` 那两条只挂在 `Root` 上，所以泛型内部不会长出语句节点。
 
 ```ts
 super(template);
@@ -380,13 +392,13 @@ this.Closed = true;
 
 兜底处理。
 
-与 `Bracket` 一样是**空的**：泛型实参表里的空白由调用方忽略，其余字符都能在通用跳转队列里找到接手的人。按 M30 不写 ts 体，打印器产出空方法。
+与 `Bracket` 一样是**空的**：泛型实参表里的空白由调用方忽略，其余字符都能在通用跳转队列里找到接手的人。不写方法体，打印器产出空方法。
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 遇到配对的 `>` 就退出：签出、关闭并跑重组、从父单元卸载，返回 `Done`；否则返回 `Undo`，让这个字符继续走跳转队列。
 
-顺序照抄 `Bracket.ExitOrPre`（`SignOut` → `TryToClose` → `Quit`）。
+顺序与 `Bracket.ExitOrPre` 一致（`SignOut` → `TryToClose` → `Quit`）。
 
 嵌套泛型（`Array<Array<Int64>>`）不需要 `Depth` 字段：内层的 `<` 会由同一个分支在**内层宿主**上再挂一个 `GenericType`，`UnitToken.Process` 先转给挂载单元，所以内层的 `>` 由内层收，收完 `Quit` 把宿主的 `MountedUnit` 清空，外层的 `>` 才轮到外层。
 
@@ -413,28 +425,11 @@ for (const item of this.Data) {
 return `<${name} StartBracketChar="${CommonUtil.XmlDecode(this.StartBracketChar)}" EndBracketChar="${CommonUtil.XmlDecode(this.EndBracketChar)}">${temp.join("")}</${name}>`;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：`type` 是运行时类型名，外加两个尖括号字符字段（原字符）；有子单元时再放 `children`。
-
-与 `Bracket.ToDictionary` 同形，包括「`Data` 非空才放 `children`」这一条。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-result.set("startBracketChar", this.StartBracketChar);
-result.set("endBracketChar", this.EndBracketChar);
-if (this.Data.length !== 0) {
-  result.set("children", this.ToList());
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。
 
-顺序照抄 `Bracket.Clone`：`Sign` → 抄两个字段 → `AddRange` 克隆出来的子单元 → `TryToClose`。
+顺序与 `Bracket.Clone` 一致：`Sign` → 抄两个字段 → 整批加入克隆出来的子单元 → `TryToClose`。
 
 ```ts
 const result = new GenericType(this.Template);

@@ -10,17 +10,15 @@
 
 ## field BanedNames:Array<string> = ["if", "for", "foreach", "while", "catch", "async", "return", "as", "await"]
 
-被禁用的名称。原 C# 侧的初值就是这 9 个。
+被禁用的名称。初值就是这 9 个。
 
 ## field AllowedNames:Array<string> = []
 
-允许的名称。原 C# 侧初值为空。
+允许的名称。初值为空。
 
 ## method Ban:(items:Array<string>)=>MethodNameTemplate
 
 追加若干禁用名称，返回自身便于链式调用。
-
-原 C# 签名是 `MethodNameTemplate Ban(params string[] items)`。
 
 ```ts
 this.BanedNames.push(...items);
@@ -31,8 +29,6 @@ return this;
 
 追加若干允许名称，返回自身便于链式调用。
 
-原 C# 签名是 `MethodNameTemplate Allow(params string[] items)`。
-
 ```ts
 this.AllowedNames.push(...items);
 return this;
@@ -42,7 +38,7 @@ return this;
 
 是不是方法名：允许表命中即是，否则禁用表命中即否，都不命中也算。
 
-原 C# 是普通方法，无 `virtual`。注意判定顺序——允许表优先于禁用表。
+注意判定顺序——允许表优先于禁用表。
 
 ```ts
 if (this.AllowedNames.includes(name)) {

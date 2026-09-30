@@ -13,17 +13,17 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 临时字符块。它比 `Common` / `Symbol` 更简单：一个 `Temp` 只收一个字符，
 再来的字符由 `Symbol` 的分支重新判定归属（`Temp` 只管「先把这一个字符接住」）。
 
-它**没有**覆写 `ToXmlString`，XML 由 `BlockToken` 产出：`<Temp>转义后的文本</Temp>`（标签名是运行时类名 `Temp`，M17）。
+它**没有**覆写 `ToXmlString`，XML 由 `BlockToken` 产出：`<Temp>转义后的文本</Temp>`（标签名是运行时类名 `Temp`）。
 
 # class Temp extends BlockToken
 
 临时字符块。
 
-原 C# 侧是 `public class Temp : BlockToken<char>`。按 M31，`char` 在规范里写 `string`。
+单元值类型是单字符的 `string`。
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+转调基类构造器。
 
 ```ts
 super(template);
@@ -33,8 +33,7 @@ super(template);
 
 能不能把 `Src` 并进本块——**永远可以**。
 
-原 C# 是 `public override bool IsAppend(Source<char> Src) => true;`。这里照抄原实现的常量返回，
-**不要**「顺手修正」成拒绝：`CommonBranch` / `SymbolBranch` 的判定依赖这个返回值（M30 的抽象成员必须给出真实体）。
+这里就是常量返回 `true`，**不要**「顺手修正」成拒绝：`CommonBranch` / `SymbolBranch` 的判定依赖这个返回值（基类的抽象成员必须给出真实体）。
 
 ```ts
 return true;
@@ -52,8 +51,8 @@ this.Closed = true;
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Temp.AddRange(Temp)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。
-批量 `Add` 按 M14(c) 改名 `AddRange`；`Temp.AddRange(Temp)` 在 ts 侧照抄成展开推入。
+顺序是 `Sign(this)` → 把 `Temp` 展开推入自身 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`；
+批量加入用 `AddRange`。
 
 ```ts
 const result = new Temp(this.Template);

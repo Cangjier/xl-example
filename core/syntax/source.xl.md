@@ -12,7 +12,7 @@ import { SourceRange } from "./source-range.xl.md"
 
 文档中的一个位置。
 
-原 C# 侧是 `struct Source<ValueType>`（值类型，赋值即复制），并重载了 `==` / `!=`。按 M16 声明成 `# class` 并提供 `Clone`；按 M19 把两个运算符换成静态方法 `Same`。
+它按值语义使用：声明成类并提供 `Clone`；相等判断走 `Equals` 与静态方法 `Same`。
 
 ## field Document:Document
 
@@ -20,7 +20,7 @@ import { SourceRange } from "./source-range.xl.md"
 
 ## field Index:int = 0
 
-该位置在文档里的下标。原 C# 侧是公开可变字段。
+该位置在文档里的下标。
 
 ## property Parent:SourceRange | null
 
@@ -55,7 +55,7 @@ this.Index = index;
 
 前一个位置。
 
-原 C# 签名是 `Source<ValueType>? Pre(params ValueType[] skipChars)`。`skipChars` 省略或为空时返回下标减一的位置（越界返回 `null`）；给了 `skipChars` 时不断向前跳过这些字符，直到遇到不在其中的字符（一路跳到底则返回 `null`）。
+`skipChars` 省略或为空时返回下标减一的位置（越界返回 `null`）；给了 `skipChars` 时不断向前跳过这些字符，直到遇到不在其中的字符（一路跳到底则返回 `null`）。
 
 ```ts
 const skip = skipChars ?? [];
@@ -80,15 +80,13 @@ return null;
 
 与另一个位置相等：同一个文档对象且下标相同。
 
-原 C# 是 `Equals(object? obj)` 重写，另有 `==` / `!=` 运算符。
-
 ```ts
 return other instanceof Source && other.Document === this.Document && other.Index === this.Index;
 ```
 
 ## static method Same:(left:Source | null, right:Source | null)=>bool
 
-`==` 运算符的替代：两边都为 `null` 视为相等。
+判等入口：两边都为 `null` 视为相等。
 
 ```ts
 if (left === null || left === undefined) {
@@ -104,7 +102,7 @@ return left.Equals(right);
 
 哈希码。
 
-原 C# 是 `HashCode.Combine(Document.GetHashCode(), Index.GetHashCode())`。ts 没有值哈希，这里退化成下标；本方法只用于诊断，不参与相等判定（相等一律走 `Equals` / `Same`）。
+ts 没有值哈希，这里退化成下标；本方法只用于诊断，不参与相等判定（相等一律走 `Equals` / `Same`）。
 
 ```ts
 return this.Index;
@@ -114,7 +112,7 @@ return this.Index;
 
 值语义复制的显式入口。
 
-原 C# 侧 `Source` 是 struct，赋值、作参数、存进字段时都会隐式复制；ts 里这些位置必须显式调用 `Clone()`。
+`Source` 按值语义使用：赋值、作参数、存进字段时都要显式调用 `Clone()`。
 
 ```ts
 return new Source(this.Document, this.Index);

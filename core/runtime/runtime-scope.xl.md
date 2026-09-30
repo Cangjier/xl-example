@@ -13,17 +13,15 @@ import { RuntimeVariable } from "./runtime-variable.xl.md"
 
 运行时作用域。
 
-原 C# 侧还实现 `IDisposable` / `IAsyncDisposable`；xl 的 `implements` 只能列规范内声明的接口，BCL 接口写在正文，`Dispose` / `DisposeAsync` 本身仍是规范内成员。
+xl 的 `implements` 只能列规范内声明的接口，BCL 接口写在正文；`Dispose` / `DisposeAsync` 本身仍是规范内成员。
 
 ## field Type:RuntimeScopeType = RuntimeScopeType.Common
 
-作用域类型。C# 的枚举默认值是首项 `Common`，这里显式写出同一个默认值。
+作用域类型。默认值是首项 `Common`，这里显式写出。
 
 ## field Variables:Map<string,RuntimeVariable> = new Map()
 
-变量表，键是变量名。
-
-原 C# 侧是 `Dictionary<string, RuntimeVariable> Variables { get; private set; } = new()`；xl 用中立容器名 `Map`。`private set` 是 C# 细节，ts 侧直接暴露字段。
+变量表，键是变量名。xl 用中立容器名 `Map`，ts 侧直接暴露字段。
 
 ## method ContainsKey:(key:string)=>bool
 
@@ -37,7 +35,7 @@ return this.Variables.has(key);
 
 按键取值；未绑定时返回 `null`。
 
-原 C# 签名是 `bool TryGetValue(string key, out RuntimeObject value)`。xl 没有 `out` 参数，规范统一改写成「返回可空值」的查询方法；生成 C# 时再还原成 `out` 形式。调用方先 `ContainsKey` 再取值即可。
+xl 没有输出参数，规范统一改写成「返回可空值」的查询方法；调用方先 `ContainsKey` 再取值即可。
 
 ```ts
 return this.Variables.get(key)?.Value ?? null;

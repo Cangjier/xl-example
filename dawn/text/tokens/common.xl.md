@@ -15,11 +15,9 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 通用字符块：标识符、数字、布尔字面量。它把连续的「不是符号、也不是空白」的字符吞进自己的 `Temp`，最终吐成 `<Common>abc</Common>`。
 
-按 M33，展平的嵌套类 `Common.Branch` 写在 `Common` **之前**——`Common` 的静态字段 `AppendIn` 在类定义时就会 `new` 一个 `CommonBranch`。
+`CommonBranch` 必须写在 `Common` 之前：后者的静态字段 `AppendIn` 在类定义时就 `new CommonBranch()`。
 
 # class CommonBranch extends Branch
-
-原 C# 是嵌套类 `Common.Branch`（M32 展平改名）。
 
 分发规则比看上去绕：**上一个单元也是 `Common`** 时才会尝试续写，否则一律开新的。三条分支：
 
@@ -78,7 +76,7 @@ if (result.Message === 0) {
 
 失败时把上一个 `Common` 关掉——它已经断开了。
 
-原 C# 是 `public override void Failed(...)`，与基类的空实现不同，这里**有活干**。
+与基类的空实现不同，这里**有活干**。
 
 ```ts
 const last = unit.Last();
@@ -91,7 +89,7 @@ if (last instanceof Common) {
 
 通用字符块。
 
-原 C# 侧是 `public class Common : BlockToken<char>`。按 M31，`char` 在规范里写 `string`。
+单元值类型是单字符的 `string`。
 
 它没有覆写 `ToXmlString`，XML 由 `BlockToken` 产出：`<Common>转义后的文本</Common>`。
 
@@ -101,7 +99,7 @@ if (last instanceof Common) {
 
 ## constructor:(Template:Template)=>void
 
-原 C# 只是转调基类构造器。
+转调基类构造器。
 
 ```ts
 super(Template);
@@ -127,7 +125,7 @@ this.Closed = true;
 
 `Temp` 里的内容是不是「纯数字」——每一位都是数字。
 
-原 C# 直接转调符号模板的同名方法。
+直接转调符号模板的同名方法。
 
 ```ts
 return this.Template.SymbolTemplate.IsNumberWithoutDecimal(this.Temp.join(""));
@@ -145,7 +143,7 @@ return this.Template.SymbolTemplate.IsNumberContainsDecimal(this.Temp.join(""));
 
 最后一个字符是不是数字。
 
-原 C# 是 `Template.SymbolTemplate.IsNumber(Temp.Last())`——`Temp.Last()` 是 LINQ 取最后一个 `char`。
+直接转调符号模板的 `IsNumber`，取 `Temp` 的末位字符。
 
 ```ts
 return this.Template.SymbolTemplate.IsNumber(this.Temp[this.Temp.length - 1]);
@@ -155,7 +153,7 @@ return this.Template.SymbolTemplate.IsNumber(this.Temp[this.Temp.length - 1]);
 
 `Temp` 里的内容算不算数字字面量。
 
-规则照抄原实现，包括两个**反直觉但必须保留**的行为：
+规则里有两处**反直觉但必须保留**的行为：
 
 - 允许**至多一个小数点**，而且**不要求有数字**——所以 `"."` 也会返回 `true`；`".."` 返回 `false`。
 - 允许结尾一个 `d` 或 `f` 后缀，但**必须在有数字之后且是最后一个字符**。
@@ -201,7 +199,7 @@ return text === "true" || text === "false";
 
 `Temp` 里的内容是否**逐字符**等于 `value`。
 
-原 C# 是三个 `Is` 重载中的第一个：`bool Is(string value)`——先比长度，再逐字符比。它在语义上等价于 `TempToString() == value`，但这里照原样写循环。
+先比长度，再逐字符比；语义上等价于 `TempToString() === value`，但这里保留显式循环。
 
 ```ts
 if (this.Temp.length !== value.length) {
@@ -219,30 +217,17 @@ return true;
 
 `Temp` 里的内容是否命中 `items` 里的任意一项。
 
-原 C# 是第二个重载 `bool Is(params string[] items)`；它与单参版参数个数不同，按 M14(c) 改名 `IsAny`。
+这是 `Is` 的多项版本，参数个数与单参版不同，所以叫 `IsAny`。
 
 ```ts
 return items.includes(this.TempToString());
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：只记类型名与文本，**没有** `children`。
-
-原 C# 覆写了基类版本，返回 `{ ["type"] = GetType().Name, ["value"] = TempToString() }`；`GetType().Name` 按 M17 写成 `this.constructor.name`。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-result.set("value", this.TempToString());
-return result;
 ```
 
 ## method Clone:()=>Token
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Temp.AddRange(Temp)` → `TryToClose()`。
+顺序是 `Sign(this)` → 把 `Temp` 追加到自身 → `TryToClose()`。
 
 ```ts
 const result = new Common(this.Template);

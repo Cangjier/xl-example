@@ -1,4 +1,4 @@
-# xl → C++ 移植规范
+# xl → C++ 目标生成规范
 
 本文件是 `dist/cpp/**` 的唯一生成契约。`*.xl.md` 是事实来源；C++ 产物由本文件描述的
 映射规则直出，**一个 `*.xl.md` 对应 `dist/cpp/` 下按 `xl_plan` 报出的若干个部件**
@@ -8,13 +8,14 @@
 > `#ifdef CANGJIE_BODIES` 主体段、由 `xl-tree.cpp` 索引包含两遍」的形状**没有采用**：`xl_emit`
 > 只接受 `xl_plan`/`xl_context` 报出的路径（越界即 `E2001`），而 `xl_plan` 对本工程报的就是
 > `layout = type` 的多文件拆分。凡本文件与下述「实际实现」不一致的地方，**以实际实现为准**；
-> 完整的现约定见 `dist/cpp/PORT-CONVENTIONS.md`，交付说明与偏离记录见 `dist/cpp/README.md`。
+> 现行约定的完整说明、交付形状与当前实现的选择都记在本文件对应各节（`dist/cpp/**` 是生成物，
+> 已被 `.gitignore` 忽略、随时会重新生成，不随版本库分发）。
 > 已经落实的两条文档要求是 **§1.1 的 `std::shared_ptr` 所有权**与 **§1.10 的异常继承
 > `std::runtime_error`**。
 >
 > **新增 §7**：把 104 个源真的编过一遍（winlibs MinGW-w64 GCC 16.2.0 + CMake 4.4.3，`-std=c++20`，
 > `configure` / `build` / 链接出 `cjcli.exe` 均通过，并用仓库夹具做了运行验收）之后总结的
-> **生成陷阱清单**。静态审计查不出那一节里的任何一条，**生成器请把它当硬性检查项**。
+> **真实编译暴露的陷阱清单**。静态审计查不出那一节里的任何一条，**生成器请把它当硬性检查项**。
 
 「为什么必须这样」——两遍构建、`shared_ptr` 所有权、`TypeName()` 反射这三条结构性决定的
 论证与被证伪的替代方案——见 [cpp-design-notes.md](cpp-design-notes.md)。
@@ -25,7 +26,7 @@
 *.xl.md  --xl build -t cpp-->  dist/cpp/<同路径>.cpp  --CMake-->  build/cpp/cjcli
 ```
 
-规范正文里的代码块是 **ts**，不是 C++：它描述的是语义，不是目标语法。翻译时必须保持
+规范正文里的代码块是 **ts**，不是 C++：它描述的是语义，不是目标语法。生成时必须保持
 语义（尤其 XML 产物、解析优先级、重组顺序），但写成地道的 C++17。
 
 - 目录镜像：`dawn/text/tokens/keyword.xl.md` → `dist/cpp/dawn/text/tokens/keyword.cpp`
@@ -535,7 +536,7 @@ int main(int argc, char** argv) {
 3. **`Process` 返回新下标**：`i = item->Process(this->Template, this->Data, i);`
 4. **类名不能改**：`TypeName()` 直接进 XML。
 5. **越界语义不能统一**：`SkipNext` 可以返回 `Data.size()`，`FindNext` 找不到返回 `-1`。
-6. **`Bracket::Use("{")` 不设 `ReorganizationQueue`**：看着像漏写，是原实现行为，照抄。
+6. **`Bracket::Use("{")` 不设 `ReorganizationQueue`**：看着像漏写，这是规范里的既有行为，照抄。
 7. **`SequenceTemplate::Get(t, null)` 表示「不要默认队列」**，与单参调用语义不同。
 
 ---
@@ -554,7 +555,7 @@ int main(int argc, char** argv) {
 > - [ ] `any` 用 `std::any`；支撑层是 `cangjie_support.h`（不是 `runtime/any-value.hpp`）。
 > - [ ] 构建文件是 `dist/cpp/CMakeLists.txt`（不是仓库根 CMake + `.tools/`）。
 >
-> 以下原始条目中，**「产物是两段结构」「产物里没有任何指向其它产物的 include」「`#pragma once` 在
+> 以下清单条目中，**「产物是两段结构」「产物里没有任何指向其它产物的 include」「`#pragma once` 在
 > 产物头之后第一行」三条已不适用**（我们用 `#ifndef` 保护 + `.h`/`.cpp` 拆分 + 产物间 include）；
 > 其余条目（成员名/参数个数/`override`/虚析构/无 `using namespace std;`）仍然有效。
 
@@ -642,9 +643,9 @@ CMake 也会自动重建；它不属于任何一份规范。
 `build-cpp.ps1` 会把 `warning: '#pragma once' in main file` 过滤掉——那对每个产物都会出现，
 是「产物既是头文件又是翻译单元」的必然结果，不是问题。
 
-## 7. 真实编译逼出来的陷阱清单（生成器必读）
+## 7. 真实编译暴露的陷阱清单（生成器必读）
 
-§1–§6 是「映射规则」；这一节是**把 104 个源真的编过一遍**之后补的**经验**。验证用的工具链是
+§1–§6 是「映射规则」；这一节是**把 104 个源真的编过一遍**之后补的**真实编译经验**。验证用的工具链是
 winlibs MinGW-w64 **GCC 16.2.0** + CMake 4.4.3，`-std=c++20`（文首「地道的 C++17」是早期口径，
 现口径是 **C++20**：`CMakeLists.txt` 里 `CMAKE_CXX_STANDARD 20`），
 `cmake --build` 能链接出 `cjcli.exe`。
@@ -738,9 +739,9 @@ winlibs MinGW-w64 **GCC 16.2.0** + CMake 4.4.3，`-std=c++20`（文首「地道�
 - 运行 `cjcli.exe` 需要 MinGW 运行库在 `PATH` 上（`libstdc++-6.dll`、`libgcc_s_seh-1.dll`、
   `libwinpthread-1.dll`）；要免依赖链接时加 `-static`。
 - 在受限沙箱里运行本程序时，**子进程可能只能写工作区内**的路径：`-o` 指到 `%TEMP%` 会静默不产出文件，
-  而按 IR 移植的 `CjcliWriteFile` 不检查流状态、仍打印「已写入」。验收请把输出写到工作区内。
+  而按 IR 生成的 `CjcliWriteFile` 不检查流状态、仍打印「已写入」。验收请把输出写到工作区内。
 
-### 7.9 验证方法论（同一批踩坑的副产物）
+### 7.9 验证方法论（同一批真实编译陷阱的副产物）
 
 - **`xl_emit` 的结构回读只校验「类型集合 / 成员名 / 参数个数」**，不校验类型正确性、完整性与可编译性 ——
   7.1–7.7 一条都查不出来。生成链路里必须有**真实编译器**这一步，`xl_plan` 的 `reusable: yes` 只说明

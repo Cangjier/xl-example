@@ -5,8 +5,11 @@ import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
+import { DeclarationEnd } from "../declaration-common.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { InterfaceBody } from "./interface-body.xl.md"
 import { Common } from "../common.xl.md"
+import { GenericType } from "../generic-type.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 ```
@@ -15,29 +18,55 @@ import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-ut
 
 `Dawn/Text`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-接口声明单元：由重组把 `interface` / 可选的 `export` / 接口名 / 可选的 `extends a, b, c` / `{...}` 这几段合成一个 `Interface`。原 C# 的命名空间是 `Cangjie.Dawn.Text.Tokens.Interface`，所以 C# 里引用这个类要写 `Interface.Interface`——xl 只有单层 `# namespace cangjie`（M6），子层级用目录表达，于是路径是 `dawn/text/tokens/interface/interface.xl.md`。
+接口声明单元：由重组把 `interface` / 可选的 `export` / 接口名 / 可选的一截类型参数 / 可选的 `extends a, b, c` / `{...}` 这几段合成一个 `Interface`。xl 只有单层 `# namespace cangjie`，子层级用目录表达，于是路径是 `dawn/text/tokens/interface/interface.xl.md`。
 
-按 M33，展平出来的嵌套类 `Interface.Reorganization` 写在 `Interface` 之前——不过它与 `Interface` 之间没有静态初始化依赖（`Interface` 上没有引用它的静态字段），顺序在这里只是保持一致。
+它和 `Class` 是一对：名字与 `extends` 名单进属性、类型参数与接口体留作子单元。
+**有两处要点**在下面各节里写明：类型参数段要认得出来（`interface User<T> { … }` 整条都要能收），
+三个声明字段也要渲染进产物（否则产物里看不到接口名）。
+
+`InterfaceReorganization` 写在 `Interface` 之前——不过它与 `Interface` 之间没有静态初始化依赖（`Interface` 上没有引用它的静态字段），顺序在这里只是保持一致。
 
 # class InterfaceReorganization extends Reorganization
 
-原 C# 是嵌套类 `Interface.Reorganization`（M32 展平改名，`Root` 里引用的是 `Interface.Interface.Reorganization.Instance`）。
-
-它永远不进 `Data`、不进 XML，所以 ts 类名与 C# 的 `Type.Name` 不一致无害（M32）。
+它永远不进 `Data`、不进 XML，所以类名与产物的标签名不一致也无害。
 
 判定「这里是不是一个接口声明」被拆成两个私有帮助方法，两条形状各有各的走法：`interface Name{...}` 与 `interface Name extends A, B{...}`。两个帮助方法都是**从 `index` 往后看**，`index` 本身指向 `interface` 那个 `Common`。
 
 ## static readonly field Instance:InterfaceReorganization = new InterfaceReorganization()
 
-唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
+唯一的实例，注册进通用重组队列时用。
+
+## private method TakeTypeParameters:(units:Array<Token>, index:int, interfaceInstance:Interface | null)=>int
+
+`index` 处如果是一段类型参数（`GenericType`），把它收进 `interfaceInstance`（非空时）
+并返回**它之后**的下标（跳过软换行）；`index` 处不是类型参数时原样返回 `index`。
+
+带默认值的写法（`<T = unknown>`、`<T extends X = Y>`）也由 `GenericType` 收好了，这里不必再分情况。
+
+搬进 `Interface` 是必须的：这些单元落在 `ReplaceCountAt` 要替换的区间里，不搬就从 XML 里消失了。
+
+```ts
+const current = Get(units, index);
+if (!(current instanceof GenericType)) {
+  return index;
+}
+if (interfaceInstance !== null) {
+  interfaceInstance.Add(current);
+}
+return SkipNextWrapSymbol(units, index);
+```
 
 ## private method NextIsCommonFlowerBracket:(units:Array<Token>, index:int)=>bool
 
 `index` 后面是不是「一个 `Common` 名字 + 一个 `{` 括号」——即不带 `extends` 的形状。
 
-原 C# 是 `private bool NextIsCommonFlowerBracket(List<Token<char>> units, int index)`，名字里的 FlowerBracket 就是花括号 `{}`。它只往前看两步，并且**最后才要求括号是 `{`**。
+名字里的 FlowerBracket 就是花括号 `{}`。它只往前看两步，并且**最后才要求括号是 `{`**。
 
-`units.Get` 与 `units.SkipNextWrapSymbol` 都是扩展方法，ts 侧写成模块级函数（M11）。
+**这里多允许一段类型参数**（走 `TakeTypeParameters`，探路时不写实例）：`interface User<T> { … }` 里
+名字与花括号之间夹着类型参数段；没有它，带类型参数的接口一律认不出来
+（`User<T>` 会被当成 `Common`，花括号就跟不上了）。
+
+`units.Get` 与 `units.SkipNextWrapSymbol` 都是扩展方法，ts 侧写成模块级函数。
 
 ```ts
 let nextIndex = SkipNextWrapSymbol(units, index);
@@ -45,6 +74,7 @@ if (!(Get(units, nextIndex) instanceof Common)) {
   return false;
 }
 nextIndex = SkipNextWrapSymbol(units, nextIndex);
+nextIndex = this.TakeTypeParameters(units, nextIndex, null);
 const bracket = Get(units, nextIndex);
 if (!(bracket instanceof Bracket)) {
   return false;
@@ -56,13 +86,18 @@ return bracket.StartBracketChar === "{";
 
 `index` 后面是不是「`Common` 名字 + `extends` + `Common` 名 + 任意多个 `, Common` + `{` 括号」——即带 `extends` 的形状。匹配成功时返回**结束下标**（那个 `{` 括号的位置）；不匹配返回 `-1`。
 
-原 C# 是 `private bool NextIsCommonExtendsCommonFlowerBracket(List<Token<char>> units, int index, ref int endIndex, Interface? interfaceInstance = null)`：一个 `bool` 返回加一个 `ref int` 输出。按 M15，`ref` 参数改成返回值；这里已经有一个 `bool`，于是把两个输出合并成一个——**返回结束下标，`-1` 表示不匹配**。匹配成功时原 C# 的 `endIndex` 一定是有效下标（`Get` 越界会先让类型判定失败），所以 `-1` 做哨兵没有歧义。调用方按 `>= 0` 判成立。
+返回值是一个下标：匹配成功时是那个 `{` 括号的位置，不匹配返回 `-1`。原来分开的 `bool` 结果与结束下标
+合并成这一个返回值——**返回结束下标，`-1` 表示不匹配**。匹配成功时下标一定有效（`Get` 越界会先让类型判定失败），所以 `-1` 做哨兵没有歧义。调用方按 `>= 0` 判成立。
 
 `interfaceInstance` 是输出目标，允许 `null`：`Previous` 只是探路，传 `null`，此时既不写 `InterfaceName` / `ExtendsInterfaceNames`，也不 `Add` / `SignOutToken` 那个括号。
 
-原 C# 里 `interfaceInstance?.InterfaceName = interfaceName.TempToString();` 是「null 条件赋值」，ts 没有这个形状，改写成显式的 `if (interfaceInstance !== null)`；`extendsInterfaceNames?.Add(...)` 则直接写成可选链 `?.push(...)`。
+`interfaceInstance` 为 `null` 时（`Previous` 探路）不写任何字段，赋值都包在显式的 `if (interfaceInstance !== null)` 里；`extendsInterfaceNames` 上则直接用可选链 `?.push(...)`。
 
 `InterfaceName` / `ExtendsInterfaceNames` 只在**完整匹配成功后**才写，所以探路失败不会留下半截状态。
+
+**这里同样多允许一段类型参数**（理由与 `NextIsCommonFlowerBracket` 相同，这里由 `TakeTypeParameters` 连检查带搬）：`interface User<T> extends Base`
+里名字与 `extends` 之间夹着类型参数段，探路时要跨过去，`Process` 里还要把它搬进 `Interface`——
+不搬的话 `<T>` 的字符会从 XML 里消失（`MethodReorganization` 处理泛型方法时踩过同一个坑）。
 
 ```ts
 const extendsInterfaceNames: string[] | null = interfaceInstance === null ? null : [];
@@ -75,6 +110,7 @@ if (interfaceInstance !== null) {
   interfaceInstance.InterfaceName = interfaceName.TempToString();
 }
 nextIndex = SkipNextWrapSymbol(units, nextIndex);
+nextIndex = this.TakeTypeParameters(units, nextIndex, interfaceInstance);
 const extendsCommon = Get(units, nextIndex);
 if (!(extendsCommon instanceof Common) || extendsCommon.Is("extends") === false) {
   return -1;
@@ -107,8 +143,11 @@ if (isBodyBracket === false) {
 }
 if (interfaceInstance !== null) {
   interfaceInstance.ExtendsInterfaceNames = extendsInterfaceNames ?? [];
-  interfaceInstance.Add(bracket);
-  interfaceInstance.SignOutToken(bracket);
+  const interfaceBody = interfaceInstance.CreateBody();
+  bracket.MoveDataTo(interfaceBody);
+  interfaceBody.Sign(bracket);
+  interfaceBody.TryToClose();
+  interfaceInstance.SignOutToken(interfaceBody);
 }
 return nextIndex;
 ```
@@ -117,9 +156,9 @@ return nextIndex;
 
 `index` 处是不是一个接口声明的起点。
 
-原 C# 是 `public override bool Previous(IOwner owner, Template<char> template, List<Token<char>> units, int index)`：`index` 处是 `interface` 关键字，并且后面满足两种形状之一。原 C# 里那个只用来接 `ref endIndex` 的局部变量在 ts 侧没有对应物，直接不写。
+`index` 处是 `interface` 关键字，并且后面满足两种形状之一。
 
-`||` 的短路顺序照抄：先试不带 `extends` 的形状，不成立才去试带 `extends` 的。
+`||` 的短路顺序：先试不带 `extends` 的形状，不成立才去试带 `extends` 的。
 
 ```ts
 const current = Get(units, index);
@@ -138,13 +177,18 @@ return false;
 
 把一个接口声明折成一个 `Interface`，**返回新的下标**。
 
-原 C# 是 `public override void Process(IOwner owner, Template<char> template, List<Token<char>> units, ref int index)`。按 M15，`ref int index` 改成返回值：原 C# 最后一句 `index = units.ReplaceAt(startIndex, endIndex - startIndex + 1, interfaceInstance);` 把「被替换区间的起点」写回了 `ref index`，而带 `count` 的 `ReplaceAt` 重载按 M14(c) 在 ts 侧叫 `ReplaceCountAt`，它本身就返回那个下标，所以直接 `return ReplaceCountAt(...)`。
+四个参数的 `ReplaceAt` 重载叫 `ReplaceCountAt`（三参数版仍叫 `ReplaceAt`），它本身就返回「被替换区间的起点」，所以 `Process` 直接 `return ReplaceCountAt(...)`。
 
-原 C# 的第二条分支是个**只有注释的空 `else if`**——带 `extends` 的形状在帮助方法里就已经把 `InterfaceName` / `ExtendsInterfaceNames` / 括号都写进 `interfaceInstance` 了，分支体无事可做。ts 侧不能留空块（M30），所以把「取回结束下标」这一步挪到分支体里。
+第二条分支只做一件事：取回结束下标——带 `extends` 的形状在帮助方法里就已经把 `InterfaceName` / `ExtendsInterfaceNames` / 括号都写进 `interfaceInstance` 了，分支体本来无事可做，而空块在 xl 里不成立，所以把这一步写进分支体。
 
-签入用的是 `SignIn(Common)` 重载（“用另一个单元的起点签入”），按 M14(c) 在 ts 侧叫 `SignInToken`；签出同理是 `SignOutToken`。
+签入用的是「用另一个单元的起点签入」的重载，在 ts 里叫 `SignInToken`；签出同理是 `SignOutToken`。
 
-三种格式错误都抛同一个异常文本 `interface 语句不满足格式要求：interface Name{...}`，与原 C# 逐字一致。
+三种格式错误都抛同一个异常文本 `interface 语句不满足格式要求：interface Name{...}`。
+
+**替换范围用 `DeclarationEnd` 多收一格**：接口体后面紧跟的软换行并进这次替换，
+否则那个换行会留在父单元里、被 `StatementReorganization2` 收成一个空的 `Statement`
+（`Root` 下多出 `<Statement></Statement>`）——`import …` 结尾的文件同样有
+这个噪声节点（见 `../declaration-common.xl.md`）。
 
 ```ts
 let startIndex = index;
@@ -171,12 +215,16 @@ if (this.NextIsCommonFlowerBracket(units, index)) {
   }
   interfaceInstance.InterfaceName = nameUnit.TempToString();
   endIndex = SkipNextWrapSymbol(units, endIndex);
+  endIndex = this.TakeTypeParameters(units, endIndex, interfaceInstance);
   const body = Get(units, endIndex);
   if (!(body instanceof Bracket)) {
     throw new Error("interface 语句不满足格式要求：interface Name{...}");
   }
-  interfaceInstance.Add(body);
-  interfaceInstance.SignOutToken(body);
+  const interfaceBody = interfaceInstance.CreateBody();
+  body.MoveDataTo(interfaceBody);
+  interfaceBody.Sign(body);
+  interfaceBody.TryToClose();
+  interfaceInstance.SignOutToken(interfaceBody);
 } else {
   const extendsEndIndex = this.NextIsCommonExtendsCommonFlowerBracket(units, index, interfaceInstance);
   if (extendsEndIndex < 0) {
@@ -184,34 +232,37 @@ if (this.NextIsCommonFlowerBracket(units, index)) {
   }
   endIndex = extendsEndIndex;
 }
-return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, interfaceInstance);
+const declarationEnd = DeclarationEnd(units, endIndex);
+return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, interfaceInstance);
 ```
 
 # class Interface extends IndependentToken
 
 接口声明。
 
-原 C# 侧是 `public class Interface : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
-
 它由重组造出来、自己不消费字符，所以只继承 `IndependentToken` 的空 `Process`。
 
-**类名必须与 C# 完全一致**（M17）：`constructor.name` 就是它的 XML 标签名。
+**类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+以模板创建，并把本类型的重组规则挂上来（模板里没有专门给 `Interface` 注册就用通用队列）。
+
+这一句是必要的，理由与 `Class` 的构造器相同：
+`extends` 段是 `Process` 搬进来的，没有自己的队列，那个词就升不成 `Keyword`。
 
 ```ts
 super(template);
+this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token
 
 克隆自身。
 
-原 C# 的顺序是：`Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；`Add` 传的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)：C# 的 `Add<T>(IEnumerable<T>)` 重载改名 `AddRange`）。
+顺序是 `Sign(this)` → 搬入全部克隆出来的子单元 → `TryToClose()`；`Add` 传的是一批子单元，所以这里用 `AddRange`。
 
-**注意原 C# 的 `Clone` 不复制** `IsExport` / `InterfaceName` / `ExtendsInterfaceNames` 三个字段——克隆体三个字段都是初值。看着像漏写，但这是原实现的行为，照抄。
+**注意 `Clone` 不复制** `IsExport` / `InterfaceName` / `ExtendsInterfaceNames` 三个字段——克隆体三个字段都是初值。
 
 ```ts
 const result = new Interface(this.Template);
@@ -223,29 +274,61 @@ return result;
 
 ## field IsExport:bool = false
 
-带不带 `export`。原 C# 是 `public bool IsExport { get; set; } = false;`，在 `Process` 里看到前一个单元是 `export` 时置为 `true`。
+带不带 `export`。在 `Process` 里看到前一个单元是 `export` 时置为 `true`。
+
+## method ToXmlString:()=>string
+
+产出 XML：开标签上带 `InterfaceName` / `ExtendsInterfaceNames` / `IsExport` 三个属性。
+
+`Interface` 覆写了 `ToXmlString`，把三个声明字段渲染进产物——
+基类版本只拼子单元，`InterfaceName` / `ExtendsInterfaceNames` / `IsExport`
+三个字段一个都进不了产物：`interface User extends Base { … }` 的产物里既看不到 `User` 也看不到 `Base`。
+字段明明已经读出来了却不渲染，对「解析完整的 TypeScript」是个漏洞，所以这里补上渲染。
+
+属性的拼法与 `Class` 对仗（`ExtendsInterfaceNames` 用 `join(",")`，与 `Let` 的两组解构名同款），
+布尔属性由模板插值直接落成 `true` / `false`。
+
+```ts
+const name = this.constructor.name;
+const temp: string[] = [];
+for (const item of this.Data) {
+  temp.push(item.ToXmlString());
+}
+return `<${name} InterfaceName="${this.InterfaceName}" ExtendsInterfaceNames="${this.ExtendsInterfaceNames.join(",")}" IsExport="${this.IsExport}">${temp.join("")}</${name}>`;
+```
 
 ## field InterfaceName:string = ""
 
-接口名。原 C# 是 `public string InterfaceName { get; set; } = string.Empty;`。
+接口名。
 
 ## field ExtendsInterfaceNames:Array<string> = []
 
-`extends` 后面的接口名列表。原 C# 是 `public string[] ExtendsInterfaceNames { get; set; } = Array.Empty<string>();`。
+`extends` 后面的接口名列表。
 
-## property Body:Bracket
+## method CreateBody:()=>InterfaceBody
 
-接口体：子单元里第一个 `Bracket`。
+新建接口体段并挂到自己名下，返回新单元。
 
-原 C# 是 `public Bracket Body { get => (Bracket)Data.First(item => item is Bracket); }`——`First(谓词)` 找不到会抛异常，所以 ts 侧也要在扫完仍没找到时抛错，不能退化成 `undefined`。
+接口体单独成段是必须的：`{ }` 括号自己**没有**重组队列（见 `../bracket.xl.md` 的 `Use`），
+成员要成形就得由这一段在构造时挂上语句队列（见 `./interface-body.xl.md`）。
+
+```ts
+return this.Add(new InterfaceBody(this.Template));
+```
+
+## property Body:InterfaceBody
+
+接口体：子单元里第一个 `InterfaceBody`。
+
+扫完仍没找到时抛错，不能退化成 `undefined`。
 
 ### get
 
 ```ts
 for (const item of this.Data) {
-  if (item instanceof Bracket) {
+  if (item instanceof InterfaceBody) {
     return item;
   }
 }
-throw new Error("Sequence contains no matching element");
+throw new Error("找不到匹配的子单元");
 ```

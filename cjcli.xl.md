@@ -8,8 +8,8 @@ import { TextContext } from "./dawn/text/text-context.xl.md"
 
 # namespace cangjie
 
-`cjcli`：命令行入口。**本文件不属于 `Cangjie` 的移植范围**，它是原来跑在 C# 里的那个宿主程序在 ts 侧的对应物——
-把 `Dawn/Text` 这棵 token 树接上命令行，让它真正能被调用。
+`cjcli`：命令行入口。**本文件不属于语法层本体**：它把 token 树接上命令行——
+`Dawn/Text` 这棵 token 树因此真正能被调用。
 
 链路只有四步：读源文件 → `TextDocument` 包成文档 → `TextContext.Process` 驱动解析 → 把 `Root` 的 XML 打到标准输出。
 
@@ -56,15 +56,15 @@ cjcli.xl.md  --xl build-->  dist/cjcli.ts  --tsc-->  build/cjcli.js  --node-->  
 
 `Error` 是用法错误的通道：非空时 `Main` 直接以退出码 `1` 收场，**不再往下走**。
 少了它，「`-o` 少给一个路径」这种情况会退化成「没有输入文件」，
-于是 `Main` 转去读 stdin —— 在终端上直接挂住等人输入。这是原 C# 宿主没有、但命令行必须处理的一类状态。
+于是 `Main` 转去读 stdin —— 在终端上直接挂住等人输入。
 
-按 M26，等号右侧直接写 ts 语法。
+`# type` 的等号右侧是**原文**，会被原样搬进产物。
 
 # method CjcliVersion:()=>string
 
 版本号。
 
-打印给 `cjcli --version`。它跟 `xl.json` 里的工具版本无关，是**宿主程序**的版本。
+打印给 `cjcli --version`。它跟 `xl.json` 里的工具版本无关，是**入口程序**的版本。
 
 ```ts
 return "0.1.0";
@@ -94,9 +94,6 @@ return [
 
 参数表用的是 `process.argv` 的**前两段之后**——node 与脚本路径都不算参数，所以切掉两段。
 调用这一下由本文件末尾的 `# statement` 负责，它会被原样搬进产物，`dist/cjcli.ts` 因此是**自执行**的。
-
-原 C# 宿主里那份「读文件 → `TextContext` → `Console.WriteLine`」的胶水代码就是本方法的对应物，
-只是这里多了参数解析、stdin 与错误收敛。
 
 `Template` 每次调用都新建：`Root` 构造时会往 `template.BranchTemplate.DefaultValue` /
 `ReorganizationTemplate.DefaultValue` 上装通用队列，模板是**有状态**的，跨次复用会把上一份上下文的解析痕迹带进来。
@@ -206,15 +203,14 @@ return options;
 
 把一段源码解析成 XML；出错时把诊断打到标准错误并返回 `null`。
 
-`Owner` 那层资源归属已经移除（见 README「资源生命周期：交给 GC」）：`TextDocument` / `TextContext` 与整棵树
-不再登记到任何持有者身上，解析完也不需要 `Release`——原 C# 宿主的 `using (var owner = new Owner())` 在这里没有对应物，
-所以只剩 `try/catch` 一层，用来做异常收敛。
+`TextDocument` / `TextContext` 与整棵树不再登记到任何持有者身上（见 README「资源生命周期：交给 GC」），
+解析完也不需要显式释放，所以这里只剩 `try/catch` 一层，用来做异常收敛。
 
 `Template` 不能省：`TextContext` 的构造器要求一个模板，并会在造根单元之前**自动装上**通用跳转队列与
 重组队列（见 `dawn/text/parse-pipeline.xl.md`），所以这里只需 `new Template()`。
 
 异常收敛到 `null`：`SyntaxException` 的 `Message` 里已经带了出错位置那段带 `^` 下划线的文本（`TextDocument.GetRangeLines` 的产物），
-直接打出来比让宿主栈回溯更有用。布局是「`cjcli: 解析失败`」一行 + 诊断正文——信息里本来就带换行，所以不再拼多余前缀。
+直接打出来比让调用栈回溯更有用。布局是「`cjcli: 解析失败`」一行 + 诊断正文——信息里本来就带换行，所以不再拼多余前缀。
 
 ```ts
 try {
@@ -251,8 +247,8 @@ return String(error);
 
 读文本文件。
 
-原 C# 宿主是 `File.ReadAllText(path)`。BOM 由 `CjcliStripBom` 摘掉——`File.ReadAllText` 会自动吞掉 BOM，
-而 `readFileSync` 不会，不处理的话第一个 token 会带上一个 `\uFEFF`。
+BOM 由 `CjcliStripBom` 摘掉——`readFileSync` 不会自动吞掉 BOM，
+不处理的话第一个 token 会带上一个 `\uFEFF`。
 
 ```ts
 return CjcliStripBom(CjcliHost.Fs().readFileSync(path, "utf8"));
@@ -261,8 +257,6 @@ return CjcliStripBom(CjcliHost.Fs().readFileSync(path, "utf8"));
 # method CjcliWriteFile:(path:string, content:string)=>void
 
 写文本文件。
-
-原 C# 宿主是 `File.WriteAllText(path, text)`。
 
 ```ts
 CjcliHost.Fs().writeFileSync(path, content, "utf8");
@@ -282,8 +276,7 @@ return CjcliStripBom(CjcliHost.Fs().readFileSync(0, "utf8"));
 
 摘掉开头的字节序标记。
 
-原 C# 的 `File.ReadAllText` / `Console.In` 都会自动吞掉 BOM（默认 `Encoding.UTF8` 检测前言），
-`readFileSync(path, "utf8")` 不会，所以这一层要在宿主编译里补回来——
+`readFileSync(path, "utf8")` 不会自动吞掉 BOM，所以这一层要自己补回来——
 否则 `\uFEFF` 会被当成普通字符喂进解析器，第一个 token 平白多一个字符。
 
 ```ts
@@ -294,8 +287,6 @@ return content.charCodeAt(0) === 0xfeff ? content.substring(1) : content;
 
 文件是否存在且是常规文件。
 
-原 C# 是 `File.Exists(path)`。
-
 ```ts
 return CjcliHost.Fs().existsSync(path) && CjcliHost.Fs().statSync(path).isFile();
 ```
@@ -304,7 +295,7 @@ return CjcliHost.Fs().existsSync(path) && CjcliHost.Fs().statSync(path).isFile()
 
 转成绝对路径。
 
-原 C# 宿主用 `Path.GetFullPath(path)`——错误信息里报绝对路径，才定位得到文件。
+错误信息里报绝对路径，才定位得到文件。
 
 ```ts
 return CjcliHost.Path().resolve(path);
@@ -312,9 +303,7 @@ return CjcliHost.Path().resolve(path);
 
 # class CjcliHost
 
-宿主环境：把入口要用到的 Node 内建模块收在一处。
-
-原 C# 宿主直接 `using System.IO;`，`File.ReadAllText` / `Path.GetFullPath` 随手可用；ts 侧要先拿到模块对象。
+运行环境：把入口要用到的 Node 内建模块收在一处。
 
 **为什么不直接写模块级 `import { readFileSync } from "node:fs"`。** 顶层 `import` 会被提升到产物文件的开头，
 插到 `xl` 的产物头前面，破坏产物头的可校验性。`process.getBuiltinModule()` 是等价的替代：
@@ -323,8 +312,6 @@ return CjcliHost.Path().resolve(path);
 **为什么是两个静态工厂方法而不是两个静态字段。** 字段类型得写成 `typeof import("node:fs")`，
 而 xl 的类型标注（`E1204`）不接受 `typeof` / `import(...)` 这种写法；写成 `any` 又会把 `readFileSync` 的重载信息丢掉。
 方法让类型标注留在 ts 体里、由 ts 自己推，字段类型则由 xl 已知的 `any` 兜住。
-
-原 C# 侧这个类并不存在——它就是「宿主的 stdlib」在 ts 侧的落点。
 
 ## static method Fs:()=>any
 

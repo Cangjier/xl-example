@@ -24,8 +24,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 构造器里保留一条契约检查：装配是**调用方**的责任，漏了必须当场炸，而不是等到 XML 里
 少一堆节点才发现。检查必须在取到 `ProcessQueue` 之后立刻做——`BranchTemplate.Get` 在没装配时给
-`null`，那正是「模板没装过流水线」的判据（`Root` 在 C# 里靠 `template.BranchTemplate.Get(GetType())`
-拿到同一个值，只是当时它自己刚设过默认值，所以永远不为 `null`）。
+`null`，那正是「模板没装过流水线」的判据。
 
 检查**只能放在 `super` 之后**：取队列要写 `this.constructor`，而派生类构造器里访问 `this` 必须在
 `super` 之后。所以顺序是 `super` → 取队列 → 判空 → 赋值。
@@ -38,15 +37,13 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 根单元。
 
-原 C# 侧是 `public class Root : UnitToken<char>`。按 M31，`char` 在规范里写 `string`。
+单元值类型是单字符的 `string`。
 
 ## constructor:(template:Template)=>void
 
-以负责人与模板创建；模板必须已经装配过通用队列。
+以模板创建；模板必须已经装配过通用队列。
 
-原 C# 的构造器顺序是：设 `BranchTemplate.DefaultValue` → 设 `ReorganizationTemplate.DefaultValue`
-→ `ProcessQueue = template.BranchTemplate.Get(GetType())` → `InitialStatementReorganizationQueue()`。
-前两步与第四步都搬到了 `ParsePipeline`（`Install` / `InitialStatementReorganizationQueue`），
+装配（装默认队列、装语句重组队列）都归 `ParsePipeline`（`Install` / `InitialStatementReorganizationQueue`），
 这里只剩取 `ProcessQueue` 与那条契约检查。
 
 ```ts
@@ -65,7 +62,7 @@ ParsePipeline.InitialStatementReorganizationQueue(this);
 
 关闭根单元：打个标记，然后把最后一个子单元也关掉。
 
-原 C# 是 `protected override void Close()`，其中 `Last()?.TryToClose()` 是空条件调用。
+最后一个子单元可能不存在，所以先判空再关。
 
 ```ts
 this.Closed = true;
@@ -79,9 +76,8 @@ if (last !== null) {
 
 所有跳转都不接手时的兜底。
 
-原 C# 对 `\r` / `\n` / 空格 / `\t` 直接返回，其余走 `Console.WriteLine` 打印「Unknown Branch」。
-按 port-brief §3.9，调试输出不移植，所以 ts 侧的非空白分支什么都不做——**注意这意味着未知字符被静默忽略**，
-与 C# 的「打印但继续」在行为上等价（都不产生 token）。
+对 `\r` / `\n` / 空格 / `\t` 直接返回，其余什么都不做——**注意这意味着未知字符被静默忽略**
+（不产生 token，也不报错）。
 
 ```ts
 switch (Src.Value) {
@@ -99,8 +95,6 @@ switch (Src.Value) {
 
 根单元永远不「退出」，一律交给跳转队列。
 
-原 C# 是 `protected override BranchStates ExitOrPre(...) => BranchStates.Undo;`。
-
 ```ts
 return BranchStates.Undo;
 ```
@@ -109,8 +103,7 @@ return BranchStates.Undo;
 
 产出 XML：标签名是运行时类型名，内容是子单元的 XML 串接。
 
-原 C# 覆写了基类的同名方法，逻辑与基类一致（先取 `GetType().Name`，再无分隔拼接 `Data` 里每个子单元的 XML）。
-按 M17，`GetType().Name` 写成 `this.constructor.name`。
+与基类逻辑一致：先取运行时类名，再无分隔拼接 `Data` 里每个子单元的 XML。
 
 ```ts
 const name = this.constructor.name;
@@ -125,7 +118,7 @@ return `<${name}>${temp.join("")}</${name}>`;
 
 处理一个字符：第一次处理时把范围起点钉在第一个字符上，然后走基类的调度。
 
-原 C# 覆写里只多了一件事——`SourceRange.Start` 为空就地赋值；注意它**直接改字段**，
+覆写里只多了一件事——`SourceRange.Start` 为空就地赋值；注意它**直接改字段**，
 不走 `SignIn`（`SignIn` 只能设一次，而这里要允许后续再设）。
 
 ```ts
@@ -139,8 +132,8 @@ super.Process(Context, Src);
 
 克隆整棵树。
 
-原 C# 是先建一个 `Root`，再把每个子单元克隆后 `Add` 进去；注意它**没有**调 `TryToClose`，
-也没有签入签出范围——与其它 token 的 `Clone` 不同，照抄。
+先建一个 `Root`，再把每个子单元克隆后加进去；注意它**没有**调 `TryToClose`，
+也没有签入签出范围——与其它 token 的 `Clone` 不同。
 
 克隆出来的根单元共用同一个模板，所以模板上已经装好的队列照旧可用；契约检查也照旧通过。
 

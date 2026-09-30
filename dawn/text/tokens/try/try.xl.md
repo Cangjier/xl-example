@@ -23,23 +23,17 @@ import { TryBody } from "./try-body.xl.md"
 
 # class TryReorganization extends Reorganization
 
-原 C# 是嵌套类 `Try.Reorganization`（M32 展平改名）。
+它做的事是**把整个 `try` 结构收成一个 `Try`**：从 `try` 关键字起，啃掉紧跟的 `Bracket`（语句体），再循环啃掉任意多个 `catch`（可选的 `(形参)` + 语句体），最后啃掉可选的 `finally` 语句体，然后用 `ReplaceCountAt` 把这一整段换成一个 `Try`。
 
-它做的事是**把整个 `try` 结构收成一个 `Try`**：从 `try` 关键字起，啃掉紧跟的 `Bracket`（语句体），再循环啃掉任意多个 `catch`（可选的 `(形参)` + 语句体），最后啃掉可选的 `finally` 语句体，然后用 `ReplaceAt` 把这一整段换成一个 `Try`。
-
-按 M33，展平的嵌套类写在 `Try` **之前**。
+`TryReorganization` 写在 `Try` **之前**。
 
 ## static readonly field Instance:TryReorganization = new TryReorganization()
 
 唯一的实例。
 
-原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
-
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是 `try` 关键字。
-
-原 C# 用 `units.Get(index) is Common common && common.Is("try")`：`Get` 是 `ListExtension` 的扩展方法（M11 改成模块级函数），`is Common common` 是模式匹配，ts 侧写成 `instanceof` 后再取用。
 
 ```ts
 const current = Get(units, index);
@@ -51,11 +45,9 @@ return false;
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
-执行重组：扫描并打包整个 `try` 结构，**返回新的下标**。
+执行重组：扫描并打包整个 `try` 结构，**返回新的下标**——`units` 在这里被就地改写，下标也变了。
 
-原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值——`units` 在这里被就地改写，下标也变了。
-
-C# 各处用 `units.Get(endIndex)` 取「跳过 `WrapSymbol` 之后的下一个单元」；`Get` 是扩展方法（M11 改成模块级函数 `Get(units, …)`）。`SyntaxException<char>` 在规范里写成 `SyntaxException`，第三个参数（内层异常）C# 侧省略，ts 侧显式给 `null`。
+跳过 `WrapSymbol` 找下一个单元一律走 `SkipNext(units, endIndex, …)`；抛 `SyntaxException` 时第三个参数（内层异常）显式给 `null`。
 
 ```ts
 const current = Get(units, index)!;
@@ -157,13 +149,11 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 `try` 语句。
 
-原 C# 侧是 `public class Try : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
-
 它**没有覆写 `ToXmlString`**，所以 XML 由基类 `Token` 产出：标签名是运行时类名 `Try`，内容是全部子单元的 XML 串接。子单元的顺序是 `TryBody`、若干 `CatchDefine` / `CatchBody`、可选的 `FinallyBody`——这个顺序由 `TryReorganization.Process` 的扫描顺序决定。
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+转调基类构造器。
 
 ```ts
 super(template);
@@ -172,8 +162,6 @@ super(template);
 ## method CreateTryBody:()=>TryBody
 
 新建一个 `TryBody` 并挂到自己名下。
-
-原 C# 是 `TryBody CreateTryBody() => Add(new TryBody(Owner, Template));`。
 
 ```ts
 return this.Add(new TryBody(this.Template));
@@ -185,12 +173,12 @@ return this.Add(new TryBody(this.Template));
 
 ### get
 
-原 C# 是 `public TryBody TryBody => (TryBody?)Data.FirstOrDefault(item => item is TryBody) ?? throw new NullReferenceException();`——找不到就抛空引用。ts 侧用 `find` 找第一个命中的，找不到抛错。
+用 `find` 找第一个命中的，找不到抛错。
 
 ```ts
 const result = this.Data.find((item) => item instanceof TryBody);
 if (result === undefined) {
-  throw new Error("NullReferenceException");
+  throw new Error("找不到匹配的子单元");
 }
 return result;
 ```
@@ -199,8 +187,6 @@ return result;
 
 新建一个 `CatchDefine` 并挂到自己名下。
 
-原 C# 是 `CatchDefine CreateCatchDefine() => Add(new CatchDefine(Owner, Template));`。
-
 ```ts
 return this.Add(new CatchDefine(this.Template));
 ```
@@ -208,8 +194,6 @@ return this.Add(new CatchDefine(this.Template));
 ## method CreateCatchBody:()=>CatchBody
 
 新建一个 `CatchBody` 并挂到自己名下。
-
-原 C# 是 `CatchBody CreateCatchBody() => Add(new CatchBody(Owner, Template));`。
 
 ```ts
 return this.Add(new CatchBody(this.Template));
@@ -221,7 +205,7 @@ return this.Add(new CatchBody(this.Template));
 
 ### get
 
-原 C# 是 `public Token<char>[] Catches => Data.Where(item => item is CatchDefine || item is CatchBody).ToArray();`。ts 侧按类型收窄成 `Array<Token>`；注意子单元是**引用**而不是克隆，与原实现一致。
+按类型收窄成 `Array<Token>`；注意子单元是**引用**而不是克隆。
 
 ```ts
 const result: Token[] = [];
@@ -237,8 +221,6 @@ return result;
 
 新建一个 `FinallyBody` 并挂到自己名下。
 
-原 C# 是 `FinallyBody CreateFinallyBody() => Add(new FinallyBody(Owner, Template));`。
-
 ```ts
 return this.Add(new FinallyBody(this.Template));
 ```
@@ -249,43 +231,18 @@ return this.Add(new FinallyBody(this.Template));
 
 ### get
 
-原 C# 是 `public FinallyBody? FinallyBody => (FinallyBody?)Data.FirstOrDefault(item => item is FinallyBody);`——`FirstOrDefault` 找不到给 `default`，对引用类型就是 `null`。
+找不到 `FinallyBody` 时给 `null`。
 
 ```ts
 const result = this.Data.find((item) => item instanceof FinallyBody);
 return result ?? null;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：`type` 是运行时类型名，`body` 是 `TryBody` 的 `ToList()`，有 `catch` 时加 `catches` 数组，有 `finally` 时加 `finally`。
-
-原 C# 的键顺序是 `type` → `body` → `catches` → `finally`，照抄。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-result.set("body", this.TryBody.ToList());
-const catches = this.Catches;
-if (catches.length > 0) {
-  const catchArray: any[] = [];
-  for (const item of catches) {
-    catchArray.push(item.ToDictionary());
-  }
-  result.set("catches", catchArray);
-}
-const finallyBody = this.FinallyBody;
-if (finallyBody !== null) {
-  result.set("finally", finallyBody.ToList());
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。注意 `Try.Clone` **没有**拷贝静态注册信息，`TryReorganization` 也不参与克隆。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。注意 `Try.Clone` **没有**拷贝静态注册信息，`TryReorganization` 也不参与克隆。
 
 ```ts
 const result = new Try(this.Template);

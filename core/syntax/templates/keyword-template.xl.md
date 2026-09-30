@@ -10,17 +10,15 @@
 
 ## field BanedKeywords:Array<string> = []
 
-被禁用的关键字。原 C# 侧是私有字段 `List<string> BanedKeywords { get; }`。
+被禁用的关键字。
 
 ## field AllowedKeywords:Array<string> = []
 
-允许的关键字。原 C# 侧是私有字段 `List<string> AllowedKeywords { get; }`。
+允许的关键字。
 
 ## method Ban:(items:Array<string>)=>KeywordTemplate
 
 追加若干禁用关键字，返回自身便于链式调用。
-
-原 C# 签名是 `KeywordTemplate Ban(params string[] items)`。
 
 ```ts
 this.BanedKeywords.push(...items);
@@ -31,8 +29,6 @@ return this;
 
 追加若干允许关键字，返回自身便于链式调用。
 
-原 C# 签名是 `KeywordTemplate Allow(params string[] items)`。
-
 ```ts
 this.AllowedKeywords.push(...items);
 return this;
@@ -42,7 +38,7 @@ return this;
 
 是不是关键字：禁用表命中即否，否则看允许表。
 
-原 C# 是 `public virtual`，由使用方自行覆盖。
+由使用方自行覆盖。
 
 ```ts
 if (this.BanedKeywords.includes(item)) {

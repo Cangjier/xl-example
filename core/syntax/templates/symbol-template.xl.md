@@ -4,7 +4,7 @@
 
 符号模板是整套解析器里**最基础的一张表**：它决定一个字符算不算「符号」、算不算「空白」、算不算「数字」。`Common` token 就是靠 `IsSymbol` / `IsWhiteSpace` 决定要不要把字符吞进自己肚子里的。
 
-原 C# 里 `char` 类型的参数与返回值在 ts 侧一律映射成 `string`（单字符）——xl 的中立类型表里没有 `char`，写 `char` 会被原样搬进 ts 变成未定义标识符（见 M28）。
+这里的字符都是 `string`（单字符）：xl 的中立类型表里没有字符类型，单字符统一以 `string` 表示。
 
 # class SymbolTemplate
 
@@ -12,11 +12,11 @@
 
 ## field BanedSymbol:Array<string> = []
 
-被禁用的符号。原 C# 侧是私有字段 `List<char> BanedSymbol`。
+被禁用的符号。
 
 ## field AllowedSymbol:Array<string> = []
 
-额外允许的符号：不在内置符号表里、但希望被当成符号的字符。原 C# 侧是私有字段 `List<char> AllowedSymbol`。
+额外允许的符号：不在内置符号表里、但希望被当成符号的字符。
 
 ## field AssignmentSymbols:Array<string> = ["="]
 
@@ -48,9 +48,7 @@
 
 ## method Ban:(items:Array<string>)=>SymbolTemplate
 
-追加若干禁用字符，返回自身便于链式调用。
-
-原 C# 签名是 `SymbolTemplate Ban(params char[] items)`。`TSScriptEngine` 用它禁掉 `_`。
+追加若干禁用字符，返回自身便于链式调用。禁掉 `_` 靠的就是它。
 
 ```ts
 this.BanedSymbol.push(...items);
@@ -61,8 +59,6 @@ return this;
 
 追加若干允许字符，返回自身便于链式调用。
 
-原 C# 签名是 `SymbolTemplate Allow(params char[] items)`。
-
 ```ts
 this.AllowedSymbol.push(...items);
 return this;
@@ -72,7 +68,7 @@ return this;
 
 是不是符号：禁用表命中即否，否则命中内置符号表即是，都不命中再看允许表。
 
-原 C# 用 `switch` 枚举了 34 个内置符号字符，ts 侧照抄成 `switch`。
+内置符号表就是下面这个 `switch`。
 
 ```ts
 if (this.BanedSymbol.includes(item)) {
@@ -121,7 +117,7 @@ switch (item) {
 
 是不是组合符号（多字符符号，如 `+=`、`?.`、`=>`）。
 
-原 C# 是 `virtual`，判定顺序是禁用表 → 允许表 → 内置表。
+判定顺序是禁用表 → 允许表 → 内置表。
 
 ```ts
 if (this.BanedCombinedSymbol.includes(item)) {
@@ -163,8 +159,6 @@ switch (item) {
 
 追加若干允许的组合符号。
 
-原 C# 签名是 `void AllowCombineSymbol(params string[] items)`。
-
 ```ts
 this.AllowedCombinedSymbol.push(...items);
 ```
@@ -172,8 +166,6 @@ this.AllowedCombinedSymbol.push(...items);
 ## method BanCombineSymbol:(items:Array<string>)=>void
 
 追加若干禁用的组合符号。
-
-原 C# 签名是 `void BanCombineSymbol(params string[] items)`。
 
 ```ts
 this.BanedCombinedSymbol.push(...items);
@@ -183,7 +175,7 @@ this.BanedCombinedSymbol.push(...items);
 
 是不是「纯数字」——每一位都是数字，不含小数点。
 
-原 C# 对**空字符串返回 `true`**（循环一次都不执行）。这是个真行为，ts 侧照抄循环形式保留它。
+**空字符串返回 `true`**（循环一次都不执行），循环形式就是为了保留这个行为。
 
 ```ts
 for (const ch of Value) {
@@ -198,7 +190,7 @@ return true;
 
 是不是能解析成小数的数字串。
 
-原 C# 用 `double.TryParse(Value, out double _)`，接受小数点、正负号、指数与前后空白，拒绝空串与带杂质的串。ts 侧用 `Number()` 加空串与 `NaN` 两道闸门近似——`Number("")` 是 `0`，必须单独挡掉。
+接受小数点、正负号、指数与前后空白，拒绝空串与带杂质的串。这里用 `Number()` 加空串与 `NaN` 两道闸门近似——`Number("")` 是 `0`，必须单独挡掉。
 
 ```ts
 if (Value.trim() === "") {
@@ -211,7 +203,7 @@ return !Number.isNaN(Number(Value));
 
 单个字符是不是数字。
 
-原 C# 是 `virtual bool IsNumber(char Value) => Value >= '0' && Value <= '9';`，用字符区间而不是 `char.IsDigit`，所以只认 ASCII 数字。
+用字符区间判定，只认 ASCII 数字。
 
 ```ts
 return Value >= "0" && Value <= "9";
@@ -221,7 +213,7 @@ return Value >= "0" && Value <= "9";
 
 是不是空白字符。
 
-原 C# 的四个空白是空格、`\t`、`\r`、`\n`。
+空白只有四个：空格、`\t`、`\r`、`\n`。
 
 ```ts
 switch (item) {
@@ -263,8 +255,6 @@ return this.AssignmentSymbols.includes(item);
 
 追加若干赋值符号。
 
-原 C# 签名是 `void AddAssignmentSymbol(params string[] items)`。
-
 ```ts
 this.AssignmentSymbols.push(...items);
 ```
@@ -273,7 +263,7 @@ this.AssignmentSymbols.push(...items);
 
 移除若干赋值符号。
 
-原 C# 签名是 `void RemoveAssignmentSymbol(params string[] items)`。`List.Remove` 只删第一个匹配项，ts 侧用 `indexOf` + `splice` 保持一致。
+只删第一个匹配项：`indexOf` + `splice` 就是这个语义。
 
 ```ts
 for (const item of items) {
@@ -296,8 +286,6 @@ return this.CompoundAssignmentSymbols.includes(item);
 
 追加若干复合赋值符号。
 
-原 C# 签名是 `void AddCompoundAssignmentSymbol(params string[] items)`。
-
 ```ts
 this.CompoundAssignmentSymbols.push(...items);
 ```
@@ -305,8 +293,6 @@ this.CompoundAssignmentSymbols.push(...items);
 ## method RemoveCompoundAssignmentSymbol:(items:Array<string>)=>void
 
 移除若干复合赋值符号。
-
-原 C# 签名是 `void RemoveCompoundAssignmentSymbol(params string[] items)`。
 
 ```ts
 for (const item of items) {
@@ -329,8 +315,6 @@ return this.MemberSymbol.includes(item);
 
 追加若干成员符号。
 
-原 C# 签名是 `void AddMemberSymbol(params string[] items)`。
-
 ```ts
 this.MemberSymbol.push(...items);
 ```
@@ -338,8 +322,6 @@ this.MemberSymbol.push(...items);
 ## method RemoveMemberSymbol:(items:Array<string>)=>void
 
 移除若干成员符号。
-
-原 C# 签名是 `void RemoveMemberSymbol(params string[] items)`。
 
 ```ts
 for (const item of items) {
@@ -362,8 +344,6 @@ return this.StatementSymbol.includes(item);
 
 追加若干语句符号。
 
-原 C# 签名是 `void AddStatementSymbol(params string[] items)`。
-
 ```ts
 this.StatementSymbol.push(...items);
 ```
@@ -371,8 +351,6 @@ this.StatementSymbol.push(...items);
 ## method RemoveStatementSymbol:(items:Array<string>)=>void
 
 移除若干语句符号。
-
-原 C# 签名是 `void RemoveStatementSymbol(params string[] items)`。
 
 ```ts
 for (const item of items) {
@@ -387,8 +365,6 @@ for (const item of items) {
 
 是不是比较符号。
 
-原 C# 侧这个方法**没有** `virtual`。
-
 ```ts
 return this.CompareSymbols.includes(item);
 ```
@@ -397,8 +373,6 @@ return this.CompareSymbols.includes(item);
 
 追加若干比较符号。
 
-原 C# 签名是 `void AddCompareSymbol(params string[] items)`。
-
 ```ts
 this.CompareSymbols.push(...items);
 ```
@@ -406,8 +380,6 @@ this.CompareSymbols.push(...items);
 ## method RemoveCompareSymbol:(items:Array<string>)=>void
 
 移除若干比较符号。
-
-原 C# 签名是 `void RemoveCompareSymbol(params string[] items)`。
 
 ```ts
 for (const item of items) {

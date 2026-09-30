@@ -12,5 +12,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["dist/**/*.ts"]
+  "include": ["dist/**/*.ts"],
+  "exclude": ["dist/cpp"]
 }

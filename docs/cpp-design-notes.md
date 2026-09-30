@@ -3,9 +3,8 @@
 `docs/xl-to-cpp.md` 写的是「怎么写」；这一份写「为什么只能这么写」。这三条不是风格选择，
 而是 C++ 与 ts 之间无法绕开的差异，每一条都先被证伪过别的方案才定下来。
 
-> **这三条在实际实现里的状态**（详见 `docs/xl-to-cpp.md` 文首的修订说明与
-> `dist/cpp/README.md`）：
-> - **第二条（`std::shared_ptr` 所有权）已按要求落实**，全树规范类都用 `std::shared_ptr<T>`。
+> **这三条决定在当前实现里的状态**（详见 `docs/xl-to-cpp.md` 文首的修订说明）：
+> - **第二条（`std::shared_ptr` 所有权）已落实**，全树规范类都用 `std::shared_ptr<T>`。
 > - **第一条（两遍构建 + `CANGJIE_BODIES` + `xl-tree.cpp` 索引）没有采用**：实际产物是
 >   `xl_plan` 报出的 `.h`/`.cpp` 拆分（`layout = type`）。它要解决的「89 个源同处一个依赖环」
 >   由等价手段解决 —— 声明放 `.h`，需要完整类型的体放 `.cpp` 并各自 include，
@@ -109,7 +108,7 @@ ts 用 `this.constructor.name` 取运行时类名，用在两处，而且**两�
 C++ 没有可移植的「取对象运行时类名」手段（`typeid(x).name()` 是实现定义的名字，GCC 出来是
 `N7cangjie7KeywordE` 这种修饰名，直接进 XML 就废了）。规范里给出的答案是 **M17：把
 `GetType()` 写成 `this.constructor`**，`SequenceTemplate` 也以「类的构造器对象」为键——
-翻译到 C++，就是把「构造器对象」落成一个**字符串类型名**，由每个类自己回答：
+生成到 C++，就是把「构造器对象」落成一个**字符串类型名**，由每个类自己回答：
 
 ```cpp
 virtual std::string TypeName() const { return "Token"; }              // 基类
@@ -127,9 +126,9 @@ std::string TypeName() const override { return "Keyword"; }           // 每个�
 
 代价是**类名不能改**：`TypeName()` 的返回值直接出现在验收 XML 里（`samples/*.expected.xml`）。
 这也是为什么展平的嵌套类（`KeywordReorganization`）可以随便改名——它们不进 XML——而
-`Keyword` / `Bracket` / `String` 这些本体必须与 C# 的 `Type.Name` 一字不差。
+`Keyword` / `Bracket` / `String` 这些本体必须与规范里的类名一字不差。
 
-## 附：这三条决定带出来的两处偏离
+## 附：这三条决定带出来的两处实现选择
 
 1. **`runtime/any-value.hpp` 是手写的。** `ToDictionary()` / `ToList()` 返回
    `Map<string, any>` / `Array<any>`，`RuntimeObject.Type` / `.Value` 也是 `any`；ts 里一个

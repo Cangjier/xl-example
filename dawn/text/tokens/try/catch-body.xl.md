@@ -16,15 +16,13 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `catch` 的语句体。
 
-原 C# 侧是 `public class CatchBody : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
-
-与 `TryBody` 同构：不消费字符，只作为 `TryReorganization` 打包出来的一个子单元，挂在 `Try` 下并进 `Try.ToDictionary()` 的 `catches` 数组。
+与 `TryBody` 同构：不消费字符，只作为 `TryReorganization` 打包出来的一个子单元，挂在 `Try` 下（可以有多个，`Try.Catches` 按源码顺序取）。
 
 ## constructor:(template:Template)=>void
 
 创建时先把语句重组队列挂上。
 
-原 C# 签名是 `CatchBody(IOwner owner, Template<char> template) : base(owner, template)`，体里只调 `this.InitialStatementReorganizationQueue()`——那是 `IndependentToken` 上的扩展方法；它读的是通用重组队列，所以已经并到 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+`InitialStatementReorganizationQueue` 读的是通用重组队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
 
 ```ts
 super(template);
@@ -35,7 +33,7 @@ ParsePipeline.InitialStatementReorganizationQueue(this);
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new CatchBody(this.Template);

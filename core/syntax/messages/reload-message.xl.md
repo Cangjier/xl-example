@@ -15,17 +15,15 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 重新处理一条位置的消息。
 
-原 C# 侧是 `public class ReloadMessage<ValueType> : Message<ValueType>`，两个构造器。按 M14(b) 保留参数较全的那个做构造器，三参的那个转成静态工厂。
+它有两种构造方式：参数较全的那个做构造器，不指定处理者的那个做成静态工厂。
 
 ## field Source:Source
 
-要重新处理的位置。原 C# 侧是公开字段 `public Source<ValueType> Source;`。
+要重新处理的位置。
 
 ## constructor:(processOwner:Token | null, target:Token, source:Source)=>void
 
 带处理者的构造；`processOwner` 允许为 `null`，表示消费时回退到上下文的根。
-
-原 C# 签名是 `ReloadMessage(IOwner owner, Token<ValueType> processOwner, Token<ValueType> target, Source<ValueType> source) : base(owner, target)`。
 
 ```ts
 super(target);
@@ -35,7 +33,7 @@ this.ProcessOwner = processOwner;
 
 ## static method WithoutProcessOwner:(target:Token, source:Source)=>ReloadMessage
 
-原 C# 构造器 `ReloadMessage(IOwner owner, Token<ValueType> target, Source<ValueType> source)` 的替代：不指定处理者。
+不指定处理者的构造方式。
 
 ```ts
 return new ReloadMessage(null, target, source);

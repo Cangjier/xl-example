@@ -12,34 +12,25 @@ import { SourceRange } from "./source-range.xl.md"
 
 「按下标取值」的委托。
 
-原 C# 侧是 `Func<int, ValueType>`。按 M22，参数表里不直接写函数类型，改用这个别名；`ValueType` 在规范里定死为 `string`（M31）。按 M26，右侧直接写 ts 语法。
+参数表里不直接写函数类型，改用这个别名；取值都是单字符组成的 `string`，别名右侧直接写 ts 语法。
 
 # type CountGetter = ()=>number
 
 「取长度」的委托。
 
-原 C# 侧是 `Func<int>`。
-
 # class Document
 
 文档。
 
-原 C# 侧还有 `this[int index]` 索引器，按 M19 映射成 `At(index)` 方法。
-
-原 C# 侧这个类还实现 `IReleasable`、持有 `Owner` 字段；资源归属层已移除，这些成员与 `Release` 都没有对应物
-（见 README「资源生命周期：交给 GC」）。
+索引式的取值由 `At(index)` 方法承担。
 
 ## field GetValue:ValueGetter
 
 按下标取值。
 
-原 C# 侧是 `Func<int, ValueType> GetValue { get; private set; }`。
-
 ## field GetCount:CountGetter
 
 取值的总个数。
-
-原 C# 侧是 `Func<int> GetCount { get; private set; }`。
 
 ## field Parent:SourceRange | null = null
 
@@ -49,8 +40,7 @@ import { SourceRange } from "./source-range.xl.md"
 
 以取值器、长度器与父范围创建。
 
-参数允许显式传 `null`——原 C# 签名是 `Document(IOwner owner, Func<int, ValueType> getValue, Func<int> getCount, SourceRange<ValueType>? Parent = null)`，调用点会直接写 `null`。
-开头的 `owner` 随资源归属层移除，所以规范签名从 `getValue` 开始。
+参数允许显式传 `null`：调用点会把「可能没有父范围」的结果直接写进来。
 
 ```ts
 this.GetValue = getValue;
@@ -62,7 +52,7 @@ this.Parent = Parent ?? null;
 
 取下标对应的**位置**。
 
-原 C# 是索引器 `public Source<ValueType> this[int index] => new(this, index);`。每次访问都新建一个 `Source`，调用点不要依赖对象身份。
+每次访问都新建一个 `Source`，调用点不要依赖对象身份。
 
 ```ts
 return new Source(this, index);
@@ -72,7 +62,7 @@ return new Source(this, index);
 
 范围的可读字符串。
 
-原 C# 是 `virtual`，基类实现直接返回 `range.ToString()`，由 `TextDocument` 覆盖成带 `^` 指示的多行文本。
+基类实现直接返回 `range.ToString()`，由 `TextDocument` 覆盖成带 `^` 指示的多行文本。
 
 ```ts
 return range.ToString();
@@ -82,7 +72,7 @@ return range.ToString();
 
 范围所在的行。
 
-原 C# 是 `virtual`，基类实现直接返回 `range.ToString()`，由 `TextDocument` 覆盖。
+基类实现直接返回 `range.ToString()`，由 `TextDocument` 覆盖。
 
 ```ts
 return range.ToString();
@@ -92,48 +82,48 @@ return range.ToString();
 
 下标所在的行号。
 
-原 C# 是 `virtual` 并抛 `NotImplementedException`，由 `TextDocument` 覆盖。
+基类不实现，由 `TextDocument` 覆盖。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```
 
 ## method GetLineOffset:(index:int)=>int
 
 下标在其所在行内的偏移。
 
-原 C# 是 `virtual` 并抛 `NotImplementedException`，由 `TextDocument` 覆盖。
+基类不实现，由 `TextDocument` 覆盖。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```
 
 ## method GetLineInfo:(index:int)=>Array<int>
 
 下标所在行的 `[行号, 行内偏移]`。
 
-原 C# 是 `virtual`，返回元组 `(int line, int lineOffset)`，按 M25 映射成 `Array<int>`；并抛 `NotImplementedException`，由 `TextDocument` 覆盖。
+返回两个元素组成的数组；基类不实现，由 `TextDocument` 覆盖。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```
 
 ## method GetRaw:(start:int, end:int)=>string
 
 文档上 `[start, end]` 的原始文本。
 
-原 C# 是 `virtual` 并抛 `NotImplementedException`，由 `TextDocument` 覆盖。
+基类不实现，由 `TextDocument` 覆盖。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```
 
 ## method GetScriptPath:()=>string
 
 文档对应的脚本路径；基类不实现。
 
-原 C# 是 `virtual` 并抛 `NotImplementedException`，由 `TextDocument` 覆盖。
+基类不实现，由 `TextDocument` 覆盖。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```

@@ -14,15 +14,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 语法上下文：持有根单元、待处理位置队列与消息队列，是驱动整个解析的引擎。`TextContext` 是它唯一的实现。
 
-C# 的 `Process` 有三个同名重载（参数表不同），xl 同一类型内不允许成员重名（`E1205`），按 M14(c) 保留最常用的文档版用原名，其余加后缀。
+`Process` 有三种用法（参数表不同），xl 同一类型内不允许成员重名（`E1205`），最常用的文档版用原名 `Process`，其余加后缀 `ProcessSingle` / `ProcessAt`。
 
-`Dictionary<string, object>` 里的 C# `object` 在 ts 侧映射成 `any`——ts 的 `object` 只表示「非原始值」，装不下 `string` / `number`。
+变量表的键是 `string`、值是 `any`——ts 的 `object` 只表示「非原始值」，装不下 `string` / `number`。
 
 # class SyntaxContext
 
 语法上下文。
-
-原 C# 侧还实现 `IReleasable`、持有 `Owner` 字段；资源归属层已移除，`Release` 也没有对应物（见 README「资源生命周期：交给 GC」）。
 
 ## field Messages:Array<Message> = []
 
@@ -32,21 +30,17 @@ C# 的 `Process` 有三个同名重载（参数表不同），xl 同一类型内
 
 上下文变量表。
 
-原 C# 是 `Dictionary<string, object> VariableMap { get; private set; }`。
-
 ## field Root:Token
 
 根单元。整个解析从它开始，所有 token 最终都挂在它的 `Data` 下。
 
 ## field SourceQueue:Array<ProcessSource> = []
 
-待处理位置的队列。原 C# 侧是私有字段。
+待处理位置的队列。
 
 ## constructor:(root:Token)=>void
 
 以根单元创建上下文。
-
-原 C# 是 `SyntaxContext(IOwner owner, Token<ValueType> root)`，体内还把自己登记进 `owner`；`owner` 形参与登记随资源归属层移除。
 
 ```ts
 this.Root = root;
@@ -56,7 +50,7 @@ this.Root = root;
 
 取变量；不存在时给默认值。
 
-原 C# 签名是 `T? GetDefault<T>(string key, T? defaultValue = default)`：变量存在但值是 `null` 时也返回 `default`。
+变量存在但值是 `null` 时也返回默认值。
 
 ```ts
 if (this.VariableMap.has(key)) {
@@ -72,8 +66,6 @@ return defaultValue ?? null;
 ## method Get:(key:string)=>any
 
 取变量；不存在返回 `null`。
-
-原 C# 签名是 `object? Get(string key)`。
 
 ```ts
 if (this.VariableMap.has(key)) {
@@ -103,7 +95,7 @@ return this;
 
 处理整个文档：逐位置处理，最后一个位置处理完后给根签出，最后把根关掉。
 
-原 C# 签名是 `void Process(Document<ValueType> documents)`。C# 的索引器 `documents[i]` 每次访问都新建一个 `Source`，这里写 `documents.At(i)`，同样每次新建。
+`documents.At(i)` 每次访问都新建一个 `Source`，不要依赖对象身份。
 
 ```ts
 const count = documents.GetCount();
@@ -120,8 +112,6 @@ this.Root.TryToClose();
 
 处理单个位置，处理者用根单元。
 
-原 C# 是重载 `void Process(Source<ValueType> item)`。
-
 ```ts
 this.SourceQueue.push(new ProcessSource(this.Root, item));
 this.DrainQueue();
@@ -130,8 +120,6 @@ this.DrainQueue();
 ## method ProcessAt:(processOwner:Token, item:Source)=>void
 
 处理单个位置，处理者是指定单元。
-
-原 C# 是重载 `void Process(Token<ValueType> processOwner, Source<ValueType> item)`。
 
 ```ts
 this.SourceQueue.push(new ProcessSource(processOwner, item));
@@ -142,7 +130,7 @@ this.DrainQueue();
 
 把位置队列抽干：逐个弹出、交给 `ProcessOwner` 处理，每处理完一轮就消费一次消息队列。
 
-原 C# 是私有的无参重载 `private void Process()`。队列是「边处理边插队」的，所以必须用 `while` 而不是 `for`——处理过程中可能又有新位置进来（含 `ReloadMessage` 插回队首的）。
+队列是「边处理边插队」的，所以必须用 `while` 而不是 `for`——处理过程中可能又有新位置进来（含 `ReloadMessage` 插回队首的）。
 
 ```ts
 while (this.SourceQueue.length > 0) {
@@ -157,13 +145,11 @@ while (this.SourceQueue.length > 0) {
 
 消费一条非插队消息的钩子。
 
-原 C# 是 `protected virtual` 且默认空实现，`TextContext` 也覆写成空。按 M30 不写 ts 体，打印器产出空方法。
+默认空实现，`TextContext` 也覆写成空，所以不写 ts 体，打印器产出空方法。
 
 ## private method DrainMessages:()=>void
 
 把消息队列抽干：`ReloadMessage` 插回位置队列的**队首**，其余交给 `HandleMessage`。
-
-原 C# 是私有的无参重载 `private void HandleMessage()`。
 
 ```ts
 while (this.Messages.length > 0) {

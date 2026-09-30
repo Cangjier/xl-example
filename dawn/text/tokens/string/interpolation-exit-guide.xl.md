@@ -19,13 +19,9 @@ import { String } from "./string.xl.md"
 
 插值的退出向导。
 
-原 C# 侧是 `public class InterpolationExitGuide : GuideToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
-
 ## property AncestorString:String
 
 本向导所属插值单元**外面那一层**字符串：`Parent` 是 `InterpolationString`，从它那里再取 `ParentString`。
-
-原 C# 是 `public String AncestorString => (Parent as InterpolationString)!.ParentString;`。类名 `String` 与 C# 完全一致（M17）。
 
 ### get
 
@@ -37,17 +33,13 @@ return (this.Parent as InterpolationString)!.ParentString;
 
 已经数过的右花括号个数。
 
-原 C# 是 `protected int BracketCount = 0;`。
-
 ## protected field Items:Array<Source> = []
 
 数括号过程中经过的位置。
 
-原 C# 是 `protected List<Source<char>> Items = new();`；按 M31 写成 `Array<Source>`。
-
 ## constructor:(Template:Template)=>void
 
-原 C# 只是转调基类构造器。
+构造器只是转调基类。
 
 ```ts
 super(Template);
@@ -55,13 +47,11 @@ super(Template);
 
 ## protected method Navigate:(context:SyntaxContext, Src:Source)=>void
 
-只认右花括号，按数到的个数分四种走法。
-
-原 C# 是 `protected override void Navigate(SyntaxContext<char> context, in Source<char> Src)`，规则照抄：
+只认右花括号，按数到的个数分四种走法：
 
 1. `}` 且个数**等于** `AncestorString.InterpolationCount`——把自己从父单元摘掉，再让父插值单元 `ForceExit(context, Src)`，然后**直接返回**（这个 `}` 不进 `Items`）。
-2. `}` 但个数**还没到**——C# 那一支是空实现只带一句注释「不确定」，落到方法末尾的 `Items.Add(Src)`。
-3. `}` 但个数**超过了**——抛空消息异常（C# 是 `throw new Exception("")`，ts 侧按 BCL 映射写 `Error`）。
+2. `}` 但个数**还没到**——这一支是空实现只带一句注释「不确定」，落到方法末尾的 `Items.push(Src)`。
+3. `}` 但个数**超过了**——抛空消息异常。
 4. 不是 `}`（原注释「不正常」）——抛「插值关闭异常」。
 
 ```ts
@@ -86,10 +76,8 @@ this.Items.push(Src);
 
 ## method Clone:()=>Token
 
-克隆自身。
-
-原 C# 是 `public override Token<char> Clone()`，体里直接抛 `NotImplementedException`——这个向导是一次性的，随用随弃。ts 侧照抄成抛错。
+克隆自身——这个向导是一次性的，随用随弃，所以克隆直接抛错。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```

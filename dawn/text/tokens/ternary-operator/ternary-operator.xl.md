@@ -21,23 +21,19 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 
 # class TernaryOperatorReorganization extends Reorganization
 
-原 C# 是嵌套类 `TernaryOperator.Reorganization`（M32 展平改名）。
-
 它做的事是**把 `? … : …` 收成一个 `TernaryOperator`**：从 `:` 往前找 `?`，再从 `?` 往前找「表达式的起点」，从 `:` 往后找到语句边界，然后把三段分别切进条件 / 真值 / 假值三个子单元。
 
-按 M33，展平的嵌套类写在 `TernaryOperator` **之前**。
+`TernaryOperatorReorganization` 写在 `TernaryOperator` **之前**。
 
 ## static readonly field Instance:TernaryOperatorReorganization = new TernaryOperatorReorganization()
 
 唯一的实例。
 
-原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
-
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个可以当作三元运算符的 `:`。
 
-原 C# 的条件是三层：先要求是 `Symbol` 且 `Is(":")`，再往前找 `?`，`?` 不存在（`-1`）或紧邻（`questionIndex == index - 1`）都算不成立。
+条件是三层：先要求是 `Symbol` 且 `Is(":")`，再往前找 `?`；`?` 不存在（`-1`）或紧邻（`questionIndex == index - 1`）都算不成立。
 
 ```ts
 const current = Get(units, index);
@@ -58,7 +54,7 @@ return false;
 
 `current` 能不能当作三元运算符表达式的**起点**。
 
-原 C# 是静态方法 `public static bool IsTernaryOperatorStart(Token<char> current)`，被 `Process` 当作判定器传给 `SearchFront`。
+被 `Process` 当作判定器传给 `SearchFront`。
 
 两条判定：(1) 是 `Symbol`，且它的文本算赋值号，或者是 `:` / `=>` / `,` / `;` 之一；(2) 是内容为 `return` 的 `Common`。
 
@@ -85,13 +81,18 @@ return false;
 
 执行重组：切出条件 / 真值 / 假值三段，组装成 `TernaryOperator`，**返回新的下标**。
 
-原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值。
+重组把多个子单元换成一个，下标必须跟着走。
 
-有一处 ts 侧的差异：C# 用 `Json.JsonObject.Reorganization.IsObject(current.Parent)` 判断父单元在不在 JSON 对象里；ts 侧对应展平后的 `JsonObjectReorganization.IsObject`。
+父单元在不在 JSON 对象里，用 `JsonObjectReorganization.IsObject` 判断。
 
 分隔符的取法：父单元是 JSON 对象时按 `,` 找边界，否则按 `;` 找；找不到（`-1`）就取到列表末尾。
 
-三段都是用 `TakeRange` 切出来的**一批**单元，原 C# 靠 `Add<T>(IEnumerable<T>)` 重载塞进子单元；按 M14(c) 那个重载在 ts 侧改名成 `AddRange`，所以这里写 `condition.AddRange(...)`。
+三段都是用 `TakeRange` 切出来的**一批**单元（取出不移除），用 `AddRange` 塞进子单元。
+
+切完之后先查**三段都非空**：`Previous` 只保证「有一个 `?` 在 `:` 前面且不相邻」，
+切出来的区间长度仍可能是 0（例如 `:` 前面隔着别的东西、或者 `:` 已经到列表末尾）。
+空的时候直接返回原下标、什么都不改——三段的签入都要取 `Data[0]`，那里为 `undefined` 会当场抛内部错误，
+而输入本身已经不成形状，交给后面的规则处理更合适。
 
 ```ts
 const current = Get(units, index)!;
@@ -112,6 +113,9 @@ const falseStatement = ternaryOperator.CreateFalseStatement();
 condition.AddRange(TakeRange(units, startIndex + 1, questionIndex - startIndex - 1));
 trueStatement.AddRange(TakeRange(units, questionIndex + 1, elseIndex - questionIndex - 1));
 falseStatement.AddRange(TakeRange(units, elseIndex + 1, endIndex - elseIndex - 1));
+if (condition.Data.length === 0 || trueStatement.Data.length === 0 || falseStatement.Data.length === 0) {
+  return index;
+}
 condition.SignInToken(condition.Data[0]);
 condition.SignOutToken(condition.Data[condition.Data.length - 1]);
 trueStatement.SignInToken(trueStatement.Data[0]);
@@ -131,13 +135,11 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 
 三元运算符。
 
-原 C# 侧是 `public class TernaryOperator : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
-
-它**没有覆写 `ToXmlString`**，XML 由基类 `Token` 产出：`<TernaryOperator>…</TernaryOperator>`，内容是三个子单元的串接。它的 `ToDictionary` 也是少数**不带 `type` 键**的实现——只有 `condition` / `trueStatement` / `falseStatement` 三个键。
+它**没有覆写 `ToXmlString`**，XML 由基类 `Token` 产出：`<TernaryOperator>…</TernaryOperator>`，内容是三个子单元的串接。
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+转调基类构造器。
 
 ```ts
 super(template);
@@ -149,9 +151,9 @@ super(template);
 
 ### get
 
-原 C# 是 `public TernaryOperatorCondition Condtion => (TernaryOperatorCondition)Data.First(item => item is TernaryOperatorCondition);`——注意成员名在原 C# 里就是拼错的 `Condtion`，这里照抄，以免调用点对不上。
+注意成员名 `Condtion` 是拼错的（少一个 `i`），这里保持原样，调用点跟着用这个名字。
 
-ts 侧用 `find` 取第一个命中的；`find` 的类型收窄成 `T | undefined`，这里按原实现直接断言存在。
+用 `find` 取第一个命中的；`find` 的类型收窄成 `T | undefined`，这里直接断言存在。
 
 ```ts
 return this.Data.find((item) => item instanceof TernaryOperatorCondition)!;
@@ -160,8 +162,6 @@ return this.Data.find((item) => item instanceof TernaryOperatorCondition)!;
 ## method CreateCondition:()=>TernaryOperatorCondition
 
 新建一个条件子单元并挂到自己名下。
-
-原 C# 是 `public TernaryOperatorCondition CreateCondition() { return Add(new TernaryOperatorCondition(Owner, Template)); }`。
 
 ```ts
 return this.Add(new TernaryOperatorCondition(this.Template));
@@ -173,8 +173,6 @@ return this.Add(new TernaryOperatorCondition(this.Template));
 
 ### get
 
-原 C# 是 `public TernaryOperatorTrueStatement TrueStatement => (TernaryOperatorTrueStatement)Data.First(item => item is TernaryOperatorTrueStatement);`。
-
 ```ts
 return this.Data.find((item) => item instanceof TernaryOperatorTrueStatement)!;
 ```
@@ -182,8 +180,6 @@ return this.Data.find((item) => item instanceof TernaryOperatorTrueStatement)!;
 ## method CreateTrueStatement:()=>TernaryOperatorTrueStatement
 
 新建一个真值子单元并挂到自己名下。
-
-原 C# 是 `public TernaryOperatorTrueStatement CreateTrueStatement() { return Add(new TernaryOperatorTrueStatement(Owner, Template)); }`。
 
 ```ts
 return this.Add(new TernaryOperatorTrueStatement(this.Template));
@@ -195,8 +191,6 @@ return this.Add(new TernaryOperatorTrueStatement(this.Template));
 
 ### get
 
-原 C# 是 `public TernaryOperatorFalseStatement FalseStatement => (TernaryOperatorFalseStatement)Data.First(item => item is TernaryOperatorFalseStatement);`。
-
 ```ts
 return this.Data.find((item) => item instanceof TernaryOperatorFalseStatement)!;
 ```
@@ -205,31 +199,15 @@ return this.Data.find((item) => item instanceof TernaryOperatorFalseStatement)!;
 
 新建一个假值子单元并挂到自己名下。
 
-原 C# 是 `public TernaryOperatorFalseStatement CreateFalseStatement() { return Add(new TernaryOperatorFalseStatement(Owner, Template)); }`。
-
 ```ts
 return this.Add(new TernaryOperatorFalseStatement(this.Template));
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：只有 `condition` / `trueStatement` / `falseStatement` 三个键，各自是三段子单元的 `ToList()`。
-
-原 C# 用集合初始化器一次写出三个键，**没有** `type` 键——这一点与基类 `Token.ToDictionary` 不同，照抄。
-
-```ts
-const result = new Map<string, any>();
-result.set("condition", this.Condtion.ToList());
-result.set("trueStatement", this.TrueStatement.ToList());
-result.set("falseStatement", this.FalseStatement.ToList());
-return result;
 ```
 
 ## method Clone:()=>Token
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(x => x.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new TernaryOperator(this.Template);

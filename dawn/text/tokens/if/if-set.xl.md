@@ -20,27 +20,21 @@ import { IfSegment } from "./if-segment.xl.md"
 
 `if` 语句：把 `if (...) {...} else if (...) {...} else {...}` 这一长串单元重组成一个 `IfSet`，里面按段装 `IfSegment`。
 
-原 C# 侧的嵌套类 `IfSet.Reorganization` 按 M32 展平成顶层 `IfSetReorganization`；它**不进 `Data`、不进 XML**，所以 ts 类名与 C# 的 `Type.Name` 不一致无害。反过来，`IfSet` 本体的类名必须与 C# 完全一致，因为 XML 标签名取自 `this.constructor.name`（M17）。`Root` 构造时会把 `IfSetReorganization.Instance` 注册进通用重组队列，所以展平后的名字也是调用点用的名字。
+重组规则类 `IfSetReorganization` **不进 `Data`、不进 XML**，所以它的类名随便取。反过来，`IfSet` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。`Root` 构造时会把 `IfSetReorganization.Instance` 注册进通用重组队列。
 
 # class IfSetReorganization extends Reorganization
 
 重组规则：`if` 加一个 `(` 开头的 `Bracket`，就整段换成一个 `IfSet`。
 
-原 C# 是嵌套类 `IfSet.Reorganization`（M32 展平改名）。
-
 它是 token 层最长的一条重组：从 `if` 开始，逐段吃掉「关键字 + 条件括号 + 语句体」，遇到 `else` 就回头看它后面跟的是 `if`（继续当 `else if`）还是别的（当 `else`，循环到此结束），每一段都做成一个 `IfSegment`。
 
 ## static readonly field Instance:IfSetReorganization = new IfSetReorganization()
 
-唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
+唯一的实例。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `if` 的 `Common`，紧跟（跳过 `WrapSymbol` 软换行）一个 `(` 开头的 `Bracket`。
-
-原 C# 是 `public override bool Previous(IOwner owner, Template<char> template, List<Token<char>> units, int index)`。按 M31，`char` 一律写 `string`；`units.Get` / `units.GetSkipNextWrapSymbol` 是扩展方法，按 M11 改成模块级函数调用。
-
-原 C# 把三个 `is` 模式匹配串成一个 `&&` 表达式；ts 侧先取出来再用 `instanceof` 判定，语义相同（`Common` / `Bracket` 都是引用类型，模式匹配在 `null` 时不成立，等价于 `instanceof`）。
 
 ```ts
 const unit = Get(units, index);
@@ -55,19 +49,19 @@ return next instanceof Bracket && next.StartBracketChar === "(";
 
 执行重组：把整条 `if / else if / else` 链收进一个 `IfSet`，**返回新的下标**。
 
-原 C# 是 `public override void Process(IOwner owner, Template<char> template, List<Token<char>> units, ref int index)`。按 M15 把 `ref int index` 改成返回值：原实现**从头到尾没有给 `index` 赋过值**，所以这里原样 `return index;`——替换后位置 `index` 上是新插入的 `IfSet`，外层 `for` 自增一步正好落在它后面。
+重组把这一整段换成一个 `IfSet`，下标必须跟着走。这里的方法体**从不给 `index` 赋值**，所以原样 `return index;`——替换后位置 `index` 上是新插入的 `IfSet`，外层 `for` 自增一步正好落在它后面。
 
-`units.ReplaceAt(index, count, result)` 是 `ListExtension` 里带 `count` 的那个重载，按 M14(c) 在移植里改名 `ReplaceCountAt`（另一个三参版本占用了 `ReplaceAt` 这个名字）。
+`ReplaceCountAt(units, index, count, result)` 把从 `index` 起的 `count` 个单元换成一个 `IfSet`。
 
-两处抛错在 C# 里用 `new Exception("…")`（`System.Exception`）；按 M20，BCL 异常类型不进规范，ts 侧用等价的 `new Error("…")`，消息逐字保留。
+两处抛错都用 `new Error("…")`（不进规范类型位），消息原样保留。
 
-几点与 C# 逐句对应的说明：
+几点说明：
 
-1. **签入 / 签出取的是 `Source` 本身**。C# 的 `SourceRange.Start` 是 `Nullable<Source<char>>`，所以 `units.Get(i)!.SourceRange.Start!.Value` 里的 `.Value` 是**可空结构体的 `.Value`**，取出来的是 `Source` 而不是字符。ts 侧的 `Start` 已经是 `Source | null`，因此一律去掉 `.Value`，写成 `Get(units, i)!.SourceRange.Start!`。若照抄 `.Value` 会取到字符，`SignIn` 拿到的就不是位置而是值。
-2. **`ifKey` 的取法**：C# 是 `(units.Get(lastKeyIndex) as Common)!.TempToString()`——关键字所在单元按 `Common` 取文本（`if` / `else`）。
-3. **第一段与后续段的签入点不同**（原实现如此，照抄）：第一段（`Data.Count == 1`）从关键字自身签入；`else if` 从关键字**前一个**单元签入（带上 `else`），`else` 从关键字自身签入。
+1. **签入 / 签出取的是 `Source` 本身**。`Start` 是 `Source | null`，所以一律写成 `Get(units, i)!.SourceRange.Start!`——取出来的是**位置**，不是字符。
+2. **`ifKey` 的取法**：关键字所在单元按 `Common` 取文本（`if` / `else`）。
+3. **第一段与后续段的签入点不同**：第一段（`Data.Count == 1`）从关键字自身签入；`else if` 从关键字**前一个**单元签入（带上 `else`），`else` 从关键字自身签入。
 4. **条件括号**：`if` 后面必须跟一个 `Bracket`，把括号里的子单元整体 `MoveDataTo` 给新建的 `IfCondition`，再按括号的起止签入签出。
-5. **语句体**：括号后面若是 `{` 开头的 `Bracket`，整块搬给 `IfStatement`；否则当成单条语句，用 `Statement.SearchStatementEnd` 找回语句结尾（`-1` 即失败），取 `[currentIndex, endIndex]` 这一段交给 `IfStatement`。原 C# 写的是 `units.Skip(currentIndex).Take(endIndex - currentIndex + 1)`，ts 侧的数组原生 `slice(currentIndex, endIndex + 1)` 与之等价；`Add` 收到一段区间按 M14(c) 用 `AddRange`。
+5. **语句体**：括号后面若是 `{` 开头的 `Bracket`，整块搬给 `IfStatement`；否则当成单条语句，用 `Statement.SearchStatementEnd` 找回语句结尾（`-1` 即失败），取 `[currentIndex, endIndex]` 这一段用数组原生的 `slice(currentIndex, endIndex + 1)` 取出，按 `AddRange` 交给 `IfStatement`。
 6. **续段判定**：语句体之后再跳掉软换行，若遇到内容为 `else` 的 `Common`，就再看它后面是不是 `if`：是则把 `lastKeyIndex` / `currentIndex` 都推到那个 `if`（`else if`），否则把 `lastKeyIndex` 设到 `else`（最后一段）；不是 `else` 就把 `endIndex = currentIndex - 1` 并收尾。
 
 ```ts
@@ -150,13 +144,11 @@ return index;
 
 `if` / `else if` / `else` 整条语句链的容器单元。
 
-原 C# 侧是 `public class IfSet : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
-
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<IfSet>` 里依次是各个 `IfSegment` 的 XML。
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器（体是空的）。
+转调基类构造器（体是空的）。
 
 ```ts
 super(template);
@@ -166,7 +158,7 @@ super(template);
 
 克隆自身。
 
-原 C# 是 `public override Token<char> Clone()`：新建一个、`Sign(this)`、把子单元逐个克隆后 `Add`（ts 侧 `AddRange`，M14(c)）、最后 `TryToClose()`。
+新建一个、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
 
 ```ts
 const result = new IfSet(this.Template);

@@ -16,15 +16,13 @@ Lambda 的**一个形参**：`LamdaParameters` 的每个子单元就是一个 `L
 
 Lambda 的一个形参。
 
-原 C# 侧是 `public class LamdaParameter : IndependentToken<char>`。按 M31，C# 的 `char` 在规范里一律写 `string`。
-
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaParameter>子单元</LamdaParameter>`。
 
 ## constructor:(Template:Template)=>void
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
-原 C# 参数名是小写 `template`，构造体只有一句 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType())`；`GetType()` 按 M17 落成 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
+`ReorganizationTemplate` 以类的构造器对象为键，所以这里写 `this.constructor`。
 
 ```ts
 super(Template);
@@ -37,9 +35,9 @@ this.ReorganizationQueue = Template.ReorganizationTemplate.Get(this.constructor)
 
 ### get
 
-原 C# 是 `public bool IsOptional => Data.Count >= 2 && Data[1] is Symbol symbol && symbol.TempToString() == "?";`。这里把长度检查提成提前返回，避免 ts 侧在短列表上先取下标（语义等价，`&&` 的短路本就会挡住越界）。
+长度检查提成提前返回，避免在短列表上先取下标。
 
-`Dawn/Steper` 的 `LamdaStep` 用它算出「哪些形参可以不传」，执行层不在此次移植范围。
+`Dawn/Steper` 的 `LamdaStep` 用它算出「哪些形参可以不传」；执行层不在本规范范围内。
 
 ```ts
 if (this.Data.length < 2) {
@@ -53,7 +51,7 @@ return second instanceof Symbol && second.TempToString() === "?";
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；`Add` 收到的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)）。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new LamdaParameter(this.Template);

@@ -33,6 +33,6 @@ for (let i = 0; i < 10; i++) {
 let text = "a < b"
 // 注释里的 a < b 也不该变成泛型
 
-// 结尾两条用 ; 收住：as / type 会一路吞到语句结束，那是原实现的行为
+// 结尾两条用 ; 收住：as / type 会一路吞到语句结束，这是当前的行为
 let cast = value as Array<Int64>;
 type Pair = Array<Int64> // 行尾注释不该影响判定

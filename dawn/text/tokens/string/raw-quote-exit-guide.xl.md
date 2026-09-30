@@ -19,13 +19,9 @@ import { String } from "./string.xl.md"
 
 原始字符串的退出向导。
 
-原 C# 侧是 `public class RawQuoteExitGuide : GuideToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
-
 ## property ParentString:String
 
 本向导所属的那层字符串——`Parent` 直接就是 `String`。
-
-原 C# 是 `public String ParentString => (Parent as String)!;`。类名 `String` 与 C# 完全一致（M17）。
 
 ### get
 
@@ -37,23 +33,17 @@ return (this.Parent as String)!;
 
 已经数过的连续双引号个数。
 
-原 C# 是 `private int QuoteCount = 0;`。
-
 ## private field Items:Array<Source> = []
 
 数引号过程中经过的位置：一旦发现这串引号不是结尾，就把它们按顺序还给常量字符串。
-
-原 C# 是 `private List<Source<char>> Items = new();`。
 
 ## field StringChar:string = "\""
 
 本字符串用的引号字符。`String` 挂向导时用对象初始化器传进来（`new RawQuoteExitGuide(...) { StringChar = StringChar }`），因为反引号字符串用的是 `` ` ``。
 
-原 C# 是自动属性 `public char StringChar { get; set; } = '\"';`，按 M12 落成字段。
-
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+构造器只是转调基类。
 
 ```ts
 super(template);
@@ -61,14 +51,10 @@ super(template);
 
 ## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
-按当前字符是不是引号分两条路。
-
-原 C# 是 `protected override void Navigate(SyntaxContext<char> context, in Source<char> source)`，规则照抄：
+按当前字符是不是引号分两条路：
 
 1. **是引号**：个数加一。够上 `ParentString.RawQuoteCount` 就摘掉自己、让父字符串 `ForceExit(source)`，再 `FormatRawIndent()`（按原始字符串的缩进格式掉首尾两行与每行缩进），然后**返回**；个数还不够（原注释「字符串数量尚不满足退出要求，存在不确定性」）就继续攒；个数超了抛「结尾原始字符串双引号数量超过起始数量」。
 2. **不是引号**（原注释「双引号数量不满足要求，同时当前字符非双引号」）：这串引号全是字面量，逐个 `AppendToLastConstString(i.Value, i).TrySignIn(i)` 还回去；再把当前这个非引号字符 `ReloadMessage` 回队首重新处理，然后返回。
-
-`ReloadMessage` 的三参构造器在 xl 里对应静态工厂 `ReloadMessage.WithoutProcessOwner`（M14(b)）。
 
 ```ts
 const value = source.Value;
@@ -104,10 +90,8 @@ this.Items.push(source);
 
 ## method Clone:()=>Token
 
-克隆自身。
-
-原 C# 是 `public override Token<char> Clone()`，体里直接抛 `NotImplementedException`——这个向导是一次性的。ts 侧照抄成抛错。
+克隆自身——这个向导是一次性的，所以克隆直接抛错。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```

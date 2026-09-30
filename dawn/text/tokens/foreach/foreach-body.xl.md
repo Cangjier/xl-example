@@ -10,23 +10,19 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `Dawn/Text`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`foreach` / `for...in` 的循环体段：`Foreach.Process` 把 `{ ... }` 那对括号的内容搬进来，或直接把单条语句收进来，之后这一段自己再跑一遍语句重组把里面啃成语句树。
+`foreach` / `for...in` 的循环体段：`ForeachReorganization.Process` 把 `{ ... }` 那对括号的内容搬进来，或直接把单条语句收进来，之后这一段自己再跑一遍语句重组把里面啃成语句树。
 
-语句重组队列的装配在 `../../parse-pipeline.xl.md`（原 C# 是 `Dawn/Text/TextCommonUtil.cs` 里的扩展方法），调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+语句重组队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
 
 # class ForeachBody extends IndependentToken
 
 `foreach` / `for...in` 的循环体。
-
-原 C# 侧是 `public class ForeachBody : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<ForeachBody>` 里是语句的 XML。
 
 ## constructor:(template:Template)=>void
 
 创建后立刻把语句重组规则挂上自己的重组队列——循环体里是一串语句。
-
-原 C# 侧是 `csharp public ForeachBody(IOwner owner, Template<char> template) : base(owner, template) { this.InitialStatementReorganizationQueue(); }`，按 M31 `char` 写 `string`。
 
 ```ts
 super(template);
@@ -37,7 +33,7 @@ ParsePipeline.InitialStatementReorganizationQueue(this);
 
 克隆自身。
 
-原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`。`Add` 传的是**一批**克隆出来的子单元，按 M14(c) 用 `AddRange`（C# 的 `Add<T>(IEnumerable<T>)` 重载改名）。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new ForeachBody(this.Template);

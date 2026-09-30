@@ -1,6 +1,8 @@
+# 生成物
 dist
 build
 .xl
+
+# 依赖与本地工具
 node_modules
-bin
 .tools

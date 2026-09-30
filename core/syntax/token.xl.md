@@ -20,9 +20,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 Token，语法树的地基。
 
-原 C# 侧是 `public abstract class Token<ValueType> : IReleasable`。**本移植移除了资源归属层**：`Token` 不再实现
-`IReleasable`、不再持有 `Owner` 字段、构造器也不收 `owner`，释放交给 GC（见 README「资源生命周期：交给 GC」）。
-xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个抽象成员写成抛错桩。
+`Default` / `Close` / `Process` / `Clone` 四个抽象成员写成抛错桩。
 
 ## field Template:Template
 
@@ -30,11 +28,11 @@ xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个
 
 ## field ProcessQueue:Sequence<Branch> | null = null
 
-从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。原 C# 是 `protected set`。
+从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
 
 ## field ReorganizationQueue:Sequence<Reorganization> | null = null
 
-本单元关闭时要跑的重组队列。原 C# 是 `internal protected set`。
+本单元关闭时要跑的重组队列。
 
 ## field Parent:Token | null = null
 
@@ -42,7 +40,7 @@ xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个
 
 ## field Data:Array<Token> = []
 
-子单元。原 C# 是 `List<Token<ValueType>> Data { get; private set; }`。
+子单元。
 
 ## field MountedUnit:Token | null = null
 
@@ -50,7 +48,7 @@ xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个
 
 ## field SourceRange:SourceRange = new SourceRange()
 
-本单元覆盖的源码范围。原 C# 是公开字段（`public SourceRange<ValueType> SourceRange = new()`）。
+本单元覆盖的源码范围。
 
 ## field LastSource:Source | null = null
 
@@ -64,9 +62,6 @@ xl 没有 `abstract`（M13）：`Default` / `Close` / `Process` / `Clone` 四个
 
 以模板创建。
 
-原 C# 是 `Token(IOwner owner, Template<char> template)`，体内除了记下模板还把自身 `owner.Add(this)` 登记进持有者。
-资源归属层移除后这两件事只剩一件，登记与 `Release` 都没有对应物。
-
 ```ts
 this.Template = template;
 ```
@@ -74,8 +69,6 @@ this.Template = template;
 ## method Last:(index?:int)=>Token | null
 
 倒数第 `index` 个子单元；越界返回 `null`。
-
-原 C# 签名是 `Token<ValueType>? Last(int index = 0)`。
 
 ```ts
 const position = this.Data.length - 1 - (index ?? 0);
@@ -89,7 +82,7 @@ return null;
 
 所有跳转都不接手时的兜底处理。
 
-原 C# 是 `protected abstract`。`Root.Default` 会在这里报「未知字符」。
+抽象方法。`Root.Default` 会在这里报「未知字符」。
 
 ```ts
 throw new Error("abstract member: Default");
@@ -99,7 +92,7 @@ throw new Error("abstract member: Default");
 
 关闭本单元。
 
-原 C# 是 `protected abstract`；绝大多数实现只做 `Closed = true`。
+抽象方法；绝大多数实现只做 `Closed = true`。
 
 ```ts
 throw new Error("abstract member: Close");
@@ -109,7 +102,7 @@ throw new Error("abstract member: Close");
 
 尝试关闭：范围必须已签入签出，然后关闭并跑一遍重组。
 
-约定（原 C# 注释）：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
+约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
 
 ```ts
 if (this.SourceRange.Start === null || this.SourceRange.End === null) {
@@ -123,7 +116,7 @@ this.Reorganize();
 
 跑一遍重组队列：对每个重组规则、对每个下标，先问 `Previous`，命中就 `Process`。
 
-原 C# 的 `Process` 带 `ref int index`，按 M15 改成返回值，所以这里写 `i = item.Process(..., i)`——重组会把多个子单元换成一个，下标必须跟着走。
+`Process` 用返回值推进下标，所以这里写 `i = item.Process(..., i)`——重组会把多个子单元换成一个，下标必须跟着走。
 
 ```ts
 if (this.ReorganizationQueue === null) {
@@ -153,8 +146,6 @@ this.Data.length = 0;
 
 加一个子单元，并把它的父设为自己。
 
-原 C# 签名是 `T Add<T>(T item) where T : Token<ValueType>`。
-
 ```ts
 item.Parent = this;
 this.Data.push(item);
@@ -165,7 +156,7 @@ return item;
 
 加一批子单元，返回自身。
 
-原 C# 是重载 `Add<T>(IEnumerable<T> items)`；它与单元素版参数个数相同，ts 无法靠重载区分，按 M14(c) 改名 `AddRange`。
+它与单元素版参数个数相同，ts 无法靠重载区分，所以叫 `AddRange`。
 
 ```ts
 for (const item of items) {
@@ -211,8 +202,6 @@ return this.Parent;
 
 处理一个字符。
 
-原 C# 是 `public abstract`。
-
 ```ts
 throw new Error("abstract member: Process");
 ```
@@ -220,8 +209,6 @@ throw new Error("abstract member: Process");
 ## method SignIn:(source:Source)=>Token
 
 签入：把范围起点设为 `source`。起点只能设一次。
-
-原 C# 签名是 `Token<ValueType> SignIn(in Source<ValueType> source)`。
 
 ```ts
 if (this.SourceRange.Start === null) {
@@ -235,8 +222,6 @@ throw SourceException.SourceRangeStartIsSetted;
 
 用另一个单元的起点签入。
 
-原 C# 是重载 `SignIn(Token<ValueType> source)`，按 M14(c) 改名 `SignInToken`。
-
 ```ts
 if (token.SourceRange.Start === null) {
   throw SourceException.SourceRangeStartIsNull;
@@ -247,8 +232,6 @@ return this.SignIn(token.SourceRange.Start);
 ## method SignOut:(source:Source)=>void
 
 签出：把范围终点设为 `source`，并让最后一个子单元递归签出。终点只能设一次。
-
-原 C# 是 `public virtual void SignOut(in Source<ValueType> source)`。
 
 ```ts
 if (this.SourceRange.End === null) {
@@ -265,7 +248,7 @@ if (this.SourceRange.End === null) {
 
 递归签出：只在终点还没设过时往下传。
 
-原 C# 是私有方法，与 `SignOut` 的差别是**不抛异常**——遇到已签出的子单元就停。
+它与 `SignOut` 的差别是**不抛异常**——遇到已签出的子单元就停。
 
 ```ts
 if (this.SourceRange.End === null) {
@@ -280,8 +263,6 @@ if (this.SourceRange.End === null) {
 
 用另一个单元的终点签出。
 
-原 C# 是重载 `SignOut(Token<ValueType> source)`，按 M14(c) 改名 `SignOutToken`。
-
 ```ts
 if (token.SourceRange.End === null) {
   throw SourceException.SourceRangeEndIsNull;
@@ -293,8 +274,6 @@ this.SignOut(token.SourceRange.End);
 
 用另一个单元同时签入与签出。
 
-原 C# 签名是 `void Sign(Token<ValueType> source)`。
-
 ```ts
 this.SignInToken(token);
 this.SignOutToken(token);
@@ -304,7 +283,7 @@ this.SignOutToken(token);
 
 回退：找到覆盖 `source` 的子单元，让它回退。
 
-原 C# 是 `public virtual`，用模式匹配 `WhichUnitRangeContains(source) is Token<ValueType> undoUnit`；类类型的模式匹配在 `null` 时不成立，等价于 ts 的 `!== null`。
+`WhichUnitRangeContains` 可能返回 `null`，所以要判空再转发。
 
 ```ts
 const undoUnit = this.WhichUnitRangeContains(source);
@@ -316,8 +295,6 @@ if (undoUnit !== null) {
 ## method IsUndo:(source:Source)=>bool
 
 能不能回退。
-
-原 C# 是 `public virtual`。
 
 ```ts
 const undoUnit = this.WhichUnitRangeContains(source);
@@ -344,15 +321,15 @@ return null;
 
 在父单元里用 `item` 顶替自己，位置不变。
 
-原 C# 用 `Insert` + `RemoveAt` 实现原地替换，ts 侧照抄成两次 `splice`。
+原地替换靠两次 `splice`：先插在当前位置，再删掉原来的自己。
 
 ```ts
 if (this.Parent === null) {
-  throw new Error("Parent is null");
+  throw new Error("没有父单元");
 }
 const index = this.Parent.Data.indexOf(this);
 if (index === -1) {
-  throw new Error("Index == -1");
+  throw new Error("自身不在父单元的子单元里");
 }
 item.Parent = this.Parent;
 if (this.Parent.MountedUnit === this) {
@@ -369,11 +346,11 @@ return item;
 
 ```ts
 if (this.Parent === null) {
-  throw new Error("Parent is null");
+  throw new Error("没有父单元");
 }
 const index = this.Parent.Data.indexOf(this);
 if (index === -1) {
-  throw new Error("Index == -1");
+  throw new Error("自身不在父单元的子单元里");
 }
 if (this.Parent.MountedUnit === this) {
   this.Parent.MountedUnit = null;
@@ -385,7 +362,7 @@ this.Parent.Data.splice(index, 1);
 
 产出 XML：标签名是**运行时类型名**，内容是子单元的 XML 串接。
 
-原 C# 用 `GetType().Name`；按 M17，ts 侧用 `this.constructor.name`——这是整个移植里**类名必须与 C# 完全一致**的原因。
+标签名取 `this.constructor.name`，所以类名就是它产出的 XML 标签名。
 
 ```ts
 const name = this.constructor.name;
@@ -398,55 +375,15 @@ return `<${name}>${temp.join("")}</${name}>`;
 
 ## method ToString:()=>string
 
-原 C# 是 `public override string ToString() => ToXmlString();`——`Root.ToString()` 就是 XML 的入口。
+`Root.ToString()` 就是 XML 的入口。
 
 ```ts
 return this.ToXmlString();
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：`type` 是运行时类型名，有子单元时再加 `children`。
-
-原 C# 返回 `Dictionary<string, object>`；C# 的 `object` 按 M20 映射成 ts 的 `any`。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-if (this.Data.length !== 0) {
-  const children: any[] = [];
-  for (const item of this.Data) {
-    children.push(item.ToDictionary());
-  }
-  result.set("children", children);
-}
-return result;
-```
-
-## method ToList:()=>Array<any>
-
-转成列表，每项在自己的字典上再加一个 `range`（起止下标，缺失记 `0`）。
-
-原 C# 返回 `List<object>`，`range` 是 `List<object>` 装两个 `int`。
-
-```ts
-const result: any[] = [];
-for (const item of this.Data) {
-  const itemObject = item.ToDictionary();
-  itemObject.set("range", [
-    item.SourceRange.Start === null ? 0 : item.SourceRange.Start.Index,
-    item.SourceRange.End === null ? 0 : item.SourceRange.End.Index,
-  ]);
-  result.push(itemObject);
-}
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。
-
-原 C# 是 `public abstract Token<ValueType> Clone()`。
 
 ```ts
 throw new Error("abstract member: Clone");

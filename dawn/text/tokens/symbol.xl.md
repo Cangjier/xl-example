@@ -16,18 +16,16 @@ import { Common } from "./common.xl.md"
 
 符号块：`=`、`+`、`*`、`{`、`.` 这些。它比 `Common` 多一层「组合符号」判断——`Temp` 里的内容加上当前字符如果构成 `+=`、`??`、`=>` 这类多字符符号，就继续吞；否则断开重开。
 
-按 M33，展平的嵌套类 `Symbol.Branch` 写在 `Symbol` **之前**。
+`SymbolBranch` 写在 `Symbol` **之前**。
 
 # class SymbolBranch extends Branch
-
-原 C# 是嵌套类 `Symbol.Branch`（M32 展平改名）。
 
 判定顺序：
 
 1. 当前字符不是符号 → 失败。
 2. 上一个单元也是 `Symbol`：已关闭就开新的（`Message = 0`）；没关闭就看它的 `IsAppend`，能续就 `Message = 1`，不能续也开新的（`Message = 0`）。
 3. 上一个单元是 `Common` 且当前字符是 `.`、且那个 `Common` 是纯数字 → 失败（小数点交给 `Common` 自己吃）。
-   **注意这条在 C# 里排在「上一个单元也是 Symbol」之后**，所以只有上一个不是 `Symbol` 时才会走到。
+   **注意这条排在「上一个单元也是 Symbol」之后**，所以只有上一个不是 `Symbol` 时才会走到。
 4. 其余：当前字符算符号就接手，`Message = 0`。
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
@@ -92,7 +90,7 @@ if (last instanceof Symbol) {
 
 符号块。
 
-原 C# 侧是 `public class Symbol : BlockToken<char>`。按 M31，`char` 在规范里写 `string`。
+单元值类型是单字符的 `string`。
 
 ## static readonly field AppendIn:SymbolBranch = new SymbolBranch()
 
@@ -100,7 +98,7 @@ if (last instanceof Symbol) {
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+转调基类构造器。
 
 ```ts
 super(template);
@@ -110,7 +108,7 @@ super(template);
 
 能不能把 `Src` 并进本块。
 
-原 C# 两段判定：
+两段判定：
 - `Temp` 还是空的、且当前字符是符号 → 能（开头的符号直接收）。
 - 否则要求当前字符是符号，**并且** `Temp` 现有内容加上当前字符能构成一个组合符号。
 
@@ -126,7 +124,7 @@ return this.Template.SymbolTemplate.IsSymbol(Src.Value)
 
 `Temp` 里的内容是否逐字符等于 `value`。
 
-原 C# 是三个 `Is` 重载中的第一个：先比长度，再逐字符比。
+先比长度，再逐字符比。
 
 ```ts
 if (this.Temp.length !== value.length) {
@@ -144,7 +142,7 @@ return true;
 
 `Temp` 里的内容是否命中 `items` 里的任意一项。
 
-原 C# 是第二个重载 `bool Is(params string[] items)`；按 M14(c) 改名 `IsAny`。
+这是 `Is` 的多项版本，参数个数与单参版不同，所以叫 `IsAny`。
 
 ```ts
 return items.includes(this.TempToString());
@@ -154,7 +152,7 @@ return items.includes(this.TempToString());
 
 先比 `value`，再在 `items` 里找。
 
-原 C# 是第三个重载 `bool Is(string value, string[] items)`；按 M14(c) 改名 `IsValueOrAny`。
+先看单项、再看列表的版本叫 `IsValueOrAny`。
 
 ```ts
 const text = this.TempToString();
@@ -172,24 +170,11 @@ return items.includes(text);
 this.Closed = true;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：只记类型名与文本，**没有** `children`。
-
-原 C# 覆写了基类版本；`GetType().Name` 按 M17 写成 `this.constructor.name`。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-result.set("value", this.TempToString());
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Temp.AddRange(Temp)` → `TryToClose()`。
+顺序是 `Sign(this)` → 把 `Temp` 追加到自身 → `TryToClose()`。
 
 ```ts
 const result = new Symbol(this.Template);

@@ -17,13 +17,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 一次跳转尝试。
 
-原 C# 侧是 `public abstract class Branch<ValueType>`：`Condition` 与 `Success` 是抽象方法，`Failed` 是 `virtual` 且默认空实现。按 M13，xl 没有 `abstract` / `virtual` 标记——抽象的写成抛错桩，默认空的直接不写 ts 体（M30）。
+`Condition` 与 `Success` 是抽象方法，写成抛错桩；`Failed` 是供子类覆写的钩子，默认空实现，直接不写 ts 体。
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 判断本次跳转是否成立，并给出 `Message` 号。
 
-原 C# 是 `public abstract`，由各 token 里嵌套的 `Branch` 子类实现。
+抽象方法，由各 token 里嵌套的 `Branch` 子类实现。
 
 ```ts
 throw new Error("abstract member: Condition");
@@ -33,8 +33,6 @@ throw new Error("abstract member: Condition");
 
 条件成立时执行跳转：把字符加进单元、签入签出、或挂载新单元。
 
-原 C# 是 `public abstract`。
-
 ```ts
 throw new Error("abstract member: Success");
 ```
@@ -43,13 +41,13 @@ throw new Error("abstract member: Success");
 
 条件不成立时的钩子。
 
-原 C# 是空的 `virtual` 方法，只有少数子类重写（如 `Common.Branch.Failed` 会关掉上一个单元）。这里按 M30 不写 ts 体，打印器产出空方法。
+默认空实现，只有少数子类重写（如 `Common.Branch.Failed` 会关掉上一个单元）。这里不写 ts 体，打印器产出空方法。
 
 ## method Transit:(Context:SyntaxContext, Host:Token, Src:Source)=>BranchStates
 
 执行一次跳转：条件成立走 `Success` 并返回 `Done`，否则走 `Failed` 并返回 `Undo`。
 
-原 C# 用 `Condition(...) is BranchConditionResult Result && Result is { Success: true }` 判定；`Result` 在 `else` 分支里同样可见，所以 ts 侧先取出来再分流。
+条件结果先取出来再分流：`Success` 与 `Failed` 都要拿到同一个 `Result`。
 
 ```ts
 const Result = this.Condition(Context, Host, Src);

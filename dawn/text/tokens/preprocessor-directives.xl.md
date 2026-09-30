@@ -17,17 +17,17 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 
 预处理指令：源码里行首那个 `#` 起、一直吃到行尾的一段（`#region` / `#if` 之类）。它整段攒进 `Tmp`，遇到**没有被 `\` 续行**的换行就退出。
 
-按 M33，展平出来的嵌套类 `PreprocessorDirectives.Branch` 写在 `PreprocessorDirectives` **之前**——外层类的静态字段 `JumpIn` 在类定义时立即 `new PreprocessorDirectivesBranch()`，写反了会命中 ts 的暂时性死区（TDZ）。
+`PreprocessorDirectivesBranch` 写在 `PreprocessorDirectives` **之前**：后者的静态字段 `JumpIn` 在类定义时立即 `new PreprocessorDirectivesBranch()`，写反了会命中 ts 的暂时性死区（TDZ）。
 
 # class PreprocessorDirectivesBranch extends Branch
 
-原 C# 是嵌套类 `PreprocessorDirectives.Branch`（M32 展平改名）。它永远不进 `Data`、不进 XML，所以 ts 类名与 C# 的 `Type.Name` 不一致无害。
+它永远不进 `Data`、不进 XML。
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 只有「行首的 `#`」才成立：向前跳过空格与制表符之后，要么是换行符，要么已经走到文档开头。
 
-原 C# 是 `var Pre = source.Pre(' ', '\t'); return (Pre is { Value: '\n' } || Pre is null) && source.Value == '#';`。C# 的 `Pre(params ValueType[] skipChars)` 是可变形参，ts 侧 `Pre` 收一个 `Array<string>`，所以写成 `source.Pre([" ", "\t"])`（M2）。`Pre` 在 C# 里是 `Source<char>?`，ts 已是 `Source | null`，`Pre.Value` 那层可空解包不再需要。
+`Pre` 收一个 `Array<string>`，所以写 `source.Pre([" ", "\t"])`；它返回 `Source | null`，判定里直接用结果。
 
 ```ts
 const pre = source.Pre([" ", "\t"]);
@@ -40,8 +40,6 @@ return result;
 
 认下这个 `#`：新建一个 `PreprocessorDirectives`，挂到 `unit` 上并签入。
 
-原 C# 把整条链写成一句 `unit.AddToMounted(new PreprocessorDirectives(unit.Owner, unit.Template)).SignIn(source);`。
-
 ```ts
 unit.AddToMounted(new PreprocessorDirectives(unit.Template)).SignIn(source);
 ```
@@ -50,7 +48,7 @@ unit.AddToMounted(new PreprocessorDirectives(unit.Template)).SignIn(source);
 
 预处理指令单元。
 
-原 C# 侧是 `public class PreprocessorDirectives : UnitToken<char>`。按 M31，C# 的 `char` 在规范里写 `string`（单字符）。
+单元值类型是单字符的 `string`。
 
 它覆写了 `ToXmlString`，所以 XML 不走 `BlockToken` 那套转义：正文原样落在标签里。
 
@@ -58,13 +56,11 @@ unit.AddToMounted(new PreprocessorDirectives(unit.Template)).SignIn(source);
 
 把 `PreprocessorDirectivesBranch` 注册进 `Root` 的通用跳转队列用的实例。
 
-原 C# 是 `public static Branch JumpIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类，按 M19 落成静态只读字段。
-
 ## constructor:(template:Template)=>void
 
-以负责人与模板创建，并把本类型的跳转队列取出来；本类没有重组队列。
+以模板创建，并把本类型的跳转队列取出来；本类没有重组队列。
 
-原 C# 是 `public PreprocessorDirectives(IOwner owner, Template<char> template) : base(owner, template)`，体里只有 `ProcessQueue = template.BranchTemplate.Get(GetType(), null);`——`GetType()` 按 M17 写成 `this.constructor`。
+取运行时类型用 `this.constructor`。
 
 ```ts
 super(template);
@@ -75,13 +71,11 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 指令正文（`#` 之后的字符逐个攒进来）。
 
-原 C# 是 `public StringBuilder Tmp = new();`。按 §3.8，`StringBuilder` 在 ts 侧退化成字符串拼接，所以这里写成 `string`：`Tmp.Append(c)` → `this.Tmp += c`，`Tmp.Remove(Tmp.Length - 1, 1)` → `this.Tmp.slice(0, this.Tmp.length - 1)`。它只被本类读写，没有被别处当容器用，换成字符串不失语义。
+`Tmp` 写成 `string`：它只被本类读写，没有被别处当容器用，所以拼接与截尾就是 `this.Tmp += c` 与 `this.Tmp.slice(0, this.Tmp.length - 1)`，换成字符串不失语义。
 
 ## method IsUndo:(source:Source)=>bool
 
 能不能回退。范围已经签出（`SourceRange.End` 非空）就不能；否则看覆盖该位置的子单元，没有子单元时返回 `true`。
-
-原 C# 是 `public override bool IsUndo(Source<char> Src)`。
 
 ```ts
 if (this.SourceRange.End !== null) {
@@ -98,7 +92,7 @@ return true;
 
 产出 XML：`<PreprocessorDirectives>指令正文</PreprocessorDirectives>`。
 
-原 C# 是 `$"<{Name}>{Tmp}</{Name}>"`，标签名用 `GetType().Name`（按 M17 换成 `this.constructor.name`），内容**不做 XML 转义**——这一处与 `BlockToken.ToXmlString` 的 `CommonUtil.XmlDecode` 不同，照抄即可。
+标签名取 `this.constructor.name`；内容**不做 XML 转义**——这一处与 `BlockToken.ToXmlString` 的 `CommonUtil.XmlDecode` 不同。
 
 ```ts
 const name = this.constructor.name;
@@ -109,7 +103,7 @@ return `<${name}>${this.Tmp}</${name}>`;
 
 回退一个字符。
 
-原 C# 的判定用的是 `UnitToken<char>` 模式，而不是基类 `Token.Undo` 里的 `Token<char>`：覆盖该位置的子单元**是单元（`UnitToken`）**才把回退转交给它，否则从 `Tmp` 末尾删掉一个字符。照抄，不要「统一」成基类写法。
+判定用的模式是 `UnitToken`，而不是基类 `Token.Undo` 里的 `Token`：覆盖该位置的子单元**是单元（`UnitToken`）**才把回退转交给它，否则从 `Tmp` 末尾删掉一个字符。不要「统一」成基类写法。
 
 ```ts
 const undoUnit = this.WhichUnitRangeContains(source);
@@ -132,8 +126,6 @@ this.Closed = true;
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
-原 C# 是 `protected override void Default(SyntaxContext<char> context, in Source<char> source)`。
-
 ```ts
 this.Tmp += source.Value;
 ```
@@ -142,11 +134,11 @@ this.Tmp += source.Value;
 
 判断「`source` 之前那个非空白字符」是否满足 `onPredicate`。
 
-规则照抄：先取前一个位置，若它是 `\r` 就再往前一个；然后不断跳过空格与制表符；最后把跳到的位置（可能是 `null`）交给判定器。
+规则是：先取前一个位置，若它是 `\r` 就再往前一个；然后不断跳过空格与制表符；最后把跳到的位置（可能是 `null`）交给判定器。
 
-原 C# 是 `private static bool PreSourceIs(Source<char> source, Func<Source<char>?, bool> onPredicate)`。函数类型参数在本表的**最后一位**，所以按 M22 可以直接写 `(item:…)=>bool`，不必另立 `# type` 别名。
+函数类型参数在本表的**最后一位**，所以可以直接写 `(item:…)=>bool`，不必另立 `# type` 别名。
 
-调用点是关键差别（§7.7 的同类规则）：C# 从实例方法里可以**裸调**同类静态方法 `PreSourceIs(...)`，ts 的静态成员必须限定，所以 `ExitOrPre` 里写成 `PreprocessorDirectives.PreSourceIs(...)`。
+调用点要注意：静态成员必须限定，所以 `ExitOrPre` 里写成 `PreprocessorDirectives.PreSourceIs(...)`，不能裸调。
 
 ```ts
 let pre = source.Pre();
@@ -163,9 +155,9 @@ return onPredicate(pre);
 
 遇到换行就退出——除非这个换行被 `\` 续行。
 
-原 C# 的判定是 `source is { Value: '\n' } && PreSourceIs(source, item => item is { Value: '\\' }) == false`，即「当前是换行」且「换行之前那个非空白字符不是反斜杠」。退出时：若前一个字符是 `\r` 先把它回退掉（CRLF 的 `\r` 不该进指令正文），然后签出、关闭自己并跑重组、从父单元卸载，再插一条 `ReloadMessage` 让当前换行重新处理一遍，返回 `Done`；否则一律返回 `Undo`。
+判定是「当前是换行」且「换行之前那个非空白字符不是反斜杠」。退出时：若前一个字符是 `\r` 先把它回退掉（CRLF 的 `\r` 不该进指令正文），然后签出、关闭自己并跑重组、从父单元卸载，再插一条 `ReloadMessage` 让当前换行重新处理一遍，返回 `Done`；否则一律返回 `Undo`。
 
-C# 的三参构造器 `new ReloadMessage<char>(Owner, this, source)` 按 M14(b) 走静态工厂 `ReloadMessage.WithoutProcessOwner`。
+插消息走静态工厂 `ReloadMessage.WithoutProcessOwner`。
 
 ```ts
 if (source.Value !== "\n") {
@@ -185,24 +177,11 @@ context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
 return BranchStates.Done;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：只记类型名与指令正文，**没有** `children`。
-
-原 C# 覆写了基类版本，返回 `{ ["type"] = GetType().Name, ["value"] = Tmp.ToString() }`。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-result.set("value", this.Tmp);
-return result;
-```
-
 ## method Clone:()=>Token
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Tmp.Append(Tmp)` → `TryToClose()`。
+顺序是 `Sign(this)` → 把 `Tmp` 追加到自身 → `TryToClose()`。
 
 ```ts
 const result = new PreprocessorDirectives(this.Template);

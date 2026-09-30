@@ -18,13 +18,13 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 「拿模板做初始化」的委托。
 
-原 C# 侧是 `Action<Template<ValueType>>`。按 M22，参数表里用别名而不是直接写函数类型。按 M26，右侧直接写 ts 语法。
+参数表里用别名而不是直接写函数类型；别名右侧直接写 ts 语法。
 
 # class Template
 
 模板：一个上下文里所有单元共用的规则表。
 
-原 C# 只有一个无参构造器，五个模板字段都在初值里 `new` 出来。
+五个模板字段都在初值里 `new` 出来。
 
 ## field BranchTemplate:SequenceTemplate<Branch> = new SequenceTemplate<Branch>()
 
@@ -48,9 +48,7 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 ## method Initialize:(onInitialize:TemplateInitializer)=>Template
 
-拿自身跑一遍初始化回调，然后返回自身，便于 `new Template<char>().Initialize(...)` 这样链式写。
-
-原 C# 签名是 `Template<ValueType> Initialize(Action<Template<ValueType>> onInitialize)`。
+拿自身跑一遍初始化回调，然后返回自身，便于链式写。
 
 ```ts
 onInitialize(this);

@@ -23,15 +23,13 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 三个开关与两个计数会**直接印在 XML 标签上**（`ToXmlString`），是本文件最不能出错的地方。
 
-本文件里的 `String` 类与 C# 的 `System.String` 无关：C# 侧它就叫 `String`（`Cangjie.Dawn.Text.Tokens.String.String`），ts 侧照抄这个名字，因此本模块里的 `String` 会遮蔽全局 `String`——这是故意的，类名必须与 C# 一致（M17），否则 XML 标签名就变了。
+本文件里的 `String` 类与内置的 `String` 无关：本模块里的 `String` 会遮蔽全局 `String`，这是**故意的**，因为 `ToXmlString` 拿类名当标签名，改了就变了 XML 标签名。
 
-按 M31，`char` 在规范里一律写 `string`（单字符）。按 M33，本文件没有需要排在前面的展平嵌套类；同命名空间的 `StringGuide` 是**另一个顶层类**，在 `string-guide.xl.md` 里。
+`char` 表示单字符，规范里一律写 `string`。本文件没有需要排在前面的展平嵌套类；同命名空间的 `StringGuide` 是**另一个顶层类**，在 `string-guide.xl.md` 里。
 
 # class String extends UnitToken
 
 字符串单元。
-
-原 C# 侧是 `public class String : UnitToken<char>`。
 
 ## field IsSupportInterpolation:bool = false
 
@@ -55,17 +53,17 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 ## field StringChar:string = ""
 
-本串用的引号字符。原 C# 是只读属性 `public char StringChar { get; }`，只在构造器里赋值一次；ts 侧按字段表达。
+本串用的引号字符。它只在构造器里赋值一次，所以按字段表达。
 
 ## private field Translate:Translate = new Translate()
 
-转义累加器：`\` 之后的字符逐个进来，凑够一个转义序列再解码。原 C# 是私有字段 `private Translate Translate = new();`——字段名与类名同名，ts 侧照抄（字段名与类型名同名在 ts 里合法）。
+转义累加器：`\` 之后的字符逐个进来，凑够一个转义序列再解码。字段名与类名同名，ts 里合法。
 
-`Translate` 来自同目录的 `translate.xl.md`（`Dawn/Text/Tokens/String/Translate.cs`），本文件只用到它的 `IsTranslating` / `Append` / `DecodeClear` 三个成员。
+`Translate` 来自同目录的 `translate.xl.md`，本文件只用到它的 `IsTranslating` / `Append` / `DecodeClear` 三个成员。
 
 ## private field LastTranslateSource:Source | null = null
 
-上一次解码转义序列时用的位置。原 C# 是 `private Source<char> LastTranslateSource;`——C# 的结构体字段不能为 `null`，默认值是「`Document` 为 `null` 的那个 `Source`」；ts 侧用 `null` 表达这个「还没设过」的状态，与 C# 的默认值在下面的比较里行为一致（`Source.Same` 对 `null` 与非 `null` 判不等）。
+上一次解码转义序列时用的位置。用 `null` 表达「还没设过」的状态，与下面的比较行为一致（`Source.Same` 对 `null` 与非 `null` 判不等）。
 
 ## field IsRawIndentFormated:bool = false
 
@@ -77,9 +75,7 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 ## constructor:(template:Template, stringChar:string)=>void
 
-以负责人、模板与引号字符创建，并顺手把本单元的跳转/重组队列从模板上取下来。
-
-原 C# 是 `public String(IOwner owner, Template<char> template, char stringChar) : base(owner, template)`，体内三句：记下 `StringChar`，`ProcessQueue = template.BranchTemplate.Get(GetType(), null)`，`ReorganizationQueue = template.ReorganizationTemplate.Get(GetType())`。`GetType()` 按 M17 写成 `this.constructor`（`SequenceTemplate` 以**构造器对象**为键做派发）。
+以模板与引号字符创建，并顺手把本单元的跳转/重组队列从模板上取下来：记下 `StringChar`，`ProcessQueue = template.BranchTemplate.Get(this.constructor, null)`，`ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)`（`SequenceTemplate` 以**构造器对象**为键做派发）。
 
 ```ts
 super(template);
@@ -92,17 +88,13 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 
 字符串单元自己不可回退，恒为 `false`。
 
-原 C# 是 `public override bool IsUndo(Source<char> source) => false;`。
-
 ```ts
 return false;
 ```
 
 ## method Undo:(source:Source)=>void
 
-回退转交给**最后一个**子单元；它不是 `ConstString` 就抛错。
-
-原 C# 是 `public override void Undo(Source<char> source)`，用 `last is not ConstString` 判定——类类型的模式匹配在 `null` 时不成立，等价于 ts 的 `!(last instanceof ConstString)`。
+回退转交给**最后一个**子单元；它不是 `ConstString` 就抛错。`!(last instanceof ConstString)` 在 `last` 为 `null` 时同样成立，所以空单元也走抛错那一支。
 
 ```ts
 const last = this.Last();
@@ -117,20 +109,16 @@ if (!(last instanceof ConstString)) {
 
 关闭：只把自己标记为已关闭。
 
-原 C# 是 `protected override void Close()`。
-
 ```ts
 this.Closed = true;
 ```
 
 ## method AppendToLastConstString:(value:string | null, signSource:Source)=>ConstString
 
-把 `value` 追加到最后一个常量块上，并返回那个常量块。
-
-原 C# 是 `internal ConstString AppendToLastConstString(char? value, in Source<char> signSource)`，三步：
+把 `value` 追加到最后一个常量块上，并返回那个常量块。三步：
 
 1. 还没有子单元、或最后一个子单元不是 `ConstString`——新建一个 `ConstString`、把它的 `ParentString` 指回自己、`SignIn` 后 `AddAndCloseLast`。
-2. `value` 非 `null` 就 `AppendAndSignOut(value.Value, signSource)`——那是基类**两参**的重载，按 M14(c) 在 ts 里改名 `AppendValueAndSignOut`；`value.Value` 是可空 `char?` 的解包，ts 侧参数本身就是 `string | null`，直接传。
+2. `value` 非 `null` 就 `AppendValueAndSignOut(value, signSource)` 把字符收进常量块；参数本身就是 `string | null`，可直接传。
 3. `value` 为 `null` 时只 `SignOut(signSource)`——「这个位置只签出、不加字符」，`Translate.DecodeClear()` 返回 `null`（如 `\` + 换行）时走这条路。
 
 ```ts
@@ -153,17 +141,17 @@ return result;
 
 兜底处理：按五个开关分流，把当前字符要么攒进常量块，要么引给一个新的引导单元。
 
-原 C# 是 `protected override void Default(SyntaxContext<char> context, in Source<char> source)`，七条分支（前六条各自对应一种字符串形态，最后一条必抛）：
+七条分支（前六条各自对应一种字符串形态，最后一条必抛）：
 
 1. **内插 + 逐字**（`IsSupportInterpolation && IsSupportVerbatim && !IsSupportRaw`）：引号挂 `VerbatimQuoteGuide`，`{` 挂 `InterpolationString`，其余进常量块。
 2. **只内插**：正在转义就把字符喂给 `Translate`，解出一个完整转义序列（`Append` 返回 `true`）时把 `DecodeClear()` 的结果追加进常量块；否则 `\` 开转义、`{` 挂 `InterpolationString`、其余进常量块。
 3. **只逐字**：引号挂 `VerbatimQuoteGuide`，其余进常量块。
-4. **只原始**：引号可能是原始串的结束、也可能只是串内的纯双引号，一律挂 `RawQuoteExitGuide`（把自己的 `StringChar` 传给它——C# 用对象初始化器），并插一条 `ReloadMessage` 把当前位置重新处理一遍让向导裁决；其余进常量块。
+4. **只原始**：引号可能是原始串的结束、也可能只是串内的纯双引号，一律挂 `RawQuoteExitGuide`（把自己的 `StringChar` 传给它），并插一条 `ReloadMessage` 把当前位置重新处理一遍让向导裁决；其余进常量块。
 5. **内插 + 原始**：`{` 挂 `InterpolationGuide` 并插 `ReloadMessage`；引号挂 `RawQuoteExitGuide` 并插 `ReloadMessage`；其余进常量块。
 6. **纯字符**（三个开关全关，如反引号串）：与第 2 条同款转义处理，但多一条特例——`{` 且前一个字符是 `$` 且那个 `$` 不是刚解码出来的（`!= LastTranslateSource`）且 `StringChar` 是反引号时，判为 ts 模板串的内插起点：`InterpolationCount = 1`、把前一个字符 `$` 从单元上 `Undo` 掉、挂 `InterpolationString`。
 7. 其余组合直接抛错，文案里带上三个开关的当前值。
 
-两处 C# 惯用写法按语义改写：`source.Pre()!.Value`（可空结构体的 `.Value`，取出来的是前一个 `Source` 本身）在 ts 里是 `source.Pre()!`；`source.Pre()!.Value != LastTranslateSource` 用的是 `Source` 重载的 `!=`，按 M19 换成 `!Source.Same(source.Pre(), this.LastTranslateSource)`。`context.Messages.Add(...)` 是 `List<Message>` 的添加，ts 侧是 `push`；三参构造器 `new ReloadMessage<char>(Owner, this, source)` 按 M14(b) 走 `ReloadMessage.WithoutProcessOwner`。
+两处写法值得说明：`source.Pre()!` 取出的是前一个 `Source` 本身；`!Source.Same(source.Pre(), this.LastTranslateSource)` 是「当前位置与上一次解码转义的位置不是同一个」。
 
 ```ts
 const value = source.Value;
@@ -242,7 +230,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 
 强制退出：签出、尝试关闭、然后从父单元卸载自己。
 
-原 C# 是 `public void ForceExit(in Source<char> source)`，注释说明它「把这个方法暴露出来，给向导使用」——`StringGuide` 判定串已经结束时靠它收尾。
+它把这个方法暴露出来给向导使用——`StringGuide` 判定串已经结束时靠它收尾。
 
 ```ts
 this.SignOut(source);
@@ -252,9 +240,7 @@ this.Quit();
 
 ## method FormatRawIndent:()=>void
 
-对原始字符串做缩进格式化：以**末行**的缩进宽度为准，把每个常量块的每行行首都削掉这么多空格，并去掉首行与末行的「结构行」。
-
-原 C# 是 `public void FormatRawIndent()`，顺序是：
+对原始字符串做缩进格式化：以**末行**的缩进宽度为准，把每个常量块的每行行首都削掉这么多空格，并去掉首行与末行的「结构行」。顺序是：
 
 1. 不是原始字符串、或已经格式化过就直接返回（并把标记置上）。
 2. 取最后一个子单元，不是 `ConstString` 就返回；`SkipContains(' ', '\n')` 说明末行不满足「只剩空格就到行尾」也返回。
@@ -262,7 +248,7 @@ this.Quit();
 4. `Data[0]` 不是 `ConstString` 就抛「原始字符串首行异常」；否则删掉它的首行（`RemoveFirstLine`）。
 5. 遍历所有子单元，`ConstString` 逐个 `RemoveIndent(RawIndent, IsFirst)`——只有**第一个**常量块需要额外处理首行，`IsFirst` 在第一次迭代后置 `false`。
 
-`i is ConstString ItemConstString` 是 C# 的模式匹配，按 M18/M20 在 ts 里写成 `instanceof` 判定。
+`instanceof ConstString` 用来逐个判定常量块。
 
 ```ts
 if (!this.IsSupportRaw) {
@@ -302,7 +288,7 @@ for (const i of this.Data) {
 
 问自己「当前字符是让我退出，还是继续前移」。
 
-原 C# 是 `protected override BranchStates ExitOrPre(SyntaxContext<char> context, in Source<char> source)`：只有**不是原始串、也不是逐字串**、且当前字符正是本串的引号、且当前不在转义中时，才 `ForceExit` 并返回 `Done`；其余一律返回 `Undo`（继续前移）。
+只有**不是原始串、也不是逐字串**、且当前字符正是本串的引号、且当前不在转义中时，才 `ForceExit` 并返回 `Done`；其余一律返回 `Undo`（继续前移）。
 
 ```ts
 if (source.Value === this.StringChar && this.Translate.IsTranslating === false && !this.IsSupportRaw && !this.IsSupportVerbatim) {
@@ -316,14 +302,14 @@ return BranchStates.Undo;
 
 产出 XML：标签名是运行时类型名，标签上带**五个属性**，内容是所有子单元的 XML 串接。
 
-原 C# 是 `public override string ToXmlString()`，最后一句拼串（下面是节选，属性顺序与分隔符一字不差）：
+最后一句拼串（下面是节选，属性顺序与分隔符一字不差）：
 
 `return $"<{Name} IsSupportInterpolation={IsSupportInterpolation}" + " IsSupportVerbatim={...}" + " IsSupportRaw={...}" + " InterpolationCount={...}" + " RawQuoteCount={...}>{Tmp.Join("")}</{Name}>";`
 
-**两个必须照抄的细节**：
+**两个必须留意的细节**：
 
-- 三个 `bool` 属性在 C# 的字符串插值里走 `bool.ToString()`，结果是 `True` / `False`（**首字母大写**），不是 ts 原生的 `true` / `false`。验收夹具 `tests/fixtures/xml/04-string.xml` 里写的正是 `IsSupportInterpolation=False`，所以 ts 侧显式三元成 `"True"` / `"False"`。
-- 标签名取自 `GetType().Name`，按 M17 写成 `this.constructor.name`；属性之间、属性与 `>` 之间都是**单个空格**，属性之间没有任何换行。
+- 三个 `bool` 属性要印成 `True` / `False`（**首字母大写**），不是 ts 原生的 `true` / `false`。夹具 `tests/fixtures/xml/04-string.xml` 里写的正是 `IsSupportInterpolation=False`，所以显式三元成 `"True"` / `"False"`。
+- 标签名取自 `this.constructor.name`；属性之间、属性与 `>` 之间都是**单个空格**，属性之间没有任何换行。
 
 ```ts
 const name = this.constructor.name;
@@ -337,36 +323,9 @@ for (const item of this.Data) {
 return `<${name} IsSupportInterpolation=${interpolation} IsSupportVerbatim=${verbatim} IsSupportRaw=${raw} InterpolationCount=${this.InterpolationCount} RawQuoteCount=${this.RawQuoteCount}>${temp.join("")}</${name}>`;
 ```
 
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：类型名、五个开关/计数、引号字符、缩进信息，外加 `children`。
-
-原 C# 是 `public override Dictionary<string, object> ToDictionary()`，键名照抄（都是小驼峰）；`GetType().Name` 按 M17 写成 `this.constructor.name`。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-result.set("isSupportInterpolation", this.IsSupportInterpolation);
-result.set("isSupportVerbatim", this.IsSupportVerbatim);
-result.set("isSupportRaw", this.IsSupportRaw);
-result.set("interpolationCount", this.InterpolationCount);
-result.set("rawQuoteCount", this.RawQuoteCount);
-result.set("stringChar", this.StringChar);
-result.set("rawIndent", this.RawIndent);
-result.set("isRawIndentFormated", this.IsRawIndentFormated);
-const data: any[] = [];
-for (const item of this.Data) {
-  data.push(item.ToDictionary());
-}
-result.set("children", data);
-return result;
-```
-
 ## method Clone:()=>Token
 
-克隆自身：连同五个开关/计数与所有子单元的克隆一起复制。
-
-原 C# 是 `public override Token<char> Clone()`，顺序是 `Sign(this)` → 逐个复制开关 → `Add(i.Clone())` → `TryToClose()`。
+克隆自身：连同五个开关/计数与所有子单元的克隆一起复制。顺序是 `Sign(this)` → 逐个复制开关 → `Add(i.Clone())` → `TryToClose()`。
 
 ```ts
 const result = new String(this.Template, this.StringChar);

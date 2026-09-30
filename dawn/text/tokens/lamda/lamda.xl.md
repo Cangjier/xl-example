@@ -10,8 +10,10 @@ import { Bracket } from "../bracket.xl.md"
 import { Common } from "../common.xl.md"
 import { JsonObjectReorganization } from "../json/json-object.xl.md"
 import { Method } from "../method.xl.md"
+import { ReturnType } from "../function/return-type.xl.md"
 import { Statement } from "../statement.xl.md"
 import { Symbol } from "../symbol.xl.md"
+import { WrapSymbol } from "../wrap-symbol.xl.md"
 import { LamdaBody } from "./lamda-body.xl.md"
 import { LamdaParameter } from "./lamda-parameter.xl.md"
 import { LamdaParameters } from "./lamda-parameters.xl.md"
@@ -23,46 +25,104 @@ import { LamdaParameters } from "./lamda-parameters.xl.md"
 
 Lambda 表达式：把 `()=>{}` / `p1=>statement` / `():xxx=>{}` 这三种形态从「参数 + `=>` + 体」重组成单个 `Lamda` 单元，参数收进 `LamdaParameters`，体收进 `LamdaBody`。
 
-按 M32，嵌套类 `Lamda.Reorganization` 展平成顶层类 `LamdaReorganization`；按 M33，它写在 `Lamda` **之前**（与同目录其它 token 一致）。
+重组规则类 `LamdaReorganization` 写在 `Lamda` **之前**（与同目录其它 token 一致）。
 
 # class LamdaReorganization extends Reorganization
-
-原 C# 是嵌套类 `Lamda.Reorganization`（M32 展平改名）。
 
 `Process` 是整个文件里最重的一段：它要把 `=>` 左边的东西收成 `LamdaParameters`（括号形参表拆成一个个 `LamdaParameter`，或单个裸形参），把右边的东西收成 `LamdaBody`（花括号体直接搬家，语句体按表达式/语句两种终止规则截断）。
 
 ## static readonly field Instance:LamdaReorganization = new LamdaReorganization()
 
-唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`——这里的 `Reorganization` 指的是嵌套的那个类本身，按 §4 的等价写法落成静态只读字段。
+唯一的实例。
+
+## private method IsLambdaParameters:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `(` 括号是**箭头函数的形参表**，不是一段函数类型。
+
+`(a: A) => B` 与 `(a: A): B => body` 长得几乎一样，区别在括号**前面**是什么：
+
+- 前面是 `:`（`let f: (a: A) => B`）→ 这是类型标注里的**函数类型**，不是箭头函数，本规则不接手；
+- 前面是别的（`=` / `(` / `,` / `return` / 行首…）→ 形参表，成立。
+
+```ts
+const previousIndex = SkipPreviousWrapSymbol(units, index);
+const previous = Get(units, previousIndex);
+if (previous instanceof Symbol && previous.Is(":")) {
+  return false;
+}
+return true;
+```
+
+## private method FindParameters:(units:Array<Token>, index:int)=>int
+
+`index`（一个 `=>`）左边那段是不是形参；是就返回**形参单元**的下标（`(` 括号或裸形参 `Common`），否则返回 `-1`。
+
+`Previous` 与 `Process` 共用它——两边对「形参在哪」的判断必须一致。
+
+四种形状都走这里：
+
+- `( …. ) =>`：`=>` 左边就是形参括号；
+- `p1 =>`：`=>` 左边是裸形参；
+- `( …. ) : T =>`：要先跨过返回类型标注：从 `=>` 往左走，遇到 `:` 再看它**左边**是不是 `(` 括号；
+- 反过来，`let f: (a: A) => B` 这种**函数类型**必须排除掉——它的括号左边也是 `:`，
+  但那个 `:` 属于类型标注而不是箭头函数的返回类型；区别在**冒号左边**：
+  函数类型是 `: ( … ) =>`（括号前面直接是冒号），箭头函数是 `( … ) : T =>`（冒号前面是形参括号）。
+  所以判定统一成一句：**冒号左边那个单元是 `(` 括号 ⇒ 它是箭头函数的返回类型标注**。
+
+往左走时遇到 `=` / `,` / `;` / `?` / 另一个括号就停：再往左就是上一条语句或另一个表达式了。
+一路走完都没找到 `:` 时，若 `=>` 左边是个裸 `Common`，它就是裸形参。
+
+```ts
+const firstIndex = SkipPreviousWrapSymbol(units, index);
+const first = Get(units, firstIndex);
+if (first === null) {
+  return -1;
+}
+if (first instanceof Bracket && first.StartBracketChar === "(") {
+  return this.IsLambdaParameters(units, firstIndex) ? firstIndex : -1;
+}
+let scan = SkipPreviousWrapSymbol(units, firstIndex);
+while (scan >= 0) {
+  const item = Get(units, scan);
+  if (item instanceof Symbol && item.Is(":")) {
+    const candidateIndex = SkipPreviousWrapSymbol(units, scan);
+    const candidate = Get(units, candidateIndex);
+    if (candidate instanceof Bracket && candidate.StartBracketChar === "(") {
+      return this.IsLambdaParameters(units, candidateIndex) ? candidateIndex : -1;
+    }
+    break;
+  }
+  if (item instanceof Bracket) {
+    break;
+  }
+  if (item instanceof Symbol && (item.Is("=") || item.Is(",") || item.Is(";") || item.Is("=>") || item.Is("?"))) {
+    break;
+  }
+  scan = SkipPreviousWrapSymbol(units, scan);
+}
+if (first instanceof Common) {
+  return firstIndex;
+}
+return -1;
+```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是本次重组的起点：它得是 `=>`，而且左边最近的（跳过软换行的）单元是括号或 `Common`。
-
-原 C# 注释把三种情况写得很清楚：`()=>{}` / `()=>statement`、`p1=>{}` / `p1=>statement`、`():xxx=>{}` / `():xxx=>statement`。
-
-原 C# 调了两次 `units.GetSkipPreviousWrapSymbol(index)`（一次判括号、一次判 `Common`），ts 侧提成一个局部量，取值次数变了但语义不变。
+`index` 处是不是本次重组的起点：它得是 `=>`，而且左边那一段能认成形参（见 `FindParameters`）。
 
 ```ts
 const current = Get(units, index);
-const isArrow = current instanceof Symbol && current.Is("=>");
-if (isArrow === false) {
+if (!(current instanceof Symbol) || !current.Is("=>")) {
   return false;
 }
-const previous = GetSkipPreviousWrapSymbol(units, index);
-const previousIsParameters = previous instanceof Bracket && previous.StartBracketChar === "(";
-const previousIsCommon = previous instanceof Common;
-if (previousIsCommon || previousIsParameters) {
-  return true;
-}
-return false;
+return this.FindParameters(units, index) >= 0;
 ```
 
 ## static method IsMethod:(unit:Token | null)=>bool
 
 某个单元算不算「方法调用形态」——要么它本身就是 `Method`，要么它是一个 `(...)` 圆括号。
 
-原 C# 是 `public static bool IsMethod(Token<char>? unit)`。`Process` 里用它判断「`=>` 右边是逗号分隔的实参列表」还是「一条语句」。
+`Process` 里用它判断「`=>` 右边是逗号分隔的实参列表」还是「一条语句」。
 
 ```ts
 if (unit instanceof Method) {
@@ -77,45 +137,58 @@ return false;
 
 执行重组，**返回新的下标**。
 
-原 C# 是 `public override void Process(IOwner owner, Template<char> template, List<Token<char>> units, ref int index)`；按 M15 改成返回值，函数体末尾 `index = units.ReplaceAt(...)` 的结果直接 `return`。
+重组把多个子单元换成一个，下标必须跟着走；函数体末尾把 `ReplaceCountAt(...)` 的结果直接 `return`。
 
-改写点清单：
+- **带返回类型标注时要先退回形参**：`(a: A): T => body` 里 `=>` 左边那一段是 `: T`，
+  `FindParameters` 会退回形参括号；形参与 `=>` 之间的那一截（`:` 与类型单元）搬进 `ReturnType`，
+  替换范围从**形参**起算（有 `async` 时从 `async` 起算）——
+  从 `T` 起算的话，形参括号与冒号会被留在外面，紧接着的 `TypeDefine` 会把整个 `Lamda` 包起来。
 
-- 对象初始化器 `new Lamda(owner, template) { Parent = ... }` → 先 `new` 再赋值。
-- `units.GetSkipPreviousWrapSymbol` / `units.SkipPreviousWrapSymbol` / `units.SkipNextWrapSymbol` 是 `TextCommonUtil` 的扩展方法，按 M11 落成模块级函数，调用形态改成 `SkipPreviousWrapSymbol(units, index)`。
-- `units.Get` / `units.SearchBack` / `units.ReplaceAt` 同理改成模块级函数；四参的 `ReplaceAt` 在移植里叫 `ReplaceCountAt`（M14(c)），所以末尾那句写成 `ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result)`。
-- 拆形参表时反复 `flush` 同一段代码（C# 里那两处 `#if NETSTANDARD2_0` 的差别只是取最后一个元素的写法，ts 侧统一用 `tempParameters[tempParameters.length - 1]`）。
-- `temp.Add(tempParameters)` 传的是一批单元，ts 侧用 `AddRange`（M14(c)）。
-- `tempParameters.Clear()` → `tempParameters.length = 0`。
-- 语句体截断里的 `units.Skip(index + 1).Take(endIndex - (index + 1) + 1)` 是 LINQ，等价于 `units.slice(index + 1, endIndex + 1)`。
-- `units.Count` → `units.length`；`Data.Count` → `Data.length`。
-- C# 的 `catch { throw; }` 是无副作用的重新抛出；ts 没有裸 `throw;`，写成 `catch (e) { throw e; }`。
-- `throw new NullReferenceException($"{nameof(previous)}")` → `throw new Error("previous")`；`throw new Exception("参数错误")` → `throw new Error("参数错误")`。
-- `Json.JsonObject.Reorganization.IsObject(...)` 按 M32 写成 `JsonObjectReorganization.IsObject(...)`；它是单参数版（`IsObjectAt` 才是列表版）。
-- `current?.Parent` 在 ts 里可能是 `undefined`，而 `IsObject` / `IsMethod` 的形参只接受 `null`，所以补 `?? null`。
-- 末尾 `if (previous is Bracket) …Release()` 只是提前释放那个临时括号；资源归属层移除后整句消失，交给 GC。
+几处实现说明：
+
+- 语句体截断用数组原生的 `slice(index + 1, endIndex + 1)`。
+- 抛错一律用 `new Error(...)`（不进规范类型位）——形参形态认不出来时抛 `参数错误`。
+- `JsonObjectReorganization.IsObject` 是单参数版（`IsObjectAt` 才是列表版）。
+- `current?.Parent` 可能是 `undefined`，而 `IsObject` / `IsMethod` 的形参只接受 `null`，所以补 `?? null`。
 
 ```ts
 const current = Get(units, index);
 const result = new Lamda(template);
 result.Parent = Get(units, index)!.Parent;
 const parameters = result.CreateParameters();
-let startIndex = SkipPreviousWrapSymbol(units, index);
-const previous = Get(units, startIndex);
-if (previous === null) {
-  throw new Error("previous");
+const lastIndex = SkipPreviousWrapSymbol(units, index);
+const parametersIndex = this.FindParameters(units, index);
+if (parametersIndex < 0) {
+  throw new Error("参数错误");
 }
-result.SignIn(previous.SourceRange.Start!);
-const asyncIndex = SkipPreviousWrapSymbol(units, startIndex);
+const parameterUnit = Get(units, parametersIndex);
+if (parameterUnit === null) {
+  throw new Error("参数错误");
+}
+let rangeStart = parametersIndex;
+const asyncIndex = SkipPreviousWrapSymbol(units, parametersIndex);
 const asyncUnit = Get(units, asyncIndex);
 if (asyncUnit instanceof Common && asyncUnit.Is("async")) {
-  startIndex = asyncIndex;
+  rangeStart = asyncIndex;
   result.IsAsync = true;
 }
-if (previous instanceof Bracket) {
+result.SignIn(parameterUnit.SourceRange.Start!);
+if (parametersIndex < lastIndex) {
+  const returnType = result.CreateReturnType();
+  for (let t = parametersIndex + 1; t <= lastIndex; t++) {
+    const item = Get(units, t);
+    if (!(item instanceof WrapSymbol)) {
+      returnType.AddAndCloseLast(item!);
+    }
+  }
+  returnType.SignIn(Get(units, parametersIndex + 1)!.SourceRange.Start!);
+  returnType.SignOut(Get(units, lastIndex)!.SourceRange.End!);
+  returnType.TryToClose();
+}
+if (parameterUnit instanceof Bracket) {
   const tempParameters: Token[] = [];
-  for (let i = 0; i < previous.Data.length; i++) {
-    const item = previous.Data[i];
+  for (let i = 0; i < parameterUnit.Data.length; i++) {
+    const item = parameterUnit.Data[i];
     if (item instanceof Symbol && item.Is(",")) {
       if (tempParameters.length !== 0) {
         const parameter = new LamdaParameter(template);
@@ -126,7 +199,7 @@ if (previous instanceof Bracket) {
         parameters.Add(parameter);
         tempParameters.length = 0;
       }
-    } else if (i === previous.Data.length - 1) {
+    } else if (i === parameterUnit.Data.length - 1) {
       tempParameters.push(item);
       const parameter = new LamdaParameter(template);
       parameter.SignIn(tempParameters[0].SourceRange.Start!);
@@ -139,11 +212,11 @@ if (previous instanceof Bracket) {
       tempParameters.push(item);
     }
   }
-} else if (previous instanceof Common) {
+} else if (parameterUnit instanceof Common) {
   const parameter = new LamdaParameter(template);
-  parameter.SignIn(previous.SourceRange.Start!);
-  parameter.SignOut(previous.SourceRange.End!);
-  parameter.Add(previous);
+  parameter.SignIn(parameterUnit.SourceRange.Start!);
+  parameter.SignOut(parameterUnit.SourceRange.End!);
+  parameter.Add(parameterUnit);
   parameter.TryToClose();
   parameters.Add(parameter);
 } else {
@@ -182,7 +255,7 @@ if (next instanceof Bracket && next.StartBracketChar === "{") {
 }
 body.TryToClose();
 result.TryToClose();
-index = ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
+index = ReplaceCountAt(units, rangeStart, endIndex - rangeStart + 1, result);
 return index;
 ```
 
@@ -190,17 +263,15 @@ return index;
 
 Lambda 表达式。
 
-原 C# 侧是 `public class Lamda : IndependentToken<char>`。按 M31，C# 的 `char` 在规范里一律写 `string`。
-
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<Lamda>参数列表 + 体的 XML</Lamda>`。
 
 ## field IsAsync:bool = false
 
-这个 lambda 前面是不是有 `async`。原 C# 是 `public bool IsAsync { get; set; } = false;`，按 M12 落成字段（纯数据，没有 `private set`）。
+这个 lambda 前面是不是有 `async`。纯数据字段，没有访问器。
 
 ## constructor:(Template:Template)=>void
 
-原 C# 构造体是空的，只是转调基类构造器。
+转调基类构造器（体是空的）。
 
 ```ts
 super(Template);
@@ -210,7 +281,7 @@ super(Template);
 
 造一个 `LamdaParameters` 作为自己的子单元并返回它。
 
-原 C# 是 `public LamdaParameters CreateParameters() => Add(new LamdaParameters(Owner, Template));`——`Add<T>` 返回加进去的那个单元，所以这里直接返回。
+`Add` 返回加进去的那个单元，所以这里直接返回。
 
 ```ts
 return this.Add(new LamdaParameters(this.Template));
@@ -222,7 +293,7 @@ return this.Add(new LamdaParameters(this.Template));
 
 ### get
 
-原 C# 是 `public LamdaParameters Parameters => (Data.Find(x => x is LamdaParameters) as LamdaParameters)!;`。ts 的 `Array.find` 找不到给 `undefined`（不是 `null`），断言成 `LamdaParameters` 与 C# 的 `!` 等价。
+`Array.find` 找不到给 `undefined`，这里直接断言成 `LamdaParameters`。
 
 ```ts
 return this.Data.find((x) => x instanceof LamdaParameters) as LamdaParameters;
@@ -232,17 +303,42 @@ return this.Data.find((x) => x instanceof LamdaParameters) as LamdaParameters;
 
 形参个数。
 
-原 C# 是 `public int ComputeParametersCount() => Parameters.Data.Count;`。`Dawn/Steper` 的 `StepInferenceUtil` 用它匹配委托参数，执行层不在此次移植范围。
+`Dawn/Steper` 的 `StepInferenceUtil` 用它匹配委托参数；执行层不在本规范范围内。
 
 ```ts
 return this.Parameters.Data.length;
 ```
 
+## method CreateReturnType:()=>ReturnType
+
+造一个 `ReturnType` 作为自己的子单元并返回它。
+
+**箭头函数的返回类型标注必须自成一段**：`(a: A): T => body` 里的 `: T` 若与体同级，
+贪婪的 `TypeDefine` 会连函数体一起吞掉——这与 `Function` / `MethodDeclaration` 是同一个问题。
+它也是本规则必须排在 `TypeDefine` **之前**的原因（见 `../parse-pipeline.xl.md` 的队列顺序）。
+
+```ts
+return this.Add(new ReturnType(this.Template));
+```
+
+## property ReturnType:ReturnType | null
+
+返回类型段：子单元里第一个 `ReturnType`；没有标注时给 `null`。
+
+### get
+
+```ts
+for (const item of this.Data) {
+  if (item instanceof ReturnType) {
+    return item;
+  }
+}
+return null;
+```
+
 ## method CreateBody:()=>LamdaBody
 
 造一个 `LamdaBody` 作为自己的子单元并返回它。
-
-原 C# 是 `public LamdaBody CreateBody() => Add(new LamdaBody(Owner, Template));`。
 
 ```ts
 return this.Add(new LamdaBody(this.Template));
@@ -254,32 +350,15 @@ return this.Add(new LamdaBody(this.Template));
 
 ### get
 
-原 C# 是 `public LamdaBody Body => (Data.Find(x => x is LamdaBody) as LamdaBody)!;`。
-
 ```ts
 return this.Data.find((x) => x instanceof LamdaBody) as LamdaBody;
-```
-
-## method ToDictionary:()=>Map<string, any>
-
-转成字典：比基类多出 `async` / `parameters` / `body` 三项，**没有** `children`。
-
-原 C# 返回 `Dictionary<string, object>`，按 M10 / M20 映射成 `Map<string, any>`；`result["parameters"] = Parameters.ToList()` 取的是父类 `Token.ToList()`（每项自带 `range`）。
-
-```ts
-const result = new Map<string, any>();
-result.set("type", this.constructor.name);
-result.set("async", this.IsAsync);
-result.set("parameters", this.Parameters.ToList());
-result.set("body", this.Body.ToDictionary());
-return result;
 ```
 
 ## method Clone:()=>Token
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → 拷 `IsAsync` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；`Add` 收到的是一批克隆出来的子单元，所以 ts 侧用 `AddRange`（M14(c)）。
+顺序是 `Sign(this)` → 拷 `IsAsync` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new Lamda(this.Template);

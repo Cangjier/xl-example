@@ -15,13 +15,11 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 三元运算符的假值表达式。
 
-原 C# 侧是 `public class TernaryOperatorFalseStatement : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
-
 它不消费字符：整段内容由 `TernaryOperatorReorganization.Process` 用 `TakeRange` 切出来后塞进 `Data`。
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+转调基类构造器。
 
 ```ts
 super(template);
@@ -31,7 +29,7 @@ super(template);
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new TernaryOperatorFalseStatement(this.Template);

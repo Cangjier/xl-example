@@ -21,7 +21,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+以模板创建。挂载与退出这套调度不需要额外状态，构造器里只有转调。
 
 ```ts
 super(template);
@@ -31,7 +31,7 @@ super(template);
 
 判断当前字符是让本单元「退出」还是「前移」。
 
-原 C# 是 `protected abstract`，由各单元实现（如 `Root` 恒返回 `Undo`）。
+抽象方法，由各单元实现（如 `Root` 恒返回 `Undo`）。
 
 ```ts
 throw new Error("abstract member: ExitOrPre");
@@ -41,9 +41,9 @@ throw new Error("abstract member: ExitOrPre");
 
 处理一个字符。
 
-原 C# 的顺序：有挂载单元就转给它；否则先问 `ExitOrPre`，`Done` 就记下 `LastSource` 返回；再依次跑 `ProcessQueue` 里的跳转，哪个返回 `Done` 就返回；都不接手才走 `Default`；无论走哪条路都把 `LastSource` 设为当前字符。
+处理顺序：有挂载单元就转给它；否则先问 `ExitOrPre`，`Done` 就记下 `LastSource` 返回；再依次跑 `ProcessQueue` 里的跳转，哪个返回 `Done` 就返回；都不接手才走 `Default`；无论走哪条路都把 `LastSource` 设为当前字符。
 
-整个流程包在 `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个位置到当前位置」。注意 C# 写的是 `source.Pre()!.Value`，这里的 `.Value` 是**可空结构体的 `.Value`**，取出来的是前一个 `Source` 本身，不是字符。
+整个流程包在 `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个位置到当前位置」。注意用 `source.Pre()` 建范围时取出来的是前一个 `Source` 本身，不是字符。
 
 ```ts
 try {

@@ -6,7 +6,7 @@
 
 分支条件的结果。
 
-原 C# 侧是 `struct BranchConditionResult`（值类型，赋值即复制），另外定义了 `bool` 与 `int` 到它的两个**隐式转换运算符**。xl 既没有值类型也没有运算符重载：值语义由下面的 `Clone` 显式表达（M16），两个隐式转换由两个静态工厂替代（M19）。
+xl 既没有值类型也没有运算符重载：值语义由下面的 `Clone` 显式表达，`bool` 与 `int` 到本类型的两条转换路径各由一个静态工厂承担。
 
 ## field Success:bool = false
 
@@ -18,7 +18,7 @@
 
 ## static method FromBool:(success:bool)=>BranchConditionResult
 
-`bool → BranchConditionResult` 隐式转换的替代；`Message` 保持 `0`。
+由 `bool` 构造；`Message` 保持 `0`。
 
 ```ts
 const result = new BranchConditionResult();
@@ -28,7 +28,7 @@ return result;
 
 ## static method FromInt:(message:int)=>BranchConditionResult
 
-`int → BranchConditionResult` 隐式转换的替代；`Success` 恒为 `true`。
+由 `int` 构造；`Success` 恒为 `true`。
 
 ```ts
 const result = new BranchConditionResult();

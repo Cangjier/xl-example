@@ -18,7 +18,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## constructor:(Template:Template)=>void
 
-原 C# 只是转调基类构造器。
+以模板创建。参数名 `Template` 与类型名 `Template` 同名，这里沿用。
 
 ```ts
 super(Template);
@@ -28,8 +28,6 @@ super(Template);
 
 关闭：只把自己标记为已关闭。
 
-原 C# 是 `protected override void Close()`。
-
 ```ts
 this.Closed = true;
 ```
@@ -38,13 +36,13 @@ this.Closed = true;
 
 兜底处理。
 
-原 C# 的 `Default` 是空实现——引导 token 把所有字符都交给 `Navigate`，不走兜底。按 M30 不写 ts 体。
+引导 token 把所有字符都交给 `Navigate`，不走兜底，所以不写 ts 体。
 
 ## protected method Navigate:(context:SyntaxContext, Src:Source)=>void
 
 把当前字符引到目标单元。
 
-原 C# 是 `protected abstract`。
+抽象方法，由各引导 token 实现。
 
 ```ts
 throw new Error("abstract member: Navigate");
@@ -54,7 +52,7 @@ throw new Error("abstract member: Navigate");
 
 处理一个字符：有挂载单元就转给它，否则走 `Navigate`。
 
-原 C# 覆写了基类的调度——引导 token **不跑跳转队列、也不走兜底**。参数名照抄 C# 的 `Context` / `Src`。
+引导 token 覆写了基类的调度：**不跑跳转队列、也不走兜底**。参数名沿用 `Context` / `Src`。
 
 ```ts
 if (this.MountedUnit !== null) {

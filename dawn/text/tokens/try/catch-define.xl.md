@@ -15,17 +15,13 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 `catch` 的形参定义。
 
-原 C# 侧是 `public class CatchDefine : IndependentToken<char>`。按 M31，`char` 在规范里写 `string`。
-
 注意它与 `TryBody` / `CatchBody` / `FinallyBody` 的差别：它构造时挂的**不是**语句重组队列，而是从 `ReorganizationTemplate` 里按自己的运行时类型取队列——圆括号里是「类型 + 变量名」，走的是另一套重组规则。
 
 ## constructor:(template:Template)=>void
 
 创建时按自己的运行时类型取重组队列。
 
-原 C# 签名是 `CatchDefine(IOwner owner, Template<char> template) : base(owner, template)`，体里是 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`。
-
-按 M17，C# 的 `GetType()` 在 ts 侧写成 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键派发）。
+`ReorganizationTemplate` 以类的构造器对象为键派发，所以这里写 `this.constructor`。
 
 ```ts
 super(template);
@@ -36,7 +32,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；按 M14(c) 用 `AddRange`。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new CatchDefine(this.Template);

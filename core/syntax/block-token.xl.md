@@ -19,11 +19,11 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## field Temp:Array<string> = []
 
-本块累积的字符。原 C# 是 `List<ValueType> Temp { get; private set; }`。
+本块累积的字符。
 
 ## constructor:(template:Template)=>void
 
-原 C# 只是转调基类构造器。
+以模板创建。块 token 自己只多一个 `Temp`，构造器里没有额外动作。
 
 ```ts
 super(template);
@@ -33,7 +33,7 @@ super(template);
 
 把累积的字符拼成字符串。
 
-原 C# 用 `Temp.Join("")`——那是 `Core/Extensions/ListExtension.cs` 里的扩展方法。ts 的数组本来就有 `join`，直接用它（M11）。
+拼接直接用数组自带的 `join`。
 
 ```ts
 return this.Temp.join("");
@@ -53,7 +53,7 @@ return this;
 
 同上，但追加的是显式给的值而不是 `source.Value`。
 
-原 C# 是重载 `AppendAndSignOut(ValueType value, Source<ValueType> source)`，与单参版参数个数不同，按 M14(c) 改名。
+两个参数的那个 `AppendAndSignOut` 重载在 ts 里叫 `AppendValueAndSignOut`。
 
 ```ts
 this.SignOut(source);
@@ -65,7 +65,7 @@ return this;
 
 当前字符能不能并进本块。
 
-原 C# 是 `public abstract`，由各 token 实现。
+抽象成员，由各 token 实现。
 
 ```ts
 throw new Error("abstract member: IsAppend");
@@ -75,7 +75,7 @@ throw new Error("abstract member: IsAppend");
 
 处理一个字符：有挂载单元就转给它，否则走 `Default`。
 
-原 C# 覆写了基类的调度——块 token **不跑跳转队列**，只认挂载单元和自己。
+块 token 覆写了基类的调度：**不跑跳转队列**，只认挂载单元和自己。
 
 ```ts
 if (this.MountedUnit !== null) {
@@ -90,7 +90,7 @@ this.LastSource = source;
 
 回退一个字符。
 
-原 C# 分两种情况：有子单元覆盖该位置就交给它；否则从 `Temp` 弹掉最后一个字符，并在「已经退到最前」或「`Temp` 空了」时把自己从父单元里摘掉，否则把终点退回前一个位置。
+分两种情况：有子单元覆盖该位置就交给它；否则从 `Temp` 弹掉最后一个字符，并在「已经退到最前」或「`Temp` 空了」时把自己从父单元里摘掉，否则把终点退回前一个位置。
 
 ```ts
 const undoUnit = this.WhichUnitRangeContains(source);
@@ -113,25 +113,23 @@ if (previous === null) {
 
 块 token 永远可以回退。
 
-原 C# 是 `public override bool IsUndo(Source<ValueType> source) => true;`。
-
 ```ts
 return true;
 ```
 
 ## protected method Default:(context:SyntaxContext, source:Source)=>void
 
-原 C# 直接抛 `NotImplementedException`——块 token 必须靠挂载单元或自己的覆写来消费字符。
+兜底直接抛错——块 token 必须靠挂载单元或自己的覆写来消费字符。
 
 ```ts
-throw new Error("NotImplementedException");
+throw new Error("抽象成员未实现");
 ```
 
 ## method SignOut:(source:Source)=>void
 
 签出。
 
-原 C# 覆写了基类的签出：**只设终点，不递归子单元，也不检查是否已设过**。
+签出覆写了基类：**只设终点，不递归子单元，也不检查是否已设过**。
 
 ```ts
 this.SourceRange.End = source;
@@ -141,7 +139,7 @@ this.SourceRange.End = source;
 
 产出 XML：标签名是运行时类型名，内容是本块累积的字符（先转义）。
 
-原 C# 用 `GetType().Name`（按 M17 换成 `this.constructor.name`）与 `CommonUtil.XmlDecode(Temp.Join(""))`。
+标签名取 `this.constructor.name`，内容经 `CommonUtil.XmlDecode` 转义。
 
 ```ts
 const name = this.constructor.name;

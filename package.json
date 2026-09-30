@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "commonjs",
-  "description": "Cangjie 语法层的 xl 移植：xl.md → dist/**/*.ts → build/**/*.js，另带一个命令行入口 cjcli",
+  "description": "一套语言前端的 xl 规范：*.xl.md → dist/ts/**/*.ts → build/ts/**/*.js，另带一个命令行入口 cjcli",
   "bin": {
     "cjcli": "./bin/cjcli.js"
   },
@@ -11,7 +11,8 @@
     "check": "xl check",
     "build": "xl build && tsc",
     "compile": "tsc",
-    "cjcli": "node ./build/cjcli.js"
+    "samples": "node ./samples/check.mjs",
+    "cjcli": "node ./build/ts/cjcli.js"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

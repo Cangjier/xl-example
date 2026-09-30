@@ -17,17 +17,15 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 
 软换行符号：源码里每一个 `\n` 都先变成一个独立的 `WrapSymbol`，随后在重组阶段被**整个摘掉**。它的 XML 是自闭合的 `<WrapSymbol />`，不带任何文本。
 
-按 M33，展平出来的嵌套类 `WrapSymbol.Branch` / `WrapSymbol.Reorganization` 写在 `WrapSymbol` **之前**——`WrapSymbol` 的静态字段 `AppendIn` 会在类定义时立即 `new` 一个 `WrapSymbolBranch`，写反了会命中 ts 的暂时性死区。
+`WrapSymbolBranch` 与 `WrapSymbolReorganization` 写在 `WrapSymbol` **之前**：后者的静态字段 `AppendIn` 会在类定义时立即 `new WrapSymbolBranch()`，写反了会命中 ts 的暂时性死区。
 
 # class WrapSymbolBranch extends Branch
-
-原 C# 是嵌套类 `WrapSymbol.Branch`（M32 展平改名）。
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 只有换行符才认。
 
-原 C# 的 `Success` 直接由 `source.Value == '\n'` 决定，`Message` 保持 `0`。
+判定只看「当前字符是不是换行」，`Message` 保持 `0`。
 
 ```ts
 const result = new BranchConditionResult();
@@ -39,7 +37,7 @@ return result;
 
 认下这个换行：新建一个 `WrapSymbol`，签入签出后立刻关掉。
 
-原 C# 把整条链写成一句：`AddAndCloseLast` 返回新单元，`AppendAndSignOut` 收字符，`SignIn` 签入，最后 `TryToClose`。
+整条链写成一句：`AddAndCloseLast` 返回新单元，`AppendAndSignOut` 收字符，`SignIn` 签入，最后 `TryToClose`。
 
 ```ts
 unit.AddAndCloseLast(new WrapSymbol(unit.Template)).AppendAndSignOut(source).SignIn(source).TryToClose();
@@ -47,19 +45,15 @@ unit.AddAndCloseLast(new WrapSymbol(unit.Template)).AppendAndSignOut(source).Sig
 
 # class WrapSymbolReorganization extends Reorganization
 
-原 C# 是嵌套类 `WrapSymbol.Reorganization`（M32 展平改名）。
-
 它做的事就是**把 `WrapSymbol` 从单元列表里删掉**——软换行不参与语法结构。
 
 ## static readonly field Instance:WrapSymbolReorganization = new WrapSymbolReorganization()
 
-唯一的实例。原 C# 是静态属性 `public static Reorganization Instance { get; } = new();`，按 M19 落成静态只读字段，调用点形态不变。
+唯一的实例。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `WrapSymbol`。
-
-原 C# 用 `units.Get(index) is WrapSymbol`；`Get` 是 `ListExtension` 的扩展方法，ts 侧写成模块级函数（M11）。
 
 ```ts
 return Get(units, index) instanceof WrapSymbol;
@@ -69,7 +63,7 @@ return Get(units, index) instanceof WrapSymbol;
 
 把 `index` 处的 `WrapSymbol` 删掉，**返回新的下标**。
 
-原 C# 是 `void Process(…, ref int index)`：删一个元素后 `index--`，让外层 `for` 的自增抵消掉，从而不跳过下一个单元。按 M15 改成返回值。
+删一个元素后返回 `index - 1`，让外层 `for` 的自增抵消掉，从而不跳过下一个单元。
 
 ```ts
 units.splice(index, 1);
@@ -80,15 +74,15 @@ return index - 1;
 
 软换行符号。
 
-原 C# 侧是 `public class WrapSymbol : BlockToken<char>`。按 M31，`char` 在规范里写 `string`。
+单元值类型是单字符的 `string`。
 
 ## static readonly field AppendIn:WrapSymbolBranch = new WrapSymbolBranch()
 
-把 `WrapSymbolBranch` 注册进通用跳转队列用的实例。原 C# 是 `public static Branch AppendIn { get; } = new();`——这里的 `Branch` 指的是嵌套的那个 `Branch` 类。
+把 `WrapSymbolBranch` 注册进通用跳转队列用的实例。
 
 ## constructor:(Template:Template)=>void
 
-原 C# 只是转调基类构造器。
+转调基类构造器。
 
 ```ts
 super(Template);
@@ -97,8 +91,6 @@ super(Template);
 ## method IsAppend:(Src:Source)=>bool
 
 软换行永远不把字符并进自己——每个 `\n` 都是独立的一个单元。
-
-原 C# 是 `public override bool IsAppend(Source<char> Src) => false;`。
 
 ```ts
 return false;
@@ -116,7 +108,7 @@ this.Closed = true;
 
 产出**自闭合**标签，不带文本。
 
-原 C# 是 `public override string ToXmlString() { string Name = GetType().Name; return $"<{Name} />"; }`——注意与基类的 `<Name>…</Name>` 不同，这里是 `<Name />`。这一处直接决定 XML 产物，是验收核心。
+注意与基类的 `<Name>…</Name>` 不同，这里是 `<Name />`；标签名取运行时类名。这一处直接决定 XML 产物。
 
 ```ts
 const name = this.constructor.name;
@@ -127,7 +119,7 @@ return `<${name} />`;
 
 克隆自身。
 
-原 C# 的顺序是：`Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `Temp.AddRange(Temp)` → `TryToClose()`。注意 `Add` 传的是**一批克隆出来的子单元**，所以 ts 侧用 `AddRange`（M14(c)：C# 的 `Add<T>(IEnumerable<T>)` 重载改名 `AddRange`）。
+顺序是：`Sign(this)` → 把 `Data` 里每个子单元克隆后整批加入 → 把 `Temp` 展开推入自身 → `TryToClose()`；批量加入用 `AddRange`。
 
 ```ts
 const result = new WrapSymbol(this.Template);

@@ -14,13 +14,11 @@ import { Symbol } from "./symbol.xl.md"
 
 空条件运算符 `?.`：把「`?.` 之后到下一个运算符为止」的一段收成一个单元。
 
-原 C# 侧是 `public class NullConditionalOperator : IndependentToken<char>`。构造时从模板取自己的重组队列。
+构造时从模板取自己的重组队列。
 
-按 M33，展平的嵌套类 `NullConditionalOperator.Reorganization` 写在 `NullConditionalOperator` 之前。
+`NullConditionalOperatorReorganization` 写在 `NullConditionalOperator` 之前。
 
 # class NullConditionalOperatorReorganization extends Reorganization
-
-原 C# 是嵌套类 `NullConditionalOperator.Reorganization`（M32 展平改名）。
 
 `Previous` 只认内容恰好是 `?.` 的 `Symbol`。
 
@@ -41,17 +39,17 @@ return current instanceof Symbol && current.Is("?.");
 
 从 `?.` 之后一路收集到下一个「断点」，收成一个单元，**返回新的下标**。
 
-原 C# 是 `void Process(…, ref int index)`，按 M15 改成返回值。要点：
+要点：
 
 - 断点由 `SearchBack` 从 `index + 1` 往后找：`?.`、`??`、`&&`、`||`、`;`、`,`，或任何**比较符号**。
 - 找不到断点（返回 `-1`）时，`count` 取「剩下全部」；否则取 `endIndex - index - 1`。
-- 收集用 `TakeRange(index + 1, count)`——**取出但不移除**，随后靠 `ReplaceAt` 一次性替换。
+- 取区间用 `TakeRange(units, index + 1, count)`（取出不移除），随后靠 `ReplaceCountAt` 一次性替换。
 - 签出时：收到东西就签到最后一个子单元，一个都没收到就签回 `?.` 自己。
 
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Symbol)) {
-  throw new Error("NullReferenceException: current");
+  throw new Error("current 为空");
 }
 const endIndex = SearchBack(units, index + 1, (item) => {
   if (item instanceof Symbol) {
@@ -100,7 +98,7 @@ return nextIndex;
 
 ## constructor:(template:Template)=>void
 
-原 C# 在构造器里执行 `ReorganizationQueue = template.ReorganizationTemplate.Get(GetType());`；`GetType()` 按 M17 写成 `this.constructor`。
+构造器里取本类型的重组队列；运行时类型用 `this.constructor`。
 
 ```ts
 super(template);
@@ -111,7 +109,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 
 克隆自身。
 
-原 C# 的顺序是 `Sign(this)` → `Add(Data.Select(item => item.Clone()))` → `TryToClose()`；批量 `Add` 按 M14(c) 写成 `AddRange`。
+顺序是 `Sign(this)` → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
 
 ```ts
 const result = new NullConditionalOperator(this.Template);

@@ -14,7 +14,7 @@ import { SourceRange } from "../../core/syntax/source-range.xl.md"
 
 文本文档：值来自一个字符串。
 
-原 C# 侧是 `public class TextDocument : Document<char>`，构造时把 `index => content[index]` 与 `() => content.Length` 两个 lambda 传给基类当取值器。按 M31，C# 的 `char` 在规范里写 `string`。
+构造时把 `index => content[index]` 与 `() => content.length` 两个取值器传给基类；规范里单元值类型写作 `string`。
 
 除了基类要求的「取值 / 取长度」，它还把整段文本按行切开缓存起来，供 `GetLine` / `GetLineInfo` / `GetRangeLines` 使用。`GetRangeLines` 就是异常信息里那段带 `^` 下划线的文本的来源。
 
@@ -28,13 +28,11 @@ import { SourceRange } from "../../core/syntax/source-range.xl.md"
 
 ## field LineStartOffsets:Array<int> = []
 
-每一行起始下标。原 C# 侧是私有字段 `int[] LineStartOffsets`。
+每一行起始下标。
 
 ## constructor:(content:string)=>void
 
 以文本创建，并把两个取值器交给基类。
-
-原 C# 签名是 `TextDocument(IOwner owner, string content) : base(owner, index => content[index], () => content.Length, null)`。
 
 ```ts
 super((index: number) => content[index], () => content.length, null);
@@ -60,7 +58,7 @@ this.LineStartOffsets = offsets;
 
 ## method ToString:()=>string
 
-原 C# 是 `public override string ToString() => Content;`。
+整篇源码文本。
 
 ```ts
 return this.Content;
@@ -68,7 +66,7 @@ return this.Content;
 
 ## method GetScriptPath:()=>string
 
-原 C# 是 `public override string GetScriptPath() => FilePath;`。
+脚本自身的路径。
 
 ```ts
 return this.FilePath;
@@ -78,9 +76,9 @@ return this.FilePath;
 
 把范围所在的那一行连同下一行 `^` 下划线一起输出。
 
-原 C# 的处理：先把整段文本按 `\n` 切行（`\r` 直接丢掉），再找到起点所在行，输出该行、换行、一串与行等长的 `^`（落在 `[startIndex, endIndex]` 内的位置是 `^`，其余是空格），最后在有 `FilePath` 时追加 `at file: <路径>:<行号>`。
+处理方式：先把整段文本按 `\n` 切行（`\r` 直接丢掉），再找到起点所在行，输出该行、换行、一串与行等长的 `^`（落在 `[startIndex, endIndex]` 内的位置是 `^`，其余是空格），最后在有 `FilePath` 时追加 `at file: <路径>:<行号>`。
 
-注意 `\r` 被丢弃但**不计入行内容**，所以列位置与原始文本可能差一个——这是原实现的行为，照抄。
+注意 `\r` 被丢弃但**不计入行内容**，所以列位置与原始文本可能差一个。
 
 ```ts
 if (range.Start === null) {
@@ -139,7 +137,7 @@ return result;
 
 同上，但每一行都加上 `line <行号>: ` 前缀。
 
-原 C# 的 `GetRangeLines` 与 `GetRangeString` 是两份几乎一样的代码，差别只在行前缀。这里保持同样的结构。
+`GetRangeLines` 与 `GetRangeString` 是两份几乎一样的代码，差别只在行前缀；这里保持同样的结构。
 
 ```ts
 if (range.Start === null) {
@@ -198,7 +196,7 @@ return result;
 
 ## method GetRaw:(start:int, end:int)=>string
 
-原 C# 是 `public override string GetRaw(int start, int end) => Content.Substring(start, end - start + 1);`——注意是**闭区间**。
+取 `[start, end]` 上的原文——注意是**闭区间**。
 
 ```ts
 return this.Content.substring(start, end + 1);
@@ -208,7 +206,7 @@ return this.Content.substring(start, end + 1);
 
 下标所在行号。
 
-原 C# 用 `LineStartOffsets` 线性扫描：找到第一个「比 `index` 大」的行起点，返回它前一行；都没找到就是最后一行。注意下标为 `0` 时会返回 `-1`（`i - 1` 且 `i == 0`）——这是原实现的行为，照抄。
+用 `LineStartOffsets` 线性扫描：找到第一个「比 `index` 大」的行起点，返回它前一行；都没找到就是最后一行。注意下标为 `0` 时会返回 `-1`（`i - 1` 且 `i == 0`）。
 
 ```ts
 if (index < 0 || index >= this.Content.length) {
@@ -242,7 +240,7 @@ return index - this.LineStartOffsets[this.LineStartOffsets.length - 1];
 
 下标所在行的 `[行号, 行内偏移]`。
 
-原 C# 返回元组 `(int line, int lineOffset)`，按 M25 映射成 `Array<int>`。
+行号与行内偏移合成一个两元组，类型是 `Array<int>`。
 
 ```ts
 if (index < 0 || index >= this.Content.length) {
