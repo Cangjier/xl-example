@@ -19,6 +19,7 @@
 | 映射类型的成员 `{ [K in keyof T]: V }` | 在 TS 里是 `MappedTypeNode`，`K` 是**类型参数**而不是 `PropertySignature`；产物那边是正确的（一个 `Field`） |
 | catch 子句的绑定 | 对应 `CatchDefine`，不是 `Let` |
 | 构造签名被 `<New>` 包住 | 按**后代**计数，不是只看直系（`Signature Kind="construct"` 里有 `<New>`） |
+| 成员位的 `abstract new (): A` | TypeScript 把它读成「名字叫 `new` 的方法」（`MethodSignature modifiers=[abstract]`），本工程读成**抽象构造签名**（`<Signature Kind="construct">` 里带 `abstract`）。类型位两边一致（TS 那边是带 `abstract` 的 `ConstructorType`），只有成员位这一处口径不同 |
 
 ## 二、真缺里混着的「口径差」——不是解析器的问题
 

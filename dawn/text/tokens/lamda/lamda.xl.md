@@ -147,6 +147,21 @@ return false;
 几处实现说明：
 
 - 语句体截断用数组原生的 `slice(index + 1, endIndex + 1)`。
+- **终止用的 `;` 不属于箭头函数的体**：`Statement.SearchStatementEnd` 把 `;` 也算作语句结束符并**返回它的下标**，
+  于是 `() => 1;` 的体会连 `;` 一起吞掉。整体上看不出问题（`LamdaBody` 关的时候那个孤零零的 `;`
+  被语句重组的早退删掉了），可它把**外层的分号也一起吃了**——
+  `for (; () => 1; ) {}` 的条件括号里本来就只有两个 `;`，少一个之后
+  `ForReorganization.Process` 找不到第二段，直接抛「`(...)`中语句不满足格式要求」。
+  所以收尾统一把末尾的 `;` 一路退掉，把它们留在外面（**循环退**：`for (() => 1; ; )` 的实参列表
+  那条分支会退到最后一个单元，那里连着两个 `;`）。
+  **这一步必须在两条分支合流之后做**：实参列表那条分支（`IsObject` / `IsMethod`）
+  在找不到 `,` 时也会退到 `units.length - 1`，那个位置同样可能是外层语句的 `;`——
+  `for (; () => 1; ) {}` 走的正是这一条（`=>` 的父亲是 `for` 的条件括号，被 `IsMethod` 认成实参列表）。
+  退格要求 `endIndex > index + 1`，免得把 `() => ;` 这种非法输入退到 `=>` 自己身上。
+  **不能无条件改用 `SearchStatementEnd` 兜底**：实参列表里 `1` 换行再 `+ 2` 时，
+  它会在那个软换行上判出语句结尾，`+ 2` 就被漏在箭头函数外面了。
+  所以兜底只认**落在 `;` 上**的那次结果——那说明这是 `for (…)` 头，
+  其余情况仍旧一路收到实参列表末尾。
 - 抛错一律用 `new Error(...)`（不进规范类型位）——形参形态认不出来时抛 `参数错误`。
 - `JsonObjectReorganization.IsObject` 是单参数版（`IsObjectAt` 才是列表版）。
 - `current?.Parent` 可能是 `undefined`，而 `IsObject` / `IsMethod` 的形参只接受 `null`，所以补 `?? null`。
@@ -240,6 +255,14 @@ if (next instanceof Bracket && next.StartBracketChar === "{") {
     endIndex = SearchBack(units, index + 1, (x) => x instanceof Symbol && x.Is(","));
     if (endIndex !== -1) {
       endIndex--;
+    } else {
+      const statementEnd = Statement.SearchStatementEnd(units, index);
+      const statementEndUnit = Get(units, statementEnd);
+      if (statementEndUnit instanceof Symbol && statementEndUnit.Is(";")) {
+        endIndex = statementEnd;
+      } else {
+        endIndex = units.length - 1;
+      }
     }
   } else {
     endIndex = Statement.SearchStatementEnd(units, index);
@@ -247,7 +270,13 @@ if (next instanceof Bracket && next.StartBracketChar === "{") {
   if (endIndex === -1) {
     endIndex = units.length - 1;
   }
-  body.AddRange(units.slice(index + 1, endIndex + 1));
+  while (endIndex > index + 1) {
+    const endUnit = Get(units, endIndex);
+    if (!(endUnit instanceof Symbol) || !endUnit.Is(";")) {
+      break;
+    }
+    endIndex = endIndex - 1;
+  }  body.AddRange(units.slice(index + 1, endIndex + 1));
   body.SignIn(Get(units, index + 1)!.SourceRange.Start!);
   body.SignOut(Get(units, endIndex)!.SourceRange.End!);
   result.SignOut(Get(units, endIndex)!.SourceRange.End!);

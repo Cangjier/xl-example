@@ -8,8 +8,26 @@ tests/parse/
   known-gaps.json        已知缺口台账：登记在案的失败用例，修好后必须从台账里删掉
   validate.mjs           用例体检（只检查用例本身合不合格，不评判解析器）
   run.mjs                跑全部用例，与台账比对，输出缺口清单
-  differential.mjs       用 TypeScript 自带 AST 做差分，自动找没人想到的缺口
+  differential.mjs       用 TypeScript 自带 AST 做差分，自动找没人想到的缺口（比**构造个数**）
+  matrix.mjs             构造矩阵：`上下文 × 构造` 全组合（比**构造在不同上下文里的行为**）
+  lossless.mjs           无损性：源码里的标识符与字面量值是否还出现在产物里（比**内容**）
+  gap-dashboard.mjs      逐文件对账「TS 侧构造集合 vs 产物侧标签集合」（比**净额的方向**）
+  probe.mjs              最小片段探针：并排打印 TS AST 与产物 XML，用来定位单条缺口
+  suggest.mjs            从差分结果里挑出还没写用例的构造
 ```
+
+四把尺子是互补的，**任何一把红都不算「完整解析」**：
+
+| 工具 | 口径 | 抓的是什么 |
+| --- | --- | --- |
+| `run.mjs` | 手写期望值 | 已经想到的构造有没有做对 |
+| `differential.mjs` | 源码构造数 − 产物节点数 | 哪一类节点整片没产出（净额） |
+| `matrix.mjs` | 上下文 × 构造 | 同一构造换到别的上下文里会不会翻车 |
+| `lossless.mjs` | 名字与字面量的值 | 产物里有没有内容被吃掉（不需要标签映射） |
+
+`matrix.mjs` 与 `lossless.mjs` 不需要手写期望值：前者把候选先交给 TypeScript 判定是不是合法 TS
+（非法的直接跳过），合法的才查「不抛异常 / 内容不丢 / XML 嵌套良好 / 没有未转义的 `<`」；
+后者直接拿 TypeScript 的 AST 抽名字与字面量，逐字找。
 
 ## 加一条用例
 
@@ -73,7 +91,26 @@ node tests/parse/run.mjs --verbose     # 打印每条用例的产物
 node tests/parse/run.mjs --json out.json
 node tests/parse/run.mjs --adopt       # 把当前失败用例写进台账（新增用例时用）
 node tests/parse/differential.mjs      # 差分找缺口（真实语料，无需期望值）
+node tests/parse/matrix.mjs            # 上下文 × 构造 全组合（真实语料，无需期望值）
+node tests/parse/matrix.mjs --filter arrow --show
+node tests/parse/lossless.mjs          # 内容无损（真实语料 + 用例语料，无需期望值）
+node tests/parse/lossless.mjs real     # 只跑真实语料
 ```
+
+`matrix.mjs` 与 `lossless.mjs` 的退出码是「有问题 = 1」，可以直接当 CI 判据。
+
+## 写用例的几条实战经验
+
+- **`xl:absent Statement` 基本用不了**：指令注释自己会形成 `Statement`
+  （`<Statement><LineAnnotation>…</LineAnnotation></Statement>`），
+  所以「某节点不该被包进 `Statement`」这类断言要用**计数**表达——
+  `xl:expect Statement:2`（两条指令注释各占一个）而不是 `xl:absent Statement`。
+- **计数断言要按当前产物校准**，但期望值写的仍是「TypeScript 解析正确时本该有的结构」：
+  两个数字决定的是**能不能区分对错**，不是「现状是什么」。
+  例如 `const a = .5;` 里 `Symbol` 只有 `=`（`;` 本来就不进产物），
+  被拆坏时 `.` 会多出一个 `Symbol`——于是 `Symbol:1` 正好钉住它。
+- **拿不准就往 `matrix.mjs` / `lossless.mjs` 上加料**，别硬写成例：
+  那两把尺子不需要维护期望值，回归时自己会红。
 
 ## 台账怎么用
 

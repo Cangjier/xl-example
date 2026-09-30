@@ -43,6 +43,13 @@ import { Symbol } from "./symbol.xl.md"
 `@(expr)` 完全不成装饰器——产物是散开的 `<Symbol>@</Symbol><Bracket>(…)</Bracket>`。
 名字与括号不会同时出现（`@dec()` 的 `@` 后面是 `dec`，不是 `(`），所以两支可以并列。
 
+**`@'字面量'` 不是装饰器，别往这里加**：本项目的字符串词法把 `@` 当作**逐字字符串前缀**
+（`StringGuideBranch.Success` 会 `Undo` 掉引号前的 `@` 并置 `IsSupportVerbatim`，见
+`string/string-guide.xl.md`），所以 `@'a'` 在词法阶段就已经是**一个 String 单元**，
+到不了本规则；`@` 也不会以独立 `Symbol` 的身份留在列表里。
+真接下去会出事的是 `@dec @'a' class C {}`：装饰器扫描一旦多认一个 `String`，
+那个逐字字符串就会被**收进 `dec` 这个装饰器里**（实测）。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Symbol) || !current.Is("@")) {

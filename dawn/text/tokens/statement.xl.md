@@ -4,7 +4,7 @@ import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt, SearchBackIndexed, SearchFront, SkipNext } from "../../../core/extensions/list-extension.xl.md"
+import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../../core/extensions/list-extension.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
@@ -19,6 +19,7 @@ import { Interface } from "./interface/interface.xl.md"
 import { Label } from "./label.xl.md"
 import { MethodDeclaration } from "./function/method-declaration.xl.md"
 import { Symbol } from "./symbol.xl.md"
+import { Signature } from "./signature/signature.xl.md"
 import { Switch } from "./switch/switch.xl.md"
 import { Try } from "./try/try.xl.md"
 import { While } from "./while/while.xl.md"
@@ -89,13 +90,7 @@ return true;
 `units` 直到最后的替换才被改写，所以用 `slice` 取快照是安全的。
 
 ```ts
-const frontIndex = SearchFront(units, index, (item) => {
-  const isStatementSymbol = item instanceof Symbol && item.Template.SymbolTemplate.IsStatementSymbol(item.TempToString());
-  if (isStatementSymbol) {
-    return true;
-  }
-  return Statement.IsStatementUnit(item);
-});
+const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
 const children = units.slice(frontIndex + 1, index + 1);
 if (children.length === 1) {
   units.splice(index, 1);
@@ -162,13 +157,7 @@ const currentIsInEnd = units.length - 1 === index;
 const current = Get(units, index);
 const currentIsStatementSymbol = current instanceof Symbol && template.SymbolTemplate.IsStatementSymbol(current.TempToString());
 if (currentIsInEnd) {
-  const frontIndex = SearchFront(units, index, (item) => {
-    const isStatementSymbol = item instanceof Symbol && item.Template.SymbolTemplate.IsStatementSymbol(item.TempToString());
-    if (isStatementSymbol) {
-      return true;
-    }
-    return Statement.IsStatementUnit(item);
-  });
+  const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
   const children = units.slice(frontIndex + 1, index + 1);
   if (children.length === 1) {
     units.splice(index, 1);
@@ -193,13 +182,7 @@ if (!currentIsStatementSymbol && Statement.IsInStatement(units, index)) {
   units.splice(index, 1);
   return index - 1;
 }
-const frontIndex = SearchFront(units, index, (item) => {
-  const isStatementSymbol = item instanceof Symbol && item.Template.SymbolTemplate.IsStatementSymbol(item.TempToString());
-  if (isStatementSymbol) {
-    return true;
-  }
-  return Statement.IsStatementUnit(item);
-});
+const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
 const children = units.slice(frontIndex + 1, index + 1);
 if (children.length === 1) {
   units.splice(index, 1);
@@ -243,13 +226,7 @@ return units.length - 1 === index;
 注意「什么都不做」的那条早退不动下标，所以返回原 `index`。
 
 ```ts
-const frontIndex = SearchFront(units, index, (item) => {
-  const isStatementSymbol = item instanceof Symbol && item.Template.SymbolTemplate.IsStatementSymbol(item.TempToString());
-  if (isStatementSymbol) {
-    return true;
-  }
-  return Statement.IsStatementUnit(item);
-});
+const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
 const children = units.slice(frontIndex + 1, index + 1);
 if (children.length === 1 && Statement.IsStatementUnit(children[0])) {
   return index;
@@ -302,10 +279,16 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 把它补进表里，让「声明站在根下」这条规则对 `Interface` 与 `Class` 一视同仁。
 `Field` 是成员节点，不加的话同一个类体里相邻的两个字段会被折进同一个 `Statement`。
 
+`Signature` 同理，而且它比 `Field` 更早暴露：无名成员签名（`interface I { (): void }`）在不在表里时
+会被包成 `<Statement><Signature …/></Statement>`，而紧邻它的 `Field` / `MethodDeclaration` 都是**直接**
+站在 `InterfaceBody` 下——同一个体里两种成员两种层级，`type T = { abstract new (): A; b: number }`
+还会把 `abstract` 与后面的 `Field` 一起卷进同一个 `Statement`。
+
 `Label` 也在表里：标签与它标的那条语句是**两个平级单元**（见 `./label.xl.md` 的说明），
 不把 `Label` 当边界，`StatementReorganization3` 会把两者一起收进一个 `Statement`。
 
-这个判定是「语句从这里断开」的三个调用点共用的（`StatementReorganization` / `2` / `3` 里的 `SearchFront`），
+这个判定是「语句从这里断开」的**四个**调用点共用的（`StatementReorganization` / `2` 的两条分支 / `3` 里的
+`SearchFrontIndexed`，判定器统一转调 `IsStatementBoundary`），
 所以它决定了声明能不能作为独立节点站在 `Root` / `ClassBody` / 函数体里。
 
 ```ts
@@ -322,8 +305,68 @@ return item instanceof IfSet
   || item instanceof Enum
   || item instanceof MethodDeclaration
   || item instanceof Field
+  || item instanceof Signature
   || item instanceof Switch
   || item instanceof Label;
+```
+
+## static method IsStatementBoundary:(units:Array<Token>, index:int)=>bool
+
+`index` 处的单元是不是**一条语句从这里开始**——四个 `SearchFrontIndexed` 调用点共用的边界判定。
+
+比 `IsStatementUnit` 多一条：**`Function` / `Class` 只有在声明位置才算边界**。
+
+不加这条会出真 bug（实测）：`const v = function () {} && y;` 里那个函数是**表达式**，
+可 `Function` 在 `IsStatementUnit` 里是无条件边界，于是往后找语句头时**停在了它身上**，
+`&& y` 被单独收成一个 `Statement`；那个 `Statement` 的 `Data` 以 `&&` 打头，
+`LogicalOperatorReorganization` 攒不到左操作数，直接抛「LogicalOperator 为空」。
+`class` 同理（`const v = class {} && y;`）。
+
+```ts
+const item = Get(units, index);
+if (item === null) {
+  return false;
+}
+if (item instanceof Symbol) {
+  return item.Template.SymbolTemplate.IsStatementSymbol(item.TempToString());
+}
+if (Statement.IsStatementUnit(item) === false) {
+  return false;
+}
+if (item instanceof Function || item instanceof Class) {
+  return Statement.IsDeclarationPosition(units, index);
+}
+return true;
+```
+
+## static method IsDeclarationPosition:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `Function` / `Class` 是不是落在**声明位置**（而不是运算符右边的表达式位置）。
+
+只看**前一个实义单元**（跨过软换行）：
+
+- 前面没有单元 → 是（列表开头就是一条声明的开头）；
+- 前面是 `;` → 是；
+- 前面是 `}` → 是（`{ … } class A {}` 这种紧随块之后）；
+- 前面是语句级单元（`Statement` / `Interface` / 另一个 `Function` …）→ 是；
+- 其余（`=` / `&&` / `,` / `(` / `return` …）→ 不是，那是表达式。
+
+```ts
+const previousIndex = SkipPreviousWrapSymbol(units, index);
+if (previousIndex < 0) {
+  return true;
+}
+const previous = Get(units, previousIndex);
+if (previous === null) {
+  return true;
+}
+if (previous instanceof Symbol) {
+  return previous.Template.SymbolTemplate.IsStatementSymbol(previous.TempToString());
+}
+if (previous instanceof Bracket) {
+  return previous.StartBracketChar === "}";
+}
+return Statement.IsStatementUnit(previous);
 ```
 
 ## static method IsInStatementSymbol:(symbol:Symbol)=>bool

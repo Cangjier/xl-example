@@ -10,6 +10,8 @@ import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Common } from "./common.xl.md"
 import { GenericType } from "./generic-type.xl.md"
+import { JsonArray } from "./json/json-array.xl.md"
+import { JsonObject } from "./json/json-object.xl.md"
 import { WrapSymbol } from "./wrap-symbol.xl.md"
 ```
 
@@ -78,6 +80,35 @@ if (next instanceof Common) {
 return next instanceof Bracket && (next.Is("[", "]") || next.Is("{", "}"));
 ```
 
+## private method CollectFieldNames:(unit:Token)=>Array<string>
+
+把一个解构括号里的**所有**名字收集出来——**递归**进嵌套括号。
+
+`let` 记的是「解构出来的字段名」，而解构是可以嵌套的：
+`const [[a, b], [, c = 0]] = m` 的 `a` / `b` / `c` 都在**内层**括号里。
+只看直系子单元的话，整个模式匹配不出一个 `Common`，
+`unpackArrayFieldNames` 是空串——**嵌套解构的绑定名整体丢失**（实测）。
+递归之后内层的名字照旧进同一张表，与顶层同名同形。
+
+只收集 `Common`：符号、嵌套括号本身不进表（括号靠递归展开）。
+
+**三种容器都要认**：`Bracket`、`JsonArray`、`JsonObject`。
+内层数组在值位被 `JsonArrayReorganization` 收成了 `JsonArray`（它不是 `Bracket` 的子类），
+内层对象同理是 `JsonObject`——只认 `Bracket` 的话 `const [[a, b], [, c = 0]] = m`
+递归一层就断了，名字还是空串（实测）。
+
+```ts
+const result: string[] = [];
+for (const item of unit.Data) {
+  if (item instanceof Common) {
+    result.push(item.TempToString());
+  } else if (item instanceof Bracket || item instanceof JsonArray || item instanceof JsonObject) {
+    result.push(...this.CollectFieldNames(item));
+  }
+}
+return result;
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把整段声明收成一个 `Let`，**返回新的下标**。
@@ -91,7 +122,7 @@ return next instanceof Bracket && (next.Is("[", "]") || next.Is("{", "}"));
   不记的话 `export const a = 1` 与 `const a = 1` 的产物完全一样，修饰信息整体丢失。
 - `endIndex` 由 `SkipNext(units, index)` 得到——这是 `../list-extensions.xl.md` 里跳过「软换行与注释」的那个版本。
 - 终点单元的形态决定 `LetType`：`Common` → `Field`（记 `FieldName`）；`[]` → `Array`（记 `UnpackArrayFieldNames`）；`{}` → `Object`（记 `UnpackObjectFieldNames`）；三者都不是就抛错。
-- 两组解构名都是「括号子单元里所有 `Common` 的文本」。
+- 两组解构名都是「括号子单元里所有 `Common` 的文本」，**递归**进嵌套括号（见 `CollectFieldNames`）。
 - 最后批量替换用四参数的 `ReplaceCountAt`（三个参数的版本才叫 `ReplaceAt`），返回的 `startIndex` 就是新下标；被替换掉的两个单元不再显式释放，交给 GC。
 
 新单元的局部变量叫 `letUnit`：`let` 在 ts 里是关键字，不能当变量名。
@@ -141,10 +172,10 @@ if (next instanceof Common) {
   letUnit.LetType = LetType.Field;
 } else if (next instanceof Bracket) {
   if (next.Is("[", "]")) {
-    letUnit.UnpackArrayFieldNames = next.Data.filter((item) => item instanceof Common).map((item) => (item as Common).TempToString());
+    letUnit.UnpackArrayFieldNames = this.CollectFieldNames(next);
     letUnit.LetType = LetType.Array;
   } else if (next.Is("{", "}")) {
-    letUnit.UnpackObjectFieldNames = next.Data.filter((item) => item instanceof Common).map((item) => (item as Common).TempToString());
+    letUnit.UnpackObjectFieldNames = this.CollectFieldNames(next);
     letUnit.LetType = LetType.Object;
   }
 } else {

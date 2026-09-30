@@ -15,7 +15,9 @@
     "cjcli": "node ./build/ts/cjcli.js",
     "cases:check": "node ./tests/parse/validate.mjs",
     "cases:run": "node ./tests/parse/run.mjs",
-    "cases:diff": "node ./tests/parse/differential.mjs"
+    "cases:diff": "node ./tests/parse/differential.mjs",
+    "cases:matrix": "node ./tests/parse/matrix.mjs",
+    "cases:lossless": "node ./tests/parse/lossless.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

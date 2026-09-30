@@ -66,7 +66,11 @@ return true;
 - 一路没遇到终止符就把 `endIndex` 取成 `units.length - 1`。
 - 收集期间每个单元都要非空，取不到就抛错。
 - 新单元用**当前单元**（`index` 处那个）作为 `Parent` 的来源：先 `new` 再赋值。
-- 收集到的一批单元用 `AddRange` 整批加入；终点取**最后一个收集项**的 `End`。收集为空时这里直接取下标会抛异常，不额外兜底。
+- 收集到的一批单元用 `AddRange` 整批加入；终点取**最后一个收集项**的 `End`。
+- **收集为空时什么都不做、返回原下标**：冒号后面直接就是终止符（`units[index + 1]` 是 `;` / `,` / 赋值符号）
+  会走到这里。少了这一步，`items[items.length - 1]` 取的是 `items[-1]` → `undefined`，
+  下一句读 `.SourceRange` 就抛**裸 `TypeError`**（实测：返回类型被 `import` / `abstract` 截断时
+  `ReturnType` 里只剩一个冒号，就是这个形状）。空 `TypeDefine` 不携带信息，不如不动。
 - 批量替换用四参数的 `ReplaceCountAt`（三个参数的版本才叫 `ReplaceAt`），返回的 `index` 就是新下标。
 
 ```ts
@@ -93,6 +97,9 @@ for (let i = index + 1; i < units.length; i++) {
 }
 if (endIndex === -1) {
   endIndex = units.length - 1;
+}
+if (items.length === 0) {
+  return index;
 }
 const result = new TypeDefine(template);
 result.Parent = current.Parent;

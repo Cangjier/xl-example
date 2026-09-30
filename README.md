@@ -21,6 +21,24 @@ node build/ts/cjcli.js samples/hello.ts
 
 `npm run build` 是前两步的串联（`xl build && tsc`）。
 
+改完规范之后，验收是这五步：
+
+```bash
+xl check               # 结构与规则检查
+npm run build          # xl build && tsc
+npm run samples        # 样本夹具逐字节对照
+npm run cases:check    # 用例体检（用例本身合不合格）
+npm run cases:run      # 用例对解析器（台账必须仍然是空的）
+```
+
+再跑三把「不需要期望值」的尺子（CI 判据，有问题退出码 1）：
+
+```bash
+npm run cases:diff       # 与 TypeScript 自带 AST 的构造数差分
+npm run cases:matrix     # 上下文 × 构造 全组合
+npm run cases:lossless   # 名字与字面量的值有没有被吃掉
+```
+
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
 `build/ts/cjcli.js`——产物路径里的 `ts/` 来自**目标语言目录**，不是 `rootDir` 多出来的一层。
 `exclude: ["dist/cpp"]` 是必要的：`dist/cpp/build/CMakeFiles/**/compiler_depend.ts` 是 CMake 的时间戳文件、
@@ -91,11 +109,12 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `switch (x) { case 1: … default: … }` | `<Switch>` `<SwitchCompare>` `<SwitchSegment Key>` `<SwitchCase>` `<SwitchStatement>` | — |
 | `@Component({…})` | `<Decorator>` | `DecoratorName` |
 | `outer:` | `<Label>`（自闭合） | `LabelName` |
-| `let` / `const` / `var`（含解构） | `<Let>`（自闭合） | `fieldName` / `unpackArrayFieldNames` / `unpackObjectFieldNames` |
+| `let` / `const` / `var`（含解构，绑定名**递归**收集） | `<Let>`（自闭合） | `fieldName` / `unpackArrayFieldNames` / `unpackObjectFieldNames` |
 | `if` / `for` / `foreach` / `while` / `do…while` / `try` | `<IfSet>` `<For>` `<Foreach>` `<While>` `<DoWhile>` `<Try>` 及各自的分段 | 见各自文件 |
 | `name(...)`（调用）/ `name: Type`（类型标注） | `<Method>` / `<TypeDefine>` | `MethodName` |
 | `type X = { a: number }` / `let x: { m(): void }`（**类型位**的对象类型） | `<TypeLiteral>` + `<TypeLiteralBody>`（成员是 `Field` / `MethodDeclaration` / `Signature`） | — |
-| `interface I { (a: number): string }` / `new (a: number): I` | `<Signature Kind="call">` / `<Signature Kind="construct">` | `Kind` |
+| `interface I { (a: number): string }` / `new (a: number): I` / `abstract new (a: number): I` | `<Signature Kind="call">` / `<Signature Kind="construct">`（`abstract` 作为签名的第一个子单元收进来） | `Kind` |
+| `import('./m').A` / `typeof import('./m')`（类型位） | `<Method MethodName="import">`（动态 `import()` 是调用，不是声明） | — |
 | 泛型实参段与类型参数段（`Array<T>` / `<T extends X = Y>`） | `<GenericType>` | `StartBracketChar` `EndBracketChar` |
 | 字符串（常量 / 内插 / 逐字 / 原始 / 模板） | `<String>` + `<ConstString>` / `<InterpolationString>` | 见 `tokens/string/` |
 | `async` / `await` / `return` / `throw` / `readonly` … | `<Keyword>` | — |
@@ -130,14 +149,35 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 > `npm run cases:run` 会报告「新增缺口 / 台账过期」，`npm run cases:diff` 用 TypeScript 自带 AST 做差分找缺口。
 > 下面只列结构性的那几条。
 
+**四把尺子**（互相补位，任何一把红都不算「完整解析」）：
+
+| 命令 | 口径 |
+| --- | --- |
+| `npm run cases:run` | 手写期望值：已经想到的构造有没有做对 |
+| `npm run cases:diff` | 源码构造数 − 产物节点数：哪一类节点整片没产出 |
+| `npm run cases:matrix` | `上下文 × 构造` 全组合：同一构造换到别的上下文会不会翻车 |
+| `npm run cases:lossless` | 名字与字面量的值：产物里有没有内容被吃掉 |
+
+后两把不需要维护期望值（候选先交给 TypeScript 判定是否合法 TS），
+`matrix` 覆盖 13889 条候选、`lossless` 覆盖 1246 个文件，退出码都能直接当 CI 判据。
+
+结构性缺口：
+
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label LabelName="outer" /><While>…</While>`）：
-  标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界；块语句上的标签（`outer: { … }`）完全不识别。
-- **`export =` 与 `export default` 没有节点**（`export { … } from` / `export * from` / `export * as ns from` /
-  `export type { … } from` 已经有 `Export` 节点——真实语料 92 处 ExportDeclaration 全部成形）。
-- **`declare module "x" { … }` 没有节点**（标识符形式 `module M { … }` 有 `Namespace` 节点，字符串形式还没有）。
-- **类里的 `static { … }` 块**没有节点。
-- **JSX / TSX** 没有支持。
-- 实测：`node_modules` 下 226 个真实 `.d.ts` + 123 个本项目产物 `.ts` **全部解析成功、零异常**；
+  标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
+- **类里的 `static { … }` 块**没有节点（内容收在 `<Statement><Keyword>static</Keyword><Bracket>{…}</Bracket></Statement>` 里）。
+- **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
+- **不做 ASI**：`const v = x as A` 换行 `y = 2` 在 TypeScript 里是两条语句，这里读成一条。
+  换行只在少数几处（成员边界、声明尾部、`as` 后面的类型折行）被当成边界，见台账 `_notes.asi-not-implemented`。
+- **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
+  `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器
+  （见台账 `_notes.escape-a-bell` / `_notes.at-before-string-is-verbatim`）。
+- **`<RegexToken>` 是空标签**：正则正文与标志在单元的 `Temp` / `Flags` 字段上、刻意不渲染进 XML
+  （见 [dawn/text/tokens/regex-token.xl.md](dawn/text/tokens/regex-token.xl.md)）。
+- **嵌套解构的绑定名进的是同一张逗号分隔表**（`unpackArrayFieldNames`），丢的是**结构**而不是名字：
+  `const [[a, b], [, c = 0]] = m` 记成 `a,b,c,0`。
+- 实测：`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 912 条用例
+  **全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1261 个文件）。
   TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
   JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
 
@@ -202,6 +242,7 @@ node samples/check.mjs --update # 用当前产物重写夹具
   xl check                     # 结构与规则检查
   npm run build                # xl build && tsc
   npm run samples              # 逐字节对照；产物本该变化时用 --update 重写夹具
+  npm run cases:run            # 台账必须仍然是空的
   ```
 
 - 产物头里的 `xl:sha256` 是源指纹：规范一变，产物就会重新生成。

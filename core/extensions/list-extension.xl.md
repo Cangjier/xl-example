@@ -191,6 +191,22 @@ for (let i = index + 1; i < self.length; i++) {
 return -1;
 ```
 
+# method SearchFrontIndexed:<T>(self:Array<T>, index:int, condition:(index:int, item:T)=>bool)=>int
+
+同 `SearchFront`，但判定器同时拿到下标。
+
+`Statement` 的语句边界判定要这个：判断一个 `Function` / `Class` 单元是不是语句开头，
+得看它**前面**那个实义单元是什么（`const v = function () {}` 里的函数是表达式，不是声明）。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  if (condition(i, self[i])) {
+    return i;
+  }
+}
+return -1;
+```
+
 # method TakeOut:<T>(self:Array<T>, startIndex:int, count?:int)=>Array<T>
 
 从 `startIndex` 起**取出并移除** `count` 个元素；`count` 省略时取到末尾。

@@ -2,7 +2,7 @@
 ```xl
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousWrapSymbol, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Common } from "./common.xl.md"
@@ -379,6 +379,58 @@ return (
 );
 ```
 
+# method IsTypeQueryImport:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `import` 是不是**类型位的 `import(...)` 查询**，而不是一条导入声明。
+
+两者词形一样，区别只在后面跟什么：导入声明后面是名字 / `{` / `*` / 字符串，
+类型查询后面一定紧跟 `(`（`import('./m').A` / `typeof import('./m')`）。
+
+**为什么必须区分**：`Import` 在 `IsStatementKeyword` 的终止词表里（它确实是声明开头），
+于是 `declare function f(): import('m').A;` 的返回类型在 `import` 上被截断，
+只剩一个光秃秃的 `:` 进了 `ReturnType`；`TypeDefine` 收不到任何内容，
+反手去取 `items[-1].SourceRange` 抛裸 `TypeError`（实测）。
+
+```ts
+if (!IsWordUnit(Get(units, index), "import")) {
+  return false;
+}
+const next = GetSkipNextWrapSymbol(units, index);
+return next instanceof Bracket && next.StartBracketChar === "(";
+```
+
+# method IsAbstractTypeModifier:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `abstract` 是不是**构造签名类型的一部分**（`abstract new (…) => T`），而不是下一条声明的修饰词。
+
+`abstract` 同时在两处合法：下一条声明的开头（`declare function f(): void` 换行 `abstract class A {}`）
+与抽象构造签名类型（`type X = abstract new () => A`）。
+区分看**前一个实义单元**：类型续接符（`:` / `?:` / `|` / `&` / `(` / `,` / `<` / `=>`）之后
+它一定在类型里；普通类型名之后它是新声明的修饰词。
+
+少了这一条时 `declare function f(): abstract new (a: number) => A;` 会与 `import(...)` 一样被截断，
+最后同样以裸 `TypeError` 收场。
+
+```ts
+if (!IsWordUnit(Get(units, index), "abstract")) {
+  return false;
+}
+const previous = GetSkipPreviousWrapSymbol(units, index);
+if (!(previous instanceof Symbol)) {
+  return false;
+}
+return (
+  previous.Is(":") ||
+  previous.Is("?:") ||
+  previous.Is("|") ||
+  previous.Is("&") ||
+  previous.Is("(") ||
+  previous.Is(",") ||
+  previous.Is("<") ||
+  previous.Is("=>")
+);
+```
+
 # method IsDeclarationTailStop:(units:Array<Token>, index:int)=>bool
 
 声明的返回类型扫到 `index` 处该不该停。
@@ -389,8 +441,12 @@ return (
 - `;` 或赋值符号——声明到此为止（环境声明 / 初始化）；
 - `IsStatementKeyword`——下一条语句的关键字，如 `declare function f(): void` 后面的 `let`；
 - `IsDeclarationBoundary`——已经成形的语句单元，如后面紧跟的那条 `class`。
-
 类型字面量的 `{` **不算停**：`function f(): { a: number } { … }` 里它是一个类型。
+
+**两个「长得像声明开头、其实是类型」的例外**要单独让路（都在上面）：
+
+- `import(...)` 类型查询（`import('./m').A`）；
+- `abstract new (…) => T` 构造签名类型。
 
 ```ts
 const item = Get(units, index);
@@ -399,6 +455,9 @@ if (item instanceof Bracket && item.StartBracketChar === "{") {
 }
 if (item instanceof Symbol && (item.Is(";") || item.Is("="))) {
   return true;
+}
+if (IsTypeQueryImport(units, index) || IsAbstractTypeModifier(units, index)) {
+  return false;
 }
 return IsStatementKeyword(item) || IsDeclarationBoundary(item);
 ```

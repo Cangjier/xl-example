@@ -7,6 +7,9 @@
     "label-container": "Label 按设计是**标记节点**（与被标语句平级，不把它装进去），块语句标签 / 表达式语句标签都识别（blk: { … } / expr: x = 1）。本轮修掉了它带出来的一个真问题：语句位的 { 在第二次扫描时被收成 JsonObject（父亲已是 Statement、而 Statement 不在 IsStatementList 白名单里），现在正确保持成块括号 Bracket，块里补语句队列并当场跑一遍。注意「Label 不含被标语句」这一点与用例里的期望一致，是有意为之。",
     "imports-unstructured": "**已经补上**：Import 现在带 From / IsTypeOnly / DefaultName / NamespaceName / ImportedNames 五个属性，并且覆写了 ToXmlString 把它们渲染进 XML（原来 From 根本没进 XML）。ImportedNames 取的是本地名（B as C 取 C）。剩同类问题在 export 一侧（export 的结构化属性）。",
     "exports-no-node": "export 家族**已经有节点**，第 38 轮又补上了结构化属性：Export 现在带 From / IsTypeOnly / NamespaceName / ExportedNames，并覆写了 ToXmlString 把它们渲染进 XML（原来 From 根本没进 XML）。ExportedNames 取的是**对外名**（export { a as b } 取 b）。至此 import / export 两侧的结构化信息都齐了。",
-    "escape-a-bell": "`\\a` 解成响铃字符（U+0007）而不是字母 `a`：这是本项目语言配置（Cangjie）的取舍，见 translate.xl.md 的转义表。TypeScript 里 `\"\\a\"` 等于 `\"a\"`，要完全对齐 TS 只需把 `case \"a\"` 改掉——属于语言配置问题，不混在语法层修。"
+    "escape-a-bell": "`\\a` 解成响铃字符（U+0007）而不是字母 `a`：这是本项目语言配置（Cangjie）的取舍，见 translate.xl.md 的转义表。TypeScript 里 `\"\\a\"` 等于 `\"a\"`，要完全对齐 TS 只需把 `case \"a\"` 改掉——属于语言配置问题，不混在语法层修。",
+    "at-before-string-is-verbatim": "`@'…'` / `@\"…\"` 在本项目里是**逐字字符串的前缀**（`StringGuideBranch.Success` 会 `Undo` 掉引号前的 `@` 并置 `IsSupportVerbatim`，见 `dawn/text/tokens/string/string-guide.xl.md`），不是 TypeScript 的装饰器。于是 `@'a' class C {}` 的产物是「String + Class」，看不到装饰器。要按 TS 读，得把 `@` 前缀限制在 `\"` 上（Cangjie 的逐字串就是 `@\"…\"`）——属于语言配置问题，与 escape-a-bell 同类。`tests/parse/lossless.mjs` 因此对逐字串接受「反斜杠按产物写法翻倍」的形态。",
+    "regex-body-not-rendered": "`<RegexToken>` 在产物里是**空标签**：正则正文与标志存在单元的 `Temp` / `Flags` 字段上，**刻意不渲染**（见 `dawn/text/tokens/regex-token.xl.md`，那里明确写了「不要给它加 ToXmlString 覆写」）。所以「正则的内容」这一项在 XML 里对不出来；`matrix.mjs` / `lossless.mjs` 对正则只断言「它成了一个 RegexToken」，正文由用例与执行层的 `RegexStep` 负责。",
+    "asi-not-implemented": "本工程**不做 ASI**：`const v = x as A` 换行 `y = 2` 在 TypeScript 里是两条语句，这里会被读成一条（`y` 落进 `As` 里）；`return` 换行 `-1` 同理（产物是一个 `UnaryOperator`）。这与 `label-container` 里那条「换行后的 `{` 按对象字面量收」是同一个口径：换行只在少数几处（成员边界、声明尾部）被当成边界。要完全对齐 TS 需要一套真正的 ASI 规则。"
   }
 }

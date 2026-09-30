@@ -106,6 +106,31 @@ for (let k = index + 2; k < index + 6; k++) {
 return true;
 ```
 
+# method IsLeadingDotNumber:(document:Document, index:number)=>bool
+
+`index` 处的 `.` 是不是**小数点开头的小数**（`.5` / `.5e3`）：当前字符是 `.`，且后一个字符是数字。
+
+**为什么需要它**：`SymbolBranch` 排在 `CommonBranch` 之前，`.` 又是符号，
+所以 `.5` 会被切成 `<Symbol>.</Symbol><Common>5</Common>`——
+数字字面量被拆成两半（探索性差分实测 49 处组合上下文）。
+`Common` 那边还要认它一次（同一个判据），因为 `=` 后面直接跟 `.5` 时没有可续写的 `Common`，
+必须**新开**一个。
+
+**`...` 的排除不在这里**：`..` 与 `...` 都是组合符号（见 `core/syntax/templates/symbol-template.xl.md`），
+`......` 那样的点串里「第几个点还算 `...`」要看**上一个单元能不能续写**——
+只有 `SymbolBranch` 拿得到上一个单元，所以那一条判据放在它那里（`IsAppend` 为真就不让路）。
+
+```ts
+if (document.GetValue(index) !== ".") {
+  return false;
+}
+if (index + 1 >= document.GetCount()) {
+  return false;
+}
+const next = document.GetValue(index + 1);
+return next >= "0" && next <= "9";
+```
+
 # method DecideBracketContext:(host:Token, openChar:string)=>string
 
 `host` 这个单元里正在打开一个 `{` 或 `[`（`openChar`），它在**类型位**还是**值位**上？返回 `"type"` / `"value"` / `""`。

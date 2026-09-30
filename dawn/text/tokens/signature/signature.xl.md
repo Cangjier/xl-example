@@ -258,6 +258,10 @@ TypeScript 允许成员签名自己带类型参数段：`interface I { <TIn exte
 `new` 词也留着——它是构造签名的标记，丢了就分不出 `Kind`；
 `new` 与括号之间的**类型参数段**（`new <T>(x: T): T` 的 `<T>`）也要搬进去，
 漏掉它 `<T>` 会从产物里整个消失（实测就是这条用例先报的 `缺 GenericType`）。
+**构造签名前面可以有一个 `abstract`**（`abstract new (…) => T`）：它按修饰词处理——
+起点前移一格、作为**第一个子单元**加进来，于是 `abstract` 不再以裸 `<Keyword>` 的身份
+留在成员体里（`interface I { abstract new (): A }` 实测就是这个形状）。
+只有构造签名认它：`abstract` 在 `(` 开头的调用签名上没有意义。
 返回类型单独成一段 `ReturnType`（理由与 `MethodDeclaration` 相同：不然 `TypeDefine` 会从 `:` 一路吞下去）；
 结尾那个可选的 `;` 与尾随软换行一并收进范围。
 
@@ -268,6 +272,16 @@ if (current === null) {
 }
 const isConstruct = current instanceof Common;
 const isGenericCall = current instanceof GenericType;
+let startIndex = index;
+let abstractUnit: Token | null = null;
+if (isConstruct) {
+  const beforeIndex = SkipPreviousWrapSymbol(units, index);
+  const before = Get(units, beforeIndex);
+  if (before instanceof Common && before.Is("abstract")) {
+    abstractUnit = before;
+    startIndex = beforeIndex;
+  }
+}
 let parametersIndex = isConstruct ? SkipNextWrapSymbol(units, index) : index;
 if (isConstruct && Get(units, parametersIndex) instanceof GenericType) {
   parametersIndex = SkipNextWrapSymbol(units, parametersIndex);
@@ -287,6 +301,9 @@ if (tailEnd < 0 || tailStart > tailEnd) {
 const result = new Signature(template);
 result.Parent = current.Parent;
 result.Kind = isConstruct ? "construct" : "call";
+if (abstractUnit !== null) {
+  result.AddAndCloseLast(abstractUnit);
+}
 if (isConstruct || isGenericCall) {
   result.AddAndCloseLast(current);
   for (let i = index + 1; i < parametersIndex; i++) {
@@ -312,11 +329,11 @@ const semicolon = Get(units, memberEnd + 1);
 if (semicolon instanceof Symbol && semicolon.Is(";")) {
   memberEnd = memberEnd + 1;
 }
-result.SignIn(current.SourceRange.Start!);
+result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 const endIndex = DeclarationEnd(units, memberEnd);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();
-return ReplaceCountAt(units, index, endIndex - index + 1, result);
+return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```
 
 # class Signature extends IndependentToken

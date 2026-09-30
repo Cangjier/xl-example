@@ -143,7 +143,8 @@ export const EXCLUDED = [
   ["Parameter@catch 绑定", "catch 的绑定对应 CatchDefine"],
   ["LabeledStatement@ASI 后的对象字面量", "`return` 换行后 `{ a: 1 }`：TS 把 `a:` 记成标签，本工程按对象字面量收（口径不同）"],
   ["BinaryExpression@`,`（条件位）", "`if (a, b)` 的 `(` 已被 `IfCondition` 吸收，逗号规则看不到那个括号（保守取舍）"],
-  ["ObjectLiteralExpression/ArrayLiteralExpression@解构默认值", "`{ a = {} }` / `[x = []]` 的默认值被解构形状有意丢弃（补回来只会让「真多」更大）"],
+  ["ObjectLiteralExpression/ArrayLiteralExpression@解构默认值", "`{ a = {} }` / `[x = []]` 的默认值不产出 Json 节点（解构形状收进 `Let` 的 unpack*FieldNames，补回来只会让「真多」更大；名字本身**递归收集**，见 let.xl.md 的 CollectFieldNames）"],
+  ["MethodSignature/MethodDeclaration@成员位的 `abstract new`", "`interface I { abstract new (): A }`：TS 读成「名叫 `new` 的方法」，本工程读成抽象构造签名（`<Signature Kind=\"construct\">`）。类型位两边一致，只有成员位口径不同"],
 ];
 
 function countTag(xml, tag) {
@@ -238,6 +239,17 @@ function countable(kind, node, parents) {
       if (ts.isMappedTypeNode(p)) return false;
       if (ts.isTypeLiteralNode(p) || ts.isInterfaceDeclaration(p) || ts.isSourceFile(p)) break;
       p = parents.get(p);
+    }
+  }
+  if (kind === "MethodSignature" || kind === "MethodDeclaration") {
+    // **成员位上的 `abstract new (): A`**：TypeScript 把它读成「名字叫 `new` 的方法」
+    // （`modifiers=[abstract]` + `Identifier «new»`），本工程读成**抽象构造签名**
+    // （`<Signature Kind="construct">`，`abstract` 是签名的第一个子单元）。
+    // 类型位两边一致（TS 那边是带 `abstract` 的 ConstructorType），只有成员位这一处口径不同。
+    // 本工程这一侧的读法更贴语义：`abstract new (…)` 是抽象构造签名，不是名叫 `new` 的方法。
+    const name = node.name;
+    if (name && name.getText().trim() === "new" && /^\s*abstract\b/.test(node.getText().trim())) {
+      return false;
     }
   }
   if (kind === "BinaryExpression") {

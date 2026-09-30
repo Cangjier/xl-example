@@ -8,7 +8,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Common } from "./common.xl.md"
-import { IsUnicodeEscapeStart } from "../text-common-util.xl.md"
+import { IsLeadingDotNumber, IsUnicodeEscapeStart } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -26,10 +26,22 @@ import { IsUnicodeEscapeStart } from "../text-common-util.xl.md"
 1. 当前字符不是符号 → 失败。
    **例外**：`\` 后面跟着 `u` 加十六进制时**也让路**（那是标识符里的 Unicode 转义，
    由 `CommonBranch` 接手；判据是 `../text-common-util.xl.md` 的 `IsUnicodeEscapeStart`）。
-2. 上一个单元也是 `Symbol`：已关闭就开新的（`Message = 0`）；没关闭就看它的 `IsAppend`，能续就 `Message = 1`，不能续也开新的（`Message = 0`）。
-3. 上一个单元是 `Common` 且当前字符是 `.`、且那个 `Common` 是纯数字 → 失败（小数点交给 `Common` 自己吃）。
+2. 当前字符是 `.`、且它是**小数点开头的小数**（`.5` / `.5e3`）→ 失败，让给 `CommonBranch`
+   （判据 `IsLeadingDotNumber`）。这一条要排在下面「上一个单元也是 Symbol」之前：
+   `= .5` 里 `=` 是个已关闭的 `Symbol`，不先让路的话这个点会被当成新符号收走。
+   **但要放过 `...`**：`..` 与 `...` 都是组合符号，`....5`（`...` 展开一个 `.5`）里第 4 个点
+   同样是「点后面跟数字」的形状。所以多一条：上一个 `Symbol` 没关闭、且 `IsAppend` 说还能续写时，
+   这个点属于那个点串，本规则不插手（`...` 的第三个点就是靠这一条保住的）。
+3. 上一个单元也是 `Symbol`：已关闭就开新的（`Message = 0`）；没关闭就看它的 `IsAppend`，能续就 `Message = 1`，不能续也开新的（`Message = 0`）。
+4. 上一个单元是 `Common` 且当前字符是 `.`、且那个 `Common` 是**十进制整数前缀** → 失败（小数点交给 `Common` 自己吃）。
+   判据是 `Common.IsDecimalIntegerPrefix`（不是 `IsNumberWithoutDecimal`：后者不认数字分隔符，
+   `1_000.5` 的小数点会被这里抢走，实测数字被拆成三段）。
    **注意这条排在「上一个单元也是 Symbol」之后**，所以只有上一个不是 `Symbol` 时才会走到。
-4. 其余：当前字符算符号就接手，`Message = 0`。
+5. 上一个单元是 `Common`、当前字符是 `+` / `-`、且那个 `Common` 正处在数字字面量的指数位上
+   （`1e-10` 的 `-`）→ 失败，让给后面的 `CommonBranch`。
+   判据是 `common.xl.md` 的 `Common.IsExponentSign`，与 `CommonBranch.Condition` 里那一处**是同一个方法**：
+   符号分支排在前，它不让路，`CommonBranch` 就没机会。
+6. 其余：当前字符算符号就接手，`Message = 0`。
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
@@ -48,9 +60,16 @@ if (value === "\\" && IsUnicodeEscapeStart(source.Document, source.Index)) {
   return result;
 }
 const last = unit.Last();
-if (last instanceof Symbol) {
-  if (last.Closed) {
+if (value === "." && IsLeadingDotNumber(source.Document, source.Index)) {
+  const continuesSymbol = last instanceof Symbol && last.Closed === false && last.IsAppend(source);
+  if (continuesSymbol === false) {
     const result = new BranchConditionResult();
+    result.Success = false;
+    return result;
+  }
+}
+if (last instanceof Symbol) {
+  if (last.Closed) {    const result = new BranchConditionResult();
     result.Success = true;
     result.Message = 0;
     return result;
@@ -60,7 +79,12 @@ if (last instanceof Symbol) {
   result.Message = last.IsAppend(source) ? 1 : 0;
   return result;
 }
-if (value === "." && last instanceof Common && last.IsNumberWithoutDecimal()) {
+if (value === "." && last instanceof Common && last.IsDecimalIntegerPrefix()) {
+  const result = new BranchConditionResult();
+  result.Success = false;
+  return result;
+}
+if (last instanceof Common && last.IsExponentSign(source.Document, source.Index)) {
   const result = new BranchConditionResult();
   result.Success = false;
   return result;
