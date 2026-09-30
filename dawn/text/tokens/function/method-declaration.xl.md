@@ -59,17 +59,80 @@ import { WrapSymbol } from "../wrap-symbol.xl.md"
 
 唯一的实例，注册进通用重组队列时用。
 
+## private method ParameterText:(unit:Token)=>string
+
+取一个参数表括号（或类型参数段）在**源码里的原文**。
+
+`SourceRange` 的 `Start` / `End` 是 `Source`，它们带 `Index`（字符下标）与 `Document`，
+所以按位置切片就能拿到原文——`Source.Value` 只是**那一个字符**，不要用它。
+
+```ts
+const range = unit.SourceRange;
+if (range.Start === null || range.End === null) {
+  return "";
+}
+const document = range.Start.Document;
+let text = "";
+for (let i = range.Start.Index; i <= range.End.Index; i++) {
+  text = text + document.GetValue(i);
+}
+return text;
+```
+
 ## private method BodyIndex:(units:Array<Token>, index:int)=>int
 
 取方法体括号的下标：`index` 是参数表括号，往后允许一段 `: 返回类型`，再往后必须是 `{` 括号。
 形状不成立时返回 `-1`（那说明这是一条调用语句，不是一个方法声明）。
 
-判定全部委托给 `ScanDeclarationBody`（见 `../declaration-common.xl.md`）：跨换行、类型字面量 `{`
+判定基本委托给 `ScanDeclarationBody`（见 `../declaration-common.xl.md`）：跨换行、类型字面量 `{`
 （`m(): { a: number } { … }` 里第一个 `{` 是类型）、下一条语句的关键字，都由那一处统一处理。
 `Function` 用的是同一个函数，两条声明规则不会走偏。
 
+**但先夹一条自己的边界**（实测补的）：`ScanDeclarationBody` 会跨换行，
+于是**类里的无体重载签名**会跨过换行找到**下一条签名的 `{`**——
+`class A { f(a: string): void` 换行 `f(a: number): void` 换行 `f(a: any) {}` 换行 `}` 里，
+第一条与第二条签名各自得到第三条的体，三条只出 1 个 `MethodDeclaration`。
+
+判据是**参数表原文必须一致**：
+
+> 那条体括号（`{`）**前面紧邻的括号**必须与**当前签名的参数表**原文相同。
+
+理由：`f(a: string): void` 与 `f(a: number): void` 的参数表原文不同，
+所以第一条签名看到「`{` 前面的参数表是 `(a: any)`」就知道那个体不是自己的（返回 `-1`）；
+而真正的实现体（同名同参）前面就是同一个参数表原文，照常成立。
+
+**这一条试过三种写法，只有它没有净回归**：
+- 「见过 `:` 后一跨换行就否决」→ 打掉接口里成片的多行重载与一行一条的 `get x(): number`
+  （实测真缺 18 → 37 / 41，两次都是净回归）；
+- 「换行后面是『一个词 + `(`』就算下一条签名」→ 把**带体的 getter**里的
+  `return (this.Y as String)!` 误判成下一条签名（`return` 被当成方法名），
+  于是 `NotNull` 真缺从 0 涨到 3；
+- 原文比较只看**参数表**这一小段，既不依赖换行、也不依赖 `return` 这类词。
+
 ```ts
-return ScanDeclarationBody(units, index);
+const body = ScanDeclarationBody(units, index);
+if (body < 0) {
+  return -1;
+}
+const parameters = Get(units, index);
+if (!(parameters instanceof Bracket)) {
+  return body;
+}
+let before = body - 1;
+while (before >= 0) {
+  const item = Get(units, before);
+  if (item instanceof Bracket) {
+    if (item.StartBracketChar === "(" && this.ParameterText(item) !== this.ParameterText(parameters)) {
+      return -1;
+    }
+    break;
+  }
+  if (item instanceof Symbol && (item.Is(";") || item.Is("="))) {
+    break;
+  }
+  before = before - 1;
+}
+return body;
 ```
 
 **已知缺口：类里「无体的重载签名」后面跟着带体的实现时，前几条会被并掉。**
