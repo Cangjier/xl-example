@@ -3,7 +3,6 @@
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
-import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -20,14 +19,14 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建后立刻挂上**语句重组队列**，理由与 `TernaryOperatorCondition` 完全相同：
+创建后立刻挂上**通用重组队列**，理由与 `TernaryOperatorCondition` 完全相同：
 内容是从外层搬进来的，那时外层那一趟重组已经过去，不装队列的话内部一趟重组都不跑
-（`a ? b : c + d` 里的 `+` 就留在 `Data` 里——这一支是三元里最常见的一处，
-实测 29 个二元缺口里假值段占大头）。
+（`a ? b : c + d` 里的 `+` 就留在 `Data` 里——这一支是三元里最常见的一处）。
+要用通用队列而非语句队列——后者会把这段表达式包进一层 `<Statement>`。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token
