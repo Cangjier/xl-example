@@ -32,17 +32,27 @@ import { Symbol } from "./symbol.xl.md"
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是一个装饰器的开头：一个内容为 `@` 的 `Symbol`，紧跟（**不跨软换行**）一个 `Common` 名字。
+`index` 处是不是一个装饰器的开头：一个内容为 `@` 的 `Symbol`，紧跟（**不跨软换行**）一个 `Common` 名字
+**或者一个 `(` 括号**。
 
 这里刻意不跳软换行：`@A\nclass B {}` 里 `A` 后面的 `class` 也是 `Common`，
 一跳软换行就会把 `class` 当成装饰器表达式的一部分读进去。
+
+**`(` 那一支是给 `@(expr)` 的**（实测补的）：TypeScript 允许装饰器直接接一个**括号表达式**
+（`@(expr)`），而括号形意味着**括号之前没有名字**。原来只认 `Common`，于是
+`@(expr)` 完全不成装饰器——产物是散开的 `<Symbol>@</Symbol><Bracket>(…)</Bracket>`。
+名字与括号不会同时出现（`@dec()` 的 `@` 后面是 `dec`，不是 `(`），所以两支可以并列。
 
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Symbol) || !current.Is("@")) {
   return false;
 }
-return Get(units, index + 1) instanceof Common;
+const next = Get(units, index + 1);
+if (next instanceof Common) {
+  return true;
+}
+return next instanceof Bracket && next.StartBracketChar === "(";
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
@@ -96,6 +106,8 @@ while (i < units.length) {
   }
   if (item instanceof Bracket && item.StartBracketChar === "(") {
     endIndex = i;
+    // `@(expr)`：括号之前没有名字，括号本身就是整个装饰器表达式。
+    // 名字已经在前面收过（`@dec()`）时，这里就是收尾，`DecoratorName` 不受影响。
     break;
   }
   break;
