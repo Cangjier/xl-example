@@ -59,11 +59,42 @@ if (!(current as Symbol).Is("!")) {
 if (this.IsDefiniteAssignment(units, index)) {
   return false;
 }
+if (this.IsStatementKeyword(previous)) {
+  return false;
+}
 return (
   previous instanceof Common ||
   previous instanceof Bracket ||
   previous instanceof Method ||
   previous instanceof NotNull
+);
+```
+
+## private method IsStatementKeyword:(unit:Token | null)=>bool
+
+`unit` 是不是**语句关键字**（`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`）。
+
+**为什么非空断言要排掉它们**（实测补的）：本规则跑在 `KeywordReorganization`（队列最后）**之前**，
+那时 `return` **还是一个 `Common`**——按「前一个单元是 `Common` 就当被断言者」判，
+`return !(q instanceof R)` 里的 `!` 会和 `return` 一起被收成一个
+`<NotNull><Common>return</Common><Symbol>!</Symbol></NotNull>`（实测产物就是这个），
+括号里的表达式再也拿不到一元节点。这组排除名单与
+`binary-operator.xl.md` / `unary-operator.xl.md` 的 `IsOperand` 是同一份，三处保持一致。
+
+```ts
+if (!(unit instanceof Common)) {
+  return false;
+}
+const text = unit.TempToString();
+return (
+  text === "return" ||
+  text === "throw" ||
+  text === "case" ||
+  text === "default" ||
+  text === "else" ||
+  text === "do" ||
+  text === "break" ||
+  text === "continue"
 );
 ```
 
