@@ -33,6 +33,9 @@ import { Common } from "./common.xl.md"
 
 那种情况下再看 `unit.Data` 的最后两个单元里的**倒数第二个**：单元数不超过 1 就直接成立；否则它是 `Common` 或 `Bracket` 时**不**成立（那两个抢走了解释权），其余类型成立。
 
+- `/*` 注释：`a /* c */ / b` 里那个 `/` 前面是注释结尾，不是正则开头；
+- **本行没有配对的 `/`**：JSX 闭合标签 `</div>` 的 `/` 就是这一形状（见下）。
+
 **`Common` 那一支要放关键字进来**：`return /re/.test(s)` / `typeof /re/` 里的前一个实义单元
 是 `return` / `typeof`——它们在**词法阶段还是 `Common`**（`KeywordReorganization` 排在通用队列最后，
 那时早得很），但它显然是关键字、后面正好该跟一个表达式。
@@ -46,6 +49,35 @@ import { Common } from "./common.xl.md"
 ```ts
 const preUnit = source.Pre();
 if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value === "/") {
+  const result = new BranchConditionResult();
+  result.Success = false;
+  return result;
+}
+// **本行内必须能找到配对的 `/`**（实测补的）：正则字面量不可能跨行（除了字符类里的 `\n` 转义，
+// 那也写在同一行）。这一条挡住的是 **JSX 闭合标签** `</div>`——
+// 那里的 `/` 前面是 `<`、于是被当成「正则开头」，而后面根本没有第二个 `/`，
+// 结果 `RegexToken` 一路吃到底：实测 `const d = <div>x</div>;` 换行 `const after = 1;`
+// 换行 `const after2 = 2;` 的产物只到 `<RegexToken>` 就结束，**后面的语句整段消失**。
+// 找不到收尾就判否，`/` 退回普通符号，至少不会吞掉文件余下内容。
+const document = source.Document;
+let scan = source.Index + 1;
+let closed = false;
+while (scan < document.GetCount()) {
+  const ch = document.GetValue(scan);
+  if (ch === "\n" || ch === "\r") {
+    break;
+  }
+  if (ch === "\\") {
+    scan = scan + 2;
+    continue;
+  }
+  if (ch === "/") {
+    closed = true;
+    break;
+  }
+  scan = scan + 1;
+}
+if (closed === false) {
   const result = new BranchConditionResult();
   result.Success = false;
   return result;

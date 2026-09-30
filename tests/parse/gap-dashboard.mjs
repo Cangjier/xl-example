@@ -143,6 +143,7 @@ export const EXCLUDED = [
   ["Parameter@catch 绑定", "catch 的绑定对应 CatchDefine"],
   ["LabeledStatement@ASI 后的对象字面量", "`return` 换行后 `{ a: 1 }`：TS 把 `a:` 记成标签，本工程按对象字面量收（口径不同）"],
   ["BinaryExpression@`,`（条件位）", "`if (a, b)` 的 `(` 已被 `IfCondition` 吸收，逗号规则看不到那个括号（保守取舍）"],
+  ["ObjectLiteralExpression/ArrayLiteralExpression@解构默认值", "`{ a = {} }` / `[x = []]` 的默认值被解构形状有意丢弃（补回来只会让「真多」更大）"],
 ];
 
 function countTag(xml, tag) {
@@ -188,6 +189,18 @@ function countable(kind, node, parents) {
   if (kind === "PrefixUnaryExpression") {
     const holder = parents.get(node);
     if (holder && ts.isLiteralTypeNode(holder)) return false;
+  }
+  if (kind === "ObjectLiteralExpression" || kind === "ArrayLiteralExpression") {
+    // **解构模式里的默认值**：`let { a = {} } = obj` / `let [x = []] = arr` 里那个
+    // `{}` / `[]` 在 TS 的 AST 里是 BindingElement 的 initializer（对象/数组字面量），
+    // 而本工程把解构形状收进 `Let` 的 `unpackObjectFieldNames` 属性、**有意丢弃默认值**。
+    // 补回来只会让「真多」更大（JsonObject 真多 17、JsonArray 真多 578），所以按口径排除。
+    let p = parents.get(node);
+    while (p) {
+      if (ts.isBindingElement(p)) return false;
+      if (ts.isStatement(p) || ts.isSourceFile(p)) break;
+      p = parents.get(p);
+    }
   }
   if (kind === "LabeledStatement") {
     // `return` 换行后跟 `{ a: 1 }`：ASI 让那个花括号成为**独立语句**，
