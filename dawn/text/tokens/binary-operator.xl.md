@@ -163,6 +163,16 @@ return this.Operators.indexOf(text) !== -1;
 （按 TypeScript 应当是 `a && (b + c)`）：这是「`&&` 规则位次比四则早」带来的既有顺序问题，
 真要修得把 `LogicalOperator` 挪到四则之后，属于另一次改动。
 
+**括号那一支看的是 `EndBracketChar`，不是 `StartBracketChar`**：`a = (4) / 2;` /
+`a = xs[0] - 1;` 里，操作数位置上的括号**左端**是 `(` / `[`，而「右端是 `)` / `]`」
+才是「这个括号是一段完整的括号表达式」的意思。原来写的是
+`StartBracketChar === ")" || StartBracketChar === "]"`——`Bracket` 的 `StartBracketChar`
+只会是 `(` / `{` / `[`（见 `bracket.xl.md` 的 `Use`），所以那个判断**永远为假**，
+整条括号分支是死代码：`(4) / 2` 与 `a[i] - b` 里的运算符都拿不到节点。
+`[` 开头的括号**同时也要认**（`a[b + 1]` 的下标里那个 `+` 要折），
+而 `JsonArray` 本身（`[...]` 数组字面量）也是操作数——
+两个都要在名单里，否则 `[1, 2] + x` 会丢掉 `+`。
+
 ```ts
 if (unit === null) {
   return false;
@@ -199,7 +209,12 @@ if (
   return true;
 }
 if (unit instanceof Bracket) {
-  return unit.StartBracketChar === ")" || unit.StartBracketChar === "]";
+  return (
+    unit.EndBracketChar === ")" ||
+    unit.EndBracketChar === "]" ||
+    unit.StartBracketChar === "[" ||
+    unit.StartBracketChar === "("
+  );
 }
 if (unit instanceof Keyword) {
   return unit.Value === "this" || unit.Value === "super";
@@ -237,6 +252,14 @@ return false;
 实测这一条不挡的话四条映射类型用例全炸（`in` 的左右正好是两个 `Common`：
 `K` 与 `keyof`）。
 
+**但判据不能只看「父单元是 `[` 括号」**：元素访问 `a[b + 1]` / `xs[xs.length - 1]`
+用的是**同一个 `[` 括号单元**，一并挡掉的话下标里的运算符全都拿不到节点
+（实测量化：这一类占二元缺口的 41 个节点 / 21 个文件，是最大的一块）。
+正确的判据是括号自己的 `Context`——它在**开括号那一刻**由 `DecideBracketContext` 算好，
+不受重组时序影响（见 `bracket.xl.md` 的 `Context` 字段说明）：
+只有 `Context === "type"` 的 `[` 才是映射类型 / 索引签名的地盘。
+实测 `a[b + 1]` 的括号 `Context === "value"`。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
@@ -245,7 +268,7 @@ if (current === null) {
 if (current.Parent instanceof GenericType) {
   return false;
 }
-if (current.Parent instanceof Bracket && current.Parent.StartBracketChar === "[") {
+if (current.Parent instanceof Bracket && current.Parent.Context === "type") {
   return false;
 }
 if (this.IsOperator(current) === false) {

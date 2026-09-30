@@ -3,6 +3,7 @@
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -19,10 +20,14 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器。
+创建后立刻挂上**语句重组队列**，理由与 `TernaryOperatorCondition` 完全相同：
+内容是从外层搬进来的，那时外层那一趟重组已经过去，不装队列的话内部一趟重组都不跑
+（`a ? b : c + d` 里的 `+` 就留在 `Data` 里——这一支是三元里最常见的一处，
+实测 29 个二元缺口里假值段占大头）。
 
 ```ts
 super(template);
+ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
 ## method Clone:()=>Token

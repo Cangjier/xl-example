@@ -26,9 +26,16 @@
 
 比较符号。
 
-## field CompoundAssignmentSymbols:Array<string> = ["+=", "-=", "*=", "/="]
+## field CompoundAssignmentSymbols:Array<string> = ["+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "&&=", "||=", "??="]
 
 复合赋值符号。
+
+**TypeScript 的复合赋值一共 15 个，要一次列齐**：这张表是
+`CompoundAssignmentOperatorReorganization.Previous` 的唯一判据，
+不在表里的写法不会被拆成「左值 = 左值 op 右值」，
+而 `symbol-template.xl.md` 的 `IsCombinedSymbol` 又会把 `<<=` 这类**吞成一个符号**——
+两边不同步时产物反而是**空的**（`a <<= b` 变成 `a` / `<<=` / `b` 三个散单元）。
+成员顺序与 `IsCombinedSymbol` 的那张 switch 保持一致，便于对照。
 
 ## field MemberSymbol:Array<string> = ["."]
 
@@ -128,6 +135,14 @@ switch (item) {
 
 判定顺序是禁用表 → 允许表 → 内置表。
 
+**移位、幂与复合赋值必须在这张表里**（实测补的）：词法阶段靠 `IsCombinedSymbol(已有文本 + 当前字符)`
+决定要不要把下一个字符吞进同一个 `Symbol`（见 `dawn/text/tokens/symbol.xl.md` 的 `IsAppend`）。
+`<<` / `>>` / `>>>` / `**` 不在表里时它们会被拆成**两个 / 三个单字符符号**，
+而 `BinaryOperatorReorganization` 的 `IsOperator` 比的是**一个**单元的文本——
+于是 `PowerInstance`（`**`）与 `ShiftInstance`（`<< >> >>>`）这两条实例**永远命不中**，
+是死规则：`a << b` 的产物是 `<Common>a</Common><Symbol>&lt;</Symbol><Symbol>&lt;</Symbol><Common>b</Common>`。
+复合赋值那 11 个不在表里时还会被拆成**错误的符号对**：`a <<= b` 断成 `<` 与 `<=`。
+
 ```ts
 if (this.BanedCombinedSymbol.includes(item)) {
   return false;
@@ -140,12 +155,27 @@ switch (item) {
   case "-=":
   case "*=":
   case "/=":
+  case "%=":
+  case "**=":
+  case "<<=":
+  case ">>=":
+  case ">>>=":
+  case "&=":
+  case "|=":
+  case "^=":
+  case "&&=":
+  case "||=":
+  case "??=":
   case "==":
   case "!=":
   case "===":
   case "!==":
   case ">=":
   case "<=":
+  case "<<":
+  case ">>":
+  case ">>>":
+  case "**":
   case "&&":
   case "||":
   case "++":

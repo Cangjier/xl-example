@@ -17,6 +17,15 @@ import { NotNull } from "./not-null.xl.md"
 import { Symbol } from "./symbol.xl.md"
 import { WrapSymbol } from "./wrap-symbol.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
+import { String } from "./string/string.xl.md"
+import { RegexToken } from "./regex-token.xl.md"
+import { JsonObject } from "./json/json-object.xl.md"
+import { JsonArray } from "./json/json-array.xl.md"
+import { New } from "./new/new.xl.md"
+import { Lamda } from "./lamda/lamda.xl.md"
+import { BinaryOperator } from "./binary-operator.xl.md"
+import { LogicalOperator } from "./logical-operator.xl.md"
+import { NullConditionalOperator } from "./null-conditional-operator.xl.md"
 ```
 
 # namespace cangjie
@@ -47,12 +56,21 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 `unit` 能不能当**被操作者**。
 
-能当的：`Common` / `Keyword` / `NotNull` / `Method`（`f(x)` 的结果）/ `Bracket`（`(…)` 或 `[…]`）。
+能当的：`Common` / `Keyword` / `NotNull` / `Method`（`f(x)` 的结果）/ `Bracket`（`(…)` / `[…]`），
+以及**一切已经是表达式的节点**——`String` / `RegexToken` / `JsonObject` / `JsonArray` /
+`New` / `Lamda` / `UnaryOperator` / `BinaryOperator` / `LogicalOperator` / `NullConditionalOperator`。
 `Method` 与 `Bracket` 这两支是「已经是节点的操作数」——`!flag` 里 `flag` 是 `Common`，
 `!(a > b)` 里是括号，`f(x)!` 与 `!f(x)` 里是 `Method`。
 
 **`-` / `+` 的二义性靠它分野**：`a - b` 里 `-` 前面是 `Common`（操作数）→ 那是二元减号，不收；
 `x = -1` 里 `-` 前面是 `=`（符号）→ 那是一元负号，收。
+
+**这份名单必须与 `binary-operator.xl.md` 的 `IsOperand` 对齐**（这次是实测补的）：
+名单短一截时，`"a" + b` / `` `t` + a `` / `/re/ + a` / `{ k: 1 } + a` / `[1] + a` /
+`new C() + a` / `!a + b` / `-a + b` 里那个 `+` / `-` 前面明明是操作数，
+却被判成「前面不是操作数」→ 当成**前缀一元**收走，
+产物是 `<UnaryOperator Operator="+">+ b</UnaryOperator>` 而正解是 `BinaryOperator`。
+实测量化：这一类占二元缺口的 14 个节点 / 6 个文件，同时是一元「多 33」的来源。
 
 ```ts
 if (unit === null) {
@@ -78,7 +96,17 @@ return (
   unit instanceof Keyword ||
   unit instanceof NotNull ||
   unit instanceof Method ||
-  unit instanceof Bracket
+  unit instanceof Bracket ||
+  unit instanceof String ||
+  unit instanceof RegexToken ||
+  unit instanceof JsonObject ||
+  unit instanceof JsonArray ||
+  unit instanceof New ||
+  unit instanceof Lamda ||
+  unit instanceof UnaryOperator ||
+  unit instanceof BinaryOperator ||
+  unit instanceof LogicalOperator ||
+  unit instanceof NullConditionalOperator
 );
 ```
 

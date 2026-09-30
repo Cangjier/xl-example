@@ -110,6 +110,13 @@ const result = new JsonArray(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(current.SourceRange.End!);
+// `Context` 必须**在 `TryToClose()` 之前**抄过来：本单元自己那一趟重组
+// 就发生在 `TryToClose` 里面，而 `BinaryOperatorReorganization` 要靠这个字段判断
+// 「这个 `[` 是映射类型还是元素访问」。原来不抄，映射类型 `{ [K in T]: V }` 的
+// `in` 会被折成 `<BinaryOperator Operator="in">`（全语料 9 处误折）。
+if (current instanceof Bracket) {
+  result.Context = current.Context;
+}
 current.MoveDataTo(result);
 result.TryToClose();
 current.Replace(result);
@@ -121,6 +128,18 @@ return index;
 Json 数组。
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<JsonArray>子单元的 XML 串接</JsonArray>`（标签名即运行时类名）。
+
+## field Context:string = ""
+
+本单元是从哪个 `[` 括号收来的、那个括号当时处在**类型位**还是**值位**
+（`"type"` / `"value"` / `""`）——直接抄自 `Bracket.Context`（见 `../bracket.xl.md`）。
+
+**为什么 JsonArray 也要带这个字段**：映射类型 `{ [K in keyof T]: T[K] }` 的那个 `[`
+会在 `JsonArrayReorganization` 里被换成 `JsonArray`，于是**括号单元本身没了**。
+`BinaryOperatorReorganization` 的守卫要判断「这个 `[` 是映射类型还是元素访问」，
+没有这个字段就只能退回「父单元是不是 `[` 括号」，而那条判据挡不住已经变成 `JsonArray` 的映射类型
+（实测 `type X = { [K in "a" | "b"]: number }` 会误产出一个
+`<BinaryOperator Operator="in">`，全语料 9 处）。
 
 ## constructor:(Template:Template)=>void
 

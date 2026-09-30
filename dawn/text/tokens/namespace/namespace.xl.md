@@ -3,6 +3,7 @@
 import { IndependentToken } from "../../../../core/syntax/independent-token.xl.md"
 import { CommonUtil } from "../../../../core/common-util.xl.md"
 import { Reorganization } from "../../../../core/syntax/reorganization.xl.md"
+import { Source } from "../../../../core/syntax/source.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
@@ -199,15 +200,52 @@ if (current.Is("global")) {
     namespaceInstance.NamespaceName = this.DottedNameText(units, nameStart, nameEnd);
   }
 }
+const nameParts = namespaceInstance.NamespaceName.split(".");
+const nestedInners: Namespace[] = [];
+let innermost: Namespace = namespaceInstance;
+if (nameParts.length > 1) {
+  const outerStart = Get(units, startIndex)!.SourceRange.Start!;
+  const outerEnd = Get(units, bracketIndex)!.SourceRange.End!;
+  let parentNamespace: Namespace = namespaceInstance;
+  for (let partIndex = 1; partIndex < nameParts.length; partIndex++) {
+    const inner = new Namespace(template);
+    inner.NamespaceName = nameParts[partIndex];
+    inner.Modifiers = namespaceInstance.Modifiers;
+    // 起止都要在 `AddAndCloseLast` 之前设好：那个方法会 `Close()`，
+    // 而 `TryToClose` 要求范围完整（实测缺 End 时抛 `SourceRange.End is null`）。
+    // 也不能改用 `SignOut` —— 它会递归签出「最后一个子单元」，同一层会被签两次
+    // （实测抛 `SourceRange.End has been setted`）。所以这里直接写字段。
+    inner.SourceRange.Start = outerStart;
+    inner.SourceRange.End = outerEnd;
+    if (partIndex > 1) {
+      parentNamespace.AddAndCloseLast(inner);
+    }
+    nestedInners.push(inner);
+    innermost = inner;
+    parentNamespace = inner;
+  }
+  // **只把链条的第一个加到最外层**：`nestedInners[1..]` 已经在上面互相挂好了。
+  // 原来这里加的是 `innermost`，于是 `A.B.C` 变成最外层下面挂着 B 与 C 两个兄弟
+  // （实测产物 `<Namespace Name="A.B.C"><Namespace Name="B"/><Namespace Name="C">…`）。
+  namespaceInstance.AddAndCloseLast(nestedInners[0]);
+  if (namespaceInstance.SourceRange.End === null) {
+    namespaceInstance.SourceRange.End = outerEnd;
+  }
+}
 const body = Get(units, bracketIndex);
 if (!(body instanceof Bracket)) {
   throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
 }
-const namespaceBody = namespaceInstance.CreateBody();
+const namespaceBody = innermost.CreateBody();
 body.MoveDataTo(namespaceBody);
 namespaceBody.Sign(body);
 namespaceBody.TryToClose();
-namespaceInstance.SignOutToken(namespaceBody);
+if (innermost.SourceRange.End === null) {
+  innermost.SignOutToken(namespaceBody);
+}
+if (innermost !== namespaceInstance && namespaceInstance.SourceRange.End === null) {
+  namespaceInstance.SignOutToken(namespaceBody);
+}
 const declarationEnd = DeclarationEnd(units, bracketIndex);
 return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namespaceInstance);
 ```
