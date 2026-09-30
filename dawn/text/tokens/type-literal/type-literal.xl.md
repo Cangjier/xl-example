@@ -187,6 +187,9 @@ for (let i = index - 1; i >= 0; i--) {
     if (text === "|" || text === "&") {
       return true;
     }
+    if (text === "=>") {
+      return true;
+    }
     if (text === "=" && crossedAssignment === false) {
       crossedAssignment = true;
       continue;

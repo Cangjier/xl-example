@@ -143,9 +143,15 @@ return result;
 
 `index` 处那个 `{` 括号是**类型字面量**而不是函数体/方法体。
 
-判据只看前一个实义单元是不是 `:` / `|` / `&` 三个符号之一：`function f(): { a: number } { … }` 里
+判据只看前一个**实义单元**是不是 `:` / `|` / `&` / `=>` 之一：`function f(): { a: number } { … }` 里
 第一个 `{` 跟在 `:` 后面，是返回类型；`function f(): A | { a: number } { … }` 里跟在 `|` 后面，
 也是返回类型的一部分；而 `function f(): number { … }` 里 `number` 之后那个 `{` 前面不是符号，是函数体。
+
+**`=>` 也要认**（实测补的）：**函数类型的返回类型字面量**写作 `(opts: X) => { a: number }`，
+那个 `{` 前面正是 `=>`。不认它时返回类型整段退化成 `<Bracket>`，`TypeLiteral` 一个都不出
+（实测 `type A = (opts: X) => { a: number, b: string }` 的产物里就是裸括号；
+`undici-types/mock-interceptor.d.ts` 的 `MockReplyOptionsCallback` 与
+`@types/node/http2.d.ts` 里成片的 `listener: () => {}` 都是这一形状）。
 
 `{` 跟在别的单元后面就是体——`function f() { … }` 里那个 `{` 前面是参数括号，正是这一档。
 两个 `{` 相邻的写法（`: { … } { … }`）也分得开：第二个 `{` 前面是第一个括号单元，不是符号。
@@ -159,7 +165,7 @@ const previous = GetSkipPreviousWrapSymbol(units, index);
 if (!(previous instanceof Symbol)) {
   return false;
 }
-return previous.Is(":") || previous.Is("|") || previous.Is("&");
+return previous.Is(":") || previous.Is("|") || previous.Is("&") || previous.Is("=>");
 ```
 
 # method IsStatementKeyword:(item:Token | null)=>bool
