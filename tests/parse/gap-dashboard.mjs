@@ -141,6 +141,7 @@ export const EXCLUDED = [
   ["BinaryExpression@`&&`/`||`", "走 LogicalOperator"],
   ["BinaryExpression@`<`/`>`", "与泛型实参同形，GenericType 在词法阶段就要靠它们配对"],
   ["Parameter@catch 绑定", "catch 的绑定对应 CatchDefine"],
+  ["LabeledStatement@ASI 后的对象字面量", "`return` 换行后 `{ a: 1 }`：TS 把 `a:` 记成标签，本工程按对象字面量收（口径不同）"],
 ];
 
 function countTag(xml, tag) {
@@ -186,6 +187,28 @@ function countable(kind, node, parents) {
   if (kind === "PrefixUnaryExpression") {
     const holder = parents.get(node);
     if (holder && ts.isLiteralTypeNode(holder)) return false;
+  }
+  if (kind === "LabeledStatement") {
+    // `return` 换行后跟 `{ a: 1 }`：ASI 让那个花括号成为**独立语句**，
+    // 而 TS 的解析器把花括号读成 **Block**（不是对象字面量），里面那个 `a:`
+    // 于是成了 `LabeledStatement`。本工程按「对象字面量」收（这正是 ASI 用例要的形状）——
+    // 口径不同，不是缺口。
+    // 形状：`Block`（内层）→ 它的父是外层的 `Block`/`SourceFile`，前一条语句必须是**裸 `return`**。
+    let inner = parents.get(node);
+    while (inner && !ts.isBlock(inner) && !ts.isSourceFile(inner)) {
+      inner = parents.get(inner);
+    }
+    if (inner && ts.isBlock(inner)) {
+      const owner = parents.get(inner);
+      if (owner && (ts.isBlock(owner) || ts.isSourceFile(owner))) {
+        const statements = owner.statements;
+        const at = statements.indexOf(inner);
+        const before = at > 0 ? statements[at - 1] : null;
+        if (before && ts.isReturnStatement(before) && before.expression === undefined) {
+          return false;
+        }
+      }
+    }
   }
   if (kind === "PropertySignature" || kind === "IndexSignatureDeclaration") {
     let p = parents.get(node);
