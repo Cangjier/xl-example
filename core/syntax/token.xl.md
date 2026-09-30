@@ -115,17 +115,41 @@ this.Reorganize();
 ## method Reorganize:()=>void
 
 跑一遍重组队列：对每个重组规则、对每个下标，先问 `Previous`，命中就 `Process`。
+**每条规则重复扫，直到某一趟一个都没改动为止**（最多 8 趟兜底）。
 
 `Process` 用返回值推进下标，所以这里写 `i = item.Process(..., i)`——重组会把多个子单元换成一个，下标必须跟着走。
+
+**为什么一条规则要重复扫**：`Process` 的返回值会让外层循环**跳过刚被替换的位置之后紧邻的一些下标**，
+而这些下标里可能正好还留着**同一条规则该处理的形状**。实测一个具体例子：
+`const x = a ? b : c ? d : e` 的平铺列表是
+`0:Let 1:= 2:a 3:? 4:b 5:: 6:c 7:? 8:d 9:: 10:e`。
+
+1. 扫到 `i=5`（内层的 `:`）时内层先成形，替换成
+   `0:Let 1:= 2:a 3:? 4:b 5:TernayOperator(内层)`——**外层的 `:` 被这次替换消化进了内层的范围**；
+2. 原来在下标 9 的**外层 `:`** 落到下标 5 之后，这一趟的下标已经走过去，于是外层三元再也等不到机会，
+   产物里留下 `<Common>a</Common><Symbol>?</Symbol>…` 一串平铺符号。
+
+重复扫正好补上这一趟：第二趟从下标 0 重新走，外层 `:` 在新的位置被问到，三元完整成形。
+不加这一层时 `a ? b : c ? d : e` 与 `a ? b : c ? d : e ? f : g` 都只能成形一半。
+
+兜底 8 趟是防「某条规则的 `Process` 改动了列表却没让形状前进」造成死循环：
+正常情况下每趟至少消化一个运算符，趟数远小于 8。
 
 ```ts
 if (this.ReorganizationQueue === null) {
   return;
 }
 for (const item of this.ReorganizationQueue.Data) {
-  for (let i = 0; i < this.Data.length; i++) {
-    if (item.Previous(this.Template, this.Data, i)) {
-      i = item.Process(this.Template, this.Data, i);
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (let i = 0; i < this.Data.length; i++) {
+      if (item.Previous(this.Template, this.Data, i)) {
+        i = item.Process(this.Template, this.Data, i);
+        changed = true;
+      }
+    }
+    if (changed === false) {
+      break;
     }
   }
 }

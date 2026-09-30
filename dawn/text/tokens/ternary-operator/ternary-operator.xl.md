@@ -35,10 +35,25 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 
 `index` 处是不是一个可以当作三元运算符的 `:`。
 
-条件是三层：先要求是 `Symbol` 且 `Is(":")`，再往前找 `?`；`?` 不存在（`-1`）或紧邻（`questionIndex == index - 1`）都算不成立。
+条件是四层：先要求是 `Symbol` 且 `Is(":")`，再往前找 `?`；`?` 不存在（`-1`）或紧邻（`questionIndex == index - 1`）都算不成立。
 **第三层是位置**：处在类型位的 `? :` 是**条件类型**，不是三元表达式（判据见下面的 `IsTypePosition`）。
 少了这一层，括号里的条件类型会长出一个 `TernaryOperator` 节点
 （`type-cond-nested` / `type-cond-union-member` 两条用例报的 `不该有 TernaryOperator` 就是它）。
+**第四层是嵌套**：**假值段里还有别的 `?`** 时先不成，把内层让出来。
+
+**为什么必须有第四层**：规则是**按规则轮询、每条规则从左往右扫一遍所有下标**
+（见 `core/syntax/token.xl.md` 的 `Reorganize`），所以**靠左的 `:` 先被问到**。
+`a ? b : c ? d : e` 这种右结合嵌套里，第一个 `:` 会先把假值段切成 `c ? d : e` 四个平铺单元
+（`?` / `:` 都留在里面），内层再也没机会成形。
+判据只看**假值段里还有没有 `?`**：有就先不做，等内层被换成一个 `TernaryOperator` 单元、
+`?` 从列表里消失，外层下一趟自然成立。配上 `Reorganize` 的重复扫，任意层数的右结合嵌套都成立
+（实测 `a ? b : c ? d : e ? f : g` 三层全对）。
+
+**已知限制：左结合嵌套 `a ? b ? c : d : e` 还不能完全成形。**
+TypeScript 的解是 `a ? (b ? c : d) : e`，现状是 `a` / `?` / `b` 平铺，后三层成节点。
+试过加「条件段里还有 `?` 就不成」的对称守卫，结果**两层都被挡掉**、整条退化成平铺符号
+（这类写法在真实语料里为 0，所以先留着不修；要修得让 `Previous` 有能力判断
+「这个 `:` 属于哪一个 `?`」，不能只看平铺列表里的相对位置）。
 
 ```ts
 const current = Get(units, index);
@@ -51,6 +66,10 @@ if (current instanceof Symbol && current.Is(":")) {
     return false;
   }
   if (questionIndex === index - 1) {
+    return false;
+  }
+  const inFalse = SearchBack(units, questionIndex, (item: Token) => item instanceof Symbol && item.Is("?"));
+  if (inFalse !== -1) {
     return false;
   }
   return true;
@@ -143,13 +162,20 @@ let endIndex = SearchBack(units, elseIndex, (item: Token) => item instanceof Sym
 if (endIndex === -1) {
   endIndex = units.length;
 }
-const ternaryOperator = new TernaryOperator(template);
+// 真值段不能越过**下一个 `?`**：`a ? b ? c : d : e` 里 `b ? c` 不是真值段，
+// 那个 `?` 属于内层三元（`b ? c : d`）。不夹这一刀，真值段会把内层的 `?` 与 `:` 一起吞进来，
+// 内层永远不成形，产物里留下裸的 `?` `:` 符号。
+let trueEnd = elseIndex;
+const innerQuestion = SearchBack(units, questionIndex, (item: Token) => item instanceof Symbol && item.Is("?"));
+if (innerQuestion !== -1) {
+  trueEnd = innerQuestion;
+}const ternaryOperator = new TernaryOperator(template);
 ternaryOperator.Parent = current.Parent;
 const condition = ternaryOperator.CreateCondition();
 const trueStatement = ternaryOperator.CreateTrueStatement();
 const falseStatement = ternaryOperator.CreateFalseStatement();
 condition.AddRange(TakeRange(units, startIndex + 1, questionIndex - startIndex - 1));
-trueStatement.AddRange(TakeRange(units, questionIndex + 1, elseIndex - questionIndex - 1));
+trueStatement.AddRange(TakeRange(units, questionIndex + 1, trueEnd - questionIndex - 1));
 falseStatement.AddRange(TakeRange(units, elseIndex + 1, endIndex - elseIndex - 1));
 if (condition.Data.length === 0 || trueStatement.Data.length === 0 || falseStatement.Data.length === 0) {
   return index;

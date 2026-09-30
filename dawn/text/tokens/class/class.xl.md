@@ -90,6 +90,10 @@ return name;
 **三种放宽都是真实写法需要的**：
 
 - **匿名类** `export default class { … }`：名字可以没有，`class` 后面直接就是 `{`（或 `extends`）；
+  **`extends` 那一支必须一起认**：`const C = class extends B {}` 是合法的类表达式，
+  `class` 与 `extends` 之间**没有名字**。只认 `{` 时这一支判否，整条类散架——
+  实测产物是 `<Keyword>class</Keyword><Keyword>extends</Keyword><Common>B</Common>` 加一个
+  从 `{}` 收来的 `<TypeLiteral>`（类体被当成类型字面量），一个 `Class` 节点都没有。
 - **继承表达式** `class A extends mixin(B) {}` / `class D extends (Base) {}`：
   `extends` 后面不一定是一个类型名，也可以是一次调用或一个括号表达式。
   放宽之前这两种形状整条类都认不出来——后面那个 `mixin(B) { … }` 反而被
@@ -100,7 +104,9 @@ return name;
 ```ts
 const nameIndex = SkipNextWrapSymbol(units, index);
 const name = Get(units, nameIndex);
-const isAnonymous = name instanceof Bracket && name.StartBracketChar === "{";
+const isAnonymous =
+  (name instanceof Bracket && name.StartBracketChar === "{") ||
+  (name instanceof Common && name.Is("extends"));
 if (isAnonymous === false && !(name instanceof Common)) {
   return -1;
 }
