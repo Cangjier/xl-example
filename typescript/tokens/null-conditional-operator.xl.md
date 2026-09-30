@@ -4,7 +4,9 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt, SearchBack, TakeRange } from "../../core/extensions/list-extension.xl.md"
+import { Get, ReplaceCountAt, SearchBackIndexed, TakeRange } from "../../core/extensions/list-extension.xl.md"
+import { Statement } from "./statement.xl.md"
+import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
 
@@ -41,7 +43,12 @@ return current instanceof SymbolToken && current.Is("?.");
 
 要点：
 
-- 断点由 `SearchBack` 从 `index + 1` 往后找：`?.`、`??`、`&&`、`||`、`;`、`,`，或任何**比较符号**。
+- 断点由 `SearchBackIndexed` 从 `index + 1` 往后找：`?.`、`??`、`&&`、`||`、`;`、`,`，任何**比较符号**，
+  以及「**是语句边界的软换行**」（`Statement.IsLineBreakBoundary`）。
+- **为什么要判换行**：`a?.b` 换行 `c?.d` 是两条语句，而这里原来只在运算符处断开，
+  于是扫描跨过换行把 `c` 也收进第一个 `NullConditionalOperator`（实测
+  `tests/parse/cases/statements/stmt-asi-optional-chain.ts`）。
+  链式调用里的折行不受影响：`a?.b` 换行 `.c` 的下一行以 `.` 开头，不是语句边界。
 - 找不到断点（返回 `-1`）时，`count` 取「剩下全部」；否则取 `endIndex - index - 1`。
 - 取区间用 `TakeRange(units, index + 1, count)`（取出不移除），随后靠 `ReplaceCountAt` 一次性替换。
 - 签出时：收到东西就签到最后一个子单元，一个都没收到就签回 `?.` 自己。
@@ -51,7 +58,10 @@ const current = Get(units, index);
 if (!(current instanceof SymbolToken)) {
   throw new Error("current 为空");
 }
-const endIndex = SearchBack(units, index + 1, (item) => {
+const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
+  if (item instanceof LineWrap) {
+    return Statement.IsLineBreakBoundary(units, itemIndex);
+  }
   if (item instanceof SymbolToken) {
     if (item.Is("?.")) {
       return true;

@@ -7,7 +7,6 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd } from "../declaration-common.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -37,7 +36,9 @@ import { String } from "../string/string.xl.md"
 | `export namespace N { … }` / `declare namespace N { … }` | `N`，修饰词进 `modifiers` |
 | `declare global { … }` | `global` |
 
-`declare module "x" { … }` **不归这里管**：字符串名字的模块体本来就是 `ObjectLiteral`，它有自己的重组路径，行为已经是对的；这里只补标识符形式与 `global`。
+`declare module "x" { … }` **名字走字符串那一支**，而且**不按点号拆嵌套**：
+字符串名字是模块路径的整体（`"./m"` / `"*.css"` / `"node:fs/promises"`），
+`NamespaceReorganization` 只产出**一个** `Namespace`；点号拆嵌套只对标识符形式的名字（`namespace A.B.C`）成立。
 
 `NamespaceReorganization` 写在 `Namespace` 之前。
 
@@ -158,8 +159,9 @@ return this.ScanBody(units, index) >= 0;
 修饰词只往回收**一个**（`export` 或 `declare`）：`export declare namespace` 这种双修饰词在实际代码里罕见，
 而多收一个就得处理「前前一个也是修饰词」的链式判定，收益不成比例——真遇到时它退化成普通 `Identifier`，不会解析失败。
 
-替换范围用 `DeclarationEnd` 多收一格软换行，理由与 `Interface.Process` 相同：不然那个换行会留在父单元里，
-被 `StatementReorganization2` 收成一个空的 `<Statement></Statement>`。
+替换范围到命名空间体的 `}` 为止，**尾随软换行留在父单元里**：理由与 `Interface.Process` 相同——
+那道换行就是语句边界，收进范围会让后面那条声明被并进同一个 `Statement`
+（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 let startIndex = index;
@@ -181,6 +183,13 @@ const bracketIndex = this.ScanBody(units, index);
 if (bracketIndex < 0) {
   throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
 }
+// 名字是**字符串字面量**还是**标识符**，决定要不要按点号拆成嵌套的 `Namespace`。
+// 环境模块 `declare module "./m" { … }` / `declare module "*.css" { … }` 的名字是一个整体，
+// 点号是模块路径的一部分、不是命名空间的层级。不区分就会把 `"./m"` 拆成 `["", "/m"]`、
+// 把 `"*.css"` 拆成 `["*", "css"]`，凭空多出一个同名内层命名空间
+// （实测产物 `<Namespace namespace="./m"><Namespace namespace="/m">…`，
+//  `gap-dashboard` 里那 4 个 `ModuleDeclaration 真多` 就是它）。
+const isStringName = current.Is("global") === false && Get(units, SkipNextWrapSymbol(units, index)) instanceof String;
 if (current.Is("global")) {
   namespaceInstance.namespace = "global";
 } else {
@@ -203,7 +212,7 @@ if (current.Is("global")) {
 const nameParts = namespaceInstance.namespace.split(".");
 const nestedInners: Namespace[] = [];
 let innermost: Namespace = namespaceInstance;
-if (nameParts.length > 1) {
+if (isStringName === false && nameParts.length > 1) {
   const outerStart = Get(units, startIndex)!.SourceRange.Start!;
   const outerEnd = Get(units, bracketIndex)!.SourceRange.End!;
   let parentNamespace: Namespace = namespaceInstance;
@@ -246,7 +255,7 @@ if (innermost.SourceRange.End === null) {
 if (innermost !== namespaceInstance && namespaceInstance.SourceRange.End === null) {
   namespaceInstance.SignOutToken(namespaceBody);
 }
-const declarationEnd = DeclarationEnd(units, bracketIndex);
+const declarationEnd = bracketIndex;
 return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namespaceInstance);
 ```
 

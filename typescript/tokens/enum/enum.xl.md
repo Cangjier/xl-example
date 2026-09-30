@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -68,8 +68,8 @@ return body instanceof Bracket && body.startBracket === "{";
 - 名字取 `enum` 后面第一个实义 `Identifier`。
 - 体括号的**内容**整体搬给 `EnumBody`，括号本身不再留在树里（`EnumBody` 的范围直接沿用它）。
 - `EnumBody` 有自己的重组队列（构造器里装的语句队列），所以搬完要 `TryToClose()` 一次，让成员成形。
-- 范围终点取体括号的终点（含 `}`），并且用 `DeclarationEnd` 把紧跟的软换行一并收进来——
-  否则那个换行会在语句重组阶段变成一个空的 `Statement`（见 `../declaration-common.xl.md`）。
+- 范围终点取体括号的终点（含 `}`）。**尾随软换行不进范围**——
+  它留在父单元里充当语句边界（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 const current = Get(units, index);
@@ -79,7 +79,7 @@ if (current === null) {
 const startIndex = DeclarationStart(units, index);
 const nameIndex = SkipNextWrapSymbol(units, index);
 const bodyIndex = SkipNextWrapSymbol(units, nameIndex);
-const endIndex = DeclarationEnd(units, bodyIndex);
+const endIndex = bodyIndex;
 const result = new Enum(template);
 result.Parent = current.Parent;
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);

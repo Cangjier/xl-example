@@ -9,7 +9,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
-import { DeclarationEnd } from "../declaration-common.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -114,8 +113,9 @@ return condition instanceof Bracket && condition.startBracket === "(";
 两点不同：
 
 1. 体的内容在前、条件在后（源顺序）；
-2. 结尾多收一个可选的 `;`（`do { … } while (x);`），再交给 `DeclarationEnd` 吃掉尾随软换行——
-   不这么做，那个 `;` 会留在父单元里，被语句重组收成一个空的 `Statement`。
+2. 结尾多收一个可选的 `;`（`do { … } while (x);`）——不这么做，那个 `;` 会留在父单元里，
+   被语句重组收成一个空的 `Statement`。**尾随软换行不收**：它留在父单元里充当语句边界
+   （见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 const unit = Get(units, index)!;
@@ -152,7 +152,6 @@ const semicolon = Get(units, endIndex + 1);
 if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   endIndex = endIndex + 1;
 }
-endIndex = DeclarationEnd(units, endIndex);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - index + 1, result);

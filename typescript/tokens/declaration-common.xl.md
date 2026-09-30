@@ -42,6 +42,40 @@ import { LineWrap } from "./line-wrap.xl.md"
 类型参数段（`<T>` / `<T = unknown>` / `<T extends X = Y>`）由 `generic-type.xl.md` 收成 `GenericType`，
 声明规则只要跨过那一个单元就行——两处各管一段，这里不再需要认尖括号。
 
+**一个已经删掉的收尾口径：`DeclarationEnd`（别再把它加回来）。**
+这里原先有一个 `DeclarationEnd(units, index)`：从 `index` 起把后面**连续的软换行**一起算进来，
+返回这段声明的末尾。声明层的 `Class` / `Function` / `Enum` / `Interface` / `Namespace` /
+`MethodDeclaration` / `Signature` / `Field` 与 `Switch` / `DoWhile` 都走它，
+把声明（或语句）后面那个换行并进自己的替换范围。当时的理由是：不这么做，声明末尾那个裸 `LineWrap`
+会留在父单元里，被 `StatementReorganization2` 收成一个**空的** `<Statement></Statement>`。
+
+**那个理由今天不成立了**：语句重组的两条规则后来各补了一个早退——
+`StatementReorganization2` 在「当前是最后一个单元」的分支里遇到 `children.length === 1` 直接 `splice` 掉，
+`StatementReorganization3` 遇到 `children.length === 1 && IsStatementUnit(children[0])` 就什么都不做。
+于是单独一个 `LineWrap` 不会再变成空 `Statement`（`tests/parse/noise.mjs` 把这条钉住：
+空 `Statement` 必须是 0）。
+
+**而吃掉那个换行的代价是丢掉了语句边界**：`LineWrap` 在本工程里不只是排版，
+它还是 `SearchFrontIndexed` 往回找语句头时的那道**墙**。墙被声明规则吃进自己的范围之后：
+
+- 引擎要等到后面某个换行、或列表末尾，才收束这条语句；
+- 那时往回找语句头，`const A = class {}` 里的 `Class` **不是**边界
+  （它在表达式位，`IsDeclarationPosition` 判否），于是搜索一路退到列表开头；
+- 两条语句就被收进**同一个** `Statement`。
+
+实测（`tests/parse/boundaries.mjs`，对着 TypeScript 自己的 AST 数「相邻两条语句之间的边界有没有被横跨」）：
+
+| 口径 | 真实语料（`@types` / `typescript/lib` / `undici-types` / 产物 / 样本） | 用例语料 |
+| --- | --- | --- |
+| 收掉尾随换行 | 217 个文件里 **30 个**文件有边界被横跨（共 48 处） | 852 个文件里 **17 个** |
+| 不收（现口径） | **0 处** | **0 处**（ASI 判据补齐之后，见 `tests/parse/known-gaps.json` 的 `_notes.asi-not-implemented`） |
+
+典型受害者是 `@types/node` 里成片的 `declare module "x" { … }` 换行 `declare module "node:x" { … }`：
+两条环境模块声明被收进一个 `Statement`。
+
+所以现在的口径是：**声明/语句的范围就到它自己的最后一个单元为止，尾随软换行留在父单元里**，
+由语句重组去消费它。各规则的 `endIndex` 直接取自己那个体括号（或返回类型末位、或那个 `;`）的下标。
+
 # method IsDeclarationModifier:(item:Token | null)=>bool
 
 这个单元是不是一个声明修饰词。
@@ -518,29 +552,4 @@ while (i < units.length) {
   i = i + 1;
 }
 return tailEnd;
-```
-
-# method DeclarationEnd:(units:Array<Token>, index:int)=>int
-
-从 `index` 起把后面**连续的软换行**一起算进来，返回这一段声明的末尾下标。
-
-这是 `For` / `IfSet` / `While` 共用的收尾口径：那几条规则用它把「语句后面那个换行」并进自己的范围
-（`endIndex = currentIndex - 1`，而 `currentIndex` 是跳过软换行之后的位置）。
-不这么做的话，声明末尾那个裸换行会留在父单元里，被 `StatementReorganization2` 收成一个**空的** `Statement`——
-`Root` 下就会多出 `<Statement></Statement>` 这种噪声节点。
-
-声明层这几条规则一律走这里，不去动 `Import` 那条既有路径——
-它没有这一步，`import …` 结尾的文件会多一个空 `Statement`。
-
-```ts
-let end = index;
-while (true) {
-  const next = Get(units, end + 1);
-  if (next instanceof LineWrap) {
-    end = end + 1;
-    continue;
-  }
-  break;
-}
-return end;
 ```

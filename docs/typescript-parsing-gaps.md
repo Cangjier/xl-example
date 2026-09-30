@@ -1097,8 +1097,9 @@ npm run cases:diff     # 差分：不依赖期望值，直接比源码构造数�
 0:Wrap 1:public 2:static 3:readonly 4:A 5:: 6:T 7:= 8:new 9:MethodDeclaration(R(1)) 10:public 11:static …
 ```
 
-`R(1)` 被 `MethodDeclarationReorganization` 收成方法声明，而它按 `DeclarationEnd` 的约定
-**连同结尾的 `;` 与随后的软换行一起收走** —— 于是字段 A 的 `MemberEnd`：
+`R(1)` 被 `MethodDeclarationReorganization` 收成方法声明，而它按约定
+**连同结尾的 `;` 一起收走**（当时还连带收走随后的软换行，那个收尾口径在第 51 轮被删掉了 ——
+见本文末尾「修法一：删掉 `DeclarationEnd`」）—— 于是字段 A 的 `MemberEnd`：
 
 - 看不到 `;`（已经进了方法声明）；
 - 也看不到软换行（同样被吃掉）；
@@ -1836,6 +1837,163 @@ node tests/parse/matrix.mjs
 node tests/parse/lossless.mjs
 node tests/parse/structure.mjs --self-test
 node tests/parse/structure.mjs
+node samples/check.mjs
+```
+
+---
+
+# 第 51 轮：语句边界（第八把尺子），以及 ASI
+
+第 50 轮结束时写下的是「`.ts` 解析的缺口已经清零」，并列了**七条互相独立的判据**。
+本轮证明那七条**合起来仍然看不见一整类缺口**：**两条相邻的语句被收进同一个 `Statement`**。
+
+## 为什么七把尺子都看不见
+
+| 尺子 | 为什么看不见 |
+| --- | --- |
+| `run.mjs` | 它查「标签在不在、几个」。合并之后节点一个不少，只是少了一层边界 |
+| `differential.mjs` / `gap-dashboard.mjs` | 比的是**计数**。两条语句变一条，`Let` / `Class` / `Namespace` 的个数都不变 |
+| `matrix.mjs` | 比的是「同一构造换上下文会不会翻车」，不与 TS 的语句划分对账 |
+| `lossless.mjs` | 名字与字面量都还在，只是换了个父亲 |
+| `structure.mjs` | 比括号包含关系。`const A = class {}` 换行 `const C = 2` 里那两对括号是**兄弟**关系，合并前后都不变——**恰好躲过去了** |
+
+`structure.mjs` 那一栏最值得记：它已经能看「节点套在谁身上」，但**语句边界不是括号**，
+所以它看不见。**判据的口径决定了它看不见什么**——这不是工具没写好，是问的问题不同。
+
+## 工具：第八把尺子 `boundaries.mjs`
+
+> 取任意一个语句表（`SourceFile` 顶层 / `Block` / `ModuleBlock` / `CaseClause` / 类静态块），
+> 里面相邻的两条语句 S1、S2 之间有一个边界位置 `B = S2` 的起点。
+> 产物里**不应该**存在一个「语句级单元」横跨 `B`。
+
+实现上要复用「产物叶子 ↔ 源码 token」的对齐来给单元定区间，这一步是**有失败模式的**，
+所以有两条硬规矩（都是本轮踩出来的）：
+
+1. **两遍贪心取交集**。第一版只从左往右贪心，于是 `expr-compound-assign-all.ts` 上报出一个假缺口：
+   左贪心碰到「源码里有、产物里没有叶子的 token」（声明名、修饰词——它们被存进了属性）
+   会就地跳过，重复名字（`let r;` 换行 `r = ...`）让后一个 `r` 的叶子被贴到前一个 `r` 上，
+   **整体前移一格**，于是 `a >>= b;` 的叶子贴到下一行，凭空造出一个跨行单元。
+   补一遍从右往左的贪心、只保留两遍一致的叶子就解决了。
+   中途还发现右往左那遍必须**也认复合 token**（`>>=` 在产物里是 `=` 与 `>>` 两个叶子、顺序还相反），
+   否则那些行整段没有第二个意见，贴错就没人纠正。
+2. **判不了就报「跳过」**。一致率低于 60% 的文件计入「对齐不可信跳过」，
+   不混进「通过」。所以它跳过的文件比 `structure.mjs` 多（真实语料约一半）——
+   **宁可少查，也不要拿错的对齐去报缺口**。
+
+`--self-test` 是牙口证明：把 `Root` 下相邻的两个 `<Statement>` 在 XML 文本层合成一个
+（逐个候选位置试，只要有一个被抓到就算通过）。第一版自检**自己就失败了**——
+它合并的是前两个 `Statement`，而那两个常常是指令注释，合并不对应任何 TS 边界。
+改成「逐个位置试」之后才成为有效的证明。
+
+## 本轮清掉的缺口
+
+尺子第一次跑起来：**真实语料 217 个文件里 30 个中招（48 处）**，用例语料 17 个文件。
+
+| 缺口 | 根因 | 证据 |
+| --- | --- | --- |
+| `@types/node` 里成片的 `declare module "x" { … }` 换行 `declare module "node:x" { … }` 被并成一条 | 声明规则用 `DeclarationEnd` 把**尾随软换行**并进了自己的替换范围。那道换行正是 `SearchFrontIndexed` 往回找语句头时的「墙」；墙没了，搜索一路退到列表开头 | 真实语料 30 个文件 |
+| `const A = class {}` 换行 `const C = …`；`const f = function () {}` 换行 `const g = …` | 同上（`class` / `function` 在表达式位不算语句边界，所以退到列表开头） | `cls-expression.ts`、`fn-expression.ts` |
+| `const a = [1, 2] as const` 换行 `const o = …` | `as const` 里的 `const` 被 `LetReorganization` 当成声明头，`SkipNext` 于是跨过换行找到**下一行**的 `const`，三个单元一起被替换成一个 `Let fieldName="const"` | `vars-as-const.ts` |
+| `const a = x as { b: number }` 换行 `const b = …` | `IsInStatement` 只看换行**两侧**有没有非语句符号；下一行是 `Let`、再往后是 `=`，于是被判成「语句内部」，`As` 的类型扫描把第二个 `Let` 吞掉 | `ty-as-cast.ts` |
+| `a?.b` 换行 `c?.d` | 空条件运算符的扫描只在 `?.` / `??` / `&&` / `\|\|` / `;` / `,` / 比较符号处断开，不认换行 | `stmt-asi-optional-chain.ts` |
+| `let a!: number` 换行 `class C { … }` | `TypeDefine` 只认「成员边界」（`IsMemberBoundary`），不认语句边界，整个类被收进类型 | `vars-definite.ts` |
+| `a` 换行 `++b`；`x++` 换行 `continue`；`return` 换行 `-1` | **ASI 之前完全没做**：换行只在成员边界与声明尾部被当成边界 | `stmt-continue.ts` 等 |
+| `declare module "./m" { … }` 多出一个内层 `Namespace namespace="/m"` | 字符串模块名被按点号拆了嵌套（`"./m"` split 成 `["", "/m"]`） | `gap-dashboard` 里 4 个 `ModuleDeclaration 真多` |
+
+### 修法一：删掉 `DeclarationEnd`
+
+它当初的理由（不把尾随换行并进范围，它会被 `StatementReorganization2` 收成一个空的
+`<Statement></Statement>`）**今天已经由别处承担**：`StatementReorganization2` 的
+`children.length === 1` 早退与 `StatementReorganization3` 的 `IsStatementUnit` 早退
+都会把单独一个 `LineWrap` 消化掉。而它的代价正是上表第一、二行那一整类合并。
+
+所以十处调用点（`Class` / `Function` / `Enum` / `Interface` / `Namespace` /
+`MethodDeclaration` / `Signature` / `Field` / `Switch` / `DoWhile`）的 `endIndex`
+直接取自己那个体括号（或返回类型末位、或那个 `;`）的下标，函数整个删掉。
+删完 `cases:noise` 仍是 **0 个空 `Statement`**——这一步先量后改，不是先改后猜。
+
+### 修法二：把 ASI 写成一条判据
+
+新增 `Statement.IsLineBreakBoundary(units, index)`，判据只有一句：
+
+> **前一行的最后一个单元不再要操作数（`ExpectsOperand`），
+> 且下一行的第一个单元也不能续接这个表达式（`ContinuesExpression`）⇒ 断句。**
+
+更快出结论的三条排在前面：
+
+1. 换行前没有实义单元（文件开头）→ 不是边界；
+2. 换行前是 `return` / `throw` / `break` / `continue` / `yield` → **是**边界（受限产生式）；
+3. 换行前是**后缀**的 `++` / `--`（判据是「它前面那个单元能结束一个操作数」，`EndsOperand`）→ **是**边界；
+4. 换行后没有实义单元（列表末尾）→ **是**边界。
+
+两处刻意的取舍：
+
+- **`++` / `--` 不在续接表里**：换行后紧跟的 `++` 是前缀式、起一条新语句（这正是 ASI 的受限产生式）；
+- **`(` / `[` / 模板串在续接表里**：`f` 换行 `(1)` 在 TypeScript 里是一次调用，不是两条语句。
+
+**同一条判据被四处复用**，不写第二份近似：`StatementReorganization2`（经 `IsInStatement`）、
+`IsStatementEnd`（`As` 的类型扫描）、`TypeDefine`、`NullConditionalOperator`。
+
+`IsInStatement` 也顺带修了一处：**`index` 处本身就是一条新语句的开头时答案是「不在语句内」**，
+新加的 `IsStatementHead` 比 `IsStatementUnit` 多认一个 `Let`（变量声明头不在语句单元表里，
+因为它只是 `Statement` 内部的头节点，但 `Let` 绝不可能出现在表达式中间）。
+
+### 修法三：字符串模块名不拆嵌套
+
+`namespace.xl.md` 里加一个 `isStringName`：字符串名字是模块路径的整体（`"./m"` / `"*.css"` /
+`"node:fs/promises"`），点号是路径的一部分、不是命名空间的层级。只有标识符形式
+（`namespace A.B.C`）才按点号拆嵌套。
+
+## 最终证据（全部实测）
+
+| 判据 | 命令 | 结果 |
+| --- | --- | --- |
+| 用例体检 | `validate.mjs` | **924 条用例，0 条不合格** |
+| 用例对解析器 | `run.mjs` | 通过 924、台账在案 **0**、新增/过期 0 |
+| 差分引擎 | `differential.mjs` | **没有任何一项差额为正** |
+| 精密仪表 | `gap-dashboard.mjs` | 1285 个文件、解析失败 0、**真缺 0** |
+| 上下文矩阵 | `matrix.mjs` | 候选 13889、合法跑通 13303、**有问题 0** |
+| 无损性 | `lossless.mjs` | 1272 个文件、抛异常 0、内容丢失 0 |
+| 嵌套形状 | `structure.mjs` | 1272 个文件、括号归属不符 **0** |
+| **语句边界** | `boundaries.mjs` | 真实语料 + 用例语料、**边界被横跨 0 处** |
+| 边界尺子自检 | `boundaries.mjs --self-test` | 故意合并的语句**全部被抓到** |
+| **噪声** | `noise.mjs` | 1272 个文件、空 `<Statement>` **0 个** |
+| 构造普查 | `sweep.mjs` | 198 个片段、**可疑 0 条** |
+| 样例逐字节 | `samples/check.mjs` | declarations / generic / hello 三份 ok |
+
+语句边界的变化：**真实语料 30 个文件中招 → 0**；用例语料 17 → 0。
+回归用例新增 10 条（`stmt-asi-*` 系列 7 条、`expr-asi-optional-chain-then-statement`、
+`mod-declare-module-pair`、`mod-declare-module-string-name`）。
+
+## 这一轮真正验证出来的东西
+
+1. **「七条判据同时为真」不等于「没有缺口」**。缺口可以整体躲在一个**没有任何尺子在问**的维度上。
+   本轮的维度是「语句在哪里断开」——它既不是节点计数、也不是内容、也不是括号形状。
+2. **一个机制当初的理由，可能已经被后来的修补承担了，而它的代价还在付**。
+   `DeclarationEnd` 就是：理由（空 `Statement`）被语句重组的早退接走了，
+   代价（丢掉语句边界）却一直在制造合并。**每加一条早退，都该回头看看它让哪条旧规避失效了。**
+3. **尺子要先证明有牙，而「有牙的证明」自己也要写对**。`boundaries` 的第一版自检是绿的，
+   但它变异的位置恰好与 TS 边界无关——**一个恒真的自检比没有自检更危险**。
+4. **对齐类尺子的假缺口要靠第二遍独立计算来消**，而不是靠调阈值。
+   两遍取交集是「用一个独立的算法给同一个结论投票」，比「提高匹配率门槛」精确得多。
+5. **收尾口径是全局的**：`DeclarationEnd` 一个函数牵动十处声明规则；
+   而 ASI 判据一旦抽成 `IsLineBreakBoundary`，四处消费方自动一致。**改动前先问「这是一处还是十处」。**
+
+## 复现
+
+```bash
+node tests/parse/validate.mjs
+node tests/parse/run.mjs
+node tests/parse/differential.mjs
+node tests/parse/gap-dashboard.mjs
+node tests/parse/matrix.mjs
+node tests/parse/lossless.mjs
+node tests/parse/structure.mjs --self-test
+node tests/parse/structure.mjs
+node tests/parse/boundaries.mjs --self-test
+node tests/parse/boundaries.mjs
+node tests/parse/noise.mjs
+node tests/parse/sweep.mjs
 node samples/check.mjs
 ```
 

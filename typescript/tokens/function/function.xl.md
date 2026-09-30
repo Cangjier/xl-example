@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, DeclarationModifiers, DeclarationStart, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifiers, DeclarationStart, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -118,9 +118,8 @@ return this.ParameterIndex(units, index) >= 0;
    的 `IsDeclarationTailStop` 里，那是两条声明规则共用的终止条件。
 
 `FunctionBody` 的范围沿用它那对括号；`Function` 的范围终点取整个声明的终点
-（有体时含 `}`，无体时含返回类型的最后一个单元），
-并且用 `DeclarationEnd` 把紧跟的软换行一并收进来——否则那个换行会在语句重组阶段变成一个空的
-`Statement`（见 `../declaration-common.xl.md`）。
+（有体时含 `}`，无体时含返回类型的最后一个单元）。**尾随软换行不进范围**——
+它留在父单元里充当语句边界（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 const current = Get(units, index);
@@ -178,7 +177,7 @@ if (tailEnd >= 0) {
 if (bodyIndex >= 0) {
   lastIndex = bodyIndex;
 }
-const endIndex = DeclarationEnd(units, lastIndex);
+const endIndex = lastIndex;
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 if (bodyIndex >= 0) {

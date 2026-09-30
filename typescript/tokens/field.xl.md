@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, DeclarationModifiers, DeclarationStart, IsMemberBoundary, IsWordUnit, TakeDeclarationDecorators } from "./declaration-common.xl.md"
+import { DeclarationModifiers, DeclarationStart, IsMemberBoundary, IsWordUnit, TakeDeclarationDecorators } from "./declaration-common.xl.md"
 import { ClassBody } from "./class/class-body.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -140,15 +140,14 @@ return units.length - 1;
 
 ## private method IsDeclarationTailEnd:(item:Token | null, next:Token | null)=>bool
 
-`item` 是一个**已经成形、且会把结尾分号与软换行一起吃掉**的声明节点，
+`item` 是一个**已经成形、且会把结尾分号一起吃掉**的声明节点，
 而 `next` 又像是**下一个成员的起点**——这时当前字段到此为止。
 
 **为什么需要这一条**（实测抓出来的）：`public static readonly A: T = new R(1);` 里
-`R(1)` 会被 `MethodDeclarationReorganization` 收成方法声明，而它按 `DeclarationEnd` 的约定
-**连同结尾的 `;` 与随后的软换行一起收走**。于是字段 A 的 `MemberEnd` 往后扫时：
+`R(1)` 会被 `MethodDeclarationReorganization` 收成方法声明，而它按约定
+**连同结尾的 `;` 一起收走**。于是字段 A 的 `MemberEnd` 往后扫时：
 
 - 看不到 `;`（已经进了方法声明）；
-- 也看不到软换行（同样被吃掉了）；
 
 一路扫到**字段 B 的 `;`** 才停 ✗ —— B（乃至后面每一个成员）都被吞进 A。
 `New` 那条规则也没能成形（`new R(1)` 的 `R(1)` 先被当成方法声明的名字），
@@ -191,7 +190,7 @@ return (
 );
 ```
 
-**白名单只收「按 `DeclarationEnd` 约定会吃掉结尾分号与软换行」的那一族**：
+**白名单只收「会吃掉结尾分号」的那一族**：
 第一版把 `Method` / `New` / `Lamda` / `ObjectLiteral` / `ArrayLiteral` 也放了进去，
 结果差分引擎报出**多出 20 个 `Field`**（`undici-types/websocket.d.ts` −4、`dist/ts/cjcli.ts` −4 …）——
 那些节点**不会**吃掉尾部分号，`;` 本来就在列表里看得见，把它们也算边界只会让
@@ -331,8 +330,9 @@ return false;
   （`fieldName="#x"`），同时作为子单元留在节点里。
 - 名字之后到成员终点之间的单元**原样**搬进 `Field`：`: T`、`?: T`、`= 初始值` 都不丢，
   它们在 `Field` 自己的重组队列里继续成形（`TypeDefine` / `Lamda` / `Method` 都会跑）。
-- 终点用 `DeclarationEnd` 把紧跟的软换行一并收进来——否则那个换行会在语句重组阶段变成一个空的
-  `Statement`（见 `./declaration-common.xl.md`）。
+- 终点取成员的最后一个单元（初始化式末位，或那个 `;`）。
+  **尾随软换行不进范围**——它留在父单元里充当成员边界
+  （见 `./declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 const current = Get(units, index);
@@ -346,7 +346,7 @@ if (isPrivateName) {
   nameIndex = SkipNextWrapSymbol(units, index);
 }
 const memberIndex = this.MemberEnd(units, nameIndex);
-const endIndex = DeclarationEnd(units, memberIndex);
+const endIndex = memberIndex;
 const result = new Field(template);
 result.Parent = current.Parent;
 const name = Get(units, nameIndex)!;

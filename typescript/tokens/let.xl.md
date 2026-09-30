@@ -62,6 +62,12 @@ TypeScript 的 AST 里它同样是 `VariableDeclaration`（`VariableDeclarationL
 （`type X<const T> = T`），不是变量声明。少了这一条，`const T` 会被收成一个 `Let`
 （`const` 被吸收、`T` 成了字段名），关键词升级也就轮不到它。
 
+**前一个实义单元是 `as` / `satisfies` 时也不成立**：`x as const` 里的 `const` 是一个**字面量类型**
+（`as const` 是惯用法），不是声明头。少了这一条，`const a = [1, 2] as const` 会在这里被切错——
+`SkipNext` 找到的下一个单元是**下一行** `const o` 的 `const`，
+于是 `[const(as const), 换行, const(o)]` 三个单元一起被替换成一个 `Let fieldName="const"`：
+换行没了、`const o` 的头也没了，两条语句合成一条（实测 `tests/parse/cases/declarations/vars-as-const.ts`）。
+
 ```ts
 const unit = Get(units, index);
 if (!(unit instanceof Identifier)) {
@@ -71,6 +77,10 @@ if (unit.Parent instanceof GenericType) {
   return false;
 }
 if (!(unit.Is("let") || unit.Is("const") || unit.Is("var") || unit.Is("using"))) {
+  return false;
+}
+const previous = Get(units, SkipPreviousWrapSymbol(units, index));
+if (previous instanceof Identifier && (previous.Is("as") || previous.Is("satisfies"))) {
   return false;
 }
 const next = GetSkipNext(units, index, (item) => item instanceof LineWrap);

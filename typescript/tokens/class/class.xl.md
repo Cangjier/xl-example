@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "./class-body.xl.md"
@@ -206,8 +206,8 @@ return this.ScanHead(units, index, null) >= 0;
   顺序即文档顺序，软换行不进树。
 - 类体括号的**内容**整体搬给 `ClassBody`，括号本身不再留在树里（`ClassBody` 的范围直接沿用它）。
 - `ClassBody` 有自己的重组队列（构造器里装的语句队列），所以搬完要 `TryToClose()` 一次。
-- 范围终点取类体括号的终点（含 `}`），并且用 `DeclarationEnd` 把紧跟的软换行一并收进来——
-  否则那个换行会在语句重组阶段变成一个空的 `Statement`（见 `../declaration-common.xl.md`）。
+- 范围终点取类体括号的终点（含 `}`）。**尾随软换行不进范围**——
+  它留在父单元里充当语句边界（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 const current = Get(units, index);
@@ -221,7 +221,7 @@ if (bodyIndex < 0) {
   throw new Error("class 语句不满足格式要求：class Name{...}");
 }
 const startIndex = DeclarationStart(units, index);
-const endIndex = DeclarationEnd(units, bodyIndex);
+const endIndex = bodyIndex;
 const nameIndex = SkipNextWrapSymbol(units, index);
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);

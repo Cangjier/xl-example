@@ -5,6 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsMemberBoundary } from "./declaration-common.xl.md"
+import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Get, ReplaceCountAt, SearchFront } from "../../core/extensions/list-extension.xl.md"
@@ -63,6 +64,10 @@ return true;
 
 - 从 `index + 1` 往后扫，遇到内容为 `;` / `,` 的 `SymbolToken`，或者 `template.SymbolTemplate.IsAssignmentSymbol(...)` 认下的赋值符号，就停在它**前一位**（`endIndex = i - 1`）并跳出。
 - **遇到成员边界（换行 + 下一行像新成员）也停**（`IsMemberBoundary`，见下）。
+- **遇到语句边界也停**（`Statement.IsLineBreakBoundary`）：换行后面已经是下一条语句时，
+  当前这条声明的类型到头了。少了这一条，`let a!: number` 换行 `class C { … }` 里的整个类
+  会被收进 `TypeDefine`（实测 `tests/parse/cases/declarations/vars-definite.ts`）。
+  合法折行不受影响：`A |` 换行 `B`（`|` 要右操作数）与 `A` 换行 `| B`（`|` 能续接）都不是语句边界。
 - 一路没遇到终止符就把 `endIndex` 取成 `units.length - 1`。
 - 收集期间每个单元都要非空，取不到就抛错。
 - 新单元用**当前单元**（`index` 处那个）作为 `Parent` 的来源：先 `new` 再赋值。
@@ -89,7 +94,7 @@ for (let i = index + 1; i < units.length; i++) {
     endIndex = i - 1;
     break;
   }
-  if (item instanceof LineWrap && IsMemberBoundary(units, i)) {
+  if (item instanceof LineWrap && (IsMemberBoundary(units, i) || Statement.IsLineBreakBoundary(units, i))) {
     endIndex = i - 1;
     break;
   }

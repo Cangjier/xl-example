@@ -14,8 +14,10 @@ import { For } from "./for/for.xl.md"
 import { Foreach } from "./foreach/foreach.xl.md"
 import { Function } from "./function/function.xl.md"
 import { IfSet } from "./if/if-set.xl.md"
+import { Identifier } from "./identifier.xl.md"
 import { Import } from "./import.xl.md"
 import { Interface } from "./interface/interface.xl.md"
+import { Keyword } from "./keyword.xl.md"
 import { Label } from "./label.xl.md"
 import { MethodDeclaration } from "./function/method-declaration.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -369,6 +371,210 @@ if (previous instanceof Bracket) {
 return Statement.IsStatementUnit(previous);
 ```
 
+## static method IsStatementHead:(item:Token | null)=>bool
+
+这一个单元**本身就是「一条新语句的开头」**——换行后面跟着它，就说明上一行已经写完了。
+
+它比 `IsStatementUnit` 多认一个 `Let`：变量声明头（`const a` / `let b` / `using c`）不在
+`IsStatementUnit` 的表里，因为本工程把整条声明收成一个 `Statement`、`Let` 只是它**内部**的头节点。
+但 `Let` 绝不可能出现在表达式中间，所以「换行 + `Let`」一定是两条语句
+（实测：`const a = x as { b: number }` 换行 `const b = …`，`As` 的类型扫描一路吞掉了后面的 `Let`）。
+
+`Let` 用**类名判定**而不是 `instanceof`：从本文件 import `let.xl.md` 会绕出循环依赖
+（`let.xl.md` → `statement.xl.md`），这与 `field.xl.md` 的成员白名单、`text-common-util.xl.md` 的
+`IsStatementList` 是同一条既有约定。
+
+```ts
+if (item === null) {
+  return false;
+}
+if (item.constructor.name === "Let") {
+  return true;
+}
+return Statement.IsStatementUnit(item);
+```
+
+## static method WordOf:(item:Token | null)=>string
+
+取一个「词」单元的文本：`Identifier` 用 `TempToString()`，`Keyword` 用它的 `Value`，其余返回空串。
+
+与 `declaration-common.xl.md` 的 `IsWordUnit` 同一口径，只是这里要的是**文本**而不是「等于某个词」。
+两种都要认：`KeywordReorganization` 会把命中的词从 `Identifier` 升级成 `Keyword`
+（两条分支没有继承关系），而本文件的重组规则在**同一趟里跑两遍**，
+第二遍看到的词可能已经升级过了。
+
+```ts
+if (item instanceof Identifier) {
+  return item.TempToString();
+}
+if (item instanceof Keyword) {
+  return item.Value;
+}
+return "";
+```
+
+## static method IsRestrictedKeyword:(item:Token | null)=>bool
+
+`item` 是不是**受限产生式**的那个词：`return` / `throw` / `break` / `continue` / `yield`。
+
+这些词之后**一换行就断句**（ECMAScript 的 *restricted production*）：`return` 换行 `-1`
+在 TypeScript 里是 `return;` 加 `-1;` 两条语句，而不是 `return -1`。
+`throw` 换行在语法上直接非法（本工程不做诊断，按断句处理更接近 AST 的形状）。
+
+```ts
+const word = Statement.WordOf(item);
+return word === "return" || word === "throw" || word === "break" || word === "continue" || word === "yield";
+```
+
+## static method ExpectsOperand:(item:Token | null)=>bool
+
+`item` 之后**还必须跟一个操作数**吗——运算符、开括号、逗号、以及需要右操作数的关键词都属于这一档。
+
+换行的**前一**个单元是它时，换行只是排版，不是语句边界：
+
+- `const a =` 换行 `1`（`=` 要右操作数）；
+- `const x = a +` 换行 `b`（`+` 要右操作数）；
+- `f(` 换行 `1,` 换行 `2`（`(` 与 `,` 要内容）；
+- `return` 换行……**不在此列**，它走 `IsRestrictedKeyword` 那条更早的判定。
+
+符号表是「**不是**收尾符号」的那一批：`;` `)` `]` `}` 是收尾，`!` / `++` / `--` 两可（按需要操作数处理，
+偏保守——多判成「续行」只是少断一条语句，不会造出额外的节点）。
+
+```ts
+if (item instanceof SymbolToken) {
+  const text = item.TempToString();
+  return item.Template.SymbolTemplate.IsStatementSymbol(text) === false && text !== ")" && text !== "]" && text !== "}";
+}
+const word = Statement.WordOf(item);
+return (
+  word === "return" ||
+  word === "throw" ||
+  word === "typeof" ||
+  word === "new" ||
+  word === "delete" ||
+  word === "void" ||
+  word === "await" ||
+  word === "yield" ||
+  word === "in" ||
+  word === "of" ||
+  word === "instanceof" ||
+  word === "case" ||
+  word === "extends" ||
+  word === "as" ||
+  word === "satisfies" ||
+  word === "keyof" ||
+  word === "infer" ||
+  word === "asserts" ||
+  word === "is" ||
+  word === "readonly" ||
+  word === "default"
+);
+```
+
+## static method ContinuesExpression:(item:Token | null)=>bool
+
+**换行后面**跟着 `item` 时，上一行的表达式还能接着写下去吗。
+
+能的话换行只是排版（`a` 换行 `+ b` 是 `a + b`；`a` 换行 `.b` 是 `a.b`；`x` 换行 `as T` 是 `x as T`），
+不能的话它就是一个语句边界。
+
+两处刻意的取舍：
+
+- **`++` / `--` 不在续接表里**：换行后紧跟的 `++` 是**前缀式**、起一条新语句
+  （`a` 换行 `++b` 是两条语句），这正是 ASI 的受限产生式；
+- **`(` / `[` / 模板串在续接表里**：`f` 换行 `(1)` 在 TypeScript 里是一次调用，不是两条语句。
+
+```ts
+if (item instanceof SymbolToken) {
+  const text = item.TempToString();
+  if (
+    text === "." ||
+    text === "(" ||
+    text === "[" ||
+    text === "," ||
+    text === "?" ||
+    text === ":" ||
+    text === "=>" ||
+    text === "!" ||
+    text === "~"
+  ) {
+    return true;
+  }
+  if (text === ")" || text === "]" || text === "}" || text === ";" || text === "++" || text === "--") {
+    return false;
+  }
+  // 其余符号（四则 / 移位 / 关系 / 相等 / 位运算 / 逻辑 / 赋值 / 复合赋值）都能续接
+  return true;
+}
+const word = Statement.WordOf(item);
+return word === "as" || word === "satisfies" || word === "in" || word === "of" || word === "instanceof" || word === "is";
+```
+
+## static method EndsOperand:(item:Token | null)=>bool
+
+`item` 能不能**结束一个操作数**——也就是「它左边已经凑出一个完整的表达式了」。
+
+判据只有一条：**不是**运算符。所以 `Identifier` / 字面量 / 字符串 / 各式单元都算；
+`SymbolToken` 里只有 `)` / `]` / `}` / `!` / `++` / `--` 这几个是「操作数末尾」。
+
+它只被 `IsLineBreakBoundary` 用来分辨 `++` / `--` 是**前缀**还是**后缀**：
+`x` 换行 `++b` 里 `++` 前面没有操作数，是前缀（起新语句）；
+`x++` 换行 `continue` 里 `++` 前面是 `x`，是后缀（表达式已经写完，换行是语句边界）。
+
+```ts
+if (item === null) {
+  return false;
+}
+if (item instanceof SymbolToken) {
+  const text = item.TempToString();
+  return text === ")" || text === "]" || text === "}" || text === "!" || text === "++" || text === "--";
+}
+return true;
+```
+
+## static method IsLineBreakBoundary:(units:Array<Token>, index:int)=>bool
+
+`index` 处那个**软换行**是不是一个语句边界。这就是本工程的 ASI 判据，只判这一件事：
+
+> **前一行的最后一个单元不再要操作数，且下一行的第一个单元也不能续接这个表达式 ⇒ 断句。**
+
+四种更早的结论优先：
+
+1. 换行前没有实义单元（文件开头）→ 不是边界；
+2. 换行前是 `return` / `throw` / `break` / `continue` / `yield` → **是**边界（受限产生式）；
+3. 换行前是**后缀**的 `++` / `--`（它前面已经是一个操作数末尾）→ **是**边界
+   （`x++` 换行 `continue` 是两条语句；`++` 能不能算后缀要看它前面的单元，所以要用 `EndsOperand`）；
+4. 换行后没有实义单元（列表末尾）→ **是**边界（这一行已经写完了）。
+
+```ts
+const previousIndex = SkipPreviousWrapSymbol(units, index);
+if (previousIndex < 0) {
+  return false;
+}
+const previous = Get(units, previousIndex);
+if (Statement.IsRestrictedKeyword(previous)) {
+  return true;
+}
+if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--"))) {
+  const before = Get(units, SkipPreviousWrapSymbol(units, previousIndex));
+  if (Statement.EndsOperand(before)) {
+    return true;
+  }
+}
+const nextIndex = SkipNextWrapSymbol(units, index);
+if (nextIndex >= units.length) {
+  return true;
+}
+const next = Get(units, nextIndex);
+if (Statement.ExpectsOperand(previous)) {
+  return false;
+}
+if (Statement.ContinuesExpression(next)) {
+  return false;
+}
+return true;
+```
+
 ## static method IsInStatementSymbol:(symbol:SymbolToken)=>bool
 
 这个符号是不是「非语句符号」——也就是**不会**终止语句的那种。
@@ -381,11 +587,26 @@ return symbol.Template.SymbolTemplate.IsStatementSymbol(symbol.TempToString()) =
 
 ## static method IsInStatement:(units:Array<Token>, index:int)=>bool
 
-`index` 是否落在一条语句**内部**：跨过软换行看左右两侧，任一侧是非语句符号就算在语句内。
+`index` 是否落在一条语句**内部**。
 
-先取前后「实义」单元下标；前一个为 `-1`（走到头）直接返回 `false`。
+**`index` 处是软换行时，直接取 `IsLineBreakBoundary` 的反**——那一条就是 ASI 判据。
+这是 `StatementReorganization2` 唯一的传法（它只在 `Previous` 命中 `LineWrap` 时问这一句，
+命中 `;` 时走的是 `currentIsStatementSymbol` 那条短路）。
+
+**`index` 处本身就是一条新语句的开头时，答案是「不在语句内」**（第二条早退）。
+这是给 `IsStatementEnd` 用的传法：它传的是**换行后面第一个实义单元的下标**。
+
+其余情形（传一个夹在中间的实义单元）保留原来的近似判据：跨过软换行看左右两侧，
+任一侧是非语句符号就算在语句内。
 
 ```ts
+const current = Get(units, index);
+if (current instanceof LineWrap) {
+  return Statement.IsLineBreakBoundary(units, index) === false;
+}
+if (Statement.IsStatementHead(current)) {
+  return false;
+}
 const lastUnitIndex = SkipPreviousWrapSymbol(units, index);
 const nextUnitIndex = SkipNextWrapSymbol(units, index);
 if (lastUnitIndex === -1) {
@@ -423,7 +644,7 @@ return SearchBackIndexed(units, index, (itemIndex, item) => Statement.IsStatemen
 
 - 是 `SymbolToken` 且 `Is(";", [",", .. statementEndSymbols])` → 是。
 - 是 `LineWrap` → 往后跨过软换行看下一个单元：是 `;`（或 `statementEndSymbols` 里的）就**不是**；
-  否则看它是否落在语句内部，不在语句内部才算结束；后面没有单元了则算结束。
+  否则交给 `IsLineBreakBoundary` —— 也就是同一套 ASI 判据，不另写一份近似。
 - 其余 → 不是。
 
 合并符号表写成 `[",", ...(statementEndSymbols ?? [])]`；
@@ -442,7 +663,7 @@ if (item instanceof LineWrap) {
     if (next instanceof SymbolToken && next.IsValueOrAny(";", symbols)) {
       return false;
     }
-    return Statement.IsInStatement(units, nextIndex) === false;
+    return Statement.IsLineBreakBoundary(units, itemIndex);
   }
   return true;
 }

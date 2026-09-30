@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, IsDeclarationTailStop } from "../declaration-common.xl.md"
+import { IsDeclarationTailStop } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "../class/class-body.xl.md"
@@ -330,7 +330,7 @@ if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   memberEnd = memberEnd + 1;
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
-const endIndex = DeclarationEnd(units, memberEnd);
+const endIndex = memberEnd;
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();
 return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);

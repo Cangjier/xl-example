@@ -75,7 +75,7 @@ npm run cases:check    # 用例体检（用例本身合不合格）
 npm run cases:run      # 用例对解析器（台账必须仍然是空的）
 ```
 
-再跑五把「不需要期望值」的尺子（CI 判据，有问题退出码 1）：
+再跑七把「不需要期望值」的尺子（CI 判据，有问题退出码 1）：
 
 ```bash
 npm run cases:diff        # 与 TypeScript 自带 AST 的构造数差分（净额）
@@ -83,6 +83,14 @@ npm run cases:dashboard   # 正 / 负差额分开统计（净额会互相抵消�
 npm run cases:matrix      # 上下文 × 构造 全组合
 npm run cases:lossless    # 名字与字面量的值有没有被吃掉
 npm run cases:structure   # 嵌套形状：括号归属与源码一致吗（带 --self-test 变异自检）
+npm run cases:boundaries  # 语句边界：相邻两条语句有没有被并成一条（带 --self-test）
+npm run cases:noise       # 噪声：产物里有没有空的 <Statement></Statement>
+```
+
+另有一把「广谱构造普查」的探针，只报可疑项、不当判据：
+
+```bash
+npm run cases:sweep       # 198 个 TS 构造片段，逐条打印 TS AST 与产物并标出可疑项
 ```
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
@@ -206,8 +214,11 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   剩下的散词才升级成 `Keyword`（所以 `Keyword` 排在重组队列的最后）。
 - **`{ }` 括号不跑重组队列**：类体 / 函数体 / 循环体里的内容，是各段 token（`ClassBody` / `FunctionBody` /
   `ForBody`…）在构造时挂上语句队列之后才成形的。
-- **一行的边界要显式收**：声明规则用 `DeclarationEnd` 把结尾的软换行并进自己的范围，
-  否则它会留在父单元里、被 `StatementReorganization2` 收成一个空的 `<Statement></Statement>`。
+- **一行的边界要显式收**：声明规则的范围**只到自己最后一个单元为止**，尾随软换行留在父单元里——
+  那道换行就是语句边界（`SearchFrontIndexed` 往回找语句头时的「墙」），
+  收进声明范围会让下一行被并进同一条语句。空 `<Statement>` 由语句重组自己的早退挡掉
+  （见 [typescript/tokens/declaration-common.xl.md](typescript/tokens/declaration-common.xl.md) 里
+  「一个已经删掉的收尾口径」那一节，以及 `npm run cases:noise`）。
 
 ## 已知缺口
 
@@ -215,7 +226,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 > `npm run cases:run` 会报告「新增缺口 / 台账过期」，`npm run cases:diff` 用 TypeScript 自带 AST 做差分找缺口。
 > 下面只列结构性的那几条。
 
-**六把尺子**（互相补位，任何一把红都不算「完整解析」）：
+**八把尺子**（互相补位，任何一把红都不算「完整解析」）：
 
 | 命令 | 口径 |
 | --- | --- |
@@ -225,20 +236,25 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `npm run cases:matrix` | `上下文 × 构造` 全组合：同一构造换到别的上下文会不会翻车 |
 | `npm run cases:lossless` | 名字与字面量的值：产物里有没有内容被吃掉 |
 | `npm run cases:structure` | **嵌套形状**：产物的括号归属与源码文本是否一致 |
+| `npm run cases:boundaries` | **语句边界**：相邻两条语句有没有被并成一条（对着 TS 自己的 AST） |
+| `npm run cases:noise` | **噪声**：产物里有没有空的 `<Statement></Statement>` |
 
-后四把不需要维护期望值（候选先交给 TypeScript 判定是否合法 TS）。
-`structure.mjs` 还带一个 `--self-test`：故意把产物改坏，尺子必须报警——
-**一个永远绿的尺子比没有尺子更危险**，所以它的牙口是被证明过的。
+后六把不需要维护期望值（候选先交给 TypeScript 判定是否合法 TS）。
+`structure.mjs` 与 `boundaries.mjs` 各带一个 `--self-test`：故意把产物改坏 / 把两条语句并成一条，
+尺子必须报警——**一个永远绿的尺子比没有尺子更危险**，所以两把尺子的牙口都是被证明过的。
 
-### 当前状态（实测，`npm run` 六个脚本全绿）
+### 当前状态（实测，`npm run` 十三个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 914 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
-| `cases:diff` | 1275 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
+| `cases:run` | 924 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:diff` | 1285 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1262 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1262 个文件、括号归属不符 **0**（8 个文件因对齐不可信被跳过，见下） |
+| `cases:lossless` | 1272 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1272 个文件、括号归属不符 **0**（12 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 真实语料 + 用例语料，**边界被横跨 0 处**（对齐不可信的文件如实跳过并报数） |
+| `cases:noise` | 1272 个文件，空 `<Statement>` **0** 个 |
+| `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
@@ -247,8 +263,15 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
 - **类里的 `static { … }` 块**没有专属标签（TS 里是 `ClassStaticBlockDeclaration`）：内容完整收在
   `<Statement><Keyword>static</Keyword><Bracket>{…}</Bracket></Statement>` 里——**内容没丢**，只是没有标签。
-- **不做 ASI**：`const v = x as A` 换行 `y = 2` 在 TypeScript 里是两条语句，这里读成一条。
-  换行只在少数几处（成员边界、声明尾部、`as` 后面的类型折行）被当成边界，见台账 `_notes.asi-not-implemented`。
+- **`export as namespace Foo`**（TS 里是 `NamespaceExportDeclaration`）没有专属节点，
+  产物是 `<Keyword>export</Keyword>` + `<As>namespace Foo</As>`——**内容没丢**，归类不同。
+- **`import type x = require('y')`** 的 `typeOnly="true"` 是对的，但那个 `type` 词还作为
+  `<Identifier>type</Identifier>` 留在 `Import` 里（冗余、不是丢失）。
+- **ASI 是按形状预判的**：判据在 [typescript/tokens/statement.xl.md](typescript/tokens/statement.xl.md) 的
+  `Statement.IsLineBreakBoundary`（前一个单元不再要操作数、后一个单元也不能续接 ⇒ 断句，
+  加上 `return` / `throw` / `break` / `continue` / `yield` 与后缀 `++` / `--` 的受限产生式）。
+  规范里 ASI 还有一条「**语法不允许时**才插分号」，本工程不看完整文法、只看形状，
+  所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:boundaries` 持续巡检，当前 0 处不符。
 - **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
   这是**独立于 TypeScript 的语法扩展**，不在 `.ts` 范围内。
 - **嵌套解构的绑定名进的是同一张逗号分隔表**（`arrayPattern`），丢的是**结构**而不是名字：
@@ -259,15 +282,18 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器
   （见台账 `_notes.escape-a-bell` / `_notes.at-before-string-is-verbatim`）。
 
-### `structure.mjs` 为什么只覆盖 1254 / 1262 个文件
+### `structure.mjs` 为什么要跳过一部分文件
 
-它要靠「产物叶子 ≈ 源码 token」这条对应关系把括号落回源码。有 8 个文件的对应率低于 60%
+它要靠「产物叶子 ≈ 源码 token」这条对应关系把括号落回源码。有一批文件的对应率低于 60%
 （`@types/node/cluster.d.ts`、`typescript/lib/lib.es2016.array.include.d.ts`、`lib.es2017.object.d.ts`、
-`lib.es2019.object.d.ts`、`lib.es2020.promise.d.ts`、`lib.es2022.array.d.ts`、`lib/typescript.d.ts`、
-`tests/parse/cases/types/ty-mapped-as-remap.ts`），原因是这批文件里注释碎片与模板串把叶子链
-拉得很稀疏，对齐会滑。尺子对这种情况**主动跳过**并如实报告数量——
-**宁可少查，也不要拿错的对齐去报假缺口**。其余 1254 个文件（含全部回归用例、
+`lib.es2019.object.d.ts`、`lib.es2020.promise.d.ts`、`lib.es2022.array.d.ts`、`lib/typescript.d.ts` 等），
+原因是这批文件里注释碎片与模板串把叶子链拉得很稀疏，对齐会滑。
+尺子对这种情况**主动跳过**并如实报告数量——
+**宁可少查，也不要拿错的对齐去报假缺口**。其余文件（含全部回归用例、
 全部实现文件、绝大部分 `.d.ts`）逐个对账通过。
+
+`cases:boundaries` 用的是同一套对齐，并把「两遍贪心结果不一致」的叶子也剔掉，
+所以它跳过的文件更多（真实语料约一半）——**判不了就报「跳过」，不报「通过」**。
 
 ### 按 `structure.mjs` 修掉的两处真缺口（第 50 轮）
 
@@ -281,10 +307,43 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 两处都有回归用例：`decl-class-accessor`（三条 `Field` 计数）、`cls-accessor-keyword`、
 `cls-decorator-field`、`cls-decorator-qualified-name`。
 
+### 按 `boundaries.mjs` 修掉的语句合并（第 51 轮）
+
+语句边界尺子第一次跑起来就抓到**八把尺子里另外七把都看不见**的一整类缺口：两条相邻的 TS 语句
+被收进**同一个** `Statement`。计数不变（节点都还在）、无损性不变（名字都还在）、
+括号归属也不变（那对括号的包含关系恰好没动），所以前面七把全绿。
+
+| 缺口 | 根因 |
+| --- | --- |
+| `@types/node` 里成片的 `declare module "x" { … }` 换行 `declare module "node:x" { … }` 被并成一条 | 声明规则（`Class` / `Function` / `Enum` / `Interface` / `Namespace` / `MethodDeclaration` / `Signature` / `Field` / `Switch` / `DoWhile`）用 `DeclarationEnd` 把**尾随软换行**并进了自己的替换范围。那道换行正是 `SearchFrontIndexed` 往回找语句头时的「墙」；墙没了，搜索一路退到列表开头。**真实语料 217 个文件里 30 个中招（48 处）** |
+| `const a = [1, 2] as const` 换行 `const o = …` | `as const` 里的 `const` 被 `LetReorganization` 当成声明头，于是 `SkipNext` 跨过换行找到**下一行**的 `const`，三个单元一起被替换成一个 `Let fieldName="const"` |
+| `const a = x as { b: number }` 换行 `const b = …` | `IsInStatement` 只看换行**两侧**有没有非语句符号；下一行是 `Let` 而再往后是 `=`，于是被判成「语句内部」，`As` 的类型扫描把第二个 `Let` 吞掉 |
+| `a?.b` 换行 `c?.d` | 空条件运算符的扫描只在运算符处断开，不认换行 |
+| `let a!: number` 换行 `class C { … }` | `TypeDefine` 只认「成员边界」，不认语句边界，整个类被收进类型 |
+| `a` 换行 `++b`；`x++` 换行 `continue`；`return` 换行 `-1` | ASI 之前**完全没做**：换行只在成员边界与声明尾部被当成边界 |
+
+修法：
+
+- **删掉 `DeclarationEnd`**（`Class` / `Function` / `Enum` / `Interface` / `Namespace` /
+  `MethodDeclaration` / `Signature` / `Field` / `Switch` / `DoWhile` 十处）：它当初的理由
+  （避免空的 `<Statement></Statement>`）**今天已经由语句重组自己的早退承担**，
+  而它的代价正是上面第一行那条。删掉之后空 `Statement` 仍是 0（`cases:noise` 钉住）。
+- **把 ASI 写成一条判据**：`Statement.IsLineBreakBoundary` —— 换行前一个单元不再要操作数、
+  且换行后一个单元也不能续接这个表达式 ⇒ 断句；另有 `return` / `throw` / `break` / `continue` /
+  `yield`（受限产生式）与后缀 `++` / `--` 两条更早的结论。它同时被 `StatementReorganization2`、
+  `IsStatementEnd`（`As` 的收尾）与 `TypeDefine` / `NullConditionalOperator` 复用，**只有一份规则**。
+- **`declare module "…"` 不再按点号拆嵌套命名空间**：字符串名字是模块路径的整体（`"./m"` / `"*.css"`），
+  只有标识符形式的 `namespace A.B.C` 才拆（`gap-dashboard` 里那 4 个 `ModuleDeclaration 真多` 就是它）。
+
+回归用例 10 条：`stmt-asi-class-expression-then-statement`、`stmt-asi-as-const-then-statement`、
+`stmt-asi-as-then-statement`、`stmt-asi-type-annotation-then-class`、`stmt-asi-return-newline`、
+`stmt-asi-prefix-increment-after-statement`、`stmt-asi-postfix-then-continue`、
+`expr-asi-optional-chain-then-statement`、`mod-declare-module-pair`、`mod-declare-module-string-name`。
+
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 914 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1262 个文件）。
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 924 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1272 个文件）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
 
@@ -349,13 +408,18 @@ node samples/check.mjs --update # 用当前产物重写夹具
 - **XML 属性名就是从 class 属性名来的**：`Class` 上那个 `name` 属性的值，就是产物里 `name="…"` 的值。
   所以想改产物上的属性名，就改规范里的字段名与 `ToXmlString` 里那处拼串，两处必须一起动——
   只在拼串里改名，会留下 `this.FieldName` 与 `name="…"` 对不上的产物。
-- 改完跑这四步：
+- 改完跑这四步（**再跑一遍上面八把尺子**）：
 
   ```bash
   xl check                     # 结构与规则检查（应该是 0 error / 0 warning）
   npm run build                # xl build && tsc
   npm run samples              # 对照；产物本该变化时用 --update 重写夹具
   npm run cases:run            # 台账必须仍然是空的
+  npm run cases:boundaries     # 语句边界没被改坏（这条最容易在改收尾口径时踩到）
   ```
+
+- **改「谁吃掉换行」之前先读 `declaration-common.xl.md` 里那一节**：
+  本工程的 `LineWrap` 不只是排版，它还是语句边界本身。历史上 `DeclarationEnd`
+  就是因为「吃掉它」而制造了一整类语句合并缺口。
 
 - 产物头里的 `xl:sha256` 是源指纹：规范一变，产物就会重新生成。

@@ -19,6 +19,9 @@
     "cases:matrix": "node ./tests/parse/matrix.mjs",
     "cases:lossless": "node ./tests/parse/lossless.mjs",
     "cases:structure": "node ./tests/parse/structure.mjs",
+    "cases:boundaries": "node ./tests/parse/boundaries.mjs",
+    "cases:noise": "node ./tests/parse/noise.mjs",
+    "cases:sweep": "node ./tests/parse/sweep.mjs",
     "cases:dashboard": "node ./tests/parse/gap-dashboard.mjs"
   },
   "devDependencies": {

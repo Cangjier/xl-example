@@ -5,7 +5,6 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -72,8 +71,8 @@ return body instanceof Bracket && body.startBracket === "{";
   一个括号的内容要分给多个段，每个单元只能有一个父单元。
 - 每一段、每一个子段都各自 `SignIn` / `SignOut` / `TryToClose()`：`SwitchCase` 与 `SwitchStatement`
   有自己的队列（前者通用、后者语句），关闭时才会跑。
-- 范围终点取 `switch` 体的终点（含 `}`），并用 `DeclarationEnd` 把紧跟的软换行一并收进来
-  （见 `../declaration-common.xl.md`）。
+- 范围终点取 `switch` 体的终点（含 `}`）。**尾随软换行不进范围**——
+  它留在父单元里充当语句边界（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 const current = Get(units, index);
@@ -84,7 +83,7 @@ const compareIndex = SkipNextWrapSymbol(units, index);
 const compareBracket = Get(units, compareIndex) as Bracket;
 const bodyIndex = SkipNextWrapSymbol(units, compareIndex);
 const body = Get(units, bodyIndex) as Bracket;
-const endIndex = DeclarationEnd(units, bodyIndex);
+const endIndex = bodyIndex;
 const result = new Switch(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);

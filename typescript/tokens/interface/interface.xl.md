@@ -5,7 +5,6 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd } from "../declaration-common.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { InterfaceBody } from "./interface-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -249,10 +248,9 @@ return false;
 
 三种格式错误都抛同一个异常文本 `interface 语句不满足格式要求：interface Name{...}`。
 
-**替换范围用 `DeclarationEnd` 多收一格**：接口体后面紧跟的软换行并进这次替换，
-否则那个换行会留在父单元里、被 `StatementReorganization2` 收成一个空的 `Statement`
-（`Root` 下多出 `<Statement></Statement>`）——`import …` 结尾的文件同样有
-这个噪声节点（见 `../declaration-common.xl.md`）。
+**替换范围到接口体的 `}` 为止，尾随软换行留在父单元里**：它本身就是语句边界，收进范围会让
+`SearchFrontIndexed` 找不到语句头，后面那条语句被并进同一个 `Statement`
+（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
 let startIndex = index;
@@ -296,7 +294,7 @@ if (this.NextIsCommonFlowerBracket(units, index)) {
   }
   endIndex = extendsEndIndex;
 }
-const declarationEnd = DeclarationEnd(units, endIndex);
+const declarationEnd = endIndex;
 return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, interfaceInstance);
 ```
 

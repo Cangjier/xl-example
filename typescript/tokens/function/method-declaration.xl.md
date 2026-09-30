@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationEnd, DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
@@ -433,12 +433,13 @@ return this.BodyIndex(units, parametersIndex) >= 0 || this.IsMemberSignature(uni
   它的边界由 `ScanDeclarationBody` / `ScanDeclarationTailEnd` 给出（见 `../declaration-common.xl.md`）。
 - 名字与方法体之间搬进去的子单元里，软换行**不进树**（与 `Class` / `Function` 一致：
   它们本来就会被 `WrapSymbolReorganization` 摘掉，这里先一步跳过，免得落进一个不跑重组的单元里）。
-- 范围终点用 `DeclarationEnd` 把紧跟的软换行一并收进来——否则那个换行会在语句重组阶段变成一个空的
-  `Statement`（见 `../declaration-common.xl.md`）。
+- 范围终点取自己的最后一个单元（有体时是 `}`，无体时是返回类型末位或那个 `;`）。
+  **尾随软换行不进范围**——它留在父单元里充当语句/成员边界
+  （见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 - 方法体括号的**内容**整体搬给 `MethodBody`，括号本身不再留在树里；`MethodBody` 有自己的语句队列，
   搬完要 `TryToClose()` 一次。
-- **没有方法体时**（成员签名）：`memberEnd` 取返回类型的末尾，并把紧跟的一个 `;` 一起吃掉，
-  再交给 `DeclarationEnd`。`MethodBody` 那一段整个跳过——签名本来就没有体。
+- **没有方法体时**（成员签名）：`memberEnd` 取返回类型的末尾，并把紧跟的一个 `;` 一起吃掉。
+  `MethodBody` 那一段整个跳过——签名本来就没有体。
 
 ```ts
 const current = Get(units, index);
@@ -524,7 +525,7 @@ if (bodyIndex >= 0) {
   }
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
-const endIndex = DeclarationEnd(units, memberEnd);
+const endIndex = memberEnd;
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 if (bodyIndex >= 0) {
   const body = Get(units, bodyIndex) as Bracket;

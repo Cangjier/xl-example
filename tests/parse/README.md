@@ -12,12 +12,15 @@ tests/parse/
   matrix.mjs             构造矩阵：`上下文 × 构造` 全组合（比**构造在不同上下文里的行为**）
   lossless.mjs           无损性：源码里的标识符与字面量值是否还出现在产物里（比**内容**）
   structure.mjs          结构尺子：产物的**括号归属**是否就是源码的形状（比**嵌套形状**）
+  boundaries.mjs         语句边界尺子：相邻两条 TS 语句有没有被并成一条（比**边界**）
+  noise.mjs              噪声尺子：产物里有没有空的 `<Statement></Statement>`
   gap-dashboard.mjs      逐文件对账「TS 侧构造集合 vs 产物侧标签集合」（比**净额的方向**）
   probe.mjs              最小片段探针：并排打印 TS AST 与产物 XML，用来定位单条缺口
+  sweep.mjs              广谱构造普查：198 个 TS 构造片段逐条过，只报可疑项
   suggest.mjs            从差分结果里挑出还没写用例的构造
 ```
 
-六把尺子是互补的，**任何一把红都不算「完整解析」**：
+八把尺子是互补的，**任何一把红都不算「完整解析」**：
 
 | 工具 | 口径 | 抓的是什么 |
 | --- | --- | --- |
@@ -27,6 +30,8 @@ tests/parse/
 | `matrix.mjs` | 上下文 × 构造 | 同一构造换到别的上下文里会不会翻车 |
 | `lossless.mjs` | 名字与字面量的值 | 产物里有没有内容被吃掉（不需要标签映射） |
 | `structure.mjs` | 括号配对的包含关系 | 节点**套在谁身上**——计数完全看不出的错位 |
+| `boundaries.mjs` | 对着 TS AST 数相邻语句 | 两条语句被收进**同一个**单元——计数、内容、括号三条都不变 |
+| `noise.mjs` | 空的语句单元 | 收尾口径改坏时留下的 `<Statement></Statement>` |
 
 ### `structure.mjs` 的口径
 
@@ -54,7 +59,56 @@ node tests/parse/structure.mjs               # 真实语料 + 用例语料
 node tests/parse/structure.mjs cases         # 只跑用例
 ```
 
-`matrix.mjs` 与 `lossless.mjs` 的退出码是「有问题 = 1」，可以直接当 CI 判据。
+### `boundaries.mjs` 的口径
+
+`structure.mjs` 看得见「括号套在谁身上」，但看不见**语句从哪里断开**：
+两条相邻的语句被收进同一个 `Statement` 时，节点一个不少、名字一个不丢、括号包含关系也不变。
+
+> 取任意一个语句表（`SourceFile` 顶层 / `Block` / `ModuleBlock` / `CaseClause` / 类静态块），
+> 里面相邻的两条语句 S1、S2 之间有一个边界位置 `B = S2` 的起点。
+> 产物里**不应该**存在一个「语句级单元」横跨 `B`；横跨就说明两条语句被读成了一条。
+>
+> 「语句级单元」= 不是容器标签（`Root` / `*Body` / `Bracket` / `ObjectLiteral`…）、
+> 且拥有自己叶子的产物元素。容器本来就该横跨，全部排除。
+
+它要复用「产物叶子 ↔ 源码 token」的对齐来给单元定区间，而这件事有两种失败模式，所以有两条硬规矩：
+
+- **两遍贪心取交集**：左往右一遍（认复合 token）与右往左一遍各定位一次，
+  **只有两遍一致的叶子才参与判定**。不一致说明至少一遍贴错了，而错的位置正是假缺口的来源
+  （实测：`expr-compound-assign-all.ts` 里 `a >>= b;` 的叶子被贴到下一行，凭空造出一个跨行单元）。
+- **判不了就报「跳过」**：一致率低于 60% 的文件如实计入「对齐不可信跳过」，不混进「通过」里。
+  所以它跳过的文件比 `structure.mjs` 多——**宁可少查，也不要拿错的对齐去报缺口**。
+
+```bash
+node tests/parse/boundaries.mjs --self-test   # 变异自检：把相邻两条语句并成一条，必须被抓到
+node tests/parse/boundaries.mjs               # 真实语料 + 用例语料
+node tests/parse/boundaries.mjs cases         # 只用例语料
+XL_BOUNDARY_DEBUG=1 node tests/parse/boundaries.mjs --file <路径>   # 打印判定依据
+```
+
+### `noise.mjs` 的口径
+
+空 `<Statement></Statement>` 不携带任何信息。它的来源只有两种：收尾口径把该留的换行收走了，
+或者反过来该收的没被收掉。所以它是**改收尾口径时的哨兵**——改 `DeclarationEnd` 一类东西前后，
+这个数字必须仍然是 0。
+
+```bash
+node tests/parse/noise.mjs          # 真实语料 + 用例语料；空 Statement 必须为 0
+```
+
+### `sweep.mjs` 的口径
+
+它不当判据，只当**普查表**：198 个覆盖 TypeScript 各构造的片段逐条喂给两边，
+打印 TS AST 与产物并标出可疑项（抛异常 / 标识符在产物里既不在元素文本也不在任何属性值里）。
+`--all` 打印全部（含正常的），`--filter <子串>` 只看某个构造。
+
+```bash
+node tests/parse/sweep.mjs                    # 只打印可疑项
+node tests/parse/sweep.mjs --filter using     # 只看名字里带 using 的
+```
+
+`matrix.mjs` / `lossless.mjs` / `boundaries.mjs` / `noise.mjs` 与两把尺子的 `--self-test`
+退出码都是「有问题 = 1」，可以直接当 CI 判据。
 
 ## 加一条用例
 
@@ -122,9 +176,16 @@ node tests/parse/matrix.mjs            # 上下文 × 构造 全组合（真实�
 node tests/parse/matrix.mjs --filter arrow --show
 node tests/parse/lossless.mjs          # 内容无损（真实语料 + 用例语料，无需期望值）
 node tests/parse/lossless.mjs real     # 只跑真实语料
+node tests/parse/structure.mjs         # 括号归属（真实语料 + 用例语料）
+node tests/parse/structure.mjs --self-test
+node tests/parse/boundaries.mjs        # 语句边界（真实语料 + 用例语料）
+node tests/parse/boundaries.mjs --self-test
+node tests/parse/noise.mjs             # 空的 <Statement> 必须为 0
+node tests/parse/sweep.mjs             # 198 个构造片段普查（只报可疑项）
 ```
 
-`matrix.mjs` 与 `lossless.mjs` 的退出码是「有问题 = 1」，可以直接当 CI 判据。
+`matrix.mjs` / `lossless.mjs` / `structure.mjs` / `boundaries.mjs` / `noise.mjs`
+与两把尺子的 `--self-test` 退出码都是「有问题 = 1」，可以直接当 CI 判据。
 
 ## 写用例的几条实战经验
 
@@ -132,12 +193,14 @@ node tests/parse/lossless.mjs real     # 只跑真实语料
   （`<Statement><LineAnnotation>…</LineAnnotation></Statement>`），
   所以「某节点不该被包进 `Statement`」这类断言要用**计数**表达——
   `xl:expect Statement:2`（两条指令注释各占一个）而不是 `xl:absent Statement`。
+- **数 `Statement` 时别忘了嵌套的那一层**：`declare module "x" { const a: number }` 外面一个
+  `Statement`、`NamespaceBody` 里那个 `const` 又是一个，所以两条这样的声明 + 两条指令注释 = `Statement:6`。
 - **计数断言要按当前产物校准**，但期望值写的仍是「TypeScript 解析正确时本该有的结构」：
   两个数字决定的是**能不能区分对错**，不是「现状是什么」。
   例如 `const a = .5;` 里 `SymbolToken` 只有 `=`（`;` 本来就不进产物），
   被拆坏时 `.` 会多出一个 `SymbolToken`——于是 `SymbolToken:1` 正好钉住它。
-- **拿不准就往 `matrix.mjs` / `lossless.mjs` 上加料**，别硬写成例：
-  那两把尺子不需要维护期望值，回归时自己会红。
+- **拿不准就往 `matrix.mjs` / `lossless.mjs` / `boundaries.mjs` 上加料**，别硬写成例：
+  那几把尺子不需要维护期望值，回归时自己会红。
 
 ## 台账怎么用
 
