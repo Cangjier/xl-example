@@ -26,16 +26,14 @@
 
 比较符号。
 
-## field CompoundAssignmentSymbols:Array<string> = ["+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "&&=", "||=", "??="]
+## field CompoundAssignmentSymbols:Array<string> = ["+=", "-=", "*=", "/="]
 
 复合赋值符号。
 
-**TypeScript 的复合赋值一共 15 个，要一次列齐**：这张表是
-`CompoundAssignmentOperatorReorganization.Previous` 的唯一判据，
-不在表里的写法不会被拆成「左值 = 左值 op 右值」，
-而 `symbol-template.xl.md` 的 `IsCombinedSymbol` 又会把 `<<=` 这类**吞成一个符号**——
-两边不同步时产物反而是**空的**（`a <<= b` 变成 `a` / `<<=` / `b` 三个散单元）。
-成员顺序与 `IsCombinedSymbol` 的那张 switch 保持一致，便于对照。
+**只有这 4 个**，与 `IsCombinedSymbol` 保持一致（那张表里也刻意不放另外 11 个）：
+`CompoundAssignmentOperatorReorganization` 的 Process 是「切成 `op` + `=` 再把左值克隆一份」，
+把更多符号放进来会让 `expressions/ex-logical-assign` 那份文件解析时内存失控
+（单条用例正常、整份文件发散，见 `IsCombinedSymbol` 的说明）。
 
 ## field MemberSymbol:Array<string> = ["."]
 
@@ -135,13 +133,20 @@ switch (item) {
 
 判定顺序是禁用表 → 允许表 → 内置表。
 
-**移位、幂与复合赋值必须在这张表里**（实测补的）：词法阶段靠 `IsCombinedSymbol(已有文本 + 当前字符)`
+**移位、幂必须在这张表里**（实测补的）：词法阶段靠 `IsCombinedSymbol(已有文本 + 当前字符)`
 决定要不要把下一个字符吞进同一个 `Symbol`（见 `dawn/text/tokens/symbol.xl.md` 的 `IsAppend`）。
 `<<` / `>>` / `>>>` / `**` 不在表里时它们会被拆成**两个 / 三个单字符符号**，
 而 `BinaryOperatorReorganization` 的 `IsOperator` 比的是**一个**单元的文本——
 于是 `PowerInstance`（`**`）与 `ShiftInstance`（`<< >> >>>`）这两条实例**永远命不中**，
 是死规则：`a << b` 的产物是 `<Common>a</Common><Symbol>&lt;</Symbol><Symbol>&lt;</Symbol><Common>b</Common>`。
-复合赋值那 11 个不在表里时还会被拆成**错误的符号对**：`a <<= b` 断成 `<` 与 `<=`。
+
+**复合赋值（`%=` `**=` `<<=` `>>=` `>>>=` `&=` `|=` `^=` `&&=` `||=` `??=`）刻意不在这里**：
+试过把它们一起补上，结果 `node tests/parse/run.mjs` 在
+`expressions/ex-logical-assign`（`a ??= 1` / `a &&= 2` / `a ||= 3` / `a **= 2` / `a >>>= 1`）
+上**内存失控**（单条都正常，整份文件就爆；5 秒超时 + 768MB 堆直接 OOM）。
+`CompoundAssignmentOperatorReorganization.Process` 的做法是「把 `op=` 切成 `op` 与 `=`，
+再把左值克隆一份插回去」；新符号与「克隆出来的单元又被同一条规则重新处理」叠在一起就会发散。
+在这一条被修好之前，这 11 个符号只能停在「被拆成错误符号对」的旧状态。
 
 ```ts
 if (this.BanedCombinedSymbol.includes(item)) {
@@ -155,17 +160,6 @@ switch (item) {
   case "-=":
   case "*=":
   case "/=":
-  case "%=":
-  case "**=":
-  case "<<=":
-  case ">>=":
-  case ">>>=":
-  case "&=":
-  case "|=":
-  case "^=":
-  case "&&=":
-  case "||=":
-  case "??=":
   case "==":
   case "!=":
   case "===":
