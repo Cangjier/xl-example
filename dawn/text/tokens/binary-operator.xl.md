@@ -103,6 +103,18 @@ this.Operators = operators;
 
 `x instanceof C`。
 
+## static readonly field BitwiseInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["|", "&", "^"])
+
+位运算 `a | b` / `a & b` / `a ^ b`（值位）。
+
+**这一支只收「父单元是语句」的那种**（见 `IsValuePositionBitwise` 的说明）：
+`|` / `&` 在类型位另有含义（联合 / 交叉类型），类型位的那两个在轮到本规则时
+**已经被 `TypeAssign` / `TypeDefine` 收进节点里**，不再是同层单元，所以按「父单元是不是语句」
+就能把两种位置分开。`^` 只有值位一种含义，但也一并走这条判据，保持一处逻辑。
+
+优先级放在相等比较与 `in` 之间（与 TypeScript 的 `&` > `^` > `|` 简化成一层：
+真实代码里混写这三种且不写括号的情况极少，拆成三层收益不成比例）。
+
 ## static readonly field NullishInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["??"])
 
 空值合并 `a ?? b`。
@@ -271,6 +283,9 @@ if (current.Parent instanceof GenericType) {
 if (current.Parent instanceof Bracket && current.Parent.Context === "type") {
   return false;
 }
+if (this.IsValuePositionBitwise(current) === false) {
+  return false;
+}
 if (this.IsOperator(current) === false) {
   return false;
 }
@@ -278,6 +293,37 @@ if (this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index))) === false) 
   return false;
 }
 return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
+```
+
+## private method IsValuePositionBitwise:(unit:Token)=>bool
+
+`unit` 是 `|` / `&` 这类**两种位置都有含义**的符号时，判断它此刻处在值位——
+也就是「本实例该不该接手」。反过来：不是这类符号（`+ - * /` …）一律返回 `true`，
+走原来的路径。
+
+判据只有一条：**这个符号的父单元是不是语句级容器**。
+
+**为什么这一条够用**：类型位的那两个在轮到本规则时已经**被收进节点**了——
+`type T = A | B;` 里 `A | B` 属于 `TypeAssign` 的子单元（`const x = a | b;` 里则是语句的直接子单元），
+`let v: A & B;` 里属于 `TypeDefine`。所以「父单元是语句」正好把值位那份挑出来。
+（实测插桩：值位那一支的符号父单元是 `Statement`，类型位那一支根本不会被问到。）
+
+**不能只看运算符文本**：`ReplaceCountAt` 会把 `a = a | b` 这类复合赋值展开出的符号留在同一层，
+而它们与真正的值位位运算同形——所以判据必须落在位置上，不能落在文本上。
+
+```ts
+if (!(unit instanceof Symbol)) {
+  return true;
+}
+const text = unit.TempToString();
+if (text !== "|" && text !== "&" && text !== "^") {
+  return true;
+}
+const parent = unit.Parent;
+if (parent === null) {
+  return false;
+}
+return parent.constructor.name === "Statement";
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
