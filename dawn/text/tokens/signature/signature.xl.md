@@ -12,6 +12,7 @@ import { ClassBody } from "../class/class-body.xl.md"
 import { Common } from "../common.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { InterfaceBody } from "../interface/interface-body.xl.md"
+import { JsonArray } from "../json/json-array.xl.md"
 import { ReturnType } from "../function/return-type.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { TypeLiteralBody } from "../type-literal/type-literal-body.xl.md"
@@ -129,6 +130,33 @@ const parent = unit.Parent;
 return parent instanceof InterfaceBody || parent instanceof ClassBody || parent instanceof TypeLiteralBody;
 ```
 
+## private method IsComputedMemberName:(unit:Token | null)=>bool
+
+这个单元是不是**计算成员名**的 `[` 括号（`[Symbol.iterator]` / `["m"]` / `[KEY]`）。
+
+**为什么必须在这里拒一次**：通用重组队列里 `SignatureReorganization` 排在
+`MethodDeclarationReorganization` **之前**（见 `../../parse-pipeline.xl.md` 的 `GeneralReorganize`），
+而 `(` 那一支原来只挡 `Common` / `GenericType`。`[Symbol.iterator]` 在这个时机是一个
+`Bracket`（`[`）或已经成形的 `JsonArray`，两种都不在挡的范围里，于是
+`(): ArrayIterator<number>;` 被收成一个**无名签名**，那个 `[` 单元被签名规则消费掉；
+等轮到 `MethodDeclarationReorganization`，`ParameterIndex` 再也找不到「名字 + `(`」，
+整条方法签名**永远拿不到 `MethodDeclaration`**。
+
+实测（`interface I { [Symbol.iterator](): ArrayIterator<number>; }`，修前）：
+`<JsonArray>Symbol.iterator</JsonArray><Signature Kind="call">…</Signature>`；
+修后：`<MethodDeclaration MethodName="Symbol.iterator">…`。
+
+**只跟「有没有方法体」有关**：带方法体的 `[Symbol.iterator]() { }` 本来就走
+`BodyIndex >= 0` 那一支，与签名规则无关，所以原来就是对的；
+接口 / 类型字面量 / 类三种容器表现完全一致。
+
+```ts
+if (unit instanceof JsonArray) {
+  return true;
+}
+return unit instanceof Bracket && unit.StartBracketChar === "[";
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个成员签名的开头（`(` 括号或 `new` 词）。
@@ -168,6 +196,9 @@ if (current instanceof Bracket && current.StartBracketChar === "(") {
   }
   const before = Get(units, immediateIndex);
   if (before instanceof Common || before instanceof GenericType) {
+    return false;
+  }
+  if (this.IsComputedMemberName(before)) {
     return false;
   }
   return this.HasSignatureTail(units, index);

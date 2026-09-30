@@ -6,7 +6,7 @@ import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../../core/extensions/list-extension.xl.md"
 import { DeclarationEnd, DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
 import { JsonArray } from "../json/json-array.xl.md"
@@ -189,6 +189,58 @@ if (afterTail === null || afterTail instanceof WrapSymbol) {
 return afterTail instanceof Symbol && afterTail.Is(";");
 ```
 
+## private method AfterAssignment:(template:Template, units:Array<Token>, nameIndex:int)=>bool
+
+`nameIndex` 处的名字是不是落在一个**赋值号右边**——也就是「字段 / 变量的初始化式」而不是成员声明。
+
+**为什么必须有这一条**：`IsMemberSignature` 只问「名字的父单元是不是成员体」，而字段初始化式里的名字
+**也在**成员体里。于是 `class C { A = new C("x"); }` 里那个 `C("x")` 会被本规则认成一条
+`name(...)` 形式的方法签名，**并且因为它排在 `NewReorganization` 之前，构造器名被抢走之后
+`new` 就再也凑不成 `New` 节点**（实测：类里 `A = new C("x")` 产出
+`<Symbol>=</Symbol><Keyword>new</Keyword><MethodDeclaration MethodName="C">…`，类外同样写法却是
+`<New><NewType>C</NewType><NewArguments>x</NewArguments></New>`）。
+这也解释了 `cls-static-field-new.ts` 那条用例当初为什么要加。
+
+判据一条：**从名字往前扫，先撞上赋值号就是初始化式，先撞上边界就不是**。
+
+- 遇到 `=`（或任一 `AssignmentSymbols` 里的赋值号）→ 命中（在赋值号右边）；
+- 遇到 `;` / `,` → 判否：这是上一条成员的结束标记，赋值号在它之前，与当前名字无关；
+- 遇到 `{` / `}` 括号 → 判否（同上，且 `(` / `[` 括号**不**算边界，见下）；
+- 遇到软换行 → 判否：成员体里「一行一条成员」，换行即上一条成员的结束；
+- 扫到列表开头 → 判否。
+
+**为什么必须把 `;` / 换行当停点**：平铺列表里**上一个成员的单元还留着**。实测
+`class C { A = 1; m() { … } }` 的列表是 `0:Common(A) 1:Symbol(=) 2:Common(1) 3:Symbol(;) 4:Common(m) …`。
+从 `m` 往前扫会撞上下标 1 那个**属于上一个字段**的 `=`；只有在 `;`（或换行）上停下，
+`m` 才会被留给方法声明规则。少了这一条，实测 `m` 会退化成 `<Method>` 加 `<JsonObject>`
+（`lex-private-field` / `lex-private-in` 两条用例当场报 `缺 MethodDeclaration,MethodBody`）。
+
+**为什么 `(` / `[` 括号不能当停点**：`A: Record<string, number> = f(1)` 里，
+类型标注的泛型实参就是一对括号，名字 `f` 与赋值号之间隔着它；把它们当边界会漏判。
+而 `{` / `}` 一定要停：类型标注里也可能带 `}`，但那种情况下赋值号离得更近，
+先撞上的仍是赋值号（`class C { A: { x: number } = f(1) }` 实测仍命中）。
+
+**名字后面跟不跟 `{`**：不需要在这里判——方法体那一支由 `BodyIndex` 负责。
+
+```ts
+for (let i = nameIndex - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item instanceof Symbol && template.SymbolTemplate.AssignmentSymbols.includes(item.TempToString())) {
+    return true;
+  }
+  if (item instanceof Bracket && (item.StartBracketChar === "{" || item.StartBracketChar === "}")) {
+    return false;
+  }
+  if (item instanceof Symbol && (item.Is(";") || item.Is(","))) {
+    return false;
+  }
+  if (item instanceof WrapSymbol) {
+    return false;
+  }
+}
+return false;
+```
+
 ## private method MethodNameOf:(unit:Token)=>string
 
 取方法名的文本：`Common` 直接取；**字符串字面量名字**（`"m"() { }`）取它第一个 `ConstString` 子单元的文本。
@@ -259,6 +311,9 @@ if (name instanceof Common && name.Is("import")) {
 }
 const parametersIndex = this.ParameterIndex(units, nameIndex);
 if (parametersIndex < 0) {
+  return false;
+}
+if (this.AfterAssignment(template, units, nameIndex)) {
   return false;
 }
 return this.BodyIndex(units, parametersIndex) >= 0 || this.IsMemberSignature(units, nameIndex, parametersIndex);
