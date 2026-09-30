@@ -6,6 +6,7 @@ import { Token } from "../../../../core/syntax/token.xl.md"
 import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack, SearchFront, TakeRange } from "../../../../core/extensions/list-extension.xl.md"
 import { Common } from "../common.xl.md"
+import { Keyword } from "../keyword.xl.md"
 import { JsonObjectReorganization } from "../json/json-object.xl.md"
 import { Symbol } from "../symbol.xl.md"
 import { TernaryOperatorCondition } from "./ternary-operator-condition.xl.md"
@@ -93,6 +94,18 @@ return false;
 （`(a instanceof B ? c : d)` 里是 `instanceof`，不是它）。
 `let x: A = (cond ? a : b)` 的括号里没有 `extends`，三元照旧成立 ✓。
 
+**必须按文本判、不能只认 `Common`**（实测补的）：`extends` 在**第一趟**还是 `Common`，
+第一趟结束时已经被 `KeywordReorganization` 收成 `Keyword`。只写
+`item instanceof Common && item.Is("extends")` 时，**第二趟**这个判据全部失灵——
+括号里的条件类型会长出 `TernaryOperator`（`type-cond-nested` /
+`type-cond-union-member` 两条用例在加两趟之后当场报「不该有 TernaryOperator」）。
+判据写成「是 `Common` 且文本是 `extends`，**或者**是 `Keyword` 且 `Value` 是 `extends`」就与趟数无关。
+
+**注意 `Common` 与 `Keyword` 没有共同的取文本方法**（实测两轮踩坑）：
+`Common` 有 `Is` / `TempToString`，`Keyword` **两个都没有**、只有 `Value` 字段。
+所以必须分两支写；写成 `item.TempToString()` 或 `item.Is(...)` 会在运行期抛
+`TypeError: item.TempToString is not a function` / `item.Is is not a function`。
+
 ```ts
 const parent = current.Parent;
 if (parent === null) {
@@ -104,7 +117,15 @@ if (parent instanceof GenericType) {
 if (!(parent instanceof Bracket)) {
   return false;
 }
-return parent.Data.some((item) => item instanceof Common && item.Is("extends"));
+return parent.Data.some((item) => {
+  if (item instanceof Common) {
+    return item.Is("extends");
+  }
+  if (item instanceof Keyword) {
+    return item.Value === "extends";
+  }
+  return false;
+});
 ```
 
 ## static method IsTernaryOperatorStart:(current:Token)=>bool

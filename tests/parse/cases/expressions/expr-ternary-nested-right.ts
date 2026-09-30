@@ -1,9 +1,8 @@
-// xl:note 嵌套三元（右结合，两层）：`a ? b : c ? d : e` 必须嵌套成 TernaryOperator 里再套一层
-//（修前外层先把假值段切成 `c ? d : e` 四个平铺单元，内层再也成不了形；
-//  修法两处，都在三元规则自己身上：Previous 加「假值段里还有 `?` 就先不成」、
-//  Process 的真值段不能越过下一个 `?`）
-// xl:note 三层以上的右结合嵌套（`a ? b : c ? d : e ? f : g`）只能成形内两层：
-// 外层那个 `:` 会被内层的替换消化掉，而「每条规则重复扫」这种公共改法会让整个套件 OOM
-//（实测 `run.mjs` FATAL ERROR: heap out of memory），试过、退回了。见 core/syntax/token.xl.md 的 Reorganize。
-// xl:expect TernaryOperator:2,TernaryOperatorCondition:2,TernaryOperatorFalseStatement:2
+// xl:note 右结合嵌套三元：`a ? b : c ? d : e` 要外层也成形
+//（`Previous` 的第四层会让位给假值段里的内层 `?`，而 `Reorganize` 单趟时
+//  外侧已经扫过去了、永远拿不到第二次机会——所以队列改成**固定两趟**）
+// 条件类型不能被两趟带出来的第二遍误判成三元（`<`/`>` 那侧要按文本判 extends，见用例 type-cond-*）
+// xl:expect TernaryOperator:6
 const x = a ? b : c ? d : e;
+const y = a ? b : c;
+const z = a ? b : c ? d : e ? f : g;

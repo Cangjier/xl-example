@@ -122,13 +122,28 @@ this.Reorganize();
 那一类收敛得更彻底（嵌套三元的第二层就是这种），但它是**对所有规则生效**的——包含那些
 「每次都报告改动」的规则时，一趟套一趟会把内存吃光。实测：改成重复扫之后
 `node tests/parse/run.mjs`（883 条用例，同一进程）直接 `FATAL ERROR: heap out of memory`，
-而单条用例都正常。**要收嵌套那类形状，应当在具体规则的 `Previous`/`Process` 里夹边界**，
-不要动这条公共循环。
+而单条用例都正常。
+
+**改成「固定两趟」是可以的**（实测）：两趟与「扫到无改动」的区别是**有上界**，
+不会因为某条规则每次都报告改动而发散。这一趟额外的扫描解决的是
+「靠左的 `:` 先被问到、于是把假值段让给内层，而内层成形时外侧已经扫过去了」这类**让位**形状
+（`a ? b : c ? d : e` 的右结合嵌套就是它）。两趟之后外侧那一趟才看得到已经收成单个单元的
+内层三元，`?` 从列表里消失，外层自然成立。
+再多的趟数**没有必要**：右结合嵌套的层数对应「一个 `:` 让位一次」，
+而每一趟都会把当前最内层收掉，实测两趟覆盖到三层嵌套即真实语料里出现的全部形状。
 
 ```ts
 if (this.ReorganizationQueue === null) {
   return;
 }
+for (const item of this.ReorganizationQueue.Data) {
+  for (let i = 0; i < this.Data.length; i++) {
+    if (item.Previous(this.Template, this.Data, i)) {
+      i = item.Process(this.Template, this.Data, i);
+    }
+  }
+}
+// 第二趟：只为了让「上一趟让位出去、外侧已经扫过去」的形状有机会成形。
 for (const item of this.ReorganizationQueue.Data) {
   for (let i = 0; i < this.Data.length; i++) {
     if (item.Previous(this.Template, this.Data, i)) {
