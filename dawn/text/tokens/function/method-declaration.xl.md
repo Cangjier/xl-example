@@ -72,6 +72,24 @@ import { WrapSymbol } from "../wrap-symbol.xl.md"
 return ScanDeclarationBody(units, index);
 ```
 
+**已知缺口：类里「无体的重载签名」后面跟着带体的实现时，前几条会被并掉。**
+形状是 `class A {` 换行 `  f(a: string): void` 换行 `  f(a: number): void` 换行
+`  f(a: any) {}` 换行 `}`。
+
+第二条签名往前找体时会跨过换行撞上**第三条的 `{`**，于是三条只出 1 个 `MethodDeclaration`。
+（不带实现体的两条 `f(a: string): void` / `f(a: number): void` 是**对的**，出 2 个。）
+
+试过在这里加「跨行且没见过 `{` 就判没有体」的守卫与它的两种收窄版，**都是净回归**：
+把接口里成片的多行重载（`lib.dom.d.ts` 的 `addEventListener<…>(…)`）、
+`get x(): number` / `set x(v: number)` 这类一行一条的签名一起打掉，
+全语料「成员·方法类」真缺从 18 涨到 37 / 41（用例集因为是绿的所以看不出来，
+是 `tests/parse/gap-dashboard.mjs` 的逐节点对账抓出来的）。已回退。
+
+要修得先能**区分「体在下一行」与「下一条成员」**——只往前看是分不出来的
+（`m(): T` 换行 `{ }` 与 `m(): T` 换行 `m2(): T` 在扫描到那里时长得一样）。
+可行的方向：在 `Process` 侧先把「同一行内的 `: 类型`」标成一段（例如让 `TypeDefine` 带上
+「以换行收尾」的标记），`BodyIndex` 据此判断成员边界，而不是重新猜。
+
 ## private method ParameterIndex:(units:Array<Token>, index:int)=>int
 
 取参数表括号的下标：`index` 是方法名，名字后面允许夹一个**可选标记 `?`** 与一段类型参数段（`GenericType`），
@@ -172,6 +190,23 @@ return tailEnd;
 `;` / 软换行 / 结尾之外都不算签名——例如 `x = f(1)` 里 `f` 后面跟的是 `)`（属于外面的括号），
 `foo(a).bar()` 里跟的是 `.`，这些都必须留给别的规则。
 
+**换行也是成员签名的边界**（实测补的）：判据是「参数表之后是不是一段 `: 返回类型`，
+并且它**不越过换行**」。先在参数表之后看到 `:`，再用 `SignatureTailEnd` 取到返回类型末尾；
+**返回类型末尾的下一个实义单元是 `;` / `,` / 软换行 / 列表末尾 → 这是成员签名，到此为止。**
+
+不能先去找方法体的 `{`：`class A {` 换行 `f(a: string): void` 换行
+`f(a: number): void` 换行 `f(a: any) {}` 换行 `}` 里，第二条签名去找 `{` 会一路扫过换行
+**撞上第三条的 `{`**，于是被判成「带体的方法声明」，把第三条一起吞掉——
+实测三条重载只剩 1 个 `MethodDeclaration`。
+（`Process` 侧的 `SignatureTailEnd` 本来就是这个口径，两边必须一致；
+「两条签名、没有实现体」能对，正是因为那时扫到尾也没有 `{`。）
+
+**这里不能要求「参数表后面紧跟 `:`」**（试过、退回了）：`get length(): number` /
+`set length(v: number)` 这类**无参**签名的参数表是空括号，紧跟其后的确实是 `:`，
+但 `get x() { … }` 这种**带体**的访问器后面是 `{`——写成「必须见到 `:`」会把它们一起判否，
+全语料「成员·方法类」真缺从 18 涨到 41（用例集是绿的，靠
+`tests/parse/gap-dashboard.mjs` 的逐节点对账才抓出来）。判据只能看**尾部之后是什么**。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
@@ -186,7 +221,7 @@ const afterTail = Get(units, tailEnd >= 0 ? tailEnd + 1 : parametersIndex + 1);
 if (afterTail === null || afterTail instanceof WrapSymbol) {
   return true;
 }
-return afterTail instanceof Symbol && afterTail.Is(";");
+return afterTail instanceof Symbol && (afterTail.Is(";") || afterTail.Is(","));
 ```
 
 ## private method AfterAssignment:(template:Template, units:Array<Token>, nameIndex:int)=>bool
