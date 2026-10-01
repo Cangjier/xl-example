@@ -174,6 +174,12 @@ if (!(body instanceof Bracket) || body.startBracket !== "{") {
 if (classInstance !== null) {
   if (isAnonymous === false && name instanceof Identifier) {
     classInstance.name = name.TempToString();
+    // 名字的位置**在这一刻还拿得到**，顺手记下来（见 `NameStart` 字段的说明）：
+    // 出了这段扫描，那个 `Identifier` 就不再被任何地方引用了。
+    if (name.SourceRange.Start !== null && name.SourceRange.End !== null) {
+      classInstance.NameStart = name.SourceRange.Start.Index;
+      classInstance.NameEnd = name.SourceRange.End.Index;
+    }
   }
   classInstance.extends = extendsName;
   classInstance.implements = implementsNames;
@@ -279,6 +285,22 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 
 类名。
 
+## field NameStart:int = -1
+
+类名在源码里的**起始下标**（没有名字时 `-1`）。
+
+**为什么单独记一个下标**：扫类头的时候名字单元就在手里（`ScanHead` 的 `name`），
+可原来只留了 `name.TempToString()`——**位置当场就丢了**。丢了位置的后果不是「少一个字段」，
+而是下游没法把这个名字还原成一个带区间的节点：投影只能拿类自己的区间去凑，
+于是 `export class A` 的 `A` 会被算到 `export` 那个位置。实测这一类占
+「投影后仍缺的 `Identifier`」的绝大多数（`ClassDeclaration` 82 处、`VariableDeclaration` 33 处…）。
+
+`NameStart` 与 `NameEnd` **成对出现**：只有一个时不成立（半个区间比没有更糟）。
+
+## field NameEnd:int = -1
+
+类名的**结束下标**（闭区间，与 `SourceRange` 的约定一致）。
+
 ## field extends:string = ""
 
 `extends` 后面的基类名（点号名字按 `.` 连接，如 `A.B`）；没有 `extends` 时是空串。
@@ -316,7 +338,12 @@ throw new Error("找不到匹配的子单元");
 
 ## method ToXmlString:()=>string
 
-产出 XML：开标签上带 `name` / `extends` / `implements` / `modifiers` 四个属性。
+产出 XML：开标签上带 `name` / `nameStart` / `nameEnd` / `extends` / `implements` / `modifiers` 六个属性。
+
+`nameStart` / `nameEnd` 是类名的位置（见 `NameStart` 字段的说明）。**两个出口都写它**：
+树有两个出口，`cases:astjson` 会逐节点比对它们——只在一个出口里加字段，那一把尺子当场就红（踩过）。
+名字的位置记成**两个属性**而不是一个子单元，是为了**不动树的形状**：动形状会牵动 `cases:align`
+一整批按区间登记的口径，而这里要的只是「把当时知道的位置留下来」。
 
 `implements` 用 `join(",")` 拼——与 `Let` 的两组解构名同一种写法。
 
@@ -326,7 +353,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} name="${this.name}" extends="${this.extends}" implements="${this.implements.join(",")}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
+return `<${name} name="${this.name}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}" extends="${this.extends}" implements="${this.implements.join(",")}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
@@ -342,6 +369,10 @@ return `<${name} name="${this.name}" extends="${this.extends}" implements="${thi
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.name);
+// 名字的位置：**JSON 出口专有**（XML 那边不写它——属性名的事实来源仍是 `ToXmlString` 那四个）。
+// 下游要靠它把名字还原成一个带区间的节点，见 `NameStart` 字段的说明。
+result.set("nameStart", this.NameStart);
+result.set("nameEnd", this.NameEnd);
 result.set("extends", this.extends);
 result.set("implements", this.implements.join(","));
 result.set("modifiers", this.modifiers);

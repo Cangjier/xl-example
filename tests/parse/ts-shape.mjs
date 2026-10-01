@@ -279,6 +279,14 @@ const FIELD_BY_KIND = new Map([
  */
 function synthName(name, v, ctx) {
   if (name === "") return undefined;
+  // **首选产物自己记的位置**：token 层在扫描那一刻就知道名字单元在哪，
+  // 于是把它记成 `nameStart` / `nameEnd` 两个字段（见 `class.xl.md` 的 `NameStart`）。
+  // 有它就**不做任何猜测**——下面的 `indexOf` 补偿只是给还没有这对字段的 token 兜底。
+  const start = v.attrs.get("nameStart");
+  const end = v.attrs.get("nameEnd");
+  if (typeof start === "number" && typeof end === "number" && start >= 0 && end >= start) {
+    return { kind: "Identifier", text: name, pos: start, end: end + 1 };
+  }
   const modifiers = v.attrs.get("modifiers");
   let from = v.start;
   if (typeof modifiers === "string" && modifiers !== "") {
