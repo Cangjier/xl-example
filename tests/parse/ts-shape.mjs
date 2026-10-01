@@ -946,7 +946,7 @@ function projectField(v, ctx) {
   if (typeNode !== undefined) props.type = projectTypeDefine(view(typeNode), ctx);
   // `x = 1` 的初值：`=` 后面那一格（与 `projectLet` 同款读法）。
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
-  addModifiers(v, props);
+  addModifiers(v, props, ctx);
   return { kind: "PropertyDeclaration", pos: v.start, end: v.end, ...props };
 }
 
@@ -964,22 +964,28 @@ function projectEnumMember(v, ctx) {
 /**
  * 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
  * 而 TS 那边 `modifiers` 是一串**节点**（`ExportKeyword` / `ConstKeyword`…）。
- * 这里按字符串补出那一串——**位置是合成的**（宽度为零，落在声明开头），
- * 因为产物没有记每个修饰词的区间。字段名与数组形状对得上，区间对不上；
- * 尺子比的是字段名，所以它在这里是「够用但不算精确」，如实写在 README 里。
+ *
+ * **每个修饰词的区间要从原文里量出来**（踩过）：早先一律写成
+ * `pos = v.start, end = v.start`（零宽），于是尺子上整类报「同 kind 同起点、终点差 6~9」——
+ * 实测 `declare` 是 `TS[26,33)` 而我给 `[26,26)`，一份语料里几百处。
+ *
+ * 能这样量是因为**带修饰词的节点，自己的起点就是第一个修饰词的起点**
+ * （实测 `Field[12,34]` 的 `modifiers="private,readonly"`：12 正是 `private` 的开头），
+ * 所以从 `v.start` 起**按顺序**找每个词即可。
  */
-function addModifiers(v, props) {
+function addModifiers(v, props, ctx) {
   const modifiers = v.attrs.get("modifiers");
   if (typeof modifiers !== "string" || modifiers === "") return;
-  props.modifiers = modifiers
-    .split(",")
-    .filter((word) => word !== "")
-    .map((word) => ({
-      kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`,
-      text: word,
-      pos: v.start,
-      end: v.start,
-    }));
+  const words = modifiers.split(",").filter((word) => word !== "");
+  const out = [];
+  let at = v.start;
+  for (const word of words) {
+    const found = ctx.source.indexOf(word, at);
+    const pos = found >= 0 && found < v.end ? found : at;
+    out.push({ kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`, text: word, pos, end: pos + word.length });
+    at = pos + word.length;
+  }
+  props.modifiers = out;
 }
 
 /**
@@ -1274,7 +1280,7 @@ function structuralProps(v, kind, ctx) {
     }
   }
   // 修饰词：产物那边是字符串，TS 那边是一串节点（见 `addModifiers` 的说明）。
-  addModifiers(v, props);
+  addModifiers(v, props, ctx);
   return props;
 }
 
