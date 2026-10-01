@@ -433,6 +433,12 @@ function projectNode(node, ctx) {
     case "ConditionalType":
       return projectConditionalType(v, ctx);
 
+    case "TernaryOperator":
+      return projectConditionalExpression(v, ctx);
+
+    case "Lamda":
+      return projectLamda(v, ctx);
+
     case "Field":
       return projectField(v, ctx);
 
@@ -722,6 +728,61 @@ function projectParameter(v, ctx) {
 }
 
 /**
+ * 三元表达式 `a ? b : c` → `ConditionalExpression`（`condition` / `whenTrue` / `whenFalse`
+ * + `questionToken` / `colonToken`）。
+ *
+ * **`?` 与 `:` 在这里是字段**（TS 的 `cond.questionToken` / `cond.colonToken` 都在
+ * `forEachChild` 那一层），与 `ConditionalType` **正好相反**——那个是类型位，
+ * TS 那边两个标点都不进子节点。两者形状极像、口径相反，是这一带最容易写错的地方。
+ *
+ * 分段名（`trueStatement` / `falseStatement`）是上游 Cangjie 的叫法，
+ * TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
+ */
+function projectConditionalExpression(v, ctx) {
+  const props = {
+    condition: projectSegment(v, "condition", ctx),
+    whenTrue: projectSegment(v, "trueStatement", ctx),
+    whenFalse: projectSegment(v, "falseStatement", ctx),
+  };
+  // `?` 与 `:` 在产物树里**没有单元**（`TernaryOperator` 只收三段），只能按相邻两段的位置合成：
+  // `?` 落在条件段末尾，`:` 落在真值段末尾。位置是**算出来的**，不是量出来的。
+  const start = v.start;
+  const question = firstNodeOf(v, "condition");
+  const whenTrue = firstNodeOf(v, "trueStatement");
+  if (question !== null) props.questionToken = { kind: "QuestionToken", text: "?", pos: endOf(question), end: endOf(question) + 1 };
+  if (whenTrue !== null) props.colonToken = { kind: "ColonToken", text: ":", pos: endOf(whenTrue), end: endOf(whenTrue) + 1 };
+  return { kind: "ConditionalExpression", pos: start, end: v.end, ...props };
+}
+
+/** 取某个分段里第一个节点（没有就给 `undefined`）。 */
+function firstNodeOf(v, key) {
+  const kids = kidsOf(v, key);
+  if (kids.length > 0) return kids[0];
+  // 分段里可能只有一层包装（`TernaryOperatorCondition`），要往里再走一层。
+  for (const raw of v.segments.values()) {
+    if (!Array.isArray(raw)) continue;
+    for (const wrapper of raw) {
+      if (!(wrapper instanceof Map)) continue;
+      for (const inner of kidsOf(view(wrapper), "children")) {
+        if (inner.get("type") !== "SymbolToken") return inner;
+      }
+    }
+  }
+  return null;
+}
+
+/** 投影一个分段：先摊平包装，再把里面的节点投出来（取第一个）。 */
+function projectSegment(v, key, ctx) {
+  const kids = kidsOf(v, key);
+  if (kids.length === 0) return undefined;
+  const first = kids[0];
+  // 分段的元素常常是**包装**（`TernaryOperatorCondition` / `IfCondition`…），要摊平一层。
+  const inner = unwrapNodes(first).filter((k) => k.get("type") !== "SymbolToken");
+  if (inner.length === 0) return projectNode(first, ctx);
+  return projectExpression(inner, ctx);
+}
+
+/**
  * 条件类型 `T extends U ? A : B` → `ConditionalType`（四个具名字段）。
  *
  * 产物那边是一串**平级单元**：`[T, extends, U, ?, A, :, B]`，所以在 `?` 与 `:` 处切开。
@@ -756,20 +817,22 @@ function projectConditionalType(v, ctx) {
   return { kind: "TypeParameter", pos: v.start, end: v.end, ...props };
 }
 
-/** 箭头函数：`ArrowFunction`（`parameters` / `body` / `type`）。 */
+/**
+ * 箭头函数 → `ArrowFunction`（`parameters` / `body` / `equalsGreaterThanToken` / `type`）。
+ *
+ * **`=>` 在产物树里没有单元**（`Lamda` 只收 `parameters` 与 `body` 两段），
+ * 而 TS 那边 `equalsGreaterThanToken` 是子节点——所以这里按「形参段末尾 = 箭头位置」**合成**一个。
+ * 位置是**算出来的**：真实位置要靠词法才能知道 `=>` 前面的空白有多少，`endOf(参数段)` 只是它的下界。
+ */
 function projectLamda(v, ctx) {
-  const kids = projectableKids(v);
-  const params = kids.filter((k) => k.get("type") === "Parameter" || k.get("type") === "LamdaParameter");
-  const body = kids.filter(
-    (k) => !["Parameter", "LamdaParameter", "SymbolToken", "ReturnType"].includes(k.get("type")),
-  );
-  return {
-    kind: "ArrowFunction",
-    parameters: projectEach(params, ctx),
-    body: body.length === 0 ? undefined : projectNode(body[0], ctx),
-    pos: v.start,
-    end: v.end,
-  };
+  const props = structuralProps(v, "ArrowFunction", ctx);
+  const params = kidsOf(v, "parameters");
+  const lastParam = params.length > 0 ? unwrapNodes(params[0]).pop() : null;
+  if (lastParam !== undefined && lastParam !== null) {
+    const at = endOf(lastParam);
+    props.equalsGreaterThanToken = { kind: "EqualsGreaterThanToken", text: "=>", pos: at, end: at };
+  }
+  return { kind: "ArrowFunction", pos: v.start, end: v.end, ...props };
 }
 
 /** 右值那一段单元 → 一个类型节点（`TypeDefine` 摊平；空段给 `undefined`）。 */
