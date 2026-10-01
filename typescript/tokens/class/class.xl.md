@@ -329,6 +329,32 @@ for (const item of this.Data) {
 return `<${name} name="${this.name}" extends="${this.extends}" implements="${this.implements.join(",")}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `name` / `extends` / `implements` / `modifiers` 四个声明字段，外加子单元。
+
+键名与 `ToXmlString` 开标签上的四个属性同名，值也取同一批字段——`implements` 是 `Array<string>`，
+这里按 `join(",")` 拼成一个字符串，与 XML 属性那处的写法逐字一致；`modifiers` 本身就是字符串，直接写。
+树有两个出口，属性名的事实来源始终是 `ToXmlString`，这一处只是把它搬成同名键。
+子单元非空时才写 `children`（空节点只留 `type`，与 XML 里自闭合标签同一件事）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.name);
+result.set("extends", this.extends);
+result.set("implements", this.implements.join(","));
+result.set("modifiers", this.modifiers);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

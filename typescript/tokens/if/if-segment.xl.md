@@ -109,6 +109,32 @@ for (const item of this.Data) {
 return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `key`，外加两个可选段。
+
+`key` 与 XML 的 `key` 属性同源，取的都是这个字段（`if` / `else`；`else if` 记的是 `if`）。
+
+`condition` 与 `statement` 都**只在对应的 getter 不是 `null` 时才写**：`else` 段没有条件、
+`else` 之后没有体时这两个属性给 `null`，此时不写这个键——与 XML 里「没有那个子单元」同一件事。
+
+两段的值取 `ToList()`：条件与体各是**一批**子单元，而 `Condition` / `Statement` 正是按类型从 `Data`
+里挑出来的那一个段节点；摊成扁平的 `children` 会把「哪一段是条件、哪一段是体」抹掉，
+而这两段本来就是靠类型（而不是位置）认出来的。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("key", this.key);
+if (this.Condition !== null) {
+  result.set("condition", this.Condition.ToList());
+}
+if (this.Statement !== null) {
+  result.set("statement", this.Statement.ToList());
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

@@ -87,6 +87,27 @@ for (const item of this.Data) {
 return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `key` + 子单元。
+
+`key` 与 XML 的 `key` 属性同源（`case` / `default`），子单元按基类那条规则走 `children`。
+它与 `IfSegment` 是同一款分段节点，两个出口的形状也对称。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("key", this.key);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

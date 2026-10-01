@@ -403,6 +403,31 @@ for (const item of this.Data) {
 return `<${name} name="${this.name}" extends="${this.extends.join(",")}" export="${this.export}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `name` / `extends` / `export` 三个声明字段，外加子单元。
+
+键名与 `ToXmlString` 开标签上的三个属性同名、值同源：`extends` 是 `Array<string>`，
+这里按 `join(",")` 拼成字符串（与 XML 属性那处一致）；`export` 是 `bool`，
+JSON 里写真布尔 `true` / `false`——XML 属性是插值出来的文本，JSON 没有这层包装，正是两个出口该有的差别。
+子单元非空时才写 `children`（空节点只留 `type`）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.name);
+result.set("extends", this.extends.join(","));
+result.set("export", this.export);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## field name:string = ""
 
 接口名。

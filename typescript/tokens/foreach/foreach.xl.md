@@ -236,6 +236,41 @@ Body 段（循环体）。
 return this.Data.find((x) => x instanceof ForeachBody) as ForeachBody;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `define` / `enumable` / `body` 三个**具名分段** + 余下的子单元。
+
+`Foreach` 在 XML 里不写属性（`<Foreach>` 只有子单元的串接），但它的子单元是三条各有名字的段：
+`define` 是 `in` / `of` 左边那截、`enumable` 是右边那截、`body` 是循环体。JSON 侧显式写出段名。
+
+三段的值都取 `ToList()` 而不是 `ToDictionary()`：段是**一批子单元**的容器，
+而 `ToDictionary()` 是给**单个**节点用的。摊成扁平的 `children` 会让左值与可枚举对象之间的
+边界消失——那正好就是 `define` 与 `enumable` 的分别。
+
+**`children` 装的是三条段之外的子单元**，`await` 就是其中之一：`for await (x of xs)` 里那个
+`await` 是直接挂在 `Foreach` 上的（见 `Process` 里 `result.AddAndCloseLast(awaitUnit)`），
+不属于任何一条段。**不收它 JSON 就会比 XML 少一个节点**——这类「段没覆盖到的子单元」
+是分段写法唯一的漏点，所以这里按「不属于三条段的那些」兜底收一遍。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("define", this.Define.ToList());
+result.set("enumable", this.Enumable.ToList());
+result.set("body", this.Body.ToList());
+const children: Array<any> = [];
+for (const item of this.Data) {
+  if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
+    continue;
+  }
+  children.push(item.ToDictionary());
+}
+if (children.length !== 0) {
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

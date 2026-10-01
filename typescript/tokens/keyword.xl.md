@@ -101,6 +101,21 @@ super(template);
 return `<Keyword>${this.Value}</Keyword>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 AST JSON 节点：类型名 + 关键字文本。
+
+它是叶子：关键字文本在 `Value` 字段上，`Data` 里没有子单元，所以只写 `value`、不写 `children`。
+`type` 按契约取 `this.constructor.name`，而 `ToXmlString` 的标签名是**写死的字面量 `Keyword`**——
+这个类本身就叫 `Keyword`，两边实际一致，只是来路不同：XML 不看运行时类名，JSON 一律看。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("value", this.Value);
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

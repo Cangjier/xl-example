@@ -198,6 +198,25 @@ Arguments 段（括号里的实参）。
 return this.Data.find((x) => x instanceof NewArguments) as NewArguments;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `name` / `arguments` 两个**具名分段**。
+
+**`name` 装的是 `Type` 段**（被 `new` 的类型名），这不是写错：`type` 这个键已经被运行时类型名占了
+（`result.set("type", this.constructor.name)`），所以这一段改用 `name`——与上游 Cangjie 的写法一致。
+
+`arguments` 是实参段。两段都取 `ToList()`：它们各是**一批子单元**的容器，
+摊成扁平的 `children` 会让「类型名到哪结束、实参从哪开始」这个边界消失
+（`new A` 这类没有实参表的形状里 `arguments` 是空段，但它仍要作为一段出现在 JSON 里）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.Type.ToList());
+result.set("arguments", this.Arguments.ToList());
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

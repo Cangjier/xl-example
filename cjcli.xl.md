@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { CommonUtil } from "./core/common-util.xl.md"
+import { Token } from "./core/syntax/token.xl.md"
 import { Template } from "./core/syntax/templates/template.xl.md"
 import { SyntaxException } from "./core/exceptions/syntax-exception.xl.md"
 import { TextDocument } from "./typescript/text-document.xl.md"
@@ -14,10 +15,17 @@ import { TextContext } from "./typescript/text-context.xl.md"
 
 链路只有四步：读源文件 → `TextDocument` 包成文档 → `TextContext.Process` 驱动解析 → 把 `Root` 的 XML 缩进后打到标准输出。
 
+**两个出口**：XML 是默认出口（给人读，也是测试夹具的形态）；`--ast-json` 换成 JSON 出口
+（给下游程序读，形状是上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`）。
+JSON 出口**不再缩进 XML、也不做任何重排**，`JSON.stringify` 的紧凑单行就是它的形态——
+缩进只属于 XML 那一条打印路径（`FormatXml` 也不认得 JSON）。
+
 | 命令 | 行为 |
 | --- | --- |
 | `cjcli <文件>` | 解析文件，**缩进** XML 打到标准输出 |
 | `cjcli <文件> -o <文件>` | 解析后写入指定文件（同一份缩进文本） |
+| `cjcli <文件> --ast-json` | 解析后把 **AST JSON**（单行）打到标准输出 |
+| `cjcli <文件> --ast-json -o <文件>` | 解析后把 AST JSON 写入指定文件 |
 | `cjcli -h` / `cjcli --help` | 打印用法 |
 | `cjcli -v` / `cjcli --version` | 打印版本 |
 | `cjcli`（无参数） | 从标准输入读，解析后打缩进 XML |
@@ -51,13 +59,16 @@ cjcli.xl.md  --xl build-->  dist/cjcli.ts  --tsc-->  build/cjcli.js  --node-->  
 
 `# type` 不支持泛型参数，也不需要。
 
-# type CliOptions = { Input: string; Output: string; Help: boolean; Version: boolean; Error?: string }
+# type CliOptions = { Input: string; Output: string; AstJson: boolean; Help: boolean; Version: boolean; Error?: string }
 
 命令行参数解析结果。
 
 `Error` 是用法错误的通道：非空时 `Main` 直接以退出码 `1` 收场，**不再往下走**。
 少了它，「`-o` 少给一个路径」这种情况会退化成「没有输入文件」，
 于是 `Main` 转去读 stdin —— 在终端上直接挂住等人输入。
+
+`AstJson` 是出口开关：`false` 走 XML（默认），`true` 走 AST JSON。两个出口打的是同一棵树，
+所以它是**一个布尔量**，而不是两条各自解析一次的路径。
 
 `# type` 的等号右侧是**原文**，会被原样搬进产物。
 
@@ -82,6 +93,7 @@ return [
   "用法：",
   "  cjcli <文件>              解析源文件，缩进 XML 打到标准输出",
   "  cjcli <文件> -o <文件>    解析后写入指定文件（同一份缩进文本）",
+  "  cjcli <文件> --ast-json   解析后把 AST JSON 打到标准输出",
   "  cjcli                    从标准输入读源码",
   "  cjcli -h, --help         打印本说明",
   "  cjcli -v, --version      打印版本",
@@ -103,6 +115,13 @@ return [
 缩进只动空白、不动任何标签或属性值——`Root.ToString()` 的紧凑形态仍然是测试与差分用的那一份。
 
 `-o` 与标准输出**打的是同一份缩进文本**，两种出口不再有形态差异。
+
+`--ast-json` 换的是**出口**，不是解析：同一棵树、同一次 `Process`，只是最后取
+`CjcliAstJson` 而不是 `Root.ToString()`。JSON 是紧凑单行（`JSON.stringify(value)` 不带缩进参数），
+不经过 `FormatXml`——那个函数只认得 XML，喂它一段 JSON 会原样返回。
+
+**`--ast-json` 与 `-o` 可以同时出现**：写进文件的仍是同一条 JSON 文本，
+只是「已写入 …」那行提示照旧打到标准输出。
 
 ```ts
 const options = CjcliParseArguments(args);
@@ -138,12 +157,19 @@ if (content === null) {
   process.exitCode = 1;
   return;
 }
-const xml = CjcliParse(content, filePath);
-if (xml === null) {
+let text: string | null = null;
+if (options.AstJson) {
+  text = CjcliParseAstJson(content, filePath);
+} else {
+  const xml = CjcliParseXml(content, filePath);
+  if (xml !== null) {
+    text = CommonUtil.FormatXml(xml);
+  }
+}
+if (text === null) {
   process.exitCode = 1;
   return;
 }
-const text = CommonUtil.FormatXml(xml);
 if (options.Output === "") {
   process.stdout.write(text);
   return;
@@ -157,13 +183,15 @@ process.stdout.write("已写入 " + outputPath + "\n");
 
 解析命令行参数。
 
-规则刻意取得很窄：只有一个位置参数（输入文件），`-o` / `--output` 需要一个值，其余 `-` 开头的词一律算用法错误。
+规则刻意取得很窄：只有一个位置参数（输入文件），`-o` / `--output` 需要一个值，
+`--ast-json` 是布尔开关（不带值），其余 `-` 开头的词一律算用法错误。
 用法错误只记进 `Error` 并立刻返回，由 `Main` 统一收尾——**打印与退出码只有一处**。
 
 ```ts
 const options: CliOptions = {
   Input: "",
   Output: "",
+  AstJson: false,
   Help: false,
   Version: false,
 };
@@ -177,6 +205,11 @@ while (index < args.length) {
   }
   if (item === "-v" || item === "--version") {
     options.Version = true;
+    index++;
+    continue;
+  }
+  if (item === "--ast-json") {
+    options.AstJson = true;
     index++;
     continue;
   }
@@ -203,9 +236,14 @@ while (index < args.length) {
 return options;
 ```
 
-# method CjcliParse:(content:string, filePath:string)=>string | null
+# method CjcliParse:(content:string, filePath:string)=>Token | null
 
-把一段源码解析成 XML；出错时把诊断打到标准错误并返回 `null`。
+把一段源码解析成 token 树；出错时把诊断打到标准错误并返回 `null`。
+
+**两个出口共用这一段**：XML 出口要的是 `Root`，JSON 出口要的是 `Root.ToList()`，
+但「造模板 → 包文档 → 驱动解析 → 异常收敛」这条链是同一段，所以它返回**根单元本身**，
+由两个很薄的取值函数（`CjcliParseXml` / `CjcliParseAstJson`）各自取自己那一份。
+这样「两个出口看的是同一棵树」不是一句约定，而是**结构上没有第二条解析路径**。
 
 `TextDocument` / `TextContext` 与整棵树不再登记到任何持有者身上（见 README「资源生命周期：交给 GC」），
 解析完也不需要显式释放，所以这里只剩 `try/catch` 一层，用来做异常收敛。
@@ -223,11 +261,49 @@ try {
   document.FilePath = filePath;
   const context = new TextContext(template);
   context.Process(document);
-  return context.Root.ToString();
+  return context.Root;
 } catch (error) {
   process.stderr.write("cjcli: 解析失败\n" + CjcliErrorText(error) + "\n");
   return null;
 }
+```
+
+# method CjcliParseXml:(content:string, filePath:string)=>string | null
+
+解析并取**紧凑 XML**（`Root.ToString()`）。
+
+缩进不在这里做：`Main` 拿到它之后再走 `CommonUtil.FormatXml`，
+所以「XML 的紧凑形态」与「打印形态」仍然是同一条数据的两步，而不是两个出口。
+
+```ts
+const root = CjcliParse(content, filePath);
+if (root === null) {
+  return null;
+}
+return root.ToXmlString();
+```
+
+# method CjcliParseAstJson:(content:string, filePath:string)=>string | null
+
+解析并取 **AST JSON**（紧凑单行）。
+
+JSON 的形状就是 `Root.ToList()` 的返回值：一个数组，每个元素是一个节点对象
+（`type` + 本节点自己的键 + 可选的 `children` / 具名分段），根这一层的每个节点另带 `range`。
+这一份与上游 Cangjie 的 `code.analyse` 同源（`Root.ToList()` → JSON），
+**不是**从 XML 反推出来的第二套结构。
+
+`JSON.stringify` 不带第三参数：紧凑单行是刻意选的形态——它是要被程序读的，
+缩进只会让下游多一步解析前的剥离；人要看缩进形态用 XML 出口。
+
+序列化本身在 `Token.ToJsonString` 里（那里处理 `Map` → 普通对象那一层），
+这里只负责把异常收敛到 `null`，与 XML 出口同一个形状。
+
+```ts
+const root = CjcliParse(content, filePath);
+if (root === null) {
+  return null;
+}
+return root.ToJsonString();
 ```
 
 # method CjcliErrorText:(error:any)=>string

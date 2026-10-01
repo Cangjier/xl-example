@@ -154,6 +154,22 @@ const name = this.constructor.name;
 return `<${name}>${CommonUtil.XmlDecode(this.Tmp)}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 AST JSON 节点：类型名 + 注释正文。
+
+它是叶子：正文全在 `Tmp` 字段上，`Data` 里没有子单元，所以写 `value` 而不写 `children`
+（`children` 只属于有子单元的节点，见 `core/syntax/token.xl.md` 的基类口径）。
+值取 `Tmp` **原样**，不过 `CommonUtil.XmlDecode`——`ToXmlString` 那一步转义是 XML 文本节点的硬要求，
+JSON 字符串没有这个约束，所以两个出口在这一点上刻意不同：同一个字段，各按自己格式的规矩写。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("value", this.Tmp);
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

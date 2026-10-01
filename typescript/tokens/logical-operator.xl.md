@@ -192,6 +192,28 @@ const operatorName = this.op === "||" ? "Or" : "And";
 return `<${name} op="${operatorName}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 AST JSON 节点：类型名 + 逻辑运算符 + 操作数。
+
+`op` 键与 XML 属性同名，值**照抄同一句翻译** `this.op === "||" ? "Or" : "And"`——
+两个出口对同一个字段必须说同一句话，所以这里不另写一套判定，也不把原始的 `||` / `&&` 泄进 JSON。
+`Data` 里的操作数进 `children`；为空时不写这个键。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("op", this.op === "||" ? "Or" : "And");
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

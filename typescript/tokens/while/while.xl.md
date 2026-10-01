@@ -155,6 +155,27 @@ Body 段（循环体）。
 return this.Data.find((x) => x instanceof WhileBody) as WhileBody;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `compare` / `body` 两个**具名分段**。
+
+`While` 在 XML 里不写任何属性（`<While>` 只有子单元的串接），但它的子单元不是一堆同质的「内容」，
+而是两条各有名字的段：`compare` 是条件括号整段，`body` 是循环体。JSON 侧把这两个名字显式写出来，
+下游按段名取用，不必再靠「第几个子单元」去猜哪段是哪段。
+
+两段的值取 `ToList()` 而不是 `ToDictionary()`：段本身是**一批子单元**的容器，
+`ToList()` 才是给「一批」准备的口子（`ToDictionary()` 是给**单个**节点用的），
+它按基类约定逐项产出这一批子单元的 JSON。这里若摊成扁平的 `children`，
+段的边界就没了——`compare` 与 `body` 会挤进同一条列表，读的人再也分不出条件在哪结束。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("compare", this.Compare.ToList());
+result.set("body", this.Body.ToList());
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

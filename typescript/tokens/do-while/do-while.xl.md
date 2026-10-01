@@ -208,6 +208,25 @@ Compare 段（`while` 后面那个条件括号整段）。
 return this.Data.find((x) => x instanceof WhileCompare) as WhileCompare;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `body` / `compare` 两个**具名分段**。
+
+`DoWhile` 在 XML 里不写属性（`<DoWhile>` 只有子单元的串接），两段的先后与源顺序一致：
+`body` 是 `do` 后面那条语句，`compare` 是 `while` 后面那个条件括号整段——与 `While` 的段序相反，
+写键的顺序也照着源顺序来，读的人不必再回头去数。
+
+两段的值取 `ToList()`：段是**一批子单元**的容器（`ToList()` 才是给「一批」准备的口子），
+摊成扁平的 `children` 会把体与条件的边界抹掉。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("body", this.Body.ToList());
+result.set("compare", this.Compare.ToList());
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

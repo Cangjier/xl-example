@@ -167,6 +167,20 @@ const name = this.constructor.name;
 return `<${name}>${this.Tmp}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 AST JSON 节点：类型名 + 指令正文。
+
+它是叶子：正文全在 `Tmp` 字段上，`Data` 里没有子单元，所以只写 `value`、不写 `children`。
+值就是 `Tmp`，与 `ToXmlString` 里那个正文是**同一个字段**；两边在这里恰好一致——XML 那边同样不转义。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("value", this.Tmp);
+return result;
+```
+
 ## method Undo:(source:Source)=>void
 
 回退一个字符。

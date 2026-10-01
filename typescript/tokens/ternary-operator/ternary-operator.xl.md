@@ -367,6 +367,26 @@ return this.Data.find((item) => item instanceof TernaryOperatorFalseStatement)!;
 return this.Add(new TernaryOperatorFalseStatement(this.Template));
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `condition` / `trueStatement` / `falseStatement` 三个**具名分段**。
+
+三个键对应三元表达式在树里的三个子单元：条件、`?` 之后的真值、`:` 之后的假值。
+条件那一段的取法写的是 `this.Condtion`——成员名本身就是这么拼的（少一个 `i`），
+这里照抄字段名，不另起别名，免得同一个段在源码与产物里出现两个名字。
+
+三段的值都取 `ToList()`：每段都是**一批子单元**的容器，段名必须显式写出来——
+摊成扁平的 `children` 之后，「哪一段是真值、哪一段是假值」就再也分不出来了。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("condition", this.Condtion.ToList());
+result.set("trueStatement", this.TrueStatement.ToList());
+result.set("falseStatement", this.FalseStatement.ToList());
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

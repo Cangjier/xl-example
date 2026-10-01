@@ -145,3 +145,18 @@ this.SourceRange.End = source;
 const name = this.constructor.name;
 return `<${name}>${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
 ```
+
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + 本块的文本。
+
+块的 JSON 形态就是 XML 元素「标签 + 文本」的写法，`value` 一律是**未转义**的原文本——
+转义是 XML 出口自己的事，JSON 侧有它自己的转义。基类的 `{ type, children }` 对块不成立
+（块没有子单元），所以这里整条覆写掉。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("value", this.Temp.join(""));
+return result;
+```

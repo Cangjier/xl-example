@@ -240,6 +240,30 @@ Next 段（第二个 `;` 之后那截）。
 return this.Data.find((x) => x instanceof ForNext) as ForNext;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `initial` / `compare` / `next` / `body` 四个**具名分段**。
+
+`For` 在 XML 里不写属性（`<For>` 只有子单元的串接），但它的子单元是四条各有名字的段：
+`initial` 是第一个 `;` 之前那截、`compare` 是两个 `;` 之间那截、`next` 是第二个 `;` 之后到右括号、
+`body` 是循环体。JSON 侧把这四个名字显式写出来，下游按段名取用，不必再靠「第几个子单元」去猜。
+
+四段的值都取 `ToList()` 而不是 `ToDictionary()`：每段都是**一批子单元**的容器，
+`ToList()` 是给「一批」准备的口子（`ToDictionary()` 是给**单个**节点用的）。
+摊成扁平的 `children` 会让四段的边界一起消失——`initial` / `compare` / `next` 本来就
+只靠分号分隔，JSON 里丢掉段名之后就再也切不回来了。
+`next` 段在括号以 `;` 收尾时是空的，但它仍然作为一段出现（空数组），与 XML 里 `<ForNext>` 仍在树上一致。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("initial", this.Initial.ToList());
+result.set("compare", this.Compare.ToList());
+result.set("next", this.Next.ToList());
+result.set("body", this.Body.ToList());
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

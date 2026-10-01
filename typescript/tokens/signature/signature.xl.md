@@ -387,6 +387,27 @@ for (const item of this.Data) {
 return `<${name} kind="${this.kind}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `kind`，外加子单元。
+
+键名与 `ToXmlString` 开标签上的 `kind` 属性同名、值同源（都是那个区分三形态的字符串）。
+子单元（构造签名的 `new` 词与类型参数段、参数表括号、返回类型段）非空时才写 `children`。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("kind", this.kind);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

@@ -22,6 +22,23 @@ Token，语法树的地基。
 
 `Default` / `Close` / `Process` / `Clone` 四个抽象成员写成抛错桩。
 
+树有两个出口：**XML**（`ToXmlString`，给人读、给测试当夹具）与 **JSON**（`ToDictionary` / `ToList`，
+给下游程序读）。两者同源——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
+所以**属性名的唯一事实来源仍是 `ToXmlString`**：改了那处拼串，这里必须一起改，
+否则同一棵树会在两个出口上说两套话。
+
+JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
+
+| 形状 | 什么时候 | 例 |
+| --- | --- | --- |
+| `{ type, children }` | 容器节点（子单元是「内容」） | `Root` / `Class` / `Bracket` |
+| `{ type, <段名>: Array<..> }` | 有具名分段的节点（分段各是一个数组） | `For` 的 `initial` / `compare` / `next` / `body` |
+| `{ type, value }` | 叶子节点（文本块） | `Identifier` / `SymbolToken` / `Keyword` |
+
+**坐标补在 `ToList` 那一层**：`ToList` 给每个子节点补一个 `[起始下标, 结束下标]`，
+所以带 `range` 的节点正好是「被某个 `ToList()` 收进来的那些」——根那一层，
+以及各 token 用 `ToList()` 装的段数组里的节点；`ToDictionary` 自己不带坐标。与上游一致。
+
 ## field Template:Template
 
 本单元使用的模板。
@@ -401,6 +418,208 @@ return `<${name}>${temp.join("")}</${name}>`;
 
 ```ts
 return this.ToXmlString();
+```
+
+## method ToDictionary:()=>Map<string, any>
+
+产出这个节点的 JSON 对象形态：类型名 + 子单元。
+
+基类的形状是 `{ type, children }`——`type` 取运行时类型名（与 XML 标签同一个来源），
+`children` 是子单元的 `ToDictionary` 数组。子单元为空时**不写 `children`**（空节点的 JSON 只有 `type`，
+与 XML 里 `<LineWrap />` 那种自闭合标签同一件事）。
+
+各 token 覆写这个方法，把自己在 `ToXmlString` 里拼的那些属性搬成同名的键；
+有具名分段（`For` 的四个段、`IfSegment` 的条件与体…）的节点覆写成按段名的数组，而不是 `children`。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
+## method WithRange:()=>Map<string, any>
+
+产出 `ToDictionary()` 的结果，并给**这个节点与它下面所有节点**补上 `range`。
+
+`range` 是闭区间的 `[起始下标, 结束下标]`（就是 `SourceRange` 的两头，`Source` 的 `Index`），
+两头还没签入签出时写 `0`。
+
+**为什么要有这一层**：`ToDictionary` 故意不带坐标（它是「形状」，与 XML 的标签/属性一一对应），
+坐标只在 `ToList` 那一层补。可**要投影成 TypeScript 的 AST 就必须每个节点都有坐标**——
+TS 的每个节点都带 `pos` / `end`，没有坐标就只能靠原文搜索猜位置，
+而那种对齐一遇到壳节点（`VariableStatement`、`IfStatement` 这种）就断（实测过）。
+
+**为什么不从 `Data` 重新拼一份**（试过、退回了）：`ToDictionary` 的每个 token 覆写里有一批
+**不在 `Data` 里的键**——叶子的 `value`（`Identifier` / `SymbolToken` / `Keyword` / 注释…）、
+`Import` 的 `imported` / `From`、`String` 的五个开关…从 `Data` 重拼等于把这些键全丢掉，
+`cases:astjson` 当场报出 1000 个文件「XML 有文本、JSON 是空串」。
+所以这份实现**以 `ToDictionary()` 的结果为底**，只做两件事：补 `range`、把
+`List<Map>` 形态的**子节点**递归地换成带坐标的那一份。
+
+```ts
+return this.WithRangeOf(this.ToDictionary(), this.Data);
+```
+
+## method WithRangeOf:(node:Map<string, any>, list:Array<Token>)=>Map<string, any>
+
+给一个**已经造好的字典**补坐标：本节点、以及它的子节点（递归）。
+
+调用方给出的是「字典 + 与它对应的子单元列表」（`WithRange` 传 `this.Data`，
+递归时传匹配到的那个子单元的 `Data`）。
+
+**字典项与子单元按类型名配对，不按下标**——这是这里唯一容易写错的地方，记两笔：
+
+- 「字典里的节点数」与「`Data` 的长度」**常常不等**。段数组有两种形态：
+  摊平的（`While.body` 装的是 `<WhileBody>` 的**内容**，字典项比 `Data` 里的段元素多）与
+  不摊平的（`Switch.segments` 装的就是 `<SwitchSegment>` 本身，数目相等）。
+  按下标配对会在摊平那一侧**整段失配**（`items.length !== list.length` ⇒ 整段子节点一个坐标都拿不到，
+  第 70 轮实测 255 个节点缺坐标，全是这一类）。
+- 同一个字典项集合里可能有**同名的多个节点**（`Statement` 里两条 `Identifier`），
+  所以配对要**边配边销**（`used` 数组）——不然同一个子单元会被配到两次、把坐标抄错。
+
+配不上的字典项**原样留着**（它拿不到坐标，但不至于把别的节点也连累），
+这是「宁可少补一个，也不要补错一个」的取舍：补错的坐标会让 `cases:tsast` 报出**假**分歧。
+
+**终点缺失时从子节点兜底**：`else if` 的 `IfSegment` 只有起点、终点从来没签过
+（第 70 轮实测 18 处「子节点区间越界」全是它），于是 `End` 兜底成 `0`、父区间是 `[55,0]`——
+比所有子节点都小。这里用**子节点区间的最大值**补上终点：区间是给投影用的，
+一个「起点在 55、终点在 -1」的父节点只会让每一棵子树都被判越界，
+而它的真实末端就写在子节点里。这一条只在 `End` 为空**或反序**（`end < start`）时生效，
+正常的区间一个字节都不动。
+
+```ts
+const start = this.SourceRange.Start === null ? 0 : this.SourceRange.Start.Index;
+let end = this.SourceRange.End === null ? 0 : this.SourceRange.End.Index;
+const children = this.Data;
+const childSpans: Array<any> = [];
+for (const item of children) {
+  const childStart = item.SourceRange.Start === null ? 0 : item.SourceRange.Start.Index;
+  const childEnd = item.SourceRange.End === null ? 0 : item.SourceRange.End.Index;
+  childSpans.push([childStart, childEnd]);
+}
+if (end < start) {
+  for (const span of childSpans) {
+    if (span[1] > end) {
+      end = span[1];
+    }
+  }
+}
+node.set("range", [start, end]);
+for (const [key, value] of node.entries()) {
+  if (!Array.isArray(value)) {
+    continue;
+  }
+  const items: Array<any> = value;
+  if (items.length === 0) {
+    continue;
+  }
+  const taken: Array<any> = [];
+  const used: Array<any> = [];
+  for (let i = 0; i < items.length; i++) {
+    taken.push(null);
+    used.push(false);
+  }
+  // 按**子单元的顺序**配对，配上的记在 `items` 里它自己那一格上——这样输出顺序
+  // 与 `ToDictionary` 造的完全一致，`cases:astjson` 的逐节点比对才不会因为换序而红。
+  for (const token of children) {
+    for (let i = 0; i < items.length; i++) {
+      if (used[i]) {
+        continue;
+      }
+      const item = items[i];
+      if (!(item instanceof Map) || item.get("type") !== token.constructor.name) {
+        continue;
+      }
+      used[i] = true;
+      taken[i] = token;
+      break;
+    }
+  }
+  let matchedAny = false;
+  const replaced: Array<any> = [];
+  for (let i = 0; i < items.length; i++) {
+    const token = taken[i];
+    if (token === null) {
+      replaced.push(items[i]);
+    } else {
+      replaced.push(token.WithRange());
+      matchedAny = true;
+    }
+  }
+  if (!matchedAny) {
+    continue;
+  }
+  // 就地换掉那一串数组：`set` 一个**已有的键**不会改变键的插入顺序，
+  // 所以 JSON 的键序照旧，只是值换成了带坐标的那一份。
+  node.set(key, replaced);
+}
+return node;
+```
+
+## method ToList:()=>Array<any>
+
+产出**子单元**的 JSON 数组，每个子单元补一个 `range`。
+
+`range` 是 `[起始下标, 结束下标]`，取的是 `SourceRange` 的首尾字符下标；两头还没签入签出时写 `0`
+（与上游同样的兜底）。
+
+**递归**：子单元用 `WithRange` 取，而 `WithRange` 又递归处理它自己的子节点——所以
+**每一个节点都带 `range`**（根那一层、各 token 用 `ToList()` 装的段数组、以及它们下面的所有子节点）。
+这是「与 TypeScript 的 AST 直接对拍」的前提。
+
+```ts
+const result: Array<any> = [];
+for (const item of this.Data) {
+  result.push(item.WithRange());
+}
+return result;
+```
+
+## method ToJsonString:()=>string
+
+把 `ToList()` 串成一个 JSON 字符串（紧凑单行）——`cjcli --ast-json` 打的就是它。
+
+**为什么要先过 `ToPlain`**：`ToDictionary` 给的是 `Map`，而 `JSON.stringify` 对 `Map` 一律给 `{}`
+（`Map` 的条目不在自有可枚举属性里）。这不是可以绕过的细节，是**会静默打出空对象**的坑，
+所以转换是这一步的必做项，而不是可选的优化。
+
+`ToList` 的元素补过 `range`，所以**带坐标的节点就是「被 `ToList` 收进来的那些」**——
+根那一层与各 token 的段数组；`ToDictionary` 自己不带坐标。与上游一致。
+
+```ts
+return JSON.stringify(Token.ToPlain(this.ToList()));
+```
+
+## static method ToPlain:(value:any)=>any
+
+把一个值转成能喂给 `JSON.stringify` 的形态：`Map` → 普通对象，数组 → 逐元素转，其余原样。
+
+深拷贝而不是原地改：`ToDictionary` 的产物原则上可以再被调用方读（例如测试同时要比对 Map 与 JSON），
+就地转成对象会把这些调用方手里的类型改掉。
+
+```ts
+if (Array.isArray(value)) {
+  const items: Array<any> = [];
+  for (const item of value) {
+    items.push(Token.ToPlain(item));
+  }
+  return items;
+}
+if (value instanceof Map) {
+  const result: Map<string, any> = new Map();
+  for (const entry of value.entries()) {
+    result.set(String(entry[0]), Token.ToPlain(entry[1]));
+  }
+  return Object.fromEntries(result);
+}
+return value;
 ```
 
 ## method Clone:()=>Token

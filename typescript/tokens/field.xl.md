@@ -518,6 +518,29 @@ for (const item of this.Data) {
 return `<${name} name="${this.fieldName}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 AST JSON 节点：类型名 + 字段名 + 修饰词 + 「类型标注 / 初始值」。
+
+两个键与 XML 属性**同名同源**：`name` 取 `this.fieldName`、`modifiers` 取 `this.modifiers`
+（键叫 `name` 而不是字段名 `fieldName`——它跟的是 XML 属性的叫法，两个出口读起来才一致）。
+`Data` 里搬进来的子单元进 `children`；为空时不写这个键。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.fieldName);
+result.set("modifiers", this.modifiers);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

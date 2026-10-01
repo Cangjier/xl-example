@@ -22,6 +22,11 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 也不再持有 `GeneralQueue` / `GeneralReorganize`。原先它俩是 `Root` 的静态成员，
 逼着 `Root` 认识整个 token 层，而 token 层又反过来依赖 `Root`（循环依赖）。
 
+**JSON 出口的入口也在这里**：`Root.ToList()`（继承自基类）返回子单元的 AST JSON 数组，
+每个元素另带 `range`——上游 Cangjie 的 `code.analyse` 取的正是同一个方法，
+所以 `cjcli --ast-json` 一行都不需要另写遍历。`Root` 因此**不覆写** `ToDictionary` / `ToList`：
+覆写只会把基类那段一模一样的遍历抄第二遍。
+
 构造器里保留一条契约检查：装配是**调用方**的责任，漏了必须当场炸，而不是等到 XML 里
 少一堆节点才发现。检查必须在取到 `ProcessQueue` 之后立刻做——`BranchTemplate.Get` 在没装配时给
 `null`，那正是「模板没装过流水线」的判据。

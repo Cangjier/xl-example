@@ -110,6 +110,22 @@ const name = this.constructor.name;
 return `<${name} name="${CommonUtil.XmlDecode(this.name)}" />`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `name`。
+
+键名与 `ToXmlString` 的属性同名、值同源。
+`NamespaceExport` **没有子单元**（XML 是自闭合的 `<NamespaceExport name="Foo" />`，四个词全进了属性），
+所以这里也**不写 `children`**：空节点在 JSON 里只留 `type`。
+XML 那次 `CommonUtil.XmlDecode` 是属性转义，JSON 的字符串不需要，所以直接写字段。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.name);
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

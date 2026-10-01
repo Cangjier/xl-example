@@ -674,6 +674,33 @@ return this.Add(new LamdaBody(this.Template));
 return this.Data.find((x) => x instanceof LamdaBody) as LamdaBody;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `async` / `parameters` / `body` 三个键，外加可选的 `returnType`。
+
+XML 里这些都写不成属性（`<Lamda>` 只有子单元的串接），而 JSON 侧要能把几样东西分开：
+
+- `async` 取字段 `IsAsync`，写**原生布尔**——它是 `bool` 字段，不是 XML 文本里的 `"true"`。
+  这一个键是**刻意的「JSON 比 XML 多」**：`<Lamda>` 从来不写 `async` 属性，
+  不收它 `async x => x` 与 `x => x` 的 JSON 会一模一样；
+- `parameters` / `body` / `returnType` 都是**段**，一律取 `ToList()`——与 `While` / `For` /
+  `IfSegment` 那些分段节点同一个写法。`<LamdaBody>` 与 `<LamdaParameters>` 是包装元素，
+  段数组装的是它们的**内容**，包装自己不出现（这条口径与 `cases:astjson` 的分段表一致）；
+- `returnType` **只在 `ReturnType !== null` 时写**：没有返回类型标注的箭头函数不写这个键，
+  与 XML 里「没有 `<ReturnType>` 子单元」同一件事。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("async", this.IsAsync);
+result.set("parameters", this.Parameters.ToList());
+result.set("body", this.Body.ToList());
+if (this.ReturnType !== null) {
+  result.set("returnType", this.ReturnType.ToList());
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

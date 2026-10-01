@@ -199,6 +199,27 @@ for (const item of this.Data) {
 return `<${name} name="${this.name}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `name`，外加子单元。
+
+键名与 `ToXmlString` 开标签上的 `name` 属性同名、值同源（都是 `@ns.Name` 那种点号名字）。
+实参括号、`@` 符号与名字单元都在子单元里，非空时才写 `children`（空节点只留 `type`）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.name);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

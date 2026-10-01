@@ -321,6 +321,36 @@ const isTypeOnly = this.typeOnly ? "true" : "false";
 return `<${name} From="${from}" typeOnly="${isTypeOnly}" defaultImport="${this.defaultImport}" namespace="${this.namespace}" imported="${this.imported.join(",")}">${body}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `From` / `typeOnly` / `defaultImport` / `namespace` / `imported` 五个字段，外加子单元。
+
+键名与 `ToXmlString` 开标签上的五个属性同名（连顺序也一致）、值同源：
+`From` 的兜底照抄 XML 那处——`this.From === null` 时写空字符串，否则写字段本身
+（XML 那次 `CommonUtil.XmlDecode` 只是属性转义，JSON 不需要）；
+`typeOnly` 是 `bool`，这里写真布尔，而不是 XML 属性里插值出来的文本；
+`imported` 是 `Array<string>`，按 `join(",")` 拼成字符串。
+子单元非空时才写 `children`（空节点只留 `type`）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+const from = this.From === null ? "" : this.From;
+result.set("From", from);
+result.set("typeOnly", this.typeOnly);
+result.set("defaultImport", this.defaultImport);
+result.set("namespace", this.namespace);
+result.set("imported", this.imported.join(","));
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

@@ -164,6 +164,21 @@ const name = this.constructor.name;
 return `<${name} label="${this.label}" />`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `label`。
+
+键名与 `ToXmlString` 的属性同名、值同源（都是那个标签名）。
+`Label` **没有子单元**——XML 是自闭合的 `<Label label="outer" />`，内容全进了属性，
+所以这里也**不写 `children`**：空节点在 JSON 里只留 `type`，正是自闭合标签的对应物。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("label", this.label);
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

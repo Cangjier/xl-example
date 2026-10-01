@@ -201,6 +201,30 @@ for (const item of this.Data) {
 return `<${name} alias="${CommonUtil.XmlDecode(this.alias)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `alias` / `modifiers` 两个字段，外加子单元。
+
+键名与 `ToXmlString` 开标签上的两个属性同名、值同源。
+XML 那两次 `CommonUtil.XmlDecode` 是属性转义，JSON 的字符串不需要，所以直接写字段。
+`type` 词与别名本身不进 `children`——理由与 XML 一致：它们已经由这两个键表达。
+子单元非空时才写 `children`（空节点只留 `type`）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("alias", this.alias);
+result.set("modifiers", this.modifiers);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

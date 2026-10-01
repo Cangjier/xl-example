@@ -167,6 +167,29 @@ for (const item of this.Data) {
 return `<${name} name="${this.name}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `name` / `modifiers` 两个声明字段，外加子单元。
+
+键名与 `ToXmlString` 开标签上的两个属性同名、值同源（都取那两个字段）。
+枚举的修饰词是文本（`export` / `declare` / `default` / `const` 都可能），所以这里照字符串写，没有布尔要转。
+子单元非空时才写 `children`（空节点只留 `type`）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.name);
+result.set("modifiers", this.modifiers);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

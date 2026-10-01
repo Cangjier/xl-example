@@ -194,6 +194,28 @@ for (const item of this.Data) {
 return `<${name} name="${this.name}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + 方法名 + 实参。
+
+`name` 与 XML 的 `name` 属性同源。名字为空（无名的调用）时**照样写 `name`**——
+这里与 XML 一致：`<Method name="">` 与 `"name": ""` 都表示「这个名字是空的」，
+而「没有这个键」在 JSON 里是另一种意思。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("name", this.name);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

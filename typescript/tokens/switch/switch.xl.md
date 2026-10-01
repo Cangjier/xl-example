@@ -195,6 +195,30 @@ for (const item of this.Data) {
 return result;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `compare` 段与 `segments` 段列表。
+
+`compare` 是判别段（`switch (…)` 括号里那截），取 `ToList()`——它是一批子单元的容器。
+
+`segments` 是各 `SwitchSegment`：它们与 `Try.Catches` 一样是**按类型从 `Data` 里筛出来的一组引用**，
+不是某**一个**容器节点，所以没有现成的 `ToList()` 可调，只能逐个 `item.ToDictionary()`。
+次序就是 `Data` 里的原顺序（`case` / `default` 的源顺序），JSON 侧不重排——
+段的先后正是 `switch` 语义的一部分。两个键一律写出，与 XML 里 `<Switch>` 下
+必然是「判别段 + 若干段」的形状对齐。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("compare", this.Compare.ToList());
+const segments: Array<any> = [];
+for (const item of this.Segments) {
+  segments.push(item.ToDictionary());
+}
+result.set("segments", segments);
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

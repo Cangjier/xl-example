@@ -324,6 +324,35 @@ for (const item of this.Data) {
 return `<${name} interpolation="${interpolation}" verbatim="${verbatim}" raw="${raw}" interpolationCount="${this.interpolationCount}" rawQuoteCount="${this.rawQuoteCount}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + 五个开关/计数 + 子单元。
+
+键名与 XML 的五个属性**同名同源**（`interpolation` / `verbatim` / `raw` / `interpolationCount` /
+`rawQuoteCount`），但值的类型按 JSON 自己的规矩：三个开关写**真布尔**（XML 那边印的是小写
+`true` / `false`，两者说的是同一件事），两个计数写**真数字**（XML 那边是带引号的十进制文本）。
+
+**只写这五个**——`StringChar` / `RawIndent` / `IsRawIndentFormated` 是解析期的状态，
+它们也不进 XML；把 JSON 写成「比 XML 多几个键」等于给同一棵树造第二个事实来源。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("interpolation", this.interpolation);
+result.set("verbatim", this.verbatim);
+result.set("raw", this.raw);
+result.set("interpolationCount", this.interpolationCount);
+result.set("rawQuoteCount", this.rawQuoteCount);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身：连同五个开关/计数与所有子单元的克隆一起复制。顺序是 `Sign(this)` → 逐个复制开关 → `Add(i.Clone())` → `TryToClose()`。

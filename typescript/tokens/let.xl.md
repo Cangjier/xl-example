@@ -288,6 +288,45 @@ if (this.LetType === LetType.Object) {
 throw new Error("形态不成立");
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + 由 `LetType` 决定的那个属性键 + `modifiers`，解构形态另带子单元。
+
+**分支与 XML 那处是同一套判据**：同一个 `if` 链、同样的三个属性名、`Array<string>` 同样用
+`","` 拼；末尾的 `throw new Error("形态不成立")` 也照抄一份。两份拼串各自独立，
+所以「哪些形态成立」这件事必须在两处都说同一句话——漏掉一条分支不会报错，
+只会让 JSON 那边少一个键（`cases:astjson` 就是钉这一条的尺子）。
+
+`children` 按基类同一条规则：`Data` 非空才写。`Field` 形态**没有**子单元，
+所以它出来的 JSON 只有 `type` / `fieldName` / `modifiers` 三个键——与自闭合标签同一件事。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+if (this.LetType === LetType.Field) {
+  result.set("fieldName", this.fieldName);
+  result.set("modifiers", this.modifiers);
+  return result;
+}
+if (this.LetType === LetType.Array) {
+  result.set("arrayPattern", this.arrayPattern.join(","));
+  result.set("modifiers", this.modifiers);
+} else if (this.LetType === LetType.Object) {
+  result.set("objectPattern", this.objectPattern.join(","));
+  result.set("modifiers", this.modifiers);
+} else {
+  throw new Error("形态不成立");
+}
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

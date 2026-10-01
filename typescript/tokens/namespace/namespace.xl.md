@@ -298,6 +298,29 @@ for (const item of this.Data) {
 return `<${name} namespace="${CommonUtil.XmlDecode(this.namespace)}" modifiers="${CommonUtil.XmlDecode(this.modifiers)}">${temp.join("")}</${name}>`;
 ```
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `namespace` / `modifiers` 两个字段，外加子单元。
+
+键名与 `ToXmlString` 开标签上的两个属性同名，值取同一批字段。
+XML 那边过一次 `CommonUtil.XmlDecode` 只是为了属性转义（名字里可能有 `<`），JSON 的字符串不需要这一层，
+所以这里直接写字段本身。子单元非空时才写 `children`（空节点只留 `type`）。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+result.set("namespace", this.namespace);
+result.set("modifiers", this.modifiers);
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method CreateBody:()=>NamespaceBody
 
 新建命名空间体并挂到自己名下，返回新单元。
