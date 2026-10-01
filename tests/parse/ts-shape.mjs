@@ -278,6 +278,10 @@ const FIELD_BY_KIND = new Map([
   ],
   ["TypeAliasDeclaration", new Map([["GenericType", "typeParameters"]])],
   ["FunctionDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  // 方法与**方法签名**（接口里的）都要把 `children` 叫成 `parameters`——
+  // 早先只登记了 `GenericType`，于是 `children` 这个字段名一路错下去（真实语料 6k+ 处）。
+  ["MethodDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  ["MethodSignature", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["MethodDeclaration", new Map([["GenericType", "typeParameters"]])],
   ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
@@ -555,13 +559,34 @@ function projectNode(node, ctx) {
       return projectLamda(v, ctx);
 
     default: {
-      const kind = KIND_BY_TAG.get(v.type);
+      let kind = KIND_BY_TAG.get(v.type);
       if (kind === undefined) {
         ctx.unmapped.add(v.type);
         return mk(v.type, { children: projectEach(allKids(v), ctx) });
       }
+      // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）。
+      if (ctx.signature && v.type === "MethodDeclaration") kind = "MethodSignature";
       return mk(kind, structuralProps(v, kind, ctx));
     }
+  }
+}
+
+/**
+ * 投影一批子单元，并在**签名上下文**里切换标记。
+ *
+ * 接口 / 类型字面量的成员在 TS 那边叫 `PropertySignature` / `MethodSignature`，
+ * 而类里的同名成员叫 `PropertyDeclaration` / `MethodDeclaration`——同一个产物标签、
+ * 两种上下文两种 kind（声明文件里签名那套是绝大多数）。这个标记就是那个上下文。
+ */
+function projectEachIn(list, ctx, parentKind) {
+  const signature = parentKind === "InterfaceDeclaration" || parentKind === "TypeLiteral";
+  if (!signature) return projectEach(list, ctx);
+  const saved = ctx.signature;
+  ctx.signature = true;
+  try {
+    return projectEach(list, ctx);
+  } finally {
+    ctx.signature = saved;
   }
 }
 
@@ -1150,18 +1175,30 @@ function projectTypeArguments(generic, ctx) {
   return out;
 }
 
-/** 属性 `x: T` / `x = 1` → `PropertyDeclaration`（`name` + `type` / `initializer` / `modifiers`）。 */
+/** 属性 `x: T` / `x = 1` → `PropertyDeclaration`（类里）或 `PropertySignature`（接口 / 类型字面量里）。 */
 function projectField(v, ctx) {
   const kids = projectableKids(v);
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
   const nameText = String(v.attrs.get("fieldName") ?? v.attrs.get("name") ?? "");
   const props = { name: synthName(nameText, v, ctx) };
-  if (typeNode !== undefined) props.type = projectTypeDefine(view(typeNode), ctx);
-  // `x = 1` 的初值：`=` 后面那一格（与 `projectLet` 同款读法）。
+  if (typeNode !== undefined) {
+    // **可选标记 `?` 是子节点**（`Signature` 家族）：`x?: string` 的 TS 是
+    // `PropertySignature > [Identifier(x), QuestionToken, StringKeyword]`。
+    // 产物那边 `?` 被**吞进了 `TypeDefine` 的区间**里（`TypeDefine[17,25]` = `?: string`），
+    // 所以按「类型段第一个字符是不是 `?`」把它切出来，再让类型段从它后面起。
+    const typeStart = startOf(typeNode);
+    if (ctx.source[typeStart] === "?") {
+      props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
+    }
+    props.type = projectTypeDefine(view(typeNode), ctx);
+  }
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
   addModifiers(v, props, ctx);
-  return { kind: "PropertyDeclaration", pos: v.start, end: v.end, ...props };
+  // **接口 / 类型字面量里的成员是 `PropertySignature`**，类里才是 `PropertyDeclaration`——
+  // 同一个产物标签 `Field`，两种上下文两种 kind（声明文件里前者是绝大多数）。
+  const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
+  return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
 }
 
 /** 枚举成员 `A` / `B = 1` → `EnumMember`（`name` + 可选 `initializer`）。 */
@@ -1247,7 +1284,15 @@ function projectParameter(v, ctx) {
     name: nameNode === undefined ? undefined : projectNode(nameNode, ctx),
     type: typeNode === undefined ? undefined : projectTypeDefine(view(typeNode), ctx),
   };
-  if (question !== undefined) props.questionToken = projectNode(question, ctx);
+  // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
+  // 与属性那一处同源：产物把 `?` 吞进了 `TypeDefine` 的区间里（`TypeDefine` 从 `?` 起），
+  // 所以按「类型段第一个字符是不是 `?`」切。
+  if (question !== undefined) {
+    props.questionToken = projectNode(question, ctx);
+  } else if (typeNode !== undefined && ctx.source[startOf(typeNode)] === "?") {
+    const at = startOf(typeNode);
+    props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
+  }
   if (rest !== undefined) props.dotDotDotToken = projectNode(rest, ctx);
   return { kind: "Parameter", pos: v.start, end: v.end, ...props };
 }
@@ -1537,14 +1582,14 @@ function structuralProps(v, kind, ctx) {
       const projected =
         kept[0].get("type") === "Let"
           ? [projectLetFrom(kept, ctx, view(kept[kept.length - 1])).list]
-          : projectEach(kept, ctx);
+          : projectEachIn(kept, ctx, kind);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
     for (const [target, nodes] of promoted) {
       if (nodes.length === 0) continue;
       const field = target === "children" ? fieldNameFor(kind, key) : fieldNameFor(kind, target);
       const already = props[field];
-      const projected = projectEach(nodes, ctx);
+      const projected = projectEachIn(nodes, ctx, kind);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
   }

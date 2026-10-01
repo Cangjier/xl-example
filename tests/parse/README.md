@@ -161,9 +161,36 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13967 / 15303 | 452282 / 452849 |
-| 同 kind 同区间 | **74.3%** | **76.9%** |
-| 其中**字段名也一致** | **96.0%** | **96.1%** |
+| 投影节点 / TS 语义节点 | 13991 / 15303 | 462327 / 452849 |
+| 同 kind 同区间 | **75.3%** | **85.2%** |
+| 其中**字段名也一致** | **96.1%** | **97.8%** |
+
+### 第 30 轮：接口成员是另一套 kind —— 真实语料 76.9% → **85.2%**
+
+这一轮先看了**真实语料侧**的缺口表（它 45 万节点，缺口才是大头），头三名一眼就看出是同一件事：
+
+```
+18930  PropertySignature      ← 接口 / 类型字面量里的属性
+ 8682  MethodSignature        ← 接口 / 类型字面量里的方法
+10190  QuestionToken          ← `x?: string` 与 `m?(a): void` 里那个 `?`（TS 是**子节点**）
+```
+
+而产物那边这三样与类里的成员**是同一种标签**（`Field` / `MethodDeclaration`），
+`?` 则被**吞进了 `TypeDefine` 的区间**里（`TypeDefine[17,25]` = `?: string`）。所以：
+
+1. **引入「签名上下文」**：投影接口 / 类型字面量的成员时给 `ctx` 打一个标记，
+   同一个产物标签在那个上下文里换成 `PropertySignature` / `MethodSignature`
+   （`projectEachIn`，用 `try/finally` 存还标记）；
+2. **`?` 从类型段的第一个字符切出来**，做成 `QuestionToken` 子节点（属性与形参两处）。
+
+顺带把 `MethodDeclaration` / `MethodSignature` 的 `children → parameters` 补上
+（字段表里原来只登记了 `GenericType`，于是这个字段名一路错下去——真实语料 6k+ 处）。
+
+**真实语料 76.9% → 85.2%，字段名 96.1% → 97.8%**；用例语料 74.3% → 75.3%。
+
+**这一轮的教训**：前几轮我一直盯着**用例语料**的缺口表——它挑的是语法难点，条目分散；
+而真实语料（`.d.ts` 为主）的缺口**极其集中**，一处上下文差异就是几万个节点。
+**两个语料要分别看缺口表**，它们指向的问题完全不同。
 
 ### 第 29 轮：字段名前三，三种不同的病因
 
@@ -600,6 +627,7 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 27 轮 | 投影层：类型位的点号名折成 **`QualifiedName`**（值与类型位同名不同 kind）＋ `VariableStatement` 的语句级 `modifiers` | **95.4%** |
 | 第 28 轮 | 投影层：解构声明**用产物自己的 `ArrayLiteral` / `ObjectLiteral`** 当绑定模式（原先是自己造的空壳）＋ `BindingElement` 三形态 | **95.6%** |
 | 第 29 轮 | 投影层：`ExpressionWithTypeArguments` 切 `expression` + `typeArguments`；`SwitchStatement` 合成 `CaseBlock`；`TypeParameter` 找名字时**排掉修饰词**（`out` 是 `Identifier`） | **96.0%** |
+| 第 30 轮 | 投影层：**签名上下文**（接口 / 类型字面量的成员是 `PropertySignature` / `MethodSignature`）＋ `?` 切成 `QuestionToken` 子节点；`MethodDeclaration`/`MethodSignature` 补 `parameters` | **96.1%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；
