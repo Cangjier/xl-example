@@ -283,16 +283,16 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1006 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:run` | 1007 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
 | `cases:diff` | 1336 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1376 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1376 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1376 个文件：对齐可信 1069 个、跳过 299 个，语句表 552 个、边界 2388 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
-| `cases:noise` | 1376 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1377 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1377 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1377 个文件：对齐可信 1069 个、跳过 299 个，语句表 552 个、边界 2388 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1377 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1345 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
+| `cases:align` | 1346 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
@@ -1101,10 +1101,42 @@ const c = a < b > c              →  仍是裸符号 ✓（对照，没被误�
 这一批唯一的产出是那条用例本身（1006 条）——它是**回归防线**：以后有人动模块层或字符串层，
 这十几条形状会立刻把变化照出来。
 
+### 第 66 轮（第十五批）：组合场景压一轮 —— 抓到一处**带栈溢出陷阱**的缺口，已回退并记录
+
+把组合场景压了一遍（条件类型套条件类型、映射类型里套条件类型与模板类型、`infer` 出现在对象类型属性位 /
+函数类型返回位 / 泛型实参位 / 带约束的 `infer X extends Y`、装饰器叠在泛型方法上），
+固化成 `types/type-combination-adversarial.ts`。
+
+**抓到的缺口（1 处，未修，原样记在这里）**：
+
+```ts
+type Deep<T> = T extends (infer U)[] ? Deep<U> : T;
+```
+
+`(infer U)` 被 `ParenthesizedType` 包住之后，`infer U` **收不出 `InferType`**（连带缺一个 `TypeParameter`）。
+同一行的 `Promise<infer V>` 是好的——差别就在那层括号。复现：
+
+```
+node tests/parse/probe.mjs "type D<T> = T extends (infer U)[] ? D<U> : T;"
+```
+
+**试过的修法与为什么回退**：`InferTypeReorganization` 的闸门要求「容器在 `IsTypeContainerUnit` 白名单里」，
+而白名单**恰好没有 `ParenthesizedType`**（括号类型本来就是类型容器，看着像漏项）。往白名单里补一行之后：
+
+- 目标形状确实好了；
+- 但语料里 **47 个文件解析时抛 `RangeError: Maximum call stack size exceeded`**（`@types/node/http.d.ts` 等），
+  立刻回退。
+
+这是**同一类陷阱的第二次**：第 5 轮那次（谓词 `x is A` 与条件类型互相递归）也是这样——把某个标签
+加进「类型容器」白名单，会让两条规则互相把对方当成容器而无限套下去。**下次要接的话，不要动全局白名单**，
+改成只让 `InferTypeReorganization` 自己多认一种容器（局部放宽），并且先跑一遍全语料确认不再抛
+`RangeError`。这条形状现在不在语料里（不在 `cases:align` 的检查范围内），但它**不是被遮蔽**：
+上面那行复现命令谁都能跑。
+
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1006 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1376 个文件；
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1007 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1377 个文件；
 外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
