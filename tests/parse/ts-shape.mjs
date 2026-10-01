@@ -264,6 +264,37 @@ const FIELD_BY_KIND = new Map([
 // ---------------------------------------------------------------------------
 
 /**
+ * 合一个**声明名**的节点（`class A` / `function f` / `x: T` 的 `x`…）。
+ *
+ * 位置不能拿声明自己的 `start` 充数（踩过两次，症状不同）：
+ *
+ * 1. `export class A` 的声明从 `export` 起，而名字 `A` 在更后面——用声明开头会让
+ *    **整类名字的区间都错位**（尺子上表现为「TS 有 82 个 `Identifier` 产物没有」）；
+ * 2. 光用 `source.indexOf(name, start)` 还不够：`const f` 里 `f` 会在 **`const`** 里
+ *    先被找到（同为 `f`）——所以搜索起点要**推过修饰词**（`modifiers="const"`）。
+ *
+ * 这是投影层能做到的最好程度：产物只把名字记成属性，**没记它的位置**。
+ * 想彻底准，就得在 token 层给「名字」一个真节点（带自己的 `SourceRange`）——
+ * 那是下一步的事，这里先把「推过修饰词」这条补偿做到位。
+ */
+function synthName(name, v, ctx) {
+  if (name === "") return undefined;
+  const modifiers = v.attrs.get("modifiers");
+  let from = v.start;
+  if (typeof modifiers === "string" && modifiers !== "") {
+    const last = modifiers.split(",").filter((w) => w !== "").pop();
+    if (last !== undefined) {
+      const at = ctx.source.indexOf(last, v.start);
+      if (at >= 0) from = at + last.length;
+    }
+  }
+  const found = ctx.source.indexOf(name, from);
+  const limit = v.end === undefined ? ctx.source.length : v.end;
+  const pos = found >= 0 && found < limit ? found : from;
+  return { kind: "Identifier", text: name, pos, end: pos + name.length };
+}
+
+/**
  * 一个产物节点（Map）→ 归一后的视图：**标量属性**进 `attrs`、**数组**进 `segments`。
  *
  * 这两类必须分开存（踩过）：`name` / `fieldName` / `op` / `modifiers` 这些是**标量**，
@@ -535,9 +566,12 @@ function projectLet(v, ctx) {
   const nameNode = kids.find((k) => k.get("type") !== "SymbolToken") ?? null;
   const initNode = eqIndex >= 0 && eqIndex + 1 < kids.length ? kids[eqIndex + 1] : null;
   const declStart = nameNode !== null ? startOf(nameNode) : v.start;
+  // 声明名：产物把名字记在 `fieldName` 属性上、**没有位置**，所以在原文里找（见 `synthName`）。
+  // 解构声明（`const [a, b] = …`）没有 `fieldName`，这里给一个占位名，结构位置仍是声明开头。
+  const declared = String(v.attrs.get("fieldName") ?? "");
   const declaration = {
     kind: "VariableDeclaration",
-    name: nameNode === null ? undefined : projectNode(nameNode, ctx),
+    name: declared === "" ? { kind: "ArrayBindingPattern", pos: declStart, end: declStart } : synthName(declared, v, ctx),
     initializer: initNode === null ? undefined : projectNode(initNode, ctx),
     pos: declStart,
     end: v.end,
@@ -640,9 +674,7 @@ function projectField(v, ctx) {
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
   const nameText = String(v.attrs.get("fieldName") ?? v.attrs.get("name") ?? "");
-  const props = {
-    name: { kind: "Identifier", text: nameText, pos: v.start, end: v.start + nameText.length },
-  };
+  const props = { name: synthName(nameText, v, ctx) };
   if (typeNode !== undefined) props.type = projectTypeDefine(view(typeNode), ctx);
   // `x = 1` 的初值：`=` 后面那一格（与 `projectLet` 同款读法）。
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
@@ -696,13 +728,12 @@ function projectTypeAlias(v, ctx) {
   const rhs = eqIndex >= 0 ? kids.slice(eqIndex + 1) : [];
   const nameNode = lhs.find((k) => k.get("type") === "Identifier");
   const nameText = nameNode === undefined ? aliasText : textOfNode(nameNode, ctx);
-  const nameStart = nameNode !== undefined ? startOf(nameNode) : v.start;
   // 泛型参数段在 `<` 与 `=` 之间（`type A<T> = …`）：它是**包装**，
   // 内容进 `typeParameters`、包装自己不出节点。`projectTypeAlias` 不走 `structuralProps`，
   // 所以这一处要**单独**提（漏了它这一行会一直挂在差异表上）。
   const generic = kids.find((k) => k.get("type") === "GenericType");
   const props = {
-    name: { kind: "Identifier", text: nameText, pos: nameStart, end: nameStart + nameText.length },
+    name: nameNode === undefined ? synthName(nameText, v, ctx) : projectNode(nameNode, ctx),
     type: typeOf(rhs, ctx),
   };
   if (generic !== undefined) {
@@ -920,8 +951,7 @@ function structuralProps(v, kind, ctx) {
   const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
   const name = typeof rawName === "string" ? rawName : "";
   if (name !== "") {
-    const nameEnd = v.start + name.length;
-    props.name = { kind: "Identifier", text: name, pos: v.start, end: nameEnd };
+    props.name = synthName(name, v, ctx);
     used.add("name");
     used.add("fieldName");
     used.add("namespace");

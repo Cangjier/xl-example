@@ -161,12 +161,30 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 16228 / 15303 | 476084 / 452849 |
-| 同 kind 同区间 | **37.9%** | **54.6%** |
-| 其中**字段名也一致** | **90.9%** | **94.7%** |
+| 投影节点 / TS 语义节点 | 15039 / 15303 | 468381 / 452849 |
+| 同 kind 同区间 | **41.3%** | **58.2%** |
+| 其中**字段名也一致** | **92.2%** | **95.0%** |
 
-两个语料的比率差得多（37.9% vs 54.6%）是因为**语料构成不同**：真实语料里 `.d.ts` 占大头，
+两个语料的比率差得多（41.3% vs 58.2%）是因为**语料构成不同**：真实语料里 `.d.ts` 占大头，
 而 `.d.ts` 几乎是「声明 + 类型」，正是投影覆盖得最好的那部分；用例语料是刻意挑的难点形状。
+
+### 声明名的位置：投影层只能「补偿」，token 层才能「给准」
+
+第 12 轮的一次实测把一类缺口查到了底：**缺的 `Identifier` 里绝大多数是「声明名」**
+（按 TS 侧的父节点归类：`ClassDeclaration` 82、`VariableDeclaration` 33、`PropertyDeclaration` 30…）。
+根因是产物把名字记成**属性**（`name="A"` / `fieldName="f"`），**没记它的位置**，
+投影只能拿声明自己的区间去凑。
+
+两次补偿（都记在 `synthName` 的注释里，症状不同）：
+
+1. **别用声明开头当名字位置**：`export class A` 的声明从 `export` 起，名字在后面——
+   用声明开头会让**整类名字的区间都错位**；
+2. **搜索起点要推过修饰词**：光用 `source.indexOf(name, start)` 还不够——`const f` 里
+   `f` 会在 **`const`** 里先被找到（同为 `f`）。所以先按 `modifiers` 找到最后一个修饰词的末尾再起找。
+
+这两步把「同 kind 同区间」从 37.9% 抬到 **41.3%**。**但它终究是补偿**：
+原文里那个名字到底在哪，只有词法层知道。**要彻底准，就该在 token 层给「名字」一个真节点**
+（带自己的 `SourceRange`），而不是让投影去 `indexOf` 猜——这是下一步要动 token 的地方。
 
 字段名这一维是**逐轮涨**的，七轮的动作记在这里：
 
@@ -179,7 +197,8 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 | 第 8 轮 | ① `EnumMember` 补 `name`；② `PropertyDeclaration` 补 `initializer`；③ **去掉 `PrefixUnaryExpression.operator`**；④ `SpreadElement` → `expression`；⑤ `ConditionalExpression` 改用 `whenTrue` / `whenFalse` | 88.4% |
 | 第 9 轮 | 修 `ClassDeclaration` / `InterfaceDeclaration` 的字段映射 + 查清「表里重复定义 kind 会静默覆盖」 | 89.0% |
 | 第 10 轮 | ① `ArrowFunction` 补 `equalsGreaterThanToken`（**合成**）；② `ConditionalExpression` 补 `questionToken` / `colonToken`（**合成**）；③ 分段取值要**先摊平包装**（`TernaryOperatorCondition` 那一层） | 89.5% |
-| 第 11 轮 | ① `NewExpression` 的 `name` → `expression`；② `FunctionType` 切成 `parameters`（**摊平括号**）+ `type`；③ `TypeParameter` 补 `constraint` / `default` / `modifiers`——其中 `in` / `out` 变型修饰词要**按两种词法身份认**（`in` 是 `Keyword`、`out` 是 `Identifier`） | **90.9%** |
+| 第 11 轮 | ① `NewExpression` 的 `name` → `expression`；② `FunctionType` 切成 `parameters`（**摊平括号**）+ `type`；③ `TypeParameter` 补 `constraint` / `default` / `modifiers`——其中 `in` / `out` 变型修饰词要**按两种词法身份认**（`in` 是 `Keyword`、`out` 是 `Identifier`） | 90.9% |
+| 第 12 轮 | **查清「缺的 Identifier 大多是声明名」**，并在投影层做两次位置补偿（① 别用声明开头 ② 搜索起点推过修饰词）；字段名顺带涨到 92.2% / 95.0% | **92.2%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；
