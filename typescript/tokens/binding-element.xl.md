@@ -5,6 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
+import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -111,7 +112,19 @@ for (const item of current.Data) {
     hasContent = true;
   }
 }
-return hasContent;
+if (hasContent === false) {
+  return false;
+}
+// **计算属性名不是绑定模式**（第 66 轮第十一批实测）：`const { [k]: v } = o` 里 `[k]`
+// 是 `propertyName`（TS 那边是 `ComputedPropertyName`，里面 `k` 是一个**表达式**），
+// 不是 `ArrayBindingPattern`。判据是**紧跟一个 `:`**——模式的括号后面只会是 `,` / `}` / `]` / 结尾。
+// 少了这一条，`k` 会被收成 `<BindingElement>`（实测产物是
+// `<BindingElement><ArrayLiteral><BindingElement>k</BindingElement></ArrayLiteral> : v</BindingElement>`）。
+const after = Get(units, SkipNextWrapSymbol(units, index));
+if (after instanceof SymbolToken && after.Is(":")) {
+  return false;
+}
+return true;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int

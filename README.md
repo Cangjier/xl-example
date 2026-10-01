@@ -283,16 +283,16 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1001 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:run` | 1003 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
 | `cases:diff` | 1336 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1371 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1371 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1371 个文件：对齐可信 1069 个、跳过 299 个，语句表 548 个、边界 2369 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
-| `cases:noise` | 1371 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1373 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1373 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1373 个文件：对齐可信 1069 个、跳过 299 个，语句表 549 个、边界 2371 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1373 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1340 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
+| `cases:align` | 1342 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
@@ -1017,10 +1017,34 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 （模板 span），要么是逐条登记的位置口径（`TypeReference`），要么已被上一节的回退恢复原状（成员访问）。
 也就是说：`align` 现在报的「未登记 0 类 / 缺节点 0」是**真的**，不是靠遮蔽得来的。
 
+### 第 66 轮（第十一批）：拿刁钻形状压已落地的标签 —— 抓到一处误收
+
+**做法**：把前九批每个新节点都用最刁的写法压一遍（导入类型出现在映射键 / 裸类型 / `typeof` 里、
+括号类型与数组/交叉/构造类型混写、谓词带 `asserts`、索引签名嵌套、映射键带 `as` 模板、
+类型参数带约束与默认值、元组里 `a?: A` 与 `...b: B[]` 并存、枚举成员带移位与字符串、
+形参带 `this` / 解构 / 默认值 / 剩余、继承段带限定名与泛型与括号化表达式、
+解构带默认值与嵌套与剩余），固化成两条用例：`types/type-new-nodes-adversarial.ts`、
+`declarations/decl-binding-computed-key.ts`。
+
+**抓到的真问题**（一个）：`const { [k]: v } = o` 里计算属性名的 `[k]` 被 `BindingElement` 规则**误收**
+——`[k]` 是 TS 的 `ComputedPropertyName`，里面的 `k` 是**表达式**、不是 `ArrayBindingPattern`。
+产物原来是 `<BindingElement><ArrayLiteral><BindingElement>k</BindingElement></ArrayLiteral> : v</BindingElement>`。
+修法：判据是「括号**紧跟一个 `:`**」（模式的括号后面只会是 `,` / `}` / `]` / 结尾）→ 跳过。
+修完 `{[k]: v}` 与嵌套的 `{[k2]: {a}}` 都正确了。
+
+**两处查证后判定「不是问题」的**（记下来免得下次再查一遍）：
+
+| 形状 | 结论 |
+| --- | --- |
+| `type F = [a?: A, ...b: B[], c: C?]` 里 `a?:` 的 `?` 不在产物 XML 里 | **与普通 `:` 同一约定**：`TypeDefine` 承接「类型标注」这个构造、不重画冒号/问号；TS 那边 `QuestionToken` 是 token 不是构造。另外 TS 对 `...b: B[]` 用的也是 `NamedTupleMember`（不是 `RestType`），与本工程一致 ✓ |
+| `class C<in T, out U>` 里 `in` 成了 `<Keyword>`、`out` 还是 `<Identifier>` | **有依据**：TS 的**扫描器**只把 `in` 当关键词（`InKeyword` / `OutKeyword` 在 AST 里都有，但 `out` 是上下文修饰、词法上仍是 Identifier）→ 与产物一致，不动全局关键词表（动了会把普通标识符 `out` 也升成 Keyword） |
+
+**账**：`cases:align` 未登记标签占用 **0 类**、缺节点 **`（没有）`**。
+
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1001 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1371 个文件；
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1003 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1373 个文件；
 外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
