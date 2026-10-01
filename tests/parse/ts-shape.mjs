@@ -958,8 +958,14 @@ function structuralProps(v, kind, ctx) {
   // 命名空间是唯一的例外：它的名字落在 `namespace` 属性上（不是 `name`）。
   const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
   const name = typeof rawName === "string" ? rawName : "";
+  let nameNode = null;
   if (name !== "") {
-    props.name = synthName(name, v, ctx);
+    // **首选树里那个真子单元**：声明名现在作为 `Identifier` 留在 `Data` 里（见
+    // `typescript/tokens/class/class.xl.md` 的 `Process`），它带自己的 `SourceRange`——
+    // 拿它就是拿真位置，不做任何猜测。只有还没补上子单元的 token 才走 `synthName`。
+    nameNode =
+      projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === name) ?? null;
+    props.name = nameNode === null ? synthName(name, v, ctx) : projectNode(nameNode, ctx);
     used.add("name");
     used.add("fieldName");
     used.add("namespace");
@@ -973,6 +979,8 @@ function structuralProps(v, kind, ctx) {
     const promoted = new Map();
     for (const x of raw) {
       if (!(x instanceof Map) || INVISIBLE.has(x.get("type"))) continue;
+      // 名字那个单元已经进 `props.name` 了，不要再当成子节点收一遍。
+      if (x === nameNode) continue;
       const target = wrapperTarget(x);
       if (target === undefined) {
         kept.push(x);

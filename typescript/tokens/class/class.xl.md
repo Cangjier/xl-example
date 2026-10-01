@@ -174,12 +174,6 @@ if (!(body instanceof Bracket) || body.startBracket !== "{") {
 if (classInstance !== null) {
   if (isAnonymous === false && name instanceof Identifier) {
     classInstance.name = name.TempToString();
-    // 名字的位置**在这一刻还拿得到**，顺手记下来（见 `NameStart` 字段的说明）：
-    // 出了这段扫描，那个 `Identifier` 就不再被任何地方引用了。
-    if (name.SourceRange.Start !== null && name.SourceRange.End !== null) {
-      classInstance.NameStart = name.SourceRange.Start.Index;
-      classInstance.NameEnd = name.SourceRange.End.Index;
-    }
   }
   classInstance.extends = extendsName;
   classInstance.implements = implementsNames;
@@ -243,6 +237,22 @@ let i = SkipNextWrapSymbol(units, nameIndex);
 // （实测 7 处：`cls-expression` / `decl-class-expression-anonymous-extends` /
 // `stmt-asi-class-expression-then-statement` 三类用例）。名字字段不受影响（它本来就没名字 ✓）。
 const nameUnit = Get(units, nameIndex);
+// **名字单元留在树里**（本段与下面那个 `while` 是配套的，改动要成对）。
+//
+// 原来这里把名字记成 `name` 字符串之后就把那个 `Identifier` 丢掉了——位置也就跟着没了。
+// 那是个信息损失：`Identifier` 是**带 `SourceRange` 的真单元**（`SignIn` / `SignOut` 早就填好了），
+// 丢的是「它还在树里」这件事本身。下游要把它还原成一个带区间的节点时，就只能拿类自己的区间去凑
+// （实测：`export class A` 的 `A` 会被算到 `export` 那个位置）。
+//
+// 所以把它**收进 `Data`**，而且放在**第一个**——TS 那边 `ClassDeclaration.name` 就是一个
+// 排在最前的 `Identifier` 子节点。匿名类（`class {}`）与 `class extends B {}` 的
+// `nameUnit` 不是名字（是 `{` 或 `extends`），那两种情况**不收**，留给下面那个 `while`。
+// 收与不收的判据只用**这一个单元自己**（`isAnonymous` 是 `ScanHead` 的局部量，这里取不到）：
+// 它是 `Identifier`、而且不是 `extends` 那个词 ⇒ 它就是类名。
+// 反例都自动排除：`class {}` ⇒ 是 `Bracket`；`class extends B {}` ⇒ 文本是 `extends`。
+if (nameUnit !== null && nameUnit instanceof Identifier && !nameUnit.Is("extends")) {
+  result.AddAndCloseLast(nameUnit);
+}
 if (nameUnit !== null && WordText(nameUnit) === "extends") {
   i = nameIndex;
 }
@@ -285,21 +295,9 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 
 类名。
 
-## field NameStart:int = -1
-
-类名在源码里的**起始下标**（没有名字时 `-1`）。
-
-**为什么单独记一个下标**：扫类头的时候名字单元就在手里（`ScanHead` 的 `name`），
-可原来只留了 `name.TempToString()`——**位置当场就丢了**。丢了位置的后果不是「少一个字段」，
-而是下游没法把这个名字还原成一个带区间的节点：投影只能拿类自己的区间去凑，
-于是 `export class A` 的 `A` 会被算到 `export` 那个位置。实测这一类占
-「投影后仍缺的 `Identifier`」的绝大多数（`ClassDeclaration` 82 处、`VariableDeclaration` 33 处…）。
-
-`NameStart` 与 `NameEnd` **成对出现**：只有一个时不成立（半个区间比没有更糟）。
-
-## field NameEnd:int = -1
-
-类名的**结束下标**（闭区间，与 `SourceRange` 的约定一致）。
+**名字单元本身也在 `Data` 里**（`Data` 的第一个子单元就是那个 `Identifier`）——
+它带自己的 `SourceRange`，所以位置不用另记（见 `Process` 里那一段说明）。
+这个字段只是同一件事的**给人读的副本**（XML 属性 `name="A"`），不是唯一来源。
 
 ## field extends:string = ""
 
@@ -338,12 +336,12 @@ throw new Error("找不到匹配的子单元");
 
 ## method ToXmlString:()=>string
 
-产出 XML：开标签上带 `name` / `nameStart` / `nameEnd` / `extends` / `implements` / `modifiers` 六个属性。
+产出 XML：开标签上带 `name` / `extends` / `implements` / `modifiers` 四个属性。
 
-`nameStart` / `nameEnd` 是类名的位置（见 `NameStart` 字段的说明）。**两个出口都写它**：
-树有两个出口，`cases:astjson` 会逐节点比对它们——只在一个出口里加字段，那一把尺子当场就红（踩过）。
-名字的位置记成**两个属性**而不是一个子单元，是为了**不动树的形状**：动形状会牵动 `cases:align`
-一整批按区间登记的口径，而这里要的只是「把当时知道的位置留下来」。
+**类名的位置不在这四个属性里**——它是 `Data` 里那个 `Identifier` 自带的 `SourceRange`
+（投影直接读子单元的坐标，见 `typescript/tokens/class/class.xl.md` 的 `Process` 那一段）。
+以前这里写过一对 `nameStart` / `nameEnd` 属性，那是「同一件事记两遍」，
+补子单元之后已经删掉——**位置只留一个事实来源**。
 
 `implements` 用 `join(",")` 拼——与 `Let` 的两组解构名同一种写法。
 
@@ -353,7 +351,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} name="${this.name}" nameStart="${this.NameStart}" nameEnd="${this.NameEnd}" extends="${this.extends}" implements="${this.implements.join(",")}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
+return `<${name} name="${this.name}" extends="${this.extends}" implements="${this.implements.join(",")}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
@@ -369,10 +367,6 @@ return `<${name} name="${this.name}" nameStart="${this.NameStart}" nameEnd="${th
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.name);
-// 名字的位置：**JSON 出口专有**（XML 那边不写它——属性名的事实来源仍是 `ToXmlString` 那四个）。
-// 下游要靠它把名字还原成一个带区间的节点，见 `NameStart` 字段的说明。
-result.set("nameStart", this.NameStart);
-result.set("nameEnd", this.NameEnd);
 result.set("extends", this.extends);
 result.set("implements", this.implements.join(","));
 result.set("modifiers", this.modifiers);

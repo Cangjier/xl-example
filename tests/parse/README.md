@@ -185,23 +185,41 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 这两步把「同 kind 同区间」从 37.9% 抬到 **41.3%**。**但它终究是补偿**：
 原文里那个名字到底在哪，只有词法层知道。
 
-### 第 13 轮：把「解析时知道、却丢掉」的信息补回 token 层
+### 第 13–14 轮：把「解析时知道、却丢掉」的信息补回 token 层
 
-按上一节的结论动了 token 层（这是本仓库第一次为这个目标改 `*.xl.md` 的字段）：
+按上一节的结论动了 token 层（本仓库第一次为这个目标改 `*.xl.md`）。**第一版做错了方向**，
+第二版才对——这段弯路值得留着：
 
-- `Class` 新增 `NameStart` / `NameEnd` 两个字段，在 `ClassReorganization.ScanHead` 里
-  **顺手记下那个名字单元的位置**——那里名字单元就在手里（`name`），
-  原来只留了 `name.TempToString()`，位置当场就丢了；
-- 两个出口**都写**这两个属性（XML 属性 + JSON 键）——只加进 JSON 会让
-  `cases:astjson`（两个出口同源那条铁律）当场变红，**这个坑我踩了一次**；
-- 投影里 `synthName` **首选产物记的位置**，`indexOf` 补偿降级为「还没有这对字段的 token 的兜底」。
+| 版本 | 做法 | 结果 |
+| --- | --- | --- |
+| 第 13 轮 | `Class` 加 `NameStart` / `NameEnd` 两个 `int` 字段，`ScanHead` 里把名字单元的两头抄下来 | 能用，但那是**把已经算好的东西再抄一遍**——等于绕过了「树里没有那个节点」这件事 |
+| 第 14 轮 | **把名字单元本身收进 `Class.Data`**（`Identifier`，带自己的 `SourceRange`），删掉那两个字段 | 树与 TS 同形（`ClassDeclaration.name` 就是一个排在最前的 `Identifier` 子节点） |
 
-**实测：这一改没有移动 `cases:tsast` 的百分比。** 逐格核对过：
-`export class A` 的名字 `A` 用 `indexOf` 也碰巧找对了（`am-class-modifier-order.ts` 第 386 位，
-TS 与投影两侧一致）。补它在**正确性**上的意义是「不再靠猜」——
-同一个声明里出现同名标识符、或修饰词里含有名字片段时，猜法必错，而记下来的位置不会。
-**这也是「用尺子驱动」这条原则的一次如实记录**：尺子没动，说明这一改不是当前瓶颈，
-下一步该按尺子的缺口表走（`VariableDeclarationList` / `Block` / `TypeReference` 那几层）。
+拐点是一个提问：**「token 的 `SourceRange` 不是本来就记位置吗？」** ——是的。
+`SignIn` / `SignOut` 会把范围填好，`TryToClose` 前面还有「两头不能是 null」的断言，
+所以**能进树的单元一定带范围**。丢的从来不是范围，而是**那个单元本身**：
+`ScanHead` 把名字记成 `TempToString()` 之后没把它收进 `Data`，重组结束时它随旧列表一起消失。
+第 13 轮补的是「范围」，第 14 轮补的才是「单元」。
+
+第 14 轮的实现要点（都写进了 `class.xl.md` 的注释）：
+
+- 名字单元放在 `Data` 的**第一个**，与 TS 的 `ClassDeclaration.name` 的位置一致；
+- 收与不收的判据只用**这个单元自己**（是 `Identifier` 且文本不是 `extends`）——
+  `isAnonymous` 是 `ScanHead` 的局部量，`Process` 里取不到；这样 `class {}`（`Bracket`）、
+  `class extends B {}`（文本是 `extends`）两种反例自动排除；
+- 投影里 `structuralProps` **首选树里那个子单元**（按文本与 `name` 属性配对），
+  `synthName` 的 `indexOf` 补偿降级为「还没补子单元的 token 的兜底」；
+- 名字单元要从 `children` 那一趟里**排除**，否则同一个名字会被收两遍。
+
+**实测：两版都没有移动 `cases:tsast` 的百分比**（两次都是 6313 / 41.3%）。
+逐格核对了 `am-class-modifier-order.ts`：`export class A` 的 `A` 在 TS 与投影两侧都是 `[386,387)`——
+`indexOf` 的旧法在这里碰巧也对，所以尺子看不见差别。这说明**这一类不是当前瓶颈**：
+缺口表里 `Identifier` 那 1307 处主要不是类名。两版的价值在**正确性**：
+`indexOf` 在「同一声明里有同名标识符」「修饰词里含名字片段」时必错，而树里那个单元不会错——
+它也顺带把「同一区间两层节点」这类 TS 形状（`TypeReference > Identifier`）变成**可以照抄**的，
+而不是每处都合成。
+
+**这一段的教训**：补信息之前先问「它是真丢了，还是只是没被引用」。前者要补单元，后者只要接上引用。
 
 字段名这一维是**逐轮涨**的，七轮的动作记在这里：
 
