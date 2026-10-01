@@ -563,6 +563,22 @@ function projectEach(list, ctx) {
   return out;
 }
 
+/**
+ * 语句的**投影终点**：把尾部的 trivia（换行 / 空白）剪掉。
+ *
+ * 本工程的语句区间**含尾部的换行**（ASI 断句时那一行软换行算在语句里），
+ * 而 TS 的语句**从不含尾部 trivia**——实测 `A.x = 1`（无分号，下一行是 `}`）：
+ * 产物给 `[82,90)`，TS 的 `ExpressionStatement` 是 `[82,89)`，差的就是那个换行符。
+ *
+ * 注意**不能顺手剪分号**：TS 的语句是**含**分号的（`x = 1;` ⇒ `ExpressionStatement[0,6)`），
+ * 分号的归属只在 `let` 那三层的**内两层**上另有口径（见 `projectLet`）。
+ */
+function stmtEndOf(v, ctx) {
+  let end = v.end;
+  while (end > v.start && /\s/.test(ctx.source[end - 1])) end--;
+  return end;
+}
+
 /** 一条语句：TS 那边没有 `Statement` 这层壳——按内容的**开头**分派。 */
 function projectStatement(v, ctx) {
   const kids = projectableKids(v);
@@ -585,7 +601,7 @@ function projectStatement(v, ctx) {
     kind: "ExpressionStatement",
     expression: projectExpression(kids, ctx),
     pos: v.start,
-    end: v.end,
+    end: stmtEndOf(v, ctx),
   };
 }
 
@@ -666,7 +682,10 @@ function projectLet(v, ctx) {
   // **尾部的 `;` 不进前两层**：TS 那边 `VariableStatement` 含分号，
   // `VariableDeclarationList` 与 `VariableDeclaration` 都不含（实测 `const answer = 0;`
   // 是 `Statement[0,17)` / `List[0,16)` / `Declaration[6,16)`）。
-  const stmtEnd = ctx.source[v.end - 1] === ";" ? v.end - 1 : v.end;
+  // 先剪掉尾部 trivia（ASI 那行软换行），再按 TS 的口径看分号归哪一层——
+  // `VariableStatement` 含分号、内两层不含（见 `stmtEndOf` 的说明）。
+  const stmtWhole = stmtEndOf(v, ctx);
+  const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
   // **语句级修饰词不进前两层**：`export const q = 1` 的 TS 是
   // `Statement[104,…)`（含 `export`）/ `List[111,…)`（从 `const` 起）/ `Declaration[117,…)`（从名字起）。
   const listStart = modifierStart(letView, ctx);
@@ -694,7 +713,7 @@ function projectLet(v, ctx) {
     pos: listStart,
     end: stmtEnd,
   };
-  return { kind: "VariableStatement", declarationList: list, pos: v.start, end: v.end };
+  return { kind: "VariableStatement", declarationList: list, pos: v.start, end: stmtWhole };
 }
 
 /**
