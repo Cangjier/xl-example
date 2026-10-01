@@ -161,9 +161,28 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13924 / 15303 | 464007 / 452849 |
+| 投影节点 / TS 语义节点 | 13924 / 15303 | 464090 / 452849 |
 | 同 kind 同区间 | **64.9%** | **69.1%** |
 | 其中**字段名也一致** | **95.2%** | **95.7%** |
+
+### 第 20 轮：接口 / 枚举的名字单元，以及「两条路径都要写」
+
+按上一轮定下的规矩（**先问「名字后面那个单元是什么」**），给 `Interface` 与 `Enum` 补名字单元。
+两家的名字后面都是 `<` / `extends` / `{`，与 `Class` 同样安全，但仍统一用**稳的做法**
+（`TryToClose()` 之后 `Data.unshift`），免得再踩一次 `Function` 那个坑。
+
+两处值得记下来的：
+
+1. **接口有两条解析路径**：带 `extends` 的走 `ScanHead`，不带的走 `Process` 里的内联分支。
+   第一版只补了 `ScanHead`，于是 `interface J<T> extends K {}` 有名字单元、`interface I {}` 没有——
+   量出来才发现（两种形状各自打一次 XML 就能看见）。
+2. **期望值要跟着改**：`types/type-union-leading-bar-in-member` 记的是 `Identifier:3`，
+   而 `interface I` 现在多一个名字单元 → 4。这是**有意的形状变化**，不是回归；
+   `cases:run` 的「新增/过期」栏正是为这种情况设计的（改完仍是 1014 条全通过）。
+
+用例语料与真实语料在这一轮都只小幅变化（64.9% / 69.1%）：
+说明**声明名这一类已经不再是主要瓶颈**——缺口表首位仍是 `Identifier` 745 与 `TypeReference` 487，
+它们更集中在 `BindingElement` / `PropertyAccessExpression` / 类型引用那几处。
 
 ### 第 19 轮：函数名进树要**绕过重组队列**（一次真踩到的坑）
 
@@ -351,6 +370,10 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 13–14 轮 | token 层：`Class` 的名字单元收进 `Data`（第 13 轮先做成了两个 `int` 字段，第 14 轮改回真单元）；投影首选树里的子单元 | 92.2% |
 | 第 15 轮 | 投影层：**`Block` / `ModuleBlock` 不再被提层**（新增 `BODY_FIELDS`），`let` 的两层区间按 TS 口径剥分号 / 推修饰词 | 93.5% |
 | 第 16 轮 | 投影层：**文件边界**三处（`SourceFile.getStart` 取第一个 token、`EndOfFileToken` 零宽补发）＋**只有注释的语句不收**（TS 那边是 trivia） | **95.0%** |
+| 第 17 轮 | 投影层：`projectLet` 原来一直在读**外层 `Statement`** 的属性（`fieldName` 在 `Let` 子单元上）＋ `synthName` 上界 ＋ 解构绑定模式区间 | 94.8% |
+| 第 18 轮 | 投影层：原始类型**不套** `TypeReference`、类型标注在**上一层**（`TypeDefine` 是 `Let` 的兄弟） | 95.2% |
+| 第 19 轮 | token 层：`Function` 名字单元进树（**踩到重组队列**，改用 `TryToClose()` 之后 `unshift`） | 95.2% |
+| 第 20 轮 | token 层：`Interface` / `Enum` 名字单元进树（**接口有两条路径，都要写**）＋ 更新一条过期期望值 | **95.2%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；

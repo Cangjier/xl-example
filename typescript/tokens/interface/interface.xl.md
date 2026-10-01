@@ -171,6 +171,8 @@ if (!(interfaceName instanceof Identifier)) {
 }
 if (interfaceInstance !== null) {
   interfaceInstance.name = interfaceName.TempToString();
+  // 名字单元**暂存**，`Process` 末尾再放进 `Data`（见 `NameUnit` 字段的说明）。
+  interfaceInstance.NameUnit = interfaceName;
 }
 nextIndex = SkipNextWrapSymbol(units, nextIndex);
 nextIndex = this.TakeTypeParameters(units, nextIndex, interfaceInstance);
@@ -315,6 +317,10 @@ if (this.NextIsCommonFlowerBracket(units, index)) {
     throw new Error("interface 语句不满足格式要求：interface Name{...}");
   }
   interfaceInstance.name = nameUnit.TempToString();
+  // 名字单元**暂存**，`Process` 末尾统一放进 `Data`（见 `NameUnit` 字段的说明）。
+  // 这一条**必须两条路径都写**：带 `extends` 的形状走 `ScanHead`，不带 `extends` 的走这里——
+  // 只补一处的话 `interface I {}` 与 `interface J<T> extends K {}` 会一个有一个没有（踩过）。
+  interfaceInstance.NameUnit = nameUnit;
   endIndex = SkipNextWrapSymbol(units, endIndex);
   endIndex = this.TakeTypeParameters(units, endIndex, interfaceInstance);
   const body = Get(units, endIndex);
@@ -339,6 +345,13 @@ const declarationEnd = endIndex;
 // ①`extends` 那个词永远升不成 `Keyword`（构造器注释里写的意图没生效）；
 // ②`heritage-clause.xl.md` 收不出 `<HeritageClause>`（接口的继承段一直没有节点）。
 interfaceInstance.TryToClose();
+// **名字单元在这时放进树**（见 `NameUnit` 字段的说明）：`TryToClose()` 之后本单元的重组
+// 已经跑完，`Data` 不会再被自己扫描，也就不会被「`Identifier` + `Bracket`」那类规则误吃。
+// 位置放在最前面，与 TS 的 `InterfaceDeclaration.name` 一致。
+if (interfaceInstance.NameUnit !== null && interfaceInstance.NameUnit instanceof Identifier) {
+  interfaceInstance.NameUnit.Parent = interfaceInstance;
+  interfaceInstance.Data.unshift(interfaceInstance.NameUnit);
+}
 return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, interfaceInstance);
 ```
 
@@ -431,6 +444,18 @@ return result;
 ## field name:string = ""
 
 接口名。
+
+## field NameUnit:Token | null = null
+
+接口名那个**单元本身**（带自己的 `SourceRange`），重组时暂存、`Process` 末尾再放进 `Data`。
+
+**为什么要绕一道**：名字后面跟的是 `<` / `extends` / `{`，本来直接加进去也没事，
+但本仓库已经踩过一次「加名字触发了重组队列」（`Function`：名字后面紧跟 `(`，
+被「`Identifier` + `Bracket(paren)` ⇒ `Method`」那条规则吃成调用表达式）。
+这里统一用**同一套稳的做法**：`TryToClose()` 之后再 `Data.unshift`——
+那时本单元自己的重组已经跑完，`Data` 不会再被自己扫描一遍。
+（`Class` 是直接 `AddAndCloseLast` 的，它靠的是「类名后面不是 `(`」这个巧合；
+`Function` 已经改成稳的做法，这里跟着走。）
 
 ## field extends:Array<string> = []
 

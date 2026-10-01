@@ -84,7 +84,8 @@ const result = new Enum(template);
 result.Parent = current.Parent;
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
-result.name = (Get(units, nameIndex) as Identifier).TempToString();
+const enumNameUnit = Get(units, nameIndex) as Identifier;
+result.name = enumNameUnit.TempToString();
 result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
 for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
   result.AddAndCloseLast(item);
@@ -95,6 +96,11 @@ body.MoveDataTo(enumBody);
 enumBody.Sign(body);
 enumBody.TryToClose();
 result.TryToClose();
+// **名字单元在这时放进树**（与 `interface.xl.md` / `function.xl.md` 同一套做法）：
+// `TryToClose()` 之后本单元的重组已经跑完，`Data` 不会再被自己扫描一遍。
+// 位置在最前面，与 TS 的 `EnumDeclaration.name` 一致。
+enumNameUnit.Parent = result;
+result.Data.unshift(enumNameUnit);
 return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```
 
