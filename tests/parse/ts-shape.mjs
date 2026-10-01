@@ -80,6 +80,9 @@ const KIND_BY_TAG = new Map([
   ["MethodDeclaration", "MethodDeclaration"],
   ["IndexSignature", "IndexSignatureDeclaration"],
   ["NamespaceBody", "ModuleBlock"],
+  ["FunctionBody", "Block"],
+  ["MethodBody", "Block"],
+  ["LambdaBody", "Block"],
   ["Decorator", "Decorator"],
   ["HeritageClause", "HeritageClause"],
   ["ExpressionWithTypeArguments", "ExpressionWithTypeArguments"],
@@ -156,13 +159,25 @@ const WRAPPER_FIELDS = new Map([
   ["InterfaceBody", "members"],
   ["TypeLiteralBody", "members"],
   ["EnumBody", "members"],
-  ["NamespaceBody", "body"],
-  ["FunctionBody", "body"],
-  ["MethodBody", "body"],
-  ["LambdaBody", "body"],
   ["ReturnType", "type"],
   // 括号只是分组，TS 那边没有对应节点：内容并进父节点的 `children`。
   ["Bracket", null],
+]);
+
+/**
+ * **体节点**：它们要**换成另一个名字的字段**，而且**自己仍是一个节点**（不是把内容提上去）。
+ *
+ * 这一条是与 `WRAPPER_FIELDS` 的关键区别，也是「`Block` 那 335 处」的落点：
+ * 产物里 `FunctionBody` / `MethodBody` / `NamespaceBody` 是各自独立的段，
+ * 而 TS 那边它们就是 `Block` / `Block` / `ModuleBlock` —— **留着它们当节点**，
+ * 父声明那边只改字段名（`body`）。早先把它们当包装提层提掉了，于是 TS 的 `Block`
+ * 在产物侧整类不存在（实测 335 处 `Block` + 若干 `ModuleBlock`）。
+ */
+const BODY_FIELDS = new Map([
+  ["FunctionBody", "body"],
+  ["MethodBody", "body"],
+  ["NamespaceBody", "body"],
+  ["LambdaBody", "body"],
 ]);
 
 /**
@@ -208,6 +223,8 @@ const FIELD_BY_KIND = new Map([
   ["EnumMember", new Map([["children", "initializer"]])],
   ["SourceFile", new Map([["children", "statements"]])],
   ["ModuleBlock", new Map([["children", "statements"]])],
+  // 块：函数 / 方法 / 命名空间的体。TS 那边 `Block.statements`。
+  ["Block", new Map([["children", "statements"]])],
   // 命名空间体：TS 那边叫 `body`（`NamespaceBody` 会**提层**到 `ModuleDeclaration.body`，
   // 这里的映射是给它自己作为独立模块块时用的）。
   ["NamespaceBody", new Map([["children", "body"]])],
@@ -571,27 +588,50 @@ function projectExpression(kids, ctx) {
 function projectLet(v, ctx) {
   const kids = projectableKids(v);
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  const nameNode = kids.find((k) => k.get("type") !== "SymbolToken") ?? null;
   const initNode = eqIndex >= 0 && eqIndex + 1 < kids.length ? kids[eqIndex + 1] : null;
-  const declStart = nameNode !== null ? startOf(nameNode) : v.start;
-  // 声明名：产物把名字记在 `fieldName` 属性上、**没有位置**，所以在原文里找（见 `synthName`）。
-  // 解构声明（`const [a, b] = …`）没有 `fieldName`，这里给一个占位名，结构位置仍是声明开头。
+  // **尾部的 `;` 不进前两层**：TS 那边 `VariableStatement` 含分号，
+  // `VariableDeclarationList` 与 `VariableDeclaration` 都不含（实测 `const answer = 0;`
+  // 是 `Statement[0,17)` / `List[0,16)` / `Declaration[6,16)`）。产物那三层都用 `Let` 自己的区间，
+  // 于是后两层各多含一个字符——按 TS 的口径把分号剥掉。
+  const stmtEnd = ctx.source[v.end - 1] === ";" ? v.end - 1 : v.end;
+  // **语句级修饰词不进前两层**：`export const q = 1` 的 TS 是
+  // `Statement[104,…)`（含 `export`）/ `List[111,…)`（从 `const` 起）/ `Declaration[117,…)`（从名字起）。
+  // 产物把修饰词记成 `modifiers="export,const"`，所以列表起点取**最后一个修饰词**的位置
+  // （`const` 是列表的 flags，`export` / `declare` / `default` 属于外层语句）。
+  const listStart = modifierStart(v, ctx);
+  // 声明名：产物把名字记在 `fieldName` 属性上（树里的名字单元是后续要补的），
+  // 这里仍走 `synthName` 找位置；解构声明没有 `fieldName`，给一个零宽占位。
   const declared = String(v.attrs.get("fieldName") ?? "");
+  const name = declared === "" ? { kind: "ArrayBindingPattern", pos: listStart, end: listStart } : synthName(declared, v, ctx);
   const declaration = {
     kind: "VariableDeclaration",
-    name: declared === "" ? { kind: "ArrayBindingPattern", pos: declStart, end: declStart } : synthName(declared, v, ctx),
+    name,
     initializer: initNode === null ? undefined : projectNode(initNode, ctx),
-    pos: declStart,
-    end: v.end,
+    pos: name.pos,
+    end: stmtEnd,
   };
   const list = {
     kind: "VariableDeclarationList",
     declarations: [declaration],
     flags: flagsOf(v),
-    pos: v.start,
-    end: v.end,
+    pos: listStart,
+    end: stmtEnd,
   };
   return { kind: "VariableStatement", declarationList: list, pos: v.start, end: v.end };
+}
+
+/**
+ * 列表层的起点：**最后一个修饰词**的位置（`modifiers="export,const"` → `const` 在哪）。
+ *
+ * 取不到时退回声明自己的起点（没有修饰词的情形，例如 `Let` 就从名字起）。
+ */
+function modifierStart(v, ctx) {
+  const modifiers = v.attrs.get("modifiers");
+  if (typeof modifiers !== "string" || modifiers === "") return v.start;
+  const last = modifiers.split(",").filter((w) => w !== "").pop();
+  if (last === undefined) return v.start;
+  const at = ctx.source.indexOf(last, v.start);
+  return at >= 0 ? at : v.start;
 }
 
 /** 声明的修饰词串 → TS 的 `NodeFlags`（`const` / `let` / `var`）。 */
@@ -981,6 +1021,12 @@ function structuralProps(v, kind, ctx) {
       if (!(x instanceof Map) || INVISIBLE.has(x.get("type"))) continue;
       // 名字那个单元已经进 `props.name` 了，不要再当成子节点收一遍。
       if (x === nameNode) continue;
+      // **体节点**：改字段名，但自己仍是一个节点（见 `BODY_FIELDS`）。
+      const body = BODY_FIELDS.get(x.get("type"));
+      if (body !== undefined) {
+        props[body] = projectNode(x, ctx);
+        continue;
+      }
       const target = wrapperTarget(x);
       if (target === undefined) {
         kept.push(x);

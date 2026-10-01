@@ -161,12 +161,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 15039 / 15303 | 468381 / 452849 |
-| 同 kind 同区间 | **41.3%** | **58.2%** |
-| 其中**字段名也一致** | **92.2%** | **95.0%** |
+| 投影节点 / TS 语义节点 | 15273 / 15303 | 469776 / 452849 |
+| 同 kind 同区间 | **44.4%** | **59.1%** |
+| 其中**字段名也一致** | **93.5%** | **95.1%** |
 
-两个语料的比率差得多（41.3% vs 58.2%）是因为**语料构成不同**：真实语料里 `.d.ts` 占大头，
+两个语料的比率差得多（44.4% vs 59.1%）是因为**语料构成不同**：真实语料里 `.d.ts` 占大头，
 而 `.d.ts` 几乎是「声明 + 类型」，正是投影覆盖得最好的那部分；用例语料是刻意挑的难点形状。
+
+### 第 15 轮：`Block` 那 335 处是**提层提掉的**
+
+按尺子的缺口表动手，最大的一块是 `Block`。根因不是缺单元，而是**投影把体节点提层提掉了**：
+
+| 产物 | TS | 早先的做法 | 现在的做法 |
+| --- | --- | --- | --- |
+| `FunctionBody` / `MethodBody` | `Block`（**是节点**） | 当包装，把内容提上去、节点本身不要 | 编成 `Block` 节点，父声明那边只改字段名（`body`） |
+| `NamespaceBody` | `ModuleBlock` | 同上（`KIND_BY_TAG` 里明明有 `ModuleBlock`，却被提层那条抢先生效） | 编成 `ModuleBlock` 节点 |
+
+于是投影里多了一张**`BODY_FIELDS`** 表，与 `WRAPPER_FIELDS` 的区别是：
+**前者「改字段名但自己仍是节点」，后者「把内容提上去、自己不出节点」**。
+这两件事以前混在一张表里，`Block` / `ModuleBlock` 就是被混掉的。
+
+同一轮还按 TS 的口径修了 `let` 声明的**两层区间**（差一个字符就差一个节点）：
+
+- `VariableStatement` 含尾部分号，`VariableDeclarationList` 与 `VariableDeclaration` **都不含**；
+- `VariableDeclarationList` 从**最后一个修饰词**起（`export const q = 1` 的列表从 `const` 起，
+  `export` 属于外层语句），`VariableDeclaration` 从**名字**起。
+
+三处合起来：用例语料 41.3% → **44.4%**，真实语料 58.2% → **59.1%**，
+`FunctionDeclaration` / `Block` / `ModuleBlock` / `VariableDeclarationList` 在逐格核对里**全部吻合**。
 
 ### 声明名的位置：从「投影层补偿」到「token 层记下来」
 
@@ -233,7 +255,9 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 | 第 9 轮 | 修 `ClassDeclaration` / `InterfaceDeclaration` 的字段映射 + 查清「表里重复定义 kind 会静默覆盖」 | 89.0% |
 | 第 10 轮 | ① `ArrowFunction` 补 `equalsGreaterThanToken`（**合成**）；② `ConditionalExpression` 补 `questionToken` / `colonToken`（**合成**）；③ 分段取值要**先摊平包装**（`TernaryOperatorCondition` 那一层） | 89.5% |
 | 第 11 轮 | ① `NewExpression` 的 `name` → `expression`；② `FunctionType` 切成 `parameters`（**摊平括号**）+ `type`；③ `TypeParameter` 补 `constraint` / `default` / `modifiers`——其中 `in` / `out` 变型修饰词要**按两种词法身份认**（`in` 是 `Keyword`、`out` 是 `Identifier`） | 90.9% |
-| 第 12 轮 | **查清「缺的 Identifier 大多是声明名」**，并在投影层做两次位置补偿（① 别用声明开头 ② 搜索起点推过修饰词）；字段名顺带涨到 92.2% / 95.0% | **92.2%** |
+| 第 12 轮 | **查清「缺的 Identifier 大多是声明名」**，并在投影层做两次位置补偿（① 别用声明开头 ② 搜索起点推过修饰词）；字段名顺带涨到 92.2% / 95.0% | 92.2% |
+| 第 13–14 轮 | token 层：`Class` 的名字单元收进 `Data`（第 13 轮先做成了两个 `int` 字段，第 14 轮改回真单元）；投影首选树里的子单元 | 92.2% |
+| 第 15 轮 | 投影层：**`Block` / `ModuleBlock` 不再被提层**（新增 `BODY_FIELDS`），`let` 的两层区间按 TS 口径剥分号 / 推修饰词 | **93.5%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；
