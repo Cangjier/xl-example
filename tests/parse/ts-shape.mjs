@@ -785,19 +785,97 @@ function projectTypeDefine(v, ctx) {
   const kids = projectableKids(v);
   const colon = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
   const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);
-  const typeNode = afterColon.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword") ?? kids[0];
-  if (typeNode === undefined) {
+  const projected = projectTypeExpression(afterColon, ctx);
+  if (projected === undefined) {
     ctx.unmapped.add("TypeDefine(空)");
     return { kind: "TypeReference", pos: v.start, end: v.end };
   }
-  const text = textOfNode(typeNode, ctx);
-  const inner = projectNode(typeNode, ctx);
-  // 原始类型：**只有它单独一个**的时候才算（`string[]` 的 `string` 属于 `ArrayType` 里面）。
-  const primitive = afterColon.length === 1 ? PRIMITIVE_TYPE_KIND.get(text) : undefined;
-  if (primitive !== undefined) {
-    return { kind: primitive, text, pos: inner.pos, end: inner.end };
+  return projected;
+}
+
+/** 分隔标点：它们由**各自的容器**管（`|` 归 `UnionType`、`,` 归实参表）。 */
+function isTypeSeparator(node, ctx) {
+  if (node.get("type") !== "SymbolToken") return false;
+  return [",", "|", "&"].includes(textOfNode(node, ctx));
+}
+
+/**
+ * **类型表达式**：一段单元 → 一个类型节点。类型是可以嵌套的，所以这里必须递归。
+ *
+ * 实测 TS 的形状（`let a: Map<string, number>`）：
+ *
+ * ```
+ * TypeReference[7,25)            ← `Map<string, number>`（**整个**）
+ *   Identifier[7,10)             ← `Map`（**同一区间的第二层**）
+ *   typeArguments: StringKeyword[11,16) NumberKeyword[19,24)
+ * ```
+ *
+ * 而产物那边是 `TypeDefine > [Identifier(Map), GenericType(<string, number>)]`——
+ * `GenericType` 在那里的身份是**实参表**、不是节点。所以：
+ *
+ * - 头是 `Identifier` / `Keyword`，后面跟一个 `GenericType` ⇒ `TypeReference` + `typeArguments`；
+ * - 头是原始类型名 ⇒ **直接是关键字节点**（不套 `TypeReference`，见 `PRIMITIVE_TYPE_KIND`）；
+ * - 后面还跟一个 `ArrayType` ⇒ 再套一层 `ArrayType`（TS 的 `ArrayType` **从基名起**，
+ *   而产物的 `ArrayType` 只盖住后缀那一段——所以要把它折上去）。
+ */
+function projectTypeExpression(nodes, ctx) {
+  const list = nodes.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")) && !isTypeSeparator(k, ctx));
+  if (list.length === 0) return undefined;
+  const head = list[0];
+  const generic = list.find((k) => k.get("type") === "GenericType");
+  const arraySuffix = list.find((k) => k.get("type") === "ArrayType");
+
+  if (head.get("type") === "Identifier" || head.get("type") === "Keyword") {
+    const text = textOfNode(head, ctx);
+    const span = { pos: startOf(head), end: endOf(head) };
+    let base;
+    if (generic === undefined) {
+      const primitive = PRIMITIVE_TYPE_KIND.get(text);
+      base =
+        primitive === undefined
+          ? { kind: "TypeReference", typeName: { kind: "Identifier", text, pos: span.pos, end: span.end }, text, pos: span.pos, end: span.end }
+          : { kind: primitive, text, pos: span.pos, end: span.end };
+    } else {
+      base = {
+        kind: "TypeReference",
+        typeName: { kind: "Identifier", text, pos: span.pos, end: span.end },
+        typeArguments: projectTypeArguments(generic, ctx),
+        text,
+        pos: span.pos,
+        end: endOf(generic),
+      };
+    }
+    // 数组后缀：`Foo<Bar>[]` 的 TS 是 `ArrayType(Foo<Bar>[]) > TypeReference(Foo<Bar>)`。
+    if (arraySuffix !== undefined) {
+      return { kind: "ArrayType", elementType: base, pos: base.pos, end: endOf(arraySuffix) };
+    }
+    return base;
   }
-  return { kind: "TypeReference", typeName: inner, text, pos: inner.pos, end: inner.end };
+  // 其余形状（`UnionType` / `IntersectionType` / `FunctionType` / `TypeLiteral` / `TupleType`…）
+  // 交回通用投影，它们各自的子单元会再走一遍 `projectTypeExpression`。
+  if (list.length === 1) return projectNode(list[0], ctx);
+  return projectTypeExpression([head], ctx);
+}
+
+/** 实参表 `<A, B>` → `typeArguments` 数组（按逗号切开，逐段递归）。 */
+function projectTypeArguments(generic, ctx) {
+  const parts = [];
+  let current = [];
+  for (const kid of projectableKids(view(generic))) {
+    if (kid.get("type") === "SymbolToken" && textOfNode(kid, ctx) === ",") {
+      parts.push(current);
+      current = [];
+      continue;
+    }
+    current.push(kid);
+  }
+  parts.push(current);
+  const out = [];
+  for (const part of parts) {
+    const projected = projectTypeExpression(part, ctx);
+    if (projected !== undefined) out.push(projected);
+  }
+  return out;
 }
 
 /** 属性 `x: T` / `x = 1` → `PropertyDeclaration`（`name` + `type` / `initializer` / `modifiers`）。 */

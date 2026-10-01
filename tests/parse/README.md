@@ -161,9 +161,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13924 / 15303 | 464090 / 452849 |
-| 同 kind 同区间 | **64.9%** | **69.1%** |
-| 其中**字段名也一致** | **95.2%** | **95.7%** |
+| 投影节点 / TS 语义节点 | 13884 / 15303 | 451449 / 452849 |
+| 同 kind 同区间 | **65.3%** | **71.8%** |
+| 其中**字段名也一致** | **95.2%** | **95.8%** |
+
+### 第 21 轮：类型位要**递归投影**（真实语料 69.1% → 71.8%）
+
+`TypeReference` 那 487 处的落点：缺的都发生在**类型实参里**（`X<string>`、`Map<string, Array<number>>`）。
+原来 `projectTypeDefine` 只在冒号后面找一个 `Identifier` / `Keyword`——碰到 `GenericType` 就漏。
+
+TS 的形状（`let a: Map<string, number>`）：
+
+```
+TypeReference[7,26)            ← `Map<string, number>`（**整个**）
+  Identifier[7,10)             ← `Map`（**同一区间的第二层**）
+  typeArguments: StringKeyword[11,17) NumberKeyword[19,25)
+```
+
+而产物那边是 `TypeDefine > [Identifier(Map), GenericType(<string, number>)]`——
+`GenericType` 在那里的身份是**实参表**、不是节点。所以新增了一个递归的
+`projectTypeExpression`，把三条规则收在一处：
+
+1. 头是 `Identifier` / `Keyword`，后面跟 `GenericType` ⇒ `TypeReference` + `typeArguments`（逐段递归）；
+2. 头是原始类型名 ⇒ **直接是关键字节点**（见 `PRIMITIVE_TYPE_KIND`，与第 18 轮同一条）；
+3. 后面还跟 `ArrayType` ⇒ 再折一层 `ArrayType`——**TS 的 `ArrayType` 从基名起**
+   （`Foo<Bar>[]` 是 `ArrayType[35,45) > TypeReference[35,38)`），而产物的 `ArrayType` 只盖住后缀那一段。
+
+这一轮真实语料涨得最多（+2.7 个百分点），因为它以 `.d.ts` 为主——**类型密集**。
+用例语料只 +0.4，它挑的是语法难点而不是类型难点。
 
 ### 第 20 轮：接口 / 枚举的名字单元，以及「两条路径都要写」
 
@@ -374,6 +399,7 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 18 轮 | 投影层：原始类型**不套** `TypeReference`、类型标注在**上一层**（`TypeDefine` 是 `Let` 的兄弟） | 95.2% |
 | 第 19 轮 | token 层：`Function` 名字单元进树（**踩到重组队列**，改用 `TryToClose()` 之后 `unshift`） | 95.2% |
 | 第 20 轮 | token 层：`Interface` / `Enum` 名字单元进树（**接口有两条路径，都要写**）＋ 更新一条过期期望值 | **95.2%** |
+| 第 21 轮 | 投影层：**类型位递归投影**（`projectTypeExpression`）——类型实参、数组后缀、原始类型三条规则收在一处 | **95.2%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；
