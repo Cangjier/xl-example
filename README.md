@@ -87,11 +87,25 @@ npm run cases:boundaries  # 语句边界：相邻两条语句有没有被并成�
 npm run cases:noise       # 噪声：产物里有没有空的 <Statement></Statement>
 ```
 
-另有一把「广谱构造普查」的探针，只报可疑项、不当判据：
+另有四把「找缺口」的探针，只报可疑项、不当判据：
 
 ```bash
 npm run cases:sweep       # 198 个 TS 构造片段，逐条打印 TS AST 与产物并标出可疑项
+npm run cases:recon       # 174 条高风险片段（边界 / 表达式 / 类型 / 声明 / 模块）
+npm run cases:recon2      # 94 条 TS 5.x / 6.x 新构造与真实代码高频写法
+npm run cases:fuzz        # 组合模糊测试：7.1 万个「上下文 × 分隔 × 片段两两拼接」
+npm run cases:align       # 对齐探针：产物单元与 TS AST 节点按源码区间对齐，双向反查
 ```
+
+这四把探针是**八把尺子的补位**：尺子比的是计数、内容、括号、边界、空节点，
+而 `a.import` 抛 `TypeError`、`Lamda` 没签出范围导致克隆抛错、`{ A }a += 1` 报「没有父单元」
+这三处真缺口，八把尺子**一把都看不见**——它们都是先被探针抓到的
+（见 [tests/parse/README.md](tests/parse/README.md) 的「`recon*.mjs` / `fuzz.mjs` 的口径」
+与「`align.mjs` 的口径」）。
+
+`cases:align` 问的是**形状与语义对不对得上**：它把产物单元与 TS AST 节点按源码区间对齐后双向反查
+「产物有标签、源码没构造」与「源码有构造、产物没标签」。第 53 轮的七处真缺口里有四处
+（箭头块体、多形参、克隆空壳、括号里的联合类型）是它抓到的——那些形状下八把尺子全绿。
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
 `build/ts/cjcli.js`——产物路径里的 `ts/` 来自**目标语言目录**，不是 `rootDir` 多出来的一层。
@@ -169,12 +183,34 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `let` / `const` / `var`（含解构，绑定名**递归**收集） | `<Let>`（自闭合） | `fieldName` / `arrayPattern` / `objectPattern` |
 | `if` / `for` / `foreach` / `while` / `do…while` / `try` | `<IfSet>` `<For>` `<Foreach>` `<While>` `<DoWhile>` `<Try>` 及各自的分段 | 见各自文件 |
 | `name(...)`（调用）/ `name: Type`（类型标注） | `<Method>` / `<TypeDefine>` | `name` |
+| `expr as T` / `expr satisfies T`（同级左结合的两种类型运算） | `<As>` / `<Satisfies>`（运算符后面的类型装在里面，运算符词本身不进产物——与 `<As>` 既有口径一致） | — |
+| **函数类型**（类型位的 `(a: A) => B` / `new () => A` / `abstract new () => A` / `<T>(a: A) => B`） | `<FunctionType>`（形参括号 + `=>` + 返回类型；`new` / `abstract new` 也装在里面） | — |
+| **条件类型**（`T extends U ? A : B`） | `<ConditionalType>`（条件、`extends`、真分支、`?`、假分支、`:` 全在里面；**类型位**的它不会落成 `<TernaryOperator>`） | — |
+| **联合 / 交叉类型**（`A \| B`、`A & B`，含前导 `\|` 的多行写法） | `<UnionType>` / `<IntersectionType>`（`&` 比 `\|` 紧：`A & B \| C` 收成 `UnionType(IntersectionType(A & B) \| C)`） | — |
+| **数组 / 元组 / 下标访问类型**（`T[]`、`[A, B]`、`T[K]`） | `<ArrayType>` / `<TupleType>` / `<IndexedAccessType>`（那对方括号本身不进产物，与 `ObjectLiteral` / `ArrayLiteral` 同一口径） | — |
+| **类型运算符**（类型位的 `keyof T` / `readonly T[]` / `unique symbol`） | `<TypeOperator>`（运算符词与它的操作数都在里面，与 `UnionType` 里那个 `\|` 符号同一口径） | — |
+| **类型参数**（`<T extends X = Y>`、映射键 `[K in T]`、`infer X` 里的那个名字） | `<TypeParameter>`（名字 + `extends` 约束 + `=` 默认值都在里面；泛型段的外层仍是 `<GenericType>`） | — |
+| **推断类型**（条件类型里的 `infer X` / `infer X extends Y`） | `<InferType>`（里面配一个 `<TypeParameter>`——与 TS 的 `InferType > TypeParameter` 一对一） | — |
+| **类型谓词**（`x is T` / `this is T` / `asserts x is T` / `asserts x`） | `<TypePredicate>`（`asserts`、参数名、`is`、类型都在里面；谓词里的类型照常成形） | — |
+| **元组成员**（`[A?, ...B, name: D?, ...rest: E[]]`） | 可选元素 `<OptionalType>` / 变长元素 `<RestType>` / 具名元素 `<NamedTupleMember>`（**普通元素不给节点**——与 TS 一致） | — |
+| **枚举成员**（`enum E { A = 1, B }`） | `<EnumMember>`（名字与初始化式都在里面；逗号留在外面、属于枚举声明） | — |
+| **索引签名**（`{ [k: string]: T }` / `readonly [k: symbol]: T`） | `<IndexSignature>`（参数名、参数类型、值类型都在里面；方括号按 `ArrayType` 的先例消费掉，参数那一截收成一个 `<Parameter>`） | — |
+| **形参**（`function f(a: A)` / `m(a: A)` / `(a: A) => B` / `(a: A): T` / `new (a: A): I` / 箭头函数的 `(a, b)`） | `<Parameter>`（与 TS 一致：形参一律同一个标签，不分函数 / 方法 / 箭头 / 签名；索引签名里的参数也是它） | — |
+| **继承段**（`class C extends B implements I, J` / `interface K extends L<M>, N`） | `<HeritageClause>` + `<ExpressionWithTypeArguments>`（子句词、逗号与每个实体名都在里面；类表达式与括号化继承表达式同样收） | — |
+| **解构绑定**（`const { a, b: c, d = 1 } = x` / `[x, , y, ...rest]` / `f({ p, q })` / `catch ({ message })`） | 元素各一个 `<BindingElement>`（模式本身是 `<ObjectLiteral>` / `<ArrayLiteral>`——TS 的 `ObjectBindingPattern` / `ArrayBindingPattern` 同形；`b: c` 是重命名、不产 `TypeDefine`） | — |
+| **括号类型**（类型位的 `(A \| B)` / `((a: A) => B)`） | `<ParenthesizedType>`（括号本身属于这个节点，与 TS 一致；值位的括号不受影响） | — |
+| **类型查询**（类型位的 `typeof x`） | `<TypeQuery>`（值位的 `typeof x` 仍是 `<UnaryOperator op="typeof">`；已经折成一元运算的那种壳会被换掉） | — |
+| **字面量类型**（`"a"` / `1` / `0x10` / `true` / `null` / `-1`） | `<LiteralType>`（字面量本身作为子单元；带符号数字把 `-` 与数字一起收进来。十进制 / 十六进制 / 二进制 / 八进制 / 指数 / 数字分隔符 / `BigInt` 都认） | — |
+| **模板字面量类型**（`` `a${X}b` ``） | `<String interpolation="true">` + `<InterpolationString>`（插值段的类型文本照常成形：联合 / 交叉 / 下标访问……） | — |
+| **映射类型**（`{ [K in T]: X }`，含 `readonly` / `-readonly` / `+?` 修饰与 `as` 键重映射） | `<MappedType>`（内容直接装在节点下：`[K in T]` 与值类型各成形；索引签名 `{ [k: string]: X }` 仍是 `<TypeLiteral>`） | — |
 | `type X = { a: number }` / `let x: { m(): void }`（**类型位**的对象类型） | `<TypeLiteral>` + `<TypeLiteralBody>`（成员是 `Field` / `MethodDeclaration` / `Signature`） | — |
 | `interface I { (a: number): string }` / `new (a: number): I` / `abstract new (a: number): I` | `<Signature kind="call">` / `<Signature kind="construct">`（`abstract` 作为签名的第一个子单元收进来） | `kind` |
-| `import('./m').A` / `typeof import('./m')`（类型位） | `<Method name="import">`（动态 `import()` 是调用，不是声明） | — |
-| 泛型实参段与类型参数段（`Array<T>` / `<T extends X = Y>`） | `<GenericType>` | `startBracket` `endBracket` |
+| `import('./m').A` / `typeof import('./m')`（类型位） | `<ImportType>`（`typeof` 与限定名尾巴都在里面——与 TS 的 `ImportType` 一对一；**值位**的动态 `import()` 仍是 `<Method name="import">`） | — |
+| 泛型实参段与类型参数段（`Array<T>` / `<T extends X = Y>`） | `<GenericType>`（**实参段**；**参数表**在它里面再收成 `<TypeParameter>`） | `startBracket` `endBracket` |
 | 字符串（常量 / 内插 / 逐字 / 原始 / 模板） | `<String>` + `<ConstString>` / `<InterpolationString>` | `interpolation` `verbatim` `raw` `interpolationCount` `rawQuoteCount` |
 | `async` / `await` / `return` / `throw` / `readonly` … | `<Keyword>` | — |
+| `class C { static { … } }`（类静态块） | `<StaticBlock>`（体内的语句；花括号本身不进树，与 `FunctionBody` 同款） | — |
+| `export as namespace Foo` | `<NamespaceExport>`（自闭合，与 `Label` / `Let` 同款） | `name` |
 
 `modifiers` 是声明前面那一串修饰词按源码顺序 `join(",")`（`export` / `declare` / `default` / `abstract` /
 `async` / `public` / `private` / `protected` / `static` / `readonly` / `override` / `accessor` / `get` / `set` / `const`）。
@@ -243,30 +279,43 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 `structure.mjs` 与 `boundaries.mjs` 各带一个 `--self-test`：故意把产物改坏 / 把两条语句并成一条，
 尺子必须报警——**一个永远绿的尺子比没有尺子更危险**，所以两把尺子的牙口都是被证明过的。
 
-### 当前状态（实测，`npm run` 十三个脚本全绿）
+### 当前状态（实测，`npm run` 十七个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 924 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
-| `cases:diff` | 1285 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
+| `cases:run` | 1001 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:diff` | 1336 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1272 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1272 个文件、括号归属不符 **0**（12 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 真实语料 + 用例语料，**边界被横跨 0 处**（对齐不可信的文件如实跳过并报数） |
-| `cases:noise` | 1272 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1371 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1371 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1371 个文件：对齐可信 1069 个、跳过 299 个，语句表 548 个、边界 2369 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1371 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
+| `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
+| `cases:align` | 1340 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
+| `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
+- **类型层已经补了八块**（第 54 轮：**函数类型**；第 55 轮：**条件类型**；
+  第 58–59 轮：**联合 / 交叉**；第 60 轮：**映射类型**；
+  第 66 轮：**方括号三种 + 类型运算符 + 类型查询 + 字面量类型 + 模板字面量类型**，
+  续批又补上 **导入类型 + 类型参数 + 推断类型**）：
+  类型位现在有 `TypeDefine` / `GenericType` / `TypeLiteral` / `Signature` /
+  `FunctionType`（4226 处）/ `ConditionalType`（183 处）/ `UnionType` + `IntersectionType`（8680 处）/
+  `MappedType`（36 处）/ `ArrayType` + `TupleType` + `IndexedAccessType` /
+  `TypeOperator`（`keyof` / `readonly` / `unique`）/ `TypeQuery`（类型位的 `typeof`）/
+  `LiteralType`（全语料 13110 处）/ `ImportType`（类型位的 `[typeof] import("m")[.A.B]`）/
+  `TypeParameter`（泛型参数表与映射键）/ `InferType`（`infer X [extends Y]`）/
+  模板字面量类型的插值段（联合、交叉、下标访问都成形）。
+  **这一层现在的净额**：`cases:align` 的缺节点方向是 **0**——那一节只打印「（没有）」；
+  未登记的标签占用也是 **0 类**。余下的 16 类全是逐条登记的**口径**
+  （解构模式、ASI、成员位 `abstract new`、映射类型的 `in` / `as`、模板字面量类型里的 1 处残渣、
+  以及**用例自己声明非法 TS** 的 15 处——TS 6.0.3 自带 parser 在那些对抗形状上读错）。
+  换句话说：**「另有归属」这一类已经不存在了**，剩下的只有「标签表表达不了」与语言配置。
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label label="outer" /><While>…</While>`）：
   标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
-- **类里的 `static { … }` 块**没有专属标签（TS 里是 `ClassStaticBlockDeclaration`）：内容完整收在
-  `<Statement><Keyword>static</Keyword><Bracket>{…}</Bracket></Statement>` 里——**内容没丢**，只是没有标签。
-- **`export as namespace Foo`**（TS 里是 `NamespaceExportDeclaration`）没有专属节点，
-  产物是 `<Keyword>export</Keyword>` + `<As>namespace Foo</As>`——**内容没丢**，归类不同。
-- **`import type x = require('y')`** 的 `typeOnly="true"` 是对的，但那个 `type` 词还作为
-  `<Identifier>type</Identifier>` 留在 `Import` 里（冗余、不是丢失）。
 - **ASI 是按形状预判的**：判据在 [typescript/tokens/statement.xl.md](typescript/tokens/statement.xl.md) 的
   `Statement.IsLineBreakBoundary`（前一个单元不再要操作数、后一个单元也不能续接 ⇒ 断句，
   加上 `return` / `throw` / `break` / `continue` / `yield` 与后缀 `++` / `--` 的受限产生式）。
@@ -281,6 +330,56 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 - **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
   `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器
   （见台账 `_notes.escape-a-bell` / `_notes.at-before-string-is-verbatim`）。
+- **块与表达式之间没有分隔符时**（`{ A }a += 1`：块紧跟着表达式，中间既没有 `;` 也没有换行），
+  产物里块与后一条语句仍然**并进同一个 `<Statement>`**（与 TypeScript 的「两条语句」不一致），
+  也就是 `cases:boundaries` 报的那一处横跨。
+  **第 63 轮修掉了其中更严重的一半**：复合赋值的展开原来会**再克隆一份那个块**
+  （`<Bracket>{ A }</Bracket> a = <Bracket>{ A }</Bracket> + 1`）——那是**凭空多出内容**，
+  根因是 `SearchFront` 的起点判据写成了 `startBracket === "}"`（块语句的起点是 `{`，
+  一个都匹配不上，于是 `front` 退化成整个前缀）。改成 `endBracket === "}"` 之后
+  克隆的只有目标那一段 ✓，剩下的只是「两条语句被并进一个 `<Statement>`」这一条边界口径。
+  **不再抛异常**（第 52 轮之前这里直接抛「没有父单元」整份文件解析失败）。
+  第 63 轮还试过把块当语句边界（`StatementReorganization2.Previous`），
+  结果复合赋值的展开被切断、**整段内容丢失** ✗——比边界不合严重，已退回；
+  两条形状交给 `tests/parse/recon2.mjs` 的片段表盯着（内容不许丢）。
+
+### 按三把探针修掉的几处真缺口（第 52 轮）
+
+`recon.mjs` / `recon2.mjs` / `fuzz.mjs` 首次跑起来就抓到**八把尺子看不见**的几处缺口——
+计数不变（节点都在）、括号归属也对，所以前八把全绿：
+
+| 缺口 | 根因 | 触发形状 |
+| --- | --- | --- |
+| `a.import` 抛 `TypeError`（不是 `SyntaxException`），整份文件解析失败 | `ImportReorganization.Previous` 只认「内容等于 `import` 的 `Identifier`」，**不看它前面那一格**；成员位置的 `import` 于是被当成导入声明接手，`Process` 往后立刻撞上语句结尾、收集到的单元为空，`items[items.length - 1]` 拿到 `undefined` | `a.import` / `a?.import`（`new` 那一支早有同型判据，`import` 漏了） |
+| `Lamda` 克隆时抛 `SourceException: SourceRange.Start == null` | `LamdaReorganization.Process` 只给 `LamdaParameters` / `LamdaBody` 签了范围，**`Lamda` 本体的两头一直是 `null`**；而 `Lamda.Clone` 第一句是 `Sign(this)` | `x => x` 换行 `a += 1`——复合赋值规则要把等号左边那段逐个克隆，起点搜索会把上一行那个 `Lamda` 圈进来 |
+| `{ A }a += 1` 抛 `Error: 没有父单元` | `StatementReorganization3` 在**旧下标**上收出一个不可能进树的 `Statement`，却已经把子单元的 `Parent` 改成了挂在它名下；后面 `JsonObjectReorganization.Process` 的 `Replace` 找不到父单元 | 块紧跟着表达式，中间既没有 `;` 也没有换行 |
+| `import …` 作为文件最后一个构造时，产物里内容**渲染两遍** | `ImportReorganization.Process` 把吃掉的单元 `AddRange` 进新 `Import` 后**没有把它们从列表里摘掉**（`ReplaceCountAt` 按「连续 count 格」清理，与按内容收集的 `items` 不是一回事），旧下标于是还能把它们再收一遍 | 文件以 `import …` 结尾且它后面没有 `;` |
+| 箭头函数后面换行，两条语句被并成**一条** | `Statement.SearchStatementEnd` 把 `x => x` 的体判到行尾，但那个**软换行不在**搜索范围里；`LamdaReorganization` 于是把换行一起收进 `LamdaBody`，语句重组再也看不到那个边界 | `x => x` 换行 `y`（`cases:boundaries` 报「被 `<Statement>` 横跨」） |
+| `x => x` 换行 `a += 1` 里 `<Lamda>` 渲染两次 | `CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart` 只认赋值号 / `,;:?` / `return`，**不认已经成形的语句级单元**，于是往前找到的「左值」把上一行的 `Lamda` 整段圈进来克隆 | 复合赋值紧跟在箭头函数后面 |
+| `a?.import` 抛 `TypeError` | `?.` 后面那个成员名 `import` 先被 `ImportReorganization` 收成 `Import` 单元，接着 `NullConditionalOperatorReorganization` 从这个 `Import` **里面**往下扫，却在**外层列表**上做替换——下标与元素全对不上 | 可选链的成员名恰好是 `import` |
+
+修法（都在 token 层，`core/` 未动）：
+
+- **关键字要看前面那一格**：`ImportReorganization.Previous` 增加「前一个实义单元是 `.` / `?.` ⇒ 不是导入声明」，
+  与 `new.xl.md` 里 `a.new` 的判据同型。
+- **要留在树里的单元必须签入签出**：`Lamda` 本体补 `SignIn` / `SignOut`（终点在收尾处判空兜底，
+  覆盖 `=>` 后面什么都没有的形状）。
+- **重组产物不留旧槽位**：`ImportReorganization.Process` 改成按对象身份逐个 `RemoveItem` 再从列表里摘干净
+  （新增 `list-extensions.xl.md` 的 `RemoveItem`）。
+- **拿不到父单元就不放进列表**：`StatementReorganization3.Process` 多了 `WrapStartIndex`（段内已有成形的
+  语句级单元时只收它右边那条尾巴）与一条兜底（`Parent` 为 `null` 时把这批子单元的 `Parent` 恢复回去、
+  原样返回）；`JsonObjectReorganization.Process` 也补了一条早退——**先保住内容再让步**。
+- **边界字符不属于左侧表达式**：`LamdaReorganization.Process` 在收 `;` 之后**再退一层尾随软换行**，
+  把换行留在 `LamdaBody` 外面，语句重组才拿得到那个边界（与「`;` 不属于体」同一口径）。
+- **起点搜索要认语句级单元**：`CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart`
+  增加「已经成形的语句级单元 / `}` 收尾的括号」两条（用类名认，沿用 `Statement.IsStatementUnit` 里
+  认 `Let` 那条既有约定）——否则克隆范围会跨过换行、把上一条语句整段克隆一遍。
+- **`?.` 后面是成员名时，别让别的规则先把它收走**：`NullConditionalOperatorReorganization.Previous`
+  排掉「跨过软换行的下一个实心单元是 `import`」的情形（与 `ImportReorganization.Previous` 里那一格同型）。
+
+回归用例 6 条：`mod-import-at-eof-no-newline`、`expr-lambda-then-compound-assign`、
+`expr-lambda-bare-then-compound-assign`、`expr-member-named-import`、`expr-member-named-import-qualified`、
+`expr-member-named-import-optional`。
 
 ### `structure.mjs` 为什么要跳过一部分文件
 
@@ -340,10 +439,571 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 `stmt-asi-prefix-increment-after-statement`、`stmt-asi-postfix-then-continue`、
 `expr-asi-optional-chain-then-statement`、`mod-declare-module-pair`、`mod-declare-module-string-name`。
 
+### 按「构造 ↔ 标签」对齐探针修掉的七处真缺口（第 53 轮）
+
+八把尺子里**没有一把**看形状与语义的对应关系：`arrow => { … }` 的块体被收成 `TypeLiteral` 时，
+节点计数、名字、括号归属、语句边界、空节点全都正常，差分账上只表现为几处「真多」。
+所以这一轮改用「源码区间重叠」把**产物单元**与 **TypeScript AST 节点**对齐，两边互相反查：
+
+- 产物里有某个标签，源码里却找不到对应构造（标签被别的形状占用）；
+- 源码里有某个构造，产物里却没有对应标签（缺节点）。
+
+六处缺口（全部有回归用例）：
+| 缺口 | 根因 | 触发形状 |
+| --- | --- | --- |
+| 箭头函数的**块体**被收成 `TypeLiteral`，里面每条语句退化成 `Field`，`g(a)` 退化成 `MethodDeclaration` | `TypeLiteralReorganization.IsTypePosition` 一见 `=>` 就判「类型位」——`=>` 后面那个 `{` 既可能是**函数类型的返回类型**，也可能只是**箭头函数的块体** | `const f = (a) => { return a }`（真实代码里遍地都是；真实语料 7 处、本项目自己的产物 3 处） |
+| 多形参箭头函数只产出**一个** `LamdaParameter`，`ComputeParametersCount` 报 1 | 形参括号在 `=>` 之前就闭合了，它自己那一趟重组先把 `a, b` 收成了 `BinaryOperator op=","`；轮到 `Lamda` 时形参表里已经没有逗号 `SymbolToken` | `(a, b, c) => x`、`(a, b = 1, ...c) => x` |
+| 复合赋值展开出来的**克隆体是空壳**：`<BinaryOperator op="+" />` / `<NotNull />` / `<Spread />` / `<UnaryOperator />` | `BinaryOperator` / `NotNull` / `Spread` / `UnaryOperator` 四个类的 `Clone` 只签范围、**没有把子单元克隆进去**（`LogicalOperator` 是对的，可以对照） | `a[b + c] += 1` 展开成 `a[b + c] = a[b + c] + 1`，克隆那份的下标变空 |
+| 变量声明的**多声明符**逗号被折成逗号运算符 | 语句层的 `,` 被一律当成序列表达式，而 `let a = 1, b = 2` 的那个 `,` 是声明符分隔符 | `const a = 1, b = 2`（产物里 `b` 被卷进 `<BinaryOperator op=",">`） |
+| `yield*` 被折成乘法 | `IsOperand` 只排了八个「语句头关键字」，`yield` 是**前缀运算符**、不在这八个里 | `function* g() { yield* h() }` |
+| `satisfies` 完全没有节点；`a as const satisfies B` 两个运算被并进**一个** `As` | `AsReorganization` 只认 `as`，收集时也不认后面的 `satisfies` | `x satisfies T`、`a as B satisfies C` |
+| 括号里的**第一个** `{` 被判成值位：`({ readonly ok: true } \| { readonly no: true })` 里第一个是 `ObjectLiteral`、第二个才是 `TypeLiteral` | 本层回扫看不到左边的单元（它们在**括号外面**），于是落到「值位」的保守结论 | `type T = A & ({ … } \| { … })`、`declare const x: ({ a: 1 } \| { b: 2 })`（真实语料 8 处） |
+
+修法（都在 token 层，`core/` 未动）：
+
+- **`=>` 后面那个 `{` 要看形参表左边是什么**：跨过箭头与它的形参表（中间还可能夹着返回类型标注
+  `: T`）之后再下结论——左边是 `:` ⇒ 函数类型（类型位）；跨过 `=` 之后落到 `type` ⇒ 类型别名（类型位）；
+  落到 `let` / `var` / `const` 或列表边界 ⇒ 值位（块体）。
+- **形参表先拆平再切分**：`LamdaReorganization` 新增 `CollectParameterUnits`，
+  把 `op` 为 `,` 的 `BinaryOperator` 递归展开，然后才按逗号切 `LamdaParameter`。
+- **要留在树里的单元必须整体克隆**：四个类的 `Clone` 补上
+  `result.AddRange(this.Data.map((item) => item.Clone()))`（`Clone` 只在复合赋值展开里被调用，
+  而被克隆的那一段正是左侧表达式）。
+- **语句列表里有 `Let` 时，顶层 `,` 不是序列表达式**：`IsCommaExpressionComma` 增加
+  `HasDeclarationBefore` 判据（真正的 `a, b;` / `i++, j--;` 里不会有 `Let`）。
+- **`yield` 单列进「不是操作数」那一组**：它是前缀运算符，唯一直接贴在它右边的是委托产生式 `yield*`；
+  `await` / `new` / `typeof` **不能照抄**（`new X * 2` 是合法的 `(new X) * 2`）。
+- **`satisfies` 与 `as` 共用一条规则、产出两种节点**：`AsReorganization.Previous` 认两个词，
+  `Process` 按出发词分派 `As` / `Satisfies`，并在遇到**后面那个同类词**时收工
+  （两者同级左结合，先后顺序必须保留）。新增 [typescript/tokens/satisfies.xl.md](typescript/tokens/satisfies.xl.md)。
+- **括号里的第一个 `{` 要递归问括号自己那一格**：`IsTypePosition` 在 `index === 0` 且父单元是 `(` 括号时，
+  拿括号在**外层列表**里的下标再问一次（`type T = ({ … })` 回扫到 `type` ⇒ 类型位；
+  `f({ … })` 回扫到 `Method` ⇒ 值位）。括号紧跟 `=>` 的那一种要**排除**——那是箭头函数的表达式体，
+  拿外层去判会把它收成 `TypeLiteral`（`expr-arrow-return-object-type` 钉住）。
+
+回归用例 11 条：`expr-arrow-block-body-statement`、`expr-arrow-block-body-call`、
+`expr-arrow-params-multi`、`expr-arrow-params-default-rest`、`expr-compound-assign-clone-operands`、
+`expr-multi-declarator-comma`、`expr-yield-delegate`、`type-op-as-then-satisfies`、
+`type-op-satisfies-then-as`、`type-union-paren-object`（另修了两条既有用例的期望值：
+`expr-comma-sequence` 的计数由 3 改 2，`type-op-satisfies` 由 `Keyword` 改成 `Satisfies`）。
+
+### 类型层补第一块：函数类型（第 54 轮）
+
+`cases:align` 第 53 轮把缺口量化出来之后，最大的一块是**类型层**。这一轮先啃最常见的那一种：
+
+| 缺口 | 根因 | 触发形状 |
+| --- | --- | --- |
+| **函数类型没有节点**：`(a: A) => B` 在类型位散成裸单元（真实语料 4226 处），其中 17 处被误收成 **`Lamda`**（值位标签） | 类型位压根没有「函数类型」这条规则；`LamdaReorganization` 只按「形参括号前面是不是 `:`」判断，括号套括号 / 泛型段 / 条件类型约束 / `extends (` 这些形状全都漏了 | `Array<(a: A) => B>`、`x: ((a: A) => B)`、`cb?: (e: Error) => void`、`new () => object`、`<T>(a: A) => B`、`T extends (this: infer U, …) => any ? U : never` |
+| `extends (…)` 被当成一次**调用**，收出 `<Method name="extends">`，函数类型整段散掉 | `BanedMethodNames` 的禁用表里没有 `extends` / `infer` | `type ThisParameterType<T> = T extends (this: infer U, ...args: never) => any ? U : never`（`lib.es5.d.ts`） |
+| 上一行声明的函数类型**吞掉下一行整条声明** | `FunctionType.Process` 只按 `Statement.IsLineBreakBoundary` 判终点，而 `void`（返回类型）那时还是个 `Identifier`、被判成「还能续接」 | `type A<in T> = (x: T) => void` 换行 `type B<out T> = () => T`（`ty-variance.ts` 当场并成一条） |
+| 外层条件类型被吞进 `FunctionType` | 收集时不认 `?` / `:`，一路收到语句尾 | `F extends abstract new(...args: any) => any ? F : undefined` |
+
+修法（都在 token 层，`core/` 未动）：
+
+- **新增 [typescript/tokens/function-type.xl.md](typescript/tokens/function-type.xl.md)**：
+  `FunctionTypeReorganization` 认「`=>` 左边那个 `(` 不是形参表」这一半——判据直接复用
+  `LamdaReorganization.FindParameters`（给 `-1` 就是函数类型），**两边共用一份判断**，
+  不会出现「一边当形参表、另一边当函数类型」的错位。规则排在 `Lamda` **之前**、`TypeAssign` 之前。
+- **`IsLambdaParameters` 补四类类型位**：父单元是 `GenericType`；
+  形参括号是所在列表第一项时往外问一层（`IsWrappedByTypeContext`：`:` / `?:` / `|` / `&` /
+  `extends` / 类型实参段 ⇒ 类型位，`=` 再往左找 `type` 还是 `const`）；
+  前面是 `=` 时问 `IsTypeAliasAssignment`（`type F = (a) => B` 与 `const f = (a) => b` 的区别就在这里）；
+  前面是 `?` 时问 `HasExtendsMarker`（条件类型真分支）；前面是 `new` / `extends` 一律不算形参表。
+  顺带修掉 `?:` 只判 `Is(":")` 的漏（可选回调一大片）。
+- **`FunctionType` 挂类型队列**（与 `TypeDefine` 同一做法）：否则返回类型里的 `void` / `infer` /
+  `abstract` 停在 `Identifier` 上（`type-fn-*` 三条用例当场报缺 `Keyword`）。
+- **收尾用 `IsStatementKeyword` / `IsDeclarationBoundary`**（与 `type-assign.xl.md` 的 `AliasEnd` 同款），
+  并且顶层 `?` / `:` 按「沿途见过 `extends` 没有」决定是返回类型自己的条件类型还是外层的。
+
+结果：函数 / 构造类型（真实语料 4226 + 24 处）从 **0 个节点** 变成**只剩 1 处没成形**
+（`@types/node/test.d.ts:2119` 的 `ConstructorType`，已登记为口径）；`<Lamda>` 误标从 **17 处降到 0 处**。回归用例：`type-fn-simple` / `type-fn-generic` /
+`type-fn-new` / `type-fn-abstract-new` / `type-fn-union-member` / `type-fn-optional-param`
+六条补上 `FunctionType` 期望值，另加 `type-fn-declaration-boundary`、
+`type-fn-in-conditional-constraint`、`type-fn-optional-callback` 三条。
+
+### 类型层补第二块：条件类型（第 55 轮）
+
+接着第 54 轮的函数类型，这一轮补**条件类型** `T extends U ? A : B`（真实语料 183 处）：
+
+| 缺口 | 根因 | 触发形状 |
+| --- | --- | --- |
+| 条件类型**一处节点都没有**，个别位置还落成 `<TernaryOperator>`（值位三元的标签） | 类型位没有条件类型这条规则，`TernaryOperatorReorganization` 只按形状认 `? :` | `type X = T extends U ? A : B`、`T extends U ? A : B` 作泛型实参 / 联合成员 / 标注 / 返回类型 |
+| 约束段里有成员访问时**整条认不出来** | 回扫找 `extends` 时停在 `.` 上（`Process` 里那份更是完全漏了泛型段与点号） | `T extends NodeJS.ArrayBufferView<infer B> ? Buffer<B> : never`（`@types/node/buffer.buffer.d.ts`、`compatibility/iterators.d.ts`） |
+
+修法：新增 [typescript/tokens/conditional-type.xl.md](typescript/tokens/conditional-type.xl.md)。
+
+- **判据是「`?` 前面有没有 `extends`」**：条件类型与三元表达式形状完全一样，
+  区别只在这个词（它只出现在声明头与条件类型里，而声明头的 `extends` 后面不会跟 `?`）。
+  这条判据与 `lamda.xl.md` / `type-literal.xl.md` 里那两份同源，各自独立实现一份。
+- **`Previous` 与 `Process` 共用一份 `FindExtendsIndex`**：两边各写一份就会出现
+  「判定说有、收集说找不到」的错位——实测正是如此（`Process` 那份漏了 `.` 与泛型实参段）。
+- 规则排在 `FunctionType` 之后、`TernaryOperator` 之前：约束里的函数类型先成形
+  （`T extends (a: A) => B ? X : Y`），条件类型再把整段收走；值位的三元照旧归 `TernaryOperator`。
+- `findStart` 从 `extends` 往左找条件的左边界（只有符号划边界，放行 `.` / `?.` / `!`，
+  换行处按 `Statement.IsLineBreakBoundary` 让位），收集到 `;` / `,` / 赋值 / 声明边界为止。
+
+结果：**183 处条件类型全部成形**（`cases:align` 的缺节点从 7 处降到 0），
+值位三元一处都没被误收（`class C extends B { m() { return a ? b : c } }` 用例钉住）。
+回归：9 条既有 `type-cond-*` 用例补上 `ConditionalType` 期望值，另加
+`type-cond-member-constraint`、`type-cond-multiline` 两条。
+
+### 清掉「结构性缺口」里的三条（第 56 轮）
+
+这一轮回头收 `README.md` 自己列的那份「结构性缺口」清单（它们是**内容没丢、但没有标签 / 归类不同**的那些）：
+
+| 缺口 | 修法 | 产物变化 |
+| --- | --- | --- |
+| 类静态块没有专属标签 | 新增 [typescript/tokens/class/static-block.xl.md](typescript/tokens/class/static-block.xl.md)：`StaticBlockReorganization` 认「`static` + `{`，且父单元是 `ClassBody`」，把花括号内容整段搬进 `StaticBlock`（与 `FunctionBody` 同款），并挂语句队列 | `<Statement><Keyword>static</Keyword><Bracket>{…}</Bracket></Statement>` → `<StaticBlock><Statement>…</Statement></StaticBlock>` |
+| `export as namespace Foo` 没有专属节点 | 新增 [typescript/tokens/namespace-export.xl.md](typescript/tokens/namespace-export.xl.md)：`NamespaceExportReorganization` 认四个词连排（`export` / `as` / `namespace` / 名字），排在 `As` **之前**（否则 `as` 那条规则先收走 `namespace Foo`） | `<Keyword>export</Keyword><As>namespace Foo</As>` → `<NamespaceExport name="Foo" />` |
+| `import type x = require('y')` 里那个 `type` 词冗余 | `Import` / `Export` 在读词之后**不再把 `type` 放进子单元**——它已经由 `typeOnly="true"` 表达 | `…<Identifier>type</Identifier>…` 消失（属性不变） |
+
+顺带修的一处**多包一层**：`StaticBlock` 与 `NamespaceExport` 要进
+`Statement.IsStatementUnit` 的判定表，否则它们会被多包一层 `<Statement>`
+（`decl-class-static-block` / `mod-export-as-namespace` 两条用例钉住）。
+两者都用**类名判定**：`statement.xl.md` 被几乎所有 token 文件 import，再 import 它们会绕出更深的环
+（与该文件里 `Let` 那条同一个理由）。
+
+### 类型位 `typeof` 的同构不同形（第 57 轮）
+
+`cases:align` 上一轮留下的最大一类「口径」是类型位的 `typeof`：`type T = typeof x` 与
+`let v: typeof x` 都是 `<Keyword>typeof</Keyword><Identifier>x</Identifier>`，
+可 `let v: Wrap<typeof x>`（**类型实参段**里）却变成一个 `<UnaryOperator op="typeof">`——
+同一个 `TypeQuery` 两种产物。全语料实测 **337 处里 81 处**长成了 `UnaryOperator`。
+
+插桩追下去才看清：词法阶段**收编类型实参段的那一趟**，这段文本还没挂到任何父单元上
+（`Parent === null`，见 `generic-type.xl.md`），所以 `UnaryOperatorReorganization.Previous` 里
+那条 `Parent instanceof GenericType` 在那一刻问不出东西来——等它挂上去时节点已经造好了。
+
+修法：那条判据补一句 **`Parent === null` 且运算符是 `typeof` 就不接手**。
+先量后改：把全语料 `Parent === null` 的一元折全部抓出来看过，**只有 `op=typeof`**，
+其余（`!` / `-` / `void` / `delete`）的折都发生在 `Statement` / `Bracket` 父单元下，不受影响。
+结果：81 处 → **0 处**（值位的 `typeof x` 照旧是一元运算，`let v = typeof x` 用例钉住）。
+
+**顺带试过、退回来的一条**：想让 `(` 也有类型位标记（`DecideBracketContext` 原本只算 `{` / `[`），
+好把括号类型里的 `typeof`（`(WindowProxy & typeof globalThis)`，全语料 1 处）也判对。
+`(` 纳进来之后 `for (; i < n; i++)` 的循环头被判成类型位，`i++` / `-1` 这些真一元运算
+当场少了 **17 个**（`cases:dashboard` 报「一元/更新 真缺 17」）——那段「往上爬 4 跳」的扫描
+对括号来说前文太远、信号太杂。退回原判据，那 1 处如实登记成口径
+（`tests/parse/align.mjs` 的 `UnaryOperator in Bracket`），并加了一条用例把它钉在案上。
+
+### 类型层补第三块：联合 / 交叉类型（第 58 轮）
+
+`cases:align` 上两轮把「还没成形的类型构造」逐条量化之后，最大的一块是**联合类型**：
+真实语料 **8461 处联合 + 206 处交叉**，产物里全是散单元——`A | B` 与「三个互不相干的单元」
+在树里长得一模一样（一直挂在口径里）。
+
+新增 [typescript/tokens/type-union.xl.md](typescript/tokens/type-union.xl.md)，**一条规则管两个运算符**：
+
+- 优先级靠「**收进去的那一段再跑一趟**」表达：两个节点都挂类型队列（队列里有这条规则），
+  收集 `|` 时允许穿过 `&`（`A | B & C` 先整段收成 `UnionType`，它内部的 `&` 再由自己的那一趟
+  折成 `IntersectionType` ✓ 得到 `A | (B & C)`）；收集 `&` 时遇到 `|` 就停
+  （`A & B | C` → `UnionType(IntersectionType(A & B) | C)` ✓）。
+- 规则**同时注册进通用队列与类型队列**：类型文本有的装在 `TypeDefine` / `TypeAssign`（类型队列），
+  有的直接挂在 `GenericType` / `ReturnType` 的列表上（通用队列）。
+  通用队列那一趟落在**值位**的语句列表上，所以判据是**白名单**（父单元是类型容器才接手）——
+  黑名单式（「不是语句就算类型」）会把 `BinaryOperator` / `UnaryOperator` 的内容也放进来。
+- **无限递归**踩了一次：本节点挂类型队列、队列里有这条规则，`A | B` 收成 `UnionType` 之后
+  那一趟又在同一段上看到同一个 `|`（实测 `RangeError: Maximum call stack size exceeded`）。
+  守卫写成「起点在本层第 0 格、终点之后只剩软换行 ⇒ 这一段就是这个节点的全部内容，不再包」。
+
+顺带修掉两个**真解析缺口**（不是缺节点，是树本身错了）——它们都在
+[generic-type.xl.md](typescript/tokens/generic-type.xl.md) 的 `IsTypePosition` 里：
+
+| 缺口 | 现象 | 修法 |
+| --- | --- | --- |
+| 联合成员里的类型实参不认 | `let x: X \| Foo<Bar>` 的 `<Bar>` 退回比较运算符，整个类型**劈成两半**（`<UnionType>X \| Foo</UnionType><SymbolToken>&lt;</SymbolToken>…`）；真实语料里 `ArrayBuffer \| NodeJS.TypedArray<T>`、`\| Uint8Array<T>` 都是这一形状 | `\|` / `&` 判成**透明**（继续往前找边界），而不是直接判表达式位——`let x = a \| Foo<Bar>`（值位）透明过去会撞上 `=` → `let`，判回表达式位 ✓ |
+| 函数类型的返回类型里同上 | `type F = () => Iterable<T> \| AsyncIterable<T>`（`@types/node/stream.d.ts` 的 `PipelineSourceFunction`）里 `<T>` 的扫描先撞上 `=>` | `=>` 与 `:` / `?:` / `->` 一样判类型位；值位箭头体（`x => a < b`）没有配对的 `>`，后继闸本来就过不了 |
+
+结果：联合 **8461 → 只剩 57 处**、交叉 **206 → 只剩 42 处**（剩下的全是**括号类型**里的那种，
+`(string | symbol) & Key2<…>`：括号内容判不出自己在类型位，`DecideBracketContext` 只覆盖 `{` / `[`，
+加 `(` 会误判 `for (…; …; i++)` 的循环头——第 57 轮试过、退回来了；已逐条登记成口径）。
+回归用例 6 条：`type-union-basic`、`type-intersection-basic`、`type-union-precedence`、
+`type-intersection-then-union`、`type-union-generic-member`、`type-union-leading-bar`。
+
+### 括号类型、限定名与字面量联合（第 59 轮）
+
+第 58 轮把联合 / 交叉立起来之后，`cases:align` 还挂着 99 处没成形的——全是**括号类型**里的
+（`(string | symbol) & Key2<…>`、`| (ObjectEncodingOptions & Abortable) | …`）。
+这一轮把它啃到 **43 处**，顺带又挖出两个真缺口：
+
+| 缺口 | 现象 | 修法 |
+| --- | --- | --- |
+| 括号类型里的联合 / 交叉不成形 | 括号的内容是在**括号关闭那一刻**重组的，那时外层 `TypeDefine` / `Statement` 还没成形（插桩：`parent=Bracket grand=Root`），「往上找类型容器」这条路在这一刻是断的 | 增 `IsTypeContext` / `IsTypeParen`：括号那一格**按前文判**（`:` / `?:` / `\|` / `&` / `=>` ⇒ 类型位；`=` 再往左找 `type` 还是 `let`/`const`/`var`），与 `lamda.xl.md` 的 `IsWrappedByTypeContext` 同源。**这次不会误判 `for (…)`**——那里括号前面是 `for` 这个名字，不是符号；第 57 轮退回来的那次是跨好几格扫文本 |
+| 联合成员是**限定名**时节点在第一个点号处断掉 | `ArrayBuffer \| NodeJS.TypedArray` 的右扫把 `.` 当成边界（左扫认它、右扫不认，两边不对称） | 右扫补上 `IsTypeOperand` 那一支（`.` / `?.` / `!`），并把 `-` / `+` 也算进操作数——`-1 \| 0 \| 1` 这种**负数字面量类型**的联合因此也能成形 |
+| 括号类型里的 `typeof`（第 57 轮登记的 1 处残渣） | 同一个括号判定问题 | 随第一行一起消失：`(WindowProxy & typeof globalThis)` 现在先收成 `IntersectionType`，里面的 `typeof` 走类型队列、按 `Keyword` 收 ✓ |
+
+结果：**联合 8470 → 只剩 43 处**（99.5%）、**交叉 210 → 只剩 2 处**（99%）；
+剩下的全是「括号里带括号函数类型」那个形状，已如实登记成口径。
+回归用例 3 条：`type-union-in-paren`、`type-union-qualified-member`、`type-union-literal-members`
+（另把 `type-query-in-paren-type` 的期望值从「钉住残渣」改回「必须成形」）。
+
+### 类型层补第四块：映射类型（第 60 轮）
+
+映射类型 `{ [K in T]: X }`（真实语料 36 处）原来**没有专属标签**：产物是
+`TypeLiteral` + `TypeLiteralBody` + `Field`，与 `{ a: number }` 在树里长得一样。
+
+**没有新增规则**——判定塞进 `TypeLiteralReorganization.Process`：那对花括号已经在类型位、
+也已经由 `Previous` 认领，区别只在内文（`IsMappedTypeBrace`：第一个实义单元是 `[` 括号、
+且里面有 `in` 标记）。索引签名 `{ [key: string]: number }` 没有 `in`，仍然走 `TypeLiteral` ✓。
+
+三处实测出来的细节（都写进规范了）：
+
+- **`readonly` / `+` / `-` 修饰词在括号前面**：`{ readonly [K in T]: X }`、`{ -readonly [K in T]-?: X }`
+  的第一个实义单元不是 `[`——不跳过这些修饰词，带修饰的映射类型整片认不出来。
+- **`in` 有三种形态**：还是 `Identifier`（刚收上来）、已升成 `Keyword`（`in` 后面跟着 `keyof` 时
+  没被折成二元运算）、已被折成 `BinaryOperator`（`[K in T]`）。所以 `HasInMarker` 既要认两种词，
+  也要往容器子单元里递归看一眼。
+- **联合规则会把 `in` 吞掉**：`{ [K in "a" | "b"]: X }` 里 `[` 括号的内容成了
+  `ArrayLiteral > UnionType(K in "a" | "b")`——映射类型的标记再也找不到。
+  修法是 `type-union.xl.md` 的 `IsTypeOperand` **把 `in` 排除出操作数**（它是语法标记，不是类型），
+  于是联合只覆盖 `"a" | "b"` ✓。
+
+内容**直接装在 `MappedType` 上**（不套 `TypeLiteralBody`）：映射类型只有一个成员，
+再套一层只是噪声；`MappedType` 自己挂语句队列让成员成形。
+8 条既有 `*mapped*` 用例的期望值随之从 `TypeLiteral,TypeLiteralBody` 改成 `MappedType`。
+
+### 回头查「已登记的口径」——三处真 bug（第 61 轮）
+
+前几轮把 `cases:align` 的差额逐条登记成了口径，可**登记本身就是可疑动作**：口径里可能藏着真误判。
+这一轮给探针加了 `--samples`（连已登记条目也打印样本），一眼扫出三处：
+
+| 现象 | 规模 | 根因 | 修法 |
+| --- | --- | --- | --- |
+| **成员的「前导 `\|` 多行联合」被切断** | `@types/node/vm.d.ts` 3 处 | `FieldReorganization` 扫成员结尾时用「换行前一个实单元是不是符号」这条粗判据：前一行末尾是标识符（`… \| A`），当场判「这行写完了」→ 成员在 `\| A` 之后断开，剩下半截落进 `<Statement>`，还被折成一个**值位**的 `BinaryOperator op="\|"` | 那条粗判据换成 `Statement.IsLineBreakBoundary`（就是 ASI 判据）：换行后是 `\|` / `&` 这类要左操作数的运算符时判「不是边界」✓；函数类型成员那个形状它照样判边界 ✓ |
+| **`-` / `+` 不在泛型实参字母表里** | `lib.es2015.promise.d.ts`、`lib.es2020.promise.d.ts` 等 | `Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }>` 里 `-readonly` 的 `-` 让扫描中止 → 整个 `<…>` 退回符号：产物里 `Promise` 后面是个裸 `<`，映射类型落成值位 `ObjectLiteral`，**剩下整段掉进 `<FunctionBody>`** ✗✗（结构全塌） | `-` / `+` 进字母表（映射类型修饰符 `-readonly` / `+readonly` / `-?` / `+?` 与负数字面量类型 `-1 \| 0`）；`->` 那条分支改成只认 `->`、其余 `-` 放行（踩过一次：先加了通用放行、却被更早的 `->` 分支拦掉） |
+| **映射类型修饰符 `-readonly` 被折成一元运算** | 5 处 → 0 | `UnaryOperatorReorganization` 不认得映射类型的修饰位 | 加 `IsInMappedType`（往上三层找 `MappedType`，成员那层隔着 `<Statement>`）：映射类型的内容全是类型，里面出现一元运算一定是误判 |
+| 下标访问的类型位 `A[typeof x]` | 1 处 | `typeof` 的父单元是 `[` 括号，前面两条判据都问不出来 | 直接问 `[` 括号的 `Context`（`DecideBracketContext` 覆盖 `{` / `[`）**只加 `[`**——`(` 的 Context 一律空串，第 57 轮把它纳进来时真一元运算少了 17 个 |
+
+第 1 条让 `cases:dashboard` 的「真多」从 2518 降到 **2433**；回归用例 4 条
+（`type-mapped-modifier-in-generic`、`type-mapped-minus-question-in-generic`、
+`type-union-leading-bar-in-member`、`type-query-in-index-access` + 值位对照的
+`expr-typeof-in-index-access`）。
+
+### 类型位判定收口：括号、修饰词与模板插值（第 62 轮）
+
+顺着第 61 轮的 `--samples`（这轮又让它把**已登记不产节点**的条目也打印出来），又扫出几处：
+
+| 现象 | 规模 | 根因 | 修法 |
+| --- | --- | --- | --- |
+| **类型位修饰词后面的括号**判不出来 | `typescript.d.ts` 8 处 | `readonly (A \| B)[]` 里 `(` 前面是 `readonly`（标识符、不是符号），`IsTypeParen` 直接判否 | 增 `IsTypeModifier`（`readonly` / `keyof` / `infer` / `unique` / `asserts` / `typeof` / `new` / `abstract`），**但还要看修饰词自己站在哪**——`readonly` / `keyof` 不是保留字，值位可以有个叫 `readonly` 的函数（`readonly (a \| b)` 是一次调用） |
+| **括号类型里的类型实参**认不出来 | `typescript.d.ts` 5 个联合 | `(TransformerFactory<SourceFile> \| CustomTransformerFactory)[]` 里 `<` 的位置扫描先撞上 `(`：`IsTypePosition` 见到括号就判值位 → 整个类型退化成散单元，里面那个联合跟着没了 | 括号那一格问 `IsTypeBracketPosition`（扫描中途遇到括号、以及扫到自己这一层尽头时各问一次） |
+| **`as` 右边的联合**不成形 | 2 处 | `As` 节点**没有重组队列**，收进来的类型文本没人再跑一趟 | `As` 挂类型队列（与 `TypeDefine` / `TypeAssign` / `FunctionType` 同一条做法）；顺带在 `KeywordReorganization` 里挡掉「`As` 里的 `const`」——那是 `as const` 的**字面量类型标记**，升成关键词会让 `type-op-as-then-satisfies` 当场失败 |
+
+三处判定（括号、修饰词、`=` 左边是 `type` 还是 `let`）现在**收口在**
+[text-common-util.xl.md](typescript/text-common-util.xl.md) 的 `IsTypeBracketPosition` /
+`IsTypeModifier` / `IsTypeAliasAssignment` 三个共享函数里——`type-union.xl.md` 与
+`generic-type.xl.md` 用**同一个答案**，不再各写一份近似。
+
+**试过、退回一条**：模板字面量类型的插值段（``type X = `a${"x" | "y"}b` ``）里的联合仍不成形。
+那段内容是在字符串收尾**之前**重组的，此刻父单元还没接上（实测插值段链路是
+`InterpolationString > String > Root`，而 `Root.Data` 里还找不到那个 `String`），
+「这一格前面是什么」与「往上找类型容器」两条都断。曾按类型位放行，
+值位的 `` `${a | b}` `` 会跟着变成联合——那个取舍不划算，于是如实登记成口径。
+
+结果：联合的未成形数 **43 → 1**、交叉 **2 → 1**（都是上面那条模板插值残渣）；
+回归用例 3 条（`type-union-in-paren-with-generic`、`type-union-after-readonly`、
+`type-union-in-as-expression`）。
+
+### 三处「真 bug」（第 63 轮）
+
+这一轮把 `--samples` 的清单一条条点开看，抓到三处**不是口径、是 bug** 的东西：
+
+| 现象 | 规模 | 根因 | 修法 |
+| --- | --- | --- | --- |
+| **块语句被凭空复制一份** | `{ A }a += 1` | 复合赋值的展开要从 `+=` 往左找「等号左边那一段」再克隆；判据里那条「`}` 收尾的括号算起点」写成了 `startBracket === "}"`——块语句的起点是 `{`，一个都匹配不上，于是 `SearchFront` 一路穿到列表头返回 `-1`，`front` 变成 `units.slice(0, index)`，**整段（块 + 目标）被克隆** ✗ | 改成 `endBracket === "}"`（同一个文件里 `SearchFront` 的起点判据）|
+| **名字叫 `function` 的类型成员被读成函数声明** | `@types/node/sqlite.d.ts` 2 处 | `FunctionReorganization.Previous` 只看「`function` 后面能凑出 `(`」——`interface I { function(name: string): void }` 里那个 `(` 就是**方法签名自己的形参表**，于是收成一个**没有名字的 `<Function>`** ✗ | 接口体 / 类型字面量体 / 类体里不可能有函数**声明**，这三处的 `function` 直接判否（交给方法规则，产物是 `<MethodDeclaration name="function">`）|
+| **合法 TS 直接抛异常** | `if (x) print(1)`（**文件结尾没有换行、也没有 `;`**）| `if` / `while` / `for` / `foreach` 找语句体用的是 `SearchStatementEnd`：没有 `;` 也没有换行时它给 `-1`，四条规则都直接 `throw` ✗——可 TypeScript 的语句**到输入末尾就结束了** | 新增 `Statement.LastMeaningfulIndex`：找不到结束符号时，体一直写到**最后一个实义单元**（尾随换行仍留在外面当语句边界）；四条规则都补上这条兜底 |
+
+**试过、退回来一条**：给 `StatementReorganization2.Previous` 加「前一个实义单元是 `}` 收尾的
+`Bracket` ⇒ 新语句开始」，想把 `{ A }a += 1` 断成两条语句（`cases:boundaries` 正是这么报的）。
+加上之后边界是对了，可**复合赋值的展开还没跑完就被切断**：产物里第二段只剩一个 `1`，
+`a` / `=` / 展开出来的 `BinaryOperator` 全丢了 ✗——内容丢失比边界不合严重得多。
+所以维持原判据，那两条形状写进 `tests/parse/recon2.mjs` 的片段表（**96 条**，靠探针盯「内容不许丢」）。
+
+### 空文件、换行风格与规模（第 64 轮）
+
+第 63 轮那四个「合法 TS 抛异常」都属于**文件结尾没有换行**这一族，所以这一轮按族扫：
+
+- **92 个「结尾没有换行」的片段**（`if` / `while` / `for` / `do` / `switch` / `try` / 类 / 接口 /
+  类型标注 / 表达式 / 模块 ……）：**零抛异常、零内容丢失** ✓（第 63 轮修的那四条已经覆盖住了）；
+- **27 个换行风格与规模片段**：LF / CRLF / CR / 混合换行、有无结尾换行、BOM、空文件、
+  只有换行、只有注释、注释与字符串里的括号、60 层括号 / 40 层泛型、800 条语句、500 个接口成员……
+  → 抓到**一处真 bug**：
+
+| 现象 | 根因 | 修法 |
+| --- | --- | --- |
+| **空 `.ts` 文件整份解析失败**（`SourceException: SourceRange.Start == null \|\| SourceRange.End == null`）| `SyntaxContext.Process` 逐位置处理，最后一个位置处理完再给根签出；**一个位置都没有**时循环体一次都不跑，`Root` 既没签入也没签出，`TryToClose()` 的「范围必须先签好」这道闸当场抛 ✗ | 空文档提前返回：产物就是一个空的 `<Root></Root>`，与「只有换行」「只有注释」的文件一致 ✓ |
+
+这两族片段**常驻**在 `tests/parse/recon2.mjs` 里（**96 → 114 条**），
+空文件另外进了一条用例（`cases/lexical/empty-file.ts`，是个 0 字节文件）。
+
+第 65 轮（收尾复查）又扫了一批**冷门但合法**的 TS 形状——`declare global` / 通配模块 /
+`export type *` / `import x = require(…)` / `using` 与 `await using` / `accessor` /
+`#p in o` / 装饰器 / `asserts x is T` / `this is T` / `unique symbol` /
+`infer A extends string` / 变长元组 / 带标签元组 / `const` 类型参数 / 内建工具类型 /
+`typeof import(…)` / `a?.[b]` / `??=` / `>>>=` / `new.target` / `import.meta` /
+`(this: C) => void` / `abstract new` / 尖括号断言 / 正则 unicode 转义 / 标签模板 /
+嵌套模板 / 模板字面量类型 `infer` / 映射类型 `as` 模板键 / 计算属性名 / 数值分隔符与大整数——
+**98 条零抛异常、零 TS 诊断**；其中 **40 条**（覆盖面最广的那些）也常驻进 `recon2.mjs`
+（**114 → 154 条**）。
+
+### 类型层补第五块：方括号三种 · 类型运算符 · 类型查询（第 66 轮）
+
+`cases:align` 把「还没成形的类型构造」逐条量化之后，剩下的最大一块是**方括号**。
+这一轮把它连同两个前缀运算符一起补上，并顺手牵出四处真 bug。
+
+**新增 [typescript/tokens/type-bracket.xl.md](typescript/tokens/type-bracket.xl.md)**：
+类型位的 `[` 收成 `ArrayType`（`T[]`）/ `TupleType`（`[A, B]`）/ `IndexedAccessType`（`T[K]`）。
+
+| 缺口 | 根因 | 触发形状 |
+| --- | --- | --- |
+| `T[]` / `[A, B]` / `T[K]` 都只落成裸 `Bracket`，`[A, B]` 还**时好时坏**（有时是值位的 `ArrayLiteral`） | 类型位压根没有方括号这条规则；`JsonArrayReorganization` 对类型位与值位一视同仁 | `Dirent<X>[]`、`readonly [A, B]`、`A["k"]` |
+| `Dirent<X>[]` 曾被收成**元组** | 空括号有**两种来路**：`(A \| B)[]` 前面是另一个括号（`IsArrayAt` 判否、留成 `Bracket`），`Dirent<X>[]` 前面是 `GenericType`（判是、收成 `ArrayLiteral`）。只认 `Bracket`、或者把包装单元留在树里，同一种写法就长出两种树 | 真实语料 7 / 3 处 |
+| `T extends [infer A, infer B] ? …` 里 `extends` 被当成**被操作的类型** | 判据只排了符号，没排「**引出类型**的词」（`extends` / `is` / `as` / `satisfies` / `in` …） | `type-cond-multiple-infer` |
+
+**新增 [typescript/tokens/type-operator.xl.md](typescript/tokens/type-operator.xl.md)**：
+类型位的 `keyof` / `readonly` / `unique` 连同操作数收成 `TypeOperator`，`typeof` 收成 `TypeQuery`。
+
+| 缺口 | 根因 | 触发形状 |
+| --- | --- | --- |
+| `keyof T` / `readonly T[]` / `unique symbol` 没有节点 | 词升级成 `Keyword` 就停了，说不清它把后面那个类型变成了什么 | `type A = keyof B` |
+| 类型位的 `typeof x` 有时落成**值位**的 `<UnaryOperator op="typeof">` | 类型那一段在**它的括号关闭那一刻**先跑过一趟通用队列，那时 `UnaryOperatorReorganization` 已经折了一元运算；类型队列跑起来时裸词已经没有了 | `ReturnType<any[][typeof Symbol.iterator]>`（`iterators.d.ts`，长期挂在口径里） |
+
+**判据收口**：`IsTypeContainerUnit` / `IsTypeOperandUnit` / `IsTypeMemberStart` / `IsEmptyContentUnit` /
+`IsOwnContentRange` / `IsTypeIntroducerWord` / `WordText` 七个共享函数落在
+[text-common-util.xl.md](typescript/text-common-util.xl.md)——两条规则用**同一个答案**，
+不再各写一份近似（`type-union.xl.md` 的 `FindExtendsIndex` 记过同一个教训）。
+它们唯一问的是「**我的父亲是哪一类节点**」，**时序无关**；「往上找祖先」那条路走不通，
+`DecideBracketContext` 那一节记过三次失败。
+
+### 第 66 轮顺手牵出的四处真 bug
+
+它们都不是「缺标签」，而是**树本身错了**；八把尺子里只有 `cases:align` 看得见——这一轮还把它加严了一层：
+新标签登记进 `REVERSE` 之后，「缺节点」那一侧才开始报出 `ArrayType` / `TupleType` / `IndexedAccessType`。
+
+| 缺口 | 根因 | 触发形状 |
+| --- | --- | --- |
+| **`readonly (A \| B)[]` 整段塌成一次假调用**：`<Method name="readonly">` | `MethodReorganization` 不认得「只出现在类型位的修饰词」；`readonly` 又不在 `BanedMethodNames` 里 | 真实语料 `typescript.d.ts` 4 处 |
+| 成员位的 `readonly (…)` **绕过禁用表**那一支照样成立 | `MethodDeclarationReorganization` 对成员体**刻意放开**禁用表（`class A { if() {} }` 是合法的），那条豁免必须单独挡掉五个类型运算符 | `interface R { references?: readonly (R \| undefined)[] }`——整条成员被收成一个 `<MethodDeclaration name="readonly">`，`[]` 还被当成返回类型 |
+| **三元表达式跨语句配对**：`const a = x ? "t" : "f";` 换行 `const c: number[] = [];` 之后，第一条三元把后面几条语句整段吞掉 | `TernaryOperatorReorganization` 往前找 `?` 用的是「一路扫到列表开头」，不认语句边界 | 产物里只剩一个 `<Statement>`、`number[]` 长不出 `ArrayType`（自己的产物 `dist/ts/typescript/tokens/string/string.ts` 实测） |
+| **`satisfies` 右边的类型文本整片不跑类型队列** | `Satisfies` 是第 53 轮加的类，当时只搬了 `As` 的判定与收集，**漏了构造器里那句挂队列** | `const y = [1, 2] satisfies number[]` 的 `number[]` 停在裸 `Bracket` 上 |
+
+修法：
+
+- **两个类型运算符词补进 `BanedMethodNames`**（`readonly` / `unique`）：它们在值位几乎不可能当方法名，
+  而漏掉的代价是整段类型塌掉。`new` / `abstract` / `typeof` **不能**一起补——
+  `class A { new() {} }` 里的 `new` 是合法方法名（`lex-keyword-method-name.ts` 钉住这一条）。
+- **成员体那一支单独挡**：只挡 `readonly` / `keyof` / `unique` / `asserts` / `infer` 五个词，
+  一样不能照抄 `IsTypeModifier`（它含 `new` / `abstract` / `typeof`）。
+- **往前找 `?` 时遇语句边界就停**：新增 `QuestionIndexBefore`，`;` 与
+  `Statement.IsLineBreakBoundary` 都算边界；`Previous` 与 `Process` 共用它。
+  多行三元（`cond` 换行 `? a` 换行 `: b`）不受影响——换行前是操作数、换行后是 `:`，判据给「不是边界」。
+- **`Satisfies` 挂类型队列**：与 `As` 完全同款；共用的是判定与收集，节点自己的队列必须各挂一次。
+- **`IsTypeModifier` 补认 `Keyword`**、**`IsTypeBracketPosition` 的修饰词那一支修掉差一格**
+  （见 `text-common-util.xl.md` 的两节）：`readonly (B | undefined)[]` 里的括号类型与联合因此才成形。
+
+回归用例 8 条：`type-bracket-three-nodes`、`type-operator-nodes`、`stmt-ternary-statement-boundary`、
+`expr-satisfies-type-queue`、`expr-value-position-not-type`（值位对照组），
+另加两条把已修形状钉在案上（`type-tuple-readonly` 系列与 `ty-indexed-keyof` 的期望值随之加严）。
+
+**收尾复检又抓到第五处**（删掉产物从零重建、再用断言脚本逐条复核时才露出来）：
+`KeywordReorganization` 与 `LetReorganization` 造新单元时**没有抄 `Parent`**
+（`ReplaceCountAt` 只做 `splice`，`Token.Add` 才设 `Parent`）。这个漏抄平时看不出来——
+绝大多数规则只读自己的 `Data`；可这一轮的两条新规则**要看「父亲是哪一类容器」**，于是当场咬人：
+`type A = keyof typeof h` 里第二趟的 `keyof` 问到 `IsTypeContainerUnit(null)`，外层运算符不成形，
+**两层只成了一层**（`TypeOperator` 计数 3 而不是 4）。两处都改成抄被替换单元的 `Parent`——
+「还没挂上去（`Parent === null`）」这个信号因此原样保留，`unary-operator.xl.md` 第 57 轮那条
+「`Parent === null` 的 `typeof` 不折一元运算」不受影响（全绿实证）。
+教训写进 `keyword.xl.md` / `let.xl.md` 的同名小节：**造单元就要把 `Parent` 抄上**。
+
+**这一轮新暴露、留给下一轮的两处**（都是同一个根因：**条件类型真分支里的类型实参**）：
+
+- `util.d.ts:1567` 的 `T["options"]`：`ApplyOptionalModifiers<T["options"], { [L in keyof T["options"]]: … }>`
+  外面套着条件类型，`ConditionalType` 收尾**早了一步**——`{ … }` 落到括号里成了 `ObjectLiteral`
+  （`cases:align` 里 `ObjectLiteral in Bracket` 那 6 处里有它，原来登记成「解构模式」是**错登记**）；
+- `lib.es2019.array.d.ts:19` 的元组类型：同一个形状，`F<A, [-1, 0, …][D]>` 里泛型实参段没成形。
+
+两处都只影响**那一个类型实参**，内容没丢（`cases:lossless` 全绿），登记进 `cases:align` 的缺节点方向。
+
+### 第 66 轮（续）：类型层收尾 —— 条件类型真分支、模板字面量、字面量类型
+
+上一节收尾时 `cases:align` 还挂着**缺节点 2 类**与**已登记的真缺口 3 类**（模板字面量里的
+联合 1 / 交叉 2、`ConstructorType` 1）。这一轮把它们全部清掉，并顺手把**字面量类型**补上——
+`cases:align` 的缺节点方向现在是 **0**，未登记的标签占用也是 **0**。
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `T extends U ? F<A, B> : C` 里 `F<A, B>` **泛型段不成形**（连带 `util.d.ts` 的映射类型被读成 `ObjectLiteral`、`lib.es2019.array.d.ts` 的元组类型丢掉） | `generic-type.xl.md` 的 `IsTypePosition` 逆扫时把条件类型的 `?` 当成**值位边界**，于是那次试读只允许后继是 `(`，`F<A, B>` 后面的 `:` 过不了后继闸 | `?` 与 `.` `,` `\|` `&` 一样**透明**（继续往前找真正的边界：类型位会撞上 `extends`，值位会撞上 `=` → `let`/`const`，那里后继闸只放行 `(`，`a ? b < c > d : e` 照旧读成比较） |
+| `interface I { [sym]?<K>(error: Error): void }` 整条成员降级成 `Field` + `Signature` | 名字闸只认 `Identifier`，而这里是**计算成员名**（`ArrayLiteral` / `[` 括号）+ `?` | 名字闸多认一支「`?` 前面的计算成员名」（`events.d.ts` 实测 2 处） |
+| 模板字面量类型里的联合 / 交叉不成形（`` type X = `a${"x" \| "y"}b` ``） | 插值段内容在**字符串收尾之前**重组，那一刻往上找不到类型容器 | 新增 `IsTemplateTypeContent`：插值段的外层 `String` **已经在父列表里**，所以问「这个 `String` 在前面一格是什么」（与括号同一套 `IsTypeBracketPosition`）。值位的 `` `${a \| b}` `` 照旧不成形（第 62 轮的取舍保留） |
+| 映射类型 `as` 子句里的模板键（`` as `get${K & string}` ``）仍不成形 | `IsTypeBracketPosition` 见到 `as`（一个 `Identifier`）直接判值位 | `as` / `satisfies` / `is` / `extends` 后面**一定是类型**，加入类型位信号（`readonly` / `keyof` 这些修饰词仍走原来那一支——它们还要看自己前面是不是类型位） |
+| `F extends abstract new(...args: any) => any ? F : undefined` 被收成一个**没有名字的方法声明**，它的 `ReturnType` 再把条件类型的 `? :` 吃成值位三元 | `MethodDeclarationReorganization` 的形参表判定不看后面是什么 | 形参表后面是 `=>` ⇒ 那是**函数 / 构造类型**（`../function-type.xl.md` 接手），不是方法声明 |
+| 类型位的字面量**没有专属标签**（`type X = "a"` 与 `const x = "a"` 在树里分不出来） | 没有这条规则 | 新增 [typescript/tokens/literal-type.xl.md](typescript/tokens/literal-type.xl.md)：`LiteralType`，全语料 13110 处里覆盖 12947 处 |
+| 字面量类型里的数字只认十进制（`IsNumber` 不管 `0x…`） | —— | 规则自带数字判据：十六进制 / 二进制 / 八进制 / 指数 / 数字分隔符 / `BigInt` / `d`·`f` 后缀；**不改 `IsNumber`**（它还被泛型名字闸用着）。少了这一条 `cases:align` 的 `LiteralType` 缺 3097 处 |
+| `-1` 在类型位只有 `1` 被包起来 | 类型位的 `-` 与数字**不会**被折成 `UnaryOperator`（折叠规则在通用队列上，那时文本已经装进类型容器） | 带符号数字**成对**收进 `LiteralType`（`-` 与数字一起），TypeScript 那边的 `LiteralType > PrefixUnaryExpression` 按位置登记 |
+| 函数体里 `return [ … ]` 的数组字面量被当成元组、里面的字符串被包成字面量类型（实测 36 处） | `DecideBracketContext` 爬到**函数头**，撞上返回类型标注的 `:` ⇒ 判成类型位 | 两条：①爬到花括号时**先停**，答案就是那个花括号自己处在哪（它的 `Context` 开括号时就算好了）；②`function f(): string {` 这种「冒号前面是形参表、冒号与花括号之间还有返回类型文本」的花括号是**体**（值位） |
+| 映射类型的键里嵌套的类型不成形（`[K in keyof any[]]`、`[L in keyof T["options"]]`） | 键括号被 `JsonArrayReorganization` 收成 `ArrayLiteral`，而值位的数组字面量**绝不能**算类型容器 | 新增 `IsMappedKeyBracket`（内容里有没有 `in` 标记）当判据。一开始用 `ArrayLiteral.Context === "type"`，实测不可靠（值位也会被误答成类型位，27 处误包） |
+| 条件类型约束里的带符号字面量（`Depth extends -1 ? … : …`）整条认不出来，落成值位三元 | `FindExtendsIndex` 回扫到裸的 `-` 符号就停 | `-` / `+` 放行（与 `.` 同一支） |
+
+回归用例 7 条：`type-literal-type`、`expr-value-not-literal-type`、`type-cond-generic-in-true-branch`、
+`type-mapped-key-nested-type`、`decl-interface-computed-optional-method`、`type-fn-ctor-in-conditional`、
+`stmt-return-array-not-tuple`。
+
+### 第 66 轮（第三批）：推断类型、可选调用、以及量具的两处失真
+
+这一批的目标是「每个 TypeScript 构造都有对应标签」，先把 `cases:align` 的缺口清到 **0**，
+再逐个把「另有归属」的口径升级成专属节点。
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `cases:align` 的 `Method in TypeQuery` **144 处假阳性** | TypeScript 6 里 `SyntaxKind.ImportType === LastTypeNode`（**同一个枚举值 206**），`SyntaxKind[kind]` 把导入类型印成 `"LastTypeNode"`，`REVERSE` 里写的 `"ImportType"` 永远匹配不上 | `align.mjs` 加 `kindName()`：用 `ts.isImportTypeNode` 按**语义**正名 |
+| `xl:absent Method` 在完全正确的产物上误报 | `run.mjs` 用 `xml.includes("<" + tag)` **子串匹配**——`Method` 命中 `MethodDeclaration` / `MethodBody`，`Class` 命中 `ClassBody`，`For` 命中 `Foreach` | 改成精确标签匹配（`<Tag>` 或 `<Tag `） |
+| 类型位的导入类型没有专属节点（`TypeQuery` 多套一层、`Method` 借位，共 **169 处**） | TS 6 把 `typeof import("x").Y` 收成**一个** `ImportType`（`typeof` 是它的标志位） | 新增 `import-type.xl.md`：`[typeof] import("m")[.A.B]` → `<ImportType>`；**值位**动态 `import()` 仍是 `<Method>`；规则还要认**裸形状**（类型实参段里没有调用规则） |
+| 泛型参数表没有专属节点（`TypeParameter` 缺 **2102 处**） | 参数表整段留成 `<GenericType>` 里的散单元 | 新增 `type-parameter.xl.md`：映射键 `[K in T]` 与参数表 `<T extends X = Y>` 都收成 `<TypeParameter>`；参数表与实参段用三条判据区分（顶层 `extends`/`in`/`=`、父单元是成员体、`<` 前名字再前面是声明头关键词），都不成立就保持 `GenericType` |
+| `infer X` 没有节点（`TypeParameter` 残留 **86 处**） | `infer` 后面的名字在 TS 那边就是一个 `TypeParameter` | 新增 `infer-type.xl.md`：`<InferType>` 里配一个 `<TypeParameter>`；挂**类型队列与通用队列两个地方**（`infer` 常住在函数类型形参里，那里只有类型队列跑得到） |
+| 条件类型整条认不出来 | `FindExtendsIndex` 回扫撞上**已经成形**的 `InferType` / `TypeParameter` 就停 | 两者按透明处理（与 `Bracket` / `GenericType` 同一支） |
+| 可选调用 / 非空断言调用没有调用节点（**6 处**） | `NullConditionalOperator` 把实参表吞了（判据锚在「名字 + `(`」，看不到括号）；`b!()` 的被调者是 `NotNull`（判据只认 `Identifier` / 括号） | 新增 `optional-call.xl.md`：两支都收成同一个 `<Method>`（TS 那边同为 `CallExpression`）；**父单元已是 `Method` 就不再收**——否则每趟 `TryToClose` 再包一层，实测爆栈 |
+| 参数表约束里的联合 / 交叉消失（`UnionType` 1 → **52**、`IntersectionType` 1 → **3**） | `type-union.xl.md` 有**自己**的一份容器白名单，没认新节点 | 白名单补 `TypeParameter` / `InferType`（`interface I<T extends null \| Writable>` 的约束就在它们里面） |
+| 构造类型的参数表（`new <T>(…) => …`，1 处） | 参数表判据只认声明头关键词 | 补 `new` / `abstract`（后面紧跟 `(`） |
+| 用例声明「这段源码不是合法 TS」（**15 处**） | TS 6.0.3 自带的 parser 在 ASI 歧义处报错并读错形状（`class C { a = 1` 换行 `` [`m`]() {} ``） | 按**文件级**口径登记（`// xl:ts-invalid`），并在缺节点那一节**单独报出条数**，不让它变成万能免罪符 |
+
+回归用例 10 条：`type-import-type`、`expr-dynamic-import-not-type`、`type-parameter-list`、
+`type-parameter-mapped`、`cls-decorator-calls`、`cls-method-not-call`、`type-infer`、
+`expr-optional-call-nodes`、`type-parameter-constraint-union` 等。
+
+**清完之后的账**：`cases:align` 的**缺节点方向是 0**（那一节只打印「（没有）」），
+未登记的标签占用也是 **0 类**；余下 16 类全是逐条登记的**口径**（解构模式、ASI、
+成员位 `abstract new`、映射类型的 `in`/`as`、模板字面量类型残渣……各有理由）。
+
+### 第 66 轮（第四批）：类型谓词、元组成员、枚举成员 —— 以及一处**真误判**
+
+这一批接着清「另有归属」：`TypePredicate` / `OptionalType` / `RestType` /
+`NamedTupleMember` / `EnumMember` 逐个补上专属节点。顺带抓出并修掉一个**真误判**。
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| 返回类型位的 `x is T` / `asserts x is T` / `asserts x` 没有节点 | 整段只是 `TypeDefine` 里的散单元（`is` 只是一个关键词） | 新增 `type-predicate.xl.md`：整段收成 `<TypePredicate>`；起点两处（容器第一个实义单元、**紧跟函数类型的 `=>`**——`(value: T) => value is S` 实测一大片） |
+| **元组里的 `?` 与 `name:` 被配成三元运算符**（真误判） | 三元规则只看「前面有没有 `?`」，而元组的可选标记 `A?` 与具名元素的 `:` 正好凑成一对 | 两道：`IsTypePosition` 多认**父单元是类型容器**（元组是 `TupleType`）；问号后面紧跟 `,` / `]` / `)` ⇒ 它是**可选标记**不是条件问号。修前 `type T = [A?, ...B, C, name: D?, ...rest: E[]]` 整条被切成一串嵌套 `<TernaryOperator>` |
+| 元组成员四种形状看不出来 | 元素摊平成散单元 | 新增 `tuple-member.xl.md`：`OptionalType`（`A?`）/ `RestType`（`...B`）/ `NamedTupleMember`（`name: D?` / `...rest: E[]`）；**普通元素照旧不包**（TS 也不给节点）。两处细节：`...` 可能已被收成 `Spread`（要**摊开**装进 `RestType`，否则报 `Spread in RestType` 4 处）；具名元素的 `:` 可能已被收进 `TypeDefine`（只认裸 `:` 会漏 12 处具名成员、还把两个具名变长元素误收成 `RestType`） |
+| 枚举成员没有节点（1292 处） | 成员表摊平在 `EnumBody > Statement` 里 | 新增 `enum-member.xl.md`：按顶层逗号切成 `<EnumMember>`；**容器只认 `EnumBody` 里那个 `Statement`**——一开始还认了 `EnumBody` 自己，结果整张表先被包一层、成员各自再包一层（实测 `<EnumMember><EnumMember>A = 1</EnumMember></EnumMember>`）。成员挂通用队列，`A = 1 \| 2` 的位运算与 `= -1` 的一元运算照常成形 |
+| 谓词与条件类型**互相套娃**（`RangeError: Maximum call stack size exceeded`） | `FindStart` 回扫越过了 `is`，把参数名也吃进条件里（`x is A extends B ? C : D` 的条件成了 `x is A`），条件类型里于是再匹配一次谓词 | `FindStart` 在 `is` 处停；谓词规则再加「父单元是 `ConditionalType` 就不收」 |
+
+回归用例 5 条：`type-predicate`、`type-predicate-in-function-type`、`enum-members`、
+`type-tuple-members`、`type-tuple-optional-not-ternary`（钉住那处真误判）。
+
+**账**：`cases:align` 依旧是未登记标签占用 **0 类**、缺节点 **`（没有）`**。
+
+### 第 66 轮（第五批）：索引签名、括号类型 —— 以及一处**枚举成员的真回归**
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| **索引签名借字段节点**（`{ [k: string]: T }` 收成 `<Field name="k">`） | 它与字段在成员表里同形，`FieldReorganization` 先接手了 | 在 `field.xl.md` 里**分流**：名字是「`[` + 标识符 + `:`」时为 `IndexSignature`（新节点，挂通用队列）。三条判据细节都是实测逼出来的：名字可能是 `Bracket`（第一趟）也可能已是 `ArrayLiteral`（第二趟）；冒号可能已被收进 `TypeDefine`；计算成员名 `[Symbol.iterator]` / `[cond ? a : b]` 要排除（头两个实义单元不是「标识符 + 冒号」）。方括号按 `ArrayType` 的先例消费掉 |
+| **括号类型没有节点** | 类型位的 `(A \| B)` 就是一个 `Bracket` | 新增 `parenthesized-type.xl.md`：父单元是类型容器、且**不是函数类型的形参表**时，把括号收成 `ParenthesizedType`。三条「不是形参表」的守卫：后面紧跟 `=>`；父单元是函数类型 / 声明类节点；括号里顶层有 `TypeDefine` |
+| **枚举成员把 JSDoc 注释也包进去了**（真回归，66 处） | 成员表按顶层逗号切段时，注释（`AreaAnnotation` / `LineAnnotation`）落在段里，跟着一起被包进 `<EnumMember>` | 注释是 TS 的 **trivia**、不属于任何节点：遇到就把当前段收掉、注释原样留在容器里。`cases:align` 的 **占用方向**抓出来的（前一轮只看了缺节点那一节，漏了它）——`tuple-member.xl.md` 同款修一遍 |
+| **旧用例钉的是旧口径** | `lex-member-index-signature` / `type-object-index` / `type-object-index-readonly` 三条用例的期望写着 `Field` | 随设计变更更新为 `IndexSignature`（只读索引签名现在多一个 `Keyword` 子单元） |
+
+回归用例 3 条：`type-index-signature`、`type-parenthesized`、`expr-value-paren-not-type`（值位对照）。
+
+**账**：`cases:align` 未登记标签占用 **0 类**、缺节点 **`（没有）`**。
+
+### 第 66 轮（第六批）：形参标签统一 —— 全语料 31904 处，以及为了落地而修的量具
+
+**做了什么**
+
+| 改动 | 说明 |
+| --- | --- |
+| **形参一律收成 `Parameter`** | 五个宿主：`FunctionType` / `Signature` / `MethodDeclaration` / `Function` / **`NewType`（构造签名）**；箭头那一支本来就由 `lamda.xl.md` 收（标签从 `LamdaParameter` 统一成 `Parameter`，与 TS 一致）。`cases:align` 的 `Parameter` 缺 **31904 → 0**，而且那条位置登记**已经删掉**（不是靠遮蔽过关） |
+| **索引签名里的参数**也收成 `Parameter` | `{ [key: string]: T }` 的 `key: string` 在 TS 那边就是 `IndexSignature > Parameter`；由 `field.xl.md` 的分流现造一个 |
+| **构造签名的判据**（实测逼出来的两条） | ①构造签名的形参表挂在 `NewType` 里（值位 `new Foo(1)` 的 `NewType` 装的是被调者名字）；②**还要要求括号里有顶层冒号**——`new (getCtor())()` / `new (class {})()` 把被调者括起来时 `NewType` 里同样是一个括号，只按「第一个子单元是括号」判会把实参误当成形参（实测 `Parameter in Bracket` 3 处） |
+| `NewType` 补队列 | 它原来没有队列，`ParameterReorganization` 锚在那个括号上、改的是括号自己的 `Data`，没人扫描 `NewType` 的内容就永远收不出来（实测缺 934 处） |
+
+**为了落地顺带修的量具**：接线之后 `cases:boundaries` 报出一处 `<Parameter>` 横跨两条重载
+（`@types/node/url.d.ts`）。用检查器自带的调试开关能看到它把那个形参的区间算成了 8779→12801
+（4000 多字符），而**产物树里那个形参的区间本来是对的**。根因是 `locateLeavesStrict`
+拿 XML 的叶子去贴源码 token 时会向前跳一格。修法（`boundaries.mjs`）：
+
+- 报「合并」之前，先用**产物树自己的 `SourceRange`** 复核一次：真的有一个**非容器**单元
+  横跨那里、**而且它没有越过下一条语句的结尾**吗？
+  （后半句是必须的：本工程的 `Statement` 会把一整块如命名空间体包成一个单元，
+  那种「容器式横跨」不是合并。）
+- 复核掉的条数**单独报出来**，不混进真问题也不藏起来：
+  `（另有 1 处是 XML 定位漂移：产物树自己的区间里并没有单元横跨那里，已复核排除）`。
+
+接线后：`cases:boundaries` 回到 **0 处**、`cases:align` 缺节点 **`（没有）`**、
+`cases:run` 999 条全过、无损性 0 丢失。
+
+回归用例：`types/type-parameter-nodes.ts`（五处宿主各一个形参）、
+`types/type-index-signature-parameter.ts`（索引签名里的参数）。
+
+### 第 66 轮（第七批）：继承段有了节点 —— 顺手修掉两个**一直没生效**的地方
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `class C extends B implements I, J` 的继承段只是散单元 + 一个 `implements="I,J"` 属性 | TS 那边是 `HeritageClause` + `ExpressionWithTypeArguments`（全语料 4631 处） | 新增 `heritage-clause.xl.md`：锚在 `extends` / `implements` 那个词上，宿主是 `Class` / `Interface`；子句装成 `<HeritageClause>`，段里每个实体名（含类型实参 `L<M>`）装成 `<ExpressionWithTypeArguments>` |
+| `interface K extends L<M>, N` 的**名字与逗号被规则消费掉**，只留一个 `GenericType` | 接口的 `extends` 扫描只把类型实参段搬进节点 | 让那段扫描把 `extends` 词、每个实体名、逗号也搬进来（它们落在 `ReplaceCountAt` 的替换区间里，不搬就消失） |
+| **接口的队列从来没跑过** | `InterfaceReorganization.Process` 一直没调用 `TryToClose`（构造器注释写着「挂了队列是为了让 `extends` 升成 `Keyword`」，但收尾漏了） | 补上收尾。两个症状一起消失：`extends` 终于升成 `Keyword`；继承段终于能被规则收到 |
+| 匿名类表达式 `const C = class extends B {}` 的 `extends` **词本身没进产物** | `class` 后面直接是 `extends`，`Process` 把它当成「名字位」，循环从它**之后**开始 | 名字位上是 `extends` 时不跳过它（实测 7 处，三类用例） |
+| `class G extends (Base) {}` / `extends mixin(C)` | 子句终点原本把 `(` 也当边界 | 只把 `{` / `ClassBody` / `InterfaceBody` / 下一个 `implements` 当终点（括号属于实体名） |
+
+回归用例：`types/type-heritage-clause.ts`（类 / 接口 / 匿名类表达式 / 括号化继承表达式四处）。
+
+**账**：`cases:align` 未登记标签占用 **0 类**、缺节点 **`（没有）`**；
+那条 `ExpressionWithTypeArguments` 的旧遮蔽登记（「由 HeritageClause + GenericType 承接」）也一并删掉了。
+
+### 第 66 轮（第八批）：解构绑定有了节点 —— 顺手补上 `Let` 一直缺的队列
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `const { a, b: c, d = 1 } = obj` 的**模式不进产物**（只有一个自闭合的 `<Let objectPattern="a,b,c,d,1" />`） | `LetReorganization` 把模式括号整段留在替换区间里、随 `ReplaceCountAt` 一起消失；属性里那串名字是**给人读的递归补全**，`{` `}` `:` `=` 与「这是几个绑定元素」全都没有节点 | 把模式括号搬进 `Let`；`Let.ToXmlString` 对解构两种形态改成**带子单元**；新增 `binding-element.xl.md` 把元素按顶层逗号收成 `<BindingElement>` |
+| **`Let` 没有队列** | 它的构造器只转调基类，`TryToClose` 跑的是空队列——模式元素永远收不出来（与上一批接口那处「队列没跑过」同一类问题） | 挂通用队列 |
+| `...rest` 在元素里是 `<Spread>` | TS 的子节点是 `DotDotDotToken` + 名字，不是 `SpreadElement` | 装进元素前把 `Spread` 摊开（与元组 `RestType` 同一做法，实测 5 处） |
+| 形参默认值里的 `{}` 被误认成模式 | `function f({ a = 0 }: T)` 的默认值也是 `{}` | 只认**形参首位**那个（TS 也是 `Parameter > ObjectBindingPattern`）；剩余参数的 `...[value]` 放行 |
+| `catch ({ message })` 的绑定没节点 | 模式的宿主是 `CatchDefine`，不在名单里 | 加进宿主名单 |
+| `const { b: c } = x` 的 `:` 被读成类型标注 | `TypeDefineReorganization` 对任何 `:` 都成立 | 加守卫：父单元是 `BindingElement` 时不凑 `TypeDefine`（那是**重命名**，不是类型） |
+| `ObjectBindingPattern` / `ArrayBindingPattern` 的宿主 | TS 用这两个 kind，本工程用 `ObjectLiteral` / `ArrayLiteral`（同形） | 把两个 kind 加进对应标签的构造集合；`.tsx` 文件级口径（JSX 不在范围内）也在这里登记 |
+
+回归用例：`decl-binding-elements`（对象 / 数组 / 形参 / catch 四处）；`decl-obj-destructure-nested` 的期望随设计更新。
+
+**账**：`cases:align` 未登记标签占用 **0 类**、缺节点 **`（没有）`**。
+
+### 第 66 轮（第九批）：`PropertyAccessExpression` 试做后回退（附**精确落点**）+ 台账卫生
+
+**试做了什么**：给值位的成员访问 `a.b` / `this.x` / `f().g` / `a[0].b` 收一个
+`<PropertyAccessExpression>`，链式按 TS 的方式左结合嵌套（`a.b.c` = `(a.b).c`）；
+类型位不收（`A.B.C` 在 TS 那边是 `QualifiedName`，另一个构造）；`?.` 天然不命中
+（本工程的可选链是 `NullConditionalOperator`）。规则排在**通用队列最后一位**，
+让所有既有规则先看到原形——产物实测正确：
+
+    const v = a.b.c;   →  <PropertyAccessExpression><PropertyAccessExpression>a.b</…>.c</…>
+    const w = this.x;  →  <PropertyAccessExpression><Keyword>this</Keyword>.x</…>
+    const y = f().g;   →  <PropertyAccessExpression><Method name="f"/>.g</…>
+    type T = A.B.C;    →  不动（类型位限定名）
+
+**为什么回退**：挂上去之后 `cases:align` 从「未登记 0 类」变成 5 类误包 + 2 类新缺节点，
+而且缺节点是大面积（2908 处）：
+
+| 类型 | 条目 | 说明 |
+| --- | --- | --- |
+| 新误包 | `ArrayLiteral in Method` 12 / `PropertyAccessExpression in TypePredicate` 3 / `ArrayLiteral in TernaryOperatorTrueStatement` 2 / `PropertyAccessExpression in Statement` 2 / `ArrayLiteral in SwitchCompare` 1 | 新节点改变了若干**既有口径的父标签**（与第 5 批那次「父标签改名」同一类问题，只是这次面更大） |
+| 新缺节点 | `PropertyAccessExpression` 2908 / `SpreadElement` 9 | 2908 处未覆盖：`?.` 链、被 `Spread` / `TypePredicate` / 语句层包住的那些形状都要单独处理 |
+
+按「不把红尺子留在仓库里」的原则，这一批**整体回退**（规则文件已删、两处注册已撤、`REVERSE` 条目已撤），
+但把上面这份落点写在这里：下一次要接的话，**先处理那 5 类误包的父标签改名**、
+再按 2908 处样本逐类补覆盖，然后才谈挂上去。
+
+**顺带确认的一件事**：箭头函数的解构形参（`({ a, b }) => …` / `([x, y]) => …`）
+现在已经是 `<Parameter><ObjectLiteral><BindingElement>…` ✓（第八批的副产品），
+所以那两条 `… in Bracket` / `… in Parameter` 口径已经**不会再命中**。
+
+**台账卫生**：清掉 5 条因本会话改动而失效的口径条目；把 `ArrayLiteral in Statement`
+的文字改准（样本其实是**值位下标访问**的方括号被 `JsonArray` 收成了 `ArrayLiteral`，
+原来写成「元组类型」，与样本不符）。
+
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 924 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1272 个文件）。
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1001 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1371 个文件；
+外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
 
