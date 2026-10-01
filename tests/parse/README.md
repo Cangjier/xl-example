@@ -161,9 +161,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13924 / 15303 | 463985 / 452849 |
-| 同 kind 同区间 | **64.4%** | **69.1%** |
+| 投影节点 / TS 语义节点 | 13924 / 15303 | 464007 / 452849 |
+| 同 kind 同区间 | **64.9%** | **69.1%** |
 | 其中**字段名也一致** | **95.2%** | **95.7%** |
+
+### 第 19 轮：函数名进树要**绕过重组队列**（一次真踩到的坑）
+
+沿用第 14 轮给 `Class` 的做法，把 `Function` 的名字单元收进 `Data`——**当场炸了**：
+
+| 源码 | 期望 | 用 `AddAndCloseLast` 加名字的实际结果 |
+| --- | --- | --- |
+| `function f() {}` | `<Function><Identifier>f</Identifier>…` | `<Function><Method name="f"></Method>…` |
+| `function* g() {}` | `<Function><Identifier>g</Identifier><SymbolToken>*</SymbolToken>…` | `<Function><BinaryOperator op="*">…` |
+
+根因：名字（`f`）后面**紧跟参数表那个 `(`**，而重组队列里有一条
+「`Identifier` + `Bracket(paren)` ⇒ `Method`（调用表达式）」的规则——加进去的瞬间就被当成一次调用。
+`Class` 那边没这个问题**纯属运气好**：类名后面跟的是 `<` / `extends` / `{`。
+
+修法是**绕过重组队列**：`result.TryToClose()` **之后**再 `result.Data.unshift(nameUnit)`。
+那时本单元自己的重组已经跑完，`Data` 不会再被自己扫描一遍，位置又正好与 TS 的
+`FunctionDeclaration.name`（排在最前的 `Identifier`）一致。匿名函数（`function ()` / `function* ()`）
+的 `nameUnit` 不是 `Identifier`，自然不收。
+
+**这一条是「改 token 层」的真实代价**：同一个手法在 `Class` 上成立、在 `Function` 上不成立，
+差别只在「名字后面那个单元是什么」。以后给 `MethodDeclaration` / `Interface` / `Enum` / `Field`
+补名字单元时，都要先问这一句。
+
+用例语料 64.4% → **64.9%**（`Identifier` 826 → **745**）；真实语料基本不动（那批 `.d.ts`
+里的函数大多是 `declare function`，另有路径）。
 
 ### 第 18 轮：原始类型**不套** `TypeReference`，而类型标注在**上一层**
 

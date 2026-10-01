@@ -201,6 +201,20 @@ if (bodyIndex >= 0) {
   functionBody.TryToClose();
 }
 result.TryToClose();
+// **名字单元留在树里**——但必须**等本单元的重组跑完**再放进去（这一条是踩出来的）：
+//
+// 名字（`f`）后面紧跟参数表那个 `(`，而重组队列里有一条「`Identifier` + `Bracket(paren)` ⇒
+// `Method`（调用表达式）」的规则。用 `AddAndCloseLast` 那套加名字，重组会把它当成一次**调用**：
+// 实测 `function f() {}` 变成 `<Method name="f">`、`function* g() {}` 变成 `<BinaryOperator op="*">`。
+// `Class` 那边没有这个问题，纯属运气好——类名后面跟的是 `<` / `extends` / `{`。
+//
+// 所以这里**绕过重组队列**：`TryToClose()` 之后本单元的 `Data` 已经不会再被自己扫描，
+// 直接 `unshift` 到最前面即可（位置也与 TS 的 `FunctionDeclaration.name` 一致）。
+// 匿名函数（`function ()` / `function* ()`）在这里 `nameUnit` 不是 `Identifier`，自然不收。
+if (nameUnit instanceof Identifier) {
+  nameUnit.Parent = result;
+  result.Data.unshift(nameUnit);
+}
 return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```
 
