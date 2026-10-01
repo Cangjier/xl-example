@@ -185,6 +185,18 @@ const FIELD_BY_KIND = new Map([
   ["IntersectionType", new Map([["children", "types"]])],
   ["ParenthesizedType", new Map([["children", "type"]])],
   ["TypeOperator", new Map([["children", "type"]])],
+  // `SpreadElement.expression`（`...xs` 里的 `xs`）。
+  ["SpreadElement", new Map([["children", "expression"]])],
+  // 三元表达式：产物的分段名是 `condition` / `trueStatement` / `falseStatement`
+  // （上游 Cangjie 起的名字），而 TS 那边早已改成 `whenTrue` / `whenFalse`，
+  // 并且 `?` / `:` 两个标点也算子节点（`questionToken` / `colonToken`）。
+  [
+    "ConditionalExpression",
+    new Map([
+      ["trueStatement", "whenTrue"],
+      ["falseStatement", "whenFalse"],
+    ]),
+  ],
   // 函数类型：TS 的 `FunctionType` 是 `parameters` + `type`（形参表与返回类型）。
   ["FunctionType", new Map([["children", "parameters"]])],
   // 元组：元素数组叫 `elements`；具名/可选/变长元素各自是 `NamedTupleMember` 等，照旧。
@@ -414,6 +426,9 @@ function projectNode(node, ctx) {
     case "Field":
       return projectField(v, ctx);
 
+    case "EnumMember":
+      return projectEnumMember(v, ctx);
+
     case "Lamda":
       return projectLamda(v, ctx);
 
@@ -544,17 +559,19 @@ function projectBinary(v, ctx) {
   };
 }
 
+/**
+ * 一元运算 → `PrefixUnaryExpression`。
+ *
+ * **只给 `operand` 一个字段**：TS 那边运算符（`operator`）是节点的**属性**、不是子节点字段，
+ * 所以 `ts.forEachChild` 看不到它。产物那边的 `SymbolToken` 也照此**不投影**——
+ * 早先投了它，尺子就多报一处「产物多了 `operator`」的假差异。
+ */
 function projectUnary(v, ctx) {
   const kids = projectableKids(v);
   const opIndex = kids.findIndex((k) => k.get("type") === "SymbolToken");
   const operand = opIndex >= 0 ? projectExpression(kids.slice(opIndex + 1), ctx) : projectExpression(kids, ctx);
-  const opNode =
-    opIndex >= 0
-      ? projectNode(kids[opIndex], ctx)
-      : { kind: tokenKind(String(v.attrs.get("op") ?? "?")), pos: v.start, end: v.start };
   return {
     kind: "PrefixUnaryExpression",
-    operator: opNode,
     operand,
     pos: v.start,
     end: operand ? operand.end : v.end,
@@ -595,16 +612,52 @@ function projectTypeDefine(v, ctx) {
   return { kind: "TypeReference", typeName: inner, text: textOfNode(typeNode, ctx), pos: inner.pos, end: inner.end };
 }
 
-/** 属性 `x: T` / `x = 1` → `PropertyDeclaration`（`name` + `type` / `initializer`）。 */
+/** 属性 `x: T` / `x = 1` → `PropertyDeclaration`（`name` + `type` / `initializer` / `modifiers`）。 */
 function projectField(v, ctx) {
   const kids = projectableKids(v);
+  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
   const nameText = String(v.attrs.get("fieldName") ?? v.attrs.get("name") ?? "");
   const props = {
     name: { kind: "Identifier", text: nameText, pos: v.start, end: v.start + nameText.length },
   };
   if (typeNode !== undefined) props.type = projectTypeDefine(view(typeNode), ctx);
+  // `x = 1` 的初值：`=` 后面那一格（与 `projectLet` 同款读法）。
+  if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
+  addModifiers(v, props);
   return { kind: "PropertyDeclaration", pos: v.start, end: v.end, ...props };
+}
+
+/** 枚举成员 `A` / `B = 1` → `EnumMember`（`name` + 可选 `initializer`）。 */
+function projectEnumMember(v, ctx) {
+  const kids = projectableKids(v);
+  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+  const nameNode = kids.find((k) => k.get("type") !== "SymbolToken") ?? null;
+  const props = {};
+  if (nameNode !== null) props.name = projectNode(nameNode, ctx);
+  if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
+  return { kind: "EnumMember", pos: v.start, end: v.end, ...props };
+}
+
+/**
+ * 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
+ * 而 TS 那边 `modifiers` 是一串**节点**（`ExportKeyword` / `ConstKeyword`…）。
+ * 这里按字符串补出那一串——**位置是合成的**（宽度为零，落在声明开头），
+ * 因为产物没有记每个修饰词的区间。字段名与数组形状对得上，区间对不上；
+ * 尺子比的是字段名，所以它在这里是「够用但不算精确」，如实写在 README 里。
+ */
+function addModifiers(v, props) {
+  const modifiers = v.attrs.get("modifiers");
+  if (typeof modifiers !== "string" || modifiers === "") return;
+  props.modifiers = modifiers
+    .split(",")
+    .filter((word) => word !== "")
+    .map((word) => ({
+      kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`,
+      text: word,
+      pos: v.start,
+      end: v.start,
+    }));
 }
 
 /**
@@ -765,18 +818,8 @@ function structuralProps(v, kind, ctx) {
       props[field] = projectEach(nodes, ctx);
     }
   }
-  // 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
-  // 而 TS 那边 `modifiers` 是一串**节点**（`ExportKeyword` / `ConstKeyword`…）。
-  // 这里按字符串补出那一串——**位置是合成的**（宽度为零，落在声明开头），
-  // 因为产物没有记每个修饰词的区间。字段名与数组形状对得上，区间对不上；
-  // 尺子比的是字段名，所以它在这里是「够用但不算精确」，如实写在这里。
-  const modifiers = v.attrs.get("modifiers");
-  if (typeof modifiers === "string" && modifiers !== "") {
-    props.modifiers = modifiers
-      .split(",")
-      .filter((word) => word !== "")
-      .map((word) => ({ kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`, text: word, pos: v.start, end: v.start }));
-  }
+  // 修饰词：产物那边是字符串，TS 那边是一串节点（见 `addModifiers` 的说明）。
+  addModifiers(v, props);
   return props;
 }
 
