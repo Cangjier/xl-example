@@ -1133,6 +1133,31 @@ node tests/parse/probe.mjs "type D<T> = T extends (infer U)[] ? D<U> : T;"
 `RangeError`。这条形状现在不在语料里（不在 `cases:align` 的检查范围内），但它**不是被遮蔽**：
 上面那行复现命令谁都能跑。
 
+### 第 66 轮（第十六批）：去修那处 `(infer U)[]` —— 结论是**症结不在闸门**，已回退
+
+按第十五批写下的路子（不动共享白名单、只在本规则内放宽）动了 `InferTypeReorganization`，两次都**没有生效**：
+
+| 试法 | 结果 |
+| --- | --- |
+| 认「父亲是 `ParenthesizedType`、祖父是类型容器」 | `infer U` 仍是裸的 `Keyword` + `Identifier` ✗ |
+| 再认「父亲是 `(` 括号、祖父是 `ParenthesizedType`、曾祖是类型容器」（实测产物确实是两层：`<ParenthesizedType><Bracket>(</Bracket><Keyword>infer</Keyword>…`） | 仍然 ✗ |
+
+**两次都没抛栈溢出**（无损性 1377 文件 0 异常 ✓），但也都没修好——**说明症结不在闸门条件**：
+`infer` 与名字装在那对 `(` `)` 里，而**这条规则的队列到不了那段内容**
+（括号里的单元从来没有被 `InferTypeReorganization` 扫过）。要修得先解决「谁扫括号里的内容」，
+那已经超出「放宽一格」的范围，所以本轮**把两处编辑整体回退**（不把不生效的守卫留在仓库里），
+只留下这份诊断。
+
+复现（产物里 `infer U` 是散单元、没有 `InferType`）：
+
+```
+node tests/parse/probe.mjs "type D<T> = T extends (infer U)[] ? D<U> : T;"
+```
+
+下一次要接的话：先查 `ParenthesizedTypeReorganization` 造出括号之后、有没有给那个 `Bracket`
+挂上能扫到 `infer` 的队列（对照：`Promise<infer V>` 能成形，是因为它在 `GenericType` 里，
+而 `GenericType` 的内容是有队列扫的）。
+
 ### 实测规模
 
 `node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1007 条用例
