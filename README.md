@@ -283,16 +283,16 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1004 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:run` | 1005 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
 | `cases:diff` | 1336 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1374 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1374 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1374 个文件：对齐可信 1069 个、跳过 299 个，语句表 550 个、边界 2374 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
-| `cases:noise` | 1374 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1375 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1375 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1375 个文件：对齐可信 1069 个、跳过 299 个，语句表 550 个、边界 2374 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1375 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1343 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
+| `cases:align` | 1344 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
@@ -1062,10 +1062,33 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 这不是「被遮蔽」，是「还没进语料」；下次要接的话：先让类型字面量体里的 `<…>` 能收成 `GenericType`
 （判据：`<` 前面是 `{` / `;` / `}` / 换行，后面跟着 `(`），再把这行加进上面那条用例。
 
+### 第 66 轮（第十三批）：把上一批留下的那处补齐 —— 成员开头的类型参数
+
+上一批结尾记着一处「发现但没修」的缺口：类型字面量里的**泛型调用签名** `const h: { <T>(x: T): T }`，
+`<T>` 连 `GenericType` 都没成形（产物里是裸的 `<` / `T` / `>`），TS 那边却是
+`CallSignatureDeclaration > TypeParameter`。这一批把它补上了。
+
+**根因**：`GenericTypeReorganization` 的「名字闸」有三支——宿主的最后一个子单元是 `Identifier`
+（`Array<T>` 这种）、或是一个**操作数起点**（`=` / `=>` / `:` / `;` / `,` / 一段括号 / 软换行）、
+或是「名字 + `?`」（可选成员签名）。而成员开头的 `<` 是那条成员**第一个**单元，
+**前面什么都没有**——三支一条都不成立。
+
+**修法**：补一支「**宿主还是空的**也算类型参数段」，理由与「操作数起点」那一支完全相同
+（这个位置上按定义还没有操作数，`<…>` 只可能是类型参数段）。实测：
+
+```
+const h: { <T>(x: T): T }        →  <Signature kind="call"><GenericType><TypeParameter>T</TypeParameter></GenericType>…
+interface Y { <T>(): T }         →  同上（接口体里也补上了）
+const k: { new <T>(x: T): T }    →  本来就成形（`new` 那个词在宿主里，走的是另一支）
+const c = a < b > c              →  仍是裸符号 ✓（对照，没被误判成泛型）
+```
+
+回归用例：`types/type-generic-signature.ts`（上面四种形状 + `type Z = <T>(x: T) => T` + `const m = <T,>(x: T) => x`）。
+
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1004 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1374 个文件；
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1005 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1375 个文件；
 外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。

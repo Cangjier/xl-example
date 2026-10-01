@@ -94,7 +94,19 @@ unit.AddToMounted(new GenericType(unit.Template)).SignIn(source);
 放宽的风险由「左侧必须有操作数」这条语义兜住：比较式 `a < b > (c)` 的 `<` 前面**是** `a`（走第一支），
 而第二支的位置上按定义还没有操作数，`<…>` 只可能是类型参数段。
 
+**「宿主还是空的」也是一支**（第 66 轮第十三批）：`{ <T>(x: T): T }` / `interface Y { <T>(): T }`
+里 `<` 是那条**成员**的第一个单元，前面什么都没有——上面三支都不成立（没有名字、也没有
+`=` / `:` / `;` 之类的操作数起点符号），于是 `<T>` 退回裸符号、类型参数规则看不到 `GenericType`，
+TS 那边的 `CallSignatureDeclaration > TypeParameter` 就一直缺（实测：类型字面量与接口体里的
+**泛型调用签名**；同一位置带 `new` 的构造签名本来就成形，因为 `new` 那个词在宿主里 ✓）。
+理由与第二支相同：这个位置上按定义还没有操作数，`<…>` 只可能是类型参数段 ✓
+（`<T>x` 那种类型断言在语句开头也早就被第二支放行了，所以这条不新增风险面）。
+
 ```ts
+if (unit.Data.length === 0) {
+  const emptyHostClose = this.ScanArguments(unit, source);
+  return emptyHostClose !== -1 && this.IsAllowedFollower(unit, source, emptyHostClose);
+}
 let last = unit.Last();
 let hasName = last instanceof Identifier;
 if (last instanceof SymbolToken && last.Is("?")) {
