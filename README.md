@@ -283,16 +283,16 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1005 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:run` | 1006 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
 | `cases:diff` | 1336 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1375 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1375 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1375 个文件：对齐可信 1069 个、跳过 299 个，语句表 550 个、边界 2374 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
-| `cases:noise` | 1375 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1376 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1376 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1376 个文件：对齐可信 1069 个、跳过 299 个，语句表 552 个、边界 2388 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1376 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1344 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
+| `cases:align` | 1345 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
@@ -1085,10 +1085,26 @@ const c = a < b > c              →  仍是裸符号 ✓（对照，没被误�
 
 回归用例：`types/type-generic-signature.ts`（上面四种形状 + `type Z = <T>(x: T) => T` + `const m = <T,>(x: T) => x`）。
 
+### 第 66 轮（第十四批）：模块层与字符串/模板层压一轮 —— **没有新缺口**
+
+把模块层与字符串/模板层的刁钻写法压了一遍（`declare module "m" { export = X }` / `declare global` /
+`import type { A as B } from "m"` / `export type { C } from "m"` / `export * as ns from "m"` /
+命名空间里的 `export import M = K` / `declare namespace O { const v: unique symbol }` /
+`declare module "*.css"` / `export default class {}` / 模板字面量类型 `\`a\${B}c\``、`\`a\${B | C}d\``、
+`\`\${number}-\${string}\``、值位模板嵌套 `\`a\${ \`inner\${Q}\` }b\``），固化成
+`modules/mod-adversarial-shapes.ts`。
+
+结果：**一处缺口都没抓到** —— `cases:align` 的「未登记标签占用」与「缺节点」两节都没有列出这个文件，
+无损性 / 结构 / 边界三把尺子也都没报。也就是说第九~十三批立起来的那一整套（类型位模板里的联合、
+导入类型、命名空间体、导出节点……）在这一面已经**站得住**了。
+
+这一批唯一的产出是那条用例本身（1006 条）——它是**回归防线**：以后有人动模块层或字符串层，
+这十几条形状会立刻把变化照出来。
+
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1005 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1375 个文件；
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1006 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1376 个文件；
 外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
