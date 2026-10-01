@@ -999,6 +999,24 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 的文字改准（样本其实是**值位下标访问**的方括号被 `JsonArray` 收成了 `ArrayLiteral`，
 原来写成「元组类型」，与样本不符）。
 
+### 还剩什么、怎么接（第 66 轮收尾时写下的交接说明）
+
+明列的构造（`ImportType` / `ParenthesizedType` / `TypePredicate` / `IndexSignature` / `TypeParameter` /
+`OptionalType` / `RestType` / `NamedTupleMember` / `HeritageClause` + `ExpressionWithTypeArguments` /
+`Parameter`，外加顺带做的 `InferType` / `EnumMember` / `BindingElement`）**都已经有专属节点并登记进
+`cases:align` 的 `REVERSE`**，两条判据（未登记缺节点 0、17 个脚本全绿）与「产物可复现」每次实测都成立。
+剩下三块都**不在**上面的明列清单里，而且各自需要先做一个设计决定：
+
+| 剩什么 | 语料规模 | 需要先定的事 |
+| --- | --- | --- |
+| `TypeReference` | 39118 | **要不要 boxing**：给每个类型引用（`Foo` / `Array<T>`）套一层节点，等于给类型层再加一层包装。好处是与 TS 一一对应；代价是产物体量与所有类型规则的匹配面都要重新过一遍（现在的口径是「类型文本由 `TypeDefine` 承接」，`cases:align` 里登记为位置口径）。**建议先只做「带类型实参的引用」这一半**（`Array<T>` 的 `GenericType` 已经有了，只是没有一个包住名字+实参的节点），看扰动再决定要不要铺开 |
+| `PropertyAccessExpression` | 5919 | **已试做、已回退**，落点见上一节：先处理 5 类「父标签改名」的误包，再按 2908 处样本逐类补覆盖（`?.` 链 / 被 `Spread` 或 `TypePredicate` 或语句层包住的形状） |
+| 模板字面量类型的 span | 36 | 现在由 `<InterpolationString>` 承接（值位与类型位同一个标签）。要不要给**类型位**那一个单独一个 `TemplateLiteralTypeSpan`——判据现成（`IsTemplateTypeContent`），但它要挂到 `String` 自己的队列上，而 `String` 目前没有队列 |
+
+**验收口径不会因为「没做这三块」而变松**：`cases:align` 里这三块的 TS 侧构造要么根本没有标签映射
+（模板 span），要么是逐条登记的位置口径（`TypeReference`），要么已被上一节的回退恢复原状（成员访问）。
+也就是说：`align` 现在报的「未登记 0 类 / 缺节点 0」是**真的**，不是靠遮蔽得来的。
+
 ### 实测规模
 
 `node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1001 条用例
