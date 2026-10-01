@@ -165,14 +165,51 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14271 / 15303 | 471200 / 452973 |
-| 同 kind 同区间 | **81.4%** | **93.0%** |
-| 其中**字段名也一致** | **96.7%** | **98.9%** |
+| 投影节点 / TS 语义节点 | 14412 / 15343 | 473641 / 453944 |
+| 同 kind 同区间 | **82.1%** | **94.4%** |
+| 其中**字段名也一致** | **96.6%** | **98.8%** |
 
 **「缺」与「漂移」是两件事，尺子分开报**（第 34 轮补的）：前者是「这一类根本没投出来」，
 后者是「同一类节点位置差一点」。混在一起时漂移会把缺失挤下榜首——
 真实语料里 `TypeReference` 的漂移 1749 比它自己的缺失 2102 还接近榜首。
 两段现在都带样本（`投影后仍缺的 TS kind` / `投影后同 kind 但区间漂移`）。
+
+### 第 70 轮：成员访问链进 token 层（真实语料 93.0% → 94.4%）
+
+这一轮**第一次为了这把尺子动 token 层的表达式分组**（第 13–14 轮为「声明名」动过一次）。
+缺口榜前三名里有两名同源：真实语料 `PropertyAccessExpression` 缺 **4077**、
+`CallExpression` 缺 **1263**，再加上 `Identifier` 里同源的一千多处。
+
+根因不在投影：**token 层的运算符规则只看紧邻的那一个单元**，而点号链在那里是一串平级单元——
+
+```
+x.y !== z   →   Identifier(x) SymbolToken(.) Identifier(y) SymbolToken(!==) Identifier(z)
+
+`!==` 左右各取一格 ⇒ 产物：Identifier(x) SymbolToken(.) BinaryOperator(y !== z)
+```
+
+于是链被劈成两半、点左右各挂一处，投影层再折也折不出 TS 的形状（第 22 / 25 轮那两版
+折链逻辑本身是对的，它们只是**拿不到完整的链**）。
+
+| 修什么 | 做法 | 成绩 |
+| --- | --- | --- |
+| **成员访问链在 token 层折成一个单元** | 新增 `typescript/tokens/property-access.xl.md`：`PropertyAccess` 容器 + `PropertyAccessReorganization`，注册在 `WrapSymbolReorganization` 之后、复合赋值与一元/二元之前。链尾是 `Method`（`a.b(1)`）也照收，一次 `Process` 收完整条（`a.b(1).c.d`），链内部只装「关键字升级」那条队列（否则会自己折自己） | 投影后仍缺 `PropertyAccessExpression` **4077 → 672**、`CallExpression` **1263 → 182**、`BinaryExpression` 888 → 668、`Identifier` 4350 → 3493；真实语料 93.0% → **94.4%** |
+| **投影层的折链环要能跨过调用** | `projectExpression` 的点号链那一支原来在链尾 `Method` 处 `break`，`CjcliHost.Fs().readFileSync(p)` 于是被截成两段、外层那次调用整个丢掉；改成折完 `CallExpression` 之后**继续往后找 `.`** | 用例语料 81.4% → **82.1%** |
+| **下标访问被收成数组字面量**（第 70 轮新出现，尺子当场抓的） | 链折起来之后 `logicalOperator.Data[0]` 里那个 `[` 的**前一个单元**从 `Identifier` 换成了 `PropertyAccess`，而 `JsonArrayReorganization.IsArrayAt` 的「前一个是操作数 ⇒ 元素访问」名单是按类型列的——名单里没有新类型，35 处下标访问于是被收成 `ArrayLiteral`（`cases:align` 报出三处未登记的标签占用）。补上 `PropertyAccess` 之后 align 回到与改动前**逐条相同**的 14 类口径 | 未登记标签占用回到 **0 类**、缺节点仍是 `（没有）` |
+
+三条让路判据（都写在 `property-access.xl.md` 里）：**纯类型容器里不折**（`A.B` 在类型位归
+投影层的 `QualifiedName`）、**括号类型的内容不折**（括号的内容在关闭那一刻就重组完了，
+那时祖父还不是 `ParenthesizedType`，只有 `IsTypeBracketPosition` 问得出来）、
+**链尾紧跟 `?.` 时不折**（那一支归 `NullConditionalOperatorReorganization`）。
+
+新增三条用例：`expr-member-chain-operand`（运算符两侧的完整操作数）、
+`expr-member-chain-call-tail`（链中间的调用之后再取成员）、
+`expr-member-chain-index`（链尾的下标访问仍然是 `Bracket`）。用例 **1014 → 1017**，全通过。
+
+**下一轮的缺口榜**：`Block` 2183（`if` / `for` / 箭头函数的体花括号没有节点）、
+`TypeReference` 缺 2102 + 漂移 1749（签名位接不上类型实参）、`ConstructSignature` 1190、
+`&&` / `||` 的运算符 token 822 与 `BinaryExpression` 漂移 1220（`LogicalOperator` 的
+运算符符号没进树，属 token 层的分组改动）。
 
 ### 第 33 轮：签名尾分号、继承子句的点号名、投影表结构自查
 

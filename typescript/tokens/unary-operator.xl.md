@@ -14,6 +14,7 @@ import { GenericType } from "./generic-type.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { Method } from "./method.xl.md"
 import { NotNull } from "./not-null.xl.md"
+import { PropertyAccess } from "./property-access.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -106,7 +107,8 @@ return (
   unit instanceof UnaryOperator ||
   unit instanceof BinaryOperator ||
   unit instanceof LogicalOperator ||
-  unit instanceof NullConditionalOperator
+  unit instanceof NullConditionalOperator ||
+  unit instanceof PropertyAccess
 );
 ```
 

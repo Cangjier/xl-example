@@ -20,6 +20,7 @@ import { Method } from "./method.xl.md"
 import { New } from "./new/new.xl.md"
 import { NullConditionalOperator } from "./null-conditional-operator.xl.md"
 import { NotNull } from "./not-null.xl.md"
+import { PropertyAccess } from "./property-access.xl.md"
 import { String } from "./string/string.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { UnaryOperator } from "./unary-operator.xl.md"
@@ -247,7 +248,8 @@ if (
   unit instanceof New ||
   unit instanceof Lamda ||
   unit instanceof LogicalOperator ||
-  unit instanceof NullConditionalOperator
+  unit instanceof NullConditionalOperator ||
+  unit instanceof PropertyAccess
 ) {
   return true;
 }

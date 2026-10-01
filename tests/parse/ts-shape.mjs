@@ -515,6 +515,12 @@ function projectNode(node, ctx) {
     case "Method":
       return projectCall(v, ctx);
 
+    // **成员访问链**：token 层折出来的容器（`a.b` / `a.b(1)` / `f(1).x`）。
+    // 形状交给 `projectExpression` 的折链那一支——它按左结合折成嵌套的
+    // `PropertyAccessExpression`、链尾是调用时折成 `CallExpression`。
+    case "PropertyAccess":
+      return projectExpression(projectableKids(v), ctx);
+
     case "String":
     case "ConstString":
       return mk("StringLiteral", { text: stringText(v, ctx) });
@@ -855,10 +861,13 @@ function projectExpression(kids, ctx) {
   // 早先是「找第一个标点当运算符」⇒ `.` 被当成二元运算符（两头都错）；
   // 中间改成「必须吃满整串才认这条链」⇒ `a.b.c = 1` 这种**链后面还有运算符**的又不认了，
   // 于是掉回二元分支、还是拿 `.` 当运算符。正解是**先折链、再拿链的结果当左操作数**。
+  //
+  // **第 70 轮**：token 层新增了 `PropertyAccess`（成员访问链在 token 层就折成一个单元），
+  // 所以这里的两条输入路径都要认——`PropertyAccess` 单元走同一个递归（见 `projectNode`），
+  // 而**值位里散着的平铺链**（类型位、`?.` 让路之后的残留）仍走这一支。
   if (kids.length > 2 && isSymbol(kids[1], ".")) {
     let left = projectNode(kids[0], ctx);
     let i = 1;
-    let call = null;
     while (i + 1 < kids.length && isSymbol(kids[i], ".")) {
       const next = kids[i + 1];
       if (next.get("type") === "Method") {
@@ -867,30 +876,36 @@ function projectExpression(kids, ctx) {
         // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
         const name = String(next.get("name") ?? "");
         const at = startOf(next);
-        left = {
+        const member = {
           kind: "PropertyAccessExpression",
           expression: left,
           name: { kind: "Identifier", text: name, pos: at, end: at + name.length },
           pos: left.pos,
           end: at + name.length,
         };
-        call = projectNode(next, ctx);
+        // 链尾是一次调用：把 `CallExpression` 的被调用者换成折好的点号链
+        // （TS 的 `console.log(1)` 是 `CallExpression > PropertyAccessExpression > …`）。
+        //
+        // **折完继续走**（第 70 轮修）：`CjcliHost.Fs().readFileSync(p)` 的中间那次调用
+        // 之后再取成员仍属同一条链——原来这里 `break`，于是链被截成两段、
+        // 外层那次调用整个丢掉（实测 `CallExpression` 缺 1263 里的最大一块）。
+        const call = projectNode(next, ctx);
+        left = Object.assign({}, call, { expression: member, pos: member.pos });
         i += 2;
-        break;
+        continue;
       }
+      // 成员名**永远是 `Identifier`**（TS 那边 `a.import` / `a.new` 的 `name` 就是一个
+      // 文本为那个词的 `Identifier`，不是 `ImportKeyword`）：产物那边它可能已经被
+      // `KeywordReorganization` 升级成 `<Keyword>`，所以这里按**名字宽度**切一段，
+      // 而不是把那个词按词法身份投出来。
       left = {
         kind: "PropertyAccessExpression",
         expression: left,
-        name: projectNode(next, ctx),
+        name: nameOf(next, ctx),
         pos: left.pos,
         end: endOf(next),
       };
       i += 2;
-    }
-    if (call !== null) {
-      // 链尾是一次调用：把 `CallExpression` 的被调用者换成折好的点号链
-      // （TS 的 `console.log(1)` 是 `CallExpression > PropertyAccessExpression > …`）。
-      return Object.assign({}, call, { expression: left, pos: left.pos });
     }
     if (i >= kids.length) return left;
     return foldBinaryFrom(left, kids.slice(i), ctx);

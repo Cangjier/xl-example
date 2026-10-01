@@ -16,6 +16,7 @@ import { Lamda } from "./lamda/lamda.xl.md"
 import { Method } from "./method.xl.md"
 import { New } from "./new/new.xl.md"
 import { NotNull } from "./not-null.xl.md"
+import { PropertyAccess } from "./property-access.xl.md"
 import { String } from "./string/string.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { TypeDefine } from "./type-define.xl.md"
@@ -122,6 +123,7 @@ if (
   unit instanceof ArrayLiteral ||
   unit instanceof New ||
   unit instanceof Lamda ||
+  unit instanceof PropertyAccess ||
   unit instanceof String
 ) {
   return true;

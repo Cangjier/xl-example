@@ -9,6 +9,7 @@ import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Method } from "./method.xl.md"
+import { PropertyAccess } from "./property-access.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { TypeDefine } from "./type-define.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
@@ -66,6 +67,7 @@ return (
   previous instanceof Identifier ||
   previous instanceof Bracket ||
   previous instanceof Method ||
+  previous instanceof PropertyAccess ||
   previous instanceof NotNull
 );
 ```

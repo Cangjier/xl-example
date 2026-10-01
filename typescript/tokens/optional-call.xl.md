@@ -9,6 +9,7 @@ import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Method } from "./method.xl.md"
 import { NotNull } from "./not-null.xl.md"
+import { PropertyAccess } from "./property-access.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
 
@@ -82,11 +83,18 @@ return this.IsCalleeEnd(before);
 这个单元能不能当被调者的**尾巴**（`a?.()` 的 `a`、`a.b?.()` 的 `b`、`a?.b.c?.()` 的 `c`、
 `f()?.()` 的 `f()`、`a![k]?.()` 的 `]`）。
 
+**`PropertyAccess` 也要认**：成员访问链在 token 层就折成一个单元（见
+`property-access.xl.md`），`a.b.c?.()` 里那一整条链可能已经是它——不认的话
+`?.` 那一趟会判成「前面不是被调者」而放走整个可选调用。
+
 ```ts
 if (item === null) {
   return false;
 }
 if (item instanceof Identifier || item instanceof Method) {
+  return true;
+}
+if (item instanceof PropertyAccess) {
   return true;
 }
 if (item.constructor.name === "NullConditionalOperator" || item.constructor.name === "NotNull") {
@@ -102,6 +110,8 @@ return false;
 
 被调者链上还能再往左走的一格：成员访问的点号、被调者本身、或者一个已关闭的下标括号。
 
+`PropertyAccess` 与 `IsCalleeEnd` 同一个理由：一条折好的链整体**就是**被调者链的一格。
+
 ```ts
 if (item === null) {
   return false;
@@ -110,6 +120,9 @@ if (item instanceof SymbolToken && (item.Is(".") || item.Is("?."))) {
   return true;
 }
 if (item instanceof Identifier || item instanceof Method) {
+  return true;
+}
+if (item instanceof PropertyAccess) {
   return true;
 }
 if (item.constructor.name === "NullConditionalOperator" || item.constructor.name === "NotNull") {

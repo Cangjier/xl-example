@@ -36,7 +36,14 @@ Json 数组：把 `[...]` 这种字面量从「一个方括号 + 里面的内容
 
 它与单参数版同名，所以多参数的这个叫 `IsArrayAt`（单参数版仍叫 `IsArray`）。
 
-判定链条（任一条命中就**不是**数组）：父单元是 `NullConditionalOperator` 且 `index == 0`（那是 `?.[` 空条件索引）；上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `typeof` / `of` / `in`；是 `Bracket`；是 `ArrayLiteral`；是 `String`；是 `Method`；是 `=>` 符号。
+判定链条（任一条命中就**不是**数组）：父单元是 `NullConditionalOperator` 且 `index == 0`（那是 `?.[` 空条件索引）；上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `typeof` / `of` / `in`；是 `Bracket`；是 `ArrayLiteral`；是 `String`；是 `Method`；是 `PropertyAccess`；是 `=>` 符号。
+
+**`PropertyAccess` 必须也在名单里**（成员访问链那一轮补）：`logicalOperator.Data[0]` 里那个 `[`
+前面本来是 `Identifier`（`Data`）✓ 判成元素访问；链在 token 层折成一个 `PropertyAccess`
+之后「前一个单元」换了一种类型，第一条就命不中了——
+`[0]` 于是被收成 `ArrayLiteral`（下标访问变成数组字面量）。
+它按**类名**判而不是 `instanceof`：与 `binary-operator.xl.md` 里那几处同款
+（`constructor.name` 就是 XML 标签名，判它等价于判类型，且不必为一个判据多一条 import）。
 
 ```ts
 const current = Get(units, index);
@@ -55,6 +62,8 @@ if (current instanceof Bracket && current.startBracket === "[") {
   } else if (previous instanceof String) {
     return false;
   } else if (previous instanceof Method) {
+    return false;
+  } else if (previous !== null && previous.constructor.name === "PropertyAccess") {
     return false;
   } else if (previous instanceof SymbolToken) {
     if (previous.Is("=>")) {

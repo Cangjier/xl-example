@@ -32,6 +32,7 @@ export const TAGS = new Set([
   "VerbatimQuoteGuide", "InterpolationGuide", "InterpolationExitGuide", "RawQuoteExitGuide", "RegexToken",
   "LineAnnotation", "AreaAnnotation", "PreprocessorDirectives", "Bracket", "LineWrap",
   "GenericType", "Method", "Signature", "TypeDefine", "TypeAssign", "As", "Satisfies", "LogicalOperator", "NullConditionalOperator", "NotNull",
+  "PropertyAccess",
   "FunctionType", "ConditionalType", "UnionType", "IntersectionType", "MappedType", "StaticBlock", "NamespaceExport",
   "ArrayType", "TupleType", "IndexedAccessType", "TypeOperator", "TypeQuery", "LiteralType",
   "ImportType", "TypeParameter", "InferType", "TypePredicate",

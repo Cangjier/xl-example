@@ -336,7 +336,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1014 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:run` | 1017 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
 | `cases:diff` | 1397 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径）。第 68 轮复核时这一行报过 **Field +119**：索引签名第 66 轮起有自己的 `<IndexSignature>` 标签，而 `differential.mjs` 的映射表还写着 `IndexSignatureDeclaration → Field`，于是 120 处索引签名被算成「Field 没成节点」——**量具的映射没跟着标签表走**，不是解析缺口。接回去之后：`Field` 源码侧 20243 / 产物侧 20244（**−1**，那一处多收在 `decl-class-computed-member.ts`，正是 `cases:dashboard` 的「真多 1」）、`IndexSignature` 120 / 120（**0**），其余各行不变 |
 | `cases:dashboard` | **真缺 0 个节点** |
 | `cases:lossless` | 1384 个文件、抛异常 0、内容丢失 0 |
@@ -1414,10 +1414,96 @@ Generator<T, TReturn, TNext> 的 `[]`       // lib.es2015.iterable.d.ts
 
 两条都不需要动解析器，XML 产物一个字节都没变（八把尺子全绿、`samples` 的 XML 夹具无 diff）。
 
+### 第 70 轮：成员访问链进 token 层（真实语料 93.0% → 94.4%）
+
+`cases:tsast` 的缺口榜上，最大的一块一直是**表达式层的成员访问**：真实语料里
+`PropertyAccessExpression` 缺 **4077**、`CallExpression` 缺 **1263**，加上
+`Identifier` 那一栏里同源的一千多处。它们**不是投影层的账**——投影层的折链逻辑
+（第 22 / 25 轮）本身是对的，缺口全来自 token 层把链**劈开了**：
+
+```
+x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)  Identifier(z)
+
+`!==` 那一趟向左右各取一格 ⇒ 拿到 x 与 z ⇒
+产物：Identifier(x)  SymbolToken(.)  BinaryOperator(y !== z)
+                     ↑ 点号被夹在运算符节点外面，链的两头各挂在一处
+```
+
+同样被劈开的还有 `a + options.Error`（`+` 先折走 `options`）、
+`content.charCodeAt(0) === 0xfeff`（`===` 的左操作数是 `Method`，链底留在外面）、
+`typeof x.y`（一元规则拿走了 `x`）、`x.y!`（非空断言拿走了 `y`）……
+**根因只有一个**：所有运算符规则都只看**紧邻的那一个单元**，而链条在它们眼里是一串平级单元。
+投影层救不回来——树上已经是「半个链 + 一个运算符节点」，再拼就是猜。
+
+**修法是给 token 层加一条成员访问链规则**（新增
+[typescript/tokens/property-access.xl.md](typescript/tokens/property-access.xl.md)，
+`PropertyAccess` + `PropertyAccessReorganization`，注册在 `WrapSymbolReorganization`
+之后、复合赋值与一元/二元之前）。链在运算符规则看到它之前就是一个单元，
+于是 `x.y !== z` 里 `!==` 的两侧都是完整的操作数：
+
+```
+<BinaryOperator op="!=="><PropertyAccess>x . y</PropertyAccess> !== z</BinaryOperator>
+```
+
+四处「只能是这么写」的判据（都写进了规范）：
+
+1. **链尾是调用也照收**：`a.b(1)` 的 `b(1)` 先被 `MethodReorganization` 收成 `Method`，
+   本规则再把 `[a, ., Method]` 收成一个 `PropertyAccess`——`CjcliHost.Fs().readFileSync(p)`
+   这种「调用结果再取成员」的链必须整体成为一个操作数；
+2. **一次 `Process` 收完整条**（链尾是 `Method` 时继续往后走）：第一版在 `Method` 处停下，
+   `a.b(1).c.d` 于是被折成两个平级的 `PropertyAccess`，投影层再也拼不回左结合的嵌套；
+3. **它自己不装通用队列**（只装「关键字升级」那条）：`Data` 的第一个单元就是链底，
+   `Previous` 对它照样成立——装通用队列会**自己折自己**，一路套到爆栈。
+   装关键字队列是因为成员名可能是关键字（`a.import`），不装就停在 `Identifier` 上
+   （两条既有用例 `expr-member-named-import` / `-qualified` 断言的正是 `<Keyword>import</Keyword>`）；
+4. **三条让路**：纯类型容器里不折（`A.B` 在类型位归投影层的 `QualifiedName`）、
+   括号类型的内容不折（括号在关闭那一刻重组，那时祖父还不是 `ParenthesizedType`，
+   只有 `IsTypeBracketPosition` 问得出来）、链尾紧跟 `?.` 时不折（那一支归
+   `NullConditionalOperatorReorganization`，折了会把它的节点挤到外面）。
+
+**尺子当场抓出来的第二处**（这一轮唯一一次「改对了一处、改坏了另一处」）：
+链折起来之后，`logicalOperator.Data[0]` 里那个 `[` 的**前一个单元**从 `Identifier`
+换成了 `PropertyAccess`，而 `JsonArrayReorganization.IsArrayAt` 的「前一个是操作数 ⇒
+这是元素访问」名单是按类型列的——名单里没有新类型，于是 **35 处下标访问被收成了数组字面量**
+（`cases:align` 报出三处未登记的标签占用）。补上 `PropertyAccess` 之后 align 回到
+与改动前**逐条相同**的 14 类口径。
+
+量化（同一批 1385 个真实语料文件 + 1001 条用例）：
+
+| 判据 | 改动前 | 改动后 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 93.0% | **94.4%** |
+| `cases:tsast` 用例语料 | 81.4% | **82.1%** |
+| 其中**字段名也一致**（真实语料） | 98.9% | 98.8% |
+| 投影后仍缺 `PropertyAccessExpression` | 4077 | **672** |
+| 投影后仍缺 `CallExpression` | 1263 | **182** |
+| 投影后仍缺 `BinaryExpression` | 888 | 668 |
+| 投影后仍缺 `Identifier` | 4350 | 3493 |
+| 用例 | 1014 条全通过 | **1017 条全通过**（新增 3 条钉住本轮） |
+
+新增的三条用例分别钉住：运算符两边的完整操作数（`expr-member-chain-operand`）、
+链中间的调用之后再取成员（`expr-member-chain-call-tail`）、
+以及链尾的下标访问仍然是 `Bracket` 而不是 `ArrayLiteral`（`expr-member-chain-index`）。
+九把尺子（`run` / `diff` / `dashboard` / `lossless` / `structure` / `boundaries` / `noise` /
+`astjson` / `align`）与五把探针（`sweep` / `recon` / `recon2` / `fuzz` / `fuzz3`）全绿，
+`samples` 三份夹具按新形状重生成（只有 `declarations` 里那条 `this.…` 链变了形状）。
+
+**下一轮的目标**（缺口榜已经换了一批）：
+
+1. **`Block` 2183 处**：`if` / `for` / `while` / 箭头函数的体花括号在产物里没有节点
+   （`IfStatement` / `ForBody` 那些体单元只盖住区间、内容是平的）——投影层能补一部分，
+   真正的形状要给体一个 `Block` 节点；
+2. **类型实参段（`TypeReference` 缺 2102 + 漂移 1749）**：`Promise<unknown>` 在**签名位**
+   接不上实参（声明位接得上），是同一类「上下文级漏网」；
+3. **`ConstructSignature` 1190**：类型字面量里的 `new (…)` 还没有对应标签；
+4. **`&&` / `||` 的运算符 token（822）与 `BinaryExpression` 漂移（1220）**：
+   `LogicalOperator` 只有 `op` 属性、运算符符号没进树，左右操作数还是平级兄弟——
+   与第 31 轮记下的那一笔同源，属于**token 层**的分组改动。
+
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1007 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1377 个文件；
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1017 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1385 个文件；
 外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。

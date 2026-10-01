@@ -1,0 +1,290 @@
+# dependencies
+```xl
+import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
+import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { Token } from "../../core/syntax/token.xl.md"
+import { Template } from "../../core/syntax/templates/template.xl.md"
+import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
+import { IsTypeBracketPosition, IsTypeContainerUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { ParsePipeline } from "../parse-pipeline.xl.md"
+import { Bracket } from "./bracket.xl.md"
+import { Identifier } from "./identifier.xl.md"
+import { LineWrap } from "./line-wrap.xl.md"
+import { Method } from "./method.xl.md"
+import { SymbolToken } from "./symbol-token.xl.md"
+```
+
+# namespace cangjie
+
+`typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
+
+成员访问链 `a.b.c`：把「一个操作数 + 若干个 `.` 成员名」整段收成一个 `PropertyAccess` 单元。
+
+**为什么必须在 token 层折**（而不是留给投影层）：表达式层的那些规则
+（`BinaryOperator` / `UnaryOperator` / `LogicalOperator` / `NotNull` / `Spread` / `CompoundAssignmentOperator` …）
+判断操作数时只看**紧邻的那一个单元**。`x.y !== z` 在折链之前是这样一串平级单元：
+
+```
+Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)  Identifier(z)
+```
+
+`!==` 那一趟向左右各取一格，于是拿到的是 `x` 与 `z`——
+产物变成 `Identifier(x) . BinaryOperator(y !== z)`：**点号被劈开，链的两头各挂在一处**，
+投影层再怎么拼也拼不回 TypeScript 的形状（那一半节点整片消失，实测真实语料
+`PropertyAccessExpression` 缺 4071、`CallExpression` 缺 1263）。
+折链之后运算符看到的是**一个完整的操作数**，`x.y` 与 `!== z` 各归各位 ✓。
+
+**它与 `MethodReorganization` / `NullConditionalOperatorReorganization` 的分工**：
+
+- `a.b(1)` 的 `b(1)` 先被 `MethodReorganization` 收成 `Method`（本规则排在它之后），
+  本规则再把 `[a, ., Method]` 收成一个 `PropertyAccess`——链尾是一次调用时**照收**，
+  因为 `CjcliHost.Fs().readFileSync(p)` 这种「调用结果再取成员」的链必须整体成为一个操作数；
+- `a?.b` 归 `NullConditionalOperatorReorganization`。本规则**见到链尾紧跟着 `?.` 就让路**
+  （`Previous` 里那一条）：那一支已经把它收成了 `NullConditionalOperator`，
+  再折一次会把那个节点挤到外面去（投影层能拼回 `PropertyAccessExpression` 的区间，
+  但 `NullConditionalOperator` 自己会掉出产物）。
+
+**它与类型层的分工**：类型位的点号名（`A.B.C`、`NodeJS.TypedArray`）要留给投影层折
+`QualifiedName`（TS 在类型位用的是 `QualifiedName`、在值位才是 `PropertyAccessExpression`），
+所以本规则在**纯类型容器**（`IsTypeContainerUnit`）里一律不成立；
+括号类型的内容（`(A.B)[]`）另有一条判据（`IsTypeBracketPosition`）——
+括号的内容是在**括号关闭那一刻**重组的，那一刻它的父单元还是语句列表，
+`IsTypeContainerUnit` 看不出它是类型，只有「这个括号自己那一格是不是类型位」问得出来。
+
+`PropertyAccessReorganization` 写在 `PropertyAccess` 之前。
+
+# class PropertyAccessReorganization extends Reorganization
+
+## static readonly field Instance:PropertyAccessReorganization = new PropertyAccessReorganization()
+
+唯一的实例。
+
+## private method IsChainBase:(unit:Token | null)=>bool
+
+`unit` 能不能当一条成员访问链的**起点**。
+
+按类名认（不 import 那些类：`New` / `ArrayLiteral` 这些反过来（间接）依赖表达式层，
+直接 import 会绕出循环依赖；`constructor.name` 就是 XML 标签名，判它等价于判类型）：
+
+- `Identifier`：最普通的那一种。**要排掉语句关键字**（`return` / `throw` / … 在本规则跑的时候
+  还是 `Identifier`）与 `import`——`import.meta` 归 `ImportReorganization`，
+  折成链会把那个 `Import` 节点挤没；
+- `PropertyAccess`：折过一段的链继续往外折（`a.b(1).c` 的第二次）；
+- `Method` / `New` / `ArrayLiteral` / `String` / `ConstString` / `RegexToken`：
+  `f(1).x` / `new A().b` / `[1, 2].length` / `"ab".length` / `/x/.test` 都是合法写法；
+- `Bracket`：只认**收尾括号**是 `)` / `]` 的那种（`(a + b).c` / `a[0].b`）——
+  与 `binary-operator.xl.md` 的 `IsOperand` 同一条口径（`startBracket` 只会是 `(` / `{` / `[`，
+  拿它判会永远为假，那一处注释里记过这个坑）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Identifier) {
+  const text = unit.TempToString();
+  if (
+    text === "return" ||
+    text === "throw" ||
+    text === "case" ||
+    text === "default" ||
+    text === "else" ||
+    text === "do" ||
+    text === "break" ||
+    text === "continue" ||
+    text === "yield" ||
+    text === "import"
+  ) {
+    return false;
+  }
+  return true;
+}
+if (unit instanceof Method) {
+  return true;
+}
+if (unit instanceof Bracket) {
+  return unit.endBracket === ")" || unit.endBracket === "]";
+}
+const name = unit.constructor.name;
+return (
+  name === "PropertyAccess" ||
+  name === "New" ||
+  name === "ArrayLiteral" ||
+  name === "String" ||
+  name === "ConstString" ||
+  name === "RegexToken"
+);
+```
+
+## private method IsMemberUnit:(unit:Token | null)=>bool
+
+`.` 后面那个单元能不能当**成员名**。
+
+`Identifier` 是常态（`a.b`），`Method` 是「成员位置的一次调用」（`a.b(1)` 里那个 `Method` 盖住
+`b(1)`）。`Keyword` 也要认：`KeywordReorganization` 排在队列最后，
+**第二趟**扫到这里时成员名可能已经被升级成 `Keyword` 了（`a.new` / `obj.class` 这类写法
+在 TypeScript 里是合法的属性名）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Identifier || unit instanceof Method) {
+  return true;
+}
+return unit.constructor.name === "Keyword";
+```
+
+## private method ChainEndIndex:(units:Array<Token>, index:int)=>int
+
+从 `index`（链的起点）往后走，返回**链尾**那个单元的下标；走不动就给 `index` 自己。
+
+每一步都是「跨过软换行取 `.`，再跨过软换行取成员」：
+`a` 换行 `.b` 在 TypeScript 里是一次成员访问（`.` 不可能当一条语句的开头，
+所以这里跨换行是安全的）。
+
+**链尾是 `Method` 时继续走**：`CjcliHost.Fs().readFileSync(p)` 的中间那次调用之后再取成员，
+仍然属于同一条链——一次 `Process` 收完整条，后续那两条二元/一元规则才能看到完整的操作数。
+（第一版在 `Method` 处 `break`，结果 `a.b(1).c.d` 被折成两个平级的 `PropertyAccess`，
+投影层再也拼不回左结合的嵌套。）
+
+```ts
+let current = index;
+while (true) {
+  const dotIndex = SkipNextWrapSymbol(units, current);
+  const dot = Get(units, dotIndex);
+  if (!(dot instanceof SymbolToken) || !dot.Is(".")) {
+    return current;
+  }
+  const memberIndex = SkipNextWrapSymbol(units, dotIndex);
+  if (this.IsMemberUnit(Get(units, memberIndex)) === false) {
+    return current;
+  }
+  current = memberIndex;
+}
+```
+
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
+
+`index` 处是不是本次重组的起点。
+
+三道闸：起点能当链底（`IsChainBase`）、后面确实跟着 `.` + 成员名（`ChainEndIndex` 走出去了）、
+以及三处**让路**判据。让路判据都要在**走出链尾之后**才判（链尾之后那个单元才是「链的下文」）：
+
+1. **纯类型容器里不让路**——父亲是 `TypeDefine` / `GenericType` / `UnionType` …（`IsTypeContainerUnit`）
+   时一律不成立。类型位的点号名归投影层的 `QualifiedName`；
+2. **括号类型的内容让路**——父亲是括号、而这个括号自己那一格处在类型位
+   （`IsTypeBracketPosition`）时不让。括号的内容在关闭那一刻就重组完了，
+   那时它的祖父还不是 `ParenthesizedType`，第 1 条盖不住它（`(A.B)[]` 就是这个形状）；
+3. **链尾之后紧跟 `?.` 时让路**——那一支归 `NullConditionalOperatorReorganization`。
+
+`NewType` / `HeritageClause` / `ExpressionWithTypeArguments` / `Decorator` 里也让路：
+那几处的点号名各有自己的规则与投影路径（`new ns.Cls()` 的名字段、`extends A.B` 的
+`ExpressionWithTypeArguments`），折成 `PropertyAccess` 会把它们的内容换一种形状，
+与既有投影对不上。这一轮**不动它们**，先让值位的链全部成形。
+
+```ts
+const base = Get(units, index);
+if (this.IsChainBase(base) === false) {
+  return false;
+}
+const endIndex = this.ChainEndIndex(units, index);
+if (endIndex === index) {
+  return false;
+}
+const parent:Token | null = base!.Parent;
+if (parent !== null) {
+  if (IsTypeContainerUnit(parent)) {
+    return false;
+  }
+  if (parent instanceof Bracket && parent.Parent !== null && IsTypeBracketPosition(parent.Parent, parent)) {
+    return false;
+  }
+  const parentName = parent.constructor.name;
+  if (
+    parentName === "NewType" ||
+    parentName === "HeritageClause" ||
+    parentName === "ExpressionWithTypeArguments" ||
+    parentName === "Decorator"
+  ) {
+    return false;
+  }
+}
+const next = Get(units, SkipNextWrapSymbol(units, endIndex));
+if (next !== null && next.constructor.name === "NullConditionalOperator") {
+  return false;
+}
+return true;
+```
+
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
+
+把起点的链整段收成一个 `PropertyAccess`，**返回新的下标**。
+
+签入从链底那个单元起、签出到链尾那个单元——区间与 TypeScript 的
+`PropertyAccessExpression` / `CallExpression` 逐字符相同（投影层直接抄这个区间）。
+
+软换行**不进节点**：`a` 换行 `.b` 里那个换行是版面而不是内容，留在里面会让投影多出节点
+（与 `BinaryOperatorReorganization.Process` 同一条做法）。
+
+```ts
+const current = Get(units, index);
+if (current === null) {
+  throw new Error("PropertyAccessReorganization.Process: current is null");
+}
+const endIndex = this.ChainEndIndex(units, index);
+const last = Get(units, endIndex);
+if (last === null) {
+  throw new Error("PropertyAccessReorganization.Process: 链尾为空");
+}
+const result = new PropertyAccess(template);
+result.Parent = current.Parent;
+result.SignIn(current.SourceRange.Start!);
+result.SignOut(last.SourceRange.End!);
+for (let i = index; i <= endIndex; i++) {
+  const item = Get(units, i);
+  if (item !== null && !(item instanceof LineWrap)) {
+    result.AddAndCloseLast(item);
+  }
+}
+result.TryToClose();
+return ReplaceCountAt(units, index, endIndex - index + 1, result);
+```
+
+# class PropertyAccess extends IndependentToken
+
+成员访问链 `a.b` / `a.b(1)` / `f(1).x` 的容器单元。
+
+**类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
+
+## constructor:(template:Template)=>void
+
+转调基类构造器，并且给它装**只含关键字升级的那条队列**（`InitialKeywordReorganizationQueue`）。
+
+**为什么不能装通用队列**：这个单元的 `Data` 里第一个单元就是链底，
+`PropertyAccessReorganization.Previous` 对它照样成立——通用队列里的本规则会**自己折自己**，
+一路套到爆栈。
+
+**为什么还要装一条**（不能像 `regex-token.xl.md` 那样干脆不装）：成员名可能是一个**关键字**
+（`a.import` / `a.new`），它在链路外面时会由语句那一趟的 `KeywordReorganization` 升级成
+`Keyword`，进了链就再也轮不到——产物里它停在 `Identifier` 上，
+两条既有用例（`expr-member-named-import` / `expr-member-named-import-qualified`）
+断言的正是 `<Keyword>import</Keyword>`。
+
+```ts
+super(template);
+ParsePipeline.InitialKeywordReorganizationQueue(this);
+```
+
+## method Clone:()=>Token
+
+克隆自身。
+
+新建一个、`Sign(this)`、把子单元逐个克隆后整批 `AddRange`、最后 `TryToClose()`。
+
+```ts
+const result = new PropertyAccess(this.Template);
+result.Sign(this);
+result.AddRange(this.Data.map((item) => item.Clone()));
+result.TryToClose();
+return result;
+```
