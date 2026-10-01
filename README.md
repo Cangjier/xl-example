@@ -283,16 +283,16 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1011 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
-| `cases:diff` | 1394 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
+| `cases:run` | 1012 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:diff` | 1395 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1381 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1381 个文件、括号归属不符 **0**（11 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1381 个文件：对齐可信 1076 个、跳过 305 个，语句表 554 个、边界 2394 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
-| `cases:noise` | 1381 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1382 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1382 个文件、括号归属不符 **0**（11 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1382 个文件：对齐可信 1076 个、跳过 306 个，语句表 554 个、边界 2394 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1382 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1350 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`），删完「缺节点」仍是 0——这个 0 不是靠别名遮出来的（删别名时当场报出 13 处空元组缺口，已修）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
+| `cases:align` | 1351 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`），删完「缺节点」仍是 0——这个 0 不是靠别名遮出来的（删别名时当场报出 13 处空元组缺口，已修）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
@@ -1231,23 +1231,36 @@ Generator<T, TReturn, TNext> 的 `[]`       // lib.es2015.iterable.d.ts
 教训与第 66 轮那两条（`kindName()` 的枚举别名、`run.mjs` 的子串匹配）同类：
 **宽口径的登记本身就是尺子的盲区**；「缺节点 0」这句话只有在标签表收干净之后才算数。
 
-#### 四、`import defer`（TS 5.9 延迟导入）
+#### 四、`import defer * as ns`（TS 5.9 延迟导入）与 import-equals 的两个属性
 
 `import defer * as ns from "m"` 原来把 `defer` 读成**默认导入名**（`defaultImport="defer"`、
 `namespace=""`）。`defer` 是相位修饰词，不是名字——但判据必须带上**后面紧跟 `*`** 这半条：
 `import defer from "./defer.js"` 是**合法的默认导入**，名字就叫 `defer`，
 无条件跳过会把它读丢（回归用例 `mod-import-defer` 两条都钉住）。
 
+**import-equals 的两个属性**（`import fs = require("fs")` / `import type x = require("m")` /
+`export import A = B`）一并修了：
+
+- `From` 一直是**空串**——`Process` 找 `String` 时只看直接子单元，而走到那里时
+  `require("fs")` 已经被 `MethodReorganization` 收成一个 `Method`，那个 `String` 是它的子单元。
+  修法是新增 `FindStringUnit`，**递归**进子单元按文档顺序取第一个。
+- `defaultImport` 被填成**别名**（`fs`）——TS 那边 `ImportEqualsDeclaration` 里
+  根本没有「default import」这个位置。修法是 `ReadClause` 认「第二个单元是 `=`」就早退。
+
+两条都不是「解析不出来」（内容一直没丢），是**结构化属性读歪**：下游按
+「默认导入 + 路径」读，会把 `import fs = require("fs")` 读成 `import fs from "fs"`。
+
 #### 这一轮的账
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1010 条用例全部通过，台账在案缺口 **0** 条 |
+| `cases:run` | 1012 条用例全部通过，台账在案缺口 **0** 条 |
 | `cases:align` | **未登记标签占用 0 类、缺节点 0**（标签表已收干净，见上表） |
-| 其余六把尺子 + 五把探针 | 全绿（无损性 1380 文件 0 丢失、结构 0 不符、边界 0 横跨、噪声 0 空节点） |
+| 其余六把尺子 + 五把探针 | 全绿（无损性 1382 文件 0 丢失、结构 0 不符、边界 0 横跨、噪声 0 空节点） |
 
-回归用例 4 条：`type-paren-content-nodes`（11 种括号内容）、
-`expr-value-paren-not-type-array`（值位对照）、`type-empty-tuple`、`mod-import-defer`；
+回归用例 5 条：`type-paren-content-nodes`（11 种括号内容）、
+`expr-value-paren-not-type-array`（值位对照）、`type-empty-tuple`、`mod-import-defer`、
+`mod-import-equals-from`；
 另把 `type-new-nodes-adversarial` 的 `ParenthesizedType` 由 4 改成 5——
 `((A))` 的**内层**括号现在也成形（TS 那边就是两层 `ParenthesizedType`，
 原来的 4 是把「内层不收」这个 bug 写进了期望值）。

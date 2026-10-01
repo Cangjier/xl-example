@@ -71,6 +71,30 @@ if (next instanceof SymbolToken && next.Is(".")) {
 return true;
 ```
 
+## private method FindStringUnit:(items:Array<Token>)=>String | null
+
+在一批单元里找第一个字符串**单元**，找不到给 `null`。
+
+**必须往子单元里递归找**（第 67 轮修）：`import fs = require("fs")` 走到这里时，
+`require("fs")` 已经被 `MethodReorganization` 收成一个 `Method` 单元，
+那个 `String` 是它的**子单元**——只看 `items` 的直接成员会漏掉，
+`From` 于是留着空串（真实语料 `@types/node` 里这类 import-equals 很多）。
+
+按文档顺序**取第一个**（深度优先、先自己后子单元），与「哪一行离 `import` 更近」一致。
+
+```ts
+for (const item of items) {
+  if (item instanceof String) {
+    return item;
+  }
+  const nested = this.FindStringUnit(item.Data);
+  if (nested !== null) {
+    return nested;
+  }
+}
+return null;
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 从 `import` 开始往后收集单元，直到遇到 `;` 或软换行，收成一个 `Import`，**返回新的下标**。
@@ -78,7 +102,7 @@ return true;
 要点：
 
 - 遇到 `;`（`SymbolToken.Is(";")`）或 `LineWrap` 就停（那个终止符**不进** `items`）。
-- `from` 的取法有两路：先找内容为 `from` 的 `Identifier`，取它**之后**那段里的第一个 `String`；找不到 `from` 就退回到整段里的第一个 `String`。
+- `from` 的取法有两路：先找内容为 `from` 的 `Identifier`，取它**之后**那段里的第一个 `String`；找不到 `from` 就退回到整段里的第一个 `String`（走 `FindStringUnit`，**递归**进子单元——`import fs = require("fs")` 的那个 `String` 装在 `Method` 里）。
 - 从 `String` 的子单元里取第一个 `ConstString`，把它的文本当作 `From`。找不到匹配项就抛异常（不能用 `find` 的 `undefined` 蒙混过去）。
 - 最后**逐个把吃掉的单元从列表里摘掉**（`RemoveItem`），再把 `result` 放回原来 `import` 那一格，返回 `index`。
 
@@ -123,8 +147,8 @@ if (fromIndex !== -1) {
     result.From = constString.TempToString();
   }
 } else {
-  const firstString = items.find((item) => item instanceof String);
-  if (firstString instanceof String) {
+  const firstString = this.FindStringUnit(items);
+  if (firstString !== null) {
     const constString = firstString.Data.find((item) => item instanceof ConstString);
     if (constString === undefined) {
       throw new Error("找不到匹配的子单元");
@@ -231,6 +255,17 @@ if (
   start = start + 1;
 }
 if (start >= items.length) {
+  return;
+}
+if (
+  start + 1 < items.length &&
+  items[start + 1] instanceof SymbolToken &&
+  (items[start + 1] as SymbolToken).Is("=")
+) {
+  // **import-equals**（`import A = B.C` / `import A = require("m")` / `export import A = B`）：
+  // 等号左边是**本地别名**，不是默认导入——TS 那边 `ImportEqualsDeclaration` 里根本没有
+  // 「default import」这个位置。不挡这一条，`defaultImport` 会被填成那个别名，
+  // 而 `From`（require 那一支）又指向真实路径，下游按「默认导入 + 路径」读就会读歪（第 67 轮修）。
   return;
 }
 const head = items[start];
