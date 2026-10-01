@@ -5,6 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack, SearchFront, TakeRange } from "../../../core/extensions/list-extension.xl.md"
+import { IsTypeContainerUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
 import { JsonObjectReorganization } from "../json/object-literal.xl.md"
@@ -13,6 +14,8 @@ import { TernaryOperatorCondition } from "./ternary-operator-condition.xl.md"
 import { TernaryOperatorFalseStatement } from "./ternary-operator-false-statement.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { GenericType } from "../generic-type.xl.md"
+import { LineWrap } from "../line-wrap.xl.md"
+import { Statement } from "../statement.xl.md"
 import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.xl.md"
 ```
 
@@ -50,6 +53,19 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 `?` 从列表里消失，外层下一趟自然成立。配上 `Reorganize` 的重复扫，任意层数的右结合嵌套都成立
 （实测 `a ? b : c ? d : e ? f : g` 三层全对）。
 
+**往前找 `?` 时必须先撞上语句边界就停**（第 66 轮修，见 `QuestionIndexBefore`）。
+少了这一条实测会把**上一条语句的 `?`** 与**这一条语句的 `:`** 配成一对：
+
+    const a = x ? "t" : "f";
+    const b = y ? "t" : "f";
+    const c: number[] = [];
+
+`const c` 那个类型标注的 `:` 往前找到了 `y ?`（中间只隔着别的语句），于是第一条三元
+把后面两条语句整段吞进真值段、`number[]` 落进假值段——产物里只有一个 `<Statement>`、
+只有两个三元、`string[]` / `number[]` 再也长不出 `ArrayType`
+（自己的产物 `dist/ts/typescript/tokens/string/string.ts` 实测就是这样，
+`cases:align` 的「缺 `ArrayType`」把它抓出来）。
+
 **已知限制：左结合嵌套 `a ? b ? c : d : e` 还不能完全成形。**
 TypeScript 的解是 `a ? (b ? c : d) : e`，现状是 `a` / `?` / `b` 平铺，后三层成节点。
 试过加「条件段里还有 `?` 就不成」的对称守卫，结果**两层都被挡掉**、整条退化成平铺符号
@@ -62,12 +78,24 @@ if (current instanceof SymbolToken && current.Is(":")) {
   if (this.IsTypePosition(current)) {
     return false;
   }
-  const questionIndex = SearchFront(units, index, (item: Token) => item instanceof SymbolToken && item.Is("?"));
+  const questionIndex = this.QuestionIndexBefore(units, index);
   if (questionIndex === -1) {
     return false;
   }
   if (questionIndex === index - 1) {
     return false;
+  }
+  // **问号后面紧跟 `,` / `]` / `)` ⇒ 它是元组的可选标记**（第 66 轮第三批）：
+  // `[A?, …]` 的 `A?` 与 `[name: D?]` 的 `name:` 会凑出一个假的三元对
+  // （实测 `type T = [A?, ...B, C, name: D?, ...rest: E[]]` 整条被切成嵌套三元、
+  // 元组元素结构全毁）。真正的三元问号后面一定跟着一个**表达式**，
+  // 而不是元素分隔符 ✓。
+  const afterQuestion = Get(units, SkipNextWrapSymbol(units, questionIndex));
+  if (afterQuestion instanceof SymbolToken) {
+    const text = afterQuestion.TempToString();
+    if (text === "," || text === "]" || text === ")") {
+      return false;
+    }
   }
   const inFalse = SearchBack(units, questionIndex, (item: Token) => item instanceof SymbolToken && item.Is("?"));
   if (inFalse !== -1) {
@@ -78,14 +106,62 @@ if (current instanceof SymbolToken && current.Is(":")) {
 return false;
 ```
 
+## private method QuestionIndexBefore:(units:Array<Token>, index:int)=>int
+
+从 `index` 往左找那个 `?`，**遇到语句边界就放弃**（返回 `-1`）。
+
+两种边界：`;` 符号，以及 `Statement.IsLineBreakBoundary` 认下来的软换行
+（`const a = x ? 1 : 2` 换行 `const c: T = v` 这种**没有分号**的排版也挡得住）。
+
+为什么不直接沿用 `SearchFront`：那个函数一路扫到列表开头，会把**上一条语句**的 `?` 认下来。
+三元运算符的 `?` 与 `:` 属于**同一个表达式**，中间不可能隔着 `;`，也不可能隔着一个语句边界——
+这条判据与 ASI 用的是同一份结论（`typescript/tokens/statement.xl.md`），不再是各写一份近似。
+
+`Previous` 与 `Process` 共用它：两边的「哪个 `?`」必须一致，各写一份就会出现
+「判定说有、收集说找不到」的错位（`conditional-type.xl.md` 的 `FindExtendsIndex` 记过同一个教训）。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    return -1;
+  }
+  if (item instanceof LineWrap) {
+    if (Statement.IsLineBreakBoundary(units, i)) {
+      return -1;
+    }
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    if (item.Is("?")) {
+      return i;
+    }
+    if (item.Is(";")) {
+      return -1;
+    }
+    continue;
+  }
+}
+return -1;
+```
+
 ## private method IsTypePosition:(current:Token)=>bool
 
 这个 `:` 是不是处在**类型位**（那么它的 `? :` 是条件类型而不是三元表达式）。
 
-两处判据，都只用**此刻手上有的东西**：
+三处判据，都只用**此刻手上有的东西**：
 
+- **父单元是类型容器**（`../text-common-util.xl.md` 的 `IsTypeContainerUnit`：
+  `TypeDefine` / `TypeAssign` / `TupleType` / `MappedType` / `TypeParameter` / `InferType` …）——
+  类型里根本没有三元表达式 ✓；
 - 父单元是 `GenericType`——泛型实参段里的 `? :`（`Wrap<T extends U ? A : B>`）；
 - 父单元是**括号**、且括号里含 `extends`——`(T extends U ? A : B)` 这种**括号里的条件类型**。
+
+**第一条是第 66 轮第三批补的**：元组类型里的**可选元素**写法 `[A?, …]` 与**具名元素**的冒号
+（`[name: D?]`）会各自贡献一个 `?` 与一个 `:`，三元规则于是把它们配成一对——
+实测 `type T = [A?, ...B, C, name: D?, ...rest: E[]]` 整条被切成一串嵌套的
+`<TernaryOperator>`（元组本身的元素结构全毁）。那两种写法都在**类型容器**里，
+父单元判据一次就能挡住（元组是 `TupleType`，在容器白名单里）。
 
 第二条为什么看「括号里有没有 `extends`」而不是看「括号的父单元是不是类型宿主」：
 括号**有自己的队列**，条件类型是在**括号关闭那一刻**成形的，那时它的父单元还是**语句**
@@ -110,6 +186,9 @@ return false;
 const parent = current.Parent;
 if (parent === null) {
   return false;
+}
+if (IsTypeContainerUnit(parent)) {
+  return true;
 }
 if (parent instanceof GenericType) {
   return true;
@@ -175,7 +254,7 @@ return false;
 ```ts
 const current = Get(units, index)!;
 const elseIndex = index;
-const questionIndex = SearchFront(units, index, (item: Token) => item instanceof SymbolToken && item.Is("?"));
+const questionIndex = this.QuestionIndexBefore(units, index);
 const startIndex = SearchFront(units, questionIndex, TernaryOperatorReorganization.IsTernaryOperatorStart);
 const parentIsJsonObject = JsonObjectReorganization.Instance.IsObject(current.Parent);
 const splitSymbol = parentIsJsonObject ? "," : ";";

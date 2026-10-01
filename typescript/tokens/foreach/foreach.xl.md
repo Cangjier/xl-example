@@ -141,6 +141,11 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
 } else {
   endIndex = Statement.SearchStatementEnd(units, currentIndex - 1);
   if (endIndex === -1) {
+    // **体一直写到输入末尾**（第 63 轮补）：没有 `;`、文件又正好在这里结束时，
+    // `SearchStatementEnd` 给不出结尾——那是语句写完了，不是语法错误。
+    endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
+  }
+  if (endIndex === -1) {
     throw SyntaxException.FromMessage(conditionBracket.SourceRange, "`foreach/for(...)` 后需要跟语句，如` foreach/for(...){...}` 或 `foreach/for(...)...;` ");
   }
   forBody.AddRange(units.slice(currentIndex, endIndex + 1));

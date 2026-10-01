@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, WordText } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "./class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -230,6 +230,16 @@ for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
   result.AddAndCloseLast(item);
 }
 let i = SkipNextWrapSymbol(units, nameIndex);
+// **匿名类表达式的 `extends` 不能跳过**（第 66 轮第七批）：`const C = class extends B {}` 里
+// `class` 后面直接就是 `extends`，`nameIndex` 指的就是那个词、`i` 从它**之后**开始——
+// 于是那个词从来没进过产物（实测 `<Class name="" extends="B">` 里只有 `Identifier B`）。
+// `heritage-clause.xl.md` 锚在子句词上，起点没了就收不出 `<HeritageClause>`
+// （实测 7 处：`cls-expression` / `decl-class-expression-anonymous-extends` /
+// `stmt-asi-class-expression-then-statement` 三类用例）。名字字段不受影响（它本来就没名字 ✓）。
+const nameUnit = Get(units, nameIndex);
+if (nameUnit !== null && WordText(nameUnit) === "extends") {
+  i = nameIndex;
+}
 while (i < bodyIndex) {
   result.AddAndCloseLast(Get(units, i)!);
   i = SkipNextWrapSymbol(units, i);

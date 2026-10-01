@@ -135,6 +135,14 @@ return next >= "0" && next <= "9";
 
 `host` 这个单元里正在打开一个 `{` 或 `[`（`openChar`），它在**类型位**还是**值位**上？返回 `"type"` / `"value"` / `""`。
 
+**`(` 不在判定范围内**（第 57 轮试过、退回来了）：把 `(` 也纳进来之后，
+`for (; i < n; i++)` 这类**循环头**的括号被判成了类型位（前文扫到了更远处的 `:` / `readonly`
+一类的类型位信号），`i++` / `-1` 这些真正的一元运算当场少了 17 个
+（`cases:dashboard` 报「一元/更新 真缺 17」）。根因是这里「往上爬 4 跳」的扫描对**括号**来说
+前文太远、信号太杂；`{` / `[` 之所以能用，是因为它们的前文紧邻（`:` / `=` / `[`）。
+所以括号类型里的 `typeof`（`(WindowProxy & typeof globalThis)`，全语料 1 处）
+仍按一元运算收，登记在 `tests/parse/align.mjs` 的口径里。
+
 **为什么要它（方案 A）**：原来这件事是**事后**做的 —— `TypeLiteralReorganization` / `BinaryOperatorReorganization` /
 `SpreadReorganization` 各自在自己的位次上「往上找祖先」或「往前扫同层单元」来猜。
 可是**规则被询问的时刻，树还不是最终的树**：实测同一个 `[` 在早期询问时 `Parent` 还指着 `Root`
@@ -154,7 +162,10 @@ return next >= "0" && next <= "9";
 
 判定按「最近的一个信号」下结论：
 
-- 前一个是 `:` / `?:` → 类型位（**三元表达式的 `:` 除外**：它前面隔着 `?`）；
+- 前一个是 `:` / `?:` → 类型位，**但函数 / 方法的体是例外**：冒号前面是形参表（已关闭的 `(`）、
+  且冒号与花括号之间已经有了返回类型文本时，这个 `{` 是**体**（值位）——
+  `export function f(): string { … }` 的 `Context` 判错会把函数体里返回的数组字面量
+  当成元组类型（第 66 轮实测 36 处）。**三元表达式的 `:` 除外**：它前面隔着 `?`；
 - 前一个是 `?` → 值位；`|` / `&` → 类型位；
 - 前一个是 `=` → 记下「跨过赋值」继续往前：再遇到 `type` 是类型位，遇到 `let` / `const` / `var` 是值位；
 - `import` / `export` 后面的 `type`、且它后面**没有别的单元**（开括号紧跟其后）→ 值位（导入 / 导出列表）；
@@ -172,6 +183,7 @@ if (openChar !== "{" && openChar !== "[") {
   return "";
 }
 let crossedAssignment = false;
+let sawUnit = false;
 let node:Token | null = host;
 let units:Array<Token> = node.Data;
 let index:number = units.length;
@@ -187,6 +199,7 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
       if (item.Closed) {
         return "value";
       }
+      sawUnit = true;
       i = i - 1;
       continue;
     }
@@ -195,7 +208,22 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
       if (text === ":" || text === "?:") {
         const beforeColon = GetSkipPrevious(units, i, (x) => x instanceof LineWrap);
         const isTernary = beforeColon instanceof SymbolToken && beforeColon.Is("?");
-        return isTernary ? "value" : "type";
+        if (isTernary) {
+          return "value";
+        }
+        // **函数 / 方法的「体」不是类型字面量**（第 66 轮补，只在 `{` 上问）：
+        // `export function f(): string {` 里那个 `{` 往前扫会先经过返回类型 `string`、
+        // 再撞上冒号——冒号前面是**形参表**（一个已关闭的 `(` 括号），
+        // 说明这个花括号是**函数体**（值位），不是返回类型的类型字面量。
+        // 三条缺一不可：扫描中**已经过实义单元**（`string` 就是返回类型文本）、
+        // 冒号前面是已关闭的 `(`、当前开括号是 `{`。
+        // 少了这一条，函数体的 `Context` 是 `"type"`，里面返回的数组字面量就被当成
+        // 元组类型、字符串被包成 `LiteralType`（`cases:align` 实测 36 处）；
+        // 而 `const f = (a): { b: 1 } => y` 的 `{` 紧跟在冒号后面（sawUnit 为假）⇒ 类型 ✓。
+        if (openChar === "{" && sawUnit && beforeColon instanceof Bracket && beforeColon.Closed && beforeColon.startBracket === "(") {
+          return "value";
+        }
+        return "type";
       }
       if (text === "?") {
         return "value";
@@ -211,6 +239,7 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
       return "value";
     }
     if (item instanceof Identifier) {
+      sawUnit = true;
       const text = item.TempToString();
       if (text === "type") {
         const beforeType = GetSkipPrevious(units, i, (x) => x instanceof LineWrap);
@@ -248,6 +277,16 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
     }
     return "value";
   }
+  // **爬出花括号之前先停**（第 66 轮补）：宿主是一个 `{` 括号时，答案就是**它自己处在哪**
+  // （它的 `Context` 在它开括号那一刻就算好了）。再往外爬是**另一层**了：
+  // `export function CjcliUsage(): string { return [ "a" ] }` 里那个 `[` 往前扫会爬到
+  // 函数头，撞上**返回类型标注**的 `:` ⇒ 误判成类型位，于是返回值的数组字面量被当成
+  // 元组类型、里面的字符串被包成 `LiteralType`（`cases:align` 实测 36 处）。
+  // 花括号里的东西只由花括号自己的位置决定：值位的块 / 函数体 / 对象字面量 ⇒ 值位；
+  // 类型位的类型字面量 / 映射类型 ⇒ 类型位（`type M = { [K in T]: X }` 里那个 `[` 正是靠这一条）。
+  if (node instanceof Bracket && node.startBracket === "{") {
+    return node.Context === "type" ? "type" : "value";
+  }
   const parent:Token | null = node.Parent;
   if (parent === null) {
     return "value";
@@ -259,6 +298,7 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
   node = parent;
   units = parent.Data;
   index = at;
+  sawUnit = false;
 }
 return "value";
 ```
@@ -365,3 +405,516 @@ return (
 
 加上 `Statement` 之后两条都对：块保持 `Bracket` ✓，
 `let o = { a: 1 }` 里那个 `{` 的前一个实义单元是 `=`（符号、不是 `;`）→ 仍是对象 ✓。
+
+# method IsTypeModifier:(item:Token | null)=>bool
+
+这个标识符是不是**只可能出现在类型位**的修饰词。
+
+值位没有对应写法（`new` 在值位是构造调用，但那是 `new X(...)` 的形态，
+这里的用法是 `new (…) => R` 那种类型位构造签名）。`readonly` / `keyof` 严格说不是保留字，
+所以「见到就算类型位」只在**它自己前面也是类型位**时才成立——见 `IsTypeBracketPosition`。
+
+**`Keyword` 也要认**（第 66 轮补）：`readonly` / `keyof` / `typeof` / `infer` / `unique` / `asserts` / `new` / `abstract`
+全都在 `parse-pipeline.xl.md` 的关键字表里，所以同一个词在不同时刻可能是 `Identifier`、也可能已经被
+`KeywordReorganization` 升级成 `Keyword`。只认 `Identifier` 的那一版实测漏判：
+`type A = readonly (B | undefined)[]` 里的括号类型问到时 `readonly` 已经是 `Keyword`，
+判定当场给否，括号里的联合于是不成形（`IsTypeBracketPosition` 与 `DecideBracketContext` 两条路都受影响）。
+
+两种单元的文本取法不同（`Identifier.TempToString()` / `Keyword.Value`），所以这里分开取。
+
+```ts
+let text = "";
+if (item instanceof Identifier) {
+  text = item.TempToString();
+} else if (item !== null && item.constructor.name === "Keyword") {
+  text = (item as any).Value;
+} else {
+  return false;
+}
+return (
+  text === "readonly" ||
+  text === "keyof" ||
+  text === "infer" ||
+  text === "unique" ||
+  text === "asserts" ||
+  text === "typeof" ||
+  text === "new" ||
+  text === "abstract"
+);
+```
+
+# method IsTypeAliasAssignment:(units:Array<Token>, from:number)=>bool
+
+从 `from` 往左走，判断这个 `=` 是**类型别名的等号**（左边有 `type`）还是**变量声明的等号**
+（左边有 `let` / `var` / `const`）。
+
+软换行与已经收好的 `GenericType` 透明跳过；遇到别的单元就判否（保守）。
+用来回答「`=` 右边是类型还是值」——`(A | B)[]` / `A<B>` 这些写法在两种地方都出现。
+
+```ts
+for (let i = from; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    return false;
+  }
+  if (item instanceof LineWrap || item.constructor.name === "GenericType") {
+    continue;
+  }
+  if (item instanceof Identifier) {
+    const name = item.TempToString();
+    if (name === "type") {
+      return true;
+    }
+    if (name === "let" || name === "var" || name === "const") {
+      return false;
+    }
+    continue;
+  }
+  return false;
+}
+return false;
+```
+
+# method IsTypeBracketPosition:(owner:Token, unit:Token)=>bool
+
+`unit`（括号，或模板字面量那种**内容先重组、父单元还没挂上**的单元）**在它自己那一层**
+是不是类型位：看它前面那个实义单元。
+
+- `:` / `?:` / `|` / `&` / `=>` / `<` / `,` / `(` ⇒ 类型位（类型标注、联合 / 交叉的一项、
+  函数类型的返回段、类型实参、参数表）；
+- 类型位修饰词（`readonly` / `keyof` / …）⇒ 还要**再看它前面一格**：
+  `readonly (A | B)[]` 是类型位，而值位可以有个叫 `readonly` 的函数（`readonly (a | b)` 是一次调用），
+  所以修饰词自己前面必须是 `:` / `?:` / `<` / `,` / `|` / `&` / `(`，或者 `=` 而更左边是 `type`；
+- `=` ⇒ 再往左找 `type`（类型别名右值）还是 `let` / `var` / `const`（值）；
+- 别的（名字、方法、列表开头、另一个括号）⇒ 值位。
+
+**为什么需要它**：括号的内容是在**括号关闭那一刻**重组的，那时外层的
+`Statement` / `TypeDefine` 还没成形，「往上找类型容器」这条路是断的——只能看括号前文
+（实测插桩：`let x: (A | B) & C` 里那个 `|` 被问到时 `parent=Bracket grand=Root`）。
+两处调用方：`type-union.xl.md` 的 `IsTypeContext`（括号类型里的联合 / 交叉）
+与 `generic-type.xl.md` 的 `IsTypePosition`（括号类型里的 `A<B>`——
+`(TransformerFactory<SourceFile> | CustomTransformerFactory)[]` 里的 `<` 不认的话，
+整个类型退化成散单元，那个联合也跟着没了）。
+
+```ts
+const at = owner.Data.indexOf(unit);
+if (at <= 0) {
+  return false;
+}
+const before = Get(owner.Data, SkipPreviousWrapSymbol(owner.Data, at));
+if (IsTypeModifier(before)) {
+  const modifierIndex = SkipPreviousWrapSymbol(owner.Data, at);
+  const beforeModifierIndex = SkipPreviousWrapSymbol(owner.Data, modifierIndex);
+  const beforeModifier = Get(owner.Data, beforeModifierIndex);
+  if (beforeModifier instanceof SymbolToken) {
+    const modifierText = beforeModifier.TempToString();
+    if (
+      modifierText === ":" ||
+      modifierText === "?:" ||
+      modifierText === "<" ||
+      modifierText === "," ||
+      modifierText === "|" ||
+      modifierText === "&" ||
+      modifierText === "("
+    ) {
+      return true;
+    }
+    if (modifierText === "=") {
+      return IsTypeAliasAssignment(owner.Data, beforeModifierIndex - 1);
+    }
+  }
+  return false;
+}
+if (before !== null && (before instanceof Identifier || before.constructor.name === "Keyword")) {
+  // **引出类型的词后面一定是类型**（第 66 轮补）：`as` / `satisfies` / `is` / `extends` 右边
+  // 在 TypeScript 里只能是类型，所以「紧跟在它后面的括号 / 模板字面量」处在类型位。
+  // 少了这一条，映射类型的键重映射子句 `` type M = { [K in T as `get${K & string}`]: 1 } ``
+  // 里的插值段被判成值位，`K & string` 不成形（实测 `@types/node/util.d.ts` 与两条用例）。
+  //
+  // **只加这四个词**：`readonly` / `keyof` / `typeof` / `infer` / `unique` 这些修饰词
+  // 由上面的 `IsTypeModifier` 那一支管（它们还要看**自己前面**是不是类型位——
+  // 值位可以有个叫 `readonly` 的函数），直接放行会把 `readonly (a | b)` 这种调用判成类型。
+  const word = WordText(before);
+  if (word === "as" || word === "satisfies" || word === "is" || word === "extends") {
+    return true;
+  }
+  return false;
+}
+if (!(before instanceof SymbolToken)) {
+  return false;
+}
+const text = before.TempToString();
+if (
+  text === ":" ||
+  text === "?:" ||
+  text === "|" ||
+  text === "&" ||
+  text === "=>" ||
+  text === "<" ||
+  text === "," ||
+  text === "("
+) {
+  return true;
+}
+if (text !== "=") {
+  return false;
+}
+return IsTypeAliasAssignment(owner.Data, at - 2);
+```
+
+**修饰词那一支曾经差一格**（第 66 轮修）：`IsTypeAliasAssignment(units, from)` 的约定是
+「从 `from` 往左找」，所以传进去的必须是 **`=` 左边那一格**；原来写的是 `modifierIndex - 1`，
+而那正是 `=` 自己的下标——`IsTypeAliasAssignment` 扫到的第一个单元就是 `=`（符号），
+当场 `return false`，于是 `type A = readonly (B | undefined)[]` 里那个括号永远判不出类型位。
+现在先取 `beforeModifierIndex`（`=` 自己的下标）再传 `beforeModifierIndex - 1`，
+与文件末尾那一支（`at - 2`）是同一个约定。
+
+# method WordText:(item:Token)=>string
+
+取一个**词**单元的文本：`Identifier` 走 `TempToString()`，`Keyword` 走它自己的 `Value`。
+
+两种单元的文本入口不一样（`Keyword` 是 `IndependentToken` 的子类、没有 `TempToString`），
+而「同一个词在不同时刻可能是这两种之一」——`KeywordReorganization` 什么时候跑过它，
+取决于它在哪张队列里。所以凡是按文本认词的地方都要走这一个入口。
+
+```ts
+if (item instanceof Identifier) {
+  return item.TempToString();
+}
+return (item as any).Value ?? "";
+```
+
+# method IsTypeIntroducerWord:(item:Token | null)=>bool
+
+**引出类型**的词：它们后面跟的是一个**类型**，而它们自己**不是**被操作的类型。
+
+- `extends`：条件类型的约束（`T extends [infer A, infer B] ? …`）、泛型约束；
+- `is`：类型谓词（`x is [A, B]`）；
+- `as` / `satisfies`：类型运算（`x as [A, B]`）；
+- `in`：映射类型的标记（`{ [K in [A, B]]: X }`）；
+- 各种声明头（`type` / `interface` / `class` … 后面那个 `[` 是成员名或计算属性名）。
+
+少了这一条实测会凭空多出节点：`T extends [infer A, infer B] ? [B, A] : never` 里
+`extends` 被当成被操作的类型，产物是 `<IndexedAccessType><Keyword>extends</Keyword>…`——
+`cases:align` 的「产物有标签、源码没构造」当场多出一类（第 66 轮）。
+
+`readonly` / `keyof` / `typeof` / `infer` / `unique` / `asserts` / `new` / `abstract` 不在这个名单里，
+它们由 `IsTypeModifier` 挡；两处判据合起来才是「不能当操作数的词」。
+
+```ts
+if (item === null) {
+  return false;
+}
+if (item instanceof Identifier === false && item.constructor.name !== "Keyword") {
+  return false;
+}
+const text = WordText(item);
+return (
+  text === "extends" ||
+  text === "is" ||
+  text === "as" ||
+  text === "satisfies" ||
+  text === "in" ||
+  text === "of" ||
+  text === "type" ||
+  text === "declare" ||
+  text === "export" ||
+  text === "import" ||
+  text === "default" ||
+  text === "interface" ||
+  text === "class" ||
+  text === "enum" ||
+  text === "namespace" ||
+  text === "module" ||
+  text === "const" ||
+  text === "let" ||
+  text === "var" ||
+  text === "function" ||
+  text === "return" ||
+  text === "case" ||
+  text === "implements" ||
+  text === "instanceof"
+);
+```
+
+# method IsTypeOperandUnit:(item:Token | null)=>bool
+
+能不能当**类型运算的操作数**（数组化的元素、下标访问的被操作者、类型运算符后面的类型）。
+
+符号一律不算（`=` / `:` / `|` / `&` / `(` … 都划边界），类型修饰词与引出类型的词也不算。
+软换行不算内容、也不划边界。
+
+**三处调用方共用这一个答案**：`type-bracket.xl.md`（方括号的三种类型构造）与
+`type-operator.xl.md`（`keyof` / `typeof` / `readonly` / `unique`）——
+各写一份近似就会出现「一边认、另一边不认」的错位（`type-union.xl.md` 里那条
+「`Previous` 与 `Process` 共用一份 `FindExtendsIndex`」记过同一个教训）。
+
+```ts
+if (item === null) {
+  return false;
+}
+if (item instanceof LineWrap) {
+  return false;
+}
+if (item instanceof SymbolToken) {
+  return false;
+}
+if (IsTypeModifier(item) || IsTypeIntroducerWord(item)) {
+  return false;
+}
+return true;
+```
+
+# method IsMappedKeyBracket:(unit:Token)=>bool
+
+`unit` 是不是**映射类型的键括号**（`{ [K in T]: X }` 里那个 `[K in T]`）。
+
+判据是「里面有一个 `in` 标记」——与 `type-literal/type-literal.xl.md` 的 `IsMappedTypeBrace`
+同一族（映射类型的键**一定**写成 `[K in T]`）。三种形态都要认：`in` 还是 `Identifier`、
+已经升成 `Keyword`、已经被折成 `BinaryOperator(op="in")`（`[K in keyof T]` 就是最后一种）。
+
+**为什么需要它**（第 66 轮）：映射类型的键括号会被 `JsonArrayReorganization` 收成 `ArrayLiteral`，
+于是**键里嵌套的类型**（`[K in keyof any[]]` 里的 `any[]`、`[L in keyof T["options"]]` 里的
+`T["options"]`）的父亲就是这个 `ArrayLiteral`。要让那些嵌套类型成形，就得让 `ArrayLiteral`
+被认成类型容器——可值位的数组字面量绝不能认（`new Foo(["**"])` 的 `"**"` 会被包成字面量类型）。
+
+一开始用 `ArrayLiteral.Context === "type"` 区分，**实测不可靠**：`DecideBracketContext` 的
+「往左看」在值位也会被误答成类型位（字段初始化式 `public static readonly X: T = new Foo([…])`
+里，`[` 往前扫会跨过 `=` 撞上标注的 `:` —— 实测 `cases:align` 27 处误包）。
+改成看**内容里有没有 `in`**：与「这个括号是不是映射类型的键」是同一件事，时序无关 ✓。
+
+```ts
+const isBracket = unit instanceof Bracket && unit.startBracket === "[";
+if (isBracket === false && unit.constructor.name !== "ArrayLiteral") {
+  return false;
+}
+for (const item of unit.Data) {
+  const name = item.constructor.name;
+  if (item instanceof Identifier && item.Is("in")) {
+    return true;
+  }
+  if (name === "Keyword" && (item as any).Value === "in") {
+    return true;
+  }
+  if (name === "BinaryOperator" && (item as any).op === "in") {
+    return true;
+  }
+  for (const sub of item.Data) {
+    if (sub.constructor.name === "Keyword" && (sub as any).Value === "in") {
+      return true;
+    }
+    if (sub.constructor.name === "BinaryOperator" && (sub as any).op === "in") {
+      return true;
+    }
+  }
+}
+return false;
+```
+
+# method IsTypeContainerUnit:(parent:Token | null)=>bool
+
+父单元是不是一个**只会装类型文本**的容器。
+
+类型位的 `[` 与值位的 `[` 形状完全一样（`T[]` 与 `a[i]`、`[A, B]` 与 `[1, 2]`），
+`keyof T` 与值位的 `typeof x` 也一样，区别只在**容器**。所以类型层那几条规则
+（方括号、类型运算符）唯一的上下文判据就是这一条——它是**时序无关**的
+（问的是「我的父亲是哪一类节点」，不是「祖先里有没有类型节点」，
+后者在规则被询问时树还不是最终的树，`DecideBracketContext` 那一节记过三次失败的尝试）。
+
+名单里刻意**没有** `Statement` / `Root` / `ObjectLiteral` / `BinaryOperator` / `UnaryOperator` /
+`ClassBody` / `Field` / `Export` / `Foreach`：这些位置上的括号与 `typeof` 都是**值位**的
+（`{ a: b[0] }` 的 `b[0]`、复合赋值展开出来的克隆体 `a[b]`、`let v = typeof x`）。
+把值表达式判成类型会把它们当场拆坏——差分账上表现为整片 `真多`。
+
+`TypeDefine` 是覆盖面最广的那个：每个类型标注、形参类型、字段类型、返回类型都会先被
+`TypeDefineReorganization` 收成一个 `TypeDefine`（它挂的是类型队列，两条规则都在队列里）。
+
+用**类名**判定而非 `instanceof`：`text-common-util` 属于底层，import 那些 token 会绕出环
+（与 `IsStatementList` 同一个理由）。
+
+**`TypeParameter` 是第 66 轮补的**：映射类型的键收成 `TypeParameter` 之后
+（见 `tokens/type-parameter.xl.md`），键里的**约束**也在它里面——
+`{ [K in keyof any[]]: 1 }` 的 `keyof` 与 `any[]`、`{ [K in keyof T]: "a" }` 的字面量
+都靠这一条才成形。少了它，那几类节点整片消失（实测 `TypeOperator` +22、`ArrayType` +3、
+`IndexedAccessType` +3、`LiteralType` +6——`cases:align` 当场报出来）。
+
+**`ArrayLiteral` 是有条件的一个**：它必须是**映射类型的键括号**（`IsMappedKeyBracket`，
+内容里有 `in`）时，里面的内容才是类型文本：
+
+    { [K in keyof any[]]?: boolean }            // 外层 [ ] 是映射类型的键，内核是 any[]
+
+外层那个 `[` 先被 `JsonArrayReorganization` 收成 `ArrayLiteral`，于是内核 `any[]` 的父亲是它。
+不加这一条，`keyof any[]` 里的数组类型永远不成形（真实语料 `lib.es2015.symbol.wellknown.d.ts` 2 处）。
+**值位的 `ArrayLiteral` 不算**：`const a = [b[0]]` / `new Foo(["**"])` 里那些内容是值，
+放进来会把下标访问折成 `IndexedAccessType`、把字符串包成 `LiteralType`
+（第 66 轮实测 27 处）。
+
+```ts
+if (parent === null) {
+  return false;
+}
+const name = parent.constructor.name;
+if (name === "ArrayLiteral") {
+  if (IsMappedKeyBracket(parent)) {
+    return true;
+  }
+  return parent.Parent !== null && parent.Parent.constructor.name === "MappedType";
+}
+if (name === "InterpolationString") {
+  // **模板字面量类型**：插值段的内容是类型文本，判据见 IsTemplateTypeContent
+  // （它问的是外层那个 `String` 在它自己那一格前面是什么）。
+  return IsTemplateTypeContent(parent);
+}
+return (
+  name === "TypeDefine" ||
+  name === "TypeAssign" ||
+  name === "ReturnType" ||
+  name === "GenericType" ||
+  name === "UnionType" ||
+  name === "IntersectionType" ||
+  name === "FunctionType" ||
+  name === "ConditionalType" ||
+  name === "As" ||
+  name === "Satisfies" ||
+  name === "MappedType" ||
+  name === "TypeLiteralBody" ||
+  name === "InterfaceBody" ||
+  name === "ArrayType" ||
+  name === "TupleType" ||
+  name === "IndexedAccessType" ||
+  name === "TypeOperator" ||
+  name === "TypeParameter" ||
+  name === "TypeQuery"
+);
+```
+
+# method IsTypeMemberStart:(unit:Token)=>bool
+
+`unit` 是不是**成员列表里一个成员的开头**（而不是某个类型的中间）。
+
+成员位与类型位同形：索引签名 `[key: string]: T`、映射类型 `[K in T]: X`、
+类里的计算属性名 `[Symbol.iterator]()`、成员修饰词 `readonly a: T`——
+它们的开头都长着类型位的样子。判据是「左边只剩修饰词 / 成员分隔符」：
+
+- `{ a: [A, B] }` 里 `[` 左边是 `:` ⇒ **不是**成员开头（是属性类型 ✓）；
+- `{ readonly [K in T]: X }` 里 `[` 左边只有修饰词 ⇒ 是成员开头（不动它 ✓）；
+- `{ a: 1; [k: string]: T }` 里 `[` 左边先遇到 `;` ⇒ 是成员开头 ✓；
+- `interface I { readonly a: T }` 里的 `readonly` 是成员开头（是修饰词，不是类型运算符 ✓）。
+
+成员列表按类名认（`{` 括号 / `InterfaceBody` / `TypeLiteralBody` / `ClassBody` / `MappedType` /
+`ObjectLiteral`）；别的父亲一律不是成员列表。`-readonly` / `+readonly` / `?` 这些映射类型修饰
+已经成了单元时，按 `UnaryOperator` 或符号跳过。
+
+```ts
+const parent = unit.Parent;
+if (parent === null) {
+  return false;
+}
+const name = parent.constructor.name;
+const braceParent = parent instanceof Bracket && parent.startBracket === "{";
+const memberList =
+  braceParent ||
+  name === "InterfaceBody" ||
+  name === "TypeLiteralBody" ||
+  name === "ClassBody" ||
+  name === "MappedType" ||
+  name === "ObjectLiteral";
+if (memberList === false) {
+  return false;
+}
+const at = parent.Data.indexOf(unit);
+if (at < 0) {
+  return false;
+}
+for (let i = at - 1; i >= 0; i--) {
+  const item = Get(parent.Data, i);
+  if (item === null || item instanceof LineWrap) {
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === ";" || text === ",") {
+      return true;
+    }
+    if (text === "+" || text === "-" || text === "?") {
+      continue;
+    }
+    return false;
+  }
+  if (IsTypeModifier(item) || item.constructor.name === "UnaryOperator") {
+    continue;
+  }
+  return false;
+}
+return true;
+```
+
+# method IsEmptyContentUnit:(unit:Token)=>bool
+
+被包装的那个单元里**没有实义内容**（只有软换行，或者本来就是空的）。
+
+`T[]` 的 `[]` 与 `[A, B]` 的区别就在这一条：
+**空的**是数组类型（`Dirent<X>[]`），**非空的**是元组类型或下标访问。
+
+```ts
+for (const item of unit.Data) {
+  if (!(item instanceof LineWrap)) {
+    return false;
+  }
+}
+return true;
+```
+
+# method IsTemplateTypeContent:(parent:Token | null)=>bool
+
+`parent` 是一个**模板字面量插值段**（`InterpolationString`）时，它里面的内容是不是**类型文本**。
+
+**为什么需要它**：模板字面量类型（`` type X = `a${"x" | "y"}b` ``）的插值段内容
+是在**字符串收尾之前**重组的（见 `string/interpolation-string.xl.md`），
+那一刻它往上找不到类型容器——可它的**外面那层 `String` 已经在父列表里了**，
+所以「这个 `String` 在它自己那一格前面是什么」问得出来（与括号、与
+`type-union.xl.md` 的 `IsTypeParen` 是同一个问法）：
+
+- `` type X = `a${"x" | "y"}b` ``：`String` 前面是 `=`，再往左是 `type` ⇒ **类型位** ✓；
+- `` const v = `${a | b}` ``：再往左是 `const` ⇒ **值位** ✓（值位的 `${a | b}` 不许变成联合，
+  这是第 62 轮明确记下的取舍）。
+
+少了这一条，模板字面量类型里的联合 / 交叉永远不成形（`cases:align` 一直挂着
+`UnionType` 1 处 / `IntersectionType` 2 处）。
+
+```ts
+if (parent === null || parent.constructor.name !== "InterpolationString") {
+  return false;
+}
+const stringUnit = parent.Parent;
+if (stringUnit === null || stringUnit.Parent === null) {
+  return false;
+}
+return IsTypeBracketPosition(stringUnit.Parent, stringUnit);
+```
+
+# method IsOwnContentRange:(units:Array<Token>, startIndex:int, endIndex:int)=>bool
+
+`[startIndex, endIndex]` 这一段是不是**父节点内容的全部分**（两端只剩软换行）。
+
+递归守卫：方括号与类型运算符那两条规则都挂在**类型队列**上，而队列里有它们自己——
+新节点造出来之后，它们的那一趟会在同一段上**再看到同一个方括号 / 同一个 `keyof`**。
+不挡就是无限递归（`type X = T[]` 实测会一路套到爆栈）。
+
+判据与 `type-union.xl.md` 里那条同一个思路：**这一段覆盖了整个父亲就不许再包**。
+`[[A], B]` 里的内层元组只覆盖父亲的一格、`keyof keyof T` 里的内层只覆盖两格，
+都不属于这一条，照常成形 ✓。
+
+```ts
+for (let i = 0; i < startIndex; i++) {
+  if (!(Get(units, i) instanceof LineWrap)) {
+    return false;
+  }
+}
+for (let i = endIndex + 1; i < units.length; i++) {
+  if (!(Get(units, i) instanceof LineWrap)) {
+    return false;
+  }
+}
+return true;
+```

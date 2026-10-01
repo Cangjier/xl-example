@@ -4,6 +4,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceRangeAt, SearchFront } from "../../core/extensions/list-extension.xl.md"
+import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
@@ -63,12 +64,21 @@ return template.SymbolTemplate.IsCompoundAssignmentSymbol(current.TempToString()
 
 `current` 能不能当作**赋值表达式的起点**——`Process` 用它向前找「这段赋值从哪儿开始」。
 
-被 `Process` 当作判定器传给 `SearchFront`。两条判定：
+被 `Process` 当作判定器传给 `SearchFront`。三条判定：
 
 1. 是 `SymbolToken`：文本算赋值号（`IsAssignmentSymbol`），或者是 `,` / `;` / `:` / `?` 之一。
 2. 是内容为 `return` 的 `Identifier`。
+3. 是**已经成形的语句级单元**，或者一个 `}` 收尾的括号。
 
-两条判定拆成两个早退——`SymbolToken` 分支里直接 `return false`，不会落到 `Identifier` 分支，语义相同。
+**第 3 条是必须的**（实测）：`x => x` 换行 `a += 1` 里，`=>` 往左的实义单元是那个已经收好的 `Lamda`；
+不把它当起点，`SearchFront` 会一路跨过换行、把上一行整段当成「等号左边」克隆一遍——
+产物里那个 `<Lamda>` 于是出现两次，而且两条语句被并进**同一个** `Statement`
+（`cases:boundaries` 当场报「被 `<Statement>` 横跨」）。
+块语句同理：`{ A }a += 1` 里 `}` 就是上一段的结尾。
+
+**为什么用类名而不是 `instanceof`**：`statement.xl.md` 已经在 `IsStatementUnit` 里
+用类名认 `Let`（避免 `let.xl.md` → `statement.xl.md` 的循环依赖），这里沿用同一条约定——
+本文件只需要「是不是一个已经收好的单元」这一个信息，不需要认识那些类。
 
 ```ts
 if (current instanceof SymbolToken) {
@@ -83,8 +93,34 @@ if (current instanceof SymbolToken) {
 if (current instanceof Identifier && current.Is("return")) {
   return true;
 }
-return false;
+const name = current.constructor.name;
+return (
+  name === "Lamda" ||
+  name === "Statement" ||
+  name === "Import" ||
+  name === "Class" ||
+  name === "Function" ||
+  name === "Enum" ||
+  name === "Interface" ||
+  name === "Switch" ||
+  name === "Try" ||
+  name === "IfSet" ||
+  name === "For" ||
+  name === "Foreach" ||
+  name === "While" ||
+  name === "DoWhile" ||
+  name === "Label" ||
+  (current instanceof Bracket && current.endBracket === "}")
+);
 ```
+
+**`endBracket` 不是 `startBracket`**（第 63 轮改）：这一条要认的是「**`}` 收尾**的括号」，
+写成 `startBracket === "}"` 的话一个都匹配不上——块语句 `{ A }` 的起点是 `{`。
+实测后果很重：`{ A }a += 1` 里 `SearchFront` 一路穿到列表头、返回 `-1`，
+于是 `front = units.slice(0, index)` 把**整段**（块 + 目标）都算成「等号左边」克隆一遍，
+产物是 `<Bracket>{ A }</Bracket><Identifier>a</Identifier><SymbolToken>=</SymbolToken>`
+**`<Bracket>{ A }</Bracket>`**`<BinaryOperator op="+">a + 1</BinaryOperator>`——
+块语句凭空多出一份 ✗。
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 

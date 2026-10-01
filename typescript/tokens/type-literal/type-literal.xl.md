@@ -8,12 +8,14 @@ import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
+import { Keyword } from "../keyword.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { ObjectLiteral } from "../json/object-literal.xl.md"
 import { LineAnnotation } from "../line-annotation.xl.md"
 import { AreaAnnotation } from "../area-annotation.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { TypeLiteralBody } from "./type-literal-body.xl.md"
+import { MappedType } from "./mapped-type.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
 ```
 
@@ -124,7 +126,8 @@ return false;
 两条入口：
 
 1. 父单元是 `GenericType`——泛型实参段里的 `{ }` 一定是类型（`Array<{ a: 1 }>`）；
-2. 否则从 `{` 往前找最近的边界：
+2. 括号里的**第一个** `{ }`——本层看不到左边，递归问括号自己那一格（见代码里的注释）；
+3. 否则从 `{` 往前找最近的边界：
    - `?` → **条件类型真分支**的起点：往后看有没有 `extends` 标志（`HasExtendsMarker`），
      有就说明这是 `T extends U ? { … } : …` 里的那个类型字面量
      （`util.d.ts` 的 `type PreciseTokenForOptions<…> = O["type"] extends "string" ? { … }` 就是它，
@@ -148,11 +151,38 @@ return false;
      只看前一条会把 `export type CliOptions = { … }` 也挡掉 ✗（测试跑出来 `cjcli.ts`
      的 5 个 `Field` 全丢、5 条 type-only 用例报 `缺 TypeLiteral`）——那种写法里 `type` 后面是
      **别名**，花括号在 `=` 之后，属于正常的类型字面量 ✓；
-   - `|` / `&` → 类型位（联合 / 交叉类型的一项）；   - `=` → 记下「跨过赋值」继续往前：再遇到 `type` 就是类型位（`type X = { … }`），
+   - `=>` → **箭头**：先记下「正在跨箭头」，等把它的形参表也跨过去之后，再按形参表**左边**是什么下结论
+     （见下一条）；
+   - `|` / `&` → 类型位（联合 / 交叉类型的一项）；
+   - `=` → 记下「跨过赋值」继续往前：再遇到 `type` 就是类型位（`type X = { … }`），
      遇到 `let` / `var` / `const` 则是值位（`const x = { … }`）；
    - 类型位关键字（`as` / `satisfies` / `extends` / `readonly` / `keyof` / `typeof` / `infer` / `new` …）→ 类型位；
    - 括号 → 值位（实参、下标、语句边界都不保证期望类型）；
    - 一路找到头没有边界 → 值位（保守：宁可保持 `ObjectLiteral` 的既有行为）。
+
+**`=>` 后面的 `{` 不能一律当类型位**（实测缺口）：`=>` 有两种含义——**函数类型**的返回类型
+（`let f: (a: A) => { b: string }`，这里的 `{` 是类型）与**箭头函数**的体
+（`const f = (a) => { return a }`，这里的 `{` 是**块**）。
+原来一见 `=>` 就返回 true，于是**箭头函数的块体被收成类型字面量**：
+`const f = (a) => { return a }` 的产物是 `<LamdaBody><Statement><TypeLiteral><TypeLiteralBody>
+<Statement><Keyword>return</Keyword><Field name="a" /></Statement>…`——`return a` 这条语句
+退化成一个 `Field`，`g(a)` 这样的调用还退化成 `MethodDeclaration`。
+八把尺子一把都看不见（节点计数、名字、括号归属、语句边界全都还对，只是**语义换了**），
+是「产物标签 ↔ TS AST 构造」的对齐探针抓到的。
+
+判据不能停在 `=>` 上，要继续跨过**形参表**（它与 `=>` 之间还可能夹着返回类型标注 `: T`），
+按形参表左边那一个实义单元决定：
+
+- 左边是 `:` → **函数类型**（`let f: (a: A) => { … }`）⇒ 类型位；
+- 左边是 `=`（或再往左的 `type X =` 之类）→ 走本方法既有的「跨过赋值」那一套：
+  落到 `type` 就是类型别名，落到 `let` / `var` / `const` 就是值位（箭头函数）；
+- 左边是别的（`(` / `,` / `return` / 列表开头…）→ 值位（箭头函数）。
+
+跨箭头期间遇到的那个 `:` 是**箭头函数自己的返回类型标注**（`const f = (a): T => { … }`），
+一律跳过、继续往左（`(a: A): T => B` 不是合法的函数类型写法，所以这一条不会误伤类型位）。
+`const f = (a): { x: number } => ({ x: 1 })` 里 `=>` 左边那个 `{ x: number }` 于是被当成形参表跨过去，
+再往左撞上 `:` 就判成类型位——判对了（它是**返回类型**），而 `=>` 右边那个表达式体
+由上面那条「括号紧跟 `=>` ⇒ 值位」挡住 ✓。
 
 判定与 `../generic-type.xl.md` 的 `IsTypePosition` 同源（那边判的是 `<` 处在类型位还是表达式位）；
 这里独立实现一份，因为两边看的是不同字符、也允许不同的保守程度。
@@ -173,7 +203,33 @@ if (current.Parent instanceof GenericType) {
 if (current.Parent instanceof ObjectLiteral) {
   return false;
 }
+// **括号里的第一个 `{`**：本层回扫什么也看不到（左边的单元在**括号外面**），
+// 于是 `type T = ({ a: 1 } | { b: 2 })` 里第一个 `{` 被判成值位、第二个靠 `|` 判对——
+// 同一个联合类型里出现 `ObjectLiteral` + `TypeLiteral` 混排（实测：
+// `typescript.d.ts` 的 `ImportSpecifier & ({ readonly isTypeOnly: true } | { … })`、
+// `util.d.ts` 的 `{ [LongOption in keyof T["options"]]: … }`）。
+// 括号自己那一格问的是**外层列表**（括号是外公列表里的一项），所以递归问一次它：
+// `type T = ({ … })` 回扫 → `=` → `T` → `type` ⇒ 类型位 ✓；
+// `f({ … })` 回扫 → `Method` ⇒ 值位 ✓；`({ a, b }) => x` 回扫 → 列表开头 ⇒ 值位 ✓；
+// `(a) => ({ x: 1 })` 的括号紧跟 `=>`（箭头函数的体）⇒ 值位 ✓。
+if (index === 0 && current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
+  const owner = current.Parent.Parent;
+  if (owner !== null) {
+    const at = owner.Data.indexOf(current.Parent);
+    if (at > 0) {
+      const beforeBracket = Get(owner.Data, SkipPreviousWrapSymbol(owner.Data, at));
+      // 括号紧跟 `=>` ⇒ 它是**箭头函数的体**（值位），不要拿外层那一格去判类型。
+      // 少了这一条，`const f = (a): { x: number } => ({ x: 1 })` 的表达式体会被收成 `TypeLiteral`
+      // （用例 `expr-arrow-return-object-type` 钉住：体必须仍是 `ObjectLiteral`）。
+      if (!(beforeBracket instanceof SymbolToken && beforeBracket.Is("=>"))) {
+        return this.IsTypePosition(owner.Data, at);
+      }
+    }
+  }
+  return false;
+}
 let crossedAssignment = false;
+let crossingArrow = false;
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
   if (item instanceof LineWrap || item instanceof GenericType) {
@@ -185,6 +241,9 @@ for (let i = index - 1; i >= 0; i--) {
   if (item instanceof SymbolToken) {
     const text = item.TempToString();
     if (text === ":" || text === "?:") {
+      if (crossingArrow) {
+        continue;
+      }
       if (crossedAssignment) {
         return false;
       }
@@ -197,7 +256,8 @@ for (let i = index - 1; i >= 0; i--) {
       return true;
     }
     if (text === "=>") {
-      return true;
+      crossingArrow = true;
+      continue;
     }
     if (text === "=" && crossedAssignment === false) {
       crossedAssignment = true;
@@ -206,6 +266,10 @@ for (let i = index - 1; i >= 0; i--) {
     return false;
   }
   if (item instanceof Bracket) {
+    if (crossingArrow) {
+      crossingArrow = false;
+      continue;
+    }
     return false;
   }
   if (item instanceof Identifier) {
@@ -271,10 +335,23 @@ return this.IsTypePosition(units, index);
 括号的内容整体搬给 `TypeLiteralBody`，括号本身不再留在树里；搬完要 `TryToClose()` 一次，
 让体内那一轮成员重组跑起来（这一步与 `Interface.Process` 处理接口体完全一致）。
 
+**内容是映射类型时改收 `MappedType`**（见 `./mapped-type.xl.md`）：判定 `IsMappedTypeBrace`——
+第一个实义单元是 `[` 括号、且那个括号里有顶层的 `in`。区别只在产出的节点与「内容放哪」：
+映射类型只有一个成员，直接装在节点身上（不再套一层 `TypeLiteralBody`）。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Bracket)) {
   throw new Error("类型字面量不满足格式要求：{ ... }");
+}
+if (this.IsMappedTypeBrace(current)) {
+  const mapped = new MappedType(template);
+  mapped.Parent = current.Parent;
+  mapped.SignIn(current.SourceRange.Start!);
+  mapped.SignOut(current.SourceRange.End!);
+  current.MoveDataTo(mapped);
+  mapped.TryToClose();
+  return ReplaceCountAt(units, index, 1, mapped);
 }
 const result = new TypeLiteral(template);
 result.Parent = current.Parent;
@@ -286,6 +363,72 @@ body.Sign(current);
 body.TryToClose();
 result.TryToClose();
 return ReplaceCountAt(units, index, 1, result);
+```
+
+## private method IsMappedTypeBrace:(bracket:Bracket)=>bool
+
+这对花括号的内容是不是**映射类型**的成员（`{ [K in T]: X }`）。
+
+判据：第一个实义单元是 `[` 括号，**而且那个括号里有 `in` 标记**（`HasInMarker`）。
+`{ [key: string]: number }`（索引签名）没有 `in`，仍然走 `TypeLiteral` ✓。
+
+括号**前面**的 `readonly` / `+` / `-` 修饰词要跳过：`{ readonly [K in T]: X }`、
+`{ -readonly [K in T]-?: X }` 都是映射类型（少了这一跳，带修饰词的映射类型整片认不出来）。
+
+```ts
+for (const item of bracket.Data) {
+  if (item instanceof LineWrap) {
+    continue;
+  }
+  if (item instanceof Identifier && item.Is("readonly")) {
+    // `{ readonly [K in T]: X }`：`readonly` 在括号**前面**
+    continue;
+  }
+  if (item instanceof SymbolToken && (item.Is("+") || item.Is("-"))) {
+    // `{ -readonly [K in T]: X }` / `{ +readonly … }` 的修饰前缀
+    continue;
+  }
+  if (!(item instanceof Bracket) || item.startBracket !== "[") {
+    return false;
+  }
+  return this.HasInMarker(item);
+}
+return false;
+```
+
+## private method HasInMarker:(unit:Token)=>bool
+
+`[K in T]` 里那个 `in` 在不在这个单元（及其容器子单元）里。
+
+**三种形态都要认**（实测逐一看过）：
+
+- `Identifier`：`[K in T]` 刚收上来、关键词还没升级时；
+- `Keyword`：括号内容已经跑过一趟、`in` 升成关键词之后
+  （`{ [K in keyof U]: U[K] }` 就是这一形态——`in` 后面跟着 `keyof`，没被折成二元运算）；
+- `BinaryOperator`：`in` **被折成了二元运算**时（`{ [K in T]: X }` 的 `[K in T]` 是这一形态）。
+  它用**类名**判定，本文件 import 它只为看一眼子单元，不值得绕出更深的环
+  （与 `statement.xl.md` 里 `Let` 那条同一个理由）。
+
+**还要往容器里递归看一眼**：`type-union.xl.md` 的联合规则已经把 `in` 排除出操作数，
+但历史产物里它可能还被更外层的节点包着（`UnionType` / `BinaryOperator` / `ArrayLiteral`），
+所以子单元不是叶子时继续往里找——映射类型的判定不能因为包了一层就失效。
+
+```ts
+for (const item of unit.Data) {
+  if (item instanceof LineWrap) {
+    continue;
+  }
+  if (item instanceof Identifier && item.Is("in")) {
+    return true;
+  }
+  if (item instanceof Keyword && item.Value === "in") {
+    return true;
+  }
+  if (item.Data.length > 0 && this.HasInMarker(item)) {
+    return true;
+  }
+}
+return false;
 ```
 
 # class TypeLiteral extends IndependentToken

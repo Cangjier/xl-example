@@ -10,13 +10,13 @@ import { SymbolToken } from "../symbol-token.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-Lambda 的**一个形参**：`LamdaParameters` 的每个子单元就是一个 `LamdaParameter`，它自己的子单元是「名字 + 可选的 `?` + 可选的类型标注」那一串。
+Lambda 的**一个形参**：`LamdaParameters` 的每个子单元就是一个 `Parameter`，它自己的子单元是「名字 + 可选的 `?` + 可选的类型标注」那一串。
 
-# class LamdaParameter extends IndependentToken
+# class Parameter extends IndependentToken
 
 Lambda 的一个形参。
 
-它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaParameter>子单元</LamdaParameter>`。
+它**没有**覆写 `ToXmlString`，XML 由基类产出：`<Parameter>子单元</Parameter>`。
 
 ## constructor:(Template:Template)=>void
 
@@ -54,7 +54,7 @@ return second instanceof SymbolToken && second.TempToString() === "?";
 顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
-const result = new LamdaParameter(this.Template);
+const result = new Parameter(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

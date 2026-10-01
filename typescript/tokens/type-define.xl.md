@@ -53,6 +53,13 @@ if (SearchFront(units, index, (item) => item instanceof SymbolToken && item.Is("
 if (current.Parent !== null && JsonObjectReorganization.Instance.IsObject(current.Parent)) {
   return false;
 }
+// **解构绑定里的 `:` 是重命名，不是类型标注**（第 66 轮第八批）：`const { b: c } = x` 的
+// `b: c` 在 TS 那边是 `BindingElement` 上的 `propertyName` + `name` 两个字段。
+// 少了这一条，产物会把它读成 `<BindingElement><TypeDefine>b: c</TypeDefine></BindingElement>`
+// （实测那批 `LiteralType in TypeDefine` 的误包就是从这儿冒出来的）。
+if (current.Parent !== null && current.Parent.constructor.name === "BindingElement") {
+  return false;
+}
 return true;
 ```
 

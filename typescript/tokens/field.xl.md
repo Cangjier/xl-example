@@ -9,9 +9,12 @@ import { DeclarationModifiers, DeclarationStart, IsMemberBoundary, IsWordUnit, T
 import { ClassBody } from "./class/class-body.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { IndexSignature } from "./index-signature.xl.md"
+import { Parameter } from "./lamda/lamda-parameter.xl.md"
 import { InterfaceBody } from "./interface/interface-body.xl.md"
 import { TypeLiteralBody } from "./type-literal/type-literal-body.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { Statement } from "./statement.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { String } from "./string/string.xl.md"
@@ -106,12 +109,20 @@ return text;
 `level:` 换行 `number` 是「类型标注折了行」，`a = b +` 换行 `c` 是「表达式没写完」，
 这时继续往后扫。不然 `:` 会成为一个悬空的成员（`Field` 自己的队列里 `TypeDefine` 收不到任何内容）。
 
-**但那条「前一个是符号就续行」太粗**：函数类型的成员以 `>` 收尾
+**那条「前一个是符号就续行」太粗**：函数类型的成员以 `>` 收尾
 （`a: () => Promise<B>` 换行 `b: () => Promise<C>`），`>` 是符号、于是被当成「没写完」，
 第二行乃至整张成员表都被吞进第一个字段 ✗。
 所以先问 `./declaration-common.xl.md` 的 `IsMemberBoundary`——
 它同时看「下一行像不像新成员」与「前一个是不是续行符号」（`>` 不在续行符号之列），
-判出边界就停；判不出再退回原来那条粗判据。
+判出边界就停。
+
+**判不出时不要退回「前一个是不是符号」那条粗判据**（第 61 轮改）：
+前导 `|` 的多行联合里，换行前一个是**标识符**
+（`importModuleDynamically?:` 换行 `| A` 换行 `| B` 换行 `| undefined`），粗判据当场判成
+「这一行写完了」，成员在 `| A` 之后被切断 ✗——剩下那半截落进 `<Statement>`，
+`| B | undefined` 还被折成一个**值位**的 `BinaryOperator op="|"`（实测 `@types/node/vm.d.ts` 三处）。
+改成问 `Statement.IsLineBreakBoundary`（就是那条 ASI 判据）：换行后面是 `|` / `&` 这类
+**要左操作数**的运算符时它判「不是边界」✓；函数类型那个形状它照样判「是边界」✓，行为不变。
 
 ```ts
 let i = index + 1;
@@ -124,9 +135,7 @@ while (i < units.length) {
     if (IsMemberBoundary(units, i)) {
       return i - 1;
     }
-    const previous = Get(units, i - 1);
-    const continues = previous instanceof SymbolToken && !previous.Is(";") && !previous.Is(",");
-    if (continues === false) {
+    if (Statement.IsLineBreakBoundary(units, i)) {
       return i - 1;
     }
   }
@@ -320,6 +329,53 @@ return false;
 `private compilerHost?;` / `private pendingOpenFileProjectUpdates?;` / `noGetErrOnBackgroundUpdate?: boolean`
 一族，共 6 处字段差额全来自它）。
 
+## private method IsIndexSignatureName:(unit:Token | null)=>bool
+
+这个名字括号是不是**索引签名**的形状（`[k: string]`）。
+
+判据两条：内容是 `[` 括号；里面**头两个实义单元**是「标识符 + `:`」。
+
+**为什么这样够**（实测三种同形写法）：
+
+- 索引签名 `[k: string]: T` ⇒ 头两个是 `k` 与 `:` ✓；
+- 计算成员名 `[Symbol.iterator]: T` / `["m"]: T` ⇒ 头两个是 `Symbol` 与 `.`（或字符串）✗；
+- 计算成员名里的条件表达式 `[cond ? a : b]: T` ⇒ 头两个是 `cond` 与 `?` ✗
+  （只看「里面有没有 `:`」会把它误判成索引签名）。
+
+**两种来路都要认**：`FieldReorganization` 排在 `JsonArrayReorganization` **前面**，
+第一趟看到的是 `[` 括号；第二趟再看时它可能已经被收成 `ArrayLiteral` 了
+（实测索引签名走的正是第二趟）。只看 `Bracket` 时判据给否、整条仍被收成字段。
+
+```ts
+const isBracket = unit instanceof Bracket && unit.startBracket === "[";
+if (isBracket === false && (unit === null || unit.constructor.name !== "ArrayLiteral")) {
+  return false;
+}
+if (unit === null) {
+  return false;
+}
+let cursor = 0;
+while (cursor < unit.Data.length && Get(unit.Data, cursor) instanceof LineWrap) {
+  cursor = cursor + 1;
+}
+const first = Get(unit.Data, cursor);
+if (!(first instanceof Identifier)) {
+  return false;
+}
+cursor = cursor + 1;
+while (cursor < unit.Data.length && Get(unit.Data, cursor) instanceof LineWrap) {
+  cursor = cursor + 1;
+}
+const second = Get(unit.Data, cursor);
+if (second instanceof SymbolToken && second.Is(":")) {
+  return true;
+}
+// **冒号可能已经被收进 `TypeDefine`**（与元组具名元素同一情形：类型定义规则在第二趟
+// 已经跑过，`k: string` 变成了「`k` + `TypeDefine(string)`」）。只认裸冒号时
+// 索引签名仍然被收成字段（实测）。
+return second !== null && second.constructor.name === "TypeDefine";
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把整条字段声明收成一个 `Field`，**返回新的下标**。
@@ -347,21 +403,65 @@ if (isPrivateName) {
 }
 const memberIndex = this.MemberEnd(units, nameIndex);
 const endIndex = memberIndex;
-const result = new Field(template);
-result.Parent = current.Parent;
 const name = Get(units, nameIndex)!;
-result.fieldName = isPrivateName ? "#" + this.NameText(name) : this.NameText(name);
-result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
+// **索引签名分流**（第 66 轮第五批）：`[k: string]: T` 在 TS 那边是 `IndexSignature`
+// （内容是 `Parameter` 与值类型），不是字段。形状与字段在成员表里一样，所以只能在这里分流。
+const isIndexSignature = this.IsIndexSignatureName(name);
+const result = isIndexSignature ? new IndexSignature(template) : new Field(template);
+result.Parent = current.Parent;
+if (result instanceof Field) {
+  result.fieldName = isPrivateName ? "#" + this.NameText(name) : this.NameText(name);
+  result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
+}
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
-for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
-  result.AddAndCloseLast(item);
+if (result instanceof IndexSignature) {
+  // 索引签名没有属性位：修饰词（`readonly`）与装饰器都作为**子单元**进来，
+  // 由它自己的队列把关键词升级成 `Keyword` ✓。
+  for (let i = startIndex; i < index; i++) {
+    const item = Get(units, i);
+    if (item !== null && !(item instanceof LineWrap)) {
+      result.AddAndCloseLast(item);
+    }
+  }
+} else {
+  for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
+    result.AddAndCloseLast(item);
+  }
+  if (isPrivateName) {
+    result.AddAndCloseLast(current);
+  }
 }
-if (isPrivateName) {
-  result.AddAndCloseLast(current);
-}
-if (name instanceof Bracket) {
-  result.AddAndCloseLast(name);
+if (name instanceof Bracket || isIndexSignature) {
+  if (isIndexSignature) {
+    // **方括号消费掉**（与 `ArrayType` / `TupleType` 同一口径）：TS 那边
+    // `IndexSignature` 里也没有 `[` `]` 节点，只有参数与类型 ✓。
+    // 名字第二趟可能已经是 `ArrayLiteral`（见 `IsIndexSignatureName`），
+    // 两种都按「把内容搬进来」处理 ✓。
+    //
+    // **参数那一截再收成一个 `Parameter`**（第 66 轮第六批）：TS 那边
+    // `IndexSignature` 的第一个子节点就是 `Parameter`（`[key: string]: T` 里的 `key: string`）。
+    // 此刻括号内容还是裸单元（`key` / `:` / `string`），整段就是那一个形参 ✓——
+    // 由一个 `Parameter` 收下，类型标注在它自己的队列里凑成 `TypeDefine` ✓。
+    const parameter = new Parameter(template);
+    parameter.SignIn(name.SourceRange.Start!);
+    const contents: Token[] = [];
+    for (const item of name.Data) {
+      if (!(item instanceof LineWrap)) {
+        contents.push(item);
+      }
+    }
+    if (contents.length > 0) {
+      parameter.SignOut(contents[contents.length - 1].SourceRange.End!);
+    }
+    result.AddAndCloseLast(parameter);
+    for (const item of contents) {
+      parameter.AddAndCloseLast(item);
+    }
+    parameter.TryToClose();
+  } else {
+    result.AddAndCloseLast(name);
+  }
 }
 for (let i = nameIndex + 1; i <= memberIndex; i++) {
   const item = Get(units, i);

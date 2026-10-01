@@ -3,20 +3,20 @@
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { LamdaParameter } from "./lamda-parameter.xl.md"
+import { Parameter } from "./lamda-parameter.xl.md"
 ```
 
 # namespace cangjie
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-Lambda 的**形参列表**：`Lamda` 的第一个子单元，装着若干个 `LamdaParameter`。
+Lambda 的**形参列表**：`Lamda` 的第一个子单元，装着若干个 `Parameter`。
 
 # class LamdaParameters extends IndependentToken
 
 Lambda 的形参列表。
 
-`IEnumerable<LamdaParameter>` 不在规范内，所以**不写进 `implements`**，只在这里标注；它带来的两个 `GetEnumerator` 成员本身照常声明，见下。
+`IEnumerable<Parameter>` 不在规范内，所以**不写进 `implements`**，只在这里标注；它带来的两个 `GetEnumerator` 成员本身照常声明，见下。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<LamdaParameters>各个形参的 XML</LamdaParameters>`。
 
@@ -42,17 +42,17 @@ result.TryToClose();
 return result;
 ```
 
-## method GetEnumerator:()=>Generator<LamdaParameter>
+## method GetEnumerator:()=>Generator<Parameter>
 
 按顺序吐出每一个形参。
 
-体内对 `Data` 逐项 `yield`；写法是 `item as LamdaParameter`（逐项向下转换）。按语法 §8，体内出现 `yield` 即生成器成员。
+体内对 `Data` 逐项 `yield`；写法是 `item as Parameter`（逐项向下转换）。按语法 §8，体内出现 `yield` 即生成器成员。
 
-返回类型取中立等价物，写成 `Generator<LamdaParameter>`。
+返回类型取中立等价物，写成 `Generator<Parameter>`。
 
 ```ts
 for (const item of this.Data) {
-  yield item as LamdaParameter;
+  yield item as Parameter;
 }
 ```
 

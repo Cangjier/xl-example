@@ -5,11 +5,13 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsMappedKeyBracket } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { Satisfies } from "./satisfies.xl.md"
 import { Statement } from "./statement.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
+import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -18,13 +20,17 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 类型转换 `as`：把 `expr as Type` 整段收成一个 `As` 单元。触发点是内容恰好为 `as` 的 `Identifier`。
 
+**`satisfies` 走同一条规则**（见 `satisfies.xl.md`）：两者在 TypeScript 里同优先级、同结合性，
+触发、收集与终止完全一样，只有产出的标签不同——规则按触发词分派 `As` / `Satisfies`。
+
 `AsReorganization` 写在 `As` 之前：它的 `Instance` 静态字段在类定义时立即求值，
 而 `Root` 的重组队列会直接引用 `AsReorganization.Instance`。
 
 # class AsReorganization extends Reorganization
 
-它比其他重组类简单：`Previous` 只认「内容为 `as` 的 `Identifier`」；`Process` 从 `as` 之后一路收到**语句边界或 `,`**，
-把收到的单元装进新的 `As`，再把原来那一段整体换掉。
+它比其他重组类简单：`Previous` 只认「内容为 `as` / `satisfies` 的 `Identifier`」；
+`Process` 从那个词之后一路收到**语句边界 / `,` / 下一个 `as` / `satisfies`**，
+把收到的单元装进新的 `As`（或 `Satisfies`），再把原来那一段整体换掉。
 
 ## static readonly field Instance:AsReorganization = new AsReorganization()
 
@@ -32,13 +38,23 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是一个 `as` 关键字块。
+`index` 处是不是一个 `as` / `satisfies` 关键字块。
 
 `Get` 越界给 `null`，`instanceof` 对 `null` 不成立，所以写成两段判定。
 
 ```ts
 const current = Get(units, index);
-return current instanceof Identifier && current.TempToString() === "as";
+if (!(current instanceof Identifier) || (current.TempToString() !== "as" && current.TempToString() !== "satisfies")) {
+  return false;
+}
+// **映射类型的 `as` 子句不是 `AsExpression`**（第 66 轮）：`{ [K in T as X]: Y }` 里那个
+// `as X` 在 TS 那边是 `MappedType` 自己的 `nameType`（一个**类型**），不是断言表达式。
+// 键括号的内容里已经有 `in` 标记（`IsMappedKeyBracket`），判据与映射类型共用同一个答案。
+// 少了这一条，`as X` 会把左边的 `TypeParameter` 一起吞进 `As`（实测 4 处）。
+if (current.Parent !== null && IsMappedKeyBracket(current.Parent)) {
+  return false;
+}
+return true;
 ```
 
 ## private method IsTypeContinuationAhead:(units:Array<Token>, index:int)=>bool
@@ -66,8 +82,16 @@ return (
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
-把 `as` 及其后的类型表达式收成一个 `As`，**返回新的下标**（不靠入参回写）。要点：
+把 `as` / `satisfies` 及其后的类型表达式收成一个 `As` / `Satisfies`，**返回新的下标**（不靠入参回写）。要点：
 
+- **出发词决定节点类型**：`current` 是不是 `satisfies` 先算成 `isSatisfies`，最后按它分派
+  `Satisfies` / `As`。**不要在造节点那一句现算**：`Get` 的静态类型是 `Token | null`，
+  而 `TempToString` 只长在 `Identifier` 上，`instanceof` 收窄必须和判定写在同一句里才能过 `tsc`。
+- **遇到后面那个同类词就收工**：`a as B satisfies C` 是 `(a as B) satisfies C`、
+  `a satisfies B as C` 是 `(a satisfies B) as C`（两者同级、左结合）。
+  规则是**按词分派**的，`as` 与 `satisfies` 都触发它，所以先跑的那个必须在自己这一段
+  遇到另一个词时停下，否则后一个词连同它的类型会被前一个节点整段吞掉
+  （实测旧行为：`a as const satisfies B` 得到 `<As>const satisfies B</As>`——两个运算一个节点）。
 - **`as` 后面必须有一个类型**，所以还没收到任何实义单元时**不许收工**：
   `const v = x as` 换行 `A;` 是常见排版，可 `Statement.IsStatementEnd` 会把那个换行
   判成语句边界（它看的是换行**两侧**的单元，而 `as` 是 `Identifier`、不算「语句内部」），
@@ -96,6 +120,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("current 为空");
 }
+const isSatisfies = current instanceof Identifier && current.Is("satisfies");
 const items: Token[] = [];
 let endIndex = -1;
 let sawExtends = false;
@@ -121,6 +146,10 @@ for (let i = index + 1; i < units.length; i++) {
       break;
     }
   }
+  if (item instanceof Identifier && (item.Is("as") || item.Is("satisfies"))) {
+    endIndex = i - 1;
+    break;
+  }
   if (item instanceof Identifier && item.Is("extends")) {
     sawExtends = true;
   }
@@ -132,7 +161,7 @@ if (endIndex === -1) {
 if (items.length === 0) {
   return index;
 }
-const result = new As(template);
+const result = isSatisfies ? new Satisfies(template) : new As(template);
 result.Parent = current.Parent;
 result.AddRange(items);
 result.SignIn(current.SourceRange.Start!);
@@ -151,10 +180,17 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器。
+转调基类构造器，并把**类型队列**挂上来。
+
+`as` 右边的整段是**类型文本**（`x as A | B`、`x as { a: number }`、`x as T extends U ? X : Y`），
+收进来的那一段要再跑一趟才会成节点：联合 / 交叉、条件类型、`keyof` 之类的关键词升级都在那一趟里。
+少了这条，多行写法（`x as` 换行 `| A` 换行 `| B`）的联合根本不成形
+（实测 `expr-as-leading-pipe-union` / `expr-as-union-multiline` 两条用例；
+与 `TypeDefine` / `TypeAssign` / `FunctionType` 同一条做法）。
 
 ```ts
 super(template);
+ParsePipeline.InitialKeywordReorganizationQueue(this);
 ```
 
 ## method Clone:()=>Token

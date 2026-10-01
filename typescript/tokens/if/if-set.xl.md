@@ -109,6 +109,14 @@ while (true) {
   } else {
     endIndex = Statement.SearchStatementEnd(units, currentIndex - 1);
     if (endIndex === -1) {
+      // **体一直写到输入末尾**（第 63 轮补）：`if (x) print(1)` 这样没有 `;`、文件又正好在
+      // 这里结束（没有结尾换行）时，`SearchStatementEnd` 找不到结束符号。
+      // 那是 TypeScript 的语句写到输入末尾就结束，**不是语法错误**——
+      // 原来这里直接抛异常，等于崩在合法 TS 上（实测 `if (x) print(1)` 无结尾换行时抛
+      // 「`if/else if(...)` 后需要跟语句」）。
+      endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
+    }
+    if (endIndex === -1) {
       throw new Error("`if/else if(...)` 后需要跟语句，如` if(...){...}` 或 `if(...)...;` ");
     }
     const ifStatement = ifSeg.CreateStatement();

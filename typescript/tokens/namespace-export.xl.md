@@ -1,0 +1,123 @@
+# dependencies
+```xl
+import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
+import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { Token } from "../../core/syntax/token.xl.md"
+import { Template } from "../../core/syntax/templates/template.xl.md"
+import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
+import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { CommonUtil } from "../../core/common-util.xl.md"
+import { Identifier } from "./identifier.xl.md"
+import { LineWrap } from "./line-wrap.xl.md"
+```
+
+# namespace cangjie
+
+`typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
+
+**命名空间导出声明**：把 `export as namespace Foo;` 收成一个 `NamespaceExport` 单元
+（TS 那边叫 `NamespaceExportDeclaration`）。
+
+第 56 轮之前它**没有专属节点**：产物是 `<Keyword>export</Keyword>` + `<As>namespace Foo</As>`
+——`as` 那条规则（类型转换 `as`）顺手把 `namespace Foo` 收走了，于是
+「这是一个 UMD 全局名声明」这件事在产物里看不出来（`README.md` 的「结构性缺口」里挂着它）。
+
+判据是**四个词连排**：`export` / `as` / `namespace` / 名字——四条都要对得上才接手，
+所以不会误伤 `export { a as b }`（那个 `as` 前面不是 `export`）与类型转换 `x as namespace`。
+
+`NamespaceExportReorganization` 排在 `AsReorganization` **之前**：不先认领的话，
+`as` 那一条会先把 `namespace Foo` 收成 `As`。
+
+# class NamespaceExportReorganization extends Reorganization
+
+## static readonly field Instance:NamespaceExportReorganization = new NamespaceExportReorganization()
+
+唯一的实例，注册进通用重组队列时用。
+
+## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
+
+`index` 处是不是 `export as namespace <名字>` 的起点。
+
+四段判定都跳软换行（`export` 换行 `as` 换行 `namespace` 换行 `Foo` 也算）。
+
+```ts
+const current = Get(units, index);
+if (!(current instanceof Identifier) || current.Is("export") === false) {
+  return false;
+}
+const asIndex = SkipNextWrapSymbol(units, index);
+const asUnit = Get(units, asIndex);
+if (!(asUnit instanceof Identifier) || asUnit.Is("as") === false) {
+  return false;
+}
+const namespaceIndex = SkipNextWrapSymbol(units, asIndex);
+const namespaceUnit = Get(units, namespaceIndex);
+if (!(namespaceUnit instanceof Identifier) || namespaceUnit.Is("namespace") === false) {
+  return false;
+}
+const nameIndex = SkipNextWrapSymbol(units, namespaceIndex);
+const nameUnit = Get(units, nameIndex);
+return nameUnit instanceof Identifier;
+```
+
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
+
+把四个单元收成一个 `NamespaceExport`，**返回新的下标**。
+
+名字进 `name` 属性，四个词本身不再留在树里（与 `Label` / `Let` 同一做法：内容全进属性）。
+
+```ts
+const current = Get(units, index);
+if (current === null) {
+  throw new Error("current 为空");
+}
+const asIndex = SkipNextWrapSymbol(units, index);
+const namespaceIndex = SkipNextWrapSymbol(units, asIndex);
+const nameIndex = SkipNextWrapSymbol(units, namespaceIndex);
+const nameUnit = Get(units, nameIndex);
+if (!(nameUnit instanceof Identifier)) {
+  throw new Error("命名空间导出不满足格式要求：export as namespace <名字>");
+}
+const result = new NamespaceExport(template);
+result.Parent = current.Parent;
+result.name = nameUnit.TempToString();
+result.SignIn(current.SourceRange.Start!);
+result.SignOut(nameUnit.SourceRange.End!);
+result.TryToClose();
+return ReplaceCountAt(units, index, nameIndex - index + 1, result);
+```
+
+# class NamespaceExport extends IndependentToken
+
+命名空间导出声明（`export as namespace Foo;`）。
+
+**类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
+
+## field name:string = ""
+
+被导出的全局名（`export as namespace Foo` → `Foo`）。
+
+## method ToXmlString:()=>string
+
+产出**自闭合**标签：`<NamespaceExport name="Foo" />`。
+
+自闭合与 `Label` / `Let` / `LineWrap` 同款：内容全进了属性，没有子单元。
+
+属性值过一遍 `CommonUtil.XmlDecode`（与 `Import` / `Export` 的 `From` 同一口径）。
+
+```ts
+const name = this.constructor.name;
+return `<${name} name="${CommonUtil.XmlDecode(this.name)}" />`;
+```
+
+## method Clone:()=>Token
+
+克隆自身。
+
+```ts
+const result = new NamespaceExport(this.Template);
+result.Sign(this);
+result.name = this.name;
+result.TryToClose();
+return result;
+```

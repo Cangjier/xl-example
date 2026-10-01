@@ -7,6 +7,25 @@ import { Token } from "../core/syntax/token.xl.md"
 import { Template } from "../core/syntax/templates/template.xl.md"
 import { AreaAnnotation } from "./tokens/area-annotation.xl.md"
 import { AsReorganization } from "./tokens/as.xl.md"
+import { FunctionTypeReorganization } from "./tokens/function-type.xl.md"
+import { ConditionalTypeReorganization } from "./tokens/conditional-type.xl.md"
+import { StaticBlockReorganization } from "./tokens/class/static-block.xl.md"
+import { NamespaceExportReorganization } from "./tokens/namespace-export.xl.md"
+import { TypeUnionReorganization } from "./tokens/type-union.xl.md"
+import { TypeBracketReorganization } from "./tokens/type-bracket.xl.md"
+import { TypePrefixReorganization } from "./tokens/type-operator.xl.md"
+import { LiteralTypeReorganization } from "./tokens/literal-type.xl.md"
+import { ImportTypeReorganization } from "./tokens/import-type.xl.md"
+import { TypeParameterReorganization } from "./tokens/type-parameter.xl.md"
+import { InferTypeReorganization } from "./tokens/infer-type.xl.md"
+import { OptionalCallReorganization } from "./tokens/optional-call.xl.md"
+import { TypePredicateReorganization } from "./tokens/type-predicate.xl.md"
+import { EnumMemberReorganization } from "./tokens/enum/enum-member.xl.md"
+import { TupleMemberReorganization } from "./tokens/tuple-member.xl.md"
+import { ParenthesizedTypeReorganization } from "./tokens/parenthesized-type.xl.md"
+import { ParameterReorganization } from "./tokens/parameter.xl.md"
+import { HeritageClauseReorganization } from "./tokens/heritage-clause.xl.md"
+import { BindingElementReorganization } from "./tokens/binding-element.xl.md"
 import { Bracket } from "./tokens/bracket.xl.md"
 import { ClassReorganization } from "./tokens/class/class.xl.md"
 import { Identifier } from "./tokens/identifier.xl.md"
@@ -107,7 +126,7 @@ return new Sequence<Branch>([
 ]);
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, JsonArrayReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, AsReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
+## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, StaticBlockReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, TypeParameterReorganization.Instance, InferTypeReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
 
 通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。
@@ -130,6 +149,7 @@ return new Sequence<Branch>([
 | 6 | `Label` | `name:` 要在 `TypeDefine` 之前认领冒号，否则 `outer: while (...) {...}` 会被当成一个类型标注 |
 | 7 | `Field` | 字段没有关键字，只能在**成员位置**靠父单元认出（`ClassBody` / `InterfaceBody`）；排在 `Let` 之后（`let x` 仍旧归 `Let`）、`TypeDefine` 之前（要先把整条成员圈起来，否则 `TypeDefine` 会跨过换行吞掉后面几个字段） |
 | 8 | `Lamda` | 带返回类型标注的箭头函数（`(a): T => body`）也要在 `TypeDefine` 之前认领那个 `:`，否则 `TypeDefine` 会连函数体一起吞掉 |
+| 8.5 | `FunctionType` | 类型的 `(a: A) => B` 必须**排在 `Lamda` 前面**：两者判的都是 `=>`，`FunctionType` 认的是「左边不是形参表」那一半（`FindParameters` 给 `-1`），留给 `Lamda` 的才是真箭头函数 |
 | … | 其余按既有顺序 | `TypeDefine` / `Ternary` / … / `NotNull`，`Switch` 插在 `Try` 与 `IfSet` 之间 |
 | 末 | `Keyword` | 它是「在任意上下文都是关键字」的**兜底身份**；语句级结构先各自认领，剩下的散词才升级 |
 
@@ -261,8 +281,26 @@ return [
   "keyof",
   "new",
   "with",
+  "extends",
+  "infer",
+  "readonly",
+  "unique",
 ];
 ```
+
+**`readonly` / `unique` 是第 66 轮补的**：它们是**只出现在类型位的修饰词**（`IsTypeModifier` 里有它们，
+`keyof` / `infer` / `new` / `typeof` 早就在这张表里）。漏掉 `readonly` 的代价实测很重：
+`type A = readonly (B | undefined)[]` 里 `readonly` 后面紧跟一个括号，`MethodReorganization`
+把它当成一次**调用**，产物是 `<Method name="readonly">B | undefined</Method>`——真正的结构
+（修饰词 + 数组类型 + 括号类型 + 联合）整段塌掉，`TypeAssign` 里只剩这一层假调用
+（真实语料 `typescript.d.ts` 4 处：`readonly (ResolvedProjectReference | undefined)[]` 等）。
+`unique` 同理（`unique symbol` 虽然不带括号，但它与 `readonly` 是一对，一起补上没有额外风险）。
+
+**`extends` / `infer` 是第 54 轮补的**：`T extends (this: infer U, …) => any ? U : never`
+（`lib.es5.d.ts` 的 `ThisParameterType`）里那个括号被当成 `extends(...)` 的一次**调用**，
+收出一个 `<Method name="extends">`——函数类型于是整段散掉（`FunctionType` 也认不出来，
+它要求 `=>` 左边是一个括号单元，而括号已经被 `Method` 吞了）。这两个词都是保留字，
+不可能当方法名，加进禁用表没有风险。
 
 **`import` 不在这里**（试过、退回来了）：把 `import` 加进禁用表能挡住
 `typeof import("assert")` 被收成 `MethodDeclaration name="import"`，
@@ -311,13 +349,36 @@ template.Initialize((self: Template) => {
 所以就装这一条。
 
 ```ts
-unit.ReorganizationQueue = new Sequence<Reorganization>([KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
+unit.ReorganizationQueue = new Sequence<Reorganization>([ImportTypeReorganization.Instance, TypeBracketReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, InferTypeReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, TypeUnionReorganization.Instance, KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
 ```
 
-**两条规则、不是一条**：`KeywordReorganization` 把类型位的关键词升级成 `Keyword`；
+**七条规则、不是一条**：`ImportTypeReorganization` 把 `[typeof] import("m")[.A.B]` 收成
+`ImportType`；`TypeBracketReorganization` 把类型位的方括号收成
+`ArrayType` / `TupleType` / `IndexedAccessType`；`TypePrefixReorganization` 把
+`keyof` / `typeof` / `readonly` / `unique` 连同它们的操作数收成 `TypeOperator` / `TypeQuery`；
+`LiteralTypeReorganization` 把类型位的字面量包成 `LiteralType`；
+`InferTypeReorganization` 把条件类型里的 `infer X` 收成 `InferType`（里面配一个 `TypeParameter`）；
+`TypeUnionReorganization` 收联合 / 交叉；`KeywordReorganization` 把类型位的关键词升级成 `Keyword`；
 `WrapSymbolReorganization` 把类型文本里的**软换行**摘掉——类型可以折行排版，
 那些换行是版面而不是内容（`Array<String,` 换行 `Int64>` 里那个换行不该留在产物里）。
-通用队列里能做这两件事的就是这两条，其余的一律不要（见上）。
+其余的一律不要（见上）。
+
+**顺序即语义，几条前哨的先后不能换**：
+
+- **导入类型排最前**：`typeof import("m")` 里的 `typeof` 要先被它吸收——
+  否则类型运算符那一趟会先把 `typeof X` 收成 `TypeQuery`，导入类型只能拿到半截，
+  产物与 TS 的 `ImportType`（`typeof` 是它自己的标志位）就对不上了；
+- 方括号排在运算符前面（`readonly A[]` 是 `readonly (A[])`、不是 `(readonly A)[]`）；
+- 字面量排在运算符**后面**（`-1` 里的 `-` 是字面量的一部分，先让运算符那一趟跑完
+  才不会把 `-` 当成前缀运算符去收操作数——实测 `type X = -1` 的 `UnaryOperator` 在
+  运算符那一趟就成形了，本规则只负责在外面套一层）；
+- 字面量排在联合**前面**，`A | "b"` 里的 `"b"` 因此是已经包好的 `LiteralType`，
+  联合收集时不用再管它。
+
+**为什么这几条能安全地装在这张共享队列里**：`BinaryOperator` / `UnaryOperator` / `Export` /
+`Foreach` 也用这张队列，而它们的 `Data` 里装的是**值**（`a[b]`、`let v = typeof x`、`const s = "a"`）。
+所以每条规则的第一道闸都是**父亲必须是纯类型容器**——值位的父亲（`Statement` / `ObjectLiteral` /
+`BinaryOperator` …）全都不在白名单里，一个都不会被误收（值位的 `await import("m")` 仍是调用节点）。
 
 ## static method ExtendStringStarts:(branch:any)=>void
 

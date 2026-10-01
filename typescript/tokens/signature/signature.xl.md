@@ -198,6 +198,14 @@ if (current instanceof Bracket && current.startBracket === "(") {
   if (before instanceof Identifier || before instanceof GenericType) {
     return false;
   }
+  // **`=` 后面不是签名**（第 66 轮）：类字段 `f = (a: number): void => {}` 是一条**值**字段，
+  // 括号前面是赋值号。本规则排在 `FieldReorganization` 之前，此刻那个 `(` 的父单元还是
+  // `ClassBody`（`IsMemberPosition` 成立），不挡的话整条字段被收成一个
+  // `<Signature kind="call">`、箭头函数永远不成形（实测 `ArrowFunction` 缺 1 处）。
+  // 签名语法里 `(` 前面不会有 `=`（带 `=` 的成员只有字段初始化式）。
+  if (before instanceof SymbolToken && before.Is("=")) {
+    return false;
+  }
   if (this.IsComputedMemberName(before)) {
     return false;
   }

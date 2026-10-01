@@ -87,6 +87,11 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   const statementStart = endIndex;
   endIndex = Statement.SearchStatementEnd(units, endIndex - 1);
   if (endIndex === -1) {
+    // **体一直写到输入末尾**：`while (x) print(1)` 没有 `;`、文件又正好在这里结束时，
+    // `SearchStatementEnd` 找不到结束符号——那是语句写完了，不是语法错误。
+    endIndex = Statement.LastMeaningfulIndex(units, statementStart);
+  }
+  if (endIndex === -1) {
     throw new Error("`while(...)` 后需要跟语句，如` while(...){...}` 或 `while(...)...;` ");
   }
   forStatement.AddRange(TakeRange(units, statementStart, endIndex - statementStart + 1));

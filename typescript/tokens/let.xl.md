@@ -76,6 +76,13 @@ if (!(unit instanceof Identifier)) {
 if (unit.Parent instanceof GenericType) {
   return false;
 }
+// **参数表收成 `TypeParameter` 之后父单元换了人**（第 66 轮）：`type X<const T> = T` 里的
+// `const` 仍是**类型参数修饰符**（TS 那边是 `TypeParameter` 的修饰位），不是变量声明。
+// 只挡 `GenericType` 时它照样被收成 `Let`（实测 3 处：`decl-func-generic-const-modifier` /
+// `fn-const-typeparam` / `type-param-const` 三个用例当场报出来）。
+if (unit.Parent !== null && unit.Parent.constructor.name === "TypeParameter") {
+  return false;
+}
 if (!(unit.Is("let") || unit.Is("const") || unit.Is("var") || unit.Is("using"))) {
   return false;
 }
@@ -134,6 +141,11 @@ return result;
 - 终点单元的形态决定 `LetType`：`Identifier` → `Field`（记 `fieldName`）；`[]` → `Array`（记 `arrayPattern`）；`{}` → `Object`（记 `objectPattern`）；三者都不是就抛错。
 - 两组解构名都是「括号子单元里所有 `Identifier` 的文本」，**递归**进嵌套括号（见 `CollectFieldNames`）。
 - 最后批量替换用四参数的 `ReplaceCountAt`（三个参数的版本才叫 `ReplaceAt`），返回的 `startIndex` 就是新下标；被替换掉的两个单元不再显式释放，交给 GC。
+- **`Parent` 要自己抄**（第 66 轮补）：`ReplaceCountAt` 只做 `splice`、不设 `Parent`（`Token.Add` 才设），
+  不抄的话这个 `Let` 的 `Parent` 永远是 `null`。它与 `keyword.xl.md` 里那处是同一类漏抄：
+  平时没人读、看不出来，等新规则开始问「我的父亲是哪一类容器」时才会咬人
+  （`Keyword` 那处就是这么把 `keyof typeof h` 的外层 `keyof` 挡掉的）。抄的是被替换单元的 `Parent`，
+  所以「还没挂上去」这个信号原样保留。
 
 新单元的局部变量叫 `letUnit`：`let` 在 ts 里是关键字，不能当变量名。
 
@@ -174,6 +186,7 @@ if (next === null) {
   throw new Error("next 为空");
 }
 const letUnit = new Let(template);
+letUnit.Parent = Get(units, startIndex)!.Parent;
 letUnit.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 letUnit.SignOut(next.SourceRange.End!);
 letUnit.modifiers = modifiers.join(",");
@@ -188,6 +201,13 @@ if (next instanceof Identifier) {
     letUnit.objectPattern = this.CollectFieldNames(next);
     letUnit.LetType = LetType.Object;
   }
+  // **模式搬进节点**（第 66 轮第八批）：属性的两组名字只是给**人**读的补全，
+  // 原来模式括号整段留在替换区间里、随 `ReplaceCountAt` 消失——产物里
+  // `const { a, b: c, d = 1 } = obj` 只剩一个自闭合的 `<Let objectPattern="a,b,c,d,1" />`，
+  // 花括号、冒号、`=`、以及「这是三个绑定元素」这件事全都没了（TS 那边是
+  // `ObjectBindingPattern` 里三个 `BindingElement`）。
+  // 现在把括号搬进来，`binding-element.xl.md` 在它自己的队列里把元素收成节点 ✓。
+  letUnit.AddAndCloseLast(next);
 } else {
   throw new Error("形态不成立");
 }
@@ -204,10 +224,16 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, letUnit);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器。
+转调基类构造器，并挂**通用队列**。
+
+**为什么 `Let` 也需要队列**（第 66 轮第八批）：解构模式现在作为子单元留在 `Let` 里
+（见 `Process`），模式里的元素要在**它自己的那一趟**里被 `binding-element.xl.md` 收成
+`<BindingElement>` —— 原来 `Let` 没有队列，`TryToClose` 跑的是空队列，
+模式元素永远收不出来（实测：`const { a, b: c } = x` 的产物里模式是一串散单元）。
 
 ```ts
 super(template);
+this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
 ## field LetType:LetType = LetType.Field
@@ -248,11 +274,16 @@ const name = this.constructor.name;
 if (this.LetType === LetType.Field) {
   return `<${name} fieldName="${this.fieldName}" modifiers="${this.modifiers}" />`;
 }
+// **解构模式带子单元**（第 66 轮第八批）：模式括号与里面的单元现在留在树上
+// （`binding-element.xl.md` 会把每个元素收成 `<BindingElement>`），所以这两种形态
+// 不再是自闭合标签——属性照旧，后面接子单元的 XML。属性里那两组名字是**信息补全**
+// （给人读的递归收集结果），节点里的结构才是权威。
+const children = this.Data.map((item) => item.ToXmlString()).join("");
 if (this.LetType === LetType.Array) {
-  return `<${name} arrayPattern="${this.arrayPattern.join(",")}" modifiers="${this.modifiers}" />`;
+  return `<${name} arrayPattern="${this.arrayPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
 }
 if (this.LetType === LetType.Object) {
-  return `<${name} objectPattern="${this.objectPattern.join(",")}" modifiers="${this.modifiers}" />`;
+  return `<${name} objectPattern="${this.objectPattern.join(",")}" modifiers="${this.modifiers}">${children}</${name}>`;
 }
 throw new Error("形态不成立");
 ```

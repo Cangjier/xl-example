@@ -30,8 +30,16 @@ import { Identifier } from "./identifier.xl.md"
 
 判定器取自那个 `Identifier` **自己的**模板，而不是 `Previous` 的入参 `template`。
 
+**`as const` 是唯一的例外**（第 62 轮补）：`const` 在 `KeywordTemplate` 里是关键词，
+可它在 `as const` 里是 TypeScript 的**字面量类型标记**，不该升级——升了之后
+`x as const satisfies B` 的用例当场从通过变失败（`as` 节点挂类型队列，
+关键词升级就在那一趟里跑，所以要在这儿挡住；判定用类名，避免绕出环）。
+
 ```ts
 const unit = Get(units, index);
+if (unit instanceof Identifier && unit.Parent !== null && unit.Parent.constructor.name === "As" && unit.Is("const")) {
+  return false;
+}
 return unit instanceof Identifier && unit.Template.KeywordTemplate.IsKeyword(unit.TempToString());
 ```
 
@@ -43,12 +51,20 @@ return unit instanceof Identifier && unit.Template.KeywordTemplate.IsKeyword(uni
 
 - 新单元用的是**被替换单元自己的** `Template`（`commonUnit.Template`），不是 `Process` 的入参 `template`——不要「顺手」改成入参。
 - 它的范围直接沿用那个 `Identifier` 的起止。
+- **`Parent` 要自己抄**（第 66 轮补）：`ReplaceCountAt` 只做 `splice`，**不设 `Parent`**（`Token.Add` 才设），
+  所以不抄的话这个 `Keyword` 的 `Parent` 永远是 `null`。别的规则大多只读自己的 `Data`，
+  这条一直是隐性的；类型层那两条规则（`type-operator.xl.md` / `type-bracket.xl.md`）**要看父亲是哪一类容器**，
+  于是当场暴露：`type A = keyof typeof h` 里外层 `keyof` 被问到时 `Parent` 是 `null`、
+  `IsTypeContainerUnit` 给否，**两层只成了一层**（实测产物是 `<Keyword>keyof</Keyword><TypeQuery>…`）。
+  抄的是被替换单元的 `Parent`，所以「还没挂上去（`Parent === null`）」这个信号原样保留——
+  `unary-operator.xl.md` 的第 57 轮判据（`Parent === null` 的 `typeof` 不折一元运算）不受影响。
 - 四个参数的 `ReplaceAt` 重载叫 `ReplaceCountAt`，返回的 `index` 就是新下标；被替换掉的 `Identifier` 交给 GC。
 - `Get` 的结果直接断言成 `Identifier`。
 
 ```ts
 const commonUnit = Get(units, index) as Identifier;
 const keyword = new Keyword(commonUnit.Template);
+keyword.Parent = commonUnit.Parent;
 keyword.SignIn(commonUnit.SourceRange.Start!);
 keyword.SignOut(commonUnit.SourceRange.End!);
 keyword.Value = commonUnit.TempToString();

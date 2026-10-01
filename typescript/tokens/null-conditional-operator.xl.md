@@ -5,6 +5,8 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, TakeRange } from "../../core/extensions/list-extension.xl.md"
+import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { Identifier } from "./identifier.xl.md"
 import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -30,11 +32,26 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是 `?.`。
+`index` 处是不是 `?.`，而且它**后面那个实义单元不是 `import`**。
+
+**为什么要排掉 `import`**（实测：`a?.import`）：`import` 在关键字表里，而 `ImportReorganization`
+排在 `NullConditionalOperatorReorganization` **之前**——那个成员名会先被收成一个 `Import` 单元，
+本规则接着就会从这个 `Import` **里面**往下扫（它的 `Data` 是另一张列表），扫完在**外层列表**上做替换，
+下标与元素全对不上，最后抛的是 `TypeError`（不是 `SyntaxException`）。
+成员位置的 `import` 就是一个普通名字，这里直接放过它、让它留在外面当 `Keyword`。
+判据用的是「跨过软换行的下一个实心单元」，与 `ImportReorganization.Previous` 里那一格同型。
 
 ```ts
 const current = Get(units, index);
-return current instanceof SymbolToken && current.Is("?.");
+if (!(current instanceof SymbolToken) || !current.Is("?.")) {
+  return false;
+}
+const nextIndex = SkipNextWrapSymbol(units, index);
+const next = Get(units, nextIndex);
+if (next instanceof Identifier && next.Is("import")) {
+  return false;
+}
+return true;
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int

@@ -90,10 +90,23 @@ return i;
 
 `index` 处是不是一个函数声明的开头：内容是 `function` 的 `Identifier`，且后面能凑出「名字 + 可选类型参数 + `(`」。
 
+**类型成员里的 `function(...)` 不是函数声明**（第 63 轮补）：`interface I { function(name: string): void }`
+里的 `function` 是**名字叫 `function` 的方法签名**（TypeScript 读成 `MethodSignature`），
+`function` 后面那个 `(` 就是它的形参表——不挡掉的话本规则会把它收成一个**没有名字的 `Function`**
+（实测 `@types/node/sqlite.d.ts` 的 `aggregate` 重载两处：产物里
+`<InterfaceBody><Function name="" …>` ✗）。类体同理：`class C { function() {} }` 是名字叫
+`function` 的方法。接口体 / 类型字面量体 / 类体里不可能有函数**声明** ✓。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Identifier) || !current.Is("function")) {
   return false;
+}
+if (current.Parent !== null) {
+  const parentName = current.Parent.constructor.name;
+  if (parentName === "InterfaceBody" || parentName === "TypeLiteralBody" || parentName === "ClassBody") {
+    return false;
+  }
 }
 return this.ParameterIndex(units, index) >= 0;
 ```

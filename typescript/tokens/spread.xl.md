@@ -297,9 +297,16 @@ super(template);
 
 克隆自身。
 
+**子单元必须一起克隆**：`Spread` 装着 `...` 与它作用的那一段，只克隆自己会让产物里出现
+`<Spread />` 这样的**空壳**。克隆只在复合赋值展开（`compound-assignment-operator.xl.md`）
+里被调用，被克隆的正是左侧表达式，所以左侧一旦含有展开就会丢内容。
+
+顺序是 `Sign(this)` → 子单元逐个克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
+
 ```ts
 const result = new Spread(this.Template);
 result.Sign(this);
+result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```

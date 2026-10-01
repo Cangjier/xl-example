@@ -378,6 +378,20 @@ return "";
 「`if (x)` 被误当成调用」的风险（那个风险只属于表达式位）。所以名字的父单元是成员体时不再查
 `MethodNameTemplate`，只查语句位的那一支。
 
+**但类型运算符在成员位也绝不是方法名**（第 66 轮补）：`readonly` 后面跟一个括号是
+**类型位**的写法（`readonly (A | B)[]`），不是「名叫 `readonly` 的方法」。
+放开禁用表的那一支必须单独挡这一次，否则实测
+`interface ResolvedProjectReference { references?: readonly (ResolvedProjectReference | undefined)[] }`
+整条成员被收成一个 `<MethodDeclaration name="readonly">`，那个 `[]` 还被当成返回类型
+（产物里多出一个 `<ArrayLiteral>` 挂在 `ReturnType` 下）——成员名 `references`、
+数组类型、括号类型、联合四种结构全塌（真实语料 `typescript.d.ts` 4 处）。
+
+**只挡这五个词**：`readonly` / `keyof` / `unique` / `asserts` / `infer`。
+`IsTypeModifier` 里的 `new` / `abstract` / `typeof` **不能**照抄着一起挡——
+`class A { new() {} }` 里的 `new` 是**合法的方法名**（`lex-keyword-method-name.ts` 钉住这一条），
+挡掉之后那个 `{}` 会退化成 `<ObjectLiteral>`（`cases:dashboard` 当场多一处）。
+成员位的构造签名 `new (): A` 由排在本规则之前的 `SignatureReorganization` 认领，不靠这里。
+
 **计算成员名 `[`m`]()` / `[x]()` 也算名字**：它是一个 `[` 括号，
 名字由 `field.xl.md` 的 `BracketNameText` 拼出来（与 `[key: string]` 索引签名同一套）。
 不认这一支时那个 `[...]` 会被收成 `ArrayLiteral`，整条方法声明散架。
@@ -404,6 +418,17 @@ const inMemberBody =
 if (isComputedName === false && inMemberBody === false && name instanceof Identifier && !template.MethodNameTemplate.IsMethodName(name.TempToString())) {
   return false;
 }
+if (isComputedName === false && inMemberBody) {
+  let word = "";
+  if (name instanceof Identifier) {
+    word = name.TempToString();
+  } else if (name !== null && name.constructor.name === "Keyword") {
+    word = (name as any).Value;
+  }
+  if (word === "readonly" || word === "keyof" || word === "unique" || word === "asserts" || word === "infer") {
+    return false;
+  }
+}
 if (name instanceof Identifier && name.Is("import")) {
   return false;
 }
@@ -412,6 +437,18 @@ if (parametersIndex < 0) {
   return false;
 }
 if (this.AfterAssignment(template, units, nameIndex)) {
+  return false;
+}
+// **形参表后面是 `=>` ⇒ 那是函数类型 / 构造类型，不是方法声明**（第 66 轮补）。
+// 方法声明的形参表后面只可能是 `: 返回类型` / `{ 体 }` / 成员边界（`;` `,` 换行），
+// `=>` 是**类型位**的写法：`F extends abstract new(...args: any) => any ? F : undefined`。
+// 少了这一条，`abstract new(...)` 会被收成一个（没有名字的）`MethodDeclaration`，
+// 它的 `ReturnType` 再从 `=>` 一路吞到语句尾——把外层条件类型的 `? :` 吃成
+// 值位的 `<TernaryOperator>`（实测 `@types/node/test.d.ts:2119`，
+// `cases:align` 的 `ConstructorType` 缺 1 与 `MethodDeclaration in TypeDefine` 口径都是它）。
+// 该形状随后由 `../function-type.xl.md` 收成 `FunctionType`（TS 那边叫 `ConstructorType`）。
+const afterParameters = Get(units, SkipNextWrapSymbol(units, parametersIndex));
+if (afterParameters instanceof SymbolToken && afterParameters.Is("=>")) {
   return false;
 }
 return this.BodyIndex(units, parametersIndex) >= 0 || this.IsMemberSignature(units, nameIndex, parametersIndex);

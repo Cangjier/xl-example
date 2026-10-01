@@ -106,10 +106,24 @@ return this.IsObjectAt(units, index);
 
 `Parent` 在造出单元之后单独赋值。
 
+**拿不到父单元时早退**（`current.Parent === null`）：`Replace` 要求「自己还在父单元的子单元里」，
+没有父单元就抛「没有父单元」。这个形状确实会出现——**重组改短了列表、而下标还是旧扫描留下的**
+（实测：`{ A }a += 1` 这种「块紧跟着表达式、中间既没有 `;` 也没有换行」的写法，
+`StatementReorganization3` 在旧下标上收出一个不可能进树的 `Statement`，
+把这个括号的父单元挪成了那个孤儿）。
+
+早退**保住内容**：括号还在 `units` 里、内容也还在括号的 `Data` 里（`MoveDataTo` 已经搬了一次，
+所以这里把内容搬回去），产物里那个 `{ … }` 仍然是一个 `Bracket`、里面的东西一个不少——
+只是少了一层 `ObjectLiteral` 标签。**先保住内容再让步**：这条路走的是「输入本来就已经很怪」的兜底，
+宁可少一个标签，也不要整份文件解析失败。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
   throw new Error("ObjectLiteral.Reorganization.Process: current is null");
+}
+if (current.Parent === null) {
+  return index;
 }
 const result = new ObjectLiteral(template);
 result.Parent = current.Parent;

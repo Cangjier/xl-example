@@ -14,6 +14,7 @@ import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
+import { IsTypeBracketPosition } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -74,29 +75,44 @@ unit.AddToMounted(new GenericType(unit.Template)).SignIn(source);
 
 四道闸门的入口，按「便宜的先问」排序：名字闸（只看宿主最后一个子单元）→ 内容闸（纯文本前瞻）→ 后继闸（要位置闸的结论）。
 
-**名字闸有两支**：宿主最后一个子单元是 `Identifier`（`Array<T>` 这种），
-**或者是一个「操作数起点」**——`=` / `=>` / `:` / `;` / `,` 这些符号，或者一段括号、一个软换行。
+**名字闸有三支**：宿主最后一个子单元是 `Identifier`（`Array<T>` 这种）；
+**或者是一个「操作数起点」**——`=` / `=>` / `:` / `;` / `,` 这些符号，或者一段括号、一个软换行；
+**或者是「名字 + `?`」里的那个名字**（见下一条）。
 第二支是给**泛型箭头函数**与**泛型函数类型**的：`<T>(x: T) => x` / `type X = <T>(x: T) => T`
 里 `<` 前面**没有名字**，只有 `=` 或者什么都没有；只认第一支时 `<T>` 退回符号，
 `Lamda` / 函数类型都跟着散架（实测 5 条用例）。
+
+**可选成员签名的名字可以是计算成员名**（第 66 轮补）：
+`[EventEmitter.captureRejectionSymbol]?<K>(error: Error, event: Key<K, T>, ...args: Args<K, T>): void`
+与 `m?<T>()` 是同一个形状（`?` 在类型参数**之前**），只是名字写在 `[ ]` 里。
+那个 `[ ]` 到这一刻可能已经是 `ArrayLiteral`（`JsonArrayReorganization` 先收走了）、
+也可能还是 `[` 括号，两种都要认。只认 `Identifier` 时这次试读被判否：`<K>` 退回裸符号，
+接着 `MethodDeclarationReorganization.ParameterIndex` 在 `<` 处拿不到括号 →
+整条成员降级成 `Field` + `Signature`（实测 `@types/node/events.d.ts` 两处，
+`cases:align` 的 `MethodSignature` 缺 2 / `MethodDeclaration` 缺 1 全是它）。
 
 放宽的风险由「左侧必须有操作数」这条语义兜住：比较式 `a < b > (c)` 的 `<` 前面**是** `a`（走第一支），
 而第二支的位置上按定义还没有操作数，`<…>` 只可能是类型参数段。
 
 ```ts
 let last = unit.Last();
+let hasName = last instanceof Identifier;
 if (last instanceof SymbolToken && last.Is("?")) {
   const beforeMark = unit.Data[unit.Data.length - 2];
-  if (!(beforeMark instanceof Identifier)) {
+  const isComputedName =
+    beforeMark !== undefined &&
+    (beforeMark.constructor.name === "ArrayLiteral" || (beforeMark instanceof Bracket && beforeMark.startBracket === "["));
+  if (!(beforeMark instanceof Identifier) && isComputedName === false) {
     return false;
   }
+  hasName = true;
   last = beforeMark;
 }
 const isOperandStart =
   (last instanceof SymbolToken && (last.Is("=") || last.Is("=>") || last.Is(":") || last.Is(";") || last.Is(","))) ||
   last instanceof Bracket ||
   last instanceof LineWrap;
-if (!(last instanceof Identifier) && isOperandStart === false) {
+if (!hasName && isOperandStart === false) {
   return false;
 }
 if (last instanceof Identifier && (last.IsNumber() || last.IsBool())) {
@@ -146,9 +162,10 @@ return false;
 从 `<` 之后扫到配对的 `>`，返回那个 `>` 的下标；扫不通返回 `-1`。
 
 扫描器只认「类型实参字母表」：标识符字符、`_`、`.`、`,`、`?`、`=`（类型参数的默认值）、`:`（类型字面量里的键）、
-`|` 与 `&`（联合 / 交叉类型）、**成对的字符串字面量**（`Exclude<K, "a">` 这种字面量类型实参），
+`|` 与 `&`（联合 / 交叉类型）、**`-` 与 `+`（映射类型的 `-readonly` / `+readonly` / `-?` / `+?` 修饰符、
+负数字面量类型）**、**成对的字符串字面量**（`Exclude<K, "a">` 这种字面量类型实参），
 加上成对的 `< >` / `( )` / `[ ]` / `{ }`，以及 `->`（函数类型）。其余字符一律中止：
-`+`、`/`、`%`、`^`、`~`、`!`、`@`、`#`、`$`、`` ` ``、`;`，
+`/`、`%`、`^`、`~`、`!`、`@`、`#`、`$`、`` ` ``、`;`，
 以及**括号层级为 0 时**的 `)` / `]` / `}`（它闭合的是 `<` 外面的东西，说明这里根本不是泛型）。
 
 **字符串字面量是必须放进字母表的**：`Exclude<K, "a">` / `Record<"x", T>` 这类写法到处都是，
@@ -226,14 +243,12 @@ while (index < count) {
     index++;
     continue;
   }
-  if (item === "-") {
-    if (index + 1 < count && document.GetValue(index + 1) === ">") {
-      seenArgument = true;
-      lastSignificant = ">";
-      index += 2;
-      continue;
-    }
-    return -1;
+  if (item === "-" && index + 1 < count && document.GetValue(index + 1) === ">") {
+    // `->` 箭头：`-` 与 `>` 一起吞掉，不参与尖括号计数
+    seenArgument = true;
+    lastSignificant = ">";
+    index += 2;
+    continue;
   }
   if (item === "=" && index + 1 < count && document.GetValue(index + 1) === ">") {
     seenArgument = true;
@@ -259,6 +274,20 @@ while (index < count) {
     continue;
   }
   if (item === "|" || item === "&") {
+    seenArgument = true;
+    lastSignificant = item;
+    index++;
+    continue;
+  }
+  if (item === "-" || item === "+") {
+    // **映射类型的修饰符与负数字面量类型**（第 61 轮补）：
+    // `{ -readonly [P in keyof T]: T[P] }`、`{ [P in K]-?: T[P] }`、`{ +readonly … }`、
+    // `Array<-1 | 0>` 这些写法里 `-` / `+` 必然出现（`lib.es2015.promise.d.ts` 的
+    // `Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }>` 就是这么写的）。
+    // 它们在字母表外时扫描当场中止、整个 `<…>` 退回符号：产物里 `Promise` 后面是个裸的
+    // `<` 符号，映射类型落成值位的 `ObjectLiteral`、**剩下的整段掉进 `<FunctionBody>`**（实测）。
+    // 表达式位里的 `a < b - c > (d)` 这种写法由后继闸兜住（与 `|` / `&` / `=` 同一个取舍）。
+    // `-` 要走到这里，上面那条只认 `->` 的分支就不能对其余 `-` 直接判否（踩过一次）。
     seenArgument = true;
     lastSignificant = item;
     index++;
@@ -372,13 +401,33 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 规则：
 
 - 宿主自己就是 `GenericType` → 类型位（嵌套 `Array<Array<T>>`、`Map<String, Int64>` 的内层直接成立）。
-- 最近的边界是 `:` / `?:` 或 `->` → 类型位（类型标注、可选成员的标注、返回类型、`<:` 约束）。
+- 最近的边界是 `:` / `?:` 或 `->` / `=>` → 类型位（类型标注、可选成员的标注、返回类型、`<:` 约束、
+  函数类型的返回类型）。**`=>` 是第 58 轮补的**：`type F = () => Iterable<T> | AsyncIterable<T>`
+  里 `<T>` 的扫描会先撞上 `=>`，不认它的话返回类型整段退回比较运算符
+  （实测 `@types/node/stream.d.ts` 的 `PipelineSourceFunction`）；
+  值位的箭头体（`x => a < b`）不受影响——那里没有配对的 `>`，后继闸本来就过不了。
   **`?:` 必须单独列出来**：可选成员 / 可选参数的类型标注整体是一个 `?:` 符号（见 `symbol.xl.md`
   的符号合并），不是 `?` 与 `:` 两个单元。少了它，`interface I { h?: Record<string, string> }` 的
   `<` 会被判成表达式位（退回比较运算符），泛型再也合不起来——实测产物会把这条成员**劈成两半**：
   `<Field fieldName="h"><TypeDefine><Identifier>Record</Identifier><SymbolToken>&lt;</SymbolToken><Identifier>string</Identifier></TypeDefine></Field>`
   后面还跟着一个 `<Statement><Identifier>string</Identifier><SymbolToken>&gt;</SymbolToken></Statement>`。
 - `.` 与 `,` 是**透明**的：限定名 `a.b.C<T>` 的点、以及参数表 / 父接口列表里的逗号，都不改变类型位判定——继续往前找真正的边界。TypeScript 里带类型实参的名字几乎总是出现在这两种位置（`extends a.b.Base<T>`、`function f(a: A, b: B<T>)`），把它们当边界会让这些写法整条退回比较运算符。
+- **`|` 与 `&` 也是透明的**（第 58 轮补）：联合 / 交叉类型里的带类型实参的名字极其常见
+  （`ArrayBuffer | NodeJS.TypedArray<T>`、`| Uint8Array<T>`），原来它们在扫到 `|` 时直接判表达式位，
+  于是 `<T>` 退回比较运算符、整个类型**劈成两半**
+  （实测 `let x: X | Foo<Bar>` 的产物：`<UnionType>X | Foo</UnionType><SymbolToken>&lt;</SymbolToken>…`）。
+  透明而不是「见到 `|` 就判类型位」是必须的：`let x = a | Foo<Bar>` 在**值位**同样是这个形状，
+  透明过去才会撞上 `=` → `let`，判回表达式位 ✓（TypeScript 自己在这里也按比较运算符读）。
+- **`?` 也是透明的**（第 66 轮补）：**条件类型真分支里的类型实参**是这个形状的常客
+  （`T extends U ? F<A, B> : C`、`ApplyOptionalModifiers<T["options"], { … }>`）。
+  原来扫到 `?` 就判表达式位，于是那次试读只允许后继是 `(`，
+  `F<A, B>` 后面跟着的 `:` 过不了闸门——**整个泛型实参段退回符号**，
+  条件类型跟着在 `,` 处收尾（实测 `lib.es2019.array.d.ts` 的元组类型与
+  `@types/node/util.d.ts` 的 `T["options"]`，`cases:align` 的缺节点两处全是它）。
+  透明之后会继续往前找真正的边界：类型位的条件类型会撞上 `extends`（⇒ 类型位 ✓），
+  值位三元里的比较式会撞上 `=` → `let` / `const`（⇒ 表达式位 ✓，
+  那里后继闸只放行 `(`，`a ? b < c > d : e` 照旧读成比较）。
+  `?:` 仍然是**边界**（上面那条）——它是可选成员 / 可选参数的标注符号，不是条件类型的 `?`。
 - 最近的边界是 `=` → 记下「跨过赋值」继续往前找：再遇到 `type` 就是类型位（`type X = Array<Int64>` 的右端是类型），遇到 `let` / `var` / `const` 则是表达式位（`let x = Array<Int64>(3)` 的右端是值）。两个 `=` 之间没有结论也算表达式位。
 - 最近的边界是括号单元或 `;` / 其它符号 → 表达式位（实参、下标、语句边界都不保证期望类型）。
   **例外**：括号前面是 `import` 时继续往前——那是**导入类型** `import("./m").A<T>`，
@@ -402,10 +451,10 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
   }
   if (item instanceof SymbolToken) {
     const text = item.TempToString();
-    if (text === "." || text === ",") {
+    if (text === "." || text === "," || text === "|" || text === "&" || text === "?") {
       continue;
     }
-    if (text === ":" || text === "?:" || text === "->") {
+    if (text === ":" || text === "?:" || text === "->" || text === "=>") {
       return true;
     }
     if (text === "=" && !crossedAssignment) {
@@ -418,6 +467,14 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
     const beforeBracket = i - 1 >= 0 ? unit.Data[i - 1] : null;
     if (beforeBracket instanceof Identifier && beforeBracket.Is("import")) {
       i = i - 1;
+      continue;
+    }
+    if (IsTypeBracketPosition(unit, item)) {
+      // **括号类型里的 `A<B>`**（第 62 轮补）：`(TransformerFactory<SourceFile> | CustomTransformerFactory)[]`
+      // 里 `<` 的扫描会先撞上 `(`；把它当值位边界的话整个类型退化成散单元，
+      // 里面那个联合也跟着没了（实测 `typescript.d.ts` 两处、共 5 个联合）。
+      // 「这个括号是不是类型位」由 `../text-common-util.xl.md` 的 `IsTypeBracketPosition` 回答
+      // ——与 `type-union.xl.md` 共用同一个答案。
       continue;
     }
     return false;
@@ -449,6 +506,12 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
     continue;
   }
   return false;
+}
+// **扫描在自己这一层找不到边界**：宿主正好是一个括号时，答案在**括号自己那一格**
+// （`(A<B> | C)[]`：问 `(` 在它的父列表里前面是什么）。判定与 `type-union.xl.md` 共用
+// `../text-common-util.xl.md` 的 `IsTypeBracketPosition`。
+if (unit instanceof Bracket && unit.Parent !== null) {
+  return IsTypeBracketPosition(unit.Parent, unit);
 }
 return false;
 ```

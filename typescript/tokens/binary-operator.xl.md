@@ -229,7 +229,8 @@ if (unit instanceof Identifier) {
     text === "else" ||
     text === "do" ||
     text === "break" ||
-    text === "continue"
+    text === "continue" ||
+    text === "yield"
   ) {
     return false;
   }
@@ -282,6 +283,14 @@ return false;
 判据要窄：`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`
 这八个**只会出现在语句头**的词 ✓；`true` / `false` / `null` 不在关键字表里，仍是操作数 ✓。
 
+**`yield` 是第九个例外，而且必须单列**（实测缺口）：它是**前缀运算符**，
+永远不是某个二元运算符的左操作数——`yield a + b` 在 TypeScript 里是
+`yield (a + b)`，那个 `+` 的左操作数是 `a`、不是 `yield` ✓（所以这条不会少折任何表达式）。
+唯一「直接贴在 `yield` 右边」的运算符是**委托产生式** `yield* h()`：它照样会折出一个
+`BinaryOperator op="*"`，把 `yield` 当成乘法左操作数（AST 那边是带 `asteriskToken` 的
+`YieldExpression`，**没有任何 `BinaryExpression`**）。`await` / `new` / `typeof` 那三个
+**不能照抄这一条**：`new X * 2` 是合法的 `(new X) * 2`，把 `new` 排掉会真的少折一个乘法。
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是**本层的一个二元运算符**，而且左右两边都是操作数。
@@ -311,6 +320,13 @@ if (current.Parent instanceof GenericType) {
   return false;
 }
 if (current.Parent instanceof Bracket && current.Parent.Context === "type") {
+  return false;
+}
+// **映射键的 `in` 不是运算符**（第 66 轮）：键已经收成 `TypeParameter`
+// （见 `type-parameter.xl.md`），父单元不再是 `[` 括号而是它——TS 那边
+// `{ [K in string]: X }` 里根本没有二元表达式，原来那条 `BinaryOperator in ArrayLiteral`
+// 口径本来就是替身。少了这一条，8 处映射键会各多出一个 `<BinaryOperator op="in">`。
+if (current.Parent !== null && current.Parent.constructor.name === "TypeParameter") {
   return false;
 }
 if (this.IsValuePositionBitwise(current) === false) {
@@ -372,7 +388,7 @@ if (current.Parent !== null && current.Parent.constructor.name === "ForNext") {
 if (current.Parent !== null && current.Parent.constructor.name === "Statement") {
   const owner = current.Parent.Parent;
   if (owner === null || (owner.constructor.name !== "EnumBody" && owner.constructor.name !== "ObjectLiteral")) {
-    return true;
+    return this.HasDeclarationBefore(units, index) === false;
   }
   return false;
 }
@@ -459,6 +475,31 @@ if (outsideName === "Keyword") {
 return true;
 ```
 
+## private method HasDeclarationBefore:(units:Array<Token>, index:int)=>bool
+
+`index` 之前的**同一个列表**里有没有一个已经成形的声明头 `Let`。
+
+`let a = 1, b = 2` 里那个 `,` 是**声明符之间的分隔符**，不是逗号表达式。
+本规则跑在 `LetReorganization` 之后，那个 `Let` 就摆在同一个语句列表里，
+产物于是成了 `<Statement><Let fieldName="a" /> = <BinaryOperator op=",">1, b</BinaryOperator> = 2</Statement>`
+——第二个声明符的名字 `b` 被卷进了一个**逗号表达式**（TS 那边是两个 `VariableDeclaration`，
+没有任何 `BinaryExpression`），而且 `= 2` 还落在了那个假表达式外面。
+判据只认「列表里已经有一个 `Let`」这一件事：
+
+- 真正的逗号表达式语句（`a, b;` / `i++, j--;`）里不会有 `Let` ✓；
+- `let a = (b, c)` / `let a = f(b, c)` 的逗号在括号里，压根不在这个列表上 ✓；
+- `for (let i = 0, j = 1; …)` 的逗号在 `for` 的括号里，被上面那条 `for` 判据让开了 ✓。
+
+```ts
+for (let i = 0; i < index; i++) {
+  const item = Get(units, i);
+  if (item !== null && item.constructor.name === "Let") {
+    return true;
+  }
+}
+return false;
+```
+
 ## private method IsValuePositionBitwise:(unit:Token)=>bool
 
 `unit` 是 `|` / `&` 这类**两种位置都有含义**的符号时，判断它此刻处在值位——
@@ -486,6 +527,13 @@ if (text !== "|" && text !== "&" && text !== "^") {
 const parent = unit.Parent;
 if (parent === null) {
   return false;
+}
+// **`EnumMember` 也是值位容器**（第 66 轮第三批）：枚举初始化式是表达式——
+// `enum E { A = 1 | 2 }` 的 `|`、`B = A | C` 都要收成位运算。
+// 少了这一条，`cases:align` 的 `BinaryExpression` 会多出几处（实测 2 处：
+// `decl-enum-computed-member` 与 `enum-initializers` 两个用例）。
+if (parent.constructor.name === "EnumMember") {
+  return true;
 }
 return parent.constructor.name === "Statement";
 ```
@@ -574,10 +622,19 @@ return `<${name} op="${CommonUtil.XmlDecode(this.op)}">${body}</${name}>`;
 
 克隆自身。
 
+**子单元必须一起克隆**：`BinaryOperator` 装着「左操作数 / 运算符 / 右操作数」，
+只克隆自己会让产物里出现 `<BinaryOperator op="+" />` 这样的**空壳**——两个操作数整段消失。
+克隆只在复合赋值展开（`compound-assignment-operator.xl.md`）里被调用，而被克隆的正是左侧表达式：
+`a[b + c] += 1` 展开成 `a[b + c] = a[b + c] + 1`，克隆出来的那个下标里 `b + c` 会丢成空的
+（`tests/parse/cases/expressions/expr-compound-assign-clone-operands.ts` 钉住）。
+
+顺序是 `Sign(this)` → 抄 `op` → 子单元逐个克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
+
 ```ts
 const result = new BinaryOperator(this.Template);
 result.Sign(this);
 result.op = this.op;
+result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```

@@ -169,7 +169,14 @@ result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.AddAndCloseLast(current);
+const headItem = items.length > 0 ? items[0] : null;
+const headIsType = headItem instanceof Identifier && headItem.Is("type");
 for (const item of items) {
+  if (headIsType && item === headItem) {
+    // `export type { A } from "m"` 的 `type` 词**不进产物**：它已经由 `typeOnly="true"` 表达
+    // （与 `import.xl.md` 同一口径）。
+    continue;
+  }
   result.AddAndCloseLast(item);
 }
 let fromIndex = -1;
@@ -246,6 +253,8 @@ ParsePipeline.InitialKeywordReorganizationQueue(this);
 `export type { … }` 的 type-only 导出。
 
 判据与 `Import.typeOnly` 同款：收集到的第一个单元就是内容为 `type` 的 `Identifier`。
+那个 `type` 词**不进产物**（第 56 轮修的）——它已经由 `typeOnly="true"` 表达，
+再以一个 `<Identifier>type</Identifier>` 留在 `Export` 里是纯冗余。
 
 ## field namespace:string = ""
 

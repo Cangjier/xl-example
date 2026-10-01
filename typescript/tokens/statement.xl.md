@@ -140,6 +140,13 @@ return ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
 
 `index` 处是软换行或语句符号。
 
+**块语句后面的那一格没有单独列出来**（第 63 轮试过、退回来了）：`{ A }a += 1` 里 TypeScript
+读成**两条**语句（块 + 表达式语句），可给这条规则加上「前一个实义单元是 `}` 收尾的 `Bracket`
+就算边界」之后，复合赋值的展开**还没跑完**就被这条边界切断——
+产物里第二段只剩一个 `1`，`a` / `=` / 展开出来的 `BinaryOperator` **全丢了** ✗
+（内容丢失比边界不合严重得多）。所以这里维持原判据：那一条形状记在
+`tests/parse/recon2.mjs` 的片段表里，靠探针盯着，不再进用例语料。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
@@ -227,14 +234,32 @@ return units.length - 1 === index;
 
 注意「什么都不做」的那条早退不动下标，所以返回原 `index`。
 
+两处额外的判定都是为了同一个中间状态：**重组会把列表改短，而下标还是旧扫描留下的**。
+
+- `WrapStartIndex`：段内已经有成形的语句级单元时，要收的只是它右边那条尾巴。
+- 收尾的兜底：新 `Statement` 拿不到父单元时**不把它放进列表**，并把已经改过的子单元 `Parent` 恢复回去。
+
+兜底那一支是**必须的**（实测：`{ A }a += 1` 这种「块紧跟着表达式、中间既没有 `;` 也没有换行」的写法）：
+`Statement.AddRange` 会把子单元的 `Parent` 改成挂在那个新 `Statement` 名下，而那个新单元
+**不可能进树**（它的锚点单元自己也已经是别人的子单元，`Parent` 为 `null`）。
+不恢复的话，后面任何一条规则想 `Replace` 这些子单元都会抛「没有父单元」——
+`JsonObjectReorganization.Process` 里那句 `current.Replace(result)` 就是第一条撞上的。
+（这一支只保证**不抛异常**；那种形状的产物里 `{ A }` 仍可能出现两次——
+见 README「已知缺口」里记的那一条。）
+
 ```ts
 const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
-const children = units.slice(frontIndex + 1, index + 1);
+const groupStart = Statement.WrapStartIndex(units, frontIndex, index);
+if (groupStart > index) {
+  return index;
+}
+const children = units.slice(groupStart, index + 1);
 if (children.length === 1 && Statement.IsStatementUnit(children[0])) {
   return index;
 }
+const anchor = Get(units, index)!;
 const statement = new Statement(template);
-statement.Parent = Get(units, index)!.Parent;
+statement.Parent = anchor.Parent;
 statement.AddRange(children);
 const first = children[0];
 const last = children[children.length - 1];
@@ -244,7 +269,13 @@ if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
 } else {
   throw new Error("Statement source range is not complete.");
 }
-const nextIndex = ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
+if (statement.Parent === null) {
+  for (const item of children) {
+    item.Parent = anchor.Parent;
+  }
+  return index;
+}
+const nextIndex = ReplaceCountAt(units, groupStart, index - groupStart + 1, statement);
 statement.TryToClose();
 return nextIndex;
 ```
@@ -309,7 +340,14 @@ return item instanceof IfSet
   || item instanceof Field
   || item instanceof Signature
   || item instanceof Switch
-  || item instanceof Label;
+  || item instanceof Label
+  // 类静态块（`static { … }`）与命名空间导出声明（`export as namespace F`）：
+  // 两个都是**独立语句**，不加进来就会被多包一层 `<Statement>`——
+  // `decl-class-static-block` / `mod-export-as-namespace` 两条用例钉住。
+  // 用类名判定而不是 `instanceof`：本文件被几乎所有 token 文件 import，
+  // 再 import 它们会绕出更深的环（与上面 `Let` 那条同一个理由）。
+  || item.constructor.name === "StaticBlock"
+  || item.constructor.name === "NamespaceExport";
 ```
 
 ## static method IsStatementBoundary:(units:Array<Token>, index:int)=>bool
@@ -339,6 +377,34 @@ if (item instanceof Function || item instanceof Class) {
   return Statement.IsDeclarationPosition(units, index);
 }
 return true;
+```
+
+## static method WrapStartIndex:(units:Array<Token>, frontIndex:int, index:int)=>int
+
+`[frontIndex + 1, index]` 这一段**该从哪一格开始收进 `Statement`**——正常就是 `frontIndex + 1`。
+
+段内已经有一个成形的**语句级单元**（`IsStatementUnit`）时，返回「它后面第一个不是透明单元的格子」，
+于是**要收的是它右边那条尾巴**（那个单元自己留下）。段里没有这种东西、或者它右边只剩透明单元时，
+返回 `index + 1` 表示「没有可收的」。
+
+「透明」= 软换行或符号（`;` / `,`）：它们既不可能是语句级单元，也不该被单独收成一条语句。
+
+```ts
+for (let i = frontIndex + 1; i < index; i++) {
+  const item = Get(units, i);
+  if (item === null || Statement.IsStatementUnit(item) === false) {
+    continue;
+  }
+  for (let j = i + 1; j <= index; j++) {
+    const tail = Get(units, j);
+    if (tail === null || tail instanceof LineWrap || tail instanceof SymbolToken) {
+      continue;
+    }
+    return j;
+  }
+  return index + 1;
+}
+return frontIndex + 1;
 ```
 
 ## static method IsDeclarationPosition:(units:Array<Token>, index:int)=>bool
@@ -583,6 +649,28 @@ return true;
 
 ```ts
 return symbol.Template.SymbolTemplate.IsStatementSymbol(symbol.TempToString()) === false;
+```
+
+## static method LastMeaningfulIndex:(units:Array<Token>, from:int)=>int
+
+从 `units.length - 1` 往前找**最后一个不是软换行的单元**，返回它的下标；`from` 之后没有实义单元时返回 `-1`。
+
+`if` / `while` / `for` / `foreach` 那几条规则用它给「一直写到输入末尾」的语句体收尾
+（第 63 轮补，见 `if/if-set.xl.md` 的说明）：没有 `;`、文件又正好在这里结束时，
+`SearchStatementEnd` 给 `-1`——那不是语法错误，是**语句到输入末尾就结束了**。
+
+尾随软换行刻意**不算**体的一部分（留在外面当语句边界），所以这里要跳过它们。
+
+```ts
+let last = units.length - 1;
+while (last >= from) {
+  const item = Get(units, last);
+  if (item !== null && !(item instanceof LineWrap)) {
+    return last;
+  }
+  last = last - 1;
+}
+return -1;
 ```
 
 ## static method IsInStatement:(units:Array<Token>, index:int)=>bool

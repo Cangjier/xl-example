@@ -5,8 +5,10 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousWrapSymbol, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { BinaryOperator } from "../binary-operator.xl.md"
+import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { JsonObjectReorganization } from "../json/object-literal.xl.md"
 import { Method } from "../method.xl.md"
@@ -15,7 +17,7 @@ import { Statement } from "../statement.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
 import { LamdaBody } from "./lamda-body.xl.md"
-import { LamdaParameter } from "./lamda-parameter.xl.md"
+import { Parameter } from "./lamda-parameter.xl.md"
 import { LamdaParameters } from "./lamda-parameters.xl.md"
 ```
 
@@ -29,35 +31,235 @@ Lambda 表达式：把 `()=>{}` / `p1=>statement` / `():xxx=>{}` 这三种形态
 
 # class LamdaReorganization extends Reorganization
 
-`Process` 是整个文件里最重的一段：它要把 `=>` 左边的东西收成 `LamdaParameters`（括号形参表拆成一个个 `LamdaParameter`，或单个裸形参），把右边的东西收成 `LamdaBody`（花括号体直接搬家，语句体按表达式/语句两种终止规则截断）。
+`Process` 是整个文件里最重的一段：它要把 `=>` 左边的东西收成 `LamdaParameters`（括号形参表拆成一个个 `Parameter`，或单个裸形参），把右边的东西收成 `LamdaBody`（花括号体直接搬家，语句体按表达式/语句两种终止规则截断）。
 
 ## static readonly field Instance:LamdaReorganization = new LamdaReorganization()
 
 唯一的实例。
 
-## private method IsLambdaParameters:(units:Array<Token>, index:int)=>bool
+## method IsLambdaParameters:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `(` 括号是**箭头函数的形参表**，不是一段函数类型。
 
 `(a: A) => B` 与 `(a: A): B => body` 长得几乎一样，区别在括号**前面**是什么：
 
-- 前面是 `:`（`let f: (a: A) => B`）→ 这是类型标注里的**函数类型**，不是箭头函数，本规则不接手；
+- 前面是 `:` / `?:`（`let f: (a: A) => B` / `cb?: (a: A) => B`）→ 这是类型标注里的**函数类型**，
+  不是箭头函数，本规则不接手；
+- 前面是 `new`（`new () => object`）→ **构造类型**，同理不接手；
 - 前面是别的（`=` / `(` / `,` / `return` / 行首…）→ 形参表，成立。
 
+**另外两类必须是函数类型**（第 54 轮补，实测各抓到一处误判）：
+
+- 父单元是 `GenericType`——类型实参段里没有箭头函数（`Array<(a: A) => B>` 的
+  `(a: A) => B` 是函数类型）。与 `MethodReorganization.Previous` / `BinaryOperatorReorganization.Previous`
+  的同一句判据同型。
+- **括号套括号**，而且外层那个括号在类型位：`x: ((a: A) => B)`、`| ((host, cb) => void) | undefined`
+  （`@types/node/stream.d.ts` / `dgram.d.ts` 里成片）。形参括号这时是外层括号内容列表的**第一项**，
+  本层往左什么也看不到——要拿**外层括号自己**在它那一层的位置来问：前面是 `:` / `?:` / `|` / `&`
+  ⇒ 类型位；前面是 `=` 就继续往左找 `type`（类型别名）还是 `const` / `let` / `var`（值）；
+  前面是名字或 `Method` ⇒ 值位（`f((a) => b)` 的形参表）。
+  少了这一条，这些函数类型会被收成 `Lamda`（值位标签），产物里 `<Lamda>` 比 TS 的箭头函数多出十几处。
+
 ```ts
+const current = Get(units, index);
+if (current === null) {
+  return false;
+}
+if (current.Parent instanceof GenericType) {
+  return false;
+}
 const previousIndex = SkipPreviousWrapSymbol(units, index);
 const previous = Get(units, previousIndex);
-if (previous instanceof SymbolToken && previous.Is(":")) {
+if (previousIndex < 0) {
+  return this.IsWrappedByTypeContext(current) === false;
+}
+if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) {
+  // `?:` 是**一个**符号单元（可选参数 / 可选属性），只认 `:` 会漏掉
+  // `callback?: (error: Error | null) => void` 这一大片（实测 `@types/node/child_process.d.ts`
+  // 里成排的 `send(message, callback?: (…) => void)` 全会退回 `Lamda`）。
   return false;
+}
+if (previous instanceof Identifier && previous.Is("new")) {
+  // `new () => object` 是**构造类型**，`new` 直接贴在形参括号前面。
+  return false;
+}
+if (previous instanceof Identifier && previous.Is("extends")) {
+  // 条件类型的约束段：`T extends (this: infer U, …) => any ? … : …`
+  // （`@types/node` 与 `lib.es5.d.ts` 的 `LamdaParameters` / `ThisParameterType` 都是这一形状）。
+  // 类继承的 `extends (expr)` 后面不会跟 `=>`，所以这一条不会误伤值位。
+  return false;
+}
+if (previous instanceof GenericType) {
+  // `<T>(a: A) => B`：泛型函数类型（类型参数段属于它自己），`type X = <T>(a) => B`
+  // 与 `declare function f(): <T>(a: A) => B` 都是这一形状。左边是类型位就算类型。
+  const beforeIndex = SkipPreviousWrapSymbol(units, previousIndex);
+  const before = Get(units, beforeIndex);
+  if (beforeIndex < 0) {
+    return this.IsWrappedByTypeContext(previous) === false;
+  }
+  if (before instanceof SymbolToken && (before.Is(":") || before.Is("?:") || before.Is("|") || before.Is("&"))) {
+    return false;
+  }
+  if (before instanceof SymbolToken && before.Is("=")) {
+    return this.IsTypeAliasAssignment(units, beforeIndex) === false;
+  }
+  return true;
+}
+if (previous instanceof SymbolToken && previous.Is("?")) {
+  // 条件类型真分支的起点：`T extends U ? (a: A) => B : C` 里的 `?` 后面是**类型**；
+  // 三元表达式的 `?` 后面才是值（那边没有 `extends` 标志）。
+  return this.HasExtendsMarker(units, previousIndex) === false;
+}
+if (previous instanceof SymbolToken && previous.Is("=")) {
+  // `type F = (a: A) => B`（类型别名右值）与 `const f = (a) => b` 长得一样，
+  // 差别只在等号左边是 `type X` 还是 `const x`。少了这一条，类型别名里的函数类型会被
+  // `FunctionTypeReorganization`（它排在 `TypeAssign` 之前）问出「是形参表」，
+  // 于是既不产 `FunctionType` 也不产 `Lamda`（实测 `@types/node/fs.d.ts` 的
+  // `export type NoParamCallback = (err: …) => void` 一片）。
+  return this.IsTypeAliasAssignment(units, previousIndex) === false;
 }
 return true;
 ```
 
-## private method FindParameters:(units:Array<Token>, index:int)=>int
+## private method IsTypeAliasAssignment:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `=` 是不是**类型别名**的等号。
+
+往左只跨 `Identifier`（别名、`export` / `declare` 这些修饰词）与 `GenericType` / 软换行：
+
+- 找到 `type` ⇒ 是类型别名；
+- 找到 `let` / `var` / `const` ⇒ 不是；
+- 碰到别的（符号、括号、列表开头）⇒ 不是（保守：宁可当值位，行为与既有一致）。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item instanceof LineWrap || item instanceof GenericType) {
+    continue;
+  }
+  if (item instanceof Identifier) {
+    const text = item.TempToString();
+    if (text === "type") {
+      return true;
+    }
+    if (text === "let" || text === "var" || text === "const") {
+      return false;
+    }
+    continue;
+  }
+  return false;
+}
+return false;
+```
+
+## private method HasExtendsMarker:(units:Array<Token>, index:int)=>bool
+
+`index`（一个 `?`）**往前**有没有条件类型的标志 `extends`。
+
+`T extends U ? A : B` 两个分支都是**类型**；`cond ? a : b` 是三元表达式，两个分支是值。
+判据与 `../type-literal/type-literal.xl.md` 里那份同源（那边判的是 `{` 该不该当类型字面量）。
+
+扫到别的符号（`;` / `=` / 语句边界）就停；括号与软换行是透明的。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item instanceof LineWrap || item instanceof Bracket || item instanceof GenericType) {
+    continue;
+  }
+  if (item instanceof Identifier) {
+    if (item.Is("extends")) {
+      return true;
+    }
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === "." || text === "?.") {
+      // 约束段里的成员访问（`T extends NodeJS.ArrayBufferView<infer B> ? … : …`）。
+      continue;
+    }
+    return false;
+  }
+}
+return false;
+```
+
+## private method IsWrappedByTypeContext:(bracket:Token)=>bool
+
+形参括号是所在列表的第一项时，判断**包着它的那个括号**处在不在类型位。
+
+`bracket.Parent` 就是外层括号（形参括号是它的内容），外层括号的 `Parent` 才是「外公列表」——
+问的是外层括号在**外公列表**里前面那一格是什么：
+
+- `:` / `?:` / `|` / `&` ⇒ 类型位（类型标注、联合 / 交叉类型的一项）；
+- `=` ⇒ 继续往左找 `type`（`type T = ((a: A) => B)`）⇒ 类型位，找到 `const` / `let` / `var` 或者
+  一路到头 ⇒ 值位；
+- 别的（名字、`Method`、列表开头…）⇒ 值位。
+
+不是「括号套括号」的形状一律给 `false`——那说明形参括号是某个列表的第一项而外层不是括号，
+按值位收（`({ a }) => x` 那种解构形参）。
+
+```ts
+const wrapper = bracket.Parent;
+if (!(wrapper instanceof Bracket) || wrapper.startBracket !== "(") {
+  return false;
+}
+const outer = wrapper.Parent;
+if (outer === null) {
+  return false;
+}
+if (outer instanceof GenericType) {
+  // 类型实参段里的括号一定是类型：`Mock<(() => T) | Implementation>`。
+  return true;
+}
+const at = outer.Data.indexOf(wrapper);
+if (at <= 0) {
+  return false;
+}
+let index = SkipPreviousWrapSymbol(outer.Data, at);
+let crossedAssignment = false;
+while (index >= 0) {
+  const item = Get(outer.Data, index);
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === ":" || text === "?:" || text === "|" || text === "&") {
+      return crossedAssignment === false;
+    }
+    if (text === "=" && crossedAssignment === false) {
+      crossedAssignment = true;
+      index = index - 1;
+      continue;
+    }
+    return false;
+  }
+  if (item instanceof Identifier) {
+    const text = item.TempToString();
+    if (text === "extends") {
+      // 条件类型的约束段：`F extends ((value: infer V) => any) ? … : …`
+      return true;
+    }
+    if (crossedAssignment && (text === "let" || text === "var" || text === "const")) {
+      return false;
+    }
+    if (crossedAssignment && text === "type") {
+      return true;
+    }
+    index = index - 1;
+    continue;
+  }
+  return false;
+}
+return false;
+```
+
+## method FindParameters:(units:Array<Token>, index:int)=>int
 
 `index`（一个 `=>`）左边那段是不是形参；是就返回**形参单元**的下标（`(` 括号或裸形参 `Identifier`），否则返回 `-1`。
 
 `Previous` 与 `Process` 共用它——两边对「形参在哪」的判断必须一致。
+**函数类型的规则（`function-type.xl.md`）也复用它**：`-1` 正好就是「这是一段函数类型」的判据，
+两边共用一份判断才不会出现「一边当形参表、另一边当函数类型」的错位，所以它是 `method` 而不是 `private method`。
 
 四种形状都走这里：
 
@@ -110,12 +312,47 @@ return -1;
 
 `index` 处是不是本次重组的起点：它得是 `=>`，而且左边那一段能认成形参（见 `FindParameters`）。
 
+**`=>` 在类型位不是箭头函数**（第 66 轮）：`<F extends (...args: any[]) => any>` 这种
+**参数表约束**里的 `=>` 与箭头函数同形，`FindParameters` 也会认出左边那段形参——
+于是它被收成一个 `Lamda`，而 TS 那边是 `FunctionType`（`cases:align` 实测
+`Lamda in TypeParameter` 3 处、`FunctionType` 缺 3 处，`lib.decorators.d.ts` 与
+`@types/node/test.d.ts` 各一片）。类型位里不可能有箭头函数，所以父单元是类型容器时一律让给
+`function-type.xl.md`。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof SymbolToken) || !current.Is("=>")) {
   return false;
 }
+// **值初始化式除外，而且例外只给 `Field`**：类字段 `f = (a: number): void => {}` 的父单元是
+// `Field`（它同时罩着属性声明与字段），那里是**值**、必须由本规则收。
+// 参数表的**默认值**里也有 `=`（`<F extends Function = (…args: any[]) => undefined>`），
+// 但父单元是 `TypeParameter` 而不是 `Field`——只看「有没有 `=`」会把它误让给函数类型
+// （实测 `Lamda in TypeParameter` 3 处又冒出来）。
+const fieldInitializer =
+  current.Parent !== null &&
+  current.Parent.constructor.name === "Field" &&
+  this.HasAssignmentBefore(units, index);
+if (IsTypeContainerUnit(current.Parent) && fieldInitializer === false) {
+  return false;
+}
 return this.FindParameters(units, index) >= 0;
+```
+
+## private method HasAssignmentBefore:(units:Array<Token>, index:int)=>bool
+
+`index` 前面（同一层）有没有一个 `=`——有的话这一层是**值初始化式**，不是类型标注。
+
+与 `function-type.xl.md` 的同名判据同源（两边看的是同一件事，各自实现一份）。
+
+```ts
+for (let i = 0; i < index; i++) {
+  const item = Get(units, i);
+  if (item instanceof SymbolToken && item.Is("=")) {
+    return true;
+  }
+}
+return false;
 ```
 
 ## static method IsMethod:(unit:Token | null)=>bool
@@ -133,6 +370,27 @@ if (unit instanceof Method) {
 return false;
 ```
 
+## private method CollectParameterUnits:(item:Token, out:Array<Token>)=>void
+
+把形参表里的**逗号二元运算拆平**，按原文档顺序追加到 `out`。
+
+`(a, b) => x` 的形参括号在 `=>` **之前**就关闭了，它自己那一趟重组先把 `a, b` 收成了一个
+`BinaryOperator op=","`（三个以上形参还会左嵌套：`((a, b), c)`）。轮到 `LamdaReorganization` 时，
+形参表里已经没有逗号 `SymbolToken` 了——按旧写法往下切分，`(a, b, c) => x` 会得到**一个**
+`Parameter`，里面装着那个逗号二元运算（`ComputeParametersCount` 也跟着报 1 个形参）。
+
+所以切分之前先递归拆平：`op` 是 `,` 的二元运算按子单元继续展开，其余原样收集。
+
+```ts
+if (item instanceof BinaryOperator && item.op === ",") {
+  for (const child of item.Data) {
+    this.CollectParameterUnits(child, out);
+  }
+  return;
+}
+out.push(item);
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 执行重组，**返回新的下标**。
@@ -143,6 +401,11 @@ return false;
   `FindParameters` 会退回形参括号；形参与 `=>` 之间的那一截（`:` 与类型单元）搬进 `ReturnType`，
   替换范围从**形参**起算（有 `async` 时从 `async` 起算）——
   从 `T` 起算的话，形参括号与冒号会被留在外面，紧接着的 `TypeDefine` 会把整个 `Lamda` 包起来。
+- **`Lamda` 本体要签入签出**（`result.SignIn(lambdaStart)`，终点在收尾处兜底）：
+  它是要留在树里的单元，而 `Clone` 走的是 `Sign(this)`，要求 `SourceRange` 的**两头**都已经签过。
+  两条分支各自用 `result.SignOut(...)` 把终点设成真正的末尾；两个分支都没走到时
+  （`=>` 后面什么都没有这种被截断的形状）由收尾处那句 `result.SignOut(arrowEnd)` 兜底。
+  兜底必须判空：`SignOut` 只能签一次，重复签会抛 `SourceRange.End has been setted`。
 
 几处实现说明：
 
@@ -158,11 +421,24 @@ return false;
   在找不到 `,` 时也会退到 `units.length - 1`，那个位置同样可能是外层语句的 `;`——
   `for (; () => 1; ) {}` 走的正是这一条（`=>` 的父亲是 `for` 的条件括号，被 `IsMethod` 认成实参列表）。
   退格要求 `endIndex > index + 1`，免得把 `() => ;` 这种非法输入退到 `=>` 自己身上。
+- **尾随的软换行也不属于体**（实测：`x => x` 换行 `y` 会被并成**一条**语句）：
+  `SearchStatementEnd` 把 `x => x` 的体判到行尾，可它**不包括**那个换行；
+  换行若被收进 `LamdaBody`，后面语句重组就再也看不到那个边界了——
+  `x => x` 与下一行于是收进同一个 `Statement`（`cases:boundaries` 报「被 `<Statement>` 横跨」）。
+  所以收尾处再退掉一层 `LineWrap`，把换行留在外面。
+  软的换行本来就不进产物（`WrapSymbolReorganization` 会摘掉它），留它在外面只是让它继续当边界。
+  这一条与上一条同型：**边界字符不属于左侧表达式**。
   **不能无条件改用 `SearchStatementEnd` 兜底**：实参列表里 `1` 换行再 `+ 2` 时，
   它会在那个软换行上判出语句结尾，`+ 2` 就被漏在箭头函数外面了。
   所以兜底只认**落在 `;` 上**的那次结果——那说明这是 `for (…)` 头，
   其余情况仍旧一路收到实参列表末尾。
 - 抛错一律用 `new Error(...)`（不进规范类型位）——形参形态认不出来时抛 `参数错误`。
+- **`result` 必须自己签入**（实测）：`SignIn` 只给 `LamdaParameters` 那几个**子单元**签了范围，
+  新造的 `Lamda` 本体的 `SourceRange.Start` 一直是 `null`。`Lamda.Clone`
+  第一句就是 `Sign(this)`，而 `SignInToken` 要求对方的范围已经签入——
+  于是一旦有人克隆这个 lambda，就会抛 `SourceException: SourceRange.Start == null`。
+  实际触发路径很短：`x => x` 换行 `a.b += 1`——复合赋值规则要把等号左边那一段逐个克隆，
+  而它的起点搜索会把前面那个 `Lamda` 一起圈进来。起点取 `rangeStart`（含 `async`）。
 - `JsonObjectReorganization.IsObject` 是单参数版（`IsObjectAt` 才是列表版）。
 - `current?.Parent` 可能是 `undefined`，而 `IsObject` / `IsMethod` 的形参只接受 `null`，所以补 `?? null`。
 
@@ -187,8 +463,10 @@ if (asyncUnit instanceof Identifier && asyncUnit.Is("async")) {
   rangeStart = asyncIndex;
   result.IsAsync = true;
 }
-result.SignIn(parameterUnit.SourceRange.Start!);
-if (parametersIndex < lastIndex) {
+const lambdaStart = Get(units, rangeStart)!.SourceRange.Start!;
+const parametersRangeEnd = parameterUnit.SourceRange.End!;
+const arrowEnd = Get(units, index)!.SourceRange.End!;
+result.SignIn(lambdaStart);if (parametersIndex < lastIndex) {
   const returnType = result.CreateReturnType();
   for (let t = parametersIndex + 1; t <= lastIndex; t++) {
     const item = Get(units, t);
@@ -202,11 +480,15 @@ if (parametersIndex < lastIndex) {
 }
 if (parameterUnit instanceof Bracket) {
   const tempParameters: Token[] = [];
-  for (let i = 0; i < parameterUnit.Data.length; i++) {
-    const item = parameterUnit.Data[i];
+  const flatParameters: Token[] = [];
+  for (const unit of parameterUnit.Data) {
+    this.CollectParameterUnits(unit, flatParameters);
+  }
+  for (let i = 0; i < flatParameters.length; i++) {
+    const item = flatParameters[i];
     if (item instanceof SymbolToken && item.Is(",")) {
       if (tempParameters.length !== 0) {
-        const parameter = new LamdaParameter(template);
+        const parameter = new Parameter(template);
         parameter.SignIn(tempParameters[0].SourceRange.Start!);
         parameter.SignOut(tempParameters[tempParameters.length - 1].SourceRange.End!);
         parameter.AddRange(tempParameters);
@@ -214,9 +496,9 @@ if (parameterUnit instanceof Bracket) {
         parameters.Add(parameter);
         tempParameters.length = 0;
       }
-    } else if (i === parameterUnit.Data.length - 1) {
+    } else if (i === flatParameters.length - 1) {
       tempParameters.push(item);
-      const parameter = new LamdaParameter(template);
+      const parameter = new Parameter(template);
       parameter.SignIn(tempParameters[0].SourceRange.Start!);
       parameter.SignOut(tempParameters[tempParameters.length - 1].SourceRange.End!);
       parameter.AddRange(tempParameters);
@@ -228,7 +510,7 @@ if (parameterUnit instanceof Bracket) {
     }
   }
 } else if (parameterUnit instanceof Identifier) {
-  const parameter = new LamdaParameter(template);
+  const parameter = new Parameter(template);
   parameter.SignIn(parameterUnit.SourceRange.Start!);
   parameter.SignOut(parameterUnit.SourceRange.End!);
   parameter.Add(parameterUnit);
@@ -237,6 +519,9 @@ if (parameterUnit instanceof Bracket) {
 } else {
   throw new Error("参数错误");
 }
+parameters.SignIn(lambdaStart);
+parameters.SignOut(parametersRangeEnd);
+parameters.TryToClose();
 
 const body = result.CreateBody();
 let endIndex = SkipNextWrapSymbol(units, index);
@@ -276,18 +561,24 @@ if (next instanceof Bracket && next.startBracket === "{") {
       break;
     }
     endIndex = endIndex - 1;
-  }  body.AddRange(units.slice(index + 1, endIndex + 1));
+  }
+  while (endIndex > index + 1 && Get(units, endIndex) instanceof LineWrap) {
+    endIndex = endIndex - 1;
+  }
+  body.AddRange(units.slice(index + 1, endIndex + 1));
   body.SignIn(Get(units, index + 1)!.SourceRange.Start!);
   body.SignOut(Get(units, endIndex)!.SourceRange.End!);
   result.SignOut(Get(units, endIndex)!.SourceRange.End!);
   body.IsStatement = true;
 }
 body.TryToClose();
+if (result.SourceRange.End === null) {
+  result.SignOut(arrowEnd);
+}
 result.TryToClose();
 index = ReplaceCountAt(units, rangeStart, endIndex - rangeStart + 1, result);
 return index;
 ```
-
 # class Lamda extends IndependentToken
 
 Lambda 表达式。

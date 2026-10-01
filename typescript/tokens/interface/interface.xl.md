@@ -10,6 +10,7 @@ import { InterfaceBody } from "./interface-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
+import { LineWrap } from "../line-wrap.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 ```
 
@@ -177,20 +178,40 @@ const extendsCommon = Get(units, nextIndex);
 if (!(extendsCommon instanceof Identifier) || extendsCommon.Is("extends") === false) {
   return -1;
 }
+// **继承段的单元要留下来**（第 66 轮第七批）：`extends` 那个词、每个实体名、逗号，
+// 都作为子单元搬进 `Interface`——`heritage-clause.xl.md` 会按 TypeScript 的形状把它们
+// 收成 `<HeritageClause>` + `<ExpressionWithTypeArguments>`。
+// 原来只把**类型实参**（`Base<T>` 的 `<T>`）搬进来、名字与逗号丢掉：产物里
+// `interface K extends L<M>, N {}` 只剩一个孤零零的 `GenericType`，
+// `extends` 名单只活在 `extends="L,N"` 属性里——TS 那边它是有节点的。
+// 搬进去不会重复：整个过程最后用 `ReplaceCountAt` 把整段换成 `Interface`，
+// 外层那些单元随替换一起消失 ✓。
+if (interfaceInstance !== null) {
+  interfaceInstance.AddAndCloseLast(extendsCommon);
+}
 nextIndex = SkipNextWrapSymbol(units, nextIndex);
 let nameStart = nextIndex;
 let nameEnd = this.SkipExtendsName(units, nameStart);
 if (nameEnd < 0) {
   return -1;
 }
+if (interfaceInstance !== null) {
+  this.MoveNameUnits(units, nameStart, nameEnd, interfaceInstance);
+}
 extendsInterfaceNames?.push(this.ExtendsNameText(units, nameStart, nameEnd));
 nextIndex = this.TakeExtendsTypeArguments(units, nameEnd, interfaceInstance);
 let symbolUnit = Get(units, nextIndex);
 while (symbolUnit instanceof SymbolToken && symbolUnit.Is(",")) {
+  if (interfaceInstance !== null) {
+    interfaceInstance.AddAndCloseLast(symbolUnit);
+  }
   nameStart = SkipNextWrapSymbol(units, nextIndex);
   nameEnd = this.SkipExtendsName(units, nameStart);
   if (nameEnd < 0) {
     return -1;
+  }
+  if (interfaceInstance !== null) {
+    this.MoveNameUnits(units, nameStart, nameEnd, interfaceInstance);
   }
   extendsInterfaceNames?.push(this.ExtendsNameText(units, nameStart, nameEnd));
   nextIndex = this.TakeExtendsTypeArguments(units, nameEnd, interfaceInstance);
@@ -213,6 +234,24 @@ if (interfaceInstance !== null) {
   interfaceInstance.SignOutToken(interfaceBody);
 }
 return nextIndex;
+```
+
+## private method MoveNameUnits:(units:Array<Token>, start:int, end:int, interfaceInstance:Interface)=>void
+
+把 `[start, end)` 这些单元（一个实体名的全部部分：`A` / `.` / `B` ……，软换行跳过）
+搬进接口声明。
+
+与 `TakeExtendsTypeArguments` 的分工：那个负责**类型实参段**（`Base<T>` 的 `<T>`），
+这个负责**名字本身**。两段都由 `heritage-clause.xl.md` 在接口自己的队列里收成
+`ExpressionWithTypeArguments` ✓。
+
+```ts
+for (let i = start; i < end; i++) {
+  const item = Get(units, i);
+  if (item !== null && !(item instanceof LineWrap)) {
+    interfaceInstance.AddAndCloseLast(item);
+  }
+}
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
@@ -295,6 +334,11 @@ if (this.NextIsCommonFlowerBracket(units, index)) {
   endIndex = extendsEndIndex;
 }
 const declarationEnd = endIndex;
+// **必须收尾一次**（第 66 轮第七批）：`Interface` 的构造器挂了通用队列，但 `Process`
+// 到这里之前一直没调用 `TryToClose` —— 队列从来没跑过。后果有两个实测症状：
+// ①`extends` 那个词永远升不成 `Keyword`（构造器注释里写的意图没生效）；
+// ②`heritage-clause.xl.md` 收不出 `<HeritageClause>`（接口的继承段一直没有节点）。
+interfaceInstance.TryToClose();
 return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, interfaceInstance);
 ```
 

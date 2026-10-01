@@ -64,6 +64,15 @@ if (current instanceof Bracket === false || current.startBracket !== "(") {
 if (current.Parent instanceof GenericType) {
   return false;
 }
+// **方法声明里残留的「名字 + 括号」不许再收一次**（第 66 轮补）：
+// `MethodDeclarationReorganization` 会把参数表括号与（私有名的）名字留在自己的 `Data` 里，
+// 而它挂的是通用队列——本规则那一趟于是把 `#m()` 里的 `m()` 又收成一个调用节点，
+// 产物变成 `<MethodDeclaration name="#m"><SymbolToken>#</SymbolToken><Method name="m"/>…`，
+// TS 那边一个 `CallExpression` 都没有（`cases:align` 实测 12 处，全是私有方法 / 计算名方法）。
+// 调用**不会**直接住在声明节点里：它要么在方法体（父单元是语句），要么在形参默认值（父单元是括号）。
+if (current.Parent !== null && current.Parent.constructor.name === "MethodDeclaration") {
+  return false;
+}
 if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
   const beforeIndex = SkipPreviousWrapSymbol(units, nameIndex);
   const before = Get(units, beforeIndex);

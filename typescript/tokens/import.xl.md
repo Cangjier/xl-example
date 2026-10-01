@@ -5,8 +5,9 @@ import { CommonUtil } from "../../core/common-util.xl.md"
 import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
+import { RemoveItem } from "../list-extensions.xl.md"
+import { GetSkipPreviousWrapSymbol, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -45,9 +46,19 @@ import { LineWrap } from "./line-wrap.xl.md"
 收成 `Import` 会把 `import.meta.url` 整段吞进一个假的导入节点里（`expr-call-import-meta` 那条用例）。
 合法的导入声明后面跟的是 `{` / `*` / 一个名字 / 一个字符串，不会是 `.`。
 
+**前面紧跟 `.` / `?.` 的是属性名**（`a.import` / `a?.import`）：`import` 是关键字表里的词，
+但它在成员位置就是一个普通的名字（TypeScript 的 AST 里那里是 `Identifier`，不是 `ImportKeyword`）。
+不排除这一种时，规则的收集循环立刻撞上 `;`，`items` 为空，`items[items.length - 1]` 是 `undefined`
+——直接抛 `TypeError`（不是 `SyntaxException`），整个文件解析失败。
+判据与 `new.xl.md` 里 `a.new` 那一路同型：**关键字不能只看自己，要看它前面那一格。**
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Identifier) || current.TempToString() !== "import") {
+  return false;
+}
+const previous = GetSkipPreviousWrapSymbol(units, index);
+if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
   return false;
 }
 const next = Get(units, SkipNextWrapSymbol(units, index));
@@ -66,10 +77,21 @@ return true;
 
 要点：
 
-- 遇到 `;`（`SymbolToken.Is(";")`）或 `LineWrap` 就停，结束下标记成 `i - 1`（**不含**这个终止符）。
+- 遇到 `;`（`SymbolToken.Is(";")`）或 `LineWrap` 就停（那个终止符**不进** `items`）。
 - `from` 的取法有两路：先找内容为 `from` 的 `Identifier`，取它**之后**那段里的第一个 `String`；找不到 `from` 就退回到整段里的第一个 `String`。
 - 从 `String` 的子单元里取第一个 `ConstString`，把它的文本当作 `From`。找不到匹配项就抛异常（不能用 `find` 的 `undefined` 蒙混过去）。
-- 最后批量替换用 `ReplaceCountAt`，返回的 `index` 成为新下标。
+- 最后**逐个把吃掉的单元从列表里摘掉**（`RemoveItem`），再把 `result` 放回原来 `import` 那一格，返回 `index`。
+
+**为什么不是 `ReplaceCountAt`**（这是本条规则最容易踩的一处）：`ReplaceCountAt` 假定
+「`index` 起连续 `count` 个格子都还是那些旧单元」，而这里 `items` 是**按内容**收集的
+（`import { A } \n from "m"` 里的软换行会被跳过），收集范围与「连续下标区间」不是一回事。
+留下没摘掉的旧单元时，它们与 `Import` 的子单元是**同一批对象**，产物里就会各渲染一次；
+更糟的是它们会让末尾那条语句重组规则（`StatementReorganization3`）在旧下标上再收一个 `Statement` 出来，
+`<Import>` 旁边于是多出一个内容一模一样的 `<Statement>`——实测在「文件以 `import …` 结尾、
+尾随既没有 `;` 也没有换行」时必现。按身份逐个摘干净之后这条路径不再存在。
+
+必须先 `SignOut` / `TryToClose` 再摘：`TryToClose` 要的范围来自那些单元自己的 `SourceRange`，
+而 `RemoveItem` 只动列表、不动单元。
 
 ```ts
 const current = Get(units, index);
@@ -77,14 +99,12 @@ if (current === null) {
   throw new Error("current 为空");
 }
 const items: Token[] = [];
-let endIndex = index;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
     throw new Error("item 为空");
   }
   if ((item instanceof SymbolToken && item.Is(";")) || item instanceof LineWrap) {
-    endIndex = i - 1;
     break;
   }
   items.push(item);
@@ -113,11 +133,18 @@ if (fromIndex !== -1) {
   }
 }
 result.ReadClause(items);
-result.AddRange(items);
+const headItem = items.length > 0 ? items[0] : null;
+const headIsType = headItem instanceof Identifier && headItem.Is("type");
+const children = headIsType ? items.slice(1) : items;
+result.AddRange(children);
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(items[items.length - 1].SourceRange.End!);
 result.TryToClose();
-return ReplaceCountAt(units, index, endIndex - index + 1, result);
+for (const item of items.slice()) {
+  RemoveItem(units, item);
+}
+ReplaceAt(units, index, result);
+return index;
 ```
 
 # class Import extends IndependentToken
@@ -144,6 +171,11 @@ super(template);
 
 **判据是收集到的第一个单元就是内容为 `type` 的 `Identifier`**：`import type { A } from "m"` ✓；
 `import { type A } from "m"`（逐项 type 修饰）不算整条 type-only ✓。
+
+那个 `type` 词**不进产物**（第 56 轮修的）：它已经由 `typeOnly="true"` 表达，
+再以一个 `<Identifier>type</Identifier>` 留在 `Import` 里是纯冗余
+（`README.md` 的「结构性缺口」里挂着它）。`import type { A } from "m"` 与
+`import { A } from "m"` 的差别只在属性上，这正是下游需要的形状。
 
 ## field defaultImport:string = ""
 

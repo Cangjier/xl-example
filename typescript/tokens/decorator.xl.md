@@ -55,6 +55,12 @@ const current = Get(units, index);
 if (!(current instanceof SymbolToken) || !current.Is("@")) {
   return false;
 }
+// **`@` 已经在装饰器里时不再收**：`Decorator` 挂了通用队列（见它的构造器），
+// 而本规则也在通用队列里——不挡的话，装饰器自己那一趟会把自己的 `@` 又包一层，
+// 两趟下来套两层空壳。
+if (current.Parent instanceof Decorator) {
+  return false;
+}
 const next = Get(units, index + 1);
 if (next instanceof Identifier) {
   return true;
@@ -157,6 +163,25 @@ return ReplaceCountAt(units, index, endIndex - index + 1, decorator);
 ## field name:string = ""
 
 装饰器的名字：`@ns.Name` 记 `ns.Name`，`@Name` 记 `Name`。
+
+## constructor:(template:Template)=>void
+
+转调基类构造器，并把**通用重组队列**挂上来。
+
+**为什么装饰器里要跑重组**（第 66 轮补）：装饰器的表达式在 TypeScript 那边就是**普通表达式**——
+`@Component({ size: 1 })` 是 `Decorator > CallExpression`，`@(a || b)` 是 `Decorator > ParenthesizedExpression > BinaryExpression`。
+原来这个节点没有任何队列，`Data` 收进来就不再动，于是 `Component(...)` 停在
+「`Identifier` + `Bracket`」两个散单元上、**没有调用节点**（`cases:align` 的
+`CallExpression` 缺 13 处全是装饰器）。挂上通用队列之后，`MethodReorganization` 会把
+「名字 + 括号」收成 `<Method>` ✓，与 TS 的 `CallExpression` 一对一。
+
+挂的是**通用队列**（`ReorganizationTemplate.Get(this.constructor)` 的默认值），不是类型队列：
+装饰器里是值表达式，类型队列那几条（方括号 / 运算符 / 字面量）都不该在这里跑。
+
+```ts
+super(template);
+this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+```
 
 ## method ToXmlString:()=>string
 

@@ -167,12 +167,43 @@ return current instanceof SymbolToken && (current.Is("++") || current.Is("--"));
 父单元是 `GenericType` 时一律不成立——实测 `@types/node/http.d.ts` 20 处、`http2.d.ts` 82 处
 全是这个形状（与 `MethodReorganization` 挡「类型实参段里的调用」是同一个道理）。
 
+**`Parent === null` 时的 `typeof` 也要挡**（第 57 轮补）：词法阶段收编类型实参段的那一趟，
+这段文本**还没挂到任何父单元上**（`Parent` 是 `null`，见 `../generic-type.xl.md`），
+所以上面那条 `instanceof GenericType` 在那一刻问不出东西来——等它挂上去时，
+`UnaryOperator` 已经造好了（实测 `let v: Wrap<typeof x>` 的产物里，
+泛型段内部是 `<UnaryOperator op="typeof">`，而同样一段类型写在标注位
+（`let v: typeof x`）却是 `<Keyword>typeof</Keyword><Identifier>x</Identifier>` ✗ 同构不同形）。
+实测全语料里 `Parent === null` 的一元折 **只有 `op=typeof`**（其余 `!` / `-` / `void` / `delete`
+的折都发生在 `Statement` / `Bracket` 父单元下，不受这条影响）。
+
+**下标访问的类型位**（第 61 轮补）：`ReturnType<any[][typeof Symbol.iterator]>` 里的 `typeof`
+也在类型位（TS 那边同样是 `TypeQueryNode`），可它的父单元是 `[` 括号，前面那两条都问不出来。
+`[` 括号的 `Context` 是 `DecideBracketContext` 算出来的（覆盖 `{` / `[`），所以直接问它 ✓。
+**只加 `[`，不加 `(`**：`(` 的 `Context` 一律为空串，第 57 轮把它纳进来时
+`for (; i < n; i++)` 的循环头被判成类型位、`i++` / `-1` 那些真一元运算当场少了 17 个。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
   return false;
 }
 if (current.Parent instanceof GenericType) {
+  return false;
+}
+if (current.Parent === null && this.OperatorText(current) === "typeof") {
+  return false;
+}
+if (current.Parent instanceof Bracket && current.Parent.startBracket === "[" && current.Parent.Context === "type") {
+  // **下标访问的类型位**：`ReturnType<any[][typeof Symbol.iterator]>` 那个 `typeof` 是类型查询，
+  // 不是一元运算（实测 `@types/node/compatibility/iterators.d.ts`）。`[` 括号的 `Context`
+  // 由 `DecideBracketContext` 算得出来（它覆盖 `{` / `[`），所以这一条问得准；
+  // **只管 `[`**：`(` 的 Context 一律是空串，硬加会把 `for (…; …; i++)` 的循环头算进来（第 57 轮踩过）。
+  return false;
+}
+if ((this.OperatorText(current) === "-" || this.OperatorText(current) === "+") && this.IsInMappedType(current)) {
+  // `-readonly` / `+readonly` 是**映射类型的修饰符**，不是一元运算
+  // （实测 `{ -readonly [K in keyof T]-?: T[K] }` 的产物里有个 `<UnaryOperator op="-">`）。
+  // 映射类型的内容全是类型（键、`as` 子句、值类型），里面出现一元运算一定是误判。
   return false;
 }
 const afterIndex = SkipNextWrapSymbol(units, index);
@@ -193,6 +224,25 @@ if (this.IsOperand(after) === false) {
   return false;
 }
 return this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index))) === false;
+```
+
+## private method IsInMappedType:(unit:Token)=>bool
+
+这个单元在不在一个 `MappedType` 里（往上找三层）。
+
+映射类型的成员会先被包进一个 `<Statement>`（`Unit → Statement → MappedType`），
+所以要往上走两三层才看得到它；用**类名**判定（`mapped-type.xl.md` 引本文件、本文件引它会绕出环，
+与 `statement.xl.md` 里 `Let` 那条同一个理由）。
+
+```ts
+let node:Token | null = unit;
+for (let hop = 0; hop < 3 && node !== null; hop++) {
+  node = node.Parent;
+  if (node !== null && node.constructor.name === "MappedType") {
+    return true;
+  }
+}
+return false;
 ```
 
 ## private method OperatorText:(current:Token)=>string
@@ -302,10 +352,18 @@ return `<${name} op="${CommonUtil.XmlDecode(this.op)}">${body}</${name}>`;
 
 克隆自身。
 
+**子单元必须一起克隆**：`UnaryOperator` 装着「运算符 + 操作数」，只克隆自己会让产物里出现
+`<UnaryOperator op="!" />` 这样的**空壳**——操作数整段消失。克隆只在复合赋值展开
+（`x = -a; x += 1` 那类形状里左侧若含一元运算，见 `compound-assignment-operator.xl.md`）
+里被调用。
+
+顺序是 `Sign(this)` → 抄 `op` → 子单元逐个克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
+
 ```ts
 const result = new UnaryOperator(this.Template);
 result.Sign(this);
 result.op = this.op;
+result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```

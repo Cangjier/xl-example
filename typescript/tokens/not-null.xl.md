@@ -190,9 +190,17 @@ super(template);
 
 克隆自身。
 
+**子单元必须一起克隆**：`NotNull` 装着「被断言者 + `!`」，只克隆自己会让产物里出现
+`<NotNull />` 这样的**空壳**——名字与表达式整段消失。克隆只在复合赋值展开
+（`x! += 1` → `x! = x! + 1`，`compound-assignment-operator.xl.md`）里被调用，
+而被克隆的那一段正是左侧表达式，`a[b!] += 1` 这种形状就会撞上。
+
+顺序是 `Sign(this)` → 子单元逐个克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
+
 ```ts
 const result = new NotNull(this.Template);
 result.Sign(this);
+result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
 ```
