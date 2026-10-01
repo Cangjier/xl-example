@@ -161,9 +161,39 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13864 / 15303 | 452562 / 452849 |
-| 同 kind 同区间 | **73.2%** | **76.8%** |
-| 其中**字段名也一致** | **95.4%** | **96.0%** |
+| 投影节点 / TS 语义节点 | 13995 / 15303 | 452570 / 452849 |
+| 同 kind 同区间 | **74.1%** | **76.8%** |
+| 其中**字段名也一致** | **95.6%** | **96.0%** |
+
+### 第 28 轮：解构声明的名字，产物里**本来就有**
+
+`ObjectBindingPattern` / `ArrayBindingPattern` 的 `elements` 空着（17 + 15 处），
+追下去发现**根本不是我缺信息**——产物里那个括号段本来就是结构化的：
+
+```
+Let[0,21] arrayPattern="a,1,rest"
+  ArrayLiteral[6,21]                 ← 就是 TS 的 ArrayBindingPattern[6,22)，逐格一致
+    BindingElement[7,11] > [Identifier(a), SymbolToken(=), Identifier(1)]
+    SymbolToken(,)
+    BindingElement[14,20] > [SymbolToken(...), Identifier(rest)]
+```
+
+而我早先从源码括号里**另造了一个空壳**（`bindingSpan`，只有区间、没有内容）——
+于是 `elements` 空着，里面的 `BindingElement` 与那些名字全丢。这一族同时解释了三处症状：
+`ObjectBindingPattern` / `ArrayBindingPattern` 的字段名差异、`BindingElement` 的字段名差异、
+以及 `Identifier` 缺口里的 62 个。
+
+修法就是**用产物自己的那个节点**，另加两张小表：
+
+- **绑定位要换 kind**：同一个产物标签 `ArrayLiteral` 在**值位**是 `ArrayLiteralExpression`、
+  在**绑定位**是 `ArrayBindingPattern`——所以按上下文显式换，不走 `KIND_BY_TAG`（那是值位的表）；
+- `BindingElement` 的三种形态按标点切：`a`（只有 `name`）、`p: q`（`propertyName` + `name`）、
+  `a = 1`（`name` + `initializer`）；`...rest` 的 `...` 是节点的**属性**、不是子节点，不投。
+
+用例语料 73.2% → **74.1%**，真实语料持平（76.8%），`Identifier` 缺口 678 → **616**。
+
+**这一轮的教训与第 25 轮同源**：症状是「缺字段」，但根因是**没用上游已经给的东西**，
+反而是自己造了一份更差的。查缺口时先问一句「这个信息产物里真的没有吗」。
 
 ### 第 27 轮：类型位的点号名是 `QualifiedName`，**不是** `PropertyAccessExpression`
 
@@ -547,6 +577,7 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 25 轮 | 投影层：点号链**先折、再当左操作数**（第三个版本才对）＋链尾调用的切法；语句族按 **kind 名后缀**统一剪尾部 trivia | **95.1%** |
 | 第 26 轮 | 投影层：**标签折叠**（产物里 `Label` 与语句是平级、TS 是包住）＋ `projectLetFrom`（`for` 头部的列表不套 `Statement`）；尾部 trivia 改成**一律剪** | **95.2%** |
 | 第 27 轮 | 投影层：类型位的点号名折成 **`QualifiedName`**（值与类型位同名不同 kind）＋ `VariableStatement` 的语句级 `modifiers` | **95.4%** |
+| 第 28 轮 | 投影层：解构声明**用产物自己的 `ArrayLiteral` / `ObjectLiteral`** 当绑定模式（原先是自己造的空壳）＋ `BindingElement` 三形态 | **95.6%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；

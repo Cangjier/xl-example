@@ -786,10 +786,21 @@ function projectLetFrom(kids, ctx, container) {
   // `Statement[104,…)`（含 `export`）/ `List[111,…)`（从 `const` 起）/ `Declaration[117,…)`（从名字起）。
   const listStart = modifierStart(letView, ctx);
   const declared = String(letView.attrs.get("fieldName") ?? "");
-  const name =
+  // **解构声明的名字用产物自己的那个 `ArrayLiteral` / `ObjectLiteral`**（踩过）：
+  // 它们就是绑定模式（`ArrayLiteral[6,21]` 与 TS 的 `ArrayBindingPattern[6,22)` 逐格一致），
+  // 里面还带着结构化的 `BindingElement`。早先我从源码括号里**另造了一个空壳**，
+  // 于是 `elements` 空着、里面的 `BindingElement` 与名字全丢——`ObjectBindingPattern` /
+  // `ArrayBindingPattern` 的字段名差异、以及 `BindingElement` 那一族的 `Identifier` 缺口都是它。
+  const patternUnit =
     declared === ""
-      ? bindingSpan(container, listStart, listEnd, ctx)
-      : synthName(declared, letView, ctx);
+      ? projectableKids(letView).find((k) => k.get("type") === "ArrayLiteral" || k.get("type") === "ObjectLiteral") ?? null
+      : null;
+  const name =
+    patternUnit !== null
+      ? projectBindingPattern(patternUnit, ctx)
+      : declared === ""
+        ? bindingSpan(container, listStart, listEnd, ctx)
+        : synthName(declared, letView, ctx);
   const declaration = {
     kind: "VariableDeclaration",
     name,
@@ -819,6 +830,60 @@ function projectLetFrom(kids, ctx, container) {
   const onlyStatementLevel = statementModifiers.filter((m) => !["const", "let", "var"].includes(m.text));
   if (onlyStatementLevel.length > 0) statement.modifiers = onlyStatementLevel;
   return { list, statement };
+}
+
+/**
+ * 绑定模式：产物那边解构声明的括号段是 `ArrayLiteral` / `ObjectLiteral`，
+ * 而 TS 在**绑定位**叫 `ArrayBindingPattern` / `ObjectBindingPattern`（字段 `elements`）。
+ *
+ * 同一个产物标签在**值位**是 `ArrayLiteralExpression`（`[1, 2]`）、在**绑定位**是
+ * `ArrayBindingPattern`（`const [a, b] = …`）——所以这里按上下文显式换 kind，
+ * 不走 `KIND_BY_TAG`（那张表是值位的）。
+ */
+function projectBindingPattern(unit, ctx) {
+  const v = view(unit);
+  const kind = v.type === "ArrayLiteral" ? "ArrayBindingPattern" : "ObjectBindingPattern";
+  const elements = [];
+  for (const kid of projectableKids(v)) {
+    if (kid.get("type") === "BindingElement") elements.push(projectBindingElement(kid, ctx));
+  }
+  return { kind, elements, pos: v.start, end: stmtEndOf(v, ctx) };
+}
+
+/**
+ * 绑定元素 → `BindingElement`。
+ *
+ * 三种形态（都在产物里，逐个按标点切）：
+ *
+ * | 源码 | TS 的子节点 |
+ * | --- | --- |
+ * | `a`（简写） | `name` |
+ * | `p: q` | `propertyName`(`p`) + `name`(`q`) |
+ * | `a = 1` | `name`(`a`) + `initializer`(`1`) |
+ * | `...rest` | `name`（`...` 是节点的 `dotDotDotToken` **属性**，不是子节点，所以不投） |
+ */
+function projectBindingElement(unit, ctx) {
+  const v = view(unit);
+  const kids = projectableKids(v);
+  const colonIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
+  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+  const names = kids.filter((k) => isNameNode(k) && !isTypeSeparator(k, ctx));
+  const props = {};
+  if (colonIndex >= 0 && names.length >= 2) {
+    // `p: q`：点号左边是属性名、右边是绑定名
+    const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
+    const after = names.find((k) => startOf(k) > startOf(kids[colonIndex]));
+    if (before !== undefined) props.propertyName = nameOf(before, ctx);
+    if (after !== undefined) props.name = nameOf(after, ctx);
+  } else if (names.length > 0) {
+    props.name = nameOf(names[0], ctx);
+  }
+  if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
+    const rhs = kids[eqIndex + 1];
+    const text = textOfNode(rhs, ctx);
+    props.initializer = { kind: leafKindOfText(text), text, pos: startOf(rhs), end: endOf(rhs) };
+  }
+  return { kind: "BindingElement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 }
 
 /**
