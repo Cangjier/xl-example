@@ -186,6 +186,17 @@ if (parent !== null) {
   // **箭头函数 / 函数类型写在表达式里**：`const f = <T,>(a: T) => a`、`type F = <T>(a: T) => T`
   // 到这一趟时后面的 `(a: T) => T` 还没成形，所以只看两头：前面是 `=` / `(` / `,` / `=>`，
   // 后面紧跟一个 `(` 括号。实参段不会有这个组合（`Array<T>(…)` 不是类型语法）。
+  // **泛型函数类型 / 构造类型**（第 66 轮第十二批实测补）：`const g2: <T>(x: T) => T = …`
+  // 里 `<T>` 的父单元是 `TypeDefine`、它**前面什么都没有**（不像 `type F = <T>…` 前面有 `=`），
+  // `HasTopLevelMarker` 也不成立（`T` 上既没有 `in` / `=` 也没有 `extends`）——
+  // 只有「后面紧跟一个 `(` 括号」这一条能认出它。`cases:align` 因此报过 1 处缺节点。
+  if (parent !== null) {
+    const at = parent.Data.indexOf(unit);
+    const next = Get(parent.Data, SkipNextWrapSymbol(parent.Data, at));
+    if (next instanceof Bracket && next.startBracket === "(") {
+      return true;
+    }
+  }
   return this.IsExpressionParameterList(unit);
 }
 
