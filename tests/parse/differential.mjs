@@ -38,7 +38,12 @@ const MAP = {
   SetAccessor: "MethodDeclaration",
   MethodSignature: "MethodDeclaration",
   PropertySignature: "Field",
-  IndexSignatureDeclaration: "Field",
+  // 索引签名第 66 轮起有自己的 `<IndexSignature>` 标签（`index-signature.xl.md`）。
+  // 这里原来写的是 `"Field"`，于是 120 处索引签名被算成「Field 没产出节点」——
+  // 全语料的 Field 一行因此报出 **+119 的假差额**（第 68 轮实测：TS 侧 20363 个成员/索引签名
+  // = 产物 `<Field>` 20244 + `<IndexSignature>` 120 − 1 处多收）。差分表里的正项是判据，
+  // 所以这条映射必须跟着标签表走。
+  IndexSignatureDeclaration: "IndexSignature",
   TypeAliasDeclaration: "TypeAssign",
   ModuleDeclaration: "Namespace",
   ModuleDeclarationString: "Namespace",

@@ -9,6 +9,10 @@ tests/parse/
   validate.mjs           用例体检（只检查用例本身合不合格，不评判解析器）
   run.mjs                跑全部用例，与台账比对，输出缺口清单
   differential.mjs       用 TypeScript 自带 AST 做差分，自动找没人想到的缺口（比**构造个数**）
+                          —— 它**没有退出码**（探针，怎么跑都是 0），表要逐行读：
+                          **正项**才是缺口，「没有正项」这句话依赖 `MAP` 与标签表同源；
+                          第 68 轮实测过一处失配（索引签名有了 `<IndexSignature>` 之后
+                          `IndexSignatureDeclaration` 仍映射到 `Field`，凭空 119 处正项）
   matrix.mjs             构造矩阵：`上下文 × 构造` 全组合（比**构造在不同上下文里的行为**）
   lossless.mjs           无损性：源码里的标识符与字面量值是否还出现在产物里（比**内容**）
   structure.mjs          结构尺子：产物的**括号归属**是否就是源码的形状（比**嵌套形状**）
