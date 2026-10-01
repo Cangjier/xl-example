@@ -241,6 +241,9 @@ const FIELD_BY_KIND = new Map([
   // 绑定元素：`BindingElement.name`（`[a]` 是 `a`；`{p: q}` 是 `p`，`q` 进 `PropertyName`）。
   // 产物那边 `[]` / `{}` 只是分组括号，摊平后是 `[identifier, ...]`，所以按字段名取第一个。
   ["BindingElement", new Map([["children", "name"]])],
+  // 解构的两种绑定模式：TS 那边 `elements` 是一串 `BindingElement`。
+  ["ArrayBindingPattern", new Map([["children", "elements"]])],
+  ["ObjectBindingPattern", new Map([["children", "elements"]])],
   ["EnumDeclaration", new Map([["children", "members"]])],
   // 类型参数段：产物那边是一个 `GenericType` 包装（`A<T>`、`T<U>` 与类型引用同形），
   // TS 那边 `typeParameters` 是一串 `TypeParameter`——所以 `GenericType` 要**提层**：
@@ -314,7 +317,9 @@ function synthName(name, v, ctx) {
     }
   }
   const found = ctx.source.indexOf(name, from);
-  const limit = v.end === undefined ? ctx.source.length : v.end;
+  // **上界是「声明段的末尾」而不是 `v.end`**：`const f` 里那个 `f` 正好落在 `Let` 的末字符上，
+  // 用 `found < v.end` 会把它判成越界（踩过：`const f = <T>(x: T): T => x` 的名字一直取不到）。
+  const limit = ctx.source.length;
   const pos = found >= 0 && found < limit ? found : from;
   return { kind: "Identifier", text: name, pos, end: pos + name.length };
 }
@@ -591,22 +596,27 @@ function projectExpression(kids, ctx) {
  */
 function projectLet(v, ctx) {
   const kids = projectableKids(v);
+  // **`fieldName` / `modifiers` 在 `Let` 子单元上，不在外层 `Statement` 上**（踩过）：
+  // 顶层形态是 `Statement > [Let(``const f``), SymbolToken(=), 初始化式]`，
+  // 而 `Let` 自己的区间只盖到 `const f` 为止、初始化式是它的**平级兄弟**。
+  // 早先这里直接读外层容器的属性，于是 `fieldName` 永远是空——`VariableDeclaration`
+  // 的起点一直退到 `const`（实测 505 处对不上），而 `List` 那一层看不出来。
+  const letNode = kids.find((k) => k.get("type") === "Let") ?? null;
+  const letView = letNode === null ? v : view(letNode);
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const initNode = eqIndex >= 0 && eqIndex + 1 < kids.length ? kids[eqIndex + 1] : null;
   // **尾部的 `;` 不进前两层**：TS 那边 `VariableStatement` 含分号，
   // `VariableDeclarationList` 与 `VariableDeclaration` 都不含（实测 `const answer = 0;`
-  // 是 `Statement[0,17)` / `List[0,16)` / `Declaration[6,16)`）。产物那三层都用 `Let` 自己的区间，
-  // 于是后两层各多含一个字符——按 TS 的口径把分号剥掉。
+  // 是 `Statement[0,17)` / `List[0,16)` / `Declaration[6,16)`）。
   const stmtEnd = ctx.source[v.end - 1] === ";" ? v.end - 1 : v.end;
   // **语句级修饰词不进前两层**：`export const q = 1` 的 TS 是
   // `Statement[104,…)`（含 `export`）/ `List[111,…)`（从 `const` 起）/ `Declaration[117,…)`（从名字起）。
-  // 产物把修饰词记成 `modifiers="export,const"`，所以列表起点取**最后一个修饰词**的位置
-  // （`const` 是列表的 flags，`export` / `declare` / `default` 属于外层语句）。
-  const listStart = modifierStart(v, ctx);
-  // 声明名：产物把名字记在 `fieldName` 属性上（树里的名字单元是后续要补的），
-  // 这里仍走 `synthName` 找位置；解构声明没有 `fieldName`，给一个零宽占位。
-  const declared = String(v.attrs.get("fieldName") ?? "");
-  const name = declared === "" ? { kind: "ArrayBindingPattern", pos: listStart, end: listStart } : synthName(declared, v, ctx);
+  const listStart = modifierStart(letView, ctx);
+  const declared = String(letView.attrs.get("fieldName") ?? "");
+  const name =
+    declared === ""
+      ? bindingSpan(v, listStart, stmtEnd, ctx)
+      : synthName(declared, letView, ctx);
   const declaration = {
     kind: "VariableDeclaration",
     name,
@@ -617,11 +627,39 @@ function projectLet(v, ctx) {
   const list = {
     kind: "VariableDeclarationList",
     declarations: [declaration],
-    flags: flagsOf(v),
+    flags: flagsOf(letView),
     pos: listStart,
     end: stmtEnd,
   };
   return { kind: "VariableStatement", declarationList: list, pos: v.start, end: v.end };
+}
+
+/**
+ * 解构声明的**绑定模式**区间：`const [a = 1, b = a] = []` 里那个 `[a = 1, b = a]`。
+ *
+ * 产物只把解构名记成 `arrayPattern="a,1,b,a"` 这样的**属性**（连括号都没记），
+ * 所以这里从源码里把方括号 / 花括号那一段**配对扫出来**——从 `from` 往后找第一个 `[` 或 `{`，
+ * 再按深度找它的配对括号。取不到时给一个零宽占位（宁可窄，不要凭空盖住整条声明）。
+ */
+function bindingSpan(v, from, limit, ctx) {
+  const source = ctx.source;
+  for (let i = from; i < limit; i++) {
+    const ch = source[i];
+    if (ch !== "[" && ch !== "{") continue;
+    const close = ch === "[" ? "]" : "}";
+    let depth = 0;
+    for (let j = i; j < limit; j++) {
+      if (source[j] === ch) depth++;
+      else if (source[j] === close) {
+        depth--;
+        if (depth === 0) {
+          return { kind: ch === "[" ? "ArrayBindingPattern" : "ObjectBindingPattern", pos: i, end: j + 1 };
+        }
+      }
+    }
+    break;
+  }
+  return { kind: "ArrayBindingPattern", pos: from, end: from };
 }
 
 /**
