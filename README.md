@@ -324,8 +324,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | 口径 | 用例语料 1001 文件 | 真实语料 383 文件 |
 | --- | --- | --- |
 | 产物标签名直接比 | 28.3% | 44.8% |
-| **投影成 TS 形状后比**（`ts-shape.mjs`） | **74.1%** | **76.8%** |
-| 其中**字段名也一致** | 95.6% | 96.0% |
+| **投影成 TS 形状后比**（`ts-shape.mjs`） | **74.3%** | **76.9%** |
+| 其中**字段名也一致** | 96.0% | 96.1% |
 
 第三行是「完全 follow TypeScript 形状」的真账：[tests/parse/ts-shape.mjs](tests/parse/ts-shape.mjs)
 负责换名、补壳 / 提层、给字段名，`cases:tsast` 逐节点比 **kind / 区间 / 字段名** 三样。

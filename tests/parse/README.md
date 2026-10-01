@@ -161,9 +161,30 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13995 / 15303 | 452570 / 452849 |
-| 同 kind 同区间 | **74.1%** | **76.8%** |
-| 其中**字段名也一致** | **95.6%** | **96.0%** |
+| 投影节点 / TS 语义节点 | 13967 / 15303 | 452282 / 452849 |
+| 同 kind 同区间 | **74.3%** | **76.9%** |
+| 其中**字段名也一致** | **96.0%** | **96.1%** |
+
+### 第 29 轮：字段名前三，三种不同的病因
+
+按上一轮的教训，对这轮的三类各问了一句「产物里真的没有吗」，答案是**三种不同情况**：
+
+| 字段名差异 | 产物里有没有 | 修法 |
+| --- | --- | --- |
+| `ExpressionWithTypeArguments` 缺 `typeArguments`（15） | **有**（平级的 `[Identifier(B), GenericType(<T>)]`） | 字段表只把 `children` 整体映射成 `expression`，实参被塞进去了；改成显式切两块 |
+| `SwitchStatement` 的 `compare`/`segments`（16） | 段名不同、且**缺一层** | 改名为 `expression`，并把 `segments` **合成**一个 `CaseBlock`（TS 在中间有这层壳） |
+| `TypeParameter` 的 `modifiers`/`constraint`（17） | **有**，但名字找错了 | 见下 |
+
+`TypeParameter` 那一处最值得记：**`out` 在产物里是 `Identifier`**（不是 `Keyword`——README 的
+「已知口径」早就记过这条），所以我那句「名字 = 第一个 `Identifier`」把 `out` 当成了名字本身，
+于是 `modifiers` 空掉、`name` 也指错。修法是**找名字时排掉修饰词与 `extends`**
+（`extends` 的词法身份同样不固定：本仓库记过「接口的 `extends` 永远升不成 `Keyword`」）。
+顺带补了 `const` 类型参数（`<const T>`）也进 `modifiers`。
+
+同一轮还顺手补了三处纯字段名：`NonNullExpression → expression`、`TypeQuery → exprName`、
+以及 `extends` 的双身份判断。
+
+用例语料 74.1% → **74.3%**，字段名 95.6% → **96.0%**（真实语料 96.1%）。
 
 ### 第 28 轮：解构声明的名字，产物里**本来就有**
 
@@ -578,6 +599,7 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 26 轮 | 投影层：**标签折叠**（产物里 `Label` 与语句是平级、TS 是包住）＋ `projectLetFrom`（`for` 头部的列表不套 `Statement`）；尾部 trivia 改成**一律剪** | **95.2%** |
 | 第 27 轮 | 投影层：类型位的点号名折成 **`QualifiedName`**（值与类型位同名不同 kind）＋ `VariableStatement` 的语句级 `modifiers` | **95.4%** |
 | 第 28 轮 | 投影层：解构声明**用产物自己的 `ArrayLiteral` / `ObjectLiteral`** 当绑定模式（原先是自己造的空壳）＋ `BindingElement` 三形态 | **95.6%** |
+| 第 29 轮 | 投影层：`ExpressionWithTypeArguments` 切 `expression` + `typeArguments`；`SwitchStatement` 合成 `CaseBlock`；`TypeParameter` 找名字时**排掉修饰词**（`out` 是 `Identifier`） | **96.0%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；

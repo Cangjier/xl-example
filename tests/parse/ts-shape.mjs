@@ -217,6 +217,10 @@ const FIELD_BY_KIND = new Map([
   ["FunctionType", new Map([["children", "parameters"]])],
   // `new`：产物那边类型段叫 `name`，TS 那边被调用者叫 `expression`。
   ["NewExpression", new Map([["name", "expression"]])],
+  // 非空断言 `x!`：TS 的 `NonNullExpression.expression`。
+  ["NonNullExpression", new Map([["children", "expression"]])],
+  // `typeof X`：TS 的 `TypeQuery.exprName`。
+  ["TypeQuery", new Map([["children", "exprName"]])],
   // 元组：元素数组叫 `elements`；具名/可选/变长元素各自是 `NamedTupleMember` 等，照旧。
   ["TupleType", new Map([["children", "elements"]])],
   // 枚举成员：`A = 1` 是 `name` + `initializer`。
@@ -534,6 +538,12 @@ function projectNode(node, ctx) {
 
     case "FunctionType":
       return projectFunctionType(v, ctx);
+
+    case "ExpressionWithTypeArguments":
+      return projectExpressionWithTypeArguments(v, ctx);
+
+    case "Switch":
+      return projectSwitch(v, ctx);
 
     case "Field":
       return projectField(v, ctx);
@@ -1349,6 +1359,42 @@ function projectFunctionType(v, ctx) {
 }
 
 /**
+ * `extends` / `implements` 里的 `B<T>` → `ExpressionWithTypeArguments`
+ * （`expression` = 被继承的那个名字，`typeArguments` = `<T>` 里的实参）。
+ *
+ * 产物那边是平级的两块（`[Identifier(B), GenericType(<T>)]`），
+ * 而字段表原来只把 `children` 整体映射成 `expression`——于是实参挂在 `expression` 下、
+ * `typeArguments` 整个字段不见（实测 15 处）。`GenericType` 在这里的身份是**实参表**，不是节点。
+ */
+function projectExpressionWithTypeArguments(v, ctx) {
+  const kids = projectableKids(v);
+  const generic = kids.find((k) => k.get("type") === "GenericType");
+  const nameNode = kids.find((k) => isNameNode(k));
+  const props = {};
+  if (nameNode !== undefined) props.expression = projectNode(nameNode, ctx);
+  if (generic !== undefined) props.typeArguments = projectTypeArguments(generic, ctx);
+  return { kind: "ExpressionWithTypeArguments", pos: v.start, end: v.end, ...props };
+}
+
+/**
+ * `switch (v) { … }` → `SwitchStatement`（`expression` + `caseBlock`）。
+ *
+ * TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），产物那边没有这一层
+ * （`Switch` 只有 `compare` 与 `segments` 两个段）——所以这里**合成**它：
+ * 区间从第一个 `{` 起、到 `switch` 自己的终点（那个 `}` 正好是最后一个字符）。
+ */
+function projectSwitch(v, ctx) {
+  const kids = projectableKids(v);
+  const cond = kidsOf(v, "compare");
+  const segments = projectEach(kidsOf(v, "segments"), ctx);
+  const brace = ctx.source.indexOf("{", v.start);
+  const props = {};
+  if (cond.length > 0) props.expression = projectExpression(cond, ctx);
+  props.caseBlock = { kind: "CaseBlock", clauses: segments, pos: brace >= 0 ? brace : v.start, end: v.end };
+  return { kind: "SwitchStatement", pos: v.start, end: v.end, ...props };
+}
+
+/**
  * 类型参数 `<T extends object = any>` → `TypeParameter`
  * （`name` + 可选 `constraint` / `default` / `modifiers`）。
  *
@@ -1356,35 +1402,48 @@ function projectFunctionType(v, ctx) {
  */
 function projectTypeParameter(v, ctx) {
   const kids = projectableKids(v);
-  const extIndex = kids.findIndex((k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "extends");
+  // `extends` 的**词法身份不固定**：本仓库记过「接口的 `extends` 永远升不成 `Keyword`」——
+  // 所以两种身份都认（`<T extends U>` 里它是 `Keyword`，而某些上下文里它是 `Identifier`）。
+  // 只认 `Keyword` 时会**整类丢掉约束**（实测 17 处 `TypeParameter` 少一个 `constraint`）。
+  const extIndex = kids.findIndex(
+    (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends",
+  );
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  const nameNode = kids.find((k) => k.get("type") === "Identifier");
+  // 名字 = 第一个 Identifier，但要**排掉两样东西**：
+  // ① `extends`（它的词法身份不固定，可能是 Identifier）；
+  // ② 修饰词——`out` 在产物里就是 **`Identifier`**（README 记过），
+  //    不排掉的话 `<out T>` 会把 `out` 当成名字、`modifiers` 反而空掉（实测这一族 17 处）。
+  const nameIndex = kids.findIndex(
+    (k) => k.get("type") === "Identifier" && textOfNode(k, ctx) !== "extends" && !isTypeParameterModifier(k, ctx),
+  );
+  const nameNode = nameIndex >= 0 ? kids[nameIndex] : undefined;
   const props = { name: nameNode === undefined ? undefined : projectNode(nameNode, ctx) };
   if (extIndex >= 0) {
     const end = eqIndex > extIndex ? eqIndex : kids.length;
-    // `in` / `out` 是**变型修饰词**，不是约束内容——`<in T extends U>` 里 `in` 排在名字前面，
-    // 而 `<T extends in>` 不是合法 TS，所以按「关键字只认那些不是修饰词的」过滤掉即可。
-    const body = kids.slice(extIndex + 1, end).filter((k) => !isVarianceKeyword(k, ctx));
+    // `in` / `out` / `const` 是**修饰词**，不是约束内容——`<in T extends U>` 里它们排在名字**前面**。
+    const body = kids.slice(extIndex + 1, end).filter((k) => !isTypeParameterModifier(k, ctx));
     if (body.length > 0) props.constraint = typeOf(body, ctx);
   }
   if (eqIndex >= 0) props.default = typeOf(kids.slice(eqIndex + 1), ctx);
-  // `in` / `out` 是类型参数的**修饰词**（变型标注），TS 那边在 `modifiers` 里。
-  const modifiers = kids.filter((k) => isVarianceKeyword(k, ctx));
+  // 修饰词只认**名字之前**的那些：`<const T>` 的 `const`、`<in T>` / `<out T>` 的变型词。
+  // TS 把它们算作 `TypeParameter.modifiers`（`forEachChild` 那层看得见），漏了 `const`
+  // 就会少一整个字段（实测 `decl-func-generic-const-modifier.ts` 那族）。
+  const modifiers = kids.filter((k, i) => (nameIndex < 0 || i < nameIndex) && isTypeParameterModifier(k, ctx));
   if (modifiers.length > 0) props.modifiers = projectEach(modifiers, ctx);
   return { kind: "TypeParameter", pos: v.start, end: v.end, ...props };
 }
 
 /**
- * 这一个单元是不是 `in` / `out` 变型修饰词。
+ * 类型参数的修饰词：变型标注 `in` / `out` 与 `const` 类型参数。
  *
- * **两者词法身份不同**：TS 的扫描器只把 `in` 当关键词，`out` 是上下文修饰、词法上仍是标识符
- * （README 的「已知口径」里记过这条：`class C<in T, out U>` 里 `in` 是 `Keyword`、`out` 是 `Identifier`）。
- * 所以这里**两种都认**，否则 `out` 会被当成约束内容。
+ * **两者的词法身份不同**（README 的「已知口径」里记过）：TS 的扫描器只把 `in` 当关键词，
+ * `out` 是上下文修饰、词法上仍是**标识符**；`const` 同理（产物那边是 `Keyword`）。
+ * 所以两种都认，否则 `out` 会被当成约束内容。
  */
-function isVarianceKeyword(node, ctx) {
+function isTypeParameterModifier(node, ctx) {
   const type = node.get("type");
   if (type !== "Keyword" && type !== "Identifier") return false;
-  return ["in", "out"].includes(textOfNode(node, ctx));
+  return ["in", "out", "const"].includes(textOfNode(node, ctx));
 }
 
 /**
