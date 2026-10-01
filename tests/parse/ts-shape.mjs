@@ -198,7 +198,10 @@ const FIELD_BY_KIND = new Map([
     ]),
   ],
   // 函数类型：TS 的 `FunctionType` 是 `parameters` + `type`（形参表与返回类型）。
+  // 产物那边 `() => T` 是 `[Bracket(形参), SymbolToken(=>), 返回类型]` 三个平级单元。
   ["FunctionType", new Map([["children", "parameters"]])],
+  // `new`：产物那边类型段叫 `name`，TS 那边被调用者叫 `expression`。
+  ["NewExpression", new Map([["name", "expression"]])],
   // 元组：元素数组叫 `elements`；具名/可选/变长元素各自是 `NamedTupleMember` 等，照旧。
   ["TupleType", new Map([["children", "elements"]])],
   // 枚举成员：`A = 1` 是 `name` + `initializer`。
@@ -438,6 +441,9 @@ function projectNode(node, ctx) {
 
     case "Lamda":
       return projectLamda(v, ctx);
+
+    case "FunctionType":
+      return projectFunctionType(v, ctx);
 
     case "Field":
       return projectField(v, ctx);
@@ -808,13 +814,68 @@ function projectConditionalType(v, ctx) {
   return { kind: "ConditionalType", pos: v.start, end: v.end, ...props };
 }
 
-/** 类型参数 `<T extends object>` → `TypeParameter`（`name` + 可选 `constraint`）。 */function projectTypeParameter(v, ctx) {
+/**
+ * 函数类型 `(x: number) => string` → `FunctionType`（`parameters` + `type`）。
+ *
+ * 产物那边是三个平级单元：`[Bracket(形参表), SymbolToken(=>), 返回类型]`。
+ * 形参要**摊平括号**（TS 那边 `parameters` 直接是 `Parameter`，没有括号那一层节点），
+ * `=>` 之后是 `type`。
+ */
+function projectFunctionType(v, ctx) {
+  const kids = projectableKids(v);
+  const arrowIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=>");
+  const params = [];
+  for (const k of arrowIndex < 0 ? kids : kids.slice(0, arrowIndex)) {
+    if (k.get("type") === "Bracket") {
+      for (const inner of unwrapNodes(k)) params.push(inner);
+      continue;
+    }
+    params.push(k);
+  }
+  const props = { parameters: projectEach(params, ctx) };
+  if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
+    props.type = typeOf(kids.slice(arrowIndex + 1), ctx);
+  }
+  return { kind: "FunctionType", pos: v.start, end: v.end, ...props };
+}
+
+/**
+ * 类型参数 `<T extends object = any>` → `TypeParameter`
+ * （`name` + 可选 `constraint` / `default` / `modifiers`）。
+ *
+ * 产物那边名字、`extends`、约束、`=`、默认值是**平级单元**，按标点切开。
+ */
+function projectTypeParameter(v, ctx) {
   const kids = projectableKids(v);
   const extIndex = kids.findIndex((k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "extends");
+  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const nameNode = kids.find((k) => k.get("type") === "Identifier");
   const props = { name: nameNode === undefined ? undefined : projectNode(nameNode, ctx) };
-  if (extIndex >= 0 && extIndex + 1 < kids.length) props.constraint = typeOf(kids.slice(extIndex + 1), ctx);
+  if (extIndex >= 0) {
+    const end = eqIndex > extIndex ? eqIndex : kids.length;
+    // `in` / `out` 是**变型修饰词**，不是约束内容——`<in T extends U>` 里 `in` 排在名字前面，
+    // 而 `<T extends in>` 不是合法 TS，所以按「关键字只认那些不是修饰词的」过滤掉即可。
+    const body = kids.slice(extIndex + 1, end).filter((k) => !isVarianceKeyword(k, ctx));
+    if (body.length > 0) props.constraint = typeOf(body, ctx);
+  }
+  if (eqIndex >= 0) props.default = typeOf(kids.slice(eqIndex + 1), ctx);
+  // `in` / `out` 是类型参数的**修饰词**（变型标注），TS 那边在 `modifiers` 里。
+  const modifiers = kids.filter((k) => isVarianceKeyword(k, ctx));
+  if (modifiers.length > 0) props.modifiers = projectEach(modifiers, ctx);
   return { kind: "TypeParameter", pos: v.start, end: v.end, ...props };
+}
+
+/**
+ * 这一个单元是不是 `in` / `out` 变型修饰词。
+ *
+ * **两者词法身份不同**：TS 的扫描器只把 `in` 当关键词，`out` 是上下文修饰、词法上仍是标识符
+ * （README 的「已知口径」里记过这条：`class C<in T, out U>` 里 `in` 是 `Keyword`、`out` 是 `Identifier`）。
+ * 所以这里**两种都认**，否则 `out` 会被当成约束内容。
+ */
+function isVarianceKeyword(node, ctx) {
+  const type = node.get("type");
+  if (type !== "Keyword" && type !== "Identifier") return false;
+  return ["in", "out"].includes(textOfNode(node, ctx));
 }
 
 /**
