@@ -65,17 +65,25 @@ node build/ts/cjcli.js samples/hello.ts
 缩进只动空白、不动任何标签或属性值；`Root.ToString()` 仍然返回**紧凑单行**形态，
 测试与差分脚本用它。`samples/check.mjs` 比对前会把标签之间的空白去掉，所以两边的缩进怎么排都不影响判定。
 
+**第二个出口是 AST JSON**（`cjcli <文件> --ast-json`）：形状照上游 Cangjie 的
+`Token.ToDictionary` / `ToList`——顶层是数组、每个节点 `{ type, … , children? }`，
+用 `ToList()` 装出来的节点（根那一层、以及 `For` / `Switch` 那些段数组里的）带 `[起始, 结束]` 的 `range`；
+叶子写 `value`、有分段的节点（`For` / `Try` / `IfSegment` …）按段名给数组。
+键名与值**一律以 XML 属性为准**（同名同值），所以两个出口说的一定是同一棵树；
+规格与逐 token 字段表见 [docs/ast-json.md](docs/ast-json.md)。
+
 改完规范之后，验收是这五步：
 
 ```bash
 xl check               # 结构与规则检查
 npm run build          # xl build && tsc
-npm run samples        # 样本夹具逐字节对照
+npm run samples        # 样本夹具逐字节对照（XML 与 AST JSON 各一份夹具）
 npm run cases:check    # 用例体检（用例本身合不合格）
 npm run cases:run      # 用例对解析器（台账必须仍然是空的）
 ```
 
-再跑七把「不需要期望值」的尺子（CI 判据，有问题退出码 1）：
+再跑八把「不需要期望值」的尺子（互相补位；前七把判的是**解析对不对**，第八把判的是
+**产物自己的两个出口是不是同一棵树**。CI 判据，有问题退出码 1）：
 
 ```bash
 npm run cases:diff        # 与 TypeScript 自带 AST 的构造数差分（净额）
@@ -85,6 +93,7 @@ npm run cases:lossless    # 名字与字面量的值有没有被吃掉
 npm run cases:structure   # 嵌套形状：括号归属与源码一致吗（带 --self-test 变异自检）
 npm run cases:boundaries  # 语句边界：相邻两条语句有没有被并成一条（带 --self-test）
 npm run cases:noise       # 噪声：产物里有没有空的 <Statement></Statement>
+npm run cases:astjson     # 两个出口同源：XML 与 AST JSON 逐节点一致吗（带 --self-test）
 ```
 
 另有五把「找缺口」的探针，只报可疑项、不当判据：
@@ -128,6 +137,8 @@ npm run cases:align       # 对齐探针：产物单元与 TS AST 节点按源�
 
 - [docs/xl-to-cpp.md](docs/xl-to-cpp.md)：C++ 目标的生成规范（映射规则、部件划分、必读的编译陷阱）。
 - [docs/cpp-design-notes.md](docs/cpp-design-notes.md)：C++ 目标上那些「只能这么写」的结构性取舍。
+- [docs/ast-json.md](docs/ast-json.md)：token 树的**第二个出口**（AST JSON）的规格：形状、逐 token 字段表、
+  与上游 Cangjie 的逐条差异，以及验收它的尺子。
 
 ## 类型约定
 
@@ -142,8 +153,15 @@ npm run cases:align       # 对齐探针：产物单元与 TS AST 节点按源�
 - **`any` 是唯一的例外**，只出现在「宿主环境的动态值」这一类位置：异常的内层异常、
   `RuntimeObject` 的值、`SyntaxContext` 的变量表、`cjcli` 里取 Node 内建模块的返回值。
   语言层的结构一律用具体类型或 `T | null`。
-- **token 树只产出 XML**，没有 `ToDictionary` / `ToList` 那样的动态字典投影：
-  那种形状（`Map<string, any>` / `Array<any>`）对多语言目标是负担，要别的形状就在调用方自己遍历 `Data`。
+- **token 树的第二个出口是 AST JSON**（`ToDictionary` / `ToList`，见 [docs/ast-json.md](docs/ast-json.md)）。
+  这一条**改掉了原先「token 树只产出 XML」的口径**：上游 Cangjie 的 `Token` 本来就同时有
+  `ToXmlString` 与 `ToDictionary` / `ToList`，而下游（IDE、工具链）要的是 JSON。
+  代价如实记在这里：这两个方法返回 `Map<string, any>` / `Array<any>`，
+  对多语言目标是负担（C++ / C# 侧要么用 `std::any` / `object`，要么就是「另一个目标的活儿」）。
+  换来的是两个出口**同源**——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
+  而 `Map` → 普通对象那一步由 `Token.ToJsonString` 收在一处（`JSON.stringify` 对 `Map` 静默给 `{}`，
+  这是必须显式处理的一步，不是风格问题）。
+  除此之外的运行时代码里不再有别的投影：要别的形状，仍然在调用方自己遍历 `Data`。
 
 ## 解析优先级在哪
 
@@ -282,7 +300,40 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 `structure.mjs` 与 `boundaries.mjs` 各带一个 `--self-test`：故意把产物改坏 / 把两条语句并成一条，
 尺子必须报警——**一个永远绿的尺子比没有尺子更危险**，所以两把尺子的牙口都是被证明过的。
 
-### 当前状态（实测，`npm run` 十八个脚本全绿）
+**第九把问的不是解析对不对，而是产物自己的两个出口是不是同一棵树**：
+
+| 命令 | 口径 |
+| --- | --- |
+| `npm run cases:astjson` | **两个出口同源**：`Root.ToXmlString()` 与 `Root.ToJsonString()` 折算成同一种形状后逐节点比对（带 `--self-test`） |
+
+`ToDictionary` 是照 `ToXmlString` 抄的第二套拼串，两处漂开**不会有任何别的尺子看得见**
+（节点数、名字、括号、边界全都正常）。规格见 [docs/ast-json.md](docs/ast-json.md)。
+
+**第十把问的是「离 TypeScript 的 AST 还差多少」**（这一把目前是红的，见下）：
+
+| 命令 | 口径 |
+| --- | --- |
+| `npm run cases:tsast` | **TS 形状**：直接拿 `ts.createSourceFile` 当基准，逐节点比 kind / 区间 / 字段名 |
+
+它红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
+（`VariableDeclarationList` / `VariableStatement` / `ExpressionStatement` / `Block`）、
+类型引用（`TypeReference` 在 TS 那边是**同一区间两层节点**）、
+以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。
+这个百分比**同时量节点集合、坐标与名字归一**（三者都对上才计），实测：
+
+| 口径 | 用例语料 1001 文件 | 真实语料 383 文件 |
+| --- | --- | --- |
+| 产物标签名直接比 | 28.3% | 44.8% |
+| **投影成 TS 形状后比**（`ts-shape.mjs`） | **37.0%** | **53.6%** |
+| 其中**字段名也一致** | 86.4% | 90.8% |
+
+第三行是「完全 follow TypeScript 形状」的真账：[tests/parse/ts-shape.mjs](tests/parse/ts-shape.mjs)
+负责换名、补壳 / 提层、给字段名，`cases:tsast` 逐节点比 **kind / 区间 / 字段名** 三样。
+投影节点的数与 TS 语义节点同量级（真实语料 463489 vs 452849，1.02×），所以剩下的差距是**结构**，
+不是规模——正是要接着重构 token 层去补的那几层壳与字段切分。
+两个语料的比率差得多（37.0% vs 53.6%）是**语料构成**不同：真实语料里 `.d.ts` 占大头，
+而 `.d.ts` 几乎是「声明 + 类型」，正是投影覆盖得最好的那部分。
+### 当前状态（实测，`npm run` 十九个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -298,7 +349,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:align` | 1397 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 14 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `cases:fuzz3` | 抽样 20 万次得 9.7 万个合法三片段组合，**可疑 0 类**（第 67 轮新加，见上） |
-| `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
+| `cases:astjson` | **两个出口同源**：1001 条用例 + 383 个真实语料文件，逐节点比对 **0 处不符**（`--self-test` 的 5 种变异全部被抓到）。这一轮的实测数：用例语料 18594 个产物节点、真实语料 504223 个 |
+| `samples` | declarations / generic / hello 三份一致（XML 与 AST JSON 各一份夹具；夹具是紧凑单行，XML 比对忽略标签之间的空白，JSON 逐字节比） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
@@ -1327,6 +1379,42 @@ Generator<T, TReturn, TNext> 的 `[]`       // lib.es2015.iterable.d.ts
 「没有任何缺口」在**已登记的语料 + 已登记的口径**上成立，在「任意形状」上不成立——
 差的就是上面第 2 条那一类，它一直登记在案。
 
+### 第 69 轮：AST JSON 出口（第二个出口，与上游 Cangjie 同源）
+
+这一轮加的是**产物自己的第二个出口**，不是解析能力：`cjcli <文件> --ast-json` 打一棵与 XML
+同源、但形状照上游 Cangjie `Token.ToDictionary` / `Token.ToList` 的 JSON（规格见
+[docs/ast-json.md](docs/ast-json.md)）。上游那 33 处 `ToDictionary` 覆写逐个搬了过来
+（本工程最终是 **37 个 token 类 + 基类**，因为本工程的标签比上游细），
+**只有一处刻意与上游不同**：键名一律与**本工程的 XML 属性同名**，而不是上游的
+`MethodName` / `StartBracketChar` 那套 PascalCase——本工程的 XML 出口本来就与上游叫法不同
+（`name` / `startBracket`、`Identifier` 对 `Common`），JSON 跟着上游只会让同一棵树的两个出口
+**在本工程内部**对不上。差异逐条记在规格文档里。
+
+三处踩过的坑（都记在代码注释与规格里）：
+
+1. **`JSON.stringify` 对 `Map` 静默给 `{}`**——`ToDictionary` 返回的是 `Map`，
+   所以必须有一步显式的 `Map` → 普通对象（`Token.ToPlain`），否则整份产物是 `[{},{},{}]`
+   （第一版实测就是这样，而且**不报错**）。
+2. **同名子元素在不同父亲下的待遇不同**：`<ReturnType>` 在 `Lamda` 里是 `returnType` 段，
+   在 `MethodDeclaration` 里却是普通子单元（跟着 `children` 走）。尺子的分段表因此**按父亲分组**。
+3. **`Switch.segments` 与 `For.initial` 的「段元素」含义相反**：前者装的是 `<SwitchSegment>`
+   元素本身，后者装的是 `<ForInitial>` 的**内容**。分段表里用一个 `unwrap` 标记区分。
+
+新增的第九把尺子 `cases:astjson` 就是为了让这三处不再复发：它把两个出口折算成同一种形状后
+逐节点比对，并带 5 种变异的 `--self-test`。**自检第一版是假的**——它拿「根数组前两个节点互换
+类型」当变异，而两个根节点本来就是同一个类型（两条 `<Statement>`），互换等于什么都没做；
+改成「把某个节点的类型改成它父亲的」之后才有牙。另外 `samples/check.mjs` 顺带钉住了「入口」：
+`cjcli` 进程与库 API 解析同一份源码，两条路的输出必须逐字节相同。
+
+这一轮由尺子自己抓出来的两处**真缺口**（不是口径，是漏节点）：
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `Foreach` 的 JSON 比 XML 少一个节点（`for await (x of xs)` 里的 `await`） | 分段写法只写了 `define` / `enumable` / `body` 三段，**段之外直接挂在 `Foreach` 上的子单元**（`await`）没有出口 | `ToDictionary` 末尾按「不属于三条段的那些」兜底收一遍 `children` |
+| `Lamda.body` 在 JSON 侧是**一个节点**、在 XML 侧是**一批子单元** | 体段取了 `ToDictionary()`，而其余所有段都取 `ToList()` | 统一成 `ToList()`（包装元素 `<LamdaBody>` 与其它段一样不出现） |
+
+两条都不需要动解析器，XML 产物一个字节都没变（八把尺子全绿、`samples` 的 XML 夹具无 diff）。
+
 ### 实测规模
 
 `node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1007 条用例
@@ -1345,6 +1433,7 @@ JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，
 ```
 cjcli <文件>              解析源文件，缩进 XML 打到标准输出
 cjcli <文件> -o <文件>    解析后写入指定文件（同一份缩进文本）
+cjcli <文件> --ast-json   解析后把 AST JSON（紧凑单行）打到标准输出
 cjcli                    从标准输入读源码
 cjcli -h, --help         打印本说明
 cjcli -v, --version      打印版本
@@ -1356,22 +1445,35 @@ cjcli -v, --version      打印版本
 node build/ts/cjcli.js samples/hello.ts
 echo "let x = 1" | node build/ts/cjcli.js
 node build/ts/cjcli.js samples/hello.ts -o out.xml
+node build/ts/cjcli.js samples/hello.ts --ast-json -o out.json
 ```
+
+`--ast-json` 换的是**出口**不是解析：`CjcliParse` 造出根单元之后才分叉，
+两个出口看的是同一棵树（`CjcliParseXml` 取 `ToXmlString()`、`CjcliParseAstJson` 取 `ToJsonString()`）。
+JSON 不经过 `CommonUtil.FormatXml`——那个函数只认 XML。
 
 ## 样本验收
 
-[samples/check.mjs](samples/check.mjs)：`samples/*.ts` 与同名 `*.expected.xml` 对照。
+[samples/check.mjs](samples/check.mjs)：`samples/*.ts` 与同名 `*.expected.xml` / `*.expected.ast.json` 对照。
 
 ```bash
 npm run samples                 # 比对，全部一致时退出码 0
 node samples/check.mjs --update # 用当前产物重写夹具
 ```
 
-夹具是**紧凑单行**（`--update` 写的是归一化之后的那一份，不是 `cjcli` 打出来的缩进形态）。
+XML 夹具是**紧凑单行**（`--update` 写的是归一化之后的那一份，不是 `cjcli` 打出来的缩进形态）。
 `normalize()` 在比对前把标签之间的空白全部去掉，所以判据是「标签、属性、文本内容是否逐字节相同」，
 **缩进怎么排不参与判定**；
 属性值里的空白不受影响（`CommonUtil.XmlDecode` 把换行 / 制表符都写成了 `\n` / `\t` 转义）。
 两端都在文件层读写、不经过控制台编码，中文注释不会在比对里被搅坏。
+
+AST JSON 夹具**逐字节比、不做归一化**：它本来就是紧凑单行，键序由规范里的 `result.set(...)` 顺序决定、
+`range` 由源码下标决定，三者都是确定性的——归一化只会把「键序变了」这类漂移盖掉。
+
+**同一份比对还顺带钉住了「入口」**：脚本除了跑 `cjcli` 进程，也用库 API 解析同一份源码
+（`new TextContext(...).Process(...)` → `Root.ToXmlString()` / `Root.ToJsonString()`），
+断言两条路**逐字节相同**（`[XML]` / `[AST JSON]` 那两行之外，`ENTRY` 一行就是这条断言）。
+少了它，「库对了、命令行打歪了」没有任何尺子看得见——`cases:astjson` 只走库 API。
 
 [samples/diag.mjs](samples/diag.mjs) 打印完整的诊断链：`cjcli` 只打最外层 `SyntaxException` 的位置，
 真正的原因在内层异常里（`Token.Process` 会把任何异常包一层，可能包好几层）。

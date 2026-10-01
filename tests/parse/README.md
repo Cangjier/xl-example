@@ -18,6 +18,12 @@ tests/parse/
   structure.mjs          结构尺子：产物的**括号归属**是否就是源码的形状（比**嵌套形状**）
   boundaries.mjs         语句边界尺子：相邻两条 TS 语句有没有被并成一条（比**边界**）
   noise.mjs              噪声尺子：产物里有没有空的 `<Statement></Statement>`
+  ast-json.mjs           AST JSON 尺子：**两个出口同源**——`ToXmlString()` 与 `ToJsonString()`
+                         折算成同一种形状后逐节点比对（比**XML 出口与 JSON 出口是否说同一棵树**）
+  ts-ast.mjs             TS AST 对拍尺子：**直接拿 `ts.createSourceFile` 当基准**，逐节点比
+                         kind / 区间 / **字段名**（比**产物节点集合与 TS 的语义节点集合是否同一套**）
+  ts-shape.mjs           TS 形状投影：把产物树投成 TS AST 的形状（换名 + 补壳 + 字段名），
+                         供上面那把尺子量成绩——它是「完全 follow TS 形状」的落点
   gap-dashboard.mjs      逐文件对账「TS 侧构造集合 vs 产物侧标签集合」（比**净额的方向**）
   align.mjs              对齐探针：用**源码区间重叠**把产物单元与 TS AST 节点对齐，双向反查
                          （产物有标签 / 源码没构造，或反过来）——形状换错语义时八把尺子全绿
@@ -42,6 +48,206 @@ tests/parse/
 | `structure.mjs` | 括号配对的包含关系 | 节点**套在谁身上**——计数完全看不出的错位 |
 | `boundaries.mjs` | 对着 TS AST 数相邻语句 | 两条语句被收进**同一个**单元——计数、内容、括号三条都不变 |
 | `noise.mjs` | 空的语句单元 | 收尾口径改坏时留下的 `<Statement></Statement>` |
+
+另有第九把，问的是**另一件事**：产物自己的两个出口（XML 与 AST JSON）是不是同一棵树——
+那不属于「解析对不对」，而属于「规范里两处拼串有没有漂开」。它挂在
+`Token.ToDictionary` 上（见 [docs/ast-json.md](../../docs/ast-json.md)）：
+
+```bash
+node tests/parse/ast-json.mjs --self-test   # 变异自检：改坏 JSON / XML，尺子必须抓到
+node tests/parse/ast-json.mjs cases         # 只跑用例语料
+node tests/parse/ast-json.mjs               # 真实语料 + 用例语料
+```
+
+### `ast-json.mjs` 的口径
+
+`Token.ToDictionary` 是照 `Token.ToXmlString` 抄的第二套拼串，两处不同步**不会有任何别的尺子看得见**：
+节点数、名字、括号归属、语句边界全都正常，只是 JSON 少了一个键或少了一个节点。
+上游 Cangjie 的这两个出口之间就已经漂开了（`MethodName` → `methodName`、
+`StartBracketChar` → `startBracketChar`），所以这里补一把只问这一件事的尺子。
+
+折算要抹掉的只是**排版差异**，一共三类，全部写在尺子顶部的两张表里：
+
+| 差异 | XML | JSON |
+| --- | --- | --- |
+| 叶子 | `<Identifier>x</Identifier>` | `{"type":"Identifier","value":"x"}` |
+| 空节点 | `<LineWrap />` | `{"type":"LineWrap"}` |
+| 具名分段 | `<For><ForInitial>…</ForInitial>…` | `{"type":"For","initial":[…]}`——**段元素自己不成为节点** |
+
+第三类是最容易看走眼的：`Switch.segments` 装的是 `<SwitchSegment>` **元素本身**（`unwrap: false`），
+而 `For.initial` 装的是 `<ForInitial>` 的**内容**（`unwrap: true`）。表里写错一行，尺子立刻报节点名不符。
+
+值的类型走一张类型表（`BOOL_KEYS` / `NUMBER_KEYS`）：布尔在 XML 里是 `"true"`、在 JSON 里是真布尔，
+数字同理。**「JSON 有、XML 没有」的键要登记**（`JSON_ONLY_ATTRS`）——
+目前只有一处：`Lamda.async`（`<Lamda>` 从来不写这个属性，而 JSON 不收它就分不出 `async x => x` 与 `x => x`）。
+没登记的「多一个键」照样会红，所以它不会变成藏差异的角落。
+
+`--self-test` 的四种变异：JSON 节点名错位、内容被改、属性键被删、分段键被删，另加 XML 标签名被改——
+五种都必须被抓到。**第一版的自检在这里是假的**（它拿「根数组前两个节点互换类型」当变异，
+而两个根节点本来就是同一个类型，互换等于什么都没做），现在改成「把某个节点的类型改成它父亲的」。
+
+### `ts-ast.mjs` 的口径
+
+这一把问的是**另一个问题**：这份产物离「和 TypeScript 的 AST 一模一样」还差多少。
+
+| 尺子 | 比对面 |
+| --- | --- |
+| `cases:diff` | **个数**：源码里有几个这种构造 ↔ 产物里有几个对应标签 |
+| `cases:align` | **位置**：按源码区间对齐，双向反查标签占用 / 缺节点 |
+| `cases:astjson` | **两个出口同源**：XML 与 AST JSON 是不是同一棵树 |
+| `cases:tsast` | **形状**：产物节点与 TS 的**语义节点**逐个对（kind / 区间 / 属性名） |
+
+TS 侧的基准是 `ts.createSourceFile(...)`，取的子节点是 `ts.forEachChild` 那一层——
+**不含修饰符、标点、参数括号**，这是「直接 diff」最自然的一层，也是各种 AST 查看器展示的那一层。
+产物侧用 `Root.ToList()`：坐标是这一把的地基，**没有坐标就只能靠文本猜位置，那种对齐一遇到壳节点就断**
+（试过：`IfStatement` 那种壳节点在文本里根本搜不到）。
+
+**当前状态：这一把是红的，而且是刻意留红的。** 它红的不是「解析出错」，
+而是「产物的节点集合与 TS 不是同一套」——那正是要重构 token 层的部分。实测：
+
+| 语料 | 产物节点 | TS 语义节点 | 同 kind 同区间 |
+| --- | --- | --- | --- |
+| 用例语料 1001 个文件 | 18896 | 15303 | 4327（**28.3%**） |
+| 真实语料 383 个文件 | 555415 | 452849 | 203063（**44.8%**） |
+
+这个百分比**同时量三件事**：节点集合、坐标、以及**名字的归一**（详见下一节）。
+它一次就能反映三处的成绩，所以只看着它涨。
+
+### 名字要先归一，再比
+
+直接拿产物的标签名去比 TS 的 `SyntaxKind` 名会把两类东西混在一起：
+
+- **假阴性**：`<Keyword>string</Keyword>` 与 TS 的 `StringKeyword` 区间一模一样，名字不同却被算成「缺节点」；
+- **假阳性**：`<Keyword>const</Keyword>` 与 `ConstKeyword` 本来是一回事，可按字符串比它们凑不到一块。
+
+所以尺子先把两侧折成**同一个名字**再比，三张表写在文件顶部：
+
+| 表 | 作用 | 例 |
+| --- | --- | --- |
+| `TS_KIND_ALIASES` | 把 TS 的**枚举别名**换回真名 | `FirstStatement` → `VariableStatement`、`FirstLiteralToken` → `NumericLiteral`、`ThisType` → `ThisKeyword` |
+| `PRODUCT_KIND` + `leafKindOfText` | 产物标签按**值**分名 | `<Identifier>0</Identifier>` → `NumericLiteral`、`<Identifier>true</Identifier>` → `TrueKeyword`、`<ConstString>` → `StringLiteral` |
+| `KEYWORD_KIND` | `<Keyword>` 的文本 → TS 的类型关键字 | `string` → `StringKeyword`、`readonly` → `ReadonlyKeyword`、`this` → `ThisKeyword` |
+
+有了这一层，同一批语料的匹配率当场从 39.2% 抬到 **44.8%**（真实语料）——
+抬起来的那部分不是解析变好了，而是**之前被名字差异盖住的「其实已经对上」的节点**。
+这张表就是「叶子按值分名」的验收标准：表里每加一条，百分比就该动一次；
+不动说明那条没生效，动了说明产物确实已经能供出那个名字。
+
+**下面 `null` 是刻意的**：标点（`SymbolToken`）、注释、软换行在 TS 的**语义子节点**里不出现，
+所以它们不参与比对，也不算「产物多出来的」。`Identifier` / `Keyword` 映射到 `null`
+表示「按文本再分」——它们是**一类对多类**的标签，归一名要靠 `leafKindOfText` / `KEYWORD_KIND`。
+
+### 投影：`ts-shape.mjs`
+
+上面那张归一表只解决**名字**。要真的产出「`ts.createSourceFile` 兼容的 JSON」，
+还需要**补壳**与**字段名**——这就是 `ts-shape.mjs` 的活：
+
+| 做什么 | 例 |
+| --- | --- |
+| **换名** | `Let` → `VariableDeclaration`、`BinaryOperator` → `BinaryExpression`、`<Identifier>0</Identifier>` → `NumericLiteral` |
+| **补壳** | `let x = 1` 在本工程是 `Statement` + `Let` 两层，TS 是三层：补出 `VariableDeclarationList` 与 `VariableStatement` |
+| **字段名** | 分段本来就叫 `initial` / `compare` / `body` / `parameters`…（这套 token 层从一开始就照着 TS 起的名字），TS 叫法不同的补上（`declarationList` / `statements`…） |
+| **不猜** | 没覆盖的标签**原样透传**并记进 `unmapped`——猜出来的节点会让尺子报出假成绩 |
+
+两个坐标细节（实测出来的，写在 `projectLet` 的注释里）：
+
+- `VariableDeclaration` 从**名字**开始，不含前面的 `let `——TS 的 `getStart()` 跳过前导 trivia；
+- `VariableDeclarationList` / `VariableStatement` 两层壳才从 `let` 那个词开始。
+
+**尺子怎么量它**：`cases:tsast` 把投影结果与 `ts.createSourceFile` 逐节点比三样——
+kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 与区间，
+于是「把 `children` 改叫 `statements`」这类改动**一个数字都不会动**。
+现在的数（用例语料 / 真实语料）：
+
+| 口径 | 用例语料 | 真实语料 |
+| --- | --- | --- |
+| 投影节点 / TS 语义节点 | 15942 / 15303 | 463489 / 452849 |
+| 同 kind 同区间 | **37.0%** | **53.6%** |
+| 其中**字段名也一致** | **86.4%** | **90.8%** |
+
+两个语料的比率差得多（37.0% vs 53.6%）是因为**语料构成不同**：真实语料里 `.d.ts` 占大头，
+而 `.d.ts` 几乎是「声明 + 类型」，正是投影覆盖得最好的那部分；用例语料是刻意挑的难点形状。
+
+字段名这一维是**逐轮涨**的，四轮的动作记在这里：
+
+| 轮次 | 动作 | 用例语料字段名一致率 |
+| --- | --- | --- |
+| 第 4 轮 | 给尺子补上「字段名」这一维（此前只比 kind 与区间，改字段名一个数字都不动） | 63.3% |
+| 第 5 轮 | ① 属性数组（`modifiers` / `imports`）不再被当成子节点字段；② `TypeAliasDeclaration` / `Parameter` / `TypeParameter` 补 `name` + `type`；③ 按 kind 改名的字段表 | 74.8% |
+| 第 6 轮 | ① **`view()` 把标量属性也存下来**（这一条最关键，见下）；② **包装节点提层**（`ClassBody` → `members`、`ReturnType` → `type`、`Bracket` 摊平）；③ 类型位三段的字段名（`elementType` / `types` / `type`） | 82.1% |
+| 第 7 轮 | ① `ConditionalType` 按 `?` / `:` 切成四个具名字段；② `BindingElement` → `name`；③ **`GenericType` 条件提层**（装 `TypeParameter` 时是包装、装类型实参时是真节点）→ `typeParameters`；④ `modifiers` 按字符串补成节点数组；⑤ `FunctionType` / `TupleType` / `EnumMember` 的字段名 | **86.4%** |
+
+**第 6 轮那条最关键的 bug**：`view()` 原来只把**数组**存进 `segments`，
+**标量属性（`name` / `fieldName` / `op` / `modifiers` / `namespace`）全被丢掉**——于是「按属性给 `name`」
+那条规则**从未生效**：投影出来的类 / 接口 / 方法全部没有 `name` 字段，
+而尺子报的是「TS 多了 `name`」这种看不出根因的差异。修好之后 `unmapped` 也清空了。
+
+**第 7 轮那条最需要小心的**：`GenericType` **不能无条件提层**。它既可能是类型参数段
+（`type A<T> = …` 的 `<T>`），也可能是类型实参（`Array<T>` 的 `<T>`）——
+前者是包装（内容进 `typeParameters`），后者是**真节点**（投成 `TypeReference`）。
+判据用「里面有没有 `TypeParameter`」：类型实参里不会出现它。搞错这一处会**凭空少一片节点**。
+
+**已知的不精确（如实记在这里）**：`modifiers` 是按字符串补出来的节点数组，
+**位置是合成的**（宽度为零、落在声明开头），因为产物没记每个修饰词的区间。
+字段名与数组形状对得上，区间对不上——尺子比的是字段名，所以这里「够用但不算精确」。
+
+剩下字段名不一致的按次数排前面的是：`FunctionType`（缺 `type`）、`PropertyDeclaration`（缺 `initializer`）、
+`MethodDeclaration`（缺 `body`）、`EnumMember`（缺 `name`）、`SwitchStatement`（vs `caseBlock,expression`）、
+`PrefixUnaryExpression`（产物多了 `operator`，TS 那边运算符是节点属性不是字段）。
+
+### 缺口（TS 有、产物没有）
+
+按 kind 聚合的前几名，正好是三类东西：
+
+| 缺什么 | 例 | 为什么缺 |
+| --- | --- | --- |
+| **语句 / 声明壳**：`VariableDeclarationList` `VariableStatement` `ExpressionStatement` `Block` `PropertySignature` `MethodSignature` `Parameter` | `let x = 1` 在 TS 那边是三层（语句 → 声明列表 → 声明） | 本工程把它们摊成了 `Statement` + `Let`，中间那两层壳没有节点 |
+| **类型引用**：`TypeReference` `QualifiedName` | `T` / `A.B` | TS 那边 `T` 是**同一个区间上两层节点**（`TypeReference` 套 `Identifier`），本工程只有一个标识符节点 |
+| **叶子按值分名**：`NumericLiteral` `StringLiteral` `EndOfFileToken` | `1` / `"big"` / 文件末尾 | 本工程的 `Identifier` 是「标识符 + 数字 + 布尔」的通用文本块，`SymbolToken` 是符号块——**一类对 TS 的多类**；文件末尾也没有节点 |
+
+`SourceFile` 也一直挂在缺口上：TS 的语义节点是 `SourceFile` 的**子节点**那一层，
+而本工程的 `Root` 在产物里是一个元素，比对时**根那一格对不上**（固定每文件 1 处）。
+
+另外两处必须知道的口径（都是 TS 自己的坑，不是本工程的）：
+
+- **枚举别名**：`ts.SyntaxKind[node.kind]` 会给出 `FirstStatement`（其实是 `VariableStatement`）、
+  `FirstLiteralToken`（`NumericLiteral`）、`FirstCompoundAssignment`（`PlusEqualsToken`）、
+  `ThisType`（`ThisKeyword`）、`LastTypeNode`（`ImportType`）这类别名——**同一个枚举值印出错误的名字**。
+  `cases:diff` / `cases:align` 早就为这一类打过补丁；这一把的做法是把它们**换回真名**
+  （`TS_KIND_ALIASES`），否则「本工程缺什么」和「TS 印错了什么」会混在一起。
+- **`pos` vs `getStart()`**：TS 的 `pos` **含前导 trivia**（注释、空白），`getStart()` 才是实义起点；
+  `end` 是开区间。本工程的 `SourceRange` 是**闭区间**且不含前导 trivia，所以坐标换算只有一条：
+  `[Start.Index, End.Index + 1)` ↔ `[getStart(), end)`。实测样板：`VariableDeclaration` 的 `pos=3`
+  而 `getStart()=4`（`let answer` 里 `answer` 前面那个空格）。
+
+```bash
+node tests/parse/ts-ast.mjs cases --top 12 --samples 1   # 用例语料，约 2 秒
+node tests/parse/ts-ast.mjs real                         # 真实语料，约 50 秒
+```
+
+### 坐标完整性（地基）
+
+**它顺带量一件地基上的事：坐标完整性。** TS 的每个节点都带 `pos` / `end`，
+所以「投影成 TS 形状」的先决条件是**产物每个节点都有区间**。这条以前不成立——
+`range` 原来只在 `ToList()` 那一层补，`children` 里的节点一个坐标都没有。
+第 70–71 轮把它清干净了，一路踩了三个坑，都记在这里：
+
+1. **必须以 `ToDictionary()` 的结果为底**，不能从 `Data` 重新拼——重拼会把叶子的 `value`、
+   `Import` 的 `imported` 这些**不在 `Data` 里的键**全丢掉（`cases:astjson` 当场报出
+   1000 个文件「XML 有文本、JSON 是空串」）。
+2. **字典项与子单元要按类型名配对，不能按下标**。段数组有两种形态：摊平的
+   （`While.body` 装的是段元素的**内容**）与不摊平的（`Switch.segments` 装的就是段元素本身），
+   按下标配对会在摊平那一侧整段失配——**255 个节点缺坐标全是这一类**。
+   同一个集合里还有同名的多个节点（`Statement` 里两条 `Identifier`），所以要**边配边销**。
+3. **终点缺失时要能从子节点兜底**。`else if` 的 `IfSegment` 只有起点、终点从来没签过
+   （`End` 兜底成 `0`），父区间于是是 `[55,0]`、比所有子节点都小——**18 处「子节点区间越界」全是它**。
+
+现在两个语料都是 **缺 range 0 / 区间越界 0**（用例 18896 个节点、真实 555415 个节点）。
+这一块是下一步做「kind 集合对齐」的前提，所以它与 kind 缺口并列打印。
+
+性能上有一条硬要求：**不许经过 `JSON.stringify` / `JSON.parse`**。第一版走的是 `ToJsonString()`，
+每个文件把整棵树序列化一遍再解析回来，真实语料要跑十分钟以上；改成直接用 `ToList()` 的 Map
+之后是 2 秒 / 50 秒。这把尺子的价值在于**能反复跑**，慢十倍就等于不会跑。
 
 ### `structure.mjs` 的口径
 
