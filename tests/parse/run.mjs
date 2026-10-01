@@ -122,7 +122,14 @@ function judge(c) {
     const got = countOf(tag);
     if (got !== want) missing.push(`${tag}(要 ${want} 个，实得 ${got})`);
   }
-  const present = c.directives.absent.filter((tag) => xml.includes("<" + tag));
+  // **精确匹配标签**，不能只做子串（第 66 轮修）：`Method` 是 `MethodDeclaration` / `MethodBody`
+  // 的前缀，`Class` 是 `ClassBody` 的前缀，`For` 是 `Foreach` 的前缀……子串匹配会让
+  // `xl:absent Method` 在完全正确的产物上误报（实测 `class A { #m() {} n() {} }` 的产物里
+  // 一个 `Method` 都没有，却因为 `<MethodDeclaration` 被判成「不该有 Method」，
+  // 进而把一条本来通过的用例写进台账）。标签后面要么紧跟 `>`，要么紧跟属性前的空格。
+  const present = c.directives.absent.filter(
+    (tag) => xml.includes("<" + tag + ">") || xml.includes("<" + tag + " "),
+  );
   const malformed = xmlProblem(xml);
   if (missing.length === 0 && present.length === 0 && malformed === null) return { verdict: "pass", detail: "", outcome: { xml } };
   const parts = [];

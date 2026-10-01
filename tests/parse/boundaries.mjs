@@ -185,6 +185,48 @@ function parseWith(source, file) {
   return context.Root.ToString();
 }
 
+/// **产物树自己的区间**（第 66 轮第七批）：`标签 → [{start,end}]`，只收非容器标签。
+///
+/// 为什么需要它：`locateLeavesStrict` 是拿 XML 的叶子去**贴**源码 token（左贪心 + 右贪心），
+/// 偶尔会有一个叶子被贴到很远的后面去——于是某个节点的重建区间被撑大、凭空横跨一条语句边界。
+/// 实测：`@types/node/url.d.ts` 的 `function format(urlObject: URL, options?: …)`
+/// 形参收成 `<Parameter>` 之后，它最后一个叶子被贴到 4000 字符外的第二条重载上
+/// （`XL_BOUNDARY_DEBUG=1` 能看到 `span={"start":8779,"end":12801}`），
+/// 而**产物树里那个形参的区间本来是对的**（XML 也逐字对得上）。
+///
+/// 所以报「合并」之前先问一句产物自己：**真的有一个非容器单元横跨这个位置吗？**
+/// 没有就是定位漂移，跳过并计数（`locFalse`），不混进真问题里。
+function parseTokenRanges(source, file) {
+  const template = new Template();
+  const document = new TextDocument(source);
+  document.FilePath = file;
+  const context = new TextContext(template);
+  context.Process(document);
+  const ranges = [];
+  (function visit(token) {
+    const start = token.SourceRange.Start;
+    const end = token.SourceRange.End;
+    if (start !== null && end !== null && !CONTAINER_TAGS.has(token.constructor.name)) {
+      ranges.push({ tag: token.constructor.name, start: start.Index, end: end.Index });
+    }
+    for (const child of token.Data) visit(child);
+  })(context.Root);
+  return ranges;
+}
+
+/// 产物里是不是真有单元横跨 `at`——而且它**没有越过下一条语句的结尾**。
+///
+/// 只判「有没有单元横跨」不够：本工程的 `Statement` 会把一整块（比如一个命名空间体）
+/// 包成一个单元，它当然横跨里面每一条边界——那是容器式的横跨，不是合并。
+/// 真正被读成一条的两条语句，合并单元右端一定落在**第二条语句的范围内** ✓
+/// （吞掉第三条时会在后面那条边界上再被抓到）。
+function crossesInProduct(ranges, at, nextEnd) {
+  for (const r of ranges) {
+    if (r.start < at && r.end > at && r.end <= nextEnd) return true;
+  }
+  return false;
+}
+
 /** TS 侧：所有语句表。返回 [{ list: stmt[], owner }]。 */
 function statementLists(sf) {
   const lists = [];
@@ -238,6 +280,8 @@ let checkedFiles = 0;
 let skippedFiles = 0;
 let listCount = 0;
 let boundaryCount = 0;
+// 被产物树复核掉的「假合并」（XML 定位漂移）条数——单独报出来，不混进真问题。
+let locFalseTotal = 0;
 
 /**
  * 核心判据：给定源码与产物树，返回被横跨的语句边界。
@@ -245,10 +289,12 @@ let boundaryCount = 0;
  * 单独抽出来是为了让 `--self-test` 能在**同一段源码**上喂一棵故意改坏的树，
  * 从而证明这条判据不是永远为真。
  */
-function findMergedBoundaries(source, tree, file) {
+function findMergedBoundaries(source, tree, file, productRanges) {
   const loc = locateLeavesStrict(source, tree);
-  if (loc.rate < 0.6) return { skipped: true, bad: [], loc };
+  if (loc.rate < 0.6) return { skipped: true, bad: [], loc, locFalse: 0 };
   const spans = spansOf(tree, loc.posOf);
+  // 被产物树复核掉的「假合并」条数（见 `parseTokenRanges` 的说明）
+  let locFalse = 0;
 
   // 已定位的叶子按源码位置排序，用来给「S1 的第一个叶子」快速定位。
   const leaves = [];
@@ -288,6 +334,12 @@ function findMergedBoundaries(source, tree, file) {
         cur = cur.parent;
       }
       if (culprit === null || CONTAINER_TAGS.has(culprit.name)) continue;
+      // **产物树复核**：XML 定位出来的「横跨单元」如果在产物自己的区间里并不成立，
+      // 那就是定位漂移（见 `parseTokenRanges` 的说明），跳过并计数。
+      if (productRanges !== undefined && crossesInProduct(productRanges, B, next.getEnd()) === false) {
+        locFalse++;
+        continue;
+      }
       if (process.env.XL_BOUNDARY_DEBUG === "1") {
         console.error(
           `[boundary] @${B} S1=${JSON.stringify(source.slice(start1, Math.min(B, start1 + 30)))} ` +
@@ -304,7 +356,7 @@ function findMergedBoundaries(source, tree, file) {
       });
     }
   }
-  return { skipped: false, bad, loc };
+  return { skipped: false, bad, loc, locFalse };
 }
 
 function checkFile(file, source) {
@@ -318,7 +370,7 @@ function checkFile(file, source) {
   }
   let result;
   try {
-    result = findMergedBoundaries(source, parseXml(xml), file);
+    result = findMergedBoundaries(source, parseXml(xml), file, parseTokenRanges(source, file));
   } catch (e) {
     problems.push({ file: rel, kind: "XML", message: String(e.message).split("\n")[0] });
     return;
@@ -328,6 +380,7 @@ function checkFile(file, source) {
     return;
   }
   checkedFiles++;
+  if (result.locFalse > 0) locFalseTotal += result.locFalse;
   if (result.bad.length > 0) problems.push({ file: rel, kind: "MERGE", count: result.bad.length, samples: result.bad.slice(0, 3) });
 }
 
@@ -465,7 +518,10 @@ function main() {
   const merges = problems.filter((p) => p.kind === "MERGE");
   console.log(
     `语句边界尺子：语料 ${files.length} 个文件，检查 ${checkedFiles}，对齐不可信跳过 ${skippedFiles}\n` +
-      `             语句表 ${listCount} 个、边界 ${boundaryCount} 处，边界被横跨 ${merges.length} 处（${merges.length ? merges.length : 0} 个文件）\n`,
+      `             语句表 ${listCount} 个、边界 ${boundaryCount} 处，边界被横跨 ${merges.length} 处（${merges.length ? merges.length : 0} 个文件）\n` +
+      (locFalseTotal > 0
+        ? `             （另有 ${locFalseTotal} 处是 XML 定位漂移：产物树自己的区间里并没有单元横跨那里，已复核排除）\n`
+        : ""),
   );
   if (merges.length === 0) {
     console.log("所有语句边界与 TypeScript 一致。");

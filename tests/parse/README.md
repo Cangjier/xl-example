@@ -15,13 +15,17 @@ tests/parse/
   boundaries.mjs         语句边界尺子：相邻两条 TS 语句有没有被并成一条（比**边界**）
   noise.mjs              噪声尺子：产物里有没有空的 `<Statement></Statement>`
   gap-dashboard.mjs      逐文件对账「TS 侧构造集合 vs 产物侧标签集合」（比**净额的方向**）
+  align.mjs              对齐探针：用**源码区间重叠**把产物单元与 TS AST 节点对齐，双向反查
+                         （产物有标签 / 源码没构造，或反过来）——形状换错语义时八把尺子全绿
   probe.mjs              最小片段探针：并排打印 TS AST 与产物 XML，用来定位单条缺口
   sweep.mjs              广谱构造普查：198 个 TS 构造片段逐条过，只报可疑项
+  recon.mjs              侦察探针：174 条高风险片段（边界 / 表达式 / 类型 / 声明）
+  recon2.mjs             侦察探针（第二轮）：94 条 TS 5.x / 6.x 构造与真实代码高频写法
+  fuzz.mjs               组合模糊测试：9 个上下文 × 4 种分隔 × 215 个片段两两拼接，只找「抛异常」
   suggest.mjs            从差分结果里挑出还没写用例的构造
 ```
 
 八把尺子是互补的，**任何一把红都不算「完整解析」**：
-
 | 工具 | 口径 | 抓的是什么 |
 | --- | --- | --- |
 | `run.mjs` | 手写期望值 | 已经想到的构造有没有做对 |
@@ -110,6 +114,73 @@ node tests/parse/sweep.mjs --filter using     # 只看名字里带 using 的
 `matrix.mjs` / `lossless.mjs` / `boundaries.mjs` / `noise.mjs` 与两把尺子的 `--self-test`
 退出码都是「有问题 = 1」，可以直接当 CI 判据。
 
+### `align.mjs` 的口径
+
+它问的是「**形状与语义对不对得上**」：用 `SourceRange` 里的源码区间把产物单元与 TS AST 节点
+按**区间重叠**对齐，然后双向反查：
+
+1. 产物里有某个标签，源码里却没有任何对应构造 ⇒ 标签被别的形状占用（语义换错了）；
+2. 源码里有某个构造，产物里却没有对应标签 ⇒ 缺节点。
+
+前八把尺子看不见 (1)：`const f = (a) => { return a }` 的块体被收成 `TypeLiteral` 时，
+节点计数、名字、括号归属、语句边界、空节点**全都正常**——里面每条语句只是悄悄退化成
+`Field` / `MethodDeclaration`。差分账上只表现为几处「真多」，而「真多」从来不是判据。
+
+它**是探针不是判据**（退出码恒为 0）。两个方向都带口径：
+
+- `ALLOWED_EXTRA`：一个标签被多个 TS 构造共用（`ArrayLiteral` 同时是数组字面量、元组类型、
+  计算属性名…），以及少数位置两边读法不同（构造签名的 `new`、映射类型按 `Field` 收…）。
+  `--all` 才打印。
+- `MISSING_IGNORED`：本工程**本来就不产节点**的 TS 构造，或**另有归属**的那些
+  （`yield` / `await` 按 `Keyword` 收、多声明符变量列表只产出一个 `Let`…）。
+  类型层曾经是最大的已知缺口，逐轮补到了第 66 轮：
+  **函数类型 → `FunctionType`**（第 54 轮）、**条件类型 → `ConditionalType`**（第 55 轮）、
+  **类型位的 `typeof` → `TypeQuery`**（第 57 / 66 轮）、**联合 / 交叉 → `UnionType` / `IntersectionType`**
+  （第 58–59 轮）、**映射类型 → `MappedType`**（第 60 轮）、
+  **数组 / 元组 / 下标访问 → `ArrayType` / `TupleType` / `IndexedAccessType`、
+  `keyof` / `readonly` / `unique` → `TypeOperator`**（第 66 轮）。
+  仍然只有散单元的是**字面量类型**（`"a"` / `1` / `true` 在类型位仍是 `String` / `Identifier`）
+  与**模板字面量类型**（落成 `InterpolationString`）——内容与位置都对，只是没有专属标签。
+
+```bash
+node tests/parse/align.mjs            # 真实语料 + 用例语料
+node tests/parse/align.mjs cases      # 只用例语料
+node tests/parse/align.mjs --all      # 连登记过的口径一起打印（只有计数）
+node tests/parse/align.mjs --samples  # 连登记过的口径也打印样本
+node tests/parse/align.mjs --top 10   # 每类最多列 10 个样本
+```
+
+**`--samples` 是这一族里最值钱的一把**：口径（`ALLOWED_EXTRA` / `MISSING_IGNORED`）是
+「这条差额我们认了」的记录，可**登记本身可能是错登记**——第 61 轮靠它一眼扫出三处真 bug
+（成员的前导 `|` 多行联合被切断、`-` / `+` 不在泛型实参字母表里、`-readonly` 被折成一元运算）。
+
+### `recon*.mjs` / `fuzz.mjs` 的口径
+
+这三把是**找缺口的探针**，不当判据（只打印可疑项，退出码恒为 0）：
+
+- `recon.mjs`：174 条高风险片段（语句边界 / 表达式 / 类型 / 声明 / 模块），逐条比对
+  「TS 有没有语法诊断」「产物里找不找得到源码里的标识符」「有没有抛异常」。
+- `recon2.mjs`：第二轮 94 条——TS 5.x / 6.x 的新构造（`satisfies` / `using` / 装饰器 /
+  `const` 类型参数 / 元组变长 / `infer` 约束 …）与真实代码里的高频写法。
+- `fuzz.mjs`：**组合**测试——9 个上下文（顶层 / 块 / 函数体 / 类体 / 命名空间 / 模块 / `if` / `for` / 箭头函数）
+  × 4 种分隔（换行 / `;` / 空格 / 双换行）× 215 个片段两两拼接，约 7 万组合，
+  只用 TypeScript 自己判断「这是不是合法 TS」，然后找**抛异常**的那些。
+  它在「无分隔」这一类里抓到过 `{ A }a += 1` 那种「块紧跟着表达式」的形状。
+
+```bash
+node tests/parse/recon.mjs                     # 174 条高风险片段
+node tests/parse/recon2.mjs                    # 94 条新构造 / 真实写法
+node tests/parse/fuzz.mjs                      # 组合模糊测试（约 7 万组合，几十秒）
+node tests/parse/fuzz.mjs --verbose            # 每个可疑组合打印源码与产物
+node tests/parse/recon.mjs --all               # 连正常的也打印
+```
+
+**为什么它们值得留着**：`sweep.mjs` 是「一个构造一条片段」，只看单点；
+`recon*.mjs` 补的是「构造的变体」，`fuzz.mjs` 补的是「构造与构造相邻」。
+本仓库最后三处真缺口（`a.import` 的 `TypeError`、`Lamda` 没签出范围导致的克隆抛错、
+`{ A }a += 1` 的「没有父单元」）全部是先被这三把探针抓到的——
+八把尺子里没有一把看得见它们（计数、内容、括号、边界、空节点都正常）。
+
 ## 加一条用例
 
 在 `cases/<area>/` 下新建一个 `.ts` 文件即可，文件名就是用例 id。开头写指令注释：
@@ -148,12 +219,13 @@ Root Statement BlockToken Let Field
 SymbolToken Identifier Keyword String ConstString InterpolationString
 VerbatimQuoteGuide InterpolationGuide InterpolationExitGuide RawQuoteExitGuide RegexToken
 LineAnnotation AreaAnnotation PreprocessorDirectives Bracket LineWrap
-GenericType Method Signature TypeDefine TypeAssign As LogicalOperator NullConditionalOperator
+GenericType Method Signature TypeDefine TypeAssign As Satisfies FunctionType ConditionalType UnionType IntersectionType LogicalOperator NullConditionalOperator
+ArrayType TupleType IndexedAccessType TypeOperator TypeQuery LiteralType ImportType TypeParameter InferType TypePredicate EnumMember OptionalType RestType NamedTupleMember IndexSignature ParenthesizedType HeritageClause ExpressionWithTypeArguments BindingElement
 TernaryOperator TernaryOperatorCondition TernaryOperatorTrueStatement TernaryOperatorFalseStatement
-Lamda LamdaParameters LamdaParameter LamdaBody
+Lamda Parameters Parameter LamdaBody
 New NewType NewArguments
-Class ClassBody Interface InterfaceBody Namespace NamespaceBody TypeLiteral TypeLiteralBody Enum EnumBody
-Function FunctionBody MethodDeclaration MethodBody ReturnType Decorator Label Import Export
+Class ClassBody Interface InterfaceBody Namespace NamespaceBody TypeLiteral TypeLiteralBody MappedType Enum EnumBody
+Function FunctionBody MethodDeclaration MethodBody ReturnType Decorator Label Import Export NamespaceExport StaticBlock
 IfSet IfSegment IfCondition IfStatement
 Switch SwitchCompare SwitchSegment SwitchCase SwitchStatement
 Try TryBody CatchDefine CatchBody FinallyBody

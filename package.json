@@ -21,7 +21,11 @@
     "cases:structure": "node ./tests/parse/structure.mjs",
     "cases:boundaries": "node ./tests/parse/boundaries.mjs",
     "cases:noise": "node ./tests/parse/noise.mjs",
+    "cases:align": "node ./tests/parse/align.mjs",
     "cases:sweep": "node ./tests/parse/sweep.mjs",
+    "cases:recon": "node ./tests/parse/recon.mjs",
+    "cases:recon2": "node ./tests/parse/recon2.mjs",
+    "cases:fuzz": "node ./tests/parse/fuzz.mjs",
     "cases:dashboard": "node ./tests/parse/gap-dashboard.mjs"
   },
   "devDependencies": {

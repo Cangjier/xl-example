@@ -45,13 +45,19 @@ export const GROUPS = [
   },
   {
     id: "member-field",
-    label: "成员·字段类 (PropertySignature+IndexSignature+PropertyDeclaration → Field)",
+    label: "成员·字段类 (PropertySignature+PropertyDeclaration → Field)",
     kinds: [
       ["PropertySignature", ts.isPropertySignature],
-      ["IndexSignatureDeclaration", ts.isIndexSignatureDeclaration],
       ["PropertyDeclaration", ts.isPropertyDeclaration],
     ],
     tag: "Field",
+  },
+  {
+    // 第 66 轮第五批：索引签名不再借 `Field`（TS 那边它本来就是独立节点）。
+    id: "member-index-signature",
+    label: "成员·索引签名 (IndexSignature → IndexSignature)",
+    kinds: [["IndexSignatureDeclaration", ts.isIndexSignatureDeclaration]],
+    tag: "IndexSignature",
   },
   {
     id: "member-signature",
