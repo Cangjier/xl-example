@@ -161,9 +161,36 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14003 / 15303 | 465874 / 452849 |
-| 同 kind 同区间 | **75.4%** | **86.0%** |
-| 其中**字段名也一致** | **96.2%** | **98.1%** |
+| 投影节点 / TS 语义节点 | 14060 / 15303 | 465853 / 452849 |
+| 同 kind 同区间 | **76.6%** | **89.2%** |
+| 其中**字段名也一致** | **96.2%** | **98.2%** |
+
+### 第 32 轮：类型容器的子单元**也是类型**
+
+真实语料缺口表里 `StringKeyword` 2455 / `AnyKeyword` 1768 / `StringLiteral` 2415 三块，
+打出具体例子来只有两种形状：
+
+```
+StringKeyword  父=UnionType          «string»        ← `"a" | "b" | string`
+AnyKeyword     父=ArrayType          «any»           ← `any[]`
+AnyKeyword     父=FunctionType       «any»           ← `(x) => any`
+StringLiteral  父=ModuleDeclaration  «"assert/strict"» ← `declare module "assert/strict" {}`
+```
+
+前者是同一个根因：**类型容器的子单元本身也是类型**，必须走**类型位**的投影
+（原始类型名要变成 `StringKeyword` 这类关键字、具名类型要套 `TypeReference`），
+而我原来是按普通子节点投的。加一张 `TYPE_MEMBER_KINDS`
+（`UnionType` / `IntersectionType` / `ArrayType` / `TupleType` / `IndexedAccessType` /
+`ParenthesizedType` / `TypeOperator` / `OptionalType` / `RestType` / `NamedTupleMember`），
+让这些容器的成员逐个走 `projectTypeExpression`。
+
+后者是 `ModuleDeclaration` 的名字：`declare module "assert/strict"` 的 TS 是 **`StringLiteral`**
+（含引号那一整段），而命名空间是 `Identifier`——产物把两者都记成 `namespace="…"` 属性，
+所以按**首字符是不是引号**分。
+
+真实语料 86.0% → **89.2%**，用例语料 75.4% → **76.6%**。
+
+**这一轮再次印证**：真实语料（`.d.ts`）的缺口**高度集中**——两个根因就值 3 个百分点。
 
 ### 第 31 轮：`in` / `instanceof` 是 `Keyword`，不是 `SymbolToken`
 
@@ -650,6 +677,7 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 29 轮 | 投影层：`ExpressionWithTypeArguments` 切 `expression` + `typeArguments`；`SwitchStatement` 合成 `CaseBlock`；`TypeParameter` 找名字时**排掉修饰词**（`out` 是 `Identifier`） | **96.0%** |
 | 第 30 轮 | 投影层：**签名上下文**（接口 / 类型字面量的成员是 `PropertySignature` / `MethodSignature`）＋ `?` 切成 `QuestionToken` 子节点；`MethodDeclaration`/`MethodSignature` 补 `parameters` | **96.1%** |
 | 第 31 轮 | 投影层：运算符定位认 **`in` / `instanceof` 是 `Keyword`**（原来只认 `SymbolToken`，整类丢两侧）；两侧皆无时**不发空壳** `BinaryExpression` | **96.2%** |
+| 第 32 轮 | 投影层：**类型容器的子单元也是类型**（`UnionType` / `ArrayType` / `FunctionType`… 的成员走类型位）；`declare module "x"` 的名字是 `StringLiteral` | **96.2%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；

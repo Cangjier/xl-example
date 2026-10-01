@@ -572,6 +572,28 @@ function projectNode(node, ctx) {
 }
 
 /**
+ * **类型容器**：它们的子单元**本身也是类型**，所以要以类型位的方式逐个投影
+ * （原始类型名要变成 `StringKeyword` 这类关键字、具名类型要套 `TypeReference`），
+ * 不能按普通子节点投。
+ *
+ * 漏了这一条的后果实测很集中：`"a" | "b" | string` 里的 `string` 出不来 `StringKeyword`、
+ * `any[]` 里的 `any` 出不来 `AnyKeyword`、函数类型的返回类型同理——
+ * 真实语料里这三类各占两千上下，都是同一个原因（父节点是 `UnionType` / `ArrayType` / `FunctionType`）。
+ */
+const TYPE_MEMBER_KINDS = new Set([
+  "UnionType",
+  "IntersectionType",
+  "ArrayType",
+  "TupleType",
+  "IndexedAccessType",
+  "ParenthesizedType",
+  "TypeOperator",
+  "OptionalType",
+  "RestType",
+  "NamedTupleMember",
+]);
+
+/**
  * 投影一批子单元，并在**签名上下文**里切换标记。
  *
  * 接口 / 类型字面量的成员在 TS 那边叫 `PropertySignature` / `MethodSignature`，
@@ -579,6 +601,15 @@ function projectNode(node, ctx) {
  * 两种上下文两种 kind（声明文件里签名那套是绝大多数）。这个标记就是那个上下文。
  */
 function projectEachIn(list, ctx, parentKind) {
+  // 类型容器的子单元按**类型位**投（见 `TYPE_MEMBER_KINDS`）。
+  if (TYPE_MEMBER_KINDS.has(parentKind)) {
+    const out = [];
+    for (const item of list) {
+      const projected = projectTypeExpression([item], ctx);
+      if (projected !== undefined) out.push(projected);
+    }
+    return out;
+  }
   const signature = parentKind === "InterfaceDeclaration" || parentKind === "TypeLiteral";
   if (!signature) return projectEach(list, ctx);
   const saved = ctx.signature;
@@ -1560,7 +1591,18 @@ function structuralProps(v, kind, ctx) {
     // 拿它就是拿真位置，不做任何猜测。只有还没补上子单元的 token 才走 `synthName`。
     nameNode =
       projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === name) ?? null;
-    props.name = nameNode === null ? synthName(name, v, ctx) : projectNode(nameNode, ctx);
+    // **模块名可能是字符串字面量**：`declare module "assert/strict" {}` 的 TS 是
+    // `ModuleDeclaration > StringLiteral`（带引号那一整段），而命名空间是 `Identifier`。
+    // 产物把两者都记成 `namespace="…"` 属性，所以按**首字符是不是引号**分。
+    // （真实语料里 `StringLiteral` 缺的那两千多处基本都是这个模块名。）
+    const quoted = name.startsWith('"') || name.startsWith("'");
+    if (quoted) {
+      const at = ctx.source.indexOf(name, v.start);
+      const pos = at >= 0 ? at : v.start;
+      props.name = { kind: "StringLiteral", text: name, pos, end: pos + name.length };
+    } else {
+      props.name = nameNode === null ? synthName(name, v, ctx) : projectNode(nameNode, ctx);
+    }
     used.add("name");
     used.add("fieldName");
     used.add("namespace");
