@@ -292,7 +292,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:noise` | 1382 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1351 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`），删完「缺节点」仍是 0——这个 0 不是靠别名遮出来的（删别名时当场报出 13 处空元组缺口，已修）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
+| `cases:align` | 1395 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
@@ -1227,6 +1227,7 @@ Generator<T, TReturn, TNext> 的 `[]`       // lib.es2015.iterable.d.ts
 | `REVERSE.ArrayLiteral` 里挂着 `"TupleType"` | 元组早就有自己的标签，这条别名等于给「元组没成形」发免罪符——它真的遮住了上面那 13 处空元组 | 删掉别名（删掉后当场报出 13 处，现已全修） |
 | `REVERSE.Method` 里挂着 `"ImportType"` / `"TypeQuery"`；`TypeLiteral` / `Field` 里挂着 `"MappedType"`；`TernaryOperator` 里挂着 `"ConditionalType"`；`As` 里挂着 `"SatisfiesExpression"` | 同类：这些构造都已经有专属标签，宽别名表让「标签被别的形状占用」永远看不出来 | 逐个删掉；实测**一处真缺口都没有新增**（说明它们是历史遗留、不是口径），只有 `Method in ImportType`（175 处，`<ImportType>` 里嵌着的调用壳）浮出来，**按位置登记进 `ALLOWED_EXTRA`**——登记看得见，别名看不见 |
 | `--all` 时标题写的是 `rows.length`，而 `rows` 此刻**包含**已登记口径 | 同一个数字随开关变化（12 类已登记口径被报成「未登记 12 类」） | 标题按 `!allowed` 单独数 |
+| 语料里**漏了 `node_modules/undici-types`** | 其余六把尺子一直把它算进语料，只有这一把漏——`@types/node` 依赖的 44 个 `.d.ts`（`fetch.d.ts` / `dispatcher.d.ts` / `webidl.d.ts` …）从来没被「构造 ↔ 标签」这一步查过。**一个只查一半语料的探针，报出来的「0」也只对一半语料成立** | 补进语料；补完实测仍是未登记 0 类 / 缺节点 0（语料 1351 → 1395 个文件） |
 
 教训与第 66 轮那两条（`kindName()` 的枚举别名、`run.mjs` 的子串匹配）同类：
 **宽口径的登记本身就是尺子的盲区**；「缺节点 0」这句话只有在标签表收干净之后才算数。

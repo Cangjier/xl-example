@@ -384,6 +384,12 @@ function corpus(mode) {
   if (mode !== "cases") {
     files.push(...walk(path.join(root, "node_modules", "@types"), []));
     files.push(...walk(path.join(root, "node_modules", "typescript", "lib"), []));
+    // **`undici-types` 是第 67 轮补进来的**：其余六把尺子（`lossless` / `structure` /
+    // `boundaries` / `noise` / `differential` / `gap-dashboard`）一直都把它算进语料，
+    // 只有这一把漏了——于是 `@types/node` 依赖的 44 个 `.d.ts`（`fetch.d.ts` /
+    // `dispatcher.d.ts` / `webidl.d.ts` …）从来没有被「构造 ↔ 标签」这一步查过。
+    // 一个只查一半语料的探针，报出来的「0」也只对一半语料成立。
+    files.push(...walk(path.join(root, "node_modules", "undici-types"), []));
     files.push(...walk(path.join(root, "dist", "ts"), []));
     files.push(...walk(path.join(root, "samples"), []));
   }
