@@ -161,9 +161,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13828 / 15303 | 448165 / 452849 |
-| 同 kind 同区间 | **73.1%** | **75.5%** |
-| 其中**字段名也一致** | **95.2%** | **95.5%** |
+| 投影节点 / TS 语义节点 | 13864 / 15303 | 452562 / 452849 |
+| 同 kind 同区间 | **73.2%** | **76.8%** |
+| 其中**字段名也一致** | **95.4%** | **96.0%** |
+
+### 第 27 轮：类型位的点号名是 `QualifiedName`，**不是** `PropertyAccessExpression`
+
+`Identifier` 那 700 处里有一大块压在**点号类型名**上（`A.B.C` / `N.M<T>`）。
+TS 在**类型位**用的是：
+
+```
+TypeReference[7,12)
+  QualifiedName[7,12)                    ← 字段是 left / right
+    QualifiedName[7,10)
+      Identifier[7,8)   Identifier[9,10)
+    Identifier[11,12)
+```
+
+而 `projectTypeExpression` 原来遇到多单元时**只取第一个 `Identifier`**，后面的 `B`、`C`
+**整个丢掉**——`Identifier` 与 `TypeReference` 两个缺口都是它。
+
+注意这里有个容易混的地方：**同样的 `a.b`，值位是 `PropertyAccessExpression`、
+类型位是 `QualifiedName`**（第 22 轮刚在值位折过点号链）。两者形状几乎一样，但 kind 与字段名都不同。
+
+顺带补了 `VariableStatement` 的 `modifiers`：`export const q = 1` 的 TS 是
+`VariableStatement(modifiers=[ExportKeyword])` + `List(flags=Const)`——
+**`const` / `let` / `var` 是列表的 flags，不是语句的修饰词**，混进去会多一个 `ConstKeyword`。
+
+真实语料 75.5% → **76.8%**（它类型密集，这一轮受益最大），用例语料 73.1% → 73.2%。
 
 ### 第 26 轮：又是「产物是平级、TS 是包住」的一族
 
@@ -521,6 +546,7 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 24 轮 | 投影层：**修饰词的区间从原文量出来**（原先是零宽，整类终点差 5~9 字符）；方法上改用「kind + 起止差值」分布表一次量完 | **95.4%** |
 | 第 25 轮 | 投影层：点号链**先折、再当左操作数**（第三个版本才对）＋链尾调用的切法；语句族按 **kind 名后缀**统一剪尾部 trivia | **95.1%** |
 | 第 26 轮 | 投影层：**标签折叠**（产物里 `Label` 与语句是平级、TS 是包住）＋ `projectLetFrom`（`for` 头部的列表不套 `Statement`）；尾部 trivia 改成**一律剪** | **95.2%** |
+| 第 27 轮 | 投影层：类型位的点号名折成 **`QualifiedName`**（值与类型位同名不同 kind）＋ `VariableStatement` 的语句级 `modifiers` | **95.4%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；

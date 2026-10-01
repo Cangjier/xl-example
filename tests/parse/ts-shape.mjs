@@ -809,10 +809,16 @@ function projectLetFrom(kids, ctx, container) {
     pos: listStart,
     end: listEnd,
   };
-  return {
-    list,
-    statement: { kind: "VariableStatement", declarationList: list, pos: container.start, end: stmtWhole },
-  };
+  const statement = { kind: "VariableStatement", declarationList: list, pos: container.start, end: stmtWhole };
+  // **`VariableStatement` 的修饰词只有语句级那几个**：`export const q = 1` 的 TS 是
+  // `VariableStatement(modifiers=[ExportKeyword])` + `List(flags=Const)`——
+  // `const` / `let` / `var` 是**列表的 flags**，不是语句的修饰词（混进去会多出一个 `ConstKeyword`）。
+  const holder = {};
+  addModifiers(letView, holder, ctx);
+  const statementModifiers = holder.modifiers ?? [];
+  const onlyStatementLevel = statementModifiers.filter((m) => !["const", "let", "var"].includes(m.text));
+  if (onlyStatementLevel.length > 0) statement.modifiers = onlyStatementLevel;
+  return { list, statement };
 }
 
 /**
@@ -956,6 +962,24 @@ function isTypeSeparator(node, ctx) {
   return [",", "|", "&"].includes(textOfNode(node, ctx));
 }
 
+/** 这个单元是不是点号（`.`）——点号类型名要折成 `QualifiedName`。 */
+function isDot(node, ctx) {
+  return node.get("type") === "SymbolToken" && textOfNode(node, ctx) === ".";
+}
+
+/** 这个单元能不能当类型名的一段（`Identifier` / `Keyword`）。 */
+function isNameNode(node) {
+  const type = node.get("type");
+  return type === "Identifier" || type === "Keyword";
+}
+
+/** 取一段类型名的节点（按原文宽度切，与 TS 的 `Identifier` 同区间）。 */
+function nameOf(node, ctx) {
+  const text = textOfNode(node, ctx);
+  const at = startOf(node);
+  return { kind: "Identifier", text, pos: at, end: at + text.length };
+}
+
 /**
  * **类型表达式**：一段单元 → 一个类型节点。类型是可以嵌套的，所以这里必须递归。
  *
@@ -985,23 +1009,39 @@ function projectTypeExpression(nodes, ctx) {
   if (head.get("type") === "Identifier" || head.get("type") === "Keyword") {
     const text = textOfNode(head, ctx);
     const span = { pos: startOf(head), end: endOf(head) };
-    let base;
+    const nameNode = { kind: "Identifier", text, pos: span.pos, end: span.end };
     if (generic === undefined) {
       const primitive = PRIMITIVE_TYPE_KIND.get(text);
-      base =
-        primitive === undefined
-          ? { kind: "TypeReference", typeName: { kind: "Identifier", text, pos: span.pos, end: span.end }, text, pos: span.pos, end: span.end }
-          : { kind: primitive, text, pos: span.pos, end: span.end };
-    } else {
-      base = {
-        kind: "TypeReference",
-        typeName: { kind: "Identifier", text, pos: span.pos, end: span.end },
-        typeArguments: projectTypeArguments(generic, ctx),
-        text,
-        pos: span.pos,
-        end: endOf(generic),
-      };
+      if (primitive !== undefined) {
+        return arraySuffix === undefined
+          ? { kind: primitive, text, pos: span.pos, end: span.end }
+          : { kind: "ArrayType", elementType: { kind: primitive, text, pos: span.pos, end: span.end }, pos: span.pos, end: endOf(arraySuffix) };
+      }
     }
+    // **点号类型名**（`A.B.C` / `N.M<T>`）：TS 在**类型位**用的是 `QualifiedName`（`left`/`right`）、
+    // **不是** `PropertyAccessExpression`——两者形状很像，但值位与类型位各归各的。
+    // 早先这里只取第一个 `Identifier`，后面的 `B`、`C` **整个丢掉**（缺口表里
+    // `Identifier` 与 `TypeReference` 各占一大块，就是这个原因）。
+    let typeName = nameNode;
+    let end = typeName.end;
+    let i = 1;
+    while (i + 1 < list.length && isDot(list[i], ctx) && isNameNode(list[i + 1])) {
+      const right = nameOf(list[i + 1], ctx);
+      typeName = { kind: "QualifiedName", left: typeName, right, pos: typeName.pos, end: right.end };
+      end = right.end;
+      i += 2;
+    }
+    const base =
+      generic === undefined
+        ? { kind: "TypeReference", typeName, text, pos: span.pos, end }
+        : {
+            kind: "TypeReference",
+            typeName,
+            typeArguments: projectTypeArguments(generic, ctx),
+            text,
+            pos: span.pos,
+            end: endOf(generic),
+          };
     // 数组后缀：`Foo<Bar>[]` 的 TS 是 `ArrayType(Foo<Bar>[]) > TypeReference(Foo<Bar>)`。
     if (arraySuffix !== undefined) {
       return { kind: "ArrayType", elementType: base, pos: base.pos, end: endOf(arraySuffix) };
