@@ -5,7 +5,9 @@
 // （宁可少折一个，也不能把参数表折成序列表达式）
 // `for (…; …; i++, j--)` 的更新子句与语句层的 `a, b;` 都要折；
 // 但枚举体的 `,` 是成员分隔符，不能折
-// xl:expect BinaryOperator:3,ArrayLiteral,ObjectLiteral,Method:2,Enum
+// 多声明符那一处原来被折成了假运算符（`1, other`），第 53 轮修掉：
+// 判据 `HasDeclarationBefore` 认出同一个语句列表里已经成形的 `Let`，于是计数从 3 变成 2
+// xl:expect BinaryOperator:2,ArrayLiteral,ObjectLiteral,Method:2,Enum
 const r = (a, b);
 if (a, b) {
 }
