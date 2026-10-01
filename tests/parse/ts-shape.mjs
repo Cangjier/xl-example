@@ -527,7 +527,9 @@ function projectEach(list, ctx) {
   for (const item of list) {
     if (!(item instanceof Map)) continue;
     if (INVISIBLE.has(item.get("type"))) continue;
-    out.push(projectNode(item, ctx));
+    // `undefined` = 这个单元在 TS 那边是 trivia（例如只有注释的语句），**不收**。
+    const projected = projectNode(item, ctx);
+    if (projected !== undefined) out.push(projected);
   }
   return out;
 }
@@ -535,9 +537,11 @@ function projectEach(list, ctx) {
 /** 一条语句：TS 那边没有 `Statement` 这层壳——按内容的**开头**分派。 */
 function projectStatement(v, ctx) {
   const kids = projectableKids(v);
-  if (kids.length === 0) {
-    return { kind: "ExpressionStatement", pos: v.start, end: v.end };
-  }
+  // **只有注释的语句不是语句**：`// xl:expect …` 这样的行在本工程是一层 `Statement`
+  // 包着一个注释单元，而 TS 那边注释是 **trivia**、`forEachChild` 完全看不见它。
+  // 早先这里退回一个 `ExpressionStatement`，于是每份用例文件都凭空多两个节点
+  // （顶层 `pos=0` 的 `ExpressionStatement`），连 `SourceFile.getStart()` 都被带歪。
+  if (kids.length === 0) return undefined;
   const head = kids[0];
   const headType = head.get("type");
   if (headType === "Let") {
@@ -1074,14 +1078,31 @@ function stringText(v, ctx) {
 /**
  * 投影整棵树 → `ts.createSourceFile` 同形的单根节点。
  *
+ * 三处**文件边界**的口径（实测出来的，两处都反直觉）：
+ *
+ * - `SourceFile` 的 `getStart()` **不是 0**，而是**第一个 token 的位置**——
+ *   前置注释与空行都算前导 trivia。本工程的区间本来就不含前导 trivia，
+ *   所以根的起点就取第一个语句的起点（没有语句时退回 0）；
+ * - `SourceFile.end` 是**文件长度**（含尾部的换行）；
+ * - `EndOfFileToken` 是**文件末尾的零宽节点**：`pos === end === 文件长度`，
+ *   而且它在 `ts.forEachChild` 那一层**是可见的**（`forEachChild` 对 `SourceFile`
+ *   先访问 `statements` 再访问 `endOfFileToken`）。整个语料每份文件各一个，**不改它就一直缺**。
+ *
  * 返回 `{ ast, unmapped, count }`：`unmapped` 是这次没覆盖到的产物标签（透传的那些），
  * `count` 是投影出的节点数。
  */
 function projectRoot(exported, source) {
   const ctx = { source, unmapped: new Set(), count: 0 };
   const statements = projectEach(exported, ctx);
+  const firstStart = statements.length > 0 ? statements[0].pos : 0;
   return {
-    ast: { kind: "SourceFile", statements, pos: 0, end: source.length },
+    ast: {
+      kind: "SourceFile",
+      statements,
+      endOfFileToken: { kind: "EndOfFileToken", pos: source.length, end: source.length },
+      pos: firstStart,
+      end: source.length,
+    },
     unmapped: [...ctx.unmapped].sort(),
     count: ctx.count,
   };
