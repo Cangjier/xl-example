@@ -465,14 +465,12 @@ function projectNode(node, ctx) {
   if (!(node instanceof Map)) return undefined;
   const v = view(node);
   ctx.count++;
-  // **语句族统一剪掉尾部 trivia**：`IfSet[27,42]` 这种区间含了行尾的换行，
-  // 而 TS 的语句从不含尾部 trivia（实测 `IfStatement` 差 1，与第 23 轮语句那处同一个病因）。
-  // 判据用 kind 名后缀，省得每加一个语句 token 就要回来补一条。
+  // **尾部 trivia 一律剪掉**：TS 的节点 `end` **从不含尾部 trivia**，而本工程的区间常常含
+  // （语句行尾的软换行、正则字面量后面的换行…）。第 23 轮只修了语句族，实测还漏着
+  // 正则（`Δ1`）等零散几类——所以这里**不再按 kind 白名单**，改成统一剪：
+  // 往回吃掉空白即可，节点里不会有一类「合法地以空白结尾」的情况。
   const mk = (kind, props) =>
-    Object.assign({ kind }, props === undefined ? {} : props, {
-      pos: v.start,
-      end: stmtLike(kind) ? stmtEndOf(v, ctx) : v.end,
-    });
+    Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end: stmtEndOf(v, ctx) });
 
   switch (v.type) {
     case "Root":
@@ -560,14 +558,56 @@ function projectNode(node, ctx) {
 function projectEach(list, ctx) {
   if (!Array.isArray(list)) return [];
   const out = [];
-  for (const item of list) {
-    if (!(item instanceof Map)) continue;
-    if (INVISIBLE.has(item.get("type"))) continue;
+  const items = list.filter((item) => item instanceof Map && !INVISIBLE.has(item.get("type")));
+  let i = 0;
+  while (i < items.length) {
+    // **带标签的语句要合并**：产物那边 `outer: for (…) {}` 是**两个平级的单元**
+    // （`Label[0,5]` 与 `For[7,36]`），而 TS 是 `LabeledStatement[0,37) > [Identifier, ForStatement]`——
+    // 一个包住另一个。早先按 `Label` 单独投出一个 `LabeledStatement`，于是它的区间只盖住标签本身
+    // （实测 `Δ-125` / `-64` / `-48` / `-33` … 一整族）。
+    // 连续多个标签（`a: b: for`）从右往左套：最外层是第一个标签。
+    if (items[i].get("type") === "Label") {
+      const labels = [];
+      let j = i;
+      while (j < items.length && items[j].get("type") === "Label") {
+        labels.push(items[j]);
+        j++;
+      }
+      const statement = j < items.length ? projectNode(items[j], ctx) : undefined;
+      if (statement !== undefined) {
+        let wrapped = statement;
+        for (let k = labels.length - 1; k >= 0; k--) {
+          wrapped = labeled(labels[k], wrapped, ctx);
+        }
+        out.push(wrapped);
+        i = j + 1;
+        continue;
+      }
+    }
     // `undefined` = 这个单元在 TS 那边是 trivia（例如只有注释的语句），**不收**。
-    const projected = projectNode(item, ctx);
+    const projected = projectNode(items[i], ctx);
     if (projected !== undefined) out.push(projected);
+    i++;
   }
   return out;
+}
+
+/**
+ * 一个标签 + 它标的语句 → `LabeledStatement`。
+ *
+ * 标签名那个 `Identifier` 的区间**不含冒号**：产物给的是 `Label[0,5]`（盖住 `outer:`），
+ * 而 TS 的 `Identifier(outer)` 是 `[0,5)`——所以按**名字宽度**切，不从标签单元直接抄。
+ */
+function labeled(labelUnit, statement, ctx) {
+  const text = String(labelUnit.get("label") ?? "");
+  const at = startOf(labelUnit);
+  return {
+    kind: "LabeledStatement",
+    label: { kind: "Identifier", text, pos: at, end: at + text.length },
+    statement,
+    pos: at,
+    end: statement.end,
+  };
 }
 
 /**
@@ -722,31 +762,40 @@ function projectLet(v, ctx) {
   // 而 `Let` 自己的区间只盖到 `const f` 为止、初始化式是它的**平级兄弟**。
   // 早先这里直接读外层容器的属性，于是 `fieldName` 永远是空——`VariableDeclaration`
   // 的起点一直退到 `const`（实测 505 处对不上），而 `List` 那一层看不出来。
+  return projectLetFrom(kids, ctx, v).statement;
+}
+
+/**
+ * `let` 声明的**单元列表版**：列表本身才是主角，`Statement` 那层壳由调用方决定。
+ *
+ * 这样拆是因为 `for (let i = 0; …)` 的头部**没有** `Statement` 壳：
+ * 产物那边 `For.initial` 是一段单元 `[Let, SymbolToken(=), 初始化式]`，
+ * 而 TS 那边 `ForStatement.initializer` **直接就是 `VariableDeclarationList`**（不套 `VariableStatement`）。
+ * 早先按单个 `Let` 投，看不到初值——`List` / `Declaration` 各短 4 个字符（实测 Δ-4）。
+ */
+function projectLetFrom(kids, ctx, container) {
+  // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
+  const stmtWhole = stmtEndOf(container, ctx);
+  const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
+  const listEnd = kids.length > 0 ? Math.min(stmtEnd, endOf(kids[kids.length - 1])) : stmtEnd;
   const letNode = kids.find((k) => k.get("type") === "Let") ?? null;
-  const letView = letNode === null ? v : view(letNode);
+  const letView = letNode === null ? view(container) : view(letNode);
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const initNode = eqIndex >= 0 && eqIndex + 1 < kids.length ? kids[eqIndex + 1] : null;
-  // **尾部的 `;` 不进前两层**：TS 那边 `VariableStatement` 含分号，
-  // `VariableDeclarationList` 与 `VariableDeclaration` 都不含（实测 `const answer = 0;`
-  // 是 `Statement[0,17)` / `List[0,16)` / `Declaration[6,16)`）。
-  // 先剪掉尾部 trivia（ASI 那行软换行），再按 TS 的口径看分号归哪一层——
-  // `VariableStatement` 含分号、内两层不含（见 `stmtEndOf` 的说明）。
-  const stmtWhole = stmtEndOf(v, ctx);
-  const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
   // **语句级修饰词不进前两层**：`export const q = 1` 的 TS 是
   // `Statement[104,…)`（含 `export`）/ `List[111,…)`（从 `const` 起）/ `Declaration[117,…)`（从名字起）。
   const listStart = modifierStart(letView, ctx);
   const declared = String(letView.attrs.get("fieldName") ?? "");
   const name =
     declared === ""
-      ? bindingSpan(v, listStart, stmtEnd, ctx)
+      ? bindingSpan(container, listStart, listEnd, ctx)
       : synthName(declared, letView, ctx);
   const declaration = {
     kind: "VariableDeclaration",
     name,
     initializer: initNode === null ? undefined : projectNode(initNode, ctx),
     pos: name.pos,
-    end: stmtEnd,
+    end: listEnd,
   };
   // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
   // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
@@ -758,9 +807,12 @@ function projectLet(v, ctx) {
     declarations: [declaration],
     flags: flagsOf(letView),
     pos: listStart,
-    end: stmtEnd,
+    end: listEnd,
   };
-  return { kind: "VariableStatement", declarationList: list, pos: v.start, end: stmtWhole };
+  return {
+    list,
+    statement: { kind: "VariableStatement", declarationList: list, pos: container.start, end: stmtWhole },
+  };
 }
 
 /**
@@ -1312,10 +1364,16 @@ function structuralProps(v, kind, ctx) {
     }
     if (kept.length > 0) {
       const field = fieldNameFor(kind, key);
-      // 同一个字段**只写一次**（后写的会覆盖前写的）：一个 kind 的同一字段可能来自两处
+      // 同一字段**只写一次**（后写的会覆盖前写的）：一个 kind 的同一字段可能来自两处
       // （例如 `Bracket` 摊平出来的形参与自己的 `children`），合并而不是覆盖。
       const already = props[field];
-      const projected = projectEach(kept, ctx);
+      // **以 `Let` 开头的段**（`for (let i = 0; …)` 的头部）：TS 那边这个字段**直接就是
+      // `VariableDeclarationList`**（不套 `VariableStatement`），而初值是这个段里的平级兄弟——
+      // 所以整段交给列表版去投，不能逐个单元投。
+      const projected =
+        kept[0].get("type") === "Let"
+          ? [projectLetFrom(kept, ctx, view(kept[kept.length - 1])).list]
+          : projectEach(kept, ctx);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
     for (const [target, nodes] of promoted) {
