@@ -161,9 +161,30 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 13991 / 15303 | 462327 / 452849 |
-| 同 kind 同区间 | **75.3%** | **85.2%** |
-| 其中**字段名也一致** | **96.1%** | **97.8%** |
+| 投影节点 / TS 语义节点 | 14003 / 15303 | 465874 / 452849 |
+| 同 kind 同区间 | **75.4%** | **86.0%** |
+| 其中**字段名也一致** | **96.2%** | **98.1%** |
+
+### 第 31 轮：`in` / `instanceof` 是 `Keyword`，不是 `SymbolToken`
+
+真实语料侧「产物只有 `operatorToken`、TS 有 `left`/`right`」那 1118 处，打出来全是同一类：
+
+```
+x in o          operatorToken=in
+x instanceof Y  operatorToken=instanceof
+```
+
+根因：我的运算符定位只认 **`SymbolToken`**，而 **`in` / `instanceof` 在产物里是 `Keyword`**——
+于是两个操作数一个都没取到，只剩一个从 `op` 属性合成的运算符。加一个 `isOperatorUnit`
+（`SymbolToken` 或 `in` / `instanceof` 关键字）之后整类消失。
+
+**同一轮还留了个尾巴，如实记在这里**：`a && b || c` 这类**逻辑运算**在产物里是三个残缺的
+`LogicalOperator`（只有 `op="And"` / `op="Or"` 属性，**运算符符号根本没进树**，
+左右两块还散成了平级兄弟）——这是 **token 层的结构问题**，投影治不了根。
+这轮只做了一件保守的事：**两侧都没有时不要凭空发一个空壳 `BinaryExpression`**
+（退回把子单元投出来，让里面的节点还能对上）。真正的修法在 token 层，留给后面。
+
+真实语料 85.2% → **86.0%**（字段名 97.8% → 98.1%）。
 
 ### 第 30 轮：接口成员是另一套 kind —— 真实语料 76.9% → **85.2%**
 
@@ -628,6 +649,7 @@ Statement > [ Let(`const f`), SymbolToken(=), 初始化式 ]
 | 第 28 轮 | 投影层：解构声明**用产物自己的 `ArrayLiteral` / `ObjectLiteral`** 当绑定模式（原先是自己造的空壳）＋ `BindingElement` 三形态 | **95.6%** |
 | 第 29 轮 | 投影层：`ExpressionWithTypeArguments` 切 `expression` + `typeArguments`；`SwitchStatement` 合成 `CaseBlock`；`TypeParameter` 找名字时**排掉修饰词**（`out` 是 `Identifier`） | **96.0%** |
 | 第 30 轮 | 投影层：**签名上下文**（接口 / 类型字面量的成员是 `PropertySignature` / `MethodSignature`）＋ `?` 切成 `QuestionToken` 子节点；`MethodDeclaration`/`MethodSignature` 补 `parameters` | **96.1%** |
+| 第 31 轮 | 投影层：运算符定位认 **`in` / `instanceof` 是 `Keyword`**（原来只认 `SymbolToken`，整类丢两侧）；两侧皆无时**不发空壳** `BinaryExpression` | **96.2%** |
 
 **第 10 轮的关键认识：有些 TS 子节点在产物树里根本没有单元，只能「合成」。**
 `Lamda` 只收 `parameters` 与 `body` 两段——**`=>` 不是一个 token 单元**；

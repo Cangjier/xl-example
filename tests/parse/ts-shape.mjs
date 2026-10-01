@@ -698,6 +698,19 @@ function projectStatement(v, ctx) {
 }
 
 /**
+ * 这个单元能不能当**运算符**。
+ *
+ * 绝大多数运算符是 `SymbolToken`，但 **`in` / `instanceof` 是 `Keyword`**——
+ * 只认 `SymbolToken` 时会整类丢两侧操作数（实测 `x in o` 只剩一个 `operatorToken`，
+ * 真实语料 1118 处「产物只有 operatorToken、TS 有 left/right」都是这一条）。
+ */
+function isOperatorUnit(node, ctx) {
+  const type = node.get("type");
+  if (type === "SymbolToken") return true;
+  return type === "Keyword" && ["in", "instanceof"].includes(textOfNode(node, ctx));
+}
+
+/**
  * 一串单元 → 一个表达式。
  *
  * 三种折叠，按优先级从高到低：
@@ -760,7 +773,7 @@ function projectExpression(kids, ctx) {
     return foldBinaryFrom(left, kids.slice(i), ctx);
   }
   // ---- 2. 二元 / 赋值 ----
-  const opIndex = kids.findIndex((k, i) => i > 0 && k.get("type") === "SymbolToken");
+  const opIndex = kids.findIndex((k, i) => i > 0 && isOperatorUnit(k, ctx));
   if (opIndex > 0 && opIndex < kids.length - 1) {
     return foldBinaryFrom(projectExpression(kids.slice(0, opIndex), ctx), kids.slice(opIndex), ctx);
   }
@@ -974,14 +987,22 @@ function flagsOf(v) {
 /** 二元运算：TS 的 `left` / `operatorToken` / `right`。 */
 function projectBinary(v, ctx) {
   const kids = projectableKids(v);
-  const opIndex = kids.findIndex((k) => k.get("type") === "SymbolToken");
+  const opIndex = kids.findIndex((k) => isOperatorUnit(k, ctx));
   const declaredOp = v.attrs.get("op");
+  const left = opIndex > 0 ? projectExpression(kids.slice(0, opIndex), ctx) : undefined;
+  const right = opIndex >= 0 && opIndex + 1 < kids.length ? projectExpression(kids.slice(opIndex + 1), ctx) : undefined;
+  // **两侧都没有时不要发一个空壳**：产物里有一类残缺的 `LogicalOperator`
+  // （`a && b || c` 实测是三个只有 `op="And"/"Or"` 属性、**运算符符号根本没进树**的节点，
+  // 而且左右两块还散成了平级兄弟）——那是 token 层的结构问题，投影这里治不了根，
+  // 但至少不能凭空造一个既没有 `left` 也没有 `right` 的 `BinaryExpression`
+  // （真实语料实测 1118 处「产物只有 operatorToken」）。退回把子单元投出来，让里面的节点还能对上。
+  if (left === undefined && right === undefined) {
+    return kids.length > 0 ? projectExpression(kids, ctx) : undefined;
+  }
   const opNode =
     opIndex >= 0
       ? projectNode(kids[opIndex], ctx)
       : { kind: tokenKind(String(declaredOp ?? "?")), pos: v.start, end: v.start };
-  const left = opIndex > 0 ? projectExpression(kids.slice(0, opIndex), ctx) : undefined;
-  const right = opIndex >= 0 && opIndex + 1 < kids.length ? projectExpression(kids.slice(opIndex + 1), ctx) : undefined;
   return {
     kind: "BinaryExpression",
     left,
@@ -1004,7 +1025,7 @@ function projectBinary(v, ctx) {
  */
 function projectUnary(v, ctx) {
   const kids = projectableKids(v);
-  const opIndex = kids.findIndex((k) => k.get("type") === "SymbolToken");
+  const opIndex = kids.findIndex((k) => isOperatorUnit(k, ctx));
   const operandKids = opIndex >= 0 ? kids.filter((_, i) => i !== opIndex) : kids;
   const operand = projectExpression(operandKids, ctx);
   const isPostfix = opIndex === kids.length - 1;
