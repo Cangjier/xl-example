@@ -406,6 +406,30 @@ function tokenKind(text) {
   return TOKEN_KIND.get(text) ?? text;
 }
 
+/**
+ * **原始类型**名 → `SyntaxKind` 名。
+ *
+ * 它在 TS 那边**不是** `TypeReference`（见 `projectTypeDefine` 的说明）。
+ * 这张表与 `KEYWORD_KIND` 有重叠，但**语义不同**：`KEYWORD_KIND` 管的是
+ * 「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
+ * 而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。
+ */
+const PRIMITIVE_TYPE_KIND = new Map([
+  ["any", "AnyKeyword"],
+  ["unknown", "UnknownKeyword"],
+  ["number", "NumberKeyword"],
+  ["bigint", "BigIntKeyword"],
+  ["object", "ObjectKeyword"],
+  ["boolean", "BooleanKeyword"],
+  ["string", "StringKeyword"],
+  ["symbol", "SymbolKeyword"],
+  ["void", "VoidKeyword"],
+  ["undefined", "UndefinedKeyword"],
+  ["never", "NeverKeyword"],
+  ["null", "NullKeyword"],
+  ["this", "ThisKeyword"],
+]);
+
 /** 某个分段在这个 kind 下该叫什么。 */
 function fieldNameFor(kind, key) {
   const table = FIELD_BY_KIND.get(kind);
@@ -624,6 +648,11 @@ function projectLet(v, ctx) {
     pos: name.pos,
     end: stmtEnd,
   };
+  // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
+  // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
+  // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
+  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
+  if (typeNode !== undefined) declaration.type = projectTypeDefine(view(typeNode), ctx);
   const list = {
     kind: "VariableDeclarationList",
     declarations: [declaration],
@@ -740,10 +769,17 @@ function projectCall(v, ctx) {
 }
 
 /**
- * 类型标注 `name: T` → TS 的 `TypeReference`。
+ * 类型标注 `name: T` → `TypeReference`，**但原始类型不套这一层**。
  *
- * TS 在**同一个区间上放两层**（`TypeReference` 套 `Identifier`），本工程只有一个
- * `TypeDefine` + 里面的标识符，所以这里补出「类型引用」那一层。
+ * 实测 TS 的两种形状截然不同（`let a: string` / `let b: Foo`）：
+ *
+ * - `a: string` → `VariableDeclaration > [Identifier(a), StringKeyword]` ——
+ *   原始类型**直接**是一个 `StringKeyword` 节点，**没有** `TypeReference` 包着；
+ * - `b: Foo`    → `VariableDeclaration > [Identifier(b), TypeReference > Identifier(Foo)]` ——
+ *   具名类型才有 `TypeReference`，而且它在**同一个区间**上又套一个 `Identifier`。
+ *
+ * 早先这里一律返回 `TypeReference`，于是原始类型那 373 处（`NumberKeyword` 224 +
+ * `StringKeyword` 149）在 TS 侧对不上，而产物侧还多出一层。
  */
 function projectTypeDefine(v, ctx) {
   const kids = projectableKids(v);
@@ -754,8 +790,14 @@ function projectTypeDefine(v, ctx) {
     ctx.unmapped.add("TypeDefine(空)");
     return { kind: "TypeReference", pos: v.start, end: v.end };
   }
+  const text = textOfNode(typeNode, ctx);
   const inner = projectNode(typeNode, ctx);
-  return { kind: "TypeReference", typeName: inner, text: textOfNode(typeNode, ctx), pos: inner.pos, end: inner.end };
+  // 原始类型：**只有它单独一个**的时候才算（`string[]` 的 `string` 属于 `ArrayType` 里面）。
+  const primitive = afterColon.length === 1 ? PRIMITIVE_TYPE_KIND.get(text) : undefined;
+  if (primitive !== undefined) {
+    return { kind: primitive, text, pos: inner.pos, end: inner.end };
+  }
+  return { kind: "TypeReference", typeName: inner, text, pos: inner.pos, end: inner.end };
 }
 
 /** 属性 `x: T` / `x = 1` → `PropertyDeclaration`（`name` + `type` / `initializer` / `modifiers`）。 */

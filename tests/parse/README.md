@@ -161,11 +161,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14060 / 15303 | 453664 / 452849 |
-| 同 kind 同区间 | **62.1%** | **61.3%** |
-| 其中**字段名也一致** | **94.8%** | **94.4%** |
+| 投影节点 / TS 语义节点 | 13924 / 15303 | 463985 / 452849 |
+| 同 kind 同区间 | **64.4%** | **69.1%** |
+| 其中**字段名也一致** | **95.2%** | **95.7%** |
 
-（用例语料现在反超真实语料了：那批 `.d.ts` 里还有一些只在声明文件里出现的形状没覆盖到。）
+### 第 18 轮：原始类型**不套** `TypeReference`，而类型标注在**上一层**
+
+两条都是实测出来的形状差（`NumberKeyword` 224 + `StringKeyword` 149 那 373 处）：
+
+| 源码 | TS 的形状 | 我原来的做法 |
+| --- | --- | --- |
+| `let a: string` | `VariableDeclaration > [Identifier(a), **StringKeyword**]` —— 原始类型**直接**是关键字节点 | 一律套一层 `TypeReference`（多一层，且 kind 错） |
+| `let b: Foo` | `VariableDeclaration > [Identifier(b), **TypeReference > Identifier(Foo)**]` —— 具名类型才有 `TypeReference`，且它在**同一区间**上又套一个 `Identifier` | 同左（这一半是对的） |
+
+落点是一个 `PRIMITIVE_TYPE_KIND` 表：**在类型位上**才把 `string` / `number` 这些叫关键字。
+它与 `KEYWORD_KIND` 的区别是语义而非内容——产物在类型位把 `string` 标成的是 `<Identifier>`，
+所以同一个文本在值位与类型位的 kind 不同。
+
+第二条更朴素：`let a: string;` 的产物是
+
+```
+Statement > [ Let(`let a`), TypeDefine(`: string`) ]
+```
+
+**`TypeDefine` 是 `Let` 的兄弟**，不在 `Let` 里面（`Field` 那种才在自身里面）。
+TS 那边 `VariableDeclaration[4,13)` = `a: string`，`type` 挂在声明上——所以要从**外层**找它。
+（第一次改时我按 `Field` 的样子往 `Let` 里面找，量出来没动，才发现这一层。）
+
+用例语料 62.1% → **64.4%**，真实语料 61.3% → **69.1%**。
 
 ### 第 17 轮：`projectLet` 一直在读**外层的**属性
 
