@@ -87,21 +87,24 @@ npm run cases:boundaries  # 语句边界：相邻两条语句有没有被并成�
 npm run cases:noise       # 噪声：产物里有没有空的 <Statement></Statement>
 ```
 
-另有四把「找缺口」的探针，只报可疑项、不当判据：
+另有五把「找缺口」的探针，只报可疑项、不当判据：
 
 ```bash
 npm run cases:sweep       # 198 个 TS 构造片段，逐条打印 TS AST 与产物并标出可疑项
 npm run cases:recon       # 174 条高风险片段（边界 / 表达式 / 类型 / 声明 / 模块）
-npm run cases:recon2      # 94 条 TS 5.x / 6.x 新构造与真实代码高频写法
+npm run cases:recon2      # 157 条 TS 5.x / 6.x 新构造与真实代码高频写法
 npm run cases:fuzz        # 组合模糊测试：7.1 万个「上下文 × 分隔 × 片段两两拼接」
+npm run cases:fuzz3       # 三片段组合探针：同一批片段**三个**相邻（抽样 20 万次）
 npm run cases:align       # 对齐探针：产物单元与 TS AST 节点按源码区间对齐，双向反查
 ```
 
-这四把探针是**八把尺子的补位**：尺子比的是计数、内容、括号、边界、空节点，
+这五把探针是**八把尺子的补位**：尺子比的是计数、内容、括号、边界、空节点，
 而 `a.import` 抛 `TypeError`、`Lamda` 没签出范围导致克隆抛错、`{ A }a += 1` 报「没有父单元」
-这三处真缺口，八把尺子**一把都看不见**——它们都是先被探针抓到的
-（见 [tests/parse/README.md](tests/parse/README.md) 的「`recon*.mjs` / `fuzz.mjs` 的口径」
-与「`align.mjs` 的口径」）。
+这三处真缺口，八把尺子**一把都看不见**——它们都是先被探针抓到的。
+第 67 轮又加了一把 `cases:fuzz3`（两两拼接 → **三片段**），它第一次跑起来就抓到
+「`type X = T` 换行紧跟 `try`」抛 `next is not Bracket`——**整份文件解析失败**，
+而它在两两拼接里从来不出现（见 [tests/parse/README.md](tests/parse/README.md) 的
+「`recon*.mjs` / `fuzz*.mjs` 的口径」与「`align.mjs` 的口径」）。
 
 `cases:align` 问的是**形状与语义对不对得上**：它把产物单元与 TS AST 节点按源码区间对齐后双向反查
 「产物有标签、源码没构造」与「源码有构造、产物没标签」。第 53 轮的七处真缺口里有四处
@@ -279,21 +282,22 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 `structure.mjs` 与 `boundaries.mjs` 各带一个 `--self-test`：故意把产物改坏 / 把两条语句并成一条，
 尺子必须报警——**一个永远绿的尺子比没有尺子更危险**，所以两把尺子的牙口都是被证明过的。
 
-### 当前状态（实测，`npm run` 十七个脚本全绿）
+### 当前状态（实测，`npm run` 十八个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1012 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
-| `cases:diff` | 1395 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
+| `cases:run` | 1014 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:diff` | 1397 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1382 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1382 个文件、括号归属不符 **0**（11 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1382 个文件：对齐可信 1076 个、跳过 306 个，语句表 554 个、边界 2394 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
-| `cases:noise` | 1382 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1384 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1384 个文件、括号归属不符 **0**（11 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1384 个文件：对齐可信 1078 个、跳过 306 个，语句表 556 个、边界 2399 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1384 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
-| `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1395 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
+| `cases:recon` / `cases:recon2` | 174 + **157** 条高风险片段，可疑 **0** 条 |
+| `cases:align` | 1397 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 14 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
+| `cases:fuzz3` | 抽样 20 万次得 9.7 万个合法三片段组合，**可疑 0 类**（第 67 轮新加，见上） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
@@ -1251,17 +1255,33 @@ Generator<T, TReturn, TNext> 的 `[]`       // lib.es2015.iterable.d.ts
 两条都不是「解析不出来」（内容一直没丢），是**结构化属性读歪**：下游按
 「默认导入 + 路径」读，会把 `import fs = require("fs")` 读成 `import fs from "fs"`。
 
+#### 五、三片段组合探针抓到的两处「整份文件解析失败」
+
+`cases:fuzz.mjs` 是**两两**拼接（9 上下文 × 4 分隔 × 215² 片段），这一轮新加的
+`cases:fuzz3.mjs` 把它改成**三个**片段相邻（抽样 20 万次，固定种子可复现）。
+它第一次跑起来就报出两处**整份文件解析失败**——两两拼接里一个都不出现：
+
+| 形状 | 现象 | 根因与修法 |
+| --- | --- | --- |
+| `type H = number` 换行 `try { } catch { }` | `TryReorganization` 抛 **「next is not Bracket」** | `TypeLiteralReorganization.IsTypePosition` 的回扫**跨过换行、跨过 `try`**，一路撞上 `type` ⇒ 把 `try` 的语句体收成了一个 `TypeLiteral`。修法是回扫遇到**语句边界**即停——判据复用 ASI 那一条（`Statement.IsLineBreakBoundary`），多行类型的排版（`type T =` 换行 `{ … }`、联合成员换行）照旧成立 |
+| `{` 换行 `x => x` 换行 `[1, 2, 3]` 换行 `a += 1` 换行 `}` | `JsonArrayReorganization.Process` 抛 **「没有父单元」** | 与第 52 轮 `JsonObjectReorganization.Process` 那一条**同一个形状、同一个理由**（复合赋值的展开让列表改短、那个 `[` 成了孤儿），可守卫当时只加到了**对象**那一支。补上数组这一支的早退：**先保住内容再让步** |
+
+两处都进了用例（`stmt-type-alias-then-try`、`am-block-lambda-array-compound`），
+并常驻 `recon2.mjs` 的片段表（`edge-type-alias-then-try` / `edge-type-alias-then-try-finally` /
+`edge-block-lambda-array-compound`）。`fuzz3.mjs` 也**常驻**成第 18 个 npm 脚本
+（`npm run cases:fuzz3`）：它不当判据，但与 `fuzz.mjs` 一样，是「构造与构造相邻」那一面的哨兵。
+
 #### 这一轮的账
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1012 条用例全部通过，台账在案缺口 **0** 条 |
-| `cases:align` | **未登记标签占用 0 类、缺节点 0**（标签表已收干净，见上表） |
-| 其余六把尺子 + 五把探针 | 全绿（无损性 1382 文件 0 丢失、结构 0 不符、边界 0 横跨、噪声 0 空节点） |
+| `cases:run` | 1014 条用例全部通过，台账在案缺口 **0** 条 |
+| `cases:align` | **未登记标签占用 0 类、缺节点 0**（标签表已收干净、语料已补齐，见上表） |
+| 其余六把尺子 + 六把探针 | 全绿（无损性 1384 文件 0 丢失、结构 0 不符、边界 0 横跨、噪声 0 空节点；`fuzz3` 9.7 万组合可疑 0 类） |
 
-回归用例 5 条：`type-paren-content-nodes`（11 种括号内容）、
+回归用例 7 条：`type-paren-content-nodes`（11 种括号内容）、
 `expr-value-paren-not-type-array`（值位对照）、`type-empty-tuple`、`mod-import-defer`、
-`mod-import-equals-from`；
+`mod-import-equals-from`、`stmt-type-alias-then-try`、`am-block-lambda-array-compound`；
 另把 `type-new-nodes-adversarial` 的 `ParenthesizedType` 由 4 改成 5——
 `((A))` 的**内层**括号现在也成形（TS 那边就是两层 `ParenthesizedType`，
 原来的 4 是把「内层不收」这个 bug 写进了期望值）。

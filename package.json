@@ -26,6 +26,7 @@
     "cases:recon": "node ./tests/parse/recon.mjs",
     "cases:recon2": "node ./tests/parse/recon2.mjs",
     "cases:fuzz": "node ./tests/parse/fuzz.mjs",
+    "cases:fuzz3": "node ./tests/parse/fuzz3.mjs",
     "cases:dashboard": "node ./tests/parse/gap-dashboard.mjs"
   },
   "devDependencies": {

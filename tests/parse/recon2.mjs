@@ -113,6 +113,14 @@ const CASES = [
   // 所以没进用例语料，靠这里盯着「内容不许丢」）。
   ["real-block-then-compound-assign", "{ A }a += 1"],
   ["real-block-then-let", "{ let y = 2 } z = 3"],
+  // 第 67 轮补的一族：**类型别名换行紧跟 `try`**（类型字面量的回扫跨过语句边界，
+  // 把 `try` 的语句体收成了 `TypeLiteral`，`TryReorganization` 当场抛「next is not Bracket」）
+  // 与**块里的箭头体续上数组字面量再跟复合赋值**（重组改短列表后留下的孤儿 `[`，
+  // `JsonArrayReorganization.Process` 拿不到父单元就抛「没有父单元」）。
+  // 两条都是 `fuzz.mjs`（两两拼接）抓不到、三片段组合探针抓到的形状，常驻盯着。
+  ["edge-type-alias-then-try", "type H = number\ntry { } catch { }"],
+  ["edge-type-alias-then-try-finally", "type G = readonly X\ntry { } catch (e) { } finally { }"],
+  ["edge-block-lambda-array-compound", "{\nx => x\n[1, 2, 3]\na += 1\n}"],
   // 第 64 轮补的一族：**文件结尾没有换行** / 换行风格 / BOM / 空文件 / 规模。
   // 第 63 轮那四个「合法 TS 抛异常」全在「结尾没有换行」这一族里，所以常驻盯着。
   ["edge-empty-file", ""],

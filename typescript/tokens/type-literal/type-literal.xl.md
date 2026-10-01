@@ -16,6 +16,7 @@ import { AreaAnnotation } from "../area-annotation.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { TypeLiteralBody } from "./type-literal-body.xl.md"
 import { MappedType } from "./mapped-type.xl.md"
+import { Statement } from "../statement.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
 ```
 
@@ -232,7 +233,21 @@ let crossedAssignment = false;
 let crossingArrow = false;
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
-  if (item instanceof LineWrap || item instanceof GenericType) {
+  if (item instanceof LineWrap) {
+    // **语句边界就是终点**（第 67 轮修）：`type H = number` 换行 `try { } catch { }` 里，
+    // `try` 后面那个 `{` 往回扫时会**跨过换行、跨过 `try`**，一路撞上 `type` ⇒ 被判成类型位，
+    // 于是 `try` 的语句体被收成一个 `TypeLiteral`；`TryReorganization` 拿到它当场抛
+    // 「next is not Bracket」，**整份文件解析失败**（三片段组合探针抓到的形状）。
+    //
+    // 判据复用 ASI 那一条（`Statement.IsLineBreakBoundary`），不另写近似：
+    // 换行前是 `=` / `:` / `|` / `&` / `=>` 这些「还要操作数」的形状时它给「不是边界」，
+    // 多行类型的排版（`type T =` 换行 `{ … }`、联合成员换行）照旧成立。
+    if (Statement.IsLineBreakBoundary(units, i)) {
+      return false;
+    }
+    continue;
+  }
+  if (item instanceof GenericType) {
     continue;
   }
   if (item instanceof LineAnnotation || item instanceof AreaAnnotation) {

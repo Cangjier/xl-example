@@ -145,6 +145,7 @@ const ALLOWED_EXTRA = {
   // 样本实测是**值位的下标访问**（`a[cursor]` / `a[i]`）——本工程没有「下标访问」标签，
   // `JsonArrayReorganization` 把那个 `[ ]` 收成了 `ArrayLiteral`。文字原来写成「元组类型」，与样本不符。
   "ArrayLiteral in Statement": "值位下标访问的方括号被收成 `ArrayLiteral`（本工程没有 ElementAccessExpression 标签）；另有个别语句层的元组类型",
+  "ArrayLiteral in Bracket": "同上，只是父单元是块括号：`{ x => x` 换行 `[1, 2, 3]` 换行 `a += 1 }` 里那个 `[1, 2, 3]`（TS 读成 `x[1, 2, 3]` 的元素访问，本工程按数组字面量收）。这一格是孤儿方括号的兜底形状（见 `json/array-literal.xl.md` 的 `Process` 早退），单列一条是为了不让它混进 `Statement` 那一类",
   // 解构形参的两种父单元都要登记：**普通形参**走第 66 轮第六批统一出来的 `Parameter`
   // （箭头那一支），**解构形参**（`([a, b]) => …` / `({ a, b }) => …`）仍在形参括号里，
   // 父单元是 `Bracket` ✓。

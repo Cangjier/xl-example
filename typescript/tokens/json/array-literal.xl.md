@@ -101,10 +101,25 @@ return this.IsArrayAt(units, index);
 
 `Parent` 在造出单元之后单独赋值。
 
+**拿不到父单元时早退**（`current.Parent === null`，第 67 轮补）：与
+`object-literal.xl.md` 里 `JsonObjectReorganization.Process` 那一条**同一个形状、同一个理由**——
+`Replace` 要求「自己还在父单元的子单元里」，没有父单元就抛「没有父单元」，
+**整份文件解析失败**。这条路只在「重组改短了列表、而下标还是旧扫描留下的」时才走到
+（那个 `[` 已经被别的规则挪成了孤儿），属于输入本来就很怪的兜底：**先保住内容再让步**，
+产物里那个 `[]` 仍然是一个 `Bracket`、里面的东西一个不少，只是少一层 `ArrayLiteral` 标签。
+
+**为什么这一条是第 67 轮才补上的**：同一族的守卫第 52 轮只加到了**对象**那一支，
+数组这一支漏了——而触发它需要的形状更刁：三片段组合探针抓到的
+`{` 换行 `x => x` 换行 `[1, 2, 3]` 换行 `a += 1` 换行 `}`（块里的箭头体续上数组字面量，
+再跟一条复合赋值）当场抛「没有父单元」。两两拼接的 `fuzz.mjs` 抓不到它。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
   throw new Error("ArrayLiteral.Reorganization.Process: current is null");
+}
+if (current.Parent === null) {
+  return index;
 }
 const result = new ArrayLiteral(template);
 result.Parent = current.Parent;
