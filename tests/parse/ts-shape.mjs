@@ -465,7 +465,14 @@ function projectNode(node, ctx) {
   if (!(node instanceof Map)) return undefined;
   const v = view(node);
   ctx.count++;
-  const mk = (kind, props) => Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end: v.end });
+  // **语句族统一剪掉尾部 trivia**：`IfSet[27,42]` 这种区间含了行尾的换行，
+  // 而 TS 的语句从不含尾部 trivia（实测 `IfStatement` 差 1，与第 23 轮语句那处同一个病因）。
+  // 判据用 kind 名后缀，省得每加一个语句 token 就要回来补一条。
+  const mk = (kind, props) =>
+    Object.assign({ kind }, props === undefined ? {} : props, {
+      pos: v.start,
+      end: stmtLike(kind) ? stmtEndOf(v, ctx) : v.end,
+    });
 
   switch (v.type) {
     case "Root":
@@ -579,6 +586,16 @@ function stmtEndOf(v, ctx) {
   return end;
 }
 
+/**
+ * 这个 kind 是不是**语句族**（要剪尾部 trivia 的那些）。
+ *
+ * 语句族的共同点：它们在 TS 那边都由「一行/一段语句」构成、**从不含尾部 trivia**。
+ * `Block` / `ModuleBlock` 是块（右花括号之后不会有 trivia 归它），也一并剪。
+ */
+function stmtLike(kind) {
+  return kind.endsWith("Statement") || kind === "Block" || kind === "ModuleBlock";
+}
+
 /** 一条语句：TS 那边没有 `Statement` 这层壳——按内容的**开头**分派。 */
 function projectStatement(v, ctx) {
   const kids = projectableKids(v);
@@ -620,43 +637,73 @@ function projectStatement(v, ctx) {
 function projectExpression(kids, ctx) {
   if (kids.length === 0) return undefined;
   if (kids.length === 1) return projectNode(kids[0], ctx);
-  const symbolAt = (i, text) => kids[i] !== undefined && kids[i].get("type") === "SymbolToken" && textOfNode(kids[i], ctx) === text;
-  // ---- 1. 点号链 ----
-  const firstDot = kids.findIndex((k, i) => i > 0 && k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ".");
-  if (firstDot > 0) {
-    let left = projectExpression(kids.slice(0, firstDot), ctx);
-    let i = firstDot;
-    while (i + 1 < kids.length && symbolAt(i, ".")) {
-      const name = kids[i + 1];
+  const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
+
+  // ---- 1. 点号链（**从左边开始折**，折完把结果当左操作数继续） ----
+  //
+  // 早先是「找第一个标点当运算符」⇒ `.` 被当成二元运算符（两头都错）；
+  // 中间改成「必须吃满整串才认这条链」⇒ `a.b.c = 1` 这种**链后面还有运算符**的又不认了，
+  // 于是掉回二元分支、还是拿 `.` 当运算符。正解是**先折链、再拿链的结果当左操作数**。
+  if (kids.length > 2 && isSymbol(kids[1], ".")) {
+    let left = projectNode(kids[0], ctx);
+    let i = 1;
+    let call = null;
+    while (i + 1 < kids.length && isSymbol(kids[i], ".")) {
+      const next = kids[i + 1];
+      if (next.get("type") === "Method") {
+        // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
+        // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
+        // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
+        const name = String(next.get("name") ?? "");
+        const at = startOf(next);
+        left = {
+          kind: "PropertyAccessExpression",
+          expression: left,
+          name: { kind: "Identifier", text: name, pos: at, end: at + name.length },
+          pos: left.pos,
+          end: at + name.length,
+        };
+        call = projectNode(next, ctx);
+        i += 2;
+        break;
+      }
       left = {
         kind: "PropertyAccessExpression",
         expression: left,
-        name: projectNode(name, ctx),
+        name: projectNode(next, ctx),
         pos: left.pos,
-        end: endOf(name),
+        end: endOf(next),
       };
       i += 2;
     }
-    // **必须吃满整串**才认这条链（踩过）：`a.b(c)` 的链只到 `b`，尾巴上还有个实参括号——
-    // 早先这里直接 `return left`，把尾巴上的节点**整片丢掉**（真实语料实测少 5583 个节点、
-    // 匹配数还掉了几百）。吃不满就退回去走通用形状，宁可少折一层也不能丢节点。
-    if (i === kids.length) return left;
+    if (call !== null) {
+      // 链尾是一次调用：把 `CallExpression` 的被调用者换成折好的点号链
+      // （TS 的 `console.log(1)` 是 `CallExpression > PropertyAccessExpression > …`）。
+      return Object.assign({}, call, { expression: left, pos: left.pos });
+    }
+    if (i >= kids.length) return left;
+    return foldBinaryFrom(left, kids.slice(i), ctx);
   }
   // ---- 2. 二元 / 赋值 ----
   const opIndex = kids.findIndex((k, i) => i > 0 && k.get("type") === "SymbolToken");
   if (opIndex > 0 && opIndex < kids.length - 1) {
-    const left = projectExpression(kids.slice(0, opIndex), ctx);
-    const right = projectExpression(kids.slice(opIndex + 1), ctx);
-    return {
-      kind: "BinaryExpression",
-      left,
-      operatorToken: projectNode(kids[opIndex], ctx),
-      right,
-      pos: left ? left.pos : startOf(kids[0]),
-      end: right ? right.end : endOf(kids[kids.length - 1]),
-    };
+    return foldBinaryFrom(projectExpression(kids.slice(0, opIndex), ctx), kids.slice(opIndex), ctx);
   }
   return projectNode(kids[0], ctx);
+}
+
+/** `左 运算符 右…`：把已经折好的左操作数接上剩下的单元，折成一个 `BinaryExpression`。 */
+function foldBinaryFrom(left, rest, ctx) {
+  if (rest.length < 2 || rest[0].get("type") !== "SymbolToken") return left;
+  const right = projectExpression(rest.slice(1), ctx);
+  return {
+    kind: "BinaryExpression",
+    left,
+    operatorToken: projectNode(rest[0], ctx),
+    right,
+    pos: left.pos,
+    end: right ? right.end : endOf(rest[0]),
+  };
 }
 
 /**
