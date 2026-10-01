@@ -161,22 +161,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 15992 / 15303 | 469136 / 452849 |
-| 同 kind 同区间 | **37.4%** | **53.7%** |
-| 其中**字段名也一致** | **88.4%** | **91.8%** |
+| 投影节点 / TS 语义节点 | 16196 / 15303 | 479819 / 452849 |
+| 同 kind 同区间 | **37.9%** | **54.7%** |
+| 其中**字段名也一致** | **89.0%** | **92.7%** |
 
-两个语料的比率差得多（37.4% vs 53.7%）是因为**语料构成不同**：真实语料里 `.d.ts` 占大头，
+两个语料的比率差得多（37.9% vs 54.7%）是因为**语料构成不同**：真实语料里 `.d.ts` 占大头，
 而 `.d.ts` 几乎是「声明 + 类型」，正是投影覆盖得最好的那部分；用例语料是刻意挑的难点形状。
 
-字段名这一维是**逐轮涨**的，五轮的动作记在这里：
+字段名这一维是**逐轮涨**的，六轮的动作记在这里：
 
 | 轮次 | 动作 | 用例语料字段名一致率 |
 | --- | --- | --- |
 | 第 4 轮 | 给尺子补上「字段名」这一维（此前只比 kind 与区间，改字段名一个数字都不动） | 63.3% |
 | 第 5 轮 | ① 属性数组（`modifiers` / `imports`）不再被当成子节点字段；② `TypeAliasDeclaration` / `Parameter` / `TypeParameter` 补 `name` + `type`；③ 按 kind 改名的字段表 | 74.8% |
 | 第 6 轮 | ① **`view()` 把标量属性也存下来**（这一条最关键，见下）；② **包装节点提层**（`ClassBody` → `members`、`ReturnType` → `type`、`Bracket` 摊平）；③ 类型位三段的字段名 | 82.1% |
-| 第 7 轮 | ① `ConditionalType` 按 `?` / `:` 切成四个具名字段；② `BindingElement` → `name`；③ **`GenericType` 条件提层**（装 `TypeParameter` 时是包装、装类型实参时是真节点）；④ `modifiers` 补成节点数组；⑤ `FunctionType` / `TupleType` / `EnumMember` 的字段名 | 86.4% |
-| 第 8 轮 | ① `EnumMember` 补 `name`（+ `initializer`）；② `PropertyDeclaration` 补 `initializer`；③ **去掉 `PrefixUnaryExpression.operator`**（TS 那边运算符是节点**属性**、不是子节点字段，早先投了它等于自造一处假差异）；④ `SpreadElement` → `expression`；⑤ `ConditionalExpression` 改用 TS 现在的字段名（`whenTrue` / `whenFalse`，上游那套 `trueStatement` / `falseStatement` 已经过时） | **88.4%** |
+| 第 7 轮 | ① `ConditionalType` 按 `?` / `:` 切成四个具名字段；② `BindingElement` → `name`；③ **`GenericType` 条件提层**；④ `modifiers` 补成节点数组；⑤ `FunctionType` / `TupleType` / `EnumMember` 的字段名 | 86.4% |
+| 第 8 轮 | ① `EnumMember` 补 `name`；② `PropertyDeclaration` 补 `initializer`；③ **去掉 `PrefixUnaryExpression.operator`**（TS 那边运算符是节点**属性**、不是子节点字段）；④ `SpreadElement` → `expression`；⑤ `ConditionalExpression` 改用 `whenTrue` / `whenFalse` | 88.4% |
+| 第 9 轮 | ① 修 `ClassDeclaration` / `InterfaceDeclaration` 的字段映射；② 同一字段**合并而不是覆盖**；③ 查清「表里重复定义 kind」这个坑 | **89.0%** |
+
+**第 9 轮查清的两个坑，都是「静默失效」型的**：
+
+1. **一个 kind 在 `FIELD_BY_KIND` 里写两遍，后一条会静默覆盖前一条**（`Map` 的键唯一）。
+   `ClassDeclaration` 当时写了两遍，第二遍没有 `HeritageClause` 那条，于是
+   `heritageClauses` 整类字段凭空消失——尺子只报「TS 多了 `heritageClauses`」，
+   完全看不出「是我把映射写重了」。现在每个 kind 的映射**只写一处、写全**。
+2. **字段名要按「提层之后剩下什么」来起名**。`ClassDeclaration.children` 里
+   `ClassBody` 会被提层到 `members`，剩下的只有继承段——所以 `children` 该映射到
+   `heritageClauses`。写成 `members` 会让继承段顶着 `members` 这个名字输出、
+   而真正的成员被覆盖掉（症状与第 1 条一样：只有一个字段名对不上）。
 
 **第 6 轮那条最关键的 bug**：`view()` 原来只把**数组**存进 `segments`，
 **标量属性（`name` / `fieldName` / `op` / `modifiers` / `namespace`）全被丢掉**——于是「按属性给 `name`」

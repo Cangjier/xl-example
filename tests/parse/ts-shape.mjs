@@ -225,25 +225,35 @@ const FIELD_BY_KIND = new Map([
   // 类型参数段：产物那边是一个 `GenericType` 包装（`A<T>`、`T<U>` 与类型引用同形），
   // TS 那边 `typeParameters` 是一串 `TypeParameter`——所以 `GenericType` 要**提层**：
   // 它的内容提到 `typeParameters`，包装自己不出节点。这一条覆盖类 / 接口 / 函数 / 别名四处。
-  ["TypeAliasDeclaration", new Map([["GenericType", "typeParameters"]])],
-  ["InterfaceDeclaration", new Map([["GenericType", "typeParameters"], ["HeritageClause", "heritageClauses"]])],
-  ["FunctionDeclaration", new Map([["GenericType", "typeParameters"]])],
-  ["MethodDeclaration", new Map([["GenericType", "typeParameters"]])],
-  ["FunctionExpression", new Map([["GenericType", "typeParameters"]])],
-  ["ArrowFunction", new Map([["GenericType", "typeParameters"]])],
-  ["FunctionDeclaration", new Map([["children", "parameters"]])],
-  ["FunctionExpression", new Map([["children", "parameters"]])],
-  ["ArrowFunction", new Map([["children", "parameters"]])],
-  // 类的 `children` 里混着三种东西：类型参数、继承段、成员。TS 把它们分成**三个字段**。
-  // `ClassBody` 提上来的成员进 `members`（见 `WRAPPER_FIELDS`），这里只留另外两种。
+  //
+  // **一个 kind 在这两张表里只能出现一次**（`Map` 的键唯一，后写的会**静默覆盖**前一条）。
+  // 这里踩过：`ClassDeclaration` 写了两遍，第二遍没有 `HeritageClause` 那条，
+  // 于是 `heritageClauses` 整类字段凭空消失——而尺子只报「TS 多了 heritageClauses」，
+  // 看不出「是我把映射写重了」。所以每个 kind 的映射**只写一处、写全**。
   [
     "ClassDeclaration",
     new Map([
-      ["children", "typeParameters"],
+      ["GenericType", "typeParameters"],
       ["HeritageClause", "heritageClauses"],
+      // `children` 里剩下的只有继承段（`ClassBody` 已被提层到 `members`），
+      // 所以这里映射到 `heritageClauses`**而不是** `members`——
+      // 写成 `members` 会让继承段顶着 `members` 这个名字输出，而真正的成员被覆盖掉。
+      ["children", "heritageClauses"],
     ]),
   ],
-  ["InterfaceDeclaration", new Map([["HeritageClause", "heritageClauses"]])],
+  [
+    "InterfaceDeclaration",
+    new Map([
+      ["GenericType", "typeParameters"],
+      ["HeritageClause", "heritageClauses"],
+      ["children", "heritageClauses"],
+    ]),
+  ],
+  ["TypeAliasDeclaration", new Map([["GenericType", "typeParameters"]])],
+  ["FunctionDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  ["MethodDeclaration", new Map([["GenericType", "typeParameters"]])],
+  ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -811,11 +821,20 @@ function structuralProps(v, kind, ctx) {
       for (const inner of unwrapNodes(x)) bucket.push(inner);
       promoted.set(bucketKey, bucket);
     }
-    if (kept.length > 0) props[fieldNameFor(kind, key)] = projectEach(kept, ctx);
+    if (kept.length > 0) {
+      const field = fieldNameFor(kind, key);
+      // 同一个字段**只写一次**（后写的会覆盖前写的）：一个 kind 的同一字段可能来自两处
+      // （例如 `Bracket` 摊平出来的形参与自己的 `children`），合并而不是覆盖。
+      const already = props[field];
+      const projected = projectEach(kept, ctx);
+      props[field] = Array.isArray(already) ? already.concat(projected) : projected;
+    }
     for (const [target, nodes] of promoted) {
       if (nodes.length === 0) continue;
       const field = target === "children" ? fieldNameFor(kind, key) : fieldNameFor(kind, target);
-      props[field] = projectEach(nodes, ctx);
+      const already = props[field];
+      const projected = projectEach(nodes, ctx);
+      props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
   }
   // 修饰词：产物那边是字符串，TS 那边是一串节点（见 `addModifiers` 的说明）。
