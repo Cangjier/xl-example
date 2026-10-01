@@ -124,6 +124,10 @@ const KEYWORD_KIND = new Map([
   ["private", "PrivateKeyword"], ["protected", "ProtectedKeyword"], ["override", "OverrideKeyword"],
   ["get", "GetKeyword"], ["set", "SetKeyword"], ["default", "DefaultKeyword"],
   ["as", "AsKeyword"], ["satisfies", "SatisfiesKeyword"],
+  // **`in` / `instanceof` 是 `Keyword`、也是 TS 的语义子节点**（`BinaryExpression` 的
+  // `operatorToken` 就是它们）。漏了这两条时它们被投成 `Identifier`：
+  // 真实语料 `InstanceOfKeyword` 缺 878 处（第 34 轮修）。
+  ["in", "InKeyword"], ["instanceof", "InstanceOfKeyword"], ["asserts", "AssertsKeyword"],
 ]);
 
 /** 标点 → `SyntaxKind` 名。 */
@@ -280,9 +284,13 @@ const FIELD_BY_KIND = new Map([
   ["FunctionDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   // 方法与**方法签名**（接口里的）都要把 `children` 叫成 `parameters`——
   // 早先只登记了 `GenericType`，于是 `children` 这个字段名一路错下去（真实语料 6k+ 处）。
+  //
+  // **注意同一个 kind 在这张表里只能出现一次**：写两遍时**后一条会静默覆盖前一条**
+  // （`Map` 的键唯一），症状是「某个字段名整类不对」而看不出原因。这个坑在第 9 轮
+  // （`ClassDeclaration`）与第 33 轮（`MethodDeclaration`）各踩过一次——
+  // 所以 `cases:shapelint` 现在会**扫源码**把重复键揪出来。
   ["MethodDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["MethodSignature", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  ["MethodDeclaration", new Map([["GenericType", "typeParameters"]])],
   ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
 ]);
@@ -477,8 +485,15 @@ function projectNode(node, ctx) {
   // （语句行尾的软换行、正则字面量后面的换行…）。第 23 轮只修了语句族，实测还漏着
   // 正则（`Δ1`）等零散几类——所以这里**不再按 kind 白名单**，改成统一剪：
   // 往回吃掉空白即可，节点里不会有一类「合法地以空白结尾」的情况。
-  const mk = (kind, props) =>
-    Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end: stmtEndOf(v, ctx) });
+  //
+  // 反过来，**没有函数体的可调用签名要带上尾随分号**：`declare function f(): void;` 的 TS 是
+  // `FunctionDeclaration[23,51)`（含 `;`），而产物那个 `Function` 到 `void` 就结束了——
+  // 分号是它的平级兄弟。真实语料里 `FunctionDeclaration` 缺的近两千处基本是这一条。
+  const mk = (kind, props) => {
+    let end = stmtEndOf(v, ctx);
+    if (SIGNATURE_KINDS.has(kind) && ctx.source[end] === ";") end += 1;
+    return Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end });
+  };
 
   switch (v.type) {
     case "Root":
@@ -545,6 +560,9 @@ function projectNode(node, ctx) {
 
     case "ExpressionWithTypeArguments":
       return projectExpressionWithTypeArguments(v, ctx);
+
+    case "Import":
+      return projectImport(v, ctx);
 
     case "Switch":
       return projectSwitch(v, ctx);
@@ -702,6 +720,61 @@ function stmtLike(kind) {
   return kind.endsWith("Statement") || kind === "Block" || kind === "ModuleBlock";
 }
 
+/**
+ * 头部那个 `Keyword` 决定整条语句是什么（TS 那边的 kind，以及值挂在哪个字段上）。
+ *
+ * 这一族在产物里是**一个 `Keyword` 加一段平级兄弟**（`return a + b` ⇒ `Keyword(return)` + `BinaryOperator`），
+ * 而 TS 是**一个语句节点包住表达式**。早先它们一律掉进 `ExpressionStatement` 分支、
+ * 只投影第一个单元，于是「头一个 `Keyword` 变成 Identifier、后面整段子树消失」——
+ * 真实语料 `ReturnStatement` 缺 1722 处，连带里面的 `BinaryExpression` / `CallExpression` /
+ * `Identifier` 一起缺（第 34 轮修的）。
+ */
+const KEYWORD_STATEMENT_KINDS = new Map([
+  ["return", "ReturnStatement"],
+  ["throw", "ThrowStatement"],
+  ["break", "BreakStatement"],
+  ["continue", "ContinueStatement"],
+  ["debugger", "DebuggerStatement"],
+]);
+
+/** 这些字段装的是**表达式**，其余（`break` / `continue` 的标签）装的是名字。 */
+const KEYWORD_STATEMENT_EXPRESSION = new Set(["ReturnStatement", "ThrowStatement"]);
+
+/**
+ * 这些 kind 在 TS 那边**本身就是语句**——单个子单元是它们时不能再套 `ExpressionStatement`。
+ *
+ * 反过来，单个子单元是**表达式**（`f(1)` / `a + b` / `new X`）时，TS 是
+ * `ExpressionStatement > 表达式`；早先直接返回那个表达式，于是每个这样的语句都少一层壳。
+ */
+const STATEMENT_KINDS = new Set([
+  "Block",
+  "BreakStatement",
+  "ClassDeclaration",
+  "ClassStaticBlockDeclaration",
+  "ContinueStatement",
+  "DebuggerStatement",
+  "DoWhileStatement",
+  "EnumDeclaration",
+  "ExportDeclaration",
+  "ForOfStatement",
+  "ForStatement",
+  "FunctionDeclaration",
+  "IfStatement",
+  "ImportDeclaration",
+  "InterfaceDeclaration",
+  "LabeledStatement",
+  "ModuleBlock",
+  "ModuleDeclaration",
+  "NamespaceExportDeclaration",
+  "ReturnStatement",
+  "SwitchStatement",
+  "ThrowStatement",
+  "TryStatement",
+  "TypeAliasDeclaration",
+  "VariableStatement",
+  "WhileStatement",
+]);
+
 /** 一条语句：TS 那边没有 `Statement` 这层壳——按内容的**开头**分派。 */
 function projectStatement(v, ctx) {
   const kids = projectableKids(v);
@@ -716,9 +789,28 @@ function projectStatement(v, ctx) {
     // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给 `projectLet`。
     return projectLet(v, ctx);
   }
+  // ---- 关键字开头的语句（`return` / `throw` / `break` / `continue` / `debugger`）----
+  if (headType === "Keyword") {
+    const kind = KEYWORD_STATEMENT_KINDS.get(textOfNode(head, ctx));
+    if (kind !== undefined) {
+      const rest = kids.slice(1);
+      const props = {};
+      if (rest.length > 0) {
+        const value = projectExpression(rest, ctx);
+        if (value !== undefined) props[KEYWORD_STATEMENT_EXPRESSION.has(kind) ? "expression" : "label"] = value;
+      }
+      return Object.assign({ kind }, props, { pos: v.start, end: stmtEndOf(v, ctx) });
+    }
+  }
   if (kids.length === 1) {
     const kind = KIND_BY_TAG.get(headType);
-    if (kind !== undefined) return projectNode(head, ctx);
+    if (kind !== undefined) {
+      const projected = projectNode(head, ctx);
+      // 单个子单元**本身就是语句**（`if` / `class` / `import`…）⇒ 不再套壳；
+      // 是**表达式**（`f(1)` / `a + b` / `new X`）⇒ TS 那边是 `ExpressionStatement > 表达式`。
+      if (STATEMENT_KINDS.has(kind)) return projected;
+      return { kind: "ExpressionStatement", expression: projected, pos: v.start, end: stmtEndOf(v, ctx) };
+    }
   }
   return {
     kind: "ExpressionStatement",
@@ -1108,8 +1200,16 @@ function projectTypeDefine(v, ctx) {
   return projected;
 }
 
-/** 分隔标点：它们由**各自的容器**管（`|` 归 `UnionType`、`,` 归实参表）。 */
-function isTypeSeparator(node, ctx) {
+/**
+ * 没有函数体的**可调用签名**：它们的 `end` 要**带上尾随分号**（TS 的口径）。
+ *
+ * `declare function f(): void;` 的 TS 是 `FunctionDeclaration[23,51)`（含 `;`），
+ * 而产物那个 `Function` 只到 `void` 为止——分号是它的平级兄弟。
+ * 只对这几个 kind 做：带**函数体**的声明不会走到这里（体已经把它结束在 `}` 上了）。
+ */
+const SIGNATURE_KINDS = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignatureDeclaration"]);
+
+/** 分隔标点：它们由**各自的容器**管（`|` 归 `UnionType`、`,` 归实参表）。 */function isTypeSeparator(node, ctx) {
   if (node.get("type") !== "SymbolToken") return false;
   return [",", "|", "&"].includes(textOfNode(node, ctx));
 }
@@ -1404,6 +1504,164 @@ function projectSegment(v, key, ctx) {
   return projectExpression(inner, ctx);
 }
 
+/** 从 `from` 往后找第一个非空白字符的位置。 */
+function firstCodeAfter(source, from) {
+  let i = from;
+  while (i < source.length && /\s/.test(source[i])) i++;
+  return i;
+}
+
+/** 配对的花括号：`{` 的位置 → 配对的 `}` 的位置（找不到给 `-1`）。 */
+function matchBrace(source, open) {
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** 原文 `[from, to)` 里某个名字的 `Identifier`（按原文量位置，与 TS 同区间）。 */
+function identWithin(source, text, from, to) {
+  const at = source.indexOf(text, from);
+  if (at < 0 || at + text.length > to) return undefined;
+  return { kind: "Identifier", text, pos: at, end: at + text.length };
+}
+
+/**
+ * `import` 声明 → TS 的形状。
+ *
+ * 产物把它摊成**一个节点 + 一串平级单元**：
+ *
+ * ```
+ * import { A as B, C } from "m"
+ *   ⇒ Import(imported="B,C") + Bracket{ A, as, B, `,`, C } + Identifier(from) + String("m")
+ * ```
+ *
+ * 而 TS 是三层：`ImportDeclaration > ImportClause > (NamedImports > ImportSpecifier…)`，
+ * 其中那个 `from` **不是节点**。真实语料里这三层各缺一千多（第 34 轮）。
+ *
+ * 几条实测口径：
+ * - `ImportDeclaration` **含尾随分号**（`import d from "m";` 的 TS 是 `[0,18)`，产物到 `"m"` 就停了）；
+ * - `ImportClause` 从子句第一个词开始、到最后一个子句单元结束。**`type` 也算在里面**
+ *   （`import type { A } from "m"` 的 TS 是 `ImportClause[7,17)`），而产物**没把 `type` 记成单元**，
+ *   所以那个起点只能从 `import` 之后的第一个非空白字符量；
+ * - `NamedImports` / `ImportSpecifier` 的区间**直接按原文的 `{}` 与逗号量**：产物这边
+ *   花括号有时是 `Bracket`、有时（带别名时）是 `ObjectLiteral`，按标签分会漏一半。
+ */
+function projectImport(v, ctx) {
+  const kids = projectableKids(v);
+  const props = {};
+  const moduleNode = kids.find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
+  if (moduleNode !== undefined) props.moduleSpecifier = projectNode(moduleNode, ctx);
+  let end = stmtEndOf(v, ctx);
+  if (ctx.source[end] === ";") end += 1;
+
+  const fromNode = kids.find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === "from");
+  const equals = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+  // `import x = require("m")` 在 TS 那边是**另一个 kind**，不是 `ImportDeclaration`。
+  if (equals !== undefined) {
+    const nameNode = kids.find((k) => k.get("type") === "Identifier" && k !== fromNode);
+    const callNode = kids.find((k) => k.get("type") === "Method");
+    // `require("m")` 的字符串在**那个 `Method` 里面**，不是 `Import` 的直接子单元。
+    const innerString =
+      moduleNode ??
+      (callNode === undefined
+        ? undefined
+        : projectableKids(view(callNode)).find((k) => k.get("type") === "String" || k.get("type") === "ConstString"));
+    const equalsProps = {};
+    if (nameNode !== undefined) equalsProps.name = projectNode(nameNode, ctx);
+    if (callNode !== undefined) {
+      equalsProps.moduleReference = {
+        kind: "ExternalModuleReference",
+        expression: innerString === undefined ? undefined : projectNode(innerString, ctx),
+        pos: startOf(callNode),
+        end: endOf(callNode),
+      };
+    }
+    return { kind: "ImportEqualsDeclaration", pos: v.start, end, ...equalsProps };
+  }
+
+  const clause = kids.filter((k) => k !== moduleNode && k !== fromNode && !INVISIBLE.has(k.get("type")));
+  if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
+
+  const source = ctx.source;
+  const clauseStart =
+    String(v.attrs.get("typeOnly") ?? "false") === "true"
+      ? firstCodeAfter(source, v.start + "import".length)
+      : startOf(clause[0]);
+  const clauseEnd = endOf(clause[clause.length - 1]);
+  const clauseProps = {};
+
+  const braceOpen = source.indexOf("{", clauseStart);
+  const braceClose = braceOpen >= 0 && braceOpen < clauseEnd ? matchBrace(source, braceOpen) : -1;
+  const star = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "*");
+  const names = clause.filter((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) !== "as");
+
+  if (star !== undefined) {
+    // `import * as ns from "m"`：`NamespaceImport` 盖住 `* as ns` 整段（TS 就是这么给的）。
+    const nsName = names[names.length - 1];
+    clauseProps.namedBindings = {
+      kind: "NamespaceImport",
+      name: nsName === undefined ? undefined : projectNode(nsName, ctx),
+      pos: startOf(star),
+      end: clauseEnd,
+    };
+  } else if (braceClose >= 0) {
+    // 花括号之前那一段是默认导入（`import d, { … }` 的 `d`）。
+    const defaultName = names.find((k) => startOf(k) < braceOpen);
+    if (defaultName !== undefined) clauseProps.name = projectNode(defaultName, ctx);
+    clauseProps.namedBindings = {
+      kind: "NamedImports",
+      elements: namedImportSpecifiers(source, braceOpen, braceClose),
+      pos: braceOpen,
+      end: braceClose + 1,
+    };
+  } else if (names.length > 0) {
+    clauseProps.name = projectNode(names[0], ctx);
+  }
+
+  props.importClause = { kind: "ImportClause", pos: clauseStart, end: clauseEnd, ...clauseProps };
+  return { kind: "ImportDeclaration", pos: v.start, end, ...props };
+}
+
+/** `{ … }` 里按**顶层逗号**切出每个 `ImportSpecifier`（别名写 `A as B`）。 */
+function namedImportSpecifiers(source, braceOpen, braceClose) {
+  const out = [];
+  let depth = 0;
+  let segStart = braceOpen + 1;
+  const flush = (to) => {
+    let from = segStart;
+    while (from < to && /\s/.test(source[from])) from++;
+    let stop = to;
+    while (stop > from && /\s/.test(source[stop - 1])) stop--;
+    if (from >= stop) return;
+    const asAt = source.slice(from, stop).search(/\s+as\s+/);
+    if (asAt >= 0) {
+      const gap = source.slice(from + asAt).match(/\s+as\s+/)[0].length + asAt;
+      const property = identWithin(source, source.slice(from, from + asAt).trim(), from, from + asAt);
+      const nameText = source.slice(from + gap, stop).trim();
+      const name = identWithin(source, nameText, from + gap, stop);
+      out.push({ kind: "ImportSpecifier", propertyName: property, name, pos: from, end: stop });
+    } else {
+      out.push({ kind: "ImportSpecifier", name: identWithin(source, source.slice(from, stop), from, stop), pos: from, end: stop });
+    }
+  };
+  for (let i = braceOpen + 1; i < braceClose; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") depth--;
+    else if (source[i] === "," && depth === 0) {
+      flush(i);
+      segStart = i + 1;
+    }
+  }
+  flush(braceClose);
+  return out;
+}
+
 /**
  * 条件类型 `T extends U ? A : B` → `ConditionalType`（四个具名字段）。
  *
@@ -1466,11 +1724,27 @@ function projectFunctionType(v, ctx) {
 function projectExpressionWithTypeArguments(v, ctx) {
   const kids = projectableKids(v);
   const generic = kids.find((k) => k.get("type") === "GenericType");
-  const nameNode = kids.find((k) => isNameNode(k));
+  const names = kids.filter((k) => isNameNode(k));
   const props = {};
-  if (nameNode !== undefined) props.expression = projectNode(nameNode, ctx);
+  if (names.length > 0) props.expression = dottedExpression(names, ctx);
   if (generic !== undefined) props.typeArguments = projectTypeArguments(generic, ctx);
   return { kind: "ExpressionWithTypeArguments", pos: v.start, end: v.end, ...props };
+}
+
+/**
+ * 一串名字 → 点号表达式。
+ *
+ * **`ExpressionWithTypeArguments` 里用的是 `PropertyAccessExpression`**（不是 `QualifiedName`）：
+ * `extends globalThis.Iterator` 的 TS 是 `ExpressionWithTypeArguments > PropertyAccessExpression`。
+ * （`QualifiedName` 是**类型引用**那一支的写法，见 `projectTypeExpression`——两者别混。）
+ */
+function dottedExpression(names, ctx) {
+  let node = nameOf(names[0], ctx);
+  for (let i = 1; i < names.length; i++) {
+    const right = nameOf(names[i], ctx);
+    node = { kind: "PropertyAccessExpression", expression: node, name: right, pos: node.pos, end: right.end };
+  }
+  return node;
 }
 
 /**
@@ -1555,8 +1829,14 @@ function projectLamda(v, ctx) {
   const params = kidsOf(v, "parameters");
   const lastParam = params.length > 0 ? unwrapNodes(params[0]).pop() : null;
   if (lastParam !== undefined && lastParam !== null) {
-    const at = endOf(lastParam);
-    props.equalsGreaterThanToken = { kind: "EqualsGreaterThanToken", text: "=>", pos: at, end: at };
+    // `=>` 的位置**按原文找**：早先量成「最后一个形参的终点」，`(x) => {}` 于是落在 `x` 后面
+    // （把 `)` 也算进去了没？实测真实语料 154 处漂移就是这么来的）。从形参段之后往后搜第一个 `=>`。
+    const from = endOf(lastParam);
+    const at = ctx.source.indexOf("=>", from);
+    // `=>` 在 TS 那边占两个字符（`[281,283)`），**不是零宽**——零宽永远对不上。
+    const pos = at >= 0 && at < v.end ? at : from;
+    const width = ctx.source.startsWith("=>", pos) ? 2 : 0;
+    props.equalsGreaterThanToken = { kind: "EqualsGreaterThanToken", text: "=>", pos, end: pos + width };
   }
   return { kind: "ArrowFunction", pos: v.start, end: v.end, ...props };
 }
@@ -1568,6 +1848,48 @@ function typeOf(nodes, ctx) {
   if (list[0].get("type") === "TypeDefine") return projectTypeDefine(view(list[0]), ctx);
   if (list.length === 1) return projectNode(list[0], ctx);
   return projectEach(list, ctx)[0];
+}
+
+/**
+ * 模块声明那个名字是不是**字符串字面量**（`declare module "assert/strict" {}`）。
+ *
+ * 产物的 `namespace` 属性里**没有引号**，所以判据只能回到原文：在**体（第一个 `{`）之前**
+ * 的窗口里找 `"name"` / `'name'`。找不到就是普通标识符（`namespace Foo`）——
+ * 窗口必须在 `{` 处截断，否则 `namespace A { const s = "A" }` 里的字符串会被误认成模块名。
+ */
+function quotedModuleNameSpan(source, name, from) {
+  const brace = source.indexOf("{", from);
+  const to = brace < 0 ? from + name.length + 40 : brace;
+  const window = source.slice(from, Math.max(to, from + name.length + 2));
+  for (const quote of ['"', "'"]) {
+    const at = window.indexOf(quote + name + quote);
+    if (at >= 0) return { pos: from + at, end: from + at + name.length + 2 };
+  }
+  return undefined;
+}
+
+/**
+ * 计算属性名那个单元（`[Symbol.toPrimitive]` 在产物里是 `ArrayLiteral`，**含方括号**）。
+ *
+ * 只认「**第一个**子单元，而且原文那个位置就是 `[`」的那种——类字段的初始化式
+ * （`x = [1, 2]`）也是 `ArrayLiteral`，但它前面还有 `=`。
+ */
+function computedNameUnit(v, ctx) {
+  const kids = projectableKids(v);
+  if (kids.length === 0) return null;
+  const first = kids[0];
+  if (first.get("type") !== "ArrayLiteral") return null;
+  return ctx.source[startOf(first)] === "[" ? first : null;
+}
+
+/** 计算属性名里的表达式：点号链折成 `PropertyAccessExpression`，单个名字就是它自己。 */
+function computedNameExpression(unit, ctx) {
+  const kids = projectableKids(view(unit)).filter((k) => !INVISIBLE.has(k.get("type")));
+  const names = kids.filter((k) => isNameNode(k));
+  const dots = kids.filter((k) => isDot(k, ctx)).length;
+  if (dots > 0 && names.length === dots + 1) return dottedExpression(names, ctx);
+  if (kids.length === 1) return projectNode(kids[0], ctx);
+  return projectExpression(kids, ctx);
 }
 
 /**
@@ -1585,6 +1907,8 @@ function structuralProps(v, kind, ctx) {
   const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
   const name = typeof rawName === "string" ? rawName : "";
   let nameNode = null;
+  // 计算属性名的那个单元（`[Symbol.toPrimitive]`）；它在下面的段循环里要**跳过**。
+  let computedUnit = null;
   if (name !== "") {
     // **首选树里那个真子单元**：声明名现在作为 `Identifier` 留在 `Data` 里（见
     // `typescript/tokens/class/class.xl.md` 的 `Process`），它带自己的 `SourceRange`——
@@ -1592,14 +1916,36 @@ function structuralProps(v, kind, ctx) {
     nameNode =
       projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === name) ?? null;
     // **模块名可能是字符串字面量**：`declare module "assert/strict" {}` 的 TS 是
-    // `ModuleDeclaration > StringLiteral`（带引号那一整段），而命名空间是 `Identifier`。
-    // 产物把两者都记成 `namespace="…"` 属性，所以按**首字符是不是引号**分。
-    // （真实语料里 `StringLiteral` 缺的那两千多处基本都是这个模块名。）
-    const quoted = name.startsWith('"') || name.startsWith("'");
-    if (quoted) {
-      const at = ctx.source.indexOf(name, v.start);
-      const pos = at >= 0 ? at : v.start;
-      props.name = { kind: "StringLiteral", text: name, pos, end: pos + name.length };
+    // `ModuleDeclaration > StringLiteral`（**带引号那一整段**），而命名空间是 `Identifier`。
+    //
+    // 产物把两者都记成 `namespace="…"` 属性，而且**引号被吃掉了**（`namespace="assert/strict"`），
+    // 所以「按 `name` 首字符是不是引号分」这条判据**永远不成立**——要去原文里找那一对引号。
+    // 真实语料 `StringLiteral` 缺的那近两千处一直是这个模块名（第 34 轮修）。
+    const literal = v.type === "Namespace" ? quotedModuleNameSpan(ctx.source, name, v.start) : undefined;
+    // **计算属性名**：`[Symbol.toPrimitive]` 在产物里是一个 `ArrayLiteral` 单元（**含方括号**），
+    // 而 TS 是 `name: ComputedPropertyName > …`。原来那个单元被当成数组字面量投出来、
+    // 名字则用 `synthName` 合成一个「整段点号名」的 Identifier——两头都错
+    // （真实语料 `PropertyAccessExpression` 缺 4245、`ComputedPropertyName` 缺一千多，第 34 轮修）。
+    //
+    // 判据是「**第一个**子单元且原文那个位置就是 `[`」：类字段的初始化式 `x = [1, 2]`
+    // 也是一个 `ArrayLiteral`，但它前面还有 `=`，不能认成名字。
+    const computed =
+      literal === undefined && nameNode === null ? computedNameUnit(v, ctx) : null;
+    if (literal !== undefined) {
+      props.name = {
+        kind: "StringLiteral",
+        text: ctx.source.slice(literal.pos, literal.end),
+        pos: literal.pos,
+        end: literal.end,
+      };
+    } else if (computed !== null) {
+      computedUnit = computed;
+      props.name = {
+        kind: "ComputedPropertyName",
+        expression: computedNameExpression(computed, ctx),
+        pos: startOf(computed),
+        end: endOf(computed),
+      };
     } else {
       props.name = nameNode === null ? synthName(name, v, ctx) : projectNode(nameNode, ctx);
     }
@@ -1617,7 +1963,7 @@ function structuralProps(v, kind, ctx) {
     for (const x of raw) {
       if (!(x instanceof Map) || INVISIBLE.has(x.get("type"))) continue;
       // 名字那个单元已经进 `props.name` 了，不要再当成子节点收一遍。
-      if (x === nameNode) continue;
+      if (x === nameNode || x === computedUnit) continue;
       // **体节点**：改字段名，但自己仍是一个节点（见 `BODY_FIELDS`）。
       const body = BODY_FIELDS.get(x.get("type"));
       if (body !== undefined) {

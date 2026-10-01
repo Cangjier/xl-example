@@ -28,6 +28,10 @@ tests/parse/
   align.mjs              对齐探针：用**源码区间重叠**把产物单元与 TS AST 节点对齐，双向反查
                          （产物有标签 / 源码没构造，或反过来）——形状换错语义时八把尺子全绿
   probe.mjs              最小片段探针：并排打印 TS AST 与产物 XML，用来定位单条缺口
+  shape-probe.mjs        投影探针：并排打印 TS AST 与**投影树**（带区间与字段名），
+                         把 `cases:tsast` 报出的那一格定位到具体节点
+  shape-lint.mjs         投影表结构自查：扫源码找 `FIELD_BY_KIND` 这类表里的**重复键**
+                         （同一个 kind 写两遍时后一条静默覆盖前一条，尺子上看不出根因）
   sweep.mjs              广谱构造普查：198 个 TS 构造片段逐条过，只报可疑项
   recon.mjs              侦察探针：174 条高风险片段（边界 / 表达式 / 类型 / 声明）
   recon2.mjs             侦察探针（第二轮）：94 条 TS 5.x / 6.x 构造与真实代码高频写法
@@ -161,9 +165,81 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14060 / 15303 | 465853 / 452849 |
-| 同 kind 同区间 | **76.6%** | **89.2%** |
-| 其中**字段名也一致** | **96.2%** | **98.2%** |
+| 投影节点 / TS 语义节点 | 14271 / 15303 | 471200 / 452973 |
+| 同 kind 同区间 | **81.4%** | **93.0%** |
+| 其中**字段名也一致** | **96.7%** | **98.9%** |
+
+**「缺」与「漂移」是两件事，尺子分开报**（第 34 轮补的）：前者是「这一类根本没投出来」，
+后者是「同一类节点位置差一点」。混在一起时漂移会把缺失挤下榜首——
+真实语料里 `TypeReference` 的漂移 1749 比它自己的缺失 2102 还接近榜首。
+两段现在都带样本（`投影后仍缺的 TS kind` / `投影后同 kind 但区间漂移`）。
+
+### 第 33 轮：签名尾分号、继承子句的点号名、投影表结构自查
+
+这一轮三件事，都是「**同一个 kind 或同一条口径只写对了一半**」：
+
+| 修什么 | 实测口径 | 成绩 |
+| --- | --- | --- |
+| **没有函数体的可调用签名要带尾分号** | `declare function f(): void;` 的 TS 是 `FunctionDeclaration[23,51)`（**含 `;`**），产物那个 `Function` 到 `void` 就结束了——分号是它的**平级兄弟** | 真实语料 89.2% → 89.7% |
+| **`ExpressionWithTypeArguments` 里是 `PropertyAccessExpression`** | `extends globalThis.Iterator` 的 TS 是 `PropertyAccessExpression`；`QualifiedName` 是**类型引用**那一支的写法，两者不能混 | 用例 76.6% → 76.7% |
+| **`cases:shapelint`（新尺子）** | `FIELD_BY_KIND` 这类表是 `new Map([...])` 字面量，**同一个键写两遍时后一条静默覆盖前一条**；症状是「某个字段名整类不对」而看不出根因。`ClassDeclaration` 与 `MethodDeclaration` 各踩过一次 | 0（它不是成绩尺子，是**表结构自查**） |
+
+`shape-lint.mjs` **读源码文本**而不是读运行时对象：运行时那个 `Map` 已经把重复键吃掉了，
+从对象上看不出任何异常。它现在扫 `KIND_BY_TAG` / `FIELD_BY_KIND` / `WRAPPER_FIELDS` /
+`BODY_FIELDS` / `PRIMITIVE_TYPE_KIND` / `KEYWORD_KIND` / `TOKEN_KIND` 七张表。
+
+### 第 34 轮：语句壳、`import` 三层、计算属性名
+
+这一轮先按「缺口榜」把根因分成两类，再加 `shape-probe.mjs` 逐条定位。
+**四处都是投影层的账**（token 层不动），真实语料 89.7% → **93.0%**、用例 76.7% → **81.4%**：
+
+| 根因 | 产物的形状 | TS 的形状 | 真实语料缺口 |
+| --- | --- | --- | --- |
+| **语句壳** | `Statement > [Method]` ⇒ 直接投出 `CallExpression`；`Statement > [Keyword(return), BinaryOperator]` ⇒ 头一个 `Keyword` 变 `Identifier`、**后面整段子树消失** | `ExpressionStatement > CallExpression`；`ReturnStatement > BinaryExpression…` | `ReturnStatement` 1722 + 里面连带的一整族 |
+| **`import` 三层** | `Import` + `Bracket{A, as, B}` + `Identifier(from)` + `String` 一串平级单元 | `ImportDeclaration > ImportClause > NamedImports > ImportSpecifier`（`from` 不是节点） | `ImportSpecifier` 1723 / `ImportClause` 1485 / `NamedImports` 1376 |
+| **模块名是字面量** | `namespace="assert/strict"`（**引号被吃掉**） | `ModuleDeclaration > StringLiteral`（**带引号那一整段**） | `StringLiteral` 1960 |
+| **计算属性名** | `MethodDeclaration name="Symbol.toPrimitive"` + 一个 `ArrayLiteral` 单元 | `name: ComputedPropertyName > PropertyAccessExpression` | `PropertyAccessExpression` 4245 的大头 |
+
+四条的口径都写进了代码注释，这里只记**反直觉**的那几处：
+
+- `Statement > [Keyword]` 这一族（`return` / `throw` / `break` / `continue` / `debugger`）**头一个单元就是关键字本身**，
+  值/标签是它的**平级兄弟**——所以「投影第一个单元」等于把整条语句丢掉；
+- `ImportDeclaration` **含尾随分号**（`import d from "m";` ⇒ `[0,18)`），和函数签名是同一条口径；
+- `ImportClause` 的起点在 `type` 那个词上（`import type { A } from "m"` ⇒ `ImportClause[7,17)`），
+  而**产物没把 `type` 记成单元**——所以起点只能从 `import` 之后的第一个非空白字符量；
+- 计算属性名的判据是「**第一个**子单元且原文那个位置就是 `[`」：类字段的初始化式
+  （`x = [1, 2]`）也是 `ArrayLiteral`，但它前面还有 `=`；
+- 模块名那个字面量**只能回原文找引号**：产物属性里没有引号，所以
+  「按 `name` 首字符判断」这条判据**永远不成立**（第 32 轮记的那条修法其实没生效）。
+  窗口必须在**第一个 `{` 处截断**，否则 `namespace A { const s = "A" }` 里的字符串会被误认成模块名。
+
+顺带补了两个小类：`in` / `instanceof` / `asserts` 也是 `Keyword`、也出现在 TS 的语义子节点里
+（`InstanceOfKeyword` 真实语料缺 878）；箭头函数的 `=>` 是**两字符宽**的 token
+（原来投成零宽，`EqualsGreaterThanToken` 的 154 处漂移全是它）。
+
+**同一轮还修了尺子自己的假缺口**：`ts.SyntaxKind` 里 `EqualsToken` 印出来是别名
+`FirstAssignment`（`CaretEqualsToken` → `LastBinaryOperator`、`OpenBraceToken` → `FirstPunctuation`…），
+`TS_KIND_ALIASES` 漏一条就在缺口榜上凭空多一类——实测 `FirstAssignment` **796 处**全是 `=`，
+而 `=` 在产物侧一直是 `EqualsToken`。这条与投影成绩无关，但会让「还剩什么」看错方向。
+
+### 缺口台账（第 34 轮收尾时还剩什么）
+
+真实语料 452973 个 TS 节点里还差 **3.15 万个（7.0%）**，集中在六族——
+其中四族是**投影层能修的**，两族是 **token 层**的账（投影怎么补都对不上）：
+
+| 剩什么 | 数 | 根因在哪一层 |
+| --- | --- | --- |
+| `Identifier` / `PropertyAccessExpression` / `QualifiedName` | 4350 / 4077 / 969 | 投影层：`[Symbol.iterator]` 这类**点号计算名**、类型位与 `typeof` 里的点号链（样本 `globalThis.console`） |
+| `Block` / `IfStatement` 字段 / `ForStatement` 字段 | 2161 / 1521+118 / 118 | 投影层：`if` / `for` / 箭头函数的**花括号体没有节点**（产物是 `IfSegment` 里直接装语句；`IfSegment` 还挂在「未覆盖标签」上 102 处） |
+| `TypeReference` | 2102 + 漂移 1749 | 投影层：类型实参在**某些上下文**没接上（同为 `Promise<unknown>`，声明位接上了、签名位没接上） |
+| `AnyKeyword` / `StringLiteral` / `CallExpression` | 1408 / 1330 / 1265 | 投影层：类型位递归、条件类型里的字面量、条件位上的调用（`item.startsWith("-")) {`）还有漏网的上下文 |
+| `&&` / `\|\|` 的运算符 token + `BinaryExpression` | 798 / 888 + 漂移 1367 | **token 层**：`LogicalOperator` 只有 `op` 属性、**运算符符号根本没进树**，左右操作数还散成平级兄弟（第 31 轮留的尾巴）；`"a" + o.x + "b"` 还被点号**切成两个** `BinaryOperator`（`o` 与 `.x` 分了家），投影无法还原成一个左结合链 |
+| `ConstructSignature` | 1190 | **token 层**：类型字面量里的 `new (…)` 没有对应标签 |
+
+**这一轮的结论**：真实语料（`.d.ts`）的缺口**已经从「整类整类地缺」变成「上下文级的漏网」**——
+榜首那几类要么是同一个根因的余量（点号计算名、花括号体），要么要动 token 层的分组。
+用例语料侧还多一类**模板字面量**（`TemplateHead` / `LastTemplateToken` 38 + 38），
+那是计算属性名里 `` [`${KEY}2`] `` 的模板表达式，投影层下一步。
 
 ### 第 32 轮：类型容器的子单元**也是类型**
 
@@ -186,7 +262,12 @@ StringLiteral  父=ModuleDeclaration  «"assert/strict"» ← `declare module "a
 
 后者是 `ModuleDeclaration` 的名字：`declare module "assert/strict"` 的 TS 是 **`StringLiteral`**
 （含引号那一整段），而命名空间是 `Identifier`——产物把两者都记成 `namespace="…"` 属性，
-所以按**首字符是不是引号**分。
+当时按**首字符是不是引号**分。
+
+**（第 34 轮更正）**：那条判据**其实没生效**——产物的 `namespace` 属性里**根本没有引号**
+（`namespace="assert/strict"`），所以首字符永远不是引号；`StringLiteral` 缺的那两千处
+一直挂到第 34 轮才修（改成**回原文找那一对引号**）。第 32 轮涨的那 3 个百分点全部来自前半段
+（类型容器的子单元）。
 
 真实语料 86.0% → **89.2%**，用例语料 75.4% → **76.6%**。
 

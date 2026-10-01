@@ -20,6 +20,11 @@
 //
 // 当前状态（第 70 轮第一次跑）：**这一把是红的**，差距量化在下面的「缺口按 kind 聚合」里。
 // 它红的不是解析出错，而是「产物的节点集合与 TS 不是同一套」——那正是要重构 token 层的部分。
+//
+// 输出分四段，**「缺」与「漂移」是两件事**（第 34 轮分开报）：
+//   缺     这一类在投影树里**根本没有**（要补映射）
+//   漂移   同一类节点位置差一点（改区间就完事）——混在一起时漂移会把缺失挤下榜首
+// 两段都带样本，样本按 `--samples` 限制条数。
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -69,6 +74,22 @@ const TS_KIND_ALIASES = new Map([
   ["FirstTypeNode", "TypePredicate"],
   ["LastTypeNode", "ImportType"],
   ["ThisType", "ThisKeyword"],
+  // 第 34 轮补的一批：`ts.SyntaxKind` 里**同一个枚举值印出的是别名**，
+  // 漏一条就在缺口表里凭空多出一类（实测 `FirstAssignment` 796 处全是 `=`，
+  // 而 `=` 在产物侧一直是 `EqualsToken`——那是**尺子的假缺口**，不是投影的）。
+  ["FirstAssignment", "EqualsToken"],
+  ["LastAssignment", "CaretEqualsToken"],
+  ["LastCompoundAssignment", "CaretEqualsToken"],
+  ["LastPunctuation", "CaretEqualsToken"],
+  ["LastBinaryOperator", "CaretEqualsToken"],
+  ["FirstPunctuation", "OpenBraceToken"],
+  ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
+  ["LastLiteralToken", "NoSubstitutionTemplateLiteral"],
+  ["LastTemplateToken", "TemplateTail"],
+  ["FirstFutureReservedWord", "ImplementsKeyword"],
+  ["FirstContextualKeyword", "AbstractKeyword"],
+  ["LastContextualKeyword", "DeferKeyword"],
+  ["LastStatement", "DebuggerStatement"],
 ]);
 
 /** 按文本判断一个叶子该归 TS 的哪一类——**这就是「叶子按值分名」**。 */
@@ -135,6 +156,10 @@ const KEYWORD_KIND = new Map([
   ["default", "DefaultKeyword"],
   ["as", "AsKeyword"],
   ["satisfies", "SatisfiesKeyword"],
+  // `in` / `instanceof` / `asserts` 也是 `Keyword` 单元，也出现在 TS 的语义子节点里。
+  ["in", "InKeyword"],
+  ["instanceof", "InstanceOfKeyword"],
+  ["asserts", "AssertsKeyword"],
 ]);
 
 /** 产物节点（标签 + 文本）→ 归一后的名字。 */
@@ -431,6 +456,8 @@ function main() {
   let projectedSame = 0;
   let projectedFieldsSame = 0;
   const projectedMissing = new Map();
+  const projectedDrift = new Map();
+  const projSamples = new Map();
   const fieldDiffs = new Map();
   const unmappedTags = new Map();
 
@@ -499,13 +526,40 @@ function main() {
     // **字段名对拍**：kind 与区间都对上的那些节点，两边的「有子节点的字段名」也该一致。
     const projKeys = new Set(proj.map((p) => `${p.kind}@${p.start}-${p.end}`));
     const projFields = new Map();
+    const projByKind = new Map();
     for (const p of proj) {
       projFields.set(`${p.kind}@${p.start}-${p.end}`, p.fields ?? []);
+      if (!projByKind.has(p.kind)) projByKind.set(p.kind, []);
+      projByKind.get(p.kind).push(p);
     }
     for (const their of theirs) {
       const key = `${their.kind}@${their.start}-${their.end}`;
       if (!projKeys.has(key)) {
+        // **投影后的漂移与缺失要分开**：前者是「同一类节点位置差一点」（改区间就完事），
+        // 后者是「这一类根本没投出来」（要补映射）。混在一起看时，漂移会把缺失挤下榜首。
+        const near = (projByKind.get(their.kind) || []).find((p) => Math.abs((p.start ?? -1) - their.start) <= 2);
+        if (near) {
+          const dkey = `DRIFT: ${their.kind}`;
+          projectedDrift.set(dkey, (projectedDrift.get(dkey) || 0) + 1);
+          if ((projSamples.get(dkey) || []).length < sampleLimit) {
+            projSamples.set(
+              dkey,
+              (projSamples.get(dkey) || []).concat(
+                `${path.relative(root, file)}:${their.start} 产物[${near.start},${near.end}) vs TS[${their.start},${their.end})  «${source.slice(their.start, their.start + 30).split("\n")[0]}»`,
+              ),
+            );
+          }
+          continue;
+        }
         projectedMissing.set(their.kind, (projectedMissing.get(their.kind) || 0) + 1);
+        if ((projSamples.get(their.kind) || []).length < sampleLimit) {
+          projSamples.set(
+            their.kind,
+            (projSamples.get(their.kind) || []).concat(
+              `${path.relative(root, file)}:${their.start}  «${source.slice(their.start, their.start + 40).split("\n")[0]}»`,
+            ),
+          );
+        }
         continue;
       }
       projectedSame++;
@@ -566,6 +620,13 @@ function main() {
   console.log("  投影后仍缺的 TS kind（前 12）：");
   for (const [k, n] of [...projectedMissing.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
     console.log(`    ${String(n).padStart(6)}  ${k}`);
+    for (const s of projSamples.get(k) || []) console.log(`               ${s}`);
+  }
+  console.log("  投影后同 kind 但区间漂移（前 10）：");
+  if (projectedDrift.size === 0) console.log("    （无）");
+  for (const [k, n] of [...projectedDrift.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)) {
+    console.log(`    ${String(n).padStart(6)}  ${k}`);
+    for (const s of projSamples.get(k) || []) console.log(`               ${s}`);
   }
 
   console.log("\n坐标完整性（投影成 TS 形状的地基）：");  console.log(
