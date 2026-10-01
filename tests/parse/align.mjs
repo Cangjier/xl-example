@@ -44,11 +44,14 @@ const REVERSE = {
   BinaryOperator: ["BinaryExpression"],
   LogicalOperator: ["BinaryExpression"],
   UnaryOperator: ["PrefixUnaryExpression", "PostfixUnaryExpression", "TypeOfExpression", "DeleteExpression", "VoidExpression", "AwaitExpression", "YieldExpression"],
-  TernaryOperator: ["ConditionalExpression", "ConditionalType"],
+  TernaryOperator: ["ConditionalExpression"],
   NotNull: ["NonNullExpression"],
   Spread: ["SpreadElement", "SpreadAssignment"],
   Let: ["VariableDeclaration"],
-  Field: ["PropertyDeclaration", "PropertySignature", "MappedType"],
+  // **`MappedType` 从这里删掉**（第 67 轮）：映射类型有自己的标签
+  // （`MappedType: ["MappedType"]`），留着别名等于给「映射类型没认出来」发免罪符。
+  // 删掉之后实测「缺节点」仍是 0 —— 说明这一层是真的成形了，不是靠别名遮过去的。
+  Field: ["PropertyDeclaration", "PropertySignature"],
   IndexSignature: ["IndexSignature"],
   ParenthesizedType: ["ParenthesizedType"],
   Parameter: ["Parameter"],
@@ -83,7 +86,12 @@ const REVERSE = {
   NamedTupleMember: ["NamedTupleMember"],
   TypeOperator: ["TypeOperator"],
   TypeQuery: ["TypeQuery"],
-  Method: ["CallExpression", "ExternalModuleReference", "ImportType", "TypeQuery"],
+  // **`ImportType` / `TypeQuery` 从这里删掉**（第 67 轮）：两者都有自己的标签了。
+  // 删掉之后 `Method in ImportType`（175 处）会露出来——那是 `<ImportType>` 里
+  // **嵌着**的那个 `import("m")` 调用单元（TS 那边 `ImportType` 的实参是 `LiteralType`，
+  // 不产调用节点）。它是有意的形状，按位置登记进 `ALLOWED_EXTRA`，
+  // 而不是靠这张宽别名表悄悄认领——登记看得见，别名看不见。
+  Method: ["CallExpression", "ExternalModuleReference"],
   ImportType: ["ImportType"],
   RegexToken: ["RegularExpressionLiteral"],
   NamespaceBody: ["ModuleBlock"],
@@ -94,14 +102,23 @@ const REVERSE = {
   Function: ["FunctionDeclaration", "FunctionExpression"],
   Namespace: ["ModuleDeclaration"],
   TypeAssign: ["TypeAliasDeclaration"],
-  TypeLiteral: ["TypeLiteral", "MappedType"],
+  TypeLiteral: ["TypeLiteral"],
   ObjectLiteral: ["ObjectLiteralExpression", "ObjectBindingPattern"],
-  ArrayLiteral: ["ArrayLiteralExpression", "TupleType", "ComputedPropertyName", "IndexSignature", "MappedType", "ArrayBindingPattern"],
+  // **`TupleType` 已经从这里删掉**（第 67 轮）：元组类型早就有自己的标签了，
+  // 留着这条别名等于给「元组没成形」发免罪符——它真的遮住过一个真缺口：
+  // **空元组** `[]`（`next(...args: [] | [TNext])` 那种）因为
+  // `TypeBracketReorganization.Previous` 里「空括号必须左边有操作数」那一条而永远不成形，
+  // 产物是裸括号；而这条别名让「产物里的 `ArrayLiteral`」把 TS 的 `TupleType` 认领走了，
+  // 于是 `cases:align` 一直报「缺节点 0」。删掉之后当场报出 13 处（全部已修）。
+  // 教训与 `kindName()` 那两条同类：**宽口径的登记本身就是尺子的盲区**。
+  ArrayLiteral: ["ArrayLiteralExpression", "ComputedPropertyName", "IndexSignature", "MappedType", "ArrayBindingPattern"],
   Import: ["ImportDeclaration", "ImportEqualsDeclaration"],
   Export: ["ExportDeclaration", "ExportAssignment"],
   Decorator: ["Decorator"],
   Label: ["LabeledStatement"],
-  As: ["AsExpression", "SatisfiesExpression"],
+  // **`SatisfiesExpression` 从这里删掉**（第 67 轮）：`satisfies` 有自己的标签
+  // （`Satisfies: ["SatisfiesExpression"]`）。删掉之后实测「缺节点」仍是 0。
+  As: ["AsExpression"],
   Satisfies: ["SatisfiesExpression"],
   NamespaceExport: ["NamespaceExportDeclaration"],
 };
@@ -119,6 +136,7 @@ for (const [tag, kinds] of Object.entries(REVERSE)) {
 /// 显式登记的口径差异：`标签 in 父标签` → 理由。命中的条目不算可疑项（`--all` 才打印）。
 const ALLOWED_EXTRA = {
   "New in Signature": "构造签名 `new (a: number): I`：`new` 与形参表、返回类型收在一个 New 里，外面套 Signature",
+  "Method in ImportType": "类型位的 `import(\"m\")`：外层已经是 `ImportType`（与 TS 一对一），里面那个 `Method name=\"import\"` 是**动态导入调用的形状**（TS 那边 `ImportType` 的实参是 `LiteralType`，不产调用节点）。内容与位置都对，只是多一层调用壳——第 67 轮把 `Method` 的宽别名表收干净之后按位置登记",
   "MethodDeclaration in ClassBody": "`constructor(…)`：TS 的 SyntaxKind 叫 Constructor，本工程按方法声明收",
   "ArrayLiteral in Field": "计算属性名 `[expr]: T` 与索引签名 `[k: string]: T` 用同一对 `[ ]` 括号",
   "ArrayLiteral in MethodDeclaration": "计算属性名作方法名（`[Symbol.iterator]() {}`）",
@@ -440,7 +458,13 @@ function main() {
 
   const rows = [...spurious.entries()].filter(([, v]) => showAll || v.allowed === false);
   const allowedRows = [...spurious.entries()].filter(([, v]) => v.allowed);
-  console.log(`=== 产物里有标签、源码里没有对应构造（未登记 ${rows.length} 类 / 已登记口径 ${allowedRows.length} 类）===`);
+  // **「未登记」那一栏要按 `allowed` 数，不能按 `rows.length` 数**：`--all` 时 `rows` 把
+  // 已登记口径也包含进来了，原来那一版会把 12 类已登记口径报成「未登记 12 类」——
+  // 一个读数会随开关变化的标题，比没有标题更危险（第 67 轮修）。
+  const unregisteredRows = rows.filter(([, v]) => !v.allowed);
+  console.log(
+    `=== 产物里有标签、源码里没有对应构造（未登记 ${unregisteredRows.length} 类 / 已登记口径 ${allowedRows.length} 类）===`,
+  );
   for (const [key, v] of rows.sort((a, b) => b[1].count - a[1].count)) {
     console.log(`\n[${key}]  ${v.count} 处`);
     for (const s of v.samples) console.log("    " + s);

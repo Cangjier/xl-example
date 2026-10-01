@@ -139,8 +139,11 @@ node tests/parse/sweep.mjs --filter using     # 只看名字里带 using 的
   （第 58–59 轮）、**映射类型 → `MappedType`**（第 60 轮）、
   **数组 / 元组 / 下标访问 → `ArrayType` / `TupleType` / `IndexedAccessType`、
   `keyof` / `readonly` / `unique` → `TypeOperator`**（第 66 轮）。
-  仍然只有散单元的是**字面量类型**（`"a"` / `1` / `true` 在类型位仍是 `String` / `Identifier`）
-  与**模板字面量类型**（落成 `InterpolationString`）——内容与位置都对，只是没有专属标签。
+  仍然只有散单元的是**类型引用**（`Foo` / `Array<T>` 由 `TypeDefine` / `GenericType` 承接）
+  与**值位成员访问**（`a.b` 由 `Identifier` + `SymbolToken` 平铺承接）——
+  内容与位置都对，只是没有专属标签（第 67 轮把标签表里的宽别名收干净之后核过：这两类是**登记在案**的取舍，
+  不是漏收；`TupleType` / `MappedType` / `ConditionalType` / `Satisfies` / `ImportType` / `TypeQuery`
+  的旧别名全部删掉了，删完「缺节点」仍是 0）。
 
 ```bash
 node tests/parse/align.mjs            # 真实语料 + 用例语料

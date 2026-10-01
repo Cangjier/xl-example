@@ -111,6 +111,17 @@ return true;
 括号**装进节点里**（TS 那边它就是这个节点的一部分 ✓），交给节点自己的队列继续跑
 （里面的联合 / 交叉 / 函数类型都已经成形了，那一趟只做软换行的收尾）。
 
+**换父之后要重跑一遍括号自己的队列**（第 67 轮）：括号里的类型文本（`(keyof T)` /
+`([A, B])` / `(C["k"])` / `("a")` / `(infer U)` / `(typeof x)`）在**括号关闭那一刻**就已经扫过一趟，
+可那一趟的上下文判据（`text-common-util.xl.md` 的 `IsTypeContainerUnit`）问的是
+「我的父亲是不是类型容器」，而那一刻父亲还是语句列表——所以它们全都判否、散着不成形。
+`AddAndCloseLast` 把括号的 `Parent` 改成这个新节点之后，**「这个括号是括号类型」这个事实才第一次存在**，
+`IsTypeContainerUnit(Request)` 里那一支（父单元是 `ParenthesizedType`）因此才成立——
+但已经把子单元扫过的那一趟不会自己回来，必须在这里显式再跑一次。
+
+**重跑是安全的**：那一趟的规则都按形状认（`A | B` 早已收成一个 `UnionType` 单元，
+`|` 那个符号已经不在了），对已经成形的形状一律不动。
+
 ```ts
 const current = Get(units, index);
 if (current === null) {
@@ -121,6 +132,7 @@ result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(current.SourceRange.End!);
 result.AddAndCloseLast(current);
+current.TryToClose();
 result.TryToClose();
 return ReplaceCountAt(units, index, 1, result);
 ```

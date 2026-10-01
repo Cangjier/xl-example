@@ -210,11 +210,25 @@ super(template);
 - 头一个是 `Identifier`（不是 `from`）：默认导入；
 - 有 `{` 括号：具名导入，括号里按 `,` 分段、每段取最后一个 `Identifier`。
 
+**`import defer` 是相位修饰词，不是默认导入名**（TS 5.9 的延迟导入，第 67 轮补）：
+`import defer * as ns from "m"` 里 `defer` 修饰的是那个命名空间导入。
+判据必须带上**后面紧跟 `*`** 这半条——`import defer from "./defer.js"` 是**合法的默认导入**，
+名字就叫 `defer`，无条件跳过会把它读丢（实测）。
+
 ```ts
 let start = 0;
 if (items.length > 0 && items[0] instanceof Identifier && (items[0] as Identifier).Is("type")) {
   this.typeOnly = true;
   start = 1;
+}
+if (
+  start + 1 < items.length &&
+  items[start] instanceof Identifier &&
+  (items[start] as Identifier).Is("defer") &&
+  items[start + 1] instanceof SymbolToken &&
+  (items[start + 1] as SymbolToken).Is("*")
+) {
+  start = start + 1;
 }
 if (start >= items.length) {
   return;

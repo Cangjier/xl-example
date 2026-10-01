@@ -283,37 +283,38 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1007 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
-| `cases:diff` | 1336 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
+| `cases:run` | 1011 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:diff` | 1394 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径） |
 | `cases:dashboard` | **真缺 0 个节点** |
-| `cases:lossless` | 1377 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1377 个文件、括号归属不符 **0**（10 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1377 个文件：对齐可信 1069 个、跳过 299 个，语句表 552 个、边界 2388 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
-| `cases:noise` | 1377 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1381 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1381 个文件、括号归属不符 **0**（11 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1381 个文件：对齐可信 1076 个、跳过 305 个，语句表 554 个、边界 2394 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下） |
+| `cases:noise` | 1381 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **154** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1346 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**（第 66 轮第二批把导入类型 / 类型参数 / 推断类型 / 可选调用补上专属节点，第三批类型谓词，第四批元组成员与枚举成员，第五批索引签名与括号类型，第六批形参统一成 `Parameter`，第七批继承段 `HeritageClause` + `ExpressionWithTypeArguments`，第八批解构元素 `BindingElement`，第十一批对抗形状又抓掉一处计算属性名误收；位置登记都随之删掉；余下的 12 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`，`--samples` 连两侧的样本一起打印） |
+| `cases:align` | 1350 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`），删完「缺节点」仍是 0——这个 0 不是靠别名遮出来的（删别名时当场报出 13 处空元组缺口，已修）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `samples` | declarations / generic / hello 三份一致（夹具是紧凑单行，比对忽略标签之间的空白） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
-- **类型层已经补了八块**（第 54 轮：**函数类型**；第 55 轮：**条件类型**；
+- **类型层已经补了九块**（第 54 轮：**函数类型**；第 55 轮：**条件类型**；
   第 58–59 轮：**联合 / 交叉**；第 60 轮：**映射类型**；
   第 66 轮：**方括号三种 + 类型运算符 + 类型查询 + 字面量类型 + 模板字面量类型**，
-  续批又补上 **导入类型 + 类型参数 + 推断类型**）：
+  续批又补上 **导入类型 + 类型参数 + 推断类型**；
+  第 67 轮：**括号类型里的类型文本 + 空元组**）：
   类型位现在有 `TypeDefine` / `GenericType` / `TypeLiteral` / `Signature` /
   `FunctionType`（4226 处）/ `ConditionalType`（183 处）/ `UnionType` + `IntersectionType`（8680 处）/
-  `MappedType`（36 处）/ `ArrayType` + `TupleType` + `IndexedAccessType` /
+  `MappedType`（36 处）/ `ArrayType` + `TupleType`（含空元组 `[]`）+ `IndexedAccessType` /
   `TypeOperator`（`keyof` / `readonly` / `unique`）/ `TypeQuery`（类型位的 `typeof`）/
   `LiteralType`（全语料 13110 处）/ `ImportType`（类型位的 `[typeof] import("m")[.A.B]`）/
-  `TypeParameter`（泛型参数表与映射键）/ `InferType`（`infer X [extends Y]`）/
+  `TypeParameter`（泛型参数表与映射键）/ `InferType`（`infer X [extends Y]`，含 `(infer U)` 那种括号里）/
   模板字面量类型的插值段（联合、交叉、下标访问都成形）。
   **这一层现在的净额**：`cases:align` 的缺节点方向是 **0**——那一节只打印「（没有）」；
-  未登记的标签占用也是 **0 类**。余下的 16 类全是逐条登记的**口径**
-  （解构模式、ASI、成员位 `abstract new`、映射类型的 `in` / `as`、模板字面量类型里的 1 处残渣、
+  未登记的标签占用也是 **0 类**，而且第 67 轮把五条**宽别名**从标签表里删掉了，
+  这个 0 是**在更严的标签表上**测出来的。余下的 13 类全是逐条登记的**口径**
+  （解构模式、ASI、成员位 `abstract new`、映射类型的 `in` / `as`、类型位的 `import()` 壳、
   以及**用例自己声明非法 TS** 的 15 处——TS 6.0.3 自带 parser 在那些对抗形状上读错）。
-  换句话说：**「另有归属」这一类已经不存在了**，剩下的只有「标签表表达不了」与语言配置。
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label label="outer" /><While>…</While>`）：
   标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
 - **ASI 是按形状预判的**：判据在 [typescript/tokens/statement.xl.md](typescript/tokens/statement.xl.md) 的
@@ -1157,6 +1158,114 @@ node tests/parse/probe.mjs "type D<T> = T extends (infer U)[] ? D<U> : T;"
 下一次要接的话：先查 `ParenthesizedTypeReorganization` 造出括号之后、有没有给那个 `Bracket`
 挂上能扫到 `infer` 的队列（对照：`Promise<infer V>` 能成形，是因为它在 `GenericType` 里，
 而 `GenericType` 的内容是有队列扫的）。
+
+> **第 67 轮接上了**：症结确实在「谁扫括号里的内容」——换父之后重跑一遍括号自己的队列，
+> 判据用「父单元是 `ParenthesizedType`」这个**事后信号**。见下一节。
+
+### 第 67 轮：括号类型的内容 · 空元组 · 以及尺子的三处盲区
+
+这一轮从「离完整解析 TypeScript 还差什么」出发，先量后改。抓到**两块真缺口**（其中一块
+文档里一直记着「症结不在闸门」）、**一处新构造的误读**，并在过程中发现
+`cases:align` 的三处盲区——**尺子比解析器更需要先修**。
+
+#### 一、括号类型里的类型文本（含第 66 轮留下的 `(infer U)[]`）
+
+`(keyof T)` / `(readonly U[])` / `(unique symbol)` / `(typeof x)` / `([A, B])` /
+`(C["k"])` / `("a")` / `(1)` / `(infer U)` / `((A))` —— **写在圆括号类型里的这些写法一个都不成形**：
+
+```
+type A1 = (keyof X);    →  原来：<ParenthesizedType><Bracket><Keyword>keyof</Keyword><Identifier>X</Identifier>…
+type A5 = ([A, B]);     →  原来：<…><ArrayLiteral>…（元组被读成值位数组字面量）
+type P10 = T extends (infer U)[] ? U : never;   →  原来：<Keyword>infer</Keyword><Identifier>U</Identifier> 散着
+```
+
+真实语料里就有：`typescript/lib/lib.es2015.collection.d.ts` 的
+`new <K, V>(entries?: readonly (readonly [K, V])[] | null): Map<K, V>;` ——
+内层那对括号里的 `readonly` 与 `[K, V]` **一个节点都没有**（`TypeOperator` 缺、
+`TupleType` 缺，而外层那个 `TypeOperator` 在 `cases:align` 里按**区间重叠**把它认领掉了）。
+
+**根因是时序，不是判据写错**：括号的内容在**括号关闭那一刻**就重组完了，
+那一刻它的父单元还是语句列表（插桩实测：`infer` 被问到时 `parent=Bracket grand=Root`），
+而「这个括号是括号类型」这件事发生在**之后**（`ParenthesizedTypeReorganization` 在它前面那一格
+看到 `:` / `=`→`type` 时才接手）。所以：
+
+- **判据**：`IsTypeContainerUnit` 增加一支——父单元是 `Bracket`、且**它的父单元是 `ParenthesizedType`**
+  时，括号里的内容就是类型文本。这是**事后信号**，只在括号真被认成类型时出现。
+- **让它生效**：`ParenthesizedTypeReorganization.Process` 在 `AddAndCloseLast`（换父）之后
+  **重跑一遍那个括号自己的队列**——那一趟的规则都按形状认，对已经成形的形状一律不动。
+
+**试过、退回来的一版**：把判据写成「括号自己那一格按前文判」（复用 `IsTypeBracketPosition`）。
+它把 `,` 与 `(` 也算类型位信号（类型实参表 / 形参表需要它们），于是值位实参里的
+`f(a, ([x]))`、多行调用的 `bar,` 换行 `[1, 2],` 会被判成类型位，**数组字面量当场变成元组**。
+事后信号这一版对值位一个字都不命中（回归用例 `expr-value-paren-not-type-array` 钉住）。
+
+顺带把**第 66 轮留下的两处残渣一起带走了**（它们都是同一个根因）：
+`typescript.d.ts` 的 `F extends abstract new(...) => any ? F : undefined`（`FunctionType` 缺）、
+`util.d.ts` 的 `{ [longOption: string]: … }`（被读成 `ObjectLiteral`）、
+`iterators.d.ts` 的 `any[][typeof Symbol.iterator]`（类型位 `typeof` 被折成一元运算）、
+以及模板字面量类型插值段里的联合 / 交叉——`cases:align` 的「已登记不产节点」里
+这五类现在都消失了。
+
+#### 二、空元组 `[]`（13 处，被尺子的宽别名表遮住）
+
+`TypeBracketReorganization.Previous` 原来要求「空方括号左边必须有操作数才算类型」
+（为了「`[]` 单独出现不是类型」）。可这一层**已经在类型容器里**了
+（`IsTypeContainerUnit` 是上一道闸），类型容器里的空 `[]` 只可能是**空元组**：
+
+```
+next(...args: [] | [TNext]): …            // lib.es2015.generator.d.ts
+Generator<T, TReturn, TNext> 的 `[]`       // lib.es2015.iterable.d.ts
+```
+
+**13 处**在真实语料里，产物是裸括号。修法是那条判据直接去掉（空括号进 `Process` 之后，
+左边有操作数走 `ArrayType`、没有走 `TupleType`，两条路本来就分好了）。
+
+#### 三、尺子的三处盲区（这一轮真正值钱的部分）
+
+| 盲区 | 后果 | 修法 |
+| --- | --- | --- |
+| `REVERSE.ArrayLiteral` 里挂着 `"TupleType"` | 元组早就有自己的标签，这条别名等于给「元组没成形」发免罪符——它真的遮住了上面那 13 处空元组 | 删掉别名（删掉后当场报出 13 处，现已全修） |
+| `REVERSE.Method` 里挂着 `"ImportType"` / `"TypeQuery"`；`TypeLiteral` / `Field` 里挂着 `"MappedType"`；`TernaryOperator` 里挂着 `"ConditionalType"`；`As` 里挂着 `"SatisfiesExpression"` | 同类：这些构造都已经有专属标签，宽别名表让「标签被别的形状占用」永远看不出来 | 逐个删掉；实测**一处真缺口都没有新增**（说明它们是历史遗留、不是口径），只有 `Method in ImportType`（175 处，`<ImportType>` 里嵌着的调用壳）浮出来，**按位置登记进 `ALLOWED_EXTRA`**——登记看得见，别名看不见 |
+| `--all` 时标题写的是 `rows.length`，而 `rows` 此刻**包含**已登记口径 | 同一个数字随开关变化（12 类已登记口径被报成「未登记 12 类」） | 标题按 `!allowed` 单独数 |
+
+教训与第 66 轮那两条（`kindName()` 的枚举别名、`run.mjs` 的子串匹配）同类：
+**宽口径的登记本身就是尺子的盲区**；「缺节点 0」这句话只有在标签表收干净之后才算数。
+
+#### 四、`import defer`（TS 5.9 延迟导入）
+
+`import defer * as ns from "m"` 原来把 `defer` 读成**默认导入名**（`defaultImport="defer"`、
+`namespace=""`）。`defer` 是相位修饰词，不是名字——但判据必须带上**后面紧跟 `*`** 这半条：
+`import defer from "./defer.js"` 是**合法的默认导入**，名字就叫 `defer`，
+无条件跳过会把它读丢（回归用例 `mod-import-defer` 两条都钉住）。
+
+#### 这一轮的账
+
+| 判据 | 结果 |
+| --- | --- |
+| `cases:run` | 1010 条用例全部通过，台账在案缺口 **0** 条 |
+| `cases:align` | **未登记标签占用 0 类、缺节点 0**（标签表已收干净，见上表） |
+| 其余六把尺子 + 五把探针 | 全绿（无损性 1380 文件 0 丢失、结构 0 不符、边界 0 横跨、噪声 0 空节点） |
+
+回归用例 4 条：`type-paren-content-nodes`（11 种括号内容）、
+`expr-value-paren-not-type-array`（值位对照）、`type-empty-tuple`、`mod-import-defer`；
+另把 `type-new-nodes-adversarial` 的 `ParenthesizedType` 由 4 改成 5——
+`((A))` 的**内层**括号现在也成形（TS 那边就是两层 `ParenthesizedType`，
+原来的 4 是把「内层不收」这个 bug 写进了期望值）。
+
+### 还剩什么（第 67 轮收尾时重排）
+
+第 66 轮列的三大块里，**模板字面量类型的 span** 与 **`TypeReference`** 仍是设计取舍，
+**`PropertyAccessExpression`** 仍是「试过、已回退」（落点见上一节）：
+
+| 剩什么 | 语料规模 | 现状 |
+| --- | --- | --- |
+| `TypeReference` | 39118 | 类型引用由 `TypeDefine` / `GenericType` 承接（`align` 的 `TypeReference` 口径）。**不产节点不影响解析**：名字、类型实参、位置都在 |
+| `PropertyAccessExpression` | 5919 | 值位成员访问 `a.b` 由 `Identifier` + `SymbolToken` 平铺承接（与上同）。第 66 轮试做后回退，理由与落点写在那一节 |
+| 模板字面量类型的 span | 36 | 由 `<String>` + `<InterpolationString>` 承接（值位与类型位同一个标签）。判据现成（`IsTemplateTypeContent`），缺的是「挂到 `String` 自己的队列上」，而 `String` 按设计没有队列 |
+
+**这三块都不是「解析不出来」**：它们是「标签粒度」的选择——内容、位置、括号归属、
+语句边界全都对。`cases:align` 的这两条口径是**逐条登记在案**的，不是靠宽别名遮的
+（这一轮刚把宽别名清干净）。
 
 ### 实测规模
 

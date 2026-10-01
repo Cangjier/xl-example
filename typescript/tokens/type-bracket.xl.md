@@ -64,8 +64,13 @@ return IsOwnContentRange(units, startIndex, endIndex);
 的类型位方括号（`[A, B]` 与 `Dirent<X>[]` 都会走这一支）；
 **容器**是纯类型容器（`IsTypeContainerUnit`）；不是成员开头（`IsTypeMemberStart`）。
 
-空方括号（`[]`）只有在左边真有一个被操作的类型时才算数组类型（`T[]`）；
-否则留给别的规则（`[]` 单独出现不是类型）。
+空方括号（`[]`）要看左边：左边真有一个被操作的类型时是数组类型（`T[]`）；
+左边不是操作数（列表开头、`=` / `:` / `|` / `,` / 修饰词…）时它是**空元组**（`[]` 本身就是一个元组类型）。
+
+**第 67 轮修的那一半**：原来空括号一律要求「左边有操作数」，于是**空元组**永远不成形
+（真实语料 13 处：`next(...args: [] | [TNext])`、`Generator<T, TReturn, TNext>` 的
+`[]` 全都落成裸括号）。那一条当初是为了「`[]` 单独出现不是类型」——可这一层
+**已经在类型容器里**（`IsTypeContainerUnit` 是上一道闸），类型容器里的 `[]` 只可能是空元组。
 
 ```ts
 const current = Get(units, index);
@@ -82,10 +87,6 @@ if (IsTypeContainerUnit(current.Parent) === false) {
 if (IsTypeMemberStart(current)) {
   return false;
 }
-if (IsEmptyContentUnit(current)) {
-  const previous = Get(units, SkipPreviousWrapSymbol(units, index));
-  return IsTypeOperandUnit(previous);
-}
 return true;
 ```
 
@@ -100,7 +101,7 @@ return true;
 | --- | --- | --- |
 | `T[]` | 内容为空、左边是被操作的类型 | `ArrayType(T)` |
 | `T[K]` | 内容非空、左边是被操作的类型 | `IndexedAccessType(T, K)` |
-| `[A, B]` / `readonly [A, B]` | 左边不是被操作的类型（`:` / `=` / `|` / 修饰词 / 列表开头） | `TupleType(A, B)` |
+| `[A, B]` / `readonly [A, B]` / `[]` | 左边不是被操作的类型（`:` / `=` / `\|` / 修饰词 / 列表开头） | `TupleType(…)`（空元组也是它） |
 
 **方括号本身不进产物**（与 `ObjectLiteral` / `ArrayLiteral` 同一口径）。两种来路因此**产物同形**：
 

@@ -749,11 +749,46 @@ return false;
 放进来会把下标访问折成 `IndexedAccessType`、把字符串包成 `LiteralType`
 （第 66 轮实测 27 处）。
 
+**`Bracket` 那一支（第 67 轮补）是「括号类型的内容」**：`(keyof T)` / `([A, B])` / `(C["k"])` /
+`("a")` / `(infer U)` / `(typeof x)` 这些写在**圆括号类型**里的写法，第 66 轮之前全都散着不成形
+（真实语料里就有：`lib.es2015.collection.d.ts` 的 `readonly (readonly [K, V])[] | null` 里，
+内层那对括号里的 `readonly` 与 `[K, V]` 一个节点都没有）。
+
+根因是**时序**：括号的内容在**括号关闭那一刻**就重组完了，那一刻它的父单元还是语句列表
+（实测插桩：`type D<T> = T extends (infer U)[] ? …` 里 `infer` 被问到时是 `parent=Bracket grand=Root`），
+而括号**被认成类型**这件事发生在**之后**（`ParenthesizedTypeReorganization` 在它前面那一格
+看到 `:` / `=` → `type` 时才接手）。所以判据只能是**事后信号**：括号的父单元变成了
+`ParenthesizedType`，就说明它是括号类型。`ParenthesizedTypeReorganization.Process` 因此在换父之后
+**重跑一遍括号自己的队列**，这一条负责放行那一趟；括号**关闭时那一趟**照旧判否（那一趟本来也判不出来）。
+
+**为什么不用 `IsTypeBracketPosition`（试过，退回来了）**：那个判据把 `,` 与 `(`
+也算类型位信号——类型实参表与形参表需要它们。可值位实参里的 `,` 与 `(` 一模一样：
+`f(a, ([x]))`、多行调用的 `bar,` 换行 `[1, 2],` 会被判成类型位，数组字面量当场变成元组
+（第 67 轮实测）。而「父单元是 `ParenthesizedType`」这个信号**只在括号真的被认成类型时**才出现，
+值位一个字都不会命中。
+
 ```ts
 if (parent === null) {
   return false;
 }
 const name = parent.constructor.name;
+if (name === "Bracket") {
+  // **括号类型的内容**：`(keyof T)` / `([A, B])` / `(infer U)` 里的那些类型文本。
+  //
+  // 括号的内容是在**括号关闭那一刻**重组的，那一刻括号的父单元还是语句列表
+  // （实测插桩：`type D<T> = T extends (infer U)[] ? …` 里 `infer` 被问到时
+  // `parent=Bracket grand=Root`），所以「括号自己那一格是不是类型位」这一刻问不出来。
+  // 真正可靠的信号是**事后**：括号被 `parenthesized-type.xl.md` 收成 `ParenthesizedType`
+  // 之后，它的父亲就是 `ParenthesizedType`——那是「这个括号是括号类型」的确定结论。
+  // `ParenthesizedTypeReorganization.Process` 因此会在换父之后**重跑一遍括号自己的队列**，
+  // 这一条就是那一趟的入口。
+  //
+  // **不能写成「括号自己那一格按前文判」**（`IsTypeBracketPosition`）：那个判据把 `,` 与
+  // `(` 也算类型位信号（类型实参表 / 形参表需要它们），于是值位实参里的
+  // `f(a, ([x]))` / 多行调用的 `[1, 2],` 会被判成类型位，数组字面量当场变成元组
+  // （第 67 轮实测：那是我退回来的第一版）。
+  return parent.Parent !== null && parent.Parent.constructor.name === "ParenthesizedType";
+}
 if (name === "ArrayLiteral") {
   if (IsMappedKeyBracket(parent)) {
     return true;
@@ -854,7 +889,8 @@ return true;
 被包装的那个单元里**没有实义内容**（只有软换行，或者本来就是空的）。
 
 `T[]` 的 `[]` 与 `[A, B]` 的区别就在这一条：
-**空的**是数组类型（`Dirent<X>[]`），**非空的**是元组类型或下标访问。
+**空的**且左边有操作数时是数组类型（`Dirent<X>[]`），**非空的**是元组类型或下标访问，
+**空的但左边没有操作数**时是**空元组**（`[]`——它自己就是一个元组类型，见 `type-bracket.xl.md`）。
 
 ```ts
 for (const item of unit.Data) {
