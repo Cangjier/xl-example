@@ -589,10 +589,44 @@ function projectStatement(v, ctx) {
   };
 }
 
-/** 一串单元 → 一个表达式；多单元时按「左 运算符 右」折。 */
+/**
+ * 一串单元 → 一个表达式。
+ *
+ * 三种折叠，按优先级从高到低：
+ *
+ * 1. **点号链** `a.b.c` ⇒ **嵌套的 `PropertyAccessExpression`**（TS 的形状是左结合的）。
+ *    产物那边它是**平铺**的 `[a, ., b, ., c]`——早先这里按「找第一个标点当运算符」处理，
+ *    于是 `.` 被当成了二元运算符、折出一个 `BinaryExpression`：**heads 和 tails 两头都错**
+ *    （TS 既没有那个 `BinaryExpression`，也没有 `.` 这个运算符节点）。
+ * 2. **二元 / 赋值** ⇒ `BinaryExpression`（`x = 1` / `a + b`）。
+ * 3. 单个单元 ⇒ 直接投影。
+ */
 function projectExpression(kids, ctx) {
   if (kids.length === 0) return undefined;
   if (kids.length === 1) return projectNode(kids[0], ctx);
+  const symbolAt = (i, text) => kids[i] !== undefined && kids[i].get("type") === "SymbolToken" && textOfNode(kids[i], ctx) === text;
+  // ---- 1. 点号链 ----
+  const firstDot = kids.findIndex((k, i) => i > 0 && k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ".");
+  if (firstDot > 0) {
+    let left = projectExpression(kids.slice(0, firstDot), ctx);
+    let i = firstDot;
+    while (i + 1 < kids.length && symbolAt(i, ".")) {
+      const name = kids[i + 1];
+      left = {
+        kind: "PropertyAccessExpression",
+        expression: left,
+        name: projectNode(name, ctx),
+        pos: left.pos,
+        end: endOf(name),
+      };
+      i += 2;
+    }
+    // **必须吃满整串**才认这条链（踩过）：`a.b(c)` 的链只到 `b`，尾巴上还有个实参括号——
+    // 早先这里直接 `return left`，把尾巴上的节点**整片丢掉**（真实语料实测少 5583 个节点、
+    // 匹配数还掉了几百）。吃不满就退回去走通用形状，宁可少折一层也不能丢节点。
+    if (i === kids.length) return left;
+  }
+  // ---- 2. 二元 / 赋值 ----
   const opIndex = kids.findIndex((k, i) => i > 0 && k.get("type") === "SymbolToken");
   if (opIndex > 0 && opIndex < kids.length - 1) {
     const left = projectExpression(kids.slice(0, opIndex), ctx);
@@ -735,21 +769,26 @@ function projectBinary(v, ctx) {
 }
 
 /**
- * 一元运算 → `PrefixUnaryExpression`。
+ * 一元运算 → `PrefixUnaryExpression` 或 `PostfixUnaryExpression`。
+ *
+ * **前后缀是两种 kind**（TS：`-x` 是 `PrefixUnaryExpression`、`y++` 是 `PostfixUnaryExpression`）。
+ * 产物那边两者都是 `UnaryOperator op="…"`，判据是**运算符单元在操作数之前还是之后**：
+ * `y++` 的 `++` 排在 `y` 后面 ⇒ 后缀。
  *
  * **只给 `operand` 一个字段**：TS 那边运算符（`operator`）是节点的**属性**、不是子节点字段，
- * 所以 `ts.forEachChild` 看不到它。产物那边的 `SymbolToken` 也照此**不投影**——
- * 早先投了它，尺子就多报一处「产物多了 `operator`」的假差异。
+ * 所以 `ts.forEachChild` 看不到它。产物那边的 `SymbolToken` 也照此**不投影**。
  */
 function projectUnary(v, ctx) {
   const kids = projectableKids(v);
   const opIndex = kids.findIndex((k) => k.get("type") === "SymbolToken");
-  const operand = opIndex >= 0 ? projectExpression(kids.slice(opIndex + 1), ctx) : projectExpression(kids, ctx);
+  const operandKids = opIndex >= 0 ? kids.filter((_, i) => i !== opIndex) : kids;
+  const operand = projectExpression(operandKids, ctx);
+  const isPostfix = opIndex === kids.length - 1;
   return {
-    kind: "PrefixUnaryExpression",
+    kind: isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
     operand,
     pos: v.start,
-    end: operand ? operand.end : v.end,
+    end: v.end,
   };
 }
 
