@@ -995,8 +995,6 @@ new Map([
 
 
 
-    case "Field":
-      return projectField(v, ctx);
 
     // **`EnumMember` 已搬进 `tokens/enum/enum-member.xl.md` 的 `PrintAst`**（第 182 轮）。
 
@@ -4263,67 +4261,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return { name: at, computed: null, unit: direct === undefined ? null : direct };
 ```
 
-# private method projectField:(v:any, ctx:any)=>any
-
-```ts
-  const kids = projectableKids(v);
-  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
-  // **名字走共用判据**（见 `memberNameOf`）：引号名是 `StringLiteral`、数字名是
-  // `NumericLiteral`、计算名是 `ComputedPropertyName`（`[Symbol.toStringTag]` 的名字属性是空串，
-  // 也只有那一条路认得出来）。
-  const named = memberNameOf(v, ctx);
-  const props = {};
-  if (named.name !== undefined) {
-    props.name = named.name;
-  }
-  if (typeNode !== undefined) {
-    // **可选标记 `?` 是子节点**（`Signature` 家族）：`x?: string` 的 TS 是
-    // `PropertySignature > [Identifier(x), QuestionToken, StringKeyword]`。
-    // 产物那边 `?` 被**吞进了 `TypeDefine` 的区间**里（`TypeDefine[17,25]` = `?: string`），
-    // 所以按「类型段第一个字符是不是 `?`」把它切出来，再让类型段从它后面起。
-    const typeStart = startOf(typeNode);
-    if (ctx.source[typeStart] === "?") {
-      props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
-    }
-    props.type = ctx.Project(typeNode);
-  } else {
-    // **没有类型标注的可选成员**（`a?;` / `private a?;` / `readonly b?;`）：
-    // 有类型标注时 `?` 被吞进了 `TypeDefine` 的区间（上一条分支），没有类型标注时
-    // 它是**平级的 `SymbolToken`**——而 TS 那边它照样是 `questionToken` 字段
-    // （实测 `PropertySignature` / `PropertyDeclaration` 字段名差 12 处、缺 `QuestionToken` 12 个）。
-    const question = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
-    if (question !== undefined) props.questionToken = projectNode(question, ctx);
-  }
-  // 初始化式是 `=` 右边**整段**、不是一格（第 158 轮）：`class C { [KEY] = 1` 换行
-  // `["s" + "t"] = 2 }` 里 TS 把初值折成 `BinaryExpression(1["s" + "t"], =, 2)`——
-  // 只取一格会缺 `BinaryExpression` / `EqualsToken` / `NumericLiteral`
-  // （实测 `decl-class-computed-member.ts`）。收尾的 `;` 不属于初值。
-  const initKids = kids
-    .slice(eqIndex + 1)
-    .filter((k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ";"));
-  if (eqIndex >= 0 && initKids.length > 0) props.initializer = projectExpression(initKids, ctx);
-  // **明确赋值断言 `x!: number`**（第 156 轮）：TS 那边 `!` 是
-  // `PropertyDeclaration.exclamationToken`（一个子节点），产物把它记成平级的 `SymbolToken("!")`
-  //（`?` 那一支的兄弟，见上）。不收会缺 `ExclamationToken` + 字段名差一格。
-  const bang = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!");
-  if (bang !== undefined) props.exclamationToken = projectNode(bang, ctx);
-  addModifiers(v, props, ctx);
-  // **字段上的装饰器也是修饰词**（`@Input() name: string`，第 95 轮）：`projectField` 不走
-  // `structuralProps`，所以这一处要单独收（实测成员位缺 `Decorator` 3 + 缺 `CallExpression`）。
-  const fieldDecorators = kids.filter((k) => k.get("type") === "Decorator");
-  if (fieldDecorators.length > 0) {
-    const projected = fieldDecorators.map((d) => projectNode(d, ctx)).filter((d) => d !== undefined);
-    const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
-    merged.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
-    props.modifiers = merged;
-  }
-  // **接口 / 类型字面量里的成员是 `PropertySignature`**，类里才是 `PropertyDeclaration`——
-  // 同一个产物标签 `Field`，两种上下文两种 kind（声明文件里前者是绝大多数）。
-  const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
-  return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method addModifiers:(v:any, props:any, ctx:any, baseStart:int)=>void
 
 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
@@ -5656,6 +5593,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     FirstCodeAfter: (text, at) => firstCodeAfter(text, at),
     MatchBrace: (text, at) => matchBrace(text, at),
     NamedImportSpecifiers: (text, open, close) => namedImportSpecifiers(text, open, close),
+    MemberNameOf: (view) => memberNameOf(view, ctx),
+    AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
