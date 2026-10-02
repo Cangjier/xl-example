@@ -2327,7 +2327,14 @@ new Set([
   }
   const props = {
     expression: { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
-    arguments: projectEach(args, ctx),
+    // **实参要按顶层逗号切组、每组折成一个表达式**（第 113 轮）：一格的实参在产物里可能是
+    // **好几个平级单元**——`result.SignIn(Get(units, i)!.SourceRange.Start!)` 那个实参就是
+    // `[NotNull(…), ., NotNull(…)]` 三格。逐个单元投会让它裂成三个「实参」，
+    // 链折不起来（实测缺 `PropertyAccessExpression` 162 / `NonNullExpression` 72、
+    // 漂移 71 + 26、多出 `DotToken` 73，样本全是从调用实参里来的）。
+    arguments: splitTopLevel(args, ctx, ",")
+      .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+      .filter((a) => a !== undefined),
     pos: v.start,
     end: v.end,
   };
@@ -2462,6 +2469,23 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     if (name !== undefined) {
       query.exprName = name;
       query.end = endOf(list[list.length - 1]);
+    }
+    // **点号名 + 类型实参**（第 113 轮）：`typeof http.ServerResponse<InstanceType<Request>>`
+    // 的产物是 `[TypeQuery(typeof http), ., ServerResponse, GenericType(…)]`——
+    // 上面那一支只管点号名，实参段还是平级兄弟。TS 那边 `TypeQuery.typeArguments` 要照收，
+    // 否则实参里那串名字整片丢（实测缺 `Identifier` 394 / `TypeReference` 140 的样本
+    // 全是 `https.d.ts` 的这一族）。
+    const queryGeneric = list.find((k) => k.get("type") === "GenericType");
+    if (queryGeneric !== undefined) {
+      const typeArguments = [];
+      for (const group of splitTopLevel(projectableKids(view(queryGeneric)), ctx, ",")) {
+        const one = projectTypeExpression(group, ctx);
+        if (one !== undefined) typeArguments.push(one);
+      }
+      if (typeArguments.length > 0) {
+        query.typeArguments = typeArguments;
+        query.end = endOf(queryGeneric);
+      }
     }
     return query;
   }
