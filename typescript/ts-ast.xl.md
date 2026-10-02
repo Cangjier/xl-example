@@ -4609,15 +4609,57 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   const props = structuralProps(v, "ArrowFunction", ctx);
   const params = kidsOf(v, "parameters");
   const lastParam = params.length > 0 ? unwrapNodes(params[0]).pop() : null;
+  // `=>` 的位置**按原文找**：早先量成「最后一个形参的终点」，`(x) => {}` 于是落在 `x` 后面
+  // （把 `)` 也算进去了没？实测真实语料 154 处漂移就是这么来的）。从形参段之后往后搜第一个 `=>`。
+  let arrowAt = -1;
   if (lastParam !== undefined && lastParam !== null) {
-    // `=>` 的位置**按原文找**：早先量成「最后一个形参的终点」，`(x) => {}` 于是落在 `x` 后面
-    // （把 `)` 也算进去了没？实测真实语料 154 处漂移就是这么来的）。从形参段之后往后搜第一个 `=>`。
     const from = endOf(lastParam);
-    const at = ctx.source.indexOf("=>", from);
+    arrowAt = ctx.source.indexOf("=>", from);
     // `=>` 在 TS 那边占两个字符（`[281,283)`），**不是零宽**——零宽永远对不上。
-    const pos = at >= 0 && at < v.end ? at : from;
+    const pos = arrowAt >= 0 && arrowAt < v.end ? arrowAt : from;
     const width = ctx.source.startsWith("=>", pos) ? 2 : 0;
     props.equalsGreaterThanToken = { kind: "EqualsGreaterThanToken", text: "=>", pos, end: pos + width };
+  }
+  // **表达式体不是 `Block`**（第 102 轮）：`(item) => item instanceof LineWrap` 的产物是
+  // `Lamda > [LamdaParameters, LamdaBody(里面的 `Statement`)]`，而 TS 那边 `ArrowFunction.body`
+  // **就是那个表达式**（只有带花括号的才是 `Block`）。`LamdaBody` 在 `KIND_BY_TAG` 里映射成
+  // `Block`，照通用支会投出一个 `ExpressionStatement`——实测「多出 `ExpressionStatement`」409
+  // 里的一片（`dist/ts` 里 `(x) => x instanceof Y` 这种一行箭头遍地都是）。
+  //
+  // **判据是「`=>` 之后第一个非空白字符」**，不是体段自己的起点：带花括号的体在产物树里
+  // **不含那对花括号**（`LamdaBody > Statement`），照体段起点判会把 `(x) => { return x }`
+  // 也当成表达式体、整个 `Block` 连同里面的语句一起丢（第一版就是这么错的，实测
+  // `Block` / `ReturnStatement` / `Identifier` 各缺一片）。
+  let braced = false;
+  let braceAt = -1;
+  if (arrowAt >= 0) {
+    let at = arrowAt + 2;
+    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+    braced = ctx.source[at] === "{";
+    if (braced) braceAt = at;
+  }
+  const bodyUnits = kidsOf(v, "body");
+  if (bodyUnits.length > 0) {
+    // 体段的内容：只穿**一层 `LamdaBody` 壳**（`ToList` 有时留着、有时摊平），
+    // **里面的 `Statement` 要留着**——语句本身要交给 `projectStatement`（`return x;` 才会是
+    // `ReturnStatement`；把它摊成裸单元会得到 `Identifier(return)`）。
+    const flat = [];
+    for (const k of unwrapNodes(bodyUnits[0])) {
+      if (k.get("type") === "LamdaBody") {
+        for (const x of unwrapNodes(k)) flat.push(x);
+        continue;
+      }
+      flat.push(k);
+    }
+    if (!braced) {
+      const projected = flat.length === 1 ? projectNode(flat[0], ctx) : projectExpression(flat, ctx);
+      if (projected !== undefined) props.body = projected;
+    }
+    // 带花括号的体仍走 `structuralProps` 给的那一格：`ToList` 把体里的 `Statement` **摊平**了
+    // （拿到的是裸的 `Keyword(return)` / `Identifier`），这里没有可靠的办法把语句重新拼起来
+    // ——硬拼会得到 `Identifier(return)`（实测「缺 `ReturnStatement`」立刻涨一千多）。
+    // 正解是让 `LamdaBody` 那一层在 `ToList` 里保留 `Statement`（token 层的事），
+    // 记在剩余清单里。
   }
   return { kind: "ArrowFunction", pos: v.start, end: v.end, ...props };
 ```
