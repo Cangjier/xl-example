@@ -481,14 +481,24 @@ for (let i = index - 1; i >= 0; i--) {
     if (text === ":") {
       return true;
     }
-    if (text === ";" || text === "," || text === "{" || text === "}" || text === "(" || text === ")") {
+    if (text === ";" || text === "," || text === "{" || text === "}") {
       return false;
     }
+    // **括号是透明的**：`entries: () => T` 那一行的 `(` / `)` 只是表达式的一部分，
+    // 撞上它们就判「上一行是表达式」会让这一条成员续到下一行去
+    // （实测 `undici-types/formdata.d.ts`：12 处 `FunctionType` / `TupleType` 整片丢）。
     sawReal = true;
     continue;
   }
   if (item instanceof Bracket) {
-    return false;
+    // **花括号是「上一行到此为止」**（`{ x => x` 换行 `[…] }` 的那个 `{`）；
+    // 方括号 / 圆括号是类型或表达式的一部分（`SpecIterableIterator<[string, T]>` 里那个元组），
+    // 一律透明继续。
+    if (item.startBracket === "{") {
+      return false;
+    }
+    sawReal = true;
+    continue;
   }
   const name = item.constructor.name;
   if (name === "Statement" || name === "IfSet" || name === "Field" || name === "MethodDeclaration") {
