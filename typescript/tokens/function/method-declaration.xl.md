@@ -18,6 +18,7 @@ import { MethodBody } from "./method-body.xl.md"
 import { TypeLiteralBody } from "../type-literal/type-literal-body.xl.md"
 import { ReturnType } from "./return-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
+import { Statement } from "../statement.xl.md"
 import { ConstString } from "../string/const-string.xl.md"
 import { String } from "../string/string.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
@@ -405,6 +406,36 @@ if (unit instanceof String) {
 return "";
 ```
 
+## private method StartsWithTernaryQuestion:(units:Array<Token>, index:int)=>bool
+
+紧挨着 `index`（方法名）前面的**实义单元**是不是一个 `?`——是的话这个「名字 + 括号」
+处在**三元运算符的真分支**里，后面那个 `:` 是三元冒号、不是返回类型。
+
+允许中间夹**非边界的软换行**：`cond ?` 换行 `f(a, b) : v` 这种折行排版很常见，
+而那个换行前面是 `?`（还要一个操作数），`Statement.IsLineBreakBoundary` 会给「不是边界」。
+除 `?` 以外的任何实义单元都判否——保守的一侧是「当成方法声明」，
+而这里拒错的代价只是少收一个方法声明，比把一次调用吞成声明轻得多。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    return false;
+  }
+  if (item instanceof LineWrap) {
+    if (Statement.IsLineBreakBoundary(units, i)) {
+      return false;
+    }
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    return item.Is("?");
+  }
+  return false;
+}
+return false;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个方法声明的名字：一个能当方法名的 `Identifier`，后面紧跟（允许夹一段类型参数）`(` 括号，
@@ -510,6 +541,22 @@ if (afterParameters instanceof Bracket && afterParameters.startBracket === "[") 
 // 逗号在**值位**只能是实参 / 表达式分隔符；而方法声明的形参表后面不可能是逗号：
 // 成员之间用 `;` / 换行 / `,` 分隔时，逗号也只会出现在**返回类型或体之后**，不会紧贴 `)`。
 if (afterParameters instanceof SymbolToken && afterParameters.Is(",")) {
+  return false;
+}
+// **三元运算符的真分支里那个 `:`** ⇒ 不是返回类型（第 127 轮）。
+//
+// `cond ? f(a, b) : value` 里 `f(a, b)` 后面正好是 `:`，而 `:` 在方法声明里是
+// **返回类型**的开头——两种形状只差「那个 `?` 在不在前面」。实测
+// `dist/ts/typescript/ts-ast.ts` 的
+// `? g(nameNode, ctx) : nameNode.get(…) === … ? { … } : k(nameNode, ctx)`
+// 里那次调用被收成一个 `MethodDeclaration`：「返回类型」从那个 `:` 一路吞到下一个 `?`、
+// 「方法体」是后面那个对象字面量（那一个文件 70 处缺口里的成片）。
+//
+// 判据只看**紧挨着名字前面的实义单元是不是 `?`**（允许中间夹非边界的软换行）：
+// 三元与「方法声明的返回类型」在词法上唯一的区别就是它。
+// 多行排版不受影响——`<\n g(…)` 那种换行前面是 `?`，`IsLineBreakBoundary` 判它「不是边界」
+// （`?` 还要操作数），回扫照旧穿过去。
+if (afterParameters instanceof SymbolToken && afterParameters.Is(":") && this.StartsWithTernaryQuestion(units, nameIndex)) {
   return false;
 }
 if (afterParameters !== null && (afterParameters instanceof Identifier || afterParameters.constructor.name === "Keyword") && MethodDeclarationReorganization.ValueKeywordTexts.includes(WordText(afterParameters))) {

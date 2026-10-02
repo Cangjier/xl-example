@@ -313,13 +313,42 @@ const current = Get(units, index)!;
 const elseIndex = index;
 const questionIndex = this.QuestionIndexBefore(units, index);
 const startIndex = SearchFront(units, questionIndex, TernaryOperatorReorganization.IsTernaryOperatorStart);
-let endIndex = SearchBack(
-  units,
-  elseIndex,
-  (item: Token) => item instanceof SymbolToken && (item.Is(",") || item.Is(";")),
-);
-if (endIndex === -1) {
-  endIndex = units.length;
+// **假值段的终点**：`Previous` 里那个 `segmentEnd` 的同一条判据（第 123 / 127 轮）。
+//
+// 三种终止符：
+//   · `,` / `;` —— 外层列表的分隔符（文法上假值段里不可能有平级逗号）；
+//   · **外层的 `:`** —— `a ? b ? c : d : e` 里内层那个 `:` 的假值段只到 `d` 为止，
+//     后面那个 `:` 属于**外层的三元**。少这一条，内层会把 `d : e` 整段吞掉
+//     （实测 `dist/ts/typescript/ts-ast.ts` 里 `computed === undefined ? … ? a : b : {…}`
+//     这一族：内层三元的一个都没成形，产物把整段读成 `BinaryExpression`）。
+//     判据是「自己那个 `:` 之后出现过 `?` 没有」：出现过 ⇒ 后面那个 `:` 是**内层**的，
+//     放行；没出现过 ⇒ 它是外层的，收工。
+let endIndex = units.length;
+let questionSinceColon = false;
+for (let i = elseIndex + 1; i < units.length; i++) {
+  const item = Get(units, i);
+  if (item === null) {
+    break;
+  }
+  if (!(item instanceof SymbolToken)) {
+    continue;
+  }
+  if (item.Is(",") || item.Is(";")) {
+    endIndex = i;
+    break;
+  }
+  if (item.Is("?")) {
+    questionSinceColon = true;
+    continue;
+  }
+  if (item.Is(":")) {
+    if (questionSinceColon) {
+      questionSinceColon = false;
+      continue;
+    }
+    endIndex = i;
+    break;
+  }
 }
 // 真值段不能越过**下一个 `?`**：`a ? b ? c : d : e` 里 `b ? c` 不是真值段，
 // 那个 `?` 属于内层三元（`b ? c : d`）。不夹这一刀，真值段会把内层的 `?` 与 `:` 一起吞进来，

@@ -135,37 +135,43 @@ this.Reorganize();
 
 `Process` 用返回值推进下标，所以这里写 `i = item.Process(..., i)`——重组会把多个子单元换成一个，下标必须跟着走。
 
-**为什么不做「重复扫到没有改动为止」**（试过、退回了）：重复扫确实能让「`Process` 的推进跳过了同规则该处理的形状」
+**为什么不做「扫到没有改动为止」**（试过、退回了）：重复扫确实能让「`Process` 的推进跳过了同规则该处理的形状」
 那一类收敛得更彻底（嵌套三元的第二层就是这种），但它是**对所有规则生效**的——包含那些
 「每次都报告改动」的规则时，一趟套一趟会把内存吃光。实测：改成重复扫之后
 `node tests/parse/run.mjs`（883 条用例，同一进程）直接 `FATAL ERROR: heap out of memory`，
 而单条用例都正常。
 
-**改成「固定两趟」是可以的**（实测）：两趟与「扫到无改动」的区别是**有上界**，
-不会因为某条规则每次都报告改动而发散。这一趟额外的扫描解决的是
-「靠左的 `:` 先被问到、于是把假值段让给内层，而内层成形时外侧已经扫过去了」这类**让位**形状
-（`a ? b : c ? d : e` 的右结合嵌套就是它）。两趟之后外侧那一趟才看得到已经收成单个单元的
-内层三元，`?` 从列表里消失，外层自然成立。
-再多的趟数**没有必要**：右结合嵌套的层数对应「一个 `:` 让位一次」，
-而每一趟都会把当前最内层收掉，实测两趟覆盖到三层嵌套即真实语料里出现的全部形状。
+**第 127 轮改成「扫到列表不再变化为止，且有硬上界」**。原来固定两趟，判据是
+「右结合嵌套的层数对应『一个 `:` 让位一次』，两趟够用」——那个结论只对**两层**成立：
+每多一层嵌套就要多一趟（`a ? b : c ? d : e` 的内层在第一趟成形、中层在第二趟、
+外层要到第三趟）。实测 `dist/ts/typescript/ts-ast.ts` 里三层嵌套的三元
+（`A ? undefined : B ? f(x) : C ? {…} : D`）在第二趟结束时**最外层还没成形**，
+投影侧于是把它读成一个横跨整段的 `BinaryExpression`。
+
+两条护栏让它有上界、且不会像当初那样发散：
+
+1. **每趟开头拍一份列表快照**，一趟跑完如果「长度相同且每个单元还是同一个对象」就**提前退出**——
+   规则都收敛时只多跑一趟；
+2. **硬上界 `this.Data.length + 2`（再取 16 的较小值）**：某条规则每趟都换个新对象也走不出上界，
+   CPU 多花一点、内存不会无限长。
 
 ```ts
 if (this.ReorganizationQueue === null) {
   return;
 }
-for (const item of this.ReorganizationQueue.Data) {
-  for (let i = 0; i < this.Data.length; i++) {
-    if (item.Previous(this.Template, this.Data, i)) {
-      i = item.Process(this.Template, this.Data, i);
+const maxPasses = Math.min(16, this.Data.length + 2);
+for (let pass = 0; pass < maxPasses; pass++) {
+  const snapshot = this.Data.slice();
+  for (const item of this.ReorganizationQueue.Data) {
+    for (let i = 0; i < this.Data.length; i++) {
+      if (item.Previous(this.Template, this.Data, i)) {
+        i = item.Process(this.Template, this.Data, i);
+      }
     }
   }
-}
-// 第二趟：只为了让「上一趟让位出去、外侧已经扫过去」的形状有机会成形。
-for (const item of this.ReorganizationQueue.Data) {
-  for (let i = 0; i < this.Data.length; i++) {
-    if (item.Previous(this.Template, this.Data, i)) {
-      i = item.Process(this.Template, this.Data, i);
-    }
+  // 列表一个单元都没换过 ⇒ 再扫也不会有新形状，收工。
+  if (this.Data.length === snapshot.length && this.Data.every((unit, at) => unit === snapshot[at])) {
+    break;
   }
 }
 ```

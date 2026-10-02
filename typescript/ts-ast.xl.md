@@ -4528,6 +4528,17 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
       props.statement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
     }
   }
+  // **空体语句 `for (…);`**（第 127 轮）：体段是空的、原文里 `)` 之后紧跟一个 `;`——
+  // TS 那边那是一个 `EmptyStatement`（`ForStatement.statement` 不会缺）。少了这一支，
+  // 这一条语句少一个字段、`EmptyStatement` 整类缺（实测 `dist/ts/typescript/ts-ast.ts`）。
+  if (props.statement === undefined) {
+    const close = matchingParenOf(ctx.source, v.start);
+    let at = close >= 0 ? close + 1 : v.start;
+    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+    if (ctx.source[at] === ";") {
+      props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
+    }
+  }
   // **尾部 trivia 要剪掉**（第 125 轮）：循环的体段在产物里常含行尾的软换行
   // （`for (const x of raw) if (x) f(x);` 换行），而 TS 的语句**从不含尾部 trivia**——
   // 不剪的话 `ForOfStatement` / `ForStatement` 的终点比 TS 多一格（实测漂移 + 多出各一片）。
@@ -4555,7 +4566,16 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     }
   }
   if (projections.length === 1) return projections[0];
-  if (projections.length === 0) return undefined;
+  if (projections.length === 0) {
+    // **空体语句 `while (c);` / `for (const x of y);`**（第 127 轮）：体段为空、
+    // 原文里头部之后紧跟一个 `;` ⇒ TS 那边是一个 `EmptyStatement`。
+    let at = from;
+    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+    if (ctx.source[at] === ";") {
+      return { kind: "EmptyStatement", pos: at, end: at + 1 };
+    }
+    return undefined;
+  }
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
 ```
 
@@ -4568,7 +4588,9 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
   if (compare.length > 0) props.expression = projectExpression(compare, ctx);
   const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
-  const header = ctx.source.indexOf(")", v.start);
+  // **头部右括号要按深度配对**（第 127 轮）：`while (g(x)) ;` 里第一个 `)` 是 `g(x)` 的，
+  // 拿它当头部末尾会让「空体语句」那一支看不见那个 `;`（实测 `EmptyStatement` 缺）。
+  const header = matchingParenOf(ctx.source, v.start);
   const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
   if (statement !== undefined) props.statement = statement;
   return { kind: "WhileStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
@@ -4611,7 +4633,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   const to = enumable.length > 0 ? startOf(enumable[0]) : v.end;
   const kind = /\bin\b/.test(ctx.source.slice(from, to)) ? "ForInStatement" : "ForOfStatement";
   const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
-  const header = ctx.source.indexOf(")", v.start);
+  const header = matchingParenOf(ctx.source, v.start);
   const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
   if (statement !== undefined) props.statement = statement;
   return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
@@ -4688,8 +4710,48 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   return -1;
 ```
 
-# private const MEMBER_IN_OBJECT:Set<string> = new Set(["MethodDeclaration", "GetAccessor", "SetAccessor", "PropertyAssignment", "ShorthandPropertyAssignment", "SpreadAssignment"])
+# private method matchingParenOf:(source:string, from:int)=>int
 
+从 `from` 起往后找**第一对配对圆括号**的右括号下标；找不到给 `-1`。
+
+与 `matchingBrace` 同一套扫描（跳过字符串与注释），只把计数的括号换成 `(` / `)`。
+给「头部之后是不是空体语句」那一支用：`for (i = f(x); …) ;` 里 `f(x)` 的右括号
+不能当成头部的右括号，所以必须**按深度配对**、不能取第一个 `)`。
+
+```ts
+  let depth = 0;
+  let started = false;
+  for (let i = from; i < source.length; i++) {
+    const c = source[i];
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < source.length && source[i] !== c; i++) {
+        if (source[i] === "\\") i++;
+      }
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "/") {
+      while (i < source.length && source[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "*") {
+      for (i += 2; i < source.length && !(source[i] === "*" && source[i + 1] === "/"); i++);
+      i++;
+      continue;
+    }
+    if (c === "(") {
+      depth++;
+      started = true;
+      continue;
+    }
+    if (c === ")") {
+      depth--;
+      if (depth === 0 && started) return i;
+    }
+  }
+  return -1;
+```
+
+# private const MEMBER_IN_OBJECT:Set<string> = new Set(["MethodDeclaration", "GetAccessor", "SetAccessor", "PropertyAssignment", "ShorthandPropertyAssignment", "SpreadAssignment"])
 **对象字面量里「已经是成员」的那些 kind**：`{ m() {} }` 那一组只有一格、投出来就是
 `MethodDeclaration`——它**直接进 `properties`**，不要再套一层 `ShorthandPropertyAssignment`
 （TS 那边对象字面量的方法是 `MethodDeclaration` / `GetAccessor` / `SetAccessor`，与类里同名）。
