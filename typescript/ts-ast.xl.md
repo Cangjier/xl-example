@@ -955,6 +955,11 @@ new Map([
     case "Try":
       return projectTry(v, ctx);
 
+    // **命名空间 / 模块声明**（第 100 轮）：字符串模块名（`declare module "m" { }`）在 TS 那边
+    // 名字是 `StringLiteral`，而产物把它收进 `namespace` 属性——照通用支会投成 `Identifier`。
+    case "Namespace":
+      return projectNamespace(v, ctx);
+
     // **类静态块**（`class A { static { … } }`，第 93 轮）：TS 是
     // `ClassStaticBlockDeclaration > body: Block`，而产物是 `StaticBlock > Statement*`
     // （体括号那层壳不在树里，`Block` 要自己造）——照通用投影只有 `children`、
@@ -1406,6 +1411,29 @@ new Set([
   }
   // ---- 关键字开头的语句（`return` / `throw` / `break` / `continue` / `debugger`）----
   if (headType === "Keyword") {
+    // **`export` / `declare` 前缀 + 一条声明**（第 100 轮）：`export declare namespace Client {…}`
+  // 的产物是 `Statement > [Keyword(export), Namespace(modifiers="declare")]`，而 TS 那边是
+  // `ModuleDeclaration.modifiers = [ExportKeyword, DeclareKeyword]`（前缀词进**修饰词**、
+  // 声明自己就是那条语句）。照下面的通用支会整条投成一个 `ExpressionStatement`
+  // ——实测「多出 `ExpressionStatement`」410 里的一片（`undici-types` 整个 `export declare
+  // namespace` 家族、`@types/node` 的 `declare module` 家族都在里面）。
+    const prefixWords = kids.slice(0, kids.length - 1);
+    const last = kids[kids.length - 1];
+    const lastKind = KIND_BY_TAG.get(last.get("type"));
+    const allPrefixes = prefixWords.every(
+      (k) => k.get("type") === "Keyword" && ["export", "declare", "default"].includes(textOfNode(k, ctx)),
+    );
+    if (prefixWords.length > 0 && allPrefixes && lastKind !== undefined && STATEMENT_KINDS.has(lastKind)) {
+      const declaration = projectNode(last, ctx);
+      if (declaration !== undefined) {
+        const leading = prefixWords.map((k) => projectNode(k, ctx)).filter((k) => k !== undefined);
+        const modifiers = [...leading, ...(declaration.modifiers ?? [])];
+        modifiers.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+        declaration.modifiers = modifiers;
+        declaration.pos = v.start;
+        return declaration;
+      }
+    }
     const kind = KEYWORD_STATEMENT_KINDS.get(textOfNode(head, ctx));
     if (kind !== undefined) {
       const rest = kids.slice(1);
@@ -4312,6 +4340,38 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   const inner = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
   if (inner !== undefined) props.type = inner;
   return { kind, pos: v.start, end: v.end, ...props };
+```
+
+# private method projectNamespace:(v:any, ctx:any)=>any
+
+`namespace N { … }` / `module M { … }` / **`declare module "m" { … }`** → `ModuleDeclaration`。
+
+**字符串模块名的名字是 `StringLiteral`**（第 100 轮）：`declare module "module" { … }` 的 TS 是
+`ModuleDeclaration.name = StringLiteral("module")`（区间**含那对引号**），而产物把名字收进
+`namespace` 属性——照通用支会投成一个 `Identifier`（实测「多出 `Identifier`」112 里的一片）。
+
+判据落在原文上：`namespace` 属性的值在声明里**带引号**出现时就是字符串名；
+标识符形式的 `namespace A.B.C` 不带引号，走原来的路、行为不变。
+
+```ts
+  const props = structuralProps(v, "ModuleDeclaration", ctx);
+  const name = String(v.attrs.get("namespace") ?? "");
+  if (name !== "") {
+    const brace = ctx.source.indexOf("{", v.start);
+    const limit = brace < 0 ? v.end : brace;
+    const dq = ctx.source.indexOf('"', v.start);
+    const sq = ctx.source.indexOf("'", v.start);
+    let at = -1;
+    if (dq >= 0 && dq < limit) at = sq >= 0 && sq < dq ? sq : dq;
+    else if (sq >= 0 && sq < limit) at = sq;
+    if (at >= 0) {
+      const close = ctx.source.indexOf(ctx.source[at], at + 1);
+      if (close > at && close < limit) {
+        props.name = { kind: "StringLiteral", text: name, pos: at, end: close + 1 };
+      }
+    }
+  }
+  return astNode("ModuleDeclaration", props, v, ctx);
 ```
 
 # private method projectHeritageClause:(v:any, ctx:any)=>any

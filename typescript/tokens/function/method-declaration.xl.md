@@ -263,11 +263,14 @@ while (i < units.length) {
     // `MethodSignature` 与 `ConditionalType` 的区间都短一截（漂移）。
     //
     // 判据落在**原文那一格**上（`Source.Value`），不看它被收成了哪个单元：
-    // 换行后紧跟 `:` 时它不是成员边界，而是这一条类型**没写完**。
+    // 换行后紧跟 `:` / `|` / `&` 时它不是成员边界，而是这一条类型**没写完**。
+    // （`|` / `&` 是折行的联合 / 交叉类型：`typescript.d.ts` 里
+    // `…): NodeBuilderFlags |\n | SignatureDeclaration & {…}\n | undefined;` 这种排版整片都是。）
     const next = GetSkipNextWrapSymbol(units, i);
     const nextStart = next === null ? null : next.SourceRange.Start;
-    const colonNext = nextStart !== null && nextStart !== undefined && nextStart.Value === ":";
-    if (continues === false && !colonNext) {
+    const nextChar = nextStart === null || nextStart === undefined ? "" : nextStart.Value;
+    const continuesNextLine = nextChar === ":" || nextChar === "|" || nextChar === "&";
+    if (continues === false && !continuesNextLine) {
       break;
     }
     i = i + 1;
