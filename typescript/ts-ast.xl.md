@@ -1055,8 +1055,7 @@ new Map([
     case "Field":
       return projectField(v, ctx);
 
-    case "EnumMember":
-      return projectEnumMember(v, ctx);
+    // **`EnumMember` 已搬进 `tokens/enum/enum-member.xl.md` 的 `PrintAst`**（第 182 轮）。
 
     case "Lamda":
       return projectLamda(v, ctx);
@@ -1067,8 +1066,7 @@ new Map([
     case "NamedTupleMember":
       return projectNamedTupleMember(v, ctx);
 
-    case "Spread":
-      return projectSpread(v, ctx);
+    // **`Spread` 已搬进 `tokens/spread.xl.md` 的 `PrintAst`**（第 182 轮）。
 
     case "Try":
       return projectTry(v, ctx);
@@ -4766,18 +4764,6 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectEnumMember:(v:any, ctx:any)=>any
-
-```ts
-  const kids = projectableKids(v);
-  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  const nameNode = kids.find((k) => k.get("type") !== "SymbolToken") ?? null;
-  const props = {};
-  if (nameNode !== null) props.name = projectNode(nameNode, ctx);
-  if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
-  return { kind: "EnumMember", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method addModifiers:(v:any, props:any, ctx:any, baseStart:int)=>void
 
 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
@@ -6942,27 +6928,6 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
     if (inner !== undefined) props.expression = inner;
   }
   return { kind: "Decorator", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
-# private method projectSpread:(v:any, ctx:any)=>any
-
-展开元素 `...xs` → `SpreadElement`（**只有 `expression` 一个字段**）。
-
-产物那边是 `Spread > [SymbolToken(...), 目标]`——两点号是一个平级的 `SymbolToken`。
-照通用支（`FIELD_BY_KIND` 把 `children` 映射成 `expression`）会把那个 `SymbolToken`
-也投成 `DotDotDotToken` 一起塞进 `expression` 里（实测多出 66，样本全是
-`f(...newValues)` / `push(...items)` 这种调用实参）。
-
-```ts
-  const kids = projectableKids(v).filter(
-    (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "..."),
-  );
-  // **目标走 `projectExpression` 而不是 `projectNode`**（第 125 轮）：
-  // `...(...)` 的目标是一对括号时，`projectNode` 会把整个括号投成一个**未映射的
-  // `<Bracket>`，而 `projectExpression` 认得出值位括号（`ParenthesizedExpression`）。
-  // 实测 `[...l, ...(x ?? [])]` 缺 `ParenthesizedExpression` + 多出 `Bracket`。
-  const expression = kids.length === 0 ? undefined : projectExpression(kids, ctx);
-  return { kind: "SpreadElement", pos: v.start, end: stmtEndOf(v, ctx), ...(expression === undefined ? {} : { expression }) };
 ```
 
 # private method projectNamespace:(v:any, ctx:any)=>any

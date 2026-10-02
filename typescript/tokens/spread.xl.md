@@ -280,6 +280,32 @@ return ReplaceCountAt(units, index, afterIndex - index + 1, result);
 
 # class Spread extends IndependentToken
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+展开元素 `...xs` → `SpreadElement`（**只有 `expression` 一个字段**；
+**从 `ts-ast.xl.md` 的 `projectSpread` 搬来**，第 182 轮）。
+
+产物那边是 `Spread > [SymbolToken(...), 目标]`——两点号是一个平级的 `SymbolToken`。
+照通用支（`FIELD_BY_KIND` 把 `children` 映射成 `expression`）会把那个 `SymbolToken`
+也投成 `DotDotDotToken` 一起塞进 `expression` 里（实测多出 66，样本全是
+`f(...newValues)` / `push(...items)` 这种调用实参）。
+
+**目标走 `ctx.Expression` 而不是 `ctx.Project`**（第 125 轮）：`...(...)` 的目标是一对括号时，
+`Project` 会把整个括号投成一个**未映射的 `<Bracket>`**，而 `Expression` 认得出值位括号
+（`ParenthesizedExpression`）。实测 `[...l, ...(x ?? [])]` 缺 `ParenthesizedExpression` + 多出 `Bracket`。
+
+```ts
+  const kids = ctx.Kids(v).filter(
+    (k: any) => !(k.get("type") === "SymbolToken" && ctx.TextOf(k) === "..."),
+  );
+  const expression = kids.length === 0 ? undefined : ctx.Expression(kids);
+  return ctx.Node(
+    "SpreadElement",
+    expression === undefined ? {} : { expression },
+    v,
+  );
+```
+
 展开运算 `...expr`。
 
 **类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。

@@ -193,6 +193,22 @@ rebuilt.push(member);
 
 内容直接装在自己身上，逗号留在外面。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`A` / `A = 1` → `EnumMember`（**从 `ts-ast.xl.md` 的 `projectEnumMember` 搬来**，第 182 轮）。
+
+```ts
+  const kids = ctx.Kids(v);
+  const eqIndex = kids.findIndex(
+    (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=",
+  );
+  const nameNode = kids.find((k: any) => k.get("type") !== "SymbolToken") ?? null;
+  const props: any = {};
+  if (nameNode !== null) props.name = ctx.Project(nameNode);
+  if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = ctx.Project(kids[eqIndex + 1]);
+  return ctx.Node("EnumMember", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——初始化式是**表达式**
