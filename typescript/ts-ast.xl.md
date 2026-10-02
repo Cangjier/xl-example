@@ -1552,6 +1552,25 @@ new Set([
     // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给 `projectLet`。
     return projectLet(v, ctx);
   }
+  // **`with (obj) { … }`**（第 137 轮）：产物是 `Statement > [Keyword(with), Bracket((obj)), Bracket({…})]`，
+  // 而 TS 那边是 `WithStatement{ expression, statement }`。照通用支会整条投成一个
+  // `ExpressionStatement`（实测 `st-with` / `stmt-with` 两族共 20 处）。
+  // 体那个 `{` 里的语句由 `IsStatementStart` 新加的那一条（`with` 后面的括号）负责成形成 `Statement`。
+  if (headType === "Keyword" && textOfNode(head, ctx) === "with") {
+    const header = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
+    const body = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "{");
+    const withProps = {};
+    if (header !== undefined) withProps.expression = projectExpression(projectableKids(view(header)), ctx);
+    if (body !== undefined) {
+      withProps.statement = {
+        kind: "Block",
+        statements: projectEach(kidsOf(view(body), "children"), ctx, "Block"),
+        pos: startOf(body),
+        end: endOf(body),
+      };
+    }
+    return { kind: "WithStatement", pos: v.start, end: stmtEndOf(v, ctx), ...withProps };
+  }
   // ---- 关键字开头的语句（`return` / `throw` / `break` / `continue` / `debugger`）----
   if (headType === "Keyword") {
     // **`export` / `declare` 前缀 + 一条声明**（第 100 轮）：`export declare namespace Client {…}`
@@ -1797,6 +1816,20 @@ new Set([
       }
       const extended = chainWithOptional(base, inner[0], ctx);
       return foldBinaryFrom(extended, [...inner.slice(1), ...kids.slice(at + 1)], ctx);
+    }
+  }
+  // ---- 0b. 标签模板 `tag`…``（第 137 轮）----
+  //
+  // 产物是 `[<标签单元>, String]` **两格平级**（`tag`a${b}c`` 的标签与模板各一格），
+  // 而 TS 那边是 `TaggedTemplateExpression{ tag, template }`。照通用支投会把它当成
+  // 两个平级节点（模板表达式整个丢掉，实测 `ex-tagged-template` 缺 10）。
+  // 判据落在**原文的引号**上：那个 `String` 的起点字符是反引号（普通字符串是 `"` / `'`，
+  // 产物里两者的属性一模一样，分不出来）。
+  if (kids.length === 2 && kids[1].get("type") === "String" && ctx.source[startOf(kids[1])] === "`") {
+    const tag = projectExpression(kids.slice(0, 1), ctx);
+    const template = projectNode(kids[1], ctx);
+    if (tag !== undefined && template !== undefined) {
+      return { kind: "TaggedTemplateExpression", tag, template, pos: tag.pos, end: template.end };
     }
   }
   // ---- 0b. 展开实参（第 114 轮）----
@@ -2535,7 +2568,10 @@ new Set([
   // `decl-destructure-nested-names` 三族共 27 处）。所以先在**整段列表里 `=` 左边**找。
   const eqAt = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const headKids = eqAt >= 0 ? kids.slice(0, eqAt) : kids;
-  const isPatternUnit = (k: any) => k.get("type") === "ArrayLiteral" || k.get("type") === "ObjectLiteral";
+  const isPatternUnit = (k: any) =>
+    k.get("type") === "ArrayLiteral" ||
+    k.get("type") === "ObjectLiteral" ||
+    (k.get("type") === "Bracket" && (k.get("startBracket") === "[" || k.get("startBracket") === "{"));
   const patternUnit =
     headKids.find(isPatternUnit) ?? projectableKids(letView).find(isPatternUnit) ?? null;
   const name =
@@ -2606,7 +2642,15 @@ new Set([
 
 ```ts
   const v = view(unit);
-  const kind = v.type === "ArrayLiteral" ? "ArrayBindingPattern" : "ObjectBindingPattern";
+  // **括号形态也要认**（第 137 轮）：绑定位里 `{ a }` / `[a]` 有时还没被
+  // `JsonObjectReorganization` / `JsonArrayReorganization` 收成 `ObjectLiteral` /
+  // `ArrayLiteral`（`[k2]: { a }` 里右边那一格就是一对裸花括号）——只认那两种标签时
+  // 整层 `ObjectBindingPattern` 连里面的 `BindingElement` 一起丢。
+  const braceKind =
+    v.type === "ArrayLiteral" || (v.type === "Bracket" && v.startBracket === "[")
+      ? "ArrayBindingPattern"
+      : "ObjectBindingPattern";
+  const kind = braceKind;
   const elements = [];
   const kids = projectableKids(v);
   // **洞 `[, c]` 是一个零宽的 `OmittedExpression`**（第 135 轮）：TS 在元素表里留一格
@@ -2666,17 +2710,42 @@ new Set([
   // 原来只找名字，`names` 为空时那个 `BindingElement` 连 `name` 都没有——
   // 嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern` 与它们里面的名字整片丢
   // （实测三族嵌套解构用例共 27 处）。
-  const patternKid = kids.find((k) => k.get("type") === "ArrayLiteral" || k.get("type") === "ObjectLiteral");
+  const isPatternLike = (k: any) =>
+    k.get("type") === "ArrayLiteral" ||
+    k.get("type") === "ObjectLiteral" ||
+    (k.get("type") === "Bracket" && (k.get("startBracket") === "[" || k.get("startBracket") === "{"));
+  const patternKid = kids.find(isPatternLike);
   const props = {};
   if (dots !== undefined) {
     props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
   }
   if (colonIndex >= 0) {
-    // `p: q` / `p: [a, b]`：冒号左边是属性名、右边是绑定名（或一层模式）
-    const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
-    if (before !== undefined) props.propertyName = nameOf(before, ctx);
-    const afterPattern =
-      patternKid !== undefined && startOf(patternKid) > startOf(kids[colonIndex]) ? patternKid : undefined;
+    // `p: q` / `p: [a, b]`：冒号左边是属性名、右边是绑定名（或一层模式）。
+    // **左边也可能是一个计算名 `[k]: v`**（第 137 轮）：产物里它是 `ArrayLiteral` / `[` 括号，
+    // TS 那边是 `ComputedPropertyName`（实测 `decl-binding-computed-key.ts` 缺
+    // `ComputedPropertyName` 2 + `Identifier` 2 + 字段名 2）。
+    const computedUnit = kids.find(
+      (k) =>
+        (isIndexBracket(k) || k.get("type") === "ArrayLiteral") && startOf(k) < startOf(kids[colonIndex]),
+    );
+    if (computedUnit !== undefined) {
+      props.propertyName = {
+        kind: "ComputedPropertyName",
+        expression: computedNameExpression(computedUnit, ctx),
+        pos: startOf(computedUnit),
+        end: endOf(computedUnit),
+      };
+    } else {
+      const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
+      if (before !== undefined) props.propertyName = nameOf(before, ctx);
+    }
+    // **冒号右边那一格**才是绑定名 / 嵌套模式；`[k2]: { a }` 里冒号**左边**那个
+    // `ArrayLiteral` 是计算名（第 137 轮）——`patternKid` 取的是「第一个模式单元」，
+    // 在这里会取错，所以要按**位置**重新找一次。
+    const afterColon = kids.find(
+      (k) => isPatternLike(k) && startOf(k) > startOf(kids[colonIndex]),
+    );
+    const afterPattern = afterColon;
     if (afterPattern !== undefined) {
       props.name = projectBindingPattern(afterPattern, ctx);
     } else {
@@ -5201,8 +5270,14 @@ TS 那边的 `properties` 是**成员数组**：
     const nameUnits = group.slice(0, colonAt);
     const valueUnits = group.slice(colonAt + 1);
     // 计算属性名 `[k]`：产物里是一个 `ArrayLiteral`（含方括号），TS 是 `ComputedPropertyName`。
+    // **括号与 `ArrayLiteral` 两种形态都要认**（第 137 轮）：`{ [k]: 1 }` 与 `{ [k]() {} }`
+    // 走的是不同的重组路径，前者是 `Bracket`、后者已经被 `JsonArrayReorganization` 收成
+    // `ArrayLiteral`——只认 `isIndexBracket` 时后者会投成一个 `ArrayLiteralExpression`
+    // （实测 `ex-object-literal.ts` 缺 `ComputedPropertyName` 1 + 多出 `ArrayLiteralExpression` 1）。
     const computed =
-      nameUnits.length === 1 && isIndexBracket(nameUnits[0]) ? nameUnits[0] : undefined;
+      nameUnits.length === 1 && (isIndexBracket(nameUnits[0]) || nameUnits[0].get("type") === "ArrayLiteral")
+        ? nameUnits[0]
+        : undefined;
     const name =
       computed === undefined
         ? // **成员名永远是 `Identifier`**（第 125 轮）：`{ typeof: 1 }` 的产物把 `typeof`

@@ -502,6 +502,16 @@ if (previous instanceof Identifier || previous instanceof String) {
   return false;
 }
 if (previous instanceof Bracket) {
+  // **`with (obj) { … }` 的体也是块**（第 137 轮）：`with` 在本工程里没有自己的 token 规则
+  // （它就是一个 `Keyword`），所以那个 `{` 只能在这里被认成块——否则里面的语句不成形。
+  // 别的 `)` 仍旧按上面那条让路（`switch (x) {` / `while (x) {` / `function f() {`）。
+  const at = units.indexOf(previous);
+  if (at > 0) {
+    const header = GetSkipPrevious(units, at, IsTriviaUnit);
+    if (header !== null && WordText(header) === "with") {
+      return true;
+    }
+  }
   return previous.startBracket === "}";
 }
 if (previous instanceof SymbolToken) {
