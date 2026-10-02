@@ -1027,8 +1027,6 @@ new Map([
 
     // **`Spread` 已搬进 `tokens/spread.xl.md` 的 `PrintAst`**（第 182 轮）。
 
-    case "Try":
-      return projectTry(v, ctx);
 
     // **命名空间 / 模块声明**（第 100 轮）：字符串模块名（`declare module "m" { }`）在 TS 那边
     // 名字是 `StringLiteral`，而产物把它收进 `namespace` 属性——照通用支会投成 `Identifier`。
@@ -6216,90 +6214,6 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   return { kind: "MappedType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectTry:(v:any, ctx:any)=>any
-
-`try { … } catch (e) { … } finally { … }` → `TryStatement`。
-
-产物那边三段是**命名段**（`body` / `catches` / `finally`，见 `ToList`），
-TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
-
-- `body` / `finally` 段里直接是**语句**（`TryBody` / `FinallyBody` 那层壳在 `ToList` 时
-  就被摊平了，产物里根本没有对应的块节点），所以两个 `Block` 要**自己造**：
-  按关键字之后的那个 `{` 与配对的 `}` 量区间；
-- `catches` 段里是 `CatchDefine`（`(e)`，区间含括号）与 `CatchBody`（本来就是 `Block` 节点）——
-  `CatchDefine` 在 TS 里**不是节点**，它的内容进 `CatchClause.variableDeclaration`
-  （一个只有 `name` 的 `VariableDeclaration`）。
-
-照通用投影的结果是 `TryStatement > [body, catches, finally]`（实测缺 `Block` 2 +
-缺 `CatchClause` + 缺 `VariableDeclaration` + 多出一个未映射的 `CatchDefine`）。
-
-```ts
-  const seg = (key) => kidsOf(v, key).filter((k) => !INVISIBLE.has(k.get("type")));
-  const props = {};
-  const blockAfter = (from, statements) => {
-    const brace = ctx.source.indexOf("{", from);
-    if (brace < 0) return undefined;
-    const close = matchingBrace(ctx.source, brace);
-    if (close < brace) return undefined;
-    return { kind: "Block", statements, pos: brace, end: close + 1 };
-  };
-  const tryAt = ctx.source.indexOf("try", v.start);
-  const tryBlock = blockAfter(tryAt < 0 ? v.start : tryAt, projectEach(seg("body"), ctx, "Block"));
-  if (tryBlock !== undefined) props.tryBlock = tryBlock;
-  const catches = seg("catches");
-  const catchDefine = catches.find((k) => k.get("type") === "CatchDefine");
-  const catchBody = catches.find((k) => k.get("type") === "CatchBody");
-  if (catchDefine !== undefined || catchBody !== undefined) {
-    const anchor = catchDefine !== undefined ? startOf(catchDefine) : startOf(catchBody);
-    const at = ctx.source.lastIndexOf("catch", anchor);
-    const inner = {};
-    if (catchDefine !== undefined) {
-      const binding = allKids(view(catchDefine)).find((k) => !INVISIBLE.has(k.get("type")));
-      // **解构捕获 `catch ({ message })`**（第 160 轮）：那个 `{ message }` 在产物里已经被
-      // `JsonObjectReorganization` 收成 `ObjectLiteral`，而 TS 那边 `CatchClause` 的
-      // `variableDeclaration.name` 是 `ObjectBindingPattern`——照通用支投会得到一个
-      // `ObjectLiteralExpression` + `ShorthandPropertyAssignment`
-      // （实测 `st-catch-destructure.ts` / `stmt-try-catch-destructure.ts` /
-      // `decl-binding-elements.ts` 各一处）。数组解构同理走 `projectBindingPattern`。
-      const isPattern =
-        binding !== undefined &&
-        (binding.get("type") === "ObjectLiteral" ||
-          binding.get("type") === "ArrayLiteral" ||
-          (binding.get("type") === "Bracket" &&
-            (binding.get("startBracket") === "{" || binding.get("startBracket") === "[")));
-      const name = binding === undefined ? undefined : isPattern ? projectBindingPattern(binding, ctx) : projectNode(binding, ctx);
-      if (name !== undefined) {
-        inner.variableDeclaration = { kind: "VariableDeclaration", name, pos: name.pos, end: name.end };
-      }
-    }
-    if (catchBody !== undefined) inner.block = projectNode(catchBody, ctx);
-    props.catchClause = {
-      kind: "CatchClause",
-      pos: at >= 0 ? at : anchor,
-      end: catchBody !== undefined ? endOf(catchBody) : endOf(catchDefine),
-      ...inner,
-    };
-  }
-  // **空的 `finally { }` 也要造块**（第 177 轮）：`finallyStatements.length === 0` 时原来直接
-  // 跳过，而 TS 那边照样有一个空的 `Block`（实测 `stmt-type-alias-then-try.ts`：
-  // 缺 `Block` + 少一个 `finallyBlock` 字段）。判据落在原文上：在**体（或 catch 体）之后**
-  // 找 `finally` 这个词——从 `v.start` 找会命中块里的字符串或注释。
-  const finallyFrom =
-    catchBody !== undefined
-      ? endOf(catchBody)
-      : tryBlock !== undefined
-        ? tryBlock.end
-        : v.start;
-  const finallyAt = ctx.source.indexOf("finally", finallyFrom);
-  if (finallyAt >= 0 && finallyAt <= stmtEndOf(v, ctx)) {
-    const finallyStatements = projectEach(seg("finally"), ctx, "Block");
-    const finallyBlock = blockAfter(finallyAt, finallyStatements);
-    if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
-  }
-  // **终点剪掉尾部 trivia**（与其它语句族同一口径）：`try { … }` 的产物区间含它后面的换行。
-  return { kind: "TryStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectNamespace:(v:any, ctx:any)=>any
 
 `namespace N { … }` / `module M { … }` / **`declare module "m" { … }`** → `ModuleDeclaration`。
@@ -6927,6 +6841,8 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     TypeOf: (list) => typeOf(list, ctx),
     BlockOfBody: (list, from) => blockOfBody(list, ctx, from),
     SwitchClause: (seg) => projectSwitchClause(seg, ctx),
+    AllKids: (node) => allKids(node instanceof Map ? view(node) : node),
+    BindingPattern: (unit) => projectBindingPattern(unit, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
