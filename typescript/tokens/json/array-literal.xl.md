@@ -65,6 +65,19 @@ if (current instanceof Bracket && current.startBracket === "[") {
     return false;
   } else if (previous !== null && previous.constructor.name === "PropertyAccess") {
     return false;
+  } else if (previous !== null && previous.constructor.name === "ObjectLiteral") {
+    // **对象字面量后面的 `[` 是**下标访问**（第 125 轮）：`{ typeof: 1 }[k]` 里那个
+    // `[k]` 原来是 `ArrayLiteral`——TS 那边整段是 `ElementAccessExpression`
+    // （`expression` 是对象字面量、`argumentExpression` 是 `k`）。
+    // 判据与 `PropertyAccess` 那一条同源：`[` 前面已经是一个**操作数**时，它只能是下标。
+    return false;
+  } else if (
+    previous !== null &&
+    previous.constructor.name === "Keyword" &&
+    ["this", "super"].includes((previous as any).Value)
+  ) {
+    // `this[0]` / `super[0]`：`this` / `super` 是 `Keyword`，同样只能是下标访问。
+    return false;
   } else if (previous instanceof SymbolToken) {
     if (previous.Is("=>")) {
       return false;

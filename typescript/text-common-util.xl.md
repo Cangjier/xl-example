@@ -402,6 +402,30 @@ for (let hop = 0; hop < 8 && node !== null; hop++) {
 return "";
 ```
 
+# method IsTriviaUnit:(item:Token | null)=>bool
+
+`item` 是不是**不承载语义的单元**：软换行、行注释、区域注释、预处理指令。
+
+判断单元**不是**按 `LineWrap` 一个类：注释在产物树里是独立的 `LineAnnotation` /
+`AreaAnnotation`（见 `parse-pipeline.xl.md` 的「注释不在这里被摘掉」），而预处理指令
+是 `PreprocessorDirectives`。`Token.PrintAst` 那一侧也有同一份名单（`INVISIBLE`），
+两处必须一起改——它们说的是同一件事：「这个单元在语法结构里不该挡住相邻判断」。
+
+按**类名**判而不是 `instanceof`：`text-common-util` 这一层向上 import 那三个类会绕出环。
+
+```ts
+if (item === null) {
+  return false;
+}
+const name = item.constructor.name;
+return (
+  name === "LineWrap" ||
+  name === "LineAnnotation" ||
+  name === "AreaAnnotation" ||
+  name === "PreprocessorDirectives"
+);
+```
+
 # method IsStatementStart:(units:Array<Token>, index:number)=>bool
 
 `index` 处的单元是不是**一条语句的第一个实义单元**。
@@ -445,7 +469,12 @@ const previousIndex = SkipPreviousWrapSymbol(units, index);
 if (previousIndex < 0) {
   return true;
 }
-const previous = GetSkipPrevious(units, index, (item) => item instanceof LineWrap);
+// **注释也是 trivia**（第 125 轮）：`const props = {` 前面常常是一整行 `// …` 注释，
+// 那些单元是 `LineAnnotation` / `AreaAnnotation`，原来只跳 `LineWrap`——
+// 于是 `previous` 落到注释上，三个 `instanceof` 分支一个都不命中、直接 `return true`，
+// 这个对象字面量被判成**语句开头的块**（`JsonObjectReorganization` 就此让路，
+// 产物里出现一个 `Block` 包着对象体，实测 `dist/ts/typescript/ts-ast.ts` 成片）。
+const previous = GetSkipPrevious(units, index, IsTriviaUnit);
 if (previous === null) {
   return true;
 }
@@ -638,6 +667,14 @@ for (let i = from; i >= 0; i--) {
   }
   if (item instanceof Identifier) {
     const name = item.TempToString();
+    // **成员名不是关键词**（第 125 轮）：`node.type = { … }` 里那个 `type` 是**属性名**，
+    // 不是类型别名的 `type`。不回看一格的话，右边的对象字面量会被读成**类型字面量**——
+    // 实测 `dist/ts/typescript/ts-ast.ts` 的 `node.type = { kind: …, types, pos: … }`
+    // 整块投成 `TypeLiteral` + `PropertySignature`，缺一整个 `ObjectLiteralExpression` 子树。
+    const before = Get(units, SkipPreviousWrapSymbol(units, i));
+    if (before instanceof SymbolToken && (before.Is(".") || before.Is("?."))) {
+      return false;
+    }
     if (name === "type") {
       return true;
     }

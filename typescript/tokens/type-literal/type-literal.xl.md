@@ -289,6 +289,15 @@ for (let i = index - 1; i >= 0; i--) {
   }
   if (item instanceof Identifier) {
     const text = item.TempToString();
+    // **成员名不是关键词**（第 125 轮）：`node.type = { … }` 里那个 `type` 是**属性名**，
+    // 不是类型别名的 `type`——不回看一格的话右边的**对象字面量**会被收成类型字面量
+    // （实测 `dist/ts/typescript/ts-ast.ts` 的 `node.type = { kind: …, types, pos: … }`
+    // 整块投成 `TypeLiteral` + `PropertySignature`，缺一整个 `ObjectLiteralExpression` 子树）。
+    // 判据与 `text-common-util.xl.md` 的 `IsTypeAliasAssignment` 用的是同一条。
+    const beforeWord = Get(units, SkipPreviousWrapSymbol(units, i));
+    if (beforeWord instanceof SymbolToken && (beforeWord.Is(".") || beforeWord.Is("?."))) {
+      continue;
+    }
     if (text === "type") {
       const beforeType = Get(units, SkipPreviousWrapSymbol(units, i));
       const afterType = Get(units, SkipNextWrapSymbol(units, i));

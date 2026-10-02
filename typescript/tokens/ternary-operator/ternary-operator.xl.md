@@ -345,12 +345,34 @@ falseStatement.AddRange(TakeRange(units, elseIndex + 1, endIndex - elseIndex - 1
 if (condition.Data.length === 0 || trueStatement.Data.length === 0 || falseStatement.Data.length === 0) {
   return index;
 }
-condition.SignInToken(condition.Data[0]);
-condition.SignOutToken(condition.Data[condition.Data.length - 1]);
-trueStatement.SignInToken(trueStatement.Data[0]);
-trueStatement.SignOutToken(trueStatement.Data[trueStatement.Data.length - 1]);
-falseStatement.SignInToken(falseStatement.Data[0]);
-falseStatement.SignOutToken(falseStatement.Data[falseStatement.Data.length - 1]);
+// **段首尾的软换行不进区间**（第 125 轮）：`const t =` 换行 `a === b ? … : …` 时，
+// 条件段的第一个单元正是那个换行——`SignInToken(Data[0])` 会把整条三元的起点
+// 提到换行上，而 TS 的 `getStart()` **从不含前导 trivia**（实测这一族以
+// `ConditionalExpression` 为首，`漂移` 榜上一整片）。段尾同理。
+//
+// 换行仍然留在段的 `Data` 里（投影侧按 `INVISIBLE` 跳过它们），只是**不参与签入签出**。
+const firstReal = (data: Array<Token>): Token => {
+  for (const item of data) {
+    if (!(item instanceof LineWrap)) {
+      return item;
+    }
+  }
+  return data[0];
+};
+const lastReal = (data: Array<Token>): Token => {
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (!(data[i] instanceof LineWrap)) {
+      return data[i];
+    }
+  }
+  return data[data.length - 1];
+};
+condition.SignInToken(firstReal(condition.Data));
+condition.SignOutToken(lastReal(condition.Data));
+trueStatement.SignInToken(firstReal(trueStatement.Data));
+trueStatement.SignOutToken(lastReal(trueStatement.Data));
+falseStatement.SignInToken(firstReal(falseStatement.Data));
+falseStatement.SignOutToken(lastReal(falseStatement.Data));
 ternaryOperator.SignInToken(condition);
 ternaryOperator.SignOutToken(falseStatement);
 condition.TryToClose();

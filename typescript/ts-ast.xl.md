@@ -1682,6 +1682,23 @@ new Set([
         for (const inner of projectableKids(view(k))) ck.push(inner);
         continue;
       }
+      // **点号后面那一格是一个二元单元**（第 125 轮）：`(a.pos ?? 0)` 的产物把
+      // `a.pos ?? 0` 平铺成 `[a, ., BinaryOperator(pos, ??, 0)]`——那个 `BinaryOperator`
+      // 的**第一个孩子才是成员名**，其余才是运算符与右操作数。不摊开的话下面
+      // `nameOf(next)` 会把整段 `pos ?? 0` 当成名字（投出一个盖住整段的 `Identifier`），
+      // `PropertyAccessExpression` / `QuestionQuestionToken` / `NumericLiteral` 全丢
+      // （实测 `dist/ts/typescript/ts-ast.ts` 与 `lib.es5.d.ts` 成片）。
+      if (
+        (k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator") &&
+        at > 0 &&
+        isSymbol(kids[at - 1], ".")
+      ) {
+        const inner = projectableKids(view(k));
+        if (inner.length >= 2) {
+          for (const one of inner) ck.push(one);
+          continue;
+        }
+      }
       ck.push(k);
     }
     let left =
@@ -4511,7 +4528,10 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
       props.statement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
     }
   }
-  return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
+  // **尾部 trivia 要剪掉**（第 125 轮）：循环的体段在产物里常含行尾的软换行
+  // （`for (const x of raw) if (x) f(x);` 换行），而 TS 的语句**从不含尾部 trivia**——
+  // 不剪的话 `ForOfStatement` / `ForStatement` 的终点比 TS 多一格（实测漂移 + 多出各一片）。
+  return { kind: "ForStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any)=>any
@@ -4551,7 +4571,7 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   const header = ctx.source.indexOf(")", v.start);
   const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
   if (statement !== undefined) props.statement = statement;
-  return { kind: "WhileStatement", pos: v.start, end: v.end, ...props };
+  return { kind: "WhileStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectDoWhile:(v:any, ctx:any)=>any
@@ -4568,7 +4588,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   if (statement !== undefined) props.statement = statement;
   const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
   if (compare.length > 0) props.expression = projectExpression(compare, ctx);
-  return { kind: "DoStatement", pos: v.start, end: v.end, ...props };
+  return { kind: "DoStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectForeach:(v:any, ctx:any)=>any
@@ -4594,7 +4614,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   const header = ctx.source.indexOf(")", v.start);
   const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
   if (statement !== undefined) props.statement = statement;
-  return { kind, pos: v.start, end: v.end, ...props };
+  return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method blockOfBody:(kids:Array<any>, ctx:any)=>any
@@ -4763,7 +4783,13 @@ TS 那边的 `properties` 是**成员数组**：
       nameUnits.length === 1 && isIndexBracket(nameUnits[0]) ? nameUnits[0] : undefined;
     const name =
       computed === undefined
-        ? projectExpression(nameUnits, ctx)
+        ? // **成员名永远是 `Identifier`**（第 125 轮）：`{ typeof: 1 }` 的产物把 `typeof`
+          // 记成 `<Keyword>`，照 `projectExpression` 投出来是 `TypeOfKeyword`——
+          // 而 TS 那边对象字面量的键**只可能是 `Identifier` / `StringLiteral` / 计算名**，
+          // 保留字在这里不是关键字（`a.import` 的成员名同一条道理，见 `projectAccess` 的说明）。
+          nameUnits.length === 1 && isNameNode(nameUnits[0])
+          ? nameOf(nameUnits[0], ctx)
+          : projectExpression(nameUnits, ctx)
         : {
             kind: "ComputedPropertyName",
             expression: computedNameExpression(computed, ctx),
@@ -4794,11 +4820,10 @@ TS 那边的 `properties` 是**成员数组**：
 ```ts
   const elements = [];
   for (const group of splitTopLevel(projectableKids(v), ctx, ",")) {
-    if (group.length === 1) {
-      const one = projectNode(group[0], ctx);
-      if (one !== undefined) elements.push(one);
-      continue;
-    }
+    // **一律走 `projectExpression`**（第 125 轮）：`group.length === 1` 时走 `projectNode`
+    // 会把元素位的**括号**投成一个未映射的 `<Bracket>`——`[(x), y]` 缺
+    // `ParenthesizedExpression` + 多出 `Bracket`。`projectExpression` 对单个单元的行为
+    // 与 `projectNode` 相同，只多认了「值位括号」那一支（`projectSpread` 里同一条）。
     const one = projectExpression(group, ctx);
     if (one !== undefined) elements.push(one);
   }
@@ -5162,7 +5187,11 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   const kids = projectableKids(v).filter(
     (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "..."),
   );
-  const expression = kids.length === 0 ? undefined : kids.length === 1 ? projectNode(kids[0], ctx) : projectExpression(kids, ctx);
+  // **目标走 `projectExpression` 而不是 `projectNode`**（第 125 轮）：
+  // `...(...)` 的目标是一对括号时，`projectNode` 会把整个括号投成一个**未映射的
+  // `<Bracket>`，而 `projectExpression` 认得出值位括号（`ParenthesizedExpression`）。
+  // 实测 `[...l, ...(x ?? [])]` 缺 `ParenthesizedExpression` + 多出 `Bracket`。
+  const expression = kids.length === 0 ? undefined : projectExpression(kids, ctx);
   return { kind: "SpreadElement", pos: v.start, end: v.end, ...(expression === undefined ? {} : { expression }) };
 ```
 
@@ -5472,7 +5501,12 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
       }
       flat.push(k);
     }
-    const projected = flat.length === 1 ? projectNode(flat[0], ctx) : projectExpression(flat, ctx);
+    // **一律走 `projectExpression`**（第 125 轮）：`flat.length === 1` 时走 `projectNode`
+    // 会把值位括号投成一个未映射的 `<Bracket>`——`(a) => (a.pos ?? 0)` 的体正是一对括号，
+    // 实测缺 `ParenthesizedExpression` + 多出 `Bracket` / `DotToken`。
+    // `projectExpression` 对单个单元的行为与 `projectNode` 相同（它就是这么转调的），
+    // 只多认了「值位括号」那一支。
+    const projected = projectExpression(flat, ctx);
     if (projected !== undefined) props.body = projected;
   }
   return { kind: "ArrowFunction", pos: v.start, end: v.end, ...props };

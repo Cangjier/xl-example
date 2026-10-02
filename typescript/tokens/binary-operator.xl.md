@@ -400,11 +400,18 @@ if (current.Parent !== null && current.Parent.constructor.name === "Statement") 
 // 不能只记一个下标再去 `Get(units, …)`（那样会拿错列表——实测踩过）。
 let openBracket: Token | null = null;
 let outside: Token | null = null;
+// **括号是「同一层的兄弟」还是「装着这个 `,` 的容器」**（第 125 轮）：前者说明
+// 这个 `,` 不在那个括号里——它是**外面那一层列表**的分隔符。
+// 实测 `[(x), y]`：逗号在同一层回扫时先撞上 `(x)` 这个兄弟括号，`outside` 是 `null`
+// （括号在列表第 0 格），旧代码于是走 `outside === null ⇒ true`，把数组元素分隔符
+// 折成了逗号表达式（`BinaryExpression` + `CommaToken` 各多一片）。
+let sameListBracket = false;
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
   if (item instanceof Bracket) {
     openBracket = item;
     outside = i > 0 ? Get(units, i - 1) : null;
+    sameListBracket = true;
     break;
   }
 }
@@ -436,6 +443,15 @@ if (openBracket === null) {
   }
 }
 if (!(openBracket instanceof Bracket) || openBracket.startBracket !== "(") {
+  return false;
+}
+// **同一层找到的括号只是「兄弟」**（第 125 轮）：`[(x), y]` / `[...(x), y]` /
+// `const a = (x), y` 里回扫先撞上前面那一对括号——它**不装着**这个 `,`
+// （装着的话列表就是它的 `Data`，它自己不在里面）。所以这个 `,` 是**外层列表的分隔符**，
+// 不是逗号表达式。原来这里继续往下走到 `outside` 判定：`outside` 是 `[` / `...` 时
+// 两条都不命中、`return true`，数组元素分隔符于是被折成 `CommaOperator`
+// （实测 `BinaryExpression` + `CommaToken` 各多一片、`SpreadElement` 跟着漂移）。
+if (sameListBracket) {
   return false;
 }
 // **`for` 的括号要整段让开**（实测补的）：`for (…; …; i++, j--)` 的更新段在 TypeScript 里
