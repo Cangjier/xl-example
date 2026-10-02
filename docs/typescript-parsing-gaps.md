@@ -2100,3 +2100,35 @@ node tests/parse/ts-ast.mjs --per-file | Select-Object -First 40
 node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 ```
 
+## 续：第 100～102 轮（863 → 952）
+
+| 轮 | 缺口 | 根因 | 量化 |
+| --- | --- | --- | --- |
+| 100 | **条件类型的假分支另起一行** | `SignatureTailEnd` 只在「换行前是符号」时续行，`… ? Mock<…>` 换行 `: never` 就在换行处断掉，假分支掉进成员表成平级语句 | `test.d.ts` 的 `Mocked` 接口整片；`ExpressionStatement` 多出、`PropertySignature` 缺 67、两处区间漂移 |
+| 100 | **`export` / `declare` 前缀 + 声明** | 产物是 `Statement > [Keyword(export), Namespace(…)]`，通用支把整条投成 `ExpressionStatement` | `undici-types` 的 `export declare namespace` 家族、`@types/node` 的 `declare module` 家族 |
+| 100 | **字符串模块名** | `declare module "m"` 的 `ModuleDeclaration.name` 是 `StringLiteral`（含引号），产物把名字收进属性、投成了 `Identifier` | `Identifier` 多出 112 里的成片 |
+| 100 | 折行的联合 / 交叉类型 | 同一条续行判据扩到 `\|` / `&`（`typescript.d.ts` 的 `): A \| ⏎ \| B & {…} ⏎ \| undefined;`） | — |
+| 101 | **初始化式只取了一格** | `projectLetFrom` 取 `=` 右边第一格，而链在产物里是平级的四格——链尾全丢 | `NonNullExpression` 多 71 + 漂移 76、`DotToken` 多 75、`PropertyAccessExpression` 漂移 24 |
+| 101 | **可选链续接** | `?.` 之后的成员在产物里是 `NullConditionalOperator` 单元，TS 是链上带 `questionDotToken` 的一格 | `PropertyAccessExpression` 缺 194 |
+| 102 | **箭头函数的表达式体** | `LamdaBody` 被 `KIND_BY_TAG` 映射成 `Block`，一行箭头 `(x) => x instanceof Y` 于是多出一个 `ExpressionStatement` | 多出 `ExpressionStatement` 409 里的一片 |
+
+| 判据 | 第 99 轮末 | 第 102 轮末 |
+| --- | ---: | ---: |
+| **完全一致的文件** | 863 | **952** |
+| 缺节点 | 2942 | **2404** |
+| 区间漂移 | 426 | **432** |
+| 多出来的节点 | 1585 | **1197** |
+| 字段名不符 | 118 | **118** |
+
+### 第 102 轮之后剩下的（按大小）
+
+| 组 | 规模 | 形状与已知信息 |
+| --- | ---: | --- |
+| `Identifier` 缺 | 1050 | `any[][typeof Symbol.iterator]` 这类**下标访问里的类型查询**；限定名 + 数组后缀的尾巴（`readonly webcrypto.KeyUsage[]`） |
+| `PropertyAccessExpression` | 缺 294 / 多 97 / 漂移 24 | 可选链的其余形态（`?.` 与 `!`、`?.()`、`?.[]` 混排） |
+| `TypeReference` | 缺 220 / 多 91 / 漂移 79 | 泛型实参 + 数组后缀 + 限定名的分层与区间 |
+| `BinaryExpression` | 缺 158 | 折行表达式的续接（`a &&` 换行 `b`） |
+| **带花括号的箭头体** | — | `ToList` 把 `LamdaBody` 里的 `Statement` 摊平了，投出来的 `body` 不是 `Block`——**正解在 token 层**（让那一层留住 `Statement`）；硬拼会得到 `Identifier(return)` |
+| `StringLiteral` 75 / `NumericLiteral` 69 | 144 | 条件类型分支里、`declare module "x"` 名字位上的字面量 |
+| `ExpressionStatement` 多 | 380 | 其余成因（折行表达式 / 多行参数表） |
+
