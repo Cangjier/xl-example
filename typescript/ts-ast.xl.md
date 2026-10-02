@@ -2303,14 +2303,24 @@ new Set([
           continue;
         }
         if (head !== undefined) {
-          const member = {
-            kind: "PropertyAccessExpression",
-            expression: left,
-            name: nameOf(head, ctx),
-            pos: left.pos,
-            end: endOf(head),
-          };
-          left = { kind: "NonNullExpression", expression: member, pos: member.pos, end: endOf(next) };
+          // 断言里可能是一条**链**而不是一个名字：`Get(units, index)!.SourceRange.Start!` 的
+          // `NotNull` 里装着 `PropertyAccess(SourceRange . Start)`。照名字投会得到一个
+          // 文本是整条链的 `Identifier`（实测 `dist/ts/typescript/tokens/if/if-set.ts` 一族：
+          // 漂移 14 + 缺 7 + 多出 7）。逐格接上去，最后再套 `NonNullExpression`。
+          const chain = head.get("type") === "PropertyAccess" ? projectableKids(view(head)) : [head];
+          for (const piece of chain) {
+            if (piece.get("type") === "SymbolToken") {
+              continue;
+            }
+            left = {
+              kind: "PropertyAccessExpression",
+              expression: left,
+              name: nameOf(piece, ctx),
+              pos: left.pos,
+              end: endOf(piece),
+            };
+          }
+          left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(next) };
           i += 2;
           continue;
         }
