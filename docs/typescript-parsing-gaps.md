@@ -3040,3 +3040,30 @@ $ node tests/parse/ts-ast.mjs --per-file
 `Method` / `PropertyAccess` / `TypeDefine` / `TypeAssign` / `Parameter` / `LamdaParameter` /
 `Lamda` / `Import` / `IfSet` / `Signature` / `Field`），届时进入收尾：删 `switch`、
 把共享实现改名 `print-ast-common.xl.md`。
+
+### 第 192 轮：把「横切」也搬走——关键手法是**把直调点改成通用分派**
+
+| 块 | 落到哪 | 说明 |
+| --- | --- | --- |
+| `Root` | `tokens/root.xl.md` | 一行：`ctx.Node("SourceFile", { statements: ctx.ProjectEach(...) })` |
+| `PropertyAccess` | `tokens/property-access.xl.md` | 一行：整段交给 `ctx.Expression`（折链那一支） |
+| `TypeDefine` | `tokens/type-define.xl.md` | **实现整块搬过去**，见下 |
+
+中央 `switch` 的 `case` 从 20 降到 **16**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+**这一轮最重要的结论**：上一轮把 `TypeDefine` 判成「必须留共享层」是因为它还有**内部直调点**
+（成员 / 形参 / 字段的 `type` 段都直接 `projectTypeDefine(...)`）。但那些直调点其实都握着
+**那个单元的 Map**——把它们改成 `ctx.Project(那个单元)`（通用分派）之后，实现就可以整块搬进
+token：`projectNode` 会先问 `__token.PrintAst` ✓，输入相同、结果逐字节一样，而且**全工程只剩一份实现**。
+
+于是「横切」不再等于「必须留共享层」，判据变成：
+
+> **留共享层**＝这个函数被共享层自己调用、且拿不到「单元」这个入口（例如
+> `projectEach(list, ctx, parentKind)` 收到的是一串**已经取出来的**单元数组、
+> `projectStatement(v, ctx, kind)` 还要接外层递进来的 `baseStart`）。
+> **能搬**＝所有调用点都能改写成「把某个单元交给 `projectNode`」。
+
+按这个判据重看剩下 16 个：`Let` / `TypeAssign` / `Lamda` / `Field` / `Parameter` / `Signature` /
+`IfSet` / `Import` / `Method` / `BinaryOperator` / `LogicalOperator` / `UnaryOperator` /
+`Statement` 里，多数有望照 `TypeDefine` 的办法搬走；`Statement`（语句分派 + 外层起点）与
+`Let`（列表版）预计是最后留下的两个。
