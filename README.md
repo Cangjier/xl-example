@@ -1517,6 +1517,96 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 80 轮：下标访问进链（token 层）—— 真实语料 97.9% → 98.1%
+
+上一轮结尾点名的「修不动的那一半」这一轮做掉了：**让下标访问在 token 层就成为一个单元**，
+于是运算符规则看到它时它已经是完整操作数。
+
+#### 一、为什么这是「一条规则多认一种后缀」，而不是加节点
+
+第 70 轮那条链规则（[typescript/tokens/property-access.xl.md](typescript/tokens/property-access.xl.md)）
+三处现成的条件让它成为最小改动点：
+
+1. **队列位置已经对**：[parse-pipeline.xl.md](typescript/parse-pipeline.xl.md) 里它排在 `WrapSymbol`
+   之后、**所有运算符规则之前**（复合赋值 / 一元 / 二元 / 逻辑 / 逗号），所以只要它先把 `a[i]`
+   收成一个单元，`+` / `=` / `!==` 那一片就自然会拿到完整操作数；
+2. **它本来就认识 `[` 括号**：`IsChainBase` 早就允许「收尾括号是 `)` / `]`」的括号当**链底**
+   （`a[0].b` 早就是一条链）——缺的只是**链尾再吞一个 `[ … ]`**；
+3. **链的子单元本来就按原文顺序排**（`[a, ., b, ., c]`），下标链接放进去**不需要新标签、
+   也不需要标志位**——那个 `[` 括号单元自己就说明了它是下标链接。
+
+改了三处：新增 `IsIndexUnit`（只认 `startBracket === "["`：类型位的早被 `TypeBracketReorganization`
+收成 `ArrayType` / `TupleType` / `IndexedAccessType`、值位没有操作数的被 `JsonArrayReorganization`
+收成 `ArrayLiteral`，轮到链规则时还留着的 `[` 只可能是「前面有操作数的那个」）、
+`ChainEndIndex` 多一步「下一格是下标括号就吞掉、继续走」、`Previous` 末尾补一层**类型位守卫**（见下）。
+投影层那一支（`projectExpression` 的链折叠）顺手改成「点号链接与下标链接混排都顺着走」，
+于是 `a[i]` / `a[i].b` / `a[i][j].c` 都是左结合的嵌套。
+
+**效果**（`xs[0] + 1` 那个形状，第 79 轮记过的产物树）：
+
+    第 79 轮：  [Identifier(xs), BinaryOperator(op="+", [ Bracket[0], +, Identifier(1) ])]     ✗
+    第 80 轮：  BinaryOperator(op="+", [ PropertyAccess(xs [0]), +, Identifier(1) ])            ✓
+
+#### 二、类型位那三处守卫（都是实测逼出来的）
+
+多认一种后缀，就得自己把类型位挡掉——**类型位的 `[]` 与值位的 `[i]` 形状一模一样**。
+三处都不是「想一想就知道」，是 `cases:run` 与 `cases:align` 逐个报出来才找到的：
+
+| 形状 | 现象 | 判据 |
+| --- | --- | --- |
+| `type E2 = A[]` | 这一步**根本没轮到**（`TypeBracketReorganization` 排在前面，先收成 `ArrayType`） | ——（守卫管的是「它还没接手」的那几个形状） |
+| `type E3 = [...A[]]` / `...rest: E[]` | `[]` 被链吞掉，`ArrayType` 消失（两条用例当场红） | 括号的宿主（`RestType` / `NamedTupleMember` / `IsTypeContainerUnit`） |
+| `type X<O> = { readonly [K in keyof O]: O[K] }` | 映射类型**值**里那个 `O[K]` 被折成链（`cases:align` 的标签占用 12 处） | 宿主的宿主（成员位那层 `Statement` 的父亲是 `MappedType` / `TypeLiteralBody`…——`Statement` **刻意不在** `IsTypeContainerUnit` 白名单里，值位语句列表也是它） |
+| `x is NodeJS.ArrayBufferView` | 谓词里的限定名被折成链（4 处） | 同上，再加 `TypePredicate` |
+
+**`Context` 在这里帮不上忙**（重要的一条实测）：`type E3 = [...A[]]` 里那个 `[]` 的
+`Context` 是 **`"value"`**——`DecideBracketContext` 往前扫先撞上 `...`（一个符号），规则判它值位。
+最后用上的是 **`ArrayLiteral.Context`**（[json/array-literal.xl.md](typescript/tokens/json/array-literal.xl.md)：
+它在 `TryToClose` 之前直接抄自那个括号的 `Bracket.Context`）：元组类型的那个 ArrayLiteral 是
+`"type"`、值位数组字面量是 `"value"`——插桩还看到那一刻它的 `Parent` 甚至还是 `Root`，
+所以「往上找类型容器」与 `IsTypeBracketPosition` 都问不出东西，这个抄过来的 `Context` 才是现成的信号。
+
+#### 三、量具必须跟着走：把 `PropertyAccess` 登记进标签表
+
+这一步是**必须一起做的**（[tests/parse/align.mjs](tests/parse/align.mjs)）：`PropertyAccess`
+是第 70 轮加的标签，标签表里一直没有它，而这一把尺子对「查不到标签的 kind」是 `continue`
+——那一族**整类看不见**。补上之后，**原来一直看不见的东西当场照了出来**（这正是补它的意义）：
+
+| 照出来的 | 处数 | 处置 |
+| --- | --- | --- |
+| 继承段的点号名（`interface I extends globalThis.Iterator`） | 158 | **口径**：链规则**刻意**在 `HeritageClause` / `ExpressionWithTypeArguments` / `NewType` / `Decorator` 让路，投影层用 `dottedExpression` 出节点（第 70 轮的设计） |
+| `?.` / `!.` 链（`this.Start?.Document` / `f()!.P`） | ~54 | **口径**：那两支分别归 `NullConditionalOperator` / `NotNull`（都排在链规则之后） |
+| 装饰器限定名 `@ns.dec` | 1 | **口径**：装饰器名有自己的规则 |
+| `new.target`（TS 是 `MetaProperty`）/ 尖括号断言里的 `T[]` | 12 | **口径**：前者第 70 轮起就是链，后者在 README 的「已知缺口」里 |
+| `typeof Symbol.iterator` / 谓词里的限定名 | 5 | **口径**：类型位那几格在链规则跑的时候还没成形（时序），本轮的守卫挡住了大部分，余下按位置登记 |
+
+这些口径**逐条登记**在 `ALLOWED_EXTRA` 与 `ignoreMissing` 里（看得见，不是拿别名遮的）。
+
+#### 四、这一轮的账
+
+| 判据 | 第 79 轮 | 现在 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 459174（97.9%） | **460557（98.1%）** |
+| 其中**字段名也一致** | 458715（99.9%） | **460098（99.9%）** |
+| `cases:tsast` 用例语料 | 85.7% | **86.0%** |
+| 投影后仍缺 `ElementAccessExpression` | 292 | **0** |
+| 投影后仍缺 `Identifier` | 1851 | **1602** |
+| 投影后仍缺 `PropertyAccessExpression` | 541 | **424** |
+| 投影后仍缺 `BinaryExpression` / 漂移 | 400 / 680 | **306 / 642** |
+| `cases:align`（1419 文件） | 未登记 1 类 / 缺节点 1 类（那 2 处 `CallExpression`） | 未登记 **1 类**（仍是 `LiteralType in TypeDefine` 那 1 处）/ 缺节点：**已登记口径若干 + 未登记 15 处**（见下） |
+| `cases:run` / `cases:check` | 1034 / 1034 | **1034 / 1034**（期望值一条没改） |
+| 其余尺子 | 全绿 | **全绿**（`astjson` / `lossless` / `structure` / `boundaries` / `noise` / `diff` / `dashboard` / `matrix` / `recon2` / `samples` / `shapelint`） |
+| 投影抛异常的文件 | 0 | **0** |
+
+**如实记下那 15 处**（`cases:align` 的缺节点里未登记的）：`dist/ts/typescript/ts-ast.ts` 的
+`params.push`（2 处，即第 75 / 76 轮登记过的**整段平铺**那个已知现象）、`this.#x`（私有名，1 处）、
+`interfaceInstance.export` 与 `source.Pre`（各若干处，**单独写出来是对的**，说明是上下文带的，
+还没查到根因）。它们都在**值位代码**里——`.d.ts` 语料几乎没有这种形状，所以这一族一直没被照出来过。
+
+**下一轮的目标**：① 上面那 15 处（先从 `this.#x` 与两处「上下文带歪」入手）；
+② `PropertyAssignment` 387（对象字面量的成员）；③ `ParenthesizedExpression` 370 / `Block` 414；
+④ `Identifier` 1602 与 `TypeReference` 417 这两块老账。
+
 ### 第 79 轮：成员位的语句壳 · 索引签名 · 后缀下标（真实语料 +463 节点）
 
 上一轮收尾时点名的第一件事是「`interface I { [n: number]: T }` 被投成

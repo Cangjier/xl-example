@@ -134,11 +134,31 @@ if (unit instanceof Identifier || unit instanceof Method) {
 return unit.constructor.name === "Keyword";
 ```
 
+## private method IsIndexUnit:(unit:Token | null)=>bool
+
+`unit` 是不是**下标访问的那对方括号**（`a[i]` 里的 `[i]`）。
+
+判据只有 `startBracket === "["` 一条：**类型位**的 `[` 早被 `TypeBracketReorganization`
+收成 `ArrayType` / `TupleType` / `IndexedAccessType`（它排在队列很前面），
+**值位里没有操作数**的 `[` 被 `JsonArrayReorganization` 收成 `ArrayLiteral`——
+轮到这个规则时，还留着的光秃秃 `[` 括号只可能是「前面有操作数的那个」。
+
+**第 80 轮补**：链要能吞下标。这一条与 `IsChainBase` 里那句「`Bracket` 只认收尾括号是
+`)` / `]` 的」是两件事——那句说的是**链底**可以是 `(a + b)` / `a[0]`，
+这一条说的是**链尾**还能再挂一个 `[ … ]`。
+
+```ts
+if (unit === null) {
+  return false;
+}
+return unit instanceof Bracket && unit.startBracket === "[";
+```
+
 ## private method ChainEndIndex:(units:Array<Token>, index:int)=>int
 
 从 `index`（链的起点）往后走，返回**链尾**那个单元的下标；走不动就给 `index` 自己。
 
-每一步都是「跨过软换行取 `.`，再跨过软换行取成员」：
+每一步都是「跨过软换行取下一格」：要么是 `.` + 成员名，要么是**一个下标括号**。
 `a` 换行 `.b` 在 TypeScript 里是一次成员访问（`.` 不可能当一条语句的开头，
 所以这里跨换行是安全的）。
 
@@ -147,15 +167,25 @@ return unit.constructor.name === "Keyword";
 （第一版在 `Method` 处 `break`，结果 `a.b(1).c.d` 被折成两个平级的 `PropertyAccess`，
 投影层再也拼不回左结合的嵌套。）
 
+**下标也是链的一环**（第 80 轮）：`a[i]` / `a[i].b` / `a[i][j].c` 都是一条链。
+不吞下标的后果是**运算符会先把那个括号拿走**——`xs[0] + 1` 在产物里成了
+`[Identifier(xs), BinaryOperator([0] + 1)]`（`+` 的左操作数是那个 `[0]` 括号，
+`xs` 被留在外面），投影层再也拼不回关联：`ElementAccessExpression` 缺 292 处、
+`BinaryExpression` 漂移 680 处里的一大块、以及 `Identifier` 缺 1851 里的一部分。
+
 ```ts
 let current = index;
 while (true) {
-  const dotIndex = SkipNextWrapSymbol(units, current);
-  const dot = Get(units, dotIndex);
+  const nextIndex = SkipNextWrapSymbol(units, current);
+  if (this.IsIndexUnit(Get(units, nextIndex))) {
+    current = nextIndex;
+    continue;
+  }
+  const dot = Get(units, nextIndex);
   if (!(dot instanceof SymbolToken) || !dot.Is(".")) {
     return current;
   }
-  const memberIndex = SkipNextWrapSymbol(units, dotIndex);
+  const memberIndex = SkipNextWrapSymbol(units, nextIndex);
   if (this.IsMemberUnit(Get(units, memberIndex)) === false) {
     return current;
   }
@@ -213,6 +243,61 @@ const next = Get(units, SkipNextWrapSymbol(units, endIndex));
 if (next !== null && next.constructor.name === "NullConditionalOperator") {
   return false;
 }
+// **下标链接只在值位成立**（第 80 轮补）：类型位的 `[]` 与值位的 `[i]` 形状一模一样，
+// 这里多认了一种后缀，就得自己把类型位挡掉。两处实测逼出来的细节：
+//
+//   · `type E2 = A[]` 这时候**已经没有括号了**（`TypeBracketReorganization` 排在前面，
+//     它先收成 `ArrayType`）——所以这条守卫管的是**它还没接手**的那几个形状；
+//   · `type E3 = [...A[]]` / `type T = [..., ...rest: E[]]` 里的那个 `[]` 跑链规则时
+//     还是光秃秃的括号，而 **`Context` 在这里帮不上忙**（`...` 是个符号，
+//     `DecideBracketContext` 判它「值位」，实测 `[...A[]]` 的 `[]` 就是 `ctx="value"`）。
+//
+// 所以判据用**括号所在的那一类宿主**——`IsTypeContainerUnit` 那份白名单
+// （时序无关，问的是「我的父亲是哪一类节点」），再补两个**只在类型位出现**的元组成员容器
+// （`RestType` / `NamedTupleMember`；它们不在共享白名单里，这里只为本规则补一条，
+// 不动那份共享白名单——README 记过动它会把别的规则带崩）。
+const last = Get(units, endIndex);
+if (this.IsIndexUnit(last)) {
+  const holder:Token | null = last === null ? null : last.Parent;
+  if (holder !== null) {
+    const holderName = holder.constructor.name;
+    if (
+      IsTypeContainerUnit(holder) ||
+      holderName === "RestType" ||
+      holderName === "NamedTupleMember" ||
+      holderName === "TypePredicate"
+    ) {
+      return false;
+    }
+    // **成员位那层 `Statement`**（第 79 轮记过的形状）：映射类型的值 `{ [K in keyof O]: O[K] }`
+    // 里那个 `O[K]`，跑链规则时它的宿主是个 `<Statement>`——而 `Statement` **刻意不在**
+    // `IsTypeContainerUnit` 的白名单里（值位的语句列表也是它，混进来会把 `{ a: b[0] }` 判成类型）。
+    // 所以这里再看一层：宿主的宿主是不是类型容器（映射类型 / 类型字面量体 / 接口体…）。
+    // 少了这一条，`O[K]` 会被折成链（`cases:align` 的「标签占用」实测 12 处，
+    // 样本全是 `readonly [P in keyof T]` 那种映射类型的值）。
+    if (
+      holderName === "Statement" &&
+      holder.Parent !== null &&
+      (IsTypeContainerUnit(holder.Parent) || holder.Parent.constructor.name === "TypePredicate")
+    ) {
+      return false;
+    }
+    // **元组 / 数组字面量那一层**（插桩实测：`type E3 = [...A[]]` 跑链规则时，
+    // `A` 与那个 `[]` 都还在一个 `ArrayLiteral` 里——类型方括号规则还没接手，
+    // 那个 ArrayLiteral 的 `Parent` 甚至还是 `Root`，所以「往上找类型容器」与
+    // `IsTypeBracketPosition` 在这个时刻都问不出东西）。
+    //
+    // 现成的时序无关信号是 **`ArrayLiteral.Context`**：它在 `TryToClose` 之前
+    // 直接抄自那个括号的 `Bracket.Context`（见 `json/array-literal.xl.md`）——
+    // 类型位（元组类型）是 `"type"`、值位是 `"value"`：
+    //
+    //     type E3 = [...A[]]        → 外层 `[` 的 Context 是 "type"（`=` 往左找到 `type`）
+    //     const arr = [a[0], b]     → "value"（`=` 往左找到 `const`）
+    if (holderName === "ArrayLiteral" && (holder as any).Context === "type") {
+      return false;
+    }
+  }
+}
 return true;
 ```
 
@@ -252,9 +337,14 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 # class PropertyAccess extends IndependentToken
 
-成员访问链 `a.b` / `a.b(1)` / `f(1).x` 的容器单元。
+成员访问链 `a.b` / `a.b(1)` / `f(1).x` 的容器单元；**第 80 轮起下标也是链的一环**
+（`a[i]` / `a[i].b` / `a[i][j].c`）。
 
 **类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
+
+链的 `Data` **按原文顺序**排（`[a, ., Method(b(1)), ., c]`、`[a, Bracket[0], ., b]`），
+投影层顺着走一遍就能折出左结合的 `PropertyAccessExpression` / `ElementAccessExpression`——
+所以下标进链**不需要新标签、也不需要标志位**：那个 `[` 括号单元自己就说明了它是下标链接。
 
 ## constructor:(template:Template)=>void
 

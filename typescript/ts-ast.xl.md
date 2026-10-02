@@ -1215,33 +1215,53 @@ new Set([
 
 一串单元 → 一个表达式。
 
-三种折叠，按优先级从高到低：
+四种折叠，按优先级从高到低：
 
-1. **点号链** `a.b.c` ⇒ **嵌套的 `PropertyAccessExpression`**（TS 的形状是左结合的）。
-   产物那边它是**平铺**的 `[a, ., b, ., c]`——早先这里按「找第一个标点当运算符」处理，
+1. **链**（成员访问与下标访问混排）`a.b.c` / `a[i].b` ⇒ **左结合的嵌套**
+   （`PropertyAccessExpression` / `ElementAccessExpression`）。产物那边链是一个
+   `PropertyAccess` 单元、子单元按原文顺序排；早先这里按「找第一个标点当运算符」处理，
    于是 `.` 被当成了二元运算符、折出一个 `BinaryExpression`：**heads 和 tails 两头都错**
    （TS 既没有那个 `BinaryExpression`，也没有 `.` 这个运算符节点）。
 2. **二元 / 赋值** ⇒ `BinaryExpression`（`x = 1` / `a + b`）。
-3. 单个单元 ⇒ 直接投影。
+3. **后缀下标**（链没成形、只有平级两格时）⇒ `ElementAccessExpression`。
+4. 单个单元 ⇒ 直接投影。
 
 ```ts
   if (kids.length === 0) return undefined;
   if (kids.length === 1) return projectNode(kids[0], ctx);
   const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
 
-  // ---- 1. 点号链（**从左边开始折**，折完把结果当左操作数继续） ----
+  // ---- 1. 链（成员访问与下标访问混排，**从左边开始折**） ----
   //
-  // 早先是「找第一个标点当运算符」⇒ `.` 被当成二元运算符（两头都错）；
-  // 中间改成「必须吃满整串才认这条链」⇒ `a.b.c = 1` 这种**链后面还有运算符**的又不认了，
-  // 于是掉回二元分支、还是拿 `.` 当运算符。正解是**先折链、再拿链的结果当左操作数**。
+  // 产物那边链是一个 `PropertyAccess` 单元，子单元**按原文顺序**排：
   //
+  //   `a.b.c`      → [a, ., b, ., c]
+  //   `a.b(1).c`   → [a, ., Method(b(1)), ., c]
+  //   `a[i]`       → [a, Bracket[i]]            （第 80 轮：下标进链）
+  //   `a[i].b`     → [a, Bracket[i], ., b]
+  //
+  // TS 那边是**左结合的嵌套**，所以这里顺着走、折一层套一层。
   // **第 70 轮**：token 层新增了 `PropertyAccess`（成员访问链在 token 层就折成一个单元），
   // 所以这里的两条输入路径都要认——`PropertyAccess` 单元走同一个递归（见 `projectNode`），
   // 而**值位里散着的平铺链**（类型位、`?.` 让路之后的残留）仍走这一支。
-  if (kids.length > 2 && isSymbol(kids[1], ".")) {
+  if (kids.length >= 2 && (isSymbol(kids[1], ".") || isIndexBracket(kids[1]))) {
     let left = projectNode(kids[0], ctx);
     let i = 1;
-    while (i + 1 < kids.length && isSymbol(kids[i], ".")) {
+    while (i < kids.length) {
+      // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。
+      if (isIndexBracket(kids[i])) {
+        const argument = projectExpression(projectableKids(view(kids[i])), ctx);
+        left = {
+          kind: "ElementAccessExpression",
+          expression: left,
+          argumentExpression: argument,
+          pos: left.pos,
+          end: endOf(kids[i]),
+        };
+        i += 1;
+        continue;
+      }
+      if (!isSymbol(kids[i], ".") || i + 1 >= kids.length) break;
       const next = kids[i + 1];
       if (next.get("type") === "Method") {
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——

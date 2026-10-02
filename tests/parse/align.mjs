@@ -92,6 +92,11 @@ const REVERSE = {
   // 不产调用节点）。它是有意的形状，按位置登记进 `ALLOWED_EXTRA`，
   // 而不是靠这张宽别名表悄悄认领——登记看得见，别名看不见。
   Method: ["CallExpression", "ExternalModuleReference"],
+  // **第 80 轮补**：`PropertyAccess` 是第 70 轮加的标签（成员访问链），当时这张表没跟着加——
+  // 「查不到标签的 kind」在这一把尺子里是 `continue`（跳过），于是 `PropertyAccessExpression`
+  // 那一族**整类看不见**（第 77 轮记过这个口子）。第 80 轮把**下标**也收进链里，
+  // `ElementAccessExpression` 也落在它下面，所以这一行必须与 token 层一起补上。
+  PropertyAccess: ["PropertyAccessExpression", "ElementAccessExpression"],
   ImportType: ["ImportType"],
   RegexToken: ["RegularExpressionLiteral"],
   NamespaceBody: ["ModuleBlock"],
@@ -190,6 +195,14 @@ const ALLOWED_EXTRA = {
   "ArrayLiteral in UnionType": "元组类型 `[T]` 用 ArrayLiteral 承接（与 `ArrayLiteral in TypeDefine` 同一口径）",
   "BinaryOperator in Bracket": "括号里的联合类型 `(A | B)`（类型位，本工程按二元运算收）",
   "BinaryOperator in BinaryOperator": "嵌套的联合 / 交叉类型（`A | B | null`）",
+  // **第 80 轮把 `PropertyAccess` 登记进标签表之后照出来的四类**（原来这一族整类看不见）：
+  // 链规则**刻意**在 `NewType` / `HeritageClause` / `ExpressionWithTypeArguments` / `Decorator`
+  // 那几处让路（见 `property-access.xl.md` 的 `Previous`），而下面这几处是**类型位的那几格
+  // 还没成形**时链先跑了（类型规则排在链规则之后）：
+  "PropertyAccess in Statement": "`new.target`（TS 那边是 `MetaProperty`，第 70 轮起就是链）与尖括号断言里的 `T[]`（尖括号断言那一族本来就在 README 的「已知缺口」里）",
+  "PropertyAccess in BinaryOperator": "同上：`new.target` 落在二元 / 赋值上下文里（`decl-class-new-target` / `cls-super-newtarget` 两条用例）",
+  "PropertyAccess in TypeQuery": "`typeof Symbol.iterator`：链规则跑的时候那一格还没被 `TypeQuery` 收走（类型位时序口径，1 处）",
+  "PropertyAccess in TypePredicate": "`x is NodeJS.ArrayBufferView`：谓词里的限定名同上（4 处，全在 `@types/node`）",
   "BinaryOperator in TernaryOperatorCondition": "条件类型的 `extends` 约束里的运算符",
   "Function in ClassBody": "类体里按 `function(...)` 写的类型成员（TS 读成 MethodSignature / FunctionType）",
   "Lamda in TernaryOperatorFalseStatement": "条件类型分支里的函数类型",
@@ -372,6 +385,34 @@ function ignoreMissing(entry, parents, file, source) {
   if (entry.kind === "ArrayType" || entry.kind === "TupleType" || entry.kind === "IndexedAccessType") {
     const holder = parents.get(node);
     if (holder && ts.isTypeAssertionExpression(holder)) return true;
+  }
+  // **继承段里的点号名**（第 80 轮登记进标签表之后才照出来的）：`interface I extends globalThis.Iterator`
+  // 的实体名在产物里是 `ExpressionWithTypeArguments` 里的平铺 `Identifier` 与点号——
+  // 链规则**刻意**在那几处让路（各有自己的规则与投影路径），投影层用 `dottedExpression`
+  // 出 `PropertyAccessExpression`。所以「产物里没有这个标签」是**口径**，不是缺节点（实测 158 处）。
+  if (entry.kind === "PropertyAccessExpression") {
+    const holder = parents.get(node);
+    if (holder && ts.isExpressionWithTypeArguments(holder)) return true;
+    // 装饰器的限定名 `@ns.dec`：链规则在 `Decorator` 里**刻意让路**（第 70 轮；
+    // 装饰器名由它自己的规则收，见 `decorator.xl.md`）。
+    if (holder && ts.isDecorator(holder)) return true;
+    // **`?.` / `!.` 链**（第 70 轮的口径）：两条链都在 token 层**刻意让路**——
+    // `?.` 归 `NullConditionalOperator`、`!` 归 `NotNull`（它们排在那条链规则之后），
+    // 所以树里没有对应的链标签，而投影层照样出 `PropertyAccessExpression`。
+    // 两种都要认：节点自己带 `?.` / `!.`，或者它是那条链的**内层**（`this.Start?.Document`
+    // 里的 `this.Start`）。
+    const text = source === undefined ? "" : source.slice(node.getStart(), node.getEnd());
+    if (text.indexOf("?.") >= 0 || text.indexOf("!.") >= 0) return true;
+    if (holder && ts.isPropertyAccessExpression(holder) && source !== undefined) {
+      const upText = source.slice(holder.getStart(), holder.getEnd());
+      if (upText.indexOf("?.") >= 0 || upText.indexOf("!.") >= 0) return true;
+    }
+  }
+  // **`a?.[b]`**：问号点那一支归 `NullConditionalOperator`（与 `?.` 成员链同一口径，第 70 轮），
+  // token 层那条链规则不接手。判据看节点文本里的 `?.[`（实测 6 处，全是用例里的可选链）。
+  if (entry.kind === "ElementAccessExpression" && source !== undefined) {
+    const text = source.slice(node.getStart(), node.getEnd());
+    if (text.indexOf("?.[") >= 0) return true;
   }
   return false;
 }
