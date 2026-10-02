@@ -3431,7 +3431,17 @@ new Set([
       };
     }
   }
-  const args = kids.filter((k) => k.get("type") !== "Bracket" && k.get("type") !== "GenericType");
+  // **实参自己可能就是一个括号表达式**（第 163 轮）：`f(a, ([x]))` 的第三个子单元是
+  // 装着 `[x]` 的那个 `(` 括号——原来把**所有** `Bracket` 都滤掉，于是这个实参整个消失
+  // （实测 `expr-value-paren-not-type-array.ts`：缺 `ParenthesizedExpression` +
+  // `ArrayLiteralExpression` + `Identifier`，且连「多出」都没有——是**空掉**了）。
+  // 只滤「落在被调用者范围内、或是空括号」的那一个（被调用者自己的 `()` 不在参数表里）。
+  const args = kids.filter(
+    (k) =>
+      k.get("type") !== "GenericType" &&
+      (k.get("type") !== "Bracket" ||
+        (startOf(k) >= calleeEnd && projectableKids(view(k)).length > 0)),
+  );
   const generic = kids.find((k) => k.get("type") === "GenericType");
   // **被调用者本身带着可选链**（第 107 轮）：`x?.y?.(1)` 的产物是
   // `Method(name="x") > [Identifier(x), NCO(y), NCO(Bracket(1))]`——调用规则把 `x` 认成
