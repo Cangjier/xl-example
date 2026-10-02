@@ -94,7 +94,18 @@ return true;
 ```ts
 const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
 const children = units.slice(frontIndex + 1, index + 1);
-if (children.length === 1 && !(children[0] instanceof SymbolToken && children[0].Is(";"))) {
+// **孤零零一个 `;` 收成 `Statement`**（第 141 轮）：它就是 TS 的 `EmptyStatement` 的**候选**
+// （`;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句）。原来这一支把它**直接 splice 掉**，
+// 整个节点凭空消失。
+//
+// **但 `.d.ts` 里遍地都是「成员声明后面那个 `;`」**（`interface I { a: string; b: number }`），
+// 那些在 TS 那边**不是**节点——一刀切地收下来会让整个语料多出 3439 个 `EmptyStatement`。
+// 收不收得准要看**原文排版**（成员终结符在行尾、防御性分号在行首），所以这里**照收不误**，
+// 由投影侧按「这个 `;` 是不是它那一行的第一个非空白字符」筛掉（见 `ts-ast.xl.md` 的
+// `projectStatement` 里那一支）。
+const lonelySemicolon =
+  children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
+if (children.length === 1 && !lonelySemicolon) {
   units.splice(index, 1);
   return index - 1;
 }
@@ -168,12 +179,11 @@ const currentIsStatementSymbol = current instanceof SymbolToken && template.Symb
 if (currentIsInEnd) {
   const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
   const children = units.slice(frontIndex + 1, index + 1);
-  // **孤零零一个 `;` 也要收成 `Statement`**（第 141 轮）：它就是 TS 的 `EmptyStatement`
-  // （`;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句一共三处形态）。
-  // 原来 `children.length === 1` 那一支把它**直接 splice 掉**——整个节点凭空消失
-  // （实测 `fn-iife.ts` / `stmt-paren-start.ts` 的 `;` 开头，以及 `if (a) ;`
-  // 一共 3 处 `EmptyStatement` 缺）。
-  if (children.length === 1 && !(children[0] instanceof SymbolToken && children[0].Is(";"))) {
+  // **孤零零一个 `;` 收成 `Statement`**（第 141 轮）：与下面那一支同款——收不收得准由
+  // 投影侧按原文排版筛（成员终结符在行尾、防御性分号在行首）。
+  const lonelySemicolon =
+    children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
+  if (children.length === 1 && !lonelySemicolon) {
     units.splice(index, 1);
     return index - 1;
   }
@@ -198,7 +208,18 @@ if (!currentIsStatementSymbol && Statement.IsInStatement(units, index)) {
 }
 const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
 const children = units.slice(frontIndex + 1, index + 1);
-if (children.length === 1 && !(children[0] instanceof SymbolToken && children[0].Is(";"))) {
+// **孤零零一个 `;` 收成 `Statement`**（第 141 轮）：它就是 TS 的 `EmptyStatement` 的**候选**
+// （`;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句）。原来这一支把它**直接 splice 掉**，
+// 整个节点凭空消失。
+//
+// **但 `.d.ts` 里遍地都是「成员声明后面那个 `;`」**（`interface I { a: string; b: number }`），
+// 那些在 TS 那边**不是**节点——一刀切地收下来会让整个语料多出 3439 个 `EmptyStatement`。
+// 收不收得准要看**原文排版**（成员终结符在行尾、防御性分号在行首），所以这里**照收不误**，
+// 由投影侧按「这个 `;` 是不是它那一行的第一个非空白字符」筛掉（见 `ts-ast.xl.md` 的
+// `projectStatement` 里那一支）。
+const lonelySemicolon =
+  children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
+if (children.length === 1 && !lonelySemicolon) {
   units.splice(index, 1);
   return index - 1;
 }

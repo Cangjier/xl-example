@@ -1583,6 +1583,16 @@ new Set([
       if (ctx.consumedSemicolons !== undefined && ctx.consumedSemicolons.has(v.start)) {
         return undefined;
       }
+      // **判据落在原文排版上**：真正的空语句（防御性分号）永远写在**行首**——
+      // `;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句都是这一形状。
+      // 而 `.d.ts` 里「成员声明后面那个 `;`」写在**行尾**（`a: string;`），TS 那边它不是节点。
+      // 语句规则分不出这两者（都只是「孤零零一个 `;`」），所以在这里按行首 / 行尾筛：
+      // 一刀切收下来会让整个语料多出 3439 个 `EmptyStatement`（实测，第一次就是这么翻车的）。
+      let lineStart = v.start;
+      while (lineStart > 0 && ctx.source[lineStart - 1] !== "\n") lineStart--;
+      if (ctx.source.slice(lineStart, v.start).trim() !== "") {
+        return undefined;
+      }
       return { kind: "EmptyStatement", pos: v.start, end: v.start + 1 };
     }
     return undefined;
