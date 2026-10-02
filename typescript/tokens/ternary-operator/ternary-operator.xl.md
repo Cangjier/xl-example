@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack, SearchFront, TakeRange } from "../../../core/extensions/list-extension.xl.md"
-import { IsTypeContainerUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { IsTriviaUnit, IsTypeContainerUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -264,6 +264,12 @@ if (current instanceof SymbolToken) {
     || current.Is("=>")
     || current.Is(",")
     || current.Is(";")
+    // **上一个 `?` 也是起点**（第 127 轮）：左嵌套 `a ? b ? c : d : e` 里
+    // 内层那个 `:` 往左找条件起点时会一直走到声明/语句的边界，把
+    // `a ? b` 整段当成内层的条件（TS 的解是 `a ? (b ? c : d) : e`）。
+    // 把 `?` 也当边界之后，回扫在**外层的 `?`** 上停下，条件正好是 `b` ✓。
+    // 右嵌套与普通三元不受影响：它们的回扫先撞上 `:` / `=` / `,` / `;`。
+    || current.Is("?")
   ) {
     return true;
   }
@@ -380,9 +386,11 @@ if (condition.Data.length === 0 || trueStatement.Data.length === 0 || falseState
 // `ConditionalExpression` 为首，`漂移` 榜上一整片）。段尾同理。
 //
 // 换行仍然留在段的 `Data` 里（投影侧按 `INVISIBLE` 跳过它们），只是**不参与签入签出**。
+// 第 127 轮把**注释**也一并跳过：`? // 说明` 换行 `nameUnits…` 这种排版里，
+// 段首是一个 `LineAnnotation`，拿它签入会把整条三元的 `pos` 提到注释开头。
 const firstReal = (data: Array<Token>): Token => {
   for (const item of data) {
-    if (!(item instanceof LineWrap)) {
+    if (!IsTriviaUnit(item)) {
       return item;
     }
   }
@@ -390,7 +398,7 @@ const firstReal = (data: Array<Token>): Token => {
 };
 const lastReal = (data: Array<Token>): Token => {
   for (let i = data.length - 1; i >= 0; i--) {
-    if (!(data[i] instanceof LineWrap)) {
+    if (!IsTriviaUnit(data[i])) {
       return data[i];
     }
   }

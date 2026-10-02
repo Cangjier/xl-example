@@ -111,6 +111,17 @@ unit.Undo(preUnit);
 const regexToken = unit.AddToMounted(new RegexToken(unit.Template));
 regexToken.SignIn(preUnit);
 regexToken.Append(source);
+// **开头那个字符如果是 `\`，要立刻进入转义态**（第 128 轮）。
+//
+// `Success` 是在**第二个字符**上被触发的（第一个 `/` 已经作为符号落树，这里把它回退掉），
+// 所以 `source` 是正则正文的第一个字符。它如果是 `\`，紧随其后的那个字符就是**被转义的**——
+// 而 `Append` 只往 `Temp` 里加字符、不置 `IsTranslate`，于是下一个字符若正好是 `/`
+// （`/\/\//` 这种转义斜杠开头的正则），`ExitOrPre` 会把它当成**结尾斜杠**，正则在那里断掉。
+// 实测 `dist/ts/typescript/ts-ast.ts` 的 `/\/\/[^\n]*|\/\*[\s\S]*?\*\//g`：
+// 产物里多出一个裸 `\` 与两个空 `<RegexToken>`。
+if (source.Value === "\\") {
+  regexToken.IsTranslate = true;
+}
 ```
 
 # class RegexToken extends UnitToken

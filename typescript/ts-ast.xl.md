@@ -4556,26 +4556,34 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 ```ts
   const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   const projections = projectEach(list, ctx);
-  const brace = ctx.source.indexOf("{", from);
-  if (brace >= 0) {
-    const close = matchingBrace(ctx.source, brace);
-    const last = list.length > 0 ? endOf(list[list.length - 1]) : -1;
-    // 括号必须**盖住全部语句**，否则那个 `{` 是下一条语句的（见 `blockOfBody` 的说明）。
-    if (close >= brace && close >= last) {
-      return { kind: "Block", statements: projections, pos: brace, end: close + 1 };
-    }
-  }
-  if (projections.length === 1) return projections[0];
+  // **空体语句 `while (c);` / `for (const x of y);`**（第 127 轮）：体段为空、
+  // 原文里头部之后紧跟一个 `;` ⇒ TS 那边是一个 `EmptyStatement`。
+  // 这一支要**排在找花括号之前**：`while (c) ;  return { … };` 里后面那个 `{`
+  // 是下一条语句的，先找括号会把它认成循环体。
   if (projections.length === 0) {
-    // **空体语句 `while (c);` / `for (const x of y);`**（第 127 轮）：体段为空、
-    // 原文里头部之后紧跟一个 `;` ⇒ TS 那边是一个 `EmptyStatement`。
     let at = from;
     while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
     if (ctx.source[at] === ";") {
       return { kind: "EmptyStatement", pos: at, end: at + 1 };
     }
-    return undefined;
   }
+  const first = list.length > 0 ? startOf(list[0]) : -1;
+  const brace = ctx.source.indexOf("{", from);
+  // **花括号必须在第一个语句之前**（第 127 轮）：`while (c) f();` 换行 `return { … };`
+  // 里 `indexOf("{", from)` 找到的是下一条语句里那个 `{`。原来只查「配对的 `}` 不早于
+  // 最后一条语句的终点」——那个判据在「括号整个落在语句之后」时**恒真**
+  // （实测 `dist/ts/typescript/ts-ast.ts` 两处：`while (…) end++;` 换行 `return { kind: … };`
+  // 与 `const props = { … }` 前一个函数体，各多出一个 `Block` 包住整个对象字面量）。
+  if (brace >= 0 && (first < 0 || brace < first)) {
+    const close = matchingBrace(ctx.source, brace);
+    const last = list.length > 0 ? endOf(list[list.length - 1]) : -1;
+    // 括号还必须**盖住全部语句**，否则那个 `{` 是下一条语句的（见 `blockOfBody` 的说明）。
+    if (close >= brace && close >= last) {
+      return { kind: "Block", statements: projections, pos: brace, end: close + 1 };
+    }
+  }
+  if (projections.length === 1) return projections[0];
+  if (projections.length === 0) return undefined;
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
 ```
 

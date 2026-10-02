@@ -57,8 +57,23 @@ import { LineWrap } from "../line-wrap.xl.md"
 `var DOMException: … ? T : { … }` 一处就丢 28 个，crypto / typescript 等文件里同类形状更多）。
 
 ```ts
+// **不能只看「第一个符号是不是 `?`」**（第 127 轮修）：左嵌套的三元
+// `A ? B ? C : D : E` 里，从**外层**那个 `:` 回扫时先撞上的是**内层**的 `:`
+// （TypeLiteral 排在 TernaryOperator 之前，那一刻它还只是一个符号），
+// 于是判出「不是三元冒号」——后面那个对象字面量被收成 `TypeLiteral`
+// （实测 `dist/ts/typescript/ts-ast.ts` 的
+// `computed === undefined ? … ? a : b : { kind: … }` 一族）。
+//
+// 改成**配对计数**：往左数，`:` 加一、`?` 减一；`?` 在计数为 0 时出现 ⇒ 它就是我们这个
+// `:` 的另一半（同一个表达式里，左边只要还有一个没配对的 `?`，我们的 `:` 就是配它的）。
+// 操作数与普通运算符一律透明；只有 `;` / `,` / `=>` / 赋值符号是硬边界——
+// 越过它们就出了这条表达式。
+let depth = 0;
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
+  if (item === null) {
+    break;
+  }
   if (item instanceof LineWrap || item instanceof Bracket) {
     continue;
   }
@@ -66,10 +81,22 @@ for (let i = index - 1; i >= 0; i--) {
     continue;
   }
   if (item instanceof SymbolToken) {
-    if (item.Is("?") === false) {
-      return false;
+    if (item.Is("?")) {
+      if (depth === 0) {
+        return this.HasExtendsMarker(units, i) === false;
+      }
+      depth--;
+      continue;
     }
-    return this.HasExtendsMarker(units, i) === false;
+    if (item.Is(":")) {
+      depth++;
+      continue;
+    }
+    const text = item.TempToString();
+    if (text === ";" || text === "," || text === "=>" || item.Template.SymbolTemplate.IsAssignmentSymbol(text)) {
+      break;
+    }
+    continue;
   }
 }
 return false;
