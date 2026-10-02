@@ -6280,7 +6280,19 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     const inner = {};
     if (catchDefine !== undefined) {
       const binding = allKids(view(catchDefine)).find((k) => !INVISIBLE.has(k.get("type")));
-      const name = binding === undefined ? undefined : projectNode(binding, ctx);
+      // **解构捕获 `catch ({ message })`**（第 160 轮）：那个 `{ message }` 在产物里已经被
+      // `JsonObjectReorganization` 收成 `ObjectLiteral`，而 TS 那边 `CatchClause` 的
+      // `variableDeclaration.name` 是 `ObjectBindingPattern`——照通用支投会得到一个
+      // `ObjectLiteralExpression` + `ShorthandPropertyAssignment`
+      // （实测 `st-catch-destructure.ts` / `stmt-try-catch-destructure.ts` /
+      // `decl-binding-elements.ts` 各一处）。数组解构同理走 `projectBindingPattern`。
+      const isPattern =
+        binding !== undefined &&
+        (binding.get("type") === "ObjectLiteral" ||
+          binding.get("type") === "ArrayLiteral" ||
+          (binding.get("type") === "Bracket" &&
+            (binding.get("startBracket") === "{" || binding.get("startBracket") === "[")));
+      const name = binding === undefined ? undefined : isPattern ? projectBindingPattern(binding, ctx) : projectNode(binding, ctx);
       if (name !== undefined) {
         inner.variableDeclaration = { kind: "VariableDeclaration", name, pos: name.pos, end: name.end };
       }
