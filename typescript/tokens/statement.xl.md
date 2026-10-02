@@ -649,6 +649,14 @@ if (previousIndex < 0) {
 }
 const previousRealIndex = SkipPreviousTrivia(units, index);
 const previous = Get(units, previousRealIndex);
+// **前面只有 trivia ⇒ 这一行是新语句的开头**（第 159 轮）：续接判定问的是「上一行有没有
+// 没写完的表达式」，而上一行**什么都没有**——`// 注释` 换行 `!x;` 里那个 `!` 是逻辑非、
+// 起一条新语句。原来这里 `previous` 是 `null`，落到下面 `ContinuesExpression("!")`
+// 判成续行，注释与 `!x;` 被并成一条语句
+// （实测 `expr-unary-prefix.ts`：缺整条 `ExpressionStatement`）。
+if (previous === null) {
+  return true;
+}
 if (Statement.IsRestrictedKeyword(previous)) {
   return true;
 }
