@@ -2326,3 +2326,37 @@ node tests/parse/ts-ast.mjs --file <路径>   # 单文件四方向
 | `string-guide.ts`（纯漂移） | 0 / 6 / 4 | `source.Pre()!.Pre()` 链中间的 `!` |
 | `am-block-lambda-array-compound.ts` | 5 / 2 / 4 | 块 / lambda / 数组的歧义 |
 | 零散字段名 | 28 | 单格字段 |
+
+---
+
+# 第 147~153 轮：非空断言链、infer 约束歧义、正则字符类、`await using`、`export default`
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 146 轮末 | 1292 / 1407 | 157 | 58 | 130 | 28 | 373 |
+| 第 153 轮末 | **1307 / 1407** | 134 | 46 | 94 | 24 | **298** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 147 | 点号后面那一格是 `!` 包着的方法调用 / **一条链**（`source.Pre()!.Pre()!`、`Get(units, index)!.SourceRange.Start!`）——要逐格接、最后再套 `NonNullExpression` | `ts-ast.xl.md` |
+| 148 | **`infer X extends Y` 的歧义**：同一段文本 `infer E extends F ? G : H` 在两种上下文里 TS 读法相反（`T extends infer U extends string ? U : never` 取约束；`A extends B ? infer E extends F ? G : H : I` 不取）。判据是「从 `infer` 往回看最近的实义单元是不是 `extends`」 | `tokens/infer-type.xl.md` |
+| 148 | `InferTypeReorganization` 要排在 `TypeParameterReorganization` **之前**（否则 `Array<infer U extends string>` 里的 `infer` 被类型参数吞掉） | `parse-pipeline.xl.md` |
+| 149 | **`return` 换行 `{` 是块语句**（受限产生式），同一行的 `return { … }` 才是对象字面量 | `tokens/json/object-literal.xl.md` |
+| 149 | **正则的字符类 `[...]`**：里面的 `/` 是字面量的一部分（`/[/]/`）。`Condition` 的配对扫描、`ExitOrPre`、以及 `Success` 里那个「正文第一个字符」都要跟字符类 | `tokens/regex-token.xl.md` |
+| 150 | **空体块 `if (a) {}`**：体段一个单元都没有，但原文那对花括号要成一个空 `Block`（`blockOfBody` 加第三个参数 `from`） | `ts-ast.xl.md` |
+| 151 | **`await using x`**：`await` / `using` 是**声明列表的 flags**，不是语句修饰词；列表区间从 `await` 起 | `ts-ast.xl.md` |
+| 152 | **平的尖括号断言** `<number>1`：`>` 后面跟数字时 `GenericType` 不成形（后继闸刻意不收数字），投影侧要认平铺的 `[<, 类型…, >, 表达式]` | `ts-ast.xl.md` |
+| 153 | **`export default interface I {}`**：声明自己带 `[ExportKeyword, DefaultKeyword]` 修饰词（不是 `ExportAssignment`），区间从 `export` 起 | `ts-ast.xl.md` |
+
+## 还剩什么（共 298）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `am-block-lambda-array-compound.ts` | 5 / 2 / 4 | 块 / lambda / 数组的歧义 |
+| `type-parameter-constraint-union.ts` | 5 / 1 / 1 / 1 | `T extends string & {} \| symbol` 的约束段 |
+| `interface.ts` | 3 / 2 / 2 | `interfaceInstance.export = true` |
+| `decl-class-computed-member.ts` | 3 / 1 / 3 | 无分隔符的类字段 + `[` 续行（TS 自己读得很怪） |
+| `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[]` 的实参段 |
+| `ex-new-variants.ts` / `stmt-adversarial-shapes.ts` / `lex-number-member-with-space.ts` | 各 4~5 | 零散 |
