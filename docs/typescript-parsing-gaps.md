@@ -2116,14 +2116,18 @@ node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 | 103 | `typeof Symbol.iterator` | 点号名在产物里已经是 `PropertyAccess` 单元，`projectTypeQuery` 只认名字节点 → 空 `exprName` | 缺 `QualifiedName` / `Identifier` |
 | 104 | **`A<T>[]` 的实参段** | 产物把 `<T>` 装进了 `ArrayType` **里面**，那是基名的实参表而不是元素类型 | `TypeReference` 缺 220 / 漂移 50、`Identifier` 缺 553 里成片 |
 | 105 | **`a.b!.c!`** | 点号后面那个 `NotNull` 里装着一段点号链，而 TS 的 `NonNullExpression` 套住**整条链**；原来被当成一个成员名 | 漂移 76+30+33、多出 71+75 |
+| 106 | **分段里的运算符被滤掉** | `projectSegment` 原来把所有 `SymbolToken` 都滤掉（本意是排掉分段自己的 `?` / `:`），于是条件里的比较运算符整条丢：`i > 0 ? a : b` 折不动 | 缺 `BinaryExpression` 79 + 右侧字面量 |
+| 107 | **可选链/可选调用不挂在点号链上** | `list?.push(1)` 是 `[list, NCO(Method(push))]`、`x?.y?.(1)` 是 `[x, NCO(y), NCO(Bracket)]`——原来只在「链」那一支处理 NCO | 缺 `CallExpression` 49 / `QuestionDotToken` 40 / `PropertyAccessExpression` 189 |
+| 108 | **类型参数里被包住的联合** | 包住约束的 `UnionType` 不一定是唯一一格（`<Name extends string \| Buffer = string>` 的默认值在联合**外面**），按「前缀 + 联合 + 尾巴」的源码顺序重排 | `Identifier` 缺 491 里成片、`TypeParameter.constraint` 整类丢 |
+| 109 | **`typeof X<Y>`** | TS 的 `TypeQuery` 可以带类型实参，产物把实参段放成平级兄弟 | 缺 `TypeReference` / `Identifier`、`TypeQuery` 漂移 26 |
 
-| 判据 | 第 99 轮末 | 第 105 轮末 |
+| 判据 | 第 99 轮末 | 第 109 轮末 |
 | --- | ---: | ---: |
-| **完全一致的文件** | 863 | **969** |
-| 缺节点 | 2942 | **2260** |
-| 区间漂移 | 426 | **346** |
-| 多出来的节点 | 1585 | **1124** |
-| 字段名不符 | 118 | **117** |
+| **完全一致的文件** | 863 | **980** |
+| 缺节点 | 2942 | **1884** |
+| 区间漂移 | 426 | **317** |
+| 多出来的节点 | 1585 | **1121** |
+| 字段名不符 | 118 | **111** |
 
 ### 第 105 轮之后剩下的（按大小）
 
