@@ -3617,22 +3617,56 @@ import { A as B, C } from "m"
 
 ```ts
   const kids = projectableKids(v);
+  // 切分逻辑抽成 `conditionalNode`：**假分支又是条件类型**时要递归（见那个方法的说明）。
+  const node = conditionalNode(kids, 0, kids.length, ctx);
+  return { ...node, pos: v.start, end: v.end };
+```
+
+# private method conditionalNode:(kids:Array<any>, start:int, end:int, ctx:any)=>any
+
+`[T, extends, U, ?, A, :, B]` 那一段单元 → 一个 `ConditionalType`。
+
+**假分支又是条件类型时要递归**（第 116 轮）：TS 的条件类型是**右嵌套**的——
+`A extends B ? C : D extends E ? F : G` 的 `falseType` 是一个 `ConditionalType`。
+产物把它们**平铺在同一串单元里**，而 `typeOf`（→ `projectTypeExpression`）折不动平铺的
+`extends` / `?` / `:`——于是内层那条条件类型只剩几个孤立的名字：实测 `@types/node/test.d.ts` 的
+`ReturnType = F extends (...) => infer T ? T ⏎ : F extends abstract new(...) => infer T ? T ⏎ : unknown`
+缺 `ConditionalType` / `ConstructorType` / `AbstractKeyword` / `Parameter` / `DotDotDotToken`
+等 13 个节点（`Identifier` 缺 375 / `TypeReference` 缺 118 的样本全在这一族）。
+
+```ts
   const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
-  const extIndex = kids.findIndex((k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "extends");
-  const questionIndex = kids.findIndex((k) => isSymbol(k, "?"));
-  const colonIndex = kids.findIndex((k) => isSymbol(k, ":"));
-  const props = {};
-  if (extIndex > 0) props.checkType = typeOf(kids.slice(0, extIndex), ctx);
+  const slice = kids.slice(start, end);
+  const isExtends = (k) =>
+    (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends";
+  const extIndex = slice.findIndex(isExtends);
+  const questionIndex = slice.findIndex((k) => isSymbol(k, "?"));
+  const colonIndex = slice.findIndex((k) => isSymbol(k, ":"));
+  const node = {
+    kind: "ConditionalType",
+    pos: startOf(slice[0]),
+    end: endOf(slice[slice.length - 1]),
+  };
+  if (extIndex > 0) node.checkType = typeOf(slice.slice(0, extIndex), ctx);
   if (extIndex >= 0) {
-    const end = questionIndex > extIndex ? questionIndex : kids.length;
-    props.extendsType = typeOf(kids.slice(extIndex + 1, end), ctx);
+    const stop = questionIndex > extIndex ? questionIndex : slice.length;
+    node.extendsType = typeOf(slice.slice(extIndex + 1, stop), ctx);
   }
   if (questionIndex >= 0) {
-    const end = colonIndex > questionIndex ? colonIndex : kids.length;
-    props.trueType = typeOf(kids.slice(questionIndex + 1, end), ctx);
+    const stop = colonIndex > questionIndex ? colonIndex : slice.length;
+    node.trueType = typeOf(slice.slice(questionIndex + 1, stop), ctx);
   }
-  if (colonIndex >= 0) props.falseType = typeOf(kids.slice(colonIndex + 1), ctx);
-  return { kind: "ConditionalType", pos: v.start, end: v.end, ...props };
+  if (colonIndex >= 0) {
+    const tail = slice.slice(colonIndex + 1);
+    const tailExt = tail.findIndex(isExtends);
+    const tailQuestion = tail.findIndex((k) => isSymbol(k, "?"));
+    const tailColon = tail.findIndex((k) => isSymbol(k, ":"));
+    node.falseType =
+      tailExt > 0 && tailQuestion > tailExt && tailColon > tailQuestion
+        ? conditionalNode(tail, 0, tail.length, ctx)
+        : typeOf(tail, ctx);
+  }
+  return node;
 ```
 
 # private method projectRegex:(v:any, ctx:any)=>any
