@@ -187,3 +187,21 @@
 > 而不是把每一行都挪走。搬完上面那 15 块之后，剩下的共享实现会留在
 > `typescript/print-ast-common.xl.md`（由 `ts-ast.xl.md` 改名而来），
 > 判据仍然是**全量对拍四方向为 0**。
+
+### 第 187 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| `NamedTupleMember` | `tokens/tuple-member.xl.md` |
+| `ExpressionWithTypeArguments` | `tokens/heritage-clause.xl.md` |
+| `IndexSignature` | `tokens/index-signature.xl.md` |
+
+中央 `switch` 的 `case` 从 33 降到 **30**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了三个出口：`TypeDefineOf`（类型位包装提层）、`DottedExpression`（点号名折成
+`QualifiedName`）、`TypeArguments`（实参段）。
+
+**踩到的坑（写进这里，后面每块都要核）**：`IndexSignature` 那一块我按 TS 的枚举名写成了
+`ctx.Node("IndexSignatureDeclaration", ...)`，而这一族一直用的是**短名** `"IndexSignature"`——
+一改就让 `lib.es5.d.ts` 出「缺 19 + 多 19」。搬迁时**kind 字面量必须逐字照抄原实现**，
+不能顺手改成 TS 的枚举名（本工程多处用短名：`DoStatement` / `IndexSignature` / `NonNullExpression`…）。
