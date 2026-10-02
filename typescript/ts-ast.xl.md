@@ -2621,6 +2621,31 @@ new Set([
       end: endOf(bracket),
     };
   }
+  // ---- 3b. 调用链的末尾那一格是 `(` 括号（第 168 轮）----
+  //
+  // `y(function () { … })()` 的产物是 `[Method(name="y"), Bracket( () )]`——末尾那对括号是
+  // **对调用结果再调一次**的实参表，而它不在 `Method` 里（`Method` 的区间只到函数体那个 `}`）。
+  // TS 那边是外面再套一层 `CallExpression`，区间一直到那个 `)`。
+  // 不接的话外层调用整个没有、内层终点也短两格（实测 `stmt-asi-paren-call.ts`：
+  // `BinaryExpression` 与 `CallExpression` 各漂 2 + 多出一个短区间节点）。
+  // 与上面下标那一支同款：先折前面那段，再套一层。
+  if (
+    kids.length >= 2 &&
+    kids[kids.length - 1].get("type") === "Bracket" &&
+    kids[kids.length - 1].get("startBracket") === "("
+  ) {
+    const bracket = kids[kids.length - 1];
+    const base = projectExpression(kids.slice(0, kids.length - 1), ctx);
+    return {
+      kind: "CallExpression",
+      expression: base,
+      arguments: splitTopLevel(projectableKids(view(bracket)), ctx, ",")
+        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+        .filter((a) => a !== undefined),
+      pos: base.pos,
+      end: endOf(bracket),
+    };
+  }
   return projectNode(kids[0], ctx);
 ```
 
@@ -2858,6 +2883,24 @@ new Set([
         kind: "ElementAccessExpression",
         expression: left,
         argumentExpression: argument,
+        pos: left.pos,
+        end: endOf(unit),
+      };
+      i += 1;
+      continue;
+    }
+    // **紧跟一对圆括号 ⇒ 对左边那个结果再调用一次**（第 168 轮）：`y(function(){})()`
+    // 的产物是 `[…, Method(name="y"), Bracket( () )]`——末尾那对括号是**平级的兄弟**
+    // （不在 `Method` 里），TS 那边是外面再套一层 `CallExpression`（区间到那个 `)`）。
+    // 普通的调用早被收成 `Method` 单元了，所以这里见到的圆括号只会是这一形状
+    // （实测 `stmt-asi-paren-call.ts`：`BinaryExpression` 与 `CallExpression` 各漂 2）。
+    if (unit.get("type") === "Bracket" && unit.get("startBracket") === "(") {
+      left = {
+        kind: "CallExpression",
+        expression: left,
+        arguments: splitTopLevel(projectableKids(view(unit)), ctx, ",")
+          .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+          .filter((a) => a !== undefined),
         pos: left.pos,
         end: endOf(unit),
       };
@@ -3662,7 +3705,29 @@ new Set([
     }
     if (typeArguments.length > 0) props.typeArguments = typeArguments;
   }
-  return { kind: "CallExpression", ...props };
+  // **被调用者后面还跟着一对空括号**（第 168 轮）：`y(function(){})()` 的产物是
+  // `Method(name="y") > [FunctionExpr, Bracket( () )]`——末尾那对括号是**对调用结果再调一次**，
+  // TS 那边就是外面再套一层 `CallExpression`（区间一直算到那个 `)`）。
+  // 不收的话外层调用整个没有、内层的终点也短两格
+  // （实测 `stmt-asi-paren-call.ts`：`BinaryExpression` 与 `CallExpression` 各漂 2）。
+  const trailingCall = kids.find(
+    (k) =>
+      k.get("type") === "Bracket" &&
+      k.get("startBracket") === "(" &&
+      startOf(k) >= calleeEnd &&
+      projectableKids(view(k)).length === 0,
+  );
+  const callNode = { kind: "CallExpression", ...props };
+  if (trailingCall !== undefined && callNode.end < endOf(trailingCall)) {
+    return {
+      kind: "CallExpression",
+      expression: callNode,
+      arguments: [],
+      pos: callNode.pos,
+      end: endOf(trailingCall),
+    };
+  }
+  return callNode;
 ```
 
 # private method projectSignedLiteralType:(v:any, ctx:any)=>any
