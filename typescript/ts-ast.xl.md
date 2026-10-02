@@ -2920,8 +2920,38 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   而产物的 `ArrayType` 只盖住后缀那一段——所以要把它折上去）。
 
 ```ts
-  const list = nodes.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")) && !isTypeSeparator(k, ctx));
+  // **只滤掉 `,`，`|` / `&` 留着**（第 133 轮）：逗号是类型实参表的分隔符（不是类型的
+  // 一部分），而 `|` / `&` 是**类型运算符**——调用方直接递一列平铺单元时
+  // （`projectTypeParameter` 把包住约束的 `UnionType` 摊开再拼回来就是这种），
+  // 把 `|` 一并滤掉会让整条联合被当成「名字 + 实参」投成一个 `TypeReference`
+  // （实测 `undici-types/header.d.ts` 的 `{ [K in HeaderNames | Lowercase<HeaderNames>]?: … }`）。
+  const list = nodes.filter(
+    (k) => k instanceof Map && !INVISIBLE.has(k.get("type")) && !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ","),
+  );
   if (list.length === 0) return undefined;
+  // **平铺的联合 / 交叉**（第 133 轮）：见上。按**最外层**的分隔符切段、每段自己递归。
+  const isTypeOp = (k: any, text: string) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
+  for (const [op, kind] of [
+    ["|", "UnionType"],
+    ["&", "IntersectionType"],
+  ] as Array<[string, string]>) {
+    // `&` 比 `|` 紧：收 `|` 时可以穿过 `&`（`A | B & C` 是 `A | (B & C)`），反过来不行。
+    const at = list.findIndex((k, i) => i > 0 && i + 1 < list.length && isTypeOp(k, op));
+    if (at <= 0) continue;
+    const types = [];
+    let start = 0;
+    for (let i = 1; i < list.length; i++) {
+      if (!isTypeOp(list[i], op) || i + 1 >= list.length) continue;
+      const one = projectTypeExpression(list.slice(start, i), ctx);
+      if (one !== undefined) types.push(one);
+      start = i + 1;
+    }
+    const tail = projectTypeExpression(list.slice(start), ctx);
+    if (tail !== undefined) types.push(tail);
+    if (types.length > 1) {
+      return { kind, types, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
+    }
+  }
   // **带符号的数字字面量类型**（第 124 轮）：`type X = -1 | 0 | 1` 的产物是
   // `LiteralType > [SymbolToken(-), Identifier(1)]`，而 TS 那边那个 `literal` 是
   // **一个** `PrefixUnaryExpression`（`operator` 是 `MinusToken`、`operand` 是数字）。

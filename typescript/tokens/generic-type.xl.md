@@ -519,6 +519,14 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
   }
   if (item instanceof Identifier) {
     const text = item.TempToString();
+    // **映射类型的键 `[K in X<U>]`**（第 133 轮）：`in` 左边的 `K` 与右边的约束都是**类型**，
+    // 而回扫到这里时 `in` 还是一个普通 `Identifier`（`KeywordReorganization` 排在最后）。
+    // 不认它，`Lowercase<HeaderNames>` 里那个 `<` 被判成表达式位、泛型退回比较运算符——
+    // 于是约束里的实参整段丢（实测 `undici-types/header.d.ts` 与
+    // `lib.esnext.temporal.d.ts` 两族：缺 `Identifier` 110 / `TypeReference` 32）。
+    if (text === "in") {
+      return true;
+    }
     switch (text) {
       case "class":
       case "interface":
