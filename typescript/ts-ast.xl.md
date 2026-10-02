@@ -857,6 +857,15 @@ new Map([
     case "Lamda":
       return projectLamda(v, ctx);
 
+    // **具名元组成员**与 **try 语句**走各自的投影（第 93 轮）：两者在 TS 那边都有
+    // 「产物里不存在的壳」，通用投影投不对（具名元素的名字会被当成类型、
+    // try 的三段会原样透传成 `body` / `catches` / `finally`）。
+    case "NamedTupleMember":
+      return projectNamedTupleMember(v, ctx);
+
+    case "Try":
+      return projectTry(v, ctx);
+
     default: {
       let kind = KIND_BY_TAG.get(v.type);
       if (kind === undefined) {
@@ -2347,6 +2356,13 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
       props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
     }
     props.type = projectTypeDefine(view(typeNode), ctx);
+  } else {
+    // **没有类型标注的可选成员**（`a?;` / `private a?;` / `readonly b?;`）：
+    // 有类型标注时 `?` 被吞进了 `TypeDefine` 的区间（上一条分支），没有类型标注时
+    // 它是**平级的 `SymbolToken`**——而 TS 那边它照样是 `questionToken` 字段
+    // （实测 `PropertySignature` / `PropertyDeclaration` 字段名差 12 处、缺 `QuestionToken` 12 个）。
+    const question = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
+    if (question !== undefined) props.questionToken = projectNode(question, ctx);
   }
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
   addModifiers(v, props, ctx);
@@ -2442,23 +2458,44 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   return { kind: "TypeAliasDeclaration", pos: baseStart ?? v.start, end: v.end, ...props };
 ```
 
+# private const PARAMETER_MODIFIERS:Set<string> = new Set(["public", "private", "protected", "readonly", "override"])
+
 # private method projectParameter:(v:any, ctx:any)=>any
 
 形参 `x: string` → `Parameter`（`name` + `type`）。
+
+**形参上的修饰词**（TS 4.x 起的参数属性）：`constructor(private readonly a: number)` 的
+`private` / `readonly` 在 TS 那边是 `modifiers` 里的节点，在产物这边是 `Parameter` 下的平铺
+`Keyword`——所以它们既要从名字搜索里排掉，也要收进 `modifiers`。
 
 **`TypeDefine` 要摊平**：产物里 `x: string` 是 `Parameter > [Identifier, TypeDefine > Identifier]`，
 而 TS 的 `Parameter.type` **直接就是那个类型引用**，中间没有 `TypeDefine` 这一层。
 
 ```ts
   const kids = projectableKids(v);
-  const nameNode = kids.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
-  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
-  const question = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
+  // **形参上的修饰词是子节点**（第 93 轮修）：`constructor(private readonly a: number)` 的产物是
+  // `Parameter > [Keyword(private), Keyword(readonly), Identifier(a), TypeDefine]`，
+  // 而 TS 把前两个放进 `modifiers` 字段。两件事都要做：
+  // ① 收成 `modifiers`；② **跳过它们再找名字**——`private` 也是 `Keyword`，
+  // 早先的 `find(Identifier || Keyword)` 会把它当成形参名（实测缺 `Identifier` 3 +
+  // 缺 `ReadonlyKeyword` + 字段名差 11）。
+  const leadingModifiers = [];
+  for (const k of kids) {
+    if (k.get("type") === "Keyword" && PARAMETER_MODIFIERS.has(textOfNode(k, ctx))) {
+      leadingModifiers.push(k);
+      continue;
+    }
+    break;
+  }
+  const body = leadingModifiers.length > 0 ? kids.slice(leadingModifiers.length) : kids;
+  const nameNode = body.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
+  const typeNode = body.find((k) => k.get("type") === "TypeDefine");
+  const question = body.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
   // **剩余形参的 `...` 是子节点**（TS：`Parameter > [dotDotDotToken, name, type]`，语料 483 处）。
   // 产物那边它常常是**第一个平级的 `SymbolToken("...")`**（`...args: string[]`），
   // 只有被收成 `Spread` 时才走下面那一支（`Spread` 是 `<Spread>` 标签、`kind` 是 `SpreadElement`）。
-  const dots = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
-  const rest = kids.find((k) => k.get("type") === "Spread");
+  const dots = body.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
+  const rest = body.find((k) => k.get("type") === "Spread");
   const props = {
     // **`this` 形参的名字是 `Identifier`，不是 `ThisKeyword`**：TS 的 `this: Window` 里
     // `parameterName` 就是一个文本为 `this` 的 `Identifier`（`ThisKeyword` 只出现在类型位）。
@@ -2475,6 +2512,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
   // 与属性那一处同源：产物把 `?` 吞进了 `TypeDefine` 的区间里（`TypeDefine` 从 `?` 起），
   // 所以按「类型段第一个字符是不是 `?`」切。
+  if (leadingModifiers.length > 0) props.modifiers = projectEach(leadingModifiers, ctx);
   if (question !== undefined) {
     props.questionToken = projectNode(question, ctx);
   } else if (typeNode !== undefined && ctx.source[startOf(typeNode)] === "?") {
@@ -2995,7 +3033,11 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   return {
     kind: "ExportDeclaration",
     pos: view_.start,
-    end: stmtEndOf(v, ctx),
+    // **区间必须从视图上取**（第 93 轮修）：`projectStatement` 递进来的是**原始 Map**，
+    // 而 `stmtEndOf` 读的是 `v.start` / `v.end` —— 原始 Map 上这两个属性都是 `undefined`
+    // （它们在 `range` 里），于是终点变成 `undefined`、投影出来的 `ExportDeclaration`
+    // 成了零宽区间：实测 108 处漂移 + 108 处「多出来」（同一个节点两边各记一次）。
+    end: stmtEndOf(view_, ctx),
     ...namedExportClause(view_, ctx),
   };
 ```
@@ -3524,8 +3566,16 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
     if (word === "-" || word === "+") {
       // `-readonly` 是 `readonlyToken`，`-?` 是 `questionToken`——看**紧跟的下一格**。
       const next = i + 1 < flat.length ? textOfNode(flat[i + 1], ctx) : "";
-      if (next === "readonly") readonlyToken = projectNode(k, ctx);
-      else questionToken = projectNode(k, ctx);
+      if (next === "readonly") {
+        // **`-readonly` 的 `readonlyToken` 就是那个 `-`**（TS 的类型是
+        // `ReadonlyKeyword | PlusToken | MinusToken`），后面那个 `readonly` 词
+        // **不再单独成节点**——不收掉它会多出一个 `ReadonlyKeyword`，
+        // 同时缺一个 `MinusToken`（实测「多出 1」+「缺 1」就是这一处）。
+        readonlyToken = projectNode(k, ctx);
+        i++;
+      } else {
+        questionToken = projectNode(k, ctx);
+      }
       continue;
     }
     if (word === "?") {
@@ -3548,10 +3598,119 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   }
   if (readonlyToken !== undefined) props.readonlyToken = readonlyToken;
   if (typeParameter !== undefined) props.typeParameter = typeParameter;
+  // **可选映射的 `?` 被吞进了值类型的区间**（第 93 轮）：`{ [K in T]?: X }` 里那个
+  // `TypeDefine` 从 `?` 起（与属性、形参两处同源），所以按「值类型段第一个字符是不是 `?`」切。
+  // `-?` 那一支不走这里（`-` 已经是 `questionToken`）。
+  if (questionToken === undefined && rest.length > 0 && ctx.source[startOf(rest[0])] === "?") {
+    const at = startOf(rest[0]);
+    questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
+  }
   if (questionToken !== undefined) props.questionToken = questionToken;
   const typeNode = rest.length > 0 ? projectTypeExpression(rest, ctx) : undefined;
   if (typeNode !== undefined) props.type = typeNode;
   return { kind: "MappedType", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectNamedTupleMember:(v:any, ctx:any)=>any
+
+具名元组成员 `[a: string]` / `[b?: number]` / `[...rest: boolean[]]` → `NamedTupleMember`。
+
+TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；产物那边是
+`NamedTupleMember > [Identifier(名字), TypeDefine(类型)]`（`...` 是平级的 `SymbolToken`）。
+
+**不能走通用投影**：`NamedTupleMember` 在 `TYPE_MEMBER_KINDS` 里，通用支会把名字那个
+`Identifier` 也当类型投成 `TypeReference`（实测「多出来」3 + 缺 `QuestionToken` 1 +
+字段名差 3，全部是这一处）。
+
+```ts
+  const kids = projectableKids(v);
+  const dots = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
+  const spread = kids.find((k) => k.get("type") === "Spread");
+  const nameNode = kids.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
+  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
+  const props = {};
+  if (nameNode !== undefined) {
+    // `this` 作元组成员名时必须是 `Identifier`（与形参那一处同源，见 `projectParameter`）。
+    props.name =
+      nameNode.get("type") === "Keyword" && textOfNode(nameNode, ctx) === "this"
+        ? { kind: "Identifier", text: "this", pos: startOf(nameNode), end: endOf(nameNode) }
+        : projectNode(nameNode, ctx);
+  }
+  if (dots !== undefined) {
+    props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
+  } else if (spread !== undefined) {
+    props.dotDotDotToken = projectNode(spread, ctx);
+  }
+  if (typeNode !== undefined) {
+    // `?` 与属性、形参两处同源：它被吞进了 `TypeDefine` 的区间（`b?: number` 的段从 `?` 起）。
+    const typeStart = startOf(typeNode);
+    if (ctx.source[typeStart] === "?") {
+      props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
+    }
+    props.type = projectTypeDefine(view(typeNode), ctx);
+  }
+  return { kind: "NamedTupleMember", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectTry:(v:any, ctx:any)=>any
+
+`try { … } catch (e) { … } finally { … }` → `TryStatement`。
+
+产物那边三段是**命名段**（`body` / `catches` / `finally`，见 `ToList`），
+TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
+
+- `body` / `finally` 段里直接是**语句**（`TryBody` / `FinallyBody` 那层壳在 `ToList` 时
+  就被摊平了，产物里根本没有对应的块节点），所以两个 `Block` 要**自己造**：
+  按关键字之后的那个 `{` 与配对的 `}` 量区间；
+- `catches` 段里是 `CatchDefine`（`(e)`，区间含括号）与 `CatchBody`（本来就是 `Block` 节点）——
+  `CatchDefine` 在 TS 里**不是节点**，它的内容进 `CatchClause.variableDeclaration`
+  （一个只有 `name` 的 `VariableDeclaration`）。
+
+照通用投影的结果是 `TryStatement > [body, catches, finally]`（实测缺 `Block` 2 +
+缺 `CatchClause` + 缺 `VariableDeclaration` + 多出一个未映射的 `CatchDefine`）。
+
+```ts
+  const seg = (key) => kidsOf(v, key).filter((k) => !INVISIBLE.has(k.get("type")));
+  const props = {};
+  const blockAfter = (from, statements) => {
+    const brace = ctx.source.indexOf("{", from);
+    if (brace < 0) return undefined;
+    const close = matchingBrace(ctx.source, brace);
+    if (close < brace) return undefined;
+    return { kind: "Block", statements, pos: brace, end: close + 1 };
+  };
+  const tryAt = ctx.source.indexOf("try", v.start);
+  const tryBlock = blockAfter(tryAt < 0 ? v.start : tryAt, projectEach(seg("body"), ctx, "Block"));
+  if (tryBlock !== undefined) props.tryBlock = tryBlock;
+  const catches = seg("catches");
+  const catchDefine = catches.find((k) => k.get("type") === "CatchDefine");
+  const catchBody = catches.find((k) => k.get("type") === "CatchBody");
+  if (catchDefine !== undefined || catchBody !== undefined) {
+    const anchor = catchDefine !== undefined ? startOf(catchDefine) : startOf(catchBody);
+    const at = ctx.source.lastIndexOf("catch", anchor);
+    const inner = {};
+    if (catchDefine !== undefined) {
+      const binding = allKids(view(catchDefine)).find((k) => !INVISIBLE.has(k.get("type")));
+      const name = binding === undefined ? undefined : projectNode(binding, ctx);
+      if (name !== undefined) {
+        inner.variableDeclaration = { kind: "VariableDeclaration", name, pos: name.pos, end: name.end };
+      }
+    }
+    if (catchBody !== undefined) inner.block = projectNode(catchBody, ctx);
+    props.catchClause = {
+      kind: "CatchClause",
+      pos: at >= 0 ? at : anchor,
+      end: catchBody !== undefined ? endOf(catchBody) : endOf(catchDefine),
+      ...inner,
+    };
+  }
+  const finallyStatements = projectEach(seg("finally"), ctx, "Block");
+  if (finallyStatements.length > 0) {
+    const at = ctx.source.indexOf("finally", v.start);
+    const finallyBlock = blockAfter(at < 0 ? v.start : at, finallyStatements);
+    if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
+  }
+  return { kind: "TryStatement", pos: v.start, end: v.end, ...props };
 ```
 
 # private method projectHeritageClause:(v:any, ctx:any)=>any
@@ -3628,6 +3787,14 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends",
   );
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+  // **映射类型的 `K in T`**（第 93 轮）：`in` 在名字**后面**（变型标注的 `in` 在名字**前面**，
+  // 见 `isTypeParameterModifier`），所以「位置在名字之后」本身就是判据。
+  // TS 那边 `MappedType.typeParameter.constraint` 就是 `in` 右边那一段——
+  // 不收出来会整类丢约束（实测 47 处 `TypeParameter` 少一个 `constraint`，
+  // 连带缺它里面的 `TypeOperator` / `TypeReference` / `Identifier`）。
+  const inIndex = kids.findIndex(
+    (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "in",
+  );
   // 名字 = 第一个 Identifier，但要**排掉两样东西**：
   // ① `extends`（它的词法身份不固定，可能是 Identifier）；
   // ② 修饰词——`out` 在产物里就是 **`Identifier`**（README 记过），
@@ -3641,6 +3808,11 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     const end = eqIndex > extIndex ? eqIndex : kids.length;
     // `in` / `out` / `const` 是**修饰词**，不是约束内容——`<in T extends U>` 里它们排在名字**前面**。
     const body = kids.slice(extIndex + 1, end).filter((k) => !isTypeParameterModifier(k, ctx));
+    if (body.length > 0) props.constraint = typeOf(body, ctx);
+  }
+  // 映射键的约束（见上面的 `inIndex`）：`extends` 与 `in` 不会同时出现，所以两条互斥。
+  if (extIndex < 0 && nameIndex >= 0 && inIndex > nameIndex) {
+    const body = kids.slice(inIndex + 1).filter((k) => !isTypeParameterModifier(k, ctx));
     if (body.length > 0) props.constraint = typeOf(body, ctx);
   }
   if (eqIndex >= 0) props.default = typeOf(kids.slice(eqIndex + 1), ctx);
@@ -3830,6 +4002,19 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
       if (!(x instanceof Map) || INVISIBLE.has(x.get("type"))) continue;
       // 名字那个单元已经进 `props.name` 了，不要再当成子节点收一遍。
       if (x === nameNode || x === computedUnit) continue;
+      // **可选方法 / 方法签名的 `?` 是字段、不是子节点**（第 93 轮修）：TS 的
+      // `MethodSignature > [name, questionToken, type]`，而产物把它平铺在 `children` 里
+      // （`MethodDeclaration > [?, Bracket(形参), ReturnType]`）——不收出来它会跟着
+      // 形参表落进 `parameters`（实测字段名差 149 处）。
+      if (
+        (kind === "MethodSignature" || kind === "MethodDeclaration") &&
+        x.get("type") === "SymbolToken" &&
+        textOfNode(x, ctx) === "?"
+      ) {
+        const questionAt = startOf(x);
+        props.questionToken = { kind: "QuestionToken", text: "?", pos: questionAt, end: questionAt + 1 };
+        continue;
+      }
       // **体节点**：改字段名，但自己仍是一个节点（见 `BODY_FIELDS`）。
       const body = BODY_FIELDS.get(x.get("type"));
       if (body !== undefined) {

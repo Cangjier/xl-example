@@ -427,11 +427,112 @@ function parseWith(source, file) {
   return context.Root;
 }
 
+/**
+ * 逐文件差分（`--file <路径>`）：把四个方向（缺 / 漂移 / 多出来 / 字段名）
+ * 按**节点**列出来，每条带源码原文。总表只能告诉你「哪一类最多」，
+ * 定位「这个文件为什么不过」要用这一把。
+ *
+ *   node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
+ *   node tests/parse/ts-ast.mjs --file <路径> --list      # 连对上的节点也列出来
+ *   node tests/parse/ts-ast.mjs --file <路径> --limit 50  # 每个方向最多列几条
+ */
+function diffOneFile(file, options) {
+  const { list, limit } = options;
+  let source = fs.readFileSync(file, "utf8");
+  if (source.charCodeAt(0) === 0xfeff) source = source.substring(1);
+  const stats = {
+    total: 0,
+    repeatVisits: 0,
+    missingRange: 0,
+    outOfRange: 0,
+    missingByType: new Map(),
+    outOfRangeByType: new Map(),
+  };
+  const rootNode = parseWith(source, file);
+  const ours = flattenProduct(rootNode.ToList(), stats, source);
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const theirs = flattenTs(sf);
+  const projected = projectRoot(rootNode.ToList(), source);
+  const proj = flattenProjected(projected.ast);
+
+  const snippet = (start, end) =>
+    JSON.stringify(source.slice(start, Math.min(end === undefined ? start + 40 : end, start + 60)).split("\n")[0]);
+  const rel = path.relative(root, file);
+  const projByKind = new Map();
+  const projFields = new Map();
+  for (const p of proj) {
+    if (!projByKind.has(p.kind)) projByKind.set(p.kind, []);
+    projByKind.get(p.kind).push(p);
+    projFields.set(`${p.kind}@${p.start}-${p.end}`, p.fields ?? []);
+  }
+  const projKeys = new Set(proj.map((p) => `${p.kind}@${p.start}-${p.end}`));
+
+  const lines = [];
+  let missing = 0;
+  let drift = 0;
+  let extra = 0;
+  let fieldDiff = 0;
+  for (const their of theirs) {
+    const key = `${their.kind}@${their.start}-${their.end}`;
+    if (!projKeys.has(key)) {
+      const near = (projByKind.get(their.kind) || []).find((p) => Math.abs((p.start ?? -1) - their.start) <= 2);
+      if (near) {
+        drift++;
+        if (lines.filter((l) => l.startsWith("DRIFT")).length < limit)
+          lines.push(`DRIFT  ${their.kind}  TS[${their.start},${their.end}) vs 产物[${near.start},${near.end})  ${snippet(their.start, their.end)}`);
+      } else {
+        missing++;
+        if (lines.filter((l) => l.startsWith("MISS ")).length < limit)
+          lines.push(`MISS   ${their.kind}  TS[${their.start},${their.end})  ${snippet(their.start, their.end)}`);
+      }
+      continue;
+    }
+    const oursFields = projFields.get(key) ?? [];
+    const theirFields = their.fields ?? [];
+    const same = oursFields.length === theirFields.length && oursFields.every((f, i) => f === theirFields[i]);
+    if (!same) {
+      fieldDiff++;
+      if (lines.filter((l) => l.startsWith("FIELD")).length < limit)
+        lines.push(`FIELD  ${their.kind}  [${their.start},${their.end})  产物[${oursFields.join(",")}] vs TS[${theirFields.join(",")}]  ${snippet(their.start, their.end)}`);
+    } else if (list) {
+      lines.push(`OK     ${their.kind}  TS[${their.start},${their.end})  ${snippet(their.start, their.end)}`);
+    }
+  }
+  const theirKeys = new Set(theirs.map((t) => `${t.kind}@${t.start}-${t.end}`));
+  for (const p of proj) {
+    if (theirKeys.has(`${p.kind}@${p.start}-${p.end}`)) continue;
+    extra++;
+    if (lines.filter((l) => l.startsWith("EXTRA")).length < limit)
+      lines.push(`EXTRA  ${p.kind}  [${p.start},${p.end})  ${snippet(p.start, p.end)}`);
+  }
+  console.log(`${rel}`);
+  console.log(
+    `  TS 节点 ${theirs.length}，投影节点 ${proj.length}；缺 ${missing}　漂移 ${drift}　多出来 ${extra}　字段名 ${fieldDiff}` +
+      `${projected.unmapped.length ? `；未映射标签 ${[...new Set(projected.unmapped)].join(",")}` : ""}`,
+  );
+  // 未对上的产物原标签（定位「投影把谁投歪了」用）
+  const ourByKind = new Map();
+  for (const node of ours) {
+    if (!ourByKind.has(node.type)) ourByKind.set(node.type, []);
+    ourByKind.get(node.type).push(node);
+  }
+  for (const line of lines) console.log("  " + line);
+  if (!lines.length) console.log("  （完全一致）");
+}
+
 function main() {
   const args = process.argv.slice(2);
   const mode = args.find((a) => ["real", "cases", "all"].includes(a)) || "all";
   const top = args.includes("--top") ? Number(args[args.indexOf("--top") + 1]) : 20;
   const sampleLimit = args.includes("--samples") ? Number(args[args.indexOf("--samples") + 1]) : 3;
+
+  if (args.includes("--file")) {
+    diffOneFile(path.resolve(root, args[args.indexOf("--file") + 1]), {
+      list: args.includes("--list"),
+      limit: args.includes("--limit") ? Number(args[args.indexOf("--limit") + 1]) : 40,
+    });
+    return;
+  }
 
   const files = corpus(mode);
   const missing = new Map();      // TS 有、产物没有（按 TS kind 聚合）
@@ -467,6 +568,8 @@ function main() {
   const projectedExtra = new Map();
   const projectedExtraSamples = new Map();
   let exactFiles = 0;
+  const perFile = args.includes("--per-file");
+  const perFileRows = [];
 
   for (const file of files) {
     let source = fs.readFileSync(file, "utf8");
@@ -607,7 +710,26 @@ function main() {
     }
     if (fileMissing === 0 && fileDrift === 0 && fileExtra === 0 && fileFieldDiff === 0) {
       exactFiles++;
+    } else if (perFile) {
+      perFileRows.push({
+        file: path.relative(root, file),
+        missing: fileMissing,
+        drift: fileDrift,
+        extra: fileExtra,
+        fields: fileFieldDiff,
+      });
     }
+  }
+
+  if (perFile) {
+    perFileRows.sort((a, b) => b.missing + b.drift + b.extra + b.fields - (a.missing + a.drift + a.extra + a.fields));
+    console.log(`=== 逐文件差额（${perFileRows.length} 个文件不为零，按总额降序）===`);
+    for (const row of perFileRows) {
+      console.log(
+        `  ${String(row.missing).padStart(6)} ${String(row.drift).padStart(5)} ${String(row.extra).padStart(5)} ${String(row.fields).padStart(5)}  ${row.file}`,
+      );
+    }
+    console.log("");
   }
 
   console.log(
