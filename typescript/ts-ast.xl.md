@@ -5358,6 +5358,24 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
       end: close,
     };
   }
+  // **`export * as ns from "m"`**（第 165 轮）：TS 那边 `exportClause` 是一个
+  // `NamespaceExport`（区间从 `*` 到那个名字的末尾，`Identifier` 是它的子节点）。
+  // 产物那一段是 `[*, Keyword(as), Identifier(ns)]` 平级三格——不收的话
+  // `ExportDeclaration` 少一整个 `exportClause` 字段、缺 `NamespaceExport` + `Identifier`
+  // （实测 `ex-reexport.ts` / `mod-export-star-as-namespace.ts` / `mod-adversarial-shapes.ts`）。
+  const star = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "*");
+  if (brace === undefined && star !== undefined) {
+    const asIndex = kids.findIndex((k) => textOfNode(k, ctx) === "as");
+    const nameNode = asIndex < 0 ? undefined : kids[asIndex + 1];
+    if (nameNode !== undefined) {
+      props.exportClause = {
+        kind: "NamespaceExport",
+        name: projectNode(nameNode, ctx),
+        pos: startOf(star),
+        end: endOf(nameNode),
+      };
+    }
+  }
   // `export { a } from "m"` 的模块名（TS：`moduleSpecifier`，与 `exportClause` 并列）。
   const module_ = kids.find((k) => k.get("type") === "String");
   if (module_ !== undefined) props.moduleSpecifier = projectNode(module_, ctx);
