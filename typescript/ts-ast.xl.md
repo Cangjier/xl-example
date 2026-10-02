@@ -781,6 +781,13 @@ new Map([
 
 # private const endOf:(node:any)=>int = (node) => (node.get("range") ? node.get("range")[1] + 1 : 0)
 
+# private const NOTHING:any = { __nothing: true }
+
+**「这一格没有节点」的哨兵**（第 198 轮）：token 的 `PrintAst` 返回 `undefined` 时，
+`projectNode` 认为「它没覆写这一格」、于是落到通用投影——但有几处出口是**故意**
+一个节点都不出的（例如 `projectStatement` 对那些「已经是上一条语句终结符」的空语句
+返回 `undefined`）。所以那些出口改为返回 `ctx.Nothing`，`projectNode` 见到它就**直接返回
+`undefined`**，不再往下走通用支。
 # private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"])
 
 没有函数体的**可调用签名**：它们的 `end` 要**带上尾随分号**（TS 的口径）。
@@ -876,6 +883,9 @@ new Map([
   const owner = node.__token;
   if (owner !== undefined) {
     const own = owner.PrintAst(ctx, v);
+    // **`ctx.Nothing` 表示「这一格故意不出节点」**（见 `NOTHING` 的说明）：
+    // 与 `undefined`（＝没覆写、请走通用支）是两回事。
+    if (own === ctx.Nothing) return undefined;
     if (own !== undefined) return own;
   }
   // **尾部 trivia 一律剪掉**：TS 的节点 `end` **从不含尾部 trivia**，而本工程的区间常常含
@@ -909,199 +919,81 @@ new Map([
   // **父 kind**：少数几处「同一个产物标签按上下文换 kind」要问它
   // （类里的 `constructor` 是 `ConstructorDeclaration`）。它由 `structuralProps`
   // 在摊平包装体时显式往下传——不是从产物树的父亲读的。
-  switch (v.type) {
-
-    case "Statement":
-      return projectStatement(v, ctx);
-
-
-
-
-
-    // **成员访问链**：token 层折出来的容器（`a.b` / `a.b(1)` / `f(1).x`）。
-    // 形状交给 `projectExpression` 的折链那一支——它按左结合折成嵌套的
-    // `PropertyAccessExpression`、链尾是调用时折成 `CallExpression`。
-
-    // **`RegexToken` / `ConstString` / `String` / `Identifier` / `Keyword` / `SymbolToken`
-    // 都已搬进各自的 token**（第 182~184 轮）：`PrintAst` 会先命中，
-    // 下面这些 `case` 原来就是**死代码**，这一轮删掉。
-    // 它们分别落在 `tokens/regex-token.xl.md`、`tokens/string/const-string.xl.md`、
-    // `tokens/string/string.xl.md`、`tokens/identifier.xl.md`、`tokens/keyword.xl.md`、
-    // `tokens/symbol-token.xl.md`。
-
-
-    // 类型位的导入类型 `import("m").A` / `typeof import("m")`（第 76 轮）：
-    // TS 那边 `argument` 是一层 `LiteralType`、`qualifier` 是限定名，两样都要切出来。
-
-    // `infer X`（TS 那边只有 `typeParameter` 一个子字段，`infer` 那个词**不是**子节点）
-    // 已搬进 `tokens/infer-type.xl.md` 的 `InferType.PrintAst`（第 183 轮）。
-
-    // 下标访问类型 `A[K]`：TS 那边是 `objectType` + `indexType` 两个具名字段。
-
-
-    // 索引签名 `{ [k: string]: T }`：TS 那边是 `parameters` + `type`（+ `readonly` 修饰词），
-    // 产物那边是一串平级子单元，照通用投影会全塞进一个 `children`。
-
-    // 值位对象字面量 `{ a: 1, b, [k]: 2, ...rest, m() {} }`：TS 的 `properties` 是**成员数组**，
-    // 产物那边是一串平级单元（照通用投影会把每个标点都当成一个属性）。
-
-    // **`ArrayLiteral` 已经搬进 `tokens/json/array-literal.xl.md` 的 `PrintAst`**（第 181 轮）：
-    // `projectNode` 会先问 `node.__token.PrintAst(ctx, v)`，覆写了就在那儿返回，这里不再需要分支。
-    // 搬迁的判据是「产物逐字节不变」，尺子仍然是全量对拍。
-
-    // 类型查询 `typeof X`：TS 那边 `exprName` **只有名字**（`typeof` 是属性、不是子节点），
-    // 产物那边它是 `[Keyword(typeof), Identifier(X)]` 两个平级单元——照通用投影会把
-    // `TypeOfKeyword` 也塞进 `exprName`。
-    // 非空断言 `x!`：TS 的 `NonNullExpression` 只有 `expression` 一个子字段——
-    // `!` 那个词是节点的属性（`exclamationToken`），`forEachChild` 不访问它
-    // （实测「多出来」里 `ExclamationToken` 350 个全是它）。
+  let kind = KIND_BY_TAG.get(v.type);
+  if (kind === undefined) {
+    ctx.unmapped.add(v.type);
+    return mk(v.type, { children: projectEach(allKids(v), ctx) });
+  }
+  // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
+  // **类里那个叫 `constructor` 的是 `ConstructorDeclaration`**（另一个 kind、没有名字字段）——
+  // 两处都是「同一个产物标签、按上下文换 kind」（真实语料 `Constructor` 缺 269，全挂在 `ClassDeclaration` 下）。
+  if (ctx.signature && v.type === "MethodDeclaration") kind = "MethodSignature";
+  // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
+  // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
+  // 还是 `FunctionExpression`），而 `KIND_BY_TAG` 给的是**声明**名。
+  // 判据是「谁在投它」：走 `projectExpression` 的就是表达式位
+  // （与模板字面量靠 `ctx.typePosition` 分辨 `TemplateLiteralType` 是同一手法）。
+  // 少了这一条，`fn-iife` / `stmt-paren-start` / `cls-expression` / `samples/generic.ts`
+  // 这些地方各成一族（实测 `FunctionExpression` 缺 4、`ClassDeclaration` 多出 11）。
+  if (ctx.expressionPosition === true) {
+    if (v.type === "Function") kind = "FunctionExpression";
+    else if (v.type === "Class") kind = "ClassExpression";
+  }
+  else if (
+    v.type === "MethodDeclaration" &&
+    parentKind === "ClassDeclaration" &&
+    v.attrs.get("name") === "constructor"
+  ) {
+    // **判据是 `name` 属性、不是 `textOf`**：方法单元自己没有 `value`，
+    // `textOf` 会退回 `source.slice(v.start, v.end)`（那是整段方法体，不是名字）。
     //
-    // **这里的 `case` 是产物标签，不是 TS 的 kind**（踩过一回）：产物标签是 `NotNull`，
-    // `NonNullExpression` 是 `KIND_BY_TAG` 给它的**投出**名字——写成后者时那一支永远不命中。
-    // 现在整段已搬进 `tokens/not-null.xl.md` 的 `NotNull.PrintAst`（第 183 轮）。
-
-    // 类型运算符 `keyof T` / `readonly T[]` / `unique symbol`：TS 那边那个词是节点的**属性**
-    // （`operator`），`forEachChild` 只看 `type` 一个子字段。
-
-    // 映射类型 `{ [P in keyof T]-?: T[P] }`：TS 的子字段是
-    // `readonlyToken` / `typeParameter` / `questionToken` / `type`。
-
-    // 继承段 `extends A, B` / `implements C`：TS 那边 `forEachChild` **只访问 `types`**——
-    // `extends` / `implements` 那个词是节点的**属性**（`token`），不是子节点。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // **`EnumMember` 已搬进 `tokens/enum/enum-member.xl.md` 的 `PrintAst`**（第 182 轮）。
-
-
-    // **具名元组成员**与 **try 语句**走各自的投影（第 93 轮）：两者在 TS 那边都有
-    // 「产物里不存在的壳」，通用投影投不对（具名元素的名字会被当成类型、
-    // try 的三段会原样透传成 `body` / `catches` / `finally`）。
-
-    // **`Spread` 已搬进 `tokens/spread.xl.md` 的 `PrintAst`**（第 182 轮）。
-
-
-    // **命名空间 / 模块声明**（第 100 轮）：字符串模块名（`declare module "m" { }`）在 TS 那边
-    // 名字是 `StringLiteral`，而产物把它收进 `namespace` 属性——照通用支会投成 `Identifier`。
-
-    // **类静态块**（`class A { static { … } }`，第 93 轮）：TS 是
-    // `ClassStaticBlockDeclaration > body: Block`，而产物是 `StaticBlock > Statement*`
-    // （体括号那层壳不在树里，`Block` 要自己造）——照通用投影只有 `children`、
-    // 缺整个 `Block`（实测缺 `Block` + 字段名差）。
-
-    // **`for` 语句**（第 93 轮）：四个段在 TS 那边是 `initializer` / `condition` /
-    // `incrementor` / `statement`，其中头三段是**表达式位**（照通用投影会逐个单元投，
-    // `i < j` 会散成三个节点）、空体段在 `ToList` 里**是空数组**（空 `Block` 要自己造）。
-
-    // **循环体的花括号要自己造**（第 96 轮）：`while` / `do…while` / `for…of` 的体段在
-    // `ToList` 里只有语句（体括号那层壳不在树里），照通用投影 `statement` 会是裸的语句
-    // 而不是 `Block`（实测 `Block` 缺 336 里的成片）。
-    // `While` / `DoWhile` 已搬进 `tokens/while/while.xl.md` 与
-    // `tokens/do-while/do-while.xl.md` 的 `PrintAst`（第 183 轮）。
-
-
-    // **`new` 表达式**（第 95 轮）：产物的 `name` 段是**一串单元**（名字 + 类型实参段），
-    // 照通用投影会把它们一起投成 `expression`（实测 `NewExpression` 字段名差 19 +
-    // 多出一个 `TypeReference` 盖住 `<string, number>`）。
-
-    // **装饰器已搬进 `tokens/decorator.xl.md` 的 `Decorator.PrintAst`**（第 182 轮）：
-    // TS 的 `Decorator` 只有 `expression` 一个字段（`@Component({…})` 是 `CallExpression`、
-    // `@plain` 是 `Identifier`），而产物给的是 `name` + `children`（连 `@` 都在里面）。
-
-    // **可变长 / 可选类型**（`...A` / `B?`）已搬进 `tokens/tuple-member.xl.md` 的
-    // `RestType.PrintAst` / `OptionalType.PrintAst`（第 182 轮）：字段只有 `type`，
-    // 两点号与问号**都不是子节点**。
-
-    default: {
-      let kind = KIND_BY_TAG.get(v.type);
-      if (kind === undefined) {
-        ctx.unmapped.add(v.type);
-        return mk(v.type, { children: projectEach(allKids(v), ctx) });
-      }
-      // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
-      // **类里那个叫 `constructor` 的是 `ConstructorDeclaration`**（另一个 kind、没有名字字段）——
-      // 两处都是「同一个产物标签、按上下文换 kind」（真实语料 `Constructor` 缺 269，全挂在 `ClassDeclaration` 下）。
-      if (ctx.signature && v.type === "MethodDeclaration") kind = "MethodSignature";
-      // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
-      // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
-      // 还是 `FunctionExpression`），而 `KIND_BY_TAG` 给的是**声明**名。
-      // 判据是「谁在投它」：走 `projectExpression` 的就是表达式位
-      // （与模板字面量靠 `ctx.typePosition` 分辨 `TemplateLiteralType` 是同一手法）。
-      // 少了这一条，`fn-iife` / `stmt-paren-start` / `cls-expression` / `samples/generic.ts`
-      // 这些地方各成一族（实测 `FunctionExpression` 缺 4、`ClassDeclaration` 多出 11）。
-      if (ctx.expressionPosition === true) {
-        if (v.type === "Function") kind = "FunctionExpression";
-        else if (v.type === "Class") kind = "ClassExpression";
-      }
-      else if (
-        v.type === "MethodDeclaration" &&
-        parentKind === "ClassDeclaration" &&
-        v.attrs.get("name") === "constructor"
-      ) {
-        // **判据是 `name` 属性、不是 `textOf`**：方法单元自己没有 `value`，
-        // `textOf` 会退回 `source.slice(v.start, v.end)`（那是整段方法体，不是名字）。
-        //
-        // kind 名是 **`Constructor`**（`ts.SyntaxKind[177]` 印出来就是 `Constructor`；
-        // `ConstructorDeclaration` 在这个 TypeScript 里是 `undefined`——按后者投，
-        // 尺子上 269 处构造签名会一直算作「缺 `Constructor`」）。
-        kind = "Constructor";
-      }
-      // **取值器 / 设值器**（`get x(): A { … }` / `set x(v) { … }`，第 93 轮）：
-      // 产物把 `get` / `set` 记成 `modifiers="get"`，而 TS 那边 **kind 自己**就说明了是哪一个，
-      // `get` / `set` **不是修饰词节点**——照 `modifiers` 投会多出 `GetKeyword` / `SetKeyword`
-      // （实测多出 102 + 缺 `GetAccessor` / `SetAccessor`）。所以换 kind 并把那个词从修饰词里摘掉。
-      let stripModifier;
-      if (v.type === "MethodDeclaration") {
-        const words = String(v.attrs.get("modifiers") ?? "").split(",");
-        if (words.includes("get")) {
-          kind = "GetAccessor";
-          stripModifier = "GetKeyword";
-        } else if (words.includes("set")) {
-          kind = "SetAccessor";
-          stripModifier = "SetKeyword";
-        }
-      }
-      const props = structuralProps(v, kind, ctx);
-      if (stripModifier !== undefined && Array.isArray(props.modifiers)) {
-        props.modifiers = props.modifiers.filter((m) => m.kind !== stripModifier);
-      }
-      // **生成器记号的 `*` 是 `asteriskToken`**（第 130 轮）：`function* g() {}` 的产物把
-      // `*` 记成一个平级的 `SymbolToken`，它会跟着形参一起落进 `parameters`——而 TS 那边
-      // 它是 `FunctionDeclaration.asteriskToken`（**不是**形参，`forEachChild` 单独访问它）。
-      // 摘出来之后字段名与 TS 一致，节点本身也还在（`AsteriskToken`）。
-      if (Array.isArray(props.parameters)) {
-        const star = props.parameters.findIndex((p) => p !== undefined && p.kind === "AsteriskToken");
-        if (star >= 0) {
-          props.asteriskToken = props.parameters[star];
-          props.parameters.splice(star, 1);
-        }
-      }
-      // **对象字面量成员不吃尾随逗号**（第 142 轮）：见 `projectObjectLiteral` 那一处的说明。
-      const built = mk(kind, props);
-      if (
-        ctx.inObjectLiteral === true &&
-        built !== undefined &&
-        typeof built.end === "number" &&
-        ctx.source[built.end - 1] === ","
-      ) {
-        built.end -= 1;
-        while (built.end > built.pos && /\s/.test(ctx.source[built.end - 1])) built.end -= 1;
-      }
-      return built;
+    // kind 名是 **`Constructor`**（`ts.SyntaxKind[177]` 印出来就是 `Constructor`；
+    // `ConstructorDeclaration` 在这个 TypeScript 里是 `undefined`——按后者投，
+    // 尺子上 269 处构造签名会一直算作「缺 `Constructor`」）。
+    kind = "Constructor";
+  }
+  // **取值器 / 设值器**（`get x(): A { … }` / `set x(v) { … }`，第 93 轮）：
+  // 产物把 `get` / `set` 记成 `modifiers="get"`，而 TS 那边 **kind 自己**就说明了是哪一个，
+  // `get` / `set` **不是修饰词节点**——照 `modifiers` 投会多出 `GetKeyword` / `SetKeyword`
+  // （实测多出 102 + 缺 `GetAccessor` / `SetAccessor`）。所以换 kind 并把那个词从修饰词里摘掉。
+  let stripModifier;
+  if (v.type === "MethodDeclaration") {
+    const words = String(v.attrs.get("modifiers") ?? "").split(",");
+    if (words.includes("get")) {
+      kind = "GetAccessor";
+      stripModifier = "GetKeyword";
+    } else if (words.includes("set")) {
+      kind = "SetAccessor";
+      stripModifier = "SetKeyword";
     }
   }
+  const props = structuralProps(v, kind, ctx);
+  if (stripModifier !== undefined && Array.isArray(props.modifiers)) {
+    props.modifiers = props.modifiers.filter((m) => m.kind !== stripModifier);
+  }
+  // **生成器记号的 `*` 是 `asteriskToken`**（第 130 轮）：`function* g() {}` 的产物把
+  // `*` 记成一个平级的 `SymbolToken`，它会跟着形参一起落进 `parameters`——而 TS 那边
+  // 它是 `FunctionDeclaration.asteriskToken`（**不是**形参，`forEachChild` 单独访问它）。
+  // 摘出来之后字段名与 TS 一致，节点本身也还在（`AsteriskToken`）。
+  if (Array.isArray(props.parameters)) {
+    const star = props.parameters.findIndex((p) => p !== undefined && p.kind === "AsteriskToken");
+    if (star >= 0) {
+      props.asteriskToken = props.parameters[star];
+      props.parameters.splice(star, 1);
+    }
+  }
+  // **对象字面量成员不吃尾随逗号**（第 142 轮）：见 `projectObjectLiteral` 那一处的说明。
+  const built = mk(kind, props);
+  if (
+    ctx.inObjectLiteral === true &&
+    built !== undefined &&
+    typeof built.end === "number" &&
+    ctx.source[built.end - 1] === ","
+  ) {
+    built.end -= 1;
+    while (built.end > built.pos && /\s/.test(ctx.source[built.end - 1])) built.end -= 1;
+  }
+  return built;
 ```
 
 # private const TYPE_MEMBER_KINDS:Set<string>
@@ -5344,6 +5236,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
     ParameterModifiers: PARAMETER_MODIFIERS,
     SynthName: (text, view) => synthName(text, view, ctx),
+    StatementOf: (view) => projectStatement(view, ctx),
+    Nothing: NOTHING,
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
