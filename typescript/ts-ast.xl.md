@@ -3163,7 +3163,15 @@ new Set([
     if (node !== undefined) return node;
   }
   const props = {
-    expression: { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
+    // **动态 `import("m")` 的被调用者是 `ImportKeyword`**（第 142 轮）：TS 那边
+    // `import("m")` 是 `CallExpression > [ImportKeyword, StringLiteral]`，而产物把它收成
+    // `Method(name="import") > String`——照名字投会得到一个 `Identifier("import")`
+    // （实测 `expr-call-dynamic-import` / `expr-call-await-import` / `am-import-type-call`
+    // 三族各缺 1 个 `ImportKeyword`）。
+    expression:
+      calleeText === "import"
+        ? { kind: "ImportKeyword", text: "import", pos: v.start, end: v.start + "import".length }
+        : { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
     // **实参要按顶层逗号切组、每组折成一个表达式**（第 113 轮）：一格的实参在产物里可能是
     // **好几个平级单元**——`result.SignIn(Get(units, i)!.SourceRange.Start!)` 那个实参就是
     // `[NotNull(…), ., NotNull(…)]` 三格。逐个单元投会让它裂成三个「实参」，

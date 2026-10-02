@@ -422,6 +422,35 @@ return SkipPrevious(units, index, IsTriviaUnit);
 return GetSkipPrevious(units, index, IsTriviaUnit);
 ```
 
+# method SkipNextTrivia:(units:Array<Token>, index:number)=>int
+
+从 `index + 1` 起向后跳过所有 **trivia**（软换行与注释），返回第一个非 trivia 的下标；一路跳到底返回 `units.length`。
+
+与 `SkipNextWrapSymbol` 的差别只有一个：**注释也算 trivia**。这一对（本方法与 `SkipPreviousTrivia`）
+是「下一个实义单元」这类判定的口径——
+
+    return item instanceof IfSet
+      || item instanceof For
+      // 这里可以插一整段注释
+      || item.constructor.name === "StaticBlock"
+
+那个 `||` 才是上一行的后续（ASI 与逻辑运算符段都要看它）；只跳软换行时会把**注释**当成
+「下一行的第一个单元」，于是判成断句、整条 `||` 链被切成两段
+（实测 `dist/ts/typescript/tokens/statement.ts`：缺 `BinaryExpression` / `PropertyAccessExpression`
+/ `Identifier` 共 8 处，漂移 3 处，全长都是这一条）。
+
+```ts
+return SkipNext(units, index, IsTriviaUnit);
+```
+
+# method GetSkipNextTrivia:(units:Array<Token>, index:number)=>Token | null
+
+`SkipNextTrivia` 之后再取值；越界给 `null`。
+
+```ts
+return GetSkipNext(units, index, IsTriviaUnit);
+```
+
 # method IsTriviaUnit:(item:Token | null)=>bool
 
 `item` 是不是**不承载语义的单元**：软换行、行注释、区域注释、预处理指令。

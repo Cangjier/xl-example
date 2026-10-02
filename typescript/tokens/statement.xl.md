@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -658,7 +658,10 @@ if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--")))
     return true;
   }
 }
-const nextIndex = SkipNextWrapSymbol(units, index);
+// **下一个实义单元也要跳过注释**（第 142 轮）：`x === 1` 换行 `// 注释` 换行 `|| y` 里，
+// 那个 `||` 才是上一行的后续；只跳软换行时会把注释当成「下一行的第一个单元」，
+// 于是判成断句、整条 `||` 链被切成两段（实测 `statement.ts` 的一长串 `||`）。
+const nextIndex = SkipNextTrivia(units, index);
 if (nextIndex >= units.length) {
   return true;
 }
