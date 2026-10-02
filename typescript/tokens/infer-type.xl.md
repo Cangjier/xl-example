@@ -129,15 +129,34 @@ let endIndex = nameIndex;
 const extendsIndex = SkipNextWrapSymbol(units, nameIndex);
 const extendsUnit = Get(units, extendsIndex);
 if (extendsUnit !== null && WordText(extendsUnit) === "extends") {
-  parts.push(extendsUnit);
-  endIndex = extendsIndex;
+  // 先把候选约束段扫出来，**收不收**由下面那条判据决定。
+  const constraintParts: Token[] = [];
+  let constraintEnd = extendsIndex;
   for (let i = SkipNextWrapSymbol(units, extendsIndex); i < units.length; i++) {
     const item = Get(units, i);
     if (item === null || this.IsConstraintStop(item)) {
       break;
     }
-    parts.push(item);
-    endIndex = i;
+    constraintParts.push(item);
+    constraintEnd = i;
+  }
+  // **`?` 紧跟约束段之后时，这个 `extends` 未必是约束**（第 148 轮）：同一段文本
+  // `infer E extends F ? G : H` 在两种上下文里 TS 读法**相反**——
+  //
+  //     T extends infer U extends string ? U : never   ⇒ InferType = `infer U extends string`
+  //     A extends B ? infer E extends F ? G : H : J    ⇒ InferType = `infer E`（`F` 是**外层条件类型**的 extendsType）
+  //
+  // （实测 `ts.createSourceFile`：前者的 `TypeParameter` 到 `string` 为止，后者只到 `E`。）
+  // 判据是「从 `infer` 往回看，最近的实义单元是 `extends` 还是别的」：前者的 `infer`
+  // 落在某个条件类型的 **extendsType** 位置上（回扫先撞上那个 `extends`），后者回扫先撞上 `?`。
+  const nextAfter = Get(units, SkipNextWrapSymbol(units, constraintEnd));
+  const questionNext = nextAfter instanceof SymbolToken && nextAfter.Is("?");
+  if (constraintParts.length === 0 || questionNext === false || this.IsInsideExtendsType(units, index)) {
+    parts.push(extendsUnit);
+    for (const item of constraintParts) {
+      parts.push(item);
+    }
+    endIndex = constraintEnd;
   }
 }
 const parameter = new TypeParameter(current.Template);
@@ -156,8 +175,28 @@ result.TryToClose();
 return ReplaceCountAt(units, index, endIndex - index + 1, result);
 ```
 
-# class InferType extends IndependentToken
+## private method IsInsideExtendsType:(units:Array<Token>, index:int)=>bool
 
+从 `index`（`infer` 那一格）往回看，**最近的实义单元是不是 `extends`**。
+
+是 ⇒ 这个 `infer` 落在某个条件类型的 `extendsType` 位置上：后面那个 `extends` 只能是
+**infer 自己的约束**（TypeScript 在 extendsType 里关掉了条件类型的解析）。
+
+`LineWrap` 跳过；撞上别的实义单元（`?` / `;` / `=` / 逗号 / 括号…）就算「不是」。
+见 `Process` 里那一处的说明。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null || item instanceof LineWrap) {
+    continue;
+  }
+  return WordText(item) === "extends";
+}
+return false;
+```
+
+# class InferType extends IndependentToken
 推断类型（`infer X` / `infer X extends Y`）。类名必须与产物的标签名一致。
 
 内容装两件：`infer` 那个词、以及一个 `TypeParameter`（名字与约束）。

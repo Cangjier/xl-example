@@ -2273,6 +2273,48 @@ new Set([
         i += 3;
         continue;
       }
+      // **点号后面那一格是 `!` 包着的方法调用 / 成员**（第 147 轮）：
+      // `source.Pre()!.Pre()!` 里 `.Pre()!` 在产物里是**一个** `NotNull(Method(Pre), !)`
+      // 单元——名字只占 `Method` 开头的几个字符，`!` 是调用**之后**的断言。
+      // 照名字那一支投会得到一个盖住整段 `Pre()` 的 `Identifier`
+      // （实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
+      if (next.get("type") === "NotNull") {
+        const asserted = projectableKids(view(next)).filter(
+          (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
+        );
+        const head = asserted[0];
+        if (head !== undefined && head.get("type") === "Method") {
+          const raw = String(head.get("name") ?? "");
+          const nameEnd = startOf(head) + raw.length;
+          const member = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: { kind: "Identifier", text: raw, pos: startOf(head), end: nameEnd },
+            pos: left.pos,
+            end: nameEnd,
+          };
+          const call = Object.assign({}, projectNode(head, ctx), {
+            expression: member,
+            pos: member.pos,
+            end: endOf(head),
+          });
+          left = { kind: "NonNullExpression", expression: call, pos: call.pos, end: endOf(next) };
+          i += 2;
+          continue;
+        }
+        if (head !== undefined) {
+          const member = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: nameOf(head, ctx),
+            pos: left.pos,
+            end: endOf(head),
+          };
+          left = { kind: "NonNullExpression", expression: member, pos: member.pos, end: endOf(next) };
+          i += 2;
+          continue;
+        }
+      }
       if (next.get("type") === "Method") {
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
