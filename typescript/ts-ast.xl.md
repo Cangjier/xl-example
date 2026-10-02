@@ -943,10 +943,6 @@ new Map([
     case "TypeAssign":
       return projectTypeAlias(v, ctx);
 
-    case "Parameter":
-    case "LamdaParameter":
-      return projectParameter(v, ctx);
-
     // 索引签名 `{ [k: string]: T }`：TS 那边是 `parameters` + `type`（+ `readonly` 修饰词），
     // 产物那边是一串平级子单元，照通用投影会全塞进一个 `children`。
 
@@ -4290,111 +4286,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 # private const PARAMETER_MODIFIERS:Set<string> = new Set(["public", "private", "protected", "readonly", "override"])
 
-# private method projectParameter:(v:any, ctx:any)=>any
-
-形参 `x: string` → `Parameter`（`name` + `type`）。
-
-**形参上的修饰词**（TS 4.x 起的参数属性）：`constructor(private readonly a: number)` 的
-`private` / `readonly` 在 TS 那边是 `modifiers` 里的节点，在产物这边是 `Parameter` 下的平铺
-`Keyword`——所以它们既要从名字搜索里排掉，也要收进 `modifiers`。
-
-**`TypeDefine` 要摊平**：产物里 `x: string` 是 `Parameter > [Identifier, TypeDefine > Identifier]`，
-而 TS 的 `Parameter.type` **直接就是那个类型引用**，中间没有 `TypeDefine` 这一层。
-
-```ts
-  const kids = projectableKids(v);
-  // **形参上的修饰词是子节点**（第 93 轮修）：`constructor(private readonly a: number)` 的产物是
-  // `Parameter > [Keyword(private), Keyword(readonly), Identifier(a), TypeDefine]`，
-  // 而 TS 把前两个放进 `modifiers` 字段。两件事都要做：
-  // ① 收成 `modifiers`；② **跳过它们再找名字**——`private` 也是 `Keyword`，
-  // 早先的 `find(Identifier || Keyword)` 会把它当成形参名（实测缺 `Identifier` 3 +
-  // 缺 `ReadonlyKeyword` + 字段名差 11）。
-  const leadingModifiers = [];
-  for (const k of kids) {
-    if (k.get("type") === "Keyword" && PARAMETER_MODIFIERS.has(textOfNode(k, ctx))) {
-      leadingModifiers.push(k);
-      continue;
-    }
-    break;
-  }
-  const body = leadingModifiers.length > 0 ? kids.slice(leadingModifiers.length) : kids;
-  // **解构形参**（第 122 轮）：`(...[a, b]: T)` / `({ p, q }: T)` 的名字是 `ArrayLiteral` /
-  // `ObjectLiteral`，只找 `Identifier` / `Keyword` 会漏掉整格 `name`
-  //（实测 `Parameter` 少 `name` 8 处，其中 4 处同时带 `dotDotDotToken`）。
-  const nameNode = body.find(
-    (k) =>
-      k.get("type") === "Identifier" ||
-      k.get("type") === "Keyword" ||
-      k.get("type") === "ArrayLiteral" ||
-      k.get("type") === "ObjectLiteral",
-  );
-  const typeNode = body.find((k) => k.get("type") === "TypeDefine");
-  const question = body.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
-  // **剩余形参的 `...` 是子节点**（TS：`Parameter > [dotDotDotToken, name, type]`，语料 483 处）。
-  // 产物那边它常常是**第一个平级的 `SymbolToken("...")`**（`...args: string[]`），
-  // 只有被收成 `Spread` 时才走下面那一支（`Spread` 是 `<Spread>` 标签、`kind` 是 `SpreadElement`）。
-  const dots = body.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
-  const rest = body.find((k) => k.get("type") === "Spread");
-  const props = {
-    // **`this` 形参的名字是 `Identifier`，不是 `ThisKeyword`**：TS 的 `this: Window` 里
-    // `parameterName` 就是一个文本为 `this` 的 `Identifier`（`ThisKeyword` 只出现在类型位）。
-    // 产物那边它是 `<Keyword>this</Keyword>`，照通用投影会投成 `ThisKeyword`
-    // （真实语料 `Parameter` 下缺 1149 个 `Identifier`，绝大多数就是这一条）。
-    name:
-      nameNode === undefined
-        ? undefined
-        : nameNode.get("type") === "ArrayLiteral" || nameNode.get("type") === "ObjectLiteral"
-          ? projectBindingPattern(nameNode, ctx)
-          : nameNode.get("type") === "Keyword" || nameNode.get("type") === "Identifier"
-            ? // **形参名永远是 `Identifier`**（第 129 轮）：`this` / `async` / `await` / `type`
-              // 这些词做形参名时，TS 那边是一个文本就是那个词的 `Identifier`
-              // （`function f(async: boolean)` 的 `Parameter.name` 是 `Identifier`）。
-              // 照通用投影会按词法身份投成 `ThisKeyword` / `AsyncKeyword` / …（实测
-              // `lib.dom.d.ts` 的 `addEventListener(type, listener, async?: boolean)` 一族）。
-              nameOf(nameNode, ctx)
-            : projectNode(nameNode, ctx),
-    type: typeNode === undefined ? undefined : ctx.Project(typeNode),
-  };
-  // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
-  // 与属性那一处同源：产物把 `?` 吞进了 `TypeDefine` 的区间里（`TypeDefine` 从 `?` 起），
-  // 所以按「类型段第一个字符是不是 `?`」切。
-  // **形参上的装饰器**（第 139 轮）：`m(@inject() p: T, @optional() q?: U) {}` 的产物把 `Decorator`
-  // 放在 `Parameter` 下面，而 TS 那边它是 `modifiers` 的**第一格**（装饰器在关键字修饰词之前）。
-  // 不收的话缺整个 `Decorator` / `CallExpression` / `Identifier`，字段名也差一格
-  // （实测 `cls-decorator-params.ts` 缺 6 + 字段名 2）。
-  const paramDecorators = body.filter((k) => k.get("type") === "Decorator");
-  if (leadingModifiers.length > 0 || paramDecorators.length > 0) {
-    props.modifiers = [...projectEach(paramDecorators, ctx), ...projectEach(leadingModifiers, ctx)];
-  }
-  if (question !== undefined) {
-    props.questionToken = projectNode(question, ctx);
-  } else if (typeNode !== undefined && ctx.source[startOf(typeNode)] === "?") {
-    const at = startOf(typeNode);
-    props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
-  }
-  // **默认值也是形参的一部分**（`constructor(public b = 1)` / `(a = 2) => a`）：
-  // 产物把 `=` 与初值平铺在 `Parameter` 下，TS 那边是 `initializer` 字段
-  // （实测 `Parameter` 字段名差、连缺初值那个 `NumericLiteral`）。
-  const eq = body.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  if (eq >= 0 && eq + 1 < body.length) props.initializer = projectNode(body[eq + 1], ctx);
-  // `...` 的位置用**它自己的 `range`**（不是从名字往回推一位）：`k.get("range")[0]` 就是那个点号。
-  if (dots !== undefined) {
-    props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
-  } else if (rest !== undefined) {
-    props.dotDotDotToken = projectNode(rest, ctx);
-  }
-  // **起点跳过前导 trivia**（第 170 轮）：形参之间夹着注释时（
-  // `f(a: A, // eslint-disable-next-line
-  //    b?: B)`）单元区间从注释起，而 TS 的 `Parameter.getStart()` 跳过它
-  // （实测 `@types/node/assert.d.ts`：`Parameter` 从行注释起，缺 1 + 多 1）。
-  return {
-    kind: "Parameter",
-    pos: kids.length > 0 ? startOf(kids[0]) : v.start,
-    end: stmtEndOf(v, ctx),
-    ...props,
-  };
-```
-
 # private method punctBetween:(v:any, fromKey:string, toKey:string, ch:string, ctx:any)=>any
 
 在两段之间**量**出那个标点（`?` / `:`）：从上一段的末尾往后扫，扫到下一段的起点为止。
@@ -5503,6 +5394,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
     OperatorRank: (text) => operatorRank(text),
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
+    ParameterModifiers: PARAMETER_MODIFIERS,
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
