@@ -568,7 +568,77 @@ new Map([
   return "Identifier";
 ```
 
-# method tokenKind:(text:string)=>string
+# private method projectString:(v:any, ctx:any)=>any
+
+字符串 → `StringLiteral` / `NoSubstitutionTemplateLiteral` / **模板字面量**。
+
+模板（反引号串）在产物里是 `String > [ConstString, InterpolationString, ConstString, …]`，
+而 TS 那边是**另一种结构**：
+
+~~~text
+`x${b}y`  ⇒ TemplateExpression[10,18)
+              head: TemplateHead[10,14)        "`x${"
+              templateSpans: [ TemplateSpan[14,18)
+                                 expression: Identifier[14,15)  b
+                                 literal: TemplateTail[15,18)   "}y`" ]
+~~~
+
+**类型位的模板**（`` `${string}-${string}` ``）形状相同、名字不同：外层是
+`TemplateLiteralType`、span 是 `TemplateLiteralTypeSpan`、里面装的是 `type`（不是 `expression`）。
+两者的**产物同形**，所以靠 `ctx.typePosition`（由 `projectTypeExpression` 打标）区分。
+
+没有内插的模板是 `NoSubstitutionTemplateLiteral`（**不是** `StringLiteral`）。
+
+```ts
+  // 值位的普通字符串（引号串）走原来的口径。
+  if (ctx.source[v.start] !== "`") return astNode("StringLiteral", { text: stringText(v, ctx) }, v, ctx);
+  const kids = projectableKids(v);
+  const consts = kids.filter((k) => k.get("type") === "ConstString");
+  const interps = kids.filter((k) => k.get("type") === "InterpolationString");
+  if (interps.length === 0) return astNode("NoSubstitutionTemplateLiteral", { text: stringText(v, ctx) }, v, ctx);
+  const typePosition = ctx.typePosition === true;
+  const head = {
+    kind: "TemplateHead",
+    pos: v.start,
+    // **头部含那个 `{`**：`ConstString` 已经把 `$` 收进去了（`x$`），所以终点是
+    // 第一段内插的起点再加一（`{` 那一格）。
+    end: startOf(interps[0]) + 1,
+  };
+  const spans = [];
+  for (let i = 0; i < interps.length; i++) {
+    const isLast = i === interps.length - 1;
+    const inner = projectableKids(view(interps[i]));
+    const value = typePosition ? projectTypeExpression(inner, ctx) : projectExpression(inner, ctx);
+    if (value === undefined) continue;
+    const literal = {
+      kind: isLast ? "TemplateTail" : "TemplateMiddle",
+      // **字面量段从 `}` 起**（TS 的 `TemplateTail` / `TemplateMiddle` 含那个右花括号），
+      // 终点是下一个常量段的末尾再加一：那个 `ConstString` 已经把 `$` 收进去了，
+      // 后面紧跟的 `{`（或尾段的那个反引号）是它的后面一格。
+      pos: value.end,
+      // 尾段后面没有常量段时（`` `${a}` ``）终点就是整个字符串的终点（含那个反引号）。
+      end: consts[i + 1] === undefined ? v.end : endOf(consts[i + 1]) + 1,
+    };
+    const span = {
+      kind: typePosition ? "TemplateLiteralTypeSpan" : "TemplateSpan",
+      literal,
+      pos: value.pos,
+      end: literal.end,
+    };
+    if (typePosition) span.type = value;
+    else span.expression = value;
+    spans.push(span);
+  }
+  return {
+    kind: typePosition ? "TemplateLiteralType" : "TemplateExpression",
+    head,
+    templateSpans: spans,
+    pos: v.start,
+    end: v.end,
+  };
+```
+
+# private method tokenKind:(text:string)=>string
 
 ```ts
   return TOKEN_KIND.get(text) ?? text;
@@ -745,6 +815,8 @@ new Map([
       return projectRegex(v, ctx);
 
     case "String":
+      return projectString(v, ctx);
+
     case "ConstString":
       return mk("StringLiteral", { text: stringText(v, ctx) });
 
@@ -2266,7 +2338,18 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   }
   // 其余形状（`UnionType` / `IntersectionType` / `FunctionType` / `TypeLiteral` / `TupleType`…）
   // 交回通用投影，它们各自的子单元会再走一遍 `projectTypeExpression`。
-  if (list.length === 1) return projectNode(list[0], ctx);
+  if (list.length === 1) {
+    // **类型位的标记**（第 99 轮）：模板字面量在值位是 `TemplateExpression`、在类型位是
+    // `TemplateLiteralType`（span 里装的是类型而不是表达式），而两者的**产物同形**——
+    // 唯一可靠的区分是「谁在投它」：走 `projectTypeExpression` 的就是类型位。
+    const saved = ctx.typePosition;
+    ctx.typePosition = true;
+    try {
+      return projectNode(list[0], ctx);
+    } finally {
+      ctx.typePosition = saved;
+    }
+  }
   return projectTypeExpression([head], ctx);
 ```
 
@@ -4636,6 +4719,10 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     source,
     unmapped: new Set(),
     count: 0,
+    // **类型位标记**（第 99 轮）：`projectTypeExpression` 在投「只有一个单元」的类型时置上它，
+    // 让 `projectString` 知道该出 `TemplateLiteralType` 还是 `TemplateExpression`
+    // （两者产物同形，只有这一点上下文能区分）。
+    typePosition: false,
     // **给 token 的 `PrintAst(ctx, v)` 用的出口助手**（见 `core/syntax/token.xl.md` 的 `PrintAst`）：
     // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
     // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
@@ -4653,6 +4740,9 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     Text: (view) => textOf(view, ctx),
     TextOf: (node) => textOfNode(node, ctx),
     StringText: (view) => stringText(view, ctx),
+    // **字符串 / 模板串这一格**（第 99 轮）：模板串要递归投内插里的表达式或类型，
+    // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintAst` 转过来。
+    Template: (view) => projectString(view, ctx),
     LeafKind: (text) => leafKindOfText(text),
     KeywordKind: (text) => KEYWORD_KIND.get(text),
     TokenKind: (text) => tokenKind(text),
