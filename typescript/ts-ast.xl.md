@@ -388,6 +388,18 @@ new Map([
       ["children", "heritageClauses"],
     ]),
   ],
+  // **类表达式同形**（第 176 轮）：`class extends B {}` 作为表达式时 TS 的 kind 是
+  // `ClassExpression`，字段与 `ClassDeclaration` 一样（`heritageClauses` / `members`）——
+  // 只给 `ClassDeclaration` 写映射时，类表达式那一支会把继承段顶着 `children` 投出去
+  // （实测 `cls-expression.ts`：字段名 `children` vs `heritageClauses`）。
+  [
+    "ClassExpression",
+    new Map([
+      ["GenericType", "typeParameters"],
+      ["HeritageClause", "heritageClauses"],
+      ["children", "heritageClauses"],
+    ]),
+  ],
   [
     "InterfaceDeclaration",
     new Map([
@@ -1359,6 +1371,37 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
       const projected = projectTypeExpression(group, ctx);
       if (projected !== undefined) out.push(projected);
     }
+    return out;
+  }
+  // **数组里的洞是 `OmittedExpression`**（第 176 轮）：`[1, , 3]` 在 TS 那边是
+  // `[NumericLiteral, OmittedExpression[39,39), NumericLiteral]`——一个**零宽**节点。
+  // 产物在那个位置什么都没有（逗号之间是空的），所以空组要补一个零宽节点，
+  // 位置取**后面那个逗号**的起点（TS 就是这么放的；末组的空位取列表末尾）。
+  // 实测 `ex-array-holes.ts` / `expr-array-holes.ts` 各缺 1 个 `OmittedExpression`
+  // ——值位数组字面量走的是 `projectArrayLiteral`（不是 `projectEachIn`），所以这一条
+  // 写在两处；这里管绑定位与嵌套走 `List` 的那条路。
+  if (parentKind === "ArrayLiteralExpression") {
+    const out = [];
+    let group = [];
+    let lastEnd = list.length > 0 ? startOf(list[0]) : 0;
+    const flush = (separator) => {
+      if (group.length === 0) {
+        out.push({ kind: "OmittedExpression", pos: lastEnd + 1, end: lastEnd + 1 });
+      } else {
+        const one = projectExpression(group, ctx);
+        if (one !== undefined) out.push(one);
+        lastEnd = endOf(group[group.length - 1]);
+      }
+      group = [];
+    };
+    for (const item of list) {
+      if (item.get("type") === "SymbolToken" && textOfNode(item, ctx) === ",") {
+        flush(item);
+        continue;
+      }
+      group.push(item);
+    }
+    if (group.length > 0) flush(undefined);
     return out;
   }
   const signature = parentKind === "InterfaceDeclaration" || parentKind === "TypeLiteral";
@@ -5177,7 +5220,12 @@ import { A as B, C } from "m"
     // `name`（那个 `d`）与 `namedBindings` 两格，产物那边 `d` 与 `* as ns` 是平级单元——
     // 原来这一支只收 `namedBindings`，默认名整格丢（实测 `im-mixed.ts` /
     // `mod-import-default-and-namespace.ts`：缺 `Identifier` + `ImportClause` 字段名差）。
-    const defaultName = names.find((k) => startOf(k) < startOf(star));
+    // **`defer` 也是标志、不是默认名**（第 176 轮）：`import defer * as ns from "m"` 里
+    // TS 的 `ImportClause` 只有 `namedBindings`（`defer` 是相位修饰），照默认名收会多出一个
+    // `Identifier("defer")` + `name` 字段（实测 `mod-import-defer.ts`）。
+    const defaultName = names.find(
+      (k) => startOf(k) < startOf(star) && textOfNode(k, ctx) !== "defer",
+    );
     if (defaultName !== undefined) clauseProps.name = projectNode(defaultName, ctx);
   } else if (braceClose >= 0) {
     // 花括号之前那一段是默认导入（`import d, { … }` 的 `d`）。
@@ -6507,14 +6555,44 @@ TS 那边的 `properties` 是**成员数组**：
 
 ```ts
   const elements = [];
-  for (const group of splitTopLevel(projectableKids(v), ctx, ",")) {
-    // **一律走 `projectExpression`**（第 125 轮）：`group.length === 1` 时走 `projectNode`
-    // 会把元素位的**括号**投成一个未映射的 `<Bracket>`——`[(x), y]` 缺
-    // `ParenthesizedExpression` + 多出 `Bracket`。`projectExpression` 对单个单元的行为
-    // 与 `projectNode` 相同，只多认了「值位括号」那一支（`projectSpread` 里同一条）。
-    const one = projectExpression(group, ctx);
-    if (one !== undefined) elements.push(one);
+  let group = [];
+  // **数组里的洞是 `OmittedExpression`**（第 176 轮）：`[1, , 3]` 在 TS 那边是
+  // `[NumericLiteral, OmittedExpression[39,39), NumericLiteral]`——一个**零宽**节点。
+  // 产物在那个位置什么都没有（两个逗号之间是空的），所以按顶层逗号切组、**空组补一个零宽节点**，
+  // 位置取后面那个逗号的起点（TS 就是这么放的；末组的空位取列表末尾）
+  // （实测 `ex-array-holes.ts` / `expr-array-holes.ts` 各缺 1）。
+  const list = projectableKids(v);
+  // 洞的位置是**上一个元素结束处**（TS 的零宽节点就摆在那里：`[1, , 3]` 的
+  // `OmittedExpression` 是 `[72,72)`，正好是 `1` 的终点，不是后面那个逗号）。
+  let lastEnd = v.start + 1;
+  const flush = (separator) => {
+    if (group.length === 0) {
+      // 洞的位置是**第一个逗号之后那一格**（TS 的零宽节点就摆在那里：`[1, , 3]` 的
+      // `OmittedExpression` 在 `1` 与第二个逗号之间的那个空格上）。`lastEnd` 是上一个
+      // 元素的**开区间终点**，再走一格正好越过第一个逗号。
+      elements.push({ kind: "OmittedExpression", pos: lastEnd + 1, end: lastEnd + 1 });
+    } else {
+      // **一律走 `projectExpression`**（第 125 轮）：`group.length === 1` 时走 `projectNode`
+      // 会把元素位的**括号**投成一个未映射的 `<Bracket>`——`[(x), y]` 缺
+      // `ParenthesizedExpression` + 多出 `Bracket`。`projectExpression` 对单个单元的行为
+      // 与 `projectNode` 相同，只多认了「值位括号」那一支（`projectSpread` 里同一条）。
+      const one = projectExpression(group, ctx);
+      if (one !== undefined) elements.push(one);
+      lastEnd = endOf(group[group.length - 1]);
+    }
+    group = [];
+  };
+  for (const item of list) {
+    if (item.get("type") === "SymbolToken" && textOfNode(item, ctx) === ",") {
+      flush(item);
+      continue;
+    }
+    group.push(item);
   }
+  // **尾随逗号不是洞**（`[1, 2,]` 只有两个元素）：末组为空时什么都不补
+  // （实测 `new Map([["a", 1], ["b", 2],])` 这种多行字面量遍地都是，
+  //  无条件补会把 `dist/ts/typescript/ts-ast.ts` 一次多出 31 个 `OmittedExpression`）。
+  if (group.length > 0) flush(undefined);
   const props = elements.length === 0 ? {} : { elements };
   return { kind: "ArrayLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
