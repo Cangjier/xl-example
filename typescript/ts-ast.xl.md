@@ -1222,7 +1222,12 @@ new Set([
   const headType = head.get("type");
   // **`export = X` / `export default X`**：产物那边表达式是 `Export` 单元的**平级兄弟**
   // （`Statement > [Export(export/=), 表达式]`），所以整条语句要交给 `projectExport`。
-  if (headType === "Export" && kids.length > 1) {
+  //
+  // **`kids.length >= 1`，不是 `> 1`**（第 87 轮修）：具名导出 `export { a as b }` 的语句里
+  // 只有 `Export` **一个**单元（`{…}` 在它里面），`> 1` 的判据把它漏给了通用投影——
+  // 于是括号里每个单元（含 `as` / `type` 两个词）都成了平级子节点，
+  // 而 `ExportSpecifier` 一个也没投出来。
+  if (headType === "Export" && kids.length >= 1) {
     return projectExport(head, ctx, kids.slice(1));
   }
   if (headType === "Let") {
@@ -2781,7 +2786,100 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
       };
     }
   }
-  return { kind: "ExportDeclaration", pos: view_.start, end: view_.end, ...structuralProps(view_, "ExportDeclaration", ctx) };
+  // 具名导出（`export { a as b, c, type D }`）与模块名走 `namedExportClause`（第 87 轮）：
+  // 尾分号算在 `ExportDeclaration` 里（TS 的 `export { a };` 是 [0,14)，含 `;`）。
+  return {
+    kind: "ExportDeclaration",
+    pos: view_.start,
+    end: stmtEndOf(v, ctx),
+    ...namedExportClause(view_, ctx),
+  };
+```
+
+# private method namedExportClause:(v:any, ctx:any)=>any
+
+**具名导出**（第 87 轮）：`export { a as b, c, type D }` 的产物是
+`[Keyword(export), Bracket{ a as b, c, type D }]`，而 TS 那边是
+
+    ExportDeclaration[0,29)  exportClause:NamedExports[7,28)
+                             └ elements: ExportSpecifier[9,15)  propertyName:a  name:b
+                                         ExportSpecifier[17,18) name:c
+                                         ExportSpecifier[20,26) name:D
+
+照通用投影会把括号里每个单元（**包括 `as` 与 `type` 两个词**）投成平级子节点——
+实测「多出来」里 `Identifier` 234 个就是那个 `as`，而 `ExportSpecifier` 缺 134 个。
+所以这里自己造 `NamedExports`（区间含那对花括号）与 `ExportSpecifier`
+（`as` 不出现、`type` 也不出现：TS 那边它是标志、连区间都算在 specifier 里）。
+
+```ts
+  const kids = projectableKids(v);
+  const brace = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "{");
+  const props = {};
+  if (brace !== undefined) {
+    const open = startOf(brace);
+    const close = endOf(brace);
+    props.exportClause = {
+      kind: "NamedExports",
+      elements: namedExportSpecifiers(ctx.source, open, close - 1),
+      pos: open,
+      end: close,
+    };
+  }
+  // `export { a } from "m"` 的模块名（TS：`moduleSpecifier`，与 `exportClause` 并列）。
+  const module_ = kids.find((k) => k.get("type") === "String");
+  if (module_ !== undefined) props.moduleSpecifier = projectNode(module_, ctx);
+  return props;
+```
+
+# private method namedExportSpecifiers:(source:string, braceOpen:int, braceClose:int)=>Array<any>
+
+`export { a as b, c, type D }` → `ExportSpecifier` 数组。
+
+与 `namedImportSpecifiers` **同形**（`as` 不是子节点：`propertyName` + `name`），
+差别只有一处：**段首的 `type`** 是要跳过的标志，但**区间仍从段首算**
+（TS 的 `type D` 那个 specifier 是 `[20,26)`，子节点只有 `name: D[25,26)`）。
+
+```ts
+  const out = [];
+  let depth = 0;
+  let segStart = braceOpen + 1;
+  const flush = (to) => {
+    let from = segStart;
+    while (from < to && /\s/.test(source[from])) from++;
+    let stop = to;
+    while (stop > from && /\s/.test(source[stop - 1])) stop--;
+    if (from >= stop) return;
+    const pos = from;
+    // 段首的 `type` 是标志：跳过它再算名字，但**区间从段首算**。
+    const body = source.slice(from, stop);
+    const head = body.replace(/^type\s+/, "");
+    const headAt = from + (body.length - head.length);
+    const asAt = head.search(/\s+as\s+/);
+    if (asAt >= 0) {
+      const gap = head.slice(asAt).match(/\s+as\s+/)[0].length + asAt;
+      const property = identWithin(source, head.slice(0, asAt).trim(), headAt, headAt + asAt);
+      const nameText = head.slice(gap).trim();
+      const name = identWithin(source, nameText, headAt + gap, stop);
+      out.push({ kind: "ExportSpecifier", propertyName: property, name, pos, end: stop });
+    } else {
+      out.push({
+        kind: "ExportSpecifier",
+        name: identWithin(source, head.trim(), headAt, stop),
+        pos,
+        end: stop,
+      });
+    }
+  };
+  for (let i = braceOpen + 1; i < braceClose; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") depth--;
+    else if (source[i] === "," && depth === 0) {
+      flush(i);
+      segStart = i + 1;
+    }
+  }
+  flush(braceClose);
+  return out;
 ```
 
 # private method projectTypePredicate:(v:any, ctx:any)=>any

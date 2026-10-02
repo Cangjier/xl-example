@@ -1517,6 +1517,42 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 87 轮：具名导出的成员（缺 6091 → 5916，字段名不符 362 → 270）
+
+`export { a as b, c, type D }` 的产物是 `[Keyword(export), Bracket{ a as b, c, type D }]`，
+TS 那边是
+
+    ExportDeclaration[0,29)  exportClause:NamedExports[7,28)
+                             └ elements: ExportSpecifier[9,15)  propertyName:a  name:b
+                                         ExportSpecifier[17,18) name:c
+                                         ExportSpecifier[20,26) name:D（`type` 是标志、不进子节点）
+
+照通用投影会把括号里每个单元（**包括 `as` 与 `type` 两个词**）投成平级子节点，
+`ExportSpecifier` 一个也投不出来。新增 `namedExportClause` + `namedExportSpecifiers`
+（与 `namedImportSpecifiers` 同形，多一处「段首 `type` 要跳过、但区间从段首算」）。
+
+**顺带修掉一个把整支漏掉的判据**：`projectStatement` 原来只在 `kids.length > 1` 时才把
+`Export` 开头的语句交给 `projectExport`（那条判据是为 `export = X` / `export default X`
+写的，它们的表达式是 `Export` 单元的平级兄弟）。可具名导出的语句里**只有 `Export` 一个单元**
+（`{…}` 在它里面）——`> 1` 把它漏给了通用投影。改成 `>= 1`。
+
+| 判据 | 第 86 轮 | 现在 |
+| --- | --- | --- |
+| 缺节点 | 6087 | **5916** |
+| 字段名不符 | 362 | **270** |
+| 多出来的节点 | 4223 | **4116** |
+| 区间漂移 | 1540 | 1640（**语料churn**：`dist/ts/**` 就在语料里，本轮改动让 `ts-ast.ts` 自身变了形状） |
+| 完全一致的文件 | 81 / 385 | 81 / 385（这四个方向都改到了的那几个文件另有别的账） |
+| `cases:run` / `cases:check` | 1035 / 1035 | **1035 / 1035** |
+| 其余八把尺子 + `samples` | 全绿 | **全绿** |
+
+#### 下一批
+
+`BinaryExpression` 654（漂移 657 与它是同一族：`error !== null && error !== undefined` 那种
+逻辑链的区间比 TS 宽，样本 `undici-types/webidl.d.ts` 的联合还有「运算符那格没进树」的残缺节点）、
+`ExpressionStatement` 307（成员位那层 `Statement` 仍未摊开，样本 `: never;`）、
+`IfStatement` 219（`else {` 那一支的区间比 TS 短）。
+
 ### 第 86 轮：枚举成员 · 嵌套链摊平 · `NotNull` 的标签名（完全一致 79 → 81 / 385）
 
 这一轮四处，第一处是**共享根因**（一轮换掉两千八百个多余节点）：
