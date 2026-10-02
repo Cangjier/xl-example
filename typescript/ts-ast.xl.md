@@ -1452,7 +1452,24 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     }
     // `undefined` = 这个单元在 TS 那边是 trivia（例如只有注释的语句），**不收**。
     const projected = projectNode(items[i], ctx, parentKind);
-    if (projected !== undefined) out.push(projected);
+    if (projected !== undefined) {
+      out.push(projected);
+    } else if (
+      // **被吃掉的 `;` 要算进上一条语句的终点**（第 167 轮）：`let a = 1` 换行 `;[1, 2].forEach(f)`
+      // 里那个 `;` 在 TS 那边是上一条 `VariableStatement` 的**终结符**（`tryParseSemicolon`
+      // 不看换行），所以上一条的区间要含它；`projectStatement` 已经把那个空语句投成
+      // `undefined`，这里补最后一步（实测 `st-asi-array.ts` / `st-asi-paren.ts`：
+      // 上一条语句的终点各短一格）。
+      items[i].get("type") === "Statement" &&
+      ctx.source[items[i].get("pos") ?? startOf(items[i])] === ";" &&
+      out.length > 0
+    ) {
+      const previous = out[out.length - 1];
+      const semi = items[i].get("pos") ?? startOf(items[i]);
+      if (previous !== undefined && typeof previous.end === "number" && semi >= previous.end) {
+        previous.end = semi + 1;
+      }
+    }
     i++;
   }
   return out;
@@ -1632,6 +1649,17 @@ new Set([
       let lineStart = v.start;
       while (lineStart > 0 && ctx.source[lineStart - 1] !== "\n") lineStart--;
       if (ctx.source.slice(lineStart, v.start).trim() !== "") {
+        return undefined;
+      }
+      // **行首的 `;` 也可能是上一条语句的终结符**（第 167 轮）：TS 的 `tryParseSemicolon`
+      // 不看换行——`let a = 1` 换行 `;[1, 2].forEach(f)` 里那个 `;` 属于 **VariableStatement**
+      // （TS 的区间 [26,37) 把它算进去了），紧跟的 `[1, 2]…` 才是新语句。
+      // 判据落在**前一个非空白字符**上：它要是能让表达式收尾（名字 / 数字 / `]` / 引号 …），
+      // 这个 `;` 就是终结符；只有 `;` / `}` / `{` 或它前面什么都没有时才是真空语句
+      // （实测 `st-asi-array.ts` / `st-asi-paren.ts`：多出一个 `EmptyStatement` + 上一条漂移）。
+      let previousChar = v.start - 1;
+      while (previousChar >= 0 && /\s/.test(ctx.source[previousChar])) previousChar--;
+      if (previousChar >= 0 && !";}{".includes(ctx.source[previousChar])) {
         return undefined;
       }
       return { kind: "EmptyStatement", pos: v.start, end: v.start + 1 };
