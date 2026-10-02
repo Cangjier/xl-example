@@ -1584,10 +1584,55 @@ new Set([
         i += 2;
         continue;
       }
-      // 成员名**永远是 `Identifier`**（TS 那边 `a.import` / `a.new` 的 `name` 就是一个
-      // 文本为那个词的 `Identifier`，不是 `ImportKeyword`）：产物那边它可能已经被
-      // `KeywordReorganization` 升级成 `<Keyword>`，所以这里按**名字宽度**切一段，
-      // 而不是把那个词按词法身份投出来。
+      // **点号后面那一段是一个 `NotNull`**（第 105 轮）：`Get(…)!.SourceRange.Start!` 的产物是
+      // `[…, NotNull(Get…!), ., NotNull(PropertyAccess(SourceRange.Start))]`——第二个 `!`
+      // 的单元里**装着一段点号链**，而那个 `!` 在 TS 那边套住的是**整条链**
+      // （`NonNullExpression > PropertyAccessExpression > PropertyAccessExpression > …`）。
+      // 照下面那一支会把它当成一个成员名（`nameOf` 取到整段原文），于是
+      // `Identifier` / `PropertyAccessExpression` / `NonNullExpression` 三处同时错位
+      // （实测漂移 76 + 30 + 33、多出 71 + 75）。
+      if (next.get("type") === "NotNull") {
+        const inner = projectableKids(view(next)).filter(
+          (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
+        );
+        const target = inner.length > 0 ? inner[0] : undefined;
+        if (target !== undefined && target.get("type") === "PropertyAccess") {
+          const members = projectableKids(view(target));
+          if (members.length > 0) {
+            left = {
+              kind: "PropertyAccessExpression",
+              expression: left,
+              name: nameOf(members[0], ctx),
+              pos: left.pos,
+              end: endOf(members[0]),
+            };
+            for (let j = 1; j + 1 < members.length; j += 2) {
+              if (!isSymbol(members[j], ".")) break;
+              left = {
+                kind: "PropertyAccessExpression",
+                expression: left,
+                name: nameOf(members[j + 1], ctx),
+                pos: left.pos,
+                end: endOf(members[j + 1]),
+              };
+            }
+          }
+        } else if (target !== undefined) {
+          left = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: nameOf(target, ctx),
+            pos: left.pos,
+            end: endOf(target),
+          };
+        }
+        left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(next) };
+        i += 2;
+        continue;
+      }
+      // 成员名**永远是 `Identifier`**（TS 那边 `a.import` 的 `name` 就是一个文本为那个词的
+      // `Identifier`，不是 `ImportKeyword`）：产物那边它可能已经被 `KeywordReorganization`
+      // 升级成 `<Keyword>`，所以这里按**名字宽度**切一段，而不是把那个词按词法身份投出来。
       left = {
         kind: "PropertyAccessExpression",
         expression: left,
