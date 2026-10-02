@@ -244,3 +244,29 @@
 而 `allKids` 只吃**视图**——`v.segments is not iterable`。`Kids` 早先已经做过归一，
 `AllKids` 忘了。**约定**：凡是从 `ctx` 出去的「吃一棵（子）树」的出口，
 一律写成 `node instanceof Map ? view(node) : node` 再转调。
+
+### 第 190 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| `ImportType` | `tokens/import-type.xl.md` |
+| `ObjectLiteral` | `tokens/json/object-literal.xl.md` |
+
+中央 `switch` 的 `case` 从 24 降到 **22**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了出口：`ComputedNameExpression` / `MemberInObject` / `NumericLiteral` /
+`IsIndexBracket`。
+
+**同一个坑第三次**：`ctx.StringText(stringUnit)` 传的是**原始 Map**，而 `stringText` 只吃视图——
+`Cannot read properties of undefined (reading 'get')`。已把 `StringText` 也归一。
+至此 `Kids` / `AllKids` / `StringText` 三个都已归一，**剩下的出口凡是「吃树」的都要照办**：
+`Text` / `Template` / `TextOf` 已经天然只吃一种（视图 / Map），无需处理。
+
+### 还差什么
+
+可搬的只剩 **3 块**：`MappedType`（85 行，依赖 `unwrapNodes` / `conditionalNode`，都已出口）、
+`TypeParameter`（最大的一块，8.2k，依赖 `isTypeParameterModifier` / `splitTopLevel` / `typeOf`）、
+`Namespace`（依赖 `structuralProps` / `memberNameOf` / `synthName`）。
+
+`TypeAssign` 与其余 18 个一样**留在共享层**：它的投影要接一个**外层起点**（`export type T = string`
+的 `pos` 从 `export` 起，由 `projectStatement` 递 `baseStart` 进来），`PrintAst(ctx, v)` 拿不到那个参数。
