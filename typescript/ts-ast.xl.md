@@ -2822,6 +2822,41 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       }
     }
   }
+  // **类型谓词被包在联合里**（第 119 轮）：`asserts x is null | undefined` 的产物是
+  // `UnionType > [TypePredicate([asserts, x, is, null, |, undefined])]`——谓词在里面、
+  // 联合在外面；而 TS 正好**相反**（谓词在外、`TypePredicate.type` 才是那个 `UnionType`）。
+  // 不翻过来的话那个 `UnionType` 的区间多一截（产物 [24,53) vs TS [37,53)），
+  // 于是同时记「缺 `UnionType`」+「多出 `UnionType`」+ 缺 `UndefinedKeyword`（实测 35 处）。
+  if (
+    list.length === 1 &&
+    (list[0].get("type") === "UnionType" || list[0].get("type") === "IntersectionType")
+  ) {
+    const unionUnit = list[0];
+    const inner = projectableKids(view(unionUnit));
+    const predicate = inner.find((k) => k.get("type") === "TypePredicate");
+    if (predicate !== undefined && inner.length === 1) {
+      const parts = projectableKids(view(predicate));
+      const isIndex = parts.findIndex((k) => textOfNode(k, ctx) === "is");
+      const typeKids = isIndex >= 0 ? parts.slice(isIndex + 1) : [];
+      const separator = unionUnit.get("type") === "UnionType" ? "|" : "&";
+      const types = [];
+      for (const group of splitTopLevel(typeKids, ctx, separator)) {
+        const one = projectTypeExpression(group, ctx);
+        if (one !== undefined) types.push(one);
+      }
+      const node = projectNode(predicate, ctx);
+      if (node !== undefined && types.length > 0) {
+        node.type = {
+          kind: unionUnit.get("type"),
+          types,
+          pos: types[0].pos,
+          end: types[types.length - 1].end,
+        };
+        node.end = types[types.length - 1].end;
+        return node;
+      }
+    }
+  }
   // 其余形状（`UnionType` / `IntersectionType` / `FunctionType` / `TypeLiteral` / `TupleType`…）
   // 交回通用投影，它们各自的子单元会再走一遍 `projectTypeExpression`。
   if (list.length === 1) {
