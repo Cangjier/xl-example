@@ -3109,7 +3109,13 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
     const inner = unwrapNodes(first).filter((k) => k.get("type") !== "SymbolToken");
     return inner.length === 0 ? projectNode(first, ctx) : projectExpression(inner, ctx);
   }
-  const inner = kids.filter((k) => k.get("type") !== "SymbolToken");
+  // **只排掉分段自己的标点**（`?` / `:`），**不能把所有 `SymbolToken` 都排掉**（第 106 轮）：
+  // 条件里就有比较运算符——`i > 0 ? a : b` 的 `>` 会被整条丢掉，`projectExpression` 拿到
+  // `[i, 0]` 于是折不动、只投出第一个操作数（实测缺 `BinaryExpression` 79 +
+  // `GreaterThanToken` + 右侧那个字面量，样本集中在 `? :` 的条件位上）。
+  const inner = kids.filter(
+    (k) => !(k.get("type") === "SymbolToken" && [":", "?"].includes(textOfNode(k, ctx))),
+  );
   if (inner.length === 0) return projectNode(first, ctx);
   return projectExpression(inner, ctx);
 ```
