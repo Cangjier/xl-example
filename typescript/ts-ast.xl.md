@@ -2553,6 +2553,58 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       return node;
     }
   }
+  // **平铺的构造类型**（第 111 轮）：`type C = new <T>(x: T) => T` 的产物把 `new` / `<T>` /
+  // 形参括号 / `=>` / 返回类型**平铺**在类型别名里（**没有** `FunctionType` 单元——
+  // 带 `new` 的那个形状 `FunctionTypeReorganization` 认不出来），而 TS 是 `ConstructorType`。
+  // 照通用支会投出一个盖住 `new <T>` 的 `TypeReference` + 一个 `Identifier(new)`
+  //（实测多出 `NewKeyword` / `TypeReference` / `Identifier`，同时缺整个 `ConstructorType`
+  // 与它的形参、返回类型）。
+  if (head.get("type") === "Keyword" && textOfNode(head, ctx) === "new") {
+    const arrow = list.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=>");
+    if (arrow > 0) {
+      const ctorProps = {};
+      const ctorGeneric = list.find((k) => k.get("type") === "GenericType");
+      if (ctorGeneric !== undefined) {
+        const typeParams = unwrapNodes(ctorGeneric).filter((k) => k.get("type") === "TypeParameter");
+        if (typeParams.length > 0) ctorProps.typeParameters = projectEach(typeParams, ctx);
+      }
+      const bracket = list.find((k) => k.get("type") === "Bracket");
+      if (bracket !== undefined) {
+        const inner = unwrapNodes(bracket);
+        const paramUnits = inner.filter((k) => k.get("type") === "Parameter");
+        if (paramUnits.length > 0) {
+          ctorProps.parameters = projectEach(paramUnits, ctx);
+        } else {
+          // **平铺的形参**：这一支里括号的内容是 `[Identifier(x), TypeDefine(: T)]`，
+          // 没有 `Parameter` 单元，所以按顶层逗号切组、每组自己造一个（实测漏了它
+          // `Parameter` 缺 1）。
+          const params = [];
+          for (const part of splitTopLevel(inner, ctx, ",")) {
+            if (part.length === 0) continue;
+            const nameUnit = part.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
+            const typeUnit = part.find((k) => k.get("type") === "TypeDefine");
+            const param = {
+              kind: "Parameter",
+              pos: startOf(part[0]),
+              end: endOf(part[part.length - 1]),
+            };
+            if (nameUnit !== undefined) param.name = projectNode(nameUnit, ctx);
+            if (typeUnit !== undefined) param.type = projectTypeDefine(view(typeUnit), ctx);
+            params.push(param);
+          }
+          ctorProps.parameters = params;
+        }
+      }
+      const ctorType = typeOf(list.slice(arrow + 1), ctx);
+      if (ctorType !== undefined) ctorProps.type = ctorType;
+      return {
+        kind: "ConstructorType",
+        pos: startOf(head),
+        end: endOf(list[list.length - 1]),
+        ...ctorProps,
+      };
+    }
+  }
   if (head.get("type") === "Identifier" || head.get("type") === "Keyword") {
     const text = textOfNode(head, ctx);
     const span = { pos: startOf(head), end: endOf(head) };
@@ -3633,6 +3685,12 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 ```ts
   const kind = v.attrs.get("kind") === "construct" ? "ConstructSignature" : "CallSignature";
   const props = structuralProps(v, kind, ctx);
+  // **`new` 不是 `ConstructSignature` 的子节点**（第 111 轮）：TS 里 `new (x): T` 的 `new`
+  // 只是语法记号（kind 自己说明这是构造签名），而产物把它收成一个平级的 `Keyword(new)`——
+  // 通用支会把它顶着 `parameters` 投出去（实测多出 `NewKeyword` 67）。
+  if (kind === "ConstructSignature" && Array.isArray(props.parameters)) {
+    props.parameters = props.parameters.filter((p) => !(p !== null && p !== undefined && p.kind === "NewKeyword"));
+  }
   // 产物把 `new` 收成一个 `New` 子单元（`NewType` 里才是形参括号）：TS 那边
   // `ConstructSignature` 的形参**直接挂在自己身上**，中间没有那一层。
   const kids = projectableKids(v);
