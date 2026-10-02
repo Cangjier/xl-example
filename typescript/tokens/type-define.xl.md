@@ -129,6 +129,16 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它**没有**覆写 `ToXmlString`，所以 XML 由基类产出：`<TypeDefine>段内子单元的 XML 串接</TypeDefine>`（标签名即运行时类名）。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+一段类型标注 → 它承载的**那个类型节点**（**从 `ts-ast.xl.md` 的 `projectTypeDefine` 搬来**，
+第 192 轮）。这是类型位的「包装提层」：TS 那边没有「类型标注」这一层节点，
+`: Type` 投出来直接就是 `Type`。
+
+```ts
+  return ctx.TypeDefineOf(v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把自己的重组队列装上**。

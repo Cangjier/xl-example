@@ -781,6 +781,46 @@ new Map([
 
 # private const endOf:(node:any)=>int = (node) => (node.get("range") ? node.get("range")[1] + 1 : 0)
 
+# private method projectTypeDefine:(v:any, ctx:any)=>any
+
+类型标注 `name: T` → `TypeReference`，**但原始类型不套这一层**。
+
+> **这一块的 `PrintAst` 已搬进 `tokens/type-define.xl.md`**（第 192 轮）：那个 token 的
+> `PrintAst` 只写一句 `return ctx.TypeDefineOf(v)`，实现在这里。
+> **为什么实现留在共享层**：它是**横切**的——成员、形参、字段、`for` 头部、索引签名……
+> 全都要经它；而 `PrintAst` 层不许 import `ts-ast`（会成环），
+> 所以「token 只留入口、实现留共享」是唯一不循环的分法。
+
+实测 TS 的两种形状截然不同（`let a: string` / `let b: Foo`）：
+
+- `a: string` → `VariableDeclaration > [Identifier(a), StringKeyword]` ——
+  原始类型**直接**是一个 `StringKeyword` 节点，**没有** `TypeReference` 包着；
+- `b: Foo`    → `VariableDeclaration > [Identifier(b), TypeReference > Identifier(Foo)]` ——
+  具名类型才有 `TypeReference`，而且它在**同一个区间**上又套一个 `Identifier`。
+
+早先这里一律返回 `TypeReference`，于是原始类型那 373 处（`NumberKeyword` 224 +
+`StringKeyword` 149）在 TS 侧对不上，而产物侧还多出一层。
+
+```ts
+  const kids = projectableKids(v);
+  const colon = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
+  const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);
+  const projected = projectTypeExpression(afterColon, ctx);
+  if (projected === undefined) {
+    ctx.unmapped.add("TypeDefine(空)");
+    return { kind: "TypeReference", pos: v.start, end: stmtEndOf(v, ctx) };
+  }
+  return projected;
+```
+
+# private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"])
+
+没有函数体的**可调用签名**：它们的 `end` 要**带上尾随分号**（TS 的口径）。
+
+`declare function f(): void;` 的 TS 是 `FunctionDeclaration[23,51)`（含 `;`），
+而产物那个 `Function` 只到 `void` 为止——分号是它的平级兄弟。
+只对这几个 kind 做：带**函数体**的声明不会走到这里（体已经把它结束在 `}` 上了）。
+
 # private method astNode:(kind:string, props:any, v:any, ctx:any)=>any
 
 **造一个投影节点**：`pos` 取视图的起点，`end` 由 `stmtEndOf` 剪掉尾部 trivia，
@@ -902,8 +942,6 @@ new Map([
   // （类里的 `constructor` 是 `ConstructorDeclaration`）。它由 `structuralProps`
   // 在摊平包装体时显式往下传——不是从产物树的父亲读的。
   switch (v.type) {
-    case "Root":
-      return mk("SourceFile", { statements: projectEach(kidsOf(v, "children"), ctx) });
 
     case "Statement":
       return projectStatement(v, ctx);
@@ -924,8 +962,6 @@ new Map([
     // **成员访问链**：token 层折出来的容器（`a.b` / `a.b(1)` / `f(1).x`）。
     // 形状交给 `projectExpression` 的折链那一支——它按左结合折成嵌套的
     // `PropertyAccessExpression`、链尾是调用时折成 `CallExpression`。
-    case "PropertyAccess":
-      return projectExpression(projectableKids(v), ctx);
 
     // **`RegexToken` / `ConstString` / `String` / `Identifier` / `Keyword` / `SymbolToken`
     // 都已搬进各自的 token**（第 182~184 轮）：`PrintAst` 会先命中，
@@ -934,8 +970,6 @@ new Map([
     // `tokens/string/string.xl.md`、`tokens/identifier.xl.md`、`tokens/keyword.xl.md`、
     // `tokens/symbol-token.xl.md`。
 
-    case "TypeDefine":
-      return projectTypeDefine(v, ctx);
 
     // 类型位的导入类型 `import("m").A` / `typeof import("m")`（第 76 轮）：
     // TS 那边 `argument` 是一层 `LiteralType`、`qualifier` 是限定名，两样都要切出来。
@@ -3330,7 +3364,7 @@ new Set([
     // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
     // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
     const typeNode = one.find((k) => k.get("type") === "TypeDefine");
-    if (typeNode !== undefined) declaration.type = projectTypeDefine(view(typeNode), ctx);
+    if (typeNode !== undefined) declaration.type = ctx.TypeDefineOf(typeNode);
     // **明确赋值断言 `let a!: number`**（第 156 轮）：TS 那边是
     // `VariableDeclaration.exclamationToken`（`!` 是一个子节点），产物把它记成一个平级的
     // `SymbolToken("!")`。不收的话缺 `ExclamationToken` + 字段名差一格
@@ -3830,40 +3864,6 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
   };
 ```
 
-# private method projectTypeDefine:(v:any, ctx:any)=>any
-
-类型标注 `name: T` → `TypeReference`，**但原始类型不套这一层**。
-
-实测 TS 的两种形状截然不同（`let a: string` / `let b: Foo`）：
-
-- `a: string` → `VariableDeclaration > [Identifier(a), StringKeyword]` ——
-  原始类型**直接**是一个 `StringKeyword` 节点，**没有** `TypeReference` 包着；
-- `b: Foo`    → `VariableDeclaration > [Identifier(b), TypeReference > Identifier(Foo)]` ——
-  具名类型才有 `TypeReference`，而且它在**同一个区间**上又套一个 `Identifier`。
-
-早先这里一律返回 `TypeReference`，于是原始类型那 373 处（`NumberKeyword` 224 +
-`StringKeyword` 149）在 TS 侧对不上，而产物侧还多出一层。
-
-```ts
-  const kids = projectableKids(v);
-  const colon = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
-  const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);
-  const projected = projectTypeExpression(afterColon, ctx);
-  if (projected === undefined) {
-    ctx.unmapped.add("TypeDefine(空)");
-    return { kind: "TypeReference", pos: v.start, end: stmtEndOf(v, ctx) };
-  }
-  return projected;
-```
-
-# private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"])
-
-没有函数体的**可调用签名**：它们的 `end` 要**带上尾随分号**（TS 的口径）。
-
-`declare function f(): void;` 的 TS 是 `FunctionDeclaration[23,51)`（含 `;`），
-而产物那个 `Function` 只到 `void` 为止——分号是它的平级兄弟。
-只对这几个 kind 做：带**函数体**的声明不会走到这里（体已经把它结束在 `}` 上了）。
-
 # private method isTypeSeparator:(node:any, ctx:any)=>bool
 
 ```ts
@@ -4205,7 +4205,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
               end: endOf(part[part.length - 1]),
             };
             if (nameUnit !== undefined) param.name = projectNode(nameUnit, ctx);
-            if (typeUnit !== undefined) param.type = projectTypeDefine(view(typeUnit), ctx);
+            if (typeUnit !== undefined) param.type = ctx.TypeDefineOf(typeUnit);
             params.push(param);
           }
           ctorProps.parameters = params;
@@ -4513,7 +4513,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     if (ctx.source[typeStart] === "?") {
       props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
     }
-    props.type = projectTypeDefine(view(typeNode), ctx);
+    props.type = ctx.TypeDefineOf(typeNode);
   } else {
     // **没有类型标注的可选成员**（`a?;` / `private a?;` / `readonly b?;`）：
     // 有类型标注时 `?` 被吞进了 `TypeDefine` 的区间（上一条分支），没有类型标注时
@@ -4695,7 +4695,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
               // `lib.dom.d.ts` 的 `addEventListener(type, listener, async?: boolean)` 一族）。
               nameOf(nameNode, ctx)
             : projectNode(nameNode, ctx),
-    type: typeNode === undefined ? undefined : projectTypeDefine(view(typeNode), ctx),
+    type: typeNode === undefined ? undefined : ctx.TypeDefineOf(typeNode),
   };
   // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
   // 与属性那一处同源：产物把 `?` 吞进了 `TypeDefine` 的区间里（`TypeDefine` 从 `?` 起），
@@ -6303,7 +6303,7 @@ import { A as B, C } from "m"
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
     IsNameNode: (node) => isNameNode(node),
     QualifiedNameFrom: (list) => qualifiedNameFrom(list, ctx),
-    TypeDefineOf: (unit) => projectTypeDefine(view(unit), ctx),
+    TypeDefineOf: (node) => projectTypeDefine(node instanceof Map ? view(node) : node, ctx),
     DottedExpression: (list) => dottedExpression(list, ctx),
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),

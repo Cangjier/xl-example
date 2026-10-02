@@ -44,6 +44,17 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 单元值类型是单字符的 `string`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+整份文件 → `SourceFile`（**从 `ts-ast.xl.md` 中央 `switch` 的 `case "Root"` 搬来**，第 192 轮）。
+
+根的子单元就是语句表（`Root > Statement*`），照 `children` 段逐条投成
+`SourceFile.statements` ✓（`pos` / `end` 由 `ctx.Node` 按这个单元自己的区间给）。
+
+```ts
+  return ctx.Node("SourceFile", { statements: ctx.ProjectEach(ctx.KidsOf(v, "children")) }, v);
+```
+
 ## constructor:(template:Template)=>void
 
 以模板创建；模板必须已经装配过通用队列。

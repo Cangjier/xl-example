@@ -346,6 +346,19 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 投影层顺着走一遍就能折出左结合的 `PropertyAccessExpression` / `ElementAccessExpression`——
 所以下标进链**不需要新标签、也不需要标志位**：那个 `[` 括号单元自己就说明了它是下标链接。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+成员访问链 → `PropertyAccessExpression` / `ElementAccessExpression` 的**嵌套左结合**形状
+（**从 `ts-ast.xl.md` 中央 `switch` 的 `case "PropertyAccess"` 搬来**，第 192 轮）。
+
+**形状交给表达式折链那一支**（`ctx.Expression`）——它按左结合折成嵌套的
+`PropertyAccessExpression`、链尾是调用时折成 `CallExpression`、`[…]` 一环折成
+`ElementAccessExpression`。这里只负责把内容原样递过去，不做任何判断。
+
+```ts
+  return ctx.Expression(ctx.Kids(v));
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并且给它装**只含关键字升级的那条队列**（`InitialKeywordReorganizationQueue`）。
