@@ -402,6 +402,26 @@ for (let hop = 0; hop < 8 && node !== null; hop++) {
 return "";
 ```
 
+# method SkipPreviousTrivia:(units:Array<Token>, index:number)=>int
+
+从 `index - 1` 起向前跳过所有**trivia**（软换行与注释），返回第一个非 trivia 的下标；一路跳到底返回 `-1`。
+
+与 `SkipPreviousWrapSymbol` 的差别只有一个：**注释也算 trivia**。ASI 与「上一个实义单元」这类
+判定要的是**代码**的相邻关系，而一行末尾的 `// 注释` 在语法上与不存在完全等价
+（`lib.es5.d.ts` 的 `Awaited` 里 `? … : // comment` 换行的排版遍地都是）。
+
+```ts
+return SkipPrevious(units, index, IsTriviaUnit);
+```
+
+# method GetSkipPreviousTrivia:(units:Array<Token>, index:number)=>Token | null
+
+`SkipPreviousTrivia` 之后再取值；越界给 `null`。
+
+```ts
+return GetSkipPrevious(units, index, IsTriviaUnit);
+```
+
 # method IsTriviaUnit:(item:Token | null)=>bool
 
 `item` 是不是**不承载语义的单元**：软换行、行注释、区域注释、预处理指令。

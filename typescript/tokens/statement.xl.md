@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -613,16 +613,21 @@ return true;
 4. 换行后没有实义单元（列表末尾）→ **是**边界（这一行已经写完了）。
 
 ```ts
+// **两个「上一个」各司其职**（第 126 轮）：
+// `previousIndex`（只跳软换行）用来判「是不是文件开头」——这正是原文的口径；
+// `previous`（连注释一起跳）用来做**语义判断**：注释是 trivia，一行末尾的 `// …`
+// 在语法上与不存在等价。
 const previousIndex = SkipPreviousWrapSymbol(units, index);
 if (previousIndex < 0) {
   return false;
 }
-const previous = Get(units, previousIndex);
+const previousRealIndex = SkipPreviousTrivia(units, index);
+const previous = Get(units, previousRealIndex);
 if (Statement.IsRestrictedKeyword(previous)) {
   return true;
 }
 if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--"))) {
-  const before = Get(units, SkipPreviousWrapSymbol(units, previousIndex));
+  const before = Get(units, SkipPreviousTrivia(units, previousRealIndex));
   if (Statement.EndsOperand(before)) {
     return true;
   }
@@ -643,7 +648,7 @@ const next = Get(units, nextIndex);
 // 判据落在左边那一格上：点号（或可选链的点号）之后的名字永远是成员名。
 // 这一条只挡「期待操作数」那一支，**不挡**下面 `ContinuesExpression` 那一支——
 // `a.export` 换行 `= 1` 仍然续行（`=` 是运算符）。
-const beforePrevious = Get(units, SkipPreviousWrapSymbol(units, previousIndex));
+const beforePrevious = Get(units, SkipPreviousTrivia(units, previousRealIndex));
 const previousIsMember =
   beforePrevious instanceof SymbolToken && (beforePrevious.Is(".") || beforePrevious.Is("?."));
 if (previousIsMember === false && Statement.ExpectsOperand(previous)) {

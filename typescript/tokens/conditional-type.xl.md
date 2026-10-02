@@ -9,7 +9,9 @@ import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, SkipPreviousWrapSymbo
 import { Bracket } from "./bracket.xl.md"
 import { GenericType } from "./generic-type.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { AreaAnnotation } from "./area-annotation.xl.md"
 import { IsDeclarationBoundary, IsStatementKeyword } from "./declaration-common.xl.md"
+import { LineAnnotation } from "./line-annotation.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Statement } from "./statement.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -55,16 +57,25 @@ const current = Get(units, index);
 if (!(current instanceof SymbolToken) || current.Is("?") === false) {
   return false;
 }
-// **不许在 `ConditionalType` 里再包一层**（第 123 轮）：本单元挂的正是类型队列
-// （队列里有这条规则），收进去的那一段会再跑一趟——不挡就是**无限递归**
-// （实测 `RangeError: Maximum call stack size exceeded`，与 `type-union.xl.md` 那条
-// 「整段重包」的守卫同一个理由）。嵌套的条件类型由**外层贪婪收集**覆盖
-// （`A extends B ? C : D extends E ? F : G` 里的假分支不单独成形），这是第 55 轮以来的口径。
-if (current.Parent !== null && current.Parent.constructor.name === "ConditionalType") {
-  return false;
-}
+// **不许「整段重包」**（第 123 轮加的守卫，第 126 轮收紧到「整段」）：
+// 本单元挂的正是类型队列（队列里有这条规则），收进去的那一段会再跑一趟——
+// 如果这一趟又会圈出**同一个区间**，就是**无限递归**
+// （实测 `RangeError: Maximum call stack size exceeded`，与 `type-union.xl.md`
+// 那条「整段重包」的守卫同一个理由）。
+//
+// 判据与联合那一份同源：**条件那一端从第 0 格起**就说明这一趟圈的是宿主自己。
+// 只挡这一种，**内层条件类型照常成形**——TS 那边
+// `T extends null | undefined ? T : T extends object & { … } ? … : T` 的外层
+// `falseType` 就是**一个** `ConditionalType` 节点（`lib.es5.d.ts` 的 `Awaited` 一整个
+// 类型别名，42 个节点）。早先整类挡掉时，外层贪婪收集把内层压成平铺单元，
+// 内层的 `ConditionalType` / `IntersectionType` / `TypeLiteral` / `MethodSignature`
+// 一个都出不来。
+const guardedParent = current.Parent !== null && current.Parent.constructor.name === "ConditionalType";
 const extendsIndex = this.FindExtendsIndex(units, index);
 if (extendsIndex < 0) {
+  return false;
+}
+if (guardedParent && this.FindStart(units, extendsIndex) === 0) {
   return false;
 }
 // **条件那一端还顶着一个 `|` / `&` ⇒ 先让联合成形**（第 123 轮）。
@@ -242,6 +253,9 @@ let endIndex = index;
 // 的这一趟扫描里生效，不会动值位三元。
 let colonSeen = false;
 let afterColon = false;
+// **自己那个 `:` 之后又出现 `?` ⇒ 那个 `:` 是内层条件类型的**（第 126 轮）。
+// 见下面 `isColon` 那一支：假分支里的**外层 `:`** 才是这一段的终点。
+let questionSinceColon = false;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
@@ -267,11 +281,39 @@ for (let i = index + 1; i < units.length; i++) {
     }
   }
   if (!(item instanceof LineWrap)) {
-    if (item instanceof SymbolToken && item.Is(":") && !colonSeen) {
-      colonSeen = true;
-      afterColon = true;
-    } else {
+    // **注释不改变 `afterColon`**（第 126 轮）：`.d.ts` 里「`:` 之后先一行注释、再换行」
+    // 的排版遍地都是——
+    //
+    //     T extends null | undefined ? T : // special case for `null | undefined`
+    //         T extends object & { … } ? … : …
+    //
+    // 注释是一个 `LineAnnotation` 单元，原来它被当成「别的单元」把 `afterColon` 清成 `false`，
+    // 紧接着那个换行的边界判定就成立、整条条件类型在注释处收尾
+    // （实测 `lib.es5.d.ts` 的 `Awaited`：缺 43 个节点，假分支里那一整条内层条件类型全没了）。
+    // 注释是 trivia，与软换行一样**不参与**这段判定；它仍然进 `Data`（投影侧按 `INVISIBLE` 跳过）。
+    const isComment = item instanceof LineAnnotation || item instanceof AreaAnnotation;
+    if (!isComment) {
+      const isColon = item instanceof SymbolToken && item.Is(":");
       afterColon = false;
+      if (isColon) {
+        if (!colonSeen) {
+          // 本条条件类型自己的那个 `:`。
+          colonSeen = true;
+          afterColon = true;
+        } else if (!questionSinceColon) {
+          // **这是外面那条条件类型的 `:`**（自己那个 `:` 之后没再出现 `?`）：
+          // 本条件类型的假分支到此为止。少了这一支，内层会把外层假分支的尾巴
+          // 一起吞进去——实测 `lib.es5.d.ts` 的 `F extends (…) ? Awaited<V> : never : T`
+          // 里内层的区间一直撑到 `T`（`ConditionalType` 漂移 + 假分支整段丢）。
+          break;
+        } else {
+          // 自己那个 `:` 之后出现过 `?`，所以这个是**内层**条件类型的 `:`——
+          // 右结合嵌套 `A extends B ? C : D extends E ? F : G` 靠这一支才能整段收完。
+          questionSinceColon = false;
+        }
+      } else if (item instanceof SymbolToken && item.Is("?") && colonSeen) {
+        questionSinceColon = true;
+      }
     }
     items.push(item);
     endIndex = i;
