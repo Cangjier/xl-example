@@ -3319,7 +3319,16 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
     break;
   }
   const body = leadingModifiers.length > 0 ? kids.slice(leadingModifiers.length) : kids;
-  const nameNode = body.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
+  // **解构形参**（第 122 轮）：`(...[a, b]: T)` / `({ p, q }: T)` 的名字是 `ArrayLiteral` /
+  // `ObjectLiteral`，只找 `Identifier` / `Keyword` 会漏掉整格 `name`
+  //（实测 `Parameter` 少 `name` 8 处，其中 4 处同时带 `dotDotDotToken`）。
+  const nameNode = body.find(
+    (k) =>
+      k.get("type") === "Identifier" ||
+      k.get("type") === "Keyword" ||
+      k.get("type") === "ArrayLiteral" ||
+      k.get("type") === "ObjectLiteral",
+  );
   const typeNode = body.find((k) => k.get("type") === "TypeDefine");
   const question = body.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
   // **剩余形参的 `...` 是子节点**（TS：`Parameter > [dotDotDotToken, name, type]`，语料 483 处）。
@@ -3335,9 +3344,11 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
     name:
       nameNode === undefined
         ? undefined
-        : nameNode.get("type") === "Keyword" && textOfNode(nameNode, ctx) === "this"
-          ? { kind: "Identifier", text: "this", pos: startOf(nameNode), end: endOf(nameNode) }
-          : projectNode(nameNode, ctx),
+        : nameNode.get("type") === "ArrayLiteral" || nameNode.get("type") === "ObjectLiteral"
+          ? projectBindingPattern(nameNode, ctx)
+          : nameNode.get("type") === "Keyword" && textOfNode(nameNode, ctx) === "this"
+            ? { kind: "Identifier", text: "this", pos: startOf(nameNode), end: endOf(nameNode) }
+            : projectNode(nameNode, ctx),
     type: typeNode === undefined ? undefined : projectTypeDefine(view(typeNode), ctx),
   };
   // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
