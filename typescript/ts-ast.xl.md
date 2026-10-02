@@ -4078,6 +4078,54 @@ import { A as B, C } from "m"
   const props = {};
   const moduleNode = kids.find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
   if (moduleNode !== undefined) props.moduleSpecifier = projectNode(moduleNode, ctx);
+  // **导入属性 `with { … }` / `assert { … }`**（第 136 轮）：产物把那一对
+  // `[Identifier(with), Bracket({ type: "json" })]` 平铺在**模块说明符之后**，
+  // 而 TS 那边它是 `ImportDeclaration.assertClause`
+  // （`AssertClause > AssertEntry > [name, value]`）。不摘出来的话它们会被当成
+  // import 子句的一部分：`ImportClause` 的区间一路撑到 `}`、缺整个
+  // `AssertClause` / `AssertEntry` / 那个 `StringLiteral`
+  // （实测 `im-attributes` / `mod-import-attributes-assert` / `mod-import-attributes-with`
+  // 三族共 30 处）。
+  const assertUnits = [];
+  const moduleAt = kids.indexOf(moduleNode);
+  if (moduleNode !== undefined && moduleAt >= 0) {
+    const after = kids.slice(moduleAt + 1).filter((k) => !INVISIBLE.has(k.get("type")));
+    const braceAt = after.findIndex(
+      (k) => k.get("type") === "Bracket" && k.get("startBracket") === "{",
+    );
+    const word = braceAt > 0 ? after[braceAt - 1] : undefined;
+    if (
+      word !== undefined &&
+      word.get("type") === "Identifier" &&
+      ["with", "assert"].includes(textOfNode(word, ctx))
+    ) {
+      const brace = after[braceAt];
+      const elements = [];
+      for (const part of splitTopLevel(projectableKids(view(brace)), ctx, ",")) {
+        const colonAt = part.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
+        if (colonAt < 0) continue;
+        const nameUnit = part.slice(0, colonAt).find((k) => isNameNode(k));
+        if (nameUnit === undefined) continue;
+        const valueUnit = part
+          .slice(colonAt + 1)
+          .find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
+        elements.push({
+          kind: "AssertEntry",
+          name: nameOf(nameUnit, ctx),
+          value: valueUnit === undefined ? undefined : projectNode(valueUnit, ctx),
+          pos: startOf(nameUnit),
+          end: valueUnit === undefined ? endOf(nameUnit) : endOf(valueUnit),
+        });
+      }
+      props.assertClause = {
+        kind: "AssertClause",
+        elements,
+        pos: startOf(word),
+        end: endOf(brace),
+      };
+      assertUnits.push(word, brace);
+    }
+  }
   let end = stmtEndOf(v, ctx);
   if (ctx.source[end] === ";") end += 1;
 
@@ -4112,7 +4160,9 @@ import { A as B, C } from "m"
     return { kind: "ImportEqualsDeclaration", pos: v.start, end, ...equalsProps };
   }
 
-  const clause = kids.filter((k) => k !== moduleNode && k !== fromNode && !INVISIBLE.has(k.get("type")));
+  const clause = kids.filter(
+    (k) => k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !INVISIBLE.has(k.get("type")),
+  );
   if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
 
   const source = ctx.source;

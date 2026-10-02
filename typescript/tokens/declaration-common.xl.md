@@ -416,7 +416,18 @@ return (
   item instanceof While ||
   item instanceof Try ||
   item instanceof Import ||
-  item instanceof Statement
+  item instanceof Statement ||
+  // **`export { … }` / `export type { … }` 也是声明边界**（第 136 轮）。
+  // `ExportReorganization` 排在本文件的调用点**之前**，所以轮到别名右端 / 返回类型扫描时，
+  // 下一行那条 `export …` 已经是一个 `Export` **单元**、不是裸词——
+  // `IsStatementKeyword` 抓不到它，于是 `type B = number` 换行 `export type { B }` 里的
+  // 两条导出被一起吞进 `TypeAliasDeclaration` 的右端（实测 `ty-export-type.ts`：
+  // `TypeAliasDeclaration` 漂移 1 + 两条 `ExportDeclaration` 与它们的
+  // `NamedExports` / `ExportSpecifier` 共 9 个节点全丢）。
+  //
+  // 这里按**类名**判而不是 `instanceof`：`export.xl.md` 已经 import 本文件，
+  // 再来一条反向 import 只会多绕一圈环（上面那几条是同款取舍，见本方法的说明）。
+  item.constructor.name === "Export"
 );
 ```
 
