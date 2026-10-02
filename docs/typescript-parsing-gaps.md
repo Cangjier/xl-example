@@ -2125,13 +2125,15 @@ node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 | 112 | **只有注释的文件** | TS 的 `SourceFile.getStart()` 在这种文件上**就是文件长度**（没有 token 可跳），本工程原来退回 0 | **一个节点卡住 38 个文件**（`@types/node` 的许可桩） |
 | 113 | **实参不是「一格」** | 一格实参在产物里可能是好几个平级单元（`SignIn(Get(units, i)!.SourceRange.Start!)` 是 `[NotNull, ., NotNull]` 三格），`projectEach(args)` 会把它裂成三个「实参」且链折不起来 | 缺 `PropertyAccessExpression` 162 / `NonNullExpression` 72、漂移 97、多出 `DotToken` 73 |
 | 113 | `typeof A.B<C>` | 点号名之后还有类型实参段（`typeof http.ServerResponse<InstanceType<Request>>`） | 缺 `Identifier` 394 / `TypeReference` 140 的样本全在这一族 |
+| 114 | **展开实参** | `f(...xs)` 的产物是 `Spread > [SymbolToken(...), 目标]`，而 TS 的 `SpreadElement` 只有 `expression`——那个两点号被投成 `DotDotDotToken` 塞进 `expression` | 多出 66 |
+| 114 | **`import("m").X<T>`** | 类型实参段是 `ImportType` 的平级兄弟（与 `typeof X<Y>` 同一支） | 缺 `Identifier` 386 / `TypeReference` 130（`_QueuingStrategy<T>` 一族） |
 
-| 判据 | 第 99 轮末 | 第 113 轮末 |
+| 判据 | 第 99 轮末 | 第 114 轮末 |
 | --- | ---: | ---: |
-| **完全一致的文件** | 863 | **1058** |
-| 缺节点 | 2942 | **1639** |
-| 区间漂移 | 426 | **239** |
-| 多出来的节点 | 1585 | **803** |
+| **完全一致的文件** | 863 | **1084** |
+| 缺节点 | 2942 | **1615** |
+| 区间漂移 | 426 | **227** |
+| 多出来的节点 | 1585 | **730** |
 | 字段名不符 | 118 | **106** |
 
 ### 第 105 轮之后剩下的（按大小）
