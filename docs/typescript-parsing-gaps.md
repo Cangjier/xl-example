@@ -2142,6 +2142,25 @@ node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 ③ **映射类型的 `as` 键重映射**（产物把 `[K in keyof O as <条件>]` 整段收成一个 `ConditionalType`，
 TS 是 `typeParameter` + `nameType`）——1503 → 1487。）
 
+（第 118～120 轮：④ 折行实参表里条件类型的**区间**要取第一格单元的坐标，不能取单元自己的
+`start`（会带上行首缩进，同一个节点既算缺又算多出）；⑤ **类型谓词被包在联合里**时的内外颠倒
+（产物 `UnionType > [TypePredicate]`，TS 是 `TypePredicate.type = UnionType`）——缺 1482 → 1427；
+⑥ 箭头函数的返回类型字段叫 `type` 不是 `returnType`——完全一致 1086 → 1090。）
+
+## 第 120 轮之后：下一轮的入口（都已复现过）
+
+1. **`@types/node/util.d.ts:61594` 那一族**（当前 `Identifier` 缺 310 / `TypeReference` 缺 66 /
+   `StringLiteral` 缺 73 的样本全在这里）：
+   `… T["options"] extends ParseArgsOptionsConfig ? PreciseTokenForOptions<K & string, T["options"][K]> : …`
+   ——把 `K & string, T["options"][K]` 单独拿出来当泛型实参**已经是对的**（探针 `genarg.ts` 完全一致），
+   所以问题在**外层那个条件类型 / 泛型实参表的组合**上，下一步要从整条声明的原文往里缩。
+2. `Identifier` 多 114 / `PropertyAccessExpression` 多 38 / `TypeReference` 多 37：
+   `lib.dom.d.ts`、`lib.es2015.iterable.d.ts` 的 `intrinsic` 相关形状。
+3. `BinaryExpression` 多 56：可选链参与比较时**右操作数**的链续格（第 115 轮那半截）。
+4. 字段名 99 的小族：`ExpressionWithTypeArguments.expression`(5)、`MethodDeclaration`(5)、
+   `BindingElement.propertyName`(5)、`Parameter.name`(8)、`IfStatement.thenStatement`(4)、
+   `VariableStatement` 多出的 `modifiers`(4)。
+
 ### 第 105 轮之后剩下的（按大小）
 
 | 组 | 规模 | 形状与已知信息 |
