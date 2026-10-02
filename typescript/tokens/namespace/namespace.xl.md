@@ -288,6 +288,52 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 
 **类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`namespace N { … }` / `module M { … }` / **`declare module "m" { … }`** → `ModuleDeclaration`
+（**从 `ts-ast.xl.md` 的 `projectNamespace` 搬来**，第 191 轮）。
+
+**字符串模块名的名字是 `StringLiteral`**（第 100 轮）：`declare module "module" { … }` 的 TS 是
+`ModuleDeclaration.name = StringLiteral("module")`（区间**含那对引号**），而产物把名字收进
+`namespace` 属性——照通用支会投成一个 `Identifier`（实测「多出 `Identifier`」112 里的一片）。
+判据落在原文上：`namespace` 属性的值在声明里**带引号**出现时就是字符串名。
+
+**点号名字的 `name` 只是第一段**（第 156 轮）：`namespace A.B { … }` 在 TS 那边是
+`ModuleDeclaration(A) > [Identifier(A), ModuleDeclaration(B)]`——外层那个名字只有 `A`
+（实测 `decl-namespace-dotted.ts`：`Identifier` 漂移 1 + 缺两层 `ModuleDeclaration`）。
+
+```ts
+  const props = ctx.Structural(v, "ModuleDeclaration");
+  // **不能用全局 `String(...)`**：本文件 import 了本工程的 `String` 类（字符串 token），
+  // 它把全局那个遮蔽掉了——`String(x)` 会去 `new` 一个 token 类，直接抛
+  // `Class constructor String cannot be invoked without 'new'`。用 typeof 判一下就行。
+  const rawName = v.attrs.get("namespace");
+  const name = typeof rawName === "string" ? rawName : "";
+  const dotted = name.split(".");
+  if (dotted.length > 1 && dotted[0] !== "") {
+    const at = ctx.source.indexOf(dotted[0], v.start);
+    if (at >= 0) {
+      props.name = { kind: "Identifier", text: dotted[0], pos: at, end: at + dotted[0].length };
+    }
+  }
+  if (name !== "") {
+    const brace = ctx.source.indexOf("{", v.start);
+    const limit = brace < 0 ? v.end : brace;
+    const dq = ctx.source.indexOf('"', v.start);
+    const sq = ctx.source.indexOf("'", v.start);
+    let at = -1;
+    if (dq >= 0 && dq < limit) at = sq >= 0 && sq < dq ? sq : dq;
+    else if (sq >= 0 && sq < limit) at = sq;
+    if (at >= 0) {
+      const close = ctx.source.indexOf(ctx.source[at], at + 1);
+      if (close > at && close < limit) {
+        props.name = { kind: "StringLiteral", text: name, pos: at, end: close + 1 };
+      }
+    }
+  }
+  return ctx.Node("ModuleDeclaration", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 以模板创建，并把本类型的重组规则挂上来（模板里没有专门给 `Namespace` 注册就用通用队列）。

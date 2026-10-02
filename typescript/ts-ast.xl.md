@@ -1026,8 +1026,6 @@ new Map([
 
     // **命名空间 / 模块声明**（第 100 轮）：字符串模块名（`declare module "m" { }`）在 TS 那边
     // 名字是 `StringLiteral`，而产物把它收进 `namespace` 属性——照通用支会投成 `Identifier`。
-    case "Namespace":
-      return projectNamespace(v, ctx);
 
     // **类静态块**（`class A { static { … } }`，第 93 轮）：TS 是
     // `ClassStaticBlockDeclaration > body: Block`，而产物是 `StaticBlock > Statement*`
@@ -6022,49 +6020,6 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   return { kind: "MappedType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectNamespace:(v:any, ctx:any)=>any
-
-`namespace N { … }` / `module M { … }` / **`declare module "m" { … }`** → `ModuleDeclaration`。
-
-**字符串模块名的名字是 `StringLiteral`**（第 100 轮）：`declare module "module" { … }` 的 TS 是
-`ModuleDeclaration.name = StringLiteral("module")`（区间**含那对引号**），而产物把名字收进
-`namespace` 属性——照通用支会投成一个 `Identifier`（实测「多出 `Identifier`」112 里的一片）。
-
-判据落在原文上：`namespace` 属性的值在声明里**带引号**出现时就是字符串名；
-标识符形式的 `namespace A.B.C` 不带引号，走原来的路、行为不变。
-
-```ts
-  const props = structuralProps(v, "ModuleDeclaration", ctx);
-  const name = String(v.attrs.get("namespace") ?? "");
-  // **点号名字的 `name` 只是第一段**（第 156 轮）：`namespace A.B { … }` 在 TS 那边是
-  // `ModuleDeclaration(A) > [Identifier(A), ModuleDeclaration(B)]`——外层那个名字只有 `A`。
-  // 照 `namespace` 属性（`"A.B"`）合成会得到一个盖住整串的 `Identifier`
-  //（实测 `decl-namespace-dotted.ts`：`Identifier` 漂移 1 + 缺两层 `ModuleDeclaration`）。
-  const dotted = name.split(".");
-  if (dotted.length > 1 && dotted[0] !== "") {
-    const at = ctx.source.indexOf(dotted[0], v.start);
-    if (at >= 0) {
-      props.name = { kind: "Identifier", text: dotted[0], pos: at, end: at + dotted[0].length };
-    }
-  }
-  if (name !== "") {
-    const brace = ctx.source.indexOf("{", v.start);
-    const limit = brace < 0 ? v.end : brace;
-    const dq = ctx.source.indexOf('"', v.start);
-    const sq = ctx.source.indexOf("'", v.start);
-    let at = -1;
-    if (dq >= 0 && dq < limit) at = sq >= 0 && sq < dq ? sq : dq;
-    else if (sq >= 0 && sq < limit) at = sq;
-    if (at >= 0) {
-      const close = ctx.source.indexOf(ctx.source[at], at + 1);
-      if (close > at && close < limit) {
-        props.name = { kind: "StringLiteral", text: name, pos: at, end: close + 1 };
-      }
-    }
-  }
-  return astNode("ModuleDeclaration", props, v, ctx);
-```
-
 # private method projectTypeParameter:(v:any, ctx:any)=>any
 
 类型参数 `<T extends object = any>` → `TypeParameter`
@@ -6653,6 +6608,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
     AllKids: (node) => allKids(node instanceof Map ? view(node) : node),
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
+    Structural: (view, kind) => structuralProps(view, kind, ctx),
     MemberInObject: MEMBER_IN_OBJECT,
     NumericLiteral: NUMERIC_LITERAL,
   };
