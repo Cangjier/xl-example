@@ -1701,7 +1701,21 @@ new Set([
     }
     if (tail0.get("type") === "BinaryOperator" || tail0.get("type") === "LogicalOperator") {
       const spliced = spliceOptional(tail0);
-      if (spliced !== null) return foldBinaryFrom(spliced.extended, spliced.rest, ctx);
+      if (spliced !== null) {
+        const folded = foldBinaryFrom(spliced.extended, spliced.rest, ctx);
+        // **右操作数后面还跟着链的续格**（第 115 轮）：`this.Start?.Document === other.Start?.Document`
+        // 的产物把「右操作数的 `.Start` 与 `?.Document`」平铺在 `BinaryOperator` **外面**
+        //（左操作数的 `?.Document` 却在里面）。不接的话右边只到 `other` 为止：
+        // 漂移 + `PropertyAccessExpression` / `Identifier` 各缺一片，还多出一个短区间节点。
+        if (folded !== undefined && folded.right !== undefined && i + 1 < ck.length) {
+          const right = chainOnto(folded.right, ck.slice(i + 1), ctx);
+          if (right !== undefined) {
+            folded.right = right;
+            folded.end = right.end;
+          }
+        }
+        return folded;
+      }
     }
     return foldBinaryFrom(left, ck.slice(i), ctx);
   }
@@ -1859,6 +1873,87 @@ new Set([
   };
   if (questionDot !== undefined) access.questionDotToken = questionDot;
   return access;
+```
+
+# private method chainOnto:(node:any, units:Array<any>, ctx:any)=>any
+
+把一串「链的续格」（`.` + 名字 / 下标括号 / 可选链单元）**接在一个已有节点上**。
+
+用在「产物把右操作数的链平铺在运算符外面」那一支（见 `projectExpression` 的说明）：
+折出二元之后，右边的续格还要顺着接上去，否则那一段整片丢。
+
+```ts
+  let left = node;
+  let i = 0;
+  while (i < units.length && left !== undefined) {
+    const unit = units[i];
+    if (unit.get("type") === "NullConditionalOperator") {
+      left = chainWithOptional(left, unit, ctx);
+      i += 1;
+      continue;
+    }
+    if (isIndexBracket(unit)) {
+      const argument = projectExpression(projectableKids(view(unit)), ctx);
+      left = {
+        kind: "ElementAccessExpression",
+        expression: left,
+        argumentExpression: argument,
+        pos: left.pos,
+        end: endOf(unit),
+      };
+      i += 1;
+      continue;
+    }
+    if (!isDot(unit, ctx) || i + 1 >= units.length) break;
+    const next = units[i + 1];
+    if (next.get("type") === "Method") {
+      const name = String(next.get("name") ?? "");
+      const at = startOf(next);
+      const member = {
+        kind: "PropertyAccessExpression",
+        expression: left,
+        name: { kind: "Identifier", text: name, pos: at, end: at + name.length },
+        pos: left.pos,
+        end: at + name.length,
+      };
+      const call = projectNode(next, ctx);
+      left = Object.assign({}, call, { expression: member, pos: member.pos });
+    } else if (next.get("type") === "PropertyAccess") {
+      // 成员格自己又是一条链单元（`[Start, NCO(Document)]`）：逐格接上去。
+      const members = projectableKids(view(next));
+      let j = 0;
+      while (j < members.length) {
+        const member = members[j];
+        if (member.get("type") === "NullConditionalOperator") {
+          left = chainWithOptional(left, member, ctx);
+          j += 1;
+          continue;
+        }
+        if (isDot(member, ctx) && j + 1 < members.length) {
+          left = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: nameOf(members[j + 1], ctx),
+            pos: left.pos,
+            end: endOf(members[j + 1]),
+          };
+          j += 2;
+          continue;
+        }
+        j += 1;
+      }
+    } else {
+      left = {
+        kind: "PropertyAccessExpression",
+        expression: left,
+        name: nameOf(next, ctx),
+        pos: left.pos,
+        end: endOf(next),
+      };
+    }
+    i += 2;
+  }
+  return left;
 ```
 
 # private method foldBinaryFrom:(left:any, rest:Array<any>, ctx:any)=>any
