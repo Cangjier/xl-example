@@ -1598,6 +1598,27 @@ new Set([
       i += 2;
     }
     if (i >= ck.length) return left;
+    // **链尾紧跟着可选链的续接**（第 101 轮）：`this.Variables.get(key)?.Value ?? null` 的产物是
+    // `[…链…, BinaryOperator(??)( NullConditionalOperator(Value), ??, null )]`——
+    // `?.` 之后的成员被收成一个 `NullConditionalOperator` 单元。TS 那边它是**在链上加一格**
+    // （`PropertyAccessExpression` + `questionDotToken`），所以这里要先把它接到 `left` 上，
+    // 再拿剩下的运算符折二元。
+    const tail0 = ck[i];
+    const spliceOptional = (unit) => {
+      const inner = projectableKids(view(unit));
+      if (inner.length === 0 || inner[0].get("type") !== "NullConditionalOperator") return null;
+      const extended = chainWithOptional(left, inner[0], ctx);
+      return { extended, rest: inner.slice(1) };
+    };
+    if (tail0.get("type") === "NullConditionalOperator") {
+      const extended = chainWithOptional(left, tail0, ctx);
+      if (i + 1 >= ck.length) return extended;
+      return foldBinaryFrom(extended, ck.slice(i + 1), ctx);
+    }
+    if (tail0.get("type") === "BinaryOperator" || tail0.get("type") === "LogicalOperator") {
+      const spliced = spliceOptional(tail0);
+      if (spliced !== null) return foldBinaryFrom(spliced.extended, spliced.rest, ctx);
+    }
     return foldBinaryFrom(left, ck.slice(i), ctx);
   }
   // ---- 2. `as` / `satisfies`（第 96 轮）----
@@ -1684,6 +1705,48 @@ new Set([
     pos: startOf(unit),
     end: endOf(unit),
   };
+```
+
+# private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
+
+`a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
+
+产物把 `?.` 之后的成员收成一个 `NullConditionalOperator` 单元（里面只有成员名 / 下标括号），
+而 TS 那边它是**前一个表达式链上的一格**：`PropertyAccessExpression` / `ElementAccessExpression`
+各带一个 `questionDotToken`（那个 `?.` 记号是子节点）。
+
+`?.` 的坐标从**原文**量：成员名的起点往前就是那个 `?`（产物树里没有把它留成单元）。
+
+```ts
+  const kids = projectableKids(view(unit));
+  const first = kids.length > 0 ? kids[0] : undefined;
+  const name = first === undefined ? undefined : projectNode(first, ctx);
+  const at = first === undefined ? startOf(unit) : startOf(first);
+  const dot = ctx.source.lastIndexOf("?", at);
+  const questionDot =
+    dot >= 0 && ctx.source[dot + 1] === "."
+      ? { kind: "QuestionDotToken", text: "?.", pos: dot, end: dot + 2 }
+      : undefined;
+  if (first !== undefined && first.get("type") === "Bracket" && first.get("startBracket") === "[") {
+    const element = {
+      kind: "ElementAccessExpression",
+      expression: left,
+      argumentExpression: name,
+      pos: left.pos,
+      end: endOf(unit),
+    };
+    if (questionDot !== undefined) element.questionDotToken = questionDot;
+    return element;
+  }
+  const access = {
+    kind: "PropertyAccessExpression",
+    expression: left,
+    name,
+    pos: left.pos,
+    end: endOf(unit),
+  };
+  if (questionDot !== undefined) access.questionDotToken = questionDot;
+  return access;
 ```
 
 # private method foldBinaryFrom:(left:any, rest:Array<any>, ctx:any)=>any
@@ -1897,7 +1960,13 @@ new Set([
   // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
   const declarations = groups.map((one, index) => {
     const eq = one.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-    const initNode = eq >= 0 && eq + 1 < one.length ? one[eq + 1] : null;
+    // **初始化式是 `=` 右边**整段**，不是一格**（第 101 轮）：`const a = this.Parent!.Data.indexOf(this)`
+    // 的右边在产物里是**四个平级单元**（`NotNull` / `.` / `PropertyAccess` / …），
+    // 原来只取第一格——于是整条链只剩最前面那个 `NotNull`，链尾全丢
+    // （实测 `NonNullExpression` 多出 71 + 漂移 76、`DotToken` 多出 75、`PropertyAccessExpression`
+    // 漂移 24 都是它）。
+    const initKids = eq >= 0 ? one.slice(eq + 1) : [];
+    const initializer = initKids.length === 0 ? undefined : projectExpression(initKids, ctx);
     const head = one[0];
     const oneName =
       index === 0
@@ -1908,7 +1977,7 @@ new Set([
     const declaration = {
       kind: "VariableDeclaration",
       name: oneName,
-      initializer: initNode === null ? undefined : projectNode(initNode, ctx),
+      initializer,
       pos: oneName.pos,
       end: one.length > 0 ? Math.min(stmtEnd, endOf(one[one.length - 1])) : listEnd,
     };
