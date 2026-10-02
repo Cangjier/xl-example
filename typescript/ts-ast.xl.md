@@ -1705,7 +1705,11 @@ new Set([
       // 一刀切收下来会让整个语料多出 3439 个 `EmptyStatement`（实测，第一次就是这么翻车的）。
       let lineStart = v.start;
       while (lineStart > 0 && ctx.source[lineStart - 1] !== "\n") lineStart--;
-      if (ctx.source.slice(lineStart, v.start).trim() !== "") {
+      // **前面只有别空语句时也算行首**（第 179 轮）：`;;` 的第二个 `;` 前面那格是第一个 `;`，
+      // 而 TS 那边两个各是一个 `EmptyStatement`（实测 `stmt-empty-semicolon.ts`：
+      // 只投出第一个）。所以「行首」的判据放宽成「这一行到这里为止只有空白与 `;`」。
+      const beforeOnLine = ctx.source.slice(lineStart, v.start);
+      if (beforeOnLine.trim() !== "" && !/^[;\s]*$/.test(beforeOnLine)) {
         return undefined;
       }
       // **行首的 `;` 也可能是上一条语句的终结符**（第 167 轮）：TS 的 `tryParseSemicolon`
@@ -3771,6 +3775,13 @@ new Set([
       };
     }
   }
+  // **名字为空时第一个子单元就是被调用者**（第 179 轮）：`b!()` 的产物是
+  // `Method(name="")`，里面只有那个 `NotNull`——它该是**被调用者**，不是实参
+  // （实测 `expr-nonnull-callee.ts`：`arguments` 里多出一个 `NonNullExpression`、
+  // `expression` 成了零宽的 `Identifier("")`）。只认 `NotNull`（其余无名形状由上面的
+  // IIFE 支与新造的 `Identifier("")` 兜底，行为不变）。
+  const anonymousCallee =
+    calleeText === "" ? kids.find((k) => k.get("type") === "NotNull") : undefined;
   // **实参自己可能就是一个括号表达式**（第 163 轮）：`f(a, ([x]))` 的第三个子单元是
   // 装着 `[x]` 的那个 `(` 括号——原来把**所有** `Bracket` 都滤掉，于是这个实参整个消失
   // （实测 `expr-value-paren-not-type-array.ts`：缺 `ParenthesizedExpression` +
@@ -3778,6 +3789,7 @@ new Set([
   // 只滤「落在被调用者范围内、或是空括号」的那一个（被调用者自己的 `()` 不在参数表里）。
   const args = kids.filter(
     (k) =>
+      k !== anonymousCallee &&
       k.get("type") !== "GenericType" &&
       (k.get("type") !== "Bracket" ||
         (startOf(k) >= calleeEnd && projectableKids(view(k)).length > 0)),
@@ -3813,7 +3825,9 @@ new Set([
     expression:
       calleeText === "import"
         ? { kind: "ImportKeyword", text: "import", pos: v.start, end: v.start + "import".length }
-        : { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
+        : anonymousCallee !== undefined
+          ? projectNode(anonymousCallee, ctx)
+          : { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
     // **实参要按顶层逗号切组、每组折成一个表达式**（第 113 轮）：一格的实参在产物里可能是
     // **好几个平级单元**——`result.SignIn(Get(units, i)!.SourceRange.Start!)` 那个实参就是
     // `[NotNull(…), ., NotNull(…)]` 三格。逐个单元投会让它裂成三个「实参」，
