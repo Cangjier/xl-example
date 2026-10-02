@@ -166,6 +166,54 @@ Json 数组。
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<ArrayLiteral>子单元的 XML 串接</ArrayLiteral>`（标签名即运行时类名）。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+值位数组字面量 `[a, b, ...c]` → `ArrayLiteralExpression`（元素走**表达式位**投影）。
+
+**从 `ts-ast.xl.md` 的 `projectArrayLiteral` 整体搬来**（第 181 轮的第一步搬迁）：
+判据、注释、形状一字未改，只把跨模块的东西换成 `ctx` 上那几个出口
+（`Kids` / `Expression` / `StartOf` / `EndOf` / `Node`）——那一层不能 import `ts-ast`，
+否则 token → ts-ast → token 成环。搬完 `ts-ast.xl.md` 里对应的 `case` 与 `projectArrayLiteral`
+一起删掉，产物逐字节不变（全量对拍 1407/1407 仍在）。
+
+要点（原文照录）：
+
+- **一律走 `ctx.Expression`**（第 125 轮）：`group.length === 1` 时走 `Project` 会把元素位的
+  **括号**投成一个未映射的 `<Bracket>`——`[(x), y]` 缺 `ParenthesizedExpression` + 多出 `Bracket`；
+- **数组里的洞是零宽 `OmittedExpression`**（第 176 轮）：位置是**第一个逗号之后那一格**；
+- **尾随逗号不是洞**（`[1, 2,]` 只有两个元素）：末组为空时什么都不补。
+
+```ts
+  const elements: Array<any> = [];
+  let group: Array<any> = [];
+  const list = ctx.Kids(v);
+  let lastEnd = ctx.StartOf(v) + 1;
+  const flush = (separator: any) => {
+    if (group.length === 0) {
+      elements.push({ kind: "OmittedExpression", pos: lastEnd + 1, end: lastEnd + 1 });
+    } else {
+      const one = ctx.Expression(group);
+      if (one !== undefined) {
+        elements.push(one);
+      }
+      lastEnd = ctx.EndOf(group[group.length - 1]);
+    }
+    group = [];
+  };
+  for (const item of list) {
+    if (item.get("type") === "SymbolToken" && ctx.TextOf(item) === ",") {
+      flush(item);
+      continue;
+    }
+    group.push(item);
+  }
+  if (group.length > 0) {
+    flush(undefined);
+  }
+  const props = elements.length === 0 ? {} : { elements };
+  return ctx.Node("ArrayLiteralExpression", props, v);
+```
+
 ## field Context:string = ""
 
 本单元是从哪个 `[` 括号收来的、那个括号当时处在**类型位**还是**值位**

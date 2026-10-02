@@ -985,8 +985,9 @@ new Map([
     case "ObjectLiteral":
       return projectObjectLiteral(v, ctx);
 
-    case "ArrayLiteral":
-      return projectArrayLiteral(v, ctx);
+    // **`ArrayLiteral` 已经搬进 `tokens/json/array-literal.xl.md` 的 `PrintAst`**（第 181 轮）：
+    // `projectNode` 会先问 `node.__token.PrintAst(ctx, v)`，覆写了就在那儿返回，这里不再需要分支。
+    // 搬迁的判据是「产物逐字节不变」，尺子仍然是全量对拍。
 
     // 类型查询 `typeof X`：TS 那边 `exprName` **只有名字**（`typeof` 是属性、不是子节点），
     // 产物那边它是 `[Keyword(typeof), Identifier(X)]` 两个平级单元——照通用投影会把
@@ -6596,59 +6597,6 @@ TS 那边的 `properties` 是**成员数组**：
   return { kind: "ObjectLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectArrayLiteral:(v:any, ctx:any)=>any
-
-值位数组字面量 `[a, b, ...c]` → `ArrayLiteralExpression`（`elements` 是**元素数组**）。
-
-同一类账：产物那边是一串平级单元（含逗号），照通用投影会把逗号也当成一个元素
-（实测 `ArrayLiteralExpression` 的漂移与 `Identifier` 缺口里都有它）。按顶层逗号切，
-每段整段投；`...c` 那一格照 `SpreadElement` 投（TS 的数组里就是 `SpreadElement`，
-与对象字面量的 `SpreadAssignment` 不同）。
-
-```ts
-  const elements = [];
-  let group = [];
-  // **数组里的洞是 `OmittedExpression`**（第 176 轮）：`[1, , 3]` 在 TS 那边是
-  // `[NumericLiteral, OmittedExpression[39,39), NumericLiteral]`——一个**零宽**节点。
-  // 产物在那个位置什么都没有（两个逗号之间是空的），所以按顶层逗号切组、**空组补一个零宽节点**，
-  // 位置取后面那个逗号的起点（TS 就是这么放的；末组的空位取列表末尾）
-  // （实测 `ex-array-holes.ts` / `expr-array-holes.ts` 各缺 1）。
-  const list = projectableKids(v);
-  // 洞的位置是**上一个元素结束处**（TS 的零宽节点就摆在那里：`[1, , 3]` 的
-  // `OmittedExpression` 是 `[72,72)`，正好是 `1` 的终点，不是后面那个逗号）。
-  let lastEnd = v.start + 1;
-  const flush = (separator) => {
-    if (group.length === 0) {
-      // 洞的位置是**第一个逗号之后那一格**（TS 的零宽节点就摆在那里：`[1, , 3]` 的
-      // `OmittedExpression` 在 `1` 与第二个逗号之间的那个空格上）。`lastEnd` 是上一个
-      // 元素的**开区间终点**，再走一格正好越过第一个逗号。
-      elements.push({ kind: "OmittedExpression", pos: lastEnd + 1, end: lastEnd + 1 });
-    } else {
-      // **一律走 `projectExpression`**（第 125 轮）：`group.length === 1` 时走 `projectNode`
-      // 会把元素位的**括号**投成一个未映射的 `<Bracket>`——`[(x), y]` 缺
-      // `ParenthesizedExpression` + 多出 `Bracket`。`projectExpression` 对单个单元的行为
-      // 与 `projectNode` 相同，只多认了「值位括号」那一支（`projectSpread` 里同一条）。
-      const one = projectExpression(group, ctx);
-      if (one !== undefined) elements.push(one);
-      lastEnd = endOf(group[group.length - 1]);
-    }
-    group = [];
-  };
-  for (const item of list) {
-    if (item.get("type") === "SymbolToken" && textOfNode(item, ctx) === ",") {
-      flush(item);
-      continue;
-    }
-    group.push(item);
-  }
-  // **尾随逗号不是洞**（`[1, 2,]` 只有两个元素）：末组为空时什么都不补
-  // （实测 `new Map([["a", 1], ["b", 2],])` 这种多行字面量遍地都是，
-  //  无条件补会把 `dist/ts/typescript/ts-ast.ts` 一次多出 31 个 `OmittedExpression`）。
-  if (group.length > 0) flush(undefined);
-  const props = elements.length === 0 ? {} : { elements };
-  return { kind: "ArrayLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectNonNullExpression:(v:any, ctx:any)=>any
 
 非空断言 `x!` → `NonNullExpression`（**只有 `expression` 一个子字段**）。
@@ -7725,14 +7673,19 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     // 搬进各 token 自己的 `PrintAst(ctx, v)`，而那一层**不能 import 本文件**
     // （token 层反过来被本文件依赖，会成环）。所以这些横切的小工具只能经 `ctx` 递过去——
     // 与上面那一组同款：逐个转调共享实现，行为不变。
-    StartOf: (node) => startOf(node),
-    EndOf: (node) => endOf(node),
+    // **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（见 `projectNode` 开头那句
+    // `const v = view(node)`），所以取坐标这两种都要认：视图读 `start` / `end` 两个字段，
+    // 原始 Map 走 `range`。搬迁过去的代码里 `v.start` / `v.end` 就是这么用的。
+    StartOf: (node) => (node instanceof Map ? startOf(node) : node.start),
+    EndOf: (node) => (node instanceof Map ? endOf(node) : node.end),
     StmtEndOf: (view) => stmtEndOf(view, ctx),
     Split: (list, separator) => splitTopLevel(list, ctx, separator),
     Invisible: INVISIBLE,
     IsSymbol: (node, text) => isSymbol(node, text),
     IsDot: (node) => isDot(node, ctx),
     NameOf: (node) => nameOf(node, ctx),
+    Kids: (view) => projectableKids(view),
+    Expression: (list) => projectExpression(list, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
