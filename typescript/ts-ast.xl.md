@@ -917,9 +917,6 @@ new Map([
     case "Let":
       return projectLet(v, ctx);
 
-    case "BinaryOperator":
-    case "LogicalOperator":
-      return projectBinary(v, ctx);
 
 
 
@@ -990,8 +987,6 @@ new Map([
 
 
 
-    case "LogicalOperator":
-      return projectLogical(v, ctx);
 
 
 
@@ -3557,53 +3552,6 @@ new Set([
   return "Let";
 ```
 
-# private method projectBinary:(v:any, ctx:any)=>any
-
-```ts
-  const kids = projectableKids(v);
-  // **切在优先级最低的运算符上**（第 88 轮）：与 `projectExpression` 那一支同一判据。
-  // 原来这里取**第一个**运算符、再把右边整段递归——`error !== null && error !== undefined && …`
-  // 那种四段逻辑链会被折成**右结合**（`a && (b && (c && d))`），四个节点的起点落在四个操作数上；
-  // 而 TS 是左结合（`((a && b) && c) && d`），四个节点**都从第一个操作数起**、终点逐个增长。
-  let opIndex = -1;
-  let bestRank = 999;
-  for (let i = 1; i < kids.length; i++) {
-    if (!isOperatorUnit(kids[i], ctx)) continue;
-    const rank = operatorRank(textOfNode(kids[i], ctx));
-    if (rank < bestRank) {
-      bestRank = rank;
-      opIndex = i;
-    }
-  }
-  const declaredOp = v.attrs.get("op");
-  const left = opIndex > 0 ? projectExpression(kids.slice(0, opIndex), ctx) : undefined;
-  // **运算符在树里**（这一族是绝大多数）：从 `left` 起按 TS 的结合性折（左结合 / 赋值右结合）。
-  if (opIndex > 0 && kids[opIndex].get("type") === "SymbolToken") {
-    return foldBinaryFrom(left, kids.slice(opIndex), ctx);
-  }
-  const right = opIndex >= 0 && opIndex + 1 < kids.length ? projectExpression(kids.slice(opIndex + 1), ctx) : undefined;
-  // **两侧都没有时不要发一个空壳**：产物里有一类残缺的 `LogicalOperator`
-  // （`a && b || c` 实测是三个只有 `op="And"/"Or"` 属性、**运算符符号根本没进树**的节点，
-  // 而且左右两块还散成了平级兄弟）——那是 token 层的结构问题，投影这里治不了根，
-  // 但至少不能凭空造一个既没有 `left` 也没有 `right` 的 `BinaryExpression`
-  // （真实语料实测 1118 处「产物只有 operatorToken」）。退回把子单元投出来，让里面的节点还能对上。
-  if (left === undefined && right === undefined) {
-    return kids.length > 0 ? projectExpression(kids, ctx) : undefined;
-  }
-  const opNode =
-    opIndex >= 0
-      ? projectNode(kids[opIndex], ctx)
-      : { kind: tokenKind(String(declaredOp ?? "?")), pos: v.start, end: v.start };
-  return {
-    kind: "BinaryExpression",
-    left,
-    operatorToken: opNode,
-    right,
-    pos: left ? left.pos : v.start,
-    end: right ? right.end : v.end,
-  };
-```
-
 # private method projectSignedLiteralType:(v:any, ctx:any)=>any
 
 `LiteralType > [加号/减号, 数字]` → `LiteralType > PrefixUnaryExpression`；不是这个形状给 `undefined`
@@ -4990,48 +4938,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return out;
 ```
 
-# private method projectLogical:(v:any, ctx:any)=>any
-
-`a && b || c` 的链 → **左结合的嵌套 `BinaryExpression`**。
-
-产物那边第 71 轮起是「整段一个单元、子单元按原文顺序排」（`[a, &&, b, ||, c]`）——
-运算符就是它的子单元，所以按「遇到运算符就折一层」扫一遍即可。
-只有一个操作数时（`a`）不成节点：TS 那边它就是那个操作数本身。
-
-```ts
-  const kids = projectableKids(v);
-  if (kids.length === 0) return undefined;
-  // **Data 里夹着已经成形的二元 / 逻辑单元时，交给 `projectExpression`**（第 145 轮）：
-  //
-  //     this.Start?.Document === other.Start?.Document && …
-  //
-  // 里那个 `===` 是**一个单元**——它把左边那截 `?.Document` 吞在肚子里（`NCO` 是它的第一个
-  // 孩子）、右边又接回平级单元。按「奇偶格」配对的朴素循环在这种形状上会把段切错：
-  // 产物里 `x.Start?.Document === y.Start?.Document` 变成
-  // `(x.Start?.Document === y.Start)?.Document`（实测 `dist/ts/core/syntax/source-range.ts`：
-  // 漂移 2 + 多出 3）。`projectExpression` 里有第 124 轮那条「`?.` 那一串被包进二元操作数位」，
-  // 而且它按运算符优先级折段，正好是这种形状要的口径。
-  //
-  // 纯 `&&` / `||` 链（`a || b && c`）走不到这里——那些 Data 里只有符号与单格操作数。
-  if (kids.some((k) => k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator")) {
-    return projectExpression(kids, ctx);
-  }
-  let left = projectNode(kids[0], ctx);
-  let i = 1;
-  while (i + 1 < kids.length) {
-    left = {
-      kind: "BinaryExpression",
-      left,
-      operatorToken: projectNode(kids[i], ctx),
-      right: projectNode(kids[i + 1], ctx),
-      pos: left.pos,
-      end: endOf(kids[i + 1]),
-    };
-    i += 2;
-  }
-  return left;
-```
-
 # private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any)=>any
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
@@ -5595,6 +5501,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     NamedImportSpecifiers: (text, open, close) => namedImportSpecifiers(text, open, close),
     MemberNameOf: (view) => memberNameOf(view, ctx),
     AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
+    OperatorRank: (text) => operatorRank(text),
+    FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),

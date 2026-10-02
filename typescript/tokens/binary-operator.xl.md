@@ -596,6 +596,62 @@ return ReplaceCountAt(units, beforeIndex, afterIndex - beforeIndex + 1, result);
 
 它覆写了 `ToXmlString`：在基类的串接之外带上 `op` 属性。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+二元运算 → `BinaryExpression`（**从 `ts-ast.xl.md` 的 `projectBinary` 整块搬来**，第 196 轮）。
+`LogicalOperator`（`a && b` 那一段）走的是**同一份实现**，见那个文件的同名方法。
+
+**切在优先级最低的运算符上**（第 88 轮）：与表达式折链那一支同一判据。原来这里取**第一个**
+运算符、再把右边整段递归——`error !== null && error !== undefined && …` 那种四段逻辑链
+会被折成**右结合**，四个节点的起点落在四个操作数上；而 TS 是左结合，四个节点**都从第一个
+操作数起**、终点逐个增长。
+
+**运算符在树里**（这一族是绝大多数）：从 `left` 起按 TS 的结合性折（左结合 / 赋值右结合）。
+
+**两侧都没有时不要发一个空壳**：产物里有一类残缺的 `LogicalOperator`（只有 `op` 属性、
+运算符符号根本没进树）——那是 token 层的结构问题，投影这里治不了根，但至少不能凭空造一个
+既没有 `left` 也没有 `right` 的 `BinaryExpression`（实测 1118 处）。退回把子单元投出来。
+
+```ts
+  const kids = ctx.Kids(v);
+  let opIndex = -1;
+  let bestRank = 999;
+  for (let i = 1; i < kids.length; i++) {
+    if (!ctx.IsOperatorUnit(kids[i])) continue;
+    const rank = ctx.OperatorRank(ctx.TextOf(kids[i]));
+    if (rank < bestRank) {
+      bestRank = rank;
+      opIndex = i;
+    }
+  }
+  const declaredOp = v.attrs.get("op");
+  const left = opIndex > 0 ? ctx.Expression(kids.slice(0, opIndex)) : undefined;
+  if (opIndex > 0 && kids[opIndex].get("type") === "SymbolToken") {
+    return ctx.FoldBinaryFrom(left, kids.slice(opIndex));
+  }
+  const right =
+    opIndex >= 0 && opIndex + 1 < kids.length ? ctx.Expression(kids.slice(opIndex + 1)) : undefined;
+  if (left === undefined && right === undefined) {
+    return kids.length > 0 ? ctx.Expression(kids) : undefined;
+  }
+  const opNode =
+    opIndex >= 0
+      ? ctx.Project(kids[opIndex])
+      : {
+          kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),
+          pos: v.start,
+          end: v.start,
+        };
+  return {
+    kind: "BinaryExpression",
+    left,
+    operatorToken: opNode,
+    right,
+    pos: left ? left.pos : v.start,
+    end: right ? right.end : v.end,
+  };
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把自己的重组队列装上**。
