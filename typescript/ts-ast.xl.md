@@ -946,8 +946,6 @@ new Map([
     // 已搬进 `tokens/infer-type.xl.md` 的 `InferType.PrintAst`（第 183 轮）。
 
     // 下标访问类型 `A[K]`：TS 那边是 `objectType` + `indexType` 两个具名字段。
-    case "IndexedAccessType":
-      return projectIndexedAccessType(v, ctx);
 
     case "TypeAssign":
       return projectTypeAlias(v, ctx);
@@ -4522,32 +4520,6 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   return -1;
 ```
 
-# private method projectIndexedAccessType:(v:any, ctx:any)=>any
-
-下标访问类型 `A[K]` → `IndexedAccessType`（`objectType` + `indexType`）。
-
-产物那边是**一串平级单元**（方括号本身不进产物，与 `ArrayType` 同一口径），
-所以按「单元起点在下标括号之前还是之后」切两段——两段都以类型位方式投
-（`NodeJS.TypedArray[K]` 的对象类型因此才是一个限定名，而不是散单元）。
-段名对不上是实测最大的一处字段差异（657 处：产物只有 `children`）。
-
-```ts
-  const kids = projectableKids(v);
-  const open = indexBracketOf(v, ctx);
-  if (open < 0) {
-    const whole = projectTypeExpression(kids, ctx);
-    return { kind: "IndexedAccessType", pos: v.start, end: stmtEndOf(v, ctx), objectType: whole };
-  }
-  const objectUnits = kids.filter((k) => startOf(k) < open);
-  const indexUnits = kids.filter((k) => startOf(k) >= open);
-  const props = {};
-  const objectType = projectTypeExpression(objectUnits, ctx);
-  const indexType = projectTypeExpression(indexUnits, ctx);
-  if (objectType !== undefined) props.objectType = objectType;
-  if (indexType !== undefined) props.indexType = indexType;
-  return { kind: "IndexedAccessType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method memberNameOf:(v:any, ctx:any)=>any
 
 **成员的名字节点**（`Field` / 方法声明 / 方法签名 / 命名空间…都要问它）。
@@ -7416,6 +7388,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
+    IndexBracketOf: (view) => indexBracketOf(view, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

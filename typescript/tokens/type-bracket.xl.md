@@ -264,6 +264,33 @@ return result;
 
 **与值位下标访问的区别只在容器**：`a[i]` 的父单元是语句 / 表达式，`T[K]` 的父单元是类型容器。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+下标访问类型 `A[K]` → `IndexedAccessType`（`objectType` + `indexType`；
+**从 `ts-ast.xl.md` 的 `projectIndexedAccessType` 搬来**，第 184 轮）。
+
+产物那边是**一串平级单元**（方括号本身不进产物，与 `ArrayType` 同一口径），
+所以按「单元起点在下标括号之前还是之后」切两段——两段都以类型位方式投
+（`NodeJS.TypedArray[K]` 的对象类型因此才是一个限定名，而不是散单元）。
+段名对不上是实测最大的一处字段差异（657 处：产物只有 `children`）。
+
+```ts
+  const kids = ctx.Kids(v);
+  const open = ctx.IndexBracketOf(v);
+  if (open < 0) {
+    const whole = ctx.TypeExpression(kids);
+    return ctx.Node("IndexedAccessType", { objectType: whole }, v);
+  }
+  const objectUnits = kids.filter((k: any) => ctx.StartOf(k) < open);
+  const indexUnits = kids.filter((k: any) => ctx.StartOf(k) >= open);
+  const props: any = {};
+  const objectType = ctx.TypeExpression(objectUnits);
+  const indexType = ctx.TypeExpression(indexUnits);
+  if (objectType !== undefined) props.objectType = objectType;
+  if (indexType !== undefined) props.indexType = indexType;
+  return ctx.Node("IndexedAccessType", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 搬进来的那一段要再跑一趟**类型队列**（下标里的联合 / `keyof` 在那里成形）。
