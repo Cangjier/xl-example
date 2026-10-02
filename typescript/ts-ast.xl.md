@@ -224,6 +224,19 @@ new Map([
   ["[", "OpenBracketToken"], ["]", "CloseBracketToken"], ["{", "OpenBraceToken"], ["}", "CloseBraceToken"],
   ["=>", "EqualsGreaterThanToken"], ["++", "PlusPlusToken"], ["--", "MinusMinusToken"],
   [".", "DotToken"], ["...", "DotDotDotToken"],
+  // **第 135 轮补齐的一批**：位运算 / 移位 / 幂 / 逻辑赋值这些运算符原来一个都没在表里，
+  // 于是 `tokenKind` 原样返回文本——`a **= 2` 的 `operatorToken.kind` 成了 `"**="` 而不是
+  // `"AsteriskAsteriskEqualsToken"`（实测 `expr-compound-assign-all.ts` 缺 10 / 多出 10、
+  // `ex-logical-assign.ts` 缺 5 / 多出 5，样本全是 `**= <<= >>= >>>= &= |= ^= &&= ||= ??=`）。
+  // 名字一律照 `ts.SyntaxKind` 的拼法（`tests/parse/ts-ast.mjs` 就是从那边查的）。
+  ["**", "AsteriskAsteriskToken"], ["**=", "AsteriskAsteriskEqualsToken"],
+  ["<<", "LessThanLessThanToken"], ["<<=", "LessThanLessThanEqualsToken"],
+  [">>", "GreaterThanGreaterThanToken"], [">>=", "GreaterThanGreaterThanEqualsToken"],
+  [">>>", "GreaterThanGreaterThanGreaterThanToken"], [">>>=", "GreaterThanGreaterThanGreaterThanEqualsToken"],
+  ["&", "AmpersandToken"], ["&=", "AmpersandEqualsToken"],
+  ["|", "BarToken"], ["|=", "BarEqualsToken"],
+  ["^", "CaretToken"], ["^=", "CaretEqualsToken"], ["~", "TildeToken"],
+  ["&&=", "AmpersandAmpersandEqualsToken"], ["||=", "BarBarEqualsToken"], ["??=", "QuestionQuestionEqualsToken"],
 ])
 ```
 
@@ -2510,10 +2523,21 @@ new Set([
   // 里面还带着结构化的 `BindingElement`。早先我从源码括号里**另造了一个空壳**，
   // 于是 `elements` 空着、里面的 `BindingElement` 与名字全丢——`ObjectBindingPattern` /
   // `ArrayBindingPattern` 的字段名差异、以及 `BindingElement` 那一族的 `Identifier` 缺口都是它。
+  // **绑定模式是 `Let` 的平级兄弟**（第 135 轮）：`const [[a, b], [, c = 0]] = …` 的产物是
+  //
+  //     Statement > [ Let(arrayPattern="a,b,c,0"), ArrayLiteral(带 BindingElement 的模式), =, ArrayLiteral(RHS) ]
+  //
+  // ——那个**结构化的** `ArrayLiteral` / `ObjectLiteral` 在 `Let` **外面**（`=` 的左边），
+  // 而 `Let` 自己只记了一个扁平的 `arrayPattern="a,b,c,0"` 属性（嵌套与洞全丢）。
+  // 早先只在 `Let` 的子单元里找，于是永远找不到、退回 `bindingSpan` 造一个空壳：
+  // `elements` 空着、里面的 `BindingElement` 与名字整片丢
+  // （实测 `decl-arr-destructure-nested` / `vars-destructure-nested` /
+  // `decl-destructure-nested-names` 三族共 27 处）。所以先在**整段列表里 `=` 左边**找。
+  const eqAt = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+  const headKids = eqAt >= 0 ? kids.slice(0, eqAt) : kids;
+  const isPatternUnit = (k: any) => k.get("type") === "ArrayLiteral" || k.get("type") === "ObjectLiteral";
   const patternUnit =
-    declared === ""
-      ? projectableKids(letView).find((k) => k.get("type") === "ArrayLiteral" || k.get("type") === "ObjectLiteral") ?? null
-      : null;
+    headKids.find(isPatternUnit) ?? projectableKids(letView).find(isPatternUnit) ?? null;
   const name =
     patternUnit !== null
       ? projectBindingPattern(patternUnit, ctx)
@@ -2584,8 +2608,34 @@ new Set([
   const v = view(unit);
   const kind = v.type === "ArrayLiteral" ? "ArrayBindingPattern" : "ObjectBindingPattern";
   const elements = [];
-  for (const kid of projectableKids(v)) {
-    if (kid.get("type") === "BindingElement") elements.push(projectBindingElement(kid, ctx));
+  const kids = projectableKids(v);
+  // **洞 `[, c]` 是一个零宽的 `OmittedExpression`**（第 135 轮）：TS 在元素表里留一格
+  // 零宽节点（`ArrayBindingPattern.elements = [OmittedExpression, BindingElement]`），
+  // 而产物那边只有一个逗号、什么都没有。**尾随逗号不算洞**（`[a, b,]` 只有两个元素）。
+  const groups = [];
+  const commaAts = [];
+  let group = [];
+  for (const kid of kids) {
+    if (kid.get("type") === "SymbolToken" && textOfNode(kid, ctx) === ",") {
+      groups.push(group);
+      commaAts.push(startOf(kid));
+      group = [];
+      continue;
+    }
+    group.push(kid);
+  }
+  groups.push(group);
+  let cursor = v.start + 1;
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].length === 0) {
+      if (i === groups.length - 1) break;
+      elements.push({ kind: "OmittedExpression", pos: cursor, end: cursor });
+    } else {
+      for (const kid of groups[i]) {
+        if (kid.get("type") === "BindingElement") elements.push(projectBindingElement(kid, ctx));
+      }
+    }
+    if (i < commaAts.length) cursor = commaAts[i] + 1;
   }
   return { kind, elements, pos: v.start, end: stmtEndOf(v, ctx) };
 ```
@@ -2611,23 +2661,47 @@ new Set([
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const dots = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
   const names = kids.filter((k) => isNameNode(k) && !isTypeSeparator(k, ctx));
+  // **绑定位里还能再嵌一层模式**（第 135 轮）：`[[a, b], …]` 的元素是**另一个**
+  // `ArrayLiteral` / `ObjectLiteral`（`{ b: [c, d = 2] }` 里 `:` 右边也是）。
+  // 原来只找名字，`names` 为空时那个 `BindingElement` 连 `name` 都没有——
+  // 嵌套的 `ArrayBindingPattern` / `ObjectBindingPattern` 与它们里面的名字整片丢
+  // （实测三族嵌套解构用例共 27 处）。
+  const patternKid = kids.find((k) => k.get("type") === "ArrayLiteral" || k.get("type") === "ObjectLiteral");
   const props = {};
   if (dots !== undefined) {
     props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
   }
-  if (colonIndex >= 0 && names.length >= 2) {
-    // `p: q`：点号左边是属性名、右边是绑定名
+  if (colonIndex >= 0) {
+    // `p: q` / `p: [a, b]`：冒号左边是属性名、右边是绑定名（或一层模式）
     const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
-    const after = names.find((k) => startOf(k) > startOf(kids[colonIndex]));
     if (before !== undefined) props.propertyName = nameOf(before, ctx);
-    if (after !== undefined) props.name = nameOf(after, ctx);
+    const afterPattern =
+      patternKid !== undefined && startOf(patternKid) > startOf(kids[colonIndex]) ? patternKid : undefined;
+    if (afterPattern !== undefined) {
+      props.name = projectBindingPattern(afterPattern, ctx);
+    } else {
+      const after = names.find((k) => startOf(k) > startOf(kids[colonIndex]));
+      if (after !== undefined) props.name = nameOf(after, ctx);
+    }
+  } else if (patternKid !== undefined) {
+    props.name = projectBindingPattern(patternKid, ctx);
   } else if (names.length > 0) {
     props.name = nameOf(names[0], ctx);
   }
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) {
-    const rhs = kids[eqIndex + 1];
-    const text = textOfNode(rhs, ctx);
-    props.initializer = { kind: leafKindOfText(text), text, pos: startOf(rhs), end: endOf(rhs) };
+    // **默认值不只是一格**（第 135 轮）：`[c, d = 2] = []` 里那个默认值是**一对括号**
+    // （`ArrayLiteral`），照「取一格当叶子」投会把它当成 `Identifier("")`。
+    const rest = kids.slice(eqIndex + 1);
+    const only = rest.length === 1 ? rest[0] : undefined;
+    props.initializer =
+      only !== undefined && isNameNode(only)
+        ? {
+            kind: leafKindOfText(textOfNode(only, ctx)),
+            text: textOfNode(only, ctx),
+            pos: startOf(only),
+            end: endOf(only),
+          }
+        : projectExpression(rest, ctx);
   }
   return { kind: "BindingElement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
