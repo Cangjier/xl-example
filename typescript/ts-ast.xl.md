@@ -952,6 +952,9 @@ new Map([
     case "NamedTupleMember":
       return projectNamedTupleMember(v, ctx);
 
+    case "Spread":
+      return projectSpread(v, ctx);
+
     case "Try":
       return projectTry(v, ctx);
 
@@ -1529,6 +1532,22 @@ new Set([
     }
     if (at >= kids.length) return optional;
     return foldBinaryFrom(optional, kids.slice(at), ctx);
+  }
+  // ---- 0b. 展开实参（第 114 轮）----
+  //
+  // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
+  // （`isOperatorUnit` 对任何符号都为真），照二元那一支会把它投成一个孤立的
+  // `DotDotDotToken`（实测多出 66，样本全是 `...(newValues)` / `...(items)` 这种调用实参）。
+  if (kids.length >= 2 && kids[0].get("type") === "SymbolToken" && textOfNode(kids[0], ctx) === "...") {
+    const spread = projectExpression(kids.slice(1), ctx);
+    if (spread !== undefined) {
+      return {
+        kind: "SpreadElement",
+        expression: spread,
+        pos: startOf(kids[0]),
+        end: endOf(kids[kids.length - 1]),
+      };
+    }
   }
   // ---- 1. 链（成员访问与下标访问混排，**从左边开始折**） ----
   //
@@ -2489,11 +2508,10 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     }
     return query;
   }
-  // **`typeof X<Y>`**（第 109 轮）：TS 的 `TypeQuery` 可以带**类型实参**
-  // （`typeof ServerResponse<InstanceType<Request>>` 的 `TypeQueryNode.typeArguments`），
-  // 而实参段在产物里是 `TypeQuery` 的**平级兄弟**。不收的话：`TypeQuery` 少 `typeArguments`、
-  // 区间短一截（漂移），实参里那串名字整片丢（`InstanceType` / `Request`）。
-  if (list[0].get("type") === "TypeQuery") {
+  // **`typeof X<Y>` / `import("m").X<Y>`**（第 109 / 114 轮）：TS 的 `TypeQuery` 与
+  // `ImportType` 都可以带**类型实参**（`typeArguments`），而实参段在产物里是它们的
+  // **平级兄弟**。不收的话：少 `typeArguments`、区间短一截（漂移），实参里那串名字整片丢。
+  if (list[0].get("type") === "TypeQuery" || list[0].get("type") === "ImportType") {
     const query = projectNode(list[0], ctx);
     const generic = list.find((k) => k.get("type") === "GenericType");
     if (generic !== undefined && query !== undefined) {
@@ -2787,7 +2805,20 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   }
   const names = kids.filter((k) => isNameNode(k) && !(k.get("type") === "Keyword"));
   if (names.length > 0) props.qualifier = qualifiedNameFrom(names, ctx);
-  return { kind: "ImportType", pos: v.start, end: v.end, ...props };
+  // **类型实参**（第 114 轮）：`import("stream/web").QueuingStrategy<T>` 的 `<T>` 在产物里是
+  // 平级的 `GenericType`，而 TS 的 `ImportType.typeArguments` 要照收——不收的话
+  // 实参那串名字整片丢（实测缺 `Identifier` 386 / `TypeReference` 130 的样本
+  // 全长得像 `…T>;`，来自 `@types/node/stream/web.d.ts` 的 `_QueuingStrategy<T>` 一族）。
+  const generic = kids.find((k) => k.get("type") === "GenericType");
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
+      const one = projectTypeExpression(group, ctx);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  return { kind: "ImportType", pos: v.start, end: generic === undefined ? v.end : endOf(generic), ...props };
 ```
 
 # private method qualifiedNameFrom:(names:Array<any>, ctx:any)=>any
@@ -4697,6 +4728,23 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   const inner = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
   if (inner !== undefined) props.type = inner;
   return { kind, pos: v.start, end: v.end, ...props };
+```
+
+# private method projectSpread:(v:any, ctx:any)=>any
+
+展开元素 `...xs` → `SpreadElement`（**只有 `expression` 一个字段**）。
+
+产物那边是 `Spread > [SymbolToken(...), 目标]`——两点号是一个平级的 `SymbolToken`。
+照通用支（`FIELD_BY_KIND` 把 `children` 映射成 `expression`）会把那个 `SymbolToken`
+也投成 `DotDotDotToken` 一起塞进 `expression` 里（实测多出 66，样本全是
+`f(...newValues)` / `push(...items)` 这种调用实参）。
+
+```ts
+  const kids = projectableKids(v).filter(
+    (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "..."),
+  );
+  const expression = kids.length === 0 ? undefined : kids.length === 1 ? projectNode(kids[0], ctx) : projectExpression(kids, ctx);
+  return { kind: "SpreadElement", pos: v.start, end: v.end, ...(expression === undefined ? {} : { expression }) };
 ```
 
 # private method projectNamespace:(v:any, ctx:any)=>any
