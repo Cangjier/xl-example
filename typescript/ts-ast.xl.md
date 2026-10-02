@@ -780,7 +780,11 @@ new Map([
     // 非空断言 `x!`：TS 的 `NonNullExpression` 只有 `expression` 一个子字段——
     // `!` 那个词是节点的属性（`exclamationToken`），`forEachChild` 不访问它
     // （实测「多出来」里 `ExclamationToken` 350 个全是它）。
-    case "NonNullExpression":
+    //
+    // **这里的 `case` 是产物标签，不是 TS 的 kind**（踩过一回）：产物标签是 `NotNull`，
+    // `NonNullExpression` 是 `KIND_BY_TAG` 给它的**投出**名字——写成后者时这一支永远不命中，
+    // 而那 350 个 `ExclamationToken` 一个都不会少。
+    case "NotNull":
       return projectNonNullExpression(v, ctx);
 
     // 类型运算符 `keyof T` / `readonly T[]` / `unique symbol`：TS 那边那个词是节点的**属性**
@@ -965,8 +969,13 @@ new Map([
 （实测缺 `IndexSignatureDeclaration` 102 处，还凭空多出一批 `ExpressionStatement`）。
 
 ```ts
-new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration"])
+new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration", "EnumDeclaration"])
 ```
+
+**`EnumDeclaration` 是第 86 轮补的**：枚举体里也是成员（`EnumMember`），而且**成员之间带 `,`**
+（`[EnumMember, ,, EnumMember, ,]`）——不摊开的话那个 `,` 会把成员们折成一个 `BinaryOperator`，
+投出来是 `ExpressionStatement > BinaryExpression`（实测「多出来」榜的第一名 `BinaryExpression`
+1806 与第二名 `CommaToken` 1158 同源，样本全是 `export enum … { JsxClosingTag = "…", … }`）。
 
 # private const MEMBER_TAGS:Set<string>
 
@@ -1000,7 +1009,17 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
         const inner = allKids(view(item)).filter((k) => !INVISIBLE.has(k.get("type")));
         // **只有整层都是成员才摊开**（见 `MEMBER_TAGS`）：`interface` / `type` / `class`
         // 的成员位在 TS 里放不下语句，可本工程自己的样本里出现过 `{ let value: T }` 这种写法。
-        if (inner.length > 0 && inner.every((k) => MEMBER_TAGS.has(k.get("type")))) {
+        // **成员之间的 `,` 不算内容**（第 86 轮）：枚举体的那一层 `Statement` 里是
+        // `[EnumMember, SymbolToken(,), EnumMember, …]`——`every` 不认逗号的话枚举永远摊不开，
+        // 于是一个 `,` 把成员们折成 `BinaryOperator`、投成 `ExpressionStatement > BinaryExpression`。
+        if (
+          inner.length > 0 &&
+          inner.every(
+            (k) =>
+              MEMBER_TAGS.has(k.get("type")) ||
+              (k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ","),
+          )
+        ) {
           for (const one of inner) flat.push(one);
           continue;
         }
@@ -1308,24 +1327,39 @@ new Set([
   // 所以这里的两条输入路径都要认——`PropertyAccess` 单元走同一个递归（见 `projectNode`），
   // 而**值位里散着的平铺链**（类型位、`?.` 让路之后的残留）仍走这一支。
   if (kids.length >= 2 && (isSymbol(kids[1], ".") || isIndexBracket(kids[1]))) {
-    let left = projectNode(kids[0], ctx);
+    // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
+    // `this.Parent!.Data.splice(1, 2)` 实测是
+    // `[NotNull(this.Parent), ., PropertyAccess([Data, ., Method(splice)])]`，
+    // 而 TS 那边是**左结合**的 `((this.Parent!).Data).splice(1, 2)`。
+    // 不摊平的话那一格会走「成员名」那一支、投成一个盖住整段的 `Identifier`
+    // （实测 `Data.splice(1, 2)` 成了名字，`splice` 那次调用也丢了）。
+    const ck = [];
+    for (let at = 0; at < kids.length; at++) {
+      const k = kids[at];
+      if (k.get("type") === "PropertyAccess" && at > 0 && isSymbol(kids[at - 1], ".")) {
+        for (const inner of projectableKids(view(k))) ck.push(inner);
+        continue;
+      }
+      ck.push(k);
+    }
+    let left = projectNode(ck[0], ctx);
     let i = 1;
-    while (i < kids.length) {
+    while (i < ck.length) {
       // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。
-      if (isIndexBracket(kids[i])) {
-        const argument = projectExpression(projectableKids(view(kids[i])), ctx);
+      if (isIndexBracket(ck[i])) {
+        const argument = projectExpression(projectableKids(view(ck[i])), ctx);
         left = {
           kind: "ElementAccessExpression",
           expression: left,
           argumentExpression: argument,
           pos: left.pos,
-          end: endOf(kids[i]),
+          end: endOf(ck[i]),
         };
         i += 1;
         continue;
       }
-      if (!isSymbol(kids[i], ".") || i + 1 >= kids.length) break;
-      const next = kids[i + 1];
+      if (!isSymbol(ck[i], ".") || i + 1 >= ck.length) break;
+      const next = ck[i + 1];
       if (next.get("type") === "Method") {
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
@@ -1363,8 +1397,8 @@ new Set([
       };
       i += 2;
     }
-    if (i >= kids.length) return left;
-    return foldBinaryFrom(left, kids.slice(i), ctx);
+    if (i >= ck.length) return left;
+    return foldBinaryFrom(left, ck.slice(i), ctx);
   }
   // ---- 2. 二元 / 赋值 ----
   const opIndex = kids.findIndex((k, i) => i > 0 && isOperatorUnit(k, ctx));

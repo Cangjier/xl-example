@@ -1517,6 +1517,47 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 86 轮：枚举成员 · 嵌套链摊平 · `NotNull` 的标签名（完全一致 79 → 81 / 385）
+
+这一轮四处，第一处是**共享根因**（一轮换掉两千八百个多余节点）：
+
+**一、枚举体也是成员表**。`export enum CommandTypes { JsxClosingTag = "jsxClosingTag", … }`
+的产物里有一个 `<Statement>` 壳，装的是 `[EnumMember, SymbolToken(,), EnumMember, …]`。
+第 79 轮那套「成员位摊平」没管它，因为**两道门都没开**：
+
+- `MEMBER_LIST_KINDS` 里没有 `EnumDeclaration`（只有 `InterfaceDeclaration` / `TypeLiteral` / `ClassDeclaration`）；
+- 就算开了，那一层 `every` 守卫也不认成员之间的 `,`（只认成员标签）。
+
+于是那个 `,` 把整串成员折成一个 `BinaryOperator`，投出来是
+`ExpressionStatement > BinaryExpression(EnumMember, CommaToken, EnumMember)` ✗——
+「多出来」榜的第一名 `BinaryExpression` 1806 与第二名 `CommaToken` 1158 全是它。
+两处都放开之后，枚举成员是干净的 `EnumMember > [name, initializer]` ✓。
+
+**二、嵌套的链要摊平**。`this.Parent!.Data.splice(1, 2)` 的产物偶尔把**一整条链**塞进另一条链的
+成员位：`[NotNull(this.Parent), ., PropertyAccess([Data, ., Method(splice)])]`，
+而 TS 是**左结合**的 `((this.Parent!).Data).splice(1, 2)`。折链前先把这种嵌套摊平，
+否则那一格会走「成员名」那一支、投成一个盖住整段的 `Identifier`
+（实测 `Data.splice(1, 2)` 成了名字，`splice` 那次调用也丢了）。
+
+**三、`case` 认的是产物标签，不是 TS 的 kind**（我自己踩的）。非空断言那一支我写成
+`case "NonNullExpression"`——那是 `KIND_BY_TAG` 给它的**投出**名字，产物标签叫 `NotNull`，
+于是这一支永远不命中，`ExclamationToken` 350 个一个都没少。改成 `case "NotNull"` 才生效。
+
+| 判据 | 第 85 轮 | 现在 |
+| --- | --- | --- |
+| **完全一致的文件** | 79 / 385 | **81 / 385** |
+| 多出来的节点 | 7031 | **4223** |
+| 缺节点 / 区间漂移 / 字段名不符 | 6136 / 1543 / 362 | **6087 / 1540 / 362** |
+| `cases:run` / `cases:check` | 1035 / 1035 | **1035 / 1035** |
+| 其余八把尺子 + `samples` | 全绿 | **全绿** |
+
+#### 下一批
+
+`BinaryExpression` 652（样本 `undici-types/webidl.d.ts` 的 `'Boolean' | 'String'`——**类型位的联合**
+在某个上下文里仍被折成二元运算，看起来是「运算符那一格没进树」的那类残缺节点）、
+`ExpressionStatement` 305（成员位那层 `Statement` 仍未摊开，样本是 `: never;`）、
+`Identifier` 234（`export { a as b }` 的 `as`，TS 的 `ExportSpecifier` 只有 `propertyName` / `name`）。
+
 ### 第 85 轮：类型运算符 · 映射类型 · 非空断言（完全一致 67 → 79 / 385）
 
 这一轮按第 84 轮量出来的「多出来」榜往下压，三处都是**同一个道理**：
