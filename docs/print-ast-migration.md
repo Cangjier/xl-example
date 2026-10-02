@@ -395,3 +395,28 @@ token：`projectNode` 会先问 `__token.PrintAst` ✓，输入相同、结果�
 
 `Statement`(8) / `Let`(7) / `Field`(7) / `TypeAssign`(5) / `BinaryOperator`(4) /
 `LogicalOperator`(4) / `Parameter`(3) / `LamdaParameter`(3) / `Lamda`(3)。
+
+### 第 195 轮：`Lamda`（箭头函数）与 `Field`（成员）
+
+| 块 | 落到哪 | 引用数 |
+| --- | --- | --- |
+| `Lamda` → `ArrowFunction` | `tokens/lamda/lamda.xl.md` | 2 处 `case`（同一实现）+ 0 直调 |
+| `Field` | `tokens/field.xl.md` | 1 处 `case` + 0 直调 |
+
+> 注意 `Lamda` **有两处 `case`** 指向同一实现（`case "Lamda"` 出现两次，见第 134 轮那份
+> 「够不着的分支」记录）——删除时要**两处一起删**，本轮脚本按 `while` 删掉了全部。
+
+中央 `switch` 的 `case` 从 11 降到 **8**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了出口：`MemberNameOf`（成员名四种形态的共用判据）、
+`AddModifiers`（修饰词串 → 一串带区间的修饰词节点）。
+
+### 还剩 7 条 `case`（5 个实现）
+
+| 实现 | 引用数 | 备注 |
+| --- | --- | --- |
+| `projectParameter` | 3 | `case "Parameter"` 与 `case "LamdaParameter"` 共用 |
+| `projectBinary` | 4 | `case "BinaryOperator"` 与 `case "LogicalOperator"` 共用 |
+| `projectTypeAlias` | 5 | `case "TypeAssign"`；**有一处直调要接外层起点**（`projectTypeAlias(view(head), ctx, v.start)`） |
+| `projectLet` | 7 | `case "Let"`；列表版 `projectLetFrom` 被 `for` / `foreach` 用 |
+| `projectStatement` | 8 | `case "Statement"`；语句分派 + 外层起点 |
