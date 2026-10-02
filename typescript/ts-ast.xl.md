@@ -1717,6 +1717,13 @@ new Set([
       let previousChar = v.start - 1;
       while (previousChar >= 0 && /\s/.test(ctx.source[previousChar])) previousChar--;
       if (previousChar >= 0) {
+        // **块 / 语句之后的分号照收**（第 178 轮）：`function f() {` 换行 `;` 里那个 `;` 是
+        // TS 的 `EmptyStatement`（`st-misc-keywords.ts` 缺的就是它），`;;` 的第二个同理。
+        // 只有前面是**一个表达式的结尾**（名字 / 数字 / 引号 / `)`…）时，这个 `;` 才是
+        // 上一条语句的终结符。
+        if (";}{".includes(ctx.source[previousChar])) {
+          return { kind: "EmptyStatement", pos: v.start, end: v.start + 1 };
+        }
         let previousLineStart = previousChar;
         while (previousLineStart > 0 && ctx.source[previousLineStart - 1] !== "\n") previousLineStart--;
         const previousLine = ctx.source.slice(previousLineStart, previousChar + 1).trim();
@@ -1724,10 +1731,7 @@ new Set([
           previousLine === "" ||
           previousLine.startsWith("//") ||
           previousLine.startsWith("/*") ||
-          previousLine.endsWith("*/") ||
-          // **上一行本身就是一串空语句**（`;;`）：第二个 `;` 照样是 `EmptyStatement`
-          // （TS 那边两个 `;` 各是一个节点，实测 `stmt-empty-semicolon.ts`）。
-          /^;+$/.test(previousLine);
+          previousLine.endsWith("*/");
         if (!commentOnly) {
           return undefined;
         }
@@ -2208,6 +2212,35 @@ new Set([
       }
     }
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
+    // **一元前缀的操作数在后**（第 178 轮）：`delete a?.b` 的产物是
+    // `[UnaryOperator(delete a), NullConditionalOperator(b)]`——`delete` 只是前缀，
+    // `?.b` 属于**它的操作数**。直接把 NCO 接到那个一元节点上会得到 `(delete a)?.b`
+    // （实测 `expr-optional-delete.ts`：漂移 1 + 多出 2，`DeleteExpression` 的区间只到 `a`）。
+    const UNARY_KINDS = new Set([
+      "DeleteExpression",
+      "TypeOfExpression",
+      "VoidExpression",
+      "PrefixUnaryExpression",
+    ]);
+    if (
+      optional !== undefined &&
+      UNARY_KINDS.has(optional.kind) &&
+      optional.expression !== undefined
+    ) {
+      let inner = optional.expression;
+      let unaryAt = ncoIndex;
+      while (unaryAt < kids.length && kids[unaryAt].get("type") === "NullConditionalOperator") {
+        inner = chainWithOptional(inner, kids[unaryAt], ctx);
+        unaryAt++;
+      }
+      const rebuilt = {
+        ...optional,
+        expression: inner,
+        end: inner === undefined ? optional.end : inner.end,
+      };
+      if (unaryAt >= kids.length) return rebuilt;
+      return foldBinaryFrom(rebuilt, kids.slice(unaryAt), ctx);
+    }
     let at = ncoIndex;
     while (at < kids.length && kids[at].get("type") === "NullConditionalOperator") {
       optional = chainWithOptional(optional, kids[at], ctx);
@@ -3758,11 +3791,16 @@ new Set([
   // 不收的话整条 `c` 只剩一个 `CallExpression(x)`，另加三个未映射标签。
   const ncos = kids.filter((k) => k.get("type") === "NullConditionalOperator");
   if (ncos.length > 0) {
-    const baseUnit = kids.find((k) => k.get("type") === "Identifier" || k.get("type") === "PropertyAccess");
+    // **被调用者是 NCO 之前那一整段**（第 178 轮）：`a.b?.()` 的产物是
+    // `Method(name="a") > [a, ., b, NCO(())]`——原来只取「第一个 Identifier」，
+    // 于是 `.b` 那一格整段丢（实测 `expr-optional-member-then-call.ts`：
+    // 缺 `PropertyAccessExpression` + `Identifier` 漂移）。整段交给 `projectExpression` 折。
+    const firstNco = kids.findIndex((k) => k.get("type") === "NullConditionalOperator");
+    const beforeNco = firstNco > 0 ? kids.slice(0, firstNco) : [];
     let node =
-      baseUnit === undefined
+      beforeNco.length === 0
         ? { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: v.start + calleeText.length }
-        : projectNode(baseUnit, ctx);
+        : projectExpression(beforeNco, ctx);
     for (const nco of ncos) node = chainWithOptional(node, nco, ctx);
     if (node !== undefined) return node;
   }
