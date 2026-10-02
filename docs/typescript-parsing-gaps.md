@@ -2128,13 +2128,19 @@ node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 | 114 | **展开实参** | `f(...xs)` 的产物是 `Spread > [SymbolToken(...), 目标]`，而 TS 的 `SpreadElement` 只有 `expression`——那个两点号被投成 `DotDotDotToken` 塞进 `expression` | 多出 66 |
 | 114 | **`import("m").X<T>`** | 类型实参段是 `ImportType` 的平级兄弟（与 `typeof X<Y>` 同一支） | 缺 `Identifier` 386 / `TypeReference` 130（`_QueuingStrategy<T>` 一族） |
 
-| 判据 | 第 99 轮末 | 第 114 轮末 |
+| 判据 | 第 99 轮末 | 第 117 轮末 |
 | --- | ---: | ---: |
 | **完全一致的文件** | 863 | **1084** |
-| 缺节点 | 2942 | **1615** |
-| 区间漂移 | 426 | **227** |
-| 多出来的节点 | 1585 | **730** |
-| 字段名不符 | 118 | **106** |
+| 缺节点 | 2942 | **1487** |
+| 区间漂移 | 426 | **237** |
+| 多出来的节点 | 1585 | **733** |
+| 字段名不符 | 118 | **104** |
+
+（第 115～117 轮的三条：① 折出二元之后要把外面的链续格接到右操作数上（部分完成）；
+② **右嵌套条件类型**（`A extends B ? C : D extends E ? F : G` 的 `falseType` 又是条件类型），
+切分抽成 `conditionalNode` 递归——缺节点 1612 → 1503；
+③ **映射类型的 `as` 键重映射**（产物把 `[K in keyof O as <条件>]` 整段收成一个 `ConditionalType`，
+TS 是 `typeParameter` + `nameType`）——1503 → 1487。）
 
 ### 第 105 轮之后剩下的（按大小）
 
