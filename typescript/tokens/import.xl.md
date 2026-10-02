@@ -289,9 +289,13 @@ import { A as B, C } from "m"
   if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
 
   const source = ctx.source;
+  // **`typeOnly` 在产物里是布尔值**（踩过）：原实现写的是 `String(… ?? "false") === "true"`，
+  // 搬到 token 文件后我按「一定是字符串」写，于是 `import type { … }` 的 `ImportClause`
+  // 起点从 `type` 退到了 `{`（实测 undici-types 一族：缺 10 + 多出 10）。
+  // 两种都认，不再依赖 `String`（本文件里它没被遮蔽，但别的 token 文件里会）。
   const typeOnly = v.attrs.get("typeOnly");
   const clauseStart =
-    (typeof typeOnly === "string" ? typeOnly : "false") === "true"
+    typeOnly === true || typeOnly === "true"
       ? ctx.FirstCodeAfter(source, v.start + "import".length)
       : ctx.StartOf(clause[0]);
   const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
