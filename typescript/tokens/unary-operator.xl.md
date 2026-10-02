@@ -324,6 +324,49 @@ return index + 1;
 
 它覆写了 `ToXmlString`：在基类的串接之外带上 `op` 属性。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+一元运算 → `PrefixUnaryExpression` 或 `PostfixUnaryExpression`
+（**从 `ts-ast.xl.md` 的 `projectUnary` 整块搬来**，第 193 轮）。
+
+**前后缀是两种 kind**（TS：`-x` 是 `PrefixUnaryExpression`、`y++` 是 `PostfixUnaryExpression`）。
+产物那边两者都是 `UnaryOperator op="…"`，判据是**运算符单元在操作数之前还是之后**：
+`y++` 的 `++` 排在 `y` 后面 ⇒ 后缀。
+
+**只给 `operand` 一个字段**：TS 那边运算符（`operator`）是节点的**属性**、不是子节点字段，
+所以 `ts.forEachChild` 看不到它。产物那边的 `SymbolToken` 也照此**不投影**。
+
+**`typeof` / `void` / `delete` 是 `Keyword`**，不在 `isOperatorUnit` 的白名单里
+（那一支只认 `SymbolToken` 与 `in` / `instanceof`），所以它们要靠 `op` **属性**定位——
+否则那个运算符词会被当成操作数投出去（实测多出 `TypeOfKeyword` + 缺 `Identifier`）。
+
+而且那三个是**三种独立的表达式 kind**（第 96 轮）：TS 里它们是
+`TypeOfExpression` / `VoidExpression` / `DeleteExpression`（只有 `expression` 一个字段、
+运算符词**不进子节点**），而 `!` / `-` / `+` / `~` / `++` / `--` 才是
+`PrefixUnaryExpression` / `PostfixUnaryExpression`。
+
+```ts
+  const kids = ctx.Kids(v);
+  const declaredOp = typeof v.attrs.get("op") === "string" ? v.attrs.get("op") : "";
+  let opIndex = kids.findIndex((k: any) => ctx.IsOperatorUnit(k));
+  if (opIndex < 0 && declaredOp !== "") {
+    opIndex = kids.findIndex((k: any) => ctx.TextOf(k) === declaredOp);
+  }
+  const operandKids = opIndex >= 0 ? kids.filter((_: any, i: number) => i !== opIndex) : kids;
+  const operand = ctx.Expression(operandKids);
+  const isPostfix = opIndex >= 0 && opIndex === kids.length - 1;
+  if (!isPostfix) {
+    const wordKinds: any = {
+      typeof: "TypeOfExpression",
+      void: "VoidExpression",
+      delete: "DeleteExpression",
+    };
+    const wordKind = wordKinds[declaredOp];
+    if (wordKind !== undefined) return ctx.Node(wordKind, { expression: operand }, v);
+  }
+  return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression", { operand }, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。

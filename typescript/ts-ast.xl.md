@@ -921,8 +921,6 @@ new Map([
     case "LogicalOperator":
       return projectBinary(v, ctx);
 
-    case "UnaryOperator":
-      return projectUnary(v, ctx);
 
     case "Method":
       return projectCall(v, ctx);
@@ -3620,44 +3618,6 @@ new Set([
   };
 ```
 
-# private method projectUnary:(v:any, ctx:any)=>any
-
-一元运算 → `PrefixUnaryExpression` 或 `PostfixUnaryExpression`。
-
-**前后缀是两种 kind**（TS：`-x` 是 `PrefixUnaryExpression`、`y++` 是 `PostfixUnaryExpression`）。
-产物那边两者都是 `UnaryOperator op="…"`，判据是**运算符单元在操作数之前还是之后**：
-`y++` 的 `++` 排在 `y` 后面 ⇒ 后缀。
-
-**只给 `operand` 一个字段**：TS 那边运算符（`operator`）是节点的**属性**、不是子节点字段，
-所以 `ts.forEachChild` 看不到它。产物那边的 `SymbolToken` 也照此**不投影**。
-
-```ts
-  const kids = projectableKids(v);
-  const declaredOp = String(v.attrs.get("op") ?? "");
-  let opIndex = kids.findIndex((k) => isOperatorUnit(k, ctx));
-  // **`typeof` / `void` / `delete` 是 `Keyword`**，不在 `isOperatorUnit` 的白名单里
-  // （那一支只认 `SymbolToken` 与 `in` / `instanceof`），所以它们要靠 `op` **属性**定位——
-  // 否则那个运算符词会被当成操作数投出去（实测多出 `TypeOfKeyword` + 缺 `Identifier`）。
-  if (opIndex < 0 && declaredOp !== "") opIndex = kids.findIndex((k) => textOfNode(k, ctx) === declaredOp);
-  const operandKids = opIndex >= 0 ? kids.filter((_, i) => i !== opIndex) : kids;
-  const operand = projectExpression(operandKids, ctx);
-  const isPostfix = opIndex >= 0 && opIndex === kids.length - 1;
-  // **`typeof` / `void` / `delete` 是三种独立的表达式 kind**（第 96 轮）：TS 里它们是
-  // `TypeOfExpression` / `VoidExpression` / `DeleteExpression`（只有 `expression` 一个字段、
-  // 运算符词**不进子节点**），而 `!` / `-` / `+` / `~` / `++` / `--` 才是
-  // `PrefixUnaryExpression` / `PostfixUnaryExpression`。
-  if (!isPostfix) {
-    const wordKind = { typeof: "TypeOfExpression", void: "VoidExpression", delete: "DeleteExpression" }[declaredOp];
-    if (wordKind !== undefined) return { kind: wordKind, expression: operand, pos: v.start, end: stmtEndOf(v, ctx) };
-  }
-  return {
-    kind: isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
-    operand,
-    pos: v.start,
-    end: stmtEndOf(v, ctx),
-  };
-```
-
 # private method projectCall:(v:any, ctx:any)=>any
 
 调用 `f(a)` → `CallExpression`（`expression` + `arguments` + 可选 `typeArguments`）。
@@ -6254,6 +6214,7 @@ import { A as B, C } from "m"
     IsSymbol: (node, text) => isSymbol(node, text),
     IsDot: (node) => isDot(node, ctx),
     IsIndexBracket: (node) => isIndexBracket(node),
+    IsOperatorUnit: (node) => isOperatorUnit(node, ctx),
     NameOf: (node) => nameOf(node, ctx),
     // **`Kids` 两种都认**（第 185 轮）：`PrintAst` 里传进来的常常是**视图**（`v`），
     // 但取子单元时手上也可能是**原始 Map**（`nameUnits.find(...)` 那种）——
