@@ -774,6 +774,12 @@ new Map([
     case "ArrayLiteral":
       return projectArrayLiteral(v, ctx);
 
+    // 类型查询 `typeof X`：TS 那边 `exprName` **只有名字**（`typeof` 是属性、不是子节点），
+    // 产物那边它是 `[Keyword(typeof), Identifier(X)]` 两个平级单元——照通用投影会把
+    // `TypeOfKeyword` 也塞进 `exprName`。
+    case "TypeQuery":
+      return projectTypeQuery(v, ctx);
+
     case "TypeParameter":
       return projectTypeParameter(v, ctx);
 
@@ -1750,6 +1756,37 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // （参数标注 / 字段标注那一族），而它的内容才是「基名 + 实参 + 数组后缀」那一串。
   // 不摊平的话 `list[0]` 是 `TypeDefine`，会直接掉到最后那句「只投第一个」——
   // 于是 `Array<unknown> | X` 这种成员只出基名（实测这版把漂移从 1759 提到 2263）。
+  // **`typeof A.B`**（第 83 轮）：产物那个 `TypeQuery` **只收 `typeof A`**，
+  // 点号与后面的名字是它**外面**的平级单元（`declare var atob: typeof globalThis.atob`）。
+  // TS 那边 `exprName` 是 `QualifiedName`、区间覆盖整段（也**没有** `typeof` 子节点）。
+  // 不接的话后面那串名字整个丢掉——`Identifier` 缺 1581 里的另一簇就是它
+  // （`buffer.d.ts` 的 `globalThis.atob` / `globalThis.btoa`）。
+  if (list.length >= 3 && list[0].get("type") === "TypeQuery" && isDot(list[1], ctx)) {
+    const query = projectNode(list[0], ctx);
+    const tail = list.filter((k, i) => i >= 2 && isNameNode(k));
+    // **`head` 已经是投好的节点**（`query.exprName`），而 `qualifiedNameFrom` 吃的是**单元**
+    // （它自己会调 `nameOf`）——所以这里手工往右套（踩过一次：把投好的节点喂给
+    // `qualifiedNameFrom` 会 `node.get is not a function`）。
+    // `query.exprName` 已经是**投好的节点**（不是单元）——判它看 `kind`，
+    // 不能拿 `isNameNode` 去问（那个判据吃的是字典格；踩过一次：会 `node.get is not a function`）。
+    const head = query.exprName;
+    let name =
+      head !== undefined && (head.kind === "Identifier" || head.kind === "QualifiedName")
+        ? head
+        : undefined;
+    for (const k of tail) {
+      const right = nameOf(k, ctx);
+      name =
+        name === undefined
+          ? right
+          : { kind: "QualifiedName", left: name, right, pos: name.pos, end: right.end };
+    }
+    if (name !== undefined) {
+      query.exprName = name;
+      query.end = endOf(list[list.length - 1]);
+    }
+    return query;
+  }
   if (list.length === 1 && list[0].get("type") === "TypeDefine") {
     return projectTypeExpression(projectableKids(view(list[0])), ctx);
   }
@@ -3010,6 +3047,30 @@ TS 那边的 `properties` 是**成员数组**：
   return { kind: "ArrayLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
+# private method projectTypeQuery:(v:any, ctx:any)=>any
+
+`typeof X` / `typeof A.B` → `TypeQuery`（只有 `exprName` 一个子字段）。
+
+TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就是那个名字
+（单个名字是 `Identifier`、点号名是 `QualifiedName`）——产物那边它是
+`[Keyword(typeof), Identifier(X)]` 两个平级单元，照通用投影会把 `TypeOfKeyword`
+也塞进 `exprName`。点号后面的名字常常在**节点外面**（见 `projectTypeExpression` 里那一支）。
+
+```ts
+  const kids = projectableKids(v);
+  // **`typeof` 不是名字**（踩过）：它是 `Keyword`，而 `isNameNode` 认得 `Keyword`
+  // （成员名那一族要用它），所以这里要显式排掉——否则 `exprName` 会是
+  // `QualifiedName(typeof, globalThis)` 这种把运算符当名字的东西。
+  const names = kids.filter((k) => isNameNode(k) && textOfNode(k, ctx) !== "typeof");
+  const props = {};
+  if (names.length === 1) {
+    props.exprName = nameOf(names[0], ctx);
+  } else if (names.length > 1) {
+    props.exprName = qualifiedNameFrom(names, ctx);
+  }
+  return { kind: "TypeQuery", pos: v.start, end: v.end, ...props };
+```
+
 # private method projectTypeParameter:(v:any, ctx:any)=>any
 
 类型参数 `<T extends object = any>` → `TypeParameter`
@@ -3018,7 +3079,19 @@ TS 那边的 `properties` 是**成员数组**：
 产物那边名字、`extends`、约束、`=`、默认值是**平级单元**，按标点切开。
 
 ```ts
-  const kids = projectableKids(v);
+  const kids0 = projectableKids(v);
+  // **约束被整个包进 `UnionType` / `IntersectionType` 的形状**（第 83 轮）：产物把一个
+  // `<A extends null | Writable>` 收成**一个** `UnionType`——名字、`extends`、约束三段全在它里面
+  // （实测 `@types/node/child_process.d.ts` 那种 `<I extends null | Writable, O extends …>`
+  // 成片：`Identifier` 缺 1581 里的一大块就是这个，名字与约束两头的 `Identifier` 都没有宿主）。
+  // TS 那边 `TypeParameter` 是 `[name, constraint]` 两个字段、约束是**不含名字**的那个联合，
+  // 所以这里把它摊开、按同一个分隔符重新切一次（收尾处再把余下的成员补回去）。
+  const wrapped =
+    kids0.length === 1 &&
+    (kids0[0].get("type") === "UnionType" || kids0[0].get("type") === "IntersectionType")
+      ? kids0[0]
+      : undefined;
+  const kids = wrapped === undefined ? kids0 : projectableKids(view(wrapped));
   // `extends` 的**词法身份不固定**：本仓库记过「接口的 `extends` 永远升不成 `Keyword`」——
   // 所以两种身份都认（`<T extends U>` 里它是 `Keyword`，而某些上下文里它是 `Identifier`）。
   // 只认 `Keyword` 时会**整类丢掉约束**（实测 17 处 `TypeParameter` 少一个 `constraint`）。
@@ -3047,6 +3120,35 @@ TS 那边的 `properties` 是**成员数组**：
   // 就会少一整个字段（实测 `decl-func-generic-const-modifier.ts` 那族）。
   const modifiers = kids.filter((k, i) => (nameIndex < 0 || i < nameIndex) && isTypeParameterModifier(k, ctx));
   if (modifiers.length > 0) props.modifiers = projectEach(modifiers, ctx);
+  // **收尾：把被包进联合的约束补全**（见上面 `wrapped`）：`extends` 之后那一段只是**第一个成员**
+  // （`null`），余下的成员（`| Writable`）在同级的下一个组里——按同一个分隔符切回来，
+  // 重新拼成一个 `UnionType` / `IntersectionType`，区间取第一个成员到最后一个成员。
+  if (wrapped !== undefined) {
+    const separator = wrapped.get("type") === "UnionType" ? "|" : "&";
+    const members = splitTopLevel(kids, ctx, separator);
+    const firstMember = members.length > 0 ? members[0] : [];
+    const extAt = firstMember.findIndex(
+      (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends",
+    );
+    const head = extAt >= 0 ? firstMember.slice(extAt + 1) : firstMember;
+    const types = [];
+    const firstType = head.length > 0 ? projectTypeExpression(head, ctx) : undefined;
+    if (firstType !== undefined) types.push(firstType);
+    for (const group of members.slice(1)) {
+      const one = projectTypeExpression(group, ctx);
+      if (one !== undefined) types.push(one);
+    }
+    if (types.length === 1) {
+      props.constraint = types[0];
+    } else if (types.length > 1) {
+      props.constraint = {
+        kind: wrapped.get("type"),
+        types,
+        pos: types[0].pos,
+        end: types[types.length - 1].end,
+      };
+    }
+  }
   return { kind: "TypeParameter", pos: v.start, end: v.end, ...props };
 ```
 

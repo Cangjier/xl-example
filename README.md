@@ -1517,6 +1517,61 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 83 轮：类型参数的约束 · `typeof A.B`（真实语料 98.3% → 98.4%）
+
+`Identifier` 与 `TypeReference` 剩下的两簇，样本指向两个不同形状：
+
+#### 一、约束被整个包进 `UnionType`
+
+```ts
+interface ChildProcessByStdio<I extends null | Writable, O extends null | Readable, …>
+```
+
+产物把一个 `<A extends null | Writable>` 收成**一个** `UnionType`——名字、`extends`、约束三段
+全在它里面（`<TypeParameter><UnionType>A extends null | Writable</UnionType></TypeParameter>`）。
+而 TS 那边 `TypeParameter` 是 `[name, constraint]` 两个字段、约束是**不含名字**的那个联合，
+于是名字与约束两头的 `Identifier` 都没有宿主（`@types/node/child_process.d.ts` 里成片）。
+
+修法：`projectTypeParameter` 认出「唯一子单元是 `UnionType` / `IntersectionType`」这一形态，
+把那一格摊开、按同一个分隔符重新切一次；`extends` 之后那一段只是**第一个成员**，
+余下的成员在同级的下一个组里——收尾时拼回一个 `UnionType`（区间取第一个成员到最后一个成员）。
+
+#### 二、`typeof A.B` 的点号名在节点外面
+
+```ts
+declare var atob: typeof globalThis.atob;
+```
+
+产物那个 `TypeQuery` **只收 `typeof globalThis`**，点号与 `atob` 是它**外面**的平级单元；
+而且它的 `exprName` 里还塞着 `typeof` 那个关键字（TS 那边它是节点的**属性**、不是子节点）。
+两处都修了：新增 `projectTypeQuery`（`exprName` 只有名字），并在 `projectTypeExpression` 里
+接住「`TypeQuery` + 点号 + 名字」那一串（往右套成 `QualifiedName`、区间覆盖整段）。
+
+#### 三、这一轮踩的两个自伤（记下来，都是「单元 vs 节点」）
+
+1. `qualifiedNameFrom` 吃的是**单元**（它自己会调 `nameOf`），我先投好再喂进去 → `node.get is not a function`；
+2. `isNameNode` 判的也是**字典格**，我拿投好的节点去问 → 同样炸。
+
+教训与第 79 轮那次 `view(view)` 同类：投影层里「单元（字典格）」与「已投出的节点」是两种东西，
+判据函数各吃一种——**喂错不会报类型错**（`ts-ast.ts` 带 `@ts-nocheck`），只会在某些语料上炸。
+
+#### 四、账
+
+| 判据 | 第 82 轮 | 现在 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料 | 462284（98.3%） | **463091（98.4%）** |
+| 其中字段名也一致 | 461876（99.9%） | **462718（99.9%）** |
+| `cases:tsast` 用例语料 | 86.0% | **87.3%** |
+| 投影后仍缺 `Identifier` | 1581 | **1479** |
+| 投影后仍缺 `TypeReference` | 405 | **350** |
+| `cases:align`（1420 文件） | 未登记 1 类 | **未登记 1 类** |
+| `cases:run` / `cases:check` | 1035 / 1035 | **1035 / 1035** |
+| 九把尺子 + `diff` / `dashboard` / `samples` | 全绿 | **全绿** |
+
+**下一轮的目标**：`PropertyAccessExpression` 429（样本集中在**模板字面量插值**与**三元分支**里，
+像是那两处的链没折）、`Block` 416、`BinaryExpression` 324 + 漂移 643、`CaseClause` 188、
+`CallExpression` 175、`TemplateSpan` 175 / `TemplateMiddle` 140、`ExportSpecifier` 134。
+
 ### 第 82 轮：泛型函数类型（真实语料 98.3%，+281 节点）
 
 `Identifier` 1616 与 `TypeReference` 417 这两块老账，样本几乎全部指向**同一个形状**——
