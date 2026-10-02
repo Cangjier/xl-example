@@ -2123,14 +2123,16 @@ node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 | 110 | **限定名 + 下标访问** | `NodeJS.Module["exports"]` 的产物把限定名右半放进 `IndexedAccessType` **里面**，TS 的 `objectType` 是整条 `NodeJS.Module` | 五个节点一起丢（`IndexedAccessType` / `QualifiedName` / `LiteralType` / `StringLiteral`） |
 | 111 | **构造签名 / 平铺构造类型** | `ConstructSignature` 的 `new` 不是子节点（kind 自己说明）；`type C = new <T>(x: T) => T` 的产物是**平铺**的（没有 `FunctionType` 单元） | 多出 `NewKeyword` 67、缺整个 `ConstructorType` |
 | 112 | **只有注释的文件** | TS 的 `SourceFile.getStart()` 在这种文件上**就是文件长度**（没有 token 可跳），本工程原来退回 0 | **一个节点卡住 38 个文件**（`@types/node` 的许可桩） |
+| 113 | **实参不是「一格」** | 一格实参在产物里可能是好几个平级单元（`SignIn(Get(units, i)!.SourceRange.Start!)` 是 `[NotNull, ., NotNull]` 三格），`projectEach(args)` 会把它裂成三个「实参」且链折不起来 | 缺 `PropertyAccessExpression` 162 / `NonNullExpression` 72、漂移 97、多出 `DotToken` 73 |
+| 113 | `typeof A.B<C>` | 点号名之后还有类型实参段（`typeof http.ServerResponse<InstanceType<Request>>`） | 缺 `Identifier` 394 / `TypeReference` 140 的样本全在这一族 |
 
-| 判据 | 第 99 轮末 | 第 112 轮末 |
+| 判据 | 第 99 轮末 | 第 113 轮末 |
 | --- | ---: | ---: |
-| **完全一致的文件** | 863 | **1030** |
-| 缺节点 | 2942 | **1796** |
-| 区间漂移 | 426 | **312** |
-| 多出来的节点 | 1585 | **1020** |
-| 字段名不符 | 118 | **111** |
+| **完全一致的文件** | 863 | **1058** |
+| 缺节点 | 2942 | **1639** |
+| 区间漂移 | 426 | **239** |
+| 多出来的节点 | 1585 | **803** |
+| 字段名不符 | 118 | **106** |
 
 ### 第 105 轮之后剩下的（按大小）
 
