@@ -2532,3 +2532,37 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
 | `ex-chained-assign.ts` / `expr-assign-chained-compound.ts` | 各 1 / 0 / 2 | 链式复合赋值 |
 | 其余 | 每文件 1~2 | 零散 |
+
+---
+
+# 第 168~169 轮：链式复合赋值、调用链尾括号、`in` / `instanceof` 的优先级
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 167 轮末 | 1366 / 1407 | 34 | 21 | 27 | 12 | 94 |
+| 第 169 轮末 | **1375 / 1407** | 32 | 13 | 17 | 12 | **74** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 168 | **链式复合赋值的展开是左嵌套的**：`a += b -= c` 的产物是 `a = (a ⊕ b) ⊖ c`（token 层把 `a` 埋进最左边那一格），而 TS 是 `a += (b -= c)`。原来的「剥掉最左边那个左值」只认「`right.left` 与 `left` 完全同区间」 | `ts-ast.xl.md`（`foldBinaryFrom`） |
+| 168 | **调用链末尾那对括号是外层调用**：`y(function () { … })()` 的产物是 `[Method(name="y"), Bracket( () )]`——括号是平级的兄弟，TS 是外面再套一层 `CallExpression` | `ts-ast.xl.md`（`projectExpression` 分支 3b + 链循环） |
+| 169 | **`in` / `instanceof` 的优先级与关系运算符同档**：队列里 `EqualityInstance` 排在它们**前面**，于是 `current instanceof Bracket === false` 被折成 `current instanceof (Bracket === false)`；TS 那边 `instanceof` 比 `===` 紧 | `parse-pipeline.xl.md`（规则次序） |
+
+第 169 轮的实测：`current instanceof Bracket === false` 这种写法在 `dist/ts` 自己的源码里有 4 处
+（`method.ts` / `text-common-util.ts` / `spread.ts` / `function.ts`），每处都是「漂移 1 + 多出 1」；
+把 `InInstance` / `InstanceofInstance` 挪到 `RelationalInstance` 之后（`EqualityInstance` 之前）
+一次修掉 4 个文件。
+
+## 还剩什么（共 74）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[][]` 双后缀（token 层的数组规则与泛型段的时序） |
+| `lex-number-member-with-space.ts` | 3 / 1 / 1 | `1 .toString()`（词法层那个点被吞） |
+| `decl-interface-abstract-construct-signature.ts` | 3 / 0 / 1 | `abstract new (): A`（TS 读成 `MethodSignature`） |
+| `header.d.ts` | 2 / 1 / 1 | 映射类型里的 `Lowercase<K>` |
+| `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
+| `cls-decorator-qualified-name.ts` | 2 / 0 / 0 | 装饰器上的限定名 |
+| 其余 | 每文件 1~2 | 零散 |
