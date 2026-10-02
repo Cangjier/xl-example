@@ -460,6 +460,13 @@ function main() {
   const projSamples = new Map();
   const fieldDiffs = new Map();
   const unmappedTags = new Map();
+  // **「完全一致」的第三个方向**（第 84 轮补）：产物**多出来**的节点。
+  // TS 的语义节点集合是**闭的**——少一个不是完全一致，多一个也不是。
+  // 这一栏与「缺 / 漂移 / 字段名」并列；四个方向都为零的文件才叫「逐文件完全一致」。
+  // （`alignedFiles` 那个旧判据只看 kind 序列，太松，留着当粗指标。）
+  const projectedExtra = new Map();
+  const projectedExtraSamples = new Map();
+  let exactFiles = 0;
 
   for (const file of files) {
     let source = fs.readFileSync(file, "utf8");
@@ -532,6 +539,11 @@ function main() {
       if (!projByKind.has(p.kind)) projByKind.set(p.kind, []);
       projByKind.get(p.kind).push(p);
     }
+    // **逐文件的四个方向**（第 84 轮）：缺 / 漂移 / 多出来 / 字段名，全零才算完全一致。
+    let fileMissing = 0;
+    let fileDrift = 0;
+    let fileExtra = 0;
+    let fileFieldDiff = 0;
     for (const their of theirs) {
       const key = `${their.kind}@${their.start}-${their.end}`;
       if (!projKeys.has(key)) {
@@ -539,6 +551,7 @@ function main() {
         // 后者是「这一类根本没投出来」（要补映射）。混在一起看时，漂移会把缺失挤下榜首。
         const near = (projByKind.get(their.kind) || []).find((p) => Math.abs((p.start ?? -1) - their.start) <= 2);
         if (near) {
+          fileDrift++;
           const dkey = `DRIFT: ${their.kind}`;
           projectedDrift.set(dkey, (projectedDrift.get(dkey) || 0) + 1);
           if ((projSamples.get(dkey) || []).length < sampleLimit) {
@@ -551,6 +564,7 @@ function main() {
           }
           continue;
         }
+        fileMissing++;
         projectedMissing.set(their.kind, (projectedMissing.get(their.kind) || 0) + 1);
         if ((projSamples.get(their.kind) || []).length < sampleLimit) {
           projSamples.set(
@@ -570,9 +584,29 @@ function main() {
       if (same) {
         projectedFieldsSame++;
       } else {
+        fileFieldDiff++;
         const diffKey = `${their.kind}: 产物[${oursFields.join(",")}] vs TS[${theirFields.join(",")}]`;
         fieldDiffs.set(diffKey, (fieldDiffs.get(diffKey) || 0) + 1);
       }
+    }
+    // **产物多出来的**（第 84 轮）：投影节点里在 TS 那边找不到同 kind 同区间的那些。
+    // TS 的语义节点集合是**闭的**——多一个节点就不是「完全一致」。
+    const theirKeys = new Set(theirs.map((t) => `${t.kind}@${t.start}-${t.end}`));
+    for (const p of proj) {
+      if (theirKeys.has(`${p.kind}@${p.start}-${p.end}`)) continue;
+      fileExtra++;
+      projectedExtra.set(p.kind, (projectedExtra.get(p.kind) || 0) + 1);
+      if ((projectedExtraSamples.get(p.kind) || []).length < sampleLimit) {
+        projectedExtraSamples.set(
+          p.kind,
+          (projectedExtraSamples.get(p.kind) || []).concat(
+            `${path.relative(root, file)}:${p.start}  «${source.slice(p.start, p.start + 30).split("\n")[0]}»`,
+          ),
+        );
+      }
+    }
+    if (fileMissing === 0 && fileDrift === 0 && fileExtra === 0 && fileFieldDiff === 0) {
+      exactFiles++;
     }
   }
 
@@ -580,6 +614,20 @@ function main() {
     `TS AST 对拍尺子：语料 ${files.length} 个文件，解析成功 ${parsed}，抛异常 ${failed}\n` +
       `                产物节点 ${ourTotal} 个，TS 语义节点 ${tsTotal} 个，` +
       `同 kind 同区间 ${kindSameTotal} 个（${((100 * kindSameTotal) / Math.max(1, tsTotal)).toFixed(1)}%），逐位置完全一致的文件 ${alignedFiles} 个\n`,
+  );
+
+  // **「和 TS 的 AST 完全一致」的那一行**（第 84 轮）：四个方向都为 0 才算。
+  const extraTotal = [...projectedExtra.values()].reduce((a, b) => a + b, 0);
+  const missingTotal = [...projectedMissing.values()].reduce((a, b) => a + b, 0);
+  const driftTotal = [...projectedDrift.values()].reduce((a, b) => a + b, 0);
+  const fieldDiffTotal = [...fieldDiffs.values()].reduce((a, b) => a + b, 0);
+  console.log("=== 与 ts.createSourceFile 完全一致？（四个方向都为 0 才是）===");
+  console.log(`  **完全一致的文件 ${exactFiles} / ${files.length} 个**`);
+  console.log(
+    `  缺节点 ${missingTotal}（${projectedMissing.size} 类）　` +
+      `区间漂移 ${driftTotal}（${projectedDrift.size} 类）　` +
+      `多出来的节点 ${extraTotal}（${projectedExtra.size} 类）　` +
+      `字段名不符 ${fieldDiffTotal}`,
   );
 
   console.log("TS 有、产物没有（按 TS kind 聚合，前 " + top + " 类）：");
@@ -622,6 +670,13 @@ function main() {
     console.log(`    ${String(n).padStart(6)}  ${k}`);
     for (const s of projSamples.get(k) || []) console.log(`               ${s}`);
   }
+  // **多出来的**：TS 那边没有的节点（第 84 轮补的第三个方向）。
+  console.log("  投影后**多出来**的节点（TS 那边没有；前 12）：");
+  if (projectedExtra.size === 0) console.log("    （无）");
+  for (const [k, n] of [...projectedExtra.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
+    console.log(`    ${String(n).padStart(6)}  ${k}`);
+    for (const s of projectedExtraSamples.get(k) || []) console.log(`               ${s}`);
+  }
   console.log("  投影后同 kind 但区间漂移（前 10）：");
   if (projectedDrift.size === 0) console.log("    （无）");
   for (const [k, n] of [...projectedDrift.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)) {
@@ -640,7 +695,16 @@ function main() {
     console.log(`    ${String(n).padStart(6)}  ${k}`);
   }
 
-  process.exitCode = missing.size === 0 && drift.size === 0 ? 0 : 1;
+  // **退出码按「完全一致」算**（第 84 轮）：缺 / 漂移 / 多出来 / 字段名，四个方向都为 0 才绿。
+  // 原来只看「缺 + 漂移」两个方向，所以「产物多出一堆 TS 没有的节点」时它照样是绿的——
+  // 而 `完全一致` 这个预期下，多一个节点与少一个节点同样不合格。
+  process.exitCode =
+    projectedMissing.size === 0 &&
+    projectedDrift.size === 0 &&
+    projectedExtra.size === 0 &&
+    fieldDiffs.size === 0
+      ? 0
+      : 1;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {

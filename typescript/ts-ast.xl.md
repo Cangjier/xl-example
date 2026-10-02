@@ -777,6 +777,11 @@ new Map([
     // 类型查询 `typeof X`：TS 那边 `exprName` **只有名字**（`typeof` 是属性、不是子节点），
     // 产物那边它是 `[Keyword(typeof), Identifier(X)]` 两个平级单元——照通用投影会把
     // `TypeOfKeyword` 也塞进 `exprName`。
+    // 继承段 `extends A, B` / `implements C`：TS 那边 `forEachChild` **只访问 `types`**——
+    // `extends` / `implements` 那个词是节点的**属性**（`token`），不是子节点。
+    case "HeritageClause":
+      return projectHeritageClause(v, ctx);
+
     case "TypeQuery":
       return projectTypeQuery(v, ctx);
 
@@ -1013,9 +1018,22 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
 # private method projectEach:(list:Array<any>, ctx:any, parentKind:string)=>Array<any>
 
 ```ts
-  if (!Array.isArray(list)) return [];
+  // **顶层逗号是分隔符，不是 TS 的语义子节点**（第 84 轮）：TS 的 `parameters` / `arguments` /
+  // `elements` / `properties` / `types` 里都**没有**逗号子节点（逗号**运算符**是另一回事——
+  // 那种早被 token 层折成 `BinaryOperator op=","`、走 `projectBinary` 那条路，不经过这里）。
+  // 实测「投影后多出来的节点」里 `CommaToken` 占 **18568 个**（第一名），全是各处平级列表漏掉的。
+  if (Array.isArray(list) === false) return [];
   const out = [];
-  const items = list.filter((item) => item instanceof Map && !INVISIBLE.has(item.get("type")));
+  // **顶层逗号是分隔符，不是 TS 的语义子节点**（第 84 轮）：TS 的 `parameters` / `arguments` /
+  // `elements` / `properties` / `types` 里都**没有**逗号子节点（逗号**运算符**是另一回事——
+  // 那种早被 token 层折成 `BinaryOperator op=","`、走 `projectBinary` 那条路，不经过这里）。
+  // 实测「投影后多出来的节点」里 `CommaToken` 占 **18568 个**（第一名），全是各处平级列表漏掉的。
+  const items = list.filter(
+    (item) =>
+      item instanceof Map &&
+      !INVISIBLE.has(item.get("type")) &&
+      !(item.get("type") === "SymbolToken" && textOfNode(item, ctx) === ","),
+  );
   let i = 0;
   while (i < items.length) {
     // **带标签的语句要合并**：产物那边 `outer: for (…) {}` 是**两个平级的单元**
@@ -3045,6 +3063,28 @@ TS 那边的 `properties` 是**成员数组**：
   }
   const props = elements.length === 0 ? {} : { elements };
   return { kind: "ArrayLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
+```
+
+# private method projectHeritageClause:(v:any, ctx:any)=>any
+
+`extends A, B` / `implements C, D` → `HeritageClause`（只有 `types` 一个子字段）。
+
+TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` / `implements`
+那个词是节点的**属性**（`token`），不参与遍历。产物那边它与类型是一串**平级单元**
+（`[Keyword(extends), TypeReference, SymbolToken(,), TypeReference]`），照通用投影会把
+`ExtendsKeyword` 当成一个子节点——实测「投影后多出来的节点」里 `ExtendsKeyword` 有 **2192 个**。
+
+```ts
+  const kids = projectableKids(v).filter(
+    (k) =>
+      !(
+        (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+        (textOfNode(k, ctx) === "extends" || textOfNode(k, ctx) === "implements")
+      ),
+  );
+  const projected = projectEach(kids, ctx, "HeritageClause");
+  const props = projected.length === 0 ? {} : { types: projected };
+  return { kind: "HeritageClause", pos: v.start, end: v.end, ...props };
 ```
 
 # private method projectTypeQuery:(v:any, ctx:any)=>any
