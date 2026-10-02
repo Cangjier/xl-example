@@ -5137,6 +5137,12 @@ import { A as B, C } from "m"
       pos: startOf(star),
       end: clauseEnd,
     };
+    // **`import d, * as ns from "m"` 的默认名**（第 174 轮）：TS 的 `ImportClause` 有
+    // `name`（那个 `d`）与 `namedBindings` 两格，产物那边 `d` 与 `* as ns` 是平级单元——
+    // 原来这一支只收 `namedBindings`，默认名整格丢（实测 `im-mixed.ts` /
+    // `mod-import-default-and-namespace.ts`：缺 `Identifier` + `ImportClause` 字段名差）。
+    const defaultName = names.find((k) => startOf(k) < startOf(star));
+    if (defaultName !== undefined) clauseProps.name = projectNode(defaultName, ctx);
   } else if (braceClose >= 0) {
     // 花括号之前那一段是默认导入（`import d, { … }` 的 `d`）。
     const defaultName = names.find((k) => startOf(k) < braceOpen);
@@ -6123,6 +6129,17 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   const header = matchingParenOf(ctx.source, v.start);
   const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
   if (statement !== undefined) props.statement = statement;
+  // **`for await (… of …)` 的 `awaitModifier`**（第 174 轮）：TS 的 `ForOfStatement` 在
+  // `for` 与 `(` 之间有一个 `AwaitKeyword` 子节点（`awaitModifier`），而产物把它记成一个
+  // 平级的 `Keyword(await)`、投影侧一直没收（实测 `st-for-await.ts` / `stmt-for-await.ts` /
+  // `fn-async-generator.ts` 一族：每处缺 `AwaitKeyword` + `ForOfStatement` 字段名差）。
+  // 判据用**子单元**而不是原文：`header` 拿到的是配对的 `)`，从它切不出 `for` 与 `(` 之间那一段。
+  const awaitUnit = projectableKids(v).find(
+    (k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "await",
+  );
+  if (kind === "ForOfStatement" && awaitUnit !== undefined) {
+    props.awaitModifier = projectNode(awaitUnit, ctx);
+  }
   return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
