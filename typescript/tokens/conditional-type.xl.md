@@ -189,6 +189,22 @@ if (extendsIndex < 0) {
 const startIndex = this.FindStart(units, extendsIndex);
 const items: Token[] = [];
 let endIndex = index;
+// **假分支那一端的 `:` 还没出现时，换行不是边界**（第 100 轮）：
+// ```
+// ): MockedObject[MethodName] extends Function ? Mock<MockedObject[MethodName]>
+//     : never;
+// ```
+// 这种「`?` 真分支在这一行、`:` 假分支在下一行」的排版在 `.d.ts` 里遍地都是
+// （`@types/node/test.d.ts` 的 `Mocked` 接口一整屏都是它）。照原来那三条判据会在换行处收尾，
+// `: never` 掉到外面成了**平级语句**——投影侧表现为「多出 `ExpressionStatement` 412
+// + 假分支里的类型字面量成员整片丢失（`PropertySignature` 缺 67）」，而且
+// `ConditionalType` / `MethodSignature` 的区间都短一截（漂移）。
+//
+// 两条放行都必要：`colonNext`（换行后面紧跟 `:`）与 `afterColon`（`:` 后面紧跟换行）。
+// 判据落在「本条条件类型自己的那个冒号」上，所以只在**类型位已经确认有 `extends` + `?`**
+// 的这一趟扫描里生效，不会动值位三元。
+let colonSeen = false;
+let afterColon = false;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
@@ -202,11 +218,24 @@ for (let i = index + 1; i < units.length; i++) {
     if (next === null || IsStatementKeyword(next) || IsDeclarationBoundary(next)) {
       break;
     }
-    if (Statement.IsLineBreakBoundary(units, i)) {
+    // **判据要落在原文那个字符上，不能只看「下一格是不是 `:` 符号」**：跑到这里时
+    // `TypeDefineReorganization` 往往已经把 `: never` 收成一个 `TypeDefine` 单元了
+    // （`next instanceof SymbolToken` 于是为假，第一版就是这么漏的）。
+    // `Source.Value` 就是那一格上的字符，它不受「收成哪个单元」影响。
+    const nextStart = next.SourceRange.Start;
+    const colonNext =
+      !colonSeen && nextStart !== null && (nextStart.Value === ":" || nextStart.Value === "?");
+    if (!colonNext && !afterColon && Statement.IsLineBreakBoundary(units, i)) {
       break;
     }
   }
   if (!(item instanceof LineWrap)) {
+    if (item instanceof SymbolToken && item.Is(":") && !colonSeen) {
+      colonSeen = true;
+      afterColon = true;
+    } else {
+      afterColon = false;
+    }
     items.push(item);
     endIndex = i;
   }

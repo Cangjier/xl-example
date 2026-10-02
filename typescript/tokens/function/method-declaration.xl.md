@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
 import { ArrayLiteral } from "../json/array-literal.xl.md"
@@ -252,7 +252,22 @@ while (i < units.length) {
   if (item instanceof LineWrap) {
     const previous = Get(units, i - 1);
     const continues = previous instanceof SymbolToken && !previous.Is(";") && !previous.Is(",");
-    if (continues === false) {
+    // **条件类型的假分支可以另起一行**（第 100 轮）：
+    // ```
+    // ): MockedObject[MethodName] extends Function ? Mock<MockedObject[MethodName]>
+    //     : never;
+    // ```
+    // 换行前那一格是 `Mock<…>`（不是符号），照上面那条判据就断在这里——于是 `: never`
+    // 掉进成员表成了一条**平级语句**。投影侧的症状是三处：多出 `ExpressionStatement` 412、
+    // 假分支里的类型字面量成员整片丢失（`PropertySignature` 缺 67）、
+    // `MethodSignature` 与 `ConditionalType` 的区间都短一截（漂移）。
+    //
+    // 判据落在**原文那一格**上（`Source.Value`），不看它被收成了哪个单元：
+    // 换行后紧跟 `:` 时它不是成员边界，而是这一条类型**没写完**。
+    const next = GetSkipNextWrapSymbol(units, i);
+    const nextStart = next === null ? null : next.SourceRange.Start;
+    const colonNext = nextStart !== null && nextStart !== undefined && nextStart.Value === ":";
+    if (continues === false && !colonNext) {
       break;
     }
     i = i + 1;
