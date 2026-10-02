@@ -2702,3 +2702,32 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `expr-optional-call-nodes.ts` | 0 / 0 / 1 / 1 | `g!()`（同上） |
 | `samples/generic.ts` | 0 / 1 / 1 / 0 | 工程自造的非法样本（`class Foo<T> { let value: T }`），TS 自己报错后提前收尾 |
 | `stmt-empty-semicolon.ts` | 0 / 1 / 0 / 0 | `;;`：token 层产出两个空 `Statement`，但只有第一个走到投影（已定位到「第二个没进 `projectStatement`」） |
+
+---
+
+# 第 179~180 轮：无名调用的被调用者、同行第二个空语句、数字后的点
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 178 轮末 | 1402 / 1407 | 3 | 3 | 4 | 2 | 12 |
+| 第 180 轮末 | **1406 / 1407** | 0 | 1 | 1 | 0 | **2** |
+
+**只剩 1 个文件不一致**（`samples/generic.ts`，2 处，见下）。
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 179 | **同行第二个空语句**：`;;` 的第二个 `;` 前面那格是第一个 `;`，而行首判据要求「前面只有空白」——放宽成「这一行到这里只有空白与 `;`」 | `ts-ast.xl.md`（`projectStatement`） |
+| 179 | **名字为空时第一个子单元就是被调用者**：`b!()` 的产物是 `Method(name="")`，里面只有那个 `NotNull`——它该是**被调用者**而不是实参（前两轮只改 `expression`、没把它从 `arguments` 里排掉，所以一直没修好） | `ts-ast.xl.md`（`projectCall`） |
+| 180 | **数字后被空白关掉的那个点是成员访问**：`1 .toString()` 里 `Identifier.Condition` 与 `SymbolToken.Condition` **两边都不要那个点**——前者按 `Closed` 放行了，后者还在按「前一个是十进制整数前缀」拒收，结果点号整个消失 | `tokens/identifier.xl.md` + `tokens/symbol-token.xl.md` |
+
+第 179 轮的 `b!()` 是这几轮里最曲折的一处：前两次只把 `expression` 换成了被调用者，
+`arguments` 里仍然挂着那个 `NonNullExpression`，于是 `dist/ts/typescript/ts-ast.ts`
+自己会出 `ColonToken` 漂移；把被调用者同时从 `args` 里排掉之后，一次修好两个文件。
+
+## 还剩什么（1 个文件 / 2 处）
+
+| 文件 | 缺 / 漂 / 多 / 字段 | 说明 |
+| --- | --- | --- |
+| `samples/generic.ts` | 0 / 1 / 1 / 0 | `class Foo<T> { let value: T }`——**类体里放 `let` 不是合法 TS**。`ts.createSourceFile` 在这里走的是**错误恢复**：`ClassDeclaration` 到那个 `{` 就结束（[32,46)），后面的 `let value: T` 被当成**顶层语句**重新解析。本工程的解析器把它当成类成员，于是 `ClassDeclaration` 是 [32,65)、并少一个顶层 `FirstStatement` |
