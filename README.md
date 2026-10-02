@@ -321,22 +321,22 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。
 这个百分比**同时量节点集合、坐标与名字归一**（三者都对上才计），实测：
 
-| 口径 | 用例语料 1006 文件 | 真实语料 384 文件 |
+| 口径 | 用例语料 1008 文件 | 真实语料 384 文件 |
 | --- | --- | --- |
-| 产物标签名直接比 | 31.0% | 46.8% |
-| **投影成 TS 形状后比**（`ts-shape.mjs`） | **82.8%** | **95.8%** |
-| 其中**字段名也一致** | 97.0% | 99.4% |
+| 产物标签名直接比 | 32.0% | 47.5% |
+| **投影成 TS 形状后比**（`ts-shape.mjs`） | **84.8%** | **97.1%** |
+| 其中**字段名也一致** | 96.9% | 99.4% |
 
 第三行是「完全 follow TypeScript 形状」的真账：[tests/parse/ts-shape.mjs](tests/parse/ts-shape.mjs)
 负责换名、补壳 / 提层、给字段名，`cases:tsast` 逐节点比 **kind / 区间 / 字段名** 三样。
-投影节点的数与 TS 语义节点同量级（真实语料 478779 vs 453862，1.05×），所以剩下的差距是**结构**，
+投影节点的数与 TS 语义节点同量级（真实语料 480209 vs 453862，1.06×），所以剩下的差距是**结构**，
 不是规模——正是要接着重构 token 层去补的那几层壳与字段切分。
-真实语料（`.d.ts` 为主）已经到 **95.8%**：那批文件几乎全是「声明 + 类型」，正是投影覆盖得最好的部分。
+真实语料（`.d.ts` 为主）已经到 **97.1%**：那批文件几乎全是「声明 + 类型」，正是投影覆盖得最好的部分。
 ### 当前状态（实测，`npm run` 十九个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1022 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:run` | 1024 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
 | `cases:diff` | 1402 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径）。第 68 轮复核时这一行报过 **Field +119**：索引签名第 66 轮起有自己的 `<IndexSignature>` 标签，而 `differential.mjs` 的映射表还写着 `IndexSignatureDeclaration → Field`，于是 120 处索引签名被算成「Field 没成节点」——**量具的映射没跟着标签表走**，不是解析缺口。接回去之后：`Field` 源码侧 20243 / 产物侧 20244（**−1**，那一处多收在 `decl-class-computed-member.ts`，正是 `cases:dashboard` 的「真多 1」）、`IndexSignature` 120 / 120（**0**），其余各行不变 |
 | `cases:dashboard` | **真缺 0 个节点**（第 71 轮起 `&&` / `\|\|` 由 `LogicalOperator` 承担，台账里那一行也随之从「真多 114」降下来） |
 | `cases:lossless` | 1393 个文件、抛异常 0、内容丢失 0 |
@@ -348,7 +348,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:align` | 1406 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `cases:fuzz3` | 抽样 20 万次得 9.7 万个合法三片段组合，**可疑 0 类**（第 67 轮新加，见上） |
-| `cases:astjson` | **两个出口同源**：1022 条用例 + 384 个真实语料文件，逐节点比对 **0 处不符**（`--self-test` 的 5 种变异全部被抓到）。这一轮的实测数：1393 个文件、**533957 个产物节点** |
+| `cases:astjson` | **两个出口同源**：1024 条用例 + 384 个真实语料文件，逐节点比对 **0 处不符**（`--self-test` 的 5 种变异全部被抓到）。这一轮的实测数：1393 个文件、**533957 个产物节点** |
 | `samples` | declarations / generic / hello 三份一致（XML 与 AST JSON 各一份夹具；夹具是紧凑单行，XML 比对忽略标签之间的空白，JSON 逐字节比） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
@@ -1490,6 +1490,38 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 73 轮：类型别名右值走类型位投影 + `ConstructSignature`（真实语料 95.8% → 97.1%）
+
+这一轮的两处都是**「按第一个单元投」留下的账**：
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `TypeReference` 缺 2102 + `AnyKeyword` 缺 1408（两大块） | `typeOf`（类型别名的右值、类型参数约束与默认值、`as` 的类型、条件类型的分支…）走的是**通用投影**：`Array<any>` 在它眼里是一串平级单元，它只取第一个（`Array`）——**实参整片丢掉**。TS 那边 `Array<any>` 是**同一区间两层节点**（`TypeReference > [Identifier, AnyKeyword]`），所以缺的正是外层 `TypeReference` 与里面的实参 | `typeOf` 改成走 `projectTypeExpression`（类型位投影）：具名类型套 `TypeReference`、原始类型直接是关键字、实参逐段递归 |
+| `ConstructSignature` 缺 1190（父节点是 `TypeLiteral` 1019 / `InterfaceDeclaration` 171） | 可构造签名 `new (x: A): B` 与可调用签名在产物里**同标签**（`<Signature kind="call\|construct">`），而 `KIND_BY_TAG` 只写了一条 `CallSignatureDeclaration`——那个名字在这个 TypeScript 里**根本不存在**（`ts.SyntaxKind[...]` 是 `undefined`，真名分别是 `CallSignature` / `ConstructSignature`）；而且 `new` 那一支在产物里多包了一层 `New > NewType`，形参不在 `Signature` 自己身上 | 新增 `projectSignature`：按 `kind` 属性分派两种 kind，并把 `New` 里那一层摊平（形参提到签名自己身上、返回类型从 `ReturnType` 取） |
+
+**顺带纠正两处 kind 名**（都是「按名字猜、猜错了」）：`CallSignatureDeclaration` → **`CallSignature`**、
+`TypeAliasDeclaration` 那个构造的 kind 名是 **`Constructor`**（第 72 轮已记）。
+`SIGNATURE_KINDS`（决定「签名要不要带尾随分号」）也跟着换成真名。
+
+量化（同一批 1385 个真实语料文件 + 1024 条用例）：
+
+| 判据 | 改动前 | 改动后 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 95.8% | **97.1%** |
+| `cases:tsast` 用例语料 | 82.8% | **84.8%** |
+| 投影后仍缺 `AnyKeyword` | 1408 | **0** |
+| 投影后仍缺 `TypeReference` | 2102 | **803** |
+| 投影后仍缺 `ConstructSignature` | 1190 | **0** |
+| 投影后仍缺 `Identifier` | 3009 | **2564** |
+| 用例 | 1022 条全通过 | **1024 条全通过**（新增 2 条钉住本轮） |
+
+新增两条用例：`type-alias-generic-any`（类型别名右值的类型位投影）、
+`decl-construct-signature`（可构造 / 可调用签名同标签、按 `kind` 属性分）。九把尺子与五把探针全绿。
+
+**下一轮的目标**：`TypeReference` 803 + 漂移 1761（同一类上下文漏网的余量）、
+`Identifier` 2564、`StringLiteral` 1003、`QualifiedName` 844、`PropertyAccessExpression` 493、
+`Block` 380、`ParenthesizedExpression` 348、`ComputedPropertyName` 231。
+
 ### 第 72 轮：声明位的修饰词 + 类构造 + 剩余形参的 `...`（真实语料 95.5% → 95.8%）
 
 这一轮清的是**缺口榜上的三小块**，三处都很小、但根因各不相同：
@@ -1576,7 +1608,7 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1022 条用例
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1024 条用例
 **全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1393 个文件；
 外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别

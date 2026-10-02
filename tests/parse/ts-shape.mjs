@@ -97,7 +97,7 @@ const KIND_BY_TAG = new Map([
   ["Decorator", "Decorator"],
   ["HeritageClause", "HeritageClause"],
   ["ExpressionWithTypeArguments", "ExpressionWithTypeArguments"],
-  ["Signature", "CallSignatureDeclaration"],
+  ["Signature", "CallSignature"],
   ["ConstString", "StringLiteral"],
   ["String", "StringLiteral"],
   ["RegexToken", "RegularExpressionLiteral"],
@@ -601,6 +601,9 @@ function projectNode(node, ctx, parentKind) {
 
     case "LogicalOperator":
       return projectLogical(v, ctx);
+
+    case "Signature":
+      return projectSignature(v, ctx);
 
     case "Field":
       return projectField(v, ctx);
@@ -1270,7 +1273,7 @@ function projectTypeDefine(v, ctx) {
  * 而产物那个 `Function` 只到 `void` 为止——分号是它的平级兄弟。
  * 只对这几个 kind 做：带**函数体**的声明不会走到这里（体已经把它结束在 `}` 上了）。
  */
-const SIGNATURE_KINDS = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignatureDeclaration"]);
+const SIGNATURE_KINDS = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"]);
 
 /** 分隔标点：它们由**各自的容器**管（`|` 归 `UnionType`、`,` 归实参表）。 */function isTypeSeparator(node, ctx) {
   if (node.get("type") !== "SymbolToken") return false;
@@ -1854,6 +1857,38 @@ function projectSwitch(v, ctx) {
 }
 
 /**
+ * 可调用 / 可构造签名 `(x: A): B` / `new (x: A): B` → `CallSignature` / `ConstructSignature`。
+ *
+ * 产物那边两者**同标签**（`<Signature kind="call|construct">`），靠 `kind` 属性分——
+ * 所以这里按属性换 kind。TS 那边两者都没有名字字段、形参直接挂在自己身上。
+ */
+function projectSignature(v, ctx) {
+  const kind = v.attrs.get("kind") === "construct" ? "ConstructSignature" : "CallSignature";
+  const props = structuralProps(v, kind, ctx);
+  // 产物把 `new` 收成一个 `New` 子单元（`NewType` 里才是形参括号）：TS 那边
+  // `ConstructSignature` 的形参**直接挂在自己身上**，中间没有那一层。
+  const kids = projectableKids(v);
+  const newUnit = kids.find((k) => k.get("type") === "New");
+  if (newUnit !== undefined) {
+    const inner = projectableKids(view(newUnit));
+    const bracket = inner.find((k) => k.get("type") === "Bracket");
+    if (bracket !== undefined) {
+      const params = unwrapNodes(bracket).filter((k) => !INVISIBLE.has(k.get("type")));
+      props.parameters = projectEach(params, ctx, kind);
+    }
+    const returnType = inner.find((k) => k.get("type") === "ReturnType");
+    if (returnType !== undefined) {
+      const inner2 = unwrapNodes(returnType).filter((k) => !INVISIBLE.has(k.get("type")));
+      const t = typeOf(inner2, ctx);
+      if (t !== undefined) props.type = t;
+    }
+    delete props.children;
+  }
+  const end = SIGNATURE_KINDS.has(kind) && ctx.source[stmtEndOf(v, ctx)] === ";" ? stmtEndOf(v, ctx) + 1 : stmtEndOf(v, ctx);
+  return { kind, pos: v.start, end, ...props };
+}
+
+/**
  * `a && b || c` 的链 → **左结合的嵌套 `BinaryExpression`**。
  *
  * 产物那边第 71 轮起是「整段一个单元、子单元按原文顺序排」（`[a, &&, b, ||, c]`）——
@@ -2079,13 +2114,18 @@ function projectLamda(v, ctx) {
   return { kind: "ArrowFunction", pos: v.start, end: v.end, ...props };
 }
 
-/** 右值那一段单元 → 一个类型节点（`TypeDefine` 摊平；空段给 `undefined`）。 */
+/**
+ * 右值那一段单元 → 一个类型节点（`TypeDefine` 摊平；空段给 `undefined`）。
+ *
+ * **走的是类型位的投影**（`projectTypeExpression`），不是逐个单元的通用投影：
+ * 类型别名 / 约束 / 联合成员这些位置上，`A<any>` 是**一个** `TypeReference`（同一区间两层节点），
+ * 早期那版按「第一个单元」投，于是实参整片丢掉（真实语料 `TypeReference` 缺 2087、
+ * `AnyKeyword` 缺 1408 里的一大块都是这一条：`Array<any>` / `T extends any[]` 的实参没成形）。
+ */
 function typeOf(nodes, ctx) {
   const list = nodes.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   if (list.length === 0) return undefined;
-  if (list[0].get("type") === "TypeDefine") return projectTypeDefine(view(list[0]), ctx);
-  if (list.length === 1) return projectNode(list[0], ctx);
-  return projectEach(list, ctx)[0];
+  return projectTypeExpression(list, ctx);
 }
 
 /**

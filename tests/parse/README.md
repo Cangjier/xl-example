@@ -165,14 +165,31 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14532 / 15343 | 478779 / 453862 |
-| 同 kind 同区间 | **82.8%** | **95.8%** |
-| 其中**字段名也一致** | **97.0%** | **99.4%** |
+| 投影节点 / TS 语义节点 | 14816 / 15343 | 480209 / 453862 |
+| 同 kind 同区间 | **84.8%** | **97.1%** |
+| 其中**字段名也一致** | **96.9%** | **99.4%** |
 
 **「缺」与「漂移」是两件事，尺子分开报**（第 34 轮补的）：前者是「这一类根本没投出来」，
 后者是「同一类节点位置差一点」。混在一起时漂移会把缺失挤下榜首——
 真实语料里 `TypeReference` 的漂移 1749 比它自己的缺失 2102 还接近榜首。
 两段现在都带样本（`投影后仍缺的 TS kind` / `投影后同 kind 但区间漂移`）。
+
+### 第 73 轮：类型别名右值走类型位投影 + `ConstructSignature`（真实语料 95.8% → 97.1%）
+
+两处都是**「按第一个单元投」留下的账**：
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `TypeReference` 缺 **2102** + `AnyKeyword` 缺 **1408** | `typeOf`（类型别名右值、类型参数约束 / 默认值、`as` 的类型、条件类型分支）走的是**通用投影**——`Array<any>` 在它眼里是一串平级单元，它只取第一个（`Array`），实参整片丢掉；TS 那边 `Array<any>` 是**同一区间两层节点** | `typeOf` 改走 `projectTypeExpression`（类型位投影） |
+| `ConstructSignature` 缺 **1190**（父 `TypeLiteral` 1019 / `InterfaceDeclaration` 171） | 可构造 / 可调用签名在产物里**同标签**（`<Signature kind="call\|construct">`），而标签表只写了一条 `CallSignatureDeclaration`——**那个名字在这个 TypeScript 里不存在**（真名是 `CallSignature` / `ConstructSignature`）；`new` 那一支还多包了一层 `New > NewType` | 新增 `projectSignature`：按 `kind` 属性分派，并把 `New` 那一层摊平 |
+
+**两处 kind 名都是「按名字猜、猜错了」**：`CallSignatureDeclaration` → `CallSignature`；
+`ts.SyntaxKind` 里 `Constructor` 就是类构造的 kind（`ConstructorDeclaration` 是 `undefined`）。
+`SIGNATURE_KINDS`（签名要不要带尾随分号）也跟着换成真名。
+
+成绩：真实 95.8% → **97.1%**、用例 82.8% → **84.8%**；`AnyKeyword` 1408 → 0、
+`ConstructSignature` 1190 → 0、`TypeReference` 2102 → 803、`Identifier` 3009 → 2564。
+新增两条用例（`type-alias-generic-any` / `decl-construct-signature`），用例 1022 → **1024**。
 
 ### 第 72 轮：声明位的修饰词 + 类构造 + 剩余形参的 `...`（真实语料 95.5% → 95.8%）
 
