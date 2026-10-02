@@ -2465,6 +2465,26 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     }
     return query;
   }
+  // **`typeof X<Y>`**（第 109 轮）：TS 的 `TypeQuery` 可以带**类型实参**
+  // （`typeof ServerResponse<InstanceType<Request>>` 的 `TypeQueryNode.typeArguments`），
+  // 而实参段在产物里是 `TypeQuery` 的**平级兄弟**。不收的话：`TypeQuery` 少 `typeArguments`、
+  // 区间短一截（漂移），实参里那串名字整片丢（`InstanceType` / `Request`）。
+  if (list[0].get("type") === "TypeQuery") {
+    const query = projectNode(list[0], ctx);
+    const generic = list.find((k) => k.get("type") === "GenericType");
+    if (generic !== undefined && query !== undefined) {
+      const typeArguments = [];
+      for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
+        const one = projectTypeExpression(group, ctx);
+        if (one !== undefined) typeArguments.push(one);
+      }
+      if (typeArguments.length > 0) {
+        query.typeArguments = typeArguments;
+        query.end = endOf(generic);
+        return query;
+      }
+    }
+  }
   if (list.length === 1 && list[0].get("type") === "TypeDefine") {
     return projectTypeExpression(projectableKids(view(list[0])), ctx);
   }
@@ -4640,6 +4660,17 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   // 于是 `QualifiedName` / `Symbol` / `iterator` 三个节点全丢（实测缺 `Identifier` 1050
   // 里成片就是这个形状，`@types/node/compatibility/iterators.d.ts` 一眼可见）。
   const access = kids.find((k) => k.get("type") === "PropertyAccess");
+  // **实参段可能在 `TypeQuery` 里面**（`typeof ServerResponse<InstanceType<Request>>` 的一种形状）：
+  // TS 的 `TypeQueryNode.typeArguments` 要照收（第 109 轮）。
+  const generic = kids.find((k) => k.get("type") === "GenericType");
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
+      const one = projectTypeExpression(group, ctx);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
   if (access === undefined && names.length === 1) {
     props.exprName = nameOf(names[0], ctx);
   } else if (access !== undefined || names.length > 1) {
@@ -4664,12 +4695,21 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   // 成片：`Identifier` 缺 1581 里的一大块就是这个，名字与约束两头的 `Identifier` 都没有宿主）。
   // TS 那边 `TypeParameter` 是 `[name, constraint]` 两个字段、约束是**不含名字**的那个联合，
   // 所以这里把它摊开、按同一个分隔符重新切一次（收尾处再把余下的成员补回去）。
-  const wrapped =
-    kids0.length === 1 &&
-    (kids0[0].get("type") === "UnionType" || kids0[0].get("type") === "IntersectionType")
-      ? kids0[0]
-      : undefined;
-  const kids = wrapped === undefined ? kids0 : projectableKids(view(wrapped));
+  // **包住约束的那一格不一定是唯一的一格**（第 108 轮）：
+  // `<Name extends string | Buffer = string>` 的产物是
+  // `[UnionType(Name extends string | Buffer), SymbolToken(=), Identifier(string)]`——
+  // 默认值在联合**外面**。早先只认「整个类型参数只有一格」的形状，于是这一族的
+  // **名字与约束一起丢**（实测 `TypeParameter` 少 `constraint`、`fieldName` 差、
+  // `Identifier` 缺 491 里成片，并连带缺 `UnionType` / `StringKeyword` / `TypeReference`）。
+  const wrappedIndex = kids0.findIndex((k) => k.get("type") === "UnionType" || k.get("type") === "IntersectionType");
+  const wrapped = wrappedIndex >= 0 ? kids0[wrappedIndex] : undefined;
+  // 联合**前**与**后**剩下的那些（`<T = A | B>` 的名字在前面、
+  // `<Name extends A | B = C>` 的默认值在后面）——判定用的序列要按**源码顺序**拼起来，
+  // 否则名字会被联合内容顶掉。
+  const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
+  const tail = wrapped === undefined ? [] : kids0.slice(wrappedIndex + 1);
+  const unionKids = wrapped === undefined ? [] : projectableKids(view(wrapped));
+  const kids = wrapped === undefined ? kids0 : [...prefix, ...unionKids, ...tail];
   // `extends` 的**词法身份不固定**：本仓库记过「接口的 `extends` 永远升不成 `Keyword`」——
   // 所以两种身份都认（`<T extends U>` 里它是 `Keyword`，而某些上下文里它是 `Identifier`）。
   // 只认 `Keyword` 时会**整类丢掉约束**（实测 17 处 `TypeParameter` 少一个 `constraint`）。
@@ -4705,7 +4745,23 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     const body = kids.slice(inIndex + 1).filter((k) => !isTypeParameterModifier(k, ctx));
     if (body.length > 0) props.constraint = typeOf(body, ctx);
   }
-  if (eqIndex >= 0) props.default = typeOf(kids.slice(eqIndex + 1), ctx);
+  if (eqIndex >= 0) {
+    // 默认值本身就是「被包成 `UnionType` / `IntersectionType` 的联合」时（`<T = A | B>`），
+    // 直接投那个单元——平铺的 `[A, |, B]` 折不出联合（实测缺 `UnionType` + 尾巴上的名字）。
+    const eqUnit =
+      wrappedIndex > 0 && wrapped !== undefined && kids0[wrappedIndex - 1] !== undefined
+        ? kids0[wrappedIndex - 1]
+        : undefined;
+    const isDefaultUnion =
+      eqUnit !== undefined &&
+      eqUnit.get("type") === "SymbolToken" &&
+      textOfNode(eqUnit, ctx) === "=";
+    props.default = isDefaultUnion ? projectNode(wrapped, ctx) : typeOf(kids.slice(eqIndex + 1), ctx);
+  } else {
+    // 默认值落在联合**外面**时（见上面的 `tail`）：`[UnionType(…), =, string]`。
+    const tailEq = tail.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+    if (tailEq >= 0) props.default = typeOf(tail.slice(tailEq + 1), ctx);
+  }
   // 修饰词只认**名字之前**的那些：`<const T>` 的 `const`、`<in T>` / `<out T>` 的变型词。
   // TS 把它们算作 `TypeParameter.modifiers`（`forEachChild` 那层看得见），漏了 `const`
   // 就会少一整个字段（实测 `decl-func-generic-const-modifier.ts` 那族）。
@@ -4714,9 +4770,15 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   // **收尾：把被包进联合的约束补全**（见上面 `wrapped`）：`extends` 之后那一段只是**第一个成员**
   // （`null`），余下的成员（`| Writable`）在同级的下一个组里——按同一个分隔符切回来，
   // 重新拼成一个 `UnionType` / `IntersectionType`，区间取第一个成员到最后一个成员。
-  if (wrapped !== undefined) {
+  // 只在**确实有 `extends`** 时重建约束：`<T = A | B>` 的联合是**默认值**，不是约束
+  // （不加这一条会把默认值当成约束，`TypeParameter` 于是多一个 `constraint`、
+  // 名字还可能被联合的第一个成员顶掉）。
+  if (wrapped !== undefined && extIndex >= 0) {
     const separator = wrapped.get("type") === "UnionType" ? "|" : "&";
-    const members = splitTopLevel(kids, ctx, separator);
+    // **切的是联合单元自己的内容**（`[名字, extends, 第一个成员, |, 第二个…]`），
+    // 不是上面那个「前缀 + 联合 + 尾巴」的拼合序列——把尾巴（`= 默认值`）也切进去，
+    // 第二个成员会变成 `Y = Z` 这种半截类型。
+    const members = splitTopLevel(unionKids, ctx, separator);
     const firstMember = members.length > 0 ? members[0] : [];
     const extAt = firstMember.findIndex(
       (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends",
