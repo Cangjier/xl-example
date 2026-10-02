@@ -62,6 +62,11 @@ if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source
 const document = source.Document;
 let scan = source.Index + 1;
 let closed = false;
+// **字符类里的 `/` 不是收尾**（第 149 轮）：`/[/]/` 的正文是 `[/]`——那个 `/` 在 `[` `]` 里面，
+// 是**字面量的一部分**。不跟字符类的话这一趟扫描会在它上面判成「已收尾」，
+// 于是整条正则被读成「`/` 除号 + 数组字面量 + 除号」：实测 `ex-regex.ts` 里
+// 多出 `BinaryExpression` / `CloseBracketToken`，`if (/x/.test(s)) {` 的体也跟着碎掉。
+let inClass = false;
 while (scan < document.GetCount()) {
   const ch = document.GetValue(scan);
   if (ch === "\n" || ch === "\r") {
@@ -71,7 +76,17 @@ while (scan < document.GetCount()) {
     scan = scan + 2;
     continue;
   }
-  if (ch === "/") {
+  if (ch === "[") {
+    inClass = true;
+    scan = scan + 1;
+    continue;
+  }
+  if (ch === "]") {
+    inClass = false;
+    scan = scan + 1;
+    continue;
+  }
+  if (ch === "/" && inClass === false) {
     closed = true;
     break;
   }
@@ -122,6 +137,14 @@ regexToken.Append(source);
 if (source.Value === "\\") {
   regexToken.IsTranslate = true;
 }
+// **正文第一个字符是 `[` 时同样要进字符类态**（第 149 轮）：`Success` 是**自己**把当前字符
+// 塞进 `Temp` 的（不走 `ExitOrPre`），所以 `ExitOrPre` 里那条 `[` 分支对它无效——
+// `/[/]/` 的正文第一个字符正是 `[`，不补这一句 `IsInClass` 一直是假，
+// 类里那个 `/` 会被当成收尾斜杠（实测 `ex-regex.ts`：多出 `BinaryExpression` /
+// `CloseBracketToken` / `SlashToken`，`const t = /[/]/` 只剩半条正则）。
+if (source.Value === "[") {
+  regexToken.IsInClass = true;
+}
 ```
 
 # class RegexToken extends UnitToken
@@ -171,6 +194,16 @@ this.Closed = true;
 ## field IsTranslate:bool = false
 
 上一个字符是不是转义用的 `\`（正则里 `\/` 不该结束字面量）。
+
+## field IsInClass:bool = false
+
+当前是不是在**字符类** `[...]` 里面（第 149 轮）。类里的 `/` 是字面量的一部分：
+`/[/]/` 的正文是 `[/]`。不跟踪它的话收尾斜杠会提前落在类里那个 `/` 上，
+整条正则被读成除法 + 数组字面量。
+
+```ts
+this.IsInClass = false;
+```
 
 ## field Flags:string = ""
 
@@ -229,7 +262,16 @@ if (!this.IsTranslate) {
     this.IsTranslate = true;
     return BranchStates.Done;
   }
-  if (source.Value === "/") {
+  if (source.Value === "[") {
+    // **进了字符类**（第 149 轮）：类里的 `/` 是字面量的一部分，不能收尾（见 `Condition` 那一处）。
+    this.IsInClass = true;
+    return BranchStates.Undo;
+  }
+  if (source.Value === "]") {
+    this.IsInClass = false;
+    return BranchStates.Undo;
+  }
+  if (source.Value === "/" && this.IsInClass === false) {
     this.IsReadyToExit = true;
     return BranchStates.Done;
   }

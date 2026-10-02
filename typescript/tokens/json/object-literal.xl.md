@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
-import { IsStatementStart } from "../../text-common-util.xl.md"
+import { IsStatementStart, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -55,6 +55,18 @@ if (current instanceof Bracket && current.startBracket === "{") {
     return false;
   }
   const previous = GetSkipPrevious(units, index, (item) => item instanceof LineWrap);
+  // **`return` 换行 `{` 是块语句**（第 149 轮）：`return` 是**受限产生式**——
+  // 换行之后那个 `{` 不可能属于 `return`，只能是一条块语句（块里 `a: 1` 还是标签）。
+  // 同一行的 `return { a: 1 }` 才是对象字面量，所以判据要落在**中间有没有软换行**上
+  // （实测 `stmt-asi-return-newline-object.ts`：缺 `Block` / `LabeledStatement` /
+  // `ExpressionStatement` 各 1 + 多出 `ObjectLiteralExpression` / `PropertyAssignment`）。
+  if (
+    previous instanceof Identifier &&
+    previous.Is("return") &&
+    SkipPreviousWrapSymbol(units, index) !== index - 1
+  ) {
+    return false;
+  }
   if (previous instanceof Identifier && previous.IsAny(["return", "typeof"]) === false) {
     return false;
   } else if (previous instanceof Bracket) {

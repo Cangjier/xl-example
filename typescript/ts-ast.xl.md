@@ -5339,6 +5339,12 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     const cond = new Set(kidsOf(view_, "condition"));
     return allKids(view_).filter((k) => !INVISIBLE.has(k.get("type")) && !cond.has(k));
   };
+  // **体段起点**：条件段最后一个单元之后。空体（`if (a) {}`）时体段一个单元都没有，
+  // 只能靠这个位置回原文找那对花括号（见 `blockOfBody` 的第三个参数）。
+  const bodyFrom = (seg) => {
+    const cond = kidsOf(view(seg), "condition");
+    return cond.length === 0 ? -1 : endOf(cond[cond.length - 1]);
+  };
   /**
    * 造一层 `IfStatement`，返回 `{ node, end }`。
    *
@@ -5351,7 +5357,7 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     const seg = view(segments[index]);
     const expr = conditionOf(segments[index]);
     if (expr !== undefined) props.expression = expr;
-    const thenBody = blockOfBody(bodyOf(segments[index]), ctx);
+    const thenBody = blockOfBody(bodyOf(segments[index]), ctx, bodyFrom(segments[index]));
     if (thenBody !== undefined) props.thenStatement = thenBody.node;
     let pos = seg.start;
     let end = thenBody === undefined ? seg.end : thenBody.end;
@@ -5372,7 +5378,7 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
         // **`else { … }` 的 `elseStatement` 是那个体本身**（块或单条语句），
         // 不是又一层 `IfStatement`（第 90 轮修）：多造一层会让 `IfStatement` 多出 225 个，
         // 而 TS 那边 `elseStatement` 是 `Block`——同一处还带着「区间偏短」的漂移 116 处。
-        const elseBody = blockOfBody(bodyOf(segments[index + 1]), ctx);
+        const elseBody = blockOfBody(bodyOf(segments[index + 1]), ctx, bodyFrom(segments[index + 1]));
         if (elseBody !== undefined) {
           props.elseStatement = elseBody.node;
           end = elseBody.end;
@@ -5553,7 +5559,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method blockOfBody:(kids:Array<any>, ctx:any)=>any
+# private method blockOfBody:(kids:Array<any>, ctx:any, from:int)=>any
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
 
@@ -5584,6 +5590,37 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
             node: { kind: "Block", statements: [], pos: open, end: close + 1 },
             end: close + 1,
           };
+        }
+      }
+    }
+    // **空体 `if (a) {}`**（第 150 轮）：体段一个单元都没有（连注释都没有），但原文里那对
+    // 花括号是实打实的——TS 那边是一个空的 `Block`。从 `from`（条件段末尾）往后只允许
+    // 空白 / `)` / 注释，撞上 `{` 就是那个体
+    // （实测 `ex-regex.ts` 的 `if (/x/.test(s)) {\n}`：缺 `Block` 1 + `IfStatement` 漂移 1）。
+    if (from !== undefined && from >= 0) {
+      let at = from;
+      while (at < ctx.source.length) {
+        const ch = ctx.source[at];
+        if (/\s/.test(ch) || ch === ")") {
+          at++;
+          continue;
+        }
+        if (ch === "/" && ctx.source[at + 1] === "/") {
+          while (at < ctx.source.length && ctx.source[at] !== "\n") at++;
+          continue;
+        }
+        if (ch === "/" && ctx.source[at + 1] === "*") {
+          const close = ctx.source.indexOf("*/", at + 2);
+          at = close < 0 ? ctx.source.length : close + 2;
+          continue;
+        }
+        break;
+      }
+      if (ctx.source[at] === "{") {
+        const open = at;
+        const close = matchingBrace(ctx.source, open);
+        if (close >= open) {
+          return { node: { kind: "Block", statements: [], pos: open, end: close + 1 }, end: close + 1 };
         }
       }
     }
