@@ -321,34 +321,34 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。
 这个百分比**同时量节点集合、坐标与名字归一**（三者都对上才计），实测：
 
-| 口径 | 用例语料 1004 文件 | 真实语料 384 文件 |
+| 口径 | 用例语料 1006 文件 | 真实语料 384 文件 |
 | --- | --- | --- |
-| 产物标签名直接比 | 30.8% | 46.6% |
-| **投影成 TS 形状后比**（`ts-shape.mjs`） | **82.5%** | **95.5%** |
-| 其中**字段名也一致** | 96.8% | 99.2% |
+| 产物标签名直接比 | 31.0% | 46.8% |
+| **投影成 TS 形状后比**（`ts-shape.mjs`） | **82.8%** | **95.8%** |
+| 其中**字段名也一致** | 97.0% | 99.4% |
 
 第三行是「完全 follow TypeScript 形状」的真账：[tests/parse/ts-shape.mjs](tests/parse/ts-shape.mjs)
 负责换名、补壳 / 提层、给字段名，`cases:tsast` 逐节点比 **kind / 区间 / 字段名** 三样。
-投影节点的数与 TS 语义节点同量级（真实语料 477965 vs 453862，1.05×），所以剩下的差距是**结构**，
+投影节点的数与 TS 语义节点同量级（真实语料 478779 vs 453862，1.05×），所以剩下的差距是**结构**，
 不是规模——正是要接着重构 token 层去补的那几层壳与字段切分。
-真实语料（`.d.ts` 为主）已经到 **95.5%**：那批文件几乎全是「声明 + 类型」，正是投影覆盖得最好的部分。
+真实语料（`.d.ts` 为主）已经到 **95.8%**：那批文件几乎全是「声明 + 类型」，正是投影覆盖得最好的部分。
 ### 当前状态（实测，`npm run` 十九个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1020 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
-| `cases:diff` | 1400 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径）。第 68 轮复核时这一行报过 **Field +119**：索引签名第 66 轮起有自己的 `<IndexSignature>` 标签，而 `differential.mjs` 的映射表还写着 `IndexSignatureDeclaration → Field`，于是 120 处索引签名被算成「Field 没成节点」——**量具的映射没跟着标签表走**，不是解析缺口。接回去之后：`Field` 源码侧 20243 / 产物侧 20244（**−1**，那一处多收在 `decl-class-computed-member.ts`，正是 `cases:dashboard` 的「真多 1」）、`IndexSignature` 120 / 120（**0**），其余各行不变 |
+| `cases:run` | 1022 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:diff` | 1402 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径）。第 68 轮复核时这一行报过 **Field +119**：索引签名第 66 轮起有自己的 `<IndexSignature>` 标签，而 `differential.mjs` 的映射表还写着 `IndexSignatureDeclaration → Field`，于是 120 处索引签名被算成「Field 没成节点」——**量具的映射没跟着标签表走**，不是解析缺口。接回去之后：`Field` 源码侧 20243 / 产物侧 20244（**−1**，那一处多收在 `decl-class-computed-member.ts`，正是 `cases:dashboard` 的「真多 1」）、`IndexSignature` 120 / 120（**0**），其余各行不变 |
 | `cases:dashboard` | **真缺 0 个节点**（第 71 轮起 `&&` / `\|\|` 由 `LogicalOperator` 承担，台账里那一行也随之从「真多 114」降下来） |
-| `cases:lossless` | 1388 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1391 个文件、括号归属不符 **0**（12 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1388 个文件：对齐可信 1043 个、跳过 345 个，语句表 540 个、边界 2347 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下）。**这个 0 是在语料上测的**：`{ A }a += 1` 那种「块紧贴下一条语句、中间既没有 `;` 也没有换行」的形状仍然被并成一个 `<Statement>`（下面「已知缺口」有专条；把它单独喂给尺子是 **1 处横跨**，语料里没有这个形状，所以表里的 0 是**覆盖范围**的 0，不是「这个形状已经修好」） |
-| `cases:noise` | 1391 个文件，空 `<Statement>` **0** 个 |
+| `cases:lossless` | 1393 个文件、抛异常 0、内容丢失 0 |
+| `cases:structure` | 1393 个文件、括号归属不符 **0**（12 个文件因对齐不可信被跳过，见下） |
+| `cases:boundaries` | 1393 个文件：对齐可信 1047 个、跳过 346 个，语句表 540 个、边界 2347 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下）。**这个 0 是在语料上测的**：`{ A }a += 1` 那种「块紧贴下一条语句、中间既没有 `;` 也没有换行」的形状仍然被并成一个 `<Statement>`（下面「已知缺口」有专条；把它单独喂给尺子是 **1 处横跨**，语料里没有这个形状，所以表里的 0 是**覆盖范围**的 0，不是「这个形状已经修好」） |
+| `cases:noise` | 1393 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **157** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1404 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
+| `cases:align` | 1406 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `cases:fuzz3` | 抽样 20 万次得 9.7 万个合法三片段组合，**可疑 0 类**（第 67 轮新加，见上） |
-| `cases:astjson` | **两个出口同源**：1020 条用例 + 384 个真实语料文件，逐节点比对 **0 处不符**（`--self-test` 的 5 种变异全部被抓到）。这一轮的实测数：1388 个文件、**533887 个产物节点** |
+| `cases:astjson` | **两个出口同源**：1022 条用例 + 384 个真实语料文件，逐节点比对 **0 处不符**（`--self-test` 的 5 种变异全部被抓到）。这一轮的实测数：1393 个文件、**533957 个产物节点** |
 | `samples` | declarations / generic / hello 三份一致（XML 与 AST JSON 各一份夹具；夹具是紧凑单行，XML 比对忽略标签之间的空白，JSON 逐字节比） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
@@ -1490,6 +1490,40 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 72 轮：声明位的修饰词 + 类构造 + 剩余形参的 `...`（真实语料 95.5% → 95.8%）
+
+这一轮清的是**缺口榜上的三小块**，三处都很小、但根因各不相同：
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `ExportKeyword` 缺 606（`InterfaceDeclaration` 480 / `TypeAliasDeclaration` 126） | **同一件事有两种写法**：`Class` 的修饰词是 `modifiers="export"` **字符串**，而 `Interface` / `Namespace` 是 `export="true"` **布尔属性**——`addModifiers` 只认字符串，于是整类 `ExportKeyword` 出不来；`export type T = …` 更绕：修饰词在 `TypeAssign` 上、而 `pos` 要从外层 `Statement` 起 | `addModifiers` 增加布尔属性那一支；`projectTypeAlias` 增加 `baseStart`（外层起点由 `projectStatement` 递进来） |
+| `Constructor` 缺 269 | 类里的 `constructor` 在产物里与普通方法**同标签**（`MethodDeclaration`、还带 `name="constructor"`），而 TS 那边它是另一个 kind、**没有名字字段** | 按「父 kind = `ClassDeclaration` + `name` 属性等于 `constructor`」换成 `Constructor`（**不是** `ConstructorDeclaration`——这个 TypeScript 里 `ts.SyntaxKind[...]` 印出来就是 `Constructor`），并从 `structuralProps` 里排掉它的 `name`；`FIELD_BY_KIND` 里补 `Constructor.children → parameters` |
+| `DotDotDotToken` 缺 483 | 剩余形参的 `...` 在产物里常常是**平级的 `SymbolToken("...")`**（只有被收成 `Spread` 时才是标签），投影只认了 `Spread` | 两种情况都认，位置取那个单元自己的 `range` |
+
+**同一轮补记第 71 轮的一处口径**：`IfStatement` 的旧路径让 `IfSegment` 的 `condition` / `statement`
+两段被子单元**踩了两遍**（`structuralProps` 把段值和 `children` 都扫了），所以第 71 轮换掉那条路径之后
+`cases:tsast` 的总节点数**净减 4419**——那不是丢节点，是**不再重复产出**。
+第 71 轮的提交信息里没写清这一点，补在这里。
+
+量化（同一批 1385 个真实语料文件 + 1022 条用例）：
+
+| 判据 | 改动前 | 改动后 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 95.5% | **95.8%** |
+| `cases:tsast` 用例语料 | 82.5% | **82.8%** |
+| 其中**字段名也一致**（真实语料） | 99.2% | **99.4%** |
+| 投影后仍缺 `ExportKeyword` | 607 | **0** |
+| 投影后仍缺 `Constructor` | 269 | **0** |
+| 投影后仍缺 `DotDotDotToken` | 483 | **0** |
+| 用例 | 1020 条全通过 | **1022 条全通过**（新增 2 条钉住本轮） |
+
+新增两条用例：`decl-class-constructor`（类里 `constructor` 与普通方法同标签、投影要分开）、
+`decl-fn-rest-parameter`（剩余形参的 `...` 是平级 `SymbolToken`）。九把尺子与五把探针全绿。
+
+**下一轮的目标**：`Identifier` 3009 / `TypeReference` 2102 + 漂移 1749（老账）、
+`AnyKeyword` 1408、`ConstructSignature` 1190（类型字面量里的 `new (…)`，**token 层**）、
+`StringLiteral` 1174、`QualifiedName` 969。
+
 ### 第 71 轮：`Block` 的两处来源 + 逻辑运算符符号进树（真实语料 94.4% → 95.5%）
 
 上一轮点名的第 1 条与第 4 条这一轮一起清了。两处**根因完全不同**，都是 token 层的形状问题：
@@ -1542,8 +1576,8 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 
 ### 实测规模
 
-`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1020 条用例
-**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1388 个文件；
+`node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `.ts` + 1022 条用例
+**全部解析成功、零异常、零内容丢失**（`npm run cases:lossless` 覆盖 1393 个文件；
 外加 92 个「结尾没有换行」片段与 27 个换行风格 / 规模片段，见第 64 轮）。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。

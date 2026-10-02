@@ -165,14 +165,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14486 / 15343 | 477965 / 453862 |
-| 同 kind 同区间 | **82.5%** | **95.5%** |
-| 其中**字段名也一致** | **96.8%** | **99.2%** |
+| 投影节点 / TS 语义节点 | 14532 / 15343 | 478779 / 453862 |
+| 同 kind 同区间 | **82.8%** | **95.8%** |
+| 其中**字段名也一致** | **97.0%** | **99.4%** |
 
 **「缺」与「漂移」是两件事，尺子分开报**（第 34 轮补的）：前者是「这一类根本没投出来」，
 后者是「同一类节点位置差一点」。混在一起时漂移会把缺失挤下榜首——
 真实语料里 `TypeReference` 的漂移 1749 比它自己的缺失 2102 还接近榜首。
 两段现在都带样本（`投影后仍缺的 TS kind` / `投影后同 kind 但区间漂移`）。
+
+### 第 72 轮：声明位的修饰词 + 类构造 + 剩余形参的 `...`（真实语料 95.5% → 95.8%）
+
+三小块、三种根因：
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `ExportKeyword` 缺 **606**（`InterfaceDeclaration` 480 / `TypeAliasDeclaration` 126） | **同一件事两种写法**：`Class` 是 `modifiers="export"` 字符串，`Interface` / `Namespace` 是 `export="true"` 布尔属性——`addModifiers` 只认字符串；`export type T = …` 的修饰词在 `TypeAssign` 上、`pos` 却要从外层 `Statement` 起 | `addModifiers` 增加布尔属性那一支；`projectTypeAlias` 增加 `baseStart` |
+| `Constructor` 缺 **269** | 类里的 `constructor` 与普通方法同标签（`MethodDeclaration` + `name="constructor"`），TS 那边是另一个 kind、**没有名字字段** | 按「父 kind = `ClassDeclaration` + `name` 属性」换成 `Constructor`，`structuralProps` 排掉它的 `name`，字段表补 `Constructor.children → parameters` |
+| `DotDotDotToken` 缺 **483** | 剩余形参的 `...` 常常是**平级的 `SymbolToken`**（不是 `Spread`），投影只认了 `Spread` | 两种情况都认 |
+
+两处**踩过的坑**记在这里：`ts.SyntaxKind` 里那个 kind 印出来是 **`Constructor`**，
+不是 `ConstructorDeclaration`（后者是 `undefined`）；判 `constructor` 要用 `name` **属性**，
+不能用 `textOf`——方法单元自己没有 `value`，`textOf` 会退回「整段方法体」。
+
+**补记第 71 轮的一处口径**：旧 `IfStatement` 路径让 `IfSegment` 的 `condition` / `statement`
+两段被子单元**踩了两遍**，所以第 71 轮换掉路径后总节点数净减 4419——不是丢节点，是**不再重复产出**。
+
+成绩：真实 95.5% → **95.8%**、用例 82.5% → **82.8%**、字段名 99.2% → **99.4%**；
+三类缺口全部归零。新增两条用例（`decl-class-constructor` / `decl-fn-rest-parameter`），用例 1020 → **1022**。
 
 ### 第 71 轮：`Block` 的两处来源 + 逻辑运算符符号进树（真实语料 94.4% → 95.5%）
 

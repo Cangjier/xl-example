@@ -302,6 +302,9 @@ const FIELD_BY_KIND = new Map([
   // 所以 `cases:shapelint` 现在会**扫源码**把重复键揪出来。
   ["MethodDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["MethodSignature", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  // 类构造：类里的 `constructor` 投成 `Constructor`（`SyntaxKind[177]`），字段名与函数一样是 `parameters`
+  // ——没有这一行时它的形参会顶着 `children` 出去（实测 137 + 109 处字段名差异）。
+  ["Constructor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
 ]);
@@ -487,8 +490,15 @@ const endOf = (node) => (node.get("range") ? node.get("range")[1] + 1 : 0);
 // 投影
 // ---------------------------------------------------------------------------
 
-/** 一个产物节点 → 一个 TS 形状节点。 */
-function projectNode(node, ctx) {
+/**
+ * 一个产物节点 → 一个 TS 形状节点。
+ *
+ * `parentKind` 是**投影意义上的父 kind**（不是产物树里的父亲）——只有
+ * 「同一套产物标签在两个上下文里叫两种名字」的那几处要问它：
+ * 现在只有一处，类体里的 `constructor` 是 `ConstructorDeclaration` 而不是 `MethodSignature`。
+ * 取值由 `structuralProps` 在摊平包装体时往下传（`ClassBody` 的成员拿到的是 `ClassDeclaration`）。
+ */
+function projectNode(node, ctx, parentKind) {
   if (!(node instanceof Map)) return undefined;
   const v = view(node);
   ctx.count++;
@@ -505,7 +515,9 @@ function projectNode(node, ctx) {
     if (SIGNATURE_KINDS.has(kind) && ctx.source[end] === ";") end += 1;
     return Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end });
   };
-
+  // **父 kind**：少数几处「同一个产物标签按上下文换 kind」要问它
+  // （类里的 `constructor` 是 `ConstructorDeclaration`）。它由 `structuralProps`
+  // 在摊平包装体时显式往下传——不是从产物树的父亲读的。
   switch (v.type) {
     case "Root":
       return mk("SourceFile", { statements: projectEach(kidsOf(v, "children"), ctx) });
@@ -605,8 +617,23 @@ function projectNode(node, ctx) {
         ctx.unmapped.add(v.type);
         return mk(v.type, { children: projectEach(allKids(v), ctx) });
       }
-      // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）。
+      // **接口 / 类型字面量里的方法声明是 `MethodSignature`**（类里才是 `MethodDeclaration`）；
+      // **类里那个叫 `constructor` 的是 `ConstructorDeclaration`**（另一个 kind、没有名字字段）——
+      // 两处都是「同一个产物标签、按上下文换 kind」（真实语料 `Constructor` 缺 269，全挂在 `ClassDeclaration` 下）。
       if (ctx.signature && v.type === "MethodDeclaration") kind = "MethodSignature";
+      else if (
+        v.type === "MethodDeclaration" &&
+        parentKind === "ClassDeclaration" &&
+        v.attrs.get("name") === "constructor"
+      ) {
+        // **判据是 `name` 属性、不是 `textOf`**：方法单元自己没有 `value`，
+        // `textOf` 会退回 `source.slice(v.start, v.end)`（那是整段方法体，不是名字）。
+        //
+        // kind 名是 **`Constructor`**（`ts.SyntaxKind[177]` 印出来就是 `Constructor`；
+        // `ConstructorDeclaration` 在这个 TypeScript 里是 `undefined`——按后者投，
+        // 尺子上 269 处构造签名会一直算作「缺 `Constructor`」）。
+        kind = "Constructor";
+      }
       return mk(kind, structuralProps(v, kind, ctx));
     }
   }
@@ -652,17 +679,17 @@ function projectEachIn(list, ctx, parentKind) {
     return out;
   }
   const signature = parentKind === "InterfaceDeclaration" || parentKind === "TypeLiteral";
-  if (!signature) return projectEach(list, ctx);
+  if (!signature) return projectEach(list, ctx, parentKind);
   const saved = ctx.signature;
   ctx.signature = true;
   try {
-    return projectEach(list, ctx);
+    return projectEach(list, ctx, parentKind);
   } finally {
     ctx.signature = saved;
   }
 }
 
-function projectEach(list, ctx) {
+function projectEach(list, ctx, parentKind) {
   if (!Array.isArray(list)) return [];
   const out = [];
   const items = list.filter((item) => item instanceof Map && !INVISIBLE.has(item.get("type")));
@@ -680,7 +707,7 @@ function projectEach(list, ctx) {
         labels.push(items[j]);
         j++;
       }
-      const statement = j < items.length ? projectNode(items[j], ctx) : undefined;
+      const statement = j < items.length ? projectNode(items[j], ctx, parentKind) : undefined;
       if (statement !== undefined) {
         let wrapped = statement;
         for (let k = labels.length - 1; k >= 0; k--) {
@@ -692,7 +719,7 @@ function projectEach(list, ctx) {
       }
     }
     // `undefined` = 这个单元在 TS 那边是 trivia（例如只有注释的语句），**不收**。
-    const projected = projectNode(items[i], ctx);
+    const projected = projectNode(items[i], ctx, parentKind);
     if (projected !== undefined) out.push(projected);
     i++;
   }
@@ -825,10 +852,14 @@ function projectStatement(v, ctx) {
       return Object.assign({ kind }, props, { pos: v.start, end: stmtEndOf(v, ctx) });
     }
   }
+  // `head` 是不是名字上的**类型别名**（`TypeAssign`，`export type T = …` 的外壳还是 `Statement`）。
   if (kids.length === 1) {
     const kind = KIND_BY_TAG.get(headType);
     if (kind !== undefined) {
-      const projected = projectNode(head, ctx);
+      // **`export type T = …` 的 `pos` 在外层 `Statement` 上、修饰词在 `TypeAssign` 上**：
+      // 起点取外层的 `v.start`，所以这里把外层起点递给 `projectTypeAlias`。
+      const projected =
+        headType === "TypeAssign" ? projectTypeAlias(view(head), ctx, v.start) : projectNode(head, ctx);
       // 单个子单元**本身就是语句**（`if` / `class` / `import`…）⇒ 不再套壳；
       // 是**表达式**（`f(1)` / `a + b` / `new X`）⇒ TS 那边是 `ExpressionStatement > 表达式`。
       if (STATEMENT_KINDS.has(kind)) return projected;
@@ -1408,12 +1439,22 @@ function projectEnumMember(v, ctx) {
  * （实测 `Field[12,34]` 的 `modifiers="private,readonly"`：12 正是 `private` 的开头），
  * 所以从 `v.start` 起**按顺序**找每个词即可。
  */
-function addModifiers(v, props, ctx) {
+function addModifiers(v, props, ctx, baseStart) {
+  let words = [];
   const modifiers = v.attrs.get("modifiers");
-  if (typeof modifiers !== "string" || modifiers === "") return;
-  const words = modifiers.split(",").filter((word) => word !== "");
+  if (typeof modifiers === "string" && modifiers !== "") {
+    words = modifiers.split(",").filter((word) => word !== "");
+  } else {
+    // **声明位的 `export` / `declare` 是布尔属性**（`Interface export="true"` / `Namespace declare="true"`），
+    // 而 `Class` 那边是 `modifiers="export"` 字符串——两种写法都要认（真实语料 606 处
+    // `ExportKeyword` 全挂在 `InterfaceDeclaration` 480 / `TypeAliasDeclaration` 126 上）。
+    for (const [key, value] of v.attrs) {
+      if (value === true || value === "true") words.push(key);
+    }
+  }
+  if (words.length === 0) return;
   const out = [];
-  let at = v.start;
+  let at = baseStart === undefined ? v.start : baseStart;
   for (const word of words) {
     const found = ctx.source.indexOf(word, at);
     const pos = found >= 0 && found < v.end ? found : at;
@@ -1428,8 +1469,13 @@ function addModifiers(v, props, ctx) {
  *
  * 产物那边名字在 `alias` 属性上、右值在子节点里（`=` 之后），中间是平级的散单元——
  * 所以在 `=` 处切开：左边第一格是 `name`，右边整段是 `type`。
+ *
+ * **修饰词在 `TypeAssign` 自己身上，但 `pos` 要从外层量**：`export type T = string` 的产物是
+ * `Statement > [TypeAssign(modifiers="export"), =, 右值]`——`TypeAssign` 的起点是 `type` 那个词、
+ * 而 TS 的 `TypeAliasDeclaration` 从 `export` 起。所以 `baseStart` 由调用方
+ * （`projectStatement`）把外层的起点递进来，修饰词仍从 `v`（`TypeAssign`）读。
  */
-function projectTypeAlias(v, ctx) {
+function projectTypeAlias(v, ctx, baseStart) {
   const kids = projectableKids(v).filter((k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ";"));
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const aliasText = String(v.attrs.get("alias") ?? "");
@@ -1449,7 +1495,8 @@ function projectTypeAlias(v, ctx) {
     const params = unwrapNodes(generic).filter((k) => k.get("type") === "TypeParameter");
     if (params.length > 0) props.typeParameters = projectEach(params, ctx);
   }
-  return { kind: "TypeAliasDeclaration", pos: v.start, end: v.end, ...props };
+  addModifiers(v, props, ctx, baseStart);
+  return { kind: "TypeAliasDeclaration", pos: baseStart ?? v.start, end: v.end, ...props };
 }
 
 /**
@@ -1463,6 +1510,10 @@ function projectParameter(v, ctx) {
   const nameNode = kids.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
   const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
   const question = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
+  // **剩余形参的 `...` 是子节点**（TS：`Parameter > [dotDotDotToken, name, type]`，语料 483 处）。
+  // 产物那边它常常是**第一个平级的 `SymbolToken("...")`**（`...args: string[]`），
+  // 只有被收成 `Spread` 时才走下面那一支（`Spread` 是 `<Spread>` 标签、`kind` 是 `SpreadElement`）。
+  const dots = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
   const rest = kids.find((k) => k.get("type") === "Spread");
   const props = {
     name: nameNode === undefined ? undefined : projectNode(nameNode, ctx),
@@ -1477,7 +1528,12 @@ function projectParameter(v, ctx) {
     const at = startOf(typeNode);
     props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
   }
-  if (rest !== undefined) props.dotDotDotToken = projectNode(rest, ctx);
+  // `...` 的位置用**它自己的 `range`**（不是从名字往回推一位）：`k.get("range")[0]` 就是那个点号。
+  if (dots !== undefined) {
+    props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
+  } else if (rest !== undefined) {
+    props.dotDotDotToken = projectNode(rest, ctx);
+  }
   return { kind: "Parameter", pos: v.start, end: v.end, ...props };
 }
 
@@ -2091,7 +2147,14 @@ function structuralProps(v, kind, ctx) {
   let nameNode = null;
   // 计算属性名的那个单元（`[Symbol.toPrimitive]`）；它在下面的段循环里要**跳过**。
   let computedUnit = null;
-  if (name !== "") {
+  // **`Constructor` 没有 `name` 字段**（TS 的类构造就是一个匿名的函数式声明）：
+  // 产物那边它带着 `name="constructor"`，照抄会多出一个 TS 不认的 `Identifier`
+  // 挂在构造下（那一格一直对不上）。
+  const nameKinds = kind === "Constructor" ? false : name !== "";
+  if (name !== "" && kind === "Constructor") {
+    used.add("name");
+  }
+  if (nameKinds) {
     // **首选树里那个真子单元**：声明名现在作为 `Identifier` 留在 `Data` 里（见
     // `typescript/tokens/class/class.xl.md` 的 `Process`），它带自己的 `SourceRange`——
     // 拿它就是拿真位置，不做任何猜测。只有还没补上子单元的 token 才走 `synthName`。
@@ -2180,7 +2243,11 @@ function structuralProps(v, kind, ctx) {
       if (nodes.length === 0) continue;
       const field = target === "children" ? fieldNameFor(kind, key) : fieldNameFor(kind, target);
       const already = props[field];
-      const projected = projectEachIn(nodes, ctx, kind);
+      // **包装体的成员拿到的是「外层声明」的 kind**：`ClassBody` 的 `members` 属于
+      // `ClassDeclaration`（类里的 `constructor` 要按这个上下文投成 `ConstructorDeclaration`），
+      // 不是 `ClassBody` 自己。
+      const membersParent = kind === "ClassBody" ? "ClassDeclaration" : kind;
+      const projected = projectEachIn(nodes, ctx, membersParent);
       props[field] = Array.isArray(already) ? already.concat(projected) : projected;
     }
   }
