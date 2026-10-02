@@ -2378,8 +2378,18 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     return fn;
   }
   const head = list[0];
-  const generic = list.find((k) => k.get("type") === "GenericType");
+  let generic = list.find((k) => k.get("type") === "GenericType");
   const arraySuffix = list.find((k) => k.get("type") === "ArrayType");
+  // **`A<T>[]` 的产物把实参段装进了 `ArrayType` 里面**（第 104 轮）：
+  // `[Identifier(Dirent), ArrayType(GenericType(NonSharedBuffer))]`——那个 `GenericType`
+  // 是**基名的实参表**，不是元素类型。照原样投会得到「`TypeReference` 只盖住 `Dirent`」
+  // + 数组里多出一个 `TypeReference`，实参那一格的 `Identifier` 也丢
+  //（实测 `TypeReference` 缺 220 / 漂移 50、`Identifier` 缺 553 里成片就是这个形状，
+  // `@types/node/fs.d.ts` 的 `Dirent<NonSharedBuffer>[]` 一眼可见）。
+  if (generic === undefined && arraySuffix !== undefined) {
+    const inside = projectableKids(view(arraySuffix)).find((k) => k.get("type") === "GenericType");
+    if (inside !== undefined) generic = inside;
+  }
 
   if (head.get("type") === "Identifier" || head.get("type") === "Keyword") {
     const text = textOfNode(head, ctx);
