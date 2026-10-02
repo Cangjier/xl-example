@@ -2360,3 +2360,36 @@ node tests/parse/ts-ast.mjs --file <路径>   # 单文件四方向
 | `decl-class-computed-member.ts` | 3 / 1 / 3 | 无分隔符的类字段 + `[` 续行（TS 自己读得很怪） |
 | `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[]` 的实参段 |
 | `ex-new-variants.ts` / `stmt-adversarial-shapes.ts` / `lex-number-member-with-space.ts` | 各 4~5 | 零散 |
+
+---
+
+# 第 154~157 轮：成员名 / 被构造者 / as-satisfies / 明确赋值断言 / 点号命名空间
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 153 轮末 | 1307 / 1407 | 134 | 46 | 94 | 24 | 298 |
+| 第 157 轮末 | **1330 / 1407** | 88 | 31 | 79 | 17 | **217** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 154 | **点号后面的 `export` 是成员名**（`interfaceInstance.export = true`），不是导出语句 | `tokens/export.xl.md` |
+| 154 | **`new` 的被构造者可能是一串**（`new a.b.C()` / `new (getCtor())()`）；括号形态要走 `parenthesizedOf` | `ts-ast.xl.md` |
+| 154 | **`as` / `satisfies` 串联**（`a as const satisfies B`）要一路折到底（外层 `SatisfiesExpression`、里面套 `AsExpression`） | `ts-ast.xl.md` |
+| 155 | **类型参数约束里套一层联合/交叉**：`<T extends string & {} \| symbol>` 的产物是 `UnionType > [IntersectionType([T, extends, string, &, {}]), \|, symbol]`——要摊平内层才找得到 `extends` | `ts-ast.xl.md` |
+| 156 | **明确赋值断言 `a!: number`**：`!` 是 `VariableDeclaration` / `PropertyDeclaration` 的 `exclamationToken`（平级 `SymbolToken`） | `ts-ast.xl.md` |
+| 156 | **点号命名空间的三层区间**：`namespace A.B.C` 的产物已经是三层嵌套的 `Namespace` 单元，但每层都抄了外层的起止；名字也要只取第一段 | `tokens/namespace/namespace.xl.md` / `ts-ast.xl.md` |
+| 156 | 内层 `Namespace` 单元要映射成 `ModuleDeclaration.body` | `ts-ast.xl.md`（`BODY_FIELDS`） |
+| 157 | **无花括号体的终点**取投影节点自己的 `end`（产物单元带尾随软换行） | `ts-ast.xl.md`（`blockOfBody`） |
+
+## 还剩什么（共 217）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `am-block-lambda-array-compound.ts` | 5 / 2 / 4 | 箭头体续上 `[`（ASI 的 `[` 续行）——与 `decl-class-computed-member.ts` 同源 |
+| `decl-class-computed-member.ts` | 3 / 1 / 3 | 无分隔符的类字段 + `[` 续行（TS 自己读得很怪） |
+| `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[][]` 双后缀 |
+| `lex-number-member-with-space.ts` | 4 / 0 / 1 | `1 .toString()`（词法层把 `1 .` 收成一格） |
+| `type-new-nodes-adversarial.ts` | 3 / 2 / 1 / 1 | 类型组合 |
+| 其余 | 每文件 1~3 | 零散 |
