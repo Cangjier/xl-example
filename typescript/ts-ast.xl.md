@@ -387,7 +387,10 @@ new Map([
   // ——没有这一行时它的形参会顶着 `children` 出去（实测 137 + 109 处字段名差异）。
   ["Constructor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
-  ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  // **箭头的返回类型字段叫 `type`**（第 120 轮）：`ReturnType` 在 `WRAPPER_FIELDS` 里统一映射成
+  // `type`，但 `ArrowFunction` 这一格在 `BODY_FIELDS` / 段名那一支里漏了改名——
+  // 于是 `(a): B => c` 的字段名是 `returnType`，而 TS 是 `type`（实测字段名差 5 + 4）。
+  ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"], ["returnType", "type"]])],
   // **循环两族的段名**（第 76 轮）：产物从一开始就按上游 Cangjie 的段名记
   // （`for…of` 是 `define` / `enumable` / `body`），TS 那边是另外三个名字。
   // 段名对不上时**只有「字段名」那一栏会红**（kind 与区间都是对的），实测：
