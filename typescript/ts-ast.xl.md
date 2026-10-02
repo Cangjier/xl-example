@@ -1002,8 +1002,6 @@ new Map([
     case "Import":
       return projectImport(v, ctx);
 
-    case "Switch":
-      return projectSwitch(v, ctx);
 
     case "IfSet":
       return projectIfSet(v, ctx);
@@ -1045,8 +1043,6 @@ new Map([
     // **`for` 语句**（第 93 轮）：四个段在 TS 那边是 `initializer` / `condition` /
     // `incrementor` / `statement`，其中头三段是**表达式位**（照通用投影会逐个单元投，
     // `i < j` 会散成三个节点）、空体段在 `ToList` 里**是空数组**（空 `Block` 要自己造）。
-    case "For":
-      return projectFor(v, ctx);
 
     // **循环体的花括号要自己造**（第 96 轮）：`while` / `do…while` / `for…of` 的体段在
     // `ToList` 里只有语句（体括号那层壳不在树里），照通用投影 `statement` 会是裸的语句
@@ -5259,30 +5255,6 @@ import { A as B, C } from "m"
   return node;
 ```
 
-# private method projectSwitch:(v:any, ctx:any)=>any
-
-`switch (v) { … }` → `SwitchStatement`（`expression` + `caseBlock`）。
-
-TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），产物那边没有这一层
-（`Switch` 只有 `compare` 与 `segments` 两个段）——所以这里**合成**它：
-区间从第一个 `{` 起、到 `switch` 自己的终点（那个 `}` 正好是最后一个字符）。
-
-```ts
-  const kids = projectableKids(v);
-  const cond = kidsOf(v, "compare");
-  const segments = kidsOf(v, "segments");
-  const brace = ctx.source.indexOf("{", v.start);
-  const props = {};
-  if (cond.length > 0) props.expression = projectExpression(cond, ctx);
-  props.caseBlock = {
-    kind: "CaseBlock",
-    clauses: segments.map((seg) => projectSwitchClause(seg, ctx)),
-    pos: brace >= 0 ? brace : v.start,
-    end: stmtEndOf(v, ctx),
-  };
-  return { kind: "SwitchStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectSwitchClause:(seg:any, ctx:any)=>any
 
 一个 `case` / `default` 分支 → **`CaseClause` / `DefaultClause`**（第 89 轮）。
@@ -5757,62 +5729,6 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     return { node: { kind: "IfStatement", pos, end, ...props }, end };
   };
   return build(0).node;
-```
-
-# private method projectFor:(v:any, ctx:any)=>any
-
-`for (let i = 0, j = 1; i < j; i++, j--) {}` → `ForStatement`。
-
-产物那边四个段是命名段（`initial` / `compare` / `next` / `body`），TS 那边是
-`initializer` / `condition` / `incrementor` / `statement`：
-
-- **头部三段是表达式位**：照通用投影会逐个单元投（`i < j` 会散成 `Identifier` +
-  `LessThanToken` + `Identifier`，实测「缺 `BinaryExpression`」成片是这个形状）；
-  `let` 开头的那一段走列表版（`VariableDeclarationList`，**不套 `VariableStatement`**）；
-- **体段为空时 `body` 是 `[]`**（`for (;;) {}` 的空块在 `ToList` 时就摊掉了），
-  而 TS 那边仍有一个空 `Block`——所以空体要**自己从原文造**（按头部 `)` 之后的 `{` 量区间）。
-
-```ts
-  const props = {};
-  const initial = kidsOf(v, "initial").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (initial.length > 0) {
-    props.initializer =
-      initial[0].get("type") === "Let"
-        ? projectLetFrom(initial, ctx, v).list
-        : projectExpression(initial, ctx);
-  }
-  const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (compare.length > 0) props.condition = projectExpression(compare, ctx);
-  const next = kidsOf(v, "next").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (next.length > 0) props.incrementor = projectExpression(next, ctx);
-  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
-  const built = blockOfBody(body, ctx);
-  if (built !== undefined) {
-    props.statement = built.node;
-  } else if (ctx.source[stmtEndOf(v, ctx) - 1] === "}") {
-    // 空体：括号在原文里，自己量（与 `projectTry` 里两个块同一套做法）。
-    const header = ctx.source.indexOf(")", v.start);
-    const brace = header >= 0 ? ctx.source.indexOf("{", header) : -1;
-    const close = brace >= 0 ? matchingBrace(ctx.source, brace) : -1;
-    if (brace >= 0 && close >= brace) {
-      props.statement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
-    }
-  }
-  // **空体语句 `for (…);`**（第 127 轮）：体段是空的、原文里 `)` 之后紧跟一个 `;`——
-  // TS 那边那是一个 `EmptyStatement`（`ForStatement.statement` 不会缺）。少了这一支，
-  // 这一条语句少一个字段、`EmptyStatement` 整类缺（实测 `dist/ts/typescript/ts-ast.ts`）。
-  if (props.statement === undefined) {
-    const close = matchingParenOf(ctx.source, v.start);
-    let at = close >= 0 ? close + 1 : v.start;
-    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-    if (ctx.source[at] === ";") {
-      props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
-    }
-  }
-  // **尾部 trivia 要剪掉**（第 125 轮）：循环的体段在产物里常含行尾的软换行
-  // （`for (const x of raw) if (x) f(x);` 换行），而 TS 的语句**从不含尾部 trivia**——
-  // 不剪的话 `ForOfStatement` / `ForStatement` 的终点比 TS 多一格（实测漂移 + 多出各一片）。
-  return { kind: "ForStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any)=>any
@@ -7009,6 +6925,8 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     PunctBetween: (view, fromKey, toKey, punct) => punctBetween(view, fromKey, toKey, punct, ctx),
     UnwrapNodes: (unit) => unwrapNodes(unit),
     TypeOf: (list) => typeOf(list, ctx),
+    BlockOfBody: (list, from) => blockOfBody(list, ctx, from),
+    SwitchClause: (seg) => projectSwitchClause(seg, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

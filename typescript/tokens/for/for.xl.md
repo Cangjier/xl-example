@@ -160,6 +160,58 @@ C 风格 `for` 语句单元。
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<For>` 里依次是 Initial、Compare、Next、Body 四段的 XML。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`for (let i = 0, j = 1; i < j; i++, j--) {}` → `ForStatement`
+（**从 `ts-ast.xl.md` 的 `projectFor` 搬来**，第 189 轮）。
+
+产物那边四个段是命名段（`initial` / `compare` / `next` / `body`），TS 那边是
+`initializer` / `condition` / `incrementor` / `statement`：
+
+- **头部三段是表达式位**：照通用投影会逐个单元投（`i < j` 会散成 `Identifier` +
+  `LessThanToken` + `Identifier`）；`let` 开头的那一段走列表版
+  （`VariableDeclarationList`，**不套 `VariableStatement`**）；
+- **体段为空时 `body` 是 `[]`**（`for (;;) {}` 的空块在 `ToList` 时就摊掉了），
+  而 TS 那边仍有一个空 `Block`——所以空体要**自己从原文造**（按头部 `)` 之后的 `{` 量区间）；
+- **空体语句 `for (…);`**（第 127 轮）：体段是空的、原文里 `)` 之后紧跟一个 `;`——
+  TS 那边那是一个 `EmptyStatement`（`ForStatement.statement` 不会缺）；
+- **尾部 trivia 要剪掉**（第 125 轮）：循环的体段在产物里常含行尾的软换行，
+  而 TS 的语句**从不含尾部 trivia**。
+
+```ts
+  const props: any = {};
+  const initial = ctx.KidsOf(v, "initial").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (initial.length > 0) {
+    props.initializer =
+      initial[0].get("type") === "Let" ? ctx.LetFrom(initial, v).list : ctx.Expression(initial);
+  }
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (compare.length > 0) props.condition = ctx.Expression(compare);
+  const next = ctx.KidsOf(v, "next").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (next.length > 0) props.incrementor = ctx.Expression(next);
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const built = ctx.BlockOfBody(body);
+  if (built !== undefined) {
+    props.statement = built.node;
+  } else if (ctx.source[ctx.StmtEndOf(v) - 1] === "}") {
+    const header = ctx.source.indexOf(")", v.start);
+    const brace = header >= 0 ? ctx.source.indexOf("{", header) : -1;
+    const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
+    if (brace >= 0 && close >= brace) {
+      props.statement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
+    }
+  }
+  if (props.statement === undefined) {
+    const close = ctx.MatchingParen(ctx.source, v.start);
+    let at = close >= 0 ? close + 1 : v.start;
+    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+    if (ctx.source[at] === ";") {
+      props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
+    }
+  }
+  return ctx.Node("ForStatement", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，没有自己的字段要初始化。

@@ -146,6 +146,31 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<Switch>` 里依次是 `SwitchCompare` 与各段的 XML。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`switch (v) { … }` → `SwitchStatement`（`expression` + `caseBlock`；
+**从 `ts-ast.xl.md` 的 `projectSwitch` 搬来**，第 189 轮）。
+
+TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），产物那边没有这一层
+（`Switch` 只有 `compare` 与 `segments` 两个段）——所以这里**合成**它：
+区间从第一个 `{` 起、到 `switch` 自己的终点（那个 `}` 正好是最后一个字符）。
+
+```ts
+  const kids = ctx.Kids(v);
+  const cond = ctx.KidsOf(v, "compare");
+  const segments = ctx.KidsOf(v, "segments");
+  const brace = ctx.source.indexOf("{", v.start);
+  const props: any = {};
+  if (cond.length > 0) props.expression = ctx.Expression(cond);
+  props.caseBlock = {
+    kind: "CaseBlock",
+    clauses: segments.map((seg: any) => ctx.SwitchClause(seg)),
+    pos: brace >= 0 ? brace : v.start,
+    end: ctx.StmtEndOf(v),
+  };
+  return ctx.Node("SwitchStatement", props, v);
+```
+
 ## method CreateCompare:()=>SwitchCompare
 
 新建判别段并挂到自己名下，返回新单元。
