@@ -6876,10 +6876,20 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
       ...inner,
     };
   }
-  const finallyStatements = projectEach(seg("finally"), ctx, "Block");
-  if (finallyStatements.length > 0) {
-    const at = ctx.source.indexOf("finally", v.start);
-    const finallyBlock = blockAfter(at < 0 ? v.start : at, finallyStatements);
+  // **空的 `finally { }` 也要造块**（第 177 轮）：`finallyStatements.length === 0` 时原来直接
+  // 跳过，而 TS 那边照样有一个空的 `Block`（实测 `stmt-type-alias-then-try.ts`：
+  // 缺 `Block` + 少一个 `finallyBlock` 字段）。判据落在原文上：在**体（或 catch 体）之后**
+  // 找 `finally` 这个词——从 `v.start` 找会命中块里的字符串或注释。
+  const finallyFrom =
+    catchBody !== undefined
+      ? endOf(catchBody)
+      : tryBlock !== undefined
+        ? tryBlock.end
+        : v.start;
+  const finallyAt = ctx.source.indexOf("finally", finallyFrom);
+  if (finallyAt >= 0 && finallyAt <= stmtEndOf(v, ctx)) {
+    const finallyStatements = projectEach(seg("finally"), ctx, "Block");
+    const finallyBlock = blockAfter(finallyAt, finallyStatements);
     if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
   }
   // **终点剪掉尾部 trivia**（与其它语句族同一口径）：`try { … }` 的产物区间含它后面的换行。
