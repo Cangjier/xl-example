@@ -212,6 +212,28 @@ if (current.Is("global")) {
 const nameParts = namespaceInstance.namespace.split(".");
 const nestedInners: Namespace[] = [];
 let innermost: Namespace = namespaceInstance;
+// **名字各段的起点**（第 156 轮）：点号拆出来的每一层，TS 那边的 `getStart()` 就是
+// **它自己那一段**的位置（`namespace A.B { … }` 的里层是 `ModuleDeclaration[12,36)`，
+// 不是外层的 `[0,36)`）。原来每层都抄外层的起止，于是里层区间与外层一模一样、对拍全错位。
+// `SourceRange.Start` 是 **`Source` 对象**、不是下标（与 `inner.SourceRange.Start` 同一类型），
+// 所以这里存的是它本身。
+const nameStarts: Array<any> = [];
+{
+  let cursor = SkipNextWrapSymbol(units, index);
+  for (;;) {
+    const unit = Get(units, cursor);
+    if (!(unit instanceof Identifier) || unit.SourceRange.Start === null) {
+      break;
+    }
+    nameStarts.push(unit.SourceRange.Start);
+    const dotIndex = SkipNextWrapSymbol(units, cursor);
+    const dot = Get(units, dotIndex);
+    if (!(dot instanceof SymbolToken) || dot.Is(".") === false) {
+      break;
+    }
+    cursor = SkipNextWrapSymbol(units, dotIndex);
+  }
+}
 if (isStringName === false && nameParts.length > 1) {
   const outerStart = Get(units, startIndex)!.SourceRange.Start!;
   const outerEnd = Get(units, bracketIndex)!.SourceRange.End!;
@@ -224,7 +246,8 @@ if (isStringName === false && nameParts.length > 1) {
     // 而 `TryToClose` 要求范围完整（实测缺 End 时抛 `SourceRange.End is null`）。
     // 也不能改用 `SignOut` —— 它会递归签出「最后一个子单元」，同一层会被签两次
     // （实测抛 `SourceRange.End has been setted`）。所以这里直接写字段。
-    inner.SourceRange.Start = outerStart;
+    const segmentStart = nameStarts[partIndex];
+    inner.SourceRange.Start = segmentStart === undefined ? outerStart : segmentStart;
     inner.SourceRange.End = outerEnd;
     if (partIndex > 1) {
       parentNamespace.AddAndCloseLast(inner);

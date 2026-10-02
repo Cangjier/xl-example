@@ -280,6 +280,13 @@ new Map([
   ["MethodBody", "body"],
   ["NamespaceBody", "body"],
   ["LambdaBody", "body"],
+  // **点号命名空间的内层声明也是 `body`**（第 156 轮）：`namespace A.B.C { … }` 的产物是
+  // **三层嵌套的 `Namespace` 单元**（`A` 里面套 `B`、`B` 里面套 `C`），而 TS 那边
+  // `ModuleDeclaration.body` 就是**里面那层 `ModuleDeclaration`**（只有最内层挂 `ModuleBlock`）。
+  // 不收的话内层两层既进不了 `body`、名字也拿不到宿主
+  // （实测 `decl-namespace-dotted.ts`：缺两层 `ModuleDeclaration` + `Identifier` 漂移）。
+  // 没有副作用：命名空间体里的声明挂在 `NamespaceBody` 下面，不会以 `Namespace` 的身份直接做孩子。
+  ["Namespace", "body"],
 ])
 ```
 
@@ -3044,6 +3051,12 @@ new Set([
     // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
     const typeNode = one.find((k) => k.get("type") === "TypeDefine");
     if (typeNode !== undefined) declaration.type = projectTypeDefine(view(typeNode), ctx);
+    // **明确赋值断言 `let a!: number`**（第 156 轮）：TS 那边是
+    // `VariableDeclaration.exclamationToken`（`!` 是一个子节点），产物把它记成一个平级的
+    // `SymbolToken("!")`。不收的话缺 `ExclamationToken` + 字段名差一格
+    // （实测 `vars-definite.ts`：`VariableDeclaration` 与 `PropertyDeclaration` 各一处）。
+    const bang = one.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!");
+    if (bang !== undefined) declaration.exclamationToken = projectNode(bang, ctx);
     return declaration;
   });
   const list = {
@@ -4267,6 +4280,11 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
     if (question !== undefined) props.questionToken = projectNode(question, ctx);
   }
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
+  // **明确赋值断言 `x!: number`**（第 156 轮）：TS 那边 `!` 是
+  // `PropertyDeclaration.exclamationToken`（一个子节点），产物把它记成平级的 `SymbolToken("!")`
+  //（`?` 那一支的兄弟，见上）。不收会缺 `ExclamationToken` + 字段名差一格。
+  const bang = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!");
+  if (bang !== undefined) props.exclamationToken = projectNode(bang, ctx);
   addModifiers(v, props, ctx);
   // **字段上的装饰器也是修饰词**（`@Input() name: string`，第 95 轮）：`projectField` 不走
   // `structuralProps`，所以这一处要单独收（实测成员位缺 `Decorator` 3 + 缺 `CallExpression`）。
@@ -6392,6 +6410,17 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
 ```ts
   const props = structuralProps(v, "ModuleDeclaration", ctx);
   const name = String(v.attrs.get("namespace") ?? "");
+  // **点号名字的 `name` 只是第一段**（第 156 轮）：`namespace A.B { … }` 在 TS 那边是
+  // `ModuleDeclaration(A) > [Identifier(A), ModuleDeclaration(B)]`——外层那个名字只有 `A`。
+  // 照 `namespace` 属性（`"A.B"`）合成会得到一个盖住整串的 `Identifier`
+  //（实测 `decl-namespace-dotted.ts`：`Identifier` 漂移 1 + 缺两层 `ModuleDeclaration`）。
+  const dotted = name.split(".");
+  if (dotted.length > 1 && dotted[0] !== "") {
+    const at = ctx.source.indexOf(dotted[0], v.start);
+    if (at >= 0) {
+      props.name = { kind: "Identifier", text: dotted[0], pos: at, end: at + dotted[0].length };
+    }
+  }
   if (name !== "") {
     const brace = ctx.source.indexOf("{", v.start);
     const limit = brace < 0 ? v.end : brace;
