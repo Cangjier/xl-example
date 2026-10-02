@@ -632,7 +632,21 @@ if (nextIndex >= units.length) {
   return true;
 }
 const next = Get(units, nextIndex);
-if (Statement.ExpectsOperand(previous)) {
+// **成员名不「期待操作数」**（第 124 轮）：`ExpectsOperand` 只看**词形**，
+// 而 `default` / `new` / `in` / `is` / `readonly` 这些词出现在点号后面时是**属性名**
+// （`import("./m").default`、`x.new`、`o.in`）。把它们当成关键字，就会把
+// 「`…​.default` 换行 `const y = …`」判成续行——
+// 实测 `undici-types/index.d.ts` 的 `declare module "undici" { const Dispatcher:
+// typeof import('./dispatcher').default ; 换行 const Pool: … }`：整段（140 处缺口）
+// 因此被收进**一条类型标注**。
+//
+// 判据落在左边那一格上：点号（或可选链的点号）之后的名字永远是成员名。
+// 这一条只挡「期待操作数」那一支，**不挡**下面 `ContinuesExpression` 那一支——
+// `a.export` 换行 `= 1` 仍然续行（`=` 是运算符）。
+const beforePrevious = Get(units, SkipPreviousWrapSymbol(units, previousIndex));
+const previousIsMember =
+  beforePrevious instanceof SymbolToken && (beforePrevious.Is(".") || beforePrevious.Is("?."));
+if (previousIsMember === false && Statement.ExpectsOperand(previous)) {
   return false;
 }
 if (Statement.ContinuesExpression(next)) {

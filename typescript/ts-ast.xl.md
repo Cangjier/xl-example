@@ -1297,6 +1297,48 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
         continue;
       }
     }
+    // **`export` / `declare` / `default` 前缀 + 一条声明**（第 124 轮）。
+    //
+    // `projectStatement` 里早就有这一支，但它只在「整条语句被包在一个 `Statement` 单元里」
+    // 时才有机会跑。而顶层（`Root.ToList()` 那一层）**有些声明单元根本不在 `Statement` 里**：
+    // `export import X = ts.Y;` 实测就是
+    // `[Keyword(export), Import(X = ts.Y)]` 两个**平级**的顶层单元，
+    // 于是 `export` 被投成一个孤零零的 `ExportKeyword`、`ImportEqualsDeclaration`
+    // 从 `import` 起算（实测 `typescript.d.ts` 的二十来条 `export import … = …` 全中：
+    // 缺 `ImportEqualsDeclaration` 21 + 多出 21）。
+    //
+    // 判据与 `projectStatement` 那一支**同一套**：前缀词只能是 export / declare / default，
+    // 后面那一格按换名表必须是一条**语句**（`import` → `ImportDeclaration` 在 `STATEMENT_KINDS` 里）。
+    if (items[i].get("type") === "Keyword") {
+      let j = i;
+      while (
+        j < items.length &&
+        items[j].get("type") === "Keyword" &&
+        ["export", "declare", "default"].includes(textOfNode(items[j], ctx))
+      ) {
+        j++;
+      }
+      if (j > i && j < items.length) {
+        const lastKind = KIND_BY_TAG.get(items[j].get("type"));
+        if (lastKind !== undefined && STATEMENT_KINDS.has(lastKind)) {
+          const declaration = projectNode(items[j], ctx, parentKind);
+          if (declaration !== undefined) {
+            const leading = [];
+            for (let k = i; k < j; k++) {
+              const one = projectNode(items[k], ctx);
+              if (one !== undefined) leading.push(one);
+            }
+            const modifiers = [...leading, ...(declaration.modifiers ?? [])];
+            modifiers.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+            declaration.modifiers = modifiers;
+            declaration.pos = startOf(items[i]);
+            out.push(declaration);
+            i = j + 1;
+            continue;
+          }
+        }
+      }
+    }
     // `undefined` = 这个单元在 TS 那边是 trivia（例如只有注释的语句），**不收**。
     const projected = projectNode(items[i], ctx, parentKind);
     if (projected !== undefined) out.push(projected);
@@ -1563,6 +1605,39 @@ new Set([
     }
     if (at >= kids.length) return optional;
     return foldBinaryFrom(optional, kids.slice(at), ctx);
+  }
+  // ---- 0a2. `?.` 那一串被包进了**二元的操作数位**（第 124 轮）----
+  //
+  // `return t?.get("k") ?? "k"` 的产物是
+  //
+  //   [Identifier(t), BinaryOperator(??)( NullConditionalOperator(Method(get)), «??», String )]
+  //
+  // ——`?.` 之前的**基名 `t` 是那个 `BinaryOperator` 单元的前一个兄弟**，运算符与右操作数
+  // 都在它里面。照二元那一支走，左操作数落到 `t` 上、`BinaryOperator` 内部那个 NCO 另算，
+  // 于是 TS 的 `BinaryExpression` / `CallExpression` / `PropertyAccessExpression` /
+  // `QuestionDotToken` **整片丢**（实测 `dist/ts/typescript/ts-ast.ts` 与 `undici-types`
+  // 各成片：`table?.get(key) ?? key` 这种写法在产物里遍地都是）。
+  //
+  // 修法：先把这个 NCO 接到基名上（`chainWithOptional`），再把那个单元**内部**剩下的
+  // `[运算符, 右操作数, …]` 与本层后面还跟着的兄弟一起折成二元。
+  // 产物里那些运算符单元带着自己的区间，`foldBinaryFrom` 用 `textOfNode` 取文本，照收。
+  if (kids.length >= 2) {
+    for (let at = 1; at < kids.length; at++) {
+      const unit = kids[at];
+      if (unit.get("type") !== "BinaryOperator" && unit.get("type") !== "LogicalOperator") {
+        continue;
+      }
+      const inner = projectableKids(view(unit));
+      if (inner.length < 2 || inner[0].get("type") !== "NullConditionalOperator") {
+        continue;
+      }
+      const base = projectExpression(kids.slice(0, at), ctx);
+      if (base === undefined) {
+        continue;
+      }
+      const extended = chainWithOptional(base, inner[0], ctx);
+      return foldBinaryFrom(extended, [...inner.slice(1), ...kids.slice(at + 1)], ctx);
+    }
   }
   // ---- 0b. 展开实参（第 114 轮）----
   //
@@ -1849,11 +1924,13 @@ new Set([
 ```ts
   const kids = projectableKids(view(unit));
   const first = kids.length > 0 ? kids[0] : undefined;
-  const name = first === undefined ? undefined : projectNode(first, ctx);
   const at = first === undefined ? startOf(unit) : startOf(first);
   const dot = ctx.source.lastIndexOf("?", at);
+  // **`?` 必须就在基名的后面**（第 124 轮）：`lastIndexOf` 一路往前找会抓到**更早**的那个 `?`
+  // （上一条三元、上一个可选链），于是 `questionDotToken` 的区间整个错位。
+  // 基名与这一格之间只有 `?.` 两个字符，所以判据是「在 `left.end` 之后、`at` 之前」。
   const questionDot =
-    dot >= 0 && ctx.source[dot + 1] === "."
+    dot >= (left.end ?? 0) && dot < at && ctx.source[dot + 1] === "."
       ? { kind: "QuestionDotToken", text: "?.", pos: dot, end: dot + 2 }
       : undefined;
   // **`?.name(args)`**（第 107 轮）：那一格是一个 `Method`（调用）——先折出带 `?.` 的
@@ -1884,17 +1961,76 @@ new Set([
     if (questionDot !== undefined) call.questionDotToken = questionDot;
     return call;
   }
+  // **`?.[i]`**（第 124 轮）：实参是括号**里面**那一段——早先这里直接 `projectNode(first)`，
+  // 把整个 `[…]` 括号投成一个节点（未映射的 `<Bracket>`），于是 TS 那边
+  // `ElementAccessExpression` 有了、却凭空多出一个 `Bracket`。
   if (first !== undefined && first.get("type") === "Bracket" && first.get("startBracket") === "[") {
     const element = {
       kind: "ElementAccessExpression",
       expression: left,
-      argumentExpression: name,
+      argumentExpression: projectExpression(projectableKids(view(first)), ctx),
       pos: left.pos,
       end: endOf(unit),
     };
     if (questionDot !== undefined) element.questionDotToken = questionDot;
     return element;
   }
+  // **这一格自己又是一条链**（第 124 轮）：`a?.b.c` 的产物是
+  // `[Identifier(a), NullConditionalOperator(PropertyAccess([b, ., c]))]`——
+  // 整个 `b.c` 是 NCO 里的**一个** `PropertyAccess` 单元。走下面那条通用支的话，
+  // 那个单元会被投成**一个** `Identifier`（名字取到整段 `b.c`），于是
+  // `PropertyAccessExpression` 少一层、`Identifier` 多一个、区间也跟着漂
+  // （实测 `a?.b.c` / `x?.Parent.Parent` 这一族）。逐格接上去，
+  // `questionDotToken` 挂在**第一格**上（TS 就是这么放的：`a?.b.c` 的 `?.` 属于内层那个节点）。
+  if (first !== undefined && first.get("type") === "PropertyAccess") {
+    const members = projectableKids(view(first));
+    let node = left;
+    // **`?.` 挂在链的下一格上**（TS 的放法）：`a?.b.c` 里它是**内层**那个
+    // `a?.b` 的 `questionDotToken`，不是外层 `…​.c` 的。所以先存着，接第一格时用掉。
+    let pending: any = questionDot;
+    let j = 0;
+    while (j < members.length) {
+      const member = members[j];
+      if (member.get("type") === "NullConditionalOperator") {
+        node = chainWithOptional(node, member, ctx);
+        pending = undefined;
+        j += 1;
+        continue;
+      }
+      if (isDot(member, ctx)) {
+        j += 1;
+        continue;
+      }
+      if (member.get("type") === "Method") {
+        const nameText = String(member.get("name") ?? "");
+        const nameAt = startOf(member);
+        const holder = {
+          kind: "PropertyAccessExpression",
+          expression: node,
+          name: { kind: "Identifier", text: nameText, pos: nameAt, end: nameAt + nameText.length },
+          pos: node.pos,
+          end: nameAt + nameText.length,
+        };
+        if (pending !== undefined) holder.questionDotToken = pending;
+        const call = projectNode(member, ctx);
+        node = Object.assign({}, call, { expression: holder, pos: holder.pos });
+      } else {
+        const step = {
+          kind: "PropertyAccessExpression",
+          expression: node,
+          name: nameOf(member, ctx),
+          pos: node.pos,
+          end: endOf(member),
+        };
+        if (pending !== undefined) step.questionDotToken = pending;
+        node = step;
+      }
+      pending = undefined;
+      j += 1;
+    }
+    return node;
+  }
+  const name = first === undefined ? undefined : projectNode(first, ctx);
   const access = {
     kind: "PropertyAccessExpression",
     expression: left,
@@ -2497,6 +2633,37 @@ new Set([
   return { kind: "CallExpression", ...props };
 ```
 
+# private method projectSignedLiteralType:(v:any, ctx:any)=>any
+
+`LiteralType > [加号/减号, 数字]` → `LiteralType > PrefixUnaryExpression`；不是这个形状给 `undefined`
+（调用方照原来那条路走）。
+
+TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: MinusToken, operand: NumericLiteral }`），
+而不是「一个减号 + 一个数字」两个平级节点——所以那个 `-` 必须进 `operator` 字段、不进 `children`。
+
+```ts
+  const kids = projectableKids(v);
+  if (kids.length !== 2) return undefined;
+  const head = kids[0];
+  if (head.get("type") !== "SymbolToken") return undefined;
+  const op = textOfNode(head, ctx);
+  if (op !== "-" && op !== "+") return undefined;
+  const operand = projectNode(kids[1], ctx);
+  if (operand === undefined) return undefined;
+  return {
+    kind: "LiteralType",
+    literal: {
+      kind: "PrefixUnaryExpression",
+      operator: tokenKind(op),
+      operand,
+      pos: startOf(head),
+      end: operand.end,
+    },
+    pos: v.start,
+    end: v.end,
+  };
+```
+
 # private method projectTypeDefine:(v:any, ctx:any)=>any
 
 类型标注 `name: T` → `TypeReference`，**但原始类型不套这一层**。
@@ -2582,6 +2749,15 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
 ```ts
   const list = nodes.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")) && !isTypeSeparator(k, ctx));
   if (list.length === 0) return undefined;
+  // **带符号的数字字面量类型**（第 124 轮）：`type X = -1 | 0 | 1` 的产物是
+  // `LiteralType > [SymbolToken(-), Identifier(1)]`，而 TS 那边那个 `literal` 是
+  // **一个** `PrefixUnaryExpression`（`operator` 是 `MinusToken`、`operand` 是数字）。
+  // 不折这一层的话 `-` 会投成一个孤立的 `MinusToken`、`PrefixUnaryExpression` 整类缺
+  // （实测 `typescript.d.ts` 的 `pos: -1;` / `end: -1;`）。
+  if (list.length === 1 && list[0].get("type") === "LiteralType") {
+    const signed = projectSignedLiteralType(view(list[0]), ctx);
+    if (signed !== undefined) return signed;
+  }
   // **`TypeDefine` 先摊平**：有些上下文里整个类型位就是**一个** `TypeDefine` 子单元
   // （参数标注 / 字段标注那一族），而它的内容才是「基名 + 实参 + 数组后缀」那一串。
   // 不摊平的话 `list[0]` 是 `TypeDefine`，会直接掉到最后那句「只投第一个」——

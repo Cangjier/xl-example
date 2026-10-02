@@ -12,6 +12,7 @@ import { Identifier } from "./identifier.xl.md"
 import { GenericType } from "./generic-type.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ObjectLiteral } from "./json/object-literal.xl.md"
+import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 ```
 
@@ -160,6 +161,32 @@ let cursor = index;
 while (true) {
   const previousIndex = SkipPreviousWrapSymbol(units, cursor);
   const previousUnit = Get(units, previousIndex);
+  // **修饰词不许跨过语句边界**（第 124 轮）：`SkipPreviousWrapSymbol` 一路跳过软换行，
+  // 于是**上一行末尾的那个词**会被当成本行的修饰词。实测（`undici-types/index.d.ts`）：
+  //
+  //     const Dispatcher: typeof import('./dispatcher').default
+  //     const Pool: typeof import('./pool').default
+  //
+  // 第二行的 `const` 往前看，跨过换行看到的是 `default`——它被收进 `modifiers`
+  // （`<Let fieldName="Pool" modifiers="default,const" />`），而那个 `default` 原本是
+  // **导入类型的限定名**。后果不止是修饰词错：那个 `default` 被从类型里挖走之后，
+  // `TypeDefine` 收集时再也撞不到那一处换行边界，于是**整个模块体被收进一条类型标注**
+  // （实测一个文件里 140 处缺口全是这一族）。
+  //
+  // 判据与 `TypeDefine` / `Statement` 用的是同一份结论：`Statement.IsLineBreakBoundary`。
+  if (previousIndex >= 0 && previousIndex < cursor - 1) {
+    let crossesBoundary = false;
+    for (let i = previousIndex + 1; i < cursor; i++) {
+      const gap = Get(units, i);
+      if (gap instanceof LineWrap && Statement.IsLineBreakBoundary(units, i)) {
+        crossesBoundary = true;
+        break;
+      }
+    }
+    if (crossesBoundary) {
+      break;
+    }
+  }
   if (
     previousUnit instanceof Identifier &&
     (previousUnit.Is("export") || previousUnit.Is("declare") || previousUnit.Is("default"))

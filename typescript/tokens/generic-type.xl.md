@@ -481,6 +481,15 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
       i = i - 1;
       continue;
     }
+    // **空的 `[]` 是数组类型的后缀**（第 124 轮）：`A[] | B<C>` 里 `<` 回扫先撞上
+    // `A[]` 那个括号，`IsTypeBracketPosition` 只看括号前面是 `A`（名字）→ 判值位，
+    // 于是整段退回比较运算符：产物里 `<` / `>` 成了 `SymbolToken`、
+    // `B<C>` 只剩一个 `Identifier`（实测 `type CompilerOptionsValue = … | MapLike<string[]> | …`
+    // 那一整行，`typescript.d.ts` 与 `lib.dom.d.ts` 各成片）。
+    // 空的 `[]` 在值位没有对应写法（`a[]` 不是合法 JS），所以这一条没有副作用。
+    if (item.startBracket === "[" && item.Data.length === 0) {
+      continue;
+    }
     if (IsTypeBracketPosition(unit, item)) {
       // **括号类型里的 `A<B>`**（第 62 轮补）：`(TransformerFactory<SourceFile> | CustomTransformerFactory)[]`
       // 里 `<` 的扫描会先撞上 `(`；把它当值位边界的话整个类型退化成散单元，
@@ -517,7 +526,20 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
     }
     continue;
   }
-  return false;
+  // **其余单元是「操作数」，不是边界，继续往左找**（第 124 轮）。
+  //
+  // 这一句原来是 `return false`（按值位收场）。问题是回扫路上的**操作数**远不止
+  // `Identifier` 一种：字符串字面量类型（`type X = "s" | B<C>` 里的 `String`）、
+  // 已经成形的类型节点（`ArrayType` / `UnionType` / `TypeQuery`…）、
+  // 数组字面量（计算成员名）都会走到这里。一遇到它们就判值位，`<` 就退回比较运算符：
+  //
+  //     type X = "s" | B<C>;   →  <UnionType>LiteralType("s") | B</UnionType><SymbolToken>&lt;</SymbolToken>…
+  //     type X = A[] | B<C>;   →  同上（`A[]` 那个空括号由上面那一支放行）
+  //
+  // 放行的风险由「多找几格」兜住：回扫会一直走到真正的边界（`:` / `=` / `;` / 括号 / 语句关键词），
+  // 那些边界给出的结论才是本方法要的答案。值位的比较式（`let x = a[0] < b`）会在
+  // 括号那一支停下、或者一路走到 `=` / `let` 判回表达式位 ✓。
+  continue;
 }
 // **扫描在自己这一层找不到边界**：宿主正好是一个括号时，答案在**括号自己那一格**
 // （`(A<B> | C)[]`：问 `(` 在它的父列表里前面是什么）。判定与 `type-union.xl.md` 共用
