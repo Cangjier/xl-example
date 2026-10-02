@@ -111,6 +111,25 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<While>` 里依次是 Compare、Body 两段的 XML。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`while (c) { … }` → `WhileStatement`（`expression` + `statement`；
+**从 `ts-ast.xl.md` 的 `projectWhile` 搬来**，第 183 轮）。
+
+**头部右括号要按深度配对**（第 127 轮）：`while (g(x)) ;` 里第一个 `)` 是 `g(x)` 的，
+拿它当头部末尾会让「空体语句」那一支看不见那个 `;`（实测 `EmptyStatement` 缺）。
+
+```ts
+  const props: any = {};
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (compare.length > 0) props.expression = ctx.Expression(compare);
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const header = ctx.MatchingParen(ctx.source, v.start);
+  const statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
+  if (statement !== undefined) props.statement = statement;
+  return ctx.Node("WhileStatement", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，没有自己的字段要初始化。

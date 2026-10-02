@@ -1089,11 +1089,8 @@ new Map([
     // **循环体的花括号要自己造**（第 96 轮）：`while` / `do…while` / `for…of` 的体段在
     // `ToList` 里只有语句（体括号那层壳不在树里），照通用投影 `statement` 会是裸的语句
     // 而不是 `Block`（实测 `Block` 缺 336 里的成片）。
-    case "While":
-      return projectWhile(v, ctx);
-
-    case "DoWhile":
-      return projectDoWhile(v, ctx);
+    // `While` / `DoWhile` 已搬进 `tokens/while/while.xl.md` 与
+    // `tokens/do-while/do-while.xl.md` 的 `PrintAst`（第 183 轮）。
 
     case "Foreach":
       return projectForeach(v, ctx);
@@ -6140,40 +6137,6 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
 ```
 
-# private method projectWhile:(v:any, ctx:any)=>any
-
-`while (c) { … }` → `WhileStatement`（`expression` + `statement`）。
-
-```ts
-  const props = {};
-  const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (compare.length > 0) props.expression = projectExpression(compare, ctx);
-  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
-  // **头部右括号要按深度配对**（第 127 轮）：`while (g(x)) ;` 里第一个 `)` 是 `g(x)` 的，
-  // 拿它当头部末尾会让「空体语句」那一支看不见那个 `;`（实测 `EmptyStatement` 缺）。
-  const header = matchingParenOf(ctx.source, v.start);
-  const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
-  if (statement !== undefined) props.statement = statement;
-  return { kind: "WhileStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
-# private method projectDoWhile:(v:any, ctx:any)=>any
-
-`do { … } while (c);` → **`DoStatement`**（`statement` + `expression`）。
-
-kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` 里就是这个拼法，
-按后者投会整类算成「缺 `DoStatement`」+「多出 `DoWhileStatement`」。
-
-```ts
-  const props = {};
-  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
-  const statement = bodyBlockOf(v.start + "do".length, body, ctx);
-  if (statement !== undefined) props.statement = statement;
-  const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (compare.length > 0) props.expression = projectExpression(compare, ctx);
-  return { kind: "DoStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectForeach:(v:any, ctx:any)=>any
 
 `for (const x of xs) { … }` / `for (const k in o) { … }` → `ForOfStatement` / `ForInStatement`。
@@ -7540,6 +7503,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     KidsOf: (view, key) => kidsOf(view, key),
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
+    MatchingParen: (source, at) => matchingParenOf(source, at),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

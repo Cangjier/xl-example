@@ -164,6 +164,24 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<DoWhile>` 里依次是 Body、Compare 两段的 XML。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`do { … } while (c);` → **`DoStatement`**（`statement` + `expression`；
+**从 `ts-ast.xl.md` 的 `projectDoWhile` 搬来**，第 183 轮）。
+
+kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` 里就是这个拼法，
+按后者投会整类算成「缺 `DoStatement`」+「多出 `DoWhileStatement`」。
+
+```ts
+  const props: any = {};
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const statement = ctx.BodyBlockOf(v.start + "do".length, body);
+  if (statement !== undefined) props.statement = statement;
+  const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (compare.length > 0) props.expression = ctx.Expression(compare);
+  return ctx.Node("DoStatement", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，没有自己的字段要初始化。
