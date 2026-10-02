@@ -1146,7 +1146,18 @@ new Map([
           props.parameters.splice(star, 1);
         }
       }
-      return mk(kind, props);
+      // **对象字面量成员不吃尾随逗号**（第 142 轮）：见 `projectObjectLiteral` 那一处的说明。
+      const built = mk(kind, props);
+      if (
+        ctx.inObjectLiteral === true &&
+        built !== undefined &&
+        typeof built.end === "number" &&
+        ctx.source[built.end - 1] === ","
+      ) {
+        built.end -= 1;
+        while (built.end > built.pos && /\s/.test(ctx.source[built.end - 1])) built.end -= 1;
+      }
+      return built;
     }
   }
 ```
@@ -5525,7 +5536,17 @@ TS 那边的 `properties` 是**成员数组**：
     if (colonAt < 0) {
       // 简写属性（`{ a }`）或一个已经成形的成员（`{ m() {} }`）。
       if (group.length === 1) {
-        const one = projectNode(group[0], ctx);
+        // **对象字面量成员不吃尾随逗号**（第 142 轮）：`{ m() {}, n: 1 }` 的产物把那个逗号
+        // 圈进了 `MethodDeclaration` 的区间（`m() {},`），而 TS 那边成员节点到 `}` 之前就结束。
+        // 用上下文标记告诉通用支「我在对象字面量里」（与 `ctx.signature` 同一手法）。
+        const savedInObject = ctx.inObjectLiteral;
+        ctx.inObjectLiteral = true;
+        let one;
+        try {
+          one = projectNode(group[0], ctx);
+        } finally {
+          ctx.inObjectLiteral = savedInObject;
+        }
         if (one !== undefined && MEMBER_IN_OBJECT.has(one.kind)) {
           properties.push(one);
         } else {
@@ -5560,7 +5581,18 @@ TS 那边的 `properties` 是**成员数组**：
           // 而 TS 那边对象字面量的键**只可能是 `Identifier` / `StringLiteral` / 计算名**，
           // 保留字在这里不是关键字（`a.import` 的成员名同一条道理，见 `projectAccess` 的说明）。
           nameUnits.length === 1 && isNameNode(nameUnits[0])
-          ? nameOf(nameUnits[0], ctx)
+          ? // **数字键是 `NumericLiteral`**（第 142 轮）：`{ 1: "a" }` 的键在 TS 那边是
+            // `NumericLiteral`，而 `nameOf` 一律走 `leafKindOfText`——它对数字串给的是
+            // `Identifier`（那儿是「标识符不能以数字开头」的语境）。数字键与 `memberNameOf`
+            // 里那一支同源（实测 `ex-object-literal.ts` 缺 `NumericLiteral` 1 + 多出 `Identifier` 1）。
+            NUMERIC_LITERAL.test(textOfNode(nameUnits[0], ctx))
+            ? {
+                kind: "NumericLiteral",
+                text: textOfNode(nameUnits[0], ctx),
+                pos: startOf(nameUnits[0]),
+                end: endOf(nameUnits[0]),
+              }
+            : nameOf(nameUnits[0], ctx)
           : projectExpression(nameUnits, ctx)
         : {
             kind: "ComputedPropertyName",
