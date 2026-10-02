@@ -984,8 +984,6 @@ new Map([
 
 
 
-    case "Lamda":
-      return projectLamda(v, ctx);
 
 
 
@@ -1002,8 +1000,6 @@ new Map([
 
     // **`EnumMember` 已搬进 `tokens/enum/enum-member.xl.md` 的 `PrintAst`**（第 182 轮）。
 
-    case "Lamda":
-      return projectLamda(v, ctx);
 
     // **具名元组成员**与 **try 语句**走各自的投影（第 93 轮）：两者在 TS 那边都有
     // 「产物里不存在的壳」，通用投影投不对（具名元素的名字会被当成类型、
@@ -5352,97 +5348,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   const type = node.get("type");
   if (type !== "Keyword" && type !== "Identifier") return false;
   return ["in", "out", "const"].includes(textOfNode(node, ctx));
-```
-
-# private method projectLamda:(v:any, ctx:any)=>any
-
-箭头函数 → `ArrowFunction`（`parameters` / `body` / `equalsGreaterThanToken` / `type`）。
-
-**`=>` 在产物树里没有单元**（`Lamda` 只收 `parameters` 与 `body` 两段），
-而 TS 那边 `equalsGreaterThanToken` 是子节点——所以这里按「形参段末尾 = 箭头位置」**合成**一个。
-位置是**算出来的**：真实位置要靠词法才能知道 `=>` 前面的空白有多少，`endOf(参数段)` 只是它的下界。
-
-```ts
-  const props = structuralProps(v, "ArrowFunction", ctx);
-  const params = kidsOf(v, "parameters");
-  const lastParam = params.length > 0 ? unwrapNodes(params[0]).pop() : null;
-  // `=>` 的位置**按原文找**：早先量成「最后一个形参的终点」，`(x) => {}` 于是落在 `x` 后面
-  // （把 `)` 也算进去了没？实测真实语料 154 处漂移就是这么来的）。从形参段之后往后搜第一个 `=>`。
-  let arrowAt = -1;
-  // **空形参表 `() => x`**（第 141 轮）：这时 `unwrapNodes(参数段).pop()` 是 `undefined`，
-  // 原来那一整支都不执行——`equalsGreaterThanToken` 整个缺、字段名也跟着差一格
-  // （实测 `fn-iife.ts` / `stmt-paren-start.ts` 里 `(() => 1)()` 这一族共 4 处）。
-  // 空表要从**参数段自己**的末尾往后搜。
-  const arrowFrom =
-    lastParam !== undefined && lastParam !== null
-      ? endOf(lastParam)
-      : params.length > 0
-        ? endOf(params[0])
-        : v.start;
-  arrowAt = ctx.source.indexOf("=>", arrowFrom);
-  {
-    // `=>` 在 TS 那边占两个字符（`[281,283)`），**不是零宽**——零宽永远对不上。
-    const pos = arrowAt >= 0 && arrowAt < v.end ? arrowAt : arrowFrom;
-    const width = ctx.source.startsWith("=>", pos) ? 2 : 0;
-    props.equalsGreaterThanToken = { kind: "EqualsGreaterThanToken", text: "=>", pos, end: pos + width };
-  }
-  // **表达式体不是 `Block`**（第 102 轮）：`(item) => item instanceof LineWrap` 的产物是
-  // `Lamda > [LamdaParameters, LamdaBody(里面的 `Statement`)]`，而 TS 那边 `ArrowFunction.body`
-  // **就是那个表达式**（只有带花括号的才是 `Block`）。`LamdaBody` 在 `KIND_BY_TAG` 里映射成
-  // `Block`，照通用支会投出一个 `ExpressionStatement`——实测「多出 `ExpressionStatement`」409
-  // 里的一片（`dist/ts` 里 `(x) => x instanceof Y` 这种一行箭头遍地都是）。
-  //
-  // **判据是「`=>` 之后第一个非空白字符」**，不是体段自己的起点：带花括号的体在产物树里
-  // **不含那对花括号**（`LamdaBody > Statement`），照体段起点判会把 `(x) => { return x }`
-  // 也当成表达式体、整个 `Block` 连同里面的语句一起丢（第一版就是这么错的，实测
-  // `Block` / `ReturnStatement` / `Identifier` 各缺一片）。
-  let braced = false;
-  let braceAt = -1;
-  if (arrowAt >= 0) {
-    let at = arrowAt + 2;
-    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-    braced = ctx.source[at] === "{";
-    if (braced) braceAt = at;
-  }
-  const bodyUnits = kidsOf(v, "body");
-  // 体段的**直接内容**：`body` 段里就是里面那一格（块形态是 `Statement`、表达式形态是那些单元），
-  // 只有少数情况下才套一层 `LamdaBody`。所以穿壳要**只穿 `LamdaBody`**，
-  // 语句本身（`Statement`）留着——块形态要靠它投出 `ReturnStatement` 这些语句节点。
-  const raw = [];
-  for (const unit of bodyUnits) {
-    if (unit.get("type") === "LamdaBody") {
-      for (const x of unwrapNodes(unit)) raw.push(x);
-      continue;
-    }
-    raw.push(unit);
-  }
-  if (braced) {
-    // **带花括号的体自己造 `Block`**：TS 的 `ArrowFunction.body` 是覆盖整对花括号的
-    // `Block`（含 `statements`），而产物里 `LamdaBody` 的区间是体**里面**那一段
-    // （实测 `Block` 缺 336 里成片是箭头函数的块体）。
-    const close = braceAt >= 0 ? matchingBrace(ctx.source, braceAt) : -1;
-    if (braceAt >= 0 && close >= braceAt) {
-      props.body = { kind: "Block", statements: projectEach(raw, ctx, "Block"), pos: braceAt, end: close + 1 };
-    }
-  } else {
-    // 表达式体：`Statement` 那一层壳要摊平（里面才是那个表达式）。
-    const flat = [];
-    for (const k of raw) {
-      if (k.get("type") === "Statement") {
-        for (const x of unwrapNodes(k)) flat.push(x);
-        continue;
-      }
-      flat.push(k);
-    }
-    // **一律走 `projectExpression`**（第 125 轮）：`flat.length === 1` 时走 `projectNode`
-    // 会把值位括号投成一个未映射的 `<Bracket>`——`(a) => (a.pos ?? 0)` 的体正是一对括号，
-    // 实测缺 `ParenthesizedExpression` + 多出 `Bracket` / `DotToken`。
-    // `projectExpression` 对单个单元的行为与 `projectNode` 相同（它就是这么转调的），
-    // 只多认了「值位括号」那一支。
-    const projected = projectExpression(flat, ctx);
-    if (projected !== undefined) props.body = projected;
-  }
-  return { kind: "ArrowFunction", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method typeOf:(nodes:Array<any>, ctx:any)=>any

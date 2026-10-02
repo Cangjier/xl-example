@@ -659,6 +659,91 @@ Lambda 表达式。
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<Lamda>参数列表 + 体的 XML</Lamda>`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+箭头函数 → `ArrowFunction`（`parameters` / `body` / `equalsGreaterThanToken` / `type`；
+**从 `ts-ast.xl.md` 的 `projectLamda` 整块搬来**，第 195 轮）。
+
+**`=>` 在产物树里没有单元**（`Lamda` 只收 `parameters` 与 `body` 两段），
+而 TS 那边 `equalsGreaterThanToken` 是子节点——所以这里按原文**合成**一个。
+位置**按原文找**（早先量成「最后一个形参的终点」，`(x) => {}` 于是落在 `x` 后面：
+实测真实语料 154 处漂移就是这么来的）；而且它**占两个字符，不是零宽**。
+
+**空形参表 `() => x`**（第 141 轮）：这时 `unwrapNodes(参数段).pop()` 是 `undefined`，
+要从**参数段自己**的末尾往后搜，否则 `equalsGreaterThanToken` 整个缺。
+
+**表达式体不是 `Block`**（第 102 轮）：`(item) => item instanceof LineWrap` 的 TS `body`
+**就是那个表达式**。判据是「`=>` 之后第一个非空白字符」——**不是**体段自己的起点：
+带花括号的体在产物树里**不含那对花括号**（`LamdaBody > Statement`），照体段起点判会把
+`(x) => { return x }` 也当成表达式体、整个 `Block` 连同里面的语句一起丢。
+
+**一律走 `ctx.Expression`**（第 125 轮）：`flat.length === 1` 时走 `ctx.Project`
+会把值位括号投成一个未映射的 `<Bracket>`（`(a) => (a.pos ?? 0)` 的体正是一对括号）。
+
+```ts
+  const props: any = ctx.Structural(v, "ArrowFunction");
+  const params = ctx.KidsOf(v, "parameters");
+  const lastParam = params.length > 0 ? ctx.UnwrapNodes(params[0]).pop() : null;
+  let arrowAt = -1;
+  const arrowFrom =
+    lastParam !== undefined && lastParam !== null
+      ? ctx.EndOf(lastParam)
+      : params.length > 0
+        ? ctx.EndOf(params[0])
+        : v.start;
+  arrowAt = ctx.source.indexOf("=>", arrowFrom);
+  {
+    const pos = arrowAt >= 0 && arrowAt < v.end ? arrowAt : arrowFrom;
+    const width = ctx.source.startsWith("=>", pos) ? 2 : 0;
+    props.equalsGreaterThanToken = {
+      kind: "EqualsGreaterThanToken",
+      text: "=>",
+      pos,
+      end: pos + width,
+    };
+  }
+  let braced = false;
+  let braceAt = -1;
+  if (arrowAt >= 0) {
+    let at = arrowAt + 2;
+    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+    braced = ctx.source[at] === "{";
+    if (braced) braceAt = at;
+  }
+  const bodyUnits = ctx.KidsOf(v, "body");
+  const raw: any[] = [];
+  for (const unit of bodyUnits) {
+    if (unit.get("type") === "LamdaBody") {
+      for (const x of ctx.UnwrapNodes(unit)) raw.push(x);
+      continue;
+    }
+    raw.push(unit);
+  }
+  if (braced) {
+    const close = braceAt >= 0 ? ctx.MatchingBrace(ctx.source, braceAt) : -1;
+    if (braceAt >= 0 && close >= braceAt) {
+      props.body = {
+        kind: "Block",
+        statements: ctx.ProjectEach(raw, "Block"),
+        pos: braceAt,
+        end: close + 1,
+      };
+    }
+  } else {
+    const flat: any[] = [];
+    for (const k of raw) {
+      if (k.get("type") === "Statement") {
+        for (const x of ctx.UnwrapNodes(k)) flat.push(x);
+        continue;
+      }
+      flat.push(k);
+    }
+    const projected = ctx.Expression(flat);
+    if (projected !== undefined) props.body = projected;
+  }
+  return ctx.Node("ArrowFunction", props, v);
+```
+
 ## field IsAsync:bool = false
 
 这个 lambda 前面是不是有 `async`。纯数据字段，没有访问器。
