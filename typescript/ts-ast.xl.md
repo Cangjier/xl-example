@@ -3974,7 +3974,14 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
   // 与属性那一处同源：产物把 `?` 吞进了 `TypeDefine` 的区间里（`TypeDefine` 从 `?` 起），
   // 所以按「类型段第一个字符是不是 `?`」切。
-  if (leadingModifiers.length > 0) props.modifiers = projectEach(leadingModifiers, ctx);
+  // **形参上的装饰器**（第 139 轮）：`m(@inject() p: T, @optional() q?: U) {}` 的产物把 `Decorator`
+  // 放在 `Parameter` 下面，而 TS 那边它是 `modifiers` 的**第一格**（装饰器在关键字修饰词之前）。
+  // 不收的话缺整个 `Decorator` / `CallExpression` / `Identifier`，字段名也差一格
+  // （实测 `cls-decorator-params.ts` 缺 6 + 字段名 2）。
+  const paramDecorators = body.filter((k) => k.get("type") === "Decorator");
+  if (leadingModifiers.length > 0 || paramDecorators.length > 0) {
+    props.modifiers = [...projectEach(paramDecorators, ctx), ...projectEach(leadingModifiers, ctx)];
+  }
   if (question !== undefined) {
     props.questionToken = projectNode(question, ctx);
   } else if (typeNode !== undefined && ctx.source[startOf(typeNode)] === "?") {
@@ -5472,6 +5479,24 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
         if (tp !== undefined) typeParameter = projectNode(tp, ctx);
         const nameKids = condParts.slice(asAt + 1);
         if (nameKids.length > 0) nameType = conditionalNode(nameKids, 0, nameKids.length, ctx);
+        continue;
+      }
+      // **`as` 也可能是平级的一格**（第 139 轮）：`{ [K in keyof T as \`get${K & string}\`]: T[K] }`
+      // 的重映射类型**不是**条件类型——产物是 `ArrayLiteral > [TypeParameter, Keyword(as), String]`，
+      // `as` 与它右边那个模板字面量类型都是括号里的平级单元。只认 `ConditionalType` 里那个
+      // `as` 时整条 `nameType` 都没有：缺 `TemplateLiteralType` / `TemplateHead` /
+      // `TemplateLiteralTypeSpan` / `IntersectionType` 一族
+      // （实测 `ty-mapped-as-remap.ts` 与 `type-mapped-template-key.ts` 各 8 处 + 字段名 1）。
+      const flatAs = parts.findIndex(
+        (x) => (x.get("type") === "Keyword" || x.get("type") === "Identifier") && textOfNode(x, ctx) === "as",
+      );
+      if (flatAs > 0) {
+        const tp = parts.find((x) => x.get("type") === "TypeParameter");
+        if (tp !== undefined) typeParameter = projectNode(tp, ctx);
+        const nameKids = parts.slice(flatAs + 1);
+        // 走 `projectTypeExpression`（而不是 `projectNode`）：它会打上 `ctx.typePosition`，
+        // 模板字面量因此投成 `TemplateLiteralType` 而不是 `TemplateExpression`。
+        if (nameKids.length > 0) nameType = projectTypeExpression(nameKids, ctx);
         continue;
       }
       const inner = parts.find((x) => x.get("type") === "TypeParameter");
