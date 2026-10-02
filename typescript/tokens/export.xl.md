@@ -13,6 +13,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { String } from "./string/string.xl.md"
 import { TypeLiteral } from "./type-literal/type-literal.xl.md"
+import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 ```
 
@@ -43,6 +44,15 @@ import { LineWrap } from "./line-wrap.xl.md"
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Identifier) || current.TempToString() !== "export") {
+  return false;
+}
+// **点号后面那个 `export` 是成员名**（第 154 轮）：`interfaceInstance.export = true` 里
+// 它是一个属性名（TS 那边是 `PropertyAccessExpression.name`），不是导出语句。
+// 不挡的话这一串 `.export =` 会被收成一个 `Export` 单元，
+// 于是 `PropertyAccessExpression` 漂移、`EqualsToken` / `TrueKeyword` 整个丢
+// （实测 `dist/ts/typescript/tokens/interface/interface.ts`）。
+const beforeExport = Get(units, SkipPreviousWrapSymbol(units, index));
+if (beforeExport instanceof SymbolToken && (beforeExport.Is(".") || beforeExport.Is("?."))) {
   return false;
 }
 let nextIndex = this.SkipWrap(units, index);

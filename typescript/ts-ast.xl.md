@@ -2486,17 +2486,30 @@ new Set([
   // （实测缺 `AsExpression` + 缺 `AnyKeyword` + 多出一个只盖住 `as any` 的节点）。
   const asIndex = kids.findIndex((k) => k.get("type") === "As" || k.get("type") === "Satisfies");
   if (asIndex > 0) {
-    const unit = kids[asIndex];
-    const expression = projectExpression(kids.slice(0, asIndex), ctx);
-    const typeKids = projectableKids(view(unit));
-    const type = typeKids.length > 0 ? projectTypeExpression(typeKids, ctx) : undefined;
-    return {
-      kind: unit.get("type") === "Satisfies" ? "SatisfiesExpression" : "AsExpression",
-      expression,
-      type,
-      pos: expression === undefined ? startOf(unit) : expression.pos,
-      end: endOf(unit),
-    };
+    // **串起来的 `as` / `satisfies` 要一路折到底**（第 154 轮）：`a as const satisfies B`
+    // 的产物是 `[a, As(const), Satisfies(B)]` 三格——只取第一个就把后面那个整个丢了
+    // （实测 `stmt-adversarial-shapes.ts`：缺 `SatisfiesExpression` / `TypeReference` / `Identifier`）。
+    // 折法与 TS 一致：外层 `SatisfiesExpression`、里面套 `AsExpression`。
+    let node = projectExpression(kids.slice(0, asIndex), ctx);
+    let at = asIndex;
+    while (at < kids.length) {
+      const unit = kids[at];
+      if (unit.get("type") !== "As" && unit.get("type") !== "Satisfies") {
+        break;
+      }
+      const typeKids = projectableKids(view(unit));
+      const type = typeKids.length > 0 ? projectTypeExpression(typeKids, ctx) : undefined;
+      node = {
+        kind: unit.get("type") === "Satisfies" ? "SatisfiesExpression" : "AsExpression",
+        expression: node,
+        type,
+        pos: node === undefined ? startOf(unit) : node.pos,
+        end: endOf(unit),
+      };
+      at += 1;
+    }
+    if (at >= kids.length) return node;
+    return foldBinaryFrom(node, kids.slice(at), ctx);
   }
   // ---- 3. 二元 / 赋值 ----
   //
@@ -6277,9 +6290,22 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
 ```ts
   const nameUnits = kidsOf(v, "name").filter((k) => !INVISIBLE.has(k.get("type")));
   const generic = nameUnits.find((k) => k.get("type") === "GenericType");
-  const callee = nameUnits.find((k) => k.get("type") !== "GenericType");
+  // **被构造者可能是一串**（第 154 轮）：`new a.b.C()` 的 `name` 段是
+  // `[a, ., b, ., C]` 五格，只取第一格会只剩一个 `Identifier(a)`（实测 `ex-new-variants.ts`：
+  // 缺两层 `PropertyAccessExpression` + `Identifier` 2）。照链那一支折成嵌套的属性访问。
+  // **括号形态**（`new (getCtor())()`）要走 `parenthesizedOf`——否则那个括号会原样透传成
+  // 未映射的 `<Bracket>`（实测 `ex-new-variants.ts` 与 `stmt-adversarial-shapes.ts` 各一处）。
+  const calleeUnits = nameUnits.filter((k) => k.get("type") !== "GenericType");
   const props = {};
-  if (callee !== undefined) props.expression = projectNode(callee, ctx);
+  if (
+    calleeUnits.length === 1 &&
+    calleeUnits[0].get("type") === "Bracket" &&
+    calleeUnits[0].get("startBracket") === "("
+  ) {
+    props.expression = parenthesizedOf(calleeUnits[0], ctx);
+  } else if (calleeUnits.length > 0) {
+    props.expression = projectExpression(calleeUnits, ctx);
+  }
   if (generic !== undefined) {
     const typeArguments = [];
     for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
