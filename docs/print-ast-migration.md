@@ -62,3 +62,37 @@
 2. 再按「一个 `case` 一次提交」的粒度搬家，每次只搬一个 token，跑一次 `cases:tsast`
    对齐基线——这样任何一次搬错都能立刻定位到那一个文件；
 3. 最后删掉 `projectNode` 的空壳与 `ts-ast.xl.md` 的文件名。
+
+### 第 182 轮：搬迁进度
+
+| 块 | 落到哪 | 备注 |
+| --- | --- | --- |
+| `ArrayLiteral` | `tokens/json/array-literal.xl.md` | 第 181 轮 |
+| `RegexToken` | `tokens/regex-token.xl.md` | 区间按原文重新量，终点自己算 |
+| `RestType` / `OptionalType` | `tokens/tuple-member.xl.md` | 一个方法拆成两处（kind 不同） |
+| `Spread` | `tokens/spread.xl.md` | |
+| `EnumMember` | `tokens/enum/enum-member.xl.md` | |
+| `Decorator` | `tokens/decorator.xl.md` | |
+
+`ts-ast.xl.md` 中央 `switch` 的 `case` 从 60 降到 **49**；每一块搬完都跑了一次全量对拍，
+**1407 / 1407 完全一致、四方向仍为 0**。
+
+这一轮又给 `ctx` 补了一个出口：`TypeExpression`（类型位的一整段 → 一个类型节点），
+与上一轮的 `Expression` 对称。搬迁时反复遇到的两条约定（`PrintAst` 收到的是**视图**、
+搬迁层不能 import `ts-ast`）已经在上一节记下。
+
+搬迁的机械规则（照抄即可）：
+
+| 原写法 | 搬迁后 |
+| --- | --- |
+| `projectableKids(v)` | `ctx.Kids(v)` |
+| `projectExpression(list, ctx)` | `ctx.Expression(list)` |
+| `projectTypeExpression(list, ctx)` | `ctx.TypeExpression(list)` |
+| `projectNode(x, ctx[, kind])` | `ctx.Project(x[, kind])` |
+| `textOfNode(x, ctx)` | `ctx.TextOf(x)` |
+| `stringText(v, ctx)` | `ctx.StringText(v)` |
+| `startOf / endOf` | `ctx.StartOf / ctx.EndOf` |
+| `stmtEndOf(v, ctx)` | `ctx.StmtEndOf(v)` |
+| `splitTopLevel(list, ctx, sep)` | `ctx.Split(list, sep)` |
+| `{ kind, pos: v.start, end: stmtEndOf(v, ctx), ...props }` | `ctx.Node(kind, props, v)` |
+| `INVISIBLE` / `nameOf` / `isDot` / `isSymbol` | `ctx.Invisible` / `ctx.NameOf` / `ctx.IsDot` / `ctx.IsSymbol` |
