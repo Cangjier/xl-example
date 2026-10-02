@@ -1517,6 +1517,44 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 82 轮：泛型函数类型（真实语料 98.3%，+281 节点）
+
+`Identifier` 1616 与 `TypeReference` 417 这两块老账，样本几乎全部指向**同一个形状**——
+`@types/node/async_hooks.d.ts` 里那种「带类型参数的函数类型」：
+
+```ts
+static snapshot(): <R, TArgs extends any[]>(fn: (...args: TArgs) => R, ...args: TArgs) => R;
+```
+
+产物那边类型参数段与函数类型是**同一个 `TypeDefine` 里的两个平级单元**：
+
+    <TypeDefine><GenericType>…R, TArgs extends any[]…</GenericType><FunctionType>…</FunctionType></TypeDefine>
+
+而 TS 那边它是 **`FunctionType.typeParameters`**（区间也从类型参数段起）。投影层原来走到
+「头是 `GenericType`」的通用支，只投出那个 `GenericType`（`KIND_BY_TAG` 给它的是 `TypeReference`）
+——类型参数成了它的孩子、**整个函数类型被丢掉**。修法是在 `projectTypeExpression` 里认这一对
+（`[GenericType(装 TypeParameter), FunctionType]`）：类型参数挂到 `FunctionType.typeParameters`、
+`pos` 推到类型参数段的起点。
+
+同一处还顺手收了两笔：
+
+1. `projectFunctionType` 里**形参表自己带的类型参数段**（`new <T>(…) => T` / 独立形态）按
+   `wrapperTarget` 的同一条判据提成 `typeParameters`（装 `TypeParameter` 的 `GenericType` 才是类型参数段）；
+2. 形参括号摊平后要**按顶层逗号切**——原来把 `,` 也塞进了 `parameters`
+   （TS 那边 `parameters` 只有 `Parameter`）。
+
+#### 账
+
+| 判据 | 第 81 轮 | 现在 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料 | 462003（98.3%） | **462284（98.3%）** |
+| 其中字段名也一致 | 461595（99.9%） | **461876（99.9%）** |
+| 投影后仍缺 `Identifier` | 1616 | **1581** |
+| 投影后仍缺 `TypeReference` | 417 | **405** |
+| `cases:align`（1420 文件） | 未登记 1 类 | **未登记 1 类** |
+| `cases:run` / `cases:check` | 1035 / 1035 | **1035 / 1035** |
+| 九把尺子 + `samples`（夹具重生成） | 全绿 | **全绿** |
+
 ### 第 81 轮：值位字面量的成员与括号（真实语料 98.1% → 98.3%）
 
 上一轮结尾的榜单上，`PropertyAssignment` 387 与 `ParenthesizedExpression` 370 是最大的两块

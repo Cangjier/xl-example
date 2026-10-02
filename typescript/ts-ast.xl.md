@@ -1753,6 +1753,24 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   if (list.length === 1 && list[0].get("type") === "TypeDefine") {
     return projectTypeExpression(projectableKids(view(list[0])), ctx);
   }
+  // **类型参数段 + 函数类型**（第 82 轮）：产物把 `<R, TArgs extends any[]>` 放在 `FunctionType`
+  // **外面**——`TypeDefine` 里是两个平级单元 `[GenericType(类型参数), FunctionType(…)]`，
+  // 而 TS 那边它是 **`FunctionType.typeParameters`**（区间也从类型参数段起：
+  // `<R>(a: A) => B` 整段都是 `FunctionType`）。
+  //
+  // 早先这里按「头是 `GenericType`」走到通用支，只投出那个 `GenericType`
+  // （`KIND_BY_TAG` 给它的是 `TypeReference`）——类型参数成了它的孩子、**整个函数类型被丢掉**：
+  // 真实语料 `Identifier` 缺 1616 里的一大片、`TypeReference` 缺 417，
+  // 全是 `@types/node/async_hooks.d.ts` 那种「泛型函数类型」（`snapshot(): <R, TArgs…>(…) => R`）。
+  if (list.length === 2 && list[0].get("type") === "GenericType" && list[1].get("type") === "FunctionType") {
+    const typeParams = unwrapNodes(list[0]).filter((k) => k.get("type") === "TypeParameter");
+    const fn = projectFunctionType(view(list[1]), ctx);
+    if (typeParams.length > 0) {
+      fn.typeParameters = projectEach(typeParams, ctx);
+    }
+    fn.pos = startOf(list[0]);
+    return fn;
+  }
   const head = list[0];
   const generic = list.find((k) => k.get("type") === "GenericType");
   const arraySuffix = list.find((k) => k.get("type") === "ArrayType");
@@ -2484,24 +2502,43 @@ import { A as B, C } from "m"
 
 # private method projectFunctionType:(v:any, ctx:any)=>any
 
-函数类型 `(x: number) => string` → `FunctionType`（`parameters` + `type`）。
+函数类型 `(x: number) => string` → `FunctionType`（`parameters` + `type`，可选 `typeParameters`）。
 
-产物那边是三个平级单元：`[Bracket(形参表), SymbolToken(=>), 返回类型]`。
+产物那边是平级单元：`[GenericType(类型参数表)?, Bracket(形参表), SymbolToken(=>), 返回类型]`。
 形参要**摊平括号**（TS 那边 `parameters` 直接是 `Parameter`，没有括号那一层节点），
 `=>` 之后是 `type`。
+
+**类型参数表要单独提出来**（第 82 轮）：`<R, TArgs extends any[]>(fn: (…args: TArgs) => R) => R`
+里那个 `GenericType` 装的是 `TypeParameter`——它在 TS 那边是 `FunctionType.typeParameters`，
+**不是形参**。早先它跟形参表一起投出去（`GenericType` 自己的 `KIND_BY_TAG` 是 `TypeReference`），
+于是那些类型参数与其上的约束整个丢掉：真实语料 `Identifier` 缺 1616 里的一大片、
+`TypeReference` 缺 417 同源（`@types/node/async_hooks.d.ts` 那种「泛型函数类型」在语料里成片）。
+判据与 `wrapperTarget` 对 `GenericType` 的判据**同源**：装 `TypeParameter` 的才是类型参数段。
 
 ```ts
   const kids = projectableKids(v);
   const arrowIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=>");
+  const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
+  const generic = before.find((k) => k.get("type") === "GenericType");
   const params = [];
-  for (const k of arrowIndex < 0 ? kids : kids.slice(0, arrowIndex)) {
+  for (const k of before) {
+    if (k === generic) continue;
     if (k.get("type") === "Bracket") {
-      for (const inner of unwrapNodes(k)) params.push(inner);
+      // **形参之间的逗号不进 `parameters`**（TS 那边 `parameters` 只有 `Parameter`）：
+      // 括号的内容是 `[Parameter, SymbolToken(,), Parameter]`，摊平后要按顶层逗号切。
+      for (const part of splitTopLevel(unwrapNodes(k), ctx, ",")) {
+        for (const inner of part) params.push(inner);
+      }
       continue;
     }
     params.push(k);
   }
-  const props = { parameters: projectEach(params, ctx) };
+  const props = {};
+  if (generic !== undefined) {
+    const typeParams = unwrapNodes(generic).filter((k) => k.get("type") === "TypeParameter");
+    if (typeParams.length > 0) props.typeParameters = projectEach(typeParams, ctx);
+  }
+  props.parameters = projectEach(params, ctx);
   if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
     props.type = typeOf(kids.slice(arrowIndex + 1), ctx);
   }
