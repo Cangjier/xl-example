@@ -327,3 +327,39 @@ token：`projectNode` 会先问 `__token.PrintAst` ✓，输入相同、结果�
 `IfSet` / `Import` / `Method` / `BinaryOperator` / `LogicalOperator` / `UnaryOperator` /
 `Statement` 里，多数有望照 `TypeDefine` 的办法搬走；`Statement`（语句分派 + 外层起点）与
 `Let`（列表版）预计是最后留下的两个。
+
+### 第 193 轮：搬「横切」的第一批（三个直调点为零的函数）
+
+| 块 | 落到哪 | 引用数 |
+| --- | --- | --- |
+| `UnaryOperator` | `tokens/unary-operator.xl.md` | 1 处声明 + 1 处 `case`，**没有别的直调点** |
+| `Signature` | `tokens/signature/signature.xl.md` | 同上 |
+| `Method`（调用） | `tokens/method.xl.md` | 同上 |
+
+中央 `switch` 的 `case` 从 16 降到 **13**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+**挑块的判据（实测有效）**：先数引用数——
+`声明 + case + 0 处直调` ⇒ 可以整块搬，搬完把 `case` 删掉即可；
+`声明 + case + n 处直调` ⇒ 要么把直调改成 `ctx.Project(那个单元)`（第 192 轮 `TypeDefine` 那样），
+要么留共享层（如果直调方拿不到「单元」这个入口）。
+
+本轮三个的引用数都是 2（声明 + `case`），所以是纯搬运。
+
+**两个细节**：
+
+- `Signature` 结尾那个分号**不能改用 `ctx.Node`**：共享层的 `astNode` 对可调用签名
+  连**逗号**也加一格（第 134 轮的修法），而这一处原来只认 `;`。改用 `ctx.Node` 会把
+  接口里用逗号分隔的签名终点多推一格——所以这里保留原来的字面量算法；
+- `UnaryOperator` 里那个 `{ typeof: …, void: …, delete: … }[declaredOp]` 索引要标 `any`
+  （`declaredOp` 是 `any`，TS 目标下 `TS7053`）。
+
+### 还剩 10 个 `case`
+
+`Statement` / `Let` / `BinaryOperator` / `LogicalOperator` / `TypeAssign` / `Parameter` /
+`LamdaParameter` / `Lamda` / `Import` / `IfSet` / `Field`（共 13 条 `case`，其中
+`BinaryOperator` 与 `LogicalOperator` 共用 `projectBinary`、`Parameter` 与 `LamdaParameter`
+共用 `projectParameter`）。引用数分别是：`projectField` 7、`projectStatement` 8、
+`projectLet` 7、`projectTypeAlias` 5、`projectBinary` 4、`projectParameter` 3、`projectLamda` 3、
+`projectImport` 2、`projectIfSet` 2。
+
+`projectImport` / `projectIfSet` 引用数与上轮那三个相同（只有声明 + `case`），下一轮先搬它们。
