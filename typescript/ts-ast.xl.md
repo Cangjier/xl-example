@@ -2007,7 +2007,7 @@ new Set([
       (k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator") &&
       projectableKids(view(k))[0]?.get("type") === "NullConditionalOperator",
   );
-  if (ncoIndex > 0 && hasNcoInBinary === false && kids[0].get("type") !== "BinaryOperator") {
+  if (ncoIndex > 0 && hasNcoInBinary === false && !(kids[0].get("type") === "BinaryOperator" && kids.slice(1).some((k) => k.get("type") === "NullConditionalOperator" || isSymbol(k, ".")))) {
     // **前缀里有顶层二元运算符时，NCO 要并进「右边那个操作数段」**（第 145 轮）：
     //
     //     x.Start === y.Start?.Document
@@ -2074,7 +2074,14 @@ new Set([
   //
   // **必须排在上面那一支（`?.` 接在链后面）之前**：不排的话末尾那个 NCO 会先把整个前缀
   // （含这个二元单元）投成一条链、再往上套属性访问，右操作数就永远接不上。
-  if (kids.length >= 2 && kids[0].get("type") === "BinaryOperator") {
+  //
+  // **判据只看「尾巴是不是一条链的续接」**（`.` 或 `?.`）：`a += b -= c` 那种链式赋值
+  // 也是同样的「二元单元在头」形状，但它没有尾巴链、必须交回通用支（实测
+  // `ex-chained-assign.ts` / `expr-assign-chained-compound.ts`：多出 6 + 缺 2）。
+  const tailIsChain = kids
+    .slice(1)
+    .some((k) => k.get("type") === "NullConditionalOperator" || isSymbol(k, "."));
+  if (tailIsChain && kids.length >= 2 && kids[0].get("type") === "BinaryOperator") {
     const headInner = projectableKids(view(kids[0]));
     if (headInner.length >= 2) {
       const operatorUnit = headInner[headInner.length - 2];
