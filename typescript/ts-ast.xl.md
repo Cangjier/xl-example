@@ -766,6 +766,14 @@ new Map([
     case "IndexSignature":
       return projectIndexSignature(v, ctx);
 
+    // 值位对象字面量 `{ a: 1, b, [k]: 2, ...rest, m() {} }`：TS 的 `properties` 是**成员数组**，
+    // 产物那边是一串平级单元（照通用投影会把每个标点都当成一个属性）。
+    case "ObjectLiteral":
+      return projectObjectLiteral(v, ctx);
+
+    case "ArrayLiteral":
+      return projectArrayLiteral(v, ctx);
+
     case "TypeParameter":
       return projectTypeParameter(v, ctx);
 
@@ -1228,6 +1236,21 @@ new Set([
 
 ```ts
   if (kids.length === 0) return undefined;
+  // **值位括号 `(expr)`**（第 81 轮）：TS 那边是 `ParenthesizedExpression`（区间含那对括号、
+  // `expression` 是里面那段），产物那边就是一个 `(` 括号单元。
+  //
+  // 判据能这么简单（只认「一个 `(` 括号」），是因为**实参表 / 形参表 / 类型括号不会走到这里**：
+  // 那些括号的父单元是 `Method` / `Function` / `Lamda` / `Signature` / 类型容器，
+  // 由各自的投影路径摊平；`projectExpression` 收到的单元一律是**操作数**。
+  if (kids.length === 1 && kids[0].get("type") === "Bracket" && kids[0].get("startBracket") === "(") {
+    const inner = projectableKids(view(kids[0]));
+    return {
+      kind: "ParenthesizedExpression",
+      expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
+      pos: startOf(kids[0]),
+      end: endOf(kids[0]),
+    };
+  }
   if (kids.length === 1) return projectNode(kids[0], ctx);
   const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
 
@@ -2810,6 +2833,144 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     }
   }
   return -1;
+```
+
+# private const MEMBER_IN_OBJECT:Set<string> = new Set(["MethodDeclaration", "GetAccessor", "SetAccessor", "PropertyAssignment", "ShorthandPropertyAssignment", "SpreadAssignment"])
+
+**对象字面量里「已经是成员」的那些 kind**：`{ m() {} }` 那一组只有一格、投出来就是
+`MethodDeclaration`——它**直接进 `properties`**，不要再套一层 `ShorthandPropertyAssignment`
+（TS 那边对象字面量的方法是 `MethodDeclaration` / `GetAccessor` / `SetAccessor`，与类里同名）。
+
+# private method splitTopLevel:(kids:Array<any>, ctx:any, separator:string)=>Array<Array<any>>
+
+把一串单元按**顶层分隔符**切成若干组（分隔符自己不进任何一组）。
+
+对象字面量的成员（`,`）、数组字面量的元素（`,`）、类型容器的成员（`|` / `&` / `,`）
+都是这一种切法——`typeMemberGroups` 是它在类型位的那一份（按 `parentKind` 选分隔符），
+这里这份给**值位**用。
+
+```ts
+  const groups = [];
+  let current = [];
+  for (const kid of kids) {
+    if (kid.get("type") === "SymbolToken" && textOfNode(kid, ctx) === separator) {
+      groups.push(current);
+      current = [];
+      continue;
+    }
+    current.push(kid);
+  }
+  groups.push(current);
+  return groups.filter((group) => group.length > 0);
+```
+
+# private method projectObjectLiteral:(v:any, ctx:any)=>any
+
+值位对象字面量 `{ a: 1, b, "k": 2, [k]: 3, ...rest, m() {} }` → `ObjectLiteralExpression`。
+
+TS 那边的 `properties` 是**成员数组**：
+
+| 写法 | TS 的成员 |
+| --- | --- |
+| `a: 1` / `"k": 2` | `PropertyAssignment`（名字照常投，引号名是 `StringLiteral`） |
+| `[k]: 3` | `PropertyAssignment` + `ComputedPropertyName` |
+| `b` | `ShorthandPropertyAssignment` |
+| `...rest` | `SpreadAssignment`（区间含 `...`，`expression` 是后面那段） |
+| `m() {}` | `MethodDeclaration`（原样放进 `properties`，见 `MEMBER_IN_OBJECT`） |
+
+产物那边是**一串平级单元**（`[a, :, 1, ,, b, ,, …]`），照通用投影会把每个单元都当成一个属性
+——实测缺 `PropertyAssignment` 387 处，而 `properties` 里还混着 `ColonToken` / `CommaToken`。
+所以这里按**顶层逗号**切成成员组，每组按上表分派。
+
+**解构模式不走这里**：`const { a, b } = x` / `f({ a, b })` 那条路由 `projectBindingPattern`
+（它自己造 `ObjectBindingPattern`），与本方法各管一边。
+
+```ts
+  const properties = [];
+  for (const group of splitTopLevel(projectableKids(v), ctx, ",")) {
+    const first = group[0];
+    // `...rest`：TS 的 `SpreadAssignment` 区间含 `...`，`expression` 是后面那段。
+    if (first.get("type") === "Spread") {
+      const inner = projectableKids(view(first)).filter(
+        (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "..."),
+      );
+      properties.push({
+        kind: "SpreadAssignment",
+        expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
+        pos: startOf(first),
+        end: endOf(first),
+      });
+      continue;
+    }
+    const colonAt = group.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
+    if (colonAt < 0) {
+      // 简写属性（`{ a }`）或一个已经成形的成员（`{ m() {} }`）。
+      if (group.length === 1) {
+        const one = projectNode(group[0], ctx);
+        if (one !== undefined && MEMBER_IN_OBJECT.has(one.kind)) {
+          properties.push(one);
+        } else {
+          properties.push({
+            kind: "ShorthandPropertyAssignment",
+            name: one,
+            pos: startOf(group[0]),
+            end: endOf(group[0]),
+          });
+        }
+      } else {
+        const one = projectExpression(group, ctx);
+        if (one !== undefined) properties.push(one);
+      }
+      continue;
+    }
+    const nameUnits = group.slice(0, colonAt);
+    const valueUnits = group.slice(colonAt + 1);
+    // 计算属性名 `[k]`：产物里是一个 `ArrayLiteral`（含方括号），TS 是 `ComputedPropertyName`。
+    const computed =
+      nameUnits.length === 1 && isIndexBracket(nameUnits[0]) ? nameUnits[0] : undefined;
+    const name =
+      computed === undefined
+        ? projectExpression(nameUnits, ctx)
+        : {
+            kind: "ComputedPropertyName",
+            expression: computedNameExpression(computed, ctx),
+            pos: startOf(computed),
+            end: endOf(computed),
+          };
+    properties.push({
+      kind: "PropertyAssignment",
+      name,
+      initializer: valueUnits.length > 0 ? projectExpression(valueUnits, ctx) : undefined,
+      pos: startOf(group[0]),
+      end: endOf(group[group.length - 1]),
+    });
+  }
+  const props = properties.length === 0 ? {} : { properties };
+  return { kind: "ObjectLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
+```
+
+# private method projectArrayLiteral:(v:any, ctx:any)=>any
+
+值位数组字面量 `[a, b, ...c]` → `ArrayLiteralExpression`（`elements` 是**元素数组**）。
+
+同一类账：产物那边是一串平级单元（含逗号），照通用投影会把逗号也当成一个元素
+（实测 `ArrayLiteralExpression` 的漂移与 `Identifier` 缺口里都有它）。按顶层逗号切，
+每段整段投；`...c` 那一格照 `SpreadElement` 投（TS 的数组里就是 `SpreadElement`，
+与对象字面量的 `SpreadAssignment` 不同）。
+
+```ts
+  const elements = [];
+  for (const group of splitTopLevel(projectableKids(v), ctx, ",")) {
+    if (group.length === 1) {
+      const one = projectNode(group[0], ctx);
+      if (one !== undefined) elements.push(one);
+      continue;
+    }
+    const one = projectExpression(group, ctx);
+    if (one !== undefined) elements.push(one);
+  }
+  const props = elements.length === 0 ? {} : { elements };
+  return { kind: "ArrayLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectTypeParameter:(v:any, ctx:any)=>any

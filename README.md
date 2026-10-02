@@ -1517,6 +1517,61 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 81 轮：值位字面量的成员与括号（真实语料 98.1% → 98.3%）
+
+上一轮结尾的榜单上，`PropertyAssignment` 387 与 `ParenthesizedExpression` 370 是最大的两块
+**投影层**账（不是 token 层的），这一轮一起收了——它们本来就是同一层：**值位那一串平级单元怎么切成成员**。
+
+#### 一、对象字面量的成员：`{ a: 1, b, [k]: 2, ...rest, m() {} }`
+
+TS 的 `ObjectLiteralExpression.properties` 是**成员数组**，产物那边是一串平级单元
+（`[a, :, 1, ,, b, ,, …]`）——照通用投影会把**每个标点都当成一个属性**（实测缺
+`PropertyAssignment` 387 处，而 `properties` 里混着 `ColonToken` / `CommaToken`）。修法是新增
+`splitTopLevel`（按顶层分隔符切组）与 `projectObjectLiteral`，每组按形状分派：
+
+| 组的第一格 | TS 的成员 |
+| --- | --- |
+| `Spread` | `SpreadAssignment`（区间含 `...`，`expression` 是后面那段） |
+| 单一个 `[k]` 打头 + 顶层 `:` | `PropertyAssignment` + `ComputedPropertyName` |
+| 组里有顶层 `:` | `PropertyAssignment`（名字 / 初值各投一段；引号名是 `StringLiteral`） |
+| 只有一格、且不是成员节点 | `ShorthandPropertyAssignment` |
+| 只有一格、且投出来已经是成员（`m() {}`） | 原样进 `properties`（见 `MEMBER_IN_OBJECT`） |
+
+**解构模式不走这里**：`const { a, b } = x` / `f({ a, b })` 那条路由 `projectBindingPattern`
+（它自己造 `ObjectBindingPattern`）——两条路各管一边，互不干扰。
+
+顺手把**数组字面量**按同一套切了（`projectArrayLiteral`：`elements` 里只有元素，不再混逗号；
+`...c` 在里面是 `SpreadElement`，与对象字面量的 `SpreadAssignment` 不同）。
+
+#### 二、值位括号 `(expr)` → `ParenthesizedExpression`
+
+产物那边它就是一个 `(` 括号单元，而 `WRAPPER_FIELDS` 把括号**摊平**（`Bracket → null`），
+于是括号整类消失（缺 370 处）。修法是在 `projectExpression` 里认它。
+
+**判据能这么简单，是因为那个位置天然排除了别的括号**：实参表 / 形参表 / 类型括号的父单元是
+`Method` / `Function` / `Lamda` / `Signature` / 类型容器，各有各的投影路径；
+`projectExpression` 收到的单元**一律是操作数**。所以「一个 `(` 括号」就是值位括号。
+
+#### 三、这一轮的账
+
+| 判据 | 第 80 轮 | 现在 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 460557（98.1%） | **462003（98.3%）** |
+| 其中**字段名也一致** | 460098（99.9%） | **461595（99.9%）** |
+| `cases:tsast` 用例语料 | 86.0% | **86.6%** |
+| 投影后仍缺 `PropertyAssignment` | 387 | **0** |
+| 投影后仍缺 `ParenthesizedExpression` | 370 | **0** |
+| `cases:align`（1420 文件） | 未登记 1 类 | **未登记 1 类**（仍是那处 `LiteralType in TypeDefine`） |
+| `cases:run` / `cases:check` | 1034 / 1034 | **1035 / 1035**（新增 1 条钉住本轮） |
+| 其余尺子 | 全绿 | **全绿**（含 `astjson` / `lossless` / `structure` / `boundaries` / `diff` / `dashboard` / `samples`（夹具重生成）/ `shapelint`） |
+| 投影抛异常的文件 | 0 | **0** |
+
+**下一轮的目标**：`Identifier` 1616、`PropertyAccessExpression` 422、`TypeReference` 417
+（这三块是多因的，得一族一族查）、`Block` 416（样本多是 `dist/ts/cjcli.ts` 里的 `{`）、
+`BinaryExpression` 311 + 漂移 643、`CaseClause` 187、`TemplateSpan` 175 / `TemplateMiddle` 140、
+`SuperKeyword` 127；以及第 80 轮留下的那 15 处 `cases:align` 未登记缺节点
+（`this.#x` 私有名、`interfaceInstance.export` / `source.Pre` 两处上下文带歪的形状）。
+
 ### 第 80 轮：下标访问进链（token 层）—— 真实语料 97.9% → 98.1%
 
 上一轮结尾点名的「修不动的那一半」这一轮做掉了：**让下标访问在 token 层就成为一个单元**，
