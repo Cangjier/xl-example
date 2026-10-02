@@ -2491,3 +2491,44 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
 | `header.d.ts` | 2 / 1 / 1 | 映射类型 |
 | 其余 | 每文件 1~2 | 零散 |
+
+---
+
+# 第 164~167 轮：类型容器、命名空间导出、可选链上的 `!`、空语句
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 163 轮末 | 1359 / 1407 | 40 | 27 | 37 | 15 | 119 |
+| 第 167 轮末 | **1366 / 1407** | 34 | 21 | 27 | 12 | **94** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 164 | **没有分隔符的类型容器整段算一个类型**：`typeMemberGroups` 原来对它们「逐个成组」，于是 `(F<A>)[]` 里「名字 + 实参段」被拆成两个节点 | `ts-ast.xl.md`（`typeMemberGroups`） |
+| 165 | **`export * as ns from "m"`** 的 `exportClause` 是一个 `NamespaceExport`（区间从 `*` 到名字末尾） | `ts-ast.xl.md`（`namedExportClause`） |
+| 166 | **`a?.b!`：`!` 落在 NCO 里面、语义上套在整条链外面**——产物是 `NCO(NotNull([b, !]))`，TS 是 `NonNullExpression > PropertyAccessExpression` | `ts-ast.xl.md`（`chainWithOptional`） |
+| 167 | **行首的 `;` 可能是上一条语句的终结符**（TS 的 `tryParseSemicolon` 不看换行）：`let a = 1` 换行 `;[1, 2].forEach(f)` 里那个 `;` 属于 VariableStatement | `ts-ast.xl.md`（`projectStatement` + `projectEach`） |
+
+第 167 轮翻过一次车：第一版按「前一个非空白字符能不能收尾表达式」判，把
+`// 注释` 换行 `;(function(){})()` 与文件开头的 `;;` 也判成了终结符（`fn-iife.ts`、
+`stmt-empty-semicolon.ts` 一起从一致变不一致）。改成按**上一整行的内容**分类之后
+（注释行 / 空行 / 纯 `;` 行 ⇒ 真空语句；代码行 ⇒ 终结符）两处都回到一致。
+
+顺带试过一版「以 `(` 开头的一行也是续行」（与第 158 轮的 `[` 同款）：对全语料**零影响**
+（`stmt-asi-paren-call.ts` 的根因在别处——那个 `()` 是被折进 `Method` 单元里的），
+语义上仍然成立，故保留。
+
+## 还剩什么（共 94）
+
+已经没有超过 4 处的文件了：
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[][]` 双后缀（token 层数组规则把泛型段吸进后缀） |
+| `lex-number-member-with-space.ts` | 3 / 1 / 1 | `1 .toString()`（词法层那个点被吞） |
+| `decl-interface-abstract-construct-signature.ts` | 3 / 0 / 1 | `abstract new (): A`（TS 读成 `MethodSignature`） |
+| `header.d.ts` | 2 / 1 / 1 | 映射类型 |
+| `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
+| `ex-chained-assign.ts` / `expr-assign-chained-compound.ts` | 各 1 / 0 / 2 | 链式复合赋值 |
+| 其余 | 每文件 1~2 | 零散 |
