@@ -1466,7 +1466,7 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     ) {
       const previous = out[out.length - 1];
       const semi = items[i].get("pos") ?? startOf(items[i]);
-      if (previous !== undefined && typeof previous.end === "number" && semi >= previous.end) {
+      if (previous !== undefined && typeof previous.end === "number" && semi > previous.end) {
         previous.end = semi + 1;
       }
     }
@@ -1654,13 +1654,26 @@ new Set([
       // **行首的 `;` 也可能是上一条语句的终结符**（第 167 轮）：TS 的 `tryParseSemicolon`
       // 不看换行——`let a = 1` 换行 `;[1, 2].forEach(f)` 里那个 `;` 属于 **VariableStatement**
       // （TS 的区间 [26,37) 把它算进去了），紧跟的 `[1, 2]…` 才是新语句。
-      // 判据落在**前一个非空白字符**上：它要是能让表达式收尾（名字 / 数字 / `]` / 引号 …），
-      // 这个 `;` 就是终结符；只有 `;` / `}` / `{` 或它前面什么都没有时才是真空语句
-      // （实测 `st-asi-array.ts` / `st-asi-paren.ts`：多出一个 `EmptyStatement` + 上一条漂移）。
+      // 判据是**上一个有内容的行**：那行是代码（`const x = f`）时这个 `;` 就是它的终结符；
+      // 是注释行或空行时（`// 注释` 换行 `;(function(){})()`、文件开头的 `;;`）才是真空语句
+      // （实测 `st-asi-array.ts` / `st-asi-paren.ts` 与反例 `fn-iife.ts` / `stmt-empty-semicolon.ts`）。
       let previousChar = v.start - 1;
       while (previousChar >= 0 && /\s/.test(ctx.source[previousChar])) previousChar--;
-      if (previousChar >= 0 && !";}{".includes(ctx.source[previousChar])) {
-        return undefined;
+      if (previousChar >= 0) {
+        let previousLineStart = previousChar;
+        while (previousLineStart > 0 && ctx.source[previousLineStart - 1] !== "\n") previousLineStart--;
+        const previousLine = ctx.source.slice(previousLineStart, previousChar + 1).trim();
+        const commentOnly =
+          previousLine === "" ||
+          previousLine.startsWith("//") ||
+          previousLine.startsWith("/*") ||
+          previousLine.endsWith("*/") ||
+          // **上一行本身就是一串空语句**（`;;`）：第二个 `;` 照样是 `EmptyStatement`
+          // （TS 那边两个 `;` 各是一个节点，实测 `stmt-empty-semicolon.ts`）。
+          /^;+$/.test(previousLine);
+        if (!commentOnly) {
+          return undefined;
+        }
       }
       return { kind: "EmptyStatement", pos: v.start, end: v.start + 1 };
     }
