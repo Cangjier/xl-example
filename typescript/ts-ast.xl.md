@@ -3900,6 +3900,44 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `projectNode(PropertyAccess)` 走值位那条路投出一个 `PropertyAccessExpression`
   // （实测 `@types/node/util.d.ts` 的 `object is NodeJS.ArrayBufferView` 一族 46 处）。
   // 只认「全是名字与点号」的形状：带调用的链（`f(x).y`）不是类型。
+  // **平的 `<...>` 类型实参段**（第 171 轮）：有些位置 token 层没把实参收成 `GenericType`
+  // ——`A[Lowercase<K>]` 里那个 `<` 落在 `IsTypePosition` 的白名单之外，产物是
+  // `[名字, SymbolToken(<), 实参…, SymbolToken(>)]` **平铺**五格。TS 那边照样是带
+  // `typeArguments` 的 `TypeReference`（实测 `undici-types/header.d.ts` 的
+  // `KnownHeaderValues[Lowercase<K>]`：缺 `TypeReference` + `Identifier`，名字那格的区间也短）。
+  const openAt = list.findIndex(
+    (k, i) => i > 0 && k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "<",
+  );
+  if (openAt > 0) {
+    let depth = 0;
+    let closeAt = -1;
+    for (let i = openAt; i < list.length; i++) {
+      if (list[i].get("type") !== "SymbolToken") {
+        continue;
+      }
+      const text = textOfNode(list[i], ctx);
+      if (text === "<") {
+        depth++;
+      } else if (text === ">") {
+        depth--;
+        if (depth === 0) {
+          closeAt = i;
+          break;
+        }
+      }
+    }
+    if (closeAt > openAt) {
+      const base = projectTypeExpression(list.slice(0, openAt), ctx);
+      const args = [];
+      for (const group of splitTopLevel(list.slice(openAt + 1, closeAt), ctx, ",")) {
+        const one = projectTypeExpression(group, ctx);
+        if (one !== undefined) args.push(one);
+      }
+      if (base !== undefined && args.length > 0) {
+        return { ...base, typeArguments: args, end: endOf(list[closeAt]) };
+      }
+    }
+  }
   const paUnit = list.find((k) => k.get("type") === "PropertyAccess");
   // **后面还可能跟着类型实参段**（第 161 轮）：`x is A.B<C>` 的产物是
   // `[PropertyAccess(A.B), GenericType(<C>)]` **两格**——只认「整段就一格」时实参整个丢
