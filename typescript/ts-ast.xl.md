@@ -5117,6 +5117,21 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 ```ts
   const kids = projectableKids(v);
   if (kids.length === 0) return undefined;
+  // **Data 里夹着已经成形的二元 / 逻辑单元时，交给 `projectExpression`**（第 145 轮）：
+  //
+  //     this.Start?.Document === other.Start?.Document && …
+  //
+  // 里那个 `===` 是**一个单元**——它把左边那截 `?.Document` 吞在肚子里（`NCO` 是它的第一个
+  // 孩子）、右边又接回平级单元。按「奇偶格」配对的朴素循环在这种形状上会把段切错：
+  // 产物里 `x.Start?.Document === y.Start?.Document` 变成
+  // `(x.Start?.Document === y.Start)?.Document`（实测 `dist/ts/core/syntax/source-range.ts`：
+  // 漂移 2 + 多出 3）。`projectExpression` 里有第 124 轮那条「`?.` 那一串被包进二元操作数位」，
+  // 而且它按运算符优先级折段，正好是这种形状要的口径。
+  //
+  // 纯 `&&` / `||` 链（`a || b && c`）走不到这里——那些 Data 里只有符号与单格操作数。
+  if (kids.some((k) => k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator")) {
+    return projectExpression(kids, ctx);
+  }
   let left = projectNode(kids[0], ctx);
   let i = 1;
   while (i + 1 < kids.length) {
