@@ -2947,18 +2947,81 @@ new Set([
       opText === textOfNode(rest[0], ctx)
         ? projectNode(rest[0], ctx)
         : { kind: tokenKind(opText), text: opText, pos: startOf(rest[0]), end: endOf(rest[0]) };
+    // **递归剥掉最左边那个 `left`**（第 168 轮）：展开式的左操作数**不只是那个左值**——
+    // `a += b + c` 的产物是 `a = (a + b) + c`（token 层展开时把 `a` 埋进了内层），
+    // 而 TS 要的是 `a += (b + c)`。原来只认「`right.left` 与 `left` 完全同区间」，
+    // 这一族于是根本没被拆开（实测 `ex-chained-assign.ts` / `expr-assign-chained-compound.ts`：
+    // 多出 `BinaryExpression` + `PlusToken`，缺真正的右操作数）。
+    const stripSelf = (node) => {
+      if (node === undefined || node.kind !== "BinaryExpression" || node.left === undefined) {
+        return undefined;
+      }
+      if (node.left.pos === left.pos && node.left.end === left.end) {
+        return node.right;
+      }
+      const stripped = stripSelf(node.left);
+      if (stripped === undefined) {
+        return undefined;
+      }
+      return { ...node, left: stripped, pos: stripped.pos, end: node.end };
+    };
+    // **左嵌套的复合赋值展开**（第 168 轮）：`a += b -= c` 的产物是
+    // `[a, «+=», HEAD(二元: a ⊕ b), «-=», TAIL(二元: (a ⊕ b) ⊖ c)]`——token 层把 `a`
+    // 埋进了最左边那一格，于是通用递归拿到的左操作数是 `a ⊕ b` 而不是 `b`
+    // （实测 `ex-chained-assign.ts` / `expr-assign-chained-compound.ts`：
+    // 多出一个 `BinaryExpression(a += b)` + `PlusToken`，缺 `b -= c`）。
+    // TS 那边是 `a += (b -= c)`。形状很窄（正好五格、两个二元单元、两个 `=` 单元），
+    // 就在这里显式重建：把 TAIL 里最左边那个左值剥掉，内层用第二个 `=` 上的复合运算符。
+    if (
+      opText.length > 1 &&
+      rest.length === 4 &&
+      (rest[1].get("type") === "BinaryOperator" || rest[1].get("type") === "LogicalOperator") &&
+      (rest[3].get("type") === "BinaryOperator" || rest[3].get("type") === "LogicalOperator") &&
+      rest[2].get("type") === "SymbolToken" &&
+      textOfNode(rest[2], ctx) === "=" &&
+      ctx.source.slice(startOf(rest[2]), endOf(rest[2])).length > 1
+    ) {
+      const tailNode = projectNode(rest[3], ctx);
+      const strippedTail = tailNode === undefined ? undefined : stripSelf(tailNode);
+      if (
+        strippedTail !== undefined &&
+        strippedTail.kind === "BinaryExpression" &&
+        strippedTail.left !== undefined
+      ) {
+        const innerText = ctx.source.slice(startOf(rest[2]), endOf(rest[2]));
+        const inner = {
+          ...strippedTail,
+          operatorToken: {
+            kind: tokenKind(innerText),
+            text: innerText,
+            pos: startOf(rest[2]),
+            end: endOf(rest[2]),
+          },
+          pos: strippedTail.left.pos,
+        };
+        return {
+          kind: "BinaryExpression",
+          left,
+          operatorToken,
+          right: inner,
+          pos: left.pos,
+          end: inner.end,
+        };
+      }
+    }
     if (
       opText.length > 1 &&
       right !== undefined &&
       right.kind === "BinaryExpression" &&
       right.left !== undefined &&
-      right.left.pos === left.pos &&
-      right.left.end === left.end &&
       // 展开出来的那个运算符单元**沿用同一个区间**（`+=` 的 [2,4)），所以判据看 kind、不看区间。
       right.operatorToken !== undefined &&
       right.operatorToken.kind === tokenKind(opText.slice(0, -1))
     ) {
-      right = right.right;
+      const stripped = stripSelf(right);
+      if (stripped !== undefined) {
+        right = stripped;
+      }
     }
     return {
       kind: "BinaryExpression",
