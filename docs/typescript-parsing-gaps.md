@@ -2865,3 +2865,17 @@ $ node tests/parse/ts-ast.mjs --per-file
 
 `ctx` 又补了一个出口：`IndexBracketOf`（`A[K]` 里下标括号的左括号位置——
 从节点终点往回找**与最后那个 `]` 配对**的 `[`，这样 `A["k"]["j"]` 找到的是外层那个）。
+
+### 第 185 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| `New` | `tokens/new/new.xl.md` |
+| `Foreach` | `tokens/foreach/foreach.xl.md` |
+
+中央 `switch` 的 `case` 从 37 降到 **35**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了三个出口：`ParenthesizedOf`（`new (getCtor())()` 那种括号被调用者）、
+`LetFrom`（`for (const x of xs)` 的声明段）、以及 `Kids` 的**两种入参归一**——
+`PrintAst` 里手上常常是**原始 Map**（`nameUnits.find(...)` 那种），
+而 `projectableKids` 只吃视图；这一处踩过一次（`v.segments is not iterable`），已写进注释。
