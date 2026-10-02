@@ -2630,3 +2630,42 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
 | `samples/generic.ts` | 0 / 1 / 1 | 工程自造的非法样本，TS 自己报错后提前收尾 |
 | `mod-import-defer.ts` / `cls-expression.ts` 等 | 各 1 | 字段名 / 单个节点 |
+
+---
+
+# 第 175~177 轮：成员名、标签模板、类表达式、数组洞、`finally`
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 174 轮末 | 1389 / 1407 | 13 | 7 | 9 | 8 | 37 |
+| 第 177 轮末 | **1399 / 1407** | 7 | 6 | 6 | 2 | **21** |
+
+**只剩 8 个文件不一致了。**
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 175 | **成员名一律是 `Identifier`**：`a?.import` 里那个 `import` 在产物中是 `Keyword`，照通用支投会得到 `ImportKeyword` | `ts-ast.xl.md`（`chainWithOptional`） |
+| 175 | **链上的标签模板**：`` a?.b`t` `` 的产物把成员名与模板串都放进 NCO 里，TS 是 `TaggedTemplateExpression > [PropertyAccess, NoSubstitutionTemplateLiteral]` | `ts-ast.xl.md`（`chainWithOptional`） |
+| 176 | **类表达式的字段映射**：`ClassExpression` 与 `ClassDeclaration` 同形（`heritageClauses` / `members`），只给后者写映射时继承段会顶着 `children` 出去 | `ts-ast.xl.md`（`FIELD_BY_KIND`） |
+| 176 | **`defer` 是导入相位标志、不是默认名**（`import defer * as ns from "m"`） | `ts-ast.xl.md`（`projectImport`） |
+| 176 | **数组里的洞是零宽 `OmittedExpression`**：`[1, , 3]` 的位置是**第一个逗号之后那一格**；而**尾随逗号不是洞**（这一条第一次写错，让 `dist/ts/typescript/ts-ast.ts` 一次多出 31 个节点） | `ts-ast.xl.md`（`projectArrayLiteral` / `projectEachIn`） |
+| 177 | **空的 `finally { }` 也要造 `Block`**：原来按「finally 段里有没有语句」判，空块整格丢 | `ts-ast.xl.md`（`projectTry`） |
+
+第 177 轮试过一版 `b!()`（被调用者是 `NotNull` 而不是名字）的修法：能用但会带出
+`dist/ts/typescript/ts-ast.ts` 的 `ColonToken` 漂移，于是**回退**——`expr-nonnull-callee.ts`
+留作已知缺口（2 处）。
+
+## 还剩什么（8 个文件 / 21 处）
+
+| 文件 | 缺 / 漂 / 多 / 字段 | 说明 |
+| --- | --- | --- |
+| `lex-number-member-with-space.ts` | 3 / 1 / 1 / 0 | `1 .toString()`（词法层那个点被吞） |
+| `expr-optional-call-nodes.ts` | 1 / 1 / 1 / 1 | `d.e?.()` 与 `g!()` |
+| `expr-optional-delete.ts` | 1 / 1 / 2 / 0 | `delete a?.b`（`delete` 的操作数该是整条链） |
+| `samples/generic.ts` | 0 / 1 / 1 / 0 | 工程自造的非法样本，TS 自己报错后提前收尾 |
+| `expr-nonnull-callee.ts` | 0 / 0 / 1 / 1 | `b!()`（见上，回退过） |
+| `expr-optional-member-then-call.ts` | 1 / 1 / 0 / 0 | `a.b?.()` 少一层属性访问 |
+| `st-misc-keywords.ts` | 1 / 0 / 0 / 0 | 一个 `EmptyStatement` |
+| `stmt-empty-semicolon.ts` | 0 / 1 / 0 / 0 | `;;` 两个空语句的区间 |
