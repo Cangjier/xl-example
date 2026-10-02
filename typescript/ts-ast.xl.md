@@ -1036,8 +1036,6 @@ new Map([
     // **具名元组成员**与 **try 语句**走各自的投影（第 93 轮）：两者在 TS 那边都有
     // 「产物里不存在的壳」，通用投影投不对（具名元素的名字会被当成类型、
     // try 的三段会原样透传成 `body` / `catches` / `finally`）。
-    case "NamedTupleMember":
-      return projectNamedTupleMember(v, ctx);
 
     // **`Spread` 已搬进 `tokens/spread.xl.md` 的 `PrintAst`**（第 182 轮）。
 
@@ -6486,47 +6484,6 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   return { kind: "MappedType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectNamedTupleMember:(v:any, ctx:any)=>any
-
-具名元组成员 `[a: string]` / `[b?: number]` / `[...rest: boolean[]]` → `NamedTupleMember`。
-
-TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；产物那边是
-`NamedTupleMember > [Identifier(名字), TypeDefine(类型)]`（`...` 是平级的 `SymbolToken`）。
-
-**不能走通用投影**：`NamedTupleMember` 在 `TYPE_MEMBER_KINDS` 里，通用支会把名字那个
-`Identifier` 也当类型投成 `TypeReference`（实测「多出来」3 + 缺 `QuestionToken` 1 +
-字段名差 3，全部是这一处）。
-
-```ts
-  const kids = projectableKids(v);
-  const dots = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
-  const spread = kids.find((k) => k.get("type") === "Spread");
-  const nameNode = kids.find((k) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
-  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
-  const props = {};
-  if (nameNode !== undefined) {
-    // `this` 作元组成员名时必须是 `Identifier`（与形参那一处同源，见 `projectParameter`）。
-    props.name =
-      nameNode.get("type") === "Keyword" && textOfNode(nameNode, ctx) === "this"
-        ? { kind: "Identifier", text: "this", pos: startOf(nameNode), end: endOf(nameNode) }
-        : projectNode(nameNode, ctx);
-  }
-  if (dots !== undefined) {
-    props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
-  } else if (spread !== undefined) {
-    props.dotDotDotToken = projectNode(spread, ctx);
-  }
-  if (typeNode !== undefined) {
-    // `?` 与属性、形参两处同源：它被吞进了 `TypeDefine` 的区间（`b?: number` 的段从 `?` 起）。
-    const typeStart = startOf(typeNode);
-    if (ctx.source[typeStart] === "?") {
-      props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
-    }
-    props.type = projectTypeDefine(view(typeNode), ctx);
-  }
-  return { kind: "NamedTupleMember", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectTry:(v:any, ctx:any)=>any
 
 `try { … } catch (e) { … } finally { … }` → `TryStatement`。
@@ -7228,6 +7185,9 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
     IsNameNode: (node) => isNameNode(node),
     QualifiedNameFrom: (list) => qualifiedNameFrom(list, ctx),
+    TypeDefineOf: (unit) => projectTypeDefine(view(unit), ctx),
+    DottedExpression: (list) => dottedExpression(list, ctx),
+    TypeArguments: (generic) => projectTypeArguments(generic, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

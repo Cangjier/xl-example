@@ -387,6 +387,54 @@ return result;
 
 名字与 `:` 都留在自己身上（TS 那边名字是成员的子节点 ✓）。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+具名元组成员 `[a: string]` / `[b?: number]` / `[...rest: boolean[]]` → `NamedTupleMember`
+（**从 `ts-ast.xl.md` 的 `projectNamedTupleMember` 搬来**，第 187 轮）。
+
+TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；产物那边是
+`NamedTupleMember > [Identifier(名字), TypeDefine(类型)]`（`...` 是平级的 `SymbolToken`）。
+
+**不能走通用投影**：`NamedTupleMember` 在 `TYPE_MEMBER_KINDS` 里，通用支会把名字那个
+`Identifier` 也当类型投成 `TypeReference`（实测「多出来」3 + 缺 `QuestionToken` 1 +
+字段名差 3，全部是这一处）。
+
+`this` 作元组成员名时必须是 `Identifier`（与形参那一处同源，见 `projectParameter`）。
+`?` 被吞进了 `TypeDefine` 的区间，所以按「类型段第一个字符是不是 `?`」切出来。
+
+```ts
+  const kids = ctx.Kids(v);
+  const dots = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "...");
+  const spread = kids.find((k: any) => k.get("type") === "Spread");
+  const nameNode = kids.find((k: any) => k.get("type") === "Identifier" || k.get("type") === "Keyword");
+  const typeNode = kids.find((k: any) => k.get("type") === "TypeDefine");
+  const props: any = {};
+  if (nameNode !== undefined) {
+    props.name =
+      nameNode.get("type") === "Keyword" && ctx.TextOf(nameNode) === "this"
+        ? { kind: "Identifier", text: "this", pos: ctx.StartOf(nameNode), end: ctx.EndOf(nameNode) }
+        : ctx.Project(nameNode);
+  }
+  if (dots !== undefined) {
+    props.dotDotDotToken = {
+      kind: "DotDotDotToken",
+      text: "...",
+      pos: ctx.StartOf(dots),
+      end: ctx.StartOf(dots) + 3,
+    };
+  } else if (spread !== undefined) {
+    props.dotDotDotToken = ctx.Project(spread);
+  }
+  if (typeNode !== undefined) {
+    const typeStart = ctx.StartOf(typeNode);
+    if (ctx.source[typeStart] === "?") {
+      props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
+    }
+    props.type = ctx.TypeDefineOf(typeNode);
+  }
+  return ctx.Node("NamedTupleMember", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——`name?: A | B` 里的联合、`name: T[]` 里的数组类型
