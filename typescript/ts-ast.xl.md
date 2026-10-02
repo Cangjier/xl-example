@@ -5242,7 +5242,11 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     TokenKind: (text) => tokenKind(text),
   };
   const statements = projectEach(exported, ctx);
-  const firstStart = statements.length > 0 ? statements[0].pos : 0;
+  // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
+  // （没有 token 可跳，`getStart` 退回 `end`），而本工程原来退回 `0`——于是
+  // `@types/node/index.d.ts` 那 38 个「只有许可注释」的桩文件整份对不上
+  //（实测缺 `SourceFile` 38，三个样本都是这种桩）。
+  const firstStart = statements.length > 0 ? statements[0].pos : source.length;
   return {
     ast: {
       kind: "SourceFile",
