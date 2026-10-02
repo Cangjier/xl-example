@@ -94,7 +94,7 @@ return true;
 ```ts
 const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
 const children = units.slice(frontIndex + 1, index + 1);
-if (children.length === 1) {
+if (children.length === 1 && !(children[0] instanceof SymbolToken && children[0].Is(";"))) {
   units.splice(index, 1);
   return index - 1;
 }
@@ -168,7 +168,12 @@ const currentIsStatementSymbol = current instanceof SymbolToken && template.Symb
 if (currentIsInEnd) {
   const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
   const children = units.slice(frontIndex + 1, index + 1);
-  if (children.length === 1) {
+  // **孤零零一个 `;` 也要收成 `Statement`**（第 141 轮）：它就是 TS 的 `EmptyStatement`
+  // （`;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句一共三处形态）。
+  // 原来 `children.length === 1` 那一支把它**直接 splice 掉**——整个节点凭空消失
+  // （实测 `fn-iife.ts` / `stmt-paren-start.ts` 的 `;` 开头，以及 `if (a) ;`
+  // 一共 3 处 `EmptyStatement` 缺）。
+  if (children.length === 1 && !(children[0] instanceof SymbolToken && children[0].Is(";"))) {
     units.splice(index, 1);
     return index - 1;
   }
@@ -193,7 +198,7 @@ if (!currentIsStatementSymbol && Statement.IsInStatement(units, index)) {
 }
 const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
 const children = units.slice(frontIndex + 1, index + 1);
-if (children.length === 1) {
+if (children.length === 1 && !(children[0] instanceof SymbolToken && children[0].Is(";"))) {
   units.splice(index, 1);
   return index - 1;
 }

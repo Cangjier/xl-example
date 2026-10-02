@@ -1092,6 +1092,17 @@ new Map([
       // **类里那个叫 `constructor` 的是 `ConstructorDeclaration`**（另一个 kind、没有名字字段）——
       // 两处都是「同一个产物标签、按上下文换 kind」（真实语料 `Constructor` 缺 269，全挂在 `ClassDeclaration` 下）。
       if (ctx.signature && v.type === "MethodDeclaration") kind = "MethodSignature";
+      // **表达式位的函数 / 类**（第 141 轮）：`(function () {…})()` / `const c = class {}` 在
+      // TS 那边是 `FunctionExpression` / `ClassExpression`（带名字的也一样——`(function f(){})()`
+      // 还是 `FunctionExpression`），而 `KIND_BY_TAG` 给的是**声明**名。
+      // 判据是「谁在投它」：走 `projectExpression` 的就是表达式位
+      // （与模板字面量靠 `ctx.typePosition` 分辨 `TemplateLiteralType` 是同一手法）。
+      // 少了这一条，`fn-iife` / `stmt-paren-start` / `cls-expression` / `samples/generic.ts`
+      // 这些地方各成一族（实测 `FunctionExpression` 缺 4、`ClassDeclaration` 多出 11）。
+      if (ctx.expressionPosition === true) {
+        if (v.type === "Function") kind = "FunctionExpression";
+        else if (v.type === "Class") kind = "ClassExpression";
+      }
       else if (
         v.type === "MethodDeclaration" &&
         parentKind === "ClassDeclaration" &&
@@ -1558,7 +1569,24 @@ new Set([
   // 包着一个注释单元，而 TS 那边注释是 **trivia**、`forEachChild` 完全看不见它。
   // 早先这里退回一个 `ExpressionStatement`，于是每份用例文件都凭空多两个节点
   // （顶层 `pos=0` 的 `ExpressionStatement`），连 `SourceFile.getStart()` 都被带歪。
-  if (kids.length === 0) return undefined;
+  //
+  // **但空语句 `;` 是一个 `Statement`**（第 141 轮）：语句规则把孤零零的 `;` 收成一个
+  // **没有内容**的 `Statement`（`;` 是语句终结符、不进 `Data`），而 TS 那边它就是
+  // `EmptyStatement`（区间正好是那个 `;`）。三处形态都在语料里：`;` 顶一条语句、
+  // `if (a) ;` 的体、函数体里的空语句。
+  if (kids.length === 0) {
+    if (ctx.source[v.start] === ";") {
+      // **已经被上一条语句吃掉的 `;` 不再是空语句**：TS 的 `parseExpressionStatement`
+      // 收尾会把紧跟的那个 `;` 算作自己的终结符（`tryParseSemicolon` 不看换行），
+      // 所以 `;(function(){})()` 换行 `;…` 里第二行的 `;` 属于**上一条**语句。
+      // `semicolonEndOf` 吃掉它时在这里记了一笔（见那一处说明）。
+      if (ctx.consumedSemicolons !== undefined && ctx.consumedSemicolons.has(v.start)) {
+        return undefined;
+      }
+      return { kind: "EmptyStatement", pos: v.start, end: v.start + 1 };
+    }
+    return undefined;
+  }
   const head = kids[0];
   const headType = head.get("type");
   // **`export = X` / `export default X`**：产物那边表达式是 `Export` 单元的**平级兄弟**
@@ -1641,7 +1669,18 @@ new Set([
       // 单个子单元**本身就是语句**（`if` / `class` / `import`…）⇒ 不再套壳；
       // 是**表达式**（`f(1)` / `a + b` / `new X`）⇒ TS 那边是 `ExpressionStatement > 表达式`。
       if (STATEMENT_KINDS.has(kind)) return projected;
-      return { kind: "ExpressionStatement", expression: projected, pos: v.start, end: stmtEndOf(v, ctx) };
+      // **终点不能早于表达式自己**（第 141 轮）：IIFE `(function () {…})()` 里那个 `Statement`
+      // 单元的区间只到函数体那个 `}`，调用自己的 `()` 挂在 `Method` 上——见下面那一支的说明。
+      // 收尾那个 `;` 也按 TS 的口径吃掉（见 `semicolonEndOf`）。
+      return {
+        kind: "ExpressionStatement",
+        expression: projected,
+        pos: v.start,
+        end: semicolonEndOf(
+          Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),
+          ctx,
+        ),
+      };
     }
     // **裸块语句**（第 123 轮）：`{ … }` 在 TS 那边**本身就是一条语句**，
     // 不能再套 `ExpressionStatement`——`KIND_BY_TAG` 里没有 `Bracket`，
@@ -1650,12 +1689,51 @@ new Set([
       return projectNode(head, ctx);
     }
   }
+  const expression = projectExpression(kids, ctx);
   return {
     kind: "ExpressionStatement",
-    expression: projectExpression(kids, ctx),
+    expression,
     pos: v.start,
-    end: stmtEndOf(v, ctx),
+    // **终点不能早于表达式自己**（第 141 轮）：IIFE `(function () {…})()` 里那个 `Statement`
+    // 单元的区间只到函数体那个 `}`，而调用自己的 `()` 在 `Method` 上——
+    // 于是表达式语句比 TS 短两个字符（实测 `fn-iife.ts` / `stmt-paren-start.ts` 各 2 处漂移）。
+    end: semicolonEndOf(
+      Math.max(stmtEndOf(v, ctx), expression === undefined ? 0 : expression.end),
+      ctx,
+    ),
   };
+```
+
+# private method semicolonEndOf:(end:int, ctx:any)=>int
+
+`end` 之后跳过空白与注释，如果紧跟着一个 `;` 就把它算进来；否则原样返回。
+
+**这是 TS 自己的口径**：`parseExpressionStatement` 收尾时调 `parseSemicolon()`，
+而 `tryParseSemicolon` **不看换行**——当前 token 是 `;` 就吃掉。所以
+
+    ;(function () { return 1 })()
+    ;(function (a) { return a })(1)
+
+第一行那条 `ExpressionStatement` 的区间是 `[1,31)`（**含下一行行首**那个 `;`），
+而产物那边那个 `;` 根本不在树里（它是独立的一条空语句），于是短两格
+（实测 `fn-iife.ts` / `stmt-paren-start.ts` 各 2 处漂移）。
+
+```ts
+  let at = end;
+  for (;;) {
+    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+    if (ctx.source.startsWith("//", at)) {
+      while (at < ctx.source.length && ctx.source[at] !== "\n") at++;
+      continue;
+    }
+    if (ctx.source.startsWith("/*", at)) {
+      const close = ctx.source.indexOf("*/", at + 2);
+      at = close < 0 ? ctx.source.length : close + 2;
+      continue;
+    }
+    break;
+  }
+  return ctx.source[at] === ";" ? (ctx.consumedSemicolons.add(at), at + 1) : end;
 ```
 
 # private method isOperatorUnit:(node:any, ctx:any)=>bool
@@ -1785,10 +1863,69 @@ new Set([
       return arrow;
     }
   }
-  if (kids.length === 1) return projectNode(kids[0], ctx);
+  // **表达式位的标记**（第 141 轮）：`Function` / `Class` 这一个产物标签在
+  // 声明位是 `FunctionDeclaration` / `ClassDeclaration`、在表达式位是
+  // `FunctionExpression` / `ClassExpression`，产物同形——唯一可靠的区分是「谁在投它」。
+  // 与 `ctx.typePosition` 同一手法（见 `projectTypeExpression` 那一处）。
+  if (kids.length === 1) {
+    const savedExpression = ctx.expressionPosition;
+    ctx.expressionPosition = true;
+    try {
+      return projectNode(kids[0], ctx);
+    } finally {
+      ctx.expressionPosition = savedExpression;
+    }
+  }
   const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
 
-  // ---- 0. 可选链 / 可选调用（第 107 轮）----
+  // ---- 0。`import.meta` / `new.target`（第 141 轮）----
+  //
+  // TS 那边它们是 `MetaProperty`（**只有 `name` 一个子节点**——`forEachChild` 对
+  // `MetaProperty` 只访问 `name`，`new` / `import` 那个词**不出节点**），外面那一层
+  // 属性链再套 `PropertyAccessExpression`：
+  //
+  //     import.meta.url  ⇒  PropertyAccessExpression[MetaProperty(meta), Identifier(url)]
+  //     new.target       ⇒  MetaProperty[Identifier(target)]
+  //
+  // 产物那边是 `[Keyword(import), ., PropertyAccess(meta . url)]` 与
+  // `[Keyword(new), ., Identifier(target)]` 两种形状，照链那一支走会投成
+  // `PropertyAccessExpression` 并多出 `ImportKeyword` / `NewKeyword`
+  // （实测 `ex-meta-props.ts`：缺 2 + 多出 4）。
+  if (
+    kids[0] !== undefined &&
+    kids[0].get("type") === "Keyword" &&
+    (textOfNode(kids[0], ctx) === "new" || textOfNode(kids[0], ctx) === "import") &&
+    isSymbol(kids[1], ".") &&
+    kids.length >= 3
+  ) {
+    const named = kids[2];
+    // `import.meta.url` 的 `meta.url` 被收成了一个 `PropertyAccess`；`new.target` 只是名字。
+    const inner = named.get("type") === "PropertyAccess" ? projectableKids(view(named)) : [named];
+    let meta: any = {
+      kind: "MetaProperty",
+      name: nameOf(inner[0], ctx),
+      pos: startOf(kids[0]),
+      end: endOf(inner[0]),
+    };
+    let at = 1;
+    while (at < inner.length) {
+      if (!isSymbol(inner[at], ".") || at + 1 >= inner.length) break;
+      const member = inner[at + 1];
+      meta = {
+        kind: "PropertyAccessExpression",
+        expression: meta,
+        name: nameOf(member, ctx),
+        pos: meta.pos,
+        end: endOf(member),
+      };
+      at += 2;
+    }
+    const rest = kids.slice(3);
+    if (rest.length === 0) return meta;
+    return foldBinaryFrom(meta, rest, ctx);
+  }
+
+  // ---- 0a. 可选链 / 可选调用（第 107 轮）----
   //
   // 产物把 `?.` 之后的**每一格**收成一个 `NullConditionalOperator` 单元，而且它**不一定
   // 跟在点号链后面**：`list?.push(1)` 是 `[Identifier(list), NCO(Method(push))]`、
@@ -2962,6 +3099,41 @@ new Set([
   const kids = projectableKids(v);
   const calleeText = String(v.attrs.get("name") ?? "");
   const calleeEnd = v.start + calleeText.length;
+  // **IIFE `(function () { … })()`**（第 141 轮）：产物把整个 IIFE 收成一个 `Method(name="")`，
+  // 里面那**一对括号是「被调用者」的**（里面装着函数表达式 / 箭头函数），而调用自己的 `()`
+  // 根本不在树里；有实参时它们是这个 `Method` 的平级子单元
+  // （`(function (a) { return a })(1)` ⇒ `[Bracket(callee), Identifier(1)]`）。
+  //
+  // 原来 `calleeText` 是空串，于是投出一个**零宽的 `Identifier("")`**，整条调用链跟着塌：
+  // 缺 `ParenthesizedExpression` 15 / `FunctionExpression` / `Block` / `ReturnStatement` /
+  // `ExpressionStatement` 一大片（实测 `fn-iife.ts` 与 `stmt-paren-start.ts`）。
+  if (calleeText === "") {
+    const brace = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
+    if (brace !== undefined && projectableKids(view(brace)).length > 0) {
+      const rest = kids.filter((k) => k !== brace && k.get("type") !== "GenericType");
+      // **调用自己的 `()` 不在产物树里**（第 141 轮）：`Method` 的区间只到函数体那个 `}`，
+      // 所以终点要从**被调用者那对括号之后**再配对一次：紧跟着的那个 `(` … `)` 才是实参表。
+      let end = stmtEndOf(v, ctx);
+      const calleeClose = matchingParenOf(ctx.source, startOf(brace));
+      if (calleeClose >= 0) {
+        let at = calleeClose + 1;
+        while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+        if (ctx.source[at] === "(") {
+          const argsClose = matchingParenOf(ctx.source, at);
+          if (argsClose >= 0) end = Math.max(end, argsClose + 1);
+        }
+      }
+      return {
+        kind: "CallExpression",
+        expression: parenthesizedOf(brace, ctx),
+        arguments: splitTopLevel(rest, ctx, ",")
+          .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+          .filter((a) => a !== undefined),
+        pos: v.start,
+        end,
+      };
+    }
+  }
   const args = kids.filter((k) => k.get("type") !== "Bracket" && k.get("type") !== "GenericType");
   const generic = kids.find((k) => k.get("type") === "GenericType");
   // **被调用者本身带着可选链**（第 107 轮）：`x?.y?.(1)` 的产物是
@@ -4517,7 +4689,22 @@ import { A as B, C } from "m"
   const generic = kids.find((k) => k.get("type") === "GenericType");
   const names = kids.filter((k) => isNameNode(k));
   const props = {};
-  if (names.length > 0) props.expression = dottedExpression(names, ctx);
+  if (names.length > 0) {
+    props.expression = dottedExpression(names, ctx);
+  } else {
+    // **`extends (Base)`：被继承的那一格是**一个表达式**，不是名字（第 141 轮）。
+    // TS 的 `ExpressionWithTypeArguments.expression` 是 `LeftHandSideExpression`——
+    // 带括号的基类在那边是 `ParenthesizedExpression`。只找名字的话整格 `expression`
+    // 会是空的（实测 `decl-class-extends-parenthesized.ts`：缺 `ParenthesizedExpression` +
+    // 缺 `Identifier` + 字段名 1）。
+    const paren = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
+    if (paren !== undefined) {
+      props.expression = parenthesizedOf(paren, ctx);
+    } else {
+      const expr = kids.filter((k) => k !== generic);
+      if (expr.length > 0) props.expression = projectExpression(expr, ctx);
+    }
+  }
   if (generic !== undefined) props.typeArguments = projectTypeArguments(generic, ctx);
   return { kind: "ExpressionWithTypeArguments", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
@@ -6030,11 +6217,20 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   // `=>` 的位置**按原文找**：早先量成「最后一个形参的终点」，`(x) => {}` 于是落在 `x` 后面
   // （把 `)` 也算进去了没？实测真实语料 154 处漂移就是这么来的）。从形参段之后往后搜第一个 `=>`。
   let arrowAt = -1;
-  if (lastParam !== undefined && lastParam !== null) {
-    const from = endOf(lastParam);
-    arrowAt = ctx.source.indexOf("=>", from);
+  // **空形参表 `() => x`**（第 141 轮）：这时 `unwrapNodes(参数段).pop()` 是 `undefined`，
+  // 原来那一整支都不执行——`equalsGreaterThanToken` 整个缺、字段名也跟着差一格
+  // （实测 `fn-iife.ts` / `stmt-paren-start.ts` 里 `(() => 1)()` 这一族共 4 处）。
+  // 空表要从**参数段自己**的末尾往后搜。
+  const arrowFrom =
+    lastParam !== undefined && lastParam !== null
+      ? endOf(lastParam)
+      : params.length > 0
+        ? endOf(params[0])
+        : v.start;
+  arrowAt = ctx.source.indexOf("=>", arrowFrom);
+  {
     // `=>` 在 TS 那边占两个字符（`[281,283)`），**不是零宽**——零宽永远对不上。
-    const pos = arrowAt >= 0 && arrowAt < v.end ? arrowAt : from;
+    const pos = arrowAt >= 0 && arrowAt < v.end ? arrowAt : arrowFrom;
     const width = ctx.source.startsWith("=>", pos) ? 2 : 0;
     props.equalsGreaterThanToken = { kind: "EqualsGreaterThanToken", text: "=>", pos, end: pos + width };
   }
@@ -6346,6 +6542,10 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     // 让 `projectString` 知道该出 `TemplateLiteralType` 还是 `TemplateExpression`
     // （两者产物同形，只有这一点上下文能区分）。
     typePosition: false,
+    // **被上一条语句吃掉的 `;`**（第 141 轮）：TS 的 `parseExpressionStatement` 收尾会把
+    // 紧跟的那个 `;` 算成自己的终结符（`tryParseSemicolon` 不看换行），所以那种 `;`
+    // **不再**是一条 `EmptyStatement`。语句是按顺序投的，所以先吃后判、用这个集合对账。
+    consumedSemicolons: new Set(),
     // **给 token 的 `PrintAst(ctx, v)` 用的出口助手**（见 `core/syntax/token.xl.md` 的 `PrintAst`）：
     // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
     // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
