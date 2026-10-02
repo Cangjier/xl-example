@@ -363,3 +363,35 @@ token：`projectNode` 会先问 `__token.PrintAst` ✓，输入相同、结果�
 `projectImport` 2、`projectIfSet` 2。
 
 `projectImport` / `projectIfSet` 引用数与上轮那三个相同（只有声明 + `case`），下一轮先搬它们。
+
+### 第 194 轮：`IfSet` 与 `Import`
+
+| 块 | 落到哪 | 引用数 |
+| --- | --- | --- |
+| `IfSet` | `tokens/if/if-set.xl.md` | 2（声明 + `case`） |
+| `Import` | `tokens/import.xl.md` | 2（声明 + `case`） |
+
+中央 `switch` 的 `case` 从 13 降到 **11**；全量对拍回到 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了出口：`Attr`（按属性名取值，两种入参都认）、`FirstCodeAfter` / `MatchBrace` /
+`NamedImportSpecifiers`，并把 `KidsOf` 也做了「视图 / 原始 Map」归一。
+
+**这一轮抓到一个真回归，记在这里**：`Import` 搬完之后全量对拍掉到 **1400 / 1407**
+（缺 10 + 多出 10，全是 `ImportClause`）。根因只有一处：
+
+> 原实现是 `String(v.attrs.get("typeOnly") ?? "false") === "true"`，
+> 而**产物里这个属性是布尔值 `true`**，不是字符串 `"true"`。
+> 我按「一定是字符串」写成 `typeof === "string" ? … : "false"`，于是 `import type { … }`
+> 的 `ImportClause` 起点从 `type` 退到了 `{`。
+
+修法：`typeOnly === true || typeOnly === "true"`（两种都认），并且不依赖 `String`
+（别的 token 文件里有同名遮蔽，见第 191 轮）。
+
+> **搬迁手册再加一条**：原实现里 `String(x ??? "false") === "true"` 这类**宽松判定**
+> 是刻意的，照抄要连「取值可能是布尔」一起照抄；把它「收紧成字符串判断」会静默改语义。
+> 而且这类错**只有全量对拍能抓到**（单文件抽查看不出来）。
+
+### 还剩 9 个 `case`
+
+`Statement`(8) / `Let`(7) / `Field`(7) / `TypeAssign`(5) / `BinaryOperator`(4) /
+`LogicalOperator`(4) / `Parameter`(3) / `LamdaParameter`(3) / `Lamda`(3)。
