@@ -914,8 +914,6 @@ new Map([
     case "Statement":
       return projectStatement(v, ctx);
 
-    case "Let":
-      return projectLet(v, ctx);
 
 
 
@@ -1656,8 +1654,10 @@ new Set([
     return projectExport(head, ctx, kids.slice(1));
   }
   if (headType === "Let") {
-    // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给 `projectLet`。
-    return projectLet(v, ctx);
+    // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给列表版
+    // `projectLetFrom`（**注意这里传的是「语句」的整串子单元**，不是 `Let` 那一个单元——
+    // 那个单元自己的 `PrintAst` 只拿得到 `const f` 那一段，见 `tokens/let.xl.md`）。
+    return projectLetFrom(projectableKids(v), ctx, v).statement;
   }
   // **`with (obj) { … }`**（第 137 轮）：产物是 `Statement > [Keyword(with), Bracket((obj)), Bracket({…})]`，
   // 而 TS 那边是 `WithStatement{ expression, statement }`。照通用支会整条投成一个
@@ -3198,26 +3198,6 @@ new Set([
 
 ```ts
   return node.get("type") === "Bracket" && node.get("startBracket") === "[";
-```
-
-# private method projectLet:(v:any, ctx:any)=>Array<any>
-
-`let` / `const` / `var` 声明 → **TS 的三层**。
-
-两个坐标细节（都是实测出来的）：
-
-- `VariableDeclaration`（声明本身）从**名字**开始，不含前面的 `let `/`const `——
-  TS 的 `getStart()` 跳过前导 trivia，而本工程的 `Let` 把修饰词包在区间里；
-- `VariableDeclarationList` / `VariableStatement`（两层壳）从 `let` 那个词开始。
-
-```ts
-  const kids = projectableKids(v);
-  // **`fieldName` / `modifiers` 在 `Let` 子单元上，不在外层 `Statement` 上**（踩过）：
-  // 顶层形态是 `Statement > [Let(``const f``), SymbolToken(=), 初始化式]`，
-  // 而 `Let` 自己的区间只盖到 `const f` 为止、初始化式是它的**平级兄弟**。
-  // 早先这里直接读外层容器的属性，于是 `fieldName` 永远是空——`VariableDeclaration`
-  // 的起点一直退到 `const`（实测 505 处对不上），而 `List` 那一层看不出来。
-  return projectLetFrom(kids, ctx, v).statement;
 ```
 
 # private method projectLetFrom:(kids:Array<any>, ctx:any, container:any)=>Array<any>

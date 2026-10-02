@@ -249,6 +249,30 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, letUnit);
 
 它覆写了 `ToXmlString`，而且**三种形态的 XML 完全不同**——标签名后的属性名随 `LetType` 走，都是自闭合标签。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`let` / `const` / `var` 声明 → **TS 的三层**（**从 `ts-ast.xl.md` 的 `projectLet` 整块搬来**，
+第 197 轮）。
+
+两个坐标细节（都是实测出来的）：
+
+- `VariableDeclaration`（声明本身）从**名字**开始，不含前面的 `let `/`const `——
+  TS 的 `getStart()` 跳过前导 trivia，而本工程的 `Let` 把修饰词包在区间里；
+- `VariableDeclarationList` / `VariableStatement`（两层壳）从 `let` 那个词开始。
+
+**`fieldName` / `modifiers` 在本单元的子单元上，不在外层 `Statement` 上**（踩过）：
+顶层形态是 `Statement > [Let(const f), SymbolToken(=), 初始化式]`，
+而 `Let` 自己的区间只盖到 `const f` 为止、初始化式是它的**平级兄弟**。
+早先直接读外层容器的属性，于是 `fieldName` 永远是空——`VariableDeclaration`
+的起点一直退到 `const`（实测 505 处对不上），而 `List` 那一层看不出来。
+
+实现在共享层的 `projectLetFrom`（列表版与语句版**共用一份**：`for` / `foreach` 的头部
+要的就是它的 `.list`），这里只取 `.statement`。
+
+```ts
+  return ctx.LetFrom(ctx.Kids(v), v).statement;
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**。
