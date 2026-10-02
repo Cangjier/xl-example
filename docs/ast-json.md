@@ -3,17 +3,25 @@
 > 本文是 **token 树的第二个出口**（AST JSON）的规格：形状、字段表、与 XML 出口的同源关系，
 > 以及与上游 Cangjie 的逐条差异。
 > 解析层本身见 [README](../README.md) 与 [`typescript/parse-pipeline.xl.md`](../typescript/parse-pipeline.xl.md)。
+>
+> **树现在有三个出口**：XML（默认）、AST JSON（本文）、**TS 形状**
+> （`cjcli --ts-ast`，规格见 [ts-ast.md](ts-ast.md)）。第三个出口挂在
+> [`typescript/ts-ast.xl.md`](../typescript/ts-ast.xl.md) 的 `projectRoot` 上——
+> 它读的是同一棵树的 `ToList()`，不是本文这份 JSON 的再加工。
 
 ---
 
-## 1. 两个出口
+## 1. 三个出口里的第二个
 
-同一棵 token 树有两个出口，都挂在 `core/syntax/token.xl.md` 的 `Token` 上：
+同一棵 token 树有三个出口：XML 与 AST JSON 挂在 `core/syntax/token.xl.md` 的 `Token` 上，
+TS 形状挂在 `typescript/ts-ast.xl.md` 的 `projectRoot` 上（core 不依赖 typescript，
+所以第三个不在 `Token` 上）。
 
 | 出口 | 入口 | 形态 | 给谁 |
 | --- | --- | --- | --- |
 | XML（默认） | `Token.ToXmlString()` / `Root.ToString()` | 元素树；`cjcli` 打印时按嵌套缩进 | 给人读；测试夹具（`samples/*.expected.xml`） |
 | AST JSON | `Token.ToDictionary()` / `ToList()` / `ToJsonString()` | 紧凑单行 JSON | 给下游程序读 |
+| TS 形状 | `projectRoot()` / `ToJsonText()` | `ts.createSourceFile` 同形（`kind` 用名字 + `pos` / `end`） | 与 TS 原生 AST 对拍 / diff |
 
 命令行侧由 `cjcli` 的 `--ast-json` 切换：
 

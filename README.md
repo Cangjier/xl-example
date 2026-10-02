@@ -52,7 +52,7 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 npm install          # 只需要 @types/node 与 typescript
 xl build             # 规范 → dist/ts/**/*.ts（增量；无改动时 skipped）
 npm run compile      # dist/ts/**/*.ts → build/ts/**/*.js（tsc，strict）
-npm run samples      # 三个样本与各自 *.expected.xml 对照
+npm run samples      # 三个样本与各自 *.expected.{xml,ast.json,tsast.json} 对照
 node build/ts/cjcli.js samples/hello.ts
 ```
 
@@ -72,12 +72,23 @@ node build/ts/cjcli.js samples/hello.ts
 键名与值**一律以 XML 属性为准**（同名同值），所以两个出口说的一定是同一棵树；
 规格与逐 token 字段表见 [docs/ast-json.md](docs/ast-json.md)。
 
+**第三个出口是 TS 形状**（`cjcli <文件> --ts-ast`）：把同一棵树投成 **`ts.createSourceFile` 的形状**——
+`kind` 用**名字**（`"VariableStatement"` / `"Block"`…）、每个节点带 `pos` / `end`、字段名按 TS 的叫法
+（`statements` / `members` / `parameters`…），顶层就是那个 `SourceFile` 节点，可以直接和
+`ts.createSourceFile` 的转储对拍 / `diff`。投影写在
+[typescript/ts-ast.xl.md](typescript/ts-ast.xl.md)（模块级 `# const` / `# method`，逐个函数可读），
+`unmapped`（投影没覆盖、原样透传的产物标签）走 **stderr**，所以 stdout 里只有形状本身。
+规格见 [docs/ts-ast.md](docs/ts-ast.md)。
+
+**三个出口同源**：`CjcliParse` 造出根单元之后才分叉，XML / AST JSON / TS 形状看的是同一棵树，
+结构上没有第二条解析路径。
+
 改完规范之后，验收是这五步：
 
 ```bash
 xl check               # 结构与规则检查
 npm run build          # xl build && tsc
-npm run samples        # 样本夹具逐字节对照（XML 与 AST JSON 各一份夹具）
+npm run samples        # 样本夹具逐字节对照（XML / AST JSON / TS 形状 各一份夹具）
 npm run cases:check    # 用例体检（用例本身合不合格）
 npm run cases:run      # 用例对解析器（台账必须仍然是空的）
 ```
@@ -161,7 +172,17 @@ npm run cases:align       # 对齐探针：产物单元与 TS AST 节点按源�
   换来的是两个出口**同源**——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
   而 `Map` → 普通对象那一步由 `Token.ToJsonString` 收在一处（`JSON.stringify` 对 `Map` 静默给 `{}`，
   这是必须显式处理的一步，不是风格问题）。
-  除此之外的运行时代码里不再有别的投影：要别的形状，仍然在调用方自己遍历 `Data`。
+- **token 树的第三个出口是 TS 形状**（`typescript/ts-ast.xl.md` 的 `projectRoot` / `ToJsonText`，
+  见 [docs/ts-ast.md](docs/ts-ast.md)）。这一条**改掉了原先「除此之外的运行时代码里不再有别的投影」**
+  这句口径：投影原来只活在测试侧（`tests/parse/ts-shape.mjs` 那 2464 行 JS），
+  于是「投影的账」与「运行时的账」可以各算各的；现在投影搬进规范、只有一份实现，
+  `cjcli --ts-ast`、`cases:tsast` 与 `samples` 的第三份夹具量的都是它。
+  这份实现是**逐字搬家**（连空白都一样），等价性用一次性尺子在全语料上逐字节对拍过
+  （1399 个文件、0 处不一致，见台账第 75 轮），它的类型标注是文档、产物带 `// @ts-nocheck`
+  ——理由写在规范文件里（`strict` 下那一百多处报错都是「把 JS 的写法改成 TS 的写法」，
+  那是改写，不是搬家）。
+  代价与 AST JSON 那一支同源：投影层是 `Map<string, any>` / `any` 上跑的，
+  C++ 目标要面对同一笔账（比如 `NUMERIC_LITERAL` 的 `RegExp`）。
 
 ## 解析优先级在哪
 
@@ -1490,6 +1511,74 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 75 轮：TS 形状直出口（第三个出口）—— 投影从测试侧搬进规范
+
+**这一轮改的是「第三个出口」这件事本身**：`cjcli <文件> --ts-ast` 直出 `ts.createSourceFile`
+的形状（`kind` 用名字、`pos` / `end`、TS 的字段名），实现写在
+[typescript/ts-ast.xl.md](typescript/ts-ast.xl.md)。在此之前，那套投影只活在测试侧
+（`tests/parse/ts-shape.mjs`，2464 行 JS）——运行时没有它，于是「投影的账」与「运行时的账」
+可以各算各的。现在只有**一份实现**：`cjcli --ts-ast`、`cases:tsast`、
+`samples/*.expected.tsast.json` 量的都是同一个函数。
+
+**搬法是逐字搬家，等价性是量出来的**：表名、函数名、函数体、表体一字未改（连空白都一样），
+只补类型标注。搬完用一把**一次性尺子** `tests/parse/ts-shape-crossover.mjs`
+在全语料上把新旧两份实现的输出**逐字节**对拍：
+
+```
+搬家等价性（all）：语料 1399 个文件，解析失败 0，逐字节对拍 1399 个
+两份实现输出**逐字节相同**（长度与内容都一致）
+```
+
+对拍通过之后那把尺子就删了（`ts-shape.mjs` 随即改成 30 行的转发，只从 `build/ts` 取那一份），
+长期判据回到 `cases:tsast` 对 `ts.createSourceFile` 的逐节点对拍。
+
+**搬家当场暴露了一个真缺口（顺手修掉）**：产物里那个跨 5 行的嵌套三元在**对象字面量的属性值**
+位置上被收成了「方法声明 + 返回类型 + 方法体」——`BodyIndex` 会跨过运算符去找后面那个 `{`。
+最小复现（第 75 轮之前是「三元 0 个、方法声明 1 个」）：
+
+```ts
+const p = { name: e(z) ? { k: 1 } : g };          // 错的
+const p = { name: e(z) <= f ? { k: 1 } : g };     // 错的（`&&` / `===` / `?` 同理）
+const p = { name: e(z)[0] ? { k: 1 } : g };       // 错的（下标）
+const p = { name: e(z) in o ? { k: 1 } : g };     // 错的（值位关键字）
+```
+
+修法是把第 66 轮那条 `=>` 守卫**推广成三条同族的判定**
+（`typescript/tokens/function/method-declaration.xl.md`）：方法声明的形参表后面只可能接
+`:` 返回类型 / `{` 体 / 成员边界，接下面的东西就一定是**表达式**——
+① 运算符（`ValueOperators`：`=>` / `===` / `&&` / `?` / `.` …）；
+② 下标括号 `[`；③ 值位关键字（`ValueKeywordTexts`：`in` / `instanceof` / `as` / `satisfies`，
+按文本认词**必须走 `WordText`**——这一刻 `in` 可能还是 `Identifier`，
+`KeywordReorganization` 排在队列尾部还没跑过它）。
+
+刻意写成**黑名单**而不是白名单——白名单会连带打掉
+成片的无体重载与访问器签名，那个坑在本文件里记着两次净回归。
+
+**`cases:shapelint` 的指针必须跟着搬**（否则它会**静默**失效）：它读的是源码文本、
+找的是 `const NAME = new Map([`，搬家后表写成了 `# const NAME:<类型>` + 代码块，
+`catch { continue; }` 会把「一张表都没找到」吞成「没有重复键」。现在它默认扫规范文件、
+**找不到表就算失败**，并补了 `--self-test`（故意把 `KIND_BY_TAG["Root"]` 写两遍，必须被抓到）。
+
+**数字**（同一套尺子）：
+
+| 判据 | 结果 |
+| --- | --- |
+| 逐字节对拍（旧实现 vs 运行时直出） | 1399 个文件、**0 处不一致** |
+| `cases:tsast`（同一语料） | 97.0% / 字段名 99.3% —— **与搬家前一致** |
+| `cases:dashboard` | **真缺 0**（修 `ValueOperators` 之前是三元真缺 1） |
+| `cases:run` / `cases:check` | 1027 / 1027、0 条不合格 |
+| `cases:astjson` / `lossless` / `structure` / `boundaries` / `matrix` / `diff` | 全绿 |
+| `samples` | 三份夹具（XML / AST JSON / TS 形状）× 三个样本，且「命令行 = 库 API」 |
+
+把新生成的 `dist/ts/typescript/ts-ast.ts` 也算进语料时 `cases:tsast` 是 96.7%——
+那**不是**投影变差，是语料自己多了一份 1900 行的文件（分母变了），所以上表报的是同一语料的数。
+
+**如实记下的取舍**：① 那份产物带 `// @ts-nocheck`——逐字搬来的函数体是 JS 写法，
+`strict` 下要报一百多处，改掉它们就是改写而不是搬家；类型标注仍然写全，它们是文档。
+② `NUMERIC_LITERAL` 标 `RegExp`、投影层整体跑在 `any` 上——TS 目标准确，C++ 目标要另想办法
+（与 AST JSON 出口同一笔账）。③ 死代码（`stmtLike`）、够不着的 `case` 分支（`projectLogical`）、
+重复实现（`matchBrace` / `matchingBrace`）都**照原样留着**：要动它们，另开一轮，用尺子量。
+
 ### 第 74 轮：类型谓词 / `export =` / `this` 形参（真实语料 97.1% → 97.4%）
 
 缺口榜上接下来能「一次清一类」的三处，都是**同一个产物标签在投影层少了一层或错了一层**：
@@ -1652,6 +1741,7 @@ JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，
 cjcli <文件>              解析源文件，缩进 XML 打到标准输出
 cjcli <文件> -o <文件>    解析后写入指定文件（同一份缩进文本）
 cjcli <文件> --ast-json   解析后把 AST JSON（紧凑单行）打到标准输出
+cjcli <文件> --ts-ast     解析后把 TS 形状 JSON（紧凑单行）打到标准输出
 cjcli                    从标准输入读源码
 cjcli -h, --help         打印本说明
 cjcli -v, --version      打印版本
@@ -1664,15 +1754,20 @@ node build/ts/cjcli.js samples/hello.ts
 echo "let x = 1" | node build/ts/cjcli.js
 node build/ts/cjcli.js samples/hello.ts -o out.xml
 node build/ts/cjcli.js samples/hello.ts --ast-json -o out.json
+node build/ts/cjcli.js samples/hello.ts --ts-ast > out.tsast.json
+node build/ts/cjcli.js samples/hello.ts --ts-ast | node -e "..."   # 直接喂给 diff / 对拍脚本
 ```
 
-`--ast-json` 换的是**出口**不是解析：`CjcliParse` 造出根单元之后才分叉，
-两个出口看的是同一棵树（`CjcliParseXml` 取 `ToXmlString()`、`CjcliParseAstJson` 取 `ToJsonString()`）。
-JSON 不经过 `CommonUtil.FormatXml`——那个函数只认 XML。
+`--ast-json` / `--ts-ast` 换的是**出口**不是解析：`CjcliParse` 造出根单元之后才分叉，
+三个出口看的是同一棵树（`CjcliParseXml` 取 `ToXmlString()`、`CjcliParseAstJson` 取 `ToJsonString()`、
+`CjcliParseTsAst` 取 `ToJsonText(projectRoot(Root.ToList(), 原文))`）。
+两个 JSON 出口都不经过 `CommonUtil.FormatXml`——那个函数只认 XML。
+两个开关同时给时以 `--ts-ast` 优先（同一个位置的两种形状，不是可以叠加的东西）。
 
 ## 样本验收
 
-[samples/check.mjs](samples/check.mjs)：`samples/*.ts` 与同名 `*.expected.xml` / `*.expected.ast.json` 对照。
+[samples/check.mjs](samples/check.mjs)：`samples/*.ts` 与同名 `*.expected.xml` / `*.expected.ast.json`
+/ `*.expected.tsast.json` 对照（三个出口各一份夹具）。
 
 ```bash
 npm run samples                 # 比对，全部一致时退出码 0
@@ -1685,13 +1780,17 @@ XML 夹具是**紧凑单行**（`--update` 写的是归一化之后的那一份�
 属性值里的空白不受影响（`CommonUtil.XmlDecode` 把换行 / 制表符都写成了 `\n` / `\t` 转义）。
 两端都在文件层读写、不经过控制台编码，中文注释不会在比对里被搅坏。
 
-AST JSON 夹具**逐字节比、不做归一化**：它本来就是紧凑单行，键序由规范里的 `result.set(...)` 顺序决定、
-`range` 由源码下标决定，三者都是确定性的——归一化只会把「键序变了」这类漂移盖掉。
+两个 JSON 夹具（AST JSON 与 TS 形状）都**逐字节比、不做归一化**：它们本来就是紧凑单行，
+键序由规范里的 `result.set(...)` 顺序（或字段赋值的顺序）决定、`range` / `pos` 由源码下标决定，
+都是确定性的——归一化只会把「键序变了」这类漂移盖掉。
 
 **同一份比对还顺带钉住了「入口」**：脚本除了跑 `cjcli` 进程，也用库 API 解析同一份源码
-（`new TextContext(...).Process(...)` → `Root.ToXmlString()` / `Root.ToJsonString()`），
-断言两条路**逐字节相同**（`[XML]` / `[AST JSON]` 那两行之外，`ENTRY` 一行就是这条断言）。
+（`new TextContext(...).Process(...)` → `Root.ToXmlString()` / `Root.ToJsonString()` /
+`ToJsonText(projectRoot(...))`），断言两条路**逐字节相同**
+（`[XML]` / `[AST JSON]` / `[TS 形状]` 那三行之外，`ENTRY` 一行就是这条断言）。
 少了它，「库对了、命令行打歪了」没有任何尺子看得见——`cases:astjson` 只走库 API。
+TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本**共用**的同一个函数，
+两边不是各写一遍对齐的。
 
 [samples/diag.mjs](samples/diag.mjs) 打印完整的诊断链：`cjcli` 只打最外层 `SyntaxException` 的位置，
 真正的原因在内层异常里（`Token.Process` 会把任何异常包一层，可能包好几层）。

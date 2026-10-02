@@ -6,7 +6,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
 import { ArrayLiteral } from "../json/array-literal.xl.md"
@@ -58,6 +58,33 @@ import { LineWrap } from "../line-wrap.xl.md"
 ## static readonly field Instance:MethodDeclarationReorganization = new MethodDeclarationReorganization()
 
 唯一的实例，注册进通用重组队列时用。
+
+## static readonly field ValueOperators:Array<string> = ["=>", "===", "==", "!==", "!=", "<=", ">=", "<", ">", "&&", "||", "??", "?", ".", "!", "+", "-", "*", "/", "%", "**", "&", "|", "^", "<<", ">>", ">>>", "="]
+
+**值位运算符表**：方法声明的形参表后面**只可能**接 `:` 返回类型、`{` 体、成员边界（`;` / `,`）
+或列表末尾；接的是这张表里的**运算符**时，那不是声明，而是**一个表达式**（调用、点号链、
+二元 / 比较 / 逻辑运算、三元、非空断言…）。
+
+`=>` 是这一族的第一个（第 66 轮：`abstract new(...args: any) => any` 是类型位的构造签名）；
+第 75 轮把其余的补齐——**对象字面量的属性值**位置上，`f(x)` 后面跟 `?` / `&&` / `<=`
+之类的运算符时，`BodyIndex` 会一路扫到后面那个**对象字面量的 `{`**，把整个三元收成
+「方法声明 + 返回类型 + 方法体」（实测 `{ name: e(z) ? { k: 1 } : g }` 只剩 1 个
+`MethodDeclaration`、**0 个三元**；`@types/node` 与 `dist/ts` 里都成片出现）。
+
+这张表是**黑名单**而不是白名单：只挡「绝不可能是声明」的运算符，别的一概照旧走
+`BodyIndex` / `IsMemberSignature`——那两条路径上有成片的无体重载与访问器签名，
+按白名单收窄会把它们一起判否（本文件里记着两次净回归的教训）。
+
+## static readonly field ValueKeywordTexts:Array<string> = ["in", "instanceof", "as", "satisfies"]
+
+**值位关键字**：与 `ValueOperators` 同一族——它们只能出现在**表达式**里，
+不可能紧跟在方法声明的形参表后面。按文本认词要**走 `WordText`**：在这一刻
+`in` 可能还是 `Identifier`（`KeywordReorganization` 排在队列尾部，还没跑过它），
+只认 `Keyword` 会漏（第 75 轮实测）。
+
+实测（同一条根因）：`{ name: e(z) in o ? { k: 1 } : g }` 里 `e(z)` 会被收成
+`MethodDeclaration`、三元整个消失；`f(x)[0] ? { … } : g` 那种**下标**同理
+（下标是括号、不是运算符，所以另有一条 Bracket 判定）。
 
 ## private method ParameterText:(unit:Token)=>string
 
@@ -439,16 +466,24 @@ if (parametersIndex < 0) {
 if (this.AfterAssignment(template, units, nameIndex)) {
   return false;
 }
-// **形参表后面是 `=>` ⇒ 那是函数类型 / 构造类型，不是方法声明**（第 66 轮补）。
-// 方法声明的形参表后面只可能是 `: 返回类型` / `{ 体 }` / 成员边界（`;` `,` 换行），
-// `=>` 是**类型位**的写法：`F extends abstract new(...args: any) => any ? F : undefined`。
-// 少了这一条，`abstract new(...)` 会被收成一个（没有名字的）`MethodDeclaration`，
-// 它的 `ReturnType` 再从 `=>` 一路吞到语句尾——把外层条件类型的 `? :` 吃成
-// 值位的 `<TernaryOperator>`（实测 `@types/node/test.d.ts:2119`，
-// `cases:align` 的 `ConstructorType` 缺 1 与 `MethodDeclaration in TypeDefine` 口径都是它）。
-// 该形状随后由 `../function-type.xl.md` 收成 `FunctionType`（TS 那边叫 `ConstructorType`）。
+// **形参表后面是「表达式的继续」⇒ 那是表达式，不是方法声明**（第 66 轮起，第 75 轮补齐）。
+// 方法声明的形参表后面只可能是 `: 返回类型` / `{ 体 }` / 成员边界（`;` `,` 换行）：
+//   · 接**运算符**（`=>` / `===` / `&&` / `?` / `.` …）⇒ 值位表达式。
+//     `=>` 那一支是第 66 轮补的：`F extends abstract new(...args: any) => any ? F : undefined`
+//     里的构造签名随后由 `../function-type.xl.md` 收成 `FunctionType`；
+//   · 接**下标括号** `[` ⇒ `f(x)[0]` 这种索引；
+//   · 接**值位关键字**（`in` / `instanceof` / `as` / `satisfies`）⇒ 同样是表达式。
+// 少了这三条，`f(x)` 会被收成 MethodDeclaration，它的「返回类型」从那个 token 一路吞到 `?`、
+// 「方法体」就是后面那个对象字面量（实测 `{ name: e(z) ? { k: 1 } : g }`：
+// 三元 0 个、方法声明 1 个；`f(x)[0] ? …` 与 `f(x) in o ? …` 同理）。
 const afterParameters = Get(units, SkipNextWrapSymbol(units, parametersIndex));
-if (afterParameters instanceof SymbolToken && afterParameters.Is("=>")) {
+if (afterParameters instanceof SymbolToken && afterParameters.IsAny(MethodDeclarationReorganization.ValueOperators)) {
+  return false;
+}
+if (afterParameters instanceof Bracket && afterParameters.startBracket === "[") {
+  return false;
+}
+if (afterParameters !== null && (afterParameters instanceof Identifier || afterParameters.constructor.name === "Keyword") && MethodDeclarationReorganization.ValueKeywordTexts.includes(WordText(afterParameters))) {
   return false;
 }
 return this.BodyIndex(units, parametersIndex) >= 0 || this.IsMemberSignature(units, nameIndex, parametersIndex);

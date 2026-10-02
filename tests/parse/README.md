@@ -141,10 +141,10 @@ TS 侧的基准是 `ts.createSourceFile(...)`，取的子节点是 `ts.forEachCh
 所以它们不参与比对，也不算「产物多出来的」。`Identifier` / `Keyword` 映射到 `null`
 表示「按文本再分」——它们是**一类对多类**的标签，归一名要靠 `leafKindOfText` / `KEYWORD_KIND`。
 
-### 投影：`ts-shape.mjs`
+### 投影：`typescript/ts-ast.xl.md`（`ts-shape.mjs` 只剩转发）
 
 上面那张归一表只解决**名字**。要真的产出「`ts.createSourceFile` 兼容的 JSON」，
-还需要**补壳**与**字段名**——这就是 `ts-shape.mjs` 的活：
+还需要**补壳**与**字段名**——这就是投影的活：
 
 | 做什么 | 例 |
 | --- | --- |
@@ -152,6 +152,12 @@ TS 侧的基准是 `ts.createSourceFile(...)`，取的子节点是 `ts.forEachCh
 | **补壳** | `let x = 1` 在本工程是 `Statement` + `Let` 两层，TS 是三层：补出 `VariableDeclarationList` 与 `VariableStatement` |
 | **字段名** | 分段本来就叫 `initial` / `compare` / `body` / `parameters`…（这套 token 层从一开始就照着 TS 起的名字），TS 叫法不同的补上（`declarationList` / `statements`…） |
 | **不猜** | 没覆盖的标签**原样透传**并记进 `unmapped`——猜出来的节点会让尺子报出假成绩 |
+
+**实现已经不在这里了**（第 75 轮）：投影写进 [typescript/ts-ast.xl.md](../../typescript/ts-ast.xl.md)
+（模块级 `# const` / `# method`，74 个函数逐字搬过来），经 `xl build` + `tsc` 变成
+`build/ts/typescript/ts-ast.js`；[ts-shape.mjs](ts-shape.mjs) 现在只剩 30 行转发
+（从 `build/ts` 取那一份再 `export`）。**只留一份实现**的理由：投影原来只在测试侧，
+`cjcli --ts-ast`（运行时）与 `cases:tsast`（尺子）量的可以是两份不同的东西。
 
 两个坐标细节（实测出来的，写在 `projectLet` 的注释里）：
 
@@ -173,6 +179,34 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 后者是「同一类节点位置差一点」。混在一起时漂移会把缺失挤下榜首——
 真实语料里 `TypeReference` 的漂移 1749 比它自己的缺失 2102 还接近榜首。
 两段现在都带样本（`投影后仍缺的 TS kind` / `投影后同 kind 但区间漂移`）。
+
+### 第 75 轮：投影搬进规范（逐字节对拍过）+ 一个 `MethodDeclaration` 真缺口
+
+投影从测试侧搬进 [typescript/ts-ast.xl.md](../../typescript/ts-ast.xl.md)（逐字搬家），
+`ts-shape.mjs` 改成转发，`cjcli --ts-ast` 与 `cases:tsast` 从此量同一份实现。
+等价性用**一次性尺子** `ts-shape-crossover.mjs`（比对完即删，所以不在仓库里）量过：
+旧实现（2464 行 JS）与新实现（xl 产物）在全语料上输出**逐字节相同**（1399 个文件、0 处不一致），
+长期判据是 `cases:tsast` 的成绩。
+
+搬完当场暴露一个**真缺口**（`cases:dashboard` 从「三元真缺 1」变红）：对象字面量的属性值位置，
+`f(x)` 后面跟运算符、后面再有一个 `{` 时，整个三元被收成「方法声明 + 返回类型 + 方法体」：
+
+```ts
+const p = { name: e(z) ? { k: 1 } : g };        // 坏：三元 0 个、方法声明 1 个
+const p = { name: e(z) <= f ? { k: 1 } : g };   // 坏（`&&` / `===` 同理）
+const p = { name: e(z)[0] ? { k: 1 } : g };     // 坏（下标）
+const p = { name: e(z) in o ? { k: 1 } : g };   // 坏（值位关键字）
+```
+
+修在 [method-declaration.xl.md](../../typescript/tokens/function/method-declaration.xl.md)：
+把第 66 轮那条 `=>` 守卫推广成三条同族判定——形参表后面接**运算符**（`ValueOperators`）、
+**下标括号** `[`、或**值位关键字**（`ValueKeywordTexts`，按文本认词走 `WordText`）
+⇒ 都是表达式，不是声明。刻意用**黑名单**——白名单会连带打掉成片的无体重载与访问器签名
+（那份文件里记着两次净回归）。
+
+**`cases:shapelint` 跟着改**：它读源码文本找表，搬家后表写成 `# const NAME:<类型>` + 代码块，
+原来的匹配会全落空、而 `catch` 把落空吞成「没有重复键」。现在默认扫规范、**表找不到即失败**，
+并带 `--self-test`。
 
 ### 第 74 轮：类型谓词 / `export =` / `this` 形参（真实语料 97.1% → 97.4%）
 
