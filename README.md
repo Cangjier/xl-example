@@ -345,13 +345,13 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。
 这个百分比**同时量节点集合、坐标与名字归一**（三者都对上才计），实测：
 
-| 口径 | 用例语料 1018 文件 | 真实语料 385 文件 |
+| 口径 | 用例语料 1020 文件 | 真实语料 385 文件 |
 | --- | --- | --- |
 | 产物标签名直接比 | 32.4% | 47.9% |
-| **投影成 TS 形状后比**（`ts-shape.mjs`） | **85.4%** | **97.6%** |
-| 其中**字段名也一致** | **97.6%** | **99.8%** |
+| **投影成 TS 形状后比**（`ts-shape.mjs`） | **85.7%** | **97.9%** |
+| 其中**字段名也一致** | **97.8%** | **99.9%** |
 
-（这三行是**第 76 轮**的实测数；改动前后的对照与逐条缺口见下面「第 76 轮」那一节。）
+（这三行是**第 78 轮**的实测数；改动前后的对照与逐条缺口见下面「第 78 轮」那一节。）
 
 第三行是「完全 follow TypeScript 形状」的真账：[tests/parse/ts-shape.mjs](tests/parse/ts-shape.mjs)
 负责换名、补壳 / 提层、给字段名，`cases:tsast` 逐节点比 **kind / 区间 / 字段名** 三样。
@@ -1516,6 +1516,76 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 `samples` 三份夹具按新形状重生成（只有 `declarations` 里那条 `this.…` 链变了形状）。
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
+
+### 第 78 轮：成员名的四种形态（真实语料 97.6% → 97.9%，字段名 99.8% → 99.9%）
+
+这一轮啃的是缺口榜上**同一个根因**的一大片：`StringLiteral` 1083 + `PropertyAccessExpression` 593 +
+`ComputedPropertyName` 231 + `NumericLiteral` 216 + `PropertySignature` 52 ≈ 2200 个节点。
+
+#### 一、根因：成员名有**两套**判据，接口那一套是残的
+
+投影层里名字有两处实现：
+
+- `structuralProps`（方法声明 / 签名 / 命名空间走这条）认得**引号名**（`declare module "x"`）与
+  **计算名**（`[Symbol.toPrimitive]`，第 34 轮补的）；
+- `projectField`（**接口 / 类型字面量成员**走这条）**自己 `synthName` 合了一个 `Identifier`**，
+  上面两套判据一条都没用。
+
+而真实语料里正好是后者占绝大多数。于是：
+
+| 源码 | 原来 | 现在 |
+| --- | --- | --- |
+| `"accept-encoding"?: string` | `Identifier[17,32)`（引号**里面**那几个字符） | `StringLiteral[16,33)`（区间含那对引号） |
+| `0: string` / `1.5: boolean` | `Identifier` | `NumericLiteral` |
+| `[Symbol.toStringTag]: string` | **整个名字节点都没有**（`name=""` 被 `name !== ""` 的闸门挡掉） | `ComputedPropertyName[59,79)` > `PropertyAccessExpression` |
+| `[kOptions]: T` | `Identifier[92,100)`（丢了方括号） | `ComputedPropertyName[91,101)` > `Identifier` |
+
+修法是把它**收成一份**：新增 `memberNameOf(v, ctx)`（[typescript/ts-ast.xl.md](typescript/ts-ast.xl.md)），
+`projectField` 与 `structuralProps` 都问它。四条判据都是实测逼出来的：
+
+1. **计算名先问，而且不看 `name` 属性空不空**——`[Symbol.toStringTag]` 的名字属性是**空串**，
+   原来那个 `name !== ""` 的闸门直接把整格名字挡掉了（`PropertySignature` 缺 `name` 52 处
+   与它同源）；
+2. **引号判据是「名字起点前面那一格就是引号」**，不是「窗口里找得到 `"name"`」：
+   `x: "x"` 这种成员的类型里正好有同名字符串，按窗口找会把类型当成名字。
+   `synthName` 已经把名字位置算好了（推过修饰词、优先用 `nameStart` / `nameEnd`），问它左边一格就够；
+3. **数字名用与叶子分名同一个正则**（`NUMERIC_LITERAL`）——`0x10` / `1_000` / `1.5` 都算；
+4. **`computed` / `unit` 两个返回值调用方都要用**：`computed` 要从段循环里排掉（否则它会以
+   `ArrayLiteral` 的身份再出现一次），`unit` 是名字那个子单元——**这一条是本次改动自己踩的坑**：
+   第一版只返回投影后的节点、把 `unit` 丢了，于是接口名那个 `Identifier` 没被排掉、
+   顶着字段名 `heritageClauses` 出去，实测 **2640 处字段名不符**（接口那 2137 处全中）。
+   `cases:tsast` 的「字段名」那一栏当场把它抓出来——kind / 区间那一栏当时是**涨的**。
+
+#### 二、顺手补的三条字段名映射
+
+| kind | 产物 | TS | 处数 |
+| --- | --- | --- | --- |
+| `WhileStatement` | `compare` / `body` | `expression` / `statement` | 70 |
+| `CallSignature` / `ConstructSignature` | `children` | `parameters` | 146 + 57 |
+
+#### 三、这一轮的账
+
+| 判据 | 第 77 轮 | 现在 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 457250（97.6%） | **458711（97.9%）** |
+| 其中**字段名也一致** | 456338（99.8%） | **458252（99.9%）** |
+| `cases:tsast` 用例语料 | 85.4% | **85.7%** |
+| 投影后仍缺 `StringLiteral` | 1083 | **170** |
+| 投影后仍缺 `ComputedPropertyName` | 231 | **0** |
+| 投影后仍缺 `PropertySignature` | 52 | **0** |
+| `cases:align`（1418 文件） | 未登记 1 类 / 缺节点 1 类 | **同上**（仍只有那 2 处 `CallExpression`） |
+| `cases:run` / `cases:check` | 1032 / 1032 | **1033 / 1033**（新增 1 条钉住本轮） |
+
+九把尺子 + `samples` / `shapelint` 全绿；`samples` 三份 TS 形状夹具按新名字节点重生成。
+
+**下一轮的目标**（现在的榜单，同一批 385 个真实文件）：`Identifier` 1861、
+`PropertyAccessExpression` 538、`TypeReference` 417、`Block` 413、`BinaryExpression` 398、
+`PropertyAssignment` 374、`ParenthesizedExpression` 366、`ElementAccessExpression` 314、
+`NumericLiteral` 214、`CaseClause` 184、`CallExpression` 181、`TemplateSpan` 175 /
+`TemplateMiddle` 140、`ExportSpecifier` 134、`SuperKeyword` 127。
+其中这一轮**顺带看清了一处**：`interface I { [n: number]: T }` 的索引签名在投影里被包成了
+`ExpressionStatement > IndexSignatureDeclaration`（TS 那边是裸的成员）——
+`projectStatement` 在**成员位**不该补语句壳，它现在拿不到 `parentKind`，是下一轮的第一件事。
 
 ### 第 77 轮：第三个出口改成**逐节点直出**（`Token.PrintAst`）+ 对象字面量里的箭头函数
 

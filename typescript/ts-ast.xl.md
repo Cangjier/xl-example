@@ -399,6 +399,19 @@ new Map([
       ["body", "statement"],
     ]),
   ],
+  // `while (c) { … }`：产物的段名是 `compare` / `body`（上游 Cangjie 的叫法），
+  // TS 是 `expression` / `statement`（实测 70 处）。
+  [
+    "WhileStatement",
+    new Map([
+      ["compare", "expression"],
+      ["body", "statement"],
+    ]),
+  ],
+  // **可调用 / 可构造签名的形参表**：产物那一格是 `children`（形参括号摊平后落在里面；
+  // 第 73 轮把 `New` 里那一层也摊平了），TS 叫 `parameters`（实测 146 + 57 处）。
+  ["CallSignature", new Map([["children", "parameters"]])],
+  ["ConstructSignature", new Map([["children", "parameters"]])],
 ])
 ```
 
@@ -1809,14 +1822,93 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   return { kind: "IndexedAccessType", pos: v.start, end: v.end, ...props };
 ```
 
+# private method memberNameOf:(v:any, ctx:any)=>any
+
+**成员的名字节点**（`Field` / 方法声明 / 方法签名 / 命名空间…都要问它）。
+
+TS 那边成员名有四种形态，判据在这里**收口**——`projectField` 与 `structuralProps` 共用一份。
+原来 `projectField` 自己 `synthName` 合一个 `Identifier`，于是**接口 / 类型字面量里的成员**
+（那一支正是 `projectField`）的引号名、数字名、计算名**全都长成 `Identifier`**。实测缺口：
+`StringLiteral` 1083、`NumericLiteral` 216、`ComputedPropertyName` 231，以及计算名里面的
+`PropertyAccessExpression` 593（全是 `[Symbol.toStringTag]: string` 那一种）。
+
+| 源码 | 名字节点 |
+| --- | --- |
+| `a` | `Identifier`（树里有那个子单元就用它，没有才 `synthName` 合成） |
+| `"a-b"` / `'a-b'` | `StringLiteral`，**区间含那对引号** |
+| `0` / `1.5` | `NumericLiteral` |
+| `[Symbol.toStringTag]` / `[kOptions]` | `ComputedPropertyName`，区间**含那对方括号**，里面照值位投 |
+
+返回 `{ name, computed, unit }`：`computed` 是那个计算名单元、`unit` 是名字那个**子单元**
+（两者调用方都要从段循环里**排掉**，否则它会以 `ArrayLiteral` / `Identifier` 的身份在成员里
+再出现一次——`unit` 是实测补的：接口名那个 `Identifier` 没被排掉时会顶着
+`heritageClauses` 出去，实测 2640 处字段名不符）。
+
+两处判据是实测逼出来的：
+
+- **计算名先问**，而且**不看 `name` 属性空不空**：`[Symbol.toStringTag]` 的名字属性是**空串**
+  （`name=""`），原来那个 `name !== ""` 的闸门直接把它挡在外面，整个名字节点都没有；
+- **引号判据是「名字起点前面那一格就是引号」**，不是「窗口里找得到 `"name"`」：成员的类型里
+  可能正好有同名字符串（`x: "x"`），按窗口找会把类型当成名字。`synthName` 已经把名字的位置
+  算好了（推过修饰词、优先用 `nameStart` / `nameEnd`），直接问它左边那一格。
+
+```ts
+  const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
+  const name = typeof rawName === "string" ? rawName : "";
+  const computed = computedNameUnit(v, ctx);
+  if (computed !== null) {
+    return {
+      name: {
+        kind: "ComputedPropertyName",
+        expression: computedNameExpression(computed, ctx),
+        pos: startOf(computed),
+        end: endOf(computed),
+      },
+      computed,
+      unit: null,
+    };
+  }
+  if (name === "") {
+    return { name: undefined, computed: null, unit: null };
+  }
+  const direct = projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === name);
+  const at = direct === undefined ? synthName(name, v, ctx) : projectNode(direct, ctx);
+  if (at === undefined) {
+    return { name: undefined, computed: null, unit: direct === undefined ? null : direct };
+  }
+  const before = at.pos > 0 ? ctx.source[at.pos - 1] : "";
+  if ((before === '"' || before === "'") && ctx.source[at.end] === before) {
+    return {
+      name: {
+        kind: "StringLiteral",
+        text: ctx.source.slice(at.pos - 1, at.end + 1),
+        pos: at.pos - 1,
+        end: at.end + 1,
+      },
+      computed: null,
+      unit: direct === undefined ? null : direct,
+    };
+  }
+  if (direct === undefined && NUMERIC_LITERAL.test(name)) {
+    return { name: { kind: "NumericLiteral", text: name, pos: at.pos, end: at.end }, computed: null, unit: null };
+  }
+  return { name: at, computed: null, unit: direct === undefined ? null : direct };
+```
+
 # private method projectField:(v:any, ctx:any)=>any
 
 ```ts
   const kids = projectableKids(v);
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
-  const nameText = String(v.attrs.get("fieldName") ?? v.attrs.get("name") ?? "");
-  const props = { name: synthName(nameText, v, ctx) };
+  // **名字走共用判据**（见 `memberNameOf`）：引号名是 `StringLiteral`、数字名是
+  // `NumericLiteral`、计算名是 `ComputedPropertyName`（`[Symbol.toStringTag]` 的名字属性是空串，
+  // 也只有那一条路认得出来）。
+  const named = memberNameOf(v, ctx);
+  const props = {};
+  if (named.name !== undefined) {
+    props.name = named.name;
+  }
   if (typeNode !== undefined) {
     // **可选标记 `?` 是子节点**（`Signature` 家族）：`x?: string` 的 TS 是
     // `PropertySignature > [Identifier(x), QuestionToken, StringKeyword]`。
@@ -2731,53 +2823,23 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   // **`Constructor` 没有 `name` 字段**（TS 的类构造就是一个匿名的函数式声明）：
   // 产物那边它带着 `name="constructor"`，照抄会多出一个 TS 不认的 `Identifier`
   // 挂在构造下（那一格一直对不上）。
-  const nameKinds = kind === "Constructor" ? false : name !== "";
   if (name !== "" && kind === "Constructor") {
     used.add("name");
-  }
-  if (nameKinds) {
-    // **首选树里那个真子单元**：声明名现在作为 `Identifier` 留在 `Data` 里（见
-    // `typescript/tokens/class/class.xl.md` 的 `Process`），它带自己的 `SourceRange`——
-    // 拿它就是拿真位置，不做任何猜测。只有还没补上子单元的 token 才走 `synthName`。
-    nameNode =
-      projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === name) ?? null;
-    // **模块名可能是字符串字面量**：`declare module "assert/strict" {}` 的 TS 是
-    // `ModuleDeclaration > StringLiteral`（**带引号那一整段**），而命名空间是 `Identifier`。
-    //
-    // 产物把两者都记成 `namespace="…"` 属性，而且**引号被吃掉了**（`namespace="assert/strict"`），
-    // 所以「按 `name` 首字符是不是引号分」这条判据**永远不成立**——要去原文里找那一对引号。
-    // 真实语料 `StringLiteral` 缺的那近两千处一直是这个模块名（第 34 轮修）。
-    const literal = v.type === "Namespace" ? quotedModuleNameSpan(ctx.source, name, v.start) : undefined;
-    // **计算属性名**：`[Symbol.toPrimitive]` 在产物里是一个 `ArrayLiteral` 单元（**含方括号**），
-    // 而 TS 是 `name: ComputedPropertyName > …`。原来那个单元被当成数组字面量投出来、
-    // 名字则用 `synthName` 合成一个「整段点号名」的 Identifier——两头都错
-    // （真实语料 `PropertyAccessExpression` 缺 4245、`ComputedPropertyName` 缺一千多，第 34 轮修）。
-    //
-    // 判据是「**第一个**子单元且原文那个位置就是 `[`」：类字段的初始化式 `x = [1, 2]`
-    // 也是一个 `ArrayLiteral`，但它前面还有 `=`，不能认成名字。
-    const computed =
-      literal === undefined && nameNode === null ? computedNameUnit(v, ctx) : null;
-    if (literal !== undefined) {
-      props.name = {
-        kind: "StringLiteral",
-        text: ctx.source.slice(literal.pos, literal.end),
-        pos: literal.pos,
-        end: literal.end,
-      };
-    } else if (computed !== null) {
-      computedUnit = computed;
-      props.name = {
-        kind: "ComputedPropertyName",
-        expression: computedNameExpression(computed, ctx),
-        pos: startOf(computed),
-        end: endOf(computed),
-      };
-    } else {
-      props.name = nameNode === null ? synthName(name, v, ctx) : projectNode(nameNode, ctx);
+  } else {
+    // **名字走共用判据**（见 `memberNameOf`）：`Identifier` / `StringLiteral`（引号名）/
+    // `NumericLiteral`（数字名）/ `ComputedPropertyName`（计算名）四态在这里分派，
+    // `projectField` 用的是同一份。
+    const named = memberNameOf(v, ctx);
+    computedUnit = named.computed;
+    nameNode = named.unit;
+    if (named.name !== undefined) {
+      props.name = named.name;
     }
-    used.add("name");
-    used.add("fieldName");
-    used.add("namespace");
+    if (named.name !== undefined || named.computed !== null) {
+      used.add("name");
+      used.add("fieldName");
+      used.add("namespace");
+    }
   }
   for (const [key, raw] of v.segments) {
     if (used.has(key) || !Array.isArray(raw)) continue;
