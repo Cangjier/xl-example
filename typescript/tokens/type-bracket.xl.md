@@ -182,6 +182,15 @@ super(template);
 ParsePipeline.InitialKeywordReorganizationQueue(this);
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：TS 那边是 `ArrayType`，元素那一段叫 `elementType`
+（产物这一格的子单元就是元素类型本身，没有「元素段」这一层名字，所以名字在这里给死）。
+
+```ts
+return ctx.Node("ArrayType", { elementType: ctx.Each(v, "ArrayType") }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身（`Sign(this)` → 子单元逐个克隆后整批加入 → `TryToClose()`）。
@@ -205,6 +214,16 @@ return result;
 ```ts
 super(template);
 ParsePipeline.InitialKeywordReorganizationQueue(this);
+```
+
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：TS 那边是 `TupleType`，元素那一段叫 `elements`；
+元组成员之间用 `,` 切（`TYPE_MEMBER_SEPARATORS` 的第三档），切完每段整段投——
+`[A, B, ...C[], name?: D]` 里的可选 / 变长 / 具名成员因此各是一个节点。
+
+```ts
+return ctx.Node("TupleType", { elements: ctx.Each(v, "TupleType") }, v);
 ```
 
 ## method Clone:()=>Token

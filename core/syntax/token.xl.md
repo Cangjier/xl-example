@@ -512,6 +512,13 @@ if (end < start) {
   }
 }
 node.set("range", [start, end]);
+// **记下「这一格是哪个 token 出的」**：第三个出口（`PrintAst`）按 token 分派——
+// 投影器拿到一个字典格时先问它的 token「你自己出不出形状」（覆写了就用它自己出的那一格）。
+// 这一处配对本来就做完了（上面的 `taken[i] = token`），所以只是把它记下来，不多算一步。
+//
+// **记成普通属性、不是 Map 的条目**：`entries()` / `JSON.stringify` / `Token.ToPlain`
+// 都看不见它，所以 XML 出口、AST JSON 出口与 `cases:astjson` 那把尺子一个字节都不受影响。
+(node as any).__token = this;
 for (const [key, value] of node.entries()) {
   if (!Array.isArray(value)) {
     continue;
@@ -595,6 +602,38 @@ return result;
 
 ```ts
 return JSON.stringify(Token.ToPlain(this.ToList()));
+```
+
+## method PrintAst:(ctx:any, v:any)=>any
+
+**第三个出口**：这个节点按**目标语言的形状**输出自己（本工程的目标是 `ts.createSourceFile`
+同形的 AST，见 `typescript/ts-ast.xl.md`）。
+
+前两个出口（`ToXmlString` / `ToDictionary`）说的是「这棵树长什么样」；这一个说的是
+「把这棵树投成**另一个形状**时，**我**该长成什么」。
+
+**基类不出形状**（`core/` 与语言无关，只有 `Token` 这一层模型）：默认返回 `undefined`，
+意思就是「我不自己出，交给语言层的通用支」——通用支做的事是**换名 + 提层 + 字段名**
+（三张表，见 `typescript/ts-ast.xl.md` 的 `KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND`）。
+
+**覆写它就是「这个 token 自己出这一格」**：与 `ToXmlString` / `ToDictionary` 完全同一种组织方式
+（基类给默认行为、各 token 覆写自己那一格），区别只在于这一个出口的目标形状是**语言层**定的。
+
+两个参数：
+
+- `ctx`：语言层创建的投影上下文。它带着原文与记账（`source` / `unmapped` / `count`），
+  也带着**出口助手**（`Node` / `Each` / `Members` / `Project` / `Text` / `TextOf` /
+  `LeafKind` / `KeywordKind` / `TokenKind` / `StringText`）——所以覆写里**不需要 import 任何东西**；
+- `v`：**这个节点自己的视图**——标量属性进 `attrs`、数组进 `segments`、坐标在 `start` / `end`。
+  它与另外两个出口**同源**：底层就是 `ToDictionary()` + `WithRange()` 的那一份
+  （`WithRangeOf` 在补坐标时把「这一格是哪个 token」记在字典格上，投影器据此分派）。
+
+**出的是「这一格」（对象），不是文本**：整棵树的文本由出口那一步统一串一次
+（`typescript/ts-ast.xl.md` 的 `ToJsonText`）——与 `ToXmlString` 的差别只是「拼对象」对「拼串」，
+而 XML 那边拼串是因为它的目标形状本来就是文本。
+
+```ts
+return undefined;
 ```
 
 ## static method ToPlain:(value:any)=>any

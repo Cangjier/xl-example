@@ -321,25 +321,81 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
 }
 return "value";
 ```
+# method EnclosingBraceToken:(host:Token)=>Token | null
+
+**包着 `host` 的那个 `{` 括号本身**（没有就返回 `null`）。
+
+与 `EnclosingBraceContext` 是同一趟上溯的两个视图：一个要「它处在类型位还是值位」，
+一个要「**它是不是对象字面量**」——后者要把括号交给对象字面量规则自己的判据
+（`JsonObjectReorganization.IsObject`），所以得拿到括号本身。
+
+从 `host` **自己**开始往上找（调用方传进来的 host 常常就是外层那个单元：
+`bracket.xl.md` 的 `Success` 是在 `AddToMounted` **之前**调 `DecideBracketContext` 的，
+那时新括号还没进树）。`(` / `[` 括号跳过，只认 `{`。
+
+```ts
+let node:Token | null = host;
+for (let hop = 0; hop < 8 && node !== null; hop++) {
+  if (node instanceof Bracket && node.startBracket === "{") {
+    return node;
+  }
+  node = node.Parent;
+}
+return null;
+```
+
+# method BraceInExpression:(brace:Token)=>bool
+
+**这个 `{` 括号自己是不是出现在表达式里**（对象字面量 / 块），还是**声明头后面的体**。
+
+第 77 轮补的一条守卫。`Context` 只有「类型位 / 值位」两档，而**值位这一档里混着两类东西**：
+
+- **表达式里的 `{`**：对象字面量（`const o = { … }`、`f({ … })`、`{ a: { b: 1 } }` 的内层…）
+  ——它里面的冒号是**属性分隔符**；
+- **声明头后面的 `{`**：类体 / 接口体 / 枚举体 / 命名空间体 / 类型字面量
+  ——它们里面的冒号是**类型标注**（`interface I { m: { a: number } }` 的内层 `{` 是**类型字面量**）。
+
+判据只看这个 `{` **前面那一格**（跳过软换行）：是符号（`=` / `(` / `,` / `:` / `[` / `;` …）
+或者 `return` / `typeof` 两个词 ⇒ 它在表达式里；是名字（类名 / 接口名 / 模块名字符串）⇒ 它在声明头后面。
+命名空间体前面是**字符串**、类体与接口体前面是**标识符**，都落在后一类 ✓。
+
+```ts
+if (brace.Parent === null) {
+  return false;
+}
+const units:Array<Token> = brace.Parent.Data;
+const at = units.indexOf(brace);
+if (at < 0) {
+  return false;
+}
+const before = GetSkipPrevious(units, at, (item) => item instanceof LineWrap);
+if (before instanceof SymbolToken) {
+  return true;
+}
+return before instanceof Identifier && before.IsAny(["return", "typeof"]);
+```
+
 # method EnclosingBraceContext:(host:Token)=>string
 
-**包着 `host` 的那个 `{` 括号处在类型位还是值位**（没有就返回 `""`）。
+**包着 `host` 的那个 `{` 括号处在类型位还是值位**（没有、或者它其实是个声明体就返回 `""`）。
 
 给 `DecideBracketContext` 的冒号那一支用：撞上冒号时先问「我在哪个花括号里」——
 对象字面量（值位 `{`）里的冒号是**属性分隔符**，类型字面量（类型位 `{`）里的才是类型标注。
 
-从 `host` **自己**开始往上找（`DecideBracketContext` 收到的 `host` 就是外层那个单元：
-`bracket.xl.md` 的 `Success` 是在 `AddToMounted` **之前**调它的，所以新括号还没进树）：
-
 - 第一个 `startBracket === "{"` 且 `Context` **非空**的括号就是答案；
 - `Context` 为空串的括号跳过——那是**正在算自己**的那一个（它还没定，问了也没用），
-  或者 `(` / `[` 括号（它们的 `Context` 与「花括号容器」不是一回事）。
+  或者 `(` / `[` 括号（它们的 `Context` 与「花括号容器」不是一回事）；
+- **它还得是「表达式里的 `{`」**（`BraceInExpression`，第 77 轮补）：类体 / 接口体 / 命名空间体的
+  `Context` 也是值位，可它们里面的冒号是类型标注——不筛掉的话
+  `interface String { replace(searchValue: { [Symbol.replace](…): string }): string }`
+  里那个**类型字面量**会被当成对象字面量，里面的 `(substring: string, …) => string` 会从
+  函数类型变成箭头函数（实测 `lib.es2015.symbol.wellknown.d.ts` 1 处）。
 
 ```ts
 let node:Token | null = host;
 for (let hop = 0; hop < 8 && node !== null; hop++) {
   if (node instanceof Bracket && node.startBracket === "{" && node.Context !== "") {
-    return node.Context;
+    return BraceInExpression(node) ? node.Context : "";
   }
   node = node.Parent;
 }

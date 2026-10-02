@@ -10,7 +10,7 @@ import { Bracket } from "../bracket.xl.md"
 import { BinaryOperator } from "../binary-operator.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
-import { JsonObjectReorganization } from "../json/object-literal.xl.md"
+import { JsonObjectReorganization, ObjectLiteral } from "../json/object-literal.xl.md"
 import { Method } from "../method.xl.md"
 import { ReturnType } from "../function/return-type.xl.md"
 import { Statement } from "../statement.xl.md"
@@ -77,6 +77,24 @@ if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) 
   // `?:` 是**一个**符号单元（可选参数 / 可选属性），只认 `:` 会漏掉
   // `callback?: (error: Error | null) => void` 这一大片（实测 `@types/node/child_process.d.ts`
   // 里成排的 `send(message, callback?: (…) => void)` 全会退回 `Lamda`）。
+  //
+  // **但冒号在对象字面量里是属性分隔符，不是类型标注**（第 77 轮）：
+  // `const o = { a: (x, y) => x }` 里那个 `(` 往前看只有 `a:`，照上面这条会判成函数类型——
+  // `FunctionTypeReorganization` 排在 `Lamda` 之前，于是整条箭头被收成 `FunctionType`，
+  // 连形参表里的 `,` 都折成了逗号运算符。实测（`cases:align`）：缺 `ArrowFunction` 10 处 +
+  // `FunctionType in ObjectLiteral` 10 处 + `BinaryOperator in Parameter` 4 处。
+  //
+  // 两条判据合起来才算「冒号是属性分隔符」：
+  //   ① 外层容器**确实是对象字面量**——见 `EnclosingObjectLiteral`（它认两种形态：
+  //      已经成形的 `ObjectLiteral`，以及还没成形的 `{` 括号交给对象字面量规则自己的
+  //      `IsObject` 判）；
+  //   ② 类型字面量 `type T = { a: (x) => B }` 里的 `(x) => B` 是**函数类型**，
+  //      它的 `{` 判据里要求 `Context !== "type"` 才算对象字面量（见那个方法）。
+  // 判据复用对象字面量规则自己的 `IsObject`（`As` / `TypeDefine` / `TernaryOperator` 与
+  // 本文件本来就在用它），不新写一份近似。
+  if (this.EnclosingObjectLiteral(current)) {
+    return true;
+  }
   return false;
 }
 if (previous instanceof Identifier && previous.Is("new")) {
@@ -119,6 +137,62 @@ if (previous instanceof SymbolToken && previous.Is("=")) {
   return this.IsTypeAliasAssignment(units, previousIndex) === false;
 }
 return true;
+```
+
+## private method EnclosingObjectLiteral:(unit:Token)=>bool
+
+**包着 `unit` 的最近那个容器是不是对象字面量**。
+
+给 `IsLambdaParameters` 的冒号那一支用（见那里的说明）：对象字面量里的冒号是**属性分隔符**，
+里面的 `(x, y) => …` 是**箭头函数**；类体 / 接口体 / 类型字面量里的冒号是**类型标注**，
+里面的 `(x, y) => …` 是**函数类型**。
+
+两种形态都要认——实测（第 77 轮插桩）在问这件事的时候，外层**已经**是造好的
+`ObjectLiteral` 了：
+
+    Bracket((:… ) < ObjectLiteral < Root
+
+- 上溯遇到 **`ObjectLiteral`** ⇒ 是（确定性最高的一种：容器已经成形）；
+- 上溯遇到还是括号的 **`{`** ⇒ 三条一起看：
+  ① `Context !== "type"`——类型字面量 `type T = { … }` 的 `{` 在 `IsObject` 眼里是
+  「对象开头」（前面是 `=`），只有 `Context` 分得开它；
+  ② 对象字面量规则自己认得它（`JsonObjectReorganization.IsObject`）；
+  ③ **它前面那一格是表达式位置**（符号，或 `return` / `typeof` 两个词）——这一条是实测补的：
+  `IsObject` 只回答「对象字面量规则会不会接手」，而**命名空间体**
+  （`declare module "x" { … }` 的 `{`，前面是模块名字符串）在那一刻也判「是」
+  （命名空间规则排在它前面、本来轮不到对象字面量规则接手），于是
+  `child_process.d.ts` 里成片的 `callback?: (error: …) => void` 会被判成箭头函数
+  ——实测 **269 处 `FunctionType` 消失**。对象字面量只出现在**表达式**里，所以加这一条就够；
+- 遇到别的容器（`ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `Statement` / `FunctionBody`…）
+  ⇒ 不是；爬到头 ⇒ 不是。
+
+```ts
+let node:Token | null = unit;
+for (let hop = 0; hop < 8 && node !== null; hop++) {
+  if (node instanceof ObjectLiteral) {
+    return true;
+  }
+  if (node instanceof Bracket && node.startBracket === "{") {
+    if (node.Context === "type" || JsonObjectReorganization.Instance.IsObject(node) === false) {
+      return false;
+    }
+    if (node.Parent === null) {
+      return false;
+    }
+    const units = node.Parent.Data;
+    const at = units.indexOf(node);
+    if (at < 0) {
+      return false;
+    }
+    const before = Get(units, SkipPreviousWrapSymbol(units, at));
+    if (before instanceof SymbolToken) {
+      return true;
+    }
+    return before instanceof Identifier && before.IsAny(["return", "typeof"]);
+  }
+  node = node.Parent;
+}
+return false;
 ```
 
 ## private method IsTypeAliasAssignment:(units:Array<Token>, index:int)=>bool

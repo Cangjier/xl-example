@@ -79,6 +79,9 @@ node build/ts/cjcli.js samples/hello.ts
 [typescript/ts-ast.xl.md](typescript/ts-ast.xl.md)（模块级 `# const` / `# method`，逐个函数可读），
 `unmapped`（投影没覆盖、原样透传的产物标签）走 **stderr**，所以 stdout 里只有形状本身。
 规格见 [docs/ts-ast.md](docs/ts-ast.md)。
+**第 77 轮起这个出口是逐节点的**（与另外两个出口同构）：`Token.PrintAst(ctx, v)` 是基类挂钩，
+各 token 覆写自己那一格（`ToXmlString` / `ToDictionary` 是同一个组织方式），没覆写的走语言层的
+通用支（换名 + 提层 + 字段名三张表）——**两条路的产物逐字节相同**，见 README 的「第 77 轮」。
 
 **三个出口同源**：`CjcliParse` 造出根单元之后才分叉，XML / AST JSON / TS 形状看的是同一棵树，
 结构上没有第二条解析路径。
@@ -1513,6 +1516,110 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 `samples` 三份夹具按新形状重生成（只有 `declarations` 里那条 `this.…` 链变了形状）。
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
+
+### 第 77 轮：第三个出口改成**逐节点直出**（`Token.PrintAst`）+ 对象字面量里的箭头函数
+
+这一轮换的是**出口的组织方式**，不是投影的形状：原来 TS 形状是「一个中央模块拿字典树转一道」，
+现在**每个 token 自己出自己那一格**——与 `ToXmlString` / `ToDictionary` 完全同一种组织方式。
+
+#### 一、`PrintAst(ctx, v)`：基类挂钩 + 各 token 覆写
+
+[core/syntax/token.xl.md](core/syntax/token.xl.md) 新增一个出口方法（`core/` 仍然不知道
+目标语言是什么形状）：
+
+- **基类默认返回 `undefined`**，意思是「我不自己出，交给语言层的通用支」——通用支就是原来那张
+  中央表（换名 + 提层 + 字段名）。所以**没覆写的类一个字节都不变**；
+- **覆写即「这一格归我出」**：两个参数——`ctx`（语言层创建的投影上下文：原文、记账、
+  以及一组**出口助手** `Node` / `Each` / `Members` / `Project` / `Text` / `LeafKind` /
+  `KeywordKind` / `TokenKind` / `StringText`）与 `v`（**这个节点自己的视图**：标量属性进
+  `attrs`、数组进 `segments`、坐标在 `start` / `end`）。覆写里**不需要 import 任何东西**。
+
+**分派怎么落到 token 上**：投影器仍然吃原来那棵「字典 + 坐标」的树，但
+`WithRangeOf` 在补坐标时本来就做完了一次配对（「字典项与子单元按类型名配对」），现在**顺手把
+「这一格是哪个 token 出的」记在字典格上**（一个普通属性 `__token`，不是 Map 的条目——
+`entries()` / `JSON.stringify` / `Token.ToPlain` 都看不见它，所以 XML 出口、AST JSON 出口
+与 `cases:astjson` 那把尺子一个字节都不受影响）。投影器拿到一格就先问它的 token。
+**入口没变**：`cjcli` / `samples` / 尺子都还是调 `projectRoot(Root.ToList(), 原文)`。
+
+这一轮先搬了**九个类**（每一处都把「这一格的形状」搬到定义它的规范文件里）：
+
+| 类 | 覆写后的那一格 | 原来在中央 `switch` 里 |
+| --- | --- | --- |
+| `Identifier` | `ctx.Node(ctx.LeafKind(text), { text }, v)`（按文本分 `NumericLiteral` / `StringLiteral` / `TrueKeyword`…） | `case "Identifier"` |
+| `Keyword` | `KEYWORD_KIND` 查表，查不到才是 `Identifier` | `case "Keyword"` |
+| `SymbolToken` | `TOKEN_KIND` 查表，查不到原样用文本 | `case "SymbolToken"` |
+| `String` / `ConstString` | `StringLiteral` + `StringText`（区间含引号、文本不含） | `case "String"/"ConstString"` |
+| `UnionType` / `IntersectionType` | `types`，成员按 `|` / `&` 切（`parentKind` 选档） | `KIND_BY_TAG` + 类型容器那一支 |
+| `ArrayType` / `TupleType` | `elementType` / `elements`（元组按 `,` 切） | 同上 |
+
+**验收是逐字节对拍**：[`tests/parse`](tests/parse) 那套尺子之外，另用一把一次性脚本
+（不进仓库）把**全语料 1403 个文件**的 TS 形状出口串成 JSON 取哈希，改动前后逐字节比：
+**源文件没变的 1394 个文件、0 处不一致**（差异只出现在我这一轮改过的那 9 个产物文件上，
+它们自己的文本变了）。换句话说：**逐节点直出与中央通用支的产物完全相同**——
+这也是后面继续搬其余类的判据。
+
+顺手把两处实现收成一份（否则两条路会悄悄漂开）：`mk` 与 token 覆写用的 `ctx.Node` 都转调
+新的 `astNode`；`ctx.Each` 与通用支的类型容器那一支都转调 `typeMemberGroups`。
+对拍时还抓出一处**空段口径**：`structuralProps` 的段循环是「非空才写字段」，所以
+`<TupleType></TupleType>`（空元组）在 TS 那边是 `{kind,pos,end}`、没有 `elements`——
+`ctx.Each` 现在空列表回 `undefined`（`JSON.stringify` 里不出现，与 `projectParameter` 的
+`name` / `type` 同一个写法）。少了这一条，10 个空元组 / 具名元组文件会对不上。
+
+#### 二、顺手抓到并修掉的真缺口：对象字面量属性值位置上的箭头函数
+
+新代码里有 `{ Node: (kind, props, view) => … }` 这种写法，`cases:align` 当场报出
+**缺 `ArrowFunction` 10 处 + `FunctionType in ObjectLiteral` 10 处 + `BinaryOperator in Parameter` 4 处**：
+
+```ts
+const o = { a: (x, y) => x };   // 原来 → <FunctionType>（连形参表里的 `,` 都折成了逗号运算符）
+const o = { a: x => x };        // 一直是对的（没有括号，不问形参表那条判据）
+```
+
+`LamdaReorganization.IsLambdaParameters` 的判据是「形参括号前面是什么」：前面是 `:` ⇒
+类型标注里的**函数类型**。可对象字面量里的冒号是**属性分隔符**——与第 76 轮修的括号 `Context`
+是同一族（那一次修的是 `[`，这一次是 `(`）。修法：撞上 `:` 时先问
+**外层那个容器是不是对象字面量**（新增 `EnclosingObjectLiteral`，[lamda.xl.md](typescript/tokens/lamda/lamda.xl.md)），
+是就按箭头函数收。三处判据都是实测逼出来的：
+
+1. **两种形态都要认**：插桩看到的是 `Bracket((:) < ObjectLiteral < Root`——问这件事的时候
+   外层**已经**是造好的 `ObjectLiteral` 了（不是 `{` 括号）。所以先认 `ObjectLiteral`，
+   还是括号的 `{` 再交给对象字面量规则自己的 `IsObject`（`As` / `TypeDefine` / `TernaryOperator`
+   与 `Lamda` 本来就在用它——**两条规则用同一个答案**）；
+2. **`Context !== "type"`**：类型字面量 `type T = { c: (a: A) => B }` 的 `{` 在 `IsObject`
+   眼里也是「对象开头」（前面是 `=`），只有 `Context` 分得开它；
+3. **它的前面那一格必须是表达式位置**（符号，或 `return` / `typeof`）——`IsObject` 只回答
+   「对象字面量规则会不会接手」，而**命名空间体**（`declare module "x" { … }`，前面是模块名
+   字符串）在那一刻也判「是」（命名空间规则排在前面、本来轮不到它接手）。少了这一条，
+   [@types/node/child_process.d.ts](node_modules/@types/node/child_process.d.ts) 里成片的
+   `callback?: (error: …) => void` 会被判成箭头函数，**269 处 `FunctionType` 当场消失**
+   （`cases:tsast` 97.6% → 97.5%，是这一轮唯一一次「改对一处、改坏一片」）。
+
+**同时补了第 76 轮那条规则的一个洞**（同一个根因的另一面）：`EnclosingBraceContext` 原来
+认「外层 `{` 的 `Context` 是值位」就下结论，可**类体 / 接口体 / 命名空间体的 `Context` 也是值位**，
+于是它们里面的**类型字面量**被当成对象字面量——
+`interface String { replace(searchValue: { [Symbol.replace](…): string }): string }`
+（`lib.es2015.symbol.wellknown.d.ts:253`）里那个 `(substring: string, …) => string` 会从
+函数类型变成箭头函数。修法是新增 `BraceInExpression`：**只有这个 `{` 自己出现在表达式里**
+（前面是符号或 `return` / `typeof`），才认它那个「值位」结论；声明头后面的体一律返回 `""`
+（不表态，落回原来的「类型位」判断）。补上之后那个文件回到基线 ✓。
+
+#### 三、这一轮的账
+
+| 判据 | 第 76 轮 | 现在 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 456440（97.6%） | **457250（97.6%）** |
+| 其中**字段名也一致** | 455528（99.8%） | **456338（99.8%）** |
+| **逐字节对拍**（全语料，源文件未变的 1394 个） | — | **0 处不一致** |
+| `cases:align`（1416 文件） | 未登记 1 类 / 缺节点 1 类 | **未登记 1 类 / 缺节点 1 类**（仍只有那 2 处 `CallExpression`） |
+| `cases:run` / `cases:check` | 1031 / 1031 | **1032 / 1032**（新增 1 条钉住本轮） |
+| 九把尺子 + `cases:astjson` / `lossless` / `structure` / `boundaries` / `noise` / `samples` / `shapelint` | 全绿 | **全绿** |
+
+新增一条用例：`expr-arrow-in-object-value`（属性值位置的带括号箭头是 `Lamda`、形参表里的 `,`
+不许折成二元运算；同一文件的**类型字面量**成员必须仍是 `FunctionType`——把守卫一起钉住）。
+
+**下一个要接的**：① 继续把其余类搬进各 token 文件（判据不变：逐字节对拍 + `cases:tsast`
+数字不动）；② `cases:align` 那处 `CallExpression`（第 76 轮登记的、只在 `dist/ts/typescript/ts-ast.ts`
+里出现的「整段平铺」现象）；③ 量具口子：`cases:align` 的标签表里没有 `PropertyAccess`。
 
 ### 第 76 轮：类型位的成员切分 · 两处 token 层缺口（真实语料 97.1% → 97.6%）
 

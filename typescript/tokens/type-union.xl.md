@@ -329,6 +329,16 @@ super(template);
 ParsePipeline.InitialKeywordReorganizationQueue(this);
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：`A | B` 在 TS 那边就是 `UnionType`，成员是 `types`；
+切分规则由 `parentKind` 选（`|` 那一档，见 `typescript/ts-ast.xl.md` 的 `TYPE_MEMBER_SEPARATORS`）——
+所以「`|` 是成员分隔符」这件事跟着这条规则待在同一个文件里。
+
+```ts
+return ctx.Node("UnionType", { types: ctx.Each(v, "UnionType") }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身（`Sign(this)` → 子单元逐个克隆后整批加入 → `TryToClose()`）。
@@ -352,6 +362,15 @@ return result;
 ```ts
 super(template);
 ParsePipeline.InitialKeywordReorganizationQueue(this);
+```
+
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：`A & B` 在 TS 那边是 `IntersectionType`，成员是 `types`；
+`&` 比 `|` 紧，所以切分按 `&` 那一档（`TYPE_MEMBER_SEPARATORS`）。
+
+```ts
+return ctx.Node("IntersectionType", { types: ctx.Each(v, "IntersectionType") }, v);
 ```
 
 ## method Clone:()=>Token

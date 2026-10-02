@@ -212,6 +212,17 @@ return items.includes(text);
 this.Closed = true;
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：符号块按文本查 `TOKEN_KIND` 出 `XxxToken`
+（`+` → `PlusToken`、`=>` → `EqualsGreaterThanToken`…）；表里没有的**原样用文本当 kind**
+（与通用支同一条兜底）。
+
+```ts
+const text = ctx.Text(v);
+return ctx.Node(ctx.TokenKind(text), { text }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

@@ -353,6 +353,17 @@ if (this.Data.length !== 0) {
 return result;
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：字符串在 TS 那边是 `StringLiteral`，**区间含那对引号**
+（`"x"` 是 `[17,20)`），文本则**不含**引号——区间取视图自己的坐标，文本由 `StringText` 取
+（与 XML 出口的 `<ConstString>` 同源）。内插字符串（`` `a${x}b` ``）同样是 `StringLiteral`
+（TS 的 `TemplateExpression` 不在本工程的投影范围内，这一条与投影搬迁前一致）。
+
+```ts
+return ctx.Node("StringLiteral", { text: ctx.StringText(v) }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身：连同五个开关/计数与所有子单元的克隆一起复制。顺序是 `Sign(this)` → 逐个复制开关 → `Add(i.Clone())` → `TryToClose()`。

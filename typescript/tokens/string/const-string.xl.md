@@ -326,6 +326,16 @@ while (true) {
 }
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：常量串在 TS 那边是 `StringLiteral`，区间含引号、文本不含
+（见 `string.xl.md` 的同名方法）。**它只在字符流里出现**（`String` 兜不住时的那一段），
+所以这条覆写与 `String` 那条写的是同一个形状。
+
+```ts
+return ctx.Node("StringLiteral", { text: ctx.StringText(v) }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身：`Sign(this)` → `Temp.push(...this.Temp)` → `TryToClose()`。

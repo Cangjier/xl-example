@@ -341,6 +341,17 @@ return true;
 return items.includes(this.TempToString());
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：标识符 / 数字 / 布尔字面量的文本块在 TS 那边**按文本再分名**
+（`bar` 是 `Identifier`、`0` 是 `NumericLiteral`、`true` 是 `TrueKeyword`、`"x"` 是 `StringLiteral`）。
+这条「按值分名」的规则原来在 `typescript/ts-ast.xl.md` 的中央 `switch` 里，现在跟这个类待在一起。
+
+```ts
+const text = ctx.Text(v);
+return ctx.Node(ctx.LeafKind(text), { text }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

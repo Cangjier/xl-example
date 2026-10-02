@@ -116,6 +116,18 @@ result.set("value", this.Value);
 return result;
 ```
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+**这一格是它自己出的**（第 77 轮）：关键字兜底身份在 TS 那边大多是 `XxxKeyword`
+（`string` / `readonly` / `in`…），**表里没有的**才是 `Identifier`——同一个词在值位与类型位
+可以是两种 kind，判据就是这个类自己的名字表（`KEYWORD_KIND`）。
+
+```ts
+const text = ctx.Text(v);
+const kind = ctx.KeywordKind(text);
+return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
+```
+
 ## method Clone:()=>Token
 
 克隆自身。

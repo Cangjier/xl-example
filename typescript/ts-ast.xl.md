@@ -605,6 +605,40 @@ new Map([
 
 # private const endOf:(node:any)=>int = (node) => (node.get("range") ? node.get("range")[1] + 1 : 0)
 
+# private method astNode:(kind:string, props:any, v:any, ctx:any)=>any
+
+**造一个投影节点**：`pos` 取视图的起点，`end` 由 `stmtEndOf` 剪掉尾部 trivia，
+没有函数体的可调用签名再带上尾随分号。
+
+这是 `projectNode` 里那个 `mk` 的**唯一实现**（`mk` 现在只是转调它）：逐节点出口
+（token 自己的 `PrintAst`）与通用支**必须是同一份坐标口径**，否则两条路的坐标会悄悄漂开——
+而这只会在 `cases:tsast` 的百分比上表现出来，看不出根因。
+
+`props` 为 `undefined` 时只出 `{ kind, pos, end }`（自闭合那一类节点，例如 `EndOfFileToken`）。
+
+```ts
+  let end = stmtEndOf(v, ctx);
+  if (SIGNATURE_KINDS.has(kind) && ctx.source[end] === ";") end += 1;
+  return Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end });
+```
+
+# private method astMembers:(v:any, parentKind:string, ctx:any)=>Array<any>
+
+**类型容器的成员表**：把这一格的子单元按 `parentKind` 的分隔符切好后，**逐段整段投**
+（切分规则见 `TYPE_MEMBER_SEPARATORS` / `typeMemberGroups`）。
+
+它与通用支里 `projectEachIn` 的类型容器那一支**是同一套实现**——所以「token 自己出这一格」
+与「交回通用支」的产物逐字节相同（第 77 轮的验收判据就是全语料逐字节对拍）。
+
+```ts
+  const out = [];
+  for (const group of typeMemberGroups(kidsOf(v, "children"), parentKind, ctx)) {
+    const projected = projectTypeExpression(group, ctx);
+    if (projected !== undefined) out.push(projected);
+  }
+  return out;
+```
+
 # method projectNode:(node:any, ctx:any, parentKind:string)=>any
 
 ---------------------------------------------------------------------------
@@ -624,6 +658,15 @@ new Map([
   if (!(node instanceof Map)) return undefined;
   const v = view(node);
   ctx.count++;
+  // **先问这个节点自己**（第 77 轮）：`__token` 是 `WithRangeOf` 补坐标时记下的、
+  // 产出这一格的那个 token（见 `core/syntax/token.xl.md` 的 `PrintAst`）。
+  // 它覆写了 `PrintAst` 就由它自己出这一格——出口因此是**逐节点**的，而不是一张中央表说了算；
+  // 没覆写（基类返回 `undefined`）就落到下面这份通用支：换名表 + 提层 + 字段名。
+  const owner = node.__token;
+  if (owner !== undefined) {
+    const own = owner.PrintAst(ctx, v);
+    if (own !== undefined) return own;
+  }
   // **尾部 trivia 一律剪掉**：TS 的节点 `end` **从不含尾部 trivia**，而本工程的区间常常含
   // （语句行尾的软换行、正则字面量后面的换行…）。第 23 轮只修了语句族，实测还漏着
   // 正则（`Δ1`）等零散几类——所以这里**不再按 kind 白名单**，改成统一剪：
@@ -633,9 +676,7 @@ new Map([
   // `FunctionDeclaration[23,51)`（含 `;`），而产物那个 `Function` 到 `void` 就结束了——
   // 分号是它的平级兄弟。真实语料里 `FunctionDeclaration` 缺的近两千处基本是这一条。
   const mk = (kind, props) => {
-    let end = stmtEndOf(v, ctx);
-    if (SIGNATURE_KINDS.has(kind) && ctx.source[end] === ";") end += 1;
-    return Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end });
+    return astNode(kind, props, v, ctx);
   };
   // **父 kind**：少数几处「同一个产物标签按上下文换 kind」要问它
   // （类里的 `constructor` 是 `ConstructorDeclaration`）。它由 `structuralProps`
@@ -2830,7 +2871,31 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 `count` 是投影出的节点数。
 
 ```ts
-  const ctx = { source, unmapped: new Set(), count: 0 };
+  const ctx = {
+    source,
+    unmapped: new Set(),
+    count: 0,
+    // **给 token 的 `PrintAst(ctx, v)` 用的出口助手**（见 `core/syntax/token.xl.md` 的 `PrintAst`）：
+    // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
+    // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
+    Node: (kind, props, view) => astNode(kind, props, view, ctx),
+    // **空段不写这一格**：通用支里 `structuralProps` 的段循环是「`kept.length > 0` 才写」，
+    // 所以 `<TupleType></TupleType>`（空元组）在 TS 那边是 `{kind,pos,end}`、**没有** `elements`。
+    // `undefined` 在 `JSON.stringify` 里不出现（`projectParameter` 的 `name` / `type` 也是这个写法），
+    // 于是覆写与通用支的产物逐字节相同——这一条是第 77 轮对拍时抓出来的（10 个空元组 / 具名元组文件）。
+    Each: (view, parentKind) => {
+      const out = projectEachIn(kidsOf(view, "children"), ctx, parentKind);
+      return out.length === 0 ? undefined : out;
+    },
+    Members: (view, parentKind) => astMembers(view, parentKind, ctx),
+    Project: (node, parentKind) => projectNode(node, ctx, parentKind),
+    Text: (view) => textOf(view, ctx),
+    TextOf: (node) => textOfNode(node, ctx),
+    StringText: (view) => stringText(view, ctx),
+    LeafKind: (text) => leafKindOfText(text),
+    KeywordKind: (text) => KEYWORD_KIND.get(text),
+    TokenKind: (text) => tokenKind(text),
+  };
   const statements = projectEach(exported, ctx);
   const firstStart = statements.length > 0 ? statements[0].pos : 0;
   return {
