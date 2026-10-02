@@ -202,6 +202,63 @@ return ReplaceCountAt(units, firstIndex, endIndex - firstIndex + 1, result);
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<FunctionType>形参括号 + => + 返回类型的串接</FunctionType>`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+函数类型 `(x: number) => string` → `FunctionType`（`parameters` + `type`，可选 `typeParameters`；
+**从 `ts-ast.xl.md` 的 `projectFunctionType` 搬来**，第 188 轮）。
+
+产物那边是平级单元：`[GenericType(类型参数表)?, Bracket(形参表), SymbolToken(=>), 返回类型]`。
+形参要**摊平括号**（TS 那边 `parameters` 直接是 `Parameter`，没有括号那一层节点），
+`=>` 之后是 `type`。
+
+**类型参数表要单独提出来**（第 82 轮）：`<R, TArgs extends any[]>(fn: (…args: TArgs) => R) => R`
+里那个 `GenericType` 装的是 `TypeParameter`——它在 TS 那边是 `FunctionType.typeParameters`，
+**不是形参**。早先它跟形参表一起投出去（`GenericType` 自己的 `KIND_BY_TAG` 是 `TypeReference`），
+于是那些类型参数与其上的约束整个丢掉（`@types/node/async_hooks.d.ts` 那种「泛型函数类型」成片）。
+
+**`new` / `abstract new` 是构造类型**（第 98 轮）：TS 的 kind 是 `ConstructorType`
+（`new () => T` 与 `abstract new () => T` 都是），而 `new` 这个词**不是子节点**
+（`abstract` 才是 `modifiers` 里的节点）。照函数类型投会「缺 `ConstructorType` +
+多出 `FunctionType` + 多出 `NewKeyword`」（实测 94 处）。
+
+**形参之间的逗号不进 `parameters`**：括号的内容是 `[Parameter, SymbolToken(,), Parameter]`，
+摊平后要按顶层逗号切。
+
+```ts
+  const kids = ctx.Kids(v);
+  const arrowIndex = kids.findIndex(
+    (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=>",
+  );
+  const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
+  const generic = before.find((k: any) => k.get("type") === "GenericType");
+  const newUnit = before.find((k: any) => k.get("type") === "Keyword" && ctx.TextOf(k) === "new");
+  const props: any = {};
+  const params = [];
+  for (const k of before) {
+    if (k === generic || k === newUnit) continue;
+    if (k.get("type") === "Keyword" && ctx.TextOf(k) === "abstract") {
+      props.modifiers = [...(props.modifiers ?? []), ctx.Project(k)];
+      continue;
+    }
+    if (k.get("type") === "Bracket") {
+      for (const part of ctx.Split(ctx.UnwrapNodes(k), ",")) {
+        for (const inner of part) params.push(inner);
+      }
+      continue;
+    }
+    params.push(k);
+  }
+  if (generic !== undefined) {
+    const typeParams = ctx.UnwrapNodes(generic).filter((k: any) => k.get("type") === "TypeParameter");
+    if (typeParams.length > 0) props.typeParameters = ctx.ProjectEach(typeParams);
+  }
+  props.parameters = ctx.ProjectEach(params);
+  if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
+    props.type = ctx.TypeOf(kids.slice(arrowIndex + 1));
+  }
+  return ctx.Node(newUnit === undefined ? "FunctionType" : "ConstructorType", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把类型队列装上**。

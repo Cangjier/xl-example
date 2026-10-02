@@ -997,8 +997,6 @@ new Map([
     case "Lamda":
       return projectLamda(v, ctx);
 
-    case "FunctionType":
-      return projectFunctionType(v, ctx);
 
 
     case "Import":
@@ -4130,7 +4128,10 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 全是 `@types/node/async_hooks.d.ts` 那种「泛型函数类型」（`snapshot(): <R, TArgs…>(…) => R`）。
   if (list.length === 2 && list[0].get("type") === "GenericType" && list[1].get("type") === "FunctionType") {
     const typeParams = unwrapNodes(list[0]).filter((k) => k.get("type") === "TypeParameter");
-    const fn = projectFunctionType(view(list[1]), ctx);
+    // **走通用分派而不是直调那个函数**（第 188 轮）：`FunctionType` 的投影已经搬进
+    // `tokens/function-type.xl.md` 的 `PrintAst`，而 `projectNode` 会先问它 ✓——
+    // 输入与原来那次直调完全相同，产出的节点逐字节一样。
+    const fn = projectNode(list[1], ctx);
     if (typeParams.length > 0) {
       fn.typeParameters = projectEach(typeParams, ctx);
     }
@@ -5239,60 +5240,6 @@ import { A as B, C } from "m"
         : typeOf(tail, ctx);
   }
   return node;
-```
-
-# private method projectFunctionType:(v:any, ctx:any)=>any
-
-函数类型 `(x: number) => string` → `FunctionType`（`parameters` + `type`，可选 `typeParameters`）。
-
-产物那边是平级单元：`[GenericType(类型参数表)?, Bracket(形参表), SymbolToken(=>), 返回类型]`。
-形参要**摊平括号**（TS 那边 `parameters` 直接是 `Parameter`，没有括号那一层节点），
-`=>` 之后是 `type`。
-
-**类型参数表要单独提出来**（第 82 轮）：`<R, TArgs extends any[]>(fn: (…args: TArgs) => R) => R`
-里那个 `GenericType` 装的是 `TypeParameter`——它在 TS 那边是 `FunctionType.typeParameters`，
-**不是形参**。早先它跟形参表一起投出去（`GenericType` 自己的 `KIND_BY_TAG` 是 `TypeReference`），
-于是那些类型参数与其上的约束整个丢掉：真实语料 `Identifier` 缺 1616 里的一大片、
-`TypeReference` 缺 417 同源（`@types/node/async_hooks.d.ts` 那种「泛型函数类型」在语料里成片）。
-判据与 `wrapperTarget` 对 `GenericType` 的判据**同源**：装 `TypeParameter` 的才是类型参数段。
-
-```ts
-  const kids = projectableKids(v);
-  const arrowIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=>");
-  const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
-  const generic = before.find((k) => k.get("type") === "GenericType");
-  // **`new` / `abstract new` 是构造类型**（第 98 轮）：TS 的 kind 是 `ConstructorType`
-  // （`new () => T` 与 `abstract new () => T` 都是），而 `new` 这个词**不是子节点**
-  // （`abstract` 才是 `modifiers` 里的节点）。照函数类型投会「缺 `ConstructorType` +
-  // 多出 `FunctionType` + 多出 `NewKeyword`」（实测 94 处）。
-  const newUnit = before.find((k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "new");
-  const props = {};
-  const params = [];
-  for (const k of before) {
-    if (k === generic || k === newUnit) continue;
-    if (k.get("type") === "Keyword" && textOfNode(k, ctx) === "abstract") {
-      props.modifiers = [...(props.modifiers ?? []), projectNode(k, ctx)];
-      continue;
-    }
-    if (k.get("type") === "Bracket") {
-      // **形参之间的逗号不进 `parameters`**（TS 那边 `parameters` 只有 `Parameter`）：
-      // 括号的内容是 `[Parameter, SymbolToken(,), Parameter]`，摊平后要按顶层逗号切。
-      for (const part of splitTopLevel(unwrapNodes(k), ctx, ",")) {
-        for (const inner of part) params.push(inner);
-      }
-      continue;
-    }
-    params.push(k);
-  }
-  if (generic !== undefined) {
-    const typeParams = unwrapNodes(generic).filter((k) => k.get("type") === "TypeParameter");
-    if (typeParams.length > 0) props.typeParameters = projectEach(typeParams, ctx);
-  }
-  props.parameters = projectEach(params, ctx);
-  if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
-    props.type = typeOf(kids.slice(arrowIndex + 1), ctx);
-  }
-  return { kind: newUnit === undefined ? "FunctionType" : "ConstructorType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method dottedExpression:(names:Array<any>, ctx:any)=>any
@@ -7060,6 +7007,8 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
     Segment: (view, key) => projectSegment(view, key, ctx),
     PunctBetween: (view, fromKey, toKey, punct) => punctBetween(view, fromKey, toKey, punct, ctx),
+    UnwrapNodes: (unit) => unwrapNodes(unit),
+    TypeOf: (list) => typeOf(list, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
