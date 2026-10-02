@@ -2731,3 +2731,57 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | 文件 | 缺 / 漂 / 多 / 字段 | 说明 |
 | --- | --- | --- |
 | `samples/generic.ts` | 0 / 1 / 1 / 0 | `class Foo<T> { let value: T }`——**类体里放 `let` 不是合法 TS**。`ts.createSourceFile` 在这里走的是**错误恢复**：`ClassDeclaration` 到那个 `{` 就结束（[32,46)），后面的 `let value: T` 被当成**顶层语句**重新解析。本工程的解析器把它当成类成员，于是 `ClassDeclaration` 是 [32,65)、并少一个顶层 `FirstStatement` |
+
+---
+
+# 第 181 轮：**缺口归零**
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 180 轮末 | 1406 / 1407 | 0 | 1 | 1 | 0 | 2 |
+| 第 181 轮末 | **1407 / 1407** | **0** | **0** | **0** | **0** | **0** |
+
+```
+$ node tests/parse/ts-ast.mjs --per-file
+  产物节点 643818 个，TS 语义节点 511727 个
+  **完全一致的文件 1407 / 1407 个**
+  缺节点 0（0 类）　区间漂移 0（0 类）　多出来的节点 0（0 类）　字段名不符 0
+  投影后仍缺的 TS kind：（无）
+  投影后**多出来**的节点：（无）
+  投影后同 kind 但区间漂移：（无）
+```
+
+判据（用户确认过的验收口径）：**由 `cjcli print ast` 与 `ts.createSourceFile` 逐文件比较，
+四方向（缺 / 漂移 / 多出 / 字段名）全 0**。语料 1407 份：`tests/parse/cases/**`、`samples/**`、
+`node_modules/{typescript/lib, @types/node, undici-types}`、以及**本工程自己生成的 `dist/ts/**`**
+（自举对拍）。
+
+## 最后一处：`samples/generic.ts` 的 `class Foo<T> { let value: T }`
+
+这不是「解析得不够好」，而是 **TS 自己在非法输入上的错误恢复**要照做：
+
+- `ts.createSourceFile` 的 `ClassDeclaration` 只到那个 `{`（[32,46)），
+  后面的 `let value: T` 被当成**顶层 `FirstStatement`** 重新解析、游离的 `}` 直接跳过；
+- 本工程的解析器原来把 `let` 当类成员收下，类盖住整个 `{ … }`（[32,65)）。
+
+修法落在 `tokens/class/class.xl.md` 的 `Process`：类体内容里出现 `let`（`Let` 单元，
+或还没成单元的那个词）时，类的终点直接写成 `{` 的位置、**体内容摊回父单元**让它照常成句。
+
+**翻过一次车**：第一版的判据递归进了所有 `Data`，于是**方法体里的 `let`** 也算数——
+`dist/ts` 自己 99 个 `ClassDeclaration` 当场全漂（1406 → 1332）。判据收紧成
+「只往 `Statement` 壳里再看一层、绝不进 `Bracket`」之后归零。
+
+## 已知的、不影响该判据的两处
+
+- **区间越界 7 个**（`<LineAnnotation>` 6 + `<LogicalOperator>` 1）：坐标完整性的自检项，
+  不在 TS 对拍的四方向里（注释本来就不是 TS 的节点）；
+- **未映射标签**（`<Bracket>` 等 48 处）：投影时被上层节点吸收、不产生节点，
+  同样不在四方向里。
+
+## 下一步：printAst 搬家（目标的后半段）
+
+缺口归零之后，`typescript/ts-ast.xl.md`（约 7700 行）的功能要**逐块搬进
+`Token.PrintAst(ctx, v)`**，最终删掉那个文件。搬迁方案见 `docs/print-ast-migration.md`：
+123 条模块级条目里 104 条第一参数就是**单个产物单元**（宿主 `v.__token` 现成），
+12 条是**兄弟列表**（由父节点承载），7 条无节点（入口 / 序列化器留薄文件）。
+搬法是「一个 `case` 一次提交 + 每步跑一次全量对拍对齐基线」。
