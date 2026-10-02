@@ -983,8 +983,6 @@ new Map([
     // `extends` / `implements` 那个词是节点的**属性**（`token`），不是子节点。
 
 
-    case "TypeParameter":
-      return projectTypeParameter(v, ctx);
 
 
 
@@ -5892,168 +5890,6 @@ import { A as B, C } from "m"
   return groups.filter((group) => group.length > 0);
 ```
 
-# private method projectTypeParameter:(v:any, ctx:any)=>any
-
-类型参数 `<T extends object = any>` → `TypeParameter`
-（`name` + 可选 `constraint` / `default` / `modifiers`）。
-
-产物那边名字、`extends`、约束、`=`、默认值是**平级单元**，按标点切开。
-
-```ts
-  const kids0 = projectableKids(v);
-  // **约束被整个包进 `UnionType` / `IntersectionType` 的形状**（第 83 轮）：产物把一个
-  // `<A extends null | Writable>` 收成**一个** `UnionType`——名字、`extends`、约束三段全在它里面
-  // （实测 `@types/node/child_process.d.ts` 那种 `<I extends null | Writable, O extends …>`
-  // 成片：`Identifier` 缺 1581 里的一大块就是这个，名字与约束两头的 `Identifier` 都没有宿主）。
-  // TS 那边 `TypeParameter` 是 `[name, constraint]` 两个字段、约束是**不含名字**的那个联合，
-  // 所以这里把它摊开、按同一个分隔符重新切一次（收尾处再把余下的成员补回去）。
-  // **包住约束的那一格不一定是唯一的一格**（第 108 轮）：
-  // `<Name extends string | Buffer = string>` 的产物是
-  // `[UnionType(Name extends string | Buffer), SymbolToken(=), Identifier(string)]`——
-  // 默认值在联合**外面**。早先只认「整个类型参数只有一格」的形状，于是这一族的
-  // **名字与约束一起丢**（实测 `TypeParameter` 少 `constraint`、`fieldName` 差、
-  // `Identifier` 缺 491 里成片，并连带缺 `UnionType` / `StringKeyword` / `TypeReference`）。
-  const wrappedIndex = kids0.findIndex((k) => k.get("type") === "UnionType" || k.get("type") === "IntersectionType");
-  const wrapped = wrappedIndex >= 0 ? kids0[wrappedIndex] : undefined;
-  // 联合**前**与**后**剩下的那些（`<T = A | B>` 的名字在前面、
-  // `<Name extends A | B = C>` 的默认值在后面）——判定用的序列要按**源码顺序**拼起来，
-  // 否则名字会被联合内容顶掉。
-  const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
-  const tail = wrapped === undefined ? [] : kids0.slice(wrappedIndex + 1);
-  const unionKids = wrapped === undefined ? [] : projectableKids(view(wrapped));
-  // **套两层的情况**（第 155 轮）：`<T extends string & {} | symbol>` 的产物是
-  // `UnionType > [IntersectionType([T, extends, string, &, {}]), |, symbol]`——
-  // `extends` 在**内层那个交叉**里，只在联合这一层找会找不到它，整个 `constraint` 都不出
-  // （实测 `type-parameter-constraint-union.ts`：`TypeParameter` 缺 `constraint`，
-  // 连带缺 `UnionType` / `IntersectionType` / `StringKeyword` / `TypeLiteral` / `SymbolKeyword`）。
-  // 内层第一个单元还是联合 / 交叉时就把它摊平一层再拼。
-  const flattenInner = (list) => {
-    const head = list[0];
-    if (head !== undefined && (head.get("type") === "UnionType" || head.get("type") === "IntersectionType")) {
-      return [...projectableKids(view(head)), ...list.slice(1)];
-    }
-    return list;
-  };
-  const kids =
-    wrapped === undefined ? kids0 : flattenInner([...prefix, ...unionKids, ...tail]);
-  // `extends` 的**词法身份不固定**：本仓库记过「接口的 `extends` 永远升不成 `Keyword`」——
-  // 所以两种身份都认（`<T extends U>` 里它是 `Keyword`，而某些上下文里它是 `Identifier`）。
-  // 只认 `Keyword` 时会**整类丢掉约束**（实测 17 处 `TypeParameter` 少一个 `constraint`）。
-  const extIndex = kids.findIndex(
-    (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends",
-  );
-  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  // **映射类型的 `K in T`**（第 93 轮）：`in` 在名字**后面**（变型标注的 `in` 在名字**前面**，
-  // 见 `isTypeParameterModifier`），所以「位置在名字之后」本身就是判据。
-  // TS 那边 `MappedType.typeParameter.constraint` 就是 `in` 右边那一段——
-  // 不收出来会整类丢约束（实测 47 处 `TypeParameter` 少一个 `constraint`，
-  // 连带缺它里面的 `TypeOperator` / `TypeReference` / `Identifier`）。
-  const inIndex = kids.findIndex(
-    (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "in",
-  );
-  // 名字 = 第一个 Identifier，但要**排掉两样东西**：
-  // ① `extends`（它的词法身份不固定，可能是 Identifier）；
-  // ② 修饰词——`out` 在产物里就是 **`Identifier`**（README 记过），
-  //    不排掉的话 `<out T>` 会把 `out` 当成名字、`modifiers` 反而空掉（实测这一族 17 处）。
-  const nameIndex = kids.findIndex(
-    (k) => k.get("type") === "Identifier" && textOfNode(k, ctx) !== "extends" && !isTypeParameterModifier(k, ctx),
-  );
-  const nameNode = nameIndex >= 0 ? kids[nameIndex] : undefined;
-  const props = { name: nameNode === undefined ? undefined : projectNode(nameNode, ctx) };
-  if (extIndex >= 0) {
-    const end = eqIndex > extIndex ? eqIndex : kids.length;
-    // `in` / `out` / `const` 是**修饰词**，不是约束内容——`<in T extends U>` 里它们排在名字**前面**。
-    const body = kids.slice(extIndex + 1, end).filter((k) => !isTypeParameterModifier(k, ctx));
-    if (body.length > 0) props.constraint = typeOf(body, ctx);
-  }
-  // 映射键的约束（见上面的 `inIndex`）：`extends` 与 `in` 不会同时出现，所以两条互斥。
-  if (extIndex < 0 && nameIndex >= 0 && inIndex > nameIndex) {
-    const body = kids.slice(inIndex + 1).filter((k) => !isTypeParameterModifier(k, ctx));
-    if (body.length > 0) props.constraint = typeOf(body, ctx);
-  }
-  if (eqIndex >= 0) {
-    // 默认值本身就是「被包成 `UnionType` / `IntersectionType` 的联合」时（`<T = A | B>`），
-    // 直接投那个单元——平铺的 `[A, |, B]` 折不出联合（实测缺 `UnionType` + 尾巴上的名字）。
-    const eqUnit =
-      wrappedIndex > 0 && wrapped !== undefined && kids0[wrappedIndex - 1] !== undefined
-        ? kids0[wrappedIndex - 1]
-        : undefined;
-    const isDefaultUnion =
-      eqUnit !== undefined &&
-      eqUnit.get("type") === "SymbolToken" &&
-      textOfNode(eqUnit, ctx) === "=";
-    props.default = isDefaultUnion ? projectNode(wrapped, ctx) : typeOf(kids.slice(eqIndex + 1), ctx);
-  } else {
-    // 默认值落在联合**外面**时（见上面的 `tail`）：`[UnionType(…), =, string]`。
-    const tailEq = tail.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-    if (tailEq >= 0) props.default = typeOf(tail.slice(tailEq + 1), ctx);
-  }
-  // 修饰词只认**名字之前**的那些：`<const T>` 的 `const`、`<in T>` / `<out T>` 的变型词。
-  // TS 把它们算作 `TypeParameter.modifiers`（`forEachChild` 那层看得见），漏了 `const`
-  // 就会少一整个字段（实测 `decl-func-generic-const-modifier.ts` 那族）。
-  const modifiers = kids.filter((k, i) => (nameIndex < 0 || i < nameIndex) && isTypeParameterModifier(k, ctx));
-  if (modifiers.length > 0) {
-    // **变型词与 `const` 有各自的 kind**（第 159 轮）：TS 那边 `out T` 的 `out` 是
-    // `OutKeyword`（`in` → `InKeyword`、`const` → `ConstKeyword`），而产物把它们记成普通的
-    // `Identifier` / `Keyword`——照通用投影会得到一个 `Identifier`
-    // （实测 `ty-variance.ts` / `decl-func-generic-variance.ts` /
-    // `decl-interface-generic-variance.ts`：缺 `OutKeyword` 7 + 多出 `Identifier` 7）。
-    const modifierKinds = new Map([
-      ["in", "InKeyword"],
-      ["out", "OutKeyword"],
-      ["const", "ConstKeyword"],
-    ]);
-    props.modifiers = modifiers.map((k) => {
-      const word = textOfNode(k, ctx);
-      const kind = modifierKinds.get(word);
-      if (kind === undefined) {
-        return projectNode(k, ctx);
-      }
-      return { kind, text: word, pos: startOf(k), end: endOf(k) };
-    });
-  }
-  // **收尾：把被包进联合的约束补全**（见上面 `wrapped`）：`extends` 之后那一段只是**第一个成员**
-  // （`null`），余下的成员（`| Writable`）在同级的下一个组里——按同一个分隔符切回来，
-  // 重新拼成一个 `UnionType` / `IntersectionType`，区间取第一个成员到最后一个成员。
-  // 只在**确实有 `extends`** 时重建约束：`<T = A | B>` 的联合是**默认值**，不是约束
-  // （不加这一条会把默认值当成约束，`TypeParameter` 于是多一个 `constraint`、
-  // 名字还可能被联合的第一个成员顶掉）。
-  if (wrapped !== undefined && extIndex >= 0) {
-    const separator = wrapped.get("type") === "UnionType" ? "|" : "&";
-    // **切的是联合单元自己的内容**（`[名字, extends, 第一个成员, |, 第二个…]`），
-    // 不是上面那个「前缀 + 联合 + 尾巴」的拼合序列——把尾巴（`= 默认值`）也切进去，
-    // 第二个成员会变成 `Y = Z` 这种半截类型。
-    // **先摊平内层那一格**（第 155 轮）：`<T extends string & {} | symbol>` 的联合第一个成员
-    // 是一个**交叉单元**、`extends` 在那个交叉**里面**；不摊平的话 `extAt` 找不到它，
-    // 于是整个交叉（含名字 `T` 与 `extends`）被当成约束的第一项
-    // （实测：约束区间从 `T` 起、`string` 整个消失）。
-    const members = splitTopLevel(flattenInner(unionKids), ctx, separator);
-    const firstMember = members.length > 0 ? members[0] : [];
-    const extAt = firstMember.findIndex(
-      (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends",
-    );
-    const head = extAt >= 0 ? firstMember.slice(extAt + 1) : firstMember;
-    const types = [];
-    const firstType = head.length > 0 ? projectTypeExpression(head, ctx) : undefined;
-    if (firstType !== undefined) types.push(firstType);
-    for (const group of members.slice(1)) {
-      const one = projectTypeExpression(group, ctx);
-      if (one !== undefined) types.push(one);
-    }
-    if (types.length === 1) {
-      props.constraint = types[0];
-    } else if (types.length > 1) {
-      props.constraint = {
-        kind: wrapped.get("type"),
-        types,
-        pos: types[0].pos,
-        end: types[types.length - 1].end,
-      };
-    }
-  }
-  return { kind: "TypeParameter", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method isTypeParameterModifier:(node:any, ctx:any)=>bool
 
 类型参数的修饰词：变型标注 `in` / `out` 与 `const` 类型参数。
@@ -6481,6 +6317,7 @@ import { A as B, C } from "m"
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
     ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
     Structural: (view, kind) => structuralProps(view, kind, ctx),
+    IsTypeParameterModifier: (node) => isTypeParameterModifier(node, ctx),
     MemberInObject: MEMBER_IN_OBJECT,
     NumericLiteral: NUMERIC_LITERAL,
   };

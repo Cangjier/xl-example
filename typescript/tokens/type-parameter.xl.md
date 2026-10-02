@@ -405,6 +405,144 @@ rebuilt.push(parameter);
 
 内容直接装在自己身上：名字、`in` 标记（映射键才有）、`extends` 约束、`=` 默认值。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+类型参数 `<T extends object = any>` → `TypeParameter`
+（`name` + 可选 `constraint` / `default` / `modifiers`；
+**从 `ts-ast.xl.md` 的 `projectTypeParameter` 搬来**，第 192 轮）。
+
+产物那边名字、`extends`、约束、`=`、默认值是**平级单元**，按标点切开。四处要点：
+
+1. **约束可能被整个包进一个 `UnionType` / `IntersectionType`**（第 83 轮）：产物把
+   `<A extends null | Writable>` 收成**一个** `UnionType`，名字、`extends`、约束三段全在它里面
+   （实测 `@types/node/child_process.d.ts` 那种成片）。所以要摊开、按同一个分隔符重切一次。
+   包住约束的那一格**不一定是唯一的一格**（第 108 轮）：`<Name extends string | Buffer = string>`
+   的默认值在联合**外面**，所以要按 `prefix + unionKids + tail` 的**源码顺序**拼回来；
+2. **套两层**（第 155 轮）：`<T extends string & {} | symbol>` 是
+   `UnionType > [IntersectionType([T, extends, string, &, {}]), |, symbol]`——`extends` 在内层那个
+   交叉**里**，`flattenInner` 先摊平一层；
+3. `extends` 的**词法身份不固定**（本仓库记过「接口的 `extends` 永远升不成 `Keyword`」），
+   两种身份都认，只认 `Keyword` 时会整类丢约束（实测 17 处）；
+4. **映射类型的 `K in T`**（第 93 轮）：`in` 在名字**后面**（变型标注的 `in` 在名字**前面**），
+   所以「位置在名字之后」本身就是判据。
+
+变型词与 `const` 有各自的 kind（第 159 轮）：`out T` 的 `out` 是 `OutKeyword`
+（`in` → `InKeyword`、`const` → `ConstKeyword`），而产物把它们记成普通的 `Identifier` / `Keyword`。
+
+```ts
+  const kids0 = ctx.Kids(v);
+  const wrappedIndex = kids0.findIndex(
+    (k: any) => k.get("type") === "UnionType" || k.get("type") === "IntersectionType",
+  );
+  const wrapped = wrappedIndex >= 0 ? kids0[wrappedIndex] : undefined;
+  const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
+  const tail = wrapped === undefined ? [] : kids0.slice(wrappedIndex + 1);
+  const unionKids = wrapped === undefined ? [] : ctx.Kids(wrapped);
+  const flattenInner = (list: any) => {
+    const head = list[0];
+    if (
+      head !== undefined &&
+      (head.get("type") === "UnionType" || head.get("type") === "IntersectionType")
+    ) {
+      return [...ctx.Kids(head), ...list.slice(1)];
+    }
+    return list;
+  };
+  const kids = wrapped === undefined ? kids0 : flattenInner([...prefix, ...unionKids, ...tail]);
+  const extIndex = kids.findIndex(
+    (k: any) =>
+      (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.TextOf(k) === "extends",
+  );
+  const eqIndex = kids.findIndex(
+    (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=",
+  );
+  const inIndex = kids.findIndex(
+    (k: any) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.TextOf(k) === "in",
+  );
+  // 名字 = 第一个 Identifier，但要排掉 `extends`（词法身份不固定）与修饰词
+  //（`out` 在产物里就是 `Identifier`，不排掉的话 `<out T>` 会把 `out` 当成名字）。
+  const nameIndex = kids.findIndex(
+    (k: any) =>
+      k.get("type") === "Identifier" &&
+      ctx.TextOf(k) !== "extends" &&
+      !ctx.IsTypeParameterModifier(k),
+  );
+  const nameNode = nameIndex >= 0 ? kids[nameIndex] : undefined;
+  const props: any = { name: nameNode === undefined ? undefined : ctx.Project(nameNode) };
+  if (extIndex >= 0) {
+    const end = eqIndex > extIndex ? eqIndex : kids.length;
+    const body = kids.slice(extIndex + 1, end).filter((k: any) => !ctx.IsTypeParameterModifier(k));
+    if (body.length > 0) props.constraint = ctx.TypeOf(body);
+  }
+  if (extIndex < 0 && nameIndex >= 0 && inIndex > nameIndex) {
+    const body = kids.slice(inIndex + 1).filter((k: any) => !ctx.IsTypeParameterModifier(k));
+    if (body.length > 0) props.constraint = ctx.TypeOf(body);
+  }
+  if (eqIndex >= 0) {
+    const eqUnit =
+      wrappedIndex > 0 && wrapped !== undefined && kids0[wrappedIndex - 1] !== undefined
+        ? kids0[wrappedIndex - 1]
+        : undefined;
+    const isDefaultUnion =
+      eqUnit !== undefined && eqUnit.get("type") === "SymbolToken" && ctx.TextOf(eqUnit) === "=";
+    props.default = isDefaultUnion ? ctx.Project(wrapped) : ctx.TypeOf(kids.slice(eqIndex + 1));
+  } else {
+    const tailEq = tail.findIndex(
+      (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=",
+    );
+    if (tailEq >= 0) props.default = ctx.TypeOf(tail.slice(tailEq + 1));
+  }
+  const modifiers = kids.filter(
+    (k: any, i: number) => (nameIndex < 0 || i < nameIndex) && ctx.IsTypeParameterModifier(k),
+  );
+  if (modifiers.length > 0) {
+    const modifierKinds = new Map([
+      ["in", "InKeyword"],
+      ["out", "OutKeyword"],
+      ["const", "ConstKeyword"],
+    ]);
+    props.modifiers = modifiers.map((k: any) => {
+      const word = ctx.TextOf(k);
+      const kind = modifierKinds.get(word);
+      if (kind === undefined) {
+        return ctx.Project(k);
+      }
+      return { kind, text: word, pos: ctx.StartOf(k), end: ctx.EndOf(k) };
+    });
+  }
+  // **收尾：把被包进联合的约束补全**（见上面 `wrapped`）：只在**确实有 `extends`** 时重建约束
+  //（`<T = A | B>` 的联合是**默认值**，不是约束）。
+  if (wrapped !== undefined && extIndex >= 0) {
+    const separator = wrapped.get("type") === "UnionType" ? "|" : "&";
+    // 切的是**联合单元自己的内容**，不是上面那个「前缀 + 联合 + 尾巴」的拼合序列。
+    const members = ctx.Split(flattenInner(unionKids), separator);
+    const firstMember = members.length > 0 ? members[0] : [];
+    const extAt = firstMember.findIndex(
+      (k: any) =>
+        (k.get("type") === "Keyword" || k.get("type") === "Identifier") && ctx.TextOf(k) === "extends",
+    );
+    const head = extAt >= 0 ? firstMember.slice(extAt + 1) : firstMember;
+    const types: any[] = [];
+    const firstType = head.length > 0 ? ctx.TypeExpression(head) : undefined;
+    if (firstType !== undefined) types.push(firstType);
+    for (const group of members.slice(1)) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) types.push(one);
+    }
+    if (types.length === 1) {
+      props.constraint = types[0];
+    } else if (types.length > 1) {
+      props.constraint = {
+        kind: wrapped.get("type"),
+        types,
+        pos: types[0].pos,
+        end: types[types.length - 1].end,
+      };
+    }
+  }
+  return ctx.Node("TypeParameter", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**。
