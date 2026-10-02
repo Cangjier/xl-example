@@ -97,6 +97,23 @@ return ReplaceCountAt(units, startIndex, index - startIndex + 1, result);
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<StaticBlock>体内语句</StaticBlock>`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+类静态块 `class A { static { … } }` → `ClassStaticBlockDeclaration`（`body: Block`；
+**从 `ts-ast.xl.md` 的 `projectStaticBlock` 搬来**，第 184 轮）。
+
+产物那边体括号不在树里（`StaticBlock > Statement*`），所以 `Block` 要**自己造**：
+按 `static` 之后的那个 `{` 与配对的 `}` 量区间（与 `projectTry` 里两个块同一套做法）。
+
+```ts
+  const statements = ctx.ProjectEach(ctx.Kids(v), "Block");
+  const brace = ctx.source.indexOf("{", v.start);
+  const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
+  const body =
+    brace >= 0 && close >= brace ? { kind: "Block", statements, pos: brace, end: close + 1 } : undefined;
+  return ctx.Node("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，然后把**语句队列**装进自己的重组队列——静态块里是一串语句。

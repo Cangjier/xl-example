@@ -993,8 +993,6 @@ new Map([
 
     // 继承段 `extends A, B` / `implements C`：TS 那边 `forEachChild` **只访问 `types`**——
     // `extends` / `implements` 那个词是节点的**属性**（`token`），不是子节点。
-    case "HeritageClause":
-      return projectHeritageClause(v, ctx);
 
     case "TypeQuery":
       return projectTypeQuery(v, ctx);
@@ -1063,8 +1061,6 @@ new Map([
     // `ClassStaticBlockDeclaration > body: Block`，而产物是 `StaticBlock > Statement*`
     // （体括号那层壳不在树里，`Block` 要自己造）——照通用投影只有 `children`、
     // 缺整个 `Block`（实测缺 `Block` + 字段名差）。
-    case "StaticBlock":
-      return projectStaticBlock(v, ctx);
 
     // **`for` 语句**（第 93 轮）：四个段在 TS 那边是 `initializer` / `condition` /
     // `incrementor` / `statement`，其中头三段是**表达式位**（照通用投影会逐个单元投，
@@ -6758,22 +6754,6 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   return { kind: "TryStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectStaticBlock:(v:any, ctx:any)=>any
-
-类静态块 `class A { static { … } }` → `ClassStaticBlockDeclaration`（`body: Block`）。
-
-产物那边体括号不在树里（`StaticBlock > Statement*`），所以 `Block` 要**自己造**：
-按 `static` 之后的那个 `{` 与配对的 `}` 量区间（与 `projectTry` 里两个块同一套做法）。
-
-```ts
-  const statements = projectEach(projectableKids(v), ctx, "Block");
-  const brace = ctx.source.indexOf("{", v.start);
-  const close = brace >= 0 ? matchingBrace(ctx.source, brace) : -1;
-  const body =
-    brace >= 0 && close >= brace ? { kind: "Block", statements, pos: brace, end: close + 1 } : undefined;
-  return { kind: "ClassStaticBlockDeclaration", pos: v.start, end: stmtEndOf(v, ctx), ...(body === undefined ? {} : { body }) };
-```
-
 # private method projectNew:(v:any, ctx:any)=>any
 
 `new Map<string, number>()` → `NewExpression`（`expression` + 可选 `typeArguments` / `arguments`）。
@@ -6858,28 +6838,6 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     }
   }
   return astNode("ModuleDeclaration", props, v, ctx);
-```
-
-# private method projectHeritageClause:(v:any, ctx:any)=>any
-
-`extends A, B` / `implements C, D` → `HeritageClause`（只有 `types` 一个子字段）。
-
-TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` / `implements`
-那个词是节点的**属性**（`token`），不参与遍历。产物那边它与类型是一串**平级单元**
-（`[Keyword(extends), TypeReference, SymbolToken(,), TypeReference]`），照通用投影会把
-`ExtendsKeyword` 当成一个子节点——实测「投影后多出来的节点」里 `ExtendsKeyword` 有 **2192 个**。
-
-```ts
-  const kids = projectableKids(v).filter(
-    (k) =>
-      !(
-        (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
-        (textOfNode(k, ctx) === "extends" || textOfNode(k, ctx) === "implements")
-      ),
-  );
-  const projected = projectEach(kids, ctx, "HeritageClause");
-  const props = projected.length === 0 ? {} : { types: projected };
-  return { kind: "HeritageClause", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectTypeQuery:(v:any, ctx:any)=>any

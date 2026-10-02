@@ -199,6 +199,29 @@ return ReplaceCountAt(units, index, endIndex - index + 1, clause);
 
 内容：子句词（`extends` / `implements`）、逗号、以及每个实体名的 `ExpressionWithTypeArguments`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`extends A, B` / `implements C, D` → `HeritageClause`（只有 `types` 一个子字段；
+**从 `ts-ast.xl.md` 的 `projectHeritageClause` 搬来**，第 184 轮）。
+
+TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` / `implements`
+那个词是节点的**属性**（`token`），不参与遍历。产物那边它与类型是一串**平级单元**
+（`[Keyword(extends), TypeReference, SymbolToken(,), TypeReference]`），照通用投影会把
+`ExtendsKeyword` 当成一个子节点——实测「投影后多出来的节点」里 `ExtendsKeyword` 有 **2192 个**。
+
+```ts
+  const kids = ctx.Kids(v).filter(
+    (k: any) =>
+      !(
+        (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+        (ctx.TextOf(k) === "extends" || ctx.TextOf(k) === "implements")
+      ),
+  );
+  const projected = ctx.ProjectEach(kids, "HeritageClause");
+  const props: any = projected.length === 0 ? {} : { types: projected };
+  return ctx.Node("HeritageClause", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——子句里的类型实参段（`L<M>` 的 `<M>`）要照常成形 ✓。
