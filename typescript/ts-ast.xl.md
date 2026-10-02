@@ -990,8 +990,6 @@ new Map([
     // 继承段 `extends A, B` / `implements C`：TS 那边 `forEachChild` **只访问 `types`**——
     // `extends` / `implements` 那个词是节点的**属性**（`token`），不是子节点。
 
-    case "TypeQuery":
-      return projectTypeQuery(v, ctx);
 
     case "TypeParameter":
       return projectTypeParameter(v, ctx);
@@ -6696,48 +6694,6 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   return astNode("ModuleDeclaration", props, v, ctx);
 ```
 
-# private method projectTypeQuery:(v:any, ctx:any)=>any
-
-`typeof X` / `typeof A.B` → `TypeQuery`（只有 `exprName` 一个子字段）。
-
-TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就是那个名字
-（单个名字是 `Identifier`、点号名是 `QualifiedName`）——产物那边它是
-`[Keyword(typeof), Identifier(X)]` 两个平级单元，照通用投影会把 `TypeOfKeyword`
-也塞进 `exprName`。点号后面的名字常常在**节点外面**（见 `projectTypeExpression` 里那一支）。
-
-```ts
-  const kids = projectableKids(v);
-  // **`typeof` 不是名字**（踩过）：它是 `Keyword`，而 `isNameNode` 认得 `Keyword`
-  // （成员名那一族要用它），所以这里要显式排掉——否则 `exprName` 会是
-  // `QualifiedName(typeof, globalThis)` 这种把运算符当名字的东西。
-  const names = kids.filter((k) => isNameNode(k) && textOfNode(k, ctx) !== "typeof");
-  const props = {};
-  // **点号名在产物里可能已经是一个 `PropertyAccess` 单元**（第 103 轮）：
-  // `any[][typeof Symbol.iterator]` 的产物是 `TypeQuery > [Keyword(typeof), PropertyAccess(Symbol.iterator)]`，
-  // 而 `PropertyAccess` 不是名字节点——照下面那两条支会得到**空 `exprName`**，
-  // 于是 `QualifiedName` / `Symbol` / `iterator` 三个节点全丢（实测缺 `Identifier` 1050
-  // 里成片就是这个形状，`@types/node/compatibility/iterators.d.ts` 一眼可见）。
-  const access = kids.find((k) => k.get("type") === "PropertyAccess");
-  // **实参段可能在 `TypeQuery` 里面**（`typeof ServerResponse<InstanceType<Request>>` 的一种形状）：
-  // TS 的 `TypeQueryNode.typeArguments` 要照收（第 109 轮）。
-  const generic = kids.find((k) => k.get("type") === "GenericType");
-  if (generic !== undefined) {
-    const typeArguments = [];
-    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
-      const one = projectTypeExpression(group, ctx);
-      if (one !== undefined) typeArguments.push(one);
-    }
-    if (typeArguments.length > 0) props.typeArguments = typeArguments;
-  }
-  if (access === undefined && names.length === 1) {
-    props.exprName = nameOf(names[0], ctx);
-  } else if (access !== undefined || names.length > 1) {
-    const parts = access === undefined ? names : projectableKids(view(access)).filter((k) => isNameNode(k));
-    props.exprName = qualifiedNameFrom(parts, ctx);
-  }
-  return { kind: "TypeQuery", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectTypeParameter:(v:any, ctx:any)=>any
 
 类型参数 `<T extends object = any>` → `TypeParameter`
@@ -7310,6 +7266,8 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     IndexBracketOf: (view) => indexBracketOf(view, ctx),
     ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
+    IsNameNode: (node) => isNameNode(node),
+    QualifiedNameFrom: (list) => qualifiedNameFrom(list, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

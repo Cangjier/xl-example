@@ -253,6 +253,49 @@ return result;
 **与值位的 `typeof` 是两回事**：值位的 `let v = typeof x` 是 `UnaryOperator op="typeof"`，
 类型位的 `type T = typeof x` 是 `TypeQuery`；区别同样只在容器。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`typeof X` / `typeof A.B` → `TypeQuery`（只有 `exprName` 一个子字段；
+**从 `ts-ast.xl.md` 的 `projectTypeQuery` 搬来**，第 186 轮）。
+
+TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就是那个名字
+（单个名字是 `Identifier`、点号名是 `QualifiedName`）——产物那边它是
+`[Keyword(typeof), Identifier(X)]` 两个平级单元，照通用投影会把 `TypeOfKeyword`
+也塞进 `exprName`。点号后面的名字常常在**节点外面**（见 `projectTypeExpression` 里那一支）。
+
+**`typeof` 不是名字**（踩过）：它是 `Keyword`，而 `isNameNode` 认得 `Keyword`
+（成员名那一族要用它），所以这里要显式排掉——否则 `exprName` 会是
+`QualifiedName(typeof, globalThis)` 这种把运算符当名字的东西。
+
+**点号名在产物里可能已经是一个 `PropertyAccess` 单元**（第 103 轮）：
+`any[][typeof Symbol.iterator]` 的产物是 `TypeQuery > [Keyword(typeof), PropertyAccess(Symbol.iterator)]`，
+而 `PropertyAccess` 不是名字节点——照两条名字支会得到**空 `exprName`**，
+于是 `QualifiedName` / `Symbol` / `iterator` 三个节点全丢。
+
+```ts
+  const kids = ctx.Kids(v);
+  const names = kids.filter((k: any) => ctx.IsNameNode(k) && ctx.TextOf(k) !== "typeof");
+  const props: any = {};
+  const access = kids.find((k: any) => k.get("type") === "PropertyAccess");
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  if (access === undefined && names.length === 1) {
+    props.exprName = ctx.NameOf(names[0]);
+  } else if (access !== undefined || names.length > 1) {
+    const parts =
+      access === undefined ? names : ctx.Kids(access).filter((k: any) => ctx.IsNameNode(k));
+    props.exprName = ctx.QualifiedNameFrom(parts);
+  }
+  return ctx.Node("TypeQuery", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 搬进来的那一段要再跑一趟**类型队列**（`typeof import("m")` 里的调用 / `typeof ns.x` 在那里成形）。
