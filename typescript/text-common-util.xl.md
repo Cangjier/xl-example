@@ -456,7 +456,20 @@ if (previous instanceof Bracket) {
   return previous.startBracket === "}";
 }
 if (previous instanceof SymbolToken) {
-  return previous.Is(";");
+  if (previous.Is(";")) {
+    return true;
+  }
+  // **`case X:` / `default:` 的冒号后面是一条（块）语句**（第 123 轮）：
+  // `switch (v) { case "a": { const t = 1; } }` 里那个 `{` 是**块**，
+  // 可它的前一个实义单元是 `:`——只认 `;` 的话它掉进 `JsonObjectReorganization`，
+  // 整个 case 体被读成**对象字面量**（实测产物里出现
+  // `ExpressionStatement > ObjectLiteralExpression`，case 体里的
+  // `Block` / `VariableStatement` / `ReturnStatement` 一个都不剩）。
+  // 判据见 `IsCaseClauseColon`。
+  if (previous.Is(":") && IsCaseClauseColon(units, index)) {
+    return true;
+  }
+  return false;
 }
 return true;
 ```
@@ -466,6 +479,63 @@ return true;
 少了这一支，这些体括号会被当成裸块、被本判定补上语句队列并当场跑一遍重组，
 于是整个 `switch` / 函数体被**重复重组**一遍（实测 `switch` 的六个用例与样例夹具当场变形）。
 只有接在 `}` 之后才算新语句（`{ … } { … }`）。
+
+# method IsCaseClauseColon:(units:Array<Token>, index:number)=>bool
+
+`index` 处的单元前面那个实义单元是不是**开关分支的冒号**（`case X:` / `default:` 的那个 `:`）。
+
+判据：从 `index` 往左，跳过软换行，第一个实义单元必须是 `SymbolToken(":")`；
+再从这个冒号往左走，**先撞上 `case` / `default` 就是**，撞上别的 `;` / `?` / `:` / `}` / `{`
+（也就是走到了另一段）就不是。
+
+**为什么必须单独判**：`outer: { … }`（标签 + 块）与 `let x: T`（声明 + 类型标注）在
+`IsStatementStart` 里已经靠「前一个实义单元是不是 `Identifier`」分开了，但
+`case "a":` 的冒号**前面是那个字面量**、不是名字——三条既有判据一条都不成立。
+**只扫到分段边界为止**：`{ case "a": f(); }` 里 `f()` 后面的东西不该影响这一问，
+`?` / `:` 都要停（那说明这个冒号是三元的或另起一段的），`{` / `}` 也要停（跨出了本层）。
+
+名字的**词法身份不固定**：`case` 在那一刻还是 `Identifier`，而 `SwitchReorganization`
+之后它可能已经被升级成 `Keyword`——两种都认（`ternary-operator.xl.md` 记过同一个坑：
+`Identifier` 与 `Keyword` 没有共同的取文本方法，必须分两支写）。
+
+```ts
+const colonIndex = SkipPreviousWrapSymbol(units, index);
+const colon = Get(units, colonIndex);
+if (!(colon instanceof SymbolToken) || colon.Is(":") === false) {
+  return false;
+}
+for (let i = colonIndex - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null || item instanceof LineWrap) {
+    continue;
+  }
+  if (item instanceof Identifier) {
+    if (item.Is("case") || item.Is("default")) {
+      return true;
+    }
+    continue;
+  }
+  if (item.constructor.name === "Keyword") {
+    const word = (item as any).Value;
+    if (word === "case" || word === "default") {
+      return true;
+    }
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    // **限定名里的点号放行**：`case ts.SyntaxKind.Identifier:` 这种写法很常见；
+    // 其余符号（`;` / `?` / `:` / `,` / `=` / 运算符…）一律停——它们说明
+    // 这个冒号不是本分段的标签冒号，或者已经到了别的表达式里。
+    const text = item.TempToString();
+    if (text === "." || text === "?." || text === "!") {
+      continue;
+    }
+    return false;
+  }
+  // 其余单元（字符串 / 数字 / 括号 / 已经成形的各个单元）都是**标签表达式的一部分**，继续往左。
+}
+return false;
+```
 
 # method IsStatementList:(unit:Token)=>bool
 
@@ -488,6 +558,12 @@ return (
   name === "WhileBody" ||
   name === "DoWhileBody" ||
   name === "SwitchCase" ||
+  // **`SwitchStatement` 是「开关分支的体」**（第 123 轮）：`SwitchReorganization` 把
+  // 冒号之后的单元整段搬进它，而它是一段**语句列表**。少了这一条，`case "a": { … }`
+  // 里那个 `{` 的父单元不在白名单里，`IsStatementStart` 给 `false`、
+  // 于是被 `JsonObjectReorganization` 收成对象字面量（实测产物里是
+  // `SwitchStatement > Statement > ObjectLiteralExpression`，case 体全毁）。
+  name === "SwitchStatement" ||
   name === "TryBody" ||
   name === "CatchBody" ||
   name === "FinallyBody" ||

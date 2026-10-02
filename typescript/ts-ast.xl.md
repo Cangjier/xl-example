@@ -788,6 +788,23 @@ new Map([
   const mk = (kind, props) => {
     return astNode(kind, props, v, ctx);
   };
+  // **裸块语句 `{ … }` 就是一个 `Block`**（第 123 轮）：产物那边它是一对花括号
+  // （`BlockReorganization` 在语句位给它补了语句队列，里面的东西已经是 `Statement`），
+  // 而 TS 那边它是一个 `Block` 节点、有自己的 `statements`。照通用支投会**原样透传**
+  // 一个未映射的 `<Bracket>`，外层还多套一个 `ExpressionStatement`
+  // （实测 `{ let y = 2; f(y); }` / `case "a": { … }` / `switch` 分支体三族全中）。
+  //
+  // **只认 `{`**：`(` / `[` 是分组括号，它们由 `projectExpression` / 类型那几条路径摊平，
+  // 走到这里的一律是块。判据取 `startBracket` 属性（与 `projectExpression` 里
+  // 那个值位括号分支同一个来源）。
+  if (v.type === "Bracket" && String(v.attrs.get("startBracket") ?? "") === "{") {
+    return {
+      kind: "Block",
+      statements: projectEach(kidsOf(v, "children"), ctx),
+      pos: v.start,
+      end: stmtEndOf(v, ctx),
+    };
+  }
   // **父 kind**：少数几处「同一个产物标签按上下文换 kind」要问它
   // （类里的 `constructor` 是 `ConstructorDeclaration`）。它由 `structuralProps`
   // 在摊平包装体时显式往下传——不是从产物树的父亲读的。
@@ -1468,6 +1485,12 @@ new Set([
       // 是**表达式**（`f(1)` / `a + b` / `new X`）⇒ TS 那边是 `ExpressionStatement > 表达式`。
       if (STATEMENT_KINDS.has(kind)) return projected;
       return { kind: "ExpressionStatement", expression: projected, pos: v.start, end: stmtEndOf(v, ctx) };
+    }
+    // **裸块语句**（第 123 轮）：`{ … }` 在 TS 那边**本身就是一条语句**，
+    // 不能再套 `ExpressionStatement`——`KIND_BY_TAG` 里没有 `Bracket`，
+    // 所以上面那一支漏掉它，整块会被套上一层壳。
+    if (headType === "Bracket" && String(head.get("startBracket") ?? "") === "{") {
+      return projectNode(head, ctx);
     }
   }
   return {

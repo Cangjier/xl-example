@@ -437,17 +437,36 @@ branch.AddStringChar("`");
 参数顺序是**先元素、后判定器**——函数类型参数排在最后。
 
 **为什么这个加工放在这里**：它是对「通用重组队列」的第二次加工，与 `GeneralReorganize` 是同一份契约的两半。
-放在同一个文件里，读代码时一眼能看出「语句类是在通用队列里插进去的」。
+放在同一个文件里，读代码时一眼能看出「语句类是在通用重组队列里插进去的」。
+
+**插入必须发生在 `Get` 之后，不能只写在回调里**（第 123 轮修）：`SequenceTemplate.Get`
+把结果**按构造器缓存**（`CompletedData`），回调只在**第一次**取值时跑一次。而 `Bracket`
+是三种括号**共用一个类**的——`Use("(")` / `Use("[")` 会先做一次**单参**取值
+（拿到的是没插过语句规则的通用队列），那一趟就把 `CompletedData[Bracket]` 填上了。
+于是 `{` 块括号再走 `InitialStatementReorganizationQueue` 时，回调**根本不会被调用**，
+块里永远没有语句规则：
+
+    { let y = 2; f(y); }   →  <Bracket> 里是散的 <Let> / <SymbolToken>，
+                             一个 <Statement> 都没有（实测：投影出来缺整个 `Block`，
+                             `VariableDeclaration` / `ExpressionStatement` 全丢）
+
+所以这里先取基队列，再**自己**插一次；已经插过（同一个基队列被复用）就不重复插。
+判据是「基队列里有没有 `StatementReorganization2`」——插两次不会出错（两条规则都是幂等的），
+但会让每一趟多扫两遍，而且会掩盖「谁插的」这个问题。
 
 ```ts
-unit.ReorganizationQueue = unit.Template.ReorganizationTemplate.Get(
-  unit.constructor,
-  (defaultValue: any) =>
-    defaultValue == null
-      ? null
-      : defaultValue.InsertedBeforeWhere(
-          [StatementReorganization2.Instance, StatementReorganization3.Instance],
-          (item: any) => item instanceof WrapSymbolReorganization,
-        ),
+const base = unit.Template.ReorganizationTemplate.Get(unit.constructor, (defaultValue: any) => defaultValue);
+if (base === null) {
+  unit.ReorganizationQueue = null;
+  return;
+}
+const already = base.Data.some(
+  (item: Reorganization) => item instanceof StatementReorganization2 || item instanceof StatementReorganization3,
 );
+unit.ReorganizationQueue = already
+  ? base
+  : base.InsertedBeforeWhere(
+      [StatementReorganization2.Instance, StatementReorganization3.Instance],
+      (item: any) => item instanceof WrapSymbolReorganization,
+    );
 ```
