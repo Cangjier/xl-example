@@ -450,6 +450,9 @@ new Map([
 那是下一步的事，这里先把「推过修饰词」这条补偿做到位。
 
 ```ts
+  // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
+  // 由这条统一合成（见 `leafKindOfText` 的同一条判据），产物那边它只是一个普通文本块。
+  const nameKind = name.length > 1 && name[0] === "#" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
   // **首选产物自己记的位置**：token 层在扫描那一刻就知道名字单元在哪，
   // 于是把它记成 `nameStart` / `nameEnd` 两个字段（见 `class.xl.md` 的 `NameStart`）。
@@ -457,7 +460,7 @@ new Map([
   const start = v.attrs.get("nameStart");
   const end = v.attrs.get("nameEnd");
   if (typeof start === "number" && typeof end === "number" && start >= 0 && end >= start) {
-    return { kind: "Identifier", text: name, pos: start, end: end + 1 };
+    return { kind: nameKind, text: name, pos: start, end: end + 1 };
   }
   const modifiers = v.attrs.get("modifiers");
   let from = v.start;
@@ -473,7 +476,7 @@ new Map([
   // 用 `found < v.end` 会把它判成越界（踩过：`const f = <T>(x: T): T => x` 的名字一直取不到）。
   const limit = ctx.source.length;
   const pos = found >= 0 && found < limit ? found : from;
-  return { kind: "Identifier", text: name, pos, end: pos + name.length };
+  return { kind: nameKind, text: name, pos, end: pos + name.length };
 ```
 
 # private method view:(node:any)=>any
@@ -558,6 +561,11 @@ new Map([
   if (text === "true") return "TrueKeyword";
   if (text === "false") return "FalseKeyword";
   if (text === "null") return "NullKeyword";
+  // **`#x` 是 `PrivateIdentifier`**（第 131 轮）：类里的私有名在 TS 那边有自己的 kind
+  // （`PrivateIdentifier`，区间含那个 `#`）。产物把它当普通文本块，照 `Identifier` 投
+  // 会同时记「缺 `PrivateIdentifier`」与「多出 `Identifier`」
+  // （实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts` 一族 22 处）。
+  if (text.length > 1 && text[0] === "#") return "PrivateIdentifier";
   // **`super` 永远是 `SuperKeyword`**（第 98 轮）：`super(1)` / `super.x` 的 TS 是
   // `CallExpression > SuperKeyword` / `PropertyAccessExpression > SuperKeyword`，
   // 而产物把那两个名字投成了 `Identifier`（实测缺 `SuperKeyword` 134 + 多出 `Identifier` 134）。
@@ -1076,6 +1084,17 @@ new Map([
       if (stripModifier !== undefined && Array.isArray(props.modifiers)) {
         props.modifiers = props.modifiers.filter((m) => m.kind !== stripModifier);
       }
+      // **生成器记号的 `*` 是 `asteriskToken`**（第 130 轮）：`function* g() {}` 的产物把
+      // `*` 记成一个平级的 `SymbolToken`，它会跟着形参一起落进 `parameters`——而 TS 那边
+      // 它是 `FunctionDeclaration.asteriskToken`（**不是**形参，`forEachChild` 单独访问它）。
+      // 摘出来之后字段名与 TS 一致，节点本身也还在（`AsteriskToken`）。
+      if (Array.isArray(props.parameters)) {
+        const star = props.parameters.findIndex((p) => p !== undefined && p.kind === "AsteriskToken");
+        if (star >= 0) {
+          props.asteriskToken = props.parameters[star];
+          props.parameters.splice(star, 1);
+        }
+      }
       return mk(kind, props);
     }
   }
@@ -1583,6 +1602,80 @@ new Set([
   if (kids.length === 1 && kids[0].get("type") === "Bracket" && kids[0].get("startBracket") === "(") {
     return parenthesizedOf(kids[0], ctx);
   }
+  // ---- 0b0. `await x` / `yield x`（第 130 轮）----
+  //
+  // 产物把 `await` / `yield` 记成一个 `Keyword`，与它的操作数**平级**；TS 那边它们是
+  // `AwaitExpression` / `YieldExpression`，而那两个词**不是子节点**（`forEachChild`
+  // 只访问 `expression`）。照通用支投会多出一个 `AwaitKeyword` / `YieldKeyword`、
+  // 又缺整个表达式与它里面的调用（实测 `await g(a)`：缺 `AwaitExpression` /
+  // `CallExpression` / 两个 `Identifier`，多出 `AwaitKeyword`）。
+  //
+  // **必须排在下面那句「单个单元直接投」之前**：`yield;` 的产物就是**一格**
+  // `Keyword(yield)`，走到那一句会把它投成 `Identifier`。
+  if (kids[0].get("type") === "Keyword") {
+    const word = textOfNode(kids[0], ctx);
+    // **`yield` 可以没有操作数、也可以带 `*`**（第 130 轮）：`yield;` 的 TS 是
+    // `YieldExpression[146,151)`（就是那个词），`yield* other()` 的 `*` 进
+    // `asteriskToken`、`other()` 进 `expression`。少了这两支，裸 `yield` 会被投成
+    // `Identifier`、带 `*` 的那条只在 `yield*` 处收尾（`CallExpression` 整片丢）。
+    if (word === "yield") {
+      const props: any = {};
+      let rest = kids.slice(1);
+      if (rest.length > 0 && rest[0].get("type") === "SymbolToken" && textOfNode(rest[0], ctx) === "*") {
+        props.asteriskToken = projectNode(rest[0], ctx);
+        rest = rest.slice(1);
+      }
+      const value = rest.length > 0 ? projectExpression(rest, ctx) : undefined;
+      if (value !== undefined) props.expression = value;
+      return {
+        kind: "YieldExpression",
+        ...props,
+        pos: startOf(kids[0]),
+        end: value === undefined ? endOf(kids[kids.length - 1]) : value.end,
+      };
+    }
+    if (word === "await" && kids.length >= 2) {
+      const value = projectExpression(kids.slice(1), ctx);
+      if (value !== undefined) {
+        return { kind: "AwaitExpression", expression: value, pos: startOf(kids[0]), end: value.end };
+      }
+    }
+  }
+  // **表达式里的私有名 `#x`**（第 131 轮）：`#x in o` 的产物是
+  // `[SymbolToken(#), Identifier(x), Keyword(in), Identifier(o)]`——`#` 与名字是两格。
+  // 合成一个 `PrivateIdentifier` 之后，后面的运算符与操作数照常折（`in` 走
+  // `isOperatorUnit` 那一支：它是 `Keyword` 不是 `SymbolToken`）。
+  if (kids.length >= 2 && kids[0].get("type") === "SymbolToken" && textOfNode(kids[0], ctx) === "#") {
+    const named = kids[1];
+    const simple = named.get("type") === "Identifier" || named.get("type") === "Keyword";
+    if (simple) {
+      const head = {
+        kind: "PrivateIdentifier",
+        text: "#" + textOfNode(named, ctx),
+        pos: startOf(kids[0]),
+        end: endOf(named),
+      };
+      const rest = kids.slice(2);
+      if (rest.length === 0) return head;
+      return foldBinaryFrom(head, rest, ctx);
+    }
+    // **名字被折进了二元单元**（第 131 轮）：`#x in o` 的产物是
+    // `[SymbolToken(#), BinaryOperator(in)( Identifier(x), «in», Identifier(o) )]`——
+    // 那个二元单元的**第一个孩子才是名字**，其余是运算符与右操作数。
+    // 不拆的话整个 `x in o` 会被当成名字（`PrivateIdentifier` 的区间一路撑到 `o`）。
+    if (named.get("type") === "BinaryOperator" || named.get("type") === "LogicalOperator") {
+      const inner = projectableKids(view(named));
+      if (inner.length >= 2) {
+        const head = {
+          kind: "PrivateIdentifier",
+          text: "#" + textOfNode(inner[0], ctx),
+          pos: startOf(kids[0]),
+          end: endOf(inner[0]),
+        };
+        return foldBinaryFrom(head, [...inner.slice(1), ...kids.slice(2)], ctx);
+      }
+    }
+  }
   if (kids.length === 1) return projectNode(kids[0], ctx);
   const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
 
@@ -1722,6 +1815,28 @@ new Set([
       }
       if (!isSymbol(ck[i], ".") || i + 1 >= ck.length) break;
       const next = ck[i + 1];
+      // **私有成员名 `#x`**（第 131 轮）：产物把 `this.#x` 拆成 `[this, ., #, x]` 两格，
+      // 而 TS 那边 `name` 是**一个** `PrivateIdentifier`（区间含那个 `#`，`#` 是它的一部分）。
+      // 不合并的话点号后面只剩一个 `#`（投成一个 `Identifier("#")`、区间短一格），
+      // 后面那个名字还掉成平级节点（实测 `cls-hash-in-operator.ts` / `cls-private-fields.ts`）。
+      if (next.get("type") === "SymbolToken" && textOfNode(next, ctx) === "#" && i + 2 < ck.length) {
+        const after = ck[i + 2];
+        const at = startOf(next);
+        left = {
+          kind: "PropertyAccessExpression",
+          expression: left,
+          name: {
+            kind: "PrivateIdentifier",
+            text: "#" + textOfNode(after, ctx),
+            pos: at,
+            end: endOf(after),
+          },
+          pos: left.pos,
+          end: endOf(after),
+        };
+        i += 3;
+        continue;
+      }
       if (next.get("type") === "Method") {
         // `console.log(1)` 的产物是 `[console, ., Method(name="log")]`——
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
@@ -2154,7 +2269,9 @@ new Set([
 更高优先级的那些（`a || b && c` 里的 `&&`）留给 `projectExpression` 自己切。
 
 ```ts
-  if (rest.length < 2 || rest[0].get("type") !== "SymbolToken") return left;
+  // **运算符不一定是 `SymbolToken`**（第 131 轮）：`in` / `instanceof` 是 `Keyword`
+  // （`#x in o` 的 `in` 就是），与 `projectExpression` 里那条 `isOperatorUnit` 同一口径。
+  if (rest.length < 2 || !isOperatorUnit(rest[0], ctx)) return left;
   const firstRank = operatorRank(textOfNode(rest[0], ctx));
   if (firstRank === 0) {
     // 赋值：右结合，交给递归。
@@ -2195,12 +2312,14 @@ new Set([
   let i = 0;
   while (i + 1 < rest.length) {
     const op = rest[i];
-    if (op.get("type") !== "SymbolToken") break;
+    // **运算符也可能是 `Keyword`**（第 131 轮）：`in` / `instanceof` 都是
+    // （`#x in o` 的 `in`），只认 `SymbolToken` 会当场 `break`，运算符与右操作数一起丢。
+    if (!isOperatorUnit(op, ctx)) break;
     const rank = operatorRank(textOfNode(op, ctx));
     // 下一个「同级或更低优先级」的运算符就是这一段的终点。
     let stop = rest.length;
     for (let k = i + 1; k < rest.length; k++) {
-      if (rest[k].get("type") === "SymbolToken" && isOperatorUnit(rest[k], ctx) && operatorRank(textOfNode(rest[k], ctx)) <= rank) {
+      if (isOperatorUnit(rest[k], ctx) && operatorRank(textOfNode(rest[k], ctx)) <= rank) {
         stop = k;
         break;
       }
