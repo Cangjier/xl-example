@@ -261,6 +261,47 @@ while (i < bodyIndex) {
   i = SkipNextWrapSymbol(units, i);
 }
 const body = Get(units, bodyIndex) as Bracket;
+// **类体里出现 `let` 是非法 TS**（第 181 轮）：`ts.createSourceFile` 在这里走的是**错误恢复**——
+// `ClassDeclaration` 到那个 `{` 就结束，后面的内容被当成**顶层语句**重新解析
+// （实测 `samples/generic.ts`：TS 的 `ClassDeclaration` 是 [32,46)、`let value: T` 成了顶层
+// `FirstStatement`、那个游离的 `}` 直接被跳过）。本工程原来把 `let` 当类成员收下，
+// 于是类盖住了整个 `{ … }`（[32,65)）。
+// 判据只看「体里有没有 `Let` 单元」（第 79 轮的注释里记着本工程样本里就有这种写法）。
+// 命中时：类只到 `{` 为止，**体内容摊回父单元**让它照常成句。
+const containsLet = (list: Array<any>): boolean => {
+  for (const item of list) {
+    if (item === null || item === undefined) {
+      continue;
+    }
+    if (item.constructor.name === "Let") {
+      return true;
+    }
+    // **这一趟 `let` 可能还只是个词**：类体括号的内容在没有自己的队列跑过之前是**生单元**，
+    // 语句队列要等 `ClassBody.TryToClose()` 之后才把 `let value: T` 折成 `Let`。
+    if (item instanceof Identifier && item.Is("let")) {
+      return true;
+    }
+    const inner = (item as any).Data;
+    if (Array.isArray(inner) && inner.length > 0 && containsLet(inner)) {
+      return true;
+    }
+  }
+  return false;
+};
+if (containsLet(body.Data)) {
+  const innerUnits = [...body.Data];
+  // **直接改写而不是再签一次**：上面那句 `result.SignOut(Get(units, endIndex)!…)` 已经把终点
+  // 签在 `{ … }` 的末尾了，`SignOut` 只能签一次（再签抛 `SourceRange.End has been setted`）。
+  // 与 `namespace.xl.md` 里点号拆嵌套那一处同款：范围字段直接写。
+  result.SourceRange.End = body.SourceRange.Start!;
+  result.TryToClose();
+  const nextIndex = ReplaceCountAt(units, startIndex, bodyIndex - startIndex + 1, result);
+  for (const one of innerUnits) {
+    one.Parent = result.Parent;
+  }
+  units.splice(nextIndex + 1, 0, ...innerUnits);
+  return nextIndex;
+}
 const classBody = result.CreateBody();
 body.MoveDataTo(classBody);
 classBody.Sign(body);
