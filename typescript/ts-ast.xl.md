@@ -84,7 +84,15 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 
 # const INVISIBLE:Set<string> = new Set(["LineWrap", "AreaAnnotation", "LineAnnotation", "PreprocessorDirectives"])
 
-# private const NUMERIC_LITERAL:RegExp = /^(0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(\d[\d_]*)?\.?\d[\d_]*([eE][+-]?\d+)?)n?$/
+# private const NUMERIC_LITERAL:RegExp = /^(0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(\d[\d_]*(\.[\d_]*)?|\.[\d_]+)([eE][+-]?\d[\d_]*)?)n?$/
+
+**这一版修过两处**（第 160 轮）：
+
+- **指数里的分隔符**：`1_0e1_0` 原来不匹配（`[eE][+-]?\d+` 不许 `_`），于是投成 `Identifier`
+  ——TS 那边它是 `NumericLiteral`（实测 `lex-number-separator-exponent.ts`）；
+- **小数部分可以为空**：`1.`（`1..toString()` 的前半截）原来也不匹配，
+  同样掉成 `Identifier`（TS：`NumericLiteral("1.")`）。小数点的两种写法合成
+  `(\d[\d_]*(\.[\d_]*)?|\.[\d_]+)`：整数可带空小数、`.5` 这种前导点单独一支。
 
 # const KIND_BY_TAG:Map<string, string>
 
@@ -576,7 +584,11 @@ new Map([
 # method leafKindOfText:(text:string)=>string
 
 ```ts
-  if (NUMERIC_LITERAL.test(text)) return "NumericLiteral";
+  // **`1n` 是 `BigIntLiteral`**（第 160 轮）：TS 那边整数字面量带 `n` 后缀时是**另一个 kind**
+  // （`BigIntLiteral`），照 `NumericLiteral` 投会同时记「缺 `BigIntLiteral`」与
+  // 「多出 `NumericLiteral`」（实测 `lex-number-bigint.ts` / `lx-numeric-literals.ts` /
+  // `ty-literal-types.ts` 各一处）。
+  if (NUMERIC_LITERAL.test(text)) return text.endsWith("n") ? "BigIntLiteral" : "NumericLiteral";
   if (/^["'`]/.test(text)) return "StringLiteral";
   if (text === "true") return "TrueKeyword";
   if (text === "false") return "FalseKeyword";
