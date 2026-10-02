@@ -5749,12 +5749,18 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
     }
   }
   // 没有花括号：TS 那边就是那条语句本身（`if (a) f();` ⇒ `ExpressionStatement`）。
+  // **终点取投影出来的那个节点自己的 `end`**（第 157 轮）：`last` 是**产物单元**的终点，
+  // 它会带上尾随那个软换行（`if (skip()) continue loop` 换行 ⇒ 单元到 169、TS 到 168）。
+  // 投影节点的 `end` 已经过 `stmtEndOf` 剪过 trivia，正好是 TS 的口径
+  // （实测 `decl-label-break-continue.ts`：`IfStatement` 漂移 2 + 多出 2）。
+  const lastProjected = projections.length > 0 ? projections[projections.length - 1] : undefined;
+  const bodyEnd = lastProjected !== undefined && typeof lastProjected.end === "number" ? lastProjected.end : last;
   return {
     node:
       projections.length === 1
         ? projections[0]
         : { kind: "Block", statements: projections, pos: first, end: last },
-    end: last,
+    end: bodyEnd,
   };
 ```
 
