@@ -6616,7 +6616,26 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   // TS 把它们算作 `TypeParameter.modifiers`（`forEachChild` 那层看得见），漏了 `const`
   // 就会少一整个字段（实测 `decl-func-generic-const-modifier.ts` 那族）。
   const modifiers = kids.filter((k, i) => (nameIndex < 0 || i < nameIndex) && isTypeParameterModifier(k, ctx));
-  if (modifiers.length > 0) props.modifiers = projectEach(modifiers, ctx);
+  if (modifiers.length > 0) {
+    // **变型词与 `const` 有各自的 kind**（第 159 轮）：TS 那边 `out T` 的 `out` 是
+    // `OutKeyword`（`in` → `InKeyword`、`const` → `ConstKeyword`），而产物把它们记成普通的
+    // `Identifier` / `Keyword`——照通用投影会得到一个 `Identifier`
+    // （实测 `ty-variance.ts` / `decl-func-generic-variance.ts` /
+    // `decl-interface-generic-variance.ts`：缺 `OutKeyword` 7 + 多出 `Identifier` 7）。
+    const modifierKinds = new Map([
+      ["in", "InKeyword"],
+      ["out", "OutKeyword"],
+      ["const", "ConstKeyword"],
+    ]);
+    props.modifiers = modifiers.map((k) => {
+      const word = textOfNode(k, ctx);
+      const kind = modifierKinds.get(word);
+      if (kind === undefined) {
+        return projectNode(k, ctx);
+      }
+      return { kind, text: word, pos: startOf(k), end: endOf(k) };
+    });
+  }
   // **收尾：把被包进联合的约束补全**（见上面 `wrapped`）：`extends` 之后那一段只是**第一个成员**
   // （`null`），余下的成员（`| Writable`）在同级的下一个组里——按同一个分隔符切回来，
   // 重新拼成一个 `UnionType` / `IntersectionType`，区间取第一个成员到最后一个成员。
