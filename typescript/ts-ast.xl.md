@@ -4856,9 +4856,41 @@ import { A as B, C } from "m"
   let segStart = braceOpen + 1;
   const flush = (to) => {
     let from = segStart;
-    while (from < to && /\s/.test(source[from])) from++;
+    // **注释也要跳过**（第 162 轮）：`import { a, // first` 换行 `b }` 的第二段以行注释开头，
+    // 只跳空白会把那个注释算进 `b` 的区间（实测 `mod-import-named-multiline-comment.ts` 一族：
+    // `ImportSpecifier` / `Identifier` 都从注释起，缺 2 + 多出 2）。收尾同理，
+    // 段末那个注释也不属于说明符。
+    for (;;) {
+      while (from < to && /\s/.test(source[from])) from++;
+      const rest = source.slice(from, to);
+      const line = /^\/\/[^\n]*/.exec(rest);
+      if (line !== null) {
+        from += line[0].length;
+        continue;
+      }
+      const block = /^\/\*[\s\S]*?\*\//.exec(rest);
+      if (block !== null) {
+        from += block[0].length;
+        continue;
+      }
+      break;
+    }
     let stop = to;
-    while (stop > from && /\s/.test(source[stop - 1])) stop--;
+    for (;;) {
+      while (stop > from && /\s/.test(source[stop - 1])) stop--;
+      const rest = source.slice(from, stop);
+      const line = /\/\/[^\n]*$/.exec(rest);
+      if (line !== null && line.index > 0) {
+        stop = from + line.index;
+        continue;
+      }
+      const block = /\/\*[\s\S]*?\*\/$/.exec(rest);
+      if (block !== null && block.index > 0) {
+        stop = from + block.index;
+        continue;
+      }
+      break;
+    }
     if (from >= stop) return;
     const asAt = source.slice(from, stop).search(/\s+as\s+/);
     if (asAt >= 0) {
@@ -5331,9 +5363,38 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   let segStart = braceOpen + 1;
   const flush = (to) => {
     let from = segStart;
-    while (from < to && /\s/.test(source[from])) from++;
+    // 注释的跳过与 `namedImportSpecifiers` 同款（第 162 轮）。
+    for (;;) {
+      while (from < to && /\s/.test(source[from])) from++;
+      const rest = source.slice(from, to);
+      const line = /^\/\/[^\n]*/.exec(rest);
+      if (line !== null) {
+        from += line[0].length;
+        continue;
+      }
+      const block = /^\/\*[\s\S]*?\*\//.exec(rest);
+      if (block !== null) {
+        from += block[0].length;
+        continue;
+      }
+      break;
+    }
     let stop = to;
-    while (stop > from && /\s/.test(source[stop - 1])) stop--;
+    for (;;) {
+      while (stop > from && /\s/.test(source[stop - 1])) stop--;
+      const rest = source.slice(from, stop);
+      const line = /\/\/[^\n]*$/.exec(rest);
+      if (line !== null && line.index > 0) {
+        stop = from + line.index;
+        continue;
+      }
+      const block = /\/\*[\s\S]*?\*\/$/.exec(rest);
+      if (block !== null && block.index > 0) {
+        stop = from + block.index;
+        continue;
+      }
+      break;
+    }
     if (from >= stop) return;
     const pos = from;
     // 段首的 `type` 是标志：跳过它再算名字，但**区间从段首算**。
