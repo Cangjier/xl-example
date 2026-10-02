@@ -201,6 +201,9 @@ new Map([
   // `operatorToken` 就是它们）。漏了这两条时它们被投成 `Identifier`：
   // 真实语料 `InstanceOfKeyword` 缺 878 处（第 34 轮修）。
   ["in", "InKeyword"], ["instanceof", "InstanceOfKeyword"], ["asserts", "AssertsKeyword"],
+  // **`super` 也在这里**（第 98 轮）：`super.x` 的产物把 `super` 记成 `<Keyword>`，
+  // 而它在 TS 那边永远是 `SuperKeyword`（不可能是标识符名）。
+  ["super", "SuperKeyword"],
 ])
 ```
 
@@ -552,6 +555,11 @@ new Map([
   if (text === "true") return "TrueKeyword";
   if (text === "false") return "FalseKeyword";
   if (text === "null") return "NullKeyword";
+  // **`super` 永远是 `SuperKeyword`**（第 98 轮）：`super(1)` / `super.x` 的 TS 是
+  // `CallExpression > SuperKeyword` / `PropertyAccessExpression > SuperKeyword`，
+  // 而产物把那两个名字投成了 `Identifier`（实测缺 `SuperKeyword` 134 + 多出 `Identifier` 134）。
+  // 它不可能是一个标识符名（`super` 是保留字），所以这一条没有副作用。
+  if (text === "super") return "SuperKeyword";
   // **`undefined` 不走这里**（第 91 轮修）：它是**上下文关键字**——值位的 `x === undefined`
   // 在 TS 那边是一个 `Identifier`（`undefined` 不是保留字），只有**类型位**的 `: undefined`
   // 才是 `UndefinedKeyword`。这条表管的是**叶子**（值位标识符），把它算成 `UndefinedKeyword`
@@ -730,6 +738,11 @@ new Map([
     // `PropertyAccessExpression`、链尾是调用时折成 `CallExpression`。
     case "PropertyAccess":
       return projectExpression(projectableKids(v), ctx);
+
+    // **正则的区间要按原文重新量**（第 98 轮）：`RegexToken` 单元的区间比 TS 的
+    // `RegularExpressionLiteral` **多一个字符**（实测 32 处漂移，产物 [147,156) vs TS [147,155)）。
+    case "RegexToken":
+      return projectRegex(v, ctx);
 
     case "String":
     case "ConstString":
@@ -3034,6 +3047,33 @@ import { A as B, C } from "m"
   return { kind: "ConditionalType", pos: v.start, end: v.end, ...props };
 ```
 
+# private method projectRegex:(v:any, ctx:any)=>any
+
+正则字面量 `/ab+c/gi` → `RegularExpressionLiteral`。
+
+**区间按原文重新量**：`RegexToken` 单元的区间比 TS 的多一个字符（终结符被算进去了），
+所以从那个 `/` 起扫到配对的 `/`（跳过 `\` 转义与 `[…]` 字符类），再把后面的 flags 吃掉。
+
+```ts
+  const source = ctx.source;
+  let end = v.start + 1;
+  let inClass = false;
+  for (; end < source.length; end++) {
+    const c = source[end];
+    if (c === "\\") {
+      end++;
+      continue;
+    }
+    if (c === "[") inClass = true;
+    else if (c === "]") inClass = false;
+    else if (c === "/" && !inClass) break;
+    else if (c === "\n") break;
+  }
+  if (end < source.length && source[end] === "/") end++;
+  while (end < source.length && /[a-z]/.test(source[end])) end++;
+  return { kind: "RegularExpressionLiteral", pos: v.start, end };
+```
+
 # private method projectFunctionType:(v:any, ctx:any)=>any
 
 函数类型 `(x: number) => string` → `FunctionType`（`parameters` + `type`，可选 `typeParameters`）。
@@ -3054,9 +3094,19 @@ import { A as B, C } from "m"
   const arrowIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=>");
   const before = arrowIndex < 0 ? kids : kids.slice(0, arrowIndex);
   const generic = before.find((k) => k.get("type") === "GenericType");
+  // **`new` / `abstract new` 是构造类型**（第 98 轮）：TS 的 kind 是 `ConstructorType`
+  // （`new () => T` 与 `abstract new () => T` 都是），而 `new` 这个词**不是子节点**
+  // （`abstract` 才是 `modifiers` 里的节点）。照函数类型投会「缺 `ConstructorType` +
+  // 多出 `FunctionType` + 多出 `NewKeyword`」（实测 94 处）。
+  const newUnit = before.find((k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "new");
+  const props = {};
   const params = [];
   for (const k of before) {
-    if (k === generic) continue;
+    if (k === generic || k === newUnit) continue;
+    if (k.get("type") === "Keyword" && textOfNode(k, ctx) === "abstract") {
+      props.modifiers = [...(props.modifiers ?? []), projectNode(k, ctx)];
+      continue;
+    }
     if (k.get("type") === "Bracket") {
       // **形参之间的逗号不进 `parameters`**（TS 那边 `parameters` 只有 `Parameter`）：
       // 括号的内容是 `[Parameter, SymbolToken(,), Parameter]`，摊平后要按顶层逗号切。
@@ -3067,7 +3117,6 @@ import { A as B, C } from "m"
     }
     params.push(k);
   }
-  const props = {};
   if (generic !== undefined) {
     const typeParams = unwrapNodes(generic).filter((k) => k.get("type") === "TypeParameter");
     if (typeParams.length > 0) props.typeParameters = projectEach(typeParams, ctx);
@@ -3076,7 +3125,7 @@ import { A as B, C } from "m"
   if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
     props.type = typeOf(kids.slice(arrowIndex + 1), ctx);
   }
-  return { kind: "FunctionType", pos: v.start, end: v.end, ...props };
+  return { kind: newUnit === undefined ? "FunctionType" : "ConstructorType", pos: v.start, end: v.end, ...props };
 ```
 
 # private method projectExpressionWithTypeArguments:(v:any, ctx:any)=>any
