@@ -139,3 +139,51 @@
 `LetFrom`（`for (const x of xs)` 的声明段）、以及 `Kids` 的**两种入参归一**——
 `PrintAst` 里手上常常是**原始 Map**（`nameUnits.find(...)` 那种），
 而 `projectableKids` 只吃视图；这一处踩过一次（`v.segments is not iterable`），已写进注释。
+
+### 剩余 33 个 `case` 的分类（第 186 轮盘点）
+
+按方案里的判据分两类：**能搬的**（整块只有一个宿主 token）与**必须留在共享层的**
+（横切：任何 token 都可能进它的参数，或者它是投影的入口 / 地基）。
+
+**能搬的（15 个，逐块搬）**
+
+| `case` | 目标文件 |
+| --- | --- |
+| `ObjectLiteral` | `tokens/json/object-literal.xl.md` |
+| `MappedType` | `tokens/type-literal/mapped-type.xl.md` |
+| `TypeParameter` | `tokens/type-parameter.xl.md` |
+| `ConditionalType` | `tokens/conditional-type.xl.md` |
+| `TernaryOperator` | `tokens/ternary-operator.xl.md` |
+| `FunctionType` | `tokens/function-type.xl.md` |
+| `ExpressionWithTypeArguments` | `tokens/heritage-clause.xl.md` |
+| `NamedTupleMember` | `tokens/tuple-member.xl.md` |
+| `IndexSignature` | `tokens/index-signature.xl.md` |
+| `For` | `tokens/for/for.xl.md` |
+| `ImportType` | `tokens/import-type.xl.md` |
+| `TypeAssign` | `tokens/type-assign.xl.md` |
+| `Try` | `tokens/try/try.xl.md` |
+| `Namespace` | `tokens/namespace/namespace.xl.md` |
+| `Switch` | `tokens/switch/switch.xl.md` / `IfSet` → `tokens/if/if-set.xl.md` |
+
+**必须留在共享层的（18 个）**
+
+| `case` | 为什么 |
+| --- | --- |
+| `Root` / `Statement` | 投影的**入口与语句分派**，不是某个 token 的活 |
+| `Let` | 声明列表在语句 / `for` / `foreach` / 形参四处都要用（`projectLetFrom`） |
+| `BinaryOperator` / `LogicalOperator` | **表达式重写器**（`foldBinaryFrom`）：任何 token 都可能进它 |
+| `UnaryOperator` / `PropertyAccess` | 同上（`projectExpression` 的入口） |
+| `Method` | 调用重写器（`projectCall`）：被调用者可能是任何表达式 |
+| `TypeDefine` | 类型位的**包装提层**，被所有类型宿主共用 |
+| `Parameter` / `LamdaParameter` | `projectParameter` 同时服务箭头、函数、方法、构造器、`catch` |
+| `Signature` | `CallSignature` / `ConstructSignature` / `MethodSignature` 三家共用 |
+| `Field` | 成员位共用（类体 / 接口体 / 类型字面量） |
+| `Lamda` | 箭头函数的结束判定要回看上下文 |
+| `Import` | 模块子句（默认名 / 命名空间 / 具名 / `type` 标志）四处共用 |
+| `IfSet` | `if` / `else if` / `else` 与 `while` 的条件段共用一份实现 |
+| `TypeAssign` / `Namespace` | 重名较多、且被 `export` / `declare` 前缀支直接调用（可以搬，但收益低） |
+
+> 结论与第 134 轮的评估一致：**「移除 `ts-ast.xl.md`」= 移除中央 `switch` + 给共享实现换名字**，
+> 而不是把每一行都挪走。搬完上面那 15 块之后，剩下的共享实现会留在
+> `typescript/print-ast-common.xl.md`（由 `ts-ast.xl.md` 改名而来），
+> 判据仍然是**全量对拍四方向为 0**。
