@@ -6503,7 +6503,21 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   const prefix = wrapped === undefined ? [] : kids0.slice(0, wrappedIndex);
   const tail = wrapped === undefined ? [] : kids0.slice(wrappedIndex + 1);
   const unionKids = wrapped === undefined ? [] : projectableKids(view(wrapped));
-  const kids = wrapped === undefined ? kids0 : [...prefix, ...unionKids, ...tail];
+  // **套两层的情况**（第 155 轮）：`<T extends string & {} | symbol>` 的产物是
+  // `UnionType > [IntersectionType([T, extends, string, &, {}]), |, symbol]`——
+  // `extends` 在**内层那个交叉**里，只在联合这一层找会找不到它，整个 `constraint` 都不出
+  // （实测 `type-parameter-constraint-union.ts`：`TypeParameter` 缺 `constraint`，
+  // 连带缺 `UnionType` / `IntersectionType` / `StringKeyword` / `TypeLiteral` / `SymbolKeyword`）。
+  // 内层第一个单元还是联合 / 交叉时就把它摊平一层再拼。
+  const flattenInner = (list) => {
+    const head = list[0];
+    if (head !== undefined && (head.get("type") === "UnionType" || head.get("type") === "IntersectionType")) {
+      return [...projectableKids(view(head)), ...list.slice(1)];
+    }
+    return list;
+  };
+  const kids =
+    wrapped === undefined ? kids0 : flattenInner([...prefix, ...unionKids, ...tail]);
   // `extends` 的**词法身份不固定**：本仓库记过「接口的 `extends` 永远升不成 `Keyword`」——
   // 所以两种身份都认（`<T extends U>` 里它是 `Keyword`，而某些上下文里它是 `Identifier`）。
   // 只认 `Keyword` 时会**整类丢掉约束**（实测 17 处 `TypeParameter` 少一个 `constraint`）。
@@ -6572,7 +6586,11 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     // **切的是联合单元自己的内容**（`[名字, extends, 第一个成员, |, 第二个…]`），
     // 不是上面那个「前缀 + 联合 + 尾巴」的拼合序列——把尾巴（`= 默认值`）也切进去，
     // 第二个成员会变成 `Y = Z` 这种半截类型。
-    const members = splitTopLevel(unionKids, ctx, separator);
+    // **先摊平内层那一格**（第 155 轮）：`<T extends string & {} | symbol>` 的联合第一个成员
+    // 是一个**交叉单元**、`extends` 在那个交叉**里面**；不摊平的话 `extAt` 找不到它，
+    // 于是整个交叉（含名字 `T` 与 `extends`）被当成约束的第一项
+    // （实测：约束区间从 `T` 起、`string` 整个消失）。
+    const members = splitTopLevel(flattenInner(unionKids), ctx, separator);
     const firstMember = members.length > 0 ? members[0] : [];
     const extAt = firstMember.findIndex(
       (k) => (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "extends",
