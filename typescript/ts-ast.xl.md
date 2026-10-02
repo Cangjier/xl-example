@@ -645,7 +645,7 @@ new Map([
     head,
     templateSpans: spans,
     pos: v.start,
-    end: v.end,
+    end: stmtEndOf(v, ctx),
   };
 ```
 
@@ -1398,8 +1398,45 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
 
 ```ts
   let end = v.end;
-  while (end > v.start && /\s/.test(ctx.source[end - 1])) end--;
+  // **尾部注释也要剪掉**（第 132 轮）：TS 的节点终点**从不含 trivia**，而产物常把
+  // **下一个声明的 JSDoc** 收进本声明的区间——
+  //
+  //     declare function request<…>(…): Promise<…>;
+  //
+  //     /** A faster version of `request`. */
+  //     declare function stream<…>(…): …;
+  //
+  // 上面那条 `FunctionDeclaration` 的区间一直撑到那段注释结束（实测 `undici-types/api.d.ts`
+  // 四条函数声明、`cache-interceptor.d.ts` 的 `type GetResult` 一族：漂移 + 多出各一份）。
+  // 注释可能嵌得很深（上面那条是落在 `ReturnType > TypeDefine` 里的），所以沿
+  // 「区间终点正好等于当前 `end`」的那条链**递归**找下去——每层最多命中一个孩子，
+  // 代价与一个节点到它最后一个叶子的深度成正比。
+  while (end > v.start) {
+    while (end > v.start && /\s/.test(ctx.source[end - 1])) end--;
+    const at = trailingTriviaStart(v, end);
+    if (at === undefined || at < v.start) break;
+    end = at;
+  }
   return end;
+```
+
+# private method trailingTriviaStart:(v:any, end:int)=>int
+
+**收尾 trivia**（注释）在这条区间链上的起点；没有就给 `undefined`。
+
+只在「区间终点正好是这个 `end`」的子孙里找，所以每一层至多一个候选——这既是正确性
+（别的注释不属于本节点的尾巴），也是代价的上界。
+
+```ts
+  for (const k of allKids(v)) {
+    const range = k.get("range");
+    if (range === undefined || range[1] + 1 !== end) continue;
+    const type = k.get("type");
+    if (type === "LineAnnotation" || type === "AreaAnnotation") return range[0];
+    const inner = trailingTriviaStart(view(k), end);
+    if (inner !== undefined) return inner;
+  }
+  return undefined;
 ```
 
 # private method stmtLike:(kind:string)=>bool
@@ -2706,13 +2743,13 @@ new Set([
   // `PrefixUnaryExpression` / `PostfixUnaryExpression`。
   if (!isPostfix) {
     const wordKind = { typeof: "TypeOfExpression", void: "VoidExpression", delete: "DeleteExpression" }[declaredOp];
-    if (wordKind !== undefined) return { kind: wordKind, expression: operand, pos: v.start, end: v.end };
+    if (wordKind !== undefined) return { kind: wordKind, expression: operand, pos: v.start, end: stmtEndOf(v, ctx) };
   }
   return {
     kind: isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
     operand,
     pos: v.start,
-    end: v.end,
+    end: stmtEndOf(v, ctx),
   };
 ```
 
@@ -2753,7 +2790,7 @@ new Set([
       .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
       .filter((a) => a !== undefined),
     pos: v.start,
-    end: v.end,
+    end: stmtEndOf(v, ctx),
   };
   // **调用上的类型实参**（第 95 轮）：产物把它们收成一个 `GenericType` 子单元，而
   // `args` 那一支是**排掉** `GenericType` 的（它原来整类丢掉）。TS 那边是 `typeArguments`，
@@ -2796,7 +2833,7 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
       end: operand.end,
     },
     pos: v.start,
-    end: v.end,
+    end: stmtEndOf(v, ctx),
   };
 ```
 
@@ -2821,7 +2858,7 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
   const projected = projectTypeExpression(afterColon, ctx);
   if (projected === undefined) {
     ctx.unmapped.add("TypeDefine(空)");
-    return { kind: "TypeReference", pos: v.start, end: v.end };
+    return { kind: "TypeReference", pos: v.start, end: stmtEndOf(v, ctx) };
   }
   return projected;
 ```
@@ -3351,7 +3388,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   const param = projectableKids(v).find((k) => k.get("type") === "TypeParameter");
   const props = {};
   if (param !== undefined) props.typeParameter = projectNode(param, ctx);
-  return { kind: "InferType", pos: v.start, end: v.end, ...props };
+  return { kind: "InferType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method indexBracketOf:(v:any, ctx:any)=>int
@@ -3394,7 +3431,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   const open = indexBracketOf(v, ctx);
   if (open < 0) {
     const whole = projectTypeExpression(kids, ctx);
-    return { kind: "IndexedAccessType", pos: v.start, end: v.end, objectType: whole };
+    return { kind: "IndexedAccessType", pos: v.start, end: stmtEndOf(v, ctx), objectType: whole };
   }
   const objectUnits = kids.filter((k) => startOf(k) < open);
   const indexUnits = kids.filter((k) => startOf(k) >= open);
@@ -3403,7 +3440,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   const indexType = projectTypeExpression(indexUnits, ctx);
   if (objectType !== undefined) props.objectType = objectType;
   if (indexType !== undefined) props.indexType = indexType;
-  return { kind: "IndexedAccessType", pos: v.start, end: v.end, ...props };
+  return { kind: "IndexedAccessType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method memberNameOf:(v:any, ctx:any)=>any
@@ -3577,7 +3614,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   const props = {};
   if (nameNode !== null) props.name = projectNode(nameNode, ctx);
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
-  return { kind: "EnumMember", pos: v.start, end: v.end, ...props };
+  return { kind: "EnumMember", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method addModifiers:(v:any, props:any, ctx:any, baseStart:int)=>void
@@ -3656,7 +3693,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
     if (params.length > 0) props.typeParameters = projectEach(params, ctx);
   }
   addModifiers(v, props, ctx, baseStart);
-  return { kind: "TypeAliasDeclaration", pos: baseStart ?? v.start, end: v.end, ...props };
+  return { kind: "TypeAliasDeclaration", pos: baseStart ?? v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private const PARAMETER_MODIFIERS:Set<string> = new Set(["public", "private", "protected", "readonly", "override"])
@@ -3747,7 +3784,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   } else if (rest !== undefined) {
     props.dotDotDotToken = projectNode(rest, ctx);
   }
-  return { kind: "Parameter", pos: v.start, end: v.end, ...props };
+  return { kind: "Parameter", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectConditionalExpression:(v:any, ctx:any)=>any
@@ -3778,7 +3815,7 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
   const colon = punctBetween(v, "trueStatement", "falseStatement", ":", ctx);
   if (question !== undefined) props.questionToken = question;
   if (colon !== undefined) props.colonToken = colon;
-  return { kind: "ConditionalExpression", pos: v.start, end: v.end, ...props };
+  return { kind: "ConditionalExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method punctBetween:(v:any, fromKey:string, toKey:string, ch:string, ctx:any)=>any
@@ -4047,7 +4084,7 @@ import { A as B, C } from "m"
   // （实参表里那种 `Q<\n  A,\n  O["type"] extends … ? … : …,\n  B\n>`）里，单元是先被换行
   // 签入的，`v.start` 会带上**行首的缩进**——投影出来比 TS 的节点早 9 个字符，
   // 于是那个节点既算「缺」又算「多出来」（实测缺 `ConditionalType` + 多出 `ConditionalType`）。
-  return { ...node, end: v.end };
+  return { ...node, end: stmtEndOf(v, ctx) };
 ```
 
 # private method conditionalNode:(kids:Array<any>, start:int, end:int, ctx:any)=>any
@@ -4175,7 +4212,7 @@ import { A as B, C } from "m"
   if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
     props.type = typeOf(kids.slice(arrowIndex + 1), ctx);
   }
-  return { kind: newUnit === undefined ? "FunctionType" : "ConstructorType", pos: v.start, end: v.end, ...props };
+  return { kind: newUnit === undefined ? "FunctionType" : "ConstructorType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectExpressionWithTypeArguments:(v:any, ctx:any)=>any
@@ -4194,7 +4231,7 @@ import { A as B, C } from "m"
   const props = {};
   if (names.length > 0) props.expression = dottedExpression(names, ctx);
   if (generic !== undefined) props.typeArguments = projectTypeArguments(generic, ctx);
-  return { kind: "ExpressionWithTypeArguments", pos: v.start, end: v.end, ...props };
+  return { kind: "ExpressionWithTypeArguments", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method dottedExpression:(names:Array<any>, ctx:any)=>any
@@ -4233,9 +4270,9 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     kind: "CaseBlock",
     clauses: segments.map((seg) => projectSwitchClause(seg, ctx)),
     pos: brace >= 0 ? brace : v.start,
-    end: v.end,
+    end: stmtEndOf(v, ctx),
   };
-  return { kind: "SwitchStatement", pos: v.start, end: v.end, ...props };
+  return { kind: "SwitchStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectSwitchClause:(seg:any, ctx:any)=>any
@@ -4504,7 +4541,7 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     const type = projectTypeExpression(kids.slice(i), ctx);
     if (type !== undefined) props.type = type;
   }
-  return { kind: "TypePredicate", pos: v.start, end: v.end, ...props };
+  return { kind: "TypePredicate", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectLogical:(v:any, ctx:any)=>any
@@ -4562,7 +4599,7 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 ```ts
   const segments = projectableKids(v).filter((k) => k.get("type") === "IfSegment");
   if (segments.length === 0) {
-    return { kind: "IfStatement", pos: v.start, end: v.end };
+    return { kind: "IfStatement", pos: v.start, end: stmtEndOf(v, ctx) };
   }
   /** 段里的条件：`condition` 段在这一层是**摊平**的（`if (a)` 直接就是那个 `Identifier`）。 */
   const conditionOf = (seg) => {
@@ -5060,7 +5097,7 @@ TS 那边 `!` 是节点的属性（`exclamationToken`），`forEachChild` **不�
   const props = {};
   const expression = kids.length > 0 ? projectExpression(kids, ctx) : undefined;
   if (expression !== undefined) props.expression = expression;
-  return { kind: "NonNullExpression", pos: v.start, end: v.end, ...props };
+  return { kind: "NonNullExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectTypeOperator:(v:any, ctx:any)=>any
@@ -5090,7 +5127,7 @@ TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（
   const props = {};
   const operand = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
   if (operand !== undefined) props.type = operand;
-  return { kind: "TypeOperator", pos: v.start, end: v.end, ...props };
+  return { kind: "TypeOperator", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectMappedType:(v:any, ctx:any)=>any
@@ -5198,7 +5235,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   if (questionToken !== undefined) props.questionToken = questionToken;
   const typeNode = rest.length > 0 ? projectTypeExpression(rest, ctx) : undefined;
   if (typeNode !== undefined) props.type = typeNode;
-  return { kind: "MappedType", pos: v.start, end: v.end, ...props };
+  return { kind: "MappedType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectNamedTupleMember:(v:any, ctx:any)=>any
@@ -5239,7 +5276,7 @@ TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；�
     }
     props.type = projectTypeDefine(view(typeNode), ctx);
   }
-  return { kind: "NamedTupleMember", pos: v.start, end: v.end, ...props };
+  return { kind: "NamedTupleMember", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectTry:(v:any, ctx:any)=>any
@@ -5317,7 +5354,7 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   const close = brace >= 0 ? matchingBrace(ctx.source, brace) : -1;
   const body =
     brace >= 0 && close >= brace ? { kind: "Block", statements, pos: brace, end: close + 1 } : undefined;
-  return { kind: "ClassStaticBlockDeclaration", pos: v.start, end: v.end, ...(body === undefined ? {} : { body }) };
+  return { kind: "ClassStaticBlockDeclaration", pos: v.start, end: stmtEndOf(v, ctx), ...(body === undefined ? {} : { body }) };
 ```
 
 # private method projectNew:(v:any, ctx:any)=>any
@@ -5347,7 +5384,7 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   }
   const args = kidsOf(v, "arguments").filter((k) => !INVISIBLE.has(k.get("type")));
   if (args.length > 0) props.arguments = projectEach(args, ctx);
-  return { kind: "NewExpression", pos: v.start, end: v.end, ...props };
+  return { kind: "NewExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectDecorator:(v:any, ctx:any)=>any
@@ -5367,7 +5404,7 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
     const inner = projectNode(kids[0], ctx);
     if (inner !== undefined) props.expression = inner;
   }
-  return { kind: "Decorator", pos: v.start, end: v.end, ...props };
+  return { kind: "Decorator", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectWrappedType:(v:any, ctx:any, kind:string)=>any
@@ -5385,7 +5422,7 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   const props = {};
   const inner = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
   if (inner !== undefined) props.type = inner;
-  return { kind, pos: v.start, end: v.end, ...props };
+  return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectSpread:(v:any, ctx:any)=>any
@@ -5406,7 +5443,7 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   // `<Bracket>`，而 `projectExpression` 认得出值位括号（`ParenthesizedExpression`）。
   // 实测 `[...l, ...(x ?? [])]` 缺 `ParenthesizedExpression` + 多出 `Bracket`。
   const expression = kids.length === 0 ? undefined : projectExpression(kids, ctx);
-  return { kind: "SpreadElement", pos: v.start, end: v.end, ...(expression === undefined ? {} : { expression }) };
+  return { kind: "SpreadElement", pos: v.start, end: stmtEndOf(v, ctx), ...(expression === undefined ? {} : { expression }) };
 ```
 
 # private method projectNamespace:(v:any, ctx:any)=>any
@@ -5460,7 +5497,7 @@ TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` 
   );
   const projected = projectEach(kids, ctx, "HeritageClause");
   const props = projected.length === 0 ? {} : { types: projected };
-  return { kind: "HeritageClause", pos: v.start, end: v.end, ...props };
+  return { kind: "HeritageClause", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectTypeQuery:(v:any, ctx:any)=>any
@@ -5502,7 +5539,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     const parts = access === undefined ? names : projectableKids(view(access)).filter((k) => isNameNode(k));
     props.exprName = qualifiedNameFrom(parts, ctx);
   }
-  return { kind: "TypeQuery", pos: v.start, end: v.end, ...props };
+  return { kind: "TypeQuery", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectTypeParameter:(v:any, ctx:any)=>any
@@ -5627,7 +5664,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
       };
     }
   }
-  return { kind: "TypeParameter", pos: v.start, end: v.end, ...props };
+  return { kind: "TypeParameter", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method isTypeParameterModifier:(node:any, ctx:any)=>bool
@@ -5723,7 +5760,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     const projected = projectExpression(flat, ctx);
     if (projected !== undefined) props.body = projected;
   }
-  return { kind: "ArrowFunction", pos: v.start, end: v.end, ...props };
+  return { kind: "ArrowFunction", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method typeOf:(nodes:Array<any>, ctx:any)=>any
