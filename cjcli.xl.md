@@ -6,7 +6,7 @@ import { Template } from "./core/syntax/templates/template.xl.md"
 import { SyntaxException } from "./core/exceptions/syntax-exception.xl.md"
 import { TextDocument } from "./typescript/text-document.xl.md"
 import { TextContext } from "./typescript/text-context.xl.md"
-import { projectRoot, ToJsonText } from "./typescript/ts-ast.xl.md"
+import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 ```
 
 # namespace cangjie

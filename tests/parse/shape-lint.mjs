@@ -101,7 +101,7 @@ function lint(source, label) {
   return failed;
 }
 
-const file = process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : path.join(process.cwd(), "typescript", "ts-ast.xl.md");
+const file = process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : path.join(process.cwd(), "typescript", "print-ast-common.xl.md");
 const source = fs.readFileSync(file, "utf8");
 const failed = lint(source, "");
 

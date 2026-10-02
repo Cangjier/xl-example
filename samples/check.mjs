@@ -39,7 +39,7 @@ const root = path.resolve(here, "..");
 const { Template } = require(path.join(root, "build", "ts", "core", "syntax", "templates", "template.js"));
 const { TextDocument } = require(path.join(root, "build", "ts", "typescript", "text-document.js"));
 const { TextContext } = require(path.join(root, "build", "ts", "typescript", "text-context.js"));
-const { projectRoot, ToJsonText } = require(path.join(root, "build", "ts", "typescript", "ts-ast.js"));
+const { projectRoot, ToJsonText } = require(path.join(root, "build", "ts", "typescript", "print-ast-common.js"));
 
 /** 缩进形态 ↔ 紧凑形态之间的换算：标签之间的一切空白都丢掉。 */
 function normalize(text) {

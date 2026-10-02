@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, "..", "..");
-const runtime = createRequire(import.meta.url)(path.join(root, "build", "ts", "typescript", "ts-ast.js"));
+const runtime = createRequire(import.meta.url)(path.join(root, "build", "ts", "typescript", "print-ast-common.js"));
 
 export const projectRoot = runtime.projectRoot;
 export const projectNode = runtime.projectNode;

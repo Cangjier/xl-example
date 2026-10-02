@@ -8,8 +8,32 @@ import { Token } from "../core/syntax/token.xl.md"
 
 # namespace cangjie
 
-**TS 形状直出口**：把产物树（token 树）投成 `ts.createSourceFile` 的形状——**kind 用名字**、
+**TS 形状投影的共享核心**（本文件原名叫 `ts-ast.xl.md`，第 198 轮改名——见下）。
+
+它把产物树（token 树）投成 `ts.createSourceFile` 的形状——**kind 用名字**、
 每个节点带 `pos` / `end` 与 TS 那边的字段名，给 `cases:tsast` 那种逐节点对拍与人工 diff 用。
+
+出口的分工（第 181~198 轮搬迁的结论）：
+
+投影的**逐标签逻辑已经全部落在各 token 的 `PrintAst` 上**（49 块，一处一块搬完）。
+`projectNode` 现在是三步：
+
+1. `v = view(node)`；
+2. **问这个节点自己**：`node.__token.PrintAst(ctx, v)`——覆写了就由它出这一格
+   （`ctx.Nothing` 表示「这一格故意不出节点」）；
+3. 没覆写（或返回 `undefined`）才落到本文件的**通用支**：换名表 + 提层 + 字段名。
+
+**中央那张按 `v.type` 分派的 `switch` 已经整段删除**：它原来有 60 个 `case`，
+搬到最后一个（`Statement`）时就没有分支了。所以本文件现在的角色是：
+
+- **通用支**（`KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND` 三张表 + `structuralProps`）；
+- **`ctx`**——递给 `PrintAst` 的那一组出口（`Kids` / `Expression` / `TypeExpression` /
+  `Node` / `StartOf` / `EndOf` / `Project` / `TextOf` / …，共 40 多个）：
+  搬迁层不许 import 本文件（token → 本文件 → token 会成环），横切工具只能经它过去；
+- **共享实现**：那些**被共享层自己调用、且调用方拿不到「单元」这个入口**的函数
+  （表达式重写器 `projectExpression` / `projectTypeExpression`、声明列表 `projectLetFrom`、
+  成员名判据 `memberNameOf`、修饰词 `addModifiers`……）。
+  判据是「所有调用点能不能改写成『把某个单元交给 `projectNode`』」——能就搬，不能就留。
 
 本文件是 `tests/parse/ts-shape.mjs`（原来那 2464 行 JS）的**逐字搬家**：
 表名、函数名、函数体、表体与那份实现逐字符相同，只补了 xl 需要的类型标注。
@@ -17,9 +41,9 @@ import { Token } from "../core/syntax/token.xl.md"
 （`tests/parse/ts-shape-crossover.mjs`）在全语料上逐字节对拍两份实现的输出：
 **1399 个文件、0 处不一致**，结论记在 README 的台账里；那把尺子对拍完就删了，
 长期判据是 `cases:tsast`（对 `ts.createSourceFile` 的逐节点对拍）。
-所以搬家这一步不夹带任何改写：`stmtLike` 这类死代码、`projectLogical` 那两个够不着的
-`case` 分支、`matchBrace` / `matchingBrace` 这一对重复实现，都照原样留着
-（要动它们，另开一轮，用尺子量）。
+所以搬家这一步不夹带任何改写：`stmtLike` 这类死代码、`matchBrace` / `matchingBrace`
+这一对重复实现，都照原样留着（要动它们，另开一轮，用尺子量）。
+`projectLogical`（够不着的那个 `case`）已在第 196 轮随搬迁删掉。
 
 **零改写是字面意思**：连空白都一样——`projectNode` 里那个跨 5 行的嵌套三元照原样搬过来，
 它暴露出来的那个 `MethodDeclaration` 缺口是**改规则**修掉的（第 75 轮，
