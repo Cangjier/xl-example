@@ -33,6 +33,124 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<MappedType>成员的 XML</MappedType>`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+映射类型 `{ readonly [P in keyof T]-?: T[P] }` → `MappedType`（**从 `ts-ast.xl.md` 的
+`projectMappedType` 搬来**，第 191 轮）。
+
+TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
+
+    MappedType[9,35)  typeParameter:TypeParameter[12,24)
+                      questionToken:MinusToken[25,26)      ← `-?` 那个 `-`（`?` 不进子节点）
+                      type:IndexedAccessType[29,33)
+
+产物那边它们与一层 `Statement` 壳混在一起
+（`[Statement[ ArrayLiteral(TypeParameter), SymbolToken(-), TypeDefine ]]`）——
+照通用投影会投出一个 `ExpressionStatement`（实测「多出来」465 个）并把修饰符当成它的内容。
+所以这里把这层壳摊平、按词形分派到四个字段。
+
+**`-readonly` 的 `readonlyToken` 就是那个 `-`**（TS 的类型是
+`ReadonlyKeyword | PlusToken | MinusToken`），后面那个 `readonly` 词**不再单独成节点**——
+不收掉它会多出一个 `ReadonlyKeyword`，同时缺一个 `MinusToken`。
+
+**`as` 键重映射有两种形状**：条件类型里那个 `as`（`nameType = conditionalNode(...)`）与
+**平级的一格** `as`（`ArrayLiteral > [TypeParameter, Keyword(as), String]`）。
+后者必须走 `ctx.TypeExpression`（会打上 `ctx.typePosition`，
+模板字面量因此投成 `TemplateLiteralType` 而不是 `TemplateExpression`）。
+
+```ts
+  const flat: any[] = [];
+  for (const k of ctx.Kids(v)) {
+    if (k.get("type") === "Statement") {
+      for (const inner of ctx.UnwrapNodes(k)) flat.push(inner);
+      continue;
+    }
+    flat.push(k);
+  }
+  const props: any = {};
+  let readonlyToken;
+  let questionToken;
+  let typeParameter;
+  let nameType;
+  const rest: any[] = [];
+  for (let i = 0; i < flat.length; i++) {
+    const k = flat[i];
+    const kind = k.get("type");
+    const word =
+      kind === "Keyword" || kind === "Identifier" || kind === "SymbolToken" ? ctx.TextOf(k) : "";
+    if (word === "readonly") {
+      readonlyToken = ctx.Project(k);
+      continue;
+    }
+    if (word === "-" || word === "+") {
+      const next = i + 1 < flat.length ? ctx.TextOf(flat[i + 1]) : "";
+      if (next === "readonly") {
+        readonlyToken = ctx.Project(k);
+        i++;
+      } else {
+        questionToken = ctx.Project(k);
+      }
+      continue;
+    }
+    if (word === "?") {
+      questionToken = ctx.Project(k);
+      continue;
+    }
+    if (word === "in") continue;
+    if (kind === "ArrayLiteral" || kind === "Bracket") {
+      const parts = ctx.Kids(k);
+      const cond = parts.find((x: any) => x.get("type") === "ConditionalType");
+      const condParts = cond === undefined ? [] : ctx.Kids(cond);
+      const asAt = condParts.findIndex(
+        (x: any) =>
+          (x.get("type") === "Keyword" || x.get("type") === "Identifier") && ctx.TextOf(x) === "as",
+      );
+      if (asAt > 0) {
+        const tp = condParts.find((x: any) => x.get("type") === "TypeParameter");
+        if (tp !== undefined) typeParameter = ctx.Project(tp);
+        const nameKids = condParts.slice(asAt + 1);
+        if (nameKids.length > 0) nameType = ctx.ConditionalNode(nameKids, 0, nameKids.length);
+        continue;
+      }
+      const flatAs = parts.findIndex(
+        (x: any) =>
+          (x.get("type") === "Keyword" || x.get("type") === "Identifier") && ctx.TextOf(x) === "as",
+      );
+      if (flatAs > 0) {
+        const tp = parts.find((x: any) => x.get("type") === "TypeParameter");
+        if (tp !== undefined) typeParameter = ctx.Project(tp);
+        const nameKids = parts.slice(flatAs + 1);
+        if (nameKids.length > 0) nameType = ctx.TypeExpression(nameKids);
+        continue;
+      }
+      const inner = parts.find((x: any) => x.get("type") === "TypeParameter");
+      if (inner !== undefined) {
+        typeParameter = ctx.Project(inner);
+        continue;
+      }
+    }
+    if (kind === "TypeParameter") {
+      typeParameter = ctx.Project(k);
+      continue;
+    }
+    rest.push(k);
+  }
+  if (readonlyToken !== undefined) props.readonlyToken = readonlyToken;
+  if (typeParameter !== undefined) props.typeParameter = typeParameter;
+  if (nameType !== undefined) props.nameType = nameType;
+  // **可选映射的 `?` 被吞进了值类型的区间**（第 93 轮）：`{ [K in T]?: X }` 里那个
+  // `TypeDefine` 从 `?` 起（与属性、形参两处同源），所以按「值类型段第一个字符是不是 `?`」切。
+  // `-?` 那一支不走这里（`-` 已经是 `questionToken`）。
+  if (questionToken === undefined && rest.length > 0 && ctx.source[ctx.StartOf(rest[0])] === "?") {
+    const at = ctx.StartOf(rest[0]);
+    questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
+  }
+  if (questionToken !== undefined) props.questionToken = questionToken;
+  const typeNode = rest.length > 0 ? ctx.TypeExpression(rest) : undefined;
+  if (typeNode !== undefined) props.type = typeNode;
+  return ctx.Node("MappedType", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，然后把**语句队列**装进自己的重组队列——映射类型的内容是散单元
