@@ -1787,6 +1787,14 @@ new Set([
 4. 单个单元 ⇒ 直接投影。
 
 ```ts
+  // **注释是 trivia，不进表达式**（第 143 轮）：段里常夹着一整行注释——
+  //
+  //     ? // **数字键是 `NumericLiteral`**
+  //       NUMERIC_LITERAL.test(…) ? { … } : nameOf(…)
+  //
+  // 不过滤的话这一串会以注释打头，通用支把它投成一个 `LineAnnotation` 节点、
+  // 后面真正的表达式整段丢掉（实测 `dist/ts/typescript/ts-ast.ts` 缺 15 / 多出 3）。
+  kids = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   if (kids.length === 0) return undefined;
   // **值位括号 `(expr)`**（第 81 轮）：TS 那边是 `ParenthesizedExpression`（区间含那对括号、
   // `expression` 是里面那段），产物那边就是一个 `(` 括号单元。
@@ -4271,6 +4279,23 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
   const startAt = endOf(from) + 1;
   const stop = to === null ? v.end : startOf(to);
   for (let i = startAt; i < stop && i < ctx.source.length; i++) {
+    // **注释里那个标点不算**（第 143 轮）：两段之间常夹着整行注释——
+    //
+    //     ? b
+    //     // 说明：这里…
+    //     : c
+    //
+    // 注释文本里出现 `:` 时会被量成那个 `ColonToken`（实测 `dist/ts/typescript/ts-ast.ts`
+    // 缺 1 + 多出 1，位置正好落在注释里）。
+    if (ctx.source[i] === "/" && ctx.source[i + 1] === "/") {
+      while (i < stop && ctx.source[i] !== "\n") i++;
+      continue;
+    }
+    if (ctx.source[i] === "/" && ctx.source[i + 1] === "*") {
+      for (i += 2; i < stop && !(ctx.source[i] === "*" && ctx.source[i + 1] === "/"); i++);
+      i++;
+      continue;
+    }
     if (ctx.source[i] === ch) {
       return {
         kind: ch === "?" ? "QuestionToken" : "ColonToken",
