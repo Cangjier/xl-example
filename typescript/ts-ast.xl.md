@@ -548,7 +548,11 @@ new Map([
   if (text === "true") return "TrueKeyword";
   if (text === "false") return "FalseKeyword";
   if (text === "null") return "NullKeyword";
-  if (text === "undefined") return "UndefinedKeyword";
+  // **`undefined` 不走这里**（第 91 轮修）：它是**上下文关键字**——值位的 `x === undefined`
+  // 在 TS 那边是一个 `Identifier`（`undefined` 不是保留字），只有**类型位**的 `: undefined`
+  // 才是 `UndefinedKeyword`。这条表管的是**叶子**（值位标识符），把它算成 `UndefinedKeyword`
+  // 会同时记「多出 `UndefinedKeyword` 147 + 缺 `Identifier` 一大片」。
+  // 类型位那一边由 `PRIMITIVE_TYPE_KIND` 负责（那里面有 `undefined` ✓）。
   return "Identifier";
 ```
 
