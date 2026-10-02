@@ -7721,6 +7721,18 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     LeafKind: (text) => leafKindOfText(text),
     KeywordKind: (text) => KEYWORD_KIND.get(text),
     TokenKind: (text) => tokenKind(text),
+    // **搬迁用的补充出口**（第 181 轮）：`case "X": return projectX(v, ctx)` 那 100 条要逐块
+    // 搬进各 token 自己的 `PrintAst(ctx, v)`，而那一层**不能 import 本文件**
+    // （token 层反过来被本文件依赖，会成环）。所以这些横切的小工具只能经 `ctx` 递过去——
+    // 与上面那一组同款：逐个转调共享实现，行为不变。
+    StartOf: (node) => startOf(node),
+    EndOf: (node) => endOf(node),
+    StmtEndOf: (view) => stmtEndOf(view, ctx),
+    Split: (list, separator) => splitTopLevel(list, ctx, separator),
+    Invisible: INVISIBLE,
+    IsSymbol: (node, text) => isSymbol(node, text),
+    IsDot: (node) => isDot(node, ctx),
+    NameOf: (node) => nameOf(node, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
