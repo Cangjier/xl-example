@@ -1517,6 +1517,45 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 88 轮：二元链的结合性与优先级 · 三元的两个标点（漂移 1655 → 744）
+
+上一轮点名的「`BinaryExpression` 654 多 + 657 漂移是一件事」，这一轮证实了，而且是**两处**：
+
+**一、右结合 vs 左结合**。`error !== null && error !== undefined && typeof error === "object" && …`
+那种四段逻辑链，产物折成了**右结合**（`a && (b && (c && d))`）——四个 `BinaryExpression` 的起点
+落在四个操作数上；而 TS 是**左结合**（`((a && b) && c) && d`），四个节点**都从第一个操作数起**、
+终点逐个增长。两处都要改：
+
+- `foldBinaryFrom`：赋值仍**右结合**（`a = b = c` ⇒ `a = (b = c)`），其余二元运算符**左结合**，
+  且每一段的右操作数只取到**下一个同级（或更低优先级）**运算符为止；
+- `projectBinary`（`LogicalOperator` 单元那一支）：原来取**第一个**运算符再把右边整段递归——
+  同一个右结合的病。
+
+顺带补了 `operatorRank`（优先级表）：**切分要切在优先级最低的运算符上**，同级取最左。
+`x && y || z` 的 TS 是 `(x && y) || z`，按第一个运算符切会得到 `x && (y || z)` ✗。
+
+**二、三元的 `?` / `:` 位置差一格**（`DRIFT: ColonToken` 158 + `DRIFT: QuestionToken` 127）。
+产物树里 `TernaryOperator` 只有三段、标点没有单元，原来是「按上一段末尾合成」的——
+而 `endOf` 是**闭区间**（最后一个字符的下标），于是两个 token 都落在标点**前一格**上。
+改成从源码里**量**（在两段之间扫那个标点，中间一般还有空白）：新增 `punctBetween`。
+
+| 判据 | 第 87 轮 | 现在 |
+| --- | --- | --- |
+| 区间漂移 | 1640 | **744** |
+| 多出来的节点 | 4116 | **3149** |
+| 缺节点 | 5916 | **5872** |
+| 字段名不符 | 270 | 270 |
+| 完全一致的文件 | 81 / 385 | 81 / 385（这些账落在那几个文件之外） |
+| `cases:run` / `cases:check` | 1035 / 1035 | **1035 / 1035** |
+| 其余八把尺子 + `samples` | 全绿 | **全绿** |
+
+#### 下一批
+
+`ExpressionStatement` 305（成员位那层壳，样本 `: never;`）、`IfStatement` 115 漂移 + 224 多出
+（`else {` 那一支：区间偏短，且 `else if` 链多出一个节点）、`DRIFT: Parameter` 104、
+缺 `Identifier` 1441（样本仍是 `typeof globalThis.atob` 那一族，说明我只补了 `exprName`、
+里面的两个 `Identifier` 还没落位）。
+
 ### 第 87 轮：具名导出的成员（缺 6091 → 5916，字段名不符 362 → 270）
 
 `export { a as b, c, type D }` 的产物是 `[Keyword(export), Bracket{ a as b, c, type D }]`，

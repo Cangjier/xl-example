@@ -1406,8 +1406,21 @@ new Set([
     return foldBinaryFrom(left, ck.slice(i), ctx);
   }
   // ---- 2. 二元 / 赋值 ----
-  const opIndex = kids.findIndex((k, i) => i > 0 && isOperatorUnit(k, ctx));
-  if (opIndex > 0 && opIndex < kids.length - 1) {
+  //
+  // **切在优先级最低的那个运算符上**（第 88 轮）：`x && y || z` 的 TS 是 `(x && y) || z`，
+  // 按**第一个**运算符切会得到 `x && (y || z)` ✗（优先级反了）。同级取**最左**（左结合）。
+  // 实测这一族是「多出来」与「漂移」两榜的最大来源（`BinaryExpression` 654 / 657）。
+  let opIndex = -1;
+  let bestRank = 999;
+  for (let i = 1; i < kids.length - 1; i++) {
+    if (!isOperatorUnit(kids[i], ctx)) continue;
+    const rank = operatorRank(textOfNode(kids[i], ctx));
+    if (rank < bestRank) {
+      bestRank = rank;
+      opIndex = i;
+    }
+  }
+  if (opIndex > 0) {
     return foldBinaryFrom(projectExpression(kids.slice(0, opIndex), ctx), kids.slice(opIndex), ctx);
   }
   // ---- 3. 下标访问 `a[i]`（第 79 轮）----
@@ -1442,17 +1455,101 @@ new Set([
 
 # private method foldBinaryFrom:(left:any, rest:Array<any>, ctx:any)=>any
 
+从 `left` 起、把 `rest`（以运算符开头、`[op, 操作数, op, 操作数, …]`）折成 `BinaryExpression`。
+
+**结合性按 TS**（第 88 轮）：**赋值是右结合**（`a = b = c` ⇒ `a = (b = c)`），
+**其余二元运算符是左结合**（`a && b && c` ⇒ `(a && b) && c`）。原来一律右结合，
+于是整条链的区间一路撑到最后一个操作数——实测 `DRIFT: BinaryExpression` 657 与
+「多出来」654 全是这一族（`error !== null && error !== undefined && …` 那种四段逻辑链，
+产物的四个节点起点是四个操作数，而 TS 的四个节点**都从第一个操作数起**、终点逐个增长）。
+
+左结合那一支折的时候，每一段的右操作数**取到下一个同级（或更低优先级）运算符为止**——
+更高优先级的那些（`a || b && c` 里的 `&&`）留给 `projectExpression` 自己切。
+
 ```ts
   if (rest.length < 2 || rest[0].get("type") !== "SymbolToken") return left;
-  const right = projectExpression(rest.slice(1), ctx);
-  return {
-    kind: "BinaryExpression",
-    left,
-    operatorToken: projectNode(rest[0], ctx),
-    right,
-    pos: left.pos,
-    end: right ? right.end : endOf(rest[0]),
-  };
+  const firstRank = operatorRank(textOfNode(rest[0], ctx));
+  if (firstRank === 0) {
+    // 赋值：右结合，交给递归。
+    const right = projectExpression(rest.slice(1), ctx);
+    return {
+      kind: "BinaryExpression",
+      left,
+      operatorToken: projectNode(rest[0], ctx),
+      right,
+      pos: left.pos,
+      end: right ? right.end : endOf(rest[0]),
+    };
+  }
+  let node = left;
+  let i = 0;
+  while (i + 1 < rest.length) {
+    const op = rest[i];
+    if (op.get("type") !== "SymbolToken") break;
+    const rank = operatorRank(textOfNode(op, ctx));
+    // 下一个「同级或更低优先级」的运算符就是这一段的终点。
+    let stop = rest.length;
+    for (let k = i + 1; k < rest.length; k++) {
+      if (rest[k].get("type") === "SymbolToken" && isOperatorUnit(rest[k], ctx) && operatorRank(textOfNode(rest[k], ctx)) <= rank) {
+        stop = k;
+        break;
+      }
+    }
+    const right = projectExpression(rest.slice(i + 1, stop), ctx);
+    node = {
+      kind: "BinaryExpression",
+      left: node,
+      operatorToken: projectNode(op, ctx),
+      right,
+      pos: node.pos,
+      end: right ? right.end : endOf(op),
+    };
+    i = stop;
+  }
+  return node;
+```
+
+# private method operatorRank:(text:string)=>int
+
+运算符的优先级（**数字越小越松**），结合性靠 `foldBinaryFrom` 分「赋值 / 其余」两支。
+
+这一份是 `projectExpression` 切分二元表达式的依据：**先切优先级最低的**、
+同级取最左（左结合）。赋值也是 0，但 `foldBinaryFrom` 会把它当右结合处理。
+
+```ts
+  if (text === ",") return -1;
+  if (
+    text === "=" ||
+    text === "+=" ||
+    text === "-=" ||
+    text === "*=" ||
+    text === "/=" ||
+    text === "%=" ||
+    text === "**=" ||
+    text === "<<=" ||
+    text === ">>=" ||
+    text === ">>>=" ||
+    text === "&=" ||
+    text === "|=" ||
+    text === "^=" ||
+    text === "&&=" ||
+    text === "||=" ||
+    text === "??="
+  ) {
+    return 0;
+  }
+  if (text === "||" || text === "??") return 1;
+  if (text === "&&") return 2;
+  if (text === "|") return 3;
+  if (text === "^") return 4;
+  if (text === "&") return 5;
+  if (text === "==" || text === "!=" || text === "===" || text === "!==") return 6;
+  if (text === "<<" || text === ">>" || text === ">>>") return 8;
+  if (text === "+" || text === "-") return 9;
+  if (text === "*" || text === "/" || text === "%") return 10;
+  if (text === "**") return 11;
+  // `<` / `>` / `in` / `instanceof` / `as` / `satisfies` 那一档（也是这一族里最常见的一档）。
+  return 7;
 ```
 
 # private method isIndexBracket:(node:any)=>bool
@@ -1673,9 +1770,26 @@ new Set([
 
 ```ts
   const kids = projectableKids(v);
-  const opIndex = kids.findIndex((k) => isOperatorUnit(k, ctx));
+  // **切在优先级最低的运算符上**（第 88 轮）：与 `projectExpression` 那一支同一判据。
+  // 原来这里取**第一个**运算符、再把右边整段递归——`error !== null && error !== undefined && …`
+  // 那种四段逻辑链会被折成**右结合**（`a && (b && (c && d))`），四个节点的起点落在四个操作数上；
+  // 而 TS 是左结合（`((a && b) && c) && d`），四个节点**都从第一个操作数起**、终点逐个增长。
+  let opIndex = -1;
+  let bestRank = 999;
+  for (let i = 1; i < kids.length; i++) {
+    if (!isOperatorUnit(kids[i], ctx)) continue;
+    const rank = operatorRank(textOfNode(kids[i], ctx));
+    if (rank < bestRank) {
+      bestRank = rank;
+      opIndex = i;
+    }
+  }
   const declaredOp = v.attrs.get("op");
   const left = opIndex > 0 ? projectExpression(kids.slice(0, opIndex), ctx) : undefined;
+  // **运算符在树里**（这一族是绝大多数）：从 `left` 起按 TS 的结合性折（左结合 / 赋值右结合）。
+  if (opIndex > 0 && kids[opIndex].get("type") === "SymbolToken") {
+    return foldBinaryFrom(left, kids.slice(opIndex), ctx);
+  }
   const right = opIndex >= 0 && opIndex + 1 < kids.length ? projectExpression(kids.slice(opIndex + 1), ctx) : undefined;
   // **两侧都没有时不要发一个空壳**：产物里有一类残缺的 `LogicalOperator`
   // （`a && b || c` 实测是三个只有 `op="And"/"Or"` 属性、**运算符符号根本没进树**的节点，
@@ -2380,14 +2494,43 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
     whenTrue: projectSegment(v, "trueStatement", ctx),
     whenFalse: projectSegment(v, "falseStatement", ctx),
   };
-  // `?` 与 `:` 在产物树里**没有单元**（`TernaryOperator` 只收三段），只能按相邻两段的位置合成：
-  // `?` 落在条件段末尾，`:` 落在真值段末尾。位置是**算出来的**，不是量出来的。
-  const start = v.start;
-  const question = firstNodeOf(v, "condition");
-  const whenTrue = firstNodeOf(v, "trueStatement");
-  if (question !== null) props.questionToken = { kind: "QuestionToken", text: "?", pos: endOf(question), end: endOf(question) + 1 };
-  if (whenTrue !== null) props.colonToken = { kind: "ColonToken", text: ":", pos: endOf(whenTrue), end: endOf(whenTrue) + 1 };
-  return { kind: "ConditionalExpression", pos: start, end: v.end, ...props };
+  // `?` 与 `:` 在产物树里**没有单元**（`TernaryOperator` 只收三段），只能从**源码里量**：
+  // 在两段的区间之间找那个标点（中间可能有空白与注释）。
+  //
+  // **早先这里是「按上一段末尾合成」的，位置差一格**（第 88 轮修）：`endOf` 是**闭区间**
+  // （最后一个字符的下标），于是两个 token 都落在标点**前一格**上——
+  // 实测 `DRIFT: ColonToken` 158 + `DRIFT: QuestionToken` 127 全是它。
+  const question = punctBetween(v, "condition", "trueStatement", "?", ctx);
+  const colon = punctBetween(v, "trueStatement", "falseStatement", ":", ctx);
+  if (question !== undefined) props.questionToken = question;
+  if (colon !== undefined) props.colonToken = colon;
+  return { kind: "ConditionalExpression", pos: v.start, end: v.end, ...props };
+```
+
+# private method punctBetween:(v:any, fromKey:string, toKey:string, ch:string, ctx:any)=>any
+
+在两段之间**量**出那个标点（`?` / `:`）：从上一段的末尾往后扫，扫到下一段的起点为止。
+
+产物树里 `TernaryOperator` 只有三段、标点没有单元，所以只能这么做；**不能按「上一段末尾 + 1」
+合成**——中间一般有空白（`error ? a : b`），而且 `endOf` 是闭区间，两个坑叠起来正好差一格。
+
+```ts
+  const from = firstNodeOf(v, fromKey);
+  if (from === null) return undefined;
+  const to = firstNodeOf(v, toKey);
+  const startAt = endOf(from) + 1;
+  const stop = to === null ? v.end : startOf(to);
+  for (let i = startAt; i < stop && i < ctx.source.length; i++) {
+    if (ctx.source[i] === ch) {
+      return {
+        kind: ch === "?" ? "QuestionToken" : "ColonToken",
+        text: ch,
+        pos: i,
+        end: i + 1,
+      };
+    }
+  }
+  return undefined;
 ```
 
 # private method firstNodeOf:(v:any, key:string)=>any
