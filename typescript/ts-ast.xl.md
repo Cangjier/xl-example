@@ -1006,8 +1006,6 @@ new Map([
     case "FunctionType":
       return projectFunctionType(v, ctx);
 
-    case "ExpressionWithTypeArguments":
-      return projectExpressionWithTypeArguments(v, ctx);
 
     case "Import":
       return projectImport(v, ctx);
@@ -5390,40 +5388,6 @@ import { A as B, C } from "m"
     props.type = typeOf(kids.slice(arrowIndex + 1), ctx);
   }
   return { kind: newUnit === undefined ? "FunctionType" : "ConstructorType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
-# private method projectExpressionWithTypeArguments:(v:any, ctx:any)=>any
-
-`extends` / `implements` 里的 `B<T>` → `ExpressionWithTypeArguments`
-（`expression` = 被继承的那个名字，`typeArguments` = `<T>` 里的实参）。
-
-产物那边是平级的两块（`[Identifier(B), GenericType(<T>)]`），
-而字段表原来只把 `children` 整体映射成 `expression`——于是实参挂在 `expression` 下、
-`typeArguments` 整个字段不见（实测 15 处）。`GenericType` 在这里的身份是**实参表**，不是节点。
-
-```ts
-  const kids = projectableKids(v);
-  const generic = kids.find((k) => k.get("type") === "GenericType");
-  const names = kids.filter((k) => isNameNode(k));
-  const props = {};
-  if (names.length > 0) {
-    props.expression = dottedExpression(names, ctx);
-  } else {
-    // **`extends (Base)`：被继承的那一格是**一个表达式**，不是名字（第 141 轮）。
-    // TS 的 `ExpressionWithTypeArguments.expression` 是 `LeftHandSideExpression`——
-    // 带括号的基类在那边是 `ParenthesizedExpression`。只找名字的话整格 `expression`
-    // 会是空的（实测 `decl-class-extends-parenthesized.ts`：缺 `ParenthesizedExpression` +
-    // 缺 `Identifier` + 字段名 1）。
-    const paren = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
-    if (paren !== undefined) {
-      props.expression = parenthesizedOf(paren, ctx);
-    } else {
-      const expr = kids.filter((k) => k !== generic);
-      if (expr.length > 0) props.expression = projectExpression(expr, ctx);
-    }
-  }
-  if (generic !== undefined) props.typeArguments = projectTypeArguments(generic, ctx);
-  return { kind: "ExpressionWithTypeArguments", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method dottedExpression:(names:Array<any>, ctx:any)=>any

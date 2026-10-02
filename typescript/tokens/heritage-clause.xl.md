@@ -249,6 +249,41 @@ return result;
 
 名字与它的类型实参都在里面（与 TS 的 `ExpressionWithTypeArguments` 一致 ✓）。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`extends` / `implements` 里的 `B<T>` → `ExpressionWithTypeArguments`
+（`expression` = 被继承的那个名字，`typeArguments` = `<T>` 里的实参；
+**从 `ts-ast.xl.md` 的 `projectExpressionWithTypeArguments` 搬来**，第 187 轮）。
+
+产物那边是平级的两块（`[Identifier(B), GenericType(<T>)]`），
+而字段表原来只把 `children` 整体映射成 `expression`——于是实参挂在 `expression` 下、
+`typeArguments` 整个字段不见（实测 15 处）。`GenericType` 在这里的身份是**实参表**，不是节点。
+
+**`extends (Base)`：被继承的那一格是一个表达式**（第 141 轮）。TS 的
+`ExpressionWithTypeArguments.expression` 是 `LeftHandSideExpression`——带括号的基类在那边是
+`ParenthesizedExpression`。只找名字的话整格 `expression` 会是空的
+（实测 `decl-class-extends-parenthesized.ts`：缺 `ParenthesizedExpression` + 缺 `Identifier` + 字段名 1）。
+
+```ts
+  const kids = ctx.Kids(v);
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const names = kids.filter((k: any) => ctx.IsNameNode(k));
+  const props: any = {};
+  if (names.length > 0) {
+    props.expression = ctx.DottedExpression(names);
+  } else {
+    const paren = kids.find((k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
+    if (paren !== undefined) {
+      props.expression = ctx.ParenthesizedOf(paren);
+    } else {
+      const expr = kids.filter((k: any) => k !== generic);
+      if (expr.length > 0) props.expression = ctx.Expression(expr);
+    }
+  }
+  if (generic !== undefined) props.typeArguments = ctx.TypeArguments(generic);
+  return ctx.Node("ExpressionWithTypeArguments", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——类型实参段要在里面成形 ✓。
