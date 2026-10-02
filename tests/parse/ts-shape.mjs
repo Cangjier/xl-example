@@ -83,6 +83,17 @@ const KIND_BY_TAG = new Map([
   ["FunctionBody", "Block"],
   ["MethodBody", "Block"],
   ["LambdaBody", "Block"],
+  // **循环体也是 `Block`**（第 71 轮）：`for` / `for…of` / `while` / `do…while` 的花括号体
+  // 在产物里本来就有自己的单元（`ForBody` / `ForeachBody` / `WhileBody`，区间含那对花括号、
+  // 内容就是里面的语句），只是这张表里没有它们——于是投影把它们当**没覆盖的标签**原样透传，
+  // `Block` 整类在 TS 侧找不到（真实语料 352 处都压在 `For` / `ForOf` / `While` 三种父节点下）。
+  ["ForBody", "Block"],
+  ["ForeachBody", "Block"],
+  ["WhileBody", "Block"],
+  // 异常三段的花括号体同理（`try { … } catch { … } finally { … }`）。
+  ["TryBody", "Block"],
+  ["CatchBody", "Block"],
+  ["FinallyBody", "Block"],
   ["Decorator", "Decorator"],
   ["HeritageClause", "HeritageClause"],
   ["ExpressionWithTypeArguments", "ExpressionWithTypeArguments"],
@@ -572,6 +583,12 @@ function projectNode(node, ctx) {
 
     case "Switch":
       return projectSwitch(v, ctx);
+
+    case "IfSet":
+      return projectIfSet(v, ctx);
+
+    case "LogicalOperator":
+      return projectLogical(v, ctx);
 
     case "Field":
       return projectField(v, ctx);
@@ -1778,6 +1795,156 @@ function projectSwitch(v, ctx) {
   if (cond.length > 0) props.expression = projectExpression(cond, ctx);
   props.caseBlock = { kind: "CaseBlock", clauses: segments, pos: brace >= 0 ? brace : v.start, end: v.end };
   return { kind: "SwitchStatement", pos: v.start, end: v.end, ...props };
+}
+
+/**
+ * `a && b || c` 的链 → **左结合的嵌套 `BinaryExpression`**。
+ *
+ * 产物那边第 71 轮起是「整段一个单元、子单元按原文顺序排」（`[a, &&, b, ||, c]`）——
+ * 运算符就是它的子单元，所以按「遇到运算符就折一层」扫一遍即可。
+ * 只有一个操作数时（`a`）不成节点：TS 那边它就是那个操作数本身。
+ */
+function projectLogical(v, ctx) {
+  const kids = projectableKids(v);
+  if (kids.length === 0) return undefined;
+  let left = projectNode(kids[0], ctx);
+  let i = 1;
+  while (i + 1 < kids.length) {
+    left = {
+      kind: "BinaryExpression",
+      left,
+      operatorToken: projectNode(kids[i], ctx),
+      right: projectNode(kids[i + 1], ctx),
+      pos: left.pos,
+      end: endOf(kids[i + 1]),
+    };
+    i += 2;
+  }
+  return left;
+}
+
+/**
+ * `if (a) { … } else if (b) { … } else { … }` → **嵌套的 `IfStatement`**。
+ *
+ * 产物那边的形状是 `IfSet > IfSegment*`，而 TS 是
+ * `IfStatement(expression, thenStatement[, elseStatement])`——`IfSegment` 在 TS 侧**没有对应节点**
+ * （它是产物自己的分段壳）。所以这里不能走通用的 `structuralProps`：那会把 `IfSegment`
+ * 原样透传（真实语料 103 处挂在「未覆盖标签」上），而每个段的体又会散成裸的语句单元
+ * （`Block` 整类缺 2185 处，其中 **1814 处的父节点正是 `IfStatement`**）。
+ *
+ * 四处口径都是实测出来的（`tolist` 会把 `IfSegment` 的 `statement` 段**摊平**：
+ * 段里那个 `IfStatement` 自己不是节点，它的子单元才是）：
+ *
+ * 1. **`IfSegment` 收起、`IfStatement` 摊平**：`statement` 段直接是体的语句列表，
+ *    `condition` 段直接是条件表达式——两者都不必再剥一层壳；
+ * 2. **花括号要回原文找**：`if (a) { g(); }` 的 `IfStatement` 区间是 `[7,18]`（两个端点**包含**），
+ *    而 `if (a) g();` 的 `IfStatement` 区间 `[7,10]` 恰好等于那条语句本身。
+ *    判据是「体的**每一段**都由花括号包着」：只有首个语句的起点在 `{` 与配对 `}` 之间时才是块，
+ *    否则那个 `{` 是**后一条语句**（`if (a) b(); { }`）——用「第一个 `{` 就认块」会造出假节点；
+ * 3. **`else` 那个词是子节点**：TS 的 `IfStatement` 有 `elseKeyword`（`ElseKeyword`），
+ *    区间就是 `else` 那四个字符——从段的起点往回量；
+ * 4. **`else if` 是嵌套、`else {}` 是块**：前者把一个完整的 `if` 段交给递归。
+ */
+function projectIfSet(v, ctx) {
+  const segments = projectableKids(v).filter((k) => k.get("type") === "IfSegment");
+  if (segments.length === 0) {
+    return { kind: "IfStatement", pos: v.start, end: v.end };
+  }
+  /** 段里的条件：`condition` 段在这一层是**摊平**的（`if (a)` 直接就是那个 `Identifier`）。 */
+  const conditionOf = (seg) => {
+    const cond = kidsOf(view(seg), "condition");
+    return cond.length === 0 ? undefined : projectExpression(cond, ctx);
+  };
+  // **体 = 段里除了条件之外的全部子单元**：`condition` 段在这一层是**摊平**的
+  // （`if (a)` 的段里，条件段直接就是那个 `Identifier`），所以不能按标签认，
+  // 只能按身份排掉条件段里的那几个单元（否则 `a` 会被当成第一条语句，块里凭空多一个 `Identifier`）。
+  const bodyOf = (seg) => {
+    const view_ = view(seg);
+    const cond = new Set(kidsOf(view_, "condition"));
+    return allKids(view_).filter((k) => !INVISIBLE.has(k.get("type")) && !cond.has(k));
+  };
+  /**
+   * 造一层 `IfStatement`，返回 `{ node, end }`。
+   *
+   * **返回值里带上终点**是刻意的：外层那一层的终点必须等于它 `elseStatement` 的终点，
+   * 而 `elseStatement` 在 `else if` 时是**下一个段自己造的**那一层——
+   * 直接从返回的节点上读会读到未定的字段，所以让内层把终点显式交出来。
+   */
+  const build = (index) => {
+    const props = {};
+    const seg = view(segments[index]);
+    const expr = conditionOf(segments[index]);
+    if (expr !== undefined) props.expression = expr;
+    const thenBody = blockOfBody(bodyOf(segments[index]), ctx);
+    if (thenBody !== undefined) props.thenStatement = thenBody.node;
+    let pos = seg.start;
+    let end = thenBody === undefined ? seg.end : thenBody.end;
+    if (index + 1 < segments.length) {
+      // **`else` 在本段的 `if` 与下一段之间**，所以从下一段的起点往回找：
+      // 段的起点在 `else if` 时是那个 `if`（不是 `else`），从本段起点往后找会把它自己
+      // 那个 `else` 认成这一层的（实测 `elseKeyword` 的区间整体前移一格族）。
+      const at = ctx.source.lastIndexOf("else", view(segments[index + 1]).start);
+      const key = view(segments[index + 1]).attrs.get("key");
+      const inner = build(index + 1);
+      if (at >= 0) props.elseKeyword = { kind: "ElseKeyword", text: "else", pos: at, end: at + 4 };
+      props.elseStatement = inner.node;
+      // `else if` 时**内层那一层的起点**要改成 `else` 后面那个 `if`——
+      // 它自己的 `seg.start` 也在那个 `if` 上，所以两层各修各的，外层不动 `pos`。
+      if (key === "if") inner.node.pos = ctx.source.indexOf("if", at + 4);
+      end = inner.end;
+    }
+    // 终点**从体量出来**，不能取段的 `range[1]`：那两端在花括号体上是**包含**的
+    // （`{ b(); }` 给 15），在单条语句体上是**排他**的（`b();` 给 11）——
+    // 同一个字段两种口径，只有回原文量那对花括号才分得清。
+    return { node: { kind: "IfStatement", pos, end, ...props }, end };
+  };
+  return build(0).node;
+}
+
+/**
+ * 一个段的体 → `Block`（或没有花括号时的单条语句）。
+ *
+ * 判据（两处都得看，不能只看第一个 `{`）：先找**第一个语句起点之前**的那个 `{`，
+ * 再要求它配对出来的 `}` **不早于最后一个语句的终点**——
+ * `if (a) b(); { c(); }` 里那个 `{` 属于**下一条语句**，第一个语句的终点在它之前，
+ * 所以「第一个 `{` 就认块」会造出一个 TS 那边不存在的 `Block`。
+ * 反过来，体的语句都在花括号里时，配对的 `}` 一定盖住全部语句。
+ */
+function blockOfBody(kids, ctx) {
+  const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
+  const projections = projectEach(list, ctx);
+  if (projections.length === 0) return undefined;
+  const first = startOf(list[0]);
+  const last = endOf(list[list.length - 1]);
+  const brace = ctx.source.lastIndexOf("{", first);
+  if (brace >= 0) {
+    const close = matchingBrace(ctx.source, brace);
+    if (close >= last) {
+      return { node: { kind: "Block", statements: projections, pos: brace, end: close + 1 }, end: close + 1 };
+    }
+  }
+  // 没有花括号：TS 那边就是那条语句本身（`if (a) f();` ⇒ `ExpressionStatement`）。
+  return {
+    node:
+      projections.length === 1
+        ? projections[0]
+        : { kind: "Block", statements: projections, pos: first, end: last },
+    end: last,
+  };
+}
+
+/** 从 `{` 起配对到它的 `}`；配不上给 `-1`（字符串与注释里的花括号按原样计数，够用即可）。 */
+function matchingBrace(source, open) {
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    const c = source[i];
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
 }
 
 /**

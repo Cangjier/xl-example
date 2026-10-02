@@ -165,14 +165,48 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14412 / 15343 | 473641 / 453944 |
-| 同 kind 同区间 | **82.1%** | **94.4%** |
-| 其中**字段名也一致** | **96.6%** | **98.8%** |
+| 投影节点 / TS 语义节点 | 14486 / 15343 | 477965 / 453862 |
+| 同 kind 同区间 | **82.5%** | **95.5%** |
+| 其中**字段名也一致** | **96.8%** | **99.2%** |
 
 **「缺」与「漂移」是两件事，尺子分开报**（第 34 轮补的）：前者是「这一类根本没投出来」，
 后者是「同一类节点位置差一点」。混在一起时漂移会把缺失挤下榜首——
 真实语料里 `TypeReference` 的漂移 1749 比它自己的缺失 2102 还接近榜首。
 两段现在都带样本（`投影后仍缺的 TS kind` / `投影后同 kind 但区间漂移`）。
+
+### 第 71 轮：`Block` 的两处来源 + 逻辑运算符符号进树（真实语料 94.4% → 95.5%）
+
+第 70 轮末尾点名的四条目标里，第 1 条（`Block` 2185）与第 4 条（逻辑运算符 token）这一轮清了。
+两处**根因完全不同**：
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| 投影后仍缺 `Block` **2185**（其中 1814 处的父节点是 `IfStatement`） | ① `ForBody` / `ForeachBody` / `WhileBody` / `TryBody` / `CatchBody` / `FinallyBody` **本来就有自己的单元**（区间含花括号、内容是里面的语句），但 `KIND_BY_TAG` 里没登记——被当「未覆盖标签」原样透传；② `if` 的体不走单元（`IfSet > IfSegment*`，体是段里的裸语句） | 六个体标签登记成 `Block`；投影层新增 `projectIfSet`/`blockOfBody`：段收起、`else if` 折成嵌套 `IfStatement`、`else` 投 `ElseKeyword`、体按原文那对花括号收成 `Block` |
+| `BarBarToken` 缺 **822** / `AmpersandAmpersandToken` 缺 **574** / `BinaryExpression` 缺 **668** + 漂移 **1220** | `LogicalOperatorReorganization` 把运算符当**分隔符**：`a \|\| b` 收成两个各自只有左操作数的单元，符号一个字节都不进树 | 符号改成**段的尾巴**进 `Data`，整条链收成**一个** `LogicalOperator`（子单元按原文顺序）；投影层新增 `projectLogical` 按符号左结合折成嵌套 `BinaryExpression` |
+
+三处判据都是**被尺子逼出来的**，逐条记在 `ts-shape.mjs` 的注释里：
+
+1. **花括号要回原文量**（`IfStatement` 的区间两端在花括号体上**包含**、在单条语句体上**排他**，
+   同一个字段两种口径）；
+2. **判「是不是块」要看全部语句**：`if (a) b(); { c(); }` 里那个 `{` 属于**下一条语句**，
+   只看第一个 `{` 会造出 TS 那边不存在的 `Block`（先找第一个语句起点之前的 `{`，
+   再要求配对的 `}` 不早于最后一个语句的终点）；
+3. **`else` 只能在本段起点之后找**：`else if` 的段起点在 `if` 上、上一段 `range[1]` 在单语句体上
+   指向那条语句的最后一个字符——差一位就少一层嵌套的 `IfStatement`（实测 `[17,38)`）。
+
+token 层还有一条**必须不写**的东西：`LogicalOperator` **不能再挂自己的重组队列**——
+符号进 `Data` 之后本单元的子单元里就有它，`Reorganize` 会反复认出自己（实测栈溢出）。
+
+成绩（同一批语料）：真实语料 94.4% → **95.5%**、用例 82.1% → **82.5%**、字段名 98.8% → **99.2%**；
+`Block` 2185 → **380**、两个运算符 token 类归零、`BinaryExpression` 缺失与漂移归零、
+`Identifier` 3493 → **3009**、`PropertyAccessExpression` 676 → **493**。
+新增三条用例：`stmt-if-condition-logical-or`、`stmt-if-condition-logical-mixed`、
+`expr-logical-chain-let`（用例 1017 → **1020**）。`samples` 的 `generic` 夹具按新形状重生成。
+
+**下一轮的缺口榜**：`Identifier` 3009、`TypeReference` 2102 + 漂移 1749、`AnyKeyword` 1408、
+`ConstructSignature` 1190（类型字面量里的 `new (…)` 没有标签）、`StringLiteral` 1174、
+`QualifiedName` 969、`ExportKeyword` 607（`export interface` / `export type` 的修饰词没投出来）、
+`DotDotDotToken` 483（形参上的 `...`）。
 
 ### 第 70 轮：成员访问链进 token 层（真实语料 93.0% → 94.4%）
 
@@ -206,7 +240,8 @@ x.y !== z   →   Identifier(x) SymbolToken(.) Identifier(y) SymbolToken(!==) Id
 `expr-member-chain-call-tail`（链中间的调用之后再取成员）、
 `expr-member-chain-index`（链尾的下标访问仍然是 `Bracket`）。用例 **1014 → 1017**，全通过。
 
-**下一轮的缺口榜**：`Block` 2183（`if` / `for` / 箭头函数的体花括号没有节点）、
+**下一轮的缺口榜**（第 71 轮已清掉 `Block` 与运算符 token 两条）：`Block` 2183（`if` / `for` /
+箭头函数的体花括号没有节点）、
 `TypeReference` 缺 2102 + 漂移 1749（签名位接不上类型实参）、`ConstructSignature` 1190、
 `&&` / `||` 的运算符 token 822 与 `BinaryExpression` 漂移 1220（`LogicalOperator` 的
 运算符符号没进树，属 token 层的分组改动）。

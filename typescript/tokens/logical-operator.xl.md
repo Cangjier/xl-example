@@ -13,7 +13,13 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-逻辑运算符：把 `a && b && c` 这样的表达式按 `&&` / `||` 切成若干个 `LogicalOperator` 单元——每个单元装着**一个操作数与它背后的运算符**，而不是整条表达式。运算符本身不进 `Data`（它是分隔符）。
+逻辑运算符：把 `a && b && c` 这样的表达式按 `&&` / `||` 切成若干个 `LogicalOperator` 单元——每个单元装着**一段操作数与跟在它后面的那个运算符**（最后一个单元只有操作数）。运算符符号**进 `Data`**（它是这一段的尾巴，不再是纯粹的分隔符）。
+
+**为什么运算符符号必须进树**（第 71 轮改）：原来它是分隔符、不进 `Data`，于是 `a || b` 的产物是**两个**只有左操作数的单元——
+`LogicalOperator(a) LogicalOperator(b)`，运算符符号与右操作数在投影层无法还原成 TS 的
+`BinaryExpression(left, operatorToken, right)`（真实语料 `BarBarToken` 缺 822、`AmpersandAmpersandToken` 缺 574、
+`BinaryExpression` 缺 668 + 漂移 1220，全是这一条）。现在 `a || b` 收成一个单元
+`LogicalOperator > [Identifier(a), SymbolToken(||), Identifier(b)]`，投影层按符号左结合折叠即可。
 
 源文件里同时有两个静态实例（`OrInstance` / `AndInstance`），靠 Reorganization 自己的 `op` 字段区分口径；`LogicalOperatorReorganization` 写在 `LogicalOperator` **之前**。
 
@@ -106,16 +112,19 @@ return false;
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
-按运算符切分 `[startIndex + 1, endIndex)`，把每一段操作数收成一个 `LogicalOperator`，**返回新的下标**。
+按 `op` 把一段逻辑表达式收成一个 `LogicalOperator`：**子单元的原文顺序就是 `左 运算符 右 运算符 …`**。
 
-要点：
+形态是**整段一个单元**（不是按运算符切成一串单元）——这样投影层才能按符号左结合地折出
+TS 的 `BinaryExpression(left, operatorToken, right)`；切成多个单元时运算符夹在两个单元之间，
+位置与归属都还原不出来。这一段的范围从前一个「段起点」到后一个「段终点」：
 
-- `startIndex` 是往前找到的段起点，`endIndex` 是往后找到的段终点；`endIndex == -1` 时取 `units.length`。
-- 「攒」单元时惰性新建，并**内联**到唯一的调用点（循环的 `else` 分支），避免用闭包改写外层变量。
-- 遇到运算符就要求当前攒着的单元非空（否则抛），把它收进 `logicalOperators` 并清空，准备攒下一个。
-- 每个攒好的单元用**它自己的首尾子单元**签入签出——首尾元素写成 `Data[0]` / `Data[Data.length - 1]`（**不是** `Token.Last()`，那个取的是「倒数第几个子单元」）。
-- 传 Token 的那两个重载叫 `SignInToken` / `SignOutToken`。
-- `ReplaceRangeAt(units, startIndex + 1, count, logicalOperators)` 返回**最后一个插入位置**，直接成为新下标。
+- 符号在 `Data` 里的位置：`a || b && c` 里先由 `&&` 那一趟收成 `a || [b && c]`，
+  再由 `||` 这一趟往下展开成 `[a, ||, b, &&, c]`——展开时把内层那个 `LogicalOperator` 的子单元摊平接上。
+- 内层单元的 `op` 与外层不同时**整体覆盖**成外层那个（一个单元只报一种 `op`）；
+  产物只拿它做 `Or` / `And` 的翻译，符号本身的身份由 `SymbolToken` 承担。
+- 收尾：用**首尾子单元**签入签出（`Data[0]` / `Data[Data.length - 1]`，不是 `Token.Last()`）。
+- 传 Token 的那两个重载叫 `SignInToken` / `SignOutToken`；`ReplaceRangeAt` 要的是一批单元，
+  所以单元素版是 `Add`、整批展开是 `AddRange`。
 
 ```ts
 const current = Get(units, index) as SymbolToken;
@@ -124,38 +133,28 @@ let endIndex = SearchBack(units, index, (item) => this.IsLogicalOperatorEnd(item
 if (endIndex === -1) {
   endIndex = units.length;
 }
-let itemLogicalOperator: LogicalOperator | null = null;
-const logicalOperators: LogicalOperator[] = [];
+const result = new LogicalOperator(template);
+result.Parent = current.Parent;
+result.op = this.op;
 for (let i = startIndex + 1; i < endIndex; i++) {
-  const item = Get(units, i);
-  if (item instanceof SymbolToken && item.Is(this.op)) {
-    if (itemLogicalOperator === null) {
-      throw new Error("LogicalOperator 为空");
-    }
-    logicalOperators.push(itemLogicalOperator);
-    itemLogicalOperator = null;
+  const item = Get(units, i)!;
+  if (item instanceof LogicalOperator) {
+    result.AddRange(item.Data);
   } else {
-    if (itemLogicalOperator === null) {
-      itemLogicalOperator = new LogicalOperator(template);
-      itemLogicalOperator.Parent = current.Parent;
-      itemLogicalOperator.op = this.op;
-    }
-    itemLogicalOperator.Add(item!);
+    result.Add(item);
   }
 }
-if (itemLogicalOperator !== null) {
-  logicalOperators.push(itemLogicalOperator);
+if (result.Data.length === 0) {
+  throw new Error("LogicalOperator 为空");
 }
-for (const logicalOperator of logicalOperators) {
-  logicalOperator.SignInToken(logicalOperator.Data[0]);
-  logicalOperator.SignOutToken(logicalOperator.Data[logicalOperator.Data.length - 1]);
-  logicalOperator.TryToClose();
-}
-return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, logicalOperators);
+result.SignInToken(result.Data[0]);
+result.SignOutToken(result.Data[result.Data.length - 1]);
+result.TryToClose();
+return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]);
 ```
 
 # class LogicalOperator extends IndependentToken
-一个操作数加它背后的逻辑运算符。
+一段操作数，以及跟在它背后的那个逻辑运算符（`SymbolToken` 本身就是 `Data` 的**最后一个**子单元；最后一段没有运算符）。
 
 单元值类型是单字符的 `string`。
 
@@ -163,18 +162,21 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, logicalO
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
+转调基类构造器。**不装重组队列**——运算符符号进 `Data` 之后，本单元自己的子单元里就有那个符号；
+再挂上 `LogicalOperatorReorganization` 会让 `Reorganize` 反复认出自己（实测栈溢出：
+`LogicalOperator → Reorganize → Process → TryToClose → Reorganize → …`）。
+段内的操作数本来就已经在**外层**那一趟里成形了，不需要本单元再跑一遍。
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(LogicalOperator);
 ```
 
 ## field op:string = "||"
 
-本单元背后的运算符。
+本单元背后的运算符（同一段里只会有一种，混用的那一段由两个实例分两趟收，见 `Process`）。
 
-注意它只影响 `ToXmlString` 里的 `Or` / `And` 翻译——`Data` 里装的是操作数，运算符本身不在里面。
+它只影响 `ToXmlString` / `ToDictionary` 里的 `Or` / `And` 翻译——**运算符符号本身是 `Data` 的最后一个子单元**，
+所以投影层不必从 `op` 反推运算符在原文里的位置（反推不出来：区间要的是那个符号自己的位置）。
 
 ## method ToXmlString:()=>string
 
