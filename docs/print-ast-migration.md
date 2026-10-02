@@ -110,3 +110,18 @@
 
 又给 `ctx` 补了四个出口：`ProjectEach` / `KidsOf` / `BodyBlockOf` / `MatchingBrace` /
 `MatchingParen`（`while` / `do…while` 这两块要用「自己造 Block」与「按深度配对括号」两件事）。
+
+### 第 184 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| （死代码清理）`String` / `Identifier` / `Keyword` / `SymbolToken` | 四个 `case` 早已被各自的 `PrintAst` 抢先命中，这一轮把死分支删掉 |
+| `StaticBlock` | `tokens/class/static-block.xl.md` |
+| `HeritageClause` | `tokens/heritage-clause.xl.md` |
+| `TypeOperator` | `tokens/type-operator.xl.md` |
+| `IndexedAccessType` | `tokens/type-bracket.xl.md` |
+
+中央 `switch` 的 `case` 从 45 降到 **37**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了一个出口：`IndexBracketOf`（`A[K]` 里下标括号的左括号位置——
+从节点终点往回找**与最后那个 `]` 配对**的 `[`，这样 `A["k"]["j"]` 找到的是外层那个）。
