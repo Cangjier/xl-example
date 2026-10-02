@@ -5133,6 +5133,39 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 ```ts
   const view_ = v.attrs === undefined ? view(v) : v;
   const kids = projectableKids(view_);
+  // **`export default interface I {}` / `export class C {}` 是声明自己带修饰词**
+  // （第 153 轮）：TS 那边是 `InterfaceDeclaration.modifiers = [ExportKeyword, DefaultKeyword]`，
+  // 而产物是 `[Export([Keyword(export), Keyword(default)]), Interface(…)]` 两格平级。
+  // 照「`default` 后面跟表达式」那一支投会得到一个 `ExportAssignment` 包着整条接口声明
+  // （实测 `decl-interface-export-default.ts`：缺 `InterfaceDeclaration` / `ExportKeyword` /
+  // `DefaultKeyword`，多出 `ExportAssignment`）。
+  const DECLARATION_UNITS = new Set(["Interface", "Class", "Function", "Enum", "Namespace"]);
+  const declared = (following ?? []).find(
+    (k) => k instanceof Map && DECLARATION_UNITS.has(k.get("type")),
+  );
+  if (declared !== undefined) {
+    const node = projectNode(declared, ctx);
+    if (node !== undefined) {
+      const words = projectableKids(view_).filter(
+        (k) =>
+          (k.get("type") === "Keyword" || k.get("type") === "Identifier") &&
+          ["export", "default"].includes(textOfNode(k, ctx)),
+      );
+      const mods = words.map((word) => ({
+        kind: textOfNode(word, ctx) === "export" ? "ExportKeyword" : "DefaultKeyword",
+        text: textOfNode(word, ctx),
+        pos: startOf(word),
+        end: endOf(word),
+      }));
+      if (mods.length > 0) {
+        node.modifiers = [...mods, ...(node.modifiers ?? [])];
+        // **区间从 `export` 那个词起**：TS 的 `Node.getStart()` 跳过前导 trivia，
+        // 于是带修饰词的声明就是从 `export` 起（实测漂移：产物 96 vs TS 81）。
+        node.pos = Math.min(node.pos ?? mods[0].pos, mods[0].pos);
+      }
+      return node;
+    }
+  }
   const rest = kids.filter((k) => !(k.get("type") === "Keyword" && textOfNode(k, ctx) === "export"));
   const isAssignment =
     rest.some((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=") ||
