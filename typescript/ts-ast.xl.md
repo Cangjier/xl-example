@@ -956,8 +956,6 @@ new Map([
 
     // 索引签名 `{ [k: string]: T }`：TS 那边是 `parameters` + `type`（+ `readonly` 修饰词），
     // 产物那边是一串平级子单元，照通用投影会全塞进一个 `children`。
-    case "IndexSignature":
-      return projectIndexSignature(v, ctx);
 
     // 值位对象字面量 `{ a: 1, b, [k]: 2, ...rest, m() {} }`：TS 的 `properties` 是**成员数组**，
     // 产物那边是一串平级单元（照通用投影会把每个标点都当成一个属性）。
@@ -4579,46 +4577,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     return { name: { kind: "NumericLiteral", text: name, pos: at.pos, end: at.end }, computed: null, unit: null };
   }
   return { name: at, computed: null, unit: direct === undefined ? null : direct };
-```
-
-# private method projectIndexSignature:(v:any, ctx:any)=>any
-
-索引签名 `{ [k: string]: T }` / `readonly [k: symbol]: T` → `IndexSignatureDeclaration`。
-
-TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: string`）、`type`（值类型）、
-`modifiers`（`readonly`）；产物那边是**一串平级子单元**（`Parameter` + `TypeDefine`（+ `readonly`
-那个词）），照通用投影会全塞进一个 `children`（实测 `IndexSignatureDeclaration` 的字段名
-整类不符）。
-
-`readonly` 在产物里是**子单元**（不是一个属性），所以这里单独把它收成修饰词节点——
-`addModifiers` 读的是 `modifiers` 属性 / 布尔属性，这一格两样都没有（见它的说明）。
-
-```ts
-  const kids = projectableKids(v);
-  const params = kids.filter((k) => k.get("type") === "Parameter");
-  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
-  const readonlyUnit = kids.find(
-    (k) =>
-      (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "readonly",
-  );
-  const props = {};
-  if (params.length > 0) {
-    // **形参的区间要去掉那对方括号**（第 92 轮）：产物的 `Parameter` 单元把 `[` 也圈进来了
-    // （`[key: string]` 给 [14,26)），而 TS 的 `Parameter` 是 `key: string`（[15,26)）——
-    // 实测这一族 104 处漂移（样本 `key: string]: unknown;`），都是「起点早一格」。
-    props.parameters = projectEach(params, ctx, "IndexSignature").map((one) => ({
-      ...one,
-      pos: one.name !== undefined ? one.name.pos : one.pos,
-      end: one.type !== undefined ? one.type.end : one.end,
-    }));
-  }
-  if (typeNode !== undefined) {
-    props.type = projectTypeDefine(view(typeNode), ctx);
-  }
-  if (readonlyUnit !== undefined) {
-    props.modifiers = [projectNode(readonlyUnit, ctx)];
-  }
-  return { kind: "IndexSignature", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectField:(v:any, ctx:any)=>any
