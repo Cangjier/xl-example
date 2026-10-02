@@ -754,7 +754,30 @@ new Map([
   // **含那个逗号**（实测 `undici-types/cache.d.ts` 的
   // `match (…): Promise<…>, has (…): Promise<…>,` 一族：漂移 10 + 多出 10）。
   if (SIGNATURE_KINDS.has(kind) && (ctx.source[end] === ";" || ctx.source[end] === ",")) end += 1;
-  return Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end });
+  // **`pos` 不落在前导注释上**（第 140 轮）：对拍那一侧取的是 `node.getStart()`，
+  // 它**跳过**节点前面的注释；而产物常把一整行注释收进**后一个单元**的区间里——
+  //
+  //     Readable | null,
+  //     // stdin
+  //     Readable | null,
+  //
+  // 那个 `UnionType` 的区间就从前一行那条注释开始（实测 `@types/node/child_process.d.ts`
+  // 缺 7 + 多出 7，样本全是这一族）。判据只看**本节点自己的第一个子单元**是不是注释，
+  // 是就跳到它后面第一个非空白字符；连着几条注释也一起跳。
+  // 整段都是注释时不动（否则 `pos` 会越过 `end`）。
+  let pos = v.start;
+  for (;;) {
+    const trivia = allKids(v).find(
+      (k) =>
+        startOf(k) === pos && (k.get("type") === "LineAnnotation" || k.get("type") === "AreaAnnotation"),
+    );
+    if (trivia === undefined) break;
+    let at = endOf(trivia);
+    while (at < v.end && /\s/.test(ctx.source[at])) at++;
+    if (at >= v.end) break;
+    pos = at;
+  }
+  return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
 ```
 
 # private method astMembers:(v:any, parentKind:string, ctx:any)=>Array<any>
@@ -5106,7 +5129,29 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
 ```ts
   const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   const projections = projectEach(list, ctx);
-  if (projections.length === 0) return undefined;
+  if (projections.length === 0) {
+    // **体里只有注释**（第 140 轮）：`} else if (item === "_") { // 注释 }` 的产物里那条
+    // `Statement` 只剩一个注释单元（trivia），`projectEach` 投出 `undefined`——
+    // 于是这里返回 `undefined`，而 TS 那边那个 `Block` 是**实打实存在**的（空的 `statements`）。
+    // 少了它 `IfStatement` 的字段名差一格、`Block` 缺一个
+    // （实测 `dist/ts/typescript/tokens/identifier.ts` 两处 `else if` 的注释体，全语料同类 15 处）。
+    // 位置从**原始子单元**上取：注释虽然是 trivia，但它所在的那个 `Statement` 是有区间的。
+    const at = list.length > 0 ? startOf(list[0]) : -1;
+    if (at >= 0) {
+      const open = ctx.source.lastIndexOf("{", at);
+      if (open >= 0) {
+        const close = matchingBrace(ctx.source, open);
+        const between = ctx.source.slice(open + 1, at).replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "");
+        if (close >= open && between.trim() === "") {
+          return {
+            node: { kind: "Block", statements: [], pos: open, end: close + 1 },
+            end: close + 1,
+          };
+        }
+      }
+    }
+    return undefined;
+  }
   const first = startOf(list[0]);
   const last = endOf(list[list.length - 1]);
   const brace = ctx.source.lastIndexOf("{", first);
