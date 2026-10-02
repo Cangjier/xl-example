@@ -3619,7 +3619,11 @@ import { A as B, C } from "m"
   const kids = projectableKids(v);
   // 切分逻辑抽成 `conditionalNode`：**假分支又是条件类型**时要递归（见那个方法的说明）。
   const node = conditionalNode(kids, 0, kids.length, ctx);
-  return { ...node, pos: v.start, end: v.end };
+  // **起点取第一格单元的坐标，不取单元自己的 `start`**（第 118 轮）：折行的条件类型
+  // （实参表里那种 `Q<\n  A,\n  O["type"] extends … ? … : …,\n  B\n>`）里，单元是先被换行
+  // 签入的，`v.start` 会带上**行首的缩进**——投影出来比 TS 的节点早 9 个字符，
+  // 于是那个节点既算「缺」又算「多出来」（实测缺 `ConditionalType` + 多出 `ConditionalType`）。
+  return { ...node, end: v.end };
 ```
 
 # private method conditionalNode:(kids:Array<any>, start:int, end:int, ctx:any)=>any
