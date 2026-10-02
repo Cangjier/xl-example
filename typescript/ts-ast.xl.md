@@ -3597,8 +3597,13 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
         ? undefined
         : nameNode.get("type") === "ArrayLiteral" || nameNode.get("type") === "ObjectLiteral"
           ? projectBindingPattern(nameNode, ctx)
-          : nameNode.get("type") === "Keyword" && textOfNode(nameNode, ctx) === "this"
-            ? { kind: "Identifier", text: "this", pos: startOf(nameNode), end: endOf(nameNode) }
+          : nameNode.get("type") === "Keyword" || nameNode.get("type") === "Identifier"
+            ? // **形参名永远是 `Identifier`**（第 129 轮）：`this` / `async` / `await` / `type`
+              // 这些词做形参名时，TS 那边是一个文本就是那个词的 `Identifier`
+              // （`function f(async: boolean)` 的 `Parameter.name` 是 `Identifier`）。
+              // 照通用投影会按词法身份投成 `ThisKeyword` / `AsyncKeyword` / …（实测
+              // `lib.dom.d.ts` 的 `addEventListener(type, listener, async?: boolean)` 一族）。
+              nameOf(nameNode, ctx)
             : projectNode(nameNode, ctx),
     type: typeNode === undefined ? undefined : projectTypeDefine(view(typeNode), ctx),
   };

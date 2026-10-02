@@ -730,6 +730,14 @@ return false;
 整个类型退化成散单元，那个联合也跟着没了）。
 
 ```ts
+// **泛型实参段里一律是类型位**（第 129 轮）：`Foo<[string, Iterable<B>]>` 里那个元组括号
+// 的宿主正是 `GenericType`，而它在 `GenericType.Data` 里的下标是 **0**（`<` 之后立刻就是它），
+// 下面那句「前面那一格是什么」于是无从回答、直接判值位——元组里的泛型实参跟着退回比较运算符
+// （实测 `lib.dom.d.ts` 的 `PropertyMapReadOnlyIterator<[string, Iterable<CSSStyleValue>]>`）。
+// `GenericType` 的内容按定义只能是类型（实参或形参），这一条没有副作用。
+if (owner.constructor.name === "GenericType") {
+  return true;
+}
 const at = owner.Data.indexOf(unit);
 if (at <= 0) {
   return false;

@@ -14,7 +14,7 @@ import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
-import { IsTypeBracketPosition } from "../text-common-util.xl.md"
+import { IsTemplateTypeContent, IsTypeBracketPosition } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -453,6 +453,23 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
 
 ```ts
 if (unit instanceof GenericType) {
+  return true;
+}
+// **模板字面量类型的插值段**（第 129 轮）：`` type X = `${Foo<Bar>}` `` 里那个 `<` 的宿主
+// 是插值段（也可能是外层那个 `String`），往上找不到类型容器——它的类型位答案在
+// 「外层 `String` 在它自己那一格前面是什么」，那正是 `IsTemplateTypeContent` 的回答
+// （与 `type-union.xl.md` 里的联合 / 交叉共用同一个函数）。
+// 少了这一条，插值段里的泛型实参整段退回比较运算符——实测 `lib.dom.d.ts` 的
+// `` `${OptionalPrefixToken<AutoFillSection>}${…}` `` 一族：缺 41 个 `TypeReference`
+// 与 136 个 `Identifier`，`TypeReference` 只盖住基名、`TemplateMiddle` 多吞了 `<…>`。
+if (IsTemplateTypeContent(unit)) {
+  return true;
+}
+if (
+  unit.constructor.name === "String" &&
+  unit.Parent !== null &&
+  IsTypeBracketPosition(unit.Parent, unit)
+) {
   return true;
 }
 let crossedAssignment = false;
