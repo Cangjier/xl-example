@@ -4615,6 +4615,8 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   let readonlyToken;
   let questionToken;
   let typeParameter;
+  // `as` 键重映射出来的那个类型（TS 的 `MappedType.nameType`），见下面 `ArrayLiteral` 那一支。
+  let nameType;
   const rest = [];
   for (let i = 0; i < flat.length; i++) {
     const k = flat[i];
@@ -4645,7 +4647,27 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
     }
     if (word === "in") continue;
     if (kind === "ArrayLiteral" || kind === "Bracket") {
-      const inner = projectableKids(view(k)).find((x) => x.get("type") === "TypeParameter");
+      // **`as` 键重映射**（第 117 轮）：`{ [K in keyof O as O[K]["default"] extends {} ? K : never]: V[K] }`
+      // 的产物把**整段**收成一个 `ConditionalType` 单元：
+      // `[TypeParameter(K in keyof O), Keyword(as), IndexedAccessType, extends, {}, ?, K, :, never]`。
+      // TS 那边是 `MappedType.typeParameter` + **`nameType`**（那个条件类型）——
+      // 不收的话整段被投成一个 `ArrayLiteralExpression`，缺 `ConditionalType` / `IndexedAccessType` /
+      // `LiteralType` / `TypeReference` / `Identifier` 一大片（实测 `Identifier` 缺 342 /
+      // `TypeReference` 缺 101 / `StringLiteral` 缺 69 的样本全在 `@types/node/util.d.ts` 这一族）。
+      const parts = projectableKids(view(k));
+      const cond = parts.find((x) => x.get("type") === "ConditionalType");
+      const condParts = cond === undefined ? [] : projectableKids(view(cond));
+      const asAt = condParts.findIndex(
+        (x) => (x.get("type") === "Keyword" || x.get("type") === "Identifier") && textOfNode(x, ctx) === "as",
+      );
+      if (asAt > 0) {
+        const tp = condParts.find((x) => x.get("type") === "TypeParameter");
+        if (tp !== undefined) typeParameter = projectNode(tp, ctx);
+        const nameKids = condParts.slice(asAt + 1);
+        if (nameKids.length > 0) nameType = conditionalNode(nameKids, 0, nameKids.length, ctx);
+        continue;
+      }
+      const inner = parts.find((x) => x.get("type") === "TypeParameter");
       if (inner !== undefined) {
         typeParameter = projectNode(inner, ctx);
         continue;
@@ -4659,6 +4681,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   }
   if (readonlyToken !== undefined) props.readonlyToken = readonlyToken;
   if (typeParameter !== undefined) props.typeParameter = typeParameter;
+  if (nameType !== undefined) props.nameType = nameType;
   // **可选映射的 `?` 被吞进了值类型的区间**（第 93 轮）：`{ [K in T]?: X }` 里那个
   // `TypeDefine` 从 `?` 起（与属性、形参两处同源），所以按「值类型段第一个字符是不是 `?`」切。
   // `-?` 那一支不走这里（`-` 已经是 `questionToken`）。
