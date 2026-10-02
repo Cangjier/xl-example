@@ -2,7 +2,7 @@
 ```xl
 import { Token } from "../../core/syntax/token.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, HasTypeColonBefore, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -292,12 +292,16 @@ const after = Get(units, afterIndex);
 if (after === null) {
   return false;
 }
-// **以 `[` 开头的一行不会是新成员**（第 158 轮）：ASI **永远不在 `[` 前面断句**——
-// `class C { [KEY] = 1` 换行 `["s" + "t"] = 2 }` 在 TypeScript 里是**一条**字段声明
-// （初值成了 `1["s" + "t"] = 2`）。原来这里把 `[` 也算进 `isNameLike`，
-// 于是成员在那一行被切断（实测 `decl-class-computed-member.ts`：缺 `BinaryExpression` /
-// `ElementAccessExpression` / `EqualsToken`，多一条 `PropertyDeclaration`）。
-if (after instanceof Bracket && after.startBracket === "[") {
+// **以 `[` 开头的一行**（第 158 轮）：ASI 不在 `[` 前面断句，**但前提是上一行是表达式**——
+// `class C { [KEY] = 1` 换行 `["s" + "t"] = 2 }` 在 TS 里是**一条**字段声明（初值成了
+// `1["s" + "t"] = 2`），而 `interface I { ['a']: T` 换行 `['b']: U }` 是**两条**成员
+// （类型标注后面接不了下标，实测 `undici-types/webidl.d.ts` 一族一遍地都是）。
+// 判据是「往回扫先撞上 `=` 还是 `:` / `;`」，见 `HasTypeColonBefore`。
+if (
+  after instanceof Bracket &&
+  after.startBracket === "[" &&
+  HasTypeColonBefore(units, index) === false
+) {
   return false;
 }
 const isNameLike =

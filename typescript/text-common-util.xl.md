@@ -423,7 +423,6 @@ return GetSkipPrevious(units, index, IsTriviaUnit);
 ```
 
 # method SkipNextTrivia:(units:Array<Token>, index:number)=>int
-
 从 `index + 1` 起向后跳过所有 **trivia**（软换行与注释），返回第一个非 trivia 的下标；一路跳到底返回 `units.length`。
 
 与 `SkipNextWrapSymbol` 的差别只有一个：**注释也算 trivia**。这一对（本方法与 `SkipPreviousTrivia`）
@@ -451,8 +450,58 @@ return SkipNext(units, index, IsTriviaUnit);
 return GetSkipNext(units, index, IsTriviaUnit);
 ```
 
-# method IsTriviaUnit:(item:Token | null)=>bool
+# method HasTypeColonBefore:(units:Array<Token>, index:number)=>bool
 
+从 `index`（一个软换行）**往回扫**，在撞上 `=` 之前先撞上 `:` 吗——也就是「上一行是**类型标注**」。
+
+用来回答 ASI 里唯一的那处差别：`x => x` 换行 `[1, 2, 3]` 是**续行**（上一行是表达式），
+而 `interface I { ['a']: T` 换行 `['b']: U }` 是**两条成员**（上一行是类型，类型后面接不了下标）。
+
+- 先撞上 `=` ⇒ 上一行是表达式 ⇒ `false`；
+- 先撞上 `:` ⇒ 上一行是类型标注 ⇒ `true`；
+- 撞上 `;` / `,` / `{` / `}` / 括号 ⇒ 上一行到此为止，按「表达式」处理（`false`——
+  `{ x => x` 换行 `[1, 2, 3] }` 的 `{` 就落在这里）；
+- 撞上一条**已经成形的语句**（`Statement` / `IfSet` / `Field` / `MethodDeclaration`）⇒ `true`：
+  上一行是完整的一条语句（`// 注释` 换行 `[1, 2] as const;` 里那个注释就是一层 `Statement`），
+  续接没有意义；
+- 一路扫到头也 ⇒ `false`。
+
+```ts
+let sawReal = false;
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null || IsTriviaUnit(item)) {
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === "=") {
+      return false;
+    }
+    if (text === ":") {
+      return true;
+    }
+    if (text === ";" || text === "," || text === "{" || text === "}" || text === "(" || text === ")") {
+      return false;
+    }
+    sawReal = true;
+    continue;
+  }
+  if (item instanceof Bracket) {
+    return false;
+  }
+  const name = item.constructor.name;
+  if (name === "Statement" || name === "IfSet" || name === "Field" || name === "MethodDeclaration") {
+    return true;
+  }
+  sawReal = true;
+}
+// **这一格前面只有 trivia** ⇒ 上一行根本没有内容（`// 注释` 换行 `[1, 2] as const;`），
+// 那个 `[` 是新语句的开头，不是谁的续接。
+return sawReal === false;
+```
+
+# method IsTriviaUnit:(item:Token | null)=>bool
 `item` 是不是**不承载语义的单元**：软换行、行注释、区域注释、预处理指令。
 
 判断单元**不是**按 `LineWrap` 一个类：注释在产物树里是独立的 `LineAnnotation` /

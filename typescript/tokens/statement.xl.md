@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -577,18 +577,6 @@ return (
 - **`(` / `[` / 模板串在续接表里**：`f` 换行 `(1)` 在 TypeScript 里是一次调用，不是两条语句。
 
 ```ts
-// **已经成形的括号 / 数组字面量也算续接**（第 158 轮）：`x => x` 换行 `[1, 2, 3]` 里，
-// 轮到 ASI 判定时那个 `[` 往往已经被 `JsonArrayReorganization` 收成一个
-// `ArrayLiteral`（或仍是 `Bracket`）了——只认 `SymbolToken` 时会判成语句边界，
-// 箭头函数的体在那里截断（实测 `am-block-lambda-array-compound.ts`：TS 把 `x[1, 2, 3]`
-// 整个当箭头体，产物切成两条语句）。`class C { [KEY] = 1` 换行 `["s" + "t"] = 2 }`
-// 是同一个形状（`decl-class-computed-member.ts`）。
-if (item instanceof Bracket) {
-  return item.startBracket === "(" || item.startBracket === "[";
-}
-if (item !== null && item.constructor.name === "ArrayLiteral") {
-  return true;
-}
 if (item instanceof SymbolToken) {
   const text = item.TempToString();
   if (
@@ -678,6 +666,17 @@ if (nextIndex >= units.length) {
   return true;
 }
 const next = Get(units, nextIndex);
+// **下一行以 `[` 开头**（第 158 轮）：ASI 不在 `[` 前面断句——**前提是上一行不是类型标注**
+// （见 `HasTypeColonBefore`）。`interface I { ['a']: T` 换行 `['b']: U }` 是两条成员
+// （实测 `undici-types/webidl.d.ts` 一族），而 `x => x` 换行 `[1, 2, 3]` 是 `x[1, 2, 3]`
+// 一条表达式（实测 `am-block-lambda-array-compound.ts`）。
+if (
+  next !== null &&
+  ((next instanceof Bracket && next.startBracket === "[") || next.constructor.name === "ArrayLiteral") &&
+  HasTypeColonBefore(units, index) === false
+) {
+  return false;
+}
 // **成员名不「期待操作数」**（第 124 轮）：`ExpectsOperand` 只看**词形**，
 // 而 `default` / `new` / `in` / `is` / `readonly` 这些词出现在点号后面时是**属性名**
 // （`import("./m").default`、`x.new`、`o.in`）。把它们当成关键字，就会把
