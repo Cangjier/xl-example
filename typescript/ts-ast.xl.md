@@ -883,6 +883,27 @@ new Map([
     case "For":
       return projectFor(v, ctx);
 
+    // **`new` 表达式**（第 95 轮）：产物的 `name` 段是**一串单元**（名字 + 类型实参段），
+    // 照通用投影会把它们一起投成 `expression`（实测 `NewExpression` 字段名差 19 +
+    // 多出一个 `TypeReference` 盖住 `<string, number>`）。
+    case "New":
+      return projectNew(v, ctx);
+
+    // **装饰器**（第 95 轮）：TS 的 `Decorator` 只有 `expression` 一个字段
+    // （`@Component({…})` 是 `CallExpression`、`@plain` 是 `Identifier`），
+    // 而产物给的是 `name` + `children`（连 `@` 那个符号都在里面）。
+    case "Decorator":
+      return projectDecorator(v, ctx);
+
+    // **可变长 / 可选类型**（`...A` / `B?`，第 95 轮）：TS 的字段是 `type`、
+    // 两点号与问号**都不是子节点**；照通用投影它们会进 `children`
+    // （实测字段名差 13 + 多出 `DotDotDotToken` / `QuestionToken`）。
+    case "RestType":
+      return projectWrappedType(v, ctx, "RestType");
+
+    case "OptionalType":
+      return projectWrappedType(v, ctx, "OptionalType");
+
     default: {
       let kind = KIND_BY_TAG.get(v.type);
       if (kind === undefined) {
@@ -1922,18 +1943,32 @@ new Set([
 
 # private method projectCall:(v:any, ctx:any)=>any
 
+调用 `f(a)` → `CallExpression`（`expression` + `arguments` + 可选 `typeArguments`）。
+
 ```ts
   const kids = projectableKids(v);
   const calleeText = String(v.attrs.get("name") ?? "");
   const calleeEnd = v.start + calleeText.length;
   const args = kids.filter((k) => k.get("type") !== "Bracket" && k.get("type") !== "GenericType");
-  return {
-    kind: "CallExpression",
+  const generic = kids.find((k) => k.get("type") === "GenericType");
+  const props = {
     expression: { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
     arguments: projectEach(args, ctx),
     pos: v.start,
     end: v.end,
   };
+  // **调用上的类型实参**（第 95 轮）：产物把它们收成一个 `GenericType` 子单元，而
+  // `args` 那一支是**排掉** `GenericType` 的（它原来整类丢掉）。TS 那边是 `typeArguments`，
+  // 内容按**类型位**投（`f<string>(1)` 是 `StringKeyword`，不是 `TypeReference`）。
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
+      const one = projectTypeExpression(group, ctx);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  return { kind: "CallExpression", ...props };
 ```
 
 # private method projectTypeDefine:(v:any, ctx:any)=>any
@@ -2432,6 +2467,15 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   }
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
   addModifiers(v, props, ctx);
+  // **字段上的装饰器也是修饰词**（`@Input() name: string`，第 95 轮）：`projectField` 不走
+  // `structuralProps`，所以这一处要单独收（实测成员位缺 `Decorator` 3 + 缺 `CallExpression`）。
+  const fieldDecorators = kids.filter((k) => k.get("type") === "Decorator");
+  if (fieldDecorators.length > 0) {
+    const projected = fieldDecorators.map((d) => projectNode(d, ctx)).filter((d) => d !== undefined);
+    const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
+    merged.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+    props.modifiers = merged;
+  }
   // **接口 / 类型字面量里的成员是 `PropertySignature`**，类里才是 `PropertyDeclaration`——
   // 同一个产物标签 `Field`，两种上下文两种 kind（声明文件里前者是绝大多数）。
   const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
@@ -2511,7 +2555,12 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   // 泛型参数段在 `<` 与 `=` 之间（`type A<T> = …`）：它是**包装**，
   // 内容进 `typeParameters`、包装自己不出节点。`projectTypeAlias` 不走 `structuralProps`，
   // 所以这一处要**单独**提（漏了它这一行会一直挂在差异表上）。
-  const generic = kids.find((k) => k.get("type") === "GenericType");
+  //
+  // **只在 `=` 左边找**（第 95 轮修）：右值里也有 `GenericType`——
+  // `type Z = <T>(x: T) => T` 的 `<T>` 是**函数类型自己的**类型参数，
+  // 不是别名的（TS 那边 `TypeAliasDeclaration` 没有 `typeParameters` 这一格）；
+  // 从整个 `kids` 里找会把泛型箭头函数的别名多挂一个 `typeParameters`。
+  const generic = lhs.find((k) => k.get("type") === "GenericType");
   const props = {
     name: nameNode === undefined ? synthName(nameText, v, ctx) : projectNode(nameNode, ctx),
     type: typeOf(rhs, ctx),
@@ -2767,6 +2816,12 @@ import { A as B, C } from "m"
         pos: startOf(callNode),
         end: endOf(callNode),
       };
+    } else {
+      // **`import x = A.B.C`**（第 95 轮）：TS 的 `moduleReference` 是 `QualifiedName`
+      // （`A.B.C` 是两层嵌套的 `QualifiedName`），而产物把它摊成平级单元——
+      // 不收出来会缺整族 `QualifiedName` / `Identifier`（实测 5 处）。
+      const names = kids.filter((k) => k.get("type") === "Identifier" && k !== nameNode && k !== fromNode);
+      if (names.length > 0) equalsProps.moduleReference = qualifiedNameFrom(names, ctx);
     }
     return { kind: "ImportEqualsDeclaration", pos: v.start, end, ...equalsProps };
   }
@@ -3842,6 +3897,74 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   return { kind: "ClassStaticBlockDeclaration", pos: v.start, end: v.end, ...(body === undefined ? {} : { body }) };
 ```
 
+# private method projectNew:(v:any, ctx:any)=>any
+
+`new Map<string, number>()` → `NewExpression`（`expression` + 可选 `typeArguments` / `arguments`）。
+
+产物的 `New` 把 `name` 段记成**一串单元**（被构造者 + 类型实参段）、`arguments` 段是实参：
+
+- 类型实参段要按**类型位**投进 `typeArguments`（`Map<string, number>` 的两格是
+  `StringKeyword` / `NumberKeyword`，不是 `TypeReference`）；
+- 空实参段在 `ToList` 里**干脆不出现**（`new Map<A, B>()`），而 TS 那边空 `arguments`
+  也不进字段（`forEachChild` 不访问空数组）——所以只在非空时挂。
+
+```ts
+  const nameUnits = kidsOf(v, "name").filter((k) => !INVISIBLE.has(k.get("type")));
+  const generic = nameUnits.find((k) => k.get("type") === "GenericType");
+  const callee = nameUnits.find((k) => k.get("type") !== "GenericType");
+  const props = {};
+  if (callee !== undefined) props.expression = projectNode(callee, ctx);
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
+      const one = projectTypeExpression(group, ctx);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  const args = kidsOf(v, "arguments").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (args.length > 0) props.arguments = projectEach(args, ctx);
+  return { kind: "NewExpression", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectDecorator:(v:any, ctx:any)=>any
+
+装饰器 `@Component({ … })` / `@plain` → `Decorator`（**只有 `expression`**）。
+
+TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被调用者是那个 `Identifier`），
+`@plain` 的 `expression` 就是那个 `Identifier`；`@` 这个符号**不是节点**。
+产物那边给的是 `name` + `children`（`@` 也在里面）——照通用投影会多出一个 `@` 节点。
+
+```ts
+  const kids = projectableKids(v).filter(
+    (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "@"),
+  );
+  const props = {};
+  if (kids.length > 0) {
+    const inner = projectNode(kids[0], ctx);
+    if (inner !== undefined) props.expression = inner;
+  }
+  return { kind: "Decorator", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectWrappedType:(v:any, ctx:any, kind:string)=>any
+
+`...A`（`RestType`）与 `B?`（`OptionalType`）→ 只有 `type` 一个字段。
+
+两点号与问号在 TS 那边**不是子节点**（它们只是语法记号；`OptionalType` 与 `RestType`
+的 kind 本身就说明了），所以要把它们从内容里排掉，否则会多出 `DotDotDotToken` /
+`QuestionToken` 两个节点（实测各若干）。
+
+```ts
+  const kids = projectableKids(v).filter(
+    (k) => !(k.get("type") === "SymbolToken" && ["...", "?"].includes(textOfNode(k, ctx))),
+  );
+  const props = {};
+  const inner = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
+  if (inner !== undefined) props.type = inner;
+  return { kind, pos: v.start, end: v.end, ...props };
+```
+
 # private method projectHeritageClause:(v:any, ctx:any)=>any
 
 `extends A, B` / `implements C, D` → `HeritageClause`（只有 `types` 一个子字段）。
@@ -4091,6 +4214,11 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
 ```ts
   const props = {};
   const used = new Set();
+  // **装饰器要收成修饰词**（第 95 轮）：TS 把 `@Component({…})` 放在被装饰声明的
+  // `modifiers` 里（第一格），而产物把它平铺在声明下面——不收出来有两个后果：
+  // `Decorator` 整类缺（实测 12 处），以及 `ClassDeclaration.children` 被当成继承段
+  // （`heritageClauses` 字段凭空多出，因为那张表把 `children` 映射成了 `heritageClauses`）。
+  const decorators = [];
   // **`name` 按产物节点自己的属性给**，不维护 kind 白名单——白名单漏一个 kind，
   // 「字段名对拍」就多一处看不出根因的假差异。
   // 命名空间是唯一的例外：它的名字落在 `namespace` 属性上（不是 `name`）。
@@ -4144,6 +4272,11 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
         props.questionToken = { kind: "QuestionToken", text: "?", pos: questionAt, end: questionAt + 1 };
         continue;
       }
+      // **装饰器是修饰词、不是子节点**（见上面 `decorators`）。
+      if (x.get("type") === "Decorator") {
+        decorators.push(x);
+        continue;
+      }
       // **体节点**：改字段名，但自己仍是一个节点（见 `BODY_FIELDS`）。
       const body = BODY_FIELDS.get(x.get("type"));
       if (body !== undefined) {
@@ -4188,6 +4321,14 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   }
   // 修饰词：产物那边是字符串，TS 那边是一串节点（见 `addModifiers` 的说明）。
   addModifiers(v, props, ctx);
+  // **装饰器并进 `modifiers` 并按源码位置排序**：TS 的 `modifiers` 是源码顺序
+  // （`@dec export class` 也好、`export class` 也好，谁在前谁先）。
+  if (decorators.length > 0) {
+    const projected = decorators.map((d) => projectNode(d, ctx)).filter((d) => d !== undefined);
+    const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
+    merged.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+    props.modifiers = merged;
+  }
   return props;
 ```
 
