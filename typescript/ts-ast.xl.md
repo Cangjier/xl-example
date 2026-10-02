@@ -2520,6 +2520,39 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     if (inside !== undefined) generic = inside;
   }
 
+  // **`.` 后面是一个 `IndexedAccessType`**（第 110 轮）：`NodeJS.Module["exports"]` 的产物是
+  // `[Identifier(NodeJS), ., IndexedAccessType(Identifier(Module), LiteralType("exports"))]`——
+  // 限定名的右半在 `IndexedAccessType` **里面**，而 TS 那边 `IndexedAccessType.objectType`
+  // 是整条 `NodeJS.Module`（`TypeReference > QualifiedName`）。
+  // 不收的话 `IndexedAccessType` / `QualifiedName` / `Identifier(Module)` / `LiteralType` /
+  // `StringLiteral` **五个节点一起丢**，`TypeReference` 的区间也短一截
+  //（实测 `StringLiteral` 缺 71 + `LiteralType` 缺 37 的样本全长得这个样子）。
+  if (
+    (head.get("type") === "Identifier" || head.get("type") === "Keyword") &&
+    list.length >= 3 &&
+    isDot(list[1], ctx) &&
+    list[2].get("type") === "IndexedAccessType"
+  ) {
+    const iat = list[2];
+    const inner = projectableKids(view(iat));
+    const rightUnit = inner.find((k) => isNameNode(k));
+    if (rightUnit !== undefined) {
+      const text = textOfNode(head, ctx);
+      const leftName = { kind: "Identifier", text, pos: startOf(head), end: endOf(head) };
+      const right = nameOf(rightUnit, ctx);
+      const typeName = { kind: "QualifiedName", left: leftName, right, pos: leftName.pos, end: right.end };
+      const node = {
+        kind: "IndexedAccessType",
+        objectType: { kind: "TypeReference", typeName, text, pos: typeName.pos, end: typeName.end },
+        pos: startOf(head),
+        end: endOf(iat),
+      };
+      const indexUnit = inner.find((k) => k !== rightUnit);
+      const indexType = indexUnit === undefined ? undefined : projectTypeExpression([indexUnit], ctx);
+      if (indexType !== undefined) node.indexType = indexType;
+      return node;
+    }
+  }
   if (head.get("type") === "Identifier" || head.get("type") === "Keyword") {
     const text = textOfNode(head, ctx);
     const span = { pos: startOf(head), end: endOf(head) };
