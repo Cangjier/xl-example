@@ -351,6 +351,27 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 它**没有**覆写 `ToXmlString`，XML 由基类产出：`<ConditionalType>…</ConditionalType>`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+条件类型 `T extends U ? A : B` → `ConditionalType`（四个具名字段；
+**从 `ts-ast.xl.md` 的 `projectConditionalType` 搬来**，第 188 轮）。
+
+产物那边是一串**平级单元**：`[T, extends, U, ?, A, :, B]`，所以在 `?` 与 `:` 处切开。
+`?` / `:` 本身不进任何字段（TS 那边没有 `questionToken` 字段）。
+
+切分逻辑在共享层的 `conditionalNode`（**假分支又是条件类型**时要递归）。
+
+**起点取第一格单元的坐标，不取单元自己的 `start`**（第 118 轮）：折行的条件类型
+（实参表里那种 `Q<\n  A,\n  O["type"] extends … ? … : …,\n  B\n>`）里，单元是先被换行
+签入的，`v.start` 会带上**行首的缩进**——投影出来比 TS 的节点早 9 个字符，
+于是那个节点既算「缺」又算「多出来」（实测缺 `ConditionalType` + 多出 `ConditionalType`）。
+
+```ts
+  const kids = ctx.Kids(v);
+  const node = ctx.ConditionalNode(kids, 0, kids.length);
+  return { ...node, end: ctx.StmtEndOf(v) };
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把类型队列装上**。

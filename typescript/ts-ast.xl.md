@@ -992,11 +992,7 @@ new Map([
     case "TypeParameter":
       return projectTypeParameter(v, ctx);
 
-    case "ConditionalType":
-      return projectConditionalType(v, ctx);
 
-    case "TernaryOperator":
-      return projectConditionalExpression(v, ctx);
 
     case "Lamda":
       return projectLamda(v, ctx);
@@ -4826,37 +4822,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   };
 ```
 
-# private method projectConditionalExpression:(v:any, ctx:any)=>any
-
-三元表达式 `a ? b : c` → `ConditionalExpression`（`condition` / `whenTrue` / `whenFalse`
-+ `questionToken` / `colonToken`）。
-
-**`?` 与 `:` 在这里是字段**（TS 的 `cond.questionToken` / `cond.colonToken` 都在
-`forEachChild` 那一层），与 `ConditionalType` **正好相反**——那个是类型位，
-TS 那边两个标点都不进子节点。两者形状极像、口径相反，是这一带最容易写错的地方。
-
-分段名（`trueStatement` / `falseStatement`）是上游 Cangjie 的叫法，
-TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
-
-```ts
-  const props = {
-    condition: projectSegment(v, "condition", ctx),
-    whenTrue: projectSegment(v, "trueStatement", ctx),
-    whenFalse: projectSegment(v, "falseStatement", ctx),
-  };
-  // `?` 与 `:` 在产物树里**没有单元**（`TernaryOperator` 只收三段），只能从**源码里量**：
-  // 在两段的区间之间找那个标点（中间可能有空白与注释）。
-  //
-  // **早先这里是「按上一段末尾合成」的，位置差一格**（第 88 轮修）：`endOf` 是**闭区间**
-  // （最后一个字符的下标），于是两个 token 都落在标点**前一格**上——
-  // 实测 `DRIFT: ColonToken` 158 + `DRIFT: QuestionToken` 127 全是它。
-  const question = punctBetween(v, "condition", "trueStatement", "?", ctx);
-  const colon = punctBetween(v, "trueStatement", "falseStatement", ":", ctx);
-  if (question !== undefined) props.questionToken = question;
-  if (colon !== undefined) props.colonToken = colon;
-  return { kind: "ConditionalExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method punctBetween:(v:any, fromKey:string, toKey:string, ch:string, ctx:any)=>any
 
 在两段之间**量**出那个标点（`?` / `:`）：从上一段的末尾往后扫，扫到下一段的起点为止。
@@ -5227,24 +5192,6 @@ import { A as B, C } from "m"
   }
   flush(braceClose);
   return out;
-```
-
-# private method projectConditionalType:(v:any, ctx:any)=>any
-
-条件类型 `T extends U ? A : B` → `ConditionalType`（四个具名字段）。
-
-产物那边是一串**平级单元**：`[T, extends, U, ?, A, :, B]`，所以在 `?` 与 `:` 处切开。
-`?` / `:` 本身不进任何字段（TS 那边没有 `questionToken` 字段）。
-
-```ts
-  const kids = projectableKids(v);
-  // 切分逻辑抽成 `conditionalNode`：**假分支又是条件类型**时要递归（见那个方法的说明）。
-  const node = conditionalNode(kids, 0, kids.length, ctx);
-  // **起点取第一格单元的坐标，不取单元自己的 `start`**（第 118 轮）：折行的条件类型
-  // （实参表里那种 `Q<\n  A,\n  O["type"] extends … ? … : …,\n  B\n>`）里，单元是先被换行
-  // 签入的，`v.start` 会带上**行首的缩进**——投影出来比 TS 的节点早 9 个字符，
-  // 于是那个节点既算「缺」又算「多出来」（实测缺 `ConditionalType` + 多出 `ConditionalType`）。
-  return { ...node, end: stmtEndOf(v, ctx) };
 ```
 
 # private method conditionalNode:(kids:Array<any>, start:int, end:int, ctx:any)=>any
@@ -7110,6 +7057,9 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     TypeDefineOf: (unit) => projectTypeDefine(view(unit), ctx),
     DottedExpression: (list) => dottedExpression(list, ctx),
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
+    ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
+    Segment: (view, key) => projectSegment(view, key, ctx),
+    PunctBetween: (view, fromKey, toKey, punct) => punctBetween(view, fromKey, toKey, punct, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

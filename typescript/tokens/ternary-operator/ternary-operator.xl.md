@@ -425,6 +425,36 @@ return ReplaceCountAt(units, startIndex + 1, endIndex - startIndex - 1, ternaryO
 
 它**没有覆写 `ToXmlString`**，XML 由基类 `Token` 产出：`<TernaryOperator>…</TernaryOperator>`，内容是三个子单元的串接。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+三元表达式 `a ? b : c` → `ConditionalExpression`（`condition` / `whenTrue` / `whenFalse`
++ `questionToken` / `colonToken`；**从 `ts-ast.xl.md` 的 `projectConditionalExpression` 搬来**，第 188 轮）。
+
+**`?` 与 `:` 在这里是字段**（TS 的 `cond.questionToken` / `cond.colonToken` 都在
+`forEachChild` 那一层），与 `ConditionalType` **正好相反**——那个是类型位，
+TS 那边两个标点都不进子节点。两者形状极像、口径相反，是这一带最容易写错的地方。
+
+分段名（`trueStatement` / `falseStatement`）是上游 Cangjie 的叫法，
+TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
+
+标点**在产物树里没有单元**（`TernaryOperator` 只收三段），只能从**源码里量**：
+在两段的区间之间找那个标点（中间可能有空白与注释）。早先这里是「按上一段末尾合成」的，
+位置差一格（第 88 轮修）：`endOf` 是**闭区间**，于是两个 token 都落在标点前一格上
+——实测 `DRIFT: ColonToken` 158 + `DRIFT: QuestionToken` 127 全是它。
+
+```ts
+  const props: any = {
+    condition: ctx.Segment(v, "condition"),
+    whenTrue: ctx.Segment(v, "trueStatement"),
+    whenFalse: ctx.Segment(v, "falseStatement"),
+  };
+  const question = ctx.PunctBetween(v, "condition", "trueStatement", "?");
+  const colon = ctx.PunctBetween(v, "trueStatement", "falseStatement", ":");
+  if (question !== undefined) props.questionToken = question;
+  if (colon !== undefined) props.colonToken = colon;
+  return ctx.Node("ConditionalExpression", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。
