@@ -281,9 +281,15 @@ const containsLet = (list: Array<any>): boolean => {
     if (item instanceof Identifier && item.Is("let")) {
       return true;
     }
-    const inner = (item as any).Data;
-    if (Array.isArray(inner) && inner.length > 0 && containsLet(inner)) {
-      return true;
+    // **只往 `Statement` 壳里再看一层**：类体那一层可能已经被语句队列包过；
+    // **绝不能递归进 `Bracket`**——那会把**方法体里的** `let` 也算进来，
+    // 于是一个正常的类（方法体里有 `let x = 1`）会被判成「非法类体」，
+    // 类在 `{` 处就被截断（实测：`dist/ts` 自己 99 个 `ClassDeclaration` 全漂）。
+    if (item.constructor.name === "Statement") {
+      const inner = (item as any).Data;
+      if (Array.isArray(inner) && inner.length > 0 && containsLet(inner)) {
+        return true;
+      }
     }
   }
   return false;
