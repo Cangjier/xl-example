@@ -680,7 +680,8 @@ const next = Get(units, nextIndex);
 // 一条表达式（实测 `am-block-lambda-array-compound.ts`）。
 if (
   next !== null &&
-  ((next instanceof Bracket && next.startBracket === "[") || next.constructor.name === "ArrayLiteral") &&
+  ((next instanceof Bracket && (next.startBracket === "[" || next.startBracket === "(")) ||
+    next.constructor.name === "ArrayLiteral") &&
   HasTypeColonBefore(units, index) === false
 ) {
   return false;
