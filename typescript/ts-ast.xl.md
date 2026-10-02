@@ -376,6 +376,10 @@ new Map([
   // 所以 `cases:shapelint` 现在会**扫源码**把重复键揪出来。
   ["MethodDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["MethodSignature", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  // **取值器 / 设值器**（第 93 轮加）：与函数一样，形参表叫 `parameters`——
+  // 不登记时 `set x(v) {}` 的形参会顶着 `children` 出去（实测字段名差）。
+  ["GetAccessor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  ["SetAccessor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   // 类构造：类里的 `constructor` 投成 `Constructor`（`SyntaxKind[177]`），字段名与函数一样是 `parameters`
   // ——没有这一行时它的形参会顶着 `children` 出去（实测 137 + 109 处字段名差异）。
   ["Constructor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
@@ -866,6 +870,19 @@ new Map([
     case "Try":
       return projectTry(v, ctx);
 
+    // **类静态块**（`class A { static { … } }`，第 93 轮）：TS 是
+    // `ClassStaticBlockDeclaration > body: Block`，而产物是 `StaticBlock > Statement*`
+    // （体括号那层壳不在树里，`Block` 要自己造）——照通用投影只有 `children`、
+    // 缺整个 `Block`（实测缺 `Block` + 字段名差）。
+    case "StaticBlock":
+      return projectStaticBlock(v, ctx);
+
+    // **`for` 语句**（第 93 轮）：四个段在 TS 那边是 `initializer` / `condition` /
+    // `incrementor` / `statement`，其中头三段是**表达式位**（照通用投影会逐个单元投，
+    // `i < j` 会散成三个节点）、空体段在 `ToList` 里**是空数组**（空 `Block` 要自己造）。
+    case "For":
+      return projectFor(v, ctx);
+
     default: {
       let kind = KIND_BY_TAG.get(v.type);
       if (kind === undefined) {
@@ -889,7 +906,26 @@ new Map([
         // 尺子上 269 处构造签名会一直算作「缺 `Constructor`」）。
         kind = "Constructor";
       }
-      return mk(kind, structuralProps(v, kind, ctx));
+      // **取值器 / 设值器**（`get x(): A { … }` / `set x(v) { … }`，第 93 轮）：
+      // 产物把 `get` / `set` 记成 `modifiers="get"`，而 TS 那边 **kind 自己**就说明了是哪一个，
+      // `get` / `set` **不是修饰词节点**——照 `modifiers` 投会多出 `GetKeyword` / `SetKeyword`
+      // （实测多出 102 + 缺 `GetAccessor` / `SetAccessor`）。所以换 kind 并把那个词从修饰词里摘掉。
+      let stripModifier;
+      if (v.type === "MethodDeclaration") {
+        const words = String(v.attrs.get("modifiers") ?? "").split(",");
+        if (words.includes("get")) {
+          kind = "GetAccessor";
+          stripModifier = "GetKeyword";
+        } else if (words.includes("set")) {
+          kind = "SetAccessor";
+          stripModifier = "SetKeyword";
+        }
+      }
+      const props = structuralProps(v, kind, ctx);
+      if (stripModifier !== undefined && Array.isArray(props.modifiers)) {
+        props.modifiers = props.modifiers.filter((m) => m.kind !== stripModifier);
+      }
+      return mk(kind, props);
     }
   }
 ```
@@ -1613,18 +1649,29 @@ new Set([
   // 外层容器只用来取「语句整体」的区间（`Statement` 含分号、`For` 的段不含）。
   const stmtWhole = stmtEndOf(container, ctx);
   const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
-  const listEnd = kids.length > 0 ? Math.min(stmtEnd, endOf(kids[kids.length - 1])) : stmtEnd;
   const letNode = kids.find((k) => k.get("type") === "Let") ?? null;
+  // **多声明符**（第 93 轮）：`let a = 1, b = 2` 在 TS 里是**两个 `VariableDeclaration`**
+  // （同一个 `VariableDeclarationList.declarations` 的两格），而产物只有一段平铺单元。
+  // 顶层逗号就是那个分隔符——`f(x, y)` / `[a, b]` / `{ a: 1 }` / `T<A, B>` 里的逗号都在
+  // 各自的单元**里面**，不会出现在这一层。
+  const groups = [];
+  let group = [];
+  for (const k of kids) {
+    if (group.length > 0 && k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ",") {
+      groups.push(group);
+      group = [];
+      continue;
+    }
+    group.push(k);
+  }
+  if (group.length > 0) groups.push(group);
+  const listEnd = kids.length > 0 ? Math.min(stmtEnd, endOf(kids[kids.length - 1])) : stmtEnd;
   // **容器可能是视图、也可能是字典格**（第 79 轮）：`projectLet`（语句位）传的是视图，
   // `structuralProps`（`for (let i = 0; …)` 的头部）传的是 `view(...)`。原来这里一律
   // `view(container)`，于是前者会 `view(view)` 抛 `TypeError`——那条路平时走不到
   // （`projectStatement` 自己处理 Let 开头的语句），一摊开成员位的 `Statement` 就被踩到了。
   const containerView = container instanceof Map ? view(container) : container;
   const letView = letNode === null ? containerView : view(letNode);
-  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  const initNode = eqIndex >= 0 && eqIndex + 1 < kids.length ? kids[eqIndex + 1] : null;
-  // **语句级修饰词不进前两层**：`export const q = 1` 的 TS 是
-  // `Statement[104,…)`（含 `export`）/ `List[111,…)`（从 `const` 起）/ `Declaration[117,…)`（从名字起）。
   const listStart = modifierStart(letView, ctx);
   const declared = String(letView.attrs.get("fieldName") ?? "");
   // **解构声明的名字用产物自己的那个 `ArrayLiteral` / `ObjectLiteral`**（踩过）：
@@ -1642,21 +1689,35 @@ new Set([
       : declared === ""
         ? bindingSpan(container, listStart, listEnd, ctx)
         : synthName(declared, letView, ctx);
-  const declaration = {
-    kind: "VariableDeclaration",
-    name,
-    initializer: initNode === null ? undefined : projectNode(initNode, ctx),
-    pos: name.pos,
-    end: listEnd,
-  };
-  // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
-  // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
-  // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
-  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
-  if (typeNode !== undefined) declaration.type = projectTypeDefine(view(typeNode), ctx);
+  // **每个声明符一个 `VariableDeclaration`**：第一组用 `Let` 自己的 `fieldName`（名字在那上面），
+  // 后面的组名字就是组里第一格（`j = 1` 的 `j`）；类型标注取**本组**的 `TypeDefine`。
+  const declarations = groups.map((one, index) => {
+    const eq = one.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+    const initNode = eq >= 0 && eq + 1 < one.length ? one[eq + 1] : null;
+    const head = one[0];
+    const oneName =
+      index === 0
+        ? name
+        : head === undefined || (head.get("type") !== "Identifier" && head.get("type") !== "Keyword")
+          ? bindingSpan(container, head === undefined ? listStart : startOf(head), listEnd, ctx)
+          : projectNode(head, ctx);
+    const declaration = {
+      kind: "VariableDeclaration",
+      name: oneName,
+      initializer: initNode === null ? undefined : projectNode(initNode, ctx),
+      pos: oneName.pos,
+      end: one.length > 0 ? Math.min(stmtEnd, endOf(one[one.length - 1])) : listEnd,
+    };
+    // **类型标注是声明的一部分，但它在 `Statement` 那一层**：`let a: string;` 的产物是
+    // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
+    // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
+    const typeNode = one.find((k) => k.get("type") === "TypeDefine");
+    if (typeNode !== undefined) declaration.type = projectTypeDefine(view(typeNode), ctx);
+    return declaration;
+  });
   const list = {
     kind: "VariableDeclarationList",
-    declarations: [declaration],
+    declarations,
     flags: flagsOf(letView),
     pos: listStart,
     end: listEnd,
@@ -1703,15 +1764,20 @@ new Set([
 | `a`（简写） | `name` |
 | `p: q` | `propertyName`(`p`) + `name`(`q`) |
 | `a = 1` | `name`(`a`) + `initializer`(`1`) |
-| `...rest` | `name`（`...` 是节点的 `dotDotDotToken` **属性**，不是子节点，所以不投） |
+| `...rest` | `dotDotDotToken`(`...`) + `name`(`rest`)——**两点号是子节点**（`forEachChild` 会访问它，
+第 93 轮修：早先按「属性」处理，实测 `BindingElement` 字段名差 8 处） |
 
 ```ts
   const v = view(unit);
   const kids = projectableKids(v);
   const colonIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+  const dots = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
   const names = kids.filter((k) => isNameNode(k) && !isTypeSeparator(k, ctx));
   const props = {};
+  if (dots !== undefined) {
+    props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
+  }
   if (colonIndex >= 0 && names.length >= 2) {
     // `p: q`：点号左边是属性名、右边是绑定名
     const before = names.find((k) => endOf(k) <= startOf(kids[colonIndex]));
@@ -2519,6 +2585,11 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
     const at = startOf(typeNode);
     props.questionToken = { kind: "QuestionToken", text: "?", pos: at, end: at + 1 };
   }
+  // **默认值也是形参的一部分**（`constructor(public b = 1)` / `(a = 2) => a`）：
+  // 产物把 `=` 与初值平铺在 `Parameter` 下，TS 那边是 `initializer` 字段
+  // （实测 `Parameter` 字段名差、连缺初值那个 `NumericLiteral`）。
+  const eq = body.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
+  if (eq >= 0 && eq + 1 < body.length) props.initializer = projectNode(body[eq + 1], ctx);
   // `...` 的位置用**它自己的 `range`**（不是从名字往回推一位）：`k.get("range")[0]` 就是那个点号。
   if (dots !== undefined) {
     props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };
@@ -3292,6 +3363,48 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   return build(0).node;
 ```
 
+# private method projectFor:(v:any, ctx:any)=>any
+
+`for (let i = 0, j = 1; i < j; i++, j--) {}` → `ForStatement`。
+
+产物那边四个段是命名段（`initial` / `compare` / `next` / `body`），TS 那边是
+`initializer` / `condition` / `incrementor` / `statement`：
+
+- **头部三段是表达式位**：照通用投影会逐个单元投（`i < j` 会散成 `Identifier` +
+  `LessThanToken` + `Identifier`，实测「缺 `BinaryExpression`」成片是这个形状）；
+  `let` 开头的那一段走列表版（`VariableDeclarationList`，**不套 `VariableStatement`**）；
+- **体段为空时 `body` 是 `[]`**（`for (;;) {}` 的空块在 `ToList` 时就摊掉了），
+  而 TS 那边仍有一个空 `Block`——所以空体要**自己从原文造**（按头部 `)` 之后的 `{` 量区间）。
+
+```ts
+  const props = {};
+  const initial = kidsOf(v, "initial").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (initial.length > 0) {
+    props.initializer =
+      initial[0].get("type") === "Let"
+        ? projectLetFrom(initial, ctx, v).list
+        : projectExpression(initial, ctx);
+  }
+  const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (compare.length > 0) props.condition = projectExpression(compare, ctx);
+  const next = kidsOf(v, "next").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (next.length > 0) props.incrementor = projectExpression(next, ctx);
+  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
+  const built = blockOfBody(body, ctx);
+  if (built !== undefined) {
+    props.statement = built.node;
+  } else if (ctx.source[stmtEndOf(v, ctx) - 1] === "}") {
+    // 空体：括号在原文里，自己量（与 `projectTry` 里两个块同一套做法）。
+    const header = ctx.source.indexOf(")", v.start);
+    const brace = header >= 0 ? ctx.source.indexOf("{", header) : -1;
+    const close = brace >= 0 ? matchingBrace(ctx.source, brace) : -1;
+    if (brace >= 0 && close >= brace) {
+      props.statement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
+    }
+  }
+  return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
+```
+
 # private method blockOfBody:(kids:Array<any>, ctx:any)=>any
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
@@ -3711,6 +3824,22 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
   }
   return { kind: "TryStatement", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectStaticBlock:(v:any, ctx:any)=>any
+
+类静态块 `class A { static { … } }` → `ClassStaticBlockDeclaration`（`body: Block`）。
+
+产物那边体括号不在树里（`StaticBlock > Statement*`），所以 `Block` 要**自己造**：
+按 `static` 之后的那个 `{` 与配对的 `}` 量区间（与 `projectTry` 里两个块同一套做法）。
+
+```ts
+  const statements = projectEach(projectableKids(v), ctx, "Block");
+  const brace = ctx.source.indexOf("{", v.start);
+  const close = brace >= 0 ? matchingBrace(ctx.source, brace) : -1;
+  const body =
+    brace >= 0 && close >= brace ? { kind: "Block", statements, pos: brace, end: close + 1 } : undefined;
+  return { kind: "ClassStaticBlockDeclaration", pos: v.start, end: v.end, ...(body === undefined ? {} : { body }) };
 ```
 
 # private method projectHeritageClause:(v:any, ctx:any)=>any
