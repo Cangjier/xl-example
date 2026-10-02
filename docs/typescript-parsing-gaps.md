@@ -1997,3 +1997,106 @@ node tests/parse/sweep.mjs
 node samples/check.mjs
 ```
 
+---
+
+# 第 93～99 轮：把「第十把尺子」（`cases:tsast`）从 605 推到 863
+
+前 92 轮把**九把尺子**全部推绿：`cases:run` 1035/1035、台账 0 条、`cases:diff` 无正差、
+`cases:dashboard` 真缺 0、`matrix` / `lossless` / `structure` / `boundaries` / `noise` / `astjson`
+各为 0，`samples` 三份逐字节一致。**唯一还红的是第十把**：
+
+> `npm run cases:tsast` —— 直接拿 `ts.createSourceFile` 的 AST 当基准，逐节点比
+> **kind / 区间 / 字段名**三个方向，外加「产物多出来的节点」这第四个方向；
+> **四个方向都为 0 的文件才算「完全一致」**。
+
+第 92 轮结束时：完全一致 **605 / 1407**（缺 7164 / 漂移 887 / 多出 2975 / 字段名 525）。
+
+## 本轮新加的定位工具（`tests/parse/ts-ast.mjs`）
+
+| 开关 | 作用 |
+| --- | --- |
+| `--file <路径>` | **逐文件四方向差分**，每条带源码原文与两边的区间（定位「这个文件为什么不过」） |
+| `--per-file` | 逐文件差额表（缺 / 漂移 / 多出 / 字段名 四列，按总额降序）——503 个用例文件不为零，一眼看出主战场 |
+| `--list` / `--limit N` | 连对上的节点也列出来 / 每方向最多列几条 |
+
+总表只能告诉你「哪一类最多」，**定位必须落到单个文件**；这把开关是本轮所有修复的前置条件。
+
+## 七轮修掉的（都有回归证据）
+
+| 轮 | 缺口 | 根因 | 量化 |
+| --- | --- | --- | --- |
+| 93 | 导出语句区间零宽 | `projectExport` 把**原始 Map** 递给 `stmtEndOf`（它的 `.start` / `.end` 都是 `undefined`，坐标在 `range` 里） | 漂移 108 + 多出 108 |
+| 93 | 可选标记 `?`（无类型标注的成员 / 可选方法） | 有类型标注时 `?` 被吞进 `TypeDefine` 区间、没有时它是平级 `SymbolToken`——两条路都要收成 `questionToken` | 字段名 149 |
+| 93 | `constructor(private readonly a)` | 形参修饰词是平级 `Keyword`，既没进 `modifiers`，又被当成形参名 | 缺 `Identifier` / `ReadonlyKeyword` 各 3 |
+| 93 | 映射键 `K in T` 的约束 / `-readonly` / `-?` | `in` 在名字**后面**（变型词的 `in` 在前面）；`-readonly` 的 `readonlyToken` 是那个 `-` | 47 + 3 |
+| 93 | 具名元组成员、`try` 三段 | 两者 TS 都有「产物里不存在的壳」（`NamedTupleMember.name`、`CatchClause` / `TryStatement.tryBlock`） | 各成片 |
+| 94 | `get` / `set` 存取器 | TS 的 kind 自己说明是哪一个，`get` / `set` **不是修饰词节点** | 多出 `GetKeyword` / `SetKeyword` 102+ |
+| 94 | 类静态块 | TS 是 `ClassStaticBlockDeclaration > body: Block`，体括号不在产物树里 | 缺 `Block` 成片 |
+| 94 | `for` 的四个段 | 头三段是**表达式位**（照通用投影会逐个单元投）、空体段在 `ToList` 里是空数组 | 缺 `Block` / `BinaryExpression` 成片 |
+| 94 | **多声明符** `let a = 1, b = 2` | TS 是**两个** `VariableDeclaration`，产物只有一段平铺单元——按顶层逗号切 | 缺 `VariableDeclaration` 5436 里的一大块 |
+| 95 | 装饰器 | TS 放在被装饰声明的 `modifiers` 里（且 `Decorator` 只有 `expression`），产物把它平铺在下面 | 缺 `Decorator` 12 + 凭空多出 `heritageClauses` |
+| 95 | `new` 表达式 / 调用的类型实参 | 产物的 `name` 段是**一串单元**（名字 + 实参段）；实参要按类型位投 | 字段名 19 + 缺 `StringKeyword` 一片 |
+| 95 | `RestType` / `OptionalType` | TS 只有 `type` 一个字段，`...` 与 `?` 不是子节点 | 字段名 13 |
+| 96 | `if` 体盖住半个文件 | `matchingBrace` 把**字符串里的花括号**算成括号（`=== "{"`），配对失败后退回「没有花括号」，于是 `Block` 一路吃到下一个真括号 | 漂移 137 + 多出 137 |
+| 96 | 循环体不是 `Block` / `do…while` 的 kind 名 | `WhileBody` 那层壳不在 `ToList` 里，块要自己按原文造；TS 的 kind 是 `DoStatement`（不是 `DoWhileStatement`） | 缺 `Block` 336 |
+| 96 | 复合赋值 `a += 2` | token 层展开成 `a = a + 2`，投影照原样投会多出 `EqualsToken` + `PlusToken`、缺复合 kind | 多出 134 + 94 |
+| 96 | `typeof` / `void` / `delete` / 括号 / `as` | TS 里它们是**独立的表达式 kind**；`as` 的左操作数是前一个兄弟 | 各成片 |
+| 97 | **三元的分支整段丢了** | `projectSegment` 把段内单元**自己的子单元**当成整段（`f(1)` 只剩 `1`、`y.z` 只剩 `y`） | 缺 `PropertyAccessExpression` 502 / `CallExpression` 246 / `BinaryExpression` 273 |
+| 97 | 没有语句的 `case` | `SwitchSegment` 的尾巴比 TS 多一个字符 | 漂移 108 + 多出 108 |
+| 98 | `super` | 两处（值位叶子 / 关键字表）都要投成 `SuperKeyword` | 缺 134 + 多出 `Identifier` 134 |
+| 98 | `new () => T` / `abstract new () => T` | TS 的 kind 是 `ConstructorType`，`new` **不是子节点** | 缺 / 多出各 94 |
+| 98 | 正则区间 | `RegexToken` 的区间比 TS 多一个字符，按原文重量 | 漂移 32 |
+| 99 | **模板字面量** | 产物是 `String > [ConstString, InterpolationString…]`，TS 是 `TemplateExpression > [TemplateHead, TemplateSpan]`；类型位是 `TemplateLiteralType` + `TemplateLiteralTypeSpan` | 缺 `TemplateSpan` 199 / `TemplateMiddle` 146 / `TemplateHead` 99 + 多出 `StringLiteral` 91 |
+
+## 量化轨迹（同一批 1407 个文件）
+
+| 判据 | 第 92 轮末 | 第 99 轮末 |
+| --- | ---: | ---: |
+| **完全一致的文件** | 605 | **863** |
+| 缺节点 | 7164 | **2942** |
+| 区间漂移 | 887 | **426** |
+| 多出来的节点 | 2975 | **1585** |
+| 字段名不符 | 525 | **118** |
+
+九把旧尺子全程保持绿（`cases:run` 1035/1035、`samples` 三份逐字节、`cases:astjson` 逐节点同源、
+`structure` / `boundaries` / `noise` / `lossless` 各 0）。`samples/*.expected.tsast.json`
+随投影变准处更新过 4 次（每次 diff 都能指出「哪一格从错的变成对的」）。
+
+## 这一轮真正验证出来的东西
+
+1. **`--file` 比总表重要**：九成修复是「打开一个文件、看到四方向里哪一条、按原文定位」。
+   总表只用来排序。
+2. **「零宽区间」是一种特征故障**：`stmtEndOf` 拿到原始 Map 时 `.end` 是 `undefined`，
+   投影出来的节点落在 `pos` 上——症状是「同 kind、起点对、终点差一整段」。
+   本轮 108+108 的那一条就是它。
+3. **`ToList` 的「段」是另一套形状**：`TryBody` / `FinallyBody` / `WhileBody` / `ForBody`
+   在 `ToList` 里**根本不存在**（体括号那层壳被摊平了），所以凡是要 `Block` 的地方都得
+   **按原文重新量那对花括号**——`bodyBlockOf` / `blockAfter` / `blockOfBody` 三个助手全是这个来路。
+4. **按字符串扫括号必须先跳过字符串与注释**：`matchingBrace` 少了这一步，
+   `=== "{"` 这种再普通不过的写法就能让整个 `if` 的区间失控。
+5. **「多一个字符」也是漂移**：正则的 `RegexToken`、空 `case` 的 `SwitchSegment`
+   都是尾巴多一格；两者在总表里表现为「漂移 N + 多出 N」（同一个节点两边各记一次）。
+6. **同一个形状在两个位置叫两个名字**：模板字面量值位是 `TemplateExpression`、
+   类型位是 `TemplateLiteralType`，产物同形——只能靠「谁在投它」（`ctx.typePosition`）分开。
+
+## 交接：剩下的 2942 / 426 / 1585 / 118 按大小排
+
+| 组 | 规模 | 形状与已知信息 |
+| --- | ---: | --- |
+| `Identifier` 缺 | 736 | `any[][typeof Symbol.iterator]` 这类**下标访问里的类型查询**；`readonly webcrypto.KeyUsage[]` 这类**限定名 + 数组后缀**的尾部名字 |
+| `TypeReference` | 缺 275 / 多 90 / 漂移 78 | 类型引用在**泛型实参 / 数组后缀 / 限定名**三种尾巴上的区间与分层（`X<Y>` 的 `typeArguments` 在部分上下文里没接上） |
+| `PropertyAccessExpression` | 缺 208 / 多 96 / 漂移 23 | **可选链**（`a?.b`）与 `!` 的组合：`this.Parent!.Data.indexOf(this)`、`this.Variables.get(key)?.Value ?? null`——链里插了 `NotNull` / `?.` 之后折链断掉，连带给 `DotToken` 多出 75 |
+| `ExpressionStatement` 多 | 412 | **多行条件类型的假分支**（`: never;` 换行在下一行、位于 `ReturnType` 段**外面**）：`method<…>(…): T[N] extends Function ? Mock<T[N]>\n : never;`——条件类型单元没有把续行吸进来，假分支成了平级语句（连带 `PropertySignature` 缺 67） |
+| `StringLiteral` 缺 80 / `NumericLiteral` 缺 67 | 147 | 条件类型分支里、以及 `declare module "x"` 名字位上的字面量 |
+| `NewKeyword` 多 67 | 67 | `new<TArrayBuffer extends …>(…)` 这种**泛型构造签名**（`ConstructorType` 里 `new` 之后的类型参数段） |
+| `NonNullExpression` 缺 71 / 漂移 76 | 147 | `Get(units, startIndex)!.SourceRange.Start!`：非空断言的区间应含它**后面**的属性访问尾（TS 的 `NonNullExpression` 在链尾，产物那个盖住的是 `expr!`） |
+
+复现：
+
+```bash
+npm run build                       # xl build && tsc
+node tests/parse/ts-ast.mjs         # 总账（四个方向 + 逐类样本）
+node tests/parse/ts-ast.mjs --per-file | Select-Object -First 40
+node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
+```
+
