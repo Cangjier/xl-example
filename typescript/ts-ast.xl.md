@@ -1115,14 +1115,9 @@ new Map([
     case "Decorator":
       return projectDecorator(v, ctx);
 
-    // **可变长 / 可选类型**（`...A` / `B?`，第 95 轮）：TS 的字段是 `type`、
-    // 两点号与问号**都不是子节点**；照通用投影它们会进 `children`
-    // （实测字段名差 13 + 多出 `DotDotDotToken` / `QuestionToken`）。
-    case "RestType":
-      return projectWrappedType(v, ctx, "RestType");
-
-    case "OptionalType":
-      return projectWrappedType(v, ctx, "OptionalType");
+    // **可变长 / 可选类型**（`...A` / `B?`）已搬进 `tokens/tuple-member.xl.md` 的
+    // `RestType.PrintAst` / `OptionalType.PrintAst`（第 182 轮）：字段只有 `type`，
+    // 两点号与问号**都不是子节点**。
 
     default: {
       let kind = KIND_BY_TAG.get(v.type);
@@ -6949,24 +6944,6 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   return { kind: "Decorator", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectWrappedType:(v:any, ctx:any, kind:string)=>any
-
-`...A`（`RestType`）与 `B?`（`OptionalType`）→ 只有 `type` 一个字段。
-
-两点号与问号在 TS 那边**不是子节点**（它们只是语法记号；`OptionalType` 与 `RestType`
-的 kind 本身就说明了），所以要把它们从内容里排掉，否则会多出 `DotDotDotToken` /
-`QuestionToken` 两个节点（实测各若干）。
-
-```ts
-  const kids = projectableKids(v).filter(
-    (k) => !(k.get("type") === "SymbolToken" && ["...", "?"].includes(textOfNode(k, ctx))),
-  );
-  const props = {};
-  const inner = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
-  if (inner !== undefined) props.type = inner;
-  return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectSpread:(v:any, ctx:any)=>any
 
 展开元素 `...xs` → `SpreadElement`（**只有 `expression` 一个字段**）。
@@ -7655,6 +7632,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     NameOf: (node) => nameOf(node, ctx),
     Kids: (view) => projectableKids(view),
     Expression: (list) => projectExpression(list, ctx),
+    TypeExpression: (list) => projectTypeExpression(list, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

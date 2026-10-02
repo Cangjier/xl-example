@@ -300,6 +300,23 @@ return node;
 
 元组里的可选元素（`A?`）。类名必须与产物的标签名一致。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`B?` → 只有 `type` 一个字段（**从 `ts-ast.xl.md` 的 `projectWrappedType` 搬来**，第 182 轮）。
+
+问号在 TS 那边**不是子节点**（它只是语法记号；`OptionalType` 这个 kind 本身就说明了），
+所以要把那个 `SymbolToken("?")` 从内容里排掉，否则会多出一个 `QuestionToken`。
+
+```ts
+  const kids = ctx.Kids(v).filter(
+    (k: any) => !(k.get("type") === "SymbolToken" && ["...", "?"].includes(ctx.TextOf(k))),
+  );
+  const props: any = {};
+  const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
+  if (inner !== undefined) props.type = inner;
+  return ctx.Node("OptionalType", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂**通用队列**——元素本身还是类型文本
@@ -325,6 +342,23 @@ return result;
 # class RestType extends IndependentToken
 
 元组里的变长元素（`...B`）。类名必须与产物的标签名一致。
+
+## method PrintAst:(ctx:any, v:any)=>any
+
+`...A` → 只有 `type` 一个字段（**从 `ts-ast.xl.md` 的 `projectWrappedType` 搬来**，第 182 轮）。
+
+两点号在 TS 那边**不是子节点**，所以要把那个 `SymbolToken("...")` 从内容里排掉，
+否则会多出一个 `DotDotDotToken`。
+
+```ts
+  const kids = ctx.Kids(v).filter(
+    (k: any) => !(k.get("type") === "SymbolToken" && ["...", "?"].includes(ctx.TextOf(k))),
+  );
+  const props: any = {};
+  const inner = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
+  if (inner !== undefined) props.type = inner;
+  return ctx.Node("RestType", props, v);
+```
 
 ## constructor:(template:Template)=>void
 
