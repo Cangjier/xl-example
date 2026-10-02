@@ -8,7 +8,6 @@ import { Get, ReplaceCountAt, SearchBack, SearchFront, TakeRange } from "../../.
 import { IsTypeContainerUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
-import { JsonObjectReorganization } from "../json/object-literal.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { TernaryOperatorCondition } from "./ternary-operator-condition.xl.md"
 import { TernaryOperatorFalseStatement } from "./ternary-operator-false-statement.xl.md"
@@ -52,6 +51,19 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 判据只看**假值段里还有没有 `?`**：有就先不做，等内层被换成一个 `TernaryOperator` 单元、
 `?` 从列表里消失，外层下一趟自然成立。配上 `Reorganize` 的重复扫，任意层数的右结合嵌套都成立
 （实测 `a ? b : c ? d : e ? f : g` 三层全对）。
+
+**「假值段」的边界是下一个 `,` / `;`，不是列表末尾**（第 123 轮修）。原来的判据是
+`SearchBack(units, questionIndex, Is("?"))`——一路扫到列表末尾，于是**右边那些平级的兄弟三元**
+也被算成「假值段里的 `?`」，一整个列表里只有最右边那个能成形：
+
+    const o = { a: x ? 1 : 0, b: x ? 2 : 0, c: x ? 3 : 0 };
+    → 只有 `c` 那个成三元，前两个被 `BinaryOperator` 折成 `x ? 1` / `x ? 1 : 0`  ✗
+
+所以向前找 `?` 时要**在第一个 `,` / `;` 处停**：条件表达式的两个分支都是 `AssignmentExpression`，
+`?` 与 `:` 之间、`:` 与下一个分隔符之间都不可能夹着平级的逗号，那个 `,` 一定属于**外层列表**
+（属性表 / 实参表 / 声明符表），右边那个 `?` 属于**另一个**表达式。真实语料
+（`dist/ts/typescript/ts-ast.ts` 一个文件 24 处、`node_modules/@types/node` 成片）里
+这一族是「投影后仍缺 `ConditionalExpression`」的最大来源。
 
 **往前找 `?` 时必须先撞上语句边界就停**（第 66 轮修，见 `QuestionIndexBefore`）。
 少了这一条实测会把**上一条语句的 `?`** 与**这一条语句的 `:`** 配成一对：
@@ -97,8 +109,37 @@ if (current instanceof SymbolToken && current.Is(":")) {
       return false;
     }
   }
+  // **这一段的边界**：从 `?` 往右第一个平级的 `,` / `;`（没有就是列表末尾）。
+  // 它给下面两道判据共用：「`?` 与 `:` 之间不能有分隔符」与「假值段里还有没有 `?`」。
+  let segmentEnd = units.length;
+  for (let i = questionIndex + 1; i < units.length; i++) {
+    const item = Get(units, i);
+    if (item instanceof SymbolToken && (item.Is(",") || item.Is(";"))) {
+      segmentEnd = i;
+      break;
+    }
+  }
+  // **`?` 与 `:` 之间不能有平级的 `,` / `;`**（第 123 轮）。
+  //
+  // 这是「这个 `:` 到底属于哪一个 `?`」的第二道判据，也是唯一挡住**属性冒号**的那道。
+  // 实测（`{ a: x ? 1 : 0, b: x ? 2 : 0, c: 3 }`）：
+  //
+  //   1. 内层那个二元先成形（`inFalse` 那道只让内层先走），列表变成
+  //      `a : x ? 1 : 0 , b : «Ternary» , c : 3`；
+  //   2. 扫描下标继续右移，**落到 `c:` 那个属性冒号上**——它往前能找到那个还没被用掉的
+  //      `?`（`inFalse` 此刻已经看不到别的 `?`），于是规则把 `c:` 当成三元的冒号，
+  //      条件段取到 `x`、真值段吃下 `1 : 0 , b : «Ternary» , c`、假值段是 `3`。
+  //      产物里于是出现「整个对象体被一个三元包住」这种形状。
+  //
+  // 判据本身来自文法：条件表达式的两个分支都是 `AssignmentExpression`，而逗号运算符的优先级
+  // **低于**条件表达式，所以 `?` 与它的 `:` 之间**不可能**出现一个平级的 `,` 或 `;`。
+  // 反过来，属性冒号与上一条属性之间一定隔着一个 `,` ✓。
+  if (segmentEnd < index) {
+    return false;
+  }
+  // **假值段里还有 `?` ⇒ 先不成，把内层让出来**；但「假值段」只到 `segmentEnd` 为止。
   const inFalse = SearchBack(units, questionIndex, (item: Token) => item instanceof SymbolToken && item.Is("?"));
-  if (inFalse !== -1) {
+  if (inFalse !== -1 && inFalse < segmentEnd) {
     return false;
   }
   return true;
@@ -240,9 +281,25 @@ return false;
 
 重组把多个子单元换成一个，下标必须跟着走。
 
-父单元在不在 JSON 对象里，用 `JsonObjectReorganization.IsObject` 判断。
+**假值段的边界是「下一个 `,` 或 `;`，谁先到谁算」**（第 123 轮修）。
 
-分隔符的取法：父单元是 JSON 对象时按 `,` 找边界，否则按 `;` 找；找不到（`-1`）就取到列表末尾。
+原来按父单元分两种：JSON 对象里找 `,`、其余找 `;`。这一条在**逗号分隔的列表**里是错的——
+`const t = a ? 1 : 0, u = 2;` 的父单元是 `Statement`（不是 JSON 对象），于是假值段一路吃到 `;`：
+
+    a ? 1 : 0, u = 2
+    → TernaryOperator(falseStatement = «0, u = 2»)     ✗
+    TS：ConditionalExpression(whenFalse = «0»)，那个 `,` 是**声明符分隔符**
+
+实测的受害者是一整族：`const t = a ? 1 : 0, u = 2`（多声明符）、`f(a ? 1 : 0, b)`（实参表）、
+`[a ? 1 : 0, b]`（数组元素）——`dist/ts/typescript/ts-ast.ts` 一个文件里就有 24 处。
+
+**按 TS 的文法，两种符号都必须是边界**：条件表达式的两个分支都是 `AssignmentExpression`，
+而逗号运算符的优先级**低于**条件表达式（`a ? b : c, d` 是 `(a ? b : c), d`）。
+所以「假值段里出现一个平级的 `,`」在文法上不可能，把它当边界不会误伤；
+真正的逗号运算符在括号里（`(a ? 1 : 0, b)`），那是另一个单元，到不了这一层。
+`;` 仍旧是边界（`const t = a ? 1 : 0;`）。
+
+`JsonObjectReorganization` 的 import 随之不再需要——原来它只为这一处判定存在。
 
 三段都是用 `TakeRange` 切出来的**一批**单元（取出不移除），用 `AddRange` 塞进子单元。
 
@@ -256,20 +313,28 @@ const current = Get(units, index)!;
 const elseIndex = index;
 const questionIndex = this.QuestionIndexBefore(units, index);
 const startIndex = SearchFront(units, questionIndex, TernaryOperatorReorganization.IsTernaryOperatorStart);
-const parentIsJsonObject = JsonObjectReorganization.Instance.IsObject(current.Parent);
-const splitSymbol = parentIsJsonObject ? "," : ";";
-let endIndex = SearchBack(units, elseIndex, (item: Token) => item instanceof SymbolToken && item.Is(splitSymbol));
+let endIndex = SearchBack(
+  units,
+  elseIndex,
+  (item: Token) => item instanceof SymbolToken && (item.Is(",") || item.Is(";")),
+);
 if (endIndex === -1) {
   endIndex = units.length;
 }
 // 真值段不能越过**下一个 `?`**：`a ? b ? c : d : e` 里 `b ? c` 不是真值段，
 // 那个 `?` 属于内层三元（`b ? c : d`）。不夹这一刀，真值段会把内层的 `?` 与 `:` 一起吞进来，
 // 内层永远不成形，产物里留下裸的 `?` `:` 符号。
+//
+// **上界与 `Previous` 的 `segmentEnd` 是同一个**（第 123 轮）：分隔符右边那个 `?` 属于
+// **另一个**表达式（`{ a: x ? 1 : 0, b: x ? 2 : 0 }`），不是本三元的真值段里的嵌套。
+// 少了 `innerQuestion < endIndex` 这一夹，真值段会收下一批**不在本段里**的单元
+// （它们随后被 `ReplaceCountAt` 从列表里删掉，产物里出现同一个单元挂在两处）。
 let trueEnd = elseIndex;
 const innerQuestion = SearchBack(units, questionIndex, (item: Token) => item instanceof SymbolToken && item.Is("?"));
-if (innerQuestion !== -1) {
+if (innerQuestion !== -1 && innerQuestion < endIndex) {
   trueEnd = innerQuestion;
-}const ternaryOperator = new TernaryOperator(template);
+}
+const ternaryOperator = new TernaryOperator(template);
 ternaryOperator.Parent = current.Parent;
 const condition = ternaryOperator.CreateCondition();
 const trueStatement = ternaryOperator.CreateTrueStatement();

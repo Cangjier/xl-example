@@ -678,6 +678,11 @@ new Map([
   ["never", "NeverKeyword"],
   ["null", "NullKeyword"],
   ["this", "ThisKeyword"],
+  // **`intrinsic` 在 TS 那边是一个独立的 kind**（第 123 轮）：`type U = intrinsic;`
+  // 的 TS 节点是 `IntrinsicKeyword`——**不是** `TypeReference > Identifier`。
+  // 它只在类型位有意义（`lib.es5.d.ts` 的 `Uppercase` / `Lowercase` / `Capitalize` /
+  // `Uncapitalize` 四个内建别名就是这一族，一个文件里 5 处）。
+  ["intrinsic", "IntrinsicKeyword"],
 ])
 ```
 
@@ -2936,7 +2941,17 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     };
     props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
   }
-  const names = kids.filter((k) => isNameNode(k) && !(k.get("type") === "Keyword"));
+  // **限定名里可能有被升级成 `Keyword` 的名字**（第 123 轮）：`typeof import("./d").default`
+  // 的 `default` 是 `Keyword`（`KeywordReorganization` 把类型位的保留字都升了级），
+  // 原来那句 `!(type === "Keyword")` 把它一并滤掉，于是限定名整段丢
+  // （实测 `ImportType` 少 `qualifier`、缺 `Identifier`）。要滤的只有 **`typeof` 那个词**——
+  // 它是 TS 节点的标志位、不是限定名的一部分；`import` 是外面那个 `Method` 的名字，本来就不在这串里。
+  const names = kids.filter((k) => {
+    if (!isNameNode(k)) return false;
+    if (k.get("type") !== "Keyword") return true;
+    const word = textOfNode(k, ctx);
+    return word !== "typeof" && word !== "import";
+  });
   if (names.length > 0) props.qualifier = qualifiedNameFrom(names, ctx);
   // **类型实参**（第 114 轮）：`import("stream/web").QueuingStrategy<T>` 的 `<T>` 在产物里是
   // 平级的 `GenericType`，而 TS 的 `ImportType.typeArguments` 要照收——不收的话

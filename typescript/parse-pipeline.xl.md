@@ -350,7 +350,7 @@ template.Initialize((self: Template) => {
 所以就装这一条。
 
 ```ts
-unit.ReorganizationQueue = new Sequence<Reorganization>([ImportTypeReorganization.Instance, TypeBracketReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, InferTypeReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, TypeUnionReorganization.Instance, KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
+unit.ReorganizationQueue = new Sequence<Reorganization>([ImportTypeReorganization.Instance, TypeBracketReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, InferTypeReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, TypeUnionReorganization.Instance, ConditionalTypeReorganization.Instance, KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
 ```
 
 **七条规则、不是一条**：`ImportTypeReorganization` 把 `[typeof] import("m")[.A.B]` 收成
@@ -359,10 +359,25 @@ unit.ReorganizationQueue = new Sequence<Reorganization>([ImportTypeReorganizatio
 `keyof` / `typeof` / `readonly` / `unique` 连同它们的操作数收成 `TypeOperator` / `TypeQuery`；
 `LiteralTypeReorganization` 把类型位的字面量包成 `LiteralType`；
 `InferTypeReorganization` 把条件类型里的 `infer X` 收成 `InferType`（里面配一个 `TypeParameter`）；
-`TypeUnionReorganization` 收联合 / 交叉；`KeywordReorganization` 把类型位的关键词升级成 `Keyword`；
+`TypeUnionReorganization` 收联合 / 交叉；`ConditionalTypeReorganization` 收条件类型
+`T extends U ? A : B`（**排在联合之后**：回扫那个 `extends` 时，`|` / `&` 会先被联合收成一个
+单元，否则回扫在第一个 `|` 上就停下了——见下面「条件类型必须跟在联合后面」）；
+`KeywordReorganization` 把类型位的关键词升级成 `Keyword`；
 `WrapSymbolReorganization` 把类型文本里的**软换行**摘掉——类型可以折行排版，
 那些换行是版面而不是内容（`Array<String,` 换行 `Int64>` 里那个换行不该留在产物里）。
 其余的一律不要（见上）。
+
+**条件类型必须跟在联合后面**（第 123 轮补的这一条）：`type X = A extends B | C ? D : E;`
+的整段文本是**在 `TypeAssign` 自己的队列里**重组的（语句那一层 `|` 的父单元是 `Root`，
+不是类型容器，联合规则根本不会在那一层命中）。条件类型规则回扫 `?` 前面的 `extends` 时
+**遇到符号就停**，`|` 正是符号——所以联合先收成 `UnionType`（它的 `TryToClose` 会跑自己那一趟，
+把成员定下来）之后，条件类型才看得见那个 `extends`：
+
+    收联合之前： [A, extends, B, «|», C, «?», D, :, E]   ← 回扫在 «|» 上停，FindExtendsIndex = -1
+    收联合之后： [A, extends, «UnionType(B|C)», «?», D, :, E]  ← UnionType 是透明的，找到 extends ✓
+
+少了这一条，`lib.es5.d.ts` 的 `Awaited` 一整个类型别名、`typescript.d.ts` 的二十多条
+`… extends X | Y ? A : B` 全部落空（投影侧表现为「缺 `ConditionalType` + 缺它整个子树」）。
 
 **顺序即语义，几条前哨的先后不能换**：
 

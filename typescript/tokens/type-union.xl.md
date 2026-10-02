@@ -215,6 +215,62 @@ if (this.IsTypeOperand(before) === false) {
 return this.IsTypeOperand(Get(units, SkipNextWrapSymbol(units, index)));
 ```
 
+## private method IsConditionalAhead:(units:Array<Token>, index:int)=>bool
+
+`index`（一个 `|` / `&`）右边**同一段里**是不是还有一个 `?`——有就说明这一段是
+**条件类型里 `extends` 的右侧**，收集时**不能跨过那个 `extends`**。
+
+第 123 轮修。根因：收集是从运算符往两边走「类型操作数」的，而 `extends` 在产物里是
+`Identifier` / `Keyword`，**也是**类型操作数——于是一路吃到 `extends` 左边去：
+
+    type X = A extends B | C ? D : E;
+    → UnionType[«A extends B | C»]                        ✗
+    TS：ConditionalType[«A extends B | C ? D : E»] > UnionType[«B | C»]
+
+而 `UnionType` 是**不透明单元**，条件类型规则回扫 `extends` 时撞上它就再也找不到
+（`FindExtendsIndex` 的 if 链里没有它），整条条件类型一个节点都出不来——实测
+`lib.es5.d.ts` 的 `Awaited` 那一屏、`typescript.d.ts` 的二十多条全挂在这里。
+
+**只看 `?`、不看有没有 `extends`**：`?` 在类型位只可能来自条件类型（可选元组成员的
+`A?` 也在类型容器里，但它右边不会跟一个 `|`）。**同一段**的边界是 `,` / `;` / `=`——
+`<T extends A | B, U = X ? Y : Z>` 里那个 `|` 的 `?` 在后一个类型参数上，不是它的。
+
+```ts
+for (let i = index + 1; i < units.length; i++) {
+  const item = Get(units, i);
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === "?") {
+      return true;
+    }
+    if (text === "," || text === ";" || text === "=") {
+      return false;
+    }
+  }
+}
+return false;
+```
+
+## private method IsExtendsWord:(item:Token | null)=>bool
+
+`item` 是不是那个 `extends` 词。
+
+**词法身份不固定**：`<T extends U>` 里它升成了 `Keyword`，而接口 / 条件类型那几处
+一直是 `Identifier`（本仓库记过「接口的 `extends` 永远升不成 `Keyword`」）。
+`Identifier` 与 `Keyword` **没有共同的取文本方法**（`Identifier` 有 `Is` / `TempToString`，
+`Keyword` 只有 `Value`），所以必须分两支写——写成一支会在运行期抛
+`item.TempToString is not a function`（`ternary-operator.xl.md` 记过同一个坑）。
+
+```ts
+if (item instanceof Identifier) {
+  return item.Is("extends");
+}
+if (item !== null && item.constructor.name === "Keyword") {
+  return (item as any).Value === "extends";
+}
+return false;
+```
+
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int
 
 把「同族的类型运算」整段收成一个 `UnionType`（`|`）或 `IntersectionType`（`&`），
@@ -247,10 +303,16 @@ if (!(current instanceof SymbolToken)) {
   throw new Error("类型运算不满足格式要求：| 或 &");
 }
 const operator = current.TempToString();
+// **这一段是不是条件类型里 `extends` 的右侧**（见 `IsConditionalAhead`）：是的话
+// `extends` 就是收集的硬边界，左右两边都不能跨过去。
+const conditionalAhead = this.IsConditionalAhead(units, index);
 let startIndex = index;
 let scan = SkipPreviousWrapSymbol(units, index);
 while (scan >= 0) {
   const item = Get(units, scan);
+  if (conditionalAhead && this.IsExtendsWord(item)) {
+    break;
+  }
   const sameFamily = item instanceof SymbolToken && (item.Is(operator) || (operator === "|" && item.Is("&")));
   if (this.IsTypeOperand(item) || sameFamily) {
     startIndex = scan;
@@ -263,6 +325,9 @@ let endIndex = index;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
+    break;
+  }
+  if (conditionalAhead && this.IsExtendsWord(item)) {
     break;
   }
   if (item instanceof LineWrap) {

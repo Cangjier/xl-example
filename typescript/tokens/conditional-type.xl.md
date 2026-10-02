@@ -55,7 +55,36 @@ const current = Get(units, index);
 if (!(current instanceof SymbolToken) || current.Is("?") === false) {
   return false;
 }
-return this.FindExtendsIndex(units, index) >= 0;
+// **不许在 `ConditionalType` 里再包一层**（第 123 轮）：本单元挂的正是类型队列
+// （队列里有这条规则），收进去的那一段会再跑一趟——不挡就是**无限递归**
+// （实测 `RangeError: Maximum call stack size exceeded`，与 `type-union.xl.md` 那条
+// 「整段重包」的守卫同一个理由）。嵌套的条件类型由**外层贪婪收集**覆盖
+// （`A extends B ? C : D extends E ? F : G` 里的假分支不单独成形），这是第 55 轮以来的口径。
+if (current.Parent !== null && current.Parent.constructor.name === "ConditionalType") {
+  return false;
+}
+const extendsIndex = this.FindExtendsIndex(units, index);
+if (extendsIndex < 0) {
+  return false;
+}
+// **条件那一端还顶着一个 `|` / `&` ⇒ 先让联合成形**（第 123 轮）。
+//
+// `type X = null | undefined extends T ? T : never;` 这一族里，条件类型的**检查类型本身**
+// 是一个联合。联合是在**类型容器**（`TypeAssign` / `TypeDefine` / …）自己的队列里收的，
+// 而本规则在通用队列里也会被问到——语句那一层 `|` 的父单元是 `Root`，联合规则在那里
+// 判不成立（`Root` 不是类型容器）。于是本规则会在**联合还没成形**时先动手：
+// 回扫停在 `|` 上、`FindStart` 给出 `undefined`，收出一个
+// `ConditionalType(undefined extends T ? T : never)`——联合的左半边 `null |` 被留在外面，
+// 产物里于是「缺 `ConditionalType` + 缺 `UnionType` + 多出两个节点」。
+//
+// 判据就是「检查类型的左边界紧挨着一个 `|` / `&`」：那种情况下这一段还没有定型，
+// 让位给类型容器那一趟（联合先收成 `UnionType`，下一趟本规则再收条件类型）。
+const checkStart = this.FindStart(units, extendsIndex);
+const leftOfCheck = checkStart > 0 ? Get(units, checkStart - 1) : null;
+if (leftOfCheck instanceof SymbolToken && (leftOfCheck.Is("|") || leftOfCheck.Is("&"))) {
+  return false;
+}
+return true;
 ```
 
 ## private method FindExtendsIndex:(units:Array<Token>, index:int)=>int
@@ -95,6 +124,14 @@ for (let i = index - 1; i >= 0; i--) {
       return i;
     }
     continue;
+  }
+  // **`extends` 也可能是 `Keyword`**（第 123 轮）：`KeywordReorganization` 会把类型位的
+  // `extends` 升级（本文件按类型队列排在它前面，但**通用队列那一趟**里本规则也可能被问到
+  // 第二趟——那时词已经升级完了）。只认 `Identifier` 会让第二趟整类失灵，
+  // 与 `ternary-operator.xl.md` 的 `IsTypePosition` 记的是同一个坑。
+  // `Identifier` 与 `Keyword` **没有共同的取文本方法**（`Keyword` 只有 `Value`），所以分两支写。
+  if (item !== null && item.constructor.name === "Keyword" && (item as any).Value === "extends") {
+    return i;
   }
   if (item instanceof SymbolToken) {
     const text = item.TempToString();
