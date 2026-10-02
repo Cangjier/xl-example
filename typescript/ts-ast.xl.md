@@ -499,6 +499,14 @@ new Map([
       if (at >= 0) from = at + last.length;
     }
   }
+  // **装饰器也要推过**（第 170 轮）：`@observable` 换行 `a = 1` 里 `indexOf("a")` 会先命中
+  // 装饰器名里的那个 `a`（`observable` 的第 5 个字符），于是字段名节点的区间落在装饰器里
+  // （实测 `decl-class-decorator-property.ts`：`Identifier` 从 88 掉到 81）。
+  const decoratorKids = allKids(v).filter((k) => k.get("type") === "Decorator");
+  if (decoratorKids.length > 0) {
+    const lastDecorator = decoratorKids[decoratorKids.length - 1];
+    from = Math.max(from, endOf(lastDecorator));
+  }
   const found = ctx.source.indexOf(name, from);
   // **上界是「声明段的末尾」而不是 `v.end`**：`const f` 里那个 `f` 正好落在 `Let` 的末字符上，
   // 用 `found < v.end` 会把它判成越界（踩过：`const f = <T>(x: T): T => x` 的名字一直取不到）。
@@ -4777,7 +4785,16 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   } else if (rest !== undefined) {
     props.dotDotDotToken = projectNode(rest, ctx);
   }
-  return { kind: "Parameter", pos: v.start, end: stmtEndOf(v, ctx), ...props };
+  // **起点跳过前导 trivia**（第 170 轮）：形参之间夹着注释时（
+  // `f(a: A, // eslint-disable-next-line
+  //    b?: B)`）单元区间从注释起，而 TS 的 `Parameter.getStart()` 跳过它
+  // （实测 `@types/node/assert.d.ts`：`Parameter` 从行注释起，缺 1 + 多 1）。
+  return {
+    kind: "Parameter",
+    pos: kids.length > 0 ? startOf(kids[0]) : v.start,
+    end: stmtEndOf(v, ctx),
+    ...props,
+  };
 ```
 
 # private method projectConditionalExpression:(v:any, ctx:any)=>any
@@ -6738,7 +6755,12 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
   );
   const props = {};
   if (kids.length > 0) {
-    const inner = projectNode(kids[0], ctx);
+    // **装饰器名可能是一条链**（第 170 轮）：`@ns.dec` 的产物是
+    // `[Identifier(ns), SymbolToken(.), Identifier(dec)]` 三格平级，而 TS 的
+    // `Decorator.expression` 是一个 `PropertyAccessExpression`。只投第一格会只剩
+    // `Identifier(ns)`（实测 `cls-decorator-qualified-name.ts`：缺 `PropertyAccessExpression`
+    // + `Identifier`，且连「多出」都没有——那一段直接没了）。整段交给 `projectExpression` 折。
+    const inner = projectExpression(kids, ctx);
     if (inner !== undefined) props.expression = inner;
   }
   return { kind: "Decorator", pos: v.start, end: stmtEndOf(v, ctx), ...props };
