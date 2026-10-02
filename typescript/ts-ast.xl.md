@@ -584,6 +584,12 @@ new Map([
   // 而产物把那两个名字投成了 `Identifier`（实测缺 `SuperKeyword` 134 + 多出 `Identifier` 134）。
   // 它不可能是一个标识符名（`super` 是保留字），所以这一条没有副作用。
   if (text === "super") return "SuperKeyword";
+  // **`this` 永远是 `ThisKeyword`**（第 146 轮）：值位与类型位在 TS 那边都是它
+  // （`x?.Document === y.Document` 那种比较式里产物把 `this` 记成普通 `Identifier`，
+  // 实测 `dist/ts/core/syntax/source-range.ts`：缺 `ThisKeyword` 1 + 多出 `Identifier` 1）。
+  // **成员名 / 绑定名不走这里**（`nameOf` 一律给 `Identifier`），所以 `a.this` / `{ this: 1 }` 不受影响；
+  // 形参名那一处也单独走 `nameOf`。
+  if (text === "this") return "ThisKeyword";
   // **`undefined` 不走这里**（第 91 轮修）：它是**上下文关键字**——值位的 `x === undefined`
   // 在 TS 那边是一个 `Identifier`（`undefined` 不是保留字），只有**类型位**的 `: undefined`
   // 才是 `UndefinedKeyword`。这条表管的是**叶子**（值位标识符），把它算成 `UndefinedKeyword`
@@ -1986,7 +1992,66 @@ new Set([
   // `PropertyAccessExpression` 189 里成片，而且都会连带多出未映射的
   // `<NullConditionalOperator>` 与 `<Bracket>`。
   const ncoIndex = kids.findIndex((k) => k.get("type") === "NullConditionalOperator");
-  if (ncoIndex > 0) {
+  // **「二元单元里包着 NCO」那一形状要让给下面 0a2 那一支**（第 145 轮）：
+  //
+  //     x.Start?.Document === y.Start?.Document
+  //
+  // 的产物是 `[x, ., Start, BinaryOperator(===)(NCO(Document), ===, y), ., Start, NCO(Document)]`——
+  // 末尾那个 NCO 属于**右边那条链**（`y.Start?.Document`），但这一支会先把前缀投成二元表达式、
+  // 再往上套一层属性访问，右边那条链整个错位
+  // （实测 `dist/ts/core/syntax/source-range.ts`：漂移 2 + 多出 3，`PropertyAccessExpression`
+  // 的区间一直撑到整条比较式末尾）。0a2 那一条正是为这个形状写的：它把 NCO 接回基名、
+  // 再连**后面的兄弟**一起折。
+  const hasNcoInBinary = kids.some(
+    (k) =>
+      (k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator") &&
+      projectableKids(view(k))[0]?.get("type") === "NullConditionalOperator",
+  );
+  if (ncoIndex > 0 && hasNcoInBinary === false && kids[0].get("type") !== "BinaryOperator") {
+    // **前缀里有顶层二元运算符时，NCO 要并进「右边那个操作数段」**（第 145 轮）：
+    //
+    //     x.Start === y.Start?.Document
+    //
+    // 里 `?.Document` 属于**右操作数**（TS：`BinaryExpression(x.Start, ===, y.Start?.Document)`），
+    // 而直接 `chainWithOptional(projectExpression(整个前缀), nco)` 会把整条比较式包进属性访问
+    // （实测 `cy.ts` 的 a3：漂移 1 + 多出 2，区间一路撑到表达式末尾）。
+    // 做法与 0a2 同款：在运算符处切开，把 NCO 接到尾巴上再交回 `foldBinaryFrom`。
+    const prefix = kids.slice(0, ncoIndex);
+    const OP_TEXTS = new Set([
+      "+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==",
+      "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof",
+    ]);
+    let opAt = -1;
+    let bestRank = 99;
+    for (let i = 1; i < prefix.length; i++) {
+      const k = prefix[i];
+      if (k.get("type") === "BinaryOperator" || k.get("type") === "LogicalOperator") {
+        opAt = i;
+        break;
+      }
+      const text = textOfNode(k, ctx);
+      if (k.get("type") !== "SymbolToken" || OP_TEXTS.has(text) === false) {
+        continue;
+      }
+      const rank = operatorRank(text);
+      if (rank < bestRank) {
+        bestRank = rank;
+        opAt = i;
+      }
+    }
+    if (opAt > 0) {
+      const base = projectExpression(prefix.slice(0, opAt), ctx);
+      if (base !== undefined) {
+        let optional = foldBinaryFrom(base, [...prefix.slice(opAt), kids[ncoIndex]], ctx);
+        let at = ncoIndex + 1;
+        while (at < kids.length && kids[at].get("type") === "NullConditionalOperator") {
+          optional = chainWithOptional(optional, kids[at], ctx);
+          at++;
+        }
+        if (at >= kids.length) return optional;
+        return foldBinaryFrom(optional, kids.slice(at), ctx);
+      }
+    }
     let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
     let at = ncoIndex;
     while (at < kids.length && kids[at].get("type") === "NullConditionalOperator") {
@@ -1998,7 +2063,31 @@ new Set([
   }
   // ---- 0a2. `?.` 那一串被包进了**二元的操作数位**（第 124 轮）----
   //
-  // `return t?.get("k") ?? "k"` 的产物是
+  // **二元单元排在列表最前面、右操作数延续到它外面的兄弟**（第 145 轮）：
+  //
+  //     x.Start === y.Start?.Document
+  //     ⇒ [BinaryOperator(===)( PropertyAccess(x.Start), «===», y ), ., Start, NCO(Document)]
+  //
+  // ——左操作数与运算符都在那个单元里，**右操作数却是「它最后一个孩子 + 后面那些兄弟」**
+  // （末尾那个 `?.Document` 让链收不进单元）。照通用支投的话这个二元单元会被当成一个整操作数，
+  // 后面那截链再单独成节点（实测 `cy.ts` 的 a3：漂移 1 + 多出 2）。
+  //
+  // **必须排在上面那一支（`?.` 接在链后面）之前**：不排的话末尾那个 NCO 会先把整个前缀
+  // （含这个二元单元）投成一条链、再往上套属性访问，右操作数就永远接不上。
+  if (kids.length >= 2 && kids[0].get("type") === "BinaryOperator") {
+    const headInner = projectableKids(view(kids[0]));
+    if (headInner.length >= 2) {
+      const operatorUnit = headInner[headInner.length - 2];
+      const base = projectExpression(headInner.slice(0, headInner.length - 2), ctx);
+      if (base !== undefined && isOperatorUnit(operatorUnit, ctx)) {
+        return foldBinaryFrom(
+          base,
+          [operatorUnit, ...headInner.slice(headInner.length - 1), ...kids.slice(1)],
+          ctx,
+        );
+      }
+    }
+  }
   //
   //   [Identifier(t), BinaryOperator(??)( NullConditionalOperator(Method(get)), «??», String )]
   //
