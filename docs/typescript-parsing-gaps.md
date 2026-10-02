@@ -3010,3 +3010,33 @@ $ node tests/parse/ts-ast.mjs --per-file
 
 `TypeAssign` 与其余 18 个一样**留在共享层**：它的投影要接一个**外层起点**（`export type T = string`
 的 `pos` 从 `export` 起，由 `projectStatement` 递 `baseStart` 进来），`PrintAst(ctx, v)` 拿不到那个参数。
+
+### 第 191 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| `Namespace` | `tokens/namespace/namespace.xl.md` |
+| `MappedType` | `tokens/type-literal/mapped-type.xl.md` |
+
+中央 `switch` 的 `case` 从 22 降到 **20**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了出口 `Structural`（`structuralProps` 的转发）。
+
+**踩到的坑（值得单独记）**：`namespace.xl.md` **import 了本工程的 `String` 类**（字符串 token），
+它把全局的 `String` 遮蔽掉了——从 `ts-ast` 搬过去的 `String(v.attrs.get("namespace") ?? "")`
+一到这个模块里就变成「用 `new` 调一个 token 类」，直接抛
+`Class constructor String cannot be invoked without 'new'`。改成
+`const raw = ....; const name = typeof raw === "string" ? raw : ""` 即可。
+
+> 搬迁手册补一条：**搬进某个 token 文件后，先看那个文件的 import**——
+> 本工程里有 `String` / `Number` 这类**与全局同名**的 token 类，
+> 从 `ts-ast`（没被遮蔽）搬过去的裸全局调用会静默换语义。
+
+### 还差什么
+
+可搬的只剩 **1 块**：`TypeParameter`（8.2k，依赖 `isTypeParameterModifier` / `splitTopLevel` /
+`typeOf` / `flattenInner` 等，都要经 `ctx` 出去）。搬完它就只剩 19 个「必须留在共享层」的
+`case`（`Root` / `Statement` / `Let` / `BinaryOperator` / `LogicalOperator` / `UnaryOperator` /
+`Method` / `PropertyAccess` / `TypeDefine` / `TypeAssign` / `Parameter` / `LamdaParameter` /
+`Lamda` / `Import` / `IfSet` / `Signature` / `Field`），届时进入收尾：删 `switch`、
+把共享实现改名 `print-ast-common.xl.md`。
