@@ -165,6 +165,44 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<Foreach>` 里依次是 Define、Enumable、Body 三段的 XML。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`for (const x of xs) { … }` / `for (const k in o) { … }` → `ForOfStatement` / `ForInStatement`
+（**从 `ts-ast.xl.md` 的 `projectForeach` 搬来**，第 185 轮）。
+
+**`of` 与 `in` 产物里没有记号**（`Foreach` 只有 `define` / `enumable` / `body` 三个段），
+所以按**原文**分辨：声明与枚举对象之间那一截里有 `in` 就是 `ForInStatement`。
+
+**`for await (… of …)` 的 `awaitModifier`**（第 174 轮）：TS 的 `ForOfStatement` 在
+`for` 与 `(` 之间有一个 `AwaitKeyword` 子节点（`awaitModifier`），而产物把它记成一个
+平级的 `Keyword(await)`（见上面构造器那段说明）。判据用**子单元**而不是原文：
+`header` 拿到的是配对的 `)`，从它切不出 `for` 与 `(` 之间那一段。
+
+```ts
+  const props: any = {};
+  const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (define.length > 0) {
+    props.initializer =
+      define[0].get("type") === "Let" ? ctx.LetFrom(define, v).list : ctx.Expression(define);
+  }
+  const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (enumable.length > 0) props.expression = ctx.Expression(enumable);
+  const from = define.length > 0 ? ctx.EndOf(define[define.length - 1]) : v.start;
+  const to = enumable.length > 0 ? ctx.StartOf(enumable[0]) : v.end;
+  const kind = /\bin\b/.test(ctx.source.slice(from, to)) ? "ForInStatement" : "ForOfStatement";
+  const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const header = ctx.MatchingParen(ctx.source, v.start);
+  const statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
+  if (statement !== undefined) props.statement = statement;
+  const awaitUnit = ctx.Kids(v).find(
+    (k: any) => k.get("type") === "Keyword" && ctx.TextOf(k) === "await",
+  );
+  if (kind === "ForOfStatement" && awaitUnit !== undefined) {
+    props.awaitModifier = ctx.Project(awaitUnit);
+  }
+  return ctx.Node(kind, props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，**并且把它自己的队列装上**。

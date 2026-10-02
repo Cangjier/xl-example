@@ -1070,8 +1070,6 @@ new Map([
     // `While` / `DoWhile` 已搬进 `tokens/while/while.xl.md` 与
     // `tokens/do-while/do-while.xl.md` 的 `PrintAst`（第 183 轮）。
 
-    case "Foreach":
-      return projectForeach(v, ctx);
 
     // **`new` 表达式**（第 95 轮）：产物的 `name` 段是**一串单元**（名字 + 类型实参段），
     // 照通用投影会把它们一起投成 `expression`（实测 `NewExpression` 字段名差 19 +
@@ -6087,43 +6085,6 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
 ```
 
-# private method projectForeach:(v:any, ctx:any)=>any
-
-`for (const x of xs) { … }` / `for (const k in o) { … }` → `ForOfStatement` / `ForInStatement`。
-
-**`of` 与 `in` 产物里没有记号**（`Foreach` 只有 `define` / `enumable` / `body` 三个段），
-所以按**原文**分辨：声明与枚举对象之间那一截里有 `in` 就是 `ForInStatement`。
-
-```ts
-  const props = {};
-  const define = kidsOf(v, "define").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (define.length > 0) {
-    props.initializer =
-      define[0].get("type") === "Let" ? projectLetFrom(define, ctx, v).list : projectExpression(define, ctx);
-  }
-  const enumable = kidsOf(v, "enumable").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (enumable.length > 0) props.expression = projectExpression(enumable, ctx);
-  const from = define.length > 0 ? endOf(define[define.length - 1]) : v.start;
-  const to = enumable.length > 0 ? startOf(enumable[0]) : v.end;
-  const kind = /\bin\b/.test(ctx.source.slice(from, to)) ? "ForInStatement" : "ForOfStatement";
-  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
-  const header = matchingParenOf(ctx.source, v.start);
-  const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
-  if (statement !== undefined) props.statement = statement;
-  // **`for await (… of …)` 的 `awaitModifier`**（第 174 轮）：TS 的 `ForOfStatement` 在
-  // `for` 与 `(` 之间有一个 `AwaitKeyword` 子节点（`awaitModifier`），而产物把它记成一个
-  // 平级的 `Keyword(await)`、投影侧一直没收（实测 `st-for-await.ts` / `stmt-for-await.ts` /
-  // `fn-async-generator.ts` 一族：每处缺 `AwaitKeyword` + `ForOfStatement` 字段名差）。
-  // 判据用**子单元**而不是原文：`header` 拿到的是配对的 `)`，从它切不出 `for` 与 `(` 之间那一段。
-  const awaitUnit = projectableKids(v).find(
-    (k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "await",
-  );
-  if (kind === "ForOfStatement" && awaitUnit !== undefined) {
-    props.awaitModifier = projectNode(awaitUnit, ctx);
-  }
-  return { kind, pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method blockOfBody:(kids:Array<any>, ctx:any, from:int)=>any
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
@@ -7348,6 +7309,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     MatchingParen: (source, at) => matchingParenOf(source, at),
     IndexBracketOf: (view) => indexBracketOf(view, ctx),
     ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
+    LetFrom: (list, view) => projectLetFrom(list, ctx, view),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
