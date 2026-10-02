@@ -1001,8 +1001,6 @@ new Map([
     case "LogicalOperator":
       return projectLogical(v, ctx);
 
-    case "Signature":
-      return projectSignature(v, ctx);
 
 
     case "Field":
@@ -5148,63 +5146,6 @@ import { A as B, C } from "m"
     end,
     ...props,
   };
-```
-
-# private method projectSignature:(v:any, ctx:any)=>any
-
-可调用 / 可构造签名 `(x: A): B` / `new (x: A): B` → `CallSignature` / `ConstructSignature`。
-
-产物那边两者**同标签**（`<Signature kind="call|construct">`），靠 `kind` 属性分——
-所以这里按属性换 kind。TS 那边两者都没有名字字段、形参直接挂在自己身上。
-
-```ts
-  let kind = v.attrs.get("kind") === "construct" ? "ConstructSignature" : "CallSignature";
-  const props = structuralProps(v, kind, ctx);
-  const kids = projectableKids(v);
-  // **`abstract new (): A` 在接口里是 `MethodSignature`**（第 172 轮）：`abstract` 不能修饰
-  // 构造签名，TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
-  // `MethodSignature > [AbstractKeyword, Identifier("new"), TypeReference(A)]`
-  // （实测 `decl-interface-abstract-construct-signature.ts`：`ConstructSignature` 多 1、
-  // 缺 `MethodSignature` + `AbstractKeyword` + `Identifier`）。
-  const abstractUnit = kids.find((k) => textOfNode(k, ctx) === "abstract");
-  if (kind === "ConstructSignature" && abstractUnit !== undefined) {
-    kind = "MethodSignature";
-    const at = startOf(abstractUnit);
-    props.modifiers = [
-      ...(props.modifiers ?? []),
-      { kind: "AbstractKeyword", text: "abstract", pos: at, end: endOf(abstractUnit) },
-    ];
-    const newAt = ctx.source.indexOf("new", endOf(abstractUnit));
-    if (newAt >= 0) {
-      props.name = { kind: "Identifier", text: "new", pos: newAt, end: newAt + 3 };
-    }
-  }
-  // **`new` 不是 `ConstructSignature` 的子节点**（第 111 轮）：TS 里 `new (x): T` 的 `new`
-  // 只是语法记号（kind 自己说明这是构造签名），而产物把它收成一个平级的 `Keyword(new)`——
-  // 通用支会把它顶着 `parameters` 投出去（实测多出 `NewKeyword` 67）。
-  if (kind === "ConstructSignature" && Array.isArray(props.parameters)) {
-    props.parameters = props.parameters.filter((p) => !(p !== null && p !== undefined && p.kind === "NewKeyword"));
-  }
-  // 产物把 `new` 收成一个 `New` 子单元（`NewType` 里才是形参括号）：TS 那边
-  // `ConstructSignature` 的形参**直接挂在自己身上**，中间没有那一层。
-  const newUnit = kids.find((k) => k.get("type") === "New");
-  if (newUnit !== undefined) {
-    const inner = projectableKids(view(newUnit));
-    const bracket = inner.find((k) => k.get("type") === "Bracket");
-    if (bracket !== undefined) {
-      const params = unwrapNodes(bracket).filter((k) => !INVISIBLE.has(k.get("type")));
-      props.parameters = projectEach(params, ctx, kind);
-    }
-    const returnType = inner.find((k) => k.get("type") === "ReturnType");
-    if (returnType !== undefined) {
-      const inner2 = unwrapNodes(returnType).filter((k) => !INVISIBLE.has(k.get("type")));
-      const t = typeOf(inner2, ctx);
-      if (t !== undefined) props.type = t;
-    }
-    delete props.children;
-  }
-  const end = SIGNATURE_KINDS.has(kind) && ctx.source[stmtEndOf(v, ctx)] === ";" ? stmtEndOf(v, ctx) + 1 : stmtEndOf(v, ctx);
-  return { kind, pos: v.start, end, ...props };
 ```
 
 # private method projectExport:(v:any, ctx:any, following:Array<any>)=>any

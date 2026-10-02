@@ -350,6 +350,68 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 **类名必须与产物的标签名一致**：`constructor.name` 就是它的 XML 标签名。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+可调用 / 可构造签名 `(x: A): B` / `new (x: A): B` → `CallSignature` / `ConstructSignature`
+（**从 `ts-ast.xl.md` 的 `projectSignature` 整块搬来**，第 193 轮）。
+
+产物那边两者**同标签**（`<Signature kind="call|construct">`），靠 `kind` 属性分——
+所以这里按属性换 kind。TS 那边两者都没有名字字段、形参直接挂在自己身上。
+
+**`abstract new (): A` 在接口里是 `MethodSignature`**（第 172 轮）：`abstract` 不能修饰构造签名，
+TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
+`MethodSignature > [AbstractKeyword, Identifier("new"), TypeReference(A)]`。
+
+**`new` 不是 `ConstructSignature` 的子节点**（第 111 轮）：TS 里 `new (x): T` 的 `new`
+只是语法记号，而产物把它收成一个平级的 `Keyword(new)`（实测多出 `NewKeyword` 67）。
+产物把 `new` 收成一个 `New` 子单元（`NewType` 里才是形参括号）：TS 那边
+`ConstructSignature` 的形参**直接挂在自己身上**，中间没有那一层。
+
+**结尾的分号是**照原来那份实现量的（只认 `;`，不认 `,`）——共享层的 `ctx.Node`
+对可调用签名两种都加，所以这里**不能用 `ctx.Node`**，直接写字面量。
+
+```ts
+  let kind = v.attrs.get("kind") === "construct" ? "ConstructSignature" : "CallSignature";
+  const props: any = ctx.Structural(v, kind);
+  const kids = ctx.Kids(v);
+  const abstractUnit = kids.find((k: any) => ctx.TextOf(k) === "abstract");
+  if (kind === "ConstructSignature" && abstractUnit !== undefined) {
+    kind = "MethodSignature";
+    const at = ctx.StartOf(abstractUnit);
+    props.modifiers = [
+      ...(props.modifiers ?? []),
+      { kind: "AbstractKeyword", text: "abstract", pos: at, end: ctx.EndOf(abstractUnit) },
+    ];
+    const newAt = ctx.source.indexOf("new", ctx.EndOf(abstractUnit));
+    if (newAt >= 0) {
+      props.name = { kind: "Identifier", text: "new", pos: newAt, end: newAt + 3 };
+    }
+  }
+  if (kind === "ConstructSignature" && Array.isArray(props.parameters)) {
+    props.parameters = props.parameters.filter(
+      (p: any) => !(p !== null && p !== undefined && p.kind === "NewKeyword"),
+    );
+  }
+  const newUnit = kids.find((k: any) => k.get("type") === "New");
+  if (newUnit !== undefined) {
+    const inner = ctx.Kids(newUnit);
+    const bracket = inner.find((k: any) => k.get("type") === "Bracket");
+    if (bracket !== undefined) {
+      const params = ctx.UnwrapNodes(bracket).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+      props.parameters = ctx.ProjectEach(params, kind);
+    }
+    const returnType = inner.find((k: any) => k.get("type") === "ReturnType");
+    if (returnType !== undefined) {
+      const inner2 = ctx.UnwrapNodes(returnType).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+      const t = ctx.TypeOf(inner2);
+      if (t !== undefined) props.type = t;
+    }
+    delete props.children;
+  }
+  const end = ctx.source[ctx.StmtEndOf(v)] === ";" ? ctx.StmtEndOf(v) + 1 : ctx.StmtEndOf(v);
+  return { kind, pos: v.start, end, ...props };
+```
+
 ## constructor:(template:Template)=>void
 
 创建时把本类型的重组规则挂上来（模板里没有专门给 `Signature` 注册就用通用队列）。
