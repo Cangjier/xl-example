@@ -2444,3 +2444,17 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `header.d.ts` | 2 / 1 / 1 | 映射类型 |
 | `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 2~4 | 可选链与 `new` / `delete` / `!` 的混排 |
 | 其余 | 每文件 1~3 | 零散 |
+
+### 第 159 轮的补记
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 158 轮末 | 1332 / 1407 | 80 | 28 | 72 | 17 | 197 |
+| 第 159 轮末 | **1342 / 1407** | 68 | 28 | 60 | 17 | **173** |
+
+- **类型参数的 `in` / `out` / `const` 各有自己的 kind**（`InKeyword` / `OutKeyword` /
+  `ConstKeyword`）：产物把它们记成普通 `Identifier` / `Keyword`，照通用投影会投出 `Identifier`
+  （实测 `ty-variance.ts` 一族：缺 `OutKeyword` 7 + 多出 `Identifier` 7）。
+- **前面只有 trivia 时换行就是语句边界**：`// 注释` 换行 `!x;` 里 `previous`（跳过 trivia 之后）
+  是 `null`，落到 `ContinuesExpression("!")` 判成续行，注释与 `!x;` 被并成一条语句
+  （实测 `expr-unary-prefix.ts`：缺整条 `ExpressionStatement`）。
