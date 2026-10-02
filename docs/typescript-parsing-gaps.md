@@ -2566,3 +2566,35 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
 | `cls-decorator-qualified-name.ts` | 2 / 0 / 0 | 装饰器上的限定名 |
 | 其余 | 每文件 1~2 | 零散 |
+
+---
+
+# 第 170~171 轮：前导 trivia、装饰器链、平的 `<...>`
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 169 轮末 | 1375 / 1407 | 32 | 13 | 17 | 12 | 74 |
+| 第 171 轮末 | **1380 / 1407** | 25 | 12 | 13 | 12 | **62** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 170 | **形参起点跳过前导 trivia**：`f(a: A, // eslint-disable-next-line` 换行 `b?: B)` 里 `Parameter` 的单元区间从注释起 | `ts-ast.xl.md`（`projectParameter`） |
+| 170 | **装饰器名可能是一条链**：`@ns.dec` 的产物是三格平级，`Decorator.expression` 该是 `PropertyAccessExpression` | `ts-ast.xl.md`（`projectDecorator`） |
+| 170 | **合成名字要推过装饰器**：`@observable` 换行 `a = 1` 里 `indexOf("a")` 先命中装饰器名里的那个 `a` | `ts-ast.xl.md`（`synthName`） |
+| 171 | **平的 `<...>` 类型实参段**：`A[Lowercase<K>]` 里那个 `<` 落在 `IsTypePosition` 白名单之外，产物是平铺五格，TS 照样是带 `typeArguments` 的 `TypeReference` | `ts-ast.xl.md`（`projectTypeExpression`） |
+
+第 171 轮的实测：`undici-types/header.d.ts` 的 `KnownHeaderValues[Lowercase<K>]`；同一支还
+顺带覆盖了 `type T = A[F<A>]` 与映射类型的 `as` 段。
+
+## 还剩什么（共 62）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[][]` 双后缀（token 层的数组规则与泛型段的时序） |
+| `lex-number-member-with-space.ts` | 3 / 1 / 1 | `1 .toString()`（词法层那个点被吞） |
+| `decl-interface-abstract-construct-signature.ts` | 3 / 0 / 1 | `abstract new (): A`（TS 读成 `MethodSignature`） |
+| `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
+| `samples/generic.ts` | 0 / 1 / 1 | 工程自造的非法样本（`class Foo<T> { let value: T }`），TS 自己报错后提前收尾 |
+| 其余 | 每文件 1~2 | 零散 |
