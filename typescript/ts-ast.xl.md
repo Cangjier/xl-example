@@ -956,9 +956,8 @@ new Map([
     case "ImportType":
       return projectImportType(v, ctx);
 
-    // `infer X`：TS 那边只有一个 `typeParameter` 子字段，`infer` 那个词**不是**子节点。
-    case "InferType":
-      return projectInferType(v, ctx);
+    // `infer X`（TS 那边只有 `typeParameter` 一个子字段，`infer` 那个词**不是**子节点）
+    // 已搬进 `tokens/infer-type.xl.md` 的 `InferType.PrintAst`（第 183 轮）。
 
     // 下标访问类型 `A[K]`：TS 那边是 `objectType` + `indexType` 两个具名字段。
     case "IndexedAccessType":
@@ -993,10 +992,8 @@ new Map([
     // （实测「多出来」里 `ExclamationToken` 350 个全是它）。
     //
     // **这里的 `case` 是产物标签，不是 TS 的 kind**（踩过一回）：产物标签是 `NotNull`，
-    // `NonNullExpression` 是 `KIND_BY_TAG` 给它的**投出**名字——写成后者时这一支永远不命中，
-    // 而那 350 个 `ExclamationToken` 一个都不会少。
-    case "NotNull":
-      return projectNonNullExpression(v, ctx);
+    // `NonNullExpression` 是 `KIND_BY_TAG` 给它的**投出**名字——写成后者时那一支永远不命中。
+    // 现在整段已搬进 `tokens/not-null.xl.md` 的 `NotNull.PrintAst`（第 183 轮）。
 
     // 类型运算符 `keyof T` / `readonly T[]` / `unique symbol`：TS 那边那个词是节点的**属性**
     // （`operator`），`forEachChild` 只看 `type` 一个子字段。
@@ -4522,20 +4519,6 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   return node;
 ```
 
-# private method projectInferType:(v:any, ctx:any)=>any
-
-`infer X` / `infer X extends Y` → `InferType`（唯一子字段是 `typeParameter`）。
-
-`infer` 那个词**不是子节点**：TS 的 `InferType` 只有 `typeParameter` 一格
-（实测这一类的字段名差异 72 处全是「产物有 `children`、TS 只有 `typeParameter`」）。
-
-```ts
-  const param = projectableKids(v).find((k) => k.get("type") === "TypeParameter");
-  const props = {};
-  if (param !== undefined) props.typeParameter = projectNode(param, ctx);
-  return { kind: "InferType", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method indexBracketOf:(v:any, ctx:any)=>int
 
 下标访问类型 `A[K]` 里**下标那一对方括号的左括号**位置。
@@ -6545,24 +6528,6 @@ TS 那边的 `properties` 是**成员数组**：
   return { kind: "ObjectLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectNonNullExpression:(v:any, ctx:any)=>any
-
-非空断言 `x!` → `NonNullExpression`（**只有 `expression` 一个子字段**）。
-
-TS 那边 `!` 是节点的属性（`exclamationToken`），`forEachChild` **不访问**它；产物那边它是
-`[Identifier, SymbolToken(!)]` 两个平级单元——照通用投影会把 `!` 也算进 `expression`
-（实测「多出来的节点」里 `ExclamationToken` 350 个全是它）。
-
-```ts
-  const kids = projectableKids(v).filter(
-    (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
-  );
-  const props = {};
-  const expression = kids.length > 0 ? projectExpression(kids, ctx) : undefined;
-  if (expression !== undefined) props.expression = expression;
-  return { kind: "NonNullExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectTypeOperator:(v:any, ctx:any)=>any
 
 `keyof T` / `readonly T[]` / `unique symbol` → `TypeOperator`（**只有 `type` 一个子字段**）。
@@ -7571,6 +7536,10 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     Kids: (view) => projectableKids(view),
     Expression: (list) => projectExpression(list, ctx),
     TypeExpression: (list) => projectTypeExpression(list, ctx),
+    ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
+    KidsOf: (view, key) => kidsOf(view, key),
+    BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
+    MatchingBrace: (source, at) => matchingBrace(source, at),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
