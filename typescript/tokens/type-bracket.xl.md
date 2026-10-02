@@ -130,29 +130,49 @@ if (current === null) {
 const previousIndex = SkipPreviousWrapSymbol(units, index);
 const previous = Get(units, previousIndex);
 const hasOperand = IsTypeOperandUnit(previous);
+// **`X<A, D>[]`：实参段前面那个名字也要一起收进来**（第 172 轮）：产物把「名字」与
+// 「`<实参>` 段」摆成**平级两格**（`[Identifier(X), GenericType(<A, D>)]`），
+// `[]` 只按紧邻的那一格收时名字会留在外面——`TypeDefine > [Identifier(X), ArrayType > GenericType]`，
+// 而 TS 是 `ArrayType > TypeReference(X<A, D>)`（实测 `type-generic-array-suffix.ts`：
+// `ArrayType` 漂 2 + `TypeReference` / `Identifier` 各缺 1）。
+// 所以遇到 `GenericType` 时把下标再往回推一格，让新节点的范围从名字起算。
+let operandIndex = previousIndex;
+if (previous !== null && previous.constructor.name === "GenericType") {
+  const beforeGeneric = SkipPreviousWrapSymbol(units, previousIndex);
+  const nameUnit = Get(units, beforeGeneric);
+  if (IsTypeOperandUnit(nameUnit)) {
+    operandIndex = beforeGeneric;
+  }
+}
 if (IsEmptyContentUnit(current) && hasOperand) {
   if (this.IsNestedInTypeBracket(current, previousIndex, index, units)) {
     return index;
   }
   const array = new ArrayType(current.Template);
-  array.SignIn(previous!.SourceRange.Start!);
+  array.SignIn(Get(units, operandIndex)!.SourceRange.Start!);
   array.SignOut(current.SourceRange.End!);
-  array.AddAndCloseLast(previous!);
+  array.AddAndCloseLast(Get(units, operandIndex)!);
+  if (operandIndex !== previousIndex) {
+    array.AddAndCloseLast(previous!);
+  }
   current.MoveDataTo(array);
   array.TryToClose();
-  return ReplaceCountAt(units, previousIndex, index - previousIndex + 1, array);
+  return ReplaceCountAt(units, operandIndex, index - operandIndex + 1, array);
 }
 if (IsEmptyContentUnit(current) === false && hasOperand) {
   if (this.IsNestedInTypeBracket(current, previousIndex, index, units)) {
     return index;
   }
   const indexed = new IndexedAccessType(current.Template);
-  indexed.SignIn(previous!.SourceRange.Start!);
+  indexed.SignIn(Get(units, operandIndex)!.SourceRange.Start!);
   indexed.SignOut(current.SourceRange.End!);
-  indexed.AddAndCloseLast(previous!);
+  indexed.AddAndCloseLast(Get(units, operandIndex)!);
+  if (operandIndex !== previousIndex) {
+    indexed.AddAndCloseLast(previous!);
+  }
   current.MoveDataTo(indexed);
   indexed.TryToClose();
-  return ReplaceCountAt(units, previousIndex, index - previousIndex + 1, indexed);
+  return ReplaceCountAt(units, operandIndex, index - operandIndex + 1, indexed);
 }
 if (this.IsNestedInTypeBracket(current, index, index, units)) {
   return index;
