@@ -49,7 +49,10 @@ const leadingDot = IsLeadingDotNumber(source.Document, source.Index);
 if (last instanceof Identifier) {
   if (value === "." && unit.Template.SymbolTemplate.IsSymbol(value)) {
     const result = new BranchConditionResult();
-    if (last.IsDecimalIntegerPrefix()) {
+    // **数字与点号之间隔着空白时那个点是成员访问**（第 180 轮）：`1 .toString()` 里
+    // `1` 已经被那个空白**关掉**（`last.Closed`），点号不该再并进数字。
+    // `1.5` 不受影响：那儿点号紧挨着数字，`Closed` 还是假。
+    if (last.Closed === false && last.IsDecimalIntegerPrefix()) {
       result.Success = true;
       result.Message = 1;
       return result;

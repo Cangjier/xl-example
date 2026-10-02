@@ -79,7 +79,16 @@ if (last instanceof SymbolToken) {
   result.Message = last.IsAppend(source) ? 1 : 0;
   return result;
 }
-if (value === "." && last instanceof Identifier && last.IsDecimalIntegerPrefix()) {
+if (
+  value === "." &&
+  last instanceof Identifier &&
+  last.IsDecimalIntegerPrefix() &&
+  // **已经关掉的数字后面那个点是成员访问**（第 180 轮）：这一条原来只看「前一个是十进制
+  // 整数前缀」，于是 `1 .toString()` 里那个点**两边都不要**——`Identifier.Condition` 那边
+  // 已经按 `Closed` 放行（它不再吃这个点），这里又拒收，结果点号整个消失
+  // （产物成了 `Identifier(1)` + `Method(toString)`，`1 .toString()` 那次调用也丢了）。
+  last.Closed === false
+) {
   const result = new BranchConditionResult();
   result.Success = false;
   return result;
