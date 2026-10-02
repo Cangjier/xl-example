@@ -165,14 +165,28 @@ kind、区间、**字段名**。第三样是这一轮补的：此前只比 kind 
 
 | 口径 | 用例语料 | 真实语料 |
 | --- | --- | --- |
-| 投影节点 / TS 语义节点 | 14816 / 15343 | 480209 / 453862 |
-| 同 kind 同区间 | **84.8%** | **97.1%** |
+| 投影节点 / TS 语义节点 | 14844 / 15343 | 480427 / 453862 |
+| 同 kind 同区间 | **85.3%** | **97.4%** |
 | 其中**字段名也一致** | **96.9%** | **99.4%** |
 
 **「缺」与「漂移」是两件事，尺子分开报**（第 34 轮补的）：前者是「这一类根本没投出来」，
 后者是「同一类节点位置差一点」。混在一起时漂移会把缺失挤下榜首——
 真实语料里 `TypeReference` 的漂移 1749 比它自己的缺失 2102 还接近榜首。
 两段现在都带样本（`投影后仍缺的 TS kind` / `投影后同 kind 但区间漂移`）。
+
+### 第 74 轮：类型谓词 / `export =` / `this` 形参（真实语料 97.1% → 97.4%）
+
+三处「一次清一类」的账，都是**同一套标签在投影层少一层或错一层**：
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `TypeReference` 缺 **360** + 一批 `Identifier`（父 `TypePredicate`） | 类型谓词的三样身份（`asserts` / 参数名 / `is`）在产物里是**平级子单元**，通用投影全投成一串 `Identifier`——`isKeyword` 与谓词里的类型不成形 | 新增 `projectTypePredicate`，按四段切 |
+| `ExportAssignment` 缺 **849** | `export = X` / `export default X` 的表达式在 `Export` 单元**外面**（`Statement > [Export, 表达式]`），通用投影把 `Export` 投成 `ExportDeclaration`、表达式留成平级的 `ExpressionStatement` | 新增 `projectExport`：整条语句收成 `ExportAssignment`（尾分号算进去） |
+| `Identifier` 缺 **1149** 里的一大块（父 `Parameter`） | **`this` 形参的名字在 TS 里是 `Identifier`**（文本 `this`），产物那边是 `<Keyword>this</Keyword>`，照通用投影成了 `ThisKeyword`（它只在类型位出现） | `projectParameter` 对名字为 `this` 的形参显式投 `Identifier` |
+
+成绩：真实 97.1% → **97.4%**、用例 84.8% → **85.3%**；`Identifier` 2564 → **1422**、
+`ExportAssignment` 849 → **0**。新增三条用例（`mod-export-assignment` / `type-predicate-asserts-is` /
+`decl-func-this-parameter`），用例 1024 → **1027**。
 
 ### 第 73 轮：类型别名右值走类型位投影 + `ConstructSignature`（真实语料 95.8% → 97.1%）
 

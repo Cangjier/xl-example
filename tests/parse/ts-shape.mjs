@@ -605,6 +605,9 @@ function projectNode(node, ctx, parentKind) {
     case "Signature":
       return projectSignature(v, ctx);
 
+    case "TypePredicate":
+      return projectTypePredicate(v, ctx);
+
     case "Field":
       return projectField(v, ctx);
 
@@ -838,6 +841,11 @@ function projectStatement(v, ctx) {
   if (kids.length === 0) return undefined;
   const head = kids[0];
   const headType = head.get("type");
+  // **`export = X` / `export default X`**：产物那边表达式是 `Export` 单元的**平级兄弟**
+  // （`Statement > [Export(export/=), 表达式]`），所以整条语句要交给 `projectExport`。
+  if (headType === "Export" && kids.length > 1) {
+    return projectExport(head, ctx, kids.slice(1));
+  }
   if (headType === "Let") {
     // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给 `projectLet`。
     return projectLet(v, ctx);
@@ -1320,6 +1328,13 @@ function nameOf(node, ctx) {
 function projectTypeExpression(nodes, ctx) {
   const list = nodes.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")) && !isTypeSeparator(k, ctx));
   if (list.length === 0) return undefined;
+  // **`TypeDefine` 先摊平**：有些上下文里整个类型位就是**一个** `TypeDefine` 子单元
+  // （参数标注 / 字段标注那一族），而它的内容才是「基名 + 实参 + 数组后缀」那一串。
+  // 不摊平的话 `list[0]` 是 `TypeDefine`，会直接掉到最后那句「只投第一个」——
+  // 于是 `Array<unknown> | X` 这种成员只出基名（实测这版把漂移从 1759 提到 2263）。
+  if (list.length === 1 && list[0].get("type") === "TypeDefine") {
+    return projectTypeExpression(projectableKids(view(list[0])), ctx);
+  }
   const head = list[0];
   const generic = list.find((k) => k.get("type") === "GenericType");
   const arraySuffix = list.find((k) => k.get("type") === "ArrayType");
@@ -1519,7 +1534,16 @@ function projectParameter(v, ctx) {
   const dots = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "...");
   const rest = kids.find((k) => k.get("type") === "Spread");
   const props = {
-    name: nameNode === undefined ? undefined : projectNode(nameNode, ctx),
+    // **`this` 形参的名字是 `Identifier`，不是 `ThisKeyword`**：TS 的 `this: Window` 里
+    // `parameterName` 就是一个文本为 `this` 的 `Identifier`（`ThisKeyword` 只出现在类型位）。
+    // 产物那边它是 `<Keyword>this</Keyword>`，照通用投影会投成 `ThisKeyword`
+    // （真实语料 `Parameter` 下缺 1149 个 `Identifier`，绝大多数就是这一条）。
+    name:
+      nameNode === undefined
+        ? undefined
+        : nameNode.get("type") === "Keyword" && textOfNode(nameNode, ctx) === "this"
+          ? { kind: "Identifier", text: "this", pos: startOf(nameNode), end: endOf(nameNode) }
+          : projectNode(nameNode, ctx),
     type: typeNode === undefined ? undefined : projectTypeDefine(view(typeNode), ctx),
   };
   // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
@@ -1886,6 +1910,90 @@ function projectSignature(v, ctx) {
   }
   const end = SIGNATURE_KINDS.has(kind) && ctx.source[stmtEndOf(v, ctx)] === ";" ? stmtEndOf(v, ctx) + 1 : stmtEndOf(v, ctx);
   return { kind, pos: v.start, end, ...props };
+}
+
+/**
+ * `export = X` / `export default X` → `ExportAssignment`（`expression`）。
+ *
+ * 产物那边这两种在 `Export` 单元**外面**：`Statement > [Export(含 export/=), 表达式]`
+ * （`export = strict`）或 `Statement > [Export(含 export/default), 表达式]`——
+ * 于是通用投影把 `Export` 投成 `ExportDeclaration`、真正的表达式留成一个平级的
+ * `ExpressionStatement`（真实语料 `ExportAssignment` 849 处里，`expression` 整个丢掉的
+ * 与 `Identifier` 缺 1149 处同源）。
+ *
+ * 判据：那个 `Export` 单元后面还有子单元（`export { a }` / `import` 那一族没有）——
+ * 有就跟上来的整段收成 `expression`，区间从 `export` 到表达式末尾。
+ */
+function projectExport(v, ctx, following) {
+  const view_ = v.attrs === undefined ? view(v) : v;
+  const kids = projectableKids(view_);
+  const rest = kids.filter((k) => !(k.get("type") === "Keyword" && textOfNode(k, ctx) === "export"));
+  const isAssignment =
+    rest.some((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=") ||
+    rest.some((k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "default");
+  // 等号 / `default` 之后的表达式：`Export` 单元里剩下的 + 语句里跟在它后面的兄弟。
+  const inUnit = rest.filter(
+    (k) =>
+      !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=") &&
+      !(k.get("type") === "Keyword" && textOfNode(k, ctx) === "default"),
+  );
+  const expr = [...inUnit, ...(following ?? [])].filter(
+    (k) => k instanceof Map && !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ";"),
+  );
+  if (isAssignment && expr.length > 0) {
+    const value = projectExpression(expr, ctx);
+    if (value !== undefined) {
+      // **尾分号算在 `ExportAssignment` 里**（`export = strict;` 的 TS 是 `[23,39)`，含 `;`）
+      //——与第 33 轮记的「没有函数体的可调用签名要带尾分号」同一条口径。
+      const end = endOf(expr[expr.length - 1]);
+      return {
+        kind: "ExportAssignment",
+        expression: value,
+        pos: view_.start,
+        end: ctx.source[end] === ";" ? end + 1 : end,
+      };
+    }
+  }
+  return { kind: "ExportDeclaration", pos: view_.start, end: view_.end, ...structuralProps(view_, "ExportDeclaration", ctx) };
+}
+
+/**
+ * 类型谓词 `value is T` / `asserts value is T` / `asserts value` → `TypePredicate`。
+ *
+ * 产物那边三种身份（`asserts` 是 `AssertsKeyword`、参数名是 `Identifier`、`is` 是 `Keyword`）
+ * 全挤在**平级的子单元**里，而 TS 那边它们是三个具名字段（`parameterName` / `isKeyword` / `type`）
+ * ——不分开时整族都只投出「一串 `Identifier`」（真实语料 `TypePredicate` 的 `is` / 类型实参
+ * 全对不上，`TypeReference` 有 360 处缺在它下面）。
+ *
+ * `is` 在产物里的词法身份不固定（`Keyword` 或 `Identifier`），两种都认；
+ * 谓词里的类型**走类型位投影**（`T` ⇒ `TypeReference > Identifier`）。
+ */
+function projectTypePredicate(v, ctx) {
+  const kids = projectableKids(v);
+  const props = {};
+  let i = 0;
+  if (i < kids.length && kids[i].get("type") === "Keyword" && textOfNode(kids[i], ctx) === "asserts") {
+    props.assertsModifier = projectNode(kids[i], ctx);
+    i++;
+  }
+  if (i < kids.length && isNameNode(kids[i])) {
+    props.parameterName = projectNode(kids[i], ctx);
+    i++;
+  }
+  if (i < kids.length && textOfNode(kids[i], ctx) === "is") {
+    props.isKeyword = {
+      kind: "IsKeyword",
+      text: "is",
+      pos: startOf(kids[i]),
+      end: startOf(kids[i]) + 2,
+    };
+    i++;
+  }
+  if (i < kids.length) {
+    const type = projectTypeExpression(kids.slice(i), ctx);
+    if (type !== undefined) props.type = type;
+  }
+  return { kind: "TypePredicate", pos: v.start, end: v.end, ...props };
 }
 
 /**
