@@ -577,6 +577,18 @@ return (
 - **`(` / `[` / 模板串在续接表里**：`f` 换行 `(1)` 在 TypeScript 里是一次调用，不是两条语句。
 
 ```ts
+// **已经成形的括号 / 数组字面量也算续接**（第 158 轮）：`x => x` 换行 `[1, 2, 3]` 里，
+// 轮到 ASI 判定时那个 `[` 往往已经被 `JsonArrayReorganization` 收成一个
+// `ArrayLiteral`（或仍是 `Bracket`）了——只认 `SymbolToken` 时会判成语句边界，
+// 箭头函数的体在那里截断（实测 `am-block-lambda-array-compound.ts`：TS 把 `x[1, 2, 3]`
+// 整个当箭头体，产物切成两条语句）。`class C { [KEY] = 1` 换行 `["s" + "t"] = 2 }`
+// 是同一个形状（`decl-class-computed-member.ts`）。
+if (item instanceof Bracket) {
+  return item.startBracket === "(" || item.startBracket === "[";
+}
+if (item !== null && item.constructor.name === "ArrayLiteral") {
+  return true;
+}
 if (item instanceof SymbolToken) {
   const text = item.TempToString();
   if (

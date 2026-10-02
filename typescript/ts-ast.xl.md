@@ -4279,7 +4279,14 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
     const question = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "?");
     if (question !== undefined) props.questionToken = projectNode(question, ctx);
   }
-  if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = projectNode(kids[eqIndex + 1], ctx);
+  // 初始化式是 `=` 右边**整段**、不是一格（第 158 轮）：`class C { [KEY] = 1` 换行
+  // `["s" + "t"] = 2 }` 里 TS 把初值折成 `BinaryExpression(1["s" + "t"], =, 2)`——
+  // 只取一格会缺 `BinaryExpression` / `EqualsToken` / `NumericLiteral`
+  // （实测 `decl-class-computed-member.ts`）。收尾的 `;` 不属于初值。
+  const initKids = kids
+    .slice(eqIndex + 1)
+    .filter((k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ";"));
+  if (eqIndex >= 0 && initKids.length > 0) props.initializer = projectExpression(initKids, ctx);
   // **明确赋值断言 `x!: number`**（第 156 轮）：TS 那边 `!` 是
   // `PropertyDeclaration.exclamationToken`（一个子节点），产物把它记成平级的 `SymbolToken("!")`
   //（`?` 那一支的兄弟，见上）。不收会缺 `ExclamationToken` + 字段名差一格。

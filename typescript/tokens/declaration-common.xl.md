@@ -292,6 +292,14 @@ const after = Get(units, afterIndex);
 if (after === null) {
   return false;
 }
+// **以 `[` 开头的一行不会是新成员**（第 158 轮）：ASI **永远不在 `[` 前面断句**——
+// `class C { [KEY] = 1` 换行 `["s" + "t"] = 2 }` 在 TypeScript 里是**一条**字段声明
+// （初值成了 `1["s" + "t"] = 2`）。原来这里把 `[` 也算进 `isNameLike`，
+// 于是成员在那一行被切断（实测 `decl-class-computed-member.ts`：缺 `BinaryExpression` /
+// `ElementAccessExpression` / `EqualsToken`，多一条 `PropertyDeclaration`）。
+if (after instanceof Bracket && after.startBracket === "[") {
+  return false;
+}
 const isNameLike =
   after instanceof Identifier ||
   after instanceof String ||
