@@ -1076,8 +1076,6 @@ new Map([
     // **`new` 表达式**（第 95 轮）：产物的 `name` 段是**一串单元**（名字 + 类型实参段），
     // 照通用投影会把它们一起投成 `expression`（实测 `NewExpression` 字段名差 19 +
     // 多出一个 `TypeReference` 盖住 `<string, number>`）。
-    case "New":
-      return projectNew(v, ctx);
 
     // **装饰器已搬进 `tokens/decorator.xl.md` 的 `Decorator.PrintAst`**（第 182 轮）：
     // TS 的 `Decorator` 只有 `expression` 一个字段（`@Component({…})` 是 `CallExpression`、
@@ -6694,49 +6692,6 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   return { kind: "TryStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
-# private method projectNew:(v:any, ctx:any)=>any
-
-`new Map<string, number>()` → `NewExpression`（`expression` + 可选 `typeArguments` / `arguments`）。
-
-产物的 `New` 把 `name` 段记成**一串单元**（被构造者 + 类型实参段）、`arguments` 段是实参：
-
-- 类型实参段要按**类型位**投进 `typeArguments`（`Map<string, number>` 的两格是
-  `StringKeyword` / `NumberKeyword`，不是 `TypeReference`）；
-- 空实参段在 `ToList` 里**干脆不出现**（`new Map<A, B>()`），而 TS 那边空 `arguments`
-  也不进字段（`forEachChild` 不访问空数组）——所以只在非空时挂。
-
-```ts
-  const nameUnits = kidsOf(v, "name").filter((k) => !INVISIBLE.has(k.get("type")));
-  const generic = nameUnits.find((k) => k.get("type") === "GenericType");
-  // **被构造者可能是一串**（第 154 轮）：`new a.b.C()` 的 `name` 段是
-  // `[a, ., b, ., C]` 五格，只取第一格会只剩一个 `Identifier(a)`（实测 `ex-new-variants.ts`：
-  // 缺两层 `PropertyAccessExpression` + `Identifier` 2）。照链那一支折成嵌套的属性访问。
-  // **括号形态**（`new (getCtor())()`）要走 `parenthesizedOf`——否则那个括号会原样透传成
-  // 未映射的 `<Bracket>`（实测 `ex-new-variants.ts` 与 `stmt-adversarial-shapes.ts` 各一处）。
-  const calleeUnits = nameUnits.filter((k) => k.get("type") !== "GenericType");
-  const props = {};
-  if (
-    calleeUnits.length === 1 &&
-    calleeUnits[0].get("type") === "Bracket" &&
-    calleeUnits[0].get("startBracket") === "("
-  ) {
-    props.expression = parenthesizedOf(calleeUnits[0], ctx);
-  } else if (calleeUnits.length > 0) {
-    props.expression = projectExpression(calleeUnits, ctx);
-  }
-  if (generic !== undefined) {
-    const typeArguments = [];
-    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
-      const one = projectTypeExpression(group, ctx);
-      if (one !== undefined) typeArguments.push(one);
-    }
-    if (typeArguments.length > 0) props.typeArguments = typeArguments;
-  }
-  const args = kidsOf(v, "arguments").filter((k) => !INVISIBLE.has(k.get("type")));
-  if (args.length > 0) props.arguments = projectEach(args, ctx);
-  return { kind: "NewExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectNamespace:(v:any, ctx:any)=>any
 
 `namespace N { … }` / `module M { … }` / **`declare module "m" { … }`** → `ModuleDeclaration`。
@@ -7380,7 +7335,10 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     IsSymbol: (node, text) => isSymbol(node, text),
     IsDot: (node) => isDot(node, ctx),
     NameOf: (node) => nameOf(node, ctx),
-    Kids: (view) => projectableKids(view),
+    // **`Kids` 两种都认**（第 185 轮）：`PrintAst` 里传进来的常常是**视图**（`v`），
+    // 但取子单元时手上也可能是**原始 Map**（`nameUnits.find(...)` 那种）——
+    // `projectableKids` 只吃视图，所以这里自己归一。
+    Kids: (node) => projectableKids(node instanceof Map ? view(node) : node),
     Expression: (list) => projectExpression(list, ctx),
     TypeExpression: (list) => projectTypeExpression(list, ctx),
     ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
@@ -7389,6 +7347,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
     IndexBracketOf: (view) => indexBracketOf(view, ctx),
+    ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

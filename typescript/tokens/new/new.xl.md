@@ -152,6 +152,52 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<New>` 里依次是 Type 与 Arguments 两段的 XML。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`new Map<string, number>()` → `NewExpression`（`expression` + 可选 `typeArguments` / `arguments`；
+**从 `ts-ast.xl.md` 的 `projectNew` 搬来**，第 185 轮）。
+
+产物的 `New` 把 `name` 段记成**一串单元**（被构造者 + 类型实参段）、`arguments` 段是实参：
+
+- 类型实参段要按**类型位**投进 `typeArguments`（`Map<string, number>` 的两格是
+  `StringKeyword` / `NumberKeyword`，不是 `TypeReference`）；
+- 空实参段在 `ToList` 里**干脆不出现**（`new Map<A, B>()`），而 TS 那边空 `arguments`
+  也不进字段（`forEachChild` 不访问空数组）——所以只在非空时挂。
+
+**被构造者可能是一串**（第 154 轮）：`new a.b.C()` 的 `name` 段是
+`[a, ., b, ., C]` 五格，只取第一格会只剩一个 `Identifier(a)`（实测 `ex-new-variants.ts`：
+缺两层 `PropertyAccessExpression` + `Identifier` 2）。
+
+**括号形态**（`new (getCtor())()`）要走 `ctx.ParenthesizedOf`——否则那个括号会原样透传成
+未映射的 `<Bracket>`（实测 `ex-new-variants.ts` 与 `stmt-adversarial-shapes.ts` 各一处）。
+
+```ts
+  const nameUnits = ctx.KidsOf(v, "name").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  const generic = nameUnits.find((k: any) => k.get("type") === "GenericType");
+  const calleeUnits = nameUnits.filter((k: any) => k.get("type") !== "GenericType");
+  const props: any = {};
+  if (
+    calleeUnits.length === 1 &&
+    calleeUnits[0].get("type") === "Bracket" &&
+    calleeUnits[0].get("startBracket") === "("
+  ) {
+    props.expression = ctx.ParenthesizedOf(calleeUnits[0]);
+  } else if (calleeUnits.length > 0) {
+    props.expression = ctx.Expression(calleeUnits);
+  }
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  if (args.length > 0) props.arguments = ctx.ProjectEach(args);
+  return ctx.Node("NewExpression", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。
