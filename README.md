@@ -1517,6 +1517,89 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 79 轮：成员位的语句壳 · 索引签名 · 后缀下标（真实语料 +463 节点）
+
+上一轮收尾时点名的第一件事是「`interface I { [n: number]: T }` 被投成
+`ExpressionStatement > IndexSignatureDeclaration`」。这一轮把它连根拔了，顺手又清了两小块。
+
+#### 一、成员位**没有语句**（`MEMBER_LIST_KINDS` + `MEMBER_TAGS`）
+
+产物在**成员位**多包了一层 `<Statement>`——`type T = { [k: string]: number }`、
+`declare class C { [k: string]: any }`、带 `readonly` 的接口成员都是这一形状
+（成员表挂上语句队列之后多出来的那层）。照通用投影走，那层会被补成 `ExpressionStatement`，
+于是索引签名成了它的孩子（实测缺 `IndexSignatureDeclaration` 102 处，还凭空多出一批
+`ExpressionStatement`）。修法：`projectEachIn` 在成员表宿主（接口 / 类型字面量 / 类）下
+**把这一层摊开**——它下面那些单元本身就是成员。
+
+**摊开的判据必须窄**，这一条是被一次崩溃逼出来的：`samples/generic.ts` 里有一句
+`class Foo<T> { let value: T }`（本工程的手写样本，不是合法 TS），成员位的 `<Statement>` 里
+装的是个 `Let`；无脑摊开就把它当成员投出去，而 `projectLet` 那条路只服务语句位、
+容器类型不设防，当场 `TypeError: node.get is not a function`。所以：
+
+1. 摊开要求**整层都是成员标签**（`IndexSignature` / `Field` / `MethodDeclaration` /
+   `Signature` / `EnumMember`）；
+2. 顺带修掉 `projectLetFrom` 那个**潜伏 bug**：容器参数两个调用方传的东西不一样
+   （`projectLet` 传视图、`structuralProps` 传 `view(...)`），而它一律 `view(container)`
+   —— 前者会 `view(view)`。现在两种都收。
+
+#### 二、索引签名的形状（`projectIndexSignature`）
+
+TS 那边 `IndexSignatureDeclaration` 有三个具名字段：`parameters`（`[k: string]` 里那段）、
+`type`（值类型）、`modifiers`（`readonly`）；产物那边是一串**平级子单元**，照通用投影
+全塞进一个 `children`（字段名整类不符）。新增一支按三段切。
+注意 **`readonly` 在这里是子单元**（不是 `modifiers` 属性），所以单独收成修饰词节点——
+`addModifiers` 读的是属性 / 布尔属性，这一格两样都没有。
+
+#### 三、后缀下标 `a[i]`（投影层折一层）
+
+产物那边下标访问是**平级的两格**（`Identifier(b)` + `[` 括号），TS 那边是
+`ElementAccessExpression > [expression, argumentExpression]`。缺这一支有两个后果：
+`ElementAccessExpression` 整类缺 300 处；以及**二元表达式的右操作数在括号处被截断**
+（`o.a = xs[i + 1]` 的区间止于 `xs`，是 `BinaryExpression` 漂移 687 处里的一块）。
+
+**位置很关键**（第一版踩了）：这一支必须排在**二元 / 赋值切分之后**。先折的话
+`o.a = xs[i + 1]` 会被折成一个「以 `BinaryExpression`（那条赋值）为底」的
+`ElementAccessExpression`——优先级整个倒了。挪到后面之后：
+
+    o.a = xs[i + 1]  →  BinaryExpression(left: PropertyAccessExpression(o.a),
+                                         operatorToken: EqualsToken,
+                                         right: ElementAccessExpression(xs[i + 1]))   ✓
+
+判据只有「末尾那一格是 `[` 括号」：值位里前面有操作数的 `[` 就是下标（没有操作数的那些
+早被 `json/array-literal.xl.md` 收成 `ArrayLiteral`，类型位的 `T[K]` 是 `IndexedAccessType`
+单元，都到不了这里）。递归写法顺带覆盖 `a[i][j]` 与 `f(a)[0]`。
+
+#### 四、这一轮**修不动**的那一半（下一轮的主目标）
+
+`const b = xs[0] + 1` 这种形状，投影层再怎么折也救不回来——**产物树里那条关联没了**：
+
+    xs[0] + 1  →  [Identifier(xs), BinaryOperator(op="+", [ Bracket[0], SymbolToken(+), Identifier(1) ])]
+
+`+` 把那个 `[0]` 括号当成了**自己的左操作数**（`xs` 被留在外面），于是一棵
+`xs + ([0] + 1)` 的树；`Let` 的初值取一格，`xs` 之后就只剩那个 `BinaryOperator`。
+**正解与第 70 轮修成员访问链是同一套**：让**下标访问在 token 层就成为一个单元**
+（把第 70 轮的链规则扩成也吃 `[...]`），运算符规则看到它时它已经是完整操作数。
+这一轮的投影那一支只是「树里还是平级两格时尽量折回来」，覆盖不到运算符已经先接手的那一半。
+
+#### 五、这一轮的账
+
+| 判据 | 第 78 轮 | 现在 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 458711（97.9%） | **459174（97.9%）** |
+| 其中**字段名也一致** | 458252（99.9%） | **458715（99.9%）** |
+| 投影后仍缺 `IndexSignature` | 102 | **0** |
+| 投影后仍缺 `ElementAccessExpression` | 314 | **300**（余下的见第四节） |
+| `cases:align`（1419 文件） | 未登记 1 类 / 缺节点 1 类 | **同上**（仍只有那 2 处 `CallExpression`） |
+| `cases:run` / `cases:check` | 1033 / 1033 | **1034 / 1034**（新增 1 条钉住本轮） |
+| 投影抛异常的文件 | 0 | **0**（新增的摊开判据挡住了 `samples/generic.ts` 那条路） |
+
+九把尺子 + `samples`（夹具已重生成）/ `shapelint` 全绿。
+
+**下一轮的目标**：① 下标访问进 token 层（第四节，`ElementAccessExpression` 300 +
+`BinaryExpression` 漂移 687 + `Identifier` 一千八百多里的一大块）；② `PropertyAssignment`
+382（对象字面量的成员）；③ `ParenthesizedExpression` 367、`Block` 414；
+④ 仍是那处 `CallExpression` 与 `cases:align` 缺 `PropertyAccess` 的标签表口子。
+
 ### 第 78 轮：成员名的四种形态（真实语料 97.6% → 97.9%，字段名 99.8% → 99.9%）
 
 这一轮啃的是缺口榜上**同一个根因**的一大片：`StringLiteral` 1083 + `PropertyAccessExpression` 593 +

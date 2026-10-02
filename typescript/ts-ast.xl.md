@@ -761,6 +761,11 @@ new Map([
     case "LamdaParameter":
       return projectParameter(v, ctx);
 
+    // 索引签名 `{ [k: string]: T }`：TS 那边是 `parameters` + `type`（+ `readonly` 修饰词），
+    // 产物那边是一串平级子单元，照通用投影会全塞进一个 `children`。
+    case "IndexSignature":
+      return projectIndexSignature(v, ctx);
+
     case "TypeParameter":
       return projectTypeParameter(v, ctx);
 
@@ -913,6 +918,34 @@ new Map([
   return groups.filter((group) => group.length > 0);
 ```
 
+# private const MEMBER_LIST_KINDS:Set<string>
+
+**成员表的宿主**：它们的内容是**成员**（`PropertySignature` / `MethodSignature` /
+`IndexSignatureDeclaration`…），**不是语句**。
+
+第 79 轮的根因：产物在**成员位**多包了一层 `<Statement>`（成员表挂上语句队列之后多出来的那层）——
+`type T = { [k: string]: number }`、`declare class C { [k: string]: any }`、
+带 `readonly` 的接口成员都是这一形状。照通用投影走，那一层会被补成
+**`ExpressionStatement`**，于是索引签名变成 `ExpressionStatement > IndexSignatureDeclaration`
+（实测缺 `IndexSignatureDeclaration` 102 处，还凭空多出一批 `ExpressionStatement`）。
+
+```ts
+new Set(["InterfaceDeclaration", "TypeLiteral", "ClassDeclaration"])
+```
+
+# private const MEMBER_TAGS:Set<string>
+
+**哪些标签算「成员」**：成员位那层 `<Statement>` 只有**全部**由这些标签组成时才摊开。
+
+这一条是实测补的守卫：`samples/generic.ts` 里有一句 `class Foo<T> { let value: T }`
+（本工程的样本，不是合法 TS）——成员位的 `<Statement>` 里装的是个 `Let`，
+无脑摊开会把它当成成员投出去，而 `projectLet` 那条路本来只服务语句位、容器类型不设防，
+当场 `TypeError: node.get is not a function`。**摊开的判据要窄**：
+
+```ts
+new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMember"])
+```
+
 # private method projectEachIn:(list:Array<any>, ctx:any, parentKind:string)=>Array<any>
 
 投影一批子单元，并在**签名上下文**里切换标记。
@@ -922,6 +955,25 @@ new Map([
 两种上下文两种 kind（声明文件里签名那套是绝大多数）。这个标记就是那个上下文。
 
 ```ts
+  // **成员位没有语句**（第 79 轮）：成员表里遇到 `<Statement>` 就**摊开**——
+  // 它下面那些单元本身就是成员（见 `MEMBER_LIST_KINDS` 的说明）。
+  // 摊开放在最前面：它比类型容器那一条更靠外（成员表 vs 类型位）。
+  if (MEMBER_LIST_KINDS.has(parentKind)) {
+    const flat = [];
+    for (const item of list) {
+      if (item instanceof Map && item.get("type") === "Statement") {
+        const inner = allKids(view(item)).filter((k) => !INVISIBLE.has(k.get("type")));
+        // **只有整层都是成员才摊开**（见 `MEMBER_TAGS`）：`interface` / `type` / `class`
+        // 的成员位在 TS 里放不下语句，可本工程自己的样本里出现过 `{ let value: T }` 这种写法。
+        if (inner.length > 0 && inner.every((k) => MEMBER_TAGS.has(k.get("type")))) {
+          for (const one of inner) flat.push(one);
+          continue;
+        }
+      }
+      flat.push(item);
+    }
+    list = flat;
+  }
   // 类型容器的子单元按**类型位**投（见 `TYPE_MEMBER_KINDS`），
   // 而且**按成员切好再投**（见 `TYPE_MEMBER_SEPARATORS` / `typeMemberGroups`）——
   // 逐个投会把 `ArrayLike<number>` / `NodeJS.TypedArray` 这类「一对多格」的写法拆散。
@@ -1236,6 +1288,33 @@ new Set([
   if (opIndex > 0 && opIndex < kids.length - 1) {
     return foldBinaryFrom(projectExpression(kids.slice(0, opIndex), ctx), kids.slice(opIndex), ctx);
   }
+  // ---- 3. 下标访问 `a[i]`（第 79 轮）----
+  //
+  // **必须排在二元切分之后**（踩过）：`a = b[i]` 里 `[]` 绑得比 `=` 紧，先折会把整条赋值
+  // 当成下标表达式（`ElementAccessExpression.expression` 成了 `BinaryExpression`）。
+  // 二元切分先走，递归到 `[b, [i]]` 这一段时再折，优先级才对。
+  //
+  // 产物那边下标访问是**平级的两格**（`Identifier(b)` + `[` 括号），TS 那边是
+  // `ElementAccessExpression > [expression, argumentExpression]`。缺这一支的后果：
+  // `ElementAccessExpression` 整类缺 300 处，而且**右操作数会在括号处截断**
+  // （`options.Output = args[index + 1]` 的区间止于 `args`）。
+  //
+  // 判据是**末尾那一格是 `[` 括号**：值位里前面有操作数的 `[` 就是下标
+  // （没有操作数的由 `json/array-literal.xl.md` 收成 `ArrayLiteral`，到不了这里；
+  // 类型位的 `T[K]` 是 `IndexedAccessType` 单元，也到不了这里）。
+  // 递归写法顺带覆盖 `a[i][j]` 与 `f(a)[0]`：先折前面那段，再套一层。
+  if (kids.length >= 2 && isIndexBracket(kids[kids.length - 1])) {
+    const bracket = kids[kids.length - 1];
+    const base = projectExpression(kids.slice(0, kids.length - 1), ctx);
+    const argument = projectExpression(projectableKids(view(bracket)), ctx);
+    return {
+      kind: "ElementAccessExpression",
+      expression: base,
+      argumentExpression: argument,
+      pos: base.pos,
+      end: endOf(bracket),
+    };
+  }
   return projectNode(kids[0], ctx);
 ```
 
@@ -1252,6 +1331,18 @@ new Set([
     pos: left.pos,
     end: right ? right.end : endOf(rest[0]),
   };
+```
+
+# private method isIndexBracket:(node:any)=>bool
+
+**值位下标访问的那对方括号**：`a[i]` 的 `[` 括号单元。
+
+判据只有「是不是 `[` 括号」——值位里前面有操作数的 `[` 就是下标（见 `projectExpression`
+那一支的说明），没有操作数的那些早被 `ArrayLiteral` 收走，类型位的那些是 `IndexedAccessType`。
+（与 `isDot` / `isNameNode` 那几个小判据同一个位置。）
+
+```ts
+  return node.get("type") === "Bracket" && node.get("startBracket") === "[";
 ```
 
 # private method projectLet:(v:any, ctx:any)=>Array<any>
@@ -1289,7 +1380,12 @@ new Set([
   const stmtEnd = ctx.source[stmtWhole - 1] === ";" ? stmtWhole - 1 : stmtWhole;
   const listEnd = kids.length > 0 ? Math.min(stmtEnd, endOf(kids[kids.length - 1])) : stmtEnd;
   const letNode = kids.find((k) => k.get("type") === "Let") ?? null;
-  const letView = letNode === null ? view(container) : view(letNode);
+  // **容器可能是视图、也可能是字典格**（第 79 轮）：`projectLet`（语句位）传的是视图，
+  // `structuralProps`（`for (let i = 0; …)` 的头部）传的是 `view(...)`。原来这里一律
+  // `view(container)`，于是前者会 `view(view)` 抛 `TypeError`——那条路平时走不到
+  // （`projectStatement` 自己处理 Let 开头的语句），一摊开成员位的 `Statement` 就被踩到了。
+  const containerView = container instanceof Map ? view(container) : container;
+  const letView = letNode === null ? containerView : view(letNode);
   const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
   const initNode = eqIndex >= 0 && eqIndex + 1 < kids.length ? kids[eqIndex + 1] : null;
   // **语句级修饰词不进前两层**：`export const q = 1` 的 TS 是
@@ -1893,6 +1989,39 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     return { name: { kind: "NumericLiteral", text: name, pos: at.pos, end: at.end }, computed: null, unit: null };
   }
   return { name: at, computed: null, unit: direct === undefined ? null : direct };
+```
+
+# private method projectIndexSignature:(v:any, ctx:any)=>any
+
+索引签名 `{ [k: string]: T }` / `readonly [k: symbol]: T` → `IndexSignatureDeclaration`。
+
+TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: string`）、`type`（值类型）、
+`modifiers`（`readonly`）；产物那边是**一串平级子单元**（`Parameter` + `TypeDefine`（+ `readonly`
+那个词）），照通用投影会全塞进一个 `children`（实测 `IndexSignatureDeclaration` 的字段名
+整类不符）。
+
+`readonly` 在产物里是**子单元**（不是一个属性），所以这里单独把它收成修饰词节点——
+`addModifiers` 读的是 `modifiers` 属性 / 布尔属性，这一格两样都没有（见它的说明）。
+
+```ts
+  const kids = projectableKids(v);
+  const params = kids.filter((k) => k.get("type") === "Parameter");
+  const typeNode = kids.find((k) => k.get("type") === "TypeDefine");
+  const readonlyUnit = kids.find(
+    (k) =>
+      (k.get("type") === "Keyword" || k.get("type") === "Identifier") && textOfNode(k, ctx) === "readonly",
+  );
+  const props = {};
+  if (params.length > 0) {
+    props.parameters = projectEach(params, ctx, "IndexSignatureDeclaration");
+  }
+  if (typeNode !== undefined) {
+    props.type = projectTypeDefine(view(typeNode), ctx);
+  }
+  if (readonlyUnit !== undefined) {
+    props.modifiers = [projectNode(readonlyUnit, ctx)];
+  }
+  return { kind: "IndexSignatureDeclaration", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectField:(v:any, ctx:any)=>any
