@@ -227,3 +227,20 @@
 
 > 这一条值得记进搬迁手册：**搬之前先 grep 这个函数名**，除了 `case` 之外常常还有内部调用点；
 > 有的话优先改成 `projectNode` / `ctx.Project` 的通用分派，而不是把实现留在原地。
+
+### 第 189 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| `Switch` | `tokens/switch/switch.xl.md` |
+| `For` | `tokens/for/for.xl.md` |
+| `Try` | `tokens/try/try.xl.md` |
+
+中央 `switch` 的 `case` 从 27 降到 **24**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了出口：`BlockOfBody` / `SwitchClause` / `AllKids` / `BindingPattern`。
+
+**又一次踩到「视图 vs 原始 Map」**：`ctx.AllKids(catchDefine)` 里 `catchDefine` 是**原始 Map**，
+而 `allKids` 只吃**视图**——`v.segments is not iterable`。`Kids` 早先已经做过归一，
+`AllKids` 忘了。**约定**：凡是从 `ctx` 出去的「吃一棵（子）树」的出口，
+一律写成 `node instanceof Map ? view(node) : node` 再转调。
