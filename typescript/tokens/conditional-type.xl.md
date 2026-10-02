@@ -255,7 +255,8 @@ let colonSeen = false;
 let afterColon = false;
 // **自己那个 `:` 之后又出现 `?` ⇒ 那个 `:` 是内层条件类型的**（第 126 轮）。
 // 见下面 `isColon` 那一支：假分支里的**外层 `:`** 才是这一段的终点。
-let questionSinceColon = false;
+// 第 128 轮把它换成**深度计数**：`?` 加一、`:` 减一，计数为 0 时那个 `:` 才是自己的。
+let nestedDepth = 0;
 for (let i = index + 1; i < units.length; i++) {
   const item = Get(units, i);
   if (item === null) {
@@ -294,25 +295,31 @@ for (let i = index + 1; i < units.length; i++) {
     const isComment = item instanceof LineAnnotation || item instanceof AreaAnnotation;
     if (!isComment) {
       const isColon = item instanceof SymbolToken && item.Is(":");
+      const isQuestion = item instanceof SymbolToken && item.Is("?");
       afterColon = false;
       if (isColon) {
-        if (!colonSeen) {
+        if (nestedDepth > 0) {
+          // 这个 `:` 配的是**里面**那个还没配对的 `?`（内层条件类型的冒号），跳过。
+          nestedDepth--;
+        } else if (!colonSeen) {
           // 本条条件类型自己的那个 `:`。
           colonSeen = true;
           afterColon = true;
-        } else if (!questionSinceColon) {
-          // **这是外面那条条件类型的 `:`**（自己那个 `:` 之后没再出现 `?`）：
-          // 本条件类型的假分支到此为止。少了这一支，内层会把外层假分支的尾巴
-          // 一起吞进去——实测 `lib.es5.d.ts` 的 `F extends (…) ? Awaited<V> : never : T`
-          // 里内层的区间一直撑到 `T`（`ConditionalType` 漂移 + 假分支整段丢）。
-          break;
         } else {
-          // 自己那个 `:` 之后出现过 `?`，所以这个是**内层**条件类型的 `:`——
-          // 右结合嵌套 `A extends B ? C : D extends E ? F : G` 靠这一支才能整段收完。
-          questionSinceColon = false;
+          // **外面那条条件类型的 `:`**：本条件类型的假分支到此为止。
+          // 少了这一支，内层会把外层假分支的尾巴一起吞进去——实测
+          // `lib.es5.d.ts` 的 `F extends (…) ? Awaited<V> : never : T` 里内层的区间
+          // 一直撑到 `T`，`@types/node/util.d.ts` 的
+          // `K extends unknown ? T["options"] extends C ? P : OptionToken : never`
+          // 反过来把**外层自己的** `: never` 切在外面。
+          break;
         }
-      } else if (item instanceof SymbolToken && item.Is("?") && colonSeen) {
-        questionSinceColon = true;
+      } else if (isQuestion) {
+        // **`?` 与 `:` 要按深度配对**（第 128 轮）：`? ? : :` 这种同级嵌套里，
+        // 第一个 `:` 配的是**后**出现的那个 `?`。只记「上一次 `:` 之后有没有 `?`」
+        // 区分不出「内层的 `:`」与「自己的 `:`」——`K extends unknown ? A extends B ? C : D : never`
+        // 里本条件类型自己的 `:` 会被当成内层的那个，整条在 `never` 之前就收尾。
+        nestedDepth++;
       }
     }
     items.push(item);

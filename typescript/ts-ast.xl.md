@@ -2775,6 +2775,26 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const signed = projectSignedLiteralType(view(list[0]), ctx);
     if (signed !== undefined) return signed;
   }
+  // **点号名已经折成一个 `PropertyAccess` 单元**（第 128 轮）：类型位的限定名
+  // （`NodeJS.ArrayBufferView`）本该是 `TypeReference > QualifiedName`，可链一旦在
+  // token 层折成单元，下面那个「逐格套 `QualifiedName`」的循环就再也进不去
+  // （它只看**平级**的点号）——于是落到最后那句「投第一个单元」，
+  // `projectNode(PropertyAccess)` 走值位那条路投出一个 `PropertyAccessExpression`
+  // （实测 `@types/node/util.d.ts` 的 `object is NodeJS.ArrayBufferView` 一族 46 处）。
+  // 只认「全是名字与点号」的形状：带调用的链（`f(x).y`）不是类型。
+  if (list.length === 1 && list[0].get("type") === "PropertyAccess") {
+    const members = projectableKids(view(list[0]));
+    const pureName = members.every((k) => isNameNode(k) || isDot(k, ctx));
+    const names = members.filter((k) => isNameNode(k));
+    if (pureName && names.length > 1) {
+      return {
+        kind: "TypeReference",
+        typeName: qualifiedNameFrom(names, ctx),
+        pos: startOf(list[0]),
+        end: endOf(list[0]),
+      };
+    }
+  }
   // **`TypeDefine` 先摊平**：有些上下文里整个类型位就是**一个** `TypeDefine` 子单元
   // （参数标注 / 字段标注那一族），而它的内容才是「基名 + 实参 + 数组后缀」那一串。
   // 不摊平的话 `list[0]` 是 `TypeDefine`，会直接掉到最后那句「只投第一个」——
