@@ -143,6 +143,127 @@ return index;
 
 它由重组造出来、自己不消费字符，因此 `Process` 沿用 `IndependentToken` 的空实现。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+调用 `f(a)` → `CallExpression`（`expression` + `arguments` + 可选 `typeArguments`；
+**从 `ts-ast.xl.md` 的 `projectCall` 整块搬来**，第 193 轮）。
+
+六处要点（都是实测修出来的）：
+
+1. **IIFE `(function () { … })()`**（第 141 轮）：产物把整个 IIFE 收成一个 `Method(name="")`，
+   里面那**一对括号是「被调用者」的**，而调用自己的 `()` 根本不在树里（要**从被调用者那对
+   括号之后再配对一次**才对得上终点）。原来投出一个**零宽的 `Identifier("")`**，整条调用链跟着塌；
+2. **名字为空时第一个子单元就是被调用者**（第 179 轮）：`b!()` 的产物只有那个 `NotNull`；
+3. **实参自己可能就是一个括号表达式**（第 163 轮）：`f(a, ([x]))`——只滤「落在被调用者范围内、
+   或是空括号」的那一个，别把所有 `Bracket` 都滤掉；
+4. **被调用者本身带着可选链**（第 107 轮）：`x?.y?.(1)` 里 `?.y` / `?.(1)` 两格都在 `Method` 里面，
+   顺着接上去（`ctx.ChainWithOptional`）；
+5. **动态 `import("m")` 的被调用者是 `ImportKeyword`**（第 142 轮）；
+6. **实参要按顶层逗号切组、每组折成一个表达式**（第 113 轮）：一格的实参在产物里可能是好几个
+   平级单元；**调用上的类型实参**（第 95 轮）走类型位投；**被调用者后面还跟着一对空括号**
+   （第 168 轮）是「对调用结果再调一次」，外面再套一层 `CallExpression`。
+
+```ts
+  const kids = ctx.Kids(v);
+  const rawName = v.attrs.get("name");
+  const calleeText = typeof rawName === "string" ? rawName : "";
+  const calleeEnd = v.start + calleeText.length;
+  if (calleeText === "") {
+    const brace = kids.find(
+      (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(",
+    );
+    if (brace !== undefined && ctx.Kids(brace).length > 0) {
+      const rest = kids.filter((k: any) => k !== brace && k.get("type") !== "GenericType");
+      let end = ctx.StmtEndOf(v);
+      const calleeClose = ctx.MatchingParen(ctx.source, ctx.StartOf(brace));
+      if (calleeClose >= 0) {
+        let at = calleeClose + 1;
+        while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+        if (ctx.source[at] === "(") {
+          const argsClose = ctx.MatchingParen(ctx.source, at);
+          if (argsClose >= 0) end = Math.max(end, argsClose + 1);
+        }
+      }
+      return {
+        kind: "CallExpression",
+        expression: ctx.ParenthesizedOf(brace),
+        arguments: ctx
+          .Split(rest, ",")
+          .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
+          .filter((a: any) => a !== undefined),
+        pos: v.start,
+        end,
+      };
+    }
+  }
+  const anonymousCallee =
+    calleeText === "" ? kids.find((k: any) => k.get("type") === "NotNull") : undefined;
+  const args = kids.filter(
+    (k: any) =>
+      k !== anonymousCallee &&
+      k.get("type") !== "GenericType" &&
+      (k.get("type") !== "Bracket" ||
+        (ctx.StartOf(k) >= calleeEnd && ctx.Kids(k).length > 0)),
+  );
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
+  if (ncos.length > 0) {
+    const firstNco = kids.findIndex((k: any) => k.get("type") === "NullConditionalOperator");
+    const beforeNco = firstNco > 0 ? kids.slice(0, firstNco) : [];
+    let node =
+      beforeNco.length === 0
+        ? {
+            kind: ctx.LeafKind(calleeText),
+            text: calleeText,
+            pos: v.start,
+            end: v.start + calleeText.length,
+          }
+        : ctx.Expression(beforeNco);
+    for (const nco of ncos) node = ctx.ChainWithOptional(node, nco);
+    if (node !== undefined) return node;
+  }
+  const props: any = {
+    expression:
+      calleeText === "import"
+        ? { kind: "ImportKeyword", text: "import", pos: v.start, end: v.start + "import".length }
+        : anonymousCallee !== undefined
+          ? ctx.Project(anonymousCallee)
+          : { kind: ctx.LeafKind(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
+    arguments: ctx
+      .Split(args, ",")
+      .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
+      .filter((a: any) => a !== undefined),
+    pos: v.start,
+    end: ctx.StmtEndOf(v),
+  };
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  const trailingCall = kids.find(
+    (k: any) =>
+      k.get("type") === "Bracket" &&
+      k.get("startBracket") === "(" &&
+      ctx.StartOf(k) >= calleeEnd &&
+      ctx.Kids(k).length === 0,
+  );
+  const callNode = { kind: "CallExpression", ...props };
+  if (trailingCall !== undefined && callNode.end < ctx.EndOf(trailingCall)) {
+    return {
+      kind: "CallExpression",
+      expression: callNode,
+      arguments: [],
+      pos: callNode.pos,
+      end: ctx.EndOf(trailingCall),
+    };
+  }
+  return callNode;
+```
+
 ## field name:string = ""
 
 方法名。

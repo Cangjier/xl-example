@@ -922,8 +922,6 @@ new Map([
       return projectBinary(v, ctx);
 
 
-    case "Method":
-      return projectCall(v, ctx);
 
     // **成员访问链**：token 层折出来的容器（`a.b` / `a.b(1)` / `f(1).x`）。
     // 形状交给 `projectExpression` 的折链那一支——它按左结合折成嵌套的
@@ -3616,149 +3614,6 @@ new Set([
   };
 ```
 
-# private method projectCall:(v:any, ctx:any)=>any
-
-调用 `f(a)` → `CallExpression`（`expression` + `arguments` + 可选 `typeArguments`）。
-
-```ts
-  const kids = projectableKids(v);
-  const calleeText = String(v.attrs.get("name") ?? "");
-  const calleeEnd = v.start + calleeText.length;
-  // **IIFE `(function () { … })()`**（第 141 轮）：产物把整个 IIFE 收成一个 `Method(name="")`，
-  // 里面那**一对括号是「被调用者」的**（里面装着函数表达式 / 箭头函数），而调用自己的 `()`
-  // 根本不在树里；有实参时它们是这个 `Method` 的平级子单元
-  // （`(function (a) { return a })(1)` ⇒ `[Bracket(callee), Identifier(1)]`）。
-  //
-  // 原来 `calleeText` 是空串，于是投出一个**零宽的 `Identifier("")`**，整条调用链跟着塌：
-  // 缺 `ParenthesizedExpression` 15 / `FunctionExpression` / `Block` / `ReturnStatement` /
-  // `ExpressionStatement` 一大片（实测 `fn-iife.ts` 与 `stmt-paren-start.ts`）。
-  if (calleeText === "") {
-    const brace = kids.find((k) => k.get("type") === "Bracket" && k.get("startBracket") === "(");
-    if (brace !== undefined && projectableKids(view(brace)).length > 0) {
-      const rest = kids.filter((k) => k !== brace && k.get("type") !== "GenericType");
-      // **调用自己的 `()` 不在产物树里**（第 141 轮）：`Method` 的区间只到函数体那个 `}`，
-      // 所以终点要从**被调用者那对括号之后**再配对一次：紧跟着的那个 `(` … `)` 才是实参表。
-      let end = stmtEndOf(v, ctx);
-      const calleeClose = matchingParenOf(ctx.source, startOf(brace));
-      if (calleeClose >= 0) {
-        let at = calleeClose + 1;
-        while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-        if (ctx.source[at] === "(") {
-          const argsClose = matchingParenOf(ctx.source, at);
-          if (argsClose >= 0) end = Math.max(end, argsClose + 1);
-        }
-      }
-      return {
-        kind: "CallExpression",
-        expression: parenthesizedOf(brace, ctx),
-        arguments: splitTopLevel(rest, ctx, ",")
-          .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-          .filter((a) => a !== undefined),
-        pos: v.start,
-        end,
-      };
-    }
-  }
-  // **名字为空时第一个子单元就是被调用者**（第 179 轮）：`b!()` 的产物是
-  // `Method(name="")`，里面只有那个 `NotNull`——它该是**被调用者**，不是实参
-  // （实测 `expr-nonnull-callee.ts`：`arguments` 里多出一个 `NonNullExpression`、
-  // `expression` 成了零宽的 `Identifier("")`）。只认 `NotNull`（其余无名形状由上面的
-  // IIFE 支与新造的 `Identifier("")` 兜底，行为不变）。
-  const anonymousCallee =
-    calleeText === "" ? kids.find((k) => k.get("type") === "NotNull") : undefined;
-  // **实参自己可能就是一个括号表达式**（第 163 轮）：`f(a, ([x]))` 的第三个子单元是
-  // 装着 `[x]` 的那个 `(` 括号——原来把**所有** `Bracket` 都滤掉，于是这个实参整个消失
-  // （实测 `expr-value-paren-not-type-array.ts`：缺 `ParenthesizedExpression` +
-  // `ArrayLiteralExpression` + `Identifier`，且连「多出」都没有——是**空掉**了）。
-  // 只滤「落在被调用者范围内、或是空括号」的那一个（被调用者自己的 `()` 不在参数表里）。
-  const args = kids.filter(
-    (k) =>
-      k !== anonymousCallee &&
-      k.get("type") !== "GenericType" &&
-      (k.get("type") !== "Bracket" ||
-        (startOf(k) >= calleeEnd && projectableKids(view(k)).length > 0)),
-  );
-  const generic = kids.find((k) => k.get("type") === "GenericType");
-  // **被调用者本身带着可选链**（第 107 轮）：`x?.y?.(1)` 的产物是
-  // `Method(name="x") > [Identifier(x), NCO(y), NCO(Bracket(1))]`——调用规则把 `x` 认成
-  // 被调用者，而 `?.y` / `?.(1)` 两格都在它里面。TS 那边是
-  // `CallExpression(questionDotToken) > PropertyAccessExpression(questionDotToken) > Identifier(x)`，
-  // 所以这里要把那两格顺着接上去（最后一格是 `?.(…)` 时 `chainWithOptional` 直接给出调用节点）。
-  // 不收的话整条 `c` 只剩一个 `CallExpression(x)`，另加三个未映射标签。
-  const ncos = kids.filter((k) => k.get("type") === "NullConditionalOperator");
-  if (ncos.length > 0) {
-    // **被调用者是 NCO 之前那一整段**（第 178 轮）：`a.b?.()` 的产物是
-    // `Method(name="a") > [a, ., b, NCO(())]`——原来只取「第一个 Identifier」，
-    // 于是 `.b` 那一格整段丢（实测 `expr-optional-member-then-call.ts`：
-    // 缺 `PropertyAccessExpression` + `Identifier` 漂移）。整段交给 `projectExpression` 折。
-    const firstNco = kids.findIndex((k) => k.get("type") === "NullConditionalOperator");
-    const beforeNco = firstNco > 0 ? kids.slice(0, firstNco) : [];
-    let node =
-      beforeNco.length === 0
-        ? { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: v.start + calleeText.length }
-        : projectExpression(beforeNco, ctx);
-    for (const nco of ncos) node = chainWithOptional(node, nco, ctx);
-    if (node !== undefined) return node;
-  }
-  const props = {
-    // **动态 `import("m")` 的被调用者是 `ImportKeyword`**（第 142 轮）：TS 那边
-    // `import("m")` 是 `CallExpression > [ImportKeyword, StringLiteral]`，而产物把它收成
-    // `Method(name="import") > String`——照名字投会得到一个 `Identifier("import")`
-    // （实测 `expr-call-dynamic-import` / `expr-call-await-import` / `am-import-type-call`
-    // 三族各缺 1 个 `ImportKeyword`）。
-    expression:
-      calleeText === "import"
-        ? { kind: "ImportKeyword", text: "import", pos: v.start, end: v.start + "import".length }
-        : anonymousCallee !== undefined
-          ? projectNode(anonymousCallee, ctx)
-          : { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
-    // **实参要按顶层逗号切组、每组折成一个表达式**（第 113 轮）：一格的实参在产物里可能是
-    // **好几个平级单元**——`result.SignIn(Get(units, i)!.SourceRange.Start!)` 那个实参就是
-    // `[NotNull(…), ., NotNull(…)]` 三格。逐个单元投会让它裂成三个「实参」，
-    // 链折不起来（实测缺 `PropertyAccessExpression` 162 / `NonNullExpression` 72、
-    // 漂移 71 + 26、多出 `DotToken` 73，样本全是从调用实参里来的）。
-    arguments: splitTopLevel(args, ctx, ",")
-      .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
-      .filter((a) => a !== undefined),
-    pos: v.start,
-    end: stmtEndOf(v, ctx),
-  };
-  // **调用上的类型实参**（第 95 轮）：产物把它们收成一个 `GenericType` 子单元，而
-  // `args` 那一支是**排掉** `GenericType` 的（它原来整类丢掉）。TS 那边是 `typeArguments`，
-  // 内容按**类型位**投（`f<string>(1)` 是 `StringKeyword`，不是 `TypeReference`）。
-  if (generic !== undefined) {
-    const typeArguments = [];
-    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
-      const one = projectTypeExpression(group, ctx);
-      if (one !== undefined) typeArguments.push(one);
-    }
-    if (typeArguments.length > 0) props.typeArguments = typeArguments;
-  }
-  // **被调用者后面还跟着一对空括号**（第 168 轮）：`y(function(){})()` 的产物是
-  // `Method(name="y") > [FunctionExpr, Bracket( () )]`——末尾那对括号是**对调用结果再调一次**，
-  // TS 那边就是外面再套一层 `CallExpression`（区间一直算到那个 `)`）。
-  // 不收的话外层调用整个没有、内层的终点也短两格
-  // （实测 `stmt-asi-paren-call.ts`：`BinaryExpression` 与 `CallExpression` 各漂 2）。
-  const trailingCall = kids.find(
-    (k) =>
-      k.get("type") === "Bracket" &&
-      k.get("startBracket") === "(" &&
-      startOf(k) >= calleeEnd &&
-      projectableKids(view(k)).length === 0,
-  );
-  const callNode = { kind: "CallExpression", ...props };
-  if (trailingCall !== undefined && callNode.end < endOf(trailingCall)) {
-    return {
-      kind: "CallExpression",
-      expression: callNode,
-      arguments: [],
-      pos: callNode.pos,
-      end: endOf(trailingCall),
-    };
-  }
-  return callNode;
-```
-
 # private method projectSignedLiteralType:(v:any, ctx:any)=>any
 
 `LiteralType > [加号/减号, 数字]` → `LiteralType > PrefixUnaryExpression`；不是这个形状给 `undefined`
@@ -6156,6 +6011,7 @@ import { A as B, C } from "m"
     IsDot: (node) => isDot(node, ctx),
     IsIndexBracket: (node) => isIndexBracket(node),
     IsOperatorUnit: (node) => isOperatorUnit(node, ctx),
+    ChainWithOptional: (node, nco) => chainWithOptional(node, nco, ctx),
     NameOf: (node) => nameOf(node, ctx),
     // **`Kids` 两种都认**（第 185 轮）：`PrintAst` 里传进来的常常是**视图**（`v`），
     // 但取子单元时手上也可能是**原始 Map**（`nameUnits.find(...)` 那种）——
