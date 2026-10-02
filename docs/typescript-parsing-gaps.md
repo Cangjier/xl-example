@@ -2669,3 +2669,36 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `expr-optional-member-then-call.ts` | 1 / 1 / 0 / 0 | `a.b?.()` 少一层属性访问 |
 | `st-misc-keywords.ts` | 1 / 0 / 0 / 0 | 一个 `EmptyStatement` |
 | `stmt-empty-semicolon.ts` | 0 / 1 / 0 / 0 | `;;` 两个空语句的区间 |
+
+---
+
+# 第 178 轮：一元前缀下的可选链、可选调用、块后的空语句
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 177 轮末 | 1399 / 1407 | 7 | 6 | 6 | 2 | 21 |
+| 第 178 轮末 | **1402 / 1407** | 3 | 3 | 4 | 2 | **12** |
+
+**只剩 5 个文件不一致了。**
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 178 | **一元前缀的操作数在后**：`delete a?.b` 的产物是 `[UnaryOperator(delete a), NCO(b)]`，`?.b` 属于 **`delete` 的操作数**；直接接会得到 `(delete a)?.b` | `ts-ast.xl.md`（NCO 分支） |
+| 178 | **可选调用的被调用者是 NCO 之前那一整段**：`a.b?.()` 的产物是 `Method(name="a") > [a, ., b, NCO(())]`，原来只取「第一个 `Identifier`」，`.b` 整段丢 | `ts-ast.xl.md`（`projectCall`） |
+| 178 | **块 / 语句之后的分号照收**：`function f() {` 换行 `;` 里那个 `;` 是 `EmptyStatement`（第 167 轮那条「按上一行内容判」漏了这一形状） | `ts-ast.xl.md`（`projectStatement`） |
+
+`b!()`（被调用者是 `NotNull`、名字为空）的修法**第二次被回退**：结论不变——它会让
+`dist/ts/typescript/ts-ast.ts` 自己出现 `ColonToken` 漂移，代价大于收益
+（`expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts` 各 2 处留作已知缺口）。
+
+## 还剩什么（5 个文件 / 12 处）
+
+| 文件 | 缺 / 漂 / 多 / 字段 | 说明 |
+| --- | --- | --- |
+| `lex-number-member-with-space.ts` | 3 / 1 / 1 / 0 | `1 .toString()`：词法层把 `1 .` 收成一格（试过一版 `Closed` 判据，点号会在后续重组里消失，已回退） |
+| `expr-nonnull-callee.ts` | 0 / 0 / 1 / 1 | `b!()` |
+| `expr-optional-call-nodes.ts` | 0 / 0 / 1 / 1 | `g!()`（同上） |
+| `samples/generic.ts` | 0 / 1 / 1 / 0 | 工程自造的非法样本（`class Foo<T> { let value: T }`），TS 自己报错后提前收尾 |
+| `stmt-empty-semicolon.ts` | 0 / 1 / 0 / 0 | `;;`：token 层产出两个空 `Statement`，但只有第一个走到投影（已定位到「第二个没进 `projectStatement`」） |
