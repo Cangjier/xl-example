@@ -1824,6 +1824,39 @@ new Set([
       };
     }
   }
+  // **`GenericType` 没成形的那种**（第 152 轮）：`<number>1` 里 `>` 后面跟着一个**数字**，
+  // 而 `IsAllowedFollower` 的白名单刻意不含数字（`foo(bar) > 3` 要能退回比较式），
+  // 于是产物是一段平的 `[<, number, >, 1]`。判据仍然只看「第一个单元是不是 `<`」——
+  // 有左操作数的比较式（`a < b > c`）第一个单元是那个 `a`，撞不到这里。
+  if (kids[0].get("type") === "SymbolToken" && textOfNode(kids[0], ctx) === "<" && kids.length >= 3) {
+    let depth = 0;
+    let close = -1;
+    for (let i = 0; i < kids.length; i++) {
+      const text = kids[i].get("type") === "SymbolToken" ? textOfNode(kids[i], ctx) : "";
+      if (text === "<") {
+        depth++;
+      } else if (text === ">") {
+        depth--;
+        if (depth === 0) {
+          close = i;
+          break;
+        }
+      }
+    }
+    if (close > 0 && close + 1 < kids.length) {
+      const asserted = projectTypeExpression(kids.slice(1, close), ctx);
+      const expression = projectExpression(kids.slice(close + 1), ctx);
+      if (asserted !== undefined && expression !== undefined) {
+        return {
+          kind: "TypeAssertionExpression",
+          type: asserted,
+          expression,
+          pos: startOf(kids[0]),
+          end: expression.end,
+        };
+      }
+    }
+  }
   // **值位括号 `(expr)`**（第 81 轮）：TS 那边是 `ParenthesizedExpression`（区间含那对括号、
   // `expression` 是里面那段），产物那边就是一个 `(` 括号单元。
   //
