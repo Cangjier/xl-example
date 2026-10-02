@@ -175,6 +175,162 @@ return index;
 
 导入语句。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`import` 声明 → TS 的形状（**从 `ts-ast.xl.md` 的 `projectImport` 整块搬来**，第 194 轮）。
+
+产物把它摊成**一个节点 + 一串平级单元**：
+
+~~~
+import { A as B, C } from "m"
+  ⇒ Import(imported="B,C") + Bracket{ A, as, B, `,`, C } + Identifier(from) + String("m")
+~~~
+
+而 TS 是三层：`ImportDeclaration > ImportClause > (NamedImports > ImportSpecifier…)`，
+其中那个 `from` **不是节点**。真实语料里这三层各缺一千多（第 34 轮）。
+
+几条实测口径：
+
+- `ImportDeclaration` **含尾随分号**（`import d from "m";` 的 TS 是 `[0,18)`，产物到 `"m"` 就停了）；
+- `ImportClause` 从子句第一个词开始、到最后一个子句单元结束。**`type` 也算在里面**
+  （`import type { A } from "m"` 的 TS 是 `ImportClause[7,17)`），而产物**没把 `type` 记成单元**，
+  所以那个起点只能从 `import` 之后的第一个非空白字符量；
+- `NamedImports` / `ImportSpecifier` 的区间**直接按原文的 `{}` 与逗号量**：产物这边
+  花括号有时是 `Bracket`、有时（带别名时）是 `ObjectLiteral`，按标签分会漏一半；
+- **导入属性 `with { … }` / `assert { … }`**（第 136 轮）：产物把那一对
+  `[Identifier(with), Bracket({…})]` 平铺在**模块说明符之后**，而 TS 那边是
+  `ImportDeclaration.assertClause`——不摘出来的话 `ImportClause` 的区间会一路撑到 `}`；
+- `import x = require("m")` 在 TS 那边是**另一个 kind**（`ImportEqualsDeclaration`），
+  `import x = A.B.C` 的 `moduleReference` 是 `QualifiedName`（第 95 轮）；
+- **`import d, * as ns from "m"` 的默认名**（第 174 轮）与 **`defer` 是标志不是默认名**（第 176 轮）。
+
+```ts
+  const kids = ctx.Kids(v);
+  const props: any = {};
+  const moduleNode = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+  if (moduleNode !== undefined) props.moduleSpecifier = ctx.Project(moduleNode);
+  const assertUnits: any[] = [];
+  const moduleAt = kids.indexOf(moduleNode);
+  if (moduleNode !== undefined && moduleAt >= 0) {
+    const after = kids.slice(moduleAt + 1).filter((k: any) => !ctx.Invisible.has(k.get("type")));
+    const braceAt = after.findIndex(
+      (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "{",
+    );
+    const word = braceAt > 0 ? after[braceAt - 1] : undefined;
+    if (
+      word !== undefined &&
+      word.get("type") === "Identifier" &&
+      ["with", "assert"].includes(ctx.TextOf(word))
+    ) {
+      const brace = after[braceAt];
+      const elements = [];
+      for (const part of ctx.Split(ctx.Kids(brace), ",")) {
+        const colonAt = part.findIndex(
+          (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === ":",
+        );
+        if (colonAt < 0) continue;
+        const nameUnit = part.slice(0, colonAt).find((k: any) => ctx.IsNameNode(k));
+        if (nameUnit === undefined) continue;
+        const valueUnit = part
+          .slice(colonAt + 1)
+          .find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+        elements.push({
+          kind: "AssertEntry",
+          name: ctx.NameOf(nameUnit),
+          value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
+          pos: ctx.StartOf(nameUnit),
+          end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),
+        });
+      }
+      props.assertClause = {
+        kind: "AssertClause",
+        elements,
+        pos: ctx.StartOf(word),
+        end: ctx.EndOf(brace),
+      };
+      assertUnits.push(word, brace);
+    }
+  }
+  let end = ctx.StmtEndOf(v);
+  if (ctx.source[end] === ";") end += 1;
+
+  const fromNode = kids.find((k: any) => k.get("type") === "Identifier" && ctx.TextOf(k) === "from");
+  const equals = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "=");
+  if (equals !== undefined) {
+    const nameNode = kids.find((k: any) => k.get("type") === "Identifier" && k !== fromNode);
+    const callNode = kids.find((k: any) => k.get("type") === "Method");
+    const innerString =
+      moduleNode ??
+      (callNode === undefined
+        ? undefined
+        : ctx.Kids(callNode).find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString"));
+    const equalsProps: any = {};
+    if (nameNode !== undefined) equalsProps.name = ctx.Project(nameNode);
+    if (callNode !== undefined) {
+      equalsProps.moduleReference = {
+        kind: "ExternalModuleReference",
+        expression: innerString === undefined ? undefined : ctx.Project(innerString),
+        pos: ctx.StartOf(callNode),
+        end: ctx.EndOf(callNode),
+      };
+    } else {
+      const names = kids.filter(
+        (k: any) => k.get("type") === "Identifier" && k !== nameNode && k !== fromNode,
+      );
+      if (names.length > 0) equalsProps.moduleReference = ctx.QualifiedNameFrom(names);
+    }
+    return { kind: "ImportEqualsDeclaration", pos: v.start, end, ...equalsProps };
+  }
+
+  const clause = kids.filter(
+    (k: any) =>
+      k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !ctx.Invisible.has(k.get("type")),
+  );
+  if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
+
+  const source = ctx.source;
+  const typeOnly = v.attrs.get("typeOnly");
+  const clauseStart =
+    (typeof typeOnly === "string" ? typeOnly : "false") === "true"
+      ? ctx.FirstCodeAfter(source, v.start + "import".length)
+      : ctx.StartOf(clause[0]);
+  const clauseEnd = ctx.EndOf(clause[clause.length - 1]);
+  const clauseProps: any = {};
+
+  const braceOpen = source.indexOf("{", clauseStart);
+  const braceClose = braceOpen >= 0 && braceOpen < clauseEnd ? ctx.MatchBrace(source, braceOpen) : -1;
+  const star = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === "*");
+  const names = clause.filter((k: any) => k.get("type") === "Identifier" && ctx.TextOf(k) !== "as");
+
+  if (star !== undefined) {
+    const nsName = names[names.length - 1];
+    clauseProps.namedBindings = {
+      kind: "NamespaceImport",
+      name: nsName === undefined ? undefined : ctx.Project(nsName),
+      pos: ctx.StartOf(star),
+      end: clauseEnd,
+    };
+    const defaultName = names.find(
+      (k: any) => ctx.StartOf(k) < ctx.StartOf(star) && ctx.TextOf(k) !== "defer",
+    );
+    if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
+  } else if (braceClose >= 0) {
+    const defaultName = names.find((k: any) => ctx.StartOf(k) < braceOpen);
+    if (defaultName !== undefined) clauseProps.name = ctx.Project(defaultName);
+    clauseProps.namedBindings = {
+      kind: "NamedImports",
+      elements: ctx.NamedImportSpecifiers(source, braceOpen, braceClose),
+      pos: braceOpen,
+      end: braceClose + 1,
+    };
+  } else if (names.length > 0) {
+    clauseProps.name = ctx.Project(names[0]);
+  }
+
+  props.importClause = { kind: "ImportClause", pos: clauseStart, end: clauseEnd, ...clauseProps };
+  return { kind: "ImportDeclaration", pos: v.start, end, ...props };
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器。

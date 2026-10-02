@@ -989,8 +989,6 @@ new Map([
 
 
 
-    case "Import":
-      return projectImport(v, ctx);
 
 
 
@@ -4645,171 +4643,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return { kind: "Identifier", text, pos: at, end: at + text.length };
 ```
 
-# private method projectImport:(v:any, ctx:any)=>any
-
-`import` 声明 → TS 的形状。
-
-产物把它摊成**一个节点 + 一串平级单元**：
-
-~~~
-import { A as B, C } from "m"
-  ⇒ Import(imported="B,C") + Bracket{ A, as, B, `,`, C } + Identifier(from) + String("m")
-~~~
-
-而 TS 是三层：`ImportDeclaration > ImportClause > (NamedImports > ImportSpecifier…)`，
-其中那个 `from` **不是节点**。真实语料里这三层各缺一千多（第 34 轮）。
-
-几条实测口径：
-- `ImportDeclaration` **含尾随分号**（`import d from "m";` 的 TS 是 `[0,18)`，产物到 `"m"` 就停了）；
-- `ImportClause` 从子句第一个词开始、到最后一个子句单元结束。**`type` 也算在里面**
-  （`import type { A } from "m"` 的 TS 是 `ImportClause[7,17)`），而产物**没把 `type` 记成单元**，
-  所以那个起点只能从 `import` 之后的第一个非空白字符量；
-- `NamedImports` / `ImportSpecifier` 的区间**直接按原文的 `{}` 与逗号量**：产物这边
-  花括号有时是 `Bracket`、有时（带别名时）是 `ObjectLiteral`，按标签分会漏一半。
-
-```ts
-  const kids = projectableKids(v);
-  const props = {};
-  const moduleNode = kids.find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
-  if (moduleNode !== undefined) props.moduleSpecifier = projectNode(moduleNode, ctx);
-  // **导入属性 `with { … }` / `assert { … }`**（第 136 轮）：产物把那一对
-  // `[Identifier(with), Bracket({ type: "json" })]` 平铺在**模块说明符之后**，
-  // 而 TS 那边它是 `ImportDeclaration.assertClause`
-  // （`AssertClause > AssertEntry > [name, value]`）。不摘出来的话它们会被当成
-  // import 子句的一部分：`ImportClause` 的区间一路撑到 `}`、缺整个
-  // `AssertClause` / `AssertEntry` / 那个 `StringLiteral`
-  // （实测 `im-attributes` / `mod-import-attributes-assert` / `mod-import-attributes-with`
-  // 三族共 30 处）。
-  const assertUnits = [];
-  const moduleAt = kids.indexOf(moduleNode);
-  if (moduleNode !== undefined && moduleAt >= 0) {
-    const after = kids.slice(moduleAt + 1).filter((k) => !INVISIBLE.has(k.get("type")));
-    const braceAt = after.findIndex(
-      (k) => k.get("type") === "Bracket" && k.get("startBracket") === "{",
-    );
-    const word = braceAt > 0 ? after[braceAt - 1] : undefined;
-    if (
-      word !== undefined &&
-      word.get("type") === "Identifier" &&
-      ["with", "assert"].includes(textOfNode(word, ctx))
-    ) {
-      const brace = after[braceAt];
-      const elements = [];
-      for (const part of splitTopLevel(projectableKids(view(brace)), ctx, ",")) {
-        const colonAt = part.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
-        if (colonAt < 0) continue;
-        const nameUnit = part.slice(0, colonAt).find((k) => isNameNode(k));
-        if (nameUnit === undefined) continue;
-        const valueUnit = part
-          .slice(colonAt + 1)
-          .find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
-        elements.push({
-          kind: "AssertEntry",
-          name: nameOf(nameUnit, ctx),
-          value: valueUnit === undefined ? undefined : projectNode(valueUnit, ctx),
-          pos: startOf(nameUnit),
-          end: valueUnit === undefined ? endOf(nameUnit) : endOf(valueUnit),
-        });
-      }
-      props.assertClause = {
-        kind: "AssertClause",
-        elements,
-        pos: startOf(word),
-        end: endOf(brace),
-      };
-      assertUnits.push(word, brace);
-    }
-  }
-  let end = stmtEndOf(v, ctx);
-  if (ctx.source[end] === ";") end += 1;
-
-  const fromNode = kids.find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === "from");
-  const equals = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  // `import x = require("m")` 在 TS 那边是**另一个 kind**，不是 `ImportDeclaration`。
-  if (equals !== undefined) {
-    const nameNode = kids.find((k) => k.get("type") === "Identifier" && k !== fromNode);
-    const callNode = kids.find((k) => k.get("type") === "Method");
-    // `require("m")` 的字符串在**那个 `Method` 里面**，不是 `Import` 的直接子单元。
-    const innerString =
-      moduleNode ??
-      (callNode === undefined
-        ? undefined
-        : projectableKids(view(callNode)).find((k) => k.get("type") === "String" || k.get("type") === "ConstString"));
-    const equalsProps = {};
-    if (nameNode !== undefined) equalsProps.name = projectNode(nameNode, ctx);
-    if (callNode !== undefined) {
-      equalsProps.moduleReference = {
-        kind: "ExternalModuleReference",
-        expression: innerString === undefined ? undefined : projectNode(innerString, ctx),
-        pos: startOf(callNode),
-        end: endOf(callNode),
-      };
-    } else {
-      // **`import x = A.B.C`**（第 95 轮）：TS 的 `moduleReference` 是 `QualifiedName`
-      // （`A.B.C` 是两层嵌套的 `QualifiedName`），而产物把它摊成平级单元——
-      // 不收出来会缺整族 `QualifiedName` / `Identifier`（实测 5 处）。
-      const names = kids.filter((k) => k.get("type") === "Identifier" && k !== nameNode && k !== fromNode);
-      if (names.length > 0) equalsProps.moduleReference = qualifiedNameFrom(names, ctx);
-    }
-    return { kind: "ImportEqualsDeclaration", pos: v.start, end, ...equalsProps };
-  }
-
-  const clause = kids.filter(
-    (k) => k !== moduleNode && k !== fromNode && !assertUnits.includes(k) && !INVISIBLE.has(k.get("type")),
-  );
-  if (clause.length === 0) return { kind: "ImportDeclaration", pos: v.start, end, ...props };
-
-  const source = ctx.source;
-  const clauseStart =
-    String(v.attrs.get("typeOnly") ?? "false") === "true"
-      ? firstCodeAfter(source, v.start + "import".length)
-      : startOf(clause[0]);
-  const clauseEnd = endOf(clause[clause.length - 1]);
-  const clauseProps = {};
-
-  const braceOpen = source.indexOf("{", clauseStart);
-  const braceClose = braceOpen >= 0 && braceOpen < clauseEnd ? matchBrace(source, braceOpen) : -1;
-  const star = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "*");
-  const names = clause.filter((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) !== "as");
-
-  if (star !== undefined) {
-    // `import * as ns from "m"`：`NamespaceImport` 盖住 `* as ns` 整段（TS 就是这么给的）。
-    const nsName = names[names.length - 1];
-    clauseProps.namedBindings = {
-      kind: "NamespaceImport",
-      name: nsName === undefined ? undefined : projectNode(nsName, ctx),
-      pos: startOf(star),
-      end: clauseEnd,
-    };
-    // **`import d, * as ns from "m"` 的默认名**（第 174 轮）：TS 的 `ImportClause` 有
-    // `name`（那个 `d`）与 `namedBindings` 两格，产物那边 `d` 与 `* as ns` 是平级单元——
-    // 原来这一支只收 `namedBindings`，默认名整格丢（实测 `im-mixed.ts` /
-    // `mod-import-default-and-namespace.ts`：缺 `Identifier` + `ImportClause` 字段名差）。
-    // **`defer` 也是标志、不是默认名**（第 176 轮）：`import defer * as ns from "m"` 里
-    // TS 的 `ImportClause` 只有 `namedBindings`（`defer` 是相位修饰），照默认名收会多出一个
-    // `Identifier("defer")` + `name` 字段（实测 `mod-import-defer.ts`）。
-    const defaultName = names.find(
-      (k) => startOf(k) < startOf(star) && textOfNode(k, ctx) !== "defer",
-    );
-    if (defaultName !== undefined) clauseProps.name = projectNode(defaultName, ctx);
-  } else if (braceClose >= 0) {
-    // 花括号之前那一段是默认导入（`import d, { … }` 的 `d`）。
-    const defaultName = names.find((k) => startOf(k) < braceOpen);
-    if (defaultName !== undefined) clauseProps.name = projectNode(defaultName, ctx);
-    clauseProps.namedBindings = {
-      kind: "NamedImports",
-      elements: namedImportSpecifiers(source, braceOpen, braceClose),
-      pos: braceOpen,
-      end: braceClose + 1,
-    };
-  } else if (names.length > 0) {
-    clauseProps.name = projectNode(names[0], ctx);
-  }
-
-  props.importClause = { kind: "ImportClause", pos: clauseStart, end: clauseEnd, ...clauseProps };
-  return { kind: "ImportDeclaration", pos: v.start, end, ...props };
-```
-
 # private method namedImportSpecifiers:(source:string, braceOpen:int, braceClose:int)=>Array<any>
 
 ```ts
@@ -5915,6 +5748,9 @@ import { A as B, C } from "m"
     ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
     KidsOf: (node, key) => kidsOf(node instanceof Map ? view(node) : node, key),
     Attr: (node, key) => (node instanceof Map ? view(node) : node).attrs.get(key),
+    FirstCodeAfter: (text, at) => firstCodeAfter(text, at),
+    MatchBrace: (text, at) => matchBrace(text, at),
+    NamedImportSpecifiers: (text, open, close) => namedImportSpecifiers(text, open, close),
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
