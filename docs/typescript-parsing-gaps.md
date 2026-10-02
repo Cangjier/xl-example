@@ -2598,3 +2598,35 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 | `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
 | `samples/generic.ts` | 0 / 1 / 1 | 工程自造的非法样本（`class Foo<T> { let value: T }`），TS 自己报错后提前收尾 |
 | 其余 | 每文件 1~2 | 零散 |
+
+---
+
+# 第 172~174 轮：数组后缀的操作数、抽象构造签名、`for await`、导入子句
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 171 轮末 | 1380 / 1407 | 25 | 12 | 13 | 12 | 62 |
+| 第 174 轮末 | **1389 / 1407** | 13 | 7 | 9 | 8 | **37** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 172 | **`X<A, D>[]` 的操作数要含泛型段前的名字**：产物把「名字」与「`<实参>` 段」摆成平级两格，`[]` 只按紧邻那格收时名字会留在外面（`[Identifier(X), ArrayType > GenericType]`） | `tokens/type-bracket.xl.md` |
+| 172 | **接口里的 `abstract new (): A` 是 `MethodSignature`**：`abstract` 不能修饰构造签名，TS 于是把它读成「名叫 `new` 的方法签名」 | `ts-ast.xl.md`（`projectSignature`） |
+| 173 | **导入说明符段首的 `type` 是标志**（`import { type B, C }`）：区间含 `type`、名字只是 `B`（导出那一侧早有、导入漏了） | `ts-ast.xl.md`（`namedImportSpecifiers`） |
+| 173 | **空语句后面那个 `;` 的归属**：`export as namespace N;` 里 `;` 属于上一条；而 `;;` 是两个各自独立的 `EmptyStatement` | `ts-ast.xl.md`（`projectEach`） |
+| 174 | **`for await (… of …)` 的 `awaitModifier`**：TS 的 `ForOfStatement` 在 `for` 与 `(` 之间有一个 `AwaitKeyword` 子节点 | `ts-ast.xl.md`（`projectForeach`） |
+| 174 | **`import d, * as ns from "m"` 的默认名**：这一支原来只收 `namedBindings`，`name` 整格丢 | `ts-ast.xl.md`（`projectImport`） |
+
+第 172 轮的 `X<A, D>[]` 是本轮最值钱的一条：它同时解掉了从第 164 轮就挂在榜首的
+`type-generic-array-suffix.ts`（2/4/1），以及 `TypeDefine > [名字, ArrayType > GenericType]` 这一整形状。
+
+## 还剩什么（共 37）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `lex-number-member-with-space.ts` | 3 / 1 / 1 | `1 .toString()`（词法层那个点被吞） |
+| `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
+| `samples/generic.ts` | 0 / 1 / 1 | 工程自造的非法样本，TS 自己报错后提前收尾 |
+| `mod-import-defer.ts` / `cls-expression.ts` 等 | 各 1 | 字段名 / 单个节点 |
