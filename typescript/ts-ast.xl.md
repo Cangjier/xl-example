@@ -173,7 +173,7 @@ new Map([
   ["Try", "TryStatement"],
   ["Switch", "SwitchStatement"],
   ["While", "WhileStatement"],
-  ["DoWhile", "DoWhileStatement"],
+  ["DoWhile", "DoStatement"],
   ["For", "ForStatement"],
   ["Foreach", "ForOfStatement"],
   ["IfSet", "IfStatement"],
@@ -883,6 +883,18 @@ new Map([
     case "For":
       return projectFor(v, ctx);
 
+    // **循环体的花括号要自己造**（第 96 轮）：`while` / `do…while` / `for…of` 的体段在
+    // `ToList` 里只有语句（体括号那层壳不在树里），照通用投影 `statement` 会是裸的语句
+    // 而不是 `Block`（实测 `Block` 缺 336 里的成片）。
+    case "While":
+      return projectWhile(v, ctx);
+
+    case "DoWhile":
+      return projectDoWhile(v, ctx);
+
+    case "Foreach":
+      return projectForeach(v, ctx);
+
     // **`new` 表达式**（第 95 轮）：产物的 `name` 段是**一串单元**（名字 + 类型实参段），
     // 照通用投影会把它们一起投成 `expression`（实测 `NewExpression` 字段名差 19 +
     // 多出一个 `TypeReference` 盖住 `<string, number>`）。
@@ -1259,7 +1271,7 @@ new Set([
   "ClassStaticBlockDeclaration",
   "ContinueStatement",
   "DebuggerStatement",
-  "DoWhileStatement",
+  "DoStatement",
   "EnumDeclaration",
   "ExportDeclaration",
   "ForOfStatement",
@@ -1380,13 +1392,7 @@ new Set([
   // 那些括号的父单元是 `Method` / `Function` / `Lamda` / `Signature` / 类型容器，
   // 由各自的投影路径摊平；`projectExpression` 收到的单元一律是**操作数**。
   if (kids.length === 1 && kids[0].get("type") === "Bracket" && kids[0].get("startBracket") === "(") {
-    const inner = projectableKids(view(kids[0]));
-    return {
-      kind: "ParenthesizedExpression",
-      expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
-      pos: startOf(kids[0]),
-      end: endOf(kids[0]),
-    };
+    return parenthesizedOf(kids[0], ctx);
   }
   if (kids.length === 1) return projectNode(kids[0], ctx);
   const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
@@ -1420,7 +1426,10 @@ new Set([
       }
       ck.push(k);
     }
-    let left = projectNode(ck[0], ctx);
+    let left =
+      ck[0].get("type") === "Bracket" && ck[0].get("startBracket") === "("
+        ? parenthesizedOf(ck[0], ctx)
+        : projectNode(ck[0], ctx);
     let i = 1;
     while (i < ck.length) {
       // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。
@@ -1478,7 +1487,27 @@ new Set([
     if (i >= ck.length) return left;
     return foldBinaryFrom(left, ck.slice(i), ctx);
   }
-  // ---- 2. 二元 / 赋值 ----
+  // ---- 2. `as` / `satisfies`（第 96 轮）----
+  //
+  // 产物把 `expr as T` 记成**两个平级单元**：`Identifier(error)` 与 `As(类型)`——
+  // 运算符词右边的类型装在 `As` 里，**左边的操作数是它的前一个兄弟**。
+  // 原来这里既不认 `As` 也不认 `satisfies`，于是整段只剩第一个操作数
+  // （实测缺 `AsExpression` + 缺 `AnyKeyword` + 多出一个只盖住 `as any` 的节点）。
+  const asIndex = kids.findIndex((k) => k.get("type") === "As" || k.get("type") === "Satisfies");
+  if (asIndex > 0) {
+    const unit = kids[asIndex];
+    const expression = projectExpression(kids.slice(0, asIndex), ctx);
+    const typeKids = projectableKids(view(unit));
+    const type = typeKids.length > 0 ? projectTypeExpression(typeKids, ctx) : undefined;
+    return {
+      kind: unit.get("type") === "Satisfies" ? "SatisfiesExpression" : "AsExpression",
+      expression,
+      type,
+      pos: expression === undefined ? startOf(unit) : expression.pos,
+      end: endOf(unit),
+    };
+  }
+  // ---- 3. 二元 / 赋值 ----
   //
   // **切在优先级最低的那个运算符上**（第 88 轮）：`x && y || z` 的 TS 是 `(x && y) || z`，
   // 按**第一个**运算符切会得到 `x && (y || z)` ✗（优先级反了）。同级取**最左**（左结合）。
@@ -1526,6 +1555,24 @@ new Set([
   return projectNode(kids[0], ctx);
 ```
 
+# private method parenthesizedOf:(unit:any, ctx:any)=>any
+
+括号表达式 `( … )` → `ParenthesizedExpression`（括号本身**属于**这个节点，与 TS 一致）。
+
+产物那边值位的括号就是一个 `Bracket` 单元（`startBracket="("`），内容在它里面。
+判据只认「括号是这一层的操作数」——实参表 / 形参表 / 类型括号不会走到这里
+（那些括号的父单元是 `Method` / `Function` / `Lamda` / `Signature` / 类型容器，各走各的投影路径）。
+
+```ts
+  const inner = projectableKids(view(unit));
+  return {
+    kind: "ParenthesizedExpression",
+    expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
+    pos: startOf(unit),
+    end: endOf(unit),
+  };
+```
+
 # private method foldBinaryFrom:(left:any, rest:Array<any>, ctx:any)=>any
 
 从 `left` 起、把 `rest`（以运算符开头、`[op, 操作数, op, 操作数, …]`）折成 `BinaryExpression`。
@@ -1544,11 +1591,34 @@ new Set([
   const firstRank = operatorRank(textOfNode(rest[0], ctx));
   if (firstRank === 0) {
     // 赋值：右结合，交给递归。
-    const right = projectExpression(rest.slice(1), ctx);
+    let right = projectExpression(rest.slice(1), ctx);
+    // **复合赋值**（第 96 轮）：token 层把 `a += 2` 展开成 `a = a + 2` 那一串（为执行层留一份
+    // 可单独取出的运算符），所以这里看到的是「`=` + 一个 `BinaryOperator`」。TS 那边是**一个**
+    // `BinaryExpression`、运算符是 `PlusEqualsToken`、右操作数是 `2`（不是 `a + 2`）。
+    // 判据落在**原文**上：那个 `=` 单元的区间盖住的是 `+=` 这种两三个字符。
+    // 照原样投会多出 `EqualsToken` + `PlusToken`、又缺那个复合 kind（实测 134 + 94）。
+    const opText = ctx.source.slice(startOf(rest[0]), endOf(rest[0]));
+    const operatorToken =
+      opText === textOfNode(rest[0], ctx)
+        ? projectNode(rest[0], ctx)
+        : { kind: tokenKind(opText), text: opText, pos: startOf(rest[0]), end: endOf(rest[0]) };
+    if (
+      opText.length > 1 &&
+      right !== undefined &&
+      right.kind === "BinaryExpression" &&
+      right.left !== undefined &&
+      right.left.pos === left.pos &&
+      right.left.end === left.end &&
+      // 展开出来的那个运算符单元**沿用同一个区间**（`+=` 的 [2,4)），所以判据看 kind、不看区间。
+      right.operatorToken !== undefined &&
+      right.operatorToken.kind === tokenKind(opText.slice(0, -1))
+    ) {
+      right = right.right;
+    }
     return {
       kind: "BinaryExpression",
       left,
-      operatorToken: projectNode(rest[0], ctx),
+      operatorToken,
       right,
       pos: left.pos,
       end: right ? right.end : endOf(rest[0]),
@@ -1929,10 +1999,23 @@ new Set([
 
 ```ts
   const kids = projectableKids(v);
-  const opIndex = kids.findIndex((k) => isOperatorUnit(k, ctx));
+  const declaredOp = String(v.attrs.get("op") ?? "");
+  let opIndex = kids.findIndex((k) => isOperatorUnit(k, ctx));
+  // **`typeof` / `void` / `delete` 是 `Keyword`**，不在 `isOperatorUnit` 的白名单里
+  // （那一支只认 `SymbolToken` 与 `in` / `instanceof`），所以它们要靠 `op` **属性**定位——
+  // 否则那个运算符词会被当成操作数投出去（实测多出 `TypeOfKeyword` + 缺 `Identifier`）。
+  if (opIndex < 0 && declaredOp !== "") opIndex = kids.findIndex((k) => textOfNode(k, ctx) === declaredOp);
   const operandKids = opIndex >= 0 ? kids.filter((_, i) => i !== opIndex) : kids;
   const operand = projectExpression(operandKids, ctx);
-  const isPostfix = opIndex === kids.length - 1;
+  const isPostfix = opIndex >= 0 && opIndex === kids.length - 1;
+  // **`typeof` / `void` / `delete` 是三种独立的表达式 kind**（第 96 轮）：TS 里它们是
+  // `TypeOfExpression` / `VoidExpression` / `DeleteExpression`（只有 `expression` 一个字段、
+  // 运算符词**不进子节点**），而 `!` / `-` / `+` / `~` / `++` / `--` 才是
+  // `PrefixUnaryExpression` / `PostfixUnaryExpression`。
+  if (!isPostfix) {
+    const wordKind = { typeof: "TypeOfExpression", void: "VoidExpression", delete: "DeleteExpression" }[declaredOp];
+    if (wordKind !== undefined) return { kind: wordKind, expression: operand, pos: v.start, end: v.end };
+  }
   return {
     kind: isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
     operand,
@@ -3460,6 +3543,89 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
 ```
 
+# private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any)=>any
+
+**循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
+
+与 `blockOfBody` 的分工：那一支的 `kids` 里已经有成形的语句、靠「第一个语句之前有没有 `{`」
+判断；而 `for` / `while` / `do…while` / `for…of` 的体段在 `ToList` 里**只有语句**
+（花括号那层壳不在树里），所以括号只能**从原文找**——`from` 传头部结束的位置。
+
+```ts
+  const list = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
+  const projections = projectEach(list, ctx);
+  const brace = ctx.source.indexOf("{", from);
+  if (brace >= 0) {
+    const close = matchingBrace(ctx.source, brace);
+    const last = list.length > 0 ? endOf(list[list.length - 1]) : -1;
+    // 括号必须**盖住全部语句**，否则那个 `{` 是下一条语句的（见 `blockOfBody` 的说明）。
+    if (close >= brace && close >= last) {
+      return { kind: "Block", statements: projections, pos: brace, end: close + 1 };
+    }
+  }
+  if (projections.length === 1) return projections[0];
+  if (projections.length === 0) return undefined;
+  return { kind: "Block", statements: projections, pos: startOf(list[0]), end: endOf(list[list.length - 1]) };
+```
+
+# private method projectWhile:(v:any, ctx:any)=>any
+
+`while (c) { … }` → `WhileStatement`（`expression` + `statement`）。
+
+```ts
+  const props = {};
+  const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (compare.length > 0) props.expression = projectExpression(compare, ctx);
+  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
+  const header = ctx.source.indexOf(")", v.start);
+  const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
+  if (statement !== undefined) props.statement = statement;
+  return { kind: "WhileStatement", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectDoWhile:(v:any, ctx:any)=>any
+
+`do { … } while (c);` → **`DoStatement`**（`statement` + `expression`）。
+
+kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` 里就是这个拼法，
+按后者投会整类算成「缺 `DoStatement`」+「多出 `DoWhileStatement`」。
+
+```ts
+  const props = {};
+  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
+  const statement = bodyBlockOf(v.start + "do".length, body, ctx);
+  if (statement !== undefined) props.statement = statement;
+  const compare = kidsOf(v, "compare").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (compare.length > 0) props.expression = projectExpression(compare, ctx);
+  return { kind: "DoStatement", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectForeach:(v:any, ctx:any)=>any
+
+`for (const x of xs) { … }` / `for (const k in o) { … }` → `ForOfStatement` / `ForInStatement`。
+
+**`of` 与 `in` 产物里没有记号**（`Foreach` 只有 `define` / `enumable` / `body` 三个段），
+所以按**原文**分辨：声明与枚举对象之间那一截里有 `in` 就是 `ForInStatement`。
+
+```ts
+  const props = {};
+  const define = kidsOf(v, "define").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (define.length > 0) {
+    props.initializer =
+      define[0].get("type") === "Let" ? projectLetFrom(define, ctx, v).list : projectExpression(define, ctx);
+  }
+  const enumable = kidsOf(v, "enumable").filter((k) => !INVISIBLE.has(k.get("type")));
+  if (enumable.length > 0) props.expression = projectExpression(enumable, ctx);
+  const from = define.length > 0 ? endOf(define[define.length - 1]) : v.start;
+  const to = enumable.length > 0 ? startOf(enumable[0]) : v.end;
+  const kind = /\bin\b/.test(ctx.source.slice(from, to)) ? "ForInStatement" : "ForOfStatement";
+  const body = kidsOf(v, "body").filter((k) => !INVISIBLE.has(k.get("type")));
+  const header = ctx.source.indexOf(")", v.start);
+  const statement = bodyBlockOf(header < 0 ? v.start : header + 1, body, ctx);
+  if (statement !== undefined) props.statement = statement;
+  return { kind, pos: v.start, end: v.end, ...props };
+```
+
 # private method blockOfBody:(kids:Array<any>, ctx:any)=>any
 
 一个段的体 → `Block`（或没有花括号时的单条语句）。
@@ -3499,6 +3665,24 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   let depth = 0;
   for (let i = open; i < source.length; i++) {
     const c = source[i];
+    // **字符串与注释里的花括号不算括号**（第 96 轮）：`document.GetValue(index + 2) === "{"`
+    // 这种写法让深度永远回不到 0、配对直接失败——于是体被判成「没有花括号」，
+    // `IfStatement` / `Block` 的终点停在最后一条语句上（实测 137 处漂移 + 137 处「多出来」是同一处）。
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < source.length && source[i] !== c; i++) {
+        if (source[i] === "\\") i++;
+      }
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "/") {
+      while (i < source.length && source[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "*") {
+      for (i += 2; i < source.length && !(source[i] === "*" && source[i + 1] === "/"); i++);
+      i++;
+      continue;
+    }
     if (c === "{") depth++;
     else if (c === "}") {
       depth--;
@@ -3878,7 +4062,8 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     const finallyBlock = blockAfter(at < 0 ? v.start : at, finallyStatements);
     if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
   }
-  return { kind: "TryStatement", pos: v.start, end: v.end, ...props };
+  // **终点剪掉尾部 trivia**（与其它语句族同一口径）：`try { … }` 的产物区间含它后面的换行。
+  return { kind: "TryStatement", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectStaticBlock:(v:any, ctx:any)=>any
