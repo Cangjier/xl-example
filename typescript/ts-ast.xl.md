@@ -1474,7 +1474,13 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     ) {
       const previous = out[out.length - 1];
       const semi = items[i].get("pos") ?? startOf(items[i]);
-      if (previous !== undefined && typeof previous.end === "number" && semi > previous.end) {
+      // **上一条本身是空语句时不再并**（`;;` 是两个 `EmptyStatement`，各自一格）。
+      if (
+        previous !== undefined &&
+        typeof previous.end === "number" &&
+        semi >= previous.end &&
+        previous.kind !== "EmptyStatement"
+      ) {
         previous.end = semi + 1;
       }
     }
@@ -5193,15 +5199,26 @@ import { A as B, C } from "m"
       break;
     }
     if (from >= stop) return;
-    const asAt = source.slice(from, stop).search(/\s+as\s+/);
+    // **段首的 `type` 是标志**（第 173 轮）：`import { type B, C } from "y"` 里第一段是
+    // `type B`——TS 的 `ImportSpecifier` 区间含 `type`，但它的 `name` 只是 `B`
+    // （实测 `im-type-only.ts`：`Identifier` 的文本成了 `type B`、区间从 356 起）。
+    // 导出那一侧（`namedExportSpecifiers`）早就有这一条，导入这一侧漏了。
+    const typePrefix = /^type\s+/.exec(source.slice(from, stop));
+    const headFrom = typePrefix === null ? from : from + typePrefix[0].length;
+    const asAt = source.slice(headFrom, stop).search(/\s+as\s+/);
     if (asAt >= 0) {
-      const gap = source.slice(from + asAt).match(/\s+as\s+/)[0].length + asAt;
-      const property = identWithin(source, source.slice(from, from + asAt).trim(), from, from + asAt);
-      const nameText = source.slice(from + gap, stop).trim();
-      const name = identWithin(source, nameText, from + gap, stop);
+      const gap = source.slice(headFrom + asAt).match(/\s+as\s+/)[0].length + asAt;
+      const property = identWithin(source, source.slice(headFrom, headFrom + asAt).trim(), headFrom, headFrom + asAt);
+      const nameText = source.slice(headFrom + gap, stop).trim();
+      const name = identWithin(source, nameText, headFrom + gap, stop);
       out.push({ kind: "ImportSpecifier", propertyName: property, name, pos: from, end: stop });
     } else {
-      out.push({ kind: "ImportSpecifier", name: identWithin(source, source.slice(from, stop), from, stop), pos: from, end: stop });
+      out.push({
+        kind: "ImportSpecifier",
+        name: identWithin(source, source.slice(headFrom, stop), headFrom, stop),
+        pos: from,
+        end: stop,
+      });
     }
   };
   for (let i = braceOpen + 1; i < braceClose; i++) {
