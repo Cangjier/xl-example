@@ -205,3 +205,25 @@
 `ctx.Node("IndexSignatureDeclaration", ...)`，而这一族一直用的是**短名** `"IndexSignature"`——
 一改就让 `lib.es5.d.ts` 出「缺 19 + 多 19」。搬迁时**kind 字面量必须逐字照抄原实现**，
 不能顺手改成 TS 的枚举名（本工程多处用短名：`DoStatement` / `IndexSignature` / `NonNullExpression`…）。
+
+### 第 188 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| `ConditionalType` | `tokens/conditional-type.xl.md` |
+| `TernaryOperator` | `tokens/ternary-operator/ternary-operator.xl.md` |
+| `FunctionType` | `tokens/function-type.xl.md` |
+
+中央 `switch` 的 `case` 从 30 降到 **27**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了五个出口：`ConditionalNode`、`Segment`、`PunctBetween`、`UnwrapNodes`、`TypeOf`。
+
+**又踩到一个（同样是「搬完才发现还有别的调用点」）**：`projectFunctionType` 除了那个 `case`，
+还被 `projectTypeExpression` 里「类型参数段在函数类型**外面**」那一支直调
+（`[GenericType(类型参数), FunctionType(…)]`）。搬完之后那里直接 `ReferenceError`。
+修法不是把实现搬回去，而是**改成通用分派** `projectNode(list[1], ctx)`——
+`projectNode` 会先问 `__token.PrintAst`，输入与原来那次直调完全相同、节点逐字节一样
+（`@types/node/async_hooks.d.ts` 那种「泛型函数类型」实测一致）。
+
+> 这一条值得记进搬迁手册：**搬之前先 grep 这个函数名**，除了 `case` 之外常常还有内部调用点；
+> 有的话优先改成 `projectNode` / `ctx.Project` 的通用分派，而不是把实现留在原地。
