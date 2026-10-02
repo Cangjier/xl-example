@@ -420,3 +420,34 @@ token：`projectNode` 会先问 `__token.PrintAst` ✓，输入相同、结果�
 | `projectTypeAlias` | 5 | `case "TypeAssign"`；**有一处直调要接外层起点**（`projectTypeAlias(view(head), ctx, v.start)`） |
 | `projectLet` | 7 | `case "Let"`；列表版 `projectLetFrom` 被 `for` / `foreach` 用 |
 | `projectStatement` | 8 | `case "Statement"`；语句分派 + 外层起点 |
+
+### 第 196 轮：`BinaryOperator` / `LogicalOperator` / `Parameter` / `LamdaParameter`
+
+| 块 | 落到哪 |
+| --- | --- |
+| `BinaryOperator` | `tokens/binary-operator.xl.md` |
+| `LogicalOperator` | `tokens/logical-operator.xl.md`（与上一条**共用同一份实现**，逐字相同） |
+| `Parameter` / `LamdaParameter` | `tokens/lamda/lamda-parameter.xl.md`（两个 `case` 共用同一份实现） |
+
+中央 `switch` 的 `case` 从 8 降到 **3**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+`ctx` 又补了出口：`OperatorRank` / `FoldBinaryFrom` / `ParameterModifiers`。
+
+**顺手清掉两处历史遗留（都不是本轮引入的）**：
+
+1. `case "LogicalOperator"` 在 `switch` 里**出现两次**——第二处指向 `projectLogical`，
+   而第一处（与 `BinaryOperator` 共用 `projectBinary`）永远先命中，所以 `projectLogical`
+   是**够不着的死代码**（文件开头的说明里就记着这件事）。删掉第一处之后第二处会「变成活的」，
+   但 `LogicalOperator` 的 `PrintAst` 已于本轮就位，`projectNode` 先问 token ✓，所以它仍然是死的
+   ——两处一起删掉，避免了「删一个反而改变行为」的陷阱；
+2. `case "Parameter":` 是一个**空标签**（它的 `return` 早先被搬走、只留下标签与注释），
+   于是 `Parameter` 单元会 fallthrough 到 `default` —— 同样因为 token 的 `PrintAst` 先命中而无害，
+   但代码读起来会误导人，本轮一并删掉。
+
+> 这两条值得记进搬迁手册：**同标签多 `case`、空标签 fallthrough** 这类遗留，
+> 在「逐节点出口」就位之后都是死代码，但删除顺序错了会让死代码复活。
+> 判据仍然是全量对拍。
+
+### 还剩 3 条 `case`
+
+`Statement`(8) / `Let`(7) / `TypeAssign`(5)。
