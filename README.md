@@ -1517,6 +1517,39 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
 
+### 第 85 轮：类型运算符 · 映射类型 · 非空断言（完全一致 67 → 79 / 385）
+
+这一轮按第 84 轮量出来的「多出来」榜往下压，三处都是**同一个道理**：
+**TS 不把关键字 / 标点算作子节点**，而本工程把它们与操作数摆成平级单元。
+
+| 形状 | TS 的子字段（先 dump 出来的判据） | 原来的错法 |
+| --- | --- | --- |
+| `keyof T` / `readonly T[]` / `unique symbol` | `TypeOperator` **只有 `type`**（那个词是属性 `operator`）：`TypeOperator[17,38) > ArrayType[26,38)`、`TypeOperator[9,22) > SymbolKeyword[16,22)` | `type` 成了两格数组（`ReadonlyKeyword` + `ArrayType`）；`unique symbol` 的操作数被投成 `TypeReference > Identifier(symbol)` |
+| `{ readonly [P in keyof T]-?: T[P] }` | `MappedType` = `readonlyToken` / `typeParameter` / `questionToken` / `type`（`-?` 的那个 `-` 是 **`questionToken:MinusToken`**，`?` 不进子节点） | 那一层 `Statement` 壳被投成 `ExpressionStatement`（多出 465 个），修饰符当成它的内容 |
+| `x!` | `NonNullExpression` **只有 `expression`**（`!` 是属性 `exclamationToken`） | `!` 也算进 `expression`（多出 `ExclamationToken` 350 个） |
+
+修法：三支专用投影 `projectTypeOperator` / `projectMappedType` / `projectNonNullExpression`。
+其中 `projectTypeOperator` 的操作数**必须走类型位投影**（`projectTypeExpression`）——
+`unique symbol` 的 `symbol` 才会是 `SymbolKeyword` 而不是 `TypeReference`。
+
+#### 账
+
+| 判据 | 第 84 轮 | 现在 |
+| --- | --- | --- |
+| **完全一致的文件** | 67 / 385 | **79 / 385** |
+| 多出来的节点 | 9528 | **7031** |
+| 缺节点 / 区间漂移 / 字段名不符 | 6241 / 1532 / 373 | **6136 / 1543 / 362** |
+| `cases:run` / `cases:check` | 1035 / 1035 | **1035 / 1035** |
+| 其余八把尺子 + `samples`（夹具重生成） | 全绿 | **全绿** |
+
+#### 下一批（「多出来」榜上排前面的三类其实是一件事）
+
+`BinaryExpression` 1806 + `CommaToken` 1158：样本落在 `export enum CommandTypes { JsxClosingTag = "jsxClosingTag", … }`
+——**枚举成员**。产物把 `名字 = 初值` 折成了一个 `BinaryOperator(=)`，于是投出 `BinaryExpression`
+✗（TS 那边是 `EnumMember` + `name` / `initializer`），成员之间的 `,` 也跟着多出来。
+接着是 `ExpressionStatement` 442（成员位那层 `Statement` 还是没摊开——第 79 轮的判据要求
+「整层都是成员标签」）、`ExportSpecifier`（`export { a as b }` 的 `as` 与缺的节点 134）。
+
 ### 第 84 轮：把量具改成「和 TS 的 AST 完全一致」——以及多出来的那一万九千个节点
 
 这一轮的起点是一句预期的收紧：**「和 `ts.createSourceFile` 的 AST 完全一致」**。

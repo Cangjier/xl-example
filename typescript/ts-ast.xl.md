@@ -777,6 +777,22 @@ new Map([
     // 类型查询 `typeof X`：TS 那边 `exprName` **只有名字**（`typeof` 是属性、不是子节点），
     // 产物那边它是 `[Keyword(typeof), Identifier(X)]` 两个平级单元——照通用投影会把
     // `TypeOfKeyword` 也塞进 `exprName`。
+    // 非空断言 `x!`：TS 的 `NonNullExpression` 只有 `expression` 一个子字段——
+    // `!` 那个词是节点的属性（`exclamationToken`），`forEachChild` 不访问它
+    // （实测「多出来」里 `ExclamationToken` 350 个全是它）。
+    case "NonNullExpression":
+      return projectNonNullExpression(v, ctx);
+
+    // 类型运算符 `keyof T` / `readonly T[]` / `unique symbol`：TS 那边那个词是节点的**属性**
+    // （`operator`），`forEachChild` 只看 `type` 一个子字段。
+    case "TypeOperator":
+      return projectTypeOperator(v, ctx);
+
+    // 映射类型 `{ [P in keyof T]-?: T[P] }`：TS 的子字段是
+    // `readonlyToken` / `typeParameter` / `questionToken` / `type`。
+    case "MappedType":
+      return projectMappedType(v, ctx);
+
     // 继承段 `extends A, B` / `implements C`：TS 那边 `forEachChild` **只访问 `types`**——
     // `extends` / `implements` 那个词是节点的**属性**（`token`），不是子节点。
     case "HeritageClause":
@@ -3063,6 +3079,124 @@ TS 那边的 `properties` 是**成员数组**：
   }
   const props = elements.length === 0 ? {} : { elements };
   return { kind: "ArrayLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
+```
+
+# private method projectNonNullExpression:(v:any, ctx:any)=>any
+
+非空断言 `x!` → `NonNullExpression`（**只有 `expression` 一个子字段**）。
+
+TS 那边 `!` 是节点的属性（`exclamationToken`），`forEachChild` **不访问**它；产物那边它是
+`[Identifier, SymbolToken(!)]` 两个平级单元——照通用投影会把 `!` 也算进 `expression`
+（实测「多出来的节点」里 `ExclamationToken` 350 个全是它）。
+
+```ts
+  const kids = projectableKids(v).filter(
+    (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
+  );
+  const props = {};
+  const expression = kids.length > 0 ? projectExpression(kids, ctx) : undefined;
+  if (expression !== undefined) props.expression = expression;
+  return { kind: "NonNullExpression", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectTypeOperator:(v:any, ctx:any)=>any
+
+`keyof T` / `readonly T[]` / `unique symbol` → `TypeOperator`（**只有 `type` 一个子字段**）。
+
+TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（`operator`），
+`forEachChild` 只看 `type`。产物那边它与操作数是平级的两个单元，照通用投影会把它当成
+`type` 的一段——实测「多出来的节点」里两类都从这里来：
+
+- `readonly Uint8Array[]`：`type` 成了一个两格的数组（`ReadonlyKeyword` + `ArrayType`）✗，
+  而 TS 的 `type` **就是那个 `ArrayType`**（`TypeOperator[17,38) > ArrayType[26,38)`）；
+- `unique symbol`：操作数被投成 `TypeReference > Identifier(symbol)` ✗，
+  而 TS 那边是 `SymbolKeyword`（`TypeOperator[9,22) > SymbolKeyword[16,22)`）——
+  所以操作数必须走**类型位投影**（`projectTypeExpression`），不是通用投影。
+
+```ts
+  const kids = projectableKids(v).filter(
+    (k) =>
+      !(
+        k.get("type") === "Keyword" &&
+        (textOfNode(k, ctx) === "keyof" ||
+          textOfNode(k, ctx) === "readonly" ||
+          textOfNode(k, ctx) === "unique")
+      ),
+  );
+  const props = {};
+  const operand = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
+  if (operand !== undefined) props.type = operand;
+  return { kind: "TypeOperator", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectMappedType:(v:any, ctx:any)=>any
+
+映射类型 `{ readonly [P in keyof T]-?: T[P] }` → `MappedType`。
+
+TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
+
+    MappedType[9,35)  typeParameter:TypeParameter[12,24)
+                      questionToken:MinusToken[25,26)      ← `-?` 那个 `-`（`?` 不进子节点）
+                      type:IndexedAccessType[29,33)
+
+产物那边它们与一层 `Statement` 壳混在一起
+（`[Statement[ ArrayLiteral(TypeParameter), SymbolToken(-), TypeDefine ]]`）——
+照通用投影会投出一个 `ExpressionStatement`（实测「多出来」465 个）并把修饰符当成它的内容。
+所以这里把这层壳摊平、按词形分派到四个字段。
+
+```ts
+  const flat = [];
+  for (const k of projectableKids(v)) {
+    if (k.get("type") === "Statement") {
+      for (const inner of unwrapNodes(k)) flat.push(inner);
+      continue;
+    }
+    flat.push(k);
+  }
+  const props = {};
+  let readonlyToken;
+  let questionToken;
+  let typeParameter;
+  const rest = [];
+  for (let i = 0; i < flat.length; i++) {
+    const k = flat[i];
+    const kind = k.get("type");
+    const word = kind === "Keyword" || kind === "Identifier" || kind === "SymbolToken" ? textOfNode(k, ctx) : "";
+    if (word === "readonly") {
+      readonlyToken = projectNode(k, ctx);
+      continue;
+    }
+    if (word === "-" || word === "+") {
+      // `-readonly` 是 `readonlyToken`，`-?` 是 `questionToken`——看**紧跟的下一格**。
+      const next = i + 1 < flat.length ? textOfNode(flat[i + 1], ctx) : "";
+      if (next === "readonly") readonlyToken = projectNode(k, ctx);
+      else questionToken = projectNode(k, ctx);
+      continue;
+    }
+    if (word === "?") {
+      questionToken = projectNode(k, ctx);
+      continue;
+    }
+    if (word === "in") continue;
+    if (kind === "ArrayLiteral" || kind === "Bracket") {
+      const inner = projectableKids(view(k)).find((x) => x.get("type") === "TypeParameter");
+      if (inner !== undefined) {
+        typeParameter = projectNode(inner, ctx);
+        continue;
+      }
+    }
+    if (kind === "TypeParameter") {
+      typeParameter = projectNode(k, ctx);
+      continue;
+    }
+    rest.push(k);
+  }
+  if (readonlyToken !== undefined) props.readonlyToken = readonlyToken;
+  if (typeParameter !== undefined) props.typeParameter = typeParameter;
+  if (questionToken !== undefined) props.questionToken = questionToken;
+  const typeNode = rest.length > 0 ? projectTypeExpression(rest, ctx) : undefined;
+  if (typeNode !== undefined) props.type = typeNode;
+  return { kind: "MappedType", pos: v.start, end: v.end, ...props };
 ```
 
 # private method projectHeritageClause:(v:any, ctx:any)=>any
