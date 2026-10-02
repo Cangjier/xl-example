@@ -1922,6 +1922,24 @@ new Set([
       if (next.get("type") === "SymbolToken" && textOfNode(next, ctx) === "#" && i + 2 < ck.length) {
         const after = ck[i + 2];
         const at = startOf(next);
+        // **私有方法调用 `this.#m()`**（第 138 轮）：点号后面是 `[SymbolToken(#), Method(name="m")]`——
+        // `Method` 自己盖住的是 `m()`，名字只占开头那几个字符。照「名字 + 调用」两件事办：
+        // `name` 是一个含 `#` 的 `PrivateIdentifier`（区间到名字末尾），外面再套一层 `CallExpression`。
+        if (after.get("type") === "Method") {
+          const raw = String(after.get("name") ?? "");
+          const nameEnd = startOf(after) + raw.length;
+          const member = {
+            kind: "PropertyAccessExpression",
+            expression: left,
+            name: { kind: "PrivateIdentifier", text: "#" + raw, pos: at, end: nameEnd },
+            pos: left.pos,
+            end: nameEnd,
+          };
+          const call = projectNode(after, ctx);
+          left = Object.assign({}, call, { expression: member, pos: member.pos, end: endOf(after) });
+          i += 3;
+          continue;
+        }
         left = {
           kind: "PropertyAccessExpression",
           expression: left,
@@ -6124,6 +6142,25 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
       if (!(x instanceof Map) || INVISIBLE.has(x.get("type"))) continue;
       // 名字那个单元已经进 `props.name` 了，不要再当成子节点收一遍。
       if (x === nameNode || x === computedUnit) continue;
+      // **私有名的组成单元也要跳过**（第 138 轮）：`#m` 在产物里是
+      // `[SymbolToken(#), Identifier(m)]` **两格**，而 `props.name` 是从 `name` 属性合成的
+      // **一个** `PrivateIdentifier`（`nameNode` 因此是 `null`）——两格都会漏进
+      // `parameters`，多出一个 `#` 与一个 `Identifier(m)`
+      // （实测 `decl-class-private-method` / `lex-private-method`：多出 6 + 字段名 3）。
+      // 只对 `PrivateIdentifier` 生效：`namespace A.B.C` 那种合成名**确实**跨着里面的几格，
+      // 按区间一刀切会把它们全丢掉。
+      //
+      // **两端都是「开区间终点」**（`endOf` = `range[1] + 1`），所以里面那几格的判据是
+      // `endOf(x) <= name.end`——写成 `<` 时最后那一格（`m`）会漏掉，只剩 `#` 被吃掉。
+      if (
+        nameNode === null &&
+        props.name !== undefined &&
+        props.name.kind === "PrivateIdentifier" &&
+        startOf(x) >= props.name.pos &&
+        endOf(x) <= props.name.end
+      ) {
+        continue;
+      }
       // **可选方法 / 方法签名的 `?` 是字段、不是子节点**（第 93 轮修）：TS 的
       // `MethodSignature > [name, questionToken, type]`，而产物把它平铺在 `children` 里
       // （`MethodDeclaration > [?, Bracket(形参), ReturnType]`）——不收出来它会跟着
