@@ -22,7 +22,6 @@ import { String } from "./string.xl.md"
 它只被 `String.AppendToLastConstString` 创建与追加：`String.AppendToLastConstString` 先 `AppendValueAndSignOut` 收字符，`RemoveLastLine` / `RemoveFirstLine` / `RemoveIndent` 这一族方法则在原串缩进格式化时被 `String.FormatRawIndent` 调用——它们都是**原地改 `Temp`**。
 
 ## field ParentString:String | null = null
-
 宿主字符串单元（拥有本常量块的 `String`）。
 
 注意这里的 `String` 是**本项目**的 `String` 类（`typescript/tokens/string/string.xl.md`），与内置的 `String` 无关。ts 侧这个 import 会遮蔽全局 `String`，这是**故意的**。

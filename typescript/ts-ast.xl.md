@@ -927,16 +927,12 @@ new Map([
     case "PropertyAccess":
       return projectExpression(projectableKids(v), ctx);
 
-    // **正则的区间要按原文重新量**（第 98 轮）：`RegexToken` 单元的区间比 TS 的
-    // `RegularExpressionLiteral` **多一个字符**（实测 32 处漂移，产物 [147,156) vs TS [147,155)）。
-    case "RegexToken":
-      return projectRegex(v, ctx);
+    // **`RegexToken` / `ConstString` 已搬进各自的 token**（第 182 轮）：
+    // `tokens/regex-token.xl.md` 的 `PrintAst`（区间按原文重新量）与
+    // `tokens/string/const-string.xl.md` 的 `PrintAst`（`StringLiteral` + 文本）。
 
     case "String":
       return projectString(v, ctx);
-
-    case "ConstString":
-      return mk("StringLiteral", { text: stringText(v, ctx) });
 
     case "Identifier": {
       const text = textOf(v, ctx);
@@ -5439,33 +5435,6 @@ import { A as B, C } from "m"
         : typeOf(tail, ctx);
   }
   return node;
-```
-
-# private method projectRegex:(v:any, ctx:any)=>any
-
-正则字面量 `/ab+c/gi` → `RegularExpressionLiteral`。
-
-**区间按原文重新量**：`RegexToken` 单元的区间比 TS 的多一个字符（终结符被算进去了），
-所以从那个 `/` 起扫到配对的 `/`（跳过 `\` 转义与 `[…]` 字符类），再把后面的 flags 吃掉。
-
-```ts
-  const source = ctx.source;
-  let end = v.start + 1;
-  let inClass = false;
-  for (; end < source.length; end++) {
-    const c = source[end];
-    if (c === "\\") {
-      end++;
-      continue;
-    }
-    if (c === "[") inClass = true;
-    else if (c === "]") inClass = false;
-    else if (c === "/" && !inClass) break;
-    else if (c === "\n") break;
-  }
-  if (end < source.length && source[end] === "/") end++;
-  while (end < source.length && /[a-z]/.test(source[end])) end++;
-  return { kind: "RegularExpressionLiteral", pos: v.start, end };
 ```
 
 # private method projectFunctionType:(v:any, ctx:any)=>any

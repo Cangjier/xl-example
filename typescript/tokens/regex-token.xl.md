@@ -155,6 +155,34 @@ if (source.Value === "[") {
 
 它没有覆写 `ToXmlString`，所以 XML 由 `Token.ToXmlString` 产出（子单元串接）。正则单元没有子单元，落地就是个空标签——夹具 `24-regex.xml` 里 `let a = /ab+c/g` 的第三个单元正是 `<RegexToken></RegexToken>`（**不要**给它加 `ToXmlString` 覆写）。`Temp` / `Flags` 只暴露给执行层。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+正则字面量 `/ab+c/gi` → `RegularExpressionLiteral`（**从 `ts-ast.xl.md` 的 `projectRegex` 整体搬来**，第 182 轮）。
+
+**区间按原文重新量**：`RegexToken` 单元的区间比 TS 的 `RegularExpressionLiteral` 多一个字符
+（终结符被算进去了），所以从那个 `/` 起扫到配对的 `/`（跳过 `\` 转义与 `[…]` 字符类），
+再把后面的 flags 吃掉。终点不是 `stmtEndOf` 能给的，所以这里直接返回节点字面量。
+
+```ts
+  const source = ctx.source;
+  let end = v.start + 1;
+  let inClass = false;
+  for (; end < source.length; end++) {
+    const c = source[end];
+    if (c === "\\") {
+      end++;
+      continue;
+    }
+    if (c === "[") inClass = true;
+    else if (c === "]") inClass = false;
+    else if (c === "/" && !inClass) break;
+    else if (c === "\n") break;
+  }
+  if (end < source.length && source[end] === "/") end++;
+  while (end < source.length && /[a-z]/.test(source[end])) end++;
+  return { kind: "RegularExpressionLiteral", pos: v.start, end };
+```
+
 ## static readonly field JumpIn:RegexTokenBranch = new RegexTokenBranch()
 
 把 `RegexTokenBranch` 注册进 `Root` 的通用跳转队列用的实例。
