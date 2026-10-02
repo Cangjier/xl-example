@@ -2120,13 +2120,16 @@ node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 | 107 | **可选链/可选调用不挂在点号链上** | `list?.push(1)` 是 `[list, NCO(Method(push))]`、`x?.y?.(1)` 是 `[x, NCO(y), NCO(Bracket)]`——原来只在「链」那一支处理 NCO | 缺 `CallExpression` 49 / `QuestionDotToken` 40 / `PropertyAccessExpression` 189 |
 | 108 | **类型参数里被包住的联合** | 包住约束的 `UnionType` 不一定是唯一一格（`<Name extends string \| Buffer = string>` 的默认值在联合**外面**），按「前缀 + 联合 + 尾巴」的源码顺序重排 | `Identifier` 缺 491 里成片、`TypeParameter.constraint` 整类丢 |
 | 109 | **`typeof X<Y>`** | TS 的 `TypeQuery` 可以带类型实参，产物把实参段放成平级兄弟 | 缺 `TypeReference` / `Identifier`、`TypeQuery` 漂移 26 |
+| 110 | **限定名 + 下标访问** | `NodeJS.Module["exports"]` 的产物把限定名右半放进 `IndexedAccessType` **里面**，TS 的 `objectType` 是整条 `NodeJS.Module` | 五个节点一起丢（`IndexedAccessType` / `QualifiedName` / `LiteralType` / `StringLiteral`） |
+| 111 | **构造签名 / 平铺构造类型** | `ConstructSignature` 的 `new` 不是子节点（kind 自己说明）；`type C = new <T>(x: T) => T` 的产物是**平铺**的（没有 `FunctionType` 单元） | 多出 `NewKeyword` 67、缺整个 `ConstructorType` |
+| 112 | **只有注释的文件** | TS 的 `SourceFile.getStart()` 在这种文件上**就是文件长度**（没有 token 可跳），本工程原来退回 0 | **一个节点卡住 38 个文件**（`@types/node` 的许可桩） |
 
-| 判据 | 第 99 轮末 | 第 109 轮末 |
+| 判据 | 第 99 轮末 | 第 112 轮末 |
 | --- | ---: | ---: |
-| **完全一致的文件** | 863 | **980** |
-| 缺节点 | 2942 | **1884** |
-| 区间漂移 | 426 | **317** |
-| 多出来的节点 | 1585 | **1121** |
+| **完全一致的文件** | 863 | **1030** |
+| 缺节点 | 2942 | **1796** |
+| 区间漂移 | 426 | **312** |
+| 多出来的节点 | 1585 | **1020** |
 | 字段名不符 | 118 | **111** |
 
 ### 第 105 轮之后剩下的（按大小）
