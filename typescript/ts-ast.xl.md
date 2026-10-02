@@ -3078,7 +3078,12 @@ new Set([
     pos: listStart,
     end: listEnd,
   };
-  const statement = { kind: "VariableStatement", declarationList: list, pos: container.start, end: stmtWhole };
+  // **起点跳过前导 trivia**（第 161 轮）：`/* a */ const x = 1;` 里那个 `Statement` 从注释起，
+  // 而 TS 的 `VariableStatement.getStart()` 会跳过它（实测 `lex-comment-two-on-one-line.ts`：
+  // 产物 106 vs TS 114）。
+  const firstReal = kids.find((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
+  const statementStart = firstReal === undefined ? container.start : startOf(firstReal);
+  const statement = { kind: "VariableStatement", declarationList: list, pos: statementStart, end: stmtWhole };
   // **`VariableStatement` 的修饰词只有语句级那几个**：`export const q = 1` 的 TS 是
   // `VariableStatement(modifiers=[ExportKeyword])` + `List(flags=Const)`——
   // `const` / `let` / `var` 是**列表的 flags**，不是语句的修饰词（混进去会多出一个 `ConstKeyword`）。
@@ -3641,16 +3646,31 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // `projectNode(PropertyAccess)` 走值位那条路投出一个 `PropertyAccessExpression`
   // （实测 `@types/node/util.d.ts` 的 `object is NodeJS.ArrayBufferView` 一族 46 处）。
   // 只认「全是名字与点号」的形状：带调用的链（`f(x).y`）不是类型。
-  if (list.length === 1 && list[0].get("type") === "PropertyAccess") {
-    const members = projectableKids(view(list[0]));
+  const paUnit = list.find((k) => k.get("type") === "PropertyAccess");
+  // **后面还可能跟着类型实参段**（第 161 轮）：`x is A.B<C>` 的产物是
+  // `[PropertyAccess(A.B), GenericType(<C>)]` **两格**——只认「整段就一格」时实参整个丢
+  // （实测 `type-new-nodes-adversarial.ts` 的 `x is A.B<C>`：缺 `TypeReference` + `Identifier`）。
+  if (
+    paUnit !== undefined &&
+    (list.length === 1 || (list.length === 2 && list[1].get("type") === "GenericType"))
+  ) {
+    const members = projectableKids(view(paUnit));
     const pureName = members.every((k) => isNameNode(k) || isDot(k, ctx));
     const names = members.filter((k) => isNameNode(k));
     if (pureName && names.length > 1) {
+      const generic = list.length === 2 ? list[1] : undefined;
+      const props: any = { typeName: qualifiedNameFrom(names, ctx) };
+      if (generic !== undefined) {
+        const args = projectTypeArguments(generic, ctx);
+        if (args !== undefined) {
+          props.typeArguments = args;
+        }
+      }
       return {
         kind: "TypeReference",
-        typeName: qualifiedNameFrom(names, ctx),
+        ...props,
         pos: startOf(list[0]),
-        end: endOf(list[0]),
+        end: endOf(list[list.length - 1]),
       };
     }
   }
@@ -4019,7 +4039,12 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   // 实参那个字符串：可能裸着，也可能被 `Method(name="import")` 包着（值位那条调用规则先收过一遍）。
   let stringUnit = kids.find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
   if (stringUnit === undefined) {
-    const call = kids.find((k) => k.get("type") === "Method");
+    // **实参可能在 `Method(name="import")` 里，也可能在一对圆括号里**（第 161 轮）：
+    // 值位那条调用规则先收过一遍时是 `Method`；而在**泛型实参段**里（`Array<import("m").X>`）
+    // 那个规则轮不到，形状是 `ImportType > [Keyword(import), Bracket((String)), ., Name]`——
+    // 只找 `Method` 时 `argument` 整个丢（实测 `type-new-nodes-adversarial.ts`：
+    // 缺 `LiteralType` + `StringLiteral` + `ImportType` 字段名差）。
+    const call = kids.find((k) => k.get("type") === "Method" || k.get("type") === "Bracket");
     if (call !== undefined) {
       stringUnit = projectableKids(view(call)).find(
         (k) => k.get("type") === "String" || k.get("type") === "ConstString",
