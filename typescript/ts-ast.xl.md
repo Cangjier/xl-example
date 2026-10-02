@@ -940,8 +940,6 @@ new Map([
 
     // 下标访问类型 `A[K]`：TS 那边是 `objectType` + `indexType` 两个具名字段。
 
-    case "TypeAssign":
-      return projectTypeAlias(v, ctx);
 
     // 索引签名 `{ [k: string]: T }`：TS 那边是 `parameters` + `type`（+ `readonly` 修饰词），
     // 产物那边是一串平级子单元，照通用投影会全塞进一个 `children`。
@@ -1721,9 +1719,20 @@ new Set([
     const kind = KIND_BY_TAG.get(headType);
     if (kind !== undefined) {
       // **`export type T = …` 的 `pos` 在外层 `Statement` 上、修饰词在 `TypeAssign` 上**：
-      // 起点取外层的 `v.start`，所以这里把外层起点递给 `projectTypeAlias`。
-      const projected =
-        headType === "TypeAssign" ? projectTypeAlias(view(head), ctx, v.start) : projectNode(head, ctx);
+      // 起点取外层的 `v.start`，所以把外层起点**经 `ctx.baseStart` 递进去**
+      // （`TypeAssign` 的投影已搬进 `tokens/type-assign.xl.md`，入口在那边，见第 197 轮）。
+      let projected;
+      if (headType === "TypeAssign") {
+        const savedBaseStart = ctx.baseStart;
+        ctx.baseStart = v.start;
+        try {
+          projected = projectNode(head, ctx);
+        } finally {
+          ctx.baseStart = savedBaseStart;
+        }
+      } else {
+        projected = projectNode(head, ctx);
+      }
       // 单个子单元**本身就是语句**（`if` / `class` / `import`…）⇒ 不再套壳；
       // 是**表达式**（`f(1)` / `a + b` / `new X`）⇒ TS 那边是 `ExpressionStatement > 表达式`。
       if (STATEMENT_KINDS.has(kind)) return projected;
@@ -4243,47 +4252,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   props.modifiers = out;
 ```
 
-# private method projectTypeAlias:(v:any, ctx:any, baseStart:int)=>any
-
-类型别名 `type A = B` → `TypeAliasDeclaration`（`name` + `type`）。
-
-产物那边名字在 `alias` 属性上、右值在子节点里（`=` 之后），中间是平级的散单元——
-所以在 `=` 处切开：左边第一格是 `name`，右边整段是 `type`。
-
-**修饰词在 `TypeAssign` 自己身上，但 `pos` 要从外层量**：`export type T = string` 的产物是
-`Statement > [TypeAssign(modifiers="export"), =, 右值]`——`TypeAssign` 的起点是 `type` 那个词、
-而 TS 的 `TypeAliasDeclaration` 从 `export` 起。所以 `baseStart` 由调用方
-（`projectStatement`）把外层的起点递进来，修饰词仍从 `v`（`TypeAssign`）读。
-
-```ts
-  const kids = projectableKids(v).filter((k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ";"));
-  const eqIndex = kids.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=");
-  const aliasText = String(v.attrs.get("alias") ?? "");
-  const lhs = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
-  const rhs = eqIndex >= 0 ? kids.slice(eqIndex + 1) : [];
-  const nameNode = lhs.find((k) => k.get("type") === "Identifier");
-  const nameText = nameNode === undefined ? aliasText : textOfNode(nameNode, ctx);
-  // 泛型参数段在 `<` 与 `=` 之间（`type A<T> = …`）：它是**包装**，
-  // 内容进 `typeParameters`、包装自己不出节点。`projectTypeAlias` 不走 `structuralProps`，
-  // 所以这一处要**单独**提（漏了它这一行会一直挂在差异表上）。
-  //
-  // **只在 `=` 左边找**（第 95 轮修）：右值里也有 `GenericType`——
-  // `type Z = <T>(x: T) => T` 的 `<T>` 是**函数类型自己的**类型参数，
-  // 不是别名的（TS 那边 `TypeAliasDeclaration` 没有 `typeParameters` 这一格）；
-  // 从整个 `kids` 里找会把泛型箭头函数的别名多挂一个 `typeParameters`。
-  const generic = lhs.find((k) => k.get("type") === "GenericType");
-  const props = {
-    name: nameNode === undefined ? synthName(nameText, v, ctx) : projectNode(nameNode, ctx),
-    type: typeOf(rhs, ctx),
-  };
-  if (generic !== undefined) {
-    const params = unwrapNodes(generic).filter((k) => k.get("type") === "TypeParameter");
-    if (params.length > 0) props.typeParameters = projectEach(params, ctx);
-  }
-  addModifiers(v, props, ctx, baseStart);
-  return { kind: "TypeAliasDeclaration", pos: baseStart ?? v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private const PARAMETER_MODIFIERS:Set<string> = new Set(["public", "private", "protected", "readonly", "override"])
 
 # private method punctBetween:(v:any, fromKey:string, toKey:string, ch:string, ctx:any)=>any
@@ -5395,6 +5363,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     OperatorRank: (text) => operatorRank(text),
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
     ParameterModifiers: PARAMETER_MODIFIERS,
+    SynthName: (text, view) => synthName(text, view, ctx),
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
