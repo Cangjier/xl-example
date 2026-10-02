@@ -134,7 +134,10 @@ new Map([
   ["EnumMember", "EnumMember"],
   ["Field", "PropertyDeclaration"],
   ["MethodDeclaration", "MethodDeclaration"],
-  ["IndexSignature", "IndexSignatureDeclaration"],
+  // **`IndexSignature` 就是 TS 现在的名字**（第 89 轮）：`IndexSignatureDeclaration` 是它
+  // 的旧别名，而 `ts.SyntaxKind` 的反向查表印出来的是 `IndexSignature`——照旧名投，
+  // 尺子上会同时记「缺 `IndexSignature` 102 + 多 `IndexSignatureDeclaration` 102」。
+  ["IndexSignature", "IndexSignature"],
   ["NamespaceBody", "ModuleBlock"],
   ["FunctionBody", "Block"],
   ["MethodBody", "Block"],
@@ -2298,7 +2301,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   );
   const props = {};
   if (params.length > 0) {
-    props.parameters = projectEach(params, ctx, "IndexSignatureDeclaration");
+    props.parameters = projectEach(params, ctx, "IndexSignature");
   }
   if (typeNode !== undefined) {
     props.type = projectTypeDefine(view(typeNode), ctx);
@@ -2306,7 +2309,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   if (readonlyUnit !== undefined) {
     props.modifiers = [projectNode(readonlyUnit, ctx)];
   }
-  return { kind: "IndexSignatureDeclaration", pos: v.start, end: stmtEndOf(v, ctx), ...props };
+  return { kind: "IndexSignature", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectField:(v:any, ctx:any)=>any
@@ -2845,12 +2848,59 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 ```ts
   const kids = projectableKids(v);
   const cond = kidsOf(v, "compare");
-  const segments = projectEach(kidsOf(v, "segments"), ctx);
+  const segments = kidsOf(v, "segments");
   const brace = ctx.source.indexOf("{", v.start);
   const props = {};
   if (cond.length > 0) props.expression = projectExpression(cond, ctx);
-  props.caseBlock = { kind: "CaseBlock", clauses: segments, pos: brace >= 0 ? brace : v.start, end: v.end };
+  props.caseBlock = {
+    kind: "CaseBlock",
+    clauses: segments.map((seg) => projectSwitchClause(seg, ctx)),
+    pos: brace >= 0 ? brace : v.start,
+    end: v.end,
+  };
   return { kind: "SwitchStatement", pos: v.start, end: v.end, ...props };
+```
+
+# private method projectSwitchClause:(seg:any, ctx:any)=>any
+
+一个 `case` / `default` 分支 → **`CaseClause` / `DefaultClause`**（第 89 轮）。
+
+产物那边是 `<SwitchSegment key="case|default">`，里面一层 `<SwitchCase>表达式</SwitchCase>`
+与一层 `<SwitchStatement>`（装分支体那些 `<Statement>`）；TS 那边是
+`CaseClause > [expression, statements]` / `DefaultClause > [statements]`，**区间含 `case` 这个词**
+（就是 segment 自己的区间）。
+
+早先这里把整段交给通用投影，于是 `SwitchSegment` / 内层 `SwitchStatement` / `SwitchCase`
+三个标签**原样透传**成了三个 kind——实测「多出来」203 + 203 + 192，
+而 TS 那边是 `SwitchStatement > caseBlock: CaseBlock > clauses: (CaseClause|DefaultClause)`。
+
+```ts
+  const sv = seg instanceof Map ? view(seg) : seg;
+  const kindWord = String(sv.attrs.get("key") ?? "");
+  const kids = projectableKids(sv);
+  const caseUnit = kids.find((k) => k.get("type") === "SwitchCase");
+  const bodyUnit = kids.find((k) => k.get("type") === "SwitchStatement");
+  const props = {};
+  if (kindWord !== "default" && caseUnit !== undefined) {
+    props.expression = projectExpression(projectableKids(view(caseUnit)), ctx);
+  }
+  if (bodyUnit !== undefined) {
+    const body = allKids(view(bodyUnit)).filter((k) => !INVISIBLE.has(k.get("type")));
+    const statements = projectEach(body, ctx);
+    if (statements.length > 0) props.statements = statements;
+  }
+  // **区间结尾按最后一个语句算**（第 89 轮修）：`SwitchSegment` 自己的区间比 TS 多一个字符
+  // （实测 `case "\r":` 产物 [345,400) vs TS [345,399)，192 处漂移 + 192 处「多出来」——
+  // 同一个节点两边都记了一次）。没有语句的那些（`case 2:` 后面直接跟下一个 `case`）
+  // 用 segment 自己的尾巴就正好。
+  const last = props.statements !== undefined ? props.statements[props.statements.length - 1] : undefined;
+  const end = last !== undefined && typeof last.end === "number" ? last.end : sv.end;
+  return {
+    kind: kindWord === "default" ? "DefaultClause" : "CaseClause",
+    pos: sv.start,
+    end,
+    ...props,
+  };
 ```
 
 # private method projectSignature:(v:any, ctx:any)=>any
