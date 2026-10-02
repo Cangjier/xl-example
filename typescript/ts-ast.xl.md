@@ -2410,8 +2410,19 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     let typeName = nameNode;
     let end = typeName.end;
     let i = 1;
-    while (i + 1 < list.length && isDot(list[i], ctx) && isNameNode(list[i + 1])) {
-      const right = nameOf(list[i + 1], ctx);
+    while (i + 1 < list.length && isDot(list[i], ctx)) {
+      // **`.` 后面可能是一个 `ArrayType`**（第 103 轮）：`A.B[]` 的产物是
+      // `[Identifier(A), ., ArrayType(Identifier(B))]`——那个 `ArrayType` 里**只有名字**，
+      // 它是限定名的右半，外层那个 `[]` 才是数组后缀。只认 `isNameNode(list[i+1])` 时
+      // 链在这里断掉：`TypeReference` 只盖住 `A`、`QualifiedName` 与 `Identifier(B)` 全丢，
+      // 而外层的 `ArrayType` 又套错了位置（实测 `Identifier` 缺 1050 里成片、
+      // `TypeReference` / `ArrayType` 各一片）。
+      const next = list[i + 1];
+      const innerNames =
+        next.get("type") === "ArrayType" ? projectableKids(view(next)).filter((k) => isNameNode(k)) : null;
+      const nameUnit = innerNames !== null && innerNames.length === 1 ? innerNames[0] : next;
+      if (!isNameNode(nameUnit)) break;
+      const right = nameOf(nameUnit, ctx);
       typeName = { kind: "QualifiedName", left: typeName, right, pos: typeName.pos, end: right.end };
       end = right.end;
       i += 2;
@@ -2432,6 +2443,23 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
       return { kind: "ArrayType", elementType: base, pos: base.pos, end: endOf(arraySuffix) };
     }
     return base;
+  }
+  // **运算符的操作数可能被拆到外面**（第 103 轮）：`readonly webcrypto.KeyUsage[]` 的产物是
+  // `[TypeOperator(readonly, webcrypto), ., ArrayType(KeyUsage)]`——点号名与数组后缀都在
+  // 运算符单元**外面**。TS 那边 `TypeOperator.type` 是整段 `webcrypto.KeyUsage[]`
+  // （`QualifiedName` 与 `ArrayType` 都在它里面）。收回来之后 `TypeOperator` 的区间也才对得上。
+  if (head.get("type") === "TypeOperator" && list.length > 1) {
+    const inner = projectableKids(view(head));
+    const operandHead = inner.length > 0 ? inner[inner.length - 1] : undefined;
+    if (operandHead !== undefined && isNameNode(operandHead)) {
+      const operand = projectTypeExpression([operandHead, ...list.slice(1)], ctx);
+      const node = operand === undefined ? undefined : projectNode(head, ctx);
+      if (node !== undefined) {
+        node.type = operand;
+        node.end = operand.end;
+        return node;
+      }
+    }
   }
   // 其余形状（`UnionType` / `IntersectionType` / `FunctionType` / `TypeLiteral` / `TupleType`…）
   // 交回通用投影，它们各自的子单元会再走一遍 `projectTypeExpression`。
@@ -4481,10 +4509,17 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
   // `QualifiedName(typeof, globalThis)` 这种把运算符当名字的东西。
   const names = kids.filter((k) => isNameNode(k) && textOfNode(k, ctx) !== "typeof");
   const props = {};
-  if (names.length === 1) {
+  // **点号名在产物里可能已经是一个 `PropertyAccess` 单元**（第 103 轮）：
+  // `any[][typeof Symbol.iterator]` 的产物是 `TypeQuery > [Keyword(typeof), PropertyAccess(Symbol.iterator)]`，
+  // 而 `PropertyAccess` 不是名字节点——照下面那两条支会得到**空 `exprName`**，
+  // 于是 `QualifiedName` / `Symbol` / `iterator` 三个节点全丢（实测缺 `Identifier` 1050
+  // 里成片就是这个形状，`@types/node/compatibility/iterators.d.ts` 一眼可见）。
+  const access = kids.find((k) => k.get("type") === "PropertyAccess");
+  if (access === undefined && names.length === 1) {
     props.exprName = nameOf(names[0], ctx);
-  } else if (names.length > 1) {
-    props.exprName = qualifiedNameFrom(names, ctx);
+  } else if (access !== undefined || names.length > 1) {
+    const parts = access === undefined ? names : projectableKids(view(access)).filter((k) => isNameNode(k));
+    props.exprName = qualifiedNameFrom(parts, ctx);
   }
   return { kind: "TypeQuery", pos: v.start, end: v.end, ...props };
 ```
@@ -4639,27 +4674,37 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
     if (braced) braceAt = at;
   }
   const bodyUnits = kidsOf(v, "body");
-  if (bodyUnits.length > 0) {
-    // 体段的内容：只穿**一层 `LamdaBody` 壳**（`ToList` 有时留着、有时摊平），
-    // **里面的 `Statement` 要留着**——语句本身要交给 `projectStatement`（`return x;` 才会是
-    // `ReturnStatement`；把它摊成裸单元会得到 `Identifier(return)`）。
+  // 体段的**直接内容**：`body` 段里就是里面那一格（块形态是 `Statement`、表达式形态是那些单元），
+  // 只有少数情况下才套一层 `LamdaBody`。所以穿壳要**只穿 `LamdaBody`**，
+  // 语句本身（`Statement`）留着——块形态要靠它投出 `ReturnStatement` 这些语句节点。
+  const raw = [];
+  for (const unit of bodyUnits) {
+    if (unit.get("type") === "LamdaBody") {
+      for (const x of unwrapNodes(unit)) raw.push(x);
+      continue;
+    }
+    raw.push(unit);
+  }
+  if (braced) {
+    // **带花括号的体自己造 `Block`**：TS 的 `ArrowFunction.body` 是覆盖整对花括号的
+    // `Block`（含 `statements`），而产物里 `LamdaBody` 的区间是体**里面**那一段
+    // （实测 `Block` 缺 336 里成片是箭头函数的块体）。
+    const close = braceAt >= 0 ? matchingBrace(ctx.source, braceAt) : -1;
+    if (braceAt >= 0 && close >= braceAt) {
+      props.body = { kind: "Block", statements: projectEach(raw, ctx, "Block"), pos: braceAt, end: close + 1 };
+    }
+  } else {
+    // 表达式体：`Statement` 那一层壳要摊平（里面才是那个表达式）。
     const flat = [];
-    for (const k of unwrapNodes(bodyUnits[0])) {
-      if (k.get("type") === "LamdaBody") {
+    for (const k of raw) {
+      if (k.get("type") === "Statement") {
         for (const x of unwrapNodes(k)) flat.push(x);
         continue;
       }
       flat.push(k);
     }
-    if (!braced) {
-      const projected = flat.length === 1 ? projectNode(flat[0], ctx) : projectExpression(flat, ctx);
-      if (projected !== undefined) props.body = projected;
-    }
-    // 带花括号的体仍走 `structuralProps` 给的那一格：`ToList` 把体里的 `Statement` **摊平**了
-    // （拿到的是裸的 `Keyword(return)` / `Identifier`），这里没有可靠的办法把语句重新拼起来
-    // ——硬拼会得到 `Identifier(return)`（实测「缺 `ReturnStatement`」立刻涨一千多）。
-    // 正解是让 `LamdaBody` 那一层在 `ToList` 里保留 `Statement`（token 层的事），
-    // 记在剩余清单里。
+    const projected = flat.length === 1 ? projectNode(flat[0], ctx) : projectExpression(flat, ctx);
+    if (projected !== undefined) props.body = projected;
   }
   return { kind: "ArrowFunction", pos: v.start, end: v.end, ...props };
 ```
