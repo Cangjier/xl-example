@@ -2812,8 +2812,28 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
   const kids = kidsOf(v, key);
   if (kids.length === 0) return undefined;
   const first = kids[0];
-  // 分段的元素常常是**包装**（`TernaryOperatorCondition` / `IfCondition`…），要摊平一层。
-  const inner = unwrapNodes(first).filter((k) => k.get("type") !== "SymbolToken");
+  // **整段一起投，只在遇到「分段壳」时才摊平一层**（第 97 轮）：
+  // `TernaryOperator` 的三个段在 `ToList` 里**已经摊平**（`trueStatement` 直接就是
+  // `Method(f(1))` 那一格、`falseStatement` 直接就是 `PropertyAccess(y.z)`）——
+  // 照「先摊平一层」的老写法会把那个单元**自己的子单元**当成整段，
+  // 于是 `f(1)` 只剩 `1`、`y.z` 只剩 `y`、`p === q` 只剩 `p`：
+  // 实测缺 `PropertyAccessExpression` 502 / `CallExpression` 246 / `BinaryExpression` 273
+  // 里成片都是它（三元的两个分支 + 条件）。
+  //
+  // 判据是「这个 tag 在 `KIND_BY_TAG` 里查不到**且**名字以 `Condition` / `Statement` / `Segment`
+  // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
+  // **不能只看「查不到映射」**：`PropertyAccess` 也不在 `KIND_BY_TAG` 里（它由 `projectNode`
+  // 的 `case` 处理），只看映射会把 `y.z` 摊成两个裸名字。
+  const leaf = first.get("type") === "Identifier" || first.get("type") === "Keyword" || first.get("type") === "SymbolToken";
+  const wrapper =
+    !leaf &&
+    KIND_BY_TAG.get(first.get("type")) === undefined &&
+    /(Condition|Statement|Segment)$/.test(first.get("type"));
+  if (wrapper) {
+    const inner = unwrapNodes(first).filter((k) => k.get("type") !== "SymbolToken");
+    return inner.length === 0 ? projectNode(first, ctx) : projectExpression(inner, ctx);
+  }
+  const inner = kids.filter((k) => k.get("type") !== "SymbolToken");
   if (inner.length === 0) return projectNode(first, ctx);
   return projectExpression(inner, ctx);
 ```
@@ -3152,7 +3172,14 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   // 同一个节点两边都记了一次）。没有语句的那些（`case 2:` 后面直接跟下一个 `case`）
   // 用 segment 自己的尾巴就正好。
   const last = props.statements !== undefined ? props.statements[props.statements.length - 1] : undefined;
-  const end = last !== undefined && typeof last.end === "number" ? last.end : sv.end;
+  let end = last !== undefined && typeof last.end === "number" ? last.end : sv.end;
+  // **没有语句的分支（贯穿到下一条 `case`）**：区间到那个 `:` 为止（第 97 轮）。
+  // `SwitchSegment` 自己的尾巴比 TS 多一个字符——实测 `case ",":` 产物 [1129,1139)
+  // vs TS [1129,1138)：108 处漂移 + 108 处「多出来」是同一个节点两边各记一次。
+  if (last === undefined) {
+    const colon = ctx.source.lastIndexOf(":", sv.end - 1);
+    if (colon >= sv.start) end = colon + 1;
+  }
   return {
     kind: kindWord === "default" ? "DefaultClause" : "CaseClause",
     pos: sv.start,
@@ -3645,7 +3672,12 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   const brace = ctx.source.lastIndexOf("{", first);
   if (brace >= 0) {
     const close = matchingBrace(ctx.source, brace);
-    if (close >= last) {
+    // **`{` 与第一条语句之间只能有空白与注释**（第 97 轮）：只要求「配对的 `}` 不早于最后一条」
+    // 是不够的——`if (name === "") return undefined;` 会往回找到**别处**（下一个函数）的 `{`，
+    // 那个 `}` 当然「不早于」，于是凭空造出一个盖住半个文件的 `Block`：
+    // 实测 `IfStatement` 漂移 99 + 多出 99 全是它（产物区间 14595 vs TS 13479）。
+    const between = ctx.source.slice(brace + 1, first).replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "");
+    if (close >= last && between.trim() === "") {
       return { node: { kind: "Block", statements: projections, pos: brace, end: close + 1 }, end: close + 1 };
     }
   }
