@@ -333,7 +333,7 @@ return root.ToJsonString();
 
 形状就是 `ts.createSourceFile` 那一套：`{ kind, pos, end, …字段 }`，`kind` 用**名字**
 （`"VariableStatement"` / `"Block"`…），字段名按 TS 的叫法（`statements` / `members` / `parameters`…）。
-投影本身在 [`typescript/ts-ast.xl.md`](typescript/ts-ast.xl.md)：`projectRoot(Root.ToList(), 原文)`，
+投影本身在 [`typescript/print-ast-common.xl.md`](typescript/print-ast-common.xl.md)：`projectRoot(Root.ToList(), 原文)`，
 **它不重新解析**，产物树是唯一事实来源。
 
 **标准输出只有形状本身**：`projectRoot` 的返回值里还有一个 `unmapped`（投影没覆盖、

@@ -1,5 +1,5 @@
-// TS 形状投影：**实现已经搬进规范**（`typescript/ts-ast.xl.md` → `dist/ts/typescript/ts-ast.ts`
-// → `build/ts/typescript/ts-ast.js`），这里只剩一层转发。
+// TS 形状投影：**实现已经搬进规范**（`typescript/print-ast-common.xl.md` → `dist/ts/typescript/print-ast-common.ts`
+// → `build/ts/typescript/print-ast-common.js`），这里只剩一层转发。
 //
 //   import { projectRoot } from "./ts-shape.mjs"
 //   const { ast, unmapped } = projectRoot(root.ToList(), source);

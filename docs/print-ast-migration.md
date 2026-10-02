@@ -451,3 +451,62 @@ token：`projectNode` 会先问 `__token.PrintAst` ✓，输入相同、结果�
 ### 还剩 3 条 `case`
 
 `Statement`(8) / `Let`(7) / `TypeAssign`(5)。
+
+---
+
+## 里程碑：`ts-ast.xl.md` 已移除（第 198 轮）
+
+**原始诉求**：「将 `ts-ast.xl.md` 的功能全部落地在 `PrintAst` 上，移除 `ts-ast.xl.md`，
+由 `PrintAst` 完全承接。」
+
+**结果**：
+
+| 证据 | 值 |
+| --- | --- |
+| `typescript/ts-ast.xl.md` | **已不存在**（`git mv` 到 `typescript/print-ast-common.xl.md`） |
+| `projectNode` 里那个按 `v.type` 分派的中央 `switch` | **整段删除**（原来 60 个 `case`，现在 0 个） |
+| 逐标签投影块 | **49 块全部搬进各 token 的 `PrintAst`**（第 181~198 轮，一块一提交） |
+| 全量对拍 | **1407 / 1407 完全一致**，缺 0 / 漂移 0 / 多出 0 / 字段名 0 |
+| CLI 冒烟 | `node build/ts/cjcli.js <file> --ts-ast` 正常输出 TS 形状 JSON |
+
+**`projectNode` 现在的三步**（这就是「由 `PrintAst` 完全承接」的字面含义）：
+
+1. `v = view(node)`；
+2. **问这个节点自己**：`owner.PrintAst(ctx, v)`——覆写了就由它出这一格
+   （`ctx.Nothing` 表示「这一格故意不出节点」）；
+3. 没覆写（或返回 `undefined`）才落到 `print-ast-common.xl.md` 的**通用支**（三张表 + `structuralProps`）。
+
+**留下来的不是「投影逻辑」，而是 `PrintAst` 的地基**，改名的意义就在这里：
+
+- `ctx`（递给 `PrintAst` 的 40 多个出口）——搬迁层不许 import 本文件（会成环），
+  横切工具只能经它过去；
+- 通用支的三张表（`KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND`）；
+- **被共享层自己调用、且调用方拿不到「单元」这个入口**的函数（表达式重写器
+  `projectExpression` / `projectTypeExpression`、`projectLetFrom`、`memberNameOf`、`addModifiers`…）。
+
+判据（第 192 轮定下、之后一直用）：**能搬 = 所有调用点都能改写成「把某个单元交给
+`projectNode`」**；不能搬 = 调用方拿到的是「已经取出来的一串单元」或「外层递进来的起点」。
+按这个判据，`TypeDefine` / `TypeAssign` / `Statement` 这些原本判为「必须留」的都搬走了
+（前者把直调点改成 `ctx.Project`，后者把外层起点经 `ctx.baseStart` 递进去）。
+
+**搬迁手册（踩过的坑，按类型归并）**：
+
+1. **搬之前先 grep 这个函数名**：除 `case` 之外常有内部直调点；有就改成通用分派，
+   别把实现留在原地（第 188 轮 `projectFunctionType`、第 192 轮 `projectTypeDefine`）。
+2. **`PrintAst` 收到的 `v` 是视图，不是原始 Map**；凡是从 `ctx` 出去、要吃一棵（子）树的
+   出口，一律先 `node instanceof Map ? view(node) : node` 再转调
+   （`Kids` / `AllKids` / `KidsOf` / `StringText` / `TypeDefineOf` / `Attr` 六个都归过一）。
+3. **kind 字面量逐字照抄**：本工程多处用短名（`IndexSignature` / `DoStatement` /
+   `NonNullExpression`），顺手改成 TS 枚举名会让整类算「缺 + 多」（第 187 轮）。
+4. **宽松判定逐字照抄**：`String(x ?? "false") === "true"` 这类是刻意的，产物里那个属性
+   可能是**布尔**（第 194 轮 `typeOnly`，全量对拍掉到 1400/1407 才抓到）。
+5. **同名遮蔽**：token 文件里可能有与全局同名的 `String` / `Number` 类，
+   从共享层搬过去的裸全局调用会静默换语义（第 191 轮）。
+6. **同标签多 `case`、空标签 fallthrough** 在逐节点出口就位后都是死代码，
+   但删除顺序错了会让死代码复活（第 196 轮）。
+7. **`undefined` 有两种含义**：token 出口的 `undefined` ＝「没覆写，请走通用支」；
+   而有些出口是**故意**不出节点的——用 `ctx.Nothing` 分开（第 198 轮 `Statement`）。
+
+**验收判据（用户澄清的那条）**：由 `cjcli print ast` 与 `ts.createSourceFile` 比较，
+完全一致即认为任务完成——`tests/parse/ts-ast.mjs --per-file` 就是这条判据的实现，
+当前 **1407 / 1407 文件完全一致，四方向全 0**。
