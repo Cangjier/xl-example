@@ -2305,7 +2305,14 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   );
   const props = {};
   if (params.length > 0) {
-    props.parameters = projectEach(params, ctx, "IndexSignature");
+    // **形参的区间要去掉那对方括号**（第 92 轮）：产物的 `Parameter` 单元把 `[` 也圈进来了
+    // （`[key: string]` 给 [14,26)），而 TS 的 `Parameter` 是 `key: string`（[15,26)）——
+    // 实测这一族 104 处漂移（样本 `key: string]: unknown;`），都是「起点早一格」。
+    props.parameters = projectEach(params, ctx, "IndexSignature").map((one) => ({
+      ...one,
+      pos: one.name !== undefined ? one.name.pos : one.pos,
+      end: one.type !== undefined ? one.type.end : one.end,
+    }));
   }
   if (typeNode !== undefined) {
     props.type = projectTypeDefine(view(typeNode), ctx);
