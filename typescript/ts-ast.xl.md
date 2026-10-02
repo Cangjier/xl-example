@@ -736,7 +736,11 @@ new Map([
 
 ```ts
   let end = stmtEndOf(v, ctx);
-  if (SIGNATURE_KINDS.has(kind) && ctx.source[end] === ";") end += 1;
+  // **没有函数体的可调用签名要带上尾随分隔符**（第 134 轮）：`;` 与 **`,`** 都算——
+  // 接口 / 类型字面量里的成员可以用逗号分隔，TS 那边那条 `MethodSignature` 的 `end`
+  // **含那个逗号**（实测 `undici-types/cache.d.ts` 的
+  // `match (…): Promise<…>, has (…): Promise<…>,` 一族：漂移 10 + 多出 10）。
+  if (SIGNATURE_KINDS.has(kind) && (ctx.source[end] === ";" || ctx.source[end] === ",")) end += 1;
   return Object.assign({ kind }, props === undefined ? {} : props, { pos: v.start, end });
 ```
 
@@ -1711,6 +1715,19 @@ new Set([
         };
         return foldBinaryFrom(head, [...inner.slice(1), ...kids.slice(2)], ctx);
       }
+    }
+  }
+  // **泛型箭头函数的类型参数段是平级兄弟**（第 134 轮）：`const f = <T>(x: T): T => x` 的产物是
+  // `[GenericType(<T>), Lamda(…)]`——`<T>` **不在** `Lamda` 里面。TS 那边它是
+  // `ArrowFunction.typeParameters`。照通用支投会把它当成一个类型引用（`TypeReference`），
+  // `ArrowFunction` 与它的形参、返回类型整片丢（实测 `expr-arrow-generic.ts` 缺 16）。
+  if (kids.length === 2 && kids[0].get("type") === "GenericType" && kids[1].get("type") === "Lamda") {
+    const arrow: any = projectNode(kids[1], ctx);
+    if (arrow !== undefined) {
+      const typeParams = unwrapNodes(kids[0]).filter((k) => k.get("type") === "TypeParameter");
+      if (typeParams.length > 0) arrow.typeParameters = projectEach(typeParams, ctx);
+      arrow.pos = startOf(kids[0]);
+      return arrow;
     }
   }
   if (kids.length === 1) return projectNode(kids[0], ctx);
