@@ -939,8 +939,6 @@ new Map([
 
     // 类型位的导入类型 `import("m").A` / `typeof import("m")`（第 76 轮）：
     // TS 那边 `argument` 是一层 `LiteralType`、`qualifier` 是限定名，两样都要切出来。
-    case "ImportType":
-      return projectImportType(v, ctx);
 
     // `infer X`（TS 那边只有 `typeParameter` 一个子字段，`infer` 那个词**不是**子节点）
     // 已搬进 `tokens/infer-type.xl.md` 的 `InferType.PrintAst`（第 183 轮）。
@@ -4385,76 +4383,6 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   return out;
 ```
 
-# private method projectImportType:(v:any, ctx:any)=>any
-
-类型位的导入类型 `import("m")` / `import("m").A.B` / `typeof import("m")` → `ImportType`。
-
-产物那边的形状是 `[Keyword(typeof)?, Method(name="import")[String], SymbolToken(.), Identifier*]`
-（第 66 轮 `import-type.xl.md` 收的）；TS 那边只有**两个**子字段：
-
-- `argument`：**一层 `LiteralType` 包着**那个 `StringLiteral`（`import("buffer").Blob` 的 TS 是
-  `ImportType > LiteralType > StringLiteral`）——照通用投影投时这一层整个没有，
-  实测缺 `LiteralType` 221 处、`ImportType` 的字段名也整类不对（113 处）；
-- `qualifier`：点号后面那一串名字，TS 用的是 **`QualifiedName`**（不是 `PropertyAccessExpression`
-  ——那是 `extends` 那一支的写法，见 `dottedExpression` 的说明）。
-
-`typeof` 与 `import` 两个词都**不进子字段**：前者是 TS 节点的标志位、后者是语法词。
-
-```ts
-  const kids = projectableKids(v);
-  // 实参那个字符串：可能裸着，也可能被 `Method(name="import")` 包着（值位那条调用规则先收过一遍）。
-  let stringUnit = kids.find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
-  if (stringUnit === undefined) {
-    // **实参可能在 `Method(name="import")` 里，也可能在一对圆括号里**（第 161 轮）：
-    // 值位那条调用规则先收过一遍时是 `Method`；而在**泛型实参段**里（`Array<import("m").X>`）
-    // 那个规则轮不到，形状是 `ImportType > [Keyword(import), Bracket((String)), ., Name]`——
-    // 只找 `Method` 时 `argument` 整个丢（实测 `type-new-nodes-adversarial.ts`：
-    // 缺 `LiteralType` + `StringLiteral` + `ImportType` 字段名差）。
-    const call = kids.find((k) => k.get("type") === "Method" || k.get("type") === "Bracket");
-    if (call !== undefined) {
-      stringUnit = projectableKids(view(call)).find(
-        (k) => k.get("type") === "String" || k.get("type") === "ConstString",
-      );
-    }
-  }
-  const props = {};
-  if (stringUnit !== undefined) {
-    const literal = {
-      kind: "StringLiteral",
-      text: stringText(view(stringUnit), ctx),
-      pos: startOf(stringUnit),
-      end: endOf(stringUnit),
-    };
-    props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
-  }
-  // **限定名里可能有被升级成 `Keyword` 的名字**（第 123 轮）：`typeof import("./d").default`
-  // 的 `default` 是 `Keyword`（`KeywordReorganization` 把类型位的保留字都升了级），
-  // 原来那句 `!(type === "Keyword")` 把它一并滤掉，于是限定名整段丢
-  // （实测 `ImportType` 少 `qualifier`、缺 `Identifier`）。要滤的只有 **`typeof` 那个词**——
-  // 它是 TS 节点的标志位、不是限定名的一部分；`import` 是外面那个 `Method` 的名字，本来就不在这串里。
-  const names = kids.filter((k) => {
-    if (!isNameNode(k)) return false;
-    if (k.get("type") !== "Keyword") return true;
-    const word = textOfNode(k, ctx);
-    return word !== "typeof" && word !== "import";
-  });
-  if (names.length > 0) props.qualifier = qualifiedNameFrom(names, ctx);
-  // **类型实参**（第 114 轮）：`import("stream/web").QueuingStrategy<T>` 的 `<T>` 在产物里是
-  // 平级的 `GenericType`，而 TS 的 `ImportType.typeArguments` 要照收——不收的话
-  // 实参那串名字整片丢（实测缺 `Identifier` 386 / `TypeReference` 130 的样本
-  // 全长得像 `…T>;`，来自 `@types/node/stream/web.d.ts` 的 `_QueuingStrategy<T>` 一族）。
-  const generic = kids.find((k) => k.get("type") === "GenericType");
-  if (generic !== undefined) {
-    const typeArguments = [];
-    for (const group of splitTopLevel(projectableKids(view(generic)), ctx, ",")) {
-      const one = projectTypeExpression(group, ctx);
-      if (one !== undefined) typeArguments.push(one);
-    }
-    if (typeArguments.length > 0) props.typeArguments = typeArguments;
-  }
-  return { kind: "ImportType", pos: v.start, end: generic === undefined ? v.end : endOf(generic), ...props };
-```
-
 # private method qualifiedNameFrom:(names:Array<any>, ctx:any)=>any
 
 一串名字 → **限定名**（`A.B.C` 折成左结合的 `QualifiedName` 嵌套）。
@@ -6793,7 +6721,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
     Project: (node, parentKind) => projectNode(node, ctx, parentKind),
     Text: (view) => textOf(view, ctx),
     TextOf: (node) => textOfNode(node, ctx),
-    StringText: (view) => stringText(view, ctx),
+    StringText: (node) => stringText(node instanceof Map ? view(node) : node, ctx),
     // **字符串 / 模板串这一格**（第 99 轮）：模板串要递归投内插里的表达式或类型，
     // 那不是 token 层能做的事，所以实现留在 `projectString`、由 token 的 `PrintAst` 转过来。
     Template: (view) => projectString(view, ctx),

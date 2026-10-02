@@ -172,6 +172,75 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 内容直接装在自己身上：可选的 `typeof`、那个 `import(...)` 调用形状、以及限定名的尾巴。
 **与值位的动态 `import()` 的区别只在容器**：值位的它仍是 `<Method name="import">`。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+类型位的导入类型 `import("m")` / `import("m").A.B` / `typeof import("m")` → `ImportType`
+（**从 `ts-ast.xl.md` 的 `projectImportType` 搬来**，第 190 轮）。
+
+产物那边的形状是 `[Keyword(typeof)?, Method(name="import")[String], SymbolToken(.), Identifier*]`；
+TS 那边只有**两个**子字段：
+
+- `argument`：**一层 `LiteralType` 包着**那个 `StringLiteral`（`import("buffer").Blob` 的 TS 是
+  `ImportType > LiteralType > StringLiteral`）——照通用投影投时这一层整个没有
+  （实测缺 `LiteralType` 221 处、`ImportType` 的字段名也整类不对 113 处）；
+- `qualifier`：点号后面那一串名字，TS 用的是 **`QualifiedName`**（不是 `PropertyAccessExpression`）。
+
+`typeof` 与 `import` 两个词都**不进子字段**：前者是 TS 节点的标志位、后者是语法词。
+
+**实参可能在 `Method(name="import")` 里，也可能在一对圆括号里**（第 161 轮）：
+值位那条调用规则先收过一遍时是 `Method`；而在**泛型实参段**里（`Array<import("m").X>`）
+那个规则轮不到，形状是 `ImportType > [Keyword(import), Bracket((String)), ., Name]`。
+
+```ts
+  const kids = ctx.Kids(v);
+  let stringUnit = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+  if (stringUnit === undefined) {
+    const call = kids.find((k: any) => k.get("type") === "Method" || k.get("type") === "Bracket");
+    if (call !== undefined) {
+      stringUnit = ctx
+        .Kids(call)
+        .find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+    }
+  }
+  const props: any = {};
+  if (stringUnit !== undefined) {
+    const literal = {
+      kind: "StringLiteral",
+      text: ctx.StringText(stringUnit),
+      pos: ctx.StartOf(stringUnit),
+      end: ctx.EndOf(stringUnit),
+    };
+    props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
+  }
+  // **限定名里可能有被升级成 `Keyword` 的名字**（第 123 轮）：`typeof import("./d").default`
+  // 的 `default` 是 `Keyword`。要滤的只有 **`typeof` 那个词**——它是 TS 节点的标志位、
+  // 不是限定名的一部分；`import` 是外面那个 `Method` 的名字，本来就不在这串里。
+  const names = kids.filter((k: any) => {
+    if (!ctx.IsNameNode(k)) return false;
+    if (k.get("type") !== "Keyword") return true;
+    const word = ctx.TextOf(k);
+    return word !== "typeof" && word !== "import";
+  });
+  if (names.length > 0) props.qualifier = ctx.QualifiedNameFrom(names);
+  // **类型实参**（第 114 轮）：`import("stream/web").QueuingStrategy<T>` 的 `<T>` 在产物里是
+  // 平级的 `GenericType`，而 TS 的 `ImportType.typeArguments` 要照收。
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  if (generic !== undefined) {
+    const typeArguments = [];
+    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+      const one = ctx.TypeExpression(group);
+      if (one !== undefined) typeArguments.push(one);
+    }
+    if (typeArguments.length > 0) props.typeArguments = typeArguments;
+  }
+  return {
+    kind: "ImportType",
+    pos: v.start,
+    end: generic === undefined ? v.end : ctx.EndOf(generic),
+    ...props,
+  };
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器，并挂上**类型队列**——为了让里面那个 `typeof` 升级成 `Keyword`
