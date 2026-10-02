@@ -2298,3 +2298,31 @@ node tests/parse/ts-ast.mjs                # 总账
 node tests/parse/ts-ast.mjs --per-file     # 逐文件四列差额
 node tests/parse/ts-ast.mjs --file <路径>   # 单文件四方向
 ```
+
+---
+
+# 第 144~146 轮：尖括号类型断言、`?.` 嵌在二元里
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 143 轮末 | 1289 / 1407 | 172 | 61 | 150 | 28 | 411 |
+| 第 146 轮末 | **1292 / 1407** | 157 | 58 | 130 | 28 | **373** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 144 | **尖括号类型断言 `<T>x`**：`IsTypePosition` 的回扫要认「一路没撞见操作数 ⇒ `<` 在表达式最前面」；`=` 左边紧挨的那个名字是**声明的名字**、不算操作数；语句边界的 `;` 在「没看见操作数」时也是类型位；只装着注释的 `Statement` 不算操作数 | `tokens/generic-type.xl.md` |
+| 144 | `[GenericType, <表达式>]` ⇒ `TypeAssertionExpression`（**泛型箭头函数的 `[GenericType, Lamda]` 要让开**） | `ts-ast.xl.md` |
+| 145 | `?.` 那一串嵌在**二元的操作数位**里：`x.Start?.Document === y.Start?.Document` 的末尾 NCO 属于右边那条链——「二元单元排在头、尾巴是链的续接」要单独切；`?.` 直接接在链后面那一支要让开这种形状 | `ts-ast.xl.md` |
+| 146 | `this` 在值位也是 `ThisKeyword`（`nameOf` 一律给 `Identifier`，所以成员名 / 绑定名 / 形参名不受影响） | `ts-ast.xl.md` |
+
+## 还剩什么（共 373）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| 多出 `Identifier` / `PropertyAccessExpression` / `BinaryExpression` | 数十 | 零散 |
+| `type-combination-adversarial.ts` | 9 / 2 / 3 | 类型组合用例 |
+| `string-guide.ts`（纯漂移） | 0 / 6 / 4 | `source.Pre()!.Pre()` 链中间的 `!` |
+| `am-block-lambda-array-compound.ts` | 5 / 2 / 4 | 块 / lambda / 数组的歧义 |
+| 零散字段名 | 28 | 单格字段 |
