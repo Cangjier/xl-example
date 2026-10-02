@@ -2102,7 +2102,18 @@ new Set([
         i += 1;
         continue;
       }
-      if (!isSymbol(ck[i], ".") || i + 1 >= ck.length) break;
+      if (!isSymbol(ck[i], ".") || i + 1 >= ck.length) {
+        // **`!` 非空断言接在链中间**（第 143 轮）：`source.Pre()!.Pre()` 的产物是
+        // `[…, Method(Pre), NotNull, ., Method(Pre)]`——`!` 是**一个单元**，它把左边整段
+        // 包成 `NonNullExpression`，链再照常往下接。不认它的话循环在这里 break，
+        // 后面那整段链会掉成平级节点（实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
+        if (ck[i].get("type") === "NotNull") {
+          left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(ck[i]) };
+          i += 1;
+          continue;
+        }
+        break;
+      }
       const next = ck[i + 1];
       // **私有成员名 `#x`**（第 131 轮）：产物把 `this.#x` 拆成 `[this, ., #, x]` 两格，
       // 而 TS 那边 `name` 是**一个** `PrivateIdentifier`（区间含那个 `#`，`#` 是它的一部分）。
