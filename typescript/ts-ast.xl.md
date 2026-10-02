@@ -993,8 +993,6 @@ new Map([
       return projectImport(v, ctx);
 
 
-    case "IfSet":
-      return projectIfSet(v, ctx);
 
     case "LogicalOperator":
       return projectLogical(v, ctx);
@@ -5268,111 +5266,6 @@ import { A as B, C } from "m"
   return left;
 ```
 
-# private method projectIfSet:(v:any, ctx:any)=>any
-
-`if (a) { … } else if (b) { … } else { … }` → **嵌套的 `IfStatement`**。
-
-产物那边的形状是 `IfSet > IfSegment*`，而 TS 是
-`IfStatement(expression, thenStatement[, elseStatement])`——`IfSegment` 在 TS 侧**没有对应节点**
-（它是产物自己的分段壳）。所以这里不能走通用的 `structuralProps`：那会把 `IfSegment`
-原样透传（真实语料 103 处挂在「未覆盖标签」上），而每个段的体又会散成裸的语句单元
-（`Block` 整类缺 2185 处，其中 **1814 处的父节点正是 `IfStatement`**）。
-
-四处口径都是实测出来的（`tolist` 会把 `IfSegment` 的 `statement` 段**摊平**：
-段里那个 `IfStatement` 自己不是节点，它的子单元才是）：
-
-1. **`IfSegment` 收起、`IfStatement` 摊平**：`statement` 段直接是体的语句列表，
-   `condition` 段直接是条件表达式——两者都不必再剥一层壳；
-2. **花括号要回原文找**：`if (a) { g(); }` 的 `IfStatement` 区间是 `[7,18]`（两个端点**包含**），
-   而 `if (a) g();` 的 `IfStatement` 区间 `[7,10]` 恰好等于那条语句本身。
-   判据是「体的**每一段**都由花括号包着」：只有首个语句的起点在 `{` 与配对 `}` 之间时才是块，
-   否则那个 `{` 是**后一条语句**（`if (a) b(); { }`）——用「第一个 `{` 就认块」会造出假节点；
-3. **`else` 那个词不进子字段**（第 76 轮实测）：TS 的 `IfStatement` 只有
-   `expression` / `thenStatement` / `elseStatement` 三格，`else` 是词法记号、
-   `ts.forEachChild` **不会**访问它——留着一个 `elseKeyword` 会让这一整类（163 处）
-   的字段名多出一格。所以下面那个位置仍然算出来（`at`），但**不挂进 `props`**；
-4. **`else if` 是嵌套、`else {}` 是块**：前者把一个完整的 `if` 段交给递归。
-
-```ts
-  const segments = projectableKids(v).filter((k) => k.get("type") === "IfSegment");
-  if (segments.length === 0) {
-    return { kind: "IfStatement", pos: v.start, end: stmtEndOf(v, ctx) };
-  }
-  /** 段里的条件：`condition` 段在这一层是**摊平**的（`if (a)` 直接就是那个 `Identifier`）。 */
-  const conditionOf = (seg) => {
-    const cond = kidsOf(view(seg), "condition");
-    return cond.length === 0 ? undefined : projectExpression(cond, ctx);
-  };
-  // **体 = 段里除了条件之外的全部子单元**：`condition` 段在这一层是**摊平**的
-  // （`if (a)` 的段里，条件段直接就是那个 `Identifier`），所以不能按标签认，
-  // 只能按身份排掉条件段里的那几个单元（否则 `a` 会被当成第一条语句，块里凭空多一个 `Identifier`）。
-  const bodyOf = (seg) => {
-    const view_ = view(seg);
-    const cond = new Set(kidsOf(view_, "condition"));
-    return allKids(view_).filter((k) => !INVISIBLE.has(k.get("type")) && !cond.has(k));
-  };
-  // **体段起点**：条件段最后一个单元之后。空体（`if (a) {}`）时体段一个单元都没有，
-  // 只能靠这个位置回原文找那对花括号（见 `blockOfBody` 的第三个参数）。
-  const bodyFrom = (seg) => {
-    const cond = kidsOf(view(seg), "condition");
-    return cond.length === 0 ? -1 : endOf(cond[cond.length - 1]);
-  };
-  /**
-   * 造一层 `IfStatement`，返回 `{ node, end }`。
-   *
-   * **返回值里带上终点**是刻意的：外层那一层的终点必须等于它 `elseStatement` 的终点，
-   * 而 `elseStatement` 在 `else if` 时是**下一个段自己造的**那一层——
-   * 直接从返回的节点上读会读到未定的字段，所以让内层把终点显式交出来。
-   */
-  const build = (index) => {
-    const props = {};
-    const seg = view(segments[index]);
-    const expr = conditionOf(segments[index]);
-    if (expr !== undefined) props.expression = expr;
-    const thenBody = blockOfBody(bodyOf(segments[index]), ctx, bodyFrom(segments[index]));
-    if (thenBody !== undefined) props.thenStatement = thenBody.node;
-    let pos = seg.start;
-    let end = thenBody === undefined ? seg.end : thenBody.end;
-    if (index + 1 < segments.length) {
-      // **`else` 在本段的 `if` 与下一段之间**，所以从下一段的起点往回找：
-      // 段的起点在 `else if` 时是那个 `if`（不是 `else`），从本段起点往后找会把它自己
-      // 那个 `else` 认成这一层的（实测 `elseKeyword` 的区间整体前移一格族）。
-      const at = ctx.source.lastIndexOf("else", view(segments[index + 1]).start);
-      const key = view(segments[index + 1]).attrs.get("key");
-      if (key === "if") {
-        const inner = build(index + 1);
-        props.elseStatement = inner.node;
-        // `else if` 时**内层那一层的起点**要改成 `else` 后面那个 `if`——
-        // 它自己的 `seg.start` 也在那个 `if` 上，所以两层各修各的，外层不动 `pos`。
-        inner.node.pos = ctx.source.indexOf("if", at + 4);
-        end = inner.end;
-      } else {
-        // **`else { … }` 的 `elseStatement` 是那个体本身**（块或单条语句），
-        // 不是又一层 `IfStatement`（第 90 轮修）：多造一层会让 `IfStatement` 多出 225 个，
-        // 而 TS 那边 `elseStatement` 是 `Block`——同一处还带着「区间偏短」的漂移 116 处。
-        const elseBody = blockOfBody(bodyOf(segments[index + 1]), ctx, bodyFrom(segments[index + 1]));
-        if (elseBody !== undefined) {
-          props.elseStatement = elseBody.node;
-          end = elseBody.end;
-        } else {
-          // 空体（`else {}`）：TS 那边仍是一个空 `Block`。
-          const brace = ctx.source.indexOf("{", at + 4);
-          const close = brace >= 0 ? matchingBrace(ctx.source, brace) : -1;
-          if (brace >= 0 && close >= brace) {
-            props.elseStatement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
-            end = close + 1;
-          }
-        }
-      }
-    }
-    // 终点**从体量出来**，不能取段的 `range[1]`：那两端在花括号体上是**包含**的
-    // （`{ b(); }` 给 15），在单条语句体上是**排他**的（`b();` 给 11）——
-    // 同一个字段两种口径，只有回原文量那对花括号才分得清。
-    return { node: { kind: "IfStatement", pos, end, ...props }, end };
-  };
-  return build(0).node;
-```
-
 # private method bodyBlockOf:(from:int, kids:Array<any>, ctx:any)=>any
 
 **循环体**的体 → `Block`（或没有花括号时的单条语句 / 空体时 `undefined`）。
@@ -6020,7 +5913,8 @@ import { A as B, C } from "m"
     Expression: (list) => projectExpression(list, ctx),
     TypeExpression: (list) => projectTypeExpression(list, ctx),
     ProjectEach: (list, parentKind) => projectEach(list, ctx, parentKind),
-    KidsOf: (view, key) => kidsOf(view, key),
+    KidsOf: (node, key) => kidsOf(node instanceof Map ? view(node) : node, key),
+    Attr: (node, key) => (node instanceof Map ? view(node) : node).attrs.get(key),
     BodyBlockOf: (from, list) => bodyBlockOf(from, list, ctx),
     MatchingBrace: (source, at) => matchingBrace(source, at),
     MatchingParen: (source, at) => matchingParenOf(source, at),
