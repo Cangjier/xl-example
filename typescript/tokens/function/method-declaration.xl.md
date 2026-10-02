@@ -483,6 +483,17 @@ if (afterParameters instanceof SymbolToken && afterParameters.IsAny(MethodDeclar
 if (afterParameters instanceof Bracket && afterParameters.startBracket === "[") {
   return false;
 }
+// **形参表后面紧贴一个逗号 ⇒ 那是实参表**（第 76 轮）：`mk(leafKindOfText(text), { text })`
+// 里 `leafKindOfText(text)` 后面就是逗号——`BodyIndex` 一路扫到后面那个 `{`，
+// 于是那次调用被收成一个 `MethodDeclaration`（`ReturnType` 是那个逗号、`MethodBody` 是 `{ text }`），
+// 连带把简写属性 `{ text }` 读成标签、把里面的东西读成参数与字面量类型
+// （实测 `cases:align` 的「产物里有标签、源码里没有对应构造」4 类全是这一处）。
+//
+// 逗号在**值位**只能是实参 / 表达式分隔符；而方法声明的形参表后面不可能是逗号：
+// 成员之间用 `;` / 换行 / `,` 分隔时，逗号也只会出现在**返回类型或体之后**，不会紧贴 `)`。
+if (afterParameters instanceof SymbolToken && afterParameters.Is(",")) {
+  return false;
+}
 if (afterParameters !== null && (afterParameters instanceof Identifier || afterParameters.constructor.name === "Keyword") && MethodDeclarationReorganization.ValueKeywordTexts.includes(WordText(afterParameters))) {
   return false;
 }

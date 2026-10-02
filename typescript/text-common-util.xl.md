@@ -223,6 +223,25 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         if (openChar === "{" && sawUnit && beforeColon instanceof Bracket && beforeColon.Closed && beforeColon.startBracket === "(") {
           return "value";
         }
+        // **冒号是不是「类型标注」的，要先看自己是不是在花括号容器里**（第 76 轮）：
+        // `const o = { a: kids[i + 1] }` 里那个 `[` 往前扫，**先撞上的**是 `a` 后面那个
+        // **属性分隔冒号**，于是被判成类型位——结果是同一个 `kids[i + 1]` 在语句位置折出
+        // `<BinaryOperator op="+">`、在对象字面量里却是一串平铺的 `Identifier` / `SymbolToken`
+        // （实测 `cases:align` 的「缺节点」方向报出 2 处 `BinaryExpression`，
+        // 而这两处只在**本工程自己的产物**里出现——那个文件 1900 行、里面全是对象字面量）。
+        //
+        // 判据是**外层那个 `{` 自己处在哪**（它的 `Context` 在它开括号那一刻就算好了，
+        // 与上面「爬出花括号之前先停」用的是同一个依据）：
+        //
+        //     const o = { a: kids[i + 1] }      → `{` 是值位（对象字面量）⇒ 值位 ✓
+        //     let x: { a: A[K] }                → `{` 是类型位（类型字面量）⇒ 类型位 ✓
+        //
+        // 类型位关键字（`as` / `satisfies` / `keyof` / `readonly`…）在扫描里**先于**冒号出现
+        // （`{ a: b as C[D] }` 撞上的是 `as`），所以真的类型写法到不了这一支。
+        const holder = EnclosingBraceContext(host);
+        if (holder !== "") {
+          return holder;
+        }
         return "type";
       }
       if (text === "?") {
@@ -302,6 +321,31 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
 }
 return "value";
 ```
+# method EnclosingBraceContext:(host:Token)=>string
+
+**包着 `host` 的那个 `{` 括号处在类型位还是值位**（没有就返回 `""`）。
+
+给 `DecideBracketContext` 的冒号那一支用：撞上冒号时先问「我在哪个花括号里」——
+对象字面量（值位 `{`）里的冒号是**属性分隔符**，类型字面量（类型位 `{`）里的才是类型标注。
+
+从 `host` **自己**开始往上找（`DecideBracketContext` 收到的 `host` 就是外层那个单元：
+`bracket.xl.md` 的 `Success` 是在 `AddToMounted` **之前**调它的，所以新括号还没进树）：
+
+- 第一个 `startBracket === "{"` 且 `Context` **非空**的括号就是答案；
+- `Context` 为空串的括号跳过——那是**正在算自己**的那一个（它还没定，问了也没用），
+  或者 `(` / `[` 括号（它们的 `Context` 与「花括号容器」不是一回事）。
+
+```ts
+let node:Token | null = host;
+for (let hop = 0; hop < 8 && node !== null; hop++) {
+  if (node instanceof Bracket && node.startBracket === "{" && node.Context !== "") {
+    return node.Context;
+  }
+  node = node.Parent;
+}
+return "";
+```
+
 # method IsStatementStart:(units:Array<Token>, index:number)=>bool
 
 `index` 处的单元是不是**一条语句的第一个实义单元**。

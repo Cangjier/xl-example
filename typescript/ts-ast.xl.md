@@ -378,6 +378,27 @@ new Map([
   ["Constructor", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["FunctionExpression", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["ArrowFunction", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
+  // **循环两族的段名**（第 76 轮）：产物从一开始就按上游 Cangjie 的段名记
+  // （`for…of` 是 `define` / `enumable` / `body`），TS 那边是另外三个名字。
+  // 段名对不上时**只有「字段名」那一栏会红**（kind 与区间都是对的），实测：
+  // `ForOfStatement` 185 处、`ForStatement` 126 处。
+  [
+    "ForOfStatement",
+    new Map([
+      ["define", "initializer"],
+      ["enumable", "expression"],
+      ["body", "statement"],
+    ]),
+  ],
+  [
+    "ForStatement",
+    new Map([
+      ["initial", "initializer"],
+      ["compare", "condition"],
+      ["next", "incrementor"],
+      ["body", "statement"],
+    ]),
+  ],
 ])
 ```
 
@@ -521,6 +542,13 @@ new Map([
   return TOKEN_KIND.get(text) ?? text;
 ```
 
+# private const LITERAL_TYPE_KEYWORDS:Set<string> = new Set(["null", "true", "false"])
+
+**类型位要套 `LiteralType` 的三个词**（见 `projectTypeExpression` 里那一支）。
+
+`undefined` 刻意不在里面：TS 的 `undefined | null` 是 `UndefinedKeyword` + `LiteralType > NullKeyword`
+——两个词长得一样，形状却不同（这是 TS 自己的口径，不是本工程的取舍）。
+
 # private const PRIMITIVE_TYPE_KIND:Map<string, string>
 
 **原始类型**名 → `SyntaxKind` 名。
@@ -659,6 +687,19 @@ new Map([
     case "TypeDefine":
       return projectTypeDefine(v, ctx);
 
+    // 类型位的导入类型 `import("m").A` / `typeof import("m")`（第 76 轮）：
+    // TS 那边 `argument` 是一层 `LiteralType`、`qualifier` 是限定名，两样都要切出来。
+    case "ImportType":
+      return projectImportType(v, ctx);
+
+    // `infer X`：TS 那边只有一个 `typeParameter` 子字段，`infer` 那个词**不是**子节点。
+    case "InferType":
+      return projectInferType(v, ctx);
+
+    // 下标访问类型 `A[K]`：TS 那边是 `objectType` + `indexType` 两个具名字段。
+    case "IndexedAccessType":
+      return projectIndexedAccessType(v, ctx);
+
     case "TypeAssign":
       return projectTypeAlias(v, ctx);
 
@@ -764,6 +805,60 @@ new Set([
 ])
 ```
 
+# private const TYPE_MEMBER_SEPARATORS:Map<string, string>
+
+**成员之间的分隔符**：类型容器的成员表按这个符号切段，**切完再整段投**。
+
+第 76 轮的根因：`projectEachIn` 原来对类型容器的子单元**逐个**投
+（`projectTypeExpression([item])`），可产物在类型位把「名字 + 实参」摆成**平级的两格**
+（`ArrayLike` 与 `GenericType(<number>)` 是兄弟），于是
+
+    ArrayLike<number> | string
+      → TypeReference[7780,7789)      ← 只有名字，实参整片丢掉
+        TypeReference[7789,7797)      ← 实参自己成了**另一个**节点（区间是 `<number>`）
+        StringKeyword(string)
+
+而 TS 那边是 `UnionType > [TypeReference(ArrayLike<number>)[7780,7797), StringKeyword]`。
+同一类根因还压在**限定名**上：`ArrayBuffer | NodeJS.TypedArray` 的点号两边是两个平级单元，
+`projectTypeExpression` 里那个限定名循环**一次都进不去**（`QualifiedName` 缺 844 处、
+`TypeReference` 漂移 1761 处，实测数字见 README 第 76 轮）。
+
+**只有这三种容器要切**：它们的成员之间**真的有**分隔符。其余容器
+（`T[]` / `(A \| B)` / `keyof T` / `A[K]`）的子单元合起来就是**一个**类型，
+没有「同级的另一个类型」这回事——那里维持逐个投。
+
+```ts
+new Map([
+  ["UnionType", "|"],
+  ["IntersectionType", "&"],
+  ["TupleType", ","],
+])
+```
+
+# private method typeMemberGroups:(list:Array<any>, parentKind:string, ctx:any)=>Array<Array<any>>
+
+类型容器的一批子单元 → **切好的若干组**（每组是「一个类型」的全部单元）。
+
+分隔符那一格**不进任何一组**：它不是类型的一部分（与 `projectTypeArguments` 切逗号同一口径），
+留下的空组（`type A = | B` 的前导 `|`、尾随逗号）由 `filter` 挡掉。
+
+```ts
+  const separator = TYPE_MEMBER_SEPARATORS.get(parentKind);
+  if (separator === undefined) return list.map((item) => [item]);
+  const groups = [];
+  let current = [];
+  for (const item of list) {
+    if (item instanceof Map && item.get("type") === "SymbolToken" && textOfNode(item, ctx) === separator) {
+      groups.push(current);
+      current = [];
+      continue;
+    }
+    current.push(item);
+  }
+  groups.push(current);
+  return groups.filter((group) => group.length > 0);
+```
+
 # private method projectEachIn:(list:Array<any>, ctx:any, parentKind:string)=>Array<any>
 
 投影一批子单元，并在**签名上下文**里切换标记。
@@ -773,11 +868,13 @@ new Set([
 两种上下文两种 kind（声明文件里签名那套是绝大多数）。这个标记就是那个上下文。
 
 ```ts
-  // 类型容器的子单元按**类型位**投（见 `TYPE_MEMBER_KINDS`）。
+  // 类型容器的子单元按**类型位**投（见 `TYPE_MEMBER_KINDS`），
+  // 而且**按成员切好再投**（见 `TYPE_MEMBER_SEPARATORS` / `typeMemberGroups`）——
+  // 逐个投会把 `ArrayLike<number>` / `NodeJS.TypedArray` 这类「一对多格」的写法拆散。
   if (TYPE_MEMBER_KINDS.has(parentKind)) {
     const out = [];
-    for (const item of list) {
-      const projected = projectTypeExpression([item], ctx);
+    for (const group of typeMemberGroups(list, parentKind, ctx)) {
+      const projected = projectTypeExpression(group, ctx);
       if (projected !== undefined) out.push(projected);
     }
     return out;
@@ -1472,6 +1569,16 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     const span = { pos: startOf(head), end: endOf(head) };
     const nameNode = { kind: "Identifier", text, pos: span.pos, end: span.end };
     if (generic === undefined) {
+      // **`null` / `true` / `false` 在类型位要套一层 `LiteralType`**（第 76 轮）：
+      // TS 那边 `null | Writable` 的第一个成员是 `LiteralType > NullKeyword`，
+      // 而产物只在**一部分**上下文里造了这一层（`literal-type.xl.md` 覆盖的是它认得的那些位置），
+      // 类型参数约束、类型实参段这些地方的 `null` 还是裸的 `Identifier`
+      // （实测缺 `LiteralType` 214 处，样本几乎全是 `X extends null | Y`）。
+      // `undefined` **不套**（TS 那边就是裸的 `UndefinedKeyword`）——这是这一条唯一的例外。
+      if (LITERAL_TYPE_KEYWORDS.has(text)) {
+        const literal = { kind: PRIMITIVE_TYPE_KIND.get(text), text, pos: span.pos, end: span.end };
+        return { kind: "LiteralType", literal, pos: span.pos, end: span.end };
+      }
       const primitive = PRIMITIVE_TYPE_KIND.get(text);
       if (primitive !== undefined) {
         return arraySuffix === undefined
@@ -1535,6 +1642,130 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
     if (projected !== undefined) out.push(projected);
   }
   return out;
+```
+
+# private method projectImportType:(v:any, ctx:any)=>any
+
+类型位的导入类型 `import("m")` / `import("m").A.B` / `typeof import("m")` → `ImportType`。
+
+产物那边的形状是 `[Keyword(typeof)?, Method(name="import")[String], SymbolToken(.), Identifier*]`
+（第 66 轮 `import-type.xl.md` 收的）；TS 那边只有**两个**子字段：
+
+- `argument`：**一层 `LiteralType` 包着**那个 `StringLiteral`（`import("buffer").Blob` 的 TS 是
+  `ImportType > LiteralType > StringLiteral`）——照通用投影投时这一层整个没有，
+  实测缺 `LiteralType` 221 处、`ImportType` 的字段名也整类不对（113 处）；
+- `qualifier`：点号后面那一串名字，TS 用的是 **`QualifiedName`**（不是 `PropertyAccessExpression`
+  ——那是 `extends` 那一支的写法，见 `dottedExpression` 的说明）。
+
+`typeof` 与 `import` 两个词都**不进子字段**：前者是 TS 节点的标志位、后者是语法词。
+
+```ts
+  const kids = projectableKids(v);
+  // 实参那个字符串：可能裸着，也可能被 `Method(name="import")` 包着（值位那条调用规则先收过一遍）。
+  let stringUnit = kids.find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
+  if (stringUnit === undefined) {
+    const call = kids.find((k) => k.get("type") === "Method");
+    if (call !== undefined) {
+      stringUnit = projectableKids(view(call)).find(
+        (k) => k.get("type") === "String" || k.get("type") === "ConstString",
+      );
+    }
+  }
+  const props = {};
+  if (stringUnit !== undefined) {
+    const literal = {
+      kind: "StringLiteral",
+      text: stringText(view(stringUnit), ctx),
+      pos: startOf(stringUnit),
+      end: endOf(stringUnit),
+    };
+    props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
+  }
+  const names = kids.filter((k) => isNameNode(k) && !(k.get("type") === "Keyword"));
+  if (names.length > 0) props.qualifier = qualifiedNameFrom(names, ctx);
+  return { kind: "ImportType", pos: v.start, end: v.end, ...props };
+```
+
+# private method qualifiedNameFrom:(names:Array<any>, ctx:any)=>any
+
+一串名字 → **限定名**（`A.B.C` 折成左结合的 `QualifiedName` 嵌套）。
+
+与 `dottedExpression` 是**同形不同 kind**的一对：类型位（类型引用的名字、导入类型的限定名）
+用 `QualifiedName`，值位（`extends` / `implements` 的表达式）用 `PropertyAccessExpression`。
+
+```ts
+  let node = nameOf(names[0], ctx);
+  for (let i = 1; i < names.length; i++) {
+    const right = nameOf(names[i], ctx);
+    node = { kind: "QualifiedName", left: node, right, pos: node.pos, end: right.end };
+  }
+  return node;
+```
+
+# private method projectInferType:(v:any, ctx:any)=>any
+
+`infer X` / `infer X extends Y` → `InferType`（唯一子字段是 `typeParameter`）。
+
+`infer` 那个词**不是子节点**：TS 的 `InferType` 只有 `typeParameter` 一格
+（实测这一类的字段名差异 72 处全是「产物有 `children`、TS 只有 `typeParameter`」）。
+
+```ts
+  const param = projectableKids(v).find((k) => k.get("type") === "TypeParameter");
+  const props = {};
+  if (param !== undefined) props.typeParameter = projectNode(param, ctx);
+  return { kind: "InferType", pos: v.start, end: v.end, ...props };
+```
+
+# private method indexBracketOf:(v:any, ctx:any)=>int
+
+下标访问类型 `A[K]` 里**下标那一对方括号的左括号**位置。
+
+从节点终点往回找**与最后那个 `]` 配对**的 `[`：这样 `A["k"]["j"]` 找到的是**外层**那个
+（从前往后找会先撞上内层的 `[`，把 `A` 当成对象类型、`["k"]["j"]` 全当下标）。
+找不到时给 `-1`（调用方退回「整段一次投」）。
+
+```ts
+  const source = ctx.source;
+  // `v` 在这一层是**视图**（`projectNode` 开头 `view(node)` 过的），所以起止取 `v.start` / `v.end`。
+  let end = v.end - 1;
+  while (end > v.start && source[end] !== "]") end--;
+  if (source[end] !== "]") return -1;
+  let depth = 0;
+  for (let i = end; i >= v.start; i--) {
+    const ch = source[i];
+    if (ch === "]") depth++;
+    else if (ch === "[") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+```
+
+# private method projectIndexedAccessType:(v:any, ctx:any)=>any
+
+下标访问类型 `A[K]` → `IndexedAccessType`（`objectType` + `indexType`）。
+
+产物那边是**一串平级单元**（方括号本身不进产物，与 `ArrayType` 同一口径），
+所以按「单元起点在下标括号之前还是之后」切两段——两段都以类型位方式投
+（`NodeJS.TypedArray[K]` 的对象类型因此才是一个限定名，而不是散单元）。
+段名对不上是实测最大的一处字段差异（657 处：产物只有 `children`）。
+
+```ts
+  const kids = projectableKids(v);
+  const open = indexBracketOf(v, ctx);
+  if (open < 0) {
+    const whole = projectTypeExpression(kids, ctx);
+    return { kind: "IndexedAccessType", pos: v.start, end: v.end, objectType: whole };
+  }
+  const objectUnits = kids.filter((k) => startOf(k) < open);
+  const indexUnits = kids.filter((k) => startOf(k) >= open);
+  const props = {};
+  const objectType = projectTypeExpression(objectUnits, ctx);
+  const indexType = projectTypeExpression(indexUnits, ctx);
+  if (objectType !== undefined) props.objectType = objectType;
+  if (indexType !== undefined) props.indexType = indexType;
+  return { kind: "IndexedAccessType", pos: v.start, end: v.end, ...props };
 ```
 
 # private method projectField:(v:any, ctx:any)=>any
@@ -2111,9 +2342,9 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
 类型谓词 `value is T` / `asserts value is T` / `asserts value` → `TypePredicate`。
 
 产物那边三种身份（`asserts` 是 `AssertsKeyword`、参数名是 `Identifier`、`is` 是 `Keyword`）
-全挤在**平级的子单元**里，而 TS 那边它们是三个具名字段（`parameterName` / `isKeyword` / `type`）
-——不分开时整族都只投出「一串 `Identifier`」（真实语料 `TypePredicate` 的 `is` / 类型实参
-全对不上，`TypeReference` 有 360 处缺在它下面）。
+全挤在**平级的子单元**里，而 TS 那边它们是两个具名字段（`parameterName` / `type`，
+`asserts` 时多一个 `assertsModifier`）——不分开时整族都只投出「一串 `Identifier`」
+（真实语料 `TypePredicate` 的 `is` / 类型实参全对不上，`TypeReference` 有 360 处缺在它下面）。
 
 `is` 在产物里的词法身份不固定（`Keyword` 或 `Identifier`），两种都认；
 谓词里的类型**走类型位投影**（`T` ⇒ `TypeReference > Identifier`）。
@@ -2131,12 +2362,10 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     i++;
   }
   if (i < kids.length && textOfNode(kids[i], ctx) === "is") {
-    props.isKeyword = {
-      kind: "IsKeyword",
-      text: "is",
-      pos: startOf(kids[i]),
-      end: startOf(kids[i]) + 2,
-    };
+    // **`is` 不进子字段**（第 76 轮实测）：TS 的 `TypePredicate` 只有
+    // `parameterName` / `type`（+ `asserts` 时的 `assertsModifier`）三格，
+    // `is` 是词法记号、`ts.forEachChild` **不会**访问它——留着一个 `isKeyword`
+    // 会让这一整类（382 处）的字段名多出一格。位置仍然算出来（下面那个 `i++`）。
     i++;
   }
   if (i < kids.length) {
@@ -2192,8 +2421,10 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
    而 `if (a) g();` 的 `IfStatement` 区间 `[7,10]` 恰好等于那条语句本身。
    判据是「体的**每一段**都由花括号包着」：只有首个语句的起点在 `{` 与配对 `}` 之间时才是块，
    否则那个 `{` 是**后一条语句**（`if (a) b(); { }`）——用「第一个 `{` 就认块」会造出假节点；
-3. **`else` 那个词是子节点**：TS 的 `IfStatement` 有 `elseKeyword`（`ElseKeyword`），
-   区间就是 `else` 那四个字符——从段的起点往回量；
+3. **`else` 那个词不进子字段**（第 76 轮实测）：TS 的 `IfStatement` 只有
+   `expression` / `thenStatement` / `elseStatement` 三格，`else` 是词法记号、
+   `ts.forEachChild` **不会**访问它——留着一个 `elseKeyword` 会让这一整类（163 处）
+   的字段名多出一格。所以下面那个位置仍然算出来（`at`），但**不挂进 `props`**；
 4. **`else if` 是嵌套、`else {}` 是块**：前者把一个完整的 `if` 段交给递归。
 
 ```ts
@@ -2237,7 +2468,6 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
       const at = ctx.source.lastIndexOf("else", view(segments[index + 1]).start);
       const key = view(segments[index + 1]).attrs.get("key");
       const inner = build(index + 1);
-      if (at >= 0) props.elseKeyword = { kind: "ElseKeyword", text: "else", pos: at, end: at + 4 };
       props.elseStatement = inner.node;
       // `else if` 时**内层那一层的起点**要改成 `else` 后面那个 `if`——
       // 它自己的 `seg.start` 也在那个 `if` 上，所以两层各修各的，外层不动 `pos`。

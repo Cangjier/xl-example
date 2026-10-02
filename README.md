@@ -342,22 +342,25 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。
 这个百分比**同时量节点集合、坐标与名字归一**（三者都对上才计），实测：
 
-| 口径 | 用例语料 1014 文件 | 真实语料 384 文件 |
+| 口径 | 用例语料 1018 文件 | 真实语料 385 文件 |
 | --- | --- | --- |
 | 产物标签名直接比 | 32.4% | 47.9% |
-| **投影成 TS 形状后比**（`ts-shape.mjs`） | **85.3%** | **97.4%** |
-| 其中**字段名也一致** | 96.9% | 99.4% |
+| **投影成 TS 形状后比**（`ts-shape.mjs`） | **85.4%** | **97.6%** |
+| 其中**字段名也一致** | **97.6%** | **99.8%** |
+
+（这三行是**第 76 轮**的实测数；改动前后的对照与逐条缺口见下面「第 76 轮」那一节。）
 
 第三行是「完全 follow TypeScript 形状」的真账：[tests/parse/ts-shape.mjs](tests/parse/ts-shape.mjs)
 负责换名、补壳 / 提层、给字段名，`cases:tsast` 逐节点比 **kind / 区间 / 字段名** 三样。
 投影节点的数与 TS 语义节点同量级（真实语料 480427 vs 453862，1.06×），所以剩下的差距是**结构**，
 不是规模——正是要接着重构 token 层去补的那几层壳与字段切分。
-真实语料（`.d.ts` 为主）已经到 **97.4%**：那批文件几乎全是「声明 + 类型」，正是投影覆盖得最好的部分。
+真实语料（`.d.ts` 为主）已经到 **97.6%**：那批文件几乎全是「声明 + 类型」，正是投影覆盖得最好的部分
+（这一句与下面这几行状态表是**第 71–76 轮**累积的读数，最新的逐条数字见「第 76 轮」那一节）。
 ### 当前状态（实测，`npm run` 十九个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | 1027 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
+| `cases:run` | **1031** 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
 | `cases:diff` | 1402 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径）。第 68 轮复核时这一行报过 **Field +119**：索引签名第 66 轮起有自己的 `<IndexSignature>` 标签，而 `differential.mjs` 的映射表还写着 `IndexSignatureDeclaration → Field`，于是 120 处索引签名被算成「Field 没成节点」——**量具的映射没跟着标签表走**，不是解析缺口。接回去之后：`Field` 源码侧 20243 / 产物侧 20244（**−1**，那一处多收在 `decl-class-computed-member.ts`，正是 `cases:dashboard` 的「真多 1」）、`IndexSignature` 120 / 120（**0**），其余各行不变 |
 | `cases:dashboard` | **真缺 0 个节点**（第 71 轮起 `&&` / `\|\|` 由 `LogicalOperator` 承担，台账里那一行也随之从「真多 114」降下来） |
 | `cases:lossless` | 1398 个文件、抛异常 0、内容丢失 0 |
@@ -366,7 +369,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:noise` | 1395 个文件，空 `<Statement>` **0** 个 |
 | `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
 | `cases:recon` / `cases:recon2` | 174 + **157** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | 1409 个文件：未登记的「标签占用」**0 类**、**缺节点 `（没有）`**。第 67 轮做了两件事让这个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing` |
+| `cases:align` | **第 76 轮实测：1412 个文件，未登记的「标签占用」1 类、缺节点 1 类**（两处都在本工程自己的产物 `dist/ts/typescript/ts-ast.ts` 里，第 75 轮那个 1900 行的文件进语料之后才出现；基线是「未登记 4 类 / 缺节点 2 类」，第 76 轮清到 1/1——剩下的两处与复现命令记在「第 76 轮」那一节的第四节）。**这一行原来那个 0 是第 71 轮的数**：下面这两句讲的是当时的做法。第 67 轮做了两件事让那个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`。**两条教训**：这一把尺子**没有退出码**，它的两节要人读——第 75 轮换了语料（新增一份 1900 行的文件）而没有重读它，那 4+2 类就一直挂着；另有一处量具口子：标签表里没有 `PropertyAccess`（第 70 轮新增的标签），而查不到标签的 kind 是 `continue`——`PropertyAccessExpression` 这一族因此**整类看不见**，这是下一个要接的口子 |
 | `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
 | `cases:fuzz3` | 抽样 20 万次得 9.7 万个合法三片段组合，**可疑 0 类**（第 67 轮新加，见上） |
 | `cases:astjson` | **两个出口同源**：1027 条用例 + 384 个真实语料文件，逐节点比对 **0 处不符**（`--self-test` 的 5 种变异全部被抓到）。这一轮的实测数：1398 个文件、**534054 个产物节点** |
@@ -1510,6 +1513,148 @@ x.y !== z   →   Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)
 `samples` 三份夹具按新形状重生成（只有 `declarations` 里那条 `this.…` 链变了形状）。
 这一轮点名的四条目标（`Block` / `TypeReference` / `ConstructSignature` / 逻辑运算符 token）
 里，第 1 条与第 4 条在**第 71 轮**清掉了，见下一节。
+
+### 第 76 轮：类型位的成员切分 · 两处 token 层缺口（真实语料 97.1% → 97.6%）
+
+这一轮从「逐节点对拍」出发，先量后改：`cases:tsast` 的缺口榜上，**最大的一项是同一类**——
+类型位那些「一对多格」的写法（名字 + 实参、点号两边的限定名）在投影时被**拆散**了。
+
+#### 一、类型容器的子单元要**按成员切好再投**（投影层，最大的一块）
+
+`projectEachIn` 原来对类型容器的子单元**逐个**投（`projectTypeExpression([item])`），
+可产物在类型位把「名字 + 实参」摆成**平级的两格**：
+
+```
+ArrayLike<number> | string
+  原来 → TypeReference[7780,7789)      ← 只有名字，实参整片丢掉
+         TypeReference[7789,7797)      ← 实参自己成了**另一个**节点（区间是 `<number>`）
+         StringKeyword(string)
+  TS   → UnionType > [TypeReference(ArrayLike<number>)[7780,7797), StringKeyword]
+```
+
+同一类根因还压在**限定名**上：`ArrayBuffer | NodeJS.TypedArray` 的点号两边是两个平级单元，
+`projectTypeExpression` 里那个限定名循环**一次都进不去**。
+
+修法是给类型容器的子单元表加一层**切分**（`TYPE_MEMBER_SEPARATORS` + `typeMemberGroups`）：
+`UnionType` 按 `|`、`IntersectionType` 按 `&`、`TupleType` 按 `,` 切段，**切完每段整段投**；
+其余容器（`T[]` / `(A)` / `keyof T` / `A[K]`）的子单元合起来本就是一个类型，维持逐个投。
+分隔符自己不进任何一段（与 `projectTypeArguments` 切逗号同一口径），空段（前导 `|`）由 `filter` 挡掉。
+
+#### 二、类型位那几处「字段/层数不对」的投影（同一批，逐个清）
+
+| 缺口 | 根因 | 修法 |
+| --- | --- | --- |
+| `TypeReference` 漂移 **1761** → **73**、`QualifiedName` 缺 **844** → **118** | 见上（成员被拆散，限定名循环进不去） | `typeMemberGroups` |
+| `ImportType` 字段名 113 处 + 缺 `LiteralType` 221 处 | 类型位的 `import("m").A` 走通用投影：TS 那边 `argument` 是**一层 `LiteralType` 包着 `StringLiteral`**、`qualifier` 是**限定名**，产物那边是 `Method` + 点号 + `Identifier` 的平铺 | 新增 `projectImportType`（+ 共用的 `qualifiedNameFrom`）：实参套 `LiteralType`、限定名折 `QualifiedName`，`typeof` / `import` 两个词不进子字段 |
+| `InferType` 字段名 72 处 | 产物是 `[infer, TypeParameter]`，TS 只有 `typeParameter` 一格 | 新增 `projectInferType`（`infer` 那个词不进子字段） |
+| `IndexedAccessType` 字段名 **657** 处（最大的一处字段差异） | 产物是平铺的 `children`，TS 是 `objectType` + `indexType` | 新增 `projectIndexedAccessType` + `indexBracketOf`：从节点终点往回找**与最后那个 `]` 配对**的 `[`（`A["k"]["j"]` 才不会把内层当成外层），按它把单元切两段 |
+| `TypePredicate` 字段名 382 处 | 产物多挂了一个 `isKeyword` | `ts.forEachChild` **不访问** `is`（它只是词法记号）——去掉那一格（`asserts` 的 `assertsModifier` 照留） |
+| `IfStatement` 字段名 163 处 | 同上，`elseKeyword` 也不在 `ts.forEachChild` 的访问面里 | `projectIfSet` 不再挂 `elseKeyword` |
+| `ForOfStatement` 185 / `ForStatement` 126 处 | 段名是上游 Cangjie 的（`define` / `enumable` / `body`），TS 是另外三个名字 | `FIELD_BY_KIND` 补两行映射 |
+| `LiteralType` 缺 221 → **49** | `null` / `true` / `false` 在**一部分**上下文里产物没造 `LiteralType`（`X extends null \| Y` 这类类型参数约束全是裸 `Identifier`） | `projectTypeExpression` 给这三个词套一层 `LiteralType`（**`undefined` 不套**——TS 那边它就是裸的 `UndefinedKeyword`；表在 `LITERAL_TYPE_KEYWORDS`） |
+
+#### 三、两处**真的 token 层缺口**（都是 `cases:align` 报出来的）
+
+`cases:align` 的「缺节点 / 标签占用」两节在**第 75 轮之后其实是红的**，只是它没有退出码、
+而第 75 轮的验收表里没有它——这一轮先把**基线量出来**（`git stash` 规范改动、
+重新生成产物、跑一遍 align），再动手。基线在下面这张表里（同一批 1412 个文件）：
+
+| 口径 | 第 76 轮之前 | 现在 |
+| --- | --- | --- |
+| 未登记的「标签占用」 | 4 类（`MethodDeclaration in Method` 2 / `Parameter in Bracket` 2 / `LiteralType in TypeDefine` 1 / `Label in MethodBody` 1） | **1 类**（`LiteralType in TypeDefine` 1，见下） |
+| 缺节点 | 2 类（`CallExpression` 2 / `BinaryExpression` 2） | **1 类**（`CallExpression` 2，见下） |
+
+两处共一个来源：`dist/ts/typescript/ts-ast.ts` 这个**1900 行的产物文件**（第 75 轮才进语料），
+里面全是对象字面量与实参表——拿它当语料，等于给解析器出了一张「自己写的刁钻形状」考卷。
+
+**（1）形参表后面紧贴逗号 ⇒ 那是实参表，不是方法声明**（token 层，
+[`method-declaration.xl.md`](typescript/tokens/function/method-declaration.xl.md)）
+
+```ts
+const p = mk(leafKindOfText(text), { text });
+```
+
+`BodyIndex` 一路扫到后面那个 `{`，把这次调用收成一个 `MethodDeclaration`：
+**`ReturnType` 是那个逗号、`MethodBody` 是 `{ text }`**；连带把简写属性 `{ text }` 读成标签、
+把里面的东西读成参数与字面量类型。上一表里那 4 类未登记标签占用**全是这一处**。
+判据是「形参表后面紧贴一个 `,`」——方法声明的形参表后面只可能是 `:` / `{` / 成员边界，
+逗号在值位只能是实参 / 表达式分隔符（成员之间用 `,` 分隔时，逗号只会出现在返回类型或体**之后**）。
+
+**（2）对象字面量里的下标访问被判成了类型位**（token 层，
+[`text-common-util.xl.md`](typescript/text-common-util.xl.md) 的 `DecideBracketContext`）
+
+```ts
+const o = { start: range ? range[0] : 0, end: kids[i + 1] };
+```
+
+`[` 往前扫时**先撞上的是属性分隔冒号** `start:`，于是被判成类型位——
+同一个 `kids[i + 1]` 在语句位置折出 `<BinaryOperator op="+">`、在对象字面量里却是一串平铺单元
+（align 的 2 处 `BinaryExpression`）。判据是**外层那个 `{` 自己处在哪**
+（它的 `Context` 在它开括号那一刻就算好了，与既有的「爬出花括号之前先停」同一个依据）：
+对象字面量（值位 `{`）里的冒号是属性分隔符 ⇒ 值位；类型字面量（类型位 `{`）里的才是类型标注。
+新增 `EnclosingBraceContext`，**只在撞上冒号那一支**问它。
+类型位写法（`as` / `satisfies` / `keyof`…）在扫描里先于冒号出现，所以到不了这一支：
+
+```
+const o = { a: kids[i + 1] }   → `{` 是值位 ⇒ 值位 ✓（`+` 照常折）
+let x: { a: A[K] }             → `{` 是类型位 ⇒ 类型位 ✓（IndexedAccessType 照常成形）
+type M = { [K in keyof T]: T[K] }  ↦ 不变 ✓（映射类型 / TypeOperator 全绿）
+```
+
+#### 四、这一轮**没修完**的两处（如实登记，下一个要接的口子）
+
+两处都在 `dist/ts/typescript/ts-ast.ts` 里，位置随产物重生成而漂，所以登记的是**形状**：
+
+| 剩余 | 现象 | 复现 |
+| --- | --- | --- |
+| align 未登记 1 类：`LiteralType in TypeDefine` | `return { type, start: range ? range[0] : 0, … }` 附近，产物里那个 `: 0` 被当成类型标注 ⇒ 多一个 `LiteralType`。**同样的字面形状单独写出来是对的**（`const o = { start: a ? b[0] : 0 }` 正常），说明是**上文某处**把这一段的语境带歪了 | `node tests/parse/probe.mjs --file dist/ts/typescript/ts-ast.ts --lines 310-325` |
+| align 缺节点 1 类：`CallExpression` 2 处 | `for (const inner of unwrapNodes(k)) params.push(inner);` 这一片**整段保持平铺**（没有 `<Foreach>`、也没有 `<PropertyAccess>`），而同样两行单独写出来会正常折成 `Foreach` + `PropertyAccess` | `node tests/parse/probe.mjs --file dist/ts/typescript/ts-ast.ts --lines 1585-1600` |
+
+两处的共同点已经定位到「**上文**」：`projectFunctionType` 上面那几行
+（`kids.findIndex((k) => … )` 那种带箭头与多层的写法）之后，后面整段的重组就没再发生。
+**这不是「被遮蔽」，是还没查到根因**；两个复现命令谁都能跑，且它们都在**本工程自己的产物**里——
+外部语料（`@types/node` 等）不受影响。
+
+顺带记下一处**量具口子**（下一轮要先补）：`cases:align` 的标签表（`REVERSE`）里
+**没有 `PropertyAccess`**（第 70 轮新增的标签），而这一把尺子对「标签表查不到的 kind」是
+`continue`（直接跳过）——也就是说 `PropertyAccessExpression` 这一族构造**现在整类看不见**。
+要接的话先补这一行，再看它当场照出多少（大概率会照出一片，所以单开一轮）。
+
+#### 五、这一轮的账
+
+量化（同一批 **385 个真实语料文件 / 467593 个 TS 语义节点**）：
+
+| 判据 | 改动前 | 改动后 |
+| --- | --- | --- |
+| `cases:tsast` 真实语料（同 kind 同区间） | 97.1% | **97.6%** |
+| 其中**字段名也一致** | 99.4% | **99.8%** |
+| `cases:tsast` 用例语料 | 85.3% | **85.4%**（字段名 96.9% → **97.6%**） |
+| 全语料（1403 文件） | 96.7%（1399 文件时） | **97.2%**（字段名 99.3% → **99.7%**） |
+| 投影后仍缺 `QualifiedName` | 844 | **118** |
+| 投影后仍缺 `LiteralType` | 221 | **49** |
+| 投影后仍缺 `TypeReference` / 漂移 | 429 / 1761 | **417 / 73** |
+| 字段名不符：`IndexedAccessType` | 657 | **0** |
+| 字段名不符：`TypePredicate` | 382 | **0** |
+| 字段名不符：`ForOfStatement` / `ForStatement` | 184 / 126 | **0 / 0** |
+| 字段名不符：`IfStatement` | 163 | **0** |
+| 字段名不符：`ImportType` / `InferType` | 113 / 72 | **0 / 0** |
+| `cases:align`（1412 文件） | 未登记 **4 类** / 缺节点 **2 类** | 未登记 **1 类** / 缺节点 **1 类**（见上一节） |
+| `cases:run` / `cases:check` | 1027 / 1027 | **1031 / 1031**（新增 4 条钉住本轮） |
+
+九把尺子（`run` / `diff` / `dashboard` / `lossless` / `structure` / `boundaries` / `noise` /
+`astjson` / `tsast`）与五把探针（`sweep` / `recon` / `recon2` / `fuzz` / `fuzz3`）全绿，
+`samples` 的两份 TS 形状夹具按新形状重生成（`elseKeyword` / `isKeyword` / `initial` 这几处字段名变了）。
+
+新增四条用例：`expr-call-arg-then-object`（形参表后面是逗号 ⇒ 实参表）、
+`expr-index-content-in-object`（对象字面量里的下标内容照常跑重组）、
+`type-union-member-generic`（类型位联合的成员带实参 / 限定名）、
+`type-literal-null-true`（`null` / `true` 在类型位的产物侧形状）。
+
+**下一轮的目标**：`Identifier` 1958、`StringLiteral` 1083（引号成员名 `"accept-encoding"?: T` 一整片）、
+`PropertyAccessExpression` 592（计算成员名 `[Symbol.toStringTag]`）、`Block` 408 /
+`BinaryExpression` 393 + 漂移 685、`ParenthesizedExpression` 364、`PropertyAssignment` 338、
+`ElementAccessExpression` 312、`ComputedPropertyName` 231、`NumericLiteral` 215（`0: string` 这种数字成员名），
+以及上面第四节那两处与 align 的 `PropertyAccess` 标签表口子。
 
 ### 第 75 轮：TS 形状直出口（第三个出口）—— 投影从测试侧搬进规范
 
