@@ -96,3 +96,17 @@
 | `splitTopLevel(list, ctx, sep)` | `ctx.Split(list, sep)` |
 | `{ kind, pos: v.start, end: stmtEndOf(v, ctx), ...props }` | `ctx.Node(kind, props, v)` |
 | `INVISIBLE` / `nameOf` / `isDot` / `isSymbol` | `ctx.Invisible` / `ctx.NameOf` / `ctx.IsDot` / `ctx.IsSymbol` |
+
+### 第 183 轮：搬迁进度
+
+| 块 | 落到哪 |
+| --- | --- |
+| `NotNull` | `tokens/not-null.xl.md` |
+| `InferType` | `tokens/infer-type.xl.md` |
+| `While` | `tokens/while/while.xl.md` |
+| `DoWhile` | `tokens/do-while/do-while.xl.md` |
+
+中央 `switch` 的 `case` 从 49 降到 **45**；全量对拍仍是 **1407 / 1407 完全一致、四方向 0**。
+
+又给 `ctx` 补了四个出口：`ProjectEach` / `KidsOf` / `BodyBlockOf` / `MatchingBrace` /
+`MatchingParen`（`while` / `do…while` 这两块要用「自己造 Block」与「按深度配对括号」两件事）。
