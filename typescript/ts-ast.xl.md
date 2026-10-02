@@ -3014,7 +3014,11 @@ new Set([
   const holder = {};
   addModifiers(letView, holder, ctx);
   const statementModifiers = holder.modifiers ?? [];
-  const onlyStatementLevel = statementModifiers.filter((m) => !["const", "let", "var"].includes(m.text));
+  // **`await` / `using` 也不是语句修饰词**（第 151 轮）：它们是**列表的 flags**
+  // （`VariableDeclarationList.flags = AwaitUsing`），挂到语句上会多出两个节点。
+  const onlyStatementLevel = statementModifiers.filter(
+    (m) => !["const", "let", "var", "await", "using"].includes(m.text),
+  );
   if (onlyStatementLevel.length > 0) statement.modifiers = onlyStatementLevel;
   return { list, statement };
 ```
@@ -3201,9 +3205,16 @@ new Set([
 ```ts
   const modifiers = v.attrs.get("modifiers");
   if (typeof modifiers !== "string" || modifiers === "") return v.start;
-  const last = modifiers.split(",").filter((w) => w !== "").pop();
-  if (last === undefined) return v.start;
-  const at = ctx.source.indexOf(last, v.start);
+  const words = modifiers.split(",").filter((w) => w !== "");
+  if (words.length === 0) return v.start;
+  // **`await using x`**（第 151 轮）：`await` 与 `using` 都是**声明列表**的标志
+  // （TS 那边是 `VariableDeclarationList.flags = AwaitUsing`，两个词都**不是**语句修饰词），
+  // 所以列表要从 `await` 起。其余情形列表从**最后一个**修饰词起
+  // （`export const x` 的列表从 `const` 起，而语句从 `export` 起）。
+  // 实测 `decl-await-using-basic.ts` / `vars-await-using.ts`：列表起点差 6 格，
+  // 语句上还多出 `AwaitKeyword` / `UsingKeyword` 两个节点。
+  const from = words[0] === "await" ? words[0] : words[words.length - 1];
+  const at = ctx.source.indexOf(from, v.start);
   return at >= 0 ? at : v.start;
 ```
 
