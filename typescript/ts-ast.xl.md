@@ -1107,11 +1107,9 @@ new Map([
     case "New":
       return projectNew(v, ctx);
 
-    // **装饰器**（第 95 轮）：TS 的 `Decorator` 只有 `expression` 一个字段
-    // （`@Component({…})` 是 `CallExpression`、`@plain` 是 `Identifier`），
-    // 而产物给的是 `name` + `children`（连 `@` 那个符号都在里面）。
-    case "Decorator":
-      return projectDecorator(v, ctx);
+    // **装饰器已搬进 `tokens/decorator.xl.md` 的 `Decorator.PrintAst`**（第 182 轮）：
+    // TS 的 `Decorator` 只有 `expression` 一个字段（`@Component({…})` 是 `CallExpression`、
+    // `@plain` 是 `Identifier`），而产物给的是 `name` + `children`（连 `@` 都在里面）。
 
     // **可变长 / 可选类型**（`...A` / `B?`）已搬进 `tokens/tuple-member.xl.md` 的
     // `RestType.PrintAst` / `OptionalType.PrintAst`（第 182 轮）：字段只有 `type`，
@@ -6903,31 +6901,6 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   const args = kidsOf(v, "arguments").filter((k) => !INVISIBLE.has(k.get("type")));
   if (args.length > 0) props.arguments = projectEach(args, ctx);
   return { kind: "NewExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
-# private method projectDecorator:(v:any, ctx:any)=>any
-
-装饰器 `@Component({ … })` / `@plain` → `Decorator`（**只有 `expression`**）。
-
-TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被调用者是那个 `Identifier`），
-`@plain` 的 `expression` 就是那个 `Identifier`；`@` 这个符号**不是节点**。
-产物那边给的是 `name` + `children`（`@` 也在里面）——照通用投影会多出一个 `@` 节点。
-
-```ts
-  const kids = projectableKids(v).filter(
-    (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "@"),
-  );
-  const props = {};
-  if (kids.length > 0) {
-    // **装饰器名可能是一条链**（第 170 轮）：`@ns.dec` 的产物是
-    // `[Identifier(ns), SymbolToken(.), Identifier(dec)]` 三格平级，而 TS 的
-    // `Decorator.expression` 是一个 `PropertyAccessExpression`。只投第一格会只剩
-    // `Identifier(ns)`（实测 `cls-decorator-qualified-name.ts`：缺 `PropertyAccessExpression`
-    // + `Identifier`，且连「多出」都没有——那一段直接没了）。整段交给 `projectExpression` 折。
-    const inner = projectExpression(kids, ctx);
-    if (inner !== undefined) props.expression = inner;
-  }
-  return { kind: "Decorator", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectNamespace:(v:any, ctx:any)=>any
