@@ -196,6 +196,35 @@ return ReplaceCountAt(units, index, nextIndex - index + 1, result);
 内容是「词 + 操作数」，形如 `<TypeOperator><Keyword>keyof</Keyword><Identifier>T</Identifier></TypeOperator>`。
 **不给它加 `op` 属性**：与 `UnionType` 的 `|` 符号同一口径，运算符作为子单元留在树里。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+`keyof T` / `readonly T[]` / `unique symbol` → `TypeOperator`（**只有 `type` 一个子字段**；
+**从 `ts-ast.xl.md` 的 `projectTypeOperator` 搬来**，第 184 轮）。
+
+TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（`operator`），
+`forEachChild` 只看 `type`。产物那边它与操作数是平级的两个单元，照通用投影会把它当成
+`type` 的一段——实测「多出来的节点」里两类都从这里来：
+
+- `readonly Uint8Array[]`：`type` 成了一个两格的数组（`ReadonlyKeyword` + `ArrayType`）✗，
+  而 TS 的 `type` **就是那个 `ArrayType`**（`TypeOperator[17,38) > ArrayType[26,38)`）；
+- `unique symbol`：操作数被投成 `TypeReference > Identifier(symbol)` ✗，
+  而 TS 那边是 `SymbolKeyword`（`TypeOperator[9,22) > SymbolKeyword[16,22)`）——
+  所以操作数必须走**类型位投影**（`ctx.TypeExpression`），不是通用投影。
+
+```ts
+  const kids = ctx.Kids(v).filter(
+    (k: any) =>
+      !(
+        k.get("type") === "Keyword" &&
+        (ctx.TextOf(k) === "keyof" || ctx.TextOf(k) === "readonly" || ctx.TextOf(k) === "unique")
+      ),
+  );
+  const props: any = {};
+  const operand = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
+  if (operand !== undefined) props.type = operand;
+  return ctx.Node("TypeOperator", props, v);
+```
+
 ## constructor:(template:Template)=>void
 
 搬进来的那一段要再跑一趟**类型队列**（`keyof typeof T` 的内层、操作数里的联合在那里成形）。

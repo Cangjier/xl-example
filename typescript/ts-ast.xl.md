@@ -983,8 +983,6 @@ new Map([
 
     // 类型运算符 `keyof T` / `readonly T[]` / `unique symbol`：TS 那边那个词是节点的**属性**
     // （`operator`），`forEachChild` 只看 `type` 一个子字段。
-    case "TypeOperator":
-      return projectTypeOperator(v, ctx);
 
     // 映射类型 `{ [P in keyof T]-?: T[P] }`：TS 的子字段是
     // `readonlyToken` / `typeParameter` / `questionToken` / `type`。
@@ -6471,36 +6469,6 @@ TS 那边的 `properties` 是**成员数组**：
   }
   const props = properties.length === 0 ? {} : { properties };
   return { kind: "ObjectLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
-# private method projectTypeOperator:(v:any, ctx:any)=>any
-
-`keyof T` / `readonly T[]` / `unique symbol` → `TypeOperator`（**只有 `type` 一个子字段**）。
-
-TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（`operator`），
-`forEachChild` 只看 `type`。产物那边它与操作数是平级的两个单元，照通用投影会把它当成
-`type` 的一段——实测「多出来的节点」里两类都从这里来：
-
-- `readonly Uint8Array[]`：`type` 成了一个两格的数组（`ReadonlyKeyword` + `ArrayType`）✗，
-  而 TS 的 `type` **就是那个 `ArrayType`**（`TypeOperator[17,38) > ArrayType[26,38)`）；
-- `unique symbol`：操作数被投成 `TypeReference > Identifier(symbol)` ✗，
-  而 TS 那边是 `SymbolKeyword`（`TypeOperator[9,22) > SymbolKeyword[16,22)`）——
-  所以操作数必须走**类型位投影**（`projectTypeExpression`），不是通用投影。
-
-```ts
-  const kids = projectableKids(v).filter(
-    (k) =>
-      !(
-        k.get("type") === "Keyword" &&
-        (textOfNode(k, ctx) === "keyof" ||
-          textOfNode(k, ctx) === "readonly" ||
-          textOfNode(k, ctx) === "unique")
-      ),
-  );
-  const props = {};
-  const operand = kids.length > 0 ? projectTypeExpression(kids, ctx) : undefined;
-  if (operand !== undefined) props.type = operand;
-  return { kind: "TypeOperator", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectMappedType:(v:any, ctx:any)=>any
