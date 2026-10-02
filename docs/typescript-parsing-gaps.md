@@ -2458,3 +2458,36 @@ interface I { ['a']: T      // **两条**成员（类型标注后面接不了下
 - **前面只有 trivia 时换行就是语句边界**：`// 注释` 换行 `!x;` 里 `previous`（跳过 trivia 之后）
   是 `null`，落到 `ContinuesExpression("!")` 判成续行，注释与 `!x;` 被并成一条语句
   （实测 `expr-unary-prefix.ts`：缺整条 `ExpressionStatement`）。
+
+---
+
+# 第 160~163 轮：字面量 kind、catch 解构、注释与区间、括号实参
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 159 轮末 | 1342 / 1407 | 68 | 28 | 60 | 17 | 173 |
+| 第 163 轮末 | **1359 / 1407** | 40 | 27 | 37 | 15 | **119** |
+
+## 根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 160 | **数字字面量的正则**：指数里不许 `_`（`1_0e1_0` 掉成 `Identifier`）、小数部分不许为空（`1.` 同理）；`1n` 该是 **`BigIntLiteral`** 而不是 `NumericLiteral` | `ts-ast.xl.md`（`NUMERIC_LITERAL` / `leafKindOfText`） |
+| 160 | **`catch ({ message })` 的解构绑定**要走 `projectBindingPattern`（照通用支投会得到 `ObjectLiteralExpression` + `ShorthandPropertyAssignment`） | `ts-ast.xl.md`（`projectTry`） |
+| 161 | **语句起点跳过前导 trivia**：`/* a */ const x = 1;` 的 `Statement` 从注释起，TS 的 `getStart()` 跳过它 | `ts-ast.xl.md`（`projectLetFrom`） |
+| 161 | **导入类型的实参可能在圆括号里**：值位是 `Method(name="import")`，而泛型实参段里是 `ImportType > Bracket((String))`——只找 `Method` 时 `argument` 整个丢 | `ts-ast.xl.md`（`projectImportType`） |
+| 161 | **限定名后面接泛型实参段**：`x is A.B<C>` 的产物是 `[PropertyAccess(A.B), GenericType(<C>)]` 两格，原来只认「整段就一格」 | `ts-ast.xl.md`（`projectTypeExpression`） |
+| 162 | **导入 / 导出说明符的区间要跳过注释**：`import { a, // first` 换行 `b }` 里 `b` 的区间从注释起 | `ts-ast.xl.md`（`namedImportSpecifiers` / `namedExportSpecifiers`） |
+| 163 | **实参自己可以是括号表达式**：`f(a, ([x]))` 的第三格是装着 `[x]` 的 `(` 括号，原来把所有 `Bracket` 都滤掉了 | `ts-ast.xl.md`（`projectCall`） |
+
+## 还剩什么（共 119）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[][]` 双后缀（token 层数组规则把泛型段吸进后缀） |
+| `lex-number-member-with-space.ts` | 3 / 1 / 1 | `1 .toString()`（词法层那个点被吞） |
+| `decl-interface-abstract-construct-signature.ts` | 3 / 0 / 1 | `abstract new (): A`（TS 读成 `MethodSignature`） |
+| `type-paren-content-nodes.ts` | 0 / 2 / 2 | `(F<A>)[]` 括号里的泛型没并成一格 |
+| `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 1~3 | 可选链与 `new` / `delete` / tagged template 的混排 |
+| `header.d.ts` | 2 / 1 / 1 | 映射类型 |
+| 其余 | 每文件 1~2 | 零散 |
