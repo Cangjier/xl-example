@@ -957,8 +957,6 @@ new Map([
 
     // 值位对象字面量 `{ a: 1, b, [k]: 2, ...rest, m() {} }`：TS 的 `properties` 是**成员数组**，
     // 产物那边是一串平级单元（照通用投影会把每个标点都当成一个属性）。
-    case "ObjectLiteral":
-      return projectObjectLiteral(v, ctx);
 
     // **`ArrayLiteral` 已经搬进 `tokens/json/array-literal.xl.md` 的 `PrintAst`**（第 181 轮）：
     // `projectNode` 会先问 `node.__token.PrintAst(ctx, v)`，覆写了就在那儿返回，这里不再需要分支。
@@ -5898,124 +5896,6 @@ import { A as B, C } from "m"
   return groups.filter((group) => group.length > 0);
 ```
 
-# private method projectObjectLiteral:(v:any, ctx:any)=>any
-
-值位对象字面量 `{ a: 1, b, "k": 2, [k]: 3, ...rest, m() {} }` → `ObjectLiteralExpression`。
-
-TS 那边的 `properties` 是**成员数组**：
-
-| 写法 | TS 的成员 |
-| --- | --- |
-| `a: 1` / `"k": 2` | `PropertyAssignment`（名字照常投，引号名是 `StringLiteral`） |
-| `[k]: 3` | `PropertyAssignment` + `ComputedPropertyName` |
-| `b` | `ShorthandPropertyAssignment` |
-| `...rest` | `SpreadAssignment`（区间含 `...`，`expression` 是后面那段） |
-| `m() {}` | `MethodDeclaration`（原样放进 `properties`，见 `MEMBER_IN_OBJECT`） |
-
-产物那边是**一串平级单元**（`[a, :, 1, ,, b, ,, …]`），照通用投影会把每个单元都当成一个属性
-——实测缺 `PropertyAssignment` 387 处，而 `properties` 里还混着 `ColonToken` / `CommaToken`。
-所以这里按**顶层逗号**切成成员组，每组按上表分派。
-
-**解构模式不走这里**：`const { a, b } = x` / `f({ a, b })` 那条路由 `projectBindingPattern`
-（它自己造 `ObjectBindingPattern`），与本方法各管一边。
-
-```ts
-  const properties = [];
-  for (const group of splitTopLevel(projectableKids(v), ctx, ",")) {
-    const first = group[0];
-    // `...rest`：TS 的 `SpreadAssignment` 区间含 `...`，`expression` 是后面那段。
-    if (first.get("type") === "Spread") {
-      const inner = projectableKids(view(first)).filter(
-        (k) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "..."),
-      );
-      properties.push({
-        kind: "SpreadAssignment",
-        expression: inner.length > 0 ? projectExpression(inner, ctx) : undefined,
-        pos: startOf(first),
-        end: endOf(first),
-      });
-      continue;
-    }
-    const colonAt = group.findIndex((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
-    if (colonAt < 0) {
-      // 简写属性（`{ a }`）或一个已经成形的成员（`{ m() {} }`）。
-      if (group.length === 1) {
-        // **对象字面量成员不吃尾随逗号**（第 142 轮）：`{ m() {}, n: 1 }` 的产物把那个逗号
-        // 圈进了 `MethodDeclaration` 的区间（`m() {},`），而 TS 那边成员节点到 `}` 之前就结束。
-        // 用上下文标记告诉通用支「我在对象字面量里」（与 `ctx.signature` 同一手法）。
-        const savedInObject = ctx.inObjectLiteral;
-        ctx.inObjectLiteral = true;
-        let one;
-        try {
-          one = projectNode(group[0], ctx);
-        } finally {
-          ctx.inObjectLiteral = savedInObject;
-        }
-        if (one !== undefined && MEMBER_IN_OBJECT.has(one.kind)) {
-          properties.push(one);
-        } else {
-          properties.push({
-            kind: "ShorthandPropertyAssignment",
-            name: one,
-            pos: startOf(group[0]),
-            end: endOf(group[0]),
-          });
-        }
-      } else {
-        const one = projectExpression(group, ctx);
-        if (one !== undefined) properties.push(one);
-      }
-      continue;
-    }
-    const nameUnits = group.slice(0, colonAt);
-    const valueUnits = group.slice(colonAt + 1);
-    // 计算属性名 `[k]`：产物里是一个 `ArrayLiteral`（含方括号），TS 是 `ComputedPropertyName`。
-    // **括号与 `ArrayLiteral` 两种形态都要认**（第 137 轮）：`{ [k]: 1 }` 与 `{ [k]() {} }`
-    // 走的是不同的重组路径，前者是 `Bracket`、后者已经被 `JsonArrayReorganization` 收成
-    // `ArrayLiteral`——只认 `isIndexBracket` 时后者会投成一个 `ArrayLiteralExpression`
-    // （实测 `ex-object-literal.ts` 缺 `ComputedPropertyName` 1 + 多出 `ArrayLiteralExpression` 1）。
-    const computed =
-      nameUnits.length === 1 && (isIndexBracket(nameUnits[0]) || nameUnits[0].get("type") === "ArrayLiteral")
-        ? nameUnits[0]
-        : undefined;
-    const name =
-      computed === undefined
-        ? // **成员名永远是 `Identifier`**（第 125 轮）：`{ typeof: 1 }` 的产物把 `typeof`
-          // 记成 `<Keyword>`，照 `projectExpression` 投出来是 `TypeOfKeyword`——
-          // 而 TS 那边对象字面量的键**只可能是 `Identifier` / `StringLiteral` / 计算名**，
-          // 保留字在这里不是关键字（`a.import` 的成员名同一条道理，见 `projectAccess` 的说明）。
-          nameUnits.length === 1 && isNameNode(nameUnits[0])
-          ? // **数字键是 `NumericLiteral`**（第 142 轮）：`{ 1: "a" }` 的键在 TS 那边是
-            // `NumericLiteral`，而 `nameOf` 一律走 `leafKindOfText`——它对数字串给的是
-            // `Identifier`（那儿是「标识符不能以数字开头」的语境）。数字键与 `memberNameOf`
-            // 里那一支同源（实测 `ex-object-literal.ts` 缺 `NumericLiteral` 1 + 多出 `Identifier` 1）。
-            NUMERIC_LITERAL.test(textOfNode(nameUnits[0], ctx))
-            ? {
-                kind: "NumericLiteral",
-                text: textOfNode(nameUnits[0], ctx),
-                pos: startOf(nameUnits[0]),
-                end: endOf(nameUnits[0]),
-              }
-            : nameOf(nameUnits[0], ctx)
-          : projectExpression(nameUnits, ctx)
-        : {
-            kind: "ComputedPropertyName",
-            expression: computedNameExpression(computed, ctx),
-            pos: startOf(computed),
-            end: endOf(computed),
-          };
-    properties.push({
-      kind: "PropertyAssignment",
-      name,
-      initializer: valueUnits.length > 0 ? projectExpression(valueUnits, ctx) : undefined,
-      pos: startOf(group[0]),
-      end: endOf(group[group.length - 1]),
-    });
-  }
-  const props = properties.length === 0 ? {} : { properties };
-  return { kind: "ObjectLiteralExpression", pos: v.start, end: stmtEndOf(v, ctx), ...props };
-```
-
 # private method projectMappedType:(v:any, ctx:any)=>any
 
 映射类型 `{ readonly [P in keyof T]-?: T[P] }` → `MappedType`。
@@ -6742,6 +6622,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
     Invisible: INVISIBLE,
     IsSymbol: (node, text) => isSymbol(node, text),
     IsDot: (node) => isDot(node, ctx),
+    IsIndexBracket: (node) => isIndexBracket(node),
     NameOf: (node) => nameOf(node, ctx),
     // **`Kids` 两种都认**（第 185 轮）：`PrintAst` 里传进来的常常是**视图**（`v`），
     // 但取子单元时手上也可能是**原始 Map**（`nameUnits.find(...)` 那种）——
@@ -6771,6 +6652,9 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
     SwitchClause: (seg) => projectSwitchClause(seg, ctx),
     AllKids: (node) => allKids(node instanceof Map ? view(node) : node),
     BindingPattern: (unit) => projectBindingPattern(unit, ctx),
+    ComputedNameExpression: (unit) => computedNameExpression(unit, ctx),
+    MemberInObject: MEMBER_IN_OBJECT,
+    NumericLiteral: NUMERIC_LITERAL,
   };
   const statements = projectEach(exported, ctx);
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**

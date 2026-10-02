@@ -205,6 +205,112 @@ Json 对象。
 
 它**没有**覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<ObjectLiteral>子单元的 XML 串接</ObjectLiteral>`（标签名即运行时类名）。
 
+## method PrintAst:(ctx:any, v:any)=>any
+
+值位对象字面量 `{ a: 1, b, "k": 2, [k]: 3, ...rest, m() {} }` → `ObjectLiteralExpression`
+（**从 `ts-ast.xl.md` 的 `projectObjectLiteral` 搬来**，第 190 轮）。
+
+TS 那边的 `properties` 是**成员数组**：
+
+| 写法 | TS 的成员 |
+| --- | --- |
+| `a: 1` / `"k": 2` | `PropertyAssignment`（名字照常投，引号名是 `StringLiteral`） |
+| `[k]: 3` | `PropertyAssignment` + `ComputedPropertyName` |
+| `b` | `ShorthandPropertyAssignment` |
+| `...rest` | `SpreadAssignment`（区间含 `...`，`expression` 是后面那段） |
+| `m() {}` | `MethodDeclaration`（原样放进 `properties`，见 `ctx.MemberInObject`） |
+
+产物那边是**一串平级单元**（`[a, :, 1, ,, b, ,, …]`），照通用投影会把每个单元都当成一个属性
+——实测缺 `PropertyAssignment` 387 处，而 `properties` 里还混着 `ColonToken` / `CommaToken`。
+所以这里按**顶层逗号**切成成员组，每组按上表分派。
+
+**解构模式不走这里**：`const { a, b } = x` / `f({ a, b })` 那条路由 `projectBindingPattern`。
+
+```ts
+  const properties: any[] = [];
+  for (const group of ctx.Split(ctx.Kids(v), ",")) {
+    const first = group[0];
+    if (first.get("type") === "Spread") {
+      const inner = ctx.Kids(first).filter(
+        (k: any) => !(k.get("type") === "SymbolToken" && ctx.TextOf(k) === "..."),
+      );
+      properties.push({
+        kind: "SpreadAssignment",
+        expression: inner.length > 0 ? ctx.Expression(inner) : undefined,
+        pos: ctx.StartOf(first),
+        end: ctx.EndOf(first),
+      });
+      continue;
+    }
+    const colonAt = group.findIndex(
+      (k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === ":",
+    );
+    if (colonAt < 0) {
+      if (group.length === 1) {
+        // **对象字面量成员不吃尾随逗号**（第 142 轮）：`{ m() {}, n: 1 }` 的产物把那个逗号
+        // 圈进了 `MethodDeclaration` 的区间，而 TS 那边成员节点到 `}` 之前就结束。
+        // 用上下文标记告诉通用支「我在对象字面量里」（与 `ctx.signature` 同一手法）。
+        const savedInObject = ctx.inObjectLiteral;
+        ctx.inObjectLiteral = true;
+        let one;
+        try {
+          one = ctx.Project(group[0]);
+        } finally {
+          ctx.inObjectLiteral = savedInObject;
+        }
+        if (one !== undefined && ctx.MemberInObject.has(one.kind)) {
+          properties.push(one);
+        } else {
+          properties.push({
+            kind: "ShorthandPropertyAssignment",
+            name: one,
+            pos: ctx.StartOf(group[0]),
+            end: ctx.EndOf(group[0]),
+          });
+        }
+      } else {
+        const one = ctx.Expression(group);
+        if (one !== undefined) properties.push(one);
+      }
+      continue;
+    }
+    const nameUnits = group.slice(0, colonAt);
+    const valueUnits = group.slice(colonAt + 1);
+    const computed =
+      nameUnits.length === 1 &&
+      (ctx.IsIndexBracket(nameUnits[0]) || nameUnits[0].get("type") === "ArrayLiteral")
+        ? nameUnits[0]
+        : undefined;
+    const name =
+      computed === undefined
+        ? nameUnits.length === 1 && ctx.IsNameNode(nameUnits[0])
+          ? ctx.NumericLiteral.test(ctx.TextOf(nameUnits[0]))
+            ? {
+                kind: "NumericLiteral",
+                text: ctx.TextOf(nameUnits[0]),
+                pos: ctx.StartOf(nameUnits[0]),
+                end: ctx.EndOf(nameUnits[0]),
+              }
+            : ctx.NameOf(nameUnits[0])
+          : ctx.Expression(nameUnits)
+        : {
+            kind: "ComputedPropertyName",
+            expression: ctx.ComputedNameExpression(computed),
+            pos: ctx.StartOf(computed),
+            end: ctx.EndOf(computed),
+          };
+    properties.push({
+      kind: "PropertyAssignment",
+      name,
+      initializer: valueUnits.length > 0 ? ctx.Expression(valueUnits) : undefined,
+      pos: ctx.StartOf(group[0]),
+      end: ctx.EndOf(group[group.length - 1]),
+    });
+  }
+  const props = properties.length === 0 ? {} : { properties };
+  return ctx.Node("ObjectLiteralExpression", props, v);
+```
+
 ## constructor:(Template:Template)=>void
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
