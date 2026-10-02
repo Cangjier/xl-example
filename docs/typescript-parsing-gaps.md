@@ -2187,3 +2187,67 @@ node tests/parse/ts-ast.mjs --per-file            # 逐文件四列差额
 node tests/parse/ts-ast.mjs --file <路径>          # 单文件四方向
 ```
 
+
+---
+
+# 第 123~134 轮：拿 `ts.createSourceFile` 当唯一判据，把缺口从 2438 压到 971
+
+> 本段的验收口径只有一条：**`cjcli --ts-ast` 的产物与 `ts.createSourceFile` 完全一致**
+> （`node tests/parse/ts-ast.mjs` 的「缺 / 漂移 / 多出 / 字段名」四个方向同时为 0）。
+> 其余尺子（XML / AST JSON / 用例体）这一段**不作为闸门**，只在需要定位时当探针用。
+
+## 总账
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 122 轮末 | 1096 / 1407 | 1393 | 237 | 721 | 87 | 2438 |
+| 第 134 轮末 | **1180 / 1407** | 510 | 90 | 300 | 71 | **971** |
+
+## 修掉的根因（每条都有最小复现与「为什么」记在对应 token 的规范里）
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 123 | 三元的假值段按 `,` / `;` 取边界（`const t = a ? 1 : 0, u = 2`） | `tokens/ternary-operator/ternary-operator.xl.md` |
+| 123 | `?` 与 `:` 之间不许有平级 `,` / `;`（挡住**属性冒号**被当成三元冒号） | 同上 |
+| 123 | 条件类型：`extends` 是收集的硬边界；条件类型规则进**类型队列**（排在联合之后） | `tokens/conditional-type.xl.md` / `parse-pipeline.xl.md` |
+| 123 | `intrinsic` → `IntrinsicKeyword`；`import("m").default` 的限定名 | `ts-ast.xl.md` |
+| 123 | `case x: { … }` 的 `{` 是块；裸块语句 → `Block`；`SwitchStatement` 进语句列表白名单 | `text-common-util.xl.md` / `ts-ast.xl.md` |
+| 123 | `InitialStatementReorganizationQueue` 的回调**被缓存吃掉**（`{` 括号拿不到语句规则） | `parse-pipeline.xl.md` |
+| 124 | 可选链的三种续接（`?.()` / `?.[]` / `?.b.c` 的逐格）；`?.` 的基名在二元单元外面 | `ts-ast.xl.md` |
+| 124 | `import("./x").default` 后面换行时的成员名 ASI；`let` 的修饰词不许跨语句边界 | `tokens/statement.xl.md` / `tokens/let.xl.md` |
+| 124 | `IsTypePosition` 的回扫要跨过**操作数**（字符串字面量类型 / 已成形类型节点） | `tokens/generic-type.xl.md` |
+| 124 | 带符号的数字字面量类型 `-1` → `PrefixUnaryExpression` | `ts-ast.xl.md` |
+| 125 | 注释也是 trivia（`IsStatementStart` / `IsLineBreakBoundary`）；成员名 `type` 不是关键词 | `text-common-util.xl.md` / `tokens/type-literal/type-literal.xl.md` |
+| 125 | `{ … }[k]` 是下标；逗号表达式的边界；循环体花括号必须**在第一个语句之前** | `tokens/json/array-literal.xl.md` / `tokens/binary-operator.xl.md` / `ts-ast.xl.md` |
+| 125 | 值位括号一律走 `projectExpression`（`spread` / 数组元素 / 箭头体） | `ts-ast.xl.md` |
+| 126 | 条件类型的注释不改变 `afterColon`；**嵌套条件类型**照常成形（只挡「整段重包」） | `tokens/conditional-type.xl.md` |
+| 127 | `Reorganize` 由固定两趟改成「扫到列表不再变化，上界 `Data.length + 2`（不超过 16）」 | `core/syntax/token.xl.md` |
+| 127 | 左嵌套三元；外层 `:` 是假值段的终点；`?` 也是条件起点的边界 | `tokens/ternary-operator/ternary-operator.xl.md` |
+| 127 | `for (…);` / `while (c);` 的空体是 `EmptyStatement`；头部右括号按深度配对 | `ts-ast.xl.md` |
+| 127 | 三元真分支里的调用不是方法声明（`:` 前紧挨着 `?`） | `tokens/function/method-declaration.xl.md` |
+| 128 | 条件类型的 `?` / `:` 按**深度配对**；类型位的点号名 → `QualifiedName` | `tokens/conditional-type.xl.md` / `ts-ast.xl.md` |
+| 128 | 正则正文第一个字符是反斜杠时要立刻进转义态 | `tokens/regex-token.xl.md` |
+| 129 | 形参名永远是 `Identifier`；模板字面量类型里的泛型；泛型实参段里的括号是类型位 | `ts-ast.xl.md` / `tokens/generic-type.xl.md` / `text-common-util.xl.md` |
+| 130/131 | `await` / `yield` 表达式；生成器的 `*` 是 `asteriskToken`；私有名 `#x` → `PrivateIdentifier` | `ts-ast.xl.md` |
+| 132 | 尾部注释不进节点区间（递归找「区间终点正好等于 end」的那条链） | `ts-ast.xl.md` |
+| 132 | `in` / `instanceof` 是 `Keyword`，折二元时不能只认 `SymbolToken` | `ts-ast.xl.md` |
+| 133 | 映射类型的键 `[K in X<U>]` 是类型位；平铺的 `|` / `&` 在 `projectTypeExpression` 里折叠 | `tokens/generic-type.xl.md` / `ts-ast.xl.md` |
+| 134 | 可调用签名尾随的 `,` 也算进区间；泛型箭头函数的 `<T>` 是 `typeParameters` | `ts-ast.xl.md` |
+
+## 还剩什么（按类，第 134 轮实测）
+
+| 类 | 量 | 样本 | 备注 |
+| --- | ---: | --- | --- |
+| 多出 `Identifier` / `BinaryExpression` / `PropertyAccessExpression` | 62 / 19 / 14 | `dist/ts/core/syntax/source-range.ts` 的 `this.Start?.Document === other` | 可选链与二元的**混排**（`?.` 的基名在二元单元里、且左边还有别的操作数） |
+| 缺 `Identifier` / `TypeReference` | 数十 | `lib.esnext.temporal.d.ts` | 映射类型 + 条件类型的组合，逐个文件看 |
+| `BindingElement` / `ArrayBindingPattern` 字段 | 约 20 | `decl-arr-destructure-nested.ts` | 嵌套解构的 `propertyName` / 区间 |
+| `ExpressionWithTypeArguments` 字段 | 5 | `(mixin(A))` | `expression` 一格 |
+| `IfStatement` / `VariableStatement` 等字段 | 约 20 | —— | 单格字段（`thenStatement` / 修饰词） |
+
+## 复现
+
+```bash
+node tests/parse/ts-ast.mjs                # 总账
+node tests/parse/ts-ast.mjs --per-file     # 逐文件四列差额
+node tests/parse/ts-ast.mjs --file <路径>   # 单文件四方向
+```
