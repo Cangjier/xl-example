@@ -430,7 +430,7 @@ TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；�
     if (ctx.source[typeStart] === "?") {
       props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
     }
-    props.type = ctx.TypeDefineOf(typeNode);
+    props.type = ctx.Project(typeNode);
   }
   return ctx.Node("NamedTupleMember", props, v);
 ```

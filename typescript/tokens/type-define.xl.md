@@ -131,12 +131,33 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
-一段类型标注 → 它承载的**那个类型节点**（**从 `ts-ast.xl.md` 的 `projectTypeDefine` 搬来**，
-第 192 轮）。这是类型位的「包装提层」：TS 那边没有「类型标注」这一层节点，
-`: Type` 投出来直接就是 `Type`。
+类型标注 `name: T` → `TypeReference`，**但原始类型不套这一层**
+（**从 `ts-ast.xl.md` 的 `projectTypeDefine` 整体搬来**，第 192 轮）。
+
+实测 TS 的两种形状截然不同（`let a: string` / `let b: Foo`）：
+
+- `a: string` → `VariableDeclaration > [Identifier(a), StringKeyword]` ——
+  原始类型**直接**是一个 `StringKeyword` 节点，**没有** `TypeReference` 包着；
+- `b: Foo`    → `VariableDeclaration > [Identifier(b), TypeReference > Identifier(Foo)]` ——
+  具名类型才有 `TypeReference`，而且它在**同一个区间**上又套一个 `Identifier`。
+
+早先这里一律返回 `TypeReference`，于是原始类型那 373 处（`NumberKeyword` 224 +
+`StringKeyword` 149）在 TS 侧对不上，而产物侧还多出一层。
+
+> 原来那些**直调**这个函数的地方（成员 / 形参 / 字段的 `type` 段）现在一律走
+> `ctx.Project(那个单元)`——`projectNode` 会先问本类的 `PrintAst` ✓，
+> 与直调输入相同、结果逐字节一样，而且不再依赖共享层里那份实现。
 
 ```ts
-  return ctx.TypeDefineOf(v);
+  const kids = ctx.Kids(v);
+  const colon = kids.find((k: any) => k.get("type") === "SymbolToken" && ctx.TextOf(k) === ":");
+  const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);
+  const projected = ctx.TypeExpression(afterColon);
+  if (projected === undefined) {
+    ctx.unmapped.add("TypeDefine(空)");
+    return ctx.Node("TypeReference", {}, v);
+  }
+  return projected;
 ```
 
 ## constructor:(template:Template)=>void

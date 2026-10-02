@@ -724,7 +724,7 @@ new Map([
 
 **原始类型**名 → `SyntaxKind` 名。
 
-它在 TS 那边**不是** `TypeReference`（见 `projectTypeDefine` 的说明）。
+它在 TS 那边**不是** `TypeReference`（见 `tokens/type-define.xl.md` 的 `PrintAst`）。
 这张表与 `KEYWORD_KIND` 有重叠，但**语义不同**：`KEYWORD_KIND` 管的是
 「产物把它标成 `<Keyword>` 了」，这张表管的是「**在类型位上**该叫这个名字」——
 而产物在类型位把 `string` 标成的是 `<Identifier>`（实测 `x: string` 里 `string` 是 `Identifier`）。
@@ -780,38 +780,6 @@ new Map([
 # private const startOf:(node:any)=>int = (node) => (node.get("range") ? node.get("range")[0] : 0)
 
 # private const endOf:(node:any)=>int = (node) => (node.get("range") ? node.get("range")[1] + 1 : 0)
-
-# private method projectTypeDefine:(v:any, ctx:any)=>any
-
-类型标注 `name: T` → `TypeReference`，**但原始类型不套这一层**。
-
-> **这一块的 `PrintAst` 已搬进 `tokens/type-define.xl.md`**（第 192 轮）：那个 token 的
-> `PrintAst` 只写一句 `return ctx.TypeDefineOf(v)`，实现在这里。
-> **为什么实现留在共享层**：它是**横切**的——成员、形参、字段、`for` 头部、索引签名……
-> 全都要经它；而 `PrintAst` 层不许 import `ts-ast`（会成环），
-> 所以「token 只留入口、实现留共享」是唯一不循环的分法。
-
-实测 TS 的两种形状截然不同（`let a: string` / `let b: Foo`）：
-
-- `a: string` → `VariableDeclaration > [Identifier(a), StringKeyword]` ——
-  原始类型**直接**是一个 `StringKeyword` 节点，**没有** `TypeReference` 包着；
-- `b: Foo`    → `VariableDeclaration > [Identifier(b), TypeReference > Identifier(Foo)]` ——
-  具名类型才有 `TypeReference`，而且它在**同一个区间**上又套一个 `Identifier`。
-
-早先这里一律返回 `TypeReference`，于是原始类型那 373 处（`NumberKeyword` 224 +
-`StringKeyword` 149）在 TS 侧对不上，而产物侧还多出一层。
-
-```ts
-  const kids = projectableKids(v);
-  const colon = kids.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ":");
-  const afterColon = colon === undefined ? kids : kids.slice(kids.indexOf(colon) + 1);
-  const projected = projectTypeExpression(afterColon, ctx);
-  if (projected === undefined) {
-    ctx.unmapped.add("TypeDefine(空)");
-    return { kind: "TypeReference", pos: v.start, end: stmtEndOf(v, ctx) };
-  }
-  return projected;
-```
 
 # private const SIGNATURE_KINDS:Set<string> = new Set(["FunctionDeclaration", "MethodDeclaration", "MethodSignature", "CallSignature", "ConstructSignature"])
 
@@ -3364,7 +3332,7 @@ new Set([
     // `Statement > [Let(``let a``), TypeDefine(``: string``)]`——`TypeDefine` 是 `Let` 的**兄弟**，
     // 不在 `Let` 里面（`Field` 那种才在自身里面）。TS 那边 `VariableDeclaration[4,13)` = `a: string`。
     const typeNode = one.find((k) => k.get("type") === "TypeDefine");
-    if (typeNode !== undefined) declaration.type = ctx.TypeDefineOf(typeNode);
+    if (typeNode !== undefined) declaration.type = ctx.Project(typeNode);
     // **明确赋值断言 `let a!: number`**（第 156 轮）：TS 那边是
     // `VariableDeclaration.exclamationToken`（`!` 是一个子节点），产物把它记成一个平级的
     // `SymbolToken("!")`。不收的话缺 `ExclamationToken` + 字段名差一格
@@ -4205,7 +4173,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
               end: endOf(part[part.length - 1]),
             };
             if (nameUnit !== undefined) param.name = projectNode(nameUnit, ctx);
-            if (typeUnit !== undefined) param.type = ctx.TypeDefineOf(typeUnit);
+            if (typeUnit !== undefined) param.type = ctx.Project(typeUnit);
             params.push(param);
           }
           ctorProps.parameters = params;
@@ -4513,7 +4481,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     if (ctx.source[typeStart] === "?") {
       props.questionToken = { kind: "QuestionToken", text: "?", pos: typeStart, end: typeStart + 1 };
     }
-    props.type = ctx.TypeDefineOf(typeNode);
+    props.type = ctx.Project(typeNode);
   } else {
     // **没有类型标注的可选成员**（`a?;` / `private a?;` / `readonly b?;`）：
     // 有类型标注时 `?` 被吞进了 `TypeDefine` 的区间（上一条分支），没有类型标注时
@@ -4695,7 +4663,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
               // `lib.dom.d.ts` 的 `addEventListener(type, listener, async?: boolean)` 一族）。
               nameOf(nameNode, ctx)
             : projectNode(nameNode, ctx),
-    type: typeNode === undefined ? undefined : ctx.TypeDefineOf(typeNode),
+    type: typeNode === undefined ? undefined : ctx.Project(typeNode),
   };
   // **可选形参的 `?` 也是子节点**（TS：`Parameter > [name, questionToken, type]`，真实语料 5k+ 处）。
   // 与属性那一处同源：产物把 `?` 吞进了 `TypeDefine` 的区间里（`TypeDefine` 从 `?` 起），
@@ -6303,7 +6271,6 @@ import { A as B, C } from "m"
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
     IsNameNode: (node) => isNameNode(node),
     QualifiedNameFrom: (list) => qualifiedNameFrom(list, ctx),
-    TypeDefineOf: (node) => projectTypeDefine(node instanceof Map ? view(node) : node, ctx),
     DottedExpression: (list) => dottedExpression(list, ctx),
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),

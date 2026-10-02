@@ -68,7 +68,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
     }));
   }
   if (typeNode !== undefined) {
-    props.type = ctx.TypeDefineOf(typeNode);
+    props.type = ctx.Project(typeNode);
   }
   if (readonlyUnit !== undefined) {
     props.modifiers = [ctx.Project(readonlyUnit)];
