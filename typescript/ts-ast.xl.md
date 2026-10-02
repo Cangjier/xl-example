@@ -2665,6 +2665,68 @@ new Set([
     if (questionDot !== undefined) element.questionDotToken = questionDot;
     return element;
   }
+  // **`a?.b!`：`!` 落在 NCO **里面**、语义上却套在整条链**外面**（第 166 轮）：
+  // 产物是 `[Identifier(a), NullConditionalOperator(NotNull([Identifier(b), !]))]`——
+  // `!` 先被 `NotNull` 规则折进了 NCO 的内容里，而 TS 是
+  // `NonNullExpression > PropertyAccessExpression(a?.b)`。先按 NCO 里那个**名字**折出带 `?.`
+  // 的属性访问，再把 `!` 套到整条链上；不这么收的话 `!` 会留在成员名上，
+  // `PropertyAccessExpression` 的区间多一格、`NonNullExpression` 少一层
+  // （实测 `expr-nonnull-optional.ts` 与 `expr-optional-call-nodes.ts`）。
+  if (first !== undefined && first.get("type") === "NotNull") {
+    const inner = projectableKids(view(first)).filter((k) => !INVISIBLE.has(k.get("type")));
+    const bang = inner.find((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!");
+    const nameUnit = inner.find((k) => k !== bang);
+    if (nameUnit !== undefined && bang !== undefined) {
+      let node: any;
+      if (nameUnit.get("type") === "PropertyAccess") {
+        // **里面那条链也要逐格接**（第 166 轮）：`a?.b.c!` 的 NCO 内容是
+        // `NotNull(PropertyAccess([b, ., c]))`，TS 那边是两层
+        // `PropertyAccessExpression`（第一格带 `?.`）外面套 `NonNullExpression`——
+        // 只按名字投一格会把 `b.c` 当成一个名字（实测区间 75→81、两个 `Identifier` 都漂）。
+        const members = projectableKids(view(nameUnit));
+        let cur = left;
+        let pending: any = questionDot;
+        for (const member of members) {
+          if (member.get("type") === "NullConditionalOperator") {
+            cur = chainWithOptional(cur, member, ctx);
+            pending = undefined;
+            continue;
+          }
+          if (isDot(member, ctx) || !isNameNode(member)) {
+            continue;
+          }
+          const one: any = {
+            kind: "PropertyAccessExpression",
+            expression: cur,
+            name: nameOf(member, ctx),
+            pos: cur.pos,
+            end: endOf(member),
+          };
+          if (pending !== undefined) {
+            one.questionDotToken = pending;
+            pending = undefined;
+          }
+          cur = one;
+        }
+        node = cur;
+      } else {
+        node = {
+          kind: "PropertyAccessExpression",
+          expression: left,
+          name: nameOf(nameUnit, ctx),
+          pos: left.pos,
+          end: endOf(nameUnit),
+        };
+        if (questionDot !== undefined) node.questionDotToken = questionDot;
+      }
+      return {
+        kind: "NonNullExpression",
+        expression: node,
+        pos: left.pos,
+        end: endOf(bang),
+      };
+    }
+  }
   // **这一格自己又是一条链**（第 124 轮）：`a?.b.c` 的产物是
   // `[Identifier(a), NullConditionalOperator(PropertyAccess([b, ., c]))]`——
   // 整个 `b.c` 是 NCO 里的**一个** `PropertyAccess` 单元。走下面那条通用支的话，
