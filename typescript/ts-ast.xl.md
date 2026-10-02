@@ -1510,6 +1510,26 @@ new Set([
   if (kids.length === 1) return projectNode(kids[0], ctx);
   const isSymbol = (k, text) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === text;
 
+  // ---- 0. 可选链 / 可选调用（第 107 轮）----
+  //
+  // 产物把 `?.` 之后的**每一格**收成一个 `NullConditionalOperator` 单元，而且它**不一定
+  // 跟在点号链后面**：`list?.push(1)` 是 `[Identifier(list), NCO(Method(push))]`、
+  // `x?.y?.(1)` 是 `[Identifier(x), NCO(y), NCO(Bracket(1))]`。
+  // 原来只在「链」那一支里处理 NCO（那一支要求 `kids[1]` 是 `.` 或 `[`），这两种形状
+  // **整段丢掉**——实测缺 `CallExpression` 49 / `QuestionDotToken` 40 /
+  // `PropertyAccessExpression` 189 里成片，而且都会连带多出未映射的
+  // `<NullConditionalOperator>` 与 `<Bracket>`。
+  const ncoIndex = kids.findIndex((k) => k.get("type") === "NullConditionalOperator");
+  if (ncoIndex > 0) {
+    let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
+    let at = ncoIndex;
+    while (at < kids.length && kids[at].get("type") === "NullConditionalOperator") {
+      optional = chainWithOptional(optional, kids[at], ctx);
+      at++;
+    }
+    if (at >= kids.length) return optional;
+    return foldBinaryFrom(optional, kids.slice(at), ctx);
+  }
   // ---- 1. 链（成员访问与下标访问混排，**从左边开始折**） ----
   //
   // 产物那边链是一个 `PropertyAccess` 单元，子单元**按原文顺序**排：
@@ -1772,6 +1792,34 @@ new Set([
     dot >= 0 && ctx.source[dot + 1] === "."
       ? { kind: "QuestionDotToken", text: "?.", pos: dot, end: dot + 2 }
       : undefined;
+  // **`?.name(args)`**（第 107 轮）：那一格是一个 `Method`（调用）——先折出带 `?.` 的
+  // 属性访问，再把调用套上去（TS：`CallExpression > PropertyAccessExpression(?.)`）。
+  if (first !== undefined && first.get("type") === "Method") {
+    const nameText = String(first.get("name") ?? "");
+    const nameAt = startOf(first);
+    const member = {
+      kind: "PropertyAccessExpression",
+      expression: left,
+      name: { kind: "Identifier", text: nameText, pos: nameAt, end: nameAt + nameText.length },
+      pos: left.pos,
+      end: nameAt + nameText.length,
+    };
+    if (questionDot !== undefined) member.questionDotToken = questionDot;
+    const call = projectNode(first, ctx);
+    return Object.assign({}, call, { expression: member, pos: member.pos, end: endOf(unit) });
+  }
+  // **`?.(args)`**（第 107 轮）：那一格是实参括号，TS 是带 `questionDotToken` 的 `CallExpression`。
+  if (first !== undefined && first.get("type") === "Bracket" && first.get("startBracket") === "(") {
+    const call = {
+      kind: "CallExpression",
+      expression: left,
+      arguments: projectEach(projectableKids(view(first)), ctx),
+      pos: left.pos,
+      end: endOf(unit),
+    };
+    if (questionDot !== undefined) call.questionDotToken = questionDot;
+    return call;
+  }
   if (first !== undefined && first.get("type") === "Bracket" && first.get("startBracket") === "[") {
     const element = {
       kind: "ElementAccessExpression",
@@ -2261,6 +2309,22 @@ new Set([
   const calleeEnd = v.start + calleeText.length;
   const args = kids.filter((k) => k.get("type") !== "Bracket" && k.get("type") !== "GenericType");
   const generic = kids.find((k) => k.get("type") === "GenericType");
+  // **被调用者本身带着可选链**（第 107 轮）：`x?.y?.(1)` 的产物是
+  // `Method(name="x") > [Identifier(x), NCO(y), NCO(Bracket(1))]`——调用规则把 `x` 认成
+  // 被调用者，而 `?.y` / `?.(1)` 两格都在它里面。TS 那边是
+  // `CallExpression(questionDotToken) > PropertyAccessExpression(questionDotToken) > Identifier(x)`，
+  // 所以这里要把那两格顺着接上去（最后一格是 `?.(…)` 时 `chainWithOptional` 直接给出调用节点）。
+  // 不收的话整条 `c` 只剩一个 `CallExpression(x)`，另加三个未映射标签。
+  const ncos = kids.filter((k) => k.get("type") === "NullConditionalOperator");
+  if (ncos.length > 0) {
+    const baseUnit = kids.find((k) => k.get("type") === "Identifier" || k.get("type") === "PropertyAccess");
+    let node =
+      baseUnit === undefined
+        ? { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: v.start + calleeText.length }
+        : projectNode(baseUnit, ctx);
+    for (const nco of ncos) node = chainWithOptional(node, nco, ctx);
+    if (node !== undefined) return node;
+  }
   const props = {
     expression: { kind: leafKindOfText(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
     arguments: projectEach(args, ctx),
