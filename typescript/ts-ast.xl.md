@@ -1251,7 +1251,12 @@ new Map([
 
 ```ts
   const separator = TYPE_MEMBER_SEPARATORS.get(parentKind);
-  if (separator === undefined) return list.map((item) => [item]);
+  // **没有分隔符的容器整段算一个类型**（第 164 轮）：`T[]` / `(A | B)` / `keyof T` / `A[K]`
+  // 的子单元合起来就是**一个**类型，没有「同级的另一个类型」这回事——原先这里返回
+  // `list.map((item) => [item])`（逐个成组），于是 `(F<A>)[]` 里那个「名字 + 实参段」
+  // 被拆成两个节点（实测 `type-paren-content-nodes.ts`：`TypeReference[11,12)` 与
+  // 一个盖住 `<A>` 的 `TypeReference`，缺的是 `F<A>` 那一格）。
+  if (separator === undefined) return list.length === 0 ? [] : [list];
   const groups = [];
   let current = [];
   for (const item of list) {
