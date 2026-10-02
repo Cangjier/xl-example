@@ -1796,6 +1796,28 @@ new Set([
   // 后面真正的表达式整段丢掉（实测 `dist/ts/typescript/ts-ast.ts` 缺 15 / 多出 3）。
   kids = kids.filter((k) => k instanceof Map && !INVISIBLE.has(k.get("type")));
   if (kids.length === 0) return undefined;
+  // ---- 0。尖括号类型断言 `<T>x`（第 144 轮）----
+  //
+  // TS 那边是 `TypeAssertionExpression > [type, expression]`，而产物把它记成**平级两格**：
+  // `<T>` 是一个 `GenericType`（token 层的 `IsTypePosition` 放行的那种表达式最开头的 `<`，
+  // 见 `generic-type.xl.md`），后面才是被断言的那个表达式。
+  // 直接照链 / 二元那一支投会把它读成比较式（`<string` `>` `x`）。
+  //
+  // **泛型箭头函数不走这里**（`<T>(x: T): T => x` 也是 `[GenericType, Lamda]` 两格）——
+  // 那一支在后面，这里先让开（判据是第二格是不是 `Lamda`）。
+  if (kids[0].get("type") === "GenericType" && kids.length >= 2 && kids[1].get("type") !== "Lamda") {
+    const asserted = projectTypeExpression(projectableKids(view(kids[0])), ctx);
+    const expression = projectExpression(kids.slice(1), ctx);
+    if (asserted !== undefined && expression !== undefined) {
+      return {
+        kind: "TypeAssertionExpression",
+        type: asserted,
+        expression,
+        pos: startOf(kids[0]),
+        end: expression.end,
+      };
+    }
+  }
   // **值位括号 `(expr)`**（第 81 轮）：TS 那边是 `ParenthesizedExpression`（区间含那对括号、
   // `expression` 是里面那段），产物那边就是一个 `(` 括号单元。
   //

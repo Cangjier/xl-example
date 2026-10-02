@@ -14,7 +14,7 @@ import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
-import { IsTemplateTypeContent, IsTypeBracketPosition } from "../text-common-util.xl.md"
+import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -473,6 +473,10 @@ if (
   return true;
 }
 let crossedAssignment = false;
+// 刚跨过 `=`（下一步撞上的那个名字是**声明自己的名字**，见下面 Identifier 那一支）。
+let justCrossedAssignment = false;
+// 回扫路上有没有撞见**操作数**（名字 / 括号）——见函数末尾那一条的说明。
+let sawOperand = false;
 for (let i = unit.Data.length - 1; i >= 0; i--) {
   const item = unit.Data[i];
   if (item instanceof LineWrap || item instanceof GenericType) {
@@ -488,7 +492,15 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
     }
     if (text === "=" && !crossedAssignment) {
       crossedAssignment = true;
+      justCrossedAssignment = true;
       continue;
+    }
+    // **语句边界的 `;`**（第 144 轮）：`<T>x;` 换行 `<T[]>xs` 这种写法里，第二个 `<` 回扫
+    // 先撞上前一条语句的 `;`——而 `<` 左边一个操作数都没有，它只能是**类型断言的类型**
+    // （一条语句以 `<` 开头时，TypeScript 只可能按类型断言读）。
+    // 有操作数时（`a;` 换行 `b < c > d`）`sawOperand` 已经为真，照旧判表达式位 ✓。
+    if (text === ";") {
+      return sawOperand === false;
     }
     return false;
   }
@@ -545,10 +557,28 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
       case "let":
       case "var":
       case "const":
-        return !crossedAssignment;
+        // **`const c = <string>x`：`=` 之后直接就是 `<`**（第 144 轮）。回扫先撞上 `=`、
+        // 再撞上**声明单元自己**（`Let` 是 `Identifier` 的子类，文本是 `let` / `const`）。
+        // 这一支原来只看「跨没跨过 `=`」，于是 `const c = …` 一律判表达式位——
+        // 尖括号类型断言整族因此站不住（实测 `ex-angle-cast.ts` / `expr-angle-assertion.ts`）。
+        //
+        // `sawOperand` 是分水岭：`let x = a < b` 回扫会先撞上那个 `a`（`sawOperand` 为真），
+        // 仍旧判表达式位 ✓；只有「`=` 到声明关键字之间**一个操作数都没有**」才翻成类型位——
+        // 那个位置上 `<…>` 只可能是类型参数段 / 类型断言的类型。
+        return !crossedAssignment || sawOperand === false;
       default:
         break;
     }
+    // **`=` 左边紧挨着的那个名字是声明自己的名字**（`const c = …` 里的 `c`），
+    // 不是操作数：`const c = <string>x` 的回扫顺序是 `=` → `c` → `const`，
+    // 把 `c` 记成「看见操作数」会让声明关键字那一支判回表达式位（第 144 轮）。
+    // 判定只看**位置**（紧跟在 `=` 之后），所以 `let x = a < b` 里的 `a` 不受影响——
+    // 那个 `a` 在 `=` **之前**就被扫到了 ✓。
+    if (justCrossedAssignment) {
+      justCrossedAssignment = false;
+      continue;
+    }
+    sawOperand = true;
     continue;
   }
   // **其余单元是「操作数」，不是边界，继续往左找**（第 124 轮）。
@@ -564,7 +594,27 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
   // 放行的风险由「多找几格」兜住：回扫会一直走到真正的边界（`:` / `=` / `;` / 括号 / 语句关键词），
   // 那些边界给出的结论才是本方法要的答案。值位的比较式（`let x = a[0] < b`）会在
   // 括号那一支停下、或者一路走到 `=` / `let` 判回表达式位 ✓。
+  //
+  // **唯一的例外是「只装着注释的 `Statement`」**（第 144 轮）：`// xl:note …` 那种行在本工程
+  // 是一层 `Statement` 包着一个注释单元，而 `<T>x;` 这类**语句开头**的类型断言前面正好是它。
+  // 把它算成「看见操作数」，回扫就再也翻不成类型位（实测 `expr-angle-assertion.ts`）。
+  const triviaOnly =
+    item.constructor.name === "Statement" && item.Data.every((x) => IsTriviaUnit(x));
+  if (triviaOnly === false && IsTriviaUnit(item) === false) {
+    sawOperand = true;
+  }
   continue;
+}
+// **回扫到头都没撞见操作数 ⇒ 这个 `<` 就在列表的最前面**（第 144 轮）。两种形态都要它：
+//
+//     const c = <string>x     宿主 Data = [Let, =]（跨过 `=`，声明名不算操作数）
+//     <T>x;                   宿主 Data = [Statement(注释), LineWrap]（语句开头的断言）
+//
+// 两种情况里 `<…>` 都只可能是**类型参数段 / 类型断言的类型**：比较式 `a < b > c` 要求 `<`
+// 左边有操作数，而那个操作数一定与 `<` 同在宿主列表里、回扫必然先撞上它（⇒ `sawOperand`）。
+// 这一条是 `let x = a < b > c` 不被读成泛型的关键。
+if (sawOperand === false) {
+  return true;
 }
 // **扫描在自己这一层找不到边界**：宿主正好是一个括号时，答案在**括号自己那一格**
 // （`(A<B> | C)[]`：问 `(` 在它的父列表里前面是什么）。判定与 `type-union.xl.md` 共用
