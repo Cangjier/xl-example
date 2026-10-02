@@ -2785,3 +2785,20 @@ $ node tests/parse/ts-ast.mjs --per-file
 123 条模块级条目里 104 条第一参数就是**单个产物单元**（宿主 `v.__token` 现成），
 12 条是**兄弟列表**（由父节点承载），7 条无节点（入口 / 序列化器留薄文件）。
 搬法是「一个 `case` 一次提交 + 每步跑一次全量对拍对齐基线」。
+
+### 第 181 轮的第一块搬迁：`ArrayLiteral`
+
+`case "ArrayLiteral": return projectArrayLiteral(v, ctx);` 整体搬进
+`typescript/tokens/json/array-literal.xl.md` 的 `ArrayLiteral.PrintAst(ctx, v)`，
+原 `case` 与 `projectArrayLiteral` 一并删掉。
+
+搬迁踩到的两处「约定」记在这里，后面每一块都会遇到：
+
+1. **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（`projectNode` 开头就是 `const v = view(node)`）——
+   所以取坐标要两种都认（视图读 `start` / `end`，原始 Map 走 `range`），
+   `ctx.StartOf` / `ctx.EndOf` 因此写成两分支；
+2. **搬迁层不能 import `ts-ast`**（token 层反过来被它依赖，会成环），横切工具只能经 `ctx` 递过去——
+   这一轮给 `ctx` 补了 `StartOf` / `EndOf` / `StmtEndOf` / `Split` / `Invisible` / `IsSymbol` /
+   `IsDot` / `NameOf` / `Kids` / `Expression` 十个出口，**纯增不改**。
+
+搬迁后的全量对拍：**1407 / 1407 完全一致，四方向仍为 0**。
