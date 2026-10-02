@@ -2251,3 +2251,50 @@ node tests/parse/ts-ast.mjs                # 总账
 node tests/parse/ts-ast.mjs --per-file     # 逐文件四列差额
 node tests/parse/ts-ast.mjs --file <路径>   # 单文件四方向
 ```
+
+---
+
+# 第 135~143 轮：继续按 `ts.createSourceFile` 对拍
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 134 轮末 | 1180 / 1407 | 510 | 90 | 300 | 71 | 971 |
+| 第 143 轮末 | **1289 / 1407** | 172 | 61 | 150 | 28 | **411** |
+
+## 这一批修掉的根因
+
+| 轮 | 根因 | 落在哪 |
+| --- | --- | --- |
+| 135 | 复合赋值 / 位运算 / 幂运算符的 `SyntaxKind` 名没进 `TOKEN_KIND`（`**= <<= >>= >>>= &= \|= ^= &&= \|\|= ??=`） | `ts-ast.xl.md` |
+| 135 | 绑定模式是 `Let` 的**平级兄弟**（嵌套解构）；`BindingElement` 的嵌套模式与默认值；数组里的**洞**是零宽 `OmittedExpression` | `ts-ast.xl.md` |
+| 136 | `Export` 也算声明边界（`type B = number` 换行 `export type { B }` 被吞） | `tokens/declaration-common.xl.md` |
+| 136 | 导入属性 `with { … }` / `assert { … }` → `AssertClause` / `AssertEntry` | `ts-ast.xl.md` |
+| 137 | `with (obj) { … }` 是 `WithStatement`（体那个 `{` 也要认成块） | `text-common-util.xl.md` / `ts-ast.xl.md` |
+| 137 | 标签模板 `tag\`…\`` → `TaggedTemplateExpression`（判据落在原文的反引号上） | `ts-ast.xl.md` |
+| 137 | 计算属性名 `[k]`：`ArrayLiteral` 与括号两种形态；绑定元素里冒号**左边**的计算名 | `ts-ast.xl.md` |
+| 138 | 私有名的两格（`#` + 名字）要一起跳过；`this.#m()` 的名字与调用两件事 | `ts-ast.xl.md` |
+| 139 | 映射类型的 `as` 重映射**不一定是条件类型**（平铺的 `as`）；形参装饰器进 `modifiers` | `ts-ast.xl.md` |
+| 140 | 体里**只有注释**时 `Block` 仍存在；`pos` 不落在前导注释上（对拍用的是 `node.getStart()`） | `ts-ast.xl.md` |
+| 141 | 空的 `;` 是 `EmptyStatement`（按**行首**判定，`.d.ts` 的行尾 `;` 是成员终结符）；IIFE 的 `Method(name="")`；表达式位的 `Function` / `Class`；`import.meta` / `new.target`；`ExpressionWithTypeArguments.expression` 可以是括号表达式 | `tokens/statement.xl.md` / `ts-ast.xl.md` |
+| 141 | ExpressionStatement 收尾会**吃掉下一行行首的 `;`**（TS 的 `tryParseSemicolon` 不看换行） | `ts-ast.xl.md` |
+| 142 | 动态 `import("m")` 的被调用者是 `ImportKeyword` | `ts-ast.xl.md` |
+| 142 | ASI 看「下一个**实义**单元」——注释不算（新加 `SkipNextTrivia` / `GetSkipNextTrivia`） | `text-common-util.xl.md` / `tokens/statement.xl.md` |
+| 142 | 对象字面量成员不吃尾随逗号；数字键是 `NumericLiteral` | `ts-ast.xl.md` |
+| 143 | 表达式里的注释是 trivia（`projectExpression` 要先滤掉）；标点测量跳过注释；链中间的 `!` | `ts-ast.xl.md` |
+
+## 还剩什么（第 143 轮实测，共 411）
+
+| 类 | 量 | 样本 | 备注 |
+| --- | ---: | --- | --- |
+| 尖括号类型断言 `<T>x` | ~32 | `expr-angle-assertion.ts` / `ex-angle-cast.ts` | 需要新的整段规则（`TypeAssertionExpression`） |
+| 多出 `Identifier` / `BinaryExpression` / `PropertyAccessExpression` | 41 / 19 / 11 | `source-range.ts` 的 `this.Start?.Document === other` | 可选链与二元的混排 |
+| `ParenthesizedExpression` / `Block` / `TypeReference` 零散族 | 各 5~15 | —— | 逐个文件看 |
+| 零散字段名 | 28 | `ExpressionWithTypeArguments` / `ArrowFunction` / `IfStatement` … | 单格字段 |
+
+## 复现
+
+```bash
+node tests/parse/ts-ast.mjs                # 总账
+node tests/parse/ts-ast.mjs --per-file     # 逐文件四列差额
+node tests/parse/ts-ast.mjs --file <路径>   # 单文件四方向
+```
