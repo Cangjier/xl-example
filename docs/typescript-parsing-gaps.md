@@ -2393,3 +2393,54 @@ node tests/parse/ts-ast.mjs --file <路径>   # 单文件四方向
 | `lex-number-member-with-space.ts` | 4 / 0 / 1 | `1 .toString()`（词法层把 `1 .` 收成一格） |
 | `type-new-nodes-adversarial.ts` | 3 / 2 / 1 / 1 | 类型组合 |
 | 其余 | 每文件 1~3 | 零散 |
+
+---
+
+# 第 158 轮：ASI 的 `[` 续行要区分「表达式位 / 类型位」
+
+| 时点 | 完全一致的文件 | 缺 | 漂移 | 多出 | 字段名 | 合计 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 第 157 轮末 | 1330 / 1407 | 88 | 31 | 79 | 17 | 217 |
+| 第 158 轮末 | **1332 / 1407** | 80 | 28 | 72 | 17 | **197** |
+
+## 这一轮修掉的
+
+**一行以 `[` 开头时，ASI 不在它前面断句——但这条规则只对「上一行是表达式」成立。**
+同一段文本在两种上下文里 TS 读法相反：
+
+```ts
+{ x => x          // 箭头体是 x[1, 2, 3]（一条表达式）
+  [1, 2, 3] }
+
+class C { [KEY] = 1     // 一条字段声明，初值是 1["s" + "t"] = 2
+  ["s" + "t"] = 2 }
+
+interface I { ['a']: T      // **两条**成员（类型标注后面接不了下标）
+  ['b']: U }
+```
+
+判据落在一段新加的回扫上（`text-common-util.xl.md` 的 `HasTypeColonBefore`）：
+**从这个换行往回扫，先撞上 `=` 还是先撞上 `:`**——先 `:` 说明上一行是类型标注。
+沿途 `(` / `)` / `[` / `]` 一律透明（`entries: () => SpecIterableIterator<[string, T]>`
+里的圆括号与元组都在路上），`{` / `;` / `,` / 一条已经成形的语句则收束判定；
+一路只有 trivia（`// 注释` 换行 `[1, 2] as const;`）算「上一行没有内容」⇒ 断句。
+
+落在三处：`Statement.IsLineBreakBoundary`、`declaration-common.xl.md` 的 `IsMemberBoundary`、
+以及 `projectField` 的初始化式（`=` 右边**整段**、不是一格）。
+
+**这一轮翻过一次车**：第一版把「`[` 续行」无条件放开，`undici-types/webidl.d.ts`（13 处）、
+`formdata.d.ts`（12 处）与 `expr-*-as-*` 一族同时从一致变成不一致（+41）。加上「先撞 `:`」的判据
+之后全部回到一致，且 `am-block-lambda-array-compound.ts`（5/2/4）与
+`decl-class-computed-member.ts`（3/1/3）也一起归零。
+
+## 还剩什么（共 197）
+
+| 类 | 量 | 样本 |
+| --- | ---: | --- |
+| `type-generic-array-suffix.ts` | 2 / 4 / 1 | `X<A, D>[][]` 双后缀（token 层的数组规则把泛型段吸进后缀里） |
+| `lex-number-member-with-space.ts` | 4 / 0 / 1 | `1 .toString()`（词法层把 `1 .` 收成一格） |
+| `decl-interface-abstract-construct-signature.ts` | 3 / 0 / 1 | `abstract new () => T` |
+| `type-new-nodes-adversarial.ts` | 3 / 2 / 1 / 1 | 类型组合 |
+| `header.d.ts` | 2 / 1 / 1 | 映射类型 |
+| `ex-optional-call-new.ts` / `expr-optional-*` | 每文件 2~4 | 可选链与 `new` / `delete` / `!` 的混排 |
+| 其余 | 每文件 1~3 | 零散 |
