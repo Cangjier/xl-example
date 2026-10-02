@@ -2111,24 +2111,38 @@ node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
 | 101 | **初始化式只取了一格** | `projectLetFrom` 取 `=` 右边第一格，而链在产物里是平级的四格——链尾全丢 | `NonNullExpression` 多 71 + 漂移 76、`DotToken` 多 75、`PropertyAccessExpression` 漂移 24 |
 | 101 | **可选链续接** | `?.` 之后的成员在产物里是 `NullConditionalOperator` 单元，TS 是链上带 `questionDotToken` 的一格 | `PropertyAccessExpression` 缺 194 |
 | 102 | **箭头函数的表达式体** | `LamdaBody` 被 `KIND_BY_TAG` 映射成 `Block`，一行箭头 `(x) => x instanceof Y` 于是多出一个 `ExpressionStatement` | 多出 `ExpressionStatement` 409 里的一片 |
+| 103 | **带花括号的箭头体** | 体段里直接就是 `Statement`（不是 `LamdaBody` 壳）：块形态要据此造 `Block`＋`statements`，表达式形态才摊平 `Statement` | 缺 `Block` 一片 |
+| 103 | **限定名 + 数组后缀** | `A.B[]` 的产物是 `[A, ., ArrayType(B)]`——`.` 后面那个「只装名字的 `ArrayType`」是限定名的右半；`readonly A.B[]` 又多一层「运算符的操作数被拆到外面」 | `QualifiedName` / `Identifier` / `ArrayType` 各一片 |
+| 103 | `typeof Symbol.iterator` | 点号名在产物里已经是 `PropertyAccess` 单元，`projectTypeQuery` 只认名字节点 → 空 `exprName` | 缺 `QualifiedName` / `Identifier` |
+| 104 | **`A<T>[]` 的实参段** | 产物把 `<T>` 装进了 `ArrayType` **里面**，那是基名的实参表而不是元素类型 | `TypeReference` 缺 220 / 漂移 50、`Identifier` 缺 553 里成片 |
+| 105 | **`a.b!.c!`** | 点号后面那个 `NotNull` 里装着一段点号链，而 TS 的 `NonNullExpression` 套住**整条链**；原来被当成一个成员名 | 漂移 76+30+33、多出 71+75 |
 
-| 判据 | 第 99 轮末 | 第 102 轮末 |
+| 判据 | 第 99 轮末 | 第 105 轮末 |
 | --- | ---: | ---: |
-| **完全一致的文件** | 863 | **952** |
-| 缺节点 | 2942 | **2404** |
-| 区间漂移 | 426 | **432** |
-| 多出来的节点 | 1585 | **1197** |
-| 字段名不符 | 118 | **118** |
+| **完全一致的文件** | 863 | **969** |
+| 缺节点 | 2942 | **2260** |
+| 区间漂移 | 426 | **346** |
+| 多出来的节点 | 1585 | **1124** |
+| 字段名不符 | 118 | **117** |
 
-### 第 102 轮之后剩下的（按大小）
+### 第 105 轮之后剩下的（按大小）
 
 | 组 | 规模 | 形状与已知信息 |
 | --- | ---: | --- |
-| `Identifier` 缺 | 1050 | `any[][typeof Symbol.iterator]` 这类**下标访问里的类型查询**；限定名 + 数组后缀的尾巴（`readonly webcrypto.KeyUsage[]`） |
-| `PropertyAccessExpression` | 缺 294 / 多 97 / 漂移 24 | 可选链的其余形态（`?.` 与 `!`、`?.()`、`?.[]` 混排） |
-| `TypeReference` | 缺 220 / 多 91 / 漂移 79 | 泛型实参 + 数组后缀 + 限定名的分层与区间 |
-| `BinaryExpression` | 缺 158 | 折行表达式的续接（`a &&` 换行 `b`） |
-| **带花括号的箭头体** | — | `ToList` 把 `LamdaBody` 里的 `Statement` 摊平了，投出来的 `body` 不是 `Block`——**正解在 token 层**（让那一层留住 `Statement`）；硬拼会得到 `Identifier(return)` |
-| `StringLiteral` 75 / `NumericLiteral` 69 | 144 | 条件类型分支里、`declare module "x"` 名字位上的字面量 |
-| `ExpressionStatement` 多 | 380 | 其余成因（折行表达式 / 多行参数表） |
+| `Identifier` 缺 | 553 | 泛型实参段里的名字（`Dirent<NonSharedBuffer>[]` 那一片刚修掉一部分）、限定名尾巴、类型参数默认值 |
+| `TypeReference` | 缺 220 / 漂移 50 | 实参段 + 后缀在各种嵌套下的分层与区间 |
+| `PropertyAccessExpression` | 缺 194 / 多 103 / 漂移 30 | 可选链与 `!` 的其余混排（`?.()` / `?.[]` / 链中间的空断言） |
+| `BinaryExpression` | 缺 79 | **折行表达式**的续接（`a &&` 换行 `b`）——与第 100 轮那条同源，只是发生在值位 |
+| `StringLiteral` 74 / `NumericLiteral` 69 | 143 | 条件类型分支里、`declare module "x"` 名字位上的字面量 |
+| `NewKeyword` 多 67 | 67 | `new<TArrayBuffer extends …>(…)` 这种**泛型构造签名**（`ConstructorType` 里 `new` 之后的类型参数段） |
+| `ExpressionStatement` 多 | ~350 | 折行表达式 / 多行参数表的其余成因 |
+
+复现：
+
+```bash
+npm run build
+node tests/parse/ts-ast.mjs                       # 总账
+node tests/parse/ts-ast.mjs --per-file            # 逐文件四列差额
+node tests/parse/ts-ast.mjs --file <路径>          # 单文件四方向
+```
 
