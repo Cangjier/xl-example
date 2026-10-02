@@ -3205,12 +3205,31 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
       // 那个 `else` 认成这一层的（实测 `elseKeyword` 的区间整体前移一格族）。
       const at = ctx.source.lastIndexOf("else", view(segments[index + 1]).start);
       const key = view(segments[index + 1]).attrs.get("key");
-      const inner = build(index + 1);
-      props.elseStatement = inner.node;
-      // `else if` 时**内层那一层的起点**要改成 `else` 后面那个 `if`——
-      // 它自己的 `seg.start` 也在那个 `if` 上，所以两层各修各的，外层不动 `pos`。
-      if (key === "if") inner.node.pos = ctx.source.indexOf("if", at + 4);
-      end = inner.end;
+      if (key === "if") {
+        const inner = build(index + 1);
+        props.elseStatement = inner.node;
+        // `else if` 时**内层那一层的起点**要改成 `else` 后面那个 `if`——
+        // 它自己的 `seg.start` 也在那个 `if` 上，所以两层各修各的，外层不动 `pos`。
+        inner.node.pos = ctx.source.indexOf("if", at + 4);
+        end = inner.end;
+      } else {
+        // **`else { … }` 的 `elseStatement` 是那个体本身**（块或单条语句），
+        // 不是又一层 `IfStatement`（第 90 轮修）：多造一层会让 `IfStatement` 多出 225 个，
+        // 而 TS 那边 `elseStatement` 是 `Block`——同一处还带着「区间偏短」的漂移 116 处。
+        const elseBody = blockOfBody(bodyOf(segments[index + 1]), ctx);
+        if (elseBody !== undefined) {
+          props.elseStatement = elseBody.node;
+          end = elseBody.end;
+        } else {
+          // 空体（`else {}`）：TS 那边仍是一个空 `Block`。
+          const brace = ctx.source.indexOf("{", at + 4);
+          const close = brace >= 0 ? matchingBrace(ctx.source, brace) : -1;
+          if (brace >= 0 && close >= brace) {
+            props.elseStatement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
+            end = close + 1;
+          }
+        }
+      }
     }
     // 终点**从体量出来**，不能取段的 `range[1]`：那两端在花括号体上是**包含**的
     // （`{ b(); }` 给 15），在单条语句体上是**排他**的（`b();` 给 11）——
