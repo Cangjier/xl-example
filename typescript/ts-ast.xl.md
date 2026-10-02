@@ -927,26 +927,12 @@ new Map([
     case "PropertyAccess":
       return projectExpression(projectableKids(v), ctx);
 
-    // **`RegexToken` / `ConstString` 已搬进各自的 token**（第 182 轮）：
-    // `tokens/regex-token.xl.md` 的 `PrintAst`（区间按原文重新量）与
-    // `tokens/string/const-string.xl.md` 的 `PrintAst`（`StringLiteral` + 文本）。
-
-    case "String":
-      return projectString(v, ctx);
-
-    case "Identifier": {
-      const text = textOf(v, ctx);
-      return mk(leafKindOfText(text), { text });
-    }
-
-    case "Keyword": {
-      const text = textOf(v, ctx);
-      const kind = KEYWORD_KIND.get(text);
-      return kind === undefined ? mk("Identifier", { text }) : mk(kind, { text });
-    }
-
-    case "SymbolToken":
-      return mk(tokenKind(textOf(v, ctx)), { text: textOf(v, ctx) });
+    // **`RegexToken` / `ConstString` / `String` / `Identifier` / `Keyword` / `SymbolToken`
+    // 都已搬进各自的 token**（第 182~184 轮）：`PrintAst` 会先命中，
+    // 下面这些 `case` 原来就是**死代码**，这一轮删掉。
+    // 它们分别落在 `tokens/regex-token.xl.md`、`tokens/string/const-string.xl.md`、
+    // `tokens/string/string.xl.md`、`tokens/identifier.xl.md`、`tokens/keyword.xl.md`、
+    // `tokens/symbol-token.xl.md`。
 
     case "TypeDefine":
       return projectTypeDefine(v, ctx);
