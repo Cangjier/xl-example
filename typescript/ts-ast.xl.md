@@ -2807,6 +2807,33 @@ new Set([
       };
     }
   }
+  // **`a?.b` 加模板串 ⇒ `TaggedTemplateExpression`**（第 175 轮）：`` a?.b`t` `` 的产物是
+  // `[Identifier(a), NullConditionalOperator([Identifier(b), String])]`——成员名与那个模板串
+  // 都在 NCO 里。TS 那边是 `TaggedTemplateExpression > [PropertyAccessExpression(a?.b),
+  // NoSubstitutionTemplateLiteral]`（实测 `ex-optional-call-new.ts`：缺
+  // `TaggedTemplateExpression` + `NoSubstitutionTemplateLiteral`，`PropertyAccessExpression`
+  // 的区间一路撑到模板串末尾）。
+  const stringUnit = kids.find((k) => k.get("type") === "String" || k.get("type") === "ConstString");
+  if (stringUnit !== undefined && kids.length >= 2) {
+    const tagName = kids.find((k) => k !== stringUnit && isNameNode(k));
+    if (tagName !== undefined) {
+      const member: any = {
+        kind: "PropertyAccessExpression",
+        expression: left,
+        name: nameOf(tagName, ctx),
+        pos: left.pos,
+        end: endOf(tagName),
+      };
+      if (questionDot !== undefined) member.questionDotToken = questionDot;
+      return {
+        kind: "TaggedTemplateExpression",
+        tag: member,
+        template: projectNode(stringUnit, ctx),
+        pos: left.pos,
+        end: endOf(stringUnit),
+      };
+    }
+  }
   // **这一格自己又是一条链**（第 124 轮）：`a?.b.c` 的产物是
   // `[Identifier(a), NullConditionalOperator(PropertyAccess([b, ., c]))]`——
   // 整个 `b.c` 是 NCO 里的**一个** `PropertyAccess` 单元。走下面那条通用支的话，
@@ -2862,7 +2889,16 @@ new Set([
     }
     return node;
   }
-  const name = first === undefined ? undefined : projectNode(first, ctx);
+  // **成员名一律是 `Identifier`**（第 175 轮）：`a?.import` 里那个 `import` 在产物中是
+  // `Keyword`，照通用支投会得到 `ImportKeyword`，而 TS 那边点号后面一律是**属性名**
+  // （实测 `expr-member-named-import-optional.ts`：缺 `Identifier` + 多出 `ImportKeyword`）。
+  // 与第 125 轮「成员名不期待操作数」同源，`nameOf` 本来就是这条口径。
+  const name =
+    first === undefined
+      ? undefined
+      : first.get("type") === "Identifier" || first.get("type") === "Keyword"
+        ? nameOf(first, ctx)
+        : projectNode(first, ctx);
   const access = {
     kind: "PropertyAccessExpression",
     expression: left,
