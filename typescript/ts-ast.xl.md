@@ -1024,8 +1024,6 @@ new Map([
     case "Signature":
       return projectSignature(v, ctx);
 
-    case "TypePredicate":
-      return projectTypePredicate(v, ctx);
 
     case "Field":
       return projectField(v, ctx);
@@ -5798,44 +5796,6 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
   }
   flush(braceClose);
   return out;
-```
-
-# private method projectTypePredicate:(v:any, ctx:any)=>any
-
-类型谓词 `value is T` / `asserts value is T` / `asserts value` → `TypePredicate`。
-
-产物那边三种身份（`asserts` 是 `AssertsKeyword`、参数名是 `Identifier`、`is` 是 `Keyword`）
-全挤在**平级的子单元**里，而 TS 那边它们是两个具名字段（`parameterName` / `type`，
-`asserts` 时多一个 `assertsModifier`）——不分开时整族都只投出「一串 `Identifier`」
-（真实语料 `TypePredicate` 的 `is` / 类型实参全对不上，`TypeReference` 有 360 处缺在它下面）。
-
-`is` 在产物里的词法身份不固定（`Keyword` 或 `Identifier`），两种都认；
-谓词里的类型**走类型位投影**（`T` ⇒ `TypeReference > Identifier`）。
-
-```ts
-  const kids = projectableKids(v);
-  const props = {};
-  let i = 0;
-  if (i < kids.length && kids[i].get("type") === "Keyword" && textOfNode(kids[i], ctx) === "asserts") {
-    props.assertsModifier = projectNode(kids[i], ctx);
-    i++;
-  }
-  if (i < kids.length && isNameNode(kids[i])) {
-    props.parameterName = projectNode(kids[i], ctx);
-    i++;
-  }
-  if (i < kids.length && textOfNode(kids[i], ctx) === "is") {
-    // **`is` 不进子字段**（第 76 轮实测）：TS 的 `TypePredicate` 只有
-    // `parameterName` / `type`（+ `asserts` 时的 `assertsModifier`）三格，
-    // `is` 是词法记号、`ts.forEachChild` **不会**访问它——留着一个 `isKeyword`
-    // 会让这一整类（382 处）的字段名多出一格。位置仍然算出来（下面那个 `i++`）。
-    i++;
-  }
-  if (i < kids.length) {
-    const type = projectTypeExpression(kids.slice(i), ctx);
-    if (type !== undefined) props.type = type;
-  }
-  return { kind: "TypePredicate", pos: v.start, end: stmtEndOf(v, ctx), ...props };
 ```
 
 # private method projectLogical:(v:any, ctx:any)=>any
