@@ -2160,6 +2160,11 @@ TS 是 `typeParameter` + `nameType`）——1503 → 1487。）
 4. 字段名 99 的小族：`ExpressionWithTypeArguments.expression`(5)、`MethodDeclaration`(5)、
    `BindingElement.propertyName`(5)、`Parameter.name`(8)、`IfStatement.thenStatement`(4)、
    `VariableStatement` 多出的 `modifiers`(4)。
+   **已排除**：`MethodDeclaration` 那 5 处**不是**「空形参表也写了 `parameters: []`」——
+   第 121 轮给 `projectFunctionType` 加「空数组不写这一格」的守卫后，四个方向的数字
+   **一动不动**（1090 / 1427 / 237 / 721 / 99），已回退。下一步建议查
+   `Parameter.name` 缺 8 处（可能是**解构形参**：`(...[a, b]: T)` 的名字是 `ArrayLiteral`
+   而不是 `Identifier`，`projectParameter` 只找 `Identifier` / `Keyword`）。
 
 ### 第 105 轮之后剩下的（按大小）
 
