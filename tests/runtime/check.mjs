@@ -4674,6 +4674,67 @@ check("默认参数与可选参数：只有「没传」或「传了 undefined」
     eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
   }
 });
+check("标准库第二批：Error · Math.round/ceil/trunc/sign · Object.values/entries · String.split 等五个", () => {
+  // 第 120 轮。**小数一律用运行时算出来**（`3 / 2`）——线形态的常量只装整数载荷，
+  // 浮点字面量在对拍之前就装不进去（与本仓记了多轮的「浮点与大整数字面量」同一条）。
+  // `String.split` 走的是**带原型的那条通道**（它要造数组），所以这一条同时量了
+  // `InvokeWithSink` 里那次拦截 ✓。
+  const source = [
+    "function run() {",
+    "  let message = '';",
+    "  let name = '';",
+    "  try { throw new Error('boom'); } catch (error) { message = error.message; name = error.name; }",
+    "  const values = Object.values({ a: 1, b: 'two', c: true }).join(',');",
+    "  const entries = Object.entries({ a: 1, b: 'two' }).map(function (pair) { return pair[0] + '=' + pair[1]; }).join(';');",
+    "  const splitBasic = 'a,b,,c'.split(',').join('|');",
+    "  const splitEmpty = 'abc'.split('').join('-');",
+    "  return [message, name,",
+    "    Math.round(3 / 2), Math.round(0 - 3 / 2), Math.ceil(11 / 10), Math.ceil(0 - 11 / 10),",
+    "    Math.trunc(19 / 10), Math.trunc(0 - 19 / 10), Math.sign(0 - 3), Math.sign(1 - 1),",
+    "    values, entries, splitBasic, splitEmpty,",
+    "    'abc'.split().length, ''.split(',').length, ''.split('').length,",
+    "    'aBc'.toUpperCase(), 'aBc'.toLowerCase(), '  hi \\t'.trim(), 'hello'.includes('ell') ? 1 : 0] as any;",
+    "}",
+  ].join("\n").replace(" as any", "");
+  const nodeRun = () => {
+    let message = "";
+    let name = "";
+    try { throw new Error("boom"); } catch (error) { message = error.message; name = error.name; }
+    const values = Object.values({ a: 1, b: "two", c: true }).join(",");
+    const entries = Object.entries({ a: 1, b: "two" }).map((pair) => pair[0] + "=" + pair[1]).join(";");
+    const splitBasic = "a,b,,c".split(",").join("|");
+    const splitEmpty = "abc".split("").join("-");
+    return [message, name,
+      Math.round(3 / 2), Math.round(0 - 3 / 2), Math.ceil(11 / 10), Math.ceil(0 - 11 / 10),
+      Math.trunc(19 / 10), Math.trunc(0 - 19 / 10), Math.sign(0 - 3), Math.sign(1 - 1),
+      values, entries, splitBasic, splitEmpty,
+      "abc".split().length, "".split(",").length, "".split("").length,
+      "aBc".toUpperCase(), "aBc".toLowerCase(), "  hi \t".trim(), "hello".includes("ell") ? 1 : 0];
+  };
+  const expected = nodeRun();
+  eq(expected[0], "boom", "Node：Error 的 message（前提）");
+  eq(expected[1], "Error", "Node：Error 的 name（前提）");
+  eq(expected[2], 2, "Node：Math.round(1.5) 是 2（前提）");
+  eq(expected[3], -1, "Node：Math.round(-1.5) 是 -1（前提）");
+  eq(expected[17], "ABC", "Node：toUpperCase（前提）");
+  eq(expected[19], "hi", "Node：trim（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  for (let i = 0; i < expected.length; i++) {
+    const actual = GetIndex(table, res.Value, Value.FromInt(i));
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

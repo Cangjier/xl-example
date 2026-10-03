@@ -26,8 +26,17 @@
 > 命令行（`node build/ts/tsrun.js <文件.ts>`），stdout 与 `node <文件.ts>` **逐字节相同**
 > （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts`，裁判是真 Node）。
 > 还差（按顺序）：**对象与数组的 `ToPrimitive`**（`"…" + 对象` / `console.log(对象)` 现在抛）、
-> 解构的默认值与剩余、**浮点数的文本形态**、`static` 与字段初始化、数字与布尔的原始值原型、
-> `TDZ` 的动态那一半、正则。
+> **浮点的文本形态**（它挡着 `Math.sqrt` / `pow` 与浮点字面量）、解构的默认值与剩余、
+> `JSON.parse`（要先回答「内建怎么抛一个脚本接得住的错」）、`static` 与字段初始化、
+> 数字与布尔的原始值原型、`TDZ` 的动态那一半、正则。
+>
+> **标准库这一层已经有了**：`Array`（push / pop / join / indexOf / slice / forEach / map / filter /
+> find / some / every）、`String`（charAt / charCodeAt / indexOf / slice / split / toUpperCase /
+> toLowerCase / trim / includes——**大小写与 trim 只做 ASCII**，非 ASCII 响亮地抛）、
+> `Object`（keys / values / entries——**后两个跳过访问器**）、`JSON.stringify`、
+> `Math`（floor / abs / max / min / round / ceil / trunc / sign）、`Error`（`message` + `name`，
+> **没有 `stack`、没有 `instanceof`**）、`Map` / `Set`（含 `forEach` 与直接迭代）、
+> `Symbol`、`Date`（`new Date(ms)` + UTC 日历那一族，**时钟由宿主回答**）。
 
 ## 输入是「TS 形状」，不是 token 树
 

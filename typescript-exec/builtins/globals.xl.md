@@ -3,10 +3,10 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
-import { SetProperty, NativeCall, Protos, NewPlainObject, FindProperty } from "../../runtime/props.xl.md"
+import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr } from "./array.xl.md"
-import { MapCtor } from "./map.xl.md"
+import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
 ```
 
@@ -46,6 +46,22 @@ import { SetCtor } from "./set.xl.md"
 # const MathMax:int = 203
 
 # const MathMin:int = 204
+
+# const MathRound:int = 205
+
+`Math.round` / `ceil` / `trunc` / `sign`（第 120 轮补）。
+
+**这一批的共同点：结果是整数** ✓——所以它们能安全地落进 `MathResult`（整的给 Int32 ✓）。
+**`sqrt` / `pow` 这一轮不做** ✗：它们的结果多数是**非整数**，而 `Float64` 今天**没有文本形态**
+（`rt.xl.md` 的 `TextUnitsOf` 对它是抛的 ✓——`1.0` 该显示成什么是一个规范级决定）✗，
+于是 `console.log(Math.sqrt(2))` 会抛。加一个「算得出、打不出」的函数是给人挖坑 ✗，
+所以宁可缺 ✓。
+
+# const MathCeil:int = 206
+
+# const MathTrunc:int = 207
+
+# const MathSign:int = 208
 
 # const ConsoleLog:int = 301
 
@@ -102,6 +118,33 @@ import { SetCtor } from "./set.xl.md"
 
 `Object.keys` 的能力号（`Object` 段从 400 起）。
 
+# const ObjectValues:int = 402
+
+`Object.values` 的能力号（第 120 轮补）。
+
+# const ObjectEntries:int = 403
+
+`Object.entries` 的能力号（第 120 轮补）。
+
+**三个方法的共同口径**：只看**自有**的**字符串键**属性 ✓（JS 的 `Object.keys` 就是这个口径 ✓），
+**访问器一律跳过** ✗——读它要**重入执行器**（那是一个 `NativeCall`，而这一块的签名里没有它 ✓），
+与 `JsonText` 里那条「访问器跳过」同一条理由 ✓。
+**与 `Object.keys` 的差别**：`keys` **不**跳过访问器（它只取名字，JS 也是这个口径 ✓）；
+`values` / `entries` 要**读值**，所以只能跳过 ✗——这一条写在明处，不假装它读到了 getter。
+
+# const ErrorCtor:int = 280
+
+**`Error` 的能力号**（第 120 轮补；200..299 这一段里的空号）。
+
+**它是构造函数，也是普通函数** ✓：JS 里 `new Error("x")` 与 `Error("x")` 给的是**同一种东西**
+（后者不 `new` 也返回一个新对象 ✓）。走 `Op.New` 时引擎按「宿主构造函数」那条分支调它 ✓，
+走 `Op.Call` 时就是一次普通宿主调用 ✓——**同一个号、同一支实现**，两条路天然都通 ✓。
+
+**它造的是一个普通对象**（不是 `Map` / `Set` 那种带内部格的）✓：`message` 与 `name` 两个
+数据属性 ✓——这正好是 `RunDescribe`（命令行打印抛出的值）认的那一格 ✓。
+**没有 `stack`** ✗：那是宿主（V8）的事，这一层给不出来 ✓，也不该假装给一个。
+**没有 `instanceof Error`** ✗：那要一个 `Error.prototype` 与原型链，这一轮不做 ✓（记在台账）。
+
 # const JsonStringify:int = 501
 
 `JSON.stringify` 的能力号（`JSON` 段从 500 起）。
@@ -124,7 +167,7 @@ import { SetCtor } from "./set.xl.md"
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -192,6 +235,27 @@ if (id === MathMax || id === MathMin) {
   }
   return MathResult(best);
 }
+if (id === MathRound || id === MathCeil || id === MathTrunc || id === MathSign) {
+  // **四个都在 `MathResult` 那条口径上**（整的给 Int32）✓——这些函数的结果**本来就是整数** ✓，
+  // 所以不存在「算得出、打不出」那一类坑 ✓。
+  const value = NumericOf(args[0]);
+  if (id === MathRound) return MathResult(Math.round(value));
+  if (id === MathCeil) return MathResult(Math.ceil(value));
+  if (id === MathTrunc) return MathResult(Math.trunc(value));
+  return MathResult(Math.sign(value));
+}
+if (id === ErrorCtor) {
+  // **`new Error(msg)` 与 `Error(msg)` 同一支**（号相同、两条调用路都落到这里）✓。
+  // **实参用 `TextFrom`**：`new Error({})` 在 JS 里得到 `"[object Object]"` ✗，
+  // 而那要求 `ToPrimitive`（对象 → 字符串）——今天没有，于是**抛** ✓（不静默给一句假话）。
+  const text = args.length > 0 ? TextFrom(table, args[0]) : "";
+  const created = NewPlainObject(room, table, protos);
+  SetProperty(room, NeverCall, table, created, NameValue(table, "message"),
+    Value.FromString(table.CreateString(Units(text))));
+  SetProperty(room, NeverCall, table, created, NameValue(table, "name"),
+    Value.FromString(table.CreateString(Units("Error"))));
+  return created;
+}
 if (id === ConsoleLog) {
   // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。
   // 少了这一步，宿主拿到的是一串**分不出行**的碎片 ✗（`console.log('a', 1)` 与两条
@@ -223,6 +287,45 @@ if (id === ObjectKeys) {
   const result = table.Get(handle).AsArray();
   for (let i = 0; i < names.length; i++) {
     result.Push(Value.FromString(table.CreateString(Units(names[i]))));
+  }
+  return Value.FromArray(handle);
+}
+if (id === ObjectValues || id === ObjectEntries) {
+  // **值与键值对**（第 120 轮补）：与 `Object.keys` 同一趟扫描 ✓，
+  // 差别只有「要不要读值」——所以**访问器在这里必须跳过** ✗（`keys` 不必）。
+  //
+  // **先把要用的值抄进宿主数组再分配** ✓：抄进来的是 `Value`（引用），
+  // 而它们**住在源对象的属性表里** ✓——属性表由 `args[0]` 拴着，`args[0]` 是这次调用的根 ✓，
+  // 所以中途的分配不会把它们收走 ✓（`GetIterator` 那条路是同一个理由）。
+  if (args.length < 1 || !args[0].IsObject()) {
+    throw new Error("Object.values/entries needs an object");
+  }
+  const own = table.Get(args[0].Ref);
+  const keys: number[] = [];
+  const values: Value[] = [];
+  for (let i = 0; i < own.Props.length; i++) {
+    if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
+    if (own.Props[i].IsAccessor()) continue;
+    keys.push(own.Props[i].Key);
+    values.push(own.Props[i].Value);
+  }
+  if (!room(ObjectCharge + ValueCharge * (values.length * 2 + 2)
+    + CodeUnitCharge * values.length * 4)) {
+    throw new Error("out of room");
+  }
+  const handle = table.CreateArray();
+  table.Get(handle).Proto = protos.Array;
+  const result = table.Get(handle).AsArray();
+  for (let i = 0; i < values.length; i++) {
+    if (id === ObjectValues) {
+      result.Push(values[i]);
+      continue;
+    }
+    // `entries` 给的是 `[键, 值]` 的**新数组**（JS 的形状 ✓），所以它也要数组原型 ✓。
+    const pair = NewPlainArray(room, table, protos);
+    table.Get(pair.Ref).AsArray().Push(Value.FromString(keys[i]));
+    table.Get(pair.Ref).AsArray().Push(values[i]);
+    result.Push(pair);
   }
   return Value.FromArray(handle);
 }
@@ -414,8 +517,8 @@ throw new Error("unimplemented: JSON of this kind of value");
 const table = vm.Table;
 const globals = NewPlainObject(vm.Room(), table, protos);
 const math = NewPlainObject(vm.Room(), table, protos);
-const mathNames: string[] = ["floor", "abs", "max", "min"];
-const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin];
+const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "trunc", "sign"];
+const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign];
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));
@@ -435,6 +538,20 @@ const jsonObject = NewPlainObject(vm.Room(), table, protos);
 const stringifyKey = Value.FromString(table.CreateString(Units("stringify")));
 const stringifyTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(JsonStringify, 0));
 SetProperty(vm.Room(), NeverCall, table, jsonObject, stringifyKey, stringifyTarget);
+
+// `Object.values` / `Object.entries`（第 120 轮补）：与 `keys` 同一张对象上再挂两个号 ✓。
+const valuesKey = Value.FromString(table.CreateString(Units("values")));
+const valuesTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectValues, 0));
+SetProperty(vm.Room(), NeverCall, table, objectObject, valuesKey, valuesTarget);
+const entriesKey = Value.FromString(table.CreateString(Units("entries")));
+const entriesTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectEntries, 0));
+SetProperty(vm.Room(), NeverCall, table, objectObject, entriesKey, entriesTarget);
+
+// `Error` 是一个**宿主构造函数**（`new Error(msg)` 走 `Op.New` 的宿主那条分支 ✓，
+// `Error(msg)` 走 `Op.Call` ✓——同一个号两支都通，见 `ErrorCtor` 的说明）。
+const errorKey = Value.FromString(table.CreateString(Units("Error")));
+const errorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, errorKey, errorTarget);
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));
 const consoleKey = Value.FromString(table.CreateString(Units("console")));

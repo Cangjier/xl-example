@@ -10,7 +10,7 @@ import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray } from "./array.xl.md"
 import { InstallArray } from "./array.xl.md"
-import { InvokeString, InstallString } from "./string.xl.md"
+import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, DateCtor } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet } from "./set.xl.md"
@@ -71,6 +71,9 @@ if (id === GetIteratorId) {
   if (args.length < 1) throw new Error("unimplemented: get_iterator needs (value)");
   return GetIterator(room, table, protos, args[0]);
 }
+// **`String.split` 也要 `protos`**（第 120 轮）：它返回一个数组 ✓——理由与上面那一条一字不差 ✓
+// （`InvokeString` 的签名里没有原型表，而为了一个方法去改那一块的签名会牵动所有调用点 ✓）。
+if (id === StringSplit) return SplitString(room, table, protos, self, args);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, call, id, self, args);
