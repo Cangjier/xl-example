@@ -4399,3 +4399,31 @@ TS 那边对象天然是引用，这个坑只在非托管目标出现。
 「清单式而不是注册式」那段论证）；`Collector::Table` 是 `HeapTable&`（不可空，所以用引用不用指针）；
 `DefaultHeadroom`/`MinHeapLimit` 用 `inline constexpr`（跨 TU 常量，指南 §5.2）；
 越界句柄抛 `std::runtime_error`（源文要求「抛，不静默」）。
+### 第 80 轮：`runtime/ir.xl.md` 生成成 C++（**16 份整体交付**，契约校验通过）
+
+`xl_emit` 报 **ok** ✓。P1 的**第三个单元**（`value` → `gc` → `ir`），先头「等齐」的
+`op.h` / `rt_op.h` 也随之就位。
+
+**为什么 `ir` 能先于 `heap` 做**（上一轮那条规矩的又一次正面用法）：它的依赖用法**只有一处**——
+`table.CreateString(this.Units)`（`constant.cpp` 的 `Materialize`）——而签名已知
+（`CreateString:(units:Array<int>)=>int`）。**一处已知调用 ≠ 发明接口。**
+
+**两个必须收引用的地方**（与 `gc` 的 `Trace(HeapObject&)` 同一族，按值传会静默坏掉）：
+
+- `ShiftPc(Instruction&, int)` / `ShiftConstIndex(Instruction&, int)`——链接器要改传进来的那一条；
+- **`Program::At(pc)` 返回 `Instruction&`**——`link.xl.md` 靠 `ShiftPc(program.At(pc), base)`
+  改**程序里**那一条。返回副本的话：链接后跳转/常量下标**看起来挪了**，实际一条都没改，
+  而症状会出现在很远的地方。
+
+另外 `Materialize` 收**非 const** 的 `HeapTable&`（它会往堆里造字符串 ✓）。
+
+**顺着指南定的形状**：常量用 `inline constexpr`；`RtOpName`/`OpName` 先 `static_cast`
+到枚举再比（比 `id == static_cast<int32_t>(RtOp::Add)` 直白）；枚举显式 0..21 / 0..37；
+只有保证不抛的成员标 `noexcept`（返回 `std::string` 的一律不标）；浮点的 dump 文本交给
+`std::to_string`——源文自己写了「浮点用宿主自己的数字格式，判据不钉浮点的 dump 文本」。
+
+**顺手重新量了 `heap`（上一轮我量错了）**：`heap.xl.md` 是 **1357 行**（不是 860 ✗），
+计划 **39 个文件**。而计划通道**按整个源文件交付**（不可分块）——所以 `heap` 需要一次
+**很大的** payload，要么单独一轮准备后再发，要么把这份规范**拆成几个源文件**
+（拆是合法重构，但要改所有 `import { … } from "./heap.xl.md"` 的地方）。
+下一轮先量清楚有几处 import 依赖 `heap.xl.md`，再决定走哪条。
