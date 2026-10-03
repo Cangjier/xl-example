@@ -239,6 +239,21 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 对象那条路不靠它（对象自带 `Proto`），但两条路共用一个签名更不容易分叉。
 
 ```ts
+// **读 `null` / `undefined` 的属性要抛**（第 136 轮）✓：JS 的 `null.y` 是 `TypeError` ✓，
+// 而这里原来一律给 `undefined` ✗——**静默错值里最贵的一种** ✓
+// （`const {a} = null` 也给 `undefined` ✗，**一句 `try` 都接不住** ✗——
+//  判据现场：`try { const x = null.y } catch { }` 在 Node 里进 `catch` ✓，在这里不进 ✗）。
+//
+// **要能被 `try` 接住** ✗：这一抛必须走**错误工厂**那条路 ✓（`vm.xl.md` 的 `Guard` ✓），
+// 所以调用方（`RtOp.GetProp` 那一支 ✓）也要跟着包一层 ✓——只改这里的话，
+// 抛出去的是**引擎的**异常 ✓，整份程序照样挂 ✗。
+//
+// **一处已知差**：JS 抛的是 `TypeError` 且话里带着键名 ✓
+//（`Cannot read properties of null (reading 'y')` ✓），本仓抛的是**装了工厂的那种错误** ✓
+// ——`try` 接得住 ✓，「是哪一种错误」还分不出来 ✗（`instanceof TypeError` 那一层还没有 ✓）。
+if (receiver.Tag === ValueTag.Undefined || receiver.Tag === ValueTag.Null) {
+  throw new Error("cannot read properties of " + (receiver.Tag === ValueTag.Null ? "null" : "undefined"));
+}
 if (IsLengthKey(table, key)) {
   if (receiver.Tag === ValueTag.Array) return Value.FromInt(table.Get(receiver.Ref).AsArray().GetLength());
   if (receiver.Tag === ValueTag.String) return Value.FromInt(table.Get(receiver.Ref).AsString().GetLength());

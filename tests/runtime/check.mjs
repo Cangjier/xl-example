@@ -5898,5 +5898,97 @@ check("`for..of` 头部里的解构：声明一次、每轮只写", () => {
 });
 
 console.log("");
+console.log("=== 第 136 轮：字符串可迭代 · 字符串下标 · 空值上的属性读 ===");
+
+check("字符串是可迭代物：`for (const c of \"ab\")` 一次一个码元", () => {
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const out = [];",
+    "for (const c of 'abc') out.push(c);",
+    "let n = 0; for (const c of '') n = n + 1;",
+    "for (const c of 'xy') { out.push('-' + c); }",
+    "console.log(out.join(''), n);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "abc-x-y 0", "字符串一次给一个码元，空串一次都不给");
+  // **`iter_new` 那一支必须排在 `IsObject` 之前** ✗：字符串**不是对象** ✓
+  //（`ValueTag.String` ✓），排在后面就永远走不到 ✓——报的还是那句
+  // `iterating a non-object` ✓（第一版就是这么红的 ✓）。
+  // **`for (const c of 42)` 照旧响亮地抛** ✓（数字不是可迭代物 ✓）。
+  const bad = new RunRequest();
+  bad.Sources = ["for (const c of 42) { console.log(c); }"];
+  bad.Entry = "";
+  // **没接住的时候只看结局** ✓：这一抛是**脚本级**的 ✓，驱动把它记成
+  // 「第 0 份模块求值：the script threw」✗——**引擎那句原话不会冒到这里** ✓
+  //（它已经被工厂变成了一个脚本可见的错误值 ✓）。所以这里量的是「**没跑成**」✓，
+  // 原话那一层由上面那条 `iterating a non-object` 的**单元**判据管 ✓。
+  const badRes = RunSources(bad, () => {}, () => null);
+  ok(badRes.Outcome !== HostOutcome.Ok, "数字照旧抛（结局不是 Ok）");
+});
+
+check("字符串下标：`\"xy\"[0]` 是 `\"x\"`（同一件事只有一个答案）", () => {
+  // **规范里原本写着「这是一块已知的语义差，不在这里顺手猜一个」** ✓——
+  // 而 `props.xl.md` 的 `GetIndex` **早就办到了** ✓，只是 `vm.xl.md` 那一层
+  // 对字符串接收者**一律先给 `undefined`** ✗。改它的理由不是「顺手」✓：
+  // 同一件事两处答案 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log('xy'[0], 'xy'[1], 'xy'[5], 'abc'.length);",
+    "const [a, b] = 'pq';",
+    "console.log(a, b);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "x y undefined 3", "越界给 `undefined`（不是抛）");
+  eq(lines[1], "p q", "数组模式的解构**按下标读**，所以字符串也拆得开");
+  // **数字 / 布尔的下标读照旧给 `undefined`** ✓（JS 的 `(5)[0]` 就是 `undefined` ✓）——
+  // 只有**空值**才抛 ✓。
+  const numeric = [];
+  const numericRequest = new RunRequest();
+  numericRequest.Sources = ["console.log((5)[0], (true)[1]);"];
+  numericRequest.Entry = "";
+  const numericRes = RunSources(numericRequest, (text) => numeric.push(text), () => null);
+  eq(numericRes.Outcome, HostOutcome.Ok, "运行器：" + numericRes.Message);
+  eq(numeric[0], "undefined undefined", "原始值下标读不抛");
+});
+
+check("读 `null` / `undefined` 的属性要抛，而且脚本接得住", () => {
+  // **这一条量的是两处都改对了** ✓：`props.xl.md` 抛 ✓（`GetProperty` ✓）+
+  // `vm.xl.md` 那一支**包一层 `Guard`** ✓——只改前者的话，抛出去的是**引擎的**异常 ✓，
+  // 整份程序照样挂 ✗（判据现场会看到「脚本抛出」而不是「caught」✗）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const seen = [];",
+    "try { const o = null; seen.push(o.member); } catch (e) { seen.push('caught-member'); }",
+    "try { const { missing } = null; seen.push(missing); } catch (e) { seen.push('caught-destructure'); }",
+    "try { const u = undefined; seen.push(u[0]); } catch (e) { seen.push('caught-index'); }",
+    "console.log(seen.join(','));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "caught-member,caught-destructure,caught-index", "三种读法都进 `catch`");
+  // **单元那一层也要量**：`GetProperty` 自己就得抛 ✓（不然「读」与「写」两边不一致 ✓——
+  // 写空值的属性**早就会抛** ✓）。
+  const unitTable = new HeapTable();
+  const unitMachine = new Vm(unitTable, 1 << 20, 1000);
+  const unitProtos = InitProtos(unitMachine.Room(), unitTable);
+  let thrown = "";
+  try {
+    GetProperty(unitMachine.Room(), unitMachine.Native(), unitProtos, unitTable, Value.Null(),
+      Value.FromString(unitTable.CreateString([97])));
+  } catch (error) {
+    thrown = String(error.message);
+  }
+  ok(thrown.indexOf("cannot read properties of null") >= 0, "`GetProperty` 单元层也抛：" + thrown);
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

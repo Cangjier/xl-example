@@ -1,14 +1,14 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
-import { HeapFrame, HeapTable, ObjectCharge, ValueCharge, GeneratorState, PromiseState } from "./heap.xl.md"
+import { HeapFrame, HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, GeneratorState, PromiseState } from "./heap.xl.md"
 import { Collector, RootSet } from "./gc.xl.md"
 import { Program, Instruction, Op, RtOpName, RtOp, FunctionInfo, BuiltinBase } from "./ir.xl.md"
 import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
-import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf } from "./rt.xl.md"
+import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, TextUnitsOf } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 ```
@@ -1176,7 +1176,14 @@ if (id === RtOp.NewClosure) {
 if (id === RtOp.GetProp) {
   RequireArgc(argc, 2, "get_prop");
   if (this.Protos === null) throw new Error("no prototype table");
-  return GetProperty(this.Room(), this.Native(), this.Protos, this.Table, slots[base], slots[base + 1]);
+  // **这里要包 `Guard`**（第 136 轮）：`GetProperty` 现在会为「读 `null` / `undefined`
+  // 的属性」抛 ✓（JS 的 `TypeError` ✓），而那一抛**必须走错误工厂**才能被脚本的
+  // `try` 接住 ✓——不包的话整份程序照样挂 ✗（与 `str + obj` 那条修法同源 ✓）。
+  // **原型表要先落到一个局部常量上** ✗：`this.Protos` 是**可变的字段** ✓，
+  // 所以上面那句 `=== null` 的收窄**进不了闭包** ✓（编译期报
+  // 「`Protos | null` 不能当 `Protos`」✗，位置正好在这一行 ✓）。
+  const propProtos = this.Protos;
+  return this.Guard(() => GetProperty(this.Room(), this.Native(), propProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.SetProp) {
   RequireArgc(argc, 3, "set_prop");
@@ -1205,8 +1212,30 @@ if (id === RtOp.GetIndex) {
   // 数组那条路（真下标）先走；**不是数组就落到属性查找**——这一条以前直接抛，
   // 于是「对象的下标读」一直是一条记在台账里的缺口。
   //
-  // **字符串接收者仍然给 `undefined`**（`"abc"[0]` 在 JS 里是 `"a"`）：那是一块
-  // **已知的语义差**，写在规范里——不在这里顺手猜一个。
+  // **字符串接收者给「一个码元的字符串」**（第 136 轮补上）✓：
+  // `"abc"[0]` 在 JS 里是 `"a"` ✓，而这里原来**一律给 `undefined`** ✗
+  // （上面那条注释写着「这是一块已知的语义差，不在这里顺手猜一个」✗——
+  //  改它的理由不是「顺手」✓，而是**下面 `props.xl.md` 的 `GetIndex` 早就办到了** ✓：
+  //  它那一支写着「字符串给一个码元的字符串」✓，只是**这一层没走它** ✗。
+  //  同一件事两处答案，删掉错的那一处 ✓）。
+  //
+  // **它顺带修掉两件事**（都不是猜的 ✓）：`const [a, b] = "xy"` ✓——数组模式的解构
+  // **按下标读**（`Destructure` 那条路 ✓），而字符串一直是「读不出来」✗；
+  // 以及 `for (const [a, b] of ["xy"])` ✓（第 136 轮加的字符串迭代 ✓，
+  // 每一轮拿到的是**一个码元的字符串** ✓，再解构就落到这里 ✓）。
+  // **`null[0]` / `undefined[0]` 也要抛**（第 136 轮）✓——与 `GetProperty` 那条同一个道理 ✓
+  //（JS 里 `null[0]` 是 `TypeError` ✓，而这里原来落到下面那句 `return Value.Undefined()` ✗）。
+  // **数字 / 布尔的下标读照旧给 `undefined`** ✓（JS 的 `(5)[0]` 就是 `undefined` ✓）——
+  // 只有**空值**才抛 ✓。
+  if (indexReceiver.Tag === ValueTag.Undefined || indexReceiver.Tag === ValueTag.Null) {
+    const what = indexReceiver.Tag === ValueTag.Null ? "null" : "undefined";
+    return this.Guard(() => {
+      throw new Error("cannot read properties of " + what);
+    });
+  }
+  if (indexReceiver.Tag === ValueTag.String) {
+    return GetIndex(this.Table, indexReceiver, slots[base + 1]);
+  }
   if (indexReceiver.Tag !== ValueTag.Array) {
     if (!indexReceiver.IsObject()) return Value.Undefined();
     const indexProtoTable = this.Protos;
@@ -1261,6 +1290,13 @@ if (id === RtOp.IterNew) {
   // 判据现场先修了 `iter_next` ✓ 才发现真正抛的是**这一支** ✗（两处都抛同样的话 ✓，
   // 只补一处等于没补 ✓）。所以整支包进 `Guard` ✓。
   return this.Guard(() => {
+    // **字符串也是可迭代物**（第 136 轮）✓：`for (const c of "ab")` ✓。
+    // **它必须排在那句 `IsObject` 之前** ✗：字符串**不是对象**（`ValueTag.String` ✓），
+    // 排在后面就永远走不到 ✓——报的还是「iterating a non-object」✓。
+    // 这一支与 `spread_into`（第 132 轮）**同一口径** ✓：`[...'ab']` 早就通了 ✓。
+    if (target.Tag === ValueTag.String) {
+      return Value.FromObject(this.Table.CreateIterator(target.Ref));
+    }
     if (!target.IsObject()) throw new Error("unimplemented: iterating a non-object");
     const item = this.Table.Get(target.Ref);
     if (item.Generator !== null) return target;
@@ -1447,6 +1483,33 @@ if (item.Iterator !== null) {
     throw new Error("iterator without a source");
   }
   const source = this.Table.Get(cursor.Source);
+  // **字符串的游标**（第 136 轮）：一次给一个**码元** ✓。
+  //
+  // **按码元拆，不按码点** ✓——与 `.length` / 下标 / `charAt` / `spread_into`
+  // **同一条口径** ✓（代理对算两个 ✓）。JS 那边字符串迭代是**按码点**的 ✗
+  //（`for (const c of "😀")` 只给一个 ✓，而 `"😀".length` 是 2 ✓）。
+  // **为什么不照 JS 办** ✗：整层的口径是码元 ✓——单独让迭代按码点，会让
+  // 「`[...s]` 与 `for (const c of s)` 给的不一样」✗（同一种东西两种答案，比一起偏更糟 ✓）。
+  // 这是一处**已知差** ✓，记在台账里 ✓。
+  if (source.Tag === ValueTag.String) {
+    // **`TextUnitsOf` 收的是 `Value`** ✓，而 `Get` 给的是**载荷** ✗——
+    // 所以要现包一个值出来 ✓（第一版直接递载荷，编译期就报
+    // 「`HeapObject` 不能当 `Value`」✗，位置正好在这一行 ✓）。
+    const units = TextUnitsOf(this.Table, Value.FromString(cursor.Source));
+    const at = cursor.Index;
+    if (at >= units.length) return this.MakeIterResult(Value.Undefined(), true);
+    cursor.Index = at + 1;
+    const unit = units[at];
+    // **造字符串要先问房间** ✓（与 `spread_into` 那条一字不差 ✓）——
+    // 这一支也可能从**宿主**那条路进来（`it.next()` ✓），所以自己包一层 `Guard` ✓
+    //（`MakeIterResult` 也是这么办的 ✓）。
+    return this.Guard(() => {
+      if (!this.NeedRoom(ObjectCharge + CodeUnitCharge + ValueCharge)) {
+        throw new Error("out of room");
+      }
+      return this.MakeIterResult(Value.FromString(this.Table.CreateString([unit])), false);
+    });
+  }
   if (source.Tag !== ValueTag.Array) {
     throw new Error("unimplemented: iterating a non-array source");
   }
