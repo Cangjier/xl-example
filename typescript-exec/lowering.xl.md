@@ -59,6 +59,7 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
 | **`import` 的名字从环境对象取**（与全局名同一套机关；`import` / `export { … }` 语句是**空操作**——导出表本来就装着这份文件的每个函数） | **真正的跨模块链接**：把模块 A 的导出**值**交给 B 需要一个**共享的堆**（跨机器搬 `Value` 不行——`Ref` 是各自表里的下标）；`import * as ns` 与 `export default` 抛 |
 | **`for..in`**（`Object.keys` + 迭代协议拼出来的，**没有新算子**；要求全局名里有 `Object`，否则明确报出来并指出修法） | **只遍历自有键**（`Object.keys` 的口径；JS 还会走原型链上的可枚举键）；**整数样式的键不按 JS 的「升序优先」**——这里一律按插入顺序 |
+| **计算成员访问**（`o[k]` 读/写：数组走真下标，**非数组对象由引擎把键字符串化之后落成属性读/写**；`o[k]()` 用值键 + `Op.Call` 的 `this` 槽，**没有新算子**） | **字符串接收者**仍然是那块已知差（`"abc"[0]` 在 JS 里是 `"a"`，这里给 `undefined`）；计算成员**写入**在原始值接收者上**抛** |
 | **`class`**（构造函数 + `prototype` 对象 + 方法挂上去；拼的是「函数值 + `prototype` 属性 + 方法调用」三样既有东西） | **字段初始化**、`static`、getter/setter、计算键方法、类里的生成器 / async 方法——一律**降级期抛**；`prototype.constructor` 的回指与 `instanceof` 一起做 |
 | **`extends`**（一条 `set_proto` 把子类 prototype 的原型接到父类 prototype 上；方法沿链找到） | **从句关键字投影没带**，所以「第一段就是 `extends`」——`class C implements I {}` 会在解析 `I` 时报未知名字（**响亮**，不是静默错值） |
 | **`super(...)`**（`Op.Call` 的 `D` 操作数带 `this` 槽；父类构造函数经**环境**进子类构造函数的帧） | **父类带构造函数时**，派生类必须自己写构造函数**并调用 `super(...)`**——两样缺一样都**降级期抛**（默认构造函数没法转发 `...args`，静默少跑父类初始化更坏） |
@@ -3004,8 +3005,9 @@ if (operatorText === "=") {
     }
     const index = this.LowerExpression(Child(left, "argumentExpression"));
     const value = this.LowerExpression(Child(node, "right"));
-    // **下标写入走 `set_index`**（数组的快路径）。对象的下标写入要先把键
-    // `ToString`，那一步还没做，所以这里对非数组接收者会**抛**（不是静默不写）。
+    // **下标读/写都走 `get_index` / `set_index`**：数组走真下标，
+    // **非数组的对象由引擎把键字符串化之后落成属性读/写**（`vm.xl.md` 那两条分支）。
+    // 所以这里**不必先判断接收者是什么**——IR 里也没有这种指令。
     const window = this.Reserve(3);
     this.Emit(Op.Move, window, receiver, -1, -1);
     this.Emit(Op.Move, window + 1, index, -1, -1);
@@ -3049,12 +3051,12 @@ return base;
 
 三条路，**区别在 `this`**：
 
-- **`o.m(...)`** → `call_method`（`this` 是接收者）；
-- **`o[k](...)`** → **抛**：`call_method` 的键是**常量**，计算键要另一个算子
-  （`call_index`），现在没有；走通用那条路会把 `this` 静默变成 `undefined`——
-  **静默错值不如报错**；
+- **`o.m(...)`** → `call_method`（`this` 是接收者，键是**常量**）；
+- **`o[k](...)`** → 先 `get_prop` 按键取值（那一支收的是**值**键），
+  再用 `Op.Call` 的 **`D` 操作数**把接收者当 `this` 递过去——**`this` 同样是接收者**。
+  **不需要 `call_index` 那样的新算子**：值键与 `this` 槽两件都是现成的；
 - **别的形状**（标识符、调用结果 `f()()`、括号表达式…）→ 通用那条路：
-  先算成值再 `Call`。**它们都没有接收者**（`this` 是 `undefined`），这也是 JS 的语义。
+  先算成值再 `Call`，`D` 给 `-1`（**没有接收者**，`this` 是 `undefined`）——这也是 JS 的语义。
 
 **参数个数为 0 时也要占一格**：结果是写在参数基址上的，没有基址就没地方写。
 
@@ -3065,7 +3067,25 @@ if (calleeKind === "PropertyAccessExpression") {
   return this.LowerMethodCall(node, callee);
 }
 if (calleeKind === "ElementAccessExpression") {
-  throw new Error("unimplemented: calling a computed member (it needs a call-by-key op)");
+  // **计算成员调用 `o[k]()`**：先按键取值（`get_prop` 收的就是**值**键），
+  // 再用 `Op.Call` 的 `D` 操作数把**接收者当 `this`** 递过去——
+  // 这两件都是现成的（`get_prop` 的值键 + 第 47 轮加的那个 `this` 槽），
+  // 所以这里**一个新算子都不需要**。
+  const elementReceiver = this.LowerExpression(Child(callee, "expression"));
+  const elementKey = this.LowerExpression(Child(callee, "argumentExpression"));
+  const elementFn = this.RtCallValues(RtOp.GetProp, elementReceiver, elementKey);
+  const selfSlot = this.Reserve(1);
+  this.Emit(Op.Move, selfSlot, elementReceiver, -1, -1);
+  const elementArgs = ListOf(node, "arguments");
+  const elementCount = elementArgs.length;
+  const elementBase = this.Reserve(elementCount > 0 ? elementCount : 1);
+  for (let i = 0; i < elementCount; i++) {
+    this.LowerInto(elementBase + i, elementArgs[i]);
+  }
+  this.Emit(Op.Call, elementFn, elementBase, elementCount, selfSlot);
+  // **退到结果之上**（接收者那格、`this` 那格都在下面）。
+  this.Release(elementBase + 1);
+  return elementBase;
 }
 if (calleeKind === "SuperKeyword") {
   if (this.InSuperName === "") {

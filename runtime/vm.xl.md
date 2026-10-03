@@ -995,11 +995,37 @@ if (id === RtOp.DelProp) {
 }
 if (id === RtOp.GetIndex) {
   RequireArgc(argc, 2, "get_index");
-  return GetIndex(this.Table, slots[base], slots[base + 1]);
+  const indexReceiver = slots[base];
+  // **对象的下标读**：JS 的 `o[k]` 就是把键**字符串化**再按属性查。
+  // 数组那条路（真下标）先走；**不是数组就落到属性查找**——这一条以前直接抛，
+  // 于是「对象的下标读」一直是一条记在台账里的缺口。
+  //
+  // **字符串接收者仍然给 `undefined`**（`"abc"[0]` 在 JS 里是 `"a"`）：那是一块
+  // **已知的语义差**，写在规范里——不在这里顺手猜一个。
+  if (indexReceiver.Tag !== ValueTag.Array) {
+    if (!indexReceiver.IsObject()) return Value.Undefined();
+    const indexProtoTable = this.Protos;
+    if (indexProtoTable === null) throw new Error("no prototype table");
+    const indexKey = RtToString(this.Room(), this.Table, slots[base + 1]);
+    return this.Guard(() => GetProperty(this.Room(), this.Native(), indexProtoTable, this.Table,
+      indexReceiver, indexKey));
+  }
+  return GetIndex(this.Table, indexReceiver, slots[base + 1]);
 }
 if (id === RtOp.SetIndex) {
   RequireArgc(argc, 3, "set_index");
-  return this.Guard(() => SetIndex(this.Room(), this.Table, slots[base], slots[base + 1], slots[base + 2]));
+  const indexTarget = slots[base];
+  if (indexTarget.Tag !== ValueTag.Array) {
+    if (!indexTarget.IsObject()) {
+      throw new Error("unimplemented: assigning an index on a primitive receiver");
+    }
+    const setProtoTable = this.Protos;
+    if (setProtoTable === null) throw new Error("no prototype table");
+    const indexKey = RtToString(this.Room(), this.Table, slots[base + 1]);
+    return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table,
+      indexTarget, indexKey, slots[base + 2]));
+  }
+  return this.Guard(() => SetIndex(this.Room(), this.Table, indexTarget, slots[base + 1], slots[base + 2]));
 }
 if (id === RtOp.NewObject) {
   RequireArgc(argc, 0, "new_object");

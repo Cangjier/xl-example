@@ -3279,6 +3279,37 @@ check("模板串：内插（数字要转字符串）、多段、嵌套、空模�
   eq(hostStringOf(table, call("nested", [Value.FromInt(9)]).Value), nodeAt[6], "嵌套模板");
 });
 
+check("计算成员访问：对象下标读/写、`o[k]()` 的 `this`、数字键字符串化（与 Node 一致）", () => {
+  const source = [
+    "function run() {",
+    "  const o = { m: function (n) { return n * 2; }, v: 7 };",
+    "  const total = o['v'] + 1;",
+    "  o['w'] = total + 1;",
+    "  const doubled = o['m'](total);",
+    "  return doubled + o['w'];",
+    "}",
+    "function thisCheck() {",
+    "  const o = { base: 5, add: function (n) { return this.base + n; } };",
+    "  return o['add'](3);",
+    "}",
+    "function numericKey() { const o = { 1: 'one' }; return o[1]; }",
+    "function arrayPath(i) { const a = [10, 20, 30]; return a[i]; }",
+    "function arrayWrite(i) { const a = [1, 2]; a[i] = 9; return a[1]; }",
+  ].join("\n");
+  const nodeAt = new Function(source + "\nreturn [run(), thisCheck(), numericKey(), arrayPath(1), arrayWrite(1)];")();
+  eq(nodeAt[0], 25, "Node：读 8、写 9、调 16（这是前提）");
+  eq(nodeAt[1], 8, "Node：`o['add'](3)` 里 `this` 是 o（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source);
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+  const call = (name, args) => host.CallExport(module.ExportOf(name), args || []);
+  eq(call("run").Value.AsInt(), nodeAt[0], "对象下标读 + 写 + 计算成员调用");
+  eq(call("thisCheck").Value.AsInt(), nodeAt[1], "计算成员调用把接收者当 `this`");
+  eq(hostStringOf(table, call("numericKey").Value), nodeAt[2], "数字键先字符串化（`o[1]` 找的是 \"1\"）");
+  eq(call("arrayPath", [Value.FromInt(1)]).Value.AsInt(), nodeAt[3], "数组下标那条路一个字没变");
+  eq(call("arrayWrite", [Value.FromInt(1)]).Value.AsInt(), nodeAt[4], "数组下标写也一样");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
