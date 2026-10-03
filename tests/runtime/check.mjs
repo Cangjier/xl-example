@@ -4785,6 +4785,67 @@ check("内建的失败是**脚本接得住**的异常（第 121 轮：Vm.Raise +
   ok(escaped.indexOf("Object.keys") >= 0, "不兜底时宿主异常照样冒出（兜底不是摆设）：" + escaped);
 });
 
+check("JSON.parse：与 Node 逐值一致（坏输入**接得住**；深度上限是本仓的明确差异）", () => {
+  // 第 122 轮。它能做，是因为第 121 轮铺了「宿主异常 → 脚本异常」那条路：
+  // 没有它，这里唯一能报的错会把整份程序打断，`try { JSON.parse(t) } catch` 接不住。
+  const lines = [
+    "function run() {",
+    "  const one = JSON.parse('{\"a\":[1,2],\"b\":{\"c\":\"x\"},\"d\":null,\"e\":true}');",
+    "  const two = JSON.parse('  [1, 2, 3]  ');",
+    "  let bad = 0;",
+    "  try { JSON.parse('{'); } catch (error) { bad += 1; }",
+    "  try { JSON.parse('01'); } catch (error) { bad += 1; }",
+    "  try { JSON.parse('1 2'); } catch (error) { bad += 1; }",
+    "  try { JSON.parse('nul'); } catch (error) { bad += 1; }",
+    "  let deep = '';",
+    "  for (let i = 0; i < 70; i++) deep += '[';",
+    "  for (let i = 0; i < 70; i++) deep += ']';",
+    "  let deepBad = 0;",
+    "  try { JSON.parse(deep); } catch (error) { deepBad = 1; }",
+    "  return [one.a.join('-'), one.b.c, one.d === null ? 1 : 0, one.e ? 1 : 0,",
+    "    two.join('+'), JSON.stringify(one), bad, deepBad, JSON.parse('{}') && Object.keys(JSON.parse('{}')).length];",
+    "}",
+  ];
+  const source = lines.join("\n");
+  const nodeRun = () => {
+    const one = JSON.parse('{"a":[1,2],"b":{"c":"x"},"d":null,"e":true}');
+    const two = JSON.parse("  [1, 2, 3]  ");
+    let bad = 0;
+    try { JSON.parse("{"); } catch (error) { bad += 1; }
+    try { JSON.parse("01"); } catch (error) { bad += 1; }
+    try { JSON.parse("1 2"); } catch (error) { bad += 1; }
+    try { JSON.parse("nul"); } catch (error) { bad += 1; }
+    let deep = "";
+    for (let i = 0; i < 70; i++) deep += "[";
+    for (let i = 0; i < 70; i++) deep += "]";
+    let deepBad = 0;
+    try { JSON.parse(deep); } catch (error) { deepBad = 1; }
+    return [one.a.join("-"), one.b.c, one.d === null ? 1 : 0, one.e ? 1 : 0,
+      two.join("+"), JSON.stringify(one), bad, deepBad, Object.keys(JSON.parse("{}")).length];
+  };
+  const expected = nodeRun();
+  eq(expected[0], "1-2", "Node：嵌套数组（前提）");
+  eq(expected[6], 4, "Node：四种坏输入都抛（前提）");
+  eq(expected[7], 0, "Node：70 层嵌套它照收（前提——**本仓在这里明确不同**）");
+
+  // **本仓的已知差异写在这里**：`parse` 是宿主递归，而宿主栈溢出不可捕获 ⟹ 深度上限 64。
+  expected[7] = 1;
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  for (let i = 0; i < expected.length; i++) {
+    const actual = GetIndex(table, res.Value, Value.FromInt(i));
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

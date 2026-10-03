@@ -149,6 +149,20 @@ import { SetCtor } from "./set.xl.md"
 
 `JSON.stringify` 的能力号（`JSON` 段从 500 起）。
 
+# const JsonParse:int = 502
+
+**`JSON.parse` 的能力号**（第 122 轮补）。
+
+**它能做，是因为上一轮铺了那条路** ✓：坏输入是**脚本接得住**的异常 ✓——
+在此之前，这里唯一能做的「报错」是抛宿主异常 ✗，那会把整份程序打断，
+于是 `try { JSON.parse(text) } catch { … }` 这种**日常写法接不住** ✗（宁可缺也不这么给 ✗）。
+
+**数字按双精度解析** ✓（JSON 的规矩就是双精度 ✓）：整数落在 `i32` 里给 `Int32` ✓、
+其余给 `Float64` ✓（与 `MathResult` / 引擎的 `MakeNumber` 同一条口径 ✓）。
+**代价写在明处**：`Float64` 今天**没有文本形态** ✗（`TextUnitsOf` 对它抛 ✓）——
+所以 `JSON.parse("1.5")` 算得动、`console.log` 打不出来 ✓。这是**浮点文本形态**那一块的账 ✓，
+不是 `parse` 少做了哪一步 ✗。
+
 # const MaxJsonDepth:int = 64
 
 序列化深度上限。
@@ -156,6 +170,10 @@ import { SetCtor } from "./set.xl.md"
 **为什么用深度而不是「查环」**：真正的环检测要**记住访问过的对象**（一份身份集合），
 那是另一件事；而**深度上限**把「环」与「太深的结构」都变成**一条可捕获的错误**。
 代价写在明处：**一个刻意做得很深（但无环）的结构也会被拒**。
+
+**解析那一侧也用它**（第 122 轮）✓：`parse` 是**递归**的（宿主递归 ✓），
+而宿主栈溢出**不可捕获** ✗（`README` 的硬性约定第 2 条 ✓）——
+所以深度上限在这里是**安全要求**，不是风格选择 ✓。
 
 # method GlobalNames:()=>Array<string>
 
@@ -323,6 +341,14 @@ if (id === ObjectValues || id === ObjectEntries) {
     result.Push(pair);
   }
   return Value.FromArray(handle);
+}
+if (id === JsonParse) {
+  // **`JSON.parse`**（第 122 轮）：实参必须是字符串 ✓——坏输入**抛** ✓，
+  // 而那个抛由宿主通道抬成**脚本接得住**的异常 ✓（第 121 轮那条路 ✓）。
+  if (args.length < 1 || args[0].Tag !== ValueTag.String) {
+    throw new Error("JSON.parse needs a string");
+  }
+  return JsonParseText(room, table, protos, TextUnitsOf(table, args[0]));
 }
 if (id === JsonStringify) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
@@ -518,6 +544,296 @@ if (value.Tag === ValueTag.Object) {
 throw new Error("unimplemented: JSON of this kind of value");
 ```
 
+# method JsonHexDigit:(unit:int)=>int
+
+**一位十六进制**（`0-9` / `a-f` / `A-F`）；非法给 `-1` ✓。
+
+```ts
+if (unit >= 48 && unit <= 57) return unit - 48;
+if (unit >= 97 && unit <= 102) return unit - 87;
+if (unit >= 65 && unit <= 70) return unit - 55;
+return -1;
+```
+
+# method JsonSkipSpace:(text:Array<int>, cursor:any)=>void
+
+**跳过 JSON 允许的那四种空白**（空格 / 制表 / 换行 / 回车 ✓）——**只有这四种** ✓
+（JS 的 `JSON.parse` 就是这么定的 ✓：`\v` / `\f` / 不换行空格都不算 ✗）。
+
+**游标为什么是一个对象**：本仓的方法**只返回一个值** ✓，而解析要带出「读到哪了」✓——
+塞进一个只有本方法读写的对象里 ✓（与 `CollectDefaults` 那种「往调用方的数组里追加」同一个套路 ✓）。
+
+```ts
+while (cursor.At < text.length) {
+  const unit = text[cursor.At];
+  if (unit === 32 || unit === 9 || unit === 10 || unit === 13) {
+    cursor.At = cursor.At + 1;
+    continue;
+  }
+  return;
+}
+```
+
+# method JsonExpectWord:(text:Array<int>, cursor:any, word:string)=>void
+
+**认三个字面量词**（`true` / `false` / `null`）：逐码元比 ✓，比完把游标推过去 ✓；不一致就抛 ✓。
+
+```ts
+for (let i = 0; i < word.length; i++) {
+  if (cursor.At >= text.length || text[cursor.At] !== word.charCodeAt(i)) {
+    throw new Error("JSON.parse: expected " + word);
+  }
+  cursor.At = cursor.At + 1;
+}
+```
+
+# method JsonParseString:(text:Array<int>, cursor:any)=>Array<int>
+
+**解析一个 JSON 字符串字面量**：游标停在开引号上 ✓，成功时停在闭引号之后 ✓；返回**码元** ✓。
+
+**转义**：`\" \\ \/ \b \f \n \r \t` 与 `\uXXXX` ✓。
+**代理对原样两个码元** ✓——本仓的字符串就是 UTF-16 码元 ✓，
+不需要「拼成一个码位」那一步 ✓（那一步反而会把两个码元并成一个 ✗）。
+
+**不合法就抛** ✓：没闭合 ✓、裸控制字符 ✓（JSON 明文禁止 ✗）、不认识的转义 ✓、
+`\u` 后面不是四位十六进制 ✓。
+
+```ts
+if (cursor.At >= text.length || text[cursor.At] !== 34) {
+  throw new Error("JSON.parse: expected a string");
+}
+cursor.At = cursor.At + 1;
+const out: number[] = [];
+while (true) {
+  if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated string");
+  const unit = text[cursor.At];
+  cursor.At = cursor.At + 1;
+  if (unit === 34) return out;
+  if (unit < 32) throw new Error("JSON.parse: a raw control character in a string");
+  if (unit !== 92) {
+    out.push(unit);
+    continue;
+  }
+  if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated escape");
+  const escape = text[cursor.At];
+  cursor.At = cursor.At + 1;
+  if (escape === 34) {
+    out.push(34);
+    continue;
+  }
+  if (escape === 92) {
+    out.push(92);
+    continue;
+  }
+  if (escape === 47) {
+    out.push(47);
+    continue;
+  }
+  if (escape === 98) {
+    out.push(8);
+    continue;
+  }
+  if (escape === 102) {
+    out.push(12);
+    continue;
+  }
+  if (escape === 110) {
+    out.push(10);
+    continue;
+  }
+  if (escape === 114) {
+    out.push(13);
+    continue;
+  }
+  if (escape === 116) {
+    out.push(9);
+    continue;
+  }
+  if (escape !== 117) throw new Error("JSON.parse: unknown escape");
+  let value = 0;
+  for (let i = 0; i < 4; i++) {
+    if (cursor.At >= text.length) throw new Error("JSON.parse: truncated \\u escape");
+    const digit = JsonHexDigit(text[cursor.At]);
+    if (digit < 0) throw new Error("JSON.parse: bad \\u escape");
+    value = value * 16 + digit;
+    cursor.At = cursor.At + 1;
+  }
+  out.push(value);
+}
+```
+
+# method JsonParseNumber:(text:Array<int>, cursor:any)=>Value
+
+**解析一个 JSON 数字**：`-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?` ✓
+（前导零 ✗、`1.` ✗、`.5` ✗、`1e` ✗——**每一条都抛** ✓，与 JS 一样严 ✓）。
+
+**先按文法切出那一段文本，再交给宿主做十进制 → 双精度** ✓——
+**这一步用宿主是应该的** ✓：正确舍入的十进制转换是 IEEE 754 的活儿 ✓
+（TS 的 `Number` 与 C++ 的 `strtod` 都给「最近的那个双精度」✓），手写一遍只会写错 ✗。
+（与 `TextFrom` / `UnitsOf` 同一条口径 ✓：**建库层是宿主侧代码** ✓；
+「引擎侧不许用宿主库」那条规矩管的是 `runtime/` ✓。）
+
+**整的、且在 `i32` 里就给 `Int32`** ✓，其余给 `Float64` ✓——与 `MathResult` / `MakeNumber`
+同一条口径 ✓（同一个数在两处不该有两种标签 ✓）。
+
+```ts
+const start = cursor.At;
+if (cursor.At < text.length && text[cursor.At] === 45) cursor.At = cursor.At + 1;
+if (cursor.At >= text.length) throw new Error("JSON.parse: a number with no digits");
+if (text[cursor.At] === 48) {
+  // **前导零只许一个** ✓：`01` 是坏的 ✓。
+  cursor.At = cursor.At + 1;
+} else if (text[cursor.At] >= 49 && text[cursor.At] <= 57) {
+  while (cursor.At < text.length && text[cursor.At] >= 48 && text[cursor.At] <= 57) {
+    cursor.At = cursor.At + 1;
+  }
+} else {
+  throw new Error("JSON.parse: a number must start with a digit");
+}
+if (cursor.At < text.length && text[cursor.At] === 46) {
+  cursor.At = cursor.At + 1;
+  if (cursor.At >= text.length || text[cursor.At] < 48 || text[cursor.At] > 57) {
+    throw new Error("JSON.parse: a fraction needs digits");
+  }
+  while (cursor.At < text.length && text[cursor.At] >= 48 && text[cursor.At] <= 57) {
+    cursor.At = cursor.At + 1;
+  }
+}
+if (cursor.At < text.length && (text[cursor.At] === 101 || text[cursor.At] === 69)) {
+  cursor.At = cursor.At + 1;
+  if (cursor.At < text.length && (text[cursor.At] === 43 || text[cursor.At] === 45)) {
+    cursor.At = cursor.At + 1;
+  }
+  if (cursor.At >= text.length || text[cursor.At] < 48 || text[cursor.At] > 57) {
+    throw new Error("JSON.parse: an exponent needs digits");
+  }
+  while (cursor.At < text.length && text[cursor.At] >= 48 && text[cursor.At] <= 57) {
+    cursor.At = cursor.At + 1;
+  }
+}
+let literal = "";
+for (let i = start; i < cursor.At; i++) literal = literal + String.fromCharCode(text[i]);
+const number = Number(literal);
+if (Number.isInteger(number) && number >= -2147483648 && number <= 2147483647) {
+  return Value.FromInt(number);
+}
+return Value.FromDouble(number);
+```
+
+# method JsonParseValue:(room:RoomChecker, table:HeapTable, protos:Protos, text:Array<int>, cursor:any, depth:int)=>Value
+
+**解析一个 JSON 值**（递归下降 ✓；每一种值一支 ✓）。
+
+**深度上限**：超过 `MaxJsonDepth` 就抛 ✓——`parse` 是**宿主递归** ✓，
+而宿主栈溢出**不可捕获** ✗（`README` 的硬性约定第 2 条 ✓），所以这不是风格问题 ✓。
+
+**对象用 `NewPlainObject`、数组用 `NewPlainArray`** ✓（都带上原型表给的原型 ✓）：
+于是 `JSON.parse('{"a":1}').a` ✓ 与 `JSON.parse('[1,2]').join('-')` ✓ 都成立 ✓。
+**重复的键后面那个赢** ✓（JS 就是 `SetProperty` 覆盖 ✓，这一条与真实实现一致 ✓）。
+
+**字符串那一格要先问 room** ✓：`table.CreateString` **自己不问** ✓（`heap.xl.md` 里它只管分配 ✓），
+而解析出来的每一段文本都是新对象 ✓——不问就是绕过资源上限 ✗。
+
+```ts
+if (depth > MaxJsonDepth) throw new Error("JSON.parse: this document is nested too deeply");
+JsonSkipSpace(text, cursor);
+if (cursor.At >= text.length) throw new Error("JSON.parse: unexpected end of input");
+const unit = text[cursor.At];
+if (unit === 123) {
+  cursor.At = cursor.At + 1;
+  const created = NewPlainObject(room, table, protos);
+  JsonSkipSpace(text, cursor);
+  if (cursor.At < text.length && text[cursor.At] === 125) {
+    cursor.At = cursor.At + 1;
+    return created;
+  }
+  while (true) {
+    JsonSkipSpace(text, cursor);
+    const key = JsonParseString(text, cursor);
+    JsonSkipSpace(text, cursor);
+    if (cursor.At >= text.length || text[cursor.At] !== 58) {
+      throw new Error("JSON.parse: expected ':'");
+    }
+    cursor.At = cursor.At + 1;
+    const value = JsonParseValue(room, table, protos, text, cursor, depth + 1);
+    if (!room(ObjectCharge + CodeUnitCharge * key.length)) throw new Error("out of room");
+    SetProperty(room, NeverCall, table, created, Value.FromString(table.CreateString(key)), value);
+    JsonSkipSpace(text, cursor);
+    if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated object");
+    if (text[cursor.At] === 44) {
+      cursor.At = cursor.At + 1;
+      continue;
+    }
+    if (text[cursor.At] === 125) {
+      cursor.At = cursor.At + 1;
+      return created;
+    }
+    throw new Error("JSON.parse: expected a comma or the closing brace");
+  }
+}
+if (unit === 91) {
+  cursor.At = cursor.At + 1;
+  const array = NewPlainArray(room, table, protos);
+  JsonSkipSpace(text, cursor);
+  if (cursor.At < text.length && text[cursor.At] === 93) {
+    cursor.At = cursor.At + 1;
+    return array;
+  }
+  while (true) {
+    const value = JsonParseValue(room, table, protos, text, cursor, depth + 1);
+    table.Get(array.Ref).AsArray().Push(value);
+    JsonSkipSpace(text, cursor);
+    if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated array");
+    if (text[cursor.At] === 44) {
+      cursor.At = cursor.At + 1;
+      continue;
+    }
+    if (text[cursor.At] === 93) {
+      cursor.At = cursor.At + 1;
+      return array;
+    }
+    throw new Error("JSON.parse: expected a comma or the closing bracket");
+  }
+}
+if (unit === 34) {
+  const units = JsonParseString(text, cursor);
+  if (!room(ObjectCharge + CodeUnitCharge * units.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(units));
+}
+if (unit === 116) {
+  JsonExpectWord(text, cursor, "true");
+  return Value.FromBool(true);
+}
+if (unit === 102) {
+  JsonExpectWord(text, cursor, "false");
+  return Value.FromBool(false);
+}
+if (unit === 110) {
+  JsonExpectWord(text, cursor, "null");
+  return Value.Null();
+}
+if (unit === 45 || (unit >= 48 && unit <= 57)) return JsonParseNumber(text, cursor);
+throw new Error("JSON.parse: unexpected character");
+```
+
+# method JsonParseText:(room:RoomChecker, table:HeapTable, protos:Protos, text:Array<int>)=>Value
+
+**`JSON.parse` 的正身**：解析**一个**值，然后要求**后面只剩空白** ✓——
+`"1 2"` / `"{}extra"` 都是坏的 ✓（JS 也拒 ✓）。
+
+**为什么自己走一遍、不用宿主的 `JSON.parse`** ✓：它给的是**宿主对象** ✗，
+而这一层要的是**堆里的值** ✓（转换那一步要另写一套，还多一次分配）；
+更要紧的是**跨目标** ✗——C++ 那边抄不了 `JSON.parse` ✓，
+而这一份逻辑逐行都能翻 ✓（与 `DateParts` 用 Hinnant 公式而不是宿主日期库同一条理由 ✓）。
+
+```ts
+const cursor = { At: 0 };
+const value = JsonParseValue(room, table, protos, text, cursor, 0);
+JsonSkipSpace(text, cursor);
+if (cursor.At !== text.length) throw new Error("JSON.parse: trailing characters after the value");
+return value;
+```
+
 # method BuildGlobals:(vm:Vm, protos:Protos, sink:LogSink)=>Value
 
 **造出交给模块的那个环境对象**：`{ Math: {...}, console: {...} }`。
@@ -550,6 +866,10 @@ const jsonObject = NewPlainObject(vm.Room(), table, protos);
 const stringifyKey = Value.FromString(table.CreateString(Units("stringify")));
 const stringifyTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(JsonStringify, 0));
 SetProperty(vm.Room(), NeverCall, table, jsonObject, stringifyKey, stringifyTarget);
+// `JSON.parse`（第 122 轮）：与 `stringify` 同一张对象上再挂一个号 ✓。
+const parseKey = Value.FromString(table.CreateString(Units("parse")));
+const parseTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(JsonParse, 0));
+SetProperty(vm.Room(), NeverCall, table, jsonObject, parseKey, parseTarget);
 
 // `Object.values` / `Object.entries`（第 120 轮补）：与 `keys` 同一张对象上再挂两个号 ✓。
 const valuesKey = Value.FromString(table.CreateString(Units("values")));
