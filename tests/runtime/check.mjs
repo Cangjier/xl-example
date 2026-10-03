@@ -2707,13 +2707,21 @@ check("Object.keys 与 JSON.stringify：与 Node 一致（含「没有 JSON 形�
   host.Machine.Release(obj.Ref);
 });
 
-check("生成器降级：函数表标记正确、yield 与 yield* 的位置检查", () => {
+check("生成器降级：yield / 传入值当返回值 / for..of 遍历 / 位置检查（与 Node 一致）", () => {
   const source = [
     "function* pair() { yield 1; yield 2; }",
-    "function* empty() {}",
-    "function plain() { return 1; }",
+    "function* echo() { const got = yield 10; yield got; return 'end'; }",
+    "function sum() {",
+    "  let total = 0;",
+    "  for (const v of pair()) { total = total + v; }",
+    "  return total;",
+    "}",
   ].join("\n");
-  const { module, host } = lowerAndLoad(source);
+  const nodeAt = new Function(source
+    + "\nconst g = pair(); const a = g.next(); const b = g.next(); const c = g.next();"
+    + " const e = echo(); const ea = e.next(); const eb = e.next(42); const ec = e.next(0);"
+    + " return [a.value, a.done, b.value, b.done, c.done, ea.value, eb.value, ec.value, ec.done, sum()];")();
+  const { module, host, table } = lowerAndLoad(source);
   eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
   const generators = module.Program.Functions.filter((info) => info.IsGenerator);
   eq(generators.length, 2, "两个生成器函数被标记出来（pair 与 empty）");
@@ -2735,10 +2743,54 @@ check("生成器降级：函数表标记正确、yield 与 yield* 的位置检�
   }
   eq(delegated.indexOf("yield*") >= 0, true, "yield* 必须抛（委托迭代还没做）：" + delegated);
 
-  // **已知缺口**（`docs/typescript-parsing-gaps.md` 有复现）：宿主**直接推**一个生成器
-  // （`machine.DoIterNext`）时推进循环一步都不跑、产出是 `undefined`。
-  // 脚本内调用生成器与宿主直调是两条不同的路（后者没有调用者的帧），这一轮只把降级侧做完。
-  void host;
+  let label = "取导出";
+  try {
+  const pair = host.CallExport(module.ExportOf("pair"), []);
+  eq(pair.Outcome, HostOutcome.Ok, "调用生成器函数");
+  eq(pair.Value.Tag, ValueTag.Object, "拿到的是个对象（体没跑）");
+  host.Machine.Retain(pair.Value);
+  const step = (gen, sent) => host.Machine.DoIterNext(gen, sent);
+  label = "pair 第 1 步";
+  const first = step(pair.Value, Value.Undefined());
+  eq(GetIndex(table, first, Value.FromInt(0)).AsInt(), nodeAt[0], "第一次产出 1");
+  eq(GetIndex(table, first, Value.FromInt(1)).AsBool(), nodeAt[1], "还没结束");
+  label = "pair 第 2 步";
+  const second = step(pair.Value, Value.Undefined());
+  eq(GetIndex(table, second, Value.FromInt(0)).AsInt(), nodeAt[2], "第二次产出 2");
+  eq(GetIndex(table, second, Value.FromInt(1)).AsBool(), nodeAt[3], "还没结束");
+  label = "pair 第 3 步";
+  const third = step(pair.Value, Value.Undefined());
+  eq(GetIndex(table, third, Value.FromInt(1)).AsBool(), nodeAt[4], "这次结束了");
+  eq(GetIndex(table, third, Value.FromInt(0)).IsUndefined(), true, "结束后产出 undefined");
+
+  label = "echo 调用";
+  const echo = host.CallExport(module.ExportOf("echo"), []);
+  eq(echo.Outcome, HostOutcome.Ok, "调用 echo 要成功（失败原因见这里）：" + echo.Message);
+  host.Machine.Retain(echo.Value);
+  label = "echo 第 1 步";
+  const echoFirst = step(echo.Value, Value.Undefined());
+  label = "echo 第 2 步";
+  const sent = step(echo.Value, Value.FromInt(42));
+  eq(GetIndex(table, echoFirst, Value.FromInt(0)).AsInt(), nodeAt[5], "先产出 10");
+  eq(GetIndex(table, sent, Value.FromInt(0)).AsInt(), nodeAt[6], "`next(42)` 的值成了 yield 的值");
+  eq(GetIndex(table, sent, Value.FromInt(1)).AsBool(), false, "还没结束");
+  label = "echo 第 3 步";
+  const finished = step(echo.Value, Value.FromInt(0));
+  eq(hostStringOf(table, GetIndex(table, finished, Value.FromInt(0))), nodeAt[7], "`return` 的值是最后一次产出的");
+  eq(GetIndex(table, finished, Value.FromInt(1)).AsBool(), nodeAt[8], "这次结束了");
+  } catch (error) {
+    throw new Error("在「" + label + "」处：" + String(error.message));
+  }
+  let iterated = "";
+  let iteratedValue = 0;
+  try {
+    iteratedValue = host.CallExport(module.ExportOf("sum"), []).Value.AsInt();
+    eq(iteratedValue, nodeAt[9], "for..of 把两次产出加起来");
+  } catch (error) {
+    iterated = String(error.message) + "（状态=" + host.Machine.Status
+      + " 栈深=" + host.Machine.Frames.Depth() + " 步数=" + host.Machine.Steps + "）";
+  }
+  eq(iterated, "", "for..of 遍历生成器：" + iterated);
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {

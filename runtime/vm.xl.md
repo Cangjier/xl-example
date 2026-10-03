@@ -753,9 +753,12 @@ for (let i = 0; i < args.length; i++) {
 const generatorHandle = this.Table.CreateGenerator(createdHandle);
 created.Generator = generatorHandle;
 this.Result = Value.FromObject(generatorHandle);
-// **不改 `Finished` / `Status`**：造一个生成器对象**不是「执行结束」**——
-// 把它当成结束，后面的 `DoIterNext` 就推不动了（`RunToDepth` 一看「已结束」就收工；
-// 判据报的是「产出是 undefined」，而真正的问题是**这次调用谎报了结束**）。
+// **这一次宿主调用到此结束**：产出就是那个生成器对象。
+// 曾经不标它，宿主把这次调用判成「在等承诺」（`Parked`）——因为「没帧了、又没结束」
+// 在宿主眼里就是挂起。**与 `DoIterNext` 入口处那次重置是一对**：那边负责让
+// 「推进生成器」不被上一次的结束状态挡住，这边负责让「造生成器」这次调用有明确结局。
+this.Finished = true;
+this.Status = VmStatus.Halted;
 return true;
 ```
 
@@ -1140,7 +1143,14 @@ this.RunToDepth(depth);
 this.NativeDepth = this.NativeDepth - 1;
 const produced = this.NativeResult;
 this.NativeResult = new Value();
-if (this.Status !== VmStatus.Ready) return Value.Undefined();
+// **不能按「状态是不是 Ready」判成败**：挂起会把栈清空，而运行循环的口径是
+// 「没有帧了 = 停了」——那是**调用结束**的意思，可这里明明是**挂起**。
+// 所以结局按**生成器自己的状态**判（Suspended 与 Done 都是正常结果）；
+// 真出了事（抛了 / 越限）就**响亮地报出来**，而不是让调用方拿到一个 `undefined`
+// 却以为「生成器产出的就是 undefined」。
+if (this.Status !== VmStatus.Ready && this.Status !== VmStatus.Halted) {
+  throw new Error("the generator neither suspended nor finished (status " + this.Status + ")");
+}
 if (generator.State === GeneratorState.Suspended) return this.MakeIterResult(produced, false);
 generator.State = GeneratorState.Done;
 return this.MakeIterResult(produced, true);
