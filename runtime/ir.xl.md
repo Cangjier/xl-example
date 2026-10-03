@@ -638,6 +638,23 @@ this.IsGenerator = false;
 this.IsAsync = false;
 ```
 
+# method ShiftPc:(instr:Instruction, base:int)=>void
+
+**把一条指令里的 pc 操作数挪 `base`**（链接时用）。
+
+**只有这两条指令带 pc**：`Op.Jump` 与 `Op.JumpIfFalse`，目标都在 **`B`**
+（验证层也是这么查的，见 `ir-verify.xl.md`）。**改这里的表，要连那边一起改**——
+两处是同一份知识，只是用途不同（一个挪、一个查）。
+
+**它在顶层而不是 `Program` 的成员**：链接器把它当**纯函数**用（只改传进来的那一条 ✓），
+不经过任何程序对象——这条也是试出来的（写成成员时 `link.xl.md` 找不到它）。
+
+```ts
+if (instr.Op === Op.Jump || instr.Op === Op.JumpIfFalse) {
+  if (instr.B >= 0) instr.B = instr.B + base;
+}
+```
+
 # class Program
 
 一个程序。
@@ -673,6 +690,19 @@ this.IsAsync = false;
 
 编译这张程序时**运行时算子表 + 语言内建表**的指纹。装载时不一致就拒——
 它挡的是「拿旧程序配新引擎」那种会静默跑歪的错配。
+
+## field EntryConstants:Array<int> = []
+
+**哪些常量是「函数入口 pc」**（下标进 `Consts`）。
+
+**为什么必须声明、不能靠猜**：闭包靠 `Constant.OfInt(入口 pc)` 记住自己从哪开始
+（降级层的 `Patch` 就是它）。把两份程序拼成一份时，那些常量要跟着基址挪——
+而**脚本里的字面量整数也在常量池里**，值可能与某个入口 pc 相同。
+「扫一遍、值相等就挪」会**静默改掉字面量**：那是这一层最不能犯的错。
+所以由**降级层**（它知道每一个 `Patch`）在这里列出来。
+
+**它不上线**：链接发生在**编码之前**（驱动的动作），合并后的程序里这些常量
+已经是绝对 pc，不再需要标记。所以线格式与装载验证都不认识这个字段。
 
 ## constructor:()=>void
 

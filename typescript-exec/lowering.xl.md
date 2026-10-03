@@ -1130,7 +1130,12 @@ for (let i = 0; i < this.Pending.length; i++) {
   const info = new FunctionInfo(item.Entry, item.SlotCount, item.ParamCount);
   // **生成器函数**：调用它**只造对象、不跑体**（引擎的 `DoCallValue` 那条分支）。
   info.IsGenerator = item.IsGenerator;
+  info.IsAsync = item.IsAsync;
   this.Program().Functions.push(info);
+  // **这个常量的值是「函数入口 pc」**——链接时要跟着基址挪（`ir.xl.md` 的
+  // `EntryConstants`）：不声明的话，链接器只能靠「值相等」去猜，
+  // 而脚本里的字面量整数也在常量池里，猜错就是**静默改掉一个数字**。
+  this.Program().EntryConstants.push(item.Patch);
   this.Module.AddEntry(item.Name, i + 1);
 }
 return this.Module;

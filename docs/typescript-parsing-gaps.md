@@ -3730,3 +3730,38 @@ function viaExtends() { const b = new B(); return b.m(); }
 2. **字面量的 `text` 口径不统一**：普通字符串与非空模板按老规矩（裸内容 / 带引号原文），
    而**空模板**实测给的是带反引号的原文。降级层因此写成「**有反引号就剥掉**」，
    两种口径都接得住。**该统一的是投影**（字面量的 `text` 只该有一套口径），记在这里。
+## 多程序链接（第 52/53 轮）：链接器写好、数据契约成立，**端到端还差一里**
+
+`runtime/link.xl.md`：把多份 `Program` 拼成一份（**纯函数**，不改源程序）。
+四类下标都挪：① 指令 pc（`ir.xl.md` 的 `ShiftPc`——唯一知道「哪两条指令带 pc」的地方）；
+② **入口常量**（`Program.EntryConstants`，**降级层声明，不许猜**：脚本里的字面量整数
+也在常量池里，值可能与入口 pc 相同，「扫一遍相等就挪」会静默改掉字面量）；
+③ 异常表下标（`TryPush` 的操作数）；④ 源码跨度下标（`Instruction.Src`）。
+函数表 `Entry` 与异常表三个 pc 字段也挪；**指纹不同就拒**。
+
+**已经成立的（判据断言）**：指令与函数表拼接正确、**源程序不被改动**（链接是纯函数）、
+指纹不同就拒、**声明的入口常量每一个都真的指向某个函数入口**。
+`set_proto` 那条同类的引擎层判据也在（链上查找、自环拒绝、原始值接收者抛）。
+
+**还差的**：把链接后的程序**跑起来**。B 的入口在绑全局名时报
+`property keys must be strings or symbols`（`machine.Run()` 那一行）。
+**复现**：降级 A ＋ 降级 B → `LinkPrograms` → `Load(Encode(linked))` →
+`Start(函数表里 A 之后那一项, [B 的环境])` → `Run()` 抛。
+**排查方向（下一轮照做，先量后改）**：把链接后 `Consts` 的 `Tag` 逐项打出来，
+确认字符串常量**没有**被改成整数；再看 B 入口那条 `get_prop` 的**键常量下标**
+在合并后是否仍指向同一个字符串。（第一版链接器把所有常量按 `OfInt` 复制，
+字符串因此变成整数——已经改成原样搬，但错误依旧，所以嫌疑还没排完。）
+
+### 附：一次构建产物被写坏的事故（以及恢复办法）
+
+中断 `npm run compile` 之后，`build/ts/core/syntax/**` 里留下**被截断/写坏的文件**，
+症状是**所有 Node 对拍判据一起红**，报的都是 `Invalid or unexpected token`,
+而 `node --check tests/runtime/check.mjs` 却是通过的（判据文件本身没坏）。
+
+**定位办法（值得记住）**：把生成物逐个语法检查一遍——
+
+```
+Get-ChildItem build\ts -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
+```
+
+坏文件会被点名。**恢复**：`xl_build --force` 重建 → `npm run compile` ✓。

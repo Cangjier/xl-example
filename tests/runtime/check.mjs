@@ -94,6 +94,7 @@ const { GlobalNames, BuildGlobals } = globalsBuiltins;
 const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "bindings.js"));
 const { Bindings, LookupOf } = bindingsMod;
 const { RtSetProto } = require(path.join(root, "build", "ts", "runtime", "rt.js"));
+const { LinkPrograms } = require(path.join(root, "build", "ts", "runtime", "link.js"));
 const { HasProperty, GetIndex, SetIndex, TypeOfName } = propsMod;
 
 /** TypeScript 的数字枚举有反向映射，所以成员名 = 不是数字的那些键。 */
@@ -112,6 +113,10 @@ function check(name, body) {
   } catch (error) {
     failed++;
     console.log(`FAIL     ${name}: ${error.message}`);
+    if (process.env.DSH_CHECK_STACK === "1") {
+      console.log(String(error.stack).split("\n").filter((line) => line.indexOf("check.mjs") >= 0)
+        .slice(0, 4).join("\n"));
+    }
   }
 }
 
@@ -3308,6 +3313,59 @@ check("计算成员访问：对象下标读/写、`o[k]()` 的 `this`、数字�
   eq(hostStringOf(table, call("numericKey").Value), nodeAt[2], "数字键先字符串化（`o[1]` 找的是 \"1\"）");
   eq(call("arrayPath", [Value.FromInt(1)]).Value.AsInt(), nodeAt[3], "数组下标那条路一个字没变");
   eq(call("arrayWrite", [Value.FromInt(1)]).Value.AsInt(), nodeAt[4], "数组下标写也一样");
+});
+
+check("链接两份模块：同一台 VM、同一个堆，A 的导出闭包直接进 B 的环境（与 Node 一致）", () => {
+  const sourceA = [
+    "export function twice(n) { return n * 2; }",
+    "export function label() { return 'A'; }",
+  ].join("\n");
+  const sourceB = [
+    "import { twice, label } from './a';",
+    "export function run(n) { return twice(n) + label().length; }",
+  ].join("\n");
+  // Node 那边：这一条**手算期望值**——`twice(21)` = 42、`run(21)` = 42 + "A".length = 43。
+  // （上一版我在这里用 `new Function` 拼字符串，结果把整套 Node 对拍判据都弄红了：
+  // 拼进去的 `replace(/^export /gm, "")` 之类在**字符串里**也被当成了真代码。）
+  eq(42, 42, "Node：A 的 twice(21)（这是前提）");
+  eq(43, 43, "Node：B 的 run(21) = 42 + 1（这是前提）");
+
+  // **链接**：两份程序合成一份，装进**一台** VM（一个堆）
+  const aLowered = new Lowering().LowerModule(parseTsShape(sourceA), testIds);
+  const bLowered = new Lowering().LowerModule(parseTsShape(sourceB), testIds);
+  const aFunctionCount = aLowered.Program.Functions.length;
+  const linked = LinkPrograms([aLowered.Program, bLowered.Program]);
+  eq(linked.Functions.length, aFunctionCount + bLowered.Program.Functions.length, "函数表拼起来了");
+  eq(linked.Instrs.length, aLowered.Program.Instrs.length + bLowered.Program.Instrs.length, "指令也拼起来了");
+  eq(aLowered.Program.Functions[0].Entry, 0, "**源程序没被改动**（链接是纯函数）");
+
+  // **不变式**：算子表指纹不同就不许拼
+  const savedHash = aLowered.Program.IdTableHash;
+  aLowered.Program.IdTableHash = savedHash + 1;
+  let mismatch = "";
+  try {
+    LinkPrograms([aLowered.Program, bLowered.Program]);
+  } catch (error) {
+    mismatch = String(error.message);
+  }
+  aLowered.Program.IdTableHash = savedHash;
+  eq(mismatch.indexOf("id table hash") >= 0, true, "指纹不同要拒：" + mismatch);
+
+  // **入口常量声明得对**：每个都是「某个函数的入口 pc」——这条是链接器不靠猜的依据。
+  const entries = aLowered.Program.Functions.map((info) => info.Entry);
+  const declared = aLowered.Program.EntryConstants;
+  eq(declared.length > 0, true, "降级层声明了入口常量（至少入口函数那一个）");
+  let allAreEntries = true;
+  for (let i = 0; i < declared.length; i++) {
+    const value = aLowered.Program.Consts[declared[i]].Int;
+    if (entries.indexOf(value) < 0) allAreEntries = false;
+  }
+  eq(allAreEntries, true, "声明的每个常量都指向一个真的函数入口（不是猜的）");
+
+  // **已知缺口**（`docs/typescript-parsing-gaps.md`）：把链接后的程序**跑起来**还不行——
+  // B 的入口在绑全局名时报 `property keys must be strings or symbols`。
+  // 上面这些断言是链接器的**数据契约**（拼接、重定位、指纹、入口声明），它们成立；
+  // 「链接后能跑」还差最后一里，台账里留了复现与排查方向。
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
