@@ -72,9 +72,12 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 + **`super(m)` 落在内建构造函数上**（第 140 轮：`class MyErr extends Error { constructor(m) { super(m) } }`——
 内建错误构造函数往**传进来的 `this`** 上初始化并返回它，于是自定义错误类通了）
 + **派生类的默认构造函数 · `super(...xs)`**（第 141 轮：`class E extends Error {}` 合成 JS 那个
-`constructor(...args) { super(...args) }`，「父类有没有构造函数」还要**递归**问），
+`constructor(...args) { super(...args) }`，「父类有没有构造函数」还要**递归**问）
++ **回调要两个实参的那一族**（第 142 轮：`NativeCall` 的实参表从「一个值」开宽成**一整个数组**，
+于是 `sort((a, b) => …)` · `reduce((acc, x) => …)` · `map((v, i) => …)` · `Map.forEach((v, k) => …)`
+一起通了；顺带铺上 `shift` / `fill` / `flat`），
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（192 条）与 `npm run runtime:cli`（33 份语料）；
+判据见 `npm run runtime:check`（193 条）与 `npm run runtime:cli`（34 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

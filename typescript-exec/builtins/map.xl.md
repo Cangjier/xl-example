@@ -264,7 +264,13 @@ if (id === MapForEach) {
   const eachTotal = table.Get(keys.Ref).AsArray().GetLength();
   for (let i = 0; i < eachTotal; i++) {
     if (table.Get(keys.Ref).AsArray().IsHole(i)) continue;
-    call(args[0], Value.Undefined(), table.Get(values.Ref).AsArray().GetAt(i), true);
+    // **回调收 `(值, 键)`**（第 142 轮 ✓）：实参表那一格开宽之后，这里就能把**键**也递过去 ✓——
+    // 上一轮之前只能给一个 ✓（`NativeCall` 只带一个实参 ✗），
+    // 于是 `m.forEach((v, k) => …)` 里的 `k` 是 `undefined` ✗（**静默错值** ✓，
+    // 普查里那一条就是它：`map-iterate` 打出 `undefined1` 而不是 `a1` ✓）。
+    // **键是现成的值** ✓（`keys` 那个数组里存的就是它 ✓）——不要再包一层 ✗。
+    call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i),
+      table.Get(keys.Ref).AsArray().GetAt(i)]);
   }
   return Value.Undefined();
 }

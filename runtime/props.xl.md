@@ -32,14 +32,21 @@ import { RoomChecker } from "./rt.xl.md"
 内建原型）。但这一层仍然给一个**深度上限**（`MaxProtoDepth`）：万一哪天加了改原型的路，
 也不会变成死循环。
 
-# type NativeCall = (callee:Value, thisValue:Value, argument:Value, hasArgument:boolean)=>Value
+# type NativeCall = (callee:Value, thisValue:Value, args:Array<Value>)=>Value
 
-**从语义层回调进脚本**：`callee` 用 `thisValue` 当 `this` 调一次，返回它的返回值；
-`hasArgument` 为真时把 `argument` 当第一个实参（setter 用）。
+**从语义层回调进脚本**：`callee` 用 `thisValue` 当 `this` 调一次，**按 `args` 逐个铺实参**，
+返回它的返回值。
 
 与 `RoomChecker` 同一形状、同一理由：依赖方向只能是 `vm → props`（机器用语义），
 反过来就成环了。**访问器**（getter / setter）就是它的第一个用户——它必须**重入分派循环**
 才能跑脚本函数，而那台循环在 `vm.xl.md` 手里。
+
+**实参表是一整个数组**（第 142 轮改的 ✓）：原来是「一个值 + 一个 `hasArgument` 标志」✗——
+那够访问器用 ✓（getter 零个、setter 一个 ✓），也够 `Map.forEach(v => …)` 用 ✓，
+**但不够 `sort((a, b) => …)` 与 `reduce((acc, x) => …)`** ✗——
+那是**两个**实参 ✓，而它们是日常代码里最常见的两个数组方法 ✓。
+**一次把口子开到位** ✓：以后再有「回调要三个实参」的（`Array.prototype.map` 的
+`(值, 下标, 数组)` ✓）不必再动签名 ✓。
 
 **回调不是随便能重入的**：机器那边有**重入深度上限**（安全第 4 层）——
 脚本可以在 getter 里再读同一个属性，没有上限就是栈溢出的另一种写法。
@@ -357,7 +364,7 @@ if (property.Kind === PropertyKind.Accessor) {
   if (!property.Getter.IsCallable()) {
     throw new Error("unimplemented: this should throw a TypeError (accessor without a getter)");
   }
-  return call(property.Getter, receiver, Value.Undefined(), false);
+  return call(property.Getter, receiver, []);
 }
 return property.Value;
 ```
@@ -400,7 +407,7 @@ if (found !== null) {
     if (!property.Setter.IsCallable()) {
       throw new Error("unimplemented: this should throw a TypeError (accessor without a setter)");
     }
-    call(property.Setter, receiver, value, true);
+    call(property.Setter, receiver, [value]);
     return value;
   }
   if ((property.Flags & PropertyFlagWritable) === 0) {

@@ -78,6 +78,54 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 # const ArrayFindIndex:int = 16
 **`findIndex(回调)`** 的号（第 130 轮）——第一个让回调为真的**下标** ✓；
 一个都没有给 `-1` ✓（与 `find` 同一条通道 ✓，只是交出去的是下标 ✓）。
+# const ArraySort:int = 18
+
+**`sort(比较器)`**（第 142 轮）——**排序是原地**的 ✓（JS 的 `sort` 改的是那个数组本身 ✓，
+返回的也是它 ✓），所以它 `Recount` 之后把 `self` 还回去 ✓。
+
+**没有比较器时按「转成字符串再比」** ✓（JS 的口径 ✓）：`[10, 9].sort()` 给 `[10, 9]` ✓
+（`"10" < "9"` ✓），而 `[10, 9].sort((a, b) => a - b)` 给 `[9, 10]` ✓——
+**这一条最容易想当然** ✗（按数值排看起来「更对」，但不是 JS ✓）。
+
+**算法**：插入排序 ✓——数组在这一层是小东西 ✓，而**稳定性**要照 JS 办 ✓
+（`Array.prototype.sort` 在 ES2019 起保证稳定 ✓）：插入排序天然稳定 ✓，
+快排要额外下功夫 ✗。比较器返回**负数 / 零 / 正数**三种意思 ✓（零表示相等、保持原顺序 ✓）。
+
+**回调要两个实参** ✓——这正是第 142 轮把 `NativeCall` 的实参表开宽的原因之一 ✓
+（原来只带一个 ✗，`sort` 根本无从下手 ✓）。
+# const ArrayReduce:int = 19
+
+**`reduce(回调, 初值?)`**（第 142 轮）——把数组折成一个值 ✓。**两处最容易写错的地方** ✗：
+
+1. **没给初值时，第一项就是初值** ✓（而且**从第二项开始**跑回调 ✓）——
+   空数组且没给初值在 JS 里是 `TypeError` ✓，这里**响亮地抛** ✓；
+2. **回调收 `(累计, 当前值)`** ✓（JS 还给下标与数组 ✓，本仓给前两个 ✓——
+   `NativeCall` 的实参表现在开宽了 ✓，要不要补后两个是**另一轮**的事 ✓）。
+
+**洞要跳过** ✓（JS 的 `reduce` 只走**存在**的下标 ✓）——`[, 1].reduce((a, b) => a + b)` 给 `1` ✓
+（下标 0 是洞 ✓）。这与 `map`/`filter` 那两条不同 ✗（它们**照走洞**、给 `undefined` ✓），
+**照 JS 的口径** ✓。
+
+# const ArrayShift:int = 20
+
+**`shift()`**（第 142 轮）——去掉并返回**第一格** ✓（空数组给 `undefined` ✓），
+长度减一 ✓、后面所有格**整体左移** ✓。**第一格是洞时照样返回 `undefined`** ✓
+（`heap.xl.md` 的 `GetAt` 对洞就是给 `undefined` ✓），而挪动要**把洞一起挪** ✓
+（与 `sort` 那一支同一条纪律 ✓：`SetAt` 会清掉洞标记 ✓，所以要**再标回去** ✓）。
+
+# const ArrayFill:int = 21
+
+**`fill(值)`**（第 142 轮）——把整段填成同一个值 ✓、返回**自己** ✓（JS 返回的就是它 ✓）。
+**只做 `fill(值)` 这一档** ✗：`fill(值, 起, 止)` 的三实参形态要处理负数下标与越界规整 ✓，
+是**另一轮**的事 ✓——**它今天不是静默忽略** ✓，多给的实参会走到这里被**丢掉** ✗，
+所以这一条**写在明处** ✓（下一个做它的人从这里接着走 ✓）。
+
+# const ArrayFlat:int = 22
+
+**`flat()`**（第 142 轮）——摊平**一层** ✓（`[[1],[2]].flat()` 给 `[1,2]` ✓）。
+**只做一层** ✗：`flat(深度)` 要递归 ✓，与 `fill` 那三实参形态是同一类「先做最常用的那一档」✓。
+**元素里的洞跳过** ✓（JS 的 `flat` 会跳过洞 ✓）；**不是数组的元素照收** ✓
+（`[1, [2]].flat()` 给 `[1, 2]` ✓——**只有数组才摊** ✓，字符串不摊 ✗）。
 # const ArrayFrom:int = 17
 **`Array.from(可迭代物)`** 的号（第 130 轮）——**静态方法** ✓，而且它要**原型表**
 （返回的是新数组 ✓），所以它**不在 `InvokeArray` 里分派** ✓，走 `install.xl.md` 那条
@@ -280,7 +328,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   }
   for (let i = 0; i < eachTotal; i++) {
     const item = source.GetAt(i);
-    const answered = call(args[0], Value.Undefined(), item, true);
+    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i)]);
     if (id === ArrayForEach) continue;
     if (id === ArrayMap) {
       // **`map` 收返回值** ✓（与 JS 一致）。
@@ -304,7 +352,7 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   const predicateTotal = source.GetLength();
   for (let i = 0; i < predicateTotal; i++) {
     const item = source.GetAt(i);
-    const answered = call(args[0], Value.Undefined(), item, true).AsBool();
+    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i)]).AsBool();
     if (id === ArrayFind) {
       if (answered) return item;
       continue;
@@ -321,7 +369,156 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   // 走到这里：`some` 一个都没中（假）、`every` 一个都没反（真）——**空数组也落在这一支** ✓。
   return Value.FromBool(id === ArrayEvery);
 }
+if (id === ArraySort) {
+  // **比较器可选** ✓（不给就按「转成字符串再比」✓，见 `ArraySort` 那一段 ✓）。
+  const comparator = args.length > 0 && args[0].IsCallable() ? args[0] : Value.Undefined();
+  const hasComparator = comparator.IsCallable();
+  // **插入排序**（稳定 ✓）：从第二格起，每格往前挪到该在的位置 ✓。
+  for (let i = 1; i < source.GetLength(); i++) {
+    const item = source.GetAt(i);
+    const itemHole = source.IsHole(i);
+    let j = i - 1;
+    while (j >= 0) {
+      const other = source.GetAt(j);
+      const otherHole = source.IsHole(j);
+      // **判据统一成一句**：「`other` 是不是该排在 `item` **后面**」✓——
+      // 比较器返回**正数**表示「第一个参数在后面」✓，所以**两个分支都拿 `(other, item)` 去比** ✓。
+      // **这一格极容易写反** ✗：第一版拿 `(item, other)` 比、又用 `> 0` 当「往后挪」✓，
+      // 于是判据整好反了一百八十度 ✓——`[3,1,2].sort((a, b) => a - b)` 给 `3,2,1` ✓
+      // （而 `["b","a"].sort()` 那条**照样对** ✗，因为文本那一支我写的是 `(other, item)` ✓，
+      //  于是「一半对一半错」✓——判据现场就是这么红的 ✓）。
+      let otherFirst = false;
+      if (hasComparator && call !== null) {
+        const verdict = call(comparator, Value.Undefined(), [other, item]);
+        if (verdict.Tag === ValueTag.Int32) otherFirst = verdict.Int > 0;
+        else if (verdict.Tag === ValueTag.Float64) otherFirst = verdict.Dbl > 0;
+      } else {
+        otherFirst = CompareAsText(table, other, item) > 0;
+      }
+      if (!otherFirst) break;
+      // **洞要跟着格子一起挪** ✓：`SetAt` 会**清掉**那一格的洞标记 ✓（`heap.xl.md` 的 `SetAt` ✓），
+      // 所以「挪过来的本来是洞」时要**再标回去** ✓——少了这一步，洞里会冒出一个显式的
+      // `undefined` ✗（形状变了 ✓：`in` 从假变真 ✗）。
+      source.SetAt(j + 1, other);
+      if (otherHole) source.SetHole(j + 1);
+      j = j - 1;
+    }
+    source.SetAt(j + 1, item);
+    if (itemHole) source.SetHole(j + 1);
+  }
+  table.Recount(self.Ref);
+  return self;
+}
+if (id === ArrayReduce) {
+  // **回调与通道都要有** ✓（少了就响亮地说清 ✓，与别的回调族一样 ✓）。
+  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+    throw new Error("reduce needs a function and a call channel (the host must pass one)");
+  }
+  const total = source.GetLength();
+  let accumulator = Value.Undefined();
+  let started = false;
+  if (args.length > 1) {
+    accumulator = args[1];
+    started = true;
+  }
+  for (let i = 0; i < total; i++) {
+    // **洞跳过** ✓（JS 的 `reduce` 只走存在的下标 ✓）。
+    if (source.IsHole(i)) continue;
+    if (!started) {
+      // **没给初值：第一项当初值** ✓（这一项**不跑回调** ✓）。
+      accumulator = source.GetAt(i);
+      started = true;
+      continue;
+    }
+    accumulator = call(args[0], Value.Undefined(), [accumulator, source.GetAt(i)]);
+  }
+  if (!started) {
+    // **空数组且没给初值**：JS 抛 `TypeError` ✓，这里也抛 ✓（**不许**静默给 `undefined` ✗）。
+    throw new Error("reduce of an empty array with no initial value");
+  }
+  return accumulator;
+}
+if (id === ArrayShift) {
+  // **空数组给 `undefined`** ✓（JS 的口径 ✓）。
+  if (source.GetLength() === 0) return Value.Undefined();
+  const first = source.GetAt(0);
+  // **整体左移**：`SetAt` 会清掉洞标记 ✓，所以洞要**再标回去** ✓（与 `sort` 同一条纪律 ✓）。
+  for (let i = 1; i < source.GetLength(); i++) {
+    const moved = source.GetAt(i);
+    const movedHole = source.IsHole(i);
+    source.SetAt(i - 1, moved);
+    if (movedHole) source.SetHole(i - 1);
+  }
+  // **缩一格**：`Truncate` 是「截到这么长」✓（`heap.xl.md` ✓）——与 `pop` 那一支同一个用法 ✓。
+  source.Truncate(source.GetLength() - 1);
+  table.Recount(self.Ref);
+  return first;
+}
+if (id === ArrayFill) {
+  if (args.length < 1) throw new Error("fill needs a value");
+  for (let i = 0; i < source.GetLength(); i++) {
+    source.SetAt(i, args[0]);
+  }
+  table.Recount(self.Ref);
+  return self;
+}
+if (id === ArrayFlat) {
+  // **要在 `RequireArray` 之后、`self` 上做** ✓——结果是一个**新数组** ✓（JS 不改原数组 ✓），
+  // 原型**跟着源数组走** ✓（与 `slice`/`map` 那几支同一条 ✓）。
+  const flatRoom = thisFlatRoom(room, source.GetLength());
+  if (!flatRoom) throw new Error("out of room");
+  const flattened = table.CreateArray();
+  table.Get(flattened).Proto = table.Get(self.Ref).Proto;
+  const target = table.Get(flattened).AsArray();
+  for (let i = 0; i < source.GetLength(); i++) {
+    if (source.IsHole(i)) continue;
+    const item = source.GetAt(i);
+    if (item.Tag === ValueTag.Array) {
+      const inner = table.Get(item.Ref).AsArray();
+      for (let j = 0; j < inner.GetLength(); j++) {
+        if (inner.IsHole(j)) continue;
+        target.Push(inner.GetAt(j));
+      }
+      continue;
+    }
+    target.Push(item);
+  }
+  table.Recount(flattened);
+  return Value.FromArray(flattened);
+}
 throw new Error("unimplemented: array builtin " + id);
+```
+
+# method thisFlatRoom:(room:RoomChecker, length:int)=>bool
+
+**`flat` 开新数组之前问一句房间** ✓：上界按「每个元素都摊开、且每一层都不比源长」算 ✗——
+那算不准 ✓，所以这里**只问一个保守的下界** ✓（一个新数组 + 与源同样多的值 ✓），
+多的那些由 `Push` 自己在需要时兜 ✓（`heap.xl.md` 的 `Push` 不做房间检查 ✗，
+所以这里**不能**给出一个「肯定够」的假承诺 ✓——**宁可问一句、也不假装算得准** ✓）。
+
+```ts
+return room(ObjectCharge + length * ValueCharge);
+```
+
+# method CompareAsText:(table:HeapTable, left:Value, right:Value)=>int
+
+**`sort()` 不给比较器时的比法**：两边都转成文本，按**码元**逐位比 ✓
+（JS 就是「转成字符串再按码元比」✓）。
+
+**为什么单独写一个** ✗：`sort` 那一支的循环里要用它三处（比、判正负 ✓），
+写进循环里会让那段已经够长的代码更难读 ✓；而且**它的口径要写下来** ✓——
+「按数值比看起来更对，但不是 JS」✓ 正是那种会被顺手「改对」的地方 ✓。
+
+```ts
+const leftUnits = ValueUnits(table, left, 0);
+const rightUnits = ValueUnits(table, right, 0);
+const shared = leftUnits.length < rightUnits.length ? leftUnits.length : rightUnits.length;
+for (let i = 0; i < shared; i++) {
+  if (leftUnits[i] === rightUnits[i]) continue;
+  return leftUnits[i] < rightUnits[i] ? -1 : 1;
+}
+if (leftUnits.length === rightUnits.length) return 0;
+return leftUnits.length < rightUnits.length ? -1 : 1;
 ```
 
 # method AppendSlot:(target:HeapArray, source:HeapArray, index:int)=>void
@@ -342,7 +539,7 @@ if (source.IsHole(index)) {
 target.Push(source.GetAt(index));
 ```
 
-# method NeverCall:(callee:Value, self:Value, argument:Value, hasArgument:bool)=>Value
+# method NeverCall:(callee:Value, self:Value, args:Array<Value>)=>Value
 
 装上内建时用的调用通道桩：**它一次都不该被调到**（装属性不会触发访问器）。
 
@@ -364,10 +561,11 @@ throw new Error("unreachable: installing a builtin never calls a function");
 const table = vm.Table;
 const proto = Value.FromObject(protos.Array);
 const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter",
-  "find", "some", "every", "concat", "reverse", "includes", "findIndex"];
+  "find", "some", "every", "concat", "reverse", "includes", "findIndex", "sort", "reduce",
+  "shift", "fill", "flat"];
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
   ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes,
-  ArrayFindIndex];
+  ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

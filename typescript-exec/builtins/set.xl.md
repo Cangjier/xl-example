@@ -176,7 +176,7 @@ if (id === SetForEach) {
   const eachTotal = table.Get(values.Ref).AsArray().GetLength();
   for (let i = 0; i < eachTotal; i++) {
     if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
-    call(args[0], Value.Undefined(), table.Get(values.Ref).AsArray().GetAt(i), true);
+    call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i), table.Get(values.Ref).AsArray().GetAt(i)]);
   }
   return Value.Undefined();
 }

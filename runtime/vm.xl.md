@@ -1449,11 +1449,11 @@ throw new Error("unimplemented: rt op " + RtOpName(id));
 **这是第二处适配**（第一处是 `Room`）：rt / props 不该认识 `Vm`，而 `Vm` 认识它们。
 
 ```ts
-return (callee: Value, thisValue: Value, argument: Value, hasArgument: boolean) =>
-  this.CallNative(callee, thisValue, argument, hasArgument);
+return (callee: Value, thisValue: Value, args: Value[]) =>
+  this.CallNative(callee, thisValue, args);
 ```
 
-## method CallNative:(callee:Value, thisValue:Value, argument:Value, hasArgument:bool)=>Value
+## method CallNative:(callee:Value, thisValue:Value, args:Array<Value>)=>Value
 
 **重入分派循环**调一个脚本函数，拿它的返回值。访问器（getter / setter）与将来内建方法
 （`Array.prototype.map` 那种）只有这一条路。
@@ -1487,7 +1487,11 @@ const handle = this.Frames.Push(closure.Code, info.SlotCount, NativeReturnSlot);
 const frame = this.Table.Get(handle).AsFrame();
 frame.Env = closure.Env;
 frame.This = thisValue;
-if (hasArgument) frame.Slots[0] = argument;
+// **按实参表铺**（第 142 轮）✓：铺到帧的格数为止 ✓——多出来的丢掉 ✓
+//（JS 也这样 ✓：多传的实参没有名字接 ✓，只是 `arguments` 看得见 ✓，而本仓没有它 ✓）。
+for (let i = 0; i < args.length && i < info.SlotCount; i++) {
+  frame.Slots[i] = args[i];
+}
 this.RunToDepth(depth);
 this.NativeDepth = this.NativeDepth - 1;
 const result = this.NativeResult;

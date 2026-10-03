@@ -6246,5 +6246,45 @@ check("`super(...xs)`：`CallArray` 那一格 `this` 原来就留着", () => {
 });
 
 console.log("");
+console.log("=== 第 142 轮：回调要两个实参的那一族 ===");
+
+check("`NativeCall` 的实参表开宽：`sort` / `reduce` / 下标回调", () => {
+  // **端到端那一把在 `cases/34-two-argument-callbacks.ts`**（10 行逐字节 ✓）。
+  // 这里钉的是**签名那一格**：`NativeCall` 从「一个值 + 一个 `hasArgument`」✗
+  // 改成**一整个实参表** ✓（第 142 轮）——`sort((a, b) => …)` 与 `reduce((acc, x) => …)`
+  // 原来**连签名都进不去** ✗（`Map.forEach(v => …)` 那条限制从第 116 轮记在台账里 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const seen = [];",
+    "seen.push([3, 1, 2].sort((a, b) => a - b).join(''));",
+    "seen.push([1, 2, 3].reduce((acc, value) => acc + value, 0));",
+    "seen.push([10, 20].map((value, index) => value + index).join(''));",
+    "const m = new Map([['k', 9]]);",
+    "m.forEach((value, key) => seen.push(key + value));",
+    "console.log(seen.join('|'));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "123|6|1021|k9", "比较器两个实参、`reduce` 两个实参、下标回调、Map 的键");
+  // **几个「想当然会写错」的口径** ✓：`sort()` 不给比较器时**按文本比** ✓
+  //（`[10, 9].sort()` 给 `[10, 9]` ✓——按数值排「看起来更对」✗，但不是 JS ✓）；
+  // `reduce` 没给初值时**第一项当初值**（**不跑回调** ✓）；
+  // **空数组且没给初值要抛** ✓（JS 是 `TypeError` ✓，这里响亮地抛 ✓）。
+  const lines2 = [];
+  const request2 = new RunRequest();
+  request2.Sources = [[
+    "console.log([10, 9].sort().join(''), [1, 2].reduce((a, b) => a + b));",
+    "try { [].reduce((a, b) => a + b); console.log('no-throw'); } catch (e) { console.log('caught'); }",
+  ].join("\n")];
+  request2.Entry = "";
+  const res2 = RunSources(request2, (text) => lines2.push(text), () => null);
+  eq(res2.Outcome, HostOutcome.Ok, "运行器：" + res2.Message);
+  eq(lines2[0], "109 3", "文本口径与「第一项当初值」");
+  eq(lines2[1], "caught", "空数组 + 无初值：响亮地抛（不是静默给 `undefined`）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

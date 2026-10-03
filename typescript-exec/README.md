@@ -13,18 +13,44 @@
 
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
-| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 138 轮 `Protos` 加到十格 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
-| **降级层**（本目录） | **~97%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；**派生类的默认构造函数 · `super(...xs)`**（第 141 轮）✓；缺 `new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~80%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮 `Map` / `Set` / `Date` 的 `prototype` 与 `constructor` ✓；第 139 轮错误工厂按「失败类别」造 `TypeError` ✓；第 140 轮内建错误构造函数支持「往传进来的 `this` 上初始化」✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
-| **端到端**（普通 `.ts` 文件） | **~99%** | 33 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、**默认构造函数与 `super(...xs)`**）；**已知的十三个拦路虎都关掉了** ✓，下一个是 **`Map` / `Set` 的 `super()`** 与 **`super.m(...xs)`**（见「下一步」） |
+| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；**第 142 轮 `NativeCall` 的实参表从「一个值」开宽成「一整个数组」** ✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
+| **降级层**（本目录） | **~97%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；派生类的默认构造函数 · `super(...xs)`（第 141 轮）✓；缺 `new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
+| **标准库**（`builtins/`） | **~84%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮三族的 `prototype` 与 `constructor` ✓；第 140 轮内建 `super()` ✓；**第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` + 下标回调 + `Map.forEach` 的键** ✓；缺 `splice` / `replaceAll` / `fill(值, 起, 止)` / `flat(深度)`、原始值原型（`toFixed` / `toString(基数)`）、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
+| **端到端**（普通 `.ts` 文件） | **~99%** | 34 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、**两个实参的回调族**）；**已知的十四个拦路虎都关掉了** ✓，下一个是 **`console.log(a?.b)` 会被收没**（**静默少一整句** ✗，见「下一步」第一条 ✓） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 192 条 / `runtime:cli` 33 份 ✓）。
+与语料数（`runtime:check` 193 条 / `runtime:cli` 34 份 ✓）。
 
-**下一步（第 141 轮收尾时看着的）**：
+**下一步（第 142 轮做「日常 stdlib 普查」时量出来的，按要紧程度排）**：
 
-1. **其余内建构造函数的 `super()`** ✗：`extends Map` / `extends Set` —— 它们各自要先把
+1. **`console.log(a?.b)` 整句被收没** ✗✗（**最要命的一条** ✓）：`?.` 写在**实参位**时，
+   产物把 `o?.a` 并进了被调用者那一格 ✓，于是那一行**什么都不打印** ✗，
+   **退出码还是 0** ✗——**静默少一整句**，比抛错糟得多 ✓。
+   实测（`node build/ts/cjcli.js <文件>` 打出产物树 ✓）：
+   `console.log(o?.a)` 给
+   `<PropertyAccess><Identifier>console</Identifier><SymbolToken>.</SymbolToken>
+   <Method name="log"><Identifier>o</Identifier><NullConditionalOperator><Identifier>a</Identifier>
+   </NullConditionalOperator></Method></PropertyAccess>` ✗——
+   `Method` 的子单元本该是**一个**实参 `o?.a` ✓，却被拆成两个平级 ✓。
+   修法方向：`NullConditionalOperatorReorganization` 的 `Process` 要**把前面那个实心单元一起收进来**
+   （`a?.b` 那一支现在靠投影层的 `chainWithOptional` 补 ✓，所以在**语句位**是对的 ✓、
+   在**实参位**就断了 ✓）。
+   **这一条没有语料** ✗（`cases:34` 里特意避开了它 ✓，因为它是**下一轮**的活 ✓）。
+2. **`[a, b] = [b, a]`**（解构**赋值** ✗）：报 `assignment to a non-identifier` ✓——
+   赋值左边要是**绑定模式**那一套 ✓（解构声明已经通了 ✓，缺的是赋值那一侧 ✓）。
+3. **原始值原型** ✗：`(1.2345).toFixed(2)` / `(255).toString(16)` / `Number('7')` ✗——
+   数字与布尔还没有原型格 ✓（`Protos` 里加两格 ✓，与第 138 轮那三格同一套做法 ✓）。
+4. **`NaN` / `Infinity`** ✗（两个全局名 ✓，`GlobalNames` 里加两个 ✓）。
+5. **`**` 与位运算** ✗：`2 ** 10` ✓、`& | ^ ~ << >> >>>` ✓——降级层加几条二元算子 ✓
+   （引擎那边 `rt_call` 的算术族已经有样子 ✓）。
+6. **`try { return … } finally { … }`** ✗（现在**响亮地抛** ✓：`return` 会跳过 `finally` ✓，
+   要先把 `finally` 跑完再返回 ✓）。
+7. **`[...generator()]`** ✗（`spread_into` 只认数组 / 字符串 / Map / Set ✗，生成器要 `iter_next` ✓）。
+8. **`async f().then(…)`** ✗（承诺的组合子 ✓）、**`class C { toString() }` 用在模板串里** ✗
+   （`ToString` 没走 `toString` ✓——**静默给 `[object Object]`** ✗，也是一条「静默错值」✓）。
+9. **`new Array(3)` / `Array.from({length}, fn)`** ✗（前者要「既是对象又是构造函数」那一格 ✓）。
+10. `splice` / `replaceAll` / `Map`/`Set` 的内部槽 / `super.m(...xs)` / `extends Map` 的 `super()`。
    **内部格**铺到 `this` 上 ✓（`Map` 的 `__k` / `__v` / `size` ✓），是**逐个**的事 ✓；
    错误那一族（第 140 轮 ✓）已经把「往 `this` 上初始化」这条路走通了 ✓，
    所以这是**照着抄一遍** ✓（加上「先铺内部格」那一步 ✓）。
@@ -230,6 +256,61 @@ typescript-exec/
 所以 C++ 那一份**欠着** ✗：按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发
 （**没改动的部件照抄旧产物** ✓，真要改写的只有几十处 ✓）。
 **它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），所以它排在「能跑更多普通程序」后面 ✓。
+
+## 第 142 轮的账（回调要两个实参的那一族）
+
+第 141 轮收尾做了一次**「日常 stdlib 普查」**（69 条普通写法 ✓，`tmp-lib.cjs` 那类脚本 ✓）：
+**46/69** ✓。最大的一簇是「**回调要两个实参**」✗——
+`sort((a, b) => …)` 与 `reduce((acc, x) => …)` **连签名都进不去** ✓
+（`NativeCall` 只带**一个**实参 ✗；那条限制从第 116 轮 `Map.forEach` 起就记在台账里 ✓）。
+
+**改的是签名那一格** ✓：
+
+```
+# type NativeCall = (callee, thisValue, argument, hasArgument) => Value     ← 原来
+# type NativeCall = (callee, thisValue, args:Array<Value>)   => Value       ← 现在
+```
+
+**一次开到底** ✓：访问器给 `[]` / `[value]` ✓、`Map.forEach` 给 `[值, 键]` ✓、
+数组的回调给 `[元素, 下标]` ✓——以后再来「回调要三个实参」的（`map((值, 下标, 数组))` ✓）
+**不必再动签名** ✓。改动点一共六处 ✓（两个类型的定义 + 三个回调族 + 一个桩 ✓）。
+
+**顺带补上的方法**（都是普查里红的 ✓）：`sort` ✓、`reduce` ✓、
+外加铺路的 `shift` / `fill` / `flat` ✓——**普查 46 → 52/69** ✓。
+
+**`sort` 有两处「想当然就会写错」** ✗：
+
+1. **不给比较器时按「转成字符串再比」** ✓（`[10, 9].sort()` 给 `[10, 9]` ✓）——
+   按数值排**看起来更对** ✗，但不是 JS ✓；
+2. **判据的符号** ✗：第一版拿 `(item, other)` 比、又用 `> 0` 当「往后挪」✓，
+   于是整好反了一百八十度 ✓——`[3,1,2].sort((a, b) => a - b)` 给 **`3,2,1`** ✗，
+   而 `["b","a"].sort()`（文本那一支）**照样对** ✗——**一半对一半错** ✓。
+   修法是把两个分支统一成**一句判据** ✓：「`other` 是不是该排在 `item` 后面」✓。
+
+**算法是插入排序** ✓：稳定（ES2019 起 JS 保证稳定 ✓）、数组在这一层本来就是小东西 ✓。
+
+语料 [tests/runtime/cases/34-two-argument-callbacks.ts](../tests/runtime/cases/34-two-argument-callbacks.ts)
+**10 行 stdout 与 `node` 逐字节相同** ✓。
+
+### 普查里最要命的一条（下一轮第一条）
+
+**`console.log(a?.b)` 整句会被收没** ✗✗——那一行**什么都不打印** ✓，**退出码还是 0** ✗。
+产物树（`node build/ts/cjcli.js <文件>` ✓）是：
+
+```
+<PropertyAccess><Identifier>console</Identifier><SymbolToken>.</SymbolToken>
+  <Method name="log">
+    <Identifier>o</Identifier>                       ← 本该与下面合成一个实参
+    <NullConditionalOperator><Identifier>a</Identifier></NullConditionalOperator>
+  </Method>
+</PropertyAccess>
+```
+
+`Method` 的子单元本该是**一个**实参 `o?.a` ✓，却被拆成了两个平级 ✓。
+语句位的 `a?.b` 是对的 ✓（投影层的 `chainWithOptional` 补上了 ✓），
+**实参位就断了** ✗——所以这一条修在 **token 层**（`?.` 那一支的 `Process` 要把
+前面那个实心单元一起收进来 ✓），不是投影层 ✓。
+**静默少一整句** 比抛错糟得多 ✓，所以它排在下一步的第一条 ✓。
 
 ## 第 141 轮的账（派生类的默认构造函数 · `super(...xs)`）
 
