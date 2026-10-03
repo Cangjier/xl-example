@@ -579,7 +579,11 @@ if (instr.Op === Op.RtCall) {
   return;
 }
 if (instr.Op === Op.Call || instr.Op === Op.CallValue) {
-  this.DoCallValue(frame, frame.Slots[instr.A], instr.B, instr.C, instr.B, Value.Undefined(), 0);
+  // **`D` 操作数：`this` 从哪来**。`-1`（也是历史行为）给 `undefined`；
+  // `>= 0` 就从那一格取——`super(...)` 要的就是「用当前帧的 `this` 调父类构造函数」。
+  // 这条扩展**向后兼容**：老代码的 `D` 全是 `-1`，行为一个字没变。
+  const self = instr.D >= 0 ? frame.Slots[instr.D] : Value.Undefined();
+  this.DoCallValue(frame, frame.Slots[instr.A], instr.B, instr.C, instr.B, self, 0);
   return;
 }
 if (instr.Op === Op.CallMethod) {

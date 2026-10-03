@@ -3116,14 +3116,40 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
   }
   eq(withCtor.indexOf("constructor") >= 0, true, "父类带构造函数必须抛：" + withCtor);
 
-  let superCall = "";
+  // **`super(...)`：父类构造函数在子类实例上跑起来**
+  const withState = [
+    "class A { constructor(x) { this.x = x; } get() { return this.x; } }",
+    "class B extends A {",
+    "  constructor(x) { super(x); this.y = x + 1; }",
+    "  sum() { return this.get() + this.y; }",
+    "}",
+    "function viaSuper(v) { const b = new B(v); return b.sum(); }",
+  ].join("\n");
+  const nodeSuper = new Function(withState + "\nreturn viaSuper(5);")();
+  eq(nodeSuper, 11, "Node：父类设 this.x、子类设 this.y（这是前提）");
+  const derived3 = lowerAndLoad(withState);
+  derived3.host.DeclarePrototypeKey(units("prototype"));
+  eq(derived3.host.Evaluate([]).Outcome, HostOutcome.Ok, "求值（super）");
+  eq(derived3.host.CallExport(derived3.module.ExportOf("viaSuper"), [Value.FromInt(5)]).Value.AsInt(),
+    nodeSuper, "super(x) 让父类构造函数在同一个实例上跑");
+
+  // 父类带构造函数时，派生类**没写构造函数**必须抛（默认构造函数会静默少跑父类初始化）
+  let noCtor = "";
   try {
-    lowerAndLoad("class A { m() { return 1; } } class B extends A { constructor() { super(); } }");
+    lowerAndLoad("class A { constructor() { this.x = 1; } } class B extends A { }");
   } catch (error) {
-    superCall = String(error.message);
+    noCtor = String(error.message);
   }
-  eq(superCall.indexOf("extends") >= 0 || superCall.indexOf("super") >= 0, true,
-    "`super(...)` 也必须抛：" + superCall);
+  eq(noCtor.indexOf("constructor") >= 0, true, "派生类缺构造函数必须抛：" + noCtor);
+
+  // 写了构造函数但**没调 `super(...)`** 也必须抛
+  let noSuper = "";
+  try {
+    lowerAndLoad("class A { constructor() { this.x = 1; } } class B extends A { constructor() { this.y = 2; } }");
+  } catch (error) {
+    noSuper = String(error.message);
+  }
+  eq(noSuper.indexOf("super") >= 0, true, "构造函数没调 super(...) 必须抛：" + noSuper);
 
   let field = "";
   try {

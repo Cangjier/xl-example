@@ -325,6 +325,22 @@ if (kind === "Identifier" && inside > 0) {
 if (kind === "ForInStatement" && inside > 0) {
   out.push("Object");
 }
+// **带 `extends` 的类，基类名一律算捕获**（保守，多留一格无害）：
+// 子类构造函数里的 `super(...)` 要**从环境上读到父类构造函数**，
+// 而 `super` 在投影里是一个 `SuperKeyword`——**不是标识符**，捕获分析看不见它。
+if (kind === "ClassDeclaration" || kind === "ClassExpression") {
+  const heritage = body["heritageClauses"];
+  if (heritage !== undefined && heritage !== null) {
+    const clauses = heritage as Array<AstNode>;
+    if (clauses.length > 0) {
+      const types = clauses[0]["types"] as Array<AstNode>;
+      const base = types[0]["expression"] as AstNode;
+      if (base !== undefined && base !== null && NodeKind(base) === "Identifier") {
+        out.push(TextOf(base));
+      }
+    }
+  }
+}
 WalkChildren(body, (child) => {
   CollectInsideFunctions(child, next, out);
 });

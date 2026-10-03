@@ -4,7 +4,7 @@ import { Value } from "../runtime/value.xl.md"
 import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from "../runtime/ir.xl.md"
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains } from "./scope.xl.md"
-import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction } from "./scope.xl.md"
+import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
 ```
 
 # namespace cangjie
@@ -60,7 +60,8 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **`import` 的名字从环境对象取**（与全局名同一套机关；`import` / `export { … }` 语句是**空操作**——导出表本来就装着这份文件的每个函数） | **真正的跨模块链接**：把模块 A 的导出**值**交给 B 需要一个**共享的堆**（跨机器搬 `Value` 不行——`Ref` 是各自表里的下标）；`import * as ns` 与 `export default` 抛 |
 | **`for..in`**（`Object.keys` + 迭代协议拼出来的，**没有新算子**；要求全局名里有 `Object`，否则明确报出来并指出修法） | **只遍历自有键**（`Object.keys` 的口径；JS 还会走原型链上的可枚举键）；**整数样式的键不按 JS 的「升序优先」**——这里一律按插入顺序 |
 | **`class`**（构造函数 + `prototype` 对象 + 方法挂上去；拼的是「函数值 + `prototype` 属性 + 方法调用」三样既有东西） | **字段初始化**、`static`、getter/setter、计算键方法、类里的生成器 / async 方法——一律**降级期抛**；`prototype.constructor` 的回指与 `instanceof` 一起做 |
-| **`extends`**（一条 `set_proto` 把子类 prototype 的原型接到父类 prototype 上；方法沿链找到） | **`super(...)` 抛**（父类构造函数里的初始化不会跑——派生类因此**不许**有父类构造函数）；**从句关键字投影没带**，所以「第一段就是 `extends`」——`class C implements I {}` 会在解析 `I` 时报未知名字（**响亮**，不是静默错值） |
+| **`extends`**（一条 `set_proto` 把子类 prototype 的原型接到父类 prototype 上；方法沿链找到） | **从句关键字投影没带**，所以「第一段就是 `extends`」——`class C implements I {}` 会在解析 `I` 时报未知名字（**响亮**，不是静默错值） |
+| **`super(...)`**（`Op.Call` 的 `D` 操作数带 `this` 槽；父类构造函数经**环境**进子类构造函数的帧） | **父类带构造函数时**，派生类必须自己写构造函数**并调用 `super(...)`**——两样缺一样都**降级期抛**（默认构造函数没法转发 `...args`，静默少跑父类初始化更坏） |
 
 **`async` 的三条语义差（都写在明处，不假装是 JS）**：
 
@@ -258,6 +259,26 @@ throw new Error("unimplemented: binary operator " + operatorText);
 
 ```ts
 return operatorText === "!==" || operatorText === "!=";
+```
+
+# method HasSuperCall:(body:AstNode)=>bool
+
+**这个函数体里有没有 `super(...)` 调用**（只找**本层**，不进内层函数）。
+
+**为什么要查**：父类带构造函数时，派生类的构造函数里**必须**有 `super(...)`。
+不查的话，「忘了写」会变成**静默少跑父类的初始化**——那种错要到很久以后才显形。
+
+```ts
+if (NodeKind(body) === "CallExpression") {
+  const callee = OptionalChild(body, "expression");
+  if (callee !== null && NodeKind(callee) === "SuperKeyword") return true;
+}
+if (IsFunctionNode(body)) return false;
+let found = false;
+WalkChildren(body, (child) => {
+  if (HasSuperCall(child)) found = true;
+});
+return found;
 ```
 
 # class FunctionEntry
@@ -459,6 +480,14 @@ return -1;
 **它今天只影响一件事**：这一层里的 `await` 合法（`await` 写在普通函数里是**语法错误**，
 降级期就该报出来）。**它不影响调用方式**——这一点与生成器**恰好相反**，
 差别写在文首那张表里（那是这一轮最要紧的一条已知语义差）。
+
+## field SuperName:string = ""
+
+**这个函数体里 `super(...)` 该去哪找父类构造函数**（派生类的构造函数才有；空串 = 没有）。
+
+**为什么带的是名字而不是一格槽**：`super(...)` 在**子类的帧**里执行，
+而父类构造函数是**外层作用域里的一个名字**——跨帧只能用**环境**这条通道，
+所以这里存名字，降级 `super` 时照常 `ResolveAccess`（链上找、深度算，一行都不用新写）。
 
 ## constructor:(name:string, body:AstNode, params:Array<string>, patch:int)=>void
 
@@ -692,7 +721,16 @@ return true;
 **降级期就要报**——放到运行期去，它会把一个普通帧挂到承诺上，
 而那个帧的调用者还在下面等着，于是**整条调用链静默停住**。
 
+## field InSuperName:string = ""
+
+**当前正在降级的这个函数体里，`super(...)` 该去找哪个名字**（空串 = 没有）。
+
+与 `InGenerator` / `InAsync` 同一套用法（进一层设、出一层恢复）。
+**它存的是名字**：父类构造函数在外层作用域里，跨帧只走**环境**这条通道——
+降级 `super` 时照常 `ResolveAccess`（链上找、深度算，一行新代码都不欠）。
+
 ## field CapabilityOf:CapabilityLookup | null = null
+
 **宿主能力查号回调**（见 `# type CapabilityLookup`）；没装就是 `null`。
 
 装了之后，`LowerCall` 遇到一个**模块里没声明过**的名字时会先问它：
@@ -1117,8 +1155,10 @@ this.PushScope();
 // **`yield` 与 `await` 归哪一层**：进这一层时设、出去时恢复（一层一层降级，一个字段够）。
 const outerInGenerator = this.InGenerator;
 const outerInAsync = this.InAsync;
+const outerSuperName = this.InSuperName;
 this.InGenerator = item.IsGenerator;
 this.InAsync = item.IsAsync;
+this.InSuperName = item.SuperName;
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
 this.EnterFunctionBody(body, item.Params);
@@ -1140,6 +1180,7 @@ item.SlotCount = this.Peak;
 this.PopScope();
 this.InGenerator = outerInGenerator;
 this.InAsync = outerInAsync;
+this.InSuperName = outerSuperName;
 ```
 
 ## method LowerStatementsOf:(block:AstNode)=>void
@@ -2544,10 +2585,10 @@ getter / setter、计算键方法、生成器方法与 async 方法。
 // **父类有构造函数仍然抛**：`super(...)` 还没做，而「子类实例上少了父类设的字段」
 // 是**静默错值**——宁可不做。**父类查不到（比如 import 进来的）也算查不清，同样抛**。
 let superProto = -1;
+let baseName = "";
 const heritage = node["heritageClauses"];
 if (heritage !== undefined && heritage !== null) {
   const clauses = heritage as AstNode[];
-  let baseName = "";
   // **按「第一段就是 `extends`」处理**：投影里 `HeritageClause` **没有关键字那个字段**
   // （只有 `types`），所以分不出 `extends` 与 `implements`。TypeScript 的语法保证
   // `extends` 排在 `implements` 之前，于是「第一段」就是它。
@@ -2564,9 +2605,6 @@ if (heritage !== undefined && heritage !== null) {
     baseName = TextOf(base);
   }
   if (baseName !== "") {
-    if (this.FindParentHasConstructor(baseName)) {
-      throw new Error("unimplemented: extending a class with a constructor (super(...) is not implemented)");
-    }
     const access = this.ResolveAccess(baseName);
     const baseSlot = this.Reserve(1);
     if (access.InEnv) {
@@ -2588,14 +2626,34 @@ if (!asExpression) {
 }
 const members = ListOf(node, "members");
 let ctorNode: AstNode | null = null;
+let explicitCtor: AstNode | null = null;
 for (let i = 0; i < members.length; i++) {
-  if (NodeKind(members[i]) === "Constructor") ctorNode = members[i];
+  if (NodeKind(members[i]) === "Constructor") {
+    ctorNode = members[i];
+    explicitCtor = members[i];
+  }
+}
+if (baseName !== "" && this.FindParentHasConstructor(baseName)) {
+  // **父类带构造函数时，派生类必须自己写构造函数、并且调用 `super(...)`**。
+  // 少了任何一样，「父类设的字段在子类实例上不存在」——那是**静默错值**。
+  // （JS 在这里是运行期报 ReferenceError；我们在降级期就报，更早也更响。）
+  if (explicitCtor === null) {
+    throw new Error("unimplemented: a derived class must declare a constructor that calls super(...) (its parent has one)");
+  }
+  if (!HasSuperCall(explicitCtor)) {
+    throw new Error("unimplemented: this derived constructor must call super(...) (its parent has one)");
+  }
 }
 if (ctorNode === null) {
   // **默认构造函数**：JS 会给一个空的（`new C()` 于是合法）。
   ctorNode = { kind: "Constructor", parameters: [], body: { kind: "Block", statements: [] } };
 }
 const ctor = this.LowerFunctionValue(ctorNode, name);
+// **构造函数那一项就是刚推进去的最后一项**（`LowerFunctionValue` 只推一项）。
+// 把基类名记在它身上：`super(...)` 只允许出现在这一层，判定靠它。
+if (baseName !== "" && this.Pending.length > 0) {
+  this.Pending[this.Pending.length - 1].SuperName = baseName;
+}
 this.AttachPrototype(ctor);
 // **绑定放在造闭包之后**（与函数声明同一条规矩）：名字被内层捕获时，
 // 绑定在**环境格**里，而 `DeclareLocal` 会把当时那一格（还是空的）搬进格——
@@ -2955,7 +3013,30 @@ if (calleeKind === "ElementAccessExpression") {
   throw new Error("unimplemented: calling a computed member (it needs a call-by-key op)");
 }
 if (calleeKind === "SuperKeyword") {
-  throw new Error("unimplemented: super(...) (a derived class does not run its parent's constructor)");
+  if (this.InSuperName === "") {
+    throw new Error("unimplemented: super(...) outside a derived class constructor");
+  }
+  const access = this.ResolveAccess(this.InSuperName);
+  const parent = this.Reserve(1);
+  if (access.InEnv) {
+    this.Emit(Op.EnvGet, parent, access.Depth, access.Cell, -1);
+  } else {
+    this.Emit(Op.Move, parent, access.Slot, -1, -1);
+  }
+  // **`this` 从当前帧取一格递给被调方**（`Op.Call` 的 `D` 操作数）：
+  // 父类构造函数要拿**正在造的那个实例**当 `this`，而它就在本帧的 `This` 里。
+  const selfSlot = this.Reserve(1);
+  this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
+  const superArgs = ListOf(node, "arguments");
+  const superCount = superArgs.length;
+  const superBase = this.Reserve(superCount > 0 ? superCount : 1);
+  for (let i = 0; i < superCount; i++) {
+    this.LowerInto(superBase + i, superArgs[i]);
+  }
+  this.Emit(Op.Call, parent, superBase, superCount, selfSlot);
+  // **退到结果之上**（父类构造函数那格、`this` 那格都在下面，退过去就把活格交出去了）。
+  this.Release(superBase + 1);
+  return superBase;
 }
 let calleeSlot = -1;
 if (calleeKind === "Identifier") {

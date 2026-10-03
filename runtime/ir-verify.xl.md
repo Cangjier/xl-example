@@ -699,6 +699,11 @@ if (item.Op === Op.Call || item.Op === Op.New || item.Op === Op.CallValue) {
   if (!WindowOk(item.B, item.C, slotCount)) {
     return new VerifyIssue(IssueOperand, pc, "argument window out of range");
   }
+  // **`D`：`this` 的来源**。`-1` = 没有（普通调用给 `undefined`）；
+  // 否则必须是一格有效的槽——`super(...)` 用它把当前帧的 `this` 递给父类构造函数。
+  if (item.D >= 0 && !SlotOk(item.D, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "this slot out of range");
+  }
 }
 if (item.Op === Op.CallMethod) {
   if (!SlotOk(item.A, slotCount, false)) {
