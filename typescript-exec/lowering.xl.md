@@ -280,10 +280,20 @@ return operatorText === "!==" || operatorText === "!=";
 **为什么要查**：父类带构造函数时，派生类的构造函数里**必须**有 `super(...)`。
 不查的话，「忘了写」会变成**静默少跑父类的初始化**——那种错要到很久以后才显形。
 
+**两个节点要分开看**（第 128 轮）：调用点给的可能是**构造函数节点**（`Constructor`），
+也可能是它的**体**（`Block`）✓。而 `IsFunctionNode` 现在把 `Constructor` 也算内层 ✓
+（捕获分析要它 ✓）——直接问它，构造函数会被误判成「已经进了内层」✗，
+于是派生类被判成「没调 `super(...)`」✗（`05-classes.ts` 当场红 ✓）。
+所以 `Constructor` 要**先落回它的体**再往下走 ✓。
+
 ```ts
 if (NodeKind(body) === "CallExpression") {
   const callee = OptionalChild(body, "expression");
   if (callee !== null && NodeKind(callee) === "SuperKeyword") return true;
+}
+// **`Constructor` 先落回它的体**（第 128 轮，理由见上）。
+if (NodeKind(body) === "Constructor") {
+  return HasSuperCall(Child(body, "body"));
 }
 if (IsFunctionNode(body)) return false;
 let found = false;
@@ -524,6 +534,32 @@ return -1;
 **它今天只影响一件事**：这一层里的 `await` 合法（`await` 写在普通函数里是**语法错误**，
 降级期就该报出来）。**它不影响调用方式**——这一点与生成器**恰好相反**，
 差别写在文首那张表里（那是这一轮最要紧的一条已知语义差）。
+
+## field FieldDefaults:Array<AstNode> = []
+
+**这个构造函数开局要跑的实例字段初始化式**（第 128 轮补；只有构造函数非空）。
+
+**为什么挂在函数体上、而不是「就在类那一处发指令」**：字段初始化式跑在
+**构造函数自己的帧**里（它要写 `this` ✓），而类那一处的帧是**外层**的 ✗——
+在那里发 `set_prop` 会往**模块的 this** 上写（那多半是 `undefined`，报的是
+「assigning a property on a primitive receiver」，离现场很远 ✓）。
+
+**顺序**：JS 的规矩是「字段初始化在**构造函数体之前**、参数默认值之后」✓；
+派生类里它跟在 **`super(...)` 之后**（`this` 在 `super()` 返回前不存在 ✓）——
+后者靠 `FieldInitDeferred` 那一位分开 ✓。
+
+## field FieldInitRan:bool = false
+
+这一帧的字段初始化**已经发过了**（第 128 轮）。发两遍就是**跑两遍初始化式**（副作用两遍），
+所以派生类那条「跟在 `super(...)` 之后」的路要用它保证只有一次。
+
+## field FieldInitDeferred:bool = false
+
+**字段初始化要让位给 `super(...)`**（派生类的构造函数 = 真）。
+
+**为什么不能只看「有没有基类」**：`super(...)` 在体里可能**不在第一条语句**
+（`constructor(x) { this.check(x); super(x); }`）——按「体之前」发指令就会在
+`this` 还不存在时写它 ✗。所以派生类一律**推迟到 `super(...)` 那条语句之后**发 ✓。
 
 ## field SuperName:string = ""
 
@@ -803,6 +839,18 @@ return true;
 **它存的是名字**：父类构造函数在外层作用域里，跨帧只走**环境**这条通道——
 降级 `super` 时照常 `ResolveAccess`（链上找、深度算，一行新代码都不欠）。
 
+## field DeferredItem:PendingFunction | null = null
+
+**那个「字段初始化还欠着」的构造函数**（第 128 轮）——派生类才有，`null` 表示没有。
+
+**为什么是个字段而不是「每条语句去问当前函数」**：`LowerFunctionBody` 是**一层一层**
+降级的 ✓，而「这一层就是那个构造函数的体」这件事**只对它自己那个块成立** ✗——
+内层块（`if` 体、循环体）里的语句也会走 `LowerStatementsOf` ✓，
+拿「当前函数」当判据会在内层块里就把字段初始化发出来 ✗（`constructor() { if (x) { super(1) } }`）。
+
+所以进入那个块之前挂上、出来就摘掉（`LowerFunctionBody` 那一段写着）✓：
+它按**块**限定，不按函数限定 ✓。
+
 ## field CapabilityOf:CapabilityLookup | null = null
 
 **宿主能力查号回调**（见 `# type CapabilityLookup`）；没装就是 `null`。
@@ -955,6 +1003,28 @@ CollectDeclaredNames(body, declared);
 for (let e = 0; e < extras.length; e++) CollectDeclaredNames(extras[e], declared);
 for (let i = 0; i < this.ExtraDeclared.length; i++) declared.push(this.ExtraDeclared[i]);
 this.ExtraDeclared = [];
+// **全局名在这一层也看得见**（第 128 轮修）。
+//
+// **为什么必须在这里补**：全局名（`Math` / `console` / `JSON`…）是**模块作用域的名字** ✓，
+// 而它们是**绑定出来的局部槽** ✓——所以 `ResolveAccess` 只在
+// 「这一层的 `DeclaredNames`」或「环境链」上找得到它们 ✗。两个地方都得有：
+//   - **入口那一层**：`ExtraDeclared` 撑着（`LowerModule` 设的）✓；
+//   - **内层函数**：以前**两处都没有** ✗——于是 `class A { constructor() { console.log(1) } }`
+//     在**降级期**就报 `name is not a local or a capture: console` ✓
+//     （内层函数用 `Math` 也是同一个形状 ✓，只是此前每一条判据都恰好只在**方法**里用过它——
+//     方法有内层函数时环境是自己那份，所以侥幸没露 ✗）。
+//
+// **为什么不是「在 `ExtraDeclared` 里一直留着」**：那个字段的语义是「**入口这一层**额外的名字」✗，
+// 留着会让内层函数以为自己也**声明**了 `Math`（`ResolveAccess` 的那句 TDZ 报错就再也报不出来了 ✗）。
+// 所以走**显式传参**这条：`Globals` 是「这份模块看得见的名字」，与「这一层声明了什么」是两件事 ✓。
+//
+// **必须在「算捕获」之前补进来**（第 128 轮第二个实测教训）：`captured` 是拿 `declared`
+// 去 `referenced` 里筛出来的 ✓——补晚了，`Math` 就进不了 `captured` ✗，
+// 于是这一层**不开环境** ✗（`captured.length === 0 && !hasNested && !needsThis` 那条早退 ✓），
+// 内层函数也就没有这一层可捕获 ✗。**现场就是这一条**：`class A { constructor() { Math… } }`
+// 一路报到 `name is not a local or a capture: Math` ✓。
+const globals = this.Globals;
+for (let i = 0; i < globals.length; i++) declared.push(globals[i]);
 this.DeclaredNames = declared;
 const functions: string[] = [];
 CollectFunctionNames(body, functions);
@@ -1274,6 +1344,21 @@ for (let d = 0; d < item.DefaultAt.length; d++) {
   this.LowerParamDefault(item.Params[item.DefaultAt[d]], item.Defaults[d]);
 }
 this.Hoist(body);
+// **实例字段的初始化式**（第 128 轮）：非派生类在**构造函数体之前**、参数默认值之后 ✓。
+// 派生类**不在这一处**——`this` 要等 `super(...)` 返回才存在（见下面 `DeferredItem` 那段）。
+//
+// **放在参数声明之后不是风格**：字段初始化式要用临时槽 ✓，而在参数还没声明时
+// 水位恰好压在**第一个参数**那一格上 ✗（第 128 轮实测：`id` 被写成了接收者对象，
+// 症状是两步之外的 `arithmetic on a non-numeric operand`）✓。
+if (item.FieldDefaults.length > 0 && !item.FieldInitDeferred) {
+  this.EmitFieldDefaults(item);
+  item.FieldInitRan = true;
+}
+const outerDeferred = this.DeferredItem;
+if (item.FieldInitDeferred && item.FieldDefaults.length > 0) {
+  // **只对「这个函数的体」这一层挂**（内层块不欠它，理由见 `DeferredItem`）✓。
+  this.DeferredItem = item;
+}
 if (item.IsExpressionBody) {
   // 箭头函数的表达式体：值就是返回值（**不是**「跑完给 undefined」）。
   const value = this.LowerExpression(body);
@@ -1283,6 +1368,7 @@ if (item.IsExpressionBody) {
 } else {
   this.LowerStatement(body);
 }
+this.DeferredItem = outerDeferred;
 this.Emit(Op.Return, -1, -1, -1, -1);
 item.SlotCount = this.Peak;
 this.PopScope();
@@ -1301,6 +1387,102 @@ const statements = ListOf(block, "statements");
 for (let i = 0; i < statements.length; i++) {
   this.LowerStatement(statements[i]);
 }
+```
+
+## method FieldInitDue:()=>void
+
+**该发派生类的字段初始化了吗**（第 128 轮）——已经是「只发一次」的。
+
+**判定两条**：这一层就是那个构造函数的体（`DeferredItem` 挂着它 ✓）、**还没发过** ✓。
+非派生类在 `LowerFunctionBody` 里早就发完了（`FieldInitRan` 已置真 ✓），走不到这里 ✓。
+
+**它不是主路**：真正的触发点在 `LowerStatement` 的 `super(...)` 那一支（见那里）✓——
+`super` **可能嵌在别的语句里**（`const d = id * 2; super(d);` 的第二句还是一条表达式语句 ✓，
+但 `const p = super0()` 那种形状迟早会有），所以在**调用点**接住比在语句循环里猜准得多 ✓。
+留这一层是**兜底**：万一将来有哪条路把 `super` 降级在别处，字段初始化也不会静默丢掉 ✓。
+
+```ts
+const item = this.DeferredItem;
+if (item === null) return;
+if (item.FieldInitRan) return;
+this.EmitFieldDefaults(item);
+item.FieldInitRan = true;
+```
+
+## method EmitFieldDefaults:(item:PendingFunction)=>void
+
+**把一批实例字段的初始化式发出来**（第 128 轮）：逐条写 `this.<名字> = <初始化式>`。
+
+**为什么是 `set_prop` 而不是「新建一格属性」**：JS 的类字段走 `[[DefineOwnProperty]]` ✓，
+而这一层的对象模型只有「赋值」这条路 ✓——两者的差别落在**原型上有同名 setter** 时
+（JS 不调它、赋值会调 ✓）。这是**写在明处的已知差异** ✓，记在 `typescript-exec/README.md`。
+
+```ts
+for (let i = 0; i < item.FieldDefaults.length; i++) {
+  this.EmitFieldInit(-1, item.FieldDefaults[i]);
+}
+```
+
+## method EmitFieldInit:(target:int, field:AstNode)=>void
+
+**一条字段初始化式**（第 128 轮）：`<target>.<名字> = <初始化式>`。
+
+**实例字段与静态字段共用它** ✓——区别只是 `target` 是谁：**静态字段给构造函数那一格** ✓，
+**实例字段给 `-1`**（那时目标**就地**发一条 `load_this` ✓，见下面那条实测教训）✓。
+**没有初始化式的字段也要写一次 `undefined`** ✓：JS 里 `class C { x }` 之后
+`"x" in new C()` 是**真** ✓——不写的话属性根本不存在，而那是一个**能被脚本看见**的差别 ✓。
+
+**算键只认标识符 / 字符串 / 数字**（与类方法同一条口径 ✓）：计算键要「先算键再赋值」，
+那是另一条路（`SetPropertyValue` 就在手边，缺的只是判据）。
+
+**为什么 `this` 要就地发、不能先占一格**（第 128 轮实测抓到的）：先占的那一格会**压在参数槽上** ✗。
+现场是 `constructor(id: number) { … this.id = id }` 加一条 `extra = this.id * 10`：
+`EmitFieldDefaults` 先占了第 1 格当 `this`（参数只占第 0 格、水位是 1），
+紧接着构造函数体把**参数 1 号**（`id`）绑到同一格 ✗——于是体里读到的 `id` 是**接收者对象** ✗，
+`this.id = id` 把对象写进了 `id` 字段，最后在 `this.id * 10` 上报
+`arithmetic on a non-numeric operand` ✓（离现场两步远）。
+**就地发就没有这一格** ✓：窗口是现占的，参数与变量全在它下面 ✓。
+
+```ts
+if (this.HasModifier(field, "DeclareKeyword")) return;
+const nameNode = OptionalChild(field, "name");
+if (nameNode === null) {
+  throw new Error("unimplemented: class field without a name");
+}
+const nameKind = NodeKind(nameNode);
+if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+  throw new Error("unimplemented: computed class field name");
+}
+const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(nameNode)));
+const initializer = OptionalChild(field, "initializer");
+if (initializer === null) {
+  const missing = this.Program().AddConst(Constant.OfUndefined());
+  if (target < 0) {
+    const window = this.Reserve(3);
+    this.Emit(Op.LoadThis, window, -1, -1, -1);
+    this.Emit(Op.Const, window + 1, key, -1, -1);
+    this.Emit(Op.Const, window + 2, missing, -1, -1);
+    this.EmitRt(RtOp.SetProp, window, window, 3);
+    this.Release(window);
+    return;
+  }
+  const value = this.Reserve(1);
+  this.Emit(Op.Const, value, missing, -1, -1);
+  this.SetPropertyConst(target, key, value);
+  return;
+}
+if (target < 0) {
+  const value = this.LowerExpression(initializer);
+  const window = this.Reserve(3);
+  this.Emit(Op.LoadThis, window, -1, -1, -1);
+  this.Emit(Op.Const, window + 1, key, -1, -1);
+  this.Emit(Op.Move, window + 2, value, -1, -1);
+  this.EmitRt(RtOp.SetProp, window, window, 3);
+  this.Release(window);
+  return;
+}
+const value = this.LowerExpression(initializer);
+this.SetPropertyConst(target, key, value);
 ```
 
 ## method LowerStatement:(node:AstNode)=>void
@@ -3033,8 +3215,18 @@ return false;
 **类名要先占一格**：方法体里可以引用类名（`class C { m() { return C; } }`），
 而闭包的环境是**造它那一刻**抄下来的——名字必须在那之前就在作用域里。
 
-**先做不做**（都抛，写进文首那张表）：`extends`、字段初始化、`static`、
-getter / setter、计算键方法、生成器方法与 async 方法。
+**先做不做**（都抛，写进文首那张表）：生成器方法与 async 方法、计算键成员、
+`extends` 一个表达式（只认简单名字）。
+
+**第 128 轮起已收**：**实例字段初始化**（`x = 1` / 光写名字的也落一格 `undefined` ✓，
+写的是 `this.<名字>` ✓）、**`static` 字段 / 方法 / 访问器**（落在构造函数自己身上 ✓）、
+**`static { … }` 静态块**（造一个无参函数、立刻用构造函数当 `this` 调一次 ✓）。
+顺序照 JS：**静态成员在类声明的位置、按源码顺序**求值 ✓；
+**实例字段在构造函数体之前**（参数默认值之后）✓，派生类里**跟在 `super(...)` 之后** ✓。
+
+**两处写在明处的差异**：① 字段写入走的是**赋值**（`set_prop`），JS 的类字段走
+`[[DefineOwnProperty]]`——原型上有同名 setter 时行为不同（JS 不调它，这里会调）；
+② `extends` 一个表达式（`class B extends mixin(A) {}`）仍抛。
 
 ```ts
 // **`extends` 这一轮仍然抛**（引擎那半 `set_proto` 已经就位、也验证过：空类的
@@ -3109,11 +3301,36 @@ if (ctorNode === null) {
   // **默认构造函数**：JS 会给一个空的（`new C()` 于是合法）。
   ctorNode = { kind: "Constructor", parameters: [], body: { kind: "Block", statements: [] } };
 }
+// **实例字段先摘出来**（第 128 轮）：它们的初始化式跑在**构造函数那一帧**里
+// （见 `PendingFunction.FieldDefaults` 那一段），不走下面「挂到 prototype 上」那条路。
+const instanceFields: AstNode[] = [];
+const staticFields: AstNode[] = [];
+const staticBlocks: AstNode[] = [];
+for (let i = 0; i < members.length; i++) {
+  const kind0 = NodeKind(members[i]);
+  const isStatic0 = this.HasModifier(members[i], "StaticKeyword");
+  if (kind0 === "PropertyDeclaration") {
+    if (isStatic0) staticFields.push(members[i]);
+    else instanceFields.push(members[i]);
+    continue;
+  }
+  if (kind0 === "ClassStaticBlockDeclaration") {
+    staticBlocks.push(members[i]);
+    continue;
+  }
+}
 const ctor = this.LowerFunctionValue(ctorNode, name);
 // **构造函数那一项就是刚推进去的最后一项**（`LowerFunctionValue` 只推一项）。
 // 把基类名记在它身上：`super(...)` 只允许出现在这一层，判定靠它。
 if (baseName !== "" && this.Pending.length > 0) {
   this.Pending[this.Pending.length - 1].SuperName = baseName;
+}
+if (this.Pending.length > 0 && instanceFields.length > 0) {
+  // **字段初始化式挂在构造函数上**（第 128 轮）：它们要在那一帧里、`this` 上写属性。
+  const ctorItem = this.Pending[this.Pending.length - 1];
+  ctorItem.FieldDefaults = instanceFields;
+  // **派生类要让位给 `super(...)`**：`this` 在它返回之前不存在，而它可能不在第一条语句。
+  ctorItem.FieldInitDeferred = baseName !== "";
 }
 // **构造函数那一项也要记下自己的槽位**（第 69 轮补的）：函数声明那条路显式设了
 // `item.Slot`，类这条路一直**没设**——于是模块的**导出数组**按那个默认槽位取值，
@@ -3138,12 +3355,14 @@ for (let i = 0; i < members.length; i++) {
   const member = members[i];
   const kind = NodeKind(member);
   if (kind === "Constructor") continue;
+  // **字段不在这里**（第 128 轮）：实例字段挂去了构造函数（`FieldDefaults`），
+  // 静态字段与静态块在原型循环之后单独发（见下面那两段）。
+  if (kind === "PropertyDeclaration" || kind === "ClassStaticBlockDeclaration") continue;
   if (kind !== "MethodDeclaration" && kind !== "GetAccessor" && kind !== "SetAccessor") {
     throw new Error("unimplemented: class member " + kind);
   }
-  if (this.HasModifier(member, "StaticKeyword")) {
-    throw new Error("unimplemented: static class member");
-  }
+  // **静态成员的落点是构造函数自己**，不是原型（下面那个 `target` 就是这一条）。
+  const isStatic = this.HasModifier(member, "StaticKeyword");
   if (member["asteriskToken"] !== undefined && member["asteriskToken"] !== null) {
     throw new Error("unimplemented: generator method in a class");
   }
@@ -3162,16 +3381,34 @@ for (let i = 0; i < members.length; i++) {
   if (baseName !== "") {
     this.Pending[this.Pending.length - 1].SuperName = baseName;
   }
+  const target = isStatic ? ctor : proto;
   if (kind === "GetAccessor" || kind === "SetAccessor") {
-    // **类里的访问器落在原型上**（JS 就是这样：实例自己不持有它，从原型链上找）——
+    // **类里的访问器落在 target 上**（JS 就是这样：实例自己不持有它，从原型链上找）——
     // 与对象字面量那一处的唯一区别就是「落在谁身上」，其余全走同一个 `EmitDefineAccessor`。
     const keySlot = this.Reserve(1);
     this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName))), -1, -1);
-    this.EmitDefineAccessor(proto, keySlot, closure, kind === "GetAccessor");
+    this.EmitDefineAccessor(target, keySlot, closure, kind === "GetAccessor");
     continue;
   }
   const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName)));
-  this.SetPropertyConst(proto, key, closure);
+  this.SetPropertyConst(target, key, closure);
+}
+// **静态字段**（第 128 轮）：在类**声明的位置**求值，写进构造函数自己。
+// 顺序按源码 ✓（`static a = f(); static b = a + 1` 里 `b` 看得见刚写好的 `a` ✓）。
+for (let i = 0; i < staticFields.length; i++) {
+  this.EmitFieldInit(ctor, staticFields[i]);
+}
+// **静态块**（第 128 轮）：`static { … }` 就是「造一个无参函数、立刻用构造函数当 `this` 调一次」——
+// 与 `class` 的其余部分同一条路（函数值 + 调用），没有新机制。
+for (let i = 0; i < staticBlocks.length; i++) {
+  const block = staticBlocks[i];
+  const synthetic = { kind: "FunctionExpression", parameters: [], body: Child(block, "body") };
+  const closure = this.LowerFunctionValue(synthetic, name + ".<static>");
+  const selfSlot = this.Reserve(1);
+  this.Emit(Op.Move, selfSlot, ctor, -1, -1);
+  const base = this.Reserve(1);
+  this.Emit(Op.Call, closure, base, 0, selfSlot);
+  this.Release(base + 1);
 }
 return ctor;
 ```
@@ -3750,6 +3987,18 @@ if (calleeKind === "SuperKeyword") {
   this.Emit(Op.Call, parent, superBase, superCount, selfSlot);
   // **退到结果之上**（父类构造函数那格、`this` 那格都在下面，退过去就把活格交出去了）。
   this.Release(superBase + 1);
+  // **实例字段的初始化式跟着 `super(...)` 走**（第 128 轮）——**就在调用点接住** ✓。
+  //
+  // **为什么不能靠「语句循环里数语句」**（这一轮实测踩的）：`super(...)` **可能嵌在别的语句里** ✗
+  // （`constructor(id) { const doubled = id * 2; super(doubled); }` 里它确实自成一条 ✓，
+  // 但 `super(x) ? a : b` / `f(super(x))` 这类形状迟早会有 ✓）。数语句那条路在
+  // 「`super` 出现在语句**中部**」时会**提前**发字段初始化 ✗——现场是
+  // `load_this` 落在 `super` 的参数格上 ✗，父类构造函数拿到的是**接收者对象**当实参 ✗，
+  // 于是 `this.id` 是个对象，`this.id * 10` 报 `arithmetic on a non-numeric operand` ✓
+  // （离现场两步远）✓。
+  //
+  // **调用点接住就没有这个猜的成分**：`super(...)` 一降级完，`this` 就一定存在了 ✓。
+  this.FieldInitDue();
   return superBase;
 }
 let calleeSlot = -1;

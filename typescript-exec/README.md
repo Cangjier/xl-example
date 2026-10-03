@@ -6,9 +6,25 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 离「直接跑完整 TS 文件」还有多远（第 128 轮读数）
+
+**口径**：目标不是「支持某种方言」，而是**一份普通的、没为这个运行器改过的 `.ts`
+交给 `tsrun`，stdout 与 `node` 逐字节相同**。按这个口径分三层看：
+
+| 层 | 进度 | 说明 |
+| --- | --- | --- |
+| **引擎**（`runtime/`） | **~90%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；缺 wasm 执行器（P3）、特化与内联缓存（P4）、f64 的线形态（P2） |
+| **降级层**（本目录） | **~80%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构（名字那一半）都在跑；缺浮点字面量、解构默认值与剩余、`Array.from` 那类静态方法、正则、`export default` |
+| **标准库**（`builtins/`） | **~55%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Error` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；缺 `Array.from` / `Object.assign` / `String.fromCharCode` / 原始值原型（数字与布尔上的方法）/ `Promise` 的组合子 |
+| **端到端**（普通 `.ts` 文件） | **~70%** | 20 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`）；**已知的第一拦路虎**是浮点字面量（`P2` 的线形态）与 `[x in y]` 那条 token 层缺口 |
+
+**这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
+每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
+与语料数（`runtime:check` 165 条 / `runtime:cli` 20 份 ✓）。
+
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
-> **逐值一致**（判据 `npm run runtime:check` 的最后二十几节，共 159 条全绿）。
+> **逐值一致**（判据 `npm run runtime:check` 的最后二十几节，共 165 条全绿）。
 > 收了：变量声明（`let`/`const` 块作用域、`var` 函数作用域，含**对象与数组解构**——**不退水位**，
 > 见台账第 119 轮）、**`class`（构造函数 + 原型上的方法 + 访问器；`extends` / `super(...)` / `super.m()`；
 > 字段初始化与 `static` 仍抛）**、
@@ -25,10 +41,13 @@
 > **`.ts` 已经能直接执行**：仓库根的 [tsrun.xl.md](../tsrun.xl.md) 是运行器 +
 > 命令行（`node build/ts/tsrun.js <文件.ts>`），stdout 与 `node <文件.ts>` **逐字节相同**
 > （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts`，裁判是真 Node）。
-> 还差（按顺序）：投影层那两处「值位被读成类型位」（`[1 in arr]` 与模板里的数字字面量——
-> 两处都**响亮地抛** ✓）、浮点与大整数字面量仍装不进线形态（P2）、
+> **还差**（按已知的次序）：**token 层的一条**——`[x in y]`（**数组字面量里放 `in` 表达式**）
+> 被读成映射键的 `TypeParameter` ✗，降级层拿到的是一个认不出的节点，报
+> `unimplemented: expression TypeParameter` ✓（复现：`function f(o) { return ["a" in o]; }` ✓——
+> `"a" in o` 单独写、放在 `const r = …` 里、或直接写在模块顶层都对 ✓，**只有套在 `[…]` 里**才歪 ✓；
+> `cases:tsast` 全语料 1426 份都是绿的 ✓，所以它是**语料之外**的一条 ✓）；
 > `Array.from` / `Object.assign` 那一类静态方法、解构的默认值与剩余、
-> `static` 与字段初始化、数字与布尔的原始值原型、`TDZ` 的动态那一半、正则。
+> `TDZ` 的动态那一半、正则、浮点与大整数字面量仍装不进线形态（P2）。
 >
 > **字符串拼接会挑路**（第 125 轮）：`+` 里有一边是**字符串字面量**时，降级层把它落成
 > 语言内建 `StringConcat`（另一边走「任意值 → 文本」，所以 `"x=" + obj` / `"n=" + 5 / 2`
@@ -51,6 +70,21 @@
 > `Number`（**isInteger / isNaN**，只认不转）与全局的 **`parseInt` / `parseFloat`**（第 126 轮）、
 > `Error`（`message` + `name`，**没有 `stack`、没有 `instanceof`**）、`Map` / `Set`（含 `forEach` 与直接迭代）、
 > `Symbol`、`Date`（`new Date(ms)` + UTC 日历那一族，**时钟由宿主回答**）。
+>
+> **类这一层也补齐了一批**（第 128 轮）：**实例字段初始化**（`x = 1`；光写名字的字段
+> 也真的存在 ✓）、**`static` 字段 / 方法 / 访问器**、**`static { … }` 静态块**。
+> 顺序照 JS：静态成员在**类声明的位置按源码顺序**求值 ✓、实例字段在**构造函数体之前**
+> （参数默认值之后）✓、派生类里**跟在 `super(...)` 之后** ✓（`super` 落在语句中部也对 ✓）。
+> **两处写在明处的差异**：① 字段写入走**赋值**（`set_prop`），JS 的类字段走
+> `[[DefineOwnProperty]]` ——**原型上有同名 setter** 时行为不同（JS 不调它，这里会调）；
+> ② `extends` 一个表达式（`class B extends mixin(A) {}`）仍抛。
+>
+> **第 128 轮还修掉两处顺路暴露的老缺口**（都不是新写出来的，是这一轮的新判据踩到的）：
+> ① **全局名在内层函数里看不见** ✗——`class A { constructor() { console.log(1) } }` 在
+> **降级期**就报 `name is not a local or a capture: console` ✓（`Math` 同理 ✓；此前每条判据
+> 都恰好只在**方法**里用过全局名，所以一直没露）；
+> ② **构造函数不算「内层函数」** ✗——捕获分析看不见「构造函数体里引用了模块作用域的名字」✓，
+> 于是模块那一层不为它留格子 ✗。两条都在 `lowering.xl.md` 与 `scope.xl.md` 里写清了根因。
 >
 > **失败的口径**（第 121 / 127 轮）：内建抛的仍然是**宿主异常** ✓，两处各抬一半 ✓——
 > **宿主通道**那一层（`install.xl.md` 的 `RaiseFromHost`）管**宿主函数**的失败 ✓，
@@ -78,8 +112,9 @@
 
 ```
 typescript-exec/
-  lowering.xl.md        ✔ 已落地（最小构造集 + 槽分配 + 函数表 + 导出闭包表）
-  scope.xl.md           ✔ 已落地（捕获分析 + 环境链与深度）
+  lowering.xl.md        ✔ 已落地（最小构造集 + 槽分配 + 函数表 + 导出闭包表
+                         + 类字段 / `static` / 静态块，第 128 轮）
+  scope.xl.md           ✔ 已落地（捕获分析 + 环境链与深度；`Constructor` 也算一层，第 128 轮）
   statements.xl.md      语句与声明（提升、`for`/`for..of`、`try`）
   expressions.xl.md     表达式与运算符（`&&` / `||` / `??` / `?.` 展开成控制流，不进 id 表）
   modules.xl.md         import/export → 宿主的模块解析回调

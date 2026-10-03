@@ -251,23 +251,38 @@ for (let i = 0; i < keys.length; i++) {
 
 # method IsFunctionNode:(node:AstNode)=>bool
 
-这**六种**节点**自带一层作用域**（`this`/参数/名的归属都在它们里面）：
-三种函数字面量、方法（`MethodDeclaration`）、以及**访问器**（`GetAccessor` / `SetAccessor`）。
+这**七种**节点**自带一层作用域**（`this`/参数/名的归属都在它们里面）：
+三种函数字面量、方法（`MethodDeclaration`）、**构造函数**（`Constructor`）、
+以及**访问器**（`GetAccessor` / `SetAccessor`）。
 
-**名单短一个就是错值** ✗，而且症状离现场很远——两次实测，**同一个症状、同一个根因**：
+**名单短一个就是错值** ✗，而且症状离现场很远——三次实测，**同一个症状、同一个根因**：
 
 - 漏掉 `MethodDeclaration`（第 96 轮）→ 含**对象方法**的那一层不开环境 ✗ →
   方法里的闭包从祖先帧读到一个**不属于环境的格子** → `new_closure needs an environment or undefined`；
 - 漏掉 `GetAccessor` / `SetAccessor`（第 99 轮）→ 构造换成了对象字面量的 `get x()`
-  （**类里的 `get x()` 也是同一个根因** ✓），报出来一个字都不差。
+  （**类里的 `get x()` 也是同一个根因** ✓），报出来一个字都不差；
+- 漏掉 `Constructor`（第 128 轮）→ **构造函数体不算「内层函数」** ✗，于是
+  「构造函数里引用了模块作用域的名字」这件事**捕获分析看不见** ✗ →
+  模块那一层不为那个名字留格子 ✗，降级到构造函数体里报
+  `name is not a local or a capture: <名字>` ✓。
+  **第 128 轮现场**：`class Box { static made = 0; constructor(n) { Box.made = … } }` ——
+  类名 `Box` 是在**构造函数体**里被引用的 ✓，而构造函数此前不算函数节点 ✗，
+  于是模块那一层压根不开环境 ✗（`captured` 是空 ✓），`Box` 谁都找不到 ✓。
+  **类字段把这一条逼出来了**：在此之前「构造函数体里引用模块作用域的名字」这条路上
+  恰好没有判据走过 ✓（方法和访问器早就在名单里，所以它们的同款引用一直是好的 ✓）。
 
-**两次都是合成判据逼出来的**（单独测哪一块都测不出来）。所以这里的名单**宁可多列**：
+**三次都是合成判据逼出来的**（单独测哪一块都测不出来）。所以这里的名单**宁可多列**：
 漏一个不是「少开一格」，而是**整层不开环境**。
+
+**`Constructor` 与 `MethodDeclaration` 为什么必须一起在名单里**：它们都是「自己一层作用域」，
+而**类体本身不是作用域** ✓（`class C { m() {} }` 里 `m` 的体不是 `C` 的一层块 ✗）——
+所以类成员的体只能由**成员自己**当那一层 ✓。
 
 ```ts
 const kind = NodeKind(node);
 return kind === "FunctionDeclaration" || kind === "FunctionExpression"
   || kind === "ArrowFunction" || kind === "MethodDeclaration"
+  || kind === "Constructor"
   || kind === "GetAccessor" || kind === "SetAccessor";
 ```
 

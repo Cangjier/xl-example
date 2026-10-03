@@ -3196,13 +3196,59 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
   }
   eq(noSuper.indexOf("super") >= 0, true, "构造函数没调 super(...) 必须抛：" + noSuper);
 
-  let field = "";
-  try {
-    lowerAndLoad("class A { constructor() { this.x = 1; } } class B { y = 2; }");
-  } catch (error) {
-    field = String(error.message);
+  // **实例字段 / `static` / 静态块**（第 128 轮）：原来这里钉的是「必须抛（还没做）」，
+  // 现在换成**与 Node 逐值对拍**——顺序口径（静态成员按源码顺序、实例字段在体之前、
+  // 派生类里跟在 `super(...)` 之后）就是这一节量的东西。
+  const fieldsSource = [
+    "class Box {",
+    "  n = 1;",
+    "  tag = 'b' + this.n;",
+    "  empty;",
+    "  static made = 0;",
+    "  static list = [];",
+    "  constructor(n) { this.n = n; Box.made = Box.made + 1; Box.list.push(n); }",
+    "  static describe() { return 'made=' + Box.made; }",
+    "  static { Box.list.push('block'); }",
+    "  sum() { return this.n + 1; }",
+    "}",
+    "class Base2 { id; constructor(id) { this.id = id; } name() { return 'b' + this.id; } }",
+    "class Derived2 extends Base2 {",
+    "  extra = this.id * 10;",
+    "  constructor(id) { const doubled = id * 2; super(doubled); }",
+    "  name() { return 'd:' + super.name() + ':' + this.extra; }",
+    "}",
+    "function probe(v) {",
+    "  const b = new Box(v);",
+    "  const d = new Derived2(v);",
+    // **`'empty' in b` 写成三次比较**（不是风格）：`[x in y]` 这个形状今天在**token 层**
+    // 被读成映射键的 `TypeParameter` ✗（见 `typescript-exec/README.md` 那条已知缺口 ✓），
+    // 所以判据不拿它当料——那是一条**独立的**缺口，不该混进这一节 ✓。
+    "  const hasEmpty = 'empty' in b;",
+    "  return [b.sum(), b.tag, hasEmpty, Box.made, Box.describe(), Box.list.join(','), d.id, d.extra, d.name()];",
+    "}",
+  ].join("\n");
+  const fieldsExpected = new Function(fieldsSource + "\nreturn probe(3);")();
+  eq(fieldsExpected[0], 4, "Node：n 覆盖字段初始值");
+  eq(fieldsExpected[1], "b1", "Node：字段初始化式看得见同一次里的前一个字段");
+  eq(fieldsExpected[2], true, "Node：光写名字的字段也真的存在");
+  eq(fieldsExpected[4], "made=1", "Node：静态方法读得到静态字段（这是前提）");
+  eq(fieldsExpected[6], 6, "Node：派生类的字段跟在 super(...) 之后才求值");
+  const fieldsRun = lowerAndLoad(fieldsSource);
+  fieldsRun.host.DeclarePrototypeKey(units("prototype"));
+  eq(fieldsRun.host.Evaluate([]).Outcome, HostOutcome.Ok, "求值（字段 / static）");
+  const fieldsActual = fieldsRun.host.CallExport(fieldsRun.module.ExportOf("probe"), [Value.FromInt(3)]);
+  // **逐个比**（数组元素：数字与字符串混在一起，`AsInt` 只对数字成立）
+  for (let i = 0; i < fieldsExpected.length; i++) {
+    const item = fieldsRun.table.Get(fieldsActual.Value.Ref).AsArray().GetAt(i);
+    const want = fieldsExpected[i];
+    if (typeof want === "number") {
+      eq(item.AsInt(), want, "字段 / static 第 " + i + " 项（数字）");
+    } else if (typeof want === "boolean") {
+      eq(item.AsBool(), want, "字段 / static 第 " + i + " 项（布尔）");
+    } else {
+      eq(hostStringOf(fieldsRun.table, item), want, "字段 / static 第 " + i + " 项（字符串）");
+    }
   }
-  eq(field.indexOf("class member") >= 0, true, "字段初始化必须抛（还没做）：" + field);
 });
 
 check("set_proto：链上之后属性查找沿链走、自环当场拒绝（引擎层）", () => {
