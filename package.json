@@ -22,6 +22,7 @@
     "cases:astjson": "node ./tests/parse/ast-json.mjs",
     "cases:shapelint": "node ./tests/parse/shape-lint.mjs",
     "cases:tsast": "node ./tests/parse/ts-ast.mjs",
+    "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli",
     "cases:boundaries": "node ./tests/parse/boundaries.mjs",
     "cases:noise": "node ./tests/parse/noise.mjs",
     "cases:align": "node ./tests/parse/align.mjs",

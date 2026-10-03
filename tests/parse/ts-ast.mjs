@@ -5,6 +5,11 @@
 //   node tests/parse/ts-ast.mjs real         只跑真实语料
 //   node tests/parse/ts-ast.mjs --top 20
 //   node tests/parse/ts-ast.mjs --samples 5  每类最多列 5 条样本
+//   node tests/parse/ts-ast.mjs --file <路径> [--list]        逐文件的四个方向
+//   node tests/parse/ts-ast.mjs --per-file                    只列不为零的文件
+//   node tests/parse/ts-ast.mjs --cli         **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，
+//                                             拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍
+//                                             （按需跑：全语料 1407 个 node 进程）
 //
 // 它问的是**一个问题**：「这份产物离『和 TypeScript 的 AST 一模一样』还差多少」。
 // 与 `cases:diff` / `cases:align` 的区别在**比对面**：
@@ -18,8 +23,10 @@
 // 产物侧用 `Root.ToList()`（带真实坐标，见 `docs/ast-json.md`）：坐标是这一把尺子的地基，
 // 没有坐标就只能靠文本猜位置，那种对齐一遇到壳节点就断。
 //
-// 当前状态（第 70 轮第一次跑）：**这一把是红的**，差距量化在下面的「缺口按 kind 聚合」里。
-// 它红的不是解析出错，而是「产物的节点集合与 TS 不是同一套」——那正是要重构 token 层的部分。
+// 当前状态（第 181 轮缺口归零、第 199 轮把三栏「地基」并进退出码）：
+//   **语料 1407 份，逐文件完全一致 1407 / 1407；缺 / 漂移 / 多出 / 字段名四方向全 0**，
+//   未映射 0 类 / 0 处、缺 range 0、区间越界 0（trivia 越界单列一行，见 `flattenProduct`）。
+//   发布路径（`--cli`）同样 1407 / 1407。退出码按这**七条**算，任何一条不为零就是红的。
 //
 // 输出分四段，**「缺」与「漂移」是两件事**（第 34 轮分开报）：
 //   缺     这一类在投影树里**根本没有**（要补映射）
@@ -213,9 +220,17 @@ function flattenProduct(exported, stats, source) {
       const key = `缺坐标: ${type}`;
       stats.missingByType.set(key, (stats.missingByType.get(key) || 0) + 1);
     } else if (parentRange !== null && (start < parentRange[0] || end > parentRange[1])) {
-      stats.outOfRange++;
-      const key = `越界: <${type}>`;
-      stats.outOfRangeByType.set(key, (stats.outOfRangeByType.get(key) || 0) + 1);
+      // **trivia 不参与这一条**（第 199 轮）：注释与软换行是**被扫进来的**，各 token 明确写着
+      // 「留在段的 `Data` 里、不参与签入签出」（`ternary-operator.xl.md` 第 125 / 127 轮）——
+      // 所以它们落在父区间之外是**约定的形态**，不是坐标错。
+      // 剔掉它这一栏才有牙：真正会进投影的节点一旦越界，仍然是红的。
+      if (MODIFIERS.has(type)) {
+        stats.triviaOutOfRange++;
+      } else {
+        stats.outOfRange++;
+        const key = `越界: <${type}>`;
+        stats.outOfRangeByType.set(key, (stats.outOfRangeByType.get(key) || 0) + 1);
+      }
     }
     // 归一用的文本：叶子用 `value`，容器用区间里的原文（关键字那种「文本在区间里」的情况）。
     let text = typeof value === "string" ? value : "";
@@ -445,6 +460,7 @@ function diffOneFile(file, options) {
     repeatVisits: 0,
     missingRange: 0,
     outOfRange: 0,
+    triviaOutOfRange: 0,
     missingByType: new Map(),
     outOfRangeByType: new Map(),
   };
@@ -520,11 +536,149 @@ function diffOneFile(file, options) {
   if (!lines.length) console.log("  （完全一致）");
 }
 
+/**
+ * **端到端那把尺子**（第 199 轮）：`node tests/parse/ts-ast.mjs --cli`
+ *
+ * 上面那把量的是**库路径**（`projectRoot` 直接被尺子 require 进来）。用户澄清过的验收口径
+ * 是「由 `cjcli` 与 `ts.createSourceFile` 比较」——这两条路中间还隔着
+ * **参数解析、读文件与 BOM、`CjcliParseTsAst`、`ToJsonText`（Map → 普通对象）、标准输出**。
+ * 库路径绿不等于发布路径绿，所以这一把**真的去开进程**：
+ *
+ *   node build/ts/cjcli.js <文件> --ts-ast  →  stdout 的 JSON  →  与 TS 的 AST 四方向对拍
+ *
+ * 代价是每个文件一个 node 进程（全语料约两分钟），所以它是**按需跑的**，不进默认路径；
+ * 口径与默认那把完全一致（kind / 区间 / 字段名，四方向 + 未映射）。
+ */
+function cliParity(mode, top, sampleLimit) {
+  const { spawnSync } = require("node:child_process");
+  const cli = path.join(root, "build", "ts", "cjcli.js");
+  const files = corpus(mode);
+  const missing = new Map();
+  const drift = new Map();
+  const extra = new Map();
+  const fieldDiffs = new Map();
+  const samples = new Map();
+  let exactFiles = 0;
+  let parsed = 0;
+  let failed = 0;
+  let unmappedFiles = 0;
+  let nodesTotal = 0;
+
+  for (const file of files) {
+    let source = fs.readFileSync(file, "utf8");
+    if (source.charCodeAt(0) === 0xfeff) source = source.substring(1);
+    const run = spawnSync(process.execPath, [cli, file, "--ts-ast"], { encoding: "utf8", maxBuffer: 1 << 28 });
+    if (run.status !== 0) {
+      failed++;
+      continue;
+    }
+    if ((run.stderr || "").includes("投影未覆盖的标签")) unmappedFiles++;
+    let ast;
+    try {
+      ast = JSON.parse(run.stdout);
+    } catch {
+      failed++;
+      continue;
+    }
+    parsed++;
+    const proj = flattenProjected(ast);
+    nodesTotal += proj.length;
+    const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const theirs = flattenTs(sf);
+    const projKeys = new Set(proj.map((p) => `${p.kind}@${p.start}-${p.end}`));
+    const projByKind = new Map();
+    const projFields = new Map();
+    for (const p of proj) {
+      if (!projByKind.has(p.kind)) projByKind.set(p.kind, []);
+      projByKind.get(p.kind).push(p);
+      projFields.set(`${p.kind}@${p.start}-${p.end}`, p.fields ?? []);
+    }
+    let fileBad = 0;
+    for (const their of theirs) {
+      const key = `${their.kind}@${their.start}-${their.end}`;
+      if (!projKeys.has(key)) {
+        const near = (projByKind.get(their.kind) || []).find((p) => Math.abs((p.start ?? -1) - their.start) <= 2);
+        const bucket = near ? drift : missing;
+        const label = near ? `DRIFT: ${their.kind}` : their.kind;
+        bucket.set(label, (bucket.get(label) || 0) + 1);
+        fileBad++;
+        if ((samples.get(label) || []).length < sampleLimit) {
+          samples.set(
+            label,
+            (samples.get(label) || []).concat(
+              near
+                ? `${path.relative(root, file)}:${their.start} CLI[${near.start},${near.end}) vs TS[${their.start},${their.end})`
+                : `${path.relative(root, file)}:${their.start}  «${source.slice(their.start, their.start + 40).split("\n")[0]}»`,
+            ),
+          );
+        }
+        continue;
+      }
+      const ours = projFields.get(key) ?? [];
+      const theirFields = their.fields ?? [];
+      if (ours.length !== theirFields.length || !ours.every((f, i) => f === theirFields[i])) {
+        const label = `FIELD ${their.kind}`;
+        fieldDiffs.set(label, (fieldDiffs.get(label) || 0) + 1);
+        fileBad++;
+      }
+    }
+    const theirKeys = new Set(theirs.map((t) => `${t.kind}@${t.start}-${t.end}`));
+    for (const p of proj) {
+      if (theirKeys.has(`${p.kind}@${p.start}-${p.end}`)) continue;
+      extra.set(p.kind, (extra.get(p.kind) || 0) + 1);
+      fileBad++;
+    }
+    if (fileBad === 0) exactFiles++;
+  }
+
+  const missingTotal = [...missing.values()].reduce((a, b) => a + b, 0);
+  const driftTotal = [...drift.values()].reduce((a, b) => a + b, 0);
+  const extraTotal = [...extra.values()].reduce((a, b) => a + b, 0);
+  const fieldTotal = [...fieldDiffs.values()].reduce((a, b) => a + b, 0);
+  console.log("=== 发布路径（cjcli --ts-ast 的 stdout）对 ts.createSourceFile ===");
+  console.log(`  语料 ${files.length} 个文件，起了 ${files.length} 个 cjcli 进程：解析成功 ${parsed}，失败 ${failed}，投影节点 ${nodesTotal} 个`);
+  console.log(`  **完全一致的文件 ${exactFiles} / ${files.length} 个**`);
+  console.log(
+    `  缺节点 ${missingTotal}（${missing.size} 类）　区间漂移 ${driftTotal}（${drift.size} 类）　` +
+      `多出来的节点 ${extraTotal}（${extra.size} 类）　字段名不符 ${fieldTotal}`,
+  );
+  console.log(`  cjcli 报了未映射标签的文件 ${unmappedFiles} 个`);
+  for (const [k, n] of [...missing.entries()].sort((a, b) => b[1] - a[1]).slice(0, top)) {
+    console.log(`  ${String(n).padStart(7)}  ${k}`);
+    for (const s of samples.get(k) || []) console.log(`             ${s}`);
+  }
+  for (const [k, n] of [...drift.entries()].sort((a, b) => b[1] - a[1]).slice(0, top)) {
+    console.log(`  ${String(n).padStart(7)}  ${k}`);
+    for (const s of samples.get(k) || []) console.log(`             ${s}`);
+  }
+  for (const [k, n] of [...extra.entries()].sort((a, b) => b[1] - a[1]).slice(0, top)) {
+    console.log(`  ${String(n).padStart(7)}  <${k}>`);
+  }
+  for (const [k, n] of [...fieldDiffs.entries()].sort((a, b) => b[1] - a[1]).slice(0, top)) {
+    console.log(`  ${String(n).padStart(7)}  ${k}`);
+  }
+  process.exitCode =
+    failed === 0 &&
+    missing.size === 0 &&
+    drift.size === 0 &&
+    extra.size === 0 &&
+    fieldDiffs.size === 0 &&
+    unmappedFiles === 0
+      ? 0
+      : 1;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const mode = args.find((a) => ["real", "cases", "all"].includes(a)) || "all";
   const top = args.includes("--top") ? Number(args[args.indexOf("--top") + 1]) : 20;
   const sampleLimit = args.includes("--samples") ? Number(args[args.indexOf("--samples") + 1]) : 3;
+
+  // **发布路径那一把**（第 199 轮）：真的开 `cjcli` 进程，见上面 `cliParity`。
+  if (args.includes("--cli")) {
+    cliParity(mode, top, sampleLimit);
+    return;
+  }
 
   if (args.includes("--file")) {
     diffOneFile(path.resolve(root, args[args.indexOf("--file") + 1]), {
@@ -544,6 +698,7 @@ function main() {
     repeatVisits: 0,
     missingRange: 0,
     outOfRange: 0,
+    triviaOutOfRange: 0,
     missingByType: new Map(),
     outOfRangeByType: new Map(),
   };
@@ -751,6 +906,15 @@ function main() {
       `多出来的节点 ${extraTotal}（${projectedExtra.size} 类）　` +
       `字段名不符 ${fieldDiffTotal}`,
   );
+  // **判据之外的三个「地基」栏**（第 199 轮提到这里，与四方向并列判绿）：
+  //   · 未映射 —— 通用支**真正透传进产物**的标签（`projectRoot` 已经滤掉「只是问一下」的那些访问）；
+  //   · 缺坐标 —— 节点上没有 `range`；
+  //   · 越界   —— 会进投影的节点落在父亲区间之外（trivia 不算，见 `flattenProduct` 那一处）。
+  const unmappedTotal = [...unmappedTags.values()].reduce((a, b) => a + b, 0);
+  console.log(
+    `  未映射（透传进产物的标签）${unmappedTags.size} 类 / ${unmappedTotal} 处　` +
+      `缺 range ${stats.missingRange} 个　区间越界 ${stats.outOfRange} 个`,
+  );
 
   console.log("TS 有、产物没有（按 TS kind 聚合，前 " + top + " 类）：");
   for (const [k, n] of [...missing.entries()].sort((a, b) => b[1] - a[1]).slice(0, top)) {
@@ -808,7 +972,9 @@ function main() {
 
   console.log("\n坐标完整性（投影成 TS 形状的地基）：");  console.log(
     `  节点 ${stats.total} 个（**按实例去重**；重复访问 ${stats.repeatVisits} 次——同一子单元被挂在两个位置），\n` +
-      `  **缺 range** ${stats.missingRange} 个，**区间越界** ${stats.outOfRange} 个`,
+      `  **缺 range** ${stats.missingRange} 个，**区间越界** ${stats.outOfRange} 个` +
+      `（另有 trivia 越界 ${stats.triviaOutOfRange} 个——注释 / 软换行是**被扫进来的**，` +
+      `不参与签入签出，是约定的形态，见 `+ "`ternary-operator.xl.md`" + ` 第 125 / 127 轮）`,
   );
   for (const [k, n] of [...stats.missingByType.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)) {
     console.log(`    ${String(n).padStart(6)}  ${k}`);
@@ -820,11 +986,18 @@ function main() {
   // **退出码按「完全一致」算**（第 84 轮）：缺 / 漂移 / 多出来 / 字段名，四个方向都为 0 才绿。
   // 原来只看「缺 + 漂移」两个方向，所以「产物多出一堆 TS 没有的节点」时它照样是绿的——
   // 而 `完全一致` 这个预期下，多一个节点与少一个节点同样不合格。
+  //
+  // 第 199 轮把**地基**的三栏也并进退出码：未映射（透传进产物的标签）、缺 range、区间越界。
+  // 它们原来是「打印出来给人读」的，于是「完全一致」这句话带着三个未验证的星号；
+  // 用户的要求是「PrintAst 必须和 TS 的 AST 完全一致」，那就一条都不许留白。
   process.exitCode =
     projectedMissing.size === 0 &&
     projectedDrift.size === 0 &&
     projectedExtra.size === 0 &&
-    fieldDiffs.size === 0
+    fieldDiffs.size === 0 &&
+    unmappedTags.size === 0 &&
+    stats.missingRange === 0 &&
+    stats.outOfRange === 0
       ? 0
       : 1;
 }
