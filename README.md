@@ -333,32 +333,26 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 `ToDictionary` 是照 `ToXmlString` 抄的第二套拼串，两处漂开**不会有任何别的尺子看得见**
 （节点数、名字、括号、边界全都正常）。规格见 [docs/ast-json.md](docs/ast-json.md)。
 
-**第十把问的是「离 TypeScript 的 AST 还差多少」**（这一把目前是红的，见下）：
+**第十把问的是「离 TypeScript 的 AST 还差多少」**（第 181 轮起这一把是**绿的**，
+第 199 轮把三栏「地基」也并进了退出码）：
 
 | 命令 | 口径 |
 | --- | --- |
-| `npm run cases:tsast` | **TS 形状**：直接拿 `ts.createSourceFile` 当基准，逐节点比 kind / 区间 / 字段名 |
+| `npm run cases:tsast` | **TS 形状**：直接拿 `ts.createSourceFile` 当基准，逐节点比 kind / 区间 / 字段名；未映射（透传进产物的标签）/ 缺 range / 区间越界也一并判绿 |
+| `node tests/parse/ts-ast.mjs --cli` | **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍（按需跑：全语料 1407 个进程） |
 
-它红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
+产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后是 100%**：
+语料 1407 份**逐文件完全一致 1407 / 1407**，四个方向（缺 / 漂移 / 多出 / 字段名）全 0，
+未映射 0 类 / 0 处、缺 range 0、区间越界 0。
+
+它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
 （`VariableDeclarationList` / `VariableStatement` / `ExpressionStatement` / `Block`）、
 类型引用（`TypeReference` 在 TS 那边是**同一区间两层节点**）、
-以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。
-这个百分比**同时量节点集合、坐标与名字归一**（三者都对上才计），实测：
-
-| 口径 | 用例语料 1020 文件 | 真实语料 385 文件 |
-| --- | --- | --- |
-| 产物标签名直接比 | 32.4% | 47.9% |
-| **投影成 TS 形状后比**（`ts-shape.mjs`） | **85.7%** | **97.9%** |
-| 其中**字段名也一致** | **97.8%** | **99.9%** |
-
-（这三行是**第 78 轮**的实测数；改动前后的对照与逐条缺口见下面「第 78 轮」那一节。）
-
-第三行是「完全 follow TypeScript 形状」的真账：[tests/parse/ts-shape.mjs](tests/parse/ts-shape.mjs)
-负责换名、补壳 / 提层、给字段名，`cases:tsast` 逐节点比 **kind / 区间 / 字段名** 三样。
-投影节点的数与 TS 语义节点同量级（真实语料 480427 vs 453862，1.06×），所以剩下的差距是**结构**，
-不是规模——正是要接着重构 token 层去补的那几层壳与字段切分。
-真实语料（`.d.ts` 为主）已经到 **97.6%**：那批文件几乎全是「声明 + 类型」，正是投影覆盖得最好的部分
-（这一句与下面这几行状态表是**第 71–76 轮**累积的读数，最新的逐条数字见「第 76 轮」那一节）。
+以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。第 181 轮把这些一层层补完
+（逐轮台账在 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)——
+本 README 的轮次只记到第 82 轮），第 182~198 轮把投影从 `typescript/ts-ast.xl.md`
+逐块搬进各 token 的 `PrintAst`（每搬一块都重跑这一把，基线一直是 1407 / 1407），
+第 199 轮把「四方向全 0 但还有三栏没判」的星号删干净。
 ### 当前状态（实测，`npm run` 十九个脚本全绿）
 
 | 判据 | 结果 |

@@ -3250,3 +3250,136 @@ token：`projectNode` 会先问 `__token.PrintAst` ✓，输入相同、结果�
 **验收判据（用户澄清的那条）**：由 `cjcli print ast` 与 `ts.createSourceFile` 比较，
 完全一致即认为任务完成——`tests/parse/ts-ast.mjs --per-file` 就是这条判据的实现，
 当前 **1407 / 1407 文件完全一致，四方向全 0**。
+
+---
+
+# 第 199 轮：把「完全一致」的星号删掉
+
+要求是**「PrintAst 必须和 TS 的 AST 完全一致」**。第 181 轮之后四方向（缺 / 漂移 / 多出 /
+字段名）已经是 0，但那一句后面还挂着**三笔只在屏幕上、不在退出码里**的账
+（`cases:tsast` 原来只按四方向定绿），外加一把**过期的手写期望值**。这一轮四处一起收：
+
+| # | 账 | 原来的样子 | 这一轮 |
+| --- | --- | --- | --- |
+| 1 | **未映射标签** | 「48 个文件里有 `<Bracket>` 透传」——那个数字其实是 `ctx.unmapped.add` 的**访问数**，而绝大多数访问只是「问一下这个子单元能投出什么」，结果被调用方丢掉 | 实测 **9137 处访问 / 48 个文件，真正透传进产物的 0 个**。`projectRoot` 末尾拿产物自己的 `kind` 集合对一次账（透传节点的 `kind` 就是标签名），滤掉问路的；这一栏归零并**并进退出码** |
+| 2 | **区间越界** | 2 处：`expr-ternary.ts` 里两条 `LineAnnotation` 落在 `TernaryOperator` 区间之外 | 那是**被扫进来的 trivia**——token 层早就写明「留在段的 `Data` 里、不参与签入签出」（`ternary-operator.xl.md` 第 125 / 127 轮）。尺子改成**只对会进投影的节点较真**，trivia 越界单列一行如实报出；非 trivia 越界**并进退出码** |
+| 3 | **缺 range** | 打印出来给人读 | 0，**并进退出码** |
+| 4 | **过期期望值** | `ambiguous/am-block-lambda-array-compound` 的 `xl:expect` 里还写着 `ArrayLiteral`——那是**第 158 轮之前**的旧读法（换行后的 `[` 起一条新语句） | 第 158 轮之后 `x => x` 换行 `[1, 2, 3]` 与 TS 一致地读成**一条表达式**，而 **TS 的 AST 里也没有 `ArrayLiteral`**（TS 侧实测：`ArrowFunction > ElementAccessExpression > Identifier, BinaryExpression(1,2,3)`）。期望值改成钉 `PropertyAccess` 那一层，`cases:run` 回到 **1035 / 1035、新增/过期 0** |
+
+## 判据：从四条扩到七条
+
+`tests/parse/ts-ast.mjs` 的退出码原来只看四方向，现在再加上三栏地基：
+
+```
+=== 与 ts.createSourceFile 完全一致？（四个方向都为 0 才是）===
+  **完全一致的文件 1407 / 1407 个**
+  缺节点 0（0 类）　区间漂移 0（0 类）　多出来的节点 0（0 类）　字段名不符 0
+  未映射（透传进产物的标签）0 类 / 0 处　缺 range 0 个　区间越界 0 个
+```
+
+## 新增：发布路径那一把（`--cli` / `npm run cases:tsast:cli`）
+
+上面那把量的是**库路径**（尺子把 `projectRoot` require 进来）。用户澄清的口径是
+「由 `cjcli` 与 `ts.createSourceFile` 比较」——中间还隔着**参数解析、读文件与 BOM、
+`CjcliParseTsAst`、`ToJsonText`（`Map` → 普通对象）、标准输出**，库路径绿不等于发布路径绿。
+所以这一把**真的开进程**：每个文件跑一次 `node build/ts/cjcli.js <文件> --ts-ast`，
+拿 stdout 的 JSON 与 TS 对拍。全语料实测：
+
+```
+  语料 1407 个文件，起了 1407 个 cjcli 进程：解析成功 1407，失败 0，投影节点 512949 个
+  **完全一致的文件 1407 / 1407 个**
+  缺节点 0（0 类）　区间漂移 0（0 类）　多出来的节点 0（0 类）　字段名不符 0
+  cjcli 报了未映射标签的文件 0 个
+```
+
+## 一句话
+
+## 第 199 轮（续）：`samples` 抓到的**键序回归** —— 30 处构造点回到搬家前的键序
+
+收上面这笔账的时候顺手跑了 `npm run samples`，它是**红的**。先排除「是不是这一轮改出来的」：
+把 `typescript/print-ast-common.xl.md` 换回 HEAD 版本重建，差异**一模一样**——是**既有**的红。
+
+用探针把三份 `*.expected.tsast.json` 与当前投影**逐节点**比，差异分成两类：
+
+| 类 | 内容 | 处置 |
+| --- | --- | --- |
+| **键序不同**（键集合相同、顺序不同） | 13 类节点：`EnumMember` / `TypeParameter` / `HeritageClause` / `NewExpression` / `ExpressionWithTypeArguments` / `PropertyDeclaration` / `PropertySignature` / `ForStatement` / `Decorator` / `ObjectLiteralExpression` / `WhileStatement` / `SwitchStatement` / `TryStatement` | **修产物**（下面这套） |
+| **值不同**（真正的产物变化） | ① `declarations.ts` 的 `await x`：`AwaitKeyword` → `AwaitExpression`；② `generic.ts` 顶层语句 19 → 20（第 181 轮那条「类体里的 `let` 按 TS 的错误恢复处理」） | **改夹具**（`--update`），两处都是故意的 |
+
+### 根因
+
+搬家前有一批节点是**内联**写的：
+
+    return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
+
+第 181~198 轮把它们逐块搬进各 token 的 `PrintAst`、改走 `ctx.Node`（= `astNode`，
+键序 `{ kind, …props, pos, end }`）之后，键序变成「props 在前、坐标在后」——
+**值一个没变，字节变了**。`cases:tsast` 看不见这一条：它比 kind / 区间 / 字段名，
+比不了 JSON 的键序；只有 `samples` 的**逐字节**夹具看得见。
+
+### 修法：`astNodeHead` / `ctx.NodeHead`
+
+新增一支**同实现、只重排键**的构造器（`print-ast-common.xl.md`）：
+
+```ts
+const node = astNode(kind, props, v, ctx);          // 同一个坐标口径，不抄第二遍
+const ordered = { kind: node.kind, pos: node.pos, end: node.end };
+…把其余键原样搬过去
+```
+
+哪些构造点要改回去？**按第 96 轮那份实现找**（夹具就是它生成的）——用 TypeScript 自己的 parser
+读那一版 spec 的代码块，收「对象字面量里 `kind` 与 `pos` 且 `pos` 在展开之前」的 kind：
+**37 个字符串 kind**，再加上变量 kind 的那几处（`Field` 的两种 kind、`Foreach` 的两种、
+`FunctionType` / `ConstructorType`）。共 **30 处构造点**（27 处 `ctx.Node("X"` + 3 处变量 kind）。
+
+### 验证（三层）
+
+1. **键序差异归零**：探针复查三份夹具，`键序不同的节点` 一栏是「（无）」；
+2. **全语料键序普查**（1416 个文件 / 218 个 kind）：名单里的 kind 只剩两处 TAIL——
+   `NonNullExpression`（可选链上合成的 77 处）与 `IndexedAccessType`（类型位限定名合成的 5 处）：
+   它们都是**第 96 轮之后才有的合成节点**，生来就是「props 在前」，没有夹具覆盖，**不动**；
+3. **`hello.expected.tsast.json` 一个字节都没变**——`--update` 跑完 `git status` 里没有它。
+   键序恢复得与夹具逐字节相同，这一条比任何断言都硬。
+
+### 夹具更新
+
+`npm run samples -- --update` 只改了三份**真变化**的夹具：
+`samples/declarations.expected.tsast.json`（AwaitExpression）、
+`samples/generic.expected.{xml,ast.json,tsast.json}`（第 181 轮那条）。
+之后 `samples` **9 / 9 全绿**（3 份样本 × XML / AST JSON / TS 形状）。
+
+## 顺手发现的另一处**既有**红：`cases:noise`
+
+这一轮把十九个脚本逐个跑了一遍，`cases:noise` 是红的：
+
+```
+噪声尺子：语料 1407 个文件，解析成功 1407，抛异常 0
+         空 <Statement> 3453 个
+```
+
+（README 那份台账还写着「1272 个文件、空 `<Statement>` 0 个」——那是第 85 轮前后的读数。）
+
+**先定性，再判断**：用探针把 1416 个文件里每一个空 `<Statement>` 的**区间原文**取出来分类——
+
+| 区间原文 | 个数 |
+| --- | ---: |
+| `";"` | **3453** |
+| 其它 | **0** |
+
+一个都不是「收尾口径把换行收走」留下的空壳。它们是**空语句的载体**：第 141~179 轮把
+「哪个 `;` 是 TS 的 `EmptyStatement`、哪个是上一条语句的终结符」这套判据放在**投影侧**
+（`projectStatement`：行首的分号 / 同行的第二个分号 / 上一行是注释还是代码 / 块后照收），
+token 树必须把那些 `;` 留着，投影才有东西可判。所以 `cases:tsast` 是绿的——
+`fn-iife.ts` 就是最小样本：token 树里有两个空 `<Statement>`（第 2、5 行的 `;`），
+而 TS 只有一个 `EmptyStatement`（第一个）；投影按判据分类，多的那个出 `ctx.Nothing`。
+
+**结论：这一把的红是判据过期，不是解析回归。** 它数的是「所有空 `Statement`」，
+而按现在的设计该数的是「区间不是 `;` 的空 `Statement`」。修法（下一步，另开一轮）：
+尺子改成按区间分类——坐标只在 `ToList()` 里有（XML 里没有），所以那把尺子要从
+「解析 XML」换成「走 `ToList()`」，顺带保住它对「空块 / 空体」的那一半口径。
+
+## 一句话
+
+**「完全一致」现在没有星号**：库路径与发布路径各 **1407 / 1407**，七条判据全 0，退出码为 0；
+`samples` 的九份夹具也全绿——**逐字节**那一层同样对得上。
+（`cases:noise` 另有一处既有红，性质与修法见上一节：判据过期，不是解析回归。）
