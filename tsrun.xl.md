@@ -67,6 +67,19 @@ import { LinkPrograms } from "./runtime/link.xl.md"
 
 最后一份模块里要调的那个导出名（空串就不调，只把模块都求值完）。
 
+## field EntryArgs:Array<Value> = []
+
+调入口时给的实参。**承载体是 `Value`**（运行期的值），所以调用方先自己造：
+`async` 的入口要的就是一个**承诺**——这正是「宿主是事件循环」那句话的落点。
+
+## field DriveLoop:bool = false
+
+**同步宿主可以把「推进微任务」交给运行器做**（判据、命令行就是这种宿主）。
+
+**真正的异步宿主不该用这个**：它应当自己当事件循环——挂起时 `RunSources` 会带着
+`Parked` 回来，它推进之后接着跑。**但那个入口现在还没有**（机器在运行器内部，
+外面拿不到）——这是 P1 要给宿主补的一件事，写在这里不假装它有。
+
 ## constructor:()=>void
 
 造一个空的请求。
@@ -75,6 +88,8 @@ import { LinkPrograms } from "./runtime/link.xl.md"
 this.Sources = [];
 this.Capabilities = [];
 this.Entry = "";
+this.EntryArgs = [];
+this.DriveLoop = false;
 ```
 
 # class RunResult
@@ -245,12 +260,16 @@ if (request.Entry !== "") {
     return result;
   }
   const array = table.Get(all[all.length - 1].Ref).AsArray();
-  if (!machine.StartClosure(array.GetAt(index), [])) {
+  if (!machine.StartClosure(array.GetAt(index), request.EntryArgs)) {
     result.Outcome = HostOutcome.OutOfMemory;
     result.Message = "入口开不了帧（预算不够）";
     return result;
   }
   machine.Run();
+  // **同步宿主**：把微任务排空（挂起的帧在 `DrainMicrotasks` 里被恢复并跑完）。
+  while (request.DriveLoop && machine.Frames.Depth() === 0 && machine.Microtasks.length > 0) {
+    machine.DrainMicrotasks();
+  }
 }
 if (machine.Frames.Depth() === 0 && machine.Microtasks.length > 0) {
   result.Outcome = HostOutcome.Parked;

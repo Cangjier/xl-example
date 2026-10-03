@@ -95,6 +95,9 @@ const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "b
 const { Bindings, LookupOf } = bindingsMod;
 const { RtSetProto } = require(path.join(root, "build", "ts", "runtime", "rt.js"));
 const { LinkPrograms } = require(path.join(root, "build", "ts", "runtime", "link.js"));
+// **运行器**（`tsrun.xl.md` 的产物）：判据从这里起走**产品路径**——
+// 解析、降级、链接、装载、逐份喂导出都由它做，判据只负责「同一份源码 + 同一组能力」。
+const { RunRequest, RunSources } = require(path.join(root, "build", "ts", "tsrun.js"));
 const { HasProperty, GetIndex, SetIndex, TypeOfName } = propsMod;
 
 /** TypeScript 的数字枚举有反向映射，所以成员名 = 不是数字的那些键。 */
@@ -3800,6 +3803,39 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
   eq(machine.StartClosure(capFn, [Value.FromInt(20)]), true, "调 B 的 viaCapability(20)");
   eq(machine.Run(), VmStatus.Halted, "跑完");
   eq(machine.Result.AsInt(), 41, "能力调用的结果（宿主实现 20 * 2，再加 1）");
+});
+
+check("运行器：多文件程序交给 tsrun 跑（跨模块的类 + Map + 能力绑定），与 Node 一致", () => {
+  // 这一条走的是**产品路径**：`tsrun.xl.md` 负责解析、降级、链接、装载、喂导出、调入口。
+  // 与前面那条 P0 判据的区别就在这——那条是它的「人工版」（第 68～72 轮手装的）。
+  const moduleA = [
+    "export class Box { constructor(v) { this.v = v; } get() { return this.v; } }",
+  ].join("\n");
+  const moduleB = [
+    "import { Box } from './a';",
+    "export function run() {",
+    "  const b = new Box(hostTriple(14));",
+    "  const m = new Map();",
+    "  m.set('k', b.get());",
+    "  return m.get('k');",
+    "}",
+  ].join("\n");
+  // Node 打桩：`hostTriple` 就是「能力」在 JS 里的样子（名字来自环境、不来自源码）。
+  const nodeSide = new Function("hostTriple",
+    moduleA.replace(/^export /gm, "") + "\n"
+    + moduleB.replace(/^import[^\n]*\n/, "").replace(/^export /gm, "")
+    + "\nreturn run();")((n) => n * 3);
+  eq(nodeSide, 42, "Node 打桩：14 * 3（这是前提）");
+
+  const request = new RunRequest();
+  request.Sources = [moduleA, moduleB];
+  request.Capabilities = ["hostTriple"];
+  request.Entry = "run";
+  // 运行器**按登记顺序**发能力号（从 64 起），所以第一个能力就是 `BuiltinBase`。
+  const res = RunSources(request, () => {}, (room, id, self, args) =>
+    id === BuiltinBase ? Value.FromInt(args[0].AsInt() * 3) : null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(res.Value.AsInt(), nodeSide, "跨模块的类 + Map + 能力调用，逐值一致");
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
