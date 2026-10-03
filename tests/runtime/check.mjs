@@ -3914,6 +3914,70 @@ check("P0：闭包捕获 + try/catch/finally + while·break + 数组方法，经
   eq(hostStringOf(table, at(5)), expected[5], "数组 join 与 length");
 });
 
+check("P0：生成器·for..of + Map/Set + 类·instanceof + 字符串方法 + Object/JSON + console.log，与 Node 逐值一致", () => {
+  // 第二条**合成程序**判据。它比上一条铺得更宽：把标准库的三块（数组/字符串/全局）、
+  // 迭代协议（生成器 + `for..of`）、类与 `instanceof`（要 `DeclarePrototypeKey` 那条路）
+  // 以及**宿主 sink**（`console.log` 的输出去哪）一次串起来。
+  // 各自都单独测过 ✓，合起来才是一个「像样的程序」。
+  const source = [
+    "function* range(n) {",
+    "  let i = 0;",
+    "  while (i < n) { yield i; i = i + 1; }",
+    "}",
+    "class Box {",
+    "  constructor(v) { this.v = v; }",
+    "  double() { return this.v * 2; }",
+    "}",
+    "function run() {",
+    "  const seen = [];",
+    "  for (const x of range(3)) seen.push(x);",
+    "  const m = new Map();",
+    "  m.set('a', 1);",
+    "  m.set('b', 2);",
+    "  const keys = [];",
+    "  for (const k of m.keys()) keys.push(k);",
+    "  const s = new Set();",
+    "  s.add('x');",
+    "  s.add('x');",
+    "  const box = new Box(21);",
+    "  const obj = { p: 7, q: 8 };",
+    "  console.log('sum=' + (seen.length + box.double()));",
+    "  const hasP = 'p' in obj;",
+    "  const removed = delete obj.q;",
+    "  return [seen[2], keys[1], s.size, box instanceof Box, box.double(),",
+    "    'abcdef'.slice(1, 4), 'abcdef'.indexOf('cd'), 'abcdef'.charCodeAt(0),",
+    "    Object.keys(obj).join(','), JSON.stringify(obj), hasP, removed, typeof box];",
+    "}",
+  ].join("\n");
+  const nodeLines = [];
+  const expected = new Function("console", source + "\nreturn run();")({
+    log: (text) => nodeLines.push(text),
+  });
+  eq(nodeLines[0], "sum=45", "Node：sink 收到一行（前提）");
+  eq(expected[3], true, "Node：instanceof 为真（前提）");
+
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], nodeLines[0], "console.log 走宿主 sink（标准库不假定自己连着 stdout）");
+
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else if (typeof expected[i] === "boolean") {
+      eq(actual.AsBool(), expected[i], "第 " + i + " 项（布尔）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

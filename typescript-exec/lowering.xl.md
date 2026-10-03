@@ -2950,6 +2950,32 @@ if (kind === "TypeOfExpression") {
   const value = this.LowerExpression(Child(node, "expression"));
   return this.RtCall1(RtOp.Typeof, value);
 }
+if (kind === "DeleteExpression") {
+  // **`delete`（第 92 轮补）**：引擎侧早就有它——`RtOp.DelProp` 与 `props.xl.md` 的
+  // `DeleteProperty`（只删自有属性、不可配置要抛、本来不存在也算成功）。缺的只是**降级这一支**。
+  //
+  // **为什么键要落成一格值**：`DelProp` 是 `rt_call`，参数是槽（与 `SetPropertyConst`
+  // 那条路不同——那条把键当常量下标用）。所以这里按「接收者 → 键 → 调用」三步走，
+  // **顺序与 `=` 的下标写入一致**（副作用的顺序是语义）。
+  const operand = Child(node, "expression");
+  const operandKind = NodeKind(operand);
+  const receiver = this.LowerExpression(Child(operand, "expression"));
+  let key = -1;
+  if (operandKind === "PropertyAccessExpression") {
+    const name = Child(operand, "name");
+    const nameKind = NodeKind(name);
+    if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+      throw new Error("unimplemented: delete of a computed property name");
+    }
+    key = this.Reserve(1);
+    this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name))), -1, -1);
+  } else if (operandKind === "ElementAccessExpression") {
+    key = this.LowerExpression(Child(operand, "argumentExpression"));
+  } else {
+    throw new Error("unimplemented: delete of " + operandKind);
+  }
+  return this.RtCallValues(RtOp.DelProp, receiver, key);
+}
 if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
   // **一元前缀与后缀**（第 64 轮补的前缀、第 91 轮补的更新表达式）：投影带 `operator`
   // （运算符**文本**）——TS 那边 `operator` 是一个 `SyntaxKind` 数字，投影补的时候用了
