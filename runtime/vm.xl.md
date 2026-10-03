@@ -807,6 +807,14 @@ if (this.Program === null) throw new Error("no program loaded");
 const protos = this.Protos;
 if (protos === null) throw new Error("no prototype table");
 const callee = frame.Slots[instr.A];
+// **宿主构造函数**（`new Map()` 这种：`Map` 这个全局名的值是一个宿主引用）：
+// **不造实例、不看原型**——让宿主自己把对象造好并返回，这正是 JS 的
+// 「构造函数返回了对象就用它」。造实例再让宿主往里填也行，但那样引擎就得先猜
+// 「宿主想要哪种对象」；**把这件事留给知道它的那一层**。
+if (callee.Tag === ValueTag.HostRef) {
+  this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, Value.Undefined(), 0);
+  return;
+}
 const created = this.Guard(() => this.CreateInstance(callee));
 if (!created.IsRef()) return;
 this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, created, created.Ref);

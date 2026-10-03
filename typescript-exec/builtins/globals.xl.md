@@ -6,6 +6,7 @@ import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainObject } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr } from "./array.xl.md"
+import { MapCtor } from "./map.xl.md"
 ```
 
 # namespace cangjie
@@ -66,7 +67,7 @@ import { Units, NeverCall, ArgOr } from "./array.xl.md"
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -308,5 +309,10 @@ SetProperty(vm.Room(), NeverCall, table, globals, objectKey, objectObject);
 SetProperty(vm.Room(), NeverCall, table, globals, jsonKey, jsonObject);
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
 SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
+// **`Map` 是一个宿主引用值**（不是普通对象）：`new Map()` 走 `Op.New` 的
+// 「宿主构造函数」那条分支——宿主自己把对象造好返回（见 `map.xl.md`）。
+const mapKey = Value.FromString(table.CreateString(Units("Map")));
+const mapTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapTarget);
 return globals;
 ```

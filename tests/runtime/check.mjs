@@ -3396,6 +3396,7 @@ check("链接两份模块：同一台 VM、同一个堆，A 的导出闭包直�
   machine.Release(bExports.Ref);
 });
 
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }

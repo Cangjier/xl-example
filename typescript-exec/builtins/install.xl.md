@@ -9,6 +9,7 @@ import { InvokeArray } from "./array.xl.md"
 import { InstallArray } from "./array.xl.md"
 import { InvokeString, InstallString } from "./string.xl.md"
 import { InvokeGlobal, LogSink } from "./globals.xl.md"
+import { InvokeMap, MapCtor } from "./map.xl.md"
 ```
 
 # namespace cangjie
@@ -50,6 +51,8 @@ throw new Error("unimplemented: builtin id " + id);
 理由同上：用不到的那两块不必收它。
 
 ```ts
+// **Map 那一段要原型表**（它造普通对象与数组）——`NeverCall` 是写数据属性时的现成空实现。
+if (id >= 600 && id < 700) return InvokeMap(room, protos, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, id, self, args);
 ```

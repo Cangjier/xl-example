@@ -3817,3 +3817,29 @@ A 的导出闭包直接进 B 的环境对象，B 的 `run(21)` 返回 **43**（=
 
 **没做的**：`keys` / `values` / `entries` / `clear` / `forEach`
 （`forEach` 要求宿主回调脚本闭包 = **重入执行器**，这一层没有）。
+### 第 56 轮：`Map` 写完了、整合上了，**端到端在第一步就断**（未放行）
+
+**这一轮的收成**：
+- 两个 API 事实**核实过**（不靠猜）：`PropRef { Owner, Index }` → 值在
+  `table.Get(Owner).Props[Index].Value`；`HeapArray` 是 `GetLength()` / `GetAt()` /
+  `SetAt()` / `Push()` / `Truncate()` / `IsHole()`（我第一版猜的 `Length()` / `At()` 是错的）。
+- `typescript-exec/builtins/map.xl.md`：`new Map()` + `set`（链式）/ `get` / `has` /
+  `delete` / `size` / `keys()` / `values()`，**零新堆形状、零新原型、零新算子**；
+- `Op.New` 加**宿主构造函数分支**（被调方是 `HostRef` 时不造实例、不看原型，
+  让宿主自己造好返回）；`Map` 进 `GlobalNames()` 与 `BuildGlobals`；
+  建库总入口加 600..699 号段。
+
+**断在哪里（实测）**：`new Map()` 之后 `m.set(...)` 报
+`unimplemented: calling a non-closure value`——也就是说**属性查找给出的不是宿主引用**
+（引擎的宿主分支要求 `Tag === ValueTag.HostRef`）。
+
+**下一轮的第一件事（先量）**：在 `DoNew` 那条新分支上把**被调方的 `Tag` 打出来**，
+再在 `MapCtor` 里把实例的 `Props` 打出来。两种可能一眼可分：
+① `new Map()` **根本没走到** `Op.New` 的宿主分支（那问题在降级层怎么解析全局名 `Map`）；
+② 实例上的方法属性**没写进去**（那问题在 `SetProperty` / `NeverCall` 那条路）。
+
+**顺带发现的一个语法缺口**（这一轮的判据逼出来的，已记）：降级层**不支持三元表达式**
+（`ConditionalExpression` 直接抛）。
+
+**当下状态**：Map 的代码在树里，但**没有任何通过路径能到它**——等价于未接通。
+判据没有放进判据集（放进去就是红的），**复现留在这一节**。
