@@ -620,6 +620,10 @@ if (instr.Op === Op.Call || instr.Op === Op.CallValue) {
   this.DoCallValue(frame, frame.Slots[instr.A], instr.B, instr.C, instr.B, self, 0);
   return;
 }
+if (instr.Op === Op.CallArray) {
+  this.DoCallArray(frame, instr);
+  return;
+}
 if (instr.Op === Op.CallMethod) {
   this.DoCallMethod(frame, instr);
   return;
@@ -692,7 +696,7 @@ if (returnSlot >= 0) {
 }
 ```
 
-## method DoCallValue:(frame:HeapFrame, callee:Value, argBase:int, argc:int, returnSlot:int, thisValue:Value, constructTarget:int)=>void
+## method DoCallValue:(frame:HeapFrame, callee:Value, argBase:int, argc:int, returnSlot:int, thisValue:Value, constructTarget:int, argArray:int = -1)=>void
 
 调用一个值。**两种被调方**：闭包（压帧，控制权回循环）与**宿主函数**（直接调、直接拿回值）。
 
@@ -720,12 +724,17 @@ if (returnSlot >= 0) {
 （它没有自己的帧，也就没有「挂起」这回事）。
 
 ```ts
+// **参数从哪来**（第 133 轮）：普通调用是「从 `argBase` 开始的 `argc` 格」✓；
+// `call_array` 是「`argArray` 那一格里装着一个数组」✓。两处取参数（宿主分支与开帧分支）
+// 都要能走这两条路 ✓——所以「有几个」与「第 i 个是谁」各收成一个方法 ✓，
+// 而不是在两处各写一遍三元表达式 ✗（那正是**两处会走偏**的形状 ✗）。
+const count = this.CallArgCount(frame, argBase, argc, argArray);
 if (callee.Tag === ValueTag.HostRef) {
   const invoker = this.Host;
   if (invoker === null) throw new Error("calling a host function with no host installed");
   const args: Value[] = [];
-  for (let i = 0; i < argc; i++) {
-    args.push(frame.Slots[argBase + i]);
+  for (let i = 0; i < count; i++) {
+    args.push(this.CallArgAt(frame, argBase, argArray, i));
   }
   const produced = invoker(callee, thisValue, args, this.Room());
   // **宿主请求一次脚本站内异常？**（`RaiseRequest` 那一段）：立刻取走并展开。
@@ -754,29 +763,141 @@ if (info === null) {
 }
 // **生成器函数不在这里跑**：调用它只造一个生成器对象（帧开好但不上栈）。
 if (info.IsGenerator) {
-  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge)) return;
+  // **剩余参数要在开帧时收掉**（第 133 轮）：多出来的那些实参**在自己的帧里没有格子** ✗
+  //（`SlotCount` 定死 ✓、调用方传几个编译期不知道 ✓），所以**开帧的人顺手收** ✓。
+  const restCount = this.RestCountOf(info, count);
+  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge
+      + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0))) return;
   const createdHandle = this.Table.CreateFrame(closure.Code, info.SlotCount, 0, -1);
   const created = this.Table.Get(createdHandle).AsFrame();
   created.Pc = closure.Code;
   created.Env = closure.Env;
   created.This = thisValue;
-  for (let i = 0; i < argc; i++) {
-    created.Slots[i] = frame.Slots[argBase + i];
-  }
+  this.FillParameters(created, info, frame, argBase, argArray, count);
   const generatorHandle = this.Table.CreateGenerator(createdHandle);
   created.Generator = generatorHandle;
   if (returnSlot >= 0) frame.Slots[returnSlot] = Value.FromObject(generatorHandle);
   return;
 }
-if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge)) return;
+const restCount = this.RestCountOf(info, count);
+if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge
+    + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0))) return;
 const handle = this.Frames.Push(closure.Code, info.SlotCount, returnSlot);
 const created = this.Table.Get(handle).AsFrame();
 created.Env = closure.Env;
 created.This = thisValue;
 created.ConstructTarget = constructTarget;
-for (let i = 0; i < argc; i++) {
-  created.Slots[i] = frame.Slots[argBase + i];
+this.FillParameters(created, info, frame, argBase, argArray, count);
+```
+
+## method CallArgCount:(frame:HeapFrame, argBase:int, argc:int, argArray:int)=>int
+
+**这一次调用实际有几个实参**（第 133 轮）。
+
+- `argArray < 0`：普通调用，就是 `argc` ✓（调用方写死的那个数 ✓）；
+- 否则：**那一格里的数组有多长就是几个** ✓。
+
+**不是数组就抛** ✓：`call_array` 的 `B` 由降级层填 ✓，填错就是**降级层的 bug** ✗——
+而**验证层查不出这一条** ✗（动态 IL 证明不了类型 ✓），所以在这里响亮地报 ✓。
+
+```ts
+if (argArray < 0) return argc;
+const items = frame.Slots[argArray];
+if (items.Tag !== ValueTag.Array) {
+  throw new Error("call_array needs an array of arguments");
 }
+return this.Table.Get(items.Ref).AsArray().GetLength();
+```
+
+## method CallArgAt:(frame:HeapFrame, argBase:int, argArray:int, index:int)=>Value
+
+**第 `index` 个实参**（`CallArgCount` 的配套 ✓）。两个取参数的地方共用它 ✓。
+
+```ts
+if (argArray < 0) return frame.Slots[argBase + index];
+return this.Table.Get(frame.Slots[argArray].Ref).AsArray().GetAt(index);
+```
+
+## method FillParameters:(created:HeapFrame, info:FunctionInfo, frame:HeapFrame, argBase:int, argArray:int, count:int)=>void
+
+**把实参铺进新帧**（第 133 轮从 `DoCallValue` 里抽出来 ✓）——普通与生成器两条路共用 ✓。
+
+**两处规矩**：
+
+1. **拷多少要夹住** ✗（这一轮顺带修的）：`SlotCount` 是**被调方**定的 ✓，
+   而调用方传几个它管不着 ✓。原来这里是 `for (i < argc) created.Slots[i] = …` ✗——
+   `argc` 比 `SlotCount` 大时**写到帧尾之外** ✗：TS 那边 `Array` 会**悄悄变长** ✓，
+   C++ 那边就是越界写 ✗（**同一个 IR 在两个目标上是两种命运** ✗）。
+   夹到 `SlotCount` 之后，多出来的实参**看不见** ✓——而 **JS 本来也看不见它们** ✓
+   （除了 `arguments` 与剩余参数，两条都在别处 ✓）。
+2. **剩余参数收在最后一格** ✓：`[fixed, count)` 那些实参造一个数组，
+   放进第 `fixed` 格 ✓（`fixed = ParamCount - 1` ✓）。**数组要带数组原型** ✓
+   （否则它连 `.join` 都没有 ✗——与 `Object.keys` 那条是同一条规矩 ✓）。
+
+**为什么 `RestCountOf` 与这里都要算一遍**：`NeedRoom` 必须在**开帧之前**问 ✓
+（`README` 的硬性约定：不许「先开帧再问」✓），所以调用方先算一次 ✓；
+这里再算一次是因为**铺参数要那个数** ✓。两处用的是**同一个函数** ✓，不会走偏 ✓。
+
+```ts
+const fixed = info.HasRest ? info.ParamCount - 1 : info.ParamCount;
+// **拷的个数要按「实际传了几个」夹**（`count`），**不是按 `SlotCount`** ✗——
+// 这一格是**这一轮实测踩出来的** ✓：写成 `min(fixed, SlotCount)` 时，
+// `function f(a = 1, b = a + 10)` 的 `f(2)` 会把**调用方第 1 格之后的垃圾**抄进 `b` ✗
+//（症状：`b` 不再是 `undefined` ✓，默认值判定成「传了」✗，`f(2)` 给 200 而不是 212 ✓）。
+// 原来那句 `for (i < argc)` 恰好是对的 ✓——把它改成「扫满形参」是**往错的方向走** ✗，
+// 而**旧判据当场就把这一格点出来了** ✓（第 119 轮那条默认参数判据 ✓）。
+const limit = count < fixed ? count : fixed;
+// 没有剩余参数时，**多传的**那些也要拷（它们落在形参之后的格上 ✓），但同样不能越过 `count` ✓，
+// 也不能越过帧尾 ✓（`SlotCount` 是被调方定的 ✓）。
+const total = count < info.SlotCount ? count : info.SlotCount;
+for (let i = 0; i < limit; i++) {
+  created.Slots[i] = this.CallArgAt(frame, argBase, argArray, i);
+}
+if (!info.HasRest) {
+  for (let i = fixed; i < total; i++) {
+    created.Slots[i] = this.CallArgAt(frame, argBase, argArray, i);
+  }
+  return;
+}
+const restCount = this.RestCountOf(info, count);
+const restHandle = this.Table.CreateArray();
+if (this.Protos !== null) this.Table.Get(restHandle).Proto = this.Protos.Array;
+for (let i = 0; i < restCount; i++) {
+  // **每一趟现取视图** ✓（`heap.xl.md` 那条：句柄稳定、视图不稳定 ✓）。
+  this.Table.Get(restHandle).AsArray().Push(this.CallArgAt(frame, argBase, argArray, fixed + i));
+}
+if (fixed < info.SlotCount) created.Slots[fixed] = Value.FromArray(restHandle);
+```
+
+## method DoCallArray:(frame:HeapFrame, instr:Instruction)=>void
+
+**`call_array` 的执行**（第 133 轮）：`A` 被调方、`B` 装着实参的数组、`C` 结果格、
+`D` 的 `this`（`-1` 给 `undefined` ✓）。
+
+**它就是 `call` 加一个「参数从数组来」** ✓——三条分支（宿主 / 生成器 / 闭包）
+**一个字都没有另写** ✓：全部落在 `DoCallValue` 里 ✓，这里的 `argArray` 只是换了个来源 ✓。
+
+**为什么结果写在 `C` 上、不在「参数基址」上** ✗：这里**没有参数基址**这回事 ✓
+（参数在堆里那个数组上 ✓）。所以调用约定那一条（结果落回基址）在这条路上**不适用** ✓，
+写清楚免得后人以为是漏了 ✓。
+
+```ts
+const self = instr.D >= 0 ? frame.Slots[instr.D] : Value.Undefined();
+this.DoCallValue(frame, frame.Slots[instr.A], 0, 0, instr.C, self, 0, instr.B);
+```
+
+## method RestCountOf:(info:FunctionInfo, count:int)=>int
+
+**剩余参数要收几个**（第 133 轮）。
+
+**两处用它**（`NeedRoom` 那一问与 `FillParameters` 那一铺 ✓）——**同一个数只算一处** ✓。
+
+```ts
+if (!info.HasRest) return 0;
+const fixed = info.ParamCount - 1;
+if (fixed < 0) return 0;
+if (count <= fixed) return 0;
+return count - fixed;
 ```
 
 ## method StartGenerator:(callee:Value, args:Array<Value>)=>bool

@@ -699,6 +699,11 @@ return -1;
 降级期就该报出来）。**它不影响调用方式**——这一点与生成器**恰好相反**，
 差别写在文首那张表里（那是这一轮最要紧的一条已知语义差）。
 
+## field HasRest:bool = false
+
+**最后一个形参是不是剩余参数**（第 133 轮）——原样递给函数表那一位 ✓
+（`FunctionInfo.HasRest` ✓，理由见 `ir.xl.md` 那一段：**开帧的人**才知道「这次传了几个」✓）。
+
 ## field FieldDefaults:Array<AstNode> = []
 
 **这个构造函数开局要跑的实例字段初始化式**（第 128 轮补；只有构造函数非空）。
@@ -1484,6 +1489,10 @@ for (let i = 0; i < this.Pending.length; i++) {
   // **生成器函数**：调用它**只造对象、不跑体**（引擎的 `DoCallValue` 那条分支）。
   info.IsGenerator = item.IsGenerator;
   info.IsAsync = item.IsAsync;
+  // **剩余参数**（第 133 轮）：这一位交给**开帧的人** ✓——它在那一刻手上才有
+  // 「这次实际传了几个」✓，而被调方自己的帧里**没有格子**放多出来的实参 ✓
+  //（`ir.xl.md` 的 `FunctionInfo.HasRest` 那一段写着为什么 ✓）。
+  info.HasRest = item.HasRest;
   this.Program().Functions.push(info);
   // **这个常量的值是「函数入口 pc」**——链接时要跟着基址挪（`ir.xl.md` 的
   // `EntryConstants`）：不声明的话，链接器只能靠「值相等」去猜，
@@ -2626,6 +2635,11 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
   const selfSlot = this.Reserve(1);
   this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
   const superArgs = ListOf(call, "arguments");
+  // **`super.m(...xs)` 还不做** ✗：这一支本来就用不了 `call_method` ✓（「在谁身上找」与
+  // 「谁是 `this`」要分开 ✓），所以展开要另配一条形状 ✓——**另一轮**的事 ✓，响亮地抛 ✓。
+  if (this.HasSpread(superArgs)) {
+    throw new Error("unimplemented: spreading into super.m(...)");
+  }
   const superCount = superArgs.length;
   const superBase = this.Reserve(superCount > 0 ? superCount : 1);
   for (let i = 0; i < superCount; i++) {
@@ -2648,6 +2662,25 @@ if (NodeKind(name) !== "Identifier") {
 const key = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
 const args = ListOf(call, "arguments");
 const count = args.length;
+if (this.HasSpread(args)) {
+  // **`o.m(...xs)`**（第 133 轮）：**不用 `call_method`** ✗——它收的是「键 + 定长窗口」✓，
+  // 而展开的个数只有运行期才知道 ✗。改成「先把方法当值取出来 + `call_array`」✓：
+  // 形状与上面那条 `o[k](...)` 一字不差 ✓（`this` 用 `D` 操作数递过去 ✓）。
+  const methodFn = this.RtCall2(RtOp.GetProp, receiver, key);
+  const methodSelf = this.Reserve(1);
+  this.Emit(Op.Move, methodSelf, receiver, -1, -1);
+  const spreadArray = this.BuildArgsArray(args);
+  const spreadDest = this.EmitCallArray(methodFn, spreadArray, methodSelf);
+  if (optional) {
+    // **可选链那条短路照旧** ✓：接收者为空时跳过整段，结果格写 `undefined` ✓。
+    const spreadDone = this.Here();
+    this.Emit(Op.Jump, -1, 0, -1, -1);
+    this.PatchTarget(skip, this.Here());
+    this.Emit(Op.Const, spreadDest, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+    this.PatchTarget(spreadDone, this.Here());
+  }
+  return spreadDest;
+}
 // **至少留两格**（接收者 + 结果）：`argc = 0` 时参数基址仍然必须是一格有效的槽
 // ——结果就落在那里。少留一格，验证层当场报 `argument window out of range`
 // （与 `LowerCall` 里那句 `count > 0 ? count : 1` 是同一条道理）。
@@ -2842,8 +2875,10 @@ return result;
 
 **一个函数式节点的参数名**（箭头函数 / 函数表达式 / 方法 / 函数声明共用）。
 
-**只收简单名**：解构参数与剩余参数抛——它们是各自的语法（解构要绑定模式那一路，
-剩余参数要「把多出来的实参收成一个数组」，两者都不止是「一个名字」）。
+**只收简单名**：解构参数抛——那是绑定模式那一路的语法（**另一条待办** ✓）。
+**剩余参数（第 133 轮）收下了** ✓：`function f(a, ...rest)` 的 `params` 是 `["a", "rest"]` ✓
+（`ParamCount` 是 2 ✓——剩余参数**确实占最后一个形参格** ✓，
+`vm.xl.md` 把收上来的数组放进那一格 ✓）。**收不收得下**由 `HasRestParam` 那一半说 ✓。
 默认值与可选参数**照收**（第 119 轮）：
 
 - **可选参数（`a?: T`）是纯类型位**：JS 里没有这个东西，运行期行为与 `a: T` **一模一样**
@@ -2864,12 +2899,29 @@ for (let i = 0; i < parameters.length; i++) {
   if (name === null || NodeKind(name) !== "Identifier") {
     throw new Error("unimplemented: parameter without a simple name");
   }
-  if (OptionalChild(parameter, "dotDotDotToken") !== null) {
-    throw new Error("unimplemented: rest parameter");
+  // **剩余参数只许在最后一位** ✓（语法规定的 ✓）——不在最后那一种是**源码就非法** ✓，
+  // 而投影层不做这个检查 ✓，所以这里说一句 ✓（比让它走到别处报一句别的话好 ✓）。
+  if (OptionalChild(parameter, "dotDotDotToken") !== null && i !== parameters.length - 1) {
+    throw new Error("unimplemented: a rest parameter must be the last one");
   }
   params.push(TextOf(name));
 }
 return params;
+```
+
+## method HasRestParam:(node:AstNode)=>bool
+
+**最后一个形参是不是剩余参数**（第 133 轮）——它决定函数表上那一位（`FunctionInfo.HasRest` ✓），
+而**那一位决定开帧的人收不收剩余** ✓。
+
+**与 `FunctionParams` 分成两个方法** ✓：一个报名字、一个报「有没有 `...`」✓——
+合并的话，`Params` 那两条下游（`ParamCount` 与槽号）每处都要多拆一层 ✓，
+理由与「名字与默认值不合并」一字不差 ✓。
+
+```ts
+const parameters = ListOf(node, "parameters");
+if (parameters.length === 0) return false;
+return OptionalChild(parameters[parameters.length - 1], "dotDotDotToken") !== null;
 ```
 
 ## method CollectDefaults:(node:AstNode, at:Array<int>, defaults:Array<AstNode>)=>void
@@ -3005,6 +3057,9 @@ item.IsArrow = NodeKind(node) === "ArrowFunction";
 // `suspend outside a generator`：体里那对 suspend/resume 落在了一个普通帧上）。
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
+// **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
+// 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
+item.HasRest = this.HasRestParam(node);
 item.Envs = this.Env.Clone();
 this.Pending.push(item);
 return slot;
@@ -3276,6 +3331,12 @@ if (calleeKind === "Identifier") {
 }
 const args = ListOf(node, "arguments");
 const count = args.length;
+// **`new C(...xs)` 还不做** ✗：`CallArray` 那一条没有「新建实例」这回事 ✓
+//（`Op.New` 要先造对象、把原型接上、再拿它当 `this` ✓，那三步在 `DoNew` 里 ✓）。
+// **响亮地抛** ✓——把构造那条路也做成「按数组铺参数」是**另一轮**的事 ✓。
+if (this.HasSpread(args)) {
+  throw new Error("unimplemented: spreading into new");
+}
 // 结果落在参数基址上，所以 `argc = 0` 时基址仍要占一格（与 `LowerCall` 同一条规则）。
 const base = this.Reserve(count > 0 ? count : 1);
 for (let i = 0; i < count; i++) {
@@ -3763,6 +3824,9 @@ const item = new PendingFunction(TextOf(name), Child(node, "body"), params, patc
 item.Slot = slot;
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
+// **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
+// 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
+item.HasRest = this.HasRestParam(node);
 item.Envs = this.Env.Clone();
 this.Pending.push(item);
 ```
@@ -4232,6 +4296,75 @@ return kind === "StringLiteral" || kind === "NoSubstitutionTemplateLiteral"
   || kind === "TemplateExpression";
 ```
 
+## method HasSpread:(args:Array<AstNode>)=>bool
+
+**这一串实参里有没有展开**（第 133 轮）——有的话，参数个数**不是编译期的事** ✓。
+
+```ts
+for (let i = 0; i < args.length; i++) {
+  if (NodeKind(args[i]) === "SpreadElement") return true;
+}
+return false;
+```
+
+## method BuildArgsArray:(args:Array<AstNode>)=>int
+
+**把一串实参铺成一个数组**（第 133 轮）——`call_array` 要的就是它 ✓。
+
+**为什么必须有这一步** ✗：`call` 的参数是「从某格开始的一段连续槽 + 一个**定长**的个数」✓，
+而 `f(1, ...xs, 2)` 的个数**只有运行期才知道** ✗。所以先把实参收进堆里一个数组 ✓，
+再让被调方那一侧按数组长度铺开 ✓（`ir.xl.md` 的 `Op.CallArray` ✓）。
+
+**每个实参都接在末尾**（`SetIndex(数组, 数组.length, 值)` ✓）——
+**没有「洞」这一档** ✓（实参表里本来就没有洞 ✓），所以这里用不上数组字面量那条
+「静态下标 / 动态下标」的分岔 ✓；**展开的实参**走 `spread_into` 那条内建调用 ✓
+（与 `[...xs]` 完全同一条路 ✓）。
+
+```ts
+const array = this.Reserve(1);
+this.EmitRt(RtOp.NewArray, array, array, 0);
+for (let i = 0; i < args.length; i++) {
+  const spread = NodeKind(args[i]) === "SpreadElement";
+  const value = spread
+    ? this.LowerExpression(Child(args[i], "expression"))
+    : this.LowerExpression(args[i]);
+  if (spread) {
+    const window = this.Reserve(3);
+    this.Emit(Op.Const, window, this.IntConst(SpreadIntoId), -1, -1);
+    this.Emit(Op.Move, window + 1, array, -1, -1);
+    this.Emit(Op.Move, window + 2, value, -1, -1);
+    this.EmitRt(RtOp.HostCall, window, window, 3);
+    this.Release(window);
+    continue;
+  }
+  const at = this.RtCall2(RtOp.GetProp, array, this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
+  const window = this.Reserve(3);
+  this.Emit(Op.Move, window, array, -1, -1);
+  this.Emit(Op.Move, window + 1, at, -1, -1);
+  this.Emit(Op.Move, window + 2, value, -1, -1);
+  this.EmitRt(RtOp.SetIndex, window, window, 3);
+  this.Release(window);
+  this.Release(at);
+}
+this.Release(array + 1);
+return array;
+```
+
+## method EmitCallArray:(callee:int, argsArray:int, self:int)=>int
+
+**发一条 `call_array` 并返回结果格**（第 133 轮）——三处调用点共用 ✓
+（通用调用 / 方法调用 / 计算成员调用 ✓）。
+
+**为什么再抽一层**：形状是「四个操作数、其中两个是槽、结果**不在参数基址上**」✓——
+写三遍就是**三处会写错操作数**的机会 ✗，而算错槽的症状是「值悄悄换成别的」✗
+（这个工程最贵的一种错 ✓）。
+
+```ts
+const dest = this.Reserve(1);
+this.Emit(Op.CallArray, callee, argsArray, dest, self);
+return dest;
+```
+
 ## method LowerCall:(node:AstNode)=>int
 
 调用：被调方先算成**一个值**（引擎的 `call` 收的就是一格），参数逐个放进从 `base`
@@ -4266,6 +4399,14 @@ if (calleeKind === "ElementAccessExpression") {
   this.Emit(Op.Move, selfSlot, elementReceiver, -1, -1);
   const elementArgs = ListOf(node, "arguments");
   const elementCount = elementArgs.length;
+  if (this.HasSpread(elementArgs)) {
+    // **`o[k](...xs)`**（第 133 轮）：`elementFn` 已经算成值了 ✓，接收者也在一格上 ✓——
+    // 与普通方法调用那条展开分支是同一个形状 ✓（`this` 用 `D` 操作数递过去 ✓，
+    // 与上面那条非展开的 `Op.Call` 一字不差 ✓）。
+    const spreadArray = this.BuildArgsArray(elementArgs);
+    const spreadDest = this.EmitCallArray(elementFn, spreadArray, selfSlot);
+    return spreadDest;
+  }
   const elementBase = this.Reserve(elementCount > 0 ? elementCount : 1);
   for (let i = 0; i < elementCount; i++) {
     this.LowerInto(elementBase + i, elementArgs[i]);
@@ -4291,6 +4432,12 @@ if (calleeKind === "SuperKeyword") {
   const selfSlot = this.Reserve(1);
   this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
   const superArgs = ListOf(node, "arguments");
+  // **`super(...xs)` 还不做** ✗：`Op.Call` 收的是定长窗口 ✓，而 `CallArray` 那一条
+  // 没有「构造目标」那个操作数 ✓（`super(...)` 要的正是「拿当前实例当 `this` 调父类构造」✓）。
+  // **响亮地抛** ✓——加上那个操作数是**另一轮**的事 ✓。
+  if (this.HasSpread(superArgs)) {
+    throw new Error("unimplemented: spreading into super(...)");
+  }
   const superCount = superArgs.length;
   const superBase = this.Reserve(superCount > 0 ? superCount : 1);
   for (let i = 0; i < superCount; i++) {
@@ -4322,6 +4469,11 @@ if (calleeKind === "Identifier") {
     const capability = this.CapabilityOf(text);
     if (capability >= 0) {
       const args0 = ListOf(node, "arguments");
+      // **宿主能力调用收的是定长窗口**（形状是 `[号, 参数…]` + `host_call` ✓）——
+      // 展开那种「个数只有运行期才知道」进不去 ✗。**响亮地抛** ✓（不做也不装 ✓）。
+      if (this.HasSpread(args0)) {
+        throw new Error("unimplemented: spreading into a host capability call");
+      }
       const count0 = args0.length;
       const base0 = this.Reserve(count0 + 1);
       this.Emit(Op.Const, base0, this.IntConst(capability), -1, -1);
@@ -4344,6 +4496,13 @@ if (calleeKind === "Identifier") {
 }
 const args = ListOf(node, "arguments");
 const count = args.length;
+if (this.HasSpread(args)) {
+  // **`f(...xs)`**（第 133 轮）：被调方先算成一格 ✓，实参铺成数组 ✓，然后 `call_array` ✓。
+  // **`this` 给 `-1`** ✓（普通调用没有接收者 ✓——与上面那条 `Op.Call` 的 `D = -1` 同一条语义 ✓）。
+  const spreadArray = this.BuildArgsArray(args);
+  const spreadDest = this.EmitCallArray(calleeSlot, spreadArray, -1);
+  return spreadDest;
+}
 const base = this.Reserve(count > 0 ? count : 1);
 for (let i = 0; i < count; i++) {
   this.LowerInto(base + i, args[i]);

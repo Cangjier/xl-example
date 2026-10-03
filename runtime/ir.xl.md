@@ -92,6 +92,21 @@ import { HeapTable } from "./heap.xl.md"
 而**除了这一条没有别的路能把它取出来**——`catch (e)` 因此必须先发一条 `caught e`
 再进 `catch` 体。少了它，`catch` 能接住异常却拿不到异常值（那等于半个 `catch`）。
 
+- case CallArray
+**按一个数组铺开参数调一次**（第 133 轮）：`A` 是被调方、`B` 是**装着实参的数组**、
+`C` 是结果格、`D` 是 `this` 从哪来（`-1` 给 `undefined`，与 `call` 同一条）。
+
+**为什么必须有它** ✗：`call` 的参数是**从 `B` 开始的一段连续槽 + 一个定长 `C`** ✓——
+而 `f(...xs)` 的实参个数**只有运行期才知道** ✗。硬塞进调用者的帧也不行 ✗：
+那要求调用者预留「`xs` 有多长」那么多格 ✓，而那个数在编译期不存在 ✗。
+
+**所以参数的摊平发生在**被调方**那一侧** ✓：这一条把数组整个交给调用机制，
+由它按数组长度铺进新帧的前几格 ✓（`vm.xl.md` 的 `CallArgCount` / `CallArgAt` ✓）。
+**结果写在 `C` 上、不在参数基址上** ✗——这里没有「参数基址」这回事 ✓。
+
+**它是「只追加」的第 22 个算子** ✓：加在 `caught` 之后 ✓，
+`IsKnownOp` 的上界跟着挪（`ir-verify.xl.md` 那一条写着为什么要挪 ✓）。
+
 # enum RtOp
 
 运行时算子的 **id 表的第一段**（通用算子）。
@@ -567,6 +582,7 @@ if (this.Op === Op.Resume) return "resume";
 if (this.Op === Op.LoadThis) return "load_this";
 if (this.Op === Op.Await) return "await";
 if (this.Op === Op.Caught) return "caught";
+if (this.Op === Op.CallArray) return "call_array";
 return "unknown";
 ```
 
@@ -616,7 +632,9 @@ this.FrameDepth = frameDepth;
 
 ## field ParamCount:int = 0
 
-形参个数。
+形参个数。**剩余参数也算一个**（`function f(a, ...rest)` 的 `ParamCount` 是 **2** ✓）——
+它确实占了最后一个形参格 ✓（`vm.xl.md` 把收上来的数组放进去 ✓），
+只是**调用方传几个都可以** ✓（见 `HasRest` ✓）。
 
 ## field Name:int = 0
 
@@ -629,6 +647,19 @@ this.FrameDepth = frameDepth;
 ## field IsAsync:bool = false
 
 是不是 `async` 函数。
+
+## field HasRest:bool = false
+
+**最后一个形参是不是剩余参数**（第 133 轮）。
+
+**为什么这件事必须写在函数表上** ✗：收剩余参数的动作发生在**开帧那一刻** ✓——
+那时手上只有「这次实际传了几个」（`argc` ✓）与形参个数 ✓，而**调用方与被调方是两段代码** ✗。
+让被调方自己在序言里收，就得让它在**自己的帧**里看到多出来的那些实参 ✗——
+可那些实参**没有格子可放** ✗（`SlotCount` 是定死的，调用方传几个编译期不知道 ✓）。
+所以开帧的人顺手收掉 ✓：**一条新算子都不用加** ✓。
+
+**它借用 flags 字节的第 3 位**（`IsGenerator` = 1、`IsAsync` = 2 ✓）——
+线形态**只追加** ✓，老程序那一位是 0 ✓，读出来就是「没有剩余参数」✓。
 
 ## constructor:(entry:int, slotCount:int, paramCount:int)=>void
 

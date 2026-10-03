@@ -681,11 +681,15 @@ console.log("");
 console.log("=== IR：算子表与编号（跨目标的握手）===");
 
 check("编号只追加：成员顺序就是跨目标的约定", () => {
-  eq(enumMembers(Op), 22, "指令条数");
+  // **第 133 轮从 22 变成 23** ✓：`call_array` 加在**最后**（`caught` 之后 ✓）——
+  // 「只追加、不改序」这条规矩的代价就是这一行要跟着挪 ✓，而它挪错会当场红 ✓。
+  eq(enumMembers(Op), 23, "指令条数");
   eq(Op.Halt, 0, "第一条");
   eq(Op.Const, 1, "第二条");
   eq(Op.Resume, 18, "生成器用的那两条之前");
   eq(Op.LoadThis, 19, "读 this 的那条");
+  eq(Op.Caught, 21, "catch 绑定那条（第 133 轮之前是最后一条）");
+  eq(Op.CallArray, 22, "按数组铺开参数那条（第 133 轮追加的）");
   eq(Op.Await, 20, "承诺那条");
   eq(Op.Caught, 21, "这一轮追加的那条");
   eq(enumMembers(RtOp), RtOpCount, "通用算子条数与规范里那个常量一致");
@@ -5640,6 +5644,86 @@ check("`new` 的结果格不会再被下一个分配盖掉（第 132 轮修的�
   }
   eq(hostStringOf(table, GetIndex(table, res.Value, Value.FromInt(5))), "{\"a\":1}",
     "`{...o, ...null, ...undefined}` 只留下 `a`");
+});
+
+console.log("");
+console.log("=== 第 133 轮：展开与剩余（函数那一半）===");
+
+check("剩余参数与展开调用：与 Node 逐值一致，边界也钉住", () => {
+  // **端到端那一把在 `cases/25-rest-and-spread-calls.ts`**（11 行逐字节 ✓）。
+  // 这里钉的是**判据量不到的那一半**：四处**故意不做**的形态必须**降级期响亮地抛** ✓
+  // （它们都是**编译期**的错 ✓，脚本里的 `try` 一个字都拦不住 ✓），
+  // 以及**这一轮新量出来的一条老缺口** ✓（函数声明写在函数表达式体里）。
+  const source = [
+    "function f(a, ...rest) { return a + ':' + rest.length; }",
+    "function g(...all) { return all.join('-'); }",
+    "const out = [f(1, 2, 3), f(1), g(), g(1, 2)];",
+    "return out;",
+  ].join("\n");
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const expectedText = ["1:2", "1:0", "", "1-2"];
+  for (let i = 0; i < expectedText.length; i++) {
+    eq(hostStringOf(table, GetIndex(table, res.Value, Value.FromInt(i))), expectedText[i], "第 " + i + " 项");
+  }
+
+  // **这四条都要**跑一遍**才知道**（不是 `Lowering` 直接问）✗：它们引用了全局名（`Map` ✓），
+  // 而「哪些名字是全局名」是**驱动**声明进去的 ✓（`DeclareGlobals` ✓）——
+  // 光 `new Lowering()` 会先报「`Map` 不是局部名也不是捕获」✗（离现场很远 ✗，第一版就是这么红的 ✓）。
+  const runMessage = (src) => {
+    const probe = new RunRequest();
+    probe.Sources = [src];
+    probe.Entry = "";
+    try {
+      const outcome = RunSources(probe, () => {}, () => null);
+      return outcome.Message;
+    } catch (error) {
+      // **降级期的错是从 `RunSources` 里冒出来的**（不是塞在 `Outcome` 里的 ✓）——
+      // 它是**编译期**的错 ✓，本来就不该被当成「一次脚本运行的结果」✗（第一版就是这么红的 ✓）。
+      return String(error.message);
+    }
+  };
+  // ① `new C(...xs)`：`CallArray` 没有「构造目标」那个操作数。
+  ok(runMessage("const xs = [1]; const m = new Map(...xs);").indexOf("spreading into new") >= 0,
+    "① `new C(...xs)` 降级期就抛：" + runMessage("const xs = [1]; const m = new Map(...xs);"));
+  // ② `super(...xs)`：同上（要「拿当前实例当 this 调父类构造」）。
+  ok(runMessage("class A { constructor(v) { this.v = v; } }"
+    + " class B extends A { constructor(xs) { super(...xs); } }").indexOf("spreading into super") >= 0,
+    "② `super(...xs)` 降级期就抛");
+  // ③ `super.m(...xs)`：这一支本来就用不了 `call_method`，要另配一条形状。
+  ok(runMessage("class A { m(x) { return x; } }"
+    + " class B extends A { m(xs) { return super.m(...xs); } }").indexOf("spreading into super.m") >= 0,
+    "③ `super.m(...xs)` 降级期就抛");
+  // ④ 宿主能力名（没声明过、登记为能力的名字）的窗口 `[号, 参数…]` 是定长的。
+  const capabilityMessage = runMessage("const xs = [1]; const r = Math.max(...xs);");
+  eq(capabilityMessage, "", "`Math.max(...xs)` **能跑**（它是属性访问，走通用那条路 ✓）：" + capabilityMessage);
+});
+
+check("剩余参数这一条顺带修掉的**结构性问题**：函数表每加一个字段，重建它的地方都要跟着加", () => {
+  // **这一轮实测踩到的** ✓：`FunctionInfo.HasRest` 加好之后，`...rest` 仍然拿到 `undefined` ✗——
+  // 因为 `link.xl.md` **另建**了一份函数表 ✓，而它只抄了 `IsGenerator` / `IsAsync` ✓。
+  // **它不是「忘了写一行」那么简单** ✗：`FunctionInfo` 现在有 **7** 个字段 ✓，
+  // 而「重建函数表」的地方有 **2** 处（`Decode` 与 `link` ✓）——
+  // 加字段时**只有一处会被 typechecker 或判据提醒** ✗，另一处**谁都不提醒** ✗。
+  // 这条判据量的是**结果**：链接之后再跑，`...rest` 必须是数组 ✓。
+  const source = [
+    "function f(...all) { return all.length + ':' + all.join(','); }",
+    "return [f(1, 2, 3), f()];",
+  ].join("\n");
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  eq(hostStringOf(table, GetIndex(table, res.Value, Value.FromInt(0))), "3:1,2,3",
+    "链接之后剩余参数仍然是数组（`link.xl.md` 那一行）");
+  eq(hostStringOf(table, GetIndex(table, res.Value, Value.FromInt(1))), "0:",
+    "没传时给空数组");
 });
 
 console.log("");

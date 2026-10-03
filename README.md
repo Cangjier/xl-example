@@ -52,9 +52,11 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 + **`console.log` 的形状**（第 131 轮：容器走 `util.inspect` 那一份——
 `console.log([1, 2])` 印 `[ 1, 2 ]`，与 Node 逐字节相同）
 + **展开与剩余的字面量那一半**（第 132 轮：`[...xs]` · `{...o}` ·
-绑定模式的默认值与数组剩余 `const [a, ...r] = xs`），
+绑定模式的默认值与数组剩余 `const [a, ...r] = xs`）
++ **展开与剩余的函数那一半**（第 133 轮：`function f(a, ...rest)` · `f(...xs)`——
+引擎加了第 22 个算子 `call_array`，函数表加了「最后一个形参是剩余参数」那一位），
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（175 条）与 `npm run runtime:cli`（24 份语料）；
+判据见 `npm run runtime:check`（177 条）与 `npm run runtime:cli`（25 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

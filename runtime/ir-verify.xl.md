@@ -431,6 +431,9 @@ for (let i = 0; i < program.Functions.length; i++) {
   let flags = 0;
   if (item.IsGenerator) flags = flags + 1;
   if (item.IsAsync) flags = flags + 2;
+  // **第 3 位是「最后一个形参是剩余参数」**（第 133 轮）✓——`flags` **只追加位** ✓，
+  // 与 `Op` / `ValueTag` 那条「只追加、不改序」是同一条规矩 ✓（老程序那一位是 0 ✓）。
+  if (item.HasRest) flags = flags + 4;
   writer.WriteByte(flags);
 }
 for (let i = 0; i < program.Handlers.length; i++) {
@@ -517,6 +520,7 @@ for (let i = 0; i < functionCount; i++) {
   item.Name = name;
   item.IsGenerator = (flags & 1) !== 0;
   item.IsAsync = (flags & 2) !== 0;
+  item.HasRest = (flags & 4) !== 0;
   program.Functions.push(item);
 }
 for (let i = 0; i < handlerCount; i++) {
@@ -553,7 +557,9 @@ return program;
 （判据会当场报 `unknown opcode`，不会静默放过去）。
 
 ```ts
-return op >= 0 && op <= Op.Caught;
+// **上界跟着最后一个成员挪**（第 133 轮挪到了 `call_array` ✓）：这条规矩的代价写在上面 ✓
+// ——忘了挪的症状是「新指令被判成未知指令码」✓，判据会当场报出来 ✓（不会静默放过去 ✓）。
+return op >= 0 && op <= Op.CallArray;
 ```
 
 # method SlotOk:(slot:int, slotCount:int, allowNone:bool)=>bool
@@ -830,6 +836,24 @@ if (item.Op === Op.LoadThis) {
 if (item.Op === Op.Await) {
   if (!SlotOk(item.A, slotCount, false)) {
     return new VerifyIssue(IssueOperand, pc, "await slot out of range");
+  }
+}
+if (item.Op === Op.CallArray) {
+  // **按数组铺开参数那一条**（第 133 轮）：`A` 被调方、`B` 实参数组、`C` 结果格、
+  // `D` 的 `this`（`-1` = 没有 ✓，与 `Call` 同一条）。
+  // **`B` 只查「是一格槽」** ✓，查不出「它装的是不是数组」✗——那是**运行期**的事 ✓
+  //（`vm.xl.md` 的 `CallArgCount` 会响亮地报 ✓：类型在动态 IL 里证明不了 ✓）。
+  if (!SlotOk(item.A, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "callee slot out of range");
+  }
+  if (!SlotOk(item.B, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "argument array slot out of range");
+  }
+  if (!SlotOk(item.C, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "result slot out of range");
+  }
+  if (item.D >= 0 && !SlotOk(item.D, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "this slot out of range");
   }
 }
 if (item.Op === Op.Caught) {
