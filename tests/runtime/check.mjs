@@ -3000,6 +3000,39 @@ check("for..in：遍历自有键（拼出来就是 Object.keys + 迭代协议）
   eq(noGlobal.indexOf("Object") >= 0, true, "没声明 Object 全局名时要明确报出来：" + noGlobal);
 });
 
+check("new 认构造函数的 prototype：方法经原型链落到实例上（与 Node 一致）", () => {
+  const source = [
+    "function Point(x) { this.x = x; }",
+    "Point.prototype.get = function () { return this.x; };",
+    "Point.prototype.bump = function (d) { this.x = this.x + d; return this.x; };",
+    "function make(v) {",
+    "  const p = new Point(v);",
+    "  p.bump(10);",
+    "  return p.get();",
+    "}",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn make(7);")();
+  eq(expected, 17, "Node：7 + 10（这是前提）");
+
+  const { module, host } = lowerAndLoad(source);
+  // **语言层告诉机器「原型挂在哪个属性名下」**（引擎不认识 "prototype" 这七个字）
+  host.DeclarePrototypeKey(units("prototype"));
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+  eq(host.CallExport(module.ExportOf("make"), [Value.FromInt(7)]).Value.AsInt(), expected,
+    "p.bump(10) 之后 p.get()");
+
+  // **没告诉它名字时不许「碰巧对」**：实例原型还是 Protos.Object，方法找不到 → 响亮报错
+  const plain = lowerAndLoad(source);
+  eq(plain.host.Evaluate([]).Outcome, HostOutcome.Ok, "求值（不带那格名字）");
+  let missing = "";
+  try {
+    plain.host.CallExport(plain.module.ExportOf("make"), [Value.FromInt(7)]);
+  } catch (error) {
+    missing = String(error.message);
+  }
+  eq(missing.length > 0, true, "没接上原型名字时要报出来（不是静默给错值）：" + missing);
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }

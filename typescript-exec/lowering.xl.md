@@ -751,7 +751,15 @@ return first;
 
 ## method Release:(level:int)=>void
 
-**把水位退回去**：`level` 之后的槽从此可以复用（临时值用完就退，兄弟表达式因此共享槽）。
+**退水位**：`NextFree` 回到 `level`（这一格及以上都可以再分配）。
+
+**只有一种安全的写法：退到你确定是「最后一个死格之后」的地方。不确定就别退。**
+
+这条规矩是被咬了三次换来的（每次都表现为「值被别的东西换掉」，报错离现场很远）：
+`BindName` 之后退（第 24 轮）、`RtCall` 把结果格退掉（第 38 轮）、
+**窗口是先预留的、闭包格在窗口之上，`Release(window)` 于是把闭包一起退了**（第 40 轮）。
+**槽是从低到高分配的**，所以「先预留的东西」永远在下面——退到它那儿，
+等于把**后来预留的活格**全部交出去。
 
 ```ts
 this.NextFree = level;
@@ -2115,6 +2123,25 @@ for (let i = 0; i < parameters.length; i++) {
 return params;
 ```
 
+## method AttachPrototype:(closure:int)=>void
+
+**给一个函数值挂上它的 `prototype` 对象**——JS 里**每个 `function` 都自带一个**
+（不是等到有人写 `F.prototype.x = …` 时才现造）。
+
+**不是所有函数值都该有**：箭头函数没有（它不可构造），对象字面量与类里的**方法**也没有
+（它们同样不是构造函数）。所以**由调用方决定要不要调这个**——「哪种函数能当构造函数」
+是语言层的判断，引擎不必知道。
+
+**`prototype.constructor` 的回指今天不挂**：那个回指是为 `instanceof` 服务的，
+要和它一起做；现在挂上去，反而会让人以为 `instanceof` 已经能用。
+
+```ts
+const proto = this.Reserve(1);
+this.EmitRt(RtOp.NewObject, proto, proto, 0);
+const key = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+this.SetPropertyConst(closure, key, proto);
+```
+
 ## method LowerFunctionValue:(node:AstNode, name:string)=>int
 
 **一个函数值**：造闭包（带当前环境）、函数体排队、返回闭包所在的那一格。
@@ -2139,7 +2166,13 @@ if (enclosing === null) {
 this.Emit(Op.Const, window + 1, patch, -1, -1);
 const slot = this.Reserve(1);
 this.EmitRt(RtOp.NewClosure, slot, window, 2);
-this.Release(window);
+// **退到闭包之上，不是退到窗口**：窗口是先预留的，`Release(window)` 会把**闭包格**
+// 一起退掉——下一个分配就盖在它上面（表现是「调用了非闭包的值」）。
+this.Release(slot + 1);
+// **函数表达式自带 `prototype`**（箭头与对象方法不——它们不可构造）。
+if (NodeKind(node) === "FunctionExpression") {
+  this.AttachPrototype(slot);
+}
 const item = new PendingFunction(name, body, params, patch);
 item.IsExpressionBody = NodeKind(body) !== "Block";
 // **`*` 要看原始字段**：它在投影里是一枚 token，`OptionalChild` 只认「带 kind 的节点」，
@@ -2464,7 +2497,10 @@ if (enclosing === null) {
 }
 this.Emit(Op.Const, window + 1, patch, -1, -1);
 this.EmitRt(RtOp.NewClosure, slot, window, 2);
-this.Release(window);
+// **退到闭包之上，不是退到窗口**（理由见 `LowerFunctionValue` 那一处）。
+this.Release(slot + 1);
+// **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。
+this.AttachPrototype(slot);
 // **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
 // 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
 this.DeclareLocal(TextOf(name), slot);
