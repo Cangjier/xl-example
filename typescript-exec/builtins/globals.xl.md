@@ -84,6 +84,12 @@ import { SetCtor } from "./set.xl.md"
 `getUTCMonth()` 的号（**0 起**，与 JS 一致 ✓）。
 # const DateGetUTCDate:int = 269
 `getUTCDate()` 的号（**1 起**，与 JS 一致 ✓）。
+# const DateGetUTCHours:int = 270
+`getUTCHours()` 的号（0..23）。
+# const DateGetUTCMinutes:int = 271
+`getUTCMinutes()` 的号（0..59）。
+# const DateGetUTCSeconds:int = 272
+`getUTCSeconds()` 的号（0..59）。
 
 # const ObjectKeys:int = 401
 
@@ -223,8 +229,10 @@ if (id === DateCtor) {
   if (!ms.IsNumber()) throw new Error("unimplemented: new Date(x) needs a number of milliseconds");
   SetProperty(room, NeverCall, table, created,
     Value.FromString(table.CreateString(Units("__t"))), ms);
-  const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate];
-  const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate"];
+  const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
+    DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds];
+  const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
+    "getUTCHours", "getUTCMinutes", "getUTCSeconds"];
   for (let i = 0; i < methodIds.length; i++) {
     SetProperty(room, NeverCall, table, created,
       Value.FromString(table.CreateString(Units(methodNames[i]))),
@@ -233,7 +241,8 @@ if (id === DateCtor) {
   return created;
 }
 if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
-  || id === DateGetUTCDate) {
+  || id === DateGetUTCDate || id === DateGetUTCHours || id === DateGetUTCMinutes
+  || id === DateGetUTCSeconds) {
   // **实例方法**：先从 `__t` 取毫秒（`self` 就是那个实例）。
   const stored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
@@ -242,7 +251,14 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   if (id === DateGetTime) return MathResult(ms);
   if (id === DateGetUTCFullYear) return Value.FromInt(DateParts(ms)[0]);
   if (id === DateGetUTCMonth) return Value.FromInt(DateParts(ms)[1]);
-  return Value.FromInt(DateParts(ms)[2]);
+  if (id === DateGetUTCDate) return Value.FromInt(DateParts(ms)[2]);
+  // **一天之内的部分**：与日历那一半无关，所以单独算 ✓（`+86400` 那一步是为了
+  // **负毫秒**——1970 年以前的时刻也要给出 0..86399 之内的秒数 ✓）。
+  const seconds = Math.floor(ms / 1000);
+  const secondOfDay = ((seconds % 86400) + 86400) % 86400;
+  if (id === DateGetUTCHours) return Value.FromInt(Math.floor(secondOfDay / 3600));
+  if (id === DateGetUTCMinutes) return Value.FromInt(Math.floor(secondOfDay / 60) % 60);
+  return Value.FromInt(secondOfDay % 60);
 }
 throw new Error("unimplemented: global builtin " + id);
 ```

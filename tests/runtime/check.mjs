@@ -4428,21 +4428,24 @@ check("Date：new Date(毫秒) + getTime/UTC 日历三件（UTC 口径；大毫�
     "  const b = new Date(86400000);",
     "  const big = 86400000 * 19723;",
     "  const c = new Date(big);",
+    "  const d = new Date(-86400000 * 2 - 5000);",
     "  return [a.getTime(), b.getUTCFullYear(), c.getUTCFullYear(), c.getUTCMonth(),",
-    "    c.getUTCDate(), b.getTime()];",
+    "    c.getUTCDate(), b.getTime(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()];",
     "}",
   ].join("\n");
   const nodeRun = () => {
     const a = new Date(0);
     const b = new Date(86400000);
     const c = new Date(86400000 * 19723);
+    const d = new Date(-86400000 * 2 - 5000);
     return [a.getTime(), b.getUTCFullYear(), c.getUTCFullYear(), c.getUTCMonth(),
-      c.getUTCDate(), b.getTime()];
+      c.getUTCDate(), b.getTime(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()];
   };
   const expected = nodeRun();
   eq(expected[0], 0, "Node：纪元是 0（前提）");
   eq(expected[1], 1970, "Node：86400000 毫秒是 1970-01-02（前提）");
   eq(expected[2], 2024, "Node：大毫秒落在 2024（前提：86400000×19723 天 ≈ 54 年）");
+  eq(expected[6], 23, "Node：负毫秒的时分秒是 23:59:55（前提）");
 
   const request = new RunRequest();
   request.Sources = [source];
