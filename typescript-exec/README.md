@@ -14,28 +14,27 @@
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
 | **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 138 轮 `Protos` 加到十格 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
-| **降级层**（本目录） | **~95%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；缺**派生类不写构造函数时的那个默认构造函数**（`class E extends Error {}` 现在抛 ✓）、`new C(...xs)` 与 `super(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~80%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮 `Map` / `Set` / `Date` 的 `prototype` 与 `constructor` ✓；第 139 轮错误工厂按「失败类别」造 `TypeError` ✓；**第 140 轮内建错误构造函数支持「往传进来的 `this` 上初始化」** ✓（自定义错误类通了 ✓）；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
-| **端到端**（普通 `.ts` 文件） | **~98%** | 32 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、**自定义错误类**）；**已知的十二个拦路虎都关掉了** ✓，下一个是**派生类的默认构造函数**与**`Map` / `Set` 的 `super()`**（见「下一步」） |
+| **降级层**（本目录） | **~97%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；**派生类的默认构造函数 · `super(...xs)`**（第 141 轮）✓；缺 `new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
+| **标准库**（`builtins/`） | **~80%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮 `Map` / `Set` / `Date` 的 `prototype` 与 `constructor` ✓；第 139 轮错误工厂按「失败类别」造 `TypeError` ✓；第 140 轮内建错误构造函数支持「往传进来的 `this` 上初始化」✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
+| **端到端**（普通 `.ts` 文件） | **~99%** | 33 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、**默认构造函数与 `super(...xs)`**）；**已知的十三个拦路虎都关掉了** ✓，下一个是 **`Map` / `Set` 的 `super()`** 与 **`super.m(...xs)`**（见「下一步」） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 190 条 / `runtime:cli` 32 份 ✓）。
+与语料数（`runtime:check` 192 条 / `runtime:cli` 33 份 ✓）。
 
-**下一步（第 140 轮收尾时看着的）**：
+**下一步（第 141 轮收尾时看着的）**：
 
-1. **派生类的默认构造函数** ✗：`class E extends Error {}`（**不写构造函数** ✓）现在**抛** ✓——
-   降级层要求派生类自己写构造函数并调用 `super(...)` ✓（父类带构造函数时 ✓）。
-   JS 那边默认构造函数是 `constructor(...args) { super(...args) }` ✓，
-   本仓**不合成那一个** ✗。第 133 轮的**剩余参数** + 第 140 轮的**内建 `super()`** 都已经在 ✓，
-   所以这一条今天**只差合成** ✓——而它正好挡着最常见的那个写法 ✓（`class MyError extends Error {}` ✓）。
-2. **其余内建构造函数的 `super()`** ✗：`extends Map` / `extends Set` —— 它们各自要先把
-   **内部格**铺到 `this` 上 ✓（`Map` 的 `__k` / `__v` / `size` ✓），是**逐个**的事 ✓。
-3. **「不是函数却调用它」也算 `TypeError`** ✗：它走**指令那一层**的 `Guard` ✓
+1. **其余内建构造函数的 `super()`** ✗：`extends Map` / `extends Set` —— 它们各自要先把
+   **内部格**铺到 `this` 上 ✓（`Map` 的 `__k` / `__v` / `size` ✓），是**逐个**的事 ✓；
+   错误那一族（第 140 轮 ✓）已经把「往 `this` 上初始化」这条路走通了 ✓，
+   所以这是**照着抄一遍** ✓（加上「先铺内部格」那一步 ✓）。
+2. **`super.m(...xs)`** ✗：这一支本来就用不了 `call_method` ✓（「在谁身上找」与「谁是 `this`」
+   要分开 ✓），要另配一条形状 ✓——`call_array` 那一格 `this` 已经在了 ✓，
+   缺的是「按**父类原型**找方法」这一步 ✓。
+3. **`new C(...xs)`** ✗：`Op.New` 那条路没有「按数组铺参数」✓。
+4. **「不是函数却调用它」也算 `TypeError`** ✗：它走**指令那一层**的 `Guard` ✓
    （一处包住整条指令 ✓），那一层分不出类别 ✗——要分就得让 `DoCallValue` 自己带类别 ✓。
-4. **话里带上键名** ✗：Node 说 `Cannot read properties of null (reading 'x')` ✓，本仓没有键名 ✓。
-5. **`Map` / `Set` 的内部槽** ✗（`Object.keys(new Map())` 给 12 ✗）、
-   **`new C(...xs)` / `super(...xs)`** ✗。
+5. **话里带上键名** ✗、**`Map` / `Set` 的内部槽** ✗（`Object.keys(new Map())` 给 12 ✗）。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
@@ -231,6 +230,50 @@ typescript-exec/
 所以 C++ 那一份**欠着** ✗：按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发
 （**没改动的部件照抄旧产物** ✓，真要改写的只有几十处 ✓）。
 **它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），所以它排在「能跑更多普通程序」后面 ✓。
+
+## 第 141 轮的账（派生类的默认构造函数 · `super(...xs)`）
+
+第 140 轮让 `super(m)` 落在内建构造函数上通了 ✓，收尾时留的头一条是
+**`class E extends Error {}`（不写构造函数）** ✗——降级层要求派生类自己写构造函数
+并调用 `super(...)` ✓，本仓**不合成**那一个 ✓。这一轮把它办掉 ✓，顺带做掉 `super(...xs)` ✓。
+
+| 做什么 | 怎么落 |
+| --- | --- |
+| **`super(...xs)`** | `call_array` **本来就带 `this` 操作数** ✓（`EmitCallArray(callee, argsArray, self)` ✓，第 133 轮加算子时留出来的 ✓）——**一个新算子都没加** ✓，缺的只是把 `super` 接上去 ✓。第 133 轮那一处「响亮地抛」于是撤掉了 ✓ |
+| **合成的默认构造函数** | 父类带构造函数而派生类没写时，合成 JS 那一个：`constructor(...args) { super(...args); }` ✓——**合成的是一棵树** ✓，形状必须与投影给的一模一样 ✓（`Parameter.dotDotDotToken` 非 null ✓、`CallExpression.expression.kind === "SuperKeyword"` ✓、实参是 `SpreadElement` ✓） |
+| **「父类有没有构造函数」递归问** | `FindParentHasConstructor` 原来只看 `members` ✗——而合成出来的构造函数**不在 `members` 里** ✓ |
+
+**②是最容易只做一半的那一处** ✗：`class A { constructor(v) {…} } class B extends A {}
+class C extends B {}` 里，`B` 的构造函数是**合成出来的** ✓——只看 `members` 的话，
+`C` 会以为父类没有构造函数 ✓，于是拿到一个**空的**默认构造函数 ✓，
+`new C(8).v` 就是 `undefined` ✓（**静默错值** ✓，判据现场就是这么红的 ✓）。
+
+**递归的底** ✓：名字找不到时返回「有」✓（原样保留 ✓，「查不清」按最坏情况算 ✓）；
+自己直接继承 `Object`（没有 `extends`）时返回「假」✓；`class A extends A` 当场抛 ✓
+（源码上非法 ✓，而递归没有底会转圈 ✗）。名字的取法收到 `SuperClassNameOf` ✓——
+`LowerClass` 与 `FindParentHasConstructor` **问的是同一个问题** ✓，两处各写一遍就会漂 ✓。
+
+**一条仍然保持的「响亮」** ✓：派生类写了构造函数但**没调 `super(...)`** 时照旧抛 ✓
+（静默少跑父类初始化比不能用更坏 ✓）——那条判据一个字没动 ✓。
+
+语料 [tests/runtime/cases/33-derived-default-ctor.ts](../tests/runtime/cases/33-derived-default-ctor.ts)
+**6 行 stdout 与 `node` 逐字节相同** ✓：
+
+```
+default-ctor    3 true 5 f
+super-spread    7 true 6
+chain           13 true true
+error-subclass  plain,Error,true,true
+coded-error     bad,42,true,true
+```
+
+**两条旧判据随契约更新** ✓（都与第 129 / 131 / 137 轮那几条同一个处理 ✓）：
+「父类带构造函数必须抛」与「派生类缺构造函数必须抛」改成「**不再抛、而且转发对了**」✓；
+「`super(...xs)` 降级期就抛」改成「**跑得出来**」✓。
+
+**判据自己踩的两个坑**（写在这里，下次少踩 ✓）：`CallExport` 是**普通调用** ✓，
+拿它调一个类拿不到 `this` ✓（类的构造函数要用 `new` ✓）；`Sources` 是
+**一份一份的模块** ✗，名字与用它那句分开放会报「不是局部名也不是捕获」✓。
 
 ## 第 140 轮的账（`super(m)` 落在内建构造函数上）
 

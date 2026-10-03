@@ -872,10 +872,22 @@ this.IsDefault = isDefault;
 
 ## method FindParentHasConstructor:(name:string)=>bool
 
-这份模块里叫 `name` 的类**有没有显式构造函数**。
+这份模块里叫 `name` 的类**有没有构造函数**。
 
-**找不到这个类也返回「有」**：那样调用方会抛——**「查不清」要按最坏情况算**，
-否则就是拿准确性换方便。
+**「有」包含两层**（第 141 轮补的 ✓）：
+
+1. 自己写了构造函数 ✓；
+2. **自己不写、但父类有** ✓——那时本仓会**合成一个转发的构造函数**（见 `LowerClass` 那一支 ✓），
+   所以它**确实有** ✓。
+
+**为什么第 2 层必须算进来** ✗：字符串 `class A { constructor(v) {…} } class B extends A {}
+class C extends B {}` 里，`C` 看到的父类是 `B` ✓——而 `B` 的构造函数是**合成出来的、
+不在 `members` 里** ✗。只看 `members` 的话 `C` 会以为父类没有构造函数 ✓，
+于是给它一个**空的**默认构造函数 ✗，`new C(7).v` 就是 `undefined` ✓
+（**静默错值** ✓，判据现场就是这么红的 ✓）。
+
+**递归要有底** ✓：名字找不到时返回「有」✓（原样保留 ✓——「查不清」按最坏情况算 ✓）；
+**自己直接继承 `Object`（没有 `extends`）时到底** ✓——那时父类没有构造函数 ✓（返回 `false` ✓）。
 
 ```ts
 for (let i = 0; i < this.ModuleStatements.length; i++) {
@@ -887,9 +899,40 @@ for (let i = 0; i < this.ModuleStatements.length; i++) {
   for (let j = 0; j < members.length; j++) {
     if (NodeKind(members[j]) === "Constructor") return true;
   }
-  return false;
+  // **自己没写：看父类**（第 141 轮 ✓）——父类有，本仓就会给这个类合成一个转发的 ✓。
+  const clause = OptionalChild(statement, "heritageClauses");
+  void clause;
+  const baseName = this.SuperClassNameOf(statement);
+  if (baseName === "") return false;
+  // **自己指到自己**（`class A extends A`）时当场停 ✓：源码上非法 ✓，
+  // 但递归没有底的话这里会转圈 ✗——「响亮地抛」比「挂住」好 ✓。
+  if (baseName === name) {
+    throw new Error("unimplemented: a class cannot extend itself");
+  }
+  return this.FindParentHasConstructor(baseName);
 }
 return true;
+```
+
+## method SuperClassNameOf:(node:AstNode)=>string
+
+这个类声明 `extends` 的是哪个名字；没有（或不是简单名）给空串 ✓。
+
+**抽出来是因为有两个调用点** ✓（第 141 轮 ✓）：`LowerClass` 自己要用 ✓，
+`FindParentHasConstructor` 递归时也要用 ✓——两处各写一遍就有两处会漂 ✓。
+
+```ts
+const clauses = ListOf(node, "heritageClauses");
+for (let i = 0; i < clauses.length; i++) {
+  const types = ListOf(clauses[i], "types");
+  for (let j = 0; j < types.length; j++) {
+    const base = Child(types[j], "expression");
+    if (base === null) continue;
+    if (NodeKind(base) !== "Identifier") return "";
+    return TextOf(base);
+  }
+}
+return "";
 ```
 
 ## field Scope:Array<LocalScope> = []
@@ -3772,25 +3815,11 @@ return false;
 // **父类有构造函数仍然抛**：`super(...)` 还没做，而「子类实例上少了父类设的字段」
 // 是**静默错值**——宁可不做。**父类查不到（比如 import 进来的）也算查不清，同样抛**。
 let superProto = -1;
-let baseName = "";
-const heritage = node["heritageClauses"];
-if (heritage !== undefined && heritage !== null) {
-  const clauses = heritage as AstNode[];
-  // **按「第一段就是 `extends`」处理**：投影里 `HeritageClause` **没有关键字那个字段**
-  // （只有 `types`），所以分不出 `extends` 与 `implements`。TypeScript 的语法保证
-  // `extends` 排在 `implements` 之前，于是「第一段」就是它。
-  //
-  // **取舍写在明处**：`class C implements I {}` 会被当成 `extends I`，然后在解析
-  // `I` 时报「未知名字」——**响亮**，不是静默错值（而且这一支以前整段拒掉，没有更差）。
-  // 要真正分开，得让投影带上从句的关键字（台账里记着这一类「孤立 token 被丢」）。
-  if (clauses.length > 0) {
-    const types = clauses[0]["types"] as AstNode[];
-    const base = types[0]["expression"] as AstNode;
-    if (NodeKind(base) !== "Identifier") {
-      throw new Error("unimplemented: extends an expression (only a simple name is supported)");
-    }
-    baseName = TextOf(base);
-  }
+// **名字的取法收到了 `SuperClassNameOf` 里** ✓（第 141 轮 ✓）：
+// `FindParentHasConstructor` 递归时也要问同一个问题 ✓，
+// 两处各写一遍就有两处会漂 ✓（而漂的表现是「默认构造函数有时转发、有时不转发」✗）。
+const baseName = this.SuperClassNameOf(node);
+{
   if (baseName !== "") {
     const access = this.ResolveAccess(baseName);
     const baseSlot = this.Reserve(1);
@@ -3821,13 +3850,39 @@ for (let i = 0; i < members.length; i++) {
   }
 }
 if (baseName !== "" && this.FindParentHasConstructor(baseName)) {
-  // **父类带构造函数时，派生类必须自己写构造函数、并且调用 `super(...)`**。
-  // 少了任何一样，「父类设的字段在子类实例上不存在」——那是**静默错值**。
+  // **父类带构造函数时，派生类必须能`super(...)`**。
+  // 少了它，「父类设的字段在子类实例上不存在」——那是**静默错值**。
   // （JS 在这里是运行期报 ReferenceError；我们在降级期就报，更早也更响。）
   if (explicitCtor === null) {
-    throw new Error("unimplemented: a derived class must declare a constructor that calls super(...) (its parent has one)");
-  }
-  if (!HasSuperCall(explicitCtor)) {
+    // **默认构造函数要转发参数**（第 141 轮 ✓）：JS 给的是
+    // `constructor(...args) { super(...args); }` ✓——少了它，
+    // `class MyError extends Error {}`（**最常见的那个写法** ✓）连 `new MyError("x")` 都跑不起来 ✗。
+    //
+    // **为什么这一轮才敢合成** ✗：它要两样东西，两样都是新近才有的 ✓——
+    // **剩余参数**（第 133 轮 ✓）与 **`super(...xs)`**（这一轮 ✓，见上面那一支 ✓）。
+    // 合成出来的树就是那两样的**最小组合** ✓：一个带 `...args` 的形参 + 一条 `super(...args)` ✓。
+    //
+    // **它的形状必须与投影给的一模一样** ✗（这是合成的风险所在 ✓）：
+    // `Parameter.dotDotDotToken` 只要**不是 null** 就算剩余 ✓（`FunctionParams` 那条判据 ✓）、
+    // `CallExpression.expression.kind === "SuperKeyword"` 才是 `super` ✓（`LowerCall` 那一支 ✓）、
+    // 展开的实参是 `SpreadElement` ✓（`HasSpread` ✓）。四处对不上就是「合成了个普通调用」✗。
+    const restName = { kind: "Identifier", text: "args" };
+    const restParam = {
+      kind: "Parameter",
+      name: restName,
+      dotDotDotToken: { kind: "DotDotDotToken" },
+    };
+    const forward = {
+      kind: "CallExpression",
+      expression: { kind: "SuperKeyword" },
+      arguments: [{ kind: "SpreadElement", expression: { kind: "Identifier", text: "args" } }],
+    };
+    ctorNode = {
+      kind: "Constructor",
+      parameters: [restParam],
+      body: { kind: "Block", statements: [{ kind: "ExpressionStatement", expression: forward }] },
+    };
+  } else if (!HasSuperCall(explicitCtor)) {
     throw new Error("unimplemented: this derived constructor must call super(...) (its parent has one)");
   }
 }
@@ -4600,11 +4655,19 @@ if (calleeKind === "SuperKeyword") {
   const selfSlot = this.Reserve(1);
   this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
   const superArgs = ListOf(node, "arguments");
-  // **`super(...xs)` 还不做** ✗：`Op.Call` 收的是定长窗口 ✓，而 `CallArray` 那一条
-  // 没有「构造目标」那个操作数 ✓（`super(...)` 要的正是「拿当前实例当 `this` 调父类构造」✓）。
-  // **响亮地抛** ✓——加上那个操作数是**另一轮**的事 ✓。
+  // **`super(...xs)`**（第 141 轮做掉了 ✓）：与 `f(...xs)` 走**同一条** `call_array` ✓——
+  // 那一族算子本来就带 `this` 操作数 ✓（`EmitCallArray(callee, argsArray, self)` ✓），
+  // 所以「拿当前实例当 `this`、按数组铺参数」**一个字的新算子都不用加** ✓。
+  //
+  // **上一轮（133）这里抛** ✗（「unimplemented: spreading into super(...)」✓）——
+  // 那时 `CallArray` 的 `this` 操作数虽然已经在了 ✓，但没人把它与 `super` 接起来 ✓。
+  // 接起来之后，**派生类的默认构造函数**才有办法转发参数 ✓（见 `LowerClass` 那一支 ✓）。
   if (this.HasSpread(superArgs)) {
-    throw new Error("unimplemented: spreading into super(...)");
+    const spreadArray = this.BuildArgsArray(superArgs);
+    const spreadDest = this.EmitCallArray(parent, spreadArray, selfSlot);
+    // **字段初始化跟着走**（与定长那条一字不差 ✓）：`super(...)` 一降级完，`this` 就一定存在 ✓。
+    this.FieldInitDue();
+    return spreadDest;
   }
   const superCount = superArgs.length;
   const superBase = this.Reserve(superCount > 0 ? superCount : 1);

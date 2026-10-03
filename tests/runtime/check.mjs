@@ -3216,14 +3216,24 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
   eq(derived2.host.CallExport(derived2.module.ExportOf("viaOwn"), []).Value.AsInt(), nodeOwn,
     "this.m() 从子类 prototype 走到父类 prototype");
 
-  // **父类带构造函数必须抛**（`super(...)` 还没做；静默少跑父类初始化比不能用更坏）
-  let withCtor = "";
-  try {
-    lowerAndLoad("class A { constructor() { this.x = 1; } } class B extends A { }");
-  } catch (error) {
-    withCtor = String(error.message);
-  }
-  eq(withCtor.indexOf("constructor") >= 0, true, "父类带构造函数必须抛：" + withCtor);
+  // **父类带构造函数：默认构造函数会转发参数**（第 141 轮改的契约 ✓）——
+  // 原来这里断言的是「必须抛」✗（那时 `super(...)` 还没做 ✓，静默少跑父类初始化比不能用更坏 ✓）。
+  // 现在合成的是 JS 那一个：`constructor(...args) { super(...args); }` ✓。
+  //
+  // **用脚本那一层量**（不 `CallExport` ✗）：`CallExport` 是**普通调用** ✓，
+  // 而类的构造函数要**用 `new` 调**才有 `this` ✓（判据现场：返回 `undefined` ✓，
+  // 因为我拿 `CallExport` 去调了一个类 ✓——**这是判据自己的错**，不是产品的 ✓）。
+  const withCtorLines = [];
+  const withCtorRequest = new RunRequest();
+  withCtorRequest.Sources = [[
+    "class A { constructor(x) { this.x = x; } }",
+    "class B extends A { }",
+    "console.log(new B(7).x, new B(7) instanceof A);",
+  ].join("\n")];
+  withCtorRequest.Entry = "";
+  const withCtorRes = RunSources(withCtorRequest, (text) => withCtorLines.push(text), () => null);
+  eq(withCtorRes.Outcome, HostOutcome.Ok, "父类带构造函数时**不再抛**：" + withCtorRes.Message);
+  eq(withCtorLines[0], "7 true", "默认构造函数把实参转发给了父类（`this.x === 7`）");
 
   // **`super(...)`：父类构造函数在子类实例上跑起来**
   const withState = [
@@ -3242,14 +3252,20 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
   eq(derived3.host.CallExport(derived3.module.ExportOf("viaSuper"), [Value.FromInt(5)]).Value.AsInt(),
     nodeSuper, "super(x) 让父类构造函数在同一个实例上跑");
 
-  // 父类带构造函数时，派生类**没写构造函数**必须抛（默认构造函数会静默少跑父类初始化）
-  let noCtor = "";
-  try {
-    lowerAndLoad("class A { constructor() { this.x = 1; } } class B extends A { }");
-  } catch (error) {
-    noCtor = String(error.message);
-  }
-  eq(noCtor.indexOf("constructor") >= 0, true, "派生类缺构造函数必须抛：" + noCtor);
+  // **派生类缺构造函数：第 141 轮起不再抛** ✓——合成的默认构造函数会**转发参数** ✓。
+  // 原来这条断言的是「必须抛」✗（那时合成会静默少跑父类初始化 ✓，抛更安全 ✓）——
+  // 现在合成的是 JS 那一个 ✓（`constructor(...args) { super(...args); }` ✓），
+  // 所以「不再抛」才是对的 ✓。上面那一块已经量过转发 ✓，这里量**不再抛**这一件事本身 ✓。
+  const noCtorLines = [];
+  const noCtorRequest = new RunRequest();
+  // **两份字符串是两个模块** ✗（这一轮又踩了一次 ✓）：类声明与用它那句必须在**同一份**里 ✓，
+  // 否则报的是「`B` 不是局部名也不是捕获」✗（离现场很远 ✓）。
+  noCtorRequest.Sources = [["class A { constructor() { this.x = 1; } } class B extends A { }",
+    "console.log(new B().x);"].join("\n")];
+  noCtorRequest.Entry = "";
+  const noCtorRes = RunSources(noCtorRequest, (text) => noCtorLines.push(text), () => null);
+  eq(noCtorRes.Outcome, HostOutcome.Ok, "派生类缺构造函数不再抛：" + noCtorRes.Message);
+  eq(noCtorLines[0], "1", "父类的初始化照跑");
 
   // 写了构造函数但**没调 `super(...)`** 也必须抛
   let noSuper = "";
@@ -5697,10 +5713,21 @@ check("剩余参数与展开调用：与 Node 逐值一致，边界也钉住", (
   // ① `new C(...xs)`：`CallArray` 没有「构造目标」那个操作数。
   ok(runMessage("const xs = [1]; const m = new Map(...xs);").indexOf("spreading into new") >= 0,
     "① `new C(...xs)` 降级期就抛：" + runMessage("const xs = [1]; const m = new Map(...xs);"));
-  // ② `super(...xs)`：同上（要「拿当前实例当 this 调父类构造」）。
-  ok(runMessage("class A { constructor(v) { this.v = v; } }"
-    + " class B extends A { constructor(xs) { super(...xs); } }").indexOf("spreading into super") >= 0,
-    "② `super(...xs)` 降级期就抛");
+  // ② **`super(...xs)` 第 141 轮做掉了** ✓——原来这条断言的是「降级期就抛」✗，
+  // 现在改成「**跑得出来**」✓（判据随契约更新 ✓，与上面①那条同一个处理 ✓）。
+  // 它靠的是 `CallArray` **本来就带 `this` 操作数** ✓（`EmitCallArray(callee, argsArray, self)` ✓）——
+  // 第 133 轮加算子时就把那一格留出来了 ✓，只是没人把 `super` 接上去 ✓。
+  const superSpread = [];
+  const superSpreadRequest = new RunRequest();
+  superSpreadRequest.Sources = [[
+    "class A { constructor(a, b, c) { this.sum = a + b + c; } }",
+    "class B extends A { constructor(xs) { super(1, ...xs, 4); } }",
+    "console.log(new B([2, 3]).sum);",
+  ].join("\n")];
+  superSpreadRequest.Entry = "";
+  const superSpreadRes = RunSources(superSpreadRequest, (text) => superSpread.push(text), () => null);
+  eq(superSpreadRes.Outcome, HostOutcome.Ok, "② `super(...xs)` 现在跑得出来：" + superSpreadRes.Message);
+  eq(superSpread[0], "6", "② 混着写的实参也铺对了（父类只收三个：1 + 2 + 3）");
   // ③ `super.m(...xs)`：这一支本来就用不了 `call_method`，要另配一条形状。
   ok(runMessage("class A { m(x) { return x; } }"
     + " class B extends A { m(xs) { return super.m(...xs); } }").indexOf("spreading into super.m") >= 0,
@@ -6150,6 +6177,72 @@ check("`super(m)` 往传进来的 `this` 上初始化，并返回它", () => {
   const identityRes = RunSources(identityRequest, (text) => identity.push(text), () => null);
   eq(identityRes.Outcome, HostOutcome.Ok, "运行器：" + identityRes.Message);
   eq(identity[0], "m 1 true true", "`super()` 之后写的字段与父类写的是同一个对象");
+});
+
+console.log("");
+console.log("=== 第 141 轮：派生类的默认构造函数 · super(...xs) ===");
+
+check("合成的默认构造函数要把实参转发下去，而且要**递归**问父类", () => {
+  // **端到端那一把在 `cases/33-derived-default-ctor.ts`**（6 行逐字节 ✓）。
+  // 这里钉的是**两处容易只做一半**的地方 ✓：
+  //   ① 转发本身（`constructor(...args) { super(...args); }` ✓）；
+  //   ② 「父类有没有构造函数」要**递归**问 ✓——`class B extends A {}` 的构造函数是
+  //      **合成出来的、不在 `members` 里** ✗，只看 `members` 会让 `class C extends B {}`
+  //      拿到一个**空的**默认构造函数 ✓（`new C(7).v` 是 `undefined` ✗，**静默错值** ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "class A { constructor(v) { this.v = v; } }",
+    "class B extends A { }",
+    "class C extends B { }",
+    "console.log(new B(7).v, new C(8).v, new C(8) instanceof A);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "7 8 true", "一层与两层都转发（递归那一层是这条判据的全部意义）");
+  // **自己直接继承 `Object`（没有 `extends`）到底** ✓：那时父类没有构造函数 ✓，
+  // 于是这一类**不合成**转发 ✓（合成的话 `class A { constructor(v) {} }` 反而会多收参数 ✗）。
+  const base = [];
+  const baseRequest = new RunRequest();
+  baseRequest.Sources = ["class A { constructor(v) { this.v = v; } } console.log(new A(1).v);"];
+  baseRequest.Entry = "";
+  const baseRes = RunSources(baseRequest, (text) => base.push(text), () => null);
+  eq(baseRes.Outcome, HostOutcome.Ok, "运行器：" + baseRes.Message);
+  eq(base[0], "1", "没有 `extends` 的类照旧");
+});
+
+check("`super(...xs)`：`CallArray` 那一格 `this` 原来就留着", () => {
+  // **一个新算子都没加** ✓（第 141 轮）——`EmitCallArray(callee, argsArray, self)` ✓
+  // 从第 133 轮起就是三格的 ✓，缺的只是把 `super` 接上去 ✓。
+  // **与 `f(...xs)` 走同一条** ✓，所以混着写（`super(1, ...xs)` ✓）也天然对 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "class A { constructor(a, b) { this.sum = a + b; } }",
+    "class B extends A { constructor(xs) { super(...xs); } }",
+    "class C extends A { constructor(xs) { super(1, ...xs); } }",
+    "console.log(new B([2, 3]).sum, new C([5]).sum);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "5 6", "整串铺开与混着写都铺对了");
+  // **`super.m(...xs)` 仍然响亮地抛** ✓：那一支本来就用不了 `call_method` ✓
+  //（「在谁身上找」与「谁是 this」要分开 ✓），要另配一条形状 ✓。
+  let message = "";
+  // **要用 `new RunRequest()`** ✗（这一轮又踩了一次 ✓）：随手写一个对象字面量的话，
+  // 驱动读不到它要的那几个字段 ✓，报的是「Cannot read properties of undefined (reading 'length')」✗
+  // ——离「你少构造了一个请求对象」这个真相很远 ✓。
+  const methodProbe = new RunRequest();
+  methodProbe.Sources = ["class A { m(x) { return x; } } class B extends A { m(xs) { return super.m(...xs); } }"];
+  methodProbe.Entry = "";
+  try {
+    RunSources(methodProbe, () => {}, () => null);
+  } catch (error) {
+    message = String(error.message);
+  }
+  ok(message.indexOf("spreading into super.m") >= 0, "`super.m(...xs)` 照旧抛：" + message);
 });
 
 console.log("");
