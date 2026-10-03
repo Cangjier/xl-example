@@ -74,6 +74,21 @@ import { SetCtor } from "./set.xl.md"
 
 # const ConsoleLog:int = 301
 
+# const StringConcat:int = 302
+
+**字符串拼接**（第 125 轮）——**它不是全局名** ✓，是**降级层**发的一条内部调用 ✓
+（`a + b` 里有字符串字面量时落到这里 ✓，见 `lowering.xl.md` 的 `ConcatValues`）。
+与 `DateCtor` 同一类 ✓：号在全局段里 ✓、脚本看不见 ✓、由 `InstallBuiltins` **登记进能力表** ✓
+（不登记就报「capability is not registered」✓）。
+
+**它为什么必须存在** ✗：引擎的 `RtOp.Add` 只渲染它认识的那几档 ✓，
+遇到**对象 / 数组 / 浮点**会**抛** ✓——而 `"x=" + obj` 这种写法遍地都是 ✓。
+「对象渲染成什么」是**语言层**的决定 ✓（`text.xl.md` 的 `ValueUnits` ✓），引擎不认识它 ✗。
+
+**实参两个都要** ✓（JS 的 `+` 是从左到右求值 ✓，降级层已经把两格算好了 ✓）；
+结果**一定是字符串** ✓——因为调用点上已经保证「有一边是字符串字面量」✓
+（`1 + "x"` 也是 `"1x"` ✓，照 JS 给 ✓）。
+
 # const SymbolCtor:int = 250
 
 **`Symbol(description)`** 的能力号（全局段 200..299 里空着的号）。
@@ -287,6 +302,20 @@ if (id === ErrorCtor) {
   // `"[object Object]"` ✓——以前这里用引擎的 `TextFrom`，那会在对象上**抛** ✗。
   const text = args.length > 0 ? ValueText(table, args[0]) : "";
   return NewError(room, table, protos, text);
+}
+if (id === StringConcat) {
+  // **两个值按字符串拼起来**（第 125 轮）：两边都走「任意值 → 文本」✓
+  // （`text.xl.md` 的 `ValueUnits` ✓——浮点 / 对象 / 数组 / 洞都在那里有答案 ✓）。
+  if (args.length < 2) throw new Error("unimplemented: string_concat needs (left, right)");
+  const left = ValueUnits(table, args[0], 0);
+  const right = ValueUnits(table, args[1], 0);
+  if (!room(ObjectCharge + CodeUnitCharge * (left.length + right.length))) {
+    throw new Error("out of room");
+  }
+  const joined: number[] = [];
+  for (let i = 0; i < left.length; i++) joined.push(left[i]);
+  for (let i = 0; i < right.length; i++) joined.push(right[i]);
+  return Value.FromString(table.CreateString(joined));
 }
 if (id === ConsoleLog) {
   // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。

@@ -11,7 +11,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray } from "./array.xl.md"
 import { InstallArray } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, DateCtor, NewError } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, DateCtor, NewError, StringConcat } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet } from "./set.xl.md"
 ```
@@ -214,7 +214,7 @@ try {
 InstallArray(host.Machine, protos);
 InstallString(host.Machine, protos);
 // **辅助号在这里登记**：值是带本模块号的宿主引用（与建库层别处同一形状）。
-const helpers = [DefineAccessorId, GetIteratorId, DateCtor];
+const helpers = [DefineAccessorId, GetIteratorId, DateCtor, StringConcat];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));

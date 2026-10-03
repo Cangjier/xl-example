@@ -4965,6 +4965,69 @@ check("任意值 → 文本：浮点 · 对象 · 数组 · 洞（第 124 轮）
   }
 });
 
+check("字符串拼接：有字面量就换路（第 125 轮），两边都是变量时照旧**响亮地抛**", () => {
+  // **换路的判据是「有一边是字符串字面量」** ✓（JS：ToPrimitive 之后有一边是字符串就拼接，
+  // 而字面量本来就是字符串 ✓）——于是那一条落成语言内建 `StringConcat` ✓，
+  // 另一边走「任意值 → 文本」✓（第 124 轮那条）。
+  // **边界**：两边都不是字面量时照旧走引擎的 `RtOp.Add` ✓——它是热路径 ✓，
+  // 而且运行期真遇到对象会**抛** ✓（响亮，不是静默给错值 ✓）。这一条在下面钉住 ✓。
+  const source = [
+    "function run() {",
+    "  const bag = { a: 1 };",
+    "  const arr = [1, 2];",
+    "  let s = 'start';",
+    "  s += '-more';",
+    "  const template = `t=${bag} ${arr} ${5 / 2}`;",
+    "  return ['x=' + bag, 'a' + arr, 'n=' + 5 / 2, 1 + 'x', s, template];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const bag = { a: 1 };
+    const arr = [1, 2];
+    let s = "start";
+    s += "-more";
+    const template = `t=${bag} ${arr} ${5 / 2}`;
+    return ["x=" + bag, "a" + arr, "n=" + 5 / 2, 1 + "x", s, template];
+  };
+  const expected = nodeRun();
+  eq(expected[0], "x=[object Object]", "Node：字面量在左（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  for (let i = 0; i < expected.length; i++) {
+    eq(hostStringOf(table, GetIndex(table, res.Value, Value.FromInt(i))), expected[i], "第 " + i + " 项");
+  }
+
+  // **边界：两边都是变量 + 运行期是对象** ✓。引擎的 `RtOp.Add` 在那里抛 ✓——
+  // 而这一抛**接不住**（与宿主通道那条不同）✗：它是 **rt 层**的宿主异常，
+  // 从 `Run()` 直接冒出来（`RaiseFromHost` 只管宿主函数调用那条路 ✓），
+  // 所以这里断言的是「**整次运行失败**」✓，不是「脚本接住了」✓。
+  // 这条边界写在台账里 ✓：要让它可接住，得给 rt 层也铺一条「宿主异常 → 脚本异常」的路
+  // （而那条路要一个**语言层造的 Error 对象** ✗，引擎自己造不出来 ✗——留作下一轮的账 ✓）。
+  const strict = [
+    "function run() {",
+    "  const bag = { a: 1 };",
+    "  const left = 'x';",
+    "  const right = bag;",
+    "  return [left + right];",
+    "}",
+  ].join("\n");
+  const strictRequest = new RunRequest();
+  strictRequest.Sources = [strict];
+  strictRequest.Entry = "run";
+  let escaped = "";
+  try {
+    RunSources(strictRequest, () => {}, () => null);
+  } catch (error) {
+    escaped = String(error.message);
+  }
+  ok(escaped.indexOf("ToString") >= 0, "两边都是变量时照旧抛（**接不住**，rt 层那条路）：" + escaped);
+});
+
 check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

@@ -6,7 +6,7 @@ import { IdTable } from "../runtime/ir-verify.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId } from "./builtins/install.xl.md"
-import { DateCtor } from "./builtins/globals.xl.md"
+import { DateCtor, StringConcat } from "./builtins/globals.xl.md"
 ```
 
 # namespace cangjie
@@ -2903,13 +2903,15 @@ return result;
 
 ## method LowerTemplate:(node:AstNode)=>int
 
-**模板串**：从左到右拼——头段、每个内插（`ToString` 之后）、每段字面量。
+**模板串**：从左到右拼——头段、每个内插（**渲染成文本**之后）、每段字面量。
 
-**为什么这么短**：`rt_call add` **一边是字符串就会把另一边 `ToString` 再拼**
-（`rt.xl.md` 的 `RtAdd` 三条路之一）。所以 `` `n=${n}!` `` 就是
-`"n=" + n + "!"`——**不需要新算子，也不需要显式转换**。
+**第 125 轮改成走语言内建那条拼接** ✓（`ConcatValues` ✓）：模板串的语义就是
+「把每一段 `ToString` 之后接起来」✓，而 **`ToString` 的口径在语言层** ✓
+（`text.xl.md` ✓）。原来这里用引擎的 `rt_call add` ✗——它只认自己认识的那几档 ✓，
+于是 `` `${obj}` `` / `` `${5 / 2}` `` 会**抛** ✓（判据现场抓到的 ✓），
+而这两种写法在真实代码里遍地都是 ✓。
 
-**投影保证两件事**（这一轮刚补上）：三个模板段的 `text` 都在（**不含分隔符**），
+**投影保证两件事**（第 66 轮刚补上）：三个模板段的 `text` 都在（**不含分隔符**），
 所以这里直接取文本即可，不必回头去扫源码。
 
 ```ts
@@ -2919,11 +2921,16 @@ this.Emit(Op.Const, result, headText, -1, -1);
 const spans = ListOf(node, "templateSpans");
 for (let i = 0; i < spans.length; i++) {
   const value = this.LowerExpression(Child(spans[i], "expression"));
-  const joined = this.RtCallValues(RtOp.Add, result, value);
+  const joined = this.ConcatValues(result, value);
   const literal = Child(spans[i], "literal");
   const literalText = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(literal))));
-  const tail = this.RtCall2(RtOp.Add, joined, literalText);
+  // **常量要先落进一格**：`ConcatValues` 收的是**槽号** ✓（与 `RtCall2` 那条收常量的路不同 ✗）。
+  const tailSlot = this.Reserve(1);
+  this.Emit(Op.Const, tailSlot, literalText, -1, -1);
+  const tail = this.ConcatValues(joined, tailSlot);
   this.Emit(Op.Move, result, tail, -1, -1);
+  // **临时量随段落退掉**：不退的话 `Peak` 会随段落数长（这一轮顺手收的 ✓）。
+  this.Release(result + 1);
 }
 return result;
 ```
@@ -3500,6 +3507,10 @@ if (operatorText === "??") {
 }
 if (operatorText === "+=" || operatorText === "-=" || operatorText === "*="
   || operatorText === "/=" || operatorText === "%=") {
+  // **字符串那一半先换路**（第 125 轮）：`s += "x"` 里的右边是**字符串字面量** ✓，
+  // 于是结果一定是字符串 ✓（JS 的 `1 += "x"` 也是 `"1x"` ✓）——交给 `StringConcat` ✓。
+  // 左边是一个**名字**（下面两条分支各自处理读→算→写 ✓），所以这里只换「算」那一步 ✓。
+  const concatRight = operatorText === "+=" && this.IsTextLiteral(Child(node, "right"));
   const base = BinaryOpOf(operatorText.slice(0, 1));
   if (NodeKind(left) === "Identifier") {
     // 复合赋值展开成「读 → 算 → 写」，**读一次**（左边只求值一次）。
@@ -3511,7 +3522,8 @@ if (operatorText === "+=" || operatorText === "-=" || operatorText === "*="
       this.Emit(Op.Move, read, access.Slot, -1, -1);
     }
     const right = this.LowerExpression(Child(node, "right"));
-    const sum = this.RtCallValues(base, read, right);
+    // **右边是字符串字面量就换拼接**（第 125 轮）：`s += "x"` 的结果一定是字符串 ✓。
+    const sum = concatRight ? this.ConcatValues(read, right) : this.RtCallValues(base, read, right);
     if (access.InEnv) {
       this.Emit(Op.EnvSet, sum, access.Depth, access.Cell, -1);
     } else {
@@ -3539,7 +3551,7 @@ if (operatorText === "+=" || operatorText === "-=" || operatorText === "*="
     const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
     const read = this.RtCall2(RtOp.GetProp, receiver, key);
     const right = this.LowerExpression(Child(node, "right"));
-    const sum = this.RtCallValues(base, read, right);
+    const sum = concatRight ? this.ConcatValues(read, right) : this.RtCallValues(base, read, right);
     this.Emit(Op.Move, result, sum, -1, -1);
     this.SetPropertyConst(receiver, key, result);
     this.Release(result + 1);
@@ -3550,7 +3562,7 @@ if (operatorText === "+=" || operatorText === "-=" || operatorText === "*="
     const index = this.LowerExpression(Child(left, "argumentExpression"));
     const read = this.RtCallValues(RtOp.GetIndex, receiver, index);
     const right = this.LowerExpression(Child(node, "right"));
-    const sum = this.RtCallValues(base, read, right);
+    const sum = concatRight ? this.ConcatValues(read, right) : this.RtCallValues(base, read, right);
     this.Emit(Op.Move, result, sum, -1, -1);
     // **下标写回**：与 `=` 那条分支同一个形状（`set_index` 的窗口是「接收者, 下标, 值」）。
     const window = this.Reserve(3);
@@ -3613,12 +3625,62 @@ if (operatorText === "=") {
 const base = this.Reserve(2);
 this.LowerInto(base, left);
 this.LowerInto(base + 1, Child(node, "right"));
+// **`+` 里只要有一边是字符串字面量，结果一定是字符串** ✓（JS：ToPrimitive 之后有一边是
+// 字符串就做拼接 ✓，而字面量本来就是字符串 ✓）——于是这里**落成一条语言内建调用** ✓
+// （`StringConcat`，与 `for..in` 落成 `Object.keys` / `new Date` 落成 `DateCtor` 同一套做法 ✓）。
+//
+// **为什么非要落成内建**（第 125 轮）✗：引擎的 `RtOp.Add` 只渲染它认识的那几档 ✓，
+// 遇到**对象 / 数组 / 浮点**会**抛** ✓——`"x=" + obj` 这种遍地都是的写法于是跑不起来 ✓。
+// 而「对象渲染成什么」是**语言层**的决定 ✓（`text.xl.md` ✓），引擎不认识它 ✗。
+//
+// **只在这一种形状上换路** ✓：两边都不是字面量字符串时（`a + b`）照旧走引擎 ✓——
+// 那条路是热路径 ✓，而且真到运行期才发现「有一边是对象」时**照旧抛** ✓（响亮 ✓，
+// 不是静默给错值 ✓）。这条边界写在台账里 ✓。
+const stringAdd = operatorText === "+"
+  && (this.IsTextLiteral(left) || this.IsTextLiteral(Child(node, "right")));
+if (stringAdd) {
+  const sum = this.ConcatValues(base, base + 1);
+  this.Emit(Op.Move, base, sum, -1, -1);
+  this.Release(base + 1);
+  return base;
+}
 this.EmitRt(BinaryOpOf(operatorText), base, base, 2);
 if (IsNegated(operatorText)) {
   this.EmitRt(RtOp.Not, base, base, 1);
 }
 this.Release(base + 1);
 return base;
+```
+
+## method ConcatValues:(first:int, second:int)=>int
+
+**两个值按字符串拼起来** ✓——走 `StringConcat` 那条**语言内建调用** ✓，
+窗口形状与 `DateCtor` 那条一模一样 ✓（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格 ✓）。
+
+**调用方负责把结果搬走**（本方法只保证「窗口第一格是结果」✓）——
+三处调用点各自把那格搬到自己的结果位上 ✓（`+` 搬到 `base` ✓、复合赋值搬到 `result` ✓）。
+
+```ts
+const window = this.Reserve(3);
+this.Emit(Op.Const, window, this.IntConst(StringConcat), -1, -1);
+this.Emit(Op.Move, window + 1, first, -1, -1);
+this.Emit(Op.Move, window + 2, second, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 3);
+this.Release(window + 1);
+return window;
+```
+
+## method IsTextLiteral:(node:AstNode)=>bool
+**这个节点是不是一个「字面量字符串」** ✓——`StringLiteral` ✓、
+没有内插的模板 ✓、有内插的模板 ✓（三者都是字符串 ✓）。
+
+**它只用来做一件判断**：`+` 的那条换路（见上一节 ✓）——**不是**类型推断 ✗、
+也不假装知道变量的类型 ✗（`let s = "x"; s + obj` 不在换路范围里 ✓，那一条照旧由引擎抛 ✓）。
+
+```ts
+const kind = NodeKind(node);
+return kind === "StringLiteral" || kind === "NoSubstitutionTemplateLiteral"
+  || kind === "TemplateExpression";
 ```
 
 ## method LowerCall:(node:AstNode)=>int
