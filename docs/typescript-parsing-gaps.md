@@ -3843,3 +3843,44 @@ A 的导出闭包直接进 B 的环境对象，B 的 `run(21)` 返回 **43**（=
 
 **当下状态**：Map 的代码在树里，但**没有任何通过路径能到它**——等价于未接通。
 判据没有放进判据集（放进去就是红的），**复现留在这一节**。
+### 第 57 轮：`Map` 实测**每条路都对**，只剩 `delete` 之后那一次读没排清
+
+**这一轮把上一轮那句「端到端在第一步就断」追到底了，结论是：不是 Map 的错，是判据少了两样东西。**
+
+**判据那边的三个必备件**（用全局名的判据都要齐；少前两样时 `Map` 是 `undefined`，
+而报出来的却是 `calling a non-closure value`，线索离现场很远）：
+
+1. `lowerAndLoad(source, GlobalNames())`——降级时声明名单；
+2. `host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)])`——**给环境对象**；
+3. `host.InstallHost((target, self, args, room) => InvokeWithSink(...))`——装宿主调用通道。
+
+**逐条实测出来的事实**（宿主侧把脚本交回来的 Map 拆开看）：
+
+| 实测 | 结果 |
+| --- | --- |
+| `new Map()` | ✓ 造出来了（`__k` / `__v` 两个数组 + `size`） |
+| `set` 新增 | ✓ 键、值同时推进，`size` 跟着变 |
+| `set` 更新同一个键 | ✓ `__v[0]` 从 1 变成 10，长度不变 |
+| `get` / `has` | ✓ 数值与布尔都正确（`get('b')` = 2、`has('b')` = true） |
+| 键的种类 | ✓ `1` / `'1'` / `true` 是三个不同的键 |
+| 数组字面量 | ✓ 7 个元素逐格读回都对（排除了「数组构造错位」这条嫌疑） |
+
+**唯一没排清的**：`use()` 里 `m.delete('a')` **之后**再 `m.get('b')` 拿到 `undefined`（读成 0）。
+它与上面那些已验证的写法只差「链式 `set`」与「`delete`」——**下一轮用一次二分就能定**：
+在 `delete` 前后各读一次 `get('b')`，两次分开返回。
+
+**顺带纠正的两个认识**：
+
+- `table.Get(句柄).AsArray()` 拿到的是**视图不是稳定引用**：存进局部量之后再 `Push`，
+  那个局部量可能失效（本轮已改成**每次用时现取**，`globals.xl.md` 也是这个写法）；
+- **`ValueTag` 的编号别靠记忆**：我一度把 `Tag = 7` 当成「数组」，其实那是 `Int32`——
+  差点据此写下错误结论。**打 `Tag` 不够，要连值一起打。**
+
+### 又一次工具事故（这次是我自己造的）
+
+用 PowerShell 的 `(Get-Content -Raw) -replace ... | Set-Content -Encoding UTF8` 改判据，
+把**整个文件的中文变成了乱码**（`Get-Content -Raw` 按 ANSI 解码 → 写回时已经错了），
+`node --check` 立刻报第 60 行语法错。**恢复**：`git checkout -- tests/runtime/check.mjs`。
+
+**规矩**：**不要用 PowerShell 的 `Get-Content`/`Set-Content` 改带中文的源文件**——
+要么用编辑器工具，要么 `[System.IO.File]::ReadAllText/WriteAllText` 配 UTF-8 显式编码。

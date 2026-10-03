@@ -26,14 +26,13 @@ import { NeverCall } from "./array.xl.md"
 **方法挂在实例自己身上**（不是原型上）：值是**带本模块号的宿主引用**。
 这样**不必给引擎加 `Protos.Map`**，也不必让引擎认识 `Map` 这个名字。
 
-**`call` 用现成的 `NeverCall`**（`array.xl.md` 导出、`globals.xl.md` 也这么用）：
-只写**数据属性**，而 `SetProperty` 只在**访问器**那条分支用 `call`。
-用现成的空实现，就不必把宿主 ABI 撑大，也不必临时塞 `null` 进去。
+**`AsArray()` 拿到的是「视图」，必须每次用时现取**（这一轮踩的坑）：
+把 `table.Get(ref).AsArray()` 存进一个局部量、之后又往同一个数组里 `Push`，
+`Push` 换了底层存储之后那个局部量就**失效**了——症状是「键数组对、值数组错位」，
+`get` 回来是默认值 `0`，而线索离现场很远。
 
-**取属性值的路子（第 56 轮核实过，不是猜的）**：`FindProperty` 给一处命中
-`PropRef { Owner, Index }`，值在 `table.Get(Owner).Props[Index].Value`
-（`heap.xl.md` 的 `Property.Value`）。数组那一侧同样核实过：`GetLength()` /
-`GetAt()` / `SetAt()` / `Push()` / `Truncate()` / `IsHole()`——**不是** `Length()` / `At()`。
+**调用方要三样齐全**（判据那边也一样）：降级时声明名单、求值时给环境对象、
+装宿主调用通道。少前两样时 `Map` 是 `undefined`，报的却是「calling a non-closure value」。
 
 **没做的**（明确抛，不静默少跑）：`entries` / `clear` / `forEach`
 （`forEach` 要求宿主回调脚本闭包 = **重入执行器**，这一层没有）。
@@ -123,10 +122,11 @@ for (let i = 0; i < ids.length; i++) {
 在整数 / 字符串 / 布尔 / 引用上一致；`NaN` 与 `±0` 的边角这一层没有）。
 
 ```ts
-const array = table.Get(keys.Ref).AsArray();
-for (let i = 0; i < array.GetLength(); i++) {
-  if (array.IsHole(i)) continue;
-  if (RtCmpEqStrict(table, array.GetAt(i), key).AsBool()) return i;
+const keysArray = table.Get(keys.Ref).AsArray();
+const length = keysArray.GetLength();
+for (let i = 0; i < length; i++) {
+  if (keysArray.IsHole(i)) continue;
+  if (RtCmpEqStrict(table, keysArray.GetAt(i), key).AsBool()) return i;
 }
 return -1;
 ```
@@ -134,6 +134,9 @@ return -1;
 # method InvokeMap:(room:RoomChecker, protos:Protos, table:HeapTable, id:int, self:Value, args:Array<Value>)=>Value
 
 **Map 的构造函数与方法总入口**（号段 600..699）。
+
+**每一处数组都现取视图**（`table.Get(句柄).AsArray()`）：句柄是稳定的，
+**视图不是**——`Push` 换存储之后老视图就废了。
 
 ```ts
 if (id === MapCtor) {
@@ -146,23 +149,23 @@ if (id === MapCtor) {
 }
 const keys = ReadOwn(room, table, self, "__k");
 const values = ReadOwn(room, table, self, "__v");
-const valuesArray = table.Get(values.Ref).AsArray();
 if (id === MapSet) {
   const at = IndexOfKey(table, keys, args[0]);
   if (at >= 0) {
-    valuesArray.SetAt(at, args[1]);
+    table.Get(values.Ref).AsArray().SetAt(at, args[1]);
     return self;
   }
   if (!room(ObjectCharge * 2 + ValueCharge * 2)) throw new Error("out of room");
   table.Get(keys.Ref).AsArray().Push(args[0]);
-  valuesArray.Push(args[1]);
-  WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(table.Get(keys.Ref).AsArray().GetLength()));
+  table.Get(values.Ref).AsArray().Push(args[1]);
+  WriteOwn(room, NeverCall, table, self, "size",
+    Value.FromInt(table.Get(keys.Ref).AsArray().GetLength()));
   return self;
 }
 if (id === MapGet) {
   const at = IndexOfKey(table, keys, args[0]);
   if (at < 0) return Value.Undefined();
-  return valuesArray.GetAt(at);
+  return table.Get(values.Ref).AsArray().GetAt(at);
 }
 if (id === MapHas) {
   return Value.FromBool(IndexOfKey(table, keys, args[0]) >= 0);
@@ -172,24 +175,23 @@ if (id === MapDelete) {
   if (at < 0) return Value.FromBool(false);
   // **删中间一格要把后面的往前挪**：顺序是语义（`keys()` 按插入顺序），
   // 「拿最后一个填洞」会把顺序打乱。
-  const keysArray = table.Get(keys.Ref).AsArray();
-  const last = keysArray.GetLength() - 1;
+  const last = table.Get(keys.Ref).AsArray().GetLength() - 1;
   for (let i = at; i < last; i++) {
-    keysArray.SetAt(i, keysArray.GetAt(i + 1));
-    valuesArray.SetAt(i, valuesArray.GetAt(i + 1));
+    table.Get(keys.Ref).AsArray().SetAt(i, table.Get(keys.Ref).AsArray().GetAt(i + 1));
+    table.Get(values.Ref).AsArray().SetAt(i, table.Get(values.Ref).AsArray().GetAt(i + 1));
   }
-  keysArray.Truncate(last);
-  valuesArray.Truncate(last);
+  table.Get(keys.Ref).AsArray().Truncate(last);
+  table.Get(values.Ref).AsArray().Truncate(last);
   WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(last));
   return Value.FromBool(true);
 }
 if (id === MapKeys || id === MapValues) {
-  const source = table.Get(id === MapKeys ? keys.Ref : values.Ref).AsArray();
   const out = NewPlainArray(room, table, protos);
-  const outArray = table.Get(out.Ref).AsArray();
-  for (let i = 0; i < source.GetLength(); i++) {
+  const length = table.Get(id === MapKeys ? keys.Ref : values.Ref).AsArray().GetLength();
+  for (let i = 0; i < length; i++) {
+    const source = table.Get(id === MapKeys ? keys.Ref : values.Ref).AsArray();
     if (source.IsHole(i)) continue;
-    outArray.Push(source.GetAt(i));
+    table.Get(out.Ref).AsArray().Push(source.GetAt(i));
   }
   return out;
 }
