@@ -2733,6 +2733,13 @@ const ctor = this.LowerFunctionValue(ctorNode, name);
 if (baseName !== "" && this.Pending.length > 0) {
   this.Pending[this.Pending.length - 1].SuperName = baseName;
 }
+// **构造函数那一项也要记下自己的槽位**（第 69 轮补的）：函数声明那条路显式设了
+// `item.Slot`，类这条路一直**没设**——于是模块的**导出数组**按那个默认槽位取值，
+// 取到的是碰巧在那儿的一个**对象**（不是闭包）。表现是跨模块 `new Counter(...)` 报
+// 「拿普通对象当构造函数」，而 `ExportOf("Counter")` 看着完全正常（下标对 ✓）。
+if (this.Pending.length > 0) {
+  this.Pending[this.Pending.length - 1].Slot = ctor;
+}
 this.AttachPrototype(ctor);
 // **绑定放在造闭包之后**（与函数声明同一条规矩）：名字被内层捕获时，
 // 绑定在**环境格**里，而 `DeclareLocal` 会把当时那一格（还是空的）搬进格——
