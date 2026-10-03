@@ -42,6 +42,13 @@ import { SetCtor } from "./set.xl.md"
 
 # const ConsoleLog:int = 301
 
+# const SymbolCtor:int = 250
+
+**`Symbol(description)`** 的能力号（全局段 200..299 里空着的号）。
+
+**它不是构造函数**：JS 里 `Symbol()` **不带 `new`**（`new Symbol()` 会抛）——
+所以它只是一个普通的宿主函数值，走 `Op.Call` 那条路，和 `Map` / `Set`（走 `Op.New`）不同。
+
 # const ObjectKeys:int = 401
 
 `Object.keys` 的能力号（`Object` 段从 400 起）。
@@ -68,7 +75,7 @@ import { SetCtor } from "./set.xl.md"
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -108,6 +115,15 @@ return Value.FromDouble(value);
 这是全局段里唯一需要它的地方，写在签名里而不是塞进某个全局变量。
 
 ```ts
+if (id === SymbolCtor) {
+  // **描述是可选的**：给了字符串就留它的句柄，没给就 `0`（`heap.xl.md` 说 `0` 表示没有描述）。
+  // **身份号由堆发**（`CreateSymbol`），所以 `Symbol('a') !== Symbol('a')` 天然成立——
+  // 这一层不需要、也不该有计数器。
+  let description = 0;
+  if (args.length > 0 && args[0].Tag === ValueTag.String) description = args[0].Ref;
+  if (!room(ObjectCharge + ValueCharge)) throw new Error("out of room");
+  return Value.FromRef(ValueTag.Symbol, table.CreateSymbol(description));
+}
 if (id === MathFloor) {
   return MathResult(Math.floor(NumericOf(args[0])));
 }
@@ -319,5 +335,9 @@ SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapTarget);
 const setKey = Value.FromString(table.CreateString(Units("Set")));
 const setTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SetCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, setKey, setTarget);
+// `Symbol` 是**普通宿主函数**（不是构造函数）：`Symbol('x')` 走 `Op.Call`。
+const symbolKey = Value.FromString(table.CreateString(Units("Symbol")));
+const symbolTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SymbolCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, symbolKey, symbolTarget);
 return globals;
 ```

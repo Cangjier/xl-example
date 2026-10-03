@@ -249,7 +249,7 @@ check("新表只有哨兵，句柄 0 永远不合法", () => {
 check("创建工厂给出正确的标签与载荷", () => {
   const table = new HeapTable();
   const s = table.CreateString(units("ab"));
-  const y = table.CreateSymbol(7, 0);
+  const y = table.CreateSymbol(0);
   const o = table.CreateObject();
   const a = table.CreateArray();
   const c = table.CreateClosure(3, 0, 2, 0);
@@ -266,7 +266,8 @@ check("创建工厂给出正确的标签与载荷", () => {
   eq(table.Get(c).AsClosure().Arity, 2, "闭包形参个数");
   eq(table.Get(f).AsFunction().HostId, 5, "函数目标号");
   eq(table.Get(h).AsHost().Opaque, 11, "宿主不透明载荷");
-  eq(table.Get(y).AsSymbol().Id, 7, "符号身份");
+  // 身份号由堆发（第一张表里它就是这个堆的第一个符号）。
+  eq(table.Get(y).AsSymbol().Id, 1, "符号身份");
 });
 
 check("取错载荷要抛（内部不变式被破坏 = 引擎的 bug）", () => {
@@ -298,8 +299,10 @@ check("字符串按内容比，哈希只看内容", () => {
 check("符号身份由 Id 决定，不看描述", () => {
   const table = new HeapTable();
   const d = table.CreateString(units("same"));
-  const x = table.Get(table.CreateSymbol(1, d)).AsSymbol();
-  const y = table.Get(table.CreateSymbol(2, d)).AsSymbol();
+  // **身份号由堆发**（第 61 轮改的签名）：调用方只给描述，所以这里连描述都可以复用，
+  // 两个符号的 `Id` 必然不同——这正是 `Symbol('a') !== Symbol('a')` 的依据。
+  const x = table.Get(table.CreateSymbol(d)).AsSymbol();
+  const y = table.Get(table.CreateSymbol(d)).AsSymbol();
   eq(x.Id === y.Id, false, "两个符号的 Id 不同");
   eq(x.Description === y.Description, true, "描述可以相同");
 });
@@ -565,7 +568,7 @@ check("活对象必须活下来：七条可达路径逐条钉", () => {
   roots.AddValue(Value.FromRef(ValueTag.Closure, closure));
 
   const description = key(table, "s");
-  const symbol = table.CreateSymbol(1, description);
+  const symbol = table.CreateSymbol(description);
   roots.AddValue(Value.FromRef(ValueTag.Symbol, symbol));
 
   const before = table.LiveCount;
@@ -3509,6 +3512,49 @@ check("Set：new / add 链式（重复是空操作）/ has / delete / size / val
   eq(at(7).AsInt(), nodeAt[7], "values() 长度");
   eq(at(8).AsInt(), nodeAt[8], "values() 里剩下的是 2");
   eq(at(9).AsInt() === 1, nodeAt[9] === 1, "delete 一个不存在的值返回假");
+});
+
+check("Symbol：身份唯一、能当属性键、typeof 是 symbol、Object.keys 跳过它，与 Node 一致", () => {
+  const source = [
+    "function probe() {",
+    "  const a = Symbol('x');",
+    "  const b = Symbol('x');",
+    "  const same = a === b;",
+    "  const selfSame = a === a;",
+    "  const kind = typeof a;",
+    "  const o = {};",
+    "  o[a] = 1;",
+    "  o[b] = 2;",
+    "  const gotA = o[a];",
+    "  const gotB = o[b];",
+    "  const visible = Object.keys(o).length;",
+    "  let f1 = 0; if (same) f1 = 1;",
+    "  let f2 = 0; if (selfSame) f2 = 1;",
+    "  let f3 = 0; if (kind === 'symbol') f3 = 1;",
+    "  return [f1, f2, f3, gotA, gotB, visible];",
+    "}",
+  ].join("\n");
+  const nodeAt = new Function(source + "\nreturn probe();")();
+  eq(nodeAt[0], 0, "Node：两个同描述的符号不相等（这是前提）");
+  eq(nodeAt[5], 0, "Node：Object.keys 看不见符号键（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source, GlobalNames());
+  const sink = () => {};
+  const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
+  eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
+  InstallBuiltins(host.Machine, host.Machine.Protos);
+  host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, host.Machine.Protos,
+    table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
+
+  const called = host.CallExport(module.ExportOf("probe"), []);
+  eq(called.Outcome, HostOutcome.Ok, "调 probe：" + called.Message);
+  const at = (index) => GetIndex(table, called.Value, Value.FromInt(index));
+  eq(at(0).AsInt() === 1, nodeAt[0] === 1, "Symbol('x') !== Symbol('x')");
+  eq(at(1).AsInt() === 1, nodeAt[1] === 1, "同一个符号与自己相等");
+  eq(at(2).AsInt() === 1, nodeAt[2] === 1, "typeof 是 symbol");
+  eq(at(3).AsInt(), nodeAt[3], "o[a] 读回 1");
+  eq(at(4).AsInt(), nodeAt[4], "o[b] 读回 2（两个符号是不同的键）");
+  eq(at(5).AsInt(), nodeAt[5], "Object.keys 跳过符号键");
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {

@@ -1066,6 +1066,15 @@ return this.Iterator;
 
 表本身。下标即句柄。
 
+## field NextSymbolId:int = 1
+
+**下一个符号的身份号**（`HeapSymbol.Id`）。
+
+**为什么计数器在堆上**：`Symbol('a') !== Symbol('a')` 靠的是**身份**，而「哪些身份已经发过」
+必须有个**唯一的地方**记——**一个堆就是一个身份空间**（同一台 VM 里两个模块拿到的
+`Symbol('a')` 也不相等，这正是 JS 的语义）。放在语言层就变成「谁先装库谁发号」，
+那会随加载顺序变。
+
 ## field FreeList:Array<int> = []
 
 可回收的句柄栈。从尾部取（`PopInt`），所以最近回收的先被复用——
@@ -1235,14 +1244,18 @@ this.Finish(handle);
 return handle;
 ```
 
-## method CreateSymbol:(id:int, description:int)=>int
+## method CreateSymbol:(description:int)=>int
 
-造一个符号。
+造一个符号：**身份号由堆自己发**（见 `NextSymbolId`），调用方只给描述。
+
+**改过一次签名**：原来是 `(id, description)`，由调用方给号——那份写法没有调用方，
+而「谁来发号」正是这件事的关键（见 `NextSymbolId` 的说明），所以收进堆里。
 
 ```ts
 const handle = this.AllocateRaw(ValueTag.Symbol);
 const item = this.Objects[handle];
-item.Sym = new HeapSymbol(id, description);
+item.Sym = new HeapSymbol(this.NextSymbolId, description);
+this.NextSymbolId = this.NextSymbolId + 1;
 this.Finish(handle);
 return handle;
 ```

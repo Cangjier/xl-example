@@ -1014,7 +1014,13 @@ if (id === RtOp.GetIndex) {
     if (!indexReceiver.IsObject()) return Value.Undefined();
     const indexProtoTable = this.Protos;
     if (indexProtoTable === null) throw new Error("no prototype table");
-    const indexKey = RtToString(this.Room(), this.Table, slots[base + 1]);
+    // **符号键不许字符串化**：`o[sym]` 的键就是那个符号本身（属性查找按 `Id` 比，
+    // 见 `props.xl.md` 的 `KeyMatches`）。把它 `ToString` 成 `"Symbol(x)"`，
+    // 两次查找就会落到同一个字符串键上——**静默错值**。
+    const rawKey = slots[base + 1];
+    const indexKey = rawKey.Tag === ValueTag.Symbol
+      ? rawKey
+      : RtToString(this.Room(), this.Table, rawKey);
     return this.Guard(() => GetProperty(this.Room(), this.Native(), indexProtoTable, this.Table,
       indexReceiver, indexKey));
   }
@@ -1029,9 +1035,13 @@ if (id === RtOp.SetIndex) {
     }
     const setProtoTable = this.Protos;
     if (setProtoTable === null) throw new Error("no prototype table");
-    const indexKey = RtToString(this.Room(), this.Table, slots[base + 1]);
+    // 符号键不许字符串化（同上：`o[sym] = v` 的键就是那个符号）。
+    const rawSetKey = slots[base + 1];
+    const setKey = rawSetKey.Tag === ValueTag.Symbol
+      ? rawSetKey
+      : RtToString(this.Room(), this.Table, rawSetKey);
     return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table,
-      indexTarget, indexKey, slots[base + 2]));
+      indexTarget, setKey, slots[base + 2]));
   }
   return this.Guard(() => SetIndex(this.Room(), this.Table, indexTarget, slots[base + 1], slots[base + 2]));
 }
