@@ -4030,10 +4030,14 @@ check("P0：switch + do..while + 带标签的 continue·break，经运行器与 
 
 check("P0：对象字面量 setter·getter 成对 + 类 getter + 重写 + 带标签的 switch，与 Node 逐值一致", () => {
   // 第五条**合成程序**判据。挑的都是「机制刚通、但还没跑过」的那几半：
-  //   · 对象字面量的 **setter**——`DefineAccessor` 的另一半（之前只跑过 getter）；
+  //   · 对象字面量的 **setter + getter 成对**——`DefineAccessor` 的两半。成对写正是抓出那个
+  //     真 bug 的形状 ✗：**替换**时它把没提供的那一半也写成了 `undefined`，
+  //     于是第二次调用（setter 那一半）把刚装上的 getter 抹掉了，读它报
+  //     「accessor without a getter」（离现场很远）。第 103 轮改成**只改提供了的那一半**
+  //     （与 JS 的描述符语义一致：描述符里没出现的字段不动）；
   //   · **类里的 getter**——第 99 轮那个根因（`IsFunctionNode` 漏访问器）修好之后没人测过；
-  //     这一条第一次跑就撞出 `unimplemented: class member GetAccessor` ✗（类有自己的成员分派），
-  //     本轮补上了（并且把窗口代码抽成 `EmitDefineAccessor` 共用，少一次算错槽的机会）；
+  //     第一次跑就撞出 `unimplemented: class member GetAccessor` ✗（类有自己的成员分派），
+  //     第 102 轮补上（并把窗口代码抽成 `EmitDefineAccessor` 共用，少一次算错槽的机会）；
   //   · **重写**（子类同名方法盖住父类的，原型链上找到的是子类那个）；
   //   · **带标签的 `switch` + `break outer`**——`IsLoop = false` 的那一层怎么按标签跳出。
   //
@@ -4041,13 +4045,15 @@ check("P0：对象字面量 setter·getter 成对 + 类 getter + 重写 + 带标
   // 查清根因（记在台账）：`super` 只实现了**构造函数**那一半——`InSuperName` 挂在排队的
   // `PendingFunction.SuperName` 上，而只有构造函数会被填上（规范自己的报错文本
   // 「super(...) outside a derived class constructor」就是证据）。所以 `super.m()`
-  // 要动「类方法的排队登记」那一处，不止一支——留到下一轮。
+  // 要动「类方法的排队登记」那一处，不止一支——下一轮做。
   const source = [
     "function run() {",
     "  const obj = {",
     "    v: 1,",
     "    get double() { return this.v * 2; },",
+    "    set double(x) { this.v = x; },",
     "  };",
+    "  obj.double = 10;",
     "  const seen = obj.double;",
     "  class Base {",
     "    constructor(v) { this.v = v; }",
@@ -4068,7 +4074,7 @@ check("P0：对象字面量 setter·getter 成对 + 类 getter + 重写 + 带标
     "}",
   ].join("\n");
   const expected = new Function(source + "\nreturn run();")();
-  eq(expected[0], 2, "Node：对象字面量的 getter（前提）");
+  eq(expected[0], 20, "Node：setter 写进去、getter 读出来（前提）");
   eq(expected[1], "derived+5", "Node：子类重写了父类的方法（前提）");
   eq(expected[2], "five", "Node：带标签的 break 跳出了 switch（前提）");
   eq(expected[3], 10, "Node：类里的 getter（前提）");

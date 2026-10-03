@@ -488,8 +488,14 @@ for (let i = 0; i < table.Get(receiver.Ref).Props.length; i++) {
   }
   const replaced = table.Get(receiver.Ref).Props[i];
   replaced.Kind = PropertyKind.Accessor;
-  replaced.Getter = getter;
-  replaced.Setter = setter;
+  // **只改提供了的那一半**（与 JS 的描述符语义一致：描述符里没出现的字段不动）✗。
+  // 少了这一条，`{ get x() {} set x(v) {} }` 的**第二次**调用（`getter` 传 `Value.Undefined`）
+  // 会把刚装上的 getter 抹成 `undefined`——读它报的是「accessor without a getter」，
+  // **离现场很远**（第 102 轮实测：合成判据里一个成对的访问器就炸了）。
+  // **只在这一支里判**：新建那一支（下面）照旧把缺的一半留成 `undefined`——
+  // 那正是「只读 / 只写访问器」该有的样子。
+  if (getter.Tag !== ValueTag.Undefined) replaced.Getter = getter;
+  if (setter.Tag !== ValueTag.Undefined) replaced.Setter = setter;
   table.Recount(receiver.Ref);
   return true;
 }
