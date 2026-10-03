@@ -690,12 +690,17 @@ new Map([
   const interps = kids.filter((k) => k.get("type") === "InterpolationString");
   if (interps.length === 0) return astNode("NoSubstitutionTemplateLiteral", { text: stringText(v, ctx) }, v, ctx);
   const typePosition = ctx.typePosition === true;
+  // **头部含那个 `{`**：`ConstString` 已经把 `$` 收进去了（`x$`），所以终点是
+  // 第一段内插的起点再加一（`{` 那一格）。**先算成局部量**——在对象字面量里引用
+  // 正在初始化的 `head` 是取不到值的（试过：`Cannot access 'head' before initialization`）。
+  const headEnd = startOf(interps[0]) + 1;
   const head = {
     kind: "TemplateHead",
     pos: v.start,
-    // **头部含那个 `{`**：`ConstString` 已经把 `$` 收进去了（`x$`），所以终点是
-    // 第一段内插的起点再加一（`{` 那一格）。
-    end: startOf(interps[0]) + 1,
+    end: headEnd,
+    // **段内文本**（TS 的口径：**不含**分隔符）：头段去掉开头的反引号与结尾的 `${`。
+    // 按区间推出来，不扫源码：`headEnd` 落在 `{` 上，所以 `$` 在 `end - 2`。
+    text: ctx.source.slice(v.start + 1, headEnd - 2),
   };
   const spans = [];
   for (let i = 0; i < interps.length; i++) {
@@ -703,6 +708,14 @@ new Map([
     const inner = projectableKids(view(interps[i]));
     const value = typePosition ? projectTypeExpression(inner, ctx) : projectExpression(inner, ctx);
     if (value === undefined) continue;
+    // **段内文本**：从 `}` 之后算起；中段到 `$` 之前，尾段到收尾反引号之前。
+    //
+    // **分支按 `isLast` 定，不按 `consts[i + 1]`**：实测两者会不一致
+    // （尾段也可能跟着一个常量段），那时按后者会算出一个**反向区间**——
+    // `slice(25, 24)` 给的是空串，判据报的是「少了一个 `]`」，而线索离这里很远。
+    const literalText = isLast
+      ? ctx.source.slice(value.end + 1, v.end - 1)
+      : ctx.source.slice(value.end + 1, endOf(consts[i + 1]) - 1);
     const literal = {
       kind: isLast ? "TemplateTail" : "TemplateMiddle",
       // **字面量段从 `}` 起**（TS 的 `TemplateTail` / `TemplateMiddle` 含那个右花括号），
@@ -711,6 +724,7 @@ new Map([
       pos: value.end,
       // 尾段后面没有常量段时（`` `${a}` ``）终点就是整个字符串的终点（含那个反引号）。
       end: consts[i + 1] === undefined ? v.end : endOf(consts[i + 1]) + 1,
+      text: literalText,
     };
     const span = {
       kind: typePosition ? "TemplateLiteralTypeSpan" : "TemplateSpan",

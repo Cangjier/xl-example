@@ -2480,6 +2480,33 @@ this.Emit(Op.Resume, resolved, -1, -1, -1);
 return resolved;
 ```
 
+## method LowerTemplate:(node:AstNode)=>int
+
+**模板串**：从左到右拼——头段、每个内插（`ToString` 之后）、每段字面量。
+
+**为什么这么短**：`rt_call add` **一边是字符串就会把另一边 `ToString` 再拼**
+（`rt.xl.md` 的 `RtAdd` 三条路之一）。所以 `` `n=${n}!` `` 就是
+`"n=" + n + "!"`——**不需要新算子，也不需要显式转换**。
+
+**投影保证两件事**（这一轮刚补上）：三个模板段的 `text` 都在（**不含分隔符**），
+所以这里直接取文本即可，不必回头去扫源码。
+
+```ts
+const headText = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(Child(node, "head")))));
+const result = this.Reserve(1);
+this.Emit(Op.Const, result, headText, -1, -1);
+const spans = ListOf(node, "templateSpans");
+for (let i = 0; i < spans.length; i++) {
+  const value = this.LowerExpression(Child(spans[i], "expression"));
+  const joined = this.RtCallValues(RtOp.Add, result, value);
+  const literal = Child(spans[i], "literal");
+  const literalText = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(literal))));
+  const tail = this.RtCall2(RtOp.Add, joined, literalText);
+  this.Emit(Op.Move, result, tail, -1, -1);
+}
+return result;
+```
+
 ## method LowerYield:(node:AstNode)=>int
 
 **`yield`**：落成 `suspend` / `resume` 一对。
@@ -2834,6 +2861,28 @@ if (kind === "ClassExpression") {
 }
 if (kind === "NewExpression") {
   return this.LowerNew(node);
+}
+if (kind === "TemplateExpression") {
+  return this.LowerTemplate(node);
+}
+if (kind === "NoSubstitutionTemplateLiteral") {
+  // **没有内插的模板**。投影对**字面量**的 `text` 一律是「**带引号的原文**」
+  // （普通字符串带双引号、模板带反引号）——所以这里要把那对反引号剥掉，
+  // 并且**断言**它确实是这种形式（不是就抛，免得把原文当内容拼进去）。
+  //
+  // 顺带一提：模板这一支**天然没有空串歧义**（`` `` `` 剥完就是空内容），
+  // 而普通字符串那边因为「带引号的原文」与「内容就是两个引号」分不开，
+  // 才一直是台账里那条缺口。
+  // **两种口径都要接住**：实测投影对**空模板**给的是带反引号的原文（`` `` ``），
+  // 对**非空**模板给的是裸内容——与其断言一种，不如「有反引号就剥掉」。
+  // （这条不一致记在台账里：字面量的 `text` 口径应当统一，现在是两套。）
+  let raw = TextOf(node);
+  if (raw.length >= 2 && raw[0] === "`" && raw[raw.length - 1] === "`") {
+    raw = raw.slice(1, raw.length - 1);
+  }
+  const slot = this.Reserve(1);
+  this.Emit(Op.Const, slot, this.Program().AddConst(Constant.OfString(UnitsOf(raw))), -1, -1);
+  return slot;
 }
 if (kind === "YieldExpression") {
   return this.LowerYield(node);

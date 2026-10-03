@@ -3250,6 +3250,35 @@ check("instanceof：沿原型链判、原始值给假、右侧不是对象要抛
   void table;
 });
 
+check("模板串：内插（数字要转字符串）、多段、嵌套、空模板（与 Node 一致）", () => {
+  const source = [
+    "function one(n) { return `n=${n}`; }",
+    "function two(n) { return `${n}-${n + 1}`; }",
+    "function withText(name, v) { return `[${name}: ${v}]`; }",
+    "function truthy(b) { return `b is ${b}`; }",
+    "function plain() { return `no subs`; }",
+    "function empty() { return ``; }",
+    "function nested(n) { return `a${`b${n}c`}d`; }",
+  ].join("\n");
+  const nodeAt = new Function(source + "\nreturn [one(7), two(3), withText('x', 1), truthy(true),"
+    + " plain(), empty(), nested(9)];")();
+  eq(nodeAt[0], "n=7", "Node：数字内插先转字符串（这是前提）");
+  eq(nodeAt[5], "", "Node：空模板是空串（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source);
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+  const call = (name, args) => host.CallExport(module.ExportOf(name), args || []);
+  const seven = [Value.FromInt(7)];
+  eq(hostStringOf(table, call("one", seven).Value), nodeAt[0], "`n=${n}`");
+  eq(hostStringOf(table, call("two", [Value.FromInt(3)]).Value), nodeAt[1], "两个内插、中间夹字面量");
+  eq(hostStringOf(table, call("withText", [Value.FromString(table.CreateString(units("x"))), Value.FromInt(1)]).Value),
+    nodeAt[2], "字面量里有空格与冒号");
+  eq(hostStringOf(table, call("truthy", [Value.FromBool(true)]).Value), nodeAt[3], "布尔内插（ToBoolean 的显示是 true/false）");
+  eq(hostStringOf(table, call("plain").Value), nodeAt[4], "没有内插的模板");
+  eq(hostStringOf(table, call("empty").Value), nodeAt[5], "空模板（这一支天然没有空串歧义）");
+  eq(hostStringOf(table, call("nested", [Value.FromInt(9)]).Value), nodeAt[6], "嵌套模板");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
