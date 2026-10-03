@@ -1037,7 +1037,12 @@ new Map([
   }
   const props = structuralProps(v, kind, ctx);
   if (stripModifier !== undefined && Array.isArray(props.modifiers)) {
-    props.modifiers = props.modifiers.filter((m) => m.kind !== stripModifier);
+    // **按文本摘，不按 kind 摘**（第 67 轮）：`get` / `set` 是**上下文关键字**——
+    // `keyword.xl.md` 那边现在一律把它们投成 `Identifier`（引用位必须是普通标识符，
+    // `const set = 1;` / `f(set)` 都要对），所以这里再按 `kind` 摘就**摘不掉了**，
+    // 访问器会多留一格 `Identifier`。按**文本**摘与 kind 无关，两边都对。
+    const word = stripModifier === "GetKeyword" ? "get" : "set";
+    props.modifiers = props.modifiers.filter((m) => m.text !== word);
   }
   // **生成器记号的 `*` 是 `asteriskToken`**（第 130 轮）：`function* g() {}` 的产物把
   // `*` 记成一个平级的 `SymbolToken`，它会跟着形参一起落进 `parameters`——而 TS 那边

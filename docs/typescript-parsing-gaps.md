@@ -4130,3 +4130,23 @@ return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression", 
 **状态**：判据 140/140（一元负号从「要抛」改成**正向断言** ✓，`~` 之类照旧抛 ✓），
 对拍尺子 **1424/1424**、四条方向全 0（新字段与 TS 的字段集一致 ✓）。
 三元判据里那两个「绕开负号」的写法（`0 - 3`）也换回 `-3` 了 ✓。
+### 第 67 轮：`get` / `set` 上下文关键字修好（141/141）
+
+**台账里第 60 轮那条「投影的 set/get 上下文关键字」现在可以划掉了。**
+
+**探针（先量后改）**：`const set = 1;` / `let get = 2;` 的**声明位**一直是对的（`Identifier`），
+坏的是**引用位**——`return set + 1` 里的 `set` 投成了 `SetKeyword`，`get` 同理。
+
+**根因**：`typescript/tokens/keyword.xl.md` 的 `PrintAst` 是「`KEYWORD_KIND` 表里有就投关键字」，
+而 `get` / `set` 是**上下文关键字**：TS 里只有**访问器位**才是关键字。
+`KEYWORD_KIND` 全仓只有**一个出口**（`print-ast-common.xl.md` 挂成 `ctx.KeywordKind`），
+所以修一处就够：这两个词**一律投 `Identifier`**。
+
+**连带的第二处**：访问器那两位靠 `print-ast-common.xl.md` 里「按 `modifiers` 换 kind + 摘掉那个词」
+实现，而摘除原来是**按 kind** 做的（`m.kind !== "GetKeyword"`）——上面一改，那个修饰词节点变成
+`Identifier`，**就摘不掉了**（访问器会多留一格）。改成**按文本**摘（`m.text !== "get"`），
+与 kind 无关，两边都对。
+
+**判据**：新增一条投影判据（引用位必须是 `Identifier`、访问器必须仍是那两种 kind），
+加上对拍尺子 **1424/1424**、四条方向全 0——**语料里没有任何文件**依赖
+「`get` / `set` 作为关键字节点」这件事。

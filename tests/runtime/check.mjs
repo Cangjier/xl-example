@@ -3652,6 +3652,23 @@ check("三元表达式：只跑被选中的那一边（懒），嵌套与括号�
   eq(hostStringOf(table, at(10)), nodeAt[10], "**只跑被选中的那一边**：假支调一次");
 });
 
+check("投影：get / set 是上下文关键字（引用位是 Identifier，访问器位才是关键字）", () => {
+  // 第 67 轮修的：`get` / `set` 原来「表里有就投关键字」，于是**引用位**的
+  // `const set = 1;` / `f(set)` 被投成 `SetKeyword`——对拍尺子会当场点名
+  // （第 60 轮就是在 `set.xl.md` 里撞到的：局部变量叫 `set`）。
+  const references = JSON.stringify(parseTsShape(
+    "function f(set) { return set + 1; }\nconst get = 2;\nfunction g() { return get + 1; }"));
+  ok(references.indexOf('"SetKeyword"') < 0, "引用位的 set 不该是 SetKeyword");
+  ok(references.indexOf('"GetKeyword"') < 0, "引用位的 get 不该是 GetKeyword");
+  ok(references.indexOf('"Identifier"') >= 0, "引用位应当是普通 Identifier");
+  // **访问器那两位不能一起改坏**：`get x()` / `set x(v)` 仍然要是那两种 kind，
+  // 而且它们的**修饰词**里不能再留着那个词（摘除改成按文本做了）。
+  const accessors = JSON.stringify(parseTsShape(
+    "class C { get x() { return 1; } set x(v) { } }"));
+  ok(accessors.indexOf('"GetAccessor"') >= 0, "取值器仍是 GetAccessor");
+  ok(accessors.indexOf('"SetAccessor"') >= 0, "设值器仍是 SetAccessor");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

@@ -124,7 +124,15 @@ return result;
 
 ```ts
 const text = ctx.Text(v);
-const kind = ctx.KeywordKind(text);
+// **上下文关键字 `get` / `set` 一律按 `Identifier` 投**（第 67 轮）：TS 里它们**只有访问器位**
+// 才是关键字，别处（`const set = 1;` / `f(set)` / `return get + 1;`）都是普通标识符。
+// 原来的口径是「表里有就投关键字」，于是**引用位**的 `set` / `get` 被投成
+// `SetKeyword` / `GetKeyword`——对拍尺子会当场点名（第 60 轮就是在 `set.xl.md` 里撞到的：
+// 局部变量叫 `set`，产物里那一格成了 `SetKeyword`）。
+// 访问器那两位由 `print-ast-common.xl.md` 的「按 `modifiers` 换 kind + 摘掉那个词」负责，
+// 摘除**按文本**做（见那里的 `stripModifier`），所以这里投 `Identifier` 不影响它们。
+const contextual = text === "get" || text === "set";
+const kind = contextual ? undefined : ctx.KeywordKind(text);
 return ctx.Node(kind === undefined ? "Identifier" : kind, { text }, v);
 ```
 
