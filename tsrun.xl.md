@@ -18,6 +18,7 @@ import { RtOpCount } from "./runtime/ir.xl.md"
 import { Vm, VmStatus } from "./runtime/vm.xl.md"
 import { Host, HostOutcome, Limits } from "./runtime/host-abi.xl.md"
 import { LinkPrograms } from "./runtime/link.xl.md"
+import { DefineAccessorId } from "./typescript-exec/builtins/install.xl.md"
 ```
 
 # namespace cangjie
@@ -192,7 +193,13 @@ const bindings = new Bindings(64);
 for (let i = 0; i < request.Capabilities.length; i++) {
   bindings.Register(request.Capabilities[i]);
 }
-const ids = new IdTable(RtOpCount, request.Capabilities.length + 1);
+// **能力表要连「语言内部辅助」那一段一起开够**（700..799，见 `builtins/install.xl.md`）：
+// 应用能力从 64 起按登记顺序排，而内部辅助号是**固定号**（不占登记名额）——
+// 所以两者取较大者，再留一格余量。开小了报的是 `capability id is out of range`，
+// 而那句离现场很远（它说的是装载数字，不是「谁没注册」）。
+const byCapability = request.Capabilities.length + 1;
+const byHelper = DefineAccessorId + 1 - 64;
+const ids = new IdTable(RtOpCount, byCapability > byHelper ? byCapability : byHelper);
 const modules: LoweredModule[] = [];
 for (let i = 0; i < request.Sources.length; i++) {
   const lowering = new Lowering();
@@ -246,6 +253,10 @@ for (let i = 0; i < request.Capabilities.length; i++) {
   const id = 64 + i;
   host.Register(id, Value.FromRef(ValueTag.HostRef, table.CreateHostRef(id, 0)));
 }
+// **语言内部辅助也要注册**：它们走的是同一条 `host_call`，而引擎那一格必须**真的**是
+// `HostRef`（`vm.xl.md`：能力表就是白名单本身）——不注册就报 `capability is not registered`。
+host.Register(DefineAccessorId,
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DefineAccessorId, 0)));
 const all: Value[] = [];
 let exports = machine.Result;
 machine.Retain(exports);

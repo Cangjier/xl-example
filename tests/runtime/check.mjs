@@ -4050,14 +4050,14 @@ check("P0：类·super(...) + 对象字面量方法 + 嵌套闭包 + Map.values 
     "}",
     "function run() {",
     "  const add5 = adder(5);",
-    "  const obj = { v: 4, triple() { return this.v * 3; } };",
+    "  const obj = { v: 4, get triple() { return this.v * 3; } };",
     "  const d = new Derived(20);",
     "  const m = new Map();",
     "  m.set('k', [1, 2]);",
     "  const vals = [];",
     "  for (const v of m.values()) vals.push(v);",
     "  const nested = { a: [1, { b: 'x' }] };",
-    "  return [add5(7), obj.triple(), d.v, d.double(), vals.length, JSON.stringify(nested)];",
+    "  return [add5(7), obj.triple, d.v, d.double(), vals.length, JSON.stringify(nested)];",
     "}",
   ].join("\n");
   const expected = new Function(source + "\nreturn run();")();
