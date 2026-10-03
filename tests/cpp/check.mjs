@@ -244,7 +244,68 @@ if (generatedCount === 0) note("一个带 xl 生成头的产物都没有（检�
 if (files.length === 0) note("一个 C++ 产物都没有（检查空跑）");
 if (memberCount === 0) note("一个成员名都没抽到（检查空跑）");
 
-const summary = `${files.length} 个文件 · ${includeCount} 条 include · ${memberCount} 个成员名`;
+// 8. **规范里的「名字表」必须落进产物**（第 118 轮补的判据）
+//
+// 起因是第 118 轮读到的一处真漏项：`array.xl.md` 的 `InstallArray` 名字表应当有 11 项，
+// 而手写落盘的 `array_module.cpp` **只列到第 5 项**（`push`..`slice`）——
+// 后果是 **C++ 侧 `arr.forEach` 根本不存在**（脚本拿到 `undefined`），
+// 而前面 6 条判据**全绿** ✗：
+//   - 指纹（第 6 条）只证明「产物是这一版源码生成的」，**不证明产物把源码说全了**；
+//   - 成员名（第 5 条）抽的是 `# method` 那一行，**名字表里的字符串不属于成员名**。
+//
+// 做法：把规范 ```ts 代码块里**像标识符的双引号字面量**（`"push"`、`"forEach"`…）
+// 抽出来，要求它们出现在**该规范自己的产物**（含 include 闭包）里——
+// 名字表、分派用的字符串常量都归属自己那一份，就不该从别的单元里「借」到。
+// 手写落盘、没有生成头的单元（`vm.xl.md`）没有「自己的产物」可指，退化成全部产物合起来。
+// **实测**：18 份规范共 185 个字面量，误报 0 条；把 `array_module.cpp` 的名字表还原成 5 项时
+// 它报 6 条（`forEach`/`map`/`filter`/`find`/`some`/`every`）——**证明它会红**。
+const identifierLiteral = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// **比对的是「剥掉注释之后」的产物** ✗←这一条是实测补上的：第一版把注释也算进去，
+// 于是「把 `"every"` 从名字表里删掉」**照样全绿** ✓——因为 C++ 的注释里正好写着
+// `some 给假、every 给真` ✗。名字表是**代码**，所以只该在代码里找 ✓。
+const artifactText = new Map(files.map((full) => [rel(full), stripComments(readFileSync(full, "utf8"))]));
+const bodyCode = stripComments(body);
+const closureCache2 = new Map();
+function includeClosure(name) {
+  if (closureCache2.has(name)) return closureCache2.get(name);
+  const out = new Set([name]);
+  closureCache2.set(name, out);
+  for (const next of ownProject.get(name) || []) {
+    if (!artifactText.has(next)) continue;
+    for (const each of includeClosure(next)) out.add(each);
+  }
+  return out;
+}
+let literalCount = 0;
+for (const spec of delivered) {
+  const artifacts = (bySource.get(spec) || []).map((item) => item.name);
+  const scoped = artifacts.length > 0;
+  const reachable = new Set();
+  for (const artifact of artifacts) for (const each of includeClosure(artifact)) reachable.add(each);
+  const words = new Set();
+  const specText = readFileSync(join(root, spec), "utf8");
+  for (const block of specText.matchAll(/```ts\n([\s\S]*?)```/g)) {
+    // **规范里的注释也要剥掉** ✗←同样是实测补的：`array.xl.md` 的注释里写着
+    // 「回调返回 `1` 或 `"x"` 都算真」，`vm.xl.md` 的注释里写着 `"abc"[0]`——
+    // 这两条都不是名字表 ✗，第一版把注释里的字面量也算进去了，报了两条误报 ✓。
+    for (const m of stripComments(block[1]).matchAll(/"([^"\n]*)"/g)) {
+      if (identifierLiteral.test(m[1])) words.add(m[1]);
+    }
+  }
+  for (const word of words) {
+    literalCount++;
+    const pattern = new RegExp("\\b" + word + "\\b");
+    const found = scoped
+      ? [...reachable].some((name) => pattern.test(artifactText.get(name)))
+      : pattern.test(bodyCode);
+    if (!found) {
+      note(`${spec}: 规范里写着字面量 "${word}"，而产物里找不到（名字表少一项？）`);
+    }
+  }
+}
+if (literalCount === 0) note("一个标识符样字面量都没抽到（检查空跑）");
+
+const summary = `${files.length} 个文件 · ${includeCount} 条 include · ${memberCount} 个成员名 · ${literalCount} 个字面量`;
 if (problems.length > 0) {
   for (const p of problems) console.error("  " + p);
   console.error(`C++ 自检：${summary} —— ${problems.length} 条问题`);

@@ -51,6 +51,17 @@ import { Vm } from "../../runtime/vm.xl.md"
 `map(回调)` 的号——`map` 能成立是因为 `NativeCall` **有返回值** ✓。
 # const ArrayFilter:int = 8
 `filter(回调)` 的号——按回调的**真假**收原值 ✓（用 `Value.AsBool()` ✓，那就是本仓的真假口径 ✓）。
+# const ArrayFind:int = 9
+`find(回调)` 的号——第一个让回调为真的**原值**；没有就给 `undefined` ✓（与 JS 一致 ✓）。
+# const ArraySome:int = 10
+`some(回调)` 的号——有一个为真就是真；**空数组给假** ✓（与 JS 一致 ✓）。
+# const ArrayEvery:int = 11
+`every(回调)` 的号——全都为真才是真；**空数组给真** ✓（与 JS 一致 ✓，这一条最容易写反 ✗）。
+
+**`reduce` 不做** ✗：JS 的 `(累计, 值, 下标, 数组)` 要**两个以上实参** ✗，
+而 `NativeCall` **只带一个** ✓（与 `Map.forEach` 不传 `key`/`map` 是同一条限制 ✓）。
+拿一个数组把两个值打包过去是**另一种语义** ✗——宁可**不做**，也不静默换形状 ✓。
+`filter(回调)` 的号——按回调的**真假**收原值 ✓（用 `Value.AsBool()` ✓，那就是本仓的真假口径 ✓）。
 
 # method Units:(text:string)=>Array<int>
 
@@ -194,6 +205,28 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   }
   return id === ArrayForEach ? Value.Undefined() : Value.FromArray(collected);
 }
+if (id === ArrayFind || id === ArraySome || id === ArrayEvery) {
+  // **谓词族**（第 118 轮）：与 `forEach`/`map`/`filter` 同一条回调通道 ✓，但**结果不同**：
+  // `find` 给原值（没有给 `undefined`）✓、`some` 有一个为真即真 ✓、`every` 全真才真 ✓。
+  // **空数组**：`some` 给**假**、`every` 给**真** ✓（JS 的口径 ✓；`every` 这一条最容易写反 ✗）。
+  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+    throw new Error("this array method needs a function and a call channel (the host must pass one)");
+  }
+  const predicateTotal = source.GetLength();
+  for (let i = 0; i < predicateTotal; i++) {
+    const item = source.GetAt(i);
+    const answered = call(args[0], Value.Undefined(), item, true).AsBool();
+    if (id === ArrayFind) {
+      if (answered) return item;
+      continue;
+    }
+    if (id === ArraySome && answered) return Value.FromBool(true);
+    if (id === ArrayEvery && !answered) return Value.FromBool(false);
+  }
+  if (id === ArrayFind) return Value.Undefined();
+  // 走到这里：`some` 一个都没中（假）、`every` 一个都没反（真）——**空数组也落在这一支** ✓。
+  return Value.FromBool(id === ArrayEvery);
+}
 throw new Error("unimplemented: array builtin " + id);
 ```
 
@@ -218,9 +251,10 @@ throw new Error("unreachable: installing a builtin never calls a function");
 ```ts
 const table = vm.Table;
 const proto = Value.FromObject(protos.Array);
-const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter"];
+const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter",
+  "find", "some", "every"];
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
-  ArrayMap, ArrayFilter];
+  ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

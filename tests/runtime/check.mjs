@@ -4546,6 +4546,55 @@ check("Array 的 forEach/map/filter：同样靠回调通道（map 收返回值�
     eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
   }
 });
+check("Array 的 find/some/every：空数组那两条口径（some 假、every 真）也逐一与 Node 对", () => {
+  // 第 118 轮。谓词族与 `forEach/map/filter` 同一条回调通道 ✓，**但结果不同** ✓。
+  // **空数组**是最容易写反的地方 ✓：`some` 给**假**、`every` 给**真** ✓——这里两边都钉上 ✓。
+  // （`reduce` **不做** ✗：JS 的 `(累计, 值, …)` 要两个以上实参，而 `NativeCall` 只带一个 ✓——
+  //   拿数组打包两个值是另一种语义 ✗，宁可缺，也不静默换形状 ✓。）
+  const source = [
+    "function run() {",
+    "  const xs = [1, 2, 3, 4];",
+    "  const none = [];",
+    "  const found = xs.find(function (v) { return v > 2; });",
+    "  const missing = xs.find(function (v) { return v > 9; });",
+    "  return [found, missing === undefined ? 1 : 0,",
+    "    xs.some(function (v) { return v > 3; }) ? 1 : 0,",
+    "    xs.some(function (v) { return v > 9; }) ? 1 : 0,",
+    "    xs.every(function (v) { return v < 9; }) ? 1 : 0,",
+    "    xs.every(function (v) { return v < 3; }) ? 1 : 0,",
+    "    none.some(function (v) { return true; }) ? 1 : 0,",
+    "    none.every(function (v) { return false; }) ? 1 : 0];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const xs = [1, 2, 3, 4];
+    const none = [];
+    const found = xs.find((v) => v > 2);
+    const missing = xs.find((v) => v > 9);
+    return [found, missing === undefined ? 1 : 0,
+      xs.some((v) => v > 3) ? 1 : 0,
+      xs.some((v) => v > 9) ? 1 : 0,
+      xs.every((v) => v < 9) ? 1 : 0,
+      xs.every((v) => v < 3) ? 1 : 0,
+      none.some(() => true) ? 1 : 0,
+      none.every(() => false) ? 1 : 0];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 3, "Node：find 给第一个为真的原值（前提）");
+  eq(expected[6], 0, "Node：空数组的 some 是假（前提）");
+  eq(expected[7], 1, "Node：空数组的 every 是真（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
+  }
+});
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
