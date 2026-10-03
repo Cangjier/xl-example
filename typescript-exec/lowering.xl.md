@@ -2950,18 +2950,50 @@ if (kind === "TypeOfExpression") {
   const value = this.LowerExpression(Child(node, "expression"));
   return this.RtCall1(RtOp.Typeof, value);
 }
-if (kind === "PrefixUnaryExpression") {
-  // **一元前缀**（第 64 轮）：投影现在带 `operator`（运算符**文本**）——
-  // TS 那边 `operator` 是一个 `SyntaxKind` 数字，投影补的时候用了**同名字段**，
-  // 所以对拍尺子不会报字段不符（见 `print-ast-common.xl.md`）。
+if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
+  // **一元前缀与后缀**（第 64 轮补的前缀、第 91 轮补的更新表达式）：投影带 `operator`
+  // （运算符**文本**）——TS 那边 `operator` 是一个 `SyntaxKind` 数字，投影补的时候用了
+  // **同名字段**，所以对拍尺子不会报字段不符（见 `print-ast-common.xl.md`）。
   const rawOperator = node["operator"];
   const operator = rawOperator === undefined || rawOperator === null ? "" : String(rawOperator);
-  const operand = this.LowerExpression(Child(node, "operand"));
-  if (operator === "-") return this.RtCall1(RtOp.Neg, operand);
-  if (operator === "!") return this.RtCall1(RtOp.Not, operand);
-  // **没做的照旧抛**（不静默给近似值）：`+x` 要 Number 转换、`~x` 要按位取反、
-  // `++` / `--` 是**带副作用的更新表达式**（不是纯运算，得连左值一起改）。
-  throw new Error("unimplemented: unary operator `" + operator + "` (only - and ! are implemented)");
+  const operand = Child(node, "operand");
+  const isPostfix = kind === "PostfixUnaryExpression";
+  if (operator === "++" || operator === "--") {
+    // **更新表达式**：读 → 算 → 写回，**左边只求值一次**（与复合赋值同一条规矩）。
+    // 表达式自身的值：**前缀给新值、后缀给旧值**——这一条就是 `i++` 与 `++i` 的全部区别，
+    // 而 `for (let i = 0; i < 3; i++)` 要的是后缀（值没人用，但语义上必须是旧值）。
+    // 只支持标识符左值：属性/下标左值要「求值一次接收者」，那条路与复合赋值的限制同源。
+    if (NodeKind(operand) !== "Identifier") {
+      throw new Error("unimplemented: update expression on a non-identifier");
+    }
+    const access = this.ResolveAccess(TextOf(operand));
+    const read = this.Reserve(1);
+    if (access.InEnv) {
+      this.Emit(Op.EnvGet, read, access.Depth, access.Cell, -1);
+    } else {
+      this.Emit(Op.Move, read, access.Slot, -1, -1);
+    }
+    const result = this.Reserve(1);
+    // **先把旧值抄进结果格**：后缀要的就是它；前缀随后用新值覆盖。
+    this.Emit(Op.Move, result, read, -1, -1);
+    const one = this.Reserve(1);
+    this.Emit(Op.Const, one, this.Program().AddConst(Constant.OfInt(1)), -1, -1);
+    const updated = this.RtCallValues(operator === "++" ? RtOp.Add : RtOp.Sub, read, one);
+    if (access.InEnv) {
+      this.Emit(Op.EnvSet, updated, access.Depth, access.Cell, -1);
+    } else {
+      this.Emit(Op.Move, access.Slot, updated, -1, -1);
+    }
+    if (!isPostfix) {
+      this.Emit(Op.Move, result, updated, -1, -1);
+    }
+    return result;
+  }
+  const value = this.LowerExpression(operand);
+  if (operator === "-") return this.RtCall1(RtOp.Neg, value);
+  if (operator === "!") return this.RtCall1(RtOp.Not, value);
+  // **没做的照旧抛**（不静默给近似值）：`+x` 要 Number 转换、`~x` 要按位取反。
+  throw new Error("unimplemented: unary operator `" + operator + "` (only -, !, ++ and -- are implemented)");
 }
 throw new Error("unimplemented: expression " + kind);
 ```

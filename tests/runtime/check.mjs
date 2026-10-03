@@ -3864,6 +3864,56 @@ check("运行器：异步宿主自己当事件循环（Prepare 造承诺 → Par
   eq(res.Machine.Result.AsInt(), 42, "宿主驱动下的 async 结果（41 + 1）");
 });
 
+check("P0：闭包捕获 + try/catch/finally + while·break + 数组方法，经运行器与 Node 逐值一致", () => {
+  // 这一条走**产品路径**（`tsrun.xl.md` 的 `RunSources`），并一次串起四块**各自已被单独测过**
+  // 的能力：闭包捕获同一格（多写一读）、异常展开与 `finally`、`while` + `break`、数组内建。
+  // 它们合起来才是「一个像样的程序」——而合成之后出新 bug 正是 P0 要抓的那一类。
+  const source = [
+    "function makeCounter(start) {",
+    "  let value = start;",
+    "  return function () { value = value + 1; return value; };",
+    "}",
+    "function run() {",
+    "  const bump = makeCounter(10);",
+    "  const seen = [];",
+    "  for (let i = 0; i < 3; i++) seen.push(bump());",
+    "  let attempts = 0;",
+    "  let caught = 'none';",
+    "  try {",
+    "    attempts = attempts + 1;",
+    "    throw 'boom';",
+    "  } catch (e) {",
+    "    caught = e;",
+    "  } finally {",
+    "    attempts = attempts + 10;",
+    "  }",
+    "  let total = 0;",
+    "  let n = 0;",
+    "  while (true) { n = n + 1; if (n > 4) break; total = total + n; }",
+    "  const text = ['a', 'b'].join('-') + ':' + seen.length;",
+    "  return [seen[0], seen[2], attempts, caught, total, text];",
+    "}",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn run();")();
+  eq(expected[0], 11, "Node：闭包第一次自增（前提）");
+  eq(expected[2], 11, "Node：finally 也跑了（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  // **宿主读结果要用运行器交出来的表**（`RunResult.Table`）：值住在它的堆里。
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  eq(at(0).AsInt(), expected[0], "闭包第一次自增");
+  eq(at(1).AsInt(), expected[1], "闭包第三次自增（同一格）");
+  eq(at(2).AsInt(), expected[2], "try + finally 各加一次");
+  eq(hostStringOf(table, at(3)), expected[3], "catch 拿到了异常值");
+  eq(at(4).AsInt(), expected[4], "while + break 的累加");
+  eq(hostStringOf(table, at(5)), expected[5], "数组 join 与 length");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
