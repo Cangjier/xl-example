@@ -3326,9 +3326,7 @@ check("链接两份模块：同一台 VM、同一个堆，A 的导出闭包直�
   ].join("\n");
   // Node 那边：这一条**手算期望值**——`twice(21)` = 42、`run(21)` = 42 + "A".length = 43。
   // （上一版我在这里用 `new Function` 拼字符串，结果把整套 Node 对拍判据都弄红了：
-  // 拼进去的 `replace(/^export /gm, "")` 之类在**字符串里**也被当成了真代码。）
-  eq(42, 42, "Node：A 的 twice(21)（这是前提）");
-  eq(43, 43, "Node：B 的 run(21) = 42 + 1（这是前提）");
+  // 拼进去的正则与模板在**字符串里**也被当成了真代码。）
 
   // **链接**：两份程序合成一份，装进**一台** VM（一个堆）
   const aLowered = new Lowering().LowerModule(parseTsShape(sourceA), testIds);
@@ -3362,10 +3360,40 @@ check("链接两份模块：同一台 VM、同一个堆，A 的导出闭包直�
   }
   eq(allAreEntries, true, "声明的每个常量都指向一个真的函数入口（不是猜的）");
 
-  // **已知缺口**（`docs/typescript-parsing-gaps.md`）：把链接后的程序**跑起来**还不行——
-  // B 的入口在绑全局名时报 `property keys must be strings or symbols`。
-  // 上面这些断言是链接器的**数据契约**（拼接、重定位、指纹、入口声明），它们成立；
-  // 「链接后能跑」还差最后一里，台账里留了复现与排查方向。
+  // **端到端**：装进**一台** VM（一个堆），A 的导出闭包直接进 B 的环境对象。
+  const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 100000);
+  machine.Load(Encode(linked, testIds), testIds);
+  const host = new Host(machine);
+
+  // A 的入口（函数表第 0 项）跑完，结果就是它的导出表
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "模块 A 求值");
+  const aExports = machine.Result;
+  machine.Retain(aExports);
+  const twiceValue = GetIndex(table, aExports, Value.FromInt(aLowered.ExportOf("twice")));
+  eq(twiceValue.Tag, ValueTag.Closure, "从 A 的导出表里拿出 twice 这个闭包值");
+
+  // B 的环境里放 A 的闭包——**同一个堆，所以这是可能的**
+  const bEnv = NewPlainObject(machine.Room(), table, machine.Protos);
+  machine.Retain(bEnv);
+  setProp(machine, table, bEnv, propKey(table, "twice"), twiceValue);
+  setProp(machine, table, bEnv, propKey(table, "label"),
+    GetIndex(table, aExports, Value.FromInt(aLowered.ExportOf("label"))));
+
+  // B 的入口 = 合并后函数表里 A 后面那一项（每份程序的第 0 项都是它自己的入口）
+  eq(machine.Start(aFunctionCount, [bEnv]), true, "开 B 的入口帧");
+  eq(machine.Run(), VmStatus.Halted, "B 的入口跑完");
+  const bExports = machine.Result;
+  machine.Retain(bExports);
+  const runClosure = GetIndex(table, bExports, Value.FromInt(bLowered.ExportOf("run")));
+  eq(runClosure.Tag, ValueTag.Closure, "B 的导出表里拿到 run");
+  eq(machine.StartClosure(runClosure, [Value.FromInt(21)]), true, "调 B 的 run(21)");
+  eq(machine.Run(), VmStatus.Halted, "跑完");
+  eq(machine.Result.AsInt(), 43, "跨模块调用：A 的 twice 在 B 里跑起来（42 + 1）");
+
+  machine.Release(aExports.Ref);
+  machine.Release(bEnv.Ref);
+  machine.Release(bExports.Ref);
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {

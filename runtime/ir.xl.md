@@ -655,6 +655,25 @@ if (instr.Op === Op.Jump || instr.Op === Op.JumpIfFalse) {
 }
 ```
 
+# method ShiftConstIndex:(instr:Instruction, base:int)=>void
+
+**把一条指令里的「常量池下标」挪 `base`**（链接时用）。
+
+**只有 `Op.Const` 的操作数 `B` 是常量下标**（验证层也这么查：越界就报
+`constant out of range`）。它与 `ShiftPc` 是**同一类知识的两半**——
+一个挪 pc、一个挪常量下标，**改任何一处都要连验证层一起看**。
+
+**漏掉它是什么样**（第 54 轮实测）：链接后 B 的入口去取自己的「全局名常量」，
+取到的却是 A 常量池里同一下标的**别的东西**（一个整数）——报的是
+`property keys must be strings or symbols`，而错在链接器**少挪了一类下标**。
+**症状与现场的这段距离，就是「先量后改」值得的原因。**
+
+```ts
+if (instr.Op === Op.Const && instr.B >= 0) {
+  instr.B = instr.B + base;
+}
+```
+
 # class Program
 
 一个程序。

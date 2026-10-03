@@ -1,6 +1,6 @@
 # dependencies
 ```xl
-import { Program, Instruction, Handler, FunctionInfo, Constant, ShiftPc, Op } from "./ir.xl.md"
+import { Program, Instruction, Handler, FunctionInfo, Constant, ShiftPc, ShiftConstIndex, Op } from "./ir.xl.md"
 import { ValueTag } from "./value.xl.md"
 ```
 
@@ -15,11 +15,12 @@ import { ValueTag } from "./value.xl.md"
 **它是一次纯数据变换，而且不改源程序**（每条指令、每个常量、每项异常表都**复制**）：
 
 - 指令 / 常量 / 函数表 / 异常表 / 源码表**依次拼接**；
-- **四类下标要跟着挪**：① 指令里的 pc（`ShiftPc`，`ir.xl.md` 那处是唯一知道
-  「哪两条指令带 pc」的地方）；② **入口常量**的值（`Program.EntryConstants`，
+- **五类下标要跟着挪**：① 指令里的 pc（`ShiftPc`，`ir.xl.md` 那处是唯一知道
+  「哪两条指令带 pc」的地方）；② **常量池下标**（`ShiftConstIndex`：`Op.Const` 的 `B`）；
+  ③ **入口常量**的值（`Program.EntryConstants`，
   **降级层声明的，不许猜**——脚本里的字面量整数也在常量池里，值可能与入口 pc 相同，
-  「扫一遍、相等就挪」会**静默改掉字面量**）；③ 异常表下标（`TryPush` 的操作数）；
-  ④ 源码跨度下标（`Instruction.Src`）；函数表的 `Entry` 与异常表的三个 pc 字段也挪。
+  「扫一遍、相等就挪」会**静默改掉字面量**）；④ 异常表下标（`TryPush` 的操作数）；
+  ⑤ 源码跨度下标（`Instruction.Src`）；函数表的 `Entry` 与异常表的三个 pc 字段也挪。
 - **不变式**：所有程序的 `IdTableHash` 必须相同（同一张算子表编出来的）——
   不同就**拒**：拼起来的程序会按一张表解释，另一半的算子号就全错了。
 
@@ -63,12 +64,15 @@ for (let i = 0; i < programs.length; i++) {
     }
     linked.Consts[at] = Constant.OfInt(entry.Int + instrBase);
   }
-  // ② 指令：**复制**，然后按新基址挪 pc、挪跨度下标、挪异常表下标。
+  // ② 指令：**复制**，然后挪**五类下标**——pc、常量池下标、跨度下标、异常表下标。
+  // （第五类就是它：`Op.Const` 的 `B` 是常量下标。漏掉它，B 的入口会拿到
+  // A 常量池里同一下标的东西，报的却是「属性键必须是字符串」。）
   for (let j = 0; j < source.Instrs.length; j++) {
     const original = source.Instrs[j];
     const copy = new Instruction(original.Op, original.A, original.B, original.C, original.D);
     copy.Src = original.Src >= 0 ? original.Src + spanBase : -1;
     ShiftPc(copy, instrBase);
+    ShiftConstIndex(copy, constBase);
     if (copy.Op === Op.TryPush && copy.A >= 0) copy.A = copy.A + handlerBase;
     linked.Instrs.push(copy);
   }
