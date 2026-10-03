@@ -43,11 +43,13 @@
 > **标准库这一层已经有了**：`Array`（push / pop / join / indexOf / slice / forEach / map / filter /
 > find / some / every / concat / reverse / includes，以及静态的 `Array.isArray`——**`new Array(n)` 不支持**）、
 > `String`（charAt / charCodeAt / indexOf / slice / split / toUpperCase / toLowerCase / trim /
-> includes / startsWith / endsWith / substring / repeat——**大小写与 trim 只做 ASCII**，非 ASCII 响亮地抛）、
+> includes / startsWith / endsWith / substring / repeat / padStart / padEnd——
+> **大小写与 trim 只做 ASCII**，非 ASCII 响亮地抛）、
 > `Object`（keys / values / entries——**后两个跳过访问器**）、
 > `JSON`（stringify + **parse**，第 122 轮；坏输入是**脚本接得住**的异常）、
-> `Math`（floor / abs / max / min / round / ceil / trunc / sign / **sqrt / pow**）、`Error`（`message` + `name`，
-> **没有 `stack`、没有 `instanceof`**）、`Map` / `Set`（含 `forEach` 与直接迭代）、
+> `Math`（floor / abs / max / min / round / ceil / trunc / sign / **sqrt / pow**）、
+> `Number`（**isInteger / isNaN**，只认不转）与全局的 **`parseInt` / `parseFloat`**（第 126 轮）、
+> `Error`（`message` + `name`，**没有 `stack`、没有 `instanceof`**）、`Map` / `Set`（含 `forEach` 与直接迭代）、
 > `Symbol`、`Date`（`new Date(ms)` + UTC 日历那一族，**时钟由宿主回答**）。
 >
 > **失败的口径**（第 121 轮）：内建抛的仍然是**宿主异常** ✓，而**宿主通道**那一层

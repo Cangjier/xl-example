@@ -80,6 +80,20 @@ import { Units, NeverCall, ArgOr } from "./array.xl.md"
 **太多次不另设上限** ✓：它自己会在 `room` 那一关被拦下 ✓（那是一条**可捕获的错误** ✓），
 再加一个人为上限就是第二个「上限」了 ✗——两处不一致比一处更坏 ✓。
 
+# const StringPadStart:int = 114
+
+`padStart(目标长度, 填充串?)` 的号（第 126 轮）——第二个参数缺省是**一个空格** ✓。
+
+# const StringPadEnd:int = 115
+
+`padEnd(目标长度, 填充串?)`。
+
+**两条边角照 JS 给** ✓：目标长度**不大于**当前长度就**原样返回** ✓；
+**填充串是空串就不补** ✓（JS 也这样 ✓——补出来的东西不是「填充」✗）。
+**填充串要重复、并在最后一段截断** ✓（`"ab".padStart(7, "xy")` → `"xyxyxab"` ✓）。
+**已知差异写在明处** ✗：JS 按**字符**（码位）补，这里按**码元** ✓——
+ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记在台账 ✓）。
+
 # method RequireString:(table:HeapTable, self:Value)=>void
 
 `self` 必须是字符串；不是就抛。
@@ -258,6 +272,29 @@ if (id === StringRepeat) {
   }
   return Value.FromString(table.CreateString(out));
 }
+if (id === StringPadStart || id === StringPadEnd) {
+  // **两条边角照 JS 给**（见 `StringPadStart` 那一段）：
+  // 目标长度不大于当前长度就**原样返回** ✓；**填充串是空串就不补** ✓。
+  const target = ArgOr(args, 0, 0);
+  const fill = args.length > 1 && args[1].Tag === ValueTag.String
+    ? TextUnitsOf(table, args[1])
+    : Units(" ");
+  if (target <= units.length || fill.length === 0) {
+    if (!room(ObjectCharge + CodeUnitCharge * units.length)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(units));
+  }
+  const total = target - units.length;
+  if (!room(ObjectCharge + CodeUnitCharge * (units.length + total))) throw new Error("out of room");
+  const out: number[] = [];
+  if (id === StringPadStart) {
+    for (let i = 0; i < total; i++) out.push(fill[i % fill.length]);
+    for (let i = 0; i < units.length; i++) out.push(units[i]);
+  } else {
+    for (let i = 0; i < units.length; i++) out.push(units[i]);
+    for (let i = 0; i < total; i++) out.push(fill[i % fill.length]);
+  }
+  return Value.FromString(table.CreateString(out));
+}
 throw new Error("unimplemented: string builtin " + id);
 ```
 
@@ -333,10 +370,10 @@ const table = vm.Table;
 const proto = Value.FromObject(protos.String);
 const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "toUpperCase", "toLowerCase", "trim", "includes",
-  "startsWith", "endsWith", "substring", "repeat"];
+  "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
-  StringStartsWith, StringEndsWith, StringSubstring, StringRepeat];
+  StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

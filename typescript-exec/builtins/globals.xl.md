@@ -74,7 +74,169 @@ import { SetCtor } from "./set.xl.md"
 
 # const ConsoleLog:int = 301
 
+# const ParseInt:int = 303
+
+**`parseInt(文本, 基数?)`**（第 126 轮）——**全局函数** ✓：与 `Math` / `console` 那些一样
+从环境对象上取 ✓（不是某个对象的方法 ✓）。
+
+**照着 JS 的规矩** ✓：跳过**前导空白** ✓、认一个 `+` / `-` ✓、
+基数给了就按它（**2..36 之外给 `NaN`** ✓）、没给就看有没有 `0x` 前缀 ✓（有就 16、没有就 10 ✓）、
+**取最长的合法前缀** ✓（`parseInt("12px")` 是 `12` ✓）、一个数字都没有就给 `NaN` ✓。
+**非字符串的实参先 ToString** ✓（`parseInt(12.5)` 是 `12` ✓）——走的是「任意值 → 文本」那条 ✓。
+
+**已知差异写在明处** ✗：JS 的空白集合比这里的**大**（Unicode 空白那一类 ✗）——
+这里只认 ASCII 那六个 ✓（与 `trim` 同一条口径 ✓）；
+**超出 `i32` 的位数**在 JS 里靠双精度累加、末几位可能与这里不同 ✗（这一层不假装逐位一致 ✓）。
+
+# const ParseFloat:int = 304
+
+**`parseFloat(文本)`**（第 126 轮）——同样跳过前导空白 ✓、**取最长的合法前缀** ✓
+（`"1.5px"` → `1.5` ✓、`"1e"` → `1` ✓、`"Infinity"` → `Infinity` ✓）、
+一个合法字符都没有就给 `NaN` ✓。**前缀到数值那一步借用宿主** ✓——
+正确舍入的十进制转换是 IEEE 754 的活儿 ✓（与 `JSON.parse` 那条同一条理由 ✓）。
+
+# const NumberIsInteger:int = 320
+
+**`Number.isInteger(x)`**（第 126 轮）——`Number` 是**普通对象** ✓（与 `Array` / `Math` 同款 ✓），
+上面挂几个静态判定 ✓。**只认真整数** ✓：`Int32` 一律真 ✓、
+`Float64` 要有限且是整数 ✓，其余（字符串 / `null` / …）一律假 ✓（**不做转换** ✗，与 JS 一致 ✓）。
+
+# const NumberIsNaN:int = 321
+
+**`Number.isNaN(x)`**——**只认真正的 `NaN`** ✓（`Float64` 那条自比较 ✓）；
+`"abc"` / `undefined` 一律假 ✓（JS 也是 ✓——要转的用全局 `isNaN` ✗，那一个这一轮不做 ✓）。
+
+# method DigitValue:(unit:int)=>int
+
+**一位数字的值**（`0-9` / `a-z` / `A-Z` → `0..35`）；不是数字给 `-1` ✓。
+
+**为什么不借 `JsonHexDigit`** ✗：那个只认**十六进制** ✓，
+而 `parseInt` 的基数一直开到 **36** ✓（`parseInt("zz", 36)` 是 `1295` ✓）——
+判据现场就是在这里红的 ✓（我第一版借了十六进制那个解码器 ✗，`"zz"` 给了 `NaN` ✗）。
+
+```ts
+if (unit >= 48 && unit <= 57) return unit - 48;
+if (unit >= 97 && unit <= 122) return unit - 87;
+if (unit >= 65 && unit <= 90) return unit - 55;
+return -1;
+```
+
+# method ParseIntText:(units:Array<int>, radix:int, hasRadix:bool)=>Value
+
+**`parseInt` 的正身**：从码元里取最长的合法整数前缀 ✓（见 `ParseInt` 那一段的口径 ✓）。
+
+**累加用宿主双精度** ✓（与 JS 一致 ✓——`parseInt` 的结果本来就是「一个数」✓）；
+**整的、且在 `i32` 里就给 `Int32`** ✓（与 `MathResult` 同口径 ✓），其余给 `Float64` ✓。
+
+```ts
+let at = 0;
+while (at < units.length) {
+  const unit = units[at];
+  if (unit === 32 || unit === 9 || unit === 10 || unit === 11 || unit === 12 || unit === 13) {
+    at = at + 1;
+    continue;
+  }
+  break;
+}
+let negative = false;
+if (at < units.length && (units[at] === 43 || units[at] === 45)) {
+  negative = units[at] === 45;
+  at = at + 1;
+}
+let base = 10;
+// **基数的规整照 JS** ✓：给了且**非 0** 就按它（**2..36 之外一律 `NaN`** ✓），
+// 否则（没给 / 给了 0）看 `0x` 前缀 ✓——**前缀要在这一步就吃掉** ✓。
+// 判据现场在这里红过一次 ✗：我第一版把「没给」直接当成 10、于是 `parseInt("0x1f")` 给了 `0` ✗
+//（JS 给 31 ✓）。
+const explicit = hasRadix && radix !== 0;
+if (explicit) {
+  if (radix < 2 || radix > 36) return MathResult(NaN);
+  base = radix;
+}
+const hexPrefix = at + 1 < units.length && units[at] === 48
+  && (units[at + 1] === 120 || units[at + 1] === 88);
+if (!explicit && hexPrefix) {
+  base = 16;
+  at = at + 2;
+} else if (base === 16 && hexPrefix) {
+  // **给了 16 也吃掉 `0x`** ✓（JS：`parseInt("0x10", 16)` 是 16 ✓）。
+  at = at + 2;
+}
+let value = 0;
+let digits = 0;
+while (at < units.length) {
+  // **基数的上限是 36** ✓，所以这里用通用的数字解码器 ✓（不是十六进制那个 ✗）。
+  const digit = DigitValue(units[at]);
+  if (digit < 0 || digit >= base) break;
+  value = value * base + digit;
+  digits = digits + 1;
+  at = at + 1;
+}
+if (digits === 0) return MathResult(NaN);
+return MathResult(negative ? 0 - value : value);
+```
+
+# method ParseFloatText:(units:Array<int>)=>Value
+
+**`parseFloat` 的正身**：切出最长的合法前缀 ✓，再**交给宿主**做十进制 → 双精度 ✓
+（与 `JsonParseNumber` 同一条理由：正确舍入是 IEEE 754 的活儿 ✓）。
+
+**前缀的文法** ✓：`[+-]? ( Infinity | digits [. digits] [exp] | . digits [exp] )` ✓——
+`"1e"` 只吃到 `1` ✓、`"1.5px"` 吃到 `1.5` ✓、`".5"` 是 `0.5` ✓、`"Infinity"` 是无穷 ✓。
+
+```ts
+let at = 0;
+while (at < units.length) {
+  const unit = units[at];
+  if (unit === 32 || unit === 9 || unit === 10 || unit === 11 || unit === 12 || unit === 13) {
+    at = at + 1;
+    continue;
+  }
+  break;
+}
+const start = at;
+if (at < units.length && (units[at] === 43 || units[at] === 45)) at = at + 1;
+// `Infinity` 单独认 ✓（它没有数字位 ✓）。
+if (at + 7 < units.length + 1 && units[at] === 73 && units[at + 1] === 110 && units[at + 2] === 102
+  && units[at + 3] === 105 && units[at + 4] === 110 && units[at + 5] === 105 && units[at + 6] === 116
+  && units[at + 7] === 121) {
+  at = at + 8;
+  if (units[start] === 45) return MathResult(-Infinity);
+  return MathResult(Infinity);
+}
+let digits = 0;
+while (at < units.length && units[at] >= 48 && units[at] <= 57) {
+  at = at + 1;
+  digits = digits + 1;
+}
+if (at < units.length && units[at] === 46) {
+  const dot = at;
+  at = at + 1;
+  while (at < units.length && units[at] >= 48 && units[at] <= 57) {
+    at = at + 1;
+    digits = digits + 1;
+  }
+  if (digits === 0) at = dot;
+}
+if (digits === 0) return MathResult(NaN);
+// **指数只在后面真跟着数字时才吃** ✓（`"1e"` 该给 `1` ✓）。
+if (at < units.length && (units[at] === 101 || units[at] === 69)) {
+  let after = at + 1;
+  if (after < units.length && (units[after] === 43 || units[after] === 45)) after = after + 1;
+  let expDigits = 0;
+  while (after < units.length && units[after] >= 48 && units[after] <= 57) {
+    after = after + 1;
+    expDigits = expDigits + 1;
+  }
+  if (expDigits > 0) at = after;
+}
+let literal = "";
+for (let i = start; i < at; i++) literal = literal + String.fromCharCode(units[i]);
+return MathResult(Number(literal));
+```
+
 # const StringConcat:int = 302
+
 
 **字符串拼接**（第 125 轮）——**它不是全局名** ✓，是**降级层**发的一条内部调用 ✓
 （`a + b` 里有字符串字面量时落到这里 ✓，见 `lowering.xl.md` 的 `ConcatValues`）。
@@ -209,7 +371,8 @@ import { SetCtor } from "./set.xl.md"
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "Array"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "Array",
+  "Number", "parseInt", "parseFloat"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -302,6 +465,33 @@ if (id === ErrorCtor) {
   // `"[object Object]"` ✓——以前这里用引擎的 `TextFrom`，那会在对象上**抛** ✗。
   const text = args.length > 0 ? ValueText(table, args[0]) : "";
   return NewError(room, table, protos, text);
+}
+if (id === ParseInt || id === ParseFloat) {
+  // **两个全局函数**（第 126 轮）：实参先 ToString ✓（`parseInt(12.5)` 是 `12` ✓），
+  // 走的是「任意值 → 文本」那条 ✓。
+  if (args.length < 1) return MathResult(NaN);
+  const text = ValueUnits(table, args[0], 0);
+  if (id === ParseFloat) return ParseFloatText(text);
+  // **基数的规整照 JS**：给了就 ToInt32（`ArgOr` 收的就是整数 ✓），
+  // 「给没给」要分开——`parseInt(x)` 与 `parseInt(x, 0)` 都是「没给」✓。
+  const hasRadix = args.length > 1 && !args[1].IsUndefined();
+  return ParseIntText(text, hasRadix ? ArgOr(args, 1, 10) : 10, hasRadix);
+}
+if (id === NumberIsInteger) {
+  const target = args.length > 0 ? args[0] : Value.Undefined();
+  // **只认真整数** ✓（不做转换 ✓，与 JS 一致 ✓）。
+  if (target.Tag === ValueTag.Int32) return Value.FromBool(true);
+  if (target.Tag === ValueTag.Float64) {
+    const number = target.Dbl;
+    return Value.FromBool(number === number && number !== Infinity && number !== -Infinity
+      && number === Math.floor(number));
+  }
+  return Value.FromBool(false);
+}
+if (id === NumberIsNaN) {
+  const target = args.length > 0 ? args[0] : Value.Undefined();
+  if (target.Tag !== ValueTag.Float64) return Value.FromBool(false);
+  return Value.FromBool(target.Dbl !== target.Dbl);
 }
 if (id === StringConcat) {
   // **两个值按字符串拼起来**（第 125 轮）：两边都走「任意值 → 文本」✓
@@ -958,6 +1148,23 @@ const isArrayTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayI
 SetProperty(vm.Room(), NeverCall, table, arrayObject, isArrayKey, isArrayTarget);
 const arrayKey = Value.FromString(table.CreateString(Units("Array")));
 SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
+// **`Number` 也是一个普通对象**（第 126 轮），上面挂静态判定 ✓。
+const numberObject = NewPlainObject(vm.Room(), table, protos);
+const isIntegerKey = Value.FromString(table.CreateString(Units("isInteger")));
+const isIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsInteger, 0));
+SetProperty(vm.Room(), NeverCall, table, numberObject, isIntegerKey, isIntegerTarget);
+const isNaNAKey = Value.FromString(table.CreateString(Units("isNaN")));
+const isNaNTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsNaN, 0));
+SetProperty(vm.Room(), NeverCall, table, numberObject, isNaNAKey, isNaNTarget);
+const numberKey = Value.FromString(table.CreateString(Units("Number")));
+SetProperty(vm.Room(), NeverCall, table, globals, numberKey, numberObject);
+// **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
+const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
+const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);
+const parseFloatKey = Value.FromString(table.CreateString(Units("parseFloat")));
+const parseFloatTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseFloat, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, parseFloatKey, parseFloatTarget);
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));
 const consoleKey = Value.FromString(table.CreateString(Units("console")));
