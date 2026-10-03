@@ -75,9 +75,15 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 `constructor(...args) { super(...args) }`，「父类有没有构造函数」还要**递归**问）
 + **回调要两个实参的那一族**（第 142 轮：`NativeCall` 的实参表从「一个值」开宽成**一整个数组**，
 于是 `sort((a, b) => …)` · `reduce((acc, x) => …)` · `map((v, i) => …)` · `Map.forEach((v, k) => …)`
-一起通了；顺带铺上 `shift` / `fill` / `flat`），
+一起通了；顺带铺上 `shift` / `fill` / `flat`）、
++ **实参位的可选链**（第 143 轮：`f(o?.a)` / `console.log(o?.a)` / `[o?.a]` / `` `${o?.a}` ``——
+产物把「基名」与「`?.`」记成**两个平级单元**，投影层的通用支**只取第一格**，
+于是 `?.a` 整格丢掉、降级层报 `unimplemented: expression NullConditionalOperator`。
+修在**渲染侧**：`projectExpression` 多一条「基名与 `?.` 平级」的判据，
+把基名接回 `chainWithOptional`——**token 层那一版试过、被语料打回来了**
+（11 个文件变红，理由记在 [typescript-exec 的账](typescript-exec/README.md)里）），
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（193 条）与 `npm run runtime:cli`（34 份语料）；
+判据见 `npm run runtime:check`（193 条）与 `npm run runtime:cli`（35 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

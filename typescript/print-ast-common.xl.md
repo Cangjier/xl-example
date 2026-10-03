@@ -2039,6 +2039,62 @@ new Set([
   // `PropertyAccessExpression` 189 里成片，而且都会连带多出未映射的
   // `<NullConditionalOperator>` 与 `<Bracket>`。
   const ncoIndex = kids.findIndex((k) => k.get("type") === "NullConditionalOperator");
+  // ---- 0a0. **基名与 `?.` 平级**：`f(o?.a)` 那一种（第 143 轮）----
+  //
+  // **症状**：`?.` 出现在**实参位 / 下标位 / 模板插值位**时，产物是
+  // `[Identifier(o), NCO(a)]` **两个平级单元**（基名留在外面），而
+  // `projectExpression` 走到通用支只会取 `kids[0]`——**基名在、`?.a` 整个没了**：
+  //   · 投影层报「未映射标签 `NullConditionalOperator`」，
+  //   · 降级层当场报 `unimplemented: expression NullConditionalOperator`
+  //     （`console.log(f?.(o?.a))` 与 `console.log([o?.a])` 就是这么红的）。
+  //
+  // **为什么语句位一直是对的**：`a?.b` 在语句位由 **`PropertyAccess` / 二元那一支**接手
+  // （上面 0a / 0a2 两条），它们的判据都看「NCO 前面那个兄弟」——而**实参位**这一层
+  // 只看得到一个「实参段」，前面没有兄弟可看。
+  //
+  // **判据**（三条都要）：
+  //   1. `ncoIndex > 0`——NCO 前面确实有个兄弟；
+  //   2. 那个兄弟是**链基名**（`IsChainBaseNode`，与 `property-access.xl.md` 的
+  //      `IsChainBase` 同一份口径的**渲染侧**版本）；
+  //   3. **NCO 的第一个子单元不是 `Method`**——这一条是**让路**用的：`a.Start?.Document`
+  //      的形状是 `[a, ., Start, NCO(Document)]`，那里 NCO 的成员名恰好也是 `Identifier`，
+  //      照这一支折会把 `.Start` 与 `?.Document` 之间的那层链**搅散**
+  //      （实测 `dist/ts/core/syntax/source-range.ts`：`QuestionDotToken` 与 `Identifier`
+  //      各缺一片）。而 `?.(…)` / `?.[…]` 那一族（`NCO` 的第一个子单元是 `Method` / 括号）
+  //      不属于本支，它们由下面 0a 与 `Method` 自己那两条接手。
+  //   4. **前缀里没有顶层二元运算符**（`BinaryOperator` / `LogicalOperator` 单元，
+  //      或者光秃秃的运算符符号）——有的话这条 `?.` 属于**右边那个操作数段**，
+  //      要交给下面 0a 在运算符处切开那一支：
+  //      `this.Start?.Document === other.Start?.Document` 照本支走会把前面那一整段
+  //      （连同那个二元单元）吞进一个 `PropertyAccessExpression`
+  //      （实测 `source-range.ts` 漂移 2 + 多出 2）。
+  const NCO_BASE_OPERATORS = new Set([
+    "+", "-", "*", "/", "%", "**", "<", ">", "<=", ">=", "==", "!=", "===", "!==",
+    "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof", "=",
+  ]);
+  const prefixHasOperator = kids.slice(0, ncoIndex).some(
+    (k) =>
+      k.get("type") === "BinaryOperator" ||
+      k.get("type") === "LogicalOperator" ||
+      (k.get("type") === "SymbolToken" && NCO_BASE_OPERATORS.has(textOfNode(k, ctx))),
+  );
+  if (
+    ncoIndex > 0 &&
+    prefixHasOperator === false &&
+    IsChainBaseNode(kids[ncoIndex - 1]) &&
+    projectableKids(view(kids[ncoIndex]))[0]?.get("type") !== "Method"
+  ) {
+    let optional = projectExpression(kids.slice(0, ncoIndex), ctx);
+    if (optional !== undefined) {
+      let at = ncoIndex;
+      while (at < kids.length && kids[at].get("type") === "NullConditionalOperator") {
+        optional = chainWithOptional(optional, kids[at], ctx);
+        at++;
+      }
+      if (at >= kids.length) return optional;
+      return foldBinaryFrom(optional, kids.slice(at), ctx);
+    }
+  }
   // **「二元单元里包着 NCO」那一形状要让给下面 0a2 那一支**（第 145 轮）：
   //
   //     x.Start?.Document === y.Start?.Document
@@ -2665,6 +2721,63 @@ new Set([
   };
 ```
 
+# private method IsChainBaseNode:(node:any)=>boolean
+
+`node` 能不能当**一条可选链的基名**（`?.` 左边那一格）——**渲染侧**的版本。
+
+它与 token 层 [tokens/property-access.xl.md](./tokens/property-access.xl.md) 的 `IsChainBase`
+问的是同一个问题，但**判的不是同一个东西**：那边判的是 `Token`（`instanceof Identifier` 那些），
+这里判的是**产物的一格**（`Map`，`type` 是标签名）。两处不能合并——层级不同。
+
+**`Bracket` 按标签名认不出来**，所以从**属性**上判：
+`<Bracket startBracket="(" …>` 在产物里是 `type=Bracket` 加一个 `startBracket` 属性，
+只有它才可能是链基名（`(a + b)?.c` 是 `ParenthesizedExpression`，`a[0]?.b` 的 `a[0]` 早就是
+`PropertyAccess` 了）——所以这里**直接放掉 `Bracket`**：
+`a?.b?.[c]` 那种形状里，末尾那个 `[c]` 也会被算成「收尾括号」，
+认它就会把 `?.b` 与 `?.[c]` 合成一格（token 层那一版实测踩过，见 `null-conditional-operator.xl.md`）。
+
+关键字（`return` / `case` / `typeof` …）在产物里是 `Identifier`，要按**文本**排掉。
+
+```ts
+if (!(node instanceof Map)) {
+  return false;
+}
+const type = node.get("type");
+if (type === "Identifier" || type === "Keyword") {
+  const value = node.get("value");
+  const text = typeof value === "string" ? value : "";
+  return !(
+    text === "return" ||
+    text === "throw" ||
+    text === "case" ||
+    text === "default" ||
+    text === "else" ||
+    text === "do" ||
+    text === "break" ||
+    text === "continue" ||
+    text === "yield" ||
+    text === "typeof" ||
+    text === "void" ||
+    text === "in" ||
+    text === "instanceof" ||
+    text === "new" ||
+    text === "import" ||
+    text === "await" ||
+    text === "super"
+  );
+}
+return (
+  type === "Method" ||
+  type === "PropertyAccess" ||
+  type === "NullConditionalOperator" ||
+  type === "New" ||
+  type === "ArrayLiteral" ||
+  type === "ObjectLiteral" ||
+  type === "String" ||
+  type === "ConstString"
+);
+```
+
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
 
 `a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
@@ -2708,7 +2821,15 @@ new Set([
     const call = {
       kind: "CallExpression",
       expression: left,
-      arguments: projectEach(projectableKids(view(first)), ctx),
+      // **实参按顶层逗号切段、每段走 `projectExpression`**（第 143 轮）：不能走 `projectEach`——
+      // 那个助手是**逐格**投的，而实参位正是「基名与 `?.` 平级」的形状（`h?.(o?.a)` 的括号里是
+      // `[Identifier(o), NCO(a)]` 两格），逐格投会让 `?.a` 落成一个**未映射的
+      // `NullConditionalOperator`**、基名与它各占一个实参（实测：缺 `PropertyAccessExpression`
+      // 与 `QuestionDotToken` 各一 + 多出一个 `NullConditionalOperator`）。
+      // 与 `chainOnto` 里「紧跟一对圆括号 ⇒ 再调一次」那一支是同一个写法。
+      arguments: splitTopLevel(projectableKids(view(first)), ctx, ",")
+        .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+        .filter((a) => a !== undefined),
       pos: left.pos,
       end: endOf(unit),
     };

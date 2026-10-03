@@ -13,54 +13,83 @@
 
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
-| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；**第 142 轮 `NativeCall` 的实参表从「一个值」开宽成「一整个数组」** ✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
+| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；第 142 轮 `NativeCall` 的实参表从「一个值」开宽成「一整个数组」✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
 | **降级层**（本目录） | **~97%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；派生类的默认构造函数 · `super(...xs)`（第 141 轮）✓；缺 `new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~84%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮三族的 `prototype` 与 `constructor` ✓；第 140 轮内建 `super()` ✓；**第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` + 下标回调 + `Map.forEach` 的键** ✓；缺 `splice` / `replaceAll` / `fill(值, 起, 止)` / `flat(深度)`、原始值原型（`toFixed` / `toString(基数)`）、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
-| **端到端**（普通 `.ts` 文件） | **~99%** | 34 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、**两个实参的回调族**）；**已知的十四个拦路虎都关掉了** ✓，下一个是 **`console.log(a?.b)` 会被收没**（**静默少一整句** ✗，见「下一步」第一条 ✓） |
+| **标准库**（`builtins/`） | **~84%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮三族的 `prototype` 与 `constructor` ✓；第 140 轮内建 `super()` ✓；第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` + 下标回调 + `Map.forEach` 的键 ✓；缺 `splice` / `replaceAll` / `fill(值, 起, 止)` / `flat(深度)`、原始值原型（`toFixed` / `toString(基数)`）、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
+| **端到端**（普通 `.ts` 文件） | **~99%** | 35 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、两个实参的回调族、**实参位的可选链**）；**已知的十五个拦路虎都关掉了** ✓，下一个是 **`String(1)` / `Number("7")` 这一类「全局名当函数调」**（见「下一步」第一条 ✓） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 193 条 / `runtime:cli` 34 份 ✓）。
+与语料数（`runtime:check` 193 条 / `runtime:cli` 35 份 ✓）。
 
-**下一步（第 142 轮做「日常 stdlib 普查」时量出来的，按要紧程度排）**：
+**下一步（第 143 轮做「日常 stdlib 普查」第二遍时量出来的，按要紧程度排）**：
 
-1. **`console.log(a?.b)` 整句被收没** ✗✗（**最要命的一条** ✓）：`?.` 写在**实参位**时，
-   产物把 `o?.a` 并进了被调用者那一格 ✓，于是那一行**什么都不打印** ✗，
-   **退出码还是 0** ✗——**静默少一整句**，比抛错糟得多 ✓。
-   实测（`node build/ts/cjcli.js <文件>` 打出产物树 ✓）：
-   `console.log(o?.a)` 给
-   `<PropertyAccess><Identifier>console</Identifier><SymbolToken>.</SymbolToken>
-   <Method name="log"><Identifier>o</Identifier><NullConditionalOperator><Identifier>a</Identifier>
-   </NullConditionalOperator></Method></PropertyAccess>` ✗——
-   `Method` 的子单元本该是**一个**实参 `o?.a` ✓，却被拆成两个平级 ✓。
-   修法方向：`NullConditionalOperatorReorganization` 的 `Process` 要**把前面那个实心单元一起收进来**
-   （`a?.b` 那一支现在靠投影层的 `chainWithOptional` 补 ✓，所以在**语句位**是对的 ✓、
-   在**实参位**就断了 ✓）。
-   **这一条没有语料** ✗（`cases:34` 里特意避开了它 ✓，因为它是**下一轮**的活 ✓）。
-2. **`[a, b] = [b, a]`**（解构**赋值** ✗）：报 `assignment to a non-identifier` ✓——
-   赋值左边要是**绑定模式**那一套 ✓（解构声明已经通了 ✓，缺的是赋值那一侧 ✓）。
-3. **原始值原型** ✗：`(1.2345).toFixed(2)` / `(255).toString(16)` / `Number('7')` ✗——
-   数字与布尔还没有原型格 ✓（`Protos` 里加两格 ✓，与第 138 轮那三格同一套做法 ✓）。
-4. **`NaN` / `Infinity`** ✗（两个全局名 ✓，`GlobalNames` 里加两个 ✓）。
-5. **`**` 与位运算** ✗：`2 ** 10` ✓、`& | ^ ~ << >> >>>` ✓——降级层加几条二元算子 ✓
-   （引擎那边 `rt_call` 的算术族已经有样子 ✓）。
-6. **`try { return … } finally { … }`** ✗（现在**响亮地抛** ✓：`return` 会跳过 `finally` ✓，
-   要先把 `finally` 跑完再返回 ✓）。
-7. **`[...generator()]`** ✗（`spread_into` 只认数组 / 字符串 / Map / Set ✗，生成器要 `iter_next` ✓）。
-8. **`async f().then(…)`** ✗（承诺的组合子 ✓）、**`class C { toString() }` 用在模板串里** ✗
-   （`ToString` 没走 `toString` ✓——**静默给 `[object Object]`** ✗，也是一条「静默错值」✓）。
-9. **`new Array(3)` / `Array.from({length}, fn)`** ✗（前者要「既是对象又是构造函数」那一格 ✓）。
-10. `splice` / `replaceAll` / `Map`/`Set` 的内部槽 / `super.m(...xs)` / `extends Map` 的 `super()`。
-   **内部格**铺到 `this` 上 ✓（`Map` 的 `__k` / `__v` / `size` ✓），是**逐个**的事 ✓；
-   错误那一族（第 140 轮 ✓）已经把「往 `this` 上初始化」这条路走通了 ✓，
-   所以这是**照着抄一遍** ✓（加上「先铺内部格」那一步 ✓）。
-2. **`super.m(...xs)`** ✗：这一支本来就用不了 `call_method` ✓（「在谁身上找」与「谁是 `this`」
-   要分开 ✓），要另配一条形状 ✓——`call_array` 那一格 `this` 已经在了 ✓，
-   缺的是「按**父类原型**找方法」这一步 ✓。
-3. **`new C(...xs)`** ✗：`Op.New` 那条路没有「按数组铺参数」✓。
-4. **「不是函数却调用它」也算 `TypeError`** ✗：它走**指令那一层**的 `Guard` ✓
-   （一处包住整条指令 ✓），那一层分不出类别 ✗——要分就得让 `DoCallValue` 自己带类别 ✓。
-5. **话里带上键名** ✗、**`Map` / `Set` 的内部槽** ✗（`Object.keys(new Map())` 给 12 ✗）。
+1. **全局名不能当函数调** ✗：`String(1)` / `Number("7")` / `Boolean(0)` 一律报
+   `unimplemented: calling a non-closure value` ✓——`String` / `Number` / `Boolean`
+   在内建里**只登记成构造函数 / 命名空间对象** ✗，没有「可以被调」那一格 ✓。
+   这是**日常写法里很常见的一格**（`String(x)` 到处都是），而且它是「**响亮地抛**」✓
+   （比静默错值好 ✓），所以排在第一条。
+2. **`f?.(o?.a, "q")`** ✗：**可选调用的实参表里带逗号**时，实参被折成一个
+   `BinaryOperator op=","`——降级层报 `unimplemented: binary operator ,`。
+   根因在 **token 层**：`?.` 那一支把整个括号吞进 `NullConditionalOperator`，
+   于是逗号在括号**里面**先被 `BinaryOperatorReorganization.CommaInstance` 收走，
+   `MethodReorganization` 再也看不到那张实参表（第 143 轮实测确认：**基线同样如此**）。
+3. **`[a, b] = [b, a]`**（解构**赋值** ✗）：报 `assignment to a non-identifier`——
+   赋值左边要是**绑定模式**那一套（解构声明已经通了，缺的是赋值那一侧）。
+4. **原始值原型** ✗：`(1.2345).toFixed(2)` / `(255).toString(16)`——数字与布尔还没有原型格。
+5. **`NaN` / `Infinity`** ✗（两个全局名）。
+6. **`**` 与位运算** ✗：`2 ** 10`、`& | ^ ~ << >> >>>`——降级层加几条二元算子。
+7. **`try { return … } finally { … }`** ✗（现在**响亮地抛**：`return` 会跳过 `finally`）。
+8. **`[...generator()]`** ✗（`spread_into` 只认数组 / 字符串 / Map / Set，生成器要 `iter_next`）。
+9. **`async f().then(…)`** ✗（承诺的组合子）、`class C { toString() }` 用在模板串里 ✗
+   （`ToString` 没走 `toString`——**静默给 `[object Object]`**，也是一条「静默错值」）。
+10. `new Array(3)` / `Array.from({length}, fn)`、`splice` / `replaceAll` /
+    `Map` / `Set` 的内部槽（`Object.keys(new Map())` 给 12）、**「不是函数却调用它」带类别**、
+    **话里带上键名**、`super.m(...xs)`、`new C(...xs)`、`extends Map` 的 `super()`。
+
+### 第 143 轮的账（实参位的 `?.`）
+
+第 142 轮收尾时列的**头一条**是「`?.` 写在实参位」，这一轮做掉了它——
+而**量出来的东西与台账里写的不是同一件事**，所以把账如实记在这里。
+
+**台账那条写的是**「`console.log(o?.a)` 什么都不打印、退出码还是 0」——
+实测**基线是好的**（`runtime:cli` 34 份语料里没有这个形状，但现场一试就通）。
+坏掉的是**别的几处**：`f?.(o?.a)`、`f(o?.a)`、`[o?.a]`、`` `${o?.a}` `` 这一类——
+症状是**「未映射标签 `NullConditionalOperator`」+ 降级层
+`unimplemented: expression NullConditionalOperator`**，也就是**整格丢掉**。
+
+**根因**：产物把「基名」与「`?.`」记成**两个平级单元**
+（`[Identifier(o), NCO(a)]`），而 `projectExpression` 走到通用支**只取 `kids[0]`**——
+基名在、`?.a` 整个没了。**语句位**之所以一直是对的，是因为那里有
+`PropertyAccess` / 二元那两条路（它们的判据看「NCO 前面那个兄弟」）；
+而**实参位 / 下标位 / 模板插值位**这一层只看得到一个「段」，前面没有兄弟可看。
+
+**修法**（全在投影层，`typescript/print-ast-common.xl.md` 一处）：
+
+| 改哪 | 加什么 |
+| --- | --- |
+| `projectExpression` 新增 **0a0** 支 | 判据三条：`ncoIndex > 0`、**前面那一格是链基名**、**NCO 的第一个子单元不是 `Method`**（让路给 `?.()`/`?.[]`），再加一条「前缀里没有顶层二元运算符」（让路给 0a 在运算符处切开那一支）。命中就 `chainWithOptional` 把基名接上去 |
+| 新增 `IsChainBaseNode` | 判**产物的一格**（`Map`）能不能当链基名——与 token 层 `IsChainBase` 同口径、不同层（那边判 `Token`）。**`Bracket` 直接放掉**：`a?.b?.[c]` 里末尾那个 `[c]` 也会被算成「收尾括号」，认它会把 `?.b` 与 `?.[c]` 合成一格 |
+| `chainWithOptional` 的 `?.(args)` 支 | 实参从 `projectEach`（**逐格**投）改成 **按顶层逗号切段 + 每段 `projectExpression`**——`h?.(o?.a)` 的括号里正是「基名与 `?.` 平级」的形状，逐格投会让 `?.a` 落成未映射标签 |
+
+**第一版修在 token 层（`NullConditionalOperatorReorganization.Process` 把基名一起收进来），
+被语料打回来了** ✗：**11 个文件变红**（`this.Start?.Document === other.Start?.Document`、
+`a?.b?.[c]?.(d)` 这些形状的链被搅散）。**投影层改完 1430 / 1430 全绿**——
+所以这一轮的结论写在明处：**「哪一格是 `?.` 的操作数」在 token 层已经有答案**
+（`PropertyAccess` / `Method` / 二元那几条都按那个答案写死了），
+**动它等于同时改那几条**；而缺的那一半在**渲染侧**——那边有「多个平级单元合成一个表达式」
+所需的全部信息。
+
+**语料两条**：
+
+- `tests/parse/cases/expressions/expr-optional-in-argument.ts`（`f(o?.a)` / `g(o?.a, 1)` / `h?.(o?.a)`）；
+- `tests/runtime/cases/35-optional-in-arguments.ts`（**14 行 stdout 与 `node` 逐字节相同**）——
+  覆盖实参位、混在其它实参之间、被调用者自己也带 `?.`、两层链、下标与 `.length`、
+  模板插值、与语句位同值对拍。
+
+**顺带量出来的两条**（都进「下一步」了）：**`String(1)` 报
+`calling a non-closure value`**（全局名只登记成构造函数，没有可调那一格）；
+**`f?.(o?.a, "q")` 的逗号被折成逗号运算符**（token 层的老形状，基线同样如此）。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
