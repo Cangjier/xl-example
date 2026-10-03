@@ -523,6 +523,14 @@ this.Patch = patch;
 `continue` 跳到哪：`while` 是条件、**`for` 是更新那一段**（JS 语义：`continue` 会跑更新）、
 `for..of` 是下一次 `iter_next`。
 
+## field Label:string = ""
+
+这一层的**标签**（`outer: for (…)`）；空串表示没有标签。
+
+**为什么是字段而不是构造器参数**：它由 `LabeledStatement` 在**外层**写好、
+`EnterLoop` 再吃进去，而给构造器加一个参数要动**六个调用点**——
+改签名换来的只是「少一个可变字段」，不划算（`ContinueTarget` 也是可变字段，同一条账）。
+
 ## field Breaks:Array<int> = []
 
 这一层里 `break` 那些跳转的下标（出去时统一回填）。
@@ -686,6 +694,16 @@ return true;
 ## field Loops:Array<LoopContext> = []
 
 可以被 `break` / `continue` 跳出去的上下文栈（栈顶是最近的那一层）。
+
+## field PendingLabel:string = ""
+
+**下一个 `EnterLoop` 要吃进去的标签**（`outer: for (…)` 里那个 `outer`）。
+
+**为什么用「待用字段」而不是给 `EnterLoop` 加参数**：标签写在循环**外面**
+（`LabeledStatement` 包着循环），而 `EnterLoop` 是**循环自己**调的——
+中间隔着好几层语句分派。待用字段让「谁写标签」与「谁消费标签」解耦，
+而**消费方吃完就清**（这一点是关键：不清的话下一个没有标签的循环会**继承**上一个标签，
+于是 `break outer` 会跳到毫不相干的循环去）。
 
 ## field Globals:Array<string> = []
 
@@ -1252,6 +1270,17 @@ if (kind === "WhileStatement") {
 }
 if (kind === "DoStatement") {
   this.LowerDo(node);
+  return;
+}
+if (kind === "LabeledStatement") {
+  // **带标签的语句**：标签本身**不产生指令**——它写进「待用字段」，由**紧跟着的那个循环**
+  // （`EnterLoop`）吃进去；`break outer` / `continue outer` 就是靠它找到那一层。
+  //
+  // **无论体是什么都要清**：`outer: { … }` 里的标签没人消费（体不是循环），
+  // 留着它就会让**后面第一个**循环白白继承这个标签。
+  this.PendingLabel = TextOf(Child(node, "label"));
+  this.LowerStatement(Child(node, "statement"));
+  this.PendingLabel = "";
   return;
 }
 if (kind === "ForStatement") {
@@ -2081,6 +2110,10 @@ return window + 1;
 
 ```ts
 const context = new LoopContext(isLoop, continueTarget);
+// **吃掉待用标签**（`outer: for (…)`）：消费方负责清空——不清的话，下一个没有标签的循环
+// 会继承上一个标签（`break outer` 于是跳到毫不相干的循环去）。
+context.Label = this.PendingLabel;
+this.PendingLabel = "";
 this.Loops.push(context);
 return context;
 ```
@@ -2113,15 +2146,24 @@ for (let i = 0; i < context.Continues.length; i++) {
 if (this.FinallyDepth > 0) {
   throw new Error("unimplemented: break inside a try with finally (it would skip the finally)");
 }
-if (OptionalChild(node, "label") !== null) {
-  throw new Error("unimplemented: labeled break");
-}
-if (this.Loops.length === 0) {
+const labelNode = OptionalChild(node, "label");
+let index = this.Loops.length - 1;
+if (labelNode !== null) {
+  // **带标签的 `break`**：从里往外找**同名**那一层。它可以是循环，也可以是 `switch`
+  // （标签就是给「跳出某一层」用的，是什么语句无关）。
+  const label = TextOf(labelNode);
+  while (index >= 0 && this.Loops[index].Label !== label) {
+    index = index - 1;
+  }
+  if (index < 0) {
+    throw new Error("unknown label `" + label + "` (the parser should have rejected this)");
+  }
+} else if (this.Loops.length === 0) {
   throw new Error("break outside a loop or switch (the parser should have rejected this)");
 }
-const index = this.Here();
+const at = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
-this.Loops[this.Loops.length - 1].AddBreak(index);
+this.Loops[index].AddBreak(at);
 ```
 
 ## method LowerContinue:(node:AstNode)=>void
@@ -2135,15 +2177,25 @@ this.Loops[this.Loops.length - 1].AddBreak(index);
 if (this.FinallyDepth > 0) {
   throw new Error("unimplemented: continue inside a try with finally (it would skip the finally)");
 }
-if (OptionalChild(node, "label") !== null) {
-  throw new Error("unimplemented: labeled continue");
-}
+const labelNode = OptionalChild(node, "label");
 let index = this.Loops.length - 1;
-while (index >= 0 && !this.Loops[index].IsLoop) {
-  index = index - 1;
-}
-if (index < 0) {
-  throw new Error("continue outside a loop (the parser should have rejected this)");
+if (labelNode !== null) {
+  // **带标签的 `continue` 只认循环**：`switch` 也能带标签，但它不是循环——
+  // 对它 `continue` 在 JS 里是语法错误，所以这里必须同时看 `IsLoop`。
+  const label = TextOf(labelNode);
+  while (index >= 0 && !(this.Loops[index].IsLoop && this.Loops[index].Label === label)) {
+    index = index - 1;
+  }
+  if (index < 0) {
+    throw new Error("unknown loop label `" + label + "` (the parser should have rejected this)");
+  }
+} else {
+  while (index >= 0 && !this.Loops[index].IsLoop) {
+    index = index - 1;
+  }
+  if (index < 0) {
+    throw new Error("continue outside a loop (the parser should have rejected this)");
+  }
 }
 const jump = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
