@@ -29,11 +29,30 @@ import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from ".
 
 # type ValueThunk = ()=>Value
 
-# type ErrorFactory = (text:string)=>Value
+# type ErrorFactory = (kind:number, text:string)=>Value
 
 一段「算出个值」的代码，给 `Guard` 用（见那一节）。
 
-**右侧是原文**（`# type` 的规矩）：所以这里写的是宿主的类型写法，不是中立类型。
+**右侧是原文**（`# type` 的规矩）：所以这里写的是宿主的类型写法，不是中立类型——
+`kind` 那一格写的是 **`number`** ✗，不是 `int` ✓（第一版写成 `int`，
+编译期报「Cannot find name 'int'」✓，位置正好在这一行 ✓——**这条规矩只有踩过才记得住** ✓）。
+
+# const ErrorKindGeneric:int = 0
+
+**一次普通的失败**（第 139 轮）——默认那一档 ✓。
+
+# const ErrorKindType:int = 1
+
+**一次「类型」失败**（第 139 轮）：`null.y` ✓、`undefined[0]` ✓、`x` 不是函数却调用它 ✓——
+JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语言层的事** ✗。
+
+**引擎只报「这是哪一类失败」** ✓（这是引擎-level 的事实 ✓：它知道自己在做类型检查 ✓），
+**语言层把它翻成名字** ✓（`TypeError` / `Error` ✓）——与 `PrototypeKey`（名字由语言层给 ✓）、
+`SetErrorFactory`（错误长什么样由语言层定 ✓）是**同一条分界** ✓。
+
+**为什么不能直接传名字** ✗：引擎一旦认识 `"TypeError"` 这几个字母 ✓，
+换一门语言（Python 的 `TypeError` 也是这个名字，但 Dart 不是 ✓）就得改引擎 ✓——
+而这一层存在的全部意义就是「引擎不认识语言」✓。
 
 # type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker)=>Value
 
@@ -1213,7 +1232,10 @@ if (id === RtOp.GetProp) {
     if (builtinProtoValue > 0) return Value.FromObject(builtinProtoValue);
   }
   const propProtos = this.Protos;
-  return this.Guard(() => GetProperty(this.Room(), this.Native(), propProtos, this.Table, propReceiver, propKey));
+  // **读 `null` / `undefined` 的属性是「类型失败」** ✓（第 139 轮）：
+  // JS 那边这一类全是 `TypeError` ✓——`kind` 那一格就是给它留的 ✓。
+  return this.Guard(() => GetProperty(this.Room(), this.Native(), propProtos, this.Table, propReceiver, propKey),
+    ErrorKindType);
 }
 if (id === RtOp.SetProp) {
   RequireArgc(argc, 3, "set_prop");
@@ -1273,7 +1295,7 @@ if (id === RtOp.GetIndex) {
     const what = indexReceiver.Tag === ValueTag.Null ? "null" : "undefined";
     return this.Guard(() => {
       throw new Error("cannot read properties of " + what);
-    });
+    }, ErrorKindType);
   }
   if (indexReceiver.Tag === ValueTag.String) {
     return GetIndex(this.Table, indexReceiver, slots[base + 1]);
@@ -1796,10 +1818,14 @@ for (let i = 0; i < this.ConstructorProtos.length; i = i + 2) {
 return 0;
 ```
 
-## method Guard:(body:ValueThunk)=>Value
+## method Guard:(body:ValueThunk, kind:int = ErrorKindGeneric)=>Value
 
 把 rt 层的异常分成三类：**资源上限** → 机器的状态 ✓、**装了错误工厂的其它异常** →
 **脚本站内异常** ✓（第 127 轮）、**其余** → 照旧冒出去 ✓（引擎 bug 要响 ✓）。
+
+**`kind` 是「这是哪一类失败」** ✓（第 139 轮 ✓）——默认 `ErrorKindGeneric` ✓，
+**类型失败**的调用点传 `ErrorKindType` ✓（`null.y` ✓、`undefined[0]` ✓、调一个不是函数的值 ✓）。
+**引擎不认识 `"TypeError"` 这几个字母** ✗（见 `ErrorKindType` 那一段 ✓）。
 
 **为什么「其余」也要分** ✗：第 125 轮那条边界——`a + b` 两边都是变量、
 运行期一边是对象时，引擎的 `RtAdd` 会抛 ✓；而那一抛**从 `Run()` 直接冒出来** ✗，
@@ -1824,7 +1850,7 @@ try {
   }
   // **其余一律试着抬成脚本站内异常**（第 127 轮）：装了工厂才抬 ✓。
   if (this.MakeError !== null) {
-    this.DoThrow(this.MakeError(this.HostText(error)));
+    this.DoThrow(this.MakeError(kind, this.HostText(error)));
     return Value.Undefined();
   }
   throw error;

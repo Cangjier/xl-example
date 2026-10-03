@@ -6,11 +6,12 @@ import { TextContext } from "./typescript/text-context.xl.md"
 import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
-import { GlobalNames, BuildGlobals, TextFrom, LogSink, NewError } from "./typescript-exec/builtins/globals.xl.md"
+import { GlobalNames, BuildGlobals, TextFrom, LogSink, NewError, NewErrorLike } from "./typescript-exec/builtins/globals.xl.md"
 import { ValueText } from "./typescript-exec/builtins/text.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
 import { Value, ValueTag } from "./runtime/value.xl.md"
+import { ErrorKindType } from "./runtime/vm.xl.md"
 import { HeapTable } from "./runtime/heap.xl.md"
 import { RoomChecker } from "./runtime/rt.xl.md"
 import { SetProperty } from "./runtime/props.xl.md"
@@ -274,7 +275,14 @@ InstallBuiltins(host, protos);
 // **错误工厂**（第 127 轮）：rt 层的失败（`a + b` 遇到对象那种 ✓）也变成**脚本接得住**的异常 ✓——
 // 用的是**同一个** `NewError` ✓，所以「宿主函数失败」与「rt 层失败」在脚本看来是一种东西 ✓。
 // 少了这一行，`try { left + right } catch { … }` 里的 `catch` 走不到 ✗（判据现场那一条 ✓）。
-host.Machine.SetErrorFactory((text) => NewError(host.Machine.Room(), table, protos, text));
+//
+// **`kind` 那一格是第 139 轮加的** ✓：引擎报「这是哪一类失败」✓，
+// **这一行把它翻成名字** ✓（`ErrorKindType` → `TypeError` ✓）——
+// 于是 `try { null.y } catch (e) { e instanceof TypeError }` 与 Node 一致 ✓。
+// **引擎仍然不认识 `"TypeError"` 这几个字母** ✗（那一格是数字 ✓，见 `ErrorKindType` ✓）。
+host.Machine.SetErrorFactory((kind, text) => (kind === ErrorKindType
+  ? NewErrorLike(host.Machine.Room(), table, protos, protos.TypeError, "TypeError", text)
+  : NewError(host.Machine.Room(), table, protos, text)));
 host.InstallHost((target, self, args, room) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
   // **宿主这条通道的兜底**（第 121 轮）：内建（或客户能力）失败时，把**宿主异常**

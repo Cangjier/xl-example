@@ -76,7 +76,7 @@ const { IdTable, Encode, Decode, Verify, Load, LoadIssue, LoadedProgram } = veri
 const { IsKnownOp, WindowOk, FallsThrough, IssueVersion, IssueIdTable, IssueEmpty, IssueUnknownOp } = verifyMod;
 const { IssueOperand, IssueTarget, IssueFallThrough, IssueHandler, IssueFunction, IssueConst } = verifyMod;
 const vmMod = require(path.join(root, "build", "ts", "runtime", "vm.js"));
-const { Vm, VmStatus } = vmMod;
+const { Vm, VmStatus, ErrorKindGeneric, ErrorKindType } = vmMod;
 const rtMod = require(path.join(root, "build", "ts", "runtime", "rt.js"));
 const { RtAdd, RtCmpEqStrict, RtCmpEqLoose } = rtMod;
 const propsMod = require(path.join(root, "build", "ts", "runtime", "props.js"));
@@ -6069,6 +6069,43 @@ check("三族各自的 `prototype` 与 `constructor`：一条语义、两种接�
   const sameRes = RunSources(sameRequest, (text) => same.push(text), () => null);
   eq(sameRes.Outcome, HostOutcome.Ok, "运行器：" + sameRes.Message);
   eq(same[0], "true true true", "句柄同一（`constructor` 用的是全局那一份）");
+});
+
+console.log("");
+console.log("=== 第 139 轮：引擎抛的也是 TypeError（失败类别那一格）===");
+
+check("`Guard` 的失败类别：引擎报「哪一类」，语言层翻成名字", () => {
+  // **端到端那一把在 `cases/31-engine-type-errors.ts`**（5 行逐字节 ✓）。
+  // 这里钉的是**那一格本身**：`ErrorKindGeneric = 0` / `ErrorKindType = 1` ✓——
+  // **引擎不认识 `"TypeError"` 这几个字母** ✗（它只报类别 ✓，与 `PrototypeKey` 同一条分界 ✓）。
+  eq(ErrorKindGeneric, 0, "普通失败那一档");
+  eq(ErrorKindType, 1, "类型失败那一档");
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const seen = [];",
+    "try { const o = null; seen.push(o.x); } catch (e) { seen.push(e.name); }",
+    "try { const u = undefined; seen.push(u[0]); } catch (e) { seen.push(e.name); }",
+    "try { throw new Error('generic'); } catch (e) { seen.push(e.name); }",
+    "try { throw new TypeError('typed'); } catch (e) { seen.push(e.name); }",
+    "console.log(seen.join(','));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "TypeError,TypeError,Error,TypeError",
+    "引擎抛的两处是 `TypeError`、脚本抛的各是各的");
+  // **`instanceof` 两条都对** ✓：`TypeError` 认自己、也认 `Error` ✓（第 137 轮铺的链 ✓）。
+  const chain = [];
+  const chainRequest = new RunRequest();
+  chainRequest.Sources = [[
+    "try { const o = null; o.x; } catch (e) {",
+    "  console.log(e instanceof TypeError, e instanceof Error, e instanceof RangeError); }",
+  ].join("\n")];
+  chainRequest.Entry = "";
+  const chainRes = RunSources(chainRequest, (text) => chain.push(text), () => null);
+  eq(chainRes.Outcome, HostOutcome.Ok, "运行器：" + chainRes.Message);
+  eq(chain[0], "true true false", "`TypeError` 认自己与 `Error`、不认 `RangeError`");
 });
 
 console.log("");

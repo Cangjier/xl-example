@@ -13,30 +13,33 @@
 
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
-| **引擎**（`runtime/`） | **~95%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；**第 138 轮 `Protos` 加到十格**（三格错误 + `Map` / `Set` / `Date` ✓，都是常驻根 ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
+| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 138 轮 `Protos` 加到十格 ✓；**第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」** ✓（引擎报类别、语言层翻名字 ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
 | **降级层**（本目录） | **~95%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；缺 `new C(...xs)` 与 `super(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~78%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；**第 138 轮 `Map` / `Set` / `Date` 各自的 `prototype` 与 `constructor`** ✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法（`hasOwnProperty` 那些）、`Map` / `Set` 的**内部槽**（所以 `Object.keys(new Map())` 不是 0 ✗） |
-| **端到端**（普通 `.ts` 文件） | **~98%** | 30 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、**三族集合的原型格**）；**已知的十个拦路虎都关掉了** ✓，下一个是**错误「种类」的引擎那一侧**与**内建构造函数上的 `super()`**（见「下一步」） |
+| **标准库**（`builtins/`） | **~78%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮 `Map` / `Set` / `Date` 的 `prototype` 与 `constructor` ✓；**第 139 轮错误工厂按「失败类别」造 `TypeError`** ✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法（`hasOwnProperty` 那些）、`Map` / `Set` 的**内部槽** |
+| **端到端**（普通 `.ts` 文件） | **~98%** | 31 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、**引擎抛的 `TypeError`**）；**已知的十一个拦路虎都关掉了** ✓，下一个是**「不是函数却调用」也算 `TypeError`**与**内建构造函数上的 `super()`**（见「下一步」） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 188 条 / `runtime:cli` 30 份 ✓）。
+与语料数（`runtime:check` 189 条 / `runtime:cli` 31 份 ✓）。
 
-**下一步（第 138 轮收尾时看着的）**：
+**下一步（第 139 轮收尾时看着的）**：
 
-1. **错误「种类」的引擎那一侧** ✗：`try { null.y } catch (e) { e instanceof TypeError }` 现在是
-   `false` ✗（Node 是 `true` ✓）——引擎抛的走错误工厂 ✓、**接得住** ✓，
-   但工厂**只带一句话、不带种类** ✗。候选是把 `Guard` 与 `ErrorFactory` 都加一格
-   **失败的类别** ✓（引擎知道「这是一次类型失败」✓，语言层知道「它叫 `TypeError`」✓——
-   与 `PrototypeKey` 同一条分界 ✓）。
-2. **内建构造函数上的 `super()`** ✗：`class X extends Error` / `extends Map` 现在**响亮地抛** ✓
+1. **「不是函数却调用它」也算 `TypeError`** ✗：`x()` 里 `x` 不是函数时，本仓抛的是
+   `unimplemented: calling a non-closure value` ✓——它走**指令那一层**的 `Guard` ✓
+   （一处包住整条指令 ✓），那一层**分不出**「类型失败」与「别的失败」✗。
+   要分就得让 `DoCallValue` 自己带类别 ✓（把 `throw` 换成一条带类别的路 ✓）——
+   与 `ErrorKindType` 那一格是同一件事 ✓，只是**换一层** ✓。
+2. **话里带上键名** ✗：Node 说 `Cannot read properties of null (reading 'x')` ✓，
+   本仓说 `cannot read properties of null` ✓。要带上，得把**那个键值**递给工厂 ✓
+   （工厂是语言层 ✓，认得 `TextFrom` ✓；而引擎侧不许把值渲染成文本 ✗，
+   见 `host-text.xl.md` 的纪律 ✓）——**这是签名上的一格** ✓，不难但要动三处 ✓。
+3. **内建构造函数上的 `super()`** ✗：`class X extends Error` / `extends Map` 现在**响亮地抛** ✓
    （第 137 轮特意留的 ✓）——`super(m)` 落在内建构造函数上时，那一族是
    「自己造一个新对象返回」那一款 ✓，于是新对象被丢掉 ✓、`this` 上一个属性都没写 ✗。
    要真做得让内建构造函数支持「往传进来的 `this` 上初始化」✓。
-3. **`Map` / `Set` 的内部槽** ✗：`Object.keys(new Map())` 在本仓给 12 ✗（Node 给 0 ✓）——
-   方法挂在实例上 ✓、`__k` / `__v` / `size` 也是自有属性 ✓。这是**值模型的结构差** ✓
-   （没有内部槽那一层 ✓），要么加内部槽 ✓，要么把方法搬去原型 ✓（后者只解决一半 ✓）。
-4. **`new C(...xs)` / `super(...xs)`** ✗：给 `CallArray` 补「构造目标」那一个操作数 ✓。
+4. **`Map` / `Set` 的内部槽** ✗：`Object.keys(new Map())` 在本仓给 12 ✗（Node 给 0 ✓）——
+   方法挂在实例上 ✓、`__k` / `__v` / `size` 也是自有属性 ✓。这是**值模型的结构差** ✓。
+5. **`new C(...xs)` / `super(...xs)`** ✗：给 `CallArray` 补「构造目标」那一个操作数 ✓。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
@@ -232,6 +235,41 @@ typescript-exec/
 所以 C++ 那一份**欠着** ✗：按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发
 （**没改动的部件照抄旧产物** ✓，真要改写的只有几十处 ✓）。
 **它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），所以它排在「能跑更多普通程序」后面 ✓。
+
+## 第 139 轮的账（引擎抛的也是 `TypeError`）
+
+第 136 轮让「读 `null` / `undefined` 的属性」**抛** ✓、也**接得住** ✓，
+第 137 轮把 `TypeError` 这个类做出来了 ✓——差的只剩**最后一格**：
+引擎报「这是哪一类失败」✗。
+
+| 改哪 | 加什么 |
+| --- | --- |
+| `# type ErrorFactory` | `(text) => Value` → **`(kind:number, text:string) => Value`** ✓ |
+| `# const ErrorKindGeneric / ErrorKindType` | `0` / `1` ✓——**引擎报的是类别，不是名字** ✗ |
+| `Guard:(body, kind = ErrorKindGeneric)` | 默认那一档不变 ✓，**类型失败**的调用点传 `ErrorKindType` ✓ |
+| `tsrun` 的错误工厂 | `kind === ErrorKindType` → `NewErrorLike(… protos.TypeError, "TypeError" …)` ✓，否则 `Error` ✓ |
+
+**为什么引擎传的是数字、不是 `"TypeError"`** ✗：引擎一旦认识那几个字母，
+换一门语言就得改引擎 ✓——而这一层存在的全部意义就是「引擎不认识语言」✓。
+与 `PrototypeKey`（名字由语言层给 ✓）、`RegisterConstructorProto`（号 → 原型由语言层填 ✓）
+是**同一条分界** ✓。
+
+**一处编译期的教训** ✓：`# type` 的右侧是**原文**（宿主的类型写法 ✓）——
+第一版把 `kind` 写成 `int` ✗，编译期报「Cannot find name 'int'」✓，
+位置正好在那一行 ✓。这条规矩只有踩过才记得住 ✓（已写进那一节 ✓）。
+
+语料 [tests/runtime/cases/31-engine-type-errors.ts](../tests/runtime/cases/31-engine-type-errors.ts)
+**5 行 stdout 与 `node` 逐字节相同** ✓——引擎抛的两处 `e.name` 现在是 `"TypeError"` ✓、
+`e instanceof TypeError` 与 `e instanceof Error` 都为真 ✓，而脚本自己 `throw` 的那种
+**各不相同** ✓（`TypeError` / `Error` 各是各的 ✓）。
+
+**两笔明账**（都进了「下一步」✓）：
+
+- **话里没有键名** ✗：Node 说 `Cannot read properties of null (reading 'x')` ✓，
+  本仓说 `cannot read properties of null` ✓——要带上键名得把**那个键值**递给工厂 ✓
+  （工厂是语言层 ✓ 认得 `TextFrom` ✓；引擎侧不许把值渲染成文本 ✗，见 `host-text.xl.md` ✓）。
+- **「不是函数却调用」还没算类型失败** ✗：它走**指令那一层**的 `Guard` ✓（一处包住整条指令 ✓），
+  那一层分不出类别 ✗——要分就得让 `DoCallValue` 自己带类别 ✓。
 
 ## 第 138 轮的账（`Map` / `Set` / `Date` 的原型格）
 

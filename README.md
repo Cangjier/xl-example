@@ -66,9 +66,11 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 `[] instanceof Array` · `e instanceof Error` / `TypeError` / `RangeError` ·
 `Array.prototype.constructor` 那三条链——原来**整族 `instanceof` 都是红的**）
 + **`Map` / `Set` / `Date` 的原型格**（第 138 轮：`new Map() instanceof Map` ·
-`new Date() instanceof Date` · `new Map().constructor === Map`），
+`new Date() instanceof Date` · `new Map().constructor === Map`）
++ **引擎抛的也是 `TypeError`**（第 139 轮：`Guard` 与 `ErrorFactory` 各加一格**失败类别**——
+引擎报「哪一类失败」、语言层翻成名字，于是 `try { null.y } catch (e) { e instanceof TypeError }` 与 Node 一致），
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（188 条）与 `npm run runtime:cli`（30 份语料）；
+判据见 `npm run runtime:check`（189 条）与 `npm run runtime:cli`（31 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。
