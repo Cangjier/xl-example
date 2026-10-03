@@ -3626,7 +3626,10 @@ check("Date：时间由宿主喂（建库层没有时钟接口）；没接时钟
   // **`new Date(ms)` 这一半还没做**（台账里记着原因与两条候选修法）：
   // 失败消息必须**说清是什么形状不支持**，而不是「calling a non-closure value」。
   // 注意它是**运行期**抛的（降级期看不出来——这一轮我先把它写错在降级期了）。
-  const ctorCase = lowerAndLoad("function make() { return new Date(1); }", GlobalNames());
+  // **`new Date(ms)` 第 114 轮做出来了** ✗→✓：它由降级层落成一条内部调用，
+  // 所以这一条改用**真正的普通对象**来测「对象当构造函数」这条规则 ✓
+  // （失败消息必须**说清是什么形状不支持**，而不是「calling a non-closure value」✓）。
+  const ctorCase = lowerAndLoad("function make() { const o = { x: 1 }; return new o(); }", GlobalNames());
   ctorCase.host.Evaluate([BuildGlobals(ctorCase.host.Machine, ctorCase.host.Machine.Protos, sink)]);
   let objectAsCtor = "";
   try {
@@ -4409,6 +4412,47 @@ check("Set：keys() 等同 values() + entries() 给 [值, 值] 对 + clear()", (
     } else {
       eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
     }
+  }
+});
+
+check("Date：new Date(毫秒) + getTime/UTC 日历三件（UTC 口径；大毫秒用运行时算，绕开 i32 字面量）", () => {
+  // 第 114 轮。**两条已知差异**都钉在这条判据里：
+  //   ① `Date` 是普通对象（能挂 `now`），**不能被 `new`** —— 所以 `new Date(...)` 由降级层
+  //      落成一条内部调用 ✓；`const D = Date; new D(0)` **不支持** ✗（这里不测它 ✓）。
+  //   ② **整数字面量是 i32** ✗：几百亿以上的毫秒写不进源码（与「浮点不能写成源码字面量」同族）——
+  //      所以这里的大毫秒用**运行时算术**造（`86400000 * 19723` ✓），而不是写一个长字面量 ✓。
+  // 时间**由宿主决定**（`Date.now()` 那条老规矩 ✓）：这条判据只用 `new Date(毫秒)` 这条纯函数路 ✓。
+  const source = [
+    "function run() {",
+    "  const a = new Date(0);",
+    "  const b = new Date(86400000);",
+    "  const big = 86400000 * 19723;",
+    "  const c = new Date(big);",
+    "  return [a.getTime(), b.getUTCFullYear(), c.getUTCFullYear(), c.getUTCMonth(),",
+    "    c.getUTCDate(), b.getTime()];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const a = new Date(0);
+    const b = new Date(86400000);
+    const c = new Date(86400000 * 19723);
+    return [a.getTime(), b.getUTCFullYear(), c.getUTCFullYear(), c.getUTCMonth(),
+      c.getUTCDate(), b.getTime()];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 0, "Node：纪元是 0（前提）");
+  eq(expected[1], 1970, "Node：86400000 毫秒是 1970-01-02（前提）");
+  eq(expected[2], 2024, "Node：大毫秒落在 2024（前提：86400000×19723 天 ≈ 54 年）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
   }
 });
 

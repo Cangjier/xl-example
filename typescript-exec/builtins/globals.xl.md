@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
-import { SetProperty, NativeCall, Protos, NewPlainObject } from "../../runtime/props.xl.md"
+import { SetProperty, NativeCall, Protos, NewPlainObject, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr } from "./array.xl.md"
 import { MapCtor } from "./map.xl.md"
@@ -62,6 +62,28 @@ import { SetCtor } from "./set.xl.md"
 
 **没接这一号的宿主会收到 `unimplemented: builtin id 260`**——响亮地失败，
 而不是给一个假时间（那会破坏确定性，而且要到很久以后才显形）。
+
+# const DateCtor:int = 265
+
+**`new Date(毫秒)`** 的能力号（第 114 轮补）。
+
+**它不是全局段里那条 `Date.now` 的路**：`Date.now()` 走的是**普通对象属性** ✓
+（`BuildGlobals` 把 `ClockNow` 挂成一个属性 ✓），而 `new Date(...)` 在 JS 里是**构造**。
+两者在值模型里**今天不能同时成立**——这门语言的 `Date` 是个普通对象 ✓（能挂属性、**不能被 `new`** ✗）。
+所以这一支**由降级层落地**：`new Date(毫秒)` 被降级成一条 `host_call(265, 毫秒)` ✓
+（降级层本来就认识全局名 `Date` ✓，与 `for..in` 落成 `Object.keys` 是同一套做法 ✓）。
+**已知差异**（写在明处）：只有**直接写 `Date`** 这一支 ✓；`const D = Date; new D(0)` ✗。
+**另一个已知差异**：**几百亿以上的毫秒值写不进源码** ✗——整数字面量是 i32 ✓
+（与「浮点不能写成源码字面量」同族 ✓）。要喂大值就**用运行时算出来** ✓。
+
+# const DateGetTime:int = 266
+`getTime()` 的号（返回毫秒）。
+# const DateGetUTCFullYear:int = 267
+`getUTCFullYear()` 的号（**UTC**——这一层不碰时区数据 ✓，明确的范围决定 ✓）。
+# const DateGetUTCMonth:int = 268
+`getUTCMonth()` 的号（**0 起**，与 JS 一致 ✓）。
+# const DateGetUTCDate:int = 269
+`getUTCDate()` 的号（**1 起**，与 JS 一致 ✓）。
 
 # const ObjectKeys:int = 401
 
@@ -192,6 +214,36 @@ if (id === JsonStringify) {
   if (!room(ObjectCharge + CodeUnitCharge * rendered.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(rendered)));
 }
+if (id === DateCtor) {
+  // **`new Date(毫秒)`**（降级层直接落成这一条 `host_call`，见 `DateCtor` 的说明）。
+  // 实例是一个**普通对象** ✓：毫秒存在 `__t` 里 ✓，方法**挂在实例自己身上** ✓
+  // （与 `Map` 同一套配方——不必给引擎加 `Protos.Date`，也不必让引擎认识 `Date` ✓）。
+  const created = NewPlainObject(room, table, protos);
+  const ms = args.length > 0 ? args[0] : Value.FromInt(0);
+  if (!ms.IsNumber()) throw new Error("unimplemented: new Date(x) needs a number of milliseconds");
+  SetProperty(room, NeverCall, table, created,
+    Value.FromString(table.CreateString(Units("__t"))), ms);
+  const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate];
+  const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate"];
+  for (let i = 0; i < methodIds.length; i++) {
+    SetProperty(room, NeverCall, table, created,
+      Value.FromString(table.CreateString(Units(methodNames[i]))),
+      Value.FromRef(ValueTag.HostRef, table.CreateHostRef(methodIds[i], 0)));
+  }
+  return created;
+}
+if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
+  || id === DateGetUTCDate) {
+  // **实例方法**：先从 `__t` 取毫秒（`self` 就是那个实例）。
+  const stored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (stored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const ms = NumericOf(table.Get(stored.Owner).Props[stored.Index].Value);
+  if (id === DateGetTime) return MathResult(ms);
+  if (id === DateGetUTCFullYear) return Value.FromInt(DateParts(ms)[0]);
+  if (id === DateGetUTCMonth) return Value.FromInt(DateParts(ms)[1]);
+  return Value.FromInt(DateParts(ms)[2]);
+}
 throw new Error("unimplemented: global builtin " + id);
 ```
 
@@ -210,6 +262,31 @@ for (let i = 0; i < units.length; i++) {
   text = text + String.fromCharCode(units[i]);
 }
 return text;
+```
+
+# method DateParts:(ms:float)=>Array<int>
+
+**毫秒 → `[年, 月, 日]`**（月 **0 起**、日 **1 起**，与 `getUTCMonth` / `getUTCDate` 一致 ✓）。
+
+用 **Howard Hinnant 的 `civil_from_days`**（无表、无时区、纯整数 ✓）——
+这一层**不碰时区数据** ✓（范围决定：`getUTC*` 一族 ✓，本地时区 ✗）。
+
+**这里每一步的除数都是非负的** ✓（`z` 加了 `719468` 之后必为正 ✓），
+所以「向下取整」与「向零截断」一致 ✓——用 `Math.floor` 是安全的 ✓。
+
+```ts
+const days = Math.floor(ms / 86400000);
+const z = days + 719468;
+const era = Math.floor(z / 146097);
+const doe = z - era * 146097;
+const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524)
+  - Math.floor(doe / 146096)) / 365);
+const y = yoe + era * 400;
+const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+const mp = Math.floor((5 * doy + 2) / 153);
+const day = doy - Math.floor((153 * mp + 2) / 5) + 1;
+const month = mp + (mp < 10 ? 3 : -9);
+return [y + (month <= 2 ? 1 : 0), month - 1, day];
 ```
 
 # method QuoteJson:(table:HeapTable, value:Value)=>string
