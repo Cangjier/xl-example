@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtCmpEqStrict } from "../../runtime/rt.xl.md"
+import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 ```
@@ -45,6 +45,12 @@ import { Vm } from "../../runtime/vm.xl.md"
 # const ArrayIndexOf:int = 4
 
 # const ArraySlice:int = 5
+# const ArrayForEach:int = 6
+`forEach(回调)` 的号——**回调脚本**（第 117 轮，与 `Map/Set.forEach` 同一条路 ✓）。
+# const ArrayMap:int = 7
+`map(回调)` 的号——`map` 能成立是因为 `NativeCall` **有返回值** ✓。
+# const ArrayFilter:int = 8
+`filter(回调)` 的号——按回调的**真假**收原值 ✓（用 `Value.AsBool()` ✓，那就是本仓的真假口径 ✓）。
 
 # method Units:(text:string)=>Array<int>
 
@@ -84,7 +90,7 @@ if (!args[index].IsNumber()) return fallback;
 return args[index].AsInt();
 ```
 
-# method InvokeArray:(room:RoomChecker, table:HeapTable, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeArray:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
 
 **数组内建的分派与实现**。
 
@@ -158,6 +164,36 @@ if (id === ArraySlice) {
   }
   return Value.FromArray(handle);
 }
+if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
+  // **回调脚本**（第 117 轮，与 `Map/Set.forEach` 同一条路 ✓）：`call` 会重入分派循环 ✓，
+  // 所以这里能跑脚本闭包；`map` 还能**收返回值**（`NativeCall` 有返回值 ✓）。
+  // `call` 也要判空：宿主没接通道时必须**响亮**说清 ✗（而不是「调用了非闭包」）。
+  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+    throw new Error("this array method needs a function and a call channel (the host must pass one)");
+  }
+  // **快照一次长度**：回调里可以改这个数组 ✓（JS 也允许），改了的下一轮才见 ✓。
+  const eachTotal = source.GetLength();
+  let collected = -1;
+  if (id !== ArrayForEach) {
+    if (!room(ObjectCharge)) throw new Error("out of room");
+    collected = table.CreateArray();
+    table.Get(collected).Proto = table.Get(self.Ref).Proto;
+  }
+  for (let i = 0; i < eachTotal; i++) {
+    const item = source.GetAt(i);
+    const answered = call(args[0], Value.Undefined(), item, true);
+    if (id === ArrayForEach) continue;
+    if (id === ArrayMap) {
+      // **`map` 收返回值** ✓（与 JS 一致）。
+      table.Get(collected).AsArray().Push(answered);
+      continue;
+    }
+    // **`filter` 按回调的真假收原值** ✓——用 `Value.AsBool()`（它就是本仓的真假口径 ✓；
+    // 不是只看布尔标签 ✗：回调返回 `1` 或 `"x"` 在 JS 里都算真 ✓。
+    if (answered.AsBool()) table.Get(collected).AsArray().Push(item);
+  }
+  return id === ArrayForEach ? Value.Undefined() : Value.FromArray(collected);
+}
 throw new Error("unimplemented: array builtin " + id);
 ```
 
@@ -182,8 +218,9 @@ throw new Error("unreachable: installing a builtin never calls a function");
 ```ts
 const table = vm.Table;
 const proto = Value.FromObject(protos.Array);
-const entries: string[] = ["push", "pop", "join", "indexOf", "slice"];
-const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice];
+const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter"];
+const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
+  ArrayMap, ArrayFilter];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

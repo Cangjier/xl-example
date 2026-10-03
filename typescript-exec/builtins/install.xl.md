@@ -30,7 +30,7 @@ import { InvokeSet } from "./set.xl.md"
 **依赖方向**：`builtins/` 依赖 `runtime/`，不反过来。所以「装库」这一步永远由
 **知道两边的那一层**（宿主 / 驱动）显式调用——`runtime/` 里不会出现 `builtins` 的名字。
 
-# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
 
 **按能力号总分派**。
 
@@ -39,7 +39,7 @@ import { InvokeSet } from "./set.xl.md"
 
 ```ts
 if (id >= 100 && id < 200) return InvokeString(room, table, id, self, args);
-if (id >= 1 && id < 100) return InvokeArray(room, table, id, self, args);
+if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
@@ -73,7 +73,7 @@ if (id === GetIteratorId) {
 }
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
-return InvokeBuiltin(room, table, id, self, args);
+return InvokeBuiltin(room, table, call, id, self, args);
 ```
 
 # const GetIteratorId:int = 702

@@ -2624,7 +2624,7 @@ check("标准库第一块：Array 原型方法（push/pop/join/indexOf/slice）�
   // 调用通道：**按能力号分派**——一个宿主函数服务全部内建
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeArray(room, table, id, self, args);
+    return InvokeArray(room, table, null, id, self, args);
   });
 
   const call = (name, args) => host.CallExport(module.ExportOf(name), args || []);
@@ -2653,7 +2653,7 @@ check("标准库第二块：String 原型方法（charAt/charCodeAt/indexOf/slic
   InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeBuiltin(room, table, id, self, args);
+    return InvokeBuiltin(room, table, null, id, self, args);
   });
 
   const call = (name, text) => host.CallExport(module.ExportOf(name),
@@ -4495,6 +4495,45 @@ check("Map/Set 的 forEach：建库层**回调脚本闭包**（靠 NativeCall �
   const expected = nodeRun();
   eq(expected[0], 3, "Node：Map 的 forEach 求和（前提）");
   eq(expected[1], 7, "Node：Set 的 forEach 求和（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
+  }
+});
+check("Array 的 forEach/map/filter：同样靠回调通道（map 收返回值、filter 按真假收原值）", () => {
+  // 第 117 轮。与 `Map/Set.forEach` 共用 **`NativeCall`** 这条通道 ✓；
+  // `map` 能成立是因为它**有返回值** ✓；`filter` 用 `Value.AsBool()`（本仓的真假口径 ✓）。
+  const source = [
+    "function run() {",
+    "  const xs = [1, 2, 3, 4];",
+    "  let sum = 0;",
+    "  xs.forEach(function (v) { sum = sum + v; });",
+    "  const doubled = xs.map(function (v) { return v * 2; });",
+    "  const big = xs.filter(function (v) { return v > 2; });",
+    "  const truthy = xs.filter(function (v) { return v; });",
+    "  return [sum, doubled[3], big.length, big[1], truthy.length];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const xs = [1, 2, 3, 4];
+    let sum = 0;
+    xs.forEach((v) => { sum = sum + v; });
+    const doubled = xs.map((v) => v * 2);
+    const big = xs.filter((v) => v > 2);
+    const truthy = xs.filter((v) => v);
+    return [sum, doubled[3], big.length, big[1], truthy.length];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 10, "Node：forEach 求和（前提）");
+  eq(expected[1], 8, "Node：map 的第四项（前提）");
+  eq(expected[2], 2, "Node：filter 留下两项（前提）");
 
   const request = new RunRequest();
   request.Sources = [source];

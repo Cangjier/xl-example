@@ -5258,3 +5258,21 @@ IdTable 内建段 638 格 → 指纹 1816
 **C++**：`map` / `set` / `install` 三个单元手工落盘 ✓（`forEach` 两支、号、名字表、装库号表、
 分派边界、`std::optional<NativeCall>` 参数 ✓）——并且**记得把 `.h` 的声明也对齐** ✓：
 我的 C++ 自检**不编译** ✓，跨文件签名不一致它抓不住 ✗（这一条记在这里当账 ✓）。
+### 第 117 轮：**`Array.forEach` / `map` / `filter`**（156/156）——同一条回调通道顺手解锁数组那一族
+
+`Map/Set.forEach`（第 116 轮）铺的那条路直接复用 ✓：`NativeCall` 由 `Vm.Native()` 包出、
+经 `InvokeWithSink` 递到 `InvokeBuiltin` → `InvokeArray` ✓。**`map` 能成立**，是因为
+`NativeCall` **有返回值** ✓；`filter` 按回调的真假收原值 ✓。
+
+**`filter` 的真假口径**：我先写了 `RtToBoolean(answered)` ✗——`tsc` 报「需要 2 个参数」✓，
+一查它的本体是 `Value.FromBool(value.AsBool())` ✓，也就是**它只是 `AsBool` 的一层包装** ✓。
+⇒ 建库层直接写 `answered.AsBool()` 才对 ✓（**少一次绕路，语义一模一样** ✓）。
+教训：**动手前先看那个函数的本体** ✓——名字听起来像「更正式的口径」不等于它做了别的事 ✓。
+
+**两处旧判据跟着签名走** ✗：它们**直接调**了 `InvokeArray` / `InvokeBuiltin` ✓，
+而我把 `call` 插在 `id` 之前 ✓ → 它们的 `id` 落进了 `call` 位 ✓，
+报出来的是 `unimplemented: builtin id [object Object]`（**离现场很远** ✓）。补两处调用点即绿 ✓。
+
+**C++**：`array` / `install` 手工落盘 ✓（三个号、签名、三支实现、装库两张表、`InvokeBuiltin` 的透传 ✓），
+并且改了一处**自检抓不到**的错 ✓：我写成 `Value::FromRef(ValueTag::Array, …)` ✗，
+规范里是 `Value::FromArray(...)` ✓——**自检不编译，这类错只能手工盯** ✓（这一条记在这里当账 ✓）。
