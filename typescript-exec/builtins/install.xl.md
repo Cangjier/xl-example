@@ -53,8 +53,8 @@ throw new Error("unimplemented: builtin id " + id);
 
 ```ts
 // **集合那一段要原型表**（它们造普通对象与数组）——`NeverCall` 是写数据属性时的现成空实现。
-// **集合段内部再分段**：610..699 是 `Set`，600..609 是 `Map`（先判窄的那一段）。
-if (id >= 610 && id < 700) return InvokeSet(room, protos, table, id, self, args);
+// **段内再分段，按窄到宽判，避免重叠**：610..659 `Set`、600..609 `Map`。
+if (id >= 610 && id < 660) return InvokeSet(room, protos, table, id, self, args);
 if (id >= 600 && id < 700) return InvokeMap(room, protos, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, id, self, args);

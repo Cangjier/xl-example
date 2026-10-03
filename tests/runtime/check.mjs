@@ -90,7 +90,7 @@ const { InstallArray, InvokeArray } = arrayBuiltins;
 const installBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "install.js"));
 const { InstallBuiltins, InvokeBuiltin, InvokeWithSink } = installBuiltins;
 const globalsBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "globals.js"));
-const { GlobalNames, BuildGlobals } = globalsBuiltins;
+const { GlobalNames, BuildGlobals, ClockNow } = globalsBuiltins;
 const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "bindings.js"));
 const { Bindings, LookupOf } = bindingsMod;
 const { RtSetProto } = require(path.join(root, "build", "ts", "runtime", "rt.js"));
@@ -3555,6 +3555,61 @@ check("Symbol：身份唯一、能当属性键、typeof 是 symbol、Object.keys
   eq(at(3).AsInt(), nodeAt[3], "o[a] 读回 1");
   eq(at(4).AsInt(), nodeAt[4], "o[b] 读回 2（两个符号是不同的键）");
   eq(at(5).AsInt(), nodeAt[5], "Object.keys 跳过符号键");
+});
+
+check("Date：时间由宿主喂（建库层没有时钟接口）；没接时钟的宿主必须响亮失败", () => {
+  const source = [
+    "function probe() {",
+    "  return Date.now();",
+    "}",
+  ].join("\n");
+  const { module, host, table } = lowerAndLoad(source, GlobalNames());
+  const sink = () => {};
+  const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
+  eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
+  InstallBuiltins(host.Machine, host.Machine.Protos);
+  // **宿主先认时钟号**——这就是「时间由宿主喂」的落点。这里给固定值，
+  // 所以判据可复现；真实宿主会给真时钟，那是**宿主的选择**，不是运行器偷读。
+  const fixedNow = 4242;
+  host.InstallHost((target, self, args, room) => {
+    const id = table.Get(target.Ref).AsHost().CapabilityId;
+    if (id === ClockNow) return Value.FromInt(fixedNow);
+    return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, sink);
+  });
+  const called = host.CallExport(module.ExportOf("probe"), []);
+  eq(called.Outcome, HostOutcome.Ok, "调 probe：" + called.Message);
+  eq(called.Value.AsInt(), fixedNow, "Date.now() 拿到的是宿主给的那个值（建库层读不到时钟）");
+
+  // **没接时钟的宿主**：必须**响亮失败**，不能给假时间。
+  const bare = lowerAndLoad(source, GlobalNames());
+  eq(bare.host.Evaluate([BuildGlobals(bare.host.Machine, bare.host.Machine.Protos, sink)]).Outcome,
+    HostOutcome.Ok, "求值模块（第二个宿主）");
+  InstallBuiltins(bare.host.Machine, bare.host.Machine.Protos);
+  bare.host.InstallHost((target, self, args, room) => InvokeWithSink(room, bare.table,
+    bare.host.Machine.Protos, bare.table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
+  let loud = "";
+  try {
+    const result = bare.host.CallExport(bare.module.ExportOf("probe"), []);
+    loud = result.Outcome + ": " + result.Message;
+  } catch (error) {
+    loud = String(error.message);
+  }
+  ok(loud.indexOf("260") >= 0, "没接时钟号的宿主必须点到 260 这个号上：" + loud);
+
+  // **`new Date(ms)` 这一半还没做**（台账里记着原因与两条候选修法）：
+  // 失败消息必须**说清是什么形状不支持**，而不是「calling a non-closure value」。
+  // 注意它是**运行期**抛的（降级期看不出来——这一轮我先把它写错在降级期了）。
+  const ctorCase = lowerAndLoad("function make() { return new Date(1); }", GlobalNames());
+  ctorCase.host.Evaluate([BuildGlobals(ctorCase.host.Machine, ctorCase.host.Machine.Protos, sink)]);
+  let objectAsCtor = "";
+  try {
+    const result = ctorCase.host.CallExport(ctorCase.module.ExportOf("make"), []);
+    objectAsCtor = result.Outcome + ": " + result.Message;
+  } catch (error) {
+    objectAsCtor = String(error.message);
+  }
+  eq(objectAsCtor.indexOf("constructor") >= 0, true,
+    "把普通对象当构造函数要给出说清原因的消息：" + objectAsCtor);
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {

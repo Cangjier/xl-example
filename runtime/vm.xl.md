@@ -815,6 +815,14 @@ if (callee.Tag === ValueTag.HostRef) {
   this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, Value.Undefined(), 0);
   return;
 }
+// **拿一个普通对象当构造函数**：JS 里有些全局名**既是对象又是构造函数**
+// （`Date.now` 是对象上的方法，`new Date(ms)` 又是构造）。这一层现在只支持两半里的一半：
+// 宿主引用可以当构造函数（上面那条），普通对象可以带属性——**两样都占的还没有**。
+// 这里给一句**说清原因**的话，而不是让它掉进「calling a non-closure value」
+// （那种消息会让人以为是调用写错了）。缺口与两条候选修法记在台账里。
+if (callee.Tag === ValueTag.Object) {
+  throw new Error("unimplemented: calling an object as a constructor (a host value that is both an object and a constructor is not supported yet)");
+}
 const created = this.Guard(() => this.CreateInstance(callee));
 if (!created.IsRef()) return;
 this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, created, created.Ref);

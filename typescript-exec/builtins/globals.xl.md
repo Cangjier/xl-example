@@ -49,6 +49,20 @@ import { SetCtor } from "./set.xl.md"
 **它不是构造函数**：JS 里 `Symbol()` **不带 `new`**（`new Symbol()` 会抛）——
 所以它只是一个普通的宿主函数值，走 `Op.Call` 那条路，和 `Map` / `Set`（走 `Op.New`）不同。
 
+# const ClockNow:int = 260
+
+**`Date.now()` 的能力号——它是一个「必须由宿主回答」的号。**
+
+**建库层不实现它**（所以这里没有它的分支）：谁把 `260` 交出去，谁就要在**自己的**
+宿主回调里先认它。这样「时间从哪来」就**只**由宿主决定：
+
+- 固定值 → 判据稳定、可复现；
+- 真实时钟 → 客户程序的正常用法（**由客户自己选择**，不是运行器偷偷读）；
+- 递增计数器 → 需要「时间会走」的测试。
+
+**没接这一号的宿主会收到 `unimplemented: builtin id 260`**——响亮地失败，
+而不是给一个假时间（那会破坏确定性，而且要到很久以后才显形）。
+
 # const ObjectKeys:int = 401
 
 `Object.keys` 的能力号（`Object` 段从 400 起）。
@@ -75,7 +89,7 @@ import { SetCtor } from "./set.xl.md"
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -339,5 +353,13 @@ SetProperty(vm.Room(), NeverCall, table, globals, setKey, setTarget);
 const symbolKey = Value.FromString(table.CreateString(Units("Symbol")));
 const symbolTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SymbolCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, symbolKey, symbolTarget);
+// `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
+// 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。
+const dateObject = NewPlainObject(vm.Room(), table, protos);
+const nowKey = Value.FromString(table.CreateString(Units("now")));
+const nowTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 0));
+SetProperty(vm.Room(), NeverCall, table, dateObject, nowKey, nowTarget);
+const dateKey = Value.FromString(table.CreateString(Units("Date")));
+SetProperty(vm.Room(), NeverCall, table, globals, dateKey, dateObject);
 return globals;
 ```
