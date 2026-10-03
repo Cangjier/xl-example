@@ -13,25 +13,32 @@
 
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
-| **引擎**（`runtime/`） | **~94%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array`（按数组铺开参数 ✓）与函数表上的 `HasRest` ✓；**第 136 轮 `iter_new` / `iter_next` 认字符串**（`for (const c of "ab")` ✓）、**字符串下标读**（`"xy"[0]` ✓）、**空值上的属性读会抛**（`null.y` ✓，脚本接得住 ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
+| **引擎**（`runtime/`） | **~95%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；**第 137 轮加了「内建构造函数 → 原型」登记表**（`instanceof` 靠它认 `Array` / `Error` ✓）与三格错误原型 ✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
 | **降级层**（本目录） | **~95%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；缺 `new C(...xs)` 与 `super(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~72%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Error` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮补上 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` · `new Map(键值对)` · `new Set(数组)` ✓；第 131 轮补上 `console.log` 的 `util.inspect` 形状 ✓；缺 `reduce` / `sort`（回调通道只带一个实参）、原始值原型（数字与布尔上的方法）、`Promise` 的组合子 |
-| **端到端**（普通 `.ts` 文件） | **~96%** | 28 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、**字符串可迭代与空值读抛**）；**已知的八个拦路虎都关掉了** ✓，下一个是**代理对（码点 vs 码元）**与**错误种类（`TypeError`）**（见「下一步」） |
+| **标准库**（`builtins/`） | **~75%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；**第 137 轮的 `Error` / `TypeError` / `RangeError` 三个构造函数 + 三格原型 + `constructor` 链** ✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法（`hasOwnProperty` 那些）、`Map` / `Set` / `Date` 自己的原型格 |
+| **端到端**（普通 `.ts` 文件） | **~97%** | 29 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、**`instanceof` 与错误家族**）；**已知的九个拦路虎都关掉了** ✓，下一个是 **`Map` / `Set` / `Date` 自己的原型格**与**错误「种类」的引擎那一侧**（见「下一步」） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 185 条 / `runtime:cli` 28 份 ✓）。
+与语料数（`runtime:check` 187 条 / `runtime:cli` 29 份 ✓）。
 
-**下一步（第 136 轮顺手量出来的三条）**：
+**下一步（第 137 轮收尾时看着的）**：
 
-1. **错误「种类」** ✗：`null.y` 现在**抛得出来、也接得住** ✓，但抛的是装了工厂的那种错误 ✓——
-   JS 那边是 `TypeError` ✓，而且话里带键名 ✓（`Cannot read properties of null (reading 'y')` ✓）。
-   缺的是「错误工厂知道种类」这一层 ✓（`e instanceof TypeError` / `e.name` ✓）——
-   它同时是 `console.log(err.stack)` 那条账的上游 ✓。
-2. **代理对（码点 vs 码元）** ✗：`for (const c of "😀")` 在 JS 里给**一个**元素 ✓，
-   本仓给**两个** ✗——与 `.length` / 下标 / `charAt` / `spread_into` 同一条口径 ✓。
-   **要改就得整层一起改** ✓（单独让迭代按码点会更糟 ✗）。
-3. **`new C(...xs)` / `super(...xs)`** ✗：给 `CallArray` 补「构造目标」那一个操作数 ✓。
+1. **`Map` / `Set` / `Date` 自己的原型格** ✗：`new Map() instanceof Map` 还抛
+   「the right side of instanceof has no prototype object」✓——它们**没有那一格** ✗
+   （实例今天挂的是 `Object.prototype` ✓）。做法与 `Error` 那三格**一模一样** ✓：
+   `Protos` 加三格 ✓、`map.xl.md` / `set.xl.md` / `Date` 造实例时挂上去 ✓、
+   `BuildGlobals` 里 `RegisterConstructorProto` ✓。**登记表那一格已经在了** ✓，这一条是纯体力 ✓。
+2. **错误「种类」的引擎那一侧** ✗：`try { null.y } catch (e) { e instanceof TypeError }` 现在是
+   `false` ✗（Node 是 `true` ✓）——引擎抛的走错误工厂 ✓、**接得住** ✓，
+   但工厂**只带一句话、不带种类** ✗。候选是把 `Guard` 与 `ErrorFactory` 都加一格
+   **失败的类别** ✓（引擎知道「这是一次类型失败」✓，语言层知道「它叫 `TypeError`」✓——
+   与 `PrototypeKey` 同一条分界 ✓）。
+3. **`class X extends Error` 还抛** ✗（**响亮地** ✓，第 137 轮特意加的 ✓）：
+   `super(m)` 落在内建构造函数上时，那一族是「自己造一个新对象返回」那一款 ✓，
+   于是新对象被丢掉 ✓、`this` 上一个属性都没写 ✗（**症状是 `e.message` 空着** ✓）。
+   要真做得让内建构造函数支持「往传进来的 `this` 上初始化」✓。
+4. **`new C(...xs)` / `super(...xs)`** ✗：给 `CallArray` 补「构造目标」那一个操作数 ✓。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
@@ -227,6 +234,58 @@ typescript-exec/
 所以 C++ 那一份**欠着** ✗：按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发
 （**没改动的部件照抄旧产物** ✓，真要改写的只有几十处 ✓）。
 **它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），所以它排在「能跑更多普通程序」后面 ✓。
+
+## 第 137 轮的账（`instanceof` 认内建构造函数 · 错误家族）
+
+第 136 轮把「错误种类（`TypeError`）」列成下一步 ✓，一进门量它——
+发现**整族 `instanceof` 都是红的** ✓：
+
+```
+[] instanceof Array              → the right side of instanceof has no prototype object
+new Map() instanceof Map         → 同一句
+new Error("x") instanceof Error  → 同一句
+```
+
+**根因**：内建构造函数是 **`HostRef` 值** ✓、**没有属性表** ✗——
+`GetProperty(它, "prototype")` 永远是 `undefined` ✗，而 `instanceof` 正是靠读那个属性找目标的 ✓。
+
+**修法是「引擎给一格、语言层填」** ✓（第 137 轮）：
+
+| 谁 | 做什么 |
+| --- | --- |
+| **引擎** | `Vm.ConstructorProtos`（**扁平的成对数组** ✓：号 → 原型句柄 ✓）+ `RegisterConstructorProto` ✓ + `ConstructorProtoOf` ✓；`instanceof` 那一支**先看右边是不是 `HostRef`** ✓，是就查登记表 ✓，不是就照旧读 `prototype` 属性 ✓ |
+| **语言层** | `BuildGlobals` 里 `vm.RegisterConstructorProto(ErrorCtor, protos.Error)` ✓ 等等；`Array` / `Object` / `String` 是**普通对象** ✓，直接挂 `prototype` 属性就行 ✓（不需要登记表 ✓） |
+
+**引擎仍然不认识 `ErrorCtor` = 280** ✓（那是建库层的约定 ✓）——
+与 `SetErrorFactory` ✓、`PrototypeKey`（名字由语言层给 ✓）是**同一条分界** ✓。
+
+**三处「一半对一半错」的坑**（都当场量到了 ✓）：
+
+1. **`Array.prototype` 那一格必须正好是 `Protos.Array`** ✗：挂一个新对象的话
+   `[] instanceof Array` 给 `false` ✓，而链上其它判断又都对 ✓；
+2. **原型链要接** ✗：`Array.prototype` / `String.prototype` / `Function.prototype`
+   自己的原型是 `Object.prototype` ✓——不接的话 `[1] instanceof Object` 给 `false` ✗
+   （而 `[] instanceof Array` 是对的 ✓，又是同一个形状 ✓）；
+3. **键要按内容比** ✗：`PrototypeKey` 那格字符串与源码里写的 `prototype` 是
+   **两个堆对象** ✓（字符串不去重 ✓），第一版**比句柄**，于是 `class X extends Error`
+   照样报同一句话 ✓——改成 `RtCmpEqStrict` ✓（按内容 ✓）才对 ✓。
+
+**错误家族**（第 137 轮）：`Error` / `TypeError` / `RangeError` 三个构造函数 ✓ +
+`Protos` 里三格原型 ✓（后两者的原型是 `Error.prototype` ✓，
+`Error.prototype` 的原型是 `Object.prototype` ✓）、
+每个原型上 `name` / `message` / `constructor` 三格 ✓、
+造出来的错误挂在**各自那一格**上 ✓（`NewErrorLike` ✓）——
+于是 `new TypeError("t") instanceof Error` 成立 ✓、`e.name` 正确 ✓。
+
+语料 [tests/runtime/cases/29-instanceof-and-errors.ts](../tests/runtime/cases/29-instanceof-and-errors.ts)
+**7 行 stdout 与 `node` 逐字节相同** ✓。
+
+**一处特意留下来的「响亮」** ✗：`class MyErr extends Error { constructor(m) { super(m) } }`
+现在**抛** ✓（「unimplemented: super(...) on a builtin constructor」✓）——
+`super(m)` 落在内建构造函数上时，那一族是「自己造一个新对象返回」那一款 ✓，
+于是新对象被丢掉 ✓、`this` 上一个属性都没写 ✗（**症状是 `e.message` 空着，
+而 `e.name` 被派生类自己写了、看着一切正常** ✓）。**静默的错值比抛糟得多** ✓，
+所以这一轮选择抛 ✓，把真正做它列进「下一步」✓。
 
 ## 第 136 轮的账（字符串可迭代 · 字符串下标 · 空值上的属性读）
 

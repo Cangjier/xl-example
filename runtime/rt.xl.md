@@ -186,20 +186,39 @@ if (prototypeKey <= 0) {
   throw new Error("instanceof needs the prototype key (the host declares it, see DeclarePrototypeKey)");
 }
 const key = Value.FromString(prototypeKey);
-const target = GetProperty(room, call, protos, table, right, key);if (!target.IsObject()) {
+const target = GetProperty(room, call, protos, table, right, key);
+if (!target.IsObject()) {
   throw new Error("the right side of instanceof has no prototype object");
 }
-if (!left.IsObject()) return Value.FromBool(false);
+return Value.FromBool(RtChainHas(table, left, target.Ref));
+```
+
+# method RtChainHas:(table:HeapTable, left:Value, targetHandle:int)=>bool
+
+**`left` 的原型链上有没有 `targetHandle` 那个对象**——`instanceof` 的第三段，
+单独提出来是因为它有**两个入口** ✓（第 137 轮）：
+
+1. **脚本给的右边**：`x instanceof C` ✓——目标从 `C.prototype` 读出来 ✓（`RtInstanceOf` ✓）；
+2. **内建构造函数**：`x instanceof Array` ✓——它们是 `HostRef` ✓，**没有属性表** ✗，
+   目标由语言层登记 ✓（`vm.xl.md` 的 `ConstructorProtos` ✓）。
+
+**两个入口共用这一条走链** ✗：各写一遍就有两处会漂 ✓，而「漂」的表现是
+「有的 `instanceof` 认、有的不认」✗（最难查的一种 ✓）。
+
+**环由 `MaxProtoDepth` 兜住** ✓（与属性查找同一个上限 ✓：环会**抛**，不会挂住 ✓）。
+
+```ts
+if (!left.IsObject()) return false;
 let depth = 0;
 let cursor = left.Ref;
 while (cursor > 0 && depth < MaxProtoDepth) {
   const proto = table.Get(cursor).Proto;
   if (proto <= 0) break;
-  if (proto === target.Ref) return Value.FromBool(true);
+  if (proto === targetHandle) return true;
   cursor = proto;
   depth = depth + 1;
 }
-return Value.FromBool(false);
+return false;
 ```
 
 # method RtSetProto:(table:HeapTable, receiver:Value, proto:Value)=>Value

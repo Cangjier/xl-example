@@ -8,7 +8,7 @@ import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
-import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, TextUnitsOf } from "./rt.xl.md"
+import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 ```
@@ -193,6 +193,21 @@ this.Pc = pc;
 
 **引擎不知道那是哪个字符串**：它只把这格句柄当键去查属性（`DoNew`）。
 给 `0` 时 `new` 一律用 `Protos.Object`——**没接上时不说谎，只是不特殊**。
+
+## field ConstructorProtos:Array<int> = []
+
+**内建构造函数 → 原型对象**那张登记表（第 137 轮），**扁平的成对数组** ✓
+（`[号, 句柄, 号, 句柄, …]` ✓）。
+
+**为什么内建构造函数需要它** ✗：它们是 `HostRef` 值 ✓，**没有属性表** ✗——
+所以 `GetProperty(它, "prototype")` 永远给 `undefined` ✗，
+`instanceof` 于是抛「the right side of instanceof has no prototype object」✓。
+**实测这一句是整族红的** ✓：`[] instanceof Array` ✓、`new Map() instanceof Map` ✓、
+`new Error("x") instanceof Error` ✓ **全都**是它 ✓——**没有一个内建构造函数**能当 `instanceof` 的右边 ✗。
+
+**为什么不让引擎认识那几个号** ✗：那是语言层的东西 ✓（`ErrorCtor` = 280 ✓ 是建库层的约定 ✓）。
+引擎只提供**一格**（号 → 原型句柄 ✓），往里写什么由语言层决定 ✓——
+与 `SetErrorFactory`（第 127 轮 ✓）、`PrototypeKey`（名字由语言层给 ✓）是同一套做法 ✓。
 
 装载时按 id 表的大小开好、**每格是空的 `Value`**；宿主随后用 `RegisterCapability` 填。
 `host_call` 只在**这一格真的是 `HostRef`** 时才发出去——所以「白名单」是两层：
@@ -1182,8 +1197,23 @@ if (id === RtOp.GetProp) {
   // **原型表要先落到一个局部常量上** ✗：`this.Protos` 是**可变的字段** ✓，
   // 所以上面那句 `=== null` 的收窄**进不了闭包** ✓（编译期报
   // 「`Protos | null` 不能当 `Protos`」✗，位置正好在这一行 ✓）。
+  const propReceiver = slots[base];
+  const propKey = slots[base + 1];
+  // **内建构造函数身上的 `prototype`**（第 137 轮）：它们是 `HostRef` ✓、**没有属性表** ✗，
+  // 所以 `class MyErr extends Error` 里读 `Error.prototype` 读到的是 `undefined` ✗，
+  // 紧接着 `set_proto` 报「set_proto needs two objects」✓（现场离「`Error` 没有属性表」
+  // 这个真相很远 ✗）。这一条把**登记表**那一格借出来 ✓——
+  // 键**按内容比**（`RtCmpEqStrict` ✓）：`PrototypeKey` 那格字符串与源码里写的
+  // `prototype` 是**两个堆对象** ✗（字符串不去重 ✓），比句柄永远不相等 ✓
+  //（第一版就是比句柄，于是 `extends Error` 照样报同一句话 ✓）。
+  if (propReceiver.Tag === ValueTag.HostRef && this.PrototypeKey > 0
+    && propKey.Tag === ValueTag.String
+    && RtCmpEqStrict(this.Table, propKey, Value.FromString(this.PrototypeKey)).AsBool()) {
+    const builtinProtoValue = this.ConstructorProtoOf(this.Table.Get(propReceiver.Ref).Host!.CapabilityId);
+    if (builtinProtoValue > 0) return Value.FromObject(builtinProtoValue);
+  }
   const propProtos = this.Protos;
-  return this.Guard(() => GetProperty(this.Room(), this.Native(), propProtos, this.Table, slots[base], slots[base + 1]));
+  return this.Guard(() => GetProperty(this.Room(), this.Native(), propProtos, this.Table, propReceiver, propKey));
 }
 if (id === RtOp.SetProp) {
   RequireArgc(argc, 3, "set_prop");
@@ -1197,8 +1227,20 @@ if (id === RtOp.Instanceof) {
   RequireArgc(argc, 2, "instanceof");
   const protosForInstanceOf = this.Protos;
   if (protosForInstanceOf === null) throw new Error("no prototype table");
+  const instanceRight = slots[base + 1];
+  // **内建构造函数走登记表**（第 137 轮）✓：它们是 `HostRef` ✓，**没有属性表** ✗，
+  // 所以下面那条「读 `prototype` 属性」的路永远读不到东西 ✗——
+  // `[] instanceof Array` / `new Error() instanceof Error` 报的都是同一句 ✓。
+  // 登记由语言层在建全局对象时做 ✓（`ConstructorProtos` 那一段写着为什么不让引擎认号 ✓）。
+  if (instanceRight.Tag === ValueTag.HostRef) {
+    const instanceId = this.Table.Get(instanceRight.Ref).Host!.CapabilityId;
+    const builtinProto = this.ConstructorProtoOf(instanceId);
+    if (builtinProto > 0) {
+      return Value.FromBool(RtChainHas(this.Table, slots[base], builtinProto));
+    }
+  }
   return this.Guard(() => RtInstanceOf(this.Room(), this.Native(), protosForInstanceOf, this.Table,
-    this.PrototypeKey, slots[base], slots[base + 1]));
+    this.PrototypeKey, slots[base], instanceRight));
 }
 if (id === RtOp.DelProp) {
   RequireArgc(argc, 2, "del_prop");
@@ -1723,6 +1765,35 @@ if (error !== null && error !== undefined && typeof error === "object" && "messa
   return String((error as any).message);
 }
 return String(error);
+```
+
+## method RegisterConstructorProto:(id:int, handle:int)=>void
+
+**登记一个内建构造函数的原型**（第 137 轮）——语言层在建全局对象时调它 ✓
+（`ConstructorProtos` 那一段写着为什么 ✗）。
+
+**同一个号登记两次就以最后一次为准** ✓（后写覆盖先写 ✓）：那样重跑一遍
+`BuildGlobals` 不会把表越拉越长 ✓。
+
+```ts
+for (let i = 0; i < this.ConstructorProtos.length; i = i + 2) {
+  if (this.ConstructorProtos[i] !== id) continue;
+  this.ConstructorProtos[i + 1] = handle;
+  return;
+}
+this.ConstructorProtos.push(id);
+this.ConstructorProtos.push(handle);
+```
+
+## method ConstructorProtoOf:(id:int)=>int
+
+这个号登记过原型没有；没登记给 `0` ✓（调用方据此退回「读 `prototype` 属性」那条路 ✓）。
+
+```ts
+for (let i = 0; i < this.ConstructorProtos.length; i = i + 2) {
+  if (this.ConstructorProtos[i] === id) return this.ConstructorProtos[i + 1];
+}
+return 0;
 ```
 
 ## method Guard:(body:ValueThunk)=>Value

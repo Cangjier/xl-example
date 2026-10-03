@@ -5990,5 +5990,53 @@ check("读 `null` / `undefined` 的属性要抛，而且脚本接得住", () => 
 });
 
 console.log("");
+console.log("=== 第 137 轮：instanceof 认内建构造函数 · 错误家族 ===");
+
+check("内建构造函数的 `prototype`：`[] instanceof Array` 与 `e instanceof Error`", () => {
+  // **这一轮进门量到的是一整族红** ✓：`[] instanceof Array` ✓、`new Map() instanceof Map` ✓、
+  // `new Error("x") instanceof Error` ✓ 报的都是同一句
+  // 「the right side of instanceof has no prototype object」✗——
+  // 因为内建构造函数是 **`HostRef` 值** ✓、**没有属性表** ✗。
+  // 端到端那一把在 `cases/29-instanceof-and-errors.ts` ✓；这里量**引擎那一格** ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const seen = [];",
+    "seen.push([] instanceof Array, {} instanceof Object, [1] instanceof Object);",
+    "const e = new TypeError('t');",
+    "seen.push(e instanceof TypeError, e instanceof Error, e instanceof RangeError);",
+    "seen.push(new Error('p') instanceof Error, Error.prototype.name, Object.prototype === Array.prototype);",
+    "seen.push([].constructor === Array, ({}).constructor === Object);",
+    "console.log(seen.join(','));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "true,true,true,true,true,false,true,Error,false,true,true",
+    "整族 `instanceof` 与两条 `constructor` 链");
+  // **`x instanceof 42` 照旧响亮地抛** ✓（JS 也是 `TypeError` ✓）——
+  // 登记表那一条**只认 `HostRef`** ✓，其余右边照旧走「读 `prototype` 属性」那条老路 ✓。
+  const bad = new RunRequest();
+  bad.Sources = ["const r = 1 instanceof 42;"];
+  bad.Entry = "";
+  const badRes = RunSources(bad, () => {}, () => null);
+  ok(badRes.Outcome !== HostOutcome.Ok, "右边不是对象时照旧抛");
+});
+
+check("登记表是「引擎给一格、语言层填」：`ConstructorProtoOf` 的语义", () => {
+  // **引擎不认识 `ErrorCtor` = 280** ✓（那是建库层的约定 ✓）——它只有一格
+  // 「号 → 原型句柄」✓，往里写什么由语言层决定 ✓（与 `SetErrorFactory` 同源 ✓）。
+  // 这里直接量那一格：**登记过的给句柄、没登记的给 `0`** ✓（调用方据此退回老路 ✓）。
+  const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 1000);
+  eq(machine.ConstructorProtoOf(280), 0, "没登记之前是 0");
+  machine.RegisterConstructorProto(280, 77);
+  eq(machine.ConstructorProtoOf(280), 77, "登记之后拿得到");
+  machine.RegisterConstructorProto(280, 78);
+  eq(machine.ConstructorProtoOf(280), 78, "**同一个号登记两次以最后一次为准**（重跑 BuildGlobals 不会把表越拉越长）");
+  eq(machine.ConstructorProtoOf(281), 0, "别的号不受影响");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

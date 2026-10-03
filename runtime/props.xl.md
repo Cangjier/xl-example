@@ -105,9 +105,31 @@ this.Index = index;
 **它是「原始值接收者」的入口**：原始值自己没有属性表（`length` 是结构属性 ✓），
 所以 `"abc".charAt(1)` 这类读写**必须**从这一条链上找——`GetProperty` 里那一段就是它。
 
+## field Error:int = 0
+
+**`Error` 的原型**（第 137 轮）。
+
+**为什么 `Error` 要在这一层有一个原型** ✗：`e instanceof Error` 要在 `e` 的原型链上
+找到 `Error.prototype` ✓——没有这一格，`instanceof` 就没有落点 ✓
+（它原来直接抛「the right side of instanceof has no prototype object」✗，
+而**内建的 `instanceof` 全都不通** ✓：`[] instanceof Array` 也是同一句话 ✓）。
+`name` / `message` / `constructor` 三个属性由建库层挂上去 ✓（这一层只管造一个空对象 ✓）。
+
+## field TypeError:int = 0
+
+**`TypeError` 的原型**（第 137 轮）——**它自己的原型是 `Error.prototype`** ✓
+（`InitProtos` 接的 ✓），所以 `e instanceof Error` 对 `TypeError` 也成立 ✓
+（JS 就是这样 ✓：`TypeError` 是 `Error` 的子类 ✓）。
+
+## field RangeError:int = 0
+
+**`RangeError` 的原型**（第 137 轮）——链与 `TypeError` 那一条一字不差 ✓。
+
 ## constructor:(objectHandle:int, arrayHandle:int, functionHandle:int, stringHandle:int)=>void
 
-记下四个句柄。
+记下四个句柄。**`Error` / `TypeError` / `RangeError` 那三格不在构造参数里** ✓：
+它们由 `InitProtos` 造好后**直接赋值** ✓（第 137 轮 ✓）——
+四个位置参数已经够多了，再往后加只会让每一处 `new Protos(...)` 都变脆 ✗。
 
 ```ts
 this.Object = objectHandle;
@@ -118,24 +140,49 @@ this.String = stringHandle;
 
 ## method AddRoots:(roots:RootSet)=>void
 
-把四个原型加进根快照。
+把原型加进根快照。
+
+**漏一格就是「整条原型链某天突然断掉」** ✗（原型对象是常驻根 ✓，
+被收掉的话 `X.prototype` 指向一个已经没了的东西 ✗）。
 
 ```ts
 if (this.Object > 0) roots.AddHandle(this.Object);
 if (this.Array > 0) roots.AddHandle(this.Array);
 if (this.Function > 0) roots.AddHandle(this.Function);
 if (this.String > 0) roots.AddHandle(this.String);
+if (this.Error > 0) roots.AddHandle(this.Error);
+if (this.TypeError > 0) roots.AddHandle(this.TypeError);
+if (this.RangeError > 0) roots.AddHandle(this.RangeError);
 ```
 
 # method InitProtos:(room:RoomChecker, table:HeapTable)=>Protos
 
-造四个空原型。**要先问 room**（要造四个堆对象）。
+造七个空原型。**要先问 room**（要造七个堆对象）。
+
+**三格 `Error` 的链是「接上去」的** ✓：`Error.prototype` 的原型是 `Object.prototype` ✓、
+`TypeError.prototype` 与 `RangeError.prototype` 的原型是 `Error.prototype` ✓
+（JS 里就是如此 ✓）——所以 `e instanceof Object` 与
+`new TypeError() instanceof Error` 都成立 ✓。
 
 ```ts
-if (!room(ObjectCharge * 4)) {
+if (!room(ObjectCharge * 7)) {
   throw new Error("out of room");
 }
-return new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
+const protos = new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
+// **数组 / 函数 / 字符串的原型也接在 `Object.prototype` 上** ✓（第 137 轮）：
+// JS 里 `Object.getPrototypeOf(Array.prototype) === Object.prototype` ✓——
+// 不接的话 `[1] instanceof Object` 给 **`false`** ✗（Node 给 `true` ✓，
+// 而 `[] instanceof Array` 却是对的 ✓——**一半对一半错**是最难查的一种 ✓）。
+table.Get(protos.Array).Proto = protos.Object;
+table.Get(protos.Function).Proto = protos.Object;
+table.Get(protos.String).Proto = protos.Object;
+protos.Error = table.CreateObject();
+table.Get(protos.Error).Proto = protos.Object;
+protos.TypeError = table.CreateObject();
+table.Get(protos.TypeError).Proto = protos.Error;
+protos.RangeError = table.CreateObject();
+table.Get(protos.RangeError).Proto = protos.Error;
+return protos;
 ```
 
 # method NeverRoom:(bytes:int)=>bool

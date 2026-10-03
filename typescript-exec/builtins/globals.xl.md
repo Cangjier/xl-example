@@ -342,8 +342,24 @@ return MathResult(Number(literal));
 
 **它造的是一个普通对象**（不是 `Map` / `Set` 那种带内部格的）✓：`message` 与 `name` 两个
 数据属性 ✓——这正好是 `RunDescribe`（命令行打印抛出的值）认的那一格 ✓。
+**原型挂在 `Protos.Error` 上** ✓（第 137 轮补）：`e instanceof Error` 靠的就是它 ✓
+（`NewError` 那一段写着为什么 ✗）。
 **没有 `stack`** ✗：那是宿主（V8）的事，这一层给不出来 ✓，也不该假装给一个。
-**没有 `instanceof Error`** ✗：那要一个 `Error.prototype` 与原型链，这一轮不做 ✓（记在台账）。
+
+# const TypeErrorCtor:int = 281
+
+**`TypeError` 的能力号**（第 137 轮）。
+
+**它比 `Error` 只多两件事** ✓：原型是**另一格** ✓（`Protos.TypeError` ✓，它自己的原型是
+`Error.prototype` ✓），以及 `name` 是 `"TypeError"` ✓。其余一字不差 ✓——
+所以两支共用一个 `NewErrorLike` ✓（复制一份的下场是「改了一处忘了一处」✗）。
+
+**为什么要它** ✗：`catch (e) { if (e instanceof TypeError) … }` 是**日常写法** ✓，
+而引擎自己抛的那些（`null.y` ✓、`undefined[0]` ✓）在 JS 里**正是 `TypeError`** ✓。
+
+# const RangeErrorCtor:int = 282
+
+**`RangeError` 的能力号**（第 137 轮）——与 `TypeError` 同款 ✓（同一支实现、换原型与名字 ✓）。
 
 # const JsonStringify:int = 501
 
@@ -385,8 +401,8 @@ return MathResult(Number(literal));
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "Array",
-  "Number", "String", "parseInt", "parseFloat"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
+  "RangeError", "Array", "Number", "String", "parseInt", "parseFloat"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -473,12 +489,28 @@ if (id === MathPow) {
   // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`NumericOf(undefined)` 会抛 ✓）。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
 }
-if (id === ErrorCtor) {
+if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor) {
   // **`new Error(msg)` 与 `Error(msg)` 同一支**（号相同、两条调用路都落到这里）✓。
+  // **三个号共用一支**（第 137 轮）✓：它们只差**原型**与**名字** ✓——
+  // 复制三份的下场是「改了一处忘了一处」✗（而症状是「`TypeError` 的 `name` 写着 `Error`」✓）。
   // **实参走「任意值 → 文本」**（第 124 轮）✓：`new Error({})` 在 JS 里得到
   // `"[object Object]"` ✓——以前这里用引擎的 `TextFrom`，那会在对象上**抛** ✗。
   const text = args.length > 0 ? ValueText(table, args[0]) : "";
-  return NewError(room, table, protos, text);
+  // **`super(m)` 落在内建构造函数上时响亮地抛** ✗（第 137 轮记下的一笔账 ✓）：
+  // `class MyErr extends Error { constructor(m) { super(m); } }` 里 `super(m)` 是
+  // **一次普通调用 + 一个接收者**（`self` 就是那个实例 ✓），而这一族内建构造函数是
+  // 「**自己造一个新对象返回**」那一款 ✓（见 `ErrorCtor` 的说明 ✓）——
+  // 于是那个新对象被丢掉 ✓、`this` 上一个属性都没写 ✗。
+  // **症状是 `e.message` 空着** ✓（而 `e.name` 被派生类自己写了、看着一切正常 ✓）——
+  // **静默的错值比抛糟得多** ✓，所以这里抛 ✓。
+  // 真要做得让内建构造函数支持「往传进来的 `this` 上初始化」✓（外带 `new.target` 那条链 ✓），
+  // 那是**另一轮**的事 ✓。
+  if (self.IsObject()) {
+    throw new Error("unimplemented: super(...) on a builtin constructor");
+  }
+  if (id === TypeErrorCtor) return NewErrorLike(room, table, protos, protos.TypeError, "TypeError", text);
+  if (id === RangeErrorCtor) return NewErrorLike(room, table, protos, protos.RangeError, "RangeError", text);
+  return NewErrorLike(room, table, protos, protos.Error, "Error", text);
 }
 if (id === ParseInt || id === ParseFloat) {
   // **两个全局函数**（第 126 轮）：实参先 ToString ✓（`parseInt(12.5)` 是 `12` ✓），
@@ -697,21 +729,42 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
 throw new Error("unimplemented: global builtin " + id);
 ```
 
-# method NewError:(room:RoomChecker, table:HeapTable, protos:Protos, message:string)=>Value
+# method NewErrorLike:(room:RoomChecker, table:HeapTable, protos:Protos, protoHandle:int, name:string, message:string)=>Value
 
-**造一个 `Error` 对象**（`message` + `name` 两个数据属性）——第 121 轮从 `ErrorCtor` 里提出来 ✓。
+**造一个内建错误对象**（第 137 轮）：`message` 是**自有属性** ✓、`name` 也写成自有属性 ✓
+（JS 那边 `name` 住在**原型**上 ✗，这里两处都有 ✓——自有属性优先 ✓，
+所以 `e.name` 两种写法都对 ✓）。
 
-**为什么它要单独存在**：`Error` 有两个来处 ✓——脚本写 `new Error(m)` ✓，
-以及**宿主/内建失败时由驱动兜一个**（`RaiseFromHost`）✓。两处给的必须是**同一种东西** ✓，
-否则脚本 `catch (e) { e.message }` 在两条路上会得到两种形状 ✗。
+**为什么它要单独存在**：`Error` 有三个来处 ✓——脚本写 `new Error(m)` ✓、
+`new TypeError(m)` ✓，以及**宿主/内建失败时由驱动兜一个**（`RaiseFromHost` ✓）。
+三处给的必须是**同一种东西** ✓，否则脚本 `catch (e) { e.message }` 在几条路上会得到
+两种形状 ✗。
+
+**原型必须挂在传进来的那一格上** ✗：挂 `Protos.Object` 的话
+`e instanceof Error` 给 **`false`** ✗（**静默的错答案**，比抛更糟 ✓）；
+挂错了格（`TypeError` 挂到 `Error` 上）会让 `e instanceof TypeError` 也错 ✗——
+两种都是「看起来都做了」的那种错 ✓。
 
 ```ts
 const created = NewPlainObject(room, table, protos);
+table.Get(created.Ref).Proto = protoHandle;
 SetProperty(room, NeverCall, table, created, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(message))));
 SetProperty(room, NeverCall, table, created, NameValue(table, "name"),
-  Value.FromString(table.CreateString(Units("Error"))));
+  Value.FromString(table.CreateString(Units(name))));
 return created;
+```
+
+# method NewError:(room:RoomChecker, table:HeapTable, protos:Protos, message:string)=>Value
+
+**`NewErrorLike` 的旧名字**（第 121 轮就有 ✓，第 137 轮改成转调 ✓）：引擎那条
+「兜一个错误对象」的路（`tsrun.xl.md` 的 `RaiseFromHost` ✓）走的是它 ✓。
+
+**留着这个名字**是因为**引擎侧不认识「错误有几种」** ✓——它兜出来的统一是 `Error` ✓；
+要造 `TypeError` 的地方是**语言层自己**（`invoke` 的 `TypeErrorCtor` 那一支 ✓）。
+
+```ts
+return NewErrorLike(room, table, protos, protos.Error, "Error", message);
 ```
 
 # method TextFrom:(table:HeapTable, value:Value)=>string
@@ -1193,6 +1246,47 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, assignKey, assignTarget);
 const errorKey = Value.FromString(table.CreateString(Units("Error")));
 const errorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, errorKey, errorTarget);
+// **`Error` 的 `prototype` 要登记**（第 137 轮）✗：它是**宿主引用值** ✓，
+// **没有属性表** ✗——所以 `GetProperty(Error, "prototype")` 永远给 `undefined` ✗，
+// 而 `instanceof` 正是靠读那个属性找目标的 ✓。登记一次，
+// `x instanceof Error` 就走引擎那张表 ✓（`vm.xl.md` 的 `ConstructorProtos` ✓）。
+vm.RegisterConstructorProto(ErrorCtor, protos.Error);
+// **`TypeError` / `RangeError` 两个号也登记**（第 137 轮）✓，并且挂成全局名 ✓
+// （`GlobalNames` 那张名单 ✓——两边是同一份约定 ✓，少一处就是「声明了却没提供」✗）。
+const typeErrorKey = Value.FromString(table.CreateString(Units("TypeError")));
+const typeErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(TypeErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, typeErrorKey, typeErrorTarget);
+vm.RegisterConstructorProto(TypeErrorCtor, protos.TypeError);
+const rangeErrorKey = Value.FromString(table.CreateString(Units("RangeError")));
+const rangeErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(RangeErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, rangeErrorKey, rangeErrorTarget);
+vm.RegisterConstructorProto(RangeErrorCtor, protos.RangeError);
+// **`Error.prototype` 上的三个属性**（`name` / `message` / `constructor`）✓：
+// `name` 是 `e.name` 在没有自有属性时的落点 ✓，`constructor` 是 `e.constructor === Error` ✓。
+// **`message` 给空串** ✓（JS 的 `Error.prototype.message` 就是 `""` ✓）。
+const errorProtoValue = Value.FromObject(protos.Error);
+SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("Error"))));
+SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "constructor"), errorTarget);
+// **`TypeError.prototype` / `RangeError.prototype` 上的同名三格** ✓：
+// `name` 是各自的种类名 ✓（`e.name` 在没有自有属性时的落点 ✓），
+// `message` 给空串 ✓、`constructor` 指回各自那个构造函数 ✓。
+// **三格一次写完**（`protos.TypeError` / `protos.RangeError` ✓）——
+// 漏一格的表现是 `e.name` 读成 `"Error"` ✗（错得**很像对的** ✓）。
+const typeErrorProtoValue = Value.FromObject(protos.TypeError);
+SetProperty(vm.Room(), NeverCall, table, typeErrorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("TypeError"))));
+SetProperty(vm.Room(), NeverCall, table, typeErrorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetProperty(vm.Room(), NeverCall, table, typeErrorProtoValue, NameValue(table, "constructor"), typeErrorTarget);
+const rangeErrorProtoValue = Value.FromObject(protos.RangeError);
+SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("RangeError"))));
+SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "constructor"), rangeErrorTarget);
 
 // **`Array` 是一个普通对象**（与 `Math` / `Date` 同款 ✓），上面只挂**静态方法** `isArray` ✓
 // （第 123 轮）。**已知差异写在明处** ✗：`new Array(3)` / `new Array(1, 2)` **不支持** ✗——
@@ -1211,6 +1305,17 @@ const fromTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFrom
 SetProperty(vm.Room(), NeverCall, table, arrayObject, fromKey, fromTarget);
 const arrayKey = Value.FromString(table.CreateString(Units("Array")));
 SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
+// **`Array.prototype`**（第 137 轮）：`Array` 是**普通对象** ✓，所以直接挂一个属性就行 ✓——
+// `[] instanceof Array` 于是走「读右边那个 `prototype` 属性」那条老路 ✓（不需要登记表 ✓）。
+// **这一格必须是 `protos.Array`** ✗（数组造出来时挂的就是它 ✓）：挂一个**新对象**，
+// `instanceof` 会一路走到底给 `false` ✗——那是最难查的一种「看起来都做了」✓。
+SetProperty(vm.Room(), NeverCall, table, arrayObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.Array));
+// **`Array.prototype.constructor === Array`** ✓（第 137 轮顺手补的 ✓）：
+// 与 `Error.prototype.constructor` 那三格同一条规矩 ✓——少了它，
+// `[].constructor === Array` 给 **`false`** ✗（判据现场就是这么红的 ✓）。
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Array), NameValue(table, "constructor"),
+  arrayObject);
 // **`Number` 也是一个普通对象**（第 126 轮），上面挂静态判定 ✓。
 const numberObject = NewPlainObject(vm.Room(), table, protos);
 const isIntegerKey = Value.FromString(table.CreateString(Units("isInteger")));
@@ -1232,6 +1337,14 @@ const fromCharCodeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(S
 SetProperty(vm.Room(), NeverCall, table, stringObject, fromCharCodeKey, fromCharCodeTarget);
 const stringKey = Value.FromString(table.CreateString(Units("String")));
 SetProperty(vm.Room(), NeverCall, table, globals, stringKey, stringObject);
+// **`String.prototype` / `Object.prototype`**（第 137 轮）：与 `Array` 同款 ✓
+// （两个都是普通对象 ✓）。**`"x" instanceof String` 在 JS 里是 `false`** ✗——
+// 原始值不是对象 ✓——所以这一格在 `instanceof` 上只对**装箱过的**字符串有意义 ✓，
+// 而本仓不装箱 ✗：这一格今天的作用是「原型链有个正经的落点」✓（不是「字符串 instanceof」✓）。
+SetProperty(vm.Room(), NeverCall, table, stringObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.String));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.String), NameValue(table, "constructor"),
+  stringObject);
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));
@@ -1248,6 +1361,11 @@ SetProperty(vm.Room(), NeverCall, table, globals, mathKey, math);
 SetProperty(vm.Room(), NeverCall, table, globals, consoleKey, consoleObject);
 SetProperty(vm.Room(), NeverCall, table, globals, objectKey, objectObject);
 SetProperty(vm.Room(), NeverCall, table, globals, jsonKey, jsonObject);
+// **`Object.prototype`**（第 137 轮）：与 `Array` / `String` 同款 ✓（`Object` 也是普通对象 ✓）。
+SetProperty(vm.Room(), NeverCall, table, objectObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.Object));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Object), NameValue(table, "constructor"),
+  objectObject);
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
 SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
 // **`Map` 是一个宿主引用值**（不是普通对象）：`new Map()` 走 `Op.New` 的
