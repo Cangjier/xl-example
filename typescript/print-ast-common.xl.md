@@ -1006,6 +1006,15 @@ new Map([
   if (ctx.expressionPosition === true) {
     if (v.type === "Function") kind = "FunctionExpression";
     else if (v.type === "Class") kind = "ClassExpression";
+    // **用完就还回去**（第 134 轮修的）：这个标记说的是「**这一个**节点在表达式位」✓，
+    // 不是「它的整棵子树也在」✗。不还的话，`(function () { function f() { … } … })()`
+    // 里**体里那条函数声明会被当成表达式** ✗——它投成 `FunctionExpression`，
+    // 降级层于是报 `unimplemented: statement FunctionExpression` ✓。
+    // 而那是**普通代码里遍地都是**的形状 ✗（匿名 IIFE 里写一个辅助函数 ✓）。
+    // **为什么以前没露**：只有 `kids.length === 1` 那一条才会置这个标记 ✓，
+    // 而**带名字**的函数声明有两个子单元（名字 + 体 ✓）——于是「声明里套声明」一直是对的 ✓，
+    // 只有**匿名**的 IIFE（一个子单元 ✓）才把标记漏下去 ✓。
+    ctx.expressionPosition = false;
   }
   else if (
     v.type === "MethodDeclaration" &&

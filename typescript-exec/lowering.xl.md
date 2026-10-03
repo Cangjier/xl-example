@@ -4,7 +4,7 @@ import { Value } from "../runtime/value.xl.md"
 import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from "../runtime/ir.xl.md"
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
-import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains } from "./scope.xl.md"
+import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId } from "./builtins/install.xl.md"
 import { DateCtor, StringConcat, ObjectAssign } from "./builtins/globals.xl.md"
@@ -704,6 +704,14 @@ return -1;
 **最后一个形参是不是剩余参数**（第 133 轮）——原样递给函数表那一位 ✓
 （`FunctionInfo.HasRest` ✓，理由见 `ir.xl.md` 那一段：**开帧的人**才知道「这次传了几个」✓）。
 
+## field PatternAt:Array<int> = []
+
+**哪几个形参是解构模式**（第 134 轮）——下标升序 ✓。
+
+## field Patterns:Array<AstNode> = []
+
+与 `PatternAt` 一一对应的那些模式 ✓。
+
 ## field FieldDefaults:Array<AstNode> = []
 
 **这个构造函数开局要跑的实例字段初始化式**（第 128 轮补；只有构造函数非空）。
@@ -738,9 +746,13 @@ return -1;
 而父类构造函数是**外层作用域里的一个名字**——跨帧只能用**环境**这条通道，
 所以这里存名字，降级 `super` 时照常 `ResolveAccess`（链上找、深度算，一行都不用新写）。
 
-## constructor:(name:string, body:AstNode, params:Array<string>, patch:int, defaultAt:Array<int>, defaults:Array<AstNode>)=>void
+## constructor:(name:string, body:AstNode, params:Array<string>, patch:int, defaultAt:Array<int>, defaults:Array<AstNode>, patternAt:Array<int>, patterns:Array<AstNode>)=>void
 
 登记一个待降级的函数体。
+
+**`patternAt` / `patterns` 是两份平行数组**（第 134 轮）：第几个形参是**解构模式**、
+以及那个模式本身 ✓——形状与 `defaultAt` / `defaults` 一字不差 ✓（理由也一样：
+「第几个」与「那棵树」是两件事 ✓）。
 
 ```ts
 this.Name = name;
@@ -750,6 +762,8 @@ this.ParamCount = params.length;
 this.Patch = patch;
 this.DefaultAt = defaultAt;
 this.Defaults = defaults;
+this.PatternAt = patternAt;
+this.Patterns = patterns;
 ```
 
 # class LoopContext
@@ -1531,18 +1545,42 @@ this.InGenerator = item.IsGenerator;
 this.InAsync = item.IsAsync;
 this.InSuperName = item.SuperName;
 this.InArrow = item.IsArrow;
+// **解构形参里的名字也要进「这一层声明了什么」**（第 134 轮）✗：`CollectDeclaredNames`
+// 扫的是**函数体** ✓，而模式里的名字**只出现在形参表上** ✗——漏了它们，
+// 「本层变量」会被当成「未知名字」✓（症状与 `scope.xl.md` 那条注释写的一字不差 ✓），
+// 而且**被内层函数引用到时不会被算成捕获** ✗（那是**静默错值** ✗）。
+// 走 `ExtraDeclared` 这条既有通道 ✓——`EnterFunctionBody` 一进来就把它并进 `declared` ✓。
+const patternNames: string[] = [];
+for (let p = 0; p < item.Patterns.length; p++) {
+  CollectPatternNames(item.Patterns[p], patternNames);
+}
+this.ExtraDeclared = patternNames;
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
 this.EnterFunctionBody(body, item.Params, item.Defaults);
 for (let i = 0; i < item.Params.length; i++) {
   this.DeclareLocal(item.Params[i], i);
 }
-// **默认参数紧跟在参数声明之后、体之前**（第 119 轮）：JS 的规矩是**没有传、或者传了
-// `undefined`** 才用默认值（`null` 不算），而参数格在开帧时一律填 `undefined`
-// （`heap.xl.md` 的 `HeapFrame` 构造），所以「缺的参数」与「显式传 undefined」在这里
-// 是同一个状态——一条判定就够，两件事不用分开写。
-for (let d = 0; d < item.DefaultAt.length; d++) {
-  this.LowerParamDefault(item.Params[item.DefaultAt[d]], item.Defaults[d]);
+// **参数那一段按「从左到右」走一趟**（第 134 轮把默认值与解构合到一处）✗：
+// 两样都是**被调方的开场代码** ✓（`LowerParamDefault` 那一段写着为什么 ✓），
+// 而 JS 的规矩是**按参数顺序**求值 ✓——`function f({a}, b = a)` 里 `b` 看得见 `a` ✓。
+// 分成两趟（先所有默认值、再所有解构）会让上面那一句**读到还没拆的那个槽** ✗。
+//
+// **默认值在解构之前** ✓：`function f({a} = {})` 是「先补默认值、再拆」✓
+// （不传的时候拆的是 `{}` ✓，而不是 `undefined` ✗）。
+for (let i = 0; i < item.Params.length; i++) {
+  let hasDefault = false;
+  for (let d = 0; d < item.DefaultAt.length; d++) {
+    if (item.DefaultAt[d] !== i) continue;
+    this.LowerParamDefault(item.Params[i], item.Defaults[d]);
+    hasDefault = true;
+  }
+  for (let p = 0; p < item.PatternAt.length; p++) {
+    if (item.PatternAt[p] !== i) continue;
+    // **解构读的是那一格的值**：`ResolveAccess` 两个方向各只有一处 ✓
+    //（被捕获的形参只住在环境格里 ✓——与 `LowerParamDefault` 同一条路 ✓）。
+    this.Destructure(item.Patterns[p], this.ParamValue(item.Params[i]), false);
+  }
 }
 this.Hoist(body);
 // **实例字段的初始化式**（第 128 轮）：非派生类在**构造函数体之前**、参数默认值之后 ✓。
@@ -2896,17 +2934,45 @@ const params: string[] = [];
 for (let i = 0; i < parameters.length; i++) {
   const parameter = parameters[i];
   const name = OptionalChild(parameter, "name");
-  if (name === null || NodeKind(name) !== "Identifier") {
-    throw new Error("unimplemented: parameter without a simple name");
+  if (name === null) {
+    throw new Error("unimplemented: parameter without a name");
   }
   // **剩余参数只许在最后一位** ✓（语法规定的 ✓）——不在最后那一种是**源码就非法** ✓，
   // 而投影层不做这个检查 ✓，所以这里说一句 ✓（比让它走到别处报一句别的话好 ✓）。
   if (OptionalChild(parameter, "dotDotDotToken") !== null && i !== parameters.length - 1) {
     throw new Error("unimplemented: a rest parameter must be the last one");
   }
+  const nameKind = NodeKind(name);
+  if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
+    // **解构形参**（第 134 轮）：这一格仍然要占 ✓（值就落在它上面 ✓），
+    // 所以给它一个**合成的槽名** ✓——它不出现在源码里，所以永远不会被引用 ✓。
+    // 真正把值拆开的是 `LowerFunctionBody` 里那一趟 `Destructure` ✓
+    //（在**参数顺序**里做，所以 `function f({a}, b = a)` 里 `b` 看得见 `a` ✓）。
+    params.push(this.PatternSlotName(i));
+    continue;
+  }
+  if (nameKind !== "Identifier") {
+    throw new Error("unimplemented: parameter without a simple name");
+  }
   params.push(TextOf(name));
 }
 return params;
+```
+
+## method PatternSlotName:(index:int)=>string
+
+**解构形参的那个合成槽名**（第 134 轮）。
+
+**为什么要有它**：`Params` 的下游两处都按「一个形参一个名字」办事 ✓——
+`FunctionInfo.ParamCount` 数个数 ✓、`DeclareLocal(params[i], i)` 占槽 ✓——
+而解构形参**也要占一格** ✓（值就落在它上面 ✓）。合成名给了它一个「占位」的身份 ✓。
+
+**名字里那个 `<` 是刻意的** ✗：它**不可能是源码里的标识符** ✓（JS 标识符里没有 `<` ✓），
+所以这个槽名永远不会**碰巧**撞上一个真名字 ✓——而撞上的症状是
+「两个形参共用一个槽」✗（值悄悄换成别的 ✗，这个工程最贵的一种错 ✓）。
+
+```ts
+return "<pattern" + NumberToHostText(index) + ">";
 ```
 
 ## method HasRestParam:(node:AstNode)=>bool
@@ -2943,6 +3009,42 @@ for (let i = 0; i < parameters.length; i++) {
   at.push(i);
   defaults.push(initializer);
 }
+```
+
+## method CollectPatternParams:(node:AstNode, at:Array<int>, patterns:Array<AstNode>)=>void
+
+**解构形参：位置与模式两份平行数组**（第 134 轮）——与 `CollectDefaults` 同一个写法 ✓
+（「本仓的方法只返回一个值，而这里天然是一对」✓）。
+
+```ts
+const parameters = ListOf(node, "parameters");
+for (let i = 0; i < parameters.length; i++) {
+  const name = OptionalChild(parameters[i], "name");
+  if (name === null) continue;
+  const kind = NodeKind(name);
+  if (kind !== "ObjectBindingPattern" && kind !== "ArrayBindingPattern") continue;
+  at.push(i);
+  patterns.push(name);
+}
+```
+
+## method ParamValue:(name:string)=>int
+
+**一个形参「读出来」落在哪一格**（第 134 轮）——解构形参要用它 ✓。
+
+**为什么不能直接写下标** ✗：被捕获的形参**只住在环境格里** ✓
+（`DeclareLocal` 那一条写着为什么 ✓），所以「第 i 个形参」在**槽**里可能是个空壳 ✗。
+`ResolveAccess` 两个方向各只有一处 ✓——这里走它 ✓（与 `LowerParamDefault` 同一个形状 ✓）。
+
+```ts
+const access = this.ResolveAccess(name);
+const slot = this.Reserve(1);
+if (access.InEnv) {
+  this.Emit(Op.EnvGet, slot, access.Depth, access.Cell, -1);
+} else {
+  this.Emit(Op.Move, slot, access.Slot, -1, -1);
+}
+return slot;
 ```
 
 ## method LowerParamDefault:(name:string, initializer:AstNode)=>void
@@ -3028,6 +3130,11 @@ const params = this.FunctionParams(node);
 const defaultAt: number[] = [];
 const defaults: AstNode[] = [];
 this.CollectDefaults(node, defaultAt, defaults);
+// **解构形参**（第 134 轮）：与默认值同一个形状的两份平行数组 ✓
+//（CollectPatternParams 那一段写着为什么是两份 ✓）。
+const patternAt: number[] = [];
+const patterns: AstNode[] = [];
+this.CollectPatternParams(node, patternAt, patterns);
 const body = Child(node, "body");
 const patch = this.Program().AddConst(Constant.OfInt(0));
 const window = this.Reserve(2);
@@ -3047,7 +3154,7 @@ this.Release(slot + 1);
 if (NodeKind(node) === "FunctionExpression") {
   this.AttachPrototype(slot);
 }
-const item = new PendingFunction(name, body, params, patch, defaultAt, defaults);
+const item = new PendingFunction(name, body, params, patch, defaultAt, defaults, patternAt, patterns);
 item.IsExpressionBody = NodeKind(body) !== "Block";
 // **箭头与其余函数值的区别就在这一格**（第 119 轮）：箭头没有自己的 `this`，
 // 于是它的 `this` 去环境链上取（`PendingFunction.IsArrow` 那一段写着理由）。
@@ -3802,6 +3909,11 @@ const params = this.FunctionParams(node);
 const defaultAt: number[] = [];
 const defaults: AstNode[] = [];
 this.CollectDefaults(node, defaultAt, defaults);
+// **解构形参**（第 134 轮）：与默认值同一个形状的两份平行数组 ✓
+//（CollectPatternParams 那一段写着为什么是两份 ✓）。
+const patternAt: number[] = [];
+const patterns: AstNode[] = [];
+this.CollectPatternParams(node, patternAt, patterns);
 const slot = this.Reserve(1);
 const patch = this.Program().AddConst(Constant.OfInt(0));
 const window = this.Reserve(2);
@@ -3820,7 +3932,7 @@ this.AttachPrototype(slot);
 // **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
 // 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
 this.DeclareLocal(TextOf(name), slot);
-const item = new PendingFunction(TextOf(name), Child(node, "body"), params, patch, defaultAt, defaults);
+const item = new PendingFunction(TextOf(name), Child(node, "body"), params, patch, defaultAt, defaults, patternAt, patterns);
 item.Slot = slot;
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);

@@ -81,6 +81,17 @@ if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
   }
   return true;
 }
+// **前一单元已经是一次调用**（第 134 轮补）：`f()()` ✓——**调用结果照样可以被调用** ✓。
+//
+// **为什么原来漏了** ✗：这一条只认「前一单元是 `Identifier`」与「前一单元是 `(` 括号」✓，
+// 而 `f()` 收成 `Method` 之后**两者都不是** ✗——于是第二个 `(` 谁也不认 ✓，
+// 投影里**少了一整个调用** ✓（实测：`console.log(f()())` 只投出一个 `f()` ✓，
+// 而 `const a = f()();` 却是对的 ✓——那条路走的是另一个重组规则 ✓，
+// 所以这个缺口只在**实参位**露出来 ✓，`cases:tsast` 的语料里恰好没有这个形状 ✗）。
+// **带括号的 `(f())()` 一直是对的** ✓（前一单元是括号 ✓）——差别只在括号在不在 ✓。
+if (nameUnit instanceof Method) {
+  return true;
+}
 return nameUnit instanceof Identifier && template.MethodNameTemplate.IsMethodName(nameUnit.TempToString());
 ```
 
@@ -122,6 +133,11 @@ if (nameUnit instanceof Identifier) {
   method.name = nameUnit.TempToString();
 }
 if (nameUnit instanceof Bracket) {
+  method.AddAndCloseLast(nameUnit);
+}
+// **被调用者本身是一次调用**（`f()()`）：与上面那条括号同一条路 ✓——
+// 它作为**子单元**留在新的 `Method` 里，投影时成为那个调用节点的 `expression` ✓。
+if (nameUnit instanceof Method) {
   method.AddAndCloseLast(nameUnit);
 }
 for (let i = nameIndex + 1; i < index; i++) {
@@ -169,6 +185,34 @@ return index;
   const calleeText = typeof rawName === "string" ? rawName : "";
   const calleeEnd = v.start + calleeText.length;
   if (calleeText === "") {
+    // **被调用者本身是一次调用**（`f()()`，第 134 轮）：产物把外面那次调用收成
+    // `Method(name="")`，而**里面那次调用是它的第一个子单元** ✓——与 IIFE 那条
+    // （子单元是一对括号 ✓）是同一个形状，只是「被调用者」换成了另一个 `Method` ✓。
+    // **外层那对括号不在树里**（与 IIFE 一字不差 ✓）：终点要**从被调用者之后重新配对** ✓，
+    // 否则 `f()()` 的区间只到 `f()` 为止 ✓（实测：投出来的外层调用终点短一截 ✓）。
+    const innerCall = kids.find((k: any) => k.get("type") === "Method");
+    if (innerCall !== undefined) {
+      const rest = kids.filter(
+        (k: any) => k !== innerCall && k.get("type") !== "GenericType",
+      );
+      let end = ctx.StmtEndOf(v);
+      let at = ctx.EndOf(innerCall);
+      while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+      if (ctx.source[at] === "(") {
+        const argsClose = ctx.MatchingParen(ctx.source, at);
+        if (argsClose >= 0) end = Math.max(end, argsClose + 1);
+      }
+      return {
+        kind: "CallExpression",
+        expression: ctx.Expression([innerCall]),
+        arguments: ctx
+          .Split(rest, ",")
+          .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
+          .filter((a: any) => a !== undefined),
+        pos: v.start,
+        end,
+      };
+    }
     const brace = kids.find(
       (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(",
     );

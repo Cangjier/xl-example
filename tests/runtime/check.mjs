@@ -5727,5 +5727,106 @@ check("剩余参数这一条顺带修掉的**结构性问题**：函数表每加
 });
 
 console.log("");
+console.log("=== 第 134 轮：函数的两条形状 ===");
+
+check("表达式位那个标记不许漏进子树（函数声明写在函数表达式的体里）", () => {
+  // **端到端那一把在 `cases/26-function-shapes.ts`**（6 行逐字节 ✓）。
+  // 这里钉的是**根因那一层**（投影）✓：`ctx.expressionPosition` 说的是
+  // 「**这一个**节点在表达式位」✓，用完必须还回去 ✓——不还，匿名 IIFE 体里那条
+  // **声明**会被投成表达式 ✗（`kids.length === 1` 那一条是漏点 ✓）。
+  const kinds = [];
+  const collect = (node) => {
+    if (node === null || typeof node !== "object") return;
+    if (typeof node.kind === "string") kinds.push(node.kind);
+    for (const key of Object.keys(node)) {
+      if (key === "kind" || key === "pos" || key === "end") continue;
+      const value = node[key];
+      if (Array.isArray(value)) { for (const item of value) collect(item); }
+      else if (value !== null && typeof value === "object") collect(value);
+    }
+  };
+  collect(parseTsShape("(function () { function helper() { return 1; } return helper(); })();"));
+  eq(kinds.filter((k) => k === "FunctionExpression").length, 1, "外面那层是表达式");
+  eq(kinds.filter((k) => k === "FunctionDeclaration").length, 1, "体里那条是**声明**（第 134 轮修的）");
+  // **带括号的那种一直是对的** ✓——它是同一条规矩的另一个入口，放在这里当对照 ✓。
+  const inner = [];
+  const collect2 = (node) => {
+    if (node === null || typeof node !== "object") return;
+    if (typeof node.kind === "string") inner.push(node.kind);
+    for (const key of Object.keys(node)) {
+      if (key === "kind" || key === "pos" || key === "end") continue;
+      const value = node[key];
+      if (Array.isArray(value)) { for (const item of value) collect2(item); }
+      else if (value !== null && typeof value === "object") collect2(value);
+    }
+  };
+  collect2(parseTsShape("(function () { function helper() { return 1; } })();"));
+  eq(inner.filter((k) => k === "FunctionDeclaration").length, 1, "对照：同一份代码不带结果用法也一样");
+});
+
+check("`f()()`：第二个括号也要成一个调用（被调用者本身是一次调用）", () => {
+  // 产物原来把 `f()()` 收成**一个** `f()` ✗——`Method` 那两条判据只认
+  // 「前一单元是标识符」与「前一单元是括号」✓，而 `f()` 收成 `Method` 之后**两者都不是** ✗。
+  // **它只在实参位露** ✓（`const a = f()();` 走另一条重组规则 ✓）——
+  // 所以这条判据**特意写在实参位** ✓。
+  const arg = parseTsShape("console.log(f()());").statements[0].expression.arguments[0];
+  eq(arg.kind, "CallExpression", "外层是调用");
+  eq(arg.expression.kind, "CallExpression", "被调用者是内层那次调用");
+  eq(arg.expression.expression.kind, "Identifier", "再往里才是名字");
+  eq(arg.pos, 12, "外层调用的起点");
+  eq(arg.end, 17, "外层调用的终点（要**从被调用者之后重新配对括号**）");
+  // **三个连着的调用**也要成三层。
+  const triple = [];
+  const collect = (node) => {
+    if (node === null || typeof node !== "object") return;
+    if (node.kind === "CallExpression") triple.push(node);
+    for (const key of Object.keys(node)) {
+      if (key === "kind" || key === "pos" || key === "end") continue;
+      const value = node[key];
+      if (Array.isArray(value)) { for (const item of value) collect(item); }
+      else if (value !== null && typeof value === "object") collect(value);
+    }
+  };
+  collect(parseTsShape("f(1)(2)(3);"));
+  eq(triple.length, 3, "`f(1)(2)(3)` 是三层调用");
+});
+
+check("解构形参：与 Node 逐值一致，对象剩余仍然响亮地抛", () => {
+  const body = [
+    "function destructured({ a, b: renamed }) { return a + renamed; }",
+    "function withDefault({ a = 1 } = {}) { return a; }",
+    "function ordered({ a }, b = a * 2) { return a + b; }",
+    "function captured({ a }) { return () => a + 1; }",
+    "class C { m({ a }) { return a; } }",
+    "const arrowPattern = ([x, y]) => x - y;",
+    "return [destructured({ a: 1, b: 2 }), withDefault(), withDefault({ a: 9 }),",
+    "  ordered({ a: 3 }), captured({ a: 5 })(), new C().m({ a: 4 }), arrowPattern([5, 3])];",
+  ].join("\n");
+  const request = new RunRequest();
+  request.Sources = [body];
+  request.Entry = "";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const expected = [3, 1, 9, 9, 6, 4, 2];
+  for (let i = 0; i < expected.length; i++) {
+    eq(GetIndex(table, res.Value, Value.FromInt(i)).AsInt(), expected[i], "第 " + i + " 项");
+  }
+  // **对象剩余还不做** ✗——它要一份「已经拆走的那几个键」的排除名单 ✓，
+  // 引擎侧没有这条路 ✓（第 132 轮记着的同一条 ✓）。**降级期**就抛 ✓。
+  const probe = new RunRequest();
+  probe.Sources = ["function f({ a, ...rest }) { return a; } f({ a: 1, b: 2 });"];
+  probe.Entry = "";
+  let message = "";
+  try {
+    RunSources(probe, () => {}, () => null);
+  } catch (error) {
+    message = String(error.message);
+  }
+  ok(message.indexOf("rest element in an object binding pattern") >= 0,
+    "对象剩余在**降级期**就响亮地抛：" + message);
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;
