@@ -15,12 +15,21 @@
 | --- | --- | --- |
 | **引擎**（`runtime/`） | **~92%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；**线形态从第 129 轮起承载 f64**（升 v2，载荷是十进制文本）✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
 | **降级层**（本目录） | **~84%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构（名字那一半）都在跑；**数字字面量的全形态**（小数 / 指数 / 十六·八·二进制 / 分隔符）第 129 轮补齐 ✓；缺**展开与剩余**（`...`）、参数里的解构、正则、`export default` |
-| **标准库**（`builtins/`） | **~62%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Error` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；**第 130 轮补上** `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace`（字符串找字符串）· `new Map(键值对)` · `new Set(数组)` ✓；缺 `reduce` / `sort`（回调通道只带一个实参）、原始值原型（数字与布尔上的方法）、`Promise` 的组合子 |
-| **端到端**（普通 `.ts` 文件） | **~76%** | 22 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、**数字字面量全形态**、**标准库第三批**）；**已知的两个拦路虎（浮点字面量、`[x in y]`）都关掉了** ✓，下一个是 `console.log` 的 `util.inspect` 口径（见「欠着的两笔」） |
+| **标准库**（`builtins/`） | **~72%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Error` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮补上 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` · `new Map(键值对)` · `new Set(数组)` ✓；**第 131 轮补上 `console.log` 的 `util.inspect` 形状**（`builtins/inspect.xl.md`）✓；缺 `reduce` / `sort`（回调通道只带一个实参）、原始值原型（数字与布尔上的方法）、`Promise` 的组合子 |
+| **端到端**（普通 `.ts` 文件） | **~84%** | 23 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、**`console.log` 的容器形状**）；**已知的三个拦路虎（浮点字面量、`[x in y]`、`console.log` 容器）都关掉了** ✓，下一个是**展开与剩余**（`...`：语料里十五条日常写法**全部**抛 ✗，见「下一步」） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 171 条 / `runtime:cli` 22 份 ✓）。
+与语料数（`runtime:check` 173 条 / `runtime:cli` 23 份 ✓）。
+
+**下一步（第 131 轮量出来的）**：拿十五条日常写法逐条问「Node 给什么、tsrun 给什么」，
+**全部十五条都抛** ✗——`...rest` 参数、`f(...xs)`、`[...xs]`、`{...o}`、
+参数与声明里的解构（`function f({a})` / `const [x=9] = []` / `const {a,...r} = o`）✓。
+它们是**同一个家族**（展开与剩余 + 绑定模式的默认值）✓，
+而**每一条都要动引擎** ✓：`Op.Call` 收的是**定长**的连续参数窗口 ✗，
+`FunctionInfo.ParamCount` 也是定长 ✗——「把多出来的实参收成一个数组」
+与「按一个数组铺开实参」都要新的算子与帧侧支持 ✓。
+那是**下一轮（或下两轮）的主线** ✓。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
@@ -149,6 +158,7 @@ typescript-exec/
     set.xl.md           ✔ 已落地（同上那一族）
     install.xl.md       ✔ 已落地（装库入口 + 按号段总分派 + 语言内部辅助号）
     globals.xl.md       ✔ 已落地（全局名名单 + Math / console / Object / JSON / Symbol / Date，日志交宿主回调）
+    inspect.xl.md       ✔ 已落地（`console.log` 的 `util.inspect` 形状，第 131 轮）
   builtins/             标准库：Object / Function / Array / String / Number / Math /
                         JSON / Error / Promise / Symbol / Map / Set / Date
 ```
@@ -204,29 +214,60 @@ typescript-exec/
   理由与修法（P2 的类型层要 i64 / 多精度）写在 `ScanNumber` 那条注释里 ✓。
 - **`(1e3).toString()`** 报 `calling a non-closure value` ✓：原始值的原型链还没做 ✓。
 
-**欠着的两笔**（都不是忘了 ✗，是**明确记着、下次进门先做** ✓）：
-
-**① `console.log` 的 `util.inspect` 口径**（第 130 轮量出来的，**这是端到端最大的那一格** ✗）。
-Node 的 `console.log` 走 `util.inspect`，不是 `String`：
-`console.log([1,2])` 印 `[ 1, 2 ]`（里有空格 ✓）、`console.log({a:1})` 印 `{ a: 1 }`、
-数组里的字符串带**单引号**（`[ 'a' ]`）、`Map`/`Set`/`Date` 各有各的写法 ✓……
-而本层印的是 `1,2` / `[object Object]` / 裸的 `a` ✓（`Array.join` 与 `String` 的口径 ✓）。
-**所以任何 `console.log(数组/对象)` 的普通程序 today 都对不齐 stdout** ✗——
-语料 22 份是**绕开它**写的 ✓（这不是「已经对了」✗，是「还没量」✗）。
-**它有一个硬边**：`console.log(err)` 在 Node 里印的是**调用栈** ✓，
-而这一层拿不到那个栈 ✗（`Error` 上没有 `stack` ✓）——
-所以那一格只能记着差异 ✓，不可能靠 `util.inspect` 的形状补上 ✓。
-
-**② C++ 目标（`npm run cpp:check` 现在是红的）。**
+**欠着的一笔：C++ 目标（`npm run cpp:check` 现在是红的）。**
 第 129 轮动了五个 `*.xl.md`（`runtime/ir` · `runtime/ir-verify` · `runtime/rt` ·
 `typescript-exec/builtins/text` · 新增 `runtime/host-text`）✓，
-第 130 轮又动了六个 `builtins/*.xl.md` ✓，
-而 C++ 是**计划通道**（产物由 `xl_plan` / `xl_context` / `xl_emit` 生成 ✓）——
-指纹一改，那些源的全部部件都判「陈旧」✓。两轮**只做了 TS 那一条出口** ✓，
-所以 C++ 那一份**欠着** ✗：
-按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发（**没改动的部件照抄旧产物** ✓，
-真要改写的只有几十处 ✓）。**它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），
-所以它排在 ① 后面 ✓。
+第 130 轮又动了六个 `builtins/*.xl.md` ✓，第 131 轮再动两个（`builtins/globals` ·
+新增 `builtins/inspect`）✓，而 C++ 是**计划通道**（产物由 `xl_plan` / `xl_context` / `xl_emit` 生成 ✓）——
+指纹一改，那些源的全部部件都判「陈旧」✓。这三轮**只做了 TS 那一条出口** ✓，
+所以 C++ 那一份**欠着** ✗：按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发
+（**没改动的部件照抄旧产物** ✓，真要改写的只有几十处 ✓）。
+**它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），所以它排在「能跑更多普通程序」后面 ✓。
+
+## 第 131 轮的账（`console.log` 的形状：`util.inspect` 那一份）
+
+**这是端到端最大的一格，这一轮关掉了** ✓。Node 的 `console.log` **不走 `ToString`** ✗，
+走的是 `util.inspect` ✓：`console.log([1,2])` 印 `[ 1, 2 ]` ✓、`console.log({a:1})` 印 `{ a: 1 }` ✓、
+数组里的字符串带**单引号** ✓、`Map` / `Set` / `Date` / 函数各有各的写法 ✓。
+在此之前本层印的是 `1,2` / `[object Object]` / 裸的 `a` ✗——
+**任何 `console.log(数组 / 对象)` 的普通程序都对不齐 stdout** ✗，
+前 22 份语料全是**绕开它**写的 ✓（那不是「已经对了」✗）。
+
+新增 [builtins/inspect.xl.md](builtins/inspect.xl.md)（**纯语言层，`runtime/` 一行未动** ✓），
+语料 [tests/runtime/cases/23-console-log-shapes.ts](../tests/runtime/cases/23-console-log-shapes.ts)
+**61 行 stdout 与 `node` 逐字节相同** ✓。
+
+**这一轮的方法值得记下来：每一个常数都是量出来的，不是猜的** ✓。
+
+| 量出来的东西 | 读数 |
+| --- | --- |
+| 折行宽度 | **80**（Node 文档写的是 128 ✗，实测是 80 ✓） |
+| 平铺的余量 | **9** ⇒ 单行 ≤ **71** 平铺 ✓，72 折行 ✓ |
+| 深度 | 收口判据是 `level > 2` 而**不是** `>= 2` ✓（量出来差一层 ✓） |
+| 分组列数上限 | **12**（`[0..n]` 扫出来的：`7, 9, 10, 11, 12, 12, …` ✓） |
+| 引号 | 没单引号给 `'` ✓、有单引号没双引号给 `"` ✓、两种都有给 `` ` `` ✓ |
+| 属性名加不加引号 | **窄规则**（`a$b` 与 `中` 都加 ✓——不是 JS 标识符那一套 ✗） |
+| 洞 | 连着两个洞是**一条** `<2 empty items>` ✓，不是两条 ✓ |
+| 列对齐 | **右对齐** ✓（数字与字符串都是 ✓） |
+
+**分组那一段照抄了 Node 的算法**（含那个 `sqrt` 的启发式 ✓）：
+`列数 = min(round(sqrt(2.5·项数 / biasedMax)), floor((80 - 缩进) / 每项宽), 12, 项数)` ✓。
+三条折行规则（**超过 6 项不许平铺** ✓、单行 ≤ 71 ✓、至多 12 列 ✓）都有判据钉着 ✓——
+它们变了会红 ✓。
+
+**三处已知差写在 `inspect.xl.md` 的表里，并且各自有判据钉住** ✓（不是「顺便没做」✗）：
+
+1. **折行预算在嵌套里 Node 更宽** ✗：顶层 `[ 'x'*65 ]`（71 字符）平铺 ✓、72 折行 ✓，
+   边界正好 71 ✓；可是同一个数组放进对象里当下属（缩进 2）时，**140 甚至 1000 字符都还平铺** ✓。
+   这一层**统一用顶层那条规则** ✓，于是嵌套的容器比 Node 更容易折 ✗。
+   **这一条是量出来的、不是没量** ✓——所以它记着，而不是假装一样 ✗。
+2. **循环引用**：Node 给 `<ref *1> { … [Circular *1] }` ✓，这一层靠**深度上限**收口 ✓
+   （`{ self: { self: { self: [Object] } } }` ✓）——**不转圈** ✓（宿主栈溢出不可捕获 ✗）。
+3. **整数样式的键的次序**：JS 把 `{ 2: … }` 这类键排到最前 ✓，本层一律按插入顺序 ✗
+   ——那是**更早就记着**的一条 ✓（`for..in` 那一轮就写了 ✓）。
+
+**还有一条够不着的** ✗：`console.log(err)` 在 Node 里印的是**调用栈** ✓，
+而这一层拿不到那个栈 ✗（`Error` 上没有 `stack` ✓）——那一格只能记着差异 ✓。
 
 ## 第 130 轮的账（标准库第三批）
 

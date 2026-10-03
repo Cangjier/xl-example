@@ -8,6 +8,7 @@ import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
 import { ValueUnits, ValueText } from "./text.xl.md"
+import { InspectText } from "./inspect.xl.md"
 import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
 ```
@@ -525,15 +526,21 @@ if (id === ConsoleLog) {
   // 少了这一步，宿主拿到的是一串**分不出行**的碎片 ✗（`console.log('a', 1)` 与两条
   // 各自一个实参的日志长得一样 ✗）——命令行那个「与 node 逐字节相同」的判据就无从谈起 ✗。
   //
-  // **每个实参走「任意值 → 文本」**（第 124 轮）✓：`console.log(1.5)` 现在打得出来 ✓
-  //（以前浮点会让整份程序抛 ✗），对象给 `[object Object]` ✓。
-  // **一处已知差异写在明处** ✗：Node 的 `console.log(对象)` 走的是 `util.inspect`
-  //（打印成 `{ a: 1 }` ✗），而这里是 `ToString` 的口径 ✓（`[object Object]` ✓）——
-  // 所以**语料里不拿对象去比 console.log** ✓（比的是浮点与字符串 ✓）。
+  // **每个实参按 Node 的规矩渲染**（第 131 轮改）✓：**字符串原样** ✓（`console.log('a')` 印 `a` ✓），
+  // **其余走 `util.inspect` 那一份** ✓（`inspect.xl.md` ✓）——`console.log([1, 2])` 印 `[ 1, 2 ]` ✓、
+  // `console.log({ a: 1 })` 印 `{ a: 1 }` ✓、`console.log(1.5)` 印 `1.5` ✓。
+  //
+  // **为什么字符串要单独一条** ✗：Node 的 `util.format` 对**字符串实参**用的是它本身 ✓，
+  // 而嵌套在容器里才加引号 ✓（`[ 'a' ]` ✓）——两处口径**必须不同** ✓，
+  // 混成一条会让 `console.log('a')` 印成 `'a'` ✗（差两个引号，判据会当场点出来 ✓）。
   let line = "";
   for (let i = 0; i < args.length; i++) {
     if (i > 0) line = line + " ";
-    line = line + ValueText(table, args[i]);
+    if (args[i].Tag === ValueTag.String) {
+      line = line + ValueText(table, args[i]);
+      continue;
+    }
+    line = line + InspectText(table, args[i]);
   }
   sink(line);
   return Value.Undefined();

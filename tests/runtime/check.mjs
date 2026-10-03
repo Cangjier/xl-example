@@ -5020,8 +5020,10 @@ check("`in` 的键要字符串化，数组按格子答（第 123 轮：静默给
 check("任意值 → 文本：浮点 · 对象 · 数组 · 洞（第 124 轮），join 那一族与 Node 逐字节相同", () => {
   // **两件事分开断言**：
   //   · `join` / `JSON` 那一族**与 Node 对拍** ✓（JS 那边也是 `ToString` ✓）；
-  //   · `console.log(对象)` **只断言我们自己的口径** ✓——Node 走 `util.inspect`
-  //     （打印 `{ a: 1 }` ✗），本仓是 `ToString`（`[object Object]` ✓）。那是**已记差异** ✓。
+  //   · `console.log(对象)` **第 131 轮起也与 Node 对拍了** ✓——原来它走 `ToString`
+  //     （`[object Object]` ✗），Node 走 `util.inspect`（`{ a: 1 }` ✓），
+  //     所以这条判据当时只能断言「我们自己的口径」✗。`inspect.xl.md` 落地之后，
+  //     这一行**改成与 Node 相同的形状** ✓（这就是那一条「已记差异」被关掉的样子 ✓）。
   const source = [
     "function run() {",
     "  const bag = { a: 1 };",
@@ -5061,17 +5063,19 @@ check("任意值 → 文本：浮点 · 对象 · 数组 · 洞（第 124 轮）
   const res = RunSources(request, (text) => lines.push(text), () => null);
   eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
 
-  // 日志那几行（**我们的口径**）：浮点最短往返、对象 `[object Object]`、嵌套数组按 `,` 连。
+  // 日志那几行（**第 131 轮起与 Node 同形** ✓）：浮点最短往返、容器走 `util.inspect` 那一份。
   eq(lines[0], "float 2.5 1.75 0.3333333333333333 -2.5", "浮点：最短往返十进制");
-  eq(lines[1], "special NaN 0", "特殊值：NaN 与零（`-0` 也渲染成 `0`）");
-  eq(lines[2], "object [object Object]", "对象：`Object.prototype.toString` 的默认值");
-  eq(lines[3], "array 1,2 1,2,3", "数组：按 `,` 连（嵌套也连平）");
-  // **自引用数组那一行不该出现** ✓：它在**渲染时**就抛了 ✓（深度上限 ✓），
-  // 所以 `sink` 一次都没被调到 ✓——「有没有抛」看的是返回的那一格 ✓。
-  eq(lines.length, 4, "自引用那一条**没有**产生日志行（渲染时就抛了）");
+  eq(lines[1], "special NaN 0", "特殊值：NaN 与零");
+  eq(lines[2], "object { a: 1 }", "对象：`util.inspect` 的形状（原来是 `[object Object]`）");
+  eq(lines[3], "array [ 1, 2 ] [ [ 1, 2 ], [ 3 ] ]", "数组：`[ … ]` 带空格，嵌套照样子展开");
+  // **自引用那一条现在也不抛了** ✓（第 131 轮）：靠**深度上限**收口 ✓，
+  // 形状与 Node 不同 ✗（Node 给 `<ref *1> [ [Circular *1] ]` ✓）——那一条记在 `inspect.xl.md` 里 ✓。
+  eq(lines[4], "cyclic [ [ [ [Array] ] ] ]", "自引用靠深度上限收口（形状与 Node 不同，已记）");
+  eq(lines.length, 5, "五条日志都在");
 
   const table = res.Table;
-  eq(GetIndex(table, res.Value, Value.FromInt(6)).AsInt(), 1, "自引用数组被深度上限接住（JS 给空串，已记差异）");
+  eq(GetIndex(table, res.Value, Value.FromInt(6)).AsInt(), 0,
+    "自引用不再抛（所以 `guarded` 没被置成 threw）——这一点现在与 Node 相同");
   // **只对拍 1..5**：第 6 项是上面那条**已知差异** ✓（JS 的 `join` 对环给空串，本仓抛 ✓）。
   for (let i = 1; i <= 5; i++) {
     const actual = GetIndex(table, res.Value, Value.FromInt(i));
@@ -5465,6 +5469,77 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
   ok(loudTexts[0].indexOf("Array.from") >= 0, "① 说的是 `Array.from`：" + loudTexts[0]);
   ok(loudTexts[1].indexOf("String.replace") >= 0, "② 说的是 `String.replace`：" + loudTexts[1]);
   ok(loudTexts[2].indexOf("Object.assign") >= 0, "③ 说的是 `Object.assign`：" + loudTexts[2]);
+});
+
+console.log("");
+console.log("=== 第 131 轮：console.log 的形状 ===");
+
+check("`util.inspect` 那一份：形状与 Node 逐字符相同，三处已知差也钉住", () => {
+  // **端到端那一把在 `cases/23-console-log-shapes.ts`**（61 行逐字节 ✓）。
+  // 这里钉的是**判据量不到的那一半**：三处**已知差**必须一直是「我们知道它差」✓——
+  // 不钉住的话，将来某一次改动可能把它们从「记着的差」变成「悄悄变了」✗。
+  const source = [
+    "function run() {",
+    // ① 形状：容器走 `util.inspect`，字符串实参原样。
+    "  console.log('shape', [1, 'a'], { b: { c: 2 } }, 'raw');",
+    // ② 整数样式的键：**本仓按插入顺序**（JS 把整数键排到最前，已记差）。
+    "  console.log('keys', { b: 1, 2: 2, a: 3 });",
+    // ③ 循环引用：靠**深度上限**收口（Node 给 `<ref *1> … [Circular *1]`，已记差）。
+    "  const loop = {};",
+    "  loop.self = loop;",
+    "  console.log('loop', loop);",
+    // ④ 嵌套折行比 Node **更容易折**（Node 在嵌套里给更宽的预算，已记差）。
+    "  console.log('nested-long', { a: ['x'.repeat(50), 'x'.repeat(50)] });",
+    "  return 0;",
+    "}",
+  ].join("\n");
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines.length, 4, "四条日志");
+  eq(lines[0], "shape [ 1, 'a' ] { b: { c: 2 } } raw",
+    "① 形状：`[ … ]` / `{ … }` 带空格、字符串原样");
+  eq(lines[1], "keys { b: 1, '2': 2, a: 3 }",
+    "② 整数样式键的引号对了（**顺序**是本仓的插入顺序——JS 排到最前，已记差）");
+  eq(lines[2], "loop { self: { self: { self: [Object] } } }",
+    "③ 循环引用被深度上限收口（展开三层才碰上限；Node 给 `<ref *1> … [Circular *1]`，已记差）");
+  ok(lines[3].indexOf("\n") >= 0, "④ 长条目折行（嵌套的预算比 Node 紧，已记差）");
+  eq(lines[3], "nested-long {\n  a: [\n    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',\n"
+    + "    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'\n  ]\n}",
+    "④ 折行的形状本身是对的（缩进 / 逗号 / 括号各就各位）");
+});
+
+check("折行的规则是**量出来的三条**（项数 / 长度 / 列数上限）", () => {
+  // 这三条都是对着真 Node 量出来的常数 ✓，写在这里是为了**它们变了会红** ✓：
+  //   · 数组**超过 6 项**就不许平铺（7 个空串才 30 字符，Node 照样折）；
+  //   · 单行长度 **≤ 71**（= 80 - 9）平铺；
+  //   · 分组**最多 12 列**（`[0..n]` 扫出来的那个数）。
+  const source = [
+    "function run() {",
+    "  console.log('six', [1, 2, 3, 4, 5, 6]);",
+    "  console.log('seven', [1, 2, 3, 4, 5, 6, 7]);",
+    "  console.log('cols', [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,",
+    "    20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,",
+    "    40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,",
+    "    60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79]);",
+    "  return 0;",
+    "}",
+  ].join("\n");
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "six [ 1, 2, 3, 4, 5, 6 ]", "6 项平铺");
+  ok(lines[1].indexOf("\n") >= 0, "7 项折行（**与长度无关**：这才 30 字符）");
+  eq(lines[1], "seven [\n  1, 2, 3, 4,\n  5, 6, 7\n]", "7 项的折法（4 列 2 行）");
+  // **列数上限 12**：`[0..79]` 的第一行恰好 12 项。
+  const firstRow = lines[2].split("\n")[1];
+  eq(firstRow.split(", ").length, 12, "分组每行 12 列（量出来的上限）");
 });
 
 console.log("");

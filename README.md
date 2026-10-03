@@ -48,9 +48,11 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 降级层收下了 P0 的形状 + 类 / 继承 / 集合 / 生成器 / 默认参数、一批标准库
 与**数字字面量的全形态**（第 129 轮，线形态随之升到 v2 并开始承载 `Float64` 常量）
 + **标准库第三批**（第 130 轮：`findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode`
-· `String.replace` · `new Map(键值对)` · `new Set(数组)`），
+· `String.replace` · `new Map(键值对)` · `new Set(数组)`）
++ **`console.log` 的形状**（第 131 轮：容器走 `util.inspect` 那一份——
+`console.log([1, 2])` 印 `[ 1, 2 ]`，与 Node 逐字节相同），
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（171 条）与 `npm run runtime:cli`（22 份语料）；
+判据见 `npm run runtime:check`（173 条）与 `npm run runtime:cli`（23 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。
