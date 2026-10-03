@@ -8,21 +8,26 @@
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
-> **逐值一致**（判据 `npm run runtime:check` 的最后二十一节，共 130 条全绿）。
-> 收了：变量声明（`let`/`const` 块作用域、`var` 函数作用域，含**对象与数组解构**）、
-> **`class`（构造函数 + 原型上的方法；`extends` / 字段 / `static` 等先抛）**、
-> 表达式语句 / `return` / `throw` / `if` / `while` / **`for(;;)`** / **`for..in`** /
-> **`for..of`（走迭代协议，含遍历生成器）** / **`try`/`catch`/`finally`（三条路）** /
+> **逐值一致**（判据 `npm run runtime:check` 的最后二十几节，共 159 条全绿）。
+> 收了：变量声明（`let`/`const` 块作用域、`var` 函数作用域，含**对象与数组解构**——**不退水位**，
+> 见台账第 119 轮）、**`class`（构造函数 + 原型上的方法 + 访问器；`extends` / `super(...)` / `super.m()`；
+> 字段初始化与 `static` 仍抛）**、
+> 表达式语句 / `return` / `throw`（**含 `throw { … }`**）/ `if` / `while` / **`for(;;)`** / **`for..in`** /
+> **`for..of`（走迭代协议，含遍历生成器）** / **`try`/`catch`/`finally`（三条路，`catch` 也能解构）** /
 > **`switch`/`break`/`continue`** / 块 / 函数声明；
-> 数字·字符串·布尔·`null`·`this`·标识符 / 二元（含 **`in`**）/ 赋值 / **复合赋值** /
+> 数字·字符串·布尔·`null`·`this`（**只有箭头沿环境链取，见第 119 轮**）·标识符 /
+> 二元（**含 `&&` / `||` 短路与 `in`**）/ 赋值 / **复合赋值（名字、属性、下标三种左值）** /
 > **字符串拼接（`ToString`）** / 调用 / **方法调用**（`obj.m()`，`this` 落在接收者上）/
-> 属性与下标（含 **`?.`**）/ **`??`** / **对象与数组字面量**（含洞、计算键、方法）/
-> **箭头函数与函数表达式** / **`new`** / **`typeof`** / **`yield`** / **`await`**，
-> 以及**提升**（函数声明与 `var`）与**闭包捕获**（环境记录 + 深度 + 宿主按导出闭包调用）。
-> 还差（按顺序）：**模块与 `.d.ts` 能力绑定**、
-> 数字与布尔的原始值原型、`TDZ` 的动态那一半、**模板串**（等投影带上各段文本，见台账）、
-> 解构的默认值与剩余、`instanceof`、`for..in`、`call_index`（计算成员调用）、
-> 一元运算符、async/生成器、模块、`.d.ts` 能力绑定。
+> 属性与下标（含 **`?.`**）/ **`??`** / **对象与数组字面量**（含洞、计算键、方法、访问器）/
+> **箭头函数与函数表达式** / **默认参数与可选参数**（第 119 轮）/ **`new`** / **`typeof`** /
+> **`yield`** / **`await`**，以及**提升**（函数声明与 `var`）与**闭包捕获**（环境记录 + 深度 +
+> 宿主按导出闭包调用）。
+> **`.ts` 已经能直接执行**：仓库根的 [tsrun.xl.md](../tsrun.xl.md) 是运行器 +
+> 命令行（`node build/ts/tsrun.js <文件.ts>`），stdout 与 `node <文件.ts>` **逐字节相同**
+> （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts`，裁判是真 Node）。
+> 还差（按顺序）：**对象与数组的 `ToPrimitive`**（`"…" + 对象` / `console.log(对象)` 现在抛）、
+> 解构的默认值与剩余、**浮点数的文本形态**、`static` 与字段初始化、数字与布尔的原始值原型、
+> `TDZ` 的动态那一半、正则。
 
 ## 输入是「TS 形状」，不是 token 树
 
@@ -45,19 +50,26 @@ typescript-exec/
   lowering.xl.md        ✔ 已落地（最小构造集 + 槽分配 + 函数表 + 导出闭包表）
   scope.xl.md           ✔ 已落地（捕获分析 + 环境链与深度）
   statements.xl.md      语句与声明（提升、`for`/`for..of`、`try`）
-  expressions.xl.md     表达式与运算符（`??` / `?.` 展开成控制流，不进 id 表）
+  expressions.xl.md     表达式与运算符（`&&` / `||` / `??` / `?.` 展开成控制流，不进 id 表）
   modules.xl.md         import/export → 宿主的模块解析回调
   async.xl.md           async/generator → suspend/resume + 微任务队列
   bindings.xl.md       ✔ 已落地（`.d.ts` 能力名 → 能力号；查号回调交给降级层）
   builtins/             标准库：Object / Function / Array / String / Number / Math /
                         JSON / Error / Promise / Symbol / Map / Set / Date
-    array.xl.md         ✔ 已落地（push / pop / join / indexOf / slice，宿主函数实现）
+    array.xl.md         ✔ 已落地（push / pop / join / indexOf / slice + 谓词族与 forEach/map/filter）
     string.xl.md        ✔ 已落地（charAt / charCodeAt / indexOf / slice）
-    install.xl.md       ✔ 已落地（装库入口 + 按号段总分派）
-    globals.xl.md       ✔ 已落地（全局名名单 + Math / console，日志交宿主回调）
+    map.xl.md           ✔ 已落地（构造 / set / get / has / delete / size / keys / values / entries / clear / forEach）
+    set.xl.md           ✔ 已落地（同上那一族）
+    install.xl.md       ✔ 已落地（装库入口 + 按号段总分派 + 语言内部辅助号）
+    globals.xl.md       ✔ 已落地（全局名名单 + Math / console / Object / JSON / Symbol / Date，日志交宿主回调）
   builtins/             标准库：Object / Function / Array / String / Number / Math /
                         JSON / Error / Promise / Symbol / Map / Set / Date
 ```
+
+**运行器与命令行在仓库根**：`tsrun.xl.md`（`RunSources` + `RunMain`）——
+它是**唯一允许同时 import 三层**的那一层（`runtime/` + `typescript-exec/` + `typescript/`），
+所以与 `cjcli.xl.md` 并列放在根上。判据 `tests/runtime/run-cli.mjs`
+（`npm run runtime:cli`）拿真 Node 当裁判逐字节对拍。
 
 **标准库为什么在这里而不在 `runtime/`**：`Object` / `Array` / `String` / 原型链 / 迭代协议
 是 **JS 家族的语义**，与「引擎」无关——换一门语言一套都用不上。

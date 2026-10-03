@@ -5240,9 +5240,20 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 ```ts
   const content = kidsOf(v, "children").find((k) => k.get("type") === "ConstString");
   if (content !== undefined) return textOfNode(content, ctx);
-  const value = v.attrs.get("text");
-  if (typeof value === "string" && value !== "") return value;
-  return ctx.source.slice(v.start, v.end);
+  // **没有内容单元 = 一个字都没有**（第 119 轮修掉的那条老缺口）。
+  //
+  // 这个 token 的内容**全部**住在 `ConstString` 子单元里——实测（见台账第 119 轮的现场）：
+  //   - `"x"` / `'a\nb'` / `@"raw"` / `` `t` `` → **都有**一个 `ConstString` 子单元；
+  //   - `` `${1}` `` / `` `a${1}` `` / `` `${1}b` `` → 文本段**照样**各给一个
+  //     （**包括空段**：那个 `ConstString` 的值就是空串）；
+  //   - `""` / `''` / `` `` `` → **一个都没有**。
+  // 所以「一个都没有」只可能是**空串**，不是「值是一对引号」✗。
+  //
+  // **原来这里退到「原样切源码」**✗：那给出的是**带引号的原文**（`""`）——
+  // 于是空串与非空串在降级层分不开，判据报的是
+  // `unimplemented: an empty string literal is reported in quoted form`，
+  // 而 `let s = ""` 这种遍地都是的写法直接跑不起来（`parsing-gaps` 里记了几十轮）。
+  return "";
 ```
 
 # private method kindsInAst:(node:any, out:Set<string>)=>void

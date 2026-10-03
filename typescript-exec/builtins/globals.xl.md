@@ -28,7 +28,14 @@ import { SetCtor } from "./set.xl.md"
 
 # type LogSink = (text:string)=>void
 
-一行日志去哪：**宿主说了算**。
+**一行日志去哪**：宿主说了算。
+
+**粒度是「一次 `console.log` = 一次调用」**（第 119 轮改的口径）：实参已经按 JS 的规矩
+用**空格**接成一行交进来，**不带行尾**（换行由宿主补——库不替宿主决定输出形态）。
+
+**为什么粒度要定在「行」上**：原来是「一个实参调一次 sink」，那样宿主**再也拼不回行** ✗——
+`console.log('a', 1)` 与 `console.log('a'); console.log(1)` 在它眼里**一模一样**；
+而「把 `.ts` 直接跑起来」的命令行拿 stdout 与 `node` 逐字节对拍时，这个区别就是全部 ✗。
 
 # const MathFloor:int = 201
 
@@ -149,8 +156,8 @@ return Value.FromDouble(value);
 
 **全局内建的分派与实现**。
 
-`Math.floor` / `abs` / `max` / `min` 各一行；`console.log` 把每个实参
-`ToString` 之后交给 `sink`，**逐个调用**（宿主想拼成一行就自己拼——它拿到的是**逐条**）。
+`Math.floor` / `abs` / `max` / `min` 各一行；`console.log` 把实参 `ToString` 之后
+**用空格接成一行**、**一次**交给 `sink`（见 `LogSink` 那一段：粒度是行，不是实参）。
 
 **为什么要原型表**：`Object.keys` 返回的是**新数组**，而新数组必须带**数组原型**
 （否则结果连 `.join` 都没有——那等于返回了一个「长得像数组但不是」的东西）。
@@ -186,9 +193,15 @@ if (id === MathMax || id === MathMin) {
   return MathResult(best);
 }
 if (id === ConsoleLog) {
+  // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。
+  // 少了这一步，宿主拿到的是一串**分不出行**的碎片 ✗（`console.log('a', 1)` 与两条
+  // 各自一个实参的日志长得一样 ✗）——命令行那个「与 node 逐字节相同」的判据就无从谈起 ✗。
+  let line = "";
   for (let i = 0; i < args.length; i++) {
-    sink(TextFrom(table, args[i]));
+    if (i > 0) line = line + " ";
+    line = line + TextFrom(table, args[i]);
   }
+  sink(line);
   return Value.Undefined();
 }
 if (id === ObjectKeys) {

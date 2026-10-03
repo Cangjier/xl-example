@@ -4595,7 +4595,86 @@ check("Array 的 find/some/every：空数组那两条口径（some 假、every �
     eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
   }
 });
-check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
+check("默认参数与可选参数：只有「没传」或「传了 undefined」才用默认值（null 不算），求值从左到右，与 Node 一致", () => {
+  // 第 119 轮。默认参数是**被调方的开场代码**（`LowerParamDefault`），判定用
+  // **严格相等 undefined**——`is_nullish` 会把 `null` 也算成「缺」，那是 `??` 的口径 ✗，
+  // 所以这里把 `g(null)` 单独钉一条。
+  // 求值顺序：后一个默认值能看见前一个（`h` 的 `c = a + b`）；
+  // 还有三条**跨层**的形状：默认值引用外层局部名（`outer`）、默认值里含箭头（`withCb`）、
+  // 默认值里用 `this`（对象方法 `m`）——它们走的都是「这一层要不要开环境 / 要不要 `this` 格」。
+  const source = [
+    "function f(a = 1, b = a + 10) { return a * 100 + b; }",
+    "function g(x = 7) { return x; }",
+    "function h(a, b = 2, c = a + b) { return a * 100 + b * 10 + c; }",
+    "function opt(a, b = 8) { return (a === undefined ? 100 : a) + b; }",
+    "function outer() {",
+    "  const base = 5;",
+    "  function inner(k = base + 1) { return k; }",
+    "  return inner();",
+    "}",
+    "function withCb(cb = () => 7) { return cb(); }",
+    "class C {",
+    "  constructor(v = 5) { this.v = v; }",
+    "  m(x = 3) { return this.v * 10 + x; }",
+    "}",
+    "const obj = { n: 4, m(x = this.n) { return x; } };",
+    "const arrow = (z = 6) => z;",
+    "function run() {",
+    "  const c = new C();",
+    "  const c9 = new C(9);",
+    "  return [f(), f(2), f(2, 3), f(undefined, 3),",
+    "    g(), g(0), g(null) === null ? 1 : 0,",
+    "    h(1), h(1, 5), h(1, undefined, 9),",
+    "    opt(), opt(1),",
+    "    outer(), withCb(), withCb(() => 8),",
+    "    c.m(), c9.m(), c9.m(1), obj.m(), arrow(), arrow(2)];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    function f(a = 1, b = a + 10) { return a * 100 + b; }
+    function g(x = 7) { return x; }
+    function h(a, b = 2, c = a + b) { return a * 100 + b * 10 + c; }
+    function opt(a, b = 8) { return (a === undefined ? 100 : a) + b; }
+    function outer() {
+      const base = 5;
+      function inner(k = base + 1) { return k; }
+      return inner();
+    }
+    function withCb(cb = () => 7) { return cb(); }
+    class C {
+      constructor(v = 5) { this.v = v; }
+      m(x = 3) { return this.v * 10 + x; }
+    }
+    const obj = { n: 4, m(x = this.n) { return x; } };
+    const arrow = (z = 6) => z;
+    const c = new C();
+    const c9 = new C(9);
+    return [f(), f(2), f(2, 3), f(undefined, 3),
+      g(), g(0), g(null) === null ? 1 : 0,
+      h(1), h(1, 5), h(1, undefined, 9),
+      opt(), opt(1),
+      outer(), withCb(), withCb(() => 8),
+      c.m(), c9.m(), c9.m(1), obj.m(), arrow(), arrow(2)];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 111, "Node：f() 两个默认值都生效（前提）");
+  eq(expected[3], 103, "Node：显式 undefined 也走默认值（前提）");
+  eq(expected[6], 1, "Node：null 不触发默认值（前提）");
+  eq(expected[13], 7, "Node：默认值是箭头函数时照常可调（前提）");
+  eq(expected[18], 4, "Node：默认值里能用 this（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
+  }
+});
+check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
   // 所以前两轮加在通用路的两处挂钩从来没执行过（探针才定位到）。
@@ -4606,10 +4685,111 @@ check("一元运算符与空字符串：投影分不出来的，一律抛（不�
   try { new Lowering().LowerModule(parseTsShape("let z = ~1;"), testIds); } catch (error) { unsupported = String(error.message); }
   ok(unsupported.indexOf("unary operator") >= 0, "没做的一元运算符照旧抛（不静默）：" + unsupported);
 
-  // 空字符串字面量的 text 是**带引号的原文**（`""`），与「值就是两个引号」分不开
-  let empty = "";
-  try { new Lowering().LowerModule(parseTsShape("let s = \"\";"), testIds); } catch (error) { empty = String(error.message); }
-  ok(empty.indexOf("empty string literal") >= 0, "空字符串要抛：" + empty);
+  // **空字符串已经不再是缺口**（第 119 轮）：投影对字符串字面量**一律给值**，
+  // 空串就给空串（`print-ast-common` 的 `stringText`）。原来投影给的是**带引号的原文**
+  // （`""`），降级层分不开空串与「值是一对引号」，只能抛——那一条是**投影的锅**。
+  const empty = new Lowering().LowerModule(parseTsShape('let s = ""; let t = \'""\';'), testIds);
+  ok(empty.Program !== undefined, "空字符串字面量不再抛（`\"\"` 与「值是一对引号」都装得下）");
+});
+
+check("第 119 轮的四条缺口：空串值 · throw 对象字面量 · 属性复合赋值 · 解构不退水位", () => {
+  // 这四条都是**命令行判据（`tests/runtime/run-cli.mjs`）逼出来的**：
+  // 那一把尺子量的是「直接跑一个 .ts 文件」，于是每条都是最普通的写法。
+  //   · **空串**：`let s = ""` 遍地都是；
+  //   · **`throw { … }`**：token 层把 `throw` 后面那个 `{` 判成**块语句**，
+  //     投影给出 `ThrowStatement > Block`，降级层报 `expression Block`；
+  //   · **属性复合赋值**：`this.value += by` / `o[k] += 1` 原来直接抛；
+  //   · **解构声明退水位**：`const {x} = p` 之后紧跟 `const [a,,b] = arr`，
+  //     前者绑好的变量格被后来者**覆盖**（症状是几条语句之后读到别人的值）。
+  const source = [
+    "function empty() {",
+    "  let s = '';",
+    "  s = s + 'b';",
+    "  return [s, s.length, ''.length];",
+    "}",
+    "function thrown() {",
+    "  try {",
+    "    throw { message: 'boom', code: 7 };",
+    "  } catch (error) {",
+    "    return error.message + '/' + error.code;",
+    "  }",
+    "}",
+    "function compound() {",
+    "  const o = { value: 1 };",
+    "  o.value += 4;",
+    "  o.value *= 2;",
+    "  const arr = [10, 20];",
+    "  arr[1] += 5;",
+    "  const key = 'value';",
+    "  o[key] -= 3;",
+    "  return [o.value, arr[1], arr[0]];",
+    "}",
+    "function slots() {",
+    "  const p = { x: 1, y: 2 };",
+    "  const { x } = p;",
+    "  const arr = [10, 20, 30];",
+    "  const [a, , b] = arr;",
+    "  const { y: renamed } = p;",
+    "  return [x, a, b, renamed];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    function empty() {
+      let s = "";
+      s = s + "b";
+      return [s, s.length, "".length];
+    }
+    function thrown() {
+      try {
+        throw { message: "boom", code: 7 };
+      } catch (error) {
+        return error.message + "/" + error.code;
+      }
+    }
+    function compound() {
+      const o = { value: 1 };
+      o.value += 4;
+      o.value *= 2;
+      const arr = [10, 20];
+      arr[1] += 5;
+      const key = "value";
+      o[key] -= 3;
+      return [o.value, arr[1], arr[0]];
+    }
+    function slots() {
+      const p = { x: 1, y: 2 };
+      const { x } = p;
+      const arr = [10, 20, 30];
+      const [a, , b] = arr;
+      const { y: renamed } = p;
+      return [x, a, b, renamed];
+    }
+    return [empty()[0], empty()[1], empty()[2], thrown(),
+      compound()[0], compound()[1], compound()[2],
+      slots()[0], slots()[1], slots()[2], slots()[3]];
+  };
+  const expected = nodeRun();
+  eq(expected[0], "b", "Node：空串拼接（前提）");
+  eq(expected[3], "boom/7", "Node：throw 对象字面量（前提）");
+  eq(expected[4], 7, "Node：属性复合赋值（前提）");
+  eq(expected[9], 30, "Node：数组解构第三格是 30（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source + "\nreturn [empty()[0], empty()[1], empty()[2], thrown(),"
+    + " compound()[0], compound()[1], compound()[2],"
+    + " slots()[0], slots()[1], slots()[2], slots()[3]];"];
+  request.Entry = "";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  for (let i = 0; i < expected.length; i++) {
+    const actual = GetIndex(table, res.Value, Value.FromInt(i));
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
 });
 
 console.log("");

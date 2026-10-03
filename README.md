@@ -64,7 +64,13 @@ xl build             # 规范 → dist/ts/**/*.ts（增量；无改动时 skippe
 npm run compile      # dist/ts/**/*.ts → build/ts/**/*.js（tsc，strict）
 npm run samples      # 三个样本与各自 *.expected.tsast.json 逐字节对照（命令行 = 库 API）
 node build/ts/cjcli.js samples/hello.ts
+node build/ts/tsrun.js tests/runtime/cases/01-values-and-operators.ts   # **直接执行 .ts**
 ```
+
+**第二个命令行是 `tsrun`**：它把一份 `.ts` 装进执行侧那条真链路
+（真解析器 → 降级 → IR → VM）跑一遍，**stdout 与 `node <文件.ts>` 逐字节相同**——
+判据 `npm run runtime:cli` 就是这么比的（裁判是真 Node，语料在 `tests/runtime/cases/`）。
+用法与约定见 [tsrun.xl.md](tsrun.xl.md) 的 `RunUsage`。
 
 `npm run build` 是前两步的串联（`xl build && tsc`）。
 
@@ -105,6 +111,9 @@ npm run cases:check        # 用例体检（用例本身合不合格）
 npm run samples            # 三份样本的 TS 形状夹具逐字节对照
 npm run cases:tsast        # **主判据**：全语料逐文件与 ts.createSourceFile 对拍
 npm run cases:tsast:cli    # 发布路径：真的开 cjcli 进程再对拍（慢，按需跑）
+npm run runtime:check      # 执行侧：值模型 / 堆 / GC / IR / 执行器 / 降级层 的判据（快）
+npm run runtime:cli        # **直接执行 .ts**：tsrun 与 node 逐字节对拍（真进程）
+npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成员名 / 字面量）
 ```
 
 **第 200 轮起测试集只留 AST 相关的这些**（用户口径）：

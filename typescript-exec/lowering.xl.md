@@ -85,6 +85,13 @@ import { DateCtor } from "./builtins/globals.xl.md"
 判据里有一对**对照**：同一个对象上挂一个箭头与一个函数表达式，箭头看到外层、
 函数看到接收者——**两者不同才是对的**。
 
+**第 119 轮补上的另一半：这条环境路只许箭头走**。原来 `ThisKeyword` **不问当前这一层是
+什么函数**，一律先在环境链上找——于是「模块里恰好有一个箭头」（于是模块那一层开了
+`this` 格）时，**构造函数 / 方法 / 函数表达式**的 `this` 都会读到**模块**那一格，
+症状是 `this.v = v` 报 `assigning a property on a primitive receiver`。
+判据里那条「默认参数 + 类 + 箭头」的合成形状就是撞上它才红的
+（`PendingFunction.IsArrow` / `InArrow` 那两段是修法）。
+
 **TDZ 的缺口写清楚**：**未捕获**的 `let`/`const` 用在声明之前会报
 `name used before its declaration`（因为那时它既不在槽里也不在环境里）；
 **已捕获**的**读不到这个错**——环境格从函数一开始就存在，读到的是 `undefined`。
@@ -434,6 +441,22 @@ return -1;
 
 参数名（按位置对应前几格）。
 
+## field DefaultAt:Array<int> = []
+
+**有默认值的参数是第几个**（与 `Defaults` 一一对应，**按下标升序**）。
+
+**为什么存位置、不存槽号**：槽号就是参数下标（参数占前几格），但这里要紧的是
+**求值顺序跟着参数顺序**——那是语义（`function f(a = 1, b = a + 1)` 里 `b` 看得见 `a`）。
+存成一个「有默认值的参数集合」就把顺序丢了。
+
+## field Defaults:Array<AstNode> = []
+
+**参数默认值的初始化式**（没有默认值的参数不进这里）。
+
+**为什么登记时就要带走**：默认值是**函数体开场**的一段代码（`LowerParamDefault`），
+而函数体是**外层降级完之后**才降级的——那时候这一层的作用域上下文早没了。
+所以和 `Envs` 同一条理由：**登记那一刻把要用的东西抄下来**。
+
 ## field Body:AstNode | null = null
 
 函数体。
@@ -466,6 +489,22 @@ return -1;
 降级时它是「把表达式的值返回出去」，而不是「跑完这一段再给 `undefined`」。
 两种体**共用同一个排队结构**，因为除此以外它们一模一样。
 
+## field IsArrow:bool = false
+
+**这个函数体是箭头函数**（`NodeKind(node) === "ArrowFunction"`）。
+
+**它决定 `this` 往哪找**（第 119 轮实测抓到的缺口）：箭头**没有自己的 `this`**——
+它取的是「造它那一刻外层的接收者」，所以它的 `this` 必须走**环境**那条路
+（`EnterFunctionBody` 里那格隐藏捕获 `scope.Declare("this", …)`）。
+
+**其余每一种函数体**（函数声明 / 函数表达式 / 方法 / 构造函数）都**有自己的 `this`**，
+必须发 `load_this`，**不许**在环境链上找：外层要是恰好也有一个 `this` 格
+（**模块里只要有箭头就会有**），找过去就是**读错接收者**。
+
+实测症状：`this.v = v` 报 `assigning a property on a primitive receiver`——
+`this` 读成了模块那一格（宿主给入口的接收者，通常是 `undefined`）。
+**它只在「模块里恰好有箭头」时才出现**，所以最初几条判据全绿也发现不了。
+
 ## field IsGenerator:bool = false
 
 这是一个**生成器函数**（`function*` / `function* () {}` / `{ *m() {} }`）。
@@ -494,7 +533,7 @@ return -1;
 而父类构造函数是**外层作用域里的一个名字**——跨帧只能用**环境**这条通道，
 所以这里存名字，降级 `super` 时照常 `ResolveAccess`（链上找、深度算，一行都不用新写）。
 
-## constructor:(name:string, body:AstNode, params:Array<string>, patch:int)=>void
+## constructor:(name:string, body:AstNode, params:Array<string>, patch:int, defaultAt:Array<int>, defaults:Array<AstNode>)=>void
 
 登记一个待降级的函数体。
 
@@ -504,6 +543,8 @@ this.Body = body;
 this.Params = params;
 this.ParamCount = params.length;
 this.Patch = patch;
+this.DefaultAt = defaultAt;
+this.Defaults = defaults;
 ```
 
 # class LoopContext
@@ -736,6 +777,16 @@ return true;
 **为什么「当前」这一个字段就够**：函数体是**从队列里一个一个降级的**
 （`PendingFunction` 那一段），所以同一时刻只有一层在降级——进去设、出来恢复即可。
 
+## field InArrow:bool = false
+
+**当前正在降级的这个函数体是不是箭头函数**（与 `InGenerator` / `InAsync` 同一套用法：
+进一层设、出一层恢复）。
+
+`ThisKeyword` 靠它分流：真 = 在环境链上找那一格隐藏捕获；假 = 直接发 `load_this`。
+**这一条判据不能省**：省略之后，普通函数（构造函数 / 方法 / 函数表达式）会去**外层**的
+`this` 格里读接收者——模块里有箭头时那一格存在，于是读到的是模块的接收者
+（判据报的是 `assigning a property on a primitive receiver`，离现场很远）。
+
 ## field InAsync:bool = false
 
 **当前正在降级的这个函数体是不是 `async`**（与 `InGenerator` 同一套用法）。
@@ -875,7 +926,7 @@ this.FinallyDepth = 0;
 this.Loops = [];
 ```
 
-## method EnterFunctionBody:(body:AstNode, params:Array<string>)=>void
+## method EnterFunctionBody:(body:AstNode, params:Array<string>, extras:Array<AstNode>)=>void
 
 **每个函数体的开场**：算出这一层要捕获哪些名字，需要就开一个环境。
 
@@ -887,18 +938,38 @@ this.Loops = [];
 （闭包的环境参数是一个 `Value`），中间那一层手上没有这个值，更内层就拿不到祖父的环境
 （`scope.xl.md` 里那条口径）。
 
+**`extras` 是「不在 `body` 里、却属于这一层」的节点**（第 119 轮起：参数的默认值初始化式）。
+它们是**函数开场就要跑的一段代码**，所以要和外层捕获、`this` 格、内层函数三件事一起算：
+- 默认值里引用外层的局部名 → 那是**内层函数里的引用**（`CollectInsideFunctions` 会走进
+  嵌套函数的 `parameters`），所以外层那一格**已经会**被捕获；
+- 默认值里含箭头函数 → 这一层**必须开环境**、并且**要有一个 `this` 格**
+  （箭头没有自己的 `this`）。少扫这一处，症状是 `new_closure needs an environment or undefined`
+  或者箭头里读到的是**外层**的接收者。
+
 ```ts
 const declared: string[] = [];
 for (let i = 0; i < params.length; i++) declared.push(params[i]);
 CollectDeclaredNames(body, declared);
+// **默认值里的声明也算进这一层**（保守）：初始化式里不会有函数声明或 `var`，
+// 但「多收一个」只会多开一格，「少收一个」是把本层变量当成未知名字。
+for (let e = 0; e < extras.length; e++) CollectDeclaredNames(extras[e], declared);
 for (let i = 0; i < this.ExtraDeclared.length; i++) declared.push(this.ExtraDeclared[i]);
 this.ExtraDeclared = [];
 this.DeclaredNames = declared;
 const functions: string[] = [];
 CollectFunctionNames(body, functions);
 const captured = CapturedNames(body, declared);
-const needsThis = HasArrowFunction(body);
-if (captured.length === 0 && !HasNestedFunction(body, 0) && !needsThis) return;
+let needsThis = HasArrowFunction(body);
+let hasNested = HasNestedFunction(body, 0);
+for (let e = 0; e < extras.length; e++) {
+  const more = CapturedNames(extras[e], declared);
+  for (let i = 0; i < more.length; i++) {
+    if (!Contains(captured, more[i])) captured.push(more[i]);
+  }
+  if (HasArrowFunction(extras[e])) needsThis = true;
+  if (HasNestedFunction(extras[e], 0)) hasNested = true;
+}
+if (captured.length === 0 && !hasNested && !needsThis) return;
 const cellCount = captured.length + (needsThis ? 1 : 0);
 const slot = this.Reserve(1);
 this.Emit(Op.EnvNew, slot, cellCount, -1, -1);
@@ -1111,7 +1182,7 @@ for (let i = 0; i < prelude.length; i++) {
   this.CollectImports(prelude[i]);
 }
 this.ExtraDeclared = this.Globals;
-this.EnterFunctionBody(source, []);
+this.EnterFunctionBody(source, [], []);
 this.Hoist(source);
 this.BindGlobals();
 const statements = ListOf(source, "statements");
@@ -1184,14 +1255,23 @@ this.PushScope();
 const outerInGenerator = this.InGenerator;
 const outerInAsync = this.InAsync;
 const outerSuperName = this.InSuperName;
+const outerInArrow = this.InArrow;
 this.InGenerator = item.IsGenerator;
 this.InAsync = item.IsAsync;
 this.InSuperName = item.SuperName;
+this.InArrow = item.IsArrow;
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
-this.EnterFunctionBody(body, item.Params);
+this.EnterFunctionBody(body, item.Params, item.Defaults);
 for (let i = 0; i < item.Params.length; i++) {
   this.DeclareLocal(item.Params[i], i);
+}
+// **默认参数紧跟在参数声明之后、体之前**（第 119 轮）：JS 的规矩是**没有传、或者传了
+// `undefined`** 才用默认值（`null` 不算），而参数格在开帧时一律填 `undefined`
+// （`heap.xl.md` 的 `HeapFrame` 构造），所以「缺的参数」与「显式传 undefined」在这里
+// 是同一个状态——一条判定就够，两件事不用分开写。
+for (let d = 0; d < item.DefaultAt.length; d++) {
+  this.LowerParamDefault(item.Params[item.DefaultAt[d]], item.Defaults[d]);
 }
 this.Hoist(body);
 if (item.IsExpressionBody) {
@@ -1209,6 +1289,7 @@ this.PopScope();
 this.InGenerator = outerInGenerator;
 this.InAsync = outerInAsync;
 this.InSuperName = outerSuperName;
+this.InArrow = outerInArrow;
 ```
 
 ## method LowerStatementsOf:(block:AstNode)=>void
@@ -1338,17 +1419,17 @@ throw new Error("unimplemented: statement " + kind);
 
 字符串字面量 → 码元。
 
-**空字符串要拒绝**：投影对**空**字面量给的是**带引号的原文**（`""` 两个字符），
-而其他字面量给的是**值**（`"b"` → `b`）。这两件事在投影里**分不开**——
-`""` 既可能是空串，也可能是「值就是两个引号」的串。**分不开就不要猜**：
-报出来，记在 [docs/typescript-parsing-gaps.md](../docs/typescript-parsing-gaps.md)。
+**空串现在是普通值**（第 119 轮）：投影对字符串字面量**一律给值**——
+空串就给空串（`stringText` 那一节的修法），所以 `""` 到这里就是一个**空的 `text`**，
+`UnitsOf("")` 给空数组 ✓。**原来在降级层拒绝它**✗（`unimplemented: an empty string literal …`），
+理由是「投影分不开空串与『值是一对引号』」——那是**投影的锅**，修在投影上才对；
+在降级层拒绝等于把一条遍地都是的写法挡在门外（`let s = ""` 就是它）。
+
+**反向的那一半也顺带对了**：`'""'`（值就是两个双引号的串）现在给的是**值** `""`，
+不再与空串撞车——**模板串那里早就是这么给的**（内插模板的空段就是一个空值的 `ConstString`）。
 
 ```ts
-const text = TextOf(node);
-if (text === "\"\"" || text === "''") {
-  throw new Error("unimplemented: an empty string literal is reported in quoted form (see parsing-gaps)");
-}
-return UnitsOf(text);
+return UnitsOf(TextOf(node));
 ```
 
 ## method LowerVariable:(declaration:AstNode, isVar:bool)=>void
@@ -1378,7 +1459,13 @@ if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
     this.LowerInto(source, initializer);
   }
   this.Destructure(name, source, isVar);
-  this.Release(source + 1);
+  // **不要在这里退水位**（第 119 轮修掉的 bug）：`Destructure` 里的每一格绑定都会
+  // 在 `source` **上面**占一格变量（`BindName` → `Reserve(1)`），
+  // `Release(source + 1)` 把它们**全退掉**✗——下一个声明于是盖在同一个槽上，
+  // 症状是几条语句之后读到**别人的值**（判据现场：`const {x} = p; const [a,,b] = arr;`
+  // 之后 `console.log("all", x, …)` 打出 `all all 2 all`；调 `ToString` 的那种直接
+  // 报 `unimplemented: ToString of this kind of value`，离现场很远）。
+  // 与上面简单名字那条同一个理由（那里也**不退**）：**退水位退掉的可能是刚绑好的变量**。
   return;
 }
 if (nameKind !== "Identifier") {
@@ -1964,13 +2051,23 @@ this.LowerStatement(block);
 const declaration = OptionalChild(catchClause, "variableDeclaration");
 if (declaration === null) return;
 const name = Child(declaration, "name");
-if (NodeKind(name) !== "Identifier") {
-  throw new Error("unimplemented: destructuring catch binding");
-}
-const text = TextOf(name);
+const kind = NodeKind(name);
 const slot = this.Reserve(1);
 this.Emit(Op.Caught, slot, -1, -1, -1);
-this.DeclareLocal(text, slot);
+if (kind === "Identifier") {
+  this.DeclareLocal(TextOf(name), slot);
+  return;
+}
+// **`catch ({ message })` 也是解构**（第 119 轮补）：投影给的形状与变量声明的
+// `ObjectBindingPattern` **完全一样**，所以走路也应该是同一条（`Destructure`）——
+// 原来这里直接抛 `unimplemented: destructuring catch binding` ✗，
+// 而「接住异常、只取 message」是脚本里最常见的写法之一。
+// **`isVar` 给假**：`catch` 参数是块作用域，不是 `var`。
+if (kind === "ObjectBindingPattern" || kind === "ArrayBindingPattern") {
+  this.Destructure(name, slot, false);
+  return;
+}
+throw new Error("unimplemented: catch binding " + kind);
 ```
 
 ## method JumpIfNullish:(value:int)=>int
@@ -2329,9 +2426,18 @@ return result;
 
 **一个函数式节点的参数名**（箭头函数 / 函数表达式 / 方法 / 函数声明共用）。
 
-**只收简单名**：解构参数、默认值、剩余参数一律抛——它们是各自的语法，
-混在这里会让「参数就是前几格」这条约定（`FunctionInfo.ParamCount` 与调用约定都靠它）
-悄悄不成立。
+**只收简单名**：解构参数与剩余参数抛——它们是各自的语法（解构要绑定模式那一路，
+剩余参数要「把多出来的实参收成一个数组」，两者都不止是「一个名字」）。
+默认值与可选参数**照收**（第 119 轮）：
+
+- **可选参数（`a?: T`）是纯类型位**：JS 里没有这个东西，运行期行为与 `a: T` **一模一样**
+  （不传就是 `undefined`）——所以**擦掉**，不是「给个默认值」。
+- **默认值的求值不在这里做**，只在这里**放行**：真正发那段代码的是 `LowerParamDefault`，
+  参数名与默认值是**两份平行的信息**（`FunctionParams` + `CollectDefaults`）。
+
+**为什么名字与默认值不合并成一个返回值**：`Params` 的两条下游（`FunctionInfo.ParamCount`
+与 `DeclareLocal` 的槽号）只关心「有几个、叫什么」，把它们和树节点混在一起，
+调用点每处都得多拆一次。
 
 ```ts
 const parameters = ListOf(node, "parameters");
@@ -2342,14 +2448,74 @@ for (let i = 0; i < parameters.length; i++) {
   if (name === null || NodeKind(name) !== "Identifier") {
     throw new Error("unimplemented: parameter without a simple name");
   }
-  if (OptionalChild(parameter, "initializer") !== null
-    || OptionalChild(parameter, "dotDotDotToken") !== null
-    || OptionalChild(parameter, "questionToken") !== null) {
-    throw new Error("unimplemented: default / rest / optional parameter");
+  if (OptionalChild(parameter, "dotDotDotToken") !== null) {
+    throw new Error("unimplemented: rest parameter");
   }
   params.push(TextOf(name));
 }
 return params;
+```
+
+## method CollectDefaults:(node:AstNode, at:Array<int>, defaults:Array<AstNode>)=>void
+
+**参数默认值：位置与初始化式两份平行数组**（第 119 轮）。
+
+**为什么用两个出参而不是返回一个结构**：本仓的方法只返回一个值，而这里天然是**一对**
+（第几个参数、那段初始化式）——与 `CollectDeclaredNames` / `CollectHoistedVars`
+那几处「往调用方的数组里追加」是同一个写法。
+
+**顺序按参数从左到右**：`at` 是**升序**的，`LowerFunctionBody` 照它顺序发代码，
+于是 `function f(a = 1, b = a + 1)` 里 `b` 看得见 `a`（JS 就是这么定的）。
+
+```ts
+const parameters = ListOf(node, "parameters");
+for (let i = 0; i < parameters.length; i++) {
+  const initializer = OptionalChild(parameters[i], "initializer");
+  if (initializer === null) continue;
+  at.push(i);
+  defaults.push(initializer);
+}
+```
+
+## method LowerParamDefault:(name:string, initializer:AstNode)=>void
+
+**一个默认参数的那段开场代码**（第 119 轮）：`没有传` 或 `传了 undefined` 时才算它。
+
+**判定必须用严格相等，不能用 `is_nullish`** ✗：JS 的规矩是**只有 `undefined`** 触发默认值，
+`f(null)` 里的 `null` **是值、不是缺**（`is_nullish` 会把两者都算进去，那是 `??` 的口径）✗。
+所以这里发的是 `cmp_eq_strict(参数, undefined)`。
+
+**为什么这一段必须写在函数体里、而不是调用方**：默认值是**被调方的代码**——
+它在本帧的作用域里求值（能看见前面的参数），调用方那边根本没有这些槽。
+
+**参数住在哪就读写哪**（这一条是判据抓出来的 ✗）：**被捕获的参数只住在环境格里**
+（`DeclareLocal` 那一条：声明的那一刻把值搬进格，之后本层也走 `EnvGet`/`EnvSet`），
+所以默认值**不能只写槽** ✗——写进去没人读，内层函数从环境里读到的是开帧时那个 `undefined`。
+症状是「默认值看起来没生效」，而真正错的地方在这里。读写都走 `ResolveAccess`，
+槽与环境两条路各只有一处。
+
+```ts
+const access = this.ResolveAccess(name);
+const current = this.Reserve(1);
+if (access.InEnv) {
+  this.Emit(Op.EnvGet, current, access.Depth, access.Cell, -1);
+} else {
+  this.Emit(Op.Move, current, access.Slot, -1, -1);
+}
+const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
+const missing = this.RtCall2(RtOp.CmpEqStrict, current, undefinedConst);
+const skip = this.Here();
+// 极性：`missing` 为假（传了值）就跳过默认值那一段。
+this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
+const value = this.LowerExpression(initializer);
+if (access.InEnv) {
+  this.Emit(Op.EnvSet, value, access.Depth, access.Cell, -1);
+} else {
+  this.Emit(Op.Move, access.Slot, value, -1, -1);
+}
+this.Release(value);
+this.PatchTarget(skip, this.Here());
+this.Release(current);
 ```
 
 ## method AttachPrototype:(closure:int)=>void
@@ -2382,11 +2548,18 @@ this.SetPropertyConst(proto, constructorKey, closure);
 箭头函数、函数表达式、对象字面量里的方法都走它——**它们与函数声明的区别只有两点**：
 没有名字（不进 `Entries`）、以及结果是**一个值**而不是一格声明。
 
-**箭头函数的 `this` 是一个已知缺口**：JS 里箭头没有自己的 `this`（它取外面的），
-而这里每个闭包都有自己的帧、`this` 由调用方给——写在文首那张表里，**不假装它对**。
+**箭头函数的 `this`**：它没有自己的接收者，取的是**造它那一刻外层的**那一个——
+所以外层那一层会多开一格隐藏捕获（`EnterFunctionBody` 的 `needsThis`），
+箭头体里的 `this` 就走环境链（`PendingFunction.IsArrow` + `InArrow` 那两段）。
+**这一格只在有箭头时才开**，正是它把「模块里有箭头」这件事变成了别的函数的坑。
 
 ```ts
 const params = this.FunctionParams(node);
+// **默认值一并抄走**（第 119 轮）：它们在函数体开场跑，而体是**后面**才降级的
+// （`PendingFunction.Defaults` 那一段写着理由）。
+const defaultAt: number[] = [];
+const defaults: AstNode[] = [];
+this.CollectDefaults(node, defaultAt, defaults);
 const body = Child(node, "body");
 const patch = this.Program().AddConst(Constant.OfInt(0));
 const window = this.Reserve(2);
@@ -2406,8 +2579,11 @@ this.Release(slot + 1);
 if (NodeKind(node) === "FunctionExpression") {
   this.AttachPrototype(slot);
 }
-const item = new PendingFunction(name, body, params, patch);
+const item = new PendingFunction(name, body, params, patch, defaultAt, defaults);
 item.IsExpressionBody = NodeKind(body) !== "Block";
+// **箭头与其余函数值的区别就在这一格**（第 119 轮）：箭头没有自己的 `this`，
+// 于是它的 `this` 去环境链上取（`PendingFunction.IsArrow` 那一段写着理由）。
+item.IsArrow = NodeKind(node) === "ArrowFunction";
 // **`*` 要看原始字段**：它在投影里是一枚 token，`OptionalChild` 只认「带 kind 的节点」，
 // 于是会把它判成「没有」——生成器函数于是被当成普通函数（判据报的是
 // `suspend outside a generator`：体里那对 suspend/resume 落在了一个普通帧上）。
@@ -3004,16 +3180,13 @@ const name = Child(node, "name");
 if (NodeKind(name) !== "Identifier") {
   throw new Error("unimplemented: function declaration without a name");
 }
-const parameters = ListOf(node, "parameters");
-const params: string[] = [];
-for (let i = 0; i < parameters.length; i++) {
-  const parameter = parameters[i] as AstNode;
-  const parameterName = OptionalChild(parameter, "name");
-  if (parameterName === null || NodeKind(parameterName) !== "Identifier") {
-    throw new Error("unimplemented: parameter without a simple name");
-  }
-  params.push(TextOf(parameterName));
-}
+// **参数解析与函数表达式共用一处**（第 119 轮顺手收掉一份重复）：
+// 这里原来自己抄了一遍「只收简单名、默认值一律抛」，于是**加默认参数要改两个地方**——
+// 而且两处的判据还不一样（这边漏了 `questionToken` 那一条）。
+const params = this.FunctionParams(node);
+const defaultAt: number[] = [];
+const defaults: AstNode[] = [];
+this.CollectDefaults(node, defaultAt, defaults);
 const slot = this.Reserve(1);
 const patch = this.Program().AddConst(Constant.OfInt(0));
 const window = this.Reserve(2);
@@ -3032,7 +3205,7 @@ this.AttachPrototype(slot);
 // **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
 // 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
 this.DeclareLocal(TextOf(name), slot);
-const item = new PendingFunction(TextOf(name), Child(node, "body"), params, patch);
+const item = new PendingFunction(TextOf(name), Child(node, "body"), params, patch, defaultAt, defaults);
 item.Slot = slot;
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
@@ -3078,7 +3251,9 @@ if (kind === "NullKeyword") {
 }
 if (kind === "ThisKeyword") {
   const slot = this.Reserve(1);
-  const captured = this.Env.Resolve("this");
+  // **只有箭头才在环境链上找 `this`**（`InArrow` 那一段写着为什么）：
+  // 普通函数有自己的接收者，环境链上那一格是**外层**的，读它就是读错人。
+  const captured = this.InArrow ? this.Env.Resolve("this") : null;
   if (captured !== null) {
     // 这一层（或某一层外层）把接收者存进了环境格——**箭头走的就是这条**。
     this.Emit(Op.EnvGet, slot, captured.Depth, captured.Cell, -1);
@@ -3288,6 +3463,28 @@ this.Release(value);
 ```ts
 const operatorText = TextOf(Child(node, "operatorToken"));
 const left = Child(node, "left");
+if (operatorText === "&&" || operatorText === "||") {
+  // **短路是控制流，不是算子**（第 119 轮补；与 `??` 同一条口径：糖进控制流，不进 id 表）。
+  //
+  // **值不是布尔**：`a && b` 给的是 `a`（`a` 假时）或 `b`——不是 `false`/`true` ✗。
+  // 所以这里是「结果格先装左边，需要才覆盖成右边」，不是「算出一个布尔」。
+  //
+  // **极性只写在这一处**：`jump_if_false` 在**假**时跳（`vm.xl.md` 里就是
+  // `!slots[A].AsBool()`），所以
+  //   - `&&`：左边假 → 跳过去，留着左边；
+  //   - `||`：左边**真** → 也该跳过去，于是先把条件取反（`RtOp.Not` 就是逻辑非）。
+  // 少了这一步，`a || b` 会在 `a` 真的时候**照样算右边**（副作用跑两遍、结果还可能被覆盖）✗。
+  const slot = this.Reserve(1);
+  this.LowerInto(slot, left);
+  let condition = slot;
+  if (operatorText === "||") condition = this.RtCall1(RtOp.Not, slot);
+  const decisive = this.Here();
+  this.Emit(Op.JumpIfFalse, condition, 0, -1, -1);
+  this.LowerInto(slot, Child(node, "right"));
+  this.PatchTarget(decisive, this.Here());
+  this.Release(slot + 1);
+  return slot;
+}
 if (operatorText === "??") {
   // **糖进控制流，不进 id 表**：左边算一次，非空就用它，空才算右边。
   // 关键是「右边只在需要时算」——先算再选会多算一次（副作用就跑两遍了）。
@@ -3303,25 +3500,68 @@ if (operatorText === "??") {
 }
 if (operatorText === "+=" || operatorText === "-=" || operatorText === "*="
   || operatorText === "/=" || operatorText === "%=") {
-  // 复合赋值展开成「读 → 算 → 写」，**读一次**（左边只求值一次）。
-  if (NodeKind(left) !== "Identifier") {
-    throw new Error("unimplemented: compound assignment to a non-identifier");
+  const base = BinaryOpOf(operatorText.slice(0, 1));
+  if (NodeKind(left) === "Identifier") {
+    // 复合赋值展开成「读 → 算 → 写」，**读一次**（左边只求值一次）。
+    const access = this.ResolveAccess(TextOf(left));
+    const read = this.Reserve(1);
+    if (access.InEnv) {
+      this.Emit(Op.EnvGet, read, access.Depth, access.Cell, -1);
+    } else {
+      this.Emit(Op.Move, read, access.Slot, -1, -1);
+    }
+    const right = this.LowerExpression(Child(node, "right"));
+    const sum = this.RtCallValues(base, read, right);
+    if (access.InEnv) {
+      this.Emit(Op.EnvSet, sum, access.Depth, access.Cell, -1);
+    } else {
+      this.Emit(Op.Move, access.Slot, sum, -1, -1);
+    }
+    return sum;
   }
-  const access = this.ResolveAccess(TextOf(left));
-  const read = this.Reserve(1);
-  if (access.InEnv) {
-    this.Emit(Op.EnvGet, read, access.Depth, access.Cell, -1);
-  } else {
-    this.Emit(Op.Move, read, access.Slot, -1, -1);
+  // **左值不是简单名字**（第 119 轮补）：`this.value += by` / `o[k] += 1` 遍地都是，
+  // 而原来这里直接抛 `unimplemented: compound assignment to a non-identifier` ✗。
+  //
+  // **两条规矩与简单名字那条完全一样**：
+  //   1. **接收者只求值一次**（`f().x += 1` 里 `f()` 只调一次）——所以先算接收者、
+  //      读它、写回**同一格**，不走「重算一遍左值」那条路 ✗；
+  //   2. 结果格的活法照 `??` 那一条：**先占结果格**，临时量都在它上面，
+  //      最后 `Release(result + 1)` —— 只留结果那一格活着（写回要用的接收者/键
+  //      在这之前已经用完了）。
+  const result = this.Reserve(1);
+  if (NodeKind(left) === "PropertyAccessExpression") {
+    const receiver = this.LowerExpression(Child(left, "expression"));
+    const name = Child(left, "name");
+    const nameKind = NodeKind(name);
+    if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+      throw new Error("unimplemented: compound assignment to a computed property name");
+    }
+    const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
+    const read = this.RtCall2(RtOp.GetProp, receiver, key);
+    const right = this.LowerExpression(Child(node, "right"));
+    const sum = this.RtCallValues(base, read, right);
+    this.Emit(Op.Move, result, sum, -1, -1);
+    this.SetPropertyConst(receiver, key, result);
+    this.Release(result + 1);
+    return result;
   }
-  const right = this.LowerExpression(Child(node, "right"));
-  const sum = this.RtCallValues(BinaryOpOf(operatorText.slice(0, 1)), read, right);
-  if (access.InEnv) {
-    this.Emit(Op.EnvSet, sum, access.Depth, access.Cell, -1);
-  } else {
-    this.Emit(Op.Move, access.Slot, sum, -1, -1);
+  if (NodeKind(left) === "ElementAccessExpression") {
+    const receiver = this.LowerExpression(Child(left, "expression"));
+    const index = this.LowerExpression(Child(left, "argumentExpression"));
+    const read = this.RtCallValues(RtOp.GetIndex, receiver, index);
+    const right = this.LowerExpression(Child(node, "right"));
+    const sum = this.RtCallValues(base, read, right);
+    this.Emit(Op.Move, result, sum, -1, -1);
+    // **下标写回**：与 `=` 那条分支同一个形状（`set_index` 的窗口是「接收者, 下标, 值」）。
+    const window = this.Reserve(3);
+    this.Emit(Op.Move, window, receiver, -1, -1);
+    this.Emit(Op.Move, window + 1, index, -1, -1);
+    this.Emit(Op.Move, window + 2, result, -1, -1);
+    this.EmitRt(RtOp.SetIndex, window, window, 3);
+    this.Release(result + 1);
+    return result;
   }
-  return sum;
+  throw new Error("unimplemented: compound assignment to a non-identifier");
 }
 if (operatorText === "=") {
   const leftKind = NodeKind(left);

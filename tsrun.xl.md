@@ -6,7 +6,7 @@ import { TextContext } from "./typescript/text-context.xl.md"
 import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
-import { GlobalNames, BuildGlobals, LogSink } from "./typescript-exec/builtins/globals.xl.md"
+import { GlobalNames, BuildGlobals, TextFrom, LogSink } from "./typescript-exec/builtins/globals.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
 import { Value, ValueTag } from "./runtime/value.xl.md"
@@ -46,6 +46,13 @@ import { DefineAccessorId } from "./typescript-exec/builtins/install.xl.md"
 **失败的收敛**：装载被拒、脚本抛了、撞上预算，都变成 `RunResult` 的一个结局 + 一句话，
 **不往外抛**（调用方按 `Outcome` 分支）。
 
+**唯一的例外是「语言层」那两种失败**（写在明处，别以为它不抛）：源文**解析不了**
+（`SyntaxException`）与**降级不了的构造**（`unimplemented: …`）会**原样抛出来**。
+理由：它们**不是脚本的结局**——那时程序根本还没被装起来，
+硬塞进 `HostOutcome` 会让「一次脚本调用的结局」这张表多出一个不属于它的成员 ✗
+（那个枚举是跨目标的契约，`host-abi.xl.md`）。**命令行接住它们**（`RunMain`），
+判据也一样：`try` 里调运行器。
+
 # type RunHost = (room:RoomChecker, id:number, self:Value, args:Array<Value>)=>Value | null
 
 **宿主对能力调用的回答**：认这个号就给一个值，不认就给 `null`（落到标准库去）。
@@ -59,6 +66,13 @@ import { DefineAccessorId } from "./typescript-exec/builtins/install.xl.md"
 **为什么要有它**：有些实参只能在「装起来之后」造——最典型的是 **async 入口要的那个承诺**
 （承诺住在堆里，而堆是运行器建的）。宿主在这里拿到表与机器，就能自己造。
 **这也把「谁是事件循环」这件事说清楚了：宿主才是。**
+
+# type RunOptions = { Input:string; Entry:string; Help:boolean; Version:boolean; Error?:string }
+
+**命令行的参数**（与 `cjcli.xl.md` 的 `CliOptions` 同一个写法）。
+
+`Entry` 空串 = **只求值模块、不调导出**——那正是「**直接执行一个 `.ts` 文件**」的默认：
+文件顶层的语句跑完就算跑完，与 `node file.ts` 同一条口径。
 
 # class RunRequest
 
@@ -123,6 +137,16 @@ this.Prepare = null;
 
 入口的返回值（没有入口、或者挂起了，就是一个默认值——**调用方先看 `Outcome` 再用它**）。
 
+## field Error:Value = new Value()
+
+**脚本抛出来的那个值**（`Outcome` 是 `ScriptThrew` 时才有意义，别的结局里是空的）。
+
+**为什么运行器要把它交出来**：宿主能对它做的事只有「打印」或「按形状分派」，
+而 `Message` 是**给机器看的一句话**（`the script threw`）——真正的信息在这个值里
+（`throw new Error('boom')` 的那句 `boom`）。命令行就是靠它打出一行**可读**的报错。
+**它是根**：抛出的值留在 `Vm.Pending` 上，而那一格在回收器的根集里
+（`vm.xl.md`）——所以只要 `Machine` 还在，它就不会被回收掉。
+
 ## field Machine:Vm | null = null
 
 **这次运行用的机器**（挂起时尤其需要它：宿主用它兑现承诺、推进微任务、再取结果）。
@@ -142,6 +166,7 @@ this.Prepare = null;
 this.Outcome = HostOutcome.Ok;
 this.Message = "";
 this.Value = new Value();
+this.Error = new Value();
 this.Machine = null;
 this.Table = null;
 ```
@@ -237,12 +262,13 @@ if (protos === null) {
   return result;
 }
 host.DeclarePrototypeKey(Units("prototype"));
-const first = host.Evaluate([BuildGlobals(machine, protos, sink)]);
-if (first.Outcome !== HostOutcome.Ok) {
-  result.Outcome = first.Outcome;
-  result.Message = "第 0 份模块求值：" + first.Message;
-  return result;
-}
+// **建库与宿主要在第 0 份模块求值之前装好**（第 119 轮改的顺序）：模块**顶层的语句**
+// 也是脚本，它一样会 `console.log` / `arr.push` / 造对象字面量的访问器 ✗——
+// 原来这四步排在 `Evaluate` **之后** ✗，于是「直接跑一个 .ts 文件」这种最普通的形状
+// （顶层就有日志）报的是 `calling a host function with no host installed`，
+// 而那句话听起来像宿主配置错了，其实是**装晚了** ✗。
+// 顺带把「能力注册」也提到前面：注册只认**已装载**的那张表（`host.Load` 过了），
+// 与求值没有先后关系 ✓。
 InstallBuiltins(host, protos);
 host.InstallHost((target, self, args, room) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
@@ -256,8 +282,17 @@ for (let i = 0; i < request.Capabilities.length; i++) {
 }
 // **语言内部辅助也要注册**：它们走的是同一条 `host_call`，而引擎那一格必须**真的**是
 // `HostRef`（`vm.xl.md`：能力表就是白名单本身）——不注册就报 `capability is not registered`。
+// （`InstallBuiltins` 已经登记过它一次，这里是**幂等的**第二遍：客户宿主自己拼装载路径时
+// 漏掉建库层也能跑，代价只是多一次 `Register`。）
 host.Register(DefineAccessorId,
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DefineAccessorId, 0)));
+const first = host.Evaluate([BuildGlobals(machine, protos, sink)]);
+if (first.Outcome !== HostOutcome.Ok) {
+  result.Outcome = first.Outcome;
+  result.Error = first.Error;
+  result.Message = "第 0 份模块求值：" + first.Message;
+  return result;
+}
 const all: Value[] = [];
 let exports = machine.Result;
 machine.Retain(exports);
@@ -283,12 +318,18 @@ for (let i = 1; i < modules.length; i++) {
     return result;
   }
   machine.Run();
-  if (machine.Status !== VmStatus.Halted) {
-    result.Outcome = HostOutcome.OutOfSteps;
-    result.Message = "第 " + i + " 份模块没跑完";
+  // **结局一律由 `Classify` 翻**（第 119 轮改）：这里原来是
+  // `if (machine.Status !== VmStatus.Halted) → OutOfSteps` ✗——脚本**抛出**也走那一支，
+  // 于是宿主看到的是「步数用尽 / 没跑完」**两个都错**的说法 ✗，抛出的值也丢了 ✗。
+  // `Classify` 的顺序本来就是「异常与限额先判」（`host-abi.xl.md`），照它翻就对了 ✓。
+  const evaluated = host.Classify();
+  if (evaluated.Outcome !== HostOutcome.Ok) {
+    result.Outcome = evaluated.Outcome;
+    result.Error = evaluated.Error;
+    result.Message = "第 " + i + " 份模块：" + evaluated.Message;
     return result;
   }
-  exports = machine.Result;
+  exports = evaluated.Value;
   machine.Retain(exports);
   all.push(exports);
   entryBase = entryBase + modules[i].Program.Functions.length;
@@ -313,6 +354,16 @@ if (request.Entry !== "") {
   while (request.DriveLoop && machine.Frames.Depth() === 0 && machine.Microtasks.length > 0) {
     machine.DrainMicrotasks();
   }
+  // **微任务里抛出来的也要收敛**（第 119 轮补）：原来这一段只检查了「挂起」✗——
+  // 一个在 `await` 之后抛出的异常会让宿主拿到 `Ok` + 一个空结果 ✗（最坏的那种：静默）。
+  const invoked = host.Classify();
+  if (invoked.Outcome === HostOutcome.ScriptThrew || invoked.Outcome === HostOutcome.OutOfSteps
+    || invoked.Outcome === HostOutcome.OutOfMemory) {
+    result.Outcome = invoked.Outcome;
+    result.Error = invoked.Error;
+    result.Message = invoked.Message;
+    return result;
+  }
 }
 // **挂起的判据是 `Finished`，不是微任务队列**（`host-abi.xl.md` 里宿主就是这么判的）：
 // 挂在**未兑现**的承诺上时，帧在承诺的反应表里、**队列反而是空的**——
@@ -324,4 +375,305 @@ if (!machine.Finished) {
 }
 result.Value = machine.Result;
 return result;
+```
+
+# method RunVersion:()=>string
+
+**命令行的版本号**。
+
+与 `cjcli` **同一个号**：这一层还没有独立的版本线，各报各的会让人以为装了两套东西。
+版本号写死在规范里（不是从 `package.json` 读）——产物要能脱离这个仓跑。
+
+```ts
+return "0.1.0";
+```
+
+# method RunUsage:()=>string
+
+**用法说明**。与 `cjcli` 同一条口径：**产物自带它**，命令行不必去查文档。
+
+**为什么把「与 node 逐字节对拍」写进用法里**：这是这个命令行的**验收口径**，
+不是附注——**stdout 只装脚本自己的输出**（`console.log` 一行一条），
+报错走 stderr、退出码 1；所以 `node file.ts` 与 `tsrun file.ts` 的 stdout 可以直接 diff。
+**stderr 的形态不作承诺**（`node` 会打栈帧，这里没有栈帧可打）。
+
+```ts
+return [
+  "tsrun — 直接执行 TypeScript 源文件（真解析器 → 降级 → IR → VM）",
+  "",
+  "用法：",
+  "  tsrun <文件.ts>              跑文件顶层的语句，stdout 与 node <文件.ts> 逐字节相同",
+  "  tsrun <文件.ts> -e <导出名>  顶层跑完之后，再调这个导出（无参）",
+  "  tsrun -h, --help             打印本说明",
+  "  tsrun -v, --version          打印版本",
+  "",
+  "约定：",
+  "  console.log 一行一条，进 stdout；脚本抛出 / 装载被拒 / 撞上限额都走 stderr 并置退出码 1。",
+  "",
+].join("\n");
+```
+
+# method RunParseArguments:(args:Array<string>)=>RunOptions
+
+**命令行 → `RunOptions`**（与 `cjcli` 的 `CjcliParseArguments` 同一个形状）。
+
+**未知选项要响亮**：静默忽略一个 `--entryy` 会让用户以为它生效了——
+而结果是「入口没调」这种**看起来像程序自己有问题**的现象。
+
+```ts
+const options: RunOptions = { Input: "", Entry: "", Help: false, Version: false };
+let index = 0;
+while (index < args.length) {
+  const item = args[index];
+  if (item === "-h" || item === "--help") {
+    options.Help = true;
+    index++;
+    continue;
+  }
+  if (item === "-v" || item === "--version") {
+    options.Version = true;
+    index++;
+    continue;
+  }
+  if (item === "-e" || item === "--entry") {
+    if (index + 1 >= args.length) {
+      options.Error = item + " 需要一个导出名";
+      return options;
+    }
+    options.Entry = args[index + 1];
+    index = index + 2;
+    continue;
+  }
+  if (item.startsWith("-") && item !== "-") {
+    options.Error = "未知选项 " + item;
+    return options;
+  }
+  if (options.Input !== "") {
+    options.Error = "只接受一个输入文件";
+    return options;
+  }
+  options.Input = item;
+  index++;
+}
+return options;
+```
+
+# method RunReadFile:(path:string)=>string
+
+**读一份源文，去掉 BOM**——与 `cjcli` 同一条口径（BOM 不是源码的一部分，
+留着它会让第一个 token 变成一个看不见的字符）。
+
+```ts
+const text = RunNode.Fs().readFileSync(path, "utf8");
+return text.charCodeAt(0) === 0xfeff ? text.substring(1) : text;
+```
+
+# method RunFileExists:(path:string)=>bool
+
+```ts
+return RunNode.Fs().existsSync(path) && RunNode.Fs().statSync(path).isFile();
+```
+
+# method RunAbsolutePath:(path:string)=>string
+
+```ts
+return RunNode.Path().resolve(path);
+```
+
+# method RunWrite:(text:string)=>void
+
+**标准输出**（脚本的日志走这里：**只装脚本自己的输出**）。
+
+```ts
+process.stdout.write(text);
+```
+
+# method RunWriteError:(text:string)=>void
+
+**标准错误**（命令行自己的话走这里——装载被拒、脚本抛出、找不到文件）。
+
+```ts
+process.stderr.write(text);
+```
+
+# method RunErrorText:(error:any)=>string
+
+**宿主异常 → 一句话**（读文件失败、解析失败、降级期「还没实现的构造」那几种）。
+
+**两条字段名都要认**：宿主自己的 `Error` 有 `message`，而语法层的
+`SyntaxException` 把话放在 **`Message`** 里（`core/exceptions/syntax-exception.xl.md`）。
+**为此不 import 那个异常类**：这一层只认「有一个能读的字段」，
+而多一条 import 就多一条分层上的依赖（这一层已经同时认识三层了，能少一条是一条）。
+
+```ts
+if (error !== null && error !== undefined && typeof error === "object" && "message" in error) {
+  return String((error as any).message);
+}
+if (error !== null && error !== undefined && typeof error === "object" && "Message" in error) {
+  return String((error as any).Message);
+}
+return String(error);
+```
+
+# method RunDescribe:(table:HeapTable, value:Value)=>string
+
+**脚本抛出来的值 → 一句话**。
+
+**为什么不是直接 `TextFrom`**：`TextUnitsOf` 对**对象**是抛的（对象要 `ToPrimitive`，
+那是语言层建库的事，`rt.xl.md` 写着为什么）✗——而 `throw someObject` 恰恰最常见。
+所以这里**先按形状认**：
+
+- 字符串 / 整数 / 布尔 / `null` / `undefined` → 照常转文本；
+- 对象带 **`message` 数据属性**（`{ message: "boom" }`、`Error` 实例）→ 就用它
+  （**访问器跳过**：读它要重入执行器，而这里只是给人打一行字）；
+- 其余形状各给一句**说得出形状**的话（数组 / 函数 / 符号 / 宿主值 / 非整数）。
+
+**它不抛**：报错路径上再抛一次，原来的错就没了——这是这一层唯一必须守住的。
+
+```ts
+if (value.Tag === ValueTag.String || value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Bool
+  || value.Tag === ValueTag.Null || value.Tag === ValueTag.Undefined) {
+  return TextFrom(table, value);
+}
+if (value.IsObject()) {
+  const item = table.Get(value.Ref);
+  for (let i = 0; i < item.Props.length; i++) {
+    const property = item.Props[i];
+    if (property.IsAccessor()) continue;
+    const keyValue = table.Get(property.Key);
+    if (keyValue.Tag !== ValueTag.String) continue;
+    if (TextFrom(table, Value.FromString(property.Key)) !== "message") continue;
+    return TextFrom(table, property.Value);
+  }
+  return "一个对象（没有 message 属性）";
+}
+if (value.Tag === ValueTag.Float64) return "一个非整数（本层没有它的文本形态）";
+if (value.Tag === ValueTag.Symbol) return "一个符号";
+if (value.Tag === ValueTag.HostRef) return "一个宿主值";
+return "一个值（本层没有它的文本形态）";
+```
+
+# method RunMain:(args:Array<string>)=>void
+
+**命令行入口**：读文件 → 装起来跑一遍 → 按结局定退出码。
+
+**它只做三件事**，每一件都写在明处：
+
+1. **日志到 stdout**：`console.log` 一次调用一行（`LogSink` 那一段定的粒度），
+   行尾由**这里**补——标准库不替宿主决定输出形态；
+2. **报错到 stderr、退出码 1**：`ScriptThrew` 打印**抛出的那个值**（`RunDescribe`），
+   别的失败打印 `Message`（装配 / 装载 / 限额那几种）；
+3. **同步宿主自己推微任务**（`DriveLoop`）——命令行没有别的事件循环。
+
+**为什么 `Entry` 默认是空**：`node file.ts` 跑的是**顶层语句**，
+不是「找一个叫 main 的导出」；要调导出就显式 `-e`。
+
+```ts
+const options = RunParseArguments(args);
+if (options.Help) {
+  RunWrite(RunUsage());
+  return;
+}
+if (options.Version) {
+  RunWrite(RunVersion() + "\n");
+  return;
+}
+if (options.Error !== undefined) {
+  RunWriteError("tsrun: " + options.Error + "\n");
+  process.exitCode = 1;
+  return;
+}
+if (options.Input === "") {
+  RunWriteError("tsrun: 需要一个 .ts 文件（-h 看用法）\n");
+  process.exitCode = 1;
+  return;
+}
+const path = RunAbsolutePath(options.Input);
+if (!RunFileExists(path)) {
+  RunWriteError("tsrun: 找不到输入文件：" + options.Input + "\n");
+  process.exitCode = 1;
+  return;
+}
+let content = "";
+try {
+  content = RunReadFile(path);
+} catch (error) {
+  RunWriteError("tsrun: 读不了输入文件：" + RunErrorText(error) + "\n");
+  process.exitCode = 1;
+  return;
+}
+const request = new RunRequest();
+request.Sources = [content];
+request.Entry = options.Entry;
+request.DriveLoop = true;
+// **能力一律落到标准库**：这个命令行不接宿主能力（`.d.ts` 那些名字在源码里没有声明，
+// 降级期就会响亮地报「未知名字」——不静默给 undefined）。
+let result = new RunResult();
+try {
+  result = RunSources(request, (line) => {
+    RunWrite(line + "\n");
+  }, () => null);
+} catch (error) {
+  // **解析与降级是语言层的报错，不是宿主结局**（见 `RunSources` 文首那张分层表：
+  // 语言层不认识语法、引擎不认识语言）——所以它们**抛**出来，由调用方接住。
+  // 命令行接住之后要做的只有一件：**说清是哪一层、哪个构造**，
+  // 而不是把一串宿主栈倒给用户（那些帧里没有一个字是他写的）。
+  RunWriteError("tsrun: 还没实现的构造或语言层错误：" + RunErrorText(error) + "\n");
+  process.exitCode = 1;
+  return;
+}
+if (result.Outcome !== HostOutcome.Ok) {
+  if (result.Outcome === HostOutcome.ScriptThrew && result.Table !== null) {
+    RunWriteError("tsrun: 脚本抛出：" + RunDescribe(result.Table, result.Error) + "\n");
+  } else {
+    RunWriteError("tsrun: " + result.Message + "\n");
+  }
+  process.exitCode = 1;
+  return;
+}
+```
+
+# class RunNode
+
+**运行环境：把入口要用到的 Node 内建模块收在一处。**
+
+**为什么走 `process.getBuiltinModule` 而不是顶层 `import`**：与 `cjcli.xl.md` 的
+`CjcliHost` 同一条理由——顶层 `import` 会被提到产物开头、插到 xl 的产物头前面，
+产物头就不再是前三行；`getBuiltinModule` 是**运行期调用**，不会被提升，
+也不需要 `@types/node` 之外的任何声明。
+
+## static method Fs:()=>any
+
+文件系统模块（真正的类型由下面这行 `as` 给出）。
+
+```ts
+return process.getBuiltinModule("node:fs") as typeof import("node:fs");
+```
+
+## static method Path:()=>any
+
+路径模块。
+
+```ts
+return process.getBuiltinModule("node:path") as typeof import("node:path");
+```
+
+# statement
+
+**启动：把命令行参数交给 `RunMain`——但只在这个文件被「直接执行」时。**
+
+**为什么要有那道判断**：本文件**同时是库**（`tests/runtime/check.mjs` 与客户宿主
+`import` 它的 `RunSources` / `RunRequest`）✗——不加判断的话，**谁 import 它谁就等于
+在命令行上跑了一次 tsrun**：`process.argv` 是**别人的**参数（判据进程的参数），
+`process.exitCode` 会被置成 1，判据于是莫名其妙地红 ✗。
+`require.main === module` 是 CommonJS 里「我被直接执行」的判据，而产物就是 CommonJS
+（`tsconfig.json` 的 `module: commonjs`）。
+
+**shebang 不在这里**（xl 的产物头永远占前三行），它落在 `bin/tsrun.js` 上——
+与 `cjcli` 同一条约定。
+
+```ts
+if (require.main === module) {
+  RunMain(process.argv.slice(2));
+}
 ```

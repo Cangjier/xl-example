@@ -5320,3 +5320,76 @@ IdTable 内建段 638 格 → 指纹 1816
 拿父提交 6dcf811 逐字比过 ✓）。它的副作用是**编辑工具把整份文件判成二进制、拒绝编辑** ✗。
 已按字节清掉 ✓（402326 → 400922 字节 ✓，`git diff` 只有 1 行 ✓），台账重新可编辑 ✓。
 教训同上一条：**非 ASCII 文本不要用控制台重定向写** ✗。
+
+### 第 119 轮：**`.ts` 能直接执行了**（`tsrun` 命令行 + 判据 `runtime:cli`）——一路修掉八处缺口
+
+**这一轮的起点是两件事** ✓：把第 118 轮留下的**默认参数与可选参数**收口 ✓，
+以及交付「**直接执行 `.ts` 文件**」——`node build/ts/tsrun.js <文件.ts>`（或 `bin/tsrun.js`）✓。
+第二件事**顺手量出了七处缺口** ✓——它们全是「跑一个普通 `.ts` 文件」撞上的形状 ✓，
+而不是边角料 ✓。
+
+**判据的口径（新的那把尺子）** ✓：`tests/runtime/run-cli.mjs`（`npm run runtime:cli`）——
+语料 `tests/runtime/cases/*.ts` 逐份**开两个真进程**：`node <文件>`（裁判）与
+`node build/ts/tsrun.js <文件>`（被测），比 **stdout 逐字节** + **退出码** ✓。
+**stderr 不比** ✓：`node` 打的是 V8 栈帧，本运行器**没有帧可打**（它是字节码解释器）✗——
+拿 stderr 当判据等于把「实现形态」钉进判据 ✓；真正要比的是**退出码**（异常有没有冒到宿主）✓。
+语料里 `09-uncaught-throw.ts` **故意在顶层抛** ✓：它钉的就是「stdout 照样打完 + 退出码 1」✓。
+**每一份都必须有 stdout** ✓：什么都不打印的用例「通过」等于什么都没验 ✗（这一条由判据自己加）。
+
+**Node 24 能直接跑 `.ts`** ✓（类型擦除），所以裁判这一侧不需要 `ts-node` 之类的中间层 ✓——
+「两边跑的是**同一个文件**」这句话是真的 ✓。
+
+**命令行本身**（`tsrun.xl.md` 的三段）✓：
+`RunParseArguments`（`-h` / `-v` / `-e <导出名>` / 一个文件）✓、
+`RunMain`（读文件 → `RunSources` → 按结局定退出码）✓、
+`RunNode`（`process.getBuiltinModule` 拿 `node:fs` / `node:path`，与 `cjcli` 同一条理由）✓。
+**日志进 stdout、命令行自己的话进 stderr** ✓；行尾**由宿主补**（标准库不替宿主决定输出形态 ✓）。
+
+**八处缺口**（判据逐条抓出来的，顺序就是它们现形的顺序）✓：
+
+| 缺口 | 症状（判据现场） | 根因 | 修法 |
+| --- | --- | --- | --- |
+| **箭头的 `this` 边界** | 模块里只要有箭头，构造函数里 `this.v = v` 就报 `assigning a property on a primitive receiver` | `ThisKeyword` **不问当前这一层是什么函数**，一律先在环境链上找 ✗——而模块那一层因为「有箭头」开了 `this` 格，于是普通函数读到了**模块**的接收者 | 新增 `PendingFunction.IsArrow` + `InArrow`：**只有箭头**走环境链，其余一律 `load_this` |
+| **装库顺序** | 顶层 `console.log` 报 `calling a host function with no host installed` | `InstallBuiltins` / `InstallHost` / 能力注册排在 `host.Evaluate`（第 0 份模块）**之后** ✗——而模块顶层的语句一样会调内建 | 四步提到 `Evaluate` **之前**（注册只认已装载的表，与求值无先后） |
+| **空字符串字面量** | `let s = ""` 直接不跑（几十轮的老缺口） | 投影对**空**字面量给的是**带引号的原文**（`""`）✗——降级层分不开空串与「值是一对引号」，只能抛 | **修在投影上**：`stringText` 判「有没有 `ConstString` 子单元」——**一个都没有就是空串** ✓（实测：非空串必有一个，内插模板的空段也照样给一个空值的） |
+| **`throw { … }`** | `unimplemented: expression Block`（而报错那一行看着完全正常） | 值位 `{` 的判据只把 **`return` / `typeof`** 列进「后面跟的是表达式」✗——`throw` 被当成普通标识符，于是那个 `{` 判成**块语句** | 把 `throw` 加进那张表（与 `return` 同款：换行之后那个 `{` 仍然不是它的） |
+| **属性复合赋值** | `this.value += by` 报 `unimplemented: compound assignment to a non-identifier` | 那条展开只认 `Identifier` 左值 ✗ | 补两条分支（属性 / 下标）：**接收者只求值一次**、读→算→写回同一格、**结果格先占好**（临时量都在它上面） |
+| **解构声明退水位** | `const {x} = p; const [a,,b] = arr;` 之后 `x` 读到**别人的值**（`all all 2 all`；有的形状报 `ToString of this kind of value`） | 解构那条分支收尾 `Release(source + 1)` ✗——而每一格绑定都在 `source` **上面**占了一格变量，**全被退掉** | 删掉那次 `Release`（与简单名字那条同一个理由：**退水位退掉的可能是刚绑好的变量**） |
+| **catch 解构绑定** | `catch ({ message })` 报 `unimplemented: destructuring catch binding` | `BindCatch` 只认 `Identifier` ✗ | 复用 `Destructure`（投影给的形状与变量声明**完全一样**），`isVar` 给假 |
+| **`&&` / `||`** | `unimplemented: binary operator &&`——**逻辑运算符根本没做** | `BinaryOpOf` 只有算术与比较 ✗ | 按 `??` 那条先例落成**控制流**：结果格先装左边、需要才覆盖成右边；**极性只写一处**（`||` 先 `RtOp.Not`） |
+
+**读数**（本轮，全部实跑）✓：
+
+```
+npm run runtime:check   159 条通过，0 条失败        （第 118 轮 157 条）
+npm run runtime:cli     直接执行 .ts：10 份一致，0 份不一致（新判据）
+npm run cases:tsast     投影节点 566172 个，与 TS 同 kind 同区间 566172（100.0%），四方向 0
+npm run samples         三份夹具逐字节一致
+npm run cases:check     1035 条用例，0 条不合格
+npm run cpp:check       116 个文件 · 230 条 include · 599 个成员名 · 182 个字面量，全部通过
+```
+
+**一处口径改动** ✓：`console.log` 的交付粒度从「一个实参调一次 `LogSink`」改成
+「**一次调用 = 一行**」✓（实参按 JS 的规矩用空格接起来，**不带行尾**）——
+旧口径下宿主**再也拼不回行** ✗：`console.log('a', 1)` 与两条各自一个实参的日志
+在它眼里**一模一样** ✗，而这条判据要的正是「stdout 与 node 逐字节相同」✓。
+`typescript-exec/builtins/globals.xl.md` 与 C++ 侧同步 ✓；旧判据里那两条日志
+本来就是单实参 ✓，所以读数不变 ✓。
+
+**分层上的一处例外，写进规范当账** ✓：`RunSources` 文首承诺「失败都收敛成 `RunResult`」✓，
+但**解析失败**与**降级不了的构造**是**往外抛**的 ✓——它们**不是脚本的结局**（程序还没装起来）✗，
+硬塞进 `HostOutcome` 会让那个跨目标枚举多出一个不属于它的成员 ✗。
+**命令行接住它们** ✓（`RunMain` 的 `try`），打一行**说得出是哪一层**的报错 ✓，
+而不是把一串宿主栈帧倒给用户（那些帧里没有一个字是他写的 ✓）。
+
+**同一份文件既是库又是命令行** ✓：`tests/runtime/check.mjs` **import 它** ✓——
+所以产物末尾那句改成 `if (require.main === module) RunMain(process.argv.slice(2));` ✓。
+**不加这道判断的后果实测过** ✓：`check.mjs` 的 `require` 会拿**判据进程的** `argv` 跑一次命令行 ✗，
+`process.exitCode` 被置成 1 ✓，判据于是莫名其妙地红 ✓。
+`bin/tsrun.js` 因此**显式调 `RunMain`** ✓（垫片自己就是 `require.main`）。
+
+**还没做、但判据已经指出来的两处**（下一轮的活）✓：
+`"…" + 对象` 与 `console.log(对象)` 要 `ToPrimitive`（`rt.xl.md` 明确抛：那是语言层建库的事）✗——
+本轮的语料**绕开**了它 ✓（不是假绿：语料里每一处都写着为什么绕 ✓）；
+`Map.keys()` 给数组而 JS 给迭代器（已记差异）✗——语料只用 `for..of` 读它 ✓，
+因为 `.join` 这一条**两边跑的不是同一段代码** ✗。

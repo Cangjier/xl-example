@@ -67,7 +67,20 @@ if (current instanceof Bracket && current.startBracket === "{") {
   ) {
     return false;
   }
-  if (previous instanceof Identifier && previous.IsAny(["return", "typeof"]) === false) {
+  // **`throw { … }` 是对象字面量**（第 119 轮）：`throw` 要的是一个**表达式**，
+  // 而 `throw { message: "x" }` 是遍地都是的写法——原来它被判成**块语句**✗
+  // （`{` 走进 `BlockReorganization` 补队列，于是 `message` 成了标签、
+  // 投影给出 `ThrowStatement > Block`，降级层报的是 `unimplemented: expression Block`，
+  // 而报错那一行看上去完全正常）。
+  // 换行那一条与 `return` 同款：两者都是**受限产生式**，换行之后那个 `{` 不可能属于它。
+  if (
+    previous instanceof Identifier &&
+    previous.Is("throw") &&
+    SkipPreviousWrapSymbol(units, index) !== index - 1
+  ) {
+    return false;
+  }
+  if (previous instanceof Identifier && previous.IsAny(["return", "throw", "typeof"]) === false) {
     return false;
   } else if (previous instanceof Bracket) {
     return false;
