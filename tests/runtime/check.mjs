@@ -91,6 +91,8 @@ const installBuiltins = require(path.join(root, "build", "ts", "typescript-exec"
 const { InstallBuiltins, InvokeBuiltin, InvokeWithSink } = installBuiltins;
 const globalsBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "globals.js"));
 const { GlobalNames, BuildGlobals } = globalsBuiltins;
+const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "bindings.js"));
+const { Bindings, LookupOf } = bindingsMod;
 const { HasProperty, GetIndex, SetIndex, TypeOfName } = propsMod;
 
 /** TypeScript 的数字枚举有反向映射，所以成员名 = 不是数字的那些键。 */
@@ -796,7 +798,7 @@ console.log("");
 console.log("=== 装载验证：线形态（定宽小端）===");
 
 /** 判据用的算子表：通用段 = 全表，内建段 = 1 条。 */
-const testIds = new IdTable(RtOp.HostCall + 1, 1);
+const testIds = new IdTable(RtOp.HostCall + 1, 8);
 
 /** 一份**合法**的小程序：一个函数、四个槽、一份常量、一条方法调用、一条算子调用。 */
 function validProgram() {
@@ -943,7 +945,7 @@ check("参数窗口挡住整数溢出（负数 + 大正数不许绕成合法窗�
 
 check("算子 id 必须落在两段里（通用段或语言内建段）", () => {
   const unknown = validProgram();
-  unknown.Instrs[3] = new Instruction(Op.RtCall, BuiltinBase + 5, 2, 1, 2);
+  unknown.Instrs[3] = new Instruction(Op.RtCall, BuiltinBase + 50, 2, 1, 2);
   const first = issueOf(unknown);
   ok(first !== null && first.Code === IssueOperand, "内建段只有 1 条，+5 越界");
 
@@ -2032,9 +2034,10 @@ function hostStringOf(table, value) {
 }
 
 /** 降级一份源码，返回 { module, host, machine, table }；验证不过就抛。 */
-function lowerAndLoad(source, globals) {
+function lowerAndLoad(source, globals, capabilityOf) {
   const lowering = new Lowering();
   if (globals) lowering.DeclareGlobals(globals);
+  if (capabilityOf) lowering.DeclareCapabilities(capabilityOf);
   const lowered = lowering.LowerModule(parseTsShape(source), testIds);
   const issue = Verify(lowered.Program, testIds);
   eq(issue, null, "降级出来的程序必须过验证：" + describeValue(issue));
@@ -2842,6 +2845,61 @@ check("await：async 函数挂起在承诺上，结清后由微任务恢复（�
     outside = String(error.message);
   }
   eq(outside.indexOf("outside an async") >= 0, true, "普通函数里的 await 必须抛：" + outside);
+});
+
+check("`.d.ts` 能力绑定：模块里没声明的名字按能力号调宿主（与 Node 打桩一致）", () => {
+  const source = [
+    "function run(n) {",
+    "  print('n=' + n);",
+    "  return addOne(n) + addOne(n);",
+    "}",
+  ].join("\n");
+  // Node 那边用两个桩函数跑同一份源码：**这正是能力绑定在 JS 里的样子**
+  // （名字来自环境、不来自源码）——所以这条对拍比的是「同一份源码 + 同一组能力」。
+  const lines = [];
+  const expected = new Function("print", "addOne",
+    source + "\nreturn run(4);")((text) => lines.push(text), (n) => n + 1);
+  eq(expected, 10, "Node 打桩：addOne(4) 两次");
+  eq(lines[0], "n=4", "Node 打桩：先打印一行");
+
+  const bindings = new Bindings(BuiltinBase);
+  const printId = bindings.Register("print");
+  const addOneId = bindings.Register("addOne");
+  eq(printId, BuiltinBase, "第一个能力的号就是起始号");
+  eq(bindings.Register("print"), printId, "重复登记幂等（不占两个号）");
+  eq(bindings.Lookup("nope"), -1, "没登记的名字给 -1");
+
+  const ours = [];
+  const sink = (text) => ours.push(text);
+  const { module, host, table } = lowerAndLoad(source, undefined, LookupOf(bindings));
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+  InstallBuiltins(host.Machine, host.Machine.Protos);
+  host.InstallHost((target, self, args, room) => {
+    const id = table.Get(target.Ref).AsHost().CapabilityId;
+    if (id === printId) {
+      for (let i = 0; i < args.length; i++) sink(hostStringOf(table, args[i]));
+      return Value.Undefined();
+    }
+    if (id === addOneId) return Value.FromInt(args[0].AsInt() + 1);
+    return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, sink);
+  });
+  eq(host.Register(printId, Value.FromRef(ValueTag.HostRef, table.CreateHostRef(printId, 1))), true,
+    "把 print 注册进能力表");
+  eq(host.Register(addOneId, Value.FromRef(ValueTag.HostRef, table.CreateHostRef(addOneId, 1))), true,
+    "把 addOne 注册进能力表");
+
+  eq(host.CallExport(module.ExportOf("run"), [Value.FromInt(4)]).Value.AsInt(), expected,
+    "两次 addOne(4) 的和");
+  eq(ours.length, 1, "宿主收到一行");
+  eq(ours[0], lines[0], "那一行的内容与 Node 打桩一致");
+
+  let unknown = "";
+  try {
+    lowerAndLoad("function f() { nosuch(1); }");
+  } catch (error) {
+    unknown = String(error.message);
+  }
+  eq(unknown.indexOf("not a local") >= 0, true, "没登记的名字仍然按未知名字报错：" + unknown);
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {

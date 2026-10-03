@@ -104,6 +104,14 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 用 `any` 接住它是**如实的**，不是偷懒。**所以每次访问字段前先看 `kind`**
 （`NodeKind` / `Child` / `OptionalChild` 就是为它准备的）。
 
+# type CapabilityLookup = (name:string)=>number
+
+**「这个名字是宿主能力吗？是的话号是多少」**（不是就给 -1）。
+
+降级层收的是**回调**而不是一张表：于是它**不必认识 `bindings.xl.md`**
+（只有驱动同时认识两者）。这条缝让「能力从哪来」可以换实现，
+而降级层只认一个函数。
+
 # method NodeKind:(node:AstNode)=>string
 
 节点的种类名。
@@ -649,6 +657,23 @@ this.IsDefault = isDefault;
 它管的是 `await` 的**合法性**：`await` 写在普通函数里是语法错误，
 **降级期就要报**——放到运行期去，它会把一个普通帧挂到承诺上，
 而那个帧的调用者还在下面等着，于是**整条调用链静默停住**。
+
+## field CapabilityOf:CapabilityLookup | null = null
+
+**宿主能力查号回调**（见 `# type CapabilityLookup`）；没装就是 `null`。
+
+装了之后，`LowerCall` 遇到一个**模块里没声明过**的名字时会先问它：
+答得出号，这条调用就落成 `host_call(号, 参数…)`；答不出，才按「未知名字」报错。
+**这一条就是 `.d.ts` 绑定的落点**：声明里的名字不必出现在源码里，
+它们由宿主提供、由号来指认。
+
+## method DeclareCapabilities:(lookup:CapabilityLookup)=>void
+
+装上查号回调（由驱动把它和 `bindings.xl.md` 接起来）。
+
+```ts
+this.CapabilityOf = lookup;
+```
 
 ## method DeclareGlobals:(names:Array<string>)=>void
 
@@ -2606,7 +2631,24 @@ if (calleeKind === "ElementAccessExpression") {
 }
 let calleeSlot = -1;
 if (calleeKind === "Identifier") {
-  const access = this.ResolveAccess(TextOf(callee));
+  const text = TextOf(callee);
+  // **宿主能力**：模块里没声明过、但登记为能力的名字 → `host_call(号, 参数…)`。
+  // 引擎只认号（`host-abi.xl.md` 的白名单），名字到号的翻译在上面的回调里。
+  if (!Contains(this.DeclaredNames, text) && this.CapabilityOf !== null) {
+    const capability = this.CapabilityOf(text);
+    if (capability >= 0) {
+      const args0 = ListOf(node, "arguments");
+      const count0 = args0.length;
+      const base0 = this.Reserve(count0 + 1);
+      this.Emit(Op.Const, base0, this.IntConst(capability), -1, -1);
+      for (let i = 0; i < count0; i++) {
+        this.LowerInto(base0 + i + 1, args0[i]);
+      }
+      this.EmitRt(RtOp.HostCall, base0, base0, count0 + 1);
+      return base0;
+    }
+  }
+  const access = this.ResolveAccess(text);
   calleeSlot = this.Reserve(1);
   if (access.InEnv) {
     this.Emit(Op.EnvGet, calleeSlot, access.Depth, access.Cell, -1);
