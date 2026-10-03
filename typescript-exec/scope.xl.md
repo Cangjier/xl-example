@@ -290,7 +290,8 @@ WalkChildren(body, (child) => {
 
 ```ts
 const kind = NodeKind(body);
-if (kind === "VariableDeclaration" || kind === "FunctionDeclaration" || kind === "Parameter") {
+if (kind === "VariableDeclaration" || kind === "FunctionDeclaration" || kind === "Parameter"
+  || kind === "ClassDeclaration") {
   const name = body["name"];
   if (name !== undefined && name !== null && typeof name === "object") {
     CollectPatternNames(name as AstNode, out);

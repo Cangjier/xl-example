@@ -3033,6 +3033,56 @@ check("new 认构造函数的 prototype：方法经原型链落到实例上（�
   eq(missing.length > 0, true, "没接上原型名字时要报出来（不是静默给错值）：" + missing);
 });
 
+check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表达式（与 Node 一致）", () => {
+  const source = [
+    "class Point {",
+    "  constructor(x) { this.x = x; }",
+    "  get() { return this.x; }",
+    "  bump(d) { this.x = this.x + d; return this.get(); }",
+    "}",
+    "class Named {",
+    "  greet() { return 'hi'; }",
+    "}",
+    "function make(v) { const p = new Point(v); return p.bump(10); }",
+    "function viaNamed() { const n = new Named(); return n.greet(); }",
+    "function classExpr() { const C = class { twice(n) { return n * 2; } }; return new C().twice(21); }",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn [make(7), viaNamed(), classExpr()];")();
+  eq(expected[0], 17, "Node：7 + 10（这是前提）");
+  eq(expected[1], "hi", "Node：默认构造函数也能 new（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source);
+  host.DeclarePrototypeKey(units("prototype"));
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+  const call = (name, args) => host.CallExport(module.ExportOf(name), args || []);
+  let label = "make";
+  try {
+    eq(call("make", [Value.FromInt(7)]).Value.AsInt(), expected[0], "构造函数写 this.x，方法里再 this.get()");
+    label = "viaNamed";
+    eq(hostStringOf(table, call("viaNamed").Value), expected[1], "没写构造函数：默认那个空的也能用");
+    label = "classExpr";
+    eq(call("classExpr").Value.AsInt(), expected[2], "类表达式 + 方法");
+  } catch (error) {
+    throw new Error("在「" + label + "」处：" + String(error.message));
+  }
+
+  let inherits = "";
+  try {
+    lowerAndLoad("class A { m() { return 1; } } class B extends A { }");
+  } catch (error) {
+    inherits = String(error.message);
+  }
+  eq(inherits.indexOf("extends") >= 0, true, "`extends` 必须抛（继承还没做）：" + inherits);
+
+  let field = "";
+  try {
+    lowerAndLoad("class A { constructor() { this.x = 1; } } class B { y = 2; }");
+  } catch (error) {
+    field = String(error.message);
+  }
+  eq(field.indexOf("class member") >= 0, true, "字段初始化必须抛（还没做）：" + field);
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }

@@ -59,6 +59,7 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
 | **`import` 的名字从环境对象取**（与全局名同一套机关；`import` / `export { … }` 语句是**空操作**——导出表本来就装着这份文件的每个函数） | **真正的跨模块链接**：把模块 A 的导出**值**交给 B 需要一个**共享的堆**（跨机器搬 `Value` 不行——`Ref` 是各自表里的下标）；`import * as ns` 与 `export default` 抛 |
 | **`for..in`**（`Object.keys` + 迭代协议拼出来的，**没有新算子**；要求全局名里有 `Object`，否则明确报出来并指出修法） | **只遍历自有键**（`Object.keys` 的口径；JS 还会走原型链上的可枚举键）；**整数样式的键不按 JS 的「升序优先」**——这里一律按插入顺序 |
+| **`class`**（构造函数 + `prototype` 对象 + 方法挂上去；拼的是「函数值 + `prototype` 属性 + 方法调用」三样既有东西） | **`extends`**、**字段初始化**、`static`、getter/setter、计算键方法、类里的生成器 / async 方法——一律**降级期抛**；`prototype.constructor` 的回指与 `instanceof` 一起做 |
 
 **`async` 的三条语义差（都写在明处，不假装是 JS）**：
 
@@ -1206,6 +1207,12 @@ if (kind === "Block") {
 if (kind === "FunctionDeclaration") {
   if (this.IsHoisted(node)) return;
   this.LowerFunctionDeclaration(node);
+  return;
+}
+if (kind === "ClassDeclaration") {
+  // **类声明不进提升**：它像 `let`（块作用域、声明之前读到的是 TDZ），
+  // 所以按书写位置降级，不走 `Hoist` 那条路。
+  this.LowerClass(node, false);
   return;
 }
 if (kind === "EmptyStatement") return;
@@ -2465,6 +2472,95 @@ for (let i = 0; i < elements.length; i++) {
 }
 ```
 
+## method HasModifier:(node:AstNode, kind:string)=>bool
+
+这个节点上有没有某一个修饰符（`export` / `static` / `async` / `declare` …）。
+
+**投影把修饰符放在 `modifiers` 数组里**（`[{"kind":"StaticKeyword",...}]`），
+与 `*` 那种「单独一个 token 字段」不同——**两种存法都探过**，这里不是猜的。
+
+```ts
+const modifiers = node["modifiers"];
+if (modifiers === undefined || modifiers === null) return false;
+const items = modifiers as AstNode[];
+for (let i = 0; i < items.length; i++) {
+  if (NodeKind(items[i]) === kind) return true;
+}
+return false;
+```
+
+## method LowerClass:(node:AstNode, asExpression:bool)=>int
+
+**`class`**：造构造函数 → 给它挂 `prototype` → 每个方法挂到 prototype 上 → 返回构造函数。
+
+**方法为什么这样就能用**：`p.m()` 走 `call_method`（在 `p` 上找 `m`）——
+实例自己没有 `m`，于是**顺原型链**找到 prototype 上的闭包 ✓，`this` 仍然是 `p` ✓。
+所以「类」在这里**不是新机制**，是「函数值 + 原型链 + 方法调用」三样既有东西的组合。
+
+**类名要先占一格**：方法体里可以引用类名（`class C { m() { return C; } }`），
+而闭包的环境是**造它那一刻**抄下来的——名字必须在那之前就在作用域里。
+
+**先做不做**（都抛，写进文首那张表）：`extends`、字段初始化、`static`、
+getter / setter、计算键方法、生成器方法与 async 方法。
+
+```ts
+if (OptionalChild(node, "heritageClauses") !== null) {
+  throw new Error("unimplemented: `extends` (class inheritance)");
+}
+const nameNode = OptionalChild(node, "name");
+let name = "<class>";
+if (nameNode !== null && NodeKind(nameNode) === "Identifier") name = TextOf(nameNode);
+if (!asExpression) {
+  if (nameNode === null || NodeKind(nameNode) !== "Identifier") {
+    throw new Error("unimplemented: class declaration without a name");
+  }
+}
+const members = ListOf(node, "members");
+let ctorNode: AstNode | null = null;
+for (let i = 0; i < members.length; i++) {
+  if (NodeKind(members[i]) === "Constructor") ctorNode = members[i];
+}
+if (ctorNode === null) {
+  // **默认构造函数**：JS 会给一个空的（`new C()` 于是合法）。
+  ctorNode = { kind: "Constructor", parameters: [], body: { kind: "Block", statements: [] } };
+}
+const ctor = this.LowerFunctionValue(ctorNode, name);
+this.AttachPrototype(ctor);
+// **绑定放在造闭包之后**（与函数声明同一条规矩）：名字被内层捕获时，
+// 绑定在**环境格**里，而 `DeclareLocal` 会把当时那一格（还是空的）搬进格——
+// 那样后面写进槽的值根本没人读，表现是「调用了非闭包的值」。
+if (!asExpression) {
+  this.BindName(name, ctor, false);
+}
+const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+const proto = this.RtCall2(RtOp.GetProp, ctor, prototypeKey);
+for (let i = 0; i < members.length; i++) {
+  const member = members[i];
+  const kind = NodeKind(member);
+  if (kind === "Constructor") continue;
+  if (kind !== "MethodDeclaration") {
+    throw new Error("unimplemented: class member " + kind);
+  }
+  if (this.HasModifier(member, "StaticKeyword")) {
+    throw new Error("unimplemented: static class member");
+  }
+  if (member["asteriskToken"] !== undefined && member["asteriskToken"] !== null) {
+    throw new Error("unimplemented: generator method in a class");
+  }
+  if (this.NodeIsAsync(member)) {
+    throw new Error("unimplemented: async method in a class");
+  }
+  const memberName = Child(member, "name");
+  if (NodeKind(memberName) !== "Identifier" && NodeKind(memberName) !== "StringLiteral") {
+    throw new Error("unimplemented: computed or numeric class member name");
+  }
+  const closure = this.LowerFunctionValue(member, name + "." + TextOf(memberName));
+  const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName)));
+  this.SetPropertyConst(proto, key, closure);
+}
+return ctor;
+```
+
 ## method LowerFunctionDeclaration:(node:AstNode)=>void
 
 函数声明：**名字占一格、造一个闭包放进去、函数体排队**。
@@ -2594,6 +2690,9 @@ if (kind === "FunctionExpression") {
   const name = OptionalChild(node, "name");
   const label = name === null ? "<function>" : TextOf(name);
   return this.LowerFunctionValue(node, label);
+}
+if (kind === "ClassExpression") {
+  return this.LowerClass(node, true);
 }
 if (kind === "NewExpression") {
   return this.LowerNew(node);
