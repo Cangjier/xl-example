@@ -4368,9 +4368,11 @@ check("Set：keys() 等同 values() + entries() 给 [值, 值] 对 + clear()", (
     "  const vs = s.values();",
     "  const es = s.entries();",
     "  const pair = es[1][0] + '/' + es[1][1];",
+    "  let walked = '|';",
+    "  for (const e of s) { walked = walked + e + ';'; }",
     "  const before = s.size;",
     "  s.clear();",
-    "  return [ks.length, vs.length, ks[1], pair, before, s.size, s.has('x') ? 1 : 0];",
+    "  return [ks.length, vs.length, walked, pair, before, s.size, s.has('x') ? 1 : 0];",
     "}",
   ].join("\n");
   const nodeRun = () => {
@@ -4382,12 +4384,15 @@ check("Set：keys() 等同 values() + entries() 给 [值, 值] 对 + clear()", (
     const vs = Array.from(s.values());
     const es = Array.from(s.entries());
     const pair = es[1][0] + "/" + es[1][1];
+    let walked = "|";
+    for (const e of s) { walked = walked + e + ";"; }
     const before = s.size;
     s.clear();
-    return [ks.length, vs.length, ks[1], pair, before, s.size, s.has("x") ? 1 : 0];
+    return [ks.length, vs.length, walked, pair, before, s.size, s.has("x") ? 1 : 0];
   };
   const expected = nodeRun();
   eq(expected[0], 2, "Node：重复 add 是空操作（前提）");
+  eq(expected[2], "|x;y;", "Node：直接迭代 Set 拿到值（前提）");
   eq(expected[3], "y/y", "Node：entries 的每一对两个元素相同（前提）");
 
   const request = new RunRequest();
