@@ -4779,3 +4779,33 @@ Node 那边用**打桩的 `console`**，两边比到「sink 收到的那一行�
 **③ 只有 `Map.values()`**——看哪一个复现 `new_closure needs an environment or undefined`。
 规范里对这条症状早有预言（「闭包的环境靠槽往下传；这一层不开环境，闭包只能从祖先帧里
 读一个属于别人的格子」），所以嫌疑落在**类那部分的环境链**上最大。
+### 第 96 轮：用**留一法**把 `new_closure needs an environment or undefined` 钉到根因——**规范的 `IsFunctionNode` 漏了方法**（148/148）
+
+上一轮留下两个缺口，本轮先解第二个（更深的那个）。做法与第 70 轮同源，但省得多：
+
+**第一步**：把三个嫌疑**各自单独跑**（独立探针 + `RunSources`）——**全过** ✗。所以它需要**组合**。
+**第二步**：**留一法**（leave-one-out）——完整程序与「去掉某一项」的四个变体一起跑，**一次运行点名**：
+
+```
+ALL            -> THREW: new_closure needs an environment or undefined
+no-classes     -> THREW: ...
+no-objmethod   -> Outcome=0      ← 去掉对象字面量的方法就好了
+no-mapvals     -> THREW: ...
+no-json        -> THREW: ...
+```
+
+**根因在规范自身的不一致**：`scope.xl.md` 的 `IsFunctionNode` 只列了**三种**函数节点
+（`FunctionDeclaration` / `FunctionExpression` / `ArrowFunction`），**漏了 `MethodDeclaration`**；
+而**同一份文件**里 `HasNestedFunction` 的说明一直写着「声明 / 表达式 / 箭头 / **方法**，全都算」。
+少了方法，含方法的那个函数就**不开环境** ✗，方法体里的闭包于是从祖先帧的槽里读到一个
+**不属于环境的格子**——报出来的正是那句话。
+
+补上 `MethodDeclaration` 之后：探针 `ALL` 与四个变体**全部通过** ✓，
+合成判据也**扩回**了那段更丰富的程序（类·`super` + 对象方法 + 嵌套闭包 + `Map.values` + 嵌套 JSON）。
+**getter 那一块仍缺**（记在上一轮，要动新算子）。
+
+**两条经验**：
+1. **合成判据 + 留一法**是这套东西里最省的两招：写一个程序、去掉一项再跑，两次运行就能把
+   「只在组合里出现」的 bug 钉到具体构造上；
+2. **同一份规范里两处说法不一致，就是 bug 的温床**——`IsFunctionNode` 的名单与
+   `HasNestedFunction` 的说明打架了好几个轮次，而单独测哪一块都测不出来。

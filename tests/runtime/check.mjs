@@ -4028,23 +4028,42 @@ check("P0：switch + do..while + 带标签的 continue·break，经运行器与 
   }
 });
 
-check("P0：嵌套闭包（两层环境链）经运行器与 Node 逐值一致", () => {
-  // 这一条**本来**想同时测「对象字面量 getter + 派生类 super(...) + Map.values + 嵌套 JSON」，
-  // 结果连撞两个缺口（记在台账里）：
-  //   ① `object literal member GetAccessor` —— 降级层没接，而且**引擎侧根本没有「造访问器属性」的路**；
-  //   ② 把 getter 换成普通方法之后，整段程序又报
-  //      `new_closure needs an environment or undefined` ✗ —— 而**只留嵌套闭包时它是通的** ✓
-  //      （就是现在这一版），所以嫌疑在类 / 对象方法 / Map.values 三者之一。
-  // 判据按**它真正测的东西**改标题：这里测的是两层环境链（闭包返回闭包、从外层参数捕获）。
+check("P0：类·super(...) + 对象字面量方法 + 嵌套闭包 + Map.values + 嵌套 JSON，经运行器与 Node 逐值一致", () => {
+  // 这一条走过一条弯路，值得留在注释里：它**本来**还带一个对象字面量 **getter**，
+  // 结果连撞两个缺口——
+  //   ① `object literal member GetAccessor`：降级层没接，**而且引擎侧根本没有「造访问器属性」
+  //      的路**（要新增通用算子 + `RtOpCount` + `props` + 降级 + 重生成 C++，是一整块）→ 记在台账；
+  //   ② 把 getter 换成普通方法之后仍报 `new_closure needs an environment or undefined` ✗。
+  // 于是用**留一法**（leave-one-out）定位：类 / 对象方法 / `Map.values` / 嵌套 JSON 各去掉一项，
+  // **只有去掉「对象方法」那一版通过** → 元凶是它。
+  // 根因在**规范自身的不一致**：`scope.xl.md` 的 `IsFunctionNode` 只列了三种函数节点，
+  // 漏了 `MethodDeclaration`，而同一份文件里 `HasNestedFunction` 的说明写着「方法，全都算」。
+  // 补上之后这一条通过——**合成判据 + 留一法**，两次运行就把根因钉住了。
   const source = [
     "function adder(n) { return function (m) { return n + m; }; }",
+    "class Base {",
+    "  constructor(v) { this.v = v; }",
+    "  double() { return this.v * 2; }",
+    "}",
+    "class Derived extends Base {",
+    "  constructor(v) { super(v + 1); }",
+    "}",
     "function run() {",
     "  const add5 = adder(5);",
-    "  return [add5(7)];",
+    "  const obj = { v: 4, triple() { return this.v * 3; } };",
+    "  const d = new Derived(20);",
+    "  const m = new Map();",
+    "  m.set('k', [1, 2]);",
+    "  const vals = [];",
+    "  for (const v of m.values()) vals.push(v);",
+    "  const nested = { a: [1, { b: 'x' }] };",
+    "  return [add5(7), obj.triple(), d.v, d.double(), vals.length, JSON.stringify(nested)];",
     "}",
   ].join("\n");
   const expected = new Function(source + "\nreturn run();")();
   eq(expected[0], 12, "Node：两层闭包（前提）");
+  eq(expected[2], 21, "Node：super(...) 把 v+1 传给了基类（前提）");
+  eq(expected[5], '{"a":[1,{"b":"x"}]}', "Node：嵌套 JSON（前提）");
 
   const request = new RunRequest();
   request.Sources = [source];
