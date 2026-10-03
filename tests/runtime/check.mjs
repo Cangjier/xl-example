@@ -6038,5 +6038,39 @@ check("登记表是「引擎给一格、语言层填」：`ConstructorProtoOf` �
 });
 
 console.log("");
+console.log("=== 第 138 轮：Map / Set / Date 的原型格 ===");
+
+check("三族各自的 `prototype` 与 `constructor`：一条语义、两种接法", () => {
+  // **端到端那一把在 `cases/30-collection-prototypes.ts`**（7 行逐字节 ✓）。
+  // 这里钉的是**两种接法各自那条路** ✓：`Map` / `Set` 是**宿主引用值** ✓
+  //（没有属性表 ✗ → 只能走登记表 ✓），`Date` 的全局值是**普通对象** ✓
+  //（`new Date()` 由降级层落成 `host_call` ✓ → 挂一个 `prototype` 属性就行 ✓）。
+  // **选错的症状两处一样** ✓：`instanceof` 抛「the right side of instanceof has no prototype object」✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const m = new Map(); const s = new Set(); const d = new Date(0);",
+    "console.log(m instanceof Map, s instanceof Set, d instanceof Date,",
+    "  m instanceof Object, m instanceof Set, d instanceof Map);",
+    "console.log(m.constructor === Map, s.constructor === Set, d.constructor === Date);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "true true true true false false", "三族认自己、都认 `Object`、互不认");
+  eq(lines[1], "true true true", "三条 `constructor` 链");
+  // **`constructor` 里放的是「全局那一份」** ✗：内建函数的相等**按句柄比** ✓
+  //（`RtCmpEqStrict` 对 `HostRef` 比载荷句柄 ✓）——现造一个新句柄，
+  // `new Map().constructor === Map` 给 `false` ✗（判据现场就是这么红的 ✓）。
+  const same = [];
+  const sameRequest = new RunRequest();
+  sameRequest.Sources = ["console.log(Map === Map, new Map().constructor === Map, [].constructor === Array);"];
+  sameRequest.Entry = "";
+  const sameRes = RunSources(sameRequest, (text) => same.push(text), () => null);
+  eq(sameRes.Outcome, HostOutcome.Ok, "运行器：" + sameRes.Message);
+  eq(same[0], "true true true", "句柄同一（`constructor` 用的是全局那一份）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

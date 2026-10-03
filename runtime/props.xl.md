@@ -125,10 +125,25 @@ this.Index = index;
 
 **`RangeError` 的原型**（第 137 轮）——链与 `TypeError` 那一条一字不差 ✓。
 
+## field Map:int = 0
+
+**`Map` 的原型**（第 138 轮）——与 `Error` 那三格同一个用途 ✓：`new Map() instanceof Map`
+要在实例的原型链上找到它 ✓。**它今天不挂方法** ✗：`map.xl.md` 把方法挂在**实例**上 ✓
+（`InstallMapMethods` ✓），所以这一格今天的**唯一**作用是 `instanceof` ✓。
+这一条写在明处 ✓——「挂在实例上」与「挂在原型上」在 `Object.keys(map)` 上是两种结果 ✓。
+
+## field Set:int = 0
+
+**`Set` 的原型**（第 138 轮）——与 `Map` 那一格同款 ✓（方法也挂在实例上 ✓）。
+
+## field Date:int = 0
+
+**`Date` 的原型**（第 138 轮）——与上面两格同款 ✓。
+
 ## constructor:(objectHandle:int, arrayHandle:int, functionHandle:int, stringHandle:int)=>void
 
-记下四个句柄。**`Error` / `TypeError` / `RangeError` 那三格不在构造参数里** ✓：
-它们由 `InitProtos` 造好后**直接赋值** ✓（第 137 轮 ✓）——
+记下四个句柄。**其余六格（三格 `Error` + `Map` / `Set` / `Date`）不在构造参数里** ✓：
+它们由 `InitProtos` 造好后**直接赋值** ✓（第 137 / 138 轮 ✓）——
 四个位置参数已经够多了，再往后加只会让每一处 `new Protos(...)` 都变脆 ✗。
 
 ```ts
@@ -153,19 +168,23 @@ if (this.String > 0) roots.AddHandle(this.String);
 if (this.Error > 0) roots.AddHandle(this.Error);
 if (this.TypeError > 0) roots.AddHandle(this.TypeError);
 if (this.RangeError > 0) roots.AddHandle(this.RangeError);
+if (this.Map > 0) roots.AddHandle(this.Map);
+if (this.Set > 0) roots.AddHandle(this.Set);
+if (this.Date > 0) roots.AddHandle(this.Date);
 ```
 
 # method InitProtos:(room:RoomChecker, table:HeapTable)=>Protos
 
-造七个空原型。**要先问 room**（要造七个堆对象）。
+造十个空原型。**要先问 room**（要造十个堆对象）。
 
 **三格 `Error` 的链是「接上去」的** ✓：`Error.prototype` 的原型是 `Object.prototype` ✓、
 `TypeError.prototype` 与 `RangeError.prototype` 的原型是 `Error.prototype` ✓
 （JS 里就是如此 ✓）——所以 `e instanceof Object` 与
 `new TypeError() instanceof Error` 都成立 ✓。
+**`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上** ✓（第 138 轮 ✓）。
 
 ```ts
-if (!room(ObjectCharge * 7)) {
+if (!room(ObjectCharge * 10)) {
   throw new Error("out of room");
 }
 const protos = new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
@@ -182,6 +201,15 @@ protos.TypeError = table.CreateObject();
 table.Get(protos.TypeError).Proto = protos.Error;
 protos.RangeError = table.CreateObject();
 table.Get(protos.RangeError).Proto = protos.Error;
+// **`Map` / `Set` / `Date` 三格**（第 138 轮）：它们直接接在 `Object.prototype` 上 ✓
+// （JS 里 `Map.prototype` 的原型就是 `Object.prototype` ✓），
+// 于是 `new Map() instanceof Object` 也成立 ✓。
+protos.Map = table.CreateObject();
+table.Get(protos.Map).Proto = protos.Object;
+protos.Set = table.CreateObject();
+table.Get(protos.Set).Proto = protos.Object;
+protos.Date = table.CreateObject();
+table.Get(protos.Date).Proto = protos.Object;
 return protos;
 ```
 

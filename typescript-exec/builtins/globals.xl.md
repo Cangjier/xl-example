@@ -689,8 +689,11 @@ if (id === JsonStringify) {
 if (id === DateCtor) {
   // **`new Date(毫秒)`**（降级层直接落成这一条 `host_call`，见 `DateCtor` 的说明）。
   // 实例是一个**普通对象** ✓：毫秒存在 `__t` 里 ✓，方法**挂在实例自己身上** ✓
-  // （与 `Map` 同一套配方——不必给引擎加 `Protos.Date`，也不必让引擎认识 `Date` ✓）。
+  // （与 `Map` 同一套配方 ✓）。**但原型那一格是 `Protos.Date`** ✓（第 138 轮）——
+  // 「方法挂实例」与「这一族是谁」是两件事 ✓：前者决定 `Object.keys(d)` 里有什么 ✓，
+  // 后者决定 `d instanceof Date` ✓。少了后者，`instanceof` 那一族又是「一半对」✗。
   const created = NewPlainObject(room, table, protos);
+  table.Get(created.Ref).Proto = protos.Date;
   const ms = args.length > 0 ? args[0] : Value.FromInt(0);
   if (!ms.IsNumber()) throw new Error("unimplemented: new Date(x) needs a number of milliseconds");
   SetProperty(room, NeverCall, table, created,
@@ -1261,6 +1264,12 @@ const rangeErrorKey = Value.FromString(table.CreateString(Units("RangeError")));
 const rangeErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(RangeErrorCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, rangeErrorKey, rangeErrorTarget);
 vm.RegisterConstructorProto(RangeErrorCtor, protos.RangeError);
+// **`Map` / `Set` 两个号登记**（第 138 轮）：它们是**宿主引用值** ✓（与 `Error` 同款 ✗），
+// 只能走登记表 ✓。**`Date` 不走这条路** ✗——它的全局值是**普通对象** ✓
+// （`new Date()` 由降级层落成一条 `host_call(DateCtor, …)` ✓，见 `DateCtor` 的说明 ✓），
+// 所以那一格用「在对象上挂 `prototype` 属性」的老路 ✓（与 `Array` / `Object` / `String` 同款 ✓）。
+vm.RegisterConstructorProto(MapCtor, protos.Map);
+vm.RegisterConstructorProto(SetCtor, protos.Set);
 // **`Error.prototype` 上的三个属性**（`name` / `message` / `constructor`）✓：
 // `name` 是 `e.name` 在没有自有属性时的落点 ✓，`constructor` 是 `e.constructor === Error` ✓。
 // **`message` 给空串** ✓（JS 的 `Error.prototype.message` 就是 `""` ✓）。
@@ -1389,5 +1398,17 @@ const nowTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 
 SetProperty(vm.Room(), NeverCall, table, dateObject, nowKey, nowTarget);
 const dateKey = Value.FromString(table.CreateString(Units("Date")));
 SetProperty(vm.Room(), NeverCall, table, globals, dateKey, dateObject);
+// **`Map` / `Set` / `Date` / `Array` 四格的 `prototype` 与 `constructor`**（第 138 轮）✓：
+// `new Map() instanceof Map` 要靠原型那一格 ✓，`new Map().constructor === Map` 要靠
+// `constructor` 那一格 ✓——**两格都要** ✗（只补一格就是「一半对」✓）。
+//
+// **`constructor` 里必须放「全局那一份」那个值** ✗：内建函数的相等是**按句柄比**的 ✓
+// （`RtCmpEqStrict` 对 `HostRef` 比的是载荷句柄 ✓）——现造一个新句柄的话，
+// `new Map().constructor === Map` 给 **`false`** ✗（判据现场就是这么红的 ✓）。
+// 所以这里用的是上面那几个变量 **本身** ✓，不是再造一个 ✓。
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Map), NameValue(table, "constructor"), mapTarget);
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Set), NameValue(table, "constructor"), setTarget);
+SetProperty(vm.Room(), NeverCall, table, dateObject, NameValue(table, "prototype"), Value.FromObject(protos.Date));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Date), NameValue(table, "constructor"), dateObject);
 return globals;
 ```

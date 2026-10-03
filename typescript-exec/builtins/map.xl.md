@@ -162,6 +162,12 @@ return -1;
 ```ts
 if (id === MapCtor) {
   const map = NewPlainObject(room, table, protos);
+  // **实例挂在 `Protos.Map` 上**（第 138 轮）✗：`new Map() instanceof Map` 要在链上
+  // 找到那一格 ✓——不挂的话链上是 `Object.prototype` ✓，于是 `instanceof Map` 给
+  // **`false`** ✗（而 `instanceof Object` 是对的 ✓，又是一种「一半对」✓）。
+  // **方法仍然挂在实例自己身上** ✓（`InstallMapMethods` ✓）——这两件事不冲突 ✓：
+  // 原型只负责「我是哪一族」✓，方法今天跟着实例走 ✓（见 `Protos.Map` 那一段的说明 ✓）。
+  table.Get(map.Ref).Proto = protos.Map;
   WriteOwn(room, NeverCall, table, map, "__k", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, map, "__v", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, map, "size", Value.FromInt(0));

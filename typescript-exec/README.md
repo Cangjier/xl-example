@@ -13,31 +13,29 @@
 
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
-| **引擎**（`runtime/`） | **~95%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；**第 137 轮加了「内建构造函数 → 原型」登记表**（`instanceof` 靠它认 `Array` / `Error` ✓）与三格错误原型 ✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
+| **引擎**（`runtime/`） | **~95%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；**第 138 轮 `Protos` 加到十格**（三格错误 + `Map` / `Set` / `Date` ✓，都是常驻根 ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
 | **降级层**（本目录） | **~95%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；缺 `new C(...xs)` 与 `super(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~75%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；**第 137 轮的 `Error` / `TypeError` / `RangeError` 三个构造函数 + 三格原型 + `constructor` 链** ✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法（`hasOwnProperty` 那些）、`Map` / `Set` / `Date` 自己的原型格 |
-| **端到端**（普通 `.ts` 文件） | **~97%** | 29 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、**`instanceof` 与错误家族**）；**已知的九个拦路虎都关掉了** ✓，下一个是 **`Map` / `Set` / `Date` 自己的原型格**与**错误「种类」的引擎那一侧**（见「下一步」） |
+| **标准库**（`builtins/`） | **~78%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；**第 138 轮 `Map` / `Set` / `Date` 各自的 `prototype` 与 `constructor`** ✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法（`hasOwnProperty` 那些）、`Map` / `Set` 的**内部槽**（所以 `Object.keys(new Map())` 不是 0 ✗） |
+| **端到端**（普通 `.ts` 文件） | **~98%** | 30 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、**三族集合的原型格**）；**已知的十个拦路虎都关掉了** ✓，下一个是**错误「种类」的引擎那一侧**与**内建构造函数上的 `super()`**（见「下一步」） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 187 条 / `runtime:cli` 29 份 ✓）。
+与语料数（`runtime:check` 188 条 / `runtime:cli` 30 份 ✓）。
 
-**下一步（第 137 轮收尾时看着的）**：
+**下一步（第 138 轮收尾时看着的）**：
 
-1. **`Map` / `Set` / `Date` 自己的原型格** ✗：`new Map() instanceof Map` 还抛
-   「the right side of instanceof has no prototype object」✓——它们**没有那一格** ✗
-   （实例今天挂的是 `Object.prototype` ✓）。做法与 `Error` 那三格**一模一样** ✓：
-   `Protos` 加三格 ✓、`map.xl.md` / `set.xl.md` / `Date` 造实例时挂上去 ✓、
-   `BuildGlobals` 里 `RegisterConstructorProto` ✓。**登记表那一格已经在了** ✓，这一条是纯体力 ✓。
-2. **错误「种类」的引擎那一侧** ✗：`try { null.y } catch (e) { e instanceof TypeError }` 现在是
+1. **错误「种类」的引擎那一侧** ✗：`try { null.y } catch (e) { e instanceof TypeError }` 现在是
    `false` ✗（Node 是 `true` ✓）——引擎抛的走错误工厂 ✓、**接得住** ✓，
    但工厂**只带一句话、不带种类** ✗。候选是把 `Guard` 与 `ErrorFactory` 都加一格
    **失败的类别** ✓（引擎知道「这是一次类型失败」✓，语言层知道「它叫 `TypeError`」✓——
    与 `PrototypeKey` 同一条分界 ✓）。
-3. **`class X extends Error` 还抛** ✗（**响亮地** ✓，第 137 轮特意加的 ✓）：
-   `super(m)` 落在内建构造函数上时，那一族是「自己造一个新对象返回」那一款 ✓，
-   于是新对象被丢掉 ✓、`this` 上一个属性都没写 ✗（**症状是 `e.message` 空着** ✓）。
+2. **内建构造函数上的 `super()`** ✗：`class X extends Error` / `extends Map` 现在**响亮地抛** ✓
+   （第 137 轮特意留的 ✓）——`super(m)` 落在内建构造函数上时，那一族是
+   「自己造一个新对象返回」那一款 ✓，于是新对象被丢掉 ✓、`this` 上一个属性都没写 ✗。
    要真做得让内建构造函数支持「往传进来的 `this` 上初始化」✓。
+3. **`Map` / `Set` 的内部槽** ✗：`Object.keys(new Map())` 在本仓给 12 ✗（Node 给 0 ✓）——
+   方法挂在实例上 ✓、`__k` / `__v` / `size` 也是自有属性 ✓。这是**值模型的结构差** ✓
+   （没有内部槽那一层 ✓），要么加内部槽 ✓，要么把方法搬去原型 ✓（后者只解决一半 ✓）。
 4. **`new C(...xs)` / `super(...xs)`** ✗：给 `CallArray` 补「构造目标」那一个操作数 ✓。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
@@ -234,6 +232,42 @@ typescript-exec/
 所以 C++ 那一份**欠着** ✗：按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发
 （**没改动的部件照抄旧产物** ✓，真要改写的只有几十处 ✓）。
 **它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），所以它排在「能跑更多普通程序」后面 ✓。
+
+## 第 138 轮的账（`Map` / `Set` / `Date` 的原型格）
+
+第 137 轮把「内建构造函数 → 原型」那格登记表铺好了 ✓，收尾时留下的第一条待办就是
+给这三族补上**自己的原型格** ✓——**同一条语义、两种接法** ✓，两处坑都当场量到了 ✓：
+
+| 谁 | 怎么接 | 为什么 |
+| --- | --- | --- |
+| **`Map` / `Set`** | `vm.RegisterConstructorProto(MapCtor, protos.Map)` ✓ | 它们是**宿主引用值** ✓、**没有属性表** ✗——`GetProperty(Map, "prototype")` 永远是 `undefined` ✗ |
+| **`Date`** | 在 `dateObject` 上挂 `prototype` 属性 ✓ | 它的全局值是**普通对象** ✓（`new Date()` 由降级层落成一条 `host_call(DateCtor, …)` ✓），老路走得通 ✓ |
+
+**接错的症状一模一样** ✓：`instanceof` 抛「the right side of instanceof has no prototype object」✓——
+所以「哪种接法」不能靠猜 ✓，要看**那个全局值在值模型里是什么** ✓。
+
+**三处「一半对」的坑**（都当场量到了 ✓）：
+
+1. **实例那一侧也要挂** ✗：`Protos.Map` 造出来了、登记表也填了 ✓，可 `MapCtor` 造实例时
+   如果还挂 `Protos.Object` ✓，`new Map() instanceof Map` 照样 `false` ✗——
+   **两处都要** ✓（`table.Get(map.Ref).Proto = protos.Map` ✓）；
+2. **`constructor` 里必须放「全局那一份」那个值** ✗：内建函数的相等是**按句柄比**的 ✓
+   （`RtCmpEqStrict` 对 `HostRef` 比的是载荷句柄 ✓）——现造一个新句柄的话，
+   `new Map().constructor === Map` 给 **`false`** ✗（判据现场就是这么红的 ✓）；
+3. **`Protos` 的常量声明顺序** ✗：`constructor` 那几行要写在 `mapTarget` / `setTarget` /
+   `dateObject` **之后** ✓（写在前面是 TDZ 错 ✗，而它离现场只有几行 ✓，还算好找 ✓）。
+
+**`Protos` 从七格加到十格** ✓（三格错误 + `Map` / `Set` / `Date` ✓），
+`AddRoots` 与 `InitProtos` 都跟着改 ✓——**十个原型全是常驻根** ✓：
+漏一格，收垃圾之后整条链就断 ✓（判据量的就是「根里正好十格」✓）。
+
+语料 [tests/runtime/cases/30-collection-prototypes.ts](../tests/runtime/cases/30-collection-prototypes.ts)
+**7 行 stdout 与 `node` 逐字节相同** ✓。
+
+**一处结构差写在这里** ✗：`Object.keys(new Map())` 在本仓给 **12** ✗（Node 给 **0** ✓）——
+方法挂在**实例**上 ✓、`__k` / `__v` / `size` 也是自有属性 ✓。
+JS 用**内部槽** ✓，而本仓的值模型没有那一层 ✗。这不是「漏挂了一个方法」✓，
+是**两个模型的差别** ✓，所以它写在这里而不是当成 bug 修 ✓。
 
 ## 第 137 轮的账（`instanceof` 认内建构造函数 · 错误家族）
 

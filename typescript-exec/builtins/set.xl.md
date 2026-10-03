@@ -95,6 +95,9 @@ if (id === SetCtor) {
   // 而 TS 那边是 `Identifier`——对拍尺子会当场点出来（第 60 轮实测）。
   // 这是投影层的 bug，记在台账里；这里先绕开，让它不影响别的判据。
   const created = NewPlainObject(room, table, protos);
+  // **实例挂在 `Protos.Set` 上**（第 138 轮）——理由与 `map.xl.md` 那一句一字不差 ✓
+  // （`new Set() instanceof Set` 要在链上找到那一格 ✓）。
+  table.Get(created.Ref).Proto = protos.Set;
   WriteOwn(room, NeverCall, table, created, "__v", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, created, "size", Value.FromInt(0));
   InstallSetMethods(room, table, created);
