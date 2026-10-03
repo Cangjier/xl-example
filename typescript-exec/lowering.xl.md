@@ -2031,7 +2031,12 @@ for (let i = 0; i < count; i++) {
   this.LowerInto(window + 1 + i, args[i]);
 }
 this.Emit(Op.CallMethod, window, key, window + 1, count);
-this.Release(window + 1);
+// **退到结果「之上」，不是退到结果「上」**：结果落在 `window + 1`，所以这里要 `+2`。
+// 写成 `Release(window + 1)` 会把**活着的**结果格交出去——调用方（比如数组字面量）
+// 紧接着 `Reserve` 就复用了它，于是那一格装的是别的东西。
+// **这是同一个陷阱的第四次**（前三次：第 24 / 38 / 40 轮），这次是判据抓到的：
+// 症状是「数组字面量里直接写方法调用，那一格拿到的是**接收者**」。
+this.Release(window + 2);
 if (optional) {
   const done = this.Here();
   this.Emit(Op.Jump, -1, 0, -1, -1);

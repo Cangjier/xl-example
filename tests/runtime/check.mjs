@@ -3423,7 +3423,7 @@ check("Map：new / set 链式 / 更新 / get / has / delete / size / keys，与 
     "  if (h1) flag1 = 1;",
     "  let flag2 = 0;",
     "  if (h2) flag2 = 1;",
-    "  return [d0, s0, d1, d2, flag, s1, d3, flag1, flag2, keys.length, keys[0]];",
+    "  return [d0, s0, d1, d2, flag, s1, d3, flag1, flag2, keys.length, keys[0], keys.join('-')];",
     "}",
   ].join("\n");
   const nodeAt = new Function(source + "\nreturn probe();")();
@@ -3452,6 +3452,9 @@ check("Map：new / set 链式 / 更新 / get / has / delete / size / keys，与 
   eq(at(8).AsInt() === 1, nodeAt[8] === 1, "has('a') 变假");
   eq(at(9).AsInt(), nodeAt[9], "keys() 长度");
   eq(hostStringOf(table, at(10)), nodeAt[10], "keys() 内容是 b");
+  // **方法调用直接写在数组字面量里**（第 59 轮修的那个 bug 的守卫）：
+  // 结果格曾被 `LowerMethodCall` 的 `Release` 交出去，于是这一格拿到的是**接收者数组**。
+  eq(hostStringOf(table, at(11)), nodeAt[11], "keys.join('-')：方法调用直接写在数组字面量里");
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
