@@ -90,7 +90,7 @@ const { InstallArray, InvokeArray } = arrayBuiltins;
 const installBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "install.js"));
 const { InstallBuiltins, InvokeBuiltin, InvokeWithSink, RaiseFromHost } = installBuiltins;
 const globalsBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "globals.js"));
-const { GlobalNames, BuildGlobals, ClockNow } = globalsBuiltins;
+const { GlobalNames, BuildGlobals, ClockNow, NewError } = globalsBuiltins;
 const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "bindings.js"));
 const { Bindings, LookupOf } = bindingsMod;
 const { RtSetProto } = require(path.join(root, "build", "ts", "runtime", "rt.js"));
@@ -2076,6 +2076,11 @@ function lowerAndLoad(source, globals, capabilityOf) {
   // （700 段，如 `get_iterator`）**登记**进能力表，而 `Register` 只认**已装载的那张表**
   // 里的号——顺序反了会**静默失败**（返回 `false`，没人看），症状就是 `capability is not registered`。
   InstallBuiltins(host, host.Machine.Protos);
+  // **错误工厂**（第 127 轮）：rt 层的失败也变成**脚本接得住**的异常 ✓——
+  // 与 `tsrun` 同一条接法 ✓（判据里少这一层，量的就是另一条接法 ✗）。
+  host.Machine.SetErrorFactory((text) => {
+    return NewError(host.Machine.Room(), host.Machine.Table, host.Machine.Protos, text);
+  });
   // **宿主调用通道也要接上**（第 111 轮）：`for..of` 现在会先问一次 `get_iterator`，
   // 那是一条 `host_call`；光注册不够，还得有人在那一头把号翻译成内建分派。
   // 形状照抄产品路径（`tsrun.xl.md`）：从 `HostRef` 取能力号 → 交给 `InvokeWithSink`。
@@ -3274,8 +3279,13 @@ check("instanceof：沿原型链判、原始值给假、右侧不是对象要抛
   } catch (error) {
     badRuntime = String(error.message);
   }
-  eq(badRuntime.indexOf("prototype") >= 0, true,
-    "右侧没有原型对象时必须抛（降级期通过、运行期报）：" + badRuntime + badRight);
+  // **旧判据随契约更新**（第 127 轮）：上面那次调用原来会**冒出宿主异常** ✗——
+  // 第 127 轮之后 rt 层的失败是**脚本站内异常** ✓（`Vm.SetErrorFactory` ✓），
+  // 所以「没冒出宿主」+「结局是 ScriptThrew」合起来才是对的读法 ✓。
+  eq(badRuntime, "", "rt 层的失败不再冒出宿主（它是一条脚本异常）：" + badRuntime);
+  eq(runtime.host.CallExport(runtime.module.ExportOf("bad"), [Value.FromInt(1)]).Outcome,
+    HostOutcome.ScriptThrew,
+    "右侧没有原型对象时**报出来**（降级期通过、运行期报；结局是脚本抛出）：" + badRight);
 
   // **没告诉机器原型挂在哪个属性名下** → 也要明确报出来，而不是给个假答案
   const noKey = lowerAndLoad(source);
@@ -3286,7 +3296,9 @@ check("instanceof：沿原型链判、原始值给假、右侧不是对象要抛
   } catch (error) {
     missingKey = String(error.message);
   }
-  eq(missingKey.indexOf("prototype key") >= 0, true, "没声明原型键时要明确报：" + missingKey);
+  // 与上面同一个契约更新（第 127 轮）：这里也**不该**冒出宿主 ✓，看结局 ✓。
+  eq(noKey.host.CallExport(noKey.module.ExportOf("throughChain"), [Value.FromInt(1)]).Outcome,
+    HostOutcome.ScriptThrew, "没声明原型键时要明确报（结局是脚本抛出）：" + missingKey);
   void table;
 });
 
@@ -5003,29 +5015,29 @@ check("字符串拼接：有字面量就换路（第 125 轮），两边都是�
   }
 
   // **边界：两边都是变量 + 运行期是对象** ✓。引擎的 `RtOp.Add` 在那里抛 ✓——
-  // 而这一抛**接不住**（与宿主通道那条不同）✗：它是 **rt 层**的宿主异常，
-  // 从 `Run()` 直接冒出来（`RaiseFromHost` 只管宿主函数调用那条路 ✓），
-  // 所以这里断言的是「**整次运行失败**」✓，不是「脚本接住了」✓。
-  // 这条边界写在台账里 ✓：要让它可接住，得给 rt 层也铺一条「宿主异常 → 脚本异常」的路
-  // （而那条路要一个**语言层造的 Error 对象** ✗，引擎自己造不出来 ✗——留作下一轮的账 ✓）。
+  // **第 127 轮之后这一抛接得住了** ✓（rt 层也走「错误工厂 → 脚本站内异常」那条 ✓），
+  // 所以这里断言的是**脚本真的接住了、而且接住之后继续跑** ✓。
+  //（第 125 轮写这一条时它还是「整次运行失败」✗——**旧判据随契约更新** ✓。）
   const strict = [
     "function run() {",
     "  const bag = { a: 1 };",
     "  const left = 'x';",
     "  const right = bag;",
-    "  return [left + right];",
+    "  let caught = 'none';",
+    "  try { const joined = left + right; caught = joined; } catch (error) { caught = 'caught:' + error.message; }",
+    "  return [caught, 'after'];",
     "}",
   ].join("\n");
   const strictRequest = new RunRequest();
   strictRequest.Sources = [strict];
   strictRequest.Entry = "run";
-  let escaped = "";
-  try {
-    RunSources(strictRequest, () => {}, () => null);
-  } catch (error) {
-    escaped = String(error.message);
-  }
-  ok(escaped.indexOf("ToString") >= 0, "两边都是变量时照旧抛（**接不住**，rt 层那条路）：" + escaped);
+  const strictRes = RunSources(strictRequest, () => {}, () => null);
+  eq(strictRes.Outcome, HostOutcome.Ok, "运行器（边界那一条）：" + strictRes.Message);
+  const strictTable = strictRes.Table;
+  const caughtText = hostStringOf(strictTable, GetIndex(strictTable, strictRes.Value, Value.FromInt(0)));
+  ok(caughtText.indexOf("caught:") === 0, "两边都是变量 + 对象：**脚本接住了**（rt 层那条路，第 127 轮）：" + caughtText);
+  eq(hostStringOf(strictTable, GetIndex(strictTable, strictRes.Value, Value.FromInt(1))), "after",
+    "接住之后继续往下跑（帧栈没坏）");
 });
 
 check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {

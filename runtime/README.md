@@ -16,12 +16,14 @@
 > `new` 的收尾规矩、getter / setter 重入、生成器挂起活过回收、`await` 全链路、
 > 宿主的四类结局（成功 / 脚本抛出 / 挂起 / 限额）与能力白名单，
 > 以及**宿主函数失败时的「抬成脚本站内异常」通道**（`RaiseRequest` / `Raise`，
-> 第 121 轮——没有它，内建的失败**接不住**）。
+> 第 121 轮——没有它，内建的失败**接不住**），
+> 和 **rt 层那条同名的路**（`Guard` + `SetErrorFactory` + `MakeError`，第 127 轮——
+> `try { a + b } catch` 靠它 ✓；引擎只递**话**，「`Error` 长什么样」由语言层的工厂给 ✓）。
 > 降级层与标准库也在长：[typescript-exec/](../typescript-exec/README.md) 收下了
 > P0 的形状 + 类 / 继承 / 集合 / 生成器 / 默认参数，并且**`.ts` 已经能直接执行**——
 > 运行器 `tsrun`（仓库根的 [tsrun.xl.md](../tsrun.xl.md)）装上「解析 → 降级 → 链接 → 装载 → 求值」，
 > 命令行 `node build/ts/tsrun.js <文件.ts>` 的 **stdout 与 `node <文件.ts>` 逐字节相同**
-> （判据 `npm run runtime:cli`，18 份语料、裁判是真 Node）。
+> （判据 `npm run runtime:cli`，19 份语料、裁判是真 Node）。
 > 还差 `typescript-exec/` 的其余部分与标准库——按
 > [§14 落地顺序](../docs/runtime-architecture.md) 逐个补。
 

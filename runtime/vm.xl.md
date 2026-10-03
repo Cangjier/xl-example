@@ -29,6 +29,8 @@ import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from ".
 
 # type ValueThunk = ()=>Value
 
+# type ErrorFactory = (text:string)=>Value
+
 一段「算出个值」的代码，给 `Guard` 用（见那一节）。
 
 **右侧是原文**（`# type` 的规矩）：所以这里写的是宿主的类型写法，不是中立类型。
@@ -215,6 +217,16 @@ this.Pc = pc;
 
 **它必须是根**（`SnapshotRoots` 加进去）。
 
+## field MakeError:ErrorFactory | null = null
+
+**把「宿主异常的文字」变成「脚本要接住的值」的工厂**（第 127 轮补）——见 `Guard` 那一段 ✓。
+
+**为什么引擎不自己造** ✗：脚本要接住的是一个**值** ✓（`Error` 对象，带 `message` ✓），
+而「`Error` 长什么样」是**语言层**的事 ✓（`globals.xl.md` 的 `NewError` ✓）——
+引擎不认识它 ✓。所以它只是一个**回调** ✓（不是堆里的值，**不用进根集** ✓）。
+
+**`null` = 没装** ✓：没装就照旧把异常冒出去 ✓（纯脚本的机器、以及「引擎 bug」那条路 ✓）。
+
 ## field RaiseRequest:Value | null = null
 
 **「请把这次宿主调用当成一次脚本站内异常」的请求**（第 121 轮补）。
@@ -328,6 +340,7 @@ this.HostTable = [];
 this.Host = null;
 this.Finished = false;
 this.RaiseRequest = null;
+this.MakeError = null;
 this.StepBudget = stepBudget;
 this.Steps = 0;
 this.Status = VmStatus.Ready;
@@ -1123,17 +1136,25 @@ if (id === RtOp.NewArray) {
 if (id === RtOp.IterNew) {
   RequireArgc(argc, 1, "iter_new");
   const target = slots[base];
-  if (!target.IsObject()) throw new Error("unimplemented: iterating a non-object");
-  const item = this.Table.Get(target.Ref);
-  if (item.Generator !== null) return target;
-  if (target.Tag === ValueTag.Array) {
-    return this.Guard(() => Value.FromObject(this.Table.CreateIterator(target.Ref)));
-  }
-  throw new Error("unimplemented: iter_new on this kind of object");
+  // **这一支的两处抛也要能被接住**（第 127 轮）：`for (const x of 42)` 走到这里 ✓——
+  // 判据现场先修了 `iter_next` ✓ 才发现真正抛的是**这一支** ✗（两处都抛同样的话 ✓，
+  // 只补一处等于没补 ✓）。所以整支包进 `Guard` ✓。
+  return this.Guard(() => {
+    if (!target.IsObject()) throw new Error("unimplemented: iterating a non-object");
+    const item = this.Table.Get(target.Ref);
+    if (item.Generator !== null) return target;
+    if (target.Tag === ValueTag.Array) {
+      return Value.FromObject(this.Table.CreateIterator(target.Ref));
+    }
+    throw new Error("unimplemented: iter_new on this kind of object");
+  });
 }
 if (id === RtOp.IterNext) {
   RequireArgc(argc, 2, "iter_next");
-  return this.DoIterNext(slots[base], slots[base + 1]);
+  // **也要走 `Guard`**（第 127 轮）：`DoIterNext` 对「不可迭代的东西」会抛 ✓
+  // （`for (const x of 42)` ✓），而这一抛以前**冒出 `Run()`** ✗——
+  // 与 rt 层其它失败一样，现在由错误工厂抬成**脚本接得住**的异常 ✓。
+  return this.Guard(() => this.DoIterNext(slots[base], slots[base + 1]));
 }
 if (id === RtOp.HostCall) {
   if (argc < 1) throw new Error("host_call needs a capability id");
@@ -1493,12 +1514,50 @@ return current;
 return (bytes: number) => this.NeedRoom(bytes);
 ```
 
+## method SetErrorFactory:(make:ErrorFactory)=>void
+
+**装上「宿主异常的文字 → 脚本要接住的值」这个工厂**（第 127 轮）——见 `Guard` 那一段 ✓。
+
+**谁装** ✓：**知道两边的那一层**（驱动 / 宿主 ✓）——`tsrun` 装的是
+`(text) => NewError(room, table, protos, text)` ✓（与 `RaiseFromHost` 用的是**同一个**构造 ✓，
+所以「宿主函数失败」与「rt 层失败」在脚本看来是**同一种东西** ✓）。
+
+```ts
+this.MakeError = make;
+```
+
+## method HostText:(error:any)=>string
+
+**宿主异常 → 一句话** ✓（引擎侧那一份最小的：只认 `message` ✓）。
+
+**为什么引擎里会出现 `error.message`** ✗：这一层本来就贴着宿主跑 ✓
+（`Guard` 里那句 `error.message === "out of room"` 早就是这个形状 ✓）——
+引擎不认识的只是「**脚本**要接住什么」✓，而那是工厂决定的 ✓。
+
+```ts
+if (error !== null && error !== undefined && typeof error === "object" && "message" in error) {
+  return String((error as any).message);
+}
+return String(error);
+```
+
 ## method Guard:(body:ValueThunk)=>Value
 
-把 rt 层的 `out of room` 翻成机器的状态。
+把 rt 层的异常分成三类：**资源上限** → 机器的状态 ✓、**装了错误工厂的其它异常** →
+**脚本站内异常** ✓（第 127 轮）、**其余** → 照旧冒出去 ✓（引擎 bug 要响 ✓）。
 
-**两条路必须分开**：资源上限（`OutOfMemory`）与引擎 bug（异常冒出去）在宿主那一侧的
-处置完全不同——把上限当成崩溃报出去，会让调用方以为引擎坏了。
+**为什么「其余」也要分** ✗：第 125 轮那条边界——`a + b` 两边都是变量、
+运行期一边是对象时，引擎的 `RtAdd` 会抛 ✓；而那一抛**从 `Run()` 直接冒出来** ✗，
+脚本的 `try { … } catch { … }` **接不住** ✗（宿主函数那条路第 121 轮就通了 ✓，
+这一条是 **rt 层**的 ✓）。于是 `str + obj` 只能是「整份程序挂掉」✗——那不像 JS ✓。
+
+**为什么需要「错误工厂」而不是引擎自己造一个** ✗：脚本要接住的是一个**值** ✓
+（`Error` 对象、带上 `message` ✓），而「`Error` 长什么样」是语言层的事 ✓
+（`text.xl.md` / `globals.xl.md` 的 `NewError` ✓）——引擎不认识它 ✓。
+所以驱动装一个工厂（`SetErrorFactory` ✓），引擎只把**话**交过去 ✓。
+
+**没装工厂就照旧冒** ✓：纯脚本的宿主（判据里的裸机器 ✓）与「引擎 bug」那条路
+保持原样 ✓——不假装自己能变出一个错误对象 ✗。
 
 ```ts
 try {
@@ -1506,6 +1565,11 @@ try {
 } catch (error) {
   if (error instanceof Error && error.message === "out of room") {
     this.Status = VmStatus.OutOfMemory;
+    return Value.Undefined();
+  }
+  // **其余一律试着抬成脚本站内异常**（第 127 轮）：装了工厂才抬 ✓。
+  if (this.MakeError !== null) {
+    this.DoThrow(this.MakeError(this.HostText(error)));
     return Value.Undefined();
   }
   throw error;

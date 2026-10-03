@@ -6,7 +6,7 @@ import { TextContext } from "./typescript/text-context.xl.md"
 import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
-import { GlobalNames, BuildGlobals, TextFrom, LogSink } from "./typescript-exec/builtins/globals.xl.md"
+import { GlobalNames, BuildGlobals, TextFrom, LogSink, NewError } from "./typescript-exec/builtins/globals.xl.md"
 import { ValueText } from "./typescript-exec/builtins/text.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
@@ -271,6 +271,10 @@ host.DeclarePrototypeKey(Units("prototype"));
 // 顺带把「能力注册」也提到前面：注册只认**已装载**的那张表（`host.Load` 过了），
 // 与求值没有先后关系 ✓。
 InstallBuiltins(host, protos);
+// **错误工厂**（第 127 轮）：rt 层的失败（`a + b` 遇到对象那种 ✓）也变成**脚本接得住**的异常 ✓——
+// 用的是**同一个** `NewError` ✓，所以「宿主函数失败」与「rt 层失败」在脚本看来是一种东西 ✓。
+// 少了这一行，`try { left + right } catch { … }` 里的 `catch` 走不到 ✗（判据现场那一条 ✓）。
+host.Machine.SetErrorFactory((text) => NewError(host.Machine.Room(), table, protos, text));
 host.InstallHost((target, self, args, room) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
   // **宿主这条通道的兜底**（第 121 轮）：内建（或客户能力）失败时，把**宿主异常**
