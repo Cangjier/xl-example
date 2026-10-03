@@ -4028,7 +4028,7 @@ check("P0：switch + do..while + 带标签的 continue·break，经运行器与 
   }
 });
 
-check("P0：对象字面量 setter·getter 成对 + 类 getter + 重写 + 带标签的 switch，与 Node 逐值一致", () => {
+check("P0：对象字面量 setter·getter 成对 + 类 getter + super.m() + 重写 + 带标签的 switch，与 Node 逐值一致", () => {
   // 第五条**合成程序**判据。挑的都是「机制刚通、但还没跑过」的那几半：
   //   · 对象字面量的 **setter + getter 成对**——`DefineAccessor` 的两半。成对写正是抓出那个
   //     真 bug 的形状 ✗：**替换**时它把没提供的那一半也写成了 `undefined`，
@@ -4062,7 +4062,7 @@ check("P0：对象字面量 setter·getter 成对 + 类 getter + 重写 + 带标
     "  }",
     "  class Derived extends Base {",
     "    constructor(v) { super(v + 1); }",
-    "    label() { return 'derived+' + this.v; }",
+    "    label() { return 'derived+' + super.label(); }",
     "  }",
     "  const d = new Derived(4);",
     "  let tag = 'other';",
@@ -4075,7 +4075,7 @@ check("P0：对象字面量 setter·getter 成对 + 类 getter + 重写 + 带标
   ].join("\n");
   const expected = new Function(source + "\nreturn run();")();
   eq(expected[0], 20, "Node：setter 写进去、getter 读出来（前提）");
-  eq(expected[1], "derived+5", "Node：子类重写了父类的方法（前提）");
+  eq(expected[1], "derived+base:5", "Node：super.m() 调的是父类那个、this 是当前实例（前提）");
   eq(expected[2], "five", "Node：带标签的 break 跳出了 switch（前提）");
   eq(expected[3], 10, "Node：类里的 getter（前提）");
 

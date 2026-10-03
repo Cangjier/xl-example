@@ -2068,6 +2068,49 @@ return result;
 实参从下一格起、**连续**——所以窗口一次要 `argc + 1` 格。
 
 ```ts
+if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
+  // **`super.m(args)`**（第 104 轮补）：在**父类原型**上找方法，但 `this` 仍是**当前实例**——
+  // 这两件事必须**分开**，所以用不了 `call_method`（它把「在谁身上找」和「谁是 `this`」
+  // 当成同一格）。形状与 `o[k]()` 那条分支完全一样：`get_prop` 两次 + `Op.Call` 的 `D` 操作数。
+  //
+  // **父类怎么找到**：`super` 的父类名由 `InSuperName` 指认（类降级时写进排队函数，
+  // 见 `LowerClass` 里盖章那一行），然后**照常 `ResolveAccess`**——它在环境里还是在槽里，
+  // 这里一行都不用管。`super(...)` 那条分支就是这么做的。
+  if (this.InSuperName === "") {
+    throw new Error("unimplemented: super.m(...) outside a derived class method");
+  }
+  const parentAccess = this.ResolveAccess(this.InSuperName);
+  const parent = this.Reserve(1);
+  if (parentAccess.InEnv) {
+    this.Emit(Op.EnvGet, parent, parentAccess.Depth, parentAccess.Cell, -1);
+  } else {
+    this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
+  }
+  const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+  const proto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+  const name = Child(callee, "name");
+  if (NodeKind(name) !== "Identifier") {
+    throw new Error("unimplemented: super call with a computed name");
+  }
+  const fnKey = this.Reserve(1);
+  this.Emit(Op.Const, fnKey, this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name)))), -1, -1);
+  const fn = this.RtCallValues(RtOp.GetProp, proto, fnKey);
+  // **`this` 从当前帧取一格递给被调方**（`Op.Call` 的 `D` 操作数）：父类那个方法要拿
+  // **当前这个实例**当 `this`——这正是「重写里的 `super`」的全部意思。
+  const selfSlot = this.Reserve(1);
+  this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
+  const superArgs = ListOf(call, "arguments");
+  const superCount = superArgs.length;
+  const superBase = this.Reserve(superCount > 0 ? superCount : 1);
+  for (let i = 0; i < superCount; i++) {
+    this.LowerInto(superBase + i, superArgs[i]);
+  }
+  this.Emit(Op.Call, fn, superBase, superCount, selfSlot);
+  // **退到结果「之上」**（`fn` / `selfSlot` / `proto` / `parent` 都在下面；
+  // 退到结果「上」会把活着的产物交出去——`LowerMethodCall` 末尾那条注释说的就是这个陷阱）。
+  this.Release(superBase + 1);
+  return superBase;
+}
 const receiver = this.LowerExpression(Child(callee, "expression"));
 const optional = this.ChainHasOptional(call);
 let skip = -1;
@@ -2898,6 +2941,13 @@ for (let i = 0; i < members.length; i++) {
     throw new Error("unimplemented: computed or numeric class member name");
   }
   const closure = this.LowerFunctionValue(member, name + "." + TextOf(memberName));
+  // **给刚排队的方法也盖上父类名**（第 104 轮）：构造函数在它自己那一处盖，
+  // 而方法**以前没盖** ✗——于是方法体里的 `super.m(...)` 一降级就报
+  // 「outside a derived class method」（`InSuperName` 挂在排队函数上，空串就是不认识 `super`）。
+  // **盖在 `LowerFunctionValue` 之后**：它就是 push 那一格，和构造函数那条路同一个手法。
+  if (baseName !== "") {
+    this.Pending[this.Pending.length - 1].SuperName = baseName;
+  }
   if (kind === "GetAccessor" || kind === "SetAccessor") {
     // **类里的访问器落在原型上**（JS 就是这样：实例自己不持有它，从原型链上找）——
     // 与对象字面量那一处的唯一区别就是「落在谁身上」，其余全走同一个 `EmitDefineAccessor`。
