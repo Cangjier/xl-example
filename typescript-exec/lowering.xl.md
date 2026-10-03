@@ -62,6 +62,7 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **`class`**（构造函数 + `prototype` 对象 + 方法挂上去；拼的是「函数值 + `prototype` 属性 + 方法调用」三样既有东西） | **字段初始化**、`static`、getter/setter、计算键方法、类里的生成器 / async 方法——一律**降级期抛**；`prototype.constructor` 的回指与 `instanceof` 一起做 |
 | **`extends`**（一条 `set_proto` 把子类 prototype 的原型接到父类 prototype 上；方法沿链找到） | **从句关键字投影没带**，所以「第一段就是 `extends`」——`class C implements I {}` 会在解析 `I` 时报未知名字（**响亮**，不是静默错值） |
 | **`super(...)`**（`Op.Call` 的 `D` 操作数带 `this` 槽；父类构造函数经**环境**进子类构造函数的帧） | **父类带构造函数时**，派生类必须自己写构造函数**并调用 `super(...)`**——两样缺一样都**降级期抛**（默认构造函数没法转发 `...args`，静默少跑父类初始化更坏） |
+| **`instanceof`**（沿原型链找 `C.prototype`；「原型挂在哪一格」用的是 `new` 的那个**同一个旋钮**，引擎不认识 `prototype` 这七个字） | 右侧不是对象**抛**（JS 是 `TypeError`——**不许静默给假**）；宿主没声明原型键也**抛**；`Symbol.hasInstance` 与自定义 `instanceof` 不做 |
 
 **`async` 的三条语义差（都写在明处，不假装是 JS）**：
 
@@ -250,6 +251,7 @@ if (operatorText === "!==") return RtOp.CmpEqStrict;
 if (operatorText === "==") return RtOp.CmpEqLoose;
 if (operatorText === "!=") return RtOp.CmpEqLoose;
 if (operatorText === "in") return RtOp.In;
+if (operatorText === "instanceof") return RtOp.Instanceof;
 throw new Error("unimplemented: binary operator " + operatorText);
 ```
 
@@ -2219,6 +2221,10 @@ const proto = this.Reserve(1);
 this.EmitRt(RtOp.NewObject, proto, proto, 0);
 const key = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
 this.SetPropertyConst(closure, key, proto);
+// **`prototype.constructor` 回指**：JS 里每个函数的原型都指回函数自己
+// （`x.constructor` 那种写法靠它，`instanceof` 的语义也要求这个形状）。
+const constructorKey = this.Program().AddConst(Constant.OfString(UnitsOf("constructor")));
+this.SetPropertyConst(proto, constructorKey, closure);
 ```
 
 ## method LowerFunctionValue:(node:AstNode, name:string)=>int

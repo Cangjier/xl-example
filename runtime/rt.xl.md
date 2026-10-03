@@ -2,9 +2,14 @@
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge } from "./heap.xl.md"
+import { GetProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
 ```
 
 # namespace cangjie
+
+**与 `props.xl.md` 互相引用**：那边要 `RoomChecker`（本文件的类型），这边要
+`GetProperty` / `NativeCall` / `MaxProtoDepth` / `Protos`。两边都**只在函数体里**
+用对方的东西，所以模块加载顺序无害（谁先加载都不会在初始化期读到半成品）。
 
 **通用算子表的第一段实现**（`ir.xl.md` 的 `RtOp`）。契约见
 [docs/runtime-architecture.md](../docs/runtime-architecture.md) §5 与 §11。
@@ -151,6 +156,43 @@ if (!room(CodeUnitCharge * units.length + ObjectCharge)) {
   throw new Error("out of room");
 }
 return Value.FromString(table.CreateString(units));
+```
+
+# method RtInstanceOf:(room:RoomChecker, call:NativeCall, protos:Protos, table:HeapTable, prototypeKey:int, left:Value, right:Value)=>Value
+
+**`x instanceof C`**：沿 `x` 的原型链找 `C` 上那个原型对象。
+
+**名字由语言层给**（`prototypeKey`，与 `new` 找实例原型用的是**同一个旋钮**）——
+引擎不认识 `"prototype"` 这七个字。**没给**就抛：那时候 `instanceof` 只会给出错误答案，
+**响一声比给个假的强**。
+
+三条分叉，顺序是语义：
+
+1. **`C` 上那个属性不是对象 → 抛**（JS 是 `TypeError`）。**不许静默给 `false`**——
+   `x instanceof 42` 与「不在链上」是两件完全不同的事；
+2. **`x` 不是对象 → `false`**（JS 的 `1 instanceof C` 不抛，就是 `false`）；
+3. **沿链找**：找到 → `true`；走完 → `false`。**环由 `MaxProtoDepth` 兜住**
+   （与属性查找同一个上限：环会**抛**，不会挂住）。
+
+```ts
+if (prototypeKey <= 0) {
+  throw new Error("instanceof needs the prototype key (the host declares it, see DeclarePrototypeKey)");
+}
+const key = Value.FromString(prototypeKey);
+const target = GetProperty(room, call, protos, table, right, key);if (!target.IsObject()) {
+  throw new Error("the right side of instanceof has no prototype object");
+}
+if (!left.IsObject()) return Value.FromBool(false);
+let depth = 0;
+let cursor = left.Ref;
+while (cursor > 0 && depth < MaxProtoDepth) {
+  const proto = table.Get(cursor).Proto;
+  if (proto <= 0) break;
+  if (proto === target.Ref) return Value.FromBool(true);
+  cursor = proto;
+  depth = depth + 1;
+}
+return Value.FromBool(false);
 ```
 
 # method RtSetProto:(table:HeapTable, receiver:Value, proto:Value)=>Value

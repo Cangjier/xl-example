@@ -3192,6 +3192,64 @@ check("set_proto：链上之后属性查找沿链走、自环当场拒绝（引�
   machine.Release(child.Ref);
 });
 
+check("instanceof：沿原型链判、原始值给假、右侧不是对象要抛", () => {
+  const source = [
+    "class A { constructor(x) { this.x = x; } }",
+    "class B extends A { constructor(x) { super(x); } }",
+    "function throughChain(v) { const b = new B(v); return b instanceof A; }",
+    "function wrongWay(v) { const a = new A(v); return a instanceof B; }",
+    "function primitive(v) { return v instanceof A; }",
+    "function literalObject() { return ({}) instanceof A; }",
+    "function ctorBack(x) { const a = new A(x); return a.constructor === A; }",
+  ].join("\n");
+  const nodeAt = new Function(source + "\nreturn [throughChain(1), wrongWay(1), primitive(1),"
+    + " literalObject(), ctorBack(2)];")();
+  eq(nodeAt[0], true, "Node：子类实例 instanceof 父类（这是前提）");
+  eq(nodeAt[1], false, "Node：反向为假（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source);
+  host.DeclarePrototypeKey(units("prototype"));
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+  const call = (name, args) => host.CallExport(module.ExportOf(name), args || []);
+  eq(call("throughChain", [Value.FromInt(1)]).Value.AsBool(), nodeAt[0], "b instanceof A：沿链找到");
+  eq(call("wrongWay", [Value.FromInt(1)]).Value.AsBool(), nodeAt[1], "a instanceof B：反向不给真");
+  eq(call("primitive", [Value.FromInt(1)]).Value.AsBool(), nodeAt[2], "1 instanceof A 是假（不抛）");
+  eq(call("literalObject").Value.AsBool(), nodeAt[3], "普通对象不在链上");
+  eq(call("ctorBack", [Value.FromInt(2)]).Value.AsBool(), nodeAt[4],
+    "prototype.constructor 回指，所以 a.constructor === A");
+
+  // **右侧不是对象 → 抛**（JS 是 TypeError；不许静默给假）
+  let badRight = "";
+  try {
+    lowerAndLoad("function bad(o) { return o instanceof 42; }");
+  } catch (error) {
+    badRight = String(error.message);
+  }
+  const runtime = lowerAndLoad("function bad(o) { return o instanceof 42; }");
+  runtime.host.DeclarePrototypeKey(units("prototype"));
+  runtime.host.Evaluate([]);
+  let badRuntime = "";
+  try {
+    runtime.host.CallExport(runtime.module.ExportOf("bad"), [Value.FromInt(1)]);
+  } catch (error) {
+    badRuntime = String(error.message);
+  }
+  eq(badRuntime.indexOf("prototype") >= 0, true,
+    "右侧没有原型对象时必须抛（降级期通过、运行期报）：" + badRuntime + badRight);
+
+  // **没告诉机器原型挂在哪个属性名下** → 也要明确报出来，而不是给个假答案
+  const noKey = lowerAndLoad(source);
+  noKey.host.Evaluate([]);
+  let missingKey = "";
+  try {
+    noKey.host.CallExport(noKey.module.ExportOf("throughChain"), [Value.FromInt(1)]);
+  } catch (error) {
+    missingKey = String(error.message);
+  }
+  eq(missingKey.indexOf("prototype key") >= 0, true, "没声明原型键时要明确报：" + missingKey);
+  void table;
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }

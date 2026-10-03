@@ -8,7 +8,7 @@ import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
-import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto } from "./rt.xl.md"
+import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 ```
@@ -980,6 +980,13 @@ if (id === RtOp.SetProp) {
 if (id === RtOp.SetProto) {
   RequireArgc(argc, 2, "set_proto");
   return RtSetProto(this.Table, slots[base], slots[base + 1]);
+}
+if (id === RtOp.Instanceof) {
+  RequireArgc(argc, 2, "instanceof");
+  const protosForInstanceOf = this.Protos;
+  if (protosForInstanceOf === null) throw new Error("no prototype table");
+  return this.Guard(() => RtInstanceOf(this.Room(), this.Native(), protosForInstanceOf, this.Table,
+    this.PrototypeKey, slots[base], slots[base + 1]));
 }
 if (id === RtOp.DelProp) {
   RequireArgc(argc, 2, "del_prop");
