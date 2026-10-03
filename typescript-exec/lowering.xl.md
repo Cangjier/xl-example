@@ -5,7 +5,7 @@ import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from 
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
-import { DefineAccessorId } from "./builtins/install.xl.md"
+import { DefineAccessorId, GetIteratorId } from "./builtins/install.xl.md"
 ```
 
 # namespace cangjie
@@ -1702,9 +1702,21 @@ this.PopScope();
 
 ```ts
 this.PushScope();
-const iterableSlot = this.Reserve(1);
-this.LowerInto(iterableSlot, Child(node, "expression"));
-this.LowerIterationLoop(iterableSlot, node);
+// **先把「要被迭代的值」交给语言层过一遍**（`get_iterator`，号段 700..799，第 111 轮补）：
+// 引擎只认**数组与生成器**，而 `Map`/`Set` 是语言层的对象——让引擎认识它们就反了分层 ✗。
+// 语言层这一步对数组与生成器**原样返回** ✓，对 `Map` 给 `[键, 值]` 对的数组 ✓（正是 JS 的形状），
+// 对 `Set` 给值的数组 ✓。**一个引擎算子都不用加**，`iter_next` 那边一行也不改 ✓。
+// 形状与「宿主能力调用」完全一样：`[号, 参数…]` 窗口 + 一条 `host_call`。
+// **宿主不必知道它**：格数由 `BuiltinSlots()` 公布、登记由 `InstallBuiltins` 包掉（第 111 轮）。
+const iterableSource = this.Reserve(1);
+this.LowerInto(iterableSource, Child(node, "expression"));
+const iterableWindow = this.Reserve(2);
+this.Emit(Op.Const, iterableWindow, this.IntConst(GetIteratorId), -1, -1);
+this.Emit(Op.Move, iterableWindow + 1, iterableSource, -1, -1);
+this.EmitRt(RtOp.HostCall, iterableWindow, iterableWindow, 2);
+// 结果落在窗口第一格；退到它「之上」（参数那一格可以还回去了）。
+this.Release(iterableWindow + 1);
+this.LowerIterationLoop(iterableWindow, node);
 ```
 
 ## method LowerIterationLoop:(iterableSlot:int, node:AstNode)=>void

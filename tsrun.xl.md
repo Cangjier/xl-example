@@ -7,7 +7,7 @@ import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
 import { GlobalNames, BuildGlobals, LogSink } from "./typescript-exec/builtins/globals.xl.md"
-import { InstallBuiltins, InvokeWithSink } from "./typescript-exec/builtins/install.xl.md"
+import { InstallBuiltins, InvokeWithSink, BuiltinSlots } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
 import { Value, ValueTag } from "./runtime/value.xl.md"
 import { HeapTable } from "./runtime/heap.xl.md"
@@ -198,8 +198,9 @@ for (let i = 0; i < request.Capabilities.length; i++) {
 // 所以两者取较大者，再留一格余量。开小了报的是 `capability id is out of range`，
 // 而那句离现场很远（它说的是装载数字，不是「谁没注册」）。
 const byCapability = request.Capabilities.length + 1;
-const byHelper = DefineAccessorId + 1 - 64;
-const ids = new IdTable(RtOpCount, byCapability > byHelper ? byCapability : byHelper);
+// **内建段开多少由语言公布**（第 111 轮）：辅助号不在脚本里，宿主无从得知；开小了注册会静默失败。
+const byLanguage = BuiltinSlots();
+const ids = new IdTable(RtOpCount, byCapability > byLanguage ? byCapability : byLanguage);
 const modules: LoweredModule[] = [];
 for (let i = 0; i < request.Sources.length; i++) {
   const lowering = new Lowering();
@@ -242,7 +243,7 @@ if (first.Outcome !== HostOutcome.Ok) {
   result.Message = "第 0 份模块求值：" + first.Message;
   return result;
 }
-InstallBuiltins(machine, protos);
+InstallBuiltins(host, protos);
 host.InstallHost((target, self, args, room) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
   const answered = answer(room, id, self, args);

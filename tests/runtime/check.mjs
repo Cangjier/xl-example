@@ -811,10 +811,18 @@ console.log("=== 装载验证：线形态（定宽小端）===");
 
 /** 判据用的算子表：通用段 = 全表，内建段 = 1 条。 */
 // **算子格数从规范里那个常量来**（两处共用一个数：规范给上界，判据拿它当尺子）。
-const testIds = new IdTable(RtOpCount, 8);
+// **内建段要开够**：语言内部辅助号在 700 段，格数由语言自己公布（`install.xl.md` 的 `BuiltinSlots`）。
+// 开小了 `Host.Register` 会返回 `false`（规范原话「不是静默忽略」），症状却是 `capability id is out of range`。
+const testIds = new IdTable(RtOpCount, installBuiltins.BuiltinSlots());
 
-/** 一份**合法**的小程序：一个函数、四个槽、一份常量、一条方法调用、一条算子调用。 */
-function validProgram() {
+/** 一份**合法**的小程序：一个函数、四个槽、一份常量、一条方法调用、一条算子调用。
+ *
+ * **`ids` 可选**（第 111 轮）：程序里烙着 id 表的**指纹**（`Program.IdTableHash`），
+ * 而指纹**随内建段格数变**（实测：8 格 → 1186，638 格 → 1816）。所以要拿一张**别的**表
+ * 去验证这份程序时，必须**用它来建**这份程序——否则 `Verify` 先对指纹、对不上就报「表不符」，
+ * 而我们想量的那条（越界 / 段外）根本走不到 ✗。
+ */
+function validProgram(ids) {
   const program = new Program();
   const seven = program.AddConst(Constant.OfInt(7));
   const name = program.AddConst(Constant.OfString(units("slice")));
@@ -828,12 +836,13 @@ function validProgram() {
   program.Emit(new Instruction(Op.CallMethod, 1, name, 1, 1));
   program.Emit(new Instruction(Op.RtCall, RtOp.Add, 2, 1, 2));
   program.Emit(new Instruction(Op.Return, 2, -1, -1, -1));
-  program.IdTableHash = testIds.Hash;
+  // **指纹跟着传进来的表走**（默认是共用那张）：这样「拿哪张表建、就拿哪张表验」成对成立。
+  program.IdTableHash = (ids === undefined ? testIds : ids).Hash;
   return program;
 }
 
-function issueOf(program) {
-  return Verify(program, testIds);
+function issueOf(program, ids) {
+  return Verify(program, ids === undefined ? testIds : ids);
 }
 
 check("往返：编码 → 解码 → dump 逐字节相同", () => {
@@ -957,14 +966,18 @@ check("参数窗口挡住整数溢出（负数 + 大正数不许绕成合法窗�
 });
 
 check("算子 id 必须落在两段里（通用段或语言内建段）", () => {
-  const unknown = validProgram();
+  // **这一条刻意用一张小表**（第 111 轮）：它量的就是「表里只有那几条内建时，+50 越界」。
+  // 而**建程序与验程序必须用同一张表** ✗——程序里烙着表的指纹，指纹随格数变；
+  // 混用两张表，`Verify` 会先报「表不符」，这一条就永远量不到越界。
+  const smallIds = new IdTable(RtOpCount, 8);
+  const unknown = validProgram(smallIds);
   unknown.Instrs[3] = new Instruction(Op.RtCall, BuiltinBase + 50, 2, 1, 2);
-  const first = issueOf(unknown);
-  ok(first !== null && first.Code === IssueOperand, "内建段只有 1 条，+5 越界");
+  const first = issueOf(unknown, smallIds);
+  ok(first !== null && first.Code === IssueOperand, "内建段只有 8 条，+50 越界");
 
-  const builtin = validProgram();
+  const builtin = validProgram(smallIds);
   builtin.Instrs[3] = new Instruction(Op.RtCall, BuiltinBase, 2, 1, 2);
-  eq(issueOf(builtin), null, "内建段第一条合法");
+  eq(issueOf(builtin, smallIds), null, "内建段第一条合法");
 });
 
 check("异常表：空区间 / 处理点越界 / 跨函数", () => {
@@ -2059,6 +2072,17 @@ function lowerAndLoad(source, globals, capabilityOf) {
   const host = new Host(machine, Limits.Default());
   const loaded = host.Load(Encode(lowered.Program, testIds), testIds);
   eq(loaded.Outcome, HostOutcome.Ok, "装载：" + loaded.Message);
+  // **装载之后再装语言**（第 111 轮）：`InstallBuiltins` 会顺手把语言内部辅助号
+  // （700 段，如 `get_iterator`）**登记**进能力表，而 `Register` 只认**已装载的那张表**
+  // 里的号——顺序反了会**静默失败**（返回 `false`，没人看），症状就是 `capability is not registered`。
+  InstallBuiltins(host, host.Machine.Protos);
+  // **宿主调用通道也要接上**（第 111 轮）：`for..of` 现在会先问一次 `get_iterator`，
+  // 那是一条 `host_call`；光注册不够，还得有人在那一头把号翻译成内建分派。
+  // 形状照抄产品路径（`tsrun.xl.md`）：从 `HostRef` 取能力号 → 交给 `InvokeWithSink`。
+  host.InstallHost((target, self, args, room) => {
+    const id = table.Get(target.Ref).AsHost().CapabilityId;
+    return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {});
+  });
   return { module: lowered, host, machine, table };
 }
 
@@ -2626,7 +2650,7 @@ check("标准库第二块：String 原型方法（charAt/charCodeAt/indexOf/slic
   const evaluated = host.Evaluate([]);
   eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
 
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
     return InvokeBuiltin(room, table, id, self, args);
@@ -2655,7 +2679,7 @@ check("全局名 Math / console：与 Node 一致，日志交给宿主给的回�
   const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, (text) => lines.push(text))]);
   eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
 
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
     return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, (text) => lines.push(text));
@@ -2689,7 +2713,7 @@ check("Object.keys 与 JSON.stringify：与 Node 一致（含「没有 JSON 形�
   const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
   eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
 
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
     return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, sink);
@@ -2886,7 +2910,7 @@ check("`.d.ts` 能力绑定：模块里没声明的名字按能力号调宿主�
   const sink = (text) => ours.push(text);
   const { module, host, table } = lowerAndLoad(source, undefined, LookupOf(bindings));
   eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
     if (id === printId) {
@@ -2987,7 +3011,7 @@ check("for..in：遍历自有键（拼出来就是 Object.keys + 迭代协议）
   const { module, host, table } = lowerAndLoad(source, GlobalNames());
   eq(host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, () => {})]).Outcome,
     HostOutcome.Ok, "求值模块");
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => InvokeWithSink(
     room, table, host.Machine.Protos, table.Get(target.Ref).AsHost().CapabilityId, self, args, () => {}));
 
@@ -3440,7 +3464,7 @@ check("Map：new / set 链式 / 更新 / get / has / delete / size / keys，与 
   const sink = () => {};
   const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
   eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, host.Machine.Protos,
     table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
 
@@ -3495,7 +3519,7 @@ check("Set：new / add 链式（重复是空操作）/ has / delete / size / val
   const sink = () => {};
   const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
   eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, host.Machine.Protos,
     table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
 
@@ -3545,7 +3569,7 @@ check("Symbol：身份唯一、能当属性键、typeof 是 symbol、Object.keys
   const sink = () => {};
   const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
   eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, host.Machine.Protos,
     table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
 
@@ -3570,7 +3594,7 @@ check("Date：时间由宿主喂（建库层没有时钟接口）；没接时钟
   const sink = () => {};
   const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
   eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
-  InstallBuiltins(host.Machine, host.Machine.Protos);
+  InstallBuiltins(host, host.Machine.Protos);
   // **宿主先认时钟号**——这就是「时间由宿主喂」的落点。这里给固定值，
   // 所以判据可复现；真实宿主会给真时钟，那是**宿主的选择**，不是运行器偷读。
   const fixedNow = 4242;
@@ -3587,7 +3611,7 @@ check("Date：时间由宿主喂（建库层没有时钟接口）；没接时钟
   const bare = lowerAndLoad(source, GlobalNames());
   eq(bare.host.Evaluate([BuildGlobals(bare.host.Machine, bare.host.Machine.Protos, sink)]).Outcome,
     HostOutcome.Ok, "求值模块（第二个宿主）");
-  InstallBuiltins(bare.host.Machine, bare.host.Machine.Protos);
+  InstallBuiltins(bare.host, bare.host.Machine.Protos);
   bare.host.InstallHost((target, self, args, room) => InvokeWithSink(room, bare.table,
     bare.host.Machine.Protos, bare.table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
   let loud = "";
@@ -3734,7 +3758,7 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
   host.DeclarePrototypeKey(units("prototype"));
   const aEval = host.Evaluate([BuildGlobals(machine, machine.Protos, sink)]);
   eq(aEval.Outcome, HostOutcome.Ok, "模块 A 求值：" + aEval.Message);
-  InstallBuiltins(machine, machine.Protos);
+  InstallBuiltins(host, machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
     // **宿主的能力实现**：`.d.ts` 里声明的 `hostDouble(n) => n * 2`。
@@ -4289,9 +4313,11 @@ check("Map：entries() 与 clear()（entries 给数组，不是迭代器——�
     "  const pairs = m.entries();",
     "  const head = pairs[0][0] + '=' + pairs[0][1];",
     "  const tail = pairs[1][0] + '=' + pairs[1][1];",
+    "  let walked = '|';",
+    "  for (const e of m) { walked = walked + e[0] + ':' + e[1] + ';'; }",
     "  const before = m.size;",
     "  m.clear();",
-    "  return [head, tail, before, m.size, m.has('a') ? 1 : 0, m.entries().length];",
+    "  return [head, tail, walked, before, m.size, m.has('a') ? 1 : 0, m.entries().length];",
     "}",
   ].join("\n");
   const nodeRun = () => {
@@ -4301,13 +4327,16 @@ check("Map：entries() 与 clear()（entries 给数组，不是迭代器——�
     const pairs = Array.from(m.entries());
     const head = pairs[0][0] + "=" + pairs[0][1];
     const tail = pairs[1][0] + "=" + pairs[1][1];
+    let walked = "|";
+    for (const e of m) { walked = walked + e[0] + ":" + e[1] + ";"; }
     const before = m.size;
     m.clear();
-    return [head, tail, before, m.size, m.has("a") ? 1 : 0, Array.from(m.entries()).length];
+    return [head, tail, walked, before, m.size, m.has("a") ? 1 : 0, Array.from(m.entries()).length];
   };
   const expected = nodeRun();
   eq(expected[0], "a=1", "Node：第一对（前提）");
-  eq(expected[3], 0, "Node：clear 之后 size 为 0（前提）");
+  eq(expected[2], "|a:1;b:2;", "Node：直接迭代 Map 拿到 [键, 值] 对（前提）");
+  eq(expected[4], 0, "Node：clear 之后 size 为 0（前提）");
 
   const request = new RunRequest();
   request.Sources = [source];
