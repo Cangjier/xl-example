@@ -5543,5 +5543,105 @@ check("折行的规则是**量出来的三条**（项数 / 长度 / 列数上限
 });
 
 console.log("");
+console.log("=== 第 132 轮：展开与剩余（字面量那一半）===");
+
+check("展开与绑定模式的默认值 / 数组剩余：与 Node 逐值一致，边界也钉住", () => {
+  // **端到端那一把在 `cases/24-spread-and-defaults.ts`**（17 行逐字节 ✓）。
+  // 这里钉的是**判据量不到的那一半**：三处**故意不做**的形态必须**响亮地抛** ✓，
+  // 以及一处**这一轮实测抓出来的形状差** ✓（洞在展开与解构剩余里的待遇**不一样** ✓）。
+  const body = [
+    "const out = [];",
+    "out.push([...[1, 2], 3].join(','));",
+    "out.push([...'ab'].join('-'));",
+    "out.push([...new Set([1, 2])].join(','));",
+    "out.push({ ...{ a: 1 }, b: 2 }.b);",
+    "out.push({ a: 9, ...{ a: 1 } }.a);",
+    "out.push(JSON.stringify([...[1, , 3]]));",
+    "out.push(JSON.stringify((() => { const [a, ...r] = [1, , 3]; return r; })()));",
+    "out.push((() => { const [x = 9] = []; return x; })());",
+    "out.push((() => { const { a = 7 } = { a: null }; return a === null; })());",
+    // **不可迭代的值是**运行期**的错** ✓（JS 也给 `TypeError` ✓）——脚本接得住 ✓。
+    "let loud = 'no-throw';",
+    "try { const bad = [...5]; } catch (error) { loud = error.message; }",
+    "out.push(loud);",
+    "return out;",
+  ].join("\n");
+  const request = new RunRequest();
+  request.Sources = [body];
+  request.Entry = "";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const values = res.Value;
+  const expected = [
+    "1,2,3", "a-b", "1,2", 2, 1,
+    "[1,null,3]",        // `[...[1, , 3]]`：**展开填洞**（逐下标读）
+    "[null,3]",          // `const [a, ...r] = [1, , 3]`：**剩余也填洞**（走迭代器）
+    9, true,
+  ];
+  for (let i = 0; i < expected.length; i++) {
+    const actual = GetIndex(table, values, Value.FromInt(i));
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else if (typeof expected[i] === "boolean") {
+      eq(actual.AsBool(), expected[i], "第 " + i + " 项（布尔）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+  const last = hostStringOf(table, GetIndex(table, values, Value.FromInt(expected.length)));
+  ok(last.indexOf("unimplemented: spreading a value") === 0,
+    "不可迭代的值：**运行期**抛，脚本接得住：" + last);
+
+  // **另外两条是**降级期**的错** ✗——脚本里的 `try` 一个字都拦不住它们 ✗
+  //（它们发生在代码还没跑起来的时候 ✓），所以只能拿 `Lowering` 直接问 ✓。
+  const lowerMessage = (src) => {
+    try {
+      new Lowering().LowerModule(parseTsShape(src), testIds);
+      return "";
+    } catch (error) {
+      return String(error.message);
+    }
+  };
+  const holeMessage = lowerMessage("const bad = [...[1], , 3];");
+  ok(holeMessage.indexOf("hole after a spread") >= 0,
+    "① 展开之后的洞：**降级期**就响亮地拒（要给洞也带动态下标，引擎得给 set_hole）：" + holeMessage);
+  const restMessage = lowerMessage("const { a, ...rest } = { a: 1, b: 2 };");
+  ok(restMessage.indexOf("rest element in an object binding pattern") >= 0,
+    "② 对象剩余：**降级期**就响亮地拒（要一份排除名单，引擎侧没有这条路）：" + restMessage);
+});
+
+check("`new` 的结果格不会再被下一个分配盖掉（第 132 轮修的潜伏 bug）", () => {
+  // **这是一处**真的**潜伏 bug** ✓：`LowerNew` 原来收尾写的是 `Release(ctor)` ✗，
+  // 而结果写在 `base` 上、`base` 在 `ctor` **上面** ✓——水位一退，下一个分配就盖掉新对象 ✗。
+  // 它一直潜伏，是因为紧接着那次分配（`const s = new Set(...)` 的变量格）恰好落在同一格 ✓
+  //（`Move` 到自己是空操作 ✓）；一旦中间**多一次**分配就露出来 ✗
+  //（判据现场：`[...new Set([1, 2])]` 接出来是**空的** ✓，而 `[...s]` 是对的 ✓）。
+  const body = [
+    "const out = [];",
+    "out.push(new Set([1, 2]).size);",
+    "out.push([...new Set([1, 2])].length);",
+    "out.push(new Map([[1, 'a']]).size);",
+    "out.push([...new Map([[1, 'a']])].length);",
+    "out.push(new Date(0).getTime());",
+    // **非对象的来源跳过** ✓（`Object.assign` 的口径 ✓，JS 的对象展开也一样 ✓）。
+    "out.push(JSON.stringify({ ...{ a: 1 }, ...null, ...undefined }));",
+    "return out;",
+  ].join("\n");
+  const request = new RunRequest();
+  request.Sources = [body];
+  request.Entry = "";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const expectedNumbers = [2, 2, 1, 1, 0];
+  for (let i = 0; i < expectedNumbers.length; i++) {
+    eq(GetIndex(table, res.Value, Value.FromInt(i)).AsInt(), expectedNumbers[i], "第 " + i + " 项");
+  }
+  eq(hostStringOf(table, GetIndex(table, res.Value, Value.FromInt(5))), "{\"a\":1}",
+    "`{...o, ...null, ...undefined}` 只留下 `a`");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

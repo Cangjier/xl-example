@@ -11,7 +11,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray } from "./array.xl.md"
 import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, DateCtor, NewError, StringConcat } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, DateCtor, NewError, StringConcat, ObjectAssign } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet } from "./set.xl.md"
 ```
@@ -71,6 +71,17 @@ if (id === GetIteratorId) {
   if (args.length < 1) throw new Error("unimplemented: get_iterator needs (value)");
   return GetIterator(room, table, protos, args[0]);
 }
+// **展开与数组剩余也要 `protos`**（第 132 轮）✓：两个都**造新数组**（或往数组里填）✓，
+// 理由与上面那一条一字不差 ✓。它们排在 `InvokeObjectHelper` **前面** ✓——
+// 那一支只认 `DefineAccessorId`，落到它手里会报「没装的东西被调到」✗（离现场很远 ✗）。
+if (id === SpreadIntoId) {
+  if (args.length < 2) throw new Error("unimplemented: spread_into needs (target, source)");
+  return SpreadInto(room, table, protos, args[0], args[1]);
+}
+if (id === ArrayRestId) {
+  if (args.length < 2) throw new Error("unimplemented: array_rest needs (source, start)");
+  return ArrayRest(room, table, protos, args[0], args[1].AsInt());
+}
 // **`String.split` 也要 `protos`**（第 120 轮）：它返回一个数组 ✓——理由与上面那一条一字不差 ✓
 // （`InvokeString` 的签名里没有原型表，而为了一个方法去改那一块的签名会牵动所有调用点 ✓）。
 if (id === StringSplit) return SplitString(room, table, protos, self, args);
@@ -92,6 +103,18 @@ return InvokeBuiltin(room, table, call, id, self, args);
 让 `iter_next` 认识 `Map`，等于把语言内建塞进语言无关的引擎里（分层就反了）。
 这里正好用上一次已经开好的机制——**语言内建号**（号段 700..799）✓，
 而它的**格数与登记**都已经由 `BuiltinSlots` / `InstallBuiltins` 包掉了 ✓（**宿主不必知道它存在** ✓）。
+
+# const SpreadIntoId:int = 703
+
+**展开的入口**（第 132 轮）：降级层把「要摊开的值」与「往哪摊」交给它 ✓——
+`[...xs]`、`[...a, ...b]` 这些形状都落成它 ✓。
+
+**为什么不复用 `GetIteratorId`** ✗：`get_iterator` 只回答「拿什么迭代」✓（数组 / 生成器），
+而展开还要**真的把元素搬过去** ✓。两件事分开，`for..of` 那条路一个字节都没动 ✓。
+
+# const ArrayRestId:int = 704
+
+**`[a, ...r] = xs` 里的 `r`**（第 132 轮）：`(源数组, 起点)` → 一份新数组 ✓。
 
 # method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value)=>Value
 
@@ -181,6 +204,77 @@ for (let i = 0; i < count; i++) {
 return out;
 ```
 
+# method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value)=>Value
+
+**把 `source` 摊开接进 `target` 的尾部**（第 132 轮）——`[...xs]` / `f(...)` 那类**展开**要用它 ✓。
+
+| `source` | 接什么 |
+| --- | --- |
+| 数组 | **每一项**（**洞填成 `undefined`** ✓——JS 的展开是**逐下标读** ✓，与 `Array.from` 同一条口径 ✓） |
+| 字符串 | **逐码元一个单码元字符串** ✓（`[...'ab']` 给 `['a','b']` ✓） |
+| `Map` / `Set` | 先过 `GetIterator` ✓（给的形状与 `for..of` 一致 ✓） |
+| **其它** | **响亮地抛** ✓（JS 给 `TypeError: x is not iterable` ✓；这一层给一句带类型的话 ✓） |
+
+**为什么它住在语言层** ✗：`Map` / `Set` / 字符串都是**语言**的东西 ✓（引擎不认识 `Map` ✓），
+而 `GetIterator` 已经在这里了 ✓——展开的语义与 `for..of` 本来就是同一条 ✓。
+
+**生成器够不着** ✗：走完一个生成器要发 `iter_next` ✓，那是**指令**、不是这一层能调的函数 ✗
+（与 `Array.from` 那条是同一个边界 ✓）。所以生成器落到「其它」那一支 ✓——**响亮地抛** ✓。
+
+```ts
+const items = GetIterator(room, table, protos, source);
+if (items.Tag === ValueTag.Array) {
+  const from = table.Get(items.Ref).AsArray();
+  const count = from.GetLength();
+  if (!room(ValueCharge * count)) throw new Error("out of room");
+  for (let i = 0; i < count; i++) {
+    // **每一趟都现取视图** ✓（`map.xl.md` 文首那条教训：句柄稳定、**视图不稳定** ✗）——
+    // 拿着一个视图跨过 `Push` 是**这一轮实测踩到的** ✓：`[...new Set([1, 2])]` 接出来是**空的** ✗，
+    // 而 `[...xs]`（普通数组）看起来又是对的 ✓——正是「有时候对」那一种最难查的形状 ✗。
+    table.Get(target.Ref).AsArray().Push(from.GetAt(i));
+  }
+  return target;
+}
+if (items.Tag === ValueTag.String) {
+  const units = TextUnitsOf(table, items);
+  for (let i = 0; i < units.length; i++) {
+    if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
+    table.Get(target.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
+  }
+  return target;
+}
+throw new Error("unimplemented: spreading a value that is not an array, a string, a Map or a Set");
+```
+
+# method ArrayRest:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, start:int)=>Value
+
+**`[a, ...r] = xs` 里的那个 `r`**（第 132 轮）：从 `start` 到末尾的**一份新数组** ✓。
+
+**与 `Array.prototype.slice` 是一件事** ✓，但**不调它** ✗：那条路要求数组原型已经装好 ✓，
+而「解构」是**语法**、不该依赖某个方法装没装 ✓（`for..in` 要求 `Object` 那一条是**显式报错**的 ✓，
+这里干脆绕开 ✓）。造新数组 + 一趟拷贝，两种写法一样长 ✓。
+
+**洞在这里填成 `undefined`** ✓（**不是**「跟着走」✗）：JS 的**解构剩余走的是迭代器** ✓，
+不是逐下标读 ✗——`const [a, ...r] = [1, , 3]` 里 `r` 是 `[undefined, 3]` ✓，
+`0 in r` 为**真** ✓。**这一条是判据现场量出来的** ✓（第一版按 `slice` 的口径写了「洞跟着走」✗，
+判据当场给 `0 in r` = **假** ✗）。`slice` 与 `Array.from` 那两条**确实**保留 / 填洞 ✓，
+三条各不相同 ✓——所以它们各自写在注里，谁也不抄谁 ✓。
+
+```ts
+const from = table.Get(source.Ref).AsArray();
+const count = from.GetLength();
+let at = start;
+if (at < 0) at = 0;
+if (at > count) at = count;
+const out = NewPlainArray(room, table, protos);
+if (!room(ValueCharge * (count - at))) throw new Error("out of room");
+for (let i = at; i < count; i++) {
+  // `GetAt` 对洞给 `undefined` ✓——这正是迭代器那条路的口径 ✓（**不** `SetHole` ✗）。
+  table.Get(out.Ref).AsArray().Push(from.GetAt(i));
+}
+return out;
+```
+
 # method BuiltinSlots:()=>int
 
 **这一层要用掉多少格「语言内建段」**（第 111 轮补）——宿主拿它去**开表**。
@@ -194,7 +288,13 @@ return out;
 宿主不必自己知道那个基址 ✓。**加新的辅助号时只改这一句的名单** ✓。
 
 ```ts
-const highest = DefineAccessorId > GetIteratorId ? DefineAccessorId : GetIteratorId;
+// **名单在这里，一个一个比** ✓（第 132 轮把「展开」与「数组剩余」两个新号加了进来 ✓）：
+// 先前那版是一句三元表达式套一句三元表达式 ✗——**加到第三个号就已经读不动了** ✗，
+// 而这里读错一位的症状是 `capability is not registered`（离现场很远 ✗）。改成一串 `if` ✓。
+let highest = DefineAccessorId;
+if (GetIteratorId > highest) highest = GetIteratorId;
+if (SpreadIntoId > highest) highest = SpreadIntoId;
+if (ArrayRestId > highest) highest = ArrayRestId;
 return highest + 1 - BuiltinBase;
 ```
 
@@ -265,7 +365,14 @@ try {
 InstallArray(host.Machine, protos);
 InstallString(host.Machine, protos);
 // **辅助号在这里登记**：值是带本模块号的宿主引用（与建库层别处同一形状）。
-const helpers = [DefineAccessorId, GetIteratorId, DateCtor, StringConcat];
+//
+// **第 132 轮补了三个** ✓：`SpreadIntoId` / `ArrayRestId`（展开与数组剩余 ✓，
+// 降级层新发的内部调用 ✓）与 `ObjectAssign`（`{...o}` 落成的那条 ✓——
+// 它原来是**脚本用**的全局方法 ✓，这一轮起**降级层也直接发它** ✓）。
+// **不加进这张名单的症状是 `capability is not registered: 703`** ✓——
+// 那句话没提「名单」两个字 ✗，所以这一条写在名单**正上方** ✓。
+const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, DateCtor, StringConcat,
+  ObjectAssign];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));

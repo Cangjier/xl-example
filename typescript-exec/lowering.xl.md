@@ -6,8 +6,8 @@ import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
-import { DefineAccessorId, GetIteratorId } from "./builtins/install.xl.md"
-import { DateCtor, StringConcat } from "./builtins/globals.xl.md"
+import { DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId } from "./builtins/install.xl.md"
+import { DateCtor, StringConcat, ObjectAssign } from "./builtins/globals.xl.md"
 ```
 
 # namespace cangjie
@@ -1888,9 +1888,22 @@ this.DeclareLocal(name, slot);
 
 **把一个值拆进绑定模式**（`{a, b: c}` / `[x, , y]`，可嵌套）。
 
-**默认值与剩余参数抛**：默认值只在 `undefined` 时生效（**不是 `null`**）——
-那需要一个专门的判据；剩余要造新对象或新数组。两样都是各自的语义，
-混进来会**悄悄按别的规则算**。
+**默认值（第 132 轮）**：`const [x = 9] = []` / `const {a = 7} = {}` ✓——
+落成「读出来的那一格**严格等于 `undefined`** 就用默认值」✓。
+
+**必须是严格相等，不能用 `is_nullish`** ✗：JS 的规矩是**只有 `undefined`** 触发默认值 ✓，
+`const {a = 7} = {a: null}` 里 `a` 是 **`null`** ✓（`??` 会把两者都算进去，那是另一个口径 ✗）。
+这一条与参数默认值（`LowerParamDefault`）**同一条理由** ✓，只是那里读的是参数格、这里读的是解构出来的格 ✓。
+
+**求值顺序是「左到右、用到才求」** ✓（JS 的规矩 ✓）：默认值只在**真的缺**的时候求 ✓，
+所以 `const [a = 1, b = a + 1] = []` 里 `b` 看得见 `a` ✓——它就在语句顺序里 ✓。
+
+**数组剩余（第 132 轮）**：`const [a, ...r] = xs` ✓——落成 `ArrayRestId` 那条内建调用 ✓
+（**不走 `Array.prototype.slice`** ✗：解构是**语法**，不该依赖某个方法装没装 ✓）。
+
+**对象剩余还不做** ✗（`const {a, ...r} = o`）：它要「把剩下的键抄到新对象里」✓，
+而那需要**一份排除名单**（已经拆走的那些键）✗——引擎侧没有这条路 ✓，
+单独立一轮 ✓。**响亮地抛** ✓，不静默变成别的形状 ✗。
 
 ```ts
 const kind = NodeKind(pattern);
@@ -1904,11 +1917,26 @@ for (let i = 0; i < elements.length; i++) {
   if (NodeKind(element) !== "BindingElement") {
     throw new Error("unimplemented: binding element " + NodeKind(element));
   }
-  if (OptionalChild(element, "initializer") !== null) {
-    throw new Error("unimplemented: default value in a binding pattern");
-  }
+  // **剩余元素**：数组那一种给新数组 ✓，对象那一种**还没有路** ✗。
   if (OptionalChild(element, "dotDotDotToken") !== null) {
-    throw new Error("unimplemented: rest element in a binding pattern");
+    if (kind !== "ArrayBindingPattern") {
+      throw new Error("unimplemented: rest element in an object binding pattern");
+    }
+    const restWindow = this.Reserve(3);
+    this.Emit(Op.Const, restWindow, this.IntConst(ArrayRestId), -1, -1);
+    this.Emit(Op.Move, restWindow + 1, source, -1, -1);
+    this.Emit(Op.Const, restWindow + 2, this.IntConst(i), -1, -1);
+    this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
+    const target = Child(element, "name");
+    if (NodeKind(target) !== "Identifier") {
+      throw new Error("unimplemented: binding name " + NodeKind(target));
+    }
+    this.BindName(TextOf(target), restWindow, isVar);
+    // **剩余是最后一个** ✓（语法规定的 ✓）：绑定完就没有下一项了 ✓。
+    // **这里不退水位** ✗——与上面那条「不退」是同一条纪律 ✓：`BindName` 可能刚在
+    // `restWindow` 上面留了变量格 ✓，退过去会把那个变量格交出去 ✗
+    //（症状是「几条语句之后读到别人的值」✗，而现场离得很远 ✗）。
+    return;
   }
   let value = -1;
   if (kind === "ObjectBindingPattern") {
@@ -1919,6 +1947,20 @@ for (let i = 0; i < elements.length; i++) {
   } else {
     const index = this.Program().AddConst(Constant.OfInt(i));
     value = this.RtCall2(RtOp.GetIndex, source, index);
+  }
+  // **默认值**：缺（严格等于 `undefined`）才算它 ✓。
+  const initializer = OptionalChild(element, "initializer");
+  if (initializer !== null) {
+    const undef = this.Reserve(1);
+    this.Emit(Op.Const, undef, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+    const missing = this.RtCallValues(RtOp.CmpEqStrict, value, undef);
+    const skipDefault = this.Here();
+    this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
+    const fallback = this.LowerExpression(initializer);
+    this.Emit(Op.Move, value, fallback, -1, -1);
+    this.Release(fallback);
+    this.PatchTarget(skipDefault, this.Here());
+    this.Release(undef);
   }
   const target = Child(element, "name");
   const targetKind = NodeKind(target);
@@ -2976,19 +3018,66 @@ return slot;
 后面那一格的下标照旧是 2，于是数组在 0..1 之间留下洞（`SetAt` 会补洞）。
 写一个显式的 `undefined` 进去就**变成另一个语义**了（`1 in a` 会从假变真）。
 
+**展开（`[...xs]`，第 132 轮）**：下标从这一刻起**不再是编译期的数** ✓——
+`[...a, b]` 里 `b` 落在第几格要看 `a` 有多长 ✓。
+
+**两条路，按「有没有展开」分** ✓（**顺序即语义** ✓）：
+
+- **没有展开**（绝大多数 ✓）：走**静态下标**那条 ✓——一个算数都不做 ✓，
+  洞天然保留 ✓（上面的规矩一个字没改 ✓）；
+- **有展开**：**展开之前的**元素仍走静态下标 ✓（于是 `[1, , ...xs]` 里那个洞照样保留 ✓），
+  **从第一个展开起**改用「接在 `length` 后面」✓（`SetIndex(数组, 数组.length, 值)` ✓，
+  一个新算子都没有 ✓）；**这一段的洞响亮地抛** ✗
+  （`[...xs, , 3]` 要让「洞」也带上动态下标 ✓，那要求引擎给一个 `set_hole` 算子 ✗——
+  宁可说不做 ✓，也不把它悄悄填成 `undefined` ✗：`1 in a` 会从假变真 ✗）。
+- **展开本身**走 `SpreadIntoId` 那条**语言内建调用** ✓（与 `get_iterator` 同一个号段 ✓）：
+  数组逐项接 ✓、字符串逐码元接 ✓、`Map` / `Set` 先过 `GetIterator` ✓、其余**响亮地抛** ✓。
+
 ```ts
 const array = this.Reserve(1);
 this.EmitRt(RtOp.NewArray, array, array, 0);
 const elements = ListOf(node, "elements");
+let sawSpread = false;
 for (let i = 0; i < elements.length; i++) {
-  if (NodeKind(elements[i]) === "OmittedExpression") continue;
-  const value = this.LowerExpression(elements[i]);
+  const element = elements[i];
+  if (NodeKind(element) === "OmittedExpression") {
+    // **展开之后的洞做不了**（见上面那一条）✗——它要是被静默填成 `undefined`，
+    // `1 in arr` 就从假变真 ✗（那是**形状**变了，判据量不出来、用户量得出来 ✗）。
+    if (sawSpread) throw new Error("unimplemented: a hole after a spread element in an array literal");
+    continue;
+  }
+  const spread = NodeKind(element) === "SpreadElement";
+  if (spread) sawSpread = true;
+  const value = spread ? this.LowerExpression(Child(element, "expression")) : this.LowerExpression(element);
+  if (spread) {
+    const window = this.Reserve(3);
+    this.Emit(Op.Const, window, this.IntConst(SpreadIntoId), -1, -1);
+    this.Emit(Op.Move, window + 1, array, -1, -1);
+    this.Emit(Op.Move, window + 2, value, -1, -1);
+    this.EmitRt(RtOp.HostCall, window, window, 3);
+    this.Release(window);
+    continue;
+  }
+  // **接在末尾**（有展开之后）✓ / **写在编译期那一格**（还没有展开）✓。
+  let at = -1;
+  if (sawSpread) {
+    // **`arr.length` 是一条 `get_prop`**（`props.xl.md` 的 `IsLengthKey` 认它 ✓）——
+    // **不能写成 `EmitRt(RtOp.GetProp, at, array, key)`** ✗：`EmitRt` 的后两个操作数是
+    // **窗口基址与格数** ✓，不是「接收者 + 常量下标」✗。那样写出来的是
+    // 「窗口从 `array` 开始、只有 `key` 格」——**装载验证当场拒** ✓
+    //（报的是 `argument window out of range` ✓，离现场只有半步 ✓）。
+    at = this.RtCall2(RtOp.GetProp, array, this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
+  } else {
+    at = this.Reserve(1);
+    this.Emit(Op.Const, at, this.IntConst(i), -1, -1);
+  }
   const window = this.Reserve(3);
   this.Emit(Op.Move, window, array, -1, -1);
-  this.Emit(Op.Const, window + 1, this.IntConst(i), -1, -1);
+  this.Emit(Op.Move, window + 1, at, -1, -1);
   this.Emit(Op.Move, window + 2, value, -1, -1);
   this.EmitRt(RtOp.SetIndex, window, window, 3);
   this.Release(window);
+  this.Release(at);
 }
 this.Release(array + 1);
 return array;
@@ -3029,7 +3118,16 @@ this.Release(key);
 
 **五种成员都收**：`a: 1`、`{a}`、方法、**计算键**（`{ [k]: 1 }`——键是一个**值**，
 所以走 `set_prop` 的「键也能是值」那条路）、以及**访问器**（`get x()` / `set x(v)`，第 99 轮补）。
-展开（`{...o}`）抛。
+**展开（`{...o}`）第 132 轮补上** ✓：落成一条 `Object.assign(目标, 来源)` 的**语言内建调用** ✓
+（`[号, 目标, 来源…]` + 一条 `host_call` ✓，与 `StringConcat` 同一个写法 ✓）。
+
+**展开的顺序**：JS 里展开与普通成员是**按源码顺序**生效的 ✓——
+`{...o, a: 1}` 给 `a: 1` ✓、`{a: 1, ...o}` 由 `o` 覆盖 ✓。
+这里就是**顺序发出去** ✓，`Object.assign` 本来也是「后写的覆盖先写的」✓，两边同一条规矩 ✓。
+
+**两处已知差**（都是 `Object.assign` 那条口径带过来的 ✓，记在 `globals.xl.md` 里 ✓）：
+**访问器不调 getter** ✗（JS 的对象展开走 `[[Get]]` ✓）、**原始值来源跳过** ✗
+（JS 里 `{...'ab'}` 给 `{0:'a',1:'b'}` ✓）。
 
 **访问器不走 `set_prop`**：那条只写**数据属性**。引擎侧早就读得懂访问器（`ReadProperty` 调 getter、
 `SetProperty` 调 setter），缺的是「造一个」的路——那条路是 `props.xl.md` 的 `DefineAccessor`，
@@ -3070,6 +3168,18 @@ for (let i = 0; i < properties.length; i++) {
     this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name))), -1, -1);
     const half = this.LowerFunctionValue(property, kind === "GetAccessor" ? "<getter>" : "<setter>");
     this.EmitDefineAccessor(object, key, half, kind === "GetAccessor");
+    continue;
+  } else if (kind === "SpreadAssignment") {
+    // **`{...o}`**（第 132 轮）：一条 `Object.assign(目标, 来源)` 的**语言内建调用** ✓。
+    // 窗口是 `[号, 目标, 来源]` ✓（与 `StringConcat` 同一个形状 ✓），结果落在窗口第一格 ✓
+    // ——那正是 `object` 自己 ✓，所以**不必把结果搬回去** ✓（`Object.assign` 返回的就是目标 ✓）。
+    const source = this.LowerExpression(Child(property, "expression"));
+    const spreadWindow = this.Reserve(3);
+    this.Emit(Op.Const, spreadWindow, this.IntConst(ObjectAssign), -1, -1);
+    this.Emit(Op.Move, spreadWindow + 1, object, -1, -1);
+    this.Emit(Op.Move, spreadWindow + 2, source, -1, -1);
+    this.EmitRt(RtOp.HostCall, spreadWindow, spreadWindow, 3);
+    this.Release(spreadWindow);
     continue;
   } else {
     throw new Error("unimplemented: object literal member " + kind);
@@ -3172,7 +3282,15 @@ for (let i = 0; i < count; i++) {
   this.LowerInto(base + i, args[i]);
 }
 this.Emit(Op.New, ctor, base, count, -1);
-this.Release(ctor);
+// **别退到结果格以下**（第 132 轮修的一处**潜伏 bug** ✓）：`Op.New` 的结果写在 `base` 上 ✓，
+// 而 `base` 在 `ctor` **上面** ✓——原来这里写的是 `Release(ctor)` ✗，水位一下退回了 `ctor`，
+// 于是**下一个分配就会盖掉刚造出来的那个对象** ✗。
+// **它一直潜伏**，是因为紧接着的一次分配（`const s = new Set(...)` 里的变量格 ✓）
+// 恰好就落在同一个格上 ✓——`Move` 到自己是空操作，值反而活了下来 ✓。
+// 一旦中间**多一次**分配（`[...new Set([1, 2])]` 那个展开窗口就是 ✓），对象就被换成别的 ✗
+// ——判据现场：`[...new Set([1, 2])]` 接出来是**空的** ✓，而 `[...s]`（先存变量）是对的 ✓。
+// `LowerCall` 那一条一直是 `Release(base + 1)` ✓，这里照它对齐 ✓。
+this.Release(base + 1);
 return base;
 ```
 
