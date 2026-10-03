@@ -5610,9 +5610,16 @@ check("展开与绑定模式的默认值 / 数组剩余：与 Node 逐值一致�
   const holeMessage = lowerMessage("const bad = [...[1], , 3];");
   ok(holeMessage.indexOf("hole after a spread") >= 0,
     "① 展开之后的洞：**降级期**就响亮地拒（要给洞也带动态下标，引擎得给 set_hole）：" + holeMessage);
-  const restMessage = lowerMessage("const { a, ...rest } = { a: 1, b: 2 };");
-  ok(restMessage.indexOf("rest element in an object binding pattern") >= 0,
-    "② 对象剩余：**降级期**就响亮地拒（要一份排除名单，引擎侧没有这条路）：" + restMessage);
+  // **② 对象剩余第 135 轮做掉了** ✓——原来这条断言的是「降级期就抛」✗，
+  // 现在改成「**跑得出来**」✓（判据随契约更新 ✓，与第 129 / 131 轮那两条同一个处理 ✓）。
+  const restProbe = new RunRequest();
+  restProbe.Sources = ["const { a, ...rest } = { a: 1, b: 2, c: 3 };"
+    + " return [a, JSON.stringify(rest)];"];
+  restProbe.Entry = "";
+  const restRes = RunSources(restProbe, () => {}, () => null);
+  eq(restRes.Outcome, HostOutcome.Ok, "② 对象剩余现在跑得出来：" + restRes.Message);
+  eq(hostStringOf(restRes.Table, GetIndex(restRes.Table, restRes.Value, Value.FromInt(1))),
+    "{\"b\":2,\"c\":3}", "② `rest` 里没有已经拆走的那个键");
 });
 
 check("`new` 的结果格不会再被下一个分配盖掉（第 132 轮修的潜伏 bug）", () => {
@@ -5791,7 +5798,7 @@ check("`f()()`：第二个括号也要成一个调用（被调用者本身是一
   eq(triple.length, 3, "`f(1)(2)(3)` 是三层调用");
 });
 
-check("解构形参：与 Node 逐值一致，对象剩余仍然响亮地抛", () => {
+check("解构形参：与 Node 逐值一致（对象剩余第 135 轮也通了）", () => {
   const body = [
     "function destructured({ a, b: renamed }) { return a + renamed; }",
     "function withDefault({ a = 1 } = {}) { return a; }",
@@ -5812,19 +5819,82 @@ check("解构形参：与 Node 逐值一致，对象剩余仍然响亮地抛", (
   for (let i = 0; i < expected.length; i++) {
     eq(GetIndex(table, res.Value, Value.FromInt(i)).AsInt(), expected[i], "第 " + i + " 项");
   }
-  // **对象剩余还不做** ✗——它要一份「已经拆走的那几个键」的排除名单 ✓，
-  // 引擎侧没有这条路 ✓（第 132 轮记着的同一条 ✓）。**降级期**就抛 ✓。
-  const probe = new RunRequest();
-  probe.Sources = ["function f({ a, ...rest }) { return a; } f({ a: 1, b: 2 });"];
-  probe.Entry = "";
-  let message = "";
-  try {
-    RunSources(probe, () => {}, () => null);
-  } catch (error) {
-    message = String(error.message);
-  }
-  ok(message.indexOf("rest element in an object binding pattern") >= 0,
-    "对象剩余在**降级期**就响亮地抛：" + message);
+  // **对象剩余第 135 轮做掉了** ✓——原来这条断言的是「降级期就抛」✗，
+  // 现在改成「**跑得出来、而且名单对**」✓（判据随契约更新 ✓）。
+  // **走 `console.log` 那条路**（不用顶层 `return` ✗）：几条判据都用它 ✓，
+  // 少一种「返回值怎么取」的形状 ✓。
+  const restLines = [];
+  const restProbe = new RunRequest();
+  restProbe.Sources = [[
+    "function f({ a, ...rest }) { return a + ':' + Object.keys(rest).join(','); }",
+    "const { a: renamed, ...others } = { a: 1, b: 2, c: 3 };",
+    "console.log(f({ a: 1, b: 2 }), renamed, Object.keys(others).join(','));",
+  ].join("\n")];
+  restProbe.Entry = "";
+  const restRes = RunSources(restProbe, (text) => restLines.push(text), () => null);
+  eq(restRes.Outcome, HostOutcome.Ok, "对象剩余跑得出来：" + restRes.Message);
+  eq(restLines[0], "1:b 1 b,c", "对象剩余：函数形参位的名单与重命名位的名单都对");
+});
+
+console.log("");
+console.log("=== 第 135 轮：for..of 解构 · var 提升 · 对象剩余 ===");
+
+check("`var` 提升的判据一直是死代码（`flags` 是 `\"None\"`，不是 `\"Var\"`）", () => {
+  // **这一条量的是根因那一层** ✓（端到端那一把在 `cases/27-…ts` 里 ✓）：
+  // `var` 在 TS 的 `NodeFlags` 里**没有标志**（`NodeFlags.None` ✓——只有 `let` / `const`
+  // 才有标志位 ✓），投影写成字符串 `"None"` ✓，而降级层比的是 `"Var"` ✗——
+  // **那个值根本不存在** ✗，于是 `CollectHoistedVars` **一个名字都收不到** ✓
+  //（第一版判据就是量到它返回 `[]` 才定位到这里的 ✓）。
+  // **为什么一直没露**：`var` 的简单形状（声明在前、用在后）**恰好与 `let` 同形** ✓。
+  const scope = require(path.join(root, "build", "ts", "typescript-exec", "scope.js"));
+  const hoistedOf = (src) => {
+    const projection = parseTsShape(src);
+    const out = [];
+    scope.CollectHoistedVars(projection.statements[0].body, out);
+    return out;
+  };
+  eq(hoistedOf("function f() { var y = 3; return y; }").join(","), "y", "① 直接写的 var");
+  eq(hoistedOf("function f() { if (true) { var y = 3; } return y; }").join(","), "y",
+    "② 块里的 var（**要连嵌套块一起提**）");
+  eq(hoistedOf("function f() { for (var i = 0; i < 2; i++) {} return i; }").join(","), "i",
+    "③ `for (var i = …)`：列表**没有 `VariableStatement` 那层壳**");
+  eq(hoistedOf("function f() { for (var x of [1]) {} return x; }").join(","), "x",
+    "④ `for (var x of …)`");
+  eq(hoistedOf("function f() { var { a } = { a: 1 }; return a; }").join(","), "a",
+    "⑤ 绑定模式里的 var 名字");
+  eq(hoistedOf("function f() { function g() { var z = 1; } return 0; }").join(","), "",
+    "⑥ **不进内层函数**（`var` 属于它自己那一层）");
+  // **`var x;` 是空操作** ✓：它只声明、不赋值（`Hoist` 已经声明过了 ✓）——
+  // 判据现场：`inside = 5; if (true) { var inside; } return inside;` 该给 5 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "function f() { inside = 5; if (true) { var inside; } return inside; }",
+    "console.log(f(), typeof later);",
+    "var later = 1;",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "5 undefined", "`var x;` 不擦掉已有的值；用在前、声明在后给 `undefined`");
+});
+
+check("`for..of` 头部里的解构：声明一次、每轮只写", () => {
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const out = [];",
+    "for (const [k, v] of [[1, 'a'], [2, 'b']]) out.push(k + '=' + v);",
+    "for (const { n = 9 } of [{}]) out.push(n);",
+    "for (const [first, ...rest] of [[1, 2, 3]]) out.push(first + ':' + rest.join('+'));",
+    "for (let [i, x] of [[0, 'z']]) { i = i + 1; out.push(i + x); }",
+    "for (const [a, b] of [[1, 2], [3, 4]]) { const sum = () => a + b; out.push(sum()); }",
+    "console.log(out.join(','));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1=a,2=b,9,1:2+3,1z,3,7", "六种形状一条不少（与 Node 逐值相同）");
 });
 
 console.log("");

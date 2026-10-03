@@ -373,34 +373,59 @@ WalkChildren(body, (child) => {
 });
 ```
 
+# method IsVarList:(list:AstNode)=>bool
+
+**这个声明列表是不是 `var`**（第 135 轮）。
+
+**判据是 `flags === "None"`，不是 `"Var"`** ✗——这一条**以前写错了** ✓，
+而错的代价是**整条 `var` 提升一直是死代码** ✗：
+`var` 在 TS 的 `NodeFlags` 里是**没有标志**（`NodeFlags.None` ✓——
+只有 `let` / `const` 才有标志位 ✓），投影把它写成字符串 `"None"` ✓，
+而这里比的是 `"Var"` ✓——**那个值根本不存在** ✗。
+
+**为什么一直没露** ✗：`var` 的简单形状（`var y = 3; return y;`）**恰好与 `let` 同形** ✓
+（声明在前、用在后 ✓），所以「按 `let` 办」看不出差别 ✓；
+一旦**用在前、声明在后**（`console.log(typeof z); var z = 1;` ✓）
+或者**声明在块里、用在外面**（`if (true) { var y = 3; } return y;` ✓），差别就是**报错** ✓。
+
+```ts
+return list["flags"] === "None";
+```
+
 # method CollectHoistedVars:(body:AstNode, out:Array<string>)=>void
 
 **这一层函数作用域里的 `var` 名字**：含嵌套块里的，**不进内层函数**。
 
 `var` 与 `let` 的区别就在这一条：`var` 属于**函数**，`let` 属于**块**。
-所以判定必须看**声明列表自己的 `flags`**（`"Var"` / `"Let"` / `"Const"`），
-而不是看它出现在哪一层——**位置决定不了它的作用域，声明方式才决定**。
+所以判定必须看**声明列表自己的 `flags`** ✓（判据收在 `IsVarList` 里 ✓——
+**不是**看它出现在哪一层 ✓：位置决定不了作用域，声明方式才决定 ✓）。
+
+**三种形状都要认**（第 135 轮补齐的两条写在下面 ✓）：
+
+| 形状 | 产物 |
+| --- | --- |
+| `var y = 3;` | `VariableStatement` 包一个列表 ✓ |
+| `for (var i = 0; …)` | 列表**没有那层壳** ✗（`print-ast-common` 那条注释写着 ✓） |
+| `var {a} = o;` | 名字在**绑定模式**里 ✓ |
+
+**只在「列表」这一格收** ✓——`VariableStatement` 那一层**不收** ✗：
+它下面就是列表 ✓，而 `WalkChildren` 会走到它 ✓——两层都收的话同一个名字会**进两次** ✓
+（第一版就是这么写的 ✓，判据当场报 `y,y` ✓。对提升本身无害 ✓——`Hoist` 会跳过已收的名字 ✓——
+但「收两次」这件事本身就是错的 ✓：将来谁拿这个名单去数个数就偏了 ✗）。
 
 ```ts
 const kind = NodeKind(body);
 if (IsFunctionNode(body)) return;
-if (kind === "VariableStatement") {
-  const rawList = body["declarationList"];
-  if (rawList !== undefined && rawList !== null && typeof rawList === "object") {
-    const list = rawList as AstNode;
-    if (list["flags"] === "Var") {
-      const rawDeclarations = list["declarations"];
-      if (rawDeclarations !== undefined && rawDeclarations !== null) {
-        const declarations = rawDeclarations as AstNode[];
-        for (let i = 0; i < declarations.length; i++) {
-          const rawName = declarations[i]["name"];
-          if (rawName !== undefined && rawName !== null && typeof rawName === "object") {
-            const name = rawName as AstNode;
-            if (NodeKind(name) === "Identifier") out.push(TextOf(name));
-          }
-        }
-      }
-    }
+// **列表这一格是唯一入口** ✓：`var y = 3;` 从 `VariableStatement` 走下来 ✓，
+// `for (var i = …)` 直接就是它 ✓——两条路在**这里**合流 ✓。
+if (kind === "VariableDeclarationList" && IsVarList(body)) {
+  const declarations = ListOf(body, "declarations");
+  for (let i = 0; i < declarations.length; i++) {
+    const rawName = declarations[i]["name"];
+    if (rawName === undefined || rawName === null || typeof rawName !== "object") continue;
+    // **名字要从绑定模式里挖出来** ✓（`var {a} = o` / `var [x] = a` ✓）——
+    // `CollectPatternNames` 对简单名与模式**是同一条路** ✓（它自己认 `Identifier` ✓）。
+    CollectPatternNames(rawName as AstNode, out);
   }
 }
 WalkChildren(body, (child) => {

@@ -57,9 +57,11 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 引擎加了第 22 个算子 `call_array`，函数表加了「最后一个形参是剩余参数」那一位）
 + **函数的两条形状**（第 134 轮：函数声明写在函数表达式体里 · `f()()` 连着两次调用 ·
 解构形参 `function f({a})`——前两条在 **token / 投影层**，
-第 134 轮也把它们收进了 `cases:tsast` 的语料），
+第 134 轮也把它们收进了 `cases:tsast` 的语料）
++ **`for..of` 头部里的解构 · `var` 提升 · 对象剩余**（第 135 轮——
+其中 `var` 提升**一直是死代码**：判据比的是 `"Var"`，而投影给的是 `"None"`），
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（180 条）与 `npm run runtime:cli`（26 份语料）；
+判据见 `npm run runtime:check`（182 条）与 `npm run runtime:cli`（27 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

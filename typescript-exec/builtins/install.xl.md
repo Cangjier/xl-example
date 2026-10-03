@@ -4,11 +4,11 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
-import { Protos, DefineAccessor, FindProperty, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
+import { Protos, DefineAccessor, FindProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
-import { InvokeArray } from "./array.xl.md"
+import { InvokeArray, NeverCall } from "./array.xl.md"
 import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, DateCtor, NewError, StringConcat, ObjectAssign } from "./globals.xl.md"
@@ -82,6 +82,10 @@ if (id === ArrayRestId) {
   if (args.length < 2) throw new Error("unimplemented: array_rest needs (source, start)");
   return ArrayRest(room, table, protos, args[0], args[1].AsInt());
 }
+if (id === RestObjectId) {
+  if (args.length < 2) throw new Error("unimplemented: rest_object needs (source, excluded)");
+  return RestObject(room, table, protos, args[0], args[1]);
+}
 // **`String.split` 也要 `protos`**（第 120 轮）：它返回一个数组 ✓——理由与上面那一条一字不差 ✓
 // （`InvokeString` 的签名里没有原型表，而为了一个方法去改那一块的签名会牵动所有调用点 ✓）。
 if (id === StringSplit) return SplitString(room, table, protos, self, args);
@@ -115,6 +119,11 @@ return InvokeBuiltin(room, table, call, id, self, args);
 # const ArrayRestId:int = 704
 
 **`[a, ...r] = xs` 里的 `r`**（第 132 轮）：`(源数组, 起点)` → 一份新数组 ✓。
+
+# const RestObjectId:int = 705
+
+**`{a, ...r} = o` 里的 `r`**（第 135 轮）：`(源对象, 已经拆走的键数组)` → 一份新对象 ✓
+（`RestObject` 那一段写着为什么要一份名单 ✓）。
 
 # method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value)=>Value
 
@@ -275,6 +284,61 @@ for (let i = at; i < count; i++) {
 return out;
 ```
 
+# method RestObject:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, excluded:Value)=>Value
+
+**`const {a, ...rest} = o` 里的那个 `rest`**（第 135 轮）：把 `source` 的**自有可枚举**属性
+抄进一个新对象，**去掉 `excluded` 里列出的那些键** ✓。
+
+**为什么要一份排除名单** ✗：`{a, ...rest}` 的 `rest` 是「**除了已经拆走的那些**之外的」✓——
+而「已经拆走的」在**编译期**就知道 ✓（同一份模式里前面那几个成员的键 ✓）。
+引擎不认识「模式」✗，所以名单由降级层算好递进来 ✓（形状与 `ArrayRest` 那条一致 ✓）。
+
+**访问器跳过** ✓（与 `Object.assign` / `keys` / `values` 同一条口径 ✓）——
+**一处已知差**：JS 的对象剩余走 `[[Get]]` ✓，会调 getter ✗（记在台账 ✓）。
+
+**源不是对象就给空对象** ✓（`{...null}` / `{...undefined}` 在 JS 里都是 `{}` ✓）；
+**原始值来源跳过** ✗（JS 的 `{...'ab'}` 给 `{0:'a',1:'b'}` ✓——本仓没有装箱那一层 ✓，
+与 `Object.assign` 那条同一个口径 ✓）。
+
+```ts
+const out = NewPlainObject(room, table, protos);
+if (!source.IsObject()) return out;
+const own = table.Get(source.Ref);
+const keys: Value[] = [];
+const values: Value[] = [];
+for (let i = 0; i < own.Props.length; i++) {
+  if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
+  if (own.Props[i].IsAccessor()) continue;
+  if (InExcluded(table, excluded, own.Props[i].Key)) continue;
+  keys.push(Value.FromString(own.Props[i].Key));
+  values.push(own.Props[i].Value);
+}
+for (let i = 0; i < keys.length; i++) {
+  SetProperty(room, NeverCall, table, out, keys[i], values[i]);
+}
+return out;
+```
+
+# method InExcluded:(table:HeapTable, excluded:Value, key:int)=>bool
+
+**这个键在不在排除名单里**（第 135 轮）。
+
+**按内容比、不按句柄比** ✓：两个内容相同的字符串是**两个不同的堆对象** ✓
+（`heap.xl.md` 的 `CreateString` 不去重 ✓），比句柄会把「同名」判成「不同名」✗——
+症状是 `const {a, ...rest} = o` 里 `rest` **还带着 `a`** ✗（静默给错值 ✗）。
+
+```ts
+if (excluded.Tag !== ValueTag.Array) return false;
+const items = table.Get(excluded.Ref).AsArray();
+const needle = table.Get(key).AsString();
+for (let i = 0; i < items.GetLength(); i++) {
+  const item = items.GetAt(i);
+  if (item.Tag !== ValueTag.String) continue;
+  if (table.Get(item.Ref).AsString().Equals(needle)) return true;
+}
+return false;
+```
+
 # method BuiltinSlots:()=>int
 
 **这一层要用掉多少格「语言内建段」**（第 111 轮补）——宿主拿它去**开表**。
@@ -295,6 +359,7 @@ let highest = DefineAccessorId;
 if (GetIteratorId > highest) highest = GetIteratorId;
 if (SpreadIntoId > highest) highest = SpreadIntoId;
 if (ArrayRestId > highest) highest = ArrayRestId;
+if (RestObjectId > highest) highest = RestObjectId;
 return highest + 1 - BuiltinBase;
 ```
 
@@ -371,8 +436,8 @@ InstallString(host.Machine, protos);
 // 它原来是**脚本用**的全局方法 ✓，这一轮起**降级层也直接发它** ✓）。
 // **不加进这张名单的症状是 `capability is not registered: 703`** ✓——
 // 那句话没提「名单」两个字 ✗，所以这一条写在名单**正上方** ✓。
-const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, DateCtor, StringConcat,
-  ObjectAssign];
+const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId, DateCtor,
+  StringConcat, ObjectAssign];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));

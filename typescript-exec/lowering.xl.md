@@ -5,8 +5,8 @@ import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from 
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
-import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
-import { DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId } from "./builtins/install.xl.md"
+import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
+import { DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
 import { DateCtor, StringConcat, ObjectAssign } from "./builtins/globals.xl.md"
 ```
 
@@ -1872,6 +1872,9 @@ const name = Child(declaration, "name");
 const initializer = OptionalChild(declaration, "initializer");
 const nameKind = NodeKind(name);
 if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
+  // **`var {a};` 也是空操作** ✓（理由与下面简单名那一支一字不差 ✓，见那条注释 ✓）——
+  // 它源码上非法 ✓，但真到了这里也**不该**去拆一个 `undefined` ✓（那会改写已有的名字 ✓）。
+  if (initializer === null && isVar) return;
   // **右边只求值一次**（`const {a} = f()` 里 `f()` 只跑一遍），所以先落到一格再拆。
   const source = this.Reserve(1);
   if (initializer === null) {
@@ -1893,6 +1896,16 @@ if (nameKind !== "Identifier") {
   throw new Error("unimplemented: declaration name " + nameKind);
 }
 const text = TextOf(name);
+if (initializer === null && isVar) {
+  // **`var x;` 是空操作** ✗：它只**声明** ✓——而声明那一步**提升时已经做完了** ✓
+  //（`Hoist` 把名字收进 `VarNames` 并 `DeclareLocal` 占好槽 ✓）。
+  // **赋一个 `undefined` 进去会把之前写过的值擦掉** ✗：
+  // `inside = 5; if (true) { var inside; } return inside;` 该给 **5** ✓，原来给 `undefined` ✗
+  //（判据现场：`var-hoist` 那一行少了开头那个 5 ✓）。
+  // **`let x;` / `const x;` 恰好相反** ✓：它们就是「初始化成 `undefined`」✓
+  //（TDZ 到此结束 ✓），所以下面那一条只对**非 `var`** 生效 ✓。
+  return;
+}
 const value = this.Reserve(1);
 if (initializer === null) {
   this.Emit(Op.Const, value, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -1964,25 +1977,52 @@ for (let i = 0; i < elements.length; i++) {
   if (NodeKind(element) !== "BindingElement") {
     throw new Error("unimplemented: binding element " + NodeKind(element));
   }
-  // **剩余元素**：数组那一种给新数组 ✓，对象那一种**还没有路** ✗。
+  // **剩余元素**：数组那一种给新数组 ✓，对象那一种给**去掉已拆键的新对象** ✓（第 135 轮）。
   if (OptionalChild(element, "dotDotDotToken") !== null) {
-    if (kind !== "ArrayBindingPattern") {
-      throw new Error("unimplemented: rest element in an object binding pattern");
+    const restTarget = Child(element, "name");
+    if (NodeKind(restTarget) !== "Identifier") {
+      throw new Error("unimplemented: binding name " + NodeKind(restTarget));
     }
     const restWindow = this.Reserve(3);
-    this.Emit(Op.Const, restWindow, this.IntConst(ArrayRestId), -1, -1);
-    this.Emit(Op.Move, restWindow + 1, source, -1, -1);
-    this.Emit(Op.Const, restWindow + 2, this.IntConst(i), -1, -1);
-    this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
-    const target = Child(element, "name");
-    if (NodeKind(target) !== "Identifier") {
-      throw new Error("unimplemented: binding name " + NodeKind(target));
+    if (kind === "ArrayBindingPattern") {
+      this.Emit(Op.Const, restWindow, this.IntConst(ArrayRestId), -1, -1);
+      this.Emit(Op.Move, restWindow + 1, source, -1, -1);
+      this.Emit(Op.Const, restWindow + 2, this.IntConst(i), -1, -1);
+      this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
+      this.BindName(TextOf(restTarget), restWindow, isVar);
+      // **剩余是最后一个** ✓（语法规定的 ✓）：绑定完就没有下一项了 ✓。
+      // **这里不退水位** ✗——与上面那条「不退」是同一条纪律 ✓：`BindName` 可能刚在
+      // `restWindow` 上面留了变量格 ✓，退过去会把那个变量格交出去 ✗
+      //（症状是「几条语句之后读到别人的值」✗，而现场离得很远 ✗）。
+      return;
     }
-    this.BindName(TextOf(target), restWindow, isVar);
-    // **剩余是最后一个** ✓（语法规定的 ✓）：绑定完就没有下一项了 ✓。
-    // **这里不退水位** ✗——与上面那条「不退」是同一条纪律 ✓：`BindName` 可能刚在
-    // `restWindow` 上面留了变量格 ✓，退过去会把那个变量格交出去 ✗
-    //（症状是「几条语句之后读到别人的值」✗，而现场离得很远 ✗）。
+    // **对象剩余**：名单是**前面那些成员拆走的键** ✓（编译期算好 ✓）——
+    // 造一个小数组把键放进去 ✓，再交给 `rest_object` ✓（与 `SpreadIntoId` 同一个写法 ✓）。
+    // **键从模式上取、不从绑定的名字上取** ✗：`{a: b, ...r}` 拿走的是 `a` ✓（不是 `b` ✗）——
+    // 与下面读值那一段用的是**同一个取键规则** ✓（`propertyName` 优先 ✓）。
+    const excluded = this.Reserve(1);
+    this.EmitRt(RtOp.NewArray, excluded, excluded, 0);
+    for (let e = 0; e < i; e++) {
+      const earlier = elements[e];
+      if (NodeKind(earlier) !== "BindingElement") continue;
+      const property = OptionalChild(earlier, "propertyName");
+      const keyNode = property === null ? Child(earlier, "name") : property;
+      const at = this.RtCall2(RtOp.GetProp, excluded,
+        this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
+      const put = this.Reserve(3);
+      this.Emit(Op.Move, put, excluded, -1, -1);
+      this.Emit(Op.Move, put + 1, at, -1, -1);
+      this.Emit(Op.Const, put + 2,
+        this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode))), -1, -1);
+      this.EmitRt(RtOp.SetIndex, put, put, 3);
+      this.Release(put);
+      this.Release(at);
+    }
+    this.Emit(Op.Const, restWindow, this.IntConst(RestObjectId), -1, -1);
+    this.Emit(Op.Move, restWindow + 1, source, -1, -1);
+    this.Emit(Op.Move, restWindow + 2, excluded, -1, -1);
+    this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
+    this.BindName(TextOf(restTarget), restWindow, isVar);
     return;
   }
   let value = -1;
@@ -2136,7 +2176,7 @@ return result;
 `unimplemented: expression VariableDeclarationList`。
 
 ```ts
-const isVar = list["flags"] === "Var";
+const isVar = IsVarList(list);
 const declarations = ListOf(list, "declarations");
 for (let i = 0; i < declarations.length; i++) {
   this.LowerVariable(declarations[i], isVar);
@@ -2178,7 +2218,7 @@ this.PushScope();
 const initializer = OptionalChild(node, "initializer");
 const perIteration = initializer !== null
   && NodeKind(initializer) === "VariableDeclarationList"
-  && initializer["flags"] !== "Var"
+  && !IsVarList(initializer)
   && HasNestedFunction(Child(node, "statement"), 0);
 let envSlot = -1;
 let scratch = -1;
@@ -2354,8 +2394,24 @@ if (kind === "VariableDeclarationList") {
     throw new Error("unimplemented: for..of with several declarations");
   }
   const name = Child(declarations[0], "name");
-  if (NodeKind(name) !== "Identifier") {
-    throw new Error("unimplemented: destructuring in for..of");
+  const nameKind = NodeKind(name);
+  if (nameKind === "ObjectBindingPattern" || nameKind === "ArrayBindingPattern") {
+    // **`for (const [k, v] of …)` / `for (const {a} of …)`**（第 135 轮）：
+    // 把绑定模式那一路**原样接进来** ✓——默认值、数组剩余、嵌套都在 `Destructure` 里 ✓
+    //（第 132 / 134 轮做的 ✓），这一处**一行新语义都没有** ✓。
+    //
+    // **它与上面那条「只写、不声明」并不矛盾** ✗：`Destructure` → `BindName` 里那次
+    // `Reserve` + `DeclareLocal` 是**编译期**发的**一次**代码 ✓，运行时每个迭代只是
+    // 往**同一格**写 ✓——「每轮重新声明会把槽越开越多」说的是**运行时**不能重复声明 ✓，
+    // 而这里根本没有运行时声明这回事 ✓。
+    //
+    // **`var` 那一位照传** ✓：`for (var [a] of …)` 的绑定走提升时占好的槽 ✓
+    //（与上面那条 `VarSlotOf` 分支同一条规矩 ✓）。
+    this.Destructure(name, value, IsVarList(initializer));
+    return;
+  }
+  if (nameKind !== "Identifier") {
+    throw new Error("unimplemented: binding name " + nameKind);
   }
   const text = TextOf(name);
   const cell = this.CellOf(text);
@@ -2363,7 +2419,7 @@ if (kind === "VariableDeclarationList") {
     this.Emit(Op.EnvSet, value, 0, cell, -1);
     return;
   }
-  if (initializer["flags"] === "Var") {
+  if (IsVarList(initializer)) {
     const hoisted = this.VarSlotOf(text);
     if (hoisted < 0) throw new Error("internal: hoisted var was not collected: " + text);
     this.Emit(Op.Move, hoisted, value, -1, -1);
