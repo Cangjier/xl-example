@@ -3397,6 +3397,63 @@ check("链接两份模块：同一台 VM、同一个堆，A 的导出闭包直�
 });
 
 
+check("Map：new / set 链式 / 更新 / get / has / delete / size / keys，与 Node 一致", () => {
+  // **一次跑出全部中间值**：脚本返回一个扁平数组，宿主把它整条打印出来。
+  // （前两轮我一直在「改一次判据、跑一次」地上二分，一条线索花一次调用；
+  // 全量导出一条命令就能看清全部，这是这一轮定下的做法。）
+  const source = [
+    "function probe() {",
+    "  const m = new Map();",
+    "  m.set('a', 1).set('b', 2);",
+    "  const d0 = m.get('b');",
+    "  const s0 = m.size;",
+    "  m.set('a', 10);",
+    "  const d1 = m.get('b');",
+    "  const d2 = m.get('a');",
+    "  const deleted = m.delete('a');",
+    "  const s1 = m.size;",
+    "  const d3 = m.get('b');",
+    "  const h1 = m.has('b');",
+    "  const h2 = m.has('a');",
+    "  const keys = [];",
+    "  for (const k of m.keys()) keys.push(k);",
+    "  let flag = 0;",
+    "  if (deleted) flag = 1;",
+    "  let flag1 = 0;",
+    "  if (h1) flag1 = 1;",
+    "  let flag2 = 0;",
+    "  if (h2) flag2 = 1;",
+    "  return [d0, s0, d1, d2, flag, s1, d3, flag1, flag2, keys.length, keys[0]];",
+    "}",
+  ].join("\n");
+  const nodeAt = new Function(source + "\nreturn probe();")();
+  eq(nodeAt[0], 2, "Node：get('b') 先给 2（这是前提）");
+  eq(nodeAt[10], "b", "Node：删掉 a 之后 keys() 只剩 b（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source, GlobalNames());
+  const sink = () => {};
+  const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
+  eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
+  InstallBuiltins(host.Machine, host.Machine.Protos);
+  host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, host.Machine.Protos,
+    table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
+
+  const probe = host.CallExport(module.ExportOf("probe"), []).Value;
+  const at = (index) => GetIndex(table, probe, Value.FromInt(index));
+
+  eq(at(0).AsInt(), nodeAt[0], "get('b')");
+  eq(at(1).AsInt(), nodeAt[1], "size 是 2");
+  eq(at(2).AsInt(), nodeAt[2], "更新 a 之后 get('b') 不变");
+  eq(at(3).AsInt(), nodeAt[3], "更新 a 之后 get('a') 是新值");
+  eq(at(4).AsInt() === 1, nodeAt[4] === 1, "delete 返回真");
+  eq(at(5).AsInt(), nodeAt[5], "删完 size 是 1");
+  eq(at(6).AsInt(), nodeAt[6], "**删完 get('b') 仍是 2**");
+  eq(at(7).AsInt() === 1, nodeAt[7] === 1, "has('b') 仍为真");
+  eq(at(8).AsInt() === 1, nodeAt[8] === 1, "has('a') 变假");
+  eq(at(9).AsInt(), nodeAt[9], "keys() 长度");
+  eq(hostStringOf(table, at(10)), nodeAt[10], "keys() 内容是 b");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
