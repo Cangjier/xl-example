@@ -5,7 +5,8 @@ import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind } fr
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, ArrayIsArray } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
+import { StringFromCharCode } from "./string.xl.md"
 import { ValueUnits, ValueText } from "./text.xl.md"
 import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
@@ -310,6 +311,18 @@ return MathResult(Number(literal));
 
 # const ObjectEntries:int = 403
 
+# const ObjectAssign:int = 404
+
+**`Object.assign(目标, …来源)`** 的号（第 130 轮）。
+
+**它读的是「**自有可枚举**」那一张表** ✓（与 `keys` / `values` / `entries` 同一张 ✓）——
+**访问器被跳过** ✓（那三个的口径 ✓：这一层不调 getter ✗，记在台账 ✓）。
+**返回的就是那个目标对象本身** ✓（JS 的口径 ✓，不是拷贝 ✓）。
+**不许把原始值当目标** ✓：JS 会**装箱**（`Object.assign(1, {a:1})` 给一个 Number 对象 ✗），
+而本仓没有装箱那一层 ✓——**响亮地抛**比静默返回一个数好 ✓。
+消息以 `unimplemented: ` 开头 ✓（判据钉着这一条 ✓：这一层所有「没做」的话都同一个开头 ✓，
+用户与判据都不必去猜哪几句是「没做」✗）。
+
 `Object.entries` 的能力号（第 120 轮补）。
 
 **三个方法的共同口径**：只看**自有**的**字符串键**属性 ✓（JS 的 `Object.keys` 就是这个口径 ✓），
@@ -372,7 +385,7 @@ return MathResult(Number(literal));
 
 ```ts
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "Array",
-  "Number", "parseInt", "parseFloat"];
+  "Number", "String", "parseInt", "parseFloat"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -524,6 +537,39 @@ if (id === ConsoleLog) {
   }
   sink(line);
   return Value.Undefined();
+}
+if (id === ObjectAssign) {
+  // **目标必须是对象** ✓：JS 会装箱 ✗，本仓没有装箱那一层 ✓——响亮地抛 ✓。
+  if (args.length < 1 || !args[0].IsObject()) {
+    throw new Error("unimplemented: Object.assign needs an object as the target "
+      + "(boxing a primitive is not supported)");
+  }
+  const target = args[0];
+  for (let s = 1; s < args.length; s++) {
+    const source = args[s];
+    // **不是对象的来源跳过** ✓（JS 的口径 ✓：`Object.assign({}, null)` 合法 ✓、`(…, 1)` 也算合法 ✓——
+    // 一个数没有自有可枚举属性 ✓）。
+    if (!source.IsObject()) continue;
+    // **先抄键与值、再写** ✓（与 `values` / `entries` 同一条纪律 ✓）：
+    // `Object.assign(o, o)` 是合法的 ✓，而边读边写会让**属性表在遍历中变长** ✗。
+    // 抄进来的是 `Value`（引用）✓，而它们住在源对象的属性表里 ✓——
+    // 源是这次调用的根（`args[s]`）✓，所以中途的分配不会把它们收走 ✓。
+    const own = table.Get(source.Ref);
+    const keys: Value[] = [];
+    const values: Value[] = [];
+    for (let i = 0; i < own.Props.length; i++) {
+      if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
+      // **访问器跳过** ✓（`keys` / `values` / `entries` 那一条口径 ✓：这一层不调 getter ✗）。
+      if (own.Props[i].IsAccessor()) continue;
+      keys.push(Value.FromString(own.Props[i].Key));
+      values.push(own.Props[i].Value);
+    }
+    for (let i = 0; i < keys.length; i++) {
+      SetProperty(room, NeverCall, table, target, keys[i], values[i]);
+    }
+  }
+  // **返回的是目标本身** ✓（JS 的口径 ✓，不是一份拷贝 ✓）。
+  return target;
 }
 if (id === ObjectKeys) {
   if (args.length < 1 || !args[0].IsObject()) {
@@ -1130,6 +1176,10 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, valuesKey, valuesTarget);
 const entriesKey = Value.FromString(table.CreateString(Units("entries")));
 const entriesTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectEntries, 0));
 SetProperty(vm.Room(), NeverCall, table, objectObject, entriesKey, entriesTarget);
+// `Object.assign`（第 130 轮）：与上面三个同一张对象 ✓。
+const assignKey = Value.FromString(table.CreateString(Units("assign")));
+const assignTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectAssign, 0));
+SetProperty(vm.Room(), NeverCall, table, objectObject, assignKey, assignTarget);
 
 // `Error` 是一个**宿主构造函数**（`new Error(msg)` 走 `Op.New` 的宿主那条分支 ✓，
 // `Error(msg)` 走 `Op.Call` ✓——同一个号两支都通，见 `ErrorCtor` 的说明）。
@@ -1146,6 +1196,12 @@ const arrayObject = NewPlainObject(vm.Room(), table, protos);
 const isArrayKey = Value.FromString(table.CreateString(Units("isArray")));
 const isArrayTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIsArray, 0));
 SetProperty(vm.Room(), NeverCall, table, arrayObject, isArrayKey, isArrayTarget);
+// `Array.from`（第 130 轮）：与 `isArray` 同一张对象 ✓（这两个都是 `Array` 的**静态方法** ✓）。
+// **号在数组段、分派在 `install.xl.md`** ✓——它要原型表（返回新数组 ✓），
+// 理由与 `String.split` 那条一字不差 ✓。
+const fromKey = Value.FromString(table.CreateString(Units("from")));
+const fromTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFrom, 0));
+SetProperty(vm.Room(), NeverCall, table, arrayObject, fromKey, fromTarget);
 const arrayKey = Value.FromString(table.CreateString(Units("Array")));
 SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
 // **`Number` 也是一个普通对象**（第 126 轮），上面挂静态判定 ✓。
@@ -1158,6 +1214,17 @@ const isNaNTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIs
 SetProperty(vm.Room(), NeverCall, table, numberObject, isNaNAKey, isNaNTarget);
 const numberKey = Value.FromString(table.CreateString(Units("Number")));
 SetProperty(vm.Room(), NeverCall, table, globals, numberKey, numberObject);
+// **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款 ✓），
+// 上面挂**静态方法** `fromCharCode` ✓。
+// **`String(x)` 这种「当函数调」还不通** ✗——那要求一个值**既是对象又是可调用的** ✓，
+// 而值模型今天只有两半里的各一半 ✓（`vm.xl.md` 的 `DoNew` 那一段把这条缺口写在明处 ✓）。
+// 所以 `String` 现在只是**静态方法之家** ✓，这一条记在台账里 ✓。
+const stringObject = NewPlainObject(vm.Room(), table, protos);
+const fromCharCodeKey = Value.FromString(table.CreateString(Units("fromCharCode")));
+const fromCharCodeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCharCode, 0));
+SetProperty(vm.Room(), NeverCall, table, stringObject, fromCharCodeKey, fromCharCodeTarget);
+const stringKey = Value.FromString(table.CreateString(Units("String")));
+SetProperty(vm.Room(), NeverCall, table, globals, stringKey, stringObject);
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));

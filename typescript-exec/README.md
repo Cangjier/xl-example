@@ -14,13 +14,13 @@
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
 | **引擎**（`runtime/`） | **~92%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；**线形态从第 129 轮起承载 f64**（升 v2，载荷是十进制文本）✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
-| **降级层**（本目录） | **~84%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构（名字那一半）都在跑；**数字字面量的全形态**（小数 / 指数 / 十六·八·二进制 / 分隔符）第 129 轮补齐 ✓；缺解构默认值与剩余、`Array.from` 那类静态方法、正则、`export default` |
-| **标准库**（`builtins/`） | **~55%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Error` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；缺 `Array.from` / `Object.assign` / `String.fromCharCode` / 原始值原型（数字与布尔上的方法）/ `Promise` 的组合子 |
-| **端到端**（普通 `.ts` 文件） | **~74%** | 21 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、**数字字面量全形态**）；**已知的第一拦路虎（浮点字面量）第 129 轮关掉了** ✓，下一个是 `[x in y]` 那条 token 层缺口 |
+| **降级层**（本目录） | **~84%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构（名字那一半）都在跑；**数字字面量的全形态**（小数 / 指数 / 十六·八·二进制 / 分隔符）第 129 轮补齐 ✓；缺**展开与剩余**（`...`）、参数里的解构、正则、`export default` |
+| **标准库**（`builtins/`） | **~62%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Error` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；**第 130 轮补上** `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace`（字符串找字符串）· `new Map(键值对)` · `new Set(数组)` ✓；缺 `reduce` / `sort`（回调通道只带一个实参）、原始值原型（数字与布尔上的方法）、`Promise` 的组合子 |
+| **端到端**（普通 `.ts` 文件） | **~76%** | 22 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、**数字字面量全形态**、**标准库第三批**）；**已知的两个拦路虎（浮点字面量、`[x in y]`）都关掉了** ✓，下一个是 `console.log` 的 `util.inspect` 口径（见「欠着的两笔」） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 170 条 / `runtime:cli` 21 份 ✓）。
+与语料数（`runtime:check` 171 条 / `runtime:cli` 22 份 ✓）。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
@@ -204,16 +204,67 @@ typescript-exec/
   理由与修法（P2 的类型层要 i64 / 多精度）写在 `ScanNumber` 那条注释里 ✓。
 - **`(1e3).toString()`** 报 `calling a non-closure value` ✓：原始值的原型链还没做 ✓。
 
-**欠着的一笔：C++ 目标（`npm run cpp:check` 现在是红的）。**
-这一轮动了五个 `*.xl.md`（`runtime/ir` · `runtime/ir-verify` · `runtime/rt` ·
+**欠着的两笔**（都不是忘了 ✗，是**明确记着、下次进门先做** ✓）：
+
+**① `console.log` 的 `util.inspect` 口径**（第 130 轮量出来的，**这是端到端最大的那一格** ✗）。
+Node 的 `console.log` 走 `util.inspect`，不是 `String`：
+`console.log([1,2])` 印 `[ 1, 2 ]`（里有空格 ✓）、`console.log({a:1})` 印 `{ a: 1 }`、
+数组里的字符串带**单引号**（`[ 'a' ]`）、`Map`/`Set`/`Date` 各有各的写法 ✓……
+而本层印的是 `1,2` / `[object Object]` / 裸的 `a` ✓（`Array.join` 与 `String` 的口径 ✓）。
+**所以任何 `console.log(数组/对象)` 的普通程序 today 都对不齐 stdout** ✗——
+语料 22 份是**绕开它**写的 ✓（这不是「已经对了」✗，是「还没量」✗）。
+**它有一个硬边**：`console.log(err)` 在 Node 里印的是**调用栈** ✓，
+而这一层拿不到那个栈 ✗（`Error` 上没有 `stack` ✓）——
+所以那一格只能记着差异 ✓，不可能靠 `util.inspect` 的形状补上 ✓。
+
+**② C++ 目标（`npm run cpp:check` 现在是红的）。**
+第 129 轮动了五个 `*.xl.md`（`runtime/ir` · `runtime/ir-verify` · `runtime/rt` ·
 `typescript-exec/builtins/text` · 新增 `runtime/host-text`）✓，
+第 130 轮又动了六个 `builtins/*.xl.md` ✓，
 而 C++ 是**计划通道**（产物由 `xl_plan` / `xl_context` / `xl_emit` 生成 ✓）——
-指纹一改，那五个源的全部 **34** 个部件都判「陈旧」✓。这一轮**只做了 TS 那一条出口** ✓，
-所以 C++ 那一份**欠着** ✗，下次一进门就补 ✓：
+指纹一改，那些源的全部部件都判「陈旧」✓。两轮**只做了 TS 那一条出口** ✓，
+所以 C++ 那一份**欠着** ✗：
 按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发（**没改动的部件照抄旧产物** ✓，
-真要改写的只有 `program` 的 `Version` 字面量、`rt_module` 的两处算符、
-`text_module` 的浮点那一支、`ir-verify` 的浮点载荷与 `Remaining` / `ReadText`、
-以及新文件的 `host-text_module` ✓）。**记在这里，免得下一轮忘了它为什么红** ✓。
+真要改写的只有几十处 ✓）。**它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），
+所以它排在 ① 后面 ✓。
+
+## 第 130 轮的账（标准库第三批）
+
+**这一批是「按实测挑的」** ✓：拿十几条日常写法逐条问「Node 给什么、tsrun 给什么」✓，
+把各自独立的缺口按「一条一条都验得动」的标准收成一批 ✓：
+`findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` ·
+`String.replace`（字符串找字符串）· `new Map([[k, v], …])` · `new Set([…])`。
+语料 [tests/runtime/cases/22-stdlib-third-batch.ts](../tests/runtime/cases/22-stdlib-third-batch.ts)
+13 行 stdout 与 `node` 逐字节相同 ✓。
+
+**这一批里唯一「不写新东西」的那一处是刻意的** ✗：`new Map(键值对)` / `new Set(数组)`
+**复用各自的 `set` / `add`** ✓——同一个键覆盖、`size` 跟着涨、重复值不进去 ✓，
+这些规矩都只有一处实现 ✓，写第二遍就是第二处会走偏的判据 ✗。
+
+**一条从判据现场量出来的形状差** ✓：`Array.from` **不能**拿 `AppendSlot` 铺格子 ✗。
+`AppendSlot` 的规矩是「洞跟着走」✓（`concat` / `slice` 要的就是这个 ✓），
+而 JS 的 `Array.from` 是**逐下标读** ✓——洞读出来是 `undefined` ✓，
+于是 `1 in Array.from([1, , 3])` 在 JS 里是**真** ✓。用错会**静默改形状** ✗
+（判据当场报的就是这一格 ✓）。**两个「看起来一样」的复制，语义可以不同** ✓——
+所以那两条各自写在注里，谁也不抄谁 ✓。
+
+**三条故意不做、且必须「响亮地抛」的形态** ✓（判据逐条钉住了消息里说的是**哪一个** ✓）：
+
+| 形态 | 为什么不做 |
+| --- | --- |
+| `Array.from(生成器)` | 走完一个生成器要发 `iter_next` ✓，那是**指令**、不是建库层能调的函数 ✗ |
+| `String.replace(正则 / 函数, …)` | 两样都还没有 ✓；**静默当字面量会给出看起来对的错答案** ✗（`"a-a".replace(/a/g,"b")` 在 JS 里是 `"b-b"` ✗） |
+| `Object.assign(原始值, …)` | JS 会**装箱** ✗，本仓没有那一层 ✓ |
+
+**一条量清楚、但这一轮没动的引擎级限制** ✓：`reduce` 与 `sort` 做不出来，
+不是「没排上」✗，是**回调通道只带一个实参** ✓（`NativeCall` 的签名 ✓，与 `Map.forEach`
+不传 `key` / `map` 是同一条 ✓）。`findIndex` 只要一个 ✓，所以它做得出来 ✓。
+扩展那条通道牵动**全部调用点** ✓，单独立一轮 ✓——**这条限制现在有了实测的边界** ✓。
+
+**顺带补上的一处**：`String` 这一轮才第一次作为**全局名**存在 ✓（此前只有 `String.prototype` 上的方法 ✓），
+所以 `GlobalNames` 多了它 ✓。**它只是「静态方法之家」** ✗：`String(x)` 这种**当函数调**
+还不通 ✓——那要求一个值**既是对象又是可调用的** ✓，而值模型今天只有两半里的各一半 ✓
+（`vm.xl.md` 的 `DoNew` 把这条缺口写在明处 ✓，`Number(x)` / `Boolean(x)` 同一条 ✓）。
 
 ## 两条口径
 

@@ -72,6 +72,16 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 **`reduce` 不做** ✗：JS 的 `(累计, 值, 下标, 数组)` 要**两个以上实参** ✗，
 而 `NativeCall` **只带一个** ✓（与 `Map.forEach` 不传 `key`/`map` 是同一条限制 ✓）。
 拿一个数组把两个值打包过去是**另一种语义** ✗——宁可**不做**，也不静默换形状 ✓。
+（**第 130 轮把这条限制量清楚了** ✓：`reduce` 与 `sort` 都卡在它上面 ✓，
+而 `findIndex` 只要一个实参 ✓，所以它做得出来 ✓。扩展 `NativeCall` 是一条**引擎级**的改动 ✓，
+它牵动全部调用点 ✓，单独立一轮 ✓。）
+# const ArrayFindIndex:int = 16
+**`findIndex(回调)`** 的号（第 130 轮）——第一个让回调为真的**下标** ✓；
+一个都没有给 `-1` ✓（与 `find` 同一条通道 ✓，只是交出去的是下标 ✓）。
+# const ArrayFrom:int = 17
+**`Array.from(可迭代物)`** 的号（第 130 轮）——**静态方法** ✓，而且它要**原型表**
+（返回的是新数组 ✓），所以它**不在 `InvokeArray` 里分派** ✓，走 `install.xl.md` 那条
+（与 `String.split` 同一处、同一个理由 ✓）。
 `filter(回调)` 的号——按回调的**真假**收原值 ✓（用 `Value.AsBool()` ✓，那就是本仓的真假口径 ✓）。
 
 # method Units:(text:string)=>Array<int>
@@ -283,9 +293,10 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   }
   return id === ArrayForEach ? Value.Undefined() : Value.FromArray(collected);
 }
-if (id === ArrayFind || id === ArraySome || id === ArrayEvery) {
-  // **谓词族**（第 118 轮）：与 `forEach`/`map`/`filter` 同一条回调通道 ✓，但**结果不同**：
-  // `find` 给原值（没有给 `undefined`）✓、`some` 有一个为真即真 ✓、`every` 全真才真 ✓。
+if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFindIndex) {
+  // **谓词族**（第 118 轮；`findIndex` 第 130 轮加入 ✓）：与 `forEach`/`map`/`filter` 同一条回调通道 ✓，
+  // 但**结果不同**：`find` 给原值（没有给 `undefined`）✓、`some` 有一个为真即真 ✓、
+  // `every` 全真才真 ✓、`findIndex` 给**下标**（没有给 `-1` ✓）。
   // **空数组**：`some` 给**假**、`every` 给**真** ✓（JS 的口径 ✓；`every` 这一条最容易写反 ✗）。
   if (args.length < 1 || !args[0].IsCallable() || call === null) {
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
@@ -298,10 +309,15 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery) {
       if (answered) return item;
       continue;
     }
+    if (id === ArrayFindIndex) {
+      if (answered) return Value.FromInt(i);
+      continue;
+    }
     if (id === ArraySome && answered) return Value.FromBool(true);
     if (id === ArrayEvery && !answered) return Value.FromBool(false);
   }
   if (id === ArrayFind) return Value.Undefined();
+  if (id === ArrayFindIndex) return Value.FromInt(-1);
   // 走到这里：`some` 一个都没中（假）、`every` 一个都没反（真）——**空数组也落在这一支** ✓。
   return Value.FromBool(id === ArrayEvery);
 }
@@ -348,9 +364,10 @@ throw new Error("unreachable: installing a builtin never calls a function");
 const table = vm.Table;
 const proto = Value.FromObject(protos.Array);
 const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter",
-  "find", "some", "every", "concat", "reverse", "includes"];
+  "find", "some", "every", "concat", "reverse", "includes", "findIndex"];
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
-  ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes];
+  ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes,
+  ArrayFindIndex];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

@@ -1,15 +1,15 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable } from "../../runtime/heap.xl.md"
-import { RoomChecker } from "../../runtime/rt.xl.md"
+import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
+import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
 import { Protos, DefineAccessor, FindProperty, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray } from "./array.xl.md"
-import { InstallArray } from "./array.xl.md"
+import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, DateCtor, NewError, StringConcat } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
@@ -74,6 +74,10 @@ if (id === GetIteratorId) {
 // **`String.split` 也要 `protos`**（第 120 轮）：它返回一个数组 ✓——理由与上面那一条一字不差 ✓
 // （`InvokeString` 的签名里没有原型表，而为了一个方法去改那一块的签名会牵动所有调用点 ✓）。
 if (id === StringSplit) return SplitString(room, table, protos, self, args);
+// **`Array.from` 同理**（第 130 轮）✓：它也是「返回一个新数组」的**静态方法** ✓，
+// 而且它的 `self` 是那个 `Array` **普通对象** ✓——放进 `InvokeArray` 就要同时改签名与
+// `RequireArray` 的先后 ✓，两个改动都白付 ✓。
+if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, call, id, self, args);
@@ -126,6 +130,53 @@ for (let i = 0; i < length; i++) {
   const values = ReadOwn(room, table, value, "__v");
   table.Get(pair.Ref).AsArray().Push(table.Get(values.Ref).AsArray().GetAt(i));
   table.Get(out.Ref).AsArray().Push(pair);
+}
+return out;
+```
+
+# method ArrayFromValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>)=>Value
+
+**`Array.from(可迭代物)`**（第 130 轮）。
+
+**能做的三类**（都借 `GetIterator` 那条既有的路 ✓）：
+
+| 实参 | 给什么 |
+| --- | --- |
+| 字符串 | **逐码元一个单码元字符串** ✓（JS 的 `Array.from("ab")` 给 `["a","b"]` ✓） |
+| 数组 | **一份拷贝，洞填成 `undefined`** ✓（JS 的 `Array.from` 是**逐下标读** ✓——不是 `slice` ✗） |
+| `Map` / `Set` | **`GetIterator` 已经把它们变成数组了** ✓（`Map` 给 `[键,值]` 对、`Set` 给值 ✓） |
+
+**生成器不做，而且响亮地抛** ✗：走完一个生成器要发 `iter_next` ✓，
+而那是**指令**、不是这一层能调的函数 ✗。`.from` 一个生成器是常见的写法 ✓，
+所以这条缺口**记在台账里** ✓——不是「忘了」✗，是「这一层够不着」✓。
+
+```ts
+const source = args.length > 0 ? args[0] : Value.Undefined();
+const out = NewPlainArray(room, table, protos);
+if (source.Tag === ValueTag.String) {
+  // **按码元拆** ✓：与 `.length` / 下标 / `charAt` 同一条口径 ✓（代理对算两个 ✓）。
+  const units = TextUnitsOf(table, source);
+  for (let i = 0; i < units.length; i++) {
+    if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
+    table.Get(out.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
+  }
+  return out;
+}
+const iterable = GetIterator(room, table, protos, source);
+if (iterable.Tag !== ValueTag.Array) {
+  throw new Error("unimplemented: Array.from over an iterator "
+    + "(arrays, strings, Map and Set are supported; generators need iter_next, which this layer cannot reach)");
+}
+const items = table.Get(iterable.Ref).AsArray();
+const target = table.Get(out.Ref).AsArray();
+const count = items.GetLength();
+if (!room(ValueCharge * count)) throw new Error("out of room");
+for (let i = 0; i < count; i++) {
+  // **洞在这里填成 `undefined`** ✓（**不**走 `AppendSlot` ✗）：JS 的 `Array.from` 是**逐下标读** ✓，
+  // 洞读出来就是 `undefined` ✓，所以 `1 in Array.from([1, , 3])` 在 JS 里是**真** ✓。
+  // `AppendSlot` 的规矩（洞跟着走 ✓）是 `concat` / `slice` 那几条的 ✓——
+  // 用错了会**静默改形状** ✗，而这一条正是判据现场量出来的 ✓。
+  target.Push(items.GetAt(i));
 }
 return out;
 ```

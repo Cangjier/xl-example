@@ -94,6 +94,26 @@ import { Units, NeverCall, ArgOr } from "./array.xl.md"
 **已知差异写在明处** ✗：JS 按**字符**（码位）补，这里按**码元** ✓——
 ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记在台账 ✓）。
 
+# const StringFromCharCode:int = 116
+
+**`String.fromCharCode(码元…)`** 的号（第 130 轮）——**静态方法** ✓：
+调用时 `self` 是那个 `String` **普通对象**（不是字符串 ✗），
+所以它必须排在 `RequireString` **前面** ✓（与 `Array.isArray` 同一条先例 ✓）。
+
+**已知差异写在明处** ✗：JS 会**夹到 `0..65535`** ✓，这里**不夹** ✗——
+`-1` / `70000` 原样进码元表，于是它会变成一个越界码元 ✓。
+与 `charAt` 那条「越界给 `undefined`」同一类（**宁可差得可查，也不静默改值** ✓），
+记在台账里 ✓。
+
+# const StringReplace:int = 117
+
+`replace(要找的, 换成的)` 的号（第 130 轮）——**只做「字符串找字符串、换成字符串」** ✓。
+
+**只替换第一处** ✓（JS 的字符串实参口径 ✓，不是 `replaceAll` ✗）。
+**三个不做的形态一律响亮地抛** ✓：正则实参、函数实参（`(match) => …`）、
+`$1` / `$&` 那一类替换模式 ✗——它们的语义靠**正则**与**回调**，
+而这一层两样都还没有 ✓。静默把它们当普通文本是最坏的一种 ✗。
+
 # method RequireString:(table:HeapTable, self:Value)=>void
 
 `self` 必须是字符串；不是就抛。
@@ -121,6 +141,17 @@ if (self.Tag !== ValueTag.String) {
 这里**夹到 0**。这是**已知的语义差**，写在文首那张表里（做法与理由同 `??`/`?.` 那些）。
 
 ```ts
+// **静态方法排在 `RequireString` 前面** ✓（第 130 轮，与 `Array.isArray` 同一条先例 ✓）：
+// `String.fromCharCode(65)` 的 `self` 是那个 `String` **普通对象** ✓，过一遍 `RequireString`
+// 会当场抛 ✗（症状离现场很远：报的是「这个方法要一个字符串接收者」✓，而调用点看着完全正常 ✗）。
+if (id === StringFromCharCode) {
+  const codes: number[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].IsNumber()) codes.push(args[i].AsInt());
+  }
+  if (!room(ObjectCharge + CodeUnitCharge * codes.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(codes));
+}
 RequireString(table, self);
 const units = TextUnitsOf(table, self);
 if (id === StringCharAt) {
@@ -295,6 +326,47 @@ if (id === StringPadStart || id === StringPadEnd) {
   }
   return Value.FromString(table.CreateString(out));
 }
+if (id === StringReplace) {
+  // **三个形态先挡掉** ✓：`args[0]` / `args[1]` 不是字符串就抛 ✓（正则实参、函数实参、
+  // 以及 `$&` / `$1` 那一类模式都落在这里 ✓）。挡在前面而不是「当普通文本用」✗——
+  // 静默把 `/a/g` 当字面量会**给出一个看起来对的错答案** ✗（`"a-a".replace(/a/g,"b")`
+  // 在 JS 里是 `"b-b"`，当字面量就成了 `"a-a"`）✗。
+  if (args.length < 2 || args[0].Tag !== ValueTag.String || args[1].Tag !== ValueTag.String) {
+    throw new Error("unimplemented: String.replace needs two string arguments "
+      + "(regex and function replacements are not supported)");
+  }
+  const needle = TextUnitsOf(table, args[0]);
+  const replacement = TextUnitsOf(table, args[1]);
+  if (needle.length === 0) {
+    // **空串找起来是「插在最前面」** ✓（JS：`"ab".replace("", "-")` 给 `"-ab"` ✓）。
+    const inserted: number[] = [];
+    for (let k = 0; k < replacement.length; k++) inserted.push(replacement[k]);
+    for (let k = 0; k < units.length; k++) inserted.push(units[k]);
+    if (!room(ObjectCharge + CodeUnitCharge * inserted.length)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(inserted));
+  }
+  let hit = -1;
+  for (let i = 0; i + needle.length <= units.length; i++) {
+    let same = true;
+    for (let j = 0; j < needle.length; j++) {
+      if (units[i + j] !== needle[j]) same = false;
+    }
+    if (same) {
+      hit = i;
+      break;
+    }
+  }
+  // **找不到就原样返回** ✓（JS 的口径 ✓；返回的还是同一个字符串值 ✓）。
+  if (hit < 0) return self;
+  // **只换第一处** ✓——`hit` 找到就 `break` ✓，所以这一段是「一次替换」✓。
+  const total = units.length - needle.length + replacement.length;
+  if (!room(ObjectCharge + CodeUnitCharge * total)) throw new Error("out of room");
+  const joined: number[] = [];
+  for (let i = 0; i < hit; i++) joined.push(units[i]);
+  for (let i = 0; i < replacement.length; i++) joined.push(replacement[i]);
+  for (let i = hit + needle.length; i < units.length; i++) joined.push(units[i]);
+  return Value.FromString(table.CreateString(joined));
+}
 throw new Error("unimplemented: string builtin " + id);
 ```
 
@@ -370,10 +442,11 @@ const table = vm.Table;
 const proto = Value.FromObject(protos.String);
 const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "toUpperCase", "toLowerCase", "trim", "includes",
-  "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd"];
+  "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd", "replace"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
-  StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd];
+  StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
+  StringReplace];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

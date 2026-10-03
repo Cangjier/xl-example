@@ -166,6 +166,23 @@ if (id === MapCtor) {
   WriteOwn(room, NeverCall, table, map, "__v", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, map, "size", Value.FromInt(0));
   InstallMapMethods(room, table, map);
+  // **初始条目**（第 130 轮）：`new Map([[k, v], …])` ✓——实参是**数组**的那一种 ✓
+  // （`new Map(Object.entries(o))` 就是这个形状 ✓，日常代码里最常见 ✓）。
+  // **其余形态照旧空表** ✓：生成器要 `iter_next`（这一层够不着 ✗）；
+  // 数组里不是两格数组的项**跳过** ✓（JS 会当场抛 ✗——**这一点是记着的差异** ✓：
+  // 静默跳过比静默塞半个键值对好 ✓，但比不上 JS 的抛 ✗，记在台账 ✓）。
+  // **复用 `set` 那条路** ✓：同一个键覆盖、`size` 跟着涨，都不必写第二遍 ✓。
+  if (args.length > 0 && args[0].Tag === ValueTag.Array) {
+    const pairs = table.Get(args[0].Ref).AsArray();
+    for (let i = 0; i < pairs.GetLength(); i++) {
+      const pair = pairs.GetAt(i);
+      if (pair.Tag !== ValueTag.Array) continue;
+      const entry = table.Get(pair.Ref).AsArray();
+      if (entry.GetLength() < 2) continue;
+      const pairArgs: Value[] = [entry.GetAt(0), entry.GetAt(1)];
+      InvokeMap(room, protos, table, null, MapSet, map, pairArgs);
+    }
+  }
   return map;
 }
 const keys = ReadOwn(room, table, self, "__k");

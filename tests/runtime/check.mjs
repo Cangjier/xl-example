@@ -5404,5 +5404,69 @@ check("引擎里的宿主借用只有一处（可查的形态）", () => {
 });
 
 console.log("");
+console.log("=== 第 130 轮：标准库第三批 ===");
+
+check("标准库第三批：findIndex · Array.from · Object.assign · fromCharCode · replace · Map/Set 初值", () => {
+  // **每一个都跟真 Node 对过**（`cases/22-stdlib-third-batch.ts` 是逐字节那一把 ✓），
+  // 这里钉的是**判据量不到的那一半**：三条**故意不做**的形态必须是**抛** ✓，
+  // 不是「当作没有」✗ —— 静默给个近似值是这一层最不能犯的错 ✓。
+  const body = [
+    "const out = [];",
+    "out.push([1, 2, 3].findIndex((n) => n > 1));",
+    "out.push([1, 2, 3].findIndex((n) => n > 9));",
+    "out.push(Array.from('ab').join('-'));",
+    "out.push(1 in Array.from([1, , 3]) ? 'yes' : 'no');",
+    "out.push(Object.assign({}, { a: 1 }, { b: 2 }).b);",
+    "out.push(String.fromCharCode(72, 105));",
+    "out.push('a-b'.replace('-', '+'));",
+    "out.push(new Map([[1, 'x'], [1, 'y']]).get(1));",
+    "out.push(new Set([1, 1, 2]).size);",
+    // 三条**该抛**的：各自包一层 try，把「抛没抛 / 说了什么」带回宿主。
+    "const loud = [];",
+    // ① 生成器 / 非数组可迭代物：`iter_next` 是**指令**，建库层够不着。
+    "try { Array.from({ a: 1 }); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
+    // ② 非字符串的 `replace` 实参（正则 / 函数都落这一支）。
+    "try { 'a'.replace(1, 'b'); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
+    // ③ 原始值当 `Object.assign` 的目标（JS 会装箱，本仓没有那一层）。
+    "try { Object.assign(1, { a: 1 }); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
+    // ④ **自赋值不许转圈**：键与值先抄下来再写，所以它必须正常结束。
+    "const same = { a: 1 };",
+    "Object.assign(same, same);",
+    "out.push(same.a);",
+    "return [out, loud];",
+  ].join("\n");
+  const request = new RunRequest();
+  request.Sources = [body];
+  request.Entry = "";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const values = GetIndex(table, res.Value, Value.FromInt(0));
+  const expected = [1, -1, "a-b", "yes", 2, "Hi", "a+b", "y", 2, 1];
+  for (let i = 0; i < expected.length; i++) {
+    const actual = GetIndex(table, values, Value.FromInt(i));
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+  const loud = GetIndex(table, res.Value, Value.FromInt(1));
+  const loudCount = table.Get(loud.Ref).AsArray().GetLength();
+  eq(loudCount, 3, "三条该抛的都给了话");
+  const loudTexts = [];
+  for (let i = 0; i < loudCount; i++) {
+    loudTexts.push(hostStringOf(table, GetIndex(table, loud, Value.FromInt(i))));
+  }
+  for (let i = 0; i < loudTexts.length; i++) {
+    ok(loudTexts[i].indexOf("unimplemented: ") === 0,
+      "第 " + i + " 条要指名道姓地说没做：" + loudTexts[i]);
+  }
+  ok(loudTexts[0].indexOf("Array.from") >= 0, "① 说的是 `Array.from`：" + loudTexts[0]);
+  ok(loudTexts[1].indexOf("String.replace") >= 0, "② 说的是 `String.replace`：" + loudTexts[1]);
+  ok(loudTexts[2].indexOf("Object.assign") >= 0, "③ 说的是 `Object.assign`：" + loudTexts[2]);
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

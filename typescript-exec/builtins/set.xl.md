@@ -98,6 +98,16 @@ if (id === SetCtor) {
   WriteOwn(room, NeverCall, table, created, "__v", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, created, "size", Value.FromInt(0));
   InstallSetMethods(room, table, created);
+  // **初始值**（第 130 轮）：`new Set([1, 2])` ✓——实参是**数组**的那一种 ✓
+  // （`new Set(Array.from(x))` / `new Set([...])` 都是这个形状 ✓；**注意**后者的 `[...]`
+  // 还要展开语法 ✓，那是降级层的事 ✓）。**复用 `add` 那条路** ✓：去重与 `size` 都不必写第二遍 ✓。
+  if (args.length > 0 && args[0].Tag === ValueTag.Array) {
+    const items = table.Get(args[0].Ref).AsArray();
+    for (let i = 0; i < items.GetLength(); i++) {
+      const itemArgs: Value[] = [items.GetAt(i)];
+      InvokeSet(room, protos, table, null, SetAdd, created, itemArgs);
+    }
+  }
   return created;
 }
 const values = ReadOwn(room, table, self, "__v");
