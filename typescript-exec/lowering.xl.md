@@ -56,6 +56,19 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **`finally` 三种路径**（正常 / 接住 / 没接住也跑完再重抛） | **`finally` 的代码发两遍**（共享要子过程跳转）、**带 `finally` 的 `try` 里不许 `return`/`break`/`continue`**（降级期报错） |
 | **`for (let …)` 每次迭代新建绑定**（体里有函数值时走「每轮一个新环境 + 格值拷贝」） | 循环体里**没有**函数值时仍走槽（快路径）——这是**保守判据**：多建环境只是慢，少建一次就是错值 |
 | **箭头函数的 `this`**（含箭头的那一层留一格装接收者，箭头体里按普通捕获读） | **块里的函数声明**、`catch` 参数的块作用域之外，作用域这块还剩 TDZ |
+| **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
+
+**`async` 的三条语义差（都写在明处，不假装是 JS）**：
+
+1. **脚本里的调用者会等下去**：JS 里 `f()` 立刻拿到一个承诺、调用者继续跑；
+   这里 `await` 挂的是**当前帧**，而调用者的帧还在它下面——于是整条链停在承诺上。
+   **宿主是那个事件循环**：`Host` 会把这解释成 `Parked`（在等承诺），
+   宿主结清之后再排空微任务，结果就绪。**这是宿主驱动模型下的正确形状**，
+   但它**不是**「async 函数立刻返回承诺」那条 JS 语义。
+2. **返回值不包承诺**：`return v` 给出来的是 `v` 本身（宿主结清后从 `Result` 取），
+   JS 给的是「已兑现为 `v` 的承诺」。
+3. **`await` 非承诺要抛**（引擎的规矩 ✓）；JS 会把它当成已经兑现的值。
+   这一条与第 2 条同源：**没有「把任意值包成承诺」这一步**。
 
 **箭头函数的 `this` 已经修好**：它没有自己的 `this`（取外层那个），所以降级器在
 **含箭头的那一层**的环境里多留一格，开场把接收者存进去；箭头体里的 `this` 于是与
@@ -427,6 +440,14 @@ return -1;
 
 这一帧要几格（降级完才知道）。
 
+## field IsAsync:bool = false
+
+这是一个 **`async` 函数**。
+
+**它今天只影响一件事**：这一层里的 `await` 合法（`await` 写在普通函数里是**语法错误**，
+降级期就该报出来）。**它不影响调用方式**——这一点与生成器**恰好相反**，
+差别写在文首那张表里（那是这一轮最要紧的一条已知语义差）。
+
 ## constructor:(name:string, body:AstNode, params:Array<string>, patch:int)=>void
 
 登记一个待降级的函数体。
@@ -620,6 +641,14 @@ this.IsDefault = isDefault;
 
 **为什么「当前」这一个字段就够**：函数体是**从队列里一个一个降级的**
 （`PendingFunction` 那一段），所以同一时刻只有一层在降级——进去设、出来恢复即可。
+
+## field InAsync:bool = false
+
+**当前正在降级的这个函数体是不是 `async`**（与 `InGenerator` 同一套用法）。
+
+它管的是 `await` 的**合法性**：`await` 写在普通函数里是语法错误，
+**降级期就要报**——放到运行期去，它会把一个普通帧挂到承诺上，
+而那个帧的调用者还在下面等着，于是**整条调用链静默停住**。
 
 ## method DeclareGlobals:(names:Array<string>)=>void
 
@@ -1011,9 +1040,11 @@ this.Program().Consts[item.Patch] = Constant.OfInt(item.Entry);
 this.Env = item.Envs.Clone();
 this.BeginFunction(item.ParamCount);
 this.PushScope();
-// **`yield` 归哪一层**：进这一层时设、出去时恢复（一层一层降级，所以一个字段够）。
+// **`yield` 与 `await` 归哪一层**：进这一层时设、出去时恢复（一层一层降级，一个字段够）。
 const outerInGenerator = this.InGenerator;
+const outerInAsync = this.InAsync;
 this.InGenerator = item.IsGenerator;
+this.InAsync = item.IsAsync;
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
 this.EnterFunctionBody(body, item.Params);
@@ -1034,6 +1065,7 @@ this.Emit(Op.Return, -1, -1, -1, -1);
 item.SlotCount = this.Peak;
 this.PopScope();
 this.InGenerator = outerInGenerator;
+this.InAsync = outerInAsync;
 ```
 
 ## method LowerStatementsOf:(block:AstNode)=>void
@@ -2007,6 +2039,7 @@ item.IsExpressionBody = NodeKind(body) !== "Block";
 // 于是会把它判成「没有」——生成器函数于是被当成普通函数（判据报的是
 // `suspend outside a generator`：体里那对 suspend/resume 落在了一个普通帧上）。
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
+item.IsAsync = this.NodeIsAsync(node);
 item.Envs = this.Env.Clone();
 this.Pending.push(item);
 return slot;
@@ -2179,6 +2212,49 @@ for (let i = 0; i < this.Globals.length; i++) {
 }
 ```
 
+## method NodeIsAsync:(node:AstNode)=>bool
+
+这个函数式节点是不是带 `async`。
+
+**看 `modifiers` 里有没有 `AsyncKeyword`**：投影把 `async` 放在修饰符数组里
+（`[{"kind":"AsyncKeyword","text":"async",...}]`）——与 `*` 是**不同**的存法
+（那个是单独的 token 字段）。**两种都探过**，所以这里不是猜的。
+
+```ts
+const modifiers = node["modifiers"];
+if (modifiers === undefined || modifiers === null) return false;
+const items = modifiers as AstNode[];
+for (let i = 0; i < items.length; i++) {
+  if (NodeKind(items[i]) === "AsyncKeyword") return true;
+}
+return false;
+```
+
+## method LowerAwait:(node:AstNode)=>int
+
+**`await`**：挂起当前帧（`await`）+ 恢复时接住兑现值（`resume`）。
+
+**两条指令的形状就是引擎判据里那份程序**（`vm.xl.md` 的 `await` 一节）：
+`Await A(承诺槽)` 把这一帧从栈上摘下来挂到承诺的反应表上，
+承诺结清时恢复帧被排进**微任务队列**；恢复后接着跑的那条 `Resume` 把兑现值写进一格，
+**那一格就是整个 `await` 表达式的值**。
+
+**不在 `async` 里就抛**：与 `yield` 同一条理由——放到运行期会把普通帧挂住，
+而调用者还在下面等，**整条链静默停住**。
+
+**不退水位**：接住兑现值的那一格要在后面一直活着（第 24 轮那条教训）。
+
+```ts
+if (!this.InAsync) {
+  throw new Error("unimplemented: await outside an async function");
+}
+const promise = this.LowerExpression(Child(node, "expression"));
+this.Emit(Op.Await, promise, -1, -1, -1);
+const resolved = this.Reserve(1);
+this.Emit(Op.Resume, resolved, -1, -1, -1);
+return resolved;
+```
+
 ## method LowerYield:(node:AstNode)=>int
 
 **`yield`**：落成 `suspend` / `resume` 一对。
@@ -2254,6 +2330,7 @@ this.DeclareLocal(TextOf(name), slot);
 const item = new PendingFunction(TextOf(name), Child(node, "body"), params, patch);
 item.Slot = slot;
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
+item.IsAsync = this.NodeIsAsync(node);
 item.Envs = this.Env.Clone();
 this.Pending.push(item);
 ```
@@ -2346,6 +2423,9 @@ if (kind === "NewExpression") {
 }
 if (kind === "YieldExpression") {
   return this.LowerYield(node);
+}
+if (kind === "AwaitExpression") {
+  return this.LowerAwait(node);
 }
 if (kind === "TypeOfExpression") {
   const value = this.LowerExpression(Child(node, "expression"));

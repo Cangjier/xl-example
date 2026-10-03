@@ -2793,6 +2793,57 @@ check("生成器降级：yield / 传入值当返回值 / for..of 遍历 / 位置
   eq(iterated, "", "for..of 遍历生成器：" + iterated);
 });
 
+check("await：async 函数挂起在承诺上，结清后由微任务恢复（与引擎那条路一致）", () => {
+  const source = [
+    "async function bump(p) {",
+    "  const v = await p;",
+    "  return v + 1;",
+    "}",
+    "async function twice(p) {",
+    "  const a = await p;",
+    "  const b = await a;",
+    "  return b;",
+    "}",
+  ].join("\n");
+  const { module, host, table, machine } = lowerAndLoad(source);
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+
+  const promise = Value.FromObject(table.CreatePromise(PromiseState.Pending, Value.Undefined()));
+  machine.Retain(promise);
+  const parked = host.CallExport(module.ExportOf("bump"), [promise]);
+  eq(parked.Outcome, HostOutcome.Parked, "脚本停在 await 上，宿主被告知「在等承诺」");
+  eq(machine.Frames.Depth(), 0, "帧已经挂到承诺上，不在栈上");
+
+  machine.ResolvePromise(promise, Value.FromInt(41));
+  eq(machine.Microtasks.length, 1, "恢复已经排进微任务队列");
+  eq(machine.DrainMicrotasks(), true, "排空成功");
+  eq(machine.Result.AsInt(), 42, "兑现值 + 1 成了这次调用的结果");
+  eq(machine.Microtasks.length, 0, "队列跑干净了");
+
+  // 两次 await：兑现值本身又是一个承诺（`await a`）
+  const outer = Value.FromObject(table.CreatePromise(PromiseState.Pending, Value.Undefined()));
+  machine.Retain(outer);
+  const twiceResult = host.CallExport(module.ExportOf("twice"), [outer]);
+  eq(twiceResult.Outcome, HostOutcome.Parked, "第一次 await 挂起");
+  const inner = Value.FromObject(table.CreatePromise(PromiseState.Fulfilled, Value.FromInt(7)));
+  machine.Retain(inner);
+  machine.ResolvePromise(outer, inner);
+  eq(machine.DrainMicrotasks(), true, "第一次恢复");
+  eq(machine.DrainMicrotasks(), true, "第二次也恢复（`await` 已兑现的承诺也要让出一拍）");
+  eq(machine.Result.AsInt(), 7, "两次 await 之后拿到的是最里面那个兑现值");
+  machine.Release(promise.Ref);
+  machine.Release(outer.Ref);
+  machine.Release(inner.Ref);
+
+  let outside = "";
+  try {
+    lowerAndLoad("function plain(p) { const v = await p; return v; }");
+  } catch (error) {
+    outside = String(error.message);
+  }
+  eq(outside.indexOf("outside an async") >= 0, true, "普通函数里的 await 必须抛：" + outside);
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
