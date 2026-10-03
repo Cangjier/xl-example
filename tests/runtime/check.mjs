@@ -2081,7 +2081,7 @@ function lowerAndLoad(source, globals, capabilityOf) {
   // 形状照抄产品路径（`tsrun.xl.md`）：从 `HostRef` 取能力号 → 交给 `InvokeWithSink`。
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {});
+    return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {}, host.Machine.Native());
   });
   return { module: lowered, host, machine, table };
 }
@@ -4459,6 +4459,54 @@ check("Date：new Date(毫秒) + getTime/UTC 日历三件（UTC 口径；大毫�
   }
 });
 
+check("Map/Set 的 forEach：建库层**回调脚本闭包**（靠 NativeCall 重入分派循环）", () => {
+  // 第 116 轮。这是建库层**第一次回调脚本** ✓——通道是 `NativeCall`（访问器 getter/setter 早走过 ✓），
+  // 由 `Vm.Native()` 把机器包出来，宿主在接 `host_call` 时把它递进 `InvokeWithSink` ✓。
+  // **已知差异**：`NativeCall` 只带**一个**实参 ✓，所以回调只拿到**值** ✓；
+  // JS 的 Map.forEach `(值, 键, 映射)` 后两个**不传** ✗——`forEach(v => …)` 这种写法两边一致 ✓。
+  const source = [
+    "function run() {",
+    "  const m = new Map();",
+    "  m.set('a', 1);",
+    "  m.set('b', 2);",
+    "  let sum = 0;",
+    "  m.forEach(function (v) { sum = sum + v; });",
+    "  const s = new Set();",
+    "  s.add(3);",
+    "  s.add(4);",
+    "  let total = 0;",
+    "  s.forEach(function (v) { total = total + v; });",
+    "  return [sum, total, m.size];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const m = new Map();
+    m.set("a", 1);
+    m.set("b", 2);
+    let sum = 0;
+    m.forEach((v) => { sum = sum + v; });
+    const s = new Set();
+    s.add(3);
+    s.add(4);
+    let total = 0;
+    s.forEach((v) => { total = total + v; });
+    return [sum, total, m.size];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 3, "Node：Map 的 forEach 求和（前提）");
+  eq(expected[1], 7, "Node：Set 的 forEach 求和（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    eq(at(i).AsInt(), expected[i], "第 " + i + " 项");
+  }
+});
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

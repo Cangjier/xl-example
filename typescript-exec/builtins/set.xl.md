@@ -50,6 +50,9 @@ import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 所以脚本里 `e[0]` 与 `e[1]` 都能用）。
 # const SetClear:int = 618
 `clear()` 的号（清空并返回 `undefined`）。
+# const SetForEach:int = 619
+`forEach(回调)` 的号——与 `Map` 同一条路（靠 `NativeCall` 重入分派循环 ✓）。
+**已知差异**（`NativeCall` 只带一个实参 ✓）：给回调的是**值** ✓，JS 的 `(值, 值, 集合)` 后两个不传 ✗。
 
 # method SetMethodNameOf:(id:int)=>string
 
@@ -63,6 +66,7 @@ if (id === SetValues) return "values";
 if (id === SetKeys) return "keys";
 if (id === SetEntries) return "entries";
 if (id === SetClear) return "clear";
+if (id === SetForEach) return "forEach";
 throw new Error("unimplemented: set method id " + id);
 ```
 
@@ -71,14 +75,14 @@ throw new Error("unimplemented: set method id " + id);
 把方法挂到实例上（每个值都是带本模块号的宿主引用）。
 
 ```ts
-const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear];
+const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear, SetForEach];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, target, SetMethodNameOf(ids[i]), fn);
 }
 ```
 
-# method InvokeSet:(room:RoomChecker, protos:Protos, table:HeapTable, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeSet:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
 
 **Set 的构造函数与方法总入口**（号段 610..699）。
 
@@ -149,6 +153,19 @@ if (id === SetEntries) {
     table.Get(out.Ref).AsArray().Push(pair);
   }
   return out;
+}
+if (id === SetForEach) {
+  // **回调脚本**（与 `Map` 同一条路 ✓）。快照一次长度：回调里可以改这个集合 ✓。
+  // **`call` 也要判空**：宿主没接回调通道时，这里必须**响亮**说清（而不是「调用了非闭包」）✗。
+  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+    throw new Error("forEach needs a function and a call channel (the host must pass one)");
+  }
+  const eachTotal = table.Get(values.Ref).AsArray().GetLength();
+  for (let i = 0; i < eachTotal; i++) {
+    if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
+    call(args[0], Value.Undefined(), table.Get(values.Ref).AsArray().GetAt(i), true);
+  }
+  return Value.Undefined();
 }
 if (id === SetClear) {
   table.Get(values.Ref).AsArray().Truncate(0);

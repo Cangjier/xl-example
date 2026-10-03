@@ -3,6 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable } from "../../runtime/heap.xl.md"
 import { RoomChecker } from "../../runtime/rt.xl.md"
+import { NativeCall } from "../../runtime/props.xl.md"
 import { Protos, DefineAccessor, FindProperty, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
@@ -42,7 +43,7 @@ if (id >= 1 && id < 100) return InvokeArray(room, table, id, self, args);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink)=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null)=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -55,9 +56,12 @@ throw new Error("unimplemented: builtin id " + id);
 
 ```ts
 // **集合那一段要原型表**（它们造普通对象与数组）——`NeverCall` 是写数据属性时的现成空实现。
-// **段内再分段，按窄到宽判，避免重叠**：610..659 `Set`、600..609 `Map`。
-if (id >= 610 && id < 660) return InvokeSet(room, protos, table, id, self, args);
-if (id >= 600 && id < 700) return InvokeMap(room, protos, table, id, self, args);
+// **段内再分段，按窄到宽判，避免重叠**：`Map` 是 600..610（含第 116 轮的 `forEach`），
+// `Set` 是 611..659（其号从 `SetCtor = 611` 起，610 一直空着）。
+// **边界要写成 611 而不是 610** ✗：写成 610 会把 `Map.forEach` 误判成 Set 的（第 116 轮实测：
+// 报的是 `unimplemented: set id 610`，离现场很远）。
+if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args);
+if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self, args);
 // **700..799：语言内部辅助**（第 99 轮开的段）。
 // 它们**不是全局名**——降级层为了落实现某条语法（访问器、`for..of` 的入口）而发的内部调用。
 // 与全局段分开编号，是为了让「脚本能看见的名字」与「降级层的家务事」一眼可辨。

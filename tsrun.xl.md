@@ -248,7 +248,7 @@ host.InstallHost((target, self, args, room) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
   const answered = answer(room, id, self, args);
   if (answered !== null) return answered;
-  return InvokeWithSink(room, table, protos, id, self, args, sink);
+  return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native());
 });
 for (let i = 0; i < request.Capabilities.length; i++) {
   const id = 64 + i;

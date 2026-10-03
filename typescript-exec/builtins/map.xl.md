@@ -61,6 +61,13 @@ import { NeverCall } from "./array.xl.md"
 所以脚本里 `e[0]` / `e[1]` 的写法在两边都一样 ✓）。
 # const MapClear:int = 609
 `clear()` 的号（清空并返回 `undefined`）。
+# const MapForEach:int = 610
+`forEach(回调)` 的号——**这是建库层第一次回调脚本**（第 116 轮）。
+
+**它靠 `NativeCall` 重入分派循环** ✓（访问器 getter/setter 早就走这条路 ✓）：
+内建把回调当普通值调一次，`vm.xl.md` 的 `Native` 把机器包成那个回调 ✓。
+**已知差异**（`NativeCall` 只带**一个**实参 ✓）：这里给回调的是**值** ✓，
+JS 的 `(值, 键, 映射)` 后两个**不传** ✗——`forEach(v => …)` 这种写法两边一致 ✓。
 
 # method Units:(text:string)=>Array<int>
 
@@ -93,6 +100,7 @@ if (id === MapKeys) return "keys";
 if (id === MapValues) return "values";
 if (id === MapEntries) return "entries";
 if (id === MapClear) return "clear";
+if (id === MapForEach) return "forEach";
 throw new Error("unimplemented: map method id " + id);
 ```
 
@@ -121,7 +129,8 @@ SetProperty(room, call, table, self, NameValue(table, name), value);
 把方法挂到实例上（每个值都是带本模块号的宿主引用）。
 
 ```ts
-const ids = [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapEntries, MapClear];
+const ids = [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapEntries, MapClear,
+  MapForEach];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, map, MethodNameOf(ids[i]), fn);
@@ -143,7 +152,7 @@ for (let i = 0; i < length; i++) {
 return -1;
 ```
 
-# method InvokeMap:(room:RoomChecker, protos:Protos, table:HeapTable, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeMap:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
 
 **Map 的构造函数与方法总入口**（号段 600..699）。
 
@@ -221,6 +230,20 @@ if (id === MapEntries) {
     table.Get(out.Ref).AsArray().Push(pair);
   }
   return out;
+}
+if (id === MapForEach) {
+  // **回调脚本**（第 116 轮）：`call` 会重入分派循环 ✓，所以这里能跑脚本闭包 ✓。
+  // **快照一次长度**：回调里可以改这个 Map ✓（JS 也允许）——按当下这一份走，改了的下一轮才见 ✓。
+  // **`call` 也要判空**：宿主没接回调通道时，这里必须**响亮**说清（而不是「调用了非闭包」）✗。
+  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+    throw new Error("forEach needs a function and a call channel (the host must pass one)");
+  }
+  const eachTotal = table.Get(keys.Ref).AsArray().GetLength();
+  for (let i = 0; i < eachTotal; i++) {
+    if (table.Get(keys.Ref).AsArray().IsHole(i)) continue;
+    call(args[0], Value.Undefined(), table.Get(values.Ref).AsArray().GetAt(i), true);
+  }
+  return Value.Undefined();
 }
 if (id === MapClear) {
   // **两个数组一起截到 0**，再把 `size` 写回 0——顺序无所谓（中途没有别人看得见）。
