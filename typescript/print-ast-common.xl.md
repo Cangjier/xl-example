@@ -2501,6 +2501,26 @@ new Set([
   // （实测缺 `AsExpression` + 缺 `AnyKeyword` + 多出一个只盖住 `as any` 的节点）。
   const asIndex = kids.findIndex((k) => k.get("type") === "As" || k.get("type") === "Satisfies");
   if (asIndex > 0) {
+    // **`as` / `satisfies` 是关系级运算符**（`operatorRank` 给 7，与 `<` / `in` / `instanceof` 同档）。
+    // 所以它左边如果坐着**更松**的运算符（`,` = -1、赋值 = 0、`||` / `??` = 1、`&&` = 2、
+    // `|` = 3、`^` = 4、`&` = 5、相等 = 6），**外层节点是那个运算符**，`as` 只绑到它右边那一小段。
+    // 少了这一条，`c = a as number` 会把整条赋值当成 `as` 的左操作数：
+    // 实测产物是 `AsExpression[c = a as number]`（少 12 个字符）外加一个盖住 `c = a` 的
+    // `BinaryExpression`，而 TS 是 `BinaryExpression(c, =, AsExpression(a, number))`。
+    // 切完交给 `foldBinaryFrom` 递归——那一支自己会把 `as` 折在正确的层级上。
+    let cutIndex = -1;
+    let cutRank = 999;
+    for (let i = 1; i < asIndex; i++) {
+      if (!isOperatorUnit(kids[i], ctx)) continue;
+      const rank = operatorRank(textOfNode(kids[i], ctx));
+      if (rank < cutRank) {
+        cutRank = rank;
+        cutIndex = i;
+      }
+    }
+    if (cutIndex > 0 && cutRank < 7) {
+      return foldBinaryFrom(projectExpression(kids.slice(0, cutIndex), ctx), kids.slice(cutIndex), ctx);
+    }
     // **串起来的 `as` / `satisfies` 要一路折到底**（第 154 轮）：`a as const satisfies B`
     // 的产物是 `[a, As(const), Satisfies(B)]` 三格——只取第一个就把后面那个整个丢了
     // （实测 `stmt-adversarial-shapes.ts`：缺 `SatisfiesExpression` / `TypeReference` / `Identifier`）。

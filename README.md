@@ -15,7 +15,6 @@ core/                    与语言无关的语法层骨架（多语言共用）
   common-util.xl.md        全局工具：XmlDecode / FormatXml
   exceptions/              SyntaxException / SourceException / RuntimeException
   extensions/              列表辅助函数（SkipNext / ReplaceAt …）
-  runtime/                 运行时作用域模型
   syntax/                  Token / Branch / Reorganization / Source / Document …
     templates/              跳转与重组模板（Template / Sequence / SymbolTemplate …）
   syntax/messages/         插队消息
@@ -36,8 +35,19 @@ typescript/              TypeScript 的 token 层（本语言专有）
     json/                    <ObjectLiteral> / <ArrayLiteral>（值位的两种字面量）
     string/                  <String> / <ConstString> 与四个转义向导
 
+runtime/                 ★ 与语言无关的执行层（多语言共用）——值模型 / 对象表与 GC / 帧 / IR / 内建库 / 宿主 ABI
+typescript-exec/         ★ TypeScript 的降级层（本语言专有）——AST → runtime 的 IR
+
 cjcli.xl.md              命令行入口（不属于语法层本体）
 ```
+
+执行侧的两棵树（`runtime/` ↔ `typescript-exec/`）是上面这两棵的镜像：`runtime/` 与语言无关，
+`typescript-exec/` 是 TS 专有的降级层——**新增一门语言就是新增 `xxx/` + `xxx-exec/`，
+`core/` 与 `runtime/` 一行都不用动**。
+**这两棵树目前只有口径与目录，还没有实现**：契约见
+[docs/runtime-architecture.md](docs/runtime-architecture.md) 与
+[docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
+同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。
 
 **目录名不是命名空间**：`# namespace` 仍然是扁平的单个 `cangjie`，子层级只用目录表达——
 所以 `typescript/tokens/class/class.xl.md` 里的类就叫 `Class`，不带 `Typescript.Tokens.Class` 这样的前缀。
@@ -102,7 +112,7 @@ npm run cases:tsast:cli    # 发布路径：真的开 cjcli 进程再对拍（�
 | 判据 | 命令 | 口径 |
 | --- | --- | --- |
 | TS 形状（库路径） | `npm run cases:tsast` | 逐节点对 `ts.createSourceFile`：kind / 区间 / 字段名 + 未映射 / 缺 range / 越界，**七条全 0 才绿** |
-| TS 形状（发布路径） | `npm run cases:tsast:cli` | 每个文件跑一次 `cjcli --ts-ast`，拿 stdout 的 JSON 对拍（1407 个进程） |
+| TS 形状（发布路径） | `npm run cases:tsast:cli` | 每个文件跑一次 `cjcli --ts-ast`，拿 stdout 的 JSON 对拍（进程数 = 语料数） |
 | 字节稳定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | 用例体检 | `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
 
@@ -296,11 +306,11 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | 命令 | 口径 |
 | --- | --- |
 | `npm run cases:tsast` | 逐节点比 **kind / 区间 / 字段名**；未映射（透传进产物的标签）/ 缺 range / 区间越界也一并判绿，**七条全 0 才退出码 0** |
-| `npm run cases:tsast:cli` | **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍（全语料 1407 个进程，按需跑） |
+| `npm run cases:tsast:cli` | **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍（全语料，按需跑） |
 | `npm run samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 
 产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后是 100%**：
-语料 1407 份**逐文件完全一致 1407 / 1407**，四个方向（缺 / 漂移 / 多出 / 字段名）全 0，
+语料 1405 份（`dist/ts/**` 也在语料里，所以这个数随运行期规范一起长）**逐文件完全一致 1405 / 1405**，四个方向（缺 / 漂移 / 多出 / 字段名）全 0，
 未映射 0 类 / 0 处、缺 range 0、区间越界 0。
 
 它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
@@ -314,10 +324,14 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | 语料 **1407** 个文件、解析成功 1407、抛异常 0；**完全一致 1407 / 1407**，缺 0 / 漂移 0 / 多出 0 / 字段名 0 / 未映射 0 / 缺 range 0 / 区间越界 0，退出码 0（trivia 越界 2 处单列：注释与软换行是被扫进来的、不参与签入签出，是约定的形态） |
-| `cases:tsast:cli` | **1407** 个 `cjcli` 进程：解析成功 1407、失败 0，**完全一致 1407 / 1407**，四方向 0，报未映射标签的文件 0 个 |
+| `cases:tsast` | 语料 **1405** 个文件、解析成功 1405、抛异常 0；**完全一致 1405 / 1405**，缺 0 / 漂移 0 / 多出 0 / 字段名 0 / 未映射 0 / 缺 range 0 / 区间越界 0，退出码 0（trivia 越界 2 处单列：注释与软换行是被扫进来的、不参与签入签出，是约定的形态） |
+| `cases:tsast:cli` | 发布路径（慢，按需跑）：**语料全部**、解析成功全部、失败 0，**完全一致**，四方向 0，报未映射标签的文件 0 个 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具逐字节一致，且「命令行 = 库 API」 |
 | `cases:check` | **1035** 条用例，0 条不合格 |
+
+**语料数是活的。** `dist/ts/**` 也在语料里（[ts-ast.mjs:423](tests/parse/ts-ast.mjs#L423)），
+所以**每新增一条规范就多一份语料**：上面的具体数字是**本轮读数**，
+判据本身是「**全部一致**」与「七条全 0」，不是某个具体数字。
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
@@ -342,7 +356,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   加上 `return` / `throw` / `break` / `continue` / `yield` 与后缀 `++` / `--` 的受限产生式）。
   规范里 ASI 还有一条「**语法不允许时**才插分号」，本工程不看完整文法、只看形状，
   所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:tsast` 巡检（它比的是与 TS 的 AST
-  逐节点一致，语料 1407 份当前全一致）。
+  逐节点一致，语料全部一致——当前 1405 份）。
 - **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
   这是**独立于 TypeScript 的语法扩展**，不在 `.ts` 范围内。
 - **嵌套解构的绑定名进的是同一张逗号分隔表**（`arrayPattern`），丢的是**结构**而不是名字：

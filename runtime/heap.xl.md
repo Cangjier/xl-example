@@ -1,0 +1,1344 @@
+# dependencies
+```xl
+import { Value, ValueTag } from "./value.xl.md"
+```
+
+# namespace cangjie
+
+执行层的堆：**对象表 + 句柄**。契约见 [docs/runtime-architecture.md](../docs/runtime-architecture.md) §4 与 §9。
+
+本文件只管**存储**（对象长什么样、句柄怎么发、账怎么记）。**属性的语义**（原型链查找、
+getter/setter 的调用、`delete`、`in`、内联缓存）不在这里，它们在 `rt_get_prop` 那一层——
+存储与语义分开，是为了让回收器与装载验证只看这一个文件就能数清「哪些格子能装句柄」。
+
+**为什么用句柄而不是指针。** 三个理由，缺一不可：句柄**稳定**（回收器不移动），所以宿主
+跨调用持有它不会失效；句柄是整数，所以 IR 里没有裸指针（安全第 2 层）；句柄可以被边界检查
+兜住，指针不能（越界句柄是一个可抛的脚本异常，野指针是崩溃）。
+
+**句柄 0 是哨兵。** `Objects[0]` 是一个 `Tag` 为 `Undefined` 的空位，永不分配。
+于是「`Value.Ref` 还是默认值 0」永远不会被误当成合法对象——这条挡住的是一整类
+「忘了初始化 → 悄悄指向第 0 个对象」的 bug。
+
+**`Tag` 为 `Undefined` 就是「这一格是空的」。** 所以堆里**不存在**活着的 `Tag=Undefined`
+对象，`IsValid` 与 `Retire` 都靠这一条，回收器也靠它跳空格。
+
+**记账单位是「计费字节」，不是目标的真实字节。** 下面的 `*Charge` 常量描述的是**规范层的
+布局**（`Value` 多大、每格属性多大……）。一个把值压到 8 字节的目标**照样按这套常量记账**：
+
+> 记账是**预算货币**，不是物理测量。若按各自的真实布局记账，同一个脚本会在 ts 上跑到第
+> 100 万步 OOM、在 C++ 上跑到第 300 万步 OOM——「同 IR + 同输入 = 同输出」这条判据当场作废。
+> 精确的物理布局是各目标的优化，**账本必须只有一份**。
+
+**账在三个时刻被维护。** ① 分配：载荷填好后**一次结账**（`Finish`）；② 回收：退掉这一格
+上次记的账；③ **回收的标记阶段：全量重算**。理由是热路径上没法保证每次 `push` 都来结账
+（数组追加一个元素就是一次），所以两次回收之间的增长会**少记**：
+
+> 少记的后果是「真正用掉的内存略高于账本」，不是「上限失效」。所以**回收结束后必须用重算
+> 出来的总额重新判一次上限**——仍超就再收一次，收不动才抛 OOM。这条是账本与安全第 4 层
+> 的接缝，写在 `gc.xl.md` 里。
+
+# const ValueCharge:int = 16
+
+一个 `Value` 的计费字节（胖联合：标签 + 整数 + 浮点 + 句柄）。
+
+# const PropertyCharge:int = 24
+
+一格属性的计费字节（键句柄 + 种类 + 值 + getter + setter + 标志）。
+
+# const ObjectCharge:int = 32
+
+一个对象头的计费字节（标签 + 标记位 + 上次记账 + 原型句柄 + 属性表 + 十一个载荷槽）。
+
+# const CodeUnitCharge:int = 2
+
+一个 UTF-16 码元的计费字节。
+
+# const HoleCharge:int = 1
+
+一个「洞」标记的计费字节（稀疏数组才有）。
+
+# const HashModulus:int = 16777213
+
+字符串哈希的模。
+
+**为什么是「小于 2²⁴ 的质数」**：哈希里要做 `hash * 31 + unit`，而各目标的 `int` 宽度不同
+（ts 是双精度，C++ 是 32 位）。取小于 2²⁴ 的模，保证 `hash * 31 < 2²⁹`——**任何目标的 `int`
+都装得下**，双精度也不丢精度。用 FNV 那种 32 位环绕乘法就必须有位重解释，那会把某一个目标
+的语义钉进共用层（`runtime/value.xl.md` 那节「宽度与溢出」同一笔账）。
+
+# const PropertyFlagEnumerable:int = 1
+
+属性可枚举（`Object.keys` / `for..in` 看得见）。
+
+# const PropertyFlagWritable:int = 2
+
+属性可写。
+
+# const PropertyFlagConfigurable:int = 4
+
+属性可配置（可 `delete`、可改属性种类）。
+
+# const PropertyFlagsAll:int = 7
+
+三个标志全开——普通赋值产生的属性就是它。
+
+# method PopInt:(items:Array<int>)=>int
+
+从整数数组尾部弹一个；空则给 `-1`。
+
+存在理由是**一处**收住 `Array.pop()` 在严格类型下的 `undefined`：句柄约定 `-1` 表示「没有」，
+于是各目标只需要一个 `pop` 映射，不必在每个调用点判空。
+
+```ts
+if (items.length === 0) return -1;
+const value = items.pop();
+if (value === undefined) return -1;
+return value;
+```
+
+# method HashUnits:(units:Array<int>)=>int
+
+UTF-16 码元序列的哈希（多项式 rolling hash，模见 `HashModulus`）。
+
+**不读堆、不调库**：只用整数乘加与取模，逐目标都成立。
+
+```ts
+let hash = 7;
+for (let i = 0; i < units.length; i++) {
+  hash = (hash * 31 + units[i]) % HashModulus;
+}
+return hash;
+```
+
+# enum PropertyKind
+
+属性的种类。
+
+- case Data
+数据属性：值在 `Value` 里。
+- case Accessor
+访问器属性：值是 `Getter` / `Setter` 两个可调用对象，`Value` 无意义。
+
+# class Property
+
+一格属性。
+
+**键是句柄，不是字符串**：它指向一个 `HeapString` 或 `HeapSymbol`（看那一格的 `Tag`）。
+字符串键按**内容**比，符号键按**身份**比——这个分叉由 `rt_get_prop` 负责，本文件只存。
+
+## field Key:int = 0
+
+键的句柄（字符串或符号）。
+
+## field Kind:PropertyKind = PropertyKind.Data
+
+属性种类。
+
+## field Value:Value = new Value()
+
+数据值。`Kind` 为 `Accessor` 时无意义。
+
+## field Getter:Value = new Value()
+
+取值器（可调用对象）。`Kind` 为 `Data` 时无意义。
+
+## field Setter:Value = new Value()
+
+赋值器（可调用对象）。`Kind` 为 `Data` 时无意义。
+
+## field Flags:int = 7
+
+三个属性标志的位掩码，默认全开（`PropertyFlagsAll`）。
+
+## constructor:(key:int, value:Value)=>void
+
+造一个数据属性。这是绝大多数赋值的路径，所以只留这一个构造器（xl 规定一个类至多一个）。
+
+```ts
+this.Key = key;
+this.Kind = PropertyKind.Data;
+this.Value = value;
+```
+
+## static method Accessor:(key:int, getter:Value, setter:Value)=>Property
+
+造一个访问器属性。
+
+```ts
+const result = new Property(key, Value.Undefined());
+result.Kind = PropertyKind.Accessor;
+result.Getter = getter;
+result.Setter = setter;
+return result;
+```
+
+## method IsEnumerable:()=>bool
+
+是否可枚举。
+
+```ts
+return (this.Flags & PropertyFlagEnumerable) !== 0;
+```
+
+## method IsAccessor:()=>bool
+
+是否访问器属性。
+
+```ts
+return this.Kind === PropertyKind.Accessor;
+```
+
+## method Clone:()=>Property
+
+值语义复制：**五个载荷一起抄**（与 `Value.Clone` 同一条理由——只抄一部分会在某个目标上
+悄悄换掉载荷）。
+
+```ts
+const result = new Property(this.Key, this.Value.Clone());
+result.Kind = this.Kind;
+result.Getter = this.Getter.Clone();
+result.Setter = this.Setter.Clone();
+result.Flags = this.Flags;
+return result;
+```
+
+# class HeapString
+
+字符串对象。**内容是 UTF-16 码元序列**（`ValueTag.String` 那一档的载荷）。
+
+为什么是显式的 `Array<int>` 而不是各目标的原生字符串：ts 与 C# 的原生字符串本来就是 UTF-16，
+但 C++ 的 `std::string` 是字节、Rust 的 `String` 是 UTF-8——**用原生字符串就等于把「下标」
+的含义交给目标去解释**，而 JS 的 `.length` / `s[i]` / `charCodeAt` 全是码元语义。
+显式存码元，语义在四个目标上完全相同；ts 上慢一点，**这笔账记在这里**，
+各目标将来可以用 `### ts` / `### cpp` 覆盖段换成原生缓冲，只要**可观测语义不变**。
+
+**不做驻留**（v1）：属性键按内容比而不是按句柄比，于是不需要驻留表——
+省掉一整个子系统，也省掉「驻留表是根，脚本狂造键就泄漏」那条面。代价是属性查找慢一档，
+**这笔账也记在这里**；驻留是 P4 的优化。
+
+## field Units:Array<int> = []
+
+UTF-16 码元序列。
+
+## constructor:(units:Array<int>)=>void
+
+以码元序列构造。
+
+```ts
+this.Units = units;
+```
+
+## method GetLength:()=>int
+
+码元个数——就是 JS 的 `s.length`。
+
+```ts
+return this.Units.length;
+```
+
+## method CodeAt:(index:int)=>int
+
+取第 `index` 个码元。**调用方保证下标在范围内**（越界检查在 `rt_*` 层，
+因为那里才知道「该返回 `undefined` 还是该抛」）。
+
+```ts
+return this.Units[index];
+```
+
+## method Equals:(other:HeapString)=>bool
+
+按**内容**比。字符串是原始值，`===` 就是按内容比（不看句柄）。
+
+```ts
+if (this.Units.length !== other.Units.length) return false;
+for (let i = 0; i < this.Units.length; i++) {
+  if (this.Units[i] !== other.Units[i]) return false;
+}
+return true;
+```
+
+## method Hash:()=>int
+
+内容哈希。v1 只用于属性表的哈希索引。
+
+```ts
+return HashUnits(this.Units);
+```
+
+## method Charge:()=>int
+
+计费字节。**只算自己的额外存储**：对象头由 `HeapObject.Charge` 记一次——
+两边都算就会把同一块内存记两遍，账本虚高，堆上限提前触发。
+
+```ts
+return this.Units.length * CodeUnitCharge;
+```
+
+# class HeapSymbol
+
+符号对象（`ValueTag.Symbol` 那一档的载荷）。
+
+**身份是 `Id`，不是内容**：`Symbol("a") !== Symbol("a")`，而两个内容相同的字符串相等。
+所以符号没有 `Equals`——要判等就判 `Id`。
+
+## field Id:int = 0
+
+全局唯一的身份号。
+
+## field Description:int = 0
+
+描述字符串的句柄；`0` 表示没有描述。
+
+## constructor:(id:int, description:int)=>void
+
+造一个符号。
+
+```ts
+this.Id = id;
+this.Description = description;
+```
+
+## method Charge:()=>int
+
+计费字节。符号没有额外存储，所以是 0（对象头由 `HeapObject.Charge` 记）。
+
+```ts
+return 0;
+```
+
+# class HeapArray
+
+数组对象（`ValueTag.Array` 那一档的载荷）。
+
+**洞（hole）是独立的一格**：`delete a[0]` 之后 `a[0] === undefined` 为真，但 `0 in a` 为假，
+`Object.keys(a)` 看不到它——所以「洞」与「显式的 `undefined`」必须能分辨。
+`Holes` 为空数组表示**全密**（绝大多数数组），这时不占额外内存也不做额外判断。
+
+## field Elements:Array<Value> = []
+
+密集元素区。
+
+## field Holes:Array<bool> = []
+
+洞标记，与 `Elements` 等长；**空数组表示没有洞**。
+
+## method GetLength:()=>int
+
+元素个数——就是 JS 的 `a.length`。
+
+```ts
+return this.Elements.length;
+```
+
+## method IsHole:(index:int)=>bool
+
+第 `index` 格是不是洞。
+
+```ts
+if (this.Holes.length === 0) return false;
+return this.Holes[index];
+```
+
+## method GetAt:(index:int)=>Value
+
+取第 `index` 格；越界或洞都给 `undefined`。
+
+```ts
+if (index < 0 || index >= this.Elements.length) return Value.Undefined();
+if (this.IsHole(index)) return Value.Undefined();
+return this.Elements[index];
+```
+
+## method SetAt:(index:int, value:Value)=>void
+
+写第 `index` 格。
+
+**跨过末尾写要按 JS 的规矩补洞**：`const a = [1]; a[2] = 3` 之后**第 1 格是洞**，
+不是显式的 `undefined`（`1 in a` 为假）。
+
+这里有一条容易写坏的地方，**它在判据里被抓过一次**：从全密数组（`Holes` 为空）变长时，
+必须**先把既有的格子标成「非洞」再开洞**。少了这一步，`Holes` 会与 `Elements` 错位，
+于是**本来有值的格子被当成洞**——读出来是 `undefined`，而它明明有值。
+
+另外：**正好接在末尾**（`index === Elements.length`）且当前全密时不引入 `Holes`——
+`a.push(x)` 与 `a[a.length] = x` 是最常见的两种写法，不该为它们建一张洞表。
+
+```ts
+if (index < 0) return;
+if (index === this.Elements.length && this.Holes.length === 0) {
+  this.Elements.push(value);
+  return;
+}
+if (index >= this.Elements.length) {
+  while (this.Holes.length < this.Elements.length) {
+    this.Holes.push(false);
+  }
+  while (this.Elements.length < index) {
+    this.Elements.push(Value.Undefined());
+    this.Holes.push(true);
+  }
+  this.Elements.push(value);
+  this.Holes.push(false);
+  return;
+}
+this.Elements[index] = value;
+if (this.Holes.length > 0) this.Holes[index] = false;
+```
+
+## method SetHole:(index:int)=>void
+
+把第 `index` 格变成洞（`delete a[i]`）。长度不变——JS 的 `delete` 不缩数组。
+
+```ts
+if (index < 0 || index >= this.Elements.length) return;
+while (this.Holes.length < this.Elements.length) {
+  this.Holes.push(false);
+}
+this.Elements[index] = Value.Undefined();
+this.Holes[index] = true;
+```
+
+## method Push:(value:Value)=>void
+
+尾部追加。
+
+```ts
+if (this.Holes.length > 0) this.Holes.push(false);
+this.Elements.push(value);
+```
+
+## method Truncate:(length:int)=>void
+
+把长度改成 `length`（`a.length = n` 的落点）。
+
+**变长时新增的格子全是洞**——这是 JS 的语义（`const a = [1]; a.length = 3` 之后
+`1 in a` 是假）。所以变长之前要把既有的格子先补成「非洞」，否则一个全密数组变长之后
+会变成「新增的是实值」——那是**另一个**语义。
+
+```ts
+if (length < 0) throw new Error("array length cannot be negative");
+if (length < this.Elements.length) {
+  while (this.Elements.length > length) {
+    this.Elements.pop();
+    if (this.Holes.length > 0) this.Holes.pop();
+  }
+  return;
+}
+if (length === this.Elements.length) return;
+while (this.Holes.length < this.Elements.length) {
+  this.Holes.push(false);
+}
+while (this.Elements.length < length) {
+  this.Elements.push(Value.Undefined());
+  this.Holes.push(true);
+}
+```
+
+## method Charge:()=>int
+
+计费字节。洞密集的稀疏数组按实际长度记账——这是**规范选的**口径，不是测量值。
+
+```ts
+let total = this.Elements.length * ValueCharge;
+if (this.Holes.length > 0) total = total + this.Holes.length * HoleCharge;
+return total;
+```
+
+# class HeapClosure
+
+降级期造出来的闭包（`ValueTag.Closure` 那一档的载荷）。
+
+它把「哪段代码」与「哪份环境」绑在一起：`Code` 是 IR 里的函数模板入口，`Env` 是环境记录
+的句柄。**捕获表在降级期算好**，运行期只是建一条记录并记住它的句柄。
+
+## field Code:int = 0
+
+函数模板在 IR 里的入口下标。
+
+## field Env:int = 0
+
+环境记录的句柄（`0` 表示没有捕获任何东西）。
+
+## field Arity:int = 0
+
+形参个数（不含剩余参数）。
+
+## field Name:int = 0
+
+名字字符串的句柄；`0` 表示匿名。
+
+## constructor:(code:int, env:int, arity:int, name:int)=>void
+
+造一个闭包。
+
+```ts
+this.Code = code;
+this.Env = env;
+this.Arity = arity;
+this.Name = name;
+```
+
+## method Charge:()=>int
+
+计费字节。闭包没有额外存储（代码与环境都在别处），所以是 0。
+
+```ts
+return 0;
+```
+
+# class HeapEnv
+
+一个**环境记录**（`ValueTag.Object` 那一档的载荷——环境是引擎内部对象，脚本看不到它）。
+
+闭包捕获就住在这里：一格一个值，`Parent` 指向**外层作用域**的环境。
+
+**父链是引用，不是拷贝**：同一份环境被多个闭包共享时，一个写、另一个看得见——
+这是闭包语义的核心（判据里有一条专钉它）。`Parent` 是句柄，回收器顺着它走
+（`gc.xl.md` 的 `Trace` 有 `Env` 那一支）。
+
+## field Slots:Array<Value> = []
+
+捕获的格子。
+
+## field Parent:int = 0
+
+外层环境的句柄；`0` 表示没有（最外层）。
+
+## constructor:(slotCount:int, parent:int)=>void
+
+按格数造一个环境，格子先全部填成 `undefined`（**不留空格**：见 `HeapFrame` 的同一条理由）。
+
+```ts
+this.Parent = parent;
+this.Slots = [];
+for (let i = 0; i < slotCount; i++) {
+  this.Slots.push(Value.Undefined());
+}
+```
+
+## method Charge:()=>int
+
+计费字节。格子是这一格的主要开销。
+
+```ts
+return this.Slots.length * ValueCharge;
+```
+
+# enum GeneratorState
+
+生成器的状态。
+
+- case Suspended
+挂起：帧冻着，等下一次 `next()`。
+- case Running
+正在跑：这时候再 `next()` 是**非法**（JS 抛 `TypeError`，v1 抛宿主错误）。
+- case Done
+跑完了：帧已经 `return` 出去，之后每次 `next()` 都给 `{value: undefined, done: true}`。
+
+# class HeapGenerator
+
+一个**生成器对象**（`ValueTag.Object` 那一档的载荷——脚本看得见它，但看不到里面）。
+
+它只做一件事：**把冻住的帧挂在身上**。所以「生成器」在引擎里的全部含义就是
+`{ 帧句柄, 挂起时收到的值, 状态 }`——`yield` 的语义由 `vm.xl.md` 的 `suspend`/`resume`
+与「恢复时把帧压回栈上」那一套完成。
+
+`ResumeValue` **不在生成器身上**：`await` 也需要「恢复时送进来的值」，
+所以那一格归**帧**（`HeapFrame.ResumeValue`）——**一份状态只存一处**，
+两个恢复机制（生成器的 `next(v)` 与承诺的兑现）都往同一格写。
+
+## field Frame:int = 0
+
+冻住的那一帧的句柄；`0` 表示还没有（不该出现）。
+
+## field State:int = 0
+
+`GeneratorState` 的值。
+
+## constructor:(frame:int)=>void
+
+造一个生成器，初始挂起（帧还没跑，等第一次 `next()`）。
+
+```ts
+this.Frame = frame;
+this.State = GeneratorState.Suspended;
+```
+
+## method Charge:()=>int
+
+计费字节：只剩两个整数，**没有额外存储**（那个值在帧上）。
+
+```ts
+return 0;
+```
+
+# enum PromiseState
+
+承诺的状态。
+
+- case Pending
+还没结清：等着它的那些帧挂在 `Reactions` 上。
+- case Fulfilled
+已兑现：`Value` 就是兑现值。
+- case Rejected
+已拒绝：v1 里**还没有拒绝的路径**（那要错误对象那一层），所以这一档只占位。
+
+# class HeapPromise
+
+一个**承诺**（`ValueTag.Object` 那一档的载荷——脚本看得见它，但看不到里面）。
+
+引擎只需要它三样东西：**状态**、**兑现值**、**等着它的那些帧**。
+
+`Reactions` 存的是**帧句柄**而不是回调：`await` 的语义就是「把这个帧挂在这儿，
+等结了再放回去跑」，而真回调（`.then(fn)`）是语言层建库的事——它们将来走同一张表
+（把回调包成一个帧，或者让建库层自己排微任务）。
+
+**它也是回收的根链一环**：等着它的帧（以及帧里的活值）全靠这条链活着。
+
+## field State:int = 0
+
+`PromiseState` 的值。
+
+## field Value:Value = new Value()
+
+兑现值。
+
+## field Reactions:Array<int> = []
+
+等着它的帧句柄（`await` 挂起来的那些）。
+
+## constructor:(state:int, value:Value)=>void
+
+造一个承诺。
+
+```ts
+this.State = state;
+this.Value = value;
+this.Reactions = [];
+```
+
+## method Charge:()=>int
+
+计费字节：一个值 + 反应表里每格一个句柄。
+
+```ts
+return ValueCharge + this.Reactions.length * 4;
+```
+
+# class HeapIterator
+
+**一个迭代游标**：`{ 源, 走到第几格 }`。
+
+**为什么要它**：`for..of` 要的是**逐次推进**的状态。数组没有这种状态（它只是一串值），
+所以「迭代器」必须是一个**独立的、活的**东西——这正是「游标」与「容器」的区别。
+
+**为什么不让降级层自己拿个槽当游标**：那样 `for..of` 只能对数组成立
+（生成器那一边的状态在生成器身上）。有了游标记录，`iter_new` 可以在**引擎内部**
+按载荷分派——数组给游标、生成器给生成器自己——**IR 侧因此不必有类型判断**
+（`ir.xl.md` 里没有、也不该有「这是数组吗」这种指令）。
+
+`Source` 存句柄而不是内联：数组可以在游标活着的时候被改（`push`），
+**游标必须看见那些改动**——JS 的迭代语义就是这样（长度也是每次现问）。
+
+## field Source:int = 0
+
+源数组的句柄。
+
+## field Index:int = 0
+
+下一次该给第几格。
+
+## constructor:(source:int)=>void
+
+记下源数组，游标从第 0 格开始。
+
+```ts
+this.Source = source;
+this.Index = 0;
+```
+
+## method Charge:()=>int
+
+计费字节：两个整数，**没有额外存储**（源数组由它自己那格算）。
+
+```ts
+return 0;
+```
+
+# class HeapFrame
+
+一个**调用帧**（`ValueTag.Object` 那一档的载荷——帧是引擎内部对象，脚本永远看不到它）。
+
+帧是**堆对象**而不是宿主栈上的一格，理由只有一条但足够：**生成器与 `await` 要把帧冻在中途**。
+帧长在宿主栈上，就没法「跑一半放下、过会儿接着跑」。
+
+字段里 `Prev` 是调用者、`ReturnSlot` 是「返回值写回调用者的哪一格」——
+两者合起来就是调用栈，而**遍历它不需要递归**（回收器的标记栈、`vm.xl.md` 的返回都一样）。
+
+## field Code:int = 0
+
+函数模板入口（与 `HeapClosure.Code` 同一套编号，指向函数表）。
+
+## field Env:int = 0
+
+环境记录句柄；`0` 表示没有。
+
+## field Pc:int = 0
+
+**下一条**要执行的指令（不是当前这条——`vm.xl.md` 先前进再执行，跳转指令自己覆盖）。
+
+## field Slots:Array<Value> = []
+
+槽数组。**槽数在装载时定死**（`FunctionInfo.SlotCount`），运行期不增长。
+
+## field Prev:int = 0
+
+调用者的帧句柄；`0` 表示这是栈底。
+
+## field ReturnSlot:int = -1
+
+返回值写回调用者的哪一格（也就是调用时的**参数基址**）；`-1` 表示没有调用者。
+
+## field This:Value = new Value()
+
+调用时的**接收者**（`obj.m()` 里的 `obj`）。普通函数调用给 `undefined`（严格模式语义）。
+
+**它可能在回收时是唯一的引用**（`this` 只挂在帧上），所以回收器必须顺着它走
+（`gc.xl.md` 的 `Trace` 有帧那一支）。
+
+## field ConstructTarget:int = 0
+
+`new` 造出来的那个对象的句柄；`0` 表示这不是一次构造调用。
+
+`return` 时按 JS 的规矩收尾：**构造函数返回对象就用那个对象，否则用这里这个**
+（`vm.xl.md` 的 `DoReturn`）。少了这一条，`new` 出来的东西就不是 JS 语义里的那个。
+
+## field Generator:int = 0
+
+这一帧属于哪个生成器（句柄）；`0` 表示它是普通调用帧。
+
+**恢复时靠它把 `next(v)` 传来的值找回来**（`HeapGenerator.ResumeValue`）——
+所以它也必须是回收的根（`gc.xl.md` 的 `Trace` 顺着它走）。
+
+## field ResumeValue:Value = new Value()
+
+**这次恢复送进来的值**：生成器的 `next(v)` 与 `await p` 的兑现值都写这一格，
+由紧跟其后的 `resume` 指令搬进槽里。
+
+**它归帧、不归生成器也不归承诺**：两个恢复机制（`iter_next` 与承诺兑现）写的是同一格，
+`resume` 只认帧——于是「谁把我恢复的」这件事在指令层不需要分叉。
+
+**它必须是根**：送进来的可能是个堆对象（比如 `next({...})`）。
+
+## field Done:bool = false
+
+这一帧是否已经跑完。给挂起 / 恢复用（`vm.xl.md` 的 `suspend` / `resume`）。
+
+## constructor:(code:int, slotCount:int, prev:int, returnSlot:int)=>void
+
+按槽数开一帧，槽先全部填成 `undefined`（**不留空槽**：未初始化的槽若带着上一轮的垃圾值，
+回收器会顺着它走）。
+
+```ts
+this.Code = code;
+this.Env = 0;
+this.Pc = 0;
+this.Prev = prev;
+this.ReturnSlot = returnSlot;
+this.Done = false;
+this.This = new Value();
+this.ConstructTarget = 0;
+this.Generator = 0;
+this.ResumeValue = new Value();
+this.Slots = [];
+for (let i = 0; i < slotCount; i++) {
+  this.Slots.push(Value.Undefined());
+}
+```
+
+## method Charge:()=>int
+
+计费字节。槽数组是这一格的主要开销；`This` 也是一个值，算进去。
+
+```ts
+return ValueCharge + this.Slots.length * ValueCharge;
+```
+
+# class HeapFunction
+
+内建函数或宿主函数（`ValueTag.Function` 那一档的载荷）。
+
+脚本看不见 `HostId`：它只能是「内建 id 表」或「宿主能力表」里的号，**没有别的入口**
+（安全第 6 层）。
+
+## field HostId:int = 0
+
+调用的目标号（内建走 id 表，宿主能力走能力表）。
+
+## field Arity:int = 0
+
+形参个数。
+
+## field Name:int = 0
+
+名字字符串的句柄；`0` 表示匿名。
+
+## constructor:(hostId:int, arity:int, name:int)=>void
+
+造一个函数对象。
+
+```ts
+this.HostId = hostId;
+this.Arity = arity;
+this.Name = name;
+```
+
+## method Charge:()=>int
+
+计费字节。函数对象没有额外存储，所以是 0。
+
+```ts
+return 0;
+```
+
+# class HeapHostRef
+
+宿主交给脚本的不透明句柄（`ValueTag.HostRef` 那一档的载荷）。
+
+脚本**只能**把它原样传回宿主。`Opaque` 由宿主解释，规范层永远不看它的内部。
+
+## field CapabilityId:int = 0
+
+它属于哪一类能力（注册宿主能力时给的号）。
+
+## field Opaque:int = 0
+
+宿主自己的不透明载荷。
+
+## constructor:(capabilityId:int, opaque:int)=>void
+
+造一个宿主句柄。
+
+```ts
+this.CapabilityId = capabilityId;
+this.Opaque = opaque;
+```
+
+## method Charge:()=>int
+
+计费字节。宿主句柄没有额外存储，所以是 0。
+
+```ts
+return 0;
+```
+
+# class HeapObject
+
+对象表里的一格。
+
+**胖对象**：一个类装下所有载荷，非当前 `Tag` 的载荷一律为 `null`。这样回收器只要看 `Tag`
+就知道该顺着哪几个格子走、计费该算哪几块。代价是表项本身大一点，**这笔账记在这里**；
+目标内可以换成载荷联合或平行数组（结构体数组），只要可观测语义不变、账本口径不变。
+
+## field Tag:ValueTag = ValueTag.Undefined
+
+这一格的标签。只取**七档引用型**；`Undefined` 是「这一格是空的」（见文首哨兵一节）。
+
+## field Mark:bool = false
+
+标记位，回收器用。
+
+## field ChargedBytes:int = 0
+
+这一格**上次记账**的字节数。`Retire` 退的是它（不是重算的 `Charge()`）——
+因为载荷可能在上次结账之后被改过，退错了账就会把账本推高或推低。
+
+## field Proto:int = 0
+
+原型对象的句柄（`0` 表示没有原型）。原型链查找是 `rt_get_prop` 的活，这里只存。
+
+## field Props:Array<Property> = []
+
+自有属性表。v1 是线性数组；超过阈值转哈希索引是**这一层**的事（存储优化），
+不是查询语义的事。
+
+## field Str:HeapString | null = null
+
+字符串载荷（`Tag` 为 `String` 时非空）。
+
+## field Sym:HeapSymbol | null = null
+
+符号载荷（`Tag` 为 `Symbol` 时非空）。
+
+## field Arr:HeapArray | null = null
+
+数组载荷（`Tag` 为 `Array` 时非空）。
+
+## field Closure:HeapClosure | null = null
+
+闭包载荷（`Tag` 为 `Closure` 时非空）。
+
+## field Function:HeapFunction | null = null
+
+函数载荷（`Tag` 为 `Function` 时非空）。
+
+## field Host:HeapHostRef | null = null
+
+宿主句柄载荷（`Tag` 为 `HostRef` 时非空）。
+
+## field Frame:HeapFrame | null = null
+
+帧载荷（帧是引擎内部对象，`Tag` 为 `Object`；脚本拿不到它的句柄）。
+
+## field Env:HeapEnv | null = null
+
+环境载荷（环境也是引擎内部对象，`Tag` 为 `Object`；脚本同样拿不到它的句柄）。
+
+## field Generator:HeapGenerator | null = null
+
+生成器载荷（**脚本看得见生成器对象**，但看不到它身上挂的帧）。
+
+## field Promise:HeapPromise | null = null
+
+承诺载荷（脚本看得见承诺，但看不到它的状态与反应表）。
+
+## field Iterator:HeapIterator | null = null
+
+迭代游标载荷（**脚本看不见它**：`iter_new` 的产物只在引擎与降级层之间流转）。
+
+## method Charge:()=>int
+
+这一格按**当前载荷**算出的计费字节。
+
+```ts
+let total = ObjectCharge + this.Props.length * PropertyCharge;
+if (this.Str !== null) total = total + this.Str.Charge();
+if (this.Sym !== null) total = total + this.Sym.Charge();
+if (this.Arr !== null) total = total + this.Arr.Charge();
+if (this.Closure !== null) total = total + this.Closure.Charge();
+if (this.Function !== null) total = total + this.Function.Charge();
+if (this.Host !== null) total = total + this.Host.Charge();
+if (this.Frame !== null) total = total + this.Frame.Charge();
+if (this.Env !== null) total = total + this.Env.Charge();
+if (this.Generator !== null) total = total + this.Generator.Charge();
+if (this.Promise !== null) total = total + this.Promise.Charge();
+if (this.Iterator !== null) total = total + this.Iterator.Charge();
+return total;
+```
+
+## method Clear:()=>void
+
+把这一格清空并置成「空的」。`Retire`、`AllocateRaw` 与回收器的清扫阶段共用它。
+
+**载荷清空是必须的**：留着旧载荷会让已经归还的格子仍然指向别的对象——那是一整类
+「回收之后还活着」的 bug，也会让回收器顺着空格走下去。
+
+```ts
+this.Tag = ValueTag.Undefined;
+this.Mark = false;
+this.ChargedBytes = 0;
+this.Proto = 0;
+this.Props = [];
+this.Str = null;
+this.Sym = null;
+this.Arr = null;
+this.Closure = null;
+this.Function = null;
+this.Host = null;
+this.Frame = null;
+this.Env = null;
+this.Generator = null;
+this.Promise = null;
+this.Iterator = null;
+```
+
+## method AsString:()=>HeapString
+
+取字符串载荷；不是字符串就抛（**内部不变式被破坏**，是引擎的 bug，不是脚本的错——
+所以它是宿主异常，不是脚本异常）。
+
+```ts
+if (this.Str === null) throw new Error("heap object is not a string");
+return this.Str;
+```
+
+## method AsSymbol:()=>HeapSymbol
+
+取符号载荷。
+
+```ts
+if (this.Sym === null) throw new Error("heap object is not a symbol");
+return this.Sym;
+```
+
+## method AsArray:()=>HeapArray
+
+取数组载荷。
+
+```ts
+if (this.Arr === null) throw new Error("heap object is not an array");
+return this.Arr;
+```
+
+## method AsClosure:()=>HeapClosure
+
+取闭包载荷。
+
+```ts
+if (this.Closure === null) throw new Error("heap object is not a closure");
+return this.Closure;
+```
+
+## method AsFunction:()=>HeapFunction
+
+取函数载荷。
+
+```ts
+if (this.Function === null) throw new Error("heap object is not a function");
+return this.Function;
+```
+
+## method AsHost:()=>HeapHostRef
+
+取宿主句柄载荷。
+
+```ts
+if (this.Host === null) throw new Error("heap object is not a host ref");
+return this.Host;
+```
+
+## method AsFrame:()=>HeapFrame
+
+取帧载荷。
+
+```ts
+if (this.Frame === null) throw new Error("heap object is not a frame");
+return this.Frame;
+```
+
+## method AsEnv:()=>HeapEnv
+
+取环境载荷。
+
+```ts
+if (this.Env === null) throw new Error("heap object is not an environment");
+return this.Env;
+```
+
+## method AsGenerator:()=>HeapGenerator
+
+取生成器载荷。
+
+```ts
+if (this.Generator === null) throw new Error("heap object is not a generator");
+return this.Generator;
+```
+
+## method AsPromise:()=>HeapPromise
+
+取承诺载荷。
+
+```ts
+if (this.Promise === null) throw new Error("heap object is not a promise");
+return this.Promise;
+```
+
+## method AsIterator:()=>HeapIterator
+
+取迭代游标载荷。
+
+```ts
+if (this.Iterator === null) throw new Error("heap object is not an iterator");
+return this.Iterator;
+```
+
+# class HeapTable
+
+对象表。
+
+句柄就是下标。`Objects[0]` 是哨兵（见文首），所以**合法句柄恒大于 0**。
+
+**发格子与结账分两步**：`AllocateRaw` 只发（不计费），创建工厂填好载荷后调 `Finish` 结账。
+分成两步是因为计费要看**载荷**（字符串多长、数组几个元素），而载荷是发完格子才填的；
+把它拆开，就没有「先按空壳记账，之后再补记」那条漏记的路。
+
+## field Objects:Array<HeapObject> = []
+
+表本身。下标即句柄。
+
+## field FreeList:Array<int> = []
+
+可回收的句柄栈。从尾部取（`PopInt`），所以最近回收的先被复用——
+这对缓存友好，也让「刚死又刚生」的临时对象复用同一格。
+
+## field LiveCount:int = 0
+
+活对象个数（哨兵不算）。
+
+## field Charged:int = 0
+
+已计费字节总数。它与安全层的堆上限直接比。
+
+## constructor:()=>void
+
+造表：先放哨兵。
+
+```ts
+this.Objects.push(new HeapObject());
+this.LiveCount = 0;
+this.Charged = 0;
+```
+
+## method Capacity:()=>int
+
+表的高水位（含哨兵与空格）。回收器遍历 `1 .. Capacity()-1`。
+
+```ts
+return this.Objects.length;
+```
+
+## method IsValid:(handle:int)=>bool
+
+句柄是否指向一个活对象。三个条件缺一不可，**顺序也是判据的一部分**：
+先挡 `<= 0`（含哨兵与负号），再挡越界，最后看标签。
+
+```ts
+if (handle <= 0) return false;
+if (handle >= this.Objects.length) return false;
+return this.Objects[handle].Tag !== ValueTag.Undefined;
+```
+
+## method Get:(handle:int)=>HeapObject
+
+取对象；句柄不合法就抛。**「调用方保证合法」是不成立的**——`Get` 自己挡，
+因为越界句柄是脚本可以间接触发的路径（安全第 2 层）。
+
+```ts
+if (!this.IsValid(handle)) throw new Error("invalid handle: " + handle);
+return this.Objects[handle];
+```
+
+## method AllocateRaw:(tag:ValueTag)=>int
+
+发一格：优先复用空闲链，否则扩表。**不计费**——账由 `Finish` 结。
+
+只给下面的创建工厂用；直接用它就必须自己 `Finish`，否则这一格不进账本。
+
+```ts
+const recycled = PopInt(this.FreeList);
+if (recycled > 0) {
+  const reused = this.Objects[recycled];
+  reused.Clear();
+  reused.Tag = tag;
+  this.LiveCount = this.LiveCount + 1;
+  return recycled;
+}
+const created = new HeapObject();
+created.Tag = tag;
+this.Objects.push(created);
+this.LiveCount = this.LiveCount + 1;
+return this.Objects.length - 1;
+```
+
+## method Finish:(handle:int)=>void
+
+按当前载荷结账（分配路径的最后一步）。
+
+```ts
+const item = this.Objects[handle];
+item.ChargedBytes = item.Charge();
+this.Charged = this.Charged + item.ChargedBytes;
+```
+
+## method Retire:(handle:int)=>void
+
+把一个对象交还给空闲链：先退账、再清格、最后入链。
+
+**失败要静默**（句柄不合法或本来就是空的）：回收器的清扫阶段会顺序扫过整张表，
+空格是常态，让它每个空格抛一次异常会把这个接口变得没法用。
+
+```ts
+if (handle <= 0) return;
+if (handle >= this.Objects.length) return;
+const item = this.Objects[handle];
+if (item.Tag === ValueTag.Undefined) return;
+this.Charged = this.Charged - item.ChargedBytes;
+item.Clear();
+this.FreeList.push(handle);
+this.LiveCount = this.LiveCount - 1;
+```
+
+## method Recount:(handle:int)=>void
+
+重算某一格的账并修正总额。**改过载荷之后调用**（加属性、塞元素、改字符串内容）。
+
+回收的标记阶段会对每个活对象调用它，所以两次回收之间的漏记最多存在一个回收周期。
+
+```ts
+if (handle <= 0) return;
+if (handle >= this.Objects.length) return;
+const item = this.Objects[handle];
+if (item.Tag === ValueTag.Undefined) return;
+const fresh = item.Charge();
+this.Charged = this.Charged + fresh - item.ChargedBytes;
+item.ChargedBytes = fresh;
+```
+
+## method RecountAll:()=>void
+
+重算全表并覆盖总额。**回收的标记阶段调用它**——顺路（标记本来就要走遍每个活对象），
+所以它不额外花一趟。
+
+```ts
+let total = 0;
+for (let i = 1; i < this.Objects.length; i++) {
+  const item = this.Objects[i];
+  if (item.Tag === ValueTag.Undefined) continue;
+  const fresh = item.Charge();
+  item.ChargedBytes = fresh;
+  total = total + fresh;
+}
+this.Charged = total;
+```
+
+## method CreateObject:()=>int
+
+造一个普通对象。原型的指定是调用方的事（`rt_new_object` 按内建原型表给）。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Object);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateArray:()=>int
+
+造一个空数组。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Array);
+const item = this.Objects[handle];
+item.Arr = new HeapArray();
+this.Finish(handle);
+return handle;
+```
+
+## method CreateString:(units:Array<int>)=>int
+
+造一个字符串。**码元序列在这里就位**，所以账一次记全。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.String);
+const item = this.Objects[handle];
+item.Str = new HeapString(units);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateSymbol:(id:int, description:int)=>int
+
+造一个符号。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Symbol);
+const item = this.Objects[handle];
+item.Sym = new HeapSymbol(id, description);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateClosure:(code:int, env:int, arity:int, name:int)=>int
+
+造一个闭包。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Closure);
+const item = this.Objects[handle];
+item.Closure = new HeapClosure(code, env, arity, name);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateFunction:(hostId:int, arity:int, name:int)=>int
+
+造一个内建或宿主函数对象。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Function);
+const item = this.Objects[handle];
+item.Function = new HeapFunction(hostId, arity, name);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateHostRef:(capabilityId:int, opaque:int)=>int
+
+造一个宿主句柄。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.HostRef);
+const item = this.Objects[handle];
+item.Host = new HeapHostRef(capabilityId, opaque);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateFrame:(code:int, slotCount:int, prev:int, returnSlot:int)=>int
+
+造一个调用帧。槽数组在这里就位，所以账一次记全。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Object);
+const item = this.Objects[handle];
+item.Frame = new HeapFrame(code, slotCount, prev, returnSlot);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateEnv:(slotCount:int, parent:int)=>int
+
+造一个环境记录。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Object);
+const item = this.Objects[handle];
+item.Env = new HeapEnv(slotCount, parent);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateGenerator:(frame:int)=>int
+
+造一个生成器对象（初始挂起）。**它不分配帧**——帧由调用方先开好。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Object);
+const item = this.Objects[handle];
+item.Generator = new HeapGenerator(frame);
+this.Finish(handle);
+return handle;
+```
+
+## method CreatePromise:(state:int, value:Value)=>int
+
+造一个承诺。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Object);
+const item = this.Objects[handle];
+item.Promise = new HeapPromise(state, value);
+this.Finish(handle);
+return handle;
+```
+
+## method CreateIterator:(source:int)=>int
+
+造一个迭代游标，指向 `source`，从第 0 格开始。
+
+```ts
+const handle = this.AllocateRaw(ValueTag.Object);
+const item = this.Objects[handle];
+item.Iterator = new HeapIterator(source);
+this.Finish(handle);
+return handle;
+```

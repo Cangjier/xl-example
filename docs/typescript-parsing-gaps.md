@@ -3444,3 +3444,187 @@ $ npm run cases:tsast      语料 1407 个文件，解析成功 1407，抛异常
 $ npm run cases:tsast:cli  1407 个 cjcli 进程：解析成功 1407，失败 0
                            **完全一致的文件 1407 / 1407 个**，四方向 0，报未映射 0 个
 ```
+
+---
+
+## 第 201 轮：`as` 在赋值号右边（修掉），另有两处仍在（探出）
+
+起因：运行期新增的规范（`runtime/ir-verify.xl.md`）里写了 `x = y as T` 与 `new X(y as T, …)`。
+`dist/ts/**` **也在语料里**（[ts-ast.mjs:423](../tests/parse/ts-ast.mjs#L423)），
+所以新产物一进语料，这把尺子当场抓到了下面三件事——**语料 1407 → 1408 那一步是它们进来的时刻**。
+
+### 修掉的：`as` 在赋值号右边（`c = a as number`）
+
+```
+DRIFT  BinaryExpression  TS[120,135) vs 产物[120,125)  "c = a as number"
+MISS   AsExpression      TS[124,135)  "a as number"
+EXTRA  AsExpression      [120,135)  "c = a as number"
+EXTRA  BinaryExpression  [120,125)  "c = a"
+```
+
+根因在**投影层**（`typescript/print-ast-common.xl.md` 的 `as` / `satisfies` 分支）：
+它把 `as` 左边**全部**单元交给 `projectExpression` 当左操作数，于是 `=` 折出来的
+`BinaryOperator` 被整段卷进去。而 `as` / `satisfies` 在 TS 里是**关系级运算符**
+（`operatorRank` 给 7，与 `<` / `in` / `instanceof` 同档），比 `=`（0）/ `||`（1）/ `&&`（2）/
+相等（6）**都紧**，所以那些运算符才是外层节点。
+
+修法：在该分支里先按同一张优先级表找一次「比 rank 7 更松」的运算符当切点，
+找到就交给 `foldBinaryFrom` 递归（那一支自己会把 `as` 折在正确的层级上）。
+复核：`c = a as number` / `const d = a as number` / `f(a as number, 2)` 三种形状
+缺 / 漂移 / 多出**全 0**。
+
+### 仍在的①：`x == y as T` / `x ?? y as T` —— `As` 没被收进右操作数
+
+```
+DRIFT  BinaryExpression  TS[138,154) vs 产物[138,144)  "x == y as number"
+MISS   AsExpression      TS[143,154)  "y as number"
+```
+
+对照**同一语义、已经是对的** `&&`，token 树差在这一处：
+
+```
+<BinaryOperator op="==">            <LogicalOperator op="And">
+  <Identifier>x</Identifier>          <Identifier>x</Identifier>
+  <SymbolToken>==</SymbolToken>       <SymbolToken>&amp;&amp;</SymbolToken>
+  <Identifier>y</Identifier>          <Identifier>y</Identifier>
+</BinaryOperator>                    <As><Identifier>number</Identifier></As>   ← 收进去了
+<As><Identifier>number</Identifier></As>   ← 留在外面（兄弟）
+```
+
+`LogicalOperator` 把 `<As>` 收进了自己的右操作数，`BinaryOperator` 没。按 TS 语义两者**都该收**
+（`as` 比 `==`「紧」、比 `&&` 也「紧」）。要先读 `tokens/binary-operator.xl.md` 的收集/终止判据，
+把「右操作数后面跟的 `<As>` / `<Satisfies>` 属于右操作数」这一条补上。
+
+### 仍在的②：`new X(y as T, …)` 的参数位断言 —— 左操作数丢了
+
+```
+DRIFT  AsExpression   TS[158,169) vs 产物[160,169)  "a as number"
+MISS   NumberKeyword  TS[163,169)  "number"
+EXTRA  AsExpression   [160,169)  "as number"
+EXTRA  Identifier     [163,169)  "number"
+```
+
+平调用 `f(a as number, 2)` 是**对的**，`new Foo(a as number, 2)` 不对——差别在投影路径：
+调用参数走 `projectExpression`（有 `as` 分支，会配左操作数），而 `New` 走**通用支**
+（换名表 `["New", "NewExpression"]`），通用支不知道「`As` 的左操作数是它前一个兄弟」，
+于是 `AsExpression` 从 `as` 起、类型那一格也退化成 `Identifier`（本该是 `NumberKeyword`）。
+
+### 为什么这两条这轮**不加用例**
+
+语料包含 `tests/parse/cases/**`，加一份用例就等于让 `cases:tsast` 变红——
+与本仓库「红一条就不许合」冲突。**修好之后再补用例**；在那之前复现形状以上面的片段为准
+（`x` / `y` / `a` / `Foo` 声明成 `any` 即可）。
+
+### 顺带记一笔：本轮判据的读数
+
+```
+$ npm run cases:tsast   语料 1408 个文件（比 1407 多的是运行期新增的产物），解析成功 1408，抛异常 0
+                        **完全一致的文件 1408 / 1408 个**
+                        缺节点 0　区间漂移 0　多出来的节点 0　字段名不符 0
+```
+
+
+## 降级层第一次吃这份投影：两条消费方必须知道的事
+
+降级层（`typescript-exec/lowering.xl.md`）第一次真吃这份投影，吃掉两口：
+
+### 缺口：`PrefixUnaryExpression` 没带运算符
+
+TS 的 `operator` 是 `SyntaxKind` **数字**，投影只留节点型字段，于是 `-1` 与 `!x`
+**在投影里分不出来**（只剩 `operand`）。降级层现在遇到它就抛
+（`unimplemented: the projection drops the unary operator`）——**报错，不近似**。
+
+修法有两条，选哪条要看别处的口径：把运算符作为**字符串**放进投影（与 `operatorToken.text` 一致），
+或者让投影额外带一个 `operatorKind` 字段。**修好之后补用例**（`let a = -1;` 与 `let b = !x;`），
+在修好之前不加——加了就等于让 `cases:tsast` 变红。
+
+### 口径：**空的序列整个不出现**
+
+`function f() {}` 的节点里**没有** `parameters`；`{}` 的块里**没有** `statements`。
+消费方取序列必须把「缺」当成「空」（降级层为此有 `ListOf`），
+而不能把「缺」当成「形状不对」——否则每个空参数表都报一次假警。
+反过来，**不可能为空的序列**（`VariableDeclarationList.declarations`）仍然严格查：
+「可能是空的」与「不该是空的」是两件事，**用一个函数接会把这个区别丢掉**。
+
+### 本轮读数
+
+```
+$ npm run cases:tsast   语料 1414 个文件，解析成功 1414，抛异常 0
+                        **完全一致的文件 1414 / 1414 个**
+                        缺节点 0　区间漂移 0　多出来的节点 0　字段名不符 0
+$ npm run runtime:check 107 条通过，0 条失败
+```
+
+## 降级层吃投影：又一条必须知道的事（空字符串字面量）
+
+**空字符串字面量的 `text` 是带引号的原文**（`""`，两个字符），而其他字符串字面量给的是
+**值**（`"b"` → `b`）。判据现场：`let text = ""; text = text + "b";` 得到的是 `""b`
+（两个引号），而不是 `b`。
+
+**它在投影里是歧义的**：`""` 这个 `text` 既可能是空串，也可能是「值就是两个引号」的串——
+两者长得一模一样，**分不开**。所以降级层**拒绝**它
+（`unimplemented: an empty string literal is reported in quoted form`），
+**不猜**；与一元运算符那条一样，属于「诚实登记、不静默给近似值」。
+
+修法：投影对字符串字面量统一给**值**（空串就给空串），并把这条加进 `ts-ast` 的
+字段值判据里——现在那把尺子只比 kind / 区间 / 字段名，**比不到 `text` 的值**，
+所以这条缺口它抓不住（这也是它能活到现在的原因）。
+
+### 顺带一条判据的读数
+
+```
+$ npm run runtime:check   114 条通过，0 条失败
+```
+
+## 降级层吃投影：第三条（模板串的各段没有文本）
+
+**`TemplateHead` / `TemplateMiddle` / `TemplateTail` 在投影里只有区间，没有 `text`**——
+`TemplateExpression` 于是只给出「哪几段是插值」，给出不了「段里是什么字」。
+
+降级层因此**拒绝**模板串（`TemplateExpression` → 抛），并记在这里。
+它与其他字符串节点不同：`StringLiteral` 与 `Identifier` 都带 `text`，
+偏偏模板串那三种 token 没带——**看起来像漏了一条**。
+
+修法：给这三种 kind 也带上 `text`（它们本来就是词法 token，原文就在手边），
+然后降级层按「逐段拼接」展开成 `+`（**糖进控制流、不进 id 表**那条口径）。
+**修好之后补用例**：`` `n=${n} end` ``（含数字插值，正好压住 `ToString` 那条路）。
+
+### 本轮读数
+
+```
+$ npm run cases:tsast   语料 1415 个文件，解析成功 1415，抛异常 0
+                        **完全一致的文件 1415 / 1415 个**
+$ npm run runtime:check 116 条通过，0 条失败
+```
+
+## 生成器函数：`*` 要用原始字段看 + 一处引擎侧缺口（宿主直调那条路）
+
+**投影是好的**：`FunctionDeclaration.asteriskToken` 确实在，值是
+`{"kind":"AsteriskToken","text":"*",...}`（探针验证过）。
+但 `OptionalChild(node, "asteriskToken")` 判它为空——于是**生成器函数被当成普通函数**
+（判据报的是运行期的 `suspend outside a generator`：体里那对 suspend/resume 落在了普通帧上）。
+修法：`IsGenerator` 直接看**原始字段**（`!== undefined && !== null`）。三处都改了
+（函数声明 / 函数表达式 / `yield*` 的判定）。
+
+**降级侧已完整**（探针可见：函数表里 `IsGenerator=true`、体内 `Suspend`/`Resume` 成对）。
+**卡在引擎侧一条路上**：宿主**直接推**一个生成器（`machine.DoIterNext`）时，
+推进循环一步都不跑，产出是 `undefined`（`Status` 回来是 `Halted`、`NativeResult` 是初始值）。
+复现：降级 `function* pair() { yield 1; }` → `Evaluate` → `CallExport("pair")` 得到生成器对象
+→ `machine.DoIterNext(obj, undefined)` → 拿到的不是 `[1, false]`。
+
+这一轮顺带修掉两处**真问题**（都留在代码里）：
+
+1. 宿主直调生成器函数原本**开普通帧** → 新增 `Vm.StartGenerator`（只造对象、只写 `Result`）；
+2. `DoIterNext` 是**从宿主进来的入口**，却没清上一次调用留下的 `Finished` / `Status`
+   → 现在入口处重置（与 `Run` 同一条规矩）。
+
+**仍未查明的一步**：重置之后推进循环依然不跑，嫌疑落在 `RunToDepth` 与「外层调用已结束」
+这套瞬时状态上——**下一轮从这里接**。本轮判据只断言**已经成立的部分**：
+函数表标记、`yield` 在普通函数里抛、`yield*` 抛（**不假装生成器端到端跑通了**）。
+
+### 本轮读数
+
+```
+$ npm run runtime:check 124 条通过，0 条失败
+$ npm run cases:tsast   语料 1419 个文件，完全一致 1419 / 1419
+```
