@@ -1,0 +1,262 @@
+# dependencies
+```xl
+import { Template } from "./core/syntax/templates/template.xl.md"
+import { TextDocument } from "./typescript/text-document.xl.md"
+import { TextContext } from "./typescript/text-context.xl.md"
+import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
+import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
+import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
+import { GlobalNames, BuildGlobals, LogSink } from "./typescript-exec/builtins/globals.xl.md"
+import { InstallBuiltins, InvokeWithSink } from "./typescript-exec/builtins/install.xl.md"
+import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
+import { Value, ValueTag } from "./runtime/value.xl.md"
+import { HeapTable } from "./runtime/heap.xl.md"
+import { RoomChecker } from "./runtime/rt.xl.md"
+import { SetProperty } from "./runtime/props.xl.md"
+import { IdTable, Encode } from "./runtime/ir-verify.xl.md"
+import { RtOpCount } from "./runtime/ir.xl.md"
+import { Vm, VmStatus } from "./runtime/vm.xl.md"
+import { Host, HostOutcome, Limits } from "./runtime/host-abi.xl.md"
+import { LinkPrograms } from "./runtime/link.xl.md"
+```
+
+# namespace cangjie
+
+**运行器：把若干份 TypeScript 源文装起来跑一遍。**
+
+**为什么需要这一层**（而不是把这段写进 `typescript-exec/`）：分层是硬的——
+
+| 层 | 它认识什么 | 它**不认识**什么 |
+| --- | --- | --- |
+| `runtime/` | 值、堆、帧、IR、宿主 ABI | 任何语言的字符串与语法 |
+| `typescript-exec/` | 降级规则、标准库 | **解析器**（它收的是投影后的 `AstNode`） |
+| `typescript/` | 语法与投影 | 引擎、语言层 |
+
+只有**这一层**允许同时 import 三者——它就是「把客户程序装起来」的那一层。
+所以它放在仓库根上，与 `cjcli.xl.md`（同一个角色：命令行驱动）并列。
+
+**它做的是判据里一直在手装的那一串**（第 68～72 轮的 P0 判据就是它的人工版）：
+解析 → 降级 → **链接** → 装载 → 求值第 0 份 → 用它（以及更早那些）的导出逐份喂后面每一份 →
+调最后一份里的入口 → 把结果交回去。
+
+**它不替宿主做决定**：能力调用（`.d.ts` 里那些名字）先问**宿主给的 `RunHost`**；
+宿主答 `null` 才落到标准库。**时间、日志、能力都在宿主手里**——这一层不碰。
+
+**失败的收敛**：装载被拒、脚本抛了、撞上预算，都变成 `RunResult` 的一个结局 + 一句话，
+**不往外抛**（调用方按 `Outcome` 分支）。
+
+# type RunHost = (room:RoomChecker, id:number, self:Value, args:Array<Value>)=>Value | null
+
+**宿主对能力调用的回答**：认这个号就给一个值，不认就给 `null`（落到标准库去）。
+
+`room` 先给出来是**规矩**：宿主函数要分配就得先问预算（`host-abi.xl.md` 的调用通道）。
+
+# class RunRequest
+
+**一次运行要什么。**
+
+## field Sources:Array<string> = []
+
+模块的源文，**按依赖顺序**（第 0 份是入口模块，后面的都能引用前面的导出）。
+
+## field Capabilities:Array<string> = []
+
+`.d.ts` 里声明、**源码里没声明**的那些名字（按能力号调宿主）。
+
+## field Entry:string = ""
+
+最后一份模块里要调的那个导出名（空串就不调，只把模块都求值完）。
+
+## constructor:()=>void
+
+造一个空的请求。
+
+```ts
+this.Sources = [];
+this.Capabilities = [];
+this.Entry = "";
+```
+
+# class RunResult
+
+**一次运行的结果。** 三种顺利的结局都在这里：跑完了（`Ok`）、挂起了（`Parked`，
+等宿主推进微任务）、出事了（装载被拒 / 脚本抛了 / 撞上预算——`Message` 说清是哪一种）。
+
+## field Outcome:HostOutcome = HostOutcome.Ok
+
+结局（与宿主 ABI 用同一套取值）。
+
+## field Message:string = ""
+
+给人看的一句话；顺利时是空串。
+
+## field Value:Value = new Value()
+
+入口的返回值（没有入口、或者挂起了，就是一个默认值——**调用方先看 `Outcome` 再用它**）。
+
+## constructor:()=>void
+
+造一个空结果。
+
+```ts
+this.Outcome = HostOutcome.Ok;
+this.Message = "";
+this.Value = new Value();
+```
+
+# method ParseToProjection:(content:string, filePath:string)=>any
+
+**源文 → 投影后的 AST**（`AstNode`，语言层收的就是它）。
+
+与 `cjcli.xl.md` 的 `CjcliParseTsAst` 走**同一条流水线**（造模板 → 包文档 → 驱动解析 →
+`projectRoot` → JSON 文本 → 解析回对象）。**这里不新开第二条解析路径**：
+命令行打出来的、判据拿到的、运行器装的，必须是同一棵树。
+
+```ts
+const template = new Template();
+const document = new TextDocument(content);
+document.FilePath = filePath;
+const context = new TextContext(template);
+context.Process(document);
+const projected = projectRoot(context.Root.ToList(), content);
+return JSON.parse(ToJsonText(projected));
+```
+
+# method Units:(text:string)=>Array<number>
+
+字符串 → 码元（**代码单元**，不是字节）：运行时这边要的是 `Array<int>`。
+
+```ts
+const out: number[] = [];
+for (let i = 0; i < text.length; i++) out.push(text.charCodeAt(i));
+return out;
+```
+
+# method RunSources:(request:RunRequest, sink:LogSink, answer:RunHost)=>RunResult
+
+**装起来跑一遍。** 顺序见文首那张表；每一步的失败都收敛成 `RunResult`，不往外抛。
+
+**导出怎么进下一份模块的环境**：导出数组是**按位置**的（没有名字），
+而名字在模块自己的 `Entries` 里——所以这里按名字逐个搬
+（`ExportOf(名字)` 给的就是它在导出数组里的下标）。
+
+```ts
+const result = new RunResult();
+if (request.Sources.length === 0) {
+  result.Message = "没有源文";
+  return result;
+}
+const table = new HeapTable();
+const bindings = new Bindings(64);
+for (let i = 0; i < request.Capabilities.length; i++) {
+  bindings.Register(request.Capabilities[i]);
+}
+const ids = new IdTable(RtOpCount, request.Capabilities.length + 1);
+const modules: LoweredModule[] = [];
+for (let i = 0; i < request.Sources.length; i++) {
+  const lowering = new Lowering();
+  lowering.DeclareGlobals(GlobalNames());
+  if (request.Capabilities.length > 0) {
+    lowering.DeclareCapabilities(LookupOf(bindings));
+  }
+  modules.push(lowering.LowerModule(ParseToProjection(request.Sources[i], "m" + i + ".ts"), ids));
+}
+const programs = [];
+for (let i = 0; i < modules.length; i++) {
+  programs.push(modules[i].Program);
+}
+const linked = LinkPrograms(programs);
+const machine = new Vm(table, 1 << 20, 1000000);
+const host = new Host(machine, Limits.Default());
+const bytes = Encode(linked, ids);
+if (bytes === null) {
+  result.Message = "ENCODE_FAILED";
+  return result;
+}
+const loaded = host.Load(bytes, ids);
+if (loaded.Outcome !== HostOutcome.Ok) {
+  result.Outcome = loaded.Outcome;
+  result.Message = "装载：" + loaded.Message;
+  return result;
+}
+const protos = machine.Protos;
+if (protos === null) {
+  result.Message = "NO_PROTOS";
+  return result;
+}
+host.DeclarePrototypeKey(Units("prototype"));
+const first = host.Evaluate([BuildGlobals(machine, protos, sink)]);
+if (first.Outcome !== HostOutcome.Ok) {
+  result.Outcome = first.Outcome;
+  result.Message = "第 0 份模块求值：" + first.Message;
+  return result;
+}
+InstallBuiltins(machine, protos);
+host.InstallHost((target, self, args, room) => {
+  const id = table.Get(target.Ref).AsHost().CapabilityId;
+  const answered = answer(room, id, self, args);
+  if (answered !== null) return answered;
+  return InvokeWithSink(room, table, protos, id, self, args, sink);
+});
+for (let i = 0; i < request.Capabilities.length; i++) {
+  const id = 64 + i;
+  host.Register(id, Value.FromRef(ValueTag.HostRef, table.CreateHostRef(id, 0)));
+}
+const all: Value[] = [];
+let exports = machine.Result;
+machine.Retain(exports);
+all.push(exports);
+let entryBase = modules[0].Program.Functions.length;
+for (let i = 1; i < modules.length; i++) {
+  const env = BuildGlobals(machine, protos, sink);
+  machine.Retain(env);
+  for (let j = 0; j < i; j++) {
+    const entries = modules[j].Entries;
+    for (let k = 0; k < entries.length; k++) {
+      const name = entries[k].Name;
+      const index = modules[j].ExportOf(name);
+      if (index < 0) continue;
+      const key = Value.FromString(table.CreateString(Units(name)));
+      const value = table.Get(all[j].Ref).AsArray().GetAt(index);
+      SetProperty(machine.Room(), NeverCall, table, env, key, value);
+    }
+  }
+  if (!machine.Start(entryBase, [env])) {
+    result.Outcome = HostOutcome.OutOfMemory;
+    result.Message = "第 " + i + " 份模块开不了帧（预算不够）";
+    return result;
+  }
+  machine.Run();
+  if (machine.Status !== VmStatus.Halted) {
+    result.Outcome = HostOutcome.OutOfSteps;
+    result.Message = "第 " + i + " 份模块没跑完";
+    return result;
+  }
+  exports = machine.Result;
+  machine.Retain(exports);
+  all.push(exports);
+  entryBase = entryBase + modules[i].Program.Functions.length;
+}
+if (request.Entry !== "") {
+  const last = modules[modules.length - 1];
+  const index = last.ExportOf(request.Entry);
+  if (index < 0) {
+    result.Message = "没有叫 " + request.Entry + " 的导出";
+    return result;
+  }
+  const array = table.Get(all[all.length - 1].Ref).AsArray();
+  if (!machine.StartClosure(array.GetAt(index), [])) {
+    result.Outcome = HostOutcome.OutOfMemory;
+    result.Message = "入口开不了帧（预算不够）";
+    return result;
+  }
+  machine.Run();
+}
+if (machine.Frames.Depth() === 0 && machine.Microtasks.length > 0) {
+  result.Outcome = HostOutcome.Parked;
+  result.Message = "挂在承诺上（宿主推进微任务之后再取结果）";
+  return result;
+}
+result.Value = machine.Result;
+return result;
+```
