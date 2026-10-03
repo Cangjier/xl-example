@@ -3677,9 +3677,17 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
     "  get() { return this.value; }",
     "}",
     "export function tag() { return 'A'; }",
+    // **async 也要跨链接验**（第 72 轮）：承诺、挂起的帧、微任务队列都在**同一个堆**里，
+    // 所以「一个模块里挂起、由宿主推进后恢复」这条链要走得通。
+    // 形状与既有的 await 判据一致：**承诺由宿主递进来**（宿主就是事件循环）。
+    "export async function first(p) { const v = await p; return v + 1; }",
   ].join("\n");
   const moduleB = [
     "import { Counter, tag } from './a';",
+    "export async function second(p) { const v = await p; return v * 2; }",
+    // **能力绑定也要在多文件程序里验**（第 72 轮）：`hostDouble` 在源码里**没有声明**，
+    // 它来自 `.d.ts`（也就是宿主），降级时按能力号落成 `host_call`。
+    "export function viaCapability(n) { return hostDouble(n) + 1; }",
     "export function run() {",
     "  const c = new Counter(-2);",
     "  c.add(3).add(4);",
@@ -3706,6 +3714,10 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
   loweringA.DeclareGlobals(GlobalNames());
   const loweringB = new Lowering();
   loweringB.DeclareGlobals(GlobalNames());
+  // **能力号**：`hostDouble` 来自 `.d.ts`（宿主），源码里没有它。
+  const capabilityBindings = new Bindings(BuiltinBase);
+  const hostDoubleId = capabilityBindings.Register("hostDouble");
+  loweringB.DeclareCapabilities(LookupOf(capabilityBindings));
   const aLowered = loweringA.LowerModule(parseTsShape(moduleA), testIds);
   const bLowered = loweringB.LowerModule(parseTsShape(moduleB), testIds);
   const aFunctionCount = aLowered.Program.Functions.length;
@@ -3720,8 +3732,17 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
   const aEval = host.Evaluate([BuildGlobals(machine, machine.Protos, sink)]);
   eq(aEval.Outcome, HostOutcome.Ok, "模块 A 求值：" + aEval.Message);
   InstallBuiltins(machine, machine.Protos);
-  host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, machine.Protos,
-    table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
+  host.InstallHost((target, self, args, room) => {
+    const id = table.Get(target.Ref).AsHost().CapabilityId;
+    // **宿主的能力实现**：`.d.ts` 里声明的 `hostDouble(n) => n * 2`。
+    if (id === hostDoubleId) return Value.FromInt(args[0].AsInt() * 2);
+    return InvokeWithSink(room, table, machine.Protos, id, self, args, sink);
+  });
+  // **还要把能力填进能力表**（`vm.xl.md`：装载时按 id 表开好、每格是空的，
+  // 宿主随后用 `RegisterCapability` 填）——少了这一步，脚本一调就报
+  // `capability is not registered: 64`。这也是「能力白名单」那一层安全要求的落点。
+  host.Register(hostDoubleId,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(hostDoubleId, 0)));
 
   const aExports = machine.Result;
   machine.Retain(aExports);
@@ -3749,6 +3770,36 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
   eq(hostStringOf(table, at(6)), nodeSide[6], "模板串");
   eq(hostStringOf(table, at(7)), nodeSide[7], "三元");
   eq(at(8).AsInt(), nodeSide[8], "一元负号");
+
+  // **跨链接的 async**（第 72 轮）：两个模块各有一个 async 导出，各自用宿主递进来的承诺驱动。
+  // 挂起时 `Run()` 仍然是 `Halted`（帧已经挂到承诺上、不在栈上），恢复靠宿主排空微任务。
+  const firstFn = exported("first");
+  eq(firstFn.Tag, ValueTag.Closure, "A 的 async 导出是个闭包");
+  const firstPromise = Value.FromObject(table.CreatePromise(PromiseState.Pending, Value.Undefined()));
+  machine.Retain(firstPromise);
+  const parkedA = host.CallExport(aLowered.ExportOf("first"), [firstPromise]);
+  eq(parkedA.Outcome, HostOutcome.Parked, "A 的 async 停在 await 上：" + parkedA.Message);
+  machine.ResolvePromise(firstPromise, Value.FromInt(41));
+  eq(machine.DrainMicrotasks(), true, "推进微任务");
+  eq(machine.Result.AsInt(), 42, "A 的 async 恢复后算出 42");
+
+  const secondFn = GetIndex(table, bExports, Value.FromInt(bLowered.ExportOf("second")));
+  eq(secondFn.Tag, ValueTag.Closure, "B 的 async 导出是个闭包");
+  const secondPromise = Value.FromObject(table.CreatePromise(PromiseState.Pending, Value.Undefined()));
+  machine.Retain(secondPromise);
+  eq(machine.StartClosure(secondFn, [secondPromise]), true, "调 B 的 second()");
+  eq(machine.Run(), VmStatus.Halted, "B 的 async 也停在 await 上（帧不在栈上）");
+  machine.ResolvePromise(secondPromise, Value.FromInt(21));
+  eq(machine.DrainMicrotasks(), true, "再推进一次微任务");
+  eq(machine.Result.AsInt(), 42, "B 的 async 恢复后算出 42（21 * 2）");
+  machine.Release(firstPromise.Ref);
+  machine.Release(secondPromise.Ref);
+
+  // **能力绑定**：源码里没声明的 `hostDouble` 按能力号调到宿主的实现（20 * 2 + 1 = 41）。
+  const capFn = GetIndex(table, bExports, Value.FromInt(bLowered.ExportOf("viaCapability")));
+  eq(machine.StartClosure(capFn, [Value.FromInt(20)]), true, "调 B 的 viaCapability(20)");
+  eq(machine.Run(), VmStatus.Halted, "跑完");
+  eq(machine.Result.AsInt(), 41, "能力调用的结果（宿主实现 20 * 2，再加 1）");
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
