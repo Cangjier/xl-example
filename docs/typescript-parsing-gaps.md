@@ -4370,3 +4370,32 @@ klassTag=9（闭包 ✓）  protoTag=6（原型对象 ✓）  addTag=9（方法�
 **这一轮的产物**：`dist/cpp/runtime/op.h`（`Op` 0..21）与 `rt_op.h`（`RtOp` 0..37）——
 内容是对的 ✓，但它们所属的 `ir` **还没整体交付**，所以现在是「等齐」状态 ✓。
 **下一轮从 `heap` + `gc` 开始** ✓（那是个大单元，可能要两轮）。
+### 第 79 轮：`runtime/gc.xl.md` 生成成 C++（5 份，契约校验通过）——**并给 `heap` 钉下接口**
+
+`xl_emit` 报 **ok** ✓：`gc_module.h`（两个常量）／`root_set.h` + `.cpp`／`collector.h` + `.cpp`。
+这是 P1 的**第二个单元**（第一个是 `value`）。
+
+**为什么 `gc` 可以先做，尽管 `heap` 还没做**：它的依赖接口**不是我在发明**——
+`heap.xl.md` 的成员词汇表已经查清（`Select-String '^## (field|method|constructor)'`），
+`gc` 的体里用到的每一个名字都在里面 ✓。**这就是上一轮那条规矩的正面用法**：
+不是「等所有依赖都写完」，而是「**依赖的接口必须已知**」。
+
+**给 `heap` 钉下的接口**（下一轮的 `heap` 生成必须照它写，否则 `gc` 要返工）：
+
+| `gc` 的用法 | `heap` 侧必须是 |
+| --- | --- |
+| `Table.Capacity()` / `Table.Retire(h)` / `Table.RecountAll()` / `Table.Charged` | 同名方法 / 字段，`int32_t` |
+| `Table.Objects[handle]` | `std::vector<HeapObject> Objects;`（**顺序即句柄**，0 号是哨兵） |
+| `item.Tag` / `item.Mark` / `item.Proto` / `item.Props` | `Tag` 是 `ValueTag`，`Mark` 是 `bool`（**不是 `Marked`**），`Props` 是 `std::vector<Property>` |
+| `item.Sym` / `Arr` / `Closure` / `Function` / `Frame` / `Generator` / `Promise` / `Iterator` / `Env` | **`std::optional<…>`**（`item.Sym.has_value()` 已经这么写了）——按指南「不用裸指针表达可空」 |
+| `PopInt(this.MarkStack)` | 自由函数 `int32_t PopInt(std::vector<int32_t>& stack);`（`heap.xl.md` 导出的） |
+
+**一个关键判断**（写进代码注释了）：`Trace(item: HeapObject, stack)` 在 C++ 里**必须收引用**
+（`HeapObject&`）——标记阶段要写回表里那个对象（`item.Mark = true`），
+**按值传会静默坏掉 GC**：标记全打在副本上，下一轮把活对象全收掉。
+TS 那边对象天然是引用，这个坑只在非托管目标出现。
+
+**顺带定下的形状**：`RootSet::Values` 是 `std::vector<Value>`（值语义 ✓ 正好对上源文里
+「清单式而不是注册式」那段论证）；`Collector::Table` 是 `HeapTable&`（不可空，所以用引用不用指针）；
+`DefaultHeadroom`/`MinHeapLimit` 用 `inline constexpr`（跨 TU 常量，指南 §5.2）；
+越界句柄抛 `std::runtime_error`（源文要求「抛，不静默」）。
