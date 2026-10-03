@@ -34,8 +34,13 @@ import { NeverCall } from "./array.xl.md"
 **调用方要三样齐全**（判据那边也一样）：降级时声明名单、求值时给环境对象、
 装宿主调用通道。少前两样时 `Map` 是 `undefined`，报的却是「calling a non-closure value」。
 
-**没做的**（明确抛，不静默少跑）：`entries` / `clear` / `forEach`
+**没做的**（明确抛，不静默少跑）：`forEach`
 （`forEach` 要求宿主回调脚本闭包 = **重入执行器**，这一层没有）。
+
+**第 107 轮补了两个**：`entries()`（给 `[键, 值]` 对的数组——正是 JS 里
+`for (const e of map)` 拿到的形状，所以 `e[0]`/`e[1]` 两边写法一致）与 `clear()`。
+**直接迭代 Map 本体**（`for (const x of map)`）仍不支持 ✗：它要一条「把语言对象转成
+引擎认得的可迭代物」的路，而那条路会牵动**每个宿主**的接线（第 106 轮实测、已回退并记账 ✗）。
 
 # const MapCtor:int = 601
 `new Map()` 的号。
@@ -51,6 +56,11 @@ import { NeverCall } from "./array.xl.md"
 `keys()` 的号（**返回数组**：引擎的迭代只认数组与生成器）。
 # const MapValues:int = 607
 `values()` 的号（同上）。
+# const MapEntries:int = 608
+`entries()` 的号（**返回 `[键, 值]` 对的数组**——这正是 JS 里 `for (const e of map)` 拿到的形状 ✓，
+所以脚本里 `e[0]` / `e[1]` 的写法在两边都一样 ✓）。
+# const MapClear:int = 609
+`clear()` 的号（清空并返回 `undefined`）。
 
 # method Units:(text:string)=>Array<int>
 
@@ -81,6 +91,8 @@ if (id === MapHas) return "has";
 if (id === MapDelete) return "delete";
 if (id === MapKeys) return "keys";
 if (id === MapValues) return "values";
+if (id === MapEntries) return "entries";
+if (id === MapClear) return "clear";
 throw new Error("unimplemented: map method id " + id);
 ```
 
@@ -109,7 +121,7 @@ SetProperty(room, call, table, self, NameValue(table, name), value);
 把方法挂到实例上（每个值都是带本模块号的宿主引用）。
 
 ```ts
-const ids = [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues];
+const ids = [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapEntries, MapClear];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, map, MethodNameOf(ids[i]), fn);
@@ -194,6 +206,28 @@ if (id === MapKeys || id === MapValues) {
     table.Get(out.Ref).AsArray().Push(source.GetAt(i));
   }
   return out;
+}
+if (id === MapEntries) {
+  // **`[键, 值]` 对的数组**——JS 里 `for (const e of map)` 拿到的正是这个形状，
+  // 所以脚本里 `e[0]` / `e[1]` 两边写法一样 ✓（**直接迭代 Map 本体**仍不支持 ✗，见文首）。
+  const out = NewPlainArray(room, table, protos);
+  const length = table.Get(keys.Ref).AsArray().GetLength();
+  for (let i = 0; i < length; i++) {
+    // **视图每次现取**：里面两次 `Push` 都会换底层存储。
+    if (table.Get(keys.Ref).AsArray().IsHole(i)) continue;
+    const pair = NewPlainArray(room, table, protos);
+    table.Get(pair.Ref).AsArray().Push(table.Get(keys.Ref).AsArray().GetAt(i));
+    table.Get(pair.Ref).AsArray().Push(table.Get(values.Ref).AsArray().GetAt(i));
+    table.Get(out.Ref).AsArray().Push(pair);
+  }
+  return out;
+}
+if (id === MapClear) {
+  // **两个数组一起截到 0**，再把 `size` 写回 0——顺序无所谓（中途没有别人看得见）。
+  table.Get(keys.Ref).AsArray().Truncate(0);
+  table.Get(values.Ref).AsArray().Truncate(0);
+  WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(0));
+  return Value.Undefined();
 }
 throw new Error("unimplemented: map id " + id);
 ```

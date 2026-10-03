@@ -4278,6 +4278,54 @@ check("P0：类·super(...) + 对象字面量方法 + 嵌套闭包 + Map.values 
   }
 });
 
+check("Map：entries() 与 clear()（entries 给数组，不是迭代器——与 keys/values 同一条已记差异）", () => {
+  // JS 的 `m.entries()` 返回**迭代器**，这里返回**数组**——与本仓 `keys()` / `values()` 那条
+  // 已记差异同源（台账里写着）。所以 Node 侧用 `Array.from(...)` 对齐，**元素本身逐值比**。
+  const source = [
+    "function run() {",
+    "  const m = new Map();",
+    "  m.set('a', 1);",
+    "  m.set('b', 2);",
+    "  const pairs = m.entries();",
+    "  const head = pairs[0][0] + '=' + pairs[0][1];",
+    "  const tail = pairs[1][0] + '=' + pairs[1][1];",
+    "  const before = m.size;",
+    "  m.clear();",
+    "  return [head, tail, before, m.size, m.has('a') ? 1 : 0, m.entries().length];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const m = new Map();
+    m.set("a", 1);
+    m.set("b", 2);
+    const pairs = Array.from(m.entries());
+    const head = pairs[0][0] + "=" + pairs[0][1];
+    const tail = pairs[1][0] + "=" + pairs[1][1];
+    const before = m.size;
+    m.clear();
+    return [head, tail, before, m.size, m.has("a") ? 1 : 0, Array.from(m.entries()).length];
+  };
+  const expected = nodeRun();
+  eq(expected[0], "a=1", "Node：第一对（前提）");
+  eq(expected[3], 0, "Node：clear 之后 size 为 0（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
