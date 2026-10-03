@@ -7,6 +7,7 @@ import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
 import { GlobalNames, BuildGlobals, TextFrom, LogSink } from "./typescript-exec/builtins/globals.xl.md"
+import { ValueText } from "./typescript-exec/builtins/text.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
 import { Value, ValueTag } from "./runtime/value.xl.md"
@@ -523,23 +524,20 @@ return HostErrorText(error);
 
 **脚本抛出来的值 → 一句话**。
 
-**为什么不是直接 `TextFrom`**：`TextUnitsOf` 对**对象**是抛的（对象要 `ToPrimitive`，
-那是语言层建库的事，`rt.xl.md` 写着为什么）✗——而 `throw someObject` 恰恰最常见。
-所以这里**先按形状认**：
+**第 124 轮之后它简单多了** ✓：语言层有了「任意值 → 文本」（`text.xl.md` 的 `ValueText` ✓），
+所以**浮点与数组也照常渲染** ✓（`throw 1.5` 给 `"1.5"` ✓、`throw [1, 2]` 给 `"1,2"` ✓）——
+原来那两句「一个非整数（本层没有它的文本形态）」/「一个对象（没有 message 属性）」
+现在只剩后者有意义 ✓。
 
-- 字符串 / 整数 / 布尔 / `null` / `undefined` → 照常转文本；
-- 对象带 **`message` 数据属性**（`{ message: "boom" }`、`Error` 实例）→ 就用它
-  （**访问器跳过**：读它要重入执行器，而这里只是给人打一行字）；
-- 其余形状各给一句**说得出形状**的话（数组 / 函数 / 符号 / 宿主值 / 非整数）。
-
-**它不抛**：报错路径上再抛一次，原来的错就没了——这是这一层唯一必须守住的。
+**两条规矩照旧** ✓：
+- **对象先看 `message` 数据属性** ✓（`{ message: "boom" }`、`Error` 实例 ✓）——
+  **访问器跳过** ✓（读它要重入执行器，而这里只是给人打一行字 ✓）；
+- **它不抛** ✓（报错路径上再抛一次，原来的错就没了 ✗）——所以
+  **函数 / 闭包 / 符号 / 宿主值**这几个 `ValueText` 也不认的形状，
+  在这里先接住并给一句「说得出形状」的话 ✓。
 
 ```ts
-if (value.Tag === ValueTag.String || value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Bool
-  || value.Tag === ValueTag.Null || value.Tag === ValueTag.Undefined) {
-  return TextFrom(table, value);
-}
-if (value.IsObject()) {
+if (value.Tag === ValueTag.Object) {
   const item = table.Get(value.Ref);
   for (let i = 0; i < item.Props.length; i++) {
     const property = item.Props[i];
@@ -549,12 +547,13 @@ if (value.IsObject()) {
     if (TextFrom(table, Value.FromString(property.Key)) !== "message") continue;
     return TextFrom(table, property.Value);
   }
-  return "一个对象（没有 message 属性）";
+  return ValueText(table, value);
 }
-if (value.Tag === ValueTag.Float64) return "一个非整数（本层没有它的文本形态）";
-if (value.Tag === ValueTag.Symbol) return "一个符号";
-if (value.Tag === ValueTag.HostRef) return "一个宿主值";
-return "一个值（本层没有它的文本形态）";
+if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure
+  || value.Tag === ValueTag.Symbol || value.Tag === ValueTag.HostRef) {
+  return "一个值（本层没有它的文本形态）";
+}
+return ValueText(table, value);
 ```
 
 # method RunMain:(args:Array<string>)=>void

@@ -41,6 +41,7 @@ const delivered = [
   "runtime/host-abi.xl.md",
   "typescript-exec/bindings.xl.md",
   "typescript-exec/builtins/array.xl.md",
+  "typescript-exec/builtins/text.xl.md",
   "typescript-exec/builtins/string.xl.md",
   "typescript-exec/builtins/map.xl.md",
   "typescript-exec/builtins/set.xl.md",

@@ -5,6 +5,7 @@ import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from 
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
+import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 ```
 
 # namespace cangjie
@@ -153,7 +154,11 @@ if (id === ArrayJoin) {
   const parts: number[][] = [];
   let total = separator.length * (source.GetLength() > 0 ? source.GetLength() - 1 : 0);
   for (let i = 0; i < source.GetLength(); i++) {
-    const units = TextUnitsOf(table, source.GetAt(i));
+    // **元素走「任意值 → 文本」**（第 124 轮）：`[obj, [1, 2]].join('|')` 在 JS 里是
+    // `"[object Object]|1,2"` ✓——用引擎的 `TextUnitsOf` 会在对象上**抛** ✗（那是它的口径 ✓）。
+    // **空格（洞 / `null` / `undefined`）渲染成空串** ✓——那条规矩在 `ValueUnitsAt` 里
+    // 只有一处 ✓（顶层与嵌套共用 ✓；判据现场：`[1, , 3].join('-')` 该给 `"1--3"` ✓）。
+    const units = ValueUnitsAt(table, source, i, 0);
     parts.push(units);
     total = total + units.length;
   }

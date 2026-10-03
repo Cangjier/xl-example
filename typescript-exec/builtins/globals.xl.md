@@ -6,6 +6,7 @@ import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray } from "./array.xl.md"
+import { ValueUnits, ValueText } from "./text.xl.md"
 import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
 ```
@@ -52,10 +53,18 @@ import { SetCtor } from "./set.xl.md"
 `Math.round` / `ceil` / `trunc` / `sign`（第 120 轮补）。
 
 **这一批的共同点：结果是整数** ✓——所以它们能安全地落进 `MathResult`（整的给 Int32 ✓）。
-**`sqrt` / `pow` 这一轮不做** ✗：它们的结果多数是**非整数**，而 `Float64` 今天**没有文本形态**
-（`rt.xl.md` 的 `TextUnitsOf` 对它是抛的 ✓——`1.0` 该显示成什么是一个规范级决定）✗，
-于是 `console.log(Math.sqrt(2))` 会抛。加一个「算得出、打不出」的函数是给人挖坑 ✗，
-所以宁可缺 ✓。
+
+# const MathSqrt:int = 211
+
+`Math.sqrt`（第 124 轮补）。
+
+**第 120 轮时它被挡在门外** ✓：结果多数是**非整数** ✗，而 `Float64` 当时**没有文本形态** ✗
+——「算得出、打不出」是给人挖坑 ✗。**第 124 轮把文本形态做了** ✓
+（`text.xl.md`：最短往返十进制 ✓），于是它与 `pow` 一起放行 ✓。
+
+# const MathPow:int = 212
+
+`Math.pow(x, y)`——**两个实参** ✓（与 `max` / `min` 同一形状 ✓）。
 
 # const MathCeil:int = 206
 
@@ -262,21 +271,37 @@ if (id === MathRound || id === MathCeil || id === MathTrunc || id === MathSign) 
   if (id === MathTrunc) return MathResult(Math.trunc(value));
   return MathResult(Math.sign(value));
 }
+if (id === MathSqrt) {
+  // **浮点现在打得出来了**（第 124 轮）✓，所以这一支放行 ✓。
+  const value = NumericOf(args[0]);
+  if (value < 0) return MathResult(NaN);
+  return MathResult(Math.sqrt(value));
+}
+if (id === MathPow) {
+  // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`NumericOf(undefined)` 会抛 ✓）。
+  return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
+}
 if (id === ErrorCtor) {
   // **`new Error(msg)` 与 `Error(msg)` 同一支**（号相同、两条调用路都落到这里）✓。
-  // **实参用 `TextFrom`**：`new Error({})` 在 JS 里得到 `"[object Object]"` ✗，
-  // 而那要求 `ToPrimitive`（对象 → 字符串）——今天没有，于是**抛** ✓（不静默给一句假话）。
-  const text = args.length > 0 ? TextFrom(table, args[0]) : "";
+  // **实参走「任意值 → 文本」**（第 124 轮）✓：`new Error({})` 在 JS 里得到
+  // `"[object Object]"` ✓——以前这里用引擎的 `TextFrom`，那会在对象上**抛** ✗。
+  const text = args.length > 0 ? ValueText(table, args[0]) : "";
   return NewError(room, table, protos, text);
 }
 if (id === ConsoleLog) {
   // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。
   // 少了这一步，宿主拿到的是一串**分不出行**的碎片 ✗（`console.log('a', 1)` 与两条
   // 各自一个实参的日志长得一样 ✗）——命令行那个「与 node 逐字节相同」的判据就无从谈起 ✗。
+  //
+  // **每个实参走「任意值 → 文本」**（第 124 轮）✓：`console.log(1.5)` 现在打得出来 ✓
+  //（以前浮点会让整份程序抛 ✗），对象给 `[object Object]` ✓。
+  // **一处已知差异写在明处** ✗：Node 的 `console.log(对象)` 走的是 `util.inspect`
+  //（打印成 `{ a: 1 }` ✗），而这里是 `ToString` 的口径 ✓（`[object Object]` ✓）——
+  // 所以**语料里不拿对象去比 console.log** ✓（比的是浮点与字符串 ✓）。
   let line = "";
   for (let i = 0; i < args.length; i++) {
     if (i > 0) line = line + " ";
-    line = line + TextFrom(table, args[i]);
+    line = line + ValueText(table, args[i]);
   }
   sink(line);
   return Value.Undefined();
@@ -507,7 +532,14 @@ if (value.Tag === ValueTag.Undefined) return insideArray ? "null" : null;
 if (value.Tag === ValueTag.Bool) return value.AsBool() ? "true" : "false";
 if (value.Tag === ValueTag.Int32) return value.Int.toString();
 if (value.Tag === ValueTag.Float64) {
-  throw new Error("unimplemented: JSON of a non-integer number (formatting is a spec decision)");
+  // **浮点现在有文本形态了**（第 124 轮）：`String(x)` 的最短往返十进制 ✓——它与
+  // JS 的 `JSON.stringify` 用的是**同一个**数字格式化 ✓（`JSON.stringify(1.5)` 是 `"1.5"` ✓）。
+  // 以前这里抛「格式化是规范级决定」✗——那个决定现在做了 ✓，做在**语言层** ✓
+  //（`text.xl.md` 的 `ValueUnits` ✓，理由写在那一块的开头 ✓）。
+  const number = value.Dbl;
+  if (number !== number || number === Infinity || number === -Infinity) return "null";
+  if (number === 0) return "0";
+  return String(number);
 }
 if (value.Tag === ValueTag.String) return QuoteJson(table, value);
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure
@@ -845,8 +877,9 @@ return value;
 const table = vm.Table;
 const globals = NewPlainObject(vm.Room(), table, protos);
 const math = NewPlainObject(vm.Room(), table, protos);
-const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "trunc", "sign"];
-const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign];
+const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "trunc", "sign", "sqrt", "pow"];
+const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign,
+  MathSqrt, MathPow];
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));

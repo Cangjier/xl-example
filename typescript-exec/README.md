@@ -25,10 +25,14 @@
 > **`.ts` 已经能直接执行**：仓库根的 [tsrun.xl.md](../tsrun.xl.md) 是运行器 +
 > 命令行（`node build/ts/tsrun.js <文件.ts>`），stdout 与 `node <文件.ts>` **逐字节相同**
 > （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts`，裁判是真 Node）。
-> 还差（按顺序）：**对象与数组的 `ToPrimitive`**（`"…" + 对象` / `console.log(对象)` 现在抛）、
-> **浮点的文本形态**（它挡着 `Math.sqrt` / `pow`、也挡着「打印 `JSON.parse` 出来的小数」）、
-> 解构的默认值与剩余、`static` 与字段初始化、数字与布尔的原始值原型、
-> `TDZ` 的动态那一半、正则。
+> 还差（按顺序）：**`"" + 对象`**（拼接走引擎的 `RtOp.Add`，而引擎只认自己那几档——
+> 要给它一个「渲染不了就问宿主」的钩子）、解构的默认值与剩余、`static` 与字段初始化、
+> 数字与布尔的原始值原型、`TDZ` 的动态那一半、正则、值位 `[x in y]` 那条词法缺口。
+>
+> **浮点与对象/数组的文本形态已经有了**（第 124 轮，`builtins/text.xl.md`）：
+> `console.log` / `join` / `JSON` / `Error` 的消息都走「任意值 → 文本」——
+> 浮点是**最短往返十进制**（借用宿主的转换器：那是 IEEE 754 的活儿），
+> 对象给 `[object Object]`，数组按 `,` 连（**洞 / `null` / `undefined` 渲染成空串**，每一层都成立）。
 >
 > **标准库这一层已经有了**：`Array`（push / pop / join / indexOf / slice / forEach / map / filter /
 > find / some / every / concat / reverse / includes，以及静态的 `Array.isArray`——**`new Array(n)` 不支持**）、
@@ -36,7 +40,7 @@
 > includes / startsWith / endsWith / substring / repeat——**大小写与 trim 只做 ASCII**，非 ASCII 响亮地抛）、
 > `Object`（keys / values / entries——**后两个跳过访问器**）、
 > `JSON`（stringify + **parse**，第 122 轮；坏输入是**脚本接得住**的异常）、
-> `Math`（floor / abs / max / min / round / ceil / trunc / sign）、`Error`（`message` + `name`，
+> `Math`（floor / abs / max / min / round / ceil / trunc / sign / **sqrt / pow**）、`Error`（`message` + `name`，
 > **没有 `stack`、没有 `instanceof`**）、`Map` / `Set`（含 `forEach` 与直接迭代）、
 > `Symbol`、`Date`（`new Date(ms)` + UTC 日历那一族，**时钟由宿主回答**）。
 >

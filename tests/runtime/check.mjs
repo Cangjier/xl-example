@@ -2714,7 +2714,7 @@ check("Object.keys 与 JSON.stringify：与 Node 一致（含「没有 JSON 形�
     "function noForm() { return JSON.stringify(undefined); }",
     "function fractional() { return JSON.stringify(7 / 2); }",
   ].join("\n");
-  const nodeAt = new Function(source + "\nreturn [keys({x: 1, y: 2}), simple(), scalars(), text(), omitted(), inArray()];")();
+  const nodeAt = new Function(source + "\nreturn [keys({x: 1, y: 2}), simple(), scalars(), text(), omitted(), inArray(), fractional()];")();
   const { module, host, table } = lowerAndLoad(source, GlobalNames());
   const sink = () => {};
   const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
@@ -2744,13 +2744,11 @@ check("Object.keys 与 JSON.stringify：与 Node 一致（含「没有 JSON 形�
   eq(hostStringOf(table, call("inArray").Value), nodeAt[5], "数组里的函数：变成 null（位置不能少）");
   eq(call("noForm").Value.Tag, ValueTag.Undefined, "顶层 undefined 的 JSON 形态就是 undefined 本身");
 
-  let fractional = "";
-  try {
-    call("fractional");
-  } catch (error) {
-    fractional = String(error.message);
-  }
-  eq(fractional.indexOf("non-integer") >= 0, true, "非整数数值必须抛（不猜一个格式）：" + fractional);
+  // **旧判据随契约更新**（第 124 轮）：这里原来断言「非整数数值必须抛」（那时浮点
+  // **没有文本形态**，抛是诚实的口径）。第 124 轮把文本形态做了（`text.xl.md`：
+  // 最短往返十进制），于是这一条改成**更强的断言**——与 Node 的 `JSON.stringify(3.5)`
+  // **逐字节相同** ✓（比「抛得对不对」更有价值：它钉的是**格式**本身 ✓）。
+  eq(hostStringOf(table, call("fractional").Value), nodeAt[6], "非整数数值：与 Node 同格式（3.5）");
   host.Machine.Release(obj.Ref);
 });
 
@@ -4898,6 +4896,72 @@ check("`in` 的键要字符串化，数组按格子答（第 123 轮：静默给
   const table = res.Table;
   for (let i = 0; i < expected.length; i++) {
     eq(GetIndex(table, res.Value, Value.FromInt(i)).AsInt(), expected[i], "第 " + i + " 项");
+  }
+});
+
+check("任意值 → 文本：浮点 · 对象 · 数组 · 洞（第 124 轮），join 那一族与 Node 逐字节相同", () => {
+  // **两件事分开断言**：
+  //   · `join` / `JSON` 那一族**与 Node 对拍** ✓（JS 那边也是 `ToString` ✓）；
+  //   · `console.log(对象)` **只断言我们自己的口径** ✓——Node 走 `util.inspect`
+  //     （打印 `{ a: 1 }` ✗），本仓是 `ToString`（`[object Object]` ✓）。那是**已记差异** ✓。
+  const source = [
+    "function run() {",
+    "  const bag = { a: 1 };",
+    "  const holed = [1, , 3];",
+    "  console.log('float', 5 / 2, 7 / 4, 1 / 3, 0 - 5 / 2);",
+    "  console.log('special', Math.sqrt(0 - 1), 0 / 1);",
+    "  console.log('object', bag);",
+    "  console.log('array', [1, 2], [[1, 2], [3]]);",
+    "  const cyclic = [];",
+    "  cyclic.push(cyclic);",
+    "  let guarded = 'none';",
+    "  try { console.log('cyclic', cyclic); } catch (error) { guarded = 'threw'; }",
+    "  return [bag.toString === undefined ? 1 : 0, holed.join('-'), [1, 2].join('+'),",
+    "    [null, undefined, true].join(','), [[1, null], [2]].join(';'),",
+    "    JSON.stringify(5 / 2), guarded === 'threw' ? 1 : 0];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const bag = { a: 1 };
+    const holed = [1, , 3];
+    const cyclic = [];
+    cyclic.push(cyclic);
+    let guarded = "none";
+    try { String(cyclic.join(",")); } catch (error) { guarded = "threw"; }
+    return [bag.toString === undefined ? 1 : 0, holed.join("-"), [1, 2].join("+"),
+      [null, undefined, true].join(","), [[1, null], [2]].join(";"),
+      JSON.stringify(5 / 2), guarded === "threw" ? 1 : 0];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 0, "Node：普通对象的 toString 存在（前提）");
+  eq(expected[3], ",,true", "Node：`join` 把 null/undefined 渲染成空串（前提）");
+
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+
+  // 日志那几行（**我们的口径**）：浮点最短往返、对象 `[object Object]`、嵌套数组按 `,` 连。
+  eq(lines[0], "float 2.5 1.75 0.3333333333333333 -2.5", "浮点：最短往返十进制");
+  eq(lines[1], "special NaN 0", "特殊值：NaN 与零（`-0` 也渲染成 `0`）");
+  eq(lines[2], "object [object Object]", "对象：`Object.prototype.toString` 的默认值");
+  eq(lines[3], "array 1,2 1,2,3", "数组：按 `,` 连（嵌套也连平）");
+  // **自引用数组那一行不该出现** ✓：它在**渲染时**就抛了 ✓（深度上限 ✓），
+  // 所以 `sink` 一次都没被调到 ✓——「有没有抛」看的是返回的那一格 ✓。
+  eq(lines.length, 4, "自引用那一条**没有**产生日志行（渲染时就抛了）");
+
+  const table = res.Table;
+  eq(GetIndex(table, res.Value, Value.FromInt(6)).AsInt(), 1, "自引用数组被深度上限接住（JS 给空串，已记差异）");
+  // **只对拍 1..5**：第 6 项是上面那条**已知差异** ✓（JS 的 `join` 对环给空串，本仓抛 ✓）。
+  for (let i = 1; i <= 5; i++) {
+    const actual = GetIndex(table, res.Value, Value.FromInt(i));
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
   }
 });
 
