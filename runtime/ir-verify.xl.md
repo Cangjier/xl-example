@@ -120,7 +120,10 @@ return (generalCount * 31 + builtinCount) % HashModulus;
 `id` 是否落在这两张表里的某一段。
 
 ```ts
-if (id >= 0 && id <= RtOp.HostCall) return true;
+// **上界用 `RtOpCount`，不写死某个成员**：写死的话，追加一个算子之后
+// 「新算子的 id 不算数」——判据报的是 `runtime op id is unknown: 37`，
+// 而真正的原因是这里没跟着挪（第 45/46 轮各踩过一次）。
+if (id >= 0 && id < RtOpCount) return true;
 if (id >= BuiltinBase) {
   if (id < BuiltinBase + this.BuiltinCount) return true;
 }

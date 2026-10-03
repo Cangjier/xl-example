@@ -59,7 +59,8 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
 | **`import` 的名字从环境对象取**（与全局名同一套机关；`import` / `export { … }` 语句是**空操作**——导出表本来就装着这份文件的每个函数） | **真正的跨模块链接**：把模块 A 的导出**值**交给 B 需要一个**共享的堆**（跨机器搬 `Value` 不行——`Ref` 是各自表里的下标）；`import * as ns` 与 `export default` 抛 |
 | **`for..in`**（`Object.keys` + 迭代协议拼出来的，**没有新算子**；要求全局名里有 `Object`，否则明确报出来并指出修法） | **只遍历自有键**（`Object.keys` 的口径；JS 还会走原型链上的可枚举键）；**整数样式的键不按 JS 的「升序优先」**——这里一律按插入顺序 |
-| **`class`**（构造函数 + `prototype` 对象 + 方法挂上去；拼的是「函数值 + `prototype` 属性 + 方法调用」三样既有东西） | **`extends`**、**字段初始化**、`static`、getter/setter、计算键方法、类里的生成器 / async 方法——一律**降级期抛**；`prototype.constructor` 的回指与 `instanceof` 一起做 |
+| **`class`**（构造函数 + `prototype` 对象 + 方法挂上去；拼的是「函数值 + `prototype` 属性 + 方法调用」三样既有东西） | **字段初始化**、`static`、getter/setter、计算键方法、类里的生成器 / async 方法——一律**降级期抛**；`prototype.constructor` 的回指与 `instanceof` 一起做 |
+| **`extends`**（一条 `set_proto` 把子类 prototype 的原型接到父类 prototype 上；方法沿链找到） | **`super(...)` 抛**（父类构造函数里的初始化不会跑——派生类因此**不许**有父类构造函数）；**从句关键字投影没带**，所以「第一段就是 `extends`」——`class C implements I {}` 会在解析 `I` 时报未知名字（**响亮**，不是静默错值） |
 
 **`async` 的三条语义差（都写在明处，不假装是 JS）**：
 
@@ -2537,12 +2538,45 @@ getter / setter、计算键方法、生成器方法与 async 方法。
 // **`extends` 这一轮仍然抛**（引擎那半 `set_proto` 已经就位、也验证过：空类的
 // `class B extends A {}` + `new B()` 是通的；但**方法继承**那条路还有一个没查清的失败，
 // 复现写在 `docs/typescript-parsing-gaps.md`）。**查不清就不放行**——
-// **`extends` 这一轮仍然抛**：引擎那半（`set_proto`）与「算子上界」都已就位，
-// 但**方法继承**那条路（`b.m()` 沿链找到父类方法）还有一个没查清的失败——
-// 复现与这一轮收窄到的事实写在 `docs/typescript-parsing-gaps.md`。
-// **查不清就不放行**：子类实例上少了父类的东西是静默错值，比不能用更坏。
-if (node["heritageClauses"] !== undefined && node["heritageClauses"] !== null) {
-  throw new Error("unimplemented: `extends` (the method-inheritance flow is not verified yet)");
+// **`extends`：方法继承就是一条 `set_proto`**（子类 prototype 的原型指向父类 prototype，
+// 于是 `b.m()` 沿链先看子类的、没有再往上走到父类的）。
+//
+// **父类有构造函数仍然抛**：`super(...)` 还没做，而「子类实例上少了父类设的字段」
+// 是**静默错值**——宁可不做。**父类查不到（比如 import 进来的）也算查不清，同样抛**。
+let superProto = -1;
+const heritage = node["heritageClauses"];
+if (heritage !== undefined && heritage !== null) {
+  const clauses = heritage as AstNode[];
+  let baseName = "";
+  // **按「第一段就是 `extends`」处理**：投影里 `HeritageClause` **没有关键字那个字段**
+  // （只有 `types`），所以分不出 `extends` 与 `implements`。TypeScript 的语法保证
+  // `extends` 排在 `implements` 之前，于是「第一段」就是它。
+  //
+  // **取舍写在明处**：`class C implements I {}` 会被当成 `extends I`，然后在解析
+  // `I` 时报「未知名字」——**响亮**，不是静默错值（而且这一支以前整段拒掉，没有更差）。
+  // 要真正分开，得让投影带上从句的关键字（台账里记着这一类「孤立 token 被丢」）。
+  if (clauses.length > 0) {
+    const types = clauses[0]["types"] as AstNode[];
+    const base = types[0]["expression"] as AstNode;
+    if (NodeKind(base) !== "Identifier") {
+      throw new Error("unimplemented: extends an expression (only a simple name is supported)");
+    }
+    baseName = TextOf(base);
+  }
+  if (baseName !== "") {
+    if (this.FindParentHasConstructor(baseName)) {
+      throw new Error("unimplemented: extending a class with a constructor (super(...) is not implemented)");
+    }
+    const access = this.ResolveAccess(baseName);
+    const baseSlot = this.Reserve(1);
+    if (access.InEnv) {
+      this.Emit(Op.EnvGet, baseSlot, access.Depth, access.Cell, -1);
+    } else {
+      this.Emit(Op.Move, baseSlot, access.Slot, -1, -1);
+    }
+    const baseKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+    superProto = this.RtCall2(RtOp.GetProp, baseSlot, baseKey);
+  }
 }
 const nameNode = OptionalChild(node, "name");
 let name = "<class>";
@@ -2571,6 +2605,9 @@ if (!asExpression) {
 }
 const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
 const proto = this.RtCall2(RtOp.GetProp, ctor, prototypeKey);
+if (superProto >= 0) {
+  this.RtCallValues(RtOp.SetProto, proto, superProto);
+}
 for (let i = 0; i < members.length; i++) {
   const member = members[i];
   const kind = NodeKind(member);

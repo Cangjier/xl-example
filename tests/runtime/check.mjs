@@ -93,6 +93,7 @@ const globalsBuiltins = require(path.join(root, "build", "ts", "typescript-exec"
 const { GlobalNames, BuildGlobals } = globalsBuiltins;
 const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "bindings.js"));
 const { Bindings, LookupOf } = bindingsMod;
+const { RtSetProto } = require(path.join(root, "build", "ts", "runtime", "rt.js"));
 const { HasProperty, GetIndex, SetIndex, TypeOfName } = propsMod;
 
 /** TypeScript 的数字枚举有反向映射，所以成员名 = 不是数字的那些键。 */
@@ -3067,15 +3068,53 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
     throw new Error("在「" + label + "」处：" + String(error.message));
   }
 
-  // **`extends` 这一轮仍然抛**（引擎的 `set_proto` 与算子上界都已就位，但方法继承那条路
-  // 还有一个没查清的失败，见台账）。这里断言「响亮拒绝」，不是静默少跑。
-  let derived = "";
+  // **继承**：方法沿原型链找到父类的。先量，再断言——下面两行诊断把
+  // 「链有没有接上」与「方法有没有挂上」分开。
+  const inherited = [
+    "class A { m() { return 1; } }",
+    "class B extends A { }",
+    "function ctorA() { return A; }",
+    "function ctorB() { return B; }",
+    "function viaExtends() { const b = new B(); return b.m(); }",
+  ].join("\n");
+  const nodeInherited = new Function(inherited + "\nreturn viaExtends();")();
+  eq(nodeInherited, 1, "Node：子类实例调用父类方法（这是前提）");
+  const derived = lowerAndLoad(inherited);
+  derived.host.DeclarePrototypeKey(units("prototype"));
+  eq(derived.host.Evaluate([]).Outcome, HostOutcome.Ok, "求值（继承）");
+  const ctorA = derived.host.CallExport(derived.module.ExportOf("ctorA"), []).Value;
+  const ctorB = derived.host.CallExport(derived.module.ExportOf("ctorB"), []).Value;
+  const protoA = getProp(derived.machine, derived.table, ctorA, propKey(derived.table, "prototype"));
+  const protoB = getProp(derived.machine, derived.table, ctorB, propKey(derived.table, "prototype"));
+  // **链真的接上了**（上一轮查了半天的那件事，现在有断言守着）
+  eq(derived.table.Get(protoB.Ref).Proto, protoA.Ref, "子类 prototype 的原型指向父类 prototype");
+  eq(getProp(derived.machine, derived.table, protoA, propKey(derived.table, "m")).Tag, ValueTag.Closure,
+    "父类 prototype 上挂着 m");
+  eq(derived.host.CallExport(derived.module.ExportOf("viaExtends"), []).Value.AsInt(), nodeInherited,
+    "b.m() 走原型链找到父类的方法");
+
+  // 子类**自己带方法**：自己的用自己的，父类的照样能调
+  const own = [
+    "class A { m() { return 1; } }",
+    "class B extends A { n() { return this.m() + 1; } }",
+    "function viaOwn() { const b = new B(); return b.n(); }",
+  ].join("\n");
+  const nodeOwn = new Function(own + "\nreturn viaOwn();")();
+  eq(nodeOwn, 2, "Node：子类方法里调父类方法（这是前提）");
+  const derived2 = lowerAndLoad(own);
+  derived2.host.DeclarePrototypeKey(units("prototype"));
+  eq(derived2.host.Evaluate([]).Outcome, HostOutcome.Ok, "求值（子类自带方法）");
+  eq(derived2.host.CallExport(derived2.module.ExportOf("viaOwn"), []).Value.AsInt(), nodeOwn,
+    "this.m() 从子类 prototype 走到父类 prototype");
+
+  // **父类带构造函数必须抛**（`super(...)` 还没做；静默少跑父类初始化比不能用更坏）
+  let withCtor = "";
   try {
-    lowerAndLoad("class A { m() { return 1; } } class B extends A { }");
+    lowerAndLoad("class A { constructor() { this.x = 1; } } class B extends A { }");
   } catch (error) {
-    derived = String(error.message);
+    withCtor = String(error.message);
   }
-  eq(derived.indexOf("extends") >= 0, true, "`extends` 必须抛（不许静默少跑父类的东西）：" + derived);
+  eq(withCtor.indexOf("constructor") >= 0, true, "父类带构造函数必须抛：" + withCtor);
 
   let superCall = "";
   try {
@@ -3093,6 +3132,38 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
     field = String(error.message);
   }
   eq(field.indexOf("class member") >= 0, true, "字段初始化必须抛（还没做）：" + field);
+});
+
+check("set_proto：链上之后属性查找沿链走、自环当场拒绝（引擎层）", () => {
+  const { host, table, machine } = lowerAndLoad("function noop() { }");
+  const protos = machine.Protos;
+  const parent = NewPlainObject(machine.Room(), table, protos);
+  const child = NewPlainObject(machine.Room(), table, protos);
+  machine.Retain(parent);
+  machine.Retain(child);
+  setProp(machine, table, parent, propKey(table, "m"), Value.FromInt(41));
+  RtSetProto(table, child, parent);
+  eq(table.Get(child.Ref).Proto, parent.Ref, "子对象的原型指向父对象");
+  eq(getProp(machine, table, child, propKey(table, "m")).AsInt(), 41,
+    "属性查找沿链找到父对象上的 m");
+
+  let cycle = "";
+  try {
+    RtSetProto(table, child, child);
+  } catch (error) {
+    cycle = String(error.message);
+  }
+  eq(cycle.indexOf("cycle") >= 0, true, "自环当场拒绝：" + cycle);
+
+  let primitive = "";
+  try {
+    RtSetProto(table, Value.FromInt(1), parent);
+  } catch (error) {
+    primitive = String(error.message);
+  }
+  eq(primitive.indexOf("two objects") >= 0, true, "原始值当接收者要抛（不许静默无效）：" + primitive);
+  machine.Release(parent.Ref);
+  machine.Release(child.Ref);
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
