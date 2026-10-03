@@ -4642,3 +4642,22 @@ TS 那边对象天然是引用，这个坑只在非托管目标出现。
    `<vector>` 是完全合法的，而 `rt_module.h` 那条是**注释里提到** `std::fmod`。
    **满屏误报的检查比没有检查更糟**（人会学会忽略它）→ 改成按 **include 传递闭包**判 +
    **先剥注释**。修好后：**108 文件・194 include・525 成员名，全部通过** ✓。
+### 第 90 轮：`builtins/map` + `builtins/set` + `builtins/globals`（3 单元 6 份，契约校验通过）
+
+三份都 `xl_emit` 报 **ok** ✓。`typescript-exec/` 现在交付 6 个单元（`bindings` + `array` + `string` +
+`map` + `set` + `globals`），剩下的只有 `install`（70 行）、`scope`（485）与 `lowering`（3219 ✗）。
+
+**源文自己记着的两个坑，在 C++ 里性质不同**：
+
+1. **`AsArray()` 是视图，必须每次用时现取**（`map.xl.md` 文首）——`Push` 换底层存储之后老视图失效，
+   症状是「键数组对、值数组错位」。C++ 里同样成立（`HeapArray&` 是对 `std::optional` 里那格的引用 ✗
+   所以更要现取），我按源文的写法逐处现取。
+2. **`args[0]` 必须判空**（`set.xl.md` 的「查找要用到才做」）——TS 那边拿到的是 `undefined`，
+   而 **C++ 里 `std::vector` 越界是未定义行为** ✗✗。所以 `map`/`set`/`globals` 里每一处 `args[0]`
+   都先判 `args.empty()`，并把这个理由写进注释（比源文那条还要硬的约束）。
+
+**另外两处只有 C++ 会遇到的判断**（都写在注释里）：
+
+- `QuoteJson` 的 `\u00XX` 要**小写**十六进制（`toString(16)` 的口径）——不能借 `runtime` 的 `Hex4`（那是大写）；
+- `TextFrom`（码元 → 宿主字符串）在 C++ 里必须自己选编码：**按 UTF-8 编**，
+  并把「非 ASCII 回到 `Units()` 时不再是同一串码元」这条**已知差异写在注释里**，不假装对。

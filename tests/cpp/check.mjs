@@ -39,6 +39,9 @@ const delivered = [
   "typescript-exec/bindings.xl.md",
   "typescript-exec/builtins/array.xl.md",
   "typescript-exec/builtins/string.xl.md",
+  "typescript-exec/builtins/map.xl.md",
+  "typescript-exec/builtins/set.xl.md",
+  "typescript-exec/builtins/globals.xl.md",
 ];
 
 // 用到的标准类型 → 必须出现的头（这一条只查「用了却没包含」，**按 include 传递闭包判**：
