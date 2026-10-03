@@ -364,7 +364,18 @@ return index + 1;
     const wordKind = wordKinds[declaredOp];
     if (wordKind !== undefined) return ctx.Node(wordKind, { expression: operand }, v);
   }
-  return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression", { operand }, v);
+  // **`operator` 要带上**（第 66 轮）：TS 的 `PrefixUnaryExpression.operator` 是个
+  // `SyntaxKind` **数字**，投影原来「只留节点型字段」就把它丢了——于是 `-1` 与 `!x`
+  // 在产物里**一模一样**，**负数字面量根本用不了**（降级层分不出正负，只能抛）。
+  //
+  // 这里放**运算符文本**（优先取那个运算符单元自己的文本，取不到再用 `declaredOp`）。
+  // 对拍尺子只比**字段名**（TS 那边也有 `operator` 这个名字），所以不会多报。
+  //
+  // **值位的一元节点是在这一层造的**，不在 `print-ast-common` 那条通用路里——
+  // 我在那边先后加过两处挂钩，从来没执行过（第 64 / 65 / 66 轮实测才定位到这里）。
+  const operatorText = opIndex >= 0 ? ctx.TextOf(kids[opIndex]) : declaredOp;
+  return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression",
+    { operand, operator: operatorText }, v);
 ```
 
 ## constructor:(template:Template)=>void

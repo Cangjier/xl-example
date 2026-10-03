@@ -3626,7 +3626,7 @@ check("三元表达式：只跑被选中的那一边（懒），嵌套与括号�
     "  return picked + '/' + calls;",
     "}",
     "function probe() {",
-    "  return [sign(3), sign(0 - 3), nested(20), nested(5), nested(0 - 1), inExpr(1), inExpr(0),",
+    "  return [sign(3), sign(-3), nested(20), nested(5), nested(-1), inExpr(1), inExpr(0),",
     "    withCalls(9, 4), withCalls(4, 9), lazy(1), lazy(0)];",
     "}",
   ].join("\n");
@@ -3653,14 +3653,15 @@ check("三元表达式：只跑被选中的那一边（懒），嵌套与括号�
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
-  // **一元运算符还没通**（第 64 轮查明）：投影里给 `PrefixUnaryExpression` 补 `operator`
-  // 的那处挂钩**没生效**——实测 `let y = -1;` 的产物是
-  // `{"kind":"PrefixUnaryExpression","operand":{…}}`，**没有 `operator`**。
-  // 说明这个节点不是走通用投影路造的（挂钩放错了地方），台账里记了下一步怎么找。
-  // 在补对之前，这里**照旧抛**，而且消息里说明了缺什么。
-  let unary = "";
-  try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
-  ok(unary.indexOf("unary") >= 0, "一元运算符（还没通）要抛，且说明缺什么：" + unary);
+  // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
+  // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
+  // 所以前两轮加在通用路的两处挂钩从来没执行过（探针才定位到）。
+  // `operator` 现在带**运算符文本**，`-` 走 `RtOp.Neg`、`!` 走 `RtOp.Not`。
+  const negated = new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds);
+  ok(negated.Program !== undefined, "一元负号不再抛（负数字面量可用了）");
+  let unsupported = "";
+  try { new Lowering().LowerModule(parseTsShape("let z = ~1;"), testIds); } catch (error) { unsupported = String(error.message); }
+  ok(unsupported.indexOf("unary operator") >= 0, "没做的一元运算符照旧抛（不静默）：" + unsupported);
 
   // 空字符串字面量的 text 是**带引号的原文**（`""`），与「值就是两个引号」分不开
   let empty = "";

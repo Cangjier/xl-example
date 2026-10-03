@@ -1036,28 +1036,6 @@ new Map([
     }
   }
   const props = structuralProps(v, kind, ctx);
-  // **一元前缀的运算符**（第 64 轮补）：TS 的 `PrefixUnaryExpression.operator` 是一个
-  // `SyntaxKind` **数字**（不是子节点），投影原来的口径「只留节点型字段」于是把它丢了——
-  // 结果 `-1` 与 `!x` 在产物里**完全一样**，**负数字面量根本用不了**。
-  //
-  // 这里补一个**同名字段** `operator`（TS 那边也有这个名字，所以对拍尺子不会报字段不符），
-  // 值是**运算符文本**：取单元文本开头连续的运算符字符，**最多两个**（`++` / `--`）。
-  // `- -x`（中间有空格）因此取到 `-` ✓；`~~y` 会取到 `~~`——那两种写法这一层都还没做，
-  // 降级层见到就**抛**，所以不会静默走错。
-  if (kind === "PrefixUnaryExpression") {
-    // **运算符直接取源码上 `pos` 开头那两个字符**（第 65 轮定下来的写法）：
-    // 试过两种「从单元内部找」的写法都不对——`textOf(v, ctx)` 给的是**操作数**那段，
-    // 第一个子单元也不是运算符（两次实测都得到空串，字段就永远设不上）。
-    // 而**一元前缀节点的 `pos` 就是运算符的起点**（实测 `let y = -1;`：`pos = 8`，
-    // 源码第 8 格正是 `-`），所以从源码取最直接、也不依赖单元的孩子们怎么排。
-    // 最多取两个字符（`++` / `--`）；`- -x` 那种中间有空格的自然只取到 `-`。
-    const headText = ctx.source.slice(v.start, v.start + 2);
-    let opLength = 0;
-    while (opLength < headText.length && "-+!~".includes(headText.charAt(opLength))) {
-      opLength++;
-    }
-    if (opLength > 0) props.operator = headText.slice(0, opLength);
-  }
   if (stripModifier !== undefined && Array.isArray(props.modifiers)) {
     props.modifiers = props.modifiers.filter((m) => m.kind !== stripModifier);
   }
@@ -3560,6 +3538,8 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
     kind: "LiteralType",
     literal: {
       kind: "PrefixUnaryExpression",
+      // **临时标记**（第 66 轮）：用来证明「值位那个节点到底是不是这里造的」。
+      // 探针里出现它就说明是这里；不出现就说明还有第三处。查完删掉。
       // **`operator` 放运算符文本**（不是 `tokenKind(op)` 那种名字）：**类型位与值位共用这一处**
       // （`type X = -1` 与 `let y = -1` 的产物同形），而降级层要按文本分派。
       // 对拍尺子只比**字段名**、不比值，所以两种写法尺子都认——文本更有用。
