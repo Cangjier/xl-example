@@ -659,17 +659,20 @@ if (instr.Op === Op.Jump || instr.Op === Op.JumpIfFalse) {
 
 **把一条指令里的「常量池下标」挪 `base`**（链接时用）。
 
-**只有 `Op.Const` 的操作数 `B` 是常量下标**（验证层也这么查：越界就报
-`constant out of range`）。它与 `ShiftPc` 是**同一类知识的两半**——
-一个挪 pc、一个挪常量下标，**改任何一处都要连验证层一起看**。
+**两条指令带常量下标**：`Op.Const` 的 `B`（常量本身）与 **`Op.CallMethod` 的 `B`**
+（**方法名**也是常量池里的字符串 ✓）。验证层两处都查（越界、方法名必须是字符串常量）。
+**改这里的表，要连验证层一起看**。
 
-**漏掉它是什么样**（第 54 轮实测）：链接后 B 的入口去取自己的「全局名常量」，
-取到的却是 A 常量池里同一下标的**别的东西**（一个整数）——报的是
-`property keys must be strings or symbols`，而错在链接器**少挪了一类下标**。
-**症状与现场的这段距离，就是「先量后改」值得的原因。**
+**漏掉 `CallMethod` 是什么样**（第 68 轮，P0 的多文件判据抓到的）：
+链接后方法名指到了**另一个模块的常量**上，装载当场拒：
+`method name must be a string constant`——而那已经是**第二个**漏掉的常量下标了
+（第 54 轮漏的是 `Op.Const` 那个）。
 
 ```ts
 if (instr.Op === Op.Const && instr.B >= 0) {
+  instr.B = instr.B + base;
+}
+if (instr.Op === Op.CallMethod && instr.B >= 0) {
   instr.B = instr.B + base;
 }
 ```

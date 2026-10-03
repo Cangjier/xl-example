@@ -4150,3 +4150,39 @@ return ctx.Node(isPostfix ? "PostfixUnaryExpression" : "PrefixUnaryExpression", 
 **判据**：新增一条投影判据（引用位必须是 `Identifier`、访问器必须仍是那两种 kind），
 加上对拍尺子 **1424/1424**、四条方向全 0——**语料里没有任何文件**依赖
 「`get` / `set` 作为关键字节点」这件事。
+### 第 68 轮：P0 的多文件判据——**抓到一个真 bug（已修）**，另有一个未修（判据暂不入集）
+
+**做了什么**：写了一条「**两份模块 + 类 + 继承 + Map/Set + Symbol 键 + 模板串 + 三元 +
+一元负号**」的 P0 对拍判据：Node 跑同一份源码（两份拼一起、去掉 `import`/`export`），
+我的运行器跑「降级 → **链接** → 装载 → 跑 A → 用 A 的导出建 B 的环境 → 跑 B 的 `run`」，
+然后逐值比对。
+
+**抓到的真 bug（已修）**：装载当场拒——`method name must be a string constant`。
+根因是**链接器漏了第二个「常量池下标」操作数**：`Op.CallMethod` 的 `B`（**方法名**常量）。
+第 54 轮漏的是 `Op.Const` 的 `B`，这次是它。`ir.xl.md` 的 `ShiftConstIndex` 现在两条都挪，
+注释里也把「哪些指令带常量下标」写全了。
+
+**仍未修的一处（判据暂不入集，复现留在下面）**：`new Counter(-2)` 报
+`unimplemented: calling an object as a constructor`。探针给出的事实：
+
+```
+A 的导出名 = tag,Counter,Counter.add,Counter.get
+ExportOf("Counter") = 1
+那一格的 Tag = 6      ← 6 是 Object，不是闭包（Closure 是 9）
+```
+
+也就是说：**类在模块的导出数组里占的那一格放的是一個普通对象，不是构造函数的闭包**。
+（类**登记**是对的 ✓——`Entries` 里有 `Counter` ✓——错在**导出数组**里放了什么。）
+
+**下一轮第一步**：看**模块导出数组是怎么拼的**（`Entries` → 导出数组那一步），
+找出类声明那一格为什么是对象；顺带确认 `tag`（函数声明）那一格是闭包（它是 ✓，所以对照很清楚）。
+**先看再改**；改完把这条 P0 判据放回判据集。
+
+**顺带量到的两件事（都是判据踩出来的，写在这里省下一次）**：
+
+- 用全局名的判据，**降级前要 `DeclareGlobals(GlobalNames())`**，否则报
+  `name is not a local or a capture: Map`；
+- 装载要用 **`host.Load(...)`**，不是 `machine.Load(...)`——原型表是宿主在装载时装上的，
+  绕过它会报 `Cannot read properties of null (reading 'Object')`；
+- B 的环境应当是「**全局名 + A 的导出**」（真实模块环境就是这样），
+  但这一条**不是**上面那个类问题的原因（改过之后错误不变）。
