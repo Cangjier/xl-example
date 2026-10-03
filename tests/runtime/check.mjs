@@ -3669,6 +3669,88 @@ check("投影：get / set 是上下文关键字（引用位是 Identifier，访�
   ok(accessors.indexOf('"SetAccessor"') >= 0, "设值器仍是 SetAccessor");
 });
 
+check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板串 + 三元 + 一元负号）与 Node 逐值一致", () => {
+  const moduleA = [
+    "export class Counter {",
+    "  constructor(start) { this.value = start; }",
+    "  add(n) { this.value = this.value + n; return this; }",
+    "  get() { return this.value; }",
+    "}",
+    "export function tag() { return 'A'; }",
+  ].join("\n");
+  const moduleB = [
+    "import { Counter, tag } from './a';",
+    "export function run() {",
+    "  const c = new Counter(-2);",
+    "  c.add(3).add(4);",
+    "  const m = new Map();",
+    "  m.set('k', c.get());",
+    "  const s = new Set();",
+    "  s.add(1); s.add(1); s.add(2);",
+    "  const keys = [];",
+    "  for (const k of m.keys()) keys.push(k);",
+    "  const sym = Symbol('x');",
+    "  const o = {};",
+    "  o[sym] = 'sym-value';",
+    "  return [c.get(), m.get('k'), s.size, keys[0], o[sym], tag(), `v=${c.get()}`,",
+    "    c.get() > 0 ? 'pos' : 'neg', -c.get()];",
+    "}",
+  ].join("\n");
+  const nodeSide = new Function(moduleA.replace(/^export /gm, "") + "\n"
+    + moduleB.replace(/^import[^\n]*\n/, "").replace(/^export /gm, "")
+    + "\nreturn run();")();
+  eq(nodeSide[0], 5, "Node：-2 + 3 + 4（这是前提）");
+  eq(nodeSide[3], "k", "Node：Map 的键按插入顺序（这是前提）");
+
+  const loweringA = new Lowering();
+  loweringA.DeclareGlobals(GlobalNames());
+  const loweringB = new Lowering();
+  loweringB.DeclareGlobals(GlobalNames());
+  const aLowered = loweringA.LowerModule(parseTsShape(moduleA), testIds);
+  const bLowered = loweringB.LowerModule(parseTsShape(moduleB), testIds);
+  const aFunctionCount = aLowered.Program.Functions.length;
+  const linked = LinkPrograms([aLowered.Program, bLowered.Program]);
+  const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 400000);
+  const host = new Host(machine);
+  const loaded = host.Load(Encode(linked, testIds), testIds);
+  eq(loaded.Outcome, HostOutcome.Ok, "装载：" + loaded.Message);
+  const sink = () => {};
+  host.DeclarePrototypeKey(units("prototype"));
+  const aEval = host.Evaluate([BuildGlobals(machine, machine.Protos, sink)]);
+  eq(aEval.Outcome, HostOutcome.Ok, "模块 A 求值：" + aEval.Message);
+  InstallBuiltins(machine, machine.Protos);
+  host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, machine.Protos,
+    table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
+
+  const aExports = machine.Result;
+  machine.Retain(aExports);
+  const bEnv = BuildGlobals(machine, machine.Protos, sink);
+  machine.Retain(bEnv);
+  const exported = (name) => GetIndex(table, aExports, Value.FromInt(aLowered.ExportOf(name)));
+  setProp(machine, table, bEnv, propKey(table, "Counter"), exported("Counter"));
+  setProp(machine, table, bEnv, propKey(table, "tag"), exported("tag"));
+  eq(machine.Start(aFunctionCount, [bEnv]), true, "开 B 的入口帧");
+  eq(machine.Run(), VmStatus.Halted, "B 的入口跑完");
+  const bExports = machine.Result;
+  machine.Retain(bExports);
+  const runClosure = GetIndex(table, bExports, Value.FromInt(bLowered.ExportOf("run")));
+  eq(machine.StartClosure(runClosure, []), true, "调 B 的 run()");
+  eq(machine.Run(), VmStatus.Halted, "跑完");
+
+  const got = machine.Result;
+  const at = (index) => GetIndex(table, got, Value.FromInt(index));
+  eq(at(0).AsInt(), nodeSide[0], "c.get()：类的方法与 this");
+  eq(at(1).AsInt(), nodeSide[1], "Map 存的是 5");
+  eq(at(2).AsInt(), nodeSide[2], "Set 去掉了重复项");
+  eq(hostStringOf(table, at(3)), nodeSide[3], "Map.keys() 的插入顺序");
+  eq(hostStringOf(table, at(4)), nodeSide[4], "符号键读回");
+  eq(hostStringOf(table, at(5)), nodeSide[5], "A 的导出函数在 B 里跑");
+  eq(hostStringOf(table, at(6)), nodeSide[6], "模板串");
+  eq(hostStringOf(table, at(7)), nodeSide[7], "三元");
+  eq(at(8).AsInt(), nodeSide[8], "一元负号");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
