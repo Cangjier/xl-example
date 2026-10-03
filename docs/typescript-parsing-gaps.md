@@ -4475,3 +4475,32 @@ TS 那边对象天然是引用，这个坑只在非托管目标出现。
    在没有编译器之前，**这几道自检就是编译器的替身**；有了编译器，它们仍该留着（更快、更早）。
 2. 手写胶水要有**明确依据**（指南哪一条、为什么不违反「不许发明 API」）——写在文件头里，
    否则下一轮的人（包括我自己）会把它们当成产物。
+### 第 83 轮：`runtime/props.xl.md` 生成成 C++（6 份）——并解开一个**头文件级循环**
+
+`xl_emit` 报 **ok** ✓，`props` 是 P1 的**第六个单元**。
+
+**循环长什么样**：`props` 要 `import { RoomChecker } from "./rt.xl.md"`
+（一堆函数的形参都是它），而 `rt` 要用 `props` 的 `Protos`——**头文件级的互相依赖**，
+谁先做都缺一个类型。
+
+**解法来自指南自己**：函数类型的默认映射是 `std::function<…>`。
+于是 `props` 里把 `RoomChecker` 写成 `using RoomChecker = std::function<bool(int32_t bytes)>;`
+——**不 include `rt.h`**，循环当场断开；`rt.h` 将来定义的是**同一个类型**（同一份别名可以重复定义），
+两边不会变成两种类型，也不必发明任何文件。
+
+**四处必须收引用**（与 `Trace(HeapObject&)`、`Program::At`、`ShiftPc` 同一族）：
+
+- `SetProperty` 里的 `Property& property`——TS 那边是对象引用，`property.Value = value`
+  **要写回表里那一格**；收副本就**静默丢掉一次写入**；
+- `DeleteProperty` 里的 `HeapObject& item`——`item.Props = RemoveAt(...)` 同理；
+- `ReadProperty` 的 `Property&`（读这条路收副本也对，但两处保持同一形状）；
+- `Protos::AddRoots(RootSet&)`（要往里写）。
+
+另外 `FindProperty` 的 `PropRef | null` 按指南落成 **`std::optional<PropRef>`**。
+
+**度量工具的结论（第三次翻车，这次下决心）**：`props.xl.md` 真实是 **461 行**，
+`Measure-Object` 说 326 ✗。**规格行数不再用 `Measure-Object` 量**——以 `read` 工具的
+总行数为准（它与 `grep` 的行号互相印证）。
+
+**自检又加一项**：**头文件的守卫宏必须与文件名对得上**（正是先前那个手滑的族）。
+连同结构、include 解析、花括号配对：**67 文件・106 include・0 异常** ✓。
