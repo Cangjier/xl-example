@@ -3838,6 +3838,32 @@ check("运行器：多文件程序交给 tsrun 跑（跨模块的类 + Map + 能
   eq(res.Value.AsInt(), nodeSide, "跨模块的类 + Map + 能力调用，逐值一致");
 });
 
+check("运行器：异步宿主自己当事件循环（Prepare 造承诺 → Parked → 兑现 → 推进 → 取结果）", () => {
+  // 「宿主才是事件循环」这条契约，**在产品路径上**钉住：运行器不替宿主推进微任务，
+  // 它把 `Parked` 和**机器**一起交回来，宿主兑现承诺、推进、再取结果。
+  const source = [
+    "export async function awaitIt(p) { const v = await p; return v + 1; }",
+  ].join("\n");
+  let pending = null;
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "awaitIt";
+  // **宿主造入口实参**：承诺住在堆里，而堆是运行器建的——所以只能在装起来之后造。
+  request.Prepare = (table, machine) => {
+    const promise = Value.FromObject(table.CreatePromise(PromiseState.Pending, Value.Undefined()));
+    machine.Retain(promise);
+    pending = promise;
+    return [promise];
+  };
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Parked, "挂在 await 上，宿主拿到 Parked：" + res.Message);
+  eq(res.Machine !== null, true, "挂起时也拿得到机器（宿主才是事件循环）");
+  eq(res.Table !== null, true, "表也交出来了（造承诺要用它）");
+  res.Machine.ResolvePromise(pending, Value.FromInt(41));
+  eq(res.Machine.DrainMicrotasks(), true, "宿主推进微任务");
+  eq(res.Machine.Result.AsInt(), 42, "宿主驱动下的 async 结果（41 + 1）");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

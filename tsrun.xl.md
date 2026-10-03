@@ -51,6 +51,14 @@ import { LinkPrograms } from "./runtime/link.xl.md"
 
 `room` 先给出来是**规矩**：宿主函数要分配就得先问预算（`host-abi.xl.md` 的调用通道）。
 
+# type PrepareArgs = (table:HeapTable, machine:Vm)=>Array<Value>
+
+**在入口开帧之前，由宿主造出入口的实参。**
+
+**为什么要有它**：有些实参只能在「装起来之后」造——最典型的是 **async 入口要的那个承诺**
+（承诺住在堆里，而堆是运行器建的）。宿主在这里拿到表与机器，就能自己造。
+**这也把「谁是事件循环」这件事说清楚了：宿主才是。**
+
 # class RunRequest
 
 **一次运行要什么。**
@@ -77,8 +85,12 @@ import { LinkPrograms } from "./runtime/link.xl.md"
 **同步宿主可以把「推进微任务」交给运行器做**（判据、命令行就是这种宿主）。
 
 **真正的异步宿主不该用这个**：它应当自己当事件循环——挂起时 `RunSources` 会带着
-`Parked` 回来，它推进之后接着跑。**但那个入口现在还没有**（机器在运行器内部，
-外面拿不到）——这是 P1 要给宿主补的一件事，写在这里不假装它有。
+`Parked` 回来，它推进之后接着跑。要做到这一点，它需要的是下面两样：
+`Prepare`（造入口实参，比如承诺）+ `RunResult` 里的机器与表（兑现、推进）。
+
+## field Prepare:PrepareArgs | null = null
+
+**装起来之后、入口开帧之前，由宿主造入口实参**（给了它就**不用** `EntryArgs`）。
 
 ## constructor:()=>void
 
@@ -90,6 +102,7 @@ this.Capabilities = [];
 this.Entry = "";
 this.EntryArgs = [];
 this.DriveLoop = false;
+this.Prepare = null;
 ```
 
 # class RunResult
@@ -109,6 +122,17 @@ this.DriveLoop = false;
 
 入口的返回值（没有入口、或者挂起了，就是一个默认值——**调用方先看 `Outcome` 再用它**）。
 
+## field Machine:Vm | null = null
+
+**这次运行用的机器**（挂起时尤其需要它：宿主用它兑现承诺、推进微任务、再取结果）。
+
+**把机器交出来是有意的**：宿主本来就是环境的主人——**宿主才是事件循环**。
+运行器只负责「把程序装起来」，不假装自己知道宿主打算怎么驱动它。
+
+## field Table:HeapTable | null = null
+
+**这次运行用的表**（宿主造承诺要用它：`table.CreatePromise(...)`）。
+
 ## constructor:()=>void
 
 造一个空结果。
@@ -117,6 +141,8 @@ this.DriveLoop = false;
 this.Outcome = HostOutcome.Ok;
 this.Message = "";
 this.Value = new Value();
+this.Machine = null;
+this.Table = null;
 ```
 
 # method ParseToProjection:(content:string, filePath:string)=>any
@@ -183,6 +209,9 @@ for (let i = 0; i < modules.length; i++) {
 const linked = LinkPrograms(programs);
 const machine = new Vm(table, 1 << 20, 1000000);
 const host = new Host(machine, Limits.Default());
+// **把机器与表交给宿主**（见 `RunResult` 那两个字段的说明）：宿主才是事件循环。
+result.Machine = machine;
+result.Table = table;
 const bytes = Encode(linked, ids);
 if (bytes === null) {
   result.Message = "ENCODE_FAILED";
@@ -260,7 +289,9 @@ if (request.Entry !== "") {
     return result;
   }
   const array = table.Get(all[all.length - 1].Ref).AsArray();
-  if (!machine.StartClosure(array.GetAt(index), request.EntryArgs)) {
+  // **入口实参**：宿主可以用 `Prepare` 在**这时候**造（承诺只能在装起来之后造）。
+  const entryArgs = request.Prepare === null ? request.EntryArgs : request.Prepare(table, machine);
+  if (!machine.StartClosure(array.GetAt(index), entryArgs)) {
     result.Outcome = HostOutcome.OutOfMemory;
     result.Message = "入口开不了帧（预算不够）";
     return result;
@@ -271,9 +302,12 @@ if (request.Entry !== "") {
     machine.DrainMicrotasks();
   }
 }
-if (machine.Frames.Depth() === 0 && machine.Microtasks.length > 0) {
+// **挂起的判据是 `Finished`，不是微任务队列**（`host-abi.xl.md` 里宿主就是这么判的）：
+// 挂在**未兑现**的承诺上时，帧在承诺的反应表里、**队列反而是空的**——
+// 拿队列当信号会把它错判成「跑完了」（第 76 轮踩的）。
+if (!machine.Finished) {
   result.Outcome = HostOutcome.Parked;
-  result.Message = "挂在承诺上（宿主推进微任务之后再取结果）";
+  result.Message = "挂在承诺上（宿主兑现并推进微任务之后再取结果）";
   return result;
 }
 result.Value = machine.Result;
