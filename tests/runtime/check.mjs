@@ -4028,6 +4028,41 @@ check("P0：switch + do..while + 带标签的 continue·break，经运行器与 
   }
 });
 
+check("P0：嵌套闭包（两层环境链）经运行器与 Node 逐值一致", () => {
+  // 这一条**本来**想同时测「对象字面量 getter + 派生类 super(...) + Map.values + 嵌套 JSON」，
+  // 结果连撞两个缺口（记在台账里）：
+  //   ① `object literal member GetAccessor` —— 降级层没接，而且**引擎侧根本没有「造访问器属性」的路**；
+  //   ② 把 getter 换成普通方法之后，整段程序又报
+  //      `new_closure needs an environment or undefined` ✗ —— 而**只留嵌套闭包时它是通的** ✓
+  //      （就是现在这一版），所以嫌疑在类 / 对象方法 / Map.values 三者之一。
+  // 判据按**它真正测的东西**改标题：这里测的是两层环境链（闭包返回闭包、从外层参数捕获）。
+  const source = [
+    "function adder(n) { return function (m) { return n + m; }; }",
+    "function run() {",
+    "  const add5 = adder(5);",
+    "  return [add5(7)];",
+    "}",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn run();")();
+  eq(expected[0], 12, "Node：两层闭包（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
