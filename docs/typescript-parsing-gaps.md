@@ -4809,3 +4809,28 @@ no-json        -> THREW: ...
    「只在组合里出现」的 bug 钉到具体构造上；
 2. **同一份规范里两处说法不一致，就是 bug 的温床**——`IsFunctionNode` 的名单与
    `HasNestedFunction` 的说明打架了好几个轮次，而单独测哪一块都测不出来。
+### 第 98 轮：对象字面量 getter 那一块——**第 1 阶段（引擎侧）落地**：`props.DefineAccessor`（148/148）
+
+第 95 轮查出来的是「引擎**读得懂**访问器，但**造不出**一个」——`heap.xl.md` 的
+`Property.Accessor` 工厂在，却没人能把它放进对象的属性表里。这一轮给它一个落点。
+
+**`props.xl.md` 新增 `DefineAccessor(room, table, receiver, key, getter, setter)`**，v1 的最小形状：
+
+- 只看**自有属性**；找不到就**新建一格**（三标志全开，与普通赋值一致）；
+- 找到访问器或可配置数据属性 → **原地替换** `Kind`/`Getter`/`Setter`；
+  **不可配置的要抬**（严格模式该抬 `TypeError`）；
+- `setter` 传 `undefined` 就是**只读访问器**：读没事，写会走到 `SetProperty`
+  那条「访问器没有 setter」的分支上抬。
+
+**两侧产物都跟上了**（这是纪律，不是选择）：TS 侧 `xl_build` + `tsc=0` + **148/148** ✓；
+C++ 侧 `props` 的 **6 份重新生成** ✓、契约校验通过 ✓（`cpp:check` 的成员名计数会 +1）。
+
+**第 2 阶段（下一轮，设计已经定了）**：给它一个**语言内建号**——**不加新通用算子** ✗，
+因为那要动 `RtOpCount` 并改**手写的 `vm.cpp`** ✗；而规范自己写着「**语言内建从 `BuiltinBase`
+之后编号，由语言层注册**」，而「定义访问器」本来就属于语言/库那一侧 ✓。所以接线是：
+一个新号段（例如 `700..799` 当作「对象辅助」）＋ `InvokeWithSink` 里一支 ＋ 降级层的 accessor 分支
+发一条 `host_call(号, 对象, 键, getter, setter)`（能力调用的形状：一个 `[号, 参数…]` 窗口 ＋
+`EmitRt(RtOp.HostCall, base, base, count+1)`——**这是读出来的**）＋ 把合成判据里的 getter 放回去。
+
+**一条经验**：**「读得懂、造不出」是最容易在合成判据里露出来的一种缺口**——
+四轮合成判据（`++` / `delete` / `do..while` / 这一处）里有两次是这个形状。

@@ -459,3 +459,44 @@ const handle = table.CreateArray();
 table.Get(handle).Proto = protos.Array;
 return Value.FromArray(handle);
 ```
+
+# method DefineAccessor:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value, getter:Value, setter:Value)=>bool
+
+**把一处自有属性变成访问器**（第 98 轮补）——`{ get x() { … } }` 与类里 `get x()` 那类写法的落点。
+
+**为什么它必须在这里**：引擎**早就读得懂**访问器（`ReadProperty` 遇到 `PropertyKind.Accessor`
+就调它的 getter、`SetProperty` 调 setter），但在此之前**没有任何办法造出一个** ✗——
+`heap.xl.md` 的 `Property.Accessor` 工厂存在，却没人能把它放进对象的属性表里。
+「**读得懂、造不出**」是最容易在**合成判据**里露出来的一种缺口（第 95 轮就是这么露的）。
+
+**v1 的最小形状**（不是 `Object.defineProperty` 的全集）：
+
+- **只处理自有属性**：找不到就**新建一格**（新属性三标志全开，与普通赋值一致）；
+- **找到的是访问器**（或可配置的数据属性）→ **原地替换**那一格的 `Kind`/`Getter`/`Setter`；
+  **不可配置的要抛**（严格模式该抛 `TypeError`，见本文件文首的缺口清单）；
+- `setter` 传 `undefined` 就是**只读访问器**——读它没问题，写它会走到 `SetProperty`
+  那条「访问器没有 setter」的分支上抛。
+
+```ts
+if (!receiver.IsObject()) {
+  throw new Error("unimplemented: defining an accessor on a primitive receiver");
+}
+for (let i = 0; i < table.Get(receiver.Ref).Props.length; i++) {
+  if (!KeyMatches(table, table.Get(receiver.Ref).Props[i], key)) continue;
+  if ((table.Get(receiver.Ref).Props[i].Flags & PropertyFlagConfigurable) === 0) {
+    throw new Error("unimplemented: this should throw a TypeError (non-configurable property)");
+  }
+  const replaced = table.Get(receiver.Ref).Props[i];
+  replaced.Kind = PropertyKind.Accessor;
+  replaced.Getter = getter;
+  replaced.Setter = setter;
+  table.Recount(receiver.Ref);
+  return true;
+}
+if (!room(PropertyCharge)) {
+  throw new Error("out of room");
+}
+table.Get(receiver.Ref).Props.push(Property.Accessor(key.Ref, getter, setter));
+table.Recount(receiver.Ref);
+return true;
+```
