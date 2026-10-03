@@ -6109,5 +6109,49 @@ check("`Guard` 的失败类别：引擎报「哪一类」，语言层翻成名�
 });
 
 console.log("");
+console.log("=== 第 140 轮：super(m) 落在内建构造函数上 ===");
+
+check("`super(m)` 往传进来的 `this` 上初始化，并返回它", () => {
+  // **端到端那一把在 `cases/32-super-on-builtins.ts`**（5 行逐字节 ✓）。
+  // 这里钉的是**那一格本身**：内建错误构造函数拿到 `self` 时，
+  // ① 写 `message` / `name` 到**那个对象**上 ✓、② **返回它** ✓。
+  // **返回 `self` 而不是新对象** ✗：JS 的规矩是「父类构造函数改的就是那一个 `this`」✓——
+  // 返回新对象会让「谁是真的 `this`」出现两个答案 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "class MyErr extends Error { constructor(m) { super(m); this.name = 'MyErr'; } }",
+    "const direct = new MyErr('one');",
+    "let caught = null;",
+    "try { throw new MyErr('two'); } catch (e) { caught = e; }",
+    "console.log(direct.name, direct.message, direct instanceof Error,",
+    "  caught.name, caught.message, caught instanceof MyErr);",
+    "class Sub extends TypeError { constructor(m) { super(m); } }",
+    "const sub = new Sub('bang');",
+    "console.log(sub.name, sub.message, sub instanceof TypeError, sub instanceof MyErr);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "MyErr one true MyErr two true", "自己写的 `name` 与父类写的 `message` 都在");
+  eq(lines[1], "TypeError bang true false", "不写 `name` 时从原型链上取到 `TypeError`");
+  // **一行降级层改动都没有** ✗：`this` 是 `Op.Call` 的 `D` 操作数递过去的 ✓
+  //（`lowering.xl.md` 的 `super(...)` 那一支 ✓）——这一条量的是「引擎/建库层改对了」✓。
+  // **反面也量一下**：`super(...)` 造出来的**不能**是另一个对象 ✗——
+  // 派生类构造函数里 `this.x = 1` 写在 `super()` 之后 ✓，两者必须是同一个对象 ✓。
+  const identity = [];
+  const identityRequest = new RunRequest();
+  identityRequest.Sources = [[
+    "class E extends Error { constructor(m) { super(m); this.extra = 1; } }",
+    "const e = new E('m');",
+    "console.log(e.message, e.extra, e instanceof E, e.constructor === E);",
+  ].join("\n")];
+  identityRequest.Entry = "";
+  const identityRes = RunSources(identityRequest, (text) => identity.push(text), () => null);
+  eq(identityRes.Outcome, HostOutcome.Ok, "运行器：" + identityRes.Message);
+  eq(identity[0], "m 1 true true", "`super()` 之后写的字段与父类写的是同一个对象");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

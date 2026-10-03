@@ -13,33 +13,29 @@
 
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
-| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 138 轮 `Protos` 加到十格 ✓；**第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」** ✓（引擎报类别、语言层翻名字 ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
-| **降级层**（本目录） | **~95%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；缺 `new C(...xs)` 与 `super(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~78%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮 `Map` / `Set` / `Date` 的 `prototype` 与 `constructor` ✓；**第 139 轮错误工厂按「失败类别」造 `TypeError`** ✓；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法（`hasOwnProperty` 那些）、`Map` / `Set` 的**内部槽** |
-| **端到端**（普通 `.ts` 文件） | **~98%** | 31 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、**引擎抛的 `TypeError`**）；**已知的十一个拦路虎都关掉了** ✓，下一个是**「不是函数却调用」也算 `TypeError`**与**内建构造函数上的 `super()`**（见「下一步」） |
+| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓、字符串下标读 ✓、空值上的属性读会抛 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 138 轮 `Protos` 加到十格 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
+| **降级层**（本目录） | **~95%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；数字字面量的全形态（第 129 轮）✓；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；缺**派生类不写构造函数时的那个默认构造函数**（`class E extends Error {}` 现在抛 ✓）、`new C(...xs)` 与 `super(...xs)`、正则、`export default` |
+| **标准库**（`builtins/`） | **~80%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮 `Map` / `Set` / `Date` 的 `prototype` 与 `constructor` ✓；第 139 轮错误工厂按「失败类别」造 `TypeError` ✓；**第 140 轮内建错误构造函数支持「往传进来的 `this` 上初始化」** ✓（自定义错误类通了 ✓）；缺 `reduce` / `sort`、原始值原型、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
+| **端到端**（普通 `.ts` 文件） | **~98%** | 32 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、**自定义错误类**）；**已知的十二个拦路虎都关掉了** ✓，下一个是**派生类的默认构造函数**与**`Map` / `Set` 的 `super()`**（见「下一步」） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` 189 条 / `runtime:cli` 31 份 ✓）。
+与语料数（`runtime:check` 190 条 / `runtime:cli` 32 份 ✓）。
 
-**下一步（第 139 轮收尾时看着的）**：
+**下一步（第 140 轮收尾时看着的）**：
 
-1. **「不是函数却调用它」也算 `TypeError`** ✗：`x()` 里 `x` 不是函数时，本仓抛的是
-   `unimplemented: calling a non-closure value` ✓——它走**指令那一层**的 `Guard` ✓
-   （一处包住整条指令 ✓），那一层**分不出**「类型失败」与「别的失败」✗。
-   要分就得让 `DoCallValue` 自己带类别 ✓（把 `throw` 换成一条带类别的路 ✓）——
-   与 `ErrorKindType` 那一格是同一件事 ✓，只是**换一层** ✓。
-2. **话里带上键名** ✗：Node 说 `Cannot read properties of null (reading 'x')` ✓，
-   本仓说 `cannot read properties of null` ✓。要带上，得把**那个键值**递给工厂 ✓
-   （工厂是语言层 ✓，认得 `TextFrom` ✓；而引擎侧不许把值渲染成文本 ✗，
-   见 `host-text.xl.md` 的纪律 ✓）——**这是签名上的一格** ✓，不难但要动三处 ✓。
-3. **内建构造函数上的 `super()`** ✗：`class X extends Error` / `extends Map` 现在**响亮地抛** ✓
-   （第 137 轮特意留的 ✓）——`super(m)` 落在内建构造函数上时，那一族是
-   「自己造一个新对象返回」那一款 ✓，于是新对象被丢掉 ✓、`this` 上一个属性都没写 ✗。
-   要真做得让内建构造函数支持「往传进来的 `this` 上初始化」✓。
-4. **`Map` / `Set` 的内部槽** ✗：`Object.keys(new Map())` 在本仓给 12 ✗（Node 给 0 ✓）——
-   方法挂在实例上 ✓、`__k` / `__v` / `size` 也是自有属性 ✓。这是**值模型的结构差** ✓。
-5. **`new C(...xs)` / `super(...xs)`** ✗：给 `CallArray` 补「构造目标」那一个操作数 ✓。
+1. **派生类的默认构造函数** ✗：`class E extends Error {}`（**不写构造函数** ✓）现在**抛** ✓——
+   降级层要求派生类自己写构造函数并调用 `super(...)` ✓（父类带构造函数时 ✓）。
+   JS 那边默认构造函数是 `constructor(...args) { super(...args) }` ✓，
+   本仓**不合成那一个** ✗。第 133 轮的**剩余参数** + 第 140 轮的**内建 `super()`** 都已经在 ✓，
+   所以这一条今天**只差合成** ✓——而它正好挡着最常见的那个写法 ✓（`class MyError extends Error {}` ✓）。
+2. **其余内建构造函数的 `super()`** ✗：`extends Map` / `extends Set` —— 它们各自要先把
+   **内部格**铺到 `this` 上 ✓（`Map` 的 `__k` / `__v` / `size` ✓），是**逐个**的事 ✓。
+3. **「不是函数却调用它」也算 `TypeError`** ✗：它走**指令那一层**的 `Guard` ✓
+   （一处包住整条指令 ✓），那一层分不出类别 ✗——要分就得让 `DoCallValue` 自己带类别 ✓。
+4. **话里带上键名** ✗：Node 说 `Cannot read properties of null (reading 'x')` ✓，本仓没有键名 ✓。
+5. **`Map` / `Set` 的内部槽** ✗（`Object.keys(new Map())` 给 12 ✗）、
+   **`new C(...xs)` / `super(...xs)`** ✗。
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
@@ -235,6 +231,40 @@ typescript-exec/
 所以 C++ 那一份**欠着** ✗：按 [docs/xl-to-cpp.md](../docs/xl-to-cpp.md) 逐源重发
 （**没改动的部件照抄旧产物** ✓，真要改写的只有几十处 ✓）。
 **它不影响「直接跑 .ts」那条判据** ✓（那是 TS 出口的事 ✓），所以它排在「能跑更多普通程序」后面 ✓。
+
+## 第 140 轮的账（`super(m)` 落在内建构造函数上）
+
+第 137 轮把 `Error` / `TypeError` / `RangeError` 做成了真构造函数 ✓，
+但 `class MyErr extends Error` 当场**响亮地抛** ✓——那一族是「**自己造一个新对象返回**」那一款 ✓：
+`super(m)` 造出来的新对象被丢掉 ✓、`this` 上一个属性都没写 ✗
+（**症状是 `e.message` 空着**，而 `e.name` 被派生类自己写了、看着一切正常 ✓）。
+**抛比静默错值好** ✓，所以先抛了一轮 ✓；这一轮改成**真的办到它** ✓。
+
+**改的是哪一格** ✓：内建错误构造函数拿到**接收者**（`self` ✓）时，
+往**那个对象**上写 `message` / `name` ✓，并**返回它** ✓——
+「谁是真的 `this`」只有一个答案 ✓（JS 的规矩就是「父类构造函数改的就是那一个 `this`」✓）。
+
+**一行降级层改动都没有** ✗：`this` 是降级层用 `Op.Call` 的 **`D` 操作数**递过来的 ✓
+（`lowering.xl.md` 的 `super(...)` 那一支 ✓）——这一轮量到的正是「引擎 / 建库层的那一格补对了」✓。
+
+语料 [tests/runtime/cases/32-super-on-builtins.ts](../tests/runtime/cases/32-super-on-builtins.ts)
+**5 行 stdout 与 `node` 逐字节相同** ✓：
+
+```
+extends-error       MyError,custom,true,true
+extends-typeerror   TypeError,bad:tag,true,true,false
+extends-rangeerror  RangeError,range,true
+caught-by-kind      generic,type,range
+```
+
+**第二行值得看一眼** ✓：`TaggedError` **没有**自己写 `name` ✓，于是 `e.name` 从原型链上取到
+`"TypeError"` ✓——Node 也是这样 ✓（`instanceof TypeError` 为真 ✓、`instanceof RangeError` 为假 ✓）。
+
+**一句仍然抛的** ✗：`class E extends Error {}`（**不写构造函数** ✓）——
+降级层要求派生类自己写构造函数并调用 `super(...)` ✓。JS 的默认构造函数是
+`constructor(...args) { super(...args) }` ✓，本仓**不合成那一个** ✗。
+它挡着的正是最常见的那个写法 ✓，所以它是**下一步的头一条** ✓
+（第 133 轮的剩余参数 + 这一轮的内建 `super()` 都已经在 ✓，**只差合成** ✓）。
 
 ## 第 139 轮的账（引擎抛的也是 `TypeError`）
 

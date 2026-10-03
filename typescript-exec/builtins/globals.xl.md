@@ -496,17 +496,30 @@ if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor) {
   // **实参走「任意值 → 文本」**（第 124 轮）✓：`new Error({})` 在 JS 里得到
   // `"[object Object]"` ✓——以前这里用引擎的 `TextFrom`，那会在对象上**抛** ✗。
   const text = args.length > 0 ? ValueText(table, args[0]) : "";
-  // **`super(m)` 落在内建构造函数上时响亮地抛** ✗（第 137 轮记下的一笔账 ✓）：
-  // `class MyErr extends Error { constructor(m) { super(m); } }` 里 `super(m)` 是
-  // **一次普通调用 + 一个接收者**（`self` 就是那个实例 ✓），而这一族内建构造函数是
-  // 「**自己造一个新对象返回**」那一款 ✓（见 `ErrorCtor` 的说明 ✓）——
-  // 于是那个新对象被丢掉 ✓、`this` 上一个属性都没写 ✗。
-  // **症状是 `e.message` 空着** ✓（而 `e.name` 被派生类自己写了、看着一切正常 ✓）——
-  // **静默的错值比抛糟得多** ✓，所以这里抛 ✓。
-  // 真要做得让内建构造函数支持「往传进来的 `this` 上初始化」✓（外带 `new.target` 那条链 ✓），
-  // 那是**另一轮**的事 ✓。
+  // **`super(m)`：往「传进来的那个 `this`」上初始化**（第 140 轮做掉了 ✓）。
+  //
+  // **为什么它是这一族最要紧的一格** ✗：`class MyErr extends Error { constructor(m) { super(m);
+  // this.name = "MyErr"; } }` 是**日常写法** ✓（自定义错误类 ✓），而 `super(m)` 落在内建
+  // 构造函数上时，本仓给的是**一次普通调用 + 一个接收者** ✓——接收者就是**已经在造的那个实例** ✓
+  // （降级层用 `Op.Call` 的 `D` 操作数把 `this` 递过来 ✓，见 `lowering.xl.md` 那一支 ✓）。
+  //
+  // **第 137 轮在这里抛** ✗（「unimplemented: super(...) on a builtin constructor」✓）——
+  // 因为那时这一族是「**自己造一个新对象返回**」那一款 ✓，于是新对象被丢掉 ✓、
+  // `this` 上一个属性都没写 ✗（**症状是 `e.message` 空着**，而 `e.name` 被派生类自己写了、
+  // 看着一切正常 ✓）。**抛比静默错值好** ✓，所以先抛了一轮 ✓；这一轮改成**真的办到它** ✓。
+  //
+  // **返回的是 `self`** ✗：`super(...)` 的结果在本仓被丢掉 ✓（降级层拿它当临时格 ✓），
+  // 但**不能返回一个新对象** ✓——那会让「谁是真的 `this`」出现两个答案 ✓
+  //（JS 的规矩是「父类构造函数改的就是那一个 `this`」✓）。
+  // **`name` 也写上去** ✓（与 `NewErrorLike` 一致 ✓）：不写的话，
+  // `class E extends Error {}` 的实例 `name` 来自原型 ✓（也是 `"Error"` ✓），两种写法结果一样 ✓。
   if (self.IsObject()) {
-    throw new Error("unimplemented: super(...) on a builtin constructor");
+    SetProperty(room, NeverCall, table, self, NameValue(table, "message"),
+      Value.FromString(table.CreateString(Units(text))));
+    const selfName = id === TypeErrorCtor ? "TypeError" : (id === RangeErrorCtor ? "RangeError" : "Error");
+    SetProperty(room, NeverCall, table, self, NameValue(table, "name"),
+      Value.FromString(table.CreateString(Units(selfName))));
+    return self;
   }
   if (id === TypeErrorCtor) return NewErrorLike(room, table, protos, protos.TypeError, "TypeError", text);
   if (id === RangeErrorCtor) return NewErrorLike(room, table, protos, protos.RangeError, "RangeError", text);
