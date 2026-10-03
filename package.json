@@ -16,7 +16,8 @@
     "cases:check": "node ./tests/parse/validate.mjs",
     "runtime:check": "node ./tests/runtime/check.mjs",
     "cases:tsast": "node ./tests/parse/ts-ast.mjs",
-    "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli"
+    "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli",
+    "cpp:check": "node tests/cpp/check.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
