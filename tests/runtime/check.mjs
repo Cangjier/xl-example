@@ -69,7 +69,7 @@ const { HeapTable, Property, PropertyKind, ObjectCharge, PropertyCharge, ValueCh
 const gcMod = require(path.join(root, "build", "ts", "runtime", "gc.js"));
 const { Collector, RootSet, DefaultHeadroom, MinHeapLimit } = gcMod;
 const irMod = require(path.join(root, "build", "ts", "runtime", "ir.js"));
-const { Program, Instruction, Op, RtOp, RtOpName, Constant, SourceSpan, Handler, FunctionInfo, BuiltinBase } = irMod;
+const { Program, Instruction, Op, RtOp, RtOpName, Constant, SourceSpan, Handler, FunctionInfo, BuiltinBase, RtOpCount } = irMod;
 const { PadLeft, PadRight, PadZero, Hex4 } = irMod;
 const verifyMod = require(path.join(root, "build", "ts", "runtime", "ir-verify.js"));
 const { IdTable, Encode, Decode, Verify, Load, LoadIssue, LoadedProgram } = verifyMod;
@@ -676,7 +676,7 @@ check("编号只追加：成员顺序就是跨目标的约定", () => {
   eq(Op.LoadThis, 19, "读 this 的那条");
   eq(Op.Await, 20, "承诺那条");
   eq(Op.Caught, 21, "这一轮追加的那条");
-  eq(enumMembers(RtOp), 38, "通用算子条数");
+  eq(enumMembers(RtOp), RtOpCount, "通用算子条数与规范里那个常量一致");
   eq(RtOp.Add, 0, "第一个算子");
   eq(RtOp.HostCall, 36, "最后一个通用算子");
   ok(enumMembers(RtOp) <= BuiltinBase, "内建段必须留在通用算子之后");
@@ -798,7 +798,8 @@ console.log("");
 console.log("=== 装载验证：线形态（定宽小端）===");
 
 /** 判据用的算子表：通用段 = 全表，内建段 = 1 条。 */
-const testIds = new IdTable(RtOp.HostCall + 1, 8);
+// **算子格数从规范里那个常量来**（两处共用一个数：规范给上界，判据拿它当尺子）。
+const testIds = new IdTable(RtOpCount, 8);
 
 /** 一份**合法**的小程序：一个函数、四个槽、一份常量、一条方法调用、一条算子调用。 */
 function validProgram() {
@@ -3066,8 +3067,8 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
     throw new Error("在「" + label + "」处：" + String(error.message));
   }
 
-  // **`extends` 这一轮仍然抛**（引擎的 `set_proto` 已就位，但方法继承那条路还有
-  // 一个没查清的失败，见台账）。这里断言的是「响亮拒绝」，不是静默少跑。
+  // **`extends` 这一轮仍然抛**（引擎的 `set_proto` 与算子上界都已就位，但方法继承那条路
+  // 还有一个没查清的失败，见台账）。这里断言「响亮拒绝」，不是静默少跑。
   let derived = "";
   try {
     lowerAndLoad("class A { m() { return 1; } } class B extends A { }");

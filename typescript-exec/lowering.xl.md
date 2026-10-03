@@ -2537,7 +2537,10 @@ getter / setter、计算键方法、生成器方法与 async 方法。
 // **`extends` 这一轮仍然抛**（引擎那半 `set_proto` 已经就位、也验证过：空类的
 // `class B extends A {}` + `new B()` 是通的；但**方法继承**那条路还有一个没查清的失败，
 // 复现写在 `docs/typescript-parsing-gaps.md`）。**查不清就不放行**——
-// 「子类实例上少了父类的东西」是静默错值，比不能用更坏。
+// **`extends` 这一轮仍然抛**：引擎那半（`set_proto`）与「算子上界」都已就位，
+// 但**方法继承**那条路（`b.m()` 沿链找到父类方法）还有一个没查清的失败——
+// 复现与这一轮收窄到的事实写在 `docs/typescript-parsing-gaps.md`。
+// **查不清就不放行**：子类实例上少了父类的东西是静默错值，比不能用更坏。
 if (node["heritageClauses"] !== undefined && node["heritageClauses"] !== null) {
   throw new Error("unimplemented: `extends` (the method-inheritance flow is not verified yet)");
 }

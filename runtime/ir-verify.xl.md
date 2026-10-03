@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, HashModulus } from "./heap.xl.md"
-import { Program, Instruction, Op, RtOp, Constant, SourceSpan, Handler, FunctionInfo, BuiltinBase } from "./ir.xl.md"
+import { Program, Instruction, Op, RtOp, Constant, SourceSpan, Handler, FunctionInfo, BuiltinBase, RtOpCount } from "./ir.xl.md"
 import { RootSet } from "./gc.xl.md"
 ```
 
@@ -520,7 +520,7 @@ return owner;
 if (program.Version !== WireVersion) {
   return new VerifyIssue(IssueVersion, -1, "wire version mismatch: " + program.Version);
 }
-if (ids.GeneralCount !== RtOp.HostCall + 1) {
+if (ids.GeneralCount !== RtOpCount) {
   return new VerifyIssue(IssueIdTable, -1, "general op count mismatch: " + ids.GeneralCount);
 }
 if (ids.Hash !== IdTable.HashOf(ids.GeneralCount, ids.BuiltinCount)) {

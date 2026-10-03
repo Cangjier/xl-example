@@ -189,9 +189,18 @@ import { HeapTable } from "./heap.xl.md"
 那是属性查找里早就有的上限，环到了那里会**抛**，不会挂住。
 
 # const BuiltinBase:int = 64
-
 语言内建 id 的起点。通用算子表留出前 64 个号——**留空比「以后插队」便宜**：
 真正要在中间插一个通用算子时，插队会改掉所有已编译程序的号，而扩到 64 只是浪费几个号。
+
+# const RtOpCount:int = 38
+
+**通用算子表有几条**（= `RtOp` 的成员数）。
+
+**追加一个通用算子时，这里要跟着 +1**——这是那条「编号只追加」的规矩**唯一的落点**。
+为什么要有这个名字：装载验证要拿它跟 id 表比，而**写死成「最后那个成员 + 1」迟早会忘**
+（第 45 轮就是这么翻的：`SetProto` 追加了，验证层还按 `HostCall + 1` 比，于是
+**每一条**判据都红，报的是 `general op count mismatch: 38`）。
+判据里也拿它当尺子（`enumMembers(RtOp) === RtOpCount`），**两处共用一个数**。
 
 # method RtOpName:(id:int)=>string
 

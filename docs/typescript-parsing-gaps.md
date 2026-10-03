@@ -3665,3 +3665,29 @@ VM 接线；判据里那条「编号只追加」跟着从 37 挪到 **38**——
 **「查不清就不放行」**——子类实例上少了父类的东西是**静默错值**，比不能用更坏。
 下一轮从上面两条复现接：先查守卫（第 2 条更容易，纯扫描代码），
 再顺着它查第 1 条（守卫若真能认出父类，`set_proto` 的落点就有了确定的验证路径）。
+### 第 45 轮收窄到的事实
+
+**一个真正的 bug（已修）**：装载验证把「通用算子条数」**写死**成 `RtOp.HostCall + 1`，
+于是 `SetProto` 一追加，**每一条**判据都红（`general op count mismatch: 38`，65 条同时失败）。
+修法不是把 38 改成 39，而是**收成一处具名常量**：`ir.xl.md` 的 `# const RtOpCount:int = 38`，
+验证层与判据都用它——**追加算子时只有一处要改**，这正是那条老规矩该有的落点。
+
+**它顺带解释了上一轮的谜**：判据里 id 表的算子格数**也是写死的**
+（`new IdTable(RtOp.HostCall + 1, 8)`），所以 `SetProto` 的号**落在表外**、
+编解码走的是「未知算子」那条路——`set_proto` **静默什么都没做**。
+**上一轮那条「空子类继承能跑通」因此是假象**：它根本没走到需要原型链的方法调用。
+
+**修好之后仍然失败**（复现）：
+
+```ts
+class A { m() { return 1; } }
+class B extends A { }
+function viaExtends() { const b = new B(); return b.m(); }
+```
+
+调用 `viaExtends` 报 `unimplemented: calling a non-closure value`，
+即 `b.m` 是 `undefined`：**要么子类 prototype 没接上父类 prototype，要么父类 prototype 上没挂 `m`**。
+
+**下一步（一次就能看清）**：把 `set_proto` 的两个操作数在运行期打出来
+（子类 prototype、父类 prototype 各是哪个对象）——是「链没接上」还是「方法没挂上」，
+一测便知。这也是这一轮该做而没做的第一步（我先改了代码，而不是先量）。
