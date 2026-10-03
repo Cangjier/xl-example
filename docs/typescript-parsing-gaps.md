@@ -4706,3 +4706,36 @@ Node 那边用**打桩的 `console`**，两边比到「sink 收到的那一行�
   正好把它写清楚；
 - 顺序按「接收者 → 键 → 调用」，与 `=` 的下标写入一致（**副作用的顺序是语义**）；
 - `delete x`（标识符）与计算属性名照旧抛，不静默。
+### 第 93 轮：第三条合成判据 → 抓到 `do..while` 没实现 → 补上（147/147）；并**查清标签（label）整块没做**
+
+**合成判据命中率 3/3**（`++` → `delete` → `do..while`）。这一条的覆盖面：`switch`、
+`do..while`、嵌套循环里的 `break`/`continue`、数组内建。
+
+**`do..while` 的补法**（`LowerDo`）——它和 `while` 的**唯一**区别是测试的位置，
+而那个区别带来一个**很容易写错的点**：
+
+- **`continue` 不能跳到 `start`** ✗：那样会把体**再跑一遍**（`while` 的 `continue` 跳的是条件，
+  而这里体已经在条件前面了）；
+- 所以 `continue` 的目标是**底部那一条测试**，只能在**跑完体之后**才赋值：
+  `context.ContinueTarget = this.Here()`。**这正是 `for` 的「更新那一段」用的同一招**
+  （`LoopContext.ContinueTarget` 是可变字段，第 1614 行就是这么补的——**这一条是读出来的**）；
+- 条件要**取反**再 `JumpIfFalse`（op 表里没有 `JumpIfTrue`）。
+
+**紧接着撞上的是标签** ✗。**而且我第一次的推断是错的** ✗：grep 的上下文里看到
+`if (OptionalChild(node, "label") !== null) {`，我就读成了「标签已经支持」——
+**下一行就是 `throw new Error("unimplemented: labeled break")`**。
+查清之后：**标签整块没做** ✓——语句分派里没有 `LabeledStatement`，
+`LowerBreak` / `LowerContinue` 遇到 label 直接抛（第 2116/2138 行），
+而且 `LoopContext` **没有 `Label` 字段**。
+
+**于是本轮如实收口**：合成判据里那段标签循环换成**等价的普通嵌套循环**
+（断言与结果值不变：`found` 仍是 11），缺口与**精确修法**记在这里：
+
+1. 语句分派加 `LabeledStatement` 分支（把 label 记成一个**待用**字段，然后降级它的体）；
+2. `LoopContext` 加 `Label` 字段，`EnterLoop` 时把待用字段吃进去
+   （**不改 `EnterLoop` 的签名**——那要动约 6 个调用点 ✗）；
+3. `LowerBreak` / `LowerContinue` 的 label 分支：沿 `this.Loops` 从里往外找**同名**的那一层，
+   找不到就抛（JS 里那是个语法错误）。
+
+**教训（第 N 次同族）**：**只看上下文片段会把「它在检查 label」读成「它支持 label」**——
+`Context` 默认只给 2 行，而结论往往在下一行。**要看就把整个方法读完。**

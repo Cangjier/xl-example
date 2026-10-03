@@ -3978,6 +3978,56 @@ check("P0：生成器·for..of + Map/Set + 类·instanceof + 字符串方法 + O
   }
 });
 
+check("P0：switch + do..while + 带标签的 continue·break，经运行器与 Node 逐值一致", () => {
+  // 第三条**合成程序**判据，专挑**控制流的邻居**：前两条把表达式与标准库铺开了，
+  // 这一条把语句层面还没合成过的那几样放一起。前两条的命中率是 2/2（`++` 与 `delete`），
+  // 所以这一条的期望是：要么证明这三样能一起跑，要么点名下一个缺口。
+  const source = [
+    "function classify(n) {",
+    "  let out = 'many';",
+    "  switch (n) {",
+    "    case 1: out = 'one'; break;",
+    "    case 2: out = 'two'; break;",
+    "    default: out = 'many'; break;",
+    "  }",
+    "  return out;",
+    "}",
+    "function walk() {",
+    "  const seen = [];",
+    "  let i = 0;",
+    "  do { seen.push(i); i = i + 1; } while (i < 3);",
+    "  let found = -1;",
+    "  for (let a = 0; a < 3; a = a + 1) {",
+    "    for (let b = 0; b < 3; b = b + 1) {",
+    "      if (b === 2) break;",
+    "      if (a === 2) break;",
+    "      found = a * 10 + b;",
+    "    }",
+    "  }",
+    "  return [classify(1), classify(2), classify(9), seen[2], found];",
+    "}",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn walk();")();
+  eq(expected[0], "one", "Node：switch 命中 case 1（前提）");
+  eq(expected[4], 11, "Node：标签 + continue/break 的结果（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "walk";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，

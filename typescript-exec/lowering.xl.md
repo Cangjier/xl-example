@@ -1250,6 +1250,10 @@ if (kind === "WhileStatement") {
   this.LowerWhile(node);
   return;
 }
+if (kind === "DoStatement") {
+  this.LowerDo(node);
+  return;
+}
 if (kind === "ForStatement") {
   this.LowerFor(node);
   return;
@@ -1477,6 +1481,30 @@ this.Release(condition + 1);
 this.LowerStatement(Child(node, "statement"));
 this.Emit(Op.Jump, -1, start, -1, -1);
 this.PatchTarget(exitIndex, this.Here());
+this.LeaveLoop(context);
+```
+
+## method LowerDo:(node:AstNode)=>void
+
+`do { … } while (cond)`（第 93 轮补）：**先跑一遍体、再看条件**（条件在**底**）——
+这是它与 `while` 的唯一区别，而这个区别是语义（体至少执行一次）。
+
+**`continue` 的目标在底部**（测试那一条），所以它**不能在 `EnterLoop` 时给**：
+先进上下文（先给 `start` 占位）、跑完体之后再 `context.ContinueTarget = this.Here()`——
+`for` 的**更新那一段**也是这么补的（同一个字段，见 `LowerFor`）。
+
+**`continue` 不能直接跳到 `start`**：那样会把体**再跑一遍**（`while` 的 `continue` 跳的是条件，
+而这里的体已经在条件前面了）。这一条是 `do..while` 最容易写错的地方。
+
+```ts
+const start = this.Here();
+const context = this.EnterLoop(true, start);
+this.LowerStatement(Child(node, "statement"));
+context.ContinueTarget = this.Here();
+const condition = this.LowerExpression(Child(node, "expression"));
+const negated = this.RtCall1(RtOp.Not, condition);
+this.Emit(Op.JumpIfFalse, negated, start, -1, -1);
+this.Release(negated + 1);
 this.LeaveLoop(context);
 ```
 
