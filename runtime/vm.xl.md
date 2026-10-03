@@ -215,6 +215,24 @@ this.Pc = pc;
 
 **它必须是根**（`SnapshotRoots` 加进去）。
 
+## field RaiseRequest:Value | null = null
+
+**「请把这次宿主调用当成一次脚本站内异常」的请求**（第 121 轮补）。
+
+**为什么需要它**：宿主函数（内建方法、客户能力）失败时**手上有的是宿主异常**
+（TS 的 `Error`、C++ 的 `std::runtime_error`），而脚本要有的是**一个能被 `try` 接住的值**
+（`Error` 对象）。宿主异常**没有**这条通道：它从调用点直接冒出 `Run()` ✗——
+于是 `try { JSON.parse(bad) } catch {}` 这种写法在脚本里**接不住**，
+整份程序以「语言层错误」收场 ✗。**这一格就是那条通道**：宿主构造好脚本要的那个值、
+放进这一格，引擎在**宿主调用返回之后**把它当成一次 `throw` 走展开 ✓。
+
+**它必须是根**：放进来的是堆对象（`Error` 对象），而从「放进来」到「被取走」之间
+**可能发生分配**（宿主返回前还可能干别的活）✓。
+
+**消费点是宿主调用的两处**（`DoCallValue` 的宿主分支与 `rt_call` 的 `host_call`）：
+两处都在调用返回之后**立刻**看这一格 ✓，取走并清空 ✓——**只在那一瞬有效**，
+不是「一直排队」（那样第二次调用会莫名其妙地抛上一次的错 ✗）。
+
 ## method RegisterCapability:(id:int, target:Value)=>bool
 
 宿主把一个 `HostRef` 注册到能力表的某一格。
@@ -309,6 +327,7 @@ this.Retained = [];
 this.HostTable = [];
 this.Host = null;
 this.Finished = false;
+this.RaiseRequest = null;
 this.StepBudget = stepBudget;
 this.Steps = 0;
 this.Status = VmStatus.Ready;
@@ -335,6 +354,7 @@ this.Program = loaded;
 this.Frames.Clear();
 this.Handlers = [];
 this.Pending = new Value();
+this.RaiseRequest = null;
 this.Result = new Value();
 this.Steps = 0;
 this.Status = VmStatus.Ready;
@@ -367,6 +387,7 @@ this.Frames.AddRoots(this.Roots);
 if (this.Program !== null) this.Program.Roots(this.Roots);
 if (this.Protos !== null) this.Protos.AddRoots(this.Roots);
 if (this.Pending.IsRef()) this.Roots.AddValue(this.Pending);
+if (this.RaiseRequest !== null && this.RaiseRequest.IsRef()) this.Roots.AddValue(this.RaiseRequest);
 if (this.Result.IsRef()) this.Roots.AddValue(this.Result);
 if (this.NativeResult.IsRef()) this.Roots.AddValue(this.NativeResult);
 for (let i = 0; i < this.Microtasks.length; i++) {
@@ -694,6 +715,13 @@ if (callee.Tag === ValueTag.HostRef) {
     args.push(frame.Slots[argBase + i]);
   }
   const produced = invoker(callee, thisValue, args, this.Room());
+  // **宿主请求一次脚本站内异常？**（`RaiseRequest` 那一段）：立刻取走并展开。
+  // 取走是**必须的**：留着它，下一次宿主调用会莫名其妙地抛上一次的错。
+  const raised = this.TakeRaise();
+  if (raised !== null) {
+    this.DoThrow(raised);
+    return;
+  }
   if (returnSlot >= 0) {
     frame.Slots[returnSlot] = produced;
   } else {
@@ -860,8 +888,35 @@ return Value.FromObject(handle);
 this.PrototypeKey = handle;
 ```
 
-## method DoThrow:(value:Value)=>void
+## method Raise:(value:Value)=>void
 
+**宿主请求一次脚本站内异常**（第 121 轮补；见 `RaiseRequest` 那一段）。
+
+**它不在调用点上抛**：宿主只是**留下**这个值，真正的展开发生在宿主调用**返回之后**
+（那两处检查）✓——因为「抛」这件事必须由**当时正握着帧栈**的那一层做 ✗
+（宿主函数没有自己的帧，它手上只有一个 `room`）。
+
+**传进来的必须是脚本要接住的那个值**（`Error` 对象、字符串、随便什么 ✓）——
+「宿主异常的文字」怎么变成「脚本的值」是**语言层**的事 ✗，引擎不认识 `Error` 长什么样 ✓。
+
+```ts
+this.RaiseRequest = value;
+```
+
+## method TakeRaise:()=>Value | null
+
+**取走那次请求**（取走即清空）——没有请求给 `null`。
+
+**为什么必须取走**：留着它，**下一次**宿主调用会莫名其妙地抛上一次的错 ✗
+（`RaiseRequest` 那一格是「只在那一瞬有效」的 ✓）。
+
+```ts
+const value = this.RaiseRequest;
+this.RaiseRequest = null;
+return value;
+```
+
+## method DoThrow:(value:Value)=>void
 展开：找最近一个**还算数**的处理点，把帧退到它那一层，跳过去。
 
 「还算数」= 记下来的那一帧**还在栈上**（`DepthOfFrame` 给的不是 -1）。不在的那些是在展开
@@ -1096,7 +1151,14 @@ if (id === RtOp.HostCall) {
   for (let i = 1; i < argc; i++) {
     args.push(slots[base + i]);
   }
-  return invoker(target, Value.Undefined(), args, this.Room());
+  const produced = invoker(target, Value.Undefined(), args, this.Room());
+  // 与 `DoCallValue` 的宿主分支同一个检查（**两处都要**：能力调用走的是这一条）。
+  const raised = this.TakeRaise();
+  if (raised !== null) {
+    this.DoThrow(raised);
+    return Value.Undefined();
+  }
+  return produced;
 }
 if (id === RtOp.ToString) {
   RequireArgc(argc, 1, "to_string");

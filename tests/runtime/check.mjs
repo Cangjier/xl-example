@@ -88,7 +88,7 @@ const { Lowering, LoweredModule } = loweringMod;
 const arrayBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "array.js"));
 const { InstallArray, InvokeArray } = arrayBuiltins;
 const installBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "install.js"));
-const { InstallBuiltins, InvokeBuiltin, InvokeWithSink } = installBuiltins;
+const { InstallBuiltins, InvokeBuiltin, InvokeWithSink, RaiseFromHost } = installBuiltins;
 const globalsBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "globals.js"));
 const { GlobalNames, BuildGlobals, ClockNow } = globalsBuiltins;
 const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "bindings.js"));
@@ -2079,9 +2079,16 @@ function lowerAndLoad(source, globals, capabilityOf) {
   // **宿主调用通道也要接上**（第 111 轮）：`for..of` 现在会先问一次 `get_iterator`，
   // 那是一条 `host_call`；光注册不够，还得有人在那一头把号翻译成内建分派。
   // 形状照抄产品路径（`tsrun.xl.md`）：从 `HostRef` 取能力号 → 交给 `InvokeWithSink`。
+  // **兜底也要照抄**（第 121 轮）：内建失败时把宿主异常抬成脚本异常 ✓——
+  // 判据里少这一层，量的就是**另一条接法**（`try/catch` 接不住的那种）✗。
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {}, host.Machine.Native());
+    try {
+      return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {}, host.Machine.Native());
+    } catch (error) {
+      if (!RaiseFromHost(host.Machine, error)) throw error;
+      return Value.Undefined();
+    }
   });
   return { module: lowered, host, machine, table };
 }
@@ -4733,6 +4740,49 @@ check("标准库第二批：Error · Math.round/ceil/trunc/sign · Object.values
       eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
     }
   }
+});
+
+check("内建的失败是**脚本接得住**的异常（第 121 轮：Vm.Raise + 宿主通道的兜底）", () => {
+  // **现场**：`try { Object.keys(null) } catch { … }` 里的 `catch` 以前**永远走不到** ✗——
+  // 内建抛的是**宿主异常**，它从宿主调用点直接冒出 `Run()` ✗，整份程序以「语言层错误」收场。
+  // 修法分两半：引擎给一条通道（`Vm.Raise` / `RaiseRequest`）✓，
+  // 宿主通道的兜底把「宿主异常的文字」变成「脚本要接住的那个值」✓（`RaiseFromHost`）。
+  const source = [
+    "function run() {",
+    "  let caught = 'none';",
+    "  try { Object.keys(null); } catch (error) { caught = error.message; }",
+    "  let after = 'reached';",
+    "  return [caught, after];",
+    "}",
+  ].join("\n");
+
+  // 正面：照产品路径接（`tsrun` 与这里的 `lowerAndLoad` 都是这么接的）。
+  const guarded = lowerAndLoad(source, GlobalNames());
+  const guardedEval = guarded.host.Evaluate([BuildGlobals(guarded.host.Machine, guarded.host.Machine.Protos, () => {})]);
+  eq(guardedEval.Outcome, HostOutcome.Ok, "求值模块：" + guardedEval.Message);
+  const called = guarded.host.CallExport(guarded.module.ExportOf("run"), []);
+  eq(called.Outcome, HostOutcome.Ok, "运行成功（异常被脚本接住了）：" + called.Message);
+  const caught = GetIndex(guarded.table, called.Value, Value.FromInt(0));
+  eq(hostStringOf(guarded.table, caught), "Object.keys needs an object", "catch 拿到的是我们自己的那句话");
+  eq(hostStringOf(guarded.table, GetIndex(guarded.table, called.Value, Value.FromInt(1))), "reached",
+    "接住之后**继续往下跑**（帧栈没有被打坏）");
+
+  // 反面：**不包兜底**时它照样冒出宿主——这正是兜底存在的理由 ✓
+  // （少了这条，上面那个绿可能是「恰好没抛」而不是「真的接住了」✗）。
+  const bare = lowerAndLoad(source, GlobalNames());
+  const bareEval = bare.host.Evaluate([BuildGlobals(bare.host.Machine, bare.host.Machine.Protos, () => {})]);
+  eq(bareEval.Outcome, HostOutcome.Ok, "求值模块（反面）：" + bareEval.Message);
+  bare.host.InstallHost((target, self, args, room) => {
+    const id = bare.table.Get(target.Ref).AsHost().CapabilityId;
+    return InvokeWithSink(room, bare.table, bare.host.Machine.Protos, id, self, args, () => {}, bare.host.Machine.Native());
+  });
+  let escaped = "";
+  try {
+    bare.host.CallExport(bare.module.ExportOf("run"), []);
+  } catch (error) {
+    escaped = String(error.message);
+  }
+  ok(escaped.indexOf("Object.keys") >= 0, "不兜底时宿主异常照样冒出（兜底不是摆设）：" + escaped);
 });
 
 check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {

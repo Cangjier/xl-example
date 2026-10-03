@@ -11,7 +11,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray } from "./array.xl.md"
 import { InstallArray } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, DateCtor } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, DateCtor, NewError } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet } from "./set.xl.md"
 ```
@@ -145,6 +145,59 @@ return out;
 ```ts
 const highest = DefineAccessorId > GetIteratorId ? DefineAccessorId : GetIteratorId;
 return highest + 1 - BuiltinBase;
+```
+
+# method HostErrorText:(error:any)=>string
+
+**宿主异常 → 一句话**（第 121 轮补）。
+
+**两个字段名都要认** ✓：宿主自己的 `Error` 有 `message` ✓，而语法层的 `SyntaxException`
+把话放在 **`Message`** 里 ✓（`core/exceptions/syntax-exception.xl.md`）——
+**为此不 import 那个异常类** ✓：这一层只认「有一个能读的字段」，
+而多一条 import 就多一条分层上的依赖 ✓。
+
+**它是唯一的实现** ✓：`tsrun.xl.md` 的 `RunErrorText`（读文件 / 解析 / 降级失败）
+与这里的兜底用的是**同一个函数** ✓——两处各写一套的话，同一种异常会得到两种文字 ✗。
+
+```ts
+if (error !== null && error !== undefined && typeof error === "object" && "message" in error) {
+  return String((error as any).message);
+}
+if (error !== null && error !== undefined && typeof error === "object" && "Message" in error) {
+  return String((error as any).Message);
+}
+return String(error);
+```
+
+# method RaiseFromHost:(machine:Vm, error:any)=>bool
+
+**把宿主侧的失败抬成一次脚本异常**（第 121 轮补）——**能接住**的那一种。
+**抬成功给真**；抬不动给假 ✓（由调用方决定怎么响：`tsrun` 是**原样冒出去** ✓）。
+
+**为什么非要这一层**：内建方法失败时手上有的是**宿主异常**（TS 的 `Error`、C++ 的
+`std::runtime_error`）✗——它从宿主调用点直接冒出 `Run()` ✗，于是脚本里的
+`try { … } catch { … }` **接不住** ✗，整份程序以「语言层错误」收场
+（判据现场：`try { Object.keys(null) } catch {}` 里那个 `catch` 从来没被走到过）。
+`Vm.Raise` 是引擎给的通道 ✓，而「**宿主异常的文字怎么变成脚本的值**」是**这一层**的事 ✓
+——引擎不认识 `Error` 长什么样 ✓（它只认「一个要抛的值」）。
+
+**调用点**：宿主接内建时**应当**把这条兜底包在自己的调用外面 ✓——`tsrun` 与判据都这么接 ✓
+（客户宿主照做即可，两行 ✓）。**内建自己不改**：它们照旧 `throw new Error("…")` ✓，
+「抛给脚本」这件事只在**宿主通道**上发生 ✓（内建不认识 `Vm`，也不该认识 ✗）。
+
+**造不出错误对象时给假** ✓：多半就是 `out of room`（那时连一个对象头都开不出来 ✓）——
+**响亮地失败**比「假装抛了一个空错误」好 ✓。
+
+```ts
+const protos = machine.Protos;
+// 还没装载出原型表 ⇒ 这条通道用不了。
+if (protos === null) return false;
+try {
+  machine.Raise(NewError(machine.Room(), machine.Table, protos, HostErrorText(error)));
+  return true;
+} catch (again) {
+  return false;
+}
 ```
 
 # method InstallBuiltins:(host:Host, protos:Protos)=>void

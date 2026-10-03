@@ -249,12 +249,7 @@ if (id === ErrorCtor) {
   // **实参用 `TextFrom`**：`new Error({})` 在 JS 里得到 `"[object Object]"` ✗，
   // 而那要求 `ToPrimitive`（对象 → 字符串）——今天没有，于是**抛** ✓（不静默给一句假话）。
   const text = args.length > 0 ? TextFrom(table, args[0]) : "";
-  const created = NewPlainObject(room, table, protos);
-  SetProperty(room, NeverCall, table, created, NameValue(table, "message"),
-    Value.FromString(table.CreateString(Units(text))));
-  SetProperty(room, NeverCall, table, created, NameValue(table, "name"),
-    Value.FromString(table.CreateString(Units("Error"))));
-  return created;
+  return NewError(room, table, protos, text);
 }
 if (id === ConsoleLog) {
   // **一次调用 = 一行**（见 `LogSink`）：实参按 JS 的规矩用空格接起来，**只调一次** `sink`。
@@ -377,6 +372,23 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   return Value.FromInt(secondOfDay % 60);
 }
 throw new Error("unimplemented: global builtin " + id);
+```
+
+# method NewError:(room:RoomChecker, table:HeapTable, protos:Protos, message:string)=>Value
+
+**造一个 `Error` 对象**（`message` + `name` 两个数据属性）——第 121 轮从 `ErrorCtor` 里提出来 ✓。
+
+**为什么它要单独存在**：`Error` 有两个来处 ✓——脚本写 `new Error(m)` ✓，
+以及**宿主/内建失败时由驱动兜一个**（`RaiseFromHost`）✓。两处给的必须是**同一种东西** ✓，
+否则脚本 `catch (e) { e.message }` 在两条路上会得到两种形状 ✗。
+
+```ts
+const created = NewPlainObject(room, table, protos);
+SetProperty(room, NeverCall, table, created, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(message))));
+SetProperty(room, NeverCall, table, created, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("Error"))));
+return created;
 ```
 
 # method TextFrom:(table:HeapTable, value:Value)=>string

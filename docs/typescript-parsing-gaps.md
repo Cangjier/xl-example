@@ -5460,3 +5460,72 @@ xl check                173 文件 0 error 0 warning
 `JSON.parse`（它要先回答「内建怎么抛一个**脚本接得住**的错」✗——今天建库层只会抛**宿主**异常）；
 `String` 的 `startsWith` / `endsWith` / `repeat` / `substring`；`Array` 的 `concat` / `reverse` /
 `includes` / `Array.isArray`；以及那块硬骨头——**对象/数组的 `ToPrimitive` 与浮点的文本形态** ✓。
+
+### 第 121 轮：**内建的失败变成「脚本接得住」的异常**（161/161 + `runtime:cli` 13/13）
+
+**上一轮那句「下一轮候选」的第一条就是本轮** ✓——而它一开头就撞在一条**跨层的缺口**上：
+
+```
+try { Object.keys(null); } catch (error) { /* 这里以前**永远走不到** */ }
+```
+
+内建失败时手上有的是**宿主异常**（TS 的 `Error`）✗，它从宿主调用点**直接冒出 `Run()`** ✗——
+于是 `catch` 形同虚设，整份程序以「语言层错误」收场 ✓（判据现场就是这么红的 ✓：
+命令行打的是 `tsrun: 还没实现的构造或语言层错误：Object.keys needs an object`）。
+
+**修法分两半，各自守在各自的层上** ✓：
+
+1. **引擎给一条通道**（`runtime/vm.xl.md`）：新字段 `RaiseRequest`（**必须是根** ✓）
+   + `Raise` / `TakeRaise` 两个方法 ✓，并在**宿主调用的两处**（`DoCallValue` 的宿主分支 ✓
+   与 `rt_call` 的 `host_call` ✓）返回之后**立刻取走并 `DoThrow`** ✓。
+   **为什么不能「在调用点上抛」**：宿主函数**没有自己的帧** ✓，它手上只有一个 `room` ✗——
+   「展开」这件事必须由**当时正握着帧栈**的那一层做 ✓。
+   **为什么必须取走**：留着它，**下一次**宿主调用会莫名其妙地抛上一次的错 ✗（只在那一瞬有效 ✓）。
+2. **语言层把「宿主异常的文字」变成「脚本要接住的那个值」** ✓（`builtins/install.xl.md`）：
+   `HostErrorText`（`message` / `Message` 两个字段名都认 ✓）+ `RaiseFromHost`（**抬成功给真** ✓）。
+   `Error` 对象的构造从 `ErrorCtor` 里提成 `NewError` ✓——**脚本写 `new Error(m)` 与宿主兜底
+   必须给同一种东西** ✓，否则 `catch (e) { e.message }` 在两条路上会得到两种形状 ✗。
+
+**「谁负责包兜底」写清楚了** ✓：**宿主接内建时**把它包在自己的调用外面 ✓——
+`tsrun` 与判据都这么接 ✓（客户宿主照做即可，两行 ✓）；**内建自己一行不改** ✓
+（它们照旧 `throw new Error("…")` ✓，内建不认识 `Vm`，也不该认识 ✗）。
+**抬不动就给假、由调用方响亮地失败** ✓（多半是连错误对象都开不出来 = `out of room`）——
+「假装抛了一个空错误」比崩掉更坏 ✗。
+
+**判据里那条「反面」是必须的** ✓：新的那条 check（`runtime:check` 第 161 条）
+除了正面断言「接住了 + 接住之后继续跑」✓，还**故意装一个不兜底的宿主** ✓——
+同一个程序在它那里**照样冒出宿主异常** ✓。少了这一条，正面那个绿可能是
+「恰好没抛」而不是「真的接住了」✗。**顺带把判据自己的接法也改了** ✓：
+`check.mjs` 的 `lowerAndLoad` 现在与 `tsrun` 用**同一条**接法 ✓
+（判据里少这一层，量的就是另一条接法 ✗）——改完 161 条全绿 ✓，没有一条旧判据被它带红 ✓。
+
+**命令行那两级的归类也顺带对了** ✓：没接住的内建失败现在报的是
+`tsrun: 脚本抛出：<那句话>`（`ScriptThrew` + 抛出的值 ✓），不再是「还没实现的构造」
+✗——「脚本能接住的东西」与「这份程序根本装不起来」是两回事 ✓。
+
+**新增两份语料** ✓：`12-builtin-failure-caught.ts`（接住、连来三次、跨帧被外层接住 ✓）
+与 `13-builtin-failure-uncaught.ts`（没接住：stdout 照常打完 + 退出码 1 ✓）。
+**两份都刻意不打印异常文本** ✗：两边的措辞本来就不一样（我们的话是这一层自己写的），
+拿它比会把差异当成缺口 ✗。
+
+**C++ 侧**（四个文件 + 指纹）✓：`vm.h` / `vm.cpp`（`RaiseRequest` / `Raise` / `TakeRaise` /
+两处检查 / 构造与 `Load` 的清空 ✓）、`globals_module`（`NewError` 提取 ✓）、
+`install_module`（`HostErrorText` / `RaiseFromHost` ✓）。
+**这台机器仍没有 C++ 编译器** ✓，所以**手写的 `vm.cpp` 这一半没有被任何东西验证过** ✗——
+比前几轮更值得记一笔：这一轮动的是**引擎**，而引擎的 C++ 是**手写**的 ✓（台账里记着这件事 ✓）。
+
+**读数**（本轮，全部实跑）✓：
+
+```
+npm run runtime:check   161 条通过，0 条失败        （第 120 轮 160 条）
+npm run runtime:cli     直接执行 .ts：13 份一致，0 份不一致（第 120 轮 11 份）
+npm run cases:tsast     投影节点 567913 个，与 TS 同 kind 同区间 567913（100.0%），四方向 0
+npm run samples         三份夹具逐字节一致
+npm run cpp:check       116 个文件 · 231 条 include · 618 个成员名 · 199 个字面量，全部通过
+xl check                173 文件 0 error 0 warning
+```
+
+**下一轮**：`JSON.parse` 现在**可以做了** ✓（它的失败路径正是这一轮铺的那条 ✓）——
+接着是 `String` 的 `startsWith` / `endsWith` / `repeat` / `substring`、
+`Array` 的 `concat` / `reverse` / `includes` / `Array.isArray`，
+以及那块硬骨头（对象/数组的 `ToPrimitive` 与浮点文本形态）✓。

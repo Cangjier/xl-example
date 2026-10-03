@@ -37,6 +37,12 @@
 > `Math`（floor / abs / max / min / round / ceil / trunc / sign）、`Error`（`message` + `name`，
 > **没有 `stack`、没有 `instanceof`**）、`Map` / `Set`（含 `forEach` 与直接迭代）、
 > `Symbol`、`Date`（`new Date(ms)` + UTC 日历那一族，**时钟由宿主回答**）。
+>
+> **失败的口径**（第 121 轮）：内建抛的仍然是**宿主异常** ✓，而**宿主通道**那一层
+> （`install.xl.md` 的 `RaiseFromHost`）把它抬成**脚本接得住**的异常 ✓——
+> 于是 `try { Object.keys(null) } catch (error) { … }` 在脚本里成立 ✓
+> （在此之前那个 `catch` **永远走不到** ✗：宿主异常直接冒出 `Run()`）。
+> **接法写在明处**：宿主接内建时把兜底包在调用外面（`tsrun` 与判据都这么接）。
 
 ## 输入是「TS 形状」，不是 token 树
 

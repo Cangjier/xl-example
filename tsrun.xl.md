@@ -7,7 +7,7 @@ import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
 import { GlobalNames, BuildGlobals, TextFrom, LogSink } from "./typescript-exec/builtins/globals.xl.md"
-import { InstallBuiltins, InvokeWithSink, BuiltinSlots } from "./typescript-exec/builtins/install.xl.md"
+import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
 import { Value, ValueTag } from "./runtime/value.xl.md"
 import { HeapTable } from "./runtime/heap.xl.md"
@@ -272,9 +272,20 @@ host.DeclarePrototypeKey(Units("prototype"));
 InstallBuiltins(host, protos);
 host.InstallHost((target, self, args, room) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
-  const answered = answer(room, id, self, args);
-  if (answered !== null) return answered;
-  return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native());
+  // **宿主这条通道的兜底**（第 121 轮）：内建（或客户能力）失败时，把**宿主异常**
+  // 抬成**脚本异常**——脚本的 `try { … } catch { … }` 才接得住 ✓。
+  // 少了这一层，`try { Object.keys(null) } catch {}` 里的 `catch` **永远走不到** ✗：
+  // 宿主异常直接冒出 `Run()`，整份程序以「语言层错误」收场（判据现场就是这么红的）。
+  try {
+    const answered = answer(room, id, self, args);
+    if (answered !== null) return answered;
+    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native());
+  } catch (error) {
+    // **抬不动就原样冒出去**（`RaiseFromHost` 给假：多半是连错误对象都开不出来）——
+    // 响亮地失败，比假装抛了一个空错误好 ✓。
+    if (!RaiseFromHost(host.Machine, error)) throw error;
+    return Value.Undefined();
+  }
 });
 for (let i = 0; i < request.Capabilities.length; i++) {
   const id = 64 + i;
@@ -500,19 +511,12 @@ process.stderr.write(text);
 
 **宿主异常 → 一句话**（读文件失败、解析失败、降级期「还没实现的构造」那几种）。
 
-**两条字段名都要认**：宿主自己的 `Error` 有 `message`，而语法层的
-`SyntaxException` 把话放在 **`Message`** 里（`core/exceptions/syntax-exception.xl.md`）。
-**为此不 import 那个异常类**：这一层只认「有一个能读的字段」，
-而多一条 import 就多一条分层上的依赖（这一层已经同时认识三层了，能少一条是一条）。
+**它就是 `HostErrorText`**（`builtins/install.xl.md`）✓——那一条同时服务「内建失败被抬成
+脚本异常」那条路 ✓。**两处各写一套**会让同一种异常在两条路上得到两种文字 ✗，
+所以这里只留一层皮 ✓。
 
 ```ts
-if (error !== null && error !== undefined && typeof error === "object" && "message" in error) {
-  return String((error as any).message);
-}
-if (error !== null && error !== undefined && typeof error === "object" && "Message" in error) {
-  return String((error as any).Message);
-}
-return String(error);
+return HostErrorText(error);
 ```
 
 # method RunDescribe:(table:HeapTable, value:Value)=>string
