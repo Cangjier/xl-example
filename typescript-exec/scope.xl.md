@@ -318,6 +318,12 @@ const next = IsFunctionNode(body) ? inside + 1 : inside;
 if (kind === "Identifier" && inside > 0) {
   out.push(TextOf(body));
 }
+// **`for..in` 隐含用到全局名 `Object`**（它落成 `Object.keys` + 迭代协议）：
+// 源码里没有 `Object` 这个标识符，可**内层函数真的会去读外层的它**——
+// 不在这里记一笔，外层就不会为它留格子，内层跑到那儿才报「未知名字」。
+if (kind === "ForInStatement" && inside > 0) {
+  out.push("Object");
+}
 WalkChildren(body, (child) => {
   CollectInsideFunctions(child, next, out);
 });

@@ -58,6 +58,7 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **箭头函数的 `this`**（含箭头的那一层留一格装接收者，箭头体里按普通捕获读） | **块里的函数声明**、`catch` 参数的块作用域之外，作用域这块还剩 TDZ |
 | **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
 | **`import` 的名字从环境对象取**（与全局名同一套机关；`import` / `export { … }` 语句是**空操作**——导出表本来就装着这份文件的每个函数） | **真正的跨模块链接**：把模块 A 的导出**值**交给 B 需要一个**共享的堆**（跨机器搬 `Value` 不行——`Ref` 是各自表里的下标）；`import * as ns` 与 `export default` 抛 |
+| **`for..in`**（`Object.keys` + 迭代协议拼出来的，**没有新算子**；要求全局名里有 `Object`，否则明确报出来并指出修法） | **只遍历自有键**（`Object.keys` 的口径；JS 还会走原型链上的可枚举键）；**整数样式的键不按 JS 的「升序优先」**——这里一律按插入顺序 |
 
 **`async` 的三条语义差（都写在明处，不假装是 JS）**：
 
@@ -1168,6 +1169,10 @@ if (kind === "ForOfStatement") {
   this.LowerForOf(node);
   return;
 }
+if (kind === "ForInStatement") {
+  this.LowerForIn(node);
+  return;
+}
 if (kind === "TryStatement") {
   this.LowerTry(node);
   return;
@@ -1394,7 +1399,10 @@ this.Emit(Op.Move, window, first, -1, -1);
 this.Emit(Op.Const, window + 1, secondConst, -1, -1);
 const result = this.Reserve(1);
 this.EmitRt(id, result, window, 2);
-this.Release(result);
+// **别退到结果格以下**：它就是这次调用的产物，退了，下一次分配就会盖掉它
+// （`for..in` 那条路上正是这么翻车的：取到的 `Object.keys` 被下一个临时格覆盖，
+// 报出来的却是「调用了非闭包的值」）。
+this.Release(result + 1);
 return result;
 ```
 
@@ -1407,7 +1415,10 @@ const window = this.Reserve(1);
 this.Emit(Op.Move, window, first, -1, -1);
 const result = this.Reserve(1);
 this.EmitRt(id, result, window, 1);
-this.Release(result);
+// **别退到结果格以下**：它就是这次调用的产物，退了，下一次分配就会盖掉它
+// （`for..in` 那条路上正是这么翻车的：取到的 `Object.keys` 被下一个临时格覆盖，
+// 报出来的却是「调用了非闭包的值」）。
+this.Release(result + 1);
 return result;
 ```
 
@@ -1540,6 +1551,16 @@ this.PopScope();
 this.PushScope();
 const iterableSlot = this.Reserve(1);
 this.LowerInto(iterableSlot, Child(node, "expression"));
+this.LowerIterationLoop(iterableSlot, node);
+```
+
+## method LowerIterationLoop:(iterableSlot:int, node:AstNode)=>void
+
+**`for..of` 与 `for..in` 共用的循环尾**：拿到一个「可迭代的东西」之后，剩下的完全一样。
+
+**抽出来是因为它有一处易错的极性**（下面那条注释）——**两处各写一遍就会漂一次**。
+
+```ts
 const iteratorSlot = this.Reserve(1);
 this.EmitRt(RtOp.IterNew, iteratorSlot, iterableSlot, 1);
 const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
@@ -1560,6 +1581,45 @@ this.Emit(Op.Jump, -1, start, -1, -1);
 this.PatchTarget(exitIndex, this.Here());
 this.LeaveLoop(context);
 this.PopScope();
+```
+
+## method LowerForIn:(node:AstNode)=>void
+
+**`for..in`**：遍历一个对象的**键**。
+
+**做法是「把键取成数组，再走 `for..of` 那条路」**：`Object.keys` 已经在标准库里
+（`builtins/globals.xl.md`），迭代协议也已经在引擎里——**这一条语法不需要任何新东西**，
+拼起来就是它。
+
+**它要求全局名里有 `Object`**：`Object.keys` 这个名字来自环境对象
+（`Object` 是全局名之一，见 `GlobalNames`）。没有就**明确报出来**并指出修法——
+含糊地报「未知名字」会让人以为是拼写问题。
+
+**只遍历自有键**（`Object.keys` 的口径）：JS 的 `for..in` 还会走**原型链上的可枚举键**。
+今天对象的原型只有 `Protos.Object`（上面没挂可枚举东西），所以差别看不见；
+**这条写在这里**，等原型真的会被挂东西时再回来补。
+
+```ts
+this.PushScope();
+// **问模块级的那张名单，不是当前层的声明名单**：`Object` 是全局名（模块级），
+// 内层函数里当然不会「声明」它——按层问会把正常的用法误判成缺全局名。
+if (!Contains(this.Globals, "Object")) {
+  throw new Error("unimplemented: for..in needs the `Object` global (declare globals with GlobalNames())");
+}
+const access = this.ResolveAccess("Object");
+const objectSlot = this.Reserve(1);
+if (access.InEnv) {
+  this.Emit(Op.EnvGet, objectSlot, access.Depth, access.Cell, -1);
+} else {
+  this.Emit(Op.Move, objectSlot, access.Slot, -1, -1);
+}
+const keysName = this.Program().AddConst(Constant.OfString(UnitsOf("keys")));
+const keysFn = this.RtCall2(RtOp.GetProp, objectSlot, keysName);
+// **结果落回参数基址**（调用约定）：所以参数放哪一格，键数组就出现在哪一格。
+const target = this.Reserve(1);
+this.LowerInto(target, Child(node, "expression"));
+this.Emit(Op.Call, keysFn, target, 1, -1);
+this.LowerIterationLoop(target, node);
 ```
 
 ## method BindForOfTarget:(initializer:AstNode, value:int)=>void
@@ -1778,7 +1838,10 @@ this.Emit(Op.Move, window, first, -1, -1);
 this.Emit(Op.Move, window + 1, second, -1, -1);
 const result = this.Reserve(1);
 this.EmitRt(id, result, window, 2);
-this.Release(result);
+// **别退到结果格以下**：它就是这次调用的产物，退了，下一次分配就会盖掉它
+// （`for..in` 那条路上正是这么翻车的：取到的 `Object.keys` 被下一个临时格覆盖，
+// 报出来的却是「调用了非闭包的值」）。
+this.Release(result + 1);
 return result;
 ```
 
@@ -2018,7 +2081,10 @@ this.Emit(Op.Move, window + 1, second, -1, -1);
 this.Emit(Op.Move, window + 2, third, -1, -1);
 const result = this.Reserve(1);
 this.EmitRt(id, result, window, 3);
-this.Release(result);
+// **别退到结果格以下**：它就是这次调用的产物，退了，下一次分配就会盖掉它
+// （`for..in` 那条路上正是这么翻车的：取到的 `Object.keys` 被下一个临时格覆盖，
+// 报出来的却是「调用了非闭包的值」）。
+this.Release(result + 1);
 return result;
 ```
 

@@ -2952,6 +2952,54 @@ check("模块：`import` 里的名字从环境对象取（不改名 / 改名两�
   eq(namespace.indexOf("namespace object") >= 0, true, "`import * as ns` 必须抛：" + namespace);
 });
 
+check("for..in：遍历自有键（拼出来就是 Object.keys + 迭代协议），与 Node 一致", () => {
+  const source = [
+    "function keysOf(o) {",
+    "  let out = ',';",
+    "  for (const k in o) { out = out + k; }",
+    "  return out;",
+    "}",
+    "function countKeys(o) {",
+    "  let n = 0;",
+    "  for (const k in o) { n = n + 1; }",
+    "  return n;",
+    "}",
+    "function onLiteral() { return keysOf({ x: 1, y: 2, z: 3 }); }",
+    "function onEmpty() { return countKeys({}); }",
+  ].join("\n");
+  const expected = new Function(source
+    + "\nreturn [keysOf({ x: 1, y: 2, z: 3 }), countKeys({ x: 1, y: 2, z: 3 }), onLiteral(), onEmpty()];")();
+  eq(expected[0], ",xyz", "Node：对象字面量的键按书写顺序（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source, GlobalNames());
+  eq(host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, () => {})]).Outcome,
+    HostOutcome.Ok, "求值模块");
+  InstallBuiltins(host.Machine, host.Machine.Protos);
+  host.InstallHost((target, self, args, room) => InvokeWithSink(
+    room, table, host.Machine.Protos, table.Get(target.Ref).AsHost().CapabilityId, self, args, () => {}));
+
+  const call = (name, args) => host.CallExport(module.ExportOf(name), args || []);
+  eq(hostStringOf(table, call("onLiteral").Value), expected[2], "脚本里的对象字面量：键顺序一致");
+  eq(call("onEmpty").Value.AsInt(), expected[3], "空对象：一次都不跑");
+
+  const obj = NewPlainObject(host.Machine.Room(), table, host.Machine.Protos);
+  host.Machine.Retain(obj);
+  setProp(host.Machine, table, obj, propKey(table, "x"), Value.FromInt(1));
+  setProp(host.Machine, table, obj, propKey(table, "y"), Value.FromInt(2));
+  setProp(host.Machine, table, obj, propKey(table, "z"), Value.FromInt(3));
+  eq(hostStringOf(table, call("keysOf", [obj]).Value), expected[0], "宿主造的对象：同上");
+  eq(call("countKeys", [obj]).Value.AsInt(), expected[1], "数键的个数");
+  host.Machine.Release(obj.Ref);
+
+  let noGlobal = "";
+  try {
+    lowerAndLoad("function f(o) { for (const k in o) { } }");
+  } catch (error) {
+    noGlobal = String(error.message);
+  }
+  eq(noGlobal.indexOf("Object") >= 0, true, "没声明 Object 全局名时要明确报出来：" + noGlobal);
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
