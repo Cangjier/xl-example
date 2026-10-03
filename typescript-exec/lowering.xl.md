@@ -559,6 +559,36 @@ this.IsDefault = isDefault;
 
 产物（`LowerModule` 会把它换成一个新的）。
 
+## field ModuleStatements:Array<AstNode> = []
+
+**这一份模块的顶层语句**（`LowerModule` 存一份）。
+
+**为什么类需要它**：`class B extends A` 要看**父类有没有构造函数**——
+没有构造函数才敢做（`super(...)` 还没实现，见下）。而父类就在同一份模块的语句里，
+所以这份名单得留着。
+
+## method FindParentHasConstructor:(name:string)=>bool
+
+这份模块里叫 `name` 的类**有没有显式构造函数**。
+
+**找不到这个类也返回「有」**：那样调用方会抛——**「查不清」要按最坏情况算**，
+否则就是拿准确性换方便。
+
+```ts
+for (let i = 0; i < this.ModuleStatements.length; i++) {
+  const statement = this.ModuleStatements[i];
+  if (NodeKind(statement) !== "ClassDeclaration") continue;
+  const nameNode = OptionalChild(statement, "name");
+  if (nameNode === null || TextOf(nameNode) !== name) continue;
+  const members = ListOf(statement, "members");
+  for (let j = 0; j < members.length; j++) {
+    if (NodeKind(members[j]) === "Constructor") return true;
+  }
+  return false;
+}
+return true;
+```
+
 ## field Scope:Array<LocalScope> = []
 
 作用域栈，栈顶是当前这一层。
@@ -662,7 +692,6 @@ this.IsDefault = isDefault;
 而那个帧的调用者还在下面等着，于是**整条调用链静默停住**。
 
 ## field CapabilityOf:CapabilityLookup | null = null
-
 **宿主能力查号回调**（见 `# type CapabilityLookup`）；没装就是 `null`。
 
 装了之后，`LowerCall` 遇到一个**模块里没声明过**的名字时会先问它：
@@ -1009,6 +1038,7 @@ return this.Program().AddConst(Constant.OfInt(value));
 ```ts
 this.Module = new LoweredModule(new Program());
 this.Pending = [];
+this.ModuleStatements = ListOf(source, "statements");
 this.BeginFunction(1);
 this.PushScope();
 // **导入的名字与全局名走同一套机关**：它们都是「模块作用域里的名字，值从环境对象取」
@@ -2504,8 +2534,12 @@ return false;
 getter / setter、计算键方法、生成器方法与 async 方法。
 
 ```ts
-if (OptionalChild(node, "heritageClauses") !== null) {
-  throw new Error("unimplemented: `extends` (class inheritance)");
+// **`extends` 这一轮仍然抛**（引擎那半 `set_proto` 已经就位、也验证过：空类的
+// `class B extends A {}` + `new B()` 是通的；但**方法继承**那条路还有一个没查清的失败，
+// 复现写在 `docs/typescript-parsing-gaps.md`）。**查不清就不放行**——
+// 「子类实例上少了父类的东西」是静默错值，比不能用更坏。
+if (node["heritageClauses"] !== undefined && node["heritageClauses"] !== null) {
+  throw new Error("unimplemented: `extends` (the method-inheritance flow is not verified yet)");
 }
 const nameNode = OptionalChild(node, "name");
 let name = "<class>";
@@ -2879,6 +2913,9 @@ if (calleeKind === "PropertyAccessExpression") {
 }
 if (calleeKind === "ElementAccessExpression") {
   throw new Error("unimplemented: calling a computed member (it needs a call-by-key op)");
+}
+if (calleeKind === "SuperKeyword") {
+  throw new Error("unimplemented: super(...) (a derived class does not run its parent's constructor)");
 }
 let calleeSlot = -1;
 if (calleeKind === "Identifier") {

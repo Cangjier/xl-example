@@ -153,6 +153,29 @@ if (!room(CodeUnitCharge * units.length + ObjectCharge)) {
 return Value.FromString(table.CreateString(units));
 ```
 
+# method RtSetProto:(table:HeapTable, receiver:Value, proto:Value)=>Value
+
+**改一个对象的原型**（`set_proto`）。
+
+**两边都必须是对象**：不是就抛——「给原始值设原型」在 JS 里是**静默无效**的，
+而静默无效正是这一层最不该有的行为。
+
+**自环当场拒绝**：`set_proto(a, a)` 会让下一次属性查找绕着自己转。
+虽然 `MaxProtoDepth` 也会拦（**抛**，不是挂住），但**能当场说清楚的错不要留给下游**。
+**更深的环**（`a → b → a`）不在这里查——那要一趟遍历，而 `MaxProtoDepth` 已经兜住了。
+
+```ts
+if (!receiver.IsObject() || !proto.IsObject()) {
+  throw new Error("set_proto needs two objects");
+}
+if (receiver.Ref === proto.Ref) {
+  throw new Error("set_proto would create a cycle");
+}
+table.Get(receiver.Ref).Proto = proto.Ref;
+table.Recount(receiver.Ref);
+return receiver;
+```
+
 # method RtSub:(table:HeapTable, left:Value, right:Value)=>Value
 
 `-`。

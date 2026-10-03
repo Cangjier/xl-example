@@ -3643,3 +3643,25 @@ $ npm run cases:tsast   语料 1419 个文件，完全一致 1419 / 1419
 
 判据现在端到端跑通：两次 `yield`、`next(42)` 的值成为 `yield` 的值、`return` 的值
 是最后一次产出、`for..of` 遍历生成器把两次产出加起来——**与 Node 逐值一致**。
+
+## `extends`：引擎那半已就位，方法继承那条路还没查清（第 44 轮）
+
+引擎这轮加了 **`set_proto`**（`ir.xl.md` 的 `RtOp.SetProto` + `rt.xl.md` 的 `RtSetProto` +
+VM 接线；判据里那条「编号只追加」跟着从 37 挪到 **38**——**规矩当场起作用了**）。
+
+**验证到的事实**：**空类的继承是通的** —— `class A { } class B extends A { }` 加 `new B()`
+能正常建出实例（`B.prototype` 在、`new` 读得到它、实例的原型链也对）。
+
+**没查清的两件事**（都留了复现）：
+
+1. 子类一旦带方法 —— `class A { m() { return 1; } } class B extends A { n() { return this.m() + 1; } }`
+   —— 调用时报 `unimplemented: calling a non-closure value`；
+2. **「父类带构造函数」那条守卫没生效**：`FindParentHasConstructor("A")` 没在本模块的语句里
+   认出 `class A { constructor() {...} }`（于是该抛的地方没抛）。
+
+**所以这一轮把 `extends` 恢复成降级期抛错**：
+`unimplemented: \`extends\` (the method-inheritance flow is not verified yet)`。
+
+**「查不清就不放行」**——子类实例上少了父类的东西是**静默错值**，比不能用更坏。
+下一轮从上面两条复现接：先查守卫（第 2 条更容易，纯扫描代码），
+再顺着它查第 1 条（守卫若真能认出父类，`set_proto` 的落点就有了确定的验证路径）。

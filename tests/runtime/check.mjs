@@ -676,7 +676,7 @@ check("编号只追加：成员顺序就是跨目标的约定", () => {
   eq(Op.LoadThis, 19, "读 this 的那条");
   eq(Op.Await, 20, "承诺那条");
   eq(Op.Caught, 21, "这一轮追加的那条");
-  eq(enumMembers(RtOp), 37, "通用算子条数");
+  eq(enumMembers(RtOp), 38, "通用算子条数");
   eq(RtOp.Add, 0, "第一个算子");
   eq(RtOp.HostCall, 36, "最后一个通用算子");
   ok(enumMembers(RtOp) <= BuiltinBase, "内建段必须留在通用算子之后");
@@ -3066,13 +3066,24 @@ check("class：构造函数 + 原型上的方法 + 默认构造函数 + 类表�
     throw new Error("在「" + label + "」处：" + String(error.message));
   }
 
-  let inherits = "";
+  // **`extends` 这一轮仍然抛**（引擎的 `set_proto` 已就位，但方法继承那条路还有
+  // 一个没查清的失败，见台账）。这里断言的是「响亮拒绝」，不是静默少跑。
+  let derived = "";
   try {
     lowerAndLoad("class A { m() { return 1; } } class B extends A { }");
   } catch (error) {
-    inherits = String(error.message);
+    derived = String(error.message);
   }
-  eq(inherits.indexOf("extends") >= 0, true, "`extends` 必须抛（继承还没做）：" + inherits);
+  eq(derived.indexOf("extends") >= 0, true, "`extends` 必须抛（不许静默少跑父类的东西）：" + derived);
+
+  let superCall = "";
+  try {
+    lowerAndLoad("class A { m() { return 1; } } class B extends A { constructor() { super(); } }");
+  } catch (error) {
+    superCall = String(error.message);
+  }
+  eq(superCall.indexOf("extends") >= 0 || superCall.indexOf("super") >= 0, true,
+    "`super(...)` 也必须抛：" + superCall);
 
   let field = "";
   try {

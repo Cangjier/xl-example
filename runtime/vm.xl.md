@@ -8,7 +8,7 @@ import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
-import { RtNewClosure, RoomChecker, RtToString, RtTypeOf } from "./rt.xl.md"
+import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 ```
@@ -972,6 +972,10 @@ if (id === RtOp.GetProp) {
 if (id === RtOp.SetProp) {
   RequireArgc(argc, 3, "set_prop");
   return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table, slots[base], slots[base + 1], slots[base + 2]));
+}
+if (id === RtOp.SetProto) {
+  RequireArgc(argc, 2, "set_proto");
+  return RtSetProto(this.Table, slots[base], slots[base + 1]);
 }
 if (id === RtOp.DelProp) {
   RequireArgc(argc, 2, "del_prop");

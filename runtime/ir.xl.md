@@ -177,6 +177,16 @@ import { HeapTable } from "./heap.xl.md"
 单独给 id 是为了让降级层不必为一次判空造一条跳转链）。
 - case HostCall
 宿主能力调用（安全第 6 层：只有注册过的能力可达；脚本看不见能力表）。
+- case SetProto
+**改一个对象的原型**（把 `receiver` 的 `Proto` 换成 `proto`）。
+
+**为什么它是引擎该管的事**：这台机器的对象模型**本来就是原型链**
+（属性查找顺着 `Proto` 走）——这一条只是把「`Proto` 那一格」也变成语言层能说的事，
+不再只是 `Protos` 表与 `new` 的专利。派生类的 `prototype` 指向父类的 `prototype`，
+靠的就是它。
+
+**安全**：两边都必须是对象；**自环当场拒绝**，更深的环由 `MaxProtoDepth` 兜住——
+那是属性查找里早就有的上限，环到了那里会**抛**，不会挂住。
 
 # const BuiltinBase:int = 64
 
@@ -229,6 +239,7 @@ if (id === RtOp.ToString) return "to_string";
 if (id === RtOp.ToBoolean) return "to_boolean";
 if (id === RtOp.IsNullish) return "is_nullish";
 if (id === RtOp.HostCall) return "host_call";
+if (id === RtOp.SetProto) return "set_proto";
 return "unknown";
 ```
 
