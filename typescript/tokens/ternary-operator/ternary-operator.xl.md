@@ -452,7 +452,7 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
   const colon = ctx.PunctBetween(v, "trueStatement", "falseStatement", ":");
   if (question !== undefined) props.questionToken = question;
   if (colon !== undefined) props.colonToken = colon;
-  return ctx.Node("ConditionalExpression", props, v);
+  return ctx.NodeHead("ConditionalExpression", props, v);
 ```
 
 ## constructor:(template:Template)=>void

@@ -168,7 +168,7 @@ TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），�
     pos: brace >= 0 ? brace : v.start,
     end: ctx.StmtEndOf(v),
   };
-  return ctx.Node("SwitchStatement", props, v);
+  return ctx.NodeHead("SwitchStatement", props, v);
 ```
 
 ## method CreateCompare:()=>SwitchCompare

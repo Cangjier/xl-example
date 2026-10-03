@@ -213,7 +213,7 @@ return false;
   const param = ctx.Kids(v).find((k: any) => k.get("type") === "TypeParameter");
   const props: any = {};
   if (param !== undefined) props.typeParameter = ctx.Project(param);
-  return ctx.Node("InferType", props, v);
+  return ctx.NodeHead("InferType", props, v);
 ```
 
 ## constructor:(template:Template)=>void

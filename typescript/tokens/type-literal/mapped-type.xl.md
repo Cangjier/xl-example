@@ -148,7 +148,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
   if (questionToken !== undefined) props.questionToken = questionToken;
   const typeNode = rest.length > 0 ? ctx.TypeExpression(rest) : undefined;
   if (typeNode !== undefined) props.type = typeNode;
-  return ctx.Node("MappedType", props, v);
+  return ctx.NodeHead("MappedType", props, v);
 ```
 
 ## constructor:(template:Template)=>void

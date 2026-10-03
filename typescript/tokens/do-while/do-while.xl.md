@@ -179,7 +179,7 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
   if (statement !== undefined) props.statement = statement;
   const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (compare.length > 0) props.expression = ctx.Expression(compare);
-  return ctx.Node("DoStatement", props, v);
+  return ctx.NodeHead("DoStatement", props, v);
 ```
 
 ## constructor:(template:Template)=>void

@@ -308,7 +308,7 @@ TS 那边的 `properties` 是**成员数组**：
     });
   }
   const props = properties.length === 0 ? {} : { properties };
-  return ctx.Node("ObjectLiteralExpression", props, v);
+  return ctx.NodeHead("ObjectLiteralExpression", props, v);
 ```
 
 ## constructor:(Template:Template)=>void

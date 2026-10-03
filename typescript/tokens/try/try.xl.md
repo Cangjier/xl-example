@@ -226,7 +226,7 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
     const finallyBlock = blockAfter(finallyAt, finallyStatements);
     if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
   }
-  return ctx.Node("TryStatement", props, v);
+  return ctx.NodeHead("TryStatement", props, v);
 ```
 
 ## constructor:(template:Template)=>void

@@ -196,7 +196,7 @@ TS 那边 `!` 是节点的属性（`exclamationToken`），`forEachChild` **不�
   const props: any = {};
   const expression = kids.length > 0 ? ctx.Expression(kids) : undefined;
   if (expression !== undefined) props.expression = expression;
-  return ctx.Node("NonNullExpression", props, v);
+  return ctx.NodeHead("NonNullExpression", props, v);
 ```
 
 ## constructor:(template:Template)=>void

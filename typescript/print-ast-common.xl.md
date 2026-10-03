@@ -864,6 +864,36 @@ new Map([
   return Object.assign({ kind }, props === undefined ? {} : props, { pos, end });
 ```
 
+# private method astNodeHead:(kind:string, props:any, v:any, ctx:any)=>any
+
+同 `astNode`，但键序是 **`{ kind, pos, end, …props }`**（坐标在前）。
+
+**为什么留这一支**（第 199 轮）：搬家前有一批节点是**内联**写的——
+
+    return { kind: "ForStatement", pos: v.start, end: v.end, ...props };
+
+第 181~198 轮把它们逐块搬进各 token 的 `PrintAst`、改走 `ctx.Node` 之后，键序变成了
+「props 在前、坐标在后」：**值一个没变，字节变了**。`samples` 的 `*.expected.tsast.json`
+是**逐字节**比的，它当场抓出 13 类；按第 96 轮那份实现（夹具就是它生成的）逐个 kind 对下来，
+共 **30 处构造点**（`ForStatement` / `TypeParameter` / `HeritageClause` / `SwitchStatement`、
+`Field` 的两种 kind、`Foreach` 的两种 kind、`FunctionType` / `ConstructorType` …）。
+`cases:tsast` 看不见这一条：它比 kind / 区间 / 字段名，比不了 JSON 的键序。
+
+所以这一支只为「搬家前的键序」存在：**实现复用 `astNode`**（同一个坐标口径不抄第二遍），
+拿到结果后按 `kind` / `pos` / `end` 重新排一遍键——**值原封不动**。新写的节点用 `ctx.Node` 即可。
+
+```ts
+  const node = astNode(kind, props, v, ctx);
+  const ordered: any = { kind: node.kind, pos: node.pos, end: node.end };
+  for (const key of Object.keys(node)) {
+    if (key === "kind" || key === "pos" || key === "end") {
+      continue;
+    }
+    ordered[key] = node[key];
+  }
+  return ordered;
+```
+
 # private method astMembers:(v:any, parentKind:string, ctx:any)=>Array<any>
 
 **类型容器的成员表**：把这一格的子单元按 `parentKind` 的分隔符切好后，**逐段整段投**
@@ -5171,6 +5201,30 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return ctx.source.slice(v.start, v.end);
 ```
 
+# private method kindsInAst:(node:any, out:Set<string>)=>void
+
+把一棵投影出来的 AST 里的 **`kind` 名**收进 `out`（只认节点：有 `kind` 字段的对象）。
+
+用途只有一个：`projectRoot` 报 `unmapped` 之前拿它**对一次账**（见下面那一节）。
+
+```ts
+  if (node === null || typeof node !== "object" || !("kind" in node)) {
+    return;
+  }
+  out.add(node.kind);
+  for (const key of Object.keys(node)) {
+    if (key === "kind" || key === "pos" || key === "end" || key === "text") {
+      continue;
+    }
+    const value = node[key];
+    if (Array.isArray(value)) {
+      for (const item of value) kindsInAst(item, out);
+    } else {
+      kindsInAst(value, out);
+    }
+  }
+```
+
 # method projectRoot:(exported:Array<any>, source:string)=>any
 
 投影整棵树 → `ts.createSourceFile` 同形的单根节点。
@@ -5185,8 +5239,17 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   而且它在 `ts.forEachChild` 那一层**是可见的**（`forEachChild` 对 `SourceFile`
   先访问 `statements` 再访问 `endOfFileToken`）。整个语料每份文件各一个，**不改它就一直缺**。
 
-返回 `{ ast, unmapped, count }`：`unmapped` 是这次没覆盖到的产物标签（透传的那些），
-`count` 是投影出的节点数。
+返回 `{ ast, unmapped, count }`：`unmapped` 是这次没覆盖到、**并且真的原样透传进了产物**的
+产物标签；`count` 是投影出的节点数。
+
+**为什么末尾要拿 `kindsInAst` 对一次账**（第 199 轮）：`ctx.unmapped.add(v.type)` 记在
+`projectNode` 的通用支里，而**有些调用点只是「问一下」这个子单元能投出什么**——
+结果被调用方丢掉、根本不落进 AST（实测全语料 9137 处这样的访问，散布在 48 个文件里；
+最典型的是各种参数括号 `(a, b)`：投影总是先问一遍再自己摊平）。
+只按 `add` 记账，这一栏就是**噪声**：它数的是「投影路过谁」，不是「谁透传进了产物」。
+透传节点的 `kind` 就是标签名本身（`mk(v.type, …)`），所以「这个标签名在产物里当过 kind」
+正好等值于「它透传进了产物」——滤掉问路的那批之后这一栏才有判据的价值
+（`cases:tsast` 的退出码已经把它算进去了）。
 
 ```ts
   const ctx = {
@@ -5205,6 +5268,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 覆写里不必 import 任何东西——造节点、投一批子单元、按成员切、取文本、分叶子名，
     // 全在这一组里。它们**逐个转调**上面那些共享实现，所以两条路的产物逐字节相同。
     Node: (kind, props, view) => astNode(kind, props, view, ctx),
+    // **坐标在前的键序**（第 199 轮）：搬家前那批内联写法的节点用它，见 `astNodeHead`。
+    NodeHead: (kind, props, view) => astNodeHead(kind, props, view, ctx),
     // **空段不写这一格**：通用支里 `structuralProps` 的段循环是「`kept.length > 0` 才写」，
     // 所以 `<TupleType></TupleType>`（空元组）在 TS 那边是 `{kind,pos,end}`、**没有** `elements`。
     // `undefined` 在 `JSON.stringify` 里不出现（`projectParameter` 的 `name` / `type` 也是这个写法），
@@ -5288,20 +5353,26 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     NumericLiteral: NUMERIC_LITERAL,
   };
   const statements = projectEach(exported, ctx);
+
   // **没有语句的文件**（整份文件只有注释）：TS 的 `SourceFile.getStart()` **就是文件长度**
   // （没有 token 可跳，`getStart` 退回 `end`），而本工程原来退回 `0`——于是
   // `@types/node/index.d.ts` 那 38 个「只有许可注释」的桩文件整份对不上
   //（实测缺 `SourceFile` 38，三个样本都是这种桩）。
   const firstStart = statements.length > 0 ? statements[0].pos : source.length;
+  const ast = {
+    kind: "SourceFile",
+    statements,
+    endOfFileToken: { kind: "EndOfFileToken", pos: source.length, end: source.length },
+    pos: firstStart,
+    end: source.length,
+  };
+  // **只报真的透传进产物的那一批**（第 199 轮）：`ctx.unmapped` 里混着「投影只是问了一下、
+  // 结果被调用方丢掉」的标签（见上面那一节的实测数），拿产物自己的 `kind` 集合对一次账就干净了。
+  const landed: Set<string> = new Set<string>();
+  kindsInAst(ast, landed);
   return {
-    ast: {
-      kind: "SourceFile",
-      statements,
-      endOfFileToken: { kind: "EndOfFileToken", pos: source.length, end: source.length },
-      pos: firstStart,
-      end: source.length,
-    },
-    unmapped: [...ctx.unmapped].sort(),
+    ast,
+    unmapped: [...ctx.unmapped].filter((tag) => landed.has(tag)).sort(),
     count: ctx.count,
   };
 ```

@@ -200,7 +200,9 @@ return index;
   if (kind === "ForOfStatement" && awaitUnit !== undefined) {
     props.awaitModifier = ctx.Project(awaitUnit);
   }
-  return ctx.Node(kind, props, v);
+  // **坐标在前**（第 199 轮）：搬家前这里是 `{ kind, pos: v.start, end: v.end, ...props }`
+  // （两种 kind 一个写法），键序是 `samples` 逐字节比的那一项。
+  return ctx.NodeHead(kind, props, v);
 ```
 
 ## constructor:(template:Template)=>void

@@ -741,7 +741,7 @@ Lambda 表达式。
     const projected = ctx.Expression(flat);
     if (projected !== undefined) props.body = projected;
   }
-  return ctx.Node("ArrowFunction", props, v);
+  return ctx.NodeHead("ArrowFunction", props, v);
 ```
 
 ## field IsAsync:bool = false

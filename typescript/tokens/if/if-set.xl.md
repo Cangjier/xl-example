@@ -188,7 +188,7 @@ return index;
 ```ts
   const segments = ctx.Kids(v).filter((k: any) => k.get("type") === "IfSegment");
   if (segments.length === 0) {
-    return ctx.Node("IfStatement", {}, v);
+    return ctx.NodeHead("IfStatement", {}, v);
   }
   const conditionOf = (seg: any) => {
     const cond = ctx.KidsOf(seg, "condition");

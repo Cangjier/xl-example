@@ -73,7 +73,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
   if (readonlyUnit !== undefined) {
     props.modifiers = [ctx.Project(readonlyUnit)];
   }
-  return ctx.Node("IndexSignature", props, v);
+  return ctx.NodeHead("IndexSignature", props, v);
 ```
 
 ## constructor:(template:Template)=>void

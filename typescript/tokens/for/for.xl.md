@@ -209,7 +209,7 @@ C 风格 `for` 语句单元。
       props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
     }
   }
-  return ctx.Node("ForStatement", props, v);
+  return ctx.NodeHead("ForStatement", props, v);
 ```
 
 ## constructor:(template:Template)=>void

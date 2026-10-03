@@ -540,7 +540,7 @@ rebuilt.push(parameter);
       };
     }
   }
-  return ctx.Node("TypeParameter", props, v);
+  return ctx.NodeHead("TypeParameter", props, v);
 ```
 
 ## constructor:(template:Template)=>void

@@ -111,7 +111,7 @@ return ReplaceCountAt(units, startIndex, index - startIndex + 1, result);
   const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
   const body =
     brace >= 0 && close >= brace ? { kind: "Block", statements, pos: brace, end: close + 1 } : undefined;
-  return ctx.Node("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
+  return ctx.NodeHead("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
 ```
 
 ## constructor:(template:Template)=>void

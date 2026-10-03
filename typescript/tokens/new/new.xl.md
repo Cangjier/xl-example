@@ -195,7 +195,7 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
   }
   const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (args.length > 0) props.arguments = ctx.ProjectEach(args);
-  return ctx.Node("NewExpression", props, v);
+  return ctx.NodeHead("NewExpression", props, v);
 ```
 
 ## constructor:(template:Template)=>void

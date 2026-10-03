@@ -206,7 +206,7 @@ rebuilt.push(member);
   const props: any = {};
   if (nameNode !== null) props.name = ctx.Project(nameNode);
   if (eqIndex >= 0 && eqIndex + 1 < kids.length) props.initializer = ctx.Project(kids[eqIndex + 1]);
-  return ctx.Node("EnumMember", props, v);
+  return ctx.NodeHead("EnumMember", props, v);
 ```
 
 ## constructor:(template:Template)=>void

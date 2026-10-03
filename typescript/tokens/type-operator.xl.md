@@ -222,7 +222,7 @@ TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（
   const props: any = {};
   const operand = kids.length > 0 ? ctx.TypeExpression(kids) : undefined;
   if (operand !== undefined) props.type = operand;
-  return ctx.Node("TypeOperator", props, v);
+  return ctx.NodeHead("TypeOperator", props, v);
 ```
 
 ## constructor:(template:Template)=>void
@@ -293,7 +293,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
       access === undefined ? names : ctx.Kids(access).filter((k: any) => ctx.IsNameNode(k));
     props.exprName = ctx.QualifiedNameFrom(parts);
   }
-  return ctx.Node("TypeQuery", props, v);
+  return ctx.NodeHead("TypeQuery", props, v);
 ```
 
 ## constructor:(template:Template)=>void

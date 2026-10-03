@@ -432,7 +432,7 @@ TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；�
     }
     props.type = ctx.Project(typeNode);
   }
-  return ctx.Node("NamedTupleMember", props, v);
+  return ctx.NodeHead("NamedTupleMember", props, v);
 ```
 
 ## constructor:(template:Template)=>void

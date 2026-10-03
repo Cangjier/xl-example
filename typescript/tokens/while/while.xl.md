@@ -127,7 +127,7 @@ return index;
   const header = ctx.MatchingParen(ctx.source, v.start);
   const statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
   if (statement !== undefined) props.statement = statement;
-  return ctx.Node("WhileStatement", props, v);
+  return ctx.NodeHead("WhileStatement", props, v);
 ```
 
 ## constructor:(template:Template)=>void

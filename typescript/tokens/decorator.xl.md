@@ -184,7 +184,7 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
     const inner = ctx.Expression(kids);
     if (inner !== undefined) props.expression = inner;
   }
-  return ctx.Node("Decorator", props, v);
+  return ctx.NodeHead("Decorator", props, v);
 ```
 
 ## field name:string = ""

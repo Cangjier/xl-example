@@ -214,7 +214,7 @@ return ReplaceCountAt(units, index, units.length - index, result);
     const type = ctx.TypeExpression(kids.slice(i));
     if (type !== undefined) props.type = type;
   }
-  return ctx.Node("TypePredicate", props, v);
+  return ctx.NodeHead("TypePredicate", props, v);
 ```
 
 ## constructor:(template:Template)=>void

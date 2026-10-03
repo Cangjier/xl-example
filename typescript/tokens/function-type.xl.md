@@ -256,7 +256,9 @@ return ReplaceCountAt(units, firstIndex, endIndex - firstIndex + 1, result);
   if (arrowIndex >= 0 && arrowIndex + 1 < kids.length) {
     props.type = ctx.TypeOf(kids.slice(arrowIndex + 1));
   }
-  return ctx.Node(newUnit === undefined ? "FunctionType" : "ConstructorType", props, v);
+  // **坐标在前**（第 199 轮）：搬家前是 `return { kind: "FunctionType", pos: v.start, end: v.end, ...props }`；
+  // `ConstructorType` 走的是同一行（另一个分支的 `new (…) => T` 在共享层里也是坐标在前）。
+  return ctx.NodeHead(newUnit === undefined ? "FunctionType" : "ConstructorType", props, v);
 ```
 
 ## constructor:(template:Template)=>void

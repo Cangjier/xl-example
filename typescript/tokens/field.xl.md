@@ -547,7 +547,9 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
     props.modifiers = merged;
   }
   const kind = ctx.signature ? "PropertySignature" : "PropertyDeclaration";
-  return ctx.Node(kind, props, v);
+  // **坐标在前**（第 199 轮）：搬家前这里是 `{ kind, pos: v.start, end: … , ...props }`，
+  // 两种 kind 在 samples 夹具里都是这个键序，`samples` 逐字节比得出来。
+  return ctx.NodeHead(kind, props, v);
 ```
 
 ## constructor:(template:Template)=>void

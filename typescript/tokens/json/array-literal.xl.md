@@ -211,7 +211,7 @@ Json 数组。
     flush(undefined);
   }
   const props = elements.length === 0 ? {} : { elements };
-  return ctx.Node("ArrayLiteralExpression", props, v);
+  return ctx.NodeHead("ArrayLiteralExpression", props, v);
 ```
 
 ## field Context:string = ""

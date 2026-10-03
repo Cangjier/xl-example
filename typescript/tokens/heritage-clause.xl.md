@@ -219,7 +219,7 @@ TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` 
   );
   const projected = ctx.ProjectEach(kids, "HeritageClause");
   const props: any = projected.length === 0 ? {} : { types: projected };
-  return ctx.Node("HeritageClause", props, v);
+  return ctx.NodeHead("HeritageClause", props, v);
 ```
 
 ## constructor:(template:Template)=>void
@@ -281,7 +281,7 @@ return result;
     }
   }
   if (generic !== undefined) props.typeArguments = ctx.TypeArguments(generic);
-  return ctx.Node("ExpressionWithTypeArguments", props, v);
+  return ctx.NodeHead("ExpressionWithTypeArguments", props, v);
 ```
 
 ## constructor:(template:Template)=>void
