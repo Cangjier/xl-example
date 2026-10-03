@@ -4044,3 +4044,36 @@ JS 的三元是**懒**的——没被选中的那一边**连求值都不发生**
 报的却是「the projection drops the unary operator」——**负数字面量根本用不了** ✗。
 这比三元更挡日常代码（一元运算符的 `operatorToken` 被投影丢掉，台账里记了很久）。
 所以判据里暂时用 `0 - 3` 绕开，并在注释里写明原因；**下一轮先修它**。
+### 第 64 轮：一元运算符——**查明了，但没通**（不放行）
+
+**目标**：`-1` 这种**负数字面量**用不了（一元运算符的 `operatorToken` / `operator` 被投影丢掉）。
+这是「孤立 token / 文本被投影丢掉」那一族的最后一个常客（前几个：`HeritageClause` 的关键字、
+模板串三段文本）。
+
+**这一轮做了什么**：
+
+- 投影里按**同名字段**补 `operator`（TS 的 `PrefixUnaryExpression` 确实有 `operator` 这个名字，
+  值是 `SyntaxKind` **数字**——投影没有数字，所以放**运算符文本**。
+  对拍尺子不会报字段不符，因为它只比**字段名**）；
+- 降级层改成读 `operator` + `operand`（**操作数在 TS 里叫 `operand`，不是 `expression`**——
+  这是跑判据时被 `ast node PrefixUnaryExpression has no child expression` 点出来的），
+  `-` 走 `RtOp.Neg`、`!` 走 `RtOp.Not`，其余（`+` / `~` / `++` / `--`）**照旧抛**。
+
+**为什么没通**：挂钩放错了地方。实测
+
+```
+let y = -1;  的产物 →  {"kind":"PrefixUnaryExpression","operand":{"kind":"NumericLiteral",…}}
+```
+
+**没有 `operator` 字段**——说明这个节点**不是走通用投影路**造的
+（我把补字段的代码加在 `const props = structuralProps(...)` 之后，那是通用路）。
+探针脚本：`tests/runtime/check.mjs` 用的那套（`TextDocument` + `TextContext` + `ProjectRoot`）。
+
+**下一轮第一步（一次就能定）**：在 `print-ast-common.xl.md` 里把
+**所有**出现 `PrefixUnaryExpression` 的地方列出来（只有几处），逐个看是谁造的这个节点，
+把补 `operator` 的代码挪到**真正的那个**构造点（很可能是「带符号字面量」那条专门的路——
+类型位有一个同类函数 `projectSignedLiteralType`，值位应当也有对应的一处）。
+**先看再改，别再加第二处挂钩。**
+
+**当下的状态**：行为与第 63 轮相同（一元运算符抛，消息里说明缺什么），
+判据 140/140 保持全绿；**投影里那处挂钩留着**（它是对的代码，只是位置不对）。

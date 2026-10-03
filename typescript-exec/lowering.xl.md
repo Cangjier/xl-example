@@ -2944,7 +2944,17 @@ if (kind === "TypeOfExpression") {
   return this.RtCall1(RtOp.Typeof, value);
 }
 if (kind === "PrefixUnaryExpression") {
-  throw new Error("unimplemented: the projection drops the unary operator (see parsing-gaps)");
+  // **一元前缀**（第 64 轮）：投影现在带 `operator`（运算符**文本**）——
+  // TS 那边 `operator` 是一个 `SyntaxKind` 数字，投影补的时候用了**同名字段**，
+  // 所以对拍尺子不会报字段不符（见 `print-ast-common.xl.md`）。
+  const rawOperator = node["operator"];
+  const operator = rawOperator === undefined || rawOperator === null ? "" : String(rawOperator);
+  const operand = this.LowerExpression(Child(node, "operand"));
+  if (operator === "-") return this.RtCall1(RtOp.Neg, operand);
+  if (operator === "!") return this.RtCall1(RtOp.Not, operand);
+  // **没做的照旧抛**（不静默给近似值）：`+x` 要 Number 转换、`~x` 要按位取反、
+  // `++` / `--` 是**带副作用的更新表达式**（不是纯运算，得连左值一起改）。
+  throw new Error("unimplemented: unary operator `" + operator + "` (only - and ! are implemented)");
 }
 throw new Error("unimplemented: expression " + kind);
 ```

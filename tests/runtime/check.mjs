@@ -3653,9 +3653,14 @@ check("三元表达式：只跑被选中的那一边（懒），嵌套与括号�
 });
 
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
+  // **一元运算符还没通**（第 64 轮查明）：投影里给 `PrefixUnaryExpression` 补 `operator`
+  // 的那处挂钩**没生效**——实测 `let y = -1;` 的产物是
+  // `{"kind":"PrefixUnaryExpression","operand":{…}}`，**没有 `operator`**。
+  // 说明这个节点不是走通用投影路造的（挂钩放错了地方），台账里记了下一步怎么找。
+  // 在补对之前，这里**照旧抛**，而且消息里说明了缺什么。
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
-  ok(unary.indexOf("unary") >= 0, "一元运算符要抛：" + unary);
+  ok(unary.indexOf("unary") >= 0, "一元运算符（还没通）要抛，且说明缺什么：" + unary);
 
   // 空字符串字面量的 text 是**带引号的原文**（`""`），与「值就是两个引号」分不开
   let empty = "";

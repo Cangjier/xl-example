@@ -1036,6 +1036,22 @@ new Map([
     }
   }
   const props = structuralProps(v, kind, ctx);
+  // **一元前缀的运算符**（第 64 轮补）：TS 的 `PrefixUnaryExpression.operator` 是一个
+  // `SyntaxKind` **数字**（不是子节点），投影原来的口径「只留节点型字段」于是把它丢了——
+  // 结果 `-1` 与 `!x` 在产物里**完全一样**，**负数字面量根本用不了**。
+  //
+  // 这里补一个**同名字段** `operator`（TS 那边也有这个名字，所以对拍尺子不会报字段不符），
+  // 值是**运算符文本**：取单元文本开头连续的运算符字符，**最多两个**（`++` / `--`）。
+  // `- -x`（中间有空格）因此取到 `-` ✓；`~~y` 会取到 `~~`——那两种写法这一层都还没做，
+  // 降级层见到就**抛**，所以不会静默走错。
+  if (kind === "PrefixUnaryExpression") {
+    const whole = textOf(v, ctx);
+    let opLength = 0;
+    while (opLength < whole.length && opLength < 2 && "-+!~".includes(whole.charAt(opLength))) {
+      opLength++;
+    }
+    if (opLength > 0) props.operator = whole.slice(0, opLength);
+  }
   if (stripModifier !== undefined && Array.isArray(props.modifiers)) {
     props.modifiers = props.modifiers.filter((m) => m.kind !== stripModifier);
   }
