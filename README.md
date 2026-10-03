@@ -45,9 +45,10 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 `typescript-exec/` 是 TS 专有的降级层——**新增一门语言就是新增 `xxx/` + `xxx-exec/`，
 `core/` 与 `runtime/` 一行都不用动**。
 **这两棵树已经在跑**：引擎（值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI）落地，
-降级层收下了 P0 的形状 + 类 / 继承 / 集合 / 生成器 / 默认参数与一批标准库，
+降级层收下了 P0 的形状 + 类 / 继承 / 集合 / 生成器 / 默认参数、一批标准库
+与**数字字面量的全形态**（第 129 轮，线形态随之升到 v2 并开始承载 `Float64` 常量），
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check` 与 `npm run runtime:cli`；
+判据见 `npm run runtime:check`（170 条）与 `npm run runtime:cli`（21 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

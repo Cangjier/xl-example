@@ -39,7 +39,14 @@ import { GetProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
 ```ts
 if (value === value && value <= 2147483647 && value >= -2147483647) {
   const rounded = value - value % 1;
-  if (rounded === value) return Value.FromInt(value);
+  // **负零自己判**（第 129 轮）✓：`-0` 在 JS 里是一个**独立的值** ✓
+  //（`Object.is(-0, 0)` 为假 ✓、`1 / -0` 是 `-Infinity` ✓）。
+  // `value < 0` 对它为假 ✗、`value % 1` 也保住 `-0` 而 `value - (-0)` 给 `0` ✓，
+  // 所以上面那条会把 `-0` 收成 `Int32` ✗——收窄成 `int` 之后**符号位就没了** ✗，
+  // 而 `int` 在 C++ 上装不下符号位这件事 ✓（ts 的 `number` 恰好还留着 ✗，于是两边分歧 ✗）。
+  // 用一次除法看符号位 ✓，是这一格里唯一四个目标写法一致的做法 ✓。
+  const negativeZero = value === 0 && 1 / value < 0;
+  if (rounded === value && !negativeZero) return Value.FromInt(value);
 }
 return Value.FromDouble(value);
 ```
@@ -334,14 +341,30 @@ return Value.FromBool(NumericOf(left) >= NumericOf(right));
 
 `===`。**按档位分派**，逐档有明确答案：
 
+- **数值先单独一比**（`Int32` 与 `Float64` 都算数值）→ 按**数值**比，`NaN` 与谁都不等
+  （IEEE 自比较，不调库）；
 - 档位不同 → `false`（**这是 `===` 的全部要点**：`1 === "1"` 为假，不看内容）；
-- 数值 → 按数值比，`NaN` 与谁都不等（IEEE 自比较，不调库）；
 - `undefined` / `null` → 同档即相等；
 - 字符串 → **按内容比**（字符串是原始值）；
 - 符号 → **按 `Id` 比**（身份，不看描述）；
 - 其余（对象 / 数组 / 函数 / 闭包 / 宿主句柄）→ **按句柄比**（引用相等）。
 
+**数值那一支必须排在「档位不同 → 假」前面**（第 129 轮修的一处**潜伏 bug** ✓）：
+`Int32` 与 `Float64` 是**同一个 JS 类型的两种表示** ✓（`MakeNumber` 的话：
+「这是表示上的选择，不是语义上的」✓），所以**运算符不许看见表示** ✗。
+原来这里先比档位 ✓，于是 `-0 === 0` 给 `false` ✗（`-0` 收成 `Float64` 之后才暴露 ✓）、
+`Value.FromDouble(3) === Value.FromInt(3)` 也给 `false` ✗——
+`<` / `<=` / `>` / `>=` 那四条一直是对的 ✓（它们两边都过 `NumericOf` ✓），
+只有这一条漏了 ✓。**它一直潜伏**，是因为 `MakeNumber` 把整数范围的 f64 都收成了 `Int32` ✓，
+于是两个表示很少真的碰上 ✓。
+
 ```ts
+if (left.IsNumber() && right.IsNumber()) {
+  const a = NumericOf(left);
+  const b = NumericOf(right);
+  // **按数值比**：`NaN === NaN` 为假 ✓、`-0 === 0` 为真 ✓，两条都由这一行给 ✓。
+  return Value.FromBool(a === b);
+}
 if (left.Tag !== right.Tag) return Value.FromBool(false);
 if (left.IsNumber()) {
   if (left.Tag === ValueTag.Int32) return Value.FromBool(left.Int === right.Int);

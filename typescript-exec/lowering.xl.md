@@ -3,6 +3,7 @@
 import { Value } from "../runtime/value.xl.md"
 import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from "../runtime/ir.xl.md"
 import { IdTable } from "../runtime/ir-verify.xl.md"
+import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId } from "./builtins/install.xl.md"
@@ -204,39 +205,202 @@ return units;
 
 # method NumberFromText:(text:string)=>float
 
-把字面量文字变成数值。**自己走一遍，不用宿主的 `parseFloat`**（理由同 `UnitsOf` 那条）。
+把数字字面量的**原文**变成数值（第 129 轮重写）。
 
-只收十进制整数与「整数.小数」。指数、十六进制、下划线分隔符一律**抛**。
+**认这五种形态**（TS 的 `NumericLiteral` 会给什么，它就认什么 ✓）：
+
+| 形态 | 例 | 口径 |
+| --- | --- | --- |
+| 十进制整数 / 小数 | `42` `3.14` `.5` `42.` | 十进制 ✓ |
+| 十进制指数 | `1e3` `1.5E-3` `2e+10` | 指数段必须全是指数（`e` 后面不许再有点 ✗）|
+| 十六 / 八 / 二进制 | `0x1F` `0o17` `0b1010` | **不接小数点与指数** ✗（TS 也不接 ✓）|
+| 数字分隔符 | `1_000` `0xFF_FF` `1_0.5` | 下划线只许**夹在两个数字之间** ✓（与 TS 同口径 ✓）|
+| **`BigInt`**（`123n`） | `123n` | **响亮地抛** ✓——它是 v1 的明确非目标 ✓（`docs/runtime-architecture.md` §15 ✓），静默当 `123` 是最坏的一种 ✓ |
+
+**两件事分开做，这是这一轮的核心** ✓：
+
+1. **形态自己扫**（`ScanNumber`）✓——它决定**收不收** ✓，于是「不认的形态」是**响亮的一句**
+   ✓（`unimplemented: numeric literal 1n`）✓，而不是一个悄悄算错的数 ✗；
+2. **十进制 → 双精度的舍入交给宿主** ✓（`NumberFromHostText`，唯一的宿主借用，写在
+   `runtime/host-text.xl.md` ✓）。
+
+**为什么第 2 步不再自己算** ✗：老版本是 `sign * (whole + fraction / scale)` ✓，
+它**静默给错值** ✗——实测 20 万个「整.小数」里 **2 个**差 1 ulp ✓
+（`43.695449` 自算给 `43.695448999999996` ✓）。两次舍入（先除再加）不是一次舍入 ✗；
+把它改成一次除法只是在**一部分**字面量上对 ✓（`mantissa` 超过 2^53 就又不成立了 ✗）。
+正确舍入是 IEEE 754 的活儿 ✓——这一条与 `builtins/text.xl.md` 第 124 轮
+「浮点 → 文本借宿主」是**同一句理由** ✓，两个方向现在收在同一个文件里 ✓。
+
+```ts
+const shape = ScanNumber(text);
+return NumberFromHostText(shape);
+```
+
+# method ScanNumber:(text:string)=>string
+
+**形态扫描器**：收一个数字字面量的原文，返回它的**规范十进制文本**
+（去掉下划线分隔符 ✓、把十六 / 八 / 二进制翻成十进制 ✓、小数与指数原样留着给宿主 ✓）。
+
+**分两段写**（自己算的进制 / 交给宿主的十进制）是刻意的 ✓：*收不收* 是这一层的语义 ✓，
+*舍入* 是宿主的活儿 ✓，中间那根线就是「返回值是一段十进制文本」✓。
+
+**抛就是拒绝** ✓：消息以 `unimplemented: ` 开头 ✓，且**带上原文** ✓——
+用户看见的是 `unimplemented: numeric literal 10n`，不是「某个地方出错了」✓。
+
+**分隔符那一段是三个循环里最容易被写歪的一格** ✗：下划线只许夹在**两个数字之间** ✓，
+而「数字」要看**当前进制** ✓（`0xF_F` 对 ✓，`1_e3` 不对 ✗——`e` 在十六进制里是数字 ✓、
+在十进制里不是 ✓）。所以每个循环都带一个「上一个消费掉的是不是数字」的标记 ✓，
+「下一个是不是这一进制的数字」也要问一遍 ✓——两次都问，`1__0` 与 `1_e3` 才都拒得掉 ✓。
 
 ```ts
 let i = 0;
-let sign = 1.0;
-if (text.length > 0 && text[0] === "-") {
-  sign = -1.0;
-  i = 1;
-} else if (text.length > 0 && text[0] === "+") {
+let sign = "";
+if (text.length > 0 && (text[0] === "-" || text[0] === "+")) {
+  sign = text[0];
   i = 1;
 }
-let whole = 0.0;
-let seenDigit = false;
-while (i < text.length && text[i] >= "0" && text[i] <= "9") {
-  whole = whole * 10.0 + (text.charCodeAt(i) - 48);
-  seenDigit = true;
+if (i >= text.length) throw new Error("unimplemented: numeric literal " + text);
+// **进制前缀** ✓：`0x` / `0o` / `0b` 三种各一个号 ✓，其余仍走十进制 ✓
+//（`0x1.5` / `0x1e3` 在 TS 里也不是数 ✗，这里靠「收集完必须正好到末尾」跟着拒 ✓）。
+let radix = 10;
+if (i + 1 < text.length && text[i] === "0") {
+  const marker = text[i + 1];
+  if (marker === "x" || marker === "X") radix = 16;
+  if (marker === "o" || marker === "O") radix = 8;
+  if (marker === "b" || marker === "B") radix = 2;
+  if (radix !== 10) i = i + 2;
+}
+if (radix !== 10) {
+  let value = 0.0;
+  let seen = false;
+  let lastDigit = false;
+  while (i < text.length) {
+    const unit = text.charCodeAt(i);
+    if (unit === 95) {
+      if (!lastDigit || i + 1 >= text.length) throw new Error("unimplemented: numeric literal " + text);
+      const next = DigitValue(text.charCodeAt(i + 1));
+      if (next < 0 || next >= radix) throw new Error("unimplemented: numeric literal " + text);
+      lastDigit = false;
+      i = i + 1;
+      continue;
+    }
+    const digit = DigitValue(unit);
+    if (digit < 0 || digit >= radix) break;
+    // **精确范围之外响亮地拒** ✓：`value * radix` 是精确的（radix 是 2 的幂 ✓），
+    // 但「加上一位」在 `value` 超过 2^53 之后会**静默舍入** ✗。再长的整数字面量要
+    // 多精度才转得对 ✓，那是 P2 类型层的事 ✓——这里给一句能读的话 ✓，不给一个近似的数 ✗。
+    if (value > (9007199254740991 - digit) / radix) {
+      throw new Error("unimplemented: integer literal beyond the exact range needs the type layer: " + text);
+    }
+    value = value * radix + digit;
+    seen = true;
+    lastDigit = true;
+    i = i + 1;
+  }
+  if (!seen) throw new Error("unimplemented: numeric literal " + text);
+  if (i < text.length && text[i] === "n") {
+    throw new Error("unimplemented: BigInt literal (v1 out of scope): " + text);
+  }
+  if (i !== text.length) throw new Error("unimplemented: numeric literal " + text);
+  // **按十进制文本交出去** ✓：进制已经在上面算完了 ✓，宿主那一头只认十进制 ✓
+  //（`NumberToHostText` 对整数给的就是那几位数字本身 ✓，没有舍入 ✓）。
+  return sign + NumberToHostText(value);
+}
+// **十进制**：整数段 → 小数段 → 指数段，三段各一个循环 ✓，谁都不许跳回来 ✓
+//（`1.2.3` / `1e2e3` / `1e2.5` 都在这三条上被拒 ✓）。
+let whole = "";
+let lastDigit = false;
+while (i < text.length) {
+  const unit = text.charCodeAt(i);
+  if (unit === 95) {
+    if (!lastDigit || i + 1 >= text.length) throw new Error("unimplemented: numeric literal " + text);
+    const next = text.charCodeAt(i + 1);
+    if (next < 48 || next > 57) throw new Error("unimplemented: numeric literal " + text);
+    lastDigit = false;
+    i = i + 1;
+    continue;
+  }
+  if (unit < 48 || unit > 57) break;
+  whole = whole + text[i];
+  lastDigit = true;
   i = i + 1;
 }
-if (!seenDigit) throw new Error("unimplemented: numeric literal " + text);
-if (i === text.length) return sign * whole;
-if (text[i] !== ".") throw new Error("unimplemented: numeric literal " + text);
-i = i + 1;
-let scale = 1.0;
-let fraction = 0.0;
-while (i < text.length && text[i] >= "0" && text[i] <= "9") {
-  fraction = fraction * 10.0 + (text.charCodeAt(i) - 48);
-  scale = scale * 10.0;
+let fraction = "";
+if (i < text.length && text[i] === ".") {
   i = i + 1;
+  lastDigit = false;
+  while (i < text.length) {
+    const unit = text.charCodeAt(i);
+    if (unit === 95) {
+      if (!lastDigit || i + 1 >= text.length) throw new Error("unimplemented: numeric literal " + text);
+      const next = text.charCodeAt(i + 1);
+      if (next < 48 || next > 57) throw new Error("unimplemented: numeric literal " + text);
+      lastDigit = false;
+      i = i + 1;
+      continue;
+    }
+    if (unit < 48 || unit > 57) break;
+    fraction = fraction + text[i];
+    lastDigit = true;
+    i = i + 1;
+  }
+}
+if (whole.length === 0 && fraction.length === 0) {
+  throw new Error("unimplemented: numeric literal " + text);
+}
+let exponent = "";
+if (i < text.length && (text[i] === "e" || text[i] === "E")) {
+  i = i + 1;
+  if (i < text.length && (text[i] === "+" || text[i] === "-")) {
+    exponent = text[i];
+    i = i + 1;
+  }
+  let digits = "";
+  lastDigit = false;
+  while (i < text.length) {
+    const unit = text.charCodeAt(i);
+    if (unit === 95) {
+      if (!lastDigit || i + 1 >= text.length) throw new Error("unimplemented: numeric literal " + text);
+      const next = text.charCodeAt(i + 1);
+      if (next < 48 || next > 57) throw new Error("unimplemented: numeric literal " + text);
+      lastDigit = false;
+      i = i + 1;
+      continue;
+    }
+    if (unit < 48 || unit > 57) break;
+    digits = digits + text[i];
+    lastDigit = true;
+    i = i + 1;
+  }
+  if (digits.length === 0) throw new Error("unimplemented: numeric literal " + text);
+  exponent = exponent + digits;
+}
+// **`n` 后缀是 `BigInt`** ✓：它走到这里说明前面是一段合法的十进制数字 ✓，那就指名道姓地拒 ✓
+//（不指名的话，用户看到的是「数字字面量不认」✗，而他要的信息是「`BigInt` 不支持」✓）。
+if (i < text.length && text[i] === "n") {
+  throw new Error("unimplemented: BigInt literal (v1 out of scope): " + text);
 }
 if (i !== text.length) throw new Error("unimplemented: numeric literal " + text);
-return sign * (whole + fraction / scale);
+if (whole.length === 0) whole = "0";
+// **交给宿主的是「规范十进制」** ✓：`42` → `"42.0e0"`、`3.14` → `"3.14e0"`、
+// `.5` → `"0.5e0"`、`1e-3` → `"1.e-3"` ✓——这几种写法宿主都认 ✓，
+// 而它们**没有经过任何算术** ✓，所以舍入是**一次**、由宿主做 ✓。
+return sign + whole + "." + fraction + "e" + (exponent === "" ? "0" : exponent);
+```
+
+# method DigitValue:(unit:int)=>int
+
+一个码元的数值：`0`-`9` / `a`-`f` / `A`-`F` 各给 `0`-`15`，其余给 `-1`。
+
+**为什么不借宿主的进制转换** ✗：那是**几条比较** ✓，不是 IEEE 754 的活儿 ✗——
+`host-text.xl.md` 借的是「正确舍入的十进制 ↔ 双精度」✓，不是「`parseInt`」✓。
+这一层自己扫，`0x1F` / `0o17` / `0b1010` 走到哪一位停下也才是我们说了算 ✓。
+
+```ts
+if (unit >= 48 && unit <= 57) return unit - 48;
+if (unit >= 97 && unit <= 102) return unit - 87;
+if (unit >= 65 && unit <= 70) return unit - 55;
+return -1;
 ```
 
 # method BinaryOpOf:(operatorText:string)=>int
@@ -1215,16 +1379,44 @@ throw new Error("unimplemented: name is not a local (captures need env records):
 
 ## method IntConst:(value:float)=>int
 
-整数字面量进常量池。
+**内部整数**进常量池：算子号、内建号、函数入口 pc、索引……
 
-**只收整数**：v1 的线形态**不带浮点载荷**（`runtime/ir-verify.xl.md` 那条），
-所以非整数的数字字面量在这里就抛——比编出一个装不下的常量再被拒要好。
+**只收整数** ✓，非整数**抛** ✓——这个函数今天所有的调用点喂的都是编译期算出来的整数 ✓，
+不是用户写的字面量 ✓（字面量走 `NumberConst` ✓）。非整数的数字走到这里就是**降级期写错了** ✓，
+比编出一个装不下的常量再被拒要好 ✓。
 
 ```ts
 if (Math.floor(value) !== value) {
-  throw new Error("unimplemented: only integer literals (the wire form has no float payload)");
+  throw new Error("internal: IntConst got a non-integer: " + value);
 }
 return this.Program().AddConst(Constant.OfInt(value));
+```
+
+## method NumberConst:(value:float)=>int
+
+**数字字面量**进常量池（第 129 轮）。
+
+**两档按「最小的表示」挑** ✓，与引擎的 `MakeNumber`（`runtime/rt.xl.md`）**同一条口径** ✓：
+恰好是整数且落在 `±2147483647` 之内 ⇒ `Int32` ✓（四个目标都装得下 ✓），
+否则 ⇒ `Float64` ✓。
+
+**为什么界限是 `±2147483647` 而不是「是整数就行」** ✗：`1e10` 是整数 ✓，
+但它**不在** `int` 交集里 ✗——存成 `Int32` 会让 C++ 侧溢出、ts 侧正常，
+于是同一个程序在两个目标上算出不同的值 ✗，而这是本工程要消灭的东西 ✓。
+
+**为什么 `-0` 不走 `Int32`** ✗：它在 JS 里是**一个独立的值** ✓
+（`Object.is(-0, 0)` 为假 ✓、`1 / -0` 是 `-Infinity` ✓），
+收成 `Int32` 就把它和 `0` 合并了 ✗——**静默换了一个值** ✗。
+
+```ts
+if (value === value && value <= 2147483647 && value >= -2147483647) {
+  const rounded = value - value % 1;
+  // **负零自己判**：`-0 % 1` 是 `-0`、`value - (-0)` 是 `0` ✓，所以下面这条会把它收成整数 ✗。
+  // 只有 `-0` 需要这一格：`value < 0` 对它为假 ✗，用一次除法看符号位 ✓。
+  const negativeZero = value === 0 && 1 / value < 0;
+  if (rounded === value && !negativeZero) return this.Program().AddConst(Constant.OfInt(value));
+}
+return this.Program().AddConst(Constant.OfDouble(value));
 ```
 
 ## method LowerModule:(source:AstNode, ids:IdTable)=>LoweredModule
@@ -3473,7 +3665,8 @@ this.Pending.push(item);
 const kind = NodeKind(node);
 if (kind === "NumericLiteral") {
   const slot = this.Reserve(1);
-  this.Emit(Op.Const, slot, this.IntConst(NumberFromText(TextOf(node))), -1, -1);
+  // **走 `NumberConst`**：整数收 `Int32`、其余收 `Float64`（第 129 轮）——`IntConst` 只给内部整数用 ✓。
+  this.Emit(Op.Const, slot, this.NumberConst(NumberFromText(TextOf(node))), -1, -1);
   return slot;
 }
 if (kind === "StringLiteral") {
@@ -3667,7 +3860,8 @@ throw new Error("unimplemented: expression " + kind);
 ```ts
 const kind = NodeKind(node);
 if (kind === "NumericLiteral") {
-  this.Emit(Op.Const, slot, this.IntConst(NumberFromText(TextOf(node))), -1, -1);
+  // **走 `NumberConst`**：整数收 `Int32`、其余收 `Float64`（第 129 轮）——`IntConst` 只给内部整数用 ✓。
+  this.Emit(Op.Const, slot, this.NumberConst(NumberFromText(TextOf(node))), -1, -1);
   return;
 }
 if (kind === "StringLiteral") {

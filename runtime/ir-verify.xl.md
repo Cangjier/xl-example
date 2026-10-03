@@ -4,6 +4,7 @@ import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, HashModulus } from "./heap.xl.md"
 import { Program, Instruction, Op, RtOp, Constant, SourceSpan, Handler, FunctionInfo, BuiltinBase, RtOpCount } from "./ir.xl.md"
 import { RootSet } from "./gc.xl.md"
+import { NumberToHostText, NumberFromHostText, HostTextUnits, HostUnitsText } from "./host-text.xl.md"
 ```
 
 # namespace cangjie
@@ -30,7 +31,7 @@ magic    4 字节：'C' 'J' 'I' 'R'
 version  4 字节
 ids      12 字节：GeneralCount, BuiltinCount, Hash
 counts   5 × 4 字节：consts, spans, functions, handlers, instrs
-consts   每项：tag(1 字节) + Int(4) + Dbl 的位模式(4) + Units 长度(4) + 每个码元(4)
+consts   每项：tag(1 字节) + Int(4) + Units 长度(4) + 每个码元(4)
 spans    每项：Start(4) + End(4)
 functions 每项：Entry(4) + SlotCount(4) + ParamCount(4) + Name(4) + flags(1)
 handlers 每项：TryStart(4) + TryEnd(4) + HandlerPc(4) + FrameDepth(4)
@@ -44,15 +45,31 @@ instrs   每项：op(1) + A(4) + B(4) + C(4) + D(4) + Src(4)
   代价是体积（大概是 varint 的 2~4 倍），**这笔账记在这里**；将来换 varint 时，
   **逻辑结构不变**，只是每个整数的字节数变了，所以 `version` 要跟着升。
 - 为什么显式小端：让各目标**不依赖宿主字节序**。规范里写死字节序，编解码两边才逐字节可比。
-- 浮点按 **IEEE-754 双精度的位模式**存 4 字节…… 见下面 `WriteDouble` 的说明：
-  v1 只用 4 字节存**整数化的载荷**，真正的 f64 位模式要在 P2 的类型层之后才写。
+- 浮点按**十进制文本**存（`Units` 那一段是它的码元）…… 见下面那一节：
 
-**v1 的线形态只承载整数载荷**：`Undefined` / `Null` / `Bool` / `Int32` / `String`。
-`Float64` 常量在**编码时被拒**（`Encode` 返回 `null`），所以解码器也不会遇到它。
+**线形态承载哪些载荷，以及浮点为什么改成了文本**（第 129 轮，线形态升 v2）。
 
-理由是 f64 的位模式要 8 字节**加一次位重解释**，而位重解释是 P2 的类型层才有的能力
-（与 `runtime/value.xl.md` 那节「宽度与溢出」是同一笔账）。P2 把 f64 的位模式补进来时，
-线形态升一版。
+v1 只承载 `Undefined` / `Null` / `Bool` / `Int32` / `String`：`Float64` 常量在**编码时被拒** ✗
+所以「`1.5` 这种字面量」在**降级期**就抛 ✗——那是「一份普通 `.ts` 直接跑」的**第一个拦路虎** ✓
+（`typescript-exec/README.md` 记着这一条 ✓）。
+
+**候选有三条，选的是第三条**（完整理由在 `host-number.xl.md` ✓）：
+
+| 候选 | 为什么不选 |
+| --- | --- |
+| **继续拒**（v1 原样） | 浮点字面量在普通代码里遍地都是 ✗——不补它，「直接跑完整 `.ts`」这条判据永远走不通 ✗ |
+| **存 IEEE-754 位模式**（8 字节 + 位重解释） | `value.xl.md` 写着位重解释「xl 表达不了、也不该表达」✓；而且它只解决线形态，降级层解析字面量那一半照样要十进制 → 双精度 ✗ |
+| **存十进制文本**（v2 采用 ✓） | 复用**已经借过一次**的那件事 ✓：`typescript-exec/builtins/text.xl.md` 第 124 轮就把「浮点 → 最短往返十进制」交给了宿主 ✓。这里补上反方向 ✓，于是「十进制 ↔ 双精度」收在**一处**（`host-number.xl.md`）✓ |
+
+**「最短往返」是这条选法的依据，不是附注** ✓：最短往返十进制与双精度**一一对应** ✓，
+所以文本载荷**不丢位** ✓——它换的是**体积**（一个浮点常量十来个码元，v1 只需 4 字节）✓，
+这笔账记在这里 ✓，与「定宽不 varint」那笔是同一类取舍 ✓。
+
+**浮点载荷是自检的** ✓：编码侧写 `NumberToHostText(Dbl)` ✓；解码侧读回文本、过一遍
+`NumberFromHostText`，**再正向算一次** ✓——正向算出来的文本与读到的文本不相等，
+就说明这段字节不是这个格式写的 ✓，`Decode` 返回 `null` ✓。
+`NaN` / `±Infinity` / `-0` 三个符号名也走这条：它们同样满足往返相等 ✓
+（`-0` 记符号位靠的是 `NumberToHostText` 里那次除法 ✓——不自己判，`String(-0)` 会把它印成 `"0"` ✗）。
 
 # const Magic0:int = 67
 
@@ -70,11 +87,18 @@ instrs   每项：op(1) + A(4) + B(4) + C(4) + D(4) + Src(4)
 
 `'R'`。
 
-# const WireVersion:int = 1
+# const WireVersion:int = 2
 
-版本号。**v1 只有一个号**：程序表示的版本（`Program.Version`）与线形态的版本共用它。
-分成两个号，是等出现「程序表示变了但字节没变」这种事时才需要的区分——
-现在没有这种事，就不过早地造两个号。
+版本号。**程序表示的版本（`Program.Version`）与线形态的版本共用它**。
+
+分成两个号，是等出现「程序表示变了但字节没变」这种事时才需要的区分——现在没有这种事，
+就不过早地造两个号。
+
+**为什么从 1 升到 2**（第 129 轮）：线形态以前**明说自己不承载 `Float64`**（编码侧拒掉，
+`Verify` 也把它判成坏档位）✓。现在承载了 ✓，而这一档的**载荷含义**是新的
+（`Units` 那一段从「字符串的码元」变成「浮点的十进制文本」）✓。
+v1 的字节流里不可能出现 `Float64` 常量 ✓，所以这个升版**不会让任何既有的合法字节流失效** ✓——
+升它是因为「同一段字节在这两个版本下该读出什么」变了 ✓，而这正是版本号要说话的地方 ✓。
 
 # class IdTable
 
@@ -234,12 +258,16 @@ this.WriteByte((value >> 24) & 255);
 
 ## method WriteText:(text:string)=>void
 
-写一个字符串（长度 + 每个码元的码元值）。给 magic 用。
+写一个字符串（长度 + 每个码元的码元值）。给 magic 与**浮点常量的十进制文本**用。
+
+**码元那一步借 `host-text.xl.md`** ✓：本文件里**不许**再出现 `charCodeAt` ✓——
+引擎里宿主 API 只有那一处 ✓（判据量着这一条 ✓）。
 
 ```ts
-this.WriteInt(text.length);
-for (let i = 0; i < text.length; i++) {
-  this.WriteInt(text.charCodeAt(i));
+const units = HostTextUnits(text);
+this.WriteInt(units.length);
+for (let i = 0; i < units.length; i++) {
+  this.WriteInt(units[i]);
 }
 ```
 
@@ -317,15 +345,50 @@ return value;
 return this.Offset >= this.Bytes.length;
 ```
 
-# method Encode:(program:Program, ids:IdTable)=>Array<int> | null
+## method Remaining:()=>int
 
-把程序编成字节。**返回 `null` 表示「这个程序编不了」**（v1 的线形态不承载浮点常量，
-见文首那节）——编码失败也是预期结果，不走异常。
+还剩多少字节。
+
+**它是「解码必须终止」那条的尺子** ✓：字节里写着一个长度字段时，**长度可能比剩余字节还大** ✗
+（篡改过的字节、或者根本不是这个格式 ✓）。`ReadByte` 越过末尾之后**不前进** ✓，
+所以「按长度循环」在那种输入上会**空转 2^31 次** ✗——那不是拒绝坏输入，是挂住宿主 ✗。
+每读一个长度都拿它比一下，解码才是**全函数** ✓（第 129 轮补的这一条 ✓）。
 
 ```ts
-for (let i = 0; i < program.Consts.length; i++) {
-  if (program.Consts[i].Tag === ValueTag.Float64) return null;
+return this.Bytes.length - this.Offset;
+```
+
+## method ReadText:()=>string
+
+读一个字符串（长度 + 每个码元），是 `ByteWriter.WriteText` 的逆。
+
+**越界不抛** ✓：`ReadInt` 已经把 `Ok` 置假了 ✓，这里照读、返回一个可能为空的串 ✓，
+调用方读完一段检查一次 `Ok` ✓（与其它 `Read*` 同一条口径 ✓）。
+
+```ts
+const count = this.ReadInt();
+if (count < 0 || count > this.Remaining()) {
+  this.Ok = false;
+  return "";
 }
+const units: number[] = [];
+for (let i = 0; i < count; i++) {
+  units.push(this.ReadInt());
+}
+return HostUnitsText(units);
+```
+
+# method Encode:(program:Program, ids:IdTable)=>Array<int> | null
+
+把程序编成字节。**返回 `null` 表示「这个程序编不了」**——编码失败也是预期结果，不走异常。
+
+**v2 起浮点常量编得出来** ✓：`Units` 那一段放 `NumberToHostText(Dbl)` 的码元 ✓
+（第 129 轮之前这里有一条早退，把带 `Float64` 的程序整个拒掉 ✗）。
+**`Encode` 今天还有编不了的程序吗**——没有 ✓。返回值仍然可空，是因为**将来会有** ✓
+（线形态装不下某一个新加的档位时，编不出来的答案就是 `null` ✓，而不是抛 ✓）。
+把签名收窄成不可空、等真需要时再加回去，是**拿调用方的一次改动**换**今天的一句谎** ✗。
+
+```ts
 const writer = new ByteWriter();
 writer.WriteInt(Magic0);
 writer.WriteInt(Magic1);
@@ -344,9 +407,15 @@ for (let i = 0; i < program.Consts.length; i++) {
   const item = program.Consts[i];
   writer.WriteByte(item.Tag);
   writer.WriteInt(item.Int);
-  writer.WriteInt(item.Units.length);
-  for (let u = 0; u < item.Units.length; u++) {
-    writer.WriteInt(item.Units[u]);
+  // **浮点的载荷是文本，不是 `Dbl` 的位模式** ✓：`Units` 那一段对字符串与浮点是同一个位置 ✓
+  //（字符串放码元、浮点放十进制文本的码元 ✓），所以布局与 v1 逐字节相同 ✓。
+  if (item.Tag === ValueTag.Float64) {
+    writer.WriteText(NumberToHostText(item.Dbl));
+  } else {
+    writer.WriteInt(item.Units.length);
+    for (let u = 0; u < item.Units.length; u++) {
+      writer.WriteInt(item.Units[u]);
+    }
   }
 }
 for (let i = 0; i < program.Spans.length; i++) {
@@ -416,9 +485,20 @@ for (let i = 0; i < constCount; i++) {
   item.Tag = reader.ReadByte() as ValueTag;
   item.Int = reader.ReadInt();
   const unitCount = reader.ReadInt();
-  if (!reader.Ok || unitCount < 0) return null;
+  // **长度字段要不信** ✓：`unitCount` 比剩余字节还大就说明这份字节不成立 ✓——
+  // 不挡的话，`ReadByte` 越过末尾不再前进 ✓，循环会空转 2^31 次 ✗（见 `Remaining` ✓）。
+  if (!reader.Ok || unitCount < 0 || unitCount > reader.Remaining()) return null;
   for (let u = 0; u < unitCount; u++) {
     item.Units.push(reader.ReadInt());
+  }
+  // **浮点的载荷是文本** ✓：读回码元 → 文本 → 双精度 ✓，然后**正向算一次**做自检 ✓——
+  // 算回去的文本与读到的文本不等，就说明这段字节不是这个格式写的 ✓（`host-text.xl.md` ✓）。
+  if (item.Tag === ValueTag.Float64) {
+    const text = HostUnitsText(item.Units);
+    const value = NumberFromHostText(text);
+    if (NumberToHostText(value) !== text) return null;
+    item.Dbl = value;
+    item.Units = [];
   }
   program.Consts.push(item);
 }
@@ -561,8 +641,10 @@ for (let i = 0; i < program.Functions.length; i++) {
 for (let i = 0; i < program.Consts.length; i++) {
   const item = program.Consts[i];
   const tag = item.Tag;
+  // **`Float64` 从第 129 轮起在集合里** ✓：它的载荷是十进制文本 ✓，
+  // 而那段文本的良构性由 `Decode` 的自检挡在前面 ✓（这里只看档位本身 ✓）。
   const known = tag === ValueTag.Undefined || tag === ValueTag.Null || tag === ValueTag.Bool
-    || tag === ValueTag.Int32 || tag === ValueTag.String;
+    || tag === ValueTag.Int32 || tag === ValueTag.Float64 || tag === ValueTag.String;
   if (!known) {
     return new VerifyIssue(IssueConst, -1, "constant " + i + " has a tag the wire form cannot carry");
   }

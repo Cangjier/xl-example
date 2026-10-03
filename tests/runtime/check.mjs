@@ -84,7 +84,7 @@ const { InitProtos, NewPlainObject, NewPlainArray, GetProperty, SetProperty, Del
 const hostMod = require(path.join(root, "build", "ts", "runtime", "host-abi.js"));
 const { Host, HostResult, HostOutcome, Limits, Capability } = hostMod;
 const loweringMod = require(path.join(root, "build", "ts", "typescript-exec", "lowering.js"));
-const { Lowering, LoweredModule } = loweringMod;
+const { Lowering, LoweredModule, NumberFromText } = loweringMod;
 const arrayBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "array.js"));
 const { InstallArray, InvokeArray } = arrayBuiltins;
 const installBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "install.js"));
@@ -725,7 +725,7 @@ function sampleProgram() {
 
 check("dump 逐字节（形态钉死，四个目标的 dump 必须一样）", () => {
   const expected = [
-    "program version=1 consts=1 instrs=4 functions=0 handlers=0 spans=2",
+    "program version=2 consts=1 instrs=4 functions=0 handlers=0 spans=2",
     "0000>  const           0, 0, -1, -1  ; #0 = 7  [0-1]",
     "0001   rt_call         0, 1, 0, 2  ; add  [4-9]",
     "0002   jump_if_false   1, 0, -1, -1",
@@ -872,10 +872,61 @@ check("线头的算子表不匹配 → 拒（握手凭据）", () => {
   eq(Decode(bytes, new IdTable(RtOp.HostCall, 1)), null, "通用段条数不同");
 });
 
-check("编码侧拒浮点常量（线形态不承载 f64 位模式）", () => {
+check("浮点常量走线形态：往返逐位相同（含 -0 / NaN / ±Infinity）", () => {
+  // **这一条换掉了旧判据**（第 129 轮）：旧的那条量的是「有 f64 就编不出来」✗，
+  // 线形态承载浮点之后它就不再成立 ✓。现在量的是**更要紧的那件事**：
+  // 「编码 → 解码之后还是**同一个值**」✓——`Object.is` 逐位比 ✓，
+  // 所以 `-0` 与 `0`、`NaN` 与 `NaN` 都得对上 ✓。
+  const values = [
+    0, -0, 1, -1, 1.5, -2.25, 0.1, 0.30000000000000004, 43.695449, 74.455959,
+    1e21, 1e-7, 1e300, 5e-324, 1.7976931348623157e308, 9007199254740991,
+    NaN, Infinity, -Infinity,
+  ];
   const program = validProgram();
+  const slots = [];
+  for (let i = 0; i < values.length; i++) slots.push(program.AddConst(Constant.OfDouble(values[i])));
+  const bytes = Encode(program, testIds);
+  ok(bytes !== null, "带 f64 的程序编得出来（第 129 轮之前这条是红的）");
+  const back = Decode(bytes, testIds);
+  ok(back !== null, "解码应当成功");
+  for (let i = 0; i < values.length; i++) {
+    ok(Object.is(back.Consts[slots[i]].Dbl, values[i]),
+      "第 " + i + " 个值必须逐位往返：" + String(values[i]));
+  }
+  // **dump 的形态也钉住**（`NaN` / `±Infinity` / `-0` 自己判，不走宿主 ✗）：
+  // 宿主的数字格式只影响可读性 ✓，但**符号名**是线形态的一部分 ✓，所以它得是稳的 ✓。
+  eq(Constant.OfDouble(NaN).Describe(), "NaN", "NaN 的 dump");
+  eq(Constant.OfDouble(Infinity).Describe(), "Infinity", "+Infinity 的 dump");
+  eq(Constant.OfDouble(-Infinity).Describe(), "-Infinity", "-Infinity 的 dump");
+  eq(Constant.OfDouble(-0).Describe(), "0", "-0 的 dump（数字格式，不是线形态）");
+});
+
+check("浮点载荷不是这个格式写的 → 解码拒（自检那一步）", () => {
+  // **「载荷自检」是这一轮加的**（`Decode` 里那条正向重算）✓：线形态是**安全边界** ✓，
+  // 「档位说是浮点、载荷却是一段不是数的文本」必须在**解码**就挡住 ✓，
+  // 不然它会变成一个静默的 `NaN` 漏进引擎 ✗。这里手工改字节，制造三种坏载荷。
+  //
+  // **偏移是算出来的，不是数出来的** ✓：线头固定 52 字节（magic 4 + version 1 + 表 3
+  // + 五个条数 5，每个 4 字节 ✓），这份程序只有**一个**常量、因此它从 52 开始 ✓，
+  // 布局是 `tag(1) + Int(4) + 长度(4) + 码元(4×3)` ✓。
+  const program = new Program();
   program.AddConst(Constant.OfDouble(1.5));
-  eq(Encode(program, testIds), null, "有 f64 就编不出来");
+  const bytes = Encode(program, testIds);
+  ok(bytes !== null, "编码应当成功");
+  eq(bytes.length, 52 + 1 + 4 + 4 + 3 * 4, "线头 + 一个浮点常量的字节数");
+  const units = 52 + 9;
+
+  const garbage = bytes.slice();
+  garbage[units] = 120; // '1' → 'x'：长度不变，文本变成 "x.5"
+  eq(Decode(garbage, testIds), null, "不是数的一段文本要拒");
+
+  const padded = bytes.slice();
+  padded[units] = 32; // 换成空格 → " .5"：宿主会容忍前后空白，正向重算就能抓到
+  eq(Decode(padded, testIds), null, "带空白的一段文本也要拒");
+
+  const oversized = bytes.slice();
+  oversized[52 + 5] = 200; // 长度字段 = 200 > 剩余字节 → 结构就不成立
+  eq(Decode(oversized, testIds), null, "长度比剩余字节还大要拒（不许空转到挂住）");
 });
 
 check("坏字节走 LoadIssue 要给出问题，不是静默", () => {
@@ -1033,10 +1084,14 @@ check("最后一条会落到尾外", () => {
 });
 
 check("常量：档位不可承载 / 码元越界", () => {
+  // **换了一个档位**（第 129 轮）：`Float64` 从这一轮起是**可承载**的 ✓，
+  // 所以「不可承载」这条判据改用 `Object`——它永远不该出现在常量池里 ✓。
   const badTag = validProgram();
-  badTag.AddConst(Constant.OfDouble(1));
+  const wrong = new Constant();
+  wrong.Tag = ValueTag.Object;
+  badTag.AddConst(wrong);
   const first = issueOf(badTag);
-  ok(first !== null && first.Code === IssueConst, "f64 档位");
+  ok(first !== null && first.Code === IssueConst, "对象档位不该出现在常量池");
 
   const badUnit = validProgram();
   badUnit.AddConst(Constant.OfString([70000]));
@@ -1046,6 +1101,11 @@ check("常量：档位不可承载 / 码元越界", () => {
   const goodUnit = validProgram();
   goodUnit.AddConst(Constant.OfString([0, 65535]));
   eq(issueOf(goodUnit), null, "边界上的码元是合法的");
+
+  // **f64 从第 129 轮起在这里是合法的** ✓（载荷是十进制文本，良构性由 `Decode` 自检 ✓）。
+  const goodFloat = validProgram();
+  goodFloat.AddConst(Constant.OfDouble(1.5));
+  eq(issueOf(goodFloat), null, "f64 档位现在装得下");
 });
 
 check("合法程序：Verify 通过、Load 成功、常量物化并被常驻根保住", () => {
@@ -5202,6 +5262,145 @@ check("第 119 轮的四条缺口：空串值 · throw 对象字面量 · 属性
       eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
     }
   }
+});
+
+console.log("");
+console.log("=== 第 129 轮：数字字面量 ===");
+
+/** 一个**可复现**的伪随机数（判据不许每次跑出不同的语料 ✗）。 */
+function makeRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+check("数字字面量的形态表：每一种都与 Node 的 Number() 逐值相同", () => {
+  // **这一条是这一轮的尺子** ✓：老版本自己算舍入 ✗，实测 20 万个里错 2 个 ✓。
+  // 现在「收不收」由 `ScanNumber` 说了算 ✓、「舍入成什么数」由宿主说了算 ✓，
+  // 所以这条判据量的正是**那条分界**：我们认下来的每一个形态，
+  // 都得和 `Number(原文)` 给一模一样的值 ✓（裁判是真 Node ✓）。
+  const random = makeRandom(20261003);
+  const digits = (count) => {
+    let text = "";
+    for (let i = 0; i < count; i++) text = text + String.fromCharCode(48 + Math.floor(random() * 10));
+    return text;
+  };
+  const cases = [];
+  // ① 十进制「整.小数」——老版本就是在这里错的
+  for (let i = 0; i < 3000; i++) cases.push(digits(1 + Math.floor(random() * 7)) + "." + digits(1 + Math.floor(random() * 8)));
+  // ② 指数
+  for (let i = 0; i < 800; i++) {
+    const exponent = Math.floor(random() * 80) - 40;
+    cases.push(digits(1 + Math.floor(random() * 5)) + "." + digits(3) + "e" + String(exponent));
+  }
+  // ③ 只有整数、只有小数、带正负号的指数
+  cases.push("0", "42", "007", ".5", "5.", "1e3", "1E3", "1e+3", "1e-3", "1.5e-3",
+    "0.1", "0.2", "0.3", "43.695449", "74.455959", "1e21", "1e-7", "1e300", "1e-300",
+    "1e999", "-1e999", "9007199254740991", "0.30000000000000004", "1.7976931348623157e308");
+  // ④ 十六 / 八 / 二进制
+  for (let i = 0; i < 400; i++) {
+    let hex = "";
+    const count = 1 + Math.floor(random() * 10);
+    for (let k = 0; k < count; k++) hex = hex + "0123456789abcdef".charAt(Math.floor(random() * 16));
+    cases.push("0x" + hex);
+  }
+  cases.push("0x0", "0X1F", "0o17", "0O777", "0b1010", "0B11111111", "0xdeadbeef", "0b0");
+  // ⑤ 数字分隔符（只许夹在数字之间）
+  cases.push("1_000", "1_000_000", "1_0.5", "0xFF_FF", "0b1010_1010", "1e1_0");
+
+  let mismatched = 0;
+  let firstBad = "";
+  for (const text of cases) {
+    const ours = NumberFromText(text);
+    // **对拍前先把分隔符摘掉** ✓：`Number("1_000")` 在 TS 里是 `NaN` ✗
+    //（那是**字面量语法**的事 ✓，不是数值转换的事 ✓）——裁判要量的是**值** ✓。
+    const bare = text.split("_").join("");
+    const theirs = Number(bare);
+    if (!Object.is(ours, theirs)) {
+      mismatched = mismatched + 1;
+      if (firstBad === "") firstBad = text + " 自算=" + String(ours) + " Number=" + String(theirs);
+    }
+  }
+  eq(mismatched, 0, "语料 " + cases.length + " 条全部逐值相同" + (firstBad === "" ? "" : "（首条不符：" + firstBad + "）"));
+
+  // **大整数那条边界也要量** ✓：`9007199254740991` = 2^53-1 收得下 ✓、
+  // 再大一位就**响亮地拒** ✓（不静默舍入 ✗）。
+  eq(NumberFromText("9007199254740991"), 9007199254740991, "2^53-1 是精确的");
+});
+
+check("不认的数字形态：一律响亮地抛，绝不静默给个近似值", () => {
+  const rejected = [
+    "123n", "0x1Fn", // BigInt：v1 明确非目标
+    "1__0", "1_", "_1", "0x_1", "1_e3", "1e_3", // 分隔符不夹在两个数字之间
+    "1.2.3", "1e2e3", "1e2.5", "1e", "1e+", "0x", "0b", "0o", ".", "+", "-", "",
+    "1.5n", "0x1.5", "0b12", "0o18", "1x", // 形态本身不成立
+  ];
+  let wrong = "";
+  for (const text of rejected) {
+    let threw = false;
+    let message = "";
+    try { NumberFromText(text); } catch (error) { threw = true; message = String(error.message); }
+    if (!threw) { wrong = wrong + " [" + text + " 竟然收了]"; continue; }
+    if (message.indexOf("unimplemented: ") !== 0) wrong = wrong + " [" + text + " 的消息不以 unimplemented: 开头：" + message + "]";
+  }
+  eq(wrong, "", "该拒的都拒了，而且话能读" + wrong);
+
+  // **BigInt 要指名道姓** ✓：用户看到的应当是「`BigInt` 不支持」✓，
+  // 不是「数字字面量不认」✗——后者会让人去查分隔符，而问题在类型上 ✓。
+  let bigintMessage = "";
+  try { NumberFromText("10n"); } catch (error) { bigintMessage = String(error.message); }
+  ok(bigintMessage.indexOf("BigInt") >= 0, "BigInt 那条消息要说出 BigInt：" + bigintMessage);
+
+  // **十进制可以很长** ✓：`Number("99999999999999999999")` 是**正确舍入**的结果 ✓，
+  // 所以那些位数由宿主算 ✓、这里照收 ✓——「长」本身不是拒绝的理由 ✓。
+  eq(NumberFromText("99999999999999999999"), Number("99999999999999999999"), "20 位十进制照样正确舍入");
+
+  // **十六 / 八 / 二进制不行** ✓，因为那一段是**自己**按精确整数累加的 ✓——
+  // 超过 2^53 就只有多精度才算得对 ✗，那是 P2 类型层的事 ✓。
+  // 它是**响亮**的 ✓（消息里说的是「超出精确范围」✓），不是静默给个近似的数 ✗。
+  let rangeMessage = "";
+  try { NumberFromText("0xFFFFFFFFFFFFFFFFF"); } catch (error) { rangeMessage = String(error.message); }
+  ok(rangeMessage.indexOf("exact range") >= 0, "大十六进制要报「超出精确范围」：" + rangeMessage);
+  eq(NumberFromText("0x1FFFFFFFFFFFFF"), 9007199254740991, "2^53-1 的十六进制是收得下的");
+});
+
+check("数值的 `===` 不看表示（Int32 与 Float64 是同一个类型）", () => {
+  // **这是第 129 轮顺路修掉的一处潜伏 bug** ✓：`RtCmpEqStrict` 原来**先比档位** ✗，
+  // 于是 `-0 === 0` 给 `false` ✓（`-0` 收成 `Float64` 之后才暴露 ✓）。
+  // `Int32` 与 `Float64` 是**同一个 JS 类型的两种表示** ✓（`MakeNumber` 的话 ✓），
+  // 所以运算符不许看见表示 ✗——`<` / `<=` / `>` / `>=` 那四条一直是对的 ✓，只有它漏了 ✓。
+  const table = new HeapTable();
+  const eqStrict = (a, b) => RtCmpEqStrict(table, a, b).AsBool();
+  eq(eqStrict(Value.FromInt(0), Value.FromDouble(-0)), true, "-0 === 0");
+  eq(eqStrict(Value.FromInt(3), Value.FromDouble(3)), true, "Int32(3) === Float64(3)");
+  eq(eqStrict(Value.FromDouble(0.5), Value.FromInt(1)), false, "0.5 !== 1（跨表示也要按数值判）");
+  eq(eqStrict(Value.FromDouble(NaN), Value.FromDouble(NaN)), false, "NaN !== NaN");
+  eq(eqStrict(Value.FromInt(1), Value.FromString(1)), false, "1 !== \"1\"（档位那一半没被放松）");
+});
+
+check("引擎里的宿主借用只有一处（可查的形态）", () => {
+  // **规矩要有形态才查得住** ✓（`runtime/host-text.xl.md` 那一节 ✓）：
+  // 「引擎不依赖宿主」原来是一句话 ✗，现在是这一条判据 ✓——
+  // `build/ts/runtime/**` 里除了 `host-text.js`，**不许**出现那三个宿主 API ✓。
+  // 量的地方选**产物**而不是规范 ✓：产物是各目标真正要跑的东西 ✓（散文里提到它们不算 ✗）。
+  const dir = path.join(root, "build", "ts", "runtime");
+  // **三条正则，不是三个子串** ✓：`MakeNumber(` / `IsNumber()` 里也含 `Number(` ✗，
+  // 拿子串去量会当场误报四处 ✓（第一版就是这么红的 ✓）——那是**同名前缀**，不是宿主调用 ✓。
+  const markers = [/charCodeAt\s*\(/, /fromCharCode\s*\(/, /(?<![A-Za-z0-9_$.])Number\s*\(/];
+  const offenders = [];
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.endsWith(".js")) continue;
+    if (name === "host-text.js") continue;
+    const text = fs.readFileSync(path.join(dir, name), "utf8");
+    for (const marker of markers) {
+      if (marker.test(text)) offenders.push(name + " 里有 " + String(marker));
+    }
+  }
+  eq(offenders.length, 0, "借用只在 host-text.js" + (offenders.length === 0 ? "" : "：" + offenders.join("、")));
+  const quarantined = fs.readFileSync(path.join(dir, "host-text.js"), "utf8");
+  ok(/charCodeAt\s*\(/.test(quarantined), "那一处确实在 host-text.js 里（判据本身不是空转）");
 });
 
 console.log("");

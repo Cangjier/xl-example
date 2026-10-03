@@ -3,6 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray } from "../../runtime/heap.xl.md"
 import { TextUnitsOf } from "../../runtime/rt.xl.md"
+import { HostTextUnits, NumberToHostText } from "../../runtime/host-text.xl.md"
 ```
 
 # namespace cangjie
@@ -24,6 +25,8 @@ import { TextUnitsOf } from "../../runtime/rt.xl.md"
 `String(0.1 + 0.2)` → `"0.30000000000000004"` ✓）用**宿主**的转换器 ✓——
 正确舍入 + 最短往返是 IEEE 754 的活儿 ✓（TS 的 `String(x)`、C++ 的 `to_chars` 都给「最短且能往返」✓），
 手写一遍（Grisu / Ryu 那一类）是另一个量级的工程 ✗。
+**第 129 轮起这一处借用搬进了引擎**（[runtime/host-text.xl.md](../../runtime/host-text.xl.md)）✓：
+线形态要承载 f64 常量 ✓，于是「十进制 ↔ 双精度」两个方向都要 ✓，收在一处才不会走偏 ✓。
 **两条口子写在明处** ✗：`NaN` / `±Infinity` / `-0` **自己判** ✓（宿主打印它们的字面各不相同 ✗）；
 **指数形式的写法**（`1e+21` 那几个字符）两个目标**可能**有差别 ✓（记在台账 ✓）。
 
@@ -43,16 +46,14 @@ import { TextUnitsOf } from "../../runtime/rt.xl.md"
 
 宿主字符串 → 码元。
 
-**为什么不借 `array.xl.md` 的 `Units`** ✗：那一块要**用**本模块 ✓（`join` 要靠它渲染元素 ✓），
-借过来就成了**循环依赖** ✓（`array` → `text` → `array`）✗。
-四行循环换一条干净的依赖方向 ✓，划算 ✓。
+**第 129 轮起这就是引擎那一份** ✓（`runtime/host-text.xl.md` 的 `HostTextUnits` ✓）。
+原先这里自己写了一份四行循环 ✓，理由是「借 `array.xl.md` 的 `Units` 会成环」✗——
+那个理由对 ✓，但它不是「非留一份不可」的理由 ✗：`host-text.xl.md` **不依赖任何东西** ✓，
+所以「码元 ↔ 宿主字符串」的**两份实现**在这里收成一份 ✓
+（引擎里那一条「宿主 API 只许出现在 `host-text.xl.md`」的判据也才立得住 ✓）。
 
 ```ts
-const units: number[] = [];
-for (let i = 0; i < text.length; i++) {
-  units.push(text.charCodeAt(i));
-}
-return units;
+return HostTextUnits(text);
 ```
 
 # method ValueUnitsAt:(table:HeapTable, item:HeapArray, index:int, depth:int)=>Array<int>
@@ -93,13 +94,14 @@ if (depth > TextMaxDepth) {
   throw new Error("this value is nested too deeply to render (a cycle looks the same)");
 }
 if (value.Tag === ValueTag.Float64) {
-  const number = value.Dbl;
-  if (number !== number) return HostUnits("NaN");
-  if (number === Infinity) return HostUnits("Infinity");
-  if (number === -Infinity) return HostUnits("-Infinity");
-  // **零自己判**：`String(-0)` 在 JS 里是 `"0"` ✓（宿主可能给 `"-0"` ✗）。
-  if (number === 0) return HostUnits("0");
-  return HostUnits(String(number));
+  // **浮点 → 文本这一条第 129 轮起收进引擎那一处** ✓（`runtime/host-text.xl.md` ✓）：
+  // 同一张符号名表（`NaN` / `±Infinity` / `-0`）原先在这里也有一份 ✗，两份就会有一天走偏 ✗。
+  const text = NumberToHostText(value.Dbl);
+  // **两处的口径在这里必须不同** ✓：JS 的 `String(-0)` 是 `"0"` ✓（字符串语义 ✓），
+  // 而线形态的规范文本是 `"-0"` ✓（它要**逐位往返** ✓）。
+  // 差别只有这一格 ✓，所以它是一条**明写的判断** ✓，不是两套渲染器 ✓。
+  if (text === "-0") return HostUnits("0");
+  return HostUnits(text);
 }
 if (value.Tag === ValueTag.Object) {
   return HostUnits("[object Object]");

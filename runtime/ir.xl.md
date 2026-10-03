@@ -357,6 +357,11 @@ this.End = end;
 
 字符串常量的码元。
 
+**它只在字符串那一档有意义** ✓。浮点那一档的**线形态载荷**是十进制文本 ✓，
+但那是**编码时**从 `Dbl` 现算的 ✓（`ir-verify.xl.md` 的 `Encode` ✓）——
+`Dbl` 已经是那个值本身 ✓，没有理由再在内存里留一份它的文本 ✗
+（两份就会有一天不同步 ✗）。
+
 ## static method OfInt:(value:int)=>Constant
 
 整数常量。
@@ -684,9 +689,12 @@ if (instr.Op === Op.CallMethod && instr.B >= 0) {
 **装进来之后就不变**：指令、常量池、函数表、异常表、源码表都不再被写。
 `Add*` 那一组只在**构建期**用（降级层造程序的时候）。
 
-## field Version:int = 1
+## field Version:int = 2
 
 格式版本。装载时对不上就拒（`ir-verify.xl.md`）。
+
+**与线形态共用一个号** ✓（`ir-verify.xl.md` 的 `WireVersion` ✓）。
+第 129 轮从 1 升到 2：线形态开始承载 `Float64` 常量 ✓，理由写在那边的文首 ✓。
 
 ## field Consts:Array<Constant> = []
 
@@ -731,7 +739,7 @@ if (instr.Op === Op.CallMethod && instr.B >= 0) {
 造一个空程序。
 
 ```ts
-this.Version = 1;
+this.Version = 2;
 this.Consts = [];
 this.Instrs = [];
 this.Functions = [];
