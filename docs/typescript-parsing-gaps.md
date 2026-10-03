@@ -3933,3 +3933,43 @@ this.Release(window + 1);   // ← 结果落在 window + 1，这里却把它退�
 是这一轮的 Map 判据顺手撞出来的。现在 `keys.join('-')` **直接写在数组字面量里**成了守卫。
 
 **顺带**：`ValueTag` 的编号查过了（见上一条更正）。
+### 第 60 轮：`Set` 落地（137/137）——与 `Map` 同一套配方
+
+`typescript-exec/builtins/set.xl.md`：一个 `Set` 就是**普通对象 + 一个数组（值，按插入顺序）+ 一个
+`size` 数字属性 + 四个挂在实例上的宿主引用方法**（`add` / `has` / `delete` / `values`）。
+**零新堆形状、零新原型、零新算子**（`Op.New` 的宿主构造函数分支第 56 轮就在位）。
+
+号段：**集合段 600..699 里面再分**——610..699 是 `Set`、600..609 是 `Map`（先判窄的那段）。
+
+**它和 `Map` 共用三件小工具**（`NameValue` / `ReadOwn` / `WriteOwn`，从 `map.xl.md` import）：
+不是「谁属于谁」，而是这两个集合的**内部表示是同一件事**（一个对象 + 一个数组 + 一个数字）；
+将来要换成真哈希表，就一起换。
+
+**判据**（137/137）：`new Set()` ✓ ・ 链式 `add` ✓ ・ **重复 `add` 是空操作**（size 不变）✓ ・
+`has` ✓ ・ `delete`（含删不存在的值返回假）✓ ・ `size` ✓ ・ `values()` 与 `for..of` ✓。
+
+**这一轮踩的坑（症状离现场很远，记在这里）**：我把「查找下标」提到了所有分支**之前**，
+于是**没有参数的 `values()`** 也会去 `IndexOfSetValue(..., args[0])`——
+`args[0]` 是 `undefined`，严格相等读 `.Tag` 时炸，报出来的是
+`Cannot read properties of undefined (reading 'Tag')`。
+**修法**：**用到才查**（把查找放进 `add` / `has` / `delete` 各自的分支里）。
+### 投影层的一个真 bug（第 60 轮实测，**尚未修**）：`set` 被误判成关键字
+
+**复现**：TypeScript 源里出现名为 `set` 的标识符，例如
+
+```ts
+const set = NewPlainObject(room, table, protos);
+```
+
+→ 投影给出 `SetKeyword`，而 `ts.createSourceFile` 给的是 `Identifier`。
+
+**怎么发现的**：我把 `set.xl.md` 里的局部变量起名叫 `set`，
+**`cases:tsast` 的对拍尺子当场点名**——「缺 4 个 `Identifier`、多 4 个 `SetKeyword`」，
+路径精确到 `dist/ts/typescript-exec/builtins/set.ts` 的行号。
+**这就是那把尺子存在的理由**：它看的是**形状保真度**，人眼看不出来。
+
+**影响面**：只影响投影形状（对拍尺子），不影响运行期语义（`TextOf` 对两种 kind 都成立）。
+所以这一轮**先绕开**（把变量改名），**根因在投影的关键字判定**：
+`set` 是**上下文关键字**（只有访问器位置才是关键字），`get` 应当同理——修的时候两个一起查。
+
+**为什么它没更早暴露**：以前语料里没有人拿 `set` 当变量名。

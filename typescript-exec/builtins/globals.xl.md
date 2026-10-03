@@ -7,6 +7,7 @@ import { SetProperty, NativeCall, Protos, NewPlainObject } from "../../runtime/p
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr } from "./array.xl.md"
 import { MapCtor } from "./map.xl.md"
+import { SetCtor } from "./set.xl.md"
 ```
 
 # namespace cangjie
@@ -67,7 +68,7 @@ import { MapCtor } from "./map.xl.md"
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON", "Map"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -314,5 +315,9 @@ SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined(
 const mapKey = Value.FromString(table.CreateString(Units("Map")));
 const mapTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapTarget);
+// `Set` 同样是**宿主引用值**（`new Set()` 走 `Op.New` 的宿主构造函数那条分支）。
+const setKey = Value.FromString(table.CreateString(Units("Set")));
+const setTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SetCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, setKey, setTarget);
 return globals;
 ```

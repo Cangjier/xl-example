@@ -3457,6 +3457,60 @@ check("Map：new / set 链式 / 更新 / get / has / delete / size / keys，与 
   eq(hostStringOf(table, at(11)), nodeAt[11], "keys.join('-')：方法调用直接写在数组字面量里");
 });
 
+check("Set：new / add 链式（重复是空操作）/ has / delete / size / values，与 Node 一致", () => {
+  const source = [
+    "function probe() {",
+    "  const s = new Set();",
+    "  s.add(1).add(2).add(2);",
+    "  const size0 = s.size;",
+    "  const has1 = s.has(1);",
+    "  const has3 = s.has(3);",
+    "  const deleted = s.delete(1);",
+    "  const size1 = s.size;",
+    "  const afterDelete = s.has(1);",
+    "  const stillTwo = s.has(2);",
+    "  const vals = [];",
+    "  for (const v of s.values()) vals.push(v);",
+    "  const dup = s.delete(9);",
+    "  let f1 = 0;", "  if (has1) f1 = 1;",
+    "  let f2 = 0;", "  if (has3) f2 = 1;",
+    "  let f3 = 0;", "  if (deleted) f3 = 1;",
+    "  let f4 = 0;", "  if (afterDelete) f4 = 1;",
+    "  let f5 = 0;", "  if (stillTwo) f5 = 1;",
+    "  let f6 = 0;", "  if (dup) f6 = 1;",
+    "  return [size0, f1, f2, f3, size1, f4, f5, vals.length, vals[0], f6];",
+    "}",
+  ].join("\n");
+  const nodeAt = new Function(source + "\nreturn probe();")();
+  eq(nodeAt[0], 2, "Node：重复 add 是空操作，size 仍是 2（这是前提）");
+  eq(nodeAt[7], 1, "Node：删掉 1 之后 values() 只剩一个（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source, GlobalNames());
+  const sink = () => {};
+  const evaluated = host.Evaluate([BuildGlobals(host.Machine, host.Machine.Protos, sink)]);
+  eq(evaluated.Outcome, HostOutcome.Ok, "求值模块：" + evaluated.Message);
+  InstallBuiltins(host.Machine, host.Machine.Protos);
+  host.InstallHost((target, self, args, room) => InvokeWithSink(room, table, host.Machine.Protos,
+    table.Get(target.Ref).AsHost().CapabilityId, self, args, sink));
+
+  const called = host.CallExport(module.ExportOf("probe"), []);
+  // **先看结局再看值**：调用失败时 `.Value` 是 undefined，直接读它报的是
+  // 「Cannot read properties of undefined」——离真正的原因很远。
+  eq(called.Outcome, HostOutcome.Ok, "调 probe：" + called.Message);
+  const probe = called.Value;
+  const at = (index) => GetIndex(table, probe, Value.FromInt(index));
+  eq(at(0).AsInt(), nodeAt[0], "重复 add 是空操作");
+  eq(at(1).AsInt() === 1, nodeAt[1] === 1, "has(1)");
+  eq(at(2).AsInt() === 1, nodeAt[2] === 1, "has(3) 是假");
+  eq(at(3).AsInt() === 1, nodeAt[3] === 1, "delete(1) 返回真");
+  eq(at(4).AsInt(), nodeAt[4], "删完 size 是 1");
+  eq(at(5).AsInt() === 1, nodeAt[5] === 1, "删完 has(1) 是假");
+  eq(at(6).AsInt() === 1, nodeAt[6] === 1, "has(2) 仍为真");
+  eq(at(7).AsInt(), nodeAt[7], "values() 长度");
+  eq(at(8).AsInt(), nodeAt[8], "values() 里剩下的是 2");
+  eq(at(9).AsInt() === 1, nodeAt[9] === 1, "delete 一个不存在的值返回假");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
