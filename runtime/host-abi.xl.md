@@ -241,6 +241,18 @@ this.Registered.push(new Capability(id, target));
 return true;
 ```
 
+## method DeclarePrototypeKey:(units:Array<int>)=>void
+
+**告诉这台机器：构造函数的原型挂在哪个属性名下**（`new` 靠它找实例的原型）。
+
+**收的是码元，不是宿主字符串**：这一层（引擎侧）里字符串就是码元数组
+（`heap.xl.md` 的口径）——`"prototype"` 这七个字**由语言层/驱动翻成码元**再交进来，
+所以引擎这边**一个宿主字符串都不出现**。
+
+```ts
+this.Machine.SetPrototypeKey(this.Machine.Table.CreateString(units));
+```
+
 ## method InstallHost:(invoker:HostInvoker)=>void
 
 装上真正去执行宿主函数的那个通道（客户语言里的实现）。

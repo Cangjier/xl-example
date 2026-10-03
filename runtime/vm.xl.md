@@ -185,6 +185,13 @@ this.Pc = pc;
 
 **能力表**：内建 id → 宿主注册进来的 `HostRef`（下标是 `id - BuiltinBase`）。
 
+## field PrototypeKey:int = 0
+
+**构造函数把原型挂在哪个属性名下**（一格字符串句柄，由语言层给；`0` = 没设）。
+
+**引擎不知道那是哪个字符串**：它只把这格句柄当键去查属性（`DoNew`）。
+给 `0` 时 `new` 一律用 `Protos.Object`——**没接上时不说谎，只是不特殊**。
+
 装载时按 id 表的大小开好、**每格是空的 `Value`**；宿主随后用 `RegisterCapability` 填。
 `host_call` 只在**这一格真的是 `HostRef`** 时才发出去——所以「白名单」是两层：
 
@@ -784,19 +791,53 @@ this.DoCallValue(frame, callee, instr.C, instr.D, instr.C, receiver, 0);
 `new`：造对象 → 拿它当 `this` 调构造函数 → 返回时按 JS 规矩收尾（`DoReturn` 里的
 「构造函数返回了对象就用它」）。
 
-**原型今天取 `Protos.Object`**：真正的语义要读构造函数的 `prototype` **属性**，
-而那个属性名（`"prototype"`）是 JS 语义的字符串——它属于语言的建库层（那一层把
-`prototype` 放进闭包的属性表）。在它接上之前，这里给一个**明确、可预期**的答案，
-而不是猜一个。`ConstructTarget` 保证「构造函数自己造了对象就用那个」这条**今天就是对的**。
+**实例的原型从哪来**：读构造函数上**那个由语言层指定的属性**（`PrototypeKey`）——
+它是对象就用它当原型；不是（或者没设过那个名字）就用 `Protos.Object`。
+
+**为什么这个名字由外面给**：`"prototype"` 是 JS 语义的字符串，**引擎不该认识它**
+（换一门语言，那个名字就换一个）。引擎只拿着一格**字符串句柄**，那格字符串是哪儿来的、
+写的什么字，它不关心。这与 `Protos` 是同一套做法：**结构由引擎提供，名字由语言层给**。
 
 ```ts
 if (this.Program === null) throw new Error("no program loaded");
 const protos = this.Protos;
 if (protos === null) throw new Error("no prototype table");
 const callee = frame.Slots[instr.A];
-const created = this.Guard(() => NewPlainObject(this.Room(), this.Table, protos));
+const created = this.Guard(() => this.CreateInstance(callee));
 if (!created.IsRef()) return;
 this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, created, created.Ref);
+```
+
+## method CreateInstance:(callee:Value)=>Value
+
+造一个实例：**原型取自构造函数上那个属性**（见 `DoNew`）。
+
+**整段都在调用方的 `Guard` 里**：查属性可能触发访问器（会分配），造对象也要分配——
+分配必须在安全点上做，而 `Guard` 就是「凑齐根快照之后再动手」的那道门。
+
+```ts
+const protos = this.Protos;
+if (protos === null) throw new Error("no prototype table");
+let proto = protos.Object;
+if (this.PrototypeKey > 0 && callee.IsObject()) {
+  const key = Value.FromString(this.PrototypeKey);
+  const found = GetProperty(this.Room(), this.Native(), protos, this.Table, callee, key);
+  if (found.IsObject()) proto = found.Ref;
+}
+if (!this.NeedRoom(ObjectCharge + ValueCharge)) throw new Error("out of room");
+const handle = this.Table.CreateObject();
+this.Table.Get(handle).Proto = proto;
+return Value.FromObject(handle);
+```
+
+## method SetPrototypeKey:(handle:int)=>void
+
+语言层告诉这台机器：**构造函数的原型挂在哪个属性名下**（给的是字符串句柄）。
+
+给 `0` 就回到「一律用 `Protos.Object`」的老行为——**没接上时不说谎，只是不特殊**。
+
+```ts
+this.PrototypeKey = handle;
 ```
 
 ## method DoThrow:(value:Value)=>void
