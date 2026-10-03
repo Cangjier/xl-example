@@ -43,6 +43,13 @@ import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 `delete(v)` 的号。
 # const SetValues:int = 615
 `values()` 的号（**返回数组**）。
+# const SetKeys:int = 616
+`keys()` 的号——**集合里它与 `values()` 是同一件事**（JS 也这样：Set 的键就是它的值）。
+# const SetEntries:int = 617
+`entries()` 的号（**返回 `[值, 值]` 对的数组**——JS 里 Set 的 `entries` 就是这个形状，
+所以脚本里 `e[0]` 与 `e[1]` 都能用）。
+# const SetClear:int = 618
+`clear()` 的号（清空并返回 `undefined`）。
 
 # method SetMethodNameOf:(id:int)=>string
 
@@ -53,6 +60,9 @@ if (id === SetAdd) return "add";
 if (id === SetHas) return "has";
 if (id === SetDelete) return "delete";
 if (id === SetValues) return "values";
+if (id === SetKeys) return "keys";
+if (id === SetEntries) return "entries";
+if (id === SetClear) return "clear";
 throw new Error("unimplemented: set method id " + id);
 ```
 
@@ -61,7 +71,7 @@ throw new Error("unimplemented: set method id " + id);
 把方法挂到实例上（每个值都是带本模块号的宿主引用）。
 
 ```ts
-const ids = [SetAdd, SetHas, SetDelete, SetValues];
+const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, target, SetMethodNameOf(ids[i]), fn);
@@ -115,7 +125,8 @@ if (id === SetDelete) {
   WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(last));
   return Value.FromBool(true);
 }
-if (id === SetValues) {
+if (id === SetValues || id === SetKeys) {
+  // **`keys()` 与 `values()` 同一支**：集合里键就是值（JS 也这样）。
   const out = NewPlainArray(room, table, protos);
   const length = table.Get(values.Ref).AsArray().GetLength();
   for (let i = 0; i < length; i++) {
@@ -124,6 +135,25 @@ if (id === SetValues) {
     table.Get(out.Ref).AsArray().Push(source.GetAt(i));
   }
   return out;
+}
+if (id === SetEntries) {
+  // **`[值, 值]` 对的数组**（JS 里 Set 的 `entries` 就是这个形状，两个元素相同）。
+  const out = NewPlainArray(room, table, protos);
+  const length = table.Get(values.Ref).AsArray().GetLength();
+  for (let i = 0; i < length; i++) {
+    // **视图每次现取**：里面两次 `Push` 都会换底层存储。
+    if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
+    const pair = NewPlainArray(room, table, protos);
+    table.Get(pair.Ref).AsArray().Push(table.Get(values.Ref).AsArray().GetAt(i));
+    table.Get(pair.Ref).AsArray().Push(table.Get(values.Ref).AsArray().GetAt(i));
+    table.Get(out.Ref).AsArray().Push(pair);
+  }
+  return out;
+}
+if (id === SetClear) {
+  table.Get(values.Ref).AsArray().Truncate(0);
+  WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(0));
+  return Value.Undefined();
 }
 throw new Error("unimplemented: set id " + id);
 ```

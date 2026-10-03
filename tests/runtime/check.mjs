@@ -4326,6 +4326,58 @@ check("Map：entries() 与 clear()（entries 给数组，不是迭代器——�
   }
 });
 
+check("Set：keys() 等同 values() + entries() 给 [值, 值] 对 + clear()", () => {
+  // `entries()` 那条差异与 `Map` 同源（JS 返回**迭代器**，这里返回**数组**）；
+  // `keys()` 在集合里就是 `values()`（JS 也这样）。
+  const source = [
+    "function run() {",
+    "  const s = new Set();",
+    "  s.add('x');",
+    "  s.add('y');",
+    "  s.add('x');",
+    "  const ks = s.keys();",
+    "  const vs = s.values();",
+    "  const es = s.entries();",
+    "  const pair = es[1][0] + '/' + es[1][1];",
+    "  const before = s.size;",
+    "  s.clear();",
+    "  return [ks.length, vs.length, ks[1], pair, before, s.size, s.has('x') ? 1 : 0];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const s = new Set();
+    s.add("x");
+    s.add("y");
+    s.add("x");
+    const ks = Array.from(s.keys());
+    const vs = Array.from(s.values());
+    const es = Array.from(s.entries());
+    const pair = es[1][0] + "/" + es[1][1];
+    const before = s.size;
+    s.clear();
+    return [ks.length, vs.length, ks[1], pair, before, s.size, s.has("x") ? 1 : 0];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 2, "Node：重复 add 是空操作（前提）");
+  eq(expected[3], "y/y", "Node：entries 的每一对两个元素相同（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
