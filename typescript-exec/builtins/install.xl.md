@@ -3,7 +3,7 @@
 import { Value } from "../../runtime/value.xl.md"
 import { HeapTable } from "../../runtime/heap.xl.md"
 import { RoomChecker } from "../../runtime/rt.xl.md"
-import { Protos } from "../../runtime/props.xl.md"
+import { Protos, DefineAccessor } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { InvokeArray } from "./array.xl.md"
 import { InstallArray } from "./array.xl.md"
@@ -56,6 +56,10 @@ throw new Error("unimplemented: builtin id " + id);
 // **段内再分段，按窄到宽判，避免重叠**：610..659 `Set`、600..609 `Map`。
 if (id >= 610 && id < 660) return InvokeSet(room, protos, table, id, self, args);
 if (id >= 600 && id < 700) return InvokeMap(room, protos, table, id, self, args);
+// **700..799：语言内部辅助**（第 99 轮开的段）。
+// 它们**不是全局名**——降级层为了落实现某条语法（比如对象字面量的 getter）而发的内部调用。
+// 与全局段分开编号，是为了让「脚本能看见的名字」与「降级层的家务事」一眼可辨。
+if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, id, self, args);
 ```
@@ -67,4 +71,33 @@ return InvokeBuiltin(room, table, id, self, args);
 ```ts
 InstallArray(vm, protos);
 InstallString(vm, protos);
+```
+
+# const DefineAccessorId:int = 701
+
+`{ get x() { … } }` 落成的那条内部调用（号段 700..799，见 `InvokeWithSink`）。
+
+**它不是全局名**：脚本里没有叫这个名字的东西，是**降级层**为了落实现「对象字面量的访问器」
+而发的内部调用——调用形状是 `define_accessor(对象, 键, getter, setter)`，
+落在 `props.xl.md` 的 `DefineAccessor` 上。
+
+**为什么走内建号而不是加一条通用算子**：加算子要动 `RtOpCount`、还要改**手写的 `vm.cpp`** ✗；
+而规范写着「**语言内建从 `BuiltinBase` 之后编号，由语言层注册**」——「定义访问器」本来就属于
+语言/库那一侧，所以它该是**语言内建**，不是通用算子。
+
+# method InvokeObjectHelper:(room:RoomChecker, table:HeapTable, id:int, self:Value, args:Array<Value>)=>Value
+
+**号段 700..799 的分派**（语言内部辅助）。
+
+这一段今天只有一条：`DefineAccessorId`。**其余号照旧抛**——没装的东西被调到就是配置错了。
+
+```ts
+if (id === DefineAccessorId) {
+  if (args.length < 4) {
+    throw new Error("unimplemented: define_accessor needs (object, key, getter, setter)");
+  }
+  DefineAccessor(room, table, args[0], args[1], args[2], args[3]);
+  return Value.Undefined();
+}
+throw new Error("unimplemented: object helper " + id);
 ```

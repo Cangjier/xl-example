@@ -4834,3 +4834,28 @@ C++ 侧 `props` 的 **6 份重新生成** ✓、契约校验通过 ✓（`cpp:ch
 
 **一条经验**：**「读得懂、造不出」是最容易在合成判据里露出来的一种缺口**——
 四轮合成判据（`++` / `delete` / `do..while` / 这一处）里有两次是这个形状。
+### 第 99 轮：getter 第 2 阶段——**接线都做了**，但差司机那两行，判据暂不入集（148/148 保持）
+
+**做成了什么**（都在工作树里，已提交）：
+
+1. **号段 700..799 = 语言内部辅助**（`builtins/install.xl.md`）：`DefineAccessorId = 701`
+   ＋ `InvokeObjectHelper`（`define_accessor(对象, 键, getter, setter)` → `props.DefineAccessor`）；
+   `InvokeWithSink` 里加一支。**不加通用算子**的理由照第 98 轮定下的：加算子要动 `RtOpCount`
+   与手写的 `vm.cpp`，而「定义访问器」属于语言/库那一侧。
+2. **降级层**：`LowerObjectLiteral` 收 `GetAccessor` / `SetAccessor`——**绕开 `SetPropertyConst`**
+   （那条只写数据属性），改发 `host_call(701, 对象, 键, getter, setter)`；
+   `{ get x() {} set x(v) {} }` 是**两条**成员、各带一半，缺的一半给 `undefined`。
+   窗口**5 格**（号 + 四个实参），退到 `key` ——对象在下面，循环还要用。
+3. **又一个同族根因**：判据一跑就报 `new_closure needs an environment or undefined` ✗——
+   **和第 96 轮一模一样**，只是构造换成了 `get x()`：`scope.xl.md` 的 `IsFunctionNode`
+   **漏了 `GetAccessor` / `SetAccessor`**。补上之后这个错消失 ✓（类里的 `get x()` 同根因，一并修好）。
+   **两次实测证明：那份名单短一个不是「少开一格」，而是整层不开环境。**
+
+**差的是什么（下一轮第一步，两行）**：修好环境之后报 `capability id is out of range: 701` ✗——
+司机 `tsrun.xl.md` 的 `IdTable(RtOpCount, 能力数 + 1)` 把能力表开小了，而**内部辅助号也要占一格**
+且要**注册**（规范那句「能力表：**内建 id** → 宿主注册进来的 `HostRef`」说的正是这条路）。
+所以下一轮：`RunSources` 里 (a) 把表开够（`BuiltinCount` 覆盖到 701），(b) 把 `DefineAccessorId`
+注册进去（`host.Register`）——然后**把判据里的 getter 放回去**。
+
+**还欠一件**：`install.xl.md` 改了（新常量 + 新方法），它**C++ 侧的 2 份还没重新生成** ✗——
+下一轮和司机那两行一起做。（`cpp:check` 查不出「产物陈旧」，这一条本身也值得补进自检 ✗。）

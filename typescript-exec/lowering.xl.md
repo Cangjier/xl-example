@@ -5,6 +5,7 @@ import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from 
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode } from "./scope.xl.md"
+import { DefineAccessorId } from "./builtins/install.xl.md"
 ```
 
 # namespace cangjie
@@ -2391,8 +2392,13 @@ return array;
 
 **对象字面量**：先造普通对象（原型取 `Protos.Object`），再逐条 `set_prop`。
 
-四种成员都收：`a: 1`、`{a}`、方法、以及**计算键**（`{ [k]: 1 }`——键是一个**值**，
-所以走 `set_prop` 的「键也能是值」那条路）。展开（`{...o}`）抛。
+**五种成员都收**：`a: 1`、`{a}`、方法、**计算键**（`{ [k]: 1 }`——键是一个**值**，
+所以走 `set_prop` 的「键也能是值」那条路）、以及**访问器**（`get x()` / `set x(v)`，第 99 轮补）。
+展开（`{...o}`）抛。
+
+**访问器不走 `set_prop`**：那条只写**数据属性**。引擎侧早就读得懂访问器（`ReadProperty` 调 getter、
+`SetProperty` 调 setter），缺的是「造一个」的路——那条路是 `props.xl.md` 的 `DefineAccessor`，
+由语言内建号 `DefineAccessorId`（号段 700..799）暴露出来。
 
 ```ts
 const object = this.Reserve(1);
@@ -2420,6 +2426,31 @@ for (let i = 0; i < properties.length; i++) {
     const name = Child(property, "name");
     value = this.LowerFunctionValue(property, TextOf(name));
     keyConst = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
+  } else if (kind === "GetAccessor" || kind === "SetAccessor") {
+    // **访问器**：发一条内部调用 `define_accessor(对象, 键, getter, setter)`。
+    // `{ get x() {} set x(v) {} }` 是**两条**成员，各自只带一半——**缺的那一半给
+    // `undefined`**（`DefineAccessor` 的规矩：`setter = undefined` 就是只读访问器）。
+    const name = Child(property, "name");
+    const key = this.Reserve(1);
+    this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name))), -1, -1);
+    const half = this.LowerFunctionValue(property, kind === "GetAccessor" ? "<getter>" : "<setter>");
+    // **窗口是 5 格**（号 + 四个实参）；少一格就是踩这个工程最多的那类错。
+    const window = this.Reserve(5);
+    this.Emit(Op.Const, window, this.IntConst(DefineAccessorId), -1, -1);
+    this.Emit(Op.Move, window + 1, object, -1, -1);
+    this.Emit(Op.Move, window + 2, key, -1, -1);
+    if (kind === "GetAccessor") {
+      this.Emit(Op.Move, window + 3, half, -1, -1);
+      this.Emit(Op.Const, window + 4, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+    } else {
+      this.Emit(Op.Const, window + 3, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+      this.Emit(Op.Move, window + 4, half, -1, -1);
+    }
+    this.EmitRt(RtOp.HostCall, window, window, 5);
+    // **结果不要**（`DefineAccessor` 返回 `true`）：退到 `key`，把键/半边/窗口一起退掉；
+    // 对象在它们下面，仍然活着——循环还要用。
+    this.Release(key);
+    continue;
   } else {
     throw new Error("unimplemented: object literal member " + kind);
   }

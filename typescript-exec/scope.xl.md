@@ -251,22 +251,24 @@ for (let i = 0; i < keys.length; i++) {
 
 # method IsFunctionNode:(node:AstNode)=>bool
 
-这**四种**节点**自带一层作用域**（`this`/参数/名的归属都在它们里面）。
+这**六种**节点**自带一层作用域**（`this`/参数/名的归属都在它们里面）：
+三种函数字面量、方法（`MethodDeclaration`）、以及**访问器**（`GetAccessor` / `SetAccessor`）。
 
-**方法（`MethodDeclaration`）必须在列**（第 96 轮补的）：类的**和对象字面量的**方法都是它。
-少了它，`HasNestedFunction` 就看不见「这一层里有方法」——于是那一层**不开环境** ✗，
-而方法体内的闭包（或方法自己的闭包值）就会从祖先帧的槽里读到一个**不属于环境的格子**，
-报出来的是 `new_closure needs an environment or undefined` ✗。
+**名单短一个就是错值** ✗，而且症状离现场很远——两次实测，**同一个症状、同一个根因**：
 
-**这条判据是合成判据逼出来的**：类、对象方法、闭包、`Map.values` 各自单独跑都过 ✓，
-只有**放在同一个函数里**才炸 ✗——留一法（leave-one-out）一次运行就点到了对象方法。
-**本文件里 `HasNestedFunction` 的说明一直写着「声明 / 表达式 / 箭头 / 方法，全都算」**，
-是这里的名单没跟上——**同一份规范里两处说法不一致，就是 bug 的温床**。
+- 漏掉 `MethodDeclaration`（第 96 轮）→ 含**对象方法**的那一层不开环境 ✗ →
+  方法里的闭包从祖先帧读到一个**不属于环境的格子** → `new_closure needs an environment or undefined`；
+- 漏掉 `GetAccessor` / `SetAccessor`（第 99 轮）→ 构造换成了对象字面量的 `get x()`
+  （**类里的 `get x()` 也是同一个根因** ✓），报出来一个字都不差。
+
+**两次都是合成判据逼出来的**（单独测哪一块都测不出来）。所以这里的名单**宁可多列**：
+漏一个不是「少开一格」，而是**整层不开环境**。
 
 ```ts
 const kind = NodeKind(node);
 return kind === "FunctionDeclaration" || kind === "FunctionExpression"
-  || kind === "ArrowFunction" || kind === "MethodDeclaration";
+  || kind === "ArrowFunction" || kind === "MethodDeclaration"
+  || kind === "GetAccessor" || kind === "SetAccessor";
 ```
 
 # method CollectFunctionNames:(body:AstNode, out:Array<string>)=>void
