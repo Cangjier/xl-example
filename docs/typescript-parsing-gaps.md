@@ -4527,3 +4527,25 @@ TS 那边对象天然是引用，这个坑只在非托管目标出现。
 贴合本工程「纯操作不调库」的一贯口径。
 
 **自检**：**69 文件・110 include・0 异常** ✓（结构、include 解析、守卫宏名、花括号四项全过）。
+### 第 85 轮：`link`（2 份）+ `ir-verify`（12 份）——**安全第一层**落地
+
+两个单元一起交：`link.xl.md` 与 `ir-verify.xl.md`（后者 874 行，是**唯一的安全入口**：
+解码 → 验证 → 物化，任一步不成立就拒）。
+
+**又补了一个手写伞头 `ir.h`**：`link` 要 `#include "runtime/ir.h"`，而 `ir` 产出的是
+`program.h` / `instruction.h`…——理由与 `heap.h` / `gc.h` 完全相同（只做 include，不新增 API）。
+
+**C++ 侧的坑这次集中在「枚举与线形态的边界」**（六处，全部显式转换）：
+
+- `WriteByte(item.Tag)` / `WriteByte(item.Op)`——枚举进字节；
+- `IsKnownOp(item.Op)` / `FallsThrough(item.Op)`——它们的参数是 `int32_t`；
+- 解码侧 `static_cast<Op>(op)`、`static_cast<ValueTag>(reader.ReadByte())`。
+
+**抓到一个真的溢出**：`ByteReader::ReadInt` 里源文写的是
+`b3 * 16777216`——在 TS 里 `number` 是双精度所以没事，**在 C++ 里会溢出 i32**。
+改成用 `int64_t` 组装再折回 i32。
+
+**由此提炼出一条生成清单（对剩下的单元直接用）**：
+**规范里每一个「靠双精度中间量才成立」的算术式，都是 C++ 的隐患**。
+目前已知两处：`rt` 的 `DecimalUnits`（源文自己点名了）、这里的 `ReadInt`（没点名，现场抓的）。
+把这句写在这里，后面逐单元照着查。
