@@ -4028,6 +4028,134 @@ check("P0：switch + do..while + 带标签的 continue·break，经运行器与 
   }
 });
 
+check("P0：do..while 里的 continue（跳到底部测试）+ switch 贯穿 + 循环里的 finally，与 Node 逐值一致", () => {
+  // 第七条合成判据。第一项专测**第 93 轮修的那条路**——`do..while` 的 `continue` 必须跳到
+  // **底部那条测试**（不是顶部：跳到顶会把体**再跑一遍**，而体的位置本来就在条件前面）。
+  // 修的时候是用「跑完体之后再赋值 `context.ContinueTarget`」实现的，**至今没被任何判据跑过** ✗，
+  // 所以这一条的价值在它身上。
+  //   · **`switch` 贯穿**：`case` 里不写 `break`，直接掉进下一个 `case`（顺带测「标签之外的串联」）；
+  //   · **`finally`**（循环里、以及循环外各一处）：体里没有 `break`/`continue`——
+  //     那两样在带 `finally` 的 `try` 里会被降级期明确拒绝（见台账）。
+  const source = [
+    "function run() {",
+    "  const seen = [];",
+    "  let i = 0;",
+    "  do {",
+    "    i = i + 1;",
+    "    if (i === 2) { continue; }",
+    "    seen.push(i);",
+    "  } while (i < 4);",
+    "  let tag = 'start:';",
+    "  switch (1) {",
+    "    case 0: tag = tag + 'zero';",
+    "    case 1: tag = tag + 'one';",
+    "    case 2: tag = tag + 'two'; break;",
+    "    default: tag = tag + 'other';",
+    "  }",
+    "  let cleaned = 0;",
+    "  try {",
+    "    cleaned = cleaned + 1;",
+    "  } finally {",
+    "    cleaned = cleaned + 10;",
+    "  }",
+    "  let after = 0;",
+    "  for (let j = 0; j < 3; j = j + 1) {",
+    "    try {",
+    "      after = after + j;",
+    "    } finally {",
+    "      after = after + 100;",
+    "    }",
+    "  }",
+    "  return [seen.length, seen[1], tag, cleaned, after];",
+    "}",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn run();")();
+  eq(expected[0], 3, "Node：continue 跳到底部测试（体没有被跑第二遍）（前提）");
+  eq(expected[1], 3, "Node：被跳过的那个值不在数组里（前提）");
+  eq(expected[2], "start:onetwo", "Node：case 0 贯穿到 case 1（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
+check("P0：生成器里 return 提前收尾 + for..of 迭代 map.keys() + 只写 setter + 循环里的 try/catch，与 Node 逐值一致", () => {
+  // 第六条**合成程序**判据，挑四样各自没合唱过的：
+  //   · **生成器里 `return`**——它该让 `for..of` **提前收尾**（迭代协议里「完了」的那一半，
+  //     之前只测过 `yield` 走到底）；
+  //   · **`for..of` 迭代 `map.keys()`**（已知缺口是「直接迭代 Map 本体」✗——`keys()` 给的是数组，
+  //     这条走的是数组那条路 ✓）；
+  //   · **只写 setter 的访问器**：只读它会撞上引擎那句「accessor without a getter」，
+  //     所以这里**只写不读**（把这条边界也钉在判据里）；
+  //   · **循环里的 `try`/`catch`**（循环体里没有 `break`/`continue`——那两样在带 `finally`
+  //     的 `try` 里会被降级期明确拒绝，见台账）。
+  const source = [
+    "function* counter(n) {",
+    "  let i = 0;",
+    "  while (i < n) {",
+    "    if (i === 2) { return 'stopped'; }",
+    "    yield i;",
+    "    i = i + 1;",
+    "  }",
+    "  return 'done';",
+    "}",
+    "function run() {",
+    "  const seen = [];",
+    "  for (const v of counter(5)) seen.push(v);",
+    "  const m = new Map();",
+    "  m.set('a', 1);",
+    "  m.set('b', 2);",
+    "  const keys = [];",
+    "  for (const k of m.keys()) keys.push(k);",
+    "  const box = { v: 0, set only(x) { this.v = x + 1; } };",
+    "  box.only = 41;",
+    "  let caught = 'none';",
+    "  let total = 0;",
+    "  for (let i = 0; i < 3; i = i + 1) {",
+    "    try {",
+    "      if (i === 1) { throw 'boom'; }",
+    "      total = total + i;",
+    "    } catch (e) {",
+    "      caught = e;",
+    "    }",
+    "  }",
+    "  return [seen.length, seen[1], keys[1], box.v, caught, total];",
+    "}",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn run();")();
+  eq(expected[0], 2, "Node：生成器里的 return 让 for..of 提前收尾（前提）");
+  eq(expected[3], 42, "Node：只写 setter 生效（前提）");
+  eq(expected[5], 2, "Node：循环里的 try/catch（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("P0：对象字面量 setter·getter 成对 + 类 getter + super.m() + 重写 + 带标签的 switch，与 Node 逐值一致", () => {
   // 第五条**合成程序**判据。挑的都是「机制刚通、但还没跑过」的那几半：
   //   · 对象字面量的 **setter + getter 成对**——`DefineAccessor` 的两半。成对写正是抓出那个
