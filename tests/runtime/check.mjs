@@ -4028,6 +4028,68 @@ check("P0：switch + do..while + 带标签的 continue·break，经运行器与 
   }
 });
 
+check("P0：对象字面量 setter·getter 成对 + 类 getter + 重写 + 带标签的 switch，与 Node 逐值一致", () => {
+  // 第五条**合成程序**判据。挑的都是「机制刚通、但还没跑过」的那几半：
+  //   · 对象字面量的 **setter**——`DefineAccessor` 的另一半（之前只跑过 getter）；
+  //   · **类里的 getter**——第 99 轮那个根因（`IsFunctionNode` 漏访问器）修好之后没人测过；
+  //     这一条第一次跑就撞出 `unimplemented: class member GetAccessor` ✗（类有自己的成员分派），
+  //     本轮补上了（并且把窗口代码抽成 `EmitDefineAccessor` 共用，少一次算错槽的机会）；
+  //   · **重写**（子类同名方法盖住父类的，原型链上找到的是子类那个）；
+  //   · **带标签的 `switch` + `break outer`**——`IsLoop = false` 的那一层怎么按标签跳出。
+  //
+  // **本来还想测 `super.label()`**，它报 `unimplemented: expression SuperKeyword` ✗。
+  // 查清根因（记在台账）：`super` 只实现了**构造函数**那一半——`InSuperName` 挂在排队的
+  // `PendingFunction.SuperName` 上，而只有构造函数会被填上（规范自己的报错文本
+  // 「super(...) outside a derived class constructor」就是证据）。所以 `super.m()`
+  // 要动「类方法的排队登记」那一处，不止一支——留到下一轮。
+  const source = [
+    "function run() {",
+    "  const obj = {",
+    "    v: 1,",
+    "    get double() { return this.v * 2; },",
+    "  };",
+    "  const seen = obj.double;",
+    "  class Base {",
+    "    constructor(v) { this.v = v; }",
+    "    label() { return 'base:' + this.v; }",
+    "    get twice() { return this.v * 2; }",
+    "  }",
+    "  class Derived extends Base {",
+    "    constructor(v) { super(v + 1); }",
+    "    label() { return 'derived+' + this.v; }",
+    "  }",
+    "  const d = new Derived(4);",
+    "  let tag = 'other';",
+    "  outer: switch (d.v) {",
+    "    case 5: tag = 'five'; break outer;",
+    "    default: tag = 'none'; break;",
+    "  }",
+    "  return [seen, d.label(), tag, d.twice];",
+    "}",
+  ].join("\n");
+  const expected = new Function(source + "\nreturn run();")();
+  eq(expected[0], 2, "Node：对象字面量的 getter（前提）");
+  eq(expected[1], "derived+5", "Node：子类重写了父类的方法（前提）");
+  eq(expected[2], "five", "Node：带标签的 break 跳出了 switch（前提）");
+  eq(expected[3], 10, "Node：类里的 getter（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  const at = (index) => GetIndex(table, res.Value, Value.FromInt(index));
+  for (let i = 0; i < expected.length; i++) {
+    const actual = at(i);
+    if (typeof expected[i] === "number") {
+      eq(actual.AsInt(), expected[i], "第 " + i + " 项（数值）");
+    } else {
+      eq(hostStringOf(table, actual), expected[i], "第 " + i + " 项（字符串）");
+    }
+  }
+});
+
 check("P0：类·super(...) + 对象字面量方法 + 嵌套闭包 + Map.values + 嵌套 JSON，经运行器与 Node 逐值一致", () => {
   // 这一条走过一条弯路，值得留在注释里：它**本来**还带一个对象字面量 **getter**，
   // 结果连撞两个缺口——

@@ -4930,3 +4930,29 @@ SHA-256**——把 `map.xl.md` 的 SHA-256 与头里的值一比，**一模一�
 （所以任何 `git checkout`、克隆、还原文件都会把它打红——本轮就被它拦了一次 ✓，
 按它自己提示的 `xl_build --force` + `npm run compile` 重建即绿 ✓）；
 新加的这条看的是**内容指纹** ✓，与时间无关 ✓。**要证明一条产物是新的，内容比时间可靠** ✓。
+### 第 102 轮：第五条合成判据 → 抓到 `class member GetAccessor` 并**修好**（149/149）；另记两个精确发现
+
+**合成判据命中率 5/5**。这一条挑的是「机制刚通、还没跑过」的几半：对象字面量的 getter、
+**类里的 getter**、**重写**、**带标签的 `switch`**。第一次跑就撞出
+`unimplemented: class member GetAccessor` ✗——类有**自己的**成员分派。
+
+**修法**：`LowerClass` 的成员循环收 `GetAccessor` / `SetAccessor`，**落在原型上**
+（JS 就是这样：实例自己不持有它，从原型链上找）——与对象字面量那一处的**唯一**区别就是「落在谁身上」。
+顺带把 `define_accessor` 那个 **5 格窗口**抽成共用的 `EmitDefineAccessor`：
+**那段代码写两遍就是两次算错槽的机会**，而算错槽是这个工程最贵的错（症状是「值悄悄换成别的」）。
+
+**发现一：`super.m()` 没做** ✗（`unimplemented: expression SuperKeyword`）。
+根因查清了：`super` 只有**构造函数**那一半——`InSuperName` 挂在**排队函数**的
+`PendingFunction.SuperName` 上（第 1188 行），而**只有构造函数**会被填上；
+规范自己的报错文本「super(...) outside a **derived class constructor**」就是证据。
+所以 `super.m()` 要动「**类方法的排队登记**」那一处，不止一支——下一轮做，形状已经清楚：
+`LoadThis` 取 `this` + `GetProp(父类, prototype)` + `GetProp(原型, 键)` + `Op.Call(…, selfSlot)`
+（`super(...)` 与 `o[k]()` 两条既有分支已经把形状演示过了）。
+
+**发现二：`DefineAccessor` 在替换时把整格换掉，而不是只换提供的那一半** ✗✗——
+这是一个**真引擎 bug**：`{ get x() {} set x(v) {} }` 是**两次** `define_accessor`，
+第二次（`getter` 传了 `undefined`）把 **getter 抹掉了**，于是读它报
+「accessor without a getter」。JS 的语义是**只改提供了的那一半**（描述符里没出现的字段不动）。
+修法：`props.xl.md` 的 `DefineAccessor` 里把 `undefined` 当「这一半不动」（**仅在替换时**）——
+1 处改动 + `props` 的 C++ 6 份重生成。
+**而且这次忘了会被判据抓住** ✓（第 101 轮那条「产物陈旧」正好管这个 ✓）。

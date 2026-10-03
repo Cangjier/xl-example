@@ -2388,6 +2388,35 @@ this.Release(array + 1);
 return array;
 ```
 
+## method EmitDefineAccessor:(target:int, key:int, half:int, isGetter:bool)=>void
+
+**把半边访问器落到 `target` 上**（对象字面量与类共用这一处，第 102 轮抽出来的）。
+
+**为什么要抽出来**：窗口是 `[号, 目标, 键, getter, setter]` 五格，写两遍就是**两次**把槽算错的机会——
+而这个工程最贵的错就是算错槽（症状是「值悄悄换成别的」，不是崩溃）。
+
+**调用方负责 `key` 那一格**（键在两种场景下算法不同：对象字面量看 `name` 的 kind，
+类里已经判过名了），**并且负责在下面把目标留在活着的槽里**（循环还要用）。
+
+```ts
+const window = this.Reserve(5);
+this.Emit(Op.Const, window, this.IntConst(DefineAccessorId), -1, -1);
+this.Emit(Op.Move, window + 1, target, -1, -1);
+this.Emit(Op.Move, window + 2, key, -1, -1);
+const missing = this.Program().AddConst(Constant.OfUndefined());
+if (isGetter) {
+  this.Emit(Op.Move, window + 3, half, -1, -1);
+  this.Emit(Op.Const, window + 4, missing, -1, -1);
+} else {
+  this.Emit(Op.Const, window + 3, missing, -1, -1);
+  this.Emit(Op.Move, window + 4, half, -1, -1);
+}
+this.EmitRt(RtOp.HostCall, window, window, 5);
+// **结果不要**（`DefineAccessor` 返回 `true`）：退到 `key`，把键/半边/窗口一起退掉。
+// 目标在它们下面，仍然活着——循环还要用它。
+this.Release(key);
+```
+
 ## method LowerObjectLiteral:(node:AstNode)=>int
 
 **对象字面量**：先造普通对象（原型取 `Protos.Object`），再逐条 `set_prop`。
@@ -2434,22 +2463,7 @@ for (let i = 0; i < properties.length; i++) {
     const key = this.Reserve(1);
     this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name))), -1, -1);
     const half = this.LowerFunctionValue(property, kind === "GetAccessor" ? "<getter>" : "<setter>");
-    // **窗口是 5 格**（号 + 四个实参）；少一格就是踩这个工程最多的那类错。
-    const window = this.Reserve(5);
-    this.Emit(Op.Const, window, this.IntConst(DefineAccessorId), -1, -1);
-    this.Emit(Op.Move, window + 1, object, -1, -1);
-    this.Emit(Op.Move, window + 2, key, -1, -1);
-    if (kind === "GetAccessor") {
-      this.Emit(Op.Move, window + 3, half, -1, -1);
-      this.Emit(Op.Const, window + 4, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
-    } else {
-      this.Emit(Op.Const, window + 3, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
-      this.Emit(Op.Move, window + 4, half, -1, -1);
-    }
-    this.EmitRt(RtOp.HostCall, window, window, 5);
-    // **结果不要**（`DefineAccessor` 返回 `true`）：退到 `key`，把键/半边/窗口一起退掉；
-    // 对象在它们下面，仍然活着——循环还要用。
-    this.Release(key);
+    this.EmitDefineAccessor(object, key, half, kind === "GetAccessor");
     continue;
   } else {
     throw new Error("unimplemented: object literal member " + kind);
@@ -2867,7 +2881,7 @@ for (let i = 0; i < members.length; i++) {
   const member = members[i];
   const kind = NodeKind(member);
   if (kind === "Constructor") continue;
-  if (kind !== "MethodDeclaration") {
+  if (kind !== "MethodDeclaration" && kind !== "GetAccessor" && kind !== "SetAccessor") {
     throw new Error("unimplemented: class member " + kind);
   }
   if (this.HasModifier(member, "StaticKeyword")) {
@@ -2884,6 +2898,14 @@ for (let i = 0; i < members.length; i++) {
     throw new Error("unimplemented: computed or numeric class member name");
   }
   const closure = this.LowerFunctionValue(member, name + "." + TextOf(memberName));
+  if (kind === "GetAccessor" || kind === "SetAccessor") {
+    // **类里的访问器落在原型上**（JS 就是这样：实例自己不持有它，从原型链上找）——
+    // 与对象字面量那一处的唯一区别就是「落在谁身上」，其余全走同一个 `EmitDefineAccessor`。
+    const keySlot = this.Reserve(1);
+    this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName))), -1, -1);
+    this.EmitDefineAccessor(proto, keySlot, closure, kind === "GetAccessor");
+    continue;
+  }
   const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName)));
   this.SetPropertyConst(proto, key, closure);
 }
