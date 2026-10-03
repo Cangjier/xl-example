@@ -3612,6 +3612,46 @@ check("Date：时间由宿主喂（建库层没有时钟接口）；没接时钟
     "把普通对象当构造函数要给出说清原因的消息：" + objectAsCtor);
 });
 
+check("三元表达式：只跑被选中的那一边（懒），嵌套与括号里的都对，与 Node 一致", () => {
+  const source = [
+    "function sign(n) { return n > 0 ? 'pos' : 'neg'; }",
+    "function nested(n) { return n > 0 ? (n > 10 ? 'big' : 'small') : 'neg'; }",
+    "function inExpr(n) { return (n > 0 ? 'p' : 'q') + '!'; }",
+    "function withCalls(a, b) { return a > b ? a - b : b - a; }",
+    "function lazy(n) {",
+    "  let calls = 0;",
+    "  const t = () => { calls = calls + 1; return 'T'; };",
+    "  const f = () => { calls = calls + 1; return 'F'; };",
+    "  const picked = n ? t() : f();",
+    "  return picked + '/' + calls;",
+    "}",
+    "function probe() {",
+    "  return [sign(3), sign(0 - 3), nested(20), nested(5), nested(0 - 1), inExpr(1), inExpr(0),",
+    "    withCalls(9, 4), withCalls(4, 9), lazy(1), lazy(0)];",
+    "}",
+  ].join("\n");
+  const nodeAt = new Function(source + "\nreturn probe();")();
+  eq(nodeAt[0], "pos", "Node：条件为真取第一支（这是前提）");
+  eq(nodeAt[9], "T/1", "Node：只调了一个分支（这是前提）");
+
+  const { module, host, table } = lowerAndLoad(source);
+  eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "求值模块");
+  const called = host.CallExport(module.ExportOf("probe"), []);
+  eq(called.Outcome, HostOutcome.Ok, "调 probe：" + called.Message);
+  const at = (index) => GetIndex(table, called.Value, Value.FromInt(index));
+  eq(hostStringOf(table, at(0)), nodeAt[0], "n > 0 ? 'pos' : 'neg'");
+  eq(hostStringOf(table, at(1)), nodeAt[1], "条件为假走 else");
+  eq(hostStringOf(table, at(2)), nodeAt[2], "嵌套三元（外层真、内层真）");
+  eq(hostStringOf(table, at(3)), nodeAt[3], "嵌套三元（外层真、内层假）");
+  eq(hostStringOf(table, at(4)), nodeAt[4], "嵌套三元（外层假）");
+  eq(hostStringOf(table, at(5)), nodeAt[5], "括号里的三元参与字符串拼接");
+  eq(hostStringOf(table, at(6)), nodeAt[6], "同上（假的那一支）");
+  eq(at(7).AsInt(), nodeAt[7], "两支都能算数（真）");
+  eq(at(8).AsInt(), nodeAt[8], "两支都能算数（假）");
+  eq(hostStringOf(table, at(9)), nodeAt[9], "**只跑被选中的那一边**：真支调一次");
+  eq(hostStringOf(table, at(10)), nodeAt[10], "**只跑被选中的那一边**：假支调一次");
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }

@@ -2491,6 +2491,41 @@ this.Emit(Op.Resume, resolved, -1, -1, -1);
 return resolved;
 ```
 
+## method LowerConditional:(node:AstNode)=>int
+
+**`cond ? a : b`**（第 63 轮补的）。
+
+**两个分支只跑一个**：JS 的规矩是**懒**的——没被选中的那一边**连求值都不发生**
+（`x ? f() : g()` 只调一个）。所以这里用**跳转**，而不是「两边都算再挑一个」。
+后者看起来更短，但它会在 `cond ? 1 : g()` 里**多调一次 `g`**——副作用多一次，
+而且**看不出错在哪**。
+
+**结果先占一格**：两个分支各自算完都 `Move` 进它。那一格在所有临时量**下面**，
+所以分支里怎么分配都踩不到它——这正是第 59 轮那个 bug 的**反面**
+（那次是结果格被 `Release` 交了出去，这次是让它一直活着）。
+
+**两处 `Release` 都在结果之上**（`Release(条件 + 1)` / `Release(结果 + 1)`）：
+既放掉临时量，又留住结果。
+
+```ts
+const result = this.Reserve(1);
+const condition = this.LowerExpression(Child(node, "condition"));
+const skipThen = this.Here();
+this.Emit(Op.JumpIfFalse, condition, 0, -1, -1);
+this.Release(condition + 1);
+const whenTrue = this.LowerExpression(Child(node, "whenTrue"));
+this.Emit(Op.Move, result, whenTrue, -1, -1);
+this.Release(result + 1);
+const skipElse = this.Here();
+this.Emit(Op.Jump, -1, 0, -1, -1);
+this.PatchTarget(skipThen, this.Here());
+const whenFalse = this.LowerExpression(Child(node, "whenFalse"));
+this.Emit(Op.Move, result, whenFalse, -1, -1);
+this.Release(result + 1);
+this.PatchTarget(skipElse, this.Here());
+return result;
+```
+
 ## method LowerTemplate:(node:AstNode)=>int
 
 **模板串**：从左到右拼——头段、每个内插（`ToString` 之后）、每段字面量。
@@ -2872,6 +2907,9 @@ if (kind === "ClassExpression") {
 }
 if (kind === "NewExpression") {
   return this.LowerNew(node);
+}
+if (kind === "ConditionalExpression") {
+  return this.LowerConditional(node);
 }
 if (kind === "TemplateExpression") {
   return this.LowerTemplate(node);
