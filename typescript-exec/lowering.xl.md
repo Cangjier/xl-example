@@ -57,6 +57,7 @@ import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFu
 | **`for (let …)` 每次迭代新建绑定**（体里有函数值时走「每轮一个新环境 + 格值拷贝」） | 循环体里**没有**函数值时仍走槽（快路径）——这是**保守判据**：多建环境只是慢，少建一次就是错值 |
 | **箭头函数的 `this`**（含箭头的那一层留一格装接收者，箭头体里按普通捕获读） | **块里的函数声明**、`catch` 参数的块作用域之外，作用域这块还剩 TDZ |
 | **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
+| **`import` 的名字从环境对象取**（与全局名同一套机关；`import` / `export { … }` 语句是**空操作**——导出表本来就装着这份文件的每个函数） | **真正的跨模块链接**：把模块 A 的导出**值**交给 B 需要一个**共享的堆**（跨机器搬 `Value` 不行——`Ref` 是各自表里的下标）；`import * as ns` 与 `export default` 抛 |
 
 **`async` 的三条语义差（都写在明处，不假装是 JS）**：
 
@@ -1000,6 +1001,13 @@ this.Module = new LoweredModule(new Program());
 this.Pending = [];
 this.BeginFunction(1);
 this.PushScope();
+// **导入的名字与全局名走同一套机关**：它们都是「模块作用域里的名字，值从环境对象取」
+// （`import { f } from "./a"` 与 `Math` 的区别只在**谁提供**，不在**怎么来**）。
+// 所以这里把它们并进 `Globals`，后面的 `BindGlobals` 一起绑。
+const prelude = ListOf(source, "statements");
+for (let i = 0; i < prelude.length; i++) {
+  this.CollectImports(prelude[i]);
+}
 this.ExtraDeclared = this.Globals;
 this.EnterFunctionBody(source, []);
 this.Hoist(source);
@@ -1110,6 +1118,14 @@ for (let i = 0; i < statements.length; i++) {
 
 ```ts
 const kind = NodeKind(node);
+// **模块层面的三条声明在这里没有运行期效果**：导入的名字与全局名一起从环境对象取
+// （`CollectImports` + `BindGlobals` 已经办完），导出表里本来就装着这份文件的所有函数
+// （入口返回的就是它）。所以 `import` 与 `export { … }` 都是**空操作**。
+if (kind === "ImportDeclaration") return;
+if (kind === "ExportDeclaration") return;
+if (kind === "ExportAssignment") {
+  throw new Error("unimplemented: `export default` (the export table has no default slot)");
+}
 if (kind === "VariableStatement") {
   this.LowerDeclarationList(Child(node, "declarationList"));
   return;
@@ -2314,6 +2330,40 @@ this.Emit(Op.Suspend, slot, -1, -1, -1);
 const sent = this.Reserve(1);
 this.Emit(Op.Resume, sent, -1, -1, -1);
 return sent;
+```
+
+## method CollectImports:(statement:AstNode)=>void
+
+**把一条 `import` 里的本地名收进全局名单**（值由宿主从**被导入模块的导出表**里取）。
+
+**本地名是 `name`，不是 `propertyName`**：`import { other as alias }` 里
+`propertyName` 是 `other`（对方模块里的名字）、`name` 是 `alias`（**这一份文件里用的名字**）。
+绑错那个，代码里写 `alias(...)` 就找不到东西——而报错会指向「未知名字」，离现场很远。
+
+**`import * as ns` 抛**：命名空间对象是一个「把对方导出表包起来的对象」，
+那是另一件事（要跨模块取**整张**表，而不是几个名字）。
+
+```ts
+if (NodeKind(statement) !== "ImportDeclaration") return;
+const clause = OptionalChild(statement, "importClause");
+if (clause === null) return;
+const defaultName = OptionalChild(clause, "name");
+if (defaultName !== null && NodeKind(defaultName) === "Identifier") {
+  this.Globals.push(TextOf(defaultName));
+}
+const bindings = OptionalChild(clause, "namedBindings");
+if (bindings === null) return;
+if (NodeKind(bindings) === "NamespaceImport") {
+  throw new Error("unimplemented: `import * as ns` needs a namespace object");
+}
+const elements = ListOf(bindings, "elements");
+for (let i = 0; i < elements.length; i++) {
+  const name = OptionalChild(elements[i], "name");
+  if (name === null || NodeKind(name) !== "Identifier") {
+    throw new Error("unimplemented: import specifier without a simple name");
+  }
+  this.Globals.push(TextOf(name));
+}
 ```
 
 ## method LowerFunctionDeclaration:(node:AstNode)=>void

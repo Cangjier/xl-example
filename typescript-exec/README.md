@@ -8,7 +8,7 @@
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
-> **逐值一致**（判据 `npm run runtime:check` 的最后十七节，共 126 条全绿）。
+> **逐值一致**（判据 `npm run runtime:check` 的最后十八节，共 127 条全绿）。
 > 收了：变量声明（`let`/`const` 块作用域、`var` 函数作用域，含**对象与数组解构**）、
 > 表达式语句 / `return` / `throw` / `if` / `while` / **`for(;;)`** /
 > **`for..of`（走迭代协议，含遍历生成器）** / **`try`/`catch`/`finally`（三条路）** /

@@ -2902,6 +2902,56 @@ check("`.d.ts` 能力绑定：模块里没声明的名字按能力号调宿主�
   eq(unknown.indexOf("not a local") >= 0, true, "没登记的名字仍然按未知名字报错：" + unknown);
 });
 
+check("模块：`import` 里的名字从环境对象取（不改名 / 改名两种）", () => {
+  const source = [
+    "import { twice, label as tag } from './a';",
+    "export function run(n) { return twice(n) + tag('x').length; }",
+  ].join("\n");
+  // Node 那边：把 import 行去掉，两个名字当参数传进去——**同一份体、同一组名字**
+  const body = source.replace(/^import[^\n]*\n/, "").replace("export ", "");
+  const expected = new Function("twice", "tag", body + "\nreturn run(21);")(
+    (n) => n * 2,
+    (s) => "A:" + s,
+  );
+  eq(expected, 45, "Node：42 + 'A:x'.length = 45（这是前提）");
+
+  const { module, host, table, machine } = lowerAndLoad(source);
+  const built = [];
+  const sink = () => {};
+  host.InstallHost((target, self, args, room) => {
+    const id = table.Get(target.Ref).AsHost().CapabilityId;
+    if (id === 9001) return Value.FromInt(args[0].AsInt() * 2);
+    if (id === 9002) {
+      const text = "A:" + hostStringOf(table, args[0]);
+      if (!room(text.length * 2 + 16)) throw new Error("out of room");
+      return Value.FromString(table.CreateString(units(text)));
+    }
+    return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, sink);
+  });
+
+  const env = NewPlainObject(machine.Room(), table, machine.Protos);
+  machine.Retain(env);
+  setProp(machine, table, env, propKey(table, "twice"),
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(9001, 0)));
+  setProp(machine, table, env, propKey(table, "tag"),
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(9002, 0)));
+  built.push(env);
+
+  eq(host.Evaluate([env]).Outcome, HostOutcome.Ok,
+    "求值：导入的两个名字在源码里没有声明，值从环境对象取");
+  eq(host.CallExport(module.ExportOf("run"), [Value.FromInt(21)]).Value.AsInt(), expected,
+    "跨文件的调用（`twice` 没改名、`label as tag` 用了本地名）");
+  machine.Release(env.Ref);
+
+  let namespace = "";
+  try {
+    lowerAndLoad("import * as ns from './a';");
+  } catch (error) {
+    namespace = String(error.message);
+  }
+  eq(namespace.indexOf("namespace object") >= 0, true, "`import * as ns` 必须抛：" + namespace);
+});
+
 check("一元运算符与空字符串：投影分不出来的，一律抛（不静默给近似值）", () => {
   let unary = "";
   try { new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds); } catch (error) { unary = String(error.message); }
