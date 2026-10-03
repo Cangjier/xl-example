@@ -37,7 +37,6 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { listCases } from "./validate.mjs";
-import { parseXml } from "./structure.mjs";
 import { projectRoot } from "./ts-shape.mjs";
 
 const require = createRequire(import.meta.url);
@@ -70,7 +69,7 @@ const MODIFIERS = new Set(["LineWrap", "AreaAnnotation", "LineAnnotation", "Prep
  *
  * TS 那一侧先过 `canonicalKind`：`ts.SyntaxKind[node.kind]` 会印出 `FirstStatement`
  * （其实是 `VariableStatement`）、`FirstLiteralToken`（`NumericLiteral`）这类**别名错名**，
- * 不换成真名就没法与产物侧对齐（详见 README 的「枚举别名」一节）。
+ * 不换成真名就没法与产物侧对齐（详见 docs/typescript-parsing-gaps.md 里「枚举别名」那几轮）。
  */
 const TS_KIND_ALIASES = new Map([
   ["FirstStatement", "VariableStatement"],

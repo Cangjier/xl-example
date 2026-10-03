@@ -77,9 +77,15 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 | 与 TS 原生 AST 对拍 | `npm run cases:tsast` | 逐节点比 **kind、区间、字段名**；缺（没投出来）与漂移（位置差一点）分开报。退出码按**七条**算：四方向 + 未映射（透传进产物的标签）+ 缺 range + 区间越界 |
 | **发布路径**端到端 | `node tests/parse/ts-ast.mjs --cli` | 真的开 `cjcli <文件> --ts-ast` 进程，拿 stdout 的 JSON 与 `ts.createSourceFile` 对拍（每个文件一个进程，按需跑） |
 | 逐字节确定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比对，**不做归一化**（紧凑单行、键序与 `pos` / `end` 都是确定性的） |
-| 「命令行 = 库 API」 | `npm run samples` | `ENTRY` 一行：同一份源码，`cjcli` 进程与库 API 的输出必须逐字节相同 |
-| 投影表结构 | `npm run cases:shapelint` | 扫规范源码找 `new Map([...])` 的**重复键**（重复键会静默覆盖）；表一张都找不到也算失败 |
-| 搬家等价性（一次性） | —— | 第 75 轮用一把一次性脚本在全语料上逐字节对拍过：**1399 个文件、0 处不一致**（旧实现 2464 行 JS vs xl 产物）；结论记在 README 台账，脚本随即删除 |
+| 「命令行 = 库 API」 | `npm run samples` | 同一份源码，`cjcli` 进程与库 API 的输出必须逐字节相同 |
+| 用例体检 | `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
+| 搬家等价性（一次性） | —— | 第 75 轮用一把一次性脚本在全语料上逐字节对拍过：**1399 个文件、0 处不一致**（旧实现 2464 行 JS vs xl 产物）；结论记在台账，脚本随即删除 |
+
+**第 200 轮起测试集只留 AST 相关的这些**（用户口径）：上表最后三行是全部判据。
+原来的另外十七把尺子与探针（`diff` / `dashboard` / `matrix` / `lossless` / `structure` /
+`boundaries` / `noise` / `astjson` / `shapelint` / `sweep` / `recon*` / `fuzz*` / `align`）
+量的是 XML 出口与 token 树的质量，**已删除**（脚本在 git 历史里）；
+`tests/parse/` 现在只剩下 `ts-ast.mjs`、`ts-shape.mjs`（转发）、`validate.mjs`（用例体检）与用例语料。
 
 `cases:tsast` **第 181 轮起是绿的**，第 199 轮把退出码从「四方向」扩到「四方向 + 三栏地基」：
 语料 1407 份**逐文件完全一致 1407 / 1407**，七条全 0（发布路径 `--cli` 同样 1407 / 1407）。
@@ -94,7 +100,8 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
    （第 181~198 轮逐块搬过去的那 49 块）；只有**通用支**的东西才动
    [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)——
    那里的 `KIND_BY_TAG` / `FIELD_BY_KIND` / `WRAPPER_FIELDS` / `BODY_FIELDS` 与共享助手。
-   表的**重复键**有尺子（`cases:shapelint`）盯着。
+   表的**重复键**会静默覆盖（`new Map([...])` 同键后写胜），改表时自己过一眼——
+   钉它的那把 `cases:shapelint` 已随测试集收窄删除（脚本在 git 历史里）。
 2. **改完跑**：`xl check` → `npm run build` → `npm run samples` → `npm run cases:tsast`
    （数字要动，且只按预期动；现在它是**闸门**，七条里红一条就是回归）→ 其余尺子。
 3. **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（`projectNode` 开头那句 `const v = view(node)`），

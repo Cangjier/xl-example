@@ -1,5 +1,12 @@
 # TypeScript 解析缺口核查报告
 
+> **这份文件是历史台账**（最早成文于第 1 轮，逐轮追加到第 199 轮）。
+> **第 200 轮起测试集只留 AST 相关的判据**（`cases:tsast` / `cases:tsast:cli` / `samples` / `cases:check`）：
+> 下面各轮里点名引用的尺子与探针（`cases:run` / `diff` / `dashboard` / `matrix` / `lossless` /
+> `structure` / `boundaries` / `noise` / `astjson` / `shapelint` / `sweep` / `recon*` / `fuzz*` / `align`）
+> **已经删除**，脚本本身在 git 历史里（第 200 轮之前）。保留这份台账是为了记下
+> **每条规则为什么长这样**——那些结论都还在产物与规范里生效。
+
 对当前提交 `b78fa3a` 的 `typescript/tokens` 做了一次缺口核查，回答一个问题：**离「完整解析 TypeScript」还差什么。**
 
 核查时的仓库状态：`xl check` 123 文件 / 0 error / 0 warning，`npm run samples` 3/3 通过，`git status` 干净。
@@ -3383,3 +3390,57 @@ token 树必须把那些 `;` 留着，投影才有东西可判。所以 `cases:t
 **「完全一致」现在没有星号**：库路径与发布路径各 **1407 / 1407**，七条判据全 0，退出码为 0；
 `samples` 的九份夹具也全绿——**逐字节**那一层同样对得上。
 （`cases:noise` 另有一处既有红，性质与修法见上一节：判据过期，不是解析回归。）
+
+---
+
+# 第 200 轮：测试集收窄到「只留 AST 相关」
+
+**用户口径**：「仅保留 ast 相关的 cases 和测试集，其他都不需要」——按最窄的一档执行
+（只留 **TS 形状**这条线）。
+
+## 删了什么
+
+| 类别 | 内容 |
+| --- | --- |
+| 非 AST 的尺子（15） | `differential.mjs` / `gap-dashboard.mjs` / `matrix.mjs` / `lossless.mjs` / `structure.mjs` / `boundaries.mjs` / `noise.mjs` / `ast-json.mjs` / `shape-lint.mjs` / `sweep.mjs` / `recon.mjs` / `recon2.mjs` / `fuzz.mjs` / `fuzz3.mjs` / `align.mjs`（与对应 npm script） |
+| 调试与一次性脚本 | `debug-conditional.mjs` / `debug-generic.mjs` / `debug-method.mjs` / `probe.mjs` / `suggest.mjs` / `trace-reorg.mjs` / `shape-probe.mjs`（`tests/parse/`）、`samples/diag.mjs` |
+| 台账（3） | `tests/parse/README.md`（95 KB 逐轮台账）、`tests/parse/known-gaps.json`、`tests/parse/DASHBOARD-NOTES.md` |
+| 非 TS 形状的夹具（6） | `samples/*.expected.xml` 与 `samples/*.expected.ast.json` 各三份 |
+
+## 留了什么
+
+| 文件 | 作用 |
+| --- | --- |
+| `tests/parse/ts-ast.mjs` | **主判据**：逐节点对 `ts.createSourceFile`（七条全 0）；`--cli` 是发布路径那一把 |
+| `tests/parse/ts-shape.mjs` | 转发到产物里的 `projectRoot`（尺子量的必须是 `build/` 的产物） |
+| `tests/parse/validate.mjs` | 用例体检（`npm run cases:check`），也是 `listCases` 的出处 |
+| `tests/parse/cases/**` | **1035 条用例**——AST 对拍的主要语料，原样保留 |
+| `samples/*.ts` + `*.expected.tsast.json` | 三份样本与它们的 **TS 形状**夹具；`samples/check.mjs` 已收窄成只比这一份 |
+
+`package.json` 的脚本从 21 条降到 **8 条**：`check` / `build` / `compile` / `samples` / `cjcli` /
+`cases:check` / `cases:tsast` / `cases:tsast:cli`。
+
+## 收窄的代价（如实记）
+
+- **token 树（XML 出口）的质量从此没有尺子**：第 199 轮刚定性过的那处 `cases:noise`
+  （3453 个空 `Statement`，区间原文全是 `;`）随着尺子一起消失——它现在是**未知**，
+  不是「绿」；要接着清，得先把那把尺子取回来（或按第 199 轮记的修法重写）。
+- **用例自带的期望值没有读者了**：`cases:run` 已删；`xl:expect` / `xl:absent` 仍由
+  `cases:check` 校验语法（它们是用例的说明，也是想加回一把「标签级」尺子时的现成语料）。
+- **「两个出口同源」（XML ↔ AST JSON）不再被巡检**：`cases:astjson` 已删，出口本身照旧
+  （`cjcli --ast-json`）。
+- 删掉的脚本都在 git 历史里（本提交之前），要回哪一把：
+  `git show <第 200 轮之前的 sha>:tests/parse/<file> > tests/parse/<file>`。
+
+## 验收（收窄后的**全部**判据）
+
+```
+$ npm run cases:check      1035 条用例，0 条不合格
+$ npm run samples          ok declarations.ts / generic.ts / hello.ts [TS 形状]
+$ npm run cases:tsast      语料 1407 个文件，解析成功 1407，抛异常 0
+                           **完全一致的文件 1407 / 1407 个**
+                           缺节点 0　区间漂移 0　多出来的节点 0　字段名不符 0
+                           未映射 0 类 / 0 处　缺 range 0 个　区间越界 0 个
+$ npm run cases:tsast:cli  1407 个 cjcli 进程：解析成功 1407，失败 0
+                           **完全一致的文件 1407 / 1407 个**，四方向 0，报未映射 0 个
+```

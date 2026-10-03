@@ -25,7 +25,14 @@ const ts = require(path.join(root, "node_modules", "typescript"));
 
 export const AREAS = ["declarations", "statements", "expressions", "types", "modules", "lexical", "ambiguous"];
 
-/** 允许出现在 xl:expect / xl:absent 里的标签（与 README.md 的表一致；写错标签会造出假缺口）。 */
+/**
+ * 允许出现在 `xl:expect` / `xl:absent` 里的标签（**产物标签名**——`ToXmlString` 取的是类名；
+ * 写错标签会造出假缺口）。
+ *
+ * 第 200 轮起测试集只留 AST 相关：`xl:expect` 是**用例自己带的期望值**（原 `cases:run` 用），
+ * 现在没有尺子再读它们了，但用例文件里的指令仍然照旧校验——它们是用例的说明，也是下一轮
+ * 想重新加回一把「标签级」尺子时的现成语料。
+ */
 export const TAGS = new Set([
   "Root", "Statement", "Let", "Field",
   "SymbolToken", "Identifier", "Keyword", "String", "ConstString", "InterpolationString",
@@ -100,7 +107,7 @@ export function listCases(filterArea) {
       const problems = [...parsed.problems];
       if (!AREAS.includes(area)) problems.push(`area 不在 ${AREAS.join(" / ")} 里`);
       for (const raw of [...parsed.directives.expect, ...parsed.directives.absent]) {
-        // `Tag:2` 是带个数的期望（见 run.mjs），标签表里查的是冒号前那一段。
+        // `Tag:2` 是带个数的期望（旧 `run.mjs` 的写法），标签表里查的是冒号前那一段。
         const separator = raw.indexOf(":");
         const tag = separator === -1 ? raw : raw.slice(0, separator);
         if (!TAGS.has(tag)) problems.push(`xl:expect/absent 里的标签 ${raw} 不在标签表里（写错标签会造出假缺口）`);

@@ -52,7 +52,7 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 npm install          # 只需要 @types/node 与 typescript
 xl build             # 规范 → dist/ts/**/*.ts（增量；无改动时 skipped）
 npm run compile      # dist/ts/**/*.ts → build/ts/**/*.js（tsc，strict）
-npm run samples      # 三个样本与各自 *.expected.{xml,ast.json,tsast.json} 对照
+npm run samples      # 三个样本与各自 *.expected.tsast.json 逐字节对照（命令行 = 库 API）
 node build/ts/cjcli.js samples/hello.ts
 ```
 
@@ -86,52 +86,32 @@ node build/ts/cjcli.js samples/hello.ts
 **三个出口同源**：`CjcliParse` 造出根单元之后才分叉，XML / AST JSON / TS 形状看的是同一棵树，
 结构上没有第二条解析路径。
 
-改完规范之后，验收是这五步：
+改完规范之后，验收是这几步：
 
 ```bash
-xl check               # 结构与规则检查
-npm run build          # xl build && tsc
-npm run samples        # 样本夹具逐字节对照（XML / AST JSON / TS 形状 各一份夹具）
-npm run cases:check    # 用例体检（用例本身合不合格）
-npm run cases:run      # 用例对解析器（台账必须仍然是空的）
+xl check                   # 结构与规则检查
+npm run build              # xl build && tsc
+npm run cases:check        # 用例体检（用例本身合不合格）
+npm run samples            # 三份样本的 TS 形状夹具逐字节对照
+npm run cases:tsast        # **主判据**：全语料逐文件与 ts.createSourceFile 对拍
+npm run cases:tsast:cli    # 发布路径：真的开 cjcli 进程再对拍（慢，按需跑）
 ```
 
-再跑八把「不需要期望值」的尺子（互相补位；前七把判的是**解析对不对**，第八把判的是
-**产物自己的两个出口是不是同一棵树**。CI 判据，有问题退出码 1）：
+**第 200 轮起测试集只留 AST 相关的这些**（用户口径）：
 
-```bash
-npm run cases:diff        # 与 TypeScript 自带 AST 的构造数差分（净额）
-npm run cases:dashboard   # 正 / 负差额分开统计（净额会互相抵消，这个不会）
-npm run cases:matrix      # 上下文 × 构造 全组合
-npm run cases:lossless    # 名字与字面量的值有没有被吃掉
-npm run cases:structure   # 嵌套形状：括号归属与源码一致吗（带 --self-test 变异自检）
-npm run cases:boundaries  # 语句边界：相邻两条语句有没有被并成一条（带 --self-test）
-npm run cases:noise       # 噪声：产物里有没有空的 <Statement></Statement>
-npm run cases:astjson     # 两个出口同源：XML 与 AST JSON 逐节点一致吗（带 --self-test）
-```
+| 判据 | 命令 | 口径 |
+| --- | --- | --- |
+| TS 形状（库路径） | `npm run cases:tsast` | 逐节点对 `ts.createSourceFile`：kind / 区间 / 字段名 + 未映射 / 缺 range / 越界，**七条全 0 才绿** |
+| TS 形状（发布路径） | `npm run cases:tsast:cli` | 每个文件跑一次 `cjcli --ts-ast`，拿 stdout 的 JSON 对拍（1407 个进程） |
+| 字节稳定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
+| 用例体检 | `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
 
-另有五把「找缺口」的探针，只报可疑项、不当判据：
-
-```bash
-npm run cases:sweep       # 198 个 TS 构造片段，逐条打印 TS AST 与产物并标出可疑项
-npm run cases:recon       # 174 条高风险片段（边界 / 表达式 / 类型 / 声明 / 模块）
-npm run cases:recon2      # 157 条 TS 5.x / 6.x 新构造与真实代码高频写法
-npm run cases:fuzz        # 组合模糊测试：7.1 万个「上下文 × 分隔 × 片段两两拼接」
-npm run cases:fuzz3       # 三片段组合探针：同一批片段**三个**相邻（抽样 20 万次）
-npm run cases:align       # 对齐探针：产物单元与 TS AST 节点按源码区间对齐，双向反查
-```
-
-这五把探针是**八把尺子的补位**：尺子比的是计数、内容、括号、边界、空节点，
-而 `a.import` 抛 `TypeError`、`Lamda` 没签出范围导致克隆抛错、`{ A }a += 1` 报「没有父单元」
-这三处真缺口，八把尺子**一把都看不见**——它们都是先被探针抓到的。
-第 67 轮又加了一把 `cases:fuzz3`（两两拼接 → **三片段**），它第一次跑起来就抓到
-「`type X = T` 换行紧跟 `try`」抛 `next is not Bracket`——**整份文件解析失败**，
-而它在两两拼接里从来不出现（见 [tests/parse/README.md](tests/parse/README.md) 的
-「`recon*.mjs` / `fuzz*.mjs` 的口径」与「`align.mjs` 的口径」）。
-
-`cases:align` 问的是**形状与语义对不对得上**：它把产物单元与 TS AST 节点按源码区间对齐后双向反查
-「产物有标签、源码没构造」与「源码有构造、产物没标签」。第 53 轮的七处真缺口里有四处
-（箭头块体、多形参、克隆空壳、括号里的联合类型）是它抓到的——那些形状下八把尺子全绿。
+原来的另外十七把尺子与探针（`diff` / `dashboard` / `matrix` / `lossless` / `structure` /
+`boundaries` / `noise` / `astjson` / `shapelint` / `sweep` / `recon` / `recon2` / `fuzz` / `fuzz3` /
+`align` 与 `tests/parse/` 下的调试脚本）**已删除**——它们量的是 XML 出口与 token 树的质量，
+不属于「PrintAst 与 TS 的 AST 完全一致」这条判据。逐轮的读数与它们的口径留在
+[docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)（本 README 的轮次只记到第 82 轮）
+与 git 历史里；那些**本轮之前**的章节引用到它们时，指的就是这些已删的脚本。
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
 `build/ts/cjcli.js`——产物路径里的 `ts/` 来自**目标语言目录**，不是 `rootDir` 多出来的一层。
@@ -299,47 +279,25 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   那道换行就是语句边界（`SearchFrontIndexed` 往回找语句头时的「墙」），
   收进声明范围会让下一行被并进同一条语句。空 `<Statement>` 由语句重组自己的早退挡掉
   （见 [typescript/tokens/declaration-common.xl.md](typescript/tokens/declaration-common.xl.md) 里
-  「一个已经删掉的收尾口径」那一节，以及 `npm run cases:noise`）。
+  「一个已经删掉的收尾口径」那一节）。
 
 ## 已知缺口
 
-> 完整的缺口清单（可回归、可逐步清空）在 [tests/parse/known-gaps.json](tests/parse/known-gaps.json)：
-> `npm run cases:run` 会报告「新增缺口 / 台账过期」，`npm run cases:diff` 用 TypeScript 自带 AST 做差分找缺口。
-> 下面只列结构性的那几条。
+> **第 200 轮起测试集只留 AST 相关的判据**（`cases:tsast` / `cases:tsast:cli` / `samples` / `cases:check`，
+> 见文首「验收是这几步」）。缺口台账（`tests/parse/known-gaps.json`）与另外十七把尺子 / 探针
+> （`diff` / `dashboard` / `matrix` / `lossless` / `structure` / `boundaries` / `noise` / `astjson` /
+> `shapelint` / `sweep` / `recon` / `recon2` / `fuzz` / `fuzz3` / `align`）随它们量的那个出口一起删了；
+> 逐轮的读数留在 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md) 与 git 历史里。
+> **下面从「第 50 轮」往后的章节是历史台账**，里面引用的尺子与探针即指这些已删的脚本。
+> 这一节先写清**当前**的判据与状态。
 
-**八把尺子**（互相补位，任何一把红都不算「完整解析」）：
-
-| 命令 | 口径 |
-| --- | --- |
-| `npm run cases:run` | 手写期望值：已经想到的构造有没有做对 |
-| `npm run cases:diff` | 源码构造数 − 产物节点数：哪一类节点整片没产出（净额） |
-| `npm run cases:dashboard` | 正 / 负差额分开统计：净额互相抵消时看真相 |
-| `npm run cases:matrix` | `上下文 × 构造` 全组合：同一构造换到别的上下文会不会翻车 |
-| `npm run cases:lossless` | 名字与字面量的值：产物里有没有内容被吃掉 |
-| `npm run cases:structure` | **嵌套形状**：产物的括号归属与源码文本是否一致 |
-| `npm run cases:boundaries` | **语句边界**：相邻两条语句有没有被并成一条（对着 TS 自己的 AST） |
-| `npm run cases:noise` | **噪声**：产物里有没有空的 `<Statement></Statement>` |
-
-后六把不需要维护期望值（候选先交给 TypeScript 判定是否合法 TS）。
-`structure.mjs` 与 `boundaries.mjs` 各带一个 `--self-test`：故意把产物改坏 / 把两条语句并成一条，
-尺子必须报警——**一个永远绿的尺子比没有尺子更危险**，所以两把尺子的牙口都是被证明过的。
-
-**第九把问的不是解析对不对，而是产物自己的两个出口是不是同一棵树**：
+**主判据：与 `ts.createSourceFile` 逐节点对拍**（第 181 轮缺口归零，第 199 轮把三栏「地基」并进退出码）：
 
 | 命令 | 口径 |
 | --- | --- |
-| `npm run cases:astjson` | **两个出口同源**：`Root.ToXmlString()` 与 `Root.ToJsonString()` 折算成同一种形状后逐节点比对（带 `--self-test`） |
-
-`ToDictionary` 是照 `ToXmlString` 抄的第二套拼串，两处漂开**不会有任何别的尺子看得见**
-（节点数、名字、括号、边界全都正常）。规格见 [docs/ast-json.md](docs/ast-json.md)。
-
-**第十把问的是「离 TypeScript 的 AST 还差多少」**（第 181 轮起这一把是**绿的**，
-第 199 轮把三栏「地基」也并进了退出码）：
-
-| 命令 | 口径 |
-| --- | --- |
-| `npm run cases:tsast` | **TS 形状**：直接拿 `ts.createSourceFile` 当基准，逐节点比 kind / 区间 / 字段名；未映射（透传进产物的标签）/ 缺 range / 区间越界也一并判绿 |
-| `node tests/parse/ts-ast.mjs --cli` | **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍（按需跑：全语料 1407 个进程） |
+| `npm run cases:tsast` | 逐节点比 **kind / 区间 / 字段名**；未映射（透传进产物的标签）/ 缺 range / 区间越界也一并判绿，**七条全 0 才退出码 0** |
+| `npm run cases:tsast:cli` | **发布路径**：真的开 `cjcli <文件> --ts-ast` 进程，拿它 stdout 的 JSON 与 `ts.createSourceFile` 对拍（全语料 1407 个进程，按需跑） |
+| `npm run samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 
 产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后是 100%**：
 语料 1407 份**逐文件完全一致 1407 / 1407**，四个方向（缺 / 漂移 / 多出 / 字段名）全 0，
@@ -348,29 +306,18 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
 （`VariableDeclarationList` / `VariableStatement` / `ExpressionStatement` / `Block`）、
 类型引用（`TypeReference` 在 TS 那边是**同一区间两层节点**）、
-以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。第 181 轮把这些一层层补完
-（逐轮台账在 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)——
-本 README 的轮次只记到第 82 轮），第 182~198 轮把投影从 `typescript/ts-ast.xl.md`
-逐块搬进各 token 的 `PrintAst`（每搬一块都重跑这一把，基线一直是 1407 / 1407），
-第 199 轮把「四方向全 0 但还有三栏没判」的星号删干净。
-### 当前状态（实测，`npm run` 十九个脚本全绿）
+以及叶子按值分名（`NumericLiteral` / `StringLiteral`）。第 181 轮把这些一层层补完，
+第 182~198 轮把投影从 `typescript/ts-ast.xl.md` 逐块搬进各 token 的 `PrintAst`
+（每搬一块都重跑这一把，基线一直是 1407 / 1407），第 199 轮把「四方向全 0 但还有三栏没判」的星号删干净。
+
+### 当前状态（实测，四个脚本全绿）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:run` | **1031** 条用例全部通过，台账在案缺口 **0** 条（`_notes` 是信息性记录，不占用例） |
-| `cases:diff` | 1402 个文件，**没有任何一项差额为正**（全部是 0 或负数，负数属另一侧口径）。第 68 轮复核时这一行报过 **Field +119**：索引签名第 66 轮起有自己的 `<IndexSignature>` 标签，而 `differential.mjs` 的映射表还写着 `IndexSignatureDeclaration → Field`，于是 120 处索引签名被算成「Field 没成节点」——**量具的映射没跟着标签表走**，不是解析缺口。接回去之后：`Field` 源码侧 20243 / 产物侧 20244（**−1**，那一处多收在 `decl-class-computed-member.ts`，正是 `cases:dashboard` 的「真多 1」）、`IndexSignature` 120 / 120（**0**），其余各行不变 |
-| `cases:dashboard` | **真缺 0 个节点**（第 71 轮起 `&&` / `\|\|` 由 `LogicalOperator` 承担，台账里那一行也随之从「真多 114」降下来） |
-| `cases:lossless` | 1398 个文件、抛异常 0、内容丢失 0 |
-| `cases:structure` | 1395 个文件、括号归属不符 **0**（12 个文件因对齐不可信被跳过，见下） |
-| `cases:boundaries` | 1398 个文件：对齐可信 1051 个、跳过 347 个，语句表 541 个、边界 2348 处，**边界被横跨 0 处**（另有 1 处 XML 定位漂移被产物树复核排除，见下）。**这个 0 是在语料上测的**：`{ A }a += 1` 那种「块紧贴下一条语句、中间既没有 `;` 也没有换行」的形状仍然被并成一个 `<Statement>`（下面「已知缺口」有专条；把它单独喂给尺子是 **1 处横跨**，语料里没有这个形状，所以表里的 0 是**覆盖范围**的 0，不是「这个形状已经修好」） |
-| `cases:noise` | 1395 个文件，空 `<Statement>` **0** 个 |
-| `cases:matrix` | 候选 13889 条，合法并跑通 13303 条，**有问题 0 条** |
-| `cases:recon` / `cases:recon2` | 174 + **157** 条高风险片段，可疑 **0** 条 |
-| `cases:align` | **第 76 轮实测：1412 个文件，未登记的「标签占用」1 类、缺节点 1 类**（两处都在本工程自己的产物 `dist/ts/typescript/ts-ast.ts` 里，第 75 轮那个 1900 行的文件进语料之后才出现；基线是「未登记 4 类 / 缺节点 2 类」，第 76 轮清到 1/1——剩下的两处与复现命令记在「第 76 轮」那一节的第四节）。**这一行原来那个 0 是第 71 轮的数**：下面这两句讲的是当时的做法。第 67 轮做了两件事让那个 0 站得住：①把标签表里五条**宽别名**删干净（`ArrayLiteral→TupleType`、`Method→ImportType/TypeQuery`、`TypeLiteral`/`Field`→`MappedType`、`TernaryOperator`→`ConditionalType`、`As`→`SatisfiesExpression`）——删别名时当场报出 13 处空元组缺口，已修；②把 `node_modules/undici-types` 补进语料（其余六把尺子一直算着它，只有这一把漏了那 44 个 `.d.ts`）。余下的 13 类口径逐条登记在 `ALLOWED_EXTRA` / `MISSING_IGNORED` 与按位置的 `ignoreMissing`。**两条教训**：这一把尺子**没有退出码**，它的两节要人读——第 75 轮换了语料（新增一份 1900 行的文件）而没有重读它，那 4+2 类就一直挂着；另有一处量具口子：标签表里没有 `PropertyAccess`（第 70 轮新增的标签），而查不到标签的 kind 是 `continue`——`PropertyAccessExpression` 这一族因此**整类看不见**，这是下一个要接的口子 |
-| `cases:fuzz` | 7.16 万个组合，**可疑 0 个**（「可疑」的口径是抛异常 / 丢标识符，形状问题见下面「已知缺口」） |
-| `cases:fuzz3` | 抽样 20 万次得 9.7 万个合法三片段组合，**可疑 0 类**（第 67 轮新加，见上） |
-| `cases:astjson` | **两个出口同源**：1027 条用例 + 384 个真实语料文件，逐节点比对 **0 处不符**（`--self-test` 的 5 种变异全部被抓到）。这一轮的实测数：1398 个文件、**534054 个产物节点** |
-| `samples` | declarations / generic / hello 三份一致（XML 与 AST JSON 各一份夹具；夹具是紧凑单行，XML 比对忽略标签之间的空白，JSON 逐字节比） |
+| `cases:tsast` | 语料 **1407** 个文件、解析成功 1407、抛异常 0；**完全一致 1407 / 1407**，缺 0 / 漂移 0 / 多出 0 / 字段名 0 / 未映射 0 / 缺 range 0 / 区间越界 0，退出码 0（trivia 越界 2 处单列：注释与软换行是被扫进来的、不参与签入签出，是约定的形态） |
+| `cases:tsast:cli` | **1407** 个 `cjcli` 进程：解析成功 1407、失败 0，**完全一致 1407 / 1407**，四方向 0，报未映射标签的文件 0 个 |
+| `samples` | hello / declarations / generic 三份 TS 形状夹具逐字节一致，且「命令行 = 库 API」 |
+| `cases:check` | **1035** 条用例，0 条不合格 |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
@@ -386,18 +333,16 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   `LiteralType`（全语料 13110 处）/ `ImportType`（类型位的 `[typeof] import("m")[.A.B]`）/
   `TypeParameter`（泛型参数表与映射键）/ `InferType`（`infer X [extends Y]`，含 `(infer U)` 那种括号里）/
   模板字面量类型的插值段（联合、交叉、下标访问都成形）。
-  **这一层现在的净额**：`cases:align` 的缺节点方向是 **0**——那一节只打印「（没有）」；
-  未登记的标签占用也是 **0 类**，而且第 67 轮把五条**宽别名**从标签表里删掉了，
-  这个 0 是**在更严的标签表上**测出来的。余下的 13 类全是逐条登记的**口径**
-  （解构模式、ASI、成员位 `abstract new`、映射类型的 `in` / `as`、类型位的 `import()` 壳、
-  以及**用例自己声明非法 TS** 的 15 处——TS 6.0.3 自带 parser 在那些对抗形状上读错）。
+  **这一层的净额是 0**：与 `ts.createSourceFile` 逐节点比，类型的每一种构造都对得上
+  （见 `docs/typescript-parsing-gaps.md` 第 54~67 轮那一串读数）。
 - **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label label="outer" /><While>…</While>`）：
   标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
 - **ASI 是按形状预判的**：判据在 [typescript/tokens/statement.xl.md](typescript/tokens/statement.xl.md) 的
   `Statement.IsLineBreakBoundary`（前一个单元不再要操作数、后一个单元也不能续接 ⇒ 断句，
   加上 `return` / `throw` / `break` / `continue` / `yield` 与后缀 `++` / `--` 的受限产生式）。
   规范里 ASI 还有一条「**语法不允许时**才插分号」，本工程不看完整文法、只看形状，
-  所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:boundaries` 持续巡检，当前 0 处不符。
+  所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:tsast` 巡检（它比的是与 TS 的 AST
+  逐节点一致，语料 1407 份当前全一致）。
 - **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
   这是**独立于 TypeScript 的语法扩展**，不在 `.ts` 范围内。
 - **嵌套解构的绑定名进的是同一张逗号分隔表**（`arrayPattern`），丢的是**结构**而不是名字：
@@ -405,11 +350,11 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 - **`<RegexToken>` 是空标签**：正则正文与标志在单元的 `Temp` / `Flags` 字段上、刻意不渲染进 XML
   （见 [typescript/tokens/regex-token.xl.md](typescript/tokens/regex-token.xl.md)）。
 - **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
-  `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器
-  （见台账 `_notes.escape-a-bell` / `_notes.at-before-string-is-verbatim`）。
+  `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
 - **块与表达式之间没有分隔符时**（`{ A }a += 1`：块紧跟着表达式，中间既没有 `;` 也没有换行），
-  产物里块与后一条语句仍然**并进同一个 `<Statement>`**（与 TypeScript 的「两条语句」不一致），
-  也就是 `cases:boundaries` 报的那一处横跨。
+  产物里块与后一条语句仍然**并进同一个 `<Statement>`**（与 TypeScript 的「两条语句」不一致）——
+  这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
+  所以 `cases:tsast` 是绿的（形状那一层已经对了，token 树那一层没动）。
   **第 63 轮修掉了其中更严重的一半**：复合赋值的展开原来会**再克隆一份那个块**
   （`<Bracket>{ A }</Bracket> a = <Bracket>{ A }</Bracket> + 1`）——那是**凭空多出内容**，
   根因是 `SearchFront` 的起点判据写成了 `startBracket === "}"`（块语句的起点是 `{`，
@@ -418,7 +363,14 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   **不再抛异常**（第 52 轮之前这里直接抛「没有父单元」整份文件解析失败）。
   第 63 轮还试过把块当语句边界（`StatementReorganization2.Previous`），
   结果复合赋值的展开被切断、**整段内容丢失** ✗——比边界不合严重，已退回；
-  两条形状交给 `tests/parse/recon2.mjs` 的片段表盯着（内容不许丢）。
+  两条形状已经收进用例语料（`tests/parse/cases/**`）。
+
+---
+
+> **以下从第 50 轮起的章节是历史台账**（成文于测试集收窄之前）：里面提到的尺子与探针
+> （`align` / `boundaries` / `noise` / `structure` / `lossless` / `matrix` / `diff` / `dashboard` /
+> `astjson` / `shapelint` / `sweep` / `recon*` / `fuzz*`）**已随测试集收窄删除**，
+> 脚本本身在 git 历史里。保留它们是为了记下「这条规则为什么长这样」。
 
 ### 按三把探针修掉的几处真缺口（第 52 轮）
 
@@ -2643,15 +2595,19 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
 - **XML 属性名就是从 class 属性名来的**：`Class` 上那个 `name` 属性的值，就是产物里 `name="…"` 的值。
   所以想改产物上的属性名，就改规范里的字段名与 `ToXmlString` 里那处拼串，两处必须一起动——
   只在拼串里改名，会留下 `this.FieldName` 与 `name="…"` 对不上的产物。
-- 改完跑这四步（**再跑一遍上面八把尺子**）：
+- 改完跑这几步（第 200 轮收窄后的全部判据）：
 
   ```bash
   xl check                     # 结构与规则检查（应该是 0 error / 0 warning）
   npm run build                # xl build && tsc
-  npm run samples              # 对照；产物本该变化时用 --update 重写夹具
-  npm run cases:run            # 台账必须仍然是空的
-  npm run cases:boundaries     # 语句边界没被改坏（这条最容易在改收尾口径时踩到）
+  npm run samples              # TS 形状夹具逐字节对照；产物本该变化时用 -- --update 重写夹具
+  npm run cases:check          # 用例体检
+  npm run cases:tsast          # **主判据**：与 ts.createSourceFile 逐节点对拍（七条全 0）
+  npm run cases:tsast:cli      # 发布路径那一把（慢，改到 cjcli / 序列化时才需要）
   ```
+
+  动了**投影的键序或坐标**时，`samples` 是唯一看得见的那把尺子（`cases:tsast` 只比
+  kind / 区间 / 字段名）；动了 token 层时反过来，`cases:tsast` 会告诉你形状还对不对。
 
 - **一轮一提交，提交完就推**：一轮的改动跑完尺子之后
   `git commit` + `git push origin main`，提交信息按轮次写
