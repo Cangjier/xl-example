@@ -387,6 +387,30 @@ if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return "f
 return "object";
 ```
 
+# method ArrayIndexAt:(table:HeapTable, key:Value)=>int
+
+**字符串键 → 数组下标**；**不是下标就给 `-1`** ✓（空串 / 有非数字 / 前导零 / 太大 / 根本不是字符串 ✓）。
+
+**为什么要有它**：数组的元素**不在 `Props` 里** ✗（它们住在 `Elements` ✓），
+所以「`1 in [10, 20]`」走属性表会给出**假** ✗——而 JS 给**真** ✓。
+**前导零不算下标** ✓（JS 的口径：`"01"` 是一个普通属性名 ✗，不是第 1 格 ✓）；
+**超出 `i32` 的也不可能是这一层的下标** ✓（返回 -1，让它走属性那条路 ✓）。
+
+```ts
+if (key.Tag !== ValueTag.String) return -1;
+const units = table.Get(key.Ref).AsString().Units;
+if (units.length === 0) return -1;
+if (units.length > 1 && units[0] === 48) return -1;
+let index = 0;
+for (let i = 0; i < units.length; i++) {
+  const unit = units[i];
+  if (unit < 48 || unit > 57) return -1;
+  index = index * 10 + (unit - 48);
+  if (index > 2147483647) return -1;
+}
+return index;
+```
+
 # method GetIndex:(table:HeapTable, receiver:Value, index:Value)=>Value
 
 `receiver[index]` 的**快路径**：数组给元素，字符串给**一个码元的字符串**。

@@ -9,7 +9,7 @@ import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
 import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf } from "./rt.xl.md"
-import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex } from "./props.xl.md"
+import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 ```
 
@@ -1170,10 +1170,32 @@ if (id === RtOp.Typeof) {
 }
 if (id === RtOp.In) {
   RequireArgc(argc, 2, "in");
-  if (!slots[base + 1].IsObject()) {
+  const inReceiver = slots[base + 1];
+  if (!inReceiver.IsObject()) {
     throw new Error("unimplemented: 'in' needs an object on the right");
   }
-  return Value.FromBool(HasProperty(this.Table, slots[base + 1].Ref, slots[base]));
+  // **键先字符串化**（第 123 轮；与 `get_index` / `set_index` 同一套 ✓）：
+  // JS 的 `in` 也走 ToPropertyKey ✓——少了这一步，`1 in arr` 会往上抛
+  // 「property keys must be strings or symbols」✗（判据现场就是这么红的 ✓）。
+  // **符号键原样**（身份 ✓，不许字符串化 ✗）。
+  const rawInKey = slots[base];
+  const inKey = rawInKey.Tag === ValueTag.Symbol
+    ? rawInKey
+    : RtToString(this.Room(), this.Table, rawInKey);
+  // **数组的下标键按「格子」答** ✓：元素不在 `Props` 里 ✗，
+  // 只看属性表会把 `1 in [10, 20]` 答成**假** ✗（JS 给真 ✓）——**静默给错值比抛更坏** ✗。
+  // **洞不算** ✓（`1 in [1, , 3]` 在 JS 里是假 ✓）。
+  if (inReceiver.Tag === ValueTag.Array) {
+    // **`"length"` 是数组的结构属性** ✓（与 `GetProperty` 那一支同一条口径 ✓）——
+    // 它不在 `Props` 里 ✗，不问这一句就会把 `'length' in arr` 答成**假** ✗（JS 给真 ✓）。
+    if (IsLengthKey(this.Table, inKey)) return Value.FromBool(true);
+    const at = ArrayIndexAt(this.Table, inKey);
+    if (at >= 0) {
+      const array = this.Table.Get(inReceiver.Ref).AsArray();
+      return Value.FromBool(at < array.GetLength() && !array.IsHole(at));
+    }
+  }
+  return Value.FromBool(HasProperty(this.Table, inReceiver.Ref, inKey));
 }
 throw new Error("unimplemented: rt op " + RtOpName(id));
 ```

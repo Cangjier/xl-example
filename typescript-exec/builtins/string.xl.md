@@ -54,6 +54,32 @@ import { Units, NeverCall, ArgOr } from "./array.xl.md"
 
 # const StringIncludes:int = 109
 
+# const StringStartsWith:int = 110
+
+`startsWith(前缀, 位置?)` 的号（第 123 轮）。
+**位置参数照 JS 给** ✓：从那个下标起比对 ✓（夹到 `0..length` ✓）。
+
+# const StringEndsWith:int = 111
+
+`endsWith(后缀, 结束位置?)` 的号——第二个参数是**结束位置** ✓（不是起点 ✗，与 `startsWith` 不同 ✓）。
+
+# const StringSubstring:int = 112
+
+`substring(起, 止)` 的号。
+
+**它与 `slice` 的差别只有两处** ✓，而这两处**恰好让它能做得比 `slice` 更准** ✓：
+`substring` 把负数与 `NaN` **夹到 0** ✓（JS 也是 ✓），而 `slice` 在 JS 里是**从末尾数** ✗
+（那是本仓已记的差异 ✗）；`substring` 在 `起 > 止` 时**交换两个参数** ✓（JS 的怪规矩 ✓，
+`slice` 给空串 ✗）——**两条都照 JS 给** ✓。
+
+# const StringRepeat:int = 113
+
+`repeat(次数)` 的号。
+
+**非整数先向下取整** ✓（JS 是 `ToIntegerOrInfinity` ✓）；**负数抛** ✓。
+**太多次不另设上限** ✓：它自己会在 `room` 那一关被拦下 ✓（那是一条**可捕获的错误** ✓），
+再加一个人为上限就是第二个「上限」了 ✗——两处不一致比一处更坏 ✓。
+
 # method RequireString:(table:HeapTable, self:Value)=>void
 
 `self` 必须是字符串；不是就抛。
@@ -174,6 +200,64 @@ if (id === StringTrim) {
   if (!room(ObjectCharge + CodeUnitCharge * cut.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(cut));
 }
+if (id === StringStartsWith || id === StringEndsWith) {
+  // **两个都收可选的第二个参数**（第 123 轮）✓——但它们的含义**不一样** ✗：
+  // `startsWith` 的那个是**起点** ✓，`endsWith` 的那个是**结束位置** ✓（JS 就是这么定的 ✓）。
+  const needle = args.length > 0 ? TextUnitsOf(table, args[0]) : [];
+  const length = units.length;
+  let from = ArgOr(args, 1, id === StringEndsWith ? length : 0);
+  if (from < 0) from = 0;
+  if (from > length) from = length;
+  if (id === StringStartsWith) {
+    if (needle.length === 0) return Value.FromBool(true);
+    if (from + needle.length > length) return Value.FromBool(false);
+    let same = true;
+    for (let i = 0; i < needle.length; i++) {
+      if (units[from + i] !== needle[i]) same = false;
+    }
+    return Value.FromBool(same);
+  }
+  if (needle.length === 0) return Value.FromBool(true);
+  if (needle.length > from) return Value.FromBool(false);
+  let same = true;
+  for (let i = 0; i < needle.length; i++) {
+    if (units[from - needle.length + i] !== needle[i]) same = false;
+  }
+  return Value.FromBool(same);
+}
+if (id === StringSubstring) {
+  // **夹到 0、再交换**（JS 的两条怪规矩，见 `StringSubstring` 那一段）✓。
+  const length = units.length;
+  let start = ArgOr(args, 0, 0);
+  let end = ArgOr(args, 1, length);
+  if (start < 0) start = 0;
+  if (start > length) start = length;
+  if (end < 0) end = 0;
+  if (end > length) end = length;
+  if (start > end) {
+    const swap = start;
+    start = end;
+    end = swap;
+  }
+  const cut: number[] = [];
+  for (let i = start; i < end; i++) cut.push(units[i]);
+  if (!room(ObjectCharge + CodeUnitCharge * cut.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(cut));
+}
+if (id === StringRepeat) {
+  // **先向下取整；负数抛** ✓（JS 的 `ToIntegerOrInfinity` + RangeError ✓）。
+  const raw = args.length > 0 ? ArgOr(args, 0, 0) : 0;
+  const count = raw < 0 ? -1 : raw;
+  if (count < 0) throw new Error("repeat needs a count that is not negative");
+  const total = units.length * count;
+  // **上限交给 room** ✓（见 `StringRepeat` 那一段：不另设一个人为的上限 ✓）。
+  if (!room(ObjectCharge + CodeUnitCharge * total)) throw new Error("out of room");
+  const out: number[] = [];
+  for (let i = 0; i < count; i++) {
+    for (let j = 0; j < units.length; j++) out.push(units[j]);
+  }
+  return Value.FromString(table.CreateString(out));
+}
 throw new Error("unimplemented: string builtin " + id);
 ```
 
@@ -248,9 +332,11 @@ return out;
 const table = vm.Table;
 const proto = Value.FromObject(protos.String);
 const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
-  "toUpperCase", "toLowerCase", "trim", "includes"];
+  "toUpperCase", "toLowerCase", "trim", "includes",
+  "startsWith", "endsWith", "substring", "repeat"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
-  StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes];
+  StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
+  StringStartsWith, StringEndsWith, StringSubstring, StringRepeat];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

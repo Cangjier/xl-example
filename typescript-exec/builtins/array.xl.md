@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
+import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
@@ -57,6 +57,16 @@ import { Vm } from "../../runtime/vm.xl.md"
 `some(回调)` 的号——有一个为真就是真；**空数组给假** ✓（与 JS 一致 ✓）。
 # const ArrayEvery:int = 11
 `every(回调)` 的号——全都为真才是真；**空数组给真** ✓（与 JS 一致 ✓，这一条最容易写反 ✗）。
+# const ArrayConcat:int = 12
+`concat(…items)` 的号（第 123 轮）——**只摊平一层** ✓（`[[1]].concat([[2]])` 给 `[[1],[2]]` ✓），
+非数组实参**原样接在后面** ✓。
+# const ArrayReverse:int = 13
+`reverse()` 的号——**原地改**并返回**同一个数组** ✓（JS 就是改自己 ✗ 不是给新数组 ✓）。
+# const ArrayIncludes:int = 14
+`includes(值)` 的号——返回**真假** ✓；洞按 `undefined` 算 ✓（JS 也这样 ✓）。
+# const ArrayIsArray:int = 15
+**`Array.isArray(x)`** 的号（第 123 轮）——**静态方法** ✓：调用时 `self` 是那个 `Array`
+**普通对象**（不是数组 ✗），所以它必须排在 `RequireArray` **前面** ✓。
 
 **`reduce` 不做** ✗：JS 的 `(累计, 值, 下标, 数组)` 要**两个以上实参** ✗，
 而 `NativeCall` **只带一个** ✓（与 `Map.forEach` 不传 `key`/`map` 是同一条限制 ✓）。
@@ -112,6 +122,12 @@ return args[index].AsInt();
 `Protos`，也不必把原型表传进来——**原型从哪来就从哪继承**。
 
 ```ts
+// **静态方法排在 `RequireArray` 前面**（第 123 轮）：`Array.isArray(x)` 的 `self`
+// 是那个 `Array` **普通对象** ✓，过一遍 `RequireArray` 会当场抛 ✗。
+if (id === ArrayIsArray) {
+  const target = args.length > 0 ? args[0] : Value.Undefined();
+  return Value.FromBool(target.Tag === ValueTag.Array);
+}
 RequireArray(table, self);
 const source = table.Get(self.Ref).AsArray();
 if (id === ArrayPush) {
@@ -175,6 +191,63 @@ if (id === ArraySlice) {
   }
   return Value.FromArray(handle);
 }
+if (id === ArrayConcat) {
+  // **只摊平一层** ✓：实参是数组就把**格子**接过来，不是数组就**原样接一个** ✓。
+  // **洞要跟着走** ✗：`[1,,2].concat([3])` 在 JS 里第二个位置**还是洞** ✓——
+  // 把洞 `Push` 成一个显式的 `undefined` 会让 `1 in result` 从假变真 ✗（形状变了）。
+  let extra = 0;
+  for (let i = 0; i < args.length; i++) {
+    extra = extra + (args[i].Tag === ValueTag.Array ? table.Get(args[i].Ref).AsArray().GetLength() : 1);
+  }
+  if (!room(ObjectCharge + ValueCharge * (source.GetLength() + extra))) {
+    throw new Error("out of room");
+  }
+  const handle = table.CreateArray();
+  table.Get(handle).Proto = table.Get(self.Ref).Proto;
+  const created = table.Get(handle).AsArray();
+  for (let i = 0; i < source.GetLength(); i++) {
+    AppendSlot(created, source, i);
+  }
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].Tag !== ValueTag.Array) {
+      created.Push(args[i]);
+      continue;
+    }
+    const part = table.Get(args[i].Ref).AsArray();
+    for (let j = 0; j < part.GetLength(); j++) {
+      AppendSlot(created, part, j);
+    }
+  }
+  return Value.FromArray(handle);
+}
+if (id === ArrayReverse) {
+  // **原地改、返回同一个数组** ✓（JS 就是这样 ✗ 不是给新数组 ✓）。
+  // **洞按位置跟着换** ✓：读的时候 `IsHole` 先看一眼 ✓，
+  // 写回去时洞走 `SetHole` ✓（写成 `undefined` 会把洞变成真值 ✗）。
+  const length = source.GetLength();
+  const half = Math.floor(length / 2);
+  for (let i = 0; i < half; i++) {
+    const j = length - 1 - i;
+    const leftHole = source.IsHole(i);
+    const rightHole = source.IsHole(j);
+    const left = source.GetAt(i);
+    const right = source.GetAt(j);
+    if (rightHole) source.SetHole(i); else source.SetAt(i, right);
+    if (leftHole) source.SetHole(j); else source.SetAt(j, left);
+  }
+  return self;
+}
+if (id === ArrayIncludes) {
+  // **它是 `indexOf` 的布尔版** ✓：同一趟严格相等 ✓。
+  // **与 JS 的那一处差别写在明处** ✗：JS 的 `includes` 用 SameValueZero（`NaN` 找得到 ✓），
+  // 而这里用严格相等（`NaN` 找不到 ✗）——`NaN` 今天在这一层**到不了这里** ✓
+  // （没有 `NaN` 字面量，`0/0` 那种也落在浮点上 ✗），所以这条差别暂时碰不到 ✓。
+  const needle = args.length > 0 ? args[0] : Value.Undefined();
+  for (let i = 0; i < source.GetLength(); i++) {
+    if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromBool(true);
+  }
+  return Value.FromBool(false);
+}
 if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   // **回调脚本**（第 117 轮，与 `Map/Set.forEach` 同一条路 ✓）：`call` 会重入分派循环 ✓，
   // 所以这里能跑脚本闭包；`map` 还能**收返回值**（`NativeCall` 有返回值 ✓）。
@@ -230,6 +303,24 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery) {
 throw new Error("unimplemented: array builtin " + id);
 ```
 
+# method AppendSlot:(target:HeapArray, source:HeapArray, index:int)=>void
+
+**把 `source[index]` 接到 `target` 尾部**——**洞也照样接过去** ✓（第 123 轮）。
+
+**为什么必须先 `Push` 再 `SetHole`**：`SetHole` 只处理**已有的**下标 ✓（越界它直接返回 ✓），
+所以「长一格」这一步只能由 `Push` 做 ✓——`heap.xl.md` 里那两半合起来才是这一步 ✓。
+**不能写成 `Push(source.GetAt(index))`** ✗：洞会被接成一个**显式的 `undefined`** ✓，
+于是 `1 in result` 从假变真 ✗（形状变了，判据量不出来、用户量得出来 ✗）。
+
+```ts
+if (source.IsHole(index)) {
+  target.Push(Value.Undefined());
+  target.SetHole(target.GetLength() - 1);
+  return;
+}
+target.Push(source.GetAt(index));
+```
+
 # method NeverCall:(callee:Value, self:Value, argument:Value, hasArgument:bool)=>Value
 
 装上内建时用的调用通道桩：**它一次都不该被调到**（装属性不会触发访问器）。
@@ -252,9 +343,9 @@ throw new Error("unreachable: installing a builtin never calls a function");
 const table = vm.Table;
 const proto = Value.FromObject(protos.Array);
 const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter",
-  "find", "some", "every"];
+  "find", "some", "every", "concat", "reverse", "includes"];
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
-  ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery];
+  ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

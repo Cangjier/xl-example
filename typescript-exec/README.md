@@ -31,8 +31,9 @@
 > `TDZ` 的动态那一半、正则。
 >
 > **标准库这一层已经有了**：`Array`（push / pop / join / indexOf / slice / forEach / map / filter /
-> find / some / every）、`String`（charAt / charCodeAt / indexOf / slice / split / toUpperCase /
-> toLowerCase / trim / includes——**大小写与 trim 只做 ASCII**，非 ASCII 响亮地抛）、
+> find / some / every / concat / reverse / includes，以及静态的 `Array.isArray`——**`new Array(n)` 不支持**）、
+> `String`（charAt / charCodeAt / indexOf / slice / split / toUpperCase / toLowerCase / trim /
+> includes / startsWith / endsWith / substring / repeat——**大小写与 trim 只做 ASCII**，非 ASCII 响亮地抛）、
 > `Object`（keys / values / entries——**后两个跳过访问器**）、
 > `JSON`（stringify + **parse**，第 122 轮；坏输入是**脚本接得住**的异常）、
 > `Math`（floor / abs / max / min / round / ceil / trunc / sign）、`Error`（`message` + `name`，

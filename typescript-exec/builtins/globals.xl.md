@@ -5,7 +5,7 @@ import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind } fr
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, ArrayIsArray } from "./array.xl.md"
 import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
 ```
@@ -185,7 +185,7 @@ import { SetCtor } from "./set.xl.md"
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
 ```ts
-return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error"];
+return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "Array"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -884,6 +884,18 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, entriesKey, entriesTarget
 const errorKey = Value.FromString(table.CreateString(Units("Error")));
 const errorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, errorKey, errorTarget);
+
+// **`Array` 是一个普通对象**（与 `Math` / `Date` 同款 ✓），上面只挂**静态方法** `isArray` ✓
+// （第 123 轮）。**已知差异写在明处** ✗：`new Array(3)` / `new Array(1, 2)` **不支持** ✗——
+// 那要求 `Array` 同时是**构造函数** ✓，而「普通对象不能被 `new`」是值模型今天的形状 ✓
+// （`Date` 那一支绕开它的办法是降级层直接落一条内部调用 ✓，这里不做：
+//  `new Array(n)` 的洞数组语义与 `push` 的增长语义是两套账 ✓，宁可缺 ✓）。
+const arrayObject = NewPlainObject(vm.Room(), table, protos);
+const isArrayKey = Value.FromString(table.CreateString(Units("isArray")));
+const isArrayTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIsArray, 0));
+SetProperty(vm.Room(), NeverCall, table, arrayObject, isArrayKey, isArrayTarget);
+const arrayKey = Value.FromString(table.CreateString(Units("Array")));
+SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));
 const consoleKey = Value.FromString(table.CreateString(Units("console")));

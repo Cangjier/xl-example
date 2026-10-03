@@ -4846,6 +4846,61 @@ check("JSON.parse：与 Node 逐值一致（坏输入**接得住**；深度上�
   }
 });
 
+check("`in` 的键要字符串化，数组按格子答（第 123 轮：静默给错值比抛更坏）", () => {
+  // 现场：`1 in arr` 往上抛「property keys must be strings or symbols」✗——
+  // 而**光把键字符串化还不够** ✗：数组的元素不在 `Props` 里（它们住在 `Elements`），
+  // 只看属性表会把 `1 in [10, 20]` 答成**假** ✗（JS 给真 ✓）。
+  // 所以这一条修的是两半：**键字符串化**（与 `get_index` / `set_index` 同一套 ✓）
+  // + **数组的下标与 `length` 按格子/结构答** ✓（洞不算 ✓）。
+  // **一处刻意绕开的写法** ✗：`[1 in arr ? 1 : 0]` —— `in` 写在**数组字面量里面**时，
+  // 词法层把它读成了**映射类型**的 `[K in T]` ✓，降级层于是报 `expression TypeParameter` ✓。
+  // 那是**解析层**的缺口（值位的 `[x in y]` 与类型位的映射类型撞形状 ✗），**响亮地抛** ✓、
+  // 不是静默给错值 ✓——所以这里改成**先算进变量再放进数组** ✓（量的是 `in` 的语义，不是那个形状 ✓）。
+  const source = [
+    "function run() {",
+    "  const arr = [10, 20];",
+    "  const holed = [1, , 3];",
+    "  const obj = { a: 1 };",
+    "  const keyed = { 1: 'x' };",
+    "  const a = 1 in arr ? 1 : 0;",
+    "  const b = 2 in arr ? 1 : 0;",
+    "  const c = 'length' in arr ? 1 : 0;",
+    "  const d = 'push' in arr ? 1 : 0;",
+    "  const e = 0 in holed ? 1 : 0;",
+    "  const f = 1 in holed ? 1 : 0;",
+    "  const g = 2 in holed ? 1 : 0;",
+    "  const h = 'a' in obj ? 1 : 0;",
+    "  const i = 'b' in obj ? 1 : 0;",
+    "  const j = 1 in keyed ? 1 : 0;",
+    "  const k = '01' in arr ? 1 : 0;",
+    "  return [a, b, c, d, e, f, g, h, i, j, k];",
+    "}",
+  ].join("\n");
+  const nodeRun = () => {
+    const arr = [10, 20];
+    const holed = [1, , 3];
+    const obj = { a: 1 };
+    const keyed = { 1: "x" };
+    return [1 in arr ? 1 : 0, 2 in arr ? 1 : 0, "length" in arr ? 1 : 0, "push" in arr ? 1 : 0,
+      0 in holed ? 1 : 0, 1 in holed ? 1 : 0, 2 in holed ? 1 : 0,
+      "a" in obj ? 1 : 0, "b" in obj ? 1 : 0, 1 in keyed ? 1 : 0, "01" in arr ? 1 : 0];
+  };
+  const expected = nodeRun();
+  eq(expected[0], 1, "Node：`1 in [10,20]` 是真（前提）");
+  eq(expected[5], 0, "Node：洞那一格是假（前提）");
+  eq(expected[9], 1, "Node：数字键落到对象上是真（前提）");
+
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "run";
+  const res = RunSources(request, () => {}, () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  const table = res.Table;
+  for (let i = 0; i < expected.length; i++) {
+    eq(GetIndex(table, res.Value, Value.FromInt(i)).AsInt(), expected[i], "第 " + i + " 项");
+  }
+});
+
 check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
