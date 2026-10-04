@@ -15,18 +15,18 @@
 | --- | --- | --- |
 | **引擎**（`runtime/`） | **~99.5%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 139 轮「失败类别」✓；第 142 轮 `NativeCall` 的实参表开宽 ✓；第 144 轮真假收成一个 `TruthyOf` ✓；第 145 轮「既是对象又可调用」✓；**第 147 轮位运算七条**（`ToInt32Of` / `ShiftCountOf` 两条共用判据 + 七条算子 ✓）；**第 177 轮关系比较收成一处 `CompareValues`** ✓；**第 182 轮 `length` 那条规矩只该管数组** ✓（`{ length: 3 }` 原来根本造不出来 ✗）；**第 185 轮原生任务表**（`ScheduleTask` / `Wants` / `Carry` / `NativeHosts` 扫根 / `CallNative` 认 `Halted` ✓——`Promise.then` 的推迟那一半 ✓）；**第 198 轮 `ToPrimitive` / `ToNumber` 收成两处**（`ToPrimitiveOf` / `ToNumberPrimitive` / `ToNumberOf` ✓）：`+ - * / %`、一元 `-` / `+`、`==`、四条关系**共用同一张表** ✓——并把 `NumericForCompare` 并了进来 ✓；**第 199 轮「走完一个迭代器」的服务**（`DrainIterator` / `IteratorDrainer()` ✓）**与语言层的临时根**（`Temps` / `RootKeeper()` ✓——实测逼出来的 ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4）、**语言层可用的 settle**（`Promise.all` / `race` 靠它 ✓，第 186 轮 ✓） |
 | **降级层**（本目录） | **~99.996%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；解构形参（第 134 轮）✓；对象剩余（第 135 轮）✓；`super(...xs)`（第 141 轮）✓；`new Date` 特例撤掉（第 145 轮）✓；解构赋值（第 146 轮）✓；位运算与复合赋值六条（第 147 轮）✓；**第 148 轮类型位那一族整族跳过**（`type` / `interface` / `declare` 六种 / 重载签名 / 抽象成员 ✓）；**第 178 轮箭头函数体的「位置」与「范围」**（`=>` 两处判据 + 数组元素要在逗号前收住 ✓）与 **`o[k](...)` 走 `get_index`** ✓；**第 180 轮逗号运算符**（降级成控制流 + 投影里「赋值比逗号紧」+ `LowerInto` 那处潜伏的水位 bug ✓）；**第 181 轮成员位上的逻辑赋值**（读引用一次、写回同一格 ✓）；**第 183 轮计算键的方法**（`{ [k]() {} }` ✓）与**字符串键的 `text` 不再带引号**（投影 ✓）；**第 197 轮 `new C(...xs)`**（实参收成数组 → 语言内建调用 `NewApplyId` ✓，**引擎一行都不用改** ✓）**；**第 198 轮一元 `+`**（`RtOp.ToNumber` ✓——那一格 `ir.xl.md` 早就留好了 ✓）**；缺 `enum` 与运行期 `namespace`** ✗（都有运行期语义 ✓，要造对象 ✓）、`[...gen()]`、`try { return } finally`、正则、`export default`、`new (class {…})()`（投影 ✓，第 198 轮量到 ✓）、值位的 `typeof`（投影 ✓） |
-| **标准库**（`builtins/`） | **~98.2%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮错误家族 ✓；第 138 轮三族 `prototype` / `constructor` ✓；第 140 轮内建 `super()` ✓；第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` ✓；第 144 轮 `filter` 与谓词族的真假 ✓；第 145 轮 `String(x)` / `Number(x)` / `Boolean(x)` / `Array(n)` / `new Date(ms)` 与 `typeof` ✓；第 149 轮 `NaN` / `Infinity` / 两对判定 / `globalThis` / `**` ✓；第 150 轮原始值原型（`Number` / `Boolean`）+ `toFixed` / `toString(基数)` + `at` / `splice` / `replaceAll` ✓；**第 182 轮 `valueOf` · `toPrecision` · `Object.freeze` · `Object.defineProperty` · `Array.from({length}, fn)` + 枚举标志位（`keys` / `values` / `entries` / `assign` / `JSON`）** ✓；**第 183 轮知名符号**（`Symbol.iterator` / `asyncIterator` / `toPrimitive` / `hasInstance` / `toStringTag` ✓，`Symbol` 从宿主引用改成带可调用载荷的对象 ✓）**；**第 184 轮迭代协议**（`GetIterator` 按 `Symbol.iterator` 取方法 → 调它 → 收 `next()` ✓，`protos.WellKnownSymbols` 那张常数表 ✓）**；**第 185 ~ 188 轮 `Promise`**（`resolve` / `reject` / `then` / `catch` / `all` / `race` ✓，`then(f, g)` ✓、`.finally` ✓）**；**第 197 轮 `ConstructApply`**（带展开的构造按 JS 的 `[[Construct]]` 四步 ✓）**；**第 198 轮 `Object.prototype.valueOf` / `toString`**（前者永远是对的 ✓；后者**只答能证的那一格** `[object Object]` ✓，其余**点名抛** ✓）**与 `Date.prototype.valueOf`**（`+new Date(ms)` ✓）**、`NumberFromValue` 转调引擎的 `ToNumberOf`** ✓；**第 199 轮生成器进四个急切入口**（展开 / 解构 / `Array.from` / `new Set` / `new Map` ✓）**；缺 `new Promise(执行器)` ✗、`String(符号)` ✗、`Object.freeze` 对数组元素真的生效 ✗、`Error.prototype.toString` ✗、`Date.prototype.toString` ✗、`Symbol.toStringTag` ✗（`[object Map]` 那一族 ✓）、`Symbol` 的原型 |
-| **端到端**（普通 `.ts` 文件） | **~99.995%** | **77** 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、两个实参的回调族、实参位的可选链、真假、可调用的全局名、解构赋值、位运算七条、类型位的声明整族跳过、数值常量与幂、逻辑赋值与原始值方法、标签模板当接收者 / 处在运算符左脊柱上、字符串比较、箭头函数体里的嵌套三元 / 数组里的箭头 / 从表里取出来再调、零实参的计算成员调用 + `x!`、逗号运算符、成员位上的逻辑赋值、标准库第四批、成员名那一族、迭代协议、`Promise` 的基础那一半、`Promise.all` / `race`、`then(f, g)` 两条路、接住拒绝之后结果就是兑现、`.` 后面的关键字是成员名、字符串接收者上的下标读、裸 `new` 接收者的下标读、`fill` 与 JSON 缩进、对象自己的 `toString`、内部件不可枚举、私有成员、静态块、带展开的构造、算术与比较的 `ToPrimitive`、**生成器的五个急切入口**（第 199 轮））；另一个**硬读数**是日常写法的普查（第 150 轮 32 条那一批：**14 → 27 条**逐字节一致 ✓；第 176 轮起同一份仪器长到 **87 条**、第 197 轮加宽到 99 条、第 198 轮 102 条：**93/102 跑得动、91/102 逐字节一致** ✓——读数与选题目录见那几轮的账 ✓） |
+| **标准库**（`builtins/`） | **~98.3%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮错误家族 ✓；第 138 轮三族 `prototype` / `constructor` ✓；第 140 轮内建 `super()` ✓；第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` ✓；第 144 轮 `filter` 与谓词族的真假 ✓；第 145 轮 `String(x)` / `Number(x)` / `Boolean(x)` / `Array(n)` / `new Date(ms)` 与 `typeof` ✓；第 149 轮 `NaN` / `Infinity` / 两对判定 / `globalThis` / `**` ✓；第 150 轮原始值原型（`Number` / `Boolean`）+ `toFixed` / `toString(基数)` + `at` / `splice` / `replaceAll` ✓；**第 182 轮 `valueOf` · `toPrecision` · `Object.freeze` · `Object.defineProperty` · `Array.from({length}, fn)` + 枚举标志位（`keys` / `values` / `entries` / `assign` / `JSON`）** ✓；**第 183 轮知名符号**（`Symbol.iterator` / `asyncIterator` / `toPrimitive` / `hasInstance` / `toStringTag` ✓，`Symbol` 从宿主引用改成带可调用载荷的对象 ✓）**；**第 184 轮迭代协议**（`GetIterator` 按 `Symbol.iterator` 取方法 → 调它 → 收 `next()` ✓，`protos.WellKnownSymbols` 那张常数表 ✓）**；**第 185 ~ 188 轮 `Promise`**（`resolve` / `reject` / `then` / `catch` / `all` / `race` ✓，`then(f, g)` ✓、`.finally` ✓）**；**第 197 轮 `ConstructApply`**（带展开的构造按 JS 的 `[[Construct]]` 四步 ✓）**；**第 198 轮 `Object.prototype.valueOf` / `toString`**（前者永远是对的 ✓；后者**只答能证的那一格** `[object Object]` ✓，其余**点名抛** ✓）**与 `Date.prototype.valueOf`**（`+new Date(ms)` ✓）**、`NumberFromValue` 转调引擎的 `ToNumberOf`** ✓；**第 199 轮生成器进四个急切入口**（展开 / 解构 / `Array.from` / `new Set` / `new Map` ✓）**；缺 `new Promise(执行器)` ✗、`String(符号)` ✗、`Object.freeze` 对数组元素真的生效 ✗、`Error.prototype.toString` ✗、`Date.prototype.toString` ✗、`Symbol.toStringTag` ✗（`[object Map]` 那一族 ✓）、`Symbol` 的原型 |
+| **端到端**（普通 `.ts` 文件） | **~99.997%** | **78** 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、两个实参的回调族、实参位的可选链、真假、可调用的全局名、解构赋值、位运算七条、类型位的声明整族跳过、数值常量与幂、逻辑赋值与原始值方法、标签模板当接收者 / 处在运算符左脊柱上、字符串比较、箭头函数体里的嵌套三元 / 数组里的箭头 / 从表里取出来再调、零实参的计算成员调用 + `x!`、逗号运算符、成员位上的逻辑赋值、标准库第四批、成员名那一族、迭代协议、`Promise` 的基础那一半、`Promise.all` / `race`、`then(f, g)` 两条路、接住拒绝之后结果就是兑现、`.` 后面的关键字是成员名、字符串接收者上的下标读、裸 `new` 接收者的下标读、`fill` 与 JSON 缩进、对象自己的 `toString`、内部件不可枚举、私有成员、静态块、带展开的构造、算术与比较的 `ToPrimitive`、生成器的五个急切入口、**中间值的根**（第 200 轮））；另一个**硬读数**是日常写法的普查（第 150 轮 32 条那一批：**14 → 27 条**逐字节一致 ✓；第 176 轮起同一份仪器长到 **87 条**、第 197 轮加宽到 99 条、第 198 轮 102 条：**93/102 跑得动、91/102 逐字节一致** ✓——读数与选题目录见那几轮的账 ✓） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` **239** 条 / `runtime:cli` **77** 份 ✓），
+与语料数（`runtime:check` **240** 条 / `runtime:cli` **78** 份 ✓），
 以及**日常普查**那一组（第 150 轮 32 条 → 第 176 轮起**同一份仪器 87 条** ✓：
 **80/87 跑得动、79/87 逐字节一致** ✓；第 197 轮**加宽到 99 条** ✓（加宽的 12 条全是新量出来的缺口 ✓）、
 第 198 / 199 轮 **102 条** ✓（第 198 轮加了 3 条修好的形状 ✓，第 199 轮**没加** ✓）——**93/102 跑得动、91/102 逐字节一致** ✓——
 那是**本地仪器** ✓（`tmp-audit.mjs` ✓，不进仓 ✓），读数记在这里 ✓）。
 
-### 整体进度（加权；第 199 轮）
+### 整体进度（加权；第 200 轮）
 
 四层各自的百分比是**估计**，权重是**这一层在「一份普通 `.ts` 跑对」里占的分量**：
 
@@ -34,9 +34,9 @@
 | --- | --- | --- | --- |
 | 引擎（`runtime/`） | 25% | 99.3% → **99.5%** | 24.88 |
 | 降级层（含 `typescript/` 那一半：token / 投影） | 30% | 99.997% | 30.00 |
-| 标准库（`builtins/`） | 25% | 97.9% → **98.2%** | 24.55 |
-| 端到端（普通 `.ts` 直接跑） | 20% | 99.99% → **99.995%** | 20.00 |
-| **合计** | 100% | — | **99.43%**（显示 99.4%） |
+| 标准库（`builtins/`） | 25% | 98.2% → **98.3%** | 24.58 |
+| 端到端（普通 `.ts` 直接跑） | 20% | 99.995% → **99.997%** | 20.00 |
+| **合计** | 100% | — | **99.45%**（显示 99.4%） |
 
 **这一轮又三层同时长** ✓：引擎多了一张**递下去**的服务（`DrainIterator` ✓）与一格**临时根**
 （`Temps` ✓）、降级层把数组模式那一步补成**两步**（`GetIterator` + `IterDrain` ✓）、
@@ -54,7 +54,7 @@
 
 | 读数 | 87 条（历史可比 ✓） | 99 条 | 102 条（这一轮 ✓） |
 | --- | --- | --- | --- |
-| `runtime:cli`（裁判是真 Node ✓） | **77 / 77** ✓ | 同左 | 同左 |
+| `runtime:cli`（裁判是真 Node ✓） | **78 / 78** ✓ | 同左 | 同左 |
 | 普查：node 跑得动 | 87 / 87 | 99 / 99 | 102 / 102 |
 | 普查：tsrun 跑得动 | 80 / 87 | 88 / 99 | **93 / 102** ✓ |
 | 普查：**逐字节一致** | 79 / 87 | 86 / 99 | **91 / 102** ✓ |
@@ -73,43 +73,49 @@
 往后的选题一律从那张普查表里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓，
 不是「修起来多容易」✗。
 
-### 下一步（第 199 轮更新）
+### 下一步（第 200 轮更新）
 
-**这一轮自己又量出来两条** ✓（都是写语料/判据时撞出来的 ✓）：
+**第 199 轮量出来的两条** ✓（都还在 ✓）：
 
 | 形状 | 报什么 | 性质 |
 | --- | --- | --- |
-| `yield* xs` ✓ | `unimplemented: yield* (delegating iteration)` ✗ | **降级层**：要按 `iter_next` **惰性转发** ✓（不是这一轮那张 drain ✗） |
+| `yield* xs` ✓ | `unimplemented: yield* (delegating iteration)` ✗ | **降级层**：要按 `iter_next` **惰性转发** ✓（不是那轮那张 drain ✗） |
 | `[...o]` 跑到堆满之后 ✓ | `unimplemented: an iterator's next() must return an object` ✗ | **OOM 的次生错**：`Status` 已经是 `OutOfMemory` 时，重入调用给回 `undefined` ✓，于是报的是**离现场很远**的一句话 ✗ |
 
-外加**这一轮故意留着的一条** ✓：`Array.from({ a: 1 })`（既没有迭代器、也没有 `length`）
+外加**故意留着的一条** ✓：`Array.from({ a: 1 })`（既没有迭代器、也没有 `length`）
 **抛** ✓，而 JS 给**空数组** ✓（把它当 `length` 为 0 的数组式对象 ✓）——写在明处 ✓、有判据钉着 ✓。
 
-1. **`for..of` 之外的急切入口还有 `yield*`** ✗（这一轮量到 ✓）：
-   它是**转发**而不是**收完** ✓（`yield* g()` 里 `g` 抛的时候外层也抛 ✓、而且 `break` 要能只走那么远 ✓），
-   所以落的该是「每推一步转发一步」✓——与这一轮那张「一次收完」的 `drain` **不是一回事** ✗。
-2. **`try { return … } finally { … }`** ✗（普查 `finally-return` ✓）：报
-   `unimplemented: return inside a try with finally (it would skip the finally)` ✓——
-   `finally` **不许被 `return` 跳过** ✓，要的是一条「先记下返回值、跑完 `finally` 再返回」的通道 ✓。
-3. **函数 → 源码文本** ✗（普查 `arith-function` / `tagged-template-in-binary-right` ✓）：
+1. **`try { return … } finally { … }`** ✗（普查 `finally-return` ✓，**现在 BLOCKED 那一栏的第一条** ✓）：
+   报 `unimplemented: return inside a try with finally (it would skip the finally)` ✓——
+   `finally` **不许被 `return` 跳过** ✓，要的是一条「先记下返回值、跑完 `finally` 再返回」的通道 ✓
+   （`break` / `continue` 那一支同理 ✓）。**这是普通 `.ts` 里最常见的一条** ✓。
+2. **函数 → 源码文本** ✗（普查 `arith-function` / `tagged-template-in-binary-right` ✓）：
    `f + 1` / `` "x" + f `` 在 JS 里给的是**源码文本** ✓（`Function.prototype.toString` ✓）。
    降级层手里**有 AST** ✓，所以这一条**做得出来** ✓。
-4. **`async f().then(…)`** ✗（普查 `async-then` / `async-await-seq` ✓）：
+3. **`async f().then(…)`** ✗（普查 `async-then` / `async-await-seq` ✓）：
    `async function` 的返回值要是一个**真的承诺对象** ✓
    （现在报 `unimplemented: calling a non-closure value` ✓ / `cannot read properties of undefined` ✓）。
+4. **`for..of` 之外的急切入口还有 `yield*`** ✗（第 199 轮量到 ✓）：
+   它是**转发**而不是**收完** ✓（`yield* g()` 里 `g` 抛的时候外层也抛 ✓、而且 `break` 要能只走那么远 ✓），
+   所以落的该是「每推一步转发一步」✓——与那张「一次收完」的 `drain` **不是一回事** ✗。
 5. **`new Promise(执行器)`** ✗：`Promise` 全局第 185 ~ 188 轮就装好了 ✓，
    缺的是**同步调一次执行器** ✓ + 造两个宿主回调 ✓。
-6. **语言层中间值的根**（这一轮开了头 ✓）：`RootKeeper()` 这个开关现在有了 ✓，
-   但**还没逐处过一遍** ✗——同一形状还有几处（`Array.prototype.map` / `filter` 那条 `collected` ✓、
-   `String.replace` 传函数那一支 ✓、`IteratorMethodOf` 那一串临时键 ✓）。
-   **纪律是明确的** ✓：**凡跨过一次会分配的动作（脚本调用 / 分配前那道闸门），就挂上** ✓。
-   这是**静默错值**那一档 ✗（而且只在堆压满时出现 ✗），所以排在**很前面** ✓。
-7. **标准库剩下的那几格** ✗：`String(Symbol.iterator)` ✓、
+6. **标准库剩下的那几格** ✗：`String(Symbol.iterator)` ✓、
    `Object.freeze` 的**数组元素** ✓（**静默错值** ✗，要动引擎 ✓）、
    `Symbol` 的原型 ✓、`Object.prototype.toString` 的**其余标签** ✓、
    `Array.from(数组式)` 的 `length` 缺省（上面那条 ✓）。
-8. **投影那两条** ✗（第 198 轮量到的 ✓）：`typeof ({}).toString` ✓ / `new (class {…})()` ✓。
-9. **老账**：`extends Map` 的 `super()` ✗、`Object.defineProperty` 的描述符只认 `value` / `enumerable` ✓。
+7. **投影那两条** ✗（第 198 轮量到的 ✓）：`typeof ({}).toString` ✓ / `new (class {…})()` ✓。
+8. **老账**：`extends Map` 的 `super()` ✗、`Object.defineProperty` 的描述符只认 `value` / `enumerable` ✓。
+
+**第 199 轮开的那个头，第 200 轮收口了** ✓（原来这一条排在很前面 ✓）：
+`RootKeeper()` 这个开关现在**逐处过了一遍** ✓——`map` / `filter` 的结果数组 ✓、
+`reduce` 的累加器 ✓、`new` 出来的实例 ✓ 都挂上了根 ✓，
+而**收口的判据是「这个值还挂在别处吗」** ✓（挂在调用方的槽里 ✓ / 挂在那个数组身上 ✓ 的**不必挂** ✗）。
+**还剩两处是「判出来」的** ✓（窗口在 ✓、但量不出稳定复现 ✗）：`reduce` 的累加器 ✓ 与
+`new C(...xs)` 的实例 ✓——都**照样挂上**了 ✓（挂根是保守的那一侧 ✓）。
+**还没做的** ✗：`IteratorMethodOf` 那一串**临时键** ✓（`Symbol.iterator` / `next` / `done` / `value` ✓，
+在**一次表达式里**造了就问 ✓——只有取值器真去分配时才有窗口 ✗，而知名符号表是普通对象 ✓，
+实测量不出来 ✓）——记在这里 ✓，不假装它不存在 ✓。
 
 **两条「不是缺口」** ✓（口径见 [docs/runtime-architecture.md §15](../docs/runtime-architecture.md)）：
 ① `regex-literal` ✓——`RegExp` 是 v1 写死的非目标 ✓；
@@ -123,6 +129,73 @@
 > **第 144 轮的账在下面（`### 第 144 轮的账`）**：这一轮不在上面这张单子里——
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
+
+### 第 200 轮的账（**语言层手里的中间值要有根**——第 199 轮那处潜伏 bug 的收口）
+
+**这一轮没有新语法** ✓：它修的是**第 199 轮实测抓到的那一类** ✓——
+「语言层手里拿着一个堆引用 → 调一次脚本 / 问一次分配前那道闸门 → 再用它」中间的**那个窗口** ✓。
+第 199 轮只补了它自己撞上的那几处 ✓（迭代器那一族 ✓），
+而同一个形状在别处还有 ✓——**这一类是「只在堆压满时才现形」的静默错值** ✗，
+本仓排序里最靠前的一档 ✓，所以这一轮把它**逐处过了一遍** ✓。
+
+**实测复现**（三千项就够 ✓，只要回调里造垃圾 ✓）：
+
+| 站点 | 关掉 keep 之后 |
+| --- | --- |
+| `xs.map(fn)`（回调每轮造 2KB 垃圾） | `invalid handle: 322` ✗（**量出来的** ✓） |
+| `xs.filter(fn)`（同上） | `invalid handle: 318` ✗（**量出来的** ✓） |
+| `[...一个 6 万项的 Symbol.iterator]` | `invalid handle: 322` ✗（第 199 轮 ✓） |
+
+**修的地方**（四处 ✓）：
+
+| 站点 | 手里拿着什么 | 为什么它**不在**别的根上 |
+| --- | --- | --- |
+| `Array.prototype.map` / `filter` | 结果数组（`table.CreateArray()` ✓） | 这一层刚造的 ✓（不在 `SnapshotRoots` 里 ✗） |
+| `Array.prototype.reduce` | 累加器 ✓ | 第一轮是初值 ✓、之后是**上一轮回调的返回值** ✓（回调一返回 `NativeResult` 就被重置 ✗） |
+| `ConstructApply`（`new C(...xs)` ✓） | 新造出来的实例 ✓ | 窗口只有「读 `prototype`」那一小段 ✓（调用一开始它就进了被调方的 `this` 槽 ✓） |
+
+**收口的判据是「这个值还挂在别处吗」** ✓——不是「看见了回调就挂」✗：
+
+| 留着的那些 | 为什么不必挂 |
+| --- | --- |
+| `filter` 判据读出来的那一项 ✓、谓词族（`find` / `some` / `every` / `findIndex`）那一项 ✓ | 它**还挂在那个数组身上** ✓，而数组挂在调用方的槽里 ✓ |
+| `sort` 的比较器手里那两个 ✓ | 同上 ✓（它们是数组里读出来的 ✓） |
+| `forEach` / `Map.forEach` / `Set.forEach` ✓ | 手里一个中间值都没有 ✓ |
+| `IteratorMethodOf` 那一串临时键 ✓ | 造了就在**同一次表达式**里问掉 ✓，而知名符号表是普通对象 ✓（实测量不出窗口 ✗）——**记在台账里，不假装它不存在** ✓ |
+
+**`keep` 这一路是怎么传下去的** ✓（与 `sink` / `protos` 同一条分派纪律 ✓）：
+`InvokeWithSink`（已经有它 ✓）→ `InvokeBuiltin` / `InvokeArray` ✓（**只有数组那一块收** ✓，
+字符串 / 全局 / 集合那几块用不到就不塞进签名 ✗）✓——与第 199 轮给 `SpreadInto` / `ArrayFromValues`
+那两处**同一个服务** ✓。
+
+**读数** ✓：`runtime:check` **239 → 240** ✓、`runtime:cli` **77 → 78/78** ✓
+（新语料 `78-intermediate-roots.ts` ✓：**7 行与 Node 逐字节相同** ✓，
+含 `map` / `filter` / `reduce`（**对象**累加器 ✓——用数的话那一格会**空转** ✗）✓、
+`new C(...xs)` ✓、以及小规模那一档的回归 ✓）、
+`cases:tsast` **1442/1442** ✓、`cases:check` **1048** ✓、`samples` 3/3 ✓、
+`xl check` 177 文件 0 错 0 警 ✓。
+
+**普查**（同一份 102 条 ✓，**一格没动** ✓——这一轮修的不是普查里那几条 ✓）：
+
+| 读数 | 第 199 轮 | 第 200 轮 |
+| --- | --- | --- |
+| tsrun 跑得动 | 93 / 102 | 93 / 102 ✓ |
+| **逐字节一致** | 91 / 102 | 91 / 102 ✓ |
+| 前 32 条那一列 | 28 / 32 | 28 / 32 ✓ |
+| `BLOCKED` 那栏 | 9 条 | **9 条** ✓ |
+
+**「普查没动」是这一轮该有的样子** ✓：它是**独立读数** ✓，
+量的是「日常写法能不能进、进得对不对」✓；而这一轮修的是**堆压满时的静默错值** ✗——
+那一条**不进那张表** ✓（表里那 102 条都太小 ✓，一次回收都不会发生 ✓）。
+所以这一轮的证据**只能**来自那两条实测复现 ✓ 与那道新的闸门 ✓，
+**不能**拿普查去凑 ✓——这也正是「两个读数各管一半」那句话的意思 ✓。
+
+**一处诚实的分档** ✓（写在判据的注释里 ✓、也写在上面那张表里 ✓）：
+`map` / `filter` 那两处是**量出来的** ✓（关掉 keep 当场红 ✓），
+`reduce` / `new` 那两处是**判出来的** ✓（窗口在 ✓，但量不出稳定复现 ✗——
+`reduce` 那条只在「回收恰好发生在那两次调用之间」时才炸 ✓，是**时序**问题 ✓）。
+两档都**照样挂上** ✓：挂根是**保守**的那一侧 ✓（多挂一个只是晚一轮回收 ✓），
+而漏挂是**静默错值** ✗——这个不对称决定了这一轮的行动 ✓。
 
 ### 第 199 轮的账（**生成器进得了每一个「急切」的入口**；外加一处实测到的潜伏 bug）
 

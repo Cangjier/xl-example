@@ -8568,5 +8568,64 @@ check("语言层手里的中间数组**要有根**：展开一个 6 万项的 `S
 });
 
 console.log("");
+console.log("=== 第 200 轮：语言层手里的中间值要有根 ===");
+
+check("`map` / `filter` 的结果数组、`reduce` 的累加器：都跨得过一次回收", () => {
+  // **端到端那一把在 `cases/78-intermediate-roots.ts`**（7 行逐字节 ✓）。
+  //
+  // **症状**：`xs.map(…)` 的回调每轮造 2KB 垃圾时，**三千项**就报 `invalid handle` ✗
+  //（第 199 轮抓到的是同一族的另一处：`[...一个 6 万项的 Symbol.iterator]` ✓）。
+  //
+  // **根因**：回收器只看 `SnapshotRoots` ✓，而**语言层自己造的东西不在名单里** ✗——
+  // 「手里拿着它 → 调一次脚本 / 问一次分配前那道闸门 → 再用它」中间有**一个真实的窗口** ✓。
+  //
+  // **收口的判据**（这一轮定下来的 ✓，写在 `array.xl.md` / `install.xl.md` 里 ✓）：
+  // 「**这个值还挂在别处吗**」✓——挂在调用方的槽里 ✓ / 挂在那个数组身上 ✓ 的**不必挂** ✗，
+  // 只有**谁都够不着**的那些才要挂 ✓。
+  //
+  // **两档要分清**（这一轮的账里也是这么写的 ✓）：
+  // · **量出来的** ✓：`map` 与 `filter` 的结果数组 ✓——把 keep 关掉，下面这两条**当场红** ✓
+  //  （`invalid handle: 318/322` ✓，实测过 ✓）；
+  // · **判出来的** ✓：`reduce` 的累加器（它**不在数组身上** ✓，第一轮是初值、之后是上一轮的返回值 ✓）、
+  //   `new C(...xs)` 那个实例（窗口只有「读 `prototype`」那一小段 ✓——调用一开始它就进了被调方的
+  //   `this` 槽 ✓，所以那一段**量不出稳定复现** ✗）。两处都**照样挂上** ✓：挂根是**保守**的一侧 ✓，
+  //   而漏挂是**静默错值** ✗。
+  //
+  // 下面每一段都在回调里**故意造 2KB 垃圾**：那是把窗口逼出来的手段 ✓
+  //（不造垃圾的话，阈值不到就一次都不回收 ✗，这条判据会**空转** ✗）。
+  const out = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const n = 3000;",
+    "const xs: number[] = [];",
+    "for (let i = 0; i < n; i++) xs.push(i);",
+    // ① `map`：结果数组（**量出来的**那一档）
+    "const doubled = xs.map((v: number) => { const pad = 'x'.repeat(2000); return v * 2 + pad.length - 2000; });",
+    "console.log('map', doubled.length, doubled[0], doubled[n - 1]);",
+    // ② `filter`：结果数组（**量出来的**那一档）
+    "const odd = xs.filter((v: number) => { const pad = 'x'.repeat(2000); return v % 2 === 1 && pad.length === 2000; });",
+    "console.log('filter', odd.length, odd[0], odd[odd.length - 1]);",
+    // ③ `reduce`：累加器**不在数组身上**——用**对象**当累加器（用数的话它根本不是引用型 ✗）
+    "const total = xs.reduce((acc: any, v: number) => { const pad = 'x'.repeat(2000); acc.sum = acc.sum + v + pad.length - 2000; return acc; }, { sum: 0 });",
+    "console.log('reduce', total.sum);",
+    // ④ `new C(...xs)`：新造的实例（**判出来的**那一档）
+    "class Acc { value = 0;",
+    "  constructor(seed: number) { for (let i = 0; i < 4000; i++) { const pad = 'y'.repeat(2000); this.value = seed + pad.length - 2000; } } }",
+    "const seedArg: number[] = [7];",
+    "console.log('new', new Acc(...seedArg).value);",
+    // ⑤ 小规模那一档照旧（回归：加了根不等于改了语义）
+    "console.log('small', [1, 2, 3].map((v: number) => v + 1).join(','), [1, 2, 3, 4].filter((v: number) => v % 2 === 0).join(','), [1, 2, 3, 4].reduce((m: number, v: number) => m + v, 0));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => out.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器（这一抛就是根没挂住）：" + res.Message);
+  eq(out[0], "map 3000 0 5998", "**量出来的**：`map` 的结果数组跨得过回收");
+  eq(out[1], "filter 1500 1 2999", "**量出来的**：`filter` 的结果数组");
+  eq(out[2], "reduce 4498500", "**判出来的**：`reduce` 的累加器（对象，不在数组身上）");
+  eq(out[3], "new 7", "**判出来的**：`new C(...xs)` 造出来的实例活过了构造函数");
+  eq(out[4], "small 2,3,4 2,4 10", "小规模那一档照旧（回归）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

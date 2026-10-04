@@ -32,16 +32,20 @@ import { InvokeSet, SetCtor } from "./set.xl.md"
 **依赖方向**：`builtins/` 依赖 `runtime/`，不反过来。所以「装库」这一步永远由
 **知道两边的那一层**（宿主 / 驱动）显式调用——`runtime/` 里不会出现 `builtins` 的名字。
 
-# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null)=>Value
 
 **按能力号总分派**。
 
 号段之外一律抛：**没装的东西被调到，就是配置错了**，不是「当作没有」——
 静默返回 `undefined` 会让调用方以为方法存在。
 
+**`keep` 是第 200 轮加的** ✓：数组那一块有四处要挂根 ✓（见 `InvokeArray` 那一段 ✓）。
+**只有它收这一样** ✓——字符串 / 全局 / 集合那几块都用不到 ✓，
+与 `sink` / `protos` 同一条分派纪律 ✓（用不到的不塞进签名 ✓）。
+
 ```ts
 if (id >= 100 && id < 200) return InvokeString(room, table, id, self, args);
-if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args);
+if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args, keep);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
@@ -113,7 +117,7 @@ if (id === IterDrainId) {
 // 交给它 ✓——与 `spread_into` 同一个号段、同一个理由 ✓（这里要 `protos` 造实例 ✓）。
 if (id === NewApplyId) {
   if (args.length < 2) throw new Error("unimplemented: new_apply needs (constructor, arguments)");
-  return ConstructApply(room, table, protos, call, args[0], args[1]);
+  return ConstructApply(room, table, protos, call, args[0], args[1], keep);
 }
 if (id === ArrayRestId) {
   if (args.length < 2) throw new Error("unimplemented: array_rest needs (source, start)");
@@ -132,7 +136,7 @@ if (id === StringSplit) return SplitString(room, table, protos, self, args);
 if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call, drain, keep);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink);
-return InvokeBuiltin(room, table, call, id, self, args);
+return InvokeBuiltin(room, table, call, id, self, args, keep);
 ```
 
 # const GetIteratorId:int = 702
@@ -482,7 +486,7 @@ for (let i = 0; i < count; i++) {
 return out;
 ```
 
-# method ConstructApply:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, ctor:Value, argValues:Value)=>Value
+# method ConstructApply:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, ctor:Value, argValues:Value, keep:RootKeeper | null)=>Value
 
 **`new C(...xs)` 的落点**（第 197 轮 ✓）：`ctor` 是构造函数 ✓、`argValues` 是**装着实参的数组** ✓。
 
@@ -512,6 +516,11 @@ for (let i = 0; i < count; i++) {
 // **原型取自构造函数上那一格 `prototype`** ✓（引擎给的那条口径 ✓）：是对象就用 ✓，
 // 否则用 `Protos.Object` ✓（JS 的 `[[Construct]]` ✓）。
 const created = NewPlainObject(room, table, protos);
+// **挂根** ✓（第 200 轮 ✓）：`created` 是**这一层造出来的实例** ✓、不在 `SnapshotRoots` 里 ✗，
+// 而下面两句都可能跑**脚本**（`prototype` 是一个取值器 ✓、构造函数本身 ✓）——
+// 不挂的话新实例**中途被收走** ✗，于是构造函数拿到的 `this` 是一个死句柄 ✗
+//（症状离现场很远 ✗：报的是构造函数体里随便哪一句 ✓）。
+if (keep !== null) keep(created, true);
 if (ctor.IsObject()) {
   const prototypeKey = Value.FromString(table.CreateString(Units("prototype")));
   const proto = GetProperty(room, call === null ? NeverCall : call, protos, table, ctor, prototypeKey);
@@ -523,6 +532,8 @@ if (call === null) {
   throw new Error("unimplemented: new_apply without a call channel");
 }
 const produced = call(ctor, created, items);
+// **摘根** ✓：还回去的那个值**紧接着就进调用方的槽** ✓（中间不分配 ✓）——所以到这里可以摘 ✓。
+if (keep !== null) keep(created, false);
 // **返回对象就用它** ✓（JS 的规矩 ✓，与 `DoReturn` 里那条一致 ✓）。
 if (produced.IsObject() || produced.Tag === ValueTag.Array
   || produced.Tag === ValueTag.Closure || produced.Tag === ValueTag.Function) {

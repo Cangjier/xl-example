@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
-import { Vm } from "../../runtime/vm.xl.md"
+import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 ```
 
@@ -202,7 +202,7 @@ if (index < 0) {
 return index > length ? length : index;
 ```
 
-# method InvokeArray:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeArray:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null)=>Value
 
 **数组内建的分派与实现**。
 
@@ -211,6 +211,16 @@ return index > length ? length : index;
 
 `slice` 造的新数组**继承源数组的原型**（`table.Get(source).Proto`）：不必认识
 `Protos`，也不必把原型表传进来——**原型从哪来就从哪继承**。
+
+**`keep` 是第 200 轮加的** ✓（`RootKeeper` ✓，第 199 轮那格引擎服务的开关 ✓）：
+这一块有**四处**「手里拿着一个值、然后调脚本」✓——`map` / `filter` 的结果数组 ✓、
+`filter` / 谓词族读出来的那一项 ✓、`reduce` 的累加器 ✓。
+**它们都是宿主侧的 `Value`** ✓（回收器看不见宿主语言的变量 ✗），
+而回调一跑就可能分配、就可能回收 ✓——实测：`xs.map(…)` 里回调每轮造 2KB 垃圾，
+**三千项就报 `invalid handle`** ✗（与第 199 轮那个 6 万项展开是同一个窗口 ✓）。
+**不是每一处都要挂** ✗：`sort` 的比较器与 `forEach` 手里那两个值**挂在数组身上** ✓
+（`self` 是调用方的槽 ✓ 本来就是根 ✓）——所以这一轮的判据是
+「**这个值还挂在别处吗**」✓，而不是「看见了回调就挂」✗。
 
 ```ts
 // **静态方法排在 `RequireArray` 前面**（第 123 轮）：`Array.isArray(x)` 的 `self`
@@ -360,9 +370,17 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     if (!room(ObjectCharge)) throw new Error("out of room");
     collected = table.CreateArray();
     table.Get(collected).Proto = table.Get(self.Ref).Proto;
+    // **挂根** ✓（第 200 轮 ✓）：这个结果数组是**这一层造的** ✓、不在 `SnapshotRoots` 里 ✗，
+    // 而下面每一轮都要调回调 ✓（会分配、会回收 ✓）——不挂的话它**中途被收走** ✗，
+    // 症状是 `invalid handle` ✓（实测：三千项 + 每轮 2KB 垃圾 ✓）。
+    if (keep !== null) keep(Value.FromArray(collected), true);
   }
   for (let i = 0; i < eachTotal; i++) {
     const item = source.GetAt(i);
+    // **`filter` 的那一项要跨过这次调用** ✓：它**先读出来、回调之后才决定收不收** ✓——
+    // 而它只挂在 `source`（调用方的数组）身上 ✓……**那也算挂着** ✓，
+    // 所以这里挂的是「**不挂在别处**」的那些 ✓（见上面那一段判据 ✓）。
+    // `map` 收的是回调的返回值 ✓（紧接着就 `Push` ✓，中间不分配 ✓）——它不必挂 ✓。
     const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i)]);
     if (id === ArrayForEach) continue;
     if (id === ArrayMap) {
@@ -376,6 +394,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     //（JS 只收 `"a"` ✓）——**静默错值** ✗，与 `if (s)` 那条是同一个根因 ✓。
     if (RtToBoolean(table, answered).AsBool()) table.Get(collected).AsArray().Push(item);
   }
+  if (collected >= 0 && keep !== null) keep(Value.FromArray(collected), false);
   return id === ArrayForEach ? Value.Undefined() : Value.FromArray(collected);
 }
 if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFindIndex) {
@@ -471,8 +490,24 @@ if (id === ArrayReduce) {
       started = true;
       continue;
     }
-    accumulator = call(args[0], Value.Undefined(), [accumulator, source.GetAt(i)]);
+    // **累加器要挂根** ✓（第 200 轮 ✓）：它**不在数组身上** ✗——
+    // 第一轮是调用方给的初值 ✓、之后每一轮都是**上一轮回调的返回值** ✓
+    //（回调一返回，`NativeResult` 就被重置了 ✗，于是它**挂在没有地方** ✗）。
+    // 而下面这次 `call` 会分配 ✓，不挂的话累加器**中途被收走** ✗——
+    // 症状是 `reduce` 到某一项突然拿到一个死句柄 ✓（同族实测：`map` 那条三千项就炸 ✓）。
+    const previous = accumulator;
+    if (keep !== null) keep(previous, true);
+    const next = call(args[0], Value.Undefined(), [previous, source.GetAt(i)]);
+    // **摘旧的、挂新的** ✓（两头都按值找 ✓，所以这里传的是各自的变量 ✓）：
+    // 新的那个要跨过**下一轮**那次 `call` ✓，所以它当场就得挂上 ✓。
+    if (keep !== null) keep(previous, false);
+    if (keep !== null) keep(next, true);
+    accumulator = next;
   }
+  // **收尾摘一次** ✓：还回去的那个值**紧接着就进调用方的槽** ✓（中间不分配 ✓）——
+  // 所以到这里可以摘了 ✓。第一个分支拿到的那个（挂在 `source` 上 ✓）从没挂过 ✓，
+  // 按值找找不到它 ✓、也就什么都不会发生 ✓（这正是「按值摘」比「按栈顶弹」稳的地方 ✓）。
+  if (keep !== null) keep(accumulator, false);
   if (!started) {
     // **空数组且没给初值**：JS 抛 `TypeError` ✓，这里也抛 ✓（**不许**静默给 `undefined` ✗）。
     throw new Error("reduce of an empty array with no initial value");
