@@ -1,4 +1,4 @@
-﻿# tests/coverage —— **场景覆盖度**判据（exec / runtime / 标准库 / 端到端）
+# tests/coverage —— **场景覆盖度**判据（exec / runtime / 标准库 / 端到端）
 
 这条判据回答的是**唯一**一个进度问题：
 
@@ -13,6 +13,25 @@
 **这是本仓唯一一个「进度」读数** ✓——其余百分比都是折算 ✓。表里的每一行都有对应的
 逐轮账（`typescript-exec/README.md` 的 `### 第 N 轮的账` ✓），`report.json` 是**最后一次整跑**
 的完整清单 ✓（哪一条没过、为什么，一条一行 ✓）。
+
+## 剩下的活：**入口在哪一行**（给「下一轮从哪儿下手」用）
+
+每一条都写清**根子在哪个文件的哪个符号** ✓，以及**为什么它不是顺手就能改的** ✓。
+这一栏里每一条都是**量过、读过、想清楚**才写下来的 ✗ 不是猜 ✓；按「普通 `.ts` 里有多常见」排 ✓。
+
+| # | 缺口 | 入口（文件 · 符号） | 难点 / 已经想到的路 |
+| --- | --- | --- | --- |
+| 1 | 回调里抛的异常没有立刻中断内建的循环 | `runtime/vm.xl.md` · `CallNative` 的第 3 条前提 | 那条前提只对 **rt 算子**成立 ✗；语言内建是宿主的 JS 循环 ✓，拿到 `undefined` 会接着转 ✗。要「**幂等**地停」✓（把状态里已记录的那份原样交出去 ✓）——「从内建抛宿主异常」那条路第 153 轮已被证伪 ✗ |
+| 2 | `Function.prototype.call` / `apply` / `bind` | 与 #1 **同一条通道**（`NativeCall`）+ `install.xl.md` 的语言内建号段 | 引擎的 `Op.Call` 本来就带 `this` 操作数 ✓，机制现成 ✓——难的是它与 #1 共用同一条通道 ✓，**一起做才不白付** ✓ |
+| 3 | `typeof <对象字面量>` 那一族 | `typescript/` 的重组队列（`typeof` 被留成了兄弟单元 `TypeOfKeyword` ✗） | 与第 205 轮那个私有名**同一类根子** ✓；判据 `cases:tsast` 1442 条现成 ✓，改完当场知道对不对 ✓ |
+| 4 | 语言层的 `throw` 没有类别 | `typescript-exec/builtins/` 各处 `throw new Error(...)`（`array-reduce` / `symbol-concat-throws` / `error-engine-throws` 三条同源 ✓） | 引擎那侧第 139 轮已经有「失败类别 + 错误工厂」✓，缺的是**语言层怎么把类别递出去** ✓ |
+| 5 | 生成器对象的 `next()` | `install.xl.md` 的迭代那一段 ✓ | `for..of` / 展开两条路是好的 ✓（引擎那张 `drain` ✓），缺的是**直接调 `next()`** ✗——4 条判据拖着它 ✓ |
+| 6 | `super.v` 属性访问 | `typescript-exec/lowering.xl.md` 成员读那一支（`super.m(...)` 的兄弟 ✓，第 104 轮 ✓） | 要「**从父原型开始找 + `this` 是实例**」✓，而 `GetProperty` 从接收者起找 ✗、`FindProperty` + `ReadProperty` 凑不到一起 ✗ ⇒ 要给引擎加一条**带接收者的原型起读** ✓（`props.xl.md` ✓） |
+| 7 | `Symbol.description` | `runtime/props.xl.md` · `Protos`（**没有符号那一格** ✗） | 先给引擎加**符号原型** ✓（与 `Number.prototype` 让原始值读得到方法同源 ✓），再在 `globals.xl.md` 用 `DefineAccessor` 挂访问器 ✓ |
+| 8 | `Object.freeze` 的数组元素 | `runtime/heap.xl.md` · `HeapArray` 的写路径（**写屏障** ✗） | 引擎级的活 ✓ |
+| 9 | 标准库剩的几格 | `typescript-exec/builtins/globals.xl.md` ✓ | `Object.prototype.toString` 的其余标签 ✓、`global-array-object-ctors` 的 `as` 形状 ✓、`[...cond ? a : b]` ✓ |
+| 10 | `gc-churn` 的步数预算 | `runtime/vm.xl.md` · 步数预算 ✓ | 两万次普通循环就耗尽 ✓ |
+| 11 | 异步那一族 | `typescript-exec/builtins/promise.xl.md` ✓ | `await` 非承诺值 ✓、`async` 里 `throw` 不成拒绝 ✓、`Promise.all` 里非承诺的项 ✓、`new Promise(执行器)` ✓ |
 
 | 轮 | 整体 | 引擎 | 降级层 | 标准库 | 端到端 | 条数 | 这一轮动的格子 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
