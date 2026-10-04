@@ -7030,18 +7030,11 @@ check("逻辑赋值 `||=` / `&&=` / `??=`：糖，落成控制流", () => {
   const res = RunSources(request, (text) => lines.push(text), () => null);
   eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
   eq(lines[0], "5 7 3 2 0 5 4 1 1", "六条赋值 + **右边只算一次**（短路生效时一次都不算）");
-  // **左值不是简单名字时响亮地抛** ✓（不静默按「读两次」算 ✗）。
-  let message = "";
-  try {
-    const member = new RunRequest();
-    member.Sources = ["const o = { v: 0 }; o.v ||= 1;"];
-    member.Entry = "";
-    RunSources(member, () => {}, () => null);
-  } catch (error) {
-    message = String(error.message);
-  }
-  ok(message.indexOf("logical assignment to a non-identifier") >= 0,
-    "属性 / 下标那两种照旧抛（下一轮做「读一次引用、写回同一格」）：" + message);
+  // **左值不是简单名字时原来响亮地抛** ✓（第 150 轮的口径 ✓：不静默按「读两次」算 ✗）。
+  //
+  // **第 181 轮把那一档补上了** ✓——这条判据就是那时**变红**的 ✓（它当时已经写明
+  // 「下一轮做『读一次引用、写回同一格』」✓）。成员位那两种现在有**自己的判据**，
+  // 在下面的「第 181 轮」那一节里 ✓（这里只留指针，免得同一件事两处断言 ✓）。
 });
 
 check("原始值原型（`Number` / `Boolean`）+ `at` / `splice` / `replaceAll`", () => {
@@ -7492,6 +7485,47 @@ check("逗号是糖：先算左边（副作用留着）、值是右边；且「�
   eq(lines[3], "3 2", "赋值与逗号混写（**静默错值**：原来 `m` 给 4）");
   eq(lines[4], "2 8 v", "箭头体 / 表达式位 / 左边是常量");
   eq(lines[5], "2 3", "左边**真的有副作用**：`tick(1)` 与 `tick(2)` 各跑一次（值取右边）");
+});
+
+console.log("");
+console.log("=== 第 181 轮：成员位上的逻辑赋值（`o.a ??= 5` · `o[k] ||= 1`）===");
+
+check("读一次引用、写回同一格：接收者一次 · 键一次 · 右边只在需要时才算", () => {
+  // **端到端那一把在 `cases/59-member-logical-assign.ts`**（6 行逐字节 ✓）。
+  //
+  // **症状**：`o.a ??= 5` 报 `unimplemented: logical assignment to a non-identifier` ✗
+  // （**整份文件进不来** ✗），而第 150 轮那三条（`||=` / `&&=` / `??=`）只做了**标识符** ✓。
+  //
+  // **为什么不能沿用「合成一棵树再降级」** ✗：那条路的写法是 `a ||= b` ⇒ `a || (a = b)` ✓，
+  // 左边于是出现**两次** ✓——名字读两次没有副作用 ✓，而 `o[f()] ||= 1` 里那个 `f()` 会
+  // **跑两遍** ✗（JS 只求值一次 ✓）。所以成员位这一支走的是
+  // 「**读引用一次 → 判 → 需要才写回同一格**」✓，与上面复合赋值那一支**同一条纪律** ✓。
+  //
+  // **极性与 `&&` / `||` / `??` 那三支同一个写法** ✓（`jump_if_false` 在**假**时跳 ✓）：
+  // `??=` 空才写 ✓、`||=` 假才写 ✓、`&&=` 真才写 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const o = { v: 0, w: 1, n: null };",
+    "o.v ||= 1; o.w ||= 9; o.n ??= 3;",
+    "let receivers = 0;",
+    "function get() { receivers++; return o; }",
+    "get().v ??= 5;",
+    "let keys = 0;",
+    "function key() { keys++; return 'v'; }",
+    "o[key()] ??= 6;",
+    "let rhs = 0;",
+    "function f() { rhs++; return 7; }",
+    "o.v ??= f(); o.missing ??= f();",
+    "const xs = [null, 0, 1]; xs[0] ??= 'd'; xs[1] ||= 5; xs[2] &&= 6;",
+    "const nested = { a: { b: null } }; nested.a.b ??= 8;",
+    "console.log(o.v, o.w, o.n, receivers, keys, rhs, xs.join(','), nested.a.b);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1 1 3 1 1 1 d,5,6 8",
+    "**第 181 轮修好**：三个值 + 接收者一次 + 键一次 + 右边只在需要时才算 + 下标与嵌套成员");
 });
 
 console.log("");

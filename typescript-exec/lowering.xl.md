@@ -4929,24 +4929,88 @@ const compoundBase = CompoundBaseOf(operatorText);
 // 而 `o[f()] ||= 1` 里那个 `f()` 会**跑两遍** ✗（JS 只求值一次 ✓）。
 // 所以属性 / 下标那两种**响亮地抛** ✓，单独立一轮 ✓（要做对得先读引用、再写回同一格 ✓，
 // 与上面复合赋值那三条一样的活 ✓）。
+//
+// **第 181 轮把那一档补上了** ✓（见下面第二支 ✓）：
+// 成员位上的逻辑赋值**不能合成树** ✗（接收者与键都会各求值两遍 ✓），
+// 所以它走的是「**读引用一次 → 判 → 需要才写回同一格**」✓——
+// 与上面复合赋值那一支**同一条纪律** ✓（接收者 / 键都只求值一次 ✓）。
 if (operatorText === "||=" || operatorText === "&&=" || operatorText === "??=") {
-  if (NodeKind(left) !== "Identifier") {
-    throw new Error("unimplemented: logical assignment to a non-identifier");
+  if (NodeKind(left) === "Identifier") {
+    const operator = operatorText === "||=" ? "||" : (operatorText === "&&=" ? "&&" : "??");
+    const assign: AstNode = {
+      kind: "BinaryExpression",
+      left: left,
+      operatorToken: { kind: "EqualsToken", text: "=" },
+      right: Child(node, "right"),
+    };
+    const synthetic: AstNode = {
+      kind: "BinaryExpression",
+      left: left,
+      operatorToken: { kind: "EqualsToken", text: operator },
+      right: assign,
+    };
+    return this.LowerBinary(synthetic);
   }
-  const operator = operatorText === "||=" ? "||" : (operatorText === "&&=" ? "&&" : "??");
-  const assign: AstNode = {
-    kind: "BinaryExpression",
-    left: left,
-    operatorToken: { kind: "EqualsToken", text: "=" },
-    right: Child(node, "right"),
-  };
-  const synthetic: AstNode = {
-    kind: "BinaryExpression",
-    left: left,
-    operatorToken: { kind: "EqualsToken", text: operator },
-    right: assign,
-  };
-  return this.LowerBinary(synthetic);
+  const logicalLeftKind = NodeKind(left);
+  if (logicalLeftKind === "PropertyAccessExpression" || logicalLeftKind === "ElementAccessExpression") {
+    // **成员位上的逻辑赋值**（第 181 轮）✓：`o.a ??= 5` / `o[k] ||= 1` / `o.a.b &&= f()` ✓——
+    // 语义与「简单名字」那一支**一字不差** ✓（`o.a ??= b` 就是 `o.a ?? (o.a = b)` ✓），
+    // 但**不能合成一棵树再降级** ✗：那样左边出现两次 ✓，
+    // 接收者（`f().a ??= 1` 里的 `f()` ✓）与键（`o[k()] ??= 1` 里的 `k()` ✓）会**各求值两遍** ✗。
+    //
+    // **两条规矩**（与上面复合赋值那一支同源 ✓）：
+    //   1. **接收者与键都只求值一次** ✓，读与写**用的是同样那两格** ✓；
+    //   2. **结果格的活法照 `??`**：先占结果格 ✓，临时量都在它上面 ✓，
+    //      最后 `Release(result + 1)` ✓——只留结果那一格活着 ✓。
+    //
+    // **极性**与 `&&` / `||` / `??` 那三支**同一个写法** ✓（`jump_if_false` 在**假**时跳 ✓）：
+    //   · `??=`：**空**才写 ✓ ⇒ 条件是 `IsNullish` ✓；
+    //   · `||=`：**假**才写 ✓ ⇒ 条件是 `Not(值)` ✓；
+    //   · `&&=`：**真**才写 ✓ ⇒ 条件就是那个值 ✓。
+    const logicalResult = this.Reserve(1);
+    const logicalReceiver = this.LowerExpression(Child(left, "expression"));
+    let logicalKeySlot = -1;
+    let logicalKeyConst = -1;
+    if (logicalLeftKind === "PropertyAccessExpression") {
+      const logicalName = Child(left, "name");
+      const logicalNameKind = NodeKind(logicalName);
+      if (
+        logicalNameKind !== "Identifier" &&
+        logicalNameKind !== "StringLiteral" &&
+        logicalNameKind !== "NumericLiteral"
+      ) {
+        throw new Error("unimplemented: logical assignment to a computed property name");
+      }
+      logicalKeyConst = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(logicalName)));
+      const logicalRead = this.RtCall2(RtOp.GetProp, logicalReceiver, logicalKeyConst);
+      this.Emit(Op.Move, logicalResult, logicalRead, -1, -1);
+    } else {
+      logicalKeySlot = this.LowerExpression(Child(left, "argumentExpression"));
+      const logicalRead = this.RtCallValues(RtOp.GetIndex, logicalReceiver, logicalKeySlot);
+      this.Emit(Op.Move, logicalResult, logicalRead, -1, -1);
+    }
+    let logicalCondition = logicalResult;
+    if (operatorText === "??=") logicalCondition = this.RtCall1(RtOp.IsNullish, logicalResult);
+    if (operatorText === "||=") logicalCondition = this.RtCall1(RtOp.Not, logicalResult);
+    const logicalDecisive = this.Here();
+    this.Emit(Op.JumpIfFalse, logicalCondition, 0, -1, -1);
+    const logicalValue = this.LowerExpression(Child(node, "right"));
+    this.Emit(Op.Move, logicalResult, logicalValue, -1, -1);
+    if (logicalLeftKind === "PropertyAccessExpression") {
+      this.SetPropertyConst(logicalReceiver, logicalKeyConst, logicalResult);
+    } else {
+      const logicalWindow = this.Reserve(3);
+      this.Emit(Op.Move, logicalWindow, logicalReceiver, -1, -1);
+      this.Emit(Op.Move, logicalWindow + 1, logicalKeySlot, -1, -1);
+      this.Emit(Op.Move, logicalWindow + 2, logicalResult, -1, -1);
+      this.EmitRt(RtOp.SetIndex, logicalWindow, logicalWindow, 3);
+      this.Release(logicalWindow);
+    }
+    this.PatchTarget(logicalDecisive, this.Here());
+    this.Release(logicalResult + 1);
+    return logicalResult;
+  }
+  throw new Error("unimplemented: logical assignment to a non-identifier");
 }
 if (compoundBase !== "") {
   // **字符串那一半先换路**（第 125 轮）：`s += "x"` 里的右边是**字符串字面量** ✓，
