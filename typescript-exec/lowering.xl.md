@@ -1783,7 +1783,12 @@ if (nameNode === null) {
   throw new Error("unimplemented: class field without a name");
 }
 const nameKind = NodeKind(nameNode);
-if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+// **私有字段名也是字段名**（第 195 轮 ✓）：`#n = 1` 的 kind 是 `PrivateIdentifier` ✓——
+// 与私有**方法**（同轮补 ✓）以及三个方法的取值路（`KeyUnitsOf` ✓）**同一个键** ✓。
+// 原来这里只认三种 ✗，于是带私有字段的类也进不来 ✗（实测报的就是这一句 ✓）。
+if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
+    && nameKind !== "PrivateIdentifier"
+  && nameKind !== "PrivateIdentifier") {
   throw new Error("unimplemented: computed class field name");
 }
 const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(nameNode)));
@@ -2480,7 +2485,8 @@ if (kind === "PropertyAccessExpression") {
   const receiver = this.LowerExpression(Child(target, "expression"));
   const name = Child(target, "name");
   const nameKind = NodeKind(name);
-  if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+  if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
+    && nameKind !== "PrivateIdentifier") {
     throw new Error("unimplemented: destructuring assignment to a computed property name");
   }
   const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
@@ -3115,10 +3121,11 @@ if (optional) skip = this.JumpIfNullish(receiver);
 let result = -1;
 if (NodeKind(node) === "PropertyAccessExpression") {
   const name = Child(node, "name");
-  if (NodeKind(name) !== "Identifier") {
+  // **私有名也是属性名**（第 195 轮 ✓）：`this.#n` 与字段那一格同键 ✓（`KeyUnitsOf` ✓）。
+  if (NodeKind(name) !== "Identifier" && NodeKind(name) !== "PrivateIdentifier") {
     throw new Error("unimplemented: private or computed property name");
   }
-  const key = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
+  const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
   result = this.RtCall2(RtOp.GetProp, receiver, key);
 } else {
   const index = this.LowerExpression(Child(node, "argumentExpression"));
@@ -3212,10 +3219,13 @@ const optional = this.ChainHasOptional(call);
 let skip = -1;
 if (optional) skip = this.JumpIfNullish(receiver);
 const name = Child(callee, "name");
-if (NodeKind(name) !== "Identifier") {
+// **私有名也能当被调用的名字**（第 195 轮 ✓）：`this.#m()` 的 kind 是 `PrivateIdentifier` ✓，
+// 键与类里挂上去的那一格**同一个**（`#m` ✓）——两处都用 `KeyUnitsOf` ✓，
+// 于是「挂」与「取」不可能走偏 ✓。
+if (NodeKind(name) !== "Identifier" && NodeKind(name) !== "PrivateIdentifier") {
   throw new Error("unimplemented: method call with a computed name");
 }
-const key = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
+const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
 const args = ListOf(call, "arguments");
 const count = args.length;
 // **`?.` 有两种，守的东西不一样** ✗（第 152 轮量准的 ✓）：
@@ -4437,7 +4447,13 @@ for (let i = 0; i < members.length; i++) {
     throw new Error("unimplemented: async method in a class");
   }
   const memberName = Child(member, "name");
-  if (NodeKind(memberName) !== "Identifier" && NodeKind(memberName) !== "StringLiteral") {
+  // **私有名也是成员名**（第 195 轮 ✓）：`#m()` 那一格的 kind 是 `PrivateIdentifier` ✓，
+  // 与私有**字段**（`#n = 1` ✓，第 128 轮就通了 ✓）走的是同一条路 ✓——
+  // 键就是那串文本（`#m` ✓，见 `KeyUnitsOf` ✓）。
+  // 原来这里只认 `Identifier` / `StringLiteral` ✗，于是**整个类**都进不来 ✗
+  //（`unimplemented: computed or numeric class member name` ✓，实测 ✓）。
+  if (NodeKind(memberName) !== "Identifier" && NodeKind(memberName) !== "StringLiteral"
+    && NodeKind(memberName) !== "PrivateIdentifier") {
     throw new Error("unimplemented: computed or numeric class member name");
   }
   const closure = this.LowerFunctionValue(member, name + "." + TextOf(memberName));
@@ -4718,7 +4734,8 @@ if (kind === "DeleteExpression") {
   if (operandKind === "PropertyAccessExpression") {
     const name = Child(operand, "name");
     const nameKind = NodeKind(name);
-    if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+    if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
+    && nameKind !== "PrivateIdentifier") {
       throw new Error("unimplemented: delete of a computed property name");
     }
     key = this.Reserve(1);
@@ -4995,7 +5012,8 @@ if (operatorText === "||=" || operatorText === "&&=" || operatorText === "??=") 
       if (
         logicalNameKind !== "Identifier" &&
         logicalNameKind !== "StringLiteral" &&
-        logicalNameKind !== "NumericLiteral"
+        logicalNameKind !== "NumericLiteral" &&
+        logicalNameKind !== "PrivateIdentifier"
       ) {
         throw new Error("unimplemented: logical assignment to a computed property name");
       }
@@ -5078,7 +5096,8 @@ if (compoundBase !== "") {
     const receiver = this.LowerExpression(Child(left, "expression"));
     const name = Child(left, "name");
     const nameKind = NodeKind(name);
-    if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+    if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
+    && nameKind !== "PrivateIdentifier") {
       throw new Error("unimplemented: compound assignment to a computed property name");
     }
     const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
@@ -5132,7 +5151,8 @@ if (operatorText === "=") {
     if (leftKind === "PropertyAccessExpression") {
       const name = Child(left, "name");
       const nameKind = NodeKind(name);
-      if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+      if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
+    && nameKind !== "PrivateIdentifier") {
         throw new Error("unimplemented: assignment to a computed property name");
       }
       const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
