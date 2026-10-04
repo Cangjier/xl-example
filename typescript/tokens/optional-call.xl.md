@@ -64,6 +64,11 @@ return item.startBracket === "(" && item.Closed;
 `a?.()` 里 `?.` 与括号一起进了 NCO（末尾就是括号）✓；`a?.b` 里 NCO 装的是属性名 `b` ✗
 （那是可选**成员访问**，不是调用，不该在这里收）。
 
+**第 153 轮试过放宽成「`Data` 里有实参括号」** ✗（想把 `o.m?.().k` 里那个
+「前面是括号、后面还挂着 `.k`」的形状也认下来 ✓）——**没有修成** ✗：
+放宽之后形状一点没变 ✓，说明这一格**根本没被问到** ✓（真正的原因在别处 ✓，
+最可能是那一步时括号还没关闭 ✓）。**已经改回来了** ✓，理由写在 `Previous` 那一段 ✓。
+
 ```ts
 const current = Get(units, index);
 if (current === null || current.constructor.name !== "NullConditionalOperator") {
@@ -171,6 +176,12 @@ if (current === null) {
 // 里面的 NCO / 括号——不挡的话每次 `TryToClose` 都再包一层，直接爆栈
 // （实测 `Maximum call stack size exceeded`）。被调者与实参表进了 `Method`
 // 就说明这一次调用已经收好了 ✓。
+//
+// **第 153 轮试过加一条「关好了才算」** ✗（`&& current.Parent.Closed` ✓），
+// 想修的是 `o.m?.().k`（`.k` 被折进 NCO ✓）——**没有修成** ✗：
+// 加完之后形状一点没变 ✓，说明这一格**根本没被问到** ✓，真正的原因在别处 ✓
+//（最可能是那个实参括号**此刻还没关闭** ✓，`IsCallArguments` 要求 `Closed` ✓ → `-1` ✓）。
+// **已经改回来了** ✓（不留半截改动 ✓）；`o.m?.().k` 那一档继续记在台账里 ✓。
 if (current.Parent !== null && current.Parent.constructor.name === "Method") {
   return false;
 }
@@ -204,6 +215,14 @@ if (current === null) {
   throw new Error("OptionalCallReorganization.Process: current is null");
 }
 let startIndex = index;
+// **实参括号之后的东西不是这次调用的** ✓（第 153 轮试过这条，**没成** ✗）：
+// 想法是 `o.m?.().k` 的 NCO 里装着 `[Bracket, ., k]` ✓，把 `.k` 摘出来挂到 `Method` 后面 ✓，
+// 后续的属性访问规则就会折成 `(o.m?.()).k` 那个**本来就对**的形状 ✓。
+// **实测形状一点没变** ✗——放宽判据也一样 ✓，说明这一格**根本没被问到** ✓
+//（不是「判据太窄」✗，是**根本没走到这里** ✓；最可能是那一步时实参括号还没关闭 ✓，
+//  而 `IsCallArguments` 要求 `Closed` ✓ → `-1` ✓）。
+// 改动**已经全部改回来** ✓；`o.m?.().k` 那一档继续记在台账里 ✓，下一轮从「谁在投影它」查起 ✓
+//（`Method.PrintAst` 的可选链那一支也在嫌疑里 ✓——第 147 轮刚在那儿改过 ✓）。
 if (current.constructor.name === "NullConditionalOperator") {
   startIndex = this.CalleeStart(units, SkipPreviousWrapSymbol(units, index));
 } else {
