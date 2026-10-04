@@ -352,6 +352,29 @@ for (let i = index - 1; i >= 0; i--) {
       text === "asserts" ||
       text === "is"
     ) {
+      // **`typeof` 是个例外：它也是值位的一元运算符** ✗（第 233 轮 ✓）。
+      //
+      // 上面那张名单里别的词**只出现在类型位** ✓（`keyof T` ✓、`infer U` ✓、`readonly` ✓），
+      // 而 `typeof` **两处都有** ✗：类型位是**类型查询**（`type T = typeof x` ✓），
+      // 值位是**一元运算符**（`typeof x` ✓）——而这里要判的是「**这个 `{` 是不是类型的开头**」✓。
+      //
+      // **怎么分**：`typeof x` 这个**类型查询**后面永远跟一个**标识符或一个成员链** ✓
+      //（`typeof globalThis` ✓、`typeof x.y` ✓）——**它从来不直接跟一个 `{`** ✗；
+      // 而紧跟 `{` 的那种只出现在**条件类型**里 ✓
+      //（`typeof x extends { a: 1 } ? T : F` ✓——那正是这一段最早要保的形状 ✓）。
+      // 所以判据是「**往前有没有一个 `extends`**」✓（`HasExtendsMarker` ✓，同一个文件里现成的 ✓）。
+      //
+      // **实测的现场** ✗：`console.log(typeof {a: 1})` 与 `typeof {a: 1}` 都被收成
+      // `TypeLiteral` ✓，投影于是给出一个**孤零零的 `TypeOfKeyword`** ✓
+      //（对象那一整棵子树**根本不在产物里** ✗）——判据 `op-typeof-forms` /
+      // `ex-typeof-value-expression` 现场红的 ✓，一句话指向投影 ✗，
+      // 而根子在这里（**`{` 走错了那一条重组** ✓）。
+      //
+      // **`index` 是那个 `{`、不是 `typeof`** ✓：`HasExtendsMarker` 从 `index` 往左扫 ✓，
+      // 中间隔着 `typeof`（一个 `Identifier` ✓，它那一支是 `continue` ✓）——正好 ✓。
+      if (text === "typeof") {
+        return this.HasExtendsMarker(units, index);
+      }
       return true;
     }
     if (text === "let" || text === "var" || text === "const") {

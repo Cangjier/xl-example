@@ -18,27 +18,27 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 85.76,
+  "progressPercent": 86.65,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 106,
-      "pass": 98,
-      "blocked": 6,
+      "pass": 99,
+      "blocked": 5,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 92.45
+      "coverage": 93.4
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 46,
-      "pass": 38,
-      "blocked": 6,
+      "pass": 39,
+      "blocked": 5,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 82.61
+      "coverage": 84.78
     },
     {
       "layer": "stdlib",
@@ -62,12 +62,6 @@
     }
   ],
   "blocked": [
-    {
-      "id": "op-typeof-forms",
-      "layer": "runtime",
-      "title": "`typeof` 的**各种操作数形状**（标识符 / 字面量 / 对象 / 数组 / 函数）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeOfKeyword"
-    },
     {
       "id": "fn-named-expression",
       "layer": "runtime",
@@ -109,12 +103,6 @@
       "layer": "exec",
       "title": "标签模板后面接成员 / 运算符 / 实参",
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
-      "id": "ex-typeof-value-expression",
-      "layer": "exec",
-      "title": "`typeof` 一个值表达式（不是标识符）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
     },
     {
       "id": "ex-private-in-operator",

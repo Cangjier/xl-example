@@ -4,6 +4,7 @@ import { Token } from "../core/syntax/token.xl.md"
 import { Get, GetSkipNext, GetSkipPrevious, SkipNext, SkipPrevious } from "../core/extensions/list-extension.xl.md"
 import { Bracket } from "./tokens/bracket.xl.md"
 import { Identifier } from "./tokens/identifier.xl.md"
+import { Keyword } from "./tokens/keyword.xl.md"
 import { Document } from "../core/syntax/document.xl.md"
 import { String } from "./tokens/string/string.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
@@ -587,6 +588,26 @@ if (previous === null) {
   return true;
 }
 if (previous instanceof Identifier || previous instanceof String) {
+  return false;
+}
+// **`typeof { … }` 那个 `{` 也在表达式位**（第 233 轮 ✓）——**它前一个单元是 `Keyword`** ✗。
+//
+// **为什么只认 `typeof` 一个词** ✗（而不是「凡是 `Keyword` 都不算语句开头」✓）：
+// 有些关键词**后面真的跟一个块** ✓——`else { … }` ✓、`try { … }` ✓、`finally { … }` ✓、
+// `do { … }` ✓。把整类 `Keyword` 一律算成「不是语句开头」✗，那些块的 `{` 就会被
+// `JsonObjectReorganization` 收成**对象字面量** ✗（**静默错值** ✓：
+// `if (a) { … } else { … }` 的 else 分支当场换成别的形状 ✓）。所以只列**后面跟值的**那几个 ✓。
+//
+// **为什么必须在这里、而不在 `IsObjectAt` 那一支** ✗：那一支里**已经**有一个 `typeof` ✓
+//（`previous.IsAny(["return", "throw", "typeof"])` ✓），但那个判据**只在
+// `previous instanceof Identifier` 时成立** ✗——而 `typeof` 在树里是 **`Keyword`** ✓
+//（实测 `console.log(typeof {a: 1})` 的产物：`<Keyword>typeof</Keyword>` ✓）。
+// `return` / `throw` 在**语句开头**会被 `KeywordReorganization` 收成 `Identifier` ✓，
+// 所以那一支对它们有效 ✓、对 `typeof` 一直无效 ✗。
+//
+// **没量到的那两个词这一轮不改** ✗：`void { … }` 与 `delete` 后面的对象字面量
+// **一条判据都没有** ✓——**改了也没有证据说它对** ✗，缺口写在台账里 ✓。
+if (previous instanceof Keyword && WordText(previous) === "typeof") {
   return false;
 }
 if (previous instanceof Bracket) {
