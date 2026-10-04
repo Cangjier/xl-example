@@ -1079,6 +1079,14 @@ const isBracket = unit instanceof Bracket && unit.startBracket === "[";
 if (isBracket === false && unit.constructor.name !== "ArrayLiteral") {
   return false;
 }
+// **第 163 轮试过补一条「父单元是花括号」的词法判据** ✗——**退回来了** ✗。
+// 想法：映射键的 `[` 一定长在 `{` 里 ✓（要么是第一个单元 ✓、要么紧跟 `readonly` ✓），
+// 于是 `const r = [x in y, 2]` 那种**值位数组**就不会被误认成映射键 ✓。
+// **判据当场把这次改动否掉了** ✗：`cases:tsast` 从 **1440 / 1441** 掉到 **1431 / 1441** ✗
+//（缺节点 **0 → 205**、多出来 **0 → 68**、字段名 **0 → 18** ✓）。
+// 结论：**真映射键的 `[` 并不直接挂在花括号下** ✗（多半挂在 `TypeLiteral` 那个单元下 ✓），
+// 所以这条判据把**真的**映射类型一起挡掉了 ✗。
+// **要修它得先看清那个父单元到底是什么** ✓（下一轮用插桩 / `--ts-ast` 量 ✓，别再猜 ✗）。
 for (const item of unit.Data) {
   const name = item.constructor.name;
   if (item instanceof Identifier && item.Is("in")) {

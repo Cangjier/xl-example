@@ -4660,6 +4660,29 @@ if (kind === "TypeOfExpression") {
   const value = this.LowerExpression(subject);
   return this.RtCall1(RtOp.Typeof, value);
 }
+if (kind === "AsExpression" || kind === "SatisfiesExpression") {
+  // **`x as T` / `x satisfies T` 是类型位的语法**（第 163 轮）：把那一层**擦掉** ✓，值就是 `x` ✓。
+  // 与第 148 轮那条口径同源 ✓（**类型位一律擦除** ✓）——`as` 不改变运行期的值 ✓
+  //（它只让类型检查器换个看法 ✓），`satisfies` 更是纯检查 ✓。
+  //
+  // **它俩原来都报 `unimplemented`** ✗（整份文件进不来 ✗），而 `x as T` 在真实 `.ts` 里
+  // 到处都是 ✓——量出来的现场：`const s = "abc" as unknown as string;` ✓
+  //（`as unknown as T` 那种「双重断言」也很常见 ✓，擦两层与擦一层是同一件事 ✓）。
+  return this.LowerExpression(Child(node, "expression"));
+}
+if (kind === "VoidExpression") {
+  // **`void x`**（第 163 轮）：求值 `x` ✓、把结果丢掉 ✓、整句给 `undefined` ✓——JS 就是这么定的 ✓。
+  // `void 0` 是「拿一个确定的 `undefined`」那个老写法 ✓（到处都在用 ✓），
+  // 而这一层原来报 `unimplemented: expression VoidExpression` ✗（整份文件进不来 ✗）。
+  //
+  // **操作数照旧求值** ✓：`void f()` 里 `f()` 必须真的跑 ✓——
+  // 「`void 0` 这种常量就不求值了」那条优化**不在这一层做** ✗
+  //（省一条指令 vs 多一处要判断「有没有副作用」的地方 ✓，不划算 ✓）。
+  this.LowerExpression(Child(node, "expression"));
+  const voided = this.Reserve(1);
+  this.Emit(Op.Const, voided, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+  return voided;
+}
 if (kind === "DeleteExpression") {
   // **`delete`（第 92 轮补）**：引擎侧早就有它——`RtOp.DelProp` 与 `props.xl.md` 的
   // `DeleteProperty`（只删自有属性、不可配置要抛、本来不存在也算成功）。缺的只是**降级这一支**。
