@@ -1,4 +1,4 @@
-// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
+﻿// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
 //
 // 两栏：
 //   - `expect`: `"blocked"`（进不了门）/ `"differ"`（跑得出来但结果不同）——两者都算**没覆盖**；
@@ -12,6 +12,11 @@
 export const EXPECTATIONS = {
   // ===== runtime：引擎与语言层手里的那几张表 =====
   "op-typeof-forms": { expect: "blocked", why: "发现于第 211 轮：`typeof {}` / `typeof []` 这一类在 **token 层**就把 `typeof` 留成了兄弟单元（`TypeOfKeyword` ✗），对象字面量那一段与它对不上——`typeof <标识符>` 一直是好的 ✓" },
+  // ===== 第 219 轮补的一批：新盖到的形状里有四条是缺口（另六条当场通过）=====
+  "fn-call-apply-bind": { expect: "blocked", why: "`Function.prototype.call` / `apply` / `bind` 都没装（`greet.call(o, 1, 2)` 报 `calling a non-closure value`）——它们在普通 `.ts` 里很常见" },
+  "exc-throw-in-callback": { expect: "differ", why: "**回调里抛的异常没有立刻中断 `forEach`**：`[1,2,3].forEach(v => { if (v===2) throw … })` 里第 3 项**照跑**了（本仓 `13|caught:cb2|fin`，node `1|caught:cb2|fin`）——异常在最后才冒出来，属于**静默**那一类" },
+  "gen-try-finally": { expect: "blocked", why: "同 `gen-basics`：生成器对象的 `next()` 调不动（`calling a non-closure value`）——`for..of` / 展开那两条路是好的" },
+  "cls-inherited-accessor": { expect: "blocked", why: "同 `ex-getter-setter-class`：`super.v` **属性访问**没做（`super` 只做了方法调用那一格）" },
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
   "gen-basics": { expect: "blocked", why: "生成器对象上的 `next()` 调不动（`calling a non-closure value`）" },
   "gen-delegating": { expect: "blocked", why: "`yield*` 没做（要**惰性转发**，不是一次收完）" },

@@ -1101,4 +1101,127 @@ const survivor = { name: "alive" };
 console.log(survivor.name);
 `,
   },
+
+  // ============ 第 219 轮补的一批：普通 `.ts` 里常见、但矩阵此前没盖到的形状 ============
+  {
+    id: "fn-call-apply-bind",
+    title: "`f.call(o, …)` / `f.apply(o, xs)` / `f.bind(o)`",
+    src: `
+function greet(this: any, a: number, b: number) { return this.tag + ":" + (a + b); }
+const o = { tag: "T" };
+console.log(greet.call(o, 1, 2), greet.apply(o, [3, 4]));
+const bound = greet.bind(o, 10);
+console.log(bound(5));
+`,
+  },
+  {
+    id: "ctl-for-in",
+    title: "`for..in` 走自有可枚举（原型链上的不算）",
+    src: `
+const o: any = { a: 1, b: 2 };
+const seen: string[] = [];
+for (const k in o) seen.push(k);
+console.log(seen.sort().join(","), o.a + o.b);
+class A { m() { return 1; } }
+const a: any = new A();
+a.own = 3;
+const keys2: string[] = [];
+for (const k in a) keys2.push(k);
+console.log(keys2.join(","));
+`,
+  },
+  {
+    id: "exc-throw-in-callback",
+    title: "回调里抛：外层 `try` 接得住，且 `finally` 照跑",
+    src: `
+let log = "";
+try {
+  [1, 2, 3].forEach((v: number) => { if (v === 2) throw new Error("cb" + v); log += v; });
+} catch (e: any) {
+  log += "|caught:" + e.message;
+} finally {
+  log += "|fin";
+}
+console.log(log);
+`,
+  },
+  {
+    id: "gen-try-finally",
+    title: "生成器里的 `try` / `finally`（提前 `return` 时也要跑）",
+    src: `
+function* g(): any {
+  try { yield 1; yield 2; } finally { console.log("cleanup"); }
+}
+const it = g();
+console.log(it.next().value, it.next().value, it.next().done);
+function* h(): any { try { yield 1; return "early"; } finally { console.log("h-cleanup"); } }
+const it2 = h();
+console.log(it2.next().value, it2.next().value);
+`,
+  },
+  {
+    id: "arr-sort-comparator-zero",
+    title: "`sort` 的比较器返回 0 / 默认按文本排",
+    src: `
+const xs = [{ k: 1, n: "a" }, { k: 0, n: "b" }, { k: 0, n: "c" }];
+console.log(xs.slice().sort((p, q) => p.k - q.k).map((p) => p.n).join(""));
+const words = ["pear", "Apple", "fig"];
+console.log(words.slice().sort().join(","));
+`,
+  },
+  {
+    id: "str-template-with-calls",
+    title: "模板字面量里嵌调用 / 嵌套模板 / 三元",
+    src: `
+const xs = [1, 2];
+console.log(\`len=\${xs.length} sum=\${xs.reduce((a, b) => a + b, 0)} \${xs.length > 1 ? "many" : "one"}\`);
+console.log(\`outer \${xs.map((v) => \`<\${v}>\`).join("")} end\`);
+`,
+  },
+  {
+    id: "num-round-trip",
+    title: "`toFixed` → `Number` 往返，以及 `parseFloat` / `parseInt` 的边角",
+    src: `
+const x = 1 / 3;
+console.log(x.toFixed(4), Number(x.toFixed(4)) === 0.3333);
+console.log(parseFloat("1.5e2"), parseInt("0x1f"), Number("  7  "));
+`,
+  },
+  {
+    id: "obj-shorthand-and-in",
+    title: "对象简写 / 计算键 / `in` 与 `delete` 的组合",
+    src: `
+const k = "dyn";
+const v = 5;
+const o: any = { v, [k]: 1, m() { return 2; } };
+console.log(o.v, o.dyn, o.m(), "v" in o, "nope" in o);
+delete o.dyn;
+console.log("dyn" in o, Object.keys(o).sort().join(","));
+`,
+  },
+  {
+    id: "cls-inherited-accessor",
+    title: "继承链上的访问器与 `super` 取值",
+    src: `
+class A { get v(): number { return 1; } }
+class B extends A { get v(): number { return super.v + 1; } }
+class C extends B {}
+console.log(new A().v, new B().v, new C().v);
+`,
+  },
+  {
+    id: "exc-nested-error-fields",
+    title: "错误对象上的自定义字段 + 嵌套抛出 + `instanceof` 分派",
+    src: `
+class Http extends Error {
+  status: number;
+  constructor(status: number, msg: string) { super(msg); this.name = "Http"; this.status = status; }
+}
+try {
+  try { throw new Http(404, "nf"); } catch (e) { throw e; }
+} catch (e: any) {
+  console.log(e.name, e.status, e.message, e instanceof Http, e instanceof Error);
+}
+`,
+  },
 ];

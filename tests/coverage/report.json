@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 257,
+  "matrix": 267,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 78.49,
+  "progressPercent": 77.78,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 92,
-      "pass": 82,
-      "blocked": 8,
-      "differ": 2,
+      "total": 102,
+      "pass": 88,
+      "blocked": 11,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 89.13
+      "coverage": 86.27
     },
     {
       "layer": "exec",
@@ -109,6 +109,24 @@
       "layer": "runtime",
       "title": "大量短命分配：回收器要跟得上（不 OOM）",
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "fn-call-apply-bind",
+      "layer": "runtime",
+      "title": "`f.call(o, …)` / `f.apply(o, xs)` / `f.bind(o)`",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
+    },
+    {
+      "id": "gen-try-finally",
+      "layer": "runtime",
+      "title": "生成器里的 `try` / `finally`（提前 `return` 时也要跑）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
+    },
+    {
+      "id": "cls-inherited-accessor",
+      "layer": "runtime",
+      "title": "继承链上的访问器与 `super` 取值",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SuperKeyword"
     },
     {
       "id": "ex-enum-numeric",
@@ -267,6 +285,12 @@
       "layer": "runtime",
       "title": "微任务的顺序：同步先跑完，再按排队的先后",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：cannot read properties of undefined"
+    },
+    {
+      "id": "exc-throw-in-callback",
+      "layer": "runtime",
+      "title": "回调里抛：外层 `try` 接得住，且 `finally` 照跑",
+      "detail": "stdout 不同：第 1 行：node «1|caught:cb2|fin» vs tsrun «13|caught:cb2|fin»"
     },
     {
       "id": "ex-parameter-properties",
