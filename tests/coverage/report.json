@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 62.46,
+  "progressPercent": 65.7,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 90,
-      "pass": 75,
+      "pass": 76,
       "blocked": 9,
-      "differ": 6,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 83.33
+      "coverage": 84.44
     },
     {
       "layer": "exec",
@@ -44,21 +44,21 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 105,
-      "pass": 53,
-      "blocked": 28,
-      "differ": 24,
+      "pass": 59,
+      "blocked": 24,
+      "differ": 22,
       "nodefail": 0,
-      "coverage": 50.48
+      "coverage": 56.19
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 6,
+      "pass": 7,
       "blocked": 6,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 46.15
+      "coverage": 53.85
     }
   ],
   "blocked": [
@@ -285,30 +285,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
-      "id": "math-pow-sqrt",
-      "layer": "stdlib",
-      "title": "Math.pow / sqrt / cbrt / hypot",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "math-logs-constants",
-      "layer": "stdlib",
-      "title": "Math.log / exp / PI / E",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "math-isnan-family",
-      "layer": "stdlib",
-      "title": "Math 的取舍：非数值实参怎么处理",
-      "detail": "tsrun: 脚本抛出：this method needs a number"
-    },
-    {
-      "id": "number-static-parse",
-      "layer": "stdlib",
-      "title": "Number.parseInt / parseFloat 与全局那两个的差别",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "symbol-hasinstance",
       "layer": "stdlib",
       "title": "Symbol.hasInstance：自定义 instanceof",
@@ -394,12 +370,6 @@
     }
   ],
   "differ": [
-    {
-      "id": "num-float-bits",
-      "layer": "runtime",
-      "title": "浮点：0.1+0.2、大数、小数、特殊值",
-      "detail": "stdout 不同：第 2 行：node «9007199254740991 9007199254740992» vs tsrun «undefined 9007199254740992»"
-    },
     {
       "id": "arr-holes",
       "layer": "runtime",
@@ -533,18 +503,6 @@
       "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 2»"
     },
     {
-      "id": "math-abs-min-max",
-      "layer": "stdlib",
-      "title": "Math.abs / min / max（多实参、空实参）",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Cannot read properties of undefined (reading 'Tag')"
-    },
-    {
-      "id": "number-constants",
-      "layer": "stdlib",
-      "title": "Number.MAX_SAFE_INTEGER / MIN_SAFE_INTEGER / EPSILON",
-      "detail": "stdout 不同：第 1 行：node «9007199254740991 -9007199254740991» vs tsrun «undefined undefined»"
-    },
-    {
       "id": "map-object-keys",
       "layer": "stdlib",
       "title": "Map 的键可以是对象、NaN 也算同一个键",
@@ -591,12 +549,6 @@
       "layer": "stdlib",
       "title": "Boolean(x)：每个类型各一档",
       "detail": "stdout 不同：第 2 行：node «false true true true» vs tsrun «false true true false»"
-    },
-    {
-      "id": "e2e-inheritance-hierarchy",
-      "layer": "e2e",
-      "title": "继承体系：多态 + instanceof 分派 + 抽象基类",
-      "detail": "stdout 不同：第 1 行：node «circle area=3.14 circ» vs tsrun «circle area=NaN circ»"
     }
   ],
   "bad": [],

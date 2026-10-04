@@ -76,6 +76,20 @@ import { BuildPromise } from "./promise.xl.md"
 
 # const MathSign:int = 208
 
+# const MathLog:int = 213
+
+`Math.log` / `exp` / `cbrt` / `hypot`（第 206 轮补 ✓）。
+
+**它们与 `sqrt` / `pow` 是同一档** ✓：结果多数是**非整数** ✓，所以当年和 `sqrt` 一起
+被挡在门外（「算得出、打不出」✗）——第 124 轮把浮点的文本形态做出来之后才谈得上放行 ✓。
+这一批拖着的判据是 `math-logs-constants` ✓（`Math.log(1)` / `exp(0)` 这些）✓。
+
+# const MathExp:int = 214
+
+# const MathCbrt:int = 215
+
+# const MathHypot:int = 216
+
 # const ConsoleLog:int = 301
 
 # const ParseInt:int = 303
@@ -678,18 +692,36 @@ if (value.Tag === ValueTag.Float64) return value.Dbl;
 throw new Error("this method needs a number");
 ```
 
+# method MathArgOf:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>float
+
+**`Math.*` 的实参口径**（第 206 轮 ✓）：JS 对它们先做 **`ToNumber`** ✓——
+`Math.floor("2.5")` 是 `2` ✓、`Math.max(1, "9")` 是 `9` ✓、`Math.abs(true)` 是 `1` ✓、
+`Math.floor(undefined)` 是 `NaN` ✓（**不抛** ✓）。
+
+**它与 `NumericOf` 不是一回事** ✗：那个是**这一层的参数检查** ✓（只认 Int32 / Float64 ✓，
+别的点名抛 ✓）——对 `toFixed` 的位数那种实参是对的 ✓，对 `Math` 是错的 ✗。
+原来 `Math` 那一族用的正是 `NumericOf` ✗，于是 `Math.floor("2.5")` 抛
+`this method needs a number` ✓（判据 `math-isnan-family` 现场红的 ✓）。
+
+**转换那张表只有一份** ✓（引擎的 `ToNumberOf` ✓，第 198 轮把它与 `ToPrimitive` 收到了一处 ✓），
+所以这里**转调它** ✓：对象那一支（`ToPrimitive` → 可能调脚本 ✓）也跟着对 ✓。
+
+```ts
+return ToNumberOf(room, call, protos, table, value);
+```
+
 # method MathResult:(value:float)=>Value
 
 把算出来的数值变成 `Value`：**整的给 Int32，不是整的给 Float64**。
 
-**这条口径与引擎里的 `MakeNumber` 一致**（`rt.xl.md`）——建库层不另立一套，
-否则同一个数在两处会有两种标签，而标签是判等与显示的依据。
+**这一格现在转调引擎的 `MakeNumber`** ✓（第 206 轮 ✓）——原来它**自己抄了一遍**
+那条判据 ✗，抄漏的是**负零** ✗：`Math.min(-0, 0)` 在 JS 里给 `-0` ✓（`1 / -0` 是 `-Infinity` ✓），
+而这一格把它收成 `Int32 0` ✓ ⇒ `console.log` 打的是 `0` ✗（node 打 `-0` ✓）。
+`MakeNumber` 的注释里写着它为什么必须单独判 `-0` ✓（第 129 轮 ✓），
+所以这里**一个字都不该自己写** ✓——同一件事不写两份答案 ✓。
 
 ```ts
-if (value === Math.floor(value) && value >= -2147483648 && value <= 2147483647) {
-  return Value.FromInt(value);
-}
-return Value.FromDouble(value);
+return MakeNumber(value);
 ```
 
 # method NumberFromValue:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, value:Value)=>Value
@@ -789,16 +821,30 @@ if (id === SymbolCtor) {
   return Value.FromRef(ValueTag.Symbol, table.CreateSymbol(description));
 }
 if (id === MathFloor) {
-  return MathResult(Math.floor(NumericOf(args[0])));
+  return MathResult(Math.floor(MathArgOf(room, call, protos, table, args[0])));
 }
 if (id === MathAbs) {
-  const value = NumericOf(args[0]);
+  const value = MathArgOf(room, call, protos, table, args[0]);
   return MathResult(value < 0 ? 0 - value : value);
 }
 if (id === MathMax || id === MathMin) {
-  let best = NumericOf(args[0]);
+  // **空实参也有答案** ✓（第 206 轮 ✓）：JS 的 `Math.max()` 是 `-Infinity` ✓、
+  // `Math.min()` 是 `Infinity` ✓（「比谁都小 / 比谁都大」的那个初值 ✓）——
+  // 原来这里直接读 `args[0]` ✗，于是 `Math.min()` 崩成
+  // `Cannot read properties of undefined (reading 'Tag')` ✓（判据 `math-abs-min-max` 现场红的 ✓）。
+  if (args.length === 0) {
+    return MathResult(id === MathMax ? -Infinity : Infinity);
+  }
+  let best = MathArgOf(room, call, protos, table, args[0]);
+  // **第一个实参也可能是 `NaN`** ✓（`Math.max(NaN, 1)` 也是 `NaN` ✓）。
+  if (best !== best) return MathResult(NaN);
   for (let i = 1; i < args.length; i++) {
-    const value = NumericOf(args[i]);
+    const value = MathArgOf(room, call, protos, table, args[i]);
+    // **`NaN` 会传染** ✓（第 206 轮 ✓）：JS 的 `Math.min(1, NaN)` 是 `NaN` ✓——
+    // 而「比大小」那两条判据对 `NaN` **永远为假** ✗，于是它会**静默**被跳过 ✓
+    //（实测：`Math.min(1, NaN)` 给 `1` ✗，node 给 `NaN` ✓）。
+    // 与 `+` / 关系比较那几张表同一条纪律：**`NaN` 的传播要显式写出来** ✓。
+    if (value !== value) return MathResult(NaN);
     if (id === MathMax) {
       if (value > best) best = value;
     } else {
@@ -810,7 +856,7 @@ if (id === MathMax || id === MathMin) {
 if (id === MathRound || id === MathCeil || id === MathTrunc || id === MathSign) {
   // **四个都在 `MathResult` 那条口径上**（整的给 Int32）✓——这些函数的结果**本来就是整数** ✓，
   // 所以不存在「算得出、打不出」那一类坑 ✓。
-  const value = NumericOf(args[0]);
+  const value = MathArgOf(room, call, protos, table, args[0]);
   if (id === MathRound) return MathResult(Math.round(value));
   if (id === MathCeil) return MathResult(Math.ceil(value));
   if (id === MathTrunc) return MathResult(Math.trunc(value));
@@ -818,13 +864,30 @@ if (id === MathRound || id === MathCeil || id === MathTrunc || id === MathSign) 
 }
 if (id === MathSqrt) {
   // **浮点现在打得出来了**（第 124 轮）✓，所以这一支放行 ✓。
-  const value = NumericOf(args[0]);
+  const value = MathArgOf(room, call, protos, table, args[0]);
   if (value < 0) return MathResult(NaN);
   return MathResult(Math.sqrt(value));
 }
+if (id === MathLog || id === MathExp || id === MathCbrt || id === MathHypot) {
+  // **第 206 轮补的四格** ✓（`log` / `exp` / `cbrt` / `hypot` ✓）——
+  // 与 `sqrt` / `pow` 同一档（结果多为非整数 ✓，第 124 轮之后才谈得上放行 ✓）。
+  // `hypot` 是**多实参**那一档（与 `max` / `min` 同形 ✓）：`Math.hypot(3, 4)` 是 `5` ✓。
+  const first = MathArgOf(room, call, protos, table, args[0]);
+  if (id === MathLog) return MathResult(Math.log(first));
+  if (id === MathExp) return MathResult(Math.exp(first));
+  if (id === MathCbrt) return MathResult(Math.cbrt(first));
+  let sum = first * first;
+  for (let i = 1; i < args.length; i++) {
+    const value = MathArgOf(room, call, protos, table, args[i]);
+    sum = sum + value * value;
+  }
+  return MathResult(Math.sqrt(sum));
+}
 if (id === MathPow) {
-  // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`NumericOf(undefined)` 会抛 ✓）。
-  return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
+  // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`MathArgOf(undefined)` 给 `NaN` ✓，
+  // 而 JS 的 `Math.pow(undefined, …)` 也是 `NaN` ✓——**两边一致** ✓，所以不必另立一条抛 ✓）。
+  return MathResult(Math.pow(MathArgOf(room, call, protos, table, args[0]),
+    MathArgOf(room, call, protos, table, args[1])));
 }
 if (id === NumberToFixed || id === NumberToPrecision || id === NumberToStringRadix
   || id === BooleanToString || id === NumberValueOf || id === BooleanValueOf) {
@@ -1808,14 +1871,24 @@ return value;
 const table = vm.Table;
 const globals = NewPlainObject(vm.Room(), table, protos);
 const math = NewPlainObject(vm.Room(), table, protos);
-const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "trunc", "sign", "sqrt", "pow"];
+const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "trunc", "sign", "sqrt", "pow",
+  "log", "exp", "cbrt", "hypot"];
 const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign,
-  MathSqrt, MathPow];
+  MathSqrt, MathPow, MathLog, MathExp, MathCbrt, MathHypot];
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));
   SetProperty(vm.Room(), NeverCall, table, math, key, target);
 }
+// **`Math.PI` / `Math.E` 是属性，不是方法** ✓（第 206 轮 ✓）：它们是**数** ✓，
+// 所以挂的是 `Value.FromDouble(...)` 本身 ✓——挂成 HostRef 的话
+// `Math.PI` 取出来会是一个「能被调用的号」✗（`Math.PI * 2` 于是算不对 ✓）。
+// **`Math.PI` 遍地都是** ✓（圆的面积、角度换算 ✓），而判据 `e2e-inheritance-hierarchy` /
+// `math-logs-constants` 拖着的正是它 ✓。
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("PI"))), Value.FromDouble(Math.PI));
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("E"))), Value.FromDouble(Math.E));
 const consoleObject = NewPlainObject(vm.Room(), table, protos);
 const logKey = Value.FromString(table.CreateString(Units("log")));
 const logTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ConsoleLog, 0));
@@ -1940,6 +2013,15 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Array), NameVal
 // **第 145 轮它同时能被调用** ✓（`Number("7")` ✓）。
 const numberObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(numberObject.Ref, NumberCtor, 0);
+// **`parseInt` / `parseFloat` 的宿主引用只造一次** ✓（第 206 轮 ✓）：
+// 上面那两个全局、下面 `Number.parseInt` 那一格，**用的是同一个 `Value`** ✓——
+// 不然 `Number.parseInt === parseInt` 给 `false` ✗（JS 给 `true` ✓）。
+// 根子在**宿主引用的判等口径**上 ✓：`HostRef` 按**堆句柄**比 ✓，
+// 两次 `CreateHostRef(同一个号)` 造的是**两个句柄** ✓ ⇒ 两个值不相等 ✗。
+// 「同一个函数」这件事在 JS 里是**能被脚本看见的** ✓（实测 `Number.parseInt === parseInt` ✓），
+// 所以只能**共用同一个值** ✓，不能在两处各造一个 ✓。
+const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));
+const parseFloatTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseFloat, 0));
 const isIntegerKey = Value.FromString(table.CreateString(Units("isInteger")));
 const isIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsInteger, 0));
 SetProperty(vm.Room(), NeverCall, table, numberObject, isIntegerKey, isIntegerTarget);
@@ -1951,6 +2033,34 @@ SetProperty(vm.Room(), NeverCall, table, numberObject, isNaNAKey, isNaNTarget);
 const isFiniteKey = Value.FromString(table.CreateString(Units("isFinite")));
 const isFiniteTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsFinite, 0));
 SetProperty(vm.Room(), NeverCall, table, numberObject, isFiniteKey, isFiniteTarget);
+// **`Number.parseInt` / `Number.parseFloat`**（第 206 轮 ✓）：它们与**全局那两个是同一个个函数** ✓
+//（JS 就是这么定的：`Number.parseInt === parseInt` 为真 ✓）——所以这里挂的是**同一个能力号** ✓，
+// 而不是另写一份 ✗（`parseInt` 那一段的规矩不少：跳空白 / 认符号 / 基数 / 最长合法前缀 ✓，
+// 写第二份就是第二处会漂的答案 ✗）。
+const numberParseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
+SetProperty(vm.Room(), NeverCall, table, numberObject, numberParseIntKey, parseIntTarget);
+const numberParseFloatKey = Value.FromString(table.CreateString(Units("parseFloat")));
+SetProperty(vm.Room(), NeverCall, table, numberObject, numberParseFloatKey, parseFloatTarget);
+// **数值常量是属性，不是方法** ✓（与 `Math.PI` 同一条规矩 ✓）。
+// `MAX_SAFE_INTEGER` 是 **2^53-1** ✓（`9007199254740991` ✓）——它**超出 int32** ✓，
+// 所以必须是 `FromDouble` ✓（写成 Int32 会溢出成另一个数 ✗，而那是最难查的一种「看起来存进去了」✓）。
+// **`MAX_SAFE_INTEGER` 拖着的判据是 `num-float-bits` / `number-constants`** ✓。
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("MAX_SAFE_INTEGER"))), Value.FromDouble(9007199254740991));
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("MIN_SAFE_INTEGER"))), Value.FromDouble(-9007199254740991));
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("EPSILON"))), Value.FromDouble(2.220446049250313e-16));
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("MAX_VALUE"))), Value.FromDouble(1.7976931348623157e308));
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("MIN_VALUE"))), Value.FromDouble(5e-324));
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("POSITIVE_INFINITY"))), Value.FromDouble(Infinity));
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("NEGATIVE_INFINITY"))), Value.FromDouble(-Infinity));
+SetProperty(vm.Room(), NeverCall, table, numberObject,
+  Value.FromString(table.CreateString(Units("NaN"))), Value.FromDouble(NaN));
 const numberKey = Value.FromString(table.CreateString(Units("Number")));
 SetProperty(vm.Room(), NeverCall, table, globals, numberKey, numberObject);
 // **`Number.prototype` 与 `Boolean.prototype`**（第 150 轮）：与 `String.prototype` 同款 ✓——
@@ -2022,10 +2132,8 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanValueOf, 0)));
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
-const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);
 const parseFloatKey = Value.FromString(table.CreateString(Units("parseFloat")));
-const parseFloatTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseFloat, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, parseFloatKey, parseFloatTarget);
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));

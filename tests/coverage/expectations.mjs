@@ -1,4 +1,4 @@
-// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
+﻿// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
 //
 // 两栏：
 //   - `expect`: `"blocked"`（进不了门）/ `"differ"`（跑得出来但结果不同）——两者都算**没覆盖**；
@@ -11,7 +11,6 @@
 
 export const EXPECTATIONS = {
   // ===== runtime：引擎与语言层手里的那几张表 =====
-  "num-float-bits": { expect: "differ", why: "`Number.MAX_SAFE_INTEGER` 没装 ⇒ `undefined`（标准库缺项，不是数的问题）" },
   "op-unary": { expect: "blocked", why: "`typeof <非标识符>` 降级不出来（只认标识符位）——`typeof ({}).x` / `typeof []` 这一类" },
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
   "arr-holes": { expect: "differ", why: "稀疏数组的洞在 `Object.keys` 里被算成键（JS 不算）" },
@@ -75,12 +74,6 @@ export const EXPECTATIONS = {
   "object-fromEntries": { expect: "blocked", why: "`Object.fromEntries` 没装" },
   "object-getOwnPropertyNames": { expect: "blocked", why: "`Object.getOwnPropertyNames` 没装" },
   "object-keys-values-entries": { expect: "differ", why: "`Object.keys(\"ab\")` 该给 `[\"0\",\"1\"]`（字符串也行），本仓点名抛「needs an object」" },
-  "math-abs-min-max": { expect: "differ", why: "`Math.min()` / `Math.max()` 空实参让引擎崩" },
-  "math-pow-sqrt": { expect: "blocked", why: "`Math.pow` / `sqrt` / `cbrt` / `hypot` 没装" },
-  "math-logs-constants": { expect: "blocked", why: "`Math.log` / `exp` / `PI` / `E` 没装" },
-  "math-isnan-family": { expect: "blocked", why: "`Math.*` 对非数值实参该先做 `ToNumber`（现在点名抛）" },
-  "number-static-parse": { expect: "blocked", why: "`Number.parseInt` / `Number.parseFloat` 没装" },
-  "number-constants": { expect: "differ", why: "`Number.MAX_SAFE_INTEGER` / `MIN_SAFE_INTEGER` / `EPSILON` 没装" },
   "map-object-keys": { expect: "differ", why: "`Map` 认不出 `NaN` 是同一个键（SameValueZero）" },
   "collection-prototype": { expect: "differ", why: "`Map.prototype.constructor` / `Object.getPrototypeOf` 这一族没装" },
   "symbol-hasinstance": { expect: "blocked", why: "类上的**计算成员名**（`static [Symbol.hasInstance]`）降级不出来" },
@@ -104,6 +97,5 @@ export const EXPECTATIONS = {
   "e2e-data-pipeline": { expect: "blocked", why: "`flatMap` 没装（挂在标准库那一格上）" },
   "e2e-async-workflow": { expect: "blocked", why: "`await` 一个非承诺值 + `async` 方法（同前面两格）" },
   "e2e-mixed-everything": { expect: "blocked", why: "类里的生成器方法（`*keys()`）降级不出来" },
-  "e2e-inheritance-hierarchy": { expect: "differ", why: "挂在 `Math.PI` 上：没装 ⇒ `area()` 给 `NaN`（整条链都算错，**静默错值**）" },
   "e2e-linked-list": { expect: "blocked", why: "类上写 `[Symbol.iterator]()` 这种**计算成员名**降级不出来（与 `symbol-hasinstance` 同一处）" },
 };

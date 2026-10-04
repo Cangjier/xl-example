@@ -35,22 +35,22 @@
 
 | 层 | 权重 | **覆盖度**（读数） | 条数 | 贡献 |
 | --- | --- | --- | --- | --- |
-| 引擎（`runtime/`） | 25% | **83.3%** | 75 / 90 | 20.83 |
+| 引擎（`runtime/`） | 25% | **84.4%** | 76 / 90 | 21.11 |
 | 降级层（含 `typescript/` 那一半：token / 投影） | 30% | **65.9%** | 29 / 44 | 19.77 |
-| 标准库（`builtins/`） | 25% | **50.5%** | 53 / 105 | 12.62 |
-| 端到端（普通 `.ts` 直接跑） | 20% | **46.2%** | 6 / 13 | 9.24 |
-| **合计** | 100% | — | **163 / 252** | **62.5%** |
+| 标准库（`builtins/`） | 25% | **56.2%** | 59 / 105 | 14.05 |
+| 端到端（普通 `.ts` 直接跑） | 20% | **53.8%** | 7 / 13 | 10.77 |
+| **合计** | 100% | — | **171 / 252** | **65.7%** |
 
 **这两个数（99.5% 与 58.8%）量的不是同一件事** ✓，两个都留着：
 
 | 读数 | 量什么 | 现在 |
 | --- | --- | --- |
 | 上面那张**机制**表（估计 ✓） | **机器还剩多少没造**（值 / 堆 / GC / 帧 / IR / 执行器 / 降级 / 库各族的框架 ✓） | 99.5% |
-| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **62.5%** |
+| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **65.7%** |
 
-框架确实快满了 ✓（引擎那一层 83.3% 里，**没造的东西比没接上的东西少** ✓）；
+框架确实快满了 ✓（引擎那一层 84.4% 里，**没造的东西比没接上的东西少** ✓）；
 而覆盖面还差一截 ✗——差在哪、为什么差，现在有**一张带原因的清单**了 ✓
-（`tests/coverage/report.json` ✓：55 条「进不了门」+ 34 条「跑得出来但结果不同」✓）。
+（`tests/coverage/report.json` ✓：51 条「进不了门」+ 30 条「跑得出来但结果不同」✓）。
 往后的选题一律从这张清单里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓。
 
 ### 整体进度（加权估计；第 201 轮）
@@ -143,7 +143,7 @@
 往后的选题一律从那张普查表里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓，
 不是「修起来多容易」✗。
 
-### 下一步（第 205 轮更新）
+### 下一步（第 206 轮更新）
 
 **选题的来处**：一律从 **`tests/coverage/report.json` 那张清单**里挑 ✓
 （55 条 `blocked` + 34 条 `differ` ✓，每一条都带一句「为什么现在过不了」✓），
@@ -151,7 +151,7 @@
 
 | 序 | 缺口 | 覆盖度里的分量 | 为什么排前面 |
 | --- | --- | --- | --- |
-| 1 | 标准库**没装的那一批**：`Math.pow` / `sqrt` / `log` / `PI` / `E`、`Number.MAX_SAFE_INTEGER` / `parseInt`、`Array.of` / `lastIndexOf` / `flatMap` / `entries`、`String.concat` / `codePointAt` / `lastIndexOf` / `at`、`Object.create` / `getPrototypeOf` / `hasOwnProperty` / `fromEntries`、`unshift` | 30 条 + 拖着 3 条端到端 | 一格一条、**改一格覆盖度就动一格** ✓ |
+| 1 | 标准库**没装的那一批**（第 206 轮收掉了 `Math` / `Number` 两支 ✓，还剩）：`Array.of` / `unshift` / `lastIndexOf` / `flatMap`、`String.concat` / `codePointAt` / `lastIndexOf` / `at`、`Object.create` / `getPrototypeOf` / `hasOwnProperty` / `fromEntries` / `getOwnPropertyNames` | 13 条 + 拖着 2 条端到端 | 一格一条、**改一格覆盖度就动一格** ✓ |
 | 2 | 实参那一半：`indexOf` 的 `fromIndex`、`slice` / `splice` 的负下标、`split` 的 `limit` | 5 条 | 跑得出来、答案不对 ✓ |
 | 3 | 稀疏数组的洞（`Object.keys` / `forEach` / `map`） | 2 条 | **静默错值** ✗ |
 | 4 | 私有字段在 `Object.keys` 里看得见（`cls-private` 的最后那一格 ✓） | 1 条 | **静默错值** ✗，且与第 194 轮那条「内部件不可枚举」同源 ✓ |
@@ -160,7 +160,7 @@
 
 **已划掉**（留在下面的账里 ✓）：派生类字段初始化 ✓、`+` 的 `ToPrimitive` ✓、
 静态块与静态字段的顺序 ✓（第 203 轮 ✓）、成员位 / 下标位上的 `++` `--` ✓（第 204 轮 ✓）、
-私有名进链 ✓（第 205 轮 ✓）。
+私有名进链 ✓（第 205 轮 ✓）、`Math` / `Number` 那一批 ✓（第 206 轮 ✓）。
 
 **往后**（整族缺、成本高，但要排在**日常写法**之后 ✓）：
 `enum` / `namespace` ✓、`yield*` ✓、类上的**计算成员名**（`[Symbol.iterator]()` ✓）、
@@ -226,6 +226,43 @@
 > **第 144 轮的账在下面（`### 第 144 轮的账`）**：这一轮不在上面这张单子里——
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
+
+### 第 206 轮的账（**`Math` / `Number` 那一批缺格**：八条一次收掉，外加三处自己撞出来的）
+
+**选题**：第 205 轮那张清单的第 1 条 ✓，先挑**最大的一族**——`Math` 与 `Number` ✓。
+它们是**一格一条**的形状 ✓，所以这一轮一次划掉八条 ✓。
+
+| 补上的 | 判据 | 原来卡在哪 |
+| --- | --- | --- |
+| `Math.log` / `exp` / `cbrt` / `hypot`（号 213 ~ 216 ✓） | `math-pow-sqrt` / `math-logs-constants` | 没装 ⇒ `calling a non-closure value` ✓（整份文件进不来 ✗） |
+| `Math.PI` / `Math.E` | `math-logs-constants` / `e2e-inheritance-hierarchy` | 没装 ⇒ 面积算成 `NaN` ✓（**静默错值** ✗） |
+| `Number.MAX_SAFE_INTEGER` / `MIN_SAFE_INTEGER` / `EPSILON` / `MAX_VALUE` / `MIN_VALUE` / 两个无穷 / `NaN` | `num-float-bits` / `number-constants` | 没装 ⇒ `undefined` ✓ |
+| `Number.parseInt` / `Number.parseFloat` | `number-static-parse` | 没装 ✓ |
+| `Math.max()` / `Math.min()` 空实参 | `math-abs-min-max` | 读 `args[0]` ⇒ 崩 ✓ |
+
+**常量是属性、不是方法** ✓（`Math.PI` 与 `Number.EPSILON` 都挂 `Value.FromDouble(...)` 本身 ✓）——
+挂成 HostRef 的话取出来会是一个「能被调用的号」✗。**这条规矩在 `Array.prototype` 那一处
+就写过一遍** ✓（第 137 轮 ✓），这里照同一条办 ✓。
+
+**一处「同一件事两个答案」被收掉** ✓：`MathResult` 原来**自己抄了一遍** `MakeNumber` 的收窄判据 ✗，
+抄漏的是**负零** ✗——`Math.min(-0, 0)` 在 JS 里给 `-0` ✓，抄出来的那一格给 `Int32 0` ✓ ⇒
+`console.log` 打 `0` ✗（node 打 `-0` ✓）。现在它**转调引擎的 `MakeNumber`** ✓
+（那里面第 129 轮就写清了为什么必须单独判 `-0` ✓）。
+
+**三处自己撞出来的** ✓（都不是原计划里的）：
+
+| 撞出来的 | 现场 | 根子 |
+| --- | --- | --- |
+| `Math.min(1, NaN)` 给 `1` ✗（JS 给 `NaN` ✓） | 比大小那两条判据对 `NaN` **永远为假** ⇒ 它被**静默跳过** ✗ | `NaN` 的传播要**显式写出来** ✓（与 `+` / 关系比较那几张表同一条纪律 ✓） |
+| `Math.floor("2.5")` 抛 | 判据 `math-isnan-family` ✓ | `Math` 那一族用的是 `NumericOf` ✗（**参数检查** ✓：只认 Int32 / Float64 ✓）——而 JS 的 `Math.*` 口径是 **`ToNumber`** ✓。新增 `MathArgOf` ✓，**转调引擎的 `ToNumberOf`** ✓（对象那一支连 `ToPrimitive` 一起对 ✓） |
+| `Number.parseInt === parseInt` 给 `false` ✗（JS 给 `true` ✓） | 两个都是 `HostRef` ✓ | `HostRef` **按堆句柄判等** ✓，两次 `CreateHostRef(同一个号)` 造的是**两个句柄** ✗。**「同一个函数」是能被脚本看见的** ✓，所以这一处只能**共用同一个值** ✓——判据里把这条也钉上了 ✓ |
+
+**读数** ✓：`coverage` **163 / 252 = 62.5% → 171 / 252 = 65.7%** ✓
+（引擎 83.3% → **84.4%** ✓、标准库 50.5% → **56.2%** ✓、端到端 46.2% → **53.8%** ✓、降级 65.9% 不动 ✓）。
+从账上划掉八条 ✓：`num-float-bits` ✓、`math-abs-min-max` ✓、`math-pow-sqrt` ✓、
+`math-logs-constants` ✓、`math-isnan-family` ✓、`number-static-parse` ✓、`number-constants` ✓、
+`e2e-inheritance-hierarchy` ✓。
+另外三条判据一个数没动 ✓：`runtime:check` **241/241** ✓、`runtime:cli` **79/79** ✓、`cases:tsast` **1442/1442** ✓。
 
 ### 第 205 轮的账（**私有名要跟名字一起进链**：`this.#n + 1` 读成 `undefined` 的根子）
 
