@@ -336,6 +336,20 @@ if (kind === "VariableDeclaration" || kind === "FunctionDeclaration" || kind ===
   }
 }
 if (IsFunctionNode(body)) return;
+// **命名空间是作用域边界**（第 231 轮 ✓）：它的体里的名字**属于它自己那一层** ✓
+// （`namespace N { export const a = 1 }` 里的 `a` 在外面**看不见** ✓），
+// 所以这一趟**不往下走** ✓。
+//
+// **不收它自己的名字也不对** ✗：`namespace Outer { … }` 之后外面要用 `Outer` ✓——
+// 而那不是「收体里的名字」那一档 ✗：这一趟的**第一条判据**（`kind === "ModuleDeclaration"`
+// 那一条别处没有 ✓）要单独收**它的名字** ✓，见下面那一句 ✓。
+if (kind === "ModuleDeclaration") {
+  const name = body["name"];
+  if (name !== undefined && name !== null && typeof name === "object") {
+    CollectPatternNames(name as AstNode, out);
+  }
+  return;
+}
 WalkChildren(body, (child) => {
   CollectDeclaredNames(child, out);
 });
