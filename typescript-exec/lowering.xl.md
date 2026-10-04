@@ -1987,26 +1987,94 @@ this.Emit(Op.Move, slot, value, -1, -1);
 this.DeclareLocal(name, slot);
 ```
 
+## method DestructureDefault:(initializer:AstNode, value:int)=>void
+
+**解构元素上的默认值**：读出来的那一格**严格等于 `undefined`** 就用默认值 ✓。
+
+**第 146 轮从 `Destructure` 里提出来的** ✓：声明那一半与赋值那一半（`DestructureAssign` ✓）
+用的是**同一条规矩** ✓——留在两处就是两处会走偏 ✗，而这一条恰好有两处最容易写歪：
+
+- **必须是严格相等，不能用 `is_nullish`** ✗：JS 的规矩是**只有 `undefined`** 触发默认值 ✓，
+  `const {a = 7} = {a: null}` 里 `a` 是 **`null`** ✓（`??` 会把两者都算进去，那是另一个口径 ✗）。
+  这一条与参数默认值（`LowerParamDefault`）**同一条理由** ✓，只是那里读的是参数格、
+  这里读的是解构出来的格 ✓。
+- **默认值是懒的** ✓（JS 的规矩 ✓）：只在**真的缺**的时候求 ✓，
+  所以 `const [a = 1, b = a + 1] = []` 里 `b` 看得见 `a` ✓——它就在语句顺序里 ✓。
+
+**它只写 `value` 那一格** ✓（`GetIndex` / `GetProp` / 剩下那两条内建给的都是一次性的临时格 ✓）：
+调用方拿着的还是同一个槽号 ✓，不必关心「有没有被默认值换过」✓。
+
+```ts
+const undef = this.Reserve(1);
+this.Emit(Op.Const, undef, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+const missing = this.RtCallValues(RtOp.CmpEqStrict, value, undef);
+const skipDefault = this.Here();
+this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
+const fallback = this.LowerExpression(initializer);
+this.Emit(Op.Move, value, fallback, -1, -1);
+this.Release(fallback);
+this.PatchTarget(skipDefault, this.Here());
+this.Release(undef);
+```
+
+## method PropertyKeyNodeOf:(element:AstNode)=>AstNode | null
+
+**一个成员位置上「拿走的键」是哪个节点**——对象的剩余元素要一份**排除名单** ✓
+（`const {a, ...r} = o` 里的 `r` 不该带 `a` ✓），名单就是**前面那些成员拿走的键** ✓。
+
+**为什么要一个共用函数**（第 146 轮）✓：**声明**那一半（`BindingElement` ✓）与**赋值**那一半
+（`PropertyAssignment` / `ShorthandPropertyAssignment` / 带默认值的 `BinaryExpression` ✓）
+形状不同 ✗，但取键的规矩**是同一条**：**键从模式上取、不从绑定的名字上取** ✓——
+`{a: b, ...r}` 拿走的是 **`a`** ✓（不是 `b` ✗），`{a: b = 1, ...r}` 拿走的也是 `a` ✓。
+两处各写一遍就是两处会走偏 ✗：走偏的症状是「剩余对象里**多出一个已经拆走的键**」✓，
+而它看起来只是一个普通的对象 ✓（**静默错值** ✓）。
+
+```ts
+const kind = NodeKind(element);
+if (kind === "BindingElement") {
+  const property = OptionalChild(element, "propertyName");
+  return property === null ? Child(element, "name") : property;
+}
+if (kind === "PropertyAssignment") return Child(element, "name");
+if (kind === "ShorthandPropertyAssignment") return Child(element, "name");
+if (kind === "BinaryExpression") return Child(element, "left");
+return null;
+```
+
+## method StaticKeyNodeOf:(keyNode:AstNode)=>AstNode | null
+
+**名单里能用的那个键节点**（第 146 轮）——`Identifier` ✓、字面量 ✓、**常量的计算键** ✓
+（`["a"]` / `[1]` 投影成 `ComputedPropertyName` ✓，但里面是字面量 ✓，编译期就知道是哪个键 ✓）
+都给得出 ✓；**运行期才求值的**（`[k]` / `[keyOf()]` ✓）给 `null` ✓。
+
+**它只服务一件事**：对象的剩余元素要一份**排除名单** ✓，而那份名单是编译期的常量表 ✓。
+常量与运行期两档分不清的代价是**静默漏键** ✗（剩余对象里多出一个已经拆走的键 ✓），
+所以这一档必须显式判 ✓。
+
+```ts
+if (NodeKind(keyNode) === "ComputedPropertyName") {
+  const inner = Child(keyNode, "expression");
+  const innerKind = NodeKind(inner);
+  if (innerKind === "StringLiteral" || innerKind === "NumericLiteral") return inner;
+  return null;
+}
+return keyNode;
+```
+
 ## method Destructure:(pattern:AstNode, source:int, isVar:bool)=>void
 
 **把一个值拆进绑定模式**（`{a, b: c}` / `[x, , y]`，可嵌套）。
 
 **默认值（第 132 轮）**：`const [x = 9] = []` / `const {a = 7} = {}` ✓——
-落成「读出来的那一格**严格等于 `undefined`** 就用默认值」✓。
-
-**必须是严格相等，不能用 `is_nullish`** ✗：JS 的规矩是**只有 `undefined`** 触发默认值 ✓，
-`const {a = 7} = {a: null}` 里 `a` 是 **`null`** ✓（`??` 会把两者都算进去，那是另一个口径 ✗）。
-这一条与参数默认值（`LowerParamDefault`）**同一条理由** ✓，只是那里读的是参数格、这里读的是解构出来的格 ✓。
-
-**求值顺序是「左到右、用到才求」** ✓（JS 的规矩 ✓）：默认值只在**真的缺**的时候求 ✓，
-所以 `const [a = 1, b = a + 1] = []` 里 `b` 看得见 `a` ✓——它就在语句顺序里 ✓。
+落成「读出来的那一格**严格等于 `undefined`** 就用默认值」✓，**那一条的规矩现在在
+`DestructureDefault` 里** ✓（第 146 轮提出去与赋值那一半共用 ✓）。
 
 **数组剩余（第 132 轮）**：`const [a, ...r] = xs` ✓——落成 `ArrayRestId` 那条内建调用 ✓
 （**不走 `Array.prototype.slice`** ✗：解构是**语法**，不该依赖某个方法装没装 ✓）。
 
-**对象剩余还不做** ✗（`const {a, ...r} = o`）：它要「把剩下的键抄到新对象里」✓，
-而那需要**一份排除名单**（已经拆走的那些键）✗——引擎侧没有这条路 ✓，
-单独立一轮 ✓。**响亮地抛** ✓，不静默变成别的形状 ✗。
+**对象剩余（第 135 轮）**：`const {a, ...r} = o` ✓——要「把剩下的键抄到新对象里」✓，
+而那需要**一份排除名单**（已经拆走的那些键 ✓）。名单由 `PropertyKeyNodeOf` 从**模式**上取 ✓
+（第 146 轮起那个取键规则也归它 ✓），落成 `RestObjectId` 那条内建调用 ✓。
 
 ```ts
 const kind = NodeKind(pattern);
@@ -2047,9 +2115,10 @@ for (let i = 0; i < elements.length; i++) {
     this.EmitRt(RtOp.NewArray, excluded, excluded, 0);
     for (let e = 0; e < i; e++) {
       const earlier = elements[e];
-      if (NodeKind(earlier) !== "BindingElement") continue;
-      const property = OptionalChild(earlier, "propertyName");
-      const keyNode = property === null ? Child(earlier, "name") : property;
+      if (NodeKind(earlier) === "OmittedExpression") continue;
+      const keyNode = this.PropertyKeyNodeOf(earlier);
+      // **取不到键的（`...rest` 那一条）跳过** ✓：它本来就不是「拆走的键」✓。
+      if (keyNode === null) continue;
       const at = this.RtCall2(RtOp.GetProp, excluded,
         this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
       const put = this.Reserve(3);
@@ -2070,28 +2139,17 @@ for (let i = 0; i < elements.length; i++) {
   }
   let value = -1;
   if (kind === "ObjectBindingPattern") {
-    const property = OptionalChild(element, "propertyName");
-    const keyNode = property === null ? Child(element, "name") : property;
+    const keyNode = this.PropertyKeyNodeOf(element);
+    if (keyNode === null) throw new Error("unimplemented: object binding member");
     const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode)));
     value = this.RtCall2(RtOp.GetProp, source, key);
   } else {
     const index = this.Program().AddConst(Constant.OfInt(i));
     value = this.RtCall2(RtOp.GetIndex, source, index);
   }
-  // **默认值**：缺（严格等于 `undefined`）才算它 ✓。
+  // **默认值**（第 132 轮；第 146 轮起那一段在 `DestructureDefault` 里 ✓，与赋值那一半共用 ✓）。
   const initializer = OptionalChild(element, "initializer");
-  if (initializer !== null) {
-    const undef = this.Reserve(1);
-    this.Emit(Op.Const, undef, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
-    const missing = this.RtCallValues(RtOp.CmpEqStrict, value, undef);
-    const skipDefault = this.Here();
-    this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
-    const fallback = this.LowerExpression(initializer);
-    this.Emit(Op.Move, value, fallback, -1, -1);
-    this.Release(fallback);
-    this.PatchTarget(skipDefault, this.Here());
-    this.Release(undef);
-  }
+  if (initializer !== null) this.DestructureDefault(initializer, value);
   const target = Child(element, "name");
   const targetKind = NodeKind(target);
   if (targetKind === "ObjectBindingPattern" || targetKind === "ArrayBindingPattern") {
@@ -2104,6 +2162,222 @@ for (let i = 0; i < elements.length; i++) {
   // 同样**不退水位**（`BindName` 可能刚在 `value` 上面留了变量格）。
   this.BindName(TextOf(target), value, isVar);
 }
+```
+
+## method DestructureAssign:(pattern:AstNode, source:int)=>void
+
+**把一个值拆进赋值目标**（`[a, b] = [b, a]` / `({a, b: o.x} = src)`，可嵌套）——第 146 轮。
+
+**它与 `Destructure`（声明那一半）是同一条规矩的两种落点** ✓：读法**一个字都不差** ✓
+（对象按属性名 ✓、数组按下标 ✓、剩余走那两个内建 ✓、默认值只在**严格 `undefined`** 时求 ✓
+——最后那一条现在两半共用 `DestructureDefault` ✓）；差别只在**写进去那一步** ✗：
+
+| | 声明那一半（`Destructure`） | 赋值这一半（本方法） |
+| --- | --- | --- |
+| 左边是什么 | **绑定模式**（`ObjectBindingPattern` / `ArrayBindingPattern` ✓） | **值位的那两个字面量节点**（`ObjectLiteralExpression` / `ArrayLiteralExpression` ✓）——投影给的就是这个形状 ✓（TS 的 AST 就是这么定的 ✓） |
+| 目标 | `Identifier`（**新声明**一个名字 ✓） | `Identifier`（**已经存在**的名字 ✓）、`o.x` ✓、`o[k]` ✓、再嵌一层模式 ✓ |
+| 写 | `BindName`（可能在**当前水位之上**留一格 ✓） | `StoreAssignTarget`（只写已存在的槽 / 属性 ✓，**不留新格** ✓） |
+
+**为什么值得单独一个方法、而不是给 `Destructure` 加两个开关** ✗：两边「临时量能不能退水位」
+是**相反**的 ✓——声明那一半因为 `BindName` 会占新格，所以**一律不退** ✓（退了就把变量格
+交出去 ✗）；赋值这一半**一格格都不声明** ✓，临时量该退就退 ✓。
+用一个布尔开关表达这件事，等于**两套水位纪律挤进一个函数** ✗——
+那是这个文件里最容易出错的一类形状 ✓（「几条语句之后读到别人的值」✓，现场离得很远 ✓）。
+
+**求值顺序照 JS** ✓：右边**先算完** ✓（调用方算的 ✓），然后目标**从左到右**一个个写 ✓；
+`o.x` 的接收者 `o` 在**轮到它的时候**才求值 ✓（`[o.a, o.b] = …` 里两次读 `o` ✓）。
+**先读、后写接收者** ✓（`({a: o.x} = src)` 的顺序是「算 `src` → 取 `src.a` → 求 `o` → 写」✓）。
+
+**一个名字都没声明** ✓：赋值左边那个名字必须**已经存在** ✓——`ResolveAccess` 找不到就抛
+「name is not a local or a capture」✓，与模块里的严格模式同一条口径 ✓
+（**不静默造一个全局** ✗，那正是「静默错值」的形状 ✓）。
+
+```ts
+const kind = NodeKind(pattern);
+if (kind === "ArrayLiteralExpression") {
+  const elements = ListOf(pattern, "elements");
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
+    const elementKind = NodeKind(element);
+    // **跳过位**（`[a, , b] = xs` ✓）：它不读也不写 ✓（JS 的口径 ✓）。
+    if (elementKind === "OmittedExpression") continue;
+    if (elementKind === "SpreadElement") {
+      // **剩余是最后一个** ✓（语法规定的 ✓），落成与声明那一半**同一个**内建 ✓
+      //（`ArrayRestId` ✓）——「剩下的怎么算」只有一份实现 ✓。
+      const restWindow = this.Reserve(3);
+      this.Emit(Op.Const, restWindow, this.IntConst(ArrayRestId), -1, -1);
+      this.Emit(Op.Move, restWindow + 1, source, -1, -1);
+      this.Emit(Op.Const, restWindow + 2, this.IntConst(i), -1, -1);
+      this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
+      this.StoreAssignTarget(Child(element, "expression"), restWindow);
+      this.Release(restWindow);
+      return;
+    }
+    const index = this.Program().AddConst(Constant.OfInt(i));
+    const read = this.RtCall2(RtOp.GetIndex, source, index);
+    // **默认值先于目标认领** ✓：`[a = 1] = []` 的元素节点是 `a = 1`（一个 `BinaryExpression` ✓），
+    // 「谁是目标、谁默认值」由 `DestructureTarget` 认 ✓（与对象那一半同一个函数 ✓）。
+    const target = this.DestructureTarget(element, read);
+    this.StoreAssignTarget(target, read);
+    this.Release(read);
+  }
+  return;
+}
+if (kind === "ObjectLiteralExpression") {
+  const properties = ListOf(pattern, "properties");
+  for (let i = 0; i < properties.length; i++) {
+    const property = properties[i];
+    const propertyKind = NodeKind(property);
+    if (propertyKind === "SpreadAssignment") {
+      // **对象剩余**：名单是**前面那些成员拆走的键** ✓（与声明那一半同一条取键规则 ✓）。
+      const excluded = this.Reserve(1);
+      this.EmitRt(RtOp.NewArray, excluded, excluded, 0);
+      for (let e = 0; e < i; e++) {
+        const keyNode = this.PropertyKeyNodeOf(properties[e]);
+        if (keyNode === null) continue;
+        // **计算键与剩余不能一起用** ✗——但要分清两种计算键 ✓：
+        //   · **常量**（`["a"]` / `[1]` ✓）：编译期就知道是哪个键 ✓，名单照样放得进去 ✓；
+        //   · **运行期才求值的**（`[k]` / `[keyOf()]` ✓）：名单是**编译期的常量表** ✗——
+        //     要支持它就得「把键值一路留着」✗ 或者「到这儿再重算一遍」✗，
+        //     而后者会让那个表达式的**副作用跑两遍** ✓（那是静默错值 ✗）。
+        //     所以**响亮地抛** ✓，绝不静默漏掉一个键 ✗——
+        //     漏掉的症状只是「剩余对象里多出一个已经拆走的键」✓，看起来是一个完全正常的对象 ✓。
+        const staticKey = this.StaticKeyNodeOf(keyNode);
+        if (staticKey === null) throw new Error("unimplemented: object rest after a computed key");
+        const at = this.RtCall2(RtOp.GetProp, excluded,
+          this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
+        const put = this.Reserve(3);
+        this.Emit(Op.Move, put, excluded, -1, -1);
+        this.Emit(Op.Move, put + 1, at, -1, -1);
+        this.Emit(Op.Const, put + 2,
+          this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(staticKey))), -1, -1);
+        this.EmitRt(RtOp.SetIndex, put, put, 3);
+        this.Release(put);
+        this.Release(at);
+      }
+      const restWindow = this.Reserve(3);
+      this.Emit(Op.Const, restWindow, this.IntConst(RestObjectId), -1, -1);
+      this.Emit(Op.Move, restWindow + 1, source, -1, -1);
+      this.Emit(Op.Move, restWindow + 2, excluded, -1, -1);
+      this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
+      this.StoreAssignTarget(Child(property, "expression"), restWindow);
+      this.Release(restWindow);
+      return;
+    }
+    // **三种成员形状**（投影给的就是这三种 ✓，见 `PropertyKeyNodeOf` 那一段 ✓）：
+    //   · `{a: target}`  → `PropertyAssignment`（`initializer` 是**目标**，不是默认值 ✗）
+    //   · `{a}`          → `ShorthandPropertyAssignment`（键与目标同一个名字 ✓）
+    //   · `{a = 1}`      → `BinaryExpression`（左边目标、右边默认值 ✓）
+    // 键那一格还可能是**计算键**（`{[k]: v}` → `ComputedPropertyName` ✓，第 146 轮收下 ✓）：
+    // 那就把键**当表达式求一次** ✓（`GetProp` 有一条收值形式的键 ✓，与 `o[k]` 那条同路 ✓）。
+    const keyNode = this.PropertyKeyNodeOf(property);
+    if (keyNode === null) throw new Error("unimplemented: object assignment member " + propertyKind);
+    const computed = NodeKind(keyNode) === "ComputedPropertyName";
+    if (!computed && NodeKind(keyNode) !== "Identifier" && NodeKind(keyNode) !== "StringLiteral"
+      && NodeKind(keyNode) !== "NumericLiteral") {
+      throw new Error("unimplemented: destructuring assignment with this key: " + NodeKind(keyNode));
+    }
+    let read = -1;
+    if (computed) {
+      // **键当值用** ✓：走 `get_index` 那条（与 `o[k]` 同一条 ✓）——
+      // **不能走 `get_prop`** ✗：那条只收字符串 / 符号的键 ✓，
+      // 而 `({[1]: n} = …)` 的键是一个**数** ✓（JS 会把它 `ToPropertyKey` 成 `"1"` ✓，
+      // 引擎的 `get_index` 正是「非数组接收者就把键字符串化之后走属性」那一条 ✓）。
+      const keyValue = this.LowerExpression(Child(keyNode, "expression"));
+      read = this.RtCallValues(RtOp.GetIndex, source, keyValue);
+      this.Release(keyValue);
+    } else {
+      const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode)));
+      read = this.RtCall2(RtOp.GetProp, source, key);
+    }
+    // **`{a: target}` 的 `initializer` 是目标** ✓、**`{a}` 的键就是目标** ✓——
+    // 两者都先过 `DestructureTarget` ✓：它只对「带默认值的 `BinaryExpression`」动手 ✓，
+    // 其余原样返回 ✓（于是三种形状在这里收成一条路 ✓）。
+    let target: AstNode = property;
+    if (propertyKind === "ShorthandPropertyAssignment") target = Child(property, "name");
+    if (propertyKind === "PropertyAssignment") target = Child(property, "initializer");
+    target = this.DestructureTarget(target, read);
+    this.StoreAssignTarget(target, read);
+    this.Release(read);
+  }
+  return;
+}
+throw new Error("unimplemented: assignment pattern " + kind);
+```
+
+## method DestructureTarget:(element:AstNode, value:int)=>AstNode
+
+**元素位置上「目标 + 可选默认值」那一段**（第 146 轮）——认出「带默认值的元素」并把默认值
+按 `DestructureDefault` 那条规矩接上 ✓，返回**真正的目标** ✓。
+
+**为什么要有它** ✓：带默认值的元素在投影里是**一个 `BinaryExpression`** ✓
+（`[a = 1]` ✓、`{a = 1}` ✓、`({a: {b} = {}}` 里的 `{b} = {}` ✓），
+而「左边是目标、右边是默认值」这条判据在**数组元素**与**对象成员**两处都要用 ✓——
+两处各写一遍就是两处会走偏 ✗（写反了是把默认值当目标写进去 ✓，而**写进去也不报错** ✗）。
+
+```ts
+if (NodeKind(element) !== "BinaryExpression") return element;
+const operator = Child(element, "operatorToken");
+if (TextOf(operator) !== "=") {
+  throw new Error("unimplemented: destructuring element with " + TextOf(operator));
+}
+this.DestructureDefault(Child(element, "right"), value);
+return Child(element, "left");
+```
+
+## method StoreAssignTarget:(target:AstNode, value:int)=>void
+
+**把一格值写进一个赋值目标**（第 146 轮）——四种目标：**已存在的名字** ✓、`o.x` ✓、
+`o[k]` ✓、**再嵌一层模式** ✓（`[a, [b]] = xs` ✓）。
+
+**它一个变量都不声明** ✗：名字走 `ResolveAccess` ✓（找不到就抛 ✓），
+所以临时量**可以**照常退水位 ✓——这正是它与声明那一半的 `BindName` 的差别 ✓
+（那一半退水位会把刚声明的变量格交出去 ✗）。
+
+**属性那一支照 `=` 的老路** ✓（`SetPropertyConst` ✓）：求值顺序（接收者 → 键 → 值 ✓）
+与那个分支一字不差 ✓——两处都是「写一个属性」✓，不必有第二种写法 ✓。
+
+```ts
+const kind = NodeKind(target);
+if (kind === "Identifier") {
+  const access = this.ResolveAccess(TextOf(target));
+  if (access.InEnv) {
+    this.Emit(Op.EnvSet, value, access.Depth, access.Cell, -1);
+    return;
+  }
+  this.Emit(Op.Move, access.Slot, value, -1, -1);
+  return;
+}
+if (kind === "PropertyAccessExpression") {
+  const receiver = this.LowerExpression(Child(target, "expression"));
+  const name = Child(target, "name");
+  const nameKind = NodeKind(name);
+  if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral") {
+    throw new Error("unimplemented: destructuring assignment to a computed property name");
+  }
+  const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
+  this.SetPropertyConst(receiver, key, value);
+  this.Release(receiver);
+  return;
+}
+if (kind === "ElementAccessExpression") {
+  const receiver = this.LowerExpression(Child(target, "expression"));
+  const index = this.LowerExpression(Child(target, "argumentExpression"));
+  const window = this.Reserve(3);
+  this.Emit(Op.Move, window, receiver, -1, -1);
+  this.Emit(Op.Move, window + 1, index, -1, -1);
+  this.Emit(Op.Move, window + 2, value, -1, -1);
+  this.EmitRt(RtOp.SetIndex, window, window, 3);
+  this.Release(window);
+  this.Release(receiver);
+  return;
+}
+// **再嵌一层模式**（`[a, [b]] = xs` ✓ / `({a: {b}} = o)` ✓）：递归 ✓。
+if (kind === "ArrayLiteralExpression" || kind === "ObjectLiteralExpression") {
+  this.DestructureAssign(target, value);
+  return;
+}
+throw new Error("unimplemented: assignment target " + kind);
 ```
 
 ## method LowerIf:(node:AstNode)=>void
@@ -4404,6 +4678,22 @@ if (operatorText === "+=" || operatorText === "-=" || operatorText === "*="
 }
 if (operatorText === "=") {
   const leftKind = NodeKind(left);
+  if (leftKind === "ArrayLiteralExpression" || leftKind === "ObjectLiteralExpression") {
+    // **解构赋值**（第 146 轮）：左边是**模式**，不是值 ✓——所以它绝不能走
+    // `LowerExpression` ✗（那会把 `[a, b]` 当成数组字面量**造一个新数组** ✗，
+    // 而右边那个数组才是要拆的东西 ✓）。原来这里直接抛
+    // `unimplemented: assignment to a non-identifier` ✗。
+    //
+    // **右边先算完** ✓（JS 的求值顺序 ✓）：整份 RHS 落到一格 ✓，
+    // 然后 `DestructureAssign` 拿那一格去拆 ✓——两半（声明 / 赋值）的读法因此是同一套 ✓。
+    //
+    // **赋值表达式的值就是右边** ✓（JS 的口径 ✓）：把那一格留着返回 ✓，
+    // 调用方用完自己退水位 ✓（与 `Identifier` 那一支的约定一字不差 ✓）。
+    const rhs = this.Reserve(1);
+    this.LowerInto(rhs, Child(node, "right"));
+    this.DestructureAssign(left, rhs);
+    return rhs;
+  }
   if (leftKind === "PropertyAccessExpression" || leftKind === "ElementAccessExpression") {
     // **求值顺序是语义**：接收者 → 下标 → 值（JS 就是这个顺序，副作用按它发生）。
     const receiver = this.LowerExpression(Child(left, "expression"));

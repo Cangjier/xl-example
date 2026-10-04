@@ -6500,5 +6500,133 @@ check("`new Array(n)` 是洞、`Array(1, 2)` 是元素（一条构造、两种�
 });
 
 console.log("");
+console.log("=== 第 146 轮：解构赋值（`[a, b] = [b, a]`）===");
+
+check("同一个模式在**声明位**与**赋值位**给出同一对答案（读法只有一份）", () => {
+  // **端到端那一把在 `cases/38-destructuring-assignment.ts`**（12 行逐字节 ✓）。
+  // 这里钉的是这一轮**最想保住的那条**：两半的**读法一个字都不差** ✓——
+  // 对象按属性名 ✓、数组按下标 ✓、`...剩余` 走**同一个**内建 ✓、
+  // 默认值只在**严格 `undefined`** 时生效 ✓（第 146 轮那一段提出来成了 `DestructureDefault` ✓）。
+  // 所以同一份源码里两半并排写，结果必须**逐项相同** ✓——
+  // 这正是「两处各写一遍会走偏」那条纪律的可查形状 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const src = { a: 1, b: 2, c: 3 };",
+    "const { a: d1, ...drest } = src;",
+    "let a1 = 0; let arest: any = null;",
+    "({ a: a1, ...arest } = src);",
+    "console.log([d1, Object.keys(drest).join(','), a1, Object.keys(arest).join(','),",
+    "  drest.b === arest.b, drest.c === arest.c].join('|'));",
+    "const arr = [1, undefined, 3, 4];",
+    "const [h1, h2 = 5, ...hrest] = arr;",
+    "let q1 = 0, q2 = 0, qrest: any = null;",
+    "[q1, q2 = 5, ...qrest] = arr;",
+    "console.log([h1, h2, hrest.join('-'), q1, q2, qrest.join('-')].join('|'));",
+    // 默认值只在**严格 undefined** 时生效：`null` 不触发（两半都要如此）
+    "const [n1 = 7] = [null];",
+    "let n2 = 0;",
+    "[n2 = 7] = [null];",
+    "console.log(n1 === null, n2 === null, n1, n2);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1|b,c|1|b,c|true|true", "对象：重命名与剩余（名单是**前面拆走的键**）");
+  eq(lines[1], "1|5|3-4|1|5|3-4", "数组：洞位跳过、默认值、剩余");
+  // **`null` 不触发默认值** ✓（JS 的规矩：只有 `undefined` 才算缺 ✓）——
+  // 这一格用 `is_nullish` 实现就会错 ✓，而错了**看不出来**（`null` 变成 `7` ✓，静默错值 ✓）。
+  // （`Array.join` 把 `null` 印成空串 ✓，所以这里比的是 `=== null` 而不是那一串文本 ✓。）
+  eq(lines[2], "true true null null", "`null` 不算缺（两半一致）");
+});
+
+check("求值顺序与赋值表达式的值（右边先算完、目标从左到右）", () => {
+  // JS 的顺序是**语义** ✓（第 146 轮实测确认 ✓）：
+  //   ① 右边**整个先算完** ✓（`DestructureAssign` 拿到的是一格现成的值 ✓）；
+  //   ② 目标**从左到右**一个个写 ✓，`o.x` 的接收者在**轮到它的时候**才求值 ✓；
+  //   ③ **赋值表达式的值就是右边** ✓（`([w] = [42])[0]` 是 `42` ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const order: string[] = [];",
+    "const box: any = { x: 0 };",
+    "function rhs(): number[] { order.push('rhs'); return [1, 2]; }",
+    "function target(): any { order.push('target'); return box; }",
+    "[target().x, box.x] = rhs();",
+    "let w = 0;",
+    "const whole = ([w] = [42]);",
+    // 默认值里的表达式看得见**前面刚写的**那个目标 ✓（右侧的赋值就在语句顺序里 ✓）
+    "let s1 = 0, s2 = 0;",
+    "[s1 = 3, s2 = s1 + 10] = [];",
+    "console.log(order.join(','), box.x, w, whole[0], s1, s2);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "rhs,target 2 42 42 3 13",
+    "顺序、表达式值、默认值看得见前一个目标");
+});
+
+check("失败形状必须**响亮**：没声明的名字 · 计算键 + 剩余 · 不可迭代的右边", () => {
+  // 三处都是「不许静默给个看似合理的值」✓：
+  //   ① **没声明的目标**：`ResolveAccess` 找不到就抛 ✓——**不静默造一个全局** ✗
+  //     （JS 在**脚本**里会造一个全局 ✓，在**模块**里抛 `ReferenceError` ✓；
+  //      本仓走的是模块那一档 ✓，而且**在降级期**就抛 ✓（TS 自己也会报 `Cannot find name` ✓））；
+  //   ② **计算键 + 剩余**：名单是**编译期的常量表** ✗，运行期的键与它凑不到一起 ✓——
+  //     这时候**漏掉一个键**的症状只是「剩余对象里多出一个已经拆走的键」✓（静默错值 ✗）；
+  //   ③ **不可迭代的右边**：`[k] = 5` 在 JS 里也是 `TypeError` ✓（脚本接得住 ✓）。
+  let undeclared = "";
+  const first = new RunRequest();
+  first.Sources = ["let k = 0; [k] = [1]; [missing] = [2];"];
+  first.Entry = "";
+  try {
+    RunSources(first, () => {}, () => null);
+  } catch (error) {
+    undeclared = String(error.message);
+  }
+  ok(undeclared.indexOf("not a local or a capture") >= 0, "没声明的目标在降级期就抛：" + undeclared);
+
+  let computed = "";
+  const second = new RunRequest();
+  second.Sources = ["const k = 'a'; let v = 0; let r = null; ({ [k]: v, ...r } = { a: 1, b: 2 });"];
+  second.Entry = "";
+  try {
+    RunSources(second, () => {}, () => null);
+  } catch (error) {
+    computed = String(error.message);
+  }
+  ok(computed.indexOf("object rest after a computed key") >= 0, "计算键 + 剩余响亮地抛：" + computed);
+
+  // **计算键本身是通的** ✓（第 146 轮收下 ✓）：`({[k]: v} = o)` 把键**当值求一次** ✓，
+  // 走 `get_index` 那条（非数组接收者由引擎把键字符串化 ✓）——
+  // 所以 `({[1]: n} = {1:'one'})` 也对 ✓（那一格的键是一个**数** ✓）。
+  const lines = [];
+  const third = new RunRequest();
+  third.Sources = [[
+    "const k = 'a'; let v = 0; let n = 0;",
+    "({ [k]: v } = { a: 5 });",
+    "({ [1]: n } = { 1: 6 });",
+    "console.log(v, n);",
+    "const bad = [];",
+    "try { [bad[0]] = [7]; console.log('assign-into-array', bad[0]); } catch (e) { console.log('caught'); }",
+    "try { let q = 0; [q] = 5; console.log('no-throw', q); } catch (e) { console.log('caught-noniterable'); }",
+    "try { let s1 = 0, s2 = 0; [s1, s2] = new Set([8, 9]); console.log('set', s1, s2); } catch (e) { console.log('caught-set'); }",
+  ].join("\n")];
+  third.Entry = "";
+  const thirdRes = RunSources(third, (text) => lines.push(text), () => null);
+  eq(thirdRes.Outcome, HostOutcome.Ok, "运行器：" + thirdRes.Message);
+  eq(lines[0], "5 6", "计算键（字符串 / 数字）都读得到");
+  eq(lines[1], "assign-into-array 7", "下标目标照常");
+  // **一档已知的差**（第 146 轮量出来的 ✓，**不是这一轮弄出来的** ✗，记在台账「下一步」里 ✓）：
+  // 数组解构走的是**下标**读 ✓，不是 JS 的**迭代协议** ✓——于是
+  // `[q] = 5` 给 `undefined` ✓（JS 抛 `TypeError` ✗）、`[a, b] = new Set([8, 9])` 也给
+  // `undefined, undefined` ✗（JS 给 `8, 9` ✓）。**两半一致** ✓（同一个读法 ✓），
+  // 而它**静默** ✗——所以这一条判据把它**钉在明处** ✓：哪天改成迭代协议，
+  // 这里会当场变红 ✓，那正是它该有的作用 ✓。
+  eq(lines[2], "no-throw undefined", "**已知差**：`[q] = 5` 静默给 `undefined`（JS 抛）");
+  eq(lines[3], "set undefined undefined", "**已知差**：`[a, b] = new Set(...)` 静默给两个 `undefined`（JS 迭代）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

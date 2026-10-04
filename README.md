@@ -93,8 +93,15 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 判定收成一句 `IsHostCallable`（调用 / 构造 / 重入三条路共用）。于是 `new Date(ms)` 那条
 「只有直接写 `Date` 才认」的降级层特例**撤掉了**（`const D = Date; new D(0)` 也对），
 `typeof String === "function"`、`new Array(3)` 的洞、`[1,2,3].map(String)` 一起通了）、
++ **解构赋值**（第 146 轮：`[a, b] = [b, a]` 原来报 `assignment to a non-identifier`——
+左边的 `[a, b]` 在 TS 的 AST 里是 `ArrayLiteralExpression`，而 `=` 只认名字 / `o.x` / `o[k]`
+三种左值。补的是**另一半**：读法与声明那一半**一个字都不差**（对象按属性名 / 数组按下标 /
+`...剩余` 走同一个内建 / 默认值只在严格 `undefined` 时求），为此把 `DestructureDefault`、
+`PropertyKeyNodeOf` 两段共用规矩提了出来；写法人各一半，因为两半的**水位纪律相反**
+（声明那半会留变量格所以一律不退，赋值这半一个变量都不声明）。顺带收下计算键
+`({[k]: v} = o)`——走 `get_index` 而不是 `get_prop`，因为 `({[1]: n} = …)` 的键是一个数）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（198 条）与 `npm run runtime:cli`（37 份语料）；
+判据见 `npm run runtime:check`（201 条）与 `npm run runtime:cli`（38 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。
