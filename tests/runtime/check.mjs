@@ -8053,5 +8053,52 @@ check("`arr.fill(值, 开始, 结束)` 与 `JSON.stringify(x, null, 缩进)`：�
 });
 
 console.log("");
+console.log("=== 第 193 轮：对象自己的 `toString`（`${o}` / `\"x\" + o` / `String(o)`）===");
+
+check("三种字符串化都先问对象自己的 `toString`；没有那一格照旧 `[object Object]`", () => {
+  // **端到端那一把在 `cases/71-object-tostring.ts`**（8 行逐字节 ✓）。
+  //
+  // **症状** ✗：`${new C()}` / `"x" + new C()` / `String(new C())` 都给 `[object Object]` ✓
+  // （Node 给 `C!` ✓）——**静默错值** ✗：每一格单看都像对的 ✓（`[object Object]`
+  // 确实是「某个默认值」✓），只有与 Node 逐字节比才看得出来 ✓。
+  //
+  // **修法** ✓：在**两个入口**（`String(x)` ✓ 与 `+` 的拼接 ✓）先问一次
+  // 「自有或原型链上那一格 `toString` 是不是能被调」✓——能就**带 `this` 调一次** ✓；
+  // **给原始值就算数** ✓（JS：`toString() { return 42; }` 的实例 `String(o)` 是 `"42"` ✓——
+  // 转换由调用方做 ✓）；**数组跳过** ✓（它的渲染这一层本来就有答案 ✓，
+  // 绕到 `toString` 上等于把同一件事写成两份 ✓）。
+  //
+  // **同一轮补的一格** ✓：`Array.prototype.toString` **就是 `join(",")`** ✓——
+  // 所以它**指到同一格能力号** ✓（`[1,[2,3]].toString()` 原来报
+  // `calling a non-closure value` ✓，那一格根本没装 ✗）。
+  //
+  // **还没做的那一半写在明处** ✗：`toString` 给了**非原始值**时 JS 接着问 `valueOf` ✓，
+  // 而 `o + 1`（`ToPrimitive(o, "default")`，**先 `valueOf`** ✓）今天还是抛
+  // `arithmetic on a non-numeric operand` ✓——那是**引擎的算术那一格** ✓，单独立一轮 ✓。
+  const outline = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "class C { toString() { return 'C!'; } }",
+    "const c = new C();",
+    "console.log(`${c}`, 'x' + c, String(c));",
+    "class Base { toString() { return 'base'; } }",
+    "class Derived extends Base {}",
+    "console.log(`${new Derived()}`, String(new Derived()));",
+    "console.log(`${({ a: 1 })}`, String({ b: 2 }), 'y' + { c: 3 });",
+    "class Weird { toString() { return 42; } }",
+    "console.log(`${new Weird()}`);",
+    "console.log(`${[1, 2]}`, String([3, 4]), [1, [2, 3]].toString());",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => outline.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(outline[0], "C! xC! C!", "**这一轮修的**：三种写法都问对象自己的 `toString`");
+  eq(outline[1], "base base", "原型链上那一格也算（父类定义的 `toString`）");
+  eq(outline[2], "[object Object] [object Object] y[object Object]", "普通对象没有那一格 → 照旧默认（回归）");
+  eq(outline[3], "42", "`toString` 给原始值就算数（**转换由调用方做**）");
+  eq(outline[4], "1,2 3,4 1,2,3", "数组照旧（含同一轮补的 `toString` = `join`）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

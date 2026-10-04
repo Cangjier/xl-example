@@ -8,7 +8,7 @@ import { SetProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainA
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
-import { ValueUnits, ValueText } from "./text.xl.md"
+import { ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
 import { InspectText } from "./inspect.xl.md"
 import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
@@ -670,7 +670,7 @@ if (value.Tag === ValueTag.String) {
 throw new Error("unimplemented: Number(x) of an object needs ToPrimitive");
 ```
 
-# method InvokeGlobal:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink)=>Value
+# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink)=>Value
 
 **全局内建的分派与实现**。
 
@@ -692,6 +692,15 @@ if (id === StringCtor) {
   // 所以不给实参这一支要**先判**（`ValueUnits` 对 `undefined` 给 `"undefined"` ✓，
   // 那是 `String(x)` 的答案 ✓，不是 `String()` 的 ✓）。
   if (args.length === 0) return Value.FromString(table.CreateString([]));
+  // **对象自己的 `toString` 先问一次**（第 193 轮 ✓）：JS 的 `String(o)` 走
+  // `ToPrimitive(o, "string")` ✓ → 先 `toString` ✓。少了这一句，`class C { toString() {…} }`
+  // 的实例会印成 `[object Object]` ✓——**静默错值** ✗（Node 印自定义那一串 ✓）。
+  const ownText = ToStringOfObject(room, call, protos, table, args[0]);
+  if (ownText !== null) {
+    const ownUnits = TextUnitsOf(table, ownText);
+    if (!room(CodeUnitCharge * ownUnits.length + ObjectCharge)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(ownUnits));
+  }
   const units = ValueUnits(table, args[0], 0);
   if (!room(CodeUnitCharge * units.length + ObjectCharge)) throw new Error("out of room");
   return Value.FromString(table.CreateString(units));
@@ -897,8 +906,11 @@ if (id === StringConcat) {
   // **两个值按字符串拼起来**（第 125 轮）：两边都走「任意值 → 文本」✓
   // （`text.xl.md` 的 `ValueUnits` ✓——浮点 / 对象 / 数组 / 洞都在那里有答案 ✓）。
   if (args.length < 2) throw new Error("unimplemented: string_concat needs (left, right)");
-  const left = ValueUnits(table, args[0], 0);
-  const right = ValueUnits(table, args[1], 0);
+  // **两边都先问一次对象自己的 `toString`**（第 193 轮 ✓，理由同上 ✓）。
+  const leftOwn = ToStringOfObject(room, call, protos, table, args[0]);
+  const rightOwn = ToStringOfObject(room, call, protos, table, args[1]);
+  const left = leftOwn === null ? ValueUnits(table, args[0], 0) : TextUnitsOf(table, leftOwn);
+  const right = rightOwn === null ? ValueUnits(table, args[1], 0) : TextUnitsOf(table, rightOwn);
   if (!room(ObjectCharge + CodeUnitCharge * (left.length + right.length))) {
     throw new Error("out of room");
   }

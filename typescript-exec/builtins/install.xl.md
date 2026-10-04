@@ -99,7 +99,7 @@ if (id === StringSplit) return SplitString(room, table, protos, self, args);
 // `RequireArray` 的先后 ✓，两个改动都白付 ✓。
 if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
-if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
+if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, call, id, self, args);
 ```
 

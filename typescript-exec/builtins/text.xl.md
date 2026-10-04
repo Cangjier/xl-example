@@ -2,13 +2,55 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray } from "../../runtime/heap.xl.md"
-import { TextUnitsOf } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { HostTextUnits, NumberToHostText } from "../../runtime/host-text.xl.md"
+import { GetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
 ```
 
 # namespace cangjie
 
 **标准库的一小块：任意值 → 文本**（第 124 轮）。
+
+# method ToStringOfObject:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>Value | null
+
+**对象自己的 `toString`**（第 193 轮 ✓）——有就给它的结果 ✓、没有就给 `null` ✓。
+
+**为什么需要它** ✗：`${new C()}` / `"x" + new C()` / `String(new C())` 在 JS 里走
+`ToPrimitive(o, "string")` ✓ → **先问对象自己的 `toString`** ✓
+（`class C { toString() { return "C!"; } }` 的实例印出 `C!` ✓）。
+本仓原来**一步都不问** ✓、直接给 `[object Object]` ✓——
+那一刻是「**静默错值**」✗（每一格单看都像对的 ✓，只有与 Node 逐字节比才看得出来 ✓）。
+
+**只看「自有或原型链上那一格是不是能被调」** ✓（`GetProperty` 走链 ✓）：
+拿到了就**带 `this = 那个对象`** 调一次 ✓；结果**必须是字符串** ✓（JS 的口径 ✓：
+`toString` 给了非原始值就往下走 `valueOf` ✗——那一半还没做 ✓，记在台账里 ✓）。
+**没有那一格**（普通对象 / `Object.prototype` 上没挂默认 `toString` ✓）→ `null` ✓，
+调用方照旧落回 `[object Object]` ✓（口径没变 ✓）。
+
+```ts
+if (!value.IsObject()) return null;
+// **带可调用载荷的对象（`String` / `Number` / `Date` …）跳过** ✓：JS 印的是**源码文本** ✗
+// （这一层拿不到 ✓），与 `ValueUnits` 里那条口径一致 ✓（宁可抛也不编一个 ✓）。
+if (table.Get(value.Ref).Host !== null) return null;
+// **数组跳过** ✓：数组的渲染这一层本来就有答案（`ValueUnits` 里那条 `join` ✓）——
+// 绕到 `toString` 上等于把同一件事写成两份 ✓（而且 `[1,2].toString()` 走的是
+// 数组自己的那一支，不是普通对象的 ✓）。
+if (value.Tag === ValueTag.Array) return null;
+if (call === null) return null;
+const toStringValue = GetProperty(room, call, protos, table, value,
+  Value.FromString(table.CreateString(HostTextUnits("toString"))));
+// **可调用的两档**（闭包 ✓ / 内建 ✓，与引擎 `IsHostCallable` 同一条口径 ✓）。
+const callable = toStringValue.IsCallable()
+  || (toStringValue.Tag === ValueTag.Object && table.Get(toStringValue.Ref).Host !== null);
+if (!callable) return null;
+const produced = call(toStringValue, value, []);
+// **给原始值就算数** ✓（JS 的口径 ✓）：`toString() { return 42; }` 在 JS 里
+// `String(o)` 给 `"42"` ✓——**转换由调用方做** ✓（这一层只回答「ToPrimitive 给了什么」✓）。
+// **给了对象就往下走 `valueOf`** ✗——那一半还没做 ✓，所以给 `null` ✓（落回默认 ✓）。
+if (produced.IsObject()) return null;
+return produced;
+```
+
 
 **它为什么必须有**：引擎的 `TextUnitsOf`（`runtime/rt.xl.md`）**只做它认识的那几档** ✓
 （字符串 / 整数 / 布尔 / `null` / `undefined` ✓），其余一律**抛** ✓——而「其余」里

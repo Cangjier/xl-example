@@ -686,10 +686,16 @@ const table = vm.Table;
 const proto = Value.FromObject(protos.Array);
 const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter",
   "find", "some", "every", "concat", "reverse", "includes", "findIndex", "sort", "reduce",
-  "shift", "fill", "flat", "at", "splice"];
+  "shift", "fill", "flat", "at", "splice",
+  // **`toString` 就是 `join(",")`**（第 193 轮 ✓）：JS 的 `Array.prototype.toString` 正是它 ✓
+  // （没给实参时 `join` 的默认分隔符就是 `,` ✓），所以**指到同一格能力号** ✓
+  // ——同一件事不写第二份实现 ✓。实测：`[1, [2, 3]].toString()` 原来报
+  // `unimplemented: calling a non-closure value` ✗（那一格根本没装 ✓）。
+  "toString"];
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
   ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes,
-  ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat, ArrayAt, ArraySplice];
+  ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat, ArrayAt, ArraySplice,
+  ArrayJoin];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
