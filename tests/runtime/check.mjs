@@ -6262,6 +6262,40 @@ check("`super(...xs)`：`CallArray` 那一格 `this` 原来就留着", () => {
   }
   ok(message.indexOf("spreading into super.m") < 0,
     "**第 158 轮修好**：`super.m(...xs)` 不再抛（这一条当时钉的是「照旧抛」：「" + message + "」）");
+  // **一档如实钉在明处的缺口** ✗（第 158 轮发现 ✓、第 159 轮量过并**证伪了一条线索** ✗）：
+  // `super.m(...)` 的**每一种形状单独跑都对** ✓，可是把几个**凑在同一个类里**（四五个方法 ✓）
+  // 就报 `calling a non-closure value` ✗。第 159 轮试过「补水退」
+  //（在展开那一支也写一句 `Release` ✓，与固定实参那支同一条纪律 ✓）——**没修好** ✗，
+  // 所以没有留下 ✗。这一格钉在这里 ✓：修好的那天它会变红 ✓。
+  const crowdedLines = [];
+  const crowdedRequest = new RunRequest();
+  crowdedRequest.Sources = [[
+    "class Base {",
+    "  tag: string;",
+    "  constructor(tag: string) { this.tag = tag; }",
+    "  sum(a: number, b: number, c: number): number { return a + b + c; }",
+    "  describe(...parts: string[]): string { return this.tag + ':' + parts.join('-'); }",
+    "}",
+    "class Child extends Base {",
+    "  constructor() { super('child'); }",
+    "  sumSpread(xs: number[]): number { return super.sum(...xs); }",
+    "  describeSpread(parts: string[]): string { return super.describe(...parts); }",
+    "  mixed(first: string, rest: string[]): string { return super.describe(first, ...rest); }",
+    "  scaled(xs: number[]): number { return super.sum(...xs) * 10; }",
+    "  plain(a: number, b: number, c: number): number { return super.sum(a, b, c) * 100; }",
+    "}",
+    "const c = new Child();",
+    "console.log(c.sumSpread([1, 2, 3]), c.describeSpread(['a', 'b']));",
+  ].join("\n")];
+  crowdedRequest.Entry = "";
+  let crowdedMessage = "";
+  try {
+    RunSources(crowdedRequest, (text) => crowdedLines.push(text), () => null);
+  } catch (error) {
+    crowdedMessage = String(error.message);
+  }
+  ok(crowdedMessage.indexOf("non-closure") >= 0 || crowdedLines.length === 0,
+    "**已知差**：几个 `super.m(...)` 形状凑在同一个类里仍然报错（单独跑都对）：" + crowdedMessage);
 });
 
 console.log("");
