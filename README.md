@@ -152,7 +152,7 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 另一半 `o.m?.().k` 量准了但**没动**：根因在**投影**（XML 实测 `.k` 被折进 `NullConditionalOperator`
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（212 条）与 `npm run runtime:cli`（53 份语料）；
+判据见 `npm run runtime:check`（214 条）与 `npm run runtime:cli`（54 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。
@@ -427,7 +427,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `npm run samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 
 产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后是 100%**：
-语料 1405 份（`dist/ts/**` 也在语料里，所以这个数随运行期规范一起长）**逐文件完全一致 1405 / 1405**，四个方向（缺 / 漂移 / 多出 / 字段名）全 0，
+语料 1436 份（`dist/ts/**` 也在语料里，所以这个数随运行期规范一起长）**逐文件完全一致 1436 / 1436**，四个方向（缺 / 漂移 / 多出 / 字段名）全 0，
 未映射 0 类 / 0 处、缺 range 0、区间越界 0。
 
 它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
@@ -441,10 +441,10 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | 语料 **1405** 个文件、解析成功 1405、抛异常 0；**完全一致 1405 / 1405**，缺 0 / 漂移 0 / 多出 0 / 字段名 0 / 未映射 0 / 缺 range 0 / 区间越界 0，退出码 0（trivia 越界 2 处单列：注释与软换行是被扫进来的、不参与签入签出，是约定的形态） |
+| `cases:tsast` | 语料 **1436** 个文件、解析成功 1436、抛异常 0；**完全一致 1436 / 1436**，缺 0 / 漂移 0 / 多出 0 / 字段名 0 / 未映射 0 / 缺 range 0 / 区间越界 0，退出码 0（trivia 越界 2 处单列：注释与软换行是被扫进来的、不参与签入签出，是约定的形态） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：**语料全部**、解析成功全部、失败 0，**完全一致**，四方向 0，报未映射标签的文件 0 个 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具逐字节一致，且「命令行 = 库 API」 |
-| `cases:check` | **1035** 条用例，0 条不合格 |
+| `cases:check` | **1043** 条用例，0 条不合格 |
 
 **语料数是活的。** `dist/ts/**` 也在语料里（[ts-ast.mjs:423](tests/parse/ts-ast.mjs#L423)），
 所以**每新增一条规范就多一份语料**：上面的具体数字是**本轮读数**，
@@ -473,7 +473,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   加上 `return` / `throw` / `break` / `continue` / `yield` 与后缀 `++` / `--` 的受限产生式）。
   规范里 ASI 还有一条「**语法不允许时**才插分号」，本工程不看完整文法、只看形状，
   所以个别极端排版仍可能与 TS 不同——这类情况由 `cases:tsast` 巡检（它比的是与 TS 的 AST
-  逐节点一致，语料全部一致——当前 1405 份）。
+  逐节点一致，语料全部一致——当前 1436 份）。
 - **JSX / TSX** 没有支持（四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」）。
   这是**独立于 TypeScript 的语法扩展**，不在 `.ts` 范围内。
 - **嵌套解构的绑定名进的是同一张逗号分隔表**（`arrayPattern`），丢的是**结构**而不是名字：

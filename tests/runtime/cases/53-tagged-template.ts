@@ -31,10 +31,9 @@ console.log(tag`x${b}y${c}z`);
 
 // ③ 表达式里（不是语句开头）
 console.log([tag`a${b}`, tag`b${c}`].join(" / "));
-// **「标签模板当属性访问的接收者」不在这份语料里** ✗：
-// `tag`a${b}`.length` 与 `tag`a${b}` === tag`a${b}`` 本仓给的是**函数** ✗
-//（Node 给 `7` / `true` ✓）——**静默错值** ✗。最小反例就是 `tag`a`.length` ✓；
-// 形状与第 158–161 轮那一族相同 ✓（结果槽与水位的关系 ✓），记在台账里 ✓。
+// **「标签模板当接收者 / 处在运算符里」在第 176 轮补上了** ✓（原来是**静默错值** ✗：
+// `tag`a`.length` 给的是**函数本身** ✗，Node 给 `1` ✓）。那一族现在有自己的语料
+// （`54-tagged-template-suffix.ts` ✓）——这里留一句指针，免得下一个人又去翻这一行 ✗。
 
 // ④ 箭头函数当 tag（真实库的常见写法）
 const upper = (parts: any, ...v: any[]) => parts.join("!").toUpperCase() + v.join("");

@@ -2271,6 +2271,116 @@ new Set([
       return { kind: "TaggedTemplateExpression", tag, template, pos: tag.pos, end: template.end };
     }
   }
+  // ---- 0c. 标签模板**后面还跟着后缀**（第 176 轮）----
+  //
+  // `` tag`abc`.length `` 的产物是
+  // `[Identifier(tag), PropertyAccess(String(反引号), ., length)]`——
+  // **标签留在外面，模板串与后缀在同一个 `PropertyAccess` 单元里**（XML 实测）。
+  // 所以上面那条 0b 判据（`kids[1]` **就是**那个 `String`）看不到它，
+  // 通用支只投第一格，于是**标签模板与后缀整片丢**：
+  // `` const r = tag`abc`.length `` 投出来是 `VariableDeclaration{ Identifier r, Identifier tag }`，
+  // 降级层拿到一个光秃秃的 `tag`，于是运行时给的是**函数本身**
+  //（Node 给 `3` ✓、本仓给 `[Function (anonymous)]` ✗——`runtime:cli` 第 53 份语料是绿的，
+  // 因为它只钉了不带后缀的 `` tag`abc` `` ✓）。
+  //
+  // 判据与 0b 同源，只是往里走一层：第二格是 `PropertyAccess`、它**第一个**可投影子单元
+  // 是**反引号开头**的 `String`（普通字符串是 `"` / `'`，`projectString` 靠这个分岔）。
+  // 标签那一侧走 `projectExpression(kids.slice(0, 1))`：`obj.tag` / `f()` / `(…)`
+  // 这些接收者本来就是**一个单元**，`projectExpression` 自己会投对
+  //（`(cond)` 那一格落在 `parenthesizedOf` 上）。
+  //
+  // 后缀那两个方向**照抄已经有的那份**（`chainOnto`）：下标 `[…]`、点号成员、
+  // 点号后面跟 `Method`（调用）、成员格里又是一条链——与「二元右操作数后面那串续格」
+  // 走的是同一段代码，不另写一遍。本层后面还跟着兄弟（`` tag`abc`.length + 1 ``）时
+  // 再交回二元那一支。
+  // **标签那一格必须是「一个已经完整的表达式」**（`IsChainBaseNode` 那一份判据，
+  // 外加值位括号）：`1 + t`abc`` 的产物也是 `[BinaryOperator(1, +, t), PropertyAccess(…)]`
+  // 这种「模板单元在第二格」的形状，但那里的标签是**那个二元单元的最后一个操作数**
+  //（`t`），不是整个 `1 + t`——认错的话 `1 + t`abc`` 会变成 `(1 + t)`abc``，
+  // 静默算成另一个值 ✗。那一族（模板单元**跟在运算符单元后面**）记在台账里，本轮不做。
+  const tagUnit = kids[0];
+  const tagIsComplete =
+    IsChainBaseNode(tagUnit) ||
+    (tagUnit.get("type") === "Bracket" && tagUnit.get("startBracket") === "(");
+  if (tagIsComplete && kids.length >= 2 && kids[1].get("type") === "PropertyAccess") {
+    const inner = projectableKids(view(kids[1]));
+    if (inner.length >= 2 && inner[0].get("type") === "String" && ctx.source[startOf(inner[0])] === "`") {
+      const tag = projectExpression(kids.slice(0, 1), ctx);
+      const template = projectNode(inner[0], ctx);
+      if (tag !== undefined && template !== undefined) {
+        const head = {
+          kind: "TaggedTemplateExpression",
+          tag,
+          template,
+          pos: tag.pos,
+          end: template.end,
+        };
+        const chained = chainOnto(head, inner.slice(1), ctx);
+        const tail = kids.slice(2);
+        return tail.length === 0 ? chained : foldBinaryFrom(chained, tail, ctx);
+      }
+    }
+  }
+  // ---- 0d. 标签模板处在**运算符的左脊柱**上（第 176 轮）----
+  //
+  // `` tag`abc` + 1 `` 的产物是 `[Identifier(tag), BinaryOperator(String(反引号), +, 1)]`，
+  // `` tag`abc`.length + 1 + 2 `` 是
+  // `[Identifier(tag), BinaryOperator(BinaryOperator(PropertyAccess(String, ., length), +, 1), +, 2)]`
+  // ——**标签还在外面，模板串在被运算符单元吃掉的那一格的最左边**。
+  // 与 0c 是同一件事（模板串被留成了兄弟单元的成员），只是中间多套了几层运算符。
+  //
+  // 判据沿**左脊柱**往下走：每一层都要求「这一格的第一个子单元是模板串（或者
+  // 第一个子单元是 `PropertyAccess`、它的第一个子单元是模板串）」，沿途把每个运算符单元的
+  // `(运算符, 右操作数)` 从**里往外**收起来；收到模板串那一层为止，再把它们**从里往外**
+  // 交给 `foldBinaryFrom`——左结合链本身怎么折，与通用那一支是同一段代码。
+  //
+  // 脊柱上任何一层不满足就整个让开（交回下面的通用支）：宁可维持原来的错，
+  // 也不能把「模板串其实不在这一格」的形状认成标签模板。
+  if (
+    tagIsComplete &&
+    kids.length >= 2 &&
+    (kids[1].get("type") === "BinaryOperator" || kids[1].get("type") === "LogicalOperator")
+  ) {
+    let spine = kids[1];
+    let templateUnit: any = undefined;
+    let members: Array<any> = [];
+    const layers: Array<Array<any>> = [];
+    while (spine !== undefined) {
+      const inner = projectableKids(view(spine));
+      if (inner.length < 3) break;
+      const head = inner[0];
+      const headKids = head.get("type") === "PropertyAccess" ? projectableKids(view(head)) : [head];
+      if (headKids[0]?.get("type") === "String" && ctx.source[startOf(headKids[0])] === "`") {
+        templateUnit = headKids[0];
+        members = headKids.slice(1);
+        layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+        break;
+      }
+      if (head.get("type") !== "BinaryOperator" && head.get("type") !== "LogicalOperator") break;
+      layers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+      spine = head;
+    }
+    if (templateUnit !== undefined) {
+      const tag = projectExpression(kids.slice(0, 1), ctx);
+      const template = projectNode(templateUnit, ctx);
+      if (tag !== undefined && template !== undefined) {
+        let left: any = {
+          kind: "TaggedTemplateExpression",
+          tag,
+          template,
+          pos: tag.pos,
+          end: template.end,
+        };
+        if (members.length > 0) left = chainOnto(left, members, ctx);
+        const rest: Array<any> = [];
+        for (let q = layers.length - 1; q >= 0; q--) {
+          rest.push(layers[q][0], layers[q][1]);
+        }
+        for (const k of kids.slice(2)) rest.push(k);
+        return foldBinaryFrom(left, rest, ctx);
+      }
+    }
+  }
   // ---- 0b2. 标签模板**后面还跟着后缀**：第 173 轮在这里加过一条判据 ✗——**退回来了** ✗ ----
   //
   // 判据写的是「第二格是 `PropertyAccess` 且它第一个子单元是反引号 String」✓，
