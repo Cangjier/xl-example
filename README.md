@@ -136,8 +136,15 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 原来给 `"object"`（本仓「可调用」有三种表示，两个 `typeof` 出口都只认前两种）。
 判据当场抓到两处：`replaceAll("")` **不是**「只插一次」，以及新号 `ArrayAt=22` **撞上了**
 本来就有的 `ArrayFlat=22`（`flat()` 于是静默给 `undefined`——是普查抓回来的））、
++ **数组解构接上迭代协议**（第 151 轮：`const [a, b] = new Set([1, 2])` 原来按位置读，
+**静默**给 `undefined undefined`（JS 给 `1 2`）。修法只是接上**早就有的那条口径**——
+`for..of` 与 `[...xs]` 的第一步都是 `GetIterator`（它把 `Map`/`Set` 物化成数组、对数组原样返回），
+于是两半各加一行 `MaterializeIterable`；普通数组解构的指令一条都没变。
+第 146 轮那条判据当时写着「改成迭代协议的那一天这一条会当场变红」——这一轮它真的红了，
+于是改成正面断言。生成器那一档**够不着**（`iter_next` 是指令，建库层调不到），
+连同「可选调用那两处」一起把**实测读数**记进台账，留给下一轮）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（210 条）与 `npm run runtime:cli`（42 份语料）；
+判据见 `npm run runtime:check`（211 条）与 `npm run runtime:cli`（43 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

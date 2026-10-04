@@ -2143,6 +2143,30 @@ if (NodeKind(keyNode) === "ComputedPropertyName") {
 return keyNode;
 ```
 
+## method MaterializeIterable:(source:int)=>int
+
+**把「一个可迭代的东西」变成按位置读的数组**（第 151 轮）——走 `GetIterator` 那条
+**既有的**语言内建调用 ✓（`for..of` 与 `[...xs]` 的第一步就是它 ✓）。
+
+**它给什么** ✓（`install.xl.md` 的 `GetIterator` 一节是权威 ✓）：`Map` → `[键, 值]` 对的数组 ✓、
+`Set` → 值的数组 ✓、数组 → **原样**（不拷贝 ✓）、字符串 → **原样**（字符串本来就能按下标读 ✓）、
+其余 → **原样** ✓（生成器落在这里 ✓——按位置读它读不到东西 ✗，那一档要引擎发 `iter_next` ✓，
+是**另一轮**的事 ✓）。
+
+**为什么数组模式要过它** ✗：`const [a, b] = new Set([1, 2])` 原来在 Set 对象上
+`get_index` ✓ → **静默**给两个 `undefined` ✗（JS 给 `1, 2` ✓）。
+**静默错值**是本仓排序里最靠前的一档 ✗，而修法只是「接上早就有的那一条口径」✓。
+
+```ts
+const window = this.Reserve(2);
+this.Emit(Op.Const, window, this.IntConst(GetIteratorId), -1, -1);
+this.Emit(Op.Move, window + 1, source, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 2);
+// 结果落在窗口第一格；参数那一格可以还回去了（与 `for..of` 那一段一字不差 ✓）。
+this.Release(window + 1);
+return window;
+```
+
 ## method Destructure:(pattern:AstNode, source:int, isVar:bool)=>void
 
 **把一个值拆进绑定模式**（`{a, b: c}` / `[x, , y]`，可嵌套）。
@@ -2164,6 +2188,16 @@ if (kind !== "ObjectBindingPattern" && kind !== "ArrayBindingPattern") {
   throw new Error("unimplemented: binding pattern " + kind);
 }
 const elements = ListOf(pattern, "elements");
+// **数组模式先过迭代协议**（第 151 轮）✓：`GetIterator` 把 `Set` / `Map` / 字符串
+// 变成**按位置读的数组** ✓（数组原样返回 ✓；生成器原样返回 ✗——那一档要引擎发
+// `iter_next` ✓，是**另一轮**的事 ✓，本轮的判据把它钉在明处 ✓）。
+//
+// **为什么必须换** ✗：数组模式原来一路 `get_index(source, i)` ✓——
+// `const [a, b] = new Set([1, 2])` 在 Set 对象上读不到东西 ✓，
+// 于是**静默**给两个 `undefined` ✗（JS 给 `1, 2` ✓）。**静默错值**是本仓排最前的档 ✗。
+// 而这条规矩**早就有** ✓（`for..of` 与 `[...xs]` 都先过 `GetIterator` ✓）——
+// 「一串值从哪来」只有这一处口径 ✓，数组模式接上去就是了 ✓。
+const items = kind === "ArrayBindingPattern" ? this.MaterializeIterable(source) : source;
 for (let i = 0; i < elements.length; i++) {
   const element = elements[i];
   if (NodeKind(element) === "OmittedExpression") continue;
@@ -2179,7 +2213,7 @@ for (let i = 0; i < elements.length; i++) {
     const restWindow = this.Reserve(3);
     if (kind === "ArrayBindingPattern") {
       this.Emit(Op.Const, restWindow, this.IntConst(ArrayRestId), -1, -1);
-      this.Emit(Op.Move, restWindow + 1, source, -1, -1);
+      this.Emit(Op.Move, restWindow + 1, items, -1, -1);
       this.Emit(Op.Const, restWindow + 2, this.IntConst(i), -1, -1);
       this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
       this.BindName(TextOf(restTarget), restWindow, isVar);
@@ -2219,6 +2253,15 @@ for (let i = 0; i < elements.length; i++) {
     this.BindName(TextOf(restTarget), restWindow, isVar);
     return;
   }
+  // **数组模式先过迭代协议**（第 151 轮）✓：`GetIterator` 把 `Set` / `Map` / 字符串
+  // 变成**按位置读的数组** ✓（数组原样返回 ✓；生成器原样返回 ✗——那一档要引擎发
+  // `iter_next` ✓，是**另一轮**的事 ✓，本轮的判据把它钉在明处 ✓）。
+  //
+  // **为什么必须换** ✗：数组模式原来一路 `get_index(source, i)` ✓——
+  // `const [a, b] = new Set([1, 2])` 在 Set 对象上读不到东西 ✓，
+  // 于是**静默**给两个 `undefined` ✗（JS 给 `1, 2` ✓）。**静默错值**是本仓排最前的档 ✗。
+  // 而这条规矩**早就有** ✓（`for..of` 与 `[...xs]` 都先过 `GetIterator` ✓）——
+  // 「一串值从哪来」只有这一处口径 ✓，数组模式接上去就是了 ✓。
   let value = -1;
   if (kind === "ObjectBindingPattern") {
     const keyNode = this.PropertyKeyNodeOf(element);
@@ -2227,7 +2270,7 @@ for (let i = 0; i < elements.length; i++) {
     value = this.RtCall2(RtOp.GetProp, source, key);
   } else {
     const index = this.Program().AddConst(Constant.OfInt(i));
-    value = this.RtCall2(RtOp.GetIndex, source, index);
+    value = this.RtCall2(RtOp.GetIndex, items, index);
   }
   // **默认值**（第 132 轮；第 146 轮起那一段在 `DestructureDefault` 里 ✓，与赋值那一半共用 ✓）。
   const initializer = OptionalChild(element, "initializer");
@@ -2278,6 +2321,9 @@ for (let i = 0; i < elements.length; i++) {
 const kind = NodeKind(pattern);
 if (kind === "ArrayLiteralExpression") {
   const elements = ListOf(pattern, "elements");
+  // **赋值那一半与声明那一半同一条口径** ✓（第 151 轮）：先过 `GetIterator` ✓，
+  // 于是 `[a, b] = new Set([1, 2])` 给 `1, 2` ✓（原来**静默**给两个 `undefined` ✗）。
+  const items = this.MaterializeIterable(source);
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i];
     const elementKind = NodeKind(element);
@@ -2288,7 +2334,7 @@ if (kind === "ArrayLiteralExpression") {
       //（`ArrayRestId` ✓）——「剩下的怎么算」只有一份实现 ✓。
       const restWindow = this.Reserve(3);
       this.Emit(Op.Const, restWindow, this.IntConst(ArrayRestId), -1, -1);
-      this.Emit(Op.Move, restWindow + 1, source, -1, -1);
+      this.Emit(Op.Move, restWindow + 1, items, -1, -1);
       this.Emit(Op.Const, restWindow + 2, this.IntConst(i), -1, -1);
       this.EmitRt(RtOp.HostCall, restWindow, restWindow, 3);
       this.StoreAssignTarget(Child(element, "expression"), restWindow);
@@ -2296,7 +2342,7 @@ if (kind === "ArrayLiteralExpression") {
       return;
     }
     const index = this.Program().AddConst(Constant.OfInt(i));
-    const read = this.RtCall2(RtOp.GetIndex, source, index);
+    const read = this.RtCall2(RtOp.GetIndex, items, index);
     // **默认值先于目标认领** ✓：`[a = 1] = []` 的元素节点是 `a = 1`（一个 `BinaryExpression` ✓），
     // 「谁是目标、谁默认值」由 `DestructureTarget` 认 ✓（与对象那一半同一个函数 ✓）。
     const target = this.DestructureTarget(element, read);

@@ -6623,14 +6623,26 @@ check("失败形状必须**响亮**：没声明的名字 · 计算键 + 剩余 �
   eq(thirdRes.Outcome, HostOutcome.Ok, "运行器：" + thirdRes.Message);
   eq(lines[0], "5 6", "计算键（字符串 / 数字）都读得到");
   eq(lines[1], "assign-into-array 7", "下标目标照常");
-  // **一档已知的差**（第 146 轮量出来的 ✓，**不是这一轮弄出来的** ✗，记在台账「下一步」里 ✓）：
-  // 数组解构走的是**下标**读 ✓，不是 JS 的**迭代协议** ✓——于是
-  // `[q] = 5` 给 `undefined` ✓（JS 抛 `TypeError` ✗）、`[a, b] = new Set([8, 9])` 也给
-  // `undefined, undefined` ✗（JS 给 `8, 9` ✓）。**两半一致** ✓（同一个读法 ✓），
-  // 而它**静默** ✗——所以这一条判据把它**钉在明处** ✓：哪天改成迭代协议，
-  // 这里会当场变红 ✓，那正是它该有的作用 ✓。
+  // **第 151 轮把它修好了** ✓（这条判据当时就该变红 ✓——它就是这么设计的 ✓）：
+  // 数组解构现在**先过 `GetIterator`** ✓（`for..of` 与 `[...xs]` 的第一步就是它 ✓），
+  // 于是 `[a, b] = new Set([8, 9])` 给 `8, 9` ✓（原来是**静默**的 `undefined, undefined` ✗）。
+  // **还剩一档** ✗：生成器仍然过不去 ✓（`GetIterator` 把它**原样**返回 ✓，
+  // 而按位置读一个生成器读不到东西 ✗）——那一档要引擎发 `iter_next` ✓，另记一条 ✓。
   eq(lines[2], "no-throw undefined", "**已知差**：`[q] = 5` 静默给 `undefined`（JS 抛）");
-  eq(lines[3], "set undefined undefined", "**已知差**：`[a, b] = new Set(...)` 静默给两个 `undefined`（JS 迭代）");
+  eq(lines[3], "set 8 9", "第 151 轮修好：`[a, b] = new Set(...)` 走迭代协议，给 `8 9`");
+  // **生成器那一档还在** ✗（钉在明处 ✓：做出来那天会变红 ✓）。
+  const genLines = [];
+  const genRequest = new RunRequest();
+  genRequest.Sources = [[
+    "function* g() { yield 1; yield 2; }",
+    "const [g1, g2] = g();",
+    "console.log('gen', g1, g2);",
+  ].join("\n")];
+  genRequest.Entry = "";
+  const genRes = RunSources(genRequest, (text) => genLines.push(text), () => null);
+  eq(genRes.Outcome, HostOutcome.Ok, "运行器：" + genRes.Message);
+  eq(genLines[0], "gen undefined undefined",
+    "**已知差**：生成器解构仍给 `undefined`（要引擎发 `iter_next`）");
 });
 
 console.log("");
@@ -7040,6 +7052,54 @@ check("原始值原型（`Number` / `Boolean`）+ `at` / `splice` / `replaceAll`
   // 我第一版按「也只插一次」写 ✓，判据当场给了 `"-abc"` ✗（Node 是 `"-a-b-c-"` ✓）。
   eq(lines[7], "a+b+c aaaaaa -a-b-c-", "`replaceAll` 三格（含空串那一格）");
   eq(lines[8], "a+b -abc zz", "`replace` 只换第一处（找不到就原样返回）");
+});
+
+console.log("");
+console.log("=== 第 151 轮：数组解构先过迭代协议（`GetIterator`）===");
+
+check("数组模式过 `GetIterator`：`Set` / `Map` / 字符串都读得到，数组照旧", () => {
+  // **端到端那一把在 `cases/43-destructure-iterables.ts`**（10 行逐字节 ✓）。
+  //
+  // 修的是**静默错值** ✗：`const [a, b] = new Set([1, 2])` 原来按位置读 ✓ →
+  // `undefined undefined` ✗（JS 给 `1 2` ✓）。**两半**（声明 / 赋值）都是这条毛病 ✓，
+  // 而修法是「接上早就有的那条口径」✓——`for..of` 与 `[...xs]` 的第一步都是
+  // `GetIterator` ✓（`install.xl.md` 那一节是权威 ✓：`Map` → `[键,值]` 对 ✓、
+  // `Set` → 值 ✓、数组 → **原样** ✓、字符串 → **原样** ✓、其余 → **原样** ✗）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const [a, b] = new Set([1, 2]); console.log(a, b);",
+    "let x, y; [x, y] = new Set([3, 4]); console.log(x, y);",
+    "const [p, ...rest] = new Set([5, 6, 7]); console.log(p, rest.join(','));",
+    "const [c1, c2] = 'hi'; console.log(c1, c2);",
+    "const [d = 42] = new Set(); console.log(d);",
+    "const [z1, z2] = [11, 12]; console.log(z1, z2);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1 2", "**声明那一半**：`Set` 走迭代协议（原来静默给两个 `undefined`）");
+  eq(lines[1], "3 4", "**赋值那一半**：同一条口径（两半不再各写一份读法）");
+  eq(lines[2], "5 6,7", "剩余元素也跟着走同一条路（`ArrayRestId` 不变）");
+  eq(lines[3], "h i", "字符串原样过（它本来就能按下标读）");
+  eq(lines[4], "42", "默认值那一格不受影响（读出来是 `undefined` 才用默认）");
+  eq(lines[5], "11 12", "数组原样返回，所以普通数组解构一条指令都没变");
+  // **生成器那一档还没过** ✗（钉在明处 ✓：做出来那天会变红 ✓）——
+  // 它要引擎发 `iter_next` ✓（`GetIterator` 对生成器**原样返回** ✗，
+  // 而按位置读一个生成器读不到东西 ✓）。要动的地方是**引擎那一侧** ✓：
+  // `SpreadInto` 与数组模式都得能「驱动一次迭代」✓，而建库层够不着指令 ✗。
+  const genLines = [];
+  const gen = new RunRequest();
+  gen.Sources = [[
+    "function* g() { yield 1; yield 2; }",
+    "const [g1, g2] = g();",
+    "console.log(g1, g2);",
+  ].join("\n")];
+  gen.Entry = "";
+  const genRes = RunSources(gen, (text) => genLines.push(text), () => null);
+  eq(genRes.Outcome, HostOutcome.Ok, "运行器：" + genRes.Message);
+  eq(genLines[0], "undefined undefined",
+    "**已知差**：生成器解构仍给 `undefined`（要引擎侧的一条新算子）");
 });
 
 console.log("");
