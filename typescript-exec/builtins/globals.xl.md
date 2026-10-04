@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
@@ -1153,14 +1153,19 @@ if (id === DateCtor) {
   table.Get(created.Ref).Proto = protos.Date;
   const ms = args.length > 0 ? args[0] : Value.FromInt(0);
   if (!ms.IsNumber()) throw new Error("unimplemented: new Date(x) needs a number of milliseconds");
-  SetProperty(room, NeverCall, table, created,
+  // **`__t` 也是不可枚举的**（第 194 轮 ✓）：JS 的 `Object.keys(new Date())` 是 `[]` ✓
+  //（本仓原来给 8 个键 ✗）。**`JSON.stringify(date)` 那一格仍旧不同** ✗：
+  // JS 走 `toJSON` ✓ 给 ISO 字符串 ✓，本仓给 `{"__t":0}` ✓——那是**另一件事** ✓，
+  // 与新加的 `Date.prototype.toJSON` 一起单独立一轮 ✓（记在台账里 ✓）。
+  SetHiddenProperty(room, table, created,
     Value.FromString(table.CreateString(Units("__t"))), ms);
   const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
     DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds];
   const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
     "getUTCHours", "getUTCMinutes", "getUTCSeconds"];
   for (let i = 0; i < methodIds.length; i++) {
-    SetProperty(room, NeverCall, table, created,
+    // **方法也不可枚举**（第 194 轮 ✓）：`Object.keys(new Date())` 在 JS 里是 `[]` ✓。
+    SetHiddenProperty(room, table, created,
       Value.FromString(table.CreateString(Units(methodNames[i]))),
       Value.FromRef(ValueTag.HostRef, table.CreateHostRef(methodIds[i], 0)));
   }
@@ -1208,9 +1213,11 @@ throw new Error("unimplemented: global builtin " + id);
 ```ts
 const created = NewPlainObject(room, table, protos);
 table.Get(created.Ref).Proto = protoHandle;
-SetProperty(room, NeverCall, table, created, NameValue(table, "message"),
+// **`message` 与 `name` 是不可枚举的**（第 194 轮 ✓）：JS 里 `Object.keys(new Error("x"))`
+// 是 `[]` ✓（本仓原来给 `message,name` ✗——**静默**多出来的键 ✓）。
+SetHiddenProperty(room, table, created, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(message))));
-SetProperty(room, NeverCall, table, created, NameValue(table, "name"),
+SetHiddenProperty(room, table, created, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units(name))));
 return created;
 ```
@@ -1630,6 +1637,10 @@ if (unit === 123) {
     cursor.At = cursor.At + 1;
     const value = JsonParseValue(room, table, protos, text, cursor, depth + 1);
     if (!room(ObjectCharge + CodeUnitCharge * key.length)) throw new Error("out of room");
+    // **这里是普通属性** ✗（第 194 轮差点改错 ✓）：JSON 解析出来的键是**数据** ✓，
+    // `Object.keys(JSON.parse(...))` 在 JS 里看得见它们 ✓——「不可枚举」只给
+    // **内部件与方法**用 ✓（`__t` / `__k` / `message` / 那一批方法 ✓）。
+    // 判据当场抓住了这一格 ✓：那条 check 报的是「期望 {...}、实际 {}」✓。
     SetProperty(room, NeverCall, table, created, Value.FromString(table.CreateString(key)), value);
     JsonSkipSpace(text, cursor);
     if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated object");

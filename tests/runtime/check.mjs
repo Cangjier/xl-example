@@ -8100,5 +8100,56 @@ check("三种字符串化都先问对象自己的 `toString`；没有那一格�
 });
 
 console.log("");
+console.log("=== 第 194 轮：内部件与方法不该出现在 `Object.keys` / `JSON` 里 ===");
+
+check("`SetHiddenProperty`：内部格与方法**不可枚举**，数据照旧可枚举", () => {
+  // **端到端那一把在 `cases/72-hidden-slots.ts`**（9 行逐字节 ✓）。
+  //
+  // **症状** ✗（普查里 `map-internal-slots` 那条 ✓，**静默错值** ✓）：
+  // `Object.keys(new Map())` 给 **12** ✓（JS 给 0 ✓）、
+  // `JSON.stringify(new Map())` 给 `{"__k":[…],"__v":[…],"size":1}` ✓（JS 给 `{}` ✓）。
+  //
+  // **根因** ✓：`Map` / `Set` 的内部格（`__k` / `__v` / `size` ✓）与那一批方法都写在
+  // **实例自己**身上 ✓（「方法挂实例」是这一族的设计 ✓），而写的时候用的是**普通属性** ✗——
+  // 于是它们在 JS 眼里都是「**可枚举的自有属性**」✓，`Object.keys` / JSON / 展开全看得见 ✗。
+  // JS 里它们**一个都不算** ✓：内部格不是属性 ✓、方法是原型上的且不可枚举 ✓。
+  //
+  // **修法** ✓：引擎侧多一格 `SetHiddenProperty`（不可枚举、但可写可配置 ✓）；
+  // `Map` / `Set` 的全部写入都经过 `WriteOwn` **一个出口** ✓，改一处就够 ✓；
+  // `Error` 的 `message` / `name` ✓ 与 `Date` 的 `__t` 与方法 ✓ 同理 ✓。
+  //
+  // **差点改错的一格** ✗：`JSON.parse` 建对象也用同一句写法 ✓——但那是**数据** ✓，
+  // `Object.keys(JSON.parse(…))` 在 JS 里看得见它们 ✓。判据当场抓住了它 ✓
+  //（那条 check 报「期望 {…}、实际 {}」✓），所以那一处**退回普通属性** ✓。
+  //
+  // **还没做的那一格写在明处** ✗：`JSON.stringify(new Date(0))` 在 JS 里走
+  // `Date.prototype.toJSON` ✓ 给 ISO 文本 ✓，本仓给 `{}` ✓——那是**另一件事** ✓，单独立一轮 ✓。
+  const outline = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const m = new Map([['a', 1]]);",
+    "const s = new Set([1, 2]);",
+    "const d = new Date(0);",
+    "const e = new Error('boom');",
+    "console.log(Object.keys(m).length, Object.keys(s).length, Object.keys(d).length);",
+    "console.log(JSON.stringify(m), JSON.stringify(s));",
+    "console.log(m.get('a'), m.size, s.has(2), s.size, d.getTime());",
+    "console.log([...m.keys()].join(','), [...s].join(','));",
+    "console.log(Object.keys(e).length, e.message, e.name, JSON.stringify(e));",
+    "const parsed: any = JSON.parse('{\"x\":1,\"y\":2}');",
+    "console.log(Object.keys(parsed).join(','), parsed.y, JSON.stringify({ a: 1 }));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => outline.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(outline[0], "0 0 0", "**这一轮修的**：三族的键都是空的（方法与内部格都不可枚举）");
+  eq(outline[1], "{} {}", "`JSON.stringify` 也不再漏内部格");
+  eq(outline[2], "1 1 true 2 0", "功能照旧：方法沿原型链找得到、内部格读得到");
+  eq(outline[3], "a 1,2", "迭代照旧（`keys` / 展开）");
+  eq(outline[4], "0 boom Error {}", "`Error` 的 `message` / `name` 也不可枚举（JS 的口径）");
+  eq(outline[5], "x,y 2 {\"a\":1}", "**数据照旧可枚举**（`JSON.parse` 出来的键看得见）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

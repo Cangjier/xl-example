@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, Protos, SetProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
+import { NativeCall, Protos, SetProperty, SetHiddenProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall } from "./array.xl.md"
 ```
 
@@ -120,8 +120,16 @@ return table.Get(found.Owner).Props[found.Index].Value;
 
 写实例上的一个自有属性（数据属性）。
 
+**内部件与方法都是「不可枚举」的**（第 194 轮）：JS 里 `Object.keys(new Map())` 是 `[]`、
+`JSON.stringify(new Map())` 是 `{}`——那些东西（`__k` / `__v` / `size` 与那些方法）
+**不是「可枚举的自有属性」**。本仓原来把它们写成普通属性，于是 `Object.keys` 给 12、
+JSON 也跟着漏出去（**静默错值**，普查里 `map-internal-slots` 那条就是这么红的）。
+
+**这一处是 Map 与 Set 全部写入的唯一出口**（Set 也 import 它），
+所以标志位只要在这里对一次。
+
 ```ts
-SetProperty(room, call, table, self, NameValue(table, name), value);
+SetHiddenProperty(room, table, self, NameValue(table, name), value);
 ```
 
 # method InstallMapMethods:(room:RoomChecker, table:HeapTable, map:Value)=>void

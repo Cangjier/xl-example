@@ -609,6 +609,42 @@ if (receiver.Tag === ValueTag.Array) {
 throw new Error("unimplemented: indexed assignment on a non-array receiver");
 ```
 
+# method SetHiddenProperty:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value, value:Value)=>void
+
+**写一格「不可枚举」的自有属性**（第 194 轮 ✓）——装库层的内部件与方法用它 ✓。
+
+**为什么需要它** ✗：JS 里 `Object.keys(new Map())` 是 `[]` ✓、
+`JSON.stringify(new Map())` 是 `{}` ✓——那些东西（内部格 `__k` / `__v` 与那些方法 ✓）
+**不是「可枚举的自有属性」** ✓。本仓原来把它们全写成普通属性 ✓，
+于是 `Object.keys` 给 12 ✓、JSON 也跟着漏出去 ✓——**静默错值** ✓
+（普查里 `map-internal-slots` 那条就是这么红的 ✓）。
+
+**与 `SetProperty` 的差别只有标志位** ✓：找到自有那一格就改值 + 改标志 ✓、
+没有就新开一格 ✓；**不看数组的 `length`、不调 setter** ✗
+（装库层写的都是数据属性 ✓，走那条通用路只会多绕一圈 ✓）。
+
+```ts
+if (!receiver.IsObject()) {
+  throw new Error("unimplemented: hidden property on a primitive receiver");
+}
+const hiddenFound = FindProperty(room, table, receiver.Ref, key);
+if (hiddenFound !== null && hiddenFound.Owner === receiver.Ref) {
+  const hiddenProperty = table.Get(hiddenFound.Owner).Props[hiddenFound.Index];
+  if (hiddenProperty.Kind !== PropertyKind.Accessor) {
+    hiddenProperty.Value = value;
+    // **不可枚举、但可写可配置** ✓：JS 里这些内部件不是属性 ✗——
+    // 这里用「自有 + 不可枚举」近似它 ✓，改值 / 删除照旧成立 ✓。
+    hiddenProperty.Flags = PropertyFlagWritable + PropertyFlagConfigurable;
+    return;
+  }
+}
+if (!room(PropertyCharge)) throw new Error("out of room");
+const hiddenCreated = new Property(key.Ref, value);
+hiddenCreated.Flags = PropertyFlagWritable + PropertyFlagConfigurable;
+table.Get(receiver.Ref).Props.push(hiddenCreated);
+table.Recount(receiver.Ref);
+```
+
 # method NewPlainObject:(room:RoomChecker, table:HeapTable, protos:Protos)=>Value
 
 造一个普通对象：**原型取 `Protos.Object`**。
