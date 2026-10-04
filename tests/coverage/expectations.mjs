@@ -50,8 +50,12 @@ export const EXPECTATIONS = {
   // `then(() => Promise.resolve(5)).then(v => …)` 里 `v` 是 `5` ✓），
   // 本仓**把它当成一个普通值灌进去** ✗ ⇒ 结果承诺**带着一个承诺对象兑现了** ✓
   // ⇒ 后面接的 `.then` 拿到的「值」是一个承诺 ✓、而**整条内层链的收尾也丢了** ✗。
-  // **它不报错** ✗ ⇒ **静默错值** ✓（第 248 轮量准的那一处 ✓）。
-  "prm-microtask-order": { expect: "differ", why: "回调返回一个承诺时没有采纳它（`ResolvePromise` 把它当普通值灌）——不是次序问题，次序是对的" },
+  // **第 249 轮把根子再往前提了一步** ✓（第 248 轮记的是「采纳」✗，**那一半是真的、但不是第一因** ✓）：
+  // 给 `AdoptInto` 那一支插了一句探针 ✓，**它一次都没打印** ✓ ⇒
+  // 这一条链**根本走不到「回调的返回值」那一步** ✓——
+  // 它在**回调跑完之后、收尾之前**就出事了 ✓（`cannot read properties of undefined` ✓）。
+  // **所以采纳要修，而它前面还有一个更要紧的缺口** ✗。
+  "prm-microtask-order": { expect: "differ", why: "`.then(…).then(…)` 的返回值链：回调跑完之后收尾就出事（还走不到「采纳返回值」那一步）——探针证明 `AdoptInto` 从未被触达" },
   "gc-churn": { expect: "blocked", why: "**步数预算**：两万次循环就 `step budget exhausted`（普通循环够不着这个量级）" },
 
   // ===== exec：TS 形状 → 运行期语义 =====
