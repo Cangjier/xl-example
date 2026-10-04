@@ -56,7 +56,7 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 
 # type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker)=>Value
 
-# type TaskScheduler = (promise:Value, callback:Value, args:Array<Value>, result:Value, wants:number, carry:boolean)=>void
+# type TaskScheduler = (promise:Value, callback:Value, args:Array<Value>, result:Value, wants:number, carry:boolean, onRejected:Value)=>void
 
 # type TaskSettler = (promise:Value, value:Value, rejected:boolean)=>void
 
@@ -181,10 +181,26 @@ this.Pc = pc;
 引擎若顺手灌进去 ✓，`Promise.all` 的结果会在**第一个**输入到齐时就被兑现成 `undefined` ✗
 （实测就是这个症状 ✓：`xs.join` 报「读 undefined 的属性」✓）。
 
+## field OnRejected:Value = new Value()
+
+**拒绝那一档要调的**第二个**回调** ✓（第 187 轮 ✓）：`Promise.then(f, g)` 那个 `g` ✓。
+
+**为什么它是任务的一格、而不是两步任务** ✗：挂两步（一步只认兑现 ✓、一步只认拒绝 ✓）
+会**互相踩** ✓——拒绝到来时，那一步「只认兑现」的回调虽然不跑 ✓，
+但它的**传播**会把结果承诺先拒绝掉 ✗，接着 `g` 去兑现同一个承诺就是**空操作** ✗
+（结果停在「拒绝」上 ✗，而 JS 要的是 `g` 的返回值 ✓）。**一步两条路**才对 ✓。
+
 ## field Wants:int = 2
 
-**这一格只认哪一档** ✓（第 185 轮 ✓）：`0` = 只认兑现 ✓（`.then(f)` ✓）、
-`1` = 只认拒绝 ✓（`.catch(g)` ✓）、`2` = 两档都调 ✓（`Promise.all` / `race` 那两步 ✓）。
+**这一格只认哪一档** ✓（第 185 轮；`3` / `4` 是第 187 轮加的 ✓）：
+
+| 值 | 意思 |
+| --- | --- |
+| `0` | 只认兑现 ✓（`.then(f)` ✓；拒绝那一档**原样传下去** ✓） |
+| `1` | 只认拒绝 ✓（`.catch(g)` ✓；兑现那一档原样传下去 ✓） |
+| `2` | 两档都调同一个回调 ✓（`Promise.all` / `race` 那两步 ✓） |
+| `3` | **两档各一个回调** ✓（`.then(f, g)` ✓——拒绝时调 `OnRejected` ✓） |
+| `4` | 两档都调 ✓、然后**把源那一档原样传下去** ✓（`.finally(cb)` ✓——回调的返回值**不算数** ✓） |
 
 **不匹配就跳过回调、把源那一档原样传下去** ✓——那正是 JS 的 `.then` 语义 ✓
 （`.then(f)` 遇到拒绝时 `f` 不跑 ✓、拒绝继续往下走 ✓）。
@@ -1704,8 +1720,8 @@ return (promise: Value, value: Value, rejected: boolean): void => {
 
 ```ts
 return (promise: Value, callback: Value, args: Value[], result: Value, wants: number,
-  carry: boolean): void => {
-  this.ScheduleTask(promise, callback, args, result, wants, carry);
+  carry: boolean, onRejected: Value): void => {
+  this.ScheduleTask(promise, callback, args, result, wants, carry, onRejected);
 };
 ```
 
@@ -2096,7 +2112,7 @@ this.NativeTasks.push(new NativeTask());
 return this.NativeTasks.length - 1;
 ```
 
-## method ScheduleTask:(promise:Value, callback:Value, args:Array<Value>, result:Value, wants:int, carry:bool)=>void
+## method ScheduleTask:(promise:Value, callback:Value, args:Array<Value>, result:Value, wants:int, carry:bool, onRejected:Value)=>void
 
 **挂一个原生任务**（第 185 轮 ✓）——语言层的 `.then(fn)` 就走这一句 ✓。
 
@@ -2110,7 +2126,7 @@ return this.NativeTasks.length - 1;
 
 ```ts
 if (!promise.IsObject()) {
-  const index = this.AllocateTask(callback, args, result, false, wants, carry);
+  const index = this.AllocateTask(callback, args, result, false, wants, carry, onRejected);
   this.Microtasks.push(0 - index - 1);
   return;
 }
@@ -2121,11 +2137,11 @@ if (item.Promise === null || item.Promise.State !== PromiseState.Pending) {
   // 已经拒绝的承诺上会**不跑** ✗（而 JS 里它正是为这一档准备的 ✓）。
   const rejected = item.Promise !== null && item.Promise.State === PromiseState.Rejected;
   if (item.Promise !== null) args.push(item.Promise.Value);
-  const index = this.AllocateTask(callback, args, result, rejected, wants, carry);
+  const index = this.AllocateTask(callback, args, result, rejected, wants, carry, onRejected);
   this.Microtasks.push(0 - index - 1);
   return;
 }
-const index = this.AllocateTask(callback, args, result, false, wants, carry);
+const index = this.AllocateTask(callback, args, result, false, wants, carry, onRejected);
 item.Promise.NativeReactions.push(index);
 // **挂上原生反应的承诺要记账** ✓（第 185 轮 ✓）：任务里的闭包与实参**不在队列里** ✗
 // （队列里只有「已经可以跑」的那些 ✓），所以扫根时要按这张名单去找 ✓
@@ -2133,16 +2149,16 @@ item.Promise.NativeReactions.push(index);
 this.NativeHosts.push(promise.Ref);
 ```
 
-## method EnqueueTask:(callback:Value, args:Array<Value>, result:Value, reject:bool, wants:int, carry:bool)=>void
+## method EnqueueTask:(callback:Value, args:Array<Value>, result:Value, reject:bool, wants:int, carry:bool, onRejected:Value)=>void
 
 **造一格任务并当场排队** ✓（上面那一支「已经结清」走这里 ✓）。
 
 ```ts
-const index = this.AllocateTask(callback, args, result, reject, wants, carry);
+const index = this.AllocateTask(callback, args, result, reject, wants, carry, onRejected);
 this.Microtasks.push(0 - index - 1);
 ```
 
-## method AllocateTask:(callback:Value, args:Array<Value>, result:Value, reject:bool, wants:int, carry:bool)=>int
+## method AllocateTask:(callback:Value, args:Array<Value>, result:Value, reject:bool, wants:int, carry:bool, onRejected:Value)=>int
 
 **占一格任务、把三样东西写进去** ✓（排队是调用方的事 ✓——挂反应那一路当时不排 ✓）。
 
@@ -2155,6 +2171,7 @@ task.Result = result;
 task.Reject = reject;
 task.Wants = wants;
 task.Carry = carry;
+task.OnRejected = onRejected;
 return index;
 ```
 
@@ -2177,6 +2194,7 @@ const result = task.Result;
 const reject = task.Reject;
 const wants = task.Wants;
 const carry = task.Carry;
+const onRejected = task.OnRejected;
 const args = task.Args;
 task.Callback = new Value();
 task.Args = [];
@@ -2184,23 +2202,43 @@ task.Result = new Value();
 task.Reject = false;
 task.Wants = 2;
 task.Carry = true;
+task.OnRejected = new Value();
 if (!callback.IsRef()) return;
 // **这一格认不认这一档** ✓（第 185 轮 ✓）：不认就**跳过回调** ✓、
 // 把源那一档**原样传下去** ✓（JS 的 `.then(f)` 遇到拒绝就是这个形状 ✓）。
-const matched = wants === 2 || (wants === 1) === reject;
+const carried = args.length > 0 ? args[args.length - 1] : Value.Undefined();
+// **「原样传下去」**（第 187 轮 ✓）：不认这一档（\`0\` / \`1\` 的不匹配 ✓）、
+// 或者这一步本来就是 \`.finally\` （\`4\` ✓）——把**源那一档**灌进结果承诺 ✓。
+const matched = wants >= 2 || (wants === 1) === reject;
+const passThrough = wants === 4;
 if (!matched) {
-  if (result.IsObject() && this.Table.Get(result.Ref).Promise !== null) {
-    const carried = args.length > 0 ? args[args.length - 1] : Value.Undefined();
-    if (reject) {
-      this.RejectPromise(result, carried);
-    } else {
-      this.ResolvePromise(result, carried);
-    }
+  if (reject) {
+    this.RejectPromise(result, carried);
+  } else {
+    this.ResolvePromise(result, carried);
   }
   return;
 }
-const produced = this.CallNative(callback, Value.Undefined(), args);
-if (carry && result.IsObject() && this.Table.Get(result.Ref).Promise !== null) {
+// **两条路**（第 187 轮 ✓）：\`.then(f, g)\` 的拒绝那一档调 \`g\` ✓——
+// 没给（或者给的不是函数）就**原样传下去** ✓（JS 的口径 ✓）。
+let chosen = callback;
+if (wants === 3 && reject) {
+  if (!this.IsHostCallable(onRejected) && onRejected.Tag !== ValueTag.Closure) {
+    this.RejectPromise(result, carried);
+    return;
+  }
+  chosen = onRejected;
+}
+const produced = this.CallNative(chosen, Value.Undefined(), args);
+if (passThrough) {
+  if (reject) {
+    this.RejectPromise(result, carried);
+  } else {
+    this.ResolvePromise(result, carried);
+  }
+  return;
+}
+if (carry) {
   if (reject) {
     this.RejectPromise(result, produced);
   } else {

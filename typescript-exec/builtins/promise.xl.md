@@ -93,6 +93,8 @@ SetProperty(room, NeverCall, table, promise, NameValue(table, "then"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseThen, 0)));
 SetProperty(room, NeverCall, table, promise, NameValue(table, "catch"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseCatch, 0)));
+SetProperty(room, NeverCall, table, promise, NameValue(table, "finally"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseFinally, 0)));
 return promise;
 ```
 
@@ -189,7 +191,7 @@ if (id === PromiseAll || id === PromiseRace) {
     // 拒绝顺着「结果承诺」自动传下去 ✓——那正是 JS 的语义 ✓）；
     // **`race` 两档都认** ✓（谁先结清谁定 ✓）。
     const wants = id === PromiseAll ? 0 : 2;
-    schedule(item, stepValue, [state, Value.FromInt(i), result], result, wants, false);
+    schedule(item, stepValue, [state, Value.FromInt(i), result], result, wants, false, Value.Undefined());
   }
   return result;
 }
@@ -200,21 +202,28 @@ if (id === PromiseThen || id === PromiseCatch) {
   if (!IsPromise(table, self)) {
     throw new Error("unimplemented: .then/.catch needs a promise receiver");
   }
-  // **`then(f, g)` 那两个实参的形式还不做** ✗：一步只有一个回调 ✓，
-  // 而两实参形式要**两档各一个** ✓——那是「一步两条路」的形状 ✓，单独立一轮 ✓
-  // （响亮地抛 ✓，不假装只做了一半 ✗）。
-  if (id === PromiseThen && args.length > 1) {
-    throw new Error("unimplemented: Promise.then with two arguments");
-  }
   const callback = args.length > 0 ? args[0] : Value.Undefined();
   const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
-  // **认哪一档** ✓：`then` 只认兑现 ✓、`catch` 只认拒绝 ✓。
-  const wants = id === PromiseThen ? 0 : 1;
-  schedule(self, callback, [], result, wants, true);
+  // **认哪一档** ✓：`then(f)` 只认兑现 ✓、`catch(g)` 只认拒绝 ✓、
+  // `then(f, g)` **两档各一个** ✓（第 187 轮 ✓——`wants = 3` ✓，引擎按结清的那一档挑 ✓）。
+  const wants = id === PromiseCatch ? 1 : (args.length > 1 ? 3 : 0);
+  const onRejected = args.length > 1 ? args[1] : Value.Undefined();
+  schedule(self, callback, [], result, wants, true, onRejected);
   return result;
 }
 if (id === PromiseFinally) {
-  throw new Error("unimplemented: Promise.finally (the engine cannot carry the settle kind through yet)");
+  // **`.finally(cb)`** ✓（第 187 轮 ✓）：两档都调 ✓、然后**把源那一档原样传下去** ✓
+  // ——回调的返回值**不算数** ✓（`wants = 4` ✓，引擎里那一支管着 ✓）。
+  if (schedule === null) {
+    throw new Error("unimplemented: Promise.prototype.finally needs the task channel (the host did not provide it)");
+  }
+  if (!IsPromise(table, self)) {
+    throw new Error("unimplemented: .finally needs a promise receiver");
+  }
+  const callback = args.length > 0 ? args[0] : Value.Undefined();
+  const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  schedule(self, callback, [], result, 4, false, Value.Undefined());
+  return result;
 }
 if (id === PromiseCtor) {
   // **执行器还不做** ✗：`new Promise(exec)` 要**同步**调 `exec(兑现函数)` ✓，

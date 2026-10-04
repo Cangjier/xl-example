@@ -7786,5 +7786,46 @@ check("结清一个承诺必须走执行器：`all` 等最后一个、`race` 第
 });
 
 console.log("");
+console.log("=== 第 187 轮：`.then(f, g)` 两步两条路 ===");
+
+check("一步两条路：兑现调 `f`、拒绝调 `g`；没给 `g` 就原样传下去（`.finally` 是第四种模式）", () => {
+  // **端到端那一把在 `cases/65-promise-two-paths.ts`**（6 行逐字节 ✓）。
+  //
+  // **为什么不是「挂两步」** ✗：挂两步（一步只认兑现 ✓、一步只认拒绝 ✓）会**互相踩** ✓——
+  // 拒绝到来时，那一步「只认兑现」的回调虽然不跑 ✓，但它的**传播**会先把结果承诺拒绝掉 ✗，
+  // 接着 `g` 去兑现同一个承诺就是**空操作** ✗（结果停在「拒绝」上 ✓，而 JS 要的是 `g` 的返回值 ✓）。
+  // 所以任务多一格 `OnRejected` ✓，引擎按**结清的那一档**挑一个调 ✓（`wants = 3` ✓）。
+  //
+  // **`wants` 的五档**（第 185 → 187 轮 ✓）：`0` 只认兑现 ✓、`1` 只认拒绝 ✓、
+  // `2` 两档同一个回调 ✓（`all` / `race` 那两步 ✓）、`3` **两档各一个** ✓、
+  // `4` 两档都调**然后原样传下去** ✓（`.finally` ✓——回调的返回值**不算数** ✓）。
+  //
+  // **两条今天还红的形状写在明处** ✗（都不进语料 ✓）：**`.finally(...)` 后面再接一个调用** ✓
+  // （token 层把 `finally` 认成**关键字** ✓——`<Keyword>finally</Keyword>` ✓、不是方法名 ✓，
+  // 链上那一步于是读错属性 ✓；**单独一句 `.finally(cb);` 是好的** ✓）、
+  // 以及**拒绝源上的 `.then(f, g)` 再往下接一个 `.then`** ✓（回调跑了 ✓、结果承诺也结清了 ✓，
+  // 但下一步没被排进微任务 ✓——还没查清 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "Promise.resolve(1).then((v: any) => console.log('ok', v), (e: any) => console.log('no', e));",
+    "Promise.reject('bad').then((v: any) => console.log('no1', v), (e: any) => console.log('handled', e));",
+    "Promise.resolve(5).then((v: any) => v * 2, (e: any) => 0).then((v: any) => console.log('two-path', v));",
+    "Promise.reject('bad2').then((v: any) => 'x').catch((e: any) => console.log('caught', e));",
+    "Promise.resolve('fin').finally(() => console.log('cleanup'));",
+    "console.log('done');",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "done", "同步那一半先跑（`done` 是最后一句同步输出）");
+  eq(lines[1], "ok 1", "兑现那一档走 `f`（`g` 不跑）");
+  eq(lines[2], "handled bad", "拒绝那一档走 `g`（**这一格就是「两条路」**）");
+  eq(lines[3], "cleanup", "`.finally(cb)`：两档都调（单独一句的形式）");
+  eq(lines[4], "two-path 10", "`f` 的返回值灌进下一步");
+  eq(lines[5], "caught bad2", "没给 `g` → 拒绝**原样传下去**，`catch` 接住");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;
