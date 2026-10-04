@@ -457,8 +457,35 @@ const isGenerator = iterable.IsObject() && table.Get(iterable.Ref).Generator !==
 const drained = iterable.Tag === ValueTag.Array || !isGenerator || drain === null
   ? iterable : drain(iterable);
 if (drained.Tag !== ValueTag.Array) {
-  throw new Error("unimplemented: Array.from over a value that is not iterable "
-    + "(arrays, strings, Map, Set and generators are supported)");
+  // **数组式对象**（第 216 轮 ✓）：JS 的 `Array.from` 对「**不可迭代、但带 `length`**」的值
+  // 走的是**逐下标拷贝** ✓——`Array.from({ a: 1 })` 于是给**空数组** ✓
+  //（`length` 是 `undefined` ⇒ `ToLength` 给 `0` ✓）。
+  //
+  // **原来这里抛** ✓，而那一抛**本身是对的** ✓（静默给空数组会把「不可迭代」这件事藏起来 ✗）。
+  // 这一轮按 JS 的口径**把它做出来** ✓：读 `length` ✓、逐下标读值 ✓——
+  // **只在能证明的几档上做** ✓：`length` 是**数**就按它 ✓，其余（`undefined` / 字符串 / 对象 ✓）
+  // 一律当 `0` ✓（JS 的 `ToLength` 会把 `"2"` 变成 `2` ✗，那一档**没有做** ✗、
+  // 写在明处 ✓——不静默给一个「看起来对」的答案 ✓）。
+  // **带映射函数的那一档也响亮地抛** ✓（`Array.from(arrayLike, fn)` ✓）：这一层拿不到那段映射
+  // 该走哪条通道 ✗，宁可不做 ✓。
+  if (args.length > 1 && !args[1].IsUndefined()) {
+    throw new Error("unimplemented: Array.from(arrayLike, mapper)");
+  }
+  if (call === null) {
+    throw new Error("Array.from needs a call channel (the host must pass one)");
+  }
+  let arrayLikeLength = 0;
+  const lengthValue = GetProperty(room, call, protos, table, drained, NameValue(table, "length"));
+  if (lengthValue.IsNumber()) arrayLikeLength = lengthValue.AsInt();
+  if (arrayLikeLength < 0) arrayLikeLength = 0;
+  const arrayLikeTarget = table.Get(out.Ref).AsArray();
+  if (!room(ValueCharge * arrayLikeLength)) throw new Error("out of room");
+  for (let i = 0; i < arrayLikeLength; i++) {
+    const indexKey = Value.FromString(table.CreateString(Units("" + i)));
+    arrayLikeTarget.Push(GetProperty(room, call, protos, table, drained, indexKey));
+  }
+  table.Recount(out.Ref);
+  return out;
 }
 const items = table.Get(drained.Ref).AsArray();
 const target = table.Get(out.Ref).AsArray();

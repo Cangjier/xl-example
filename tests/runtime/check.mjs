@@ -5495,7 +5495,11 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     // 所以这一条换成了「既没有迭代器、也没有 `length`」的对象 ✓——
     // JS 在那里给**空数组** ✓（把它当 `length` 为 0 的数组式对象 ✓），
     // 本仓这一档照旧**响亮地抛** ✓（写在台账里 ✓，不是这一轮的事 ✓）。
-    "try { Array.from({ a: 1 }); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
+    // **第 216 轮把它做掉了**：`Array.from` 对「不可迭代但带 `length`」的值现在按 JS 走
+    // **逐下标拷贝**（`{ a: 1 }` 的 `length` 是 `undefined` ⇒ `0` ⇒ **空数组**）。
+    // 所以这一条从「必须响」挪到 `out` 里断它**给对**（下面 `eq` 里有那一格）。
+    // **推进 `out` 会把后面那些按下标断言的项全部移位** —— 所以只算，最后再收 ✓。
+    "const arrayLikeLength = Array.from({ a: 1 }).length;",
     // ② 非字符串的 `replace` 实参（正则 / 函数都落这一支）。
     "try { 'a'.replace(1, 'b'); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
     // ③ 原始值当 `Object.assign` 的目标（JS 会装箱，本仓没有那一层）。
@@ -5504,6 +5508,7 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     "const same = { a: 1 };",
     "Object.assign(same, same);",
     "out.push(same.a);",
+    "out.push(arrayLikeLength === 0 ? 'arraylike-ok' : 'arraylike-bad');",
     "return [out, loud];",
   ].join("\n");
   const request = new RunRequest();
@@ -5524,7 +5529,7 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
   }
   const loud = GetIndex(table, res.Value, Value.FromInt(1));
   const loudCount = table.Get(loud.Ref).AsArray().GetLength();
-  eq(loudCount, 3, "三条该抛的都给了话");
+  eq(loudCount, 2, "两条该抛的都给了话（`Array.from` 那一条第 216 轮做掉了，见上面）");
   const loudTexts = [];
   for (let i = 0; i < loudCount; i++) {
     loudTexts.push(hostStringOf(table, GetIndex(table, loud, Value.FromInt(i))));
@@ -5533,9 +5538,10 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     ok(loudTexts[i].indexOf("unimplemented: ") === 0,
       "第 " + i + " 条要指名道姓地说没做：" + loudTexts[i]);
   }
-  ok(loudTexts[0].indexOf("Array.from") >= 0, "① 说的是 `Array.from`：" + loudTexts[0]);
-  ok(loudTexts[1].indexOf("String.replace") >= 0, "② 说的是 `String.replace`：" + loudTexts[1]);
-  ok(loudTexts[2].indexOf("Object.assign") >= 0, "③ 说的是 `Object.assign`：" + loudTexts[2]);
+  // **第 216 轮起 `Array.from` 那一档不抛了**（数组式对象按 JS 走逐下标拷贝 ✓），
+  // 原来编号 ① 的那一格挪到 `out` 末尾去断它**给对**（见上面 `arrayLikeLength` 那两行 ✓）。
+  ok(loudTexts[0].indexOf("String.replace") >= 0, "① 说的是 `String.replace`：" + loudTexts[0]);
+  ok(loudTexts[1].indexOf("Object.assign") >= 0, "② 说的是 `Object.assign`：" + loudTexts[1]);
 });
 
 console.log("");

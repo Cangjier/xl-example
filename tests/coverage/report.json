@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 78.26,
+  "progressPercent": 78.49,
   "layers": [
     {
       "layer": "runtime",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 107,
-      "pass": 89,
-      "blocked": 10,
+      "pass": 90,
+      "blocked": 9,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 83.18
+      "coverage": 84.11
     },
     {
       "layer": "e2e",
@@ -175,12 +175,6 @@
       "layer": "exec",
       "title": "带标签的块：`outer: { … break outer; … }`",
       "detail": "tsrun: 还没实现的构造或语言层错误：unknown label `outer` (the parser should have rejected this)"
-    },
-    {
-      "id": "array-from-arraylike",
-      "layer": "stdlib",
-      "title": "Array.from 一个只有 length 的数组式对象（JS 给空数组）",
-      "detail": "tsrun: 脚本抛出：unimplemented: Array.from over a value that is not iterable (arrays, strings, Map, Set and generators are su"
     },
     {
       "id": "array-spread-conditional",
