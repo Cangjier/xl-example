@@ -2271,6 +2271,22 @@ new Set([
       return { kind: "TaggedTemplateExpression", tag, template, pos: tag.pos, end: template.end };
     }
   }
+  // ---- 0b2. 标签模板**后面还跟着后缀**：第 173 轮在这里加过一条判据 ✗——**退回来了** ✗ ----
+  //
+  // 判据写的是「第二格是 `PropertyAccess` 且它第一个子单元是反引号 String」✓，
+  // 拼法是把标签模板拼好后按 `dottedExpression` 那条形状挂成员 ✓。
+  // **实测它一次都没生效** ✗：`cases:tsast` 照样 1434/1434 ✓、
+  // `` tag`abc`.length `` 照样给 `[Function (anonymous)]` ✗、
+  // AST 照样是 `VariableDeclaration{ Identifier r, Identifier tag }` ✗
+  //（标签模板与 `.length` 全丢 ✓）。**没被验证过的改动不留** ✗ → 撤回 ✓。
+  //
+  // **这一轮我重犯了第 168 轮那个错** ✗：没插桩就加分支 ✓（「先插桩、再下结论」✗）。
+  // **下一轮的入口** ✓：给 `projectExpression` 插一行探针 ✓，把
+  // `[Identifier tag, PropertyAccess{…}]` 这种 kids **到底落在哪一支**打出来 ✓——
+  // 现在已知的是：**这一支不是它** ✗（那一段入口更早 ✓）。
+  // 另外这一轮**证实了一件事** ✓：第 172 轮那次「结果挪一格」的试验是在
+  // **AST 还错着**的时候做的 ✗，所以它当时**什么也证明不了** ✓——
+  // 等 AST 修对之后，那个槽位假设**要重新量一遍** ✓（不能拿它当已否证的结论 ✗）。
   // ---- 0b. 展开实参（第 114 轮）----
   //
   // `f(...xs)` 的产物把 `...` 与目标分成**两格**，而 `...` 是 `SymbolToken`
