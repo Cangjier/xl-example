@@ -8193,5 +8193,44 @@ check("私有名也是成员名：类成员 / 字段 / 调用 / 属性读，键�
 });
 
 console.log("");
+console.log("=== 第 196 轮：静态块（`static { … }`）===");
+
+check("静态块是「自己一层作用域」：类名捕获、`this`、顺序、块里的闭包一起对", () => {
+  // **端到端那一把在 `cases/74-static-block.ts`**（4 行逐字节 ✓）。
+  //
+  // **症状** ✗：`class C { static x: number; static { C.x = 5; } }` 报
+  // `name is not a local or a capture: C` ✓（**整份文件进不来** ✗）。
+  //
+  // **根因与第 128 轮那条一字不差** ✓：降级层把 `static { … }` 落成
+  // 「造一个无参函数、用构造函数当 `this` 立刻调一次」✓——所以它**真的**是一层函数 ✓；
+  // 而**作用域分析**（`scope.xl.md` 的 `IsFunctionNode` ✓）那张「自带一层作用域」的名单里
+  // **没有它** ✗。于是模块那一层不为 `C` 留格子 ✓，块里那个合成函数读不到它 ✗。
+  //
+  // **这是同一个根因的第四次** ✓：第 96 轮漏 `MethodDeclaration` ✓、第 99 轮漏访问器 ✓、
+  // 第 128 轮漏 `Constructor` ✓、这一轮漏静态块 ✓——那张名单的注释里写着「**宁可多列**」✓：
+  // 漏一个不是「少开一格」✗，而是**整层不开环境** ✓，症状永远离现场很远 ✓。
+  // **修法**：名单里补一格 ✓（一处 ✓）。
+  const outline = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "class Ordered { static log: string[] = []; static { Ordered.log.push('b1'); } static { Ordered.log.push('b2'); } }",
+    "console.log(Ordered.log.join(','));",
+    "class WithThis { static v = 1; static { this.v = 2; } }",
+    "console.log(WithThis.v);",
+    "class Nested { static fns: Array<() => number> = []; static x = 5; static { Nested.fns.push(() => Nested.x); } }",
+    "console.log(Nested.fns[0]());",
+    "class MixedOrder { static seen: string[] = []; static a = MixedOrder.seen.push('field'); static { MixedOrder.seen.push('block'); } }",
+    "console.log(MixedOrder.seen.join(','));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => outline.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(outline[0], "b1,b2", "**这一轮修的**：静态块看得见类名（捕获分析补上之后自然成立）");
+  eq(outline[1], "2", "`this` 在静态块里就是那个类（与静态字段初始化式同一条口径）");
+  eq(outline[2], "5", "块里造出来的闭包也看得见类名");
+  eq(outline[3], "field,block", "静态字段与静态块按**源码顺序**求值");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

@@ -283,7 +283,13 @@ const kind = NodeKind(node);
 return kind === "FunctionDeclaration" || kind === "FunctionExpression"
   || kind === "ArrowFunction" || kind === "MethodDeclaration"
   || kind === "Constructor"
-  || kind === "GetAccessor" || kind === "SetAccessor";
+  || kind === "GetAccessor" || kind === "SetAccessor"
+  // **静态块也是「自己一层作用域」**（第 196 轮）：降级层把 `static { … }` 落成
+  // 「造一个无参函数、用构造函数当 `this` 立刻调一次」，所以它**真的**是一层函数 ✓。
+  // 漏了它的症状与第 128 轮那条**一字不差** ✓：`class C { static x = 1; static { C.x = 5; } }`
+  // 报 `name is not a local or a capture: C` ✓——模块那一层不为 `C` 留格子 ✓，
+  // 而块里那个合成函数要读它 ✓。**同一个根因的第四次** ✓（名单短一个 ✗）。
+  || kind === "ClassStaticBlockDeclaration";
 ```
 
 # method CollectFunctionNames:(body:AstNode, out:Array<string>)=>void
