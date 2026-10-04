@@ -4761,6 +4761,14 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
   // `typeof x` 与 `void x` 各自另有落点 ✓。
   throw new Error("unimplemented: unary operator `" + operator + "` (only -, !, ~, ++ and -- are implemented)");
 }
+// **非空断言 `x!` 在运行期什么也不做**（第 179 轮）✓：它只是给类型系统看的一句话 ✓——
+// 降级成**它里面那个表达式** ✓（一条指令都不多 ✓，与「类型位一律擦除」同一条口径 ✓）。
+// 少了这一条，`map.get(k)!` / `arr[0]!.name` / `n!()` 这些**真实代码里遍地都是**的写法报
+// `unimplemented: expression NonNullExpression` ✗（**整份文件进不来** ✗）。
+// **断言不是求值**：它不改值、不该有副作用 ✓，所以这里连一个临时格都不占 ✓。
+if (kind === "NonNullExpression") {
+  return this.LowerExpression(Child(node, "expression"));
+}
 throw new Error("unimplemented: expression " + kind);
 ```
 

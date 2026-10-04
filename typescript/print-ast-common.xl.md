@@ -2381,6 +2381,64 @@ new Set([
       }
     }
   }
+  // ---- 0e. 零实参的调用括号被卷进了运算符单元（第 179 轮）----
+  //
+  // `xs[0]() + 1` 的产物是
+  // `[PropertyAccess(xs, [0]), BinaryOperator(Bracket(空), +, 1)]`——
+  // **被调方在外面，它那一对空括号却在二元单元的最左边** ✓。
+  // 投影的二元那一支会把这个 `()` 当成左操作数（`ParenthesizedExpression(空)` ✗），
+  // 被调方那一段于是只剩 `xs[0]` ✓——`console.log(xs[0]() + 1)` 打出来的是**函数本身** ✗
+  //（Node 给 `2` ✓，**静默错值** ✗）。
+  //
+  // 判据：沿**二元单元的左脊柱**往下走，找到「第一个子单元是**空的 `(` 括号**」那一层 ✓
+  // ——那个括号是**前一个兄弟（被调方）的实参表** ✓。先把前一个兄弟投出来 ✓、
+  // 套一层零实参的 `CallExpression` ✓，再把沿途每一层的 `(运算符, 右操作数)`
+  // **从里往外**交给 `foldBinaryFrom` ✓（与 0d 那一支同一个折法 ✓）。
+  //
+  // 脊柱上任何一层不满足就整个让开 ✓——宁可维持原来的错，也不能把别的形状认成调用 ✓。
+  if (
+    kids.length >= 2 &&
+    (kids[1].get("type") === "BinaryOperator" || kids[1].get("type") === "LogicalOperator")
+  ) {
+    let emptyCallSpine = kids[1];
+    let emptyCallBracket: any = undefined;
+    const emptyCallLayers: Array<Array<any>> = [];
+    while (emptyCallSpine !== undefined) {
+      const inner = projectableKids(view(emptyCallSpine));
+      if (inner.length < 3) break;
+      const head = inner[0];
+      if (
+        head.get("type") === "Bracket" &&
+        head.get("startBracket") === "(" &&
+        projectableKids(view(head)).length === 0
+      ) {
+        emptyCallBracket = head;
+        emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+        break;
+      }
+      if (head.get("type") !== "BinaryOperator" && head.get("type") !== "LogicalOperator") break;
+      emptyCallLayers.push([inner[inner.length - 2], inner[inner.length - 1]]);
+      emptyCallSpine = head;
+    }
+    if (emptyCallBracket !== undefined) {
+      const callee = projectExpression(kids.slice(0, 1), ctx);
+      if (callee !== undefined) {
+        let called: any = {
+          kind: "CallExpression",
+          expression: callee,
+          arguments: [],
+          pos: callee.pos,
+          end: endOf(emptyCallBracket),
+        };
+        const rest: Array<any> = [];
+        for (let q = emptyCallLayers.length - 1; q >= 0; q--) {
+          rest.push(emptyCallLayers[q][0], emptyCallLayers[q][1]);
+        }
+        for (const k of kids.slice(2)) rest.push(k);
+        return foldBinaryFrom(called, rest, ctx);
+      }
+    }
+  }
   // ---- 0b2. 标签模板**后面还跟着后缀**：第 173 轮在这里加过一条判据 ✗——**退回来了** ✗ ----
   //
   // 判据写的是「第二格是 `PropertyAccess` 且它第一个子单元是反引号 String」✓，

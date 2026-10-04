@@ -7393,5 +7393,53 @@ check("`=>` 分两种：函数类型的返回类型是类型位，箭头函数�
 });
 
 console.log("");
+console.log("=== 第 179 轮：零实参的计算成员调用（`xs[0]()`）===");
+
+check("空括号是「实参那一段里的调用」，不是被调用者自己那一对", () => {
+  // **端到端那一把在 `cases/57-computed-call.ts`**（6 行逐字节 ✓）。
+  //
+  // **症状（静默错值）**：`console.log(xs[0]())` 打印的是**函数本身** ✓（Node 给 `1` ✓），
+  // 而 `const y = xs[0]()` 是**对的** ✓、`cbs[0](3)`（**一个实参**）也是**对的** ✓——
+  // 只有「**零实参 + 在实参表里**」这一格错 ✓。
+  //
+  // **两处根因，都在投影**（token 树一直是对的 ✓）：
+  //   · `Method.PrintAst` 的实参过滤把**所有空括号**都当成「被调用者自己那一对」滤掉 ✗——
+  //     而**零实参的调用根本不贡献括号**（`f()` 的产物是 `<Method name="f"></Method>` ✓），
+  //     所以空 `(` 出现在 kids 里只可能是**实参自己那一段里的调用** ✓。
+  //     判据：空括号只在「它是第一个子单元」或「被调用者是 `NotNull`」（`b!()` ✓）时才滤 ✓；
+  //   · `xs[0]() + 1` 是**另一种形状**：那对空括号被卷进了**二元单元的最左边**
+  //     （`[PropertyAccess, BinaryOperator(Bracket(空), +, 1)]` ✓），
+  //     投影的二元那一支把它当成左操作数（空的 `ParenthesizedExpression`）✗。
+  //     修法：`print-ast-common` 的 0e 支——沿左脊柱找到空括号，把前一个兄弟投出来、
+  //     套一层零实参的 `CallExpression`，再照常折运算符。
+  //
+  // 顺带：**`x!` 在运行期什么也不做**（`map.get(k)!` 这类写法原来报
+  // `unimplemented: expression NonNullExpression` ✗，整份文件进不来 ✗）——
+  // 降级成它里面那个表达式，一条指令都不多 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const xs = [() => 1, () => 2];",
+    "const obj: any = { m: () => 7 };",
+    "console.log(xs[0]());",
+    "console.log(xs[0](), xs[1]());",
+    "console.log(xs[0]() + 1, xs[0]() + 1 + 2, xs[0]() * 3);",
+    "console.log(xs[0]() > 0, xs[0]() && 'y', xs[0]() ?? 9);",
+    "console.log(obj['m']() + 1);",
+    "const n: any = () => 3;",
+    "console.log(n!(), obj.m?.(), obj.n?.());",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1", "实参表里（**原来给的是函数本身**）");
+  eq(lines[1], "1 2", "两个实参、两次调用");
+  eq(lines[2], "2 4 3", "二元 / 嵌套二元的左操作数（**原来也给函数本身**）");
+  eq(lines[3], "true y 1", "比较 / 逻辑 / 空值合并的左操作数");
+  eq(lines[4], "8", "字符串键那一路（回归：它一直是对的）");
+  eq(lines[5], "3 7 undefined", "`n!()` 与 `?.()`：那一对空括号是**调用自己的**（回归）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

@@ -242,12 +242,31 @@ return index;
   }
   const anonymousCallee =
     calleeText === "" ? kids.find((k: any) => k.get("type") === "NotNull") : undefined;
+  // **空括号只有「被调用者自己那一对」才要滤掉**（第 179 轮修）✓：
+  // 原来凡空括号一律滤 ✗，于是 **`f(xs[0]())` 里那个 `()` 被当成空实参表丢掉** ✓——
+  // 实参于是只剩一个 `xs[0]` ✓，投影出来是 `CallExpression(console.log, [ElementAccess])` ✗，
+  // **内层那次调用整个不见了** ✓（Node 给 `1` ✓、本仓给**函数本身** ✓——**静默错值** ✗）。
+  //
+  // **零实参的调用本身不贡献括号** ✓（实测：`f()` / `o.m()` 的产物是
+  // `<Method name="f"></Method>`，**一个子单元都没有** ✓）——所以一个 `(` 括号出现在
+  // `kids` 里，只可能是**实参自己那一段里的调用** ✓（`xs[0]()` 的 `()` ✓），
+  // 或者是**被调用者自己那一对**（IIFE / `f()()` 那些形状 ✓——它们在**上面两条分支**里
+  // 就已经返回了 ✓，走到这里的是「名字非空 / 没找到 IIFE 括号」的那些 ✓）。
+  // **后者永远在第一位** ✓（`(function () {})()` 的括号是 `kids[0]` ✓），
+  // 所以判据是「**空括号且不是第一个子单元** ⇒ 它是实参那一段的」✓。
+  //
+  // **还有一格：`b!()`**（第 179 轮实测，判据当场抓住 ✓）——它的产物是
+  // `<Method name="">[NotNull(b, !), Bracket(空)]</Method>` ✓：
+  // 被调用者是那个 `NotNull` ✓（`anonymousCallee` ✓），**那一对空括号是这次调用自己的实参表** ✗
+  // ——按「不是第一格」放过去会凭空多出一个 `ParenthesizedExpression(空)` 实参 ✓
+  //（实测 `expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts` 各一处 ✓）。
+  // 所以「被调用者是 `NotNull`」这一支里，空括号照旧滤掉 ✓。
   const args = kids.filter(
     (k: any) =>
       k !== anonymousCallee &&
       k.get("type") !== "GenericType" &&
       (k.get("type") !== "Bracket" ||
-        (ctx.StartOf(k) >= calleeEnd && ctx.Kids(k).length > 0)),
+        (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (kids[0] !== k && anonymousCallee === undefined)))),
   );
   const generic = kids.find((k: any) => k.get("type") === "GenericType");
   const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
