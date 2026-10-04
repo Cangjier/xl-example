@@ -568,24 +568,64 @@ if (current === null) {
 }
 const beforeIndex = SkipPreviousWrapSymbol(units, index);
 const afterIndex = SkipNextWrapSymbol(units, index);
-const before = Get(units, beforeIndex);
+let before = Get(units, beforeIndex);
 const after = Get(units, afterIndex);
 if (before === null || after === null) {
   throw new Error("BinaryOperatorReorganization.Process: 两侧缺操作数");
+}
+// **`?.` 链是一条链，不是一格**（第 156 轮）✗：`o?.b?.c ?? 0` 到这一步时，
+// 待处理的是 `Identifier(o)` / `NCO(b)` / `NCO(c)` / `??` / `0` ✓——
+// 只看「紧挨着的那一格」会把左操作数取成 `NCO(c)` ✗，
+// 于是 `??` 只跟链的**尾巴**结合 ✓，`o` 与 `NCO(b)` 留在外面 ✗
+//（实测 XML：`<Identifier>o</Identifier><NCO>b</NCO><BinaryOperator op="??"><NCO>c</NCO>…` ✓），
+// 投影投出来只剩前半截 ✓、**静默**给 `{ c: 2 }` ✗（JS 给 `2` ✓）。
+//
+// **只对 NCO 往前多走** ✓：整条链在这里从来不是一格 ✓（`PropertyAccess` 那条路
+// 早就把整条链折成**一个**单元了 ✓，`chainWithOptional` 的注里写着这个不对称 ✓），
+// 所以要补的只有 NCO 这一种 ✓——**别的形状一个字都不动** ✓。
+// 走到头之后**再收一格**（基名：`Identifier` / `Method` / `PropertyAccess` … ✓），
+// 那才是这条链的起点 ✓。
+let startIndex = beforeIndex;
+// **只在「NCO 前面还是 NCO」时才往前多走** ✓（第 156 轮第二版 ✓）：
+// 第一版对**所有** NCO 都往前收 ✓，`cases:tsast` 当场从 1430 掉到 **1428** ✗
+//（缺节点 31 / 区间漂移 5 / 多出来 3 ✓）——单条 `?.` 的形状**本来就有投影分支认它** ✓，
+// 把基名挪进 `BinaryOperator` 只是把那个形状换成了另一个 ✓，白改 ✗。
+// **多 NCO 那条链才是没被认过的** ✓（`o?.b?.c ?? 0` ✓），所以判据收紧到它 ✓：
+// 「前面那一格是 NCO ✓，而 NCO 前面**还是** NCO」✓——单条 `?.` 一个字节都不动 ✓。
+const beforeBefore = Get(units, SkipPreviousWrapSymbol(units, beforeIndex));
+if (before instanceof NullConditionalOperator && beforeBefore instanceof NullConditionalOperator) {
+  let cursor = beforeIndex;
+  let guard = 0;
+  while (guard < 64) {
+    guard = guard + 1;
+    const previous = Get(units, SkipPreviousWrapSymbol(units, cursor));
+    if (previous === null) {
+      break;
+    }
+    cursor = SkipPreviousWrapSymbol(units, cursor);
+    if (!(previous instanceof NullConditionalOperator)) {
+      break;
+    }
+  }
+  startIndex = cursor;
+  before = Get(units, startIndex);
+  if (before === null) {
+    throw new Error("BinaryOperatorReorganization.Process: 链的起点没了");
+  }
 }
 const result = new BinaryOperator(template);
 result.Parent = current.Parent;
 result.op = this.OperatorText(current);
 result.SignIn(before.SourceRange.Start!);
 result.SignOut(after.SourceRange.End!);
-for (let i = beforeIndex; i <= afterIndex; i++) {
+for (let i = startIndex; i <= afterIndex; i++) {
   const item = Get(units, i);
   if (item !== null && !(item instanceof LineWrap)) {
     result.AddAndCloseLast(item);
   }
 }
 result.TryToClose();
-return ReplaceCountAt(units, beforeIndex, afterIndex - beforeIndex + 1, result);
+return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
 ```
 
 # class BinaryOperator extends IndependentToken

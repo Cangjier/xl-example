@@ -7201,21 +7201,22 @@ check("`NullConditionalOperator` 的断点：链上只有 `.` 与 `!`，其余�
   // **这一格的期望值我第一版写错了** ✗：`box?.k + 1 > 2` 是 `1 + 1 > 2` = **false** ✓
   //（写判据时顺手算成了 true ✓——判据当场把我抓住 ✓）。
   eq(lines[4], "false 2", "运算符之后再比较（`1 + 1 > 2` 是 false）/ 括号里照旧");
-  // **一档如实记下的剩余缺口** ✗（**不是这一轮弄出来的** ✓，也不在上面这些形状里 ✓）：
-  // `o?.b?.c ?? 0` —— **两条** NCO 之后再跟 `??` ✓：两条 `?.` 各自都是断点 ✓
-  //（改前也是这样 ✓），而这一格投出来只剩前半截 ✓，**静默**给 `{ c: 2 }` ✗（JS 给 `2` ✓）。
-  // 钉在明处 ✓：修好的那天会变红 ✓。
+  // **第 156 轮把它修好了** ✓（这条判据当时就写着「修好的那天会变红」✓——它真的红了 ✓）。
+  // 根因在**二元运算符重组**：它只看「紧挨着的那一格」✗，而 `?.` 链在 token 层是**几格** ✓
+  //（`o` / `NCO(b)` / `NCO(c)` ✓），于是 `??` 只跟链的尾巴结合 ✗、投影只剩前半截 ✗。
+  // 修法：**当 NCO 前面还是 NCO 时**往前把整条链收进来 ✓（判据收紧到这一种 ✓——
+  // 第一版对所有 NCO 都收 ✓，`cases:tsast` 当场从 1430 掉到 1428 ✗）。
   const tailLines = [];
   const tail = new RunRequest();
   tail.Sources = [[
     "const o = { b: { c: 2 } };",
-    "console.log(o?.b?.c ?? 0, o?.b?.c);",
+    "console.log(o?.b?.c ?? 0, o?.b?.c, o?.x?.y ?? 'fallback');",
   ].join("\n")];
   tail.Entry = "";
   const tailRes = RunSources(tail, (text) => tailLines.push(text), () => null);
   eq(tailRes.Outcome, HostOutcome.Ok, "运行器：" + tailRes.Message);
-  eq(tailLines[0], "{ c: 2 } 2",
-    "**已知差**：两条 `?.` 之后跟 `??` 时只剩前半截（JS 给 `2 2`）");
+  eq(tailLines[0], "2 2 fallback",
+    "第 156 轮修好：两条 `?.` 之后再跟 `??`，整条链都在（`o?.x?.y` 也短路成 fallback）");
 });
 
 console.log("");
