@@ -8627,5 +8627,87 @@ check("`map` / `filter` 的结果数组、`reduce` 的累加器：都跨得过�
 });
 
 console.log("");
+console.log("=== 第 201 轮：带 `finally` 的 `try` 里 `return` / `break` / `continue` ===");
+
+check("三样 abrupt completion 走同一条改写：先把在册的 `finally` 从里到外发一遍", () => {
+  // **端到端那一把在 `cases/79-finally-return.ts`**（21 行逐字节 ✓）。
+  //
+  // **症状**：`function f() { try { return 1; } finally { … } }` 报
+  // `unimplemented: return inside a try with finally (it would skip the finally)` ✓
+  // ——**整份文件进不来** ✗（这是 `BLOCKED` 那一栏的第一条 ✓）。
+  //
+  // **那一抛本身是对的** ✓：静默跳过 `finally` 是**静默错值** ✗。缺的是那段改写 ✓——
+  // 修法是给降级层一摞 `FinallyBlocks` ✓（原来只有一个计数 ✓，所以只报得出错 ✗）
+  // 与一个 `EmitPendingFinalies` ✓：**从里到外把在册的各发一遍** ✓，再 `return` / `Jump` ✓。
+  // **`throw` 不走它** ✓（异常本来就走「重抛」那张网 ✓，`finally` 由那条路跑 ✓）。
+  //
+  // **降级期不再抛了** ✓（先钉住「能降级」）。
+  // **注意这里不能引用全局名** ✗：`new Lowering()` 的全局名单是**驱动**声明进去的 ✓
+  //（`DeclareGlobals` ✓）——写 `console` 会先报「`console` 不是局部名也不是捕获」✗，
+  // 那句话离现场很远 ✗（第 133 轮那条判据的注释里就记着这一条 ✓）。
+  for (const source of [
+    "function f() { try { return 1; } finally { } }",
+    "function f() { for (const x of [1]) { try { break; } finally { } } }",
+    "function f() { for (let i = 0; i < 2; i++) { try { continue; } finally { } } }",
+  ]) {
+    let lowered = "";
+    try {
+      new Lowering().LowerModule(parseTsShape(source), testIds);
+    } catch (error) {
+      lowered = String(error.message);
+    }
+    eq(lowered, "", "这一条降级得出来（不再抛）：" + source.slice(0, 40));
+  }
+  // **值也要对** ✓（只量「不抛」是半条判据）：
+  const out = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    // ① **返回值要在跑 `finally` 之前算出来**（JS 给 `1`，不是 `2`）
+    "function snapshot(): number { let n = 0; try { n = 1; return n; } finally { n = 2; console.log('fin', n); } }",
+    "console.log('snapshot', snapshot());",
+    // ② 带**标签**的 `break`（跳出的是标签那一层循环）
+    // **注意这里用的是带标签的循环、不是带标签的块** ✗：`outer: { … break outer; … }`
+    //（标签在块上）在本仓**还没做** ✗——`Loops` 那一摞只收循环与 `switch` ✓，
+    // 报的是 `unknown label` 离现场很远的一句 ✗。那是**另一件事** ✓，记在台账里 ✓。
+    "function labeled(): string { const seen: string[] = [];",
+    "  outer: for (let i = 0; i < 3; i++) { try { seen.push('in-' + i); break outer; } finally { seen.push('fin-' + i); } }",
+    "  return seen.join(','); }",
+    "console.log('labeled', labeled());",
+    // ③ **连着两段** `try`/`finally`：第一段的返回发完 `finally` 之后，
+    //    「在册」那一摞要**恢复** ✗——不恢复的话第二段的 `finally` 会静默丢掉 ✓
+    "function twoPaths(flag: boolean): string {",
+    "  if (flag) { try { return 'a'; } finally { console.log('F1'); } }",
+    "  try { return 'b'; } finally { console.log('F2'); } }",
+    "console.log('twoPaths', twoPaths(true), twoPaths(false));",
+    // ④ `finally` 自己 `return` **接管**（`try` 里那个返回值被丢掉）
+    "function override(): number { try { return 1; } finally { return 2; } }",
+    "console.log('override', override());",
+    // ⑤ 嵌套：从里到外，最后才返回
+    "function nested(): string { try { try { return 'inner'; } finally { console.log('A'); } } finally { console.log('B'); } }",
+    "console.log('nested', nested());",
+    // ⑥ 异常那条路没被这一轮碰到（回归）：`finally` 照跑、异常照冒
+    "function stillThrows(): string { try { try { throw new Error('e'); } finally { console.log('fin-6'); } } catch (err) { return 'caught:' + (err as Error).message; } }",
+    "console.log('stillThrows', stillThrows());",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => out.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(out[0], "fin 2", "跑 `finally` 时看到的是**改过之后**的 `n`（2）");
+  eq(out[1], "snapshot 1", "**返回值在跑 `finally` 之前就定下了**（JS 给 1，不是 2）");
+  eq(out[2], "labeled in-0,fin-0", "带标签的 `break`：跑完 `finally` 才跳出那一层循环");
+  // **次序说清楚**：`console.log('twoPaths', twoPaths(true), twoPaths(false))` 里的
+  // **实参先求值** ✓——所以两段 `finally` 那两行**排在**那一行之前 ✓（JS 也是 ✓）。
+  eq(out[3], "F1", "两段里第一段：先跑 F1");
+  eq(out[4], "F2", "两段里第二段：F2 照跑（**在册那一摞恢复对了**，否则它会静默丢掉）");
+  eq(out[5], "twoPaths a b", "两段的返回值都对（`true` → `a`、`false` → `b`）");
+  eq(out[6], "override 2", "`finally` 自己 `return` **接管**这次完成");
+  eq(out[7], "A", "嵌套：最里层先跑");
+  eq(out[8], "B", "再往外一层");
+  eq(out[9], "nested inner", "最后才返回");
+  eq(out[10], "fin-6", "异常那条路照旧：`finally` 先跑");
+  eq(out[11], "stillThrows caught:e", "再把异常交给 `catch`（回归）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

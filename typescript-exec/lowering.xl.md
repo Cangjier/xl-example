@@ -56,7 +56,7 @@ import { StringConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 | 变量声明（`let`/`const` 按块作用域、`var` 按函数作用域）、表达式语句、`return`、`throw`、`if`/`else`、`while`、`for(;;)`、**`for..of`（迭代协议）**、**`try`/`catch`/`finally`**、**`switch`/`break`/`continue`**、块、函数声明 | `for..in`、标签 |
 | 数字 / 字符串 / `true` / `false` / `null` / `this` / 标识符 / 括号 / 二元（算术 + 比较 + **`in`**）/ 赋值 / **复合赋值** / 调用 / **方法调用（`call_method`）** / 属性与下标（含 **`?.`**）/ **`??`** / **对象字面量** / **数组字面量（含洞）** / **箭头函数** / **函数表达式** / **`new`** / **`typeof`** | 一元运算符（等投影）、**模板串**（等投影带段文本）、解构默认值与剩余、`instanceof`、`for..in`、生成器函数 |
 | **提升**（函数声明与 `var` 名字提到函数顶）、**闭包捕获**（环境记录） | **TDZ**（见下）、块里的函数声明、**`for (let …)` 每次迭代新建绑定**（会静默给错值） |
-| **`finally` 三种路径**（正常 / 接住 / 没接住也跑完再重抛） | **`finally` 的代码发两遍**（共享要子过程跳转）、**带 `finally` 的 `try` 里不许 `return`/`break`/`continue`**（降级期报错） |
+| **`finally` 三种路径**（正常 / 接住 / 没接住也跑完再重抛） | **`finally` 的代码发两遍**（共享要子过程跳转）；**带 `finally` 的 `try` 里 `return` / `break` / `continue` 要先把在册的 `finally` 各发一遍**（第 201 轮 ✓，见 `EmitPendingFinalies`） |
 | **`for (let …)` 每次迭代新建绑定**（体里有函数值时走「每轮一个新环境 + 格值拷贝」） | 循环体里**没有**函数值时仍走槽（快路径）——这是**保守判据**：多建环境只是慢，少建一次就是错值 |
 | **箭头函数的 `this`**（含箭头的那一层留一格装接收者，箭头体里按普通捕获读） | **块里的函数声明**、`catch` 参数的块作用域之外，作用域这块还剩 TDZ |
 | **`await`**（挂起当前帧 + 恢复时接兑现值，算子早就在引擎里） | **async 的语义差**（见下）：调用者不等承诺、返回值不包承诺、`await` 非承诺抛 |
@@ -1031,13 +1031,22 @@ return "";
 
 每个 `var` 名字占的槽（在**函数最外层**那个作用域里声明，所以整个函数都看得见）。
 
-## field FinallyDepth:int = 0
+## field FinallyBlocks:Array<AstNode> = []
 
-当前处在几层「带 `finally` 的 `try`」里面。
+**当前在册的 `finally` 块**（栈，**最外层在前** ✓，第 201 轮 ✓）。
 
-**它只为一件事存在**：`return`（以及 `break` / `continue`）写在这样的 `try` 里时
-**要在降级期报错**。JS 的语义是「先跑 `finally` 再走」，而这一轮没有那段改写——
-**让它们静默跳过 `finally`** 是「静默给错值」那一类，宁可报出来。
+**它为什么是一摞块、不是一个计数** ✗：`return` / `break` / `continue` 写在带 `finally` 的
+`try` 里时，JS 的语义是「**先把这些 `finally` 从里到外跑完，再走**」✓——
+所以这一层手里得**有那些块**才发得出那段代码 ✓（原来只有一个 `FinallyDepth` 计数 ✓，
+于是只能报错 ✗：「`return` 会跳过 `finally`」✓）。
+
+**它只收「还没跑过的」那些** ✓：正在被发的那个 `finally` 自己**不在册** ✗——
+JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一层再跑一遍 ✗
+（`try { return 1 } finally { return 2 }` 给 `2` ✓）。见 `EmitPendingFinalies` ✓。
+
+**为什么不是「跳进一个共享的收尾段」** ✗：本仓已经选了「**`finally` 的代码发多遍**」那条路 ✓
+（见 `LowerTry` 的取舍 ✓）——所以「返回前跑一遍」也只是**再发一遍** ✓，
+与造一条新指令或子过程跳转相比，`finally` 通常很短 ✓。
 
 ## field Loops:Array<LoopContext> = []
 
@@ -1239,7 +1248,7 @@ this.Hoisted = [];
 this.VarNames = [];
 this.VarSlots = [];
 this.DeclaredNames = [];
-this.FinallyDepth = 0;
+this.FinallyBlocks = [];
 this.Loops = [];
 ```
 
@@ -1869,10 +1878,21 @@ if (kind === "ExpressionStatement") {
   return;
 }
 if (kind === "ReturnStatement") {
-  if (this.FinallyDepth > 0) {
-    throw new Error("unimplemented: return inside a try with finally (it would skip the finally)");
-  }
   const expression = OptionalChild(node, "expression");
+  // **带 `finally` 的 `try` 里 `return` 要先跑那些 `finally`** ✓（第 201 轮 ✓）。
+  // 修之前这一格是**降级期就抛** ✗（「`return` 会跳过 `finally`」✓）——
+  // 那一抛本身是对的 ✓（静默跳过 `finally` 是**静默错值** ✗），但 `try { … } finally { … }`
+  // 加 `return` 是**普通 `.ts` 里最常见的一条** ✓，所以这一轮把那段改写补上了 ✓。
+  if (this.FinallyBlocks.length > 0) {
+    // **返回值先落到一格** ✓：跑 `finally` 会用到临时格 ✗，而它是**往上分配**的 ✓
+    //（`Reserve` ✓），所以这一格不会被盖掉 ✓——`finally` 里那些 `Release` 退到的是
+    // **它自己那一段的基址** ✓，在返回值这一格**之上** ✓。
+    let value = -1;
+    if (expression !== null) value = this.LowerExpression(expression);
+    this.EmitPendingFinalies();
+    this.Emit(Op.Return, value, -1, -1, -1);
+    return;
+  }
   if (expression === null) {
     this.Emit(Op.Return, -1, -1, -1, -1);
     return;
@@ -2955,7 +2975,11 @@ this.Program().Handlers[index].TryEnd = this.Here();
 
 - **`finally` 的代码发两遍**（正常路径一遍、重抛路径一遍）。共享一份要一条子过程跳转，
   下一次；`finally` 通常很短，**重复比造一条新指令便宜**。
-- **带 `finally` 的 `try` 里不许 `return`**（降级期抛，见 `FinallyDepth`）。
+- **带 `finally` 的 `try` 里 `return` / `break` / `continue`**：**第 201 轮补上了** ✓——
+  先把在册的 `finally` 从里到外**各发一遍** ✓（`EmitPendingFinalies` ✓），再走 ✓。
+  原来这里是**降级期就抛** ✗（「会跳过 `finally`」✓）：那一抛本身是对的 ✓
+  （静默跳过 `finally` 是**静默错值** ✗），但 `try { … } finally { … }` 里 `return`
+  是**普通 `.ts` 里最常见的一条** ✓。
 
 ```ts
 const tryBlock = Child(node, "tryBlock");
@@ -2965,7 +2989,7 @@ const hasCatch = catchClause !== null;
 const hasFinally = finallyBlock !== null;
 const rethrowIndex = hasFinally ? this.AddHandler() : -1;
 const catchIndex = hasCatch ? this.AddHandler() : -1;
-if (hasFinally) this.FinallyDepth = this.FinallyDepth + 1;
+if (hasFinally) this.FinallyBlocks.push(finallyBlock as AstNode);
 if (rethrowIndex >= 0) this.Emit(Op.TryPush, rethrowIndex, -1, -1, -1);
 if (catchIndex >= 0) this.Emit(Op.TryPush, catchIndex, -1, -1, -1);
 this.LowerStatement(tryBlock);
@@ -2996,6 +3020,11 @@ if (hasCatch) {
 const finallyStart = this.Here();
 this.PatchTarget(tryExit, finallyStart);
 if (catchExit >= 0) this.PatchTarget(catchExit, finallyStart);
+// **发 `finally` 之前先把它自己从「在册」里摘掉** ✓（第 201 轮 ✓）：JS 里 `finally` 自己
+// `return` 会**接管**这次完成 ✓、不会再跑一遍同一层 ✗
+// （`try { return 1 } finally { return 2 }` 给 `2` ✓）。摘早了也不行 ✗——
+// `try` 体与 `catch` 体里那三样（`return` / `break` / `continue`）正需要它**在册** ✓。
+if (hasFinally) this.FinallyBlocks.pop();
 if (hasFinally) this.LowerFinally(finallyBlock as AstNode);
 const toEnd = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
@@ -3007,7 +3036,6 @@ if (rethrowIndex >= 0) {
   this.Emit(Op.Throw, saved, -1, -1, -1);
 }
 this.PatchTarget(toEnd, this.Here());
-this.FinallyDepth = this.FinallyDepth - 1;
 ```
 
 **版式就是语义**：`try` 路径的出口、`catch` 路径的出口**都指向 `finally` 的开头**
@@ -3023,6 +3051,39 @@ this.FinallyDepth = this.FinallyDepth - 1;
 
 ```ts
 this.LowerStatement(block);
+```
+
+## method EmitPendingFinalies:()=>void
+
+**把当前在册的 `finally` 从里到外发一遍**（第 201 轮 ✓）。
+
+**它服务三样东西** ✓：`return` ✓、`break` ✓、`continue` ✓——
+JS 的语义是「**先把这些 `finally` 跑完，再走**」✓（AbruptCompletion 那一条 ✓），
+而 `throw` 不必它管 ✗（异常本来就走那张「重抛」的网 ✓，`finally` 由那条路跑 ✓）。
+
+**发每一层时，把它自己与它**里头**那几层都摘下来** ✓：里头那几层**已经发过了** ✓
+（我们是**从里往外**发的 ✓），而它**自己**不算「待跑」✗——
+JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一层再跑一遍 ✗。
+`this.FinallyBlocks = outer` 这一行就是那个「摘」✓。
+
+**发完要把它恢复回去** ✓：这段代码是**内联**在 `try` 体中间的 ✓，
+而后面还要接着发**同一段的其余语句** ✓（那些语句是**死代码** ✓，但布局仍在走 ✓）——
+不恢复的话，外面那一层的 `finally` 就丢了 ✗（症状离现场很远 ✗：
+后面某个 `return` **静默少跑一层 `finally`** ✓）。
+
+```ts
+const saved: AstNode[] = [];
+for (let i = 0; i < this.FinallyBlocks.length; i++) saved.push(this.FinallyBlocks[i]);
+// **从里往外** ✓（`saved` 里最外层在前 ✓）。
+for (let i = saved.length - 1; i >= 0; i--) {
+  // 发这一层时，「还待跑」的只剩**外面**那些 ✓。
+  const outer: AstNode[] = [];
+  for (let j = 0; j < i; j++) outer.push(saved[j]);
+  this.FinallyBlocks = outer;
+  this.LowerStatement(saved[i]);
+}
+// **恢复**：见上面那一段（后面还有同一段的死代码要发 ✓）。
+this.FinallyBlocks = saved;
 ```
 
 ## method BindCatch:(catchClause:AstNode)=>void
@@ -3371,9 +3432,6 @@ for (let i = 0; i < context.Continues.length; i++) {
 **它不区分循环与 `switch`**——`switch` 里的 `break` 跳出的正是 `switch`（那才是最近的）。
 
 ```ts
-if (this.FinallyDepth > 0) {
-  throw new Error("unimplemented: break inside a try with finally (it would skip the finally)");
-}
 const labelNode = OptionalChild(node, "label");
 let index = this.Loops.length - 1;
 if (labelNode !== null) {
@@ -3389,6 +3447,11 @@ if (labelNode !== null) {
 } else if (this.Loops.length === 0) {
   throw new Error("break outside a loop or switch (the parser should have rejected this)");
 }
+// **带 `finally` 的 `try` 里 `break` 要先跑那些 `finally`** ✓（第 201 轮 ✓）——
+// 与 `return` 那一条**同一个方法** ✓（修之前这里也是降级期就抛 ✗）。
+// **`at` 必须取在 `Jump` 上** ✗（不是取在 `finally` 那一段的开头 ✓）：
+// `PatchTarget` 回填的是「跳出去之后落哪」✓，而 `finally` 的那几段是**跳之前**要跑的 ✓。
+this.EmitPendingFinalies();
 const at = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
 this.Loops[index].AddBreak(at);
@@ -3402,9 +3465,6 @@ this.Loops[index].AddBreak(at);
 `IsLoop` 这一位就是为这一步存在的（少了它，`continue` 会跳去 `switch` 的出口，静默跳错）。
 
 ```ts
-if (this.FinallyDepth > 0) {
-  throw new Error("unimplemented: continue inside a try with finally (it would skip the finally)");
-}
 const labelNode = OptionalChild(node, "label");
 let index = this.Loops.length - 1;
 if (labelNode !== null) {
@@ -3425,6 +3485,12 @@ if (labelNode !== null) {
     throw new Error("continue outside a loop (the parser should have rejected this)");
   }
 }
+// **带 `finally` 的 `try` 里 `continue` 也要先跑那些 `finally`** ✓（第 201 轮 ✓）——
+// 与 `return` / `break` **同一个方法** ✓（修之前这里也是降级期就抛 ✗）。
+// **顺序是语义** ✓：先跑 `finally` ✓，再跳去「下一轮开始」✓——
+// 而 `continue` 要跳的那个点（`for` 的更新式 ✓）本来就在循环那一层 ✓，
+// 所以这里**不必**对回填做任何特别处理 ✓（`jump` 仍旧取在 `Jump` 上 ✓）。
+this.EmitPendingFinalies();
 const jump = this.Here();
 this.Emit(Op.Jump, -1, 0, -1, -1);
 this.Loops[index].AddContinue(jump);
