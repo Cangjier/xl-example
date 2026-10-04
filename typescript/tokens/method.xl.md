@@ -251,7 +251,25 @@ return index;
   );
   const generic = kids.find((k: any) => k.get("type") === "GenericType");
   const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
-  if (ncos.length > 0) {
+  // **这一支只认「被调用者自己带着可选链」那一形状** ✓（第 147 轮修）：
+  // 判据是**第一个子单元就是被调用者自己** ✓——`x?.y?.(1)` 的 `Identifier(x)` 与
+  // `name="x"` 同名 ✓，`f(g?.(1))` 里内层那个 `Method(name="g")` 也一样 ✓
+  //（两处的产物形状都在判据里钉着 ✓）。
+  //
+  // **`f(o?.a)` 不同名** ✗：它的第一个子单元是**实参** `o` ✓，而 `name` 是 `f` ✓。
+  // 原来这里不看这一格，于是把**实参那条链**当成整条调用的投影返回 ✗——
+  // `f(o?.a)` 投出来只剩一个 `o?.a` ✓，`CallExpression` **整格没了** ✓
+  //（`cases:tsast` 就是这么报的：缺 `CallExpression` + `Identifier(f)` 漂移 ✓，
+  //  而 XML 产物一直是对的 ✓——只有投影这一层断了 ✓）。
+  //
+  // 让开之后它落到下面那条路 ✓：实参按顶层逗号切组 ✓ →
+  // `projectExpression([o, NCO(a)])` → `print-ast-common.xl.md` 的 **0a0** 支
+  // 把基名接回链上 ✓（第 143 轮写的正是它 ✓，只是被这一支抢在前面了 ✗）。
+  const calleeKid = kids.length > 0 ? kids[0] : undefined;
+  const calleeComesFirst =
+    calleeText === "" ||
+    (calleeKid !== undefined && ctx.TextOf(calleeKid) === calleeText);
+  if (ncos.length > 0 && calleeComesFirst) {
     const firstNco = kids.findIndex((k: any) => k.get("type") === "NullConditionalOperator");
     const beforeNco = firstNco > 0 ? kids.slice(0, firstNco) : [];
     let node =

@@ -204,11 +204,29 @@ import { HeapTable } from "./heap.xl.md"
 **安全**：两边都必须是对象；**自环当场拒绝**，更深的环由 `MaxProtoDepth` 兜住——
 那是属性查找里早就有的上限，环到了那里会**抛**，不会挂住。
 
+- case BitNot
+**一元 `~`**（第 147 轮）：先 `ToInt32`，再按位取反 ✓。
+**与 `Not` 不是一回事** ✗：`!` 是逻辑非（给布尔 ✓），`~` 是补码取反（给整数 ✓）。
+
+- case UShr
+**`>>>`**（第 147 轮）：左操作数过 `ToInt32`、移位数是 `ToInt32(右) & 31` ✓，
+但结果是**无符号**那 32 位 ✓（`-1 >>> 0` 给 `4294967295` ✓）——
+**它可能超出 `int32`** ✗，所以这一条的结果按 `MakeNumber` 收 ✓（超了就落 `Float64` ✓）。
+
+**这两条为什么排在表的末尾、而不是挨着 `Not` / `Shr`** ✗：**只追加、不改号** ✓——
+挨着兄弟放更好读 ✓，但那会把后面**每一个**算子的号都挪一格 ✓，
+而这张表是「编译出来的程序」与「跑它的引擎」之间的握手 ✓
+（`Program.IdTableHash` 就是这一步的凭据 ✓）。可读性让位给兼容性 ✓。
+
+**`Pow` 那一格仍然留着** ✓（第 147 轮的账里写着为什么 `**` 不走这一格 ✓：
+`pow` 的舍入**没有标准定死** ✗，所以它落成**语言内建**那条路 ✓，
+与 `StringConcat` 同一套做法 ✓）。
+
 # const BuiltinBase:int = 64
 语言内建 id 的起点。通用算子表留出前 64 个号——**留空比「以后插队」便宜**：
 真正要在中间插一个通用算子时，插队会改掉所有已编译程序的号，而扩到 64 只是浪费几个号。
 
-# const RtOpCount:int = 38
+# const RtOpCount:int = 40
 
 **通用算子表有几条**（= `RtOp` 的成员数）。
 
@@ -265,6 +283,8 @@ if (id === RtOp.ToBoolean) return "to_boolean";
 if (id === RtOp.IsNullish) return "is_nullish";
 if (id === RtOp.HostCall) return "host_call";
 if (id === RtOp.SetProto) return "set_proto";
+if (id === RtOp.BitNot) return "bit_not";
+if (id === RtOp.UShr) return "ushr";
 return "unknown";
 ```
 

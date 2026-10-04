@@ -14,6 +14,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Statement } from "./statement.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
+import { LamdaReorganization } from "./lamda/lamda.xl.md"
 ```
 
 # namespace cangjie
@@ -146,8 +147,63 @@ return false;
 `../text-common-util.xl.md` 的 `IsTypeBracketPosition`（`generic-type.xl.md` 也要用同一个答案，
 不能各写一份近似）。
 
+**但 `=>` 那一格要先问一句**（第 147 轮）✗：`IsTypeBracketPosition` 里
+「前一个实义单元是 `=>` ⇒ 类型位」✓ 是给**函数类型的返回段**写的
+（`type F = (a: A) => (B & C)` ✓），而**箭头函数的体**紧跟在同一个 `=>` 后面 ✗——
+于是 `(n) => (n | 0)` 里那个括号被判成类型位 ✓，`n | 0` 当场折成一个 `UnionType` ✓，
+降级层报 `unimplemented: expression UnionType` ✓（实测：`map((n) => (n & 1))` 同一个形状 ✓）。
+**块体也一样** ✗：`(n) => { return (n & 2) === 2; }` 里那个 `{` 的判据也是这一条 ✓
+（插桩实测：`owner=Root at=5 before=SymbolToken/=>` ✓），所以块里的位运算一起遭殃 ✓。
+
+**问谁**：形参表是不是**箭头函数的**形参表 ✓——那件事 `LamdaReorganization.IsLambdaParameters`
+已经答过 ✓（它自己那一串判据：前面是 `:` / `?:` / `new` / `extends` / 类型别名赋值 ⇒ 函数类型 ✓，
+否则是箭头 ✓）。**这里问它，不自己写一份近似** ✗：这一格写歪的症状是
+「函数类型的返回段被判成值位」✗（`type F = (a) => (B | C)` 丢掉联合节点 ✓）——
+比现在这个症状更难查 ✓。
+
+**为什么这段写在 `type-union.xl.md`、不写在 `text-common-util.xl.md` 里** ✓：
+`lamda.xl.md` **import 了** `text-common-util.xl.md` ✗（它要用 `SkipPreviousWrapSymbol`
+与 `IsTypeContainerUnit` ✓），再反向 import 就是一个**模块环** ✗。
+本文件与 lamda 之间**没有**这个环 ✓（lamda 不 import 本文件 ✓），所以这一句放在这里 ✓。
+`generic-type.xl.md` 与 lamda 之间**有**环 ✗（lamda import 了它 ✓）——那一侧的同一个形状
+（箭头体里的 `A<B>`）今天实测是好的 ✓（`(a, b) => (a < b)` 正常 ✓），
+所以没有跟着改 ✓；真要改，得把这条判据提到一个两边都能 import 的地方 ✓。
+
 ```ts
+if (this.IsArrowBodyBracket(bracket, owner)) {
+  return false;
+}
 return IsTypeBracketPosition(owner, bracket);
+```
+
+## private method IsArrowBodyBracket:(bracket:Bracket, owner:Token)=>bool
+
+`bracket` 前面那个 `=>` 是不是**箭头函数**的（而不是函数类型的）⇒ 这个括号是**值位**的体 ✓。
+
+`owner.Data` 是那一刻的列表 ✓（形参表、`=>`、体都还在同一层 ✓——插桩实测过 ✓），
+所以往左退两格就够：`=>` ✓，再退一格是形参 ✓。
+
+```ts
+const at = owner.Data.indexOf(bracket);
+if (at <= 0) {
+  return false;
+}
+const arrowIndex = SkipPreviousWrapSymbol(owner.Data, at);
+const arrow = Get(owner.Data, arrowIndex);
+if (!(arrow instanceof SymbolToken) || arrow.Is("=>") === false) {
+  return false;
+}
+const paramIndex = SkipPreviousWrapSymbol(owner.Data, arrowIndex);
+const param = Get(owner.Data, paramIndex);
+if (param === null) {
+  return false;
+}
+if (param instanceof Bracket && param.startBracket === "(") {
+  return LamdaReorganization.Instance.IsLambdaParameters(owner.Data, paramIndex);
+}
+// **裸形参**（`n => (…)` ✓）：函数类型的形参表**必须带括号** ✓，所以这一格只可能是箭头函数 ✓
+//（`type F = n => B` 不是合法的 TS ✓）。
+return true;
 ```
 
 ## private method IsTypeOperand:(item:Token | null)=>bool

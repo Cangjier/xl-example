@@ -79,6 +79,7 @@ const vmMod = require(path.join(root, "build", "ts", "runtime", "vm.js"));
 const { Vm, VmStatus, ErrorKindGeneric, ErrorKindType } = vmMod;
 const rtMod = require(path.join(root, "build", "ts", "runtime", "rt.js"));
 const { RtAdd, RtCmpEqStrict, RtCmpEqLoose, RtNot, RtToBoolean, TruthyOf, TypeUnitsOf, IsCallableValue } = rtMod;
+const { ToInt32Of, RtBitAnd, RtBitOr, RtBitXor, RtBitNot, RtShl, RtShr, RtUShr } = rtMod;
 const propsMod = require(path.join(root, "build", "ts", "runtime", "props.js"));
 const { InitProtos, NewPlainObject, NewPlainArray, GetProperty, SetProperty, DeleteProperty } = propsMod;
 const hostMod = require(path.join(root, "build", "ts", "runtime", "host-abi.js"));
@@ -5181,15 +5182,20 @@ check("字符串拼接：有字面量就换路（第 125 轮），两边都是�
     "接住之后继续往下跑（帧栈没坏）");
 });
 
-check("一元运算符：投影分不出来的，一律抛（不静默给近似值）", () => {
+check("一元运算符：`-` / `!` / `~` 三条各有落点，`+x` 照旧抛（不静默给近似值）", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
   // 所以前两轮加在通用路的两处挂钩从来没执行过（探针才定位到）。
-  // `operator` 现在带**运算符文本**，`-` 走 `RtOp.Neg`、`!` 走 `RtOp.Not`。
+  // `operator` 现在带**运算符文本**，`-` 走 `RtOp.Neg`、`!` 走 `RtOp.Not`、
+  // **`~` 走 `RtOp.BitNot`**（第 147 轮补的第三条）。
   const negated = new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds);
   ok(negated.Program !== undefined, "一元负号不再抛（负数字面量可用了）");
+  // **`~` 是第 147 轮通的** ✓：这条判据原来断言的是「`~1` 照旧抛」✗——
+  // 那一轮把位运算整族接上之后，旧判据随契约更新 ✓（与第 66 / 119 那几条同一条规矩 ✓）。
+  const inverted = new Lowering().LowerModule(parseTsShape("let w = ~1;"), testIds);
+  ok(inverted.Program !== undefined, "按位取反不再抛（`~1` 是 `-2`，第 147 轮）");
   let unsupported = "";
-  try { new Lowering().LowerModule(parseTsShape("let z = ~1;"), testIds); } catch (error) { unsupported = String(error.message); }
+  try { new Lowering().LowerModule(parseTsShape("let z = +1;"), testIds); } catch (error) { unsupported = String(error.message); }
   ok(unsupported.indexOf("unary operator") >= 0, "没做的一元运算符照旧抛（不静默）：" + unsupported);
 
   // **空字符串已经不再是缺口**（第 119 轮）：投影对字符串字面量**一律给值**，
@@ -6625,6 +6631,128 @@ check("失败形状必须**响亮**：没声明的名字 · 计算键 + 剩余 �
   // 这里会当场变红 ✓，那正是它该有的作用 ✓。
   eq(lines[2], "no-throw undefined", "**已知差**：`[q] = 5` 静默给 `undefined`（JS 抛）");
   eq(lines[3], "set undefined undefined", "**已知差**：`[a, b] = new Set(...)` 静默给两个 `undefined`（JS 迭代）");
+});
+
+console.log("");
+console.log("=== 第 147 轮：位运算七条（`& | ^ ~ << >> >>>`）===");
+
+check("`ToInt32Of`：先向零截断、再按 2³² 取模、`NaN`/`±Infinity` 给 0", () => {
+  // **端到端那一把在 `cases/39-bitwise-operators.ts`**（10 行逐字节 ✓）。
+  // 这里钉的是**那一格本身**——七条位运算**共用**的第一步 ✓，也是这一轮两处实测 bug 的所在 ✓：
+  //
+  //   ① **顺序** ✗：第一版先加 `2³²` 再截断 ✓，于是 `-1.9 | 0` 给 `-2` ✗（JS 给 `-1` ✓）——
+  //      因为「向零截断」对负数与对「加过一轮的大正数」是两个方向 ✓；
+  //   ② **`>>>` 的高位** ✗：算术右移给负数补 1 ✓，而无符号右移该补 0 ✓——
+  //      `-1 >>> 28` 该是 `15` ✓，第一版给的是 `4294967295` ✗。
+  //
+  // 两处都不是「差不多」✗：它们**静默给一个看起来成立的整数** ✓，所以判据把边界逐个钉住 ✓。
+  const table = new HeapTable();
+  // **`ToInt32Of` 只收一个值**（签名里没有表 ✗——它不碰堆 ✓）：第一版判据照着
+  // `RtBitAnd(table, …)` 的形状多传了一个表 ✓，于是 `NumericOf` 收到的是那张表 ✓，
+  // 报的是「非数值操作数」✗（离现场很近，但指的是**判据**写错了 ✓，不是引擎 ✓）。
+  const asInt = (v) => ToInt32Of(v);
+  eq(asInt(Value.FromInt(6)), 6, "整数原样");
+  eq(asInt(Value.FromInt(-1)), -1, "负数原样");
+  eq(asInt(Value.FromDouble(1.9)), 1, "正小数向零截断");
+  eq(asInt(Value.FromDouble(-1.9)), -1, "**负小数也向零**（第一版给 -2）");
+  eq(asInt(Value.FromDouble(-0.5)), 0, "`-0.5` 给 0");
+  eq(asInt(Value.FromDouble(4294967295)), -1, "`2³² - 1` 折回 `-1`");
+  eq(asInt(Value.FromDouble(4294967296)), 0, "`2³²` 折回 `0`");
+  eq(asInt(Value.FromDouble(4294967297)), 1, "`2³² + 1` 折回 `1`");
+  eq(asInt(Value.FromDouble(2147483648)), -2147483648, "`2³¹` 是符号位那一半");
+  eq(asInt(Value.FromDouble(NaN)), 0, "`NaN` 给 0");
+  eq(asInt(Value.FromDouble(Infinity)), 0, "`Infinity` 给 0");
+  eq(asInt(Value.FromDouble(-Infinity)), 0, "`-Infinity` 给 0");
+  // **非数值响亮地抛** ✓（JS 会先 `ToNumber`，那要 `ToPrimitive` ✗——不许静默按 0 算 ✗）。
+  let message = "";
+  try { asInt(Value.FromString(table.CreateString(units("3")))); } catch (error) { message = String(error.message); }
+  ok(message.indexOf("non-numeric") >= 0, "字符串那一档响亮地抛：" + message);
+});
+
+check("七条算子：结果落在 `int32` 里，只有 `>>>` 可能超出（那一条走 `MakeNumber`）", () => {
+  const table = new HeapTable();
+  const value = (n) => Value.FromDouble(n);
+  const at = (v) => (v.Tag === ValueTag.Int32 ? v.Int : v.Dbl);
+  eq(at(RtBitAnd(table, Value.FromInt(6), Value.FromInt(3))), 2, "`6 & 3`");
+  eq(at(RtBitOr(table, Value.FromInt(6), Value.FromInt(3))), 7, "`6 | 3`");
+  eq(at(RtBitXor(table, Value.FromInt(6), Value.FromInt(3))), 5, "`6 ^ 3`");
+  eq(at(RtBitNot(table, Value.FromInt(6))), -7, "`~6`");
+  eq(at(RtBitNot(table, Value.FromInt(0))), -1, "`~0`");
+  eq(at(RtShl(table, Value.FromInt(1), Value.FromInt(4))), 16, "`1 << 4`");
+  // **回绕**：`2147483647 << 1` 是 `-2` ✓（JS 的位运算就是 `int32` 的 ✓）。
+  eq(at(RtShl(table, Value.FromInt(2147483647), Value.FromInt(1))), -2, "`<<` 按 int32 回绕");
+  // **移位数的低 5 位**：`8 >> 33` 就是 `8 >> 1` ✓（`33 & 31 = 1` ✓）。
+  eq(at(RtShr(table, Value.FromInt(8), Value.FromInt(33))), 4, "`>>` 取低 5 位");
+  eq(at(RtShr(table, Value.FromInt(-8), Value.FromInt(1))), -4, "`>>` 是算术右移");
+  eq(at(RtUShr(table, value(-1), Value.FromInt(0))), 4294967295, "`-1 >>> 0`（进位成浮点）");
+  eq(RtUShr(table, value(-1), Value.FromInt(0)).Tag, ValueTag.Float64, "它**超出 int32**，所以是 `Float64`");
+  eq(at(RtUShr(table, value(-1), Value.FromInt(28))), 15, "**`-1 >>> 28` 是 15**（第一版给 4294967295）");
+  eq(at(RtUShr(table, value(-1), Value.FromInt(1))), 2147483647, "`-1 >>> 1`");
+  eq(at(RtUShr(table, value(4294967295), Value.FromInt(0))), 4294967295, "`2³² - 1` 原样给出");
+});
+
+check("端到端：日常形状里的位运算（复合赋值 · 箭头体 · 掩码 · 哈希）", () => {
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "let flags = 0;",
+    "flags |= 4; flags |= 1; flags &= 5; flags ^= 1; flags <<= 2; flags >>= 1; flags >>>= 0;",
+    "const xs = [1, 2, 3, 4, 5];",
+    "function hash(s: string): number { let h = 0;",
+    "  for (const c of s) { h = ((h << 5) - h + c.charCodeAt(0)) | 0; } return h; }",
+    "const toInt = (n) => (n | 0);",
+    "const inBlock = (n) => { return (n & 3) === 2; };",
+    "console.log(flags, xs.filter((n) => (n & 1) === 1).join(','), hash('abc'),",
+    "  toInt(3.9), inBlock(6), inBlock(5), -1 >>> 28);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "8 1,3,5 96354 3 true false 15", "复合赋值六条 + 箭头体 + 掩码 + 哈希");
+  // **箭头函数的体里带括号的位运算**（第 147 轮顺手修的 token 层那一格）：
+  // `(n) => (n | 0)` 里那个括号原来被判成**类型位** ✗（`IsTypeBracketPosition` 的 `=>` 那一格 ✓），
+  // 于是 `n | 0` 折成一个 `UnionType` ✓，降级层报 `unimplemented: expression UnionType` ✓。
+  // 现在问的是「形参表是不是箭头函数的」（`LamdaReorganization.IsLambdaParameters` ✓）。
+  const tokenFix = [];
+  const tokenRequest = new RunRequest();
+  tokenRequest.Sources = [[
+    "const f = (n) => (n | 0);",
+    "const g = (n) => { return (n & 2) === 2; };",
+    "console.log(f(3.7), g(6), g(5));",
+  ].join("\n")];
+  tokenRequest.Entry = "";
+  const tokenRes = RunSources(tokenRequest, (text) => tokenFix.push(text), () => null);
+  eq(tokenRes.Outcome, HostOutcome.Ok, "运行器：" + tokenRes.Message);
+  eq(tokenFix[0], "3 true false", "箭头体（括号式与块式）里的位运算都通了");;
+  let aliasMessage = "";
+  try {
+    const aliasRequest = new RunRequest();
+    aliasRequest.Sources = ["type F = A & B; console.log(1);"];
+    aliasRequest.Entry = "";
+    RunSources(aliasRequest, () => {}, () => null);
+  } catch (error) {
+    aliasMessage = String(error.message);
+  }
+  // **一档记在明处的缺口** ✗（第 147 轮量出来的 ✓，**与位运算无关** ✓）：
+  // `type` / `interface` **声明**今天整体没做 ✓——任何一份带类型声明的普通 `.ts`
+  // 都会在降级期整份失败 ✗。这一条判据把它钉在明处 ✓：做出来那天它会当场变红 ✓。
+  ok(aliasMessage.indexOf("TypeAliasDeclaration") >= 0,
+    "**已知缺口**：`type X = …` 让整份文件失败（接口同理）：" + aliasMessage);
+  // **另一档已知缺口**：括号表达式当**非第一个实参**时被判成类型位（`before` 是 `,` ✓）——
+  // 实测插桩 `owner=Bracket at=2 before=SymbolToken/,` ✓，`console.log("x", (a & b))` 会折成
+  // `IntersectionType` ✗。与 `=>` 那一格同源（都是「括号在它自己那一层前面是什么」判错 ✓），
+  // 但修它要问「包着它的那个括号是不是一次调用的实参表」✗，是另一轮的事 ✓。
+  let commaMessage = "";
+  try {
+    const commaRequest = new RunRequest();
+    commaRequest.Sources = ['console.log("x", (1 & 2));'];
+    commaRequest.Entry = "";
+    RunSources(commaRequest, () => {}, () => null);
+  } catch (error) {
+    commaMessage = String(error.message);
+  }
+  ok(commaMessage.indexOf("IntersectionType") >= 0,
+    "**已知缺口**：`f(a, (x & y))` 里的括号被判成类型位：" + commaMessage);
 });
 
 console.log("");

@@ -285,6 +285,150 @@ return MakeNumber(NumericOf(left) % NumericOf(right));
 return MakeNumber(-NumericOf(value));
 ```
 
+# method ToInt32Of:(value:Value)=>int
+
+**JS 的 `ToInt32`**——七条位运算（`& | ^ ~ << >> >>>`）**共用**的那一步（第 147 轮）。
+
+**它不是 `AsInt`** ✗（`value.xl.md` 那条只回答「这一个格子的整数值是多少」✓）：
+`ToInt32` 是**语义** ✓——`NaN` 与 `±Infinity` 给 `0` ✓、小数**向零截断** ✓、
+超出 32 位的**按 2³² 取模再折回有符号** ✓（`4294967296 | 0` 是 `0` ✓、
+`2147483648 | 0` 是 `-2147483648` ✓）。
+
+**为什么整段用算术写、不写 `n | 0`** ✓：那一步在四个目标上写法不同 ✗
+（C++ 里 `int32_t(双精度)` 越界是 UB ✗），而这里每一步（比较 ✓、取余 ✓、减法 ✓、
+`% 1` 截断 ✓）的语义**四个目标都一样** ✓——与 `MakeNumber` 里那条
+「用一次除法看符号位」同一条理由 ✓。
+
+**`rest` 是一路带小数的双精度、不是整数** ✗：它中途会到 `[0, 2³²)` ✓，装进 `int32` 就溢出了 ✗。
+**这里不给它写类型标注** ✓（试过 `let rest: double` ✗：`double` 是**签名**里的中立类型 ✓，
+TS 打印器不会把局部变量的标注翻过来 ✓——生成出来是一句 `Cannot find name 'double'` ✓）。
+这一句的意图靠**这一行 prose** 说清 ✓：**它必须是双精度** ✓（C++ 那一侧写 `double` ✓），
+少了这一条，那一侧会把它收成 `int32_t` ✓，于是 `4294967295 | 0` 这种输入**当场溢出** ✗。
+
+**非数值照旧抛** ✓（`NumericOf` ✓）：JS 会先 `ToNumber`（`"3" & 1` 给 `1` ✓），
+那要 `ToPrimitive` ✗——这一层没做，所以**响亮地抛** ✓，不静默按 `0` 算 ✗。
+
+```ts
+const n = NumericOf(value);
+if (n !== n || n === Infinity || n === -Infinity) return 0;
+// **先截断、再取模** ✓——**顺序是语义** ✗：`ToInt32` 的截断是**向零**的 ✓，
+// 先加 `2³²` 再截断会把方向弄反 ✓：`-1.9 | 0` 该给 `-1` ✓，
+// 先加再截给的是 `-2` ✗（判据现场就是这么红的 ✓，第 147 轮）。
+// `n % 1` 就是「去掉整数部分」✓（`-1.9 % 1` 是 `-0.9` ✓），
+// 而且它**不动已经能精确表示的大整数** ✓（`1e21 % 1` 是 `0` ✓）。
+let truncated = n - n % 1;
+let rest = truncated % 4294967296;
+if (rest < 0) rest = rest + 4294967296;
+// **高半区折回负数** ✓：`2³¹` 及以上是「符号位为 1」那一半 ✓。
+if (rest >= 2147483648) return rest - 4294967296;
+return rest;
+```
+
+# method ShiftCountOf:(value:Value)=>int
+
+**移位那个数**：JS 的规矩是 `ToUint32(右) & 31` ✓——**低 5 位** ✓。
+
+**为什么这里可以用 `ToInt32Of`** ✓：`ToUint32` 与 `ToInt32` 只差**最高位那一位** ✓
+（一个有符号、一个无符号 ✓），而 `& 31` 只看低 5 位 ✓——两者在那 5 位上**逐位相同** ✓。
+所以这一格**不必**再写一遍无符号那一半 ✓（那里会带出「结果可能超出 `int32`」的麻烦 ✗）。
+
+```ts
+return ToInt32Of(value) & 31;
+```
+
+# method RtBitAnd:(table:HeapTable, left:Value, right:Value)=>Value
+
+`&`。**两边都过 `ToInt32`** ✓，结果按 `Value.FromInt` 收 ✓（`int32` 与 `int32` 的位运算
+**一定落在 `int32` 里** ✓——不必走 `MakeNumber` ✓）。
+
+```ts
+return Value.FromInt(ToInt32Of(left) & ToInt32Of(right));
+```
+
+# method RtBitOr:(table:HeapTable, left:Value, right:Value)=>Value
+
+`|`（**按位或**，不是逻辑或 ✗——逻辑那两条在降级层落成控制流 ✓）。
+
+```ts
+return Value.FromInt(ToInt32Of(left) | ToInt32Of(right));
+```
+
+# method RtBitXor:(table:HeapTable, left:Value, right:Value)=>Value
+
+`^`。
+
+```ts
+return Value.FromInt(ToInt32Of(left) ^ ToInt32Of(right));
+```
+
+# method RtBitNot:(table:HeapTable, value:Value)=>Value
+
+一元 `~`。**与 `!` 不是一回事** ✗：`!` 给布尔（`RtNot` ✓），`~` 给整数 ✓。
+
+```ts
+return Value.FromInt(~ToInt32Of(value));
+```
+
+# method RtShl:(table:HeapTable, left:Value, right:Value)=>Value
+
+`<<`：左移 ✓。**结果按 `int32` 回绕** ✓（JS 就是 `int32` 的位运算 ✓：
+`2147483647 << 1` 给 `-2` ✓）。
+
+**给 C++ 目标的提醒**（记在这里，P1 对拍时会撞上 ✓）：**有符号数左移在 C++20 之前是 UB** ✗
+（`int32_t` 左移溢出 ✓），所以那一侧要么先转 `uint32_t` 再转回来 ✓、要么按 C++20 的
+「回绕」口径 ✓——**这不是可选项** ✗：不做这一条，同一个 IR 在 TS 与 C++ 上会是两个答案 ✓。
+
+```ts
+return Value.FromInt(ToInt32Of(left) << ShiftCountOf(right));
+```
+
+# method RtShr:(table:HeapTable, left:Value, right:Value)=>Value
+
+`>>`：**带符号**右移 ✓（`-8 >> 1` 是 `-4` ✓）。
+**C++ 那一侧的同一句话**：有符号右移对负数是**实现定义** ✗（算术移位是事实标准 ✓，
+但标准没规定 ✓）——P1 对拍时按算术移位核 ✓。
+
+```ts
+return Value.FromInt(ToInt32Of(left) >> ShiftCountOf(right));
+```
+
+# method RtUShr:(table:HeapTable, left:Value, right:Value)=>Value
+
+`>>>`：**无符号**右移 ✓——**结果是 `[0, 2³²)` 里的数** ✓，所以它**可能超出 `int32`** ✗
+（`-1 >>> 0` 是 `4294967295` ✓），于是这一条走 `MakeNumber` 收 ✓
+（超了自然落 `Float64` ✓，与 JS 的 `number` 一致 ✓）。
+
+**算它的时候不碰无符号中间量** ✓：先按**有符号**右移（那一步落在 `int32` 里 ✓），
+再把「高位本该补零」这一点补回来 ✓——这样中间每一步都在 `int32` 里 ✓，
+只有最后返回的那个数可能更大 ✓（`MakeNumber` 那一档就是为它准备的 ✓）。
+
+**移位数为 0 时**（`-1 >>> 0` ✓）：右移这一步什么也不做 ✓，而**算术右移是符号扩展**的 ✗——
+所以那时要把负数加上 `2³²` ✓（`-1` 给 `4294967295` ✓）。
+
+**移位数大于 0 时不能加 `2³²`** ✗（第一版就是这么写的 ✓，判据现场抓到 ✓）：
+`-1 >>> 28` 该给 **`15`** ✓，而「先算术右移、负数再加 `2³²`」给的是 `4294967295` ✗——
+因为**算术右移把高 28 位补成了 1** ✗，而无符号右移该补 **0** ✓。
+所以那几位的掩码要自己抹掉 ✓：`2147483647 >> (k - 1)` 正好是「低 `32 - k` 位全 1」✓
+（`k = 28` → `0xF` ✓、`k = 1` → `0x7FFFFFFF` ✓、`k = 31` → `1` ✓），
+而 `k ≥ 1` 时结果一定落在 `[0, 2³¹)` ✓——**非负** ✓，于是它走 `Int32` 那一档 ✓。
+
+```ts
+const amount = ShiftCountOf(right);
+const shifted = ToInt32Of(left) >> amount;
+// **移位数为 0**：算术右移这一步什么也没做 ✓，负数直接补 `2³²` 就是无符号那一位 ✓。
+// `4294967296` 装不进 `int32` ✓——C++ 那一侧它会提升成更宽的类型 ✓，那正是这里要的 ✗
+//（这一句不该被收窄回 `int32` ✗）。
+if (amount === 0) {
+  if (shifted < 0) return MakeNumber(shifted + 4294967296);
+  return MakeNumber(shifted);
+}
+// **移位数为正**：高 `amount` 位是算术右移补进来的 1 ✗，要自己抹掉 ✓。
+// `2147483647 >> (amount - 1)` 正好是「低 `32 - amount` 位全 1」✓
+//（`amount = 28` 给 `0xF` ✓、`amount = 1` 给 `0x7FFFFFFF` ✓、`amount = 31` 给 `1` ✓）。
+const keep = 2147483647 >> (amount - 1);
+return MakeNumber(shifted & keep);
+```
+
 # method TypeUnitsOf:(table:HeapTable, value:Value)=>Array<int>
 
 `typeof` 的名字（**码元形式**）。

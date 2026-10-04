@@ -6,7 +6,7 @@ import { Collector, RootSet } from "./gc.xl.md"
 import { Program, Instruction, Op, RtOpName, RtOp, FunctionInfo, BuiltinBase } from "./ir.xl.md"
 import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
-import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot } from "./rt.xl.md"
+import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtBitXor, RtBitNot, RtShl, RtShr, RtUShr } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
 import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
@@ -1216,6 +1216,38 @@ if (id === RtOp.Mod) {
 if (id === RtOp.Neg) {
   RequireArgc(argc, 1, "neg");
   return RtNeg(this.Table, slots[base]);
+}
+// **七条位运算**（第 147 轮）：`& | ^ << >>` 与 `~` 的结果都落在 `int32` 里 ✓，
+// 只有 `>>>` 可能超出 ✗（`-1 >>> 0` 是 `4294967295` ✓）——那一条自己走 `MakeNumber` ✓。
+// **`& | ^` 与逻辑那两条同名而不同物** ✗：`&&` / `||` 在降级层落成**控制流** ✓，
+// 根本不到这一层来 ✓（`ir.xl.md` 的 `BitOr` 那条写着这一句 ✓）。
+if (id === RtOp.BitAnd) {
+  RequireArgc(argc, 2, "bit_and");
+  return RtBitAnd(this.Table, slots[base], slots[base + 1]);
+}
+if (id === RtOp.BitOr) {
+  RequireArgc(argc, 2, "bit_or");
+  return RtBitOr(this.Table, slots[base], slots[base + 1]);
+}
+if (id === RtOp.BitXor) {
+  RequireArgc(argc, 2, "bit_xor");
+  return RtBitXor(this.Table, slots[base], slots[base + 1]);
+}
+if (id === RtOp.BitNot) {
+  RequireArgc(argc, 1, "bit_not");
+  return RtBitNot(this.Table, slots[base]);
+}
+if (id === RtOp.Shl) {
+  RequireArgc(argc, 2, "shl");
+  return RtShl(this.Table, slots[base], slots[base + 1]);
+}
+if (id === RtOp.Shr) {
+  RequireArgc(argc, 2, "shr");
+  return RtShr(this.Table, slots[base], slots[base + 1]);
+}
+if (id === RtOp.UShr) {
+  RequireArgc(argc, 2, "ushr");
+  return RtUShr(this.Table, slots[base], slots[base + 1]);
 }
 if (id === RtOp.Not) {
   RequireArgc(argc, 1, "not");

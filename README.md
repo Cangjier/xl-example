@@ -100,8 +100,18 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 `PropertyKeyNodeOf` 两段共用规矩提了出来；写法人各一半，因为两半的**水位纪律相反**
 （声明那半会留变量格所以一律不退，赋值这半一个变量都不声明）。顺带收下计算键
 `({[k]: v} = o)`——走 `get_index` 而不是 `get_prop`，因为 `({[1]: n} = …)` 的键是一个数）、
++ **位运算七条**（第 147 轮：`flags |= 4` 原来在降级期就报 `unimplemented: binary operator |=`。
+算子表里 `BitAnd` / `BitOr` / `BitXor` / `Shl` / `Shr` 是设计期就留好的号（**声明了、没实现**），
+`BitNot` / `UShr` 这一轮**追加在表尾**（只追加、不改号）。语义落在两个共用判据上：
+`ToInt32Of`（`NaN`/`±Infinity` → 0、小数**向零截断**、按 2³² 取模再折回有符号）与
+`ShiftCountOf`（低 5 位）；整段用算术写、不写 `n | 0`（那一步四个目标写法不同）。
+判据抓到两处「静默给一个看起来成立的整数」：截断与取模的**顺序**（`-1.9 | 0` 给过 `-2`）、
+`>>>` 的高位该补 0 而不是 1（`-1 >>> 28` 给过 `4294967295`）。顺带修了两处 token 层缺口：
+`(n) => (n | 0)` 的**体**被判成类型位（`IsTypeBracketPosition` 的 `=>` 那一格，改为问
+`LamdaReorganization.IsLambdaParameters`）、以及 `Method` 投影的可选链那一支把 `f(o?.a)` 的
+**实参链**当成整条调用返回（第 143 轮那条 `0a0` 支被它抢在前面了））、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（201 条）与 `npm run runtime:cli`（38 份语料）；
+判据见 `npm run runtime:check`（204 条）与 `npm run runtime:cli`（39 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

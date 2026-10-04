@@ -416,6 +416,14 @@ if (operatorText === "-") return RtOp.Sub;
 if (operatorText === "*") return RtOp.Mul;
 if (operatorText === "/") return RtOp.Div;
 if (operatorText === "%") return RtOp.Mod;
+// **七条位运算**（第 147 轮）：它们的语义在引擎那一侧（`rt.xl.md` 的 `ToInt32Of` 那一段 ✓）——
+// 降级层只负责「这个文字对应哪一号」 ✓。
+if (operatorText === "&") return RtOp.BitAnd;
+if (operatorText === "|") return RtOp.BitOr;
+if (operatorText === "^") return RtOp.BitXor;
+if (operatorText === "<<") return RtOp.Shl;
+if (operatorText === ">>") return RtOp.Shr;
+if (operatorText === ">>>") return RtOp.UShr;
 if (operatorText === "<") return RtOp.CmpLt;
 if (operatorText === "<=") return RtOp.CmpLe;
 if (operatorText === ">") return RtOp.CmpGt;
@@ -426,7 +434,39 @@ if (operatorText === "==") return RtOp.CmpEqLoose;
 if (operatorText === "!=") return RtOp.CmpEqLoose;
 if (operatorText === "in") return RtOp.In;
 if (operatorText === "instanceof") return RtOp.Instanceof;
+// **`**` 落在这里是故意的** ✓：它**没有**走通用算子表 ✗——`pow` 的舍入
+// **没有标准定死** ✗（IEEE 754 没规定正确舍入 ✓，各目标的 `pow` 可能差最后一位 ✓），
+// 所以它属于**语言建库**那一层（与 `StringConcat` 同一条路 ✓），单独立一轮 ✓。
+// 在此之前**响亮地抛** ✓（不许静默给一个近似值 ✗）。
 throw new Error("unimplemented: binary operator " + operatorText);
+```
+
+# method CompoundBaseOf:(operatorText:string)=>string
+
+**复合赋值的「底」是哪个运算符**（第 147 轮）：`+=` 给 `"+"` ✓、`>>>=` 给 `">>>"` ✓、
+不是复合赋值给**空串** ✓。
+
+**为什么要一个函数、而不是 `operatorText.slice(0, 1)`** ✗：那个写法对 `+=` / `&=` 恰好对 ✓，
+但对 `<<=` / `>>=` / `>>>=` **当场错** ✗（切出来是 `"<"` / `">"` ✓，
+而它们不是二元运算符 ✓）——症状是「两个字符的运算符被当成一个字符的」✓，
+报出来还停在 `unimplemented: binary operator <` ✓（离现场很远 ✗）。
+
+**不在这张表里的照旧不走复合那条路** ✓：`&&=` / `||=` / `??=` 是**逻辑赋值**
+（右边可能不求值 ✓），语义与这一族不同 ✗，所以它们落进通用二元那条路**响亮地抛** ✓。
+
+```ts
+if (operatorText === "+=") return "+";
+if (operatorText === "-=") return "-";
+if (operatorText === "*=") return "*";
+if (operatorText === "/=") return "/";
+if (operatorText === "%=") return "%";
+if (operatorText === "&=") return "&";
+if (operatorText === "|=") return "|";
+if (operatorText === "^=") return "^";
+if (operatorText === "<<=") return "<<";
+if (operatorText === ">>=") return ">>";
+if (operatorText === ">>>=") return ">>>";
+return "";
 ```
 
 # method IsNegated:(operatorText:string)=>bool
@@ -4514,8 +4554,12 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
   const value = this.LowerExpression(operand);
   if (operator === "-") return this.RtCall1(RtOp.Neg, value);
   if (operator === "!") return this.RtCall1(RtOp.Not, value);
-  // **没做的照旧抛**（不静默给近似值）：`+x` 要 Number 转换、`~x` 要按位取反。
-  throw new Error("unimplemented: unary operator `" + operator + "` (only -, !, ++ and -- are implemented)");
+  // **按位取反**（第 147 轮）：`~` 给整数 ✓（`~5` 是 `-6` ✓）——与 `!` 给布尔不是一回事 ✓。
+  if (operator === "~") return this.RtCall1(RtOp.BitNot, value);
+  // **没做的照旧抛**（不静默给近似值）：`+x` 要 `ToNumber`（字符串解析 ✓——
+  // 第 145 轮那条 `Number(x)` 已经做出来了 ✓，`+x` 接上去是下一轮的一条小活 ✓）、
+  // `typeof x` 与 `void x` 各自另有落点 ✓。
+  throw new Error("unimplemented: unary operator `" + operator + "` (only -, !, ~, ++ and -- are implemented)");
 }
 throw new Error("unimplemented: expression " + kind);
 ```
@@ -4606,13 +4650,15 @@ if (operatorText === "??") {
   this.Release(slot + 1);
   return slot;
 }
-if (operatorText === "+=" || operatorText === "-=" || operatorText === "*="
-  || operatorText === "/=" || operatorText === "%=") {
+const compoundBase = CompoundBaseOf(operatorText);
+if (compoundBase !== "") {
   // **字符串那一半先换路**（第 125 轮）：`s += "x"` 里的右边是**字符串字面量** ✓，
   // 于是结果一定是字符串 ✓（JS 的 `1 += "x"` 也是 `"1x"` ✓）——交给 `StringConcat` ✓。
   // 左边是一个**名字**（下面两条分支各自处理读→算→写 ✓），所以这里只换「算」那一步 ✓。
-  const concatRight = operatorText === "+=" && this.IsTextLiteral(Child(node, "right"));
-  const base = BinaryOpOf(operatorText.slice(0, 1));
+  const concatRight = compoundBase === "+" && this.IsTextLiteral(Child(node, "right"));
+  // **底运算符由 `CompoundBaseOf` 给** ✓（第 147 轮）：`<<=` / `>>=` / `>>>=` 用
+  // `slice(0, 1)` 会切出 `"<"` / `">"` ✗——那三个字的运算符当时会被当成一个字的 ✓。
+  const base = BinaryOpOf(compoundBase);
   if (NodeKind(left) === "Identifier") {
     // 复合赋值展开成「读 → 算 → 写」，**读一次**（左边只求值一次）。
     const access = this.ResolveAccess(TextOf(left));
