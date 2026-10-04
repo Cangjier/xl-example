@@ -7827,5 +7827,44 @@ check("一步两条路：兑现调 `f`、拒绝调 `g`；没给 `g` 就原样传
 });
 
 console.log("");
+console.log("=== 第 188 轮：接住了拒绝，结果就是兑现（一条**静默**的错）===");
+
+check("回调跑过了，结果就是兑现：`.then(f, g)` / `.catch` 接住之后，后面那一步照跑", () => {
+  // **端到端那一把在 `cases/66-promise-handled-rejection.ts`**（7 行逐字节 ✓）。
+  //
+  // **静默的那一条** ✗：`Promise.reject("e").then(f, g).then(cb)` 里 `g` 跑了 ✓、
+  // 结果承诺也结清了 ✓，但**下一步一句都不跑** ✓、**不报错** ✗。
+  // 根因在引擎那一格 ✓：回调跑完之后，结果的档跟着**源**那一档走 ✗——
+  // 源是「拒绝」✓，于是结果**还是被拒绝** ✗。
+  // 而 JS 的口径是「**谁接住了这一档，结果就是兑现**」✓（兑现值就是那个回调的返回值 ✓）。
+  // 「结果跟着拒绝」只在**没人接**的时候发生 ✓——那一条走的是另一支（`!matched` ✓）。
+  //
+  // **同一轮量准的另一条** ✗（不进语料 ✓）：**方法名是关键字、后面还接着一个调用**时 ✓，
+  // 链上那一步**读错属性** ✓——实测五种形状：`.catch(cb);` 好的 ✓、
+  // `.catch(cb).then(cb2)` **坏的** ✗、`.finally(cb).then(cb2)` **坏的** ✗、
+  // 但**中间落一个变量**（`const p = X.catch(cb); p.then(cb2);`）**是好的** ✓。
+  // 这一格属于**降级/链**那一侧 ✓（`catch` / `finally` 是关键字 ✓，`then` 不是 ✓），
+  // 单独立一轮 ✓——**语料里用落变量的写法** ✓。
+  const outline = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "Promise.reject('e2').then((v: any) => 0, (e: any) => 'recovered ' + e).then((v: any) => console.log('recovered', v));",
+    "Promise.reject('bare').then((v: any) => console.log('no', v)).catch((e: any) => console.log('still rejected', e));",
+    "const handled = Promise.reject('boom').catch((e: any) => 'handled ' + e);",
+    "handled.then((v: any) => console.log('after-catch', v));",
+    "const twice = Promise.reject('x').catch((e: any) => 'ok ' + e);",
+    "twice.catch((e: any) => console.log('should not print', e));",
+    "twice.then((v: any) => console.log('final', v));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => outline.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(outline[0], "recovered recovered e2", "**这一轮修的就是它**：接住之后下一步照跑，值是 `g` 的返回值");
+  eq(outline[1], "still rejected bare", "没人接 → 拒绝原样传下去（一直是好的）");
+  eq(outline[2], "after-catch handled boom", "`catch` 接住之后，结果也是**兑现**");
+  eq(outline[3], "final ok x", "接住之后再接一个 `catch`：那个 `catch` **不该跑**");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

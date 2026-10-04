@@ -2239,11 +2239,13 @@ if (passThrough) {
   return;
 }
 if (carry) {
-  if (reject) {
-    this.RejectPromise(result, produced);
-  } else {
-    this.ResolvePromise(result, produced);
-  }
+  // **回调跑过了，结果就是「兑现」** ✓（第 188 轮修 ✓）：这一句原来按**源**那一档
+  // （`reject` ✓）决定结果的档 ✗——于是 `catch` / `then(f, g)` **接住了**拒绝之后 ✓，
+  // 结果承诺**还是被拒绝** ✗✗：后面接的 `.then(onFulfilled)` **一句都不跑** ✓，
+  // 而且**不报错** ✗（实测：`Promise.reject("e").then(f, g).then(cb)` 印不出东西 ✓，
+  // 而 Node 印 `g` 的返回值 ✓）。**「谁接住了这一档，结果就是兑现」** ✓——
+  // 抛出异常那一档本仓还没有错误对象那一层 ✓（那才是「结果跟着拒绝」的另一种情形 ✓）。
+  this.ResolvePromise(result, produced);
 }
 ```
 
