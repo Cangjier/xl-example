@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 252,
+  "matrix": 254,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,27 +18,27 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 76.25,
+  "progressPercent": 76.49,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 90,
-      "pass": 79,
+      "total": 91,
+      "pass": 80,
       "blocked": 9,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 87.78
+      "coverage": 87.91
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 44,
-      "pass": 30,
+      "total": 45,
+      "pass": 31,
       "blocked": 12,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 68.18
+      "coverage": 68.89
     },
     {
       "layer": "stdlib",
@@ -63,9 +63,9 @@
   ],
   "blocked": [
     {
-      "id": "op-unary",
+      "id": "op-typeof-forms",
       "layer": "runtime",
-      "title": "一元：`!` `-` `+` `~` `typeof` `void`",
+      "title": "`typeof` 的**各种操作数形状**（标识符 / 字面量 / 对象 / 数组 / 函数）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeOfKeyword"
     },
     {
@@ -78,7 +78,7 @@
       "id": "cls-expression",
       "layer": "runtime",
       "title": "类表达式：赋给变量、当返回值、当场 new",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: new with a ParenthesizedExpression target"
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: k"
     },
     {
       "id": "gen-basics",
@@ -147,10 +147,10 @@
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
     },
     {
-      "id": "ex-new-class-expression",
+      "id": "ex-class-expr-field-capture",
       "layer": "exec",
-      "title": "`new (class { … })()`：被 new 的是一整个类表达式",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: new with a ParenthesizedExpression target"
+      "title": "类表达式的**字段初始化式**要看得见外层的变量",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: outer"
     },
     {
       "id": "ex-typeof-value-expression",

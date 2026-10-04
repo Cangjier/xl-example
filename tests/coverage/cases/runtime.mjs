@@ -134,11 +134,20 @@ console.log("b" > "a", "2" < "10", 1 <= 1, 2 >= 3);
   },
   {
     id: "op-unary",
-    title: "一元：`!` `-` `+` `~` `typeof` `void`",
+    title: "一元：`!` `-` `+` `~` `void`",
     src: `
 console.log(!0, !"", !null, -"3", +"3", +true, ~0, ~5);
+console.log(void 0, void "x", -(-3), +("2.5"));
+`,
+  },
+  {
+    id: "op-typeof-forms",
+    title: "`typeof` 的**各种操作数形状**（标识符 / 字面量 / 对象 / 数组 / 函数）",
+    src: `
 console.log(typeof 1, typeof "s", typeof true, typeof undefined, typeof null);
-console.log(typeof {}, typeof [], typeof (() => 1), void 0);
+console.log(typeof {}, typeof [], typeof (() => 1), typeof console);
+const named = 5;
+console.log(typeof named);
 `,
   },
   {

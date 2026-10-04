@@ -4074,7 +4074,18 @@ if (calleeKind === "Identifier") {
 } else if (calleeKind === "PropertyAccessExpression") {
   ctor = this.LowerAccess(callee);
 } else {
-  throw new Error("unimplemented: new with a " + calleeKind + " target");
+  // **一般表达式：先求值、再构造** ✓（第 211 轮 ✓）。
+  //
+  // **原来这里抛** ✗（`unimplemented: new with a <kind> target` ✓），而落在这儿的正是
+  // 那些**形状很普通**的写法 ✓：`new (class { … })()` ✓（类表达式当构造目标 ✓）、
+  // `new (make(5))()` ✓（先调一个工厂再构造 ✓）、`new (A)` ✓（括号套一层 ✓）——
+  // 判据 `cls-expression` / `ex-new-class-expression` 现场红的 ✓（整份文件进不来 ✗）。
+  //
+  // **为什么现在敢放行** ✓：`Op.New` 拿的就是**构造函数那一格的值** ✓，
+  // 与「标识符」/「属性访问」那两条路**同一个落点** ✓——多出来的活只是「这个值怎么算出来」✓。
+  // **`new.target` 那一层顾虑不成立** ✗：JS 在 `new (f())()` 里调 `f` 用的是**普通调用** ✓
+  //（`new.target` 是 `undefined` ✓），而 `LowerExpression` 降的就是普通调用 ✓——两边一致 ✓。
+  ctor = this.LowerExpression(callee);
 }
 const args = ListOf(node, "arguments");
 const count = args.length;

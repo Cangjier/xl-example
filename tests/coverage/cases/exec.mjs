@@ -259,6 +259,19 @@ console.log(m.get("a"), xs.length, new Set<string>(["x"]).size);
 `,
   },
   {
+    id: "ex-class-expr-field-capture",
+    title: "类表达式的**字段初始化式**要看得见外层的变量",
+    src: `
+function make(k: number) {
+  return class { v = k; };
+}
+console.log(new (make(5))().v);
+const outer = 7;
+const C = class { w = outer; };
+console.log(new C().w);
+`,
+  },
+  {
     id: "ex-new-class-expression",
     title: "`new (class { … })()`：被 new 的是一整个类表达式",
     src: `
