@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
@@ -167,6 +167,14 @@ import { BuildPromise } from "./promise.xl.md"
 **它是 `Object.prototype` 上最"空"的一个方法** ✓，而它**永远是对的** ✓：JS 的 `ToPrimitive`
 普通那一支第一步就是它 ✓——原始值那几档给回自己 ✓，对象给回对象 ✓（于是**继续往下走
 `toString`** ✓）。补上它之后，「普通对象 → 原始值」那条路只差 `toString` ✓。
+
+# const ErrorToString:int = 339
+
+**`Error.prototype.toString`**（第 213 轮 ✓）：`"<name>: <message>"` ✓。
+
+**为什么不复用 `Object.prototype.toString`** ✗：那一个给的是 `"[object Object]"` ✓
+（它的口径就是「标签」✓），而错误这一族要的是 `"Error: msg"` ✓——
+判据 `error-tostring` 现场给的就是 `"[object Object]"` ✗（**离对的只差一个"很像"** ✗）。
 
 # const ObjectHasOwnProperty:int = 338
 
@@ -843,18 +851,24 @@ if (id === StringCtor) {
   // 所以不给实参这一支要**先判**（`ValueUnits` 对 `undefined` 给 `"undefined"` ✓，
   // 那是 `String(x)` 的答案 ✓，不是 `String()` 的 ✓）。
   if (args.length === 0) return Value.FromString(table.CreateString([]));
-  // **对象自己的 `toString` 先问一次**（第 193 轮 ✓）：JS 的 `String(o)` 走
-  // `ToPrimitive(o, "string")` ✓ → 先 `toString` ✓。少了这一句，`class C { toString() {…} }`
-  // 的实例会印成 `[object Object]` ✓——**静默错值** ✗（Node 印自定义那一串 ✓）。
-  const ownText = ToStringOfObject(room, call, protos, table, args[0]);
-  if (ownText !== null) {
-    const ownUnits = TextUnitsOf(table, ownText);
-    if (!room(CodeUnitCharge * ownUnits.length + ObjectCharge)) throw new Error("out of room");
-    return Value.FromString(table.CreateString(ownUnits));
-  }
-  const units = ValueUnits(table, args[0], 0);
-  if (!room(CodeUnitCharge * units.length + ObjectCharge)) throw new Error("out of room");
-  return Value.FromString(table.CreateString(units));
+  // **`String(o)` 就是 `ToPrimitive(o, "string")` 再取文本** ✓（第 213 轮收口 ✓）。
+  //
+  // **它原来只问「对象自己的 `toString`」** ✗（第 193 轮那一处 ✓）：那对
+  // `class C { toString() {…} }` 是够的 ✓，但**原型链上的 `toString` 看不见** ✗——
+  // `String(new Error("m"))` 于是印 `"[object Object]"` ✗（JS 印 `"Error: m"` ✓，
+  // 判据 `error-tostring` 现场红的 ✓），而**同一条 `new Error("m")` 的
+  // `"" + e` / `` `${e}` `` 却是对的** ✓（它们走 `StringConcat` ✓，第 203 轮已经收口到那张表上 ✓）——
+  // **同一件事两个答案** ✗，这一轮把它也接到 `ToPrimitiveOf` 上 ✓。
+  //
+  // **`hint` 是 `string`** ✓（`ToString` 的口径 ✓）：先 `toString` ✓、后 `valueOf` ✓。
+  // **原始值不受影响** ✓（`ToPrimitiveOf` 对它们给回自己 ✓，`TextUnitsOf` 照样给文本 ✓）。
+  //
+  // **一处变响的已知差异** ✓：`String(new Date(0))` 现在会**抛**
+  // `unimplemented: ToPrimitive of a Date with a string hint` ✓（`Date.prototype.toString`
+  // 还没装 ✓）——原来它静默印 `"[object Object]"` ✗。**抛比静默错值好** ✓（台账里记着 ✓）。
+  const stringUnits = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[0], ToPrimitiveString));
+  if (!room(CodeUnitCharge * stringUnits.length + ObjectCharge)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(stringUnits));
 }
 if (id === NumberCtor) {
   // **不给实参给 `0`** ✓（JS 的 `Number()` 是 `0` ✓，不是 `NaN` ✗）。
@@ -1046,6 +1060,33 @@ if (id === ObjectGetPrototypeOf) {
   const protoHandle = table.Get(target.Ref).Proto;
   if (protoHandle === 0) return Value.Null();
   return Value.FromObject(protoHandle);
+}
+if (id === ErrorToString) {
+  // **`Error.prototype.toString`** ✓（第 213 轮 ✓）——JS 的三条规矩 ✓：
+  // **`name` 缺省 `"Error"`** ✓（`Error.prototype.name` 就是它 ✓）、**`message` 缺省空串** ✓、
+  // **两格任一为空就只给另一个** ✓（空串不是「`": "` 那种拼接」✗）。
+  // **两格要「真读一次属性」** ✓（不是直接给类型名 ✗）：`e.name = "MyError"` 这种写法遍地都是 ✓，
+  // 而 `message` 更是构造时就写在实例上的自有属性 ✓。属性读**可能调 getter** ✓，
+  // 所以它要一条调用通道 ✓——宿主没接时必须**响亮**说清 ✗（而不是偷偷给个默认值 ✓）。
+  if (call === null) {
+    throw new Error("Error.prototype.toString needs a call channel (the host must pass one)");
+  }
+  const errorNameValue = GetProperty(room, call, protos, table, self, NameValue(table, "name"));
+  const errorMessageValue = GetProperty(room, call, protos, table, self, NameValue(table, "message"));
+  let errorName = "Error";
+  if (errorNameValue.Tag !== ValueTag.Undefined) errorName = TextFrom(table, errorNameValue);
+  let errorMessage = "";
+  if (errorMessageValue.Tag !== ValueTag.Undefined) errorMessage = TextFrom(table, errorMessageValue);
+  let errorText = "";
+  if (errorName.length === 0) {
+    errorText = errorMessage;
+  } else if (errorMessage.length === 0) {
+    errorText = errorName;
+  } else {
+    errorText = errorName + ": " + errorMessage;
+  }
+  if (!room(ObjectCharge + CodeUnitCharge * errorText.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units(errorText)));
 }
 if (id === ObjectValueOf) {
   // **返回接收者自己** ✓（第 198 轮 ✓，与 `NumberValueOf` 同一条口径 ✓）——
@@ -2200,6 +2241,13 @@ SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "name
 SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "constructor"), errorTarget);
+// **`Error.prototype.toString`** ✓（第 213 轮 ✓）：**隐藏挂** ✓（与 `Object.prototype` 那两格
+// 同一条规矩 ✓——`Object.keys` / `for..in` 不该看见它 ✓）。
+// **挂 `Error.prototype` 就够** ✓：三个错误子族的原型都**链在它下面** ✓（第 137 轮 ✓），
+// 所以 `TypeError` 那边**不必再挂一份** ✓（挂两份就是两处会漂的答案 ✗）。
+SetHiddenProperty(vm.Room(), table, errorProtoValue,
+  Value.FromString(table.CreateString(Units("toString"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorToString, 0)));
 // **`TypeError.prototype` / `RangeError.prototype` 上的同名三格** ✓：
 // `name` 是各自的种类名 ✓（`e.name` 在没有自有属性时的落点 ✓），
 // `message` 给空串 ✓、`constructor` 指回各自那个构造函数 ✓。

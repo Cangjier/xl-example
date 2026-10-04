@@ -52,7 +52,6 @@ export const EXPECTATIONS = {
   "symbol-string-of-symbol": { expect: "blocked", why: "`String(符号)` 没装（这一格该给 `Symbol(desc)`）" },
   "console-log-special": { expect: "differ", why: "`console.log(Error)` 的形态（该是 `Error: boom`）" },
   "error-engine-throws": { expect: "differ", why: "调用一个非函数的值该抛 `TypeError`（现在报的是别的）" },
-  "error-tostring": { expect: "differ", why: "`Error.prototype.toString` 没装（给的是 `[object Object]`）" },
   "promise-constructor": { expect: "blocked", why: "`new Promise(执行器)` 没做（要同步跑一次执行器 + 造两个宿主回调）" },
   "promise-chaining-errors": { expect: "blocked", why: "`.then` 回调里抛的错没接到拒绝链上" },
   "promise-all-kinds": { expect: "differ", why: "`Promise.all` 里**非承诺的项**丢了（与 `prm-combinators` 同一处）" },

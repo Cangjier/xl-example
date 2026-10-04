@@ -1,4 +1,4 @@
-// 执行层的判据：值模型（`runtime/value.xl.md`）、堆（`runtime/heap.xl.md`）、
+﻿// 执行层的判据：值模型（`runtime/value.xl.md`）、堆（`runtime/heap.xl.md`）、
 // 回收器（`runtime/gc.xl.md`）与程序表示（`runtime/ir.xl.md`）。
 //
 //   node tests/runtime/check.mjs
@@ -8410,7 +8410,9 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
     ["Map", "console.log(new Map() + 1);"],
     ["Set", "console.log(new Set() + 1);"],
     ["Date 的 default", "console.log(new Date(0) + 1);"],
-    ["Error", "console.log(new Error('x') + 1);"],
+    // **`Error` 从这一档里划掉了**（第 213 轮）：那一轮把 `Error.prototype.toString` 装上之后，
+    // `new Error("x") + 1` 有**真答案**（`"Error: x1"`，与 Node 逐字相同）——它已经不在
+    // 「不能给近似值」那一档里。判据跟着改：下面另有一条「必须给对」。
     ["可调用对象", "console.log(String + 1);"],
   ];
   for (const [what, source] of loud) {
@@ -8419,6 +8421,17 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
     request.Entry = "";
     const res = RunSources(request, () => {}, () => null);
     ok(res.Outcome !== HostOutcome.Ok, what + " 那一档必须响亮地抛（结局不是 Ok）");
+  }
+  // **`Error` 那一档现在给的是真答案**（第 213 轮）：与 Node 逐字节相同。
+  {
+    const request = new RunRequest();
+    request.Sources = ['console.log(String(new Error("x")), new Error("y") + 1);'];
+    request.Entry = "";
+    const lines = [];
+    const res = RunSources(request, (text) => lines.push(text), () => null);
+    eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+    eq(lines[0], "Error: x Error: y1",
+      "`Error.prototype.toString` 装上之后，`String(e)` 与 `e + 1` 都给 `\"Error: …\"`（与 Node 一致）");
   }
 
   // **单元那一半**：`ObjectTagOf` 答「哪个标签」，答不了就**点名**缺什么 ✓。
