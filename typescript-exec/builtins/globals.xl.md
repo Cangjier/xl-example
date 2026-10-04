@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
@@ -219,6 +219,28 @@ import { BuildPromise } from "./promise.xl.md"
 **它不是 `new Function("…")` 那条路** ✗（那是**编译期**的事 ✓，本运行器不做 ✓）——
 它只是 `Function` 这个名字的落点 ✓，于是 `Function.prototype === Function.prototype` 成立 ✓。
 
+# const GeneratorNextId:int = 709
+
+**「生成器的 `next`」那一格**（第 229 轮 ✓）——`it.next()` 落到这里 ✓，
+但它**不由这一层实现** ✗：走一步生成器要发 `iter_next`（**指令** ✓），
+而那是**引擎**的事 ✓（`vm.xl.md` 的 `NextStepOf` ✓）。
+
+**它的作用只有两个** ✓：
+1. **`protos.Generator.next` 上挂的那个载荷用它** ✓（`BuildGlobals` 挂 ✓）——
+   这样 `GetProperty` 沿原型链找到它、`DoCallMethod` 把它当方法调 ✓；
+2. **让引擎认得出「这一次调用是我自己的」** ✓：`InstallBuiltins` 调
+   `machine.RegisterGeneratorNext(GeneratorNextId)` ✓，
+   引擎于是把这一格号记下来 ✓（`GeneratorNextId` 那个字段 ✓），
+   两条派发路上各截一次 ✓（`IsGeneratorNext` ✓）。
+
+**为什么用能力号而不是新加一条算子** ✓：**一条指令都不用加** ✓——
+`AttachCallable` 与「宿主载荷的能力号分派」第 145 / 228 轮就都在了 ✓，
+这只是一次**新的用法** ✓（与 `Symbol` / `Date` 那种「对象带一格载荷」同一个形状 ✓）。
+
+**它在 709** ✓（700..799 是语言内部辅助那段 ✓，`SetHiddenId = 708` 是当前最大的 ✓）——
+**加号必须同时改 `BuiltinSlots`** ✗（`install.xl.md` ✓）：漏了它的症状是
+`capability id is out of range: 709` ✓（一句话里没提「名单」两个字 ✗，第 210 / 197 轮各踩过一次 ✓）。
+
 # const BoundCall:int = 344
 
 **调一个 `bind` 造出来的函数**（第 228 轮 ✓）——`FunctionBind` 那一支造的那个对象
@@ -335,16 +357,61 @@ if (value.Tag === ValueTag.Symbol) return "Symbol";
 if (table.Get(value.Ref).Host !== null) {
   throw new Error("unimplemented: Object.prototype.toString of a callable object (JS renders source text)");
 }
+// **`Error` 那一族先问** ✓（第 229 轮把次序摆正 ✓）：JS 里 `Object.prototype.toString`
+// **不特判 `Error`** ✗——它按普通对象那条走 ✓，而 `Error.prototype` 上**没有**
+// `Symbol.toStringTag` ✓，所以答案是 `"[object Error]"` ✓（**不是** `"Error: x"` ✗！）。
+// **`"Error: x"` 是 `Error.prototype.toString` 的答案** ✓——同一个值、两个方法、两个答案 ✓，
+// 混起来就是「`String(e)` 也对、`Object.prototype.toString.call(e)` 也『对』」✗（**静默错值** ✗）。
+// **`TypeError` / `RangeError` 两族自然落在同一个标签上** ✓（它们的原型链经过 `Error.prototype` ✓，
+// 而 JS 给 `"[object Error]"` ✓——实测 `Object.prototype.toString.call(new TypeError())` ✓）。
+if (value.Tag === ValueTag.Object && RtChainHas(table, value, protos.Error)) return "Error";
+// **`Symbol.toStringTag` 说了算** ✓（第 229 轮 ✓）：它**排在**标记格那三族之前 ✓——
+// `new Map()` 明明带 `__k` 标记 ✓，可 JS 给的是 `"[object Map]"` ✓，
+// 而那一格**正是** `Map.prototype[Symbol.toStringTag]` 供的 ✓（本仓没有那一格 ✗，
+// 所以下面那三族照旧抛 ✓）。**顺序反了**就会让「自己的 `toStringTag`」被标记格抢先 ✗。
+const tag = ObjectTagOverride(table, protos, value);
+if (tag !== "") return tag;
 const marker = DateMarker(table, value);
 if (marker !== "") {
   throw new Error("unimplemented: Object.prototype.toString of a " + marker + " (JS needs Symbol.toStringTag)");
 }
-// **`Error` 那一族**（第 137 轮起原型链就接好了 ✓）：JS 走 `Error.prototype.toString` ✓，
-// 给的是 `"Error: x"` ✓——不是 `"[object Error]"` ✗。所以这里也抛 ✓。
-if (RtChainHas(table, value, protos.Error)) {
-  throw new Error("unimplemented: Error.prototype.toString");
-}
 return "Object";
+```
+
+# method ObjectTagOverride:(table:HeapTable, protos:Protos, value:Value)=>string
+
+**这个对象自己的 `Symbol.toStringTag`**（第 229 轮 ✓）——没给、或者给的**不是字符串**就给空串 ✓。
+
+**它是 JS 里 `Object.prototype.toString` 的第一步** ✓：
+`o[Symbol.toStringTag]` 是字符串就印 `"[object " + 它 + "]"` ✓（`{ [Symbol.toStringTag]: "Custom" }` ✓），
+否则走内置那一串分派 ✓。
+
+**为什么只认字符串** ✗：JS 的口径是「`ToString` 之后用它」✓，而**非字符串那一档**
+没有判据能证 ✓（`42` 要变 `"42"`、对象要先 `ToPrimitive` ✓，两档都要通道 ✓）——
+**不给近似值** ✓：不是字符串就当它没有 ✓（退到内置分派 ✓，而那一条**要么给对、要么响亮地抛** ✓）。
+
+**符号从哪来** ✓：`protos.WellKnownSymbols` 那张**语言层填的小表** ✓
+（`props.xl.md` ✓，第 184 轮 ✓）——引擎不该认识 `Symbol` 这六个字 ✓，
+而这一层是**语言层** ✓，所以它问的是**自己填的那张表** ✓。
+
+**`FindProperty` 而不是 `GetProperty`** ✓：这一格只该问**自有 + 原型链上的数据属性** ✓，
+而这个判断在**建库层**跑 ✓（拿不到 `NativeCall` ✓）——访问器那一档直接跳过 ✓
+（`{ get [Symbol.toStringTag]() { return "X" } }` 这种写法**给不出答案** ✗，记在明处 ✓，
+退到内置分派而不是猜一个 ✓）。
+
+```ts
+if (protos.WellKnownSymbols <= 0) return "";
+if (value.Tag !== ValueTag.Object) return "";
+const symbolTable = Value.FromObject(protos.WellKnownSymbols);
+const lookupKey = Value.FromString(table.CreateString(Units("toStringTag")));
+const tagSymbol = GetProperty(NeverRoom, NeverCall, protos, table, symbolTable, lookupKey);
+if (tagSymbol.Tag !== ValueTag.Symbol) return "";
+const found = FindProperty(NeverRoom, table, value.Ref, tagSymbol);
+if (found === null) return "";
+const property = table.Get(found.Owner).Props[found.Index];
+if (property.Kind === PropertyKind.Accessor) return "";
+if (property.Value.Tag !== ValueTag.String) return "";
+return TextFrom(table, property.Value);
 ```
 
 # const NumberIsInteger:int = 320
@@ -2801,6 +2868,19 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("bind"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionBind, 0)));
+// **`protos.Function` 三格方法** ✓ 与 **`protos.Generator.next`** ✓ 都在这一带挂上。
+//
+// **生成器那一格**（第 229 轮 ✓）：生成器对象**没有属性表** ✗（它就是 `HeapObject`
+// 上那一格 `Generator` 载荷 ✓），所以 `it.next()` 里的 `next` 只能**沿原型链**找 ✓——
+// `protos.Generator` 就是那一格 ✓（`InitProtos` 造的 ✓）。
+// **挂的是一个「带可调用载荷的对象」** ✓：载荷号是 `GeneratorNextId` ✓，
+// 而**引擎自己**认这个号 ✓（它不发回宿主 ✗，见 `vm.xl.md` 的 `IsGeneratorNext` ✓）。
+// **为什么不把 `next` 做成一个普通宿主方法** ✗：走一步生成器要发 `iter_next` ✓，
+// 那是**指令** ✓，宿主侧的内建调不到它 ✗。
+const generatorNext = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(generatorNext.Ref, GeneratorNextId, 0);
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
+  Value.FromString(table.CreateString(Units("next"))), generatorNext);
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);
@@ -2921,6 +3001,24 @@ for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstanc
     GetProperty(room, NeverCall, protos, table, symbolObject, symbolKey));
 }
 protos.WellKnownSymbols = wellKnownTable.Ref;
+// **`Symbol.toStringTag` 要挂到那三族的原型上** ✓（第 229 轮 ✓）：
+// `Object.prototype.toString.call(new Map())` 在 JS 里是 `"[object Map]"` ✓，
+// 而那一格**正是** `Map.prototype[Symbol.toStringTag] = "Map"` 供的 ✓
+// （`Date` / `Set` 同理 ✓）。**不挂就是「响亮地抛」** ✓（`ObjectTagOf` 那条 ✓）——
+// 那一抛是对的 ✓（不知道就不猜 ✓），可这一格是**有确定答案**的 ✓，所以做出来 ✓。
+//
+// **挂成普通属性** ✓（JS 里 `Map.prototype[Symbol.toStringTag]` 是**不可写但可枚举为假** ✓；
+// 本仓没有「不可枚举的符号键」那一档的判据能证 ✓，而且枚举那几条路
+// **本来就跳过符号键** ✓——见 `Object.keys` / `JSON` / `for..in` 那几处 ✓，
+// 所以 `Object.keys(new Map())` 不会因为这一挂而变 ✗）。
+const toStringTagKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("toStringTag"))));
+const tagTargets = [protos.Map, protos.Set, protos.Date];
+const tagNames = ["Map", "Set", "Date"];
+for (let i = 0; i < tagTargets.length; i++) {
+  SetProperty(room, NeverCall, table, Value.FromObject(tagTargets[i]), toStringTagKey,
+    Value.FromString(table.CreateString(Units(tagNames[i]))));
+}
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。
 // **第 145 轮它同时是构造函数** ✓：`new Date(ms)` 不再靠降级层那条特例 ✓

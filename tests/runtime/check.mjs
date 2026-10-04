@@ -1,4 +1,4 @@
-﻿// 执行层的判据：值模型（`runtime/value.xl.md`）、堆（`runtime/heap.xl.md`）、
+// 执行层的判据：值模型（`runtime/value.xl.md`）、堆（`runtime/heap.xl.md`）、
 // 回收器（`runtime/gc.xl.md`）与程序表示（`runtime/ir.xl.md`）。
 //
 //   node tests/runtime/check.mjs
@@ -8413,8 +8413,10 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
   //    造那几族只要一格标记 / 一次 `AttachCallable` / 一次 `Proto` 赋值 ✓，不必真造一个 `Map` ✓。
   const loud = [
     ["函数", "function f() {}\nconsole.log(f + 1);"],
-    ["Map", "console.log(new Map() + 1);"],
-    ["Set", "console.log(new Set() + 1);"],
+    // **`Map` / `Set` 从这一档里划掉了**（第 229 轮）：那一轮把 `Symbol.toStringTag`
+    // 挂到了 `Map.prototype` / `Set.prototype` 上（`ObjectTagOf` 的第一步 ✓），
+    // 于是 `new Map() + 1` 有**真答案**（`"[object Map]1"`，与 Node 逐字相同 ✓）——
+    // 它们已经不在「不能给近似值」那一档里。判据跟着改：下面另有一条「必须给对」✓。
     ["Date 的 default", "console.log(new Date(0) + 1);"],
     // **`Error` 从这一档里划掉了**（第 213 轮）：那一轮把 `Error.prototype.toString` 装上之后，
     // `new Error("x") + 1` 有**真答案**（`"Error: x1"`，与 Node 逐字相同）——它已经不在
@@ -8427,6 +8429,17 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
     request.Entry = "";
     const res = RunSources(request, () => {}, () => null);
     ok(res.Outcome !== HostOutcome.Ok, what + " 那一档必须响亮地抛（结局不是 Ok）");
+  }
+  // **`Map` / `Set` 那一档现在给的是真答案**（第 229 轮）：与 Node 逐字节相同。
+  {
+    const request = new RunRequest();
+    request.Sources = ['console.log(new Map() + 1, new Set() + 1);'];
+    request.Entry = "";
+    const lines = [];
+    const res = RunSources(request, (text) => lines.push(text), () => null);
+    eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+    eq(lines[0], "[object Map]1 [object Set]1",
+      "`Symbol.toStringTag` 挂上之后，`new Map() + 1` 与 `new Set() + 1` 都给 `\"[object …]1\"`（与 Node 一致）");
   }
   // **`Error` 那一档现在给的是真答案**（第 213 轮）：与 Node 逐字节相同。
   {
@@ -8468,10 +8481,16 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
     "`__v` 标记 → 点名 `Set`：" + ask(marked("__v")));
   ok(ask(marked("__t")).indexOf("of a Date (JS needs Symbol.toStringTag)") >= 0,
     "`__t` 标记 → 点名 `Date`：" + ask(marked("__t")));
+  // **`Error` 那一族给的是 `"Error"`** ✓（第 229 轮改 ✓）：JS 里 `Object.prototype.toString`
+  // **不特判 `Error`** ✗——它按普通对象那条走 ✓，而 `Error.prototype` 上没有
+  // `Symbol.toStringTag` ✓，所以答案是 `"[object Error]"` ✓（**不是** `"Error: x"` ✗！）。
+  // `"Error: x"` 是 `Error.prototype.toString` 的答案 ✓（第 213 轮装的 ✓，
+  // 上面那条端到端判据量着它 ✓）——**同一个值、两个方法、两个答案** ✓，
+  // 这里原来把两者混成一句 ✗（第 229 轮把次序摆正 ✓）。
   const errorLike = fresh();
   table.Get(errorLike.Ref).Proto = protos.Error;
-  ok(ask(errorLike).indexOf("Error.prototype.toString") >= 0,
-    "原型链接到 `Error.prototype` → 点名 `Error.prototype.toString`：" + ask(errorLike));
+  eq(ask(errorLike), "Error",
+    "原型链接到 `Error.prototype` → 标签是 `Error`（`[object Error]` ✓，不是 `Error: x` ✗）");
   const callable = fresh();
   table.AttachCallable(callable.Ref, 1, 0);
   ok(ask(callable).indexOf("callable object") >= 0,

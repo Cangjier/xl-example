@@ -3861,6 +3861,12 @@ item.IsAsync = this.NodeIsAsync(node);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
 // 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
 item.HasRest = this.HasRestParam(node);
+// **这三格以前在每一处各写一遍** ✗（第 229 轮收口 ✓）：函数声明 ✓、函数表达式 ✓，
+// 而**类的方法那一处漏了三句** ✗——于是 `class C { *keys() { … } }` 把生成器体
+// 当成普通函数降级 ✓，那对 `suspend` / `resume` 落在普通帧上 ✓，
+// 报的是 `suspend outside a generator` ✗（离现场很远 ✗）。
+// **现在三处共用 `LowerFunctionValue` 到这里为止的那一段** ✓——
+// 类那条路只要不再自己抛 ✓，标记就自然对上了 ✓。
 item.Envs = this.Env.Clone();
 this.Pending.push(item);
 return slot;
@@ -4598,9 +4604,15 @@ for (let i = 0; i < members.length; i++) {
   if (OptionalChild(member, "body") === null) continue;
   // **静态成员的落点是构造函数自己**，不是原型（下面那个 `target` 就是这一条）。
   const isStatic = this.HasModifier(member, "StaticKeyword");
-  if (member["asteriskToken"] !== undefined && member["asteriskToken"] !== null) {
-    throw new Error("unimplemented: generator method in a class");
-  }
+  // **生成器方法与 `async` 方法收下了** ✓（第 229 轮 ✓）：它们与普通方法的区别**只在
+  // `PendingFunction` 那三格标记上** ✓（`IsGenerator` / `IsAsync` ✓）——而
+  // `LowerFunctionValue` 现在**自己从树上读** ✓（那一段写着为什么 ✓）。
+  //
+  // 原来这里对两者**响亮地抛** ✗（比静默当成普通方法好 ✓——生成器体里那对
+  // `suspend` / `resume` 落在一个普通帧上会**静默挂死** ✗）。可这两条写法在类里很正常 ✓
+  //（判据 `e2e-mixed-everything` 就是一个 `*keys()` ✓），而机制**早就有了** ✓：
+  // 函数声明与函数表达式那两条路第 129 轮就把 `*` 收下了 ✓，只是**方法与它们差了那三句** ✗
+  //（**同一个形状三处各写一遍** ✗）。
   if (this.NodeIsAsync(member)) {
     throw new Error("unimplemented: async method in a class");
   }
@@ -4610,11 +4622,20 @@ for (let i = 0; i < members.length; i++) {
   // 键就是那串文本（`#m` ✓，见 `KeyUnitsOf` ✓）。
   // 原来这里只认 `Identifier` / `StringLiteral` ✗，于是**整个类**都进不来 ✗
   //（`unimplemented: computed or numeric class member name` ✓，实测 ✓）。
-  if (NodeKind(memberName) !== "Identifier" && NodeKind(memberName) !== "StringLiteral"
+  //
+  // **计算成员名收下了** ✓（第 229 轮 ✓）：`[Symbol.iterator]() { … }` ✓、
+  // `static [Symbol.hasInstance](v) { … }` ✓——名字那一格是 `ComputedPropertyName` ✓
+  //（里面装的是**表达式** ✓），做法与对象字面量那一处**一字不差** ✓
+  //（`LowerObjectLiteral` 的 `MethodDeclaration` 支 ✓：键算成一格**值** ✓、
+  // 走 `SetPropertyValue` ✓）——**同一个形状两处各写一遍就是两处会漂** ✗。
+  // 少了它，`[Symbol.iterator]()` 那种写法让**整个类**进不来 ✗
+  //（判据 `symbol-hasinstance` / `e2e-linked-list` 卡的就是这一句 ✓）。
+  const computedName = NodeKind(memberName) === "ComputedPropertyName";
+  if (!computedName && NodeKind(memberName) !== "Identifier" && NodeKind(memberName) !== "StringLiteral"
     && NodeKind(memberName) !== "PrivateIdentifier") {
     throw new Error("unimplemented: computed or numeric class member name");
   }
-  const closure = this.LowerFunctionValue(member, name + "." + TextOf(memberName));
+  const closure = this.LowerFunctionValue(member, computedName ? "<computed>" : name + "." + TextOf(memberName));
   // **给刚排队的方法也盖上父类名**（第 104 轮）：构造函数在它自己那一处盖，
   // 而方法**以前没盖** ✗——于是方法体里的 `super.m(...)` 一降级就报
   // 「outside a derived class method」（`InSuperName` 挂在排队函数上，空串就是不认识 `super`）。
@@ -4623,12 +4644,24 @@ for (let i = 0; i < members.length; i++) {
     this.Pending[this.Pending.length - 1].SuperName = baseName;
   }
   const target = isStatic ? ctor : proto;
+  // **计算键那一档** ✓：键是一个**值** ✓（`Symbol.iterator` 那类 ✓），
+  // 而访问器与普通方法**都要**它 ✓——所以这条判据放在那两路**之前** ✓
+  //（放在里面就是两个分支各写一遍 ✗）。
+  const computedKey = computedName ? this.LowerExpression(Child(memberName, "expression")) : -1;
   if (kind === "GetAccessor" || kind === "SetAccessor") {
     // **类里的访问器落在 target 上**（JS 就是这样：实例自己不持有它，从原型链上找）——
     // 与对象字面量那一处的唯一区别就是「落在谁身上」，其余全走同一个 `EmitDefineAccessor`。
-    const keySlot = this.Reserve(1);
-    this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName))), -1, -1);
+    let keySlot = computedKey;
+    if (keySlot < 0) {
+      keySlot = this.Reserve(1);
+      this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName))), -1, -1);
+    }
     this.EmitDefineAccessor(target, keySlot, closure, kind === "GetAccessor");
+    if (computedKey < 0) this.Release(keySlot);
+    continue;
+  }
+  if (computedKey >= 0) {
+    this.SetPropertyValue(target, computedKey, closure);
     continue;
   }
   const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName)));

@@ -12,7 +12,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, ObjectAssign, PowId } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, ObjectAssign, PowId, GeneratorNextId } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet, SetCtor } from "./set.xl.md"
 ```
@@ -813,7 +813,10 @@ if (ArrayRestId > highest) highest = ArrayRestId;
 if (RestObjectId > highest) highest = RestObjectId;
 // **`SetHiddenId`**（第 210 轮 ✓）：加号时**只改这一句的名单** ✓——漏了它的症状是
 // `capability id is out of range: 708` ✓（离现场很远 ✗，第 210 轮实测踩了一次 ✓）。
+// **`GeneratorNextId`**（第 229 轮 ✓）：同一条纪律 ✓——漏了它的症状是
+// `capability id is out of range: 709` ✓（第 197 / 210 轮各踩过一次 ✓）。
 if (SetHiddenId > highest) highest = SetHiddenId;
+if (GeneratorNextId > highest) highest = GeneratorNextId;
 return highest + 1 - BuiltinBase;
 ```
 
@@ -933,11 +936,18 @@ for (const slot of promiseSlots) {
 // 漏一个的症状是**运行期**报 `capability is not registered: <号>` ✓（离现场很远 ✗，
 // 第 197 轮实测踩过一次 ✓：号改了、名单忘改 ✓）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
-  ObjectAssign, PowId, SetHiddenId];
+  ObjectAssign, PowId, SetHiddenId, GeneratorNextId];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));
 }
+// **生成器的 `next` 还要额外告诉引擎一声** ✓（第 229 轮 ✓）：上面那一趟只把号**登记进
+// 能力表** ✓，而这一格**不发回宿主** ✗——它由引擎自己答 ✓（`vm.xl.md` 的 `NextStepOf` ✓）。
+// 引擎于是把这一格号记下来 ✓（`GeneratorNextId` 那个字段 ✓），
+// 两条派发路上各截一次 ✓（`IsGeneratorNext` ✓）。
+// **少了这一句的症状** ✗：`it.next()` 报 `capability is not registered: 709` ✓——
+// 听起来像「谁忘了登记」✗，其实上面那一趟**已经登记过了** ✓（真相是「这一格该由引擎答」✓）。
+host.Machine.RegisterGeneratorNext(GeneratorNextId);
 ```
 
 # const DefineAccessorId:int = 701

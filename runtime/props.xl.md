@@ -178,6 +178,22 @@ this.Index = index;
 
 **`Date` 的原型**（第 138 轮）——与上面两格同款 ✓。
 
+## field Generator:int = 0
+
+**生成器的原型**（第 229 轮 ✓）——**方法挂在它上面** ✓（与字符串 / 数字 / 布尔那三格
+同一个用途 ✓），而调用方是**脚本** ✓：`it.next()` ✓。
+
+**为什么它必须有一格** ✗：本仓的生成器对象**没有属性表** ✗——
+它就是 `HeapObject` 上那一格 `Generator` 载荷 ✓（`heap.xl.md` ✓），
+所以「`next` 这个方法从哪来」只能靠**原型链** ✓。第 229 轮之前那一格是空的 ✓，
+于是 `it.next()` 报的是 `calling a non-closure value` ✓
+（听起来像调用写错了 ✗，其实是**这一格不存在** ✓——与第 150 轮
+`(1.5).toFixed(2)` 报同一句话、根子也是「原型那一格不存在」✓，一模一样 ✓）。
+
+**`next` 挂在它上面、指向一个「带引擎载荷的对象」** ✓：那个载荷的能力号是引擎自己认的 ✓
+（`GeneratorNextId` ✓，见 `vm.xl.md` 的 `NextStepOf` ✓）——**引擎用能力号认它自己的方法** ✓，
+与「语言层的内建靠能力号分派」是**同一条机制** ✓，只是号的用途不同 ✓。
+
 ## field WellKnownSymbols:int = 0
 
 **知名符号那张表**（第 184 轮）——一个**普通对象的句柄** ✓：语言层在装库时
@@ -223,6 +239,10 @@ if (this.RangeError > 0) roots.AddHandle(this.RangeError);
 if (this.Map > 0) roots.AddHandle(this.Map);
 if (this.Set > 0) roots.AddHandle(this.Set);
 if (this.Date > 0) roots.AddHandle(this.Date);
+// **生成器的原型也是根** ✓（第 229 轮 ✓）：与上面那几族同一条理由 ✓——
+// 被收掉的话 `it.next()` 会在某一次回收之后突然变成 `undefined` ✗
+//（症状是「调用一个非闭包」✓，离现场很远 ✗）。
+if (this.Generator > 0) roots.AddHandle(this.Generator);
 // **知名符号那张表也是根** ✓（第 184 轮）：它里面装着**符号值** ✓，
 // 而符号是**引用型**（`IsRef` 那一档 ✓）——不收根的话 `Symbol.iterator`
 // 会在某一次回收之后变成一个悬着的句柄 ✗（症状是「迭代协议某天突然不认了」✗）。
@@ -231,7 +251,7 @@ if (this.WellKnownSymbols > 0) roots.AddHandle(this.WellKnownSymbols);
 
 # method InitProtos:(room:RoomChecker, table:HeapTable)=>Protos
 
-造十二个空原型。**要先问 room**（要造十二个堆对象）。
+造十三个空原型。**要先问 room**（要造十三个堆对象）。
 
 **三格 `Error` 的链是「接上去」的** ✓：`Error.prototype` 的原型是 `Object.prototype` ✓、
 `TypeError.prototype` 与 `RangeError.prototype` 的原型是 `Error.prototype` ✓
@@ -242,7 +262,7 @@ if (this.WellKnownSymbols > 0) roots.AddHandle(this.WellKnownSymbols);
 **原始值接收者的方法从这里找** ✓（`(1.5).toFixed(2)` ✓、`true.toString()` ✓）。
 
 ```ts
-if (!room(ObjectCharge * 12)) {
+if (!room(ObjectCharge * 13)) {
   throw new Error("out of room");
 }
 const protos = new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
@@ -275,6 +295,12 @@ protos.Set = table.CreateObject();
 table.Get(protos.Set).Proto = protos.Object;
 protos.Date = table.CreateObject();
 table.Get(protos.Date).Proto = protos.Object;
+// **生成器那一格**（第 229 轮 ✓）：接在 `Object.prototype` 上 ✓
+// （与 `Map` / `Set` / `Date` 同款 ✓）。**方法不在这里挂** ✗——
+// 这一层只管造一个空对象 ✓，「`next` 指向哪一段代码」是**语言层**的事 ✓
+// （`globals.xl.md` 的 `BuildGlobals` 挂 ✓），与 `Error.prototype` 那三格同一条分界 ✓。
+protos.Generator = table.CreateObject();
+table.Get(protos.Generator).Proto = protos.Object;
 return protos;
 ```
 

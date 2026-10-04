@@ -153,10 +153,11 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 228 轮读数：**230 / 273 = 79.1%**，
-其中**引擎 88.7%** ✓、标准库 **87.2%** ✓——第 228 轮做掉了 `Function.prototype` 的
-`call` / `apply` / `bind` ✓、「回调里抛立刻中断内建」✓、「语言层的 `throw` 带类别」✓
-与 `Object.prototype.toString` 的**数组 / 原始值标签** ✓）——
+**场景覆盖度**是 `npm run coverage`（第 229 轮读数：**235 / 273 = 81.6%**，
+其中**引擎 91.5%** ✓、标准库 **88.1%** ✓、端到端 **76.9%** ✓——
+第 229 轮做掉了**生成器对象的 `next()`** ✓、**`Symbol.toStringTag`** ✓、
+**类上的计算成员名与生成器方法** ✓；第 228 轮做掉了 `Function.prototype` 的
+`call` / `apply` / `bind` ✓、「回调里抛立刻中断内建」✓、「语言层的 `throw` 带类别」✓）——
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

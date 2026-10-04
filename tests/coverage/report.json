@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 79.14,
+  "progressPercent": 81.61,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 106,
-      "pass": 94,
-      "blocked": 10,
+      "pass": 97,
+      "blocked": 7,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 88.68
+      "coverage": 91.51
     },
     {
       "layer": "exec",
@@ -44,21 +44,21 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 109,
-      "pass": 95,
-      "blocked": 7,
+      "pass": 96,
+      "blocked": 6,
       "differ": 7,
       "nodefail": 0,
-      "coverage": 87.16
+      "coverage": 88.07
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 9,
-      "blocked": 4,
+      "pass": 10,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 69.23
+      "coverage": 76.92
     }
   ],
   "blocked": [
@@ -75,22 +75,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: f"
     },
     {
-      "id": "gen-basics",
-      "layer": "runtime",
-      "title": "生成器：yield 的先后、next 的返回值、提前 return",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "gen-delegating",
       "layer": "runtime",
       "title": "`yield*`：转发另一个可迭代物（数组与生成器）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: yield* (delegating iteration)"
-    },
-    {
-      "id": "gen-lazy-and-state",
-      "layer": "runtime",
-      "title": "生成器是惰性的：body 里的副作用只在推的时候发生",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "prm-async-await",
@@ -109,12 +97,6 @@
       "layer": "runtime",
       "title": "大量短命分配：回收器要跟得上（不 OOM）",
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "gen-try-finally",
-      "layer": "runtime",
-      "title": "生成器里的 `try` / `finally`（提前 `return` 时也要跑）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "cls-inherited-accessor",
@@ -201,12 +183,6 @@
       "detail": "tsrun: 脚本抛出：unimplemented: this should throw a TypeError (read-only property)"
     },
     {
-      "id": "symbol-hasinstance",
-      "layer": "stdlib",
-      "title": "Symbol.hasInstance：自定义 instanceof",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed or numeric class member name"
-    },
-    {
       "id": "promise-constructor",
       "layer": "stdlib",
       "title": "`new Promise(executor)`：同步跑执行器、resolve / reject",
@@ -243,16 +219,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression AwaitKeyword"
     },
     {
-      "id": "e2e-linked-list",
-      "layer": "e2e",
-      "title": "链表 + 自定义迭代协议 + 与数组互转",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed or numeric class member name"
-    },
-    {
       "id": "e2e-mixed-everything",
       "layer": "e2e",
       "title": "一锅端：类 + 生成器 + 承诺 + 异常 + 集合 + 解构",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: generator method in a class"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: async method in a class"
     }
   ],
   "differ": [
@@ -287,10 +257,10 @@
       "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 2»"
     },
     {
-      "id": "symbol-tostringtag",
+      "id": "symbol-hasinstance",
       "layer": "stdlib",
-      "title": "Symbol.toStringTag：影响 Object.prototype.toString",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object.prototype.toString of a Map (JS needs Symbol.toStringTag"
+      "title": "Symbol.hasInstance：自定义 instanceof",
+      "detail": "stdout 不同：第 1 行：node «true false» vs tsrun «false false»"
     },
     {
       "id": "symbol-description",
@@ -324,17 +294,14 @@
     }
   ],
   "bad": [],
-  "moved": [
-    {
-      "id": "symbol-tostringtag",
-      "layer": "stdlib",
-      "why": "`Symbol.toStringTag` 没装",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object.prototype.toString of a Map (JS needs Symbol.toStringTag"
-    }
-  ],
+  "moved": [],
   "newlyPassing": [
     {
       "id": "object-tostring-tag",
+      "layer": "stdlib"
+    },
+    {
+      "id": "symbol-tostringtag",
       "layer": "stdlib"
     }
   ],
