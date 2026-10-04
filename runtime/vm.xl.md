@@ -1516,91 +1516,44 @@ if (id === RtOp.DelProp) {
 if (id === RtOp.GetIndex) {
   RequireArgc(argc, 2, "get_index");
   const indexReceiver = slots[base];
-  // **对象的下标读**：JS 的 `o[k]` 就是把键**字符串化**再按属性查。
-  // 数组那条路（真下标）先走；**不是数组就落到属性查找**——这一条以前直接抛，
-  // 于是「对象的下标读」一直是一条记在台账里的缺口。
-  //
-  // **字符串接收者给「一个码元的字符串」**（第 136 轮补上）✓：
-  // `"abc"[0]` 在 JS 里是 `"a"` ✓，而这里原来**一律给 `undefined`** ✗
-  // （上面那条注释写着「这是一块已知的语义差，不在这里顺手猜一个」✗——
-  //  改它的理由不是「顺手」✓，而是**下面 `props.xl.md` 的 `GetIndex` 早就办到了** ✓：
-  //  它那一支写着「字符串给一个码元的字符串」✓，只是**这一层没走它** ✗。
-  //  同一件事两处答案，删掉错的那一处 ✓）。
-  //
-  // **它顺带修掉两件事**（都不是猜的 ✓）：`const [a, b] = "xy"` ✓——数组模式的解构
-  // **按下标读**（`Destructure` 那条路 ✓），而字符串一直是「读不出来」✗；
-  // 以及 `for (const [a, b] of ["xy"])` ✓（第 136 轮加的字符串迭代 ✓，
-  // 每一轮拿到的是**一个码元的字符串** ✓，再解构就落到这里 ✓）。
-  // **`null[0]` / `undefined[0]` 也要抛**（第 136 轮）✓——与 `GetProperty` 那条同一个道理 ✓
-  //（JS 里 `null[0]` 是 `TypeError` ✓，而这里原来落到下面那句 `return Value.Undefined()` ✗）。
-  // **数字 / 布尔的下标读照旧给 `undefined`** ✓（JS 的 `(5)[0]` 就是 `undefined` ✓）——
-  // 只有**空值**才抛 ✓。
+  // **空值的下标读要抛**（第 136 轮 ✓）：JS 里 \`null[0]\` 是 \`TypeError\` ✓——
+  // 与 \`GetProperty\` 那条同一个道理 ✓。
   if (indexReceiver.Tag === ValueTag.Undefined || indexReceiver.Tag === ValueTag.Null) {
     const what = indexReceiver.Tag === ValueTag.Null ? "null" : "undefined";
     return this.Guard(() => {
       throw new Error("cannot read properties of " + what);
     }, ErrorKindType);
   }
-  if (indexReceiver.Tag === ValueTag.String) {
-    // **字符串接收者的下标读**（第 190 轮 ✓）：把键**字符串化**，再用
-    // \`ArrayIndexAt\` 判它是不是下标 ✓——**一条判据管住四种键** ✓：
-    //   · 数字键 \`s[0]\` ✓ 与「全是数字的字符串键」\`s["0"]\` ✓ → 下标 ✓（"0" ✓）；
-    //   · 小数 \`s[1.0]\` ✓ → "1" ✓ 也是下标 ✓（JS 里就是第 1 格 ✓）；
-    //   · 小数 \`s[1.5]\` ✗ → "1.5" ✓ **不是下标** ✓ → 落到属性那条路 ✓（JS 给 \`undefined\` ✓）；
-    //   · 别的键 \`s["length"]\` ✓ / \`s["charAt"]\` ✓ → 属性 ✓（原型链上找 ✓）。
-    // **原来这一支是无条件的** ✗：一律转给 \`props.GetIndex\` ✓，而它只认数字键 ✓，
-    // 见到 \`s["length"]\` 就抛 \`unimplemented: non-numeric index needs ToString\` ✗
-    //（**整份文件进不来** ✗，实测 ✓）。
-    // **两处判据合成一处** ✗：先前写过「数字键走下标、其余走属性」再加「全是数字的字符串键
-    // 先转数字」两条 ✓——\`s[1.5]\` 那一格于是漏了 ✓（实测给的是 \`"a"\` ✗，JS 给 \`undefined\` ✓）。
-    const stringRawKey = slots[base + 1];
-    const stringKeyText = stringRawKey.Tag === ValueTag.Symbol
-      ? stringRawKey
-      : RtToString(this.Room(), this.Table, stringRawKey);
-    const stringAt = ArrayIndexAt(this.Table, stringKeyText);
-    if (stringAt >= 0) {
-      return GetIndex(this.Table, indexReceiver, Value.FromInt(stringAt));
+  // **键统一「字符串化 + 判下标」**（第 190 / 191 轮 ✓）——**一条判据管住所有接收者** ✓：
+  //   · 数字键 \`s[0]\` ✓ 与「全是数字的字符串键」\`s["0"]\` / \`arr["0"]\` ✓ → **下标** ✓；
+  //   · 小数 \`s[1.0]\` ✓ → \`"1"\` ✓ 下标 ✓；\`s[1.5]\` ✗ → \`"1.5"\` ✓ **不是下标** ✓ → 属性 ✓；
+  //   · 别的键（\`s["length"]\` ✓ / \`arr["map"]\` ✓ / \`o["k"]\` ✓）→ **属性**那条路 ✓。
+  // **符号键原样** ✓（属性查找按 \`Id\` 比 ✓，字符串化会与同名的字符串键撞上 ✗——**静默错值** ✗）。
+  const rawIndexKey = slots[base + 1];
+  const indexKeyText = rawIndexKey.Tag === ValueTag.Symbol
+    ? rawIndexKey
+    : RtToString(this.Room(), this.Table, rawIndexKey);
+  const indexAt = ArrayIndexAt(this.Table, indexKeyText);
+  // **数组与字符串**：下标那一档走 \`GetIndex\` ✓（数组给元素 ✓、字符串给**一个码元** ✓），
+  // 其余走属性 ✓（数组的方法 ✓ / 字符串的 \`length\` 与原型 ✓）。
+  // **原来这两支都是「无条件转给 \`props.GetIndex\`」** ✗：它只认数字键 ✓，
+  // 于是 \`s["length"]\` ✓ / \`arr["map"]\` ✓ 全抛
+  // \`unimplemented: non-numeric index needs ToString\` ✗（**整份文件进不来** ✗，实测 ✓）。
+  if (indexReceiver.Tag === ValueTag.Array || indexReceiver.Tag === ValueTag.String) {
+    const shapeProtoTable = this.Protos;
+    if (shapeProtoTable === null) throw new Error("no prototype table");
+    if (indexAt >= 0) {
+      return GetIndex(this.Table, indexReceiver, Value.FromInt(indexAt));
     }
-    const stringProtoTable = this.Protos;
-    if (stringProtoTable === null) throw new Error("no prototype table");
-    return this.Guard(() => GetProperty(this.Room(), this.Native(), stringProtoTable, this.Table,
-      indexReceiver, stringKeyText));
+    return this.Guard(() => GetProperty(this.Room(), this.Native(), shapeProtoTable, this.Table,
+      indexReceiver, indexKeyText));
   }
-  if (indexReceiver.Tag !== ValueTag.Array) {
-    if (!indexReceiver.IsObject()) return Value.Undefined();
-    const indexProtoTable = this.Protos;
-    if (indexProtoTable === null) throw new Error("no prototype table");
-    // **符号键不许字符串化**：`o[sym]` 的键就是那个符号本身（属性查找按 `Id` 比，
-    // 见 `props.xl.md` 的 `KeyMatches`）。把它 `ToString` 成 `"Symbol(x)"`，
-    // 两次查找就会落到同一个字符串键上——**静默错值**。
-    const rawKey = slots[base + 1];
-    const indexKey = rawKey.Tag === ValueTag.Symbol
-      ? rawKey
-      : RtToString(this.Room(), this.Table, rawKey);
-    return this.Guard(() => GetProperty(this.Room(), this.Native(), indexProtoTable, this.Table,
-      indexReceiver, indexKey));
-  }
-  // **原始值接收者上的「不是下标」的键：走属性那条路**（第 190 轮 ✓）：
-  // JS 的 \`"abc"[k]\` 是「把它当成对象、按属性查」✓（\`ToObject\` ✓）——
-  // \`"abc"["length"]\` 是 \`3\` ✓、\`"abc"["charAt"]\` 是一个函数 ✓。
-  // 原来非数组一律落到 \`props.GetIndex\` ✓：它只认得**数组**与
-  // **「字符串 + 数字键」**✓，别的形状就抛 \`unimplemented: non-numeric index needs ToString\` ✗
-  //（实测 ✓：\`s["length"]\` 与 \`"ab"["length"]\` 都卡在这儿 ✓，**整份文件进不来** ✗）。
-  // **判据只放行「不是下标」的那一类** ✗：数字键 ✓ 与「全是数字的字符串键」✓ 照旧走
-  // \`GetIndex\`（字符串那一格给的是**一个码元的字符串** ✓，那条路本来就是对的 ✓）。
-  const primitiveKey = slots[base + 1];
-  const primitiveIsIndex = primitiveKey.IsNumber()
-    || (primitiveKey.Tag === ValueTag.String && ArrayIndexAt(this.Table, primitiveKey) >= 0);
-  if (!indexReceiver.IsObject() && !primitiveIsIndex) {
-    const primitiveProtoTable = this.Protos;
-    if (primitiveProtoTable === null) throw new Error("no prototype table");
-    const primitiveKeyText = primitiveKey.Tag === ValueTag.Symbol
-      ? primitiveKey
-      : RtToString(this.Room(), this.Table, primitiveKey);
-    return this.Guard(() => GetProperty(this.Room(), this.Native(), primitiveProtoTable, this.Table,
-      indexReceiver, primitiveKeyText));
-  }
-  return GetIndex(this.Table, indexReceiver, slots[base + 1]);
+  // **对象**走属性 ✓；**其它原始值**给 \`undefined\` ✓（JS 的 \`(5)["x"]\` 就是它 ✓）。
+  if (!indexReceiver.IsObject()) return Value.Undefined();
+  const indexProtoTable = this.Protos;
+  if (indexProtoTable === null) throw new Error("no prototype table");
+  return this.Guard(() => GetProperty(this.Room(), this.Native(), indexProtoTable, this.Table,
+    indexReceiver, indexKeyText));
 }
 if (id === RtOp.SetIndex) {
   RequireArgc(argc, 3, "set_index");

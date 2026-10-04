@@ -7959,5 +7959,50 @@ check("字符串接收者：数字键给一个码元、别的键走属性那条�
 });
 
 console.log("");
+console.log("=== 第 191 轮：裸 `new` 接收者的下标读 + 数组上的「不是下标」的键 ===");
+
+check("`New` 也是一个操作数：`new C()[k]` 里那个 `[` 是下标，不是数组字面量", () => {
+  // **端到端那一把在 `cases/69-new-receiver-index.ts`**（9 行逐字节 ✓）。
+  //
+  // **症状** ✗：`new C()["m"]()` 报 `unimplemented: calling a non-closure value` ✓
+  // （**整份文件进不来** ✗）。
+  //
+  // **根因在 token 层** ✓（`json/array-literal.xl.md` 的 `IsArrayAt` ✓）：判「`[` 是不是
+  // 数组字面量的开头」时，会看一眼**前一个单元**是不是**操作数** ✓——
+  // 那张名单里有 `Identifier` / `Bracket` / `String` / `Method` / `PropertyAccess` /
+  // `ObjectLiteral` / `this` / `super` ✓，**没有 `New`** ✗。于是 `new C()["m"]` 里那个 `["m"]`
+  // 被收成 `ArrayLiteral` ✓、成员访问链**没有起点** ✓、整段在产物里塌掉（实测 ✓）。
+  // **修法**：名单里补一格 `New` ✓（它已经是一个操作数 ✓，与 `Method` / `PropertyAccess`
+  // 那两条同源 ✓）。
+  //
+  // **顺带收掉同一根因的另一半** ✓：数组那一支原来**无条件**转给 `props.GetIndex` ✗
+  // （只认数字键 ✓），于是 `arr["map"]` / `arr["0"]` 也抛 ✓。现在数组与字符串
+  // **同一条判据** ✓：键字符串化 → 是下标就走下标 ✓、不是就走**属性** ✓。
+  const lines2 = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "class C { m() { return 3; } items: number[] = [10, 20]; \"s p\"() { return 4; } }",
+    "console.log(new C()['m'](), new C()['s p']());",
+    "console.log(new C()['items'].length, new C()['items'][1]);",
+    "const key = 'm';",
+    "console.log(new C()[key](), new C()['m' + '']());",
+    "const arr: any = [1, 2];",
+    "console.log(arr['length'], arr['0'], arr['join']('-'));",
+    "console.log(new Array(3)['length'], [...new Array(3)].length);",
+    "const c = new C();",
+    "console.log(c['m'](), new C().m(), (new C() as any)['m']());",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines2.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines2[0], "3 4", "**这一轮修的**：裸 `new` 接收者的下标调用（含带空格的键）");
+  eq(lines2[1], "2 20", "同一个接收者的下标读");
+  eq(lines2[2], "3 3", "键是变量 / 算式");
+  eq(lines2[3], "2 1 1-2", "**数组上的「不是下标」的键**：`length` / `\"0\"` / 原型上的方法");
+  eq(lines2[4], "3 3", "`new Array(3)['length']` 与展开（回归）");
+  eq(lines2[5], "3 3 3", "回归：变量接收者 / 点号 / 括号包一层");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

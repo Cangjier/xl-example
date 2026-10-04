@@ -63,6 +63,15 @@ if (current instanceof Bracket && current.startBracket === "[") {
     return false;
   } else if (previous instanceof Method) {
     return false;
+  } else if (previous !== null && previous.constructor.name === "New") {
+    // **`new C()["m"]` 里那个 `[` 是下标**（第 191 轮）：`New` 已经是一个**操作数**，
+    // 判据与 `Method` / `PropertyAccess` 那两条**同源**。
+    // **漏了它症状很隐蔽**：`new C()["m"]()` 里那个 `["m"]` 被收成 `ArrayLiteral`，
+    // 链（`PropertyAccess`）于是**没有起点** —— 运行期报
+    // `unimplemented: calling a non-closure value`（**整份文件进不来**，实测）。
+    // 而 `new C().m()` 与 `(new C() as any)["m"]()` 都是好的 ——
+    // 差别只在「**裸 new 表达式当接收者**」这一格。
+    return false;
   } else if (previous !== null && previous.constructor.name === "PropertyAccess") {
     return false;
   } else if (previous !== null && previous.constructor.name === "ObjectLiteral") {
