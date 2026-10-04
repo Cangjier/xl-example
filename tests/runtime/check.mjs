@@ -7288,5 +7288,52 @@ check("`?.(` 里的逗号是实参分隔符：判据问「紧挨着的前一格�
 });
 
 console.log("");
+console.log("=== 第 177 轮：字符串比较（`\"a\" < \"b\"`）===");
+
+check("四条关系共用一处判据：两边都是字符串按码元比，其余先 `ToNumber`", () => {
+  // **端到端那一把在 `cases/55-string-comparison.ts`**（9 行逐字节 ✓）。
+  //
+  // **症状**：`"a" < "b"` 报 `unimplemented: arithmetic on a non-numeric operand` ✗——
+  // **整份文件进不来** ✗，而比较字符串在普通 `.ts` 里遍地都是 ✓
+  //（排序 / 版本号 / `if (a < b)` / `"10" < "9"` ✓）。
+  // 这是第 176 轮那份 69 条普查抓出来的**第一条** ✓。
+  //
+  // **根因**：`RtCmpLt` / `Le` / `Gt` / `Ge` 四条**各写了一遍** `NumericOf(left) < NumericOf(right)` ✗
+  //——只认数字 ✓，而四条是两个语义（`a > b` 就是 `b < a` ✓、`a <= b` 就是 `!(b < a)` ✓），
+  // 所以「`NaN` 参与的六种组合一律 `false`」这一条要写四遍 ✓、漏一处不报错 ✗。
+  //
+  // **修法**：收成 `CompareValues` 一处（`-1` / `0` / `1` / `-2`=有 `NaN` 参与）✓，
+  // 四条各一行 ✓。三层：两边都是字符串按**码元**字典序 ✓（UTF-16 码元序，不是码点序 ✓），
+  // 其余两边各做一次 `ToNumber` 再按数值比 ✓——于是 `"10" < "9"` 为真 ✓ 而 `"10" < 9` 为假 ✓
+  //（JS 只在**两边都是字符串**时才按文本比 ✓；只做一层会错掉一半 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log('a' < 'b', 'b' < 'a', 'a' <= 'a', 'a' >= 'b');",
+    "console.log('ab' < 'abc', 'abc' <= 'ab', 'Z' < 'a', '10' < '9');",
+    "console.log('10' < 9, 1 < '2', 9 >= '10', '2' > 10);",
+    "console.log(NaN < 1, NaN > 1, NaN <= 1, NaN >= 1, 1 < NaN, 1 >= NaN);",
+    "console.log(undefined < 1, undefined >= 1, null < 1, null > -1, true < 2, false <= 0);",
+    "console.log(-0 < 0, -0 >= 0);",
+    "console.log('\\u{1F600}' > '\\uFFFF', '\\uD83D' < '\\uFFFF');",
+    "const w = ['b', 'a', 'c', 'aa'];",
+    "console.log(w.slice().sort().join(','));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "true false true false", "码元序：`Z`(90) < `a`(97)");
+  eq(lines[1], "true false true true", "前缀相同则短的更小（`ab` < `abc`）/ 文本序 `10` < `9`");
+  eq(lines[2], "false true false false", "一边数值一边字符串：字符串先 `ToNumber`（**这一格最容易只做一半**）");
+  // `NaN` 参与的六种组合全是 `false` ✓——`-2` 那一档就是为它留的 ✓
+  //（少了它，`a < b` 与 `a > b` 都为假会落到「相等」那一支 ✗，`NaN <= 1` 变成 `true` ✗）。
+  eq(lines[3], "false false false false false false", "`NaN` 参与：四条关系一律 false");
+  eq(lines[4], "false false true true true true", "`undefined` 给 `NaN` / `null` 给 `0` / 布尔给 `1`、`0`");
+  eq(lines[5], "false true", "负零：`-0 < 0` 为假、`-0 >= 0` 为真");
+  eq(lines[6], "false true", "代理对：码元序下 `😀`(0xD83D) 排在 `\\uFFFF` 前面");
+  eq(lines[7], "a,aa,b,c", "真实用法：默认排序就是按码元比（与 Node 逐字节相同）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

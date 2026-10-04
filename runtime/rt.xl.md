@@ -3,6 +3,7 @@
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge } from "./heap.xl.md"
 import { GetProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
+import { HostUnitsText, NumberFromHostText } from "./host-text.xl.md"
 ```
 
 # namespace cangjie
@@ -10,6 +11,13 @@ import { GetProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
 **与 `props.xl.md` 互相引用**：那边要 `RoomChecker`（本文件的类型），这边要
 `GetProperty` / `NativeCall` / `MaxProtoDepth` / `Protos`。两边都**只在函数体里**
 用对方的东西，所以模块加载顺序无害（谁先加载都不会在初始化期读到半成品）。
+
+**第 177 轮起还借 `host-text.xl.md` 的两格**（`HostUnitsText` / `NumberFromHostText` ✓）：
+关系比较在「一边是字符串、一边是数值」那一档要做 `ToNumber` ✓（`"10" < 9` 为假 ✓），
+而「十进制文本 → 双精度」**只有那一个出口** ✓（第 129 轮立的规矩 ✓）——
+在这里自己再写一遍前缀 / 进制 / 指数的判据，就是**第二份会走偏的实现** ✗。
+**这不是新的宿主借用** ✓：`rt.xl.md` 里依旧一个宿主 API 都不出现 ✓，
+那三个标记照样只在 `host-text` 里 ✓（判据 grep 产物量着这一条 ✓）。
 
 **通用算子表的第一段实现**（`ir.xl.md` 的 `RtOp`）。契约见
 [docs/runtime-architecture.md](../docs/runtime-architecture.md) §5 与 §11。
@@ -539,20 +547,116 @@ return true;
 return Value.FromBool(!TruthyOf(table, value));
 ```
 
-# method RtCmpLt:(table:HeapTable, left:Value, right:Value)=>Value
+# method CompareValues:(table:HeapTable, left:Value, right:Value)=>int
 
-`<`。
+**关系比较的那一半**（`<` `<=` `>` `>=` 四条**共用同一段判据** ✓）——返回
+
+| 返回值 | 意思 |
+| --- | --- |
+| `-1` / `0` / `1` | 左 < 右 / 相等 / 左 > 右 |
+| `-2` | **结果不确定**（有 `NaN` 参与）⇒ 四条关系**一律 `false`** ✓ |
+
+**为什么四条要共用一处** ✗：JS 的四条关系**不是四个独立语义** ✓——
+`a > b` 就是 `b < a` ✓、`a <= b` 就是 `!(b < a)` ✓、`a >= b` 就是 `!(a < b)` ✓
+（`Abstract Relational Comparison` 那一条 ✓，`LeftFirst = false` 的那半 ✓）。
+四份各写一遍的话，「`NaN` 参与的六种组合全是 `false`」这一条要写四遍 ✓，
+而**漏掉一处不会有任何报错** ✗——只是悄悄给一个 `true` ✓。
+
+**第 177 轮之前这一族只认数字** ✗：`"a" < "b"` 报
+`unimplemented: arithmetic on a non-numeric operand` ✓——而**比较字符串**在普通 `.ts` 里
+遍地都是（排序、`if (a < b)`、版本号）✓。这是普查（`tmp-audit.mjs`）抓出来的**第一条** ✓。
+
+**三层，顺序就是 JS 的顺序** ✓：
+
+1. **两边都是字符串** → 逐**码元**比 ✓（UTF-16 **码元**序 ✓，不是码点序 ✗——
+   与 `value.xl.md` 那条「JS 的字符串就是码元序列」同源 ✓）；
+2. **其余** → 两边各做一次 `ToNumber` 再按数值比 ✓。这一支同时盖住
+   「两边都是数」✓ 与「**一边字符串、一边数值**」✓——后者是 `"10" < 9` 为假 ✓、
+   而 `"10" < "9"` 为真 ✓ 的**唯一**解释 ✓：JS 只在**两边都是字符串**时才按文本比 ✓。
+   只做一层（都按文本或都按数值）会**错掉一半** ✗，而且两条都会「有答案」✗。
+
+**`ToNumber` 只做原始值的那几档** ✓（数 / 字符串 / 布尔 / `null` / `undefined` ✓）：
+对象要 `ToPrimitive`（先 `valueOf` 再 `toString` ✓），那是**语言层建库的活** ✗——
+按本文件开头那条规矩：**「没定义」不是一种路** ✓，抛比静默给近似值好 ✓。
 
 ```ts
-return Value.FromBool(NumericOf(left) < NumericOf(right));
+if (left.Tag === ValueTag.String && right.Tag === ValueTag.String) {
+  return CompareCodeUnits(table.Get(left.Ref).AsString().Units, table.Get(right.Ref).AsString().Units);
+}
+const a = NumericForCompare(table, left);
+const b = NumericForCompare(table, right);
+// **`NaN` 自己判** ✓：`a < b` 与 `a > b` 对它都为假 ✗，只靠下面两行会落到「相等」那一支
+// （给 `0`）✗——于是 `NaN <= 1` 会变成 `true` ✗，而 JS 给 `false` ✓。
+if (a !== a || b !== b) return -2;
+if (a < b) return -1;
+if (a > b) return 1;
+return 0;
+```
+
+# method CompareCodeUnits:(a:Array<int>, b:Array<int>)=>int
+
+两个码元序列按**字典序**比（`-1` / `0` / `1`）。
+
+**逐位比到第一个不同为止** ✓；前缀相同则**短的更小** ✓（`"ab" < "abc"` ✓）——
+这一步不能省 ✗：只比公共前缀的话 `"ab"` 与 `"abc"` 会判成相等 ✓。
+
+**不借宿主** ✓：`Units` 就是 `Array<int>` ✓，逐位比是四个目标写法一致的一小段 ✓
+（用 `localeCompare` / `String.prototype.localeCompare` 会**按 locale** 排 ✗，
+而 JS 的关系运算符**永远按码元** ✓）。
+
+```ts
+let i = 0;
+while (i < a.length && i < b.length) {
+  if (a[i] < b[i]) return -1;
+  if (a[i] > b[i]) return 1;
+  i++;
+}
+if (a.length < b.length) return -1;
+if (a.length > b.length) return 1;
+return 0;
+```
+
+# method NumericForCompare:(table:HeapTable, value:Value)=>double
+
+关系比较里那一半 `ToNumber`：**数自己** ✓、布尔给 `1` / `0` ✓、`null` 给 `0` ✓、
+`undefined` 给 `NaN` ✓（JS 的 `Number(undefined)` ✓）、字符串走
+`NumberFromHostText`（整串解析 ✓：`"12px"` 给 `NaN` ✓）。
+
+**它只服务比较** ✓，与 `NumericOf` **不是一回事** ✗：那个是**算术**用的 ✓，
+非数值一抛了之 ✓（`rt.xl.md` 开头那一节 ✓）；这个要能**问出 `NaN`** ✓——
+`undefined < 1` 在 JS 里是 `false` ✓，不是抛 ✓。
+
+**也不等于语言层的 `NumberFromValue`** ✗：那一份要处理对象（`Number([])` 是 `0` ✓），
+要碰堆、要调 `valueOf` / `toString` ✓，属于**建库层的活** ✓（`builtins/globals.xl.md` ✓）。
+这一份只做原始值 ✓，对象照旧抛 ✓。
+
+```ts
+if (value.Tag === ValueTag.Int32) return value.Int;
+if (value.Tag === ValueTag.Float64) return value.Dbl;
+if (value.Tag === ValueTag.Bool) return value.Int !== 0 ? 1 : 0;
+if (value.Tag === ValueTag.Null) return 0;
+if (value.Tag === ValueTag.Undefined) return NaN;
+if (value.Tag === ValueTag.String) {
+  return NumberFromHostText(HostUnitsText(table.Get(value.Ref).AsString().Units));
+}
+throw new Error("unimplemented: relational comparison with a non-primitive operand");
+```
+
+# method RtCmpLt:(table:HeapTable, left:Value, right:Value)=>Value
+
+`<`。**四条关系共用 `CompareValues`** ✓（见那一节：四份各写一遍是**静默错值**的温床 ✗）。
+
+```ts
+return Value.FromBool(CompareValues(table, left, right) === -1);
 ```
 
 # method RtCmpLe:(table:HeapTable, left:Value, right:Value)=>Value
 
-`<=`。
+`<=`。`-2`（`NaN` 参与）落到 `false` ✓。
 
 ```ts
-return Value.FromBool(NumericOf(left) <= NumericOf(right));
+const order = CompareValues(table, left, right);
+return Value.FromBool(order === -1 || order === 0);
 ```
 
 # method RtCmpGt:(table:HeapTable, left:Value, right:Value)=>Value
@@ -560,7 +664,7 @@ return Value.FromBool(NumericOf(left) <= NumericOf(right));
 `>`。
 
 ```ts
-return Value.FromBool(NumericOf(left) > NumericOf(right));
+return Value.FromBool(CompareValues(table, left, right) === 1);
 ```
 
 # method RtCmpGe:(table:HeapTable, left:Value, right:Value)=>Value
@@ -568,7 +672,8 @@ return Value.FromBool(NumericOf(left) > NumericOf(right));
 `>=`。
 
 ```ts
-return Value.FromBool(NumericOf(left) >= NumericOf(right));
+const order = CompareValues(table, left, right);
+return Value.FromBool(order === 1 || order === 0);
 ```
 
 # method RtCmpEqStrict:(table:HeapTable, left:Value, right:Value)=>Value
