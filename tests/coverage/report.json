@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 251,
+  "matrix": 252,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progress": 0.6,
+  "progress": 0.62,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 89,
-      "pass": 72,
-      "blocked": 11,
-      "differ": 6,
+      "total": 90,
+      "pass": 74,
+      "blocked": 9,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 80.9
+      "coverage": 82.22
     },
     {
       "layer": "exec",
@@ -54,11 +54,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 5,
-      "blocked": 7,
+      "pass": 6,
+      "blocked": 6,
       "differ": 1,
       "nodefail": 0,
-      "coverage": 38.46
+      "coverage": 46.15
     }
   ],
   "blocked": [
@@ -69,22 +69,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeOfKeyword"
     },
     {
-      "id": "op-increment",
-      "layer": "runtime",
-      "title": "前置 / 后置 `++` `--`，落点可以是变量、成员、下标",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: update expression on a non-identifier"
-    },
-    {
       "id": "fn-named-expression",
       "layer": "runtime",
       "title": "具名函数表达式：名字只在函数体内可见",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: f"
-    },
-    {
-      "id": "cls-static",
-      "layer": "runtime",
-      "title": "static 成员、静态方法互调、静态字段",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: update expression on a non-identifier"
     },
     {
       "id": "cls-expression",
@@ -387,12 +375,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
-      "id": "e2e-state-machine",
-      "layer": "e2e",
-      "title": "状态机：对象表 + switch + 方法分发",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: update expression on a non-identifier"
-    },
-    {
       "id": "e2e-async-workflow",
       "layer": "e2e",
       "title": "异步工作流：串行 / 并行 / 失败重试",
@@ -435,6 +417,12 @@
       "layer": "runtime",
       "title": "私有成员：`#n` / `#m()` / `static #s`",
       "detail": "stdout 不同：第 1 行：node «7 1 0» vs tsrun «undefined 0 1»"
+    },
+    {
+      "id": "cls-private-in-expression",
+      "layer": "runtime",
+      "title": "私有字段**出现在表达式里**（`this.#n + 1` / `this.#n * 2` / `this.#n++`）",
+      "detail": "stdout 不同：第 1 行：node «8 14 true 7 8» vs tsrun «undefined undefined undefined undefined 7»"
     },
     {
       "id": "prm-combinators",

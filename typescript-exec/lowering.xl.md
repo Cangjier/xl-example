@@ -4830,31 +4830,78 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
     // **更新表达式**：读 → 算 → 写回，**左边只求值一次**（与复合赋值同一条规矩）。
     // 表达式自身的值：**前缀给新值、后缀给旧值**——这一条就是 `i++` 与 `++i` 的全部区别，
     // 而 `for (let i = 0; i < 3; i++)` 要的是后缀（值没人用，但语义上必须是旧值）。
-    // 只支持标识符左值：属性/下标左值要「求值一次接收者」，那条路与复合赋值的限制同源。
-    if (NodeKind(operand) !== "Identifier") {
-      throw new Error("unimplemented: update expression on a non-identifier");
+    //
+    // **左值三种落点**（第 204 轮补的后两种 ✓）：简单名字 ✓ / 属性 ✓ / 下标 ✓。
+    // 三种走**同一条规矩** ✓——读与写落在**同一格**、接收者与键**只求值一次** ✓
+    //（与上面复合赋值那三条分支同源 ✓，第 119 轮 ✓）。
+    //
+    // **原来只认标识符** ✗，理由写的是「属性 / 下标左值要『求值一次接收者』，
+    // 那条路与复合赋值的限制同源」✓——而复合赋值那条路第 119 轮就修好了 ✓，
+    // 这里的限制却留着 ✗：于是 `o.n++` / `xs[0]++` / `++Counter.total` 这些
+    // **遍地都是**的写法整份文件都进不来 ✗（`unimplemented: update expression on a non-identifier` ✓，
+    // 第 202 轮的判据现场红的 ✓）。
+    const operandKind0 = NodeKind(operand);
+    if (operandKind0 !== "Identifier" && operandKind0 !== "PropertyAccessExpression"
+      && operandKind0 !== "ElementAccessExpression") {
+      throw new Error("unimplemented: update expression on " + operandKind0);
     }
-    const access = this.ResolveAccess(TextOf(operand));
-    const read = this.Reserve(1);
-    if (access.InEnv) {
-      this.Emit(Op.EnvGet, read, access.Depth, access.Cell, -1);
-    } else {
-      this.Emit(Op.Move, read, access.Slot, -1, -1);
-    }
+    // **结果格先占** ✓（与复合赋值那三条分支同一条纪律 ✓）：临时量都落在它**上面** ✓，
+    // 最后 `Release(result + 1)` 只留它那一格活着 ✓——写回要用的接收者 / 键那之前已经用完了 ✓。
     const result = this.Reserve(1);
-    // **先把旧值抄进结果格**：后缀要的就是它；前缀随后用新值覆盖。
-    this.Emit(Op.Move, result, read, -1, -1);
     const one = this.Reserve(1);
     this.Emit(Op.Const, one, this.Program().AddConst(Constant.OfInt(1)), -1, -1);
-    const updated = this.RtCallValues(operator === "++" ? RtOp.Add : RtOp.Sub, read, one);
-    if (access.InEnv) {
-      this.Emit(Op.EnvSet, updated, access.Depth, access.Cell, -1);
+    let updated = -1;
+    if (operandKind0 === "Identifier") {
+      const access = this.ResolveAccess(TextOf(operand));
+      const read = this.Reserve(1);
+      if (access.InEnv) {
+        this.Emit(Op.EnvGet, read, access.Depth, access.Cell, -1);
+      } else {
+        this.Emit(Op.Move, read, access.Slot, -1, -1);
+      }
+      // **先把旧值抄进结果格**：后缀要的就是它；前缀随后用新值覆盖。
+      this.Emit(Op.Move, result, read, -1, -1);
+      updated = this.RtCallValues(operator === "++" ? RtOp.Add : RtOp.Sub, read, one);
+      if (access.InEnv) {
+        this.Emit(Op.EnvSet, updated, access.Depth, access.Cell, -1);
+      } else {
+        this.Emit(Op.Move, access.Slot, updated, -1, -1);
+      }
+    } else if (operandKind0 === "PropertyAccessExpression") {
+      // **接收者只求值一次** ✓：`f().n++` 里 `f()` 只调一次 ✓——先算接收者、读它、写回**同一格** ✓
+      //（不是「重算一遍左值」✗）。
+      const receiver = this.LowerExpression(Child(operand, "expression"));
+      const name = Child(operand, "name");
+      const nameKind = NodeKind(name);
+      if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
+      && nameKind !== "PrivateIdentifier") {
+        throw new Error("unimplemented: update expression on a computed property name");
+      }
+      // **私有名也是成员名** ✓（第 195 轮的口径 ✓）：键就是那串文本（`#count` ✓，见 `KeyUnitsOf` ✓）——
+      // 于是 `Account.#count++` 这一格跟着一起通 ✓。
+      const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
+      const read = this.RtCall2(RtOp.GetProp, receiver, key);
+      this.Emit(Op.Move, result, read, -1, -1);
+      updated = this.RtCallValues(operator === "++" ? RtOp.Add : RtOp.Sub, read, one);
+      this.SetPropertyConst(receiver, key, updated);
     } else {
-      this.Emit(Op.Move, access.Slot, updated, -1, -1);
+      const receiver = this.LowerExpression(Child(operand, "expression"));
+      const index = this.LowerExpression(Child(operand, "argumentExpression"));
+      const read = this.RtCallValues(RtOp.GetIndex, receiver, index);
+      this.Emit(Op.Move, result, read, -1, -1);
+      updated = this.RtCallValues(operator === "++" ? RtOp.Add : RtOp.Sub, read, one);
+      // **下标写回**：与复合赋值那条分支同一个形状 ✓（`set_index` 的窗口是「接收者, 下标, 值」✓）。
+      const window = this.Reserve(3);
+      this.Emit(Op.Move, window, receiver, -1, -1);
+      this.Emit(Op.Move, window + 1, index, -1, -1);
+      this.Emit(Op.Move, window + 2, updated, -1, -1);
+      this.EmitRt(RtOp.SetIndex, window, window, 3);
+      this.Release(window);
     }
     if (!isPostfix) {
       this.Emit(Op.Move, result, updated, -1, -1);
     }
+    this.Release(result + 1);
     return result;
   }
   const value = this.LowerExpression(operand);
