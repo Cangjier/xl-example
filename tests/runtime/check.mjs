@@ -7529,5 +7529,60 @@ check("读一次引用、写回同一格：接收者一次 · 键一次 · 右�
 });
 
 console.log("");
+console.log("=== 第 182 轮：标准库第四批（valueOf · toPrecision · freeze · defineProperty · Array.from）===");
+
+check("五个号一个引擎改动都不用：属性标志位与两条原始值方法", () => {
+  // **端到端那一把在 `cases/60-stdlib-fourth-batch.ts`**（9 行逐字节 ✓）。
+  //
+  // 五格都是普查里「Node 跑得动、本仓跑不了」的那一簇 ✓：
+  //   ① `Number.prototype.toPrecision` —— 与 `toFixed` **同族同一条理由** ✓（借宿主 ✓）；
+  //   ② `Number.prototype.valueOf` / `Boolean.prototype.valueOf` —— **连转换都不做** ✓
+  //      （`ToPrimitive` 的第一步就是「原始值给回自己」✓）；
+  //   ③ `Object.freeze` —— `SetProperty` 见到不可写的属性**本来就会抛** ✓
+  //      （`props.xl.md` 那一格 ✓），所以冻结只是**把标志清掉** ✓；
+  //   ④ `Object.defineProperty` —— 同一组标志的**另一半** ✓（从描述符拼出来 ✓，
+  //      JS 的默认是三个 `false` ✓——**最容易写反的一格** ✓）；
+  //   ⑤ `Array.from({length}, fn)` —— 数组式（有 `length` 的普通对象 ✓）+ 映射函数 ✓。
+  //
+  // **顺带修掉两处「标志位一直没人看」** ✗：`Object.keys` / `values` / `entries` / `assign`
+  // 与 `JSON.stringify` 原来**一个标志都不看** ✓——在 `defineProperty` 落地之前，
+  // 所有属性的 `enumerable` 都是真 ✓，所以这一格**量不出来** ✓；落地当天判据当场变红 ✓。
+  // **还有一处是这一轮撞出来的** ✗：`{ length: 3 }` 这种字面量**根本造不出来** ✓——
+  // `SetProperty` 见到 `length` 就抛「只读的 length」✗，而那条规矩**只该管数组** ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log((5).valueOf(), true.valueOf(), (1.5).valueOf());",
+    "console.log((1.2345).toPrecision(3), (123.456).toPrecision(4), (0.0001234).toPrecision(2));",
+    "const frozen = Object.freeze({ a: 1, b: 2 });",
+    "console.log(frozen.a, Object.keys(frozen).length, JSON.stringify(frozen));",
+    "const defined: any = {};",
+    "Object.defineProperty(defined, 'x', { value: 1 });",
+    "Object.defineProperty(defined, 'y', { value: 2, enumerable: true, writable: true });",
+    "defined.y = 3;",
+    "console.log(defined.x, Object.keys(defined).join(','), JSON.stringify(defined));",
+    "console.log(Object.values(defined).length, Object.assign({}, defined).y);",
+    "console.log(Array.from({ length: 3 }, (_: any, i: number) => i).join(','));",
+    "console.log(Array.from([1, 2, 3], (v: any) => v * 2).join(','));",
+    "console.log(Array.from({ length: 2, 0: 'a', 1: 'b' }).join(','));",
+    "const arr: any = [1, 2, 3]; arr.length = 2;",
+    "const box: any = { length: 3 };",
+    "console.log(arr.join(','), box.length);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "5 true 1.5", "`valueOf` 就是接收者自己（原始值不装箱，所以连转换都不用）");
+  eq(lines[1], "1.23 123.5 0.00012", "`toPrecision` 与 `toFixed` 同族（借宿主那一处）");
+  eq(lines[2], "1 2 {\"a\":1,\"b\":2}", "`Object.freeze` 返回对象本身，自有属性照旧可读可枚举");
+  eq(lines[3], "1 y {\"y\":3}", "**默认 `enumerable: false`**：`x` 不在 keys / JSON 里，`y` 在");
+  eq(lines[4], "1 3", "`values` / `assign` 也只收可枚举的（同一处修正）");
+  eq(lines[5], "0,1,2", "`Array.from({length}, fn)`：数组式 + 映射函数给 `(值, 下标)`");
+  eq(lines[6], "2,4,6", "数组 + 映射函数（回归：数组那一支照旧）");
+  eq(lines[7], "a,b", "数组式按**下标**读（不是按迭代器）");
+  eq(lines[8], "1,2 3", "`length` 只在**数组**上是那一格特殊的；普通对象上它只是普通属性");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge } from "../../runtime/heap.xl.md"
+import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
@@ -126,6 +126,24 @@ import { SetCtor } from "./set.xl.md"
 **`true.toString()`**（第 150 轮）——挂在 `Boolean.prototype` 上 ✓。
 **它就是 `TextUnitsOf` 对布尔的那一档** ✓（`"true"` / `"false"` ✓）——
 两处口径本来就该一样 ✓（一个是 `String(true)` ✓，一个是 `true.toString()` ✓）。
+
+# const NumberToPrecision:int = 333
+
+**`(1.2345).toPrecision(3)`**（第 182 轮）——与 `toFixed` **同一族、同一条理由** ✓
+（语义由 ECMAScript 逐字定死 ✓、用精确的数学值 ✓、手写一遍会错在边界上 ✗），
+所以同样**借宿主** ✓。差别只有一句话 ✓：`toFixed` 固定**小数位** ✓、
+`toPrecision` 固定**有效位数** ✓（≥ 精度时还可能给指数形式 ✓——那一处写法差异
+与 `host-text.xl.md` 记的指数形式那条同族 ✗，P1 对拍时一起收 ✓）。
+
+# const NumberValueOf:int = 334
+
+**`(5).valueOf()`**（第 182 轮）——**返回接收者自己** ✓（本仓不装箱 ✓，
+所以 `self` 就是那个原始值 ✓）。JS 里 `o.valueOf()` 是 `ToPrimitive` 的第一步 ✓，
+而数值这一档的答案就是它自己 ✓。
+
+# const BooleanValueOf:int = 335
+
+**`true.valueOf()`**（第 182 轮）——与 `NumberValueOf` 同一条口径 ✓（返回接收者自己 ✓）。
 
 # const NumberIsInteger:int = 320
 **`Number.isInteger(x)`**（第 126 轮）——`Number` 是**普通对象** ✓（与 `Array` / `Math` 同款 ✓），
@@ -445,6 +463,34 @@ if (id === PowId) {
 
 # const ObjectEntries:int = 403
 
+# const ObjectDefineProperty:int = 405
+
+**`Object.defineProperty(对象, 键, 描述符)`**（第 182 轮）——**只做数据属性那一半** ✓。
+
+**它就是把属性表里那一格的标志位写下来** ✓：本仓的属性早就有
+`enumerable` / `writable` / `configurable` 三个标志 ✓（`heap.xl.md` ✓），
+而 `SetProperty` / `DeleteProperty` **照着它们抛** ✓（`props.xl.md` ✓）——
+所以这一格**不需要任何引擎改动** ✓：找到那一格（没有就新建 ✓）→ 写值 + 写标志 ✓。
+
+**JS 的默认值是三个 `false`** ✓（少给哪个字段就是 `false` ✓，不是「保持原样」✗）——
+这一条容易写反 ✓，判据里钉着它 ✓。
+
+**访问器描述符（`get` / `set`）响亮地抛** ✗：那要造访问器属性 ✓（`props.xl.md` 有那一格 ✓），
+但「把描述符里的函数值挂成访问器」是另一件事 ✓，单独立一轮 ✓。
+
+# const ObjectFreeze:int = 406
+
+**`Object.freeze(对象)`**（第 182 轮）——**把自有数据属性的 `writable` 清掉** ✓。
+
+**它同样一个引擎改动都不用** ✓：`SetProperty` 见到不可写的属性**本来就会抛** ✓
+（`props.xl.md` 第 442 行那一格 ✓），所以冻结只需要把标志位改掉 ✓。
+**返回的是那个对象本身** ✓（JS 的口径 ✓）。
+
+**两处已知缺口写在明处** ✗：**数组元素**不在属性表里 ✓（它们在密集元素区 ✓），
+所以 `Object.freeze([1, 2])` 之后 `a[0] = 5` **照样写得进去** ✗——元素区没有标志位 ✓；
+以及**「不可扩展」**没做 ✗（往冻结对象上**加**新属性仍然可以 ✓）。
+两件都是「要动引擎」的活 ✓，这一轮不做 ✓、也不假装做了 ✓。
+
 # const ObjectAssign:int = 404
 
 **`Object.assign(目标, …来源)`** 的号（第 130 轮）。
@@ -721,17 +767,25 @@ if (id === MathPow) {
   // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`NumericOf(undefined)` 会抛 ✓）。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
 }
-if (id === NumberToFixed || id === NumberToStringRadix || id === BooleanToString) {
+if (id === NumberToFixed || id === NumberToPrecision || id === NumberToStringRadix
+  || id === BooleanToString || id === NumberValueOf || id === BooleanValueOf) {
   // **原始值的方法：`self` 就是那个原始值本身** ✓（`GetProperty` 把 receiver 递过来 ✓，
   // 不是装箱对象 ✓——本仓不装箱 ✓）。所以这里直接取它的数值 / 真假 ✓。
+  // **`valueOf` 更简单**（第 182 轮）✓：`ToPrimitive` 的第一步就是「原始值给回自己」✓，
+  // 所以它**连转换都不做** ✓——直接返回 `self` ✓。
+  if (id === NumberValueOf || id === BooleanValueOf) {
+    return self;
+  }
   if (id === BooleanToString) {
     return Value.FromString(table.CreateString(Units(self.AsBool() ? "true" : "false")));
   }
   const number = NumericOf(self);
-  if (id === NumberToFixed) {
+  if (id === NumberToFixed || id === NumberToPrecision) {
     // **位数缺省是 0** ✓（`(1.5).toFixed()` 是 `"2"` ✓，JS 的口径 ✓）。
     const digits = args.length > 0 ? NumericOf(args[0]) : 0;
-    const text = number.toFixed(digits);
+    // **`toPrecision` 与 `toFixed` 只差最后那一个调用** ✓（第 182 轮 ✓）——
+    // 两张语义都借宿主 ✓、理由同一个 ✓（见号那两段 ✓）。
+    const text = id === NumberToFixed ? number.toFixed(digits) : number.toPrecision(digits);
     if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
     return Value.FromString(table.CreateString(Units(text)));
   }
@@ -894,6 +948,8 @@ if (id === ObjectAssign) {
       if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
       // **访问器跳过** ✓（`keys` / `values` / `entries` 那一条口径 ✓：这一层不调 getter ✗）。
       if (own.Props[i].IsAccessor()) continue;
+      // **可枚举才算**（第 182 轮，与 `keys` 那一条同一处修正 ✓）。
+      if (!own.Props[i].IsEnumerable()) continue;
       keys.push(Value.FromString(own.Props[i].Key));
       values.push(own.Props[i].Value);
     }
@@ -904,6 +960,73 @@ if (id === ObjectAssign) {
   // **返回的是目标本身** ✓（JS 的口径 ✓，不是一份拷贝 ✓）。
   return target;
 }
+if (id === ObjectFreeze) {
+  // **冻结 = 把自有数据属性的 `writable` 清掉**（第 182 轮）✓——
+  // `SetProperty` 那一支**早就**照着这个标志抛 ✓（`props.xl.md`：不可写的属性写入抛 TypeError ✓），
+  // 所以这里只要改标志 ✓，一个引擎改动都不用 ✓（见号那一段的两处缺口 ✗）。
+  if (args.length < 1 || !args[0].IsObject()) {
+    throw new Error("unimplemented: Object.freeze needs an object "
+      + "(boxing a primitive is not supported)");
+  }
+  const frozen = table.Get(args[0].Ref);
+  for (let i = 0; i < frozen.Props.length; i++) {
+    const property = frozen.Props[i];
+    if (property.Kind === PropertyKind.Accessor) continue;
+    if ((property.Flags & PropertyFlagWritable) !== 0) {
+      property.Flags = property.Flags - PropertyFlagWritable;
+    }
+  }
+  // **返回的是那个对象本身** ✓（JS 的口径 ✓，不是一份拷贝 ✓）。
+  return args[0];
+}
+if (id === ObjectDefineProperty) {
+  // **`Object.defineProperty(对象, 键, 描述符)`**（第 182 轮）✓——
+  // 找到那一格（**只在自有属性里找** ✓，JS 的 `defineProperty` 不看原型链 ✓），
+  // 把描述符里的 `value` 与三个标志写进去 ✓；没有那一格就**新建**一个 ✓。
+  // **默认三个都是 `false`** ✓（JS 的口径 ✓：少给哪个字段就是 `false` ✓）——
+  // 所以标志位是**从零开始拼**的 ✓，不是「拿旧的改一改」✗。
+  if (args.length < 3 || !args[0].IsObject() || args[1].Tag !== ValueTag.String || !args[2].IsObject()) {
+    throw new Error("unimplemented: Object.defineProperty needs (object, string key, descriptor object)");
+  }
+  const defineTarget = table.Get(args[0].Ref);
+  const descriptor = table.Get(args[2].Ref);
+  // **读描述符的字段** ✓：描述符是一个**普通对象字面量** ✓，所以直接扫它的属性表 ✓
+  // （访问器跳过 ✗——理由与 `Object.values` 那一条相同 ✓：这一层不调 getter ✓）。
+  const fieldOf = (name: string) => {
+    for (let i = 0; i < descriptor.Props.length; i++) {
+      const property = descriptor.Props[i];
+      if (property.Kind === PropertyKind.Accessor) continue;
+      if (TextFrom(table, Value.FromString(property.Key)) === name) return property.Value;
+    }
+    return Value.Undefined();
+  };
+  // **访问器描述符响亮地抛** ✗（见号那一段 ✓）。
+  if (fieldOf("get").Tag !== ValueTag.Undefined || fieldOf("set").Tag !== ValueTag.Undefined) {
+    throw new Error("unimplemented: Object.defineProperty with a get/set descriptor");
+  }
+  let flags = 0;
+  if (RtToBoolean(table, fieldOf("enumerable")).AsBool()) flags = flags + PropertyFlagEnumerable;
+  if (RtToBoolean(table, fieldOf("writable")).AsBool()) flags = flags + PropertyFlagWritable;
+  if (RtToBoolean(table, fieldOf("configurable")).AsBool()) flags = flags + PropertyFlagConfigurable;
+  const defineKey = args[1];
+  const existing = FindProperty(room, table, args[0].Ref, defineKey);
+  if (existing !== null && existing.Owner === args[0].Ref) {
+    const property = defineTarget.Props[existing.Index];
+    if (property.Kind === PropertyKind.Accessor) {
+      throw new Error("unimplemented: redefining an accessor property needs the accessor path");
+    }
+    property.Value = fieldOf("value");
+    property.Flags = flags;
+    return args[0];
+  }
+  if (!room(PropertyCharge)) throw new Error("out of room");
+  const created = new Property(defineKey.Ref, fieldOf("value"));
+  created.Flags = flags;
+  defineTarget.Props.push(created);
+  table.Recount(args[0].Ref);
+  // **返回的还是那个对象** ✓（JS 的口径 ✓）。
+  return args[0];
+}
 if (id === ObjectKeys) {
   if (args.length < 1 || !args[0].IsObject()) {
     throw new Error("Object.keys needs an object");
@@ -913,6 +1036,11 @@ if (id === ObjectKeys) {
   for (let i = 0; i < item.Props.length; i++) {
     const keyValue = table.Get(item.Props[i].Key);
     if (keyValue.Tag !== ValueTag.String) continue;
+    // **只看可枚举的**（第 182 轮修 ✓）：`Object.keys` 的口径是**自有 + 可枚举** ✓，
+    // 而这一格原来**一个标志都不看** ✗——`Object.defineProperty(o, "x", { value: 1 })`
+    // 默认 `enumerable: false` ✓，于是它与 JS 差一格（本仓会把它数进去 ✗）。
+    // 这一条以前量不出来 ✓：在 `defineProperty` 落地之前，**所有**属性的 `enumerable` 都是真 ✓。
+    if (!item.Props[i].IsEnumerable()) continue;
     names.push(TextFrom(table, Value.FromString(item.Props[i].Key)));
   }
   if (!room(ObjectCharge + ValueCharge * names.length + CodeUnitCharge * names.length * 4)) {
@@ -942,6 +1070,8 @@ if (id === ObjectValues || id === ObjectEntries) {
   for (let i = 0; i < own.Props.length; i++) {
     if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
     if (own.Props[i].IsAccessor()) continue;
+    // **可枚举才算**（第 182 轮，与 `keys` 那一条同一处修正 ✓）。
+    if (!own.Props[i].IsEnumerable()) continue;
     keys.push(own.Props[i].Key);
     values.push(own.Props[i].Value);
   }
@@ -1187,6 +1317,10 @@ if (value.Tag === ValueTag.Object) {
     const keyValue = table.Get(property.Key);
     if (keyValue.Tag !== ValueTag.String) continue;
     if (property.Kind === PropertyKind.Accessor) continue;
+    // **不可枚举的键不进 JSON**（第 182 轮修 ✓）：`JSON.stringify` 只看**可枚举**的自有属性 ✓
+    // （与 `Object.keys` 同一条口径 ✓）——`Object.defineProperty(o, "x", { value: 1 })`
+    // 默认不可枚举 ✓，所以它**不该**出现在 JSON 里 ✗（实测判据当场量到这一格 ✓）。
+    if (!property.IsEnumerable()) continue;
     const rendered = JsonText(table, property.Value, depth + 1, false);
     if (rendered === null) continue;
     if (!first) text = text + ",";
@@ -1537,6 +1671,14 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, entriesKey, entriesTarget
 const assignKey = Value.FromString(table.CreateString(Units("assign")));
 const assignTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectAssign, 0));
 SetProperty(vm.Room(), NeverCall, table, objectObject, assignKey, assignTarget);
+// **`Object.freeze` / `Object.defineProperty`**（第 182 轮）：与上面四个同一张对象 ✓。
+// 两个都只动**属性表里的标志位** ✓（`SetProperty` / `DeleteProperty` 早就照着它们抛 ✓）。
+const freezeKey = Value.FromString(table.CreateString(Units("freeze")));
+const freezeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectFreeze, 0));
+SetProperty(vm.Room(), NeverCall, table, objectObject, freezeKey, freezeTarget);
+const definePropertyKey = Value.FromString(table.CreateString(Units("defineProperty")));
+const definePropertyTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectDefineProperty, 0));
+SetProperty(vm.Room(), NeverCall, table, objectObject, definePropertyKey, definePropertyTarget);
 
 // `Error` 是一个**宿主构造函数**（`new Error(msg)` 走 `Op.New` 的宿主那条分支 ✓，
 // `Error(msg)` 走 `Op.Call` ✓——同一个号两支都通，见 `ErrorCtor` 的说明）。
@@ -1652,6 +1794,14 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toString"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToStringRadix, 0)));
+// **`toPrecision` 与 `valueOf`**（第 182 轮）✓：与上面两个同一格原型 ✓
+// （`toPrecision` 是 `toFixed` 的同族 ✓、`valueOf` 只是「返回接收者自己」✓）。
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+  Value.FromString(table.CreateString(Units("toPrecision"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToPrecision, 0)));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+  Value.FromString(table.CreateString(Units("valueOf"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberValueOf, 0)));
 // **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款 ✓），
 // 上面挂**静态方法** `fromCharCode` ✓。
 // **第 145 轮它同时能被调用** ✓：`String(x)` 与 `String.fromCharCode(65)` 一起成立 ✓
@@ -1691,6 +1841,10 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean), NameV
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
   Value.FromString(table.CreateString(Units("toString"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanToString, 0)));
+// **`Boolean.prototype.valueOf`**（第 182 轮）✓：与 `Number.prototype.valueOf` 同一支实现 ✓。
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
+  Value.FromString(table.CreateString(Units("valueOf"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanValueOf, 0)));
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));

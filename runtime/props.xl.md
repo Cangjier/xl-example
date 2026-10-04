@@ -417,15 +417,17 @@ return property.Value;
 bug 的形状**。原型那一格只有在「直接对原型对象赋值」时才会变。
 
 ```ts
-if (IsLengthKey(table, key)) {
-  if (receiver.Tag === ValueTag.Array) {
-    if (!value.IsNumber()) throw new Error("unimplemented: array length must be a number");
-    table.Get(receiver.Ref).AsArray().Truncate(value.AsInt());
-    table.Recount(receiver.Ref);
-    return value;
-  }
-  throw new Error("unimplemented: this should throw a TypeError (read-only length)");
+if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
+  if (!value.IsNumber()) throw new Error("unimplemented: array length must be a number");
+  table.Get(receiver.Ref).AsArray().Truncate(value.AsInt());
+  table.Recount(receiver.Ref);
+  return value;
 }
+// **`length` 只有在数组上才是那一格特殊的**（第 182 轮修 ✓）：原来这里对**任何**接收者
+// 都抛「只读的 length」✗——于是 **`{ length: 3 }` 这种字面量根本造不出来** ✗
+//（`Array.from({ length: 3 }, …)` 就卡在这一句上 ✓），而 JS 里它只是一个**普通属性** ✓。
+// 字符串的 `length` 确实是只读的 ✓，但它**不是对象** ✓——下面那条
+// 「primitive receiver」自己会挡 ✓（`"ab".length = 1` 照样抛 ✓）。
 if (!receiver.IsObject()) {
   throw new Error("unimplemented: assigning a property on a primitive receiver");
 }

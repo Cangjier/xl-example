@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
+import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
 import { Protos, DefineAccessor, FindProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
@@ -9,6 +9,7 @@ import { Vm } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall } from "./array.xl.md"
+import { ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, StringConcat, ObjectAssign, PowId } from "./globals.xl.md"
@@ -92,7 +93,7 @@ if (id === StringSplit) return SplitString(room, table, protos, self, args);
 // **`Array.from` 同理**（第 130 轮）✓：它也是「返回一个新数组」的**静态方法** ✓，
 // 而且它的 `self` 是那个 `Array` **普通对象** ✓——放进 `InvokeArray` 就要同时改签名与
 // `RequireArray` 的先后 ✓，两个改动都白付 ✓。
-if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args);
+if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, call, id, self, args);
@@ -166,17 +167,25 @@ for (let i = 0; i < length; i++) {
 return out;
 ```
 
-# method ArrayFromValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>)=>Value
+# method ArrayFromValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, call:NativeCall | null)=>Value
 
-**`Array.from(可迭代物)`**（第 130 轮）。
+**`Array.from(可迭代物)`**（第 130 轮；**数组式与映射函数第 182 轮** ✓）。
 
-**能做的三类**（都借 `GetIterator` 那条既有的路 ✓）：
+**能做的四类**（前三类借 `GetIterator` 那条既有的路 ✓）：
 
 | 实参 | 给什么 |
 | --- | --- |
 | 字符串 | **逐码元一个单码元字符串** ✓（JS 的 `Array.from("ab")` 给 `["a","b"]` ✓） |
 | 数组 | **一份拷贝，洞填成 `undefined`** ✓（JS 的 `Array.from` 是**逐下标读** ✓——不是 `slice` ✗） |
 | `Map` / `Set` | **`GetIterator` 已经把它们变成数组了** ✓（`Map` 给 `[键,值]` 对、`Set` 给值 ✓） |
+| **数组式**（第 182 轮 ✓） | `{ length: 3 }` 这种**没有迭代器、但有 `length`** 的对象 ✓——JS 按**下标**逐个读 ✓ |
+
+**映射函数**（第 182 轮 ✓）：第二个实参给了就**逐项过一遍** ✓——给回调的是
+`(值, 下标)` 两个实参 ✓（`NativeCall` 的实参表第 142 轮就开宽了 ✓）。
+
+**顺序上的已知差异**（写在明处 ✗）：JS 是「读一项 → 调一次映射 → 再读下一项」✓，
+而这里是**先把所有项读进来、再统一过映射** ✗——对**访问器取值**那种有副作用的源 ✓
+两者可观察的次序会不同 ✓。常见的两种源（数组 / `{length}` 字面量 ✓）看不出差别 ✓。
 
 **生成器不做，而且响亮地抛** ✗：走完一个生成器要发 `iter_next` ✓，
 而那是**指令**、不是这一层能调的函数 ✗。`.from` 一个生成器是常见的写法 ✓，
@@ -184,7 +193,46 @@ return out;
 
 ```ts
 const source = args.length > 0 ? args[0] : Value.Undefined();
+const mapper = args.length > 1 ? args[1] : Value.Undefined();
+const hasMapper = mapper.IsCallable();
 const out = NewPlainArray(room, table, protos);
+// **数组式那一支排在最前**（第 182 轮）✓：JS 的 `Array.from` **先看迭代器** ✓，
+// 没有迭代器才按**下标**读 ✓。本仓没有 `Symbol.iterator` 的通用查找 ✗，
+// 所以判据换成「**是一个对象、自有 `length` 是数、而且不是数组 / 字符串**」✓——
+// 数组与字符串上面两条各自处理 ✓（数组的 `length` 也不在属性表里 ✓，撞不到这里 ✓）。
+if (source.IsObject() && source.Tag !== ValueTag.Array) {
+  const sourceItem = table.Get(source.Ref);
+  let lengthValue = Value.Undefined();
+  for (let i = 0; i < sourceItem.Props.length; i++) {
+    const property = sourceItem.Props[i];
+    if (property.Kind === PropertyKind.Accessor) continue;
+    if (ValueText(table, Value.FromString(property.Key)) === "length") {
+      lengthValue = property.Value;
+      break;
+    }
+  }
+  if (lengthValue.IsNumber()) {
+    const count = lengthValue.AsInt();
+    if (count < 0) throw new Error("unimplemented: Array.from over a negative length");
+    if (!room(ValueCharge * count)) throw new Error("out of room");
+    const target = table.Get(out.Ref).AsArray();
+    for (let i = 0; i < count; i++) {
+      // **逐下标读** ✓（与数组那一支同一条口径 ✓）——
+      // **不存在的下标给 `undefined`** ✓（JS 的口径 ✓，不是跳过 ✗）。
+      let item = Value.Undefined();
+      for (let j = 0; j < sourceItem.Props.length; j++) {
+        const property = sourceItem.Props[j];
+        if (property.Kind === PropertyKind.Accessor) continue;
+        if (ValueText(table, Value.FromString(property.Key)) === "" + i) {
+          item = property.Value;
+          break;
+        }
+      }
+      target.Push(item);
+    }
+    return MapArrayItems(room, table, out, mapper, hasMapper, call);
+  }
+}
 if (source.Tag === ValueTag.String) {
   // **按码元拆** ✓：与 `.length` / 下标 / `charAt` 同一条口径 ✓（代理对算两个 ✓）。
   const units = TextUnitsOf(table, source);
@@ -192,7 +240,7 @@ if (source.Tag === ValueTag.String) {
     if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
     table.Get(out.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
   }
-  return out;
+  return MapArrayItems(room, table, out, mapper, hasMapper, call);
 }
 const iterable = GetIterator(room, table, protos, source);
 if (iterable.Tag !== ValueTag.Array) {
@@ -209,6 +257,27 @@ for (let i = 0; i < count; i++) {
   // `AppendSlot` 的规矩（洞跟着走 ✓）是 `concat` / `slice` 那几条的 ✓——
   // 用错了会**静默改形状** ✗，而这一条正是判据现场量出来的 ✓。
   target.Push(items.GetAt(i));
+}
+return MapArrayItems(room, table, out, mapper, hasMapper, call);
+```
+
+# method MapArrayItems:(room:RoomChecker, table:HeapTable, out:Value, mapper:Value, hasMapper:bool, call:NativeCall | null)=>Value
+
+**把映射函数套到一个刚造好的数组上**（第 182 轮 ✓）——`Array.from(x, fn)` 的第二个实参 ✓。
+
+**给回调两个实参** ✓（`(值, 下标)` ✓，JS 的口径 ✓）。
+
+**没有映射函数就原样返回** ✓——所以三条源各自只在结尾处调它一次 ✓
+（与 JS「读一项、调一次」的次序差写在上面 ✗）。
+
+```ts
+if (!hasMapper) return out;
+if (call === null) throw new Error("unimplemented: Array.from with a mapper needs the calling channel");
+const target = table.Get(out.Ref).AsArray();
+const count = target.GetLength();
+for (let i = 0; i < count; i++) {
+  const mapped = call(mapper, Value.Undefined(), [target.GetAt(i), Value.FromInt(i)]);
+  target.SetAt(i, mapped);
 }
 return out;
 ```
