@@ -72,7 +72,7 @@
       "id": "prm-async-await",
       "layer": "runtime",
       "title": "async / await：顺序、返回值、await 一个非承诺",
-      "detail": "tsrun: 还没实现的构造或语言层错误：cannot read properties of undefined"
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "prm-async-throw",
@@ -152,7 +152,7 @@
       "id": "prm-microtask-order",
       "layer": "runtime",
       "title": "微任务的顺序：同步先跑完，再按排队的先后",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：cannot read properties of undefined"
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "ex-getter-setter-class",

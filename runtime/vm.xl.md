@@ -1434,7 +1434,24 @@ if (this.Program === null) throw new Error("no program loaded");
 const receiver = frame.Slots[instr.A];
 const key = this.Program.ValueOf(instr.B);
 if (this.Protos === null) throw new Error("no prototype table");
-const callee = GetProperty(this.Room(), this.Native(), this.Protos, this.Table, receiver, key);
+// **这一次属性读也要带类别** ✓（第 254 轮 ✓）——**第三个入口** ✗：
+// 第 246 轮补的是「调一个不是函数的东西」那两处 ✓（`CallNative` ✓ 与 `DoCallValue` ✓），
+// 而这一处（`DoCallMethod` 里那一次 `GetProperty` ✓）**漏了** ✗。
+//
+// **漏了的症状很贵** ✗：接收者是 `undefined` 时 `GetProperty` 会抛 ✓，
+// 而那一抛**不过 `Guard`** ✓ ⇒ **从来没被翻成脚本异常** ✓ ⇒
+// 它一路冒出 `Run()` ✓、最后由**命令行那个顶层 `catch`** 接住 ✓——
+// 读到的是一句 `cannot read properties of undefined` ✓ 加**十帧引擎栈** ✓
+//（第 252 轮就是这么拿到那份栈的 ✓），而**脚本的 `try` 一句都接不住** ✗。
+// **包上之后它就变成脚本接得住的 `TypeError`** ✓——
+// 而那个 `undefined` **从哪里来**才变成一件可读的事 ✓
+//（第 253 轮缩出来的那个十一行现场 ✓：`.then` 回调里一个被内层闭包捕获的 `const` ✓）。
+//
+// **形状与那两处一字不差** ✓（`Guard` + `ErrorKindType` ✓）——
+// 引擎**仍然不认识** `"TypeError"` 这几个字母 ✓，它只把**类别**交给错误工厂 ✓。
+// **这一次读的结果**要留成一格 ✓（下面调它时要用 ✓），所以不能像那两处一样直接 `return` ✓。
+const callee = this.Guard(() => GetProperty(this.Room(), this.Native(), this.Protos!, this.Table, receiver, key),
+  ErrorKindType);
 this.DoCallValue(frame, callee, instr.C, instr.D, instr.C, receiver, 0);
 ```
 
