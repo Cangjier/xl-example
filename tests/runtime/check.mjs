@@ -7220,5 +7220,37 @@ check("`NullConditionalOperator` 的断点：链上只有 `.` 与 `!`，其余�
 });
 
 console.log("");
+console.log("=== 第 157 轮：可选调用的实参逗号（`o.m?.(1, 2)`）===");
+
+check("`?.(` 里的逗号是实参分隔符：判据问「紧挨着的前一格是不是 `?.`」", () => {
+  // **端到端那一把在 `cases/48-optional-call-arguments.ts`**（4 行逐字节 ✓）。
+  //
+  // **症状**：`o.m?.(1, 2)` 报 `unimplemented: binary operator ,` ✗——**整份文件进不来** ✗。
+  // **根因**：可选调用的实参表被 `NullConditionalOperator` 吞了 ✓，于是逗号规则跑的时候
+  // **还没有 `Method`、也还没有 NCO** ✓——它看到的只是一个光秃秃的 `(` ✓，
+  // 就把 `1, 2` 折成了 `BinaryOperator op=","` ✗。
+  //
+  // **判据只能靠词法** ✓：`DecideBracketContext` **不管 `(`** ✗
+  //（`text-common-util.xl.md` 里写着第 57 轮试过、退回来了 ✓）；
+  // 插桩也确认了那一刻的 `Parent` 与祖父都是 `Bracket` ✓（NCO 还没成形 ✓）。
+  // 但 `?.` 这个记号**已经在列表里** ✓（它是一个 `SymbolToken` ✓），
+  // 所以「括号前面那一个单元是不是 `?.`」在任何时刻都问得准 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const api = { add: (a, b) => a + b, three: (a, b, c) => a * 100 + b * 10 + c, none: () => 7 };",
+    "console.log(api.add?.(1, 2), api.three?.(1, 2, 3), api.none?.());",
+    "console.log(api.missing?.(1, 2), api.add?.(1, 2) + 100, api.three?.(9, 9, 9) === 999);",
+    "console.log(Math.max(1, 2, 3), [1, 2, 3].join('-'), api.add?.(3, 4) * 2);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "3 123 7", "两个实参 / 三个实参（**原来整份文件跑不了**）");
+  eq(lines[1], "undefined 103 true", "方法为空照旧短路 ✓、结果再参与运算 ✓");
+  eq(lines[2], "3 1-2-3 14", "普通调用与内建调用照旧（回归）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

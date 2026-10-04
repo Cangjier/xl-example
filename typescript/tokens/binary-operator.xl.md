@@ -331,6 +331,37 @@ if (current.Parent instanceof Bracket && current.Parent.Context === "type") {
 if (current.Parent !== null && current.Parent.constructor.name === "TypeParameter") {
   return false;
 }
+// **`?.(` 里的逗号是实参分隔符，不是逗号运算符**（第 157 轮）✓：
+// 可选调用的实参表被 `NullConditionalOperator` 吞了 ✓（`optional-call.xl.md` 文首那张表 ✓），
+// 于是逗号规则跑的时候**还没有 `Method`、也还没有 NCO** ✓——它看到的只是一个光秃秃的 `(` ✓，
+// 就把 `1, 2` 折成了一个 `BinaryOperator op=","` ✗。
+// 症状是降级层报 `unimplemented: binary operator ,` ✗（`o.m?.(1, 2)` 整份文件进不来 ✗）。
+//
+// **判据只能靠「紧挨着的前一格」** ✓：`DecideBracketContext` **不管 `(`** ✗
+//（`text-common-util.xl.md` 里写着第 57 轮试过、退回来了 ✓），
+// 而 `(` 的 `Context` 因此永远不是我们要的那一档 ✓。插桩也确认了这一点 ✓：
+// 那一刻的 `Parent`/祖父都是 `Bracket` ✓——**NCO 还没成形** ✓。
+// 但 `?.` 这个记号**已经在列表里了** ✓（它是一个 `SymbolToken` ✓，
+// `NullConditionalOperatorReorganization.Previous` 就是靠 `item.Is("?.")` 认它的 ✓），
+// 所以问「括号前面那一个单元是不是 `?.`」在**任何时刻**都问得准 ✓。
+//
+// **为什么这条判据是准的** ✓：`?.(` 后面**只可能是实参表** ✓——
+// 想在可选调用的实参位写逗号运算符，非得多加一层括号 `o.m?.((1, 2))` ✓，
+// 那一层括号会让「紧挨着的前一格」变成内层括号的 `(` ✓，判据自然不成立 ✓（要的就是这样 ✓）。
+// 普通调用（`o.m(1, 2)`）不受影响 ✓：那时 `Method` 早就成形了 ✓。
+if (current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
+  const owner = current.Parent.Parent;
+  if (owner !== null) {
+    const list = owner.Data;
+    const at = list.indexOf(current.Parent);
+    if (at > 0) {
+      const before = Get(list, SkipPreviousWrapSymbol(list, at));
+      if (before instanceof SymbolToken && before.Is("?.")) {
+        return false;
+      }
+    }
+  }
+}
 if (this.IsValuePositionBitwise(current) === false) {
   return false;
 }
