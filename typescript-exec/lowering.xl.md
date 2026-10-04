@@ -4740,6 +4740,39 @@ if (operatorText === "??") {
   return slot;
 }
 const compoundBase = CompoundBaseOf(operatorText);
+// **逻辑赋值**（第 150 轮）：`a ||= b` / `a &&= b` / `a ??= b` ✓——
+// 它们是**糖** ✓：`a ||= b` 就是 `a || (a = b)` ✓（`&&=` / `??=` 同形 ✓），
+// 所以**落成控制流** ✓，不进 id 表 ✓（与 `&&` / `||` / `??` 同一条口径 ✓）。
+//
+// **为什么「合成一棵树再降级」而不是再抄一遍短路那一段** ✓：短路那三条
+// （`&&` / `||` / `??` ✓）的槽位纪律与极性**各自只有一份** ✓——
+// 在这里重写一遍就是第二份会走偏的实现 ✗（而走偏的症状是「右边多算一次」✓，
+// 副作用跑两遍 ✗）。合成树走的是**同一条**路 ✓（`LowerBinary` 那三段 ✓）。
+//
+// **只做「左边是一个名字」那一档** ✗（与 `=` 那条的边界不同 ✓）：
+// 合成树里左边会出现**两次** ✓——名字读两次**没有副作用** ✓（它有槽 / 环境格 ✓），
+// 而 `o[f()] ||= 1` 里那个 `f()` 会**跑两遍** ✗（JS 只求值一次 ✓）。
+// 所以属性 / 下标那两种**响亮地抛** ✓，单独立一轮 ✓（要做对得先读引用、再写回同一格 ✓，
+// 与上面复合赋值那三条一样的活 ✓）。
+if (operatorText === "||=" || operatorText === "&&=" || operatorText === "??=") {
+  if (NodeKind(left) !== "Identifier") {
+    throw new Error("unimplemented: logical assignment to a non-identifier");
+  }
+  const operator = operatorText === "||=" ? "||" : (operatorText === "&&=" ? "&&" : "??");
+  const assign: AstNode = {
+    kind: "BinaryExpression",
+    left: left,
+    operatorToken: { kind: "EqualsToken", text: "=" },
+    right: Child(node, "right"),
+  };
+  const synthetic: AstNode = {
+    kind: "BinaryExpression",
+    left: left,
+    operatorToken: { kind: "EqualsToken", text: operator },
+    right: assign,
+  };
+  return this.LowerBinary(synthetic);
+}
 if (compoundBase !== "") {
   // **字符串那一半先换路**（第 125 轮）：`s += "x"` 里的右边是**字符串字面量** ✓，
   // 于是结果一定是字符串 ✓（JS 的 `1 += "x"` 也是 `"1x"` ✓）——交给 `StringConcat` ✓。

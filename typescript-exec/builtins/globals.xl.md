@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber } from "../../runtime/rt.xl.md"
-import { HostUnitsText, NumberFromHostText } from "../../runtime/host-text.xl.md"
+import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
@@ -98,8 +98,36 @@ import { SetCtor } from "./set.xl.md"
 一个合法字符都没有就给 `NaN` ✓。**前缀到数值那一步借用宿主** ✓——
 正确舍入的十进制转换是 IEEE 754 的活儿 ✓（与 `JSON.parse` 那条同一条理由 ✓）。
 
-# const NumberIsInteger:int = 320
+# const NumberToFixed:int = 330
 
+**`(1.5).toFixed(位数)`**（第 150 轮）——挂在 `Number.prototype` 上 ✓（原始值接收者从那一条链上找 ✓）。
+
+**这一步借宿主** ✓：`toFixed` 的语义**由 ECMAScript 逐字定死** ✓（用**精确的数学值**、
+按指定的位数做**十进制舍入** ✓）——所以它是「结果被标准定死」的那一类 ✓
+（与 `host-text.xl.md` 借「十进制 ↔ 双精度」同一条理由 ✓）。
+**手写一遍是另一个量级的工程** ✗：`x * 10^d` 再取整在边界上会错 ✓
+（`(1.005).toFixed(2)` 那种 ✓——精确值的舍入不是浮点乘除能表达的 ✓）。
+
+**已知的跨目标差**（写在明处 ✗）：C++ 那一侧的定长格式化（`to_chars`）在**平局**上
+可能与 V8 差最后一位 ✓——与 `host-text.xl.md` 里记的指数形式那条同族 ✓（P1 对拍时收 ✓）。
+
+# const NumberToStringRadix:int = 331
+
+**`(255).toString(16)`**（第 150 轮）——**同一个名字、两种语义** ✗：
+`Number.prototype.toString()` **不带实参**时是十进制 ✓（`(1.5).toString()` 是 `"1.5"` ✓），
+带**基数**时是那个进制的写法 ✓。
+
+**基数 10 走 `NumberToHostText`** ✓（引擎那一处借用 ✓：最短往返、`NaN` / `±Infinity` / `-0`
+的名字都在那里定死 ✓）；**其余基数借宿主** ✓（ECMAScript 对小基数有算法 ✓，
+大基数在边角上留给实现 ✓——与 `toFixed` 同一条口径 ✓）。
+
+# const BooleanToString:int = 332
+
+**`true.toString()`**（第 150 轮）——挂在 `Boolean.prototype` 上 ✓。
+**它就是 `TextUnitsOf` 对布尔的那一档** ✓（`"true"` / `"false"` ✓）——
+两处口径本来就该一样 ✓（一个是 `String(true)` ✓，一个是 `true.toString()` ✓）。
+
+# const NumberIsInteger:int = 320
 **`Number.isInteger(x)`**（第 126 轮）——`Number` 是**普通对象** ✓（与 `Array` / `Math` 同款 ✓），
 上面挂几个静态判定 ✓。**只认真整数** ✓：`Int32` 一律真 ✓、
 `Float64` 要有限且是整数 ✓，其余（字符串 / `null` / …）一律假 ✓（**不做转换** ✗，与 JS 一致 ✓）。
@@ -692,6 +720,27 @@ if (id === MathSqrt) {
 if (id === MathPow) {
   // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`NumericOf(undefined)` 会抛 ✓）。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
+}
+if (id === NumberToFixed || id === NumberToStringRadix || id === BooleanToString) {
+  // **原始值的方法：`self` 就是那个原始值本身** ✓（`GetProperty` 把 receiver 递过来 ✓，
+  // 不是装箱对象 ✓——本仓不装箱 ✓）。所以这里直接取它的数值 / 真假 ✓。
+  if (id === BooleanToString) {
+    return Value.FromString(table.CreateString(Units(self.AsBool() ? "true" : "false")));
+  }
+  const number = NumericOf(self);
+  if (id === NumberToFixed) {
+    // **位数缺省是 0** ✓（`(1.5).toFixed()` 是 `"2"` ✓，JS 的口径 ✓）。
+    const digits = args.length > 0 ? NumericOf(args[0]) : 0;
+    const text = number.toFixed(digits);
+    if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(Units(text)));
+  }
+  const radix = args.length > 0 ? NumericOf(args[0]) : 10;
+  // **基数 10 走引擎那一处借用** ✓（`host-text.xl.md`：`NaN` / `±Infinity` / `-0` 的名字
+  // 都在那里定死 ✓）；**其余基数借宿主** ✓（见号那一段的说明 ✓）。
+  const text = radix === 10 ? NumberToHostText(number) : number.toString(radix);
+  if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units(text)));
 }
 if (id === IsNaN || id === IsFinite || id === NumberIsFinite) {
   // **`Number.isFinite` 不转换** ✗（第 149 轮）：它只认数值标签 ✓——
@@ -1587,6 +1636,22 @@ const isFiniteTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(Numbe
 SetProperty(vm.Room(), NeverCall, table, numberObject, isFiniteKey, isFiniteTarget);
 const numberKey = Value.FromString(table.CreateString(Units("Number")));
 SetProperty(vm.Room(), NeverCall, table, globals, numberKey, numberObject);
+// **`Number.prototype` 与 `Boolean.prototype`**（第 150 轮）：与 `String.prototype` 同款 ✓——
+// **挂的必须是 `protos.Number` / `protos.Boolean` 那一格** ✗（现造一个新对象的话，
+// 原始值接收者那条路找不到它 ✓：`(1.5).toFixed(2)` 会报
+// `unimplemented: calling a non-closure value` ✓——听起来像调用写错了 ✗）。
+// **方法挂在原型上** ✓（与字符串那一族相同 ✓：`GetProperty` 对原始值接收者
+// 从原型上找 ✓，`this` 仍然是那个原始值 ✓）。
+SetProperty(vm.Room(), NeverCall, table, numberObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.Number));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number), NameValue(table, "constructor"),
+  numberObject);
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+  Value.FromString(table.CreateString(Units("toFixed"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToFixed, 0)));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+  Value.FromString(table.CreateString(Units("toString"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToStringRadix, 0)));
 // **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款 ✓），
 // 上面挂**静态方法** `fromCharCode` ✓。
 // **第 145 轮它同时能被调用** ✓：`String(x)` 与 `String.fromCharCode(65)` 一起成立 ✓
@@ -1608,13 +1673,24 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.String), NameVa
   stringObject);
 // **`Boolean` 是这一族里最新的一格**（第 145 轮）：它原来**连全局名都不是** ✗
 // （`GlobalNames` 里没有它 ✓ → 降级期就报 `name is not a local or a capture: Boolean` ✓）。
-// **它没有 `prototype` 那一格** ✗（`Protos` 里没有 `Boolean` ✓，写在明处）：
-// 本仓**不装箱** ✓——`true instanceof Boolean` 在 JS 里本来就是 `false` ✓，
-// 而 `new Boolean(true) instanceof Boolean` 那条路要装箱 ✗（与 `new String(1)` 同一条 ✓）。
+// **第 145 轮它没有 `prototype`、第 150 轮补上了** ✓：`Boolean.prototype` 在 JS 里是有的 ✓，
+// 而 `true.toString()` 正要从那一格上找方法 ✓（本仓**仍然不装箱** ✗——
+// `true instanceof Boolean` 在 JS 里本来就是 `false` ✓，
+// 而 `new Boolean(true) instanceof Boolean` 那条路要装箱 ✗，与 `new String(1)` 同一条 ✓）。
 const booleanObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(booleanObject.Ref, BooleanCtor, 0);
 const booleanKey = Value.FromString(table.CreateString(Units("Boolean")));
 SetProperty(vm.Room(), NeverCall, table, globals, booleanKey, booleanObject);
+// **`Boolean.prototype` + `constructor` + `toString`**（第 150 轮）✓：
+// 与 `String.prototype` / `Number.prototype` 同款 ✓——**挂的必须是 `protos.Boolean`** ✗
+// （现造一个新对象的话，原始值接收者那条路找不到它 ✓）。
+SetProperty(vm.Room(), NeverCall, table, booleanObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.Boolean));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean), NameValue(table, "constructor"),
+  booleanObject);
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
+  Value.FromString(table.CreateString(Units("toString"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanToString, 0)));
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));

@@ -126,8 +126,18 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 `typeof` 未声明的名字（JS 里唯一不抛的未声明读法，给**字符串** `"undefined"`；只在这一格），
 以及被它带出来的两处**静默**不一致：`globalThis`（指向那个环境对象自己）与
 `isNaN`/`isFinite` vs `Number.isNaN`/`Number.isFinite`（**转与不转**是两对））、
++ **逻辑赋值与原始值方法**（第 150 轮：先做了一次**普查**——32 条普通写法分别交给 `node` 与
+`tsrun`，只留「node 跑得动、我们跑不了」的当选题目录，开工 14/32、收工 22/32。收掉的是
+最大那一簇**「方法不在那儿」**：引擎侧 `Protos` 添了 `Number`/`Boolean` 两格，
+`GetProperty` 对原始值接收者从「只认字符串」变成「三格同一条路」，于是
+`(1.5).toFixed(2)`、`(255).toString(16)`、`true.toString()` 通了；外加 `at` / `splice` /
+`replaceAll`（与 `replace` 共用一段实现）与三条逻辑赋值 `||=`/`&&=`/`??=`（糖：合成
+`a || (a = b)` 交给短路那三条本来就有的路）。顺手修掉一处**静默**不一致：`typeof` 一个内建方法
+原来给 `"object"`（本仓「可调用」有三种表示，两个 `typeof` 出口都只认前两种）。
+判据当场抓到两处：`replaceAll("")` **不是**「只插一次」，以及新号 `ArrayAt=22` **撞上了**
+本来就有的 `ArrayFlat=22`（`flat()` 于是静默给 `undefined`——是普查抓回来的））、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（208 条）与 `npm run runtime:cli`（41 份语料）；
+判据见 `npm run runtime:check`（210 条）与 `npm run runtime:cli`（42 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

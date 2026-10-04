@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
-import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean, IsCallableValue } from "../../runtime/rt.xl.md"
+import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
@@ -115,6 +115,21 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 （与 `sort` 那一支同一条纪律 ✓：`SetAt` 会清掉洞标记 ✓，所以要**再标回去** ✓）。
 
 # const ArrayFill:int = 21
+
+# const ArrayAt:int = 24
+
+**`at(i)`**（第 150 轮）——与下标读只差**负下标从尾巴数** ✓。
+
+**号为什么是 24 而不是 22** ✗（实测踩到的 ✓）：`ArrayFlat` **本来就是 22** ✓——
+第一版我给 `at` 编了 22 ✓，于是**两个常量同一个号** ✗，
+而 `ids` 那一列按 `entries` 的顺序排 ✓，`flat` 于是被**解到 `at` 那一支**上 ✓
+（`at` 的缺省实参让它返回 `undefined` ✓ → 症状是 `.flat()` **给 undefined** ✗，
+报出来是「读 undefined 的属性」✓——**离现场很远** ✗）。
+**号是跨目标的契约** ✓：只追加、**不改已有的** ✓（所以是 `at`/`splice` 让位 ✓）。
+
+# const ArraySplice:int = 25
+
+**`splice(起点, 删几个, …插进去的)`**（第 150 轮）——就地改、返回删掉的那些 ✓。
 
 **`fill(值)`**（第 142 轮）——把整段填成同一个值 ✓、返回**自己** ✓（JS 返回的就是它 ✓）。
 **只做 `fill(值)` 这一档** ✗：`fill(值, 起, 止)` 的三实参形态要处理负数下标与越界规整 ✓，
@@ -463,6 +478,69 @@ if (id === ArrayShift) {
   table.Recount(self.Ref);
   return first;
 }
+if (id === ArrayAt) {
+  // **`at(i)`**（第 150 轮）✓：与 `[i]` 只差**负下标从尾巴数** ✓
+  //（`at(-1)` 是最后一个 ✓，`[−1]` 是 `undefined` ✓——两处都要在 ✓，差别是语义 ✗）。
+  // **越界给 `undefined`** ✓（不是 `undefined` 加报错 ✓，JS 的口径 ✓）。
+  if (args.length < 1) return Value.Undefined();
+  let index = ToInt32Of(args[0]);
+  const length = source.GetLength();
+  if (index < 0) index = index + length;
+  if (index < 0 || index >= length) return Value.Undefined();
+  // **洞也照读** ✓（`GetAt` 对洞给 `undefined` ✓——JS 的 `at` 就是读那一格 ✓）。
+  return source.GetAt(index);
+}
+if (id === ArraySplice) {
+  // **`splice(起点, 删几个, …插进去的)`**（第 150 轮）✓——**就地改** ✓，返回**删掉的那些** ✓
+  //（新数组 ✓、原型跟着源数组走 ✓——与 `slice` / `map` 同一条 ✓）。
+  //
+  // **三档缺省都是 JS 的口径** ✓：起点缺省 0 ✓、**起点为负从尾巴数** ✓、
+  // 删除个数缺省是「删到尾巴」 ✓（`splice(1)` 删掉 1 之后全部 ✓）。
+  const length = source.GetLength();
+  let start = args.length > 0 ? ToInt32Of(args[0]) : 0;
+  if (start < 0) start = start + length;
+  if (start < 0) start = 0;
+  if (start > length) start = length;
+  let removeCount = length - start;
+  if (args.length > 1) {
+    const asked = ToInt32Of(args[1]);
+    removeCount = asked < 0 ? 0 : asked;
+    if (removeCount > length - start) removeCount = length - start;
+  }
+  const insertCount = args.length > 2 ? args.length - 2 : 0;
+  const removedRoom = thisSpliceRoom(room, length);
+  if (!removedRoom) throw new Error("out of room");
+  const removed = table.CreateArray();
+  table.Get(removed).Proto = table.Get(self.Ref).Proto;
+  const removedArray = table.Get(removed).AsArray();
+  for (let i = 0; i < removeCount; i++) removedArray.Push(source.GetAt(start + i));
+  // **先把尾巴搬到位、再截断 / 追加** ✓（顺序是语义 ✗）：`splice` 是**就地**的 ✓，
+  // 而 `Array` 这一层只有 `GetAt` / `SetAt` / `Push` / `Truncate` ✓——
+  // 所以「搬移」要自己写 ✓（没有 `RemoveAt` / `InsertAt` ✗，那是下一层的事 ✓）。
+  //
+  // **两头的方向为什么不一样** ✓：左边（`start` 之前）不动 ✓；
+  // 中间要腾出 `insertCount - removeCount` 格的差 ✓——
+  // 差为正（插得多）时**从后往前**搬 ✓（不然会把还没读的覆盖掉 ✗），
+  // 差为负（删得多）时**从前往后**搬 ✓。
+  const delta = insertCount - removeCount;
+  if (delta > 0) {
+    if (!room(ObjectCharge)) throw new Error("out of room");
+    for (let i = length - 1; i >= start + removeCount; i--) {
+      source.SetAt(i + delta, source.GetAt(i));
+    }
+    for (let i = 0; i < delta; i++) source.SetAt(start + removeCount + i, Value.Undefined());
+  } else if (delta < 0) {
+    for (let i = start + removeCount; i < length; i++) {
+      source.SetAt(i + delta, source.GetAt(i));
+    }
+  }
+  source.Truncate(length + delta);
+  for (let i = 0; i < insertCount; i++) source.SetAt(start + i, args[2 + i]);
+  table.Recount(self.Ref);
+  // **`CreateArray` 给的是堆上的把手** ✓，返回值要包成值 ✓（`Value.FromArray` ✓——
+  // 与 `slice` / `flat` 那两支同一个写法 ✓）。
+  return Value.FromArray(removed);
+}
 if (id === ArrayFill) {
   if (args.length < 1) throw new Error("fill needs a value");
   for (let i = 0; i < source.GetLength(); i++) {
@@ -504,6 +582,18 @@ throw new Error("unimplemented: array builtin " + id);
 那算不准 ✓，所以这里**只问一个保守的下界** ✓（一个新数组 + 与源同样多的值 ✓），
 多的那些由 `Push` 自己在需要时兜 ✓（`heap.xl.md` 的 `Push` 不做房间检查 ✗，
 所以这里**不能**给出一个「肯定够」的假承诺 ✓——**宁可问一句、也不假装算得准** ✓）。
+
+```ts
+return room(ObjectCharge + length * ValueCharge);
+```
+
+# method thisSpliceRoom:(room:RoomChecker, length:int)=>bool
+
+**`splice` 开「删掉的那些」那个新数组之前问一句房间** ✓（第 150 轮）——
+与 `thisFlatRoom` 同款 ✓：**只问一个保守的下界** ✓（一个新数组 + 与源同样多的值 ✓）。
+
+**为什么把 `length` 留在签名里** ✗：上面那句「与源同样多的值」就是它 ✓——
+按 `removeCount` 算会**少问** ✓（`Push` 自己不做房间检查 ✗），而这里宁可多问 ✓。
 
 ```ts
 return room(ObjectCharge + length * ValueCharge);
@@ -571,10 +661,10 @@ const table = vm.Table;
 const proto = Value.FromObject(protos.Array);
 const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter",
   "find", "some", "every", "concat", "reverse", "includes", "findIndex", "sort", "reduce",
-  "shift", "fill", "flat"];
+  "shift", "fill", "flat", "at", "splice"];
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
   ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes,
-  ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat];
+  ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat, ArrayAt, ArraySplice];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

@@ -112,6 +112,15 @@ this.Index = index;
 **它是「原始值接收者」的入口**：原始值自己没有属性表（`length` 是结构属性 ✓），
 所以 `"abc".charAt(1)` 这类读写**必须**从这一条链上找——`GetProperty` 里那一段就是它。
 
+## field Number:int = 0
+
+**数字的原型**（第 150 轮）——与 `String` 那一格同一个用途 ✓：
+`(1.5).toFixed(2)` / `(255).toString(16)` 从这里找方法 ✓。
+
+## field Boolean:int = 0
+
+**布尔的原型**（第 150 轮）——同款 ✓（`true.toString()` ✓）。
+
 ## field Error:int = 0
 
 **`Error` 的原型**（第 137 轮）。
@@ -172,6 +181,8 @@ if (this.Object > 0) roots.AddHandle(this.Object);
 if (this.Array > 0) roots.AddHandle(this.Array);
 if (this.Function > 0) roots.AddHandle(this.Function);
 if (this.String > 0) roots.AddHandle(this.String);
+if (this.Number > 0) roots.AddHandle(this.Number);
+if (this.Boolean > 0) roots.AddHandle(this.Boolean);
 if (this.Error > 0) roots.AddHandle(this.Error);
 if (this.TypeError > 0) roots.AddHandle(this.TypeError);
 if (this.RangeError > 0) roots.AddHandle(this.RangeError);
@@ -182,16 +193,18 @@ if (this.Date > 0) roots.AddHandle(this.Date);
 
 # method InitProtos:(room:RoomChecker, table:HeapTable)=>Protos
 
-造十个空原型。**要先问 room**（要造十个堆对象）。
+造十二个空原型。**要先问 room**（要造十二个堆对象）。
 
 **三格 `Error` 的链是「接上去」的** ✓：`Error.prototype` 的原型是 `Object.prototype` ✓、
 `TypeError.prototype` 与 `RangeError.prototype` 的原型是 `Error.prototype` ✓
 （JS 里就是如此 ✓）——所以 `e instanceof Object` 与
 `new TypeError() instanceof Error` 都成立 ✓。
 **`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上** ✓（第 138 轮 ✓）。
+**`Number` / `Boolean` 两格也是** ✓（第 150 轮 ✓）——它们与 `String` 那一格同一个用途 ✓：
+**原始值接收者的方法从这里找** ✓（`(1.5).toFixed(2)` ✓、`true.toString()` ✓）。
 
 ```ts
-if (!room(ObjectCharge * 10)) {
+if (!room(ObjectCharge * 12)) {
   throw new Error("out of room");
 }
 const protos = new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
@@ -202,6 +215,13 @@ const protos = new Protos(table.CreateObject(), table.CreateObject(), table.Crea
 table.Get(protos.Array).Proto = protos.Object;
 table.Get(protos.Function).Proto = protos.Object;
 table.Get(protos.String).Proto = protos.Object;
+// **数字与布尔那两格**（第 150 轮）：与 `String` 一模一样地接 ✓——
+// 缺了它们，`(1.5).toFixed(2)` 报的是 `unimplemented: calling a non-closure value` ✗
+//（听起来像调用写错了 ✗，其实是**这一格不存在** ✓）。
+protos.Number = table.CreateObject();
+table.Get(protos.Number).Proto = protos.Object;
+protos.Boolean = table.CreateObject();
+table.Get(protos.Boolean).Proto = protos.Object;
 protos.Error = table.CreateObject();
 table.Get(protos.Error).Proto = protos.Object;
 protos.TypeError = table.CreateObject();
@@ -313,9 +333,12 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 3. **找不到给 `undefined`**——**不是错误**（`obj.missing` 是 `undefined`，这是 JS 的日常）。
 
 **原始值接收者**（`String` / `Symbol` / 数字 / 布尔）没有属性表，所以第 2 步从
-**它的原型**起步（今天只做字符串 → `Protos.String`）——`"abc".charAt(1)` 靠的就是它。
-**数字与布尔今天仍给 `undefined`**（还没有它们的原型），这一条写在这里，
-而不是让它们静默地「看起来像没有方法」。
+**它的原型**起步（`"abc".charAt(1)` 走 `Protos.String` ✓、
+`(1.5).toFixed(2)` 走 `Protos.Number` ✓、`true.toString()` 走 `Protos.Boolean` ✓
+——三格都是**同一条路** ✓，只有起点不同 ✓）。
+**`Symbol` 今天仍给 `undefined`** ✗（还没有它的原型 ✓，写在明处 ✓）；
+**数字与布尔是第 150 轮补的** ✓——在那之前它们也给 `undefined` ✗，
+于是 `(1.5).toFixed(2)` 报的是 `calling a non-closure value` ✓（离现场很远 ✗）。
 
 **原型表要传进来**：原始值没有「自己那一格」可以顺着走，起点只能由调用方给。
 对象那条路不靠它（对象自带 `Proto`），但两条路共用一个签名更不容易分叉。
@@ -341,8 +364,14 @@ if (IsLengthKey(table, key)) {
   if (receiver.Tag === ValueTag.String) return Value.FromInt(table.Get(receiver.Ref).AsString().GetLength());
 }
 if (!receiver.IsObject()) {
-  if (receiver.Tag !== ValueTag.String) return Value.Undefined();
-  const boxed = FindProperty(room, table, protos.String, key);
+  // **原始值接收者：从它自己的原型起步**（第 150 轮把数字与布尔接了进来 ✓）——
+  // 三格走的是**同一条路** ✓，只有起点不同 ✓；`Symbol` 还没有原型 ✓ → `undefined` ✓。
+  let protoHandle = 0;
+  if (receiver.Tag === ValueTag.String) protoHandle = protos.String;
+  if (receiver.Tag === ValueTag.Int32 || receiver.Tag === ValueTag.Float64) protoHandle = protos.Number;
+  if (receiver.Tag === ValueTag.Bool) protoHandle = protos.Boolean;
+  if (protoHandle === 0) return Value.Undefined();
+  const boxed = FindProperty(room, table, protoHandle, key);
   if (boxed === null) return Value.Undefined();
   return ReadProperty(call, table, boxed, receiver);
 }
@@ -487,6 +516,9 @@ if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) return "numb
 if (value.Tag === ValueTag.String) return "string";
 if (value.Tag === ValueTag.Symbol) return "symbol";
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return "function";
+// **宿主引用也是函数** ✓（第 150 轮，与 `rt.xl.md` 的 `TypeUnitsOf` **同一条口径** ✗：
+// 两处都是 `typeof` 的出口 ✓，一处改了另一处不改就是「同一个值两个名字」✗）。
+if (value.Tag === ValueTag.HostRef) return "function";
 if (value.Tag === ValueTag.Object && table.Get(value.Ref).Host !== null) return "function";
 return "object";
 ```

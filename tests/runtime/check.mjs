@@ -6951,5 +6951,97 @@ check("`typeof` 一个没声明的名字：给 `\"undefined\"`，但**只在这�
 });
 
 console.log("");
+console.log("=== 第 150 轮：一次日常普查量出来的三个口子 ===");
+
+check("逻辑赋值 `||=` / `&&=` / `??=`：糖，落成控制流", () => {
+  // **端到端那一把在 `cases/42-logical-assign-and-methods.ts`**（11 行逐字节 ✓）。
+  //
+  // 做法是「**合成一棵树再降级**」✓：`a ||= b` 就是 `a || (a = b)` ✓，
+  // 合成出来交给**短路那三条本来就有的路** ✓——不在这里重写一遍槽位纪律与极性 ✗
+  //（重写的症状是「右边多算一次」✓，副作用跑两遍 ✗，而且**不报错** ✗）。
+  //
+  // **只做「左边是一个名字」那一档** ✗：合成树里左边出现**两次** ✓——
+  // 名字读两次没有副作用 ✓，而 `o[f()] ||= 1` 里那个 `f()` 会跑两遍 ✗（JS 只求值一次 ✓）。
+  // 所以属性 / 下标那两种**响亮地抛** ✓（判据钉在下面 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "let a = 0; a ||= 5;",
+    "let b = 1; b &&= 7;",
+    "let c = null; c ??= 3;",
+    "let d = 2; d ||= 9;",
+    "let e = 0; e &&= 9;",
+    "let f = 5; f ??= 9;",
+    "let calls = 0;",
+    "function rhs() { calls++; return 4; }",
+    "let g = 0; g ||= rhs();",
+    "let h = 1; h ||= rhs();",
+    "console.log(a, b, c, d, e, f, g, h, calls);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "5 7 3 2 0 5 4 1 1", "六条赋值 + **右边只算一次**（短路生效时一次都不算）");
+  // **左值不是简单名字时响亮地抛** ✓（不静默按「读两次」算 ✗）。
+  let message = "";
+  try {
+    const member = new RunRequest();
+    member.Sources = ["const o = { v: 0 }; o.v ||= 1;"];
+    member.Entry = "";
+    RunSources(member, () => {}, () => null);
+  } catch (error) {
+    message = String(error.message);
+  }
+  ok(message.indexOf("logical assignment to a non-identifier") >= 0,
+    "属性 / 下标那两种照旧抛（下一轮做「读一次引用、写回同一格」）：" + message);
+});
+
+check("原始值原型（`Number` / `Boolean`）+ `at` / `splice` / `replaceAll`", () => {
+  // **普查量出来的最大一簇** ✓：`(1.5).toFixed(2)` / `(255).toString(16)` / `[1].at(-1)` /
+  // `arr.splice(...)` / `"a-b".replaceAll("-", "+")` 在 Node 里全跑得动 ✓，
+  // 而本仓报的是 `unimplemented: calling a non-closure value` ✗
+  //（听起来像调用写错了 ✗，其实是**方法根本不在那儿** ✓）。
+  //
+  // 引擎那一侧只动了**一格**：`Protos` 多了 `Number` / `Boolean` ✓，
+  // 而 `GetProperty` 对原始值接收者的那条路从「只认字符串」变成「三格同一条路」✓
+  //（`"abc".charAt(1)` 早就走这条 ✓，数字与布尔只是**接上了同一个起点** ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log((1.2345).toFixed(2), (1.005).toFixed(2), (1.5).toFixed(), (255).toString(16));",
+    "console.log((255).toString(2), (1.5).toString(), true.toString(), false.toString());",
+    "console.log(typeof (1).toFixed, typeof [].push, typeof Math.floor);",
+    "console.log([1, 2, 3].at(-1), [1, 2, 3].at(0), [1, 2, 3].at(9));",
+    "const xs = [1, 2, 3, 4, 5];",
+    "console.log(xs.splice(1, 2).join(','), xs.join(','));",
+    "const ys = [1, 2, 3];",
+    "console.log(ys.splice(1, 0, 'a', 'b').length, ys.join(','));",
+    "const zs = [1, 2, 3, 4];",
+    "console.log(zs.splice(-2).join(','), zs.join(','));",
+    "console.log('a-b-c'.replaceAll('-', '+'), 'aaa'.replaceAll('a', 'aa'), 'abc'.replaceAll('', '-'));",
+    "console.log('a-b'.replace('-', '+'), 'abc'.replace('', '-'), 'zz'.replace('q', '!'));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1.23 1.00 2 ff", "`toFixed`（含位数缺省与「精确值」那一格）+ `toString(16)`");
+  eq(lines[1], "11111111 1.5 true false", "`toString(2)` / 十进制 / 布尔两个");
+  // **`typeof` 一个内建方法**：宿主引用也是函数 ✓（第 150 轮顺手修的一处**静默**不一致 ✗：
+  // 原来 `typeof [].push` 给 `"object"` ✓，而 `typeof x === "function"` 这种守卫遍地都是 ✓）。
+  // **两处 `typeof` 出口都要改** ✗（引擎的 `TypeUnitsOf` ✓ + 属性层的 `TypeOfName` ✓）——
+  // 只改一处就是「同一个值两个名字」✗。
+  eq(lines[2], "function function function", "`typeof` 内建方法给 `function`");
+  eq(lines[3], "3 1 undefined", "`at`：负下标从尾巴数、越界给 `undefined`");
+  eq(lines[4], "2,3 1,4,5", "`splice` 删中间");
+  eq(lines[5], "0 1,a,b,2,3", "`splice` 纯插入（返回值是空数组）");
+  eq(lines[6], "3,4 1,2", "`splice` 起点为负");
+  // **空串那一格两种调用不一样** ✗（实测抓到的 ✓）：`replace("", "-")` 只在最前面插一次 ✓，
+  // 而 `replaceAll("", "-")` **每一格前面都插、末尾也插** ✓（`长度 + 1` 处 ✓）——
+  // 我第一版按「也只插一次」写 ✓，判据当场给了 `"-abc"` ✗（Node 是 `"-a-b-c-"` ✓）。
+  eq(lines[7], "a+b+c aaaaaa -a-b-c-", "`replaceAll` 三格（含空串那一格）");
+  eq(lines[8], "a+b -abc zz", "`replace` 只换第一处（找不到就原样返回）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

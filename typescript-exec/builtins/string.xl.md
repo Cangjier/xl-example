@@ -107,6 +107,12 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 
 # const StringReplace:int = 117
 
+# const StringReplaceAll:int = 118
+
+**`replaceAll(找, 换)`**（第 150 轮）——与 `replace` **共用同一段实现** ✓（只差「换一处 / 换全部」✓）。
+**不是「把 `replace` 的结果反复跑一遍」** ✗（那在替换文本里含针时会无限增长 ✓）；
+扫描接着**这一处之后**走 ✓（`"aaa".replaceAll("a","aa")` 给 `"aaaaaa"` ✓——JS 就是三处 ✓）。
+
 `replace(要找的, 换成的)` 的号（第 130 轮）——**只做「字符串找字符串、换成字符串」** ✓。
 
 **只替换第一处** ✓（JS 的字符串实参口径 ✓，不是 `replaceAll` ✗）。
@@ -326,11 +332,16 @@ if (id === StringPadStart || id === StringPadEnd) {
   }
   return Value.FromString(table.CreateString(out));
 }
-if (id === StringReplace) {
+if (id === StringReplace || id === StringReplaceAll) {
   // **三个形态先挡掉** ✓：`args[0]` / `args[1]` 不是字符串就抛 ✓（正则实参、函数实参、
   // 以及 `$&` / `$1` 那一类模式都落在这里 ✓）。挡在前面而不是「当普通文本用」✗——
   // 静默把 `/a/g` 当字面量会**给出一个看起来对的错答案** ✗（`"a-a".replace(/a/g,"b")`
   // 在 JS 里是 `"b-b"`，当字面量就成了 `"a-a"`）✗。
+  //
+  // **`replaceAll` 与 `replace` 共用这一段**（第 150 轮）✓：两者只差
+  // 「换一处还是换全部」✓——分成两份实现的话，空串那一格 / 找不到那一格
+  // 就要各写一遍 ✓（而它们正是最容易走偏的两格 ✓）。
+  const replaceEverywhere = id === StringReplaceAll;
   if (args.length < 2 || args[0].Tag !== ValueTag.String || args[1].Tag !== ValueTag.String) {
     throw new Error("unimplemented: String.replace needs two string arguments "
       + "(regex and function replacements are not supported)");
@@ -338,33 +349,69 @@ if (id === StringReplace) {
   const needle = TextUnitsOf(table, args[0]);
   const replacement = TextUnitsOf(table, args[1]);
   if (needle.length === 0) {
-    // **空串找起来是「插在最前面」** ✓（JS：`"ab".replace("", "-")` 给 `"-ab"` ✓）。
+    // **空串那一格两种调用不一样** ✗（实测抓到的 ✓）：
+    //   · `"ab".replace("", "-")` 给 `"-ab"` ✓（**只在最前面插一次** ✓）；
+    //   · `"abc".replaceAll("", "-")` 给 `"-a-b-c-"` ✓（**每一格前面都插**，末尾也插 ✓
+    //     ——一共 `长度 + 1` 处 ✓）。
+    // 我第一版按「`replaceAll` 的空串也只插一次」写 ✓，判据当场给了 `"-abc"` ✗
+    //（与 Node 的 `"-a-b-c-"` 一比就露 ✓）。**空串的「落点」是 `长度 + 1` 个** ✓：
+    // 第 `i` 个落点在第 `i` 个码元**之前** ✓，最后一个在最末尾 ✓。
     const inserted: number[] = [];
-    for (let k = 0; k < replacement.length; k++) inserted.push(replacement[k]);
-    for (let k = 0; k < units.length; k++) inserted.push(units[k]);
+    for (let k = 0; k < units.length; k++) {
+      if (replaceEverywhere) {
+        for (let m = 0; m < replacement.length; m++) inserted.push(replacement[m]);
+      }
+      inserted.push(units[k]);
+    }
+    if (replaceEverywhere) {
+      for (let m = 0; m < replacement.length; m++) inserted.push(replacement[m]);
+    } else {
+      // `replace` 那一格是「插在最前面」✓——所以要把刚才的顺序倒过来：
+      // 先放替换文本、再放原串 ✓。
+      const front: number[] = [];
+      for (let m = 0; m < replacement.length; m++) front.push(replacement[m]);
+      for (let k = 0; k < inserted.length; k++) front.push(inserted[k]);
+      if (!room(ObjectCharge + CodeUnitCharge * front.length)) throw new Error("out of room");
+      return Value.FromString(table.CreateString(front));
+    }
     if (!room(ObjectCharge + CodeUnitCharge * inserted.length)) throw new Error("out of room");
     return Value.FromString(table.CreateString(inserted));
   }
-  let hit = -1;
-  for (let i = 0; i + needle.length <= units.length; i++) {
-    let same = true;
-    for (let j = 0; j < needle.length; j++) {
-      if (units[i + j] !== needle[j]) same = false;
+  // **先扫出所有落点** ✓（`replaceAll` 要全部 ✓、`replace` 只要第一个 ✓）。
+  const hits: number[] = [];
+  let scan = 0;
+  while (scan + needle.length <= units.length) {
+    let same = false;
+    for (let i = scan; i + needle.length <= units.length; i++) {
+      let matched = true;
+      for (let j = 0; j < needle.length; j++) {
+        if (units[i + j] !== needle[j]) matched = false;
+      }
+      if (matched) {
+        hits.push(i);
+        // **接着从「这一处之后」扫** ✓（**不回头扫刚换上去的文本** ✗）：
+        // `"aaa".replaceAll("a", "aa")` 在 JS 里是 `"aaaaaa"` ✓（三处 ✓），
+        // 回头扫就会变成无限增长 ✗。
+        scan = i + needle.length;
+        same = true;
+        break;
+      }
     }
-    if (same) {
-      hit = i;
-      break;
-    }
+    if (!same) break;
+    if (!replaceEverywhere) break;
   }
   // **找不到就原样返回** ✓（JS 的口径 ✓；返回的还是同一个字符串值 ✓）。
-  if (hit < 0) return self;
-  // **只换第一处** ✓——`hit` 找到就 `break` ✓，所以这一段是「一次替换」✓。
-  const total = units.length - needle.length + replacement.length;
+  if (hits.length === 0) return self;
+  const total = units.length + hits.length * (replacement.length - needle.length);
   if (!room(ObjectCharge + CodeUnitCharge * total)) throw new Error("out of room");
   const joined: number[] = [];
-  for (let i = 0; i < hit; i++) joined.push(units[i]);
-  for (let i = 0; i < replacement.length; i++) joined.push(replacement[i]);
-  for (let i = hit + needle.length; i < units.length; i++) joined.push(units[i]);
+  let cursor = 0;
+  for (let k = 0; k < hits.length; k++) {
+    for (let i = cursor; i < hits[k]; i++) joined.push(units[i]);
+    for (let i = 0; i < replacement.length; i++) joined.push(replacement[i]);
+    cursor = hits[k] + needle.length;
+  }
+  for (let i = cursor; i < units.length; i++) joined.push(units[i]);
   return Value.FromString(table.CreateString(joined));
 }
 throw new Error("unimplemented: string builtin " + id);
@@ -442,11 +489,11 @@ const table = vm.Table;
 const proto = Value.FromObject(protos.String);
 const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "toUpperCase", "toLowerCase", "trim", "includes",
-  "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd", "replace"];
+  "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd", "replace", "replaceAll"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
-  StringReplace];
+  StringReplace, StringReplaceAll];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

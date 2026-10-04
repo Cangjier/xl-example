@@ -453,6 +453,13 @@ if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) return [110,
 if (value.Tag === ValueTag.String) return [115, 116, 114, 105, 110, 103];
 if (value.Tag === ValueTag.Symbol) return [115, 121, 109, 98, 111, 108];
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return [102, 117, 110, 99, 116, 105, 111, 110];
+// **宿主引用也是函数** ✓（第 150 轮）：`typeof [].push` / `typeof Math.floor` /
+// `typeof Map` 在 Node 里全是 `"function"` ✓，而这里原来一律给 `"object"` ✗——
+// 那是一处**静默**的不一致 ✗（`typeof x === "function"` 这种守卫遍地都是 ✓）。
+// **本仓的 `HostRef` 一定是个可调用值** ✓（宿主方法 / 内建构造函数 / 能力值 ✓），
+// 所以这一档没有例外 ✓——与「可调用对象」那一档（`Object` + 载荷 ✓）合起来看，
+// 「可调用」在值模型里有**三种**表示：闭包 ✓、内建函数 ✓、宿主引用 ✓（+ 对象带载荷 ✓）。
+if (value.Tag === ValueTag.HostRef) return [102, 117, 110, 99, 116, 105, 111, 110];
 if (value.Tag === ValueTag.Object && table.Get(value.Ref).Host !== null) return [102, 117, 110, 99, 116, 105, 111, 110];
 return [111, 98, 106, 101, 99, 116];
 ```
