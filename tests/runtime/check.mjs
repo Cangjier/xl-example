@@ -7910,5 +7910,54 @@ check("`p.catch(cb)` / `p.finally(cb)`：控制关键字那张表不该管成员
 });
 
 console.log("");
+console.log("=== 第 190 轮：字符串接收者上的下标读（`s['length']` / `s['0']` / `s[0]`）===");
+
+check("字符串接收者：数字键给一个码元、别的键走属性那条路（一条判据管住四种键）", () => {
+  // **端到端那一把在 `cases/68-string-index.ts`**（8 行逐字节 ✓）。
+  //
+  // **症状** ✗：`"abc"["length"]` 报 `unimplemented: non-numeric index needs ToString` ✓
+  // （**整份文件进不来** ✗）——`get_index` 见到**字符串接收者**就**无条件**转给
+  // `props.GetIndex` ✓，而那一支只认**数字键** ✓（它给的是「一个码元的字符串」✓）。
+  //
+  // **JS 的口径** ✓：`"abc"[k]` 是「把它当成对象、按属性查」✓（`ToObject` ✓）——
+  // `["length"]` → `3` ✓、`["charAt"]` → 原型上那个函数 ✓、`["nope"]` → `undefined` ✓；
+  // 而**下标**那一档是「数字键」与**「全是数字的字符串键」**两种 ✓（`"0"` ✓）。
+  //
+  // **一条判据管住四种键** ✓（这一轮量出来的写法 ✓）：把键**字符串化** ✓，
+  // 再用 `ArrayIndexAt` 判它是不是下标 ✓——
+  // `s[0]` ✓ 与 `s["0"]` ✓ → `"0"` ✓ 下标 ✓；`s[1.0]` → `"1"` ✓ 下标 ✓；
+  // `s[1.5]` → `"1.5"` **不是下标** ✓ → 属性 ✓（JS 给 `undefined` ✓）。
+  // **写成两条判据就会漏** ✗：先前那版是「数字键走下标、其余走属性」再加
+  // 「全是数字的字符串键先转数字」✓——`s[1.5]` 那一格于是漏了 ✓（实测给的是 `"a"` ✗，
+  // JS 给 `undefined` ✓）。
+  //
+  // **顺带补掉引擎里一格** ✓：`TextUnitsOf` 原来**不收浮点** ✗（注释写着「`1.0` 该显示成
+  // `"1"` 还是 `"1.0"` 是规范级的决定，不能顺手写一个」✓）——而**那个决定早就做过了** ✓：
+  // `host-text.xl.md` 的 `NumberToHostText` 就是「双精度 ↔ 十进制」的**借用点** ✓
+  // （`String(1.5)` / JSON / `toString(16)` 都在用它 ✓）。**同一件事不写两份答案** ✓。
+  const lines2 = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const s: any = 'abc';",
+    "console.log(s[0], s[2], s[5]);",
+    "console.log(s['length'], typeof s['charAt'], s['charAt'](1), s['nope']);",
+    "console.log(s['0'], s['2'], s['9']);",
+    "console.log('xyz'[1], s[1.0], s[1.5]);",
+    "const [a, b] = s;",
+    "console.log(a, b);",
+    "for (const ch of 'hi') console.log('iter', ch);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines2.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines2[0], "a c undefined", "数字下标（这一支一直是好的）");
+  eq(lines2[1], "3 function b undefined", "`length` / 原型上的方法 / 缺失的键（**这一轮修的**）");
+  eq(lines2[2], "a c undefined", "「全是数字的字符串键」也是下标");
+  eq(lines2[3], "y b undefined", "字面量接收者 ✓、`1.0` 是第 1 格 ✓、`1.5` **不是**下标 ✓");
+  eq(lines2[4], "a b", "解构那条路用的是同一条下标读（回归）");
+  eq(lines2[5], "iter h", "字符串迭代照旧（回归）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

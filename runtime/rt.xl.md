@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge } from "./heap.xl.md"
 import { GetProperty, NativeCall, MaxProtoDepth, Protos } from "./props.xl.md"
-import { HostUnitsText, NumberFromHostText } from "./host-text.xl.md"
+import { HostTextUnits, HostUnitsText, NumberFromHostText, NumberToHostText } from "./host-text.xl.md"
 ```
 
 # namespace cangjie
@@ -108,8 +108,14 @@ return MakeNumber(NumericOf(left) + NumericOf(right));
 
 **只做有确定答案的那几档**：
 
-- **浮点数不在这里**：`1.0` 该显示成 `"1"` 还是 `"1.0"`（还有 `0.1+0.2` 那一串尾巴）
-  是一个**规范级的决定**，不能顺手写一个；
+- **浮点数**（第 190 轮补 ✓）：这一档原来**不在**这里 ✗，理由是「`1.0` 该显示成 `"1"` 还是
+  `"1.0"` 是一个**规范级的决定**，不能顺手写一个」✓——**那个决定早就做过了** ✓：
+  `host-text.xl.md` 的 `NumberToHostText` 就是「双精度 ↔ 十进制」那一处**借用** ✓
+  （`String(1.5)` ✓、`(255).toString(16)` ✓、JSON 都在用它 ✓）。
+  **于是这里用它** ✓——不是新做一个决定 ✓，而是**同一件事不写两份答案** ✓。
+  实测的症状：`s[1.5]` 会走到「键字符串化」那一步 ✓，然后抛
+  `unimplemented: ToString of this kind of value` ✗（JS 给 `undefined` ✓——
+  因为 `"1.5"` 不是下标 ✓）。
 - **对象要 `ToPrimitive`**（先 `toString` 再 `valueOf`，还有 `Symbol.toPrimitive`）——
   那是语言层建库的事，这里抛。
 
@@ -121,6 +127,8 @@ if (value.Tag === ValueTag.String) {
   return copy;
 }
 if (value.Tag === ValueTag.Int32) return DecimalUnits(value.Int);
+// **浮点数借宿主**（第 190 轮 ✓）：见上面那一段「那个决定早就做过了」✓。
+if (value.Tag === ValueTag.Float64) return HostTextUnits(NumberToHostText(value.Dbl));
 if (value.Tag === ValueTag.Bool) {
   if (value.Int !== 0) return [116, 114, 117, 101];
   return [102, 97, 108, 115, 101];

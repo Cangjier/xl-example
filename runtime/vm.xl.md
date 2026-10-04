@@ -1542,7 +1542,29 @@ if (id === RtOp.GetIndex) {
     }, ErrorKindType);
   }
   if (indexReceiver.Tag === ValueTag.String) {
-    return GetIndex(this.Table, indexReceiver, slots[base + 1]);
+    // **字符串接收者的下标读**（第 190 轮 ✓）：把键**字符串化**，再用
+    // \`ArrayIndexAt\` 判它是不是下标 ✓——**一条判据管住四种键** ✓：
+    //   · 数字键 \`s[0]\` ✓ 与「全是数字的字符串键」\`s["0"]\` ✓ → 下标 ✓（"0" ✓）；
+    //   · 小数 \`s[1.0]\` ✓ → "1" ✓ 也是下标 ✓（JS 里就是第 1 格 ✓）；
+    //   · 小数 \`s[1.5]\` ✗ → "1.5" ✓ **不是下标** ✓ → 落到属性那条路 ✓（JS 给 \`undefined\` ✓）；
+    //   · 别的键 \`s["length"]\` ✓ / \`s["charAt"]\` ✓ → 属性 ✓（原型链上找 ✓）。
+    // **原来这一支是无条件的** ✗：一律转给 \`props.GetIndex\` ✓，而它只认数字键 ✓，
+    // 见到 \`s["length"]\` 就抛 \`unimplemented: non-numeric index needs ToString\` ✗
+    //（**整份文件进不来** ✗，实测 ✓）。
+    // **两处判据合成一处** ✗：先前写过「数字键走下标、其余走属性」再加「全是数字的字符串键
+    // 先转数字」两条 ✓——\`s[1.5]\` 那一格于是漏了 ✓（实测给的是 \`"a"\` ✗，JS 给 \`undefined\` ✓）。
+    const stringRawKey = slots[base + 1];
+    const stringKeyText = stringRawKey.Tag === ValueTag.Symbol
+      ? stringRawKey
+      : RtToString(this.Room(), this.Table, stringRawKey);
+    const stringAt = ArrayIndexAt(this.Table, stringKeyText);
+    if (stringAt >= 0) {
+      return GetIndex(this.Table, indexReceiver, Value.FromInt(stringAt));
+    }
+    const stringProtoTable = this.Protos;
+    if (stringProtoTable === null) throw new Error("no prototype table");
+    return this.Guard(() => GetProperty(this.Room(), this.Native(), stringProtoTable, this.Table,
+      indexReceiver, stringKeyText));
   }
   if (indexReceiver.Tag !== ValueTag.Array) {
     if (!indexReceiver.IsObject()) return Value.Undefined();
@@ -1557,6 +1579,26 @@ if (id === RtOp.GetIndex) {
       : RtToString(this.Room(), this.Table, rawKey);
     return this.Guard(() => GetProperty(this.Room(), this.Native(), indexProtoTable, this.Table,
       indexReceiver, indexKey));
+  }
+  // **原始值接收者上的「不是下标」的键：走属性那条路**（第 190 轮 ✓）：
+  // JS 的 \`"abc"[k]\` 是「把它当成对象、按属性查」✓（\`ToObject\` ✓）——
+  // \`"abc"["length"]\` 是 \`3\` ✓、\`"abc"["charAt"]\` 是一个函数 ✓。
+  // 原来非数组一律落到 \`props.GetIndex\` ✓：它只认得**数组**与
+  // **「字符串 + 数字键」**✓，别的形状就抛 \`unimplemented: non-numeric index needs ToString\` ✗
+  //（实测 ✓：\`s["length"]\` 与 \`"ab"["length"]\` 都卡在这儿 ✓，**整份文件进不来** ✗）。
+  // **判据只放行「不是下标」的那一类** ✗：数字键 ✓ 与「全是数字的字符串键」✓ 照旧走
+  // \`GetIndex\`（字符串那一格给的是**一个码元的字符串** ✓，那条路本来就是对的 ✓）。
+  const primitiveKey = slots[base + 1];
+  const primitiveIsIndex = primitiveKey.IsNumber()
+    || (primitiveKey.Tag === ValueTag.String && ArrayIndexAt(this.Table, primitiveKey) >= 0);
+  if (!indexReceiver.IsObject() && !primitiveIsIndex) {
+    const primitiveProtoTable = this.Protos;
+    if (primitiveProtoTable === null) throw new Error("no prototype table");
+    const primitiveKeyText = primitiveKey.Tag === ValueTag.Symbol
+      ? primitiveKey
+      : RtToString(this.Room(), this.Table, primitiveKey);
+    return this.Guard(() => GetProperty(this.Room(), this.Native(), primitiveProtoTable, this.Table,
+      indexReceiver, primitiveKeyText));
   }
   return GetIndex(this.Table, indexReceiver, slots[base + 1]);
 }
