@@ -5747,8 +5747,8 @@ check("剩余参数与展开调用：与 Node 逐值一致，边界也钉住", (
   eq(superSpread[0], "6", "② 混着写的实参也铺对了（父类只收三个：1 + 2 + 3）");
   // ③ `super.m(...xs)`：这一支本来就用不了 `call_method`，要另配一条形状。
   ok(runMessage("class A { m(x) { return x; } }"
-    + " class B extends A { m(xs) { return super.m(...xs); } }").indexOf("spreading into super.m") >= 0,
-    "③ `super.m(...xs)` 降级期就抛");
+    + " class B extends A { m(xs) { return super.m(...xs); } }").indexOf("spreading into super.m") < 0,
+    "③ **第 158 轮修好**：`super.m(...xs)` 不再在降级期抛（这一条当时钉的就是「降级期就抛」）");
   // ④ 宿主能力名（没声明过、登记为能力的名字）的窗口 `[号, 参数…]` 是定长的。
   const capabilityMessage = runMessage("const xs = [1]; const r = Math.max(...xs);");
   eq(capabilityMessage, "", "`Math.max(...xs)` **能跑**（它是属性访问，走通用那条路 ✓）：" + capabilityMessage);
@@ -6260,7 +6260,8 @@ check("`super(...xs)`：`CallArray` 那一格 `this` 原来就留着", () => {
   } catch (error) {
     message = String(error.message);
   }
-  ok(message.indexOf("spreading into super.m") >= 0, "`super.m(...xs)` 照旧抛：" + message);
+  ok(message.indexOf("spreading into super.m") < 0,
+    "**第 158 轮修好**：`super.m(...xs)` 不再抛（这一条当时钉的是「照旧抛」：「" + message + "」）");
 });
 
 console.log("");

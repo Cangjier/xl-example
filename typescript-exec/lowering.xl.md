@@ -3174,10 +3174,17 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
   const selfSlot = this.Reserve(1);
   this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
   const superArgs = ListOf(call, "arguments");
-  // **`super.m(...xs)` 还不做** ✗：这一支本来就用不了 `call_method` ✓（「在谁身上找」与
-  // 「谁是 `this`」要分开 ✓），所以展开要另配一条形状 ✓——**另一轮**的事 ✓，响亮地抛 ✓。
+  // **`super.m(...xs)`**（第 158 轮）：这一支本来就用不了 `call_method` ✓
+  //（「在谁身上找」与「谁是 `this`」要分开 ✓），所以展开要另配一条形状 ✓——
+  // 而那条形状**本来就写在同一个方法里** ✓：`o.m(...xs)` 用的是
+  // 「先把方法当值取出来 + `call_array`」✓（`BuildArgsArray` + `EmitCallArray` ✓），
+  // 而这一支**前面已经把方法取成值了** ✓（`fn` ✓）——差的只是把实参收成数组 ✓。
+  // 少了这一条，`super.m(...xs)` 报 `unimplemented: spreading into super.m(...)` ✗
+  //（整份文件进不来 ✗）；而它在「子类透传实参」那种写法里很常见 ✓。
   if (this.HasSpread(superArgs)) {
-    throw new Error("unimplemented: spreading into super.m(...)");
+    const spreadArray = this.BuildArgsArray(superArgs);
+    const spreadDest = this.EmitCallArray(fn, spreadArray, selfSlot);
+    return spreadDest;
   }
   const superCount = superArgs.length;
   const superBase = this.Reserve(superCount > 0 ? superCount : 1);
