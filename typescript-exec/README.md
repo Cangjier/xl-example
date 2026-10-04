@@ -244,6 +244,39 @@
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
 
+### 第 245 轮的账（**「调的不是函数」那一抛：两个入口都量到了，收尾两种，退回来了**）
+
+**选题**：第 244 轮量出的那条正路的第一格 ✓——「调一个不是函数的东西」要能被脚本接住 ✓。
+
+**做出来的那一半** ✓（**判据的输出已经逐字节相同** ✓）：
+两处都换成**带类别的抛** ✓（`Guard(() => { throw new TypeError(…) }, ErrorKindType)` ✓）——
+`error-engine-throws` 从 `prop TypeError true` + **`unimplemented: calling a non-closure value`** ✗
+变成 **`prop TypeError true` + `call TypeError true`** ✓（与 Node 逐字节相同 ✓）。
+
+**两个入口** ✓（这是这一轮量出来的新事实 ✗）：
+- **`CallNative`** ✓——`f(...)` ✓ 与 `(1 as any)()` ✓ 走它（`Op.Call` ✓）；
+- **`DoCallValue`** ✓——`Op.CallMethod` / `o?.m()` 那一族走它 ✓。
+
+**第 153 轮只改一处、判据红三条** ✗ 的原因就在这儿 ✓：
+**同一件事有两个入口** ✓，只改一处的话同一个脚本里两条路的 `catch` 行为不同 ✓，
+而那**不报错** ✗（与第 228 轮 `sort` 那条「一个数扛两种含义」同一类坑 ✓）。
+
+**为什么还是退回来了** ✗：**两处的收尾类型不一样** ✗，而**我把它们配反了** ✓——
+- **`CallNative` 的签名是 `=>Value`** ✓（该交 `Value.Undefined()` ✓）；
+- **`DoCallValue` 的签名是 `=>void`** ✓（该裸 `return` ✓）。
+
+配反的症状是**两条编译期错各说各的反话** ✓：
+`Type 'Value' is not assignable to type 'void'` ✓ 与
+`Type 'undefined' is not assignable to type 'Value'` ✓。
+**试了两轮**（两处各换一次 ✓）都没配对 ✓，于是**按纪律退回来** ✗——
+`runtime:check` **241/241** ✓、`runtime:cli` **79/79** ✓，覆盖度与第 244 轮相同 ✓。
+
+**下一轮的第一步非常具体** ✓：**先看准每一处的签名再落笔** ✓——
+`## method CallNative:(...)=>Value` ✓ 交 `Value.Undefined()` ✓、
+`## method DoCallValue:(...)=>void` ✓ 交裸 `return` ✓。
+（这一轮两次都是在**改完之后**才去看签名 ✓，而两次都看反了 ✓——
+**先把两行签名抄在手边** ✓，再一处一处改 ✓。）
+
 ### 第 244 轮的账（**两条「差什么」量到了同一处：引擎抛的东西要能进脚本的错路**）
 
 **选题**：`error-engine-throws` 与 `symbol-hasinstance` ✓——两条判据都在差最后一段 ✓。
