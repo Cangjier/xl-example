@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 65.7,
+  "progressPercent": 69.42,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 90,
-      "pass": 76,
+      "pass": 77,
       "blocked": 9,
-      "differ": 5,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 84.44
+      "coverage": 85.56
     },
     {
       "layer": "exec",
@@ -44,21 +44,21 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 105,
-      "pass": 59,
-      "blocked": 24,
-      "differ": 22,
+      "pass": 67,
+      "blocked": 21,
+      "differ": 17,
       "nodefail": 0,
-      "coverage": 56.19
+      "coverage": 63.81
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 7,
-      "blocked": 6,
+      "pass": 8,
+      "blocked": 5,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 53.85
+      "coverage": 61.54
     }
   ],
   "blocked": [
@@ -195,24 +195,6 @@
       "detail": "tsrun: 脚本抛出：unimplemented: Array.from over a value that is not iterable (arrays, strings, Map, Set and generators are su"
     },
     {
-      "id": "array-of",
-      "layer": "stdlib",
-      "title": "Array.of：与 new Array(n) 的区别",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "array-lastIndexOf",
-      "layer": "stdlib",
-      "title": "Array.lastIndexOf",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "array-flatMap",
-      "layer": "stdlib",
-      "title": "Array.flatMap",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "array-entries-keys-values",
       "layer": "stdlib",
       "title": "Array.entries / keys / values",
@@ -345,12 +327,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: Map"
     },
     {
-      "id": "e2e-data-pipeline",
-      "layer": "e2e",
-      "title": "数据管道：filter / map / reduce / 解构 / JSON",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "e2e-async-workflow",
       "layer": "e2e",
       "title": "异步工作流：串行 / 并行 / 失败重试",
@@ -375,12 +351,6 @@
       "layer": "runtime",
       "title": "数组的洞：length 算、读出来是 undefined、join 留空",
       "detail": "stdout 不同：第 1 行：node «3 undefined 1--3 2» vs tsrun «3 undefined 1--3 0»"
-    },
-    {
-      "id": "arr-mutation",
-      "layer": "runtime",
-      "title": "数组原地改：push / pop / shift / unshift / splice",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "cls-private",
@@ -417,30 +387,6 @@
       "layer": "exec",
       "title": "字符串键 / 关键字键 / 数字键的成员名",
       "detail": "stdout 不同：第 2 行：node «3,a-b,if,class,default» vs tsrun «a-b,if,3,class,default»"
-    },
-    {
-      "id": "array-shift-unshift",
-      "layer": "stdlib",
-      "title": "Array.shift / unshift",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "array-indexOf-includes",
-      "layer": "stdlib",
-      "title": "Array.indexOf / includes（含 NaN 与 fromIndex）",
-      "detail": "stdout 不同：第 1 行：node «1 3 -1 true false» vs tsrun «1 1 -1 true false»"
-    },
-    {
-      "id": "array-slice-splice",
-      "layer": "stdlib",
-      "title": "Array.slice（不改原数组）/ splice（改）",
-      "detail": "stdout 不同：第 1 行：node «1,2 3,4 0,1,2,3,4 0,1,2,3,4» vs tsrun «1,2 0,1,2,3,4 0,1,2,3,4 0,1,2,3,4»"
-    },
-    {
-      "id": "array-map-filter",
-      "layer": "stdlib",
-      "title": "Array.map / filter：返回新数组、回调拿 (值, 下标, 数组)",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
     },
     {
       "id": "array-reduce",
@@ -501,12 +447,6 @@
       "layer": "stdlib",
       "title": "Object.freeze 的**数组元素**：push 在严格模式里该抛",
       "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 2»"
-    },
-    {
-      "id": "map-object-keys",
-      "layer": "stdlib",
-      "title": "Map 的键可以是对象、NaN 也算同一个键",
-      "detail": "stdout 不同：第 1 行：node «obj nan undefined 2» vs tsrun «obj undefined undefined 2»"
     },
     {
       "id": "collection-prototype",

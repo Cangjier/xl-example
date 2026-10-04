@@ -11,7 +11,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId } from "./promise.xl.md"
 import { ValueText } from "./text.xl.md"
-import { InstallArray, ArrayFrom } from "./array.xl.md"
+import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, StringConcat, ObjectAssign, PowId } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
@@ -134,6 +134,9 @@ if (id === StringSplit) return SplitString(room, table, protos, self, args);
 // 而且它的 `self` 是那个 `Array` **普通对象** ✓——放进 `InvokeArray` 就要同时改签名与
 // `RequireArray` 的先后 ✓，两个改动都白付 ✓。
 if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call, drain, keep);
+// **`Array.of` 与它同一处** ✓（第 206 轮 ✓）：也是静态方法、也要原型表 ✓——
+// 理由与上面那一条一字不差 ✓（`self` 是 `Array` 那个普通对象 ✓）。
+if (id === ArrayOf) return ArrayOfValues(room, table, protos, args);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, call, id, self, args, keep);

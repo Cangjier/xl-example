@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtCmpEqStrict, IsCallableValue } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, Protos, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall, Units } from "./array.xl.md"
 import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
@@ -23,8 +23,8 @@ import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 那不是「谁属于谁」，而是这两个集合的**内部表示是同一件事**（一个对象 + 一个数组 + 一个数字）。
 **将来若要给它们换表示（比如真的哈希表），就一起换。**
 
-**键相等用 `RtCmpEqStrict`**（与 JS 的 SameValueZero 在整数 / 字符串 / 布尔 / 引用上一致；
-`NaN` 与 `±0` 的边角这一层没有）。
+**键相等用 `SameValueZero`** ✓（第 207 轮改 ✓，与 `Map` 同一个表 ✓，`rt.xl.md` 那张具名的 ✓）——
+它不是 `===` ✗：`new Set([NaN]).has(NaN)` 在 JS 里是**真** ✓（那个 `NaN` 字面量第 206 轮才装得上 ✓）。
 
 **`values()` 返回数组**（不是迭代器）：引擎的迭代只认数组与生成器，所以
 `for (const x of s.values())` 能用，而 `for (const x of s)` **直接迭代 Set 不支持**——
@@ -201,7 +201,7 @@ const array = table.Get(values.Ref).AsArray();
 const length = array.GetLength();
 for (let i = 0; i < length; i++) {
   if (array.IsHole(i)) continue;
-  if (RtCmpEqStrict(table, array.GetAt(i), value).AsBool()) return i;
+  if (SameValueZero(table, array.GetAt(i), value)) return i;
 }
 return -1;
 ```

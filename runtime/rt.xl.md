@@ -930,6 +930,33 @@ if (left.IsSymbol()) {
 return Value.FromBool(left.Ref === right.Ref);
 ```
 
+# method SameValueZero:(table:HeapTable, left:Value, right:Value)=>bool
+
+**SameValueZero**（第 207 轮 ✓）：`===` **再加一条**——**`NaN` 与自己相等** ✓。
+
+**为什么它要单独有一个名字** ✗：JS 里有**两张**判等表 ✓，而它们只差 `NaN` 这一格 ✓：
+
+| 表 | `NaN` vs `NaN` | 谁在用 |
+| --- | --- | --- |
+| `===`（`RtCmpEqStrict` ✓） | **假** ✓ | 运算符 ✓、`indexOf` / `lastIndexOf` ✓ |
+| **SameValueZero** | **真** ✓ | `Array.includes` ✓、`Map` / `Set` 的键 ✓ |
+
+**原来这三处都借的是 `===`** ✗（两边的注释里都写着「与 JS 的 SameValueZero 一致」✓，
+但它们调的是 `RtCmpEqStrict` ✗）——`NaN` 字面量以前到不了这一层 ✓（`0 / 0` 那种也落在浮点上 ✗），
+所以这条差别**碰不到** ✓；**第 206 轮把 `Number.NaN` 装上之后它就碰得到了** ✓：
+`[NaN].includes(NaN)` 在 JS 里是**真** ✓，借 `===` 给的是**假** ✗（判据 `array-indexOf-includes` 现场红的 ✓）。
+
+**所以这里把它落成一个具名的方法** ✓，而不是在三处各写一句 `|| (两个都是 NaN)` ✗——
+「哪一张表」是**语义** ✓，写三遍就是三处会漂的答案 ✗。
+
+```ts
+if (RtCmpEqStrict(table, left, right).AsBool()) return true;
+// `NaN` 自己判自己：`x !== x` 只有 `NaN` 为真 ✓（`Float64` 那一档才谈得上 ✓）。
+const leftNaN = left.Tag === ValueTag.Float64 && left.Dbl !== left.Dbl;
+const rightNaN = right.Tag === ValueTag.Float64 && right.Dbl !== right.Dbl;
+return leftNaN && rightNaN;
+```
+
 # method RtCmpEqLoose:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `==`——**JS 的抽象相等比较**（第 198 轮 ✓）。

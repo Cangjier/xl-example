@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
-import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
+import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
@@ -130,6 +130,29 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 # const ArraySplice:int = 25
 
 **`splice(起点, 删几个, …插进去的)`**（第 150 轮）——就地改、返回删掉的那些 ✓。
+
+# const ArrayUnshift:int = 26
+
+**`unshift(…items)`**（第 206 轮 ✓）——从**前面**塞、返回**新长度** ✓（与 `push` 对称 ✓）。
+**它一直没装** ✗，而 `xs.unshift(x)` 在普通 `.ts` 里不算罕见 ✓
+（判据 `array-shift-unshift` 现场红的 ✓：`shift` 通、`unshift` 报 `calling a non-closure value` ✓）。
+
+# const ArrayOf:int = 27
+
+**`Array.of(…items)`**（第 206 轮 ✓）——**静态方法** ✓（与 `isArray` / `from` 同款 ✓）。
+**它与 `new Array(n)` 不是一回事** ✗：`Array.of(3)` 给 `[3]` ✓，而 `new Array(3)` 给一个**长度 3 的空数组** ✓
+（那个「单个数字实参当长度」的特例**只在构造器那一格** ✓）——所以这两个不能互相顶替 ✓。
+
+# const ArrayLastIndexOf:int = 28
+
+**`lastIndexOf(needle, fromIndex?)`**（第 206 轮 ✓）——与 `indexOf` 同一条判等 ✓，
+只是**从后往前**找 ✓、**缺省从尾巴起** ✓（`[1,2,1].lastIndexOf(1)` 给 `2` ✓）。
+
+# const ArrayFlatMap:int = 29
+
+**`flatMap(fn)`**（第 206 轮 ✓）——JS 的定义就是 `map(fn).flat(1)` ✓。
+**一步做完** ✗：两步要先造一个中间数组 ✓（既不必要 ✓，又给回收器多一个窗口 ✗）。
+**洞跳过** ✓（与 `map` / `forEach` 同一条规矩 ✓）；**回调的返回值不是数组就原样收** ✓。
 
 **`fill(值)`**（第 142 轮）——把整段填成同一个值 ✓、返回**自己** ✓（JS 返回的就是它 ✓）。
 **只做 `fill(值)` 这一档** ✗：`fill(值, 起, 止)` 的三实参形态要处理负数下标与越界规整 ✓，
@@ -272,19 +295,100 @@ if (id === ArrayJoin) {
   }
   return Value.FromString(table.CreateString(joined));
 }
-if (id === ArrayIndexOf) {
+if (id === ArrayIndexOf || id === ArrayLastIndexOf) {
   const needle = args.length > 0 ? args[0] : Value.Undefined();
-  for (let i = 0; i < source.GetLength(); i++) {
+  const length0 = source.GetLength();
+  // **`fromIndex` 那一格**（第 206 轮 ✓）：原来只认 `needle` ✗，第二个实参**被丢掉** ✓——
+  // `xs.indexOf(2, 2)` 于是从 0 开始找 ✓（JS 从 2 起 ✓），**静默错值** ✗。
+  // **负的 `fromIndex` 从末尾数** ✓（JS 的口径 ✓）：`indexOf(x, -2)` 从「倒数第二格」起 ✓；
+  // 数到负数以下就**从 0 起** ✓（不是报错 ✓）。
+  let from = 0;
+  if (id === ArrayLastIndexOf) from = length0 - 1;
+  if (args.length > 1) {
+    from = ToInt32Of(args[1]);
+    if (from < 0) from = from + length0;
+    if (id === ArrayLastIndexOf) {
+      if (from >= length0) from = length0 - 1;
+    } else if (from < 0) {
+      from = 0;
+    }
+  }
+  if (id === ArrayLastIndexOf) {
+    for (let i = from; i >= 0; i--) {
+      if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromInt(i);
+    }
+    return Value.FromInt(-1);
+  }
+  for (let i = from; i < length0; i++) {
     if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromInt(i);
   }
   return Value.FromInt(-1);
 }
+if (id === ArrayUnshift) {
+  // **从前面塞**（第 206 轮 ✓）：`Push` 是这一层**唯一的长法** ✓，所以先长出来、再整体右移 ✓
+  //（与 `shift` 的「整体左移 + 缩一格」是同一个手法 ✓，方向相反 ✓）。
+  const before = source.GetLength();
+  const count0 = args.length;
+  if (!room(ValueCharge * count0)) throw new Error("out of room");
+  for (let i = 0; i < count0; i++) {
+    source.Push(Value.Undefined());
+  }
+  for (let i = before - 1; i >= 0; i--) {
+    const moved = source.GetAt(i);
+    const movedHole = source.IsHole(i);
+    source.SetAt(i + count0, moved);
+    // **洞要跟着走** ✓（`SetAt` 会清掉洞标记 ✗，与 `shift` / `sort` 同一条纪律 ✓）。
+    if (movedHole) source.SetHole(i + count0);
+  }
+  for (let i = 0; i < count0; i++) {
+    source.SetAt(i, args[i]);
+  }
+  table.Recount(self.Ref);
+  return Value.FromInt(source.GetLength());
+}
+if (id === ArrayFlatMap) {
+  // **`flatMap(fn)` = `map(fn).flat(1)`** ✓（JS 的定义 ✓）——这里**一步做完** ✓：
+  // 两步要先造一个中间数组 ✓，那既不必要 ✓、又给回收器多一个窗口 ✗（第 200 轮那类窗口 ✓）。
+  if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
+    throw new Error("this array method needs a function and a call channel (the host must pass one)");
+  }
+  const flatMapRoom = thisFlatRoom(room, source.GetLength());
+  if (!flatMapRoom) throw new Error("out of room");
+  const flatMapHandle = table.CreateArray();
+  table.Get(flatMapHandle).Proto = table.Get(self.Ref).Proto;
+  const flatMapped = table.Get(flatMapHandle).AsArray();
+  // **结果数组要挂根** ✓（与 `map` / `filter` 那条一模一样 ✓，第 200 轮 ✓）：
+  // 它是**这一层刚造的** ✗、不在 `SnapshotRoots` 里 ✓，而下面每一轮都要调回调 ✓。
+  if (keep !== null) keep(Value.FromArray(flatMapHandle), true);
+  const total = source.GetLength();
+  for (let i = 0; i < total; i++) {
+    // **洞跳过** ✓（与 `map` / `forEach` 同一条 ✓）。
+    if (source.IsHole(i)) continue;
+    const item = source.GetAt(i);
+    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i), self]);
+    if (answered.Tag === ValueTag.Array) {
+      const inner = table.Get(answered.Ref).AsArray();
+      for (let j = 0; j < inner.GetLength(); j++) {
+        if (inner.IsHole(j)) continue;
+        flatMapped.Push(inner.GetAt(j));
+      }
+      continue;
+    }
+    flatMapped.Push(answered);
+  }
+  if (keep !== null) keep(Value.FromArray(flatMapHandle), false);
+  table.Recount(flatMapHandle);
+  return Value.FromArray(flatMapHandle);
+}
 if (id === ArraySlice) {
   const length = source.GetLength();
-  let start = ArgOr(args, 0, 0);
-  let end = ArgOr(args, 1, length);
-  if (start < 0) start = 0;
-  if (end > length) end = length;
+  // **两个端点都要走 `NormalizeRangeIndex`** ✓（第 206 轮 ✓）：原来这里只夹了
+  // 「起点小于 0 → 0」✗，于是 **`slice(-2)` 给的是整个数组** ✓（JS 给最后两个 ✓）——
+  // **静默错值** ✗，判据 `array-slice-splice` 现场红的 ✓。
+  // 而「负数从末尾数」那条口径 `NormalizeRangeIndex` 里**早就有了** ✓（第 192 轮给 `fill` 抽的 ✓），
+  // `splice` 那一支也自己写了一遍 ✓——这一轮把 `slice` 接上去 ✓（同一件事不写第三份 ✓）。
+  const start = NormalizeRangeIndex(ArgOr(args, 0, 0), length);
+  let end = NormalizeRangeIndex(ArgOr(args, 1, length), length);
   if (end < start) end = start;
   const count = end - start;
   if (!room(ObjectCharge + ValueCharge * count)) throw new Error("out of room");
@@ -343,13 +447,15 @@ if (id === ArrayReverse) {
   return self;
 }
 if (id === ArrayIncludes) {
-  // **它是 `indexOf` 的布尔版** ✓：同一趟严格相等 ✓。
-  // **与 JS 的那一处差别写在明处** ✗：JS 的 `includes` 用 SameValueZero（`NaN` 找得到 ✓），
-  // 而这里用严格相等（`NaN` 找不到 ✗）——`NaN` 今天在这一层**到不了这里** ✓
-  // （没有 `NaN` 字面量，`0/0` 那种也落在浮点上 ✗），所以这条差别暂时碰不到 ✓。
+  // **它是 `indexOf` 的布尔版** ✓——但**判等的表不是同一张** ✗（第 207 轮改 ✓）：
+  // `indexOf` 用 `===` ✓（`[NaN].indexOf(NaN)` 是 `-1` ✓），
+  // 而 `includes` 用 **SameValueZero** ✓（`[NaN].includes(NaN)` 是**真** ✓）。
+  // 这条差别原来写在注释里 ✓（「今天碰不到」✓）——**第 206 轮把 `Number.NaN` 装上之后就碰得到了** ✓
+  //（判据 `array-indexOf-includes` 现场红的 ✓），所以这一轮换到那张**具名的**表上 ✓
+  //（`rt.xl.md` 的 `SameValueZero` ✓——同一张表 `Map` / `Set` 也在用 ✓）。
   const needle = args.length > 0 ? args[0] : Value.Undefined();
   for (let i = 0; i < source.GetLength(); i++) {
-    if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromBool(true);
+    if (SameValueZero(table, source.GetAt(i), needle)) return Value.FromBool(true);
   }
   return Value.FromBool(false);
 }
@@ -381,7 +487,7 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     // 而它只挂在 `source`（调用方的数组）身上 ✓……**那也算挂着** ✓，
     // 所以这里挂的是「**不挂在别处**」的那些 ✓（见上面那一段判据 ✓）。
     // `map` 收的是回调的返回值 ✓（紧接着就 `Push` ✓，中间不分配 ✓）——它不必挂 ✓。
-    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i)]);
+    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i), self]);
     if (id === ArrayForEach) continue;
     if (id === ArrayMap) {
       // **`map` 收返回值** ✓（与 JS 一致）。
@@ -410,7 +516,7 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   const predicateTotal = source.GetLength();
   for (let i = 0; i < predicateTotal; i++) {
     const item = source.GetAt(i);
-    const answered = RtToBoolean(table, call(args[0], Value.Undefined(), [item, Value.FromInt(i)])).AsBool();
+    const answered = RtToBoolean(table, call(args[0], Value.Undefined(), [item, Value.FromInt(i), self])).AsBool();
     if (id === ArrayFind) {
       if (answered) return item;
       continue;
@@ -709,6 +815,30 @@ target.Push(source.GetAt(index));
 throw new Error("unreachable: installing a builtin never calls a function");
 ```
 
+# method ArrayOfValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>)=>Value
+
+**`Array.of(…items)`**（第 206 轮 ✓）——把实参**原样收成一个新数组** ✓。
+
+**为什么它不走 `InvokeArray`** ✗：与 `Array.from` 一字不差的两个理由 ✓（第 130 轮 ✓）——
+它是**静态方法**（`self` 是那个 `Array` 普通对象 ✓，过一遍 `RequireArray` 会当场抛 ✗），
+而且它要**原型表**（要返回一个数组 ✓，而 `InvokeArray` 的签名里没有 `protos` ✓）。
+所以它落在 `install.xl.md` 那条分派上 ✓，与 `String.split` / `Array.from` 同一处 ✓。
+
+**它与 `new Array(n)` 不是一回事** ✗：`Array.of(3)` 给 `[3]` ✓，
+`new Array(3)` 给一个长度 3 的空数组 ✓（那个「单个数字实参当长度」的特例只在构造器那一格 ✓）。
+
+```ts
+const handle = table.CreateArray();
+table.Get(handle).Proto = protos.Array;
+const created = table.Get(handle).AsArray();
+if (!room(ObjectCharge + ValueCharge * args.length)) throw new Error("out of room");
+for (let i = 0; i < args.length; i++) {
+  created.Push(args[i]);
+}
+table.Recount(handle);
+return Value.FromArray(handle);
+```
+
 # method InstallArray:(vm:Vm, protos:Protos)=>void
 
 **把数组内建装到 `Protos.Array` 上**。
@@ -722,6 +852,9 @@ const proto = Value.FromObject(protos.Array);
 const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach", "map", "filter",
   "find", "some", "every", "concat", "reverse", "includes", "findIndex", "sort", "reduce",
   "shift", "fill", "flat", "at", "splice",
+  // **第 206 轮补的三格** ✓（`unshift` / `lastIndexOf` / `flatMap` ✓）——
+  // 号**追加在表尾** ✓、已有的一个都没动 ✓（号是跨目标的契约 ✓，见 `ArrayAt` 那一段的教训 ✓）。
+  "unshift", "lastIndexOf", "flatMap",
   // **`toString` 就是 `join(",")`**（第 193 轮 ✓）：JS 的 `Array.prototype.toString` 正是它 ✓
   // （没给实参时 `join` 的默认分隔符就是 `,` ✓），所以**指到同一格能力号** ✓
   // ——同一件事不写第二份实现 ✓。实测：`[1, [2, 3]].toString()` 原来报
@@ -730,6 +863,7 @@ const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach",
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
   ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes,
   ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat, ArrayAt, ArraySplice,
+  ArrayUnshift, ArrayLastIndexOf, ArrayFlatMap,
   ArrayJoin];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));

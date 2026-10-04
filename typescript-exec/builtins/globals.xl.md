@@ -6,7 +6,7 @@ import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumber
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
 import { ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
@@ -1996,6 +1996,11 @@ SetProperty(vm.Room(), NeverCall, table, arrayObject, isArrayKey, isArrayTarget)
 const fromKey = Value.FromString(table.CreateString(Units("from")));
 const fromTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFrom, 0));
 SetProperty(vm.Room(), NeverCall, table, arrayObject, fromKey, fromTarget);
+// **`Array.of`**（第 206 轮 ✓）：与 `isArray` / `from` 同一张对象 ✓（都是静态方法 ✓）——
+// **号在数组段、分派在 `install.xl.md`** ✓，理由与 `from` 那条一字不差 ✓（要原型表 ✓）。
+const ofKey = Value.FromString(table.CreateString(Units("of")));
+const ofTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayOf, 0));
+SetProperty(vm.Room(), NeverCall, table, arrayObject, ofKey, ofTarget);
 const arrayKey = Value.FromString(table.CreateString(Units("Array")));
 SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
 // **`Array.prototype`**（第 137 轮）：`Array` 是**普通对象** ✓，所以直接挂一个属性就行 ✓——

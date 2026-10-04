@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtCmpEqStrict, IsCallableValue } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, Protos, SetProperty, SetHiddenProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall } from "./array.xl.md"
 ```
@@ -147,15 +147,20 @@ for (let i = 0; i < ids.length; i++) {
 
 # method IndexOfKey:(table:HeapTable, keys:Value, key:Value)=>int
 
-**在键数组里线性找**，用**严格相等**（`RtCmpEqStrict`：与 JS 的 SameValueZero
-在整数 / 字符串 / 布尔 / 引用上一致；`NaN` 与 `±0` 的边角这一层没有）。
+**在键数组里线性找**，用 **SameValueZero** ✓（第 207 轮改 ✓，`rt.xl.md` 那张具名的表 ✓）。
+
+**原来借的是 `===`** ✗（`RtCmpEqStrict` ✓），注释里写着「与 JS 的 SameValueZero 在整数 / 字符串 /
+布尔 / 引用上一致；`NaN` 与 `±0` 的边角这一层没有」✓——**`±0` 那条其实早就被 `RtCmpEqStrict`
+自己解决了** ✓（第 129 轮：`-0 === 0` 为真 ✓），而 **`NaN` 那条现在碰得到了** ✓
+（`Number.NaN` 第 206 轮装上 ✓）：`new Map([[NaN, "x"]]).get(NaN)` 在 JS 里是 `"x"` ✓，
+借 `===` 给的是 `undefined` ✗（判据 `map-object-keys` 现场红的 ✓）。
 
 ```ts
 const keysArray = table.Get(keys.Ref).AsArray();
 const length = keysArray.GetLength();
 for (let i = 0; i < length; i++) {
   if (keysArray.IsHole(i)) continue;
-  if (RtCmpEqStrict(table, keysArray.GetAt(i), key).AsBool()) return i;
+  if (SameValueZero(table, keysArray.GetAt(i), key)) return i;
 }
 return -1;
 ```
