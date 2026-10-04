@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 256,
+  "matrix": 257,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 78.22,
+  "progressPercent": 78.26,
   "layers": [
     {
       "layer": "runtime",
@@ -43,12 +43,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 106,
-      "pass": 88,
-      "blocked": 11,
-      "differ": 7,
+      "total": 107,
+      "pass": 89,
+      "blocked": 10,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 83.02
+      "coverage": 83.18
     },
     {
       "layer": "e2e",
@@ -213,12 +213,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
-      "id": "symbol-string-of-symbol",
-      "layer": "stdlib",
-      "title": "String(符号) 与 符号 + 字符串（后者该抛）",
-      "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
-    },
-    {
       "id": "promise-constructor",
       "layer": "stdlib",
       "title": "`new Promise(executor)`：同步跑执行器、resolve / reject",
@@ -309,6 +303,12 @@
       "layer": "stdlib",
       "title": "Symbol() 的 description / 唯一性 / 当键",
       "detail": "stdout 不同：第 1 行：node «false tag» vs tsrun «false undefined»"
+    },
+    {
+      "id": "symbol-concat-throws",
+      "layer": "stdlib",
+      "title": "符号进字符串拼接 / 模板串要抛（而且要是 `TypeError`）",
+      "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «threw Error»"
     },
     {
       "id": "console-log-special",

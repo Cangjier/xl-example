@@ -741,10 +741,18 @@ console.log(o[s1], Object.keys(o).length);
   },
   {
     id: "symbol-string-of-symbol",
-    title: "String(符号) 与 符号 + 字符串（后者该抛）",
+    title: "`String(符号)` 是一条**特例**（给 `\"Symbol(描述)\"`，不走 ToPrimitive）",
     src: `
 console.log(String(Symbol.iterator) === "Symbol(Symbol.iterator)");
+console.log(String(Symbol("s")), String(Symbol()), String(Symbol.iterator).length > 0);
+`,
+  },
+  {
+    id: "symbol-concat-throws",
+    title: "符号进字符串拼接 / 模板串要抛（而且要是 `TypeError`）",
+    src: `
 try { console.log("x" + (Symbol("s") as any)); } catch (e: any) { console.log("threw", e.name); }
+try { console.log(\`\${Symbol("t") as any}\`); } catch (e: any) { console.log("threw", e.name); }
 `,
   },
 

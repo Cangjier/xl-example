@@ -869,6 +869,20 @@ if (id === StringCtor) {
   // 所以不给实参这一支要**先判**（`ValueUnits` 对 `undefined` 给 `"undefined"` ✓，
   // 那是 `String(x)` 的答案 ✓，不是 `String()` 的 ✓）。
   if (args.length === 0) return Value.FromString(table.CreateString([]));
+  // **`String(符号)` 是一条特例** ✓（第 215 轮 ✓）：JS 在这里**不走 `ToPrimitive`** ✗
+  //（走的话会得到 `Symbol(…)` 的字符串化 **之前**就抛 ✓）——`String(sym)` 给
+  // **`"Symbol(描述)"`** ✓，没有描述就给 `"Symbol()"` ✓。
+  // 而**别的路径**（`"x" + sym` ✓、`` `${sym}` `` ✓、`sym.toString()` ✓）在 JS 里**一律抛** ✓——
+  // 那条规矩**不动** ✓（本仓也是抛的 ✓，见 `TextUnitsOf` ✓）。
+  if (args[0].Tag === ValueTag.Symbol) {
+    const symRecord = table.Get(args[0].Ref).AsSymbol();
+    let symText = "Symbol()";
+    if (symRecord.Description !== 0) {
+      symText = "Symbol(" + HostUnitsText(table.Get(symRecord.Description).AsString().Units) + ")";
+    }
+    if (!room(ObjectCharge + CodeUnitCharge * symText.length)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(Units(symText)));
+  }
   // **`String(o)` 就是 `ToPrimitive(o, "string")` 再取文本** ✓（第 213 轮收口 ✓）。
   //
   // **它原来只问「对象自己的 `toString`」** ✗（第 193 轮那一处 ✓）：那对
