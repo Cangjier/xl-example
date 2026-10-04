@@ -2157,7 +2157,7 @@ function lowerAndLoad(source, globals, capabilityOf) {
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
     try {
-      return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {}, host.Machine.Native());
+      return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {}, host.Machine.Native(), host.Machine.Scheduler());
     } catch (error) {
       if (!RaiseFromHost(host.Machine, error)) throw error;
       return Value.Undefined();
@@ -4922,7 +4922,7 @@ check("内建的失败是**脚本接得住**的异常（第 121 轮：Vm.Raise +
   eq(bareEval.Outcome, HostOutcome.Ok, "求值模块（反面）：" + bareEval.Message);
   bare.host.InstallHost((target, self, args, room) => {
     const id = bare.table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeWithSink(room, bare.table, bare.host.Machine.Protos, id, self, args, () => {}, bare.host.Machine.Native());
+    return InvokeWithSink(room, bare.table, bare.host.Machine.Protos, id, self, args, () => {}, bare.host.Machine.Native(), bare.host.Machine.Scheduler());
   });
   let escaped = "";
   try {
@@ -7683,6 +7683,59 @@ check("按协议走：取方法 → 调它 → 收 `next()`；且**协议优先�
   eq(lines[4], "1 k 1", "Map 照旧给 `[键, 值]` 对");
   eq(lines[5], "3", "生成器那一档走的是**引擎**（`iter_next`），不是协议（`[...g()]` 仍旧红 ✗）");
   eq(lines[6], "2,4,6", "数组方法照旧");
+});
+
+console.log("");
+console.log("=== 第 185 轮：`Promise`（resolve · reject · then · catch）===");
+
+check("推迟那一半交给引擎：微任务里调回调，行序与 Node 一致；链式靠「返回值灌回去」", () => {
+  // **端到端那一把在 `cases/63-promise-basics.ts`**（11 行逐字节 ✓）。
+  //
+  // **症状**：`Promise.resolve(1)` 在**降级期**就报 `name is not a local or a capture: Promise` ✗
+  // （名单里没有它 ✓——与第 145 轮 `Boolean` 那条同一个形状 ✓）。
+  //
+  // **这一轮的两半** ✓：
+  //   ① **引擎那一半**（`runtime/` ✓）：原生任务表 + `ScheduleTask` ✓——
+  //      「源承诺、回调、实参、结果承诺、认哪一档、返回值要不要灌进去」六样 ✓，
+  //      与 `await` 的帧**同一条微任务队列** ✓（分成两条，行序就与 Node 不同 ✗）；
+  //   ② **语言层那一半**（`promise.xl.md` ✓）：`Promise` 那个全局名 + 承诺上的
+  //      `then` / `catch` ✓（**逐个实例挂** ✓，与 `Map` / `Set` 同一条路 ✓）。
+  //
+  // **`call` 做不出「推迟」** ✗：它是**同步重入** ✓——所以这一层只描述「挂一个任务」✓，
+  // 排与调都在执行器里 ✓（`CallNative` 那条路 ✓，宿主回调也走得通 ✓）。
+  //
+  // **三条写在明处的缺口** ✗：`x instanceof Promise`（方法挂在实例上 ✓）、
+  // `then(f, g)` 两个实参 ✗、`Promise.all` / `race` 的非空那一档 ✗
+  // （**要让建库层能结清一个承诺** ✓，那是下一轮的一格引擎接口 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log('a');",
+    "Promise.resolve(1).then((v: any) => console.log('then', v));",
+    "console.log('b');",
+    "Promise.reject(new Error('nope')).catch((e: any) => console.log('caught', e.message));",
+    "console.log('c');",
+    "Promise.resolve(7).then((v: any) => v + 1).then((v: any) => console.log('chain', v));",
+    "let order = '';",
+    "Promise.resolve('p').then((v: any) => { order += v; });",
+    "order += 'sync';",
+    "Promise.resolve(0).then(() => console.log('order', order));",
+    "Promise.reject('boom').then((v: any) => console.log('skipped', v)).catch((e: any) => console.log('caught2', e));",
+    "const settled = Promise.resolve('done');",
+    "settled.then((v: any) => console.log('value', v, typeof v));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "a", "同步那一半先跑（回调不在这一句里）");
+  eq(lines[1], "b", "第二句同步输出");
+  eq(lines[2], "c", "第三句同步输出");
+  eq(lines[3], "then 1", "回调在**微任务**里跑（三行同步输出之后）");
+  eq(lines[4], "caught nope", "`catch` 拿到拒绝的原因");
+  eq(lines[5], "order syncp", "挂上时的同步代码先跑完，回调后跑（**推迟**是语义）");
+  eq(lines[6], "value done string", "回调拿到的是**兑现值**（不是承诺）");
+  eq(lines[7], "chain 8", "链式：上一步的**返回值**灌进下一步");
+  eq(lines[8], "caught2 boom", "`then` 的回调遇到拒绝**不跑** ✓、`catch` 跑 ✓");
 });
 
 console.log("");

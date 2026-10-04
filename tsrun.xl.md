@@ -292,7 +292,7 @@ host.InstallHost((target, self, args, room) => {
   try {
     const answered = answer(room, id, self, args);
     if (answered !== null) return answered;
-    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native());
+    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler());
   } catch (error) {
     // **抬不动就原样冒出去**（`RaiseFromHost` 给假：多半是连错误对象都开不出来）——
     // 响亮地失败，比假装抛了一个空错误好 ✓。

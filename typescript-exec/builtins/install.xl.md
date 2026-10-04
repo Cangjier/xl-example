@@ -5,10 +5,11 @@ import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } fr
 import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
 import { Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
-import { Vm } from "../../runtime/vm.xl.md"
+import { Vm, TaskScheduler } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
+import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId } from "./promise.xl.md"
 import { ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
@@ -44,7 +45,7 @@ if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null)=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null)=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -61,6 +62,9 @@ throw new Error("unimplemented: builtin id " + id);
 // `Set` 是 611..659（其号从 `SetCtor = 611` 起，610 一直空着）。
 // **边界要写成 611 而不是 610** ✗：写成 610 会把 `Map.forEach` 误判成 Set 的（第 116 轮实测：
 // 报的是 `unimplemented: set id 610`，离现场很远）。
+// **承诺那一段排在集合之前**（第 185 轮 ✓）：230..239 是**全局段里的一个窄段** ✓，
+// 按窄到宽判 ✓（写反了会被下面的全局段截走 ✗，症状是「Promise.resolve 报别的号」✗）。
+if (id >= 230 && id < 240) return InvokePromise(room, table, protos, id, self, args, schedule);
 if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args);
 if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self, args);
 // **700..799：语言内部辅助**（第 99 轮开的段）。
@@ -586,6 +590,14 @@ try {
 ```ts
 InstallArray(host.Machine, protos);
 InstallString(host.Machine, protos);
+// **`Promise` 那四个静态方法要登记**（第 185 轮 ✓）：理由与下面那张辅助表一字不差 ✓
+// （**不加进名单的症状是 `capability is not registered: 231`** ✗）。
+const promiseSlots = [PromiseResolve, PromiseReject, PromiseAll, PromiseRace,
+  PromiseAllStepId, PromiseRaceStepId];
+for (const slot of promiseSlots) {
+  host.Register(slot,
+    Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(slot, 0)));
+}
 // **辅助号在这里登记**：值是带本模块号的宿主引用（与建库层别处同一形状）。
 //
 // **第 132 轮补了三个** ✓：`SpreadIntoId` / `ArrayRestId`（展开与数组剩余 ✓，

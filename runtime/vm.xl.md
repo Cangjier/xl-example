@@ -56,6 +56,14 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 
 # type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker)=>Value
 
+# type TaskScheduler = (promise:Value, callback:Value, args:Array<Value>, result:Value, wants:number, carry:boolean)=>void
+
+**「挂一个原生任务」的形状**（第 185 轮 ✓）：语言层只交四样东西 ✓——
+**源承诺**（还在等就挂在它身上 ✓）、**回调** ✓、**实参** ✓、**结果承诺** ✓。
+
+**判据在引擎那一侧** ✓（`ScheduleTask` ✓：「还在等吗」只有引擎知道 ✓）；
+语言层**不该**先自己去读承诺的状态 ✗——那要把 `PromiseState` 那套搬到库里 ✗，
+而且两处判据迟早走偏 ✗。
 **把一次宿主函数调用交给宿主**：`target` 是那个 `HostRef`（**它自己带着「是哪一个」
 ——`HostRef.CapabilityId`，内建方法就靠它分派**），`self` 是接收者（普通调用给 `undefined`），
 `args` 是**拷过去**的参数数组（宿主拿不到 vm 的槽——那是「值语义」这条安全要求在 ABI 上的样子），
@@ -124,6 +132,54 @@ this.Frame = frame;
 this.Pc = pc;
 ```
 
+# class NativeTask
+
+**一个原生任务**（第 185 轮 ✓）：`.then(fn)` 挂上来的那一格 ✓。
+
+**三样东西** ✓：调哪个闭包（`Callback` ✓）、给它什么实参（`Args` ✓）、
+它的返回值灌进哪个承诺（`Result` ✓——没有就是 `undefined` ✓，比如 `Promise.all`
+那一步是**自己**去结清结果承诺的 ✓）。
+
+**它住在执行器里、由 `Microtasks` 按号排队** ✓（见那两段的说明 ✓）。
+
+**空槽复用**：跑完把 `Callback` 清成 `undefined` ✓、`Args` 清空 ✓——
+于是「这一格是不是空的」只看 `Callback` 是不是引用 ✓（`IsRef` ✓）。
+
+## field Callback:Value = new Value()
+
+要调的闭包（`undefined` = 空槽）。
+
+## field Args:Array<Value> = []
+
+给它的实参。**跑的时候会再往后接一个**：这一格承诺结清后的值 ✓
+（于是回调的形状是 `(…挂上时的实参, 结清值)` ✓——`Promise.all` 那一步正靠它收值 ✓）。
+
+## field Result:Value = new Value()
+
+返回值灌进哪个承诺（`undefined` = 不管 ✓）。
+
+## field Reject:bool = false
+
+**源是「被拒绝」那一档吗** ✓（`RejectPromise` 排它的时候置上 ✓、`ResolvePromise` 清掉 ✓）。
+
+## field Carry:bool = true
+
+**回调的返回值要不要灌进结果承诺** ✓（第 185 轮 ✓）：`.then` / `.catch` 要 ✓
+（链式就靠它 ✓）；**`Promise.all` / `race` 那两步不要** ✗——它们**自己去结清**结果承诺 ✓
+（`all` 要等到最后一个到齐 ✓）。**这一格不能省** ✗：两步回调各自返回 `undefined` ✓，
+引擎若顺手灌进去 ✓，`Promise.all` 的结果会在**第一个**输入到齐时就被兑现成 `undefined` ✗
+（实测就是这个症状 ✓：`xs.join` 报「读 undefined 的属性」✓）。
+
+## field Wants:int = 2
+
+**这一格只认哪一档** ✓（第 185 轮 ✓）：`0` = 只认兑现 ✓（`.then(f)` ✓）、
+`1` = 只认拒绝 ✓（`.catch(g)` ✓）、`2` = 两档都调 ✓（`Promise.all` / `race` 那两步 ✓）。
+
+**不匹配就跳过回调、把源那一档原样传下去** ✓——那正是 JS 的 `.then` 语义 ✓
+（`.then(f)` 遇到拒绝时 `f` 不跑 ✓、拒绝继续往下走 ✓）。
+**这一格必须由引擎执行** ✗（不是库里的一句 `if` ✓）：回调是**引擎**调的 ✓，
+库里拿不到「现在这一趟是哪一档」✗。
+
 # class Vm
 
 一台虚拟机：对象表 + 回收器 + 帧栈 + 一份装载好的程序。
@@ -184,12 +240,41 @@ this.Pc = pc;
 
 ## field Microtasks:Array<int> = []
 
-**微任务队列**：等着跑的**帧句柄**（`await` 挂起来的那些）。
+**微任务队列**：等着跑的**帧句柄**（`await` 挂起来的那些），
+以及**原生任务**（第 185 轮 ✓：语言层的 `.then(fn)` 挂上来的回调 ✓）。
+
+**两种任务装在一个队列里**（不是两个 ✗）：JS 的微任务队列是**一条先进先出**的 ✓——
+`await` 醒过来的那一段与 `Promise.then` 的回调**谁先挂上谁先跑** ✓。
+分成两条队列，两边的次序就变成「哪条先排空」✗（症状是 `console.log` 的行序与 Node 不同 ✓，
+而每一行单看都是对的 ✓，最难查的一种 ✓）。
+
+**编码**：`>= 0` 是帧句柄 ✓；`< 0` 是原生任务的号（`-号 - 1` ✓，见 `NativeTasks` ✓）。
 
 **它是 VM 自己的队列，不是宿主的 `async`**：宿主的 async 一进来，
 「同 IR + 同输入 = 同输出」这条判据就没了，而且没有 async 运行时的 C++ 客户当场跑不了。
 
 **它必须是根**：队列里的帧带着活值，而它们不在帧栈上（`SnapshotRoots` 把它们加进去）。
+
+## field NativeHosts:Array<int> = []
+
+**挂着原生反应的承诺句柄**（第 185 轮 ✓）——**扫根要按这张名单去找任务** ✓。
+
+**为什么需要它** ✗：挂在**还在等**的承诺上的任务**不在微任务队列里** ✓
+（队列里只有「已经可以跑」的那些 ✓），所以扫根时按队列走**看不到它们** ✗——
+症状是「回调闭包某天被回收掉」✗（只在堆压满时出现 ✓，最难复现的一种 ✓）。
+结清时（`ResolvePromise` / `RejectPromise` ✓）那一格会被移出去 ✓。
+
+## field NativeTasks:Array<NativeTask> = []
+
+**原生任务表**（第 185 轮 ✓）：`.then(fn)` 那类**由语言层挂、由执行器调**的回调 ✓。
+
+**一格就是「调哪个闭包、给什么实参、结果灌给哪个承诺」** ✓（见 `NativeTask` ✓）。
+
+**为什么由执行器拿着** ✗：调一个闭包要**建帧、跑循环、取返回值** ✓——那是执行器的活 ✓
+（语言层只拿得到 `call` ✓，那是**同步**重入 ✓，而 `.then` 要的恰恰是**推迟** ✓）。
+
+**空槽复用**（`Callback` 不是引用就是空槽 ✓）：表按「历史上有过多少任务」长 ✓，
+不回收的话一个长跑脚本会一直涨 ✗。
 
 ## field Retained:Array<int> = []
 
@@ -369,6 +454,10 @@ this.Result = new Value();
 this.NativeResult = new Value();
 this.NativeDepth = 0;
 this.Microtasks = [];
+// **原生任务表也要清**（第 185 轮 ✓）：它与 `Microtasks` 是一对 ✓——
+// 队列里那些负数下标指的是这张表里的格 ✓，两者不同步就是悬着的号 ✗。
+this.NativeTasks = [];
+this.NativeHosts = [];
 this.Retained = [];
 this.HostTable = [];
 this.Host = null;
@@ -438,7 +527,38 @@ if (this.RaiseRequest !== null && this.RaiseRequest.IsRef()) this.Roots.AddValue
 if (this.Result.IsRef()) this.Roots.AddValue(this.Result);
 if (this.NativeResult.IsRef()) this.Roots.AddValue(this.NativeResult);
 for (let i = 0; i < this.Microtasks.length; i++) {
-  this.Roots.AddHandle(this.Microtasks[i]);
+  const entry = this.Microtasks[i];
+  if (entry >= 0) {
+    this.Roots.AddHandle(entry);
+    continue;
+  }
+  // **原生任务里的值也是根**（第 185 轮 ✓）：任务拿着一个闭包与一串实参 ✓，
+  // 它们**不在帧栈上** ✗（与微任务里的帧同一个理由 ✓）。
+  // 漏了这一步的症状是「回调闭包某天被回收掉」✓——而它只在**堆压满**时才出现 ✗，
+  // 是最难复现的一种 ✓。
+  const task = this.NativeTasks[0 - entry - 1];
+  if (task.Callback.IsRef()) this.Roots.AddValue(task.Callback);
+  for (let j = 0; j < task.Args.length; j++) {
+    if (task.Args[j].IsRef()) this.Roots.AddValue(task.Args[j]);
+  }
+  if (task.Result.IsRef()) this.Roots.AddValue(task.Result);
+}
+// **挂在「还在等」的承诺上的任务**（第 185 轮 ✓）：它们不在队列里 ✓，
+// 所以要顺着 `NativeHosts` 那张名单找到承诺、再按反应表找到任务 ✓。
+for (let i = 0; i < this.NativeHosts.length; i++) {
+  const handle = this.NativeHosts[i];
+  if (handle <= 0 || !this.Table.IsValid(handle)) continue;
+  this.Roots.AddHandle(handle);
+  const item = this.Table.Get(handle);
+  if (item.Promise === null) continue;
+  for (let j = 0; j < item.Promise.NativeReactions.length; j++) {
+    const task = this.NativeTasks[item.Promise.NativeReactions[j]];
+    if (task.Callback.IsRef()) this.Roots.AddValue(task.Callback);
+    for (let k = 0; k < task.Args.length; k++) {
+      if (task.Args[k].IsRef()) this.Roots.AddValue(task.Args[k]);
+    }
+    if (task.Result.IsRef()) this.Roots.AddValue(task.Result);
+  }
 }
 for (let i = 0; i < this.Retained.length; i++) {
   this.Roots.AddHandle(this.Retained[i]);
@@ -1539,6 +1659,29 @@ if (id === RtOp.In) {
 throw new Error("unimplemented: rt op " + RtOpName(id));
 ```
 
+## method Scheduler:()=>TaskScheduler
+
+**把这台机器包成语义层要的那个「挂一个原生任务」的回调**（第 185 轮 ✓）。
+
+**为什么是第二处适配** ✗：`props.xl.md` / 语言层不该认识 `Vm` ✓，而 `Vm` 认识它们 ✓
+——与 `Native()`（`NativeCall` ✓）和 `Room()`（`RoomChecker` ✓）同一条理由 ✓。
+
+**建库层拿到的是「一个函数值」** ✓，于是它**不必**知道任务表长什么样 ✓：
+它只说「源承诺、回调、实参、结果承诺、认哪一档」五样 ✓（见 `ScheduleTask` ✓）。
+
+**必须包一层匿名函数，不能直接 `return this.ScheduleTask`** ✗（第 185 轮实测 ✓）：
+方法引用**不带接收者** ✓——到了建库层手里，调它时 `this` 是 `undefined` ✓，
+报的是 `Cannot read properties of undefined (reading 'Table')` ✗
+（那句话离现场很远 ✗：它听起来像执行器没造好 ✓，其实是「方法跑丢了 `this`」✓）。
+`Native()` 那一条一直是包着的 ✓（`this.CallNative(...)` ✓）——这一条照它写 ✓。
+
+```ts
+return (promise: Value, callback: Value, args: Value[], result: Value, wants: number,
+  carry: boolean): void => {
+  this.ScheduleTask(promise, callback, args, result, wants, carry);
+};
+```
+
 ## method Native:()=>NativeCall
 
 把这台机器包成语义层要的那个回调（`props.xl.md` 的 `NativeCall`）。
@@ -1619,7 +1762,13 @@ this.RunToDepth(depth);
 this.NativeDepth = this.NativeDepth - 1;
 const result = this.NativeResult;
 this.NativeResult = new Value();
-if (this.Status !== VmStatus.Ready) return Value.Undefined();
+// **`Halted` 也算成功**（第 185 轮 ✓）：微任务是在**入口函数返回之后**排空的 ✓
+// （宿主调 `DrainMicrotasks` 的那一刻，状态正是 `Halted` ✓）——
+// 只认 `Ready` 的话，`.then(f)` 里 `f` 的返回值会被**丢掉** ✗
+// （实测：`Promise.resolve(7).then(v => v + 1).then(console.log)` 印的是 `undefined` ✗，
+// 而 Node 印 `8` ✓）。生成器那一路（`DoIterNext`）要的是「**挂起**也算成功」✓，
+// 判据在那里另写 ✓（它按生成器自己的状态判 ✓）——两条口径本来就不同 ✓。
+if (this.Status !== VmStatus.Ready && this.Status !== VmStatus.Halted) return Value.Undefined();
 return result;
 ```
 
@@ -1811,16 +1960,61 @@ for (let i = 0; i < promise2.Reactions.length; i++) {
   }
 }
 promise2.Reactions = [];
+// **原生任务那一格也要排**（第 185 轮 ✓）：`.then(fn)` 挂上来的回调与 `await` 的帧
+// **同一条队列、同一个次序** ✓——挂上谁先，就谁先跑 ✓（`Microtasks` 那一段的说明 ✓）。
+for (let i = 0; i < promise2.NativeReactions.length; i++) {
+  const index = promise2.NativeReactions[i];
+  const task = this.NativeTasks[index];
+  task.Reject = false;
+  // **兑现值接在实参后面** ✓（与「已经结清」那一支同一条口径 ✓）：回调的形状是
+  // `(…挂上时的实参, 结清值)` ✓——`Promise.all` 那一步正靠它收值 ✓。
+  task.Args.push(settled);
+  this.Microtasks.push(0 - index - 1);
+}
+promise2.NativeReactions = [];
+this.ForgetNativeHost(promise.Ref);
+```
+
+## method RejectPromise:(promise:Value, reason:Value)=>void
+
+**拒绝一个承诺**（第 185 轮 ✓）：记下那一格，把等着它的**原生任务**全部排进微任务队列 ✓。
+
+**帧那一档不动** ✗：`await` 一个被拒绝的承诺要**抛** ✓，而「抛」需要错误对象那一层 ✓
+（`DoAwait` 那条已经在明处报了 ✓）。所以这里只把**语言层挂的回调**排开 ✓
+——那是 `.catch` / `.finally` / `Promise.all` 的失败传播 ✓。
+
+**幂等**：已经结清的承诺再拒绝一次是静默的 ✓（与 `ResolvePromise` 同一条口径 ✓）。
+
+```ts
+if (!promise.IsObject()) throw new Error("not a promise object");
+const item = this.Table.Get(promise.Ref);
+if (item.Promise === null) throw new Error("not a promise");
+const promise2 = item.Promise;
+if (promise2.State !== PromiseState.Pending) return;
+promise2.State = PromiseState.Rejected;
+promise2.Value = reason;
+for (let i = 0; i < promise2.NativeReactions.length; i++) {
+  const index = promise2.NativeReactions[i];
+  const task = this.NativeTasks[index];
+  task.Reject = true;
+  task.Args.push(reason);
+  this.Microtasks.push(0 - index - 1);
+}
+promise2.NativeReactions = [];
+this.ForgetNativeHost(promise.Ref);
 ```
 
 ## method DrainMicrotasks:()=>bool
 
 把微任务队列跑干净。**宿主每跑完一次脚本调用都该调它一次**（`Ts_Call` 的收尾）。
 
-每个微任务就是**一个挂起的帧**：压回栈上、跑到它再次挂起或返回。
+每个微任务**要么是一个挂起的帧**（`await` 那一路 ✓）、**要么是一个原生任务**
+（`.then` 那一路 ✓，第 185 轮 ✓）——两种都在**同一条队列**里 ✓、按**先进先出**跑 ✓。
 
-- 它是**同一个调用接着跑**（与生成器不同），所以用 `PushBack`：**不动它的 `ReturnSlot`**
+- 帧那一路：它是**同一个调用接着跑**（与生成器不同），所以用 `PushBack`：**不动它的 `ReturnSlot`**
   ——入口函数返回时那个值才会照常落到 `Result` 上；
+- 原生任务那一路（第 185 轮 ✓）：**调那个闭包**（`CallNative` ✓——它会建帧、跑到返回 ✓）、
+  把结清值**接在实参后面** ✓、返回值**灌进结果承诺** ✓；
 - 跑的过程中状态被改（脚本抛了、预算用尽）就**停下**，队列里剩下的留到下一次；
 - 全跑完之后**把外层状态还原**：这一趟只是「顺手把微任务清了」，
   不该把「入口函数已经返回（`Halted`）」改写成 `Ready`。
@@ -1830,8 +2024,15 @@ const outer = this.Status;
 while (this.Microtasks.length > 0) {
   const before: VmStatus = this.Status;
   if (before !== VmStatus.Ready && before !== VmStatus.Halted) return false;
-  const handle = this.Microtasks[0];
+  const entry = this.Microtasks[0];
   this.Microtasks = this.ShiftInt(this.Microtasks);
+  if (entry < 0) {
+    this.RunNativeTask(0 - entry - 1);
+    const settled: VmStatus = this.Status;
+    if (settled !== VmStatus.Ready && settled !== VmStatus.Halted) return false;
+    continue;
+  }
+  const handle = entry;
   if (!this.Table.IsValid(handle)) continue;
   const depth = this.Frames.Depth();
   this.NativeResult = new Value();
@@ -1842,6 +2043,143 @@ while (this.Microtasks.length > 0) {
 }
 this.Status = outer;
 return true;
+```
+
+## method ForgetNativeHost:(handle:int)=>void
+
+**把一格承诺从「挂着原生反应」的名单里去掉**（第 185 轮 ✓，结清时调 ✓）。
+
+```ts
+const kept: number[] = [];
+for (let i = 0; i < this.NativeHosts.length; i++) {
+  if (this.NativeHosts[i] !== handle) kept.push(this.NativeHosts[i]);
+}
+this.NativeHosts = kept;
+```
+
+## method FindFreeTask:()=>int
+
+**找一个空槽，没有就新开一格**（第 185 轮 ✓）——空槽的判据是 `Callback` 不是引用 ✓。
+
+```ts
+for (let i = 0; i < this.NativeTasks.length; i++) {
+  if (!this.NativeTasks[i].Callback.IsRef()) return i;
+}
+this.NativeTasks.push(new NativeTask());
+return this.NativeTasks.length - 1;
+```
+
+## method ScheduleTask:(promise:Value, callback:Value, args:Array<Value>, result:Value, wants:int, carry:bool)=>void
+
+**挂一个原生任务**（第 185 轮 ✓）——语言层的 `.then(fn)` 就走这一句 ✓。
+
+**两种情形** ✓（判据是「源承诺还在等吗」✓）：
+
+- **还在等**：挂进它的 `NativeReactions` ✓——它结清时由 `ResolvePromise` /
+  `RejectPromise` 把这一格**排进微任务队列** ✓（与 `await` 的帧同一条路 ✓）；
+- **已经结清 / 根本不是承诺**：**当场排进队列** ✓——语义上仍然**推迟** ✓
+  （`Promise.resolve(1).then(f => …)` 的回调不在这一句里跑 ✓，
+  而是在这一趟脚本之后的微任务里跑 ✓，与 Node 的行序一致 ✓）。
+
+```ts
+if (!promise.IsObject()) {
+  const index = this.AllocateTask(callback, args, result, false, wants, carry);
+  this.Microtasks.push(0 - index - 1);
+  return;
+}
+const item = this.Table.Get(promise.Ref);
+if (item.Promise === null || item.Promise.State !== PromiseState.Pending) {
+  // **已经结清**：把它的值接在实参后面 ✓（回调看到的形状与挂反应那一路一致 ✓），
+  // 并且**按它自己的状态**把「拒绝那一档」标出来 ✓——不然 `.catch` 挂在一个
+  // 已经拒绝的承诺上会**不跑** ✗（而 JS 里它正是为这一档准备的 ✓）。
+  const rejected = item.Promise !== null && item.Promise.State === PromiseState.Rejected;
+  if (item.Promise !== null) args.push(item.Promise.Value);
+  const index = this.AllocateTask(callback, args, result, rejected, wants, carry);
+  this.Microtasks.push(0 - index - 1);
+  return;
+}
+const index = this.AllocateTask(callback, args, result, false, wants, carry);
+item.Promise.NativeReactions.push(index);
+// **挂上原生反应的承诺要记账** ✓（第 185 轮 ✓）：任务里的闭包与实参**不在队列里** ✗
+// （队列里只有「已经可以跑」的那些 ✓），所以扫根时要按这张名单去找 ✓
+// ——漏了这一格，症状是「回调闭包某天被回收掉」✗（只在堆压满时出现 ✓，最难复现 ✓）。
+this.NativeHosts.push(promise.Ref);
+```
+
+## method EnqueueTask:(callback:Value, args:Array<Value>, result:Value, reject:bool, wants:int, carry:bool)=>void
+
+**造一格任务并当场排队** ✓（上面那一支「已经结清」走这里 ✓）。
+
+```ts
+const index = this.AllocateTask(callback, args, result, reject, wants, carry);
+this.Microtasks.push(0 - index - 1);
+```
+
+## method AllocateTask:(callback:Value, args:Array<Value>, result:Value, reject:bool, wants:int, carry:bool)=>int
+
+**占一格任务、把三样东西写进去** ✓（排队是调用方的事 ✓——挂反应那一路当时不排 ✓）。
+
+```ts
+const index = this.FindFreeTask();
+const task = this.NativeTasks[index];
+task.Callback = callback;
+task.Args = args;
+task.Result = result;
+task.Reject = reject;
+task.Wants = wants;
+task.Carry = carry;
+return index;
+```
+
+## method RunNativeTask:(index:int)=>void
+
+**跑一格原生任务**（第 185 轮 ✓）：调闭包 → 返回值灌进结果承诺 ✓。
+
+**结清值接在实参后面** ✓（挂上时的实参在前 ✓、结清值在后 ✓）——
+`Promise.all` 那一步正靠这一格收值 ✓。
+
+**跑完就清空那一格** ✓（空槽复用 ✓，见 `NativeTasks` ✓）。
+
+**结果承诺被拒绝的那一档**（`Reject` ✓）：调完把结果**拒绝**掉 ✓。
+
+```ts
+if (index < 0 || index >= this.NativeTasks.length) return;
+const task = this.NativeTasks[index];
+const callback = task.Callback;
+const result = task.Result;
+const reject = task.Reject;
+const wants = task.Wants;
+const carry = task.Carry;
+const args = task.Args;
+task.Callback = new Value();
+task.Args = [];
+task.Result = new Value();
+task.Reject = false;
+task.Wants = 2;
+task.Carry = true;
+if (!callback.IsRef()) return;
+// **这一格认不认这一档** ✓（第 185 轮 ✓）：不认就**跳过回调** ✓、
+// 把源那一档**原样传下去** ✓（JS 的 `.then(f)` 遇到拒绝就是这个形状 ✓）。
+const matched = wants === 2 || (wants === 1) === reject;
+if (!matched) {
+  if (result.IsObject() && this.Table.Get(result.Ref).Promise !== null) {
+    const carried = args.length > 0 ? args[args.length - 1] : Value.Undefined();
+    if (reject) {
+      this.RejectPromise(result, carried);
+    } else {
+      this.ResolvePromise(result, carried);
+    }
+  }
+  return;
+}
+const produced = this.CallNative(callback, Value.Undefined(), args);
+if (carry && result.IsObject() && this.Table.Get(result.Ref).Promise !== null) {
+  if (reject) {
+    this.RejectPromise(result, produced);
+  } else {
+    this.ResolvePromise(result, produced);
+  }
+}
 ```
 
 ## method ShiftInt:(items:Array<int>)=>Array<int>

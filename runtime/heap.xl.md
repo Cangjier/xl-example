@@ -607,6 +607,20 @@ return 0;
 
 等着它的帧句柄（`await` 挂起来的那些）。
 
+## field NativeReactions:Array<int> = []
+
+**等着它的原生任务号**（第 185 轮 ✓）——`Reactions` 的姊妹那一格 ✓。
+
+两格分开的理由是**一个是帧、一个是任务** ✗：`Reactions` 里装的是 `await` 挂起的帧
+（结清之后把这些帧放回执行器 ✓），而这一格装的是**语言层挂上来的回调**
+（`.then(fn)` ✓——结清之后由执行器**调那个闭包** ✓，并且把它的返回值灌进另一个承诺 ✓）。
+**两者不能混在一个数组里** ✗：放回去的帧与要调的回调，恢复方式根本不同 ✓
+（一个是 `PushBack` ✓，另一个是 `CallNative` ✓）。
+
+**任务本体住在执行器那边**（`vm.xl.md` 的 `NativeTasks` ✓），这里只存**号** ✓——
+于是这一格不需要认识「回调是什么」 ✓（与 `Frame` 那一格同一个手法：句柄而不是对象 ✓）。
+**它同样是回收的根链一环** ✓：任务里那个闭包与实参靠它活着 ✓（执行器扫根时按号去标 ✓）。
+
 ## constructor:(state:int, value:Value)=>void
 
 造一个承诺。
@@ -615,14 +629,15 @@ return 0;
 this.State = state;
 this.Value = value;
 this.Reactions = [];
+this.NativeReactions = [];
 ```
 
 ## method Charge:()=>int
 
-计费字节：一个值 + 反应表里每格一个句柄。
+计费字节：一个值 + 两张反应表里每格一个句柄。
 
 ```ts
-return ValueCharge + this.Reactions.length * 4;
+return ValueCharge + this.Reactions.length * 4 + this.NativeReactions.length * 4;
 ```
 
 # class HeapIterator

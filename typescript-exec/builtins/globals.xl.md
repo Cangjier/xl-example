@@ -12,6 +12,7 @@ import { ValueUnits, ValueText } from "./text.xl.md"
 import { InspectText } from "./inspect.xl.md"
 import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
+import { BuildPromise } from "./promise.xl.md"
 ```
 
 # namespace cangjie
@@ -587,9 +588,14 @@ if (id === PowId) {
 
 ```ts
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
-  "RangeError", "Array", "Number", "String", "Boolean", "parseInt", "parseFloat", "NaN", "Infinity",
+  "RangeError", "Array", "Number", "String", "Boolean", "Promise", "parseInt", "parseFloat", "NaN", "Infinity",
   "isNaN", "isFinite", "globalThis"];
 ```
+
+**`Promise` 是第 185 轮加进来的** ✓（与 `Boolean` 那条同一个理由 ✓）：
+名单里没有它，`Promise.resolve(1)` 在**降级期**就报
+`name is not a local or a capture: Promise` ✓——那句话听起来像脚本写错了变量名 ✗，
+其实是名单少了一个名字 ✓。
 
 **`isNaN` / `isFinite` 是第 149 轮加进来的** ✓：它们与 `Number.isNaN` / `Number.isFinite`
 **不是一回事** ✗——全局那两个**先做 `ToNumber`** ✓（`isNaN("abc")` 是 `true` ✓、
@@ -1948,6 +1954,11 @@ const nowTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 
 SetProperty(vm.Room(), NeverCall, table, dateObject, nowKey, nowTarget);
 const dateKey = Value.FromString(table.CreateString(Units("Date")));
 SetProperty(vm.Room(), NeverCall, table, globals, dateKey, dateObject);
+// **`Promise`**（第 185 轮 ✓）：值由 `promise.xl.md` 造 ✓（那里有四个静态方法 ✓），
+// 这里只负责**挂进全局对象** ✓——与 `Date` 那一格同一个形状 ✓
+// （既是对象 ✓、也能被 `new` ✓）。
+const promiseKey = Value.FromString(table.CreateString(Units("Promise")));
+SetProperty(vm.Room(), NeverCall, table, globals, promiseKey, BuildPromise(vm, protos));
 // **`Map` / `Set` / `Date` / `Array` 四格的 `prototype` 与 `constructor`**（第 138 轮）✓：
 // `new Map() instanceof Map` 要靠原型那一格 ✓，`new Map().constructor === Map` 要靠
 // `constructor` 那一格 ✓——**两格都要** ✗（只补一格就是「一半对」✓）。
