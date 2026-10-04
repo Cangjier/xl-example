@@ -244,6 +244,41 @@
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
 
+### 第 236 轮的账（**把标签模板后缀那一格的「走错哪条支」量准了**）
+
+**这一轮也没有加覆盖度** ✗——**它把第 235 轮那句「试过一版、没过」推到了「走错哪条支」** ✓。
+
+**量准的形状** ✓（`1 + t\`xy\`.length` 的顶层两格实测）：
+
+```
+DBGTOP kids=BinaryOperator,PropertyAccess     ← console.log(…) 的实参那一格
+DBGTOP kids=Identifier,SymbolToken,Method     ← PropertyAccess 里面
+```
+
+也就是说：**标签那一格是 `BinaryOperator`** ✗——`` 1 + t`xy`.length `` 的产物把
+**`1 + t` 收成了一个 `BinaryOperator`** ✓、模板串与后缀留在**兄弟**那一格 ✓。
+而那条支路（`0d`，第 176 轮）**只在 `kids[1]` 是 `BinaryOperator` 时才进** ✓——
+`kids[1]` 是 `PropertyAccess` ✓ ⇒ **它压根没进去** ✗（插桩的 `DBG0D` 一次都没打 ✓）。
+
+**三条支路的门槛，逐条对过** ✓（这是第 235 轮没做、这一轮补上的那一步 ✓）：
+
+| 支 | 门槛 | 这一形状过不过 |
+| --- | --- | --- |
+| `0b` | `kids.length === 2` 且 `kids[1]` **就是**那个反引号 `String` | ✗（`kids[1]` 是 `PropertyAccess`） |
+| `0c` | `kids.length >= 2` 且 `kids[1]` 是 `PropertyAccess` 且**它的第一个子单元**是反引号 `String` | ✓ **过** |
+| `0d` | `kids[1]` 是 `BinaryOperator` / `LogicalOperator` | ✗（是 `PropertyAccess`） |
+
+**`0c` 是进去的那一条** ✓，而它把后缀交给 `chainOnto` ✓——
+**第 235 轮改的是 `0d`** ✗（那一支根本没跑 ✓），所以判据照旧不过 ✓。
+**一次也没改到真正跑的那段代码** ✗——这就是「试过一版、没过」的真正原因 ✓
+（而不是「拦路虎在下一格」✓：`Function.prototype.toString` 那个缺口**确实也在** ✓，
+但它排在**后面** ✓）。
+
+**下一步的形状已经很具体** ✓：`0c` 那一支里，把后缀交给 `chainOnto` 之前
+**先看后缀里有没有「空的 `Method`」** ✓（第 235 轮写好的 `emptyMethodName` /
+`projectTaggedSuffix` 两份就在那次的补丁里 ✓）——有就自己走 ✓、没有才交回 `chainOnto` ✓。
+**再往下一格**才是 `Function.prototype.toString` ✓（`ToPrimitive` 拿函数要给源码文本 ✓）。
+
 ### 第 235 轮的账（**标签模板后缀那一格：查清了根子，试过一版、按纪律退回来**）
 
 **这一轮没有加覆盖度** ✗（`87.61%` 与第 234 轮逐位相同 ✓）——**它是一轮调查** ✓，
