@@ -1704,8 +1704,23 @@ if (id === RtOp.IsNullish) {
   return RtIsNullish(this.Table, slots[base]);
 }
 if (id === RtOp.NewClosure) {
+  // **`argc` 从 2 起，可以到 3** ✓（第 238 轮 ✓）：第三格是**函数名**（一个字符串值 ✓）。
+  // **为什么名字要走这里、而不是另开一条算子** ✗：`new_closure` 是**所有脚本函数**出生
+  // 的那一道门 ✓（`MakeClosure` 那一段写着 ✓），而名字**只有造它的那一方知道** ✓
+  //（降级层手里就有那个标识符的文本 ✓ 或者 `PendingFunction.Name` ✓）——
+  // 另开一条 `set_fn_name` 就是「造完再补一格」✓，而那一格**只在造的那一刻有意义** ✗。
+  // **不给第三格就是匿名** ✓（`MakeClosure` 那一档留着 ✓）——
+  // 这一条是**向后兼容**的关键 ✗：降级层不传的地方照旧 ✓。
+  //
+  // **`RequireArgc` 是「严格等于」的** ✗（见它的定义 ✓）——所以这里**两档各判一次** ✓，
+  // 而不是「先按 2 判、再看 `argc >= 3`」✗（那样 `argc === 3` 会在**第一句**就被拒 ✓，
+  // 报的是 `rt op new_closure expects 2 arguments, got 3` ✓——
+  // **一句话听起来像降级层多传了一格** ✓，其实是**这一句自己写窄了** ✗，第 238 轮实测踩过 ✓）。
+  if (argc === 3) {
+    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2]);
+  }
   RequireArgc(argc, 2, "new_closure");
-  return this.MakeClosure(slots[base], slots[base + 1].AsInt());
+  return this.MakeClosure(slots[base], slots[base + 1].AsInt(), Value.Undefined());
 }
 if (id === RtOp.GetProp) {
   RequireArgc(argc, 2, "get_prop");
@@ -3035,9 +3050,21 @@ try {
 }
 ```
 
-## method MakeClosure:(env:Value, code:int)=>Value
+## method MakeClosure:(env:Value, code:int, name:Value)=>Value
 
 造闭包（走 `Guard`：它要分配）。
+
+**`name` 是函数名那一格**（第 238 轮 ✓）：**字符串值** ✓（`undefined` 表示匿名 ✓）——
+与 `HeapClosure.Name` 那一格的约定一致 ✓（`0` 表示匿名 ✓）。
+
+**它补的是「函数显示名」** ✗：`HeapClosure.Name` 一直**没人填** ✓——
+于是**每一个脚本函数**在 `console.log` 里都是 `[Function (anonymous)]` ✓，
+而 Node 给 `[Function: greet]` ✓ / `[Function: arrow]` ✓（实测 ✓）。
+那不是「一个格子没填」的小事 ✗：**Node 输出里到处是它** ✓
+（`ex-computed-member-call` 那条判据现场红的正是这一处 ✓）。
+
+**名字从哪来** ✓：`new_closure` 的第三格 ✓——**只有造它的那一方知道** ✓
+（降级层手里就有那个标识符的文本 ✓）。
 
 **闭包要挂上 `Function.prototype`** ✓（第 228 轮 ✓）——这是**所有脚本函数**出生的那一道门 ✓
 （降级层每个函数声明 / 函数表达式 / 箭头 / 方法都发 `new_closure` ✓，见
@@ -3066,6 +3093,12 @@ if (!created.IsRef()) return created;
 const protos = this.Protos;
 if (protos !== null && protos.Function > 0) {
   this.Table.Get(created.Ref).Proto = protos.Function;
+}
+// **名字那一格** ✓：只有真给了字符串才写 ✓——`undefined` 保持**匿名** ✓
+//（`Name` 那一格的约定是「句柄 0 表示匿名」✓，所以这里不能拿 `undefined` 的
+// `Ref` 去写 ✗：那是个别的值 ✓）。
+if (name.IsString()) {
+  this.Table.Get(created.Ref).AsClosure().Name = name.Ref;
 }
 return created;
 ```

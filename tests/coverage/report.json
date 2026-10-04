@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 87.61,
+  "progressPercent": 88.25,
   "layers": [
     {
       "layer": "runtime",
@@ -34,11 +34,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 47,
-      "pass": 41,
+      "pass": 42,
       "blocked": 4,
-      "differ": 2,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 87.23
+      "coverage": 89.36
     },
     {
       "layer": "stdlib",
@@ -177,12 +177,6 @@
       "layer": "exec",
       "title": "构造函数参数属性（`constructor(private x)`）要变出字段来",
       "detail": "stdout 不同：第 1 行：node «1 6 3» vs tsrun «undefined NaN 0»"
-    },
-    {
-      "id": "ex-computed-member-call",
-      "layer": "exec",
-      "title": "`o[k](...)` / 计算结果键的方法",
-      "detail": "stdout 不同：第 1 行：node «2 2 [Function: run]» vs tsrun «2 2 [Function (anonymous)]»"
     },
     {
       "id": "object-freeze-array-element",

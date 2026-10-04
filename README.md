@@ -153,13 +153,12 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 234 轮读数：**249 / 275 = 87.6%**，
-其中**引擎 93.4%** ✓、降级层 **87.2%** ✓、标准库 **90.8%** ✓、端到端 **76.9%** ✓——
-第 234 轮修掉了 **`...` 落在裸表达式位上**（`[...cond ? a : b]` ✓）
-与 **「标签 + 一个块」**（`outer: { … break outer; … }` ✓）；
-第 233 轮修掉了 **`typeof` 那一族**（那个 `{` 原来走错了重组 ✓）；
-第 232 轮修掉了 `new` 实参位里 `as` 的投影 ✓、让 **`new` 那一档告诉宿主** ✓、
-并给 `new Boolean(x)` 补上了包装对象 ✓）——
+**场景覆盖度**是 `npm run coverage`（第 238 轮读数：**250 / 275 = 88.2%**，
+其中**引擎 93.4%** ✓、降级层 **89.4%** ✓、标准库 **90.8%** ✓、端到端 **76.9%** ✓——
+第 238 轮补上了**函数的显示名**（`HeapClosure.Name` 一直没人填 ✓，
+于是每个脚本函数都是 `[Function (anonymous)]` ✓）；
+第 234 轮修掉了 **`...` 落在裸表达式位上** ✓ 与 **「标签 + 一个块」** ✓；
+第 233 轮修掉了 **`typeof` 那一族** ✓）——
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

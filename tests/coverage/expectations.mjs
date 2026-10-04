@@ -52,7 +52,17 @@ export const EXPECTATIONS = {
   // **第 233 轮删掉了 `ex-typeof-value-expression` 那一行** ✓（它过了 ✓，与
   // `op-typeof-forms` 同一处 ✓）：它的第一项 `typeof ({}).toString` 原来把括号里的 `{}`
   // 投成了 **`TypeLiteral`** ✗（一个大括号被读成「类型」✓，而它是**值** ✓）。
-  "ex-computed-member-call": { expect: "differ", why: "函数的显示形态：`[Function: run]` vs `[Function (anonymous)]`" },
+  // **第 238 轮删掉了 `ex-computed-member-call` 那一行** ✓（它过了 ✓）：
+  // 差的是**函数的显示形态**（`[Function: run]` ✓ vs `[Function (anonymous)]` ✗）。
+  // 根子：`HeapClosure.Name` **一直没人填** ✗——于是**每一个脚本函数**在
+  // `console.log` 里都是匿名 ✓（实测：`function greet(){}` 也是 ✓，而 Node 给 `[Function: greet]` ✓）。
+  // 修法：`new_closure` 收**第三格**（名字 ✓，不给就是匿名 ✓、向后兼容 ✓），
+  // 名字有三个来源 ✓——`FunctionNameHint`（`const arrow = () => 2` 那一档 ✓，
+  // 名字来自**绑定的那一刻** ✓）、树上的真名 ✓、或者**匿名** ✓
+  //（`"<arrow>"` / `"<function>"` 那两个占位符以 `<` 开头 ✓，那一档要当匿名 ✓——
+  //  否则 `console.log(() => 1)` 会印 `[Function: <arrow>]` ✓，Node 印 `[Function (anonymous)]` ✓）。
+  // **对象字面量的方法要把提示顶掉** ✓：`const o = { run() {} }` 里提示还留着 `o` ✓，
+  // 不顶掉就印 `[Function: o]` ✓（实测踩过 ✗）。
   // **第 232 轮删掉了 `ex-spread-in-new` 那一行** ✓（它过了 ✓）：它的最后一句话是
   // `new Map([[1, 2]] as any)` ✓——**实参位里的 `as`** ✓。产物那边 `x as T` 是
   // **两格平级单元** ✓（`Identifier` 与 `As` ✓），而 `new` 的实参位原来走「逐格投」✗，

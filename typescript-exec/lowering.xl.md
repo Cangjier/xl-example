@@ -1045,8 +1045,31 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 （JS 的规矩：块上的 `continue` 非法 ✓）、以及「循环体每轮新建绑定」✓。
 把块混进去会让块里的 `continue` 找到一层不是循环的东西 ✓（**静默错值** ✗）。
 
-## field PendingLabel:string = ""
+## field FunctionNameHint:string = ""
 
+**「下一个函数值该叫什么」**（第 238 轮 ✓）——空串表示「没有提示」✓。
+
+**为什么需要它** ✗：`const arrow = () => 2` 里那个箭头**没有自己的名字** ✓
+（箭头不是具名函数 ✓，树上一个名字都没有 ✓），而 Node 给 `[Function: arrow]` ✓——
+名字**来自绑定的那一刻** ✓。同一条也管**匿名函数表达式** ✓
+（`const f = function () {}` ✓——Node 给 `[Function: f]` ✓）。
+**`HeapClosure.Name` 一直没人填** ✗ ⇒ 从前**每一个脚本函数**都是
+`[Function (anonymous)]` ✓（实测 ✓），而 Node 输出里到处是这个名字 ✓。
+
+**它由谁写、由谁读、什么时候清** ✓：
+- **写**：`LowerVariable` 的**简单名**那一支 ✓（`const <名> = <初始化式>` ✓）——
+  就在降初始化式**之前**置上 ✓；
+- **读**：`LowerFunctionValue` 一处 ✓（**唯一**读它的地方 ✓）——
+  提示不是空串就**优先用它** ✓（压过 `"<arrow>"` / `"<function>"` 那两个占位符 ✓）；
+- **清**：同一个调用里**用完就还原** ✓（存一份、置一份、再存回来 ✓）——
+  不清的话「下一个函数值」会白继承上一个名字 ✗
+  （`const a = () => 1; const b = () => 2;` 两个都叫 `a` ✓，而那是**静默错值** ✗）。
+
+**已知差** ✗：**对象字面量的方法名**（`{ run() {} }` ✓）与**类的方法名** ✓
+这一轮**不带提示** ✓——它们各自那一处的名字来源不同 ✓（挂在属性上 ✓），
+缺口写在台账里 ✓。
+
+## field PendingLabel:string = ""
 **下一个 `EnterLoop` 要吃进去的标签**（`outer: for (…)` 里那个 `outer`）。
 
 **为什么用「待用字段」而不是给 `EnterLoop` 加参数**：标签写在循环**外面**
@@ -2153,7 +2176,20 @@ const value = this.Reserve(1);
 if (initializer === null) {
   this.Emit(Op.Const, value, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
 } else {
+  // **把「这个名字」当成函数名的提示递下去** ✓（第 238 轮 ✓）：
+  // `const arrow = () => 2` 里那个箭头**没有自己的名字** ✗（箭头不是具名函数 ✓），
+  // 而 Node 给 `[Function: arrow]` ✓——名字**来自绑定的那一刻** ✓，
+  // 而那一刻**正好就是这里** ✓（左边那个标识符 ✓、右边那个函数值 ✓）。
+  //
+  // **只在右边是一个函数值时才留下痕迹** ✓：`const x = 1` 也走这一句 ✓，
+  // 而 `LowerFunctionValue` 是**唯一读它的人** ✓——所以别的形状一点影响都没有 ✓
+  //（读不到就读不到 ✓，见 `FunctionNameHint` 那一格 ✓）。
+  // **用完就清** ✓：不清的话「下一个函数值」会白继承上一个名字 ✗
+  //（`const a = () => 1; const b = () => 2;` 两个都叫 `a` ✓，而那是**静默错值** ✗）。
+  const savedHint = this.FunctionNameHint;
+  this.FunctionNameHint = text;
   this.LowerInto(value, initializer);
+  this.FunctionNameHint = savedHint;
 }
 // **不要在这里退水位**：`BindName` 可能刚在 `value` 上面留了一格给变量，
 // 退下去就会让**下一次分配覆盖那个变量**（判据报的是「算术遇到了非数值」——
@@ -4100,7 +4136,25 @@ const patterns: AstNode[] = [];
 this.CollectPatternParams(node, patternAt, patterns);
 const body = Child(node, "body");
 const patch = this.Program().AddConst(Constant.OfInt(0));
-const window = this.Reserve(2);
+// **函数名那一格**（第 238 轮 ✓）：`HeapClosure.Name` 一直**没人填** ✗，
+// 于是**每一个脚本函数**在 `console.log` 里都是 `[Function (anonymous)]` ✓，
+// 而 Node 给 `[Function: greet]` ✓ / `[Function: arrow]` ✓——**实测过** ✓
+//（`ex-computed-member-call` 那条判据现场红的正是这一处 ✓）。
+//
+// **名字从哪来**（三档 ✓，次序是语义 ✗）：
+// 1. **`FunctionNameHint` 优先** ✓（`const arrow = () => 2` 那一档 ✓，
+//    名字来自**绑定的那一刻** ✓，见那一格 ✓）；
+// 2. **否则用 `name`** ✓（调用方给的：函数表达式的真名 ✓、或者
+//    `"<arrow>"` / `"<function>"` 那两个**占位符** ✓）；
+// 3. **占位符要当匿名** ✓——见下面那一句（`<` 开头的不传 ✓，否则
+//    `console.log(() => 1)` 会印出 `[Function: <arrow>]` ✓，
+//    而 Node 印的是 `[Function (anonymous)]` ✓，**实测踩过** ✓）。
+let displayName = this.FunctionNameHint !== "" ? this.FunctionNameHint : name;
+if (displayName.length > 0 && displayName.charAt(0) === "<") displayName = "";
+const nameConst = displayName === ""
+  ? this.Program().AddConst(Constant.OfUndefined())
+  : this.Program().AddConst(Constant.OfString(UnitsOf(displayName)));
+const window = this.Reserve(3);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
   this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -4108,8 +4162,9 @@ if (enclosing === null) {
   this.Emit(Op.Move, window, enclosing.Slot, -1, -1);
 }
 this.Emit(Op.Const, window + 1, patch, -1, -1);
+this.Emit(Op.Const, window + 2, nameConst, -1, -1);
 const slot = this.Reserve(1);
-this.EmitRt(RtOp.NewClosure, slot, window, 2);
+this.EmitRt(RtOp.NewClosure, slot, window, 3);
 // **退到闭包之上，不是退到窗口**：窗口是先预留的，`Release(window)` 会把**闭包格**
 // 一起退掉——下一个分配就盖在它上面（表现是「调用了非闭包的值」）。
 this.Release(slot + 1);
@@ -4302,7 +4357,19 @@ for (let i = 0; i < properties.length; i++) {
       this.SetPropertyValue(object, keySlot, value);
       continue;
     }
+    // **方法名要把外面那条提示顶掉** ✓（第 238 轮 ✓，**实测踩过** ✗）：
+    // `const o = { run() { … } }` 里，`FunctionNameHint` 还留着**外面那个变量名** `o` ✓
+    //（`LowerVariable` 置的 ✓）——不顶掉的话 `console.log(o.run)` 印
+    // `[Function: o]` ✓，而 Node 给 `[Function: run]` ✓（**实测** ✓：
+    // 判据 `ex-computed-member-call` 就是这么红的 ✓）。
+    // **这一处的名字来自树**（`TextOf(name)` ✓），**不是**来自绑定的那一刻 ✓——
+    // 所以这里把提示**临时清掉** ✗（清空 ⇒ `LowerFunctionValue` 那一档自然用 `name` ✓）。
+    // **计算键那一档不清** ✓：它本来就匿名 ✓（`"<computed>"` 以 `<` 开头 ✓，
+    // `LowerFunctionValue` 会把它当匿名 ✓）。
+    const savedMethodHint = this.FunctionNameHint;
+    this.FunctionNameHint = "";
     value = this.LowerFunctionValue(property, TextOf(name));
+    this.FunctionNameHint = savedMethodHint;
     // **键走 `KeyUnitsOf`、不走 `TextOf`**（第 183 轮修 ✓）：`{ "x-y"() { … } }` 的键是
     // **字符串字面量** ✓，而 `TextOf` 取的是**原文**（带引号 ✗）——于是那一格存在 `"x-y"` 上
     // （名字里真的有两个引号 ✓，`Object.keys` 印得出来 ✓），按 `o["x-y"]` 取永远取不到 ✗。
@@ -5061,7 +5128,10 @@ const patterns: AstNode[] = [];
 this.CollectPatternParams(node, patternAt, patterns);
 const slot = this.Reserve(1);
 const patch = this.Program().AddConst(Constant.OfInt(0));
-const window = this.Reserve(2);
+// **函数名那一格**（第 238 轮 ✓）：见 `LowerFunctionValue` 那一段 ✓
+//（函数声明这条路原来一个名字都不带 ✗，于是 `function greet(){}` 也是 `[Function (anonymous)]` ✓）。
+const nameConst = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
+const window = this.Reserve(3);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
   this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -5069,7 +5139,8 @@ if (enclosing === null) {
   this.Emit(Op.Move, window, enclosing.Slot, -1, -1);
 }
 this.Emit(Op.Const, window + 1, patch, -1, -1);
-this.EmitRt(RtOp.NewClosure, slot, window, 2);
+this.Emit(Op.Const, window + 2, nameConst, -1, -1);
+this.EmitRt(RtOp.NewClosure, slot, window, 3);
 // **退到闭包之上，不是退到窗口**（理由见 `LowerFunctionValue` 那一处）。
 this.Release(slot + 1);
 // **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。
