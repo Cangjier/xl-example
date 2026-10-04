@@ -1079,14 +1079,30 @@ const isBracket = unit instanceof Bracket && unit.startBracket === "[";
 if (isBracket === false && unit.constructor.name !== "ArrayLiteral") {
   return false;
 }
-// **第 163 轮试过补一条「父单元是花括号」的词法判据** ✗——**退回来了** ✗。
-// 想法：映射键的 `[` 一定长在 `{` 里 ✓（要么是第一个单元 ✓、要么紧跟 `readonly` ✓），
-// 于是 `const r = [x in y, 2]` 那种**值位数组**就不会被误认成映射键 ✓。
-// **判据当场把这次改动否掉了** ✗：`cases:tsast` 从 **1440 / 1441** 掉到 **1431 / 1441** ✗
-//（缺节点 **0 → 205**、多出来 **0 → 68**、字段名 **0 → 18** ✓）。
-// 结论：**真映射键的 `[` 并不直接挂在花括号下** ✗（多半挂在 `TypeLiteral` 那个单元下 ✓），
-// 所以这条判据把**真的**映射类型一起挡掉了 ✗。
-// **要修它得先看清那个父单元到底是什么** ✓（下一轮用插桩 / `--ts-ast` 量 ✓，别再猜 ✗）。
+// **补一条「容器」判据**（第 165 轮 ✓，**第 163 轮猜错过一次** ✗）：
+// 映射键的 `[` 一定长在**类型字面量**里 ✓——要么还是那个 `{` 括号 ✓，
+// 要么 `{` 已经被重组成了 `TypeLiteral` 单元 ✓（**两种都要认** ✗：
+// 第 163 轮只认 `{` 括号 ✗，`cases:tsast` 当场从 1440/1441 掉到 1431/1441 ✗，
+// 缺节点 205 ✗——真映射键的父单元那时已经是 `TypeLiteral` 了 ✗）。
+//
+// **放行的判据**：父单元是 `{` 括号 ✓ **或** `TypeLiteral` ✓；
+// **挡掉的**是值位那些容器 ✓：`Root` ✓ / `Statement` ✓ / `(` `[` 括号 ✓ / `Method` ✓——
+// `const r = [x in y, 2];` 里那个数组的父单元就是 `Root` ✓（插桩实测 ✓），
+// 于是它不再被认成映射键 ✓，整个数组也不再被投成 `TypeParameter` ✓。
+//
+// **为什么必须带这一条** ✗：光看「里面有没有 `in`」把值位的 `in`（二元运算符 ✓）也算上了 ✗。
+// 插桩还确认了一件事 ✓：这个判据**也会被 `TypeParameter` 单元问到** ✓
+//（那时 `unit` 既不是括号也不是 `ArrayLiteral` ✓，上面那条早退就放走了 ✓）——
+// 所以这一条只影响「括号 / ArrayLiteral」那一支 ✓，不会牵动别的调用点 ✓。
+const container = unit.Parent;
+if (container !== null) {
+  const containerName = container.constructor.name;
+  const isTypeLiteral = containerName === "TypeLiteral";
+  const isBraceBracket = container instanceof Bracket && container.startBracket === "{";
+  if (isTypeLiteral === false && isBraceBracket === false) {
+    return false;
+  }
+}
 for (const item of unit.Data) {
   const name = item.constructor.name;
   if (item instanceof Identifier && item.Is("in")) {
