@@ -107,7 +107,30 @@ import { SetCtor } from "./set.xl.md"
 # const NumberIsNaN:int = 321
 
 **`Number.isNaN(x)`**——**只认真正的 `NaN`** ✓（`Float64` 那条自比较 ✓）；
-`"abc"` / `undefined` 一律假 ✓（JS 也是 ✓——要转的用全局 `isNaN` ✗，那一个这一轮不做 ✓）。
+`"abc"` / `undefined` 一律假 ✓（JS 也是 ✓）。
+
+# const NumberIsFinite:int = 324
+
+**`Number.isFinite(x)`**（第 149 轮补）——**不做转换** ✗（与 `Number.isNaN` 同一条口径 ✓）：
+只认 `Int32` / `Float64` 且有限 ✓，其余（字符串 / `null` / `NaN` / `±Infinity`）一律假 ✓。
+`isFinite("3")` 是 `true` ✓（全局那个先转 ✓），`Number.isFinite("3")` 是 `false` ✓——
+**两份的差别就是「转不转」这一格** ✓。
+
+# const IsNaN:int = 322
+**全局的 `isNaN(x)`**（第 149 轮补）——**与 `Number.isNaN` 不是一回事** ✗：
+它先做 **`ToNumber`** ✓（`isNaN("abc")` 是 `true` ✓——字符串转不成就给 `NaN` ✓），
+而 `Number.isNaN("abc")` 是 `false` ✓。
+
+**实现就是「先转再自比较」** ✓：转那一步借**第 145 轮**那条 `NumberFromValue` ✓
+（`Number(x)` 的语义只有一份 ✓——这里再写一遍前缀/进制扫描就是第二份会走偏的实现 ✗）。
+
+# const IsFinite:int = 323
+
+**全局的 `isFinite(x)`**（第 149 轮补）——同样**先 `ToNumber`** ✓
+（`isFinite("3")` 是 `true` ✓、`isFinite("abc")` 是 `false` ✓）。
+
+**`NaN` 与 `±Infinity` 都是假** ✓：`Number(x)` 出来是 `NaN` / `±Infinity` 就假 ✓
+（`NaN !== NaN` 那一条自比较在这里就够了 ✓，不必再调库 ✓）。
 
 # method DigitValue:(unit:int)=>int
 
@@ -302,6 +325,31 @@ return MathResult(Number(literal));
 **长度那一档复用 `HeapArray.Truncate`** ✓：它的规矩**本来就是**「变长时新增的格子全是洞」 ✓
 （`heap.xl.md` 写着这一条 ✓）——正是 `new Array(n)` 的语义 ✓，不必再写一遍 ✗。
 
+# const PowId:int = 224
+
+**`a ** b`（幂）** 的能力号（第 149 轮）——**它不是全局名** ✓，是**降级层**发的一条内部调用 ✓
+（与 `StringConcat` 同一类 ✓：号在全局段里 ✓、脚本看不见 ✓、由 `InstallBuiltins` 登记 ✓）。
+
+**为什么它走这一层、不进引擎的算子表** ✗（这是这一轮**特意绕开**的一格 ✓）：
+`RtOp.Pow` 那一格**早就留着** ✓（设计期就编了号 ✓），但**幂的舍入没有标准定死** ✗——
+IEEE 754 **不要求** `pow` 正确舍入 ✓，所以 V8 的 `Math.pow` 与 C++ 的 `std::pow`
+**可能差最后一位** ✓。而 `runtime/host-text.xl.md` 那条规矩是
+「**借的必须是结果被标准定死的东西**」✓（十进制 ↔ 双精度那条有 IEEE 754 兜着 ✓）。
+把 `pow` 塞进引擎就等于**偷偷破那条规矩** ✗；放在**建库层**就名正言顺 ✓——
+这一层本来就是「JS 家族语义 + 一处诚实的宿主借用」✓，而 `Math.pow` **早就在这儿** ✓
+（`MathPow` = 212 ✓）。所以 `**` 与 `Math.pow(x, y)` 走**同一行代码** ✓：
+JS 的规范本来就说 `**` 的语义**就是** `Math.pow` ✓。
+
+**已知的跨目标差**（写在明处 ✗）：C++ 那一侧的 `std::pow` 可能与 V8 差最后一位 ✓——
+与 `host-text.xl.md` 里记的「指数形式写法可能差字符」同族 ✓（P1 对拍时收 ✓）。
+
+```ts
+if (id === PowId) {
+  // **与 `MathPow` 一字不差** ✓（同一个语义只有一份实现 ✓）。
+  return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
+}
+```
+
 # const SymbolCtor:int = 250
 
 **`Symbol(description)`** 的能力号（全局段 200..299 里空着的号）。
@@ -465,8 +513,22 @@ return MathResult(Number(literal));
 
 ```ts
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
-  "RangeError", "Array", "Number", "String", "Boolean", "parseInt", "parseFloat"];
+  "RangeError", "Array", "Number", "String", "Boolean", "parseInt", "parseFloat", "NaN", "Infinity",
+  "isNaN", "isFinite", "globalThis"];
 ```
+
+**`isNaN` / `isFinite` 是第 149 轮加进来的** ✓：它们与 `Number.isNaN` / `Number.isFinite`
+**不是一回事** ✗——全局那两个**先做 `ToNumber`** ✓（`isNaN("abc")` 是 `true` ✓、
+`isFinite("3")` 是 `true` ✓），而 `Number.isNaN("abc")` 是 `false` ✓（它只认真正的 `NaN` ✓）。
+两份都要有 ✓，而且**实现要分开写** ✓（写成一份就是「一半对」✓）。
+
+**`globalThis` 也是第 149 轮加进来的** ✓，而且它**指向那个环境对象自己** ✓
+（`globalThis.Math === Math` ✓）。加它是因为 `typeof` 那一格的新规矩
+（未声明的名字给 `"undefined"` ✓，第 149 轮 ✓）会让 `typeof globalThis` 给
+**`"undefined"`** ✗——而它在 Node 里是 `"object"` ✓，那是一处**静默**的不一致 ✗。
+**剩下的同类差异写在明处** ✗：`typeof process` / `typeof require` / `typeof setTimeout`
+这些**宿主专有**的名字，Node 给 `"object"` / `"function"` ✓，本仓给 `"undefined"` ✗——
+本仓的全局对象是**故意小的** ✓（宿主能力走能力表 ✓，不往脚本作用域里塞 ✓）。
 
 # method NumericOf:(value:Value)=>float
 
@@ -629,6 +691,34 @@ if (id === MathSqrt) {
 }
 if (id === MathPow) {
   // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`NumericOf(undefined)` 会抛 ✓）。
+  return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
+}
+if (id === IsNaN || id === IsFinite || id === NumberIsFinite) {
+  // **`Number.isFinite` 不转换** ✗（第 149 轮）：它只认数值标签 ✓——
+  // `Number.isFinite("3")` 是 `false` ✓，而全局的 `isFinite("3")` 是 `true` ✓。
+  // **这一格单独判** ✓：混进下面「先转再判」那条就是**静默错值** ✗
+  //（`Number.isFinite("3")` 会变成 `true` ✓，而 JS 给 `false` ✓）。
+  if (id === NumberIsFinite) {
+    const raw = args.length > 0 ? args[0] : Value.Undefined();
+    if (raw.Tag !== ValueTag.Int32 && raw.Tag !== ValueTag.Float64) return Value.FromBool(false);
+    const numeric = raw.Tag === ValueTag.Int32 ? raw.Int : raw.Dbl;
+    return Value.FromBool(numeric === numeric && numeric !== Infinity && numeric !== -Infinity);
+  }
+  // **两个全局判定都是「先 `ToNumber`，再自比较」**（第 149 轮）✓：
+  // 转那一步借 `NumberFromValue` ✓（`Number(x)` 的语义只有一份 ✓）。
+  // **不许直接拿 `Number.isNaN` / `Number.isFinite` 顶替** ✗：那两个**不做转换** ✓——
+  // `isNaN("abc")` 该是 `true` ✓（转成 `NaN` ✓），而 `Number.isNaN("abc")` 是 `false` ✓。
+  const converted = NumberFromValue(table, args.length > 0 ? args[0] : Value.Undefined());
+  const number = converted.Tag === ValueTag.Int32 ? converted.Int : converted.Dbl;
+  const notANumber = number !== number;
+  if (id === IsNaN) return Value.FromBool(notANumber);
+  // **`NaN` 与 `±Infinity` 都不有限** ✓（自比较那一条已经管了 `NaN` ✓）。
+  return Value.FromBool(notANumber === false && number !== Infinity && number !== -Infinity);
+}
+if (id === PowId) {
+  // **`a ** b` 走的就是 `Math.pow`** ✓（JS 的规范本来就这么定 ✓）——
+  // 号不同（`PowId` 是降级层发的内部调用 ✓）、语义同一个 ✓。
+  // **不是全局名** ✓：脚本里写 `PowId` 找不到它 ✓。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
 }
 if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor) {
@@ -1490,6 +1580,11 @@ SetProperty(vm.Room(), NeverCall, table, numberObject, isIntegerKey, isIntegerTa
 const isNaNAKey = Value.FromString(table.CreateString(Units("isNaN")));
 const isNaNTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsNaN, 0));
 SetProperty(vm.Room(), NeverCall, table, numberObject, isNaNAKey, isNaNTarget);
+// **`Number.isFinite`**（第 149 轮）✓：与全局的 `isFinite` 不是一个东西 ✓
+//（那个先转、这个不转 ✓），所以两处各挂一格 ✓。
+const isFiniteKey = Value.FromString(table.CreateString(Units("isFinite")));
+const isFiniteTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsFinite, 0));
+SetProperty(vm.Room(), NeverCall, table, numberObject, isFiniteKey, isFiniteTarget);
 const numberKey = Value.FromString(table.CreateString(Units("Number")));
 SetProperty(vm.Room(), NeverCall, table, globals, numberKey, numberObject);
 // **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款 ✓），
@@ -1543,6 +1638,27 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Object), NameVa
   objectObject);
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
 SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
+// **`NaN` / `Infinity` 也是全局对象上的属性**（第 149 轮）✓：与 `undefined` 同一条路 ✓——
+// 它们是**只读**的 ✓（JS 里 `Infinity = 1` 在严格模式下抛 ✗），但这一层没有「只读」那一格 ✓，
+// 所以照普通属性挂 ✓：**已知差异**写在明处 ✓（脚本给它们赋值在这里会成功 ✗）。
+// 值本身是 `Float64` ✓（`NaN` 用 `Value.FromDouble(NaN)` ✓——与 `0 / 0` 算出来的**同一档** ✓）。
+const nanKey = Value.FromString(table.CreateString(Units("NaN")));
+SetProperty(vm.Room(), NeverCall, table, globals, nanKey, Value.FromDouble(NaN));
+const infinityKey = Value.FromString(table.CreateString(Units("Infinity")));
+SetProperty(vm.Room(), NeverCall, table, globals, infinityKey, Value.FromDouble(Infinity));
+// **全局的 `isNaN` / `isFinite`**（第 149 轮）✓——与 `Number.isNaN` / `Number.isFinite`
+// 是**两个**东西 ✓（那两个挂在上面的 `Number` 对象上 ✓），所以这里各挂一格 ✓。
+SetProperty(vm.Room(), NeverCall, table, globals,
+  Value.FromString(table.CreateString(Units("isNaN"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(IsNaN, 0)));
+SetProperty(vm.Room(), NeverCall, table, globals,
+  Value.FromString(table.CreateString(Units("isFinite"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(IsFinite, 0)));
+// **`globalThis` 指向那个环境对象自己**（第 149 轮）✓：`globalThis.Math === Math` ✓。
+// **加它的直接原因是 `typeof` 那一格的新规矩** ✓：未声明的名字给 `"undefined"` ✓，
+// 而 `globalThis` 在 Node 里是 `"object"` ✓——不补这一格就是一处**静默**的不一致 ✗。
+SetProperty(vm.Room(), NeverCall, table, globals,
+  Value.FromString(table.CreateString(Units("globalThis"))), globals);
 // **`Map` 是一个宿主引用值**（不是普通对象）：`new Map()` 走 `Op.New` 的
 // 「宿主构造函数」那条分支——宿主自己把对象造好返回（见 `map.xl.md`）。
 const mapKey = Value.FromString(table.CreateString(Units("Map")));

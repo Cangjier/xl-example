@@ -7,7 +7,7 @@ import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
-import { StringConcat, ObjectAssign } from "./builtins/globals.xl.md"
+import { StringConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 ```
 
 # namespace cangjie
@@ -466,6 +466,9 @@ if (operatorText === "^=") return "^";
 if (operatorText === "<<=") return "<<";
 if (operatorText === ">>=") return ">>";
 if (operatorText === ">>>=") return ">>>";
+// **`**=` 也在表里**（第 149 轮）✓：它的「算」那一步走**内建**那条 ✓
+//（见 `CombineValues` ✓），但**底运算符**照样是这里给的 ✓——两件事分开写 ✓。
+if (operatorText === "**=") return "**";
 return "";
 ```
 
@@ -4528,7 +4531,26 @@ if (kind === "AwaitExpression") {
   return this.LowerAwait(node);
 }
 if (kind === "TypeOfExpression") {
-  const value = this.LowerExpression(Child(node, "expression"));
+  const subject = Child(node, "expression");
+  // **`typeof` 一个没声明的名字**（第 149 轮）：JS 里这是**唯一不抛**的未声明读法 ✓——
+  // `typeof window !== "undefined"` 这种特性检测遍地都是 ✓，而且 Node 跑得动它 ✓
+  //（实测：`console.log(typeof window)` 给 `undefined` ✓），本仓原来在**降级期**就抛 ✗
+  //（整份文件进不来 ✓）。
+  //
+  // **结果是字符串 `"undefined"`** ✓——不是 `undefined` 那个值 ✗
+  //（这一点最容易写错 ✓：`typeof` 给的一定是字符串 ✓）。
+  // **只在这一格成立** ✗：`typeof` 之外读同一个名字照旧抛 ✓（与 JS 一致 ✓）——
+  // 所以这里**不往作用域里塞任何东西** ✓，只是把这一处的答案换成常量 ✓。
+  //
+  // **判据是「这个名字在不在作用域链上」** ✓（本地槽 ✓ + 捕获环境 ✓）：
+  // 全局名是**局部槽**（`DeclareGlobals` 声明过 ✓），所以 `typeof console` 照旧走真路 ✓。
+  if (NodeKind(subject) === "Identifier" && this.NameIsUnreachable(TextOf(subject))) {
+    const missing = this.Reserve(1);
+    this.Emit(Op.Const, missing,
+      this.Program().AddConst(Constant.OfString(UnitsOf("undefined"))), -1, -1);
+    return missing;
+  }
+  const value = this.LowerExpression(subject);
   return this.RtCall1(RtOp.Typeof, value);
 }
 if (kind === "DeleteExpression") {
@@ -4607,6 +4629,28 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
   throw new Error("unimplemented: unary operator `" + operator + "` (only -, !, ~, ++ and -- are implemented)");
 }
 throw new Error("unimplemented: expression " + kind);
+```
+
+## method NameIsUnreachable:(name:string)=>bool
+
+**这个名字在这一层和作用域链上都找不到**（第 149 轮）——`typeof` 那一格要它 ✓。
+
+**与 `ResolveAccess` 的区别只有「找不到怎么办」** ✗：那边**抛** ✓（读一个不存在的名字就是错 ✓），
+这边**只是回答一个布尔** ✓（`typeof` 的语义是「告诉我它是什么」✓，
+而一个不存在的名字的答案是 `"undefined"` ✓）。
+
+**两处用的是同一份查找顺序** ✓（本地槽 → 捕获环境 ✓）：写成两套的话，
+`typeof` 与普通读会在「捕获的名字上」分歧 ✓——那种分歧**不报错** ✓，只给一个错的答案 ✗。
+
+**「找不到」有两种，这里不细分** ✓：`ResolveAccess` 分的 `DeclaredNames` 那两档
+（「用在声明之前」与「根本没这个名字」✓）是给**报错**用的 ✓；
+`typeof` 两档都给 `"undefined"` ✓（JS 里 TDZ 那一档其实会抛 ✗——
+那是本仓**已经记着**的 TDZ 缺口 ✓，不在这一轮改 ✓）。
+
+```ts
+if (this.FindLocal(name) >= 0) return false;
+if (this.Env.Resolve(name) !== null) return false;
+return true;
 ```
 
 ## method LowerInto:(slot:int, node:AstNode)=>void
@@ -4703,7 +4747,14 @@ if (compoundBase !== "") {
   const concatRight = compoundBase === "+" && this.IsTextLiteral(Child(node, "right"));
   // **底运算符由 `CompoundBaseOf` 给** ✓（第 147 轮）：`<<=` / `>>=` / `>>>=` 用
   // `slice(0, 1)` 会切出 `"<"` / `">"` ✗——那三个字的运算符当时会被当成一个字的 ✓。
-  const base = BinaryOpOf(compoundBase);
+  // **「算」那一步收进 `CombineValues`** ✓（第 149 轮）：`**=` 走的是**内建**那条 ✓，
+  // 而它原来写在这个方法的**三个分支里** ✗（加一条分支就要改三处 ✓）。
+  //
+  // **`**` 没有通用算子号** ✗（它走内建 ✓）：所以这里**不去问 `BinaryOpOf`** ✓——
+  // 第一版就是在这儿翻的 ✓：`BinaryOpOf("**")` **在进分支之前**就抛 ✗，
+  // 症状是「`2 ** 10` 通了、`acc **= 2` 仍旧报 `unimplemented: binary operator **`」✓
+  //（两种形状**同一个运算符**，一个通一个不通 ✓——那是最容易看漏的一种 ✓）。
+  // **算子号由 `CombineValues` 现算** ✓：它先判 `**` ✓，其余才去问 `BinaryOpOf` ✓。
   if (NodeKind(left) === "Identifier") {
     // 复合赋值展开成「读 → 算 → 写」，**读一次**（左边只求值一次）。
     const access = this.ResolveAccess(TextOf(left));
@@ -4715,7 +4766,7 @@ if (compoundBase !== "") {
     }
     const right = this.LowerExpression(Child(node, "right"));
     // **右边是字符串字面量就换拼接**（第 125 轮）：`s += "x"` 的结果一定是字符串 ✓。
-    const sum = concatRight ? this.ConcatValues(read, right) : this.RtCallValues(base, read, right);
+    const sum = concatRight ? this.ConcatValues(read, right) : this.CombineValues(compoundBase, read, right);
     if (access.InEnv) {
       this.Emit(Op.EnvSet, sum, access.Depth, access.Cell, -1);
     } else {
@@ -4743,7 +4794,7 @@ if (compoundBase !== "") {
     const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
     const read = this.RtCall2(RtOp.GetProp, receiver, key);
     const right = this.LowerExpression(Child(node, "right"));
-    const sum = concatRight ? this.ConcatValues(read, right) : this.RtCallValues(base, read, right);
+    const sum = concatRight ? this.ConcatValues(read, right) : this.CombineValues(compoundBase, read, right);
     this.Emit(Op.Move, result, sum, -1, -1);
     this.SetPropertyConst(receiver, key, result);
     this.Release(result + 1);
@@ -4754,7 +4805,7 @@ if (compoundBase !== "") {
     const index = this.LowerExpression(Child(left, "argumentExpression"));
     const read = this.RtCallValues(RtOp.GetIndex, receiver, index);
     const right = this.LowerExpression(Child(node, "right"));
-    const sum = concatRight ? this.ConcatValues(read, right) : this.RtCallValues(base, read, right);
+    const sum = concatRight ? this.ConcatValues(read, right) : this.CombineValues(compoundBase, read, right);
     this.Emit(Op.Move, result, sum, -1, -1);
     // **下标写回**：与 `=` 那条分支同一个形状（`set_index` 的窗口是「接收者, 下标, 值」）。
     const window = this.Reserve(3);
@@ -4854,6 +4905,16 @@ if (stringAdd) {
   this.Release(base + 1);
   return base;
 }
+// **幂那一格也换路**（第 149 轮）✓：`**` **不进通用算子表** ✗——
+// 幂的舍入没有标准定死 ✓（各目标的 `pow` 可能差最后一位 ✓），
+// 所以它落成一条**语言内建调用** ✓（与上面 `StringConcat` 同一套做法 ✓、
+// 与 `Math.pow` **同一行代码** ✓）。理由写在 `globals.xl.md` 的 `PowId` 那一段 ✓。
+if (operatorText === "**") {
+  const power = this.PowValues(base, base + 1);
+  this.Emit(Op.Move, base, power, -1, -1);
+  this.Release(base + 1);
+  return base;
+}
 this.EmitRt(BinaryOpOf(operatorText), base, base, 2);
 if (IsNegated(operatorText)) {
   this.EmitRt(RtOp.Not, base, base, 1);
@@ -4878,6 +4939,45 @@ this.Emit(Op.Move, window + 2, second, -1, -1);
 this.EmitRt(RtOp.HostCall, window, window, 3);
 this.Release(window + 1);
 return window;
+```
+
+## method PowValues:(first:int, second:int)=>int
+
+**`a ** b`**（第 149 轮）——走 `PowId` 那条**语言内建调用** ✓，
+窗口形状与 `ConcatValues` **一模一样** ✓（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格 ✓）。
+
+**为什么与字符串拼接长得一样是好事** ✓：这一层已经有「内部调用」这个现成的形状 ✓
+（`StringConcat` / `Object.assign` / `spread_into` / `rest_object` 都是它 ✓）——
+再多一条**不引入任何新机制** ✓，只是在 `install.xl.md` 的名单上多一个号 ✓。
+
+**调用方负责把结果搬走** ✓（本方法只保证「窗口第一格是结果」✓）：
+二元那条搬到 `base` ✓、复合赋值搬到 `result` ✓。
+
+```ts
+const window = this.Reserve(3);
+this.Emit(Op.Const, window, this.IntConst(PowId), -1, -1);
+this.Emit(Op.Move, window + 1, first, -1, -1);
+this.Emit(Op.Move, window + 2, second, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 3);
+this.Release(window + 1);
+return window;
+```
+
+## method CombineValues:(baseText:string, left:int, right:int)=>int
+
+**复合赋值里「算」那一步**（第 149 轮抽出）——三种情形各走各的路 ✓：
+
+- `+=` 且右边是字符串字面量 ⇒ `ConcatValues` ✓（第 125 轮，不在这里管 ✓）；
+- `**=` ⇒ `PowValues` ✓（内建那条 ✓）；
+- 其余（算术 / 位运算那十一条 ✓）⇒ `rt_call(BinaryOpOf(底))` ✓。
+
+**抽出来是因为它原来写在三处** ✗（简单名字 ✓、属性 ✓、下标 ✓ 各一份 ✓）——
+再往里加一条**内建**分支（`**=` ✓）就是三处都要改 ✓，
+而漏一处的症状是「`o.x **= 2` 报 `unimplemented: binary operator **`」✓（离现场很远 ✗）。
+
+```ts
+if (baseText === "**") return this.PowValues(left, right);
+return this.RtCallValues(BinaryOpOf(baseText), left, right);
 ```
 
 ## method IsTextLiteral:(node:AstNode)=>bool

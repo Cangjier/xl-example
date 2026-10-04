@@ -6846,5 +6846,110 @@ check("`type` / `interface` / `declare` 那一族跳过；带体的声明照旧"
 });
 
 console.log("");
+console.log("=== 第 149 轮：四个「Node 跑得动、本仓跑不了」的小口子 ===");
+
+check("`NaN` / `Infinity` · 两个全局判定 · `globalThis`（转与不转是两件事）", () => {
+  // **端到端那一把在 `cases/41-numeric-globals-and-pow.ts`**（9 行逐字节 ✓）。
+  // 选题口径这一轮换了一次 ✓：**按「Node 跑得动而我们跑不了」排** ✓——
+  // 上一轮量到的 `enum` 与运行期 `namespace` 都在这个口径之外 ✓
+  //（**Node 自己就拒绝运行它们** ✓：type stripping 不做变换 ✓，
+  //  所以「与 Node 逐字节相同」这条判据对它们没有意义 ✓）。
+  //
+  // 这一条钉的是**最容易写成「一半对」的那两对** ✗：
+  //   · `isNaN(x)` / `isFinite(x)`：**先 `ToNumber`** ✓（`isNaN("abc")` 是 `true` ✓）；
+  //   · `Number.isNaN` / `Number.isFinite`：**不转换** ✓（`Number.isNaN("abc")` 是 `false` ✓）。
+  // 写成一份实现就会让其中一对错 ✗——而错的那一半**不报错** ✓，只给一个反的布尔 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log(NaN, Infinity, -Infinity, 1 / 0, 0 / 0);",
+    "console.log(isNaN('abc'), Number.isNaN('abc'), isFinite('3'), Number.isFinite('3'));",
+    "console.log(Number.isInteger(NaN), Number.isFinite(Infinity), isFinite(NaN), isNaN('3'));",
+    "console.log(globalThis.Math === Math, globalThis.NaN === NaN, typeof globalThis);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "NaN Infinity -Infinity Infinity NaN", "三个常量与两条除法");
+  eq(lines[1], "true false true false", "**转与不转**：全局那两个转、`Number.` 那两个不转");
+  eq(lines[2], "false false false false", "四个判定各一格");
+  // **`globalThis` 指向那个环境对象自己** ✓（`globalThis.Math === Math` ✓）；
+  // **`globalThis.NaN === NaN` 是 `false`** ✓（`NaN` 不等于自己 ✓——顺带证明它真的是那个 `NaN` ✓）。
+  eq(lines[3], "true false object", "`globalThis` 就是那个对象（`typeof` 也给 `object`）");
+});
+
+check("`**`：走**语言建内建**那条，不进通用算子表（`RtOp.Pow` 那一格留着）", () => {
+  // **为什么不做进引擎** ✗（第 149 轮的决定 ✓）：幂的舍入**没有标准定死** ✓——
+  // IEEE 754 不要求 `pow` 正确舍入 ✓，各目标的 `pow` 可能差最后一位 ✓；
+  // 而 `runtime/host-text.xl.md` 那条规矩是「**借的必须是结果被标准定死的东西**」✓。
+  // 放进建库层就名正言顺 ✓——那一层本来就是「JS 家族语义 + 一处诚实的宿主借用」✓，
+  // 而 `Math.pow` **早就在那儿** ✓。所以 `**` 与 `Math.pow(x, y)` 走**同一行** ✓
+  //（JS 的规范本来就说 `**` 的语义**就是** `Math.pow` ✓）。
+  //
+  // **`RtOp.Pow` 那一格留着、不删** ✓：「只追加、不改号」是那张表的规矩 ✓
+  //（删一格会把后面每一个算子的号都挪 ✗）。
+  eq(RtOpName(RtOp.Pow), "pow", "`RtOp.Pow` 仍在表里（号留着，实现走建库层）");
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log(2 ** 10, 2 ** 0.5, 9 ** 0.5, (-2) ** 3, 2 ** -1);",
+    "let acc = 3; acc **= 2;",
+    "const boxed = { v: 2 }; boxed.v **= 5;",
+    "const cells = [2]; cells[0] **= 3;",
+    "console.log(acc, boxed.v, cells[0], Math.pow(2, 10));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1024 1.4142135623730951 3 -8 0.5", "整数 / 开方 / 负数底 / 负指数");
+  // **`**=` 的三种左值**（名字 / 属性 / 下标 ✓）——第一版只做了二元那条 ✓，
+  // 于是 `acc **= 2` 仍旧报 `unimplemented: binary operator **` ✗
+  //（两种形状**同一个运算符**，一个通一个不通 ✓）。
+  eq(lines[1], "9 32 8 1024", "`**=` 三种左值 + 与 `Math.pow` 同值");
+});
+
+check("`typeof` 一个没声明的名字：给 `\"undefined\"`，但**只在这一格**", () => {
+  // JS 里这是**唯一不抛**的未声明读法 ✓（`typeof window !== "undefined"` 遍地都是 ✓），
+  // 而本仓原来在**降级期**就抛 ✗（整份文件进不来 ✓）。
+  // **结果是字符串 `"undefined"`** ✓——不是 `undefined` 那个值 ✗（最容易写错的一格 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log(typeof window, typeof notDeclaredAnywhere, typeof String(3));",
+    "let local = 1;",
+    "console.log(typeof local, typeof console, typeof globalThis);",
+    "console.log('guard', typeof window !== 'undefined' ? 'browser' : 'node');",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "undefined undefined string", "没声明的名字给字符串 `undefined`");
+  eq(lines[1], "number object object", "**声明过的照旧走真路**（局部槽 / 全局名 / `globalThis`）");
+  eq(lines[2], "guard node", "特性检测那一族");
+  // **`typeof` 之外读同一个名字照旧抛** ✓（与 JS 一致 ✓）——这一格钉住「只改了一处」✓。
+  let message = "";
+  try {
+    const strict = new RunRequest();
+    strict.Sources = ["const v = notDeclaredAnywhere;"];
+    strict.Entry = "";
+    RunSources(strict, () => {}, () => null);
+  } catch (error) {
+    message = String(error.message);
+  }
+  ok(message.indexOf("not a local or a capture") >= 0, "`typeof` 之外照旧抛：" + message);
+  // **一档如实记下的差异** ✗：`typeof process` / `typeof require` / `typeof setTimeout`
+  // 这些**宿主专有**的名字，Node 给 `"object"` / `"function"` ✓，本仓给 `"undefined"` ✗——
+  // 本仓的全局对象是**故意小的** ✓（宿主能力走能力表 ✓，不往脚本作用域里塞 ✓）。
+  // 这一条钉在明处 ✓：哪天把 `process` 那一族接进来，它会当场变红 ✓。
+  const hostLines = [];
+  const hostRequest = new RunRequest();
+  hostRequest.Sources = ["console.log(typeof process);"];
+  hostRequest.Entry = "";
+  const hostRes = RunSources(hostRequest, (text) => hostLines.push(text), () => null);
+  eq(hostRes.Outcome, HostOutcome.Ok, "运行器：" + hostRes.Message);
+  eq(hostLines[0], "undefined", "**已知差异**：宿主专有的名字报 `undefined`（Node 报 `object`）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

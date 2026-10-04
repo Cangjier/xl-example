@@ -118,8 +118,16 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 「有没有 `declare`」两句上，`Hoist` 与 `LowerStatement`、类成员那一圈**都要**——插桩把两处都点出来过。
 顺带把 `CollectDeclaredNames` 里环境声明的名字排掉：报的话从「用在声明之前」改成
 「name is not a local or a capture」——**环境值根本没有**，不是顺序问题）、
++ **数值常量与幂**（第 149 轮：选题口径换成「**Node 跑得动、而我们跑不了**」——`enum` 与运行期
+`namespace` 被 Node 自己拒跑（type stripping 不做变换），所以在「与 Node 逐字节相同」这条判据下
+没有意义，因此降级。这一轮做掉四个口子：`NaN`/`Infinity`（原来让整份文件在降级期失败）、
+`**`/`**=`（走**语言建内建**而不进通用算子表——幂的舍入没有标准定死，各目标的 `pow` 可能差最后一位，
+而 host-text 那条规矩是「借的必须是结果被标准定死的东西」；`RtOp.Pow` 那一格留着不删）、
+`typeof` 未声明的名字（JS 里唯一不抛的未声明读法，给**字符串** `"undefined"`；只在这一格），
+以及被它带出来的两处**静默**不一致：`globalThis`（指向那个环境对象自己）与
+`isNaN`/`isFinite` vs `Number.isNaN`/`Number.isFinite`（**转与不转**是两对））、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（205 条）与 `npm run runtime:cli`（40 份语料）；
+判据见 `npm run runtime:check`（208 条）与 `npm run runtime:cli`（41 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。
