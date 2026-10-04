@@ -78,7 +78,7 @@ const { IssueOperand, IssueTarget, IssueFallThrough, IssueHandler, IssueFunction
 const vmMod = require(path.join(root, "build", "ts", "runtime", "vm.js"));
 const { Vm, VmStatus, ErrorKindGeneric, ErrorKindType } = vmMod;
 const rtMod = require(path.join(root, "build", "ts", "runtime", "rt.js"));
-const { RtAdd, RtCmpEqStrict, RtCmpEqLoose } = rtMod;
+const { RtAdd, RtCmpEqStrict, RtCmpEqLoose, RtNot, RtToBoolean, TruthyOf } = rtMod;
 const propsMod = require(path.join(root, "build", "ts", "runtime", "props.js"));
 const { InitProtos, NewPlainObject, NewPlainArray, GetProperty, SetProperty, DeleteProperty } = propsMod;
 const hostMod = require(path.join(root, "build", "ts", "runtime", "host-abi.js"));
@@ -167,7 +167,10 @@ check("null 与 undefined 是两档", () => {
   eq(n.IsNullish(), true, "IsNullish");
 });
 
-check("AsBool 是 JS 的 ToBoolean（含 NaN 与 -0）", () => {
+check("AsBool 是 ToBoolean 的「不带堆」那一半（含 NaN 与 -0）", () => {
+  // **它的名字在第 144 轮改准了**：它原来叫「AsBool 是 JS 的 ToBoolean」✗——
+  // 而 `""` 是假、`AsBool` 给真 ✗（它看不到码元长度 ✓）。
+  // 完整的答案在 `rt.xl.md` 的 `TruthyOf` ✓（下面那条 check 量它 ✓）。
   eq(Value.FromBool(false).AsBool(), false, "false");
   eq(Value.FromBool(true).AsBool(), true, "true");
   eq(Value.FromInt(0).AsBool(), false, "0");
@@ -6283,6 +6286,79 @@ check("`NativeCall` 的实参表开宽：`sort` / `reduce` / 下标回调", () =
   eq(res2.Outcome, HostOutcome.Ok, "运行器：" + res2.Message);
   eq(lines2[0], "109 3", "文本口径与「第一项当初值」");
   eq(lines2[1], "caught", "空数组 + 无初值：响亮地抛（不是静默给 `undefined`）");
+});
+
+console.log("");
+console.log("=== 第 144 轮：真假只有一个定义（空串是假）===");
+
+check("`TruthyOf` 与 `AsBool` 的分工：**空串**那一档两处必须分歧", () => {
+  // **端到端那一把在 `cases/36-truthiness.ts`**（14 行逐字节 ✓）。
+  // 这里钉的是**那一格本身**：`AsBool` 看不到码元长度 ✗——`""` 在它那里是**真** ✗，
+  // 而 JS（以及 `TruthyOf`）给**假** ✓。
+  // **这个分歧就是这一轮的存在理由** ✓：两处都「有答案」、都不报错 ✗，
+  // 只有把两条路摆在一起对拍才看得见 ✓——`if ("")` 走真那一支已经跑了很久 ✓。
+  const table = new HeapTable();
+  const empty = Value.FromString(table.CreateString([]));
+  const text = Value.FromString(table.CreateString(units("a")));
+  eq(empty.AsBool(), true, "`AsBool` 对空串给真（它看不到长度）");
+  eq(TruthyOf(table, empty), false, "`TruthyOf` 对空串给假（JS 的口径）");
+  eq(text.AsBool(), true, "非空串 `AsBool` 给真");
+  eq(TruthyOf(table, text), true, "非空串 `TruthyOf` 也给真");
+  // **其余每一档两处逐条一致** ✓：改口径不能把它们动坏 ✓（`AsBool` 的四个判断
+  // 与 `TruthyOf` 里那四行是同一个答案 ✓——分歧**只**在字符串那一档 ✓）。
+  const same = (value, want, what) => {
+    eq(TruthyOf(table, value), want, "TruthyOf：" + what);
+    eq(value.AsBool(), want, "AsBool：" + what);
+  };
+  same(Value.Undefined(), false, "undefined");
+  same(Value.Null(), false, "null");
+  same(Value.FromBool(false), false, "false");
+  same(Value.FromBool(true), true, "true");
+  same(Value.FromInt(0), false, "0");
+  same(Value.FromDouble(-0), false, "-0");
+  same(Value.FromDouble(NaN), false, "NaN");
+  same(Value.FromInt(-1), true, "-1");
+  same(Value.FromDouble(Infinity), true, "Infinity");
+  same(Value.FromDouble(-Infinity), true, "-Infinity");
+});
+
+check("四条调用路对同一个值给同一个答案（`TruthyOf` 是它们共同的底）", () => {
+  // **五处调用点** ✓：`vm.xl.md` 的 `jmp_if_false`（`if` / `while` / `&&` / `||` / `?:`
+  // 五条降级**全落在这一条指令上** ✓）、`RtNot`（`!` ✓）、`RtToBoolean`（`Boolean(x)` ✓）、
+  // 建库层的 `filter` 与谓词族 ✓。
+  // 第 144 轮之前，前三处走 `Value.AsBool`、后两处也走它 ✗——**四处错在同一格上** ✓。
+  const table = new HeapTable();
+  const empty = Value.FromString(table.CreateString([]));
+  eq(TruthyOf(table, empty), false, "底下的那一格：假");
+  eq(RtToBoolean(table, empty).AsBool(), false, "`RtToBoolean` 走 `TruthyOf`");
+  eq(RtNot(table, empty).AsBool(), true, "`RtNot` 走 `TruthyOf`");
+  // **空串是唯一会分歧的一档，所以这四条路的一致性只要量它就够** ✓
+  // （其余档在 `AsBool` 那边已经逐条对过 ✓）。
+  // 下面这一把把**降级层到建库层整条链**摆在一起：同一份源码、同一组期望字串 ✓——
+  // 写 `AsBool()` 的话 `filter:` 那一段会多出一个空元素 ✓（**判据现场就是它的形状** ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const seen: string[] = [];",
+    "const empty = '';",
+    "seen.push('if:' + (empty ? 'T' : 'F'));",
+    "seen.push('and:[' + (empty && 'x') + ']');",
+    "seen.push('or:' + (empty || 'x'));",
+    "seen.push('not:' + !empty);",
+    "seen.push('filter:' + ['', 'a', ''].filter((s) => s).join('|'));",
+    "seen.push('some:' + [''].some((s) => s) + ',' + ['', 'a'].some((s) => s));",
+    "seen.push('every:' + ['', 'a'].every((s) => s) + ',' + [''].every((s) => s));",
+    "seen.push('find:' + ([''].find((s) => s) === undefined) + ',' + [''].findIndex((s) => s));",
+    "let n = 0;",
+    "while (empty) { n = n + 1; }",
+    "seen.push('while:' + n);",
+    "console.log(seen.join(' '));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "if:F and:[] or:x not:true filter:a some:false,true every:false,false find:true,-1 while:0",
+    "七条路一个答案（与 Node 逐字节相同）");
 });
 
 console.log("");

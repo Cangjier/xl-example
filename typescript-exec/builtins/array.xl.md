@@ -51,7 +51,8 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 # const ArrayMap:int = 7
 `map(回调)` 的号——`map` 能成立是因为 `NativeCall` **有返回值** ✓。
 # const ArrayFilter:int = 8
-`filter(回调)` 的号——按回调的**真假**收原值 ✓（用 `Value.AsBool()` ✓，那就是本仓的真假口径 ✓）。
+`filter(回调)` 的号——按回调的**真假**收原值 ✓（走 `RtToBoolean` ✓，**那就是本仓唯一的真假口径** ✓；
+**别写成 `Value.AsBool()`** ✗——那一个把 `""` 判成真 ✗，见第 144 轮 ✓）。
 # const ArrayFind:int = 9
 `find(回调)` 的号——第一个让回调为真的**原值**；没有就给 `undefined` ✓（与 JS 一致 ✓）。
 # const ArraySome:int = 10
@@ -130,7 +131,6 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 **`Array.from(可迭代物)`** 的号（第 130 轮）——**静态方法** ✓，而且它要**原型表**
 （返回的是新数组 ✓），所以它**不在 `InvokeArray` 里分派** ✓，走 `install.xl.md` 那条
 （与 `String.split` 同一处、同一个理由 ✓）。
-`filter(回调)` 的号——按回调的**真假**收原值 ✓（用 `Value.AsBool()` ✓，那就是本仓的真假口径 ✓）。
 
 # method Units:(text:string)=>Array<int>
 
@@ -335,9 +335,11 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
       table.Get(collected).AsArray().Push(answered);
       continue;
     }
-    // **`filter` 按回调的真假收原值** ✓——用 `Value.AsBool()`（它就是本仓的真假口径 ✓；
-    // 不是只看布尔标签 ✗：回调返回 `1` 或 `"x"` 在 JS 里都算真 ✓。
-    if (answered.AsBool()) table.Get(collected).AsArray().Push(item);
+    // **`filter` 按回调的真假收原值** ✓——走 `RtToBoolean`（`rt.xl.md` 的 `TruthyOf` ✓，
+    // 本仓唯一的真假口径 ✓）。**不能写 `answered.AsBool()`** ✗（第 144 轮）：
+    // `AsBool` 看不到码元长度 ✓，于是 `["", "a"].filter(s => s)` 会把**空串也收下** ✓
+    //（JS 只收 `"a"` ✓）——**静默错值** ✗，与 `if (s)` 那条是同一个根因 ✓。
+    if (RtToBoolean(table, answered).AsBool()) table.Get(collected).AsArray().Push(item);
   }
   return id === ArrayForEach ? Value.Undefined() : Value.FromArray(collected);
 }
@@ -346,13 +348,15 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   // 但**结果不同**：`find` 给原值（没有给 `undefined`）✓、`some` 有一个为真即真 ✓、
   // `every` 全真才真 ✓、`findIndex` 给**下标**（没有给 `-1` ✓）。
   // **空数组**：`some` 给**假**、`every` 给**真** ✓（JS 的口径 ✓；`every` 这一条最容易写反 ✗）。
+  // **真假也走 `RtToBoolean`** ✓（第 144 轮，与 `filter` 同一条 ✓）：
+  // `[""].some(s => s)` 是**假** ✓、`[""].find(s => s)` 是 `undefined` ✓——写 `AsBool()` 就会反过来 ✗。
   if (args.length < 1 || !args[0].IsCallable() || call === null) {
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
   }
   const predicateTotal = source.GetLength();
   for (let i = 0; i < predicateTotal; i++) {
     const item = source.GetAt(i);
-    const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i)]).AsBool();
+    const answered = RtToBoolean(table, call(args[0], Value.Undefined(), [item, Value.FromInt(i)])).AsBool();
     if (id === ArrayFind) {
       if (answered) return item;
       continue;

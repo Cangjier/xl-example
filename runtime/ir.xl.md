@@ -43,7 +43,8 @@ import { HeapTable } from "./heap.xl.md"
 - case Jump
 跳到指令 `B`。
 - case JumpIfFalse
-`A` 为假就跳到 `B`（真假按 `Value.AsBool`，也就是 JS 的 `ToBoolean`）。
+`A` 为假就跳到 `B`（真假按 `rt.xl.md` 的 `TruthyOf`，也就是 JS 的 `ToBoolean`——
+**空串是假** ✓，所以它不是 `Value.AsBool` ✗，见第 144 轮）。
 - case Return
 以槽 `A` 为返回值结束当前帧；`A` 为 `-1` 时返回 `undefined`。
 - case Throw
@@ -186,7 +187,7 @@ import { HeapTable } from "./heap.xl.md"
 - case ToString
 `String(x)`。
 - case ToBoolean
-`Boolean(x)`（`Value.AsBool` 是它的纯部分；这一档要能被当函数调用）。
+`Boolean(x)`（`TruthyOf` 是它的实现；这一档要能被当函数调用）。
 - case IsNullish
 是否为 `undefined` / `null`。`??` 与 `?.` 的降级要用它（`Value.IsNullish` 是它的纯部分，
 单独给 id 是为了让降级层不必为一次判空造一条跳转链）。

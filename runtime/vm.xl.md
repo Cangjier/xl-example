@@ -8,7 +8,7 @@ import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
-import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf } from "./rt.xl.md"
+import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 ```
@@ -598,7 +598,10 @@ if (instr.Op === Op.Jump) {
   return;
 }
 if (instr.Op === Op.JumpIfFalse) {
-  if (!frame.Slots[instr.A].AsBool()) frame.Pc = instr.B;
+  // **真假走 `TruthyOf`，不走 `Value.AsBool`** ✗（第 144 轮）：`if` / `while` /
+  // `&&` / `||` / `?:` 的五条降级**全落在这一条指令上** ✓，而 `AsBool` 把 `""` 判成**真** ✗
+  //（它看不到码元长度 ✓）。改一处、五条构造一起对 ✓——这正是「口径只有一份」的好处 ✓。
+  if (!TruthyOf(this.Table, frame.Slots[instr.A])) frame.Pc = instr.B;
   return;
 }
 if (instr.Op === Op.Return) {

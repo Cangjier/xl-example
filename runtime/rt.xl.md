@@ -316,12 +316,45 @@ if (!room(CodeUnitCharge * units.length + ObjectCharge)) {
 return Value.FromString(table.CreateString(units));
 ```
 
-# method RtNot:(table:HeapTable, value:Value)=>Value
+# method TruthyOf:(table:HeapTable, value:Value)=>bool
 
-逻辑非 `!`。**不碰堆**：真假只看标签与载荷（`Value.AsBool`）。
+**一个值是不是真**——JS 的 `ToBoolean`，**全仓只有这一个答案**。
+
+**为什么它必须在 `rt` 层、而不是 `Value` 的一个方法**：`""` 是**假** ✓，
+而「这个字符串是不是空的」要去**堆**里看码元 ✓——`Value` 那一层**没有表** ✗，
+它只能看标签与载荷 ✓。所以 `Value.AsBool` 只是**这个函数的一部分** ✓
+（它答对了**除空串以外**的每一档 ✓，见 `value.xl.md` 那一段 ✓）。
+
+**空串那一档是第 144 轮实测到的静默错值** ✗：`if ("")` 走了**真**那一支 ✓、
+`!("")` 给**假** ✓、`"" ? a : b` 给 `a` ✓——JS 三处都是相反的 ✓。
+它一直是**静默**的 ✗（没有报错、没有异常，只有一个「看起来像巧合」的结果 ✓），
+所以它比那些「响亮地抛」的缺口更值得先修 ✓。
+
+**五个调用点都走这里** ✓：`vm.xl.md` 的 `jmp_if_false`（`if` / `while` / `&&` / `||` /
+`?:` 全落在它上面 ✓）、`RtNot`（`!` ✓）、`RtToBoolean`（`Boolean(x)` ✓）、
+以及建库层的 `filter` 与谓词族（`find` / `some` / `every` / `findIndex` ✓）。
+**真假的口径只能有一份** ✗：分成两份时，`if (s)` 与 `[""].filter(x => x)`
+会在**空格子**上分歧 ✓——而那种分歧不报错 ✗。
+
+**顺序与 `Value.AsBool` 一致**（`value.xl.md` 那一节）：`undefined` / `null` / `0` / `-0` /
+`NaN` 假，其余真 ✓——多出来的只有字符串那一档 ✓。
 
 ```ts
-return Value.FromBool(!value.AsBool());
+if (value.Tag === ValueTag.Undefined) return false;
+if (value.Tag === ValueTag.Null) return false;
+if (value.Tag === ValueTag.Bool) return value.Int !== 0;
+if (value.Tag === ValueTag.Int32) return value.Int !== 0;
+if (value.Tag === ValueTag.Float64) return value.Dbl !== 0 && value.Dbl === value.Dbl;
+if (value.Tag === ValueTag.String) return table.Get(value.Ref).AsString().Units.length > 0;
+return true;
+```
+
+# method RtNot:(table:HeapTable, value:Value)=>Value
+
+逻辑非 `!`。**不分配**（字符串那一档要读一次堆，但一个格子都不建 ✓）。
+
+```ts
+return Value.FromBool(!TruthyOf(table, value));
 ```
 
 # method RtCmpLt:(table:HeapTable, left:Value, right:Value)=>Value
@@ -419,10 +452,18 @@ throw new Error("unimplemented: loose equality needs ToPrimitive/ToNumber");
 
 # method RtToBoolean:(table:HeapTable, value:Value)=>Value
 
-`Boolean(x)`。**纯**：真假只看标签与载荷。
+`Boolean(x)`——`RtOp.ToBoolean` 那一档 ✓，也是**建库层问真假时的唯一入口** ✓
+（`filter` 与谓词族都走它 ✓）。
+
+**它原来只是 `Value.AsBool` 的一层包装** ✗：所以建库层当时「**少一次绕路**」，
+直接写 `answered.AsBool()` ✓——那时两句话在**字面上**确实一样 ✓
+（那一条的账记在 `docs/typescript-parsing-gaps.md` 里 ✓），
+但**语义上不一样** ✗：`""` 是假，而 `AsBool` 看不到码元长度 ✗。
+于是 `if ("")` 与 `[""].filter(x => x)` 给出**两个答案** ✓——正是这一轮根除的形状 ✓。
+**绕路那一次现在是真的在干活** ✓（`TruthyOf` 要读堆 ✓），所以建库层**必须**走它 ✓。
 
 ```ts
-return Value.FromBool(value.AsBool());
+return Value.FromBool(TruthyOf(table, value));
 ```
 
 # method RtIsNullish:(table:HeapTable, value:Value)=>Value

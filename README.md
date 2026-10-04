@@ -82,8 +82,12 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 修在**渲染侧**：`projectExpression` 多一条「基名与 `?.` 平级」的判据，
 把基名接回 `chainWithOptional`——**token 层那一版试过、被语料打回来了**
 （11 个文件变红，理由记在 [typescript-exec 的账](typescript-exec/README.md)里）），
++ **真假只有一个定义**（第 144 轮：`if ("")` 走了**真**那一支——`Value.AsBool` 看不到码元长度，
+于是**五个调用点**（`jmp_if_false` / `!` / `Boolean(x)` / `filter` / 谓词族）在**空串**上一起歪，
+而且**不报错**（静默错值）。修法：`rt.xl.md` 新增 `TruthyOf(table, value)`，
+改一处、五条构造一起对；`AsBool` 留作「不带堆的那一半」）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（193 条）与 `npm run runtime:cli`（35 份语料）；
+判据见 `npm run runtime:check`（195 条）与 `npm run runtime:cli`（36 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

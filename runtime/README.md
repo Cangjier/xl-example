@@ -11,7 +11,7 @@
 > **状态：进行中。** 内存三件套（`value` / `heap` / `gc`）、程序表示（`ir`）、
 > 线形态 + 装载验证（`ir-verify`）、执行器（`frame` / `rt` / `vm`）、属性原型层（`props`）、
 > `this` / `call_method` / `new`、访问器重入、生成器、承诺 + 微任务队列与 **宿主 ABI**
-> （`host-abi`）已落地：判据 `npm run runtime:check` **193 条全绿**——真循环、一万层递归
+> （`host-abi`）已落地：判据 `npm run runtime:check` **195 条全绿**——真循环、一万层递归
 > （中途发生过回收）、跨帧异常展开、闭包捕获、原型链遮蔽、方法调用的 `this`、
 > `new` 的收尾规矩、getter / setter 重入、生成器挂起活过回收、`await` 全链路、
 > 宿主的四类结局（成功 / 脚本抛出 / 挂起 / 限额）与能力白名单，
@@ -23,13 +23,16 @@
 > 于是「浮点字面量」这个「一份普通 `.ts` 直接跑」的第一个拦路虎关掉了 ✓；
 > 同一轮把**引擎里唯一的宿主借用**收进了一个可查的文件（`host-text.xl.md` ✓，
 > 判据 grep 产物量着这一条 ✓）。
+> **第 144 轮把「真假」收成一个定义**（`rt.xl.md` 的 `TruthyOf` ✓）：`""` 是**假** ✓，
+> 而 `Value.AsBool` 看不到码元长度 ✗——于是 `if ("")` 走了真那一支 ✓（**静默错值** ✗）。
+> 五个调用点（`jmp_if_false` / `!` / `Boolean(x)` / `filter` / 谓词族）现在都走那一个 ✓。
 > 降级层与标准库也在长：[typescript-exec/](../typescript-exec/README.md) 收下了
 > P0 的形状 + 类 / 继承 / 集合 / 生成器 / 默认参数 + **类字段与 `static`**（第 128 轮）
 > + **数字字面量的全形态**（第 129 轮），
 > 并且**`.ts` 已经能直接执行**——
 > 运行器 `tsrun`（仓库根的 [tsrun.xl.md](../tsrun.xl.md)）装上「解析 → 降级 → 链接 → 装载 → 求值」，
 > 命令行 `node build/ts/tsrun.js <文件.ts>` 的 **stdout 与 `node <文件.ts>` 逐字节相同**
-> （判据 `npm run runtime:cli`，**34** 份语料、裁判是真 Node）。
+> （判据 `npm run runtime:cli`，**36** 份语料、裁判是真 Node）。
 > 还差 `typescript-exec/` 的其余部分与标准库——按
 > [§14 落地顺序](../docs/runtime-architecture.md) 逐个补。
 
