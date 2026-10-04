@@ -20,6 +20,7 @@
     "runtime:cli": "node ./tests/runtime/run-cli.mjs",
     "cases:tsast": "node ./tests/parse/ts-ast.mjs",
     "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli",
+    "coverage": "node ./tests/coverage/run.mjs",
     "cpp:check": "node tests/cpp/check.mjs"
   },
   "devDependencies": {

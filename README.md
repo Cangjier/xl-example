@@ -221,6 +221,7 @@ npm run cases:tsast        # **主判据**：全语料逐文件与 ts.createSour
 npm run cases:tsast:cli    # 发布路径：真的开 cjcli 进程再对拍（慢，按需跑）
 npm run runtime:check      # 执行侧：值模型 / 堆 / GC / IR / 执行器 / 降级层 的判据（快）
 npm run runtime:cli        # **直接执行 .ts**：tsrun 与 node 逐字节对拍（真进程）
+npm run coverage           # **场景覆盖度**：exec / runtime / 标准库 / 端到端，一格一条（尺子，不是门）
 npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成员名 / 字面量）
 ```
 
