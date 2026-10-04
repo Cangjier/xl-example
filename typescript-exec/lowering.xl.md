@@ -5248,7 +5248,21 @@ this.PushArrayElement(args, parts);
 for (let i = 0; i < substitutions.length; i++) {
   this.PushArrayElement(args, this.LowerExpression(substitutions[i]));
 }
+// **这一段 `Release(args + 1)` 是第 172 轮量出来的必要收尾** ✓：
+// 少了它，`` tag`abc`.length `` 这类「**标签模板当接收者**」会读到**函数本身** ✗
+//（Node 给 `3` ✓、本仓给 `[Function (anonymous)]` ✗）——
+// 因为 `args` / `parts` / 各段落常量槽都还压在水位上 ✓，`EmitCallArray` 的结果槽
+// 与「下一次 `Reserve`」之间就错开了 ✓（与第 158–161 轮那一族同一个根子：**水位** ✓）。
 this.Release(args + 1);
+// **第 172 轮试过「再把结果挪进一格自己的槽」** ✗——**退回来了** ✗：
+// 当时怀疑 `call_array` 的结果落在被调方那一格上 ✓、被这一支压着的几格挤掉 ✓。
+// 挪一格之后 `` tag`abc`.length `` **照样**给 `[Function (anonymous)]` ✗ →
+// 说明**根子不在这里** ✓（**不在降级层** ✓）。
+// **真正的位置**（AST 实测 ✓）：`` tag`abc`.length `` 投影出来是
+// `VariableDeclaration { Identifier r, Identifier tag }` ✗——**标签模板与 `.length` 全丢了** ✗，
+// 只剩那个 `tag` ✓。也就是说这一支**根本没被走到** ✓，问题在**投影 / token 层**
+// 处理「标签模板当属性访问的对象」那一处 ✓（与第 154 轮修 `?.(` 的链式处理是同一片地方 ✓）。
+// **下一轮先 dump XML** ✓ 看清是 token 层丢的还是投影丢的 ✓。
 const result = this.EmitCallArray(callee, args, -1);
 return result;
 ```
