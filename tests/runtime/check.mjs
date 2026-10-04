@@ -5727,9 +5727,21 @@ check("剩余参数与展开调用：与 Node 逐值一致，边界也钉住", (
       return String(error.message);
     }
   };
-  // ① `new C(...xs)`：`CallArray` 没有「构造目标」那个操作数。
-  ok(runMessage("const xs = [1]; const m = new Map(...xs);").indexOf("spreading into new") >= 0,
-    "① `new C(...xs)` 降级期就抛：" + runMessage("const xs = [1]; const m = new Map(...xs);"));
+  // ① **`new C(...xs)` 第 197 轮做掉了** ✓——原来这条断言的是「降级期就抛」✗，
+  // 现在改成「**跑得出来**」✓（判据随契约更新 ✓，与下面②那条同一个处理 ✓）。
+  // 它落的是**语言内建调用** `NewApplyId` ✓：引擎的 `Op.New` 只认**定长**实参表 ✗，
+  // 而「构造函数 + 装着实参的数组」这一格本来就是**数组** ✓——引擎一行都不用改 ✓。
+  const newSpread = [];
+  const newSpreadRequest = new RunRequest();
+  newSpreadRequest.Sources = [[
+    "class P { constructor(a, b) { this.sum = a + b; } }",
+    "const xs = [2, 3];",
+    "console.log(new P(...xs).sum, new P(1, ...[9], 4).sum);",
+  ].join("\n")];
+  newSpreadRequest.Entry = "";
+  const newSpreadRes = RunSources(newSpreadRequest, (text) => newSpread.push(text), () => null);
+  eq(newSpreadRes.Outcome, HostOutcome.Ok, "① `new C(...xs)` 现在跑得出来：" + newSpreadRes.Message);
+  eq(newSpread[0], "5 10", "① 实参整个来自数组、以及混着定长实参一起铺对");
   // ② **`super(...xs)` 第 141 轮做掉了** ✓——原来这条断言的是「降级期就抛」✗，
   // 现在改成「**跑得出来**」✓（判据随契约更新 ✓，与上面①那条同一个处理 ✓）。
   // 它靠的是 `CallArray` **本来就带 `this` 操作数** ✓（`EmitCallArray(callee, argsArray, self)` ✓）——
@@ -8229,6 +8241,53 @@ check("静态块是「自己一层作用域」：类名捕获、`this`、顺序�
   eq(outline[1], "2", "`this` 在静态块里就是那个类（与静态字段初始化式同一条口径）");
   eq(outline[2], "5", "块里造出来的闭包也看得见类名");
   eq(outline[3], "field,block", "静态字段与静态块按**源码顺序**求值");
+});
+
+console.log("");
+console.log("=== 第 197 轮：带展开的构造 `new C(...xs)` ===");
+
+check("`new C(...xs)` 走 `[[Construct]]`：原型、返回对象那一支、以及早返回不许漏水", () => {
+  // **端到端那一把在 `cases/75-new-spread.ts`**（10 行逐字节 ✓）。
+  //
+  // **症状** ✗：`new P(...[5]).x` 报 `unimplemented: spreading into new` ✓
+  // （**整份文件进不来** ✗）。
+  //
+  // **根因** ✓：引擎的 `Op.New` 只认「从某格开始的**连续**若干格」 ✗，
+  // 而带展开的实参个数**只有运行期才知道** ✗——铺不出那张连续的表。
+  //
+  // **修法** ✓：**引擎一行都不用改** ✓。降级层先把实参收成一个数组 ✓
+  // （`BuildArgsArray` ✓，与 `f(...xs)` 那条**完全同一个**铺法 ✓），
+  // 再走**语言内建调用** `NewApplyId` ✓（与 `SpreadIntoId` 同一个号段 ✓、同一个理由：
+  // 那边要 `protos` 造实例 ✓）。那一侧按 JS 的 `[[Construct]]` 走四步 ✓：
+  // 读构造函数的 `prototype` ✓ → 拿它当原型造对象 ✓ → 用新对象当 `this` 调构造函数 ✓
+  // → 构造函数**返回对象就用它** ✓。
+  const outline = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "class P { constructor(a, b) { this.a = a; this.b = b; } sum() { return this.a + this.b; } }",
+    "const xs = [3, 4];",
+    "const p = new P(...xs);",
+    // ① 原型接对了（`instanceof` 与原型上的方法一起问）
+    "console.log(p.sum(), p instanceof P);",
+    // ② 返回**对象**就用它（JS 那一支）
+    "class Boxed { constructor() { return { tag: 'boxed' }; } }",
+    // ③ 返回**原始值**就用新造的那个对象（另一支）
+    "class Plain { constructor() { return 7; } }",
+    "console.log(new Boxed().tag, new Plain() instanceof Plain);",
+    // ④ 派生类：`new Q(...xs)` 里再 `super(...)`（两条路叠在一起）
+    "class Q extends P { constructor(a, b) { super(a, b); } }",
+    "console.log(new Q(...xs).sum(), new Q(...xs) instanceof Q, new Q(...xs) instanceof P);",
+    // ⑤ **水位**：早返回之后紧接着一串变量，槽位整体错位的话这里先红
+    "const t1 = 1, t2 = 2, t3 = 3, t4 = 4;",
+    "console.log(t1 + t2 + t3 + t4, new P(...[10, 20]).sum() + t1);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => outline.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(outline[0], "7 true", "① 原型取自构造函数上那一格 `prototype`（`instanceof` 与原型方法一起对）");
+  eq(outline[1], "boxed true", "② 构造函数**返回对象**就用它 ③ 返回原始值就用新造的那个对象");
+  eq(outline[2], "7 true true", "④ 派生类的构造函数再 `super(...)`：两条路叠在一起也对");
+  eq(outline[3], "10 31", "⑤ 早返回没有漏水：后面所有变量的槽都对得上（第 197 轮实测踩到的那一格）");
 });
 
 console.log("");

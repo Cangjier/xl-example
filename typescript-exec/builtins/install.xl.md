@@ -83,6 +83,12 @@ if (id === SpreadIntoId) {
   if (args.length < 2) throw new Error("unimplemented: spread_into needs (target, source)");
   return SpreadInto(room, table, protos, args[0], args[1], call);
 }
+// **`new C(...xs)` 的入口**（第 197 轮 ✓）：降级层把「构造函数」与「装着实参的数组」
+// 交给它 ✓——与 `spread_into` 同一个号段、同一个理由 ✓（这里要 `protos` 造实例 ✓）。
+if (id === NewApplyId) {
+  if (args.length < 2) throw new Error("unimplemented: new_apply needs (constructor, arguments)");
+  return ConstructApply(room, table, protos, call, args[0], args[1]);
+}
 if (id === ArrayRestId) {
   if (args.length < 2) throw new Error("unimplemented: array_rest needs (source, start)");
   return ArrayRest(room, table, protos, args[0], args[1].AsInt());
@@ -112,6 +118,11 @@ return InvokeBuiltin(room, table, call, id, self, args);
 让 `iter_next` 认识 `Map`，等于把语言内建塞进语言无关的引擎里（分层就反了）。
 这里正好用上一次已经开好的机制——**语言内建号**（号段 700..799）✓，
 而它的**格数与登记**都已经由 `BuiltinSlots` / `InstallBuiltins` 包掉了 ✓（**宿主不必知道它存在** ✓）。
+
+# const NewApplyId:int = 706
+
+**`new C(...xs)` 的入口**（第 197 轮 ✓）：与 `SpreadIntoId` 同一个号段 ✓、同一个理由 ✓
+（要 `protos` 造实例 ✓）。**它不是全局名** ✓——降级层为落实现「带展开的构造」而发的内部调用 ✓。
 
 # const SpreadIntoId:int = 703
 
@@ -374,6 +385,55 @@ for (let i = 0; i < count; i++) {
 return out;
 ```
 
+# method ConstructApply:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, ctor:Value, argValues:Value)=>Value
+
+**`new C(...xs)` 的落点**（第 197 轮 ✓）：`ctor` 是构造函数 ✓、`argValues` 是**装着实参的数组** ✓。
+
+**为什么它住在语言层** ✗：降级层知道「实参只有一个数组」✓，而**引擎的 `Op.New` 只认
+「从某格开始的连续若干格」** ✓（`DoNew` 读的是槽 ✓）——要给它铺一个运行期才知道长度的实参表 ✓，
+就得在引擎里再加一条「按数组构造」的算子 ✗。而 JS 的 `[[Construct]]` 在**常见那一档**
+（读 `prototype` ✓、拿它当原型造对象 ✓、把新对象当 `this` 调构造函数 ✓、
+构造函数返回对象就用它 ✓）**在语言层完全写得出来** ✓——`prototype` 这个名字本来就是
+语言层的字符串 ✓（引擎为此专门留了一格由外面指定的属性名 ✓，见 `DoNew` 那一段 ✓）。
+
+**宿主构造函数走同一条路** ✓：`new Map(...xs)` 里那个 `Map` 是**带可调用载荷的对象** ✓，
+调它时 `this` 被忽略、它自己造实例并返回 ✓——正好落在「返回了对象就用它」那一支 ✓
+（`DoNew` 的宿主分支是同一条语义 ✓，只是它在引擎侧提前分开了 ✓）。
+
+```ts
+if (argValues.Tag !== ValueTag.Array) {
+  throw new Error("unimplemented: new_apply needs an arguments array");
+}
+const source = table.Get(argValues.Ref).AsArray();
+const count = source.GetLength();
+// **实参先抄成一份值数组** ✓：下面要调构造函数，而调用可能分配 / 让出，
+// 数组的**视图不稳定**（`map.xl.md` 文首那条教训 ✓）——拿着视图跨过调用是**静默错值** ✗。
+const items: Value[] = [];
+for (let i = 0; i < count; i++) {
+  items.push(source.GetAt(i));
+}
+// **原型取自构造函数上那一格 `prototype`** ✓（引擎给的那条口径 ✓）：是对象就用 ✓，
+// 否则用 `Protos.Object` ✓（JS 的 `[[Construct]]` ✓）。
+const created = NewPlainObject(room, table, protos);
+if (ctor.IsObject()) {
+  const prototypeKey = Value.FromString(table.CreateString(Units("prototype")));
+  const proto = GetProperty(room, call === null ? NeverCall : call, protos, table, ctor, prototypeKey);
+  if (proto.IsObject()) {
+    table.Get(created.Ref).Proto = proto.Ref;
+  }
+}
+if (call === null) {
+  throw new Error("unimplemented: new_apply without a call channel");
+}
+const produced = call(ctor, created, items);
+// **返回对象就用它** ✓（JS 的规矩 ✓，与 `DoReturn` 里那条一致 ✓）。
+if (produced.IsObject() || produced.Tag === ValueTag.Array
+  || produced.Tag === ValueTag.Closure || produced.Tag === ValueTag.Function) {
+  return produced;
+}
+return created;
+```
+
 # method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value, call:NativeCall | null)=>Value
 
 **把 `source` 摊开接进 `target` 的尾部**（第 132 轮）——`[...xs]` / `f(...)` 那类**展开**要用它 ✓。
@@ -519,6 +579,7 @@ return false;
 let highest = DefineAccessorId;
 if (GetIteratorId > highest) highest = GetIteratorId;
 if (SpreadIntoId > highest) highest = SpreadIntoId;
+if (NewApplyId > highest) highest = NewApplyId;
 if (ArrayRestId > highest) highest = ArrayRestId;
 if (RestObjectId > highest) highest = RestObjectId;
 return highest + 1 - BuiltinBase;
@@ -610,7 +671,10 @@ for (const slot of promiseSlots) {
 // 幂的舍入没有标准定死 ✓，所以它走建库层这条借用路 ✓，不进引擎的算子表 ✗）。
 // **不加进这张名单的症状是 `capability is not registered: 703`** ✓——
 // 那句话没提「名单」两个字 ✗，所以这一条写在名单**正上方** ✓。
-const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId, StringConcat,
+// **`NewApplyId` 也要登记**（第 197 轮 ✓）：这个数组就是「哪些内部号存在」的**唯一名单** ✓——
+// 漏一个的症状是**运行期**报 `capability is not registered: <号>` ✓（离现场很远 ✗，
+// 第 197 轮实测踩过一次 ✓：号改了、名单忘改 ✓）。
+const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, ArrayRestId, RestObjectId, StringConcat,
   ObjectAssign, PowId];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],

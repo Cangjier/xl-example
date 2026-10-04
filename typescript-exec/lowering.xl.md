@@ -6,7 +6,7 @@ import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
-import { DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
+import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
 import { StringConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 ```
 
@@ -4019,11 +4019,28 @@ if (calleeKind === "Identifier") {
 }
 const args = ListOf(node, "arguments");
 const count = args.length;
-// **`new C(...xs)` 还不做** ✗：`CallArray` 那一条没有「新建实例」这回事 ✓
-//（`Op.New` 要先造对象、把原型接上、再拿它当 `this` ✓，那三步在 `DoNew` 里 ✓）。
-// **响亮地抛** ✓——把构造那条路也做成「按数组铺参数」是**另一轮**的事 ✓。
+// **`new C(...xs)`**（第 197 轮 ✓）：引擎的 `Op.New` 只认「从某格开始的**连续**若干格」✗，
+// 而带展开的实参个数**只有运行期才知道** ✗——所以先把实参收成一个数组 ✓
+//（`BuildArgsArray` ✓，与 `f(...xs)` 那条**完全同一个**铺法 ✓），
+// 再走 `NewApplyId` 这条**语言内建调用** ✓：那一侧按数组铺开、并按 JS 的
+// `[[Construct]]` 造实例 ✓（读 `prototype` ✓ → 拿它当原型造对象 ✓ → 用它当 `this` 调构造函数 ✓
+// → 构造函数返回对象就用它 ✓）。**引擎一行都不用改** ✓。
 if (this.HasSpread(args)) {
-  throw new Error("unimplemented: spreading into new");
+  const spreadArgs = this.BuildArgsArray(args);
+  const window = this.Reserve(3);
+  this.Emit(Op.Const, window, this.IntConst(NewApplyId), -1, -1);
+  this.Emit(Op.Move, window + 1, ctor, -1, -1);
+  this.Emit(Op.Move, window + 2, spreadArgs, -1, -1);
+  const produced = this.Reserve(1);
+  this.EmitRt(RtOp.HostCall, produced, window, 3);
+  this.Release(window);
+  this.Release(spreadArgs);
+  // **别漏了 `ctor` 那一格**（第 197 轮实测抓到的 ✓）：下面是**早返回** ✗，
+  // 而原路末尾有一句 `Release(ctor)` ✓——漏掉它水位就高一格 ✓，
+  // 后面所有变量的槽**整体错位** ✓（实测：`runtime:check` 5 条红、`runtime:cli` 4 份不一致 ✓，
+  // 症状离现场很远 ✗）。**这就是这条纪律存在的理由** ✓。
+  this.Release(ctor);
+  return produced;
 }
 // 结果落在参数基址上，所以 `argc = 0` 时基址仍要占一格（与 `LowerCall` 同一条规则）。
 const base = this.Reserve(count > 0 ? count : 1);
