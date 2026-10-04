@@ -7166,5 +7166,58 @@ check("`o.n?.()` 守的是**方法值**，`o?.n()` 守的是**接收者**（方�
 });
 
 console.log("");
+console.log("=== 第 155 轮：可选链后面跟运算符（`o?.k + 1`）===");
+
+check("`NullConditionalOperator` 的断点：链上只有 `.` 与 `!`，其余符号一律断开", () => {
+  // **端到端那一把在 `cases/46-optional-chain-with-operators.ts`**（6 行逐字节 ✓）。
+  //
+  // **症状**：`o?.k + 1` 报 `unimplemented: private or computed property name` ✗——
+  // **整份文件进不来** ✗。根因在 token 层：断点名单里只有 `?. ?? && || ; ,` 与比较符号 ✓，
+  // **算术 / 位运算 / 移位都不在** ✗，于是 `+` 连同右边一起被收进 NCO ✓，
+  // 二元运算符重组在**里面**折成 `BinaryOperator` ✓，投影只好把它当成**成员名** ✗
+  //（`PropertyAccessExpression` 的 `name` 是个二元式 ✓），降级层于是报那一句 ✗。
+  //
+  // **修法**：链上该出现的符号**只有两个** ✓（`.` 成员访问 ✓、`!` 非空断言 ✓——
+  // 后者被 `NotNullReorganization` 折进 NCO 里面 ✓），所以规矩反过来写 ✓：
+  // **不是那两个就是断点** ✓——将来多出新的运算符也不必回来改 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const box = { k: 1, b: { c: 2 }, f: () => 5, s: 'ab' };",
+    "const arr = [1, 2, 3];",
+    "console.log(box?.k + 1, box?.k - 1, box?.k * 2, box?.f?.() + 1);",
+    "console.log(box?.b.c, box?.b?.c, box?.['k'], box?.f?.());",
+    "console.log(box?.s.length * 2, box?.s.length === 2, arr?.[0] + arr?.[1]);",
+    "console.log(arr?.length - 1, box?.k > 0, box?.k !== 2, box?.k ?? 9);",
+    "console.log(box?.k + 1 > 2, (box?.k) + 1);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "2 0 2 6", "四则 + 调用结果（**这一条原来整份文件都跑不了**）");
+  eq(lines[1], "2 2 1 5", "成员 / 可选成员 / 下标 / 可选调用");
+  eq(lines[2], "4 true 3", "字符串属性 / 比较 / 数组下标相加");
+  eq(lines[3], "2 true true 1", "长度相减 / 比较 / `??`（断点名单里本来就有它）");
+  // **这一格的期望值我第一版写错了** ✗：`box?.k + 1 > 2` 是 `1 + 1 > 2` = **false** ✓
+  //（写判据时顺手算成了 true ✓——判据当场把我抓住 ✓）。
+  eq(lines[4], "false 2", "运算符之后再比较（`1 + 1 > 2` 是 false）/ 括号里照旧");
+  // **一档如实记下的剩余缺口** ✗（**不是这一轮弄出来的** ✓，也不在上面这些形状里 ✓）：
+  // `o?.b?.c ?? 0` —— **两条** NCO 之后再跟 `??` ✓：两条 `?.` 各自都是断点 ✓
+  //（改前也是这样 ✓），而这一格投出来只剩前半截 ✓，**静默**给 `{ c: 2 }` ✗（JS 给 `2` ✓）。
+  // 钉在明处 ✓：修好的那天会变红 ✓。
+  const tailLines = [];
+  const tail = new RunRequest();
+  tail.Sources = [[
+    "const o = { b: { c: 2 } };",
+    "console.log(o?.b?.c ?? 0, o?.b?.c);",
+  ].join("\n")];
+  tail.Entry = "";
+  const tailRes = RunSources(tail, (text) => tailLines.push(text), () => null);
+  eq(tailRes.Outcome, HostOutcome.Ok, "运行器：" + tailRes.Message);
+  eq(tailLines[0], "{ c: 2 } 2",
+    "**已知差**：两条 `?.` 之后跟 `??` 时只剩前半截（JS 给 `2 2`）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;
