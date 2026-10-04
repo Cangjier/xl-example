@@ -24,9 +24,8 @@ const multiNegate = - - -x;
 // 落在 `RtNeg` 那条**已经记着**的口径上 ✓（`unimplemented: arithmetic on a non-numeric operand` ✓），
 // 与这一轮的 token 层修正无关 ✗。
 console.log(negated, multiBang, multiNegate);
-// **`typeof typeof x === "string"` 不在这份语料里** ✗：比较那一趟把 `typeof` 关键字
-// 当成了操作数 ✓，于是折成 `typeof (x === "string")` ✗——Node 给 `true` ✓、本仓给 `"boolean"` ✗
-//（**值都变了** ✗）。根因与 `typeof -x` / `-!x` 是同一个 ✓：一元运算符的判据把
-// 「运算符关键字」当成了操作数 ✓。三条都记在台账里 ✓。
+// **第 167 轮修好**：`typeof -x` 不再报 `TypeOfKeyword` ✓（那个 `-` 原来被读成二元减 ✓）。
+// `typeof` / `void` / `delete` 现在都不算操作数 ✓（与一元那份判据对齐 ✓）。
+console.log(typeof -x, typeof typeof -x, void -x, typeof (void -x));
 console.log([!!x, - -x, typeof typeof s]);
 console.log(!!x ? "yes" : "no", typeof typeof (x + 1));

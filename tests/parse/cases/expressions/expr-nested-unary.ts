@@ -32,9 +32,17 @@ const inCondition = !!x ? "yes" : "no";
 type Query = typeof x;
 type Keyed = keyof typeof x;
 
-// **三条不在这份语料里**（第 166 轮量出来的，都记在台账里）：
-//   · `typeof typeof x === "string"` —— 比较那一趟把 `typeof` 关键字当成操作数，
-//     于是折成 `typeof (x === "string")`（值都变了：Node 给 `true`、本仓给 `"boolean"`）；
-//   · `typeof -x` —— 里面那个 `-` 被当成二元减，同一个 `TypeOfKeyword` 又冒出来；
-//   · `-!x` —— 布尔参与算术，落在 `RtNeg` 那条已经记着的口径上。
-// 三条的根因**是同一个**：一元运算符的判据把「运算符关键字」当成了操作数。
+// ⑤ **前缀运算符后面接一元运算**（第 167 轮修好）
+// `typeof -x`：原来那个 `-` 被读成**二元减**（判据把 `typeof` 当成了操作数），
+// 现在 `typeof` / `void` / `delete` 都不算操作数（与一元那份判据对齐）。
+const negatedQuery = typeof -x;
+const voided = void -x;
+// **`delete !!({ p: 1 } as any).p` 这一条不进语料** ✗：它牵扯 `as` 与 `delete` 两层，
+// 在 AST 尺子上还有别的差别 ✓（量到 1433/1434 ✓）——与这一轮那条判据无关 ✗，
+// 记在台账里 ✓。
+
+// **两条不在这份语料里**（都记在台账里）：
+//   · `typeof typeof x === "string"` —— 比较那一趟**自己还有一份 IsOperand**，
+//     它仍旧把 `typeof` 当左操作数，于是折成 `typeof (x === "string")`：
+//     Node 给 `true`、本仓给 `"boolean"`（**静默错值**，最该接着修）；
+//   · `-!x` —— 布尔参与算术，落在 `RtNeg` 那条已经记着的口径上（与 token 层无关）。

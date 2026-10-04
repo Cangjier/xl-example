@@ -87,14 +87,42 @@ if (unit instanceof Identifier) {
     text === "else" ||
     text === "do" ||
     text === "break" ||
-    text === "continue"
+    text === "continue" ||
+    // **前缀运算符那几个词也不算操作数**（第 167 轮）✗：问这个判据的时候
+    // `KeywordReorganization` 还没跑 ✓，所以 `typeof` / `void` / `delete` 此刻
+    // **还是 `Identifier`** ✓——不排掉的话 `typeof -x` 里那个 `-` 会被读成**二元减** ✗
+    //（「前面是操作数」✗），一元那一趟接着折出那个畸形的单元 ✗，
+    // 降级层报 `unimplemented: expression TypeOfKeyword` ✓。
+    //
+    // **为什么不排 `new` / `await`** ✗：`binary-operator.xl.md` 那段写着理由 ✓——
+    // `new X * 2` 是合法的 `(new X) * 2` ✓，把它们排掉会真的**少折一个乘法** ✗。
+    // `typeof` / `void` / `delete` 不同 ✓：它们**只**做前缀 ✓，折完就是一个独立单元 ✓，
+    // 该谁当操作数由那一趟自己接上 ✓（`typeof x * 2` 里 `*` 的左操作数是**折好的** `typeof x` ✓）。
+    text === "typeof" ||
+    text === "void" ||
+    text === "delete"
   ) {
     return false;
   }
   return true;
 }
+// **关键字里只有 `this` / `super` 是值**（第 167 轮）✗——与 `binary-operator.xl.md`
+// 那份 `IsOperand` **对齐** ✓（本文件第 69 行那条纪律写的就是这件事 ✓，
+// 只不过「关键字」这一格当时没对齐 ✗）。
+//
+// **为什么非改不可** ✗：`typeof` / `void` / `delete` / `new` 是**运算符** ✓，
+// 它们**不能当被操作者** ✓。把它们算成操作数，会同时坏掉两件事 ✓：
+//   · `typeof -x`：`-` 前面被当成了操作数 ✓ → 那个 `-` 被读成**二元减** ✗ →
+//     一元那一趟接着把 `typeof` 与「后面的东西」折成同一个单元 ✗ →
+//     降级层又报 `unimplemented: expression TypeOfKeyword` ✓；
+//   · `typeof typeof x === "string"`：比较那一趟把 `typeof` 当成左操作数 ✓ →
+//     折成 `typeof (x === "string")` ✗——**值都变了** ✗（Node 给 `true` ✓、
+//     本仓给 `"boolean"` ✗）。**静默错值**是本仓排最前的一档 ✗。
+if (unit instanceof Keyword) {
+  const word = unit.Value;
+  return word === "this" || word === "super";
+}
 return (
-  unit instanceof Keyword ||
   unit instanceof NotNull ||
   unit instanceof Method ||
   unit instanceof Bracket ||

@@ -231,7 +231,14 @@ if (unit instanceof Identifier) {
     text === "do" ||
     text === "break" ||
     text === "continue" ||
-    text === "yield"
+    text === "yield" ||
+    // **与一元那份对齐**（第 167 轮）✓：`typeof` / `void` / `delete` 也**不算操作数** ✓——
+    // 不排的话 `typeof typeof x === "string"` 会被折成 `typeof (x === "string")` ✗，
+    // 而那是**值都变了** ✗（Node 给 `true` ✓、本仓给 `"boolean"` ✗）。
+    // **`new` / `await` 照旧不排** ✗（第 288 行那段写着理由 ✓：`new X * 2` 是合法乘法 ✓）。
+    text === "typeof" ||
+    text === "void" ||
+    text === "delete"
   ) {
     return false;
   }
