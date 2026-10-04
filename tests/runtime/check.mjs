@@ -7149,22 +7149,20 @@ check("`o.n?.()` 守的是**方法值**，`o?.n()` 守的是**接收者**（方�
     loud = String(error.message);
   }
   ok(loud.indexOf("non-closure") >= 0, "`p?.n()` 照旧响亮地抛（**没有**被静默成 undefined）：" + loud);
-  // **一档如实记下的缺口** ✗：`o.m?.().k`（**不带括号**）——**投影**把 `.k` 折进了
-  // `NullConditionalOperator` 里面 ✓（XML 实测：`<NCO><PropertyAccess><Bracket/><.><k/></…>` ✓），
-  // 于是外层那次读落在错误的东西上 ✓，**静默**给 `undefined` ✗（JS 给 `3` ✓）。
-  // `(o.m?.()).k` 与 `const t = o.m?.(); t.k` **都是对的** ✓——差别就在投影那一层 ✗。
-  // 这一条钉在明处 ✓：投影改对的那天它会变红 ✓。
+  // **一档第 154 轮修好的** ✓：`o.m?.().k`（**不带括号**）原来**静默**给 `undefined` ✗
+  //（投影把 `.k` 折进了 `NullConditionalOperator` ✓，见那一轮的账 ✓）。
+  // 现在两格都是 `3` ✓——带括号那格本来就是对的 ✓，留着当回归 ✓。
   const foldLines = [];
   const fold = new RunRequest();
   fold.Sources = [[
-    "const o = { m: () => ({ k: 3 }) };",
-    "console.log((o.m?.()).k, o.m?.().k);",
+    "const o = { m: () => ({ k: 3, deep: () => 7 }) };",
+    "console.log((o.m?.()).k, o.m?.().k, o.m?.()['k'], o.m?.().deep?.());",
   ].join("\n")];
   fold.Entry = "";
   const foldRes = RunSources(fold, (text) => foldLines.push(text), () => null);
   eq(foldRes.Outcome, HostOutcome.Ok, "运行器：" + foldRes.Message);
-  eq(foldLines[0], "3 undefined",
-    "**已知差**：带括号的对 ✓、不带括号的静默给 `undefined` ✗（投影把 `.k` 折进了 NCO）");
+  eq(foldLines[0], "3 3 3 7",
+    "第 154 轮修好：不带括号的 `o.m?.().k` 也走调用 + 属性（投影按「先调用、再取属性」拆）");
 });
 
 console.log("");

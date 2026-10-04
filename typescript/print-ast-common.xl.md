@@ -2816,6 +2816,63 @@ return (
     const call = projectNode(first, ctx);
     return Object.assign({}, call, { expression: member, pos: member.pos, end: endOf(unit) });
   }
+  // **`o.m?.().k`**（第 154 轮）：NCO 里的第一格是**属性访问**，而它的第一格是实参括号 ✓——
+  // 那是 token 层的属性访问重组把 `( ) . k` 折成了一个 `PropertyAccess` ✓
+  //（XML 实测：`<NCO><PropertyAccess><Bracket/><.><k/></PropertyAccess></NCO>` ✓；
+  //  插桩也确认了：`chainWithOptional` 收到的 `first` 是 `PropertyAccess` 而不是 `Bracket` ✗）。
+  //
+  // **语义上是先调用、再取属性** ✓：`o.m?.()` 是调用 ✓，`.k` 挂在它的**结果**上 ✓。
+  // 所以这里自己把那一格拆开 ✓：拿**头一个**实参括号建 `CallExpression` ✓，
+  // 再把括号**之后**的成员逐个接上去 ✓——
+  // 不拆的话它会落到下面「按成员名折属性访问」那一支 ✓，
+  // 把括号当成名字 ✓，投出一个名叫 `()` 的属性访问 ✗（实测就是这个形状 ✓），
+  // 运行期于是**静默**给 `undefined` ✗（JS 给 `3` ✓）。
+  if (first !== undefined && first.get("type") === "PropertyAccess") {
+    const inner = projectableKids(view(first));
+    const head = inner.length > 0 ? inner[0] : undefined;
+    if (head !== undefined && head.get("type") === "Bracket" && head.get("startBracket") === "(") {
+      const call: any = {
+        kind: "CallExpression",
+        expression: left,
+        arguments: splitTopLevel(projectableKids(view(head)), ctx, ",")
+          .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+          .filter((a) => a !== undefined),
+        pos: left.pos,
+        end: endOf(head),
+      };
+      if (questionDot !== undefined) call.questionDotToken = questionDot;
+      // **括号之后剩下的成员**（`.k` / `[i]` / `.k` 连着的几格 ✓）：逐个往链上挂 ✓。
+      // 名字取那一格的 `Identifier` ✓（token 层已经把成员名收成一个单元 ✓）；
+      // 下标那一格是 `[` 括号 ✓——两种都按下面「按成员名折」那一段的同一口径写 ✓。
+      let node: any = call;
+      for (let i = 1; i < inner.length; i++) {
+        const member = inner[i];
+        const memberAt = startOf(member);
+        if (member.get("type") === "Bracket" && member.get("startBracket") === "[") {
+          const element: any = {
+            kind: "ElementAccessExpression",
+            expression: node,
+            argumentExpression: projectExpression(projectableKids(view(member)), ctx),
+            pos: node.pos,
+            end: endOf(member),
+          };
+          node = element;
+          continue;
+        }
+        if (member.get("type") === "SymbolToken") continue;
+        const nameText = textOfNode(member, ctx);
+        if (nameText === "") continue;
+        node = {
+          kind: "PropertyAccessExpression",
+          expression: node,
+          name: { kind: "Identifier", text: nameText, pos: memberAt, end: memberAt + nameText.length },
+          pos: node.pos,
+          end: memberAt + nameText.length,
+        };
+      }
+      return node;
+    }
+  }
   // **`?.(args)`**（第 107 轮）：那一格是实参括号，TS 是带 `questionDotToken` 的 `CallExpression`。
   if (first !== undefined && first.get("type") === "Bracket" && first.get("startBracket") === "(") {
     const call = {
