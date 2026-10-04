@@ -1,4 +1,4 @@
-# tests/coverage —— **场景覆盖度**判据（exec / runtime / 标准库 / 端到端）
+﻿# tests/coverage —— **场景覆盖度**判据（exec / runtime / 标准库 / 端到端）
 
 这条判据回答的是**唯一**一个进度问题：
 
@@ -24,7 +24,7 @@
 | 1 | 回调里抛的异常没有立刻中断内建的循环 | `runtime/vm.xl.md` · `CallNative` 的第 3 条前提 | 那条前提只对 **rt 算子**成立 ✗；语言内建是宿主的 JS 循环 ✓，拿到 `undefined` 会接着转 ✗。要「**幂等**地停」✓（把状态里已记录的那份原样交出去 ✓）——「从内建抛宿主异常」那条路第 153 轮已被证伪 ✗ |
 | 2 | `Function.prototype.call` / `apply` / `bind` | 与 #1 **同一条通道**（`NativeCall`）+ `install.xl.md` 的语言内建号段 | 引擎的 `Op.Call` 本来就带 `this` 操作数 ✓，机制现成 ✓——难的是它与 #1 共用同一条通道 ✓，**一起做才不白付** ✓ |
 | 3 | `typeof <对象字面量>` 那一族 | `typescript/` 的重组队列（`typeof` 被留成了兄弟单元 `TypeOfKeyword` ✗） | 与第 205 轮那个私有名**同一类根子** ✓；判据 `cases:tsast` 1442 条现成 ✓，改完当场知道对不对 ✓ |
-| 4 | 语言层的 `throw` 没有类别 | `typescript-exec/builtins/` 各处 `throw new Error(...)`（`array-reduce` / `symbol-concat-throws` / `error-engine-throws` 三条同源 ✓） | 引擎那侧第 139 轮已经有「失败类别 + 错误工厂」✓，缺的是**语言层怎么把类别递出去** ✓ |
+| 4 | 语言层的 `throw` 没有类别 | **第 227 轮做掉了一半**：`install.xl.md` 的 `RaiseFromHost` 现在按**宿主异常的类**映射到脚本的族 ✓（`TypeError` ⇒ `TypeError` 族 ✓、`RangeError` ⇒ `RangeError` 族 ✓、其余 ⇒ `Error` ✓），`array.xl.md` 的空数组 `reduce` 改抛宿主 `TypeError` ⇒ 判据 `array-reduce` **通过** ✓。**还剩两处**：`symbol-concat-throws`（`"x" + Symbol()` ✓，抛点在拼接 / `TextUnitsOf` 那条路上 ✓）与 `error-engine-throws`（调一个非函数的值 ✓，`vm.xl.md` 的 `CallNative` 里那段注释写着它为什么今天接不住 ✓） |
 | 5 | 生成器对象的 `next()` | `install.xl.md` 的迭代那一段 ✓ | `for..of` / 展开两条路是好的 ✓（引擎那张 `drain` ✓），缺的是**直接调 `next()`** ✗——4 条判据拖着它 ✓ |
 | 6 | `super.v` 属性访问 | `typescript-exec/lowering.xl.md` 成员读那一支（`super.m(...)` 的兄弟 ✓，第 104 轮 ✓） | 要「**从父原型开始找 + `this` 是实例**」✓，而 `GetProperty` 从接收者起找 ✗、`FindProperty` + `ReadProperty` 凑不到一起 ✗ ⇒ 要给引擎加一条**带接收者的原型起读** ✓（`props.xl.md` ✓） |
 | 7 | `Symbol.description` | `runtime/props.xl.md` · `Protos`（**没有符号那一格** ✗） | 先给引擎加**符号原型** ✓（与 `Number.prototype` 让原始值读得到方法同源 ✓），再在 `globals.xl.md` 用 `DefineAccessor` 挂访问器 ✓ |

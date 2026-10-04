@@ -13,7 +13,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, StringConcat, ObjectAssign, PowId } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, ObjectAssign, PowId } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet, SetCtor } from "./set.xl.md"
 ```
@@ -829,7 +829,33 @@ const protos = machine.Protos;
 // 还没装载出原型表 ⇒ 这条通道用不了。
 if (protos === null) return false;
 try {
-  machine.Raise(NewError(machine.Room(), machine.Table, protos, HostErrorText(error)));
+  // **宿主异常的种类要映射到脚本的错误族** ✓（第 227 轮 ✓）。
+  //
+  // **在这之前这里一律造 `Error`** ✗——于是「语言层某处 `throw new Error(…)`」与
+  // 「引擎报的**类型**错」在脚本里长得一模一样 ✗：`[].reduce((a, b) => a + b)` 在 JS 里是
+  // **`TypeError`** ✓，本仓抛的是 `Error` ✗（判据 `array-reduce` 现场红的 ✓，
+  // `symbol-concat-throws` / `error-engine-throws` 与它同源 ✓）。
+  //
+  // **为什么要看宿主的类** ✓：内建是**宿主的代码** ✓（TS 那一侧 ✓），它手上能说的是
+  // 「I mean a type error」这件事本身 ✓——而**脚本**那一侧的族名是**语言层**的事 ✓
+  //（引擎根本不认识 `"TypeError"` 这几个字母 ✗，见 `ErrorKindType` ✓）。
+  // 这条映射就是那两件事之间的桥 ✓：`TypeError` ⇒ 脚本的 `TypeError` 族 ✓、
+  // `RangeError` ⇒ `RangeError` 族 ✓、其余 ⇒ `Error` ✓。
+  //
+  // **只映射能证明的两族** ✓（不是「猜一个最像的」✗）：别的宿主异常（`Error` ✓、
+  // 宿主自己那套自定义异常 ✓）一律落到 `Error` ✓——**不给近似值** ✓。
+  // **内建自己不用改** ✓（它们照旧 `throw new TypeError(…)` ✓，见上面那条注释 ✓）。
+  let failedProto = protos.Error;
+  let failedName = "Error";
+  if (error instanceof TypeError) {
+    failedProto = protos.TypeError;
+    failedName = "TypeError";
+  } else if (error instanceof RangeError) {
+    failedProto = protos.RangeError;
+    failedName = "RangeError";
+  }
+  machine.Raise(NewErrorLike(machine.Room(), machine.Table, protos, failedProto, failedName,
+    HostErrorText(error)));
   return true;
 } catch (again) {
   return false;

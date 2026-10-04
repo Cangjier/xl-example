@@ -641,7 +641,11 @@ if (id === ArrayReduce) {
   if (keep !== null) keep(accumulator, false);
   if (!started) {
     // **空数组且没给初值**：JS 抛 `TypeError` ✓，这里也抛 ✓（**不许**静默给 `undefined` ✗）。
-    throw new Error("reduce of an empty array with no initial value");
+    // **抛的是宿主那一侧的 `TypeError`** ✓（第 227 轮 ✓）：种类由**宿主通道**映射到脚本的族 ✓
+    //（`RaiseFromHost` ✓——它看宿主的类、造对应族的脚本错误 ✓）。
+    // 原来这里抛的是 `Error` ✗，于是脚本里 `catch (e) { e.name }` 拿到 `"Error"` ✗
+    //（JS 是 `"TypeError"` ✓，判据 `array-reduce` 现场红的 ✓）。
+    throw new TypeError("reduce of an empty array with no initial value");
   }
   return accumulator;
 }

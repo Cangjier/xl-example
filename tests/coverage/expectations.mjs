@@ -1,4 +1,4 @@
-// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
+﻿// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
 //
 // 两栏：
 //   - `expect`: `"blocked"`（进不了门）/ `"differ"`（跑得出来但结果不同）——两者都算**没覆盖**；
@@ -43,7 +43,6 @@ export const EXPECTATIONS = {
   "ex-labeled-block": { expect: "blocked", why: "带标签的块：标签该挂在块上（现在只收循环与 `switch`）" },
 
   // ===== stdlib：内建成员与标准形状 =====
-  "array-reduce": { expect: "differ", why: "空数组 + 无初值该抛 `TypeError`，抛的是 `Error`" },
   "array-spread-conditional": { expect: "blocked", why: "发现于第 214 轮：展开一个**条件表达式**（`[...cond ? a : b]`）降级不出来（`unimplemented: expression SpreadElement`）——`[...xs]` / `[...f()]` 一直是好的 ✓" },
   "object-freeze": { expect: "blocked", why: "**口径分歧**：本仓对只读属性**抛**（严格模式），node 把 `.ts` 当 CJS 跑是**松散模式**静默失败" },
   "object-freeze-array-element": { expect: "differ", why: "**静默错值**：冻住的数组还能 `push`（要动引擎的写屏障）" },
