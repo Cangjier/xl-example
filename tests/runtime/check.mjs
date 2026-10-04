@@ -7630,5 +7630,61 @@ check("名字那一格：计算键的方法 · 字符串键不带引号 · `Symb
 });
 
 console.log("");
+console.log("=== 第 184 轮：迭代协议（`Symbol.iterator` 那一格真的被认了）===");
+
+check("按协议走：取方法 → 调它 → 收 `next()`；且**协议优先于 `length`**", () => {
+  // **端到端那一把在 `cases/62-iteration-protocol.ts`**（9 行逐字节 ✓）。
+  //
+  // **症状**：第 183 轮把 `{ [Symbol.iterator]() { … } }` 这个**语法**做出来了 ✓、
+  // `Symbol.iterator` 那个**符号**也有了 ✓——但 `[...o]` / `for..of` 仍旧报
+  // 「不是一个数组 / 字符串 / Map / Set」✗：**协议那一半没做** ✗。
+  //
+  // `GetIterator`（语言层那条总入口 ✓，`for..of` / 展开 / `Array.from` 都走它 ✓）
+  // 原来只认四种输入 ✓，这一轮补上第五种 ✓：**取 `Symbol.iterator` 那一格方法 ✓
+  // → 调它拿到迭代器 ✓ → 反复读 `next()` 的 `{value, done}` ✓ → 收集成数组** ✓。
+  // **为什么收集成数组** ✗：引擎的 `iter_next` 只认数组与生成器 ✓（那是**算子** ✓），
+  // 所以语言层把协议跑完、交一个数组回去 ✓——与 Map / Set 那两条同一个手法 ✓。
+  //
+  // **判断顺序是语义** ✓：JS 里 `Symbol.iterator` **先于** `length` 那一档 ✓
+  // （`Array.from` 的数组式那一支因此要**排在协议之后** ✓）。
+  // **一份判据只有一处** ✓（`IteratorMethodOf` ✓）——两处各写一遍，
+  // 症状就是「`[...o]` 对了、`Array.from(o)` 不对」✗，最难查的一种 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const both: any = {",
+    "  length: 9,",
+    "  [Symbol.iterator]() { let i = 0; return { next: () => (i < 2 ? { value: 'x' + i++, done: false } : { done: true }) }; },",
+    "};",
+    "console.log([...both].join(','), Array.from(both).join(','), both.length);",
+    "const undef: any = {",
+    "  [Symbol.iterator]() { let n = 0; return { next: () => (n++ < 2 ? { value: undefined, done: false } : { done: true }) }; },",
+    "};",
+    "const spread = [...undef];",
+    "console.log(spread.length, spread[0] === undefined, Array.from(undef).length);",
+    "const arrLike: any = { length: 2, 0: 'a', 1: 'b' };",
+    "console.log(Array.from(arrLike).join(','));",
+    "console.log([...'ab'].join(','), Array.from('ab').join(','), [...new Set([1, 2, 2])].join(','));",
+    "const m = new Map([['k', 1]]);",
+    "console.log([...m].length, [...m][0][0], [...m][0][1]);",
+    "function* g() { yield 1; yield 2; }",
+    "let total = 0; for (const v of g()) total += v;",
+    "console.log(total);",
+    "console.log([1, 2, 3].map((x) => x * 2).join(','));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "x0,x1 x0,x1 9",
+    "**协议优先于 `length`**：`[...o]` 与 `Array.from(o)` 给同一个答案（`length` 是 9 也不管）");
+  eq(lines[1], "2 true 2", "迭代器产出的 `undefined` 是**真的值**（不是洞）");
+  eq(lines[2], "a,b", "没有迭代器的「数组式」对象照旧按下标读（`Array.from` 那一档不变）");
+  eq(lines[3], "a,b a,b 1,2", "字符串 · Set 照旧（原来那几档一个都不能少）");
+  eq(lines[4], "1 k 1", "Map 照旧给 `[键, 值]` 对");
+  eq(lines[5], "3", "生成器那一档走的是**引擎**（`iter_next`），不是协议（`[...g()]` 仍旧红 ✗）");
+  eq(lines[6], "2,4,6", "数组方法照旧");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

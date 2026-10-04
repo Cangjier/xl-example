@@ -156,6 +156,18 @@ this.Index = index;
 
 **`Date` 的原型**（第 138 轮）——与上面两格同款 ✓。
 
+## field WellKnownSymbols:int = 0
+
+**知名符号那张表**（第 184 轮）——一个**普通对象的句柄** ✓：语言层在装库时
+把 `iterator` 一类的符号挂上去 ✓，引擎那一侧只按**名字**去取 ✓。
+
+**为什么它住在这里** ✗：迭代协议（`for..of` / 展开 / `Array.from` ✓）走的是
+`GetIterator` ✓，而那个函数**只收到 `protos` 这一个「语言层给的常数表」** ✓——
+引擎不该认识 `Symbol` 这六个字 ✓（与 `ConstructorProtos` 那条同一个道理 ✓：
+**结构由引擎提供、名字由语言层给** ✓）。
+**宿主没接这一格时它就是 `0`** ✓，引擎那一侧退回「只认数组 / 字符串 / `Map` / `Set`」✓
+——**不说谎，只是不特殊** ✓。
+
 ## constructor:(objectHandle:int, arrayHandle:int, functionHandle:int, stringHandle:int)=>void
 
 记下四个句柄。**其余六格（三格 `Error` + `Map` / `Set` / `Date`）不在构造参数里** ✓：
@@ -189,6 +201,10 @@ if (this.RangeError > 0) roots.AddHandle(this.RangeError);
 if (this.Map > 0) roots.AddHandle(this.Map);
 if (this.Set > 0) roots.AddHandle(this.Set);
 if (this.Date > 0) roots.AddHandle(this.Date);
+// **知名符号那张表也是根** ✓（第 184 轮）：它里面装着**符号值** ✓，
+// 而符号是**引用型**（`IsRef` 那一档 ✓）——不收根的话 `Symbol.iterator`
+// 会在某一次回收之后变成一个悬着的句柄 ✗（症状是「迭代协议某天突然不认了」✗）。
+if (this.WellKnownSymbols > 0) roots.AddHandle(this.WellKnownSymbols);
 ```
 
 # method InitProtos:(room:RoomChecker, table:HeapTable)=>Protos

@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
+import { SetProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
@@ -1927,6 +1927,16 @@ for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstanc
   SetProperty(room, NeverCall, table, symbolObject,
     Value.FromString(table.CreateString(Units(wellKnown))), symbol);
 }
+// **同一批符号再挂到「知名符号表」上**（第 184 轮）✓：迭代协议那一侧
+// （`install.xl.md` 的 `GetIterator` ✓）只拿得到 `protos` ✓，所以给它一个
+// **按名字取符号**的落点 ✓——引擎不必认识 `Symbol` 这六个字 ✓。
+const wellKnownTable = NewPlainObject(room, table, protos);
+for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag"]) {
+  const symbolKey = Value.FromString(table.CreateString(Units(wellKnown)));
+  SetProperty(room, NeverCall, table, wellKnownTable, symbolKey,
+    GetProperty(room, NeverCall, protos, table, symbolObject, symbolKey));
+}
+protos.WellKnownSymbols = wellKnownTable.Ref;
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。
 // **第 145 轮它同时是构造函数** ✓：`new Date(ms)` 不再靠降级层那条特例 ✓

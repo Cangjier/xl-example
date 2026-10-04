@@ -2,13 +2,13 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
-import { Protos, DefineAccessor, FindProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
+import { Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
-import { InvokeArray, NeverCall } from "./array.xl.md"
+import { InvokeArray, NeverCall, Units } from "./array.xl.md"
 import { ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
@@ -70,14 +70,14 @@ if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self,
 // 不收 `protos`——把这一支留在这一层，就不必为了一个参数去改那个签名。
 if (id === GetIteratorId) {
   if (args.length < 1) throw new Error("unimplemented: get_iterator needs (value)");
-  return GetIterator(room, table, protos, args[0]);
+  return GetIterator(room, table, protos, args[0], call);
 }
 // **展开与数组剩余也要 `protos`**（第 132 轮）✓：两个都**造新数组**（或往数组里填）✓，
 // 理由与上面那一条一字不差 ✓。它们排在 `InvokeObjectHelper` **前面** ✓——
 // 那一支只认 `DefineAccessorId`，落到它手里会报「没装的东西被调到」✗（离现场很远 ✗）。
 if (id === SpreadIntoId) {
   if (args.length < 2) throw new Error("unimplemented: spread_into needs (target, source)");
-  return SpreadInto(room, table, protos, args[0], args[1]);
+  return SpreadInto(room, table, protos, args[0], args[1], call);
 }
 if (id === ArrayRestId) {
   if (args.length < 2) throw new Error("unimplemented: array_rest needs (source, start)");
@@ -126,16 +126,51 @@ return InvokeBuiltin(room, table, call, id, self, args);
 **`{a, ...r} = o` 里的 `r`**（第 135 轮）：`(源对象, 已经拆走的键数组)` → 一份新对象 ✓
 （`RestObject` 那一段写着为什么要一份名单 ✓）。
 
-# method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value)=>Value
+# method IteratorMethodOf:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null)=>Value
 
-**它对四种输入做什么**：
+**取 `value[Symbol.iterator]` 那一格**（第 184 轮 ✓）——**取不到就给 `undefined`** ✓。
+
+**为什么要单独一个方法** ✗：`GetIterator` 与 `Array.from` 都要问这句话 ✓
+（「这是不是自定义可迭代物」✓），而**判断顺序是语义** ✓：
+JS 里 `Symbol.iterator` **先于** `length` 那一档 ✓（一个既有 `length` 又有
+`Symbol.iterator` 的对象按**协议**走 ✓）。**一份判据只能有一处** ✓——
+两处各写一遍，早晚一处先、一处后 ✗（而症状是「`[...o]` 对了、`Array.from(o)` 不对」✓，
+最难查的一种 ✓）。
+
+```ts
+if (call === null || protos.WellKnownSymbols <= 0) return Value.Undefined();
+if (!value.IsObject()) return Value.Undefined();
+const symbolTable = Value.FromObject(protos.WellKnownSymbols);
+const iteratorKey = GetProperty(room, call, protos, table, symbolTable,
+  Value.FromString(table.CreateString(Units("iterator"))));
+if (iteratorKey.Tag !== ValueTag.Symbol) return Value.Undefined();
+const method = GetProperty(room, call, protos, table, value, iteratorKey);
+// **取到的东西必须能被调** ✓：`{ [Symbol.iterator]: 1 }` 不是可迭代物 ✓
+// （JS 那一步会抛 `TypeError` ✓，这里**原样交回**、由引擎那边报它自己的话 ✓）。
+if (method.Tag === ValueTag.Object && method.Ref > 0) return method;
+if (method.IsCallable()) return method;
+return Value.Undefined();
+```
+
+# method HasIteratorMethod:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null)=>bool
+
+**「这是不是自定义可迭代物」** ✓（第 184 轮）——`IteratorMethodOf` 取到了东西就是 ✓。
+
+```ts
+return IteratorMethodOf(room, table, protos, value, call).Tag !== ValueTag.Undefined;
+```
+
+# method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null)=>Value
+
+**它对五种输入做什么**：
 
 | 输入 | 给什么 |
 | --- | --- |
 | **Map**（有 `__k`） | **`[键, 值]` 对的数组**——这正是 JS 的形状 ✓（`for (const e of m) e[0]/e[1]` ✓） |
 | **Set**（有 `__v`） | **值的数组**（与 `Set.values()` 同形 ✓） |
-| 数组 | **原样**（数组本来就是引擎认的可迭代物 ✓） |
-| 生成器 / 其它值 | **原样**（生成器由引擎认；其它值由引擎那边报错，报的是引擎的话 ✓） |
+| **数组 / 字符串 / 生成器** | **原样**（这三种引擎自己认 ✓，`iter_next` 就在引擎里 ✓） |
+| **有 `Symbol.iterator` 的对象**（第 184 轮 ✓） | **跑一遍迭代协议**，把产出收集成数组 ✓ |
+| 其它值 | **原样**（由引擎那边报错，报的是引擎的话 ✓） |
 
 **按「有没有那两格」认，而不是按名字认**：`Map` / `Set` 在引擎里就是「挂着 `__k` / `__v`
 的普通对象」——**这里也只认这两格** ✓。于是两个集合将来换内部表示（真的哈希表）时，
@@ -144,11 +179,57 @@ return InvokeBuiltin(room, table, call, id, self, args);
 **每一处数组都现取视图**（`table.Get(句柄).AsArray()`）：句柄稳定、**视图不稳定** ✓
 （`Push` 换底层存储之后老视图就废了——`map.xl.md` 文首那条教训）。
 
+**第 184 轮加了「按协议走」那一档** ✓：`{ [Symbol.iterator]() { … } }` 是**遍地都是**的写法 ✓
+（第 183 轮刚把那个语法做出来 ✓，但 `[...o]` / `for..of` 仍旧报「不可迭代」✗）。
+做法是**三步**：拿 `Symbol.iterator` 那一格方法 ✓ → 调它拿到迭代器 ✓ → 反复读
+`next()` 的 `{value, done}` ✓。**它把结果收集成数组** ✓——因为引擎的 `iter_next`
+只认数组 / 生成器 ✓（与 `Map` / `Set` 那两条同一个手法 ✓，也是同一个理由 ✓）。
+
+**符号从哪来**：`protos.WellKnownSymbols` ✓（语言层装库时填的一张小表 ✓）——
+引擎不必认识 `Symbol` 这六个字 ✓（见那一格的说明 ✓）。
+**`call === null` 时这一档不做** ✗（没有重入通道就调不了 `next()` ✓），
+退回「原样返回」✓——宿主驱动的调用天然是这一种 ✓。
+
+**死循环的兜底是执行预算** ✓（不是新加的计数器 ✓）：`next()` 每次都要跑脚本指令 ✓，
+所以「永远不 done」的迭代器会被 `MaxSteps` 拦住 ✓。**不另设上限** ✗——
+那会变成第二份「什么时候算跑太久」的判据 ✓。
+
 ```ts
 if (!value.IsObject()) return value;
 const mapMarker = FindProperty(NeverRoom, table, value.Ref, NameValue(table, "__k"));
 const setMarker = FindProperty(NeverRoom, table, value.Ref, NameValue(table, "__v"));
-if (mapMarker === null && setMarker === null) return value;
+if (mapMarker === null && setMarker === null) {
+  // **数组 / 字符串 / 生成器交给引擎** ✓（这三种 `iter_next` 自己认 ✓）。
+  if (value.Tag === ValueTag.Array || value.Tag === ValueTag.String) return value;
+  const item = table.Get(value.Ref);
+  if (item.Generator !== null) return value;
+  // **按 `Symbol.iterator` 走协议** ✓（第 184 轮）：取方法 → 调它 → 收 `next()` ✓。
+  // **`call === null` 要在这里再写一遍** ✓（不是废话 ✓）：`HasIteratorMethod` 里面
+  // 虽然也判了 ✓，但那一句**收窄不了这一层的类型** ✗（TS 的收窄不跨函数 ✗）。
+  if (call === null || !HasIteratorMethod(room, table, protos, value, call)) return value;
+  const iterator = call(IteratorMethodOf(room, table, protos, value, call), value, []);
+  if (!iterator.IsObject()) {
+    throw new Error("unimplemented: Symbol.iterator did not return an object");
+  }
+  const out = NewPlainArray(room, table, protos);
+  const nextKey = Value.FromString(table.CreateString(Units("next")));
+  const doneKey = Value.FromString(table.CreateString(Units("done")));
+  const valueKey = Value.FromString(table.CreateString(Units("value")));
+  while (true) {
+    const nextMethod = GetProperty(room, call, protos, table, iterator, nextKey);
+    const step = call(nextMethod, iterator, []);
+    if (!step.IsObject()) {
+      throw new Error("unimplemented: an iterator's next() must return an object");
+    }
+    if (RtToBoolean(table, GetProperty(room, call, protos, table, step, doneKey)).AsBool()) break;
+    if (!room(ValueCharge)) throw new Error("out of room");
+    // **洞不能漏**：迭代器产出的 `undefined` 是**真的值** ✓（不是洞 ✓）——
+    // `Push` 走的就是「有值」那条路 ✓（与 `Array.from` 那一段的判据同一条 ✓）。
+    table.Get(out.Ref).AsArray().Push(
+      GetProperty(room, call, protos, table, step, valueKey));
+  }
+  return out;
+}
 const source = ReadOwn(room, table, value, mapMarker !== null ? "__k" : "__v");
 const out = NewPlainArray(room, table, protos);
 const length = table.Get(source.Ref).AsArray().GetLength();
@@ -200,12 +281,18 @@ const out = NewPlainArray(room, table, protos);
 // 没有迭代器才按**下标**读 ✓。本仓没有 `Symbol.iterator` 的通用查找 ✗，
 // 所以判据换成「**是一个对象、自有 `length` 是数、而且不是数组 / 字符串**」✓——
 // 数组与字符串上面两条各自处理 ✓（数组的 `length` 也不在属性表里 ✓，撞不到这里 ✓）。
-if (source.IsObject() && source.Tag !== ValueTag.Array) {
+if (source.IsObject() && source.Tag !== ValueTag.Array
+  && (call === null || !HasIteratorMethod(room, table, protos, source, call))) {
   const sourceItem = table.Get(source.Ref);
   let lengthValue = Value.Undefined();
   for (let i = 0; i < sourceItem.Props.length; i++) {
     const property = sourceItem.Props[i];
     if (property.Kind === PropertyKind.Accessor) continue;
+    // **符号键跳过**（第 184 轮修 ✓）：`{ [Symbol.iterator]() { … } }` 这类对象
+    // **也**有 `Props` ✓，而里面那一格的键是**符号** ✗——`ValueText` 见到它不是字符串
+    // 就抛 `heap object is not a string` ✓（实测：`Array.from(o)` 走到这一句才炸 ✗，
+    // 而 `[...o]` / `for..of` 已经通了 ✓）。`Object.keys` 那条一直是这么跳的 ✓。
+    if (table.Get(property.Key).Tag !== ValueTag.String) continue;
     if (ValueText(table, Value.FromString(property.Key)) === "length") {
       lengthValue = property.Value;
       break;
@@ -223,6 +310,7 @@ if (source.IsObject() && source.Tag !== ValueTag.Array) {
       for (let j = 0; j < sourceItem.Props.length; j++) {
         const property = sourceItem.Props[j];
         if (property.Kind === PropertyKind.Accessor) continue;
+        if (table.Get(property.Key).Tag !== ValueTag.String) continue;
         if (ValueText(table, Value.FromString(property.Key)) === "" + i) {
           item = property.Value;
           break;
@@ -242,7 +330,7 @@ if (source.Tag === ValueTag.String) {
   }
   return MapArrayItems(room, table, out, mapper, hasMapper, call);
 }
-const iterable = GetIterator(room, table, protos, source);
+const iterable = GetIterator(room, table, protos, source, call);
 if (iterable.Tag !== ValueTag.Array) {
   throw new Error("unimplemented: Array.from over an iterator "
     + "(arrays, strings, Map and Set are supported; generators need iter_next, which this layer cannot reach)");
@@ -282,7 +370,7 @@ for (let i = 0; i < count; i++) {
 return out;
 ```
 
-# method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value)=>Value
+# method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value, call:NativeCall | null)=>Value
 
 **把 `source` 摊开接进 `target` 的尾部**（第 132 轮）——`[...xs]` / `f(...)` 那类**展开**要用它 ✓。
 
@@ -300,7 +388,7 @@ return out;
 （与 `Array.from` 那条是同一个边界 ✓）。所以生成器落到「其它」那一支 ✓——**响亮地抛** ✓。
 
 ```ts
-const items = GetIterator(room, table, protos, source);
+const items = GetIterator(room, table, protos, source, call);
 if (items.Tag === ValueTag.Array) {
   const from = table.Get(items.Ref).AsArray();
   const count = from.GetLength();
