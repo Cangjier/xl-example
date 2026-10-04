@@ -292,7 +292,11 @@ host.InstallHost((target, self, args, room) => {
   try {
     const answered = answer(room, id, self, args);
     if (answered !== null) return answered;
-    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler());
+    // **第 199 轮加了两样服务** ✓（与 `schedule` / `settle` 同一个形状 ✓）：
+    // `IteratorDrainer()` 是「把可迭代物走完、收成数组」✓（生成器那一条 ✓）、
+    // `RootKeeper()` 是「把语言层造的中间数组挂进根集」✓——
+    // 后者是**实测逼出来的** ✓：6 万项的 `[...o]` 在 `invalid handle` 上炸过 ✓。
+    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper());
   } catch (error) {
     // **抬不动就原样冒出去**（`RaiseFromHost` 给假：多半是连错误对象都开不出来）——
     // 响亮地失败，比假装抛了一个空错误好 ✓。

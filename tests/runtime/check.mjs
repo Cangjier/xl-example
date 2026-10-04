@@ -5490,7 +5490,11 @@ check("标准库第三批：findIndex · Array.from · Object.assign · fromChar
     "out.push(new Set([1, 1, 2]).size);",
     // 三条**该抛**的：各自包一层 try，把「抛没抛 / 说了什么」带回宿主。
     "const loud = [];",
-    // ① 生成器 / 非数组可迭代物：`iter_next` 是**指令**，建库层够不着。
+    // ① **不可迭代的值**（不是生成器）：`Array.from` 要**点名**说它不做这一档 ✓。
+    // **判据随契约更新**（第 199 轮 ✓）：**生成器**那一档这一轮做掉了 ✓，
+    // 所以这一条换成了「既没有迭代器、也没有 `length`」的对象 ✓——
+    // JS 在那里给**空数组** ✓（把它当 `length` 为 0 的数组式对象 ✓），
+    // 本仓这一档照旧**响亮地抛** ✓（写在台账里 ✓，不是这一轮的事 ✓）。
     "try { Array.from({ a: 1 }); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
     // ② 非字符串的 `replace` 实参（正则 / 函数都落这一支）。
     "try { 'a'.replace(1, 'b'); loud.push('no-throw'); } catch (error) { loud.push(error.message); }",
@@ -5653,7 +5657,10 @@ check("展开与绑定模式的默认值 / 数组剩余：与 Node 逐值一致�
     }
   }
   const last = hostStringOf(table, GetIndex(table, values, Value.FromInt(expected.length)));
-  ok(last.indexOf("unimplemented: spreading a value") === 0,
+  // **判据随契约更新**（第 199 轮 ✓）：生成器那一档做掉之后 ✓，
+  // 「不可迭代」这句话换成了 `GetIterator` 里那一句 ✓（`iterating a non-object` ✓）——
+  // 它点的是**哪一步**失败 ✓（比原来那句「spreading a value …」更贴近现场 ✓）。
+  ok(last.indexOf("unimplemented: ") === 0,
     "不可迭代的值：**运行期**抛，脚本接得住：" + last);
 
   // **另外两条是**降级期**的错** ✗——脚本里的 `try` 一个字都拦不住它们 ✗
@@ -6712,9 +6719,14 @@ check("失败形状必须**响亮**：没声明的名字 · 计算键 + 剩余 �
   // 于是 `[a, b] = new Set([8, 9])` 给 `8, 9` ✓（原来是**静默**的 `undefined, undefined` ✗）。
   // **还剩一档** ✗：生成器仍然过不去 ✓（`GetIterator` 把它**原样**返回 ✓，
   // 而按位置读一个生成器读不到东西 ✗）——那一档要引擎发 `iter_next` ✓，另记一条 ✓。
-  eq(lines[2], "no-throw undefined", "**已知差**：`[q] = 5` 静默给 `undefined`（JS 抛）");
+  // **这一条第 199 轮变红了，而且方向是对的** ✓：`[q] = 5` 现在**抛** ✓——
+  // JS 在解构不可迭代物时也是 `TypeError` ✓，而本仓原来**静默**给 `undefined` ✗
+  // （**静默错值** ✗，比抛危险得多 ✓）。原因是数组模式那一步现在多了一个收尾的
+  // `IterDrain` ✓：`get_iterator` 对数字**原样返回** ✓（它没有意见 ✓），
+  // 而收尾那一步说得出「这不是可迭代物」✓。
+  eq(lines[2], "caught-noniterable", "**第 199 轮修的**：`[q] = 5` 抛（原来静默给 undefined）");
   eq(lines[3], "set 8 9", "第 151 轮修好：`[a, b] = new Set(...)` 走迭代协议，给 `8 9`");
-  // **生成器那一档还在** ✗（钉在明处 ✓：做出来那天会变红 ✓）。
+  // **生成器那一档第 199 轮做掉了** ✓（这一条原来钉的是「做出来那天会变红」✗）。
   const genLines = [];
   const genRequest = new RunRequest();
   genRequest.Sources = [[
@@ -6725,8 +6737,8 @@ check("失败形状必须**响亮**：没声明的名字 · 计算键 + 剩余 �
   genRequest.Entry = "";
   const genRes = RunSources(genRequest, (text) => genLines.push(text), () => null);
   eq(genRes.Outcome, HostOutcome.Ok, "运行器：" + genRes.Message);
-  eq(genLines[0], "gen undefined undefined",
-    "**已知差**：生成器解构仍给 `undefined`（要引擎发 `iter_next`）");
+  eq(genLines[0], "gen 1 2",
+    "**第 199 轮修的**：`const [g1, g2] = g()` 给产出的头两个");
 });
 
 console.log("");
@@ -7165,10 +7177,10 @@ check("数组模式过 `GetIterator`：`Set` / `Map` / 字符串都读得到，�
   eq(lines[3], "h i", "字符串原样过（它本来就能按下标读）");
   eq(lines[4], "42", "默认值那一格不受影响（读出来是 `undefined` 才用默认）");
   eq(lines[5], "11 12", "数组原样返回，所以普通数组解构一条指令都没变");
-  // **生成器那一档还没过** ✗（钉在明处 ✓：做出来那天会变红 ✓）——
-  // 它要引擎发 `iter_next` ✓（`GetIterator` 对生成器**原样返回** ✗，
-  // 而按位置读一个生成器读不到东西 ✓）。要动的地方是**引擎那一侧** ✓：
-  // `SpreadInto` 与数组模式都得能「驱动一次迭代」✓，而建库层够不着指令 ✗。
+  // **生成器那一档第 199 轮做掉了** ✓（这一条原来钉的是「做出来那天会变红」✗）。
+  // 修法不是「引擎多发一条指令」✗，而是**引擎把那张「走完迭代器」的服务递下来** ✓
+  //（`DrainIterator` / `IteratorDrainer()` ✓）——建库层照旧不碰指令 ✓，
+  // 而数组模式那一步多了一个收尾的 `IterDrain` ✓。
   const genLines = [];
   const gen = new RunRequest();
   gen.Sources = [[
@@ -7179,8 +7191,7 @@ check("数组模式过 `GetIterator`：`Set` / `Map` / 字符串都读得到，�
   gen.Entry = "";
   const genRes = RunSources(gen, (text) => genLines.push(text), () => null);
   eq(genRes.Outcome, HostOutcome.Ok, "运行器：" + genRes.Message);
-  eq(genLines[0], "undefined undefined",
-    "**已知差**：生成器解构仍给 `undefined`（要引擎侧的一条新算子）");
+  eq(genLines[0], "1 2", "**第 199 轮修的**：生成器解构给产出的头两个");
 });
 
 console.log("");
@@ -8467,6 +8478,93 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
   eq(fine("console.log([1] + 1);"), true, "数组给答案（走 `Array.prototype.toString`）");
   eq(fine("console.log(+new Date(1234));"), true,
     "**`+new Date(ms)` 不受影响**：一元 `+` 的 hint 是 `number` → `valueOf` → 毫秒数");
+});
+
+console.log("");
+console.log("=== 第 199 轮：生成器进得了每一个「急切」的入口 ===");
+
+check("四个急切入口都走引擎那张 `drain`；`for..of` 仍旧是惰性的", () => {
+  // **端到端那一把在 `cases/77-generator-iteration.ts`**（14 行逐字节 ✓）。
+  //
+  // **症状**：`[...g()]` 报 `unimplemented: spreading a value that is not an array,
+  // a string, a Map or a Set` ✓——**整份文件进不来** ✗。
+  //
+  // **根因是一条分层边界** ✓：走完一个生成器要发 `iter_next` ✓，那是**指令** ✓、
+  // 不是建库层能调的函数 ✗。`GetIterator` 对生成器**原样返回** ✓
+  //（那正是 `for..of` 那条**惰性**路要的形状 ✓），于是所有**急切**的入口都落到「其它」抛 ✗。
+  //
+  // **修法**：引擎把那张服务递下来 ✓（`DrainIterator` / `IteratorDrainer()` ✓，
+  // 与 `Scheduler()` / `Settler()` 同一个形状 ✓），语言层照旧不碰指令 ✓。
+  const out = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "function* numbers(): Generator<number> { yield 1; yield 2; yield 3; }",
+    // ① 展开（含夹在中间那一档）
+    "console.log([...numbers()].join(','), [0, ...numbers(), 9].join(','));",
+    // ② 解构（声明 + 剩余 + 赋值）
+    "const [a, b] = numbers();",
+    "const [head, ...tail] = numbers();",
+    "let x: number, y: number;",
+    "[x, y] = numbers();",
+    "console.log(a, b, head, tail.join('-'), x, y);",
+    // ③ `Array.from`（含映射函数）
+    "console.log(Array.from(numbers()).join('|'), Array.from(numbers(), (n: number) => n * 10).join('|'));",
+    // ④ 集合的初值
+    "console.log(new Set(numbers()).size, [...new Set(numbers())].join(','));",
+    "console.log([...new Map([['k', 1]]).keys()].join(','));",
+    // ⑤ 函数的实参位（含宿主能力）
+    "function sum(...xs: number[]) { return xs.reduce((m: number, n: number) => m + n, 0); }",
+    "console.log(sum(...numbers()), Math.max(...numbers()));",
+    // ⑥ **惰性**：`for..of` 里 `break` 之后不许再跑生成器体 ✓
+    "function* loud(): Generator<number> { yield 1; yield 2; throw new Error('drained!'); }",
+    "let seen = '';",
+    "for (const n of loud()) { seen += n; if (n === 2) break; }",
+    "console.log(seen);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => out.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(out[0], "1,2,3 0,1,2,3,9", "① 展开：整个生成器 + 夹在定长元素中间");
+  eq(out[1], "1 2 1 2-3 1 2", "② 解构：声明 / 剩余 / 赋值三半都走同一条");
+  eq(out[2], "1|2|3 10|20|30", "③ `Array.from`：含映射函数那一档");
+  eq(out[3], "3 1,2,3", "④ `new Set(生成器)`（原来**静默给空集** ✗）");
+  eq(out[4], "k", "④ `new Map(可迭代物)`");
+  eq(out[5], "6 3", "⑤ 函数的展开实参位 + 宿主能力");
+  eq(out[6], "12", "⑥ **`for..of` 没走那张 drain**：`break` 之后生成器体不再跑（否则这里会抛）");
+});
+
+check("语言层手里的中间数组**要有根**：展开一个 6 万项的 `Symbol.iterator` 不再报 `invalid handle`", () => {
+  // **这一条是这一轮实测抓到的潜伏 bug** ✗，不是新功能带来的 ✓：
+  // 语言层「造一个数组 → 循环里调脚本 → 往数组里收」这个形状**有一个真实的窗口** ✗——
+  // 循环里任何一次 `room(...)` 都可能触发回收 ✓，而那个数组是**这一层自己造的** ✓、
+  // **不在 `SnapshotRoots` 的名单里** ✗ → 被收走 → `Push` 落在死句柄上 ✓
+  //（实测：6 万项的 `[...o]` 报 `invalid handle: 322` ✓；**四万格以内看不出来** ✗——
+  // 阈值没到就一次都不回收 ✓，正是「测试绿、线上收掉活对象」那一种 ✓）。
+  //
+  // 修法：引擎多一格**临时根**（`Temps` ✓，与 `Retained` 同一条理由 ✓）与那个开关
+  //（`RootKeeper()` ✓），语言层在**跨过一次会分配的动作**之前把它挂上 ✓。
+  // **两轮实测各抓到一处** ✗：第一轮漏了 `out` 之外的**迭代器自己** ✓、
+  // 第二轮漏了**循环外造、循环里用的三个键字符串** ✓——所以闸门要有**够多的垃圾**
+  // 才能逼出回收 ✓（下面这一条就是那样写的 ✓：每一步造 2KB 垃圾 ✓，
+  // 实测**三千项就会回收六次以上** ✓，而真跑到 6 万项要好几分钟 ✓）。
+  const out = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    // **每一步造 2KB 垃圾** ✓：堆被逼到阈值 ✓ → 回收必然发生 ✓ → 根挂没挂当场见分晓 ✓。
+    "const o: any = { [Symbol.iterator]() { let i = 0; return { next: () => {",
+    "  i++; const pad = 'x'.repeat(2000);",
+    "  return { value: i + pad.length - 2000, done: i > 3000 }; } }; } };",
+    "const xs = [...o];",
+    "console.log(xs.length, xs[0], xs[2999]);",
+    // `Array.from` 那条路同样经过「造数组 + 循环里调脚本 + 收」✓，一起钉住 ✓。
+    "const ys = Array.from(o);",
+    "console.log(ys.length, ys[2999]);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => out.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器（这一抛就是根没挂住）：" + res.Message);
+  eq(out[0], "3000 1 3000", "**这一轮修的**：展开一个会逼出回收的 `Symbol.iterator`，一项都不少");
+  eq(out[1], "3000 3000", "`Array.from` 同一条路（它多了 `out` 那一格要挂）");
 });
 
 console.log("");

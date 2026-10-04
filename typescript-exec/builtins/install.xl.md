@@ -5,7 +5,7 @@ import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } fr
 import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
 import { Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
-import { Vm, TaskScheduler, TaskSettler } from "../../runtime/vm.xl.md"
+import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
@@ -15,7 +15,7 @@ import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, StringConcat, ObjectAssign, PowId } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
-import { InvokeSet } from "./set.xl.md"
+import { InvokeSet, SetCtor } from "./set.xl.md"
 ```
 
 # namespace cangjie
@@ -45,7 +45,7 @@ if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null)=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null)=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -56,6 +56,12 @@ throw new Error("unimplemented: builtin id " + id);
 **原型表只在全局段用得到**（`Object.keys` 返回的新数组要带数组原型），
 理由同上：用不到的那两块不必收它。
 
+**`drain` / `keep` 是第 199 轮加的第四、五样服务** ✓（与 `schedule` / `settle` 同一个形状 ✓）：
+`drain` 是「把可迭代物走完、收成数组」✓（`catch` 生成器那一条 ✓），
+`keep` 是「把语言层造的中间数组挂进根集」✓——**两样都只有迭代那几处用得到** ✓，
+所以照旧**只往需要它的那一块传** ✓（`InvokeString` / `InvokeGlobal` 一个字都不改 ✓）。
+**两者都可以是 `null`** ✓：宿主没接通道时，那些路径要么响亮的抛 ✓、要么走不到 ✓。
+
 ```ts
 // **集合那一段要原型表**（它们造普通对象与数组）——`NeverCall` 是写数据属性时的现成空实现。
 // **段内再分段，按窄到宽判，避免重叠**：`Map` 是 600..610（含第 116 轮的 `forEach`），
@@ -65,6 +71,19 @@ throw new Error("unimplemented: builtin id " + id);
 // **承诺那一段排在集合之前**（第 185 轮 ✓）：230..239 是**全局段里的一个窄段** ✓，
 // 按窄到宽判 ✓（写反了会被下面的全局段截走 ✗，症状是「Promise.resolve 报别的号」✗）。
 if (id >= 230 && id < 240) return InvokePromise(room, table, protos, id, self, args, schedule, settle);
+// **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
+// 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
+// **「一个可迭代物 → 一个数组」这件家务事留在这一层** ✓（不放进 `map.xl.md` / `set.xl.md` ✗）：
+// 那两块**不能** import 这一层 ✓（依赖方向是「这一层认识它们」✓，反过来成环 ✗），
+// 所以两块拿到手的仍旧是**数组** ✓——它们各自动一个字都不用改 ✓
+//（改动只在号段翻译这一处 ✓，与「哪个号属于哪一块只有这一处知道」同一条理由 ✓）。
+if (id === MapCtor || id === SetCtor) {
+  // **`null` / `undefined` 是空集合** ✓（JS 的口径 ✓），**不是**「没有迭代器」✗——
+  // 而其余非可迭代物（`new Set(42)` ✓）由 `IterDrain` **响亮地抛** ✓（JS 也是 `TypeError` ✓）。
+  if (args.length > 0 && !args[0].IsNullish() && args[0].Tag !== ValueTag.Array) {
+    args[0] = IterDrain(room, table, protos, args[0], call, drain, keep);
+  }
+}
 if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args);
 if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self, args);
 // **700..799：语言内部辅助**（第 99 轮开的段）。
@@ -74,14 +93,21 @@ if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self,
 // 不收 `protos`——把这一支留在这一层，就不必为了一个参数去改那个签名。
 if (id === GetIteratorId) {
   if (args.length < 1) throw new Error("unimplemented: get_iterator needs (value)");
-  return GetIterator(room, table, protos, args[0], call);
+  return GetIterator(room, table, protos, args[0], call, keep);
 }
 // **展开与数组剩余也要 `protos`**（第 132 轮）✓：两个都**造新数组**（或往数组里填）✓，
 // 理由与上面那一条一字不差 ✓。它们排在 `InvokeObjectHelper` **前面** ✓——
 // 那一支只认 `DefineAccessorId`，落到它手里会报「没装的东西被调到」✗（离现场很远 ✗）。
 if (id === SpreadIntoId) {
   if (args.length < 2) throw new Error("unimplemented: spread_into needs (target, source)");
-  return SpreadInto(room, table, protos, args[0], args[1], call);
+  return SpreadInto(room, table, protos, args[0], args[1], call, drain, keep);
+}
+// **「把可迭代物走完、收成数组」的入口**（第 199 轮 ✓）：降级层用它落**数组解构** ✓
+// （`const [a, b] = g()` ✓）——与 `spread_into` 同一个号段 ✓、同一个理由 ✓
+// （这里要 `protos` 造数组、要引擎那张 `drain` ✓）。
+if (id === IterDrainId) {
+  if (args.length < 1) throw new Error("unimplemented: iter_drain needs (source)");
+  return IterDrain(room, table, protos, args[0], call, drain, keep);
 }
 // **`new C(...xs)` 的入口**（第 197 轮 ✓）：降级层把「构造函数」与「装着实参的数组」
 // 交给它 ✓——与 `spread_into` 同一个号段、同一个理由 ✓（这里要 `protos` 造实例 ✓）。
@@ -103,7 +129,7 @@ if (id === StringSplit) return SplitString(room, table, protos, self, args);
 // **`Array.from` 同理**（第 130 轮）✓：它也是「返回一个新数组」的**静态方法** ✓，
 // 而且它的 `self` 是那个 `Array` **普通对象** ✓——放进 `InvokeArray` 就要同时改签名与
 // `RequireArray` 的先后 ✓，两个改动都白付 ✓。
-if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call);
+if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call, drain, keep);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
 if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink);
 return InvokeBuiltin(room, table, call, id, self, args);
@@ -123,6 +149,16 @@ return InvokeBuiltin(room, table, call, id, self, args);
 
 **`new C(...xs)` 的入口**（第 197 轮 ✓）：与 `SpreadIntoId` 同一个号段 ✓、同一个理由 ✓
 （要 `protos` 造实例 ✓）。**它不是全局名** ✓——降级层为落实现「带展开的构造」而发的内部调用 ✓。
+
+# const IterDrainId:int = 707
+
+**「把可迭代物走完、收成数组」的入口**（第 199 轮 ✓）：与 `SpreadIntoId` 同一个号段 ✓、
+同一个理由 ✓（这里要 `protos` 造数组 ✓、要引擎那张 `drain` ✓）。
+
+**为什么不复用 `SpreadIntoId`** ✗：展开要的是「**往一个已有的数组里追加**」✓
+（`[...a, ...b]` 的 `b` 追加到 `a` 的尾巴上 ✓），而解构要的是「**一个新数组**」✓
+（`const [a, b] = g()` 里没有任何现成的数组 ✓）。两件事分开之后，
+`SpreadInto` 里那句「数组 → 逐项 `Push` 到 target」**一个字都不用改** ✓。
 
 # const SpreadIntoId:int = 703
 
@@ -175,7 +211,7 @@ return Value.Undefined();
 return IteratorMethodOf(room, table, protos, value, call).Tag !== ValueTag.Undefined;
 ```
 
-# method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null)=>Value
+# method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null, keep:RootKeeper | null)=>Value
 
 **它对五种输入做什么**：
 
@@ -227,21 +263,63 @@ if (mapMarker === null && setMarker === null) {
     throw new Error("unimplemented: Symbol.iterator did not return an object");
   }
   const out = NewPlainArray(room, table, protos);
+  // **挂根**（第 199 轮 ✓）：下面这个循环每一轮都要调 `next()` ✓——那是**脚本** ✓、
+  // 会分配 ✓、会触发回收 ✓，而这两样都是这一层手里的 ✓、**不在 `SnapshotRoots` 的名单里** ✗。
+  // **这是实测出来的** ✗：`[...一个 6 万项的 Symbol.iterator]` 报过 `invalid handle` ✓——
+  // 第一版只挂了 `out` ✓，仍然炸 ✓：**死的是迭代器自己** ✓
+  //（`iterator` 是宿主局部变量里那个 `Value` ✓，回收器看不见它 ✓）。
+  // **于是这一轮的判据是「凡跨过一次会分配的动作，就挂上」** ✓——
+  // 「会分配的动作」在下面有三处：`GetProperty`（可能有 getter ✓）、
+  // `call`（脚本 ✓）、`room(...)`（就是回收的闸门本身 ✓）。
+  if (keep !== null) {
+    keep(out, true);
+    keep(iterator, true);
+  }
   const nextKey = Value.FromString(table.CreateString(Units("next")));
   const doneKey = Value.FromString(table.CreateString(Units("done")));
   const valueKey = Value.FromString(table.CreateString(Units("value")));
+  // **三个键也要挂根** ✓（第 199 轮实测第二轮抓到的 ✗）：它们是**循环外造、循环里用**的
+  // 三个字符串 ✓，而字符串也是**引用型** ✓、也在 `SnapshotRoots` 的名单外 ✗——
+  // 第一版漏了这三个 ✓，症状是 `GetProperty` 里 `IsLengthKey` 读到一个**死句柄** ✗
+  //（报的是 `invalid handle: 327` ✓——那个号与「键」这件事一点关系都看不出来 ✓）。
+  if (keep !== null) {
+    keep(nextKey, true);
+    keep(doneKey, true);
+    keep(valueKey, true);
+  }
   while (true) {
     const nextMethod = GetProperty(room, call, protos, table, iterator, nextKey);
+    // **`nextMethod` 也要挂** ✓：`call` 进去要压帧 ✓，而压帧之前那一次 `NeedRoom` 就可能回收 ✗。
+    if (keep !== null) keep(nextMethod, true);
     const step = call(nextMethod, iterator, []);
+    if (keep !== null) keep(nextMethod, false);
     if (!step.IsObject()) {
       throw new Error("unimplemented: an iterator's next() must return an object");
     }
-    if (RtToBoolean(table, GetProperty(room, call, protos, table, step, doneKey)).AsBool()) break;
+    // **`step` 跨两次 `GetProperty`** ✓（`done` 与 `value` 都可能有 getter ✓）。
+    if (keep !== null) keep(step, true);
+    const done = RtToBoolean(table, GetProperty(room, call, protos, table, step, doneKey)).AsBool();
+    // **`produced` 跨一次 `room(...)`** ✓：它就是「等一下要推进去的那一项」✓，
+    // 中间那一句 `room` 正是回收的闸门 ✓。
+    const produced = done ? Value.Undefined() : GetProperty(room, call, protos, table, step, valueKey);
+    if (keep !== null) keep(produced, true);
+    if (keep !== null) keep(step, false);
+    // **摘在 `break` 之前** ✓（两个出口都在这一句下面 ✓）——这一条是「按值摘」才敢写的形式 ✓：
+    // 挂与摘**不要求顺序相反** ✓，所以 `break` 不会把别人的根带下去 ✗。
+    if (done) break;
     if (!room(ValueCharge)) throw new Error("out of room");
     // **洞不能漏**：迭代器产出的 `undefined` 是**真的值** ✓（不是洞 ✓）——
     // `Push` 走的就是「有值」那条路 ✓（与 `Array.from` 那一段的判据同一条 ✓）。
-    table.Get(out.Ref).AsArray().Push(
-      GetProperty(room, call, protos, table, step, valueKey));
+    table.Get(out.Ref).AsArray().Push(produced);
+    if (keep !== null) keep(produced, false);
+  }
+  // **摘根**：两头都在这一趟里 ✓（`Temps` 只在这一次调用期间有意义 ✓）。
+  if (keep !== null) {
+    keep(valueKey, false);
+    keep(doneKey, false);
+    keep(nextKey, false);
+    keep(iterator, false);
+    keep(out, false);
   }
   return out;
 }
@@ -263,17 +341,18 @@ for (let i = 0; i < length; i++) {
 return out;
 ```
 
-# method ArrayFromValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, call:NativeCall | null)=>Value
+# method ArrayFromValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null)=>Value
 
-**`Array.from(可迭代物)`**（第 130 轮；**数组式与映射函数第 182 轮** ✓）。
+**`Array.from(可迭代物)`**（第 130 轮；**数组式与映射函数第 182 轮** ✓；**生成器第 199 轮** ✓）。
 
-**能做的四类**（前三类借 `GetIterator` 那条既有的路 ✓）：
+**能做的五类**（前三类借 `GetIterator` 那条既有的路 ✓）：
 
 | 实参 | 给什么 |
 | --- | --- |
 | 字符串 | **逐码元一个单码元字符串** ✓（JS 的 `Array.from("ab")` 给 `["a","b"]` ✓） |
 | 数组 | **一份拷贝，洞填成 `undefined`** ✓（JS 的 `Array.from` 是**逐下标读** ✓——不是 `slice` ✗） |
 | `Map` / `Set` | **`GetIterator` 已经把它们变成数组了** ✓（`Map` 给 `[键,值]` 对、`Set` 给值 ✓） |
+| **生成器**（第 199 轮 ✓） | **过引擎那张 `drain`** ✓（走完它、收成数组 ✓） |
 | **数组式**（第 182 轮 ✓） | `{ length: 3 }` 这种**没有迭代器、但有 `length`** 的对象 ✓——JS 按**下标**逐个读 ✓ |
 
 **映射函数**（第 182 轮 ✓）：第二个实参给了就**逐项过一遍** ✓——给回调的是
@@ -283,15 +362,21 @@ return out;
 而这里是**先把所有项读进来、再统一过映射** ✗——对**访问器取值**那种有副作用的源 ✓
 两者可观察的次序会不同 ✓。常见的两种源（数组 / `{length}` 字面量 ✓）看不出差别 ✓。
 
-**生成器不做，而且响亮地抛** ✗：走完一个生成器要发 `iter_next` ✓，
-而那是**指令**、不是这一层能调的函数 ✗。`.from` 一个生成器是常见的写法 ✓，
-所以这条缺口**记在台账里** ✓——不是「忘了」✗，是「这一层够不着」✓。
+**生成器第 199 轮做掉了** ✓：`.from` 一个生成器是常见的写法 ✓，而走完它要发 `iter_next` ✗
+（**指令**，不是这一层能调的函数 ✗）——所以引擎把那张 `drain` 递下来 ✓
+（与 `SpreadInto` 那一档**同一个服务** ✓）。
 
 ```ts
 const source = args.length > 0 ? args[0] : Value.Undefined();
 const mapper = args.length > 1 ? args[1] : Value.Undefined();
 const hasMapper = mapper.IsCallable();
 const out = NewPlainArray(room, table, protos);
+// **挂根**（第 199 轮 ✓）：`out` 是这一层自己造的 ✓、**不在 `SnapshotRoots` 的名单里** ✗，
+// 而下面**每一条路**里都有 `room(...)`（有的还在循环里 ✓）——不挂根的话，
+// 一次回收就能把它收走 ✓，而症状是「推到一个死句柄上」✗（`invalid handle` ✓）。
+// **摘根在三个出口各一次** ✓：三个出口长得一模一样 ✓（都是 `return MapArrayItems(…)` ✓），
+// 所以「漏一处」这件事在这里看得见 ✓。
+if (keep !== null) keep(out, true);
 // **数组式那一支排在最前**（第 182 轮）✓：JS 的 `Array.from` **先看迭代器** ✓，
 // 没有迭代器才按**下标**读 ✓。本仓没有 `Symbol.iterator` 的通用查找 ✗，
 // 所以判据换成「**是一个对象、自有 `length` 是数、而且不是数组 / 字符串**」✓——
@@ -333,6 +418,7 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
       }
       target.Push(item);
     }
+    if (keep !== null) keep(out, false);
     return MapArrayItems(room, table, out, mapper, hasMapper, call);
   }
 }
@@ -343,14 +429,24 @@ if (source.Tag === ValueTag.String) {
     if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
     table.Get(out.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
   }
+  if (keep !== null) keep(out, false);
   return MapArrayItems(room, table, out, mapper, hasMapper, call);
 }
-const iterable = GetIterator(room, table, protos, source, call);
-if (iterable.Tag !== ValueTag.Array) {
-  throw new Error("unimplemented: Array.from over an iterator "
-    + "(arrays, strings, Map and Set are supported; generators need iter_next, which this layer cannot reach)");
+const iterable = GetIterator(room, table, protos, source, call, keep);
+// **生成器那一档**（第 199 轮 ✓）：`GetIterator` 对它**原样返回** ✓（`for..of` 要的形状 ✓），
+// 而 `.from` 与展开一样是**急切**的 ✓——所以走引擎那张 `drain` ✓。
+// **只对「真是生成器」那一档发它** ✓：`DrainIterator` 认不了的东西会抛**它自己那句**
+//（`iterating a non-array source` ✗）——那句话**离现场很远** ✗（看不出是 `Array.from` 的问题 ✓），
+// 而点名的责任在这一层 ✓（下面那一句就是把名字写进去的地方 ✓）。
+// **`drain` 对数组 / 字符串也成立** ✓，但那两种上面各自有更省事的一支 ✓（这里只处理剩下的 ✓）。
+const isGenerator = iterable.IsObject() && table.Get(iterable.Ref).Generator !== null;
+const drained = iterable.Tag === ValueTag.Array || !isGenerator || drain === null
+  ? iterable : drain(iterable);
+if (drained.Tag !== ValueTag.Array) {
+  throw new Error("unimplemented: Array.from over a value that is not iterable "
+    + "(arrays, strings, Map, Set and generators are supported)");
 }
-const items = table.Get(iterable.Ref).AsArray();
+const items = table.Get(drained.Ref).AsArray();
 const target = table.Get(out.Ref).AsArray();
 const count = items.GetLength();
 if (!room(ValueCharge * count)) throw new Error("out of room");
@@ -361,6 +457,7 @@ for (let i = 0; i < count; i++) {
   // 用错了会**静默改形状** ✗，而这一条正是判据现场量出来的 ✓。
   target.Push(items.GetAt(i));
 }
+if (keep !== null) keep(out, false);
 return MapArrayItems(room, table, out, mapper, hasMapper, call);
 ```
 
@@ -434,7 +531,35 @@ if (produced.IsObject() || produced.Tag === ValueTag.Array
 return created;
 ```
 
-# method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value, call:NativeCall | null)=>Value
+# method IterDrain:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null)=>Value
+
+**把任何可迭代物收成一个新数组**（第 199 轮 ✓）——`const [a, b] = x` 的第一步 ✓。
+
+**为什么解构要过它** ✗：`GetIterator` 对**生成器原样返回** ✓（那是 `for..of` 那条**惰性**路
+需要的形状 ✓），而解构是**急切**的 ✓——按位置读一个生成器读不到东西 ✗
+（第 151 轮那条语料里写着「那一档要引擎发 `iter_next`，是另一轮的事」✓，就是这一轮 ✓）。
+
+**顺序** ✓：先 `GetIterator`（把 `Map` / `Set` / `Symbol.iterator` 那一族变成数组 ✓），
+再 `drain`（把生成器走完 ✓）。**两步各管各的一半** ✓——
+`Map` 那半边是语言的事 ✓、生成器那半边是引擎的事 ✓，没有一处两样都管 ✓。
+
+**数组 / 字符串走第二步是空转** ✓（`DrainIterator` 对数组给一份拷贝、对字符串给逐码元的数组 ✓）：
+`const [c1, c2] = "hi"` 在 JS 里给 `"h"` / `"i"` ✓——与按位置读字符串**同一个答案** ✓
+（第 190 轮那条口径 ✓），所以这一步不改变结果 ✓，只多一次拷贝 ✓。
+
+**`drain === null` 就响亮地抛** ✓（宿主没接通道时）：给个近似值等于**静默错值** ✗——
+而这条路上「按位置读一个生成器」正是那种静默错值 ✓（第 151 轮之前它给的是 `undefined undefined` ✓）。
+
+```ts
+const iterable = GetIterator(room, table, protos, source, call, keep);
+if (iterable.Tag === ValueTag.Array) return iterable;
+if (drain === null) {
+  throw new Error("unimplemented: this value cannot be drained without the engine's iterator service");
+}
+return drain(iterable);
+```
+
+# method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null)=>Value
 
 **把 `source` 摊开接进 `target` 的尾部**（第 132 轮）——`[...xs]` / `f(...)` 那类**展开**要用它 ✓。
 
@@ -442,27 +567,34 @@ return created;
 | --- | --- |
 | 数组 | **每一项**（**洞填成 `undefined`** ✓——JS 的展开是**逐下标读** ✓，与 `Array.from` 同一条口径 ✓） |
 | 字符串 | **逐码元一个单码元字符串** ✓（`[...'ab']` 给 `['a','b']` ✓） |
-| `Map` / `Set` | 先过 `GetIterator` ✓（给的形状与 `for..of` 一致 ✓） |
+| `Map` / `Set` / **`Symbol.iterator` 对象** | 先过 `GetIterator` ✓（给的形状与 `for..of` 一致 ✓） |
+| **生成器**（第 199 轮 ✓） | 过引擎那张 `drain` ✓——**走完它、收成数组** ✓（原来落到「其它」那一支抛 ✗） |
 | **其它** | **响亮地抛** ✓（JS 给 `TypeError: x is not iterable` ✓；这一层给一句带类型的话 ✓） |
 
 **为什么它住在语言层** ✗：`Map` / `Set` / 字符串都是**语言**的东西 ✓（引擎不认识 `Map` ✓），
 而 `GetIterator` 已经在这里了 ✓——展开的语义与 `for..of` 本来就是同一条 ✓。
-
-**生成器够不着** ✗：走完一个生成器要发 `iter_next` ✓，那是**指令**、不是这一层能调的函数 ✗
-（与 `Array.from` 那条是同一个边界 ✓）。所以生成器落到「其它」那一支 ✓——**响亮地抛** ✓。
+**生成器那一档是第 199 轮补的** ✓：走完它要发 `iter_next` ✓（**指令**，不是这一层能调的函数 ✗），
+所以引擎把那张 `drain` 递下来 ✓——**这一层只负责「往 target 里接」** ✓。
 
 ```ts
-const items = GetIterator(room, table, protos, source, call);
+const items = GetIterator(room, table, protos, source, call, keep);
 if (items.Tag === ValueTag.Array) {
+  // **挂根**（第 199 轮 ✓）：`items` 可能是**刚造出来的一份新数组** ✓
+  //（`Map` / `Set` / `Symbol.iterator` 那三档都是 ✓）——它是这一层自己造的 ✓、
+  // **不在 `SnapshotRoots` 的名单里** ✗，而下面那句 `room(...)` 就可能把它收走 ✗。
+  // 数组源那一档是**空转** ✓（`GetIterator` 原样返回它 ✓，它在调用方的槽里本来就是根 ✓）——
+  // 多挂一次不改变任何结果 ✓，而「只在某些档挂」才是会漂的写法 ✗。
+  if (keep !== null) keep(items, true);
   const from = table.Get(items.Ref).AsArray();
   const count = from.GetLength();
   if (!room(ValueCharge * count)) throw new Error("out of room");
   for (let i = 0; i < count; i++) {
     // **每一趟都现取视图** ✓（`map.xl.md` 文首那条教训：句柄稳定、**视图不稳定** ✗）——
-    // 拿着一个视图跨过 `Push` 是**这一轮实测踩到的** ✓：`[...new Set([1, 2])]` 接出来是**空的** ✗，
+    // 拿着一个视图跨过 `Push` 是**第 132 轮实测踩到的** ✓：`[...new Set([1, 2])]` 接出来是**空的** ✗，
     // 而 `[...xs]`（普通数组）看起来又是对的 ✓——正是「有时候对」那一种最难查的形状 ✗。
     table.Get(target.Ref).AsArray().Push(from.GetAt(i));
   }
+  if (keep !== null) keep(items, false);
   return target;
 }
 if (items.Tag === ValueTag.String) {
@@ -473,7 +605,21 @@ if (items.Tag === ValueTag.String) {
   }
   return target;
 }
-throw new Error("unimplemented: spreading a value that is not an array, a string, a Map or a Set");
+// **生成器那一档**（第 199 轮 ✓）：`GetIterator` 对它**原样返回** ✓（`for..of` 要的形状 ✓），
+// 而展开是**急切**的 ✓——所以要引擎把那张 `drain` 递下来走完它 ✓。
+// **结果是一份新数组** ✓：接下来那句「逐项 Push」与数组那一支**同一个循环** ✓
+// （不另写一遍搬运 ✓），而 `target` 是调用方的槽 ✓（帧栈里的，本来就是根 ✓）。
+if (drain === null) {
+  throw new Error("unimplemented: spreading a generator needs the engine's iterator service");
+}
+const drained = drain(items);
+const collected = table.Get(drained.Ref).AsArray();
+const total = collected.GetLength();
+if (!room(ValueCharge * total)) throw new Error("out of room");
+for (let i = 0; i < total; i++) {
+  table.Get(target.Ref).AsArray().Push(collected.GetAt(i));
+}
+return target;
 ```
 
 # method ArrayRest:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, start:int)=>Value
@@ -580,6 +726,7 @@ let highest = DefineAccessorId;
 if (GetIteratorId > highest) highest = GetIteratorId;
 if (SpreadIntoId > highest) highest = SpreadIntoId;
 if (NewApplyId > highest) highest = NewApplyId;
+if (IterDrainId > highest) highest = IterDrainId;
 if (ArrayRestId > highest) highest = ArrayRestId;
 if (RestObjectId > highest) highest = RestObjectId;
 return highest + 1 - BuiltinBase;
@@ -674,7 +821,7 @@ for (const slot of promiseSlots) {
 // **`NewApplyId` 也要登记**（第 197 轮 ✓）：这个数组就是「哪些内部号存在」的**唯一名单** ✓——
 // 漏一个的症状是**运行期**报 `capability is not registered: <号>` ✓（离现场很远 ✗，
 // 第 197 轮实测踩过一次 ✓：号改了、名单忘改 ✓）。
-const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, ArrayRestId, RestObjectId, StringConcat,
+const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   ObjectAssign, PowId];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],

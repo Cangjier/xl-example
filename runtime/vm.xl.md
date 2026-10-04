@@ -83,6 +83,41 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 **返回值必须是一个完整的 `Value`**：宿主想长期留着它，得先 `Retain`
 （`host-abi.xl.md` 的借用规矩）——回收器看不见宿主语言里的变量。
 
+# type IteratorDrain = (source:Value)=>Value
+
+**把「引擎认得的可迭代物」走完，产出的值收成一个新数组**（第 199 轮 ✓）——
+`DrainIterator` 那个方法面朝语言层的形状 ✓。
+
+**谁问它** ✓：四个**急切**的入口——解构（`const [a, b] = g()` ✓）、展开（`[...g()]` ✓）、
+`Array.from(g())` ✓、`new Set(g())` / `new Map(g())` ✓。
+**`for..of` 不问它** ✗：那一条是**惰性**的 ✓（`break` 只该走那么远 ✓，
+而「无限生成器 + `break`」是真实代码 ✓），所以 `get_iterator` 那条老路一个字都不改 ✓。
+
+# type RootKeeper = (value:Value, on:boolean)=>void
+
+**把语言层手里的一个值挂进根集 / 摘下来**（第 199 轮 ✓）。
+
+**为什么语言层需要它** ✗：回收器只看 `SnapshotRoots` 那张名单（帧栈 / 常量 / 原型表 /
+待处理异常 …）✓——**语言层自己 `NewPlainArray` 造出来的中间数组不在名单里** ✗。
+于是「造一个数组 → 循环里调脚本 → 往数组里收」这个形状**有一个真实的窗口** ✗：
+循环里任何一次 `room(...)` 都可能触发回收 ✓，而那一刻这个数组**没有根** ✗。
+
+**它不是理论** ✓：`[...一个 6 万项的 Symbol.iterator]` 在 `invalid handle` 上炸过 ✓
+（第 199 轮实测 ✓）——数组被收走之后 `Push` 落在一个死句柄上 ✓。
+**四万格以内看不出来** ✗：阈值没到就一次都不回收 ✓——
+正是「测试绿、线上收掉活对象」那一种最难查的 ✓（`gc.xl.md` 的 `BeforeAllocate` 写着这一条 ✓）。
+
+**它收的是「值」不是「句柄」** ✓（第 199 轮实测之后改的 ✗）：语言层手里那些东西
+**大多可能不是引用型** ✓（读出来的一项、一个 `next()` 的返回值 ✓），
+按句柄收就得让每一处先判一次 `IsRef` ✗——写成收值，非引用型那一档落成 `0` ✓、
+回收器按 `> 0` 过滤掉它 ✓，两头都简单 ✓。
+
+**摘的时候按值找、不按栈顶弹** ✓（也是实测改的 ✗）：语言层那几处循环里
+**有 `break` 也有 `throw`** ✓，栈顶弹出要求「挂与摘严格配对、且顺序相反」✓——
+那是一条一写错就**收掉别人的根**的规矩 ✗（比泄漏危险得多 ✓）。
+按值找最坏是漏摘一个 ✓（只多留一个对象 ✓，而 `SnapshotRoots` 那道 `IsValid` 闸门
+把死句柄挡住 ✓）。
+
 # const NativeReturnSlot:int = -2
 
 **重入调用的返回标记**。被调方 `return` 时，结果不写回某一格，而是进 `Vm.NativeResult`
@@ -317,6 +352,20 @@ this.Pc = pc;
 ## field HostTable:Array<Value> = []
 
 **能力表**：内建 id → 宿主注册进来的 `HostRef`（下标是 `id - BuiltinBase`）。
+
+## field Temps:Array<int> = []
+
+**临时的根**（第 199 轮 ✓）：语言层**自己造出来、要跨过一次脚本调用**的中间堆对象 ✓。
+
+**为什么它必须存在** ✗：`SnapshotRoots` 那份名单只有帧栈 / 常量 / 原型表 / 待处理异常
+那几处 ✓——语言层手里的中间数组**不在里面** ✗，于是「造一个数组 → 循环里调脚本 →
+往数组里收」有一个真实的窗口 ✗（第 199 轮实测：6 万项的 `Symbol.iterator` 展开
+在 `invalid handle` 上炸过 ✓）。`DrainIterator` 与语言层那条协议循环都靠它 ✓。
+
+**它必须是根**（`SnapshotRoots` 加进去）✓——与 `Retained` 同一条理由 ✓。
+
+**它很短命** ✓：`KeepRoot(h, true)` 挂上、`KeepRoot(h, false)` 摘掉 ✓，
+两头都在同一次宿主调用里 ✓（不是 `Retained` 那种「宿主一直拿着」✓）。
 
 ## field PrototypeKey:int = 0
 
@@ -592,6 +641,15 @@ for (let i = 0; i < this.Retained.length; i++) {
 }
 for (let i = 0; i < this.HostTable.length; i++) {
   this.Roots.AddValue(this.HostTable[i]);
+}
+// **语言层挂上来的临时根**（第 199 轮 ✓）：`DrainIterator` 与语言层那两条循环
+// 都在这张表里 ✓——少了它，「造一个数组、循环里调脚本、往数组里收」会被回收器
+// 在中间收掉 ✓（第 199 轮实测：6 万项的展开报 `invalid handle` ✓）。
+// **`IsValid` 那道闸门不是多余的** ✗：语言层那两处是**配对**用的 ✓（挂一个、摘一个 ✓），
+// 而**中途抛出去**时那一对就配不上了 ✗——留下来的**死句柄**要是不过滤，
+// `Mark` 会去读一个已经回收的槽 ✗（与 `NativeHosts` 那一趟同一条理由、同一道闸门 ✓）。
+for (let i = 0; i < this.Temps.length; i++) {
+  if (this.Temps[i] > 0 && this.Table.IsValid(this.Temps[i])) this.Roots.AddHandle(this.Temps[i]);
 }
 ```
 
@@ -1982,6 +2040,108 @@ return this.Guard(() => {
   SetIndex(this.Room(), this.Table, pair, Value.FromInt(1), Value.FromBool(done));
   return pair;
 });
+```
+
+## method DrainIterator:(source:Value)=>Value
+
+**把一个引擎认得的可迭代物走完，产出的值收成一个新数组**（第 199 轮 ✓）。
+
+**认法照抄 `iter_new`** ✓（三档 ✓、顺序也一样 ✓——字符串**不是**对象 ✓，
+排在 `IsObject` 后面就永远走不到 ✗，那一条第 136 轮踩过 ✓）。
+**于是「什么算可迭代物」在引擎里依旧只有那一处** ✓（`iter_new` 与它并排 ✓）。
+
+**为什么它必须住在引擎里** ✗：走完一个生成器要发 `iter_next` ✓，那是**指令** ✓，
+不是建库层能调的函数 ✗——这一条边界从第 132 轮起就写在 `SpreadInto` 那一段里 ✓。
+
+**它自己把中间数组挂进根集** ✓（这一轮的重点 ✓）：数组要跨过循环里每一次
+`DoIterNext` ✓（那会跑**脚本** ✓、会分配 ✓、会触发回收 ✓），
+而语言层造的中间数组**不在 `SnapshotRoots` 的名单里** ✗——
+不挂根的话，堆压满一次就把收进结果里的东西连同数组一起收走 ✓
+（第 199 轮实测：6 万项的展开报 `invalid handle` ✓）。
+**挂上 / 摘掉都在这一趟里** ✓（`Temps` 是短命的 ✓），出错时由 `Guard` 那条路照旧 ✓。
+
+```ts
+let iterator = source;
+if (source.Tag === ValueTag.String) {
+  iterator = Value.FromObject(this.Table.CreateIterator(source.Ref));
+} else if (source.IsObject()) {
+  const item = this.Table.Get(source.Ref);
+  // **生成器就是它自己** ✓（`iter_next` 对生成器直接推它 ✓）；数组要造一个游标 ✓。
+  if (item.Generator === null) {
+    if (source.Tag !== ValueTag.Array) throw new Error("unimplemented: iterating a non-array source");
+    iterator = Value.FromObject(this.Table.CreateIterator(source.Ref));
+  }
+} else {
+  throw new Error("unimplemented: iterating a non-object");
+}
+const protos = this.Protos;
+if (protos === null) throw new Error("no prototype table");
+return this.Guard(() => {
+  const room = this.Room();
+  if (!room(ObjectCharge)) throw new Error("out of room");
+  const out = NewPlainArray(room, this.Table, protos);
+  // **挂根**：从这一刻起，循环里任何一次回收都收不走它 ✓。
+  this.Temps.push(out.Ref);
+  const sent = Value.Undefined();
+  while (true) {
+    const step = this.DoIterNext(iterator, sent);
+    // **`iter_next` 给的是 `[值, done]` 一对** ✓（`MakeIterResult` ✓）。
+    const pair = this.Table.Get(step.Ref).AsArray();
+    const produced = pair.GetAt(0);
+    if (pair.GetAt(1).AsBool()) break;
+    if (!room(ValueCharge)) throw new Error("out of room");
+    // **每一趟都现取视图** ✓（句柄稳定、**视图不稳定** ✗，`map.xl.md` 文首那条教训 ✓）。
+    this.Table.Get(out.Ref).AsArray().Push(produced);
+  }
+  // **摘根**：两头都在这一趟里 ✓（`Temps` 只在这一次调用期间有意义 ✓）。
+  this.Temps.pop();
+  return out;
+});
+```
+
+## method IteratorDrainer:()=>IteratorDrain
+
+**把这台机器包成语义层要的那个「走完迭代器」的服务**（第 199 轮 ✓）。
+
+**为什么是第四处适配** ✗：`install.xl.md` 那几块不该认识 `Vm` ✓，而 `Vm` 认识它们 ✓
+——与 `Native()`（`NativeCall` ✓）、`Room()`（`RoomChecker` ✓）、`Scheduler()`（`TaskScheduler` ✓）
+同一条理由 ✓。
+
+**必须包一层箭头函数，不能直接 `return this.DrainIterator`** ✗（第 185 轮实测过 ✓）：
+方法引用**不带接收者** ✓——到了建库层手里 `this` 是 `undefined` ✓，
+报的是 `Cannot read properties of undefined (reading 'Table')` ✗（离现场很远 ✗）。
+
+```ts
+return (source: Value): Value => this.DrainIterator(source);
+```
+
+## method RootKeeper:()=>RootKeeper
+
+**把这台机器包成「挂根 / 摘根」那个开关**（第 199 轮 ✓）——理由与 `IteratorDrainer()` 一字不差 ✓。
+
+**谁用** ✓：语言层那条 `Symbol.iterator` **协议循环** ✓（`install.xl.md` 的 `GetIterator` ✓）——
+它造一个数组、然后一轮一轮调 `next()` ✓，中间那段时间正好是上面那个窗口 ✗。
+**这一条是实测出来的** ✓（第 199 轮 ✓）：6 万项的 `[...o]` 在 `invalid handle` 上炸过 ✗——
+**不是新功能带来的** ✗，是第 184 轮那条路本来就有的 ✓。
+
+```ts
+return (value: Value, on: boolean): void => {
+  // **非引用型落成 `0`** ✓：`SnapshotRoots` 按 `> 0` 过滤 ✓，所以「挂一个数」是空转 ✓——
+  // 而语言层因此**不必**在每一处先判 `IsRef` ✓（那是二十几处会走偏的判据 ✗）。
+  const handle = value.IsRef() ? value.Ref : 0;
+  if (on) {
+    this.Temps.push(handle);
+    return;
+  }
+  // **按值找、从内往外摘** ✓：语言层那几处循环里有 `break` 也有 `throw` ✓，
+  // 栈顶弹出要求严格配对 ✗——那是一条一写错就收掉**别人的**根的规矩 ✗。
+  for (let i = this.Temps.length - 1; i >= 0; i--) {
+    if (this.Temps[i] === handle) {
+      this.Temps.splice(i, 1);
+      return;
+    }
+  }
+};
 ```
 
 ## method DoAwait:(frame:HeapFrame, instr:Instruction)=>void

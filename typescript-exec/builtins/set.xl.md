@@ -104,6 +104,10 @@ if (id === SetCtor) {
   // **初始值**（第 130 轮）：`new Set([1, 2])` ✓——实参是**数组**的那一种 ✓
   // （`new Set(Array.from(x))` / `new Set([...])` 都是这个形状 ✓；**注意**后者的 `[...]`
   // 还要展开语法 ✓，那是降级层的事 ✓）。**复用 `add` 那条路** ✓：去重与 `size` 都不必写第二遍 ✓。
+  // **生成器第 199 轮通了** ✓：`new Set(生成器)` 原来**静默给空集** ✗（JS 给全部产出 ✓）——
+  // 收成数组那一步在**号段翻译那一层** ✓（`install.xl.md` 的 `InvokeWithSink` ✓，
+  // 因为这一块**不能** import 它 ✓，会成环 ✗）。所以到这里 `args[0]` **一定是数组** ✓
+  // （或者 `null` / `undefined` ✓ = 空集 ✓）——**这一支一个字都没改** ✓。
   if (args.length > 0 && args[0].Tag === ValueTag.Array) {
     const items = table.Get(args[0].Ref).AsArray();
     for (let i = 0; i < items.GetLength(); i++) {

@@ -6,7 +6,7 @@ import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
-import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
+import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
 import { StringConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 ```
 
@@ -2150,24 +2150,39 @@ return keyNode;
 
 ## method MaterializeIterable:(source:int)=>int
 
-**把「一个可迭代的东西」变成按位置读的数组**（第 151 轮）——走 `GetIterator` 那条
-**既有的**语言内建调用 ✓（`for..of` 与 `[...xs]` 的第一步就是它 ✓）。
+**把「一个可迭代的东西」变成按位置读的数组**（第 151 轮；**生成器第 199 轮** ✓）——
+走 `GetIterator` + `IterDrain` 两条**既有的**语言内建调用 ✓
+（`for..of` 的第一步就是前者 ✓，展开的第二步也是后者那一族 ✓）。
 
-**它给什么** ✓（`install.xl.md` 的 `GetIterator` 一节是权威 ✓）：`Map` → `[键, 值]` 对的数组 ✓、
-`Set` → 值的数组 ✓、数组 → **原样**（不拷贝 ✓）、字符串 → **原样**（字符串本来就能按下标读 ✓）、
-其余 → **原样** ✓（生成器落在这里 ✓——按位置读它读不到东西 ✗，那一档要引擎发 `iter_next` ✓，
-是**另一轮**的事 ✓）。
+**它给什么** ✓（`install.xl.md` 的 `GetIterator` / `IterDrain` 两节是权威 ✓）：
+`Map` → `[键, 值]` 对的数组 ✓、`Set` → 值的数组 ✓、**生成器 → 走完它、收成数组** ✓、
+数组 → 原样（不拷贝 ✓）、字符串 → 逐码元的数组 ✓、
+其余非可迭代物 → **响亮地抛** ✓（JS 在解构不可迭代物时也是 `TypeError` ✓）。
 
 **为什么数组模式要过它** ✗：`const [a, b] = new Set([1, 2])` 原来在 Set 对象上
 `get_index` ✓ → **静默**给两个 `undefined` ✗（JS 给 `1, 2` ✓）。
 **静默错值**是本仓排序里最靠前的一档 ✗，而修法只是「接上早就有的那一条口径」✓。
+
+**第二步（`IterDrain`）是第 199 轮补的** ✓：第 151 轮只做到 `GetIterator` ✓，
+而它对**生成器原样返回** ✗（那是 `for..of` 那条**惰性**路要的形状 ✓）——
+于是 `const [a, b] = g()` 按位置读一个生成器 ✗，**静默给 `undefined undefined`** ✗
+（JS 给产出的头两个 ✓）。两步各管一半 ✓：`Map` / `Set` 是语言的事 ✓、
+生成器是引擎的事 ✓（`IterDrain` 把引擎那张 `drain` 借出来 ✓）。
 
 ```ts
 const window = this.Reserve(2);
 this.Emit(Op.Const, window, this.IntConst(GetIteratorId), -1, -1);
 this.Emit(Op.Move, window + 1, source, -1, -1);
 this.EmitRt(RtOp.HostCall, window, window, 2);
-// 结果落在窗口第一格；参数那一格可以还回去了（与 `for..of` 那一段一字不差 ✓）。
+// **第二趟在同一个窗口里做**（第 199 轮 ✓）——**这是水位那一条规矩逼出来的写法** ✗：
+// 先预留第二个窗口、再 `Release(window)` 会把**第二趟的结果格一起退掉** ✓
+//（「退到先预留的东西那儿，等于把后来预留的活格全部交出去」✓，第 40 轮那条注释 ✓）。
+// 所以：把上一趟的结果**挪到第二格** ✓、把新号写进第一格 ✓——窗口还是那两格 ✓，
+// 退水位只退到 `window + 1` ✓（结果在 `window` ✓ 保住 ✓，与 `RtCall1` 最后那一句同款 ✓）。
+this.Emit(Op.Move, window + 1, window, -1, -1);
+this.Emit(Op.Const, window, this.IntConst(IterDrainId), -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 2);
+// 结果落在窗口第一格；参数那一格可以还回去了 ✓。
 this.Release(window + 1);
 return window;
 ```
