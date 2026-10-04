@@ -2865,13 +2865,17 @@ check("生成器降级：yield / 传入值当返回值 / for..of 遍历 / 位置
   }
   eq(outside.indexOf("outside a generator") >= 0, true, "普通函数里的 yield 必须抛：" + outside);
 
+  // **`yield*` 第 230 轮做掉了** ✓：它落成一段**等价的循环** ✓（`LowerYieldDelegation` ✓）——
+  // 拼的是 `GetIterator` + `IterNew` + `IterNext` + `Suspend` / `Resume` 五样现成的 ✓。
+  // 所以这里原来那条「必须抛」的断言**反过来**：现在必须**降级得出来** ✓。
+  // **端到端那一条在判据里另有各处** ✓（`gen-delegating` / `ex-yield-star` 两条矩阵用例 ✓）。
   let delegated = "";
   try {
     lowerAndLoad("function* f() { yield* [1, 2]; }");
   } catch (error) {
     delegated = String(error.message);
   }
-  eq(delegated.indexOf("yield*") >= 0, true, "yield* 必须抛（委托迭代还没做）：" + delegated);
+  eq(delegated, "", "yield* 现在必须降级得出来（委托迭代第 230 轮做了）：" + delegated);
 
   let label = "取导出";
   try {

@@ -18,27 +18,27 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 81.61,
+  "progressPercent": 84.52,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 106,
-      "pass": 97,
-      "blocked": 7,
+      "pass": 98,
+      "blocked": 6,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 91.51
+      "coverage": 92.45
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 45,
-      "pass": 32,
-      "blocked": 11,
+      "pass": 36,
+      "blocked": 7,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 71.11
+      "coverage": 80
     },
     {
       "layer": "stdlib",
@@ -75,12 +75,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: f"
     },
     {
-      "id": "gen-delegating",
-      "layer": "runtime",
-      "title": "`yield*`：转发另一个可迭代物（数组与生成器）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: yield* (delegating iteration)"
-    },
-    {
       "id": "prm-async-await",
       "layer": "runtime",
       "title": "async / await：顺序、返回值、await 一个非承诺",
@@ -103,24 +97,6 @@
       "layer": "runtime",
       "title": "继承链上的访问器与 `super` 取值",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SuperKeyword"
-    },
-    {
-      "id": "ex-enum-numeric",
-      "layer": "exec",
-      "title": "数值 enum：反向映射也要造出来",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement EnumDeclaration"
-    },
-    {
-      "id": "ex-enum-string",
-      "layer": "exec",
-      "title": "字符串 enum：没有反向映射",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement EnumDeclaration"
-    },
-    {
-      "id": "ex-enum-const",
-      "layer": "exec",
-      "title": "const enum：内联成字面量",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement EnumDeclaration"
     },
     {
       "id": "ex-namespace",
@@ -157,12 +133,6 @@
       "layer": "exec",
       "title": "类里的访问器 + 继承的访问器",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SuperKeyword"
-    },
-    {
-      "id": "ex-yield-star",
-      "layer": "exec",
-      "title": "`yield*` 转发（惰性转发，不是一次收完）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: yield* (delegating iteration)"
     },
     {
       "id": "ex-labeled-block",

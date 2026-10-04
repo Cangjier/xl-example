@@ -1984,6 +1984,10 @@ if (kind === "ClassDeclaration") {
   this.LowerClass(node, false);
   return;
 }
+if (kind === "EnumDeclaration") {
+  this.LowerEnum(node);
+  return;
+}
 if (kind === "EmptyStatement") return;
 throw new Error("unimplemented: statement " + kind);
 ```
@@ -2068,6 +2072,163 @@ if (initializer === null) {
 // 退下去就会让**下一次分配覆盖那个变量**（判据报的是「算术遇到了非数值」——
 // 变量的值被别的东西换掉了）。
 this.BindName(text, value, isVar);
+```
+
+## method LowerEnum:(node:AstNode)=>void
+
+**`enum`**（第 230 轮 ✓）：造一个**普通对象** ✓，然后按下面的规矩往它上面挂键 ✓。
+
+**为什么它有运行期语义** ✓（而 `type` / `interface` 是纯类型位、整条跳过 ✓）：
+`enum Color { Red }` 之后**运行期真的有一个 `Color`** ✓（`Color.Red` 是 `0` ✓）——
+TS 编译器做的是**变换**（`--experimental-transform-types` ✓），不是擦除 ✓。
+判据 `ex-enum-numeric` / `ex-enum-string` / `ex-enum-const` 三条量的就是它 ✓。
+
+**它拼的是「一个对象 + 一堆属性」** ✓——`NewObject` 与 `set_prop` **都是现成的** ✓
+（与 `LowerObjectLiteral` 那条**同一个写法** ✓，**没有新算子** ✓）。
+
+**数值成员要挂两格，字符串成员只挂一格** ✓（这是 `enum` 最特别的一条 ✓，实测过 ✓）：
+
+| 写法 | 正向 | 反向 |
+| --- | --- | --- |
+| `enum C { Red, Green = 5, Blue }` | `C.Red = 0` / `C.Green = 5` / `C.Blue = 6` ✓ | `C[0] = "Red"` / `C[5] = "Green"` / `C[6] = "Blue"` ✓ |
+| `enum S { A = "a" }` | `S.A = "a"` ✓ | **没有** ✗（`S["a"]` 是 `undefined` ✓，实测 ✓） |
+| `enum M { X = 1, Y = "why", Z = 3 }` | `M.X = 1` / `M.Y = "why"` / `M.Z = 3` ✓ | `M[1] = "X"` / `M[3] = "Z"` ✓（`"why"` 那一格没有 ✓） |
+
+**自动累加的两条规矩** ✓（与 Node 的变换逐值对过 ✓）：
+- **没有初始化式的成员** = **上一个成员的数值 + 1** ✓（一个都没有就是 `0` ✓）；
+- **字符串成员不参与累加** ✗：`enum M { X = 1, Y = "why", Z = 3 }` 里 `Z` 是**显式写的** `3` ✓；
+  而 `enum E { A = "x", B }` 在 TS 里**直接报错**（「下一个成员必须有初始化式」✓），
+  所以「上一个不是数值」那一档要**响亮地抛** ✓（不猜一个 `0` 或 `NaN` ✗）。
+
+**`const enum` 照普通 `enum` 做** ✓（**与 TS 的一处已知差** ✗）：真正的 `const enum` 是
+**编译期内联**（用法处直接换成字面量 ✓，而且 `--experimental-transform-types` 也会
+把对象删掉 ✓），本仓**造对象** ✓、用法处读属性 ✓。**结果值完全一样** ✓
+（判据 `ex-enum-const` 比的就是值 ✓），差的是「有没有那个对象」✓——
+而 `.js` 产物与 `preserveConstEnums` 那一档是同一个形状 ✓，写在明处 ✓。
+
+**成员名也是「值键」** ✓：`set_prop` 有一条收值的键 ✓（`SetPropertyValue` ✓）——
+于是**反向映射那两格**与正向那一格走**同一个写法** ✓（只是键一个是名字、一个是数值 ✓）。
+
+```ts
+const nameNode = OptionalChild(node, "name");
+if (nameNode === null || NodeKind(nameNode) !== "Identifier") {
+  throw new Error("unimplemented: enum declaration without a name");
+}
+// **先造那个对象** ✓（与对象字面量同一处口径 ✓）。
+const object = this.Reserve(1);
+this.EmitRt(RtOp.NewObject, object, object, 0);
+const members = ListOf(node, "members");
+// **上一个数值成员的数值** ✓（`-1` 表示「还没有」✓）：见上面自动累加那两条 ✓。
+let previous = -1;
+for (let i = 0; i < members.length; i++) {
+  const member = members[i];
+  const memberName = OptionalChild(member, "name");
+  if (memberName === null) throw new Error("unimplemented: enum member without a name");
+  const initializer = OptionalChild(member, "initializer");
+  // **值那一格** ✓：有初始化式就求它 ✓，否则按累加那条规矩给一个常数 ✓。
+  //
+  // **`previous` 是那个「上一个数值成员的数值」** ✓（`-1` 表示「还没有」✓）——
+  // 两个地方要写它 ✗：**没有初始化式的成员**推进它 ✓（值 = 上一个 + 1 ✓）、
+  // **初始化式是一个数值字面量**时要按它的值重设 ✓。**少了后一处**就是这一轮
+  // 实测踩到的那个坑 ✓：`enum Color { Red, Green = 5, Blue }` 里 `Blue` 该是 **`6`** ✓
+  // （按 `Green` 的 `5` 累加 ✓），而只推前一处的写法算的是 `Red + 1` ⇒ **`1`** ✗
+  //（**静默错值** ✓：三格都"有值"、`Color[1]` 也查得到 ✓，只是它是错的 ✓）。
+  let value = -1;
+  if (initializer !== null) {
+    value = this.LowerExpression(initializer);
+    // **数值字面量就把 `previous` 重设成它** ✓（`NumericLiteral` 的 `text` 是原文 ✓，
+    // 十六进制 / 二进制那几种写法也走这一格 ✓——`EnumLiteralValue` 认得它们 ✓）。
+    if (NodeKind(initializer) === "NumericLiteral") {
+      previous = this.EnumLiteralValue(TextOf(initializer));
+    } else {
+      // **其余初始化式：`previous` 作废** ✓（`-1` ✓）——见下面那句抛的理由 ✓。
+      // **字符串那一档不算错** ✗（`enum S { A = "a", B = "b" }` 里 `B` 有初始化式 ✓）。
+      previous = -1;
+    }
+  } else {
+    // **没有初始化式**：第一个给 `0` ✓，其余是「上一个数值 + 1」✓
+    //（「上一个不是数值」那一档在 TS 里本来就不合法 ✓，这里**响亮地抛** ✓，
+    //  不猜一个 `0` 或 `NaN` ✗）。**判「是不是第一个」要看下标** ✗（第 230 轮实测 ✓）：
+    // 拿 `previous < 0` 当判据会把**第一个**成员也一起抛掉 ✓——
+    // 而 `previous` 为 `-1` 有两种来源 ✓（「还没有」✓ 与「上一个不是数值」✗），
+    // 一个变量扛两种含义就是**那个坑** ✓。
+    if (i === 0) {
+      const zero = this.Reserve(1);
+      this.Emit(Op.Const, zero, this.IntConst(0), -1, -1);
+      value = zero;
+      previous = 0;
+    } else {
+      if (previous < 0) {
+        throw new Error("unimplemented: an enum member after a non-numeric member needs an initializer");
+      }
+      const next = this.Reserve(1);
+      this.Emit(Op.Const, next, this.IntConst(previous + 1), -1, -1);
+      value = next;
+      previous = previous + 1;
+    }
+  }
+  // **正向那一格** ✓：键是成员名 ✓（与对象字面量同一条路 ✓）。
+  const nameKey = this.Reserve(1);
+  this.Emit(Op.Const, nameKey, this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(memberName)))), -1, -1);
+  this.SetPropertyValue(object, nameKey, value);
+  // **反向那一格** ✓：只在「值是一个数值」时挂 ✓（字符串成员**不挂** ✓，见上面那张表 ✓）。
+  // **判据在编译期问一次** ✗：`IsNumericInitializer` 只认「没有初始化式」与
+  // 「初始化式是数值字面量」两档 ✓——`A = 1 + 1` 那种**算出来的数**这一轮**不做** ✗
+  // （它要在运行期才知道是不是数 ✓，而 `set_prop` 的值键那条路**不区分** ✓，
+  //  真要做就得先问一次 `typeof` ✓——记在台账里 ✓，不静默挂错一格 ✗）。
+  if (this.IsNumericInitializer(initializer)) {
+    // **数值那一格**：键先**字符串化**再挂 ✓（`RtOp.ToString` ✓）。
+    // **这一步不能省** ✗：`set_prop` 的键只认字符串 / 符号 ✓（`props.xl.md` 的 `KeyMatches` ✓，
+    // 它见到别的就抛 `property keys must be strings or symbols` ✓）——
+    // 而 `set_index` 那条路**会**帮忙字符串化 ✓（`vm.xl.md` 的 `RtOp.SetIndex` ✓，
+    // 非数组接收者那一支走的就是 `RtToString` ✓），所以 `o[5] = v` 一直是好的 ✓，
+    // 只有**这里**（拿数值当键、直接走 `set_prop`）需要自己转 ✓。
+    // 少了它，`enum Color { Red }` 会在 `Color[0] = "Red"` 那一句上抛 ✓
+    //（那句话听起来像「属性名的类型不对」✗，其实是**反向映射那一格少了一步** ✓）。
+    const reverseKey = this.RtCall1(RtOp.ToString, value);
+    this.SetPropertyValue(object, reverseKey, nameKey);
+  }
+  this.Release(nameKey);
+}
+// **绑定这个名字** ✓（与类声明走同一条路 ✓：`let` 那样的块作用域 ✓，不进 `Entries` ✗——
+// 导出表装的是**函数** ✓，而 `enum` 是一个对象 ✓。它与 `const` 走同一条 ✓）。
+this.BindName(TextOf(nameNode), object, false);
+```
+
+## method EnumLiteralValue:(text:string)=>int
+
+**一个数值字面量的值**（第 230 轮 ✓）——`enum` 的自动累加要它 ✓。
+
+**为什么要自己解一遍** ✗：`previous + 1` 要在**编译期**算出来 ✓（`IntConst(previous + 1)` ✓），
+所以拿到的必须是**宿主侧的数** ✓，而不是一格要跑起来才知道的值 ✓。
+而 `NumberFromText`（`text.xl.md` 那一族 ✓）是**降级层自己的** ✓——
+它就是 `LowerExpression` 解数字字面量用的那一处 ✓（`text` 是源码原文 ✓）。
+
+**十六进制 / 二进制 / 八进制 / 分隔符那几种都走它** ✓（`0x10` ✓、`0b101` ✓）——
+**不在这里各写一遍** ✗：那是第二份会走偏的解析 ✓。
+
+```ts
+return NumberFromText(text);
+```
+
+## method IsNumericInitializer:(initializer:AstNode | null)=>bool
+
+**这一格成员的值是不是一个数值**（第 230 轮 ✓）——**反向映射要不要挂**靠它 ✓。
+
+**只认能证的两档** ✓（不猜 ✗）：
+- **没有初始化式** ✓ ⇒ 一定是数值 ✓（自动累加那条路 ✓）；
+- **初始化式是数值字面量** ✓（`NumericLiteral` ✓，含 `0x10` 那几种写法 ✓——
+  投影把它们都投成 `NumericLiteral` ✓，`text` 里是原文 ✓）。
+
+**其余一律给假** ✗：`A = 1 + 1` ✓、`A = other` ✓、字符串字面量 ✓——
+**假的意思是「不挂反向那一格」** ✓，而 `enum { X = 1 + 1 }` 在 JS 里**是挂的** ✗
+（那一格是 `C[2] = "X"` ✓）——所以这是一处**已知差** ✓，记在台账里 ✓。
+**为什么不静默按「字符串」或「数值」猜一个** ✗：猜错了挂出来的是**一个错的键** ✓
+（`C["2"]` 找不到 ✓），而那种错**不报错** ✗——「少挂一格」至少是**缺**，不是**错** ✓。
+
+```ts
+if (initializer === null) return true;
+return NodeKind(initializer) === "NumericLiteral";
 ```
 
 ## method BindName:(name:string, value:int, isVar:bool)=>void
@@ -4340,7 +4501,9 @@ return result;
 下一次 `next(v)` 恢复时**接着跑的是 `suspend` 的下一条**——也就是这里放的 `resume`，
 它把 `v` 写进一格。**那一格就是整个 `yield` 表达式的值**，于是 `const got = yield 1` 成立。
 
-**`yield *` 抛**：委托迭代要转发 `next` / `throw` / `return` 三个方向，是另一件事。
+**`yield *` 委托迭代** ✓（第 230 轮 ✓）：转发 `next` 那一半 ✓——见 `LowerYieldDelegation` ✓。
+**`throw` / `return` 那两个方向转发不了** ✗（要引擎在「生成器被 `.throw()`」时
+把值送进内层 ✓，那是另一件事 ✓），记在台账里 ✓。
 
 **不在生成器里就抛**：`yield` 写在内层普通函数里是**语法错误**（JS 就是这么定的）——
 让它跑到运行期，会变成一条把**普通帧**冻住的 `suspend`（帧不在栈上、没人推它，静默挂死）。
@@ -4353,7 +4516,9 @@ if (!this.InGenerator) {
   throw new Error("unimplemented: yield outside a generator function");
 }
 if (node["asteriskToken"] !== undefined && node["asteriskToken"] !== null) {
-  throw new Error("unimplemented: yield* (delegating iteration)");
+  const source = OptionalChild(node, "expression");
+  if (source === null) throw new Error("unimplemented: yield* without an expression");
+  return this.LowerYieldDelegation(source);
 }
 const operand = OptionalChild(node, "expression");
 const slot = this.Reserve(1);
@@ -4366,6 +4531,65 @@ this.Emit(Op.Suspend, slot, -1, -1, -1);
 const sent = this.Reserve(1);
 this.Emit(Op.Resume, sent, -1, -1, -1);
 return sent;
+```
+
+## method LowerYieldDelegation:(source:AstNode)=>int
+
+**`yield* xs`**（第 230 轮 ✓）——**把内层被迭代的每一项转手 yield 出去** ✓，
+最后交出内层的**返回值** ✓。
+
+**它凭什么不用新算子** ✓：JS 的规范把 `yield*` 定义成一段**等价的循环** ✓：
+取内层的迭代器 ✓、一轮一轮 `next()` ✓、每一项 `yield` 出去 ✓，
+内层 `done` 时把它的 `value` 当**整个 `yield*` 表达式的值** ✓——
+而这三样（`GetIterator` ✓ / `IterNew` + `IterNext` ✓ / `Suspend` + `Resume` ✓）
+**第 111 / 129 轮就都在了** ✓。
+
+**两处次序是语义** ✗：
+- **`GetIterator` 排在 `IterNew` 之前** ✓（与 `for..of` 那条**一字不差** ✓）：
+  引擎只认数组与生成器 ✓，`Map` / `Set` / `Symbol.iterator` 那一族要语言层先物化 ✓；
+- **每一项都要 `Suspend` 之后再 `Resume`** ✓：`yield*` 的每一项都会**挂起外层生成器** ✓
+  （`yield* [1, 2]` 要两次 `next()` 才走完 ✓，判据 `gen-delegating` 钉的就是它 ✓）——
+  少了 `Suspend` 就变成「一次收完再一起给」✗（那正是这一格原来那句抛的理由 ✓）。
+
+**已知差** ✗：转发不了 `throw` / `return` 两个方向 ✓（见 `LowerYield` 那一段 ✓）。
+
+```ts
+this.PushScope();
+const iterableSource = this.Reserve(1);
+this.LowerInto(iterableSource, source);
+// **先过语言层那一道** ✓（与 `LowerForOf` 的写法一字不差 ✓）。
+const iterableWindow = this.Reserve(2);
+this.Emit(Op.Const, iterableWindow, this.IntConst(GetIteratorId), -1, -1);
+this.Emit(Op.Move, iterableWindow + 1, iterableSource, -1, -1);
+this.EmitRt(RtOp.HostCall, iterableWindow, iterableWindow, 2);
+this.Release(iterableWindow + 1);
+const iteratorSlot = this.Reserve(1);
+this.EmitRt(RtOp.IterNew, iteratorSlot, iterableWindow, 1);
+const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
+// **「最后那一步的 `value`」自己占一格** ✓（它是整个 `yield*` 的值 ✓）：
+// **不能等循环出来再补一次 `IterNext`** ✗——那会**多推一次内层** ✓
+//（多跑一段别人的代码 ✓、还可能多一次副作用 ✓），而 JS 里没有那一次 ✓。
+// **也不能把 `pair` 直接用掉** ✗：`pair` 是新分配的一格 ✓，在**下一次 `RtCall2` 之前**
+// 就可能被复用 ✓——所以每一轮都要把值**抄进这一格** ✓（它跨整轮活着 ✓）。
+const lastValue = this.Reserve(1);
+const start = this.Here();
+const context = this.EnterLoop(true, start);
+const pair = this.RtCall2(RtOp.IterNext, iteratorSlot, undefinedConst);
+const done = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(1));
+const running = this.RtCall1(RtOp.Not, done);
+const exitIndex = this.Here();
+this.Emit(Op.JumpIfFalse, running, 0, -1, -1);
+const produced = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(0));
+this.Emit(Op.Move, lastValue, produced, -1, -1);
+// **每一项：先 `Suspend` 再 `Resume`** ✓（见上面那一段 ✓）。
+this.Emit(Op.Suspend, produced, -1, -1, -1);
+const sentItem = this.Reserve(1);
+this.Emit(Op.Resume, sentItem, -1, -1, -1);
+this.Emit(Op.Jump, -1, start, -1, -1);
+this.PatchTarget(exitIndex, this.Here());
+this.LeaveLoop(context);
+this.PopScope();
+return lastValue;
 ```
 
 ## method CollectImports:(statement:AstNode)=>void

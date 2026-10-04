@@ -23,7 +23,6 @@ export const EXPECTATIONS = {
   // 那是**指令** ✓，宿主侧的内建调不到它 ✗）。
   "cls-inherited-accessor": { expect: "blocked", why: "同 `ex-getter-setter-class`：`super.v` **属性访问**没做（`super` 只做了方法调用那一格 ✓——`super.m(...)` 那条路第 104 轮就通了 ✓）。**第 224 轮查清为什么它不是个小改动**：JS 的 `super.v` 是「**从父原型开始找**、但 `this` 还是当前实例」✗，而本仓现成的两件都不够用——`GetProperty(receiver, key)` 从**接收者**开始找 ✗（它会先命中实例自己的那一格 ✗），`FindProperty(句柄, key)` 也只能「从这个句柄开始沿链找」 ✓ 而 `ReadProperty(..., receiver)` 的 `receiver` 是**读出来的那一格**用的 ✓。要凑齐「起点是父原型 + 读的时候 `this` 是实例」这两件事，得给引擎加一条**带接收者的、从指定原型起读**的入口 ✗（不然父原型上的访问器会拿到 `this = 原型` ✗，是**静默错值** ✗）。" },
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
-  "gen-delegating": { expect: "blocked", why: "`yield*` 没做（要**惰性转发**，不是一次收完）" },
   "prm-combinators": { expect: "differ", why: "`Promise.all` 里**非承诺的项**丢了（`[p, p, 3]` 给 `1,2,`）" },
   "prm-async-await": { expect: "blocked", why: "`await` 一个**不是承诺**的值" },
   "prm-async-throw": { expect: "blocked", why: "`async` 函数里 `throw` 没有变成返回承诺的**拒绝**" },
@@ -31,16 +30,24 @@ export const EXPECTATIONS = {
   "gc-churn": { expect: "blocked", why: "**步数预算**：两万次循环就 `step budget exhausted`（普通循环够不着这个量级）" },
 
   // ===== exec：TS 形状 → 运行期语义 =====
-  "ex-enum-numeric": { expect: "blocked", why: "`enum` 整族没做（含反向映射）——有运行期语义" },
-  "ex-enum-string": { expect: "blocked", why: "字符串 `enum` 没做（没有反向映射那一半）" },
-  "ex-enum-const": { expect: "blocked", why: "`const enum` 没做（该内联成字面量）" },
+  // **第 230 轮删掉了 `ex-enum-numeric` / `ex-enum-string` / `ex-enum-const` 三行** ✓（它们过了 ✓）：
+  // `enum` 现在降级成一个**普通对象 + 一堆属性** ✓（`lowering.xl.md` 的 `LowerEnum` ✓）——
+  // **没有新算子** ✓，拼的是 `NewObject` 与 `set_prop` 两样现成的 ✓。
+  // **`const enum` 照普通 `enum` 做** ✓（**与 TS 的一处已知差** ✗：真正的 `const enum` 是
+  // 编译期内联 ✓，而本仓造对象 ✓——结果值完全一样 ✓（判据比的就是值 ✓））。
+  // **反向映射的两处判据** ✓：数值成员挂两格 ✓、字符串成员只挂一格 ✓；
+  // 而**数值那一格的键要先字符串化** ✓（`set_prop` 的键只认字符串 / 符号 ✓）。
+  // **另一处已知差** ✗：`A = 1 + 1` 那种**算出来的数**这一轮**不挂反向格** ✓
+  //（`IsNumericInitializer` 只认「没有初始化式」与「数值字面量」两档 ✓——不猜 ✓）。
   "ex-namespace": { expect: "blocked", why: "`namespace` 没做（含嵌套与导出）——有运行期语义" },
   "ex-tagged-template-suffix": { expect: "blocked", why: "函数当 `ToPrimitive` 时该给**源码文本**（`Function.prototype.toString`）" },
   "ex-typeof-value-expression": { expect: "blocked", why: "`typeof (表达式)`：投影认成了 `TypeLiteral`" },
   "ex-computed-member-call": { expect: "differ", why: "函数的显示形态：`[Function: run]` vs `[Function (anonymous)]`" },
   "ex-spread-in-new": { expect: "blocked", why: "`new Map([[1,2]] as any)`：`AsExpression` 那一层没有子表达式" },
   "ex-parameter-properties": { expect: "differ", why: "构造函数参数属性：门进得去，但字段的值是错的（`1 6 3` vs `undefined NaN 0`）——**静默错值**" },
-  "ex-yield-star": { expect: "blocked", why: "`yield*` 转发没做（与 `gen-delegating` 同一处）" },
+  // **第 230 轮删掉了 `ex-yield-star` 那一行** ✓（它过了 ✓）：`yield*` 落成一段
+  // **等价的循环** ✓（`lowering.xl.md` 的 `LowerYieldDelegation` ✓）——
+  // 拼的是 `GetIterator` + `IterNew` + `IterNext` + `Suspend` / `Resume` 五样现成的 ✓。
   "ex-private-in-operator": { expect: "blocked", why: "`#x in o` 没做（私有名字的品牌检查）" },
   "ex-getter-setter-class": { expect: "blocked", why: "`super.v` 属性访问（`super` 只做了方法调用那一格）" },
   "ex-labeled-block": { expect: "blocked", why: "带标签的块：标签该挂在块上（现在只收循环与 `switch`）" },
