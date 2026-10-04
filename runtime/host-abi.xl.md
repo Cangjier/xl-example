@@ -253,6 +253,19 @@ return true;
 this.Machine.SetPrototypeKey(this.Machine.Table.CreateString(units));
 ```
 
+## method DeclareDescriptionKey:(units:Array<int>)=>void
+
+**告诉这台机器：`s.description` 里的 `description` 是哪个字符串**（第 241 轮 ✓）。
+
+**为什么它也要走这一条** ✗：符号**不是一个对象** ✓（没有属性表 ✓、没有原型那一格 ✓），
+所以 `s.description` **只能由引擎在 `get_prop` 那一处特判** ✓——
+而引擎**不认识 `"description"` 这几个字母** ✗（与 `"prototype"` 一字不差 ✓）。
+**收的也是码元** ✓（同一个理由 ✓）。
+
+```ts
+this.Machine.SetDescriptionKey(this.Machine.Table.CreateString(units));
+```
+
 ## method InstallHost:(invoker:HostInvoker)=>void
 
 装上真正去执行宿主函数的那个通道（客户语言里的实现）。

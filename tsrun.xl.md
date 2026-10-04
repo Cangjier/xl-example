@@ -264,6 +264,10 @@ if (protos === null) {
   return result;
 }
 host.DeclarePrototypeKey(Units("prototype"));
+// **符号上的 `description` 也走同一条** ✓（第 241 轮 ✓）：符号不是对象 ✓
+//（没有属性表 ✓、没有原型那一格 ✓），所以那一格**只能由引擎在 `get_prop` 处特判** ✓——
+// 而引擎不认识「description」这几个字母 ✗，名字由这里给 ✓（与上一行一字不差 ✓）。
+host.DeclareDescriptionKey(Units("description"));
 // **建库与宿主要在第 0 份模块求值之前装好**（第 119 轮改的顺序）：模块**顶层的语句**
 // 也是脚本，它一样会 `console.log` / `arr.push` / 造对象字面量的访问器 ✗——
 // 原来这四步排在 `Evaluate` **之后** ✗，于是「直接跑一个 .ts 文件」这种最普通的形状

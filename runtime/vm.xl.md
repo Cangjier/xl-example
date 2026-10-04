@@ -411,6 +411,23 @@ this.Depth = 0;
 **引擎不知道那是哪个字符串**：它只把这格句柄当键去查属性（`DoNew`）。
 给 `0` 时 `new` 一律用 `Protos.Object`——**没接上时不说谎，只是不特殊**。
 
+## field DescriptionKey:int = 0
+
+**`s.description` 里的 `description` 是哪个字符串**（一格字符串句柄，由语言层给 ✓；
+`0` = 没设 ✓）。
+
+**为什么符号这一格要引擎特判** ✗：符号**不是一个对象** ✓（`ValueTag.Symbol` ✓，
+没有属性表 ✓、也没有原型那一格 ✓）——`GetProperty` 那条路**走不到它** ✗，
+于是 `Symbol("tag").description` 给 `undefined` ✓（而 JS 给 `"tag"` ✓，
+判据 `symbol-description` 就是这么红的 ✓）。
+
+**为什么这不算「引擎认识语言层」** ✓：引擎**只认句柄** ✓——
+`description` 这个字符串是**语言层造的** ✓（与 `PrototypeKey` / `SetErrorFactory`
+同一套做法 ✓），引擎按**内容**比一次 ✓（字符串不去重 ✓，比句柄永远不相等 ✓——
+这一条与 `PrototypeKey` 那一处踩过的坑**一字不差** ✓）。
+**描述本身就在堆里那一格** ✓（`HeapSymbol.Description` ✓），所以特判那一支
+**不用调回语言层** ✓——一格都不用分配 ✓。
+
 ## field ConstructorProtos:Array<int> = []
 
 **内建构造函数 → 原型对象**那张登记表（第 137 轮），**扁平的成对数组** ✓
@@ -1480,6 +1497,17 @@ return Value.FromObject(handle);
 this.PrototypeKey = handle;
 ```
 
+## method SetDescriptionKey:(handle:int)=>void
+
+语言层告诉这台机器：**`s.description` 里的 `description` 是哪个字符串**（字符串句柄 ✓）。
+
+给 `0` 就回到「符号上什么都读不到」的老行为 ✓——**没接上时不说谎，只是不特殊** ✓
+（与 `SetPrototypeKey` 一字不差 ✓）。
+
+```ts
+this.DescriptionKey = handle;
+```
+
 ## method Raise:(value:Value)=>void
 
 **宿主请求一次脚本站内异常**（第 121 轮补；见 `RaiseRequest` 那一段）。
@@ -1747,6 +1775,19 @@ if (id === RtOp.GetProp) {
     if (builtinProtoValue > 0) return Value.FromObject(builtinProtoValue);
   }
   const propProtos = this.Protos;
+  // **符号上的 `description`** ✓（第 241 轮 ✓）：符号**不是对象** ✗（没有属性表 ✓、
+  // 也没有原型那一格 ✓），所以 `GetProperty` 那条路**走不到它** ✗——
+  // 这一支是**唯一**能答那一格的地方 ✓（见 `DescriptionKey` 那一段的理由 ✓）。
+  // **键按内容比** ✗（字符串不去重 ✓——比句柄永远不相等 ✓，与 `PrototypeKey` 同一条纪律 ✓）。
+  if (propReceiver.Tag === ValueTag.Symbol && this.DescriptionKey > 0
+    && propKey.Tag === ValueTag.String
+    && RtCmpEqStrict(this.Table, propKey, Value.FromString(this.DescriptionKey)).AsBool()) {
+    const symbolRecord = this.Table.Get(propReceiver.Ref).AsSymbol();
+    // **没描述给 `undefined`** ✓（`0` 那一格表示「没有」✓，
+    // 而 `Symbol("").description` 是**空串** ✓——两件事不能混 ✗）。
+    if (symbolRecord.Description === 0) return Value.Undefined();
+    return Value.FromString(symbolRecord.Description);
+  }
   // **读 `null` / `undefined` 的属性是「类型失败」** ✓（第 139 轮）：
   // JS 那边这一类全是 `TypeError` ✓——`kind` 那一格就是给它留的 ✓。
   return this.Guard(() => GetProperty(this.Room(), this.Native(), propProtos, this.Table, propReceiver, propKey),

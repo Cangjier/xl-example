@@ -707,6 +707,12 @@ if (id === PowId) {
 
 # const SymbolCtor:int = 250
 
+# const SymbolDescription:int = 251
+
+**`s.description`**（第 241 轮 ✓）——**由 `get_prop` 那条路特判** ✓
+（符号值不是一个对象 ✗、没有原型那一格 ✓，所以它不能像 `Map` 的 `size` 那样挂在原型上 ✓）。
+
+**回的是字符串或 `undefined`** ✓（见 `InvokeGlobal` 里那一支 ✓）。
 **`Symbol(description)`** 的能力号（全局段 200..299 里空着的号）。
 
 **它不是构造函数**：JS 里 `Symbol()` **不带 `new`**（`new Symbol()` 会抛）——
@@ -1197,6 +1203,21 @@ if (id === SymbolCtor) {
   if (args.length > 0 && args[0].Tag === ValueTag.String) description = args[0].Ref;
   if (!room(ObjectCharge + ValueCharge)) throw new Error("out of room");
   return Value.FromRef(ValueTag.Symbol, table.CreateSymbol(description));
+}
+if (id === SymbolDescription) {
+  // **`s.description`** ✓（第 241 轮 ✓）：`self` 就是**那个符号** ✓
+  //（判据 `symbol-description` 读的正是 `String(s1.description)` ✓）。
+  //
+  // **没描述给 `undefined`** ✓（JS 的规矩 ✓：`Symbol().description` 是 `undefined` ✓，
+  // 而 `Symbol("").description` 是**空串** ✓）——所以判据是「句柄是不是 `0`」✗，
+  // **不是**「字符串长不长」✗（`0` 那一格表示「没有」✓，`heap.xl.md` 写着 ✓）。
+  //
+  // **符号值没有原型那一格** ✗（它不是一个对象 ✓）——所以这个属性**只能由
+  // `get_prop` 那条路特判** ✓，见下面 `GetProperty` 那一处 ✓。
+  if (self.Tag !== ValueTag.Symbol) return Value.Undefined();
+  const record = table.Get(self.Ref).AsSymbol();
+  if (record.Description === 0) return Value.Undefined();
+  return Value.FromString(record.Description);
 }
 if (id === MathFloor) {
   return MathResult(Math.floor(MathArgOf(room, call, protos, table, args[0])));

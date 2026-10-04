@@ -128,7 +128,18 @@ export const EXPECTATIONS = {
   // **还没问那一格** ✗（引擎的 `RtInstanceOf` 只沿原型链找 ✓）。
   "symbol-hasinstance": { expect: "differ", why: "**第 229 轮做掉了一半** ✓：`static [Symbol.hasInstance](v) { … }` 这种**计算成员名**现在降级得出来 ✓（原来整份文件进不来 ✗）。差的是一半 ✗：`instanceof` 那头**还没问那一格** ✓——引擎的 `RtInstanceOf`（`rt.xl.md`）只沿原型链找 `C.prototype` ✓，「先问 `C[Symbol.hasInstance]`、有就调它」那条路没有 ✗。而那一格是**计算键** ✓、值是一个**闭包** ✓，要调它得有一条 `NativeCall` ✓（引擎里那一处只有 `room` ✓）——所以这一半不是一个顺手的小改 ✗。" },
   "symbol-tostringtag": { expect: "blocked", why: "`Symbol.toStringTag` 没装" },
-  "symbol-description": { expect: "differ", why: "第 217 轮查清：`Symbol.prototype.description` 是**访问器**，要挂在符号的**原型**上——而 `Protos` 表里**没有符号那一格**（`Protos` 只有对象/数组/字符串/数/布尔/集合/错误那几族），所以这一格要**先给引擎加一个符号原型**（与 `Number.prototype` 让原始值读得到方法那条路同源）。这一轮只把根子写清，没动引擎。" },
+  // **第 241 轮删掉了 `symbol-description` 那一行** ✓（它过了 ✓）：
+  // 原来记的理由是「要挂在符号的**原型**上，而 `Protos` 表里没有符号那一格」✓——
+  // **那一半是真的** ✓（符号既没有属性表 ✓、也没有原型那一格 ✓），
+  // 而**结论绕了远路** ✗：既然符号**永远不会有**原型那一格 ✓，
+  // 那一格就**只能由 `get_prop` 特判** ✓——**不必给引擎加一个符号原型** ✗。
+  //
+  // 做法与 `PrototypeKey` **一字不差** ✓：引擎**只认句柄** ✓，
+  // `"description"` 这个字符串由语言层给 ✓（`vm.SetDescriptionKey` ✓ /
+  // 驱动 `DeclareDescriptionKey` ✓），键**按内容比** ✓
+  //（字符串不去重 ✗——比句柄永远不相等 ✓，`PrototypeKey` 那一处踩过同一个坑 ✓）。
+  // **描述本身就在堆里那一格** ✓（`HeapSymbol.Description` ✓）⇒ 特判那一支**一格都不分配** ✓。
+  // **没描述给 `undefined`** ✓、`Symbol("").description` 是**空串** ✓——判据是句柄是不是 `0` ✓。
   "console-log-special": { expect: "differ", why: "第 217 轮定性：这是**口径边界**，不是缺口——Node 对 `console.log(new Error(\"x\"))` 打的是**栈**（第一行 `Error: x`、后面是文件路径与行号），而栈**由宿主决定**、逐字节对不上是**必然**的（与 `Object.freeze` 那条严格/松散分歧同一类）。`Error.prototype.toString` 第 213 轮已经装上，`String(e)` / `e + 1` 都是对的。" },
   "error-engine-throws": { expect: "differ", why: "调用一个非函数的值该抛 `TypeError`（现在报的是别的）" },
   "promise-constructor": { expect: "blocked", why: "`new Promise(执行器)` 没做（要同步跑一次执行器 + 造两个宿主回调）" },
