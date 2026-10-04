@@ -1898,10 +1898,35 @@ SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapTarget);
 const setKey = Value.FromString(table.CreateString(Units("Set")));
 const setTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SetCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, setKey, setTarget);
-// `Symbol` 是**普通宿主函数**（不是构造函数）：`Symbol('x')` 走 `Op.Call`。
+// `Symbol` 从**宿主引用**改成**带可调用载荷的对象**（第 183 轮）✓：
+// 它现在要挂**知名符号**（`Symbol.iterator` 等 ✓），而**宿主引用没有属性表** ✗
+// （与第 137 轮 `Error.prototype` 那条同一个坎 ✓——那边靠 `Protos` 绕开了 ✓，
+// 而 `Symbol.iterator` 是一格**普通属性** ✓，绕不开 ✓）。
+// `AttachCallable` 的语义是「对象照旧是对象，只是多了一格能被调」✓（第 145 轮 ✓），
+// 所以 `Symbol("x")` 照旧走 `Op.Call` ✓、`typeof Symbol` 照旧给 `"function"` ✓
+//（第 145 轮把 `typeof` 那一格改成认「能被调」✓）。
+const symbolObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(symbolObject.Ref, SymbolCtor, 0);
 const symbolKey = Value.FromString(table.CreateString(Units("Symbol")));
-const symbolTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SymbolCtor, 0));
-SetProperty(vm.Room(), NeverCall, table, globals, symbolKey, symbolTarget);
+SetProperty(vm.Room(), NeverCall, table, globals, symbolKey, symbolObject);
+// **知名符号**：每个名字造**一次**✓——JS 要求 `Symbol.iterator` **永远是同一个值** ✓
+//（`o[Symbol.iterator] === o[Symbol.iterator]` ✓、拿它当键的两处要落到同一格 ✓）。
+// 描述按 JS 的写法给全名 ✓（`Symbol.iterator` 的描述就是 `"Symbol.iterator"` ✓）。
+// **`vm.Room()` 先落进一个局部量**（第 183 轮）✓：直接写 `vm.Room()(…)`（**调用一个调用结果** ✓）
+// 会踩中投影里那一族还没修的形状 ✓——本仓自己的规范文件也是 `cases:tsast` 的**语料** ✓，
+// 所以那种写法会让尺子当场变红 ✓（实测 ✓：`Room` 被投成一个**零宽**的 `Identifier` ✓）。
+// 那一格与第 179 轮 `xs[0]()` 是同一族 ✓（「调用调用结果」✓），记在台账里 ✓。
+const room = vm.Room();
+for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag"]) {
+  const fullName = "Symbol." + wellKnown;
+  if (!room(ObjectCharge + ValueCharge + CodeUnitCharge * fullName.length)) {
+    throw new Error("out of room");
+  }
+  const described = table.CreateString(Units(fullName));
+  const symbol = Value.FromRef(ValueTag.Symbol, table.CreateSymbol(described));
+  SetProperty(room, NeverCall, table, symbolObject,
+    Value.FromString(table.CreateString(Units(wellKnown))), symbol);
+}
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。
 // **第 145 轮它同时是构造函数** ✓：`new Date(ms)` 不再靠降级层那条特例 ✓

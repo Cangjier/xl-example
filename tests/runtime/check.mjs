@@ -7584,5 +7584,51 @@ check("五个号一个引擎改动都不用：属性标志位与两条原始值�
 });
 
 console.log("");
+console.log("=== 第 183 轮：成员名那一族（计算键 · 字符串键 · 知名符号）===");
+
+check("名字那一格：计算键的方法 · 字符串键不带引号 · `Symbol.iterator` 存在且唯一", () => {
+  // **端到端那一把在 `cases/61-member-names.ts`**（6 行逐字节 ✓）。
+  //
+  // 三处都是「**名字那一格没被认出来**」✗：
+  //   ① **计算键的方法** `{ [k]() { … } }` 报 `ast node ComputedPropertyName has no text` ✓
+  //      （整份文件进不来 ✓）——对象字面量里 `PropertyAssignment` 那条**早就认得计算键** ✓，
+  //      而 `MethodDeclaration` 那条按 `TextOf(name)` 取名字 ✗；修法与邻居一字不差 ✓。
+  //   ② **字符串键的方法** `{ "x-y"() { … } }`：投影给的名字节点 `text` **带着引号** ✗
+  //      （六个字符 ✓）——于是那一格存在**带引号的键**上 ✓，按 `o["x-y"]` 永远取不到 ✗
+  //      （`Object.keys` 印得出来 ✓）。**尺子看不见这一格** ✗：它只比 kind / 区间 / 字段名 ✓，
+  //      **不比字段值** ✗。
+  //   ③ **`Symbol.iterator` 一类知名符号**原来根本不存在 ✗：`Symbol` 是**宿主引用** ✓，
+  //      宿主引用**没有属性表** ✗。这一轮把它改成**带可调用载荷的对象** ✓
+  //      （`Symbol("x")` 照旧走 `Op.Call` ✓、`typeof Symbol` 照旧 `"function"` ✓），
+  //      再把五个知名符号**装库时各造一次** ✓（同一个符号必须永远是同一个值 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const k = 'dyn';",
+    "const computed: any = { [k]() { return 1; }, [k + '2']: 2 };",
+    "console.log(computed.dyn(), computed.dyn2);",
+    "const quoted: any = { 'x-y'() { return 7; }, 'a b': 8 };",
+    "console.log(quoted['x-y'](), quoted['a b'], Object.keys(quoted).join(','));",
+    "class Named { 'm-x'() { return 3; } plain() { return 4; } }",
+    "const named: any = new Named();",
+    "console.log(named['m-x'](), named.plain());",
+    "const iterable: any = { [Symbol.iterator]() { return 1; } };",
+    "console.log(typeof Symbol.iterator, iterable[Symbol.iterator]() === iterable[Symbol.iterator], typeof iterable[Symbol.iterator]);",
+    "console.log({ [Symbol.toStringTag]: 'T' }[Symbol.toStringTag]);",
+    "console.log(Symbol('a') === Symbol('a'), typeof Symbol('a'));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "1 2", "计算键的方法 / 计算键的赋值（**原来整份文件进不来**）");
+  eq(lines[1], "7 8 x-y,a b", "字符串键：存的就是 `x-y`（**不带引号**），`Object.keys` 也印得对");
+  eq(lines[2], "3 4", "类里的字符串键方法（同一处修正）");
+  eq(lines[3], "symbol false function",
+    "`Symbol.iterator` 存在 ✓、取两次是**同一个值** ✓（装库时造一次）、读出来是方法 ✓");
+  eq(lines[4], "T", "`Symbol.toStringTag` 也是知名符号（同一批）");
+  eq(lines[5], "false symbol", "`Symbol('a')` 每次都是新身份 ✓、`typeof` 是 `symbol` ✓");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

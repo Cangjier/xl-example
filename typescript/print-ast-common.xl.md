@@ -4638,10 +4638,18 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   }
   const before = at.pos > 0 ? ctx.source[at.pos - 1] : "";
   if ((before === '"' || before === "'") && ctx.source[at.end] === before) {
+    // **`text` 是引号里的那段，不含引号**（第 183 轮修 ✓）：TS 那边字符串字面量名字的
+    // `text` 是**解码后的值** ✓（`{ "x-y"() {} }` 的名字文本就是 `x-y` ✓），
+    // 而这里原来切的是 `[pos-1, end+1)` ✗——**把两个引号也带上了** ✗。
+    // 后果不在解析侧（尺子只比 kind / 区间 / 字段名 ✓，不比字段**值** ✗），
+    // 而在**降级层**：`{ "x-y"() {} }` 于是存在**键 `"x-y"`（带引号）**上 ✓，
+    // 按 `o["x-y"]` 永远取不到 ✗（实测 ✓：`Object.keys` 印出来是 `"x-y"` ✓）。
+    // **转义还没解** ✗（`{ "a\nb"() {} }` 的文本是 `a\nb` 四个字符 ✓，TS 给一个真换行 ✓）——
+    // 属性名里罕见 ✓，记在台账里 ✓。
     return {
       name: {
         kind: "StringLiteral",
-        text: ctx.source.slice(at.pos - 1, at.end + 1),
+        text: ctx.source.slice(at.pos, at.end),
         pos: at.pos - 1,
         end: at.end + 1,
       },

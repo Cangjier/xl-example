@@ -3881,8 +3881,26 @@ for (let i = 0; i < properties.length; i++) {
     keyConst = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
   } else if (kind === "MethodDeclaration") {
     const name = Child(property, "name");
+    // **计算键的方法**（第 183 轮修 ✓）：`{ [k]() { … } }` / `{ [Symbol.iterator]() { … } }` ✓——
+    // 名字那一格是 `ComputedPropertyName` ✓（里面装的是**表达式** ✓），
+    // 而这一支原来按 `TextOf(name)` 取名字 ✗ → 报
+    // `ast node ComputedPropertyName has no text` ✓（**整份文件进不来** ✗）。
+    // 做法与上面 `PropertyAssignment` 那条**一字不差** ✓：键算成一格**值** ✓、
+    // 走 `set_prop` 的值键那条路（`SetPropertyValue` ✓）。
+    // **求值顺序**与上面那条保持一致 ✓（先算值、再算键 ✗）——JS 的规范是**键在前** ✓，
+    // 两处的这一格次序都记在台账里 ✗（只有键 / 值里带副作用才看得出来 ✓）。
+    if (NodeKind(name) === "ComputedPropertyName") {
+      value = this.LowerFunctionValue(property, "<computed>");
+      const keySlot = this.LowerExpression(Child(name, "expression"));
+      this.SetPropertyValue(object, keySlot, value);
+      continue;
+    }
     value = this.LowerFunctionValue(property, TextOf(name));
-    keyConst = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
+    // **键走 `KeyUnitsOf`、不走 `TextOf`**（第 183 轮修 ✓）：`{ "x-y"() { … } }` 的键是
+    // **字符串字面量** ✓，而 `TextOf` 取的是**原文**（带引号 ✗）——于是那一格存在 `"x-y"` 上
+    // （名字里真的有两个引号 ✓，`Object.keys` 印得出来 ✓），按 `o["x-y"]` 取永远取不到 ✗。
+    // 同一个函数里的 `PropertyAssignment` 那条**一直用的是 `KeyUnitsOf`** ✓（它认得字符串键 ✓）。
+    keyConst = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
   } else if (kind === "GetAccessor" || kind === "SetAccessor") {
     // **访问器**：发一条内部调用 `define_accessor(对象, 键, getter, setter)`。
     // `{ get x() {} set x(v) {} }` 是**两条**成员，各自只带一半——**缺的那一半给
