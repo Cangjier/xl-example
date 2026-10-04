@@ -2439,6 +2439,71 @@ new Set([
       }
     }
   }
+  // ---- 0f. 赋值后面跟着逗号（第 180 轮）----
+  //
+  // `a = 1, 5` 的产物是 `[Identifier(a), SymbolToken(=), BinaryOperator(1, «,», 5)]`——
+  // **逗号单元最左边那一格 `1` 其实是赋值号的右操作数** ✓，而 `a` `=` 还在外面 ✓。
+  // TS 那边是 `BinaryExpression( BinaryExpression(a = 1), «,», 5 )` ✓。
+  // 照通用支走会拼成 `a = (1, 5)` ✗——实测 `const c = (a = 1, 5)` 里那个 `a` 变成 **5** ✓
+  //（Node 给 **1** ✓，**静默错值** ✗）；`(a = 1, a = 2)` 则干脆报
+  // `unimplemented: assignment to a non-identifier` ✓（形状这一层就错了 ✓）。
+  //
+  // **判据两头都要** ✓：
+  //   · 前面那一格是**赋值号** ✓（`=` / `+=` / …）——`a = b + 1` 的产物也是
+  //     `[a, =, BinaryOperator(b, +, 1)]` ✓，但那里的单元**不是逗号** ✓，
+  //     照这条认会把 `a = b + 1` 拆成 `(a = b) + 1` ✗；
+  //   · 这个单元的运算符是 **`,`** ✓（只有逗号比赋值更松 ✓，也才会这样分家 ✓）。
+  //
+  // **逗号是左结合的，所以最左边那一格可能要往下走几层** ✓：
+  // `a = 1, b, c` 的产物是 `[a, =, BIN(BIN(1, «,», b), «,», c)]` ✓——
+  // 沿**左脊柱**一路走到「第一个子单元**不是**逗号单元」那一层 ✓，
+  // 那一格才是赋值号的右操作数 ✓。然后把沿途每一层的 `(运算符, 右操作数)`
+  // **从里往外**交给 `foldBinaryFrom` ✓（与 0d / 0e 同一个折法 ✓）。
+  if (kids.length >= 2) {
+    for (let at = 1; at < kids.length; at++) {
+      const unit = kids[at];
+      if (unit.get("type") !== "BinaryOperator" && unit.get("type") !== "LogicalOperator") continue;
+      const before = kids[at - 1];
+      if (before.get("type") !== "SymbolToken") continue;
+      const beforeText = textOfNode(before, ctx);
+      const isAssign =
+        beforeText === "=" ||
+        (beforeText.length > 1 &&
+          beforeText.endsWith("=") &&
+          !["==", "===", "!=", "!==", "<=", ">="].includes(beforeText));
+      if (!isAssign) continue;
+      const unitInner = projectableKids(view(unit));
+      if (unitInner.length < 3) continue;
+      if (textOfNode(unitInner[unitInner.length - 2], ctx) !== ",") continue;
+      let level = unit;
+      let leftmost: any = undefined;
+      const levels: Array<Array<any>> = [];
+      while (level !== undefined) {
+        const inner = projectableKids(view(level));
+        if (inner.length < 3) break;
+        levels.push([inner[inner.length - 2], inner[inner.length - 1]]);
+        const head = inner[0];
+        const headIsComma =
+          (head.get("type") === "BinaryOperator" || head.get("type") === "LogicalOperator") &&
+          textOfNode(head, ctx) === ",";
+        if (headIsComma) {
+          level = head;
+          continue;
+        }
+        leftmost = head;
+        break;
+      }
+      if (leftmost === undefined) continue;
+      const assigned = projectExpression([...kids.slice(0, at), leftmost], ctx);
+      if (assigned === undefined) continue;
+      const rest: Array<any> = [];
+      for (let q = levels.length - 1; q >= 0; q--) {
+        rest.push(levels[q][0], levels[q][1]);
+      }
+      for (const k of kids.slice(at + 1)) rest.push(k);
+      return foldBinaryFrom(assigned, rest, ctx);
+    }
+  }
   // ---- 0b2. 标签模板**后面还跟着后缀**：第 173 轮在这里加过一条判据 ✗——**退回来了** ✗ ----
   //
   // 判据写的是「第二格是 `PropertyAccess` 且它第一个子单元是反引号 String」✓，
@@ -3393,7 +3458,21 @@ return (
   const firstRank = operatorRank(textOfNode(rest[0], ctx));
   if (firstRank === 0) {
     // 赋值：右结合，交给递归。
-    let right = projectExpression(rest.slice(1), ctx);
+    //
+    // **但逗号比赋值更松**（第 180 轮）✓：`a = 1, a = 2` 的 TS 形状是
+    // `BinaryExpression( BinaryExpression(a = 1), «,», BinaryExpression(a = 2) )` ✓——
+    // 赋值的**右操作数只到下一个顶层逗号为止** ✓。
+    // 少了这一格，右操作数会把逗号一起吃掉 ✓：实测 `(a = 1, a = 2)` 投成
+    // `a = (1, a) = 2` ✗（降级层于是报 `assignment to a non-identifier` ✓，
+    // 而**形状这一层**错得更早 ✓——`cases:tsast` 一量就红 ✓）。
+    let commaAt = rest.length;
+    for (let k = 1; k < rest.length; k++) {
+      if (isOperatorUnit(rest[k], ctx) && textOfNode(rest[k], ctx) === ",") {
+        commaAt = k;
+        break;
+      }
+    }
+    let right = projectExpression(rest.slice(1, commaAt), ctx);
     // **复合赋值**（第 96 轮）：token 层把 `a += 2` 展开成 `a = a + 2` 那一串（为执行层留一份
     // 可单独取出的运算符），所以这里看到的是「`=` + 一个 `BinaryOperator`」。TS 那边是**一个**
     // `BinaryExpression`、运算符是 `PlusEqualsToken`、右操作数是 `2`（不是 `a + 2`）。
@@ -3480,7 +3559,7 @@ return (
         right = stripped;
       }
     }
-    return {
+    const assigned = {
       kind: "BinaryExpression",
       left,
       operatorToken,
@@ -3488,6 +3567,9 @@ return (
       pos: left.pos,
       end: right ? right.end : endOf(rest[0]),
     };
+    // **剩下的那一串逗号接着折** ✓（左结合 ✓，`a = 1, b = 2, c = 3` 折成三层 ✓）。
+    if (commaAt < rest.length) return foldBinaryFrom(assigned, rest.slice(commaAt), ctx);
+    return assigned;
   }
   let node = left;
   let i = 0;

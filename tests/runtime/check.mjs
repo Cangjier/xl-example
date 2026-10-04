@@ -7441,5 +7441,59 @@ check("空括号是「实参那一段里的调用」，不是被调用者自己�
 });
 
 console.log("");
+console.log("=== 第 180 轮：逗号运算符（`(1, 2)` · `for` 的递增段 · 一串赋值）===");
+
+check("逗号是糖：先算左边（副作用留着）、值是右边；且「赋值比逗号紧」", () => {
+  // **端到端那一把在 `cases/58-comma-operator.ts`**（7 行逐字节 ✓）。
+  //
+  // **症状**：整族报 `unimplemented: binary operator ,` ✗——**整份文件进不来** ✗，
+  // 而 `for (let i = 0, j = 3; i < j; i++, j--)` 这种写法日常到处都有 ✓
+  //（初始化段 `let i = 0, j = 3` 是**声明表** ✓，那条路早就通了 ✓；
+  //  TS 那边 `incrementor` 才是一个**逗号表达式** ✓）。
+  //
+  // **两处根因**（都在执行侧 ✓，投影本来与 TS 一致 ✓）：
+  //   ① **降级**：逗号落成控制流（`LowerInto(slot, left)` → `LowerInto(slot, right)` →
+  //      返回 `slot` ✓），**不进 id 表** ✓（与 `&&` / `||` / `??` 同一条口径 ✓——
+  //      左边必须真的算一次 ✓，不能只投右操作数 ✗）；
+  //   ② **投影的优先级**：`a = 1, b = 2` 里**赋值号的右操作数只到下一个顶层逗号为止** ✓——
+  //      `=` 那一支原来把后面整串都当成右操作数（`a = (1, b) = 2` ✗），**形状这一层就错了** ✗。
+  //
+  // **顺带修掉一处潜伏的水位 bug** ✗（`LowerInto` 无条件 `Release(value)` ✓）：
+  // 赋值表达式的「值」是**左值自己那一格** ✓，退到它那里会把框架里所有活着的槽一起退掉 ✗，
+  // 于是 `a = 1, b = 2, c = 3` 里内层逗号拿到 `a` 的槽、把 `a` 写成 **3** ✓（Node 给 1 ✓）——
+  // **而两段的 `a = 1, b = 2` 看不出问题** ✗（内层结果正好又被外层覆盖 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const a = (1, 2);",
+    "console.log(a);",
+    "let s = 0;",
+    "for (let i = 0, j = 3; i < j; i++, j--) s++;",
+    "console.log(s);",
+    "let x = 0; let y = 0; let z = 0;",
+    "x = 1, y = 2, z = 3;",
+    "console.log(x, y, z);",
+    "let m = 0; let n = 0;",
+    "m = 1, n = 2, m = m + n;",
+    "console.log(m, n);",
+    "const f = () => (1, 2);",
+    "console.log(f(), (9, 8), (true, 'v'));",
+    "let calls = 0;",
+    "function tick(v: number) { calls += v; return v; }",
+    "const r = (tick(1), tick(2));",
+    "console.log(r, calls);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "2", "括号里的逗号表达式（值是最后那个）");
+  eq(lines[1], "2", "`for` 的递增段 `i++, j--`（**这一格原来整份文件进不来**）");
+  eq(lines[2], "1 2 3", "一串赋值：**赋值比逗号紧**，三个变量各拿各的（水位那一处的判据）");
+  eq(lines[3], "3 2", "赋值与逗号混写（**静默错值**：原来 `m` 给 4）");
+  eq(lines[4], "2 8 v", "箭头体 / 表达式位 / 左边是常量");
+  eq(lines[5], "2 3", "左边**真的有副作用**：`tick(1)` 与 `tick(2)` 各跑一次（值取右边）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

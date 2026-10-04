@@ -4831,9 +4831,22 @@ if (kind === "Identifier") {
   }
   return;
 }
+const before = this.NextFree;
 const value = this.LowerExpression(node);
 this.Emit(Op.Move, slot, value, -1, -1);
-this.Release(value);
+// **只在 `value` 是「这一趟算出来的临时量」时才退水位**（第 180 轮修 ✓）。
+//
+// 原来这里**无条件** `Release(value)` ✗。而**赋值表达式的「值」是左值自己那一格** ✓
+//（`a = 1` 的值就是 `a` ✓，见 `LowerBinary` 的赋值那一段 ✓）——那个槽在**表达式开始之前**
+// 就活着 ✓（它是框架里的一个局部 ✓）。退到它那里会把**框架里所有活着的槽一起退掉** ✗
+//（水位塌进局部区 ✓），于是**下一次 `Reserve` 会把一个还在用的槽发出去** ✓。
+//
+// 实测（第 180 轮的逗号那一族 ✓）：`a = 1, b = 2, c = 3` 里内层逗号拿到了 **`a` 的槽** ✓，
+// 结果 `a` 被写成了 **3** ✓（Node 给 1 ✓）——**静默错值** ✗，而且 `a = 1, b = 2` 那种
+// **两段**的写法**看不出问题** ✗（内层结果正好又被外层覆盖 ✓）——最难查的一种 ✓。
+if (value >= before) {
+  this.Release(value);
+}
 ```
 
 ## method LowerBinary:(node:AstNode)=>int
@@ -4877,6 +4890,27 @@ if (operatorText === "??") {
   this.Emit(Op.JumpIfFalse, nullish, 0, -1, -1);
   this.LowerInto(slot, Child(node, "right"));
   this.PatchTarget(notNullish, this.Here());
+  this.Release(slot + 1);
+  return slot;
+}
+if (operatorText === ",") {
+  // **逗号运算符：左边只求值（丢掉），值就是右边**（第 180 轮）✓。
+  //
+  // 它是**糖** ✓，不进 id 表 ✓（与 `&&` / `||` / `??` 同一条口径 ✓）——
+  // 语义只有一句话：**先算左边、再算右边** ✓，两件的**顺序是语义** ✓
+  //（`f(), g()` 里 `f()` 必须真的跑一次 ✓，且跑在 `g()` 前面 ✓）。
+  // 所以这里不能写成「只投右操作数」✗——那会把左边的副作用整条丢掉 ✓（**静默** ✗）。
+  //
+  // **投影那一侧不用改** ✓：TS 把 `(1, 2)` 也记成 `BinaryExpression` + `CommaToken` ✓
+  //（实测逐节点对拍一致 ✓），所以这一格**只是降级层的缺口** ✓。
+  //
+  // 它同时关掉三处常见写法 ✓：`const a = (1, 2)` ✓、**`for` 的递增段**
+  // `for (; i < n; i++, j--)` ✓（TS 那边那个 `incrementor` 就是一个逗号表达式 ✓——
+  // 初始化段 `let i = 0, j = 3` 是**声明表** ✓，那条路早就通了 ✓）、
+  // 以及 `i = (k, k + 1)` ✓。
+  const slot = this.Reserve(1);
+  this.LowerInto(slot, left);
+  this.LowerInto(slot, Child(node, "right"));
   this.Release(slot + 1);
   return slot;
 }
