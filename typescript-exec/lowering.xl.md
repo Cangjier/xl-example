@@ -3201,6 +3201,50 @@ if (NodeKind(name) !== "Identifier") {
 const key = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
 const args = ListOf(call, "arguments");
 const count = args.length;
+// **`?.` 有两种，守的东西不一样** ✗（第 152 轮量准的 ✓）：
+//
+// | 写法 | `?.` 在哪 | 空值是谁 | 该守谁 |
+// | --- | --- | --- | --- |
+// | `o?.n?.()` | 形参那一层（`o?.n` ✓） | `o` ✓ | 接收者 ✓ |
+// | `o.n?.()` | **调用那一层**（`?.()` ✓） | **取出来的方法** ✓ | **方法值** ✓ |
+//
+// 原来只有「守接收者」那一条 ✓（判据是 `ChainHasOptional(call)` ✓，而它**分不出这两层** ✗），
+// 于是 `o.n?.()` 在 `n` 是 `null` 时**照样去调** ✗ → 报
+// `unimplemented: calling a non-closure value` ✓（JS 给 `undefined` ✓，**不调** ✓）。
+//
+// **两种都要守，缺一种就是错** ✓：
+//   · 守接收者：不做的话 `o?.n?.()`（`o` 为空 ✓）会去读空值的属性 ✗；
+//   · 守方法值：不做的话 `o.n?.()`（方法为空 ✓）会去调它 ✗。
+// **多守的那一道只是多几条指令** ✓（与 `ChainHasOptional` 那条注释同一个道理 ✓）。
+const callOptional = OptionalChild(call, "questionDotToken") !== null;
+// **只有「调用那一层带 `?.`」才守方法值** ✗（不能拿 `optional` 顶替 ✓）：
+// `o?.m()`（`o.m` 不存在 ✓）在 JS 里是 **TypeError** ✓——拿 `optional` 顶替就是
+// 把它**静默**变成 `undefined` ✗，而静默错值比响亮地抛更糟 ✓。
+if (callOptional && !this.HasSpread(args)) {
+  // **换一条形状** ✓：`call_method` 内部自己取方法 ✗，取不到就没机会守 ✓——
+  // 所以先把方法当值取出来 ✓，守一道 ✓，再用 `Op.Call` 带着 `this` 调 ✓。
+  // 这条形状**本来就有** ✓（下面展开那条与 `super.m(...)` 那条都是它 ✓）。
+  const methodFn = this.RtCall2(RtOp.GetProp, receiver, key);
+  // **取完方法再守** ✓（守的是它 ✓，不是接收者 ✗）。
+  const methodSkip = this.JumpIfNullish(methodFn);
+  const methodSelf = this.Reserve(1);
+  this.Emit(Op.Move, methodSelf, receiver, -1, -1);
+  const callArgs = this.Reserve(count > 0 ? count : 1);
+  for (let i = 0; i < count; i++) {
+    this.LowerInto(callArgs + i, args[i]);
+  }
+  // **结果落在参数基址** ✓（与 `call_method` 同一条约定 ✓）。
+  this.Emit(Op.Call, methodFn, callArgs, count, methodSelf);
+  const doneOptional = this.Here();
+  this.Emit(Op.Jump, -1, 0, -1, -1);
+  // **两条短路都落到同一处** ✓：接收者那条（若也守了 ✓）与方法值这条 ✓——
+  // 结果格都写 `undefined` ✓。
+  this.PatchTarget(methodSkip, this.Here());
+  if (optional) this.PatchTarget(skip, this.Here());
+  this.Emit(Op.Const, callArgs, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+  this.PatchTarget(doneOptional, this.Here());
+  return callArgs;
+}
 if (this.HasSpread(args)) {
   // **`o.m(...xs)`**（第 133 轮）：**不用 `call_method`** ✗——它收的是「键 + 定长窗口」✓，
   // 而展开的个数只有运行期才知道 ✗。改成「先把方法当值取出来 + `call_array`」✓：

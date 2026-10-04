@@ -143,8 +143,16 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 第 146 轮那条判据当时写着「改成迭代协议的那一天这一条会当场变红」——这一轮它真的红了，
 于是改成正面断言。生成器那一档**够不着**（`iter_next` 是指令，建库层调不到），
 连同「可选调用那两处」一起把**实测读数**记进台账，留给下一轮）、
++ **`?.` 有两种**（第 152 轮：`o?.n?.()` 的空值在**接收者**上、`o.n?.()` 的空值在**取出来的方法**上，
+两者该守的不是同一样东西。原来只有「守接收者」一条（判据 `ChainHasOptional` 分不出这两层），
+于是 `o.n?.()` 在 `n` 是 `null` 时**照样去调**、报 `calling a non-closure value`。
+修法是换一条本来就在的形状：先把方法当值取出来、守一道、再用 `Op.Call` 带着 `this` 调；
+判据用 `OptionalChild(call, "questionDotToken")` 而**不是** `optional`——因为 `o?.n()`
+在 JS 里是 TypeError，拿 `optional` 顶替就会把它**静默**变成 `undefined`。
+另一半 `o.m?.().k` 量准了但**没动**：根因在**投影**（XML 实测 `.k` 被折进 `NullConditionalOperator`
+里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（211 条）与 `npm run runtime:cli`（43 份语料）；
+判据见 `npm run runtime:check`（212 条）与 `npm run runtime:cli`（44 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

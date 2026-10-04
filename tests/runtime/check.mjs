@@ -7103,5 +7103,70 @@ check("数组模式过 `GetIterator`：`Set` / `Map` / 字符串都读得到，�
 });
 
 console.log("");
+console.log("=== 第 152 轮：`?.` 有两种，守的东西不一样 ===");
+
+check("`o.n?.()` 守的是**方法值**，`o?.n()` 守的是**接收者**（方向不能反过来）", () => {
+  // **端到端那一把在 `cases/44-optional-call-kinds.ts`**（8 行逐字节 ✓）。
+  //
+  // 第 151 轮量准、这一轮修好的那一条 ✓。`?.` 有**两种**，判据完全不同 ✗：
+  //
+  // | 写法 | `?.` 在哪 | 空的是谁 | 该守谁 |
+  // | --- | --- | --- | --- |
+  // | `o?.n?.()` | 形参那一层（`o?.n` ✓） | `o` ✓ | 接收者 ✓ |
+  // | `o.n?.()` | **调用那一层**（`?.()` ✓） | **取出来的方法** ✓ | **方法值** ✓ |
+  //
+  // 原来只有一条「守接收者」✓（判据是 `ChainHasOptional(call)` ✓，而它**分不出这两层** ✗），
+  // 于是 `o.n?.()` 在 `n` 是 `null` 时**照样去调** ✗。
+  //
+  // **方向是关键** ✗：`o?.n()`（调用那一层**没有** `?.` ✓）在 JS 里是 **TypeError** ✓——
+  // 拿 `optional` 去顶替 `callOptional` 就会把它**静默**变成 `undefined` ✗，
+  // 而静默错值比响亮地抛更糟 ✓。所以判据两头都钉 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const box = { m: () => 5, n: null };",
+    "console.log(box.n?.(), box.missing?.(), box?.n?.(), box?.missing?.());",
+    "console.log(box.m?.(), box?.m?.());",
+    "const gone = null;",
+    "console.log(gone?.m?.());",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "undefined undefined undefined undefined",
+    "方法为空 / 接收者为空，四种都短路成 `undefined`（**不调**）");
+  eq(lines[1], "5 5", "正常情形照旧");
+  eq(lines[2], "undefined", "接收者那一层照旧短路");
+  // **反方向**：调用那一层没有 `?.` 时，调一个 `null` **必须响亮地抛** ✓——
+  // 这一格是防「顺手把 `optional` 当成 `callOptional`」的 ✗（那会静默给 `undefined` ✗）。
+  let loud = "";
+  try {
+    const strict = new RunRequest();
+    strict.Sources = ["const p = { n: null }; p?.n();"];
+    strict.Entry = "";
+    RunSources(strict, () => {}, () => null);
+  } catch (error) {
+    loud = String(error.message);
+  }
+  ok(loud.indexOf("non-closure") >= 0, "`p?.n()` 照旧响亮地抛（**没有**被静默成 undefined）：" + loud);
+  // **一档如实记下的缺口** ✗：`o.m?.().k`（**不带括号**）——**投影**把 `.k` 折进了
+  // `NullConditionalOperator` 里面 ✓（XML 实测：`<NCO><PropertyAccess><Bracket/><.><k/></…>` ✓），
+  // 于是外层那次读落在错误的东西上 ✓，**静默**给 `undefined` ✗（JS 给 `3` ✓）。
+  // `(o.m?.()).k` 与 `const t = o.m?.(); t.k` **都是对的** ✓——差别就在投影那一层 ✗。
+  // 这一条钉在明处 ✓：投影改对的那天它会变红 ✓。
+  const foldLines = [];
+  const fold = new RunRequest();
+  fold.Sources = [[
+    "const o = { m: () => ({ k: 3 }) };",
+    "console.log((o.m?.()).k, o.m?.().k);",
+  ].join("\n")];
+  fold.Entry = "";
+  const foldRes = RunSources(fold, (text) => foldLines.push(text), () => null);
+  eq(foldRes.Outcome, HostOutcome.Ok, "运行器：" + foldRes.Message);
+  eq(foldLines[0], "3 undefined",
+    "**已知差**：带括号的对 ✓、不带括号的静默给 `undefined` ✗（投影把 `.k` 折进了 NCO）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

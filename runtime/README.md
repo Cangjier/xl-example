@@ -11,7 +11,7 @@
 > **状态：进行中。** 内存三件套（`value` / `heap` / `gc`）、程序表示（`ir`）、
 > 线形态 + 装载验证（`ir-verify`）、执行器（`frame` / `rt` / `vm`）、属性原型层（`props`）、
 > `this` / `call_method` / `new`、访问器重入、生成器、承诺 + 微任务队列与 **宿主 ABI**
-> （`host-abi`）已落地：判据 `npm run runtime:check` **211 条全绿**——真循环、一万层递归
+> （`host-abi`）已落地：判据 `npm run runtime:check` **212 条全绿**——真循环、一万层递归
 > （中途发生过回收）、跨帧异常展开、闭包捕获、原型链遮蔽、方法调用的 `this`、
 > `new` 的收尾规矩、getter / setter 重入、生成器挂起活过回收、`await` 全链路、
 > 宿主的四类结局（成功 / 脚本抛出 / 挂起 / 限额）与能力白名单，
