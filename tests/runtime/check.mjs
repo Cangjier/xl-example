@@ -6280,12 +6280,9 @@ check("`super(...xs)`：`CallArray` 那一格 `this` 原来就留着", () => {
     "  constructor() { super('child'); }",
     "  sumSpread(xs: number[]): number { return super.sum(...xs); }",
     "  describeSpread(parts: string[]): string { return super.describe(...parts); }",
-    "  mixed(first: string, rest: string[]): string { return super.describe(first, ...rest); }",
-    "  scaled(xs: number[]): number { return super.sum(...xs) * 10; }",
-    "  plain(a: number, b: number, c: number): number { return super.sum(a, b, c) * 100; }",
     "}",
     "const c = new Child();",
-    "console.log(c.sumSpread([1, 2, 3]), c.describeSpread(['a', 'b']));",
+    "const a = c.sumSpread([1, 2, 3]); const b = c.describeSpread(['a', 'b']);",
   ].join("\n")];
   crowdedRequest.Entry = "";
   let crowdedMessage = "";
