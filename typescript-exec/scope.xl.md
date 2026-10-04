@@ -313,7 +313,6 @@ WalkChildren(body, (child) => {
 ```
 
 # method CollectDeclaredNames:(body:AstNode, out:Array<string>)=>void
-
 **这一层声明出来的名字**：变量、函数、参数（内层函数体不进去）。
 
 「名字出现在 `name` 字段上」这件事在投影里对 `VariableDeclaration` / `FunctionDeclaration` /
@@ -377,6 +376,24 @@ const kind = NodeKind(body);
 const next = IsFunctionNode(body) ? inside + 1 : inside;
 if (kind === "Identifier" && inside > 0) {
   out.push(TextOf(body));
+}
+// **类字段的初始化式算「内层函数里的引用」** ✓（第 212 轮 ✓）：它**跑在构造函数那一帧**里 ✓
+//（`IsFunctionNode` 的名单里就写着 `Constructor` ✓）——所以**语义上它就是内层代码** ✓，
+// 只是**语法上**不在一层函数里 ✗（**类表达式**的构造函数是 `LowerClass` **合成**的 ✓、不在树里 ✗）。
+//
+// **少了这一条**，`function make(k) { return class { v = k; }; }` 里 `k` **既不算捕获** ✗、
+// 外层也**压根不开环境** ✗ ⇒ 降级到构造函数体里报 `name is not a local or a capture: k` ✓
+//（判据 `ex-class-expr-field-capture` 现场红的 ✓）。**静态字段不受影响** ✓——
+// 它在**类声明那一处**求值 ✓，本来就在外层的体里 ✓。
+//
+// **只走初始化式** ✓（不像别处那样再 `WalkChildren` 一遍 ✗）：`name` 是**属性名** ✗、
+// 类型位一律擦除 ✗——把它们当标识符收进来只会**多开一格** ✓（不致命，但没有理由 ✓）。
+if (kind === "PropertyDeclaration") {
+  const initializer = body["initializer"];
+  if (initializer !== undefined && initializer !== null && typeof initializer === "object") {
+    CollectInsideFunctions(initializer as AstNode, inside + 1, out);
+  }
+  return;
 }
 // **`for..in` 隐含用到全局名 `Object`**（它落成 `Object.keys` + 迭代协议）：
 // 源码里没有 `Object` 这个标识符，可**内层函数真的会去读外层的它**——

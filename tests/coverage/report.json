@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 254,
+  "matrix": 255,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,27 +18,27 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 76.49,
+  "progressPercent": 77.46,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 91,
-      "pass": 80,
-      "blocked": 9,
+      "total": 92,
+      "pass": 82,
+      "blocked": 8,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 87.91
+      "coverage": 89.13
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 45,
-      "pass": 31,
-      "blocked": 12,
+      "pass": 32,
+      "blocked": 11,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 68.89
+      "coverage": 71.11
     },
     {
       "layer": "stdlib",
@@ -73,12 +73,6 @@
       "layer": "runtime",
       "title": "具名函数表达式：名字只在函数体内可见",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: f"
-    },
-    {
-      "id": "cls-expression",
-      "layer": "runtime",
-      "title": "类表达式：赋给变量、当返回值、当场 new",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: k"
     },
     {
       "id": "gen-basics",
@@ -145,12 +139,6 @@
       "layer": "exec",
       "title": "标签模板后面接成员 / 运算符 / 实参",
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
-      "id": "ex-class-expr-field-capture",
-      "layer": "exec",
-      "title": "类表达式的**字段初始化式**要看得见外层的变量",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: outer"
     },
     {
       "id": "ex-typeof-value-expression",
@@ -270,7 +258,7 @@
       "id": "e2e-event-emitter",
       "layer": "e2e",
       "title": "事件总线：Map<string, 回调数组> + 闭包 + 剩余参数",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: Map"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "e2e-async-workflow",

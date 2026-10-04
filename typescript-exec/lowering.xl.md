@@ -1608,7 +1608,31 @@ for (let p = 0; p < item.Patterns.length; p++) {
 this.ExtraDeclared = patternNames;
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
-this.EnterFunctionBody(body, item.Params, item.Defaults);
+//
+// **「额外那几段」要连着字段初始化式一起递进去** ✓（第 212 轮 ✓）：
+// `EnterFunctionBody` 拿 `extras` 去算三件事 ✓——**捕获** ✓、`needsThis` ✓、`hasNested` ✓
+//（它那一段注释里写着为什么三件都要 ✓）。而**实例字段的初始化式**（`item.FieldDefaults` ✓）
+// 也是**跑在构造函数这一帧里**的代码 ✓，此前**只递了参数默认值** ✗——
+// 于是 `function make(k) { return class { v = k; }; }` 报
+// `name is not a local or a capture: k` ✓（判据 `ex-class-expr-field-capture` 现场红的 ✓）：
+// `k` 既不在这一层声明里 ✓、也没被算成捕获 ✗ ⇒ 外层那一层**压根不开环境** ✗。
+// **静态字段不受影响** ✓（它在**类声明那一处**求值 ✓，本来就在外层的体里 ✓）——
+// 所以这个缺口只在**类表达式 + 实例字段**这一格上现形 ✓（实测：`static v = k` 一直是好的 ✓）。
+const captureDefaults: AstNode[] = [];
+for (let i = 0; i < item.Defaults.length; i++) captureDefaults.push(item.Defaults[i]);
+for (let i = 0; i < item.FieldDefaults.length; i++) captureDefaults.push(item.FieldDefaults[i]);
+// **实例字段的初始化式也要递进来** ✓（第 212 轮 ✓）：它们跑在**这一帧**里 ✓
+//（`EmitFieldDefaults` 就在构造函数体里发 ✓），可它们**不在 `body` 里** ✗
+//（`body` 是构造函数体 ✓，字段初始化式挂在 `item.FieldDefaults` 上 ✓）。
+// **少递的后果有两档** ✗：
+//   · `k` 不进捕获名单 ✓ ⇒ `name is not a local or a capture: k` ✓（c1 那一档 ✓）；
+//   · **`needsThis` / `hasNested` 算不出来** ✓ ⇒ 构造函数这一帧**压根不开环境** ✗，
+//     而字段初始化式里的箭头**要往这一帧捕获 `this`** ✓ ⇒ 报
+//     `new_closure needs an environment or undefined` ✓（`f = () => this.v` 那一档 ✓，
+//     **在模块顶层也是红的** ✓——它是**既有缺口** ✓，这一轮顺着同一条路一起修掉 ✓）。
+// **另一半在 `scope.xl.md`** ✓：`CollectInsideFunctions` 要把字段初始化式当**内层代码**走 ✓，
+// 否则**外层**（`make`）算不出「有人在引用 `k`」✓、也就不开环境 ✗。
+this.EnterFunctionBody(body, item.Params, captureDefaults);
 for (let i = 0; i < item.Params.length; i++) {
   this.DeclareLocal(item.Params[i], i);
 }

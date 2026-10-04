@@ -13,7 +13,6 @@ export const EXPECTATIONS = {
   // ===== runtime：引擎与语言层手里的那几张表 =====
   "op-typeof-forms": { expect: "blocked", why: "发现于第 211 轮：`typeof {}` / `typeof []` 这一类在 **token 层**就把 `typeof` 留成了兄弟单元（`TypeOfKeyword` ✗），对象字面量那一段与它对不上——`typeof <标识符>` 一直是好的 ✓" },
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
-  "cls-expression": { expect: "blocked", why: "`new (表达式)()`：第 211 轮起**降级层已经放行** ✓（`new (class {…})()` 通了 ✓），剩下的是**类表达式的字段初始化式看不见外层变量**那一格 ✓（见 `ex-class-expr-field-capture` ✓）" },
   "gen-basics": { expect: "blocked", why: "生成器对象上的 `next()` 调不动（`calling a non-closure value`）" },
   "gen-delegating": { expect: "blocked", why: "`yield*` 没做（要**惰性转发**，不是一次收完）" },
   "gen-lazy-and-state": { expect: "blocked", why: "同 `gen-basics`：生成器对象的 `next()`" },
@@ -29,7 +28,6 @@ export const EXPECTATIONS = {
   "ex-enum-const": { expect: "blocked", why: "`const enum` 没做（该内联成字面量）" },
   "ex-namespace": { expect: "blocked", why: "`namespace` 没做（含嵌套与导出）——有运行期语义" },
   "ex-tagged-template-suffix": { expect: "blocked", why: "函数当 `ToPrimitive` 时该给**源码文本**（`Function.prototype.toString`）" },
-  "ex-class-expr-field-capture": { expect: "blocked", why: "发现于第 211 轮：类表达式的**字段初始化式**看不见外层的变量（`function make(k) { return class { v = k; } }` 报「name is not a local or a capture: k」）——捕获分析没有走进类字段那一格 ✓" },
   "ex-typeof-value-expression": { expect: "blocked", why: "`typeof (表达式)`：投影认成了 `TypeLiteral`" },
   "ex-computed-member-call": { expect: "differ", why: "函数的显示形态：`[Function: run]` vs `[Function (anonymous)]`" },
   "ex-spread-in-new": { expect: "blocked", why: "`new Map([[1,2]] as any)`：`AsExpression` 那一层没有子表达式" },

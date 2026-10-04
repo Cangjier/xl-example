@@ -843,6 +843,19 @@ console.log(a.balance, Account.count, Object.keys(a).length);
 `,
   },
   {
+    id: "cls-arrow-field",
+    title: "字段初始化式里的**箭头**（`f = () => this.v` —— 遍地都是的写法）",
+    src: `
+class C {
+  v = 1;
+  f = () => this.v + 1;
+  g = (n: number) => n * this.v;
+}
+const c = new C();
+console.log(c.f(), c.g(5), Object.keys(c).length);
+`,
+  },
+  {
     id: "cls-private-in-expression",
     title: "私有字段**出现在表达式里**（`this.#n + 1` / `this.#n * 2` / `this.#n++`）",
     src: `
