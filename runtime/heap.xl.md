@@ -1296,6 +1296,36 @@ this.Finish(handle);
 return handle;
 ```
 
+## method AttachCallable:(handle:int, capabilityId:int, opaque:int)=>void
+
+**给一个已经存在的对象挂上「可被调用」那一格载荷**（第 145 轮）——于是它同时是
+**对象**（属性、原型、`Object.keys` 都照旧 ✓）与**可调用值**（`String(x)` / `new Date(ms)` ✓）。
+
+**为什么是「对象带一格宿主载荷」，而不是「宿主引用带一张属性表」**：
+两条候选修法都摆在台账里（`vm.xl.md` 的 `DoNew` 那一段 ✓），选这一条的理由是
+**改动落在哪一侧** ✓：
+
+| 候选 | 代价 |
+| --- | --- |
+| 宿主引用带属性表 | 宿主引用今天**没有出边** ✓（`gc.xl.md` 的 `Trace` 写着「字符串与宿主句柄没有出边」✓），加属性表就要让**回收器**多跟一条边、让 `Charge` / `Clear` 多管一块载荷 ✗——而那一档本来是「原样传回宿主、规范层不看内部」✓ |
+| **对象带一格可调用载荷**（选的这条） | **一处结构都不用加** ✓：对象本来就有属性表 ✓，而 `Charge` / `Clear` 两处**早就按 `Host !== null` 判过** ✓（那两行原来只为宿主引用而写 ✓，对对象同样成立 ✓） |
+
+**`Tag` 不变** ✓：挂上之后它仍然是 `Object` ✓——属性照查 ✓、`instanceof` 照走原型 ✓、
+`Object.keys` 照列 ✓。**变的只有「能不能被调用」** ✓（`vm.xl.md` 的 `DoCallValue` /
+`DoNew` 各多一条判据 ✓）。
+
+**不影响回收** ✓：宿主载荷是**内联的两个 int** ✓（`HeapHostRef` ✓），没有句柄可跟 ✓——
+`gc.xl.md` 的 `Trace` 一行都不用改 ✓。`AllocateRaw` 复用空格时走 `Clear()` ✓，
+所以**回收过的格子不会带着上一次的可调用载荷** ✓（不然「随便一个对象能被调用」就是
+最难查的一种 ✓）。
+
+```ts
+const item = this.Objects[handle];
+if (item.Tag !== ValueTag.Object) throw new Error("attach_callable needs an object");
+item.Host = new HeapHostRef(capabilityId, opaque);
+this.Recount(handle);
+```
+
 ## method CreateFrame:(code:int, slotCount:int, prev:int, returnSlot:int)=>int
 
 造一个调用帧。槽数组在这里就位，所以账一次记全。

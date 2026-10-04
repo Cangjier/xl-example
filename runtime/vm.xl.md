@@ -766,21 +766,19 @@ if (returnSlot >= 0) {
 // 都要能走这两条路 ✓——所以「有几个」与「第 i 个是谁」各收成一个方法 ✓，
 // 而不是在两处各写一遍三元表达式 ✗（那正是**两处会走偏**的形状 ✗）。
 const count = this.CallArgCount(frame, argBase, argc, argArray);
-if (callee.Tag === ValueTag.HostRef) {
-  const invoker = this.Host;
-  if (invoker === null) throw new Error("calling a host function with no host installed");
+// **可调用值的两种**（第 145 轮）：宿主引用 ✓，以及**带可调用载荷的对象** ✓
+//（`String(1)` 里的 `String` 是**对象**——它还要能挂静态属性 ✓，见 `heap.xl.md`
+// 的 `AttachCallable` 那一段 ✓）。两者走的是**同一条**宿主通道 ✓——
+// 判据收在 `IsHostCallable` 一处 ✓，取参数与展开也各只有一份 ✓。
+if (this.IsHostCallable(callee)) {
   const args: Value[] = [];
   for (let i = 0; i < count; i++) {
     args.push(this.CallArgAt(frame, argBase, argArray, i));
   }
-  const produced = invoker(callee, thisValue, args, this.Room());
-  // **宿主请求一次脚本站内异常？**（`RaiseRequest` 那一段）：立刻取走并展开。
-  // 取走是**必须的**：留着它，下一次宿主调用会莫名其妙地抛上一次的错。
-  const raised = this.TakeRaise();
-  if (raised !== null) {
-    this.DoThrow(raised);
-    return;
-  }
+  const produced = this.CallHostValue(callee, thisValue, args);
+  // **`null` 表示展开已经发生** ✓（宿主请求了一次脚本站内异常 ✓）：**连结果都不许写** ✗——
+  // 写下去会盖掉处理点正要用的那一格 ✓（原来那版在这里 `return`，正是为了这一条 ✓）。
+  if (produced === null) return;
   if (returnSlot >= 0) {
     frame.Slots[returnSlot] = produced;
   } else {
@@ -825,6 +823,49 @@ created.Env = closure.Env;
 created.This = thisValue;
 created.ConstructTarget = constructTarget;
 this.FillParameters(created, info, frame, argBase, argArray, count);
+```
+
+## method IsHostCallable:(value:Value)=>bool
+
+**这个值能不能被调用**——`HostRef` 与**带可调用载荷的对象**都算（第 145 轮）。
+
+**为什么收成一个方法**：这个判据在**三处**要用 ✓（`DoCallValue` 的调用路 ✓、
+`DoNew` 的构造路 ✓、`CallNative` 的重入路 ✓——`[1, 2].map(String)` 走的就是第三条 ✓）。
+写三遍就是三处会走偏 ✗——而走偏的症状是「有一处能调、另一处报 `calling a non-closure value`」✓
+（那种消息听起来像脚本写错了 ✗）。
+
+**对象那一半要看堆**：`Tag` 是 `Object` 的还有帧 / 环境 / 生成器 / 迭代游标那些
+**引擎内部对象** ✓，它们没有载荷 ✓（`Host` 是 `null` ✓）——所以这一条判据必须
+**真的去读那一格** ✗，不能只看标签 ✓。
+
+```ts
+if (value.Tag === ValueTag.HostRef) return true;
+if (value.Tag === ValueTag.Object) return this.Table.Get(value.Ref).Host !== null;
+return false;
+```
+
+## method CallHostValue:(callee:Value, thisValue:Value, args:Array<Value>)=>Value | null
+
+**调一次宿主可调用值**（第 145 轮从 `DoCallValue` 里抽出来 ✓）——宿主函数与
+可调用对象**共用这一份** ✓（`DoCallValue` 的调用路、`CallNative` 的重入路 ✓）。
+
+**返回 `null` 的意思是「展开已经发生」** ✓：宿主请求了一次脚本站内异常 ✓
+（`RaiseRequest` / `Raise` 那一段 ✓）——`DoThrow` 已经把控制流交给处理点了 ✓，
+所以调用方**必须立刻返回** ✗，连结果都不许往槽里写 ✓（那一格可能是处理点要用的 ✓）。
+**这条「要不要写结果」原来靠调用方自己 `return`** ✓；抽出来之后它变成**返回值的一半语义** ✓，
+所以类型写成 `Value | null` ✓——让「可能没有结果」这件事在签名上就看得见 ✓。
+
+```ts
+const invoker = this.Host;
+if (invoker === null) throw new Error("calling a host function with no host installed");
+const produced = invoker(callee, thisValue, args, this.Room());
+// **取走是必须的**：留着它，下一次宿主调用会莫名其妙地抛上一次的错。
+const raised = this.TakeRaise();
+if (raised !== null) {
+  this.DoThrow(raised);
+  return null;
+}
+return produced;
 ```
 
 ## method CallArgCount:(frame:HeapFrame, argBase:int, argc:int, argArray:int)=>int
@@ -1006,21 +1047,27 @@ if (this.Program === null) throw new Error("no program loaded");
 const protos = this.Protos;
 if (protos === null) throw new Error("no prototype table");
 const callee = frame.Slots[instr.A];
-// **宿主构造函数**（`new Map()` 这种：`Map` 这个全局名的值是一个宿主引用）：
+// **宿主那一档**（`new Map()` / `new Date(ms)` 这一类：那个全局名是一个宿主引用，
+// 或者是一个**带可调用载荷的对象** ✓——第 145 轮把后者接了进来 ✓）：
 // **不造实例、不看原型**——让宿主自己把对象造好并返回，这正是 JS 的
 // 「构造函数返回了对象就用它」。造实例再让宿主往里填也行，但那样引擎就得先猜
 // 「宿主想要哪种对象」；**把这件事留给知道它的那一层**。
-if (callee.Tag === ValueTag.HostRef) {
+//
+// **两条候选修法**（第 138 轮记在这里的 ✓）：
+//   ① 让宿主引用带一张静态属性表 ✗（回收器要多跟一条边，见 `heap.xl.md` 的 `AttachCallable`）；
+//   ② **让「对象上的可调用载荷」算数** ✓——第 145 轮选的这条 ✓。
+// 选②之后 `Date` 不必再靠降级层那条特例 ✓（`new Date(ms)` 与 `Date.now()` 同时成立 ✓），
+// 这一支也不再需要那句「说清原因」的抛 ✗。
+if (this.IsHostCallable(callee)) {
   this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, Value.Undefined(), 0);
   return;
 }
-// **拿一个普通对象当构造函数**：JS 里有些全局名**既是对象又是构造函数**
-// （`Date.now` 是对象上的方法，`new Date(ms)` 又是构造）。这一层现在只支持两半里的一半：
-// 宿主引用可以当构造函数（上面那条），普通对象可以带属性——**两样都占的还没有**。
-// 这里给一句**说清原因**的话，而不是让它掉进「calling a non-closure value」
-// （那种消息会让人以为是调用写错了）。缺口与两条候选修法记在台账里。
+// **普通对象当构造函数：给一句说清原因的话** ✓（不是「calling a non-closure value」✗——
+// 那种消息会让人以为是**调用**写错了 ✓）。第 145 轮之后这一支的含义变窄了 ✓：
+// 「对象 + 可调用载荷」那一档**已经能当构造函数** ✓（上面那条 ✓），
+// 走到这里的对象**没有那一格** ✓（所以它是「拿一个数据对象去 `new`」✓）。
 if (callee.Tag === ValueTag.Object) {
-  throw new Error("unimplemented: calling an object as a constructor (a host value that is both an object and a constructor is not supported yet)");
+  throw new Error("unimplemented: calling an object as a constructor (this object is not callable)");
 }
 const created = this.Guard(() => this.CreateInstance(callee));
 if (!created.IsRef()) return;
@@ -1458,7 +1505,7 @@ return (callee: Value, thisValue: Value, args: Value[]) =>
 
 ## method CallNative:(callee:Value, thisValue:Value, args:Array<Value>)=>Value
 
-**重入分派循环**调一个脚本函数，拿它的返回值。访问器（getter / setter）与将来内建方法
+**重入分派循环**调一个脚本函数，拿它的返回值。访问器（getter / setter）与内建方法
 （`Array.prototype.map` 那种）只有这一条路。
 
 三件事值得记住：
@@ -1470,7 +1517,19 @@ return (callee: Value, thisValue: Value, args: Value[]) =>
    **它的调用方（rt 算子）的结果会被丢掉，因为控制流已经不在那条指令上了**
    （展开把 `Pc` 改成了处理点）。这条推理让「重入期间出事」不需要额外清理。
 
+**可调用对象走同一条**（第 145 轮）✓：`[1, 2].map(String)` 的 `String` 是**对象** ✓，
+所以这一支不压帧、也没有生成器那回事 ✓——直接交给 `CallHostValue` ✓
+（与 `DoCallValue` 那份**同一处** ✓）。
+
 ```ts
+// **可调用对象也要能当回调** ✓（第 145 轮）：`[1, 2].map(String)` 里那个 `String`
+// 是一个**对象** ✓——建库层现在把这种值交进来了 ✓（`IsCallableValue` ✓），
+// 所以这一层要接得住 ✗。三条路（调用 / 构造 / 重入）走的是**同一个** `CallHostValue` ✓。
+if (this.IsHostCallable(callee)) {
+  const produced = this.CallHostValue(callee, thisValue, args);
+  if (produced === null) return Value.Undefined();
+  return produced;
+}
 if (callee.Tag !== ValueTag.Closure) {
   throw new Error("unimplemented: calling a non-closure value");
 }

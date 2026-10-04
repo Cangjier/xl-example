@@ -86,8 +86,15 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 于是**五个调用点**（`jmp_if_false` / `!` / `Boolean(x)` / `filter` / 谓词族）在**空串**上一起歪，
 而且**不报错**（静默错值）。修法：`rt.xl.md` 新增 `TruthyOf(table, value)`，
 改一处、五条构造一起对；`AsBool` 留作「不带堆的那一半」）、
++ **既是对象又可调用**（第 145 轮：`String(1)` / `Number("7")` / `Boolean(0)` 原来一律报
+`calling a non-closure value`——`String`/`Date`/`Array` 是**对象**（挂得住静态方法与 `prototype`），
+却**不能被调**；而 `Boolean` 连全局名都不是。两条候选修法里选了「**对象带一格可调用载荷**」
+（`heap.xl.md` 的 `AttachCallable`：`Charge`/`Clear` 早就按 `Host !== null` 判过，一处结构都不用加），
+判定收成一句 `IsHostCallable`（调用 / 构造 / 重入三条路共用）。于是 `new Date(ms)` 那条
+「只有直接写 `Date` 才认」的降级层特例**撤掉了**（`const D = Date; new D(0)` 也对），
+`typeof String === "function"`、`new Array(3)` 的洞、`[1,2,3].map(String)` 一起通了）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（195 条）与 `npm run runtime:cli`（36 份语料）；
+判据见 `npm run runtime:check`（198 条）与 `npm run runtime:cli`（37 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

@@ -285,7 +285,7 @@ return MakeNumber(NumericOf(left) % NumericOf(right));
 return MakeNumber(-NumericOf(value));
 ```
 
-# method TypeUnitsOf:(value:Value)=>Array<int>
+# method TypeUnitsOf:(table:HeapTable, value:Value)=>Array<int>
 
 `typeof` 的名字（**码元形式**）。
 
@@ -294,6 +294,14 @@ return MakeNumber(-NumericOf(value));
 
 **历史包袱照报**：`null` 报 `"object"`（JS 就是这么定的，不是笔误）。
 
+**第 145 轮加了一档**：**带可调用载荷的对象**报 `"function"` ✓——JS 里 `typeof String`
+就是 `"function"` ✓（`String` 是函数对象 ✓），而本仓的 `String` 是**对象** ✓
+（它要能挂 `String.fromCharCode` 与 `String.prototype` ✓）。
+**这一格也要读堆** ✗（与 `TruthyOf` 的空串那一档同型 ✓）：光看标签分不出
+「普通对象」与「可调用对象」✓，所以签名里要有表 ✓——
+**`props.xl.md` 的 `TypeOfName` 是同一件事的另一个出口** ✓（那边给宿主字符串 ✓），
+两处**同时**改了 ✓（一处改一处不改就是「同一个值两个名字」✗）。
+
 ```ts
 if (value.Tag === ValueTag.Undefined) return [117, 110, 100, 101, 102, 105, 110, 101, 100];
 if (value.Tag === ValueTag.Bool) return [98, 111, 111, 108, 101, 97, 110];
@@ -301,7 +309,30 @@ if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) return [110,
 if (value.Tag === ValueTag.String) return [115, 116, 114, 105, 110, 103];
 if (value.Tag === ValueTag.Symbol) return [115, 121, 109, 98, 111, 108];
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return [102, 117, 110, 99, 116, 105, 111, 110];
+if (value.Tag === ValueTag.Object && table.Get(value.Ref).Host !== null) return [102, 117, 110, 99, 116, 105, 111, 110];
 return [111, 98, 106, 101, 99, 116];
+```
+
+# method IsCallableValue:(table:HeapTable, value:Value)=>bool
+
+**这个值能不能当函数用**——闭包 ✓、内建函数 ✓（`ValueTag.Function` ✓）、
+**带可调用载荷的对象** ✓（第 145 轮）。
+
+**它为什么必须收成一个方法**：建库层有**五处**在问这件事 ✓（数组的 `map` / `filter` /
+谓词族 / `sort` 的比较器、`Set` 与 `Map` 的 `forEach` ✓）——它们原来写的是
+`value.IsCallable()` ✗，而那个方法在 `Value` 上、**看不到堆** ✗，
+于是 `[1, 2].map(String)` 报「this array method needs a function」✗
+（而 `String` 明明是可以调的 ✓）。
+
+**与 `Value.IsCallable` 的分工**：那个是**不带堆的那一半** ✓（只看标签 ✓），
+它答得完全正确的是「闭包与内建函数」这两档 ✓；
+**「对象也能调」这一档是第 145 轮才存在的** ✓，所以完整的答案在这里 ✓
+（与 `TruthyOf` / `AsBool` 那条分工同型 ✓）。
+
+```ts
+if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return true;
+if (value.Tag === ValueTag.Object) return table.Get(value.Ref).Host !== null;
+return false;
 ```
 
 # method RtTypeOf:(room:RoomChecker, table:HeapTable, value:Value)=>Value
@@ -309,7 +340,7 @@ return [111, 98, 106, 101, 99, 116];
 `typeof`：一次分配（与 `RtToString` 同一条理由：中间值没有根保护）。
 
 ```ts
-const units = TypeUnitsOf(value);
+const units = TypeUnitsOf(table, value);
 if (!room(CodeUnitCharge * units.length + ObjectCharge)) {
   throw new Error("out of room");
 }

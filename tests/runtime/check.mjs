@@ -78,7 +78,7 @@ const { IssueOperand, IssueTarget, IssueFallThrough, IssueHandler, IssueFunction
 const vmMod = require(path.join(root, "build", "ts", "runtime", "vm.js"));
 const { Vm, VmStatus, ErrorKindGeneric, ErrorKindType } = vmMod;
 const rtMod = require(path.join(root, "build", "ts", "runtime", "rt.js"));
-const { RtAdd, RtCmpEqStrict, RtCmpEqLoose, RtNot, RtToBoolean, TruthyOf } = rtMod;
+const { RtAdd, RtCmpEqStrict, RtCmpEqLoose, RtNot, RtToBoolean, TruthyOf, TypeUnitsOf, IsCallableValue } = rtMod;
 const propsMod = require(path.join(root, "build", "ts", "runtime", "props.js"));
 const { InitProtos, NewPlainObject, NewPlainArray, GetProperty, SetProperty, DeleteProperty } = propsMod;
 const hostMod = require(path.join(root, "build", "ts", "runtime", "host-abi.js"));
@@ -90,7 +90,7 @@ const { InstallArray, InvokeArray } = arrayBuiltins;
 const installBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "install.js"));
 const { InstallBuiltins, InvokeBuiltin, InvokeWithSink, RaiseFromHost } = installBuiltins;
 const globalsBuiltins = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "globals.js"));
-const { GlobalNames, BuildGlobals, ClockNow, NewError } = globalsBuiltins;
+const { GlobalNames, BuildGlobals, ClockNow, NewError, NumberFromValue } = globalsBuiltins;
 const bindingsMod = require(path.join(root, "build", "ts", "typescript-exec", "bindings.js"));
 const { Bindings, LookupOf } = bindingsMod;
 const { RtSetProto } = require(path.join(root, "build", "ts", "runtime", "rt.js"));
@@ -1494,7 +1494,7 @@ check("自有属性的读、写、缺省", () => {
   eq(setProp(machine, table, object, name, Value.FromInt(7)).AsInt(), 7, "写入返回赋的值");
   eq(getProp(machine, table, object, name).AsInt(), 7, "读回来");
   eq(getProp(machine, table, object, propKey(table, "y")).IsUndefined(), true, "缺的属性给 undefined");
-  eq(typeof TypeOfName(object), "string", "typeof 的名字表留给建库层，这一层只给名字");
+  eq(typeof TypeOfName(table, object), "string", "typeof 的名字表留给建库层，这一层只给名字");
 });
 
 check("原型链：继承来的属性读得到，而赋值是**遮蔽**不是改原型", () => {
@@ -4562,9 +4562,10 @@ check("Set：keys() 等同 values() + entries() 给 [值, 值] 对 + clear()", (
 });
 
 check("Date：new Date(毫秒) + getTime/UTC 日历三件（UTC 口径；大毫秒用运行时算，绕开 i32 字面量）", () => {
-  // 第 114 轮。**两条已知差异**都钉在这条判据里：
-  //   ① `Date` 是普通对象（能挂 `now`），**不能被 `new`** —— 所以 `new Date(...)` 由降级层
-  //      落成一条内部调用 ✓；`const D = Date; new D(0)` **不支持** ✗（这里不测它 ✓）。
+  // 第 114 轮。**两条已知差异里的一条第 145 轮关掉了** ✓：
+  //   ① `Date` 是普通对象（能挂 `now`）与构造函数**原来是两半**✗——第 114 轮让降级层
+  //      把 `new Date(...)` 落成一条内部调用 ✓；第 145 轮值模型补上「对象也能被调用」 ✓，
+  //      于是 `const D = Date; new D(0)` **也成立** ✓（下面 `alias` 那一行量的就是它 ✓）。
   //   ② **整数字面量是 i32** ✗：几百亿以上的毫秒写不进源码（与「浮点不能写成源码字面量」同族）——
   //      所以这里的大毫秒用**运行时算术**造（`86400000 * 19723` ✓），而不是写一个长字面量 ✓。
   // 时间**由宿主决定**（`Date.now()` 那条老规矩 ✓）：这条判据只用 `new Date(毫秒)` 这条纯函数路 ✓。
@@ -4575,8 +4576,11 @@ check("Date：new Date(毫秒) + getTime/UTC 日历三件（UTC 口径；大毫�
     "  const big = 86400000 * 19723;",
     "  const c = new Date(big);",
     "  const d = new Date(-86400000 * 2 - 5000);",
+    "  const Alias = Date;",
+    "  const e = new Alias(5000);",
     "  return [a.getTime(), b.getUTCFullYear(), c.getUTCFullYear(), c.getUTCMonth(),",
-    "    c.getUTCDate(), b.getTime(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()];",
+    "    c.getUTCDate(), b.getTime(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(),",
+    "    e.getTime()];",
     "}",
   ].join("\n");
   const nodeRun = () => {
@@ -4584,14 +4588,18 @@ check("Date：new Date(毫秒) + getTime/UTC 日历三件（UTC 口径；大毫�
     const b = new Date(86400000);
     const c = new Date(86400000 * 19723);
     const d = new Date(-86400000 * 2 - 5000);
+    const Alias = Date;
+    const e = new Alias(5000);
     return [a.getTime(), b.getUTCFullYear(), c.getUTCFullYear(), c.getUTCMonth(),
-      c.getUTCDate(), b.getTime(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()];
+      c.getUTCDate(), b.getTime(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(),
+      e.getTime()];
   };
   const expected = nodeRun();
   eq(expected[0], 0, "Node：纪元是 0（前提）");
   eq(expected[1], 1970, "Node：86400000 毫秒是 1970-01-02（前提）");
   eq(expected[2], 2024, "Node：大毫秒落在 2024（前提：86400000×19723 天 ≈ 54 年）");
   eq(expected[6], 23, "Node：负毫秒的时分秒是 23:59:55（前提）");
+  eq(expected[9], 5000, "Node：**别名那一格**（`const Alias = Date; new Alias(5000)`）也是 5000（前提）");
 
   const request = new RunRequest();
   request.Sources = [source];
@@ -6074,7 +6082,8 @@ check("三族各自的 `prototype` 与 `constructor`：一条语义、两种接�
   // **端到端那一把在 `cases/30-collection-prototypes.ts`**（7 行逐字节 ✓）。
   // 这里钉的是**两种接法各自那条路** ✓：`Map` / `Set` 是**宿主引用值** ✓
   //（没有属性表 ✗ → 只能走登记表 ✓），`Date` 的全局值是**普通对象** ✓
-  //（`new Date()` 由降级层落成 `host_call` ✓ → 挂一个 `prototype` 属性就行 ✓）。
+  //（挂一个 `prototype` 属性就行 ✓；它**怎么被 `new`** 是另一件事 ✓——
+  //  第 114~144 轮靠降级层那条特例 ✓，**第 145 轮起靠它自己那格可调用载荷** ✓）。
   // **选错的症状两处一样** ✓：`instanceof` 抛「the right side of instanceof has no prototype object」✓。
   const lines = [];
   const request = new RunRequest();
@@ -6359,6 +6368,135 @@ check("四条调用路对同一个值给同一个答案（`TruthyOf` 是它们�
   eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
   eq(lines[0], "if:F and:[] or:x not:true filter:a some:false,true every:false,false find:true,-1 while:0",
     "七条路一个答案（与 Node 逐字节相同）");
+});
+
+console.log("");
+console.log("=== 第 145 轮：既是对象又可调用（`String(1)` · `new Date(ms)` · `new Array(3)`）===");
+
+check("`AttachCallable` 那一格：挂上之后**仍然是对象**，而且回收过的格子不带载荷", () => {
+  // **端到端那一把在 `cases/37-callable-globals.ts`**（15 行逐字节 ✓）。
+  // 这里钉的是**堆那一格本身**：JS 的 `String` / `Date` / `Array` 是**函数对象** ✓，
+  // 而本仓原来只有两半里的各一半 ✗（宿主引用能被调 ✓、对象能带属性 ✓，
+  // **两样都占的没有** ✗——`vm.xl.md` 的 `DoNew` 从第 138 轮起就把这条缺口写在明处 ✓）。
+  //
+  // 选「对象带一格载荷」而不是「宿主引用带属性表」的理由在 `heap.xl.md` 里 ✓
+  // （后者要让**回收器**多跟一条边 ✓，而对象这一档 `Charge` / `Clear` 早就按
+  // `Host !== null` 判过 ✓）。这里量三件事：**还是对象** ✓、**能被调** ✓、**回收之后不带载荷** ✓。
+  const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 1000);
+  const protos = InitProtos(machine.Room(), table);
+  const object = NewPlainObject(machine.Room(), table, protos);
+  eq(machine.IsHostCallable(object), false, "普通对象不可调用");
+  eq(IsCallableValue(table, object), false, "建库层那条判据也说不");
+  // 它是**对象**：属性照写照读（挂载荷不能把这一半弄坏）
+  const key = propKey(table, "staticMethod");
+  eq(SetProperty(machine.Room(), machine.Native(), table, object, key, Value.FromInt(7)).AsInt(), 7,
+    "`SetProperty` 照旧");
+  eq(GetProperty(machine.Room(), machine.Native(), protos, table, object, key).AsInt(), 7,
+    "静态属性照读");
+  // **挂上载荷**：三处判据一起变
+  table.AttachCallable(object.Ref, 999, 0);
+  eq(machine.IsHostCallable(object), true, "`IsHostCallable` 认它");
+  eq(IsCallableValue(table, object), true, "`IsCallableValue` 认它");
+  eq(object.IsCallable(), false, "**`Value.IsCallable` 看不见那一格**（它没有表，分工写在两个文件里）");
+  // 它**仍然是对象**：属性还在、原型还在、`typeof` 换了名字
+  eq(GetProperty(machine.Room(), machine.Native(), protos, table, object, key).AsInt(), 7,
+    "挂上之后静态属性还在");
+  eq(table.Get(object.Ref).Proto, protos.Object, "原型没动（`Object.create` 那种语义不该被牵连）");
+  eq(TypeOfName(table, object), "function", "`typeof` 报 function（JS：函数对象就是 function）");
+  const units = TypeUnitsOf(table, object);
+  let spelled = "";
+  for (let i = 0; i < units.length; i++) spelled += String.fromCharCode(units[i]);
+  eq(spelled, "function", "引擎那一条（码元形式）与上面那条同一条规则");
+  // **回收之后载荷不许残留** ✗：`AllocateRaw` 复用空格时走 `Clear()` ✓——
+  // 少了这一步，「随便一个对象能被调用」是最难查的一种 ✓（判据现场就是这么红的 ✓）。
+  table.Retire(object.Ref);
+  const reused = table.CreateObject();
+  eq(reused, object.Ref, "空闲链把那一格还回来了（前提：这一条才有意义）");
+  eq(machine.IsHostCallable(Value.FromObject(reused)), false, "复用出来的新对象**不带**上一次的可调用载荷");
+});
+
+check("四个全局名的语义：`String` / `Number` / `Boolean` / `Array`（含 `Number` 的六档）", () => {
+  // **`Number` 那一族单独量**：它是四个里唯一有「一张表」的 ✓——
+  // `parseInt` / `parseFloat` 是**前缀**口径（`parseInt("12px")` 给 `12` ✓），
+  // 而 `Number("12px")` 给 **`NaN`** ✓（整串都得是数 ✓）。两者差一格就会**静默给错值** ✗。
+  const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 1000);
+  const protos = InitProtos(machine.Room(), table);
+  const num = (text) => NumberFromValue(table, Value.FromString(table.CreateString(units(text))));
+  eq(num("7").AsInt(), 7, "整数串");
+  eq(num("") === undefined, false, "空串有一档答案（不是 undefined）");
+  eq(num("").AsInt(), 0, "**空串给 0**（JS 的 `Number(\"\")` ✓，而 `parseInt(\"\")` 给 `NaN` ✗）");
+  eq(num("0x10").AsInt(), 16, "十六进制整串");
+  eq(num("12px") === undefined, false, "坏输入也给一个值（不抛）");
+  ok(num("12px").Tag === ValueTag.Float64 && Number.isNaN(num("12px").Dbl),
+    "**`12px` 给 `NaN`**（整串口径；`parseFloat` 才给 12）");
+  eq(NumberFromValue(table, Value.FromInt(5)).AsInt(), 5, "数给数");
+  eq(NumberFromValue(table, Value.FromBool(true)).AsInt(), 1, "`true` 给 1");
+  eq(NumberFromValue(table, Value.FromBool(false)).AsInt(), 0, "`false` 给 0");
+  eq(NumberFromValue(table, Value.Null()).AsInt(), 0, "`null` 给 0");
+  ok(NumberFromValue(table, Value.Undefined()).Dbl !== NumberFromValue(table, Value.Undefined()).Dbl,
+    "**`undefined` 给 `NaN`**（与 `null` 那一格不一样）");
+  // **负零要保住**（`Number("-0")` 在 JS 里是 `-0` ✓）：收窄走引擎的 `MakeNumber` ✓
+  //（本文件的 `MathResult` 会把它收成 `Int32 0` ✗——两处只差这一格 ✓）。
+  const negativeZero = num("-0");
+  eq(negativeZero.Tag, ValueTag.Float64, "`-0` 留在 `Float64` 上（没被收成 `Int32`）");
+  eq(1 / negativeZero.Dbl, -Infinity, "符号位还在（`1 / -0` 是 `-Infinity`）");
+  // **对象要 `ToPrimitive`**：没做就**响亮地抛** ✓——不许给一个看起来合理的 `NaN` ✗
+  //（`Number([])` 在 JS 里是 `0` ✓，给 `NaN` 就是静默错值 ✗）。
+  let message = "";
+  try {
+    NumberFromValue(table, NewPlainObject(machine.Room(), table, protos));
+  } catch (error) {
+    message = String(error.message);
+  }
+  ok(message.indexOf("ToPrimitive") >= 0, "对象那一档响亮地抛：" + message);
+  // **`Boolean` 在名单里** ✓（第 144 轮之前它连全局名都不是 ✗）：
+  // 名单与 `BuildGlobals` 是同一份约定 ✓——「声明了却没提供」是一条判据 ✓。
+  ok(GlobalNames().indexOf("Boolean") >= 0, "`GlobalNames` 里有 `Boolean`");
+  eq(GlobalNames().indexOf("Boolean") >= 0 && GlobalNames().indexOf("String") >= 0, true,
+    "其余几个也还在名单里");
+});
+
+check("`new Array(n)` 是洞、`Array(1, 2)` 是元素（一条构造、两种实参形态）", () => {
+  // JS 的口径：**一个数是长度**（格子全是洞 ✓，`0 in a` 为假 ✓），**其余是元素** ✓。
+  // 长度那一档复用 `HeapArray.Truncate` ✓——它的规矩本来就是「变长时新增的全是洞」 ✓
+  //（`heap.xl.md` 写着这一条 ✓），所以这里一行新语义都没有 ✓。
+  //
+  // **注意 `0 in holes` 不能写进数组字面量里** ✗：`[0 in holes]` 是**语料之外**的一条
+  // 已知缺口 ✓（token 层把它读成映射键的 `TypeParameter` ✓，报
+  // `unimplemented: expression TypeParameter` ✓）——那是**另一件事** ✓，
+  // 不该混进这一轮的判据里 ✓（所以下面把它放在 `console.log` 的实参位上 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const holes = new Array(3);",
+    "console.log(holes.length, holes.join('-'), 0 in holes, 2 in holes);",
+    "const items = Array(1, 2);",
+    "console.log(items.join(','), Array().length, new Array().length, typeof new Array(1));",
+    "const big = new Array(0);",
+    "console.log(big.length, big.join(',').length, [1, 2, 3].map(String).join('|'), [1, 0].filter(Boolean).length);",
+    "console.log(String);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "3 -- false false", "长度 / 洞 / `in` 为假");
+  eq(lines[1], "1,2 0 0 object", "元素那一档 / 空 / `typeof`");
+  eq(lines[2], "0 0 1|2|3 1", "空长度、可调用对象当回调、`Boolean` 当真假");
+  // **印法写在明处** ✗：Node 给 `[Function: String]` ✓，而**名字那一格宿主载荷里没有** ✗
+  //（`HeapHostRef` 只有能力号 + 不透明载荷 ✓）——所以给 `[Function (anonymous)]` ✓，
+  // 与**宿主引用**那一档同一个答案 ✓（`console.log(Map)` 今天就是这个 ✓）。
+  eq(lines[3], "[Function (anonymous)]", "`console.log(String)` 的形状（与宿主引用同一档）");
+  // **`String(String)` 响亮地抛** ✓（JS 给源码文本 ✗——那一份这一层拿不到 ✓）：
+  // 与闭包 / 宿主函数同一条口径 ✓，**不许落进 `[object Object]`** ✗（那是静默错值 ✓）。
+  const strict = new RunRequest();
+  strict.Sources = ["try { const t = String(String); console.log('no-throw', t); } catch (e) { console.log('caught'); }"];
+  strict.Entry = "";
+  const strictLines = [];
+  const strictRes = RunSources(strict, (text) => strictLines.push(text), () => null);
+  eq(strictRes.Outcome, HostOutcome.Ok, "运行器：" + strictRes.Message);
+  eq(strictLines[0], "caught", "`String(String)` 抛，而且脚本接得住");
 });
 
 console.log("");

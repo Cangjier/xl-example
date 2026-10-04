@@ -104,6 +104,15 @@ if (value.Tag === ValueTag.Float64) {
   return HostUnits(text);
 }
 if (value.Tag === ValueTag.Object) {
+  // **可调用对象与函数同一条**（第 145 轮）✓：`String` / `Number` / `Date` 这些
+  // 现在**既是对象又能被调** ✓，而 JS 的 `String(String)` 给的是**源码文本**
+  //（`function String() { [native code] }` ✓）——那一份这一层拿不到 ✗。
+  // 所以它们与闭包 / 宿主函数走**同一条口径** ✓（宁可抛，也不编一个 ✗）。
+  // **不能落进下面那句 `[object Object]`** ✗：JS 从不把函数印成 `[object Object]` ✓，
+  // 那是**静默错值** ✗（第 144 轮刚把这一类清过一遍 ✓）。
+  if (table.Get(value.Ref).Host !== null) {
+    throw new Error("unimplemented: ToString of a function object (JS renders source text)");
+  }
   return HostUnits("[object Object]");
 }
 if (value.Tag === ValueTag.Array) {

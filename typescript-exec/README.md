@@ -13,59 +13,52 @@
 
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
-| **引擎**（`runtime/`） | **~96%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；第 142 轮 `NativeCall` 的实参表从「一个值」开宽成「一整个数组」✓；第 144 轮真假收成**一个** `TruthyOf`（空串是假）✓；缺 wasm 执行器（P3）、特化与内联缓存（P4）、**「既是对象又可调用」那一档** |
-| **降级层**（本目录） | **~97%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；派生类的默认构造函数 · `super(...xs)`（第 141 轮）✓；缺 `new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
-| **标准库**（`builtins/`） | **~85%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮三族的 `prototype` 与 `constructor` ✓；第 140 轮内建 `super()` ✓；第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` + 下标回调 + `Map.forEach` 的键 ✓；第 144 轮 `filter` 与谓词族的真假改走 `RtToBoolean` ✓；缺 `splice` / `replaceAll` / `fill(值, 起, 止)` / `flat(深度)`、原始值原型（`toFixed` / `toString(基数)`）、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
-| **端到端**（普通 `.ts` 文件） | **~99%** | **36** 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、两个实参的回调族、实参位的可选链、**真假**）；**已知的十五个拦路虎都关掉了** ✓，下一个是 **`String(1)` / `Number("7")` 这一类「全局名当函数调」**（见「下一步」第一条 ✓） |
+| **引擎**（`runtime/`） | **~97%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` 与函数表上的 `HasRest` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 139 轮 `Guard` / `ErrorFactory` 各加一格「失败类别」✓；第 142 轮 `NativeCall` 的实参表从「一个值」开宽成「一整个数组」✓；第 144 轮真假收成**一个** `TruthyOf`（空串是假）✓；**第 145 轮补上「既是对象又可调用」那一档**（堆里一格可调用载荷 ✓，`Op.Call` / `Op.New` / 重入三条路收成一句 `IsHostCallable` ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
+| **降级层**（本目录） | **~97%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；展开与剩余的两半（第 132 / 133 轮）✓；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；派生类的默认构造函数 · `super(...xs)`（第 141 轮）✓；**第 145 轮删掉了 `new Date` 那条「只认直接写 `Date`」的特例** ✓（降级层从此不认识任何一个全局名 ✓）；缺 `new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
+| **标准库**（`builtins/`） | **~87%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮的 `Error` / `TypeError` / `RangeError` ✓；第 138 轮三族的 `prototype` 与 `constructor` ✓；第 140 轮内建 `super()` ✓；第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` + 下标回调 + `Map.forEach` 的键 ✓；第 144 轮 `filter` 与谓词族的真假改走 `RtToBoolean` ✓；**第 145 轮 `String(x)` / `Number(x)` / `Boolean(x)` / `Array(n)` / `new Date(ms)` 与 `typeof` 那一档** ✓（外加「可调用对象能当回调」✓）；缺 `splice` / `replaceAll` / `fill(值, 起, 止)` / `flat(深度)`、原始值原型（`toFixed` / `toString(基数)`）、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
+| **端到端**（普通 `.ts` 文件） | **~99%** | **37** 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、标准库第三批、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、两个实参的回调族、实参位的可选链、真假、**可调用的全局名与 `new Array(n)`**）；**已知的十六个拦路虎关掉了十五个** ✓，下一个是 **`[a, b] = [b, a]`（解构赋值）**（见「下一步」第一条 ✓） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` **195** 条 / `runtime:cli` **36** 份 ✓）。
+与语料数（`runtime:check` **198** 条 / `runtime:cli` **37** 份 ✓）。
 
-### 整体进度（加权；第 144 轮）
+### 整体进度（加权；第 145 轮）
 
 四层各自的百分比是**估计**，权重是**这一层在「一份普通 `.ts` 跑对」里占的分量**：
 
 | 层 | 权重 | 本轮估计 | 贡献 |
 | --- | --- | --- | --- |
-| 引擎（`runtime/`） | 25% | 96% | 24.0 |
-| 降级层（`typescript-exec/` 除 `builtins/`） | 30% | 97% | 29.1 |
-| 标准库（`builtins/`） | 25% | 85% | 21.3 |
-| 端到端（普通 `.ts` 直接跑） | 20% | 99% | 19.8 |
-| **合计** | 100% | — | **94.2%** |
+| 引擎（`runtime/`） | 25% | 97% | 24.25 |
+| 降级层（`typescript-exec/` 除 `builtins/`） | 30% | 97% | 29.10 |
+| 标准库（`builtins/`） | 25% | 87% | 21.75 |
+| 端到端（普通 `.ts` 直接跑） | 20% | 99% | 19.80 |
+| **合计** | 100% | — | **94.9%** |
 
 **权重为什么这么分**：降级层最重（它决定「支持多少语法构造」），
 引擎与标准库并列次之（一个是能不能跑、一个是日常写法够不够用），
 端到端那一格是「把它们接起来」的结果维——它最容易虚高，
 所以**只给它 20%**，而且它的读数必须由 `runtime:cli` 的语料数撑着 ✓。
 
-**下一步（第 144 轮收尾时更新，按要紧程度排）**：
+**下一步（第 145 轮收尾时更新，按要紧程度排）**：
 
-1. **全局名不能当函数调** ✗：`String(1)` / `Number("7")` / `Boolean(0)` 一律报
-   `unimplemented: calling a non-closure value` ✓——`String` / `Number` / `Boolean`
-   在内建里**只登记成构造函数 / 命名空间对象** ✗，没有「可以被调」那一格 ✓。
-   这是**日常写法里很常见的一格**（`String(x)` 到处都是），而且它是「**响亮地抛**」✓
-   （比静默错值好 ✓），所以排在第一条。
-   **第 144 轮的实测把它量清楚了**：`Boolean` **连全局名都不是** ✗
-   （`GlobalNames` 里没有它 ✓ → 降级期就报 `name is not a local or a capture: Boolean` ✓），
-   而 `String` / `Number` 是**对象**（有静态方法、能挂 `prototype`）但**不可调用** ✗——
-   所以这一条要的是**「既是对象又可调用」那一档** ✓（`vm.xl.md` 的 `DoNew` 早就把它写在明处 ✓，
-   连带 `new Date(ms)` 那条降级期的特例也能一起收掉 ✓）。
+1. **`[a, b] = [b, a]`**（解构**赋值** ✗）：报 `assignment to a non-identifier`——
+   赋值左边要是**绑定模式**那一套（解构声明已经通了，缺的是赋值那一侧）。
 2. **`f?.(o?.a, "q")`** ✗：**可选调用的实参表里带逗号**时，实参被折成一个
    `BinaryOperator op=","`——降级层报 `unimplemented: binary operator ,`。
    根因在 **token 层**：`?.` 那一支把整个括号吞进 `NullConditionalOperator`，
    于是逗号在括号**里面**先被 `BinaryOperatorReorganization.CommaInstance` 收走，
    `MethodReorganization` 再也看不到那张实参表（第 143 轮实测确认：**基线同样如此**）。
-3. **`[a, b] = [b, a]`**（解构**赋值** ✗）：报 `assignment to a non-identifier`——
-   赋值左边要是**绑定模式**那一套（解构声明已经通了，缺的是赋值那一侧）。
-4. **原始值原型** ✗：`(1.2345).toFixed(2)` / `(255).toString(16)`——数字与布尔还没有原型格。
-5. **`NaN` / `Infinity`** ✗（两个全局名）。
-6. **`**` 与位运算** ✗：`2 ** 10`、`& | ^ ~ << >> >>>`——降级层加几条二元算子。
-7. **`try { return … } finally { … }`** ✗（现在**响亮地抛**：`return` 会跳过 `finally`）。
-8. **`[...generator()]`** ✗（`spread_into` 只认数组 / 字符串 / Map / Set，生成器要 `iter_next`）。
-9. **`async f().then(…)`** ✗（承诺的组合子）、`class C { toString() }` 用在模板串里 ✗
+3. **原始值原型** ✗：`(1.2345).toFixed(2)` / `(255).toString(16)`——数字与布尔还没有原型格。
+4. **`NaN` / `Infinity`** ✗（两个全局名）。
+5. **`**` 与位运算** ✗：`2 ** 10`、`& | ^ ~ << >> >>>`——降级层加几条二元算子。
+6. **`try { return … } finally { … }`** ✗（现在**响亮地抛**：`return` 会跳过 `finally`）。
+7. **`[...generator()]`** ✗（`spread_into` 只认数组 / 字符串 / Map / Set，生成器要 `iter_next`）。
+8. **`async f().then(…)`** ✗（承诺的组合子）、`class C { toString() }` 用在模板串里 ✗
    （`ToString` 没走 `toString`——**静默给 `[object Object]`**，也是一条「静默错值」）。
-10. `new Array(3)` / `Array.from({length}, fn)`、`splice` / `replaceAll` /
+9. **`[x in y]`**（**数组字面量里放 `in` 表达式** ✗，token 层）：被读成映射键的
+   `TypeParameter`，降级层报 `unimplemented: expression TypeParameter`——
+   **语料之外**的一条 ✓（第 145 轮写判据时又撞到一次 ✓，见那一轮的账 ✓）。
+10. `Array.from({length}, fn)`、`splice` / `replaceAll` /
     `Map` / `Set` 的内部槽（`Object.keys(new Map())` 给 12）、**「不是函数却调用它」带类别**、
     **话里带上键名**、`super.m(...xs)`、`new C(...xs)`、`extends Map` 的 `super()`。
 
@@ -73,6 +66,73 @@
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
 
+
+### 第 145 轮的账（既是对象又可调用）
+
+**做的是「下一步」原来的头一条** ✓：`String(1)` / `Number("7")` / `Boolean(0)` 一律报
+`unimplemented: calling a non-closure value` ✓。第 144 轮把它量清楚了 ✓——
+`Boolean` **连全局名都不是** ✗，而 `String` / `Number` 是**对象**但**不可调用** ✗，
+所以缺的那一格不是「少写一个方法」✗，而是**值模型少一档** ✓：
+**「既是对象又可调用」**（JS 里 `String` / `Number` / `Boolean` / `Array` / `Date`
+都是函数对象 ✓）。
+
+**两条候选修法**（`vm.xl.md` 的 `DoNew` 从第 138 轮起就写在明处 ✓），这一轮选了第二条 ✓：
+
+| 候选 | 为什么选 / 不选 |
+| --- | --- |
+| ① 宿主引用带一张静态属性表 | ✗：宿主引用今天**没有出边** ✓（`gc.xl.md` 的 `Trace` 写着「字符串与宿主句柄没有出边」✓），加属性表就要让**回收器**多跟一条边、让 `Charge` / `Clear` 多管一块载荷 ✓——而那一档本来是「原样传回宿主、规范层不看内部」✓ |
+| ② **对象带一格可调用载荷** | ✓：**一处结构都不用加** ✓——对象本来就有属性表 ✓，而 `Charge` / `Clear` 两处**早就按 `Host !== null` 判过** ✓（那两行原来只为宿主引用而写 ✓，对对象同样成立 ✓） |
+
+**改动的形状**（四个文件 ✓）：
+
+| 改哪 | 加什么 |
+| --- | --- |
+| `heap.xl.md` | `AttachCallable(句柄, 能力号, 载荷)` ✓：往**已有对象**上挂那一格 ✓（`Tag` 不变 ✓、原型不变 ✓、`Recount` 记一次账 ✓） |
+| `vm.xl.md` | `IsHostCallable` ✓（三处共用的那一句判据 ✓）+ `CallHostValue` ✓（宿主调用那一份代码从 `DoCallValue` 里抽出来 ✓，返回 `Value \| null` ✓——`null` 就是「展开已经发生，别写结果」✓）+ `DoCallValue` / `DoNew` / `CallNative` 各接一条 ✓ |
+| `rt.xl.md` / `props.xl.md` | `TypeUnitsOf` / `TypeOfName` 各加一档：**带可调用载荷的对象报 `"function"`** ✓（两处同时改 ✓——一处给码元、一处给宿主字符串 ✓）；外加 `IsCallableValue` ✓ |
+| `builtins/` | 四个能力号（`StringCtor` / `NumberCtor` / `BooleanCtor` / `ArrayCtor` ✓）、`NumberFromValue` ✓、`GlobalNames` 加上 `Boolean` ✓、五个「这实参能不能当回调」的判据改走 `IsCallableValue` ✓ |
+
+**三件事写在明处** ✗：
+
+1. **`Value.IsCallable` / `Value.AsBool` / `Value.TagName` 那一族是「不带堆的那一半」** ✓
+   （第 144 轮定的分工 ✓，这一轮又加了一格 ✓）：「对象也能调」要看堆 ✓，
+   所以完整的答案在 `IsCallableValue` / `TypeUnitsOf` 里 ✓。
+   第 145 轮把**建库层那五处**（数组的 `map` / `filter` / 谓词族 / `sort` 的比较器、
+   `Set` 与 `Map` 的 `forEach` ✓）全部接了过去 ✓——不然 `[1, 2].map(String)` 会被拒 ✗。
+   `sort` 那一处更险 ✗：写 `IsCallable()` 不是**拒绝**，而是**静默换语义** ✓
+   （`[2, 1].sort(String)` 会走「按文本比」那一支 ✓）。
+2. **`String(String)` 响亮地抛** ✓（JS 给源码文本 ✗——那一份这一层拿不到 ✓），
+   与闭包 / 宿主函数同一条口径 ✓；`ValueUnits` 里专门拦住它 ✗——
+   **不许落进 `[object Object]`** ✗（那是**静默错值** ✓，第 144 轮刚清过这一类 ✓）。
+   `console.log(String)` 给 `[Function (anonymous)]` ✓——与**宿主引用**那一档同一个答案 ✓
+   （`console.log(Map)` 今天就是这个 ✓，名字那一格宿主载荷里没有 ✗）。
+3. **`new String(1)` / `new Number(1)` / `new Boolean(1)` 走的是调用那一支** ✓
+   （返回原始值 ✓）——JS 会给**装箱对象** ✗，而本仓**不装箱** ✓
+   （`Boolean` 因此连 `Prototype` 那一格都没做 ✓：`true instanceof Boolean` 在 JS 里
+   本来就是 `false` ✓）。同族的 `new Date(ms)` 与 `new Array(n)` 不是装箱 ✓，所以它们做全了 ✓。
+
+**顺路撤掉的那条特例**（本轮的第二个收获 ✓）：`new Date(ms)` 从第 114 轮起是
+**降级层的一条特例** ✗（「只有直接写 `Date` 才认」✓）——现在 `Date` 自己带那格载荷 ✓，
+于是 `Op.New` 走**普通的路** ✓，那条特例**删掉了** ✓
+（连带 `install.xl.md` 的辅助号名单里也去掉了 `DateCtor` ✓：它不再是降级层发的调用 ✓）。
+**降级层从此不认识任何一个全局名** ✓（除了 `Object.keys` 那条 `for..in` 的历史形状 ✓）。
+判据把「别名」那一格钉住了 ✓：`const Alias = Date; new Alias(500)` ✓。
+
+**语料与判据**：
+
+- `tests/runtime/cases/37-callable-globals.ts`（**11 行 stdout 与 `node` 逐字节相同** ✓）：
+  三个全局名 + `typeof` + 静态方法那一半 + `new Date` 与别名 + `new Array(n)` 的洞
+  + `map(String)` / `filter(Boolean)` ✓；
+- `runtime:check` 三条（**198 条** ✓）：①`AttachCallable` 那一格（**还是对象** ✓、
+  可调用 ✓、`typeof` 换名字 ✓、**回收复用之后载荷不残留** ✓）；②`Number` 的六档
+  （`""` 给 0 ✓、`"12px"` 给 `NaN` ✓、`undefined` 给 `NaN` ✓、**`-0` 保住符号位** ✓、
+  对象**响亮地抛** ✓），外加「`Boolean` 在名单里」✓；③`new Array(n)` 的洞与元素两种形态 ✓。
+
+**写判据时又撞到那条老缺口** ✓（如实记下）：`[0 in holes]` 报
+`unimplemented: expression TypeParameter` ✓——就是台账里那条
+「**数组字面量里放 `in` 表达式** 被读成映射键」✗（token 层 ✓、**语料之外** ✓）。
+它**不是**这一轮弄出来的 ✓（第 145 轮之前就记着 ✓），判据里改用实参位避开了 ✓，
+并在「下一步」里给了它一个位置 ✓。
 
 ### 第 144 轮的账（真假只有一个定义 · 空串是假）
 
@@ -180,7 +240,7 @@ false false              ← `!("")` 与 `!("a")` 都给假
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
-> **逐值一致**（判据 `npm run runtime:check` 的最后二十几节，共 **195** 条全绿）。
+> **逐值一致**（判据 `npm run runtime:check` 的最后二十几节，共 **198** 条全绿）。
 > 收了：变量声明（`let`/`const` 块作用域、`var` 函数作用域，含**对象与数组解构**——**不退水位**，
 > 见台账第 119 轮）、**`class`（构造函数 + 原型上的方法 + 访问器；`extends` / `super(...)` / `super.m()`；
 > 字段初始化与 `static` 仍抛）**、
@@ -196,7 +256,7 @@ false false              ← `!("")` 与 `!("a")` 都给假
 > 宿主按导出闭包调用）。
 > **`.ts` 已经能直接执行**：仓库根的 [tsrun.xl.md](../tsrun.xl.md) 是运行器 +
 > 命令行（`node build/ts/tsrun.js <文件.ts>`），stdout 与 `node <文件.ts>` **逐字节相同**
-> （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts` **36** 份，裁判是真 Node）。
+> （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts` **37** 份，裁判是真 Node）。
 > **还差**（按已知的次序）：**token 层的一条**——`[x in y]`（**数组字面量里放 `in` 表达式**）
 > 被读成映射键的 `TypeParameter` ✗，降级层拿到的是一个认不出的节点，报
 > `unimplemented: expression TypeParameter` ✓（复现：`function f(o) { return ["a" in o]; }` ✓——

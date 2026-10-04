@@ -1,8 +1,9 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
+import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge } from "../../runtime/heap.xl.md"
+import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber } from "../../runtime/rt.xl.md"
+import { HostUnitsText, NumberFromHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
@@ -253,6 +254,54 @@ return MathResult(Number(literal));
 结果**一定是字符串** ✓——因为调用点上已经保证「有一边是字符串字面量」✓
 （`1 + "x"` 也是 `"1x"` ✓，照 JS 给 ✓）。
 
+# const StringCtor:int = 220
+
+**`String(x)`** 的能力号（第 145 轮）——**把它当函数调**那一档。
+
+**它为什么一直没做**：`String` 是一个**对象** ✓（上面挂着 `fromCharCode` 与 `prototype` ✓），
+而值模型原来只有两半里的各一半 ✓（宿主引用能被调 ✓、对象能带属性 ✓，**两样都占的没有** ✗）。
+第 145 轮给堆加了一格**可调用载荷** ✓（`heap.xl.md` 的 `AttachCallable` ✓），
+于是 `String` **同时**是这两样 ✓：`String.fromCharCode` 照用 ✓、`String(1)` 也通 ✓、
+`typeof String` 报 `"function"` ✓。
+
+**`String()` 与 `String(x)` 的语义**：任意值 → 文本 ✓（走 `text.xl.md` 的 `ValueUnits` ✓，
+与 `console.log` 那条**同一个出口** ✓）；不给实参给 `""` ✓（JS 的口径 ✓）。
+
+**已知差异**（写在明处）：`new String(1)` 走的是**调用**那一支 ✓——JS 会给一个**装箱对象** ✗，
+而本仓没有装箱那一层 ✓（与「`"x" instanceof String` 一律假」同一条 ✓）。
+
+# const NumberCtor:int = 221
+
+**`Number(x)`** 的能力号（第 145 轮）——JS 的 `ToNumber` ✓。
+
+**它不是 `parseInt` / `parseFloat`** ✗（那两个在下面，各自一条 ✓）：那两条是**前缀**口径
+（`parseInt("12px")` 给 `12` ✓），而 `Number("12px")` 给 **`NaN`** ✓——
+**整串都得是数** ✓。所以它走 `NumberFromHostText` ✓（`runtime/host-text.xl.md` ✓，
+「十进制文本 → 双精度」的唯一一处 ✓），而不是自己写一遍前缀扫描 ✗。
+
+**对象要 `ToPrimitive`** ✓（`Number({})` 在 JS 里是 `NaN` / `Number([])` 是 `0`）——
+那一套没做 ✓，所以**响亮地抛** ✓（不许给一个看起来合理的 `NaN` ✗：`[]` 该给 `0` ✓）。
+
+# const BooleanCtor:int = 222
+
+**`Boolean(x)`** 的能力号（第 145 轮）。
+
+**它就是 `rt.xl.md` 的 `RtToBoolean`** ✓（`TruthyOf` 的包装 ✓）——
+**不是另一个真假口径** ✗：`Boolean("")` 是 `false` ✓，而第 144 轮之前那条口径给 `true` ✗
+（那一轮的账在 `typescript-exec/README.md` 里 ✓）。
+
+# const ArrayCtor:int = 223
+
+**`Array(长度)` / `new Array(长度)`** 的能力号（第 145 轮）。
+
+**调用与构造是同一件事** ✓（JS 里两者等价 ✓），所以只有一个号 ✓。
+
+**两种实参形态** ✓（JS 的口径 ✓）：**一个数**是**长度** ✓（`new Array(3)` 给三个洞 ✓，
+`0 in arr` 为假 ✓），**其余**（零个或多个）是**元素** ✓（`Array(1, 2)` 给 `[1, 2]` ✓）。
+
+**长度那一档复用 `HeapArray.Truncate`** ✓：它的规矩**本来就是**「变长时新增的格子全是洞」 ✓
+（`heap.xl.md` 写着这一条 ✓）——正是 `new Array(n)` 的语义 ✓，不必再写一遍 ✗。
+
 # const SymbolCtor:int = 250
 
 **`Symbol(description)`** 的能力号（全局段 200..299 里空着的号）。
@@ -279,12 +328,20 @@ return MathResult(Number(literal));
 **`new Date(毫秒)`** 的能力号（第 114 轮补）。
 
 **它不是全局段里那条 `Date.now` 的路**：`Date.now()` 走的是**普通对象属性** ✓
-（`BuildGlobals` 把 `ClockNow` 挂成一个属性 ✓），而 `new Date(...)` 在 JS 里是**构造**。
-两者在值模型里**今天不能同时成立**——这门语言的 `Date` 是个普通对象 ✓（能挂属性、**不能被 `new`** ✗）。
-所以这一支**由降级层落地**：`new Date(毫秒)` 被降级成一条 `host_call(265, 毫秒)` ✓
-（降级层本来就认识全局名 `Date` ✓，与 `for..in` 落成 `Object.keys` 是同一套做法 ✓）。
-**已知差异**（写在明处）：只有**直接写 `Date`** 这一支 ✓；`const D = Date; new D(0)` ✗。
-**另一个已知差异**：**几百亿以上的毫秒值写不进源码** ✗——整数字面量是 i32 ✓
+（`BuildGlobals` 把 `ClockNow` 挂成一个属性 ✓），而 `new Date(...)` 在 JS 里是**构造** ✓。
+两者在值模型里原来**不能同时成立** ✗——`Date` 是个普通对象 ✓（能挂属性、**不能被 `new`** ✗），
+所以第 114 轮把这一支**交给降级层落地** ✓：`new Date(毫秒)` 被降级成一条 `host_call(265, …)` ✓。
+
+**第 145 轮这条特例撤掉了** ✓：`Date` 现在**自己**带一格可调用载荷 ✓
+（`heap.xl.md` 的 `AttachCallable` ✓），`new Date(ms)` 走的就是**普通的 `Op.New`** ✓
+（`vm.xl.md` 的 `DoNew` 那条宿主分支 ✓）。两个好处写在明处 ✓：
+
+- 降级层少一条「只有直接写 `Date` 才认」的特例 ✓（**那条已知差异没有了** ✓：
+  `const D = Date; new D(0)` 现在也对 ✓）；
+- `DateCtor` **不再需要登记进能力表** ✓（它不是降级层发的内部调用了 ✓，
+  而是**从那个值身上**取出来的 ✓）——`install.xl.md` 的名单里因此去掉了它 ✓。
+
+**剩下的已知差异**：**几百亿以上的毫秒值写不进源码** ✗——整数字面量是 i32 ✓
 （与「浮点不能写成源码字面量」同族 ✓）。要喂大值就**用运行时算出来** ✓。
 
 # const DateGetTime:int = 266
@@ -400,9 +457,15 @@ return MathResult(Number(literal));
 （`globalThis.undefined` 真的存在）——所以它走的是**同一条路**，
 不必在降级器里为它开一个特例（特例意味着「别的地方也得记得它」）。
 
+**`Boolean` 是第 145 轮加进来的** ✓：它原来**只在名单之外** ✗，
+于是 `Boolean(0)` 在**降级期**就报 `name is not a local or a capture: Boolean` ✓
+（那句话听起来像脚本写错了变量名 ✗，其实是名单少了一个名字 ✓）。
+**名单与 `BuildGlobals` 是同一份约定** ✓（名单里有、`BuildGlobals` 没挂 ⇒
+「声明了却没提供」✗，判据里量着这一条 ✓）。
+
 ```ts
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
-  "RangeError", "Array", "Number", "String", "parseInt", "parseFloat"];
+  "RangeError", "Array", "Number", "String", "Boolean", "parseInt", "parseFloat"];
 ```
 
 # method NumericOf:(value:Value)=>float
@@ -430,6 +493,41 @@ if (value === Math.floor(value) && value >= -2147483648 && value <= 2147483647) 
 return Value.FromDouble(value);
 ```
 
+# method NumberFromValue:(table:HeapTable, value:Value)=>Value
+
+**`Number(x)` 的语义**（第 145 轮）——JS 的 `ToNumber` 里**做得出来的那一半** ✓。
+
+**顺序是语义** ✓（JS 的 `ToNumber` 就是这么排的 ✓）：
+
+| 输入 | 给什么 | 依据 |
+| --- | --- | --- |
+| 数（`Int32` / `Float64`） | 它自己 ✓ | 已经是数 ✓ |
+| 布尔 | `1` / `0` ✓ | JS 的 `Number(true)` 是 `1` ✓ |
+| `null` | `0` ✓ | JS 的 `Number(null)` 是 `0` ✓（而 `Number(undefined)` 是 `NaN` ✗——两格不一样 ✓） |
+| `undefined` | `NaN` ✓ | JS 的口径 ✓ |
+| 字符串 | **整串解析** ✓ | `NumberFromHostText` ✓（`"12px"` 给 `NaN` ✓，`parseInt` 才给 `12` ✓） |
+| 其余（对象 / 数组 / 符号） | **抛** ✓ | 要 `ToPrimitive`（先 `valueOf` 再 `toString`）✗——**不许给一个看起来合理的 `NaN`** ✗：`Number([])` 在 JS 里是 `0` ✓ |
+
+**字符串那一档不自己扫** ✓：借 `runtime/host-text.xl.md` 的 `NumberFromHostText` ✓——
+「十进制文本 → 双精度」**只有那一个出口** ✓（线形态的常量也走它 ✓），
+自己再写一遍前缀/进制/指数的判据就是**第二份会走偏的实现** ✗（第 129 轮那条账 ✓）。
+
+**收窄用引擎的 `MakeNumber`** ✓（不是本文件的 `MathResult` ✗）：
+两者只差一格 ✓——`MathResult` 会把 `-0` 收成 `Int32 0` ✗（`Number("-0")` 在 JS 里是 `-0` ✓，
+`Object.is(Number("-0"), -0)` 为真 ✓），而 `MakeNumber` 专门判了负零 ✓（`rt.xl.md` 那一格 ✓）。
+
+```ts
+if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) return value;
+if (value.Tag === ValueTag.Bool) return Value.FromInt(value.Int !== 0 ? 1 : 0);
+if (value.Tag === ValueTag.Null) return Value.FromInt(0);
+if (value.Tag === ValueTag.Undefined) return Value.FromDouble(NaN);
+if (value.Tag === ValueTag.String) {
+  const units = table.Get(value.Ref).AsString().Units;
+  return MakeNumber(NumberFromHostText(HostUnitsText(units)));
+}
+throw new Error("unimplemented: Number(x) of an object needs ToPrimitive");
+```
+
 # method InvokeGlobal:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink)=>Value
 
 **全局内建的分派与实现**。
@@ -441,7 +539,51 @@ return Value.FromDouble(value);
 （否则结果连 `.join` 都没有——那等于返回了一个「长得像数组但不是」的东西）。
 这是全局段里唯一需要它的地方，写在签名里而不是塞进某个全局变量。
 
+**四个「当函数调」的全局名也在这里**（第 145 轮 ✓）：`String(x)` / `Number(x)` /
+`Boolean(x)` / `Array(n)` ✓——它们的值是**对象** ✓，能被调是因为身上带了一格载荷 ✓
+（`heap.xl.md` 的 `AttachCallable` ✓），而**落到哪一段代码**由这一层的号决定 ✓
+（引擎不认识 `String` 这几个字母 ✗，与 `Map` / `Set` 同一条分界 ✓）。
+
 ```ts
+if (id === StringCtor) {
+  // **`String()` 给空串、`String(undefined)` 给 `"undefined"`** ✓——两格不一样 ✓，
+  // 所以不给实参这一支要**先判**（`ValueUnits` 对 `undefined` 给 `"undefined"` ✓，
+  // 那是 `String(x)` 的答案 ✓，不是 `String()` 的 ✓）。
+  if (args.length === 0) return Value.FromString(table.CreateString([]));
+  const units = ValueUnits(table, args[0], 0);
+  if (!room(CodeUnitCharge * units.length + ObjectCharge)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(units));
+}
+if (id === NumberCtor) {
+  // **不给实参给 `0`** ✓（JS 的 `Number()` 是 `0` ✓，不是 `NaN` ✗）。
+  return NumberFromValue(table, args.length > 0 ? args[0] : Value.FromInt(0));
+}
+if (id === BooleanCtor) {
+  // **不给实参给 `false`** ✓，走的是**唯一那条真假口径** ✓（第 144 轮的 `TruthyOf` ✓）。
+  return RtToBoolean(table, args.length > 0 ? args[0] : Value.Undefined());
+}
+if (id === ArrayCtor) {
+  // **一个数是长度、其余是元素** ✓（JS 的口径 ✓，见 `ArrayCtor` 那一段 ✓）。
+  if (args.length === 1 && args[0].Tag === ValueTag.Int32) {
+    const count = args[0].Int;
+    if (count < 0) throw new Error("unimplemented: new Array(n) needs a non-negative length");
+    // **洞也要计费** ✓：`Truncate` 会按长度铺满洞 ✓（`heap.xl.md` 写着它「变长时新增的全是洞」✓），
+    // 所以先按最坏情况问一次 ✓（`ObjectCharge` 那一份由 `NewPlainArray` 自己问 ✓）。
+    if (!room((ValueCharge + HoleCharge) * count)) throw new Error("out of room");
+    const sized = NewPlainArray(room, table, protos);
+    table.Get(sized.Ref).AsArray().Truncate(count);
+    table.Recount(sized.Ref);
+    return sized;
+  }
+  const items = NewPlainArray(room, table, protos);
+  const elements = table.Get(items.Ref).AsArray();
+  for (let i = 0; i < args.length; i++) {
+    if (!room(ValueCharge)) throw new Error("out of room");
+    elements.Push(args[i]);
+  }
+  table.Recount(items.Ref);
+  return items;
+}
 if (id === SymbolCtor) {
   // **描述是可选的**：给了字符串就留它的句柄，没给就 `0`（`heap.xl.md` 说 `0` 表示没有描述）。
   // **身份号由堆发**（`CreateSymbol`），所以 `Symbol('a') !== Symbol('a')` 天然成立——
@@ -1311,11 +1453,11 @@ SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, 
 SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "constructor"), rangeErrorTarget);
 
 // **`Array` 是一个普通对象**（与 `Math` / `Date` 同款 ✓），上面只挂**静态方法** `isArray` ✓
-// （第 123 轮）。**已知差异写在明处** ✗：`new Array(3)` / `new Array(1, 2)` **不支持** ✗——
-// 那要求 `Array` 同时是**构造函数** ✓，而「普通对象不能被 `new`」是值模型今天的形状 ✓
-// （`Date` 那一支绕开它的办法是降级层直接落一条内部调用 ✓，这里不做：
-//  `new Array(n)` 的洞数组语义与 `push` 的增长语义是两套账 ✓，宁可缺 ✓）。
+// （第 123 轮）。
+// **第 145 轮它同时是构造函数了** ✓：`AttachCallable` 给它挂上 `ArrayCtor` ✓，
+// 于是 `new Array(3)` / `Array(1, 2)` 都通 ✓（原来那条「已知差异」没有了 ✓）。
 const arrayObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(arrayObject.Ref, ArrayCtor, 0);
 const isArrayKey = Value.FromString(table.CreateString(Units("isArray")));
 const isArrayTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIsArray, 0));
 SetProperty(vm.Room(), NeverCall, table, arrayObject, isArrayKey, isArrayTarget);
@@ -1338,8 +1480,10 @@ SetProperty(vm.Room(), NeverCall, table, arrayObject, NameValue(table, "prototyp
 // `[].constructor === Array` 给 **`false`** ✗（判据现场就是这么红的 ✓）。
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Array), NameValue(table, "constructor"),
   arrayObject);
-// **`Number` 也是一个普通对象**（第 126 轮），上面挂静态判定 ✓。
+// **`Number` 也是一个普通对象**（第 126 轮），上面挂静态判定 ✓；
+// **第 145 轮它同时能被调用** ✓（`Number("7")` ✓）。
 const numberObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(numberObject.Ref, NumberCtor, 0);
 const isIntegerKey = Value.FromString(table.CreateString(Units("isInteger")));
 const isIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsInteger, 0));
 SetProperty(vm.Room(), NeverCall, table, numberObject, isIntegerKey, isIntegerTarget);
@@ -1350,10 +1494,10 @@ const numberKey = Value.FromString(table.CreateString(Units("Number")));
 SetProperty(vm.Room(), NeverCall, table, globals, numberKey, numberObject);
 // **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款 ✓），
 // 上面挂**静态方法** `fromCharCode` ✓。
-// **`String(x)` 这种「当函数调」还不通** ✗——那要求一个值**既是对象又是可调用的** ✓，
-// 而值模型今天只有两半里的各一半 ✓（`vm.xl.md` 的 `DoNew` 那一段把这条缺口写在明处 ✓）。
-// 所以 `String` 现在只是**静态方法之家** ✓，这一条记在台账里 ✓。
+// **第 145 轮它同时能被调用** ✓：`String(x)` 与 `String.fromCharCode(65)` 一起成立 ✓
+// （值模型那一格补上了 ✓，见 `heap.xl.md` 的 `AttachCallable` ✓）。
 const stringObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(stringObject.Ref, StringCtor, 0);
 const fromCharCodeKey = Value.FromString(table.CreateString(Units("fromCharCode")));
 const fromCharCodeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCharCode, 0));
 SetProperty(vm.Room(), NeverCall, table, stringObject, fromCharCodeKey, fromCharCodeTarget);
@@ -1367,6 +1511,15 @@ SetProperty(vm.Room(), NeverCall, table, stringObject, NameValue(table, "prototy
   Value.FromObject(protos.String));
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.String), NameValue(table, "constructor"),
   stringObject);
+// **`Boolean` 是这一族里最新的一格**（第 145 轮）：它原来**连全局名都不是** ✗
+// （`GlobalNames` 里没有它 ✓ → 降级期就报 `name is not a local or a capture: Boolean` ✓）。
+// **它没有 `prototype` 那一格** ✗（`Protos` 里没有 `Boolean` ✓，写在明处）：
+// 本仓**不装箱** ✓——`true instanceof Boolean` 在 JS 里本来就是 `false` ✓，
+// 而 `new Boolean(true) instanceof Boolean` 那条路要装箱 ✗（与 `new String(1)` 同一条 ✓）。
+const booleanObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(booleanObject.Ref, BooleanCtor, 0);
+const booleanKey = Value.FromString(table.CreateString(Units("Boolean")));
+SetProperty(vm.Room(), NeverCall, table, globals, booleanKey, booleanObject);
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseInt, 0));
@@ -1405,7 +1558,10 @@ const symbolTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SymbolC
 SetProperty(vm.Room(), NeverCall, table, globals, symbolKey, symbolTarget);
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。
+// **第 145 轮它同时是构造函数** ✓：`new Date(ms)` 不再靠降级层那条特例 ✓
+// （`const D = Date; new D(0)` 现在也对 ✓），而 `Date.now()` 照旧走属性 ✓。
 const dateObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(dateObject.Ref, DateCtor, 0);
 const nowKey = Value.FromString(table.CreateString(Units("now")));
 const nowTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 0));
 SetProperty(vm.Room(), NeverCall, table, dateObject, nowKey, nowTarget);

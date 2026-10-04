@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
-import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean } from "../../runtime/rt.xl.md"
+import {RoomChecker, TextUnitsOf, RtCmpEqStrict, RtToBoolean, IsCallableValue } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
@@ -315,7 +315,10 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   // **回调脚本**（第 117 轮，与 `Map/Set.forEach` 同一条路 ✓）：`call` 会重入分派循环 ✓，
   // 所以这里能跑脚本闭包；`map` 还能**收返回值**（`NativeCall` 有返回值 ✓）。
   // `call` 也要判空：宿主没接通道时必须**响亮**说清 ✗（而不是「调用了非闭包」）。
-  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+  // **回调要「能被调」** ✓——判据走 `IsCallableValue` ✓（第 145 轮）：
+  // `value.IsCallable()` **看不到可调用对象** ✗，于是 `xs.map(String)` 会被拒 ✗
+  //（而 `String` 明明可以调 ✓：它是一个对象 + 一格载荷 ✓）。
+  if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
   }
   // **快照一次长度**：回调里可以改这个数组 ✓（JS 也允许），改了的下一轮才见 ✓。
@@ -350,7 +353,7 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   // **空数组**：`some` 给**假**、`every` 给**真** ✓（JS 的口径 ✓；`every` 这一条最容易写反 ✗）。
   // **真假也走 `RtToBoolean`** ✓（第 144 轮，与 `filter` 同一条 ✓）：
   // `[""].some(s => s)` 是**假** ✓、`[""].find(s => s)` 是 `undefined` ✓——写 `AsBool()` 就会反过来 ✗。
-  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+  if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
   }
   const predicateTotal = source.GetLength();
@@ -375,8 +378,10 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
 }
 if (id === ArraySort) {
   // **比较器可选** ✓（不给就按「转成字符串再比」✓，见 `ArraySort` 那一段 ✓）。
-  const comparator = args.length > 0 && args[0].IsCallable() ? args[0] : Value.Undefined();
-  const hasComparator = comparator.IsCallable();
+  // **「可调用」的判据与回调族同一条** ✓（`IsCallableValue` ✓，第 145 轮）——
+  // 写 `IsCallable()` 的话 `[2, 1].sort(String)` 会**静默**走文本那一支 ✗（不是拒绝，是换语义 ✗）。
+  const comparator = args.length > 0 && IsCallableValue(table, args[0]) ? args[0] : Value.Undefined();
+  const hasComparator = IsCallableValue(table, comparator);
   // **插入排序**（稳定 ✓）：从第二格起，每格往前挪到该在的位置 ✓。
   for (let i = 1; i < source.GetLength(); i++) {
     const item = source.GetAt(i);

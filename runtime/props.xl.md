@@ -465,13 +465,19 @@ for (let i = 0; i < items.length; i++) {
 return result;
 ```
 
-# method TypeOfName:(value:Value)=>string
+# method TypeOfName:(table:HeapTable, value:Value)=>string
 
 JS 的 `typeof`。
 
 **它不是 `Value.TagName`**（`value.xl.md` 里那条已经写明）：`Array` 与 `HostRef` 都报
 `"object"`，闭包与内建函数都报 `"function"`，符号报 `"symbol"`，而 JS 的 `null` 报
 `"object"`（历史包袱，照报）。
+
+**为什么签名里有表**（第 145 轮）：**带可调用载荷的对象**要报 `"function"` ✓
+（JS 里 `typeof String` 就是 `"function"` ✓，而本仓的 `String` 是**对象** ✓）——
+光看标签分不出「普通对象」与「可调用对象」✗，所以要读堆 ✓。
+**这与 `rt.xl.md` 的 `TypeUnitsOf` 是同一件事的两个出口** ✓（那边给码元 ✓、
+这边给宿主字符串 ✓），两处必须同一条规则 ✓。
 
 ```ts
 if (value.Tag === ValueTag.Undefined) return "undefined";
@@ -481,6 +487,7 @@ if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) return "numb
 if (value.Tag === ValueTag.String) return "string";
 if (value.Tag === ValueTag.Symbol) return "symbol";
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return "function";
+if (value.Tag === ValueTag.Object && table.Get(value.Ref).Host !== null) return "function";
 return "object";
 ```
 

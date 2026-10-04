@@ -276,7 +276,14 @@ return this.Tag === ValueTag.Object
 
 ## method IsCallable:()=>bool
 
-是否可调用。
+是否可调用——**闭包与内建函数这两档**（**不带堆的那一半** ✓）。
+
+**它看不到「带可调用载荷的对象」** ✗（第 145 轮）：那种值是 `Tag === Object` ✓，
+而「它身上那一格载荷在不在」要去**堆**里看 ✓，这一层没有表 ✗
+（与 `AsBool` 的空串那一档同型 ✓）。
+完整的答案在 `rt.xl.md` 的 `IsCallableValue(table, value)` ✓——
+**建库层问「这个实参能不能当回调」时要走那一个** ✓，
+拿这个方法去判会让 `[1, 2].map(String)` 报「需要一个函数」✗。
 
 ```ts
 return this.Tag === ValueTag.Function || this.Tag === ValueTag.Closure;

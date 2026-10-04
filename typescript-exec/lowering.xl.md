@@ -7,7 +7,7 @@ import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
-import { DateCtor, StringConcat, ObjectAssign } from "./builtins/globals.xl.md"
+import { StringConcat, ObjectAssign } from "./builtins/globals.xl.md"
 ```
 
 # namespace cangjie
@@ -3496,31 +3496,22 @@ this.Release(window);
 
 **原型今天取 `Protos.Object`**：真正的语义要读构造函数的 `prototype` **属性**，
 而那个名字属于建库层（`DoNew` 那一节写了为什么）。这一轮给的是一个**明确、可预期**的答案。
+**宿主构造函数不走这一支** ✓（`DoNew` 里那条宿主分支排在前面 ✓：`new Map()` 那个实例
+是宿主自己造的 ✓）——降级层**不知道也不需要知道**哪个全局名是宿主构造函数 ✓。
 
 **构造目标只认标识符与属性访问**：`new (f())()` 这种要先求值再构造，
 形状不同、语义也不同（`new.target` 那一套），这一轮抛。
 
+**第 145 轮删掉了 `Date` 那条特例** ✓：它原来把 `new Date(毫秒)` 直接落成一条
+`host_call(DateCtor, …)` ✓，理由是「普通对象不能被 `new`」✗——那一格现在补上了 ✓
+（`heap.xl.md` 的 `AttachCallable` ✓），所以这一支走**普通的路** ✓：
+取全局槽里的 `Date` ✓ → `Op.New` ✓ → `DoNew` 认出「它带可调用载荷」 ✓ → 宿主造实例 ✓。
+**删掉的是降级层对某个全局名的特例** ✓（那是分层上最不该有的一种知识 ✗），
+换来的是 `const D = Date; new D(0)` 也对 ✓。
+
 ```ts
 const callee = Child(node, "expression");
 const calleeKind = NodeKind(callee);
-if (calleeKind === "Identifier" && TextOf(callee) === "Date") {
-  // **`new Date(毫秒)`**（第 114 轮）：由降级层落到一条**内部调用**上（见 `globals.xl.md` 的
-  // `DateCtor`）。理由是值模型里那两件事**今天不能同时成立**：`Date` 是个**普通对象**
-  // （所以 `Date.now()` 这种**静态属性**挂得上 ✓），而普通对象**不能被 `new`** ✗。
-  // 降级层本来就认识全局名 ✓——与 `for..in` 落成 `Object.keys` 是同一套做法 ✓。
-  // **已知差异**（写在明处）：只有**直接写 `Date`** 这一支 ✓；`const D = Date; new D(0)` ✗。
-  const dateArgs = ListOf(node, "arguments");
-  const dateCount = dateArgs.length;
-  // 形状与「宿主能力调用」一致：`[号, 参数…]` 窗口 + 一条 `host_call`；结果落在窗口第一格。
-  const window = this.Reserve(dateCount + 1);
-  this.Emit(Op.Const, window, this.IntConst(DateCtor), -1, -1);
-  for (let i = 0; i < dateCount; i++) {
-    this.LowerInto(window + 1 + i, dateArgs[i]);
-  }
-  this.EmitRt(RtOp.HostCall, window, window, dateCount + 1);
-  this.Release(window + 1);
-  return window;
-}
 let ctor = -1;
 if (calleeKind === "Identifier") {
   const access = this.ResolveAccess(TextOf(callee));
@@ -4463,7 +4454,9 @@ this.LowerInto(base, left);
 this.LowerInto(base + 1, Child(node, "right"));
 // **`+` 里只要有一边是字符串字面量，结果一定是字符串** ✓（JS：ToPrimitive 之后有一边是
 // 字符串就做拼接 ✓，而字面量本来就是字符串 ✓）——于是这里**落成一条语言内建调用** ✓
-// （`StringConcat`，与 `for..in` 落成 `Object.keys` / `new Date` 落成 `DateCtor` 同一套做法 ✓）。
+// （`StringConcat`，与 `for..in` 落成 `Object.keys` 同一套做法 ✓——`new Date` 原来也走
+// 这一套 ✓，第 145 轮那条特例撤掉了 ✓：值模型补上「对象也能被调用」之后，
+// 降级层不必再认识任何一个全局名 ✓）。
 //
 // **为什么非要落成内建**（第 125 轮）✗：引擎的 `RtOp.Add` 只渲染它认识的那几档 ✓，
 // 遇到**对象 / 数组 / 浮点**会**抛** ✓——`"x=" + obj` 这种遍地都是的写法于是跑不起来 ✓。
@@ -4491,7 +4484,7 @@ return base;
 ## method ConcatValues:(first:int, second:int)=>int
 
 **两个值按字符串拼起来** ✓——走 `StringConcat` 那条**语言内建调用** ✓，
-窗口形状与 `DateCtor` 那条一模一样 ✓（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格 ✓）。
+窗口形状与别的内部调用一模一样 ✓（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格 ✓）。
 
 **调用方负责把结果搬走**（本方法只保证「窗口第一格是结果」✓）——
 三处调用点各自把那格搬到自己的结果位上 ✓（`+` 搬到 `base` ✓、复合赋值搬到 `result` ✓）。

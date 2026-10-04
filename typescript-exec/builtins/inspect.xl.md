@@ -477,6 +477,12 @@ if (value.Tag === ValueTag.Array) {
   return BreakEntries(entries, "[", "]", 0, level * 2, more);
 }
 if (value.Tag === ValueTag.Object) {
+  // **可调用对象与函数同一条**（第 145 轮）✓：`String` / `Date` / `Array` 这些
+  // **既是对象又能被调** ✓，Node 的 `console.log(String)` 给 `[Function: String]` ✓——
+  // 名字那一格**宿主载荷里没有** ✗（`HeapHostRef` 只有能力号与不透明载荷 ✓），
+  // 所以给 `[Function (anonymous)]` ✓——与**宿主引用**那一档**同一个答案** ✓
+  //（`console.log(Map)` 今天就是这个 ✓），两个同类的东西不该有两种印法 ✗。
+  if (table.Get(value.Ref).Host !== null) return InspectFunction(table, value, level);
   // **先认那三样**（第 131 轮）：`Date` / `Map` / `Set` 在值模型里都是普通对象 ✓，
   // 分别挂着 `__t` / `__k` / `__v` ✓（`Date` 那一族与 `map.xl.md` / `set.xl.md` 造的就是这个形状 ✓）。
   const marker = DateMarker(table, value);

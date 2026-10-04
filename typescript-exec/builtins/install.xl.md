@@ -11,7 +11,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall } from "./array.xl.md"
 import { InstallArray, ArrayFrom } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, DateCtor, NewError, StringConcat, ObjectAssign } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, StringConcat, ObjectAssign } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet } from "./set.xl.md"
 ```
@@ -434,10 +434,13 @@ InstallString(host.Machine, protos);
 // **第 132 轮补了三个** ✓：`SpreadIntoId` / `ArrayRestId`（展开与数组剩余 ✓，
 // 降级层新发的内部调用 ✓）与 `ObjectAssign`（`{...o}` 落成的那条 ✓——
 // 它原来是**脚本用**的全局方法 ✓，这一轮起**降级层也直接发它** ✓）。
+// **第 145 轮删掉了 `DateCtor`** ✓：它原来是降级层发的一条内部调用 ✓，
+// 现在 `new Date(ms)` 走的是**那个值自己**那格载荷 ✓（`heap.xl.md` 的 `AttachCallable` ✓），
+// 所以它不再是「降级层要发的能力」 ✗——留在名单里就是**一条没人发的号** ✓。
 // **不加进这张名单的症状是 `capability is not registered: 703`** ✓——
 // 那句话没提「名单」两个字 ✗，所以这一条写在名单**正上方** ✓。
-const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId, DateCtor,
-  StringConcat, ObjectAssign];
+const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, ArrayRestId, RestObjectId, StringConcat,
+  ObjectAssign];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));

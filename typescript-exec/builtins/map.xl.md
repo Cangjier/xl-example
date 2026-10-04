@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtCmpEqStrict } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtCmpEqStrict, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, Protos, SetProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall } from "./array.xl.md"
 ```
@@ -258,7 +258,7 @@ if (id === MapForEach) {
   // **回调脚本**（第 116 轮）：`call` 会重入分派循环 ✓，所以这里能跑脚本闭包 ✓。
   // **快照一次长度**：回调里可以改这个 Map ✓（JS 也允许）——按当下这一份走，改了的下一轮才见 ✓。
   // **`call` 也要判空**：宿主没接回调通道时，这里必须**响亮**说清（而不是「调用了非闭包」）✗。
-  if (args.length < 1 || !args[0].IsCallable() || call === null) {
+  if (args.length < 1 || !IsCallableValue(table, args[0]) || call === null) {
     throw new Error("forEach needs a function and a call channel (the host must pass one)");
   }
   const eachTotal = table.Get(keys.Ref).AsArray().GetLength();
