@@ -134,6 +134,25 @@ if (unit instanceof Identifier || unit instanceof Method) {
 return unit.constructor.name === "Keyword";
 ```
 
+## private method IsPrivateMark:(unit:Token | null)=>bool
+
+`.` 后面那一格是不是**私有名的井号**（`this.#n` 里的 `#`）。
+
+**为什么需要它**（第 205 轮 ✓）：产物把 `this.#n` 拆成**两格** ✓——`SymbolToken(#)` 与名字 ✓
+（与字段 / 方法声明那一处同一个形状 ✓，见 `field.xl.md` ✓）。而 `IsMemberUnit` 不认 `#` ✗，
+于是链在 `this` 处就断了 ✓、`#` 与 `n` 掉成两格平级 ✓——接着**二元运算符只吞走了 `n`** ✗
+（`n + 1` 成一格 ✓、`#` 留在外面 ✓），投影投出来 `name` 的文本是 **`"#n + 1"`** ✓
+（区间从 `#` 一路到 `1` ✓）。症状是 `this.#n + 1` 读成 `undefined` ✓（JS 给 `8` ✓）——
+**静默错值** ✓，第 205 轮的判据现场就是这么红的 ✓。
+**括号一加就好** ✓（`(this.#n) + 1` ✓）——括号给了投影另一条路 ✓，这一条正好当反证 ✓。
+
+```ts
+if (unit === null) {
+  return false;
+}
+return unit instanceof SymbolToken && unit.Is("#");
+```
+
 ## private method IsIndexUnit:(unit:Token | null)=>bool
 
 `unit` 是不是**下标访问的那对方括号**（`a[i]` 里的 `[i]`）。
@@ -183,6 +202,20 @@ while (true) {
   }
   const dot = Get(units, nextIndex);
   if (!(dot instanceof SymbolToken) || !dot.Is(".")) {
+    return current;
+  }
+  // **私有成员名是两格**（第 205 轮 ✓）：`.` 后面先是 `#`、再是名字 ✓——**两格都要进链** ✓
+  //（少进一格就是 `IsPrivateMark` 那段写的静默错值 ✗：`#` 留在链外、
+  //  二元运算符把名字单独吞走 ✓，`this.#n + 1` 的 `name` 于是成了 `"#n + 1"` ✗）。
+  // **`#` 后面不是成员名时不留步** ✓（原样 `return current` ✓）——`#` 也能开别的构造 ✓，
+  // 链规则不该把它一并吃掉 ✗。
+  const afterDot = SkipNextWrapSymbol(units, nextIndex);
+  if (this.IsPrivateMark(Get(units, afterDot))) {
+    const namedIndex = SkipNextWrapSymbol(units, afterDot);
+    if (this.IsMemberUnit(Get(units, namedIndex))) {
+      current = namedIndex;
+      continue;
+    }
     return current;
   }
   const memberIndex = SkipNextWrapSymbol(units, nextIndex);
