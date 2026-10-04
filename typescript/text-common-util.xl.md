@@ -806,6 +806,51 @@ for (let i = from; i >= 0; i--) {
 return false;
 ```
 
+# method IsCallArgumentsBracket:(bracket:Token)=>bool
+
+**这个 `(` 括号是不是某次调用的实参表**（第 162 轮）。
+
+**为什么需要它** ✗：`IsTypeBracketPosition` 的判据里，`unit` 前面是 `,` 或 `(` 就判**类型位** ✓——
+那两条是给**类型**的成员表 / 参数表 / 元组写的 ✓（`type F = (a: A, b: B) => C` ✓、
+`[A, (B | C)]` ✓）。可是**实参表里也有逗号** ✓：`f("x", (a & b))` 里那个括号前面也是 `,` ✓，
+于是 `a & b` 被当成**交叉类型** ✓，降级层报
+`unimplemented: expression IntersectionType` ✗——**整份文件进不来** ✗。
+
+**为什么只能看词法** ✓：问的时候括号刚关闭 ✓、外层还没成形 ✓
+（本文件 `DecideBracketContext` 那一节记着这条教训 ✓），所以「宿主是不是实参表」
+只能从**宿主前面那一格**认 ✓——那正是实参表与其它 `(` 的分界 ✓：
+
+| 宿主 `(` 前面那一格 | 是什么 |
+| --- | --- |
+| 名字 / 方法 / 属性访问 / `)` / `]` | **一次调用**（`f(…)` / `o.m(…)` / `arr[i](…)` / `f()(…)`）✓ |
+| `:` / `=` / `,` / `\|` / `&` / `(` / `=>` / `<` | 类型位或分组 ✓（由上面那条判据照旧处理 ✓） |
+
+`(` 这一条也一起挡 ✓：实参表里的括号只可能是**分组** ✓（`f((A | B))` 在 JS 里就是值 ✓），
+而类型那一边的 `((A | B))` ✓ 宿主前面是 `:` / `=` 之类 ✓，挡不到 ✓。
+
+```ts
+const parent = bracket.Parent;
+if (parent === null) {
+  return false;
+}
+const at = parent.Data.indexOf(bracket);
+if (at <= 0) {
+  return false;
+}
+const before = Get(parent.Data, SkipPreviousWrapSymbol(parent.Data, at));
+if (before === null) {
+  return false;
+}
+const name = before.constructor.name;
+if (name === "Identifier" || name === "Method" || name === "PropertyAccess") {
+  return true;
+}
+if (before instanceof Bracket) {
+  return before.endBracket === ")" || before.endBracket === "]";
+}
+return false;
+```
+
 # method IsTypeBracketPosition:(owner:Token, unit:Token)=>bool
 
 `unit`（括号，或模板字面量那种**内容先重组、父单元还没挂上**的单元）**在它自己那一层**
@@ -883,6 +928,13 @@ if (!(before instanceof SymbolToken)) {
   return false;
 }
 const text = before.TempToString();
+// **实参表里的 `,` / `(` 是值位**（第 162 轮）✓：见 `IsCallArgumentsBracket` 那一段 ✓——
+// `f("x", (a & b))` 里那个括号前面也是 `,` ✓，不挡的话 `a & b` 会被当成交叉类型 ✗
+//（降级层报 `IntersectionType` ✓，整份文件进不来 ✗）。
+if ((text === "," || text === "(") && owner instanceof Bracket
+  && owner.startBracket === "(" && IsCallArgumentsBracket(owner)) {
+  return false;
+}
 if (
   text === ":" ||
   text === "?:" ||

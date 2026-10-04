@@ -6795,8 +6795,12 @@ check("端到端：日常形状里的位运算（复合赋值 · 箭头体 · �
   } catch (error) {
     commaMessage = String(error.message);
   }
-  ok(commaMessage.indexOf("IntersectionType") >= 0,
-    "**已知缺口**：`f(a, (x & y))` 里的括号被判成类型位：" + commaMessage);
+  // **第 162 轮把它修好了** ✓（这条判据当时钉的就是「括号被判成类型位」✓——按设计红了 ✓）。
+  // 修法在 token 层 ✓：`IsTypeBracketPosition` 的 `,` / `(` 那两条，先问一句
+  // 「宿主是不是**某次调用的实参表**」（`IsCallArgumentsBracket` ✓，只凭词法 ✓）——
+  // 是的话那两个符号在实参表里就是**分隔符 / 分组** ✓，不是类型位的证据 ✓。
+  ok(commaMessage.indexOf("IntersectionType") < 0,
+    "**第 162 轮修好**：`f(a, (x & y))` 不再被判成类型位（原来报 `IntersectionType`）：「" + commaMessage + "」");
 });
 
 console.log("");
