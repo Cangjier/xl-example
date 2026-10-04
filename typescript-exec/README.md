@@ -244,6 +244,43 @@
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
 
+### 第 244 轮的账（**两条「差什么」量到了同一处：引擎抛的东西要能进脚本的错路**）
+
+**选题**：`error-engine-throws` 与 `symbol-hasinstance` ✓——两条判据都在差最后一段 ✓。
+
+**实测的对照** ✓（前一半是好的 ✓、后一半不是 ✗）：
+
+| 判据 | 本仓 | Node |
+| --- | --- | --- |
+| `try { (undefined as any).x } catch (e) { e.name, e instanceof TypeError }` | **`TypeError true`** ✓ | `TypeError true` ✓ |
+| `try { (1 as any)() } catch (e) { e.name, e instanceof Error }` | **`calling a non-closure value`** ✗（接不住 ✗） | `TypeError true` ✓ |
+| `2 instanceof Even`（`Even` 有 `static [Symbol.hasInstance]`） | `false false` ✗ | `true false` ✓ |
+
+**第一行说明「属性读那一档已经通了」** ✓（第 136 / 139 轮那条路 ✓：
+引擎抛 → `Guard` 走错误工厂 → 脚本的 `catch` 接得住 ✓）。
+**而第二行说明「同一条路没有铺到『调一个不是函数的东西』那一档上」** ✗——
+它抛的是**引擎自己的** `Error` ✓，`catch` 接不住 ✓
+（症状就是判据里那个 `unimplemented: calling a non-closure value` ✓）。
+
+**为什么两件事是同一个根** ✓：`Symbol.hasInstance` 那一格要的是
+**「引擎能调一个脚本函数、并且把它的结果 / 异常接住」** ✓——
+今天是**反过来**的 ✓：脚本调引擎 ✓ 的那条路（`host_call` ✓）一直在 ✓，
+而**引擎调脚本**那条路只在**少数几处**有 ✓（`DoCallValue` 内部的闭包调用 ✓、
+微任务里的回调 ✓）。`instanceof` 那一格现在只走「沿原型链找 `C.prototype`」✓
+（`rt.xl.md` 的 `RtInstanceOf` ✓），**从不问 `C[Symbol.hasInstance]`** ✗——
+而问它就得**调一个闭包** ✓、还得**把它的真值接住** ✓。
+
+**所以正路是一条** ✓：**把「引擎抛的错 → 脚本的错」这条路的覆盖面铺完** ✓
+（先铺到「调一个不是函数的东西」✓、「写只读属性」✓、「访问器没有 setter」✓
+——**后两条正是 `object-freeze` / `ex-getter-setter-class` 那两条 `differ` 的根** ✓），
+**再**做「`instanceof` 问 `Symbol.hasInstance`」✓（它要的是同一条路上的**调用**那一半 ✓）。
+
+**这一轮没有加覆盖度** ✗（`89.4%` 与第 243 轮相同 ✓）——
+**但这一轮把三条 `differ` 与一条 `blocked` 的根收成了同一个** ✓：
+`error-engine-throws` ✓、`object-freeze` ✓、`ex-getter-setter-class` ✓ 都是
+「引擎抛出来那一档还不够全」✓，而 `symbol-hasinstance` 是「引擎调脚本那一档还不够全」✓
+——**两边是同一个交界面** ✓，排在一起做比一条一条啃省一半事 ✓。
+
 ### 第 243 轮的账（**`super.v`：第 242 轮量清的那条新入口，这一轮做出来了**）
 
 **选题**：`cls-inherited-accessor` ✓——第 242 轮把「要补什么」量清了 ✓，这一轮照着做 ✓。
