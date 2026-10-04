@@ -11,6 +11,7 @@ import { BinaryOperator } from "../binary-operator.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { JsonObjectReorganization, ObjectLiteral } from "../json/object-literal.xl.md"
+import { JsonArrayReorganization } from "../json/array-literal.xl.md"
 import { Method } from "../method.xl.md"
 import { ReturnType } from "../function/return-type.xl.md"
 import { Statement } from "../statement.xl.md"
@@ -610,7 +611,16 @@ if (next instanceof Bracket && next.startBracket === "{") {
     throw e;
   }
 } else {
-  if (JsonObjectReorganization.Instance.IsObject(current?.Parent ?? null) || LamdaReorganization.IsMethod(current?.Parent ?? null)) {
+  // **数组字面量里的表达式体也要在逗号前收住**（第 178 轮）✓：`[() => 1, () => 2]` 里
+  // 第一个箭头的体原来一路吃到**行尾** ✓（`Statement.SearchStatementEnd` ✓），
+  // 把**那个逗号**也吞进了 `<LamdaBody>` ✗——于是数组元素的分割线不见了 ✓：
+  // 投影按顶层逗号切元素 ✓，切不出来就把两个 `Lamda` 当成**一个**元素 ✓，
+  // 结果是 `xs.length` 给 `1`、`xs[1]` 给 `undefined` ✗（**静默错值** ✗，Node 给两个函数 ✓）。
+  // 对象字面量与实参表早就有这一支 ✓（`IsObject` / `IsMethod` ✓），数组字面量是**同一件事**
+  //（逗号分隔的元素表 ✓），所以并进这一条判据 ✓——`IsArray` 与 `IsObject` 同源 ✓。
+  if (JsonObjectReorganization.Instance.IsObject(current?.Parent ?? null)
+    || JsonArrayReorganization.Instance.IsArray(current?.Parent ?? null)
+    || LamdaReorganization.IsMethod(current?.Parent ?? null)) {
     endIndex = SearchBack(units, index + 1, (x) => x instanceof SymbolToken && x.Is(","));
     if (endIndex !== -1) {
       endIndex--;

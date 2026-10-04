@@ -7335,5 +7335,63 @@ check("四条关系共用一处判据：两边都是字符串按码元比，其�
 });
 
 console.log("");
+console.log("=== 第 178 轮：箭头函数体的**位置**与**范围**（嵌套三元 · 数组元素）===");
+
+check("`=>` 分两种：函数类型的返回类型是类型位，箭头函数的体是值位", () => {
+  // **端到端那一把在 `cases/56-arrow-body-ternary.ts`**（11 行逐字节 ✓）。
+  //
+  // **症状（静默错值）**：`(x, y) => (x < y ? -1 : x > y ? 1 : 0)` —— **比较器的标准写法** ——
+  // 本仓给 `1`，Node 给 `-1` ✓。`cjcli` 的 XML 量到那个 `<` 被判成 `GenericType` ✓，
+  // 配对到的是 `x > y` 里那个 `>` ✓，于是 `y ? -1 : x` 成了「类型实参」✓。
+  //
+  // **根因在 `=>` 那一格**（两处，各管一半）：
+  //   · `IsTypeBracketPosition`（`text-common-util.xl.md`）：一刀切「前面是 `=>` ⇒ 类型位」✗
+  //     ——那一格是为**函数类型的返回类型** `(a: A) => (B | C)` 写的 ✓，却把**箭头体的括号**也算了进去；
+  //   · `IsTypePosition`（`generic-type.xl.md`）的回扫：撞上 `=>` 直接判类型位 ✗
+  //     ——**不带括号的体**（`(x, y) => x < y ? …`）走的是这一条，所以两处都要改 ✓。
+  //
+  // **修法（两处同一句判据）**：递归问一次**箭头自己的形参表**在不在类型位 ✓——
+  // 函数类型的形参表前面是 `:` / `=`→`type` / `<` ✓，箭头函数的形参表前面是 `=`→`let` / `const`、
+  // 实参表的 `(`、数组的 `[`、语句开头 ✓；没有括号的形参（`x => …`）直接判值位 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const cmp = (x: number, y: number) => (x < y ? -1 : x > y ? 1 : 0);",
+    "const cmpBare = (x: number, y: number) => x < y ? -1 : x > y ? 1 : 0;",
+    "console.log(cmp(1, 2), cmp(2, 1), cmpBare(2, 1));",
+    "const byLen = (a: string, b: string) => (a.length < b.length ? -1 : a.length > b.length ? 1 : 0);",
+    "console.log(['bbb', 'a'].sort(byLen).join(','));",
+    // 数组元素那一半（同一个 `<` 形状，走的却是**数组字面量**那一条边界）：
+    "const xs = [() => 1, () => 2];",
+    "const v0 = xs[0]();",
+    "const v1 = xs[1]();",
+    "console.log(xs.length, v0, v1);",
+    // `o[k](...)`：键是**数**的时候原来抛「property keys must be strings or symbols」
+    "const cbs = [(n: number) => n * 2, (n: number) => n + 1];",
+    "const va = cbs[0](3);",
+    "const vb = cbs[1](3);",
+    "console.log(va, vb);",
+    "const o: any = { m: (n: number) => n * 3 };",
+    "console.log(o['m'](2));",
+    "const arr: Array<(a: number) => number> = [(n: number) => n * 2];",
+    "const v2 = arr[0](4);",
+    "console.log(v2);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "-1 1 1", "带括号的体与**不带括号的体**都要对（两处 `=>` 判据各管一半）");
+  eq(lines[1], "a,bbb", "真实用法：`sort(byLen)` 的返回值真的参与排序（不是函数本身）");
+  // **数组元素那一半**：`[() => 1, () => 2]` 里第一个箭头的体原来一路吃到**行尾**、
+  // 把**元素之间的逗号**也吞进 `<LamdaBody>` ✗——投影按顶层逗号切元素，切不出来就只剩**一个**
+  // 元素（`xs.length` 给 1、`xs[1]` 给 undefined ✗）。对象字面量与实参表早有这一支，
+  // 数组是同一件事，并进了同一条判据。
+  eq(lines[2], "2 1 2", "数组里的箭头：两个元素都在（**静默错值**：原来 length 给 1）");
+  eq(lines[3], "6 4", "`cbs[0](3)` / `cbs[1](3)`：从表里取出一个再调，`this` 是接收者");
+  eq(lines[4], "6", "`o['m'](2)`：字符串键那一路照旧（回归）");
+  eq(lines[5], "8", "`Array<(a) => number>`：类型实参里的函数类型照旧是**类型**（回归）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

@@ -5328,7 +5328,7 @@ return dest;
 三条路，**区别在 `this`**：
 
 - **`o.m(...)`** → `call_method`（`this` 是接收者，键是**常量**）；
-- **`o[k](...)`** → 先 `get_prop` 按键取值（那一支收的是**值**键），
+- **`o[k](...)`** → 先按键取值（**`get_index`** ✓，它替我们做 `ToPropertyKey` ✓），
   再用 `Op.Call` 的 **`D` 操作数**把接收者当 `this` 递过去——**`this` 同样是接收者**。
   **不需要 `call_index` 那样的新算子**：值键与 `this` 槽两件都是现成的；
 - **别的形状**（标识符、调用结果 `f()()`、括号表达式…）→ 通用那条路：
@@ -5343,13 +5343,20 @@ if (calleeKind === "PropertyAccessExpression") {
   return this.LowerMethodCall(node, callee);
 }
 if (calleeKind === "ElementAccessExpression") {
-  // **计算成员调用 `o[k]()`**：先按键取值（`get_prop` 收的就是**值**键），
-  // 再用 `Op.Call` 的 `D` 操作数把**接收者当 `this`** 递过去——
-  // 这两件都是现成的（`get_prop` 的值键 + 第 47 轮加的那个 `this` 槽），
-  // 所以这里**一个新算子都不需要**。
+  // **计算成员调用 `o[k]()`**：先按键取值，再用 `Op.Call` 的 `D` 操作数把**接收者当 `this`**
+  // 递过去——这两件都是现成的（值键 + 第 47 轮加的那个 `this` 槽），所以这里一个**新算子都不需要**。
+  //
+  // **取值走 `get_index`、不走 `get_prop`**（第 178 轮修 ✓）：JS 的 `o[k]` 是
+  // `ToPropertyKey(k)` 之后再查 ✓——`get_prop` **只收字符串 / 符号键** ✗，键是**数**
+  // 就当场抛「property keys must be strings or symbols」✗。于是
+  // **`arr[0](...)` / `handlers[key](...)` 这类「从表里取出一个再调」的写法**
+  // 整份文件跑不了 ✗（`o["m"]()` 因为键本来就是字符串 ✓ 所以一直是对的 ✗——
+  // 这也是它藏这么久的原因 ✓）。`get_index` 那一支**本来就替我们做完了这件事** ✓
+  //（`vm.xl.md`：数组走格子 ✓、其余把键字符串化再走属性查找 ✓、符号键原样 ✓，
+  // 与 `o[k] = v` / `k in o` 是同一套口径 ✓）。
   const elementReceiver = this.LowerExpression(Child(callee, "expression"));
   const elementKey = this.LowerExpression(Child(callee, "argumentExpression"));
-  const elementFn = this.RtCallValues(RtOp.GetProp, elementReceiver, elementKey);
+  const elementFn = this.RtCallValues(RtOp.GetIndex, elementReceiver, elementKey);
   const selfSlot = this.Reserve(1);
   this.Emit(Op.Move, selfSlot, elementReceiver, -1, -1);
   const elementArgs = ListOf(node, "arguments");

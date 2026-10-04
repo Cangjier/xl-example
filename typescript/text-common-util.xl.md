@@ -856,8 +856,10 @@ return false;
 `unit`（括号，或模板字面量那种**内容先重组、父单元还没挂上**的单元）**在它自己那一层**
 是不是类型位：看它前面那个实义单元。
 
-- `:` / `?:` / `|` / `&` / `=>` / `<` / `,` / `(` ⇒ 类型位（类型标注、联合 / 交叉的一项、
-  函数类型的返回段、类型实参、参数表）；
+- `:` / `?:` / `|` / `&` / `<` / `,` / `(` ⇒ 类型位（类型标注、联合 / 交叉的一项、
+  类型实参、参数表）；
+- `=>` ⇒ **再问一次箭头自己的形参表**（第 178 轮）：形参表在类型位就是**函数类型的返回类型**，
+  否则就是**箭头函数的体**（值位）。见下面代码里那一支的说明；
 - 类型位修饰词（`readonly` / `keyof` / …）⇒ 还要**再看它前面一格**：
   `readonly (A | B)[]` 是类型位，而值位可以有个叫 `readonly` 的函数（`readonly (a | b)` 是一次调用），
   所以修饰词自己前面必须是 `:` / `?:` / `<` / `,` / `|` / `&` / `(`，或者 `=` 而更左边是 `type`；
@@ -935,12 +937,42 @@ if ((text === "," || text === "(") && owner instanceof Bracket
   && owner.startBracket === "(" && IsCallArgumentsBracket(owner)) {
   return false;
 }
+// **`=>` 要分两种**（第 178 轮）✓：它右边既可能是**函数类型的返回类型**
+// （`(a: A) => (B | C)` ✓），也可能是**箭头函数的体**（`(x) => (a < b ? 1 : 0)` ✓）。
+// 原来「前面是 `=>` ⇒ 类型位」是一刀切 ✗，于是箭头体里那个 `<` 被判成**泛型实参** ✓——
+// `(x, y) => (x < y ? -1 : x > y ? 1 : 0)` 这类**比较器的标准写法**给的是**静默错值** ✗
+//（Node 给 `-1` ✓、本仓给 `1` ✓，第 178 轮的账 ✓）。
+//
+// **分辨办法：递归问一次箭头自己的形参表** ✓——同一个函数、同一条判据 ✓：
+// 函数类型那一支的形参表前面是 `:`（`let g: (a: A) => …` ✓）、`=`→`type`
+//（`type F = (a: A) => …` ✓）、`<` ✓、`|` ✓、`&` ✓，都判类型位 ✓；
+// 箭头函数那一支前面是 `=`→`let` / `const`（`const f = (x, y) => …` ✓）、
+// 实参表的 `,` / `(`（`f((x) => …)` ✓）、数组的 `[`、语句开头（`at <= 0` ✓），都判值位 ✓。
+//
+// **没有括号的形参**（`x => (…)`）直接判值位 ✓：函数类型**必须**带括号 ✓，
+// 所以「形参不是括号」这件事本身就是答案 ✓。
+if (text === "=>") {
+  const arrowAt = SkipPreviousWrapSymbol(owner.Data, at);
+  const parameterAt = SkipPreviousWrapSymbol(owner.Data, arrowAt);
+  const parameters = Get(owner.Data, parameterAt);
+  if (parameters instanceof Bracket) {
+    if (parameterAt > 0) {
+      return IsTypeBracketPosition(owner, parameters);
+    }
+    // **形参表正好在这一格的头部**（`((a: A) => (B | C))[]`）：位置问不出去 ✓，
+    // 退一步问「**这个容器自己**在不在类型位」✓——箭头与它的括号同处一地 ✓。
+    if (owner.Parent === null) {
+      return false;
+    }
+    return IsTypeBracketPosition(owner.Parent, owner);
+  }
+  return false;
+}
 if (
   text === ":" ||
   text === "?:" ||
   text === "|" ||
   text === "&" ||
-  text === "=>" ||
   text === "<" ||
   text === "," ||
   text === "("

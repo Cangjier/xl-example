@@ -14,7 +14,7 @@ import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
-import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition } from "../text-common-util.xl.md"
+import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -487,8 +487,38 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
     if (text === "." || text === "," || text === "|" || text === "&" || text === "?") {
       continue;
     }
-    if (text === ":" || text === "?:" || text === "->" || text === "=>") {
+    if (text === ":" || text === "?:" || text === "->") {
       return true;
+    }
+    // **`=>` 分两种**（第 178 轮）✓：函数类型的返回类型 ⇒ 类型位 ✓；
+    // 箭头函数的体 ⇒ **不是边界，继续往前找** ✓（与 `.` / `,` / `|` / `&` / `?` 同一条口径 ✓）。
+    //
+    // 第 58 轮补 `=>` 时写的是「值位的箭头体不受影响——那里没有配对的 `>`，
+    // 后继闸本来就过不了」✗。**嵌套三元推翻了这句话** ✗：`x < y ? -1 : x > y ? 1 : 0`
+    // 里配对的 `>` 就在同一个箭头体里 ✓（`x > y` 的那个 ✓），于是后继闸放行 ✓、
+    // 回扫又撞上 `=>` 判类型位 ✓——`<` 成了泛型实参 ✓，比较器的标准写法变成**静默错值** ✗。
+    //
+    // 分辨办法与 `text-common-util.xl.md` 的 `IsTypeBracketPosition` **同一句** ✓：
+    // 问箭头**自己的形参表**在不在类型位 ✓——在 ⇒ 函数类型的返回类型 ⇒ 类型位 ✓；
+    // 不在 ⇒ 箭头函数的体 ⇒ **跳过形参表**继续往前找 ✓
+    //（`const f = (x, y) => x < y ? …` 会继续撞上 `=`→`const` ⇒ 表达式位 ✓；
+    //  `type F = () => Iterable<T>` 的形参表前面是 `=`→`type` ⇒ 类型位 ✓）。
+    //
+    // **形参表正好在这一格的头部时问不出去** ✗（`write?: ((…args) => Promise<boolean>) | undefined`
+    // 实测：`unit.Data` 是 `[Bracket(形参), =>, Promise]` ✓，形参表在下标 0 ✓）——
+    // 这一格**跳过**它 ✓，扫到头的兜底那句会问「这个容器自己在不在类型位」✓（`?:` ⇒ 类型位 ✓）。
+    // 少了这一条，`Promise<boolean>` 会退回比较运算符 ✓（实测三份 `.d.ts` 的 `TypeReference`
+    // 各缺一截、`UnionType` 还多带上 `typeArguments` ✓）。
+    if (text === "=>") {
+      const parameterAt = SkipPreviousWrapSymbol(unit.Data, i);
+      const parameters = parameterAt >= 0 ? unit.Data[parameterAt] : null;
+      if (parameters instanceof Bracket) {
+        if (parameterAt > 0 && IsTypeBracketPosition(unit, parameters)) {
+          return true;
+        }
+        i = parameterAt;
+      }
+      continue;
     }
     if (text === "=" && !crossedAssignment) {
       crossedAssignment = true;
