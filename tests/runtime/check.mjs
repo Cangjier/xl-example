@@ -7866,5 +7866,49 @@ check("回调跑过了，结果就是兑现：`.then(f, g)` / `.catch` 接住之
 });
 
 console.log("");
+console.log("=== 第 189 轮：`.` 后面的关键字是成员名（两条静默的链式形状一起关掉）===");
+
+check("`p.catch(cb)` / `p.finally(cb)`：控制关键字那张表不该管成员位", () => {
+  // **端到端那一把在 `cases/67-keyword-members.ts`**（5 行逐字节 ✓）。
+  //
+  // **症状** ✗：`Promise.resolve(1).catch(cb).then(cb2)` 与 `.finally(cb).then(cb2)`
+  // **一句都不跑、也不报错** ✓（第 187 / 188 轮量到 ✓）。
+  //
+  // **根因在 token 层** ✓（`tokens/method.xl.md` 的 `Previous` ✓）：那句合取的最后一件是
+  // `MethodNameTemplate.IsMethodName(名字)` ✓——而那张表**是给语句位准备的** ✗
+  // （它要挡的是 `if (x)` / `catch (e)` 这类控制结构 ✓）。`catch` / `finally` 这些字
+  // **既是关键字、又是合法属性名** ✓，于是成员位上的调用**被挡掉了** ✗：
+  // 那对括号谁也不认 ✓ → 属性访问链在 `.catch` 处**收尾** ✓ → 投影出来的语句只剩
+  // `Promise.resolve(1).catch` 一个 `PropertyAccessExpression` ✓，
+  // **整段 `.catch(cb).then(cb2)` 从产物里消失** ✓（实测 ✓）。
+  //
+  // **修法**：`.`（或 `?.`）后面的名字**永远是成员名** ✓——控制关键字那张表不该管这里 ✓。
+  // 与它配对的另一处（那个「关键字 + `(` 不是调用」的守卫 ✓）也补了同一格 ✓。
+  //
+  // **次序那一格另外说** ✗：`.finally` 在 JS 规范里多走一 tick（它要等回调的返回值 ✓），
+  // 所以「`.finally` 的链与另一条链谁先」与本仓**可能不同** ✓——
+  // 语料里报告那一步挂在 `Promise.all` 上 ✓（两条都走完再印 ✓），不钉次序 ✓。
+  const lines2 = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "Promise.reject('x').catch((e: any) => 'caught ' + e).then((v: any) => console.log('first', v));",
+    "Promise.resolve(1).catch((e: any) => 'no ' + e).then((v: any) => console.log('second', v));",
+    "const maybe: any = Promise.resolve('m');",
+    "maybe?.catch((e: any) => e)?.then((v: any) => console.log('third', v));",
+    "const seen: string[] = [];",
+    "const a = Promise.resolve('fin').finally(() => { seen.push('cleanup'); }).then((v: any) => { seen.push('after ' + v); return v; });",
+    "const b = Promise.resolve('other').catch((e: any) => e).then((v: any) => { seen.push('catch-chain ' + v); return v; });",
+    "Promise.all([a, b]).then(() => console.log('seen', seen.sort().join(',')));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines2.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines2[0], "first caught x", "`.catch(cb).then(cb2)`：**这一轮修的就是它**");
+  eq(lines2[1], "second 1", "兑现源上的 `.catch` 也让链接着走（回调不跑）；`.then` 拿到原值");
+  eq(lines2[2], "third m", "`?.` 那一支同样放行（`p?.catch(cb)`）");
+  eq(lines2[3], "seen after fin,catch-chain other,cleanup", "`.finally` 也在链上活了；四条支路都跑到");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

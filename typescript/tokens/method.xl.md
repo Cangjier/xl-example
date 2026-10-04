@@ -77,7 +77,24 @@ if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
   const beforeIndex = SkipPreviousWrapSymbol(units, nameIndex);
   const before = Get(units, beforeIndex);
   if (before instanceof Identifier && before.IsAny(["if", "for", "foreach", "while", "switch", "catch", "function", "with"])) {
-    return false;
+    // **`.` 后面那个关键字是成员名，不是控制结构**（第 189 轮修 ✓）：
+    // `p.catch(cb)` / `p.finally(cb)` ✓——`catch` / `finally` 这些字**既是关键字、
+    // 又是合法的属性名** ✓。这一条原来只看「前一个单元是不是那几个字」✗，
+    // 于是在成员位上**把调用挡掉了** ✗：`Promise.resolve(1).catch(cb).then(cb2)` 的
+    // 产物里那一整个 `.catch(cb).then(cb2)` **整段消失** ✓（实测：语句只剩
+    // `Promise.resolve(1).catch` 一个 `PropertyAccessExpression` ✓），
+    // 运行期于是**一句话都不跑、也不报错** ✗（第 187 / 188 轮量到的两条链式形状 ✓）。
+    // **判据补一格就够** ✓：关键字前面是 `.`（或 `?.` ✓）时**放行** ✓。
+    const dotIndex = SkipPreviousWrapSymbol(units, beforeIndex);
+    const dot = Get(units, dotIndex);
+    let isMemberName = false;
+    if (dot instanceof SymbolToken) {
+      const dotText = dot.TempToString();
+      isMemberName = dotText === "." || dotText === "?.";
+    }
+    if (!isMemberName) {
+      return false;
+    }
   }
   return true;
 }
@@ -91,6 +108,26 @@ if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
 // **带括号的 `(f())()` 一直是对的** ✓（前一单元是括号 ✓）——差别只在括号在不在 ✓。
 if (nameUnit instanceof Method) {
   return true;
+}
+// **`.` 后面的名字永远是成员名**（第 189 轮 ✓）：`p.catch(cb)` / `p.finally(cb)` ✓——
+// `catch` / `finally` / `with` / `function` 这些字**既是关键字、又是合法属性名** ✓，
+// 而 `MethodNameTemplate.IsMethodName` 那一张表是给**语句位**准备的 ✗
+// （它要挡的是 `if (x)` / `catch (e)` 这类控制结构 ✓）——**成员位不该受它管** ✓。
+//
+// **漏了这一格的症状很远** ✗：`Promise.resolve(1).catch(cb).then(cb2)` 里
+// `catch` 后面的那对括号**谁也不认** ✓（`Previous` 不成立 ✓ → 不收成 `Method` ✓）→
+// 属性访问链在 `.catch` 处**收尾** ✓ → 投影出来的语句只剩 `Promise.resolve(1).catch`
+// 一个 `PropertyAccessExpression` ✓，**整个 `.catch(cb).then(cb2)` 消失** ✗
+// （实测 ✓），运行期于是**一句话都不跑、也不报错** ✗（第 187 / 188 轮量到的两条链式形状 ✓）。
+if (nameUnit instanceof Identifier) {
+  const dotIndex = SkipPreviousWrapSymbol(units, nameIndex);
+  const dot = Get(units, dotIndex);
+  if (dot instanceof SymbolToken) {
+    const dotText = dot.TempToString();
+    if (dotText === "." || dotText === "?.") {
+      return true;
+    }
+  }
 }
 return nameUnit instanceof Identifier && template.MethodNameTemplate.IsMethodName(nameUnit.TempToString());
 ```
