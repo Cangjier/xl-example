@@ -1224,4 +1224,66 @@ try {
 }
 `,
   },
+  // ===== 第 228 轮补的一批：这一轮修好的两格各配一条 =====
+  {
+    id: "fn-this-parameter-and-prototype",
+    title: "`this` 形参是类型位（不占形参格）+ `Function.prototype` 上的 `call` / `apply` / `bind`",
+    src: `
+function greet(this: any, a: number, b: number) { return this.tag + ":" + (a + b); }
+const o = { tag: "T" };
+console.log(greet.call(o, 1, 2), greet.apply(o, [3, 4]));
+const bound = greet.bind(o, 10);
+console.log(bound(5), bound.call({ tag: "X" }, 100));
+const f = function (a: number) { return a * 2; };
+console.log(f.call(null, 3), f.apply(null, [4]), typeof greet.call, typeof greet.bind);
+`,
+  },  {
+    id: "exc-throw-in-callback-map-filter",
+    title: "回调里抛：`forEach` / `map` / `sort` / `Map.forEach` 都**立刻**中断，外层 `catch` 接得住",
+    src: `
+let log = "";
+try { [1, 2, 3].forEach((v: number) => { if (v === 2) throw new Error("each" + v); log += v; }); }
+catch (e: any) { log += "|each:" + e.message; }
+try { [1, 2, 3].map((v: number) => { if (v === 2) throw new Error("map" + v); log += v; return v; }); }
+catch (e: any) { log += "|map:" + e.message; }
+try { [3, 1, 2].sort((a: number, b: number) => { if (b === 2) throw new Error("sort"); return a - b; }); }
+catch (e: any) { log += "|sort"; }
+const m = new Map<string, number>([["a", 1], ["b", 2]]);
+try { m.forEach((v: number, k: string) => { if (k === "b") throw new Error("m" + k); log += k; }); }
+catch (e: any) { log += "|mapfor:" + e.message; }
+console.log(log);
+console.log("after", [1, 2].map((v: number) => v * 2).join(","));
+`,
+  },
+  {
+    id: "array-sort-comparator-argument-order",
+    title: "`sort` 的比较器按 JS 的次序收到两个实参（顺序错了带副作用的那一族就跟着错）",
+    src: `
+// **只钉「第一次比较」与「结果」** ✓：比较的**次数与次序**由排序算法决定 ✓
+// （本仓是插入排序、V8 是 TimSort ✗）——那一条**不是**可移植的语义 ✓，
+// 钉它会变成「钉实现」✗。而「第一个实参是比较器的第一个参数」是**语义** ✓。
+let firstPair = "";
+let calls = 0;
+const xs = [3, 1, 2];
+xs.sort((a: number, b: number) => { calls += 1; if (calls === 1) firstPair = a + ":" + b; return a - b; });
+console.log(xs.join(","), firstPair);
+const ys = [10, 2, 33];
+ys.sort((a: number, b: number) => b - a);
+console.log(ys.join(","));
+const zs = ["b", "c", "a"];
+console.log(zs.sort().join(","), [10, 9, 100].sort().join(","));
+`,
+  },
+  {
+    id: "exc-catch-then-callbacks-still-run",
+    title: "接住一次异常之后，后面的回调**照旧完整跑完**（第 228 轮那条标志位的坑）",
+    src: `
+try { throw new Error("first"); } catch (e: any) { console.log("caught", e.message); }
+console.log([1, 2, 3].map((v: number) => v + 1).join(","));
+console.log([1, 2, 3].filter((v: number) => v > 1).join(","));
+let n = 0;
+try { [1, 2].forEach(() => { n += 1; if (n === 1) throw new Error("x"); }); } catch (e: any) { n += 10; }
+console.log("n", n, [5, 6].every((v: number) => v > 0));
+`,
+  },
 ];

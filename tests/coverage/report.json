@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 267,
+  "matrix": 273,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 78.01,
+  "progressPercent": 79.14,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 102,
-      "pass": 88,
-      "blocked": 11,
-      "differ": 3,
+      "total": 106,
+      "pass": 94,
+      "blocked": 10,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 86.27
+      "coverage": 88.68
     },
     {
       "layer": "exec",
@@ -43,12 +43,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 107,
-      "pass": 91,
-      "blocked": 9,
+      "total": 109,
+      "pass": 95,
+      "blocked": 7,
       "differ": 7,
       "nodefail": 0,
-      "coverage": 85.05
+      "coverage": 87.16
     },
     {
       "layer": "e2e",
@@ -109,12 +109,6 @@
       "layer": "runtime",
       "title": "大量短命分配：回收器要跟得上（不 OOM）",
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "fn-call-apply-bind",
-      "layer": "runtime",
-      "title": "`f.call(o, …)` / `f.apply(o, xs)` / `f.bind(o)`",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "gen-try-finally",
@@ -207,22 +201,10 @@
       "detail": "tsrun: 脚本抛出：unimplemented: this should throw a TypeError (read-only property)"
     },
     {
-      "id": "object-tostring-tag",
-      "layer": "stdlib",
-      "title": "Object.prototype.toString：只答能证的那一格",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "symbol-hasinstance",
       "layer": "stdlib",
       "title": "Symbol.hasInstance：自定义 instanceof",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed or numeric class member name"
-    },
-    {
-      "id": "symbol-tostringtag",
-      "layer": "stdlib",
-      "title": "Symbol.toStringTag：影响 Object.prototype.toString",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "promise-constructor",
@@ -287,12 +269,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：cannot read properties of undefined"
     },
     {
-      "id": "exc-throw-in-callback",
-      "layer": "runtime",
-      "title": "回调里抛：外层 `try` 接得住，且 `finally` 照跑",
-      "detail": "stdout 不同：第 1 行：node «1|caught:cb2|fin» vs tsrun «13|caught:cb2|fin»"
-    },
-    {
       "id": "ex-parameter-properties",
       "layer": "exec",
       "title": "构造函数参数属性（`constructor(private x)`）要变出字段来",
@@ -311,16 +287,16 @@
       "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 2»"
     },
     {
+      "id": "symbol-tostringtag",
+      "layer": "stdlib",
+      "title": "Symbol.toStringTag：影响 Object.prototype.toString",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object.prototype.toString of a Map (JS needs Symbol.toStringTag"
+    },
+    {
       "id": "symbol-description",
       "layer": "stdlib",
       "title": "Symbol() 的 description / 唯一性 / 当键",
       "detail": "stdout 不同：第 1 行：node «false tag» vs tsrun «false undefined»"
-    },
-    {
-      "id": "symbol-concat-throws",
-      "layer": "stdlib",
-      "title": "符号进字符串拼接 / 模板串要抛（而且要是 `TypeError`）",
-      "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «threw Error»"
     },
     {
       "id": "console-log-special",
@@ -348,7 +324,19 @@
     }
   ],
   "bad": [],
-  "moved": [],
-  "newlyPassing": [],
+  "moved": [
+    {
+      "id": "symbol-tostringtag",
+      "layer": "stdlib",
+      "why": "`Symbol.toStringTag` 没装",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object.prototype.toString of a Map (JS needs Symbol.toStringTag"
+    }
+  ],
+  "newlyPassing": [
+    {
+      "id": "object-tostring-tag",
+      "layer": "stdlib"
+    }
+  ],
   "regressions": []
 }

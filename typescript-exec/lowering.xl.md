@@ -3592,6 +3592,17 @@ for (let i = 0; i < parameters.length; i++) {
   if (name === null) {
     throw new Error("unimplemented: parameter without a name");
   }
+  // **`this` 形参是纯类型位** ✓（第 228 轮 ✓）：`function f(this: any, a: number)` 里的
+  // 第一格**不占槽** ✗——TS 的类型剥离把它整格擦掉 ✓（实测：`f.call(o, 1, 2)` 里
+  // `a` 拿到的就是 `1` ✓），所以它与 `a?: T` 是同一档 ✓（JS 里没有这个东西 ✓）。
+  //
+  // **漏了这一格的症状是「所有实参整体错位一格」** ✗：`a` 拿到第 0 个实参、
+  // `b` 拿到第 1 个、最后一个永远是 `undefined` ✓（判据现场：`T:NaN` ✓，
+  // 而 `this` 本身却是**对的** ✓——所以看起来像「`+` 坏了」✗，其实是形参错位 ✓）。
+  // **判据走 `IsThisParameter`** ✓（不是在这里写一句 `TextOf(name) === "this"` ✗）：
+  // `CollectDefaults` 与 `CollectPatternParams` 两处**用同一份下标** ✓，
+  // 三处各写一遍的话，只要一处漏了，默认值 / 解构就落到**隔壁那一格** ✗（静默错值 ✓）。
+  if (this.IsThisParameter(parameter)) continue;
   // **剩余参数只许在最后一位** ✓（语法规定的 ✓）——不在最后那一种是**源码就非法** ✓，
   // 而投影层不做这个检查 ✓，所以这里说一句 ✓（比让它走到别处报一句别的话好 ✓）。
   if (OptionalChild(parameter, "dotDotDotToken") !== null && i !== parameters.length - 1) {
@@ -3659,6 +3670,10 @@ return OptionalChild(parameters[parameters.length - 1], "dotDotDotToken") !== nu
 ```ts
 const parameters = ListOf(node, "parameters");
 for (let i = 0; i < parameters.length; i++) {
+  // **`this` 那一格不算** ✓（第 228 轮，与 `FunctionParams` 同一条判据 ✓）：
+  // 这里推的是**参数下标** ✓，而槽是按 `FunctionParams` 铺的 ✗——
+  // 不跳它，`function f(this: any, a = 1)` 的默认值会写到**第 1 格**（`a` 在第 0 格 ✓）✗。
+  if (this.IsThisParameter(parameters[i])) continue;
   const initializer = OptionalChild(parameters[i], "initializer");
   if (initializer === null) continue;
   at.push(i);
@@ -3674,6 +3689,9 @@ for (let i = 0; i < parameters.length; i++) {
 ```ts
 const parameters = ListOf(node, "parameters");
 for (let i = 0; i < parameters.length; i++) {
+  // **`this` 那一格不算** ✓（第 228 轮，与上面那条同一条判据 ✓）：与默认值那一路
+  // **一字不差**的理由 ✓——解构形参也要按 `FunctionParams` 的槽号读 ✓。
+  if (this.IsThisParameter(parameters[i])) continue;
   const name = OptionalChild(parameters[i], "name");
   if (name === null) continue;
   const kind = NodeKind(name);
@@ -3681,6 +3699,27 @@ for (let i = 0; i < parameters.length; i++) {
   at.push(i);
   patterns.push(name);
 }
+```
+
+## method IsThisParameter:(parameter:AstNode)=>bool
+
+**这一格形参是不是那个 `this`**（第 228 轮 ✓）——`function f(this: Foo, a: number)` 的第一格 ✓。
+
+**为什么收成一个方法** ✗：**三处**要用同一条判据 ✓（`FunctionParams` 铺槽 ✓、
+`CollectDefaults` 推默认值的位置 ✓、`CollectPatternParams` 推解构的位置 ✓），
+而三处用的**必须是同一份下标** ✓——写三遍就是三处会漂 ✗，
+症状是「默认值 / 解构落到隔壁那一格」✓（**静默错值** ✗，这个工程最贵的一种 ✓）。
+
+**判据是「参数的名字叫 `this`」** ✓（不是「有没有类型标注」✗——`function f(this)` 也是
+`this` 形参 ✓，它在 TS 里同样是类型位 ✓）。投影层把它成形成一个普通的 `Identifier` 名 ✓
+（见 [typescript 的 `Parameter` 投影](../typescript/tokens/parameter.xl.md) ✓），
+所以这里只要比三个字符 ✓。
+
+```ts
+const name = OptionalChild(parameter, "name");
+if (name === null) return false;
+if (NodeKind(name) !== "Identifier") return false;
+return TextOf(name) === "this";
 ```
 
 ## method ParamValue:(name:string)=>int

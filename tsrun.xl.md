@@ -11,7 +11,7 @@ import { ValueText } from "./typescript-exec/builtins/text.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
 import { Value, ValueTag } from "./runtime/value.xl.md"
-import { ErrorKindType } from "./runtime/vm.xl.md"
+import { ErrorKindType, ErrorKindRange } from "./runtime/vm.xl.md"
 import { HeapTable } from "./runtime/heap.xl.md"
 import { RoomChecker } from "./runtime/rt.xl.md"
 import { SetProperty } from "./runtime/props.xl.md"
@@ -280,9 +280,20 @@ InstallBuiltins(host, protos);
 // **这一行把它翻成名字** ✓（`ErrorKindType` → `TypeError` ✓）——
 // 于是 `try { null.y } catch (e) { e instanceof TypeError }` 与 Node 一致 ✓。
 // **引擎仍然不认识 `"TypeError"` 这几个字母** ✗（那一格是数字 ✓，见 `ErrorKindType` ✓）。
-host.Machine.SetErrorFactory((kind, text) => (kind === ErrorKindType
-  ? NewErrorLike(host.Machine.Room(), table, protos, protos.TypeError, "TypeError", text)
-  : NewError(host.Machine.Room(), table, protos, text)));
+//
+// **`ErrorKindRange` → `RangeError`** 是第 228 轮补的 ✓：理由与 `ErrorKindType` 那一条
+// 一字不差 ✓——引擎自己认出来的那一档（`Guard` 现在按**宿主异常的类**认 ✓）
+// 也要翻成正确的族 ✓，不然 `"x" + Symbol()` 那一抛（`TypeError` ✓）在脚本里
+// 会变成一个普通的 `Error` ✗。
+host.Machine.SetErrorFactory((kind, text) => {
+  if (kind === ErrorKindType) {
+    return NewErrorLike(host.Machine.Room(), table, protos, protos.TypeError, "TypeError", text);
+  }
+  if (kind === ErrorKindRange) {
+    return NewErrorLike(host.Machine.Room(), table, protos, protos.RangeError, "RangeError", text);
+  }
+  return NewError(host.Machine.Room(), table, protos, text);
+});
 host.InstallHost((target, self, args, room) => {
   const id = table.Get(target.Ref).AsHost().CapabilityId;
   // **宿主这条通道的兜底**（第 121 轮）：内建（或客户能力）失败时，把**宿主异常**
@@ -296,7 +307,10 @@ host.InstallHost((target, self, args, room) => {
     // `IteratorDrainer()` 是「把可迭代物走完、收成数组」✓（生成器那一条 ✓）、
     // `RootKeeper()` 是「把语言层造的中间数组挂进根集」✓——
     // 后者是**实测逼出来的** ✓：6 万项的 `[...o]` 在 `invalid handle` 上炸过 ✓。
-    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper());
+    // **`CallFailed` 也要包一层箭头函数** ✓（第 228 轮）：与方法引用**同一条纪律** ✓
+    //（`Scheduler()` 那一段实测过 ✓：方法引用**不带接收者** ✓，到了建库层手里 `this` 是
+    // `undefined` ✓，报的是 `Cannot read properties of undefined` ✗——那句话离现场很远 ✓）。
+    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper(), () => host.Machine.CallFailed());
   } catch (error) {
     // **抬不动就原样冒出去**（`RaiseFromHost` 给假：多半是连错误对象都开不出来）——
     // 响亮地失败，比假装抛了一个空错误好 ✓。

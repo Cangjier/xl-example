@@ -3,8 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
-import { NativeCall } from "../../runtime/props.xl.md"
-import { Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
+import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
@@ -32,7 +31,7 @@ import { InvokeSet, SetCtor } from "./set.xl.md"
 **依赖方向**：`builtins/` 依赖 `runtime/`，不反过来。所以「装库」这一步永远由
 **知道两边的那一层**（宿主 / 驱动）显式调用——`runtime/` 里不会出现 `builtins` 的名字。
 
-# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null)=>Value
+# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
 
 **按能力号总分派**。
 
@@ -43,13 +42,19 @@ import { InvokeSet, SetCtor } from "./set.xl.md"
 **只有它收这一样** ✓——字符串 / 全局 / 集合那几块都用不到 ✓，
 与 `sink` / `protos` 同一条分派纪律 ✓（用不到的不塞进签名 ✓）。
 
+**`failed` 是第 228 轮加的** ✓（`CallFailed` ✓）：与 `keep` **同一条纪律** ✓——
+只有**有回调循环的那几块**收它 ✓（数组 ✓、`Map` / `Set` ✓、走迭代协议的那三处 ✓）。
+**为什么不让它变成「必须接的一格」** ✗：`null` 是合法值 ✓，语义是「宿主没接这一格」✓
+⇒ 内建退回第 228 轮之前的行为（照旧转完）✓——**多一个只让事情变对的可选服务** ✓，
+不是新加的门槛 ✓（与 `schedule` / `settle` / `drain` / `keep` 四样同一条纪律 ✓）。
+
 ```ts
 if (id >= 100 && id < 200) return InvokeString(room, table, id, self, args);
-if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args, keep);
+if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args, keep, failed);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null)=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -65,6 +70,10 @@ throw new Error("unimplemented: builtin id " + id);
 `keep` 是「把语言层造的中间数组挂进根集」✓——**两样都只有迭代那几处用得到** ✓，
 所以照旧**只往需要它的那一块传** ✓（`InvokeString` / `InvokeGlobal` 一个字都不改 ✓）。
 **两者都可以是 `null`** ✓：宿主没接通道时，那些路径要么响亮的抛 ✓、要么走不到 ✓。
+
+**`failed` 是第 228 轮加的第六样** ✓（`CallFailed` ✓，见 `props.xl.md` ✓）：
+「上一次重入没跑完」的查询 ✓——只有**跑回调**的那几处收它 ✓
+（数组那一块 ✓、`Map` / `Set` 的 `forEach` ✓、`Array.from` 的映射 ✓）。
 
 ```ts
 // **集合那一段要原型表**（它们造普通对象与数组）——`NeverCall` 是写数据属性时的现成空实现。
@@ -85,11 +94,11 @@ if (id === MapCtor || id === SetCtor) {
   // **`null` / `undefined` 是空集合** ✓（JS 的口径 ✓），**不是**「没有迭代器」✗——
   // 而其余非可迭代物（`new Set(42)` ✓）由 `IterDrain` **响亮地抛** ✓（JS 也是 `TypeError` ✓）。
   if (args.length > 0 && !args[0].IsNullish() && args[0].Tag !== ValueTag.Array) {
-    args[0] = IterDrain(room, table, protos, args[0], call, drain, keep);
+    args[0] = IterDrain(room, table, protos, args[0], call, drain, keep, failed);
   }
 }
-if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args);
-if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self, args);
+if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args, failed);
+if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self, args, failed);
 // **700..799：语言内部辅助**（第 99 轮开的段）。
 // 它们**不是全局名**——降级层为了落实现某条语法（访问器、`for..of` 的入口）而发的内部调用。
 // 与全局段分开编号，是为了让「脚本能看见的名字」与「降级层的家务事」一眼可辨。
@@ -104,20 +113,20 @@ if (id === GetIteratorId) {
 // 那一支只认 `DefineAccessorId`，落到它手里会报「没装的东西被调到」✗（离现场很远 ✗）。
 if (id === SpreadIntoId) {
   if (args.length < 2) throw new Error("unimplemented: spread_into needs (target, source)");
-  return SpreadInto(room, table, protos, args[0], args[1], call, drain, keep);
+  return SpreadInto(room, table, protos, args[0], args[1], call, drain, keep, failed);
 }
 // **「把可迭代物走完、收成数组」的入口**（第 199 轮 ✓）：降级层用它落**数组解构** ✓
 // （`const [a, b] = g()` ✓）——与 `spread_into` 同一个号段 ✓、同一个理由 ✓
 // （这里要 `protos` 造数组、要引擎那张 `drain` ✓）。
 if (id === IterDrainId) {
   if (args.length < 1) throw new Error("unimplemented: iter_drain needs (source)");
-  return IterDrain(room, table, protos, args[0], call, drain, keep);
+  return IterDrain(room, table, protos, args[0], call, drain, keep, failed);
 }
 // **`new C(...xs)` 的入口**（第 197 轮 ✓）：降级层把「构造函数」与「装着实参的数组」
 // 交给它 ✓——与 `spread_into` 同一个号段、同一个理由 ✓（这里要 `protos` 造实例 ✓）。
 if (id === NewApplyId) {
   if (args.length < 2) throw new Error("unimplemented: new_apply needs (constructor, arguments)");
-  return ConstructApply(room, table, protos, call, args[0], args[1], keep);
+  return ConstructApply(room, table, protos, call, args[0], args[1], keep, failed);
 }
 if (id === ArrayRestId) {
   if (args.length < 2) throw new Error("unimplemented: array_rest needs (source, start)");
@@ -133,13 +142,15 @@ if (id === StringSplit) return SplitString(room, table, protos, self, args);
 // **`Array.from` 同理**（第 130 轮）✓：它也是「返回一个新数组」的**静态方法** ✓，
 // 而且它的 `self` 是那个 `Array` **普通对象** ✓——放进 `InvokeArray` 就要同时改签名与
 // `RequireArray` 的先后 ✓，两个改动都白付 ✓。
-if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call, drain, keep);
+if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call, drain, keep, failed);
 // **`Array.of` 与它同一处** ✓（第 206 轮 ✓）：也是静态方法、也要原型表 ✓——
 // 理由与上面那一条一字不差 ✓（`self` 是 `Array` 那个普通对象 ✓）。
+// **它不收 `failed`** ✗：它一个回调都不跑 ✓（只是把实参收成数组 ✓）——
+// 与「用不到的不塞进签名」同一条纪律 ✓。
 if (id === ArrayOf) return ArrayOfValues(room, table, protos, args);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
-if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink);
-return InvokeBuiltin(room, table, call, id, self, args, keep);
+if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink, failed);
+return InvokeBuiltin(room, table, call, id, self, args, keep, failed);
 ```
 
 # const GetIteratorId:int = 702
@@ -355,7 +366,7 @@ for (let i = 0; i < length; i++) {
 return out;
 ```
 
-# method ArrayFromValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null)=>Value
+# method ArrayFromValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null, failed:CallFailed | null = null)=>Value
 
 **`Array.from(可迭代物)`**（第 130 轮；**数组式与映射函数第 182 轮** ✓；**生成器第 199 轮** ✓）。
 
@@ -383,8 +394,7 @@ return out;
 ```ts
 const source = args.length > 0 ? args[0] : Value.Undefined();
 const mapper = args.length > 1 ? args[1] : Value.Undefined();
-const hasMapper = mapper.IsCallable();
-const out = NewPlainArray(room, table, protos);
+const hasMapper = mapper.IsCallable();const out = NewPlainArray(room, table, protos);
 // **挂根**（第 199 轮 ✓）：`out` 是这一层自己造的 ✓、**不在 `SnapshotRoots` 的名单里** ✗，
 // 而下面**每一条路**里都有 `room(...)`（有的还在循环里 ✓）——不挂根的话，
 // 一次回收就能把它收走 ✓，而症状是「推到一个死句柄上」✗（`invalid handle` ✓）。
@@ -433,7 +443,7 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
       target.Push(item);
     }
     if (keep !== null) keep(out, false);
-    return MapArrayItems(room, table, out, mapper, hasMapper, call);
+    return MapArrayItems(room, table, out, mapper, hasMapper, call, failed);
   }
 }
 if (source.Tag === ValueTag.String) {
@@ -444,7 +454,7 @@ if (source.Tag === ValueTag.String) {
     table.Get(out.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
   }
   if (keep !== null) keep(out, false);
-  return MapArrayItems(room, table, out, mapper, hasMapper, call);
+  return MapArrayItems(room, table, out, mapper, hasMapper, call, failed);
 }
 const iterable = GetIterator(room, table, protos, source, call, keep);
 // **生成器那一档**（第 199 轮 ✓）：`GetIterator` 对它**原样返回** ✓（`for..of` 要的形状 ✓），
@@ -499,10 +509,10 @@ for (let i = 0; i < count; i++) {
   target.Push(items.GetAt(i));
 }
 if (keep !== null) keep(out, false);
-return MapArrayItems(room, table, out, mapper, hasMapper, call);
+return MapArrayItems(room, table, out, mapper, hasMapper, call, failed);
 ```
 
-# method MapArrayItems:(room:RoomChecker, table:HeapTable, out:Value, mapper:Value, hasMapper:bool, call:NativeCall | null)=>Value
+# method MapArrayItems:(room:RoomChecker, table:HeapTable, out:Value, mapper:Value, hasMapper:bool, call:NativeCall | null, failed:CallFailed | null = null)=>Value
 
 **把映射函数套到一个刚造好的数组上**（第 182 轮 ✓）——`Array.from(x, fn)` 的第二个实参 ✓。
 
@@ -511,6 +521,9 @@ return MapArrayItems(room, table, out, mapper, hasMapper, call);
 **没有映射函数就原样返回** ✓——所以三条源各自只在结尾处调它一次 ✓
 （与 JS「读一项、调一次」的次序差写在上面 ✗）。
 
+**映射函数抛出就收摊** ✓（第 228 轮）：不问那一句的话，`undefined` 会被**写回结果那一格** ✗
+（结果里于是多出几个「看起来像回调返回值」的 `undefined` ✓，而那一抛要等整个 `from` 跑完才冒出来 ✗）。
+
 ```ts
 if (!hasMapper) return out;
 if (call === null) throw new Error("unimplemented: Array.from with a mapper needs the calling channel");
@@ -518,12 +531,13 @@ const target = table.Get(out.Ref).AsArray();
 const count = target.GetLength();
 for (let i = 0; i < count; i++) {
   const mapped = call(mapper, Value.Undefined(), [target.GetAt(i), Value.FromInt(i)]);
+  if (failed !== null && failed()) return Value.Undefined();
   target.SetAt(i, mapped);
 }
 return out;
 ```
 
-# method ConstructApply:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, ctor:Value, argValues:Value, keep:RootKeeper | null)=>Value
+# method ConstructApply:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, ctor:Value, argValues:Value, keep:RootKeeper | null, failed:CallFailed | null = null)=>Value
 
 **`new C(...xs)` 的落点**（第 197 轮 ✓）：`ctor` 是构造函数 ✓、`argValues` 是**装着实参的数组** ✓。
 
@@ -571,6 +585,11 @@ if (call === null) {
 const produced = call(ctor, created, items);
 // **摘根** ✓：还回去的那个值**紧接着就进调用方的槽** ✓（中间不分配 ✓）——所以到这里可以摘 ✓。
 if (keep !== null) keep(created, false);
+// **构造函数里抛了就收摊** ✓（第 228 轮）：`produced` 这时是 `undefined` ✓，
+// 不问这一句就会走到下面那条「不是对象 ⇒ 返回 `created`」✗——
+// 于是 `new C(...xs)` **返回了一个半初始化的实例** ✓，而那一抛要等调用方
+// 用完这个实例之后才冒出来 ✗（判据 `ex-spread-in-new` 那一族量过这一类的形状 ✓）。
+if (failed !== null && failed()) return Value.Undefined();
 // **返回对象就用它** ✓（JS 的规矩 ✓，与 `DoReturn` 里那条一致 ✓）。
 if (produced.IsObject() || produced.Tag === ValueTag.Array
   || produced.Tag === ValueTag.Closure || produced.Tag === ValueTag.Function) {
@@ -579,7 +598,7 @@ if (produced.IsObject() || produced.Tag === ValueTag.Array
 return created;
 ```
 
-# method IterDrain:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null)=>Value
+# method IterDrain:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null, failed:CallFailed | null = null)=>Value
 
 **把任何可迭代物收成一个新数组**（第 199 轮 ✓）——`const [a, b] = x` 的第一步 ✓。
 
@@ -598,16 +617,26 @@ return created;
 **`drain === null` 就响亮地抛** ✓（宿主没接通道时）：给个近似值等于**静默错值** ✗——
 而这条路上「按位置读一个生成器」正是那种静默错值 ✓（第 151 轮之前它给的是 `undefined undefined` ✓）。
 
+**收回来之后要问一句「跑完了没有」** ✓（第 228 轮 ✓）：`drain` 是**引擎那张服务** ✓
+（它自己发 `iter_next` ✓），而**生成器的 `next()` 是脚本** ✓——它在里面抛了异常时，
+这一趟会带着**一份半截的数组**回来 ✓，问都不问就把它当成「走完了」✗
+（于是 `const [a, b] = badGen()` 会拿到 `a` 而不是进 `catch` ✓——**静默错值** ✗）。
+**为什么不半路停** ✗：`drain` 的循环在**引擎**里 ✓，这一层插不进去 ✓——
+这是**已知差** ✓：能停的时机是「它把控制权还回来的时候」✓，而那一趟已经跑完了 ✓
+（写在明处 ✓，不假装能停 ✓）。
+
 ```ts
 const iterable = GetIterator(room, table, protos, source, call, keep);
 if (iterable.Tag === ValueTag.Array) return iterable;
 if (drain === null) {
   throw new Error("unimplemented: this value cannot be drained without the engine's iterator service");
 }
-return drain(iterable);
+const drained = drain(iterable);
+if (failed !== null && failed()) return Value.Undefined();
+return drained;
 ```
 
-# method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null)=>Value
+# method SpreadInto:(room:RoomChecker, table:HeapTable, protos:Protos, target:Value, source:Value, call:NativeCall | null, drain:IteratorDrain | null, keep:RootKeeper | null, failed:CallFailed | null = null)=>Value
 
 **把 `source` 摊开接进 `target` 的尾部**（第 132 轮）——`[...xs]` / `f(...)` 那类**展开**要用它 ✓。
 
@@ -661,6 +690,11 @@ if (drain === null) {
   throw new Error("unimplemented: spreading a generator needs the engine's iterator service");
 }
 const drained = drain(items);
+// **走完回来先问一句「跑完了没有」** ✓（第 228 轮，与 `IterDrain` 那一句同一条口径 ✓）：
+// 生成器的 `next()` 是**脚本** ✓，它在里面抛了异常时这一趟会带一份**半截的数组**回来 ✓——
+// 不问就把它接进 `target` ✗（于是 `[...badGen()]` 给一个**短了的数组**而不是进 `catch` ✓，
+// **静默错值** ✗）。**半路停不了的理由写在 `IterDrain` 那一段** ✗（`drain` 的循环在引擎里 ✓）。
+if (failed !== null && failed()) return Value.Undefined();
 const collected = table.Get(drained.Ref).AsArray();
 const total = collected.GetLength();
 if (!room(ValueCharge * total)) throw new Error("out of room");

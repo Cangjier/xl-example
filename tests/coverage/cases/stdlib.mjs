@@ -1003,4 +1003,32 @@ console.log(globalThis.Math === Math, globalThis.JSON === JSON, typeof globalThi
 console.log(globalThis.undefined === undefined, globalThis.NaN === NaN);
 `,
   },
+  // ===== 第 228 轮补的一批 =====
+  {
+    id: "symbol-concat-error-family",
+    title: "符号进字符串拼接：抛的是 `TypeError`（不是笼统的 `Error`）",
+    src: `
+// **这里不写模板串** ✗：模板串那一档已有判据 \`symbol-concat-throws\` ✓，
+// 而在 \`.mjs\` 的模板串里嵌模板串要连着两层转义 ✓，读起来比它量的东西复杂 ✗。
+try { console.log("x" + (Symbol("s") as any)); } catch (e: any) { console.log("plus", e.name, e instanceof TypeError); }
+try { console.log("y" + String(Symbol("t") as any)); } catch (e: any) { console.log("str", e.name); }
+console.log(typeof Symbol, String(Symbol("d")));
+try { console.log(1 + (Symbol("n") as any)); } catch (e: any) { console.log("num", e.name); }
+`,
+  },
+  {
+    id: "function-prototype-shape",
+    title: "`Function.prototype` 是一个真落点：`call` / `apply` / `bind` 都在它上面",
+    src: `
+function add(a: number, b: number) { return a + b; }
+console.log(typeof Function, typeof Function.prototype, typeof Function.prototype.call);
+console.log(Function.prototype.call === Function.prototype.call);
+// **绑定结果要先落到一个名字上** ✓：\`add.bind(null, 5)(6)\`（**调用一个调用结果**）
+// 是**记在台账里的已知缺口** ✗（投影层那一族 ✓），与本条要量的东西无关 ✓。
+const bound = add.bind(null, 5);
+console.log(add.call(null, 1, 2), add.apply(null, [3, 4]), bound(6));
+console.log(bound.call(null, 100), typeof bound.bind);
+console.log(Object.prototype.toString.call([]), Object.prototype.toString.call(1));
+`,
+  },
 ];

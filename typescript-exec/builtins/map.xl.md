@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, Protos, SetProperty, SetHiddenProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
+import { NativeCall, CallFailed, Protos, SetProperty, SetHiddenProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall } from "./array.xl.md"
 ```
 
@@ -165,7 +165,7 @@ for (let i = 0; i < length; i++) {
 return -1;
 ```
 
-# method InvokeMap:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeMap:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, failed:CallFailed | null = null)=>Value
 
 **Map 的构造函数与方法总入口**（号段 600..699）。
 
@@ -287,6 +287,10 @@ if (id === MapForEach) {
     // **键是现成的值** ✓（`keys` 那个数组里存的就是它 ✓）——不要再包一层 ✗。
     call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i),
       table.Get(keys.Ref).AsArray().GetAt(i)]);
+    // **回调抛出就收摊** ✓（第 228 轮 ✓，与 `Array.prototype.forEach` 那条同一条口径 ✓）：
+    // 不问这一句，回调里那次 `throw` 要等整张表走完才冒出来 ✓
+    //（**静默**那一类 ✗：多跑的每一轮都可能已经改了脚本自己的状态 ✓）。
+    if (failed !== null && failed()) return Value.Undefined();
   }
   return Value.Undefined();
 }

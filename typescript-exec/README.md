@@ -1,4 +1,4 @@
-﻿# typescript-exec —— TypeScript 的降级层与标准库（本语言专有）
+# typescript-exec —— TypeScript 的降级层与标准库（本语言专有）
 
 与 `typescript/`（TS 的 token 层）配对：**token 层负责「读成树」，本目录负责「树 → IR」**，
 并携带这门语言的标准库。多语言的落点在这里——新增一门语言就是新增一个 `xxx-exec/`，
@@ -35,22 +35,22 @@
 
 | 层 | 权重 | **覆盖度**（读数） | 条数 | 贡献 |
 | --- | --- | --- | --- | --- |
-| 引擎（`runtime/`） | 25% | **86.3%** | 88 / 102 | 21.58 |
+| 引擎（`runtime/`） | 25% | **88.7%** | 94 / 106 | 22.17 |
 | 降级层（含 `typescript/` 那一半：token / 投影） | 30% | **71.1%** | 32 / 45 | 21.33 |
-| 标准库（`builtins/`） | 25% | **84.1%** | 90 / 107 | 21.03 |
+| 标准库（`builtins/`） | 25% | **87.2%** | 95 / 109 | 21.79 |
 | 端到端（普通 `.ts` 直接跑） | 20% | **69.2%** | 9 / 13 | 13.85 |
-| **合计** | 100% | — | **220 / 267** | **78.0%** |
+| **合计** | 100% | — | **230 / 273** | **79.1%** |
 
-**这两个数（99.5% 与 58.8%）量的不是同一件事** ✓，两个都留着：
+**这两个数（99.5% 与 79.1%）量的不是同一件事** ✓，两个都留着：
 
 | 读数 | 量什么 | 现在 |
 | --- | --- | --- |
 | 上面那张**机制**表（估计 ✓） | **机器还剩多少没造**（值 / 堆 / GC / 帧 / IR / 执行器 / 降级 / 库各族的框架 ✓） | 99.5% |
-| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **78.0%** |
+| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **79.1%** |
 
-框架确实快满了 ✓（引擎那一层 89.1% 里，**没造的东西比没接上的东西少** ✓）；
+框架确实快满了 ✓（引擎那一层 88.7% 里，**没造的东西比没接上的东西少** ✓）；
 而覆盖面还差一截 ✗——差在哪、为什么差，现在有**一张带原因的清单**了 ✓
-（`tests/coverage/report.json` ✓：33 条「进不了门」+ 12 条「跑得出来但结果不同」✓）。
+（`tests/coverage/report.json` ✓：32 条「进不了门」+ 11 条「跑得出来但结果不同」✓）。
 往后的选题一律从这张清单里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓。
 
 ### 整体进度（加权估计；第 201 轮）
@@ -143,23 +143,48 @@
 往后的选题一律从那张普查表里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓，
 不是「修起来多容易」✗。
 
-### 下一步（第 227 轮更新）
+### 下一步（第 228 轮更新）
 
 **选题的来处**：一律从 **`tests/coverage/report.json` 那张清单**里挑 ✓
-（34 条 `blocked` + 11 条 `differ` ✓，每一条都带一句「为什么现在过不了」✓），
+（32 条 `blocked` + 11 条 `differ` ✓，每一条都带一句「为什么现在过不了」✓），
 排序依据是**「这条写法在普通 `.ts` 里有多常见」**✓，不是「修起来多容易」✗。
+
+**这一轮（第 228 轮）做掉了三格，都是第 219 / 220 轮量到的老账** ✓：
+
+| 做掉了什么 | 入口 | 覆盖度里的分量 |
+| --- | --- | --- |
+| **`Function.prototype.call` / `apply` / `bind`** ✓ | `vm.xl.md` 的 `MakeClosure`（闭包挂 `Proto` ✓）+ `globals.xl.md`（三格方法 ✓）+ `props.xl.md` 的 `GetProperty`（「函数那一类」接收者的特例 ✓） | 1 条（`fn-call-apply-bind` ✓）+ 1 条（`object-tostring-tag` 的一半 ✓）+ 1 条（`function-prototype-shape` 新加 ✓） |
+| **回调里抛立刻中断语言内建** ✓ | `vm.xl.md` 的 `Throws` / `NativeFailed` / `NativeEscaped` + `CallFailed` ✓；二十三处内建循环各问一句 ✓ | 1 条（`exc-throw-in-callback` ✓）+ 3 条新加（`exc-throw-in-callback-map-filter` / `exc-catch-then-callbacks-still-run` / `array-sort-comparator-argument-order` ✓） |
+| **语言层的 `throw` 要有类别** ✓ | `rt.xl.md` 的 `TextUnitsOf` / `ToNumberPrimitive` 抛宿主的 `TypeError` ✓ + `vm.xl.md` 的 `Guard` 按**宿主异常的类**认类别 ✓（`ErrorKindRange` 新加 ✓） | 1 条（`symbol-concat-throws` ✓）+ 1 条新加（`symbol-concat-error-family` ✓） |
+
+**顺手量到的两条**（都不在原来的单子上 ✓，是这一轮改的时候自己撞出来的 ✓）：
+
+- **`Object.prototype.toString.call(x)` 的标签** ✗：`call` 那一半修好之后 **才**露出这一层 ✓——
+  `ObjectTagOf` 只答「普通对象」那一格 ✓，数组与原始值一律给 `"Object"` ✗
+  （`[object Array]` / `[object Number]` 才对 ✓）。这一轮把**能证的那几档**都补上了 ✓。
+- **`sort` 的比较器实参次序** ✗：本仓原来给 `(other, item)` 再把符号反过来 ✓——
+  **结果一样** ✓，可**回调看得见的实参全反了** ✗。带副作用的比较器（记日志 / 条件抛出 ✓）
+  于是行为不同 ✓（`if (a === 2) throw` 在 Node 里抛、在本仓不抛 ✓）。
+  这是「静默错值」那一类 ✓——判据 `array-sort-comparator-argument-order` 现在钉着它 ✓。
+
+**还欠着的一格（改成新样子了）** ✗：`Object.prototype.toString.call(new Map())` 要
+`"[object Map]"` ✓，那要 `Symbol.toStringTag` ✓——本仓那一档仍然**响亮地抛** ✓
+（`object-tostring-tag` 那条判据还在单子上 ✓，理由换了 ✗：原来是 `call` 走不过去 ✓，
+现在是**标签那一档没做** ✓）。
 
 | 序 | 缺口 | 覆盖度里的分量 | 为什么排前面 |
 | --- | --- | --- | --- |
-| 1 | **回调里抛的异常没有立刻中断 `forEach`**（第 219 轮量到 ✓） | 1 条 | **静默**那一类 ✗：第 3 项**照跑了** ✓（本仓 `13\|caught:cb2\|fin`，node `1\|caught:cb2\|fin` ✓）——异常在最后才冒出来 ✓ |
-| 2 | **`Function.prototype.call` / `apply` / `bind`**（第 219 轮量到 ✓） | 1 条 | 普通 `.ts` 里很常见 ✓；机制现成 ✓（引擎的 `Call` 带 `this` 操作数 ✓） |
-| 3 | **`typeof <对象字面量>` 那一族**（第 211 轮量到 ✓） | 1 条 | token 层的**兄弟单元**形状 ✓——与第 205 轮那个私有名的根子**同一类** ✓（判据 `cases:tsast` 1442 条现成 ✓） |
-| 4 | **语言层的 `throw` 要有类别**（第 215 轮量到 ✓） | 3 条（`symbol-concat-throws` / `error-engine-throws` / `array-reduce` ✓） | 跑得出来、**类别不对** ✓；引擎那一侧第 139 轮已经有 ✓，语言层这几处还没有 ✓ |
-| 5 | **生成器对象的 `next()`**（第 219 轮再量到一次 ✓，与 `gen-basics` 同一处 ✓） | 4 条 | 拖着一整族 ✓（`for..of` / 展开那两条路是好的 ✓） |
-| 6 | 标准库还剩的那几格：`Symbol.toStringTag`、`Object.prototype.toString` 的其余标签、`global-array-object-ctors`、`ex-spread-in-new` 的 `as` 形状、`[...cond ? a : b]` | 5 条 | 一格一条 ✓、改一格覆盖度就动一格 ✓ |
-| 7 | 两条**要动引擎**的：`Symbol.description`（先加符号原型 ✓）、`Object.freeze` 的数组元素（写屏障 ✓）；`super.v` 属性访问（第 219 轮再量到一次 ✓） | 3 条 | 成本高 ✓、但都是常见写法 ✓ |
-| 8 | 步数预算：两万次循环就耗尽 | `gc-churn` | 普通循环够不着这个量级 ✓ |
-| 9 | 异步那一族：`await` 非承诺值 / `async` 里的 `throw` 不成拒绝 / `Promise.all` 里非承诺的项 | 5 条 + 拖着 `e2e-async-workflow` | 异步那一族的门面 ✓ |
+| 1 | **生成器对象的 `next()`**（第 219 轮再量到一次 ✓，与 `gen-basics` 同一处 ✓） | 4 条 | 拖着一整族 ✓（`for..of` / 展开那两条路是好的 ✓）；机制现成 ✓（`DoIterNext` 早就在 ✓，缺的只是「那个方法从哪来」✓） |
+| 2 | **`Symbol.toStringTag` + 其余标签**（第 228 轮把地基铺好了 ✓） | 3 条（`object-tostring-tag` / `symbol-tostringtag` / 一半的 `symbol-hasinstance` ✓） | 一格一条 ✓、上一轮刚把 `ObjectTagOf` 伸手够得着的地方补齐 ✓ |
+| 3 | **类上的计算成员名**（`[Symbol.iterator]()` / `static [Symbol.hasInstance]` ✓） | 3 条 + 拖着 `e2e-linked-list` | 类的写法里很常见 ✓；拖着一整条端到端 ✓ |
+| 4 | **`typeof <对象字面量>` 那一族**（第 211 轮量到 ✓） | 1 条 | token 层的**兄弟单元**形状 ✓——与第 205 轮那个私有名的根子**同一类** ✓ |
+| 5 | **`enum` 整族**（数值 / 字符串 / `const` ✓） | 3 条 | 有运行期语义 ✓、而且**普通 `.ts` 里很常见** ✓（这一格不该排这么后 ✗，只是它是整族新造 ✓） |
+| 6 | **`super.v` 属性访问** | 2 条 | 第 224 轮查清了为什么它不是小改动 ✓（要引擎加一条**带接收者的、从指定原型起读**的入口 ✓） |
+| 7 | 标准库还剩的那几格：`global-array-object-ctors`、`ex-spread-in-new` 的 `as` 形状、`[...cond ? a : b]`、`new Boolean(false)` | 4 条 | 一格一条 ✓、改一格覆盖度就动一格 ✓ |
+| 8 | 两条**要动引擎**的：`Symbol.description`（先加符号原型 ✓）、`Object.freeze` 的数组元素（写屏障 ✓） | 2 条 | 成本高 ✓、但都是常见写法 ✓ |
+| 9 | 异步那一族：`await` 非承诺值 / `async` 里的 `throw` 不成拒绝 / `Promise.all` 里非承诺的项 / `new Promise(执行器)` | 5 条 + 拖着 `e2e-async-workflow` | 异步那一族的门面 ✓ |
+| 10 | 步数预算：两万次循环就耗尽 | `gc-churn` | 普通循环够不着这个量级 ✓ |
+| 11 | `namespace` / `yield*` / `#x in o` / 带标签的块 / 类的 `async` 与生成器方法 / `new (class {…})()` | 8 条 + `e2e-mixed-everything` | 整族的活 ✓，排在日常写法之后 ✓ |
 
 **已划掉**（留在下面的账里 ✓）：派生类字段初始化 ✓、`+` 的 `ToPrimitive` ✓、
 静态块与静态字段的顺序 ✓（第 203 轮 ✓）、成员位 / 下标位上的 `++` `--` ✓（第 204 轮 ✓）、
@@ -234,6 +259,59 @@
 > **第 144 轮的账在下面（`### 第 144 轮的账`）**：这一轮不在上面这张单子里——
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
+
+### 第 228 轮的账（**四格一起收**：`Function.prototype` 三格 · 回调里抛立刻中断 · `throw` 的类别 · `ObjectTagOf` 的分类）
+
+**选题**：第 227 轮那张「下一步」清单的第 1、2、4 条 ✓——它们**共用同一条通道** ✓
+（`NativeCall` / `ContractNative` ✓），一起做才不白付 ✓（第 222 轮的账上写着这句 ✓）。
+
+| 补上的 | 入口 | 判据 |
+| --- | --- | --- |
+| **闭包挂上 `Proto`** | `vm.xl.md` 的 `MakeClosure` ✓ | 原来 `typeof greet.call` 给 `"undefined"` ✗ |
+| **`Function.prototype.call` / `apply` / `bind`** | `globals.xl.md` ✓（三格 + `BoundCall` ✓） | `fn-call-apply-bind` ✓ |
+| **「函数那一类」接收者的属性读** | `props.xl.md` 的 `GetProperty` ✓ | `object-tostring-tag` 的那一半 ✓ |
+| **`typeof Function.prototype` 是 `"function"`** | `rt.xl.md` 的 `RtTypeOf`（多收一个 `protos` ✓） | `function-prototype-shape` ✓ |
+| **回调里抛立刻中断内建** | `vm.xl.md` 的 `Throws` / `NativeFailed` / `NativeEscaped` + `CallFailed` ✓ | `exc-throw-in-callback` ✓ + 三条新加 ✓ |
+| **语言层的 `throw` 带类别** | `rt.xl.md` 抛宿主的 `TypeError` ✓ + `Guard` 按类认 ✓（`ErrorKindRange` ✓） | `symbol-concat-throws` ✓ + `symbol-concat-error-family` ✓ |
+| **`ObjectTagOf` 认数组与原始值** | `globals.xl.md` ✓ | `function-prototype-shape` 的后两行 ✓ |
+
+**这一轮最贵的一条：`CallFailed` 的判据实测改了三版** ✓（每一版都是判据当场打回来的 ✓，
+三版的现场都记在 `vm.xl.md` 的 `CallFailed` 那一段里 ✓）：
+
+1. **只看 `Status`** ✗——回调跑在**重入帧**上 ✓，而 `try` 的处理点在**更外面那一帧** ✓：
+   `DoThrow` 展开到处理点之后，`Status` **仍然是 `Ready`** ✓，状态判据**什么都看不见** ✗；
+2. **加一个布尔标志** ✗——它回答的是「**曾经**出过事没有」✓，
+   于是 `try { throw } catch {}` 之后**每一次** `map` / `forEach` 都读到「真」✗，
+   内建**全都提前收摊** ✓（现场：`Object.entries(…).map(…)` 返回 `undefined` ✓，
+   于是 `.join` 报 `cannot read properties of undefined` ✓——**离现场很远** ✗）；
+3. **改成「计数」**（`Throws` 前后各读一次 ✓）——还是漏了一档 ✗：
+   回调**不一定走 `CallNative`** ✓（语言内建直接调闭包时走 `DoCallValue` ✓，
+   那条路上计数一个数都不变 ✗，现场：`sort` 的比较器里抛、而它前面已经抛过一次并被接住了 ✓）。
+
+**最后的判据是三半** ✓：状态 ✓ + 这一次计数变过 ✓ + **展开跨过了这一趟的边界** ✓
+（`HandlerEntry.Depth` 与 `NativeBoundary` 比一次 ✓——「在外层」只有层深说得清 ✓）。
+
+**这一轮自己撞出来的两条** ✓（都不在单子上 ✓，修好一格之后**才**露出来的 ✓）：
+
+- **`ObjectTagOf` 只答「普通对象」那一格** ✗：`call` 那半修好之后 ✓，
+  `Object.prototype.toString.call([])` 才第一次真的走到它 ✓——而它给 `"[object Object]"` ✗
+  （`[object Array]` 才对 ✓）。补的是**能证的那几档**（数组 ✓、函数 ✓、六种原始值 ✓）✓，
+  `Map` / `Set` / `Date` 那几档仍然**响亮地抛** ✓（它们要 `Symbol.toStringTag` ✓）。
+- **`sort` 的比较器实参次序反了** ✗：本仓原来给 `(other, item)` 再把符号反过来 ✓——
+  **排序结果一样** ✓，可**回调看得见的两个实参全反了** ✗。带副作用的比较器于是行为不同 ✓
+  （`if (a === 2) throw` 在 Node 里抛、在本仓不抛 ✓）。**「结果一样」不是理由** ✗：
+  比较器是**脚本** ✓，它每一次被调都是可观察的 ✓。判据 `array-sort-comparator-argument-order` ✓
+  钉的是「第一次比较的实参」与「结果」两样 ✓——**不钉比较的次序** ✗
+  （那是**排序算法**的自由 ✓：本仓插入排序、V8 是 TimSort ✓，钉它就是钉实现 ✗）。
+
+**读数** ✓：`coverage` **220 / 267 = 78.0% → 230 / 273 = 79.1%** ✓
+（引擎 86.3% → **88.7%** ✓、标准库 84.1% → **87.2%** ✓、降级 71.1% 与端到端 69.2% 不动 ✓）；
+`runtime:check` **241/241** ✓、`runtime:cli` **79/79** ✓、`cases:tsast` **1442/1442** ✓、
+`samples` 三份 ✓、`cases:check` **1048 条 0 不合格** ✓。
+
+**这一轮也量到一条新的** ✗：**`Object.prototype.toString.call(x)` 的标签那一半**
+（`Map` / `Set` / `Date` / `Error` ✓）——它现在**响亮地抛** ✓，理由从
+「`call` 走不过去」✗ 换成了「标签那一档没做」✓（判据 `object-tostring-tag` 那一行改过 ✓）。
 
 ### 第 215 轮的账（**`String(符号)` 是一条特例**；并量出「抛的类别」那一条新的）
 

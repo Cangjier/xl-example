@@ -205,8 +205,15 @@ if (value.Tag === ValueTag.String) {
 }
 // **符号是 JS 的 `TypeError`** ✓（不是「还没做」✗）：把符号交给宿主那个 `Number` 内建，
 // 在任何引擎里都抛 ✓。
+//
+// **要抛宿主的 `TypeError`** ✓（第 228 轮 ✓）：与 `TextUnitsOf` 那一格**同一条理由** ✓——
+// 这条通道的兜底（`vm.xl.md` 的 `Guard` ✓）现在按**宿主异常的类**认类别 ✓，
+// 所以这一层只需要抛对类 ✓，不必认识 `"TypeError"` 这几个字母 ✓。
+// 原来抛的是**普通的 `Error`** ✗：`1 + Symbol()` 于是给 `e.name === "Error"` ✗
+// （JS 给 `"TypeError"` ✓，判据 `symbol-concat-error-family` 现场红的 ✓）——
+// 注意它**不走** `TextUnitsOf` 那条路 ✓（两边都不是字符串 ⇒ 走 `ToNumber` ✓，见 `RtAdd` ✓）。
 if (value.Tag === ValueTag.Symbol) {
-  throw new Error("cannot convert a Symbol to a number");
+  throw new TypeError("cannot convert a Symbol value to a number");
 }
 // **走到这里只剩两种** ✓：对象（`ToPrimitive` 那一层没通道可用 ✓，`call === null` ✓）
 // 与宿主值（JS 渲染的是源码文本 ✗，引擎拿不到 ✓）。
@@ -314,6 +321,17 @@ if (value.Tag === ValueTag.Bool) {
 }
 if (value.Tag === ValueTag.Null) return [110, 117, 108, 108];
 if (value.Tag === ValueTag.Undefined) return [117, 110, 100, 101, 102, 105, 110, 101, 100];
+// **符号要抛 `TypeError`** ✓（第 228 轮 ✓）：JS 里 `"x" + Symbol()` 与模板串里插符号
+// 都是 **`TypeError`** ✓（`Cannot convert a Symbol value to a string` ✓），
+// 而这里原来抛的是**普通的 `Error`** ✗——脚本那一侧 `catch (e) { e.name }` 于是拿到
+// `"Error"` ✗（判据 `symbol-concat-throws` 现场红的 ✓，第 215 轮量到 ✓）。
+// **为什么改成宿主的 `TypeError` 类就够了** ✗：这一抛会走**宿主通道的兜底** ✓
+//（`tsrun` 接内建时包的那层 `RaiseFromHost` ✓）——它按**宿主异常的类**映射到脚本的族 ✓
+//（`install.xl.md` 那一段 ✓，第 227 轮做的 ✓）。所以这一层只需要**抛对类** ✓，
+// 不必认识 `"TypeError"` 这几个字母 ✓（引擎仍然不认识它 ✓，与 `ErrorKindType` 同一条分界 ✓）。
+if (value.Tag === ValueTag.Symbol) {
+  throw new TypeError("cannot convert a Symbol value to a string");
+}
 throw new Error("unimplemented: ToString of this kind of value");
 ```
 
@@ -692,11 +710,32 @@ if (value.Tag === ValueTag.Object) return table.Get(value.Ref).Host !== null;
 return false;
 ```
 
-# method RtTypeOf:(room:RoomChecker, table:HeapTable, value:Value)=>Value
+# method RtTypeOf:(room:RoomChecker, table:HeapTable, value:Value, protos:Protos | null = null)=>Value
 
 `typeof`：一次分配（与 `RtToString` 同一条理由：中间值没有根保护）。
 
+**原型表放在最后、而且有默认值** ✓（第 228 轮 ✓）：它是**可选**的那一样 ✓——
+拿不到就退回按标签判 ✓（不说谎，只是不特殊 ✓，与 `ToNumberOf` 那一格的纪律一字不差 ✓）。
+**为什么不放在第二个位置** ✗：这条函数**判据直接用** ✓（`tests/runtime/check.mjs` 里有五处 ✓），
+而位置参数**中间**插一格会把它们全部错位 ✓——症状是
+`Cannot read properties of null (reading 'Object')` ✓（一个完全看不出是「参数错位」的句子 ✓，
+实测踩过一次 ✓）。**可选的参数放最后**是这条通道上唯一不动别人的改法 ✓。
+
+**它为什么需要原型表** ✓：JS 里 `typeof Object.prototype` 与 `typeof Function.prototype`
+都是 `"function"` ✓（那两个对象**本身就是函数对象** ✓），而本仓把它们做成了普通对象 ✗
+——只有拿到 `protos` 才认得出它们 ✓（与 `props.xl.md` 的 `TypeOfName` **同一条口径** ✗：
+两处都是 `typeof` 的出口 ✓，一处改了另一处不改就是「同一个值两个名字」✗）。
+
 ```ts
+// **那两个原型对象**（第 228 轮 ✓）：认得出就给 `"function"` ✓。
+if (protos !== null && value.Tag === ValueTag.Object
+  && (value.Ref === protos.Object || value.Ref === protos.Function)) {
+  const protoUnits = [102, 117, 110, 99, 116, 105, 111, 110];
+  if (!room(CodeUnitCharge * protoUnits.length + ObjectCharge)) {
+    throw new Error("out of room");
+  }
+  return Value.FromString(table.CreateString(protoUnits));
+}
 const units = TypeUnitsOf(table, value);
 if (!room(CodeUnitCharge * units.length + ObjectCharge)) {
   throw new Error("out of room");

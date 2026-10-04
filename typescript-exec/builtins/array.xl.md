@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
-import { SetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
+import { SetProperty, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 ```
@@ -234,7 +234,7 @@ if (index < 0) {
 return index > length ? length : index;
 ```
 
-# method InvokeArray:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null)=>Value
+# method InvokeArray:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
 
 **数组内建的分派与实现**。
 
@@ -254,6 +254,16 @@ return index > length ? length : index;
 （`self` 是调用方的槽 ✓ 本来就是根 ✓）——所以这一轮的判据是
 「**这个值还挂在别处吗**」✓，而不是「看见了回调就挂」✗。
 
+**`failed` 是第 228 轮加的** ✓（`props.xl.md` 的 `CallFailed` ✓）：
+这一块有**九个**回调循环 ✓（`forEach` / `map` / `filter` / 谓词族四条 / `sort` 的比较器 /
+`reduce` / `flatMap` ✓）——它们每一轮**都要在回调之后问一句** ✓，
+真就`return Value.Undefined()` 收摊 ✓。
+**为什么返回 `undefined` 而不是接着把结果拼完** ✗：状态已经不是 `Ready` 了 ✓
+（脚本抛了 ✓／预算用尽 ✓），**这份返回值没有任何人会读** ✓——
+`vm.xl.md` 的 `CallNative` 末尾那句「状态不对就 `return Value.Undefined()`」✓
+就是为这件事写的 ✓，这一层跟上它即可 ✓。**不写这句的代价**是**多跑的那几圈把副作用做了** ✗
+（`[1,2,3].forEach(v => { if (v === 2) throw })` 里第 3 项照跑 ✓，判据 `exc-throw-in-callback` ✓）。
+
 ```ts
 // **静态方法排在 `RequireArray` 前面**（第 123 轮）：`Array.isArray(x)` 的 `self`
 // 是那个 `Array` **普通对象** ✓，过一遍 `RequireArray` 会当场抛 ✗。
@@ -263,6 +273,12 @@ if (id === ArrayIsArray) {
 }
 RequireArray(table, self);
 const source = table.Get(self.Ref).AsArray();
+// **收摊判据只有一份** ✓（第 228 轮 ✓）：内建的每一处回调循环都在**每一轮之后**问它 ✓。
+// **为什么把它提成一个局部量** ✗：这一块有**九个**循环 ✓——每处写一遍那个三元表达式
+// 就是九处会漂的重复 ✓（而漂了的表现是「有一条内建照旧多跑一圈」✗，离现场很远 ✓）。
+// **`failed === null` 时它恒为假** ✓：宿主没接这一格时，内建退回第 228 轮之前的行为 ✓
+// （见 `props.xl.md` 的 `CallFailed` ✓——多一个只让事情变对的可选服务 ✓，不是新加的门槛 ✓）。
+const halted = () => failed !== null && failed();
 if (id === ArrayPush) {
   if (!room(ValueCharge * args.length)) throw new Error("out of room");
   for (let i = 0; i < args.length; i++) {
@@ -375,6 +391,13 @@ if (id === ArrayFlatMap) {
     if (source.IsHole(i)) continue;
     const item = source.GetAt(i);
     const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i), self]);
+    // **回调抛出就收摊** ✓（第 228 轮）：`answered` 这时是 `undefined` ✓——
+    // 不问这一句，`flatMap` 会把它当成一个「不是数组的返回值」**收进结果里** ✗
+    // （于是结果数组多出一格 `undefined` ✓，而那一格**根本不该存在** ✗）。
+    if (halted()) {
+      if (keep !== null) keep(Value.FromArray(flatMapHandle), false);
+      return Value.Undefined();
+    }
     if (answered.Tag === ValueTag.Array) {
       const inner = table.Get(answered.Ref).AsArray();
       for (let j = 0; j < inner.GetLength(); j++) {
@@ -510,6 +533,10 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     // 所以这里挂的是「**不挂在别处**」的那些 ✓（见上面那一段判据 ✓）。
     // `map` 收的是回调的返回值 ✓（紧接着就 `Push` ✓，中间不分配 ✓）——它不必挂 ✓。
     const answered = call(args[0], Value.Undefined(), [item, Value.FromInt(i), self]);
+    // **回调抛出就收摊** ✓（第 228 轮 ✓）：`answered` 这时是一个**看起来正常的 `undefined`** ✗
+    // （`CallNative` 在状态被改之后就是给 `undefined` ✓）——不问这一句就接着转下一圈 ✓，
+    // 于是回调里那次 `throw` 要等整个 `forEach` 跑完才冒出来 ✗（**静默**那一类 ✓）。
+    if (halted()) return Value.Undefined();
     if (id === ArrayForEach) continue;
     if (id === ArrayMap) {
       // **`map` 收返回值** ✓（与 JS 一致）。
@@ -542,6 +569,10 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
     if (source.IsHole(i)) continue;
     const item = source.GetAt(i);
     const answered = RtToBoolean(table, call(args[0], Value.Undefined(), [item, Value.FromInt(i), self])).AsBool();
+    // **回调抛出就收摊** ✓（第 228 轮，与 `forEach` 那一条同一处口径 ✓）：
+    // `RtToBoolean` 对 `undefined` 给**假** ✓——不问这一句的话，`some` / `every` 会把这个
+    // 「假」当成回调的答案用 ✗（`every` 于是当场返回 `false` ✓，**静默错值** ✗）。
+    if (halted()) return Value.Undefined();
     if (id === ArrayFind) {
       if (answered) return item;
       continue;
@@ -572,19 +603,35 @@ if (id === ArraySort) {
     while (j >= 0) {
       const other = source.GetAt(j);
       const otherHole = source.IsHole(j);
-      // **判据统一成一句**：「`other` 是不是该排在 `item` **后面**」✓——
-      // 比较器返回**正数**表示「第一个参数在后面」✓，所以**两个分支都拿 `(other, item)` 去比** ✓。
-      // **这一格极容易写反** ✗：第一版拿 `(item, other)` 比、又用 `> 0` 当「往后挪」✓，
-      // 于是判据整好反了一百八十度 ✓——`[3,1,2].sort((a, b) => a - b)` 给 `3,2,1` ✓
-      // （而 `["b","a"].sort()` 那条**照样对** ✗，因为文本那一支我写的是 `(other, item)` ✓，
-      //  于是「一半对一半错」✓——判据现场就是这么红的 ✓）。
+      // **比较器的两个实参要按 JS 的次序给** ✓（第 228 轮改 ✓）：**「要挪的那个」在前、
+      // 「已经就位的那个」在后** ✓——也就是 `comparator(item, other)` ✓。
+      //
+      // **这一格极容易写反，而且写反了有不出声的代价** ✗：本仓原来给的是
+      // `(other, item)` 再把符号反过来（结果**一样** ✓）——**排序结果照样对** ✓，
+      // 但**回调可观察到的次序与实参全都反了** ✗：
+      //   · 带副作用的比较器（打日志 / 计数 ✓）看到的两个数是**反的** ✓；
+      //   · **条件抛出**那一条最致命 ✗——`if (a === 2) throw` 这种写法在 JS 里会抛 ✓，
+      //     而实参反了之后**根本不抛** ✓（判据 `exc-throw-in-callback-map-filter` 现场红的 ✓，
+      //     本仓当时给的是 `1,2,3` 而 node 抛出了异常 ✓）。
+      // **「结果一样」不是理由** ✗：比较器是**脚本** ✓，它的每一次调用都是可观察的 ✓。
+      // **顺手把符号也归位** ✓：`item` 在前 ⇒ 它该排在前面时 `other` 不动 ✓，
+      // 也就是**判据是「负数」** ✓（`cmp(a, b) < 0` ⇒ `a` 在前 ✓，JS 的口径 ✓）。
+      // 原来那版拿 `> 0` 配 `(other, item)` ✓——**两处一起反**才让结果看着是对的 ✗：
+      // 改实参次序而忘了翻符号，`[3,1,2].sort((a, b) => a - b)` 当场给 `3,2,1` ✓
+      // （实测踩过一次 ✓）。
       let otherFirst = false;
       if (hasComparator && call !== null) {
-        const verdict = call(comparator, Value.Undefined(), [other, item]);
-        if (verdict.Tag === ValueTag.Int32) otherFirst = verdict.Int > 0;
-        else if (verdict.Tag === ValueTag.Float64) otherFirst = verdict.Dbl > 0;
+        const verdict = call(comparator, Value.Undefined(), [item, other]);
+        // **比较器抛出就收摊** ✓（第 228 轮）：`verdict` 这时是 `undefined` ✓，
+        // 不问这一句就把它当成「不小于 0」用 ✗——排序会停在一个**半排好的**数组上 ✓
+        //（而异常等到整个 `sort` 返回才冒出来 ✓，那时数组已经被改过了 ✗）。
+        if (halted()) return Value.Undefined();
+        // **负数 = 第一个参数该排在前面 = `other` 往前挪** ✓（JS 的口径 ✓：
+        // `cmp(a, b) < 0` 表示 `a` 在 `b` 前面 ✓）。
+        if (verdict.Tag === ValueTag.Int32) otherFirst = verdict.Int < 0;
+        else if (verdict.Tag === ValueTag.Float64) otherFirst = verdict.Dbl < 0;
       } else {
-        otherFirst = CompareAsText(table, other, item) > 0;
+        otherFirst = CompareAsText(table, item, other) < 0;
       }
       if (!otherFirst) break;
       // **洞要跟着格子一起挪** ✓：`SetAt` 会**清掉**那一格的洞标记 ✓（`heap.xl.md` 的 `SetAt` ✓），
@@ -629,6 +676,14 @@ if (id === ArrayReduce) {
     const previous = accumulator;
     if (keep !== null) keep(previous, true);
     const next = call(args[0], Value.Undefined(), [previous, source.GetAt(i)]);
+    // **回调抛出就收摊** ✓（第 228 轮）：`next` 这时是 `undefined` ✓——
+    // 不问这一句就把它当成**累加器**继续用 ✗（下一轮的回调会拿到 `undefined` ✓，
+    // 于是脚本看到的是「累加器莫名其妙变空了」✗，而不是「回调抛了」✓）。
+    // **摘根要走同一条路** ✗（这里先摘、再收摊 ✓，不然那一格会一直挂着 ✓）。
+    if (halted()) {
+      if (keep !== null) keep(previous, false);
+      return Value.Undefined();
+    }
     // **摘旧的、挂新的** ✓（两头都按值找 ✓，所以这里传的是各自的变量 ✓）：
     // 新的那个要跨过**下一轮**那次 `call` ✓，所以它当场就得挂上 ✓。
     if (keep !== null) keep(previous, false);

@@ -51,6 +51,28 @@ import { RoomChecker } from "./rt.xl.md"
 **回调不是随便能重入的**：机器那边有**重入深度上限**（安全第 4 层）——
 脚本可以在 getter 里再读同一个属性，没有上限就是栈溢出的另一种写法。
 
+# type CallFailed = ()=>boolean
+
+**「上一次重入没跑完」这一个问题的形状**（第 228 轮 ✓）——与 `RoomChecker` 同一形状、
+同一理由：依赖方向只能是 `vm → props` ✓，而**语言内建**住在更外面那一层 ✓
+（`typescript-exec/builtins/` ✓），它拿不到 `Vm` ✓。
+
+**它为什么必须存在** ✗：内建里有二十来处**回调循环** ✓（`forEach` / `map` / 谓词族 /
+`sort` 的比较器 / `Map`、`Set` 的 `forEach` / 走迭代协议的那几处 ✓），
+而循环体里那次 `call(...)` 是**一次重入** ✓——脚本在回调里抛了异常时，
+重入返回的是一个**看起来正常的 `undefined`** ✓（`vm.xl.md` 的 `CallNative` 写着为什么 ✓），
+于是循环**照转下一圈** ✗（**静默**那一类 ✓：异常最后才冒出来，而多跑的那几圈已经
+把副作用做出去了 ✓，判据 `exc-throw-in-callback` ✓）。
+
+**为什么不复用 `NativeCall` 的返回值** ✗：`undefined` 是**合法的回调返回值** ✓
+（`[1, 2].forEach(() => {})` 每次都返回它 ✓）——拿它当哨兵就是把正常情况当异常 ✗。
+**为什么不「从内建里抛一个宿主异常出去」** ✗：那条路第 153 轮试过 ✓（判据当场红三条 ✗，
+见 `vm.xl.md` 里那段结论 ✓）。**所以问一句** ✓：不问不改 ✓、也不改控制流 ✓。
+
+**`null` 是合法值** ✓（与 `NativeCall | null` 同一条纪律 ✓）：宿主没接这一格时
+内建**照旧转** ✓（退回第 228 轮之前的行为 ✓）——那不是「新加了一道必须配的线」✗，
+而是一个**只让事情变对**的可选服务 ✓。
+
 # const MaxProtoDepth:int = 256
 
 原型链深度上限。超了就抛——**它只可能来自引擎 bug**（或者是将来某条改原型的路没挡住环）。
@@ -359,7 +381,58 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 **原型表要传进来**：原始值没有「自己那一格」可以顺着走，起点只能由调用方给。
 对象那条路不靠它（对象自带 `Proto`），但两条路共用一个签名更不容易分叉。
 
+**`Object.prototype` / `Function.prototype` 那两个对象与「函数那一类」接收者
+都要从 `protos.Function` 上找一次** ✓（第 228 轮 ✓）：
+`Object.prototype.toString.call(x)` 这条写法（判据 `object-tostring-tag` / `symbol-tostringtag` ✓）
+里的接收者是 **`Object.prototype.toString` 这个值** ✓，而 `.call` 挂在 `protos.Function` 上 ✓
+——它**顺着 `Proto` 走是走不到的** ✗（那个值是**宿主引用** ✓，`HostRef` 没有属性表 ✓）。
+
+**JS 里为什么没有这个问题** ✗：那边的每一个函数（包括内建 ✓）都**真的**以
+`Function.prototype` 为原型 ✓（`typeof Object.prototype === "function"` ✓）；
+本仓的宿主引用是**引擎内部那一档** ✓，没有跟着走 ✓——所以这里替它补一次查找 ✓。
+
+**所以补一条判据** ✓，而不是去改原型链：接收者**是「函数那一类」**时，
+先到 `protos.Function` 上找一次 ✓。
+
+**「函数那一类」比「闭包」宽** ✗（第 228 轮实测三次才定下来 ✓）：
+第一版只写了 `protos.Function` **这一个对象** ✗，第二版加了 `protos.Object` ✗，
+两版都漏了**同一个东西**——本仓的内建方法**不都是闭包** ✓：
+`Object.prototype.toString` 那一族是**宿主引用** ✓（`HostRef` ✓，
+`globals.xl.md` 里挂的就是 `Value.FromRef(ValueTag.HostRef, …)` ✓），
+而 `HostRef` **不算 `IsObject()`** ✓（`value.xl.md` 那一格写着理由 ✓）——
+于是 `Object.prototype.toString.call(x)` 这条路**根本没走到这一条判据上** ✗，
+它走的是下面那条「原始值 / 不是对象」的兜底 ✓，答案是 `undefined` ✓
+（症状仍然是 `calling a non-closure value` ✗，而真相是「`.call` 那一格没找到」✓）。
+
+**判据收成一句** ✓：`Value.IsCallable()`（闭包 ✓、内建函数 ✓）+ `HostRef` ✓
++ **那两个原型对象自己** ✓（它们在 JS 里也是函数对象 ✓，
+而本仓把它们做成了普通对象 ✗——`receiver.Ref === protos.Object` 那两格就是为此 ✓）。
+**顺序要紧** ✗：它必须排在「是不是对象」那条分岔**之前** ✓，
+不然 `HostRef` 那一档就到不了这里 ✓。
+
+**它只多答「`protos.Function` 上有什么」** ✗：那三格就是我们自己挂的
+`call` / `apply` / `bind` ✓（`globals.xl.md` ✓）——所以
+`Function.prototype.call === Function.prototype.call` 仍然成立 ✓
+（判据 `function-prototype-shape` 钉着这一条 ✓）。
+
 ```ts
+// **排在「沿原型链找」与「原始值兜底」之前** ✓（见上面那一段的说明 ✓）。
+//
+// **`protos` 那一格要先判空** ✗（第 228 轮实测 ✓）：`GetProperty` 的签名里
+// `protos: Protos` 是**非空**的 ✓，可**判据**会拿一台还没装载过的机器来调它 ✓
+// （`tests/runtime/check.mjs` 用 `InitProtos` 自己造一份 ✓，而 `machine.Protos` 是 `null` ✓）——
+// 那几处的接收者是**普通对象** ✓（它们走的是「对象自带 `Proto`」那条路 ✓，本来不需要 `protos` ✓），
+// 于是直接读 `protos.Object` 会当场抛 ✓，而那句话是
+// `Cannot read properties of null (reading 'Object')` ✓（**离现场很远** ✗，
+// 实测踩过一次 ✓：五条判据一起红 ✓，读起来像「对象表坏了」✗）。
+// **判空之后语义不变** ✓：`protos === null` 时只少答「那两个原型对象 + 宿主引用」两档 ✓。
+if ((protos !== null && (receiver.Ref === protos.Object || receiver.Ref === protos.Function))
+  || receiver.IsCallable() || receiver.Tag === ValueTag.HostRef) {
+  if (protos !== null) {
+    const onFunction = FindProperty(room, table, protos.Function, key);
+    if (onFunction !== null) return ReadProperty(call, table, onFunction, receiver);
+  }
+}
 // **读 `null` / `undefined` 的属性要抛**（第 136 轮）✓：JS 的 `null.y` 是 `TypeError` ✓，
 // 而这里原来一律给 `undefined` ✗——**静默错值里最贵的一种** ✓
 // （`const {a} = null` 也给 `undefined` ✗，**一句 `try` 都接不住** ✗——
@@ -536,6 +609,12 @@ if (value.Tag === ValueTag.Symbol) return "symbol";
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return "function";
 // **宿主引用也是函数** ✓（第 150 轮，与 `rt.xl.md` 的 `TypeUnitsOf` **同一条口径** ✗：
 // 两处都是 `typeof` 的出口 ✓，一处改了另一处不改就是「同一个值两个名字」✗）。
+//
+// **那两个原型对象不在这里判** ✗（第 228 轮 ✓）：要让 `typeof Function.prototype` 给
+// `"function"` 就得知道 `protos` ✓，而这一格的签名里**没有它** ✓——
+// 与其为一个只有 `typeof` 用得上的判据去改一个**没人调用**的函数的签名 ✓，
+// 不如把那一档放在**真的那个出口**上 ✓（`rt.xl.md` 的 `RtTypeOf` ✓，
+// 它从 `vm.xl.md` 拿得到 `Protos` ✓）。这里留一条注释，免得下一个人以为它漏了 ✓。
 if (value.Tag === ValueTag.HostRef) return "function";
 if (value.Tag === ValueTag.Object && table.Get(value.Ref).Host !== null) return "function";
 return "object";

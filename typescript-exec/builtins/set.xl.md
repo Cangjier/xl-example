@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, Protos, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
+import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall, Units } from "./array.xl.md"
 import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 ```
@@ -82,7 +82,7 @@ for (let i = 0; i < ids.length; i++) {
 }
 ```
 
-# method InvokeSet:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeSet:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, failed:CallFailed | null = null)=>Value
 
 **Set 的构造函数与方法总入口**（号段 610..699）。
 
@@ -181,6 +181,8 @@ if (id === SetForEach) {
   for (let i = 0; i < eachTotal; i++) {
     if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
     call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i), table.Get(values.Ref).AsArray().GetAt(i)]);
+    // **回调抛出就收摊** ✓（第 228 轮 ✓，与 `Map.forEach` / `Array.prototype.forEach` 同一条口径 ✓）。
+    if (failed !== null && failed()) return Value.Undefined();
   }
   return Value.Undefined();
 }

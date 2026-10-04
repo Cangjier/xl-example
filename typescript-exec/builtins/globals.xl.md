@@ -2,9 +2,9 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
@@ -181,6 +181,84 @@ import { BuildPromise } from "./promise.xl.md"
 **`({}).hasOwnProperty(k)`**（第 209 轮 ✓）——只问**自己**那一格 ✓（`in` 会沿原型链 ✓，
 两处**不能互相顶替** ✗）。号紧挨着上面两格 ✓（同一个「`Object.prototype` 上的方法」段 ✓）。
 
+# const FunctionCall:int = 340
+
+**`f.call(thisArg, …args)`**（第 228 轮 ✓）——`Function.prototype` 上的第一格 ✓。
+
+**它为什么能做得出来、而 `bind` 要绕着走** ✗：`call` / `apply` **不造新值** ✓——
+它们要的是「换一个 `this`、再按给定的实参调一次」✓，而这件事 `NativeCall` 本来就会 ✓
+（`props.xl.md` 的那条重入通道带 `thisValue` ✓、实参表是一整个数组 ✓，
+第 142 轮就开宽了 ✓）。所以这一格只是**搬运**：把 `args[0]` 当 `this`、
+把 `args[1..]` 收成一个数组 ✓，然后 `call(callee, thisArg, list)` ✓。
+
+**它凭什么常见** ✓：`Object.prototype.toString.call(x)` 这一族写法遍地都是 ✓
+（判据 `object-tostring-tag` / `symbol-tostringtag` 拖着的就是它 ✓），
+而本仓原来报的是 `calling a non-closure value` ✗——`call` 那一格**根本不存在** ✓
+（根子在「闭包没有 `Proto`」✓，第 228 轮在 `vm.xl.md` 的 `MakeClosure` 补上了 ✓）。
+
+# const FunctionApply:int = 341
+
+**`f.apply(thisArg, argsArray)`**（第 228 轮 ✓）——与 `FunctionCall` 同一支实现 ✓
+（`this` 同样是 `args[0]` ✓），只有实参那一半不同 ✗：`apply` 的实参**已经是数组** ✓
+（JS 还认「类数组」那一条 ✓，本仓只认真的数组 ✓——写在已知差异里 ✓）。
+
+# const FunctionBind:int = 342
+
+**`f.bind(thisArg, …args)`**（第 228 轮 ✓）——**它要造一个新值** ✓，所以与上面两格不同 ✗：
+造出来的那个东西必须**带着**「目标 / `this` / 已绑定的实参」三样 ✓，
+而且是**能被调的** ✓。本仓现成的两个机制正好够 ✓：`AttachCallable` 第 145 轮就在
+（「对象照旧是对象，只是多了一格能被调」✓），三样东西挂成**隐藏自有属性** ✓
+（`SetHiddenProperty` ✓，第 210 轮 ✓——它们不该出现在 `Object.keys` 里 ✓）。
+落到哪一段代码由**这一格号**决定 ✓（引擎不认识 `"bind"` 这几个字母 ✗，
+与 `Symbol` / `Map` 同一条分界 ✓），实现在 `InvokeGlobal` 的 `FunctionBind` 那一支 ✓。
+
+# const FunctionCtor:int = 343
+
+**`Function` 这个全局对象自己**（第 228 轮 ✓）：`Function.prototype.call` 这一族要一个落点 ✓，
+所以它是一格「普通对象 + 可调用载荷」✓（与 `Array` / `String` 同款 ✓）。
+**它不是 `new Function("…")` 那条路** ✗（那是**编译期**的事 ✓，本运行器不做 ✓）——
+它只是 `Function` 这个名字的落点 ✓，于是 `Function.prototype === Function.prototype` 成立 ✓。
+
+# const BoundCall:int = 344
+
+**调一个 `bind` 造出来的函数**（第 228 轮 ✓）——`FunctionBind` 那一支造的那个对象
+身上带着这一格载荷 ✓，被调时落到这里 ✓。
+
+**三样东西藏在哪些名字下、由谁定** ✗：名字（`BoundTargetName` / `BoundThisName` /
+`BoundArgsName` 三个方法 ✓）是**这一层**的常数 ✓，**引擎一个字都不认识** ✓——
+它只负责「把这个对象当 `this` 递进来」✓（`vm.xl.md` 的 `CallHostValue` 就是这么写的 ✓）。
+**写成三个方法而不是三个号** ✓：它们的用处是「现造一个字符串句柄」✓
+（`table.CreateString` ✓），而号那一栏是**能力号**的段 ✗——混进去会让人以为宿主能注册它们 ✓。
+
+# method BoundTargetName:(table:HeapTable)=>Value
+
+**`bind` 造出来那个对象上，「目标」挂在哪个键下**（第 228 轮 ✓）。
+
+**每一次都现造一个字符串** ✓（不是缓存一格句柄 ✓）：属性查找**按内容比** ✓
+（`props.xl.md` 的 `KeyMatches` ✓），所以「同一个名字」不要求「同一个句柄」✓；
+而这个函数一次调用最多走两趟 ✓（写一趟、读一趟 ✓），缓存带来的收益抵不过
+多一格全局状态要维护 ✓。**三个方法挤在一处** ✓（同一件事的三个名字 ✓）。
+
+```ts
+return Value.FromString(table.CreateString(Units("__boundTarget")));
+```
+
+# method BoundThisName:(table:HeapTable)=>Value
+
+**绑定的 `this` 挂在哪个键下**（第 228 轮 ✓，与上面同一条口径 ✓）。
+
+```ts
+return Value.FromString(table.CreateString(Units("__boundThis")));
+```
+
+# method BoundArgsName:(table:HeapTable)=>Value
+
+**已绑定的实参挂在哪个键下**（第 228 轮 ✓，与上面同一条口径 ✓）。
+
+```ts
+return Value.FromString(table.CreateString(Units("__boundArgs")));
+```
+
 # const ObjectCreate:int = 407
 
 **`Object.create(proto)`**（第 209 轮 ✓）——造一个空对象、把**原型**指过去 ✓。
@@ -228,7 +306,31 @@ import { BuildPromise } from "./promise.xl.md"
 **同一个判据只有一份** ✓：`GetIterator`（认 `Map` / `Set` ✓）、`InspectValue`（认三族 ✓）、
 这里 ✓ 问的都是「那一格标记在不在」✓；各写一遍的下场是「`console.log` 认得、算术不认得」✗。
 
+**数组与那几档原始值也要给对** ✓（第 228 轮 ✓）：`Object.prototype.toString.call(x)`
+这条写法在普通 `.ts` 里遍地都是 ✓（判据 `function-prototype-shape` ✓），
+而**最常传进去的就是数组与数字** ✓。**为什么把它排在最前** ✗：
+数组**不是**「普通对象」那一档 ✓（`value.Tag` 就是 `Array` ✓），
+而原始值那一档原来走到最后会落成 `"Object"` ✗——`Object.prototype.toString.call([])`
+在 Node 里是 `"[object Array]"` ✓，本仓给 `"[object Object]"` ✗（**静默错值** ✗）。
+**`typeof` 的标签名不在这里算** ✗：这一层要的是**大写的类名** ✓
+（`"Array"` ✓ / `"Number"` ✓），与 `props.xl.md` 的 `TypeOfName` 是两张表 ✓。
+
 ```ts
+// **数组先认** ✓（它有自己的标签，不是「普通对象」✓）。
+if (value.Tag === ValueTag.Array) return "Array";
+// **函数那一档** ✓：`typeof` 给 `"function"` ✓，这里的标签是 `"Function"` ✓。
+// **它排在「带可调用载荷的对象」那一条抛之前** ✗，见下面那一条的说明 ✓。
+if (value.IsCallable()) return "Function";
+if (value.Tag === ValueTag.HostRef) return "Function";
+// **其余原始值**（第 228 轮 ✓）：`typeof` 的名字首字母大写就是 JS 的标签 ✓
+// （`"number"` → `"Number"` ✓、`"string"` → `"String"` ✓、`"boolean"` → `"Boolean"` ✓、
+//  `"undefined"` → `"Undefined"` ✓、`null` → `"Null"` ✓、`"symbol"` → `"Symbol"` ✓）。
+// **`null` 与 `undefined` 不在这里** ✗：`InvokeGlobal` 那两支**先**把它们答掉了 ✓
+// （`Object.prototype.toString.call(null)` 是 `"[object Null]"` ✓）。
+if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) return "Number";
+if (value.Tag === ValueTag.String) return "String";
+if (value.Tag === ValueTag.Bool) return "Boolean";
+if (value.Tag === ValueTag.Symbol) return "Symbol";
 // **可调用对象**（`String` / `Number` / `Function` 那些宿主载荷 ✓）：JS 印源码文本 ✗。
 if (table.Get(value.Ref).Host !== null) {
   throw new Error("unimplemented: Object.prototype.toString of a callable object (JS renders source text)");
@@ -688,9 +790,15 @@ if (id === PowId) {
 
 ```ts
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
-  "RangeError", "Array", "Number", "String", "Boolean", "Promise", "parseInt", "parseFloat", "NaN", "Infinity",
-  "isNaN", "isFinite", "globalThis"];
+  "RangeError", "Array", "Number", "String", "Boolean", "Promise", "Function", "parseInt", "parseFloat", "NaN",
+  "Infinity", "isNaN", "isFinite", "globalThis"];
 ```
+
+**`Function` 是第 228 轮加进来的** ✓（与 `Boolean` / `Promise` 那两条同一个理由 ✓）：
+名单里没有它，`Function.prototype` 这个写法在**降级期**就报
+`name is not a local or a capture: Function` ✓——那句话听起来像脚本写错了变量名 ✗，
+其实是名单少了一个名字 ✓。**它同时是「`f.call` 那条路」的另一半** ✓
+（前一半是闭包身上的 `Proto` ✓，见 `vm.xl.md` 的 `MakeClosure` ✓）。
 
 **`Promise` 是第 185 轮加进来的** ✓（与 `Boolean` 那条同一个理由 ✓）：
 名单里没有它，`Promise.resolve(1)` 在**降级期**就报
@@ -847,7 +955,7 @@ return MakeNumber(value);
 return MakeNumber(ToNumberOf(room, call, protos, table, value));
 ```
 
-# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink)=>Value
+# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null)=>Value
 
 **全局内建的分派与实现**。
 
@@ -1119,6 +1227,104 @@ if (id === ErrorToString) {
   }
   if (!room(ObjectCharge + CodeUnitCharge * errorText.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(errorText)));
+}
+if (id === FunctionCall || id === FunctionApply) {
+  // **`Function.prototype.call` / `apply`**（第 228 轮 ✓）：`self` 是**被调的那个函数** ✓
+  //（`greet.call(o, 1, 2)` 里 `self` 就是 `greet` ✓——方法调用的 `this` 是接收者 ✓，
+  // 而这里接收者正好就是那个函数 ✓）。
+  //
+  // **可调性要判** ✓（`IsCallableValue` ✓，第 145 轮）：`Function.prototype.call.call(1)`
+  // 在 JS 里是 `TypeError` ✓——用 `IsCallable()`（不带堆的那一半 ✗）会漏掉
+  // 「带载荷的对象」那一档 ✓（`Array.call(...)` 是能调的 ✓），
+  // 而漏掉它的症状是**静默**换了语义 ✗，与 `[1, 2].map(String)` 那条同型 ✓。
+  if (!IsCallableValue(table, self)) {
+    throw new TypeError("Function.prototype.call/apply called on a non-function");
+  }
+  if (call === null) {
+    throw new Error("Function.prototype.call needs a call channel (the host must pass one)");
+  }
+  // **`thisArg` 的缺省是 `undefined`** ✓（JS 的口径 ✓）：`f.call()` 是「不给 `this`」✓
+  // ——不是「`this` 是 `undefined` 这个**值**」那种区别在本仓里看不出来 ✓（不装箱 ✓）。
+  const invokedThis = args.length > 0 ? args[0] : Value.Undefined();
+  let invokedArgs: Value[] = [];
+  if (id === FunctionCall) {
+    // **`call`：`args[1..]` 就是实参表** ✓——逐个搬进一个新数组 ✓。
+    for (let i = 1; i < args.length; i++) invokedArgs.push(args[i]);
+  } else {
+    // **`apply`：第二格**就是实参表 ✓。
+    // **只认真的数组** ✗（JS 还认「类数组」✓）：`apply(self, {length: 2, 0: 1, 1: 2})`
+    // 在 JS 里是 `1,2` ✓、这里**响亮地抛** ✓——先算「还没做」的那一档，
+    // 比**静默**当成零个实参好 ✓（那种错值最难查 ✓）。
+    if (args.length > 1 && args[1].Tag !== ValueTag.Undefined && args[1].Tag !== ValueTag.Null) {
+      if (args[1].Tag !== ValueTag.Array) {
+        throw new Error("unimplemented: Function.prototype.apply needs an array (array-likes are not supported)");
+      }
+      const supplied = table.Get(args[1].Ref).AsArray();
+      for (let i = 0; i < supplied.GetLength(); i++) invokedArgs.push(supplied.GetAt(i));
+    }
+  }
+  return call(self, invokedThis, invokedArgs);
+}
+if (id === FunctionBind) {
+  // **`Function.prototype.bind`**（第 228 轮 ✓）——与 `call` / `apply` 不同 ✗：
+  // 它**造一个新值** ✓，造出来的那个要能被调 ✓、而且调它时用的是**绑定时的** `this` ✓。
+  //
+  // **本仓怎么造** ✓：一个**普通对象** ✓ + `AttachCallable` 那一格载荷 ✓（第 145 轮 ✓）
+  // + 三格**隐藏自有属性** ✓（目标 / `this` / 已绑定的实参 ✓，见 `BoundTargetKey` ✓）。
+  // **为什么隐藏** ✗：`Object.keys(f.bind(o))` 在 JS 里是**空数组** ✓——
+  // 挂成普通属性的话它当场变成 3 ✗（**静默错值** ✗，与 `Object.prototype` 那几格同一条规矩 ✓）。
+  if (!IsCallableValue(table, self)) {
+    throw new TypeError("Function.prototype.bind called on a non-function");
+  }
+  // **三格一起问 room** ✓（一个对象头 + 三个属性 + 值 + 一个实参数组 ✓）：
+  // 分三次问会在中间那一次分配之后留下**没有根保护的中间值** ✗（与 `TextUnitsOf` 那条同一个坎 ✓）。
+  if (!room(ObjectCharge * 2 + PropertyCharge * 3 + ValueCharge * 4 + (args.length + 1) * ValueCharge)) {
+    throw new Error("out of room");
+  }
+  const boundArgs = NewPlainArray(room, table, protos);
+  const boundElements = table.Get(boundArgs.Ref).AsArray();
+  for (let i = 1; i < args.length; i++) boundElements.Push(args[i]);
+  table.Recount(boundArgs.Ref);
+  const bound = NewPlainObject(room, table, protos);
+  table.AttachCallable(bound.Ref, BoundCall, 0);
+  // **绑定出来的东西的原型是 `Function.prototype`** ✓（第 228 轮 ✓）：
+  // JS 里 `f.bind(o)` 返回的是一个**函数** ✓，所以 `bound.call(...)`、
+  // `bound.bind(...)`、`bound.length`（本仓没做 ✓）都从那一格上找 ✓。
+  // **不给这一格就是「一半对」** ✗：`bound(2)` 能跑 ✓、而 `bound.call(o, 2)` 报
+  // `calling a non-closure value` ✗——那句话听起来像调用写错了 ✓，
+  // 其实是**这一格没人填** ✓（与闭包那一格第 228 轮修的是同一个形状 ✓）。
+  table.Get(bound.Ref).Proto = protos.Function;
+  SetHiddenProperty(room, table, bound, BoundTargetName(table), self);
+  SetHiddenProperty(room, table, bound, BoundThisName(table),
+    args.length > 0 ? args[0] : Value.Undefined());
+  SetHiddenProperty(room, table, bound, BoundArgsName(table), boundArgs);
+  return bound;
+}
+if (id === BoundCall) {
+  // **调一个绑定出来的函数** ✓（第 228 轮 ✓）：`self` 是**那个绑定对象** ✓
+  //（`DoCallValue` 与 `CallNative` 都把接收者当 `this` 递进来 ✓——见 `vm.xl.md` ✓），
+  // 三样东西从它自己的隐藏属性里取 ✓。
+  if (!self.IsObject()) {
+    throw new Error("a bound function must be an object (the engine passes the receiver as this)");
+  }
+  const boundTarget = GetProperty(room, NeverCall, protos, table, self, BoundTargetName(table));
+  if (!IsCallableValue(table, boundTarget)) {
+    throw new Error("a bound function lost its target");
+  }
+  const boundSelf = GetProperty(room, NeverCall, protos, table, self, BoundThisName(table));
+  const storedArgs = GetProperty(room, NeverCall, protos, table, self, BoundArgsName(table));
+  if (call === null) {
+    throw new Error("a bound function needs a call channel (the host must pass one)");
+  }
+  // **已绑定的实参在前、调用时给的在后** ✓（JS 的口径 ✓）：
+  // `f.bind(o, 1)(2)` 调的是 `f(1, 2)` ✓——写反了是**静默错值** ✗。
+  const merged: Value[] = [];
+  if (storedArgs.Tag === ValueTag.Array) {
+    const stored = table.Get(storedArgs.Ref).AsArray();
+    for (let i = 0; i < stored.GetLength(); i++) merged.push(stored.GetAt(i));
+  }
+  for (let i = 0; i < args.length; i++) merged.push(args[i]);
+  return call(boundTarget, boundSelf, merged);
 }
 if (id === ObjectValueOf) {
   // **返回接收者自己** ✓（第 198 轮 ✓，与 `NumberValueOf` 同一条口径 ✓）——
@@ -2556,6 +2762,45 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
   Value.FromString(table.CreateString(Units("valueOf"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanValueOf, 0)));
+// **`Function` 与它的原型**（第 228 轮 ✓）——`FunctionCall` / `FunctionApply` / `FunctionBind`
+// 三格就挂在这里 ✓。
+//
+// **它为什么现在才出现** ✗：`f.call(...)` 这条写法要两件事同时成立 ✓——
+// ① 闭包身上有 `Proto` ✓（第 228 轮在 `vm.xl.md` 的 `MakeClosure` 补上了 ✓：
+//    原来 `typeof greet.call` 给 `"undefined"` ✓，报的是 `calling a non-closure value` ✗）；
+// ② `protos.Function` 上**真的挂着**那三格 ✓（这一处 ✓）。
+// **两件缺一件都不行** ✗：只补①就是「找得到原型、原型上什么都没有」✓（还是 `undefined` ✓）。
+//
+// **`Function` 是「普通对象 + 可调用载荷」** ✓（与 `Array` / `Number` / `String` 同款 ✓）：
+// 于是 `Function.prototype === Function.prototype` 成立 ✓、`typeof Function` 给 `"function"` ✓。
+// **`new Function("…")` 不做** ✗（那是编译期的事 ✓）——载荷落在 `FunctionCtor` 那一格上，
+// 而 `FunctionCtor` 在 `InvokeGlobal` 里**没有分支** ✓ ⇒ 调它报
+// `unimplemented: builtin id 343` ✓（**响亮地说「没做」** ✓，不是静默给 `undefined` ✓）。
+const functionObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(functionObject.Ref, FunctionCtor, 0);
+const functionKey = Value.FromString(table.CreateString(Units("Function")));
+SetProperty(vm.Room(), NeverCall, table, globals, functionKey, functionObject);
+SetProperty(vm.Room(), NeverCall, table, functionObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.Function));
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Function), NameValue(table, "constructor"),
+  functionObject);
+// **三格方法** ✓：`call` / `apply` / `bind` ✓——**隐藏挂** ✓（与 `Object.prototype` 那三格同一条
+// 规矩 ✓：`for..in` 不该看见它们 ✓，而 `Object.keys(Function.prototype)` 在 JS 里是空数组 ✓）。
+//
+// **`BoundTargetKey` / `BoundThisKey` / `BoundArgsKey` 三格字符串也要造** ✓
+// （它们是**属性名**，脚本看不见 ✓、也没有人会念出它们 ✓）——造在 `protos.Function` 上
+// 是**故意的** ✗（`GetProperty` 从接收者沿链找 ✓，而 `bound` 那个对象的原型就是 `protos.Object` ✓，
+// 根本到不了这里 ✓）。真正需要它们的是 `BoundCall` 那一支里那句
+// `Value.FromString(BoundTargetKey)` ✓——**同一个句柄、同一张表的两处** ✓。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
+  Value.FromString(table.CreateString(Units("call"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionCall, 0)));
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
+  Value.FromString(table.CreateString(Units("apply"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionApply, 0)));
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
+  Value.FromString(table.CreateString(Units("bind"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionBind, 0)));
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);

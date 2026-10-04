@@ -1,4 +1,4 @@
-﻿// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
+// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
 //
 // 两栏：
 //   - `expect`: `"blocked"`（进不了门）/ `"differ"`（跑得出来但结果不同）——两者都算**没覆盖**；
@@ -13,8 +13,9 @@ export const EXPECTATIONS = {
   // ===== runtime：引擎与语言层手里的那几张表 =====
   "op-typeof-forms": { expect: "blocked", why: "发现于第 211 轮：`typeof {}` / `typeof []` 这一类在 **token 层**就把 `typeof` 留成了兄弟单元（`TypeOfKeyword` ✗），对象字面量那一段与它对不上——`typeof <标识符>` 一直是好的 ✓" },
   // ===== 第 219 轮补的一批：新盖到的形状里有四条是缺口（另六条当场通过）=====
-  "fn-call-apply-bind": { expect: "blocked", why: "`Function.prototype.call` / `apply` / `bind` 都没装（`greet.call(o, 1, 2)` 报 `calling a non-closure value`）——它们在普通 `.ts` 里很常见" },
-  "exc-throw-in-callback": { expect: "differ", why: "**回调里抛的异常没有立刻中断 `forEach`**：第 3 项**照跑**了（本仓 `13|caught:cb2|fin`，node `1|caught:cb2|fin`）——属于**静默**那一类。**第 220 轮量清范围**：语言内建的回调（`forEach` / `map` / 谓词族 / `sort` 比较器）都这样，引擎那一层的 `for..of` **是对的**。**第 222 轮找到根子**：`vm.xl.md` 的 `CallNative` 注释里写着它为什么「不需要额外清理」——「重入期间出事时调用方的结果会被丢掉，因为控制流已经不在那条指令上了」。**那句话对 rt 算子成立 ✓、对语言内建不成立** ✗：内建是**宿主的 JS 循环** ✓，它不知道状态已经变了 ✓，于是接着转下一圈 ✓（`call` 给回 `undefined` ✓，循环把这个 `undefined` 当成回调的返回值继续用 ✗）。所以修法是**让内建停下来** ✓——而「抛一个宿主异常出去」这条路第 153 轮试过 ✗（包进 `Guard` 会连构造函数/宿主函数里的错也变成脚本异常 ✗，判据当场红三条 ✗），要走一条**幂等**的路（把已记录的那份原样交出去、不抬第二次 ✓）。" },
+  // **第 228 轮删掉了 `fn-call-apply-bind` 那一行** ✓（它过了 ✓）：根子是**闭包没有 `Proto`** ✗
+  // （`vm.xl.md` 的 `MakeClosure` 补上了 ✓），另一半是 `Function.prototype` 上那三格
+  // （`call` / `apply` / `bind` ✓，`globals.xl.md` 挂的 ✓）。
   "gen-try-finally": { expect: "blocked", why: "同 `gen-basics`：生成器对象的 `next()` 调不动（`calling a non-closure value`）——`for..of` / 展开那两条路是好的" },
   "cls-inherited-accessor": { expect: "blocked", why: "同 `ex-getter-setter-class`：`super.v` **属性访问**没做（`super` 只做了方法调用那一格 ✓——`super.m(...)` 那条路第 104 轮就通了 ✓）。**第 224 轮查清为什么它不是个小改动**：JS 的 `super.v` 是「**从父原型开始找**、但 `this` 还是当前实例」✗，而本仓现成的两件都不够用——`GetProperty(receiver, key)` 从**接收者**开始找 ✗（它会先命中实例自己的那一格 ✗），`FindProperty(句柄, key)` 也只能「从这个句柄开始沿链找」 ✓ 而 `ReadProperty(..., receiver)` 的 `receiver` 是**读出来的那一格**用的 ✓。要凑齐「起点是父原型 + 读的时候 `this` 是实例」这两件事，得给引擎加一条**带接收者的、从指定原型起读**的入口 ✗（不然父原型上的访问器会拿到 `this = 原型` ✗，是**静默错值** ✗）。" },
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
@@ -47,7 +48,10 @@ export const EXPECTATIONS = {
   "object-freeze": { expect: "blocked", why: "**口径分歧**：本仓对只读属性**抛**（严格模式），node 把 `.ts` 当 CJS 跑是**松散模式**静默失败" },
   "object-freeze-array-element": { expect: "differ", why: "**静默错值**：冻住的数组还能 `push`（要动引擎的写屏障）" },
   "object-tostring-tag": { expect: "blocked", why: "`Object.prototype.toString` 只答了能证的那一格，`call` 这条形状过不去" },
-  "symbol-concat-throws": { expect: "differ", why: "发现于第 215 轮：`\"x\" + Symbol()` 与模板串里插符号**抛的是 `Error`**（JS 是 `TypeError`）——语言层那几处 `throw` 没有类别，与「引擎抛的也要是 TypeError」那条同源" },
+  // **第 228 轮删掉了 `symbol-concat-throws` 那一行** ✓（它过了 ✓）：`TextUnitsOf` 对符号
+  // 抛的是**宿主的 `TypeError`** ✓，而 `Guard` 现在按**宿主异常的类**认类别 ✓
+  // （`ErrorKindType` / `ErrorKindRange` ✓），`tsrun` 的错误工厂把它翻成脚本的那一族 ✓——
+  // 原来一律造 `Error` ✗（判据 `symbol-concat-throws` 现场红的 ✓）。
   "symbol-hasinstance": { expect: "blocked", why: "类上的**计算成员名**（`static [Symbol.hasInstance]`）降级不出来" },
   "symbol-tostringtag": { expect: "blocked", why: "`Symbol.toStringTag` 没装" },
   "symbol-description": { expect: "differ", why: "第 217 轮查清：`Symbol.prototype.description` 是**访问器**，要挂在符号的**原型**上——而 `Protos` 表里**没有符号那一格**（`Protos` 只有对象/数组/字符串/数/布尔/集合/错误那几族），所以这一格要**先给引擎加一个符号原型**（与 `Number.prototype` 让原始值读得到方法那条路同源）。这一轮只把根子写清，没动引擎。" },

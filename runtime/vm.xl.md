@@ -54,6 +54,16 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 换一门语言（Python 的 `TypeError` 也是这个名字，但 Dart 不是 ✓）就得改引擎 ✓——
 而这一层存在的全部意义就是「引擎不认识语言」✓。
 
+# const ErrorKindRange:int = 2
+
+**一次「范围」失败**（第 228 轮 ✓）：JS 那边这一类是 **`RangeError`** ✓。
+
+**它为什么现在才出现** ✗：`ErrorKindType` 是第 139 轮为「引擎自己认出类型错」加的 ✓，
+而**语言层（建库层）抛的 `RangeError`** 原来走的是**另一条路** ✓
+（宿主通道的 `RaiseFromHost` ✓，第 227 轮已经按宿主的类映射过了 ✓）。
+这一格补的是**引擎自己**那条路 ✓——两处各管各的一半 ✓，
+判据 `array-reduce` / `symbol-concat-throws` 量的正是**后者**那一条 ✓。
+
 # type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker)=>Value
 
 # type TaskScheduler = (promise:Value, callback:Value, args:Array<Value>, result:Value, wants:number, carry:boolean, onRejected:Value)=>void
@@ -165,6 +175,16 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 
 `try_push` 时**当前帧**的句柄。
 
+## field Depth:int = 0
+
+`try_push` 时那一帧**在栈上的层深**（第 228 轮 ✓）。
+
+**它为什么必须记下来** ✗：异常展开到「最外面的那个处理点」时，
+**外面那条语言内建的循环必须收摊** ✓（`CallFailed` ✓）——而「外面」这件事
+只有**层深**说得清 ✓：处理点的层深 **≤** 重入那一段的起点层深 ⇒ 它在外层 ✓
+（这一趟重入整个被展开了 ✓）。**记 `Frame` 句柄不够** ✗：
+句柄能回答「那一帧还在不在栈上」✓，答不了「它在不在**我这一层**之上」✗。
+
 ## field Pc:int = 0
 
 出事时要跳到的指令（从异常表那一项抄下来）。
@@ -173,9 +193,14 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 
 记一个处理点。
 
+**`Depth` 从 0 起、由 `try_push` 填** ✓（第 228 轮 ✓）：构造参数里**不加它** ✗——
+那会让每一个 `new HandlerEntry(` 的调用点都要多传一格 ✓，而写它的地方只有一个 ✓
+（`Op.TryPush` 那一支 ✓，那里正好知道层深 ✓）。
+
 ```ts
 this.Frame = frame;
 this.Pc = pc;
+this.Depth = 0;
 ```
 
 # class NativeTask
@@ -515,6 +540,43 @@ return result;
 
 当前状态。
 
+## field Throws:int = 0
+
+**这台机器一共抛过几次**（第 228 轮 ✓）——一个只增不减的计数 ✓，`CallFailed` 的第二半靠它 ✓。
+
+**为什么是「计数」而不是「一个布尔标志」** ✗：要回答的问题是
+「**这一次**重入里出过事没有」✓，而一个布尔标志回答的是「**曾经**出过事没有」✗——
+后者会被**上一次已经处理掉的**异常污染 ✓（实测现场：`try { throw } catch {}` 之后，
+后面每一次 `map` / `forEach` 都读到「真」✓，于是内建全都提前收摊 ✗）。
+计数一减就知道这一次有没有变 ✓（`CallNative` 在压帧前后各读一次 ✓）。
+
+**`int` 会不会溢出** ✗：它是 `i32` ✓，而一次运行里抛过二十几亿次异常是不可能的 ✓
+（`StepBudget` 先到 ✓）。
+
+## field NativeFailed:boolean = false
+
+**上一次 `CallNative` 里出过事**（第 228 轮 ✓）——`CallFailed` 的第一半 ✓。
+
+**它只用来说明「刚刚那一次重入」** ✓，所以**每次重入都会整个覆盖写** ✓
+（不是「置真之后留着」✗，见 `Throws` 那一段 ✓）。
+
+## field NativeEscaped:boolean = false
+
+**刚刚那一次展开跨过了「重入那一段」的边界**（第 228 轮 ✓）——`CallFailed` 的第三半 ✓。
+
+**它补的是 `Throws` 那一半漏掉的路** ✗：回调**不一定**走 `CallNative` ✓——
+语言内建**直接调**闭包时走的是 `DoCallValue`（压帧 + 分派循环 ✓），
+那条路上 `Throws` 一个数都没变 ✓（现场：`sort` 的比较器里抛 ✓，
+而同一次运行里**在它前面**已经抛过一次、还被脚本接住了 ✓ ⇒ 计数没变 ✓ ⇒ 内建照旧转下一圈 ✗）。
+
+## field NativeBoundary:int = 0
+
+**当前这一趟 `RunToDepth` 的起点层深**（第 228 轮 ✓）——`DoThrow` 拿它判
+「处理点是不是在外层」✓（见 `HandlerEntry.Depth` ✓）。
+
+**它由 `RunToDepth` 每一趟写** ✓：一趟里 `Frames.Depth()` 会变 ✓，
+可这个边界**从头到尾不动** ✓（它就是「我这一趟从哪一层开始的」✓）。
+
 ## constructor:(table:HeapTable, heapLimit:int, stepBudget:int)=>void
 
 造一台机器。上限与预算都在这里定死。
@@ -543,6 +605,10 @@ this.MakeError = null;
 this.StepBudget = stepBudget;
 this.Steps = 0;
 this.Status = VmStatus.Ready;
+this.Throws = 0;
+this.NativeFailed = false;
+this.NativeEscaped = false;
+this.NativeBoundary = 0;
 ```
 
 ## method Code:()=>Program
@@ -757,6 +823,12 @@ return this.RunToDepth(0);
 
 ```ts
 if (this.Program === null) throw new Error("no program loaded");
+// **这一趟的边界** ✓（第 228 轮 ✓）：`DoThrow` 拿它判「处理点是不是在我这一层之上」✓
+// （见 `HandlerEntry.Depth` 与 `CallFailed` ✓）。
+// **写在外面还是里面都一样** ✗（一趟里它不动 ✓），写在循环前面是为了让「它属于这一趟」
+// 这件事一眼看得见 ✓。**退出时不用还原** ✓：下一趟进来会重新写 ✓
+// （`RunToDepth` 是**唯一**的入口 ✓——`Run` 只是 `depth = 0` 那一档 ✓）。
+this.NativeBoundary = depth;
 this.Status = VmStatus.Ready;
 while (this.Status === VmStatus.Ready) {
   if (this.Frames.Depth() <= depth) {
@@ -819,6 +891,13 @@ if (instr.Op === Op.Throw) {
 }
 if (instr.Op === Op.TryPush) {
   this.Handlers.push(new HandlerEntry(this.Frames.TopHandle(), this.Code().Handlers[instr.A].HandlerPc));
+  // **在册的时候顺手记下它的层深** ✓（第 228 轮 ✓）：这一个数就是
+  // 「重入那一段跑完时要不要收摊」的判据 ✓（见 `DoThrow` / `NativeBoundary` ✓）。
+  // **在这里算一次是最省的** ✗：展开那一刻帧栈正在变 ✓，而 `try_push` 这一刻
+  // 它正好就是 `Frames.Depth() - 1` ✓——一个减法 ✓，一趟线性扫都省了 ✓。
+  // **为什么不能等展开时算** ✗：`DoThrow` 里那一趟扫是**每一次抛异常**都要付的 ✓，
+  // 而这条路径本来就贵（它连着处理点搜索 ✓）——能少扫一趟就少一趟 ✓。
+  this.Handlers[this.Handlers.length - 1].Depth = this.Frames.Depth() - 1;
   return;
 }
 if (instr.Op === Op.TryPop) {
@@ -975,12 +1054,16 @@ const count = this.CallArgCount(frame, argBase, argc, argArray);
 //（`String(1)` 里的 `String` 是**对象**——它还要能挂静态属性 ✓，见 `heap.xl.md`
 // 的 `AttachCallable` 那一段 ✓）。两者走的是**同一条**宿主通道 ✓——
 // 判据收在 `IsHostCallable` 一处 ✓，取参数与展开也各只有一份 ✓。
+//
+// **对象那一档的 `this` 给「它自己」** ✓（第 228 轮，与 `CallNative` 里那条同一条口径 ✓）：
+// `bind` 造出来的函数要靠 `self` 才读得到自己那三格 ✓。
 if (this.IsHostCallable(callee)) {
   const args: Value[] = [];
   for (let i = 0; i < count; i++) {
     args.push(this.CallArgAt(frame, argBase, argArray, i));
   }
-  const produced = this.CallHostValue(callee, thisValue, args);
+  const hostThis = callee.Tag === ValueTag.Object ? callee : thisValue;
+  const produced = this.CallHostValue(callee, hostThis, args);
   // **`null` 表示展开已经发生** ✓（宿主请求了一次脚本站内异常 ✓）：**连结果都不许写** ✗——
   // 写下去会盖掉处理点正要用的那一格 ✓（原来那版在这里 `return`，正是为了这一条 ✓）。
   if (produced === null) return;
@@ -1362,7 +1445,23 @@ return value;
 
 **一个处理点都不剩**就把状态置成 `Threw`——异常值留在 `Pending` 里给宿主。
 
+**第一件事是给 `Throws` 加一** ✓（第 228 轮 ✓）：**展开到处理点**那一支（下面那个 `return` ✓）
+不会改 `Status` ✓——可是**外面那些语言内建必须知道这一次重入出事了** ✗
+（见 `CallFailed` ✓：没有这一格的话，`try { xs.forEach(抛) } catch {}` 里
+`forEach` 会接着把剩下几项跑完 ✓，而那个 `catch` 明明已经接住了 ✓）。
+**加一而不是置一个标志** ✗：`CallNative` 比的是**前后两个数** ✓——
+置标志的话，上一次**已经被脚本处理掉**的那一抛会一直留着 ✓，把后面每一次内建都骗了 ✗。
+
+**第二件事是判「这一次展开有没有跨过重入那一段的边界」** ✓（第 228 轮 ✓）：
+处理点的层深**小于等于** `NativeBoundary` ⇒ 它在外层 ✓ ⇒ `NativeEscaped` 置真 ✓
+（`CallFailed` 的第三半 ✓）。**为什么非它不可** ✗：回调不一定走 `CallNative` ✗——
+语言内建**直接调**闭包时走的是 `DoCallValue`（压帧 + 分派循环 ✓），
+那条路上 `Throws` 根本没变过 ✓（现场：`sort` 的比较器里抛，而同一次运行里
+在它前面已经抛过一次、被脚本接住了 ✓ ⇒ 计数没变 ⇒ 内建照旧转下一圈 ✗）。
+**层深是唯一说得清「在外层」的东西** ✓：帧句柄只答得了「那一帧还在不在栈上」✗。
+
 ```ts
+this.Throws = this.Throws + 1;
 this.Pending = value;
 while (this.Handlers.length > 0) {
   const entry = this.Handlers[this.Handlers.length - 1];
@@ -1372,6 +1471,8 @@ while (this.Handlers.length > 0) {
   while (this.Frames.Depth() > depth + 1) {
     this.Frames.Pop();
   }
+  // **跨过重入那一段的边界了吗** ✓：处理点在外层（层深 ≤ 边界）⇒ 这一段整个被展开了 ✓。
+  if (depth <= this.NativeBoundary) this.NativeEscaped = true;
   this.Frames.Current().Pc = entry.Pc;
   return;
 }
@@ -1380,6 +1481,9 @@ while (this.Handlers.length > 0) {
 // 留着那些死帧，宿主下一次调用会压在它们上面：被调方返回时 `Frames.IsEmpty()`
 // 是假，于是返回值写进了**死帧的槽**——宿主导到的结果是 `undefined`，
 // 而「错」离现场几百条指令（判据报的是「`finally` 里的写读回来还是 0」）。
+//
+// **这条路上当然也跨过了** ✓：一个处理点都不剩 ⇒ 连最外层那一帧都没接住 ✓。
+this.NativeEscaped = true;
 this.Frames.Clear();
 this.Status = VmStatus.Threw;
 ```
@@ -1743,7 +1847,10 @@ if (id === RtOp.ToNumber) {
 }
 if (id === RtOp.Typeof) {
   RequireArgc(argc, 1, "typeof");
-  return this.Guard(() => RtTypeOf(this.Room(), this.Table, slots[base]));
+  // **原型表也交出去** ✓（第 228 轮 ✓）：`typeof Function.prototype` 要认那两个原型对象 ✓
+  //（它们是普通对象 ✓，只有 `protos` 认得出 ✓）——见 `RtTypeOf` 那一段 ✓。
+  // **它是第四个实参、而且可省** ✓：判据直接调这一条时不用改 ✓（那边是三个实参 ✓）。
+  return this.Guard(() => RtTypeOf(this.Room(), this.Table, slots[base], this.Protos));
 }
 if (id === RtOp.In) {
   RequireArgc(argc, 2, "in");
@@ -1827,6 +1934,65 @@ return (callee: Value, thisValue: Value, args: Value[]) =>
   this.CallNative(callee, thisValue, args);
 ```
 
+## method CallFailed:()=>bool
+
+**上一次重入是不是「没跑完」**（第 228 轮 ✓）——语言内建每一轮回调之后问它一句 ✓，
+真就**立刻收摊** ✓。
+
+**这一格回答的正是台账里那条老账** ✓（`exc-throw-in-callback` ✓，第 219 / 220 / 222 轮
+量了三遍 ✓）：**回调里抛了异常，内建的循环还在转** ✗——因为内建是**宿主的 JS 循环** ✓
+（`Array.prototype.forEach` 那一族 ✓），而它拿到的是一个**看起来正常的** `undefined` ✓
+（`CallNative` 在状态被改之后就是给 `undefined` ✓）。
+
+**为什么不是一个「把异常抛给内建」的机制** ✗：那条路第 153 轮试过 ✓
+（「从内建里抛宿主异常出去」+ 把整条调用包进 `Guard` ✗，判据当场红三条 ✗）。
+**这是一条纯查询** ✓：不问不改 ✓，两个问题各归各的 ✓——
+「引擎要不要停」由引擎的状态答 ✓，「内建要不要收摊」由内建自己决定 ✓。
+
+**判据有三半，缺一不可** ✗（第二、三半都是第 228 轮实测**逼出来**的 ✓）：
+
+1. **状态不在 `Ready` / `Halted`** ✓（`Threw` ✓、`OutOfMemory` ✓、`OutOfSteps` ✓）；
+2. **`NativeFailed`** ✓——「**上一次重入里出过事**」✓（重入里抛过 ✓，或者展开跨过了它的边界 ✓）；
+3. **`NativeEscaped`** ✓——「展开**跨过了重入那一段的边界**」✓。
+
+**为什么光看状态不够** ✗（实测的现场 ✓）：`[1,2,3].forEach(v => { if (v === 2) throw })`
+里那个箭头函数跑在**重入帧**上 ✓，而 `try` 的**处理点在更外面那一帧** ✓——
+`DoThrow` 于是**展开到处理点** ✓（`DoThrow` 那一段 ✓），
+`RunToDepth` 醒过来看见的是**正常的 `depth` 边界** ✓，于是**把状态留在 `Ready`** ✗。
+外面那一段循环看到的是一次「正常返回」✓，接着转下一圈 ✗——**状态判据在那一档上完全看不见** ✓。
+
+**第二半为什么是「这一次」而不是一个布尔标志** ✗（第一版就是布尔标志 ✓，**实测当场变红** ✗）：
+`try { throw … } catch { … }` 里那一抛**已经被脚本处理掉了** ✓——脚本接着往下跑 ✓，
+而它后面每一次 `map` / `forEach` 都会读到一个**没被清掉的「真」** ✗
+（现场：`Object.entries(…).map(…)` 返回 `undefined` ✓，于是 `.join` 报
+`cannot read properties of undefined` ✓——**离现场很远** ✗）。
+**所以记的是「计数」** ✓：`CallNative` 在**压帧之前**记下 `Throws` ✓、**醒来之后**比一次 ✓——
+变了就是这一次出的 ✓；上一次已经处理掉的那些**不在这两个数之间** ✓。
+**为什么不在这里清那个标志** ✗：读它的**不止一处** ✓
+（`forEach` 与外面那一层 `Array.from` 可能都在问 ✓）——清一次会把**外面那一层**骗过去 ✗
+（它问到的永远是「假」，于是照旧多跑 ✓）。
+
+**第三半为什么还要单独一格** ✗（第二版只比计数 ✓，**又当场变红** ✗）：
+回调**不一定走 `CallNative`** ✗——语言内建**直接调**闭包时走的是 `DoCallValue`
+（压帧 + 分派循环 ✓），那条路上 `Throws` **一个数都没变** ✓。
+现场：`[3,1,2].sort((a,b) => { if (…) throw })` 写在一次**已经接住过异常**的 `catch` 之后 ✓
+（`Throws` 在那一抛里已经加过一 ✓）⇒ 计数没变 ⇒ `sort` 照旧把剩下的比较跑完 ✗
+（判据 `exc-throw-in-callback-map-filter` ✓）。
+**「跨过边界」只有层深说得清** ✓：处理点的层深 **≤** 这一趟的起点层深
+（`HandlerEntry.Depth` / `NativeBoundary` ✓）——帧句柄只答得了「那一帧还在不在栈上」✗。
+
+**`Halted` 不算失败** ✗（第 185 轮的口径 ✓）：微任务是在**入口函数返回之后**排空的 ✓，
+那一刻状态正是 `Halted` ✓——把 `Halted` 算成失败的话，`.then(f)` 里 `f` 的返回值
+会被当成「出事了」✗。
+
+**为什么不能靠「返回值」传这件事** ✗：`undefined` 是**合法的回调返回值** ✓
+（`[1, 2].forEach(() => {})` 每次都返回它 ✓），拿它当哨兵就是把正常情况当成异常 ✗。
+
+```ts
+return this.NativeFailed || this.NativeEscaped
+  || (this.Status !== VmStatus.Ready && this.Status !== VmStatus.Halted);
+```
+
 ## method CallNative:(callee:Value, thisValue:Value, args:Array<Value>)=>Value
 
 **重入分派循环**调一个脚本函数，拿它的返回值。访问器（getter / setter）与内建方法
@@ -1854,6 +2020,11 @@ return (callee: Value, thisValue: Value, args: Value[]) =>
    判据当场红三条 ✗（构造函数 / 宿主函数里抛的错也一并变成脚本异常 ✗）。
    要的是「**把状态里已经记录的那一份原样交出去、不抬第二次**」✓。
 
+   **第 228 轮做掉了** ✓，而且**一行内建的循环都没有改** ✓：加的是这一层的一个**查询**
+   （`CallFailed` ✓，就在下面 ✓），内建在每一轮回调之后问它一句 ✓、真就收摊 ✓。
+   **让内建来问、而不是让引擎去猜** ✓：引擎**无从知道**「调用我的那个循环想不想停」✗
+   （它只看见一次普通的重入调用 ✓），而内建**知道自己在循环** ✓。
+
 **可调用对象走同一条**（第 145 轮）✓：`[1, 2].map(String)` 的 `String` 是**对象** ✓，
 所以这一支不压帧、也没有生成器那回事 ✓——直接交给 `CallHostValue` ✓
 （与 `DoCallValue` 那份**同一处** ✓）。
@@ -1862,8 +2033,19 @@ return (callee: Value, thisValue: Value, args: Value[]) =>
 // **可调用对象也要能当回调** ✓（第 145 轮）：`[1, 2].map(String)` 里那个 `String`
 // 是一个**对象** ✓——建库层现在把这种值交进来了 ✓（`IsCallableValue` ✓），
 // 所以这一层要接得住 ✗。三条路（调用 / 构造 / 重入）走的是**同一个** `CallHostValue` ✓。
+//
+// **`this` 给「那个对象自己」** ✓（第 228 轮改 ✓）——原来给的是**调用方那一格** ✗
+// （`[1, 2].map(String)` 这条重入路上它是 `undefined` ✓，`DoCallValue` 那条路上是接收者 ✓）。
+// **为什么非改不可** ✗：`bind` 造出来的那个函数是一个**通知对象** ✓
+// （`AttachCallable` 挂一格载荷 ✓，三样东西藏在它自己的隐藏属性里 ✓），
+// 而它**只有拿到自己**才读得到那三样 ✓——传调用方的接收者，它读的就是**别人的**属性 ✓
+// （症状正是「a bound function lost its target」✓，或者更坏：**读到了别人的绑定** ✗）。
+// **给「对象自己」对原有的那几格没有影响** ✓：`String(x)` / `Array(n)` / `Symbol(…)` / `Date(…)`
+// 都是**按能力号分派**的 ✓，它们的实现**一个字节都不看 `this`** ✓
+// （`globals.xl.md` 的 `InvokeGlobal` 里那几支 ✓）——所以这一改只多给了一条信息 ✓。
 if (this.IsHostCallable(callee)) {
-  const produced = this.CallHostValue(callee, thisValue, args);
+  const hostThis = callee.Tag === ValueTag.Object ? callee : thisValue;
+  const produced = this.CallHostValue(callee, hostThis, args);
   if (produced === null) return Value.Undefined();
   return produced;
 }
@@ -1894,6 +2076,12 @@ if (this.NativeDepth >= MaxNativeDepth) {
 }
 if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge)) return Value.Undefined();
 const depth = this.Frames.Depth();
+// **记下「这一趟开始之前」的两样** ✓（第 228 轮 ✓）：
+//   · `thrownBefore`——一共抛过几次 ✓（回来一比就知道**这一次**重入里出过事没有 ✓）；
+//   · `escapedBefore`——上一趟有没有跨过边界 ✓（这一趟的判据要**重新算** ✗，
+//     不能继承上一次的结论 ✓：上一次要是跨过，后面每一次重入都会被判成「出事」✗）。
+const thrownBefore = this.Throws;
+this.NativeEscaped = false;
 this.NativeDepth = this.NativeDepth + 1;
 this.NativeResult = new Value();
 const handle = this.Frames.Push(closure.Code, info.SlotCount, NativeReturnSlot);
@@ -1907,6 +2095,12 @@ for (let i = 0; i < args.length && i < info.SlotCount; i++) {
 }
 this.RunToDepth(depth);
 this.NativeDepth = this.NativeDepth - 1;
+// **「这一趟里出过事」有两个来源，缺一不可** ✓（第 228 轮 ✓）：
+//   · **计数变了** ✓ —— 重入里抛过（不管最后有没有被接住 ✓）；
+//   · **`NativeEscaped`** ✓ —— 展开**跨过了这一趟的边界** ✓，
+//     它补的是「回调走 `DoCallValue` 而不是 `CallNative`」那条路 ✗
+//     （`sort` 的比较器就是这样 ✓：`Throws` 一个数都没变 ✓，可这一趟整个被展开了 ✓）。
+this.NativeFailed = this.Throws !== thrownBefore || this.NativeEscaped;
 const result = this.NativeResult;
 this.NativeResult = new Value();
 // **`Halted` 也算成功**（第 185 轮 ✓）：微任务是在**入口函数返回之后**排空的 ✓
@@ -2588,7 +2782,18 @@ try {
   }
   // **其余一律试着抬成脚本站内异常**（第 127 轮）：装了工厂才抬 ✓。
   if (this.MakeError !== null) {
-    this.DoThrow(this.MakeError(kind, this.HostText(error)));
+    // **类别先从宿主异常的类里认一次** ✓（第 228 轮 ✓，与 `RaiseFromHost` 那条同源 ✓）：
+    // 调用方给的那一格是**默认值** ✓（`ErrorKindGeneric` ✓），而**宿主异常的类**是
+    // 一条**更硬**的证据 ✓——`"x" + Symbol()` 抛的 `TypeError`（`rt.xl.md` 的
+    // `TextUnitsOf` ✓）在脚本里必须还是 `TypeError` ✓（判据 `symbol-concat-throws` ✓）。
+    // **只认能证明的两族** ✓（`TypeError` / `RangeError` ✓）——别的（宿主自己那套自定义异常 ✓）
+    // 一律落回调用方给的那一格 ✓，**不给近似值** ✓。
+    // **引擎仍然不认识 `"TypeError"` 这几个字母** ✗：它认的是**宿主语言的类** ✓
+    //（那是它自己那一侧的事实 ✓），翻成名字的仍然是语言层 ✓（`tsrun` 的错误工厂 ✓）。
+    let effectiveKind = kind;
+    if (error instanceof TypeError) effectiveKind = ErrorKindType;
+    else if (error instanceof RangeError) effectiveKind = ErrorKindRange;
+    this.DoThrow(this.MakeError(effectiveKind, this.HostText(error)));
     return Value.Undefined();
   }
   throw error;
@@ -2599,8 +2804,35 @@ try {
 
 造闭包（走 `Guard`：它要分配）。
 
+**闭包要挂上 `Function.prototype`** ✓（第 228 轮 ✓）——这是**所有脚本函数**出生的那一道门 ✓
+（降级层每个函数声明 / 函数表达式 / 箭头 / 方法都发 `new_closure` ✓，见
+`typescript-exec/lowering.xl.md` ✓）。
+
+**为什么在这里、不在建库层** ✗：`Function.prototype.call` / `apply` / `bind` 是**属性读**
+（`greet.call` ✓）——走的正是「接收者自己的 `Proto` 沿链找」那条路 ✓
+（`props.xl.md` 的 `GetProperty` ✓）。闭包算 `IsObject()` ✓、也带着一格 `Proto` ✗，
+**只是从来没有谁给它填过** ✓——于是 `typeof greet` 是 `"function"` ✓ 而
+`typeof greet.call` 是 `"undefined"` ✗，调它报的是
+`calling a non-closure value` ✓（那句话听起来像调用写错了 ✗，其实是**这一格没人填** ✓，
+与第 150 轮数字 / 布尔那两格的原型**同一个形状** ✓）。
+
+**为什么收在这一处而不是 `rt.xl.md` 的 `RtNewClosure`** ✗：`rt` 层拿不到 `Protos`
+（依赖方向是 `props → rt` ✓，`Protos` 住在 `props` ✓）——硬塞进去就是一次分层倒置 ✓。
+`Protos` 是**这台机器**的 ✓，而这一处正好有它 ✓。
+
+**`Protos` 还没装时不动** ✓（与 `DoNew` 的 `Object` 那一格同一条口径 ✓：
+没接上时不说谎，只是不特殊 ✓）。
+
 ```ts
-return this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code));
+const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code));
+// **`Guard` 可能什么都没造出来** ✓（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined` ✓）——
+// 那种情况下再去读 `Ref` 会撞上「这不是一个引用值」✗，而那句话离现场很远 ✓。
+if (!created.IsRef()) return created;
+const protos = this.Protos;
+if (protos !== null && protos.Function > 0) {
+  this.Table.Get(created.Ref).Proto = protos.Function;
+}
+return created;
 ```
 
 # method RequireArgc:(actual:int, expected:int, name:string)=>void
