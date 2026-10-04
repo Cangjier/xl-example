@@ -1111,7 +1111,22 @@ if (id === JsonParse) {
 }
 if (id === JsonStringify) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
-  const rendered = JsonText(table, target, 0, false);
+  // **第三、四个实参：缩进**（第 192 轮 ✓）。JS 收两种 ✓：**数字**（空格个数 ✓，
+  // 夹到 0..10 ✓）与**字符串**（前十个字符 ✓）✓；别的（`undefined` / `null` / 对象 ✓）
+  // 一律当「不缩进」✓。这一格原来是**整段忽略** ✗（永远紧凑 ✓，**静默**不同 ✗）。
+  let jsonIndent = "";
+  if (args.length > 2) {
+    const indentArg = args[2];
+    if (indentArg.IsNumber()) {
+      let width = indentArg.AsInt();
+      if (width > 10) width = 10;
+      for (let i = 0; i < width; i++) jsonIndent = jsonIndent + " ";
+    } else if (indentArg.Tag === ValueTag.String) {
+      const rawIndent = TextFrom(table, indentArg);
+      jsonIndent = rawIndent.length > 10 ? rawIndent.substring(0, 10) : rawIndent;
+    }
+  }
+  const rendered = JsonText(table, target, 0, false, jsonIndent);
   if (rendered === null) return Value.Undefined();
   if (!room(ObjectCharge + CodeUnitCharge * rendered.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(rendered)));
@@ -1265,7 +1280,7 @@ for (let i = 0; i < units.length; i++) {
 return text + "\"";
 ```
 
-# method JsonText:(table:HeapTable, value:Value, depth:int, insideArray:bool)=>string | null
+# method JsonText:(table:HeapTable, value:Value, depth:int, insideArray:bool, indent:string)=>string | null
 
 **序列化一个值**；返回 `null` 表示「这个值没有 JSON 形态」（于是**键整个省略**）。
 
@@ -1306,16 +1321,58 @@ if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure
 }
 if (value.Tag === ValueTag.Array) {
   const array = table.Get(value.Ref).AsArray();
+  const count = array.GetLength();
+  // **缩进那一档**（第 192 轮 ✓）：`JSON.stringify(x, null, 2)` 要的是**多行**形状 ✓——
+  // 原来第三、四个实参被**整段忽略** ✗，于是永远给紧凑形状 ✓（**静默**与 Node 不同 ✗）。
+  // **空数组照旧是 `[]`** ✓（JS 的口径 ✓：缩进不作用在空容器上 ✓）。
+  if (indent !== "" && count > 0) {
+    let text = "[\n";
+    for (let i = 0; i < count; i++) {
+      if (i > 0) text = text + ",\n";
+      const rendered = JsonText(table, array.GetAt(i), depth + 1, true, indent);
+      text = text + JsonIndent(depth + 1, indent) + (rendered === null ? "null" : rendered);
+    }
+    return text + "\n" + JsonIndent(depth, indent) + "]";
+  }
   let text = "[";
-  for (let i = 0; i < array.GetLength(); i++) {
+  for (let i = 0; i < count; i++) {
     if (i > 0) text = text + ",";
-    const rendered = JsonText(table, array.GetAt(i), depth + 1, true);
+    const rendered = JsonText(table, array.GetAt(i), depth + 1, true, indent);
     text = text + (rendered === null ? "null" : rendered);
   }
   return text + "]";
 }
 if (value.Tag === ValueTag.Object) {
   const item = table.Get(value.Ref);
+  // **缩进那一档**（同上）：先按「有没有可渲染的键」判一次 ✓——空对象照旧是 `{}` ✓。
+  let renderedCount = 0;
+  if (indent !== "") {
+    for (let i = 0; i < item.Props.length; i++) {
+      const probe = item.Props[i];
+      if (table.Get(probe.Key).Tag !== ValueTag.String) continue;
+      if (probe.Kind === PropertyKind.Accessor) continue;
+      if (!probe.IsEnumerable()) continue;
+      if (JsonText(table, probe.Value, depth + 1, false, indent) === null) continue;
+      renderedCount = renderedCount + 1;
+    }
+    if (renderedCount > 0) {
+      let text = "{\n";
+      let firstIndented = true;
+      for (let i = 0; i < item.Props.length; i++) {
+        const property = item.Props[i];
+        if (table.Get(property.Key).Tag !== ValueTag.String) continue;
+        if (property.Kind === PropertyKind.Accessor) continue;
+        if (!property.IsEnumerable()) continue;
+        const renderedHere = JsonText(table, property.Value, depth + 1, false, indent);
+        if (renderedHere === null) continue;
+        if (!firstIndented) text = text + ",\n";
+        firstIndented = false;
+        text = text + JsonIndent(depth + 1, indent)
+          + QuoteJson(table, Value.FromString(property.Key)) + ": " + renderedHere;
+      }
+      return text + "\n" + JsonIndent(depth, indent) + "}";
+    }
+  }
   let text = "{";
   let first = true;
   for (let i = 0; i < item.Props.length; i++) {
@@ -1327,7 +1384,7 @@ if (value.Tag === ValueTag.Object) {
     // （与 `Object.keys` 同一条口径 ✓）——`Object.defineProperty(o, "x", { value: 1 })`
     // 默认不可枚举 ✓，所以它**不该**出现在 JSON 里 ✗（实测判据当场量到这一格 ✓）。
     if (!property.IsEnumerable()) continue;
-    const rendered = JsonText(table, property.Value, depth + 1, false);
+    const rendered = JsonText(table, property.Value, depth + 1, false, indent);
     if (rendered === null) continue;
     if (!first) text = text + ",";
     first = false;
@@ -1336,6 +1393,16 @@ if (value.Tag === ValueTag.Object) {
   return text + "}";
 }
 throw new Error("unimplemented: JSON of this kind of value");
+```
+
+# method JsonIndent:(depth:int, indent:string)=>string
+
+**缩进串**（第 192 轮 ✓）：`depth` 层 ✓、每层 `indent` ✓——纯字符串重复 ✓，不碰堆 ✓。
+
+```ts
+let text = "";
+for (let i = 0; i < depth; i++) text = text + indent;
+return text;
 ```
 
 # method JsonHexDigit:(unit:int)=>int

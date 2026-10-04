@@ -8004,5 +8004,54 @@ check("`New` 也是一个操作数：`new C()[k]` 里那个 `[` 是下标，不�
 });
 
 console.log("");
+console.log("=== 第 192 轮：两条「静默错值」（`fill` 的后两个实参 · `JSON.stringify` 的缩进）===");
+
+check("`arr.fill(值, 开始, 结束)` 与 `JSON.stringify(x, null, 缩进)`：两位实参原来被整段忽略", () => {
+  // **端到端那一把在 `cases/70-fill-and-json-indent.ts`**（21 行逐字节 ✓）。
+  //
+  // 两条都在普查表的 **`DIFFER`** 那一栏（**跑得出、值不对**）——最危险的一类：
+  // 脚本不报错、每一格单看都像对的，只有与 Node 逐字节比才看得出来。
+  //
+  // **① `fill`**：JS 的口径是**两个都可以省**、**负数从末尾数**、越界**夹住**、
+  // 开始不小于结束就什么也不做；返回的**就是那个数组本身**（`===` 成立）。
+  // 原来它把**整个数组**都填上那个值 ✗——`[1,2,3,4].fill(0, 1, 3)` 给 `0,0,0,0` ✓
+  //（Node 给 `1,0,0,4` ✓）。修法：与 `slice` 同一个口径 ✓（新抽的 `NormalizeRangeIndex` ✓）。
+  //
+  // **② `JSON.stringify` 的缩进**：第三、四个实参 ✓——**数字**＝空格个数（夹到 0..10 ✓）、
+  // **字符串**＝前十个字符 ✓、别的当「不缩进」✓；**空对象 / 空数组照旧 `{}` / `[]`** ✓。
+  // 原来那两位被忽略 ✗，永远给紧凑形状 ✓（`json-pretty` 那条就是这么红的 ✓）。
+  const outline = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "const xs = [1, 2, 3, 4];",
+    "console.log(xs.fill(0, 1, 3).join(','));",
+    "console.log([1, 2, 3].fill(9, -1).join(','), [1, 2, 3].fill(9, 1, -1).join(','));",
+    "const same = [1, 2, 3];",
+    "console.log(same.fill(7, 0, 1) === same, same.join(','));",
+    "console.log(JSON.stringify({ a: 1, b: [1, 2] }, null, 2));",
+    "console.log(JSON.stringify({ a: {}, b: [] }, null, 2));",
+    "console.log(JSON.stringify({ a: 1 }, null, 99));",
+    "console.log(JSON.stringify({ a: 1, b: [1, 2] }));",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => outline.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(outline[0], "1,0,0,4", "**这一轮修的**：`fill` 认后两个实参");
+  eq(outline[1], "1,2,9 1,9,3", "负数从末尾数（两个实参都试）");
+  eq(outline[2], "true 7,2,3", "改的是原数组、返回值也是它（`===` 成立）");
+  // **多行形状**由语料逐字节钉着（这里只钉关键的几行与回归档）——
+  // 那一格的输出是好几行，用一个 `eq` 钉不住整个形状。
+  // **整段形状**用「连起来找子串」钉（多行输出按行号数太脆——这一轮就数错过两次）。
+  const joined = outline.join("\n");
+  ok(joined.indexOf("{\n  \"a\": 1,\n  \"b\": [\n    1,\n    2\n  ]\n}") >= 0,
+    "**同一轮修的第二条**：`JSON.stringify(x, null, 2)` 的多行形状");
+  ok(joined.indexOf("  \"b\": [\n    1,\n    2\n  ]") >= 0, "数组的缩进形状（嵌套时按层数缩进）");
+  ok(joined.indexOf("{\n  \"a\": {},\n  \"b\": []\n}") >= 0,
+    "空对象 / 空数组照旧是 `{}` / `[]`（缩进不作用在空容器上）");
+  ok(joined.indexOf("{\n          \"a\": 1\n}") >= 0, "数字缩进夹到 10 个空格（`99` → 10）");
+  ok(joined.indexOf("{\"a\":1,\"b\":[1,2]}") >= 0, "不给缩进照旧紧凑（回归）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

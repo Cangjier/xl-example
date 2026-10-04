@@ -185,6 +185,23 @@ if (!args[index].IsNumber()) return fallback;
 return args[index].AsInt();
 ```
 
+# method NormalizeRangeIndex:(index:int, length:int)=>int
+
+**把一个「可能是负数」的区段下标夹到 \`[0, length]\`**（第 192 轮 ✓，\`fill\` 要用 ✓）。
+
+JS 的口径 ✓：负数**从末尾数** ✓（\`-1\` 是最后一格 ✓）、越界**夹住** ✓
+（\`fill(9, -99)\` 从 0 开始 ✓）、结果落在 \`[0, length]\` 里 ✓。
+**同一个口径 \`slice\` 早就有了** ✗——那一条写在它自己那一支里 ✓；
+这里抽出一个**只有夹取**的版本 ✓，\`fill\` 与将来的 \`copyWithin\` 用同一处 ✓。
+
+```ts
+if (index < 0) {
+  const fromEnd = length + index;
+  return fromEnd < 0 ? 0 : fromEnd;
+}
+return index > length ? length : index;
+```
+
 # method InvokeArray:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
 
 **数组内建的分派与实现**。
@@ -543,7 +560,15 @@ if (id === ArraySplice) {
 }
 if (id === ArrayFill) {
   if (args.length < 1) throw new Error("fill needs a value");
-  for (let i = 0; i < source.GetLength(); i++) {
+  // **`fill` 要认后两个实参**（第 192 轮修）：`arr.fill(0, 1, 3)` 只填第 1、2 格 ✓。
+  // 原来它们被**整段忽略** ✗——于是 `[1,2,3,4].fill(0, 1, 3)` 给的是 `0,0,0,0` ✓
+  // （Node 给 `1,0,0,4` ✓）：**静默错值** ✗，而且看不出来（每一格都是「对的值」的一种 ✓）。
+  // **口径照 JS**：两个都可以省 ✓、**负数从末尾数** ✓、越界夹到 `[0, 长度]` ✓、
+  // 开始不小于结束就**什么也不做** ✓（但**照旧返回那个数组本身** ✓）。
+  const fillLength = source.GetLength();
+  const fillStart = NormalizeRangeIndex(ArgOr(args, 1, 0), fillLength);
+  const fillEnd = NormalizeRangeIndex(ArgOr(args, 2, fillLength), fillLength);
+  for (let i = fillStart; i < fillEnd; i++) {
     source.SetAt(i, args[0]);
   }
   table.Recount(self.Ref);
