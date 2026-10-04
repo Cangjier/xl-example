@@ -374,6 +374,29 @@ if (this.IsOperator(current) === false) {
 if (this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index))) === false) {
   return false;
 }
+// **右结合的运算符要先折右边那一处**（第 164 轮）✓。
+//
+// `**` 是**右结合** ✓：`2 ** 3 ** 2` 在 JS 里是 `2 ** (3 ** 2)` = **512** ✓。
+// 而这一趟是**从左往右**找第一处能折的 ✓——不挡的话先把左边那对折了 ✗，
+// 于是树成了 `(2 ** 3) ** 2` = **64** ✗（实测 XML：外层 `**` 的左子是内层 `**` ✓；
+// TS 那边恰好相反 ✓——**这是语义错，不是「不支持」** ✗）。
+//
+// **挡法**：这一格的**右操作数之后还跟着同一个运算符**时先放过 ✓，
+// 让更右那一处先折 ✓；它折完再回来，这一格右边就已经是一个单元了 ✓。
+// 链更长时同理 ✓（每趟只折最右那一对 ✓，折到达成右结合为止 ✓）。
+//
+// **只列 `**`** ✗：JS 里右结合的二元运算符就它一个（赋值是另一套规则管的 ✓）——
+// 将来真有新的，照这里再加一个名字 ✓；别写成「所有运算符都这么办」✗
+//（那会反过来把 `a - b - c` 折成 `a - (b - c)` ✗，而它是左结合 ✓）。
+const rightAssociative =
+  current instanceof SymbolToken && current.TempToString() === "**";
+if (rightAssociative) {
+  const nextIndex = SkipNextWrapSymbol(units, SkipNextWrapSymbol(units, index));
+  const next = Get(units, nextIndex);
+  if (next instanceof SymbolToken && next.Is("**")) {
+    return false;
+  }
+}
 return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
 ```
 
