@@ -3184,11 +3184,16 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
   if (this.HasSpread(superArgs)) {
     const spreadArray = this.BuildArgsArray(superArgs);
     const spreadDest = this.EmitCallArray(fn, spreadArray, selfSlot);
-    // **水位这条线索已经证伪**（第 159 轮量过 ✓）：这里补一句 `Release(spreadDest + 1)` ✓
-    //（与下面固定实参那支同一条纪律 ✓）**并没有修好**那个「凑在一起才出问题」的形状 ✗——
-    // 所以它**没有留下** ✗（不留一处没验证过的改动 ✓）。
-    // 现在掌握的事实只有：**两个方法时是对的 ✓、四五个方法时报 `calling a non-closure value`** ✗
-    //（`super.m(...)` 的每一种形状**单独**跑都对 ✓）。下一轮从这里继续 ✓。
+    // **「水位」这条线索已经证伪两次** ✗（第 159 轮在大例子上试过 ✓、第 160 轮在最小反例上又试过 ✓）：
+    // 这里补一句 `Release(spreadDest + 1)` ✓（与下面固定实参那支同一条纪律 ✓）
+    // **都没有修好** ✗——所以它**没有留下** ✗（不留一处没验证过的改动 ✓）。
+    //
+    // **第 160 轮把反例缩到了三行** ✓（这才是有用的产出 ✓）：
+    //   `const a = c.sumSpread([1,2,3]); const b = c.describeSpread(['a','b']);`
+    //   报 `calling a non-closure value` ✗；而**把两条语句对调就对** ✓
+    //（`console.log(c.sumSpread(...), c.describeSpread(...))` 同样错 ✗ ✓）。
+    // **顺序敏感** + **每种形状单独都对** ✓——下一轮从这里查 ✓，
+    // 别再猜「Release」（两次都白猜 ✓），去比这两份 IR 的**差别**（`Program.Dump()` ✓）。
     return spreadDest;
   }
   const superCount = superArgs.length;
