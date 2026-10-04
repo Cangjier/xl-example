@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 69.42,
+  "progressPercent": 73.34,
   "layers": [
     {
       "layer": "runtime",
@@ -44,21 +44,21 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 105,
-      "pass": 67,
-      "blocked": 21,
-      "differ": 17,
+      "pass": 77,
+      "blocked": 17,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 63.81
+      "coverage": 73.33
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 8,
-      "blocked": 5,
+      "pass": 9,
+      "blocked": 4,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 61.54
+      "coverage": 69.23
     }
   ],
   "blocked": [
@@ -201,30 +201,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SpreadElement"
     },
     {
-      "id": "string-concat-method",
-      "layer": "stdlib",
-      "title": "String.concat",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "string-codePointAt",
-      "layer": "stdlib",
-      "title": "String.codePointAt",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "string-lastIndexOf",
-      "layer": "stdlib",
-      "title": "String.lastIndexOf",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "string-compare-locale",
-      "layer": "stdlib",
-      "title": "String.localeCompare",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "object-freeze",
       "layer": "stdlib",
       "title": "Object.freeze / isFrozen：属性写不动、加不上",
@@ -315,12 +291,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node AsExpression has no child expression"
     },
     {
-      "id": "e2e-word-count",
-      "layer": "e2e",
-      "title": "词频统计：split / Map / sort / entries",
-      "detail": "tsrun: 脚本抛出：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "e2e-event-emitter",
       "layer": "e2e",
       "title": "事件总线：Map<string, 回调数组> + 闭包 + 剩余参数",
@@ -399,42 +369,6 @@
       "layer": "stdlib",
       "title": "稀疏数组的遍历：map / forEach 跳过洞、join 补空",
       "detail": "stdout 不同：第 1 行：node «2 3 1--3» vs tsrun «3 3 1--3»"
-    },
-    {
-      "id": "string-length-index",
-      "layer": "stdlib",
-      "title": "String.length / 下标读 / at",
-      "detail": "stdout 不同：第 2 行：node «a 0» vs tsrun «no-at 0»"
-    },
-    {
-      "id": "string-charAt-charCodeAt",
-      "layer": "stdlib",
-      "title": "String.charAt / charCodeAt（越界那一档）",
-      "detail": "stdout 不同：第 2 行：node «true» vs tsrun «false»"
-    },
-    {
-      "id": "string-indexOf",
-      "layer": "stdlib",
-      "title": "String.indexOf / includes / startsWith / endsWith",
-      "detail": "stdout 不同：第 1 行：node «4 7 -1 0» vs tsrun «4 4 -1 0»"
-    },
-    {
-      "id": "string-slice-substring",
-      "layer": "stdlib",
-      "title": "String.slice / substring（负下标那一档不一样）",
-      "detail": "stdout 不同：第 1 行：node «bc ef def  » vs tsrun «bc abcdef def  »"
-    },
-    {
-      "id": "string-split",
-      "layer": "stdlib",
-      "title": "String.split：分隔符、空分隔符、limit、没找到",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: split with a limit"
-    },
-    {
-      "id": "string-fromCharCode",
-      "layer": "stdlib",
-      "title": "String.fromCharCode / 拼接构造",
-      "detail": "stdout 不同：第 2 行：node «has ab» vs tsrun «none ab»"
     },
     {
       "id": "object-keys-values-entries",

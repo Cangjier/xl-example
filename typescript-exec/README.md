@@ -37,20 +37,20 @@
 | --- | --- | --- | --- | --- |
 | 引擎（`runtime/`） | 25% | **85.6%** | 77 / 90 | 21.40 |
 | 降级层（含 `typescript/` 那一半：token / 投影） | 30% | **65.9%** | 29 / 44 | 19.77 |
-| 标准库（`builtins/`） | 25% | **63.8%** | 67 / 105 | 15.95 |
-| 端到端（普通 `.ts` 直接跑） | 20% | **61.5%** | 8 / 13 | 12.30 |
-| **合计** | 100% | — | **181 / 252** | **69.4%** |
+| 标准库（`builtins/`） | 25% | **73.3%** | 77 / 105 | 18.33 |
+| 端到端（普通 `.ts` 直接跑） | 20% | **69.2%** | 9 / 13 | 13.85 |
+| **合计** | 100% | — | **192 / 252** | **73.3%** |
 
 **这两个数（99.5% 与 58.8%）量的不是同一件事** ✓，两个都留着：
 
 | 读数 | 量什么 | 现在 |
 | --- | --- | --- |
 | 上面那张**机制**表（估计 ✓） | **机器还剩多少没造**（值 / 堆 / GC / 帧 / IR / 执行器 / 降级 / 库各族的框架 ✓） | 99.5% |
-| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **69.4%** |
+| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **73.3%** |
 
 框架确实快满了 ✓（引擎那一层 85.6% 里，**没造的东西比没接上的东西少** ✓）；
 而覆盖面还差一截 ✗——差在哪、为什么差，现在有**一张带原因的清单**了 ✓
-（`tests/coverage/report.json` ✓：47 条「进不了门」+ 24 条「跑得出来但结果不同」✓）。
+（`tests/coverage/report.json` ✓：42 条「进不了门」+ 18 条「跑得出来但结果不同」✓）。
 往后的选题一律从这张清单里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓。
 
 ### 整体进度（加权估计；第 201 轮）
@@ -143,25 +143,25 @@
 往后的选题一律从那张普查表里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓，
 不是「修起来多容易」✗。
 
-### 下一步（第 207 轮更新）
+### 下一步（第 208 轮更新）
 
 **选题的来处**：一律从 **`tests/coverage/report.json` 那张清单**里挑 ✓
-（47 条 `blocked` + 24 条 `differ` ✓，每一条都带一句「为什么现在过不了」✓），
+（42 条 `blocked` + 18 条 `differ` ✓，每一条都带一句「为什么现在过不了」✓），
 排序依据是**「这条写法在普通 `.ts` 里有多常见」**✓，不是「修起来多容易」✗。
 
 | 序 | 缺口 | 覆盖度里的分量 | 为什么排前面 |
 | --- | --- | --- | --- |
-| 1 | 标准库**没装的那一批**（第 206 / 207 轮收掉了 `Math` / `Number` / `Array` 三支 ✓，还剩）：`String.concat` / `codePointAt` / `lastIndexOf` / `at`、`Object.create` / `getPrototypeOf` / `hasOwnProperty` / `fromEntries` / `getOwnPropertyNames`、`Array.entries` / `keys` / `values`、`Error.prototype.toString`、`Symbol.description` / `toStringTag` | 14 条 + 拖着 2 条端到端 | 一格一条、**改一格覆盖度就动一格** ✓ |
-| 2 | 字符串的实参那一半：`indexOf` 的 `fromIndex`、`slice` 的负下标、`split` 的 `limit`（数组那一半第 207 轮已经修好 ✓，字符串这一半还是老样子 ✓） | 3 条 | 跑得出来、答案不对 ✓（与第 207 轮同一类 ✓） |
-| 3 | 稀疏数组的洞（`Object.keys` / `forEach` / `map`） | 2 条 | **静默错值** ✗ |
-| 4 | 私有字段在 `Object.keys` 里看得见（`cls-private` 的最后那一格 ✓） | 1 条 | **静默错值** ✗，且与第 194 轮那条「内部件不可枚举」同源 ✓ |
+| 1 | 标准库**没装的那一批**（第 206 ~ 208 轮收掉了 `Math` / `Number` / `Array` / `String` 四支 ✓，还剩）：`Object.create` / `getPrototypeOf` / `hasOwnProperty` / `fromEntries` / `getOwnPropertyNames`、`Array.entries` / `keys` / `values`、`Error.prototype.toString`、`Symbol.description` / `toStringTag`、`Object.prototype.toString` 的其余标签 | 11 条 + 拖着 1 条端到端 | 一格一条、**改一格覆盖度就动一格** ✓ |
+| 2 | 稀疏数组的洞（`Object.keys` / `forEach` / `map`） | 2 条 | **静默错值** ✗ |
+| 3 | 私有字段在 `Object.keys` 里看得见（`cls-private` 的最后那一格 ✓） | 1 条 | **静默错值** ✗，且与第 194 轮那条「内部件不可枚举」同源 ✓ |
+| 4 | `Object.freeze` 的**数组元素**（要动引擎的写屏障 ✓） | 1 条 | **静默错值** ✗ |
 | 5 | 步数预算：两万次循环就耗尽 | `gc-churn` | 普通循环够不着这个量级 ✓ |
 | 6 | `await` 一个非承诺值 / `async` 里的 `throw` 不成拒绝 / `Promise.all` 里非承诺的项 | 5 条 + 拖着 `e2e-async-workflow` | 异步那一族的门面 ✓ |
 
 **已划掉**（留在下面的账里 ✓）：派生类字段初始化 ✓、`+` 的 `ToPrimitive` ✓、
 静态块与静态字段的顺序 ✓（第 203 轮 ✓）、成员位 / 下标位上的 `++` `--` ✓（第 204 轮 ✓）、
-私有名进链 ✓（第 205 轮 ✓）、`Math` / `Number` 那一批 ✓（第 206 轮 ✓）、
-`Array` 那一批与 `SameValueZero` ✓（第 207 轮 ✓）。
+私有名进链 ✓（第 205 轮 ✓）、`Math` / `Number` ✓（第 206 轮 ✓）、
+`Array` 与 `SameValueZero` ✓（第 207 轮 ✓）、`String` ✓（第 208 轮 ✓）。
 
 **往后**（整族缺、成本高，但要排在**日常写法**之后 ✓）：
 `enum` / `namespace` ✓、`yield*` ✓、类上的**计算成员名**（`[Symbol.iterator]()` ✓）、
@@ -227,6 +227,48 @@
 > **第 144 轮的账在下面（`### 第 144 轮的账`）**：这一轮不在上面这张单子里——
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
+
+### 第 208 轮的账（**`String` 那一批**：四个缺格 + 三条实参 / 边角的老账，一次十二条）
+
+**选题**：第 207 轮那张清单的第 1、2 条 ✓——这一轮是 `String` ✓（与 `Array` 那一轮同一类 ✓）。
+
+| 补上的 | 判据 | 原来卡在哪 |
+| --- | --- | --- |
+| `at`（号 119 ✓） | `string-length-index` | 没装 ⇒ `calling a non-closure value` ✓ |
+| `codePointAt`（号 121 ✓） | `string-codePointAt` | 没装 ✓ |
+| `concat`（号 120 ✓，**带 `Method` 后缀** ✓） | `string-concat-method` / `string-fromCharCode` | 没装 ✓（名字与 `globals` 那个语言内建号撞 ✗，见下） |
+| `lastIndexOf`（号 122 ✓） | `string-lastIndexOf` | 没装 ✓ |
+| `localeCompare`（号 123 ✓） | `string-compare-locale` / `e2e-word-count` | 没装 ✓ |
+| `indexOf` / `lastIndexOf` 的 **`position`** | `string-indexOf` | 第二个实参**被丢掉** ✓（**静默错值** ✗） |
+| `slice` 的**负下标** | `string-slice-substring` | 只夹了「起点 < 0 → 0」✗ ⇒ `slice(-2)` 给整串 ✓（**静默错值** ✗） |
+| `split` 的 **`limit`** | `string-split` | 上一轮还在**抛** ✓（那一抛是对的 ✓，这一轮做出来 ✓） |
+| `charCodeAt` 越界给 `undefined` | `string-charAt-charCodeAt` | JS 给 **`NaN`** ✓（**静默错值** ✗：`"" .charCodeAt(0) !== "".charCodeAt(0)` 该是**真** ✓） |
+
+**三处「字符串与数组不是同一条规矩」——这一轮实测抓到两处** ✓（都在下面 ✓）。
+
+**① `String.indexOf` 的负数 `position` 不从末尾数** ✗（实测 ✓）：
+`"hello world".indexOf("o", -5)` 在 JS 里是 **`4`** ✓（`position` 夹到 `[0, len]` ✓）——
+「负数从末尾数」是 **`Array.prototype.indexOf`** 的规矩 ✓，`String` 那一半**不是** ✗。
+第一版照着数组写了一遍 ✓，判据当场给出来 ✓（给了 `7` ✗）。
+
+**② 不给实参 = `0`、不是 `undefined`** ✗（实测 ✓）：JS 走 `ToIntegerOrInfinity(undefined)` ✓
+（`NaN` → `0` ✓），所以 `"abc".at()` 是 `"a"` ✓、`"abc".codePointAt()` 是 `65` ✓。
+
+**③ `substring` 不许接 `slice` 的规整** ✓（写在那一支的注释里 ✓）：
+`substring` 把负数当 `0` ✓、**还会交换两个端点** ✓——两处都接同一句就是「看起来统一了」的错 ✗。
+
+**一处撞名当场挡掉** ✓：这一格本来想叫 `StringConcat` ✓，而那个名字在 `globals.xl.md`
+里**已经占了** ✓（语言内建号 302 ✓）——两个同名常量被同一个文件 import 就是撞名 ✗，
+所以带 `Method` 后缀 ✓（这一条写在常量那一段里 ✓，下一个加名字的人从这里接着走 ✓）。
+
+**`localeCompare` 只做 ASCII** ✓（与 `toUpperCase` / `toLowerCase` 同一条纪律 ✓）：
+完整语义要一张**区域表** ✗（本仓没有 ✓），所以按码元比 ✓、非 ASCII **当场抛** ✓
+（宁可缺，也不静默换一个「看起来对」的答案 ✗）。
+
+**读数** ✓：`coverage` **181 / 252 = 69.4% → 192 / 252 = 73.3%** ✓
+（标准库 63.8% → **73.3%** ✓、端到端 61.5% → **69.2%** ✓，引擎 85.6% 与降级 65.9% 不动 ✓）。
+从账上划掉十二条 ✓（上表九行 ✓ + `e2e-word-count` ✓ + 两条同族 ✓）。
+另外三条判据一个数没动 ✓：`runtime:check` **241/241** ✓、`runtime:cli` **79/79** ✓、`cases:tsast` **1442/1442** ✓。
 
 ### 第 207 轮的账（**`Array` 那一批**：四个缺格 + 三条实参 / 判等的老账，一次十条）
 

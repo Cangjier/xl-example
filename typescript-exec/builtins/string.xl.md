@@ -5,7 +5,8 @@ import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runt
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
+import { ValueUnits } from "./text.xl.md"
 ```
 
 # namespace cangjie
@@ -109,6 +110,31 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 
 # const StringReplaceAll:int = 118
 
+# const StringAt:int = 119
+
+`String.prototype.at` / `codePointAt` / `concat` / `lastIndexOf`（第 208 轮 ✓，号**追加在表尾** ✓）。
+
+**四格各自拖着的判据** ✓：`string-length-index`（`at` ✓）、
+`string-codePointAt`（代理对合成一个码位 ✓）、`string-concat-method`（`"a".concat(…, 1, true)` ✓）、
+`string-lastIndexOf`（从后往前找 ✓）。
+
+**`at` 与 `s[i]` 的差别就是负下标** ✓（`s.at(-1)` 从尾巴数 ✓、`s[-1]` 是 `undefined` ✓）——
+与数组那一格 `ArrayAt` 同一条规矩 ✓（两处都要在 ✓，两处都不许把 `-1` 当尾巴 ✗）。
+
+# const StringLastIndexOf:int = 122
+
+# const StringCodePointAt:int = 121
+
+# const StringConcatMethod:int = 120
+
+**它不叫 `StringConcat`** ✗：那个名字在 `globals.xl.md` 里**已经占了** ✓（语言内建号 302 ✓，
+「降级层的字符串拼接」✓）——两个同名常量被同一个文件 import 就是**撞名** ✗，
+所以这一格带 `Method` 后缀 ✓。
+
+# const StringLocaleCompare:int = 123
+
+**`localeCompare`**（第 208 轮 ✓）——按**码元**比、**只做 ASCII** ✓（没有区域表 ✓，理由写在实现里 ✓）。
+
 **`replaceAll(找, 换)`**（第 150 轮）——与 `replace` **共用同一段实现** ✓（只差「换一处 / 换全部」✓）。
 **不是「把 `replace` 的结果反复跑一遍」** ✗（那在替换文本里含针时会无限增长 ✓）；
 扫描接着**这一处之后**走 ✓（`"aaa".replaceAll("a","aa")` 给 `"aaaaaa"` ✓——JS 就是三处 ✓）。
@@ -170,14 +196,72 @@ if (id === StringCharAt) {
   return Value.FromString(table.CreateString([units[at]]));
 }
 if (id === StringCharCodeAt) {
+  // **越界给 `NaN`** ✓（第 208 轮改 ✓）：JS 的 `"".charCodeAt(0)` 是 `NaN` ✓，
+  // 而这里原来给的是 `undefined` ✗——**静默错值** ✗（判据 `string-charAt-charCodeAt` 现场红的 ✓：
+  // `"".charCodeAt(0) !== "".charCodeAt(0)` 在 JS 里是**真** ✓（`NaN` 与自己不等 ✓），
+  // 给 `undefined` 就成了**假** ✗）。这一格与 `charAt` 不一样 ✓：那个越界给**空串** ✓（JS 的口径 ✓）。
   const at = ArgOr(args, 0, 0);
-  if (at < 0 || at >= units.length) return Value.Undefined();
+  if (at < 0 || at >= units.length) return Value.FromDouble(NaN);
   return Value.FromInt(units[at]);
 }
-if (id === StringIndexOf) {
+if (id === StringLocaleCompare) {
+  // **`localeCompare`**（第 208 轮 ✓）：JS 的完整语义要**一张区域表** ✗（本仓没有 ✓），
+  // 所以这里按**码元**比 ✓、并且**只做 ASCII** ✓——非 ASCII 当场抛 ✓
+  //（与 `toUpperCase` / `toLowerCase` 同一条纪律 ✓：宁可缺，也不静默换一个「看起来对」的答案 ✗）。
+  const other = args.length > 0 ? TextUnitsOf(table, args[0]) : [];
+  for (let i = 0; i < units.length; i++) {
+    if (units[i] > 127) throw new Error("unimplemented: localeCompare outside ASCII (there is no collation table here)");
+  }
+  for (let i = 0; i < other.length; i++) {
+    if (other[i] > 127) throw new Error("unimplemented: localeCompare outside ASCII (there is no collation table here)");
+  }
+  const shorter = units.length < other.length ? units.length : other.length;
+  for (let i = 0; i < shorter; i++) {
+    if (units[i] === other[i]) continue;
+    return Value.FromInt(units[i] < other[i] ? -1 : 1);
+  }
+  if (units.length === other.length) return Value.FromInt(0);
+  return Value.FromInt(units.length < other.length ? -1 : 1);
+}
+if (id === StringIndexOf || id === StringLastIndexOf) {
   const needle = args.length > 0 ? TextUnitsOf(table, args[0]) : [];
-  if (needle.length === 0) return Value.FromInt(0);
-  for (let i = 0; i + needle.length <= units.length; i++) {
+  const length0 = units.length;
+  // **`fromIndex` 那一格**（第 208 轮 ✓）：与数组那一轮同一处缺口 ✓——
+  // 第二个实参原来**被丢掉** ✓（`"hello".indexOf("o", 5)` 从 0 找起 ✗，**静默错值** ✗）。
+  // **两条边角照 JS** ✓，而**字符串这一支与数组那一支不是同一条规矩** ✗（第 208 轮实测 ✓）：
+  // `String.indexOf` 的 `position` **夹到 `[0, len]`** ✓（`"hello world".indexOf("o", -5)`
+  // 是 `4` ✓——**负数不从末尾数** ✗！那是 `Array.prototype.indexOf` 的规矩 ✓）；
+  // `lastIndexOf` 缺省**从尾巴起** ✓、给了就**往前找** ✓、负数当 `0` ✓。
+  let from = 0;
+  if (id === StringLastIndexOf) from = length0 - needle.length;
+  if (args.length > 1) {
+    from = ArgOr(args, 1, from);
+    if (id === StringLastIndexOf) {
+      if (from < 0) from = 0;
+      if (from > length0 - needle.length) from = length0 - needle.length;
+    } else {
+      if (from < 0) from = 0;
+      if (from > length0) {
+        // **越过尾巴**：空串给 `length` 那一段、非空串给 `-1` ✓（JS 的口径 ✓）。
+        if (needle.length === 0) return Value.FromInt(length0);
+        return Value.FromInt(-1);
+      }
+    }
+  }
+  if (id === StringLastIndexOf) {
+    // **空串在末尾匹配一次** ✓（`"abc".lastIndexOf("")` 是 `3` ✓）。
+    if (needle.length === 0) return Value.FromInt(from < 0 ? 0 : from);
+    for (let i = from; i >= 0; i--) {
+      let same = true;
+      for (let j = 0; j < needle.length; j++) {
+        if (units[i + j] !== needle[j]) same = false;
+      }
+      if (same) return Value.FromInt(i);
+    }
+    return Value.FromInt(-1);
+  }
+  if (needle.length === 0) return Value.FromInt(from);
+  for (let i = from; i + needle.length <= length0; i++) {
     let same = true;
     for (let j = 0; j < needle.length; j++) {
       if (units[i + j] !== needle[j]) same = false;
@@ -186,12 +270,61 @@ if (id === StringIndexOf) {
   }
   return Value.FromInt(-1);
 }
+if (id === StringAt) {
+  // **`at(i)`**（第 208 轮 ✓）：与 `s[i]` 只差**负下标从尾巴数** ✓
+  //（与数组那一格 `ArrayAt` 是同一条规矩 ✓——两处都不许把 `s[-1]` 当成「从尾巴数」✗）。
+  // **不给实参 = 0** ✓（第 208 轮实测 ✓）：JS 走的是 `ToIntegerOrInfinity(undefined)` ✓
+  //（`NaN` → `0` ✓），所以 `"abc".at()` 是 `"a"` ✓、`"abc".codePointAt()` 是 `65` ✓——
+  // **不是 `undefined`** ✗（那是「越界」那一档 ✓，两档不一样 ✓）。
+  let at = ArgOr(args, 0, 0);
+  if (at < 0) at = at + units.length;
+  if (at < 0 || at >= units.length) return Value.Undefined();
+  if (!room(ObjectCharge + CodeUnitCharge)) throw new Error("out of room");
+  return Value.FromString(table.CreateString([units[at]]));
+}
+if (id === StringCodePointAt) {
+  // **`codePointAt(i)`**（第 208 轮 ✓）：把**代理对**合成一个码位 ✓
+  //（`"𐀀".codePointAt(0)` 是 `65536` ✓，而 `charCodeAt(0)` 是那个高代理 ✓——两格都要在 ✓）。
+  // **不给实参 = 0** ✓（与 `at` 同一档 ✓，理由写在那一支里 ✓）。
+  const at = ArgOr(args, 0, 0);
+  if (at < 0 || at >= units.length) return Value.Undefined();
+  const first = units[at];
+  if (first >= 0xd800 && first <= 0xdbff && at + 1 < units.length) {
+    const second = units[at + 1];
+    if (second >= 0xdc00 && second <= 0xdfff) {
+      return Value.FromInt((first - 0xd800) * 0x400 + (second - 0xdc00) + 0x10000);
+    }
+  }
+  return Value.FromInt(first);
+}
+if (id === StringConcatMethod) {
+  // **`String.prototype.concat(…args)`**（第 208 轮 ✓）：把 `self` 与**每个实参**的文本接起来 ✓。
+  // **实参先过 `ToString`** ✓（`"a".concat(1, true)` 是 `"a1true"` ✓）——
+  // 所以走的是「任意值 → 文本」那条（`ValueUnits` ✓，与 `String(x)` 同一处 ✓），
+  // 而不是 `TextUnitsOf` ✗（那个对非字符串**抛** ✓，是引擎的口径 ✓）。
+  const parts: number[][] = [units];
+  let total = units.length;
+  for (let i = 0; i < args.length; i++) {
+    const unitsOfArg = ValueUnits(table, args[i], 0);
+    parts.push(unitsOfArg);
+    total = total + unitsOfArg.length;
+  }
+  if (!room(ObjectCharge + CodeUnitCharge * total)) throw new Error("out of room");
+  const joined: number[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    for (let j = 0; j < parts[i].length; j++) joined.push(parts[i][j]);
+  }
+  return Value.FromString(table.CreateString(joined));
+}
 if (id === StringSlice) {
   const length = units.length;
-  let start = ArgOr(args, 0, 0);
-  let end = ArgOr(args, 1, length);
-  if (start < 0) start = 0;
-  if (end > length) end = length;
+  // **两个端点都走 `NormalizeRangeIndex`** ✓（第 208 轮 ✓）：与数组那一轮同一处缺口 ✓——
+  // 原来只夹了「起点小于 0 → 0」✗，于是 **`"abcdef".slice(-2)` 给整串** ✓
+  //（JS 给 `"ef"` ✓，**静默错值** ✗）。
+  // **`substring` 那一支与它不一样** ✗（`substring` 把负数当 0 ✓、还会**交换**两个端点 ✓）——
+  // 所以那一支**不许**接这个规整 ✓（接上去就是「看起来统一了」的错 ✗）。
+  const start = NormalizeRangeIndex(ArgOr(args, 0, 0), length);
+  let end = NormalizeRangeIndex(ArgOr(args, 1, length), length);
   if (end < start) end = start;
   const cut: number[] = [];
   for (let i = start; i < end; i++) cut.push(units[i]);
@@ -432,21 +565,29 @@ throw new Error("unimplemented: string builtin " + id);
 | `"".split("")` | `[]` ✓（**不是 `[""]`** ✗——空分隔符那一支**不补尾段** ✓） |
 | `"abc".split()` / `split(undefined)` | `["abc"]` ✓ |
 
-**`limit` 参数这一轮抛** ✗：JS 的第二个参数是「最多几段」，语义不是「少切几刀」
-（最后一段要装下剩下的全部 ✓）——顺手忽略它会让 `split(",", 2)` 静默给错形状 ✗。
+**`limit` 参数**（第 208 轮 ✓）：JS 的第二个参数是「**最多几段**」✓——
+到了上限**连尾巴那一段也不收** ✓（`"a-b-c".split("-", 2)` 是 `["a","b"]` ✓，不是 `["a","b-c"]` ✗）。
+原来它**抛** ✗（那一抛是对的 ✓：顺手忽略会让 `split(",", 2)` 静默给错形状 ✗），
+现在按 JS 给的语义做出来 ✓。
 
 **先问一次 room 再分配** ✓：段的个数上界是「码元数 + 1」✓（空分隔符那一支正好等于码元数 ✓）。
 
 ```ts
 RequireString(table, self);
 const units = TextUnitsOf(table, self);
-if (args.length > 1) {
-  throw new Error("unimplemented: split with a limit");
+// **`limit` 那一格**（第 208 轮 ✓）：原来这里**抛** ✗（理由写得很对 ✓：忽略它会让
+// `split(",", 2)` 静默给错形状 ✗）——这一轮把它做出来 ✓。
+// **JS 的语义是「最多几段」** ✓：到了上限就**不再收**（连尾巴那一段也不收 ✓）——
+// 所以「先全切出来、最后截断到 `limit` 段」与它**等价** ✓（简单分隔符、空分隔符、末尾空段三档都对 ✓）。
+let limit = -1;
+if (args.length > 1 && !args[1].IsUndefined()) {
+  const asked = ArgOr(args, 1, 0);
+  limit = asked < 0 ? 0 : asked;
 }
 const out = NewPlainArray(room, table, protos);
 const result = table.Get(out.Ref).AsArray();
 if (args.length === 0 || args[0].IsUndefined()) {
-  result.Push(self);
+  if (limit !== 0) result.Push(self);
   return out;
 }
 const separator = TextUnitsOf(table, args[0]);
@@ -457,6 +598,7 @@ if (!room(ObjectCharge + ValueCharge * (units.length + 1)
 if (separator.length === 0) {
   // **空分隔符：逐码元一段，且不补尾段**（`"".split("")` 是 `[]`）✓。
   for (let i = 0; i < units.length; i++) {
+    if (limit >= 0 && result.GetLength() >= limit) break;
     result.Push(Value.FromString(table.CreateString([units[i]])));
   }
   return out;
@@ -468,12 +610,15 @@ for (let i = 0; i + separator.length <= units.length; i++) {
     if (units[i + j] !== separator[j]) same = false;
   }
   if (!same) continue;
+  // **到上限就停** ✓（尾巴那一段也不收 ✓——JS 在「还要再收一段」之前就问 `lim === 0` ✓）。
+  if (limit >= 0 && result.GetLength() >= limit) return out;
   const part: number[] = [];
   for (let k = start; k < i; k++) part.push(units[k]);
   result.Push(Value.FromString(table.CreateString(part)));
   i = i + separator.length - 1;
   start = i + 1;
 }
+if (limit >= 0 && result.GetLength() >= limit) return out;
 const tail: number[] = [];
 for (let k = start; k < units.length; k++) tail.push(units[k]);
 result.Push(Value.FromString(table.CreateString(tail)));
@@ -489,11 +634,15 @@ const table = vm.Table;
 const proto = Value.FromObject(protos.String);
 const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "toUpperCase", "toLowerCase", "trim", "includes",
-  "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd", "replace", "replaceAll"];
+  "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd", "replace", "replaceAll",
+  // **第 208 轮补的四格** ✓（`at` / `codePointAt` / `concat` / `lastIndexOf` ✓）——
+  // 号**追加在表尾** ✓、已有的一个都没动 ✓。
+  "at", "codePointAt", "concat", "lastIndexOf", "localeCompare"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
-  StringReplace, StringReplaceAll];
+  StringReplace, StringReplaceAll,
+  StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
