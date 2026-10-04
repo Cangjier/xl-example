@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 274,
+  "matrix": 275,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 86.65,
+  "progressPercent": 87.61,
   "layers": [
     {
       "layer": "runtime",
@@ -33,22 +33,22 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 46,
-      "pass": 39,
-      "blocked": 5,
+      "total": 47,
+      "pass": 41,
+      "blocked": 4,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 84.78
+      "coverage": 87.23
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 109,
-      "pass": 98,
-      "blocked": 5,
+      "pass": 99,
+      "blocked": 4,
       "differ": 6,
       "nodefail": 0,
-      "coverage": 89.91
+      "coverage": 90.83
     },
     {
       "layer": "e2e",
@@ -115,18 +115,6 @@
       "layer": "exec",
       "title": "类里的访问器 + 继承的访问器",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SuperKeyword"
-    },
-    {
-      "id": "ex-labeled-block",
-      "layer": "exec",
-      "title": "带标签的块：`outer: { … break outer; … }`",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unknown label `outer` (the parser should have rejected this)"
-    },
-    {
-      "id": "array-spread-conditional",
-      "layer": "stdlib",
-      "title": "展开一个**条件表达式**（`[...cond ? a : b]`）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SpreadElement"
     },
     {
       "id": "object-freeze",

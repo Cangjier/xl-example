@@ -809,10 +809,41 @@ this.PatternAt = patternAt;
 this.Patterns = patterns;
 ```
 
+# class BlockLabelContext
+
+**「标签 + 一个块」那一层**（第 234 轮 ✓）——`outer: { … break outer; … }` 要它 ✓。
+
+**为什么不能拿 `LoopContext` 顶替** ✗：那个类带着 `Continues` / `IsLoop` / 环境那几格 ✓，
+它们全都**只对循环有意义** ✓（`continue` 的目标必须是循环 ✓、每轮新建绑定也是 ✓）。
+借它来装一个块，就是让后面每一个读 `Loops` 的地方都要多问一句「这一层是不是假的」✓
+（**那种「多问一句」迟早会漏一处** ✗）。
+
+**它只有两格** ✓：名字（给 `break` 认出「是不是我这一层」✓）与那一摞还没回填的跳转 ✓。
+
+## constructor:(label:string)=>void
+
+建一层「标签 + 块」的上下文 ✓（**跳转那一摞从空开始** ✓——见 `Breaks` 那一格 ✓）。
+
+```ts
+this.Label = label;
+```
+
+## field Label:string = ""
+
+带标签的块那一层叫什么 ✓（`break` 那一头按名字找 ✓）。
+
+## field Breaks:Array<int> = []
+
+**块里每一条 `break 这个标签` 发的那条 `Jump` 的指令下标** ✓——
+块跑完之后由 `LabeledStatement` **一次性回填到块之后** ✓。
+
+**为什么不先占一条 `Jump` 当目标** ✗：那少了一条 ✓——块**正常走到尾**时会紧挨着
+`break` 那条跳 ✓，于是**正常路径也跳走** ✓（实测：`log` 少了 `break` 前那一句的效果 ✓，
+**静默错值** ✓）。记一摞下标就没有这个形状 ✓。**与 `LeaveLoop` 的 `Breaks` 同一个写法** ✓。
+
 # class LoopContext
 
 **一层可以被 `break` / `continue` 跳出去的上下文**。
-
 **`switch` 也算一层**，但它只收 `break`：`continue` 必须穿过它去找**最近的循环**——
 少了 `IsLoop` 这个位，`switch` 里的 `continue` 会跳到 `switch` 的出口（**静默跳错**）。
 
@@ -1000,6 +1031,19 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 ## field Loops:Array<LoopContext> = []
 
 可以被 `break` / `continue` 跳出去的上下文栈（栈顶是最近的那一层）。
+
+## field BlockLabels:Array<BlockLabelContext> = []
+
+**「标签 + 一个块」那一层**（第 234 轮 ✓）——**一摞** ✓，栈顶是最近的 ✓。
+
+**为什么必须是摞而不是一格** ✗：**嵌套的标签块**是普通写法 ✓——
+实测 `two: { … inner: { … break two; … } … }` ✓：`inner` 那一层一进 ✓，
+`two` 那一格就被顶掉了 ✓，`break two` 于是报 `unknown label \`two\`` ✓
+（**而它是合法的 JS** ✓）。这与 `Loops` 那边「从里往外扫」是同一个形状 ✓。
+
+**为什么它们不进 `Loops`** ✗：那一摞还管着两件事 ✓——`continue` 要找到**一个循环** ✓
+（JS 的规矩：块上的 `continue` 非法 ✓）、以及「循环体每轮新建绑定」✓。
+把块混进去会让块里的 `continue` 找到一层不是循环的东西 ✓（**静默错值** ✗）。
 
 ## field PendingLabel:string = ""
 
@@ -1921,11 +1965,54 @@ if (kind === "DoStatement") {
   return;
 }
 if (kind === "LabeledStatement") {
-  // **带标签的语句**：标签本身**不产生指令**——它写进「待用字段」，由**紧跟着的那个循环**
-  // （`EnterLoop`）吃进去；`break outer` / `continue outer` 就是靠它找到那一层。
+  // **带标签的语句**（第 234 轮补上了**体不是循环**那一支 ✓）。
   //
-  // **无论体是什么都要清**：`outer: { … }` 里的标签没人消费（体不是循环），
-  // 留着它就会让**后面第一个**循环白白继承这个标签。
+  // 两支分开 ✗，因为它们的落法**完全不同**：
+  //
+  // ① **体是一个循环**（`outer: for (…) { … }` ✓）：标签写进「待用字段」✓，
+  //   由**紧跟着的那个循环**（`EnterLoop` ✓）吃进去 ✓——
+  //   `break outer` / `continue outer` 就是靠它找到那一层 ✓。
+  //   这就是原来那条路 ✓（`PendingLabel` ✓）。
+  //
+  // ② **体不是循环**（`outer: { … }` ✓，第 234 轮 ✓）：**没有任何东西会来消费这个标签** ✗
+  //   （`EnterLoop` 只有循环调 ✓），于是原来那句「无论体是什么都要清」✓
+  //   把标签**当场扔掉** ✗——`break outer` 随后报
+  //   `unknown label \`outer\` (the parser should have rejected this)` ✓
+  //   （那句话把责任推给语法层 ✗，而**它是合法的 JS** ✓：判据 `ex-labeled-block` ✓）。
+  //
+  // **②怎么落** ✓：**给整个块当一层可跳出的东西** ✓——块的**末尾留一个跳转目标** ✓，
+  // `break outer` 就是「跳到这里」✓（**没有新算子** ✓：与循环出口那条路一字不差 ✓）。
+  // 它**不进 `Loops`** ✗：`Loops` 那一摞还管着 `continue` ✓ 与「循环体每轮新建绑定」✓，
+  // 而那些对块毫无意义 ✗——混进去会让块里的 `continue` 找到一层不是循环的东西 ✓。
+  // 所以它**单独一格** ✓（`BlockLabel` / `BlockLabelExit` ✓），判据在 `LowerBreak` 里 ✓。
+  if (NodeKind(Child(node, "statement")) === "Block") {
+    // **`break` 的跳转先记下来、块跑完一起回填** ✓——**与 `LeaveLoop` 同一个写法** ✓
+    //（那一处的理由一字不差地适用 ✓：`break` 的落点永远是「这一层之后」✓，
+    //  让每一处 `break` 自己算，迟早有人算成「这一层之前」✗）。
+    //
+    // **第一次写的是「块前占一条 `Jump` 当目标」** ✗——那少了一条 ✓：
+    // 块**正常走到尾**时会紧挨着那条 `break` 的跳 ✓，于是**正常路径也跳走** ✓，
+    // 实测 `log` 少了最后那个 `"b"` ✓（**静默错值** ✓：判据 `ex-labeled-block`
+    // 期望 `"a"` ✓，而 `break` 前面那一句 `log += "b"` 得跑不到才对 ✓）。
+    // 记一摞下标就没有这个形状 ✓：块里一条 `break outer` ⇒ 一摞里一条 ✓；
+    // 一条都没有 ⇒ 什么都不用回填 ✓（**正常走完就是走完** ✓）。
+    //
+    // **没量到 `continue outer` 那一半** ✗：块上的 `continue` 需要一个**循环**做目标 ✓
+    //（JS 的规矩 ✓）——判据只有 `break` ✓，**没量到就不做** ✗（缺口写在台账里 ✓）。
+    const saved = this.BlockLabels.length;
+    this.BlockLabels.push(new BlockLabelContext(TextOf(Child(node, "label"))));
+    this.LowerStatement(Child(node, "statement"));
+    const target = this.Here();
+    // **退到进来时那一层** ✓（块里还嵌着别的标签块的话 ✓，它们早该在出去时退掉了 ✓）。
+    const mine = this.BlockLabels[this.BlockLabels.length - 1];
+    this.BlockLabels.length = saved;
+    for (let i = 0; i < mine.Breaks.length; i++) {
+      this.PatchTarget(mine.Breaks[i], target);
+    }
+    return;
+  }
+  // **无论体是什么都要清**：①那一支里若体不是循环（不该发生 ✓），
+  // 留着标签就会让**后面第一个**循环白白继承它 ✓。
   this.PendingLabel = TextOf(Child(node, "label"));
   this.LowerStatement(Child(node, "statement"));
   this.PendingLabel = "";
@@ -3594,8 +3681,29 @@ for (let i = 0; i < context.Continues.length; i++) {
 
 **它不区分循环与 `switch`**——`switch` 里的 `break` 跳出的正是 `switch`（那才是最近的）。
 
+**它还认「标签 + 一个块」那一层** ✓（第 234 轮 ✓）：`outer: { … break outer; … }` 里
+那个 `outer` **不在 `Loops` 里** ✓（块不是循环 ✓），而在 `BlockLabel` 那一格 ✓——
+所以这里要在扫 `Loops` **之前**先问它一句 ✓（`outer: { … }` 里没有循环 ✓，
+扫 `Loops` 只会扫空 ✓、然后报 `unknown label` ✗，而**那是合法的 JS** ✓）。
+
 ```ts
 const labelNode = OptionalChild(node, "label");
+// **先问「标签 + 块」那一层** ✓（第 234 轮 ✓）：它不在 `Loops` 里 ✓，
+// 而它是最内层的可能性**最大** ✓——先扫 `Loops` 就会漏掉它 ✗。
+// **从里往外扫** ✓（与下面 `Loops` 那一趟同一个形状 ✓）：嵌套的标签块很普通 ✓
+//（实测 `two: { … inner: { … break two; … } … }` ✓——只看栈顶的话这一句会报「未知标签」✗）。
+if (labelNode !== null) {
+  const wanted = TextOf(labelNode);
+  for (let b = this.BlockLabels.length - 1; b >= 0; b--) {
+    if (this.BlockLabels[b].Label !== wanted) continue;
+    // **`finally` 那一段照旧先跑** ✓（与下面那条路同一条纪律 ✓，见那几行注释 ✓）。
+    this.EmitPendingFinalies();
+    const blockAt = this.Here();
+    this.Emit(Op.Jump, -1, 0, -1, -1);
+    this.BlockLabels[b].Breaks.push(blockAt);
+    return;
+  }
+}
 let index = this.Loops.length - 1;
 if (labelNode !== null) {
   // **带标签的 `break`**：从里往外找**同名**那一层。它可以是循环，也可以是 `switch`
@@ -4994,6 +5102,31 @@ this.Pending.push(item);
 
 ```ts
 const kind = NodeKind(node);
+// **`SpreadElement` 落在裸表达式位上：把它剥掉** ✓（第 234 轮 ✓）。
+//
+// **它为什么会出现** ✗：`...` 只许写在三种位置 ✓（数组字面量的元素 ✓、调用的实参 ✓、
+// 对象字面量的成员 ✓），而那三处的降级都**自己**认 `SpreadElement` ✓
+//（`LowerArrayLiteral` ✓、`LowerCall` 的 `HasSpread` ✓、`LowerObjectLiteral` ✓）——
+// 它们要的是「**这一格是不是展开**」这个信息 ✓，所以那一格不能先被剥掉 ✗。
+//
+// 可**投影**还会把它留在别处 ✓：实测 `[...xs.length ? xs : ys]` 的树是
+// `ArrayLiteral > ConditionalExpression` ✓，而**三元的那一格「条件」是 `SpreadElement`** ✗
+//（实测 `SpreadElement[47,59]` ✓——区间从 `...` 起算 ✓，所以 `...` 绑得比三元还紧 ✓）。
+// 于是 `LowerConditional` 去降「条件」时拿到一个 `SpreadElement` ✓，
+// 报的是 `unimplemented: expression SpreadElement` ✗——一句话听起来像
+// 「`...` 没人支持」✓，其实**别处的 `...` 都是好的** ✗。
+//
+// **为什么剥掉是对的** ✗：三元 / 二元 / 一元的**操作数**位置上，`...` 没有别的含义 ✓——
+// 那种写法在 JS 里**本来就是语法错误** ✓（`...x ? a : b` 单独写出来不合法 ✓），
+// 它能出现在这里只是因为**外面那个数组字面量已经认过它了** ✓。
+// 剥掉之后跑的是「展开那个三元的结果」✓——正是 JS 的语义 ✓（判据
+// `array-spread-conditional` 的第一项就是它 ✓）。
+//
+// **第二项为什么本来就是好的** ✓：`[...(xs.length ? xs : ys)]` 里括号把三元**包成一个单元** ✓，
+// 数组那一层看到的就是「展开那个单元」✓——判据里两条一起放 ✓（**对照** ✓）。
+if (kind === "SpreadElement") {
+  return this.LowerExpression(Child(node, "expression"));
+}
 if (kind === "NumericLiteral") {
   const slot = this.Reserve(1);
   // **走 `NumberConst`**：整数收 `Int32`、其余收 `Float64`（第 129 轮）——`IntConst` 只给内部整数用 ✓。

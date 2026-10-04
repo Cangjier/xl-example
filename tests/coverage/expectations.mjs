@@ -65,10 +65,31 @@ export const EXPECTATIONS = {
   // 拼的是 `GetIterator` + `IterNew` + `IterNext` + `Suspend` / `Resume` 五样现成的 ✓。
   "ex-private-in-operator": { expect: "blocked", why: "`#x in o` 没做（私有名字的品牌检查）" },
   "ex-getter-setter-class": { expect: "blocked", why: "`super.v` 属性访问（`super` 只做了方法调用那一格）" },
-  "ex-labeled-block": { expect: "blocked", why: "带标签的块：标签该挂在块上（现在只收循环与 `switch`）" },
+  // **第 234 轮删掉了 `ex-labeled-block` 那一行** ✓（它过了 ✓）：
+  // 根子是「**标签只挂循环与 `switch`**」✗（`PendingLabel` 由 `EnterLoop` 消费 ✓），
+  // 而 `outer: { … }` 里**没有任何东西会来消费那个标签** ✓——于是原来那句
+  // 「无论体是什么都要清」把它当场扔掉 ✓，`break outer` 报
+  // `unknown label \`outer\` (the parser should have rejected this)` ✓
+  //（那句话把责任推给语法层 ✗，而**它是合法的 JS** ✓）。
+  // 修法：给「标签 + 块」单开一摞上下文（`BlockLabels` ✓），`break` 的跳转
+  // **先记下标、块跑完一起回填** ✓（与 `LeaveLoop` 同一个写法 ✓）。
+  // **别拿 `LoopContext` 顶替** ✗：那一摞还管着 `continue` 与「每轮新建绑定」✓，
+  // 混进去会让块里的 `continue` 找到一层不是循环的东西 ✓（**静默错值** ✗）。
+  // **嵌套逼出了「必须是一摞」** ✓：一格的话 `inner` 一进就把 `two` 顶掉 ✓——
+  // 语料 `ex-labeled-block-nested` 钉着这一条 ✓。
 
   // ===== stdlib：内建成员与标准形状 =====
-  "array-spread-conditional": { expect: "blocked", why: "发现于第 214 轮：展开一个**条件表达式**（`[...cond ? a : b]`）降级不出来（`unimplemented: expression SpreadElement`）——`[...xs]` / `[...f()]` 一直是好的 ✓" },
+  // **第 234 轮删掉了 `array-spread-conditional` 那一行** ✓（它过了 ✓）：
+  // 投影把 `[...xs.length ? xs : ys]` 记成 `ArrayLiteral > ConditionalExpression` ✓，
+  // 而**三元的那一格「条件」是 `SpreadElement`** ✓（区间从 `...` 起算 ✓，
+  // 所以 `...` 绑得比三元还紧 ✓）。`LowerConditional` 于是拿到一个 `SpreadElement` ✓，
+  // 报 `unimplemented: expression SpreadElement` ✓（听起来像「`...` 没人支持」✗，
+  // 而**别处的 `...` 都是好的** ✓）。
+  // 修法：`LowerExpression` 顶上把裸位置上的 `SpreadElement` **剥掉** ✓——
+  // 那三处**有语义**的位置（数组元素 / 调用实参 / 对象成员 ✓）各走各的路 ✓、
+  // **不经过这一句** ✓，所以剥掉它们的信息不丢 ✓。
+  // **剥掉是对的** ✗：三元 / 二元 / 一元**操作数**位置上的 `...` 在 JS 里本来就是语法错误 ✓，
+  // 它能出现在那里只是因为外面的数组字面量已经认过它了 ✓。
   "object-freeze": { expect: "blocked", why: "**口径分歧**：本仓对只读属性**抛**（严格模式），node 把 `.ts` 当 CJS 跑是**松散模式**静默失败" },
   "object-freeze-array-element": { expect: "differ", why: "**静默错值**：冻住的数组还能 `push`（要动引擎的写屏障）" },
   "object-tostring-tag": { expect: "blocked", why: "`Object.prototype.toString` 只答了能证的那一格，`call` 这条形状过不去" },

@@ -309,6 +309,40 @@ console.log(new (box as any)(7).v);
 `,
   },
   {
+    // **第 234 轮补的语料** ✓（这一轮修的形状里**没被原来那条判据盖到**的两半 ✓）：
+    // ① **带标签的循环**（`loop: for (…) { … break loop; … }` ✓）——那一半原来就是好的 ✓
+    //（标签被 `EnterLoop` 吃进去 ✓），放进来是**对照** ✓；
+    // ② **嵌套的标签块** ✓（`two: { … inner: { … break two; … } … }` ✓）——
+    // 它逼出了「那一格必须是**一摞**」✓：一格的话 `inner` 一进就把 `two` 顶掉 ✓，
+    // `break two` 报 `unknown label` ✓（而那是合法的 JS ✓）。
+    // ③ **块里正常走完**那一路 ✓（`l3` 最后那个 `"w"` **不该**被跑到 ✓——
+    // `break two` 在 `inner` 里就跳出去了 ✓）：第一次写「先占一条 `Jump` 当目标」时
+    // 正是**这一路**错的 ✓（正常路径也跳走 ✓，**静默错值** ✓）。
+    id: "ex-labeled-block-nested",
+    title: "标签的另外两面：带标签的循环、嵌套的标签块",
+    src: `
+let l2 = "";
+loop: for (let i = 0; i < 3; i++) {
+  for (let j = 0; j < 3; j++) {
+    if (j === 1) break loop;
+    l2 += i + "" + j;
+  }
+}
+console.log(l2);
+let l3 = "";
+two: {
+  l3 += "x";
+  inner: {
+    l3 += "y";
+    if (l3.length === 2) break two;
+    l3 += "z";
+  }
+  l3 += "w";
+}
+console.log(l3);
+`,
+  },
+  {
     id: "ex-computed-member-call",
     title: "`o[k](...)` / 计算结果键的方法",
     src: `
