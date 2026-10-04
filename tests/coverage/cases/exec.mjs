@@ -288,6 +288,27 @@ console.log(typeof ({}).toString, typeof [].length, typeof (1 + 2));
 `,
   },
   {
+    // **第 232 轮加的一条** ✓（**它是这一轮修好的那个形状的语料** ✓）：
+    // 实参位里的 `as T`（`new Map([[1, "a"]] as any)`）在**产物那边是两格平级单元** ✓
+    // （`Identifier` 与 `As` ✓，左边的操作数是它的**前一个兄弟** ✓）。
+    // 逐格投会把 `As` 单独投成一个**没有 `expression`** 的 `AsExpression` ✗——
+    // 实测报的是 `ast node AsExpression has no child expression` ✓
+    // （一句话指向**投影** ✓，而现场是 `arguments` 那一段的**投法** ✗）。
+    // **`new` 的实参位原来走的是「逐格」那条** ✗（`new.xl.md` 的 `PrintAst` ✓），
+    // 而 `CallExpression` 的实参位第 143 轮就改成「按顶层逗号切段、每段走 `Expression`」了 ✓
+    // ——**同一个规矩写两遍，第二遍就是漏的那一遍** ✗。
+    id: "ex-as-in-new-arguments",
+    title: "`new` 的实参位里带 `as`（一整个实参 = 好几格）",
+    src: `
+const m = new Map([[1, "a"]] as any);
+console.log(m.get(1), m.size);
+const s = new Set([1, 2] as any);
+console.log(s.size);
+function box(v: number): { v: number } { return { v }; }
+console.log(new (box as any)(7).v);
+`,
+  },
+  {
     id: "ex-computed-member-call",
     title: "`o[k](...)` / 计算结果键的方法",
     src: `

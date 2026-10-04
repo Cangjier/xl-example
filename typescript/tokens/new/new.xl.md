@@ -194,7 +194,25 @@ return ReplaceCountAt(units, index, lastIndex - index + 1, result);
     if (typeArguments.length > 0) props.typeArguments = typeArguments;
   }
   const args = ctx.KidsOf(v, "arguments").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  if (args.length > 0) props.arguments = ctx.ProjectEach(args);
+  // **实参按顶层逗号切段、每段走 `ctx.Expression`**（第 232 轮 ✓）——**不能走 `ctx.ProjectEach`** ✗：
+  // 那个助手是**逐格**投的 ✓，而实参位有好几种「一个实参 = 好几格」的形状 ✓——
+  // 最普通的是 **`as` / `satisfies`** ✓（产物把 `x as T` 记成 `Identifier(x)` 与 `As(T)`
+  // **两个平级单元** ✓，左边那个操作数是它的**前一个兄弟** ✓）。
+  // 逐格投会把 `As` 单独投成一个 `AsExpression` ✓、而它的 `expression` 是**空的** ✗——
+  // 实测现场：`new Object(null as any)` 报
+  // `ast node AsExpression has no child expression` ✓（一句话指向**投影** ✓，
+  // 而现场是 `arguments` 那一段的**投法** ✗）。
+  // **与 `projectCall` 的实参那一段同一个写法** ✓（那里第 143 轮已经踩过同一类坑 ✓：
+  // `h?.(o?.a)` 的括号里也是「基名与 `?.` 平级」✓）——**一处规矩写两遍会漂** ✗，
+  // 所以这里连注释一起照它对齐 ✓。
+  const argGroups = ctx.Split(args, ",");
+  const argumentList = [];
+  for (const group of argGroups) {
+    if (group.length === 0) continue;
+    const one = ctx.Expression(group);
+    if (one !== undefined) argumentList.push(one);
+  }
+  if (argumentList.length > 0) props.arguments = argumentList;
   return ctx.NodeHead("NewExpression", props, v);
 ```
 

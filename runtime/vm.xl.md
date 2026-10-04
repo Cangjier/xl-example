@@ -439,6 +439,26 @@ this.Depth = 0;
 宿主函数的调用通道；`null` 表示这台机器**不带宿主**（纯脚本）。
 这时候遇到 `host_call` 就直接报错——**不许静默返回 `undefined`**。
 
+## field HostConstructing:bool = false
+
+**这一次宿主调用是不是从 `new` 来的**（第 232 轮 ✓）——**只在「宿主可调用值当构造函数」
+那两条路上为真** ✓（`DoNew` 的两支 ✓），别的路都是假 ✓。
+
+**为什么必须告诉宿主** ✗：JS 里 `F(...)` 与 `new F(...)` **可以给不同的答案** ✓，
+而最普通的一例正是 `Object` ✓——`Object(null)` 是 `null` ✓、
+`new Object(null)` 是**一个空对象** ✓（构造那条路永远给新对象 ✓）。
+本仓的宿主 ABI 只有 `(id, self, args)` ✗（`HostInvoker` ✓），
+**分不出这两件事** ✗——于是语言层只能二选一 ✓，而**两边都是错的** ✓
+（判据 `global-array-object-ctors` 现场红的 ✓）。
+
+**为什么用「一台机器一位」而不是给 ABI 加参数** ✗：
+`HostInvoker` 是**公开契约** ✓（`host-abi.xl.md` ✓、客户要照着实现 ✓），
+加一位就是一次破坏性改动 ✓；而这一位是**瞬时的** ✓——
+`DoNew` 在调 `DoCallValue` **之前**置上 ✓、调完**立刻**清掉 ✓
+（见 `DoNew` 那两条分支 ✓），窗口里只有这一次调用 ✓。
+嵌套的 `new` 也没问题 ✓：内层清掉的是**它自己**置的那一位 ✓，
+外层那一位在它整段跑完之后才被清 ✓（后进先出 ✓）。
+
 ## field Finished:bool = false
 
 **入口函数到底返回了没有**。
@@ -1411,7 +1431,9 @@ const callee = frame.Slots[instr.A];
 // 选②之后 `Date` 不必再靠降级层那条特例 ✓（`new Date(ms)` 与 `Date.now()` 同时成立 ✓），
 // 这一支也不再需要那句「说清原因」的抛 ✗。
 if (this.IsHostCallable(callee)) {
+  this.HostConstructing = true;
   this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, Value.Undefined(), 0);
+  this.HostConstructing = false;
   return;
 }
 // **普通对象当构造函数：给一句说清原因的话** ✓（不是「calling a non-closure value」✗——

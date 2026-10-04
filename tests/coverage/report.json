@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 273,
+  "matrix": 274,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 84.52,
+  "progressPercent": 85.76,
   "layers": [
     {
       "layer": "runtime",
@@ -33,22 +33,22 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 45,
-      "pass": 36,
-      "blocked": 7,
+      "total": 46,
+      "pass": 38,
+      "blocked": 6,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 80
+      "coverage": 82.61
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 109,
-      "pass": 96,
-      "blocked": 6,
-      "differ": 7,
+      "pass": 98,
+      "blocked": 5,
+      "differ": 6,
       "nodefail": 0,
-      "coverage": 88.07
+      "coverage": 89.91
     },
     {
       "layer": "e2e",
@@ -117,12 +117,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
     },
     {
-      "id": "ex-spread-in-new",
-      "layer": "exec",
-      "title": "带展开的构造：`new C(...xs)`",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node AsExpression has no child expression"
-    },
-    {
       "id": "ex-private-in-operator",
       "layer": "exec",
       "title": "私有成员：#m() / #n / static #s / #x in o",
@@ -169,12 +163,6 @@
       "layer": "stdlib",
       "title": "async 箭头函数 / 方法 / await 链",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: async method in a class"
-    },
-    {
-      "id": "global-array-object-ctors",
-      "layer": "stdlib",
-      "title": "Array / Object 当函数用与当构造器用",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node AsExpression has no child expression"
     },
     {
       "id": "e2e-event-emitter",
@@ -255,12 +243,6 @@
       "layer": "stdlib",
       "title": "Promise.all：混合值、空数组、有一个拒绝",
       "detail": "stdout 不同：第 1 行：node «mixed 1,2,3» vs tsrun «mixed ,2,»"
-    },
-    {
-      "id": "global-boolean",
-      "layer": "stdlib",
-      "title": "Boolean(x)：每个类型各一档",
-      "detail": "stdout 不同：第 2 行：node «false true true true» vs tsrun «false true true false»"
     }
   ],
   "bad": [],

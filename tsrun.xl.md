@@ -310,7 +310,7 @@ host.InstallHost((target, self, args, room) => {
     // **`CallFailed` 也要包一层箭头函数** ✓（第 228 轮）：与方法引用**同一条纪律** ✓
     //（`Scheduler()` 那一段实测过 ✓：方法引用**不带接收者** ✓，到了建库层手里 `this` 是
     // `undefined` ✓，报的是 `Cannot read properties of undefined` ✗——那句话离现场很远 ✓）。
-    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper(), () => host.Machine.CallFailed());
+    return InvokeWithSink(room, table, protos, id, self, args, sink, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler(), host.Machine.IteratorDrainer(), host.Machine.RootKeeper(), () => host.Machine.CallFailed(), host.Machine.HostConstructing);
   } catch (error) {
     // **抬不动就原样冒出去**（`RaiseFromHost` 给假：多半是连错误对象都开不出来）——
     // 响亮地失败，比假装抛了一个空错误好 ✓。

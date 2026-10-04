@@ -153,12 +153,13 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 230 轮读数：**240 / 273 = 84.5%**，
-其中**引擎 92.5%** ✓、降级层 **80.0%** ✓、标准库 **88.1%** ✓、端到端 **76.9%** ✓——
-第 230 轮做掉了 **`enum` 整族** ✓ 与 **`yield*`** ✓（两条都是「拼现成的东西」✓，**一个新算子都没加** ✓）；
-第 229 轮做掉了生成器对象的 `next()` ✓、`Symbol.toStringTag` ✓、类上的计算成员名与生成器方法 ✓；
-第 228 轮做掉了 `Function.prototype` 的 `call` / `apply` / `bind` ✓、
-「回调里抛立刻中断内建」✓、「语言层的 `throw` 带类别」✓）——
+**场景覆盖度**是 `npm run coverage`（第 232 轮读数：**244 / 274 = 85.3%**，
+其中**引擎 92.5%** ✓、降级层 **82.6%** ✓、标准库 **89.9%** ✓、端到端 **76.9%** ✓——
+第 232 轮修掉了 `new` 实参位里 `as` 的投影（一个 bug 拖着两条判据 ✓）、
+让 **`new` 那一档告诉宿主**（`Object(null)` 与 `new Object(null)` 是两样东西 ✓）、
+并给 `new Boolean(x)` 补上了包装对象 ✓；
+第 230 轮做掉了 **`enum` 整族** ✓ 与 **`yield*`** ✓；
+第 229 轮做掉了生成器对象的 `next()` ✓、`Symbol.toStringTag` ✓、类的计算成员名 ✓）——
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。

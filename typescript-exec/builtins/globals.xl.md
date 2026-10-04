@@ -265,6 +265,18 @@ import { BuildPromise } from "./promise.xl.md"
 return Value.FromString(table.CreateString(Units("__boundTarget")));
 ```
 
+# method BooleanBoxKey:(table:HeapTable)=>Value
+
+**`new Boolean(x)` 那个包装对象上，「原值」挂在哪个键下**（第 232 轮 ✓）——
+与 `BoundTargetName` 那一族**同一个理由** ✓（每一次现造 ✓，按内容比 ✓）。
+
+**为什么是隐藏属性而不是普通属性** ✗：`Object.keys(new Boolean(1))` 在 JS 里是 `[]` ✓，
+挂成普通属性会当场给 `["__b"]` ✗——**静默错值** ✓（与 `Map` 的内部格那条同一个坑 ✓）。
+
+```ts
+return Value.FromString(table.CreateString(Units("__b")));
+```
+
 # method BoundThisName:(table:HeapTable)=>Value
 
 **绑定的 `this` 挂在哪个键下**（第 228 轮 ✓，与上面同一条口径 ✓）。
@@ -640,6 +652,33 @@ return MathResult(Number(literal));
 
 **长度那一档复用 `HeapArray.Truncate`** ✓：它的规矩**本来就是**「变长时新增的格子全是洞」 ✓
 （`heap.xl.md` 写着这一条 ✓）——正是 `new Array(n)` 的语义 ✓，不必再写一遍 ✗。
+
+# const ObjectCtor:int = 225
+
+**`Object(x)` / `new Object(x)`** 的能力号（第 232 轮 ✓）。
+
+**JS 里两者给的东西不一样** ✗（这是这一格要记住的第一件事）：
+`Object(null)` 是 **`null`** ✓（它把任意值**转成对象**，而 `null` / `undefined` **转出来还是自己** ✓），
+`new Object(null)` 是**一个空对象** ✓（构造那条路**永远**给新对象 ✓，实参不参与 ✓）。
+
+**这一轮只做「能证的那一半」** ✓：
+- **`Object(x)` 有实参、且 `x` 已经是对象** ⇒ 原样返回 ✓（`Object({a: 1}).a` 是 `1` ✓）；
+- **`Object()` 没实参** ⇒ 造一个空对象 ✓；
+- **`Object(null)` / `Object(undefined)`** ⇒ 原样返回 `null` / `undefined` ✓；
+- **`Object(原始值)`** ⇒ **响亮地抛** ✗。JS 在这里给**包装对象** ✓
+  （`Object(1)` 是一个 `Number` 对象 ✓、`typeof` 是 `"object"` ✓），
+  而本仓**一个包装对象都没有** ✗（`new Number(1)` 那一族也没做 ✓）——
+  **给一个贴了原型的普通对象**是**静默错值** ✗（`typeof` 会是 `"object"` ✓ 而内容不对 ✗），
+  所以宁可不做 ✓（与「不能给近似值的那几格」同一条纪律 ✓）。
+
+**它跟 `Array` 一样是「调用与构造同一个号」** ✗——**这是这一轮的已知差** ✓：
+本仓的宿主 ABI **不告诉被调方「这一次是 `new` 还是普通调用」** ✗（`HostInvoker` 只有
+`(id, self, args)` ✓），所以 `new Object(null)` 与 `Object(null)` 走的是**同一条** ✓。
+**它选了「原样返回」那一半** ✓：`Object(null)` 是真答案 ✓，
+而 `new Object(null)` 在普通 `.ts` 里**几乎不写** ✓（判据 `global-array-object-ctors`
+用的正是 `new Object(null as any) !== null` ✓——**按 JS 那是 `true`** ✗，
+所以那一条判据还差**这一格** ✓，缺口写在台账里 ✓）。
+**要做对它得先给宿主 ABI 加一位「这次是不是构造」** ✗——那是另一件事 ✓。
 
 # const PowId:int = 224
 
@@ -1022,7 +1061,7 @@ return MakeNumber(value);
 return MakeNumber(ToNumberOf(room, call, protos, table, value));
 ```
 
-# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null)=>Value
+# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null, constructing:bool = false)=>Value
 
 **全局内建的分派与实现**。
 
@@ -1083,10 +1122,53 @@ if (id === NumberCtor) {
 }
 if (id === BooleanCtor) {
   // **不给实参给 `false`** ✓，走的是**唯一那条真假口径** ✓（第 144 轮的 `TruthyOf` ✓）。
+  // **`new Boolean(x)` 给的是「包装对象」** ✓（第 232 轮 ✓）：JS 里
+  // `Boolean(false)` 是**假** ✓、`new Boolean(false)` 是**真** ✓
+  //（`typeof` 是 `"object"` ✓，而且**任何对象都是真** ✓——`ToBoolean` 那一支最后一行就是它 ✓）。
+  // 判据 `global-boolean` 现场钉着这一句 ✓：它最后一项是 `Boolean(new Boolean(false) as any)` ✓，
+  // 期望 `true` ✓（**不是** `false` ✗）。
+  //
+  // **本仓没有「包装对象」那一档** ✓（`Number` / `String` 也没有 ✓）——
+  // 所以这里给的是一个**普通对象 + 一格隐藏的原值** ✓（`__b` ✓，用 `SetHiddenProperty` ✓：
+  // 它**不能**是可枚举的自有属性 ✓，否则 `Object.keys(new Boolean(1))` 当场给 `["__b"]` ✗，
+  // 而 JS 给 `[]` ✓——**静默错值** ✗）。
+  // **已知差** ✗：`String(new Boolean(false))` 在这里给 `"[object Object]"` ✓，
+  // 而 JS 给 `"false"` ✓（那要 `Boolean.prototype.toString` / `valueOf` 那一族 ✓）。
+  // **它比「静默按假算」好** ✓：真假这一档是对的 ✓，缺的是**原始值的那两个方法** ✓。
+  if (constructing) {
+    const boxed = NewPlainObject(room, table, protos);
+    // **里面那一格存的是 `RtToBoolean` 的答案** ✓（它是**值**不是宿主 `bool` ✓）——
+    // 直接存 `Value.FromBool(…)` 是编译不过的 ✗（那一句是「类型当场拦下来」的好例子 ✓）。
+    const inner = RtToBoolean(table, args.length > 0 ? args[0] : Value.Undefined());
+    SetHiddenProperty(room, table, boxed, BooleanBoxKey(table), inner);
+    return boxed;
+  }
   return RtToBoolean(table, args.length > 0 ? args[0] : Value.Undefined());
 }
-if (id === ArrayCtor) {
-  // **一个数是长度、其余是元素** ✓（JS 的口径 ✓，见 `ArrayCtor` 那一段 ✓）。
+if (id === ObjectCtor) {
+  // **`Object()` / `Object(x)` / `new Object(x)`** ✓（第 232 轮 ✓）：
+  // 见 `ObjectCtor` 那一段里「这一轮只做能证的那一半」那一节 ✓——
+  // **原始值那一档响亮地抛** ✗（本仓没有包装对象 ✓，不静默给近似值 ✗）。
+  //
+  // **构造那一档先判** ✗（次序是语义 ✓）：JS 里 `new Object(x)` **永远给新对象** ✓，
+  // 实参**完全不参与** ✓——所以 `new Object(null)` 是 `{}` 而**不是** `null` ✓
+  //（判据 `global-array-object-ctors` 钉的就是这一句 ✓：
+  // `new Object(null as any) !== null` 在 JS 里是 `true` ✓）。
+  if (constructing) {
+    return NewPlainObject(room, table, protos);
+  }
+  if (args.length === 0) {
+    return NewPlainObject(room, table, protos);
+  }
+  const only = args[0];
+  // **对象原样返回** ✓（`Object({a: 1}) === 那一个对象` ✓，JS 的口径 ✓）。
+  if (only.IsObject()) return only;
+  // **`null` / `undefined` 也原样返回** ✓（`Object(null)` 是 `null` ✓）。
+  if (only.Tag === ValueTag.Null || (only.Tag === ValueTag.Undefined)) return only;
+  // **其余原始值要包装对象，而本仓没有包装对象** ✗ ⇒ 响亮地抛 ✓（不静默给一个近似值 ✗）。
+  throw new Error("unimplemented: Object(primitive) needs wrapper objects");
+}
+if (id === ArrayCtor) {  // **一个数是长度、其余是元素** ✓（JS 的口径 ✓，见 `ArrayCtor` 那一段 ✓）。
   if (args.length === 1 && args[0].Tag === ValueTag.Int32) {
     const count = args[0].Int;
     if (count < 0) throw new Error("unimplemented: new Array(n) needs a non-negative length");
@@ -2930,6 +3012,16 @@ SetProperty(vm.Room(), NeverCall, table, objectObject,
 SetProperty(vm.Room(), NeverCall, table, objectObject,
   Value.FromString(table.CreateString(Units("fromEntries"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectFromEntries, 0)));
+// **`Object` 这个名字自己可以被调、也可以被 `new`** ✓（第 232 轮 ✓）：
+// 它原来只是「一格普通对象 + 一堆静态方法」✗——于是 `Object({ a: 1 })` 报
+// `calling a non-closure value` ✓、`new Object(null)` 报
+// `calling an object as a constructor (this object is not callable)` ✓
+// （判据 `global-array-object-ctors` 现场红的 ✓）。
+// **补的就是这一句** ✓：给它挂上可调用载荷 ✓（与 `Array` / `String` / `Function` 同款 ✓）——
+// 分派在 `InvokeGlobal` 的 `ObjectCtor` 那一支 ✓。
+// **`AttachCallable` 落在那一格对象自己身上** ✓（不是 `protos.Object` 上 ✗）：
+// 挂到 `protos.Object` 就是「所有普通对象都可调用」✗（**静默错值** ✓，而且整份脚本都受影响 ✓）。
+table.AttachCallable(objectObject.Ref, ObjectCtor, 0);
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
 SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
 // **`NaN` / `Infinity` 也是全局对象上的属性**（第 149 轮）✓：与 `undefined` 同一条路 ✓——

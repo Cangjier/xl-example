@@ -43,7 +43,12 @@ export const EXPECTATIONS = {
   "ex-tagged-template-suffix": { expect: "blocked", why: "函数当 `ToPrimitive` 时该给**源码文本**（`Function.prototype.toString`）" },
   "ex-typeof-value-expression": { expect: "blocked", why: "`typeof (表达式)`：投影认成了 `TypeLiteral`" },
   "ex-computed-member-call": { expect: "differ", why: "函数的显示形态：`[Function: run]` vs `[Function (anonymous)]`" },
-  "ex-spread-in-new": { expect: "blocked", why: "`new Map([[1,2]] as any)`：`AsExpression` 那一层没有子表达式" },
+  // **第 232 轮删掉了 `ex-spread-in-new` 那一行** ✓（它过了 ✓）：它的最后一句话是
+  // `new Map([[1, 2]] as any)` ✓——**实参位里的 `as`** ✓。产物那边 `x as T` 是
+  // **两格平级单元** ✓（`Identifier` 与 `As` ✓），而 `new` 的实参位原来走「逐格投」✗，
+  // 于是 `As` 被单独投成一个**没有 `expression`** 的 `AsExpression` ✗。
+  // 改成与 `CallExpression` 的实参位**同一个写法**（按顶层逗号切段、每段走 `Expression` ✓）之后，
+  // 展开那两句（`new P(...args)` / `new P(...[3, 4])`）本来就是好的 ✓，整条跟着通了 ✓。
   "ex-parameter-properties": { expect: "differ", why: "构造函数参数属性：门进得去，但字段的值是错的（`1 6 3` vs `undefined NaN 0`）——**静默错值**" },
   // **第 230 轮删掉了 `ex-yield-star` 那一行** ✓（它过了 ✓）：`yield*` 落成一段
   // **等价的循环** ✓（`lowering.xl.md` 的 `LowerYieldDelegation` ✓）——
@@ -79,8 +84,23 @@ export const EXPECTATIONS = {
   "promise-chaining-errors": { expect: "blocked", why: "`.then` 回调里抛的错没接到拒绝链上" },
   "promise-all-kinds": { expect: "differ", why: "`Promise.all` 里**非承诺的项**丢了（与 `prm-combinators` 同一处）" },
   "promise-async-await-forms": { expect: "blocked", why: "类里的 `async` 方法（`async method in a class`）" },
-  "global-boolean": { expect: "differ", why: "`new Boolean(false)` 该是个**对象**（真），现在给 `false`" },
-  "global-array-object-ctors": { expect: "blocked", why: "`new Object(null as any)` 的 `AsExpression` 那一层" },
+  // **第 232 轮删掉了 `global-boolean` 那一行** ✓（它过了 ✓）：
+  // `new Boolean(false)` 在 JS 里是**真** ✓（任何对象都是真 ✓），
+  // 而本仓原来把它按假算 ✗（`BooleanCtor` 只有「转真假」那一支 ✓）。
+  // 现在构造那一支给一个**普通对象 + 一格隐藏的原值** ✓（`__b` ✓，
+  // 用 `SetHiddenProperty` ✓——挂成普通属性的话 `Object.keys(new Boolean(1))` 当场给
+  // `["__b"]` ✗，而 JS 给 `[]` ✓）。**已知差**：`String(new Boolean(false))` 在这里给
+  // `"[object Object]"`，JS 给 `"false"`（那要 `Boolean.prototype.toString` / `valueOf`）。
+  // **第 232 轮删掉了 `global-array-object-ctors` 那一行** ✓（它过了 ✓）：
+  // 它卡过两处 ✓——先是 `new Object(null as any)` 的 `AsExpression` 那一层 ✓
+  // （与 `ex-spread-in-new` 同一处 ✓），再是**最后那一句**
+  // `new Object(null as any) !== null` ✓。JS 里 `Object(null)` 是 `null` ✓、
+  // `new Object(null)` 是**一个空对象** ✓（构造那条路**永远**给新对象 ✓，实参完全不参与 ✓），
+  // 而本仓的宿主 ABI 只有 `(id, self, args)` ✗——**分不出这两件事** ✗。
+  // 修法：`vm.xl.md` 加一位瞬时的 `HostConstructing` ✓（`DoNew` 那两条宿主分支置上、
+  // 调完立刻清掉 ✓），驱动把它当**最后一位**传进 `InvokeWithSink` ✓
+  //（**公开契约不动** ✓——`HostInvoker` 是客户要照着实现的 ✓）。
+  // **`Object` 这一格是唯一用它的人** ✓（`Array` / `String` / `Function` 两档本来就同义 ✓）。
 
   // ===== e2e：几族合起来 =====
   "e2e-event-emitter": { expect: "blocked", why: "类字段初始化器里引一个全局名（`new Map`）报「name used before its declaration」" },

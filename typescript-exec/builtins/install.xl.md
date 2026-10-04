@@ -54,7 +54,7 @@ if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args, k
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null, failed:CallFailed | null = null, constructing:bool = false)=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -149,7 +149,13 @@ if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call, dr
 // 与「用不到的不塞进签名」同一条纪律 ✓。
 if (id === ArrayOf) return ArrayOfValues(room, table, protos, args);
 if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args);
-if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink, failed);
+// **`constructing` 是「这一次调用是不是从 `new` 来的」** ✓（第 232 轮 ✓）：
+// 它一路从 `DoNew` 那两条宿主分支传到这里 ✓（经 `vm.xl.md` 的 `HostConstructing` ✓
+// 与驱动那一句 ✓）——**只有 `ObjectCtor` 用它** ✓（`Object(null)` 与 `new Object(null)`
+// 在 JS 里给的是**两样东西** ✓，见那一支 ✓）。
+// **不让 `InvokeGlobal` 自己去问机器** ✗：这一层**没有机器** ✓（它只收 `room` / `table` ✓），
+// 而为了这一位把机器灌进来会让「用不到它的那二十格」也以为自己在构造 ✓。
+if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink, failed, constructing);
 return InvokeBuiltin(room, table, call, id, self, args, keep, failed);
 ```
 
