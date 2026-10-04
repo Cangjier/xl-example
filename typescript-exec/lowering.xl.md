@@ -4609,6 +4609,9 @@ if (kind === "NewExpression") {
 if (kind === "ConditionalExpression") {
   return this.LowerConditional(node);
 }
+if (kind === "TaggedTemplateExpression") {
+  return this.LowerTaggedTemplate(node);
+}
 if (kind === "TemplateExpression") {
   return this.LowerTemplate(node);
 }
@@ -5165,6 +5168,89 @@ for (let i = 0; i < args.length; i++) {
   if (NodeKind(args[i]) === "SpreadElement") return true;
 }
 return false;
+```
+
+## method PushArrayElement:(target:int, value:int)=>void
+
+**把一格值接到数组末尾**（第 171 轮）——`SetIndex(数组, 数组.length, 值)` ✓，
+与 `BuildArgsArray` 里那条路同一个写法 ✓（那里是「实参」，这里是「段落」与「实参」两用 ✓）。
+
+抽出来的理由与 `EmitCallArray` 一样 ✓：这段是**五个槽的操作数** ✗，抄第二遍就是第二处会写错的机会 ✓。
+
+```ts
+const at = this.RtCall2(RtOp.GetProp, target, this.Program().AddConst(Constant.OfString(UnitsOf("length"))));
+const window = this.Reserve(3);
+this.Emit(Op.Move, window, target, -1, -1);
+this.Emit(Op.Move, window + 1, at, -1, -1);
+this.Emit(Op.Move, window + 2, value, -1, -1);
+this.EmitRt(RtOp.SetIndex, window, window, 3);
+this.Release(window);
+this.Release(at);
+```
+
+## method TemplatePartText:(node:AstNode)=>string
+
+模板**某一段的正文**（第 171 轮）✓：投影对模板段给的是**带反引号的原文** ✓
+（`` `a` `` 给 `` "`a`" `` ✓、`` `c` `` 给 `` "`c`" `` ✓）✓——所以这里把那对反引号剥掉 ✓，
+**两种口径都接住** ✓（有反引号才剥 ✓，与 `NoSubstitutionTemplateLiteral` 那一支同一条规矩 ✓）。
+
+```ts
+let raw = TextOf(node);
+if (raw.length >= 2 && raw[0] === "`" && raw[raw.length - 1] === "`") {
+  raw = raw.slice(1, raw.length - 1);
+}
+return raw;
+```
+
+## method LowerTaggedTemplate:(node:AstNode)=>int
+
+**`` tag`a${x}b` ``**（第 171 轮）✓：JS 把它变成**一次普通调用** ✓——`tag(parts, x)` ✓，
+其中 `parts` 是**段落数组** ✓（这里是 `["a", "b"]` ✓）。
+
+原来降级期报 `unimplemented: expression TaggedTemplateExpression` ✗（**整份文件进不来** ✗），
+而 `` sql`…` `` / `` styled.div`…` `` / `` gql`…` `` 这些写法在真实 `.ts` 里很常见 ✓。
+
+**段落怎么取** ✓（TS 的形状 ✓）：`TemplateExpression` 的 Data 是
+`[TemplateHead, TemplateSpan…]` ✓，每个 `TemplateSpan` 是 `[TemplateMiddle|TemplateTail, expression]` ✓
+（TS 自己的字段名就是 `literal` 与 `expression` ✓，投影按同一套名字存 ✓）；
+**没有内插**时整个模板就是一个 `NoSubstitutionTemplateLiteral` ✓（段落只有一个 ✓、实参没有 ✓）。
+
+**`raw` 这一档先不铺** ✗：那要给段落数组**挂一个 `raw` 属性** ✓，而这一层还没有「挂属性」的那条路 ✗
+——所以 `` String.raw`…` `` 仍然不对 ✗（**记在台账里** ✓），其余 tag 照常 ✓。
+**同理「同一个调用点共用一个段落数组」那条身份约定** ✗（JS 要求每次求值拿到**同一个**数组对象 ✓）
+这里也还没做 ✓：每次求值新建一个 ✓（对绝大多数 tag 无影响 ✓，对拿它当缓存键的库有影响 ✗）✓。
+
+```ts
+const callee = this.LowerExpression(Child(node, "tag"));
+const template = Child(node, "template");
+const args = this.Reserve(1);
+this.EmitRt(RtOp.NewArray, args, args, 0);
+const parts = this.Reserve(1);
+this.EmitRt(RtOp.NewArray, parts, parts, 0);
+const texts: Array<string> = [];
+const substitutions: Array<AstNode> = [];
+if (NodeKind(template) === "NoSubstitutionTemplateLiteral") {
+  texts.push(this.TemplatePartText(template));
+} else {
+  texts.push(this.TemplatePartText(Child(template, "head")));
+  for (const span of ListOf(template, "templateSpans")) {
+    substitutions.push(Child(span, "expression"));
+    texts.push(this.TemplatePartText(Child(span, "literal")));
+  }
+}
+for (let i = 0; i < texts.length; i++) {
+  const slot = this.Reserve(1);
+  this.Emit(Op.Const, slot, this.Program().AddConst(Constant.OfString(UnitsOf(texts[i]))), -1, -1);
+  this.PushArrayElement(parts, slot);
+  this.Release(slot);
+}
+this.PushArrayElement(args, parts);
+for (let i = 0; i < substitutions.length; i++) {
+  this.PushArrayElement(args, this.LowerExpression(substitutions[i]));
+}
+this.Release(args + 1);
+const result = this.EmitCallArray(callee, args, -1);
+return result;
 ```
 
 ## method BuildArgsArray:(args:Array<AstNode>)=>int
