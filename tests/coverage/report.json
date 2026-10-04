@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 88.25,
+  "progressPercent": 88.89,
   "layers": [
     {
       "layer": "runtime",
@@ -34,11 +34,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 47,
-      "pass": 42,
+      "pass": 43,
       "blocked": 4,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 89.36
+      "coverage": 91.49
     },
     {
       "layer": "stdlib",
@@ -171,12 +171,6 @@
       "layer": "runtime",
       "title": "微任务的顺序：同步先跑完，再按排队的先后",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：cannot read properties of undefined"
-    },
-    {
-      "id": "ex-parameter-properties",
-      "layer": "exec",
-      "title": "构造函数参数属性（`constructor(private x)`）要变出字段来",
-      "detail": "stdout 不同：第 1 行：node «1 6 3» vs tsrun «undefined NaN 0»"
     },
     {
       "id": "object-freeze-array-element",

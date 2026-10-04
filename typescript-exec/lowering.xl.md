@@ -4953,16 +4953,66 @@ for (let i = 0; i < members.length; i++) {
   if (this.HasModifier(members[i], "StaticKeyword")) continue;
   instanceFields.push(members[i]);
 }
+// **参数属性**（`constructor(public x: number, private y: number, readonly z = 0)` ✓，
+// 第 239 轮 ✓）：TS 把这三个形参**同时**声明成实例字段 ✓，
+// 并在构造函数**最开头**写 `this.x = x` 那三句 ✓（`node --experimental-transform-types`
+// 给的就是那个形状 ✓）。
+//
+// **实测的现场** ✗：`class P { constructor(public x: number, private y: number) {} }`
+// 之后 `new P(1, 2)` 读出 `p.x` 是 `undefined` ✓、`p.sum()` 是 `NaN` ✓、
+// `Object.keys(p).length` 是 `0` ✓（判据 `ex-parameter-properties` ✓，
+// 而 Node 给 `1 6 3` ✓）——**三处一起错** ✓，因为**一样东西也没做** ✗。
+//
+// **做法：合成一棵最小子树，借现成的那条路** ✓。
+// `EmitFieldInit` 认的是 `PropertyDeclaration` ✓（`this.<名字> = <初始化式>` ✓），
+// 而参数属性要的正是**那一条** ✓（`this.x = x` ✓）——所以这里**不新写一条发指令的路** ✗，
+// 只把「名字 + 初始化式」组成一个 `PropertyDeclaration` ✓、**插在 `instanceFields` 最前面** ✓。
+//
+// **次序是语义** ✗（两处 ✓）：
+// - **参数属性在最前面** ✓：TS 那三句排在**构造函数体之前** ✓、也排在**别的字段初始化式之前** ✓
+//   （实测：`class P { y = this.x; constructor(public x: number) {} }` 里
+//   `new P(1).y` 给 `1` ✓——说明 `this.x = x` 先跑 ✓）；
+// - **保持形参的书写次序** ✓（`x` ✓、`y` ✓、`z` ✓）——它们之间也可能互相看 ✓。
+//
+// **只认简单名** ✗：`constructor(public {a}: T)` 在 TS 里本来就是非法的 ✓
+// （参数属性只能是**标识符** ✓、而且不能是剩余参数 ✓）——这一条不另外判 ✓，
+// 让下面那个 `Identifier` 检查在遇到别的形状时**响亮地不合成** ✗（不猜 ✓）。
+const ctorDecls: AstNode[] = [];
+for (let i = 0; i < members.length; i++) {
+  if (NodeKind(members[i]) !== "Constructor") continue;
+  const params = ListOf(members[i], "parameters");
+  for (let k = 0; k < params.length; k++) {
+    // **有那四个修饰词之一才算参数属性** ✓（`public` / `private` / `protected` / `readonly` ✓）。
+    const isParamProp = this.HasModifier(params[k], "PublicKeyword")
+      || this.HasModifier(params[k], "PrivateKeyword")
+      || this.HasModifier(params[k], "ProtectedKeyword")
+      || this.HasModifier(params[k], "ReadonlyKeyword");
+    if (!isParamProp) continue;
+    const paramName = OptionalChild(params[k], "name");
+    if (paramName === null || NodeKind(paramName) !== "Identifier") continue;
+    const text = TextOf(paramName);
+    ctorDecls.push({
+      kind: "PropertyDeclaration",
+      name: { kind: "Identifier", text: text },
+      initializer: { kind: "Identifier", text: text },
+    });
+  }
+}
+// **参数属性排在前面** ✓（见上面那一段 ✓）：`unshift` 那一段挪不过去 ✗——
+// 直接在拼数组的时候按「先参数属性、后字段声明」的次序接 ✓。
+const allInstanceFields: AstNode[] = [];
+for (let i = 0; i < ctorDecls.length; i++) allInstanceFields.push(ctorDecls[i]);
+for (let i = 0; i < instanceFields.length; i++) allInstanceFields.push(instanceFields[i]);
 const ctor = this.LowerFunctionValue(ctorNode, name);
 // **构造函数那一项就是刚推进去的最后一项**（`LowerFunctionValue` 只推一项）。
 // 把基类名记在它身上：`super(...)` 只允许出现在这一层，判定靠它。
 if (baseName !== "" && this.Pending.length > 0) {
   this.Pending[this.Pending.length - 1].SuperName = baseName;
 }
-if (this.Pending.length > 0 && instanceFields.length > 0) {
+if (this.Pending.length > 0 && allInstanceFields.length > 0) {
   // **字段初始化式挂在构造函数上**（第 128 轮）：它们要在那一帧里、`this` 上写属性。
   const ctorItem = this.Pending[this.Pending.length - 1];
-  ctorItem.FieldDefaults = instanceFields;
+  ctorItem.FieldDefaults = allInstanceFields;
   // **派生类要让位给 `super(...)`**：`this` 在它返回之前不存在，而它可能不在第一条语句。
   ctorItem.FieldInitDeferred = baseName !== "";
 }

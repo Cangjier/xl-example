@@ -69,7 +69,17 @@ export const EXPECTATIONS = {
   // 于是 `As` 被单独投成一个**没有 `expression`** 的 `AsExpression` ✗。
   // 改成与 `CallExpression` 的实参位**同一个写法**（按顶层逗号切段、每段走 `Expression` ✓）之后，
   // 展开那两句（`new P(...args)` / `new P(...[3, 4])`）本来就是好的 ✓，整条跟着通了 ✓。
-  "ex-parameter-properties": { expect: "differ", why: "构造函数参数属性：门进得去，但字段的值是错的（`1 6 3` vs `undefined NaN 0`）——**静默错值**" },
+  // **第 239 轮删掉了 `ex-parameter-properties` 那一行** ✓（它过了 ✓）：
+  // `constructor(public x: number, private y: number, readonly z = 0)` 之后
+  // 三处一起错 ✓（`p.x` 是 `undefined` ✓、`p.sum()` 是 `NaN` ✓、`Object.keys(p).length` 是 `0` ✓）
+  // ——因为**一样东西也没做** ✗。TS 把这三个形参**同时**声明成实例字段 ✓、
+  // 并在构造函数最开头写 `this.x = x` 那三句 ✓。
+  // 修法**不新写发指令的路** ✓：合成一棵最小的 `PropertyDeclaration`（名字 + 初始化式 ✓）、
+  // 借现成的 `EmitFieldInit` ✓（它认的就是那一条 ✓），插在 `instanceFields` 最前面 ✓。
+  // **已知差** ✗：`y = this.x * 10` 与参数属性的**交错次序**与 TS 不同 ✓
+  //（本仓先发参数属性 ✓——判据量不到这一档 ✓）。
+  // **它原来记的是 `differ`** ✓（门进得去、值是错的 ✓）——**静默错值** ✓，
+  // 比「进不了门」危险 ✓；这一轮把它变成真答案 ✓。
   // **第 230 轮删掉了 `ex-yield-star` 那一行** ✓（它过了 ✓）：`yield*` 落成一段
   // **等价的循环** ✓（`lowering.xl.md` 的 `LowerYieldDelegation` ✓）——
   // 拼的是 `GetIterator` + `IterNew` + `IterNext` + `Suspend` / `Resume` 五样现成的 ✓。
