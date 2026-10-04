@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
@@ -966,14 +966,24 @@ if (id === NumberIsNaN) {
   return Value.FromBool(target.Dbl !== target.Dbl);
 }
 if (id === StringConcat) {
-  // **两个值按字符串拼起来**（第 125 轮）：两边都走「任意值 → 文本」✓
-  // （`text.xl.md` 的 `ValueUnits` ✓——浮点 / 对象 / 数组 / 洞都在那里有答案 ✓）。
+  // **两个值按字符串拼起来**（第 125 轮）——**两边都先 `ToPrimitive`（hint `default`）** ✓
+  // （第 203 轮改 ✓，走的是与 `RtAdd` **同一张表** ✓：`rt.xl.md` 的 `ToPrimitiveOf` ✓）。
+  //
+  // **原来这里走的是 `ToString`** ✗（`text.xl.md` 的 `ValueUnits` ✓，外加一次
+  // 「对象自己的 `toString`」✓，第 193 轮 ✓）——那是**另一个问题** ✗：
+  // JS 的 `+` 第一步是 `ToPrimitive(default)` ✓，而 `default` 那一支**先问 `valueOf`、后问 `toString`** ✓
+  // （`rt.xl.md` 那张表 ✓）。于是 `class Money { valueOf() { return 250 } toString() { return "$2.5" } }` 的
+  // `"s" + m` 该给 `"s250"` ✓，走 `ToString` 给的是 `"s$2.5"` ✗——**静默错值** ✓，
+  // 第 203 轮判据（`cls-override-toString-valueOf` ✓）现场就是这么红的 ✓。
+  // **同一条 `+` 原来有两个答案** ✗（`m + 50` 走 `RtAdd` 是对的 ✓、`"s" + m` 走这里是不对的 ✗）——
+  // 这一轮把它收成一个 ✓。
+  //
+  // **顺序**：左边算完**立刻**取码元（宿主侧数组 ✓，不占堆、不受回收影响 ✓），再算右边 ✓——
+  // `ToPrimitive` **可能调脚本** ✓（`valueOf` / `Symbol.toPrimitive` ✓），
+  // 而两边都先算完、最后只问一次 room、只分配一次 ✓（与 `RtAdd` 那条纪律同一条 ✓）。
   if (args.length < 2) throw new Error("unimplemented: string_concat needs (left, right)");
-  // **两边都先问一次对象自己的 `toString`**（第 193 轮 ✓，理由同上 ✓）。
-  const leftOwn = ToStringOfObject(room, call, protos, table, args[0]);
-  const rightOwn = ToStringOfObject(room, call, protos, table, args[1]);
-  const left = leftOwn === null ? ValueUnits(table, args[0], 0) : TextUnitsOf(table, leftOwn);
-  const right = rightOwn === null ? ValueUnits(table, args[1], 0) : TextUnitsOf(table, rightOwn);
+  const left = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[0], ToPrimitiveDefault));
+  const right = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[1], ToPrimitiveDefault));
   if (!room(ObjectCharge + CodeUnitCharge * (left.length + right.length))) {
     throw new Error("out of room");
   }

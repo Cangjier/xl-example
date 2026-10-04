@@ -18,37 +18,37 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progress": 0.59,
+  "progress": 0.6,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 89,
-      "pass": 70,
+      "pass": 72,
       "blocked": 11,
-      "differ": 8,
+      "differ": 6,
       "nodefail": 0,
-      "coverage": 78.65
+      "coverage": 80.9
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 44,
-      "pass": 28,
+      "pass": 29,
       "blocked": 12,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 63.64
+      "coverage": 65.91
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 105,
-      "pass": 52,
+      "pass": 53,
       "blocked": 28,
-      "differ": 25,
+      "differ": 24,
       "nodefail": 0,
-      "coverage": 49.52
+      "coverage": 50.48
     },
     {
       "layer": "e2e",
@@ -419,12 +419,6 @@
       "detail": "stdout 不同：第 2 行：node «9007199254740991 9007199254740992» vs tsrun «undefined 9007199254740992»"
     },
     {
-      "id": "obj-shadowing",
-      "layer": "runtime",
-      "title": "原型链上的遮蔽：自己那一格赢",
-      "detail": "stdout 不同：第 1 行：node «A B A» vs tsrun «A undefined A»"
-    },
-    {
       "id": "arr-holes",
       "layer": "runtime",
       "title": "数组的洞：length 算、读出来是 undefined、join 留空",
@@ -441,12 +435,6 @@
       "layer": "runtime",
       "title": "私有成员：`#n` / `#m()` / `static #s`",
       "detail": "stdout 不同：第 1 行：node «7 1 0» vs tsrun «undefined 0 1»"
-    },
-    {
-      "id": "cls-override-toString-valueOf",
-      "layer": "runtime",
-      "title": "自定义 toString / valueOf 在字符串化与算术里生效",
-      "detail": "stdout 不同：第 1 行：node «250 300 500 true» vs tsrun «$2.5 300 500 true»"
     },
     {
       "id": "prm-combinators",
@@ -471,12 +459,6 @@
       "layer": "exec",
       "title": "`o[k](...)` / 计算结果键的方法",
       "detail": "stdout 不同：第 1 行：node «2 2 [Function: run]» vs tsrun «2 2 [Function (anonymous)]»"
-    },
-    {
-      "id": "ex-static-block-order",
-      "layer": "exec",
-      "title": "静态块与静态字段的执行顺序",
-      "detail": "stdout 不同：第 1 行：node «1 2 a,block1,b,block2» vs tsrun «1 2 a,b,block1,block2»"
     },
     {
       "id": "ex-quoted-and-keyword-keys",
@@ -593,12 +575,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
-      "id": "symbol-toprimitive",
-      "layer": "stdlib",
-      "title": "Symbol.toPrimitive：参与算术与字符串化",
-      "detail": "stdout 不同：第 1 行：node «S1 S 14» vs tsrun «S1 [object Object] 14»"
-    },
-    {
       "id": "symbol-description",
       "layer": "stdlib",
       "title": "Symbol() 的 description / 唯一性 / 当键",
@@ -620,7 +596,7 @@
       "id": "error-tostring",
       "layer": "stdlib",
       "title": "Error.prototype.toString 的形态",
-      "detail": "stdout 不同：第 1 行：node «Error: msg» vs tsrun «[object Object]»"
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Error.prototype.toString"
     },
     {
       "id": "promise-all-kinds",

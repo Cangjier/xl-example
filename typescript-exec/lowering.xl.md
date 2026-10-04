@@ -905,64 +905,13 @@ this.IsDefault = isDefault;
 
 产物（`LowerModule` 会把它换成一个新的）。
 
-## field ModuleStatements:Array<AstNode> = []
-
-**这一份模块的顶层语句**（`LowerModule` 存一份）。
-
-**为什么类需要它**：`class B extends A` 要看**父类有没有构造函数**——
-没有构造函数才敢做（`super(...)` 还没实现，见下）。而父类就在同一份模块的语句里，
-所以这份名单得留着。
-
-## method FindParentHasConstructor:(name:string)=>bool
-
-这份模块里叫 `name` 的类**有没有构造函数**。
-
-**「有」包含两层**（第 141 轮补的 ✓）：
-
-1. 自己写了构造函数 ✓；
-2. **自己不写、但父类有** ✓——那时本仓会**合成一个转发的构造函数**（见 `LowerClass` 那一支 ✓），
-   所以它**确实有** ✓。
-
-**为什么第 2 层必须算进来** ✗：字符串 `class A { constructor(v) {…} } class B extends A {}
-class C extends B {}` 里，`C` 看到的父类是 `B` ✓——而 `B` 的构造函数是**合成出来的、
-不在 `members` 里** ✗。只看 `members` 的话 `C` 会以为父类没有构造函数 ✓，
-于是给它一个**空的**默认构造函数 ✗，`new C(7).v` 就是 `undefined` ✓
-（**静默错值** ✓，判据现场就是这么红的 ✓）。
-
-**递归要有底** ✓：名字找不到时返回「有」✓（原样保留 ✓——「查不清」按最坏情况算 ✓）；
-**自己直接继承 `Object`（没有 `extends`）时到底** ✓——那时父类没有构造函数 ✓（返回 `false` ✓）。
-
-```ts
-for (let i = 0; i < this.ModuleStatements.length; i++) {
-  const statement = this.ModuleStatements[i];
-  if (NodeKind(statement) !== "ClassDeclaration") continue;
-  const nameNode = OptionalChild(statement, "name");
-  if (nameNode === null || TextOf(nameNode) !== name) continue;
-  const members = ListOf(statement, "members");
-  for (let j = 0; j < members.length; j++) {
-    if (NodeKind(members[j]) === "Constructor") return true;
-  }
-  // **自己没写：看父类**（第 141 轮 ✓）——父类有，本仓就会给这个类合成一个转发的 ✓。
-  const clause = OptionalChild(statement, "heritageClauses");
-  void clause;
-  const baseName = this.SuperClassNameOf(statement);
-  if (baseName === "") return false;
-  // **自己指到自己**（`class A extends A`）时当场停 ✓：源码上非法 ✓，
-  // 但递归没有底的话这里会转圈 ✗——「响亮地抛」比「挂住」好 ✓。
-  if (baseName === name) {
-    throw new Error("unimplemented: a class cannot extend itself");
-  }
-  return this.FindParentHasConstructor(baseName);
-}
-return true;
-```
-
 ## method SuperClassNameOf:(node:AstNode)=>string
 
 这个类声明 `extends` 的是哪个名字；没有（或不是简单名）给空串 ✓。
 
-**抽出来是因为有两个调用点** ✓（第 141 轮 ✓）：`LowerClass` 自己要用 ✓，
-`FindParentHasConstructor` 递归时也要用 ✓——两处各写一遍就有两处会漂 ✓。
+**抽出来是因为它有两个用处** ✓（第 141 轮抽出，第 203 轮起只剩一处 ✓）：
+`LowerClass` 自己要用它认 `super` 的父类 ✓（原来 `FindParentHasConstructor` 递归时也要用它 ✓——
+第 203 轮把那个「父类有没有构造函数」的代理判据撤掉了 ✓，见 `LowerClass` 那一支 ✓）。
 
 ```ts
 const clauses = ListOf(node, "heritageClauses");
@@ -1555,7 +1504,6 @@ return this.Program().AddConst(Constant.OfDouble(value));
 ```ts
 this.Module = new LoweredModule(new Program());
 this.Pending = [];
-this.ModuleStatements = ListOf(source, "statements");
 this.BeginFunction(1);
 this.PushScope();
 // **导入的名字与全局名走同一套机关**：它们都是「模块作用域里的名字，值从环境对象取」
@@ -4396,8 +4344,9 @@ return false;
 // 是**静默错值**——宁可不做。**父类查不到（比如 import 进来的）也算查不清，同样抛**。
 let superProto = -1;
 // **名字的取法收到了 `SuperClassNameOf` 里** ✓（第 141 轮 ✓）：
-// `FindParentHasConstructor` 递归时也要问同一个问题 ✓，
-// 两处各写一遍就有两处会漂 ✓（而漂的表现是「默认构造函数有时转发、有时不转发」✗）。
+// 它原来有两个调用点 ✓（`LowerClass` 自己 ✓ 与 `FindParentHasConstructor` 递归时 ✓）——
+// **第 203 轮撤掉了后一个** ✓（那条代理判据是错的 ✗，见下面 `baseName !== ""` 那一支 ✓），
+// 所以这里现在只剩一处 ✓，但「取法只有一份」这条纪律照旧 ✓。
 const baseName = this.SuperClassNameOf(node);
 {
   if (baseName !== "") {
@@ -4429,9 +4378,22 @@ for (let i = 0; i < members.length; i++) {
     explicitCtor = members[i];
   }
 }
-if (baseName !== "" && this.FindParentHasConstructor(baseName)) {
-  // **父类带构造函数时，派生类必须能`super(...)`**。
-  // 少了它，「父类设的字段在子类实例上不存在」——那是**静默错值**。
+// **派生类的默认构造函数永远要转发** ✓（第 203 轮改 ✓）：
+// JS 给的就是 `constructor(...args) { super(...args); }` ✓——**与父类有没有写构造函数无关** ✓。
+//
+// **原来这里还多问一句「父类有没有构造函数」** ✗（`FindParentHasConstructor` ✓，第 141 轮 ✓）——
+// 那是当时的**代理判据** ✓：那一轮 `super(...xs)` 刚做出来 ✓，只敢在「父类确实有构造函数」
+// 时才合成 ✓。**那条代理判据是错的** ✗：`class A { value = "A" } class B extends A { value = "B" }`
+// 里父类**没有显式构造函数**（但有字段初始化式 ✓），于是 `B` 拿到的是**空的**默认构造函数 ✗——
+// `super()` 一次都不调 ✓，结果：**父类的字段初始化没跑** ✓、
+// 而 `B` 自己的字段初始化**正等着 `super` 那一点**（`FieldInitDue` ✓）也**永远不会跑** ✗。
+// 实测：`new B().read()` 给 `undefined` ✓（JS 给 `"B"` ✓）——**静默错值** ✓，
+// 第 203 轮判据现场就是这么红的 ✓。
+//
+// **撤掉代理判据的代价是零** ✓：转发那条路本来就要走（`super(...args)` ✓），
+// 父类有没有构造函数**不影响该不该转发** ✓——只影响转到哪儿 ✓。
+if (baseName !== "") {
+  // 少了 `super(...)`，「父类设的字段在子类实例上不存在」——那是**静默错值**。
   // （JS 在这里是运行期报 ReferenceError；我们在降级期就报，更早也更响。）
   if (explicitCtor === null) {
     // **默认构造函数要转发参数**（第 141 轮 ✓）：JS 给的是
@@ -4463,7 +4425,7 @@ if (baseName !== "" && this.FindParentHasConstructor(baseName)) {
       body: { kind: "Block", statements: [{ kind: "ExpressionStatement", expression: forward }] },
     };
   } else if (!HasSuperCall(explicitCtor)) {
-    throw new Error("unimplemented: this derived constructor must call super(...) (its parent has one)");
+    throw new Error("unimplemented: this derived constructor must call super(...)");
   }
 }
 if (ctorNode === null) {
@@ -4472,21 +4434,15 @@ if (ctorNode === null) {
 }
 // **实例字段先摘出来**（第 128 轮）：它们的初始化式跑在**构造函数那一帧**里
 // （见 `PendingFunction.FieldDefaults` 那一段），不走下面「挂到 prototype 上」那条路。
+//
+// **只摘实例字段** ✓（第 203 轮）：静态字段与静态块**不预先分类** ✗——
+// 它们要**按源码顺序与彼此交错着**发 ✓（见下面那一趟 ✓），
+// 先分成两摞再发就会把顺序弄丢 ✗（那是**静默错值** ✓，第 203 轮修的 ✓）。
 const instanceFields: AstNode[] = [];
-const staticFields: AstNode[] = [];
-const staticBlocks: AstNode[] = [];
 for (let i = 0; i < members.length; i++) {
-  const kind0 = NodeKind(members[i]);
-  const isStatic0 = this.HasModifier(members[i], "StaticKeyword");
-  if (kind0 === "PropertyDeclaration") {
-    if (isStatic0) staticFields.push(members[i]);
-    else instanceFields.push(members[i]);
-    continue;
-  }
-  if (kind0 === "ClassStaticBlockDeclaration") {
-    staticBlocks.push(members[i]);
-    continue;
-  }
+  if (NodeKind(members[i]) !== "PropertyDeclaration") continue;
+  if (this.HasModifier(members[i], "StaticKeyword")) continue;
+  instanceFields.push(members[i]);
 }
 const ctor = this.LowerFunctionValue(ctorNode, name);
 // **构造函数那一项就是刚推进去的最后一项**（`LowerFunctionValue` 只推一项）。
@@ -4525,7 +4481,7 @@ for (let i = 0; i < members.length; i++) {
   const kind = NodeKind(member);
   if (kind === "Constructor") continue;
   // **字段不在这里**（第 128 轮）：实例字段挂去了构造函数（`FieldDefaults`），
-  // 静态字段与静态块在原型循环之后单独发（见下面那两段）。
+  // 静态字段与静态块**按源码顺序**在原型循环之后一起发（见下面那一趟）。
   if (kind === "PropertyDeclaration" || kind === "ClassStaticBlockDeclaration") continue;
   if (kind !== "MethodDeclaration" && kind !== "GetAccessor" && kind !== "SetAccessor") {
     throw new Error("unimplemented: class member " + kind);
@@ -4574,16 +4530,33 @@ for (let i = 0; i < members.length; i++) {
   const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName)));
   this.SetPropertyConst(target, key, closure);
 }
-// **静态字段**（第 128 轮）：在类**声明的位置**求值，写进构造函数自己。
-// 顺序按源码 ✓（`static a = f(); static b = a + 1` 里 `b` 看得见刚写好的 `a` ✓）。
-for (let i = 0; i < staticFields.length; i++) {
-  this.EmitFieldInit(ctor, staticFields[i]);
-}
-// **静态块**（第 128 轮）：`static { … }` 就是「造一个无参函数、立刻用构造函数当 `this` 调一次」——
-// 与 `class` 的其余部分同一条路（函数值 + 调用），没有新机制。
-for (let i = 0; i < staticBlocks.length; i++) {
-  const block = staticBlocks[i];
-  const synthetic = { kind: "FunctionExpression", parameters: [], body: Child(block, "body") };
+// **静态字段与静态块按源码顺序发** ✓（第 203 轮修 ✓）：两类都在类**声明的位置**求值，
+// 而 JS 的规矩是**它们按源码里出现的先后**跑 ✓（写进构造函数自己那一格 ✓）。
+//
+// **原来是两趟** ✗（先所有静态字段 ✓、再所有静态块 ✓）——那是**静默错值** ✓：
+// `class C { static a = 1; static { C.b = 2 } static c = 3 }` 里
+// `static { }` 看得见 `a` 与 `c` ✓，而代码块**跑在 `c` 之前** ✓——
+// 两趟的写法会让 `c` 先于那个块跑 ✓，块里读 `C.c` 就**读到还没写的值** ✗。
+// 实测（第 203 轮判据 `ex-static-block-order` ✓）：node 给 `a,block1,b,block2` ✓，
+// 两趟给 `a,b,block1,block2` ✓——**顺序反了** ✓，而两边的每一格都"跑过了" ✗。
+//
+// **一趟里怎么分开处理**：静态块要**造一个闭包 + 立刻调**（下面那段 ✓），
+// 静态字段只要一句 `this.<名> = <式>` ✓——同一条 `members` 扫描里按 kind 分派即可 ✓。
+for (let i = 0; i < members.length; i++) {
+  const member0 = members[i];
+  const kind1 = NodeKind(member0);
+  // **实例字段与实例方法已经处理过了**（字段挂去了构造函数 ✓、方法挂去了原型 ✓）：
+  // 这一趟只管**静态**的那两类 ✓。`HasModifier` 说的是「这一格是不是静态」✓——
+  // 实例字段在这里被跳过 ✓（它在 `instanceFields` 里 ✓）。
+  if (kind1 === "PropertyDeclaration") {
+    if (!this.HasModifier(member0, "StaticKeyword")) continue;
+    this.EmitFieldInit(ctor, member0);
+    continue;
+  }
+  if (kind1 !== "ClassStaticBlockDeclaration") continue;
+  // **静态块**（第 128 轮）：`static { … }` 就是「造一个无参函数、立刻用构造函数当 `this` 调一次」——
+  // 与 `class` 的其余部分同一条路（函数值 + 调用），没有新机制。
+  const synthetic = { kind: "FunctionExpression", parameters: [], body: Child(member0, "body") };
   const closure = this.LowerFunctionValue(synthetic, name + ".<static>");
   const selfSlot = this.Reserve(1);
   this.Emit(Op.Move, selfSlot, ctor, -1, -1);
