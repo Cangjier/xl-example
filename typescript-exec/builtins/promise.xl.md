@@ -187,11 +187,30 @@ if (id === PromiseAll || id === PromiseRace) {
   const stepValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(step, 0));
   for (let i = 0; i < count; i++) {
     const item = table.Get(source.Ref).AsArray().GetAt(i);
+    // **不是承诺的项要当「已经兑现为它自己」** ✓（第 247 轮 ✓）——
+    // JS 的 `Promise.all` 对每一项都先做一次 `Promise.resolve` ✓：
+    // `Promise.all([1, Promise.resolve(2), "3"])` 给 `[1, 2, 3]` ✓。
+    //
+    // **原来直接把它交给调度器** ✗：调度器只认承诺 ✓（它的工作是「挂在那个承诺的反应表上」✓），
+    // 拿一个**数字**去挂，那一格**永远不会有反应被触发** ✓——
+    // 于是那一步的 `remaining` **永远减不到 0** ✗、结果承诺**永不结清** ✓。
+    // **实测的现场**（判据 `promise-all-kinds` / `prm-combinators` ✓）：
+    // `Promise.all([1, Promise.resolve(2), "3"])` 打出 `mixed ,2,` ✓
+    //（第 1、3 项是**空串** ✓——那两格从来没被写过 ✓），而 Node 给 `mixed 1,2,3` ✓。
+    // **它不报错** ✗ ⇒ **静默错值** ✓，正是最该先修的那一类 ✓
+    //（第 244 轮量出的「引擎抛的错要能进脚本的错路」那一族修完之后，这两条就露出来了 ✓）。
+    //
+    // **为什么不「直接调一步」** ✗：那样 `all` 与 `race` 两条路要各写一遍 ✓、
+    // 而且「同步调一步」与「承诺结清后调一步」的**次序**会不同 ✓（JS 里两者都走微任务 ✓）。
+    // **包一个已兑现的承诺**是最短的一条 ✓——形状与 `PromiseResolve` 那一支**一字不差** ✓。
+    const one = IsPromise(table, item)
+      ? item
+      : MakePromise(room, table, PromiseState.Fulfilled, item);
     // **`all` 只认兑现那一档** ✓（某一步被拒绝时**回调不跑** ✓、
     // 拒绝顺着「结果承诺」自动传下去 ✓——那正是 JS 的语义 ✓）；
     // **`race` 两档都认** ✓（谁先结清谁定 ✓）。
     const wants = id === PromiseAll ? 0 : 2;
-    schedule(item, stepValue, [state, Value.FromInt(i), result], result, wants, false, Value.Undefined());
+    schedule(one, stepValue, [state, Value.FromInt(i), result], result, wants, false, Value.Undefined());
   }
   return result;
 }

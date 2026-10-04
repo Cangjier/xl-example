@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 89.58,
+  "progressPercent": 90.05,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 106,
-      "pass": 100,
+      "pass": 101,
       "blocked": 4,
-      "differ": 2,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 94.34
+      "coverage": 95.28
     },
     {
       "layer": "exec",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 109,
-      "pass": 101,
+      "pass": 102,
       "blocked": 4,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 92.66
+      "coverage": 93.58
     },
     {
       "layer": "e2e",
@@ -149,12 +149,6 @@
   ],
   "differ": [
     {
-      "id": "prm-combinators",
-      "layer": "runtime",
-      "title": "Promise.all / race：顺序与先到先得",
-      "detail": "stdout 不同：第 2 行：node «all 1,2,3» vs tsrun «all 1,2,»"
-    },
-    {
       "id": "prm-microtask-order",
       "layer": "runtime",
       "title": "微任务的顺序：同步先跑完，再按排队的先后",
@@ -183,12 +177,6 @@
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
-    },
-    {
-      "id": "promise-all-kinds",
-      "layer": "stdlib",
-      "title": "Promise.all：混合值、空数组、有一个拒绝",
-      "detail": "stdout 不同：第 1 行：node «mixed 1,2,3» vs tsrun «mixed ,2,»"
     }
   ],
   "bad": [],
