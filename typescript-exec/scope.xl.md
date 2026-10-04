@@ -317,6 +317,12 @@ WalkChildren(body, (child) => {
 
 ```ts
 const kind = NodeKind(body);
+// **环境声明里的名字不是运行期的名字**（第 148 轮）✗：`declare const AMBIENT: string;` 说的是
+// 「外面已经有它」✓——那份文件**跑起来并没有这个值** ✓（这才是 JS 的语义 ✓）。
+// 收进声明名单会让「用到它」报成 `name used before its declaration` ✗——
+// 那句话**指错了方向** ✓（它不在「声明之前」，它**根本没有** ✓）。
+// 排掉之后报的是 `name is not a local or a capture: AMBIENT` ✓，与真相一致 ✓。
+if (HasDeclareModifier(body)) return;
 if (kind === "VariableDeclaration" || kind === "FunctionDeclaration" || kind === "Parameter"
   || kind === "ClassDeclaration") {
   const name = body["name"];
@@ -328,6 +334,26 @@ if (IsFunctionNode(body)) return;
 WalkChildren(body, (child) => {
   CollectDeclaredNames(child, out);
 });
+```
+
+# method HasDeclareModifier:(node:AstNode)=>bool
+
+**这个节点带 `declare` 吗**（第 148 轮）。
+
+**为什么这一层要自己判一次**：`lowering.xl.md` 里有一个同名判据 ✓，但那是**降级层**的
+（它按 `kind === "DeclareKeyword"` 读 `modifiers` ✓）；这一层是**作用域分析** ✓，
+两边的分界线是「要不要 import」（scope 不认识 lowering 的类 ✗），
+而这条判据只有**五行** ✓——为它造一条依赖比复制它更贵 ✓。
+（两处都要改的那一天，症状是「声明名单里多一个不存在的名字」✓，判据钉着那条 ✓。）
+
+```ts
+const modifiers = node["modifiers"];
+if (modifiers === undefined || modifiers === null) return false;
+const items = modifiers as Array<AstNode>;
+for (let i = 0; i < items.length; i++) {
+  if (NodeKind(items[i]) === "DeclareKeyword") return true;
+}
+return false;
 ```
 
 # method CollectInsideFunctions:(body:AstNode, inside:int, out:Array<string>)=>void

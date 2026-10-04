@@ -1426,6 +1426,14 @@ const statements = ListOf(body, "statements");
 for (let i = 0; i < statements.length; i++) {
   const statement = statements[i];
   if (NodeKind(statement) !== "FunctionDeclaration") continue;
+  // **没有体的函数声明不是函数**（第 148 轮）✗：两条来源都合法、而且都常见——
+  //   · `declare function f(x: number): void;` ✓（环境声明，「外面已经有它」✓）；
+  //   · **重载签名** ✓：`function f(a: string): void;` 后面跟一个带体的实现 ✓
+  //     （TS 的重载就是这一形状 ✓，普通项目里到处都有 ✓）。
+  // 两者都**没有体** ✓，所以判据就是「有没有体」✓——比看 `declare` 修饰词更宽 ✓
+  //（重载签名没有那个修饰词 ✗）。少了这一条，`Hoist` 会在**降级期**报
+  // `ast node FunctionDeclaration has no child body` ✗——离现场很远 ✓。
+  if (OptionalChild(statement, "body") === null) continue;
   this.Hoisted.push(statement);
   this.LowerFunctionDeclaration(statement);
 }
@@ -1821,6 +1829,29 @@ if (kind === "ExportDeclaration") return;
 if (kind === "ExportAssignment") {
   throw new Error("unimplemented: `export default` (the export table has no default slot)");
 }
+// ---- 类型位的声明：**一个运行期指令都不产生**（第 148 轮）----
+//
+// 第 147 轮量出来的**那一档最大的拦路虎** ✓：`type X = …` 报
+// `unimplemented: expression TypeAliasDeclaration` ✓、`interface I { … }` 报
+// `unimplemented: statement InterfaceDeclaration` ✓——**不是在运行期失败，
+// 而是整份文件根本降级不出来** ✗。而这两样在真实的 `.ts` 里几乎无处不在 ✓
+//（本仓自己 `dist/ts/**` 的每一份产物都带 `interface` ✓）。
+//
+// **做法就是「什么都不做」** ✓：文末那条口径是「**类型位一律擦除**」✓——
+// 类型别名与接口**不产生任何运行期东西** ✓（JS 里也没有它们 ✓）：
+// 它们只描述形状 ✓，而本仓不做类型检查 ✓。所以整条跳过 ✓，不查名字、不查成员 ✓——
+// **查了反而错** ✗：接口成员的类型文本里可以有这一层不认识的东西 ✓，
+// 而它们**本来就不该影响运行** ✓。
+if (kind === "TypeAliasDeclaration") return;
+if (kind === "InterfaceDeclaration") return;
+// **`declare` 那一族**（`declare function` / `declare const` / `declare class` /
+// `declare module "x" {}` / `declare global {}` ✓）：环境声明说的是「外面已经有这个东西」✓，
+// 运行期**什么也不是** ✗——所以整条跳过 ✓。
+//
+// **它不是「值位的声明」** ✗：`declare const x: number;` 之后**运行时没有 `x`** ✓，
+// 用到它的地方照旧报 `name is not a local or a capture` ✓——响亮 ✓，
+// 而且与「那份文件真跑起来会 ReferenceError」是同一件事 ✓（不静默给个 `undefined` ✗）。
+if (this.HasModifier(node, "DeclareKeyword")) return;
 if (kind === "VariableStatement") {
   this.LowerDeclarationList(Child(node, "declarationList"));
   return;
@@ -1905,6 +1936,14 @@ if (kind === "Block") {
   return;
 }
 if (kind === "FunctionDeclaration") {
+  // **没有体的函数声明不是函数**（第 148 轮）：两条来源都合法、都常见——
+  //   · `declare function f(x: number): void;` ✓（环境声明 ✓，上面那条 `declare` 已经拦过 ✓）；
+  //   · **重载签名** ✓：`function f(a: string): void;` 后面跟一个带体的实现 ✓
+  //     （TS 的重载就是这一形状 ✓，普通项目里到处都有 ✓）。
+  // 两者都不产生运行期东西 ✓（重载的语义在**那条带体的实现**里 ✓）。
+  // **`Hoist` 那一侧也要同一条判据** ✗（否则签名会先在那里炸 ✓，
+  // 而这里会让它落到 `LowerFunctionDeclaration` 上再炸一次 ✓——插桩把两处都点出来了 ✓）。
+  if (OptionalChild(node, "body") === null) return;
   if (this.IsHoisted(node)) return;
   this.LowerFunctionDeclaration(node);
   return;
@@ -4255,6 +4294,12 @@ for (let i = 0; i < members.length; i++) {
   if (kind !== "MethodDeclaration" && kind !== "GetAccessor" && kind !== "SetAccessor") {
     throw new Error("unimplemented: class member " + kind);
   }
+  // **没有体的成员不是成员**（第 148 轮）：`abstract kind(): string;` ✓、
+  // 接口式的成员签名 ✓、**方法重载签名** ✓（`m(a: string): void; m(a: any) { … }` ✓）
+  // 都是这一形状 ✓——它们在运行期什么都不产生 ✓（重载的实现在**那条带体的**成员里 ✓）。
+  // 少了这一条，`abstract class` 一降级就报 `ast node MethodDeclaration has no child body` ✗
+  //（实测 ✓：抽象类 + 抽象方法是很普通的写法 ✓）。
+  if (OptionalChild(member, "body") === null) continue;
   // **静态成员的落点是构造函数自己**，不是原型（下面那个 `target` 就是这一条）。
   const isStatic = this.HasModifier(member, "StaticKeyword");
   if (member["asteriskToken"] !== undefined && member["asteriskToken"] !== null) {

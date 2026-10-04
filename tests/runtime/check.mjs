@@ -6756,5 +6756,95 @@ check("端到端：日常形状里的位运算（复合赋值 · 箭头体 · �
 });
 
 console.log("");
+console.log("=== 第 148 轮：类型位的声明一个运行期指令都不产生 ===");
+
+check("`type` / `interface` / `declare` 那一族跳过；带体的声明照旧", () => {
+  // **端到端那一把在 `cases/40-type-declarations.ts`**（4 行逐字节 ✓）。
+  // 这里钉的是**那一格本身**：类型别名与接口**不产生任何运行期东西** ✓
+  //（JS 里也没有它们 ✓），所以降级层遇到它们**整条跳过** ✓——口径就是文末那条
+  //「类型位一律擦除」✓。第 147 轮量到它时，它报的是
+  // `unimplemented: expression TypeAliasDeclaration` ✗——**不是在运行期失败，
+  // 而是整份文件根本降级不出来** ✗，而这两样在真实的 `.ts` 里几乎无处不在 ✓。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "interface Shape { kind: string; area(): number }",
+    "type Alias = { a: number };",
+    "type Deep = { a: { b: Array<Map<string, Set<number>>> } };",
+    "type Cond<T> = T extends string ? number : boolean;",
+    "declare function ambient(x: number): string;",
+    "declare const AMBIENT: string;",
+    "declare class AmbientClass { m(): void }",
+    "declare module 'ext' { export function f(): void }",
+    "declare global { interface Window { x: number } }",
+    "export type Exported = 1;",
+    "export interface ExportedInterface { a: number }",
+    // **重载签名没有体** ✓；抽象成员也没有体 ✓——两者都在运行期什么也不是 ✓。
+    "function pick(a: string): string;",
+    "function pick(a: any): any { return a; }",
+    "abstract class Base { abstract kind(): string; describe(): string { return 'b:' + this.kind(); } }",
+    "class Impl extends Base { kind(): string { return 'impl'; } }",
+    "console.log(pick('s'), new Impl().describe(), new Impl() instanceof Base);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "s b:impl true", "类型声明跳过之后，运行期那部分照常跑");
+  // **环境值是「没有的东西」** ✓：`declare const AMBIENT` 之后运行时**没有** `AMBIENT` ✓——
+  // 用到它就报「name is not a local or a capture」✓（**响亮** ✓）。
+  // **与 Node 差一档，记在明处** ✗：Node 是**运行期** `ReferenceError`（`try` 接得住 ✓），
+  // 本仓是**降级期**拒绝 ✓（整份文件进不来 ✗）——与第 146 轮那条「解构赋值给没声明的名字」
+  // 同一档 ✓（TS 自己在类型检查期也会报 `Cannot find name` ✓，所以正常 `.ts` 到不了这一格 ✓）。
+  let ambientMessage = "";
+  try {
+    const use = new RunRequest();
+    use.Sources = ["declare const AMBIENT: string; const v = AMBIENT;"];
+    use.Entry = "";
+    RunSources(use, () => {}, () => null);
+  } catch (error) {
+    ambientMessage = String(error.message);
+  }
+  ok(ambientMessage.indexOf("not a local or a capture") >= 0,
+    "**环境值不是值**：用它在降级期就抛（响亮，而且话指对了方向）：" + ambientMessage);
+  // **`namespace N { … }` 照旧抛** ✓（它有运行期语义 ✓，本仓不做 ✓）：
+  // 这条钉住「跳过」的边界——**擦掉的只有「类型位」那些** ✗，不是所有声明 ✓。
+  // （语句之间**要换行** ✓：`namespace N { … } const y = 1;` 这个形状会踩到
+  //  README 里记的「块与表达式之间没有分隔符」那条老缺口 ✓——那是**另一件事** ✗。）
+  let namespaceMessage = "";
+  try {
+    const ns = new RunRequest();
+    ns.Sources = ["namespace N { export const x = 1 }\nconst y = N.x;\nconsole.log(y);"];
+    ns.Entry = "";
+    RunSources(ns, () => {}, () => null);
+  } catch (error) {
+    namespaceMessage = String(error.message);
+  }
+  ok(namespaceMessage.indexOf("ModuleDeclaration") >= 0,
+    "**运行期的 `namespace` 不在擦除名单里**（照旧抛）：" + namespaceMessage);
+  // **`declare namespace` 也跳过** ✓（第 148 轮实测 ✓）：`declare` 那一族整族一样 ✓，
+  // 里面装的是类型还是值都不影响 ✓（那份文件跑起来两者都不存在 ✓）。
+  //
+  // **这里踩过一次坑，记在明处** ✗：第一版判据把三条语句写在一行上
+  //（`declare namespace D { … } const z = 1;` ✓），于是报的是
+  // `unimplemented: assignment to a non-identifier` ✓——**那是 README 里记的
+  // 「块与表达式之间没有分隔符」那条老缺口** ✓（`{ A }a += 1` 同源 ✓），
+  // 与 `declare namespace` 无关 ✗。差一点就把一个**不存在的缺口**记进台账 ✓。
+  // 换成两行之后，它跑得完全正确 ✓。
+  const declareLines = [];
+  const declareRequest = new RunRequest();
+  declareRequest.Sources = [[
+    "declare namespace D { interface I { a: number } }",
+    "declare namespace E { const y: number }",
+    "declare namespace F { function g(): void }",
+    "const z = 1;",
+    "console.log(z);",
+  ].join("\n")];
+  declareRequest.Entry = "";
+  const declareRes = RunSources(declareRequest, (text) => declareLines.push(text), () => null);
+  eq(declareRes.Outcome, HostOutcome.Ok, "运行器：" + declareRes.Message);
+  eq(declareLines[0], "1", "`declare namespace` 整族跳过（里面是类型还是值都一样）");
+});
+
+console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

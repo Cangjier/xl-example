@@ -14,71 +14,57 @@
 | 层 | 进度 | 说明 |
 | --- | --- | --- |
 | **引擎**（`runtime/`） | **~98%** | 值 / 堆 / GC / 帧 / IR / 装载验证 / 执行器 / 宿主 ABI 都在跑；线形态从第 129 轮起承载 f64（升 v2）✓；第 133 轮加了第 22 个算子 `call_array` ✓；第 136 轮 `iter_new` / `iter_next` 认字符串 ✓；第 137 轮的「内建构造函数 → 原型」登记表 ✓；第 139 轮「失败类别」✓；第 142 轮 `NativeCall` 的实参表开宽 ✓；第 144 轮真假收成一个 `TruthyOf` ✓；第 145 轮「既是对象又可调用」✓；**第 147 轮位运算七条**（`ToInt32Of` / `ShiftCountOf` 两条共用判据 + 七条算子 ✓，`BitNot` / `UShr` 两个新号**追加在表尾** ✓）；缺 wasm 执行器（P3）、特化与内联缓存（P4） |
-| **降级层**（本目录） | **~98%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；解构形参（第 134 轮）✓；`for..of` 头部的解构 · `var` 提升 · 对象剩余（第 135 轮）✓；派生类的默认构造函数 · `super(...xs)`（第 141 轮）✓；第 145 轮删掉了 `new Date` 那条特例 ✓；第 146 轮补上解构赋值 ✓；**第 147 轮位运算七条 + 复合赋值六条**（`CompoundBaseOf` ✓）；**缺 `type` / `interface` / `declare` 的擦除** ✗（**整份文件进不了门** ✓，下一步第一条 ✓）、`new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
+| **降级层**（本目录） | **~99%** | 语句 / 表达式 / 类 / 闭包 / 生成器 / `for..of` / `try` / 解构都在跑；解构形参（第 134 轮）✓；对象剩余（第 135 轮）✓；`super(...xs)`（第 141 轮）✓；`new Date` 特例撤掉（第 145 轮）✓；解构赋值（第 146 轮）✓；位运算与复合赋值六条（第 147 轮）✓；**第 148 轮类型位那一族整族跳过**（`type` / `interface` / `declare` 六种 / 重载签名 / 抽象成员 ✓）；**缺 `enum` 与运行期 `namespace`** ✗（都有运行期语义 ✓，要造对象 ✓，下一步第一、二条 ✓）、`new C(...xs)` 与 `super.m(...xs)`、正则、`export default` |
 | **标准库**（`builtins/`） | **~87%** | `Array` / `String` / `Object` / `Math` / `Number` / `JSON` / `Map` / `Set` / `Symbol` / `Date` 的常用那一半；第 130 轮的 `findIndex` · `Array.from` · `Object.assign` · `String.fromCharCode` · `String.replace` ✓；第 131 轮的 `console.log` 形状 ✓；第 137 轮错误家族 ✓；第 138 轮三族 `prototype` / `constructor` ✓；第 140 轮内建 `super()` ✓；第 142 轮 `sort` / `reduce` / `shift` / `fill` / `flat` ✓；第 144 轮 `filter` 与谓词族的真假 ✓；第 145 轮 `String(x)` / `Number(x)` / `Boolean(x)` / `Array(n)` / `new Date(ms)` 与 `typeof` ✓；缺 `splice` / `replaceAll` / `fill(值, 起, 止)` / `flat(深度)`、原始值原型（`toFixed` / `toString(基数)`）、`Object.prototype` 上的方法、`Map` / `Set` 的内部槽 |
-| **端到端**（普通 `.ts` 文件） | **~99%** | **39** 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、两个实参的回调族、实参位的可选链、真假、可调用的全局名、解构赋值、**位运算七条**）；**下一个不是「某个算子」✗，而是「类型声明让整份文件进不了门」** ✓（`type` / `interface` ✓，见「下一步」第一条 ✓） |
+| **端到端**（普通 `.ts` 文件） | **~99%** | **40** 份语料逐字节一致（含类、继承、集合、生成器、`await`、标准库、类字段与 `static`、数字字面量全形态、`console.log` 的容器形状、展开与剩余的两半、函数的两条形状、解构形参、`for..of` 解构与 `var` 提升、字符串可迭代与空值读抛、`instanceof` 与错误家族、三族集合的原型格、引擎抛的 `TypeError`、自定义错误类、默认构造函数与 `super(...xs)`、两个实参的回调族、实参位的可选链、真假、可调用的全局名、解构赋值、位运算七条、**类型位的声明整族跳过**）；下一个是 **`enum` 与运行期 `namespace`**（见「下一步」第一、二条 ✓——`enum` 是同一档「整份文件进不了门」✗） |
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` **204** 条 / `runtime:cli` **39** 份 ✓）。
+与语料数（`runtime:check` **205** 条 / `runtime:cli` **40** 份 ✓）。
 
-### 整体进度（加权；第 147 轮）
+### 整体进度（加权；第 148 轮）
 
 四层各自的百分比是**估计**，权重是**这一层在「一份普通 `.ts` 跑对」里占的分量**：
 
 | 层 | 权重 | 本轮估计 | 贡献 |
 | --- | --- | --- | --- |
 | 引擎（`runtime/`） | 25% | 98% | 24.50 |
-| 降级层（`typescript-exec/` 除 `builtins/`） | 30% | 98% | 29.40 |
+| 降级层（`typescript-exec/` 除 `builtins/`） | 30% | 99% | 29.70 |
 | 标准库（`builtins/`） | 25% | 87% | 21.75 |
 | 端到端（普通 `.ts` 直接跑） | 20% | 99% | 19.80 |
-| **合计** | 100% | — | **95.5%** |
+| **合计** | 100% | — | **95.8%** |
 
-**权重为什么这么分**：降级层最重（它决定「支持多少语法构造」），
-引擎与标准库并列次之（一个是能不能跑、一个是日常写法够不够用），
-端到端那一格是「把它们接起来」的结果维——它最容易虚高，
-所以**只给它 20%**，而且它的读数必须由 `runtime:cli` 的语料数撑着 ✓。
+**下一步（第 148 轮收尾时更新，按要紧程度排）**：
 
-**下一步（第 147 轮收尾时更新，按要紧程度排）**：
-
-1. **类型声明让整份文件进不了门** ✗✗（第 147 轮量出来的 ✓，**当时最大的一个**）：
-   `type X = …` 报 `unimplemented: expression TypeAliasDeclaration` ✓、
-   `interface I { … }` 报 `unimplemented: statement InterfaceDeclaration` ✓——
-   **不是在运行期失败，是整份文件根本降级不出来** ✗。而这两样在**真实的 `.ts` 里
-   几乎无处不在** ✓（本仓自己 `dist/ts/**` 的每一份产物都带 `interface` ✓）。
-   做法应当很轻 ✓：**类型位一律擦除**（文末那条口径 ✓）——声明本身**不产生任何运行期东西** ✓，
-   所以降级层遇到它们**直接跳过** ✓（`declare` 那几个同族 ✓；`enum` 不是 ✗：它有运行期语义 ✓）。
-   **判据已经把它钉在明处** ✓（`runtime:check` 第 147 轮那一节 ✓）。
-2. **括号表达式当非第一个实参时被判成类型位** ✗（第 147 轮插桩量出来的 ✓）：
-   `console.log("x", (a & b))` 里那个括号的判据是 `before = ","` ✓，
-   而 `IsTypeBracketPosition` 把 `,` 当作「类型参数表」的证据 ✓——
-   于是 `a & b` 折成 `IntersectionType` ✓，降级层报 `unimplemented: expression IntersectionType` ✓。
-   与 `=>` 那一格**同源** ✓（都是「括号在它自己那一层前面是什么」判错 ✓），
-   但修它要多问一句「包着它的那个括号是不是一次调用的实参表」✗。判据也钉在明处 ✓。
-3. **`f?.(o?.a, "q")`** ✗：**可选调用的实参表里带逗号**时，实参被折成一个
+1. **`enum` 整族没做** ✗（第 148 轮顺手量到的 ✓）：`enum E { A, B }` 报
+   `unimplemented: statement EnumDeclaration` ✓——**整份文件进不了门** ✗。
+   它与类型别名**不是一回事** ✓：枚举**有**运行期语义 ✓（`E.A` 是一个值、反向映射还要 `E[0]` ✓），
+   所以**不能擦掉** ✗——要真的造对象 ✓（编号从 0 起、显式初始化式、字符串枚举那一族 ✓）。
+   排第一是因为它和类型声明一样常见 ✓、而且是同一档（整份文件进不了门 ✗）。
+2. **`namespace N { … }`（运行期命名空间）** ✗：报 `unimplemented: statement ModuleDeclaration` ✓。
+   它也有运行期语义 ✓（`N.x` 是一个对象 ✓）——与枚举同族 ✓（要造对象 ✓）。
+3. **括号表达式当非第一个实参时被判成类型位** ✗（第 147 轮插桩量出来的 ✓）：
+   `console.log("x", (a & b))` 里那个括号的判据是 `before = ","` ✓ →
+   `a & b` 折成 `IntersectionType` ✓。与 `=>` 那一格同源 ✓，修它要多问一句
+   「包着它的那个括号是不是一次调用的实参表」✗。判据钉在明处 ✓。
+4. **`f?.(o?.a, "q")`** ✗：**可选调用的实参表里带逗号**时，实参被折成一个
    `BinaryOperator op=","`——降级层报 `unimplemented: binary operator ,`。
-   根因在 **token 层**：`?.` 那一支把整个括号吞进 `NullConditionalOperator`。
-4. **数组解构走的是下标，不是迭代协议** ✗（第 146 轮量出来的 ✓）：`[q] = 5` 静默给
-   `undefined` ✓（JS 抛 `TypeError` ✗）、`[a, b] = new Set([8, 9])` 静默给两个 `undefined` ✗
-   （JS 给 `8, 9` ✓）、`[a] = generator()` 同理 ✗。**两半一致** ✓（同一个读法 ✓），
-   但它是**静默**的 ✗。判据已经把它钉在明处 ✓。
-5. **原始值原型** ✗：`(1.2345).toFixed(2)` / `(255).toString(16)`——数字与布尔还没有原型格。
-6. **`NaN` / `Infinity`** ✗（两个全局名；`let best = -Infinity` 这种日常写法会**整份文件**失败 ✗，
-   与上面第 1 条同一档 ✓）。
-7. **`**` 还没有算子** ✗（第 147 轮**特地没做** ✓）：`pow` 的舍入**没有标准定死** ✗
-   （各目标的 `pow` 可能差最后一位 ✓），所以它**不该进引擎** ✗（`host-text.xl.md` 那条
-   「借的必须是结果被标准定死的东西」✓）。三条候选 ✓：①落成**语言内建**（与 `StringConcat`
-   同一条路 ✓，`Math.pow` 已经在建库层 ✓）；②只做**整数指数**（精确、其余抛 ✗，属于
-   「先做最常用的那一档」✓）；③照 `host-text.xl.md` 立一条**新的借用**（要把
-   「结果不逐位定死」写在明处 ✓）。这一轮只把「为什么不做」记下来 ✓，
-   `RtOp.Pow` 那一格**留着** ✓（只追加、不改号 ✓）。
-8. **`try { return … } finally { … }`** ✗（现在**响亮地抛**：`return` 会跳过 `finally`）。
-9. **`[...generator()]`** ✗——与上面第 4 条同源 ✓（都缺「用迭代协议拿一串值」那一格 ✓）。
-10. **`async f().then(…)`** ✗（承诺的组合子）、`class C { toString() }` 用在模板串里 ✗
-    （`ToString` 没走 `toString`——**静默给 `[object Object]`** ✗）。
-11. **`[x in y]`**（**数组字面量里放 `in` 表达式** ✗，token 层）：被读成映射键的
-    `TypeParameter`，降级层报 `unimplemented: expression TypeParameter`——
-    **语料之外**的一条 ✓（第 145 轮写判据时又撞到一次 ✓）。
+5. **数组解构走的是下标，不是迭代协议** ✗（第 146 轮量出来的 ✓）：
+   `[q] = 5` 静默给 `undefined` ✓（JS 抛 `TypeError` ✗）、
+   `[a, b] = new Set([8, 9])` 静默给两个 `undefined` ✗。**两半一致** ✓，但是**静默**的 ✗。
+6. **`typeof` 一个没声明的名字** ✗（第 148 轮量出来的 ✓）：JS 里
+   `typeof window !== "undefined"` 是**唯一不抛**的未声明读法 ✓（特性检测到处都在用 ✓），
+   而本仓走 `ResolveAccess` ✓ → 降级期就抛 ✗。**整份文件进不了门**那一档 ✓。
+7. **原始值原型** ✗：`(1.2345).toFixed(2)` / `(255).toString(16)`。
+8. **`NaN` / `Infinity`** ✗（两个全局名）。
+9. **`**` 还没有算子** ✗（第 147 轮特地没做 ✓，三条候选写在那一轮的账里 ✓）。
+10. **`try { return … } finally { … }`** ✗（现在**响亮地抛** ✓）、
+    **`[...generator()]`** ✗（与第 5 条同源 ✓）、**`async f().then(…)`** ✗、
+    `class C { toString() }` 用在模板串里 ✗（**静默给 `[object Object]`** ✗）。
+11. `[x in y]`（**数组字面量里放 `in` 表达式** ✗，token 层）、
+    **`{ A }a += 1`**（块与表达式之间没有分隔符 ✓，README 的已知缺口 ✓——第 148 轮的判据
+    差点被它误导 ✓，见那一轮的账 ✓）、`Array.from({length}, fn)`、`splice` / `replaceAll`、
+    `Map` / `Set` 的内部槽、`super.m(...xs)`、`new C(...xs)`、`extends Map` 的 `super()`。
 10. `Array.from({length}, fn)`、`splice` / `replaceAll` /
     `Map` / `Set` 的内部槽（`Object.keys(new Map())` 给 12）、**「不是函数却调用它」带类别**、
     **话里带上键名**、`super.m(...xs)`、`new C(...xs)`、`extends Map` 的 `super()`。
@@ -87,6 +73,59 @@
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
 
+
+### 第 148 轮的账（类型位的声明一个运行期指令都不产生）
+
+**做的是「下一步」的第一条** ✓，也就是第 147 轮量出来的**那一档最大的拦路虎** ✓：
+`type X = …` 报 `unimplemented: expression TypeAliasDeclaration` ✓、
+`interface I { … }` 报 `unimplemented: statement InterfaceDeclaration` ✓——
+**不是在运行期失败，是整份文件根本降级不出来** ✗。而这两样在真实的 `.ts` 里
+几乎无处不在 ✓（本仓自己 `dist/ts/**` 的每一份产物都带 `interface` ✓）。
+
+**口径是现成的** ✓：文末那条「**类型位一律擦除**」✓——类型别名与接口**不产生任何运行期东西**
+（JS 里也没有它们 ✓），它们只描述形状 ✓，而本仓不做类型检查 ✓。所以**整条跳过** ✓：
+不查名字 ✓、不查成员 ✓（**查了反而错** ✗：接口成员的类型文本里可以有这一层不认识的写法 ✓，
+而它们本来就不该影响运行 ✓）。
+
+**同一条判据顺手关掉的另两处**（都是**同一形状**：声明是真的、运行期没有东西 ✓）：
+
+| 形状 | 为什么也该跳过 |
+| --- | --- |
+| `declare function` / `const` / `class` / `module "x" {}` / `global {}` / `namespace D {}` ✓ | 「环境声明」说的是**外面已经有它** ✓——那份文件跑起来并没有那个值 ✓ |
+| **没有体的函数 / 方法声明** ✓（`function f(a: string): void;` 后面跟实现 ✓、`abstract m(): void;` ✓） | 重载签名与抽象成员**在运行期什么也不是** ✓；语义在那条**带体的**声明里 ✓ |
+
+判据都收在「**有没有体**」与「**有没有 `declare` 修饰词**」两句上 ✓——
+两处（`Hoist` 与 `LowerStatement` ✓、类成员那一圈 ✓）**都要** ✗：
+插桩把两处都点出来过 ✓（先是 `Hoist` 报 `FunctionDeclaration has no child body` ✓，
+修完之后 `LowerStatement` 又报一次 ✓——**同一个形状在两个阶段各拦一次** ✓）。
+
+**顺带改准的一句话** ✓：`scope.xl.md` 的 `CollectDeclaredNames` 原来把
+`declare const AMBIENT` 的名字收进**声明名单** ✓，于是「用到它」报的是
+`name used before its declaration` ✗——**那句话指错了方向** ✓
+（它不在「声明之前」✓，它**根本没有** ✓）。排掉环境声明之后报的是
+`name is not a local or a capture: AMBIENT` ✓，与真相一致 ✓。
+**与 Node 差一档，记在明处** ✗：Node 是**运行期** `ReferenceError`（`try` 接得住 ✓），
+本仓是**降级期**拒绝 ✓（与第 146 轮那条「解构赋值给没声明的名字」同一档 ✓；
+TS 自己在类型检查期也会报 `Cannot find name` ✓，所以正常 `.ts` 到不了这一格 ✓）。
+
+**这一轮差点记了一个不存在的缺口** ✗（如实写下来 ✓）：写判据时我把三条语句放在**一行**上 ✓
+（`declare namespace D { … } const z = 1;` ✓），于是报的是
+`unimplemented: assignment to a non-identifier` ✓——**那是 README 里记的
+「块与表达式之间没有分隔符」那条老缺口** ✓（`{ A }a += 1` 同源 ✓），
+与 `declare namespace` 毫无关系 ✗。我一度把它当成「`declare namespace` 的窄缺口」写进判据 ✓，
+换成两行之后它**跑得完全正确** ✓。**教训写在判据里** ✓：那一条现在是
+「`declare namespace` 整族跳过」的**正面断言** ✓，不再是缺口的钉子 ✓。
+
+**语料与判据**：
+
+- `tests/runtime/cases/40-type-declarations.ts`（**4 行 stdout 与 `node` 逐字节相同** ✓）：
+  联合 / 交叉 / 条件 / 映射 / 深嵌套泛型 ✓、`declare` 六种 ✓、`export type` / `export interface` ✓、
+  **重载签名** ✓、**抽象类 + 抽象方法** ✓、函数体内的 `type` / `interface` ✓、
+  以及它们与运行期代码混在一起 ✓；
+- `runtime:check` 一条（**205 条** ✓）：类型那一族跳过之后**运行期那部分照常跑** ✓、
+  **环境值不是值**（用它在降级期就抛 ✓）、**运行期的 `namespace` 不在擦除名单里** ✓、
+  **`declare namespace` 整族跳过** ✓（就是上面那条教训 ✓）；
+- `cases:tsast` **1430/1430** ✓（这一轮没动 token 层 ✓）。
 
 ### 第 147 轮的账（位运算七条 · 以及一路撞出来的三处）
 
@@ -441,7 +480,7 @@ false false              ← `!("")` 与 `!("a")` 都给假
 
 > **状态：已开始。** `lowering.xl.md` + `scope.xl.md` 落地了**最小构造集 + 提升 + 闭包捕获**，
 > 并跑通了 **P0 的形状**：同一份 `.ts` 交给 Node 与交给「真解析器 → 降级 → IR → VM」，
-> **逐值一致**（判据 `npm run runtime:check` 的最后二十几节，共 **204** 条全绿）。
+> **逐值一致**（判据 `npm run runtime:check` 的最后二十几节，共 **205** 条全绿）。
 > 收了：变量声明（`let`/`const` 块作用域、`var` 函数作用域，含**对象与数组解构**——**不退水位**，
 > 见台账第 119 轮）、**`class`（构造函数 + 原型上的方法 + 访问器；`extends` / `super(...)` / `super.m()`；
 > 字段初始化与 `static` 仍抛）**、
@@ -457,7 +496,7 @@ false false              ← `!("")` 与 `!("a")` 都给假
 > 宿主按导出闭包调用）。
 > **`.ts` 已经能直接执行**：仓库根的 [tsrun.xl.md](../tsrun.xl.md) 是运行器 +
 > 命令行（`node build/ts/tsrun.js <文件.ts>`），stdout 与 `node <文件.ts>` **逐字节相同**
-> （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts` **39** 份，裁判是真 Node）。
+> （判据 `npm run runtime:cli`，语料 `tests/runtime/cases/*.ts` **40** 份，裁判是真 Node）。
 > **还差**（按已知的次序）：**token 层的一条**——`[x in y]`（**数组字面量里放 `in` 表达式**）
 > 被读成映射键的 `TypeParameter` ✗，降级层拿到的是一个认不出的节点，报
 > `unimplemented: expression TypeParameter` ✓（复现：`function f(o) { return ["a" in o]; }` ✓——

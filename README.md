@@ -110,8 +110,16 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 `(n) => (n | 0)` 的**体**被判成类型位（`IsTypeBracketPosition` 的 `=>` 那一格，改为问
 `LamdaReorganization.IsLambdaParameters`）、以及 `Method` 投影的可选链那一支把 `f(o?.a)` 的
 **实参链**当成整条调用返回（第 143 轮那条 `0a0` 支被它抢在前面了））、
++ **类型位的声明一个运行期指令都不产生**（第 148 轮：`type X = …` / `interface I { … }` 原来让
+**整份文件降级不出来**——不是在运行期失败。口径是现成的「**类型位一律擦除**」：它们只描述形状、
+不产生任何运行期东西，所以整条跳过。同一条判据顺手关掉两处**同形状**的：`declare` 那一族
+（`function` / `const` / `class` / `module "x" {}` / `global {}` / `namespace D {}`）、以及
+**没有体的函数与方法声明**（重载签名、`abstract m(): void;`）。判据收在「有没有体」与
+「有没有 `declare`」两句上，`Hoist` 与 `LowerStatement`、类成员那一圈**都要**——插桩把两处都点出来过。
+顺带把 `CollectDeclaredNames` 里环境声明的名字排掉：报的话从「用在声明之前」改成
+「name is not a local or a capture」——**环境值根本没有**，不是顺序问题）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
-判据见 `npm run runtime:check`（204 条）与 `npm run runtime:cli`（39 份语料）；
+判据见 `npm run runtime:check`（205 条）与 `npm run runtime:cli`（40 份语料）；
 契约见 [docs/runtime-architecture.md](docs/runtime-architecture.md) 与
 [docs/runtime-design-notes.md](docs/runtime-design-notes.md)——把 TypeScript 降级成 IR 执行，
 同一份 `runtime/` 规范转成 C++ 就能嵌进客户的程序（不必依赖 wasm，也不必依赖 JS 引擎）。
