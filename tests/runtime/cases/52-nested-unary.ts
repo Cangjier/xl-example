@@ -27,5 +27,8 @@ console.log(negated, multiBang, multiNegate);
 // **第 167 轮修好**：`typeof -x` 不再报 `TypeOfKeyword` ✓（那个 `-` 原来被读成二元减 ✓）。
 // `typeof` / `void` / `delete` 现在都不算操作数 ✓（与一元那份判据对齐 ✓）。
 console.log(typeof -x, typeof typeof -x, void -x, typeof (void -x));
+// **第 169 轮修好**：`typeof typeof x === "string"` 原来折成 `typeof (x === "string")` ✓，
+// 运行期给 `"boolean"` ✗（Node 给 `true` ✓）——**静默错值** ✓，现在逐字节相同 ✓。
+console.log(typeof typeof x === "string", typeof typeof x === typeof s, typeof typeof typeof x);
 console.log([!!x, - -x, typeof typeof s]);
 console.log(!!x ? "yes" : "no", typeof typeof (x + 1));

@@ -239,20 +239,17 @@ if ((this.OperatorText(current) === "-" || this.OperatorText(current) === "+") &
 const afterIndex = SkipNextWrapSymbol(units, index);
 const after = Get(units, afterIndex);
 if (this.IsPrefixSymbol(current)) {
-  // **后面那一格自己是个一元运算符时先放过**（第 166 轮）✓——让**里面**那一处先折 ✓。
+  // **后面那一格是「另一个前缀运算符」时也要接** ✓（第 169 轮）——
+  // `Process` 会**先把里面那一处折完** ✓（就地递归 ✓），再把折好的单元当自己的操作数 ✓。
   //
-  // `typeof typeof x` 的产物原来是一整个 `UnaryOperator(op="typeof")` 里装着**两个**
-  // `Keyword` ✓，而 `x` 被留在**它外面** ✗（XML 实测 ✓）。投影只好把第一个 `Keyword`
-  // 当作操作数 ✓，于是投出 `TypeOfExpression > TypeOfKeyword` ✗——降级层报
-  // `unimplemented: expression TypeOfKeyword` ✓，**整份文件进不来** ✗。
-  //
-  // **这与第 164 轮 `**` 的右结合是同一个手法** ✓：右边还杵着一个运算符时，
-  // 先让更右那一处折完 ✓，再回来折这一处 ✓（那时右边已经是一个折好的操作数 ✓）。
-  // 一并管住 `!!x` ✓、`- -x` ✓、`typeof -x` ✓、`delete !!o.x` ✓ 这些常见写法 ✓。
-  // **只挡运算符** ✓：`typeof x` 的下一格是 `x` ✓，照旧折 ✓（不影响任何普通一元运算 ✓）。
+  // **为什么不能只写 `IsOperand(after)`** ✗：第 167 轮把前缀关键字从操作数里排掉之后 ✓，
+  // `typeof typeof x` 的外层在这里就**直接不成立了** ✗（`IsOperand(内层 typeof)` 是假 ✓），
+  // 于是那一趟根本不会跑 ✓——上面那套「就地折里面」的改动**一次都没被走到** ✗
+  //（实测：改完 `typeof typeof x === "string"` 还是给 `"boolean"` ✗）。
+  // **前后是一条链** ✓：`IsOperand` 收紧 → 这一格就得补上「前缀后面还是前缀」那一支 ✓。
   if (after !== null
     && (this.IsPrefixSymbol(after) || this.IsPlusPlus(after) || this.IsPlusMinus(after))) {
-    return false;
+    return true;
   }
   return this.IsOperand(after);
 }
@@ -321,7 +318,22 @@ if (current === null) {
   throw new Error("UnaryOperatorReorganization.Process: current is null");
 }
 const afterIndex = SkipNextWrapSymbol(units, index);
-const after = Get(units, afterIndex);
+let after = Get(units, afterIndex);
+// **套着写的前缀：先把里面那一处折完**（第 169 轮）✓。
+//
+// `typeof typeof x` 的外层这一趟，「被操作者」其实是**里面那一处折出来的单元** ✓。
+// 第 166 轮的做法是「先放过、下一趟再折」✗——第 168 轮查出它会在**同一趟里被别的规则
+// 抢先**（`===` 把内层折进比较式 ✓，下一趟外层只好把整个比较式当操作数 ✗ → 静默错值 ✗）。
+// 所以改成**在同一趟里就地递归折一次** ✓：折完 `units[index + 1]` 就是一个折好的单元 ✓，
+// 下面那条「后面那个是操作数」的路照走 ✓。
+//
+// **递归会停** ✓：链的**最里面**那一处后面接的是真操作数 ✓（`typeof -x` 里 `-` 后面是 `x` ✓），
+// 它按普通前缀折完返回 ✓；`typeof typeof` 这种缺操作数的写法只会多走一格 ✓（不折 ✓、不循环 ✓）。
+if (after !== null
+  && (this.IsPrefixSymbol(after) || this.IsPlusPlus(after) || this.IsPlusMinus(after))) {
+  this.Process(template, units, afterIndex);
+  after = Get(units, SkipNextWrapSymbol(units, index));
+}
 if (this.IsOperand(after)) {
   const result = new UnaryOperator(template);
   result.Parent = current.Parent;

@@ -41,8 +41,16 @@ const voided = void -x;
 // 在 AST 尺子上还有别的差别 ✓（量到 1433/1434 ✓）——与这一轮那条判据无关 ✗，
 // 记在台账里 ✓。
 
-// **两条不在这份语料里**（都记在台账里）：
-//   · `typeof typeof x === "string"` —— 比较那一趟**自己还有一份 IsOperand**，
-//     它仍旧把 `typeof` 当左操作数，于是折成 `typeof (x === "string")`：
-//     Node 给 `true`、本仓给 `"boolean"`（**静默错值**，最该接着修）；
-//   · `-!x` —— 布尔参与算术，落在 `RtNeg` 那条已经记着的口径上（与 token 层无关）。
+// ⑥ **套着写的前缀与比较**（第 169 轮修好）
+// `typeof typeof x === "string"`：原来折成 `typeof (x === "string")`（**静默错值**：
+// Node 给 `true`、本仓给 `"boolean"`）。机制是队列**按下标**跑：外层 `typeof` 那一趟
+// 被「先放过」，同一趟里 `===` 先把内层折走，下一趟外层只好把整个比较式当操作数。
+// 修法：`Process` 里**就地先把里面那一处折完**，并让 `Previous` 接住「前缀后面还是前缀」。
+const comparesTypeof = typeof typeof x === "string";
+const comparesTwoTypeofs = typeof typeof x === typeof s;
+const tripleTypeof = typeof typeof typeof x;
+const parenthesized = typeof (typeof x === "string");
+const singleCompare = typeof x === "number";
+
+// **一条不在这份语料里**：`-!x` —— 布尔参与算术，落在 `RtNeg` 那条已经记着的口径上
+//（与 token 层无关）。
