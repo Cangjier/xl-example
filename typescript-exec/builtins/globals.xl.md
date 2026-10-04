@@ -10,7 +10,7 @@ import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./arr
 import { StringFromCharCode } from "./string.xl.md"
 import { ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
-import { MapCtor, NameValue } from "./map.xl.md"
+import { MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
 import { BuildPromise } from "./promise.xl.md"
 ```
@@ -188,6 +188,14 @@ import { BuildPromise } from "./promise.xl.md"
 # const ObjectGetPrototypeOf:int = 408
 
 **`Object.getPrototypeOf(o)`**（第 209 轮 ✓）——把 `o` 那一格原型**当值**交出去 ✓。
+
+# const ObjectGetOwnPropertyNames:int = 409
+
+**`Object.getOwnPropertyNames(o)`**（第 214 轮 ✓）——与 `Object.keys` **只差「不管 `enumerable`」** ✓。
+
+# const ObjectFromEntries:int = 410
+
+**`Object.fromEntries(entries)`**（第 214 轮 ✓）——`[[k, v], …]` 或 `Map` → 普通对象 ✓。
 
 # const ObjectToString:int = 337
 
@@ -711,6 +719,16 @@ return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"
 if (value.Tag === ValueTag.Int32) return value.Int;
 if (value.Tag === ValueTag.Float64) return value.Dbl;
 throw new Error("this method needs a number");
+```
+
+# method PropertyKeyOf:(table:HeapTable, value:Value)=>Value
+
+**一个值当属性键用** ✓（第 214 轮 ✓）：字符串照原样 ✓、**符号也是键** ✓（它的身份就是键 ✓）、
+其余先 `ToString` ✓（`{1: "a"}` 的键是 `"1"` ✓，与 JS 的 `ToPropertyKey` 一致 ✓）。
+
+```ts
+if (value.Tag === ValueTag.String || value.Tag === ValueTag.Symbol) return value;
+return Value.FromString(table.CreateString(Units(TextFrom(table, value))));
 ```
 
 # method IsIndexKeyText:(text:string)=>bool
@@ -1526,6 +1544,110 @@ if (id === ObjectValues || id === ObjectEntries) {
     result.Push(pair);
   }
   return Value.FromArray(handle);
+}
+if (id === ObjectGetOwnPropertyNames) {
+  // **`Object.getOwnPropertyNames(o)`** ✓（第 214 轮 ✓）——与 `Object.keys` **只差一格** ✓：
+  // 它**不管 `enumerable`** ✗（`defineProperty(o, "x", { value: 1 })` 那默认的不可枚举一格 ✓
+  // 在 `keys` 里看不见 ✓、在这里看得见 ✓）。次序、下标键那两条口径**一字不差** ✓。
+  //
+  // **它是 `Object.keys` 的第二份实现吗** ✗：不是——**过滤那一步**不同而已 ✓，
+  // 所以这里照抄的是同一趟扫描 ✓、只把 `IsEnumerable()` 那一句去掉 ✓（写在明处 ✓：
+  // 两处的差异**只有那一句** ✓，谁改了次序都要记得两边一起改 ✓）。
+  const nameTarget = args.length > 0 ? args[0] : Value.Undefined();
+  const nameIsText = nameTarget.Tag === ValueTag.String;
+  if (!nameIsText && nameTarget.Tag !== ValueTag.Array && !nameTarget.IsObject()) {
+    throw new Error("Object.getOwnPropertyNames needs an object");
+  }
+  const nameItem = nameIsText ? null : table.Get(nameTarget.Ref);
+  const nameIndexPositions = IndexKeyPositions(table, nameTarget);
+  const ownNames: string[] = [];
+  for (let i = 0; i < nameIndexPositions.length; i++) ownNames.push("" + nameIndexPositions[i]);
+  // **`length` 也是自有属性** ✓（第 214 轮实测 ✓）：JS 的 `Object.getOwnPropertyNames([1, 2])`
+  // 是 `["0", "1", "length"]` ✓、字符串同理 ✓——而本仓的 `length` **不住在属性表里** ✗
+  //（它在 `HeapArray` 上 ✓，`keys` 那一支看不见它是因为它**不可枚举** ✓ 在这里却是**要看见**的 ✓）。
+  // 次序对 ✓：下标在前、`length` 在后 ✓（JS 的整数键优先那一套 ✓）。
+  if (nameTarget.Tag === ValueTag.Array || nameTarget.Tag === ValueTag.String) {
+    ownNames.push("length");
+  }
+  const ownIntNames: string[] = [];
+  const ownPlainNames: string[] = [];
+  if (nameItem !== null) {
+    for (let i = 0; i < nameItem.Props.length; i++) {
+      if (table.Get(nameItem.Props[i].Key).Tag !== ValueTag.String) continue;
+      const text = TextFrom(table, Value.FromString(nameItem.Props[i].Key));
+      if (IsIndexKeyText(text)) {
+        let coveredName = false;
+        for (let k = 0; k < nameIndexPositions.length; k++) {
+          if (nameIndexPositions[k] === Number(text)) coveredName = true;
+        }
+        if (coveredName) continue;
+        ownIntNames.push(text);
+        continue;
+      }
+      ownPlainNames.push(text);
+    }
+  }
+  for (let i = 1; i < ownIntNames.length; i++) {
+    const curName = ownIntNames[i];
+    let j = i - 1;
+    while (j >= 0 && Number(ownIntNames[j]) > Number(curName)) {
+      ownIntNames[j + 1] = ownIntNames[j];
+      j = j - 1;
+    }
+    ownIntNames[j + 1] = curName;
+  }
+  for (let i = 0; i < ownIntNames.length; i++) ownNames.push(ownIntNames[i]);
+  for (let i = 0; i < ownPlainNames.length; i++) ownNames.push(ownPlainNames[i]);
+  if (!room(ObjectCharge + ValueCharge * ownNames.length + CodeUnitCharge * ownNames.length * 4)) {
+    throw new Error("out of room");
+  }
+  const namesHandle = table.CreateArray();
+  table.Get(namesHandle).Proto = protos.Array;
+  const namesResult = table.Get(namesHandle).AsArray();
+  for (let i = 0; i < ownNames.length; i++) {
+    namesResult.Push(Value.FromString(table.CreateString(Units(ownNames[i]))));
+  }
+  return Value.FromArray(namesHandle);
+}
+if (id === ObjectFromEntries) {
+  // **`Object.fromEntries(entries)`** ✓（第 214 轮 ✓）：`[[k, v], …]` 或一个 `Map` ✓ →
+  // 造一个**普通对象** ✓。
+  //
+  // **`Map` 那一支读的是它的内部两格** ✓（`__k` / `__v` ✓，`map.xl.md` 的表示 ✓）：
+  // 这里**不去走迭代协议** ✗——那要 `protos` 与调用通道那一整套 ✓，
+  // 而 `Map` 的内部表示就在手边 ✓（`ReadOwn` ✓）。
+  // **别的可迭代物不支持** ✓：响亮地抛 ✓（不静默给空对象 ✗）。
+  const entriesTarget = args.length > 0 ? args[0] : Value.Undefined();
+  // **造属性要一条调用通道** ✓（`SetProperty` 可能碰到 setter ✓）——没有就响亮地抛 ✓。
+  if (call === null) {
+    throw new Error("Object.fromEntries needs a call channel (the host must pass one)");
+  }
+  const made = NewPlainObject(room, table, protos);
+  if (entriesTarget.Tag === ValueTag.Array) {
+    const rows = table.Get(entriesTarget.Ref).AsArray();
+    for (let i = 0; i < rows.GetLength(); i++) {
+      if (rows.IsHole(i)) continue;
+      const row = rows.GetAt(i);
+      if (row.Tag !== ValueTag.Array) {
+        throw new Error("unimplemented: Object.fromEntries needs [key, value] pairs");
+      }
+      const pair = table.Get(row.Ref).AsArray();
+      SetProperty(room, call, table, made, PropertyKeyOf(table, pair.GetAt(0)), pair.GetAt(1));
+    }
+    return made;
+  }
+  if (entriesTarget.Tag === ValueTag.Object && RtChainHas(table, entriesTarget, protos.Map)) {
+    const mapKeys = ReadOwn(room, table, entriesTarget, "__k");
+    const mapValues = ReadOwn(room, table, entriesTarget, "__v");
+    const mapKeyArray = table.Get(mapKeys.Ref).AsArray();
+    const mapValueArray = table.Get(mapValues.Ref).AsArray();
+    for (let i = 0; i < mapKeyArray.GetLength(); i++) {
+      if (mapKeyArray.IsHole(i)) continue;
+      SetProperty(room, call, table, made, PropertyKeyOf(table, mapKeyArray.GetAt(i)), mapValueArray.GetAt(i));
+    }
+    return made;
+  }
+  throw new Error("unimplemented: Object.fromEntries over a value that is neither an array nor a Map");
 }
 if (id === JsonParse) {
   // **`JSON.parse`**（第 122 轮）：实参必须是字符串 ✓——坏输入**抛** ✓，
@@ -2463,6 +2585,12 @@ SetProperty(vm.Room(), NeverCall, table, objectObject,
 SetProperty(vm.Room(), NeverCall, table, objectObject,
   Value.FromString(table.CreateString(Units("getPrototypeOf"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetPrototypeOf, 0)));
+SetProperty(vm.Room(), NeverCall, table, objectObject,
+  Value.FromString(table.CreateString(Units("getOwnPropertyNames"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertyNames, 0)));
+SetProperty(vm.Room(), NeverCall, table, objectObject,
+  Value.FromString(table.CreateString(Units("fromEntries"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectFromEntries, 0)));
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
 SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
 // **`NaN` / `Infinity` 也是全局对象上的属性**（第 149 轮）✓：与 `undefined` 同一条路 ✓——

@@ -174,11 +174,25 @@ console.log(["a b", "c"].flatMap((s) => s.split(" ")).join("|"));
   },
   {
     id: "array-entries-keys-values",
-    title: "Array.entries / keys / values",
+    title: "Array.entries / keys / values（含**洞逐格走**、与 for..of 解构）",
     src: `
 console.log([...["a", "b"].entries()].map((p) => p[0] + "=" + p[1]).join(","));
-console.log([..."ab".length ? [10, 20].keys() : []].join(","));
+console.log([...[10, 20].keys()].join(","));
 console.log([...[10, 20].values()].join(","));
+const sparse: any[] = [1, , 3];
+console.log([...sparse.keys()].join(","), [...sparse.values()].join(","), [...sparse.entries()].length);
+for (const [i, v] of [7, 8].entries()) console.log(i, v);
+console.log(Array.from([1, 2].values()).join("-"));
+`,
+  },
+  {
+    id: "array-spread-conditional",
+    title: "展开一个**条件表达式**（`[...cond ? a : b]`）",
+    src: `
+const xs = [1, 2];
+const ys = [3];
+console.log([...xs.length ? xs : ys].join(","));
+console.log([...(xs.length ? xs : ys)].join(","));
 `,
   },
   {

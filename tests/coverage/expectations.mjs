@@ -39,13 +39,11 @@ export const EXPECTATIONS = {
 
   // ===== stdlib：内建成员与标准形状 =====
   "array-reduce": { expect: "differ", why: "空数组 + 无初值该抛 `TypeError`，抛的是 `Error`" },
+  "array-spread-conditional": { expect: "blocked", why: "发现于第 214 轮：展开一个**条件表达式**（`[...cond ? a : b]`）降级不出来（`unimplemented: expression SpreadElement`）——`[...xs]` / `[...f()]` 一直是好的 ✓" },
   "array-from-arraylike": { expect: "blocked", why: "`Array.from(数组式对象)`：JS 给空数组，我们点名抛" },
-  "array-entries-keys-values": { expect: "blocked", why: "`Array.prototype.entries` / `keys` / `values` 没装（且展开一个迭代器那一处也过不去）" },
   "object-freeze": { expect: "blocked", why: "**口径分歧**：本仓对只读属性**抛**（严格模式），node 把 `.ts` 当 CJS 跑是**松散模式**静默失败" },
   "object-freeze-array-element": { expect: "differ", why: "**静默错值**：冻住的数组还能 `push`（要动引擎的写屏障）" },
   "object-tostring-tag": { expect: "blocked", why: "`Object.prototype.toString` 只答了能证的那一格，`call` 这条形状过不去" },
-  "object-fromEntries": { expect: "blocked", why: "`Object.fromEntries` 没装" },
-  "object-getOwnPropertyNames": { expect: "blocked", why: "`Object.getOwnPropertyNames` 没装" },
   "symbol-hasinstance": { expect: "blocked", why: "类上的**计算成员名**（`static [Symbol.hasInstance]`）降级不出来" },
   "symbol-tostringtag": { expect: "blocked", why: "`Symbol.toStringTag` 没装" },
   "symbol-description": { expect: "differ", why: "`Symbol.prototype.description` 没装" },

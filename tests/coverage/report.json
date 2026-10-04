@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 255,
+  "matrix": 256,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 77.7,
+  "progressPercent": 78.22,
   "layers": [
     {
       "layer": "runtime",
@@ -43,12 +43,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 105,
-      "pass": 85,
-      "blocked": 13,
+      "total": 106,
+      "pass": 88,
+      "blocked": 11,
       "differ": 7,
       "nodefail": 0,
-      "coverage": 80.95
+      "coverage": 83.02
     },
     {
       "layer": "e2e",
@@ -183,9 +183,9 @@
       "detail": "tsrun: 脚本抛出：unimplemented: Array.from over a value that is not iterable (arrays, strings, Map, Set and generators are su"
     },
     {
-      "id": "array-entries-keys-values",
+      "id": "array-spread-conditional",
       "layer": "stdlib",
-      "title": "Array.entries / keys / values",
+      "title": "展开一个**条件表达式**（`[...cond ? a : b]`）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SpreadElement"
     },
     {
@@ -198,18 +198,6 @@
       "id": "object-tostring-tag",
       "layer": "stdlib",
       "title": "Object.prototype.toString：只答能证的那一格",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "object-fromEntries",
-      "layer": "stdlib",
-      "title": "Object.fromEntries",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "object-getOwnPropertyNames",
-      "layer": "stdlib",
-      "title": "Object.getOwnPropertyNames（含不可枚举）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {

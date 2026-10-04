@@ -127,6 +127,15 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 报出来是「读 undefined 的属性」✓——**离现场很远** ✗）。
 **号是跨目标的契约** ✓：只追加、**不改已有的** ✓（所以是 `at`/`splice` 让位 ✓）。
 
+# const ArrayKeys:int = 30
+
+**`keys` / `values` / `entries`**（第 214 轮 ✓，号**追加在表尾** ✓）——**返回数组** ✓
+（理由写在 `InvokeArray` 那一支里 ✓）。
+
+# const ArrayValues:int = 31
+
+# const ArrayEntries:int = 32
+
 # const ArraySplice:int = 25
 
 **`splice(起点, 删几个, …插进去的)`**（第 150 轮）——就地改、返回删掉的那些 ✓。
@@ -755,6 +764,51 @@ if (id === ArrayFlat) {
   table.Recount(flattened);
   return Value.FromArray(flattened);
 }
+if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
+  // **`keys` / `values` / `entries`** ✓（第 214 轮 ✓）——**返回的是数组** ✓，不是迭代器 ✓。
+  //
+  // **为什么「返回数组」在这个仓里是对的** ✗：引擎的迭代**只认数组与生成器** ✓
+  //（`map.xl.md` 的 `values()` 第 138 轮就是这么落的 ✓，那一段写着理由 ✓）。
+  // 于是 `[...xs.keys()]` ✓、`for (const k of xs.keys())` ✓、`Array.from(xs.entries())` ✓
+  // **全都通** ✓——而真迭代器那一套（`next()` / `done` ✓）在本仓没有被需要的地方 ✓。
+  // **这是写在明处的差异** ✓：JS 给的是迭代器 ✓，`it.next()` 那种用法在这里走不通 ✗。
+  //
+  // **洞不跳** ✗（与 `Object.keys` **不是**同一条口径 ✓——第一版照着那条写，判据当场给出来 ✓）：
+  // JS 的数组迭代器**逐格走** ✓（`[1, , 3].keys()` 给 `[0, 1, 2]` ✓、`values()` 给
+  // `1, undefined, 3` ✓）——而 `Object.keys([1, , 3])` 给 `["0", "2"]` ✓（**那一条才跳洞** ✓）。
+  // 两处差一格，混起来就是**静默错值** ✗。
+  const iterationLength = source.GetLength();
+  const iterationCount = iterationLength;
+  // **`entries` 每一项还要再造一个两格的小数组** ✓，所以房间按它算 ✓。
+  const pairCharge = id === ArrayEntries ? 2 : 0;
+  if (!room(ObjectCharge + ValueCharge * iterationCount * (1 + pairCharge))) {
+    throw new Error("out of room");
+  }
+  const iterationHandle = table.CreateArray();
+  table.Get(iterationHandle).Proto = table.Get(self.Ref).Proto;
+  const iterationResult = table.Get(iterationHandle).AsArray();
+  for (let i = 0; i < iterationLength; i++) {
+    if (id === ArrayValues) {
+      // **洞给 `undefined`** ✓（`GetAt` 对洞就是这个答案 ✓——JS 的迭代器也是它 ✓）。
+      iterationResult.Push(source.GetAt(i));
+      continue;
+    }
+    if (id === ArrayKeys) {
+      iterationResult.Push(Value.FromInt(i));
+      continue;
+    }
+    // **`entries` 的每一项是 `[下标, 值]`** ✓——原型**跟着源数组走** ✓
+    //（与 `slice` / `map` / `splice` 那几支同一条 ✓，这一层拿不到 `protos` ✓）。
+    const itemPairHandle = table.CreateArray();
+    table.Get(itemPairHandle).Proto = table.Get(self.Ref).Proto;
+    const itemPair = table.Get(itemPairHandle).AsArray();
+    itemPair.Push(Value.FromInt(i));
+    itemPair.Push(source.GetAt(i));
+    iterationResult.Push(Value.FromArray(itemPairHandle));
+  }
+  table.Recount(iterationHandle);
+  return Value.FromArray(iterationHandle);
+}
 throw new Error("unimplemented: array builtin " + id);
 ```
 
@@ -871,6 +925,8 @@ const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach",
   // **第 206 轮补的三格** ✓（`unshift` / `lastIndexOf` / `flatMap` ✓）——
   // 号**追加在表尾** ✓、已有的一个都没动 ✓（号是跨目标的契约 ✓，见 `ArrayAt` 那一段的教训 ✓）。
   "unshift", "lastIndexOf", "flatMap",
+  // **第 214 轮补的三格** ✓（`keys` / `values` / `entries` ✓）。
+  "keys", "values", "entries",
   // **`toString` 就是 `join(",")`**（第 193 轮 ✓）：JS 的 `Array.prototype.toString` 正是它 ✓
   // （没给实参时 `join` 的默认分隔符就是 `,` ✓），所以**指到同一格能力号** ✓
   // ——同一件事不写第二份实现 ✓。实测：`[1, [2, 3]].toString()` 原来报
@@ -880,6 +936,7 @@ const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice,
   ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes,
   ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat, ArrayAt, ArraySplice,
   ArrayUnshift, ArrayLastIndexOf, ArrayFlatMap,
+  ArrayKeys, ArrayValues, ArrayEntries,
   ArrayJoin];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
