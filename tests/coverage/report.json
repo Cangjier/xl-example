@@ -18,25 +18,25 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 89.12,
+  "progressPercent": 89.35,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 106,
-      "pass": 99,
-      "blocked": 5,
+      "pass": 100,
+      "blocked": 4,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 93.4
+      "coverage": 94.34
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 47,
       "pass": 43,
-      "blocked": 4,
-      "differ": 0,
+      "blocked": 3,
+      "differ": 1,
       "nodefail": 0,
       "coverage": 91.49
     },
@@ -87,12 +87,6 @@
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
     },
     {
-      "id": "cls-inherited-accessor",
-      "layer": "runtime",
-      "title": "继承链上的访问器与 `super` 取值",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SuperKeyword"
-    },
-    {
       "id": "ex-namespace",
       "layer": "exec",
       "title": "namespace：要真的造一个对象出来（含嵌套与导出）",
@@ -109,12 +103,6 @@
       "layer": "exec",
       "title": "私有成员：#m() / #n / static #s / #x in o",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression PrivateIdentifier"
-    },
-    {
-      "id": "ex-getter-setter-class",
-      "layer": "exec",
-      "title": "类里的访问器 + 继承的访问器",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SuperKeyword"
     },
     {
       "id": "object-freeze",
@@ -171,6 +159,12 @@
       "layer": "runtime",
       "title": "微任务的顺序：同步先跑完，再按排队的先后",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：cannot read properties of undefined"
+    },
+    {
+      "id": "ex-getter-setter-class",
+      "layer": "exec",
+      "title": "类里的访问器 + 继承的访问器",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: this should throw a TypeError (accessor without a setter)"
     },
     {
       "id": "object-freeze-array-element",

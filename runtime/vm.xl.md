@@ -10,6 +10,7 @@ import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtB
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
 import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
+import { GetPropertyFrom } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 import { HostTextUnits } from "./host-text.xl.md"
 ```
@@ -1792,6 +1793,13 @@ if (id === RtOp.GetProp) {
   // JS 那边这一类全是 `TypeError` ✓——`kind` 那一格就是给它留的 ✓。
   return this.Guard(() => GetProperty(this.Room(), this.Native(), propProtos, this.Table, propReceiver, propKey),
     ErrorKindType);
+}
+if (id === RtOp.GetPropFrom) {
+  // **从指定的原型起读**（第 243 轮 ✓）：三格 = 起点 / 键 / 接收者 ✓——
+  // `super.v` 那一格要的正是它 ✓（理由见 `props.xl.md` 的 `GetPropertyFrom` ✓）。
+  RequireArgc(argc, 3, "get_prop_from");
+  return this.Guard(() => GetPropertyFrom(this.Room(), this.Native(), this.Table,
+    slots[base], slots[base + 1], slots[base + 2]), ErrorKindType);
 }
 if (id === RtOp.SetProp) {
   RequireArgc(argc, 3, "set_prop");

@@ -29,7 +29,11 @@ export const EXPECTATIONS = {
   // 补的是 `protos.Generator` 那一格与它上面的 `next` ✓（`props.xl.md` / `globals.xl.md` ✓），
   // 而「走一步」那条路落在引擎里 ✓（`vm.xl.md` 的 `NextStepOf` ✓——走一步要发 `iter_next` ✓，
   // 那是**指令** ✓，宿主侧的内建调不到它 ✗）。
-  "cls-inherited-accessor": { expect: "blocked", why: "同 `ex-getter-setter-class`：`super.v` **属性访问**没做（`super` 只做了方法调用那一格 ✓——`super.m(...)` 那条路第 104 轮就通了 ✓）。**第 224 轮查清为什么它不是个小改动**：JS 的 `super.v` 是「**从父原型开始找**、但 `this` 还是当前实例」✗，而本仓现成的两件都不够用——`GetProperty(receiver, key)` 从**接收者**开始找 ✗（它会先命中实例自己的那一格 ✗），`FindProperty(句柄, key)` 也只能「从这个句柄开始沿链找」 ✓ 而 `ReadProperty(..., receiver)` 的 `receiver` 是**读出来的那一格**用的 ✓。要凑齐「起点是父原型 + 读的时候 `this` 是实例」这两件事，得给引擎加一条**带接收者的、从指定原型起读**的入口 ✗（不然父原型上的访问器会拿到 `this = 原型` ✗，是**静默错值** ✗）。" },
+  // **第 243 轮删掉了 `cls-inherited-accessor` 那一行** ✓（它过了 ✓）：
+  // 修的是 `super.v` 那一格 ✓——引擎补了一条 `get_prop_from` ✓（带接收者、从指定原型起读 ✓），
+  // 降级层在**父节点**上认出 `super.v` ✓（名字在那一层 ✓，与 `super.m(...)` 同一处形状 ✓）。
+  // 实测：`get v() { return super.v + 1 }` 给 `2` ✓、`super.m() + super.v` 混合着用给 `11` ✓
+  // ——与 Node 逐字节相同 ✓。
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
   "prm-combinators": { expect: "differ", why: "`Promise.all` 里**非承诺的项**丢了（`[p, p, 3]` 给 `1,2,`）" },
   "prm-async-await": { expect: "blocked", why: "`await` 一个**不是承诺**的值" },
@@ -84,7 +88,17 @@ export const EXPECTATIONS = {
   // **等价的循环** ✓（`lowering.xl.md` 的 `LowerYieldDelegation` ✓）——
   // 拼的是 `GetIterator` + `IterNew` + `IterNext` + `Suspend` / `Resume` 五样现成的 ✓。
   "ex-private-in-operator": { expect: "blocked", why: "`#x in o` 没做（私有名字的品牌检查）" },
-  "ex-getter-setter-class": { expect: "blocked", why: "`super.v` 属性访问（`super` 只做了方法调用那一格）" },
+  // **第 243 轮把 `ex-getter-setter-class` 从 `blocked` 改成 `differ`** ✓——
+  // **这一条要分两半看** ✗：
+  // - **`super.v` 那一半修好了** ✓（`b.v` 那一次读给 `2` ✓，与 Node 相同 ✓）；
+  // - **剩下的那一半是「只读访问器上赋值」** ✗：`b.v = 5` 在 JS 里要看**模式**——
+  //   **非严格是静默失败** ✓（Node 给 `undefined`，脚本继续跑 ✓），
+  //   **严格才抛 `TypeError`** ✓。本仓**一律抛** ✓（`accessor without a setter` ✓）。
+  //   **它为什么不是「顺手对齐」** ✗：那正是 `object-freeze` 那一族的**同一个根** ✓——
+  //   要不要做严格 / 非严格模式是**一条设计决定** ✓（判据所在的 `.ts` 文件在 Node 那边
+  //   是按 CommonJS 跑的 ✓、也就是**非严格** ✓），而本仓今天只有「响亮地抛」那一档 ✓。
+  //   **所以它记成 `differ`** ✓（口径分歧 ✓），与 `object-freeze` 同一类 ✓。
+  "ex-getter-setter-class": { expect: "differ", why: "`super.v` 已修（`b.v` 给 `2`）；剩下的是「只读访问器上赋值」——本仓一律抛，而 Node 在非严格模式下静默失败（与 `object-freeze` 同一个根：严格/非严格模式是一条设计决定）" },
   // **第 234 轮删掉了 `ex-labeled-block` 那一行** ✓（它过了 ✓）：
   // 根子是「**标签只挂循环与 `switch`**」✗（`PendingLabel` 由 `EnterLoop` 消费 ✓），
   // 而 `outer: { … }` 里**没有任何东西会来消费那个标签** ✓——于是原来那句

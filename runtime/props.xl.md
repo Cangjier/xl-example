@@ -495,6 +495,32 @@ if (found === null) return Value.Undefined();
 return ReadProperty(call, table, found, receiver);
 ```
 
+# method GetPropertyFrom:(room:RoomChecker, call:NativeCall, table:HeapTable, start:Value, key:Value, receiver:Value)=>Value
+
+**从 `start` 起沿原型链找一格属性，但读的时候 `this` 是 `receiver`**（第 243 轮 ✓）——
+`super.v` 那一格要的正是它 ✓。
+
+**它为什么必须是一条新入口** ✗（第 242 轮量清的 ✓）：
+- **`GetProperty`** 的起点是**接收者自己** ✗——`get v() { return super.v + 1 }` 里
+  那会先命中**子类自己**那一格访问器 ⇒ **无限递归** ✓（响亮的错 ✓，但它就是进不来的原因 ✓）；
+- **`FindProperty` + `ReadProperty`** 分开用呢 ✗——`FindProperty` 的起点能指定 ✓，
+  可它**只找不读** ✓；再拿找到的句柄去 `ReadProperty(…, 父原型)`，
+  `this` 会变成**原型**（不是实例 ✗）⇒ **静默错值** ✗——比无限递归坏得多 ✓。
+
+**它一行业务逻辑都不新写** ✓：起点由一个**句柄**给 ✓（`start.Ref` ✓），
+找到之后交给**同一个** `ReadProperty` ✓（那一处「访问器的 `this` 是接收者」的规矩照旧 ✓）。
+
+**`start` 必须是对象** ✓：`super` 的父原型当然是一个对象 ✓——
+不是的话（`null` / `undefined` ✓）给 `undefined` ✓（与 `GetProperty` 找不到那一档一致 ✓，
+**不抛** ✗：`super.v` 在父类那一格不存在时 JS 给 `undefined` ✓）。
+
+```ts
+if (!start.IsObject()) return Value.Undefined();
+const from = FindProperty(room, table, start.Ref, key);
+if (from === null) return Value.Undefined();
+return ReadProperty(call, table, from, receiver);
+```
+
 # method ReadProperty:(call:NativeCall, table:HeapTable, found:PropRef, receiver:Value)=>Value
 
 **一处命中的属性怎么读出来**：数据属性给值，访问器**用接收者当 `this`** 调它的 getter。

@@ -3476,6 +3476,18 @@ throw new Error("optional chain is too deep (or it is a cycle)");
 它的守卫接着把它短路下去。
 
 ```ts
+// **`super.v` 要先认出来** ✓（第 243 轮 ✓）：接收者那一格是 `SuperKeyword` ✓——
+// 而它**不是**一个普通表达式 ✗（`LowerExpression(SuperKeyword)` 那一支只回 `undefined` ✓），
+// 所以**名字也取不到** ✗（`super` 后面的那格名字在**这一层** ✓，不在那一格里 ✓）。
+// 判据落在**父节点**上 ✓：与 `LowerMethodCall` 里认 `super.m(...)` 那一处**同一个形状** ✓。
+if (NodeKind(node) === "PropertyAccessExpression"
+  && NodeKind(Child(node, "expression")) === "SuperKeyword") {
+  const superName = Child(node, "name");
+  if (NodeKind(superName) !== "Identifier") {
+    throw new Error("unimplemented: super with a computed name");
+  }
+  return this.LowerSuperProperty(TextOf(superName));
+}
 const receiver = this.LowerExpression(Child(node, "expression"));
 const optional = this.ChainHasOptional(node);
 let skip = -1;
@@ -3500,6 +3512,52 @@ if (optional) {
   this.Emit(Op.Const, result, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
   this.PatchTarget(done, this.Here());
 }
+return result;
+```
+
+## method LowerSuperProperty:(name:string)=>int
+
+**`super.v`**（第 243 轮 ✓）——**从父原型起读一格，而 `this` 仍是当前实例** ✓。
+
+**为什么它必须是一条新入口** ✗（第 242 轮量清的 ✓）：`GetProperty` 的起点是**接收者自己** ✓
+（`get v() { return super.v + 1 }` 会先命中**子类自己**那一格 ⇒ **无限递归** ✓）；
+而 `FindProperty` + `ReadProperty` 分开用会得到 `this = 原型` ⇒ **静默错值** ✗。
+引擎那边补的是 `RtOp.GetPropFrom` ✓（见 `props.xl.md` 的 `GetPropertyFrom` ✓）。
+
+**父类怎么找到** ✓：与 `super.m()` 那条路**一字不差** ✓——
+`InSuperName` 是类降级时写进排队函数的父类名 ✓，照常 `ResolveAccess` ✓，
+再读一次 `prototype` ✓（父类的 `prototype` 就是**沿链的起点** ✓）。
+
+**不在派生类方法里就给 `undefined`** ✓（**不抛** ✗）：`super` 写在别处
+在 TS 里本来就是语法错误 ✓，走到这一支说明树本来就不该到这儿 ✓——
+给 `undefined` 是最省事的那一档 ✓。**而 `super.m()` 那条路照旧响亮地抛** ✓：
+它是**调用** ✓，报出来更好查 ✓。
+
+```ts
+if (this.InSuperName === "") {
+  const missing = this.Reserve(1);
+  this.Emit(Op.Const, missing, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+  return missing;
+}
+const parentAccess = this.ResolveAccess(this.InSuperName);
+const parent = this.Reserve(1);
+if (parentAccess.InEnv) {
+  this.Emit(Op.EnvGet, parent, parentAccess.Depth, parentAccess.Cell, -1);
+} else {
+  this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
+}
+const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+const superProto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+// **接收者是当前实例** ✓（`load_this` ✓——与 `super.m()` 那一处同一格 ✓）。
+const superSelf = this.Reserve(1);
+this.Emit(Op.LoadThis, superSelf, -1, -1, -1);
+// **起点 / 键 / 接收者** ✓（`RtOp.GetPropFrom` 的三格 ✓）。
+const window = this.Reserve(3);
+this.Emit(Op.Move, window, superProto, -1, -1);
+this.Emit(Op.Const, window + 1, this.Program().AddConst(Constant.OfString(UnitsOf(name))), -1, -1);
+this.Emit(Op.Move, window + 2, superSelf, -1, -1);
+const result = this.Reserve(1);
+this.EmitRt(RtOp.GetPropFrom, result, window, 3);
 return result;
 ```
 
@@ -5247,6 +5305,19 @@ const kind = NodeKind(node);
 // 数组那一层看到的就是「展开那个单元」✓——判据里两条一起放 ✓（**对照** ✓）。
 if (kind === "SpreadElement") {
   return this.LowerExpression(Child(node, "expression"));
+}
+if (kind === "SuperKeyword") {
+  // **裸 `super` 走到这里就是树不该到这儿** ✓（第 243 轮 ✓）：
+  // `super` 只许出现在**派生的属性访问**（`super.v` ✓）、
+  // **派生的方法调用**（`super.m()` ✓，走 `LowerCall` 那一支 ✓）
+  // 与 **`super(...)`**（走构造函数那一支 ✓）三处 ✓——
+  // 三处**各自**在**父节点**那一层被认出来 ✓、**名字也在父节点上** ✓
+  //（这一格里只有一个 `SuperKeyword` ✓，没有名字 ✗）。
+  // 所以走到这一支说明**有第三种用法没接上** ✓——给 `undefined` ✓、
+  // 而真正的实现在 `LowerSuperProperty` ✓（见那一处 ✓）。
+  const bareSuper = this.Reserve(1);
+  this.Emit(Op.Const, bareSuper, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+  return bareSuper;
 }
 if (kind === "NumericLiteral") {
   const slot = this.Reserve(1);

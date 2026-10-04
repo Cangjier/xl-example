@@ -218,6 +218,21 @@ import { HeapTable } from "./heap.xl.md"
 而这张表是「编译出来的程序」与「跑它的引擎」之间的握手 ✓
 （`Program.IdTableHash` 就是这一步的凭据 ✓）。可读性让位给兼容性 ✓。
 
+- case GetPropFrom
+**从指定的原型起读一格属性，`this` 还是给定的那个接收者**（第 243 轮 ✓）——
+三个操作数：**起点** ✓（一个对象：从它开始沿原型链找 ✓）、**键** ✓、**接收者** ✓。
+`super.v` 那一格要的正是它 ✓（见 `props.xl.md` 的 `GetPropertyFrom` ✓）。
+
+**为什么现有两件工具都不够** ✗：`get_prop` 的**起点是接收者自己** ✓
+（`get v() { return super.v + 1 }` 会先命中**子类自己**那一格 ⇒ **无限递归** ✓）；
+`find_prop` 起点能指定 ✓，可它**只找不读** ✗——再拿找到的句柄去读，
+`this` 会变成**原型**（不是实例 ✗）⇒ **静默错值** ✗。
+
+**它是「一条新入口」，不是「新语义」** ✓：走的是同一条原型链查找 + 同一条
+「访问器的 `this` 是接收者」规矩 ✓（`ReadProperty` 一个字都不用改 ✓）。
+
+**为什么也排在末尾** ✓：同一条纪律 ✓（只追加、不改号 ✓）。
+
 **`Pow` 那一格仍然留着** ✓（第 147 轮的账里写着为什么 `**` 不走这一格 ✓：
 `pow` 的舍入**没有标准定死** ✗，所以它落成**语言内建**那条路 ✓，
 与 `StringConcat` 同一套做法 ✓）。
@@ -226,7 +241,7 @@ import { HeapTable } from "./heap.xl.md"
 语言内建 id 的起点。通用算子表留出前 64 个号——**留空比「以后插队」便宜**：
 真正要在中间插一个通用算子时，插队会改掉所有已编译程序的号，而扩到 64 只是浪费几个号。
 
-# const RtOpCount:int = 40
+# const RtOpCount:int = 41
 
 **通用算子表有几条**（= `RtOp` 的成员数）。
 
@@ -268,6 +283,7 @@ if (id === RtOp.Typeof) return "typeof";
 if (id === RtOp.Instanceof) return "instanceof";
 if (id === RtOp.In) return "in";
 if (id === RtOp.GetProp) return "get_prop";
+if (id === RtOp.GetPropFrom) return "get_prop_from";
 if (id === RtOp.SetProp) return "set_prop";
 if (id === RtOp.DelProp) return "del_prop";
 if (id === RtOp.GetIndex) return "get_index";
