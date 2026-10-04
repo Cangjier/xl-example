@@ -37,20 +37,20 @@
 | --- | --- | --- | --- | --- |
 | 引擎（`runtime/`） | 25% | **85.6%** | 77 / 90 | 21.40 |
 | 降级层（含 `typescript/` 那一半：token / 投影） | 30% | **65.9%** | 29 / 44 | 19.77 |
-| 标准库（`builtins/`） | 25% | **73.3%** | 77 / 105 | 18.33 |
+| 标准库（`builtins/`） | 25% | **78.1%** | 82 / 105 | 19.53 |
 | 端到端（普通 `.ts` 直接跑） | 20% | **69.2%** | 9 / 13 | 13.85 |
-| **合计** | 100% | — | **192 / 252** | **73.3%** |
+| **合计** | 100% | — | **197 / 252** | **74.5%** |
 
 **这两个数（99.5% 与 58.8%）量的不是同一件事** ✓，两个都留着：
 
 | 读数 | 量什么 | 现在 |
 | --- | --- | --- |
 | 上面那张**机制**表（估计 ✓） | **机器还剩多少没造**（值 / 堆 / GC / 帧 / IR / 执行器 / 降级 / 库各族的框架 ✓） | 99.5% |
-| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **73.3%** |
+| 这张**覆盖度**表（读数 ✓） | **场景过没过**（普通 `.ts` 里真会出现的写法 ✓，一格一条 ✓） | **74.5%** |
 
 框架确实快满了 ✓（引擎那一层 85.6% 里，**没造的东西比没接上的东西少** ✓）；
 而覆盖面还差一截 ✗——差在哪、为什么差，现在有**一张带原因的清单**了 ✓
-（`tests/coverage/report.json` ✓：42 条「进不了门」+ 18 条「跑得出来但结果不同」✓）。
+（`tests/coverage/report.json` ✓：38 条「进不了门」+ 17 条「跑得出来但结果不同」✓）。
 往后的选题一律从这张清单里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓。
 
 ### 整体进度（加权估计；第 201 轮）
@@ -143,25 +143,26 @@
 往后的选题一律从那张普查表里挑 ✓，排序依据是「这条写法在普通 `.ts` 里有多常见」✓，
 不是「修起来多容易」✗。
 
-### 下一步（第 208 轮更新）
+### 下一步（第 209 轮更新）
 
 **选题的来处**：一律从 **`tests/coverage/report.json` 那张清单**里挑 ✓
-（42 条 `blocked` + 18 条 `differ` ✓，每一条都带一句「为什么现在过不了」✓），
+（38 条 `blocked` + 17 条 `differ` ✓，每一条都带一句「为什么现在过不了」✓），
 排序依据是**「这条写法在普通 `.ts` 里有多常见」**✓，不是「修起来多容易」✗。
 
 | 序 | 缺口 | 覆盖度里的分量 | 为什么排前面 |
 | --- | --- | --- | --- |
-| 1 | 标准库**没装的那一批**（第 206 ~ 208 轮收掉了 `Math` / `Number` / `Array` / `String` 四支 ✓，还剩）：`Object.create` / `getPrototypeOf` / `hasOwnProperty` / `fromEntries` / `getOwnPropertyNames`、`Array.entries` / `keys` / `values`、`Error.prototype.toString`、`Symbol.description` / `toStringTag`、`Object.prototype.toString` 的其余标签 | 11 条 + 拖着 1 条端到端 | 一格一条、**改一格覆盖度就动一格** ✓ |
-| 2 | 稀疏数组的洞（`Object.keys` / `forEach` / `map`） | 2 条 | **静默错值** ✗ |
-| 3 | 私有字段在 `Object.keys` 里看得见（`cls-private` 的最后那一格 ✓） | 1 条 | **静默错值** ✗，且与第 194 轮那条「内部件不可枚举」同源 ✓ |
-| 4 | `Object.freeze` 的**数组元素**（要动引擎的写屏障 ✓） | 1 条 | **静默错值** ✗ |
-| 5 | 步数预算：两万次循环就耗尽 | `gc-churn` | 普通循环够不着这个量级 ✓ |
-| 6 | `await` 一个非承诺值 / `async` 里的 `throw` 不成拒绝 / `Promise.all` 里非承诺的项 | 5 条 + 拖着 `e2e-async-workflow` | 异步那一族的门面 ✓ |
+| 1 | 标准库**没装的那一批**（第 206 ~ 209 轮收掉了 `Math` / `Number` / `Array` / `String` / `Object` 的静态那一半 ✓，还剩）：`Array.entries` / `keys` / `values`、`Object.fromEntries` / `getOwnPropertyNames`、`Error.prototype.toString`、`Symbol.description` / `toStringTag`、`Object.prototype.toString` 的其余标签、`String(Symbol)` | 8 条 | 一格一条、**改一格覆盖度就动一格** ✓ |
+| 2 | 异常那一族：`reduce` 空数组该抛 `TypeError`；引擎抛的 `TypeError` / 调非函数 | 2 条 | 跑得出来、**类别不对** ✓ |
+| 3 | 稀疏数组的洞（`Object.keys` / `forEach` / `map`） | 2 条 | **静默错值** ✗ |
+| 4 | 私有字段在 `Object.keys` 里看得见（`cls-private` 的最后那一格 ✓） | 1 条 | **静默错值** ✗，且与第 194 轮那条「内部件不可枚举」同源 ✓ |
+| 5 | `Object.freeze` 的**数组元素**（要动引擎的写屏障 ✓） | 1 条 | **静默错值** ✗ |
+| 6 | 步数预算：两万次循环就耗尽 | `gc-churn` | 普通循环够不着这个量级 ✓ |
+| 7 | `await` 一个非承诺值 / `async` 里的 `throw` 不成拒绝 / `Promise.all` 里非承诺的项 | 5 条 + 拖着 `e2e-async-workflow` | 异步那一族的门面 ✓ |
 
 **已划掉**（留在下面的账里 ✓）：派生类字段初始化 ✓、`+` 的 `ToPrimitive` ✓、
 静态块与静态字段的顺序 ✓（第 203 轮 ✓）、成员位 / 下标位上的 `++` `--` ✓（第 204 轮 ✓）、
 私有名进链 ✓（第 205 轮 ✓）、`Math` / `Number` ✓（第 206 轮 ✓）、
-`Array` 与 `SameValueZero` ✓（第 207 轮 ✓）、`String` ✓（第 208 轮 ✓）。
+`Array` 与 `SameValueZero` ✓（第 207 轮 ✓）、`String` ✓（第 208 轮 ✓）、`Object` 静态那一半 ✓（第 209 轮 ✓）。
 
 **往后**（整族缺、成本高，但要排在**日常写法**之后 ✓）：
 `enum` / `namespace` ✓、`yield*` ✓、类上的**计算成员名**（`[Symbol.iterator]()` ✓）、
@@ -227,6 +228,41 @@
 > **第 144 轮的账在下面（`### 第 144 轮的账`）**：这一轮不在上面这张单子里——
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
+
+### 第 209 轮的账（**`Object` 那一批**：三个缺格，五条一次收掉）
+
+**选题**：第 208 轮那张清单的第 1 条 ✓——这一轮是 `Object` ✓。
+
+| 补上的 | 判据 | 原来卡在哪 |
+| --- | --- | --- |
+| `Object.create`（号 407 ✓） | `object-create-prototype` | 没装 ⇒ `calling a non-closure value` ✓ |
+| `Object.getPrototypeOf`（号 408 ✓） | `object-getPrototypeOf` / `collection-prototype` / `date-instanceof` | 没装 ✓ |
+| `Object.prototype.hasOwnProperty`（号 338 ✓） | `object-hasOwnProperty` | 没装 ✓ |
+
+**两处「形似而实不同」被钉住** ✓：
+
+① **`hasOwnProperty` 不能用 `FindProperty`** ✗：那一位是**沿原型链找** ✓
+（`props.xl.md` 写得很清楚 ✓）——而这里要的正是**排除**链上那一半 ✓
+（`new A().hasOwnProperty("m")` 是**假** ✓）。所以它走的是**只看自己那张属性表**的一条路 ✓
+（`table.Get(self.Ref).Props` + `KeyMatches` ✓），与 `in` **不共享实现** ✓——两处的差别就是语义本身 ✓。
+**挂法也要对** ✗：它走 `SetHiddenProperty` ✓（与 `valueOf` / `toString` 同一格 ✓）——
+挂成普通属性的话 `Object.keys({})` 当场从 0 变成 3 ✓（**静默错值** ✗）。
+
+② **`Object.create` 要「换掉」原型那一格** ✗：`NewPlainObject` 给的是 `Object.prototype` ✓——
+顺手拿过来就错了 ✓（`child.greet()` 找不到 `proto` 上的方法 ✗）。要的是把 `Proto` **指过去** ✓。
+`Object.create(null)` **响亮地抛** ✓：本仓的 `Value` 表达不了「没有原型」那一档 ✓，
+静默给一个 `Object.prototype` 的后代会让 `"toString" in o` **由假变真** ✗（**静默错值** ✗）。
+
+**顺带把「原始值的原型」也对上了** ✓：`Object.getPrototypeOf("a")` 在 JS 里是 `String.prototype` ✓
+（先**装箱**再取 ✓）——本仓不装箱 ✓，所以这一支按**原始值原型表**直接答 ✓
+（`protos.String` / `Number` / `Boolean` ✓，第 150 轮那一族 ✓）。
+
+**读数** ✓：`coverage` **192 / 252 = 73.3% → 197 / 252 = 74.5%** ✓
+（标准库 73.3% → **78.1%** ✓；引擎 85.6% / 降级 65.9% / 端到端 69.2% 不动 ✓）。
+从账上划掉五条 ✓：`object-create-prototype` ✓、`object-getPrototypeOf` ✓、
+`object-hasOwnProperty` ✓、`collection-prototype` ✓、`date-instanceof` ✓
+（后两条是**顺手一起好的** ✓——它们只差 `Object.getPrototypeOf` 那一格 ✓）。
+另外三条判据一个数没动 ✓：`runtime:check` **241/241** ✓、`runtime:cli` **79/79** ✓、`cases:tsast` **1442/1442** ✓。
 
 ### 第 208 轮的账（**`String` 那一批**：四个缺格 + 三条实参 / 边角的老账，一次十二条）
 

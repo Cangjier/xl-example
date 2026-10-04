@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 73.34,
+  "progressPercent": 74.53,
   "layers": [
     {
       "layer": "runtime",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 105,
-      "pass": 77,
-      "blocked": 17,
-      "differ": 11,
+      "pass": 82,
+      "blocked": 13,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 73.33
+      "coverage": 78.1
     },
     {
       "layer": "e2e",
@@ -207,24 +207,6 @@
       "detail": "tsrun: 脚本抛出：unimplemented: this should throw a TypeError (read-only property)"
     },
     {
-      "id": "object-create-prototype",
-      "layer": "stdlib",
-      "title": "Object.create：原型链上的属性怎么被读到",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "object-getPrototypeOf",
-      "layer": "stdlib",
-      "title": "Object.getPrototypeOf / 内建原型的来源",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
-      "id": "object-hasOwnProperty",
-      "layer": "stdlib",
-      "title": "Object.prototype.hasOwnProperty",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
-    },
-    {
       "id": "object-tostring-tag",
       "layer": "stdlib",
       "title": "Object.prototype.toString：只答能证的那一格",
@@ -259,12 +241,6 @@
       "layer": "stdlib",
       "title": "String(符号) 与 符号 + 字符串（后者该抛）",
       "detail": "tsrun: 脚本抛出：unimplemented: ToString of this kind of value"
-    },
-    {
-      "id": "date-instanceof",
-      "layer": "stdlib",
-      "title": "Date 的原型格与 instanceof",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "promise-constructor",
@@ -381,12 +357,6 @@
       "layer": "stdlib",
       "title": "Object.freeze 的**数组元素**：push 在严格模式里该抛",
       "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 2»"
-    },
-    {
-      "id": "collection-prototype",
-      "layer": "stdlib",
-      "title": "集合族的 prototype / constructor / instanceof",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: calling a non-closure value"
     },
     {
       "id": "symbol-description",

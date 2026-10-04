@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
@@ -167,6 +167,19 @@ import { BuildPromise } from "./promise.xl.md"
 **它是 `Object.prototype` 上最"空"的一个方法** ✓，而它**永远是对的** ✓：JS 的 `ToPrimitive`
 普通那一支第一步就是它 ✓——原始值那几档给回自己 ✓，对象给回对象 ✓（于是**继续往下走
 `toString`** ✓）。补上它之后，「普通对象 → 原始值」那条路只差 `toString` ✓。
+
+# const ObjectHasOwnProperty:int = 338
+
+**`({}).hasOwnProperty(k)`**（第 209 轮 ✓）——只问**自己**那一格 ✓（`in` 会沿原型链 ✓，
+两处**不能互相顶替** ✗）。号紧挨着上面两格 ✓（同一个「`Object.prototype` 上的方法」段 ✓）。
+
+# const ObjectCreate:int = 407
+
+**`Object.create(proto)`**（第 209 轮 ✓）——造一个空对象、把**原型**指过去 ✓。
+
+# const ObjectGetPrototypeOf:int = 408
+
+**`Object.getPrototypeOf(o)`**（第 209 轮 ✓）——把 `o` 那一格原型**当值**交出去 ✓。
 
 # const ObjectToString:int = 337
 
@@ -917,6 +930,60 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToStringRad
   const text = radix === 10 ? NumberToHostText(number) : number.toString(radix);
   if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(text)));
+}
+if (id === ObjectHasOwnProperty) {
+  // **`Object.prototype.hasOwnProperty`**（第 209 轮 ✓）：只问**自己**那一格 ✓，
+  // 原型链上的**不算** ✓（`new A().hasOwnProperty("m")` 是**假** ✓——`m` 在 `A.prototype` 上 ✓）。
+  // 与 `in` 的差别就是这一条 ✓，所以两处**不能互相顶替** ✗。
+  // **不能用 `FindProperty`** ✗：那一位是**沿链找**（`props.xl.md` ✓）——正是这里要**排除**的那一半 ✓。
+  if (args.length < 1) return Value.FromBool(false);
+  if (self.Tag !== ValueTag.Object && self.Tag !== ValueTag.Array) return Value.FromBool(false);
+  // **非字符串的键先过 `ToString`** ✓（JS 的 `ToPropertyKey` ✓）：`o.hasOwnProperty(1)` 是通的 ✓。
+  const askedKey = args[0].Tag === ValueTag.String
+    ? args[0]
+    : Value.FromString(table.CreateString(Units(TextFrom(table, args[0]))));
+  const ownProps = table.Get(self.Ref).Props;
+  for (let i = 0; i < ownProps.length; i++) {
+    if (KeyMatches(table, ownProps[i], askedKey)) return Value.FromBool(true);
+  }
+  return Value.FromBool(false);
+}
+if (id === ObjectCreate) {
+  // **`Object.create(proto)`**（第 209 轮 ✓）：造一个空对象、把它的**原型**指过去 ✓。
+  // **它不该走「原型跟着谁走」那条顺手的路** ✗（`NewPlainObject` 给的是 `Object.prototype` ✓）——
+  // 要的正是**换掉**那一格 ✓（`child.greet()` 于是沿这条链找到 `proto` 上的方法 ✓）。
+  const made = NewPlainObject(room, table, protos);
+  if (args.length === 0) return made;
+  const proto = args[0];
+  if (proto.Tag === ValueTag.Null) {
+    // **`Object.create(null)` 响亮地抛** ✗：本仓的 `Value` 表达不了「没有原型」那一档 ✓
+    //（`Proto` 是句柄，`0` 是「没有」✓，而「没有」与「`Object.prototype`」在
+    //  `GetProperty` 那条路上**长得一样** ✗）——静默给一个 `Object.prototype` 的后代
+    // 会让 `"toString" in o` **由假变真** ✗，那是**静默错值** ✓。
+    throw new Error("unimplemented: Object.create(null) (a proto-less object)");
+  }
+  if (proto.Tag !== ValueTag.Object) {
+    throw new Error("unimplemented: Object.create over a prototype that is not an object");
+  }
+  table.Get(made.Ref).Proto = proto.Ref;
+  return made;
+}
+if (id === ObjectGetPrototypeOf) {
+  // **`Object.getPrototypeOf(o)`**（第 209 轮 ✓）：把那一格原型**当值**交出去 ✓
+  //（`Object.getPrototypeOf([]) === Array.prototype` ✓、`Object.getPrototypeOf(new A()) === A.prototype` ✓）。
+  // **原始值也给它的原型** ✓（JS 会**装箱**再取 ✓）：`Object.getPrototypeOf("a")` 是 `String.prototype` ✓——
+  // 本仓不装箱 ✓，所以这一支按**原始值原型表**（`protos.String` / `Number` / `Boolean` ✓）直接答 ✓。
+  if (args.length < 1) throw new Error("this method needs an argument");
+  const target = args[0];
+  if (target.Tag === ValueTag.String) return Value.FromObject(protos.String);
+  if (target.Tag === ValueTag.Int32 || target.Tag === ValueTag.Float64) return Value.FromObject(protos.Number);
+  if (target.Tag === ValueTag.Bool) return Value.FromObject(protos.Boolean);
+  if (target.Tag !== ValueTag.Object && target.Tag !== ValueTag.Array) {
+    throw new Error("unimplemented: Object.getPrototypeOf over this kind of value");
+  }
+  const protoHandle = table.Get(target.Ref).Proto;
+  if (protoHandle === 0) return Value.Null();
+  return Value.FromObject(protoHandle);
 }
 if (id === ObjectValueOf) {
   // **返回接收者自己** ✓（第 198 轮 ✓，与 `NumberValueOf` 同一条口径 ✓）——
@@ -2165,6 +2232,19 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
   Value.FromString(table.CreateString(Units("toString"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectToString, 0)));
+// **`hasOwnProperty`**（第 209 轮 ✓）：与上面两格**同一条路** ✓（`Object.prototype` 上的方法 ✓、
+// **隐藏**挂上 ✓——`Object.keys({})` 必须还是空的 ✓，挂成普通属性它当场变成 3 ✗，**静默错值** ✗）。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
+  Value.FromString(table.CreateString(Units("hasOwnProperty"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectHasOwnProperty, 0)));
+// **`Object.create` / `Object.getPrototypeOf`**（第 209 轮 ✓）：与 `keys` / `values` 那几张
+// **同一张对象** ✓（都是 `Object` 的静态方法 ✓），分派在 `InvokeGlobal` 里 ✓（那一支有 `table` ✓）。
+SetProperty(vm.Room(), NeverCall, table, objectObject,
+  Value.FromString(table.CreateString(Units("create"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectCreate, 0)));
+SetProperty(vm.Room(), NeverCall, table, objectObject,
+  Value.FromString(table.CreateString(Units("getPrototypeOf"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetPrototypeOf, 0)));
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
 SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
 // **`NaN` / `Infinity` 也是全局对象上的属性**（第 149 轮）✓：与 `undefined` 同一条路 ✓——
