@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 90.05,
+  "progressPercent": 90.68,
   "layers": [
     {
       "layer": "runtime",
@@ -34,11 +34,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 47,
-      "pass": 43,
-      "blocked": 3,
+      "pass": 44,
+      "blocked": 2,
       "differ": 1,
       "nodefail": 0,
-      "coverage": 91.49
+      "coverage": 93.62
     },
     {
       "layer": "stdlib",
@@ -97,12 +97,6 @@
       "layer": "exec",
       "title": "标签模板后面接成员 / 运算符 / 实参",
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
-      "id": "ex-private-in-operator",
-      "layer": "exec",
-      "title": "私有成员：#m() / #n / static #s / #x in o",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression PrivateIdentifier"
     },
     {
       "id": "object-freeze",

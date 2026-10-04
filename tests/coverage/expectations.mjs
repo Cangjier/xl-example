@@ -104,7 +104,16 @@ export const EXPECTATIONS = {
   // **第 230 轮删掉了 `ex-yield-star` 那一行** ✓（它过了 ✓）：`yield*` 落成一段
   // **等价的循环** ✓（`lowering.xl.md` 的 `LowerYieldDelegation` ✓）——
   // 拼的是 `GetIterator` + `IterNew` + `IterNext` + `Suspend` / `Resume` 五样现成的 ✓。
-  "ex-private-in-operator": { expect: "blocked", why: "`#x in o` 没做（私有名字的品牌检查）" },
+  // **第 270 轮删掉了 `ex-private-in-operator` 那一行** ✓（它过了 ✓）：
+  // 差的是 **`#n in o`** ✓（私有名的**品牌检查** ✓）——它报的是
+  // `unimplemented: expression PrivateIdentifier` ✓，**整份文件进不来** ✗，
+  // 而 `#n` 那些**读写**一直是好的 ✓（第 195 轮就通了 ✓）。
+  // **修法只有一处** ✓：本仓的私有名**就是属性名** ✓（第 195 轮定的口径 ✓——
+  // `this.#n` 与字段同键 ✓、`KeyUnitsOf` 对 `PrivateIdentifier` 取的就是 `text` ✓，
+  // 也就是 `"#n"` 那个带井号的字符串 ✓），所以 `#n in o` **就是 `"#n" in o`** ✓——
+  // **照 `in` 那一支办就行** ✓，不必另开一条路 ✗。
+  // **次序要紧** ✗：这一支必须排在**求值左边之前** ✓（`LowerExpression(PrivateIdentifier)` 会抛 ✓），
+  // 所以左边那一格在这一支里**直接发一条常量** ✓。
   // **第 243 轮把 `ex-getter-setter-class` 从 `blocked` 改成 `differ`** ✓——
   // **这一条要分两半看** ✗：
   // - **`super.v` 那一半修好了** ✓（`b.v` 那一次读给 `2` ✓，与 Node 相同 ✓）；

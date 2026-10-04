@@ -5700,6 +5700,31 @@ if (value >= before) {
 ```ts
 const operatorText = TextOf(Child(node, "operatorToken"));
 const left = Child(node, "left");
+// **`#n in o`——私有名的品牌检查** ✓（第 270 轮 ✓）。
+//
+// **TS 的语义** ✓：`#n in o` 问的是「`o` 上有没有**这个类声明的** `#n`」✓，
+// 与 `"n" in o` **不是一回事** ✗（后者问的是字符串键 ✓）。
+// **而本仓的私有名就是属性名** ✓（第 195 轮定的口径 ✓：`this.#n` 与字段同键 ✓、
+// `KeyUnitsOf` 对 `PrivateIdentifier` 取的就是 `text` ✓——`"#n"` 那个带井号的字符串 ✓），
+// 所以 `#n in o` **就是 `"#n" in o`** ✓——**照 `in` 那一支办就行** ✓、
+// **不必另开一条路** ✗（这一点很值 ✓：本仓的私有字段**没有**「真私有」那一层 ✓，
+// 它们是与 `"#n"` 同键的普通属性 ✓——那条口径写在 `LowerAccess` 那一处 ✓）。
+//
+// **不接这一支的症状** ✗（判据 `ex-private-in-operator` ✓）：
+// `unimplemented: expression PrivateIdentifier` ✓——**整份文件进不来** ✗，
+// 而 `#n` 那些**读写**一直是好的 ✓（第 195 轮就通了 ✓）。
+//
+// **次序** ✓：这一支要排在**求值左边之前** ✓——`LowerExpression(PrivateIdentifier)` 会抛 ✓，
+// 所以左边那一格要**在这一支里直接发一条常量** ✓（与 `in` 右边照常求值 ✓）。
+if (operatorText === "in" && NodeKind(left) === "PrivateIdentifier") {
+  const window = this.Reserve(2);
+  this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(left))), -1, -1);
+  this.LowerInto(window + 1, Child(node, "right"));
+  const brandResult = this.Reserve(1);
+  this.EmitRt(RtOp.In, brandResult, window, 2);
+  this.Release(brandResult + 1);
+  return brandResult;
+}
 if (operatorText === "&&" || operatorText === "||") {
   // **短路是控制流，不是算子**（第 119 轮补；与 `??` 同一条口径：糖进控制流，不进 id 表）。
   //
