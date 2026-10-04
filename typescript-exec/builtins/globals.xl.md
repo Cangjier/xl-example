@@ -2,14 +2,14 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, Protos, NewPlainObject, NewPlainArray, FindProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom } from "./array.xl.md"
 import { StringFromCharCode } from "./string.xl.md"
 import { ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
-import { InspectText } from "./inspect.xl.md"
+import { InspectText, DateMarker } from "./inspect.xl.md"
 import { MapCtor, NameValue } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
 import { BuildPromise } from "./promise.xl.md"
@@ -145,6 +145,62 @@ import { BuildPromise } from "./promise.xl.md"
 # const BooleanValueOf:int = 335
 
 **`true.valueOf()`**（第 182 轮）——与 `NumberValueOf` 同一条口径 ✓（返回接收者自己 ✓）。
+
+# const ObjectValueOf:int = 336
+
+**`({}).valueOf()`**（第 198 轮）——**与 `NumberValueOf` 同一支实现** ✓（返回接收者自己 ✓）。
+
+**它是 `Object.prototype` 上最"空"的一个方法** ✓，而它**永远是对的** ✓：JS 的 `ToPrimitive`
+普通那一支第一步就是它 ✓——原始值那几档给回自己 ✓，对象给回对象 ✓（于是**继续往下走
+`toString`** ✓）。补上它之后，「普通对象 → 原始值」那条路只差 `toString` ✓。
+
+# const ObjectToString:int = 337
+
+**`({}).toString()`**（第 198 轮）——**只答能证的那一格** ✓：`"[object Object]"` ✓。
+
+**为什么它不能顺手给一个默认值** ✗：JS 的 `Object.prototype.toString` 是一条**长长的分派** ✓
+（`Array` / `Function` / `Error` / `Date` / `Map` / `Set` 各有各的标签 ✓，
+其中 `Map` / `Set` 那两个还是靠 `Symbol.toStringTag` ✓）。本仓今天能**证明**的只有
+「普通对象」这一格 ✓（没有标记格 ✓、原型链上不是 `Error` ✓、不是可调用对象 ✓）——
+**其余一律抛** ✓（见 `ObjectTagOf` ✓）。
+
+**它凭什么值得做** ✓：`({}) + 1` 在 JS 里是 `"[object Object]1"` ✓，而本仓原来报
+「算术作用于非数值」✗——第 198 轮把 `ToPrimitive` 做出来之后 ✓，
+这一步就是**对象那一支的最后一块** ✓（`[] + 1` 早就有 `Array.prototype.toString` ✓ 了 ✓）。
+
+# method ObjectTagOf:(table:HeapTable, protos:Protos, value:Value)=>string
+
+**`Object.prototype.toString` 该给哪个标签** ✓——**能证的证、不能证的抛** ✓（第 198 轮）。
+
+**顺序是语义** ✓：可调用对象 → 标记格那三族 → `Error` → 普通对象 ✓。
+
+**为什么不能落回 `"Object"`** ✗：那三族与 `Error` 在 JS 里给的是**别的文本** ✓
+（`new Map() + 1` 是 `"[object Map]1"` ✓、`new Error("x") + 1` 是 `"Error: x1"` ✓
+——注意 `Error` 那一格走的是 `Error.prototype.toString` ✓，不是这一条 ✓）。
+落回默认值就是**静默错值** ✗，而它比「进不了门」危险得多 ✓（`Object.freeze` 那条账刚记过 ✓）——
+所以这里**响亮地抛** ✓，把每一样缺的东西**点名** ✓（缺 `Symbol.toStringTag` ✓ / 缺
+`Error.prototype.toString` ✓）。
+
+**`Date` / `Map` / `Set` 三族靠 `DateMarker` 认** ✓（`inspect.xl.md` 那一处 ✓）——
+**同一个判据只有一份** ✓：`GetIterator`（认 `Map` / `Set` ✓）、`InspectValue`（认三族 ✓）、
+这里 ✓ 问的都是「那一格标记在不在」✓；各写一遍的下场是「`console.log` 认得、算术不认得」✗。
+
+```ts
+// **可调用对象**（`String` / `Number` / `Function` 那些宿主载荷 ✓）：JS 印源码文本 ✗。
+if (table.Get(value.Ref).Host !== null) {
+  throw new Error("unimplemented: Object.prototype.toString of a callable object (JS renders source text)");
+}
+const marker = DateMarker(table, value);
+if (marker !== "") {
+  throw new Error("unimplemented: Object.prototype.toString of a " + marker + " (JS needs Symbol.toStringTag)");
+}
+// **`Error` 那一族**（第 137 轮起原型链就接好了 ✓）：JS 走 `Error.prototype.toString` ✓，
+// 给的是 `"Error: x"` ✓——不是 `"[object Error]"` ✗。所以这里也抛 ✓。
+if (RtChainHas(table, value, protos.Error)) {
+  throw new Error("unimplemented: Error.prototype.toString");
+}
+return "Object";
+```
 
 # const NumberIsInteger:int = 320
 **`Number.isInteger(x)`**（第 126 轮）——`Number` 是**普通对象** ✓（与 `Array` / `Math` 同款 ✓），
@@ -350,7 +406,8 @@ return MathResult(Number(literal));
 「十进制文本 → 双精度」的唯一一处 ✓），而不是自己写一遍前缀扫描 ✗。
 
 **对象要 `ToPrimitive`** ✓（`Number({})` 在 JS 里是 `NaN` / `Number([])` 是 `0`）——
-那一套没做 ✓，所以**响亮地抛** ✓（不许给一个看起来合理的 `NaN` ✗：`[]` 该给 `0` ✓）。
+**第 198 轮做出来了** ✓，所以这一档**不再抛** ✗：`NumberFromValue` 转调引擎的
+`ToNumberOf` ✓（一元 `+x` 问的也是它 ✓——**同一个 `ToNumber` 只有一处** ✓）。
 
 # const BooleanCtor:int = 222
 
@@ -635,39 +692,26 @@ if (value === Math.floor(value) && value >= -2147483648 && value <= 2147483647) 
 return Value.FromDouble(value);
 ```
 
-# method NumberFromValue:(table:HeapTable, value:Value)=>Value
+# method NumberFromValue:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, value:Value)=>Value
 
-**`Number(x)` 的语义**（第 145 轮）——JS 的 `ToNumber` 里**做得出来的那一半** ✓。
+**`Number(x)` 的语义**（第 145 轮）——**第 198 轮起它就是引擎的 `ToNumber`** ✓。
 
-**顺序是语义** ✓（JS 的 `ToNumber` 就是这么排的 ✓）：
+**这一格原来自己写了一半** ✗：数 / 布尔 / `null` / `undefined` / 字符串各一档 ✓，
+**对象那一档抛** ✓（理由是「要 `ToPrimitive`，没做」✓）。第 198 轮把整张表
+（含对象那一支 ✓）做进了 `rt.xl.md` 的 `ToNumberOf` ✓，所以这里**转调**它 ✓——
+**同一件事不写两份答案** ✓。
 
-| 输入 | 给什么 | 依据 |
-| --- | --- | --- |
-| 数（`Int32` / `Float64`） | 它自己 ✓ | 已经是数 ✓ |
-| 布尔 | `1` / `0` ✓ | JS 的 `Number(true)` 是 `1` ✓ |
-| `null` | `0` ✓ | JS 的 `Number(null)` 是 `0` ✓（而 `Number(undefined)` 是 `NaN` ✗——两格不一样 ✓） |
-| `undefined` | `NaN` ✓ | JS 的口径 ✓ |
-| 字符串 | **整串解析** ✓ | `NumberFromHostText` ✓（`"12px"` 给 `NaN` ✓，`parseInt` 才给 `12` ✓） |
-| 其余（对象 / 数组 / 符号） | **抛** ✓ | 要 `ToPrimitive`（先 `valueOf` 再 `toString`）✗——**不许给一个看起来合理的 `NaN`** ✗：`Number([])` 在 JS 里是 `0` ✓ |
+**为什么这条比「顺手补上对象那一档」更要紧** ✓：`Number([])` 是 `0` ✓、`Number({})` 是 `NaN` ✓，
+而这两格的答案来自 `ToPrimitive` 那两步 ✓（`[].toString()` 是 `""` ✓、
+`({}).toString()` 是 `"[object Object]"` ✓）。两处各写一遍的话，
+`Number([])` 与 `+[]` 早晚会给**两个答案** ✗——而它们在**任何** JS 引擎里都必须是同一个 ✓。
 
-**字符串那一档不自己扫** ✓：借 `runtime/host-text.xl.md` 的 `NumberFromHostText` ✓——
-「十进制文本 → 双精度」**只有那一个出口** ✓（线形态的常量也走它 ✓），
-自己再写一遍前缀/进制/指数的判据就是**第二份会走偏的实现** ✗（第 129 轮那条账 ✓）。
-
-**收窄用引擎的 `MakeNumber`** ✓（不是本文件的 `MathResult` ✗）：
-两者只差一格 ✓——`MathResult` 会把 `-0` 收成 `Int32 0` ✗（`Number("-0")` 在 JS 里是 `-0` ✓，
-`Object.is(Number("-0"), -0)` 为真 ✓），而 `MakeNumber` 专门判了负零 ✓（`rt.xl.md` 那一格 ✓）。
+**收窄仍旧归 `MakeNumber`** ✓：`ToNumberOf` 给的是宿主双精度 ✓，`-0` 的符号位在这一步保住 ✓
+（`Object.is(Number("-0"), -0)` 为真 ✓）——`MathResult` 会把 `-0` 收成 `Int32 0` ✗，
+所以这一格**不能**用它 ✓。
 
 ```ts
-if (value.Tag === ValueTag.Int32 || value.Tag === ValueTag.Float64) return value;
-if (value.Tag === ValueTag.Bool) return Value.FromInt(value.Int !== 0 ? 1 : 0);
-if (value.Tag === ValueTag.Null) return Value.FromInt(0);
-if (value.Tag === ValueTag.Undefined) return Value.FromDouble(NaN);
-if (value.Tag === ValueTag.String) {
-  const units = table.Get(value.Ref).AsString().Units;
-  return MakeNumber(NumberFromHostText(HostUnitsText(units)));
-}
-throw new Error("unimplemented: Number(x) of an object needs ToPrimitive");
+return MakeNumber(ToNumberOf(room, call, protos, table, value));
 ```
 
 # method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink)=>Value
@@ -707,7 +751,7 @@ if (id === StringCtor) {
 }
 if (id === NumberCtor) {
   // **不给实参给 `0`** ✓（JS 的 `Number()` 是 `0` ✓，不是 `NaN` ✗）。
-  return NumberFromValue(table, args.length > 0 ? args[0] : Value.FromInt(0));
+  return NumberFromValue(room, call, table, protos, args.length > 0 ? args[0] : Value.FromInt(0));
 }
 if (id === BooleanCtor) {
   // **不给实参给 `false`** ✓，走的是**唯一那条真假口径** ✓（第 144 轮的 `TruthyOf` ✓）。
@@ -811,6 +855,25 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToStringRad
   if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(text)));
 }
+if (id === ObjectValueOf) {
+  // **返回接收者自己** ✓（第 198 轮 ✓，与 `NumberValueOf` 同一条口径 ✓）——
+  // `Object.prototype.valueOf` 是 JS 里最"空"的一个方法 ✓，而它**永远是对的** ✓。
+  return self;
+}
+if (id === ObjectToString) {
+  // **`null` / `undefined` 也给标签** ✓（JS 的 `Object.prototype.toString` ✓）：
+  // `Object.prototype.toString.call(null)` 是 `"[object Null]"` ✓——
+  // 本仓没有 `.call` ✗，但接收者直接落在这两档上的形状（元编程写法）仍该给对 ✓。
+  if (self.Tag === ValueTag.Undefined) {
+    return Value.FromString(table.CreateString(Units("[object Undefined]")));
+  }
+  if (self.Tag === ValueTag.Null) {
+    return Value.FromString(table.CreateString(Units("[object Null]")));
+  }
+  const text = "[object " + ObjectTagOf(table, protos, self) + "]";
+  if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units(text)));
+}
 if (id === IsNaN || id === IsFinite || id === NumberIsFinite) {
   // **`Number.isFinite` 不转换** ✗（第 149 轮）：它只认数值标签 ✓——
   // `Number.isFinite("3")` 是 `false` ✓，而全局的 `isFinite("3")` 是 `true` ✓。
@@ -826,7 +889,7 @@ if (id === IsNaN || id === IsFinite || id === NumberIsFinite) {
   // 转那一步借 `NumberFromValue` ✓（`Number(x)` 的语义只有一份 ✓）。
   // **不许直接拿 `Number.isNaN` / `Number.isFinite` 顶替** ✗：那两个**不做转换** ✓——
   // `isNaN("abc")` 该是 `true` ✓（转成 `NaN` ✓），而 `Number.isNaN("abc")` 是 `false` ✓。
-  const converted = NumberFromValue(table, args.length > 0 ? args[0] : Value.Undefined());
+  const converted = NumberFromValue(room, call, table, protos, args.length > 0 ? args[0] : Value.Undefined());
   const number = converted.Tag === ValueTag.Int32 ? converted.Int : converted.Dbl;
   const notANumber = number !== number;
   if (id === IsNaN) return Value.FromBool(notANumber);
@@ -1160,9 +1223,15 @@ if (id === DateCtor) {
   SetHiddenProperty(room, table, created,
     Value.FromString(table.CreateString(Units("__t"))), ms);
   const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
-    DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds];
+    DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds, DateGetTime];
+  // **`valueOf` 就是 `getTime`**（第 198 轮 ✓）：JS 的 `Date.prototype.valueOf` 给的正是那一格
+  // 毫秒数 ✓——**同一个能力号** ✓（同一件事不写第二份实现 ✓，与数组的 `toString` = `join` 同款 ✓）。
+  // 它让**日常那个写法**通了 ✓：`+new Date()`（一元 `+` 是 `ToNumber` ✓ →
+  // `ToPrimitive(date, number)` ✓ → `valueOf` ✓ → 毫秒数 ✓）。
+  // **`date + 1` 仍旧响亮地抛** ✓（那是 hint `default` ✓，JS 按 `string` 走 ✓，
+  // 会给日期串 ✗——本仓没有 `Date.prototype.toString` ✓，见 `ToPrimitiveOf` 里那条路障 ✓）。
   const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
-    "getUTCHours", "getUTCMinutes", "getUTCSeconds"];
+    "getUTCHours", "getUTCMinutes", "getUTCSeconds", "valueOf"];
   for (let i = 0; i < methodIds.length; i++) {
     // **方法也不可枚举**（第 194 轮 ✓）：`Object.keys(new Date())` 在 JS 里是 `[]` ✓。
     SetHiddenProperty(room, table, created,
@@ -1962,6 +2031,17 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, NameValue(table, "prototy
   Value.FromObject(protos.Object));
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Object), NameValue(table, "constructor"),
   objectObject);
+// **`Object.prototype.valueOf` / `toString`**（第 198 轮）✓：`ToPrimitive` 普通那一支的两步 ✓
+//（`valueOf` 先 ✓、`toString` 后 ✓），挂的必须是 `protos.Object` ✗
+//（现造一个新对象的话，普通对象那条原型链找不到它 ✓——与 `Number.prototype` 那条同一个坎 ✓）。
+// **用 `SetHiddenProperty`** ✓（第 194 轮 ✓）：JS 里这两个方法本来就**不可枚举** ✓，
+// 所以 `Object.keys({})` 必须还是空的 ✓——挂成普通属性的话它当场变成 2 ✗（**静默错值** ✗）。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
+  Value.FromString(table.CreateString(Units("valueOf"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectValueOf, 0)));
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
+  Value.FromString(table.CreateString(Units("toString"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectToString, 0)));
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
 SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
 // **`NaN` / `Infinity` 也是全局对象上的属性**（第 149 轮）✓：与 `undefined` 同一条路 ✓——

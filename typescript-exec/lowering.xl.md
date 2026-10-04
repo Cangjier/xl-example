@@ -4808,10 +4808,13 @@ if (kind === "PrefixUnaryExpression" || kind === "PostfixUnaryExpression") {
   if (operator === "!") return this.RtCall1(RtOp.Not, value);
   // **按位取反**（第 147 轮）：`~` 给整数 ✓（`~5` 是 `-6` ✓）——与 `!` 给布尔不是一回事 ✓。
   if (operator === "~") return this.RtCall1(RtOp.BitNot, value);
-  // **没做的照旧抛**（不静默给近似值）：`+x` 要 `ToNumber`（字符串解析 ✓——
-  // 第 145 轮那条 `Number(x)` 已经做出来了 ✓，`+x` 接上去是下一轮的一条小活 ✓）、
-  // `typeof x` 与 `void x` 各自另有落点 ✓。
-  throw new Error("unimplemented: unary operator `" + operator + "` (only -, !, ~, ++ and -- are implemented)");
+  // **一元 `+`**（第 198 轮 ✓）：它就是 `ToNumber` ✓——与 `Number(x)` 那一个内建
+  // **同一个落点** ✓（引擎的 `RtOp.ToNumber` ✓，实现是 `rt.xl.md` 的 `ToNumberOf` ✓）。
+  // 原来这里报 `unimplemented: unary operator` ✗，而 `+new Date(...)` / `+"3"` 这类
+  // 写法在普通 `.ts` 里很常见 ✓（`+` 是 JS 里最短的一次数值转换 ✓）。
+  if (operator === "+") return this.RtCall1(RtOp.ToNumber, value);
+  // **没做的照旧抛**（不静默给近似值）：`typeof x` 与 `void x` 各自另有落点 ✓。
+  throw new Error("unimplemented: unary operator `" + operator + "` (only -, +, !, ~, ++ and -- are implemented)");
 }
 // **非空断言 `x!` 在运行期什么也不做**（第 179 轮）✓：它只是给类型系统看的一句话 ✓——
 // 降级成**它里面那个表达式** ✓（一条指令都不多 ✓，与「类型位一律擦除」同一条口径 ✓）。

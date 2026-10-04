@@ -8,7 +8,7 @@ import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtBitXor, RtBitNot, RtShl, RtShr, RtUShr } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
-import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf } from "./rt.xl.md"
+import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 ```
@@ -1357,27 +1357,42 @@ if (base < 0 || argc < 0 || base + argc > slots.length) {
 const id = instr.A;
 if (id === RtOp.Add) {
   RequireArgc(argc, 2, "add");
-  return this.Guard(() => RtAdd(this.Room(), this.Table, slots[base], slots[base + 1]));
+  // **算术要 `room` / `call` / `protos`**（第 198 轮 ✓）：`+` 的第一步是 `ToPrimitive` ✓，
+  // 而它**可能调脚本** ✓（`valueOf` / `Symbol.toPrimitive` ✓）——
+  // 与 `GetProperty`（`instanceof` 那一支 ✓）要的是**同一套参数** ✓。
+  const addProtos = this.Protos;
+  if (addProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtAdd(this.Room(), this.Native(), addProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.Sub) {
   RequireArgc(argc, 2, "sub");
-  return RtSub(this.Table, slots[base], slots[base + 1]);
+  const subProtos = this.Protos;
+  if (subProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtSub(this.Room(), this.Native(), subProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.Mul) {
   RequireArgc(argc, 2, "mul");
-  return RtMul(this.Table, slots[base], slots[base + 1]);
+  const mulProtos = this.Protos;
+  if (mulProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtMul(this.Room(), this.Native(), mulProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.Div) {
   RequireArgc(argc, 2, "div");
-  return RtDiv(this.Table, slots[base], slots[base + 1]);
+  const divProtos = this.Protos;
+  if (divProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtDiv(this.Room(), this.Native(), divProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.Mod) {
   RequireArgc(argc, 2, "mod");
-  return RtMod(this.Table, slots[base], slots[base + 1]);
+  const modProtos = this.Protos;
+  if (modProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtMod(this.Room(), this.Native(), modProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.Neg) {
   RequireArgc(argc, 1, "neg");
-  return RtNeg(this.Table, slots[base]);
+  const negProtos = this.Protos;
+  if (negProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtNeg(this.Room(), this.Native(), negProtos, this.Table, slots[base]));
 }
 // **七条位运算**（第 147 轮）：`& | ^ << >>` 与 `~` 的结果都落在 `int32` 里 ✓，
 // 只有 `>>>` 可能超出 ✗（`-1 >>> 0` 是 `4294967295` ✓）——那一条自己走 `MakeNumber` ✓。
@@ -1415,21 +1430,26 @@ if (id === RtOp.Not) {
   RequireArgc(argc, 1, "not");
   return RtNot(this.Table, slots[base]);
 }
-if (id === RtOp.CmpLt) {
-  RequireArgc(argc, 2, "cmp_lt");
-  return RtCmpLt(this.Table, slots[base], slots[base + 1]);
-}
-if (id === RtOp.CmpLe) {
-  RequireArgc(argc, 2, "cmp_le");
-  return RtCmpLe(this.Table, slots[base], slots[base + 1]);
-}
-if (id === RtOp.CmpGt) {
-  RequireArgc(argc, 2, "cmp_gt");
-  return RtCmpGt(this.Table, slots[base], slots[base + 1]);
-}
-if (id === RtOp.CmpGe) {
-  RequireArgc(argc, 2, "cmp_ge");
-  return RtCmpGe(this.Table, slots[base], slots[base + 1]);
+// **四条关系也要 `room` / `call` / `protos`**（第 198 轮 ✓）：`CompareValues` 的第一步就是
+// `ToPrimitive`（hint `number` ✓）——`date1 < date2` 靠它 ✓。
+// 四格合成一段 ✓：**准备那两句（查 argc、取原型表）只写一次** ✓——
+// 四份各写一遍正是这一族最容易漂的地方 ✓（而 `RtOpName(id)` 让报出来的名字仍旧对得上号 ✓）。
+if (id === RtOp.CmpLt || id === RtOp.CmpLe || id === RtOp.CmpGt || id === RtOp.CmpGe) {
+  RequireArgc(argc, 2, RtOpName(id));
+  const relationProtos = this.Protos;
+  if (relationProtos === null) throw new Error("no prototype table");
+  const left = slots[base];
+  const right = slots[base + 1];
+  if (id === RtOp.CmpLt) {
+    return this.Guard(() => RtCmpLt(this.Room(), this.Native(), relationProtos, this.Table, left, right));
+  }
+  if (id === RtOp.CmpLe) {
+    return this.Guard(() => RtCmpLe(this.Room(), this.Native(), relationProtos, this.Table, left, right));
+  }
+  if (id === RtOp.CmpGt) {
+    return this.Guard(() => RtCmpGt(this.Room(), this.Native(), relationProtos, this.Table, left, right));
+  }
+  return this.Guard(() => RtCmpGe(this.Room(), this.Native(), relationProtos, this.Table, left, right));
 }
 if (id === RtOp.CmpEqStrict) {
   RequireArgc(argc, 2, "cmp_eq_strict");
@@ -1437,7 +1457,10 @@ if (id === RtOp.CmpEqStrict) {
 }
 if (id === RtOp.CmpEqLoose) {
   RequireArgc(argc, 2, "cmp_eq_loose");
-  return RtCmpEqLoose(this.Table, slots[base], slots[base + 1]);
+  // `==` 也要 `room` / `call` / `protos`（第 198 轮 ✓）：对象那一支要 `ToPrimitive` ✓。
+  const looseProtos = this.Protos;
+  if (looseProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => RtCmpEqLoose(this.Room(), this.Native(), looseProtos, this.Table, slots[base], slots[base + 1]));
 }
 if (id === RtOp.ToBoolean) {
   RequireArgc(argc, 1, "to_boolean");
@@ -1644,6 +1667,21 @@ if (id === RtOp.HostCall) {
 if (id === RtOp.ToString) {
   RequireArgc(argc, 1, "to_string");
   return this.Guard(() => RtToString(this.Room(), this.Table, slots[base]));
+}
+if (id === RtOp.ToNumber) {
+  // **那个内建 `Number` 与一元 `+x` 走同一条路**（第 198 轮 ✓）：两个算子的语义**就是同一个**
+  // `ToNumber` ✓（JS 里 `+x` 与把值交给 `Number` 只在「有没有 `.call` 那点差别」上有区别 ✓，
+  // 对一个表达式而言逐字相同 ✓）——所以这里**只留一个落点** ✓，
+  // `Number` 那个内建也转调它 ✓（`globals.xl.md` 的 `NumberFromValue` ✓）。
+  //
+  // **它为什么排在 `ToString` 旁边** ✓：`ir.xl.md` 把这两个算子一起放在
+  // 「要碰堆的那两格」里 ✓（字符串解析 / 渲染都要读堆 ✓）——
+  // 而 `ToNumber` 比它写着的还要重一点 ✓：对象那一支要 **`ToPrimitive`** ✓，
+  // 于是 `room` / `call` / `protos` 三样都要 ✓（与 `add` 那一族同一条理由 ✓）。
+  RequireArgc(argc, 1, "to_number");
+  const toNumberProtos = this.Protos;
+  if (toNumberProtos === null) throw new Error("no prototype table");
+  return this.Guard(() => MakeNumber(ToNumberOf(this.Room(), this.Native(), toNumberProtos, this.Table, slots[base])));
 }
 if (id === RtOp.Typeof) {
   RequireArgc(argc, 1, "typeof");

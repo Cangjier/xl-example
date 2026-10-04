@@ -61,8 +61,13 @@ return Value.FromDouble(value);
 
 # method NumericOf:(value:Value)=>double
 
-取数值载荷。**非数值要抛**：算术里的 `ToPrimitive` 还没实现（它要碰堆、要调 `valueOf`），
-而静默给 0 会算出一个看起来合理的错答案。
+取**数值载荷**（`Int32` / `Float64` 这两档）。
+
+**它不是 `ToNumber`** ✗（第 198 轮起两者分开了 ✓）：`NumericOf` 只回答「这一个格子里装的
+是不是数、是多少」✓，**不做任何转换** ✓——`"3"` 走它就该抛 ✓。
+`ToNumber` 是**语义** ✓（`"3"` 给 `3` ✓、`true` 给 `1` ✓、`[]` 给 `0` ✓），
+在 `ToNumberOf` 里 ✓。**判据表内部那一半**（`RtCmpEqStrict` 的数值比较 ✓、
+`ToInt32Of` ✓、`CompareValues` ✓）继续用这一个 ✓——它们已经保证过标签 ✓。
 
 ```ts
 if (value.Tag === ValueTag.Int32) return value.Int;
@@ -70,18 +75,192 @@ if (value.Tag === ValueTag.Float64) return value.Dbl;
 throw new Error("unimplemented: arithmetic on a non-numeric operand");
 ```
 
-# method RtAdd:(room:RoomChecker, table:HeapTable, left:Value, right:Value)=>Value
+# const ToPrimitiveDefault:int = 0
 
-`+`。**三条路**：两边都是数值 → 相加；**有一边是字符串** → 两边转成码元后拼接；
-其余（对象、`undefined` 那些）→ 抛。
+**`ToPrimitive` 的 hint 之一**（第 198 轮 ✓）：JS 的 `"default"` ✓——
+`+` 用它 ✓、`==` 用它 ✓。**普通那一支（`valueOf` → `toString`）与 `number` 同序** ✓，
+只有 `Date` 例外 ✗（JS 规定它按 `"string"` 走 ✓——本仓的 `Date` 还没挂 `toString` ✓，记在台账 ✓）。
 
-**「有一边是字符串」这一档是 JS 的日常**（`"count: " + n`），它需要 `ToString`——
-现在有了（`TextUnitsOf`），而且**只分配一次**（见那一节：中间值没有根保护）。
+# const ToPrimitiveNumber:int = 1
+
+**hint `"number"`** ✓：`- * / %` 与一元 `-` 用它 ✓。
+
+# const ToPrimitiveString:int = 2
+
+**hint `"string"`** ✓：`String(o)` 用它 ✓——**普通那一支要反过来** ✓（先 `toString` 后 `valueOf` ✓）。
+
+# method ToPrimitiveOf:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value, hint:int)=>Value
+
+**JS 的 `ToPrimitive`**（第 198 轮 ✓）——算术、`==`、`Number(x)` 那一族**共用的第一步** ✓。
+
+**它为什么住在引擎里** ✓：算术算子（`RtOp.Add` 那一族 ✓）在引擎里 ✓，
+而 `+` 的语义**要求**先 `ToPrimitive` 两边 ✓（`[] + 1` 是 `"1"` ✗ 不是 `1` ✓）；
+把这一步留在语言层就意味着引擎每次算术都要发一次内建调用 ✗。
+而它要的东西**引擎侧本来就有** ✓：`GetProperty` ✓ / `NativeCall` ✓ / `Protos` ✓——
+`RtInstanceOf` 用的就是**同一套参数** ✓（`room, call, protos, table` ✓）。
+
+**顺序是语义** ✓：
+
+| 步 | 条件 | 做法 |
+| --- | --- | --- |
+| 1 | 值上有可调的 `Symbol.toPrimitive` ✓ | 调它 ✓，`hint` 当**字符串**传进去 ✓ |
+| 2 | 否则，`hint === "string"` | 先 `toString` ✓ 后 `valueOf` ✓ |
+| 3 | 否则（`default` / `number`） | 先 `valueOf` ✓ 后 `toString` ✓ |
+| 4 | 两步都给了对象 | **抛** ✓（JS 的 `TypeError` ✓） |
+
+**`Symbol.toPrimitive` 从哪认** ✗：引擎不该认识 `Symbol` 这六个字 ✓（与 `ConstructorProtos`
+那条同一条分界 ✓）——号从 `protos.WellKnownSymbols` 那张**语言层填的小表**里取 ✓；
+**表是空的（`<= 0`）就整档跳过** ✓，与 `IteratorMethodOf` 同一口径 ✓。
+
+**函数那一档响亮地抛** ✓（`Function` / `Closure`）：JS 给的是**源码文本** ✓
+（`f + 1` 是 `"function f() {}1"` ✓），而那一份**引擎拿不到** ✗——
+与 `ValueUnits` / `ToStringOfObject` 里那两条口径一致 ✓（**宁可抛也不编一个** ✓）。
 
 ```ts
-if (left.Tag === ValueTag.String || right.Tag === ValueTag.String) {
-  const leftUnits = TextUnitsOf(table, left);
-  const rightUnits = TextUnitsOf(table, right);
+// **原始值就是恒等** ✓（`ToPrimitive` 对它们一步都不走 ✓）。
+if (!value.IsObject()) return value;
+// **函数那一档**：JS 渲染源码文本 ✗，引擎拿不到 ✓ → 响亮地抛 ✓，绝不编一个 ✗。
+if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) {
+  throw new Error("unimplemented: ToPrimitive of a function (JS renders source text)");
+}
+if (call === null) return value;
+// **① `Symbol.toPrimitive`** ✓（可调就用它 ✓）
+if (protos.WellKnownSymbols > 0) {
+  const symbolTable = Value.FromObject(protos.WellKnownSymbols);
+  const lookupKey = Value.FromString(table.CreateString(HostTextUnits("toPrimitive")));
+  const toPrimitiveKey = GetProperty(room, call, protos, table, symbolTable, lookupKey);
+  if (toPrimitiveKey.Tag === ValueTag.Symbol) {
+    const method = GetProperty(room, call, protos, table, value, toPrimitiveKey);
+    if (IsCallableValue(table, method)) {
+      const hintText = hint === ToPrimitiveString ? "string"
+        : (hint === ToPrimitiveNumber ? "number" : "default");
+      const produced = call(method, value,
+        [Value.FromString(table.CreateString(HostTextUnits(hintText)))]);
+      // **它不许返回对象** ✓（JS 的口径 ✓）：给了就抛 ✓，不往下走 ✗。
+      if (produced.IsObject()) throw new Error("cannot convert object to a primitive value");
+      return produced;
+    }
+  }
+}
+// **② / ③ 普通那一支**：`string` 反过来，其余 `valueOf` 先 ✓。
+// **`Date` 那条路障** ✓（第 198 轮 ✓）：JS 的 `OrdinaryToPrimitive` 里**唯一一条特例** ✓——
+// `default` 对 `Date` 要当 `string` 用 ✓（`new Date(0) + 1` 在 JS 里是**日期串接 `1`** ✓，
+// 不是 `1` ✗）。而本仓的 `Date.prototype` 上**没有 `toString`** ✗
+// （那一格要本地时区与格式 ✓，是另一轮的事 ✓）——所以这里**响亮地抛** ✓。
+// 少了这条路障，`valueOf` 会把答案悄悄变成数字 ✗（`new Date(0) + 1` 给 `1` ✗）——
+// **静默错值** ✗，而这是这一层最不该犯的错 ✓。
+// **`+new Date()` 不受影响** ✓：一元 `+` 走的是 hint `number` ✓（`valueOf` 先 ✓、给毫秒数 ✓）。
+// **放在 `Symbol.toPrimitive` 之后** ✓：脚本自己定义了那一格的话，它照旧优先 ✓（JS 的口径 ✓）。
+if (hint !== ToPrimitiveNumber && RtChainHas(table, value, protos.Date)) {
+  throw new Error("unimplemented: ToPrimitive of a Date with a string hint (JS needs Date.prototype.toString)");
+}
+const toStringKey = Value.FromString(table.CreateString(HostTextUnits("toString")));
+const valueOfKey = Value.FromString(table.CreateString(HostTextUnits("valueOf")));
+const firstKey = hint === ToPrimitiveString ? toStringKey : valueOfKey;
+const secondKey = hint === ToPrimitiveString ? valueOfKey : toStringKey;
+const first = GetProperty(room, call, protos, table, value, firstKey);
+if (IsCallableValue(table, first)) {
+  const produced = call(first, value, []);
+  if (!produced.IsObject()) return produced;
+}
+const second = GetProperty(room, call, protos, table, value, secondKey);
+if (IsCallableValue(table, second)) {
+  const produced = call(second, value, []);
+  if (!produced.IsObject()) return produced;
+}
+// **④ 两步都没给出原始值** ✓：JS 在这里抛 `TypeError` ✓。
+throw new Error("cannot convert object to a primitive value");
+```
+
+# method ToNumberPrimitive:(table:HeapTable, value:Value)=>double
+
+**`ToNumber` 的原始值那一半** ✓（第 198 轮）——**只认原始值** ✓，对象一律抛 ✓。
+
+**顺序是语义** ✓（与 JS 的 `ToNumber` 一字不差 ✓）：
+
+| 输入 | 给什么 | 依据 |
+| --- | --- | --- |
+| `Int32` / `Float64` | 它自己 ✓ | 已经是数 ✓ |
+| 布尔 | `1` / `0` ✓ | `Number(true)` 是 `1` ✓ |
+| `null` | `0` ✓ | `Number(null)` 是 `0` ✓ |
+| `undefined` | `NaN` ✓ | `Number(undefined)` 是 `NaN` ✓（**与上一格不同** ✗） |
+| 字符串 | **整串解析** ✓ | `NumberFromHostText` ✓（`""` 与纯空白的口径由宿主给 ✓，见下 ✓） |
+| 符号 / 宿主值 / 对象 | **抛** ✓ | 符号在 JS 里是 `TypeError` ✓；对象要先过 `ToPrimitive` ✓（由调用方做 ✓） |
+
+**字符串那一档不自己扫** ✓：借 `host-text.xl.md` 的 `NumberFromHostText` ✓——
+「十进制文本 → 双精度」**只有那一个出口** ✓（第 129 轮立的规矩 ✓）。
+**空串 / 空白不在这一层特判** ✗：`Number("")` 与 `Number("  ")` 在 JS 里都是 `0` ✓，
+而那是**同一件事** ✓（宿主那一支 `Number(text)` 本来就给 `0` ✓）——
+在这里再加一条「先 trim、空了给 0」的判断就是**第二份会走偏的实现** ✗
+（第 129 轮的账与 `globals.xl.md` 的 `NumberFromValue` 都栽在这一条上过 ✓）。
+
+```ts
+if (value.Tag === ValueTag.Int32) return value.Int;
+if (value.Tag === ValueTag.Float64) return value.Dbl;
+if (value.Tag === ValueTag.Bool) return value.Int !== 0 ? 1 : 0;
+if (value.Tag === ValueTag.Null) return 0;
+if (value.Tag === ValueTag.Undefined) return NaN;
+if (value.Tag === ValueTag.String) {
+  return NumberFromHostText(HostUnitsText(table.Get(value.Ref).AsString().Units));
+}
+// **符号是 JS 的 `TypeError`** ✓（不是「还没做」✗）：把符号交给宿主那个 `Number` 内建，
+// 在任何引擎里都抛 ✓。
+if (value.Tag === ValueTag.Symbol) {
+  throw new Error("cannot convert a Symbol to a number");
+}
+// **走到这里只剩两种** ✓：对象（`ToPrimitive` 那一层没通道可用 ✓，`call === null` ✓）
+// 与宿主值（JS 渲染的是源码文本 ✗，引擎拿不到 ✓）。
+// 两者都**响亮地抛** ✓，而话里点名是哪一种 ✓（不然「非数值」那句话离现场很远 ✗）。
+if (value.IsObject()) {
+  throw new Error("unimplemented: ToNumber of an object without a call channel (ToPrimitive needs one)");
+}
+throw new Error("unimplemented: ToNumber of a host value (JS renders source text)");
+```
+
+# method ToNumberOf:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>double
+
+**JS 的 `ToNumber`**（第 198 轮 ✓）——`- * / %` ✓、一元 `-` ✓、位运算 ✓、`==` ✓ 共用 ✓。
+
+**对象那一支先 `ToPrimitive`（hint `number`）** ✓，拿到原始值再回到 `ToNumberPrimitive` ✓
+（`Number([])` 是 `0` ✓、`Number({})` 是 `NaN` ✓——因为 `[].toString()` 是 `""` ✓、
+`({}).toString()` 是 `"[object Object]"` ✓）。
+**不写成递归** ✓：`ToPrimitive` 交给「原始值那一半」是一次**平级调用** ✓，
+两处判据各管各的一半 ✓——写成自递归的话「符号」这种既不是对象、又不能当数的值
+会**转不出来** ✗（`ToPrimitiveOf` 对符号是恒等 ✓，递归就转成死循环 ✗）。
+
+```ts
+if (value.IsObject()) {
+  const primitive = ToPrimitiveOf(room, call, protos, table, value, ToPrimitiveNumber);
+  return ToNumberPrimitive(table, primitive);
+}
+return ToNumberPrimitive(table, value);
+```
+
+# method RtAdd:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
+
+`+`。**JS 的定义不是「两边都是数就加」** ✗，而是**三步** ✓（第 198 轮 ✓）：
+
+1. `lprim = ToPrimitive(left)` ✓、`rprim = ToPrimitive(right)` ✓（hint `default` ✓）；
+2. **有一边是字符串** → 两边取码元后拼接 ✓；
+3. 否则两边 `ToNumber` ✓、相加 ✓。
+
+**顺序不能反** ✗：`[] + 1` 在 JS 里是 `"1"` ✓（先 `ToPrimitive` 拿到 `""` ✓，
+于是走拼接那一支 ✓）——先看标签就会把它当成「非数值」✗。
+**`undefined + 1` 是 `NaN`** ✓（不是抛 ✗）：第 196 轮量到的那一格正是这里 ✓。
+
+**「一边是字面量」那一档不经过这里** ✓：`"x=" + n` / `"a" + obj` 由**降级层**收走 ✓
+（走 `StringConcat` ✓，第 125 轮 ✓）——到这里的是**运行期才知道**的那一半 ✓。
+
+**中间值没有根保护** ✗（与 `TextUnitsOf` 那条同一件事 ✓）：`ToPrimitive` **可能调脚本** ✓
+（`valueOf` / `Symbol.toPrimitive` ✓），所以两边都**先算完** ✓、
+再**问一次 room、只分配一次** ✓——顺序反了就是一次能被回收收走的中间串 ✗。
+
+```ts
+const leftPrimitive = ToPrimitiveOf(room, call, protos, table, left, ToPrimitiveDefault);
+const rightPrimitive = ToPrimitiveOf(room, call, protos, table, right, ToPrimitiveDefault);
+if (leftPrimitive.Tag === ValueTag.String || rightPrimitive.Tag === ValueTag.String) {
+  const leftUnits = TextUnitsOf(table, leftPrimitive);
+  const rightUnits = TextUnitsOf(table, rightPrimitive);
   const units: number[] = [];
   for (let i = 0; i < leftUnits.length; i++) units.push(leftUnits[i]);
   for (let i = 0; i < rightUnits.length; i++) units.push(rightUnits[i]);
@@ -90,7 +269,7 @@ if (left.Tag === ValueTag.String || right.Tag === ValueTag.String) {
   }
   return Value.FromString(table.CreateString(units));
 }
-return MakeNumber(NumericOf(left) + NumericOf(right));
+return MakeNumber(ToNumberPrimitive(table, leftPrimitive) + ToNumberPrimitive(table, rightPrimitive));
 ```
 
 # method TextUnitsOf:(table:HeapTable, value:Value)=>Array<int>
@@ -260,45 +439,47 @@ table.Recount(receiver.Ref);
 return receiver;
 ```
 
-# method RtSub:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtSub:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
-`-`。
-
-```ts
-return MakeNumber(NumericOf(left) - NumericOf(right));
-```
-
-# method RtMul:(table:HeapTable, left:Value, right:Value)=>Value
-
-`*`。
+`-`。**两边都过 `ToNumber`** ✓（第 198 轮 ✓）：`1 - "2"` 是 `-1` ✓、
+`undefined - 1` 是 `NaN` ✓（原来报「算术作用于非数值」✗）。
 
 ```ts
-return MakeNumber(NumericOf(left) * NumericOf(right));
+return MakeNumber(ToNumberOf(room, call, protos, table, left) - ToNumberOf(room, call, protos, table, right));
 ```
 
-# method RtDiv:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtMul:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
-`/`。除零给 `Infinity` / `NaN`（JS 语义），**不抛**。
+`*`。两边都过 `ToNumber` ✓。
 
 ```ts
-return MakeNumber(NumericOf(left) / NumericOf(right));
+return MakeNumber(ToNumberOf(room, call, protos, table, left) * ToNumberOf(room, call, protos, table, right));
 ```
 
-# method RtMod:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtDiv:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
+
+`/`。除零给 `Infinity` / `NaN`（JS 语义），**不抛**；两边都过 `ToNumber` ✓。
+
+```ts
+return MakeNumber(ToNumberOf(room, call, protos, table, left) / ToNumberOf(room, call, protos, table, right));
+```
+
+# method RtMod:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `%`。JS 的取余对负数与浮点都有自己的定义（`-5 % 3` 是 `-2`），这里直接用宿主运算符——
 四个目标的 `%` 语义与 JS 一致（C++ 的 `%` 对负数是实现定义，**这一条要在 P1 用 C++ 对拍时复核**）。
+两边都过 `ToNumber` ✓。
 
 ```ts
-return MakeNumber(NumericOf(left) % NumericOf(right));
+return MakeNumber(ToNumberOf(room, call, protos, table, left) % ToNumberOf(room, call, protos, table, right));
 ```
 
-# method RtNeg:(table:HeapTable, value:Value)=>Value
+# method RtNeg:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>Value
 
-一元 `-`。
+一元 `-`。过 `ToNumber` ✓（`-"3"` 是 `-3` ✓、`-undefined` 是 `NaN` ✓）。
 
 ```ts
-return MakeNumber(-NumericOf(value));
+return MakeNumber(-ToNumberOf(room, call, protos, table, value));
 ```
 
 # method ToInt32Of:(value:Value)=>int
@@ -483,7 +664,7 @@ return [111, 98, 106, 101, 99, 116];
 # method IsCallableValue:(table:HeapTable, value:Value)=>bool
 
 **这个值能不能当函数用**——闭包 ✓、内建函数 ✓（`ValueTag.Function` ✓）、
-**带可调用载荷的对象** ✓（第 145 轮）。
+**宿主引用** ✓、**带可调用载荷的对象** ✓（第 145 轮）。
 
 **它为什么必须收成一个方法**：建库层有**五处**在问这件事 ✓（数组的 `map` / `filter` /
 谓词族 / `sort` 的比较器、`Set` 与 `Map` 的 `forEach` ✓）——它们原来写的是
@@ -491,12 +672,21 @@ return [111, 98, 106, 101, 99, 116];
 于是 `[1, 2].map(String)` 报「this array method needs a function」✗
 （而 `String` 明明是可以调的 ✓）。
 
+**第 198 轮补上 `HostRef` 那一档** ✓：本仓的**原型方法全都是 `HostRef`** ✓
+（`Array.prototype.join` 那一族 ✓、`Object.prototype.valueOf` ✓），
+而 `ToPrimitiveOf` 正是靠这一条判据决定「取到的 `valueOf` / `toString` 能不能调」✗——
+少了它，`[1] + 1` 报的是 `cannot convert object to a primitive value` ✗
+（听起来像那个对象没有 `toString` ✓，其实**有** ✓、只是这一条判据说它不能调 ✗）。
+它与**引擎自己**那条判据（`vm.xl.md` 的 `IsHostCallable` ✓）**合起来才是全集** ✓：
+`IsHostCallable` = `HostRef` ✓ + 带载荷的对象 ✓；这里 = `Function` / `Closure` ✓ + 带载荷的对象 ✓。
+
 **与 `Value.IsCallable` 的分工**：那个是**不带堆的那一半** ✓（只看标签 ✓），
 它答得完全正确的是「闭包与内建函数」这两档 ✓；
 **「对象也能调」这一档是第 145 轮才存在的** ✓，所以完整的答案在这里 ✓
 （与 `TruthyOf` / `AsBool` 那条分工同型 ✓）。
 
 ```ts
+if (value.Tag === ValueTag.HostRef) return true;
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) return true;
 if (value.Tag === ValueTag.Object) return table.Get(value.Ref).Host !== null;
 return false;
@@ -555,7 +745,7 @@ return true;
 return Value.FromBool(!TruthyOf(table, value));
 ```
 
-# method CompareValues:(table:HeapTable, left:Value, right:Value)=>int
+# method CompareValues:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>int
 
 **关系比较的那一半**（`<` `<=` `>` `>=` 四条**共用同一段判据** ✓）——返回
 
@@ -574,26 +764,46 @@ return Value.FromBool(!TruthyOf(table, value));
 `unimplemented: arithmetic on a non-numeric operand` ✓——而**比较字符串**在普通 `.ts` 里
 遍地都是（排序、`if (a < b)`、版本号）✓。这是普查（`tmp-audit.mjs`）抓出来的**第一条** ✓。
 
-**三层，顺序就是 JS 的顺序** ✓：
+**四层，顺序就是 JS 的顺序** ✓：
 
-1. **两边都是字符串** → 逐**码元**比 ✓（UTF-16 **码元**序 ✓，不是码点序 ✗——
+1. **两边先各做一次 `ToPrimitive`（hint `number`）** ✓（第 198 轮 ✓）——
+   `Abstract Relational Comparison` 的开头就是它 ✓。**`date1 < date2` 靠的就是这一格** ✓
+   （`Date.prototype.valueOf` 给毫秒数 ✓，而 hint 是 `number` ✓ → 不受那条
+   「`Date` 的 `default` 当 `string` 用」的路障影响 ✓）；
+2. **两边都是字符串** → 逐**码元**比 ✓（UTF-16 **码元**序 ✓，不是码点序 ✗——
    与 `value.xl.md` 那条「JS 的字符串就是码元序列」同源 ✓）；
-2. **其余** → 两边各做一次 `ToNumber` 再按数值比 ✓。这一支同时盖住
+3. **其余** → 两边各做一次 `ToNumber` 再按数值比 ✓。这一支同时盖住
    「两边都是数」✓ 与「**一边字符串、一边数值**」✓——后者是 `"10" < 9` 为假 ✓、
    而 `"10" < "9"` 为真 ✓ 的**唯一**解释 ✓：JS 只在**两边都是字符串**时才按文本比 ✓。
    只做一层（都按文本或都按数值）会**错掉一半** ✗，而且两条都会「有答案」✗。
+4. `NaN` 参与 → 返 `-2` ✓。
 
-**`ToNumber` 只做原始值的那几档** ✓（数 / 字符串 / 布尔 / `null` / `undefined` ✓）：
-对象要 `ToPrimitive`（先 `valueOf` 再 `toString` ✓），那是**语言层建库的活** ✗——
-按本文件开头那条规矩：**「没定义」不是一种路** ✓，抛比静默给近似值好 ✓。
+**第②步必须在第①步之后** ✗：`[1, 2] < "b"` 在 JS 里走的是**文本**比 ✓
+（`ToPrimitive` 把数组变成 `"1,2"` ✓）——先比标签就会把它当成数值 ✗。
+
+**`ToNumber` 那一半现在就是 `ToNumberPrimitive`** ✓（第 198 轮 ✓）：
+本文件原来有一条 `NumericForCompare` ✗，它与 `ToNumberPrimitive` 的六档**逐格相同** ✓
+（同一张表写两遍 ✗）——所以这一轮**删掉那一份** ✓，两处问同一句话 ✓。
 
 ```ts
-if (left.Tag === ValueTag.String && right.Tag === ValueTag.String) {
-  return CompareCodeUnits(table.Get(left.Ref).AsString().Units, table.Get(right.Ref).AsString().Units);
+let leftPrimitive = left;
+let rightPrimitive = right;
+// **① 对象先过 `ToPrimitive`** ✓（hint `number` ✓，与 JS 的 Relational Comparison 一致 ✓）。
+if (leftPrimitive.IsObject()) {
+  leftPrimitive = ToPrimitiveOf(room, call, protos, table, leftPrimitive, ToPrimitiveNumber);
 }
-const a = NumericForCompare(table, left);
-const b = NumericForCompare(table, right);
-// **`NaN` 自己判** ✓：`a < b` 与 `a > b` 对它都为假 ✗，只靠下面两行会落到「相等」那一支
+if (rightPrimitive.IsObject()) {
+  rightPrimitive = ToPrimitiveOf(room, call, protos, table, rightPrimitive, ToPrimitiveNumber);
+}
+// **② 两边都是字符串** ✓（**在①之后**判 ✓——顺序反了 `[1, 2] < "b"` 会变成数值比 ✗）。
+if (leftPrimitive.Tag === ValueTag.String && rightPrimitive.Tag === ValueTag.String) {
+  return CompareCodeUnits(table.Get(leftPrimitive.Ref).AsString().Units,
+    table.Get(rightPrimitive.Ref).AsString().Units);
+}
+// **③ 其余走 `ToNumber`** ✓（`ToNumberPrimitive` 一张表 ✓）。
+const a = ToNumberPrimitive(table, leftPrimitive);
+const b = ToNumberPrimitive(table, rightPrimitive);
+// **④ `NaN` 自己判** ✓：`a < b` 与 `a > b` 对它都为假 ✗，只靠下面两行会落到「相等」那一支
 // （给 `0`）✗——于是 `NaN <= 1` 会变成 `true` ✗，而 JS 给 `false` ✓。
 if (a !== a || b !== b) return -2;
 if (a < b) return -1;
@@ -626,61 +836,50 @@ return 0;
 
 # method NumericForCompare:(table:HeapTable, value:Value)=>double
 
-关系比较里那一半 `ToNumber`：**数自己** ✓、布尔给 `1` / `0` ✓、`null` 给 `0` ✓、
-`undefined` 给 `NaN` ✓（JS 的 `Number(undefined)` ✓）、字符串走
-`NumberFromHostText`（整串解析 ✓：`"12px"` 给 `NaN` ✓）。
+**已并入 `ToNumberPrimitive`**（第 198 轮 ✓）——这里只留一行转调 ✓，**判据不再有第二份** ✓。
 
-**它只服务比较** ✓，与 `NumericOf` **不是一回事** ✗：那个是**算术**用的 ✓，
-非数值一抛了之 ✓（`rt.xl.md` 开头那一节 ✓）；这个要能**问出 `NaN`** ✓——
-`undefined < 1` 在 JS 里是 `false` ✓，不是抛 ✓。
+**为什么合并** ✗：这一格原来自己列了一张六档的表 ✓（数 / 布尔 / `null` / `undefined` /
+字符串 / 其余抛 ✓），而 `ToNumberPrimitive` 的表**逐格与它相同** ✓——
+同一件事写两遍，早晚一处改了另一处没改 ✓，而症状是
+「`undefined < 1` 与 `undefined + 1` 给出两个不同的答案」✗（两边都「有答案」✗，最难查 ✓）。
 
-**也不等于语言层的 `NumberFromValue`** ✗：那一份要处理对象（`Number([])` 是 `0` ✓），
-要碰堆、要调 `valueOf` / `toString` ✓，属于**建库层的活** ✓（`builtins/globals.xl.md` ✓）。
-这一份只做原始值 ✓，对象照旧抛 ✓。
+**转调而不是删掉名字** ✓：这个名字在别处被引用过 ✓（也留着给 C++ 那一侧一个稳定的落点 ✓）。
 
 ```ts
-if (value.Tag === ValueTag.Int32) return value.Int;
-if (value.Tag === ValueTag.Float64) return value.Dbl;
-if (value.Tag === ValueTag.Bool) return value.Int !== 0 ? 1 : 0;
-if (value.Tag === ValueTag.Null) return 0;
-if (value.Tag === ValueTag.Undefined) return NaN;
-if (value.Tag === ValueTag.String) {
-  return NumberFromHostText(HostUnitsText(table.Get(value.Ref).AsString().Units));
-}
-throw new Error("unimplemented: relational comparison with a non-primitive operand");
+return ToNumberPrimitive(table, value);
 ```
 
-# method RtCmpLt:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtCmpLt:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `<`。**四条关系共用 `CompareValues`** ✓（见那一节：四份各写一遍是**静默错值**的温床 ✗）。
 
 ```ts
-return Value.FromBool(CompareValues(table, left, right) === -1);
+return Value.FromBool(CompareValues(room, call, protos, table, left, right) === -1);
 ```
 
-# method RtCmpLe:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtCmpLe:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `<=`。`-2`（`NaN` 参与）落到 `false` ✓。
 
 ```ts
-const order = CompareValues(table, left, right);
+const order = CompareValues(room, call, protos, table, left, right);
 return Value.FromBool(order === -1 || order === 0);
 ```
 
-# method RtCmpGt:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtCmpGt:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `>`。
 
 ```ts
-return Value.FromBool(CompareValues(table, left, right) === 1);
+return Value.FromBool(CompareValues(room, call, protos, table, left, right) === 1);
 ```
 
-# method RtCmpGe:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtCmpGe:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `>=`。
 
 ```ts
-const order = CompareValues(table, left, right);
+const order = CompareValues(room, call, protos, table, left, right);
 return Value.FromBool(order === 1 || order === 0);
 ```
 
@@ -731,18 +930,74 @@ if (left.IsSymbol()) {
 return Value.FromBool(left.Ref === right.Ref);
 ```
 
-# method RtCmpEqLoose:(table:HeapTable, left:Value, right:Value)=>Value
+# method RtCmpEqLoose:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
-`==`。**这一轮只有一条规则**：`undefined == null` 为真（这是 `==` 最常被用到的那一格）。
+`==`——**JS 的抽象相等比较**（第 198 轮 ✓）。
 
-其余组合要 `ToPrimitive` + `ToNumber`（`1 == "1"`、`[] == 0` 这些），
-**没实现就抛**——不许拿 `===` 的结果冒名顶替：那会让 `1 == "1"` 静默变成 `false`，
-而它应该是 `true`。
+**它原来只有一条规则** ✗（`undefined == null` ✓），其余一律抛 ✓——因为那些组合要
+`ToPrimitive` + `ToNumber` ✓，而那两步**这一轮才有了** ✓。
+抛的那条纪律本来是对的 ✓（拿 `===` 冒名顶替会让 `1 == "1"` **静默**变成 `false` ✗），
+现在把规则补齐 ✓。
+
+**规则表**（JS 的 Abstract Equality Comparison ✓，**顺序是语义** ✓）：
+
+| 步 | 条件 | 做法 |
+| --- | --- | --- |
+| 1 | **档位相同** | 交给 `===` ✓（`NaN == NaN` 是假 ✓ 由它给 ✓） |
+| 2 | 两边都是数值 | 按**数值**比 ✓（`Int32` 与 `Float64` 是同一个 JS 类型 ✓） |
+| 3 | 一边 `null`、一边 `undefined` | **真** ✓ |
+| 4 | 一边是布尔 | 把它换成 `ToNumber` ✓，**重来一轮** ✓ |
+| 5 | 数值 ↔ 字符串 | 两边 `ToNumber` 后比 ✓ |
+| 6 | 对象 ↔ 原始值 | 把对象换成 `ToPrimitive(对象, default)` ✓，**重来一轮** ✓ |
+| 7 | 其余 | **假** ✓（`null == 0` 是假 ✓、符号与字符串是假 ✓） |
+
+**为什么写成一个循环** ✓：第 4 步与第 6 步都是「**换掉一边、重新走一遍表**」 ✓
+（`0 == false` ✓、`[] == 0` ✓、`[] == false` ✓ 都要走两轮 ✓）——
+展开成嵌套分支就是**同一张表抄两三遍** ✗，而这张表恰好是最容易抄漏一格的那种 ✓。
+**轮数有上限** ✓：每一轮都把一边换成**原始值或数值** ✓，而 JS 的这张表
+最多走两轮 ✓——上限只是「不许死循环」的兜底 ✓（不是语义 ✓）。
 
 ```ts
-if (left.IsNullish() && right.IsNullish()) return Value.FromBool(true);
-if (left.Tag === right.Tag) return RtCmpEqStrict(table, left, right);
-throw new Error("unimplemented: loose equality needs ToPrimitive/ToNumber");
+let a = left;
+let b = right;
+for (let round = 0; round < 8; round++) {
+  // ① 同档：`===` 的答案就是这一格的答案 ✓（含 `NaN` / `-0` / 对象身份 ✓）。
+  if (a.Tag === b.Tag) return RtCmpEqStrict(table, a, b);
+  // ② 两个数值：**表示不许泄漏到语义上** ✓（`1 == 1.0` 为真 ✓）。
+  if (a.IsNumber() && b.IsNumber()) {
+    return Value.FromBool(NumericOf(a) === NumericOf(b));
+  }
+  // ③ `null` 与 `undefined` 互等 ✓（`==` 最常被用到的那一格 ✓）。
+  if (a.IsNullish() && b.IsNullish()) return Value.FromBool(true);
+  // ④ 布尔换成数值，重来 ✓（`0 == false` ✓）。
+  if (a.IsBool()) {
+    a = MakeNumber(ToNumberPrimitive(table, a));
+    continue;
+  }
+  if (b.IsBool()) {
+    b = MakeNumber(ToNumberPrimitive(table, b));
+    continue;
+  }
+  // ⑤ 数值 ↔ 字符串 ✓（`1 == "1"` ✓、`"abc" == 0` 是假 ✓——`NaN` 与谁都不等 ✓）。
+  if (a.IsNumber() && b.IsString()) {
+    return Value.FromBool(NumericOf(a) === ToNumberPrimitive(table, b));
+  }
+  if (a.IsString() && b.IsNumber()) {
+    return Value.FromBool(ToNumberPrimitive(table, a) === NumericOf(b));
+  }
+  // ⑥ 对象 ↔ 原始值：换成 `ToPrimitive` 重来 ✓（`[] == 0` ✓、`[1,2] == "1,2"` ✓）。
+  if (a.IsObject() && (b.IsNumber() || b.IsString() || b.IsSymbol())) {
+    a = ToPrimitiveOf(room, call, protos, table, a, ToPrimitiveDefault);
+    continue;
+  }
+  if (b.IsObject() && (a.IsNumber() || a.IsString() || a.IsSymbol())) {
+    b = ToPrimitiveOf(room, call, protos, table, b, ToPrimitiveDefault);
+    continue;
+  }
+  // ⑦ 其余一律假 ✓（`null == 0` ✓、符号与字符串 ✓、两个不同档的引用值 ✓）。
+  return Value.FromBool(false);
+}
+throw new Error("unimplemented: loose equality did not settle");
 ```
 
 # method RtToBoolean:(table:HeapTable, value:Value)=>Value

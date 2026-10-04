@@ -1244,22 +1244,34 @@ check("异常展开：try_push 记下的处理点接得住，接不住就停在 
   eq(bareMachine.Pending.AsInt(), 5, "异常值留在 Pending 里给宿主");
 });
 
-check("算子：`===` 按档位、`==` 只认 nullish、未实现的要抛而不是近似", () => {
+check("算子：`===` 按档位、`==` 与算术的 `ToPrimitive`（第 198 轮把两条都补齐了）", () => {
+  // **判据随契约更新** ✓：这一条原来断言的是
+  // 「`1 == \"1\"` 还没实现，必须抛」✗ 与「非数值的 `+` 必须抛」✗——
+  // 第 198 轮把 `ToPrimitive` / `ToNumber` 做出来之后，那两条都**变成了有答案** ✓
+  // （抛的那条纪律本来是对的 ✓：拿 `===` 冒名顶替会让 `1 == "1"` **静默**变成 `false` ✗）。
   const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 10000);
+  const protos = InitProtos(machine.Room(), table);
   const text = Value.FromString(table.CreateString(units("a")));
   const text2 = Value.FromString(table.CreateString(units("a")));
   eq(RtCmpEqStrict(table, Value.FromInt(1), Value.FromInt(1)).AsBool(), true, "数值相等");
   eq(RtCmpEqStrict(table, Value.FromInt(1), text).AsBool(), false, "档位不同就不等");
   eq(RtCmpEqStrict(table, text, text2).AsBool(), true, "字符串按内容");
   eq(RtCmpEqStrict(table, Value.FromDouble(NaN), Value.FromDouble(NaN)).AsBool(), false, "NaN 不等于自己");
-  eq(RtCmpEqLoose(table, Value.Null(), Value.Undefined()).AsBool(), true, "null == undefined");
-  eq(RtCmpEqLoose(table, Value.FromInt(1), Value.FromInt(1)).AsBool(), true, "同档位走严格");
-  let threw = false;
-  try { RtCmpEqLoose(table, Value.FromInt(1), text); } catch { threw = true; }
-  eq(threw, true, "1 == \"1\" 还没实现，必须抛");
-  let threw2 = false;
-  try { RtAdd(machine.Room(), table, Value.Null(), Value.FromInt(1)); } catch { threw2 = true; }
-  eq(threw2, true, "非数值的 + 必须抛");
+  const loose = (a, b) => RtCmpEqLoose(machine.Room(), null, protos, table, a, b).AsBool();
+  eq(loose(Value.Null(), Value.Undefined()), true, "null == undefined");
+  eq(loose(Value.FromInt(1), Value.FromInt(1)), true, "同档位走严格");
+  // **第 198 轮改掉的**：`1 == "1"` 现在给 `true` ✓（原来抛 ✓）。
+  eq(loose(Value.FromInt(1), text), false, "1 == \"a\" 是假（转过去是 NaN，与谁都不等）");
+  eq(loose(Value.FromInt(1), Value.FromString(table.CreateString(units("1")))), true,
+    "**这一轮修的**：1 == \"1\" 给 true（原来报 unimplemented）");
+  eq(loose(Value.FromInt(0), Value.FromBool(false)), true, "0 == false（布尔先换成数，再走一轮）");
+  eq(loose(Value.Null(), Value.FromInt(0)), false, "null == 0 是假");
+  // **非数值的 `+` 现在算得出来** ✓：`null + 1` 是 `1` ✓（`ToNumber(null)` 是 `0` ✓）。
+  const addOne = (value) => RtAdd(machine.Room(), null, protos, table, value, Value.FromInt(1));
+  eq(addOne(Value.Null()).AsInt(), 1, "**这一轮修的**：null + 1 给 1（原来抛）");
+  const undefinedPlusOne = addOne(Value.Undefined());
+  eq(undefinedPlusOne.Dbl !== undefinedPlusOne.Dbl, true, "**这一轮修的**：undefined + 1 给 NaN（原来是抛）");
 });
 
 console.log("");
@@ -5119,12 +5131,11 @@ check("任意值 → 文本：浮点 · 对象 · 数组 · 洞（第 124 轮）
   }
 });
 
-check("字符串拼接：有字面量就换路（第 125 轮），两边都是变量时照旧**响亮地抛**", () => {
+check("字符串拼接：有字面量就换路（第 125 轮），两边都是变量时走引擎的 `add`", () => {
   // **换路的判据是「有一边是字符串字面量」** ✓（JS：ToPrimitive 之后有一边是字符串就拼接，
   // 而字面量本来就是字符串 ✓）——于是那一条落成语言内建 `StringConcat` ✓，
   // 另一边走「任意值 → 文本」✓（第 124 轮那条）。
-  // **边界**：两边都不是字面量时照旧走引擎的 `RtOp.Add` ✓——它是热路径 ✓，
-  // 而且运行期真遇到对象会**抛** ✓（响亮，不是静默给错值 ✓）。这一条在下面钉住 ✓。
+  // **边界**：两边都不是字面量时走引擎的 `RtOp.Add` ✓（热路径 ✓）。
   const source = [
     "function run() {",
     "  const bag = { a: 1 };",
@@ -5156,18 +5167,20 @@ check("字符串拼接：有字面量就换路（第 125 轮），两边都是�
     eq(hostStringOf(table, GetIndex(table, res.Value, Value.FromInt(i))), expected[i], "第 " + i + " 项");
   }
 
-  // **边界：两边都是变量 + 运行期是对象** ✓。引擎的 `RtOp.Add` 在那里抛 ✓——
-  // **第 127 轮之后这一抛接得住了** ✓（rt 层也走「错误工厂 → 脚本站内异常」那条 ✓），
-  // 所以这里断言的是**脚本真的接住了、而且接住之后继续跑** ✓。
-  //（第 125 轮写这一条时它还是「整次运行失败」✗——**旧判据随契约更新** ✓。）
+  // **边界：两边都是变量 + 运行期是对象** ✓。
+  // **判据随契约更新**（第 198 轮 ✓）：这里原来断言的是「引擎的 `add` 抛、
+  // 但脚本接得住」✗——`ToPrimitive` 做出来之后这一格**根本不再抛** ✓：
+  // `{ a: 1 }` 的 `valueOf` 来自 `Object.prototype` ✓（给回对象本身 ✓），
+  // `toString` 也来自那里 ✓（`"[object Object]"` ✓），于是走拼接那一支 ✓——
+  // **正是 JS 的答案** ✓（`"x" + { a: 1 }` 在任何引擎里都是 `"x[object Object]"` ✓）。
   const strict = [
     "function run() {",
     "  const bag = { a: 1 };",
     "  const left = 'x';",
     "  const right = bag;",
-    "  let caught = 'none';",
-    "  try { const joined = left + right; caught = joined; } catch (error) { caught = 'caught:' + error.message; }",
-    "  return [caught, 'after'];",
+    "  let joined = 'none';",
+    "  try { joined = left + right; } catch (error) { joined = 'caught:' + error.message; }",
+    "  return [joined, 'after'];",
     "}",
   ].join("\n");
   const strictRequest = new RunRequest();
@@ -5177,26 +5190,39 @@ check("字符串拼接：有字面量就换路（第 125 轮），两边都是�
   eq(strictRes.Outcome, HostOutcome.Ok, "运行器（边界那一条）：" + strictRes.Message);
   const strictTable = strictRes.Table;
   const caughtText = hostStringOf(strictTable, GetIndex(strictTable, strictRes.Value, Value.FromInt(0)));
-  ok(caughtText.indexOf("caught:") === 0, "两边都是变量 + 对象：**脚本接住了**（rt 层那条路，第 127 轮）：" + caughtText);
+  eq(caughtText, "x[object Object]",
+    "**这一轮修的**：两边都是变量 + 对象，走 `ToPrimitive` 之后是 JS 的答案（原来抛）");
   eq(hostStringOf(strictTable, GetIndex(strictTable, strictRes.Value, Value.FromInt(1))), "after",
     "接住之后继续往下跑（帧栈没坏）");
 });
 
-check("一元运算符：`-` / `!` / `~` 三条各有落点，`+x` 照旧抛（不静默给近似值）", () => {
+check("一元运算符：`-` / `+` / `!` / `~` 四条各有落点", () => {
   // **一元运算符已经通了**（第 66 轮）：值位的一元节点是在**词法层**
   // （`tokens/unary-operator.xl.md`）造的——不是 `print-ast-common` 那条通用路，
   // 所以前两轮加在通用路的两处挂钩从来没执行过（探针才定位到）。
   // `operator` 现在带**运算符文本**，`-` 走 `RtOp.Neg`、`!` 走 `RtOp.Not`、
-  // **`~` 走 `RtOp.BitNot`**（第 147 轮补的第三条）。
+  // **`~` 走 `RtOp.BitNot`**（第 147 轮补的第三条）、
+  // **`+` 走 `RtOp.ToNumber`**（第 198 轮补的第四条 ✓）。
   const negated = new Lowering().LowerModule(parseTsShape("let y = -1;"), testIds);
   ok(negated.Program !== undefined, "一元负号不再抛（负数字面量可用了）");
   // **`~` 是第 147 轮通的** ✓：这条判据原来断言的是「`~1` 照旧抛」✗——
   // 那一轮把位运算整族接上之后，旧判据随契约更新 ✓（与第 66 / 119 那几条同一条规矩 ✓）。
   const inverted = new Lowering().LowerModule(parseTsShape("let w = ~1;"), testIds);
   ok(inverted.Program !== undefined, "按位取反不再抛（`~1` 是 `-2`，第 147 轮）");
-  let unsupported = "";
-  try { new Lowering().LowerModule(parseTsShape("let z = +1;"), testIds); } catch (error) { unsupported = String(error.message); }
-  ok(unsupported.indexOf("unary operator") >= 0, "没做的一元运算符照旧抛（不静默）：" + unsupported);
+  // **`+x` 是第 198 轮通的** ✓：旧判据在这里断言的是「`+1` 照旧抛」✗。
+  // 它落的算子就是 `RtOp.ToNumber` ✓——与内建 `Number` **同一个落点** ✓
+  // （`ir.xl.md` 早就把这一格留好了 ✓：「`Number(x)`（字符串解析在这里，所以它要碰堆）」✓）。
+  const unaryPlus = new Lowering().LowerModule(parseTsShape("let z = +'3';"), testIds);
+  ok(unaryPlus.Program !== undefined, "**这一轮修的**：一元 `+` 不再抛（`+'3'` 是 `3`）");
+  // **算出来的值也要对** ✓（只量「降级不抛」是半条判据 ✓）。
+  const plusOut = [];
+  const plusRequest = new RunRequest();
+  plusRequest.Sources = ["console.log(+'3', +'', +[], +{}, +true, +new Date(1234));"];
+  plusRequest.Entry = "";
+  const plusRes = RunSources(plusRequest, (text) => plusOut.push(text), () => null);
+  eq(plusRes.Outcome, HostOutcome.Ok, "运行器（一元 `+`）：" + plusRes.Message);
+  eq(plusOut[0], "3 0 0 NaN 1 1234",
+    "一元 `+` 就是 `ToNumber`（与 `Number(x)` 逐字同一个答案；`+new Date(ms)` 走 `valueOf`）");
 
   // **空字符串已经不再是缺口**（第 119 轮）：投影对字符串字面量**一律给值**，
   // 空串就给空串（`print-ast-common` 的 `stringText`）。原来投影给的是**带引号的原文**
@@ -6473,7 +6499,8 @@ check("四个全局名的语义：`String` / `Number` / `Boolean` / `Array`（�
   const table = new HeapTable();
   const machine = new Vm(table, 1 << 20, 1000);
   const protos = InitProtos(machine.Room(), table);
-  const num = (text) => NumberFromValue(table, Value.FromString(table.CreateString(units(text))));
+  const num = (text) => NumberFromValue(machine.Room(), null, table, protos,
+    Value.FromString(table.CreateString(units(text))));
   eq(num("7").AsInt(), 7, "整数串");
   eq(num("") === undefined, false, "空串有一档答案（不是 undefined）");
   eq(num("").AsInt(), 0, "**空串给 0**（JS 的 `Number(\"\")` ✓，而 `parseInt(\"\")` 给 `NaN` ✗）");
@@ -6481,26 +6508,39 @@ check("四个全局名的语义：`String` / `Number` / `Boolean` / `Array`（�
   eq(num("12px") === undefined, false, "坏输入也给一个值（不抛）");
   ok(num("12px").Tag === ValueTag.Float64 && Number.isNaN(num("12px").Dbl),
     "**`12px` 给 `NaN`**（整串口径；`parseFloat` 才给 12）");
-  eq(NumberFromValue(table, Value.FromInt(5)).AsInt(), 5, "数给数");
-  eq(NumberFromValue(table, Value.FromBool(true)).AsInt(), 1, "`true` 给 1");
-  eq(NumberFromValue(table, Value.FromBool(false)).AsInt(), 0, "`false` 给 0");
-  eq(NumberFromValue(table, Value.Null()).AsInt(), 0, "`null` 给 0");
-  ok(NumberFromValue(table, Value.Undefined()).Dbl !== NumberFromValue(table, Value.Undefined()).Dbl,
+  eq(NumberFromValue(machine.Room(), null, table, protos, Value.FromInt(5)).AsInt(), 5, "数给数");
+  eq(NumberFromValue(machine.Room(), null, table, protos, Value.FromBool(true)).AsInt(), 1, "`true` 给 1");
+  eq(NumberFromValue(machine.Room(), null, table, protos, Value.FromBool(false)).AsInt(), 0, "`false` 给 0");
+  eq(NumberFromValue(machine.Room(), null, table, protos, Value.Null()).AsInt(), 0, "`null` 给 0");
+  ok(NumberFromValue(machine.Room(), null, table, protos, Value.Undefined()).Dbl
+    !== NumberFromValue(machine.Room(), null, table, protos, Value.Undefined()).Dbl,
     "**`undefined` 给 `NaN`**（与 `null` 那一格不一样）");
   // **负零要保住**（`Number("-0")` 在 JS 里是 `-0` ✓）：收窄走引擎的 `MakeNumber` ✓
   //（本文件的 `MathResult` 会把它收成 `Int32 0` ✗——两处只差这一格 ✓）。
   const negativeZero = num("-0");
   eq(negativeZero.Tag, ValueTag.Float64, "`-0` 留在 `Float64` 上（没被收成 `Int32`）");
   eq(1 / negativeZero.Dbl, -Infinity, "符号位还在（`1 / -0` 是 `-Infinity`）");
-  // **对象要 `ToPrimitive`**：没做就**响亮地抛** ✓——不许给一个看起来合理的 `NaN` ✗
-  //（`Number([])` 在 JS 里是 `0` ✓，给 `NaN` 就是静默错值 ✗）。
+  // **对象那一档第 198 轮通了** ✓：`Number(对象)` 现在转调引擎的 `ToNumberOf` ✓
+  //（原来这里断言的是「响亮地抛」✗——理由是「要 `ToPrimitive`，没做」✓，那一轮做出来了 ✓）。
+  // **答案来自 `ToPrimitive` 那两步** ✓，而且必须与 `+对象` **逐字相同** ✓
+  //（两处各写一遍的话它们早晚会分叉 ✗）。这里 `call === null` ✓，
+  // 所以对象那一支取不到 `valueOf` / `toString` ✓ → 交回原始值那一半 → **响亮地抛** ✓。
   let message = "";
   try {
-    NumberFromValue(table, NewPlainObject(machine.Room(), table, protos));
+    NumberFromValue(machine.Room(), null, table, protos, NewPlainObject(machine.Room(), table, protos));
   } catch (error) {
     message = String(error.message);
   }
-  ok(message.indexOf("ToPrimitive") >= 0, "对象那一档响亮地抛：" + message);
+  ok(message.indexOf("ToNumber") >= 0, "没有重入通道时对象那一档仍旧响亮地抛：" + message);
+  // **有了通道就给 JS 的答案** ✓（`Number({})` 是 `NaN` ✓、`Number([])` 是 `0` ✓）——
+  // 这一条走的是**端到端**那一把（`Node 逐字节`✓），因为要装库层的 `Object.prototype` ✓。
+  const convertOut = [];
+  const convertRequest = new RunRequest();
+  convertRequest.Sources = ["console.log(Number([]), Number({}), Number(true), Number(null));"];
+  convertRequest.Entry = "";
+  const convertRes = RunSources(convertRequest, (text) => convertOut.push(text), () => null);
+  eq(convertRes.Outcome, HostOutcome.Ok, "运行器（`Number` 对对象）：" + convertRes.Message);
+  eq(convertOut[0], "0 NaN 1 0", "**这一轮修的**：`Number([])` 是 0、`Number({})` 是 NaN（原来抛）");
   // **`Boolean` 在名单里** ✓（第 144 轮之前它连全局名都不是 ✗）：
   // 名单与 `BuildGlobals` 是同一份约定 ✓——「声明了却没提供」是一条判据 ✓。
   ok(GlobalNames().indexOf("Boolean") >= 0, "`GlobalNames` 里有 `Boolean`");
@@ -8288,6 +8328,145 @@ check("`new C(...xs)` 走 `[[Construct]]`：原型、返回对象那一支、以
   eq(outline[1], "boxed true", "② 构造函数**返回对象**就用它 ③ 返回原始值就用新造的那个对象");
   eq(outline[2], "7 true true", "④ 派生类的构造函数再 `super(...)`：两条路叠在一起也对");
   eq(outline[3], "10 31", "⑤ 早返回没有漏水：后面所有变量的槽都对得上（第 197 轮实测踩到的那一格）");
+});
+
+console.log("");
+console.log("=== 第 198 轮：算术与比较的 `ToPrimitive` / `ToNumber` ===");
+
+check("`ToPrimitive` / `ToNumber` 各只有一份：`Number(x)`、`+x`、`x + y`、`x == y`、`x < y` 问的是同一张表", () => {
+  // **端到端那一把在 `cases/76-arithmetic-toprimitive.ts`**（18 行逐字节 ✓）。
+  //
+  // **症状**：`undefined + 1` 报 `arithmetic on a non-numeric operand` ✓
+  // （JS 给 `NaN` ✓）——第 197 轮写语料时撞出来的 ✓，逐条量过发现是**一整片** ✓：
+  // `null + 1` / `true + 1` / `[] + 1` / `({}) + 1` / `1 - "2"` / `2 * "3"` 全是同一句 ✗。
+  //
+  // **修法**：`ToPrimitiveOf`（对象 → 原始值 ✓，`Symbol.toPrimitive` → `valueOf` → `toString` ✓）
+  // 与 `ToNumberPrimitive` / `ToNumberOf`（原始值 → 数 ✓）各**只写一份** ✓，
+  // 六个算术算子 + 一元 `+` + `==` + 四条关系**全部**转调它们 ✓——
+  // `Number` 那个内建也转调 ✓（`NumberFromValue` ✓），
+  // 比较那一半原来那条 `NumericForCompare` 也并了进来 ✓。
+  //
+  // **这一条量的是「一处」** ✓：同一张表被五条路问，答案必须**逐字相同** ✓。
+  const out = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    // ① 五条路问同一个值，答案要一样
+    "const probes: any[] = [undefined, null, true, '', '   ', '12', '12px', [], [5], [1, 2]];",
+    "const viaUnary: number[] = [];",
+    "const viaCtor: number[] = [];",
+    "for (const p of probes) { viaUnary.push(+p); viaCtor.push(Number(p)); }",
+    "console.log(viaUnary.join('|'));",
+    "console.log(viaCtor.join('|'));",
+    "console.log(viaUnary.join('|') === viaCtor.join('|'));",
+    // ② `==` 要走两轮（布尔先换数、对象先换原始值）
+    "console.log([] == false, [0] == false, '0' == false, '' == false, [] == '');",
+    // ③ 四条关系：两边都是字符串才按码元比
+    "console.log('10' < 9, '10' < '9', [1, 2] < 'b', null < 1, undefined < 1, NaN <= 1);",
+    // ④ `Object.prototype` 上那两个方法**不可枚举**（挂成普通属性的话这里当场变 2）
+    "console.log(Object.keys({}).length, JSON.stringify({}));",
+    "const seen: string[] = [];",
+    "const bag: any = { a: 1 };",
+    "for (const k in bag) seen.push(k);",
+    "console.log(seen.join(','), typeof bag.toString, typeof bag.valueOf);",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => out.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(out[0], out[1], "**这一轮最值钱的一条**：`+x` 与 `Number(x)` 逐字同一个答案（同一张表）");
+  eq(out[2], "true", "两边都是同一串（`+x` 就是 `Number(x)`）");
+  eq(out[3], "true true true true true",
+    "`==` 那一族：`[] == false` 要走两轮（对象 → `\"\"` → `0`，布尔 → `0`）");
+  eq(out[4], "false true true true false false",
+    "四条关系：`'10' < 9` 是**数值**比（假）、`'10' < '9'` 是**码元**比（真）；`NaN` 参与一律假");
+  eq(out[5], "0 {}", "`Object.prototype` 上那两个方法**不可枚举**（`Object.keys` / `JSON` 看不见）");
+  eq(out[6], "a function function", "`for..in` 也不该看见它们；但它们**确实在**（`typeof` 是 function）");
+});
+
+check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（不许落回一个看起来合理的默认值）", () => {
+  // **这一条是这一轮的安全闸门** ✓。`ToPrimitive` 一接上，`+` 对**任何**对象都会去找
+  // `valueOf` / `toString` ✓——而 `Object.prototype.toString` 在 JS 里是一条**长长的分派**
+  // （`Map` / `Set` / `Date` / `Error` / 函数各有各的文本 ✓）。
+  // 本仓能**证明**的只有「普通对象 → `[object Object]`」这一格 ✓，
+  // 所以其余一律抛 ✓——**落回默认值就是静默错值** ✗，而它比「进不了门」危险得多 ✓。
+  //
+  // **两半分开量** ✓（与第 184 轮那条同一个处理 ✓）：
+  // ① **端到端**：六种形状都「跑不成」 ✓——脚本级的抛，驱动只记
+  //    「第 0 份模块求值：the script threw」✗，**引擎那句原话不会冒到这里** ✓；
+  // ② **单元**：原话由 `ObjectTagOf`（那条判据的正身 ✓）那一层量 ✓——
+  //    造那几族只要一格标记 / 一次 `AttachCallable` / 一次 `Proto` 赋值 ✓，不必真造一个 `Map` ✓。
+  const loud = [
+    ["函数", "function f() {}\nconsole.log(f + 1);"],
+    ["Map", "console.log(new Map() + 1);"],
+    ["Set", "console.log(new Set() + 1);"],
+    ["Date 的 default", "console.log(new Date(0) + 1);"],
+    ["Error", "console.log(new Error('x') + 1);"],
+    ["可调用对象", "console.log(String + 1);"],
+  ];
+  for (const [what, source] of loud) {
+    const request = new RunRequest();
+    request.Sources = [source];
+    request.Entry = "";
+    const res = RunSources(request, () => {}, () => null);
+    ok(res.Outcome !== HostOutcome.Ok, what + " 那一档必须响亮地抛（结局不是 Ok）");
+  }
+
+  // **单元那一半**：`ObjectTagOf` 答「哪个标签」，答不了就**点名**缺什么 ✓。
+  const { SetHiddenProperty } = require(path.join(root, "build", "ts", "runtime", "props.js"));
+  const { ObjectTagOf } = require(path.join(root, "build", "ts", "typescript-exec", "builtins", "globals.js"));
+  const { ToPrimitiveOf, ToPrimitiveDefault } = rtMod;
+  const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 10000);
+  const protos = InitProtos(machine.Room(), table);
+  const ask = (value) => {
+    try {
+      return ObjectTagOf(table, protos, value);
+    } catch (error) {
+      return "!" + String(error.message);
+    }
+  };
+  const fresh = () => NewPlainObject(machine.Room(), table, protos);
+  eq(ask(fresh()), "Object", "**能证的那一格**：普通对象给 `Object`（`[object Object]` ✓）");
+  const marked = (name) => {
+    const object = fresh();
+    SetHiddenProperty(machine.Room(), table, object,
+      Value.FromString(table.CreateString(units(name))), Value.FromInt(1));
+    return object;
+  };
+  ok(ask(marked("__k")).indexOf("of a Map (JS needs Symbol.toStringTag)") >= 0,
+    "`__k` 标记 → 点名 `Map` / `Symbol.toStringTag`：" + ask(marked("__k")));
+  ok(ask(marked("__v")).indexOf("of a Set (JS needs Symbol.toStringTag)") >= 0,
+    "`__v` 标记 → 点名 `Set`：" + ask(marked("__v")));
+  ok(ask(marked("__t")).indexOf("of a Date (JS needs Symbol.toStringTag)") >= 0,
+    "`__t` 标记 → 点名 `Date`：" + ask(marked("__t")));
+  const errorLike = fresh();
+  table.Get(errorLike.Ref).Proto = protos.Error;
+  ok(ask(errorLike).indexOf("Error.prototype.toString") >= 0,
+    "原型链接到 `Error.prototype` → 点名 `Error.prototype.toString`：" + ask(errorLike));
+  const callable = fresh();
+  table.AttachCallable(callable.Ref, 1, 0);
+  ok(ask(callable).indexOf("callable object") >= 0,
+    "带可调用载荷 → 点名（JS 印源码文本）：" + ask(callable));
+  // **函数那一档在 `ToPrimitiveOf` 里** ✓（它压根走不到 `ObjectTagOf` ✓）：标签那两档就点名 ✓。
+  const closure = Value.FromRef(ValueTag.Closure, table.CreateClosure(0, 0, 0, 0));
+  let closureMessage = "";
+  try {
+    ToPrimitiveOf(machine.Room(), null, protos, table, closure, ToPrimitiveDefault);
+  } catch (error) {
+    closureMessage = String(error.message);
+  }
+  ok(closureMessage.indexOf("ToPrimitive of a function") >= 0, "函数那一档点名：" + closureMessage);
+
+  // **反面**：这三样**必须给答案** ✓（不能因为「怕错」就把它们也关了 ✗）。
+  const fine = (source) => {
+    const request = new RunRequest();
+    request.Sources = [source];
+    request.Entry = "";
+    return RunSources(request, () => {}, () => null).Outcome === HostOutcome.Ok;
+  };
+  eq(fine("console.log(({}) + 1);"), true, "普通对象给答案（`[object Object]1`）");
+  eq(fine("console.log([1] + 1);"), true, "数组给答案（走 `Array.prototype.toString`）");
+  eq(fine("console.log(+new Date(1234));"), true,
+    "**`+new Date(ms)` 不受影响**：一元 `+` 的 hint 是 `number` → `valueOf` → 毫秒数");
 });
 
 console.log("");

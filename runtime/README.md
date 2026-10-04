@@ -11,7 +11,7 @@
 > **状态：进行中。** 内存三件套（`value` / `heap` / `gc`）、程序表示（`ir`）、
 > 线形态 + 装载验证（`ir-verify`）、执行器（`frame` / `rt` / `vm`）、属性原型层（`props`）、
 > `this` / `call_method` / `new`、访问器重入、生成器、承诺 + 微任务队列与 **宿主 ABI**
-> （`host-abi`）已落地：判据 `npm run runtime:check` **235 条全绿**——真循环、一万层递归
+> （`host-abi`）已落地：判据 `npm run runtime:check` **237 条全绿**——真循环、一万层递归
 > （中途发生过回收）、跨帧异常展开、闭包捕获、原型链遮蔽、方法调用的 `this`、
 > `new` 的收尾规矩、getter / setter 重入、生成器挂起活过回收、`await` 全链路、
 > 宿主的四类结局（成功 / 脚本抛出 / 挂起 / 限额）与能力白名单，
@@ -33,13 +33,22 @@
 > **第 147 轮补上七条位运算**（`& | ^ ~ << >> >>>` ✓，`rt.xl.md` 的 `ToInt32Of` 那一段 ✓）：
 > 算子表里那七格**大半是设计期就留好的号** ✓（声明了、没实现 ✗），
 > `BitNot` / `UShr` 追加在**表尾** ✓（`RtOpCount` 38 → 40 ✓，只追加、不改号 ✓）。
+> **第 198 轮补上 `ToPrimitive` / `ToNumber`**（`rt.xl.md` 的 `ToPrimitiveOf` /
+> `ToNumberPrimitive` / `ToNumberOf` ✓）：`+` **不是**「两边都是数就加」✗——
+> 三步是「两边 `ToPrimitive` → 有一边是字符串就拼接 → 否则 `ToNumber` 相加」✓，
+> 而 `- * / %`、一元 `-`、**一元 `+`**（`RtOp.ToNumber` ✓）、`==`（那张表要走两轮 ✓）、
+> 四条关系（`date1 < date2` 靠它 ✓）**问的都是同一张表** ✓。
+> 一并收掉的**两份重复**：`NumericForCompare` 并入 `ToNumberPrimitive` ✓、
+> 语言层的 `NumberFromValue` 转调 `ToNumberOf` ✓——同一件事不再有两个答案 ✓。
+> **不能证的那几格一律点名抛** ✓（函数 / `Map` / `Set` / `Date` 的 `default` / `Error` /
+> 可调用对象 ✓）：落回一个「看起来合理」的默认值就是**静默错值** ✗。
 > 降级层与标准库也在长：[typescript-exec/](../typescript-exec/README.md) 收下了
 > P0 的形状 + 类 / 继承 / 集合 / 生成器 / 默认参数 + **类字段与 `static`**（第 128 轮）
 > + **数字字面量的全形态**（第 129 轮），
 > 并且**`.ts` 已经能直接执行**——
 > 运行器 `tsrun`（仓库根的 [tsrun.xl.md](../tsrun.xl.md)）装上「解析 → 降级 → 链接 → 装载 → 求值」，
 > 命令行 `node build/ts/tsrun.js <文件.ts>` 的 **stdout 与 `node <文件.ts>` 逐字节相同**
-> （判据 `npm run runtime:cli`，**75** 份语料、裁判是真 Node）。
+> （判据 `npm run runtime:cli`，**76** 份语料、裁判是真 Node）。
 > 还差 `typescript-exec/` 的其余部分与标准库——按
 > [§14 落地顺序](../docs/runtime-architecture.md) 逐个补。
 
