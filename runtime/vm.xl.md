@@ -1176,7 +1176,25 @@ if (callee.Tag !== ValueTag.Closure) {
   // 那一档的重点是**引擎内部的失败照样冒出** ✓（第 121 轮那条兜底判据钉着它 ✓），
   // 而这一条诊断恰好也在那条路上 ✓。**所以只改下面那条 `Op.CallMethod`** ✓——
   // 判据钉的那几处都不是方法调用 ✓，而 `o.m?.()` 那一族正是 ✓。
-  throw new Error("unimplemented: calling a non-closure value");
+  //
+  // **第 246 轮：两处都量清了，一起改** ✓（第 245 轮只改了这半边、另一半漏了 ✗）。
+  // **两个入口** ✓：这一处（`DoCallValue` ✓）管 `Op.CallMethod` / `o?.m()` 那一族 ✓，
+  // `CallNative` 那一处管 `Op.Call` ✓（`f(...)` ✓ 与 `(1 as any)()` ✓）——
+  // **只改一处的话**，同一个脚本里两条路的 `catch` 行为不同 ✓，而那**不报错** ✗
+  //（与第 228 轮 `sort` 那条「一个数扛两种含义」同一类坑 ✓）。
+  //
+  // **收尾按这一处自己的签名** ✗（**先把签名抄在手边再落笔** ✓，第 245 轮两次都看反了 ✓）：
+  // `## method DoCallValue:(…)=>void` ✓ ⇒ **裸 `return`** ✓；
+  // 而 `CallNative:(…)=>Value` ✓ ⇒ 那一处交 `Value.Undefined()` ✓。
+  // **两处抄反就是两条编译期错各说各的反话** ✓
+  //（一处 `Type 'Value' is not assignable to type 'void'` ✓、
+  //  另一处 `Type 'undefined' is not assignable to type 'Value'` ✓）。
+  // **控制流已经交出去了** ✓：`Guard` 里那一抛把帧退到处理点 ✓、或者把状态置成 `Threw` ✓
+  //——所以这一句 `return` 之后**没有一行会被跑到** ✓（也不必假装有个值 ✓）。
+  this.Guard(() => {
+    throw new TypeError("cannot call a non-closure value (it is not a function)");
+  }, ErrorKindType);
+  return;
 }
 const closure = this.Table.Get(callee.Ref).AsClosure();
 const info = FunctionAtEntry(this.Code(), closure.Code);
@@ -2206,7 +2224,21 @@ if (callee.Tag !== ValueTag.Closure) {
   // **所以这件事的真问题是「失败要有类别」** ✗（台账里那一条 ✓）：
   // 得让这一抛带上「是 `TypeError`」✓，由错误工厂按类别抬成脚本异常 ✓——
   // 那样「引擎内部的失败照样冒出」与「脚本接得住 `TypeError`」两件事才分得开 ✓。
-  throw new Error("unimplemented: calling a non-closure value");
+  //
+  // **第 246 轮：两处一起改** ✓。**两个入口** ✓：这一处（`CallNative` ✓）管
+  // `Op.Call` ✓（`f(...)` ✓ 与 `(1 as any)()` ✓——第 245 轮实测：真正接住
+  // `(1 as any)()` 的正是**这一处** ✓，不是 `DoCallValue` ✓），
+  // `DoCallValue` 那一处管 `Op.CallMethod` / `o?.m()` 那一族 ✓。
+  //
+  // **收尾按这一处自己的签名** ✗（**先把签名抄在手边再落笔** ✓）：
+  // `## method CallNative:(…)=>Value` ✓ ⇒ **交 `Value.Undefined()`** ✓；
+  // 而 `DoCallValue:(…)=>void` ✓ ⇒ 那一处是**裸 `return`** ✓。
+  // **那个值到不了任何人手里** ✓：`Guard` 已经把控制流交给处理点了 ✓
+  //（与 `CallHostValue` 那条「展开已经发生 ⇒ 不许写结果槽」**同一个形状** ✓）。
+  this.Guard(() => {
+    throw new TypeError("cannot call a non-closure value (it is not a function)");
+  }, ErrorKindType);
+  return Value.Undefined();
 }
 const closure = this.Table.Get(callee.Ref).AsClosure();
 const info = FunctionAtEntry(this.Code(), closure.Code);

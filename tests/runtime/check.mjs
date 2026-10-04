@@ -3153,14 +3153,17 @@ check("new 认构造函数的 prototype：方法经原型链落到实例上（�
     "p.bump(10) 之后 p.get()");
 
   // **没告诉它名字时不许「碰巧对」**：实例原型还是 Protos.Object，方法找不到 → 响亮报错
+  //
+  // **第 246 轮改了口径** ✓：`p.bump(10)` 那一抛现在是**带类别的脚本异常**了 ✓
+  //（`ErrorKindType` ✓），所以它**不再越过宿主那一层** ✗——
+  // `CallExport` 的结局是 `Threw` ✓、话在 `result.Message` 里 ✓。
+  // **钉的仍然是「不许静默给错值」** ✓：结局不是 `Ok` ✓、而且话里点名了那个调用 ✓。
   const plain = lowerAndLoad(source);
   eq(plain.host.Evaluate([]).Outcome, HostOutcome.Ok, "求值（不带那格名字）");
-  let missing = "";
-  try {
-    plain.host.CallExport(plain.module.ExportOf("make"), [Value.FromInt(7)]);
-  } catch (error) {
-    missing = String(error.message);
-  }
+  const plainResult = plain.host.CallExport(plain.module.ExportOf("make"), [Value.FromInt(7)]);
+  eq(plainResult.Outcome !== HostOutcome.Ok, true,
+    "没接上原型名字时不许静默给错值（结局不是 Ok）：" + plainResult.Outcome);
+  const missing = String(plainResult.Message);
   eq(missing.length > 0, true, "没接上原型名字时要报出来（不是静默给错值）：" + missing);
 });
 
@@ -7241,16 +7244,34 @@ check("`o.n?.()` 守的是**方法值**，`o?.n()` 守的是**接收者**（方�
   eq(lines[2], "undefined", "接收者那一层照旧短路");
   // **反方向**：调用那一层没有 `?.` 时，调一个 `null` **必须响亮地抛** ✓——
   // 这一格是防「顺手把 `optional` 当成 `callOptional`」的 ✗（那会静默给 `undefined` ✗）。
+  //
+  // **第 246 轮改了口径** ✓：这一抛现在是**带类别的脚本异常**了 ✓
+  //（`ErrorKindType` ✓——「调一个不是函数的东西」在 JS 里是 `TypeError` ✓），
+  // 所以 `RunSources` **不再把它抛到宿主** ✓、而是报成「脚本抛出」那一个结局 ✓。
+  // **`Message` 只有一句通用的话** ✗（`the script threw` ✓，
+  // 见 `host-abi.xl.md` 的 `Classify` ✓）——**原话在那个结果值里** ✓
+  //（`HostResult.Value` ✓「脚本要接住的那个值」✓），而这一层（`runtime/` 那一摞）
+  // **不认识 `Error` 长什么样** ✗ ⇒ 名字由 `tsrun` 那一层的错误工厂翻 ✓
+  //（`runtime:cli` 的语料钉着「脚本抛出：cannot call a non-closure value …」✓）。
+  // **这里钉的是「不是 `Ok`、而且是脚本抛出那一档」** ✓——
+  // 仍然没有「静默成 undefined」那条路 ✓（那一条会让结局是 `Ok` ✗）。
   let loud = "";
+  let loudOutcome = null;
+  let thrown = false;
   try {
     const strict = new RunRequest();
     strict.Sources = ["const p = { n: null }; p?.n();"];
     strict.Entry = "";
-    RunSources(strict, () => {}, () => null);
+    const res = RunSources(strict, () => {}, () => null);
+    loudOutcome = res.Outcome;
+    loud = String(res.Message);
   } catch (error) {
+    thrown = true;
     loud = String(error.message);
   }
-  ok(loud.indexOf("non-closure") >= 0, "`p?.n()` 照旧响亮地抛（**没有**被静默成 undefined）：" + loud);
+  eq(loudOutcome !== null ? loudOutcome === HostOutcome.ScriptThrew : thrown, true,
+    "`p?.n()` 的结局是「脚本抛出」（不是 Ok、也不是静默跑完）：" + loudOutcome + " " + loud);
+  ok(loud.length > 0, "而且有一句话（哪一层说的都行）：" + loud);
   // **一档第 154 轮修好的** ✓：`o.m?.().k`（**不带括号**）原来**静默**给 `undefined` ✗
   //（投影把 `.k` 折进了 `NullConditionalOperator` ✓，见那一轮的账 ✓）。
   // 现在两格都是 `3` ✓——带括号那格本来就是对的 ✓，留着当回归 ✓。

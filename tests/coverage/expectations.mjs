@@ -155,7 +155,21 @@ export const EXPECTATIONS = {
   // **描述本身就在堆里那一格** ✓（`HeapSymbol.Description` ✓）⇒ 特判那一支**一格都不分配** ✓。
   // **没描述给 `undefined`** ✓、`Symbol("").description` 是**空串** ✓——判据是句柄是不是 `0` ✓。
   "console-log-special": { expect: "differ", why: "第 217 轮定性：这是**口径边界**，不是缺口——Node 对 `console.log(new Error(\"x\"))` 打的是**栈**（第一行 `Error: x`、后面是文件路径与行号），而栈**由宿主决定**、逐字节对不上是**必然**的（与 `Object.freeze` 那条严格/松散分歧同一类）。`Error.prototype.toString` 第 213 轮已经装上，`String(e)` / `e + 1` 都是对的。" },
-  "error-engine-throws": { expect: "differ", why: "调用一个非函数的值该抛 `TypeError`（现在报的是别的）" },
+  // **第 246 轮删掉了 `error-engine-throws` 那一行** ✓（它过了 ✓）：
+  // 差的是「**引擎抛的错要能进脚本的错路**」✓——`(1 as any)()` 那一抛原来是
+  // **引擎自己的** `Error` ✓（`catch` 接不住 ✓）。
+  // 修法就是第 153 轮自己写下的那条正路 ✓：**让这一抛带上「是 `TypeError`」** ✓
+  //（`Guard` + `ErrorKindType` ✓，引擎仍然不认识 `"TypeError"` 这几个字母 ✓）。
+  // **两个入口都得改** ✗：`CallNative` 管 `Op.Call` ✓（`f(...)` ✓ 与 `(1 as any)()` ✓）、
+  // `DoCallValue` 管 `Op.CallMethod` / `o?.m()` 那一族 ✓——只改一处的话
+  // 同一个脚本里两条路的 `catch` 行为不同 ✓，而那**不报错** ✗。
+  // **两处的收尾类型不一样** ✗（`CallNative =>Value` ✓ 交 `Value.Undefined()` ✓；
+  // `DoCallValue =>void` ✓ 交裸 `return` ✓）——第 245 轮两次都配反了 ✓，
+  // 这一轮**先把签名抄在手边** ✓ 才落笔 ✓。
+  // **它同时松开了 `runtime:check` 里两条钉旧行为的断言** ✓
+  //（「调一个数值要说清楚为什么不行」看的是那句 `non-closure` ✓、
+  //  「没接上原型名字时要报出来」原来靠异常越过宿主那一层 ✓）——
+  // 两条都改成看**新口径** ✓（结局是「脚本抛出」✓、话里仍然点名 ✓）。
   "promise-constructor": { expect: "blocked", why: "`new Promise(执行器)` 没做（要同步跑一次执行器 + 造两个宿主回调）" },
   "promise-chaining-errors": { expect: "blocked", why: "`.then` 回调里抛的错没接到拒绝链上" },
   "promise-all-kinds": { expect: "differ", why: "`Promise.all` 里**非承诺的项**丢了（与 `prm-combinators` 同一处）" },
