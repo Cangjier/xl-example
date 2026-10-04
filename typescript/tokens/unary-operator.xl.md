@@ -211,6 +211,21 @@ if ((this.OperatorText(current) === "-" || this.OperatorText(current) === "+") &
 const afterIndex = SkipNextWrapSymbol(units, index);
 const after = Get(units, afterIndex);
 if (this.IsPrefixSymbol(current)) {
+  // **后面那一格自己是个一元运算符时先放过**（第 166 轮）✓——让**里面**那一处先折 ✓。
+  //
+  // `typeof typeof x` 的产物原来是一整个 `UnaryOperator(op="typeof")` 里装着**两个**
+  // `Keyword` ✓，而 `x` 被留在**它外面** ✗（XML 实测 ✓）。投影只好把第一个 `Keyword`
+  // 当作操作数 ✓，于是投出 `TypeOfExpression > TypeOfKeyword` ✗——降级层报
+  // `unimplemented: expression TypeOfKeyword` ✓，**整份文件进不来** ✗。
+  //
+  // **这与第 164 轮 `**` 的右结合是同一个手法** ✓：右边还杵着一个运算符时，
+  // 先让更右那一处折完 ✓，再回来折这一处 ✓（那时右边已经是一个折好的操作数 ✓）。
+  // 一并管住 `!!x` ✓、`- -x` ✓、`typeof -x` ✓、`delete !!o.x` ✓ 这些常见写法 ✓。
+  // **只挡运算符** ✓：`typeof x` 的下一格是 `x` ✓，照旧折 ✓（不影响任何普通一元运算 ✓）。
+  if (after !== null
+    && (this.IsPrefixSymbol(after) || this.IsPlusPlus(after) || this.IsPlusMinus(after))) {
+    return false;
+  }
   return this.IsOperand(after);
 }
 if (this.IsPlusPlus(current)) {

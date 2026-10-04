@@ -20,7 +20,7 @@
 
 **这三个百分数是估计，不是读数**——它们是按「这一层要做的事还剩多少」折算的，
 每轮按实测的新缺口与新补上的构造更新；**唯一硬读数**是下面这两条判据的条数
-与语料数（`runtime:check` **214** 条 / `runtime:cli` **51** 份 ✓），
+与语料数（`runtime:check` **214** 条 / `runtime:cli` **52** 份 ✓），
 以及**日常普查**那一组（32 条 ✓：见第 150 轮的账 ✓——那是**本地仪器** ✓
 （`tmp-audit.mjs` ✓，不进仓 ✓），读数记在这里 ✓）。
 
@@ -81,6 +81,56 @@
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
 
+
+### 第 166 轮的账（套着写的一元运算符，以及**三条缺口同一个根因**）
+
+**修的是上一轮列的 ①** ✓：`typeof typeof x`。量出来的现场是 ✓：
+
+```xml
+<UnaryOperator op="typeof">   ← 一个单元装**两个** Keyword
+  <Keyword>typeof</Keyword>
+  <Keyword>typeof</Keyword>
+</UnaryOperator>
+<Identifier>x</Identifier>    ← 操作数 `x` 被留在**外面**
+```
+
+投影只好把第一个 `Keyword` 当操作数 ✓ → `TypeOfExpression > TypeOfKeyword` ✗ →
+降级层报 `unimplemented: expression TypeOfKeyword` ✓（**整份文件进不来** ✗）。
+
+**修法与第 164 轮 `**` 的右结合是同一个手法** ✓：一元运算符后面那一格**自己也是
+一元运算符**时先放过 ✓，让里面那一处先折 ✓，再回来折这一处 ✓。
+一并管住的写法 ✓（都验过 ✓）：`typeof typeof x` ✓、`!!x` ✓、`- -x` ✓、`!!!x` ✓、`- - -x` ✓、
+`typeof typeof (x + 1)` ✓。
+
+**顺手量出三条新缺口，而它们是同一个根因** ✗（这才是这一轮最值钱的发现 ✓）：
+
+| 形状 | 现场 | 性质 |
+| --- | --- | --- |
+| `typeof typeof x === "string"` | Node 给 `true` ✓，本仓给 **`"boolean"`** ✗ | **静默错值** ✗（比较那一趟把 `typeof` 关键字当成操作数 ✓，折成了 `typeof (x === "string")` ✗） |
+| `typeof -x` | `unimplemented: expression TypeOfKeyword` ✗ | 里面那个 `-` 被当成**二元减** ✓（前面那个 `typeof` 被当成了操作数 ✗） |
+| `-!x` | `unimplemented: arithmetic on a non-numeric operand` ✗ | 布尔参与算术 ✓（`RtNeg` 那条**已经记着**的口径 ✓，与 token 层无关 ✓） |
+
+**根因一句话** ✓：**一元运算符的判据把「运算符关键字」当成了操作数** ✗——
+`typeof` / `void` / `delete` 这些关键字**不是值** ✓，它们后面那一格只能是**新的操作数** ✓，
+不能是「上一步的结果」✗。这一条同时解释了前两条 ✓。
+
+**下一轮的入口** ✓：改一元那份 `IsOperand` ✓——把「前缀运算符关键字」从操作数里排掉 ✓，
+而**保住 `this` / `super` 这两个关键字**（它们**是**操作数 ✓，二元那一份里专门认过 ✓）。
+**判据里那条静默错值最要紧** ✓（`typeof typeof x === "string"` 该给 `true` ✓）。
+
+**语料** ✓（两层都加 ✓，都用写文件工具建 ✓）：
+- `tests/parse/cases/expressions/expr-nested-unary.ts` ✓——套着写 ✓、单个的（回归 ✓）、
+  数组与条件里 ✓、类型位里的 `typeof`（类型查询 ✓）——进 `cases:tsast`：
+  1433 → **1434** ✓，四方向全 0 ✓；
+- `tests/runtime/cases/52-nested-unary.ts` ✓（**5 行 stdout 与 `node` 逐字节相同** ✓）。
+  三条量出来还不能用的形状**不混进语料** ✗，写在这里与台账里 ✓。
+
+**读数**：`runtime:check` **214/214** ✓、`runtime:cli` **51 → 52** ✓、
+`cases:check` **1040 → 1041** ✓、`cases:tsast` **1433 → 1434** ✓（四方向 0 ✓）。
+
+**下一步（地基优先）** ✓：① **一元那份 `IsOperand` 里排掉前缀运算符关键字** ✓
+（一条修好关两条 ✓，其中一条是**静默错值** ✓）② `{ A }a += 1` ✓ ③ 标签模板 ✓
+④「默认值套着嵌套模式」✓。
 
 ### 第 165 轮的账（`[x in y]`：先插桩，再补「容器」判据）
 
