@@ -6,7 +6,7 @@ import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
-import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId } from "./builtins/install.xl.md"
+import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId } from "./builtins/install.xl.md"
 import { StringConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 ```
 
@@ -1744,40 +1744,70 @@ const nameKind = NodeKind(nameNode);
 // 与私有**方法**（同轮补 ✓）以及三个方法的取值路（`KeyUnitsOf` ✓）**同一个键** ✓。
 // 原来这里只认三种 ✗，于是带私有字段的类也进不来 ✗（实测报的就是这一句 ✓）。
 if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
-    && nameKind !== "PrivateIdentifier"
-  && nameKind !== "PrivateIdentifier") {
+    && nameKind !== "PrivateIdentifier") {
   throw new Error("unimplemented: computed class field name");
 }
+// **私有字段要藏起来** ✓（第 210 轮 ✓）：JS 里 `#n` **不是一个属性** ✓——
+// `Object.keys(new C())` 看不见它 ✓、`JSON.stringify` 也看不见 ✓。
+// 本仓把私有字段存在**属性表**里 ✓（`props.xl.md` 的模型 ✓，值本身找得到 ✓），
+// 但那一格必须是**不可枚举**的 ✓，否则 `Object.keys` 会把它数出来 ✓（**静默错值** ✗，
+// 判据 `cls-private` 现场红的 ✓）。
+// **判定放在降级层是对的** ✓：`#` 是**这门语言的语法** ✓——引擎不该认识它 ✗
+//（认识它就要在 `heap` / `props` 里散布「以 `#` 开头的键特殊」这种规矩 ✗）。
+const isPrivateField = nameKind === "PrivateIdentifier";
 const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(nameNode)));
 const initializer = OptionalChild(field, "initializer");
+// **值先算出来** ✓（两种落点、两种挂法共用 ✓）：没有初始化式就写 `undefined` ✓——
+// JS 里 `class C { x }` 之后 `"x" in new C()` 是**真** ✓，不写的话属性根本不存在 ✓
+//（那是**能被脚本看见**的差别 ✓）。
+let fieldValue = -1;
 if (initializer === null) {
-  const missing = this.Program().AddConst(Constant.OfUndefined());
+  fieldValue = this.Reserve(1);
+  this.Emit(Op.Const, fieldValue, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+} else {
+  fieldValue = this.LowerExpression(initializer);
+}
+// **私有字段落成 `set_hidden`** ✓（第 210 轮 ✓）：`set_hidden(接收者, 键, 值)` ——
+// 接收者是 `this`（实例字段 ✓）或构造函数那一格（静态字段 ✓），与下面那两条 SetProp 同源 ✓。
+if (isPrivateField) {
+  const hiddenSelf = this.Reserve(1);
   if (target < 0) {
-    const window = this.Reserve(3);
-    this.Emit(Op.LoadThis, window, -1, -1, -1);
-    this.Emit(Op.Const, window + 1, key, -1, -1);
-    this.Emit(Op.Const, window + 2, missing, -1, -1);
-    this.EmitRt(RtOp.SetProp, window, window, 3);
-    this.Release(window);
-    return;
+    this.Emit(Op.LoadThis, hiddenSelf, -1, -1, -1);
+  } else {
+    this.Emit(Op.Move, hiddenSelf, target, -1, -1);
   }
-  const value = this.Reserve(1);
-  this.Emit(Op.Const, value, missing, -1, -1);
-  this.SetPropertyConst(target, key, value);
+  this.EmitHiddenSet(hiddenSelf, key, fieldValue);
+  this.Release(hiddenSelf);
   return;
 }
 if (target < 0) {
-  const value = this.LowerExpression(initializer);
   const window = this.Reserve(3);
   this.Emit(Op.LoadThis, window, -1, -1, -1);
   this.Emit(Op.Const, window + 1, key, -1, -1);
-  this.Emit(Op.Move, window + 2, value, -1, -1);
+  this.Emit(Op.Move, window + 2, fieldValue, -1, -1);
   this.EmitRt(RtOp.SetProp, window, window, 3);
   this.Release(window);
   return;
 }
-const value = this.LowerExpression(initializer);
-this.SetPropertyConst(target, key, value);
+this.SetPropertyConst(target, key, fieldValue);
+```
+
+## method EmitHiddenSet:(target:int, key:int, value:int)=>void
+
+**一条 `set_hidden(对象, 键, 值)` 内部调用** ✓（第 210 轮 ✓）——窗口形状与
+`ConcatValues` / `PowValues` **同一个** ✓（`[号, 参数…]` + 一条 `host_call` ✓）。
+
+**窗口自己占、自己退** ✓（与那两条一样 ✓），差别是**结果不看** ✓：
+`set_hidden` 给的是 `undefined` ✓，调用方要的是「写完」这件事本身 ✓。
+
+```ts
+const window = this.Reserve(4);
+this.Emit(Op.Const, window, this.IntConst(SetHiddenId), -1, -1);
+this.Emit(Op.Move, window + 1, target, -1, -1);
+this.Emit(Op.Const, window + 2, key, -1, -1);
+this.Emit(Op.Move, window + 3, value, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 4);
+this.Release(window);
 ```
 
 ## method LowerStatement:(node:AstNode)=>void

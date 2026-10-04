@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
-import { Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
+import { Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
@@ -156,6 +156,13 @@ return InvokeBuiltin(room, table, call, id, self, args, keep);
 
 **`new C(...xs)` 的入口**（第 197 轮 ✓）：与 `SpreadIntoId` 同一个号段 ✓、同一个理由 ✓
 （要 `protos` 造实例 ✓）。**它不是全局名** ✓——降级层为落实现「带展开的构造」而发的内部调用 ✓。
+
+# const SetHiddenId:int = 708
+
+**`set_hidden(对象, 键, 值)`**（第 210 轮 ✓）——把一格自有属性写成**不可枚举** ✓。
+
+**它不是全局名** ✓：脚本里没有叫这个名字的东西 ✓，是**降级层**为了落实现
+「私有字段（`#n = 1`）要藏起来」而发的内部调用 ✓（理由写在 `InvokeObjectHelper` 那一支里 ✓）。
 
 # const IterDrainId:int = 707
 
@@ -743,6 +750,9 @@ if (NewApplyId > highest) highest = NewApplyId;
 if (IterDrainId > highest) highest = IterDrainId;
 if (ArrayRestId > highest) highest = ArrayRestId;
 if (RestObjectId > highest) highest = RestObjectId;
+// **`SetHiddenId`**（第 210 轮 ✓）：加号时**只改这一句的名单** ✓——漏了它的症状是
+// `capability id is out of range: 708` ✓（离现场很远 ✗，第 210 轮实测踩了一次 ✓）。
+if (SetHiddenId > highest) highest = SetHiddenId;
 return highest + 1 - BuiltinBase;
 ```
 
@@ -836,7 +846,7 @@ for (const slot of promiseSlots) {
 // 漏一个的症状是**运行期**报 `capability is not registered: <号>` ✓（离现场很远 ✗，
 // 第 197 轮实测踩过一次 ✓：号改了、名单忘改 ✓）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
-  ObjectAssign, PowId];
+  ObjectAssign, PowId, SetHiddenId];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));
@@ -844,7 +854,6 @@ for (let i = 0; i < helpers.length; i++) {
 ```
 
 # const DefineAccessorId:int = 701
-
 `{ get x() { … } }` 落成的那条内部调用（号段 700..799，见 `InvokeWithSink`）。
 
 **它不是全局名**：脚本里没有叫这个名字的东西，是**降级层**为了落实现「对象字面量的访问器」
@@ -859,7 +868,8 @@ for (let i = 0; i < helpers.length; i++) {
 
 **号段 700..799 的分派**（语言内部辅助）。
 
-这一段今天只有一条：`DefineAccessorId`。**其余号照旧抛**——没装的东西被调到就是配置错了。
+这一段今天有两条：`DefineAccessorId` ✓ 与 `SetHiddenId` ✓（第 210 轮加的 ✓）。
+**其余号照旧抛**——没装的东西被调到就是配置错了。
 
 ```ts
 if (id === DefineAccessorId) {
@@ -867,6 +877,25 @@ if (id === DefineAccessorId) {
     throw new Error("unimplemented: define_accessor needs (object, key, getter, setter)");
   }
   DefineAccessor(room, table, args[0], args[1], args[2], args[3]);
+  return Value.Undefined();
+}
+// **`set_hidden(对象, 键, 值)`** ✓（第 210 轮 ✓）：给**类字段初始化式**用 ✓——
+// 私有字段（`#n = 1` ✓）在 JS 里**不是一个属性** ✓（`Object.keys` 看不见它 ✓、
+// `JSON.stringify` 也看不见 ✓）。本仓的私有字段**存在属性表里** ✓（`props.xl.md` 的模型 ✓），
+// 所以要么让引擎认识 `#`（分层就反了 ✗），要么由**语言层**决定「这一个键是隐藏的」✓——
+// 后者是对的 ✓：`#` 是**这门语言的语法** ✓，引擎不该知道它 ✗。
+//
+// **一次 `SetHiddenProperty` 就够** ✓：它「找到自有那一格就改值 + 改标志 ✓、
+// 没有就**新开一格**」✓（`props.xl.md` 写着 ✓）——所以不必先 `SetProperty` 再标 ✗
+//（那是两次写 ✓，而且第一写还会**调 setter** ✗：原型上有个同名 setter 时行为就错了 ✓）。
+if (id === SetHiddenId) {
+  if (args.length < 3) {
+    throw new Error("unimplemented: set_hidden needs (object, key, value)");
+  }
+  if (args[1].Tag !== ValueTag.String) {
+    throw new Error("unimplemented: set_hidden with a key that is not a string");
+  }
+  SetHiddenProperty(room, table, args[0], args[1], args[2]);
   return Value.Undefined();
 }
 throw new Error("unimplemented: object helper " + id);

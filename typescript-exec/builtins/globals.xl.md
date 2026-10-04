@@ -705,6 +705,68 @@ if (value.Tag === ValueTag.Float64) return value.Dbl;
 throw new Error("this method needs a number");
 ```
 
+# method IsIndexKeyText:(text:string)=>bool
+
+**这个键文本是不是 JS 的「数组下标」** ✓（第 210 轮 ✓）——也就是
+**规范数字串**：全是数字 ✓、没有前导零（`"0"` 自己除外 ✓）、值 `< 2^32 - 1` ✓。
+
+**它决定次序** ✓（`Object.keys` 里整数样的键排在最前、升序 ✓）——
+所以判据要比 JS 严 ✗：`"01"` / `"1.5"` / `"-1"` / `"1e3"` **都不是**下标键 ✓
+（它们按普通字符串排在后面 ✓，与 JS 一致 ✓）。
+
+```ts
+if (text.length === 0) return false;
+if (text.length > 1 && text[0] === "0") return false;
+for (let i = 0; i < text.length; i++) {
+  const code = text.charCodeAt(i);
+  if (code < 48 || code > 57) return false;
+}
+return Number(text) < 4294967295;
+```
+
+# method IndexKeyPositions:(table:HeapTable, target:Value)=>Array<int>
+
+**这个值有哪些「下标自有键」** ✓（第 210 轮 ✓）——给的是**位置本身** ✗ 不是个数 ✓：
+`[1, , 3]` 给 `[0, 2]` ✓（JS 的 `Object.keys` 就是 `["0","2"]` ✓）。
+
+**第一版给的是「个数」** ✗（`[1, , 3]` 给 `2` ✓），于是调用方按 `0 .. 个数-1` 造键 ✓ ⇒
+`["0","1"]` ✗——**洞后面的那个键位移了** ✗。这一类错误很安静 ✓（长度对得上 ✓），
+所以判据里那条 `Object.keys(xs).join(",")` 是**专门钉它**的 ✓。
+
+数组是**跳过洞**的位置 ✓、字符串是每个码元 ✓、其余是空 ✓。
+
+```ts
+const positions: number[] = [];
+if (target.Tag === ValueTag.Array) {
+  const items = table.Get(target.Ref).AsArray();
+  for (let i = 0; i < items.GetLength(); i++) {
+    if (items.IsHole(i)) continue;
+    positions.push(i);
+  }
+  return positions;
+}
+if (target.Tag === ValueTag.String) {
+  const textUnits = table.Get(target.Ref).AsString().Units;
+  for (let i = 0; i < textUnits.length; i++) positions.push(i);
+  return positions;
+}
+return positions;
+```
+
+# method IndexKeyValueAt:(room:RoomChecker, table:HeapTable, target:Value, index:int)=>Value
+
+**下标键上那个值** ✓（第 210 轮 ✓）：数组的元素 ✓、字符串的那**一个码元**（新串 ✓）✓。
+
+**`Object.values([1, 2])` 在 JS 里是 `[1, 2]`** ✓——所以数组这一支就是 `GetAt` ✓
+（调用方已经跳过了洞 ✓，走不到「洞」那一格 ✓）。
+
+```ts
+if (target.Tag === ValueTag.Array) return table.Get(target.Ref).AsArray().GetAt(index);
+const units = table.Get(target.Ref).AsString().Units;
+if (!room(ObjectCharge + CodeUnitCharge)) throw new Error("out of room");
+return Value.FromString(table.CreateString([units[index]]));
+```
+
 # method MathArgOf:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>float
 
 **`Math.*` 的实参口径**（第 206 轮 ✓）：JS 对它们先做 **`ToNumber`** ✓——
@@ -1249,21 +1311,64 @@ if (id === ObjectDefineProperty) {
   return args[0];
 }
 if (id === ObjectKeys) {
-  if (args.length < 1 || !args[0].IsObject()) {
+  // **`Object.keys` = 自有 + 可枚举 × 「下标键在前、其余按创建顺序」** ✓（第 210 轮补后两条 ✓）。
+  //
+  // **它原来只看 `Props`** ✗，于是**两整类东西一个都看不见** ✓：
+  //   · **数组的元素**（住在 `HeapArray` 里 ✓，不在 `Props` 里 ✗）⇒ `Object.keys([1, 2])` 给 `[]` ✗（JS 给 `["0","1"]` ✓）；
+  //   · **字符串的下标**（字符串没有 `Props` ✗）⇒ `Object.keys("ab")` **抛** ✓（JS 给 `["0","1"]` ✓）；
+  // 而 **`Object.keys` 的次序也是语义** ✓：**整数样的键升序在前** ✓，其余按创建顺序 ✓——
+  // `{ "a-b": 1, if: 2, 3: "three" }` 在 JS 里是 `["3","a-b","if"]` ✓
+  //（判据 `ex-quoted-and-keyword-keys` 现场红的 ✓：原来给 `["a-b","if","3"]` ✗）。
+  // **字符串也是合法的接收者** ✓（JS：`Object.keys("ab")` 给 `["0","1"]` ✓）——
+  // 而字符串**没有属性表** ✗（它是 `HeapString` ✓），所以下面那一趟要跳过 ✓。
+  const stringTarget = args[0].Tag === ValueTag.String;
+  if (!stringTarget && args[0].Tag !== ValueTag.Array && !args[0].IsObject()) {
     throw new Error("Object.keys needs an object");
   }
-  const item = table.Get(args[0].Ref);
+  const ownItem = stringTarget ? null : table.Get(args[0].Ref);
+  // **① 下标键**（数组跳过洞 ✓、字符串逐码元 ✓）——它们本来就是升序 ✓。
+  const indexPositions = IndexKeyPositions(table, args[0]);
   const names: string[] = [];
-  for (let i = 0; i < item.Props.length; i++) {
-    const keyValue = table.Get(item.Props[i].Key);
-    if (keyValue.Tag !== ValueTag.String) continue;
+  for (let i = 0; i < indexPositions.length; i++) names.push("" + indexPositions[i]);
+  // **② `Props` 里的键**分成两摞 ✓（整数样的一摞要排在下标键之后、其余之前 ✓）。
+  const intNames: string[] = [];
+  const plainNames: string[] = [];
+  if (ownItem !== null) {
+  for (let i = 0; i < ownItem.Props.length; i++) {
+    if (table.Get(ownItem.Props[i].Key).Tag !== ValueTag.String) continue;
     // **只看可枚举的**（第 182 轮修 ✓）：`Object.keys` 的口径是**自有 + 可枚举** ✓，
     // 而这一格原来**一个标志都不看** ✗——`Object.defineProperty(o, "x", { value: 1 })`
     // 默认 `enumerable: false` ✓，于是它与 JS 差一格（本仓会把它数进去 ✗）。
     // 这一条以前量不出来 ✓：在 `defineProperty` 落地之前，**所有**属性的 `enumerable` 都是真 ✓。
-    if (!item.Props[i].IsEnumerable()) continue;
-    names.push(TextFrom(table, Value.FromString(item.Props[i].Key)));
+    // 同一趟把**私有字段**也筛掉了 ✓（它们第 210 轮起走隐藏属性 ✓，`enumerable` 是假 ✓）。
+    if (!ownItem.Props[i].IsEnumerable()) continue;
+    const text = TextFrom(table, Value.FromString(ownItem.Props[i].Key));
+    // **已经被下标键覆盖的那些不再收** ✓（数组模型里元素不住在 `Props` 里 ✓，
+    // 但**越界写过的下标**可能落在两处都有一份 ✓——只收一次 ✓）。
+    if (IsIndexKeyText(text)) {
+      let covered = false;
+      for (let k = 0; k < indexPositions.length; k++) {
+        if (indexPositions[k] === Number(text)) covered = true;
+      }
+      if (covered) continue;
+      intNames.push(text);
+      continue;
+    }
+    plainNames.push(text);
   }
+  }
+  // **③ 整数样的一摞升序**（插入排序 ✓——键数很少 ✓）。
+  for (let i = 1; i < intNames.length; i++) {
+    const cur = intNames[i];
+    let j = i - 1;
+    while (j >= 0 && Number(intNames[j]) > Number(cur)) {
+      intNames[j + 1] = intNames[j];
+      j = j - 1;
+    }
+    intNames[j + 1] = cur;
+  }
+  for (let i = 0; i < intNames.length; i++) names.push(intNames[i]);
+  for (let i = 0; i < plainNames.length; i++) names.push(plainNames[i]);
   if (!room(ObjectCharge + ValueCharge * names.length + CodeUnitCharge * names.length * 4)) {
     throw new Error("out of room");
   }
@@ -1279,30 +1384,95 @@ if (id === ObjectValues || id === ObjectEntries) {
   // **值与键值对**（第 120 轮补）：与 `Object.keys` 同一趟扫描 ✓，
   // 差别只有「要不要读值」——所以**访问器在这里必须跳过** ✗（`keys` 不必）。
   //
+  // **第 210 轮把下标键也接上** ✓（与 `keys` 那一支同一条口径 ✓）：数组的元素 ✓、
+  // 字符串的下标 ✓——它们排在最前面 ✓（`Object.values([1,2])` 在 JS 里是 `[1,2]` ✓，
+  // 原来给 `[]` ✗）。
+  //
   // **先把要用的值抄进宿主数组再分配** ✓：抄进来的是 `Value`（引用），
   // 而它们**住在源对象的属性表里** ✓——属性表由 `args[0]` 拴着，`args[0]` 是这次调用的根 ✓，
   // 所以中途的分配不会把它们收走 ✓（`GetIterator` 那条路是同一个理由）。
-  if (args.length < 1 || !args[0].IsObject()) {
+  const stringTarget2 = args[0].Tag === ValueTag.String;
+  if (!stringTarget2 && args[0].Tag !== ValueTag.Array && !args[0].IsObject()) {
     throw new Error("Object.values/entries needs an object");
   }
-  const own = table.Get(args[0].Ref);
-  const keys: number[] = [];
-  const values: Value[] = [];
+  const own = stringTarget2 ? null : table.Get(args[0].Ref);
+  const indexPositions2 = IndexKeyPositions(table, args[0]);
+  const indexKeys: Value[] = [];
+  const indexValues: Value[] = [];
+  for (let i = 0; i < indexPositions2.length; i++) {
+    // **键是位置本身** ✓（`[1, , 3]` 给 `"0"` 与 `"2"` ✓，不是 `"0"` 与 `"1"` ✗）。
+    indexKeys.push(Value.FromString(table.CreateString(Units("" + indexPositions2[i]))));
+    indexValues.push(IndexKeyValueAt(room, table, args[0], indexPositions2[i]));
+  }
+  // **`Props` 里那两摞** ✓：与 `Object.keys` 那一支同一处次序规矩 ✓
+  //（整数样的键升序在前 ✓、其余按创建顺序 ✓）——`Object.values({ "a-b": 1, 3: "three" })`
+  // 在 JS 里是 `["three", 1]` ✓（**值的次序跟着键** ✓）。
+  const intKeys: number[] = [];
+  const intValues: Value[] = [];
+  const plainKeys: number[] = [];
+  const plainValues: Value[] = [];
+  if (own !== null) {
   for (let i = 0; i < own.Props.length; i++) {
     if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
     if (own.Props[i].IsAccessor()) continue;
-    // **可枚举才算**（第 182 轮，与 `keys` 那一条同一处修正 ✓）。
+    // **可枚举才算**（第 182 轮，与 `keys` 那一条同一处修正 ✓）；私有字段是隐藏的 ✓，一起筛掉 ✓。
     if (!own.Props[i].IsEnumerable()) continue;
-    keys.push(own.Props[i].Key);
-    values.push(own.Props[i].Value);
+    // **与下标键重复的那些**（越界写过的下标 ✓）不重复收 ✓。
+    const propText = TextFrom(table, Value.FromString(own.Props[i].Key));
+    if (IsIndexKeyText(propText)) {
+      let coveredValue = false;
+      for (let k = 0; k < indexPositions2.length; k++) {
+        if (indexPositions2[k] === Number(propText)) coveredValue = true;
+      }
+      if (coveredValue) continue;
+      intKeys.push(own.Props[i].Key);
+      intValues.push(own.Props[i].Value);
+      continue;
+    }
+    plainKeys.push(own.Props[i].Key);
+    plainValues.push(own.Props[i].Value);
   }
-  if (!room(ObjectCharge + ValueCharge * (values.length * 2 + 2)
-    + CodeUnitCharge * values.length * 4)) {
+  }
+  // **整数样的一摞升序**（键与值一起换 ✓——两摞是平行的 ✓）。
+  for (let i = 1; i < intKeys.length; i++) {
+    const curKey = intKeys[i];
+    const curValue = intValues[i];
+    let j = i - 1;
+    while (j >= 0 && Number(TextFrom(table, Value.FromString(intKeys[j]))) > Number(TextFrom(table, Value.FromString(curKey)))) {
+      intKeys[j + 1] = intKeys[j];
+      intValues[j + 1] = intValues[j];
+      j = j - 1;
+    }
+    intKeys[j + 1] = curKey;
+    intValues[j + 1] = curValue;
+  }
+  const keys: number[] = [];
+  const values: Value[] = [];
+  for (let i = 0; i < intKeys.length; i++) {
+    keys.push(intKeys[i]);
+    values.push(intValues[i]);
+  }
+  for (let i = 0; i < plainKeys.length; i++) {
+    keys.push(plainKeys[i]);
+    values.push(plainValues[i]);
+  }
+  if (!room(ObjectCharge + ValueCharge * (indexValues.length * 2 + values.length * 2 + 2)
+    + CodeUnitCharge * (indexKeys.length + values.length) * 4)) {
     throw new Error("out of room");
   }
   const handle = table.CreateArray();
   table.Get(handle).Proto = protos.Array;
   const result = table.Get(handle).AsArray();
+  for (let i = 0; i < indexValues.length; i++) {
+    if (id === ObjectValues) {
+      result.Push(indexValues[i]);
+      continue;
+    }
+    const indexPair = NewPlainArray(room, table, protos);
+    table.Get(indexPair.Ref).AsArray().Push(indexKeys[i]);
+    table.Get(indexPair.Ref).AsArray().Push(indexValues[i]);
+    result.Push(indexPair);
+  }
   for (let i = 0; i < values.length; i++) {
     if (id === ObjectValues) {
       result.Push(values[i]);

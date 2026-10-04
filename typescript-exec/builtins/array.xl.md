@@ -482,6 +482,19 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
     if (keep !== null) keep(Value.FromArray(collected), true);
   }
   for (let i = 0; i < eachTotal; i++) {
+    // **洞不访问** ✓（第 210 轮 ✓）：JS 的 `forEach` / `map` / `filter` 都**跳过洞** ✓——
+    // `[1, , 3].forEach(f)` 只跑 **2** 次 ✓（判据 `array-sparse-iteration` 现场红的 ✓：
+    // 原来跑了 3 次 ✓，因为 `GetAt` 对洞给的是 `undefined` ✓、回调照调 ✗）。
+    // **`map` 的结果要在同一格留一个洞** ✓：JS 的 `[1, , 3].map(f)` **长度还是 3** ✓、
+    // 第 1 格**还是洞** ✓——`continue` 掉就短一格 ✗（那是另一种**静默错值** ✓）。
+    if (source.IsHole(i)) {
+      if (id === ArrayMap) {
+        const mapTarget = table.Get(collected).AsArray();
+        mapTarget.Push(Value.Undefined());
+        mapTarget.SetHole(mapTarget.GetLength() - 1);
+      }
+      continue;
+    }
     const item = source.GetAt(i);
     // **`filter` 的那一项要跨过这次调用** ✓：它**先读出来、回调之后才决定收不收** ✓——
     // 而它只挂在 `source`（调用方的数组）身上 ✓……**那也算挂着** ✓，
@@ -515,6 +528,9 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   }
   const predicateTotal = source.GetLength();
   for (let i = 0; i < predicateTotal; i++) {
+    // **洞不访问** ✓（第 210 轮 ✓，与 `forEach` / `map` 那一条同一处 ✓）：
+    // JS 的谓词族也**跳过洞** ✓（`[1, , 3].some(f)` 里 `f` 只被调 2 次 ✓）。
+    if (source.IsHole(i)) continue;
     const item = source.GetAt(i);
     const answered = RtToBoolean(table, call(args[0], Value.Undefined(), [item, Value.FromInt(i), self])).AsBool();
     if (id === ArrayFind) {

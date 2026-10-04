@@ -13,8 +13,6 @@ export const EXPECTATIONS = {
   // ===== runtime：引擎与语言层手里的那几张表 =====
   "op-unary": { expect: "blocked", why: "`typeof <非标识符>` 降级不出来（只认标识符位）——`typeof ({}).x` / `typeof []` 这一类" },
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
-  "arr-holes": { expect: "differ", why: "稀疏数组的洞在 `Object.keys` 里被算成键（JS 不算）" },
-  "cls-private": { expect: "differ", why: "私有字段在 `Object.keys` 里**看得见**（JS 里看不见 ✓）——读写与静态私有计数第 205 轮已经对了 ✓，只剩这一格" },
   "cls-expression": { expect: "blocked", why: "`new (表达式)()`：被 new 的是一整个括号表达式" },
   "gen-basics": { expect: "blocked", why: "生成器对象上的 `next()` 调不动（`calling a non-closure value`）" },
   "gen-delegating": { expect: "blocked", why: "`yield*` 没做（要**惰性转发**，不是一次收完）" },
@@ -40,19 +38,16 @@ export const EXPECTATIONS = {
   "ex-private-in-operator": { expect: "blocked", why: "`#x in o` 没做（私有名字的品牌检查）" },
   "ex-getter-setter-class": { expect: "blocked", why: "`super.v` 属性访问（`super` 只做了方法调用那一格）" },
   "ex-labeled-block": { expect: "blocked", why: "带标签的块：标签该挂在块上（现在只收循环与 `switch`）" },
-  "ex-quoted-and-keyword-keys": { expect: "differ", why: "`Object.keys` 的键序：整数键该排在字符串键前面" },
 
   // ===== stdlib：内建成员与标准形状 =====
   "array-reduce": { expect: "differ", why: "空数组 + 无初值该抛 `TypeError`，抛的是 `Error`" },
   "array-from-arraylike": { expect: "blocked", why: "`Array.from(数组式对象)`：JS 给空数组，我们点名抛" },
   "array-entries-keys-values": { expect: "blocked", why: "`Array.prototype.entries` / `keys` / `values` 没装（且展开一个迭代器那一处也过不去）" },
-  "array-sparse-iteration": { expect: "differ", why: "稀疏数组的 `forEach` / `map` 没**跳过洞**" },
   "object-freeze": { expect: "blocked", why: "**口径分歧**：本仓对只读属性**抛**（严格模式），node 把 `.ts` 当 CJS 跑是**松散模式**静默失败" },
   "object-freeze-array-element": { expect: "differ", why: "**静默错值**：冻住的数组还能 `push`（要动引擎的写屏障）" },
   "object-tostring-tag": { expect: "blocked", why: "`Object.prototype.toString` 只答了能证的那一格，`call` 这条形状过不去" },
   "object-fromEntries": { expect: "blocked", why: "`Object.fromEntries` 没装" },
   "object-getOwnPropertyNames": { expect: "blocked", why: "`Object.getOwnPropertyNames` 没装" },
-  "object-keys-values-entries": { expect: "differ", why: "`Object.keys(\"ab\")` 该给 `[\"0\",\"1\"]`（字符串也行），本仓点名抛「needs an object」" },
   "symbol-hasinstance": { expect: "blocked", why: "类上的**计算成员名**（`static [Symbol.hasInstance]`）降级不出来" },
   "symbol-tostringtag": { expect: "blocked", why: "`Symbol.toStringTag` 没装" },
   "symbol-description": { expect: "differ", why: "`Symbol.prototype.description` 没装" },
