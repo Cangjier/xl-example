@@ -38,7 +38,20 @@ export const EXPECTATIONS = {
   // **第 247 轮删掉了 `prm-combinators` 那一行** ✓（它过了 ✓）：差的是 `Promise.all` 里**不是承诺的那几项** ✓（`Promise.all([Promise.resolve(1), Promise.resolve(2), 3])` ✓——第三项是裸数字 ✓）。JS 对每一项先做一次 `Promise.resolve` ✓；而这里原来把它**直接交给调度器** ✗ ⇒ 那一格永远不会被触发 ✓ ⇒ `remaining` 减不到 0 ✓ ⇒ 结果承诺**永不结清** ✓（打出 `1,2,` ✓，Node 给 `1,2,3` ✓）。**静默错值** ✓。
   "prm-async-await": { expect: "blocked", why: "`await` 一个**不是承诺**的值" },
   "prm-async-throw": { expect: "blocked", why: "`async` 函数里 `throw` 没有变成返回承诺的**拒绝**" },
-  "prm-microtask-order": { expect: "differ", why: "微任务队列的次序（嵌套入队那一档）" },
+  // **第 248 轮把这条的理由改准了** ✓（原来记的是「次序」✗，**量下来次序是对的** ✓）：
+  // 判据是 `Promise.resolve().then(…)` 那一族 ✓，而**纯次序**那一面早就对 ✓——
+  // 实测 `1 / 2 / 3 / 4` 三条普通 `.then` ✓ 与 Node 逐字节相同 ✓。
+  // **真正坏的是「回调返回一个承诺」那一档** ✗（这一条判据里正好是它 ✓）：
+  // 回调体是 `{ console.log("4"); Promise.resolve().then(() => console.log("5")); }` ✓，
+  // 第 2 条那一整条**一句都不跑** ✓（连 `4` 都没有 ✓）。
+  // 根子在 `vm.RunNativeTask` 的收尾 ✓：回调跑完之后
+  // `this.ResolvePromise(result, produced)` ✓——`produced` 是回调**返回的那个值** ✓，
+  // 而它可能**自己就是一个承诺** ✓。JS 的规矩是**采纳**它 ✓（结果承诺跟着内层那一档走 ✓，
+  // `then(() => Promise.resolve(5)).then(v => …)` 里 `v` 是 `5` ✓），
+  // 本仓**把它当成一个普通值灌进去** ✗ ⇒ 结果承诺**带着一个承诺对象兑现了** ✓
+  // ⇒ 后面接的 `.then` 拿到的「值」是一个承诺 ✓、而**整条内层链的收尾也丢了** ✗。
+  // **它不报错** ✗ ⇒ **静默错值** ✓（第 248 轮量准的那一处 ✓）。
+  "prm-microtask-order": { expect: "differ", why: "回调返回一个承诺时没有采纳它（`ResolvePromise` 把它当普通值灌）——不是次序问题，次序是对的" },
   "gc-churn": { expect: "blocked", why: "**步数预算**：两万次循环就 `step budget exhausted`（普通循环够不着这个量级）" },
 
   // ===== exec：TS 形状 → 运行期语义 =====
