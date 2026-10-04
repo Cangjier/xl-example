@@ -1,4 +1,4 @@
-﻿// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
+// **台账**：矩阵里每一条**现在的状态**。没有登记的按 `pass` 算。
 //
 // 两栏：
 //   - `expect`: `"blocked"`（进不了门）/ `"differ"`（跑得出来但结果不同）——两者都算**没覆盖**；
@@ -46,8 +46,8 @@ export const EXPECTATIONS = {
   "symbol-concat-throws": { expect: "differ", why: "发现于第 215 轮：`\"x\" + Symbol()` 与模板串里插符号**抛的是 `Error`**（JS 是 `TypeError`）——语言层那几处 `throw` 没有类别，与「引擎抛的也要是 TypeError」那条同源" },
   "symbol-hasinstance": { expect: "blocked", why: "类上的**计算成员名**（`static [Symbol.hasInstance]`）降级不出来" },
   "symbol-tostringtag": { expect: "blocked", why: "`Symbol.toStringTag` 没装" },
-  "symbol-description": { expect: "differ", why: "`Symbol.prototype.description` 没装" },
-  "console-log-special": { expect: "differ", why: "`console.log(Error)` 的形态（该是 `Error: boom`）" },
+  "symbol-description": { expect: "differ", why: "第 217 轮查清：`Symbol.prototype.description` 是**访问器**，要挂在符号的**原型**上——而 `Protos` 表里**没有符号那一格**（`Protos` 只有对象/数组/字符串/数/布尔/集合/错误那几族），所以这一格要**先给引擎加一个符号原型**（与 `Number.prototype` 让原始值读得到方法那条路同源）。这一轮只把根子写清，没动引擎。" },
+  "console-log-special": { expect: "differ", why: "第 217 轮定性：这是**口径边界**，不是缺口——Node 对 `console.log(new Error(\"x\"))` 打的是**栈**（第一行 `Error: x`、后面是文件路径与行号），而栈**由宿主决定**、逐字节对不上是**必然**的（与 `Object.freeze` 那条严格/松散分歧同一类）。`Error.prototype.toString` 第 213 轮已经装上，`String(e)` / `e + 1` 都是对的。" },
   "error-engine-throws": { expect: "differ", why: "调用一个非函数的值该抛 `TypeError`（现在报的是别的）" },
   "promise-constructor": { expect: "blocked", why: "`new Promise(执行器)` 没做（要同步跑一次执行器 + 造两个宿主回调）" },
   "promise-chaining-errors": { expect: "blocked", why: "`.then` 回调里抛的错没接到拒绝链上" },
