@@ -58,6 +58,17 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 
 # type TaskScheduler = (promise:Value, callback:Value, args:Array<Value>, result:Value, wants:number, carry:boolean)=>void
 
+# type TaskSettler = (promise:Value, value:Value, rejected:boolean)=>void
+
+**「结清一个承诺」的形状**（第 186 轮 ✓）：语言层拿它交答案 ✓——
+**承诺、值、是不是拒绝那一档** ✓。
+
+**为什么必须有这一格** ✗：`.then` 那一条路是「引擎拿回调的返回值去灌」✓，
+而 `Promise.all` **不是那个形状** ✓——它要在**最后一个**输入到齐时才交答案 ✓
+（早一步交就是错的 ✓）。建库层自己改承诺的状态**不行** ✗：
+那只把状态改了 ✓、**没有把等着它的回调排进微任务** ✗（症状是「一声不响地结束」✓，
+实测过 ✓）。所以结清这件事**必须走执行器** ✓——它就是 `ResolvePromise` / `RejectPromise` ✓。
+
 **「挂一个原生任务」的形状**（第 185 轮 ✓）：语言层只交四样东西 ✓——
 **源承诺**（还在等就挂在它身上 ✓）、**回调** ✓、**实参** ✓、**结果承诺** ✓。
 
@@ -1657,6 +1668,22 @@ if (id === RtOp.In) {
   return Value.FromBool(HasProperty(this.Table, inReceiver.Ref, inKey));
 }
 throw new Error("unimplemented: rt op " + RtOpName(id));
+```
+
+## method Settler:()=>TaskSettler
+
+**把这台机器包成「结清一个承诺」的回调**（第 186 轮 ✓）——与 `Scheduler()` 同一条理由 ✓
+（语言层不该认识 `Vm` ✓），**也同样是包一层箭头函数** ✗（方法引用会丢 `this` ✓，
+第 185 轮实测过 ✓）。
+
+```ts
+return (promise: Value, value: Value, rejected: boolean): void => {
+  if (rejected) {
+    this.RejectPromise(promise, value);
+  } else {
+    this.ResolvePromise(promise, value);
+  }
+};
 ```
 
 ## method Scheduler:()=>TaskScheduler

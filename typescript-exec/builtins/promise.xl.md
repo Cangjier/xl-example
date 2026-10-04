@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, PromiseState } from "../../runtime/heap.xl.md"
 import { RoomChecker } from "../../runtime/rt.xl.md"
 import { Protos, SetProperty, GetProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
-import { Vm, TaskScheduler } from "../../runtime/vm.xl.md"
+import { Vm, TaskScheduler, TaskSettler } from "../../runtime/vm.xl.md"
 import { Units, NeverCall } from "./array.xl.md"
 import { NameValue } from "./map.xl.md"
 ```
@@ -123,7 +123,7 @@ return GetProperty(room, NeverCall, protos, table, object,
   Value.FromString(table.CreateString(Units(name))));
 ```
 
-# method InvokePromise:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, schedule:TaskScheduler | null)=>Value
+# method InvokePromise:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, schedule:TaskScheduler | null, settle:TaskSettler | null)=>Value
 
 **承诺族的实现**（号段 230..239 ✓，由 `install.xl.md` 那一层分派到这儿 ✓）。
 
@@ -137,8 +137,8 @@ return GetProperty(room, NeverCall, protos, table, object,
 // （`CallNative` 见到宿主引用就转给宿主通道 ✓，于是又回到这个分派 ✓）。
 // **漏了这两支的症状是 `unimplemented: promise builtin id 238`** ✗
 // ——那句话听起来像「有个静态方法没实现」✗，其实是「回调没人接」✓。
-if (id === PromiseAllStepId) return PromiseAllStep(room, table, protos, self, args);
-if (id === PromiseRaceStepId) return PromiseRaceStep(room, table, protos, self, args);
+if (id === PromiseAllStepId) return PromiseAllStep(room, table, protos, self, args, settle);
+if (id === PromiseRaceStepId) return PromiseRaceStep(room, table, protos, self, args, settle);
 if (id === PromiseResolve) {
   const value = args.length > 0 ? args[0] : Value.Undefined();
   return MakePromise(room, table, PromiseState.Fulfilled, value);
@@ -156,15 +156,12 @@ if (id === PromiseAll || id === PromiseRace) {
     throw new Error("unimplemented: Promise.all/race needs an array of promises");
   }
   const count = table.Get(source.Ref).AsArray().GetLength();
-  // **非空的那一档还不做** ✗（第 185 轮量准 ✓）：`all` 要在**最后一个**输入到齐时
-  // 才结清结果承诺 ✓，而那一步要么「让回调自己去结清」✗（建库层够不着
-  // `ResolvePromise` ✗——它是执行器的方法 ✓），要么「让引擎拿回调的返回值去灌」✗
-  // （那会在**第一个**输入到齐时就灌进去 ✗）。要开一格「语言层可用的 settle」✓，
-  // 单独立一轮 ✓。**响亮地抛**比静默给一个永远不结清的承诺好 ✓
-  //（实测过那种症状 ✗：脚本一声不响地结束 ✓，看不出哪一句没跑 ✓）。
-  if (count > 0) {
-    throw new Error("unimplemented: Promise.all/race over a non-empty array "
-      + "(the engine has the task channel, but the language layer cannot settle a promise yet)");
+  // **语言层现在能结清一个承诺了** ✓（第 186 轮 ✓）：引擎多给了一格 `settle` ✓
+  // （`ResolvePromise` / `RejectPromise` 的包装 ✓）。
+  // **这一步是必须的** ✗：自己改状态**不行** ✓——那只把状态改了 ✓、
+  // 没有把等着它的回调排进微任务 ✗（第 185 轮实测过 ✓：脚本一声不响地结束 ✓）。
+  if (settle === null) {
+    throw new Error("unimplemented: Promise.all/race needs the settle channel (the host did not provide it)");
   }
   const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
   // **状态住在堆里** ✓（不是建库层的局部量 ✗）：每一步回调是**另一次调用** ✓，
@@ -179,11 +176,10 @@ if (id === PromiseAll || id === PromiseRace) {
     }
     SetNumberProp(room, table, state, "values", values);
   }
-  // **空数组那一档也走同一条路** ✗：`all([])` 在 JS 里当场兑现成空数组 ✓，
-  // 但那同样是「直接改状态」✗——与上面那一支同一个坎 ✓，一起留给下一轮 ✓。
+  // **`all([])` 当场兑现成空数组** ✓（JS 的口径 ✓）；**`race([])` 永不结清** ✓（也是 JS 的口径 ✓）。
   if (count === 0 && id === PromiseAll) {
-    throw new Error("unimplemented: Promise.all over an empty array "
-      + "(settling from the language layer needs one more engine knob)");
+    settle(result, ReadProp(room, table, protos, state, "values"), false);
+    return result;
   }
   const step = id === PromiseAll ? PromiseAllStepId : PromiseRaceStepId;
   const stepValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(step, 0));
@@ -232,7 +228,7 @@ if (id === PromiseCtor) {
 throw new Error("unimplemented: promise builtin id " + id);
 ```
 
-# method PromiseAllStep:(room:RoomChecker, table:HeapTable, protos:Protos, self:Value, args:Array<Value>)=>Value
+# method PromiseAllStep:(room:RoomChecker, table:HeapTable, protos:Protos, self:Value, args:Array<Value>, settle:TaskSettler | null)=>Value
 
 **`Promise.all` 的一步** ✓——引擎在某个输入结清时调它一次 ✓，
 实参是 `(状态, 下标, 结果承诺, 那个输入的兑现值)` ✓（结清值是引擎**接在最后**的 ✓）。
@@ -259,13 +255,17 @@ if (values.Tag === ValueTag.Array && index >= 0) {
 const left = remaining.AsInt() - 1;
 SetNumberProp(room, table, state, "remaining", Value.FromInt(left));
 if (left <= 0) {
-  table.Get(result.Ref).AsPromise().State = PromiseState.Fulfilled;
-  table.Get(result.Ref).AsPromise().Value = values;
+  // **答案交给引擎去交** ✓（第 186 轮 ✓）：`settle` 就是 `ResolvePromise` ✓——
+  // 它会把等着这个承诺的回调**排进微任务** ✓（自己改状态做不到这一步 ✗）。
+  if (settle === null) {
+    throw new Error("unimplemented: Promise.all needs the settle channel");
+  }
+  settle(result, values, false);
 }
 return Value.Undefined();
 ```
 
-# method PromiseRaceStep:(room:RoomChecker, table:HeapTable, protos:Protos, self:Value, args:Array<Value>)=>Value
+# method PromiseRaceStep:(room:RoomChecker, table:HeapTable, protos:Protos, self:Value, args:Array<Value>, settle:TaskSettler | null)=>Value
 
 **`Promise.race` 的一步** ✓——**第一个**结清的定胜负 ✓。
 
@@ -276,10 +276,12 @@ return Value.Undefined();
 const result = args.length > 2 ? args[2] : Value.Undefined();
 const produced = args.length > 3 ? args[3] : Value.Undefined();
 if (!result.IsObject()) return Value.Undefined();
-const item = table.Get(result.Ref);
-if (item.Promise === null || item.Promise.State !== PromiseState.Pending) return Value.Undefined();
-item.Promise.State = PromiseState.Fulfilled;
-item.Promise.Value = produced;
+if (settle === null) {
+  throw new Error("unimplemented: Promise.race needs the settle channel");
+}
+// **幂等交给引擎** ✓（`ResolvePromise` 自己会判 `Pending` ✓）——
+// 「谁先结清谁定」不需要这里再判一次 ✓（两处判据迟早走偏 ✗）。
+settle(result, produced, false);
 return Value.Undefined();
 ```
 

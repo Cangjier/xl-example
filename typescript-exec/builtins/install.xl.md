@@ -5,7 +5,7 @@ import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } fr
 import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall } from "../../runtime/props.xl.md"
 import { Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom } from "../../runtime/props.xl.md"
-import { Vm, TaskScheduler } from "../../runtime/vm.xl.md"
+import { Vm, TaskScheduler, TaskSettler } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
@@ -45,7 +45,7 @@ if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null)=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null)=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -64,7 +64,7 @@ throw new Error("unimplemented: builtin id " + id);
 // 报的是 `unimplemented: set id 610`，离现场很远）。
 // **承诺那一段排在集合之前**（第 185 轮 ✓）：230..239 是**全局段里的一个窄段** ✓，
 // 按窄到宽判 ✓（写反了会被下面的全局段截走 ✗，症状是「Promise.resolve 报别的号」✗）。
-if (id >= 230 && id < 240) return InvokePromise(room, table, protos, id, self, args, schedule);
+if (id >= 230 && id < 240) return InvokePromise(room, table, protos, id, self, args, schedule, settle);
 if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args);
 if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self, args);
 // **700..799：语言内部辅助**（第 99 轮开的段）。

@@ -2157,7 +2157,7 @@ function lowerAndLoad(source, globals, capabilityOf) {
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
     try {
-      return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {}, host.Machine.Native(), host.Machine.Scheduler());
+      return InvokeWithSink(room, table, host.Machine.Protos, id, self, args, () => {}, host.Machine.Native(), host.Machine.Scheduler(), host.Machine.Settler());
     } catch (error) {
       if (!RaiseFromHost(host.Machine, error)) throw error;
       return Value.Undefined();
@@ -4922,7 +4922,7 @@ check("内建的失败是**脚本接得住**的异常（第 121 轮：Vm.Raise +
   eq(bareEval.Outcome, HostOutcome.Ok, "求值模块（反面）：" + bareEval.Message);
   bare.host.InstallHost((target, self, args, room) => {
     const id = bare.table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeWithSink(room, bare.table, bare.host.Machine.Protos, id, self, args, () => {}, bare.host.Machine.Native(), bare.host.Machine.Scheduler());
+    return InvokeWithSink(room, bare.table, bare.host.Machine.Protos, id, self, args, () => {}, bare.host.Machine.Native(), bare.host.Machine.Scheduler(), bare.host.Machine.Settler());
   });
   let escaped = "";
   try {
@@ -7736,6 +7736,53 @@ check("推迟那一半交给引擎：微任务里调回调，行序与 Node 一�
   eq(lines[6], "value done string", "回调拿到的是**兑现值**（不是承诺）");
   eq(lines[7], "chain 8", "链式：上一步的**返回值**灌进下一步");
   eq(lines[8], "caught2 boom", "`then` 的回调遇到拒绝**不跑** ✓、`catch` 跑 ✓");
+});
+
+console.log("");
+console.log("=== 第 186 轮：`Promise.all` / `race`（引擎那一格「语言层可用的 settle」）===");
+
+check("结清一个承诺必须走执行器：`all` 等最后一个、`race` 第一个定胜负、拒绝顺着结果承诺传下去", () => {
+  // **端到端那一把在 `cases/64-promise-combinators.ts`**（10 行逐字节 ✓）。
+  //
+  // **为什么上一轮只能抛** ✗：`all` **不是**「引擎拿回调的返回值去灌」那个形状 ✓——
+  // 它要在**最后一个**输入到齐时才交答案 ✓（早一步交就是错的 ✓）；
+  // 而建库层**自己改承诺的状态**也不行 ✗：那只把状态改了 ✓、
+  // **没有把等着它的回调排进微任务** ✗（实测过：脚本一声不响地结束 ✓，
+  // 看不出哪一句没跑 ✓）。
+  //
+  // **所以这一轮开的是一格接口** ✓（不是一条捷径 ✗）：`settle` =
+  // `ResolvePromise` / `RejectPromise` 的包装 ✓——语言层只会说
+  // 「把这个承诺按这个值结清」✓，而**排队那一步在执行器里** ✓。
+  //
+  // **两处判据的归属** ✓：`all` 的「还差几个」住在**堆里**（状态对象 ✓——
+  // 每一步回调是另一次调用 ✓，建库层没有「上一次」可记 ✓）；
+  // `race` 的「谁先结清谁定」**不在这里判** ✗（`ResolvePromise` 自己会判 `Pending` ✓，
+  // 两处判据迟早走偏 ✓）。
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [[
+    "console.log('a');",
+    "Promise.all([Promise.resolve(1), Promise.resolve(2)]).then((xs: any) => console.log('all', xs.join(',')));",
+    "console.log('b');",
+    "Promise.all([1, 2, 3].map((n) => Promise.resolve(n * 10))).then((xs: any) => console.log('map', xs.join(',')));",
+    "Promise.race([Promise.resolve('fast'), Promise.resolve('slow')]).then((v: any) => console.log('race', v));",
+    "Promise.all([]).then((xs: any) => console.log('empty', xs.length));",
+    "Promise.all([Promise.resolve(1), Promise.reject('bad')]).catch((e: any) => console.log('rejected', e));",
+    "Promise.resolve(7).then((v: any) => v + 1).then((v: any) => console.log('chain', v));",
+    "console.log('c');",
+  ].join("\n")];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+  eq(lines[0], "a", "同步那一半先跑");
+  eq(lines[1], "b", "第二句同步输出");
+  eq(lines[2], "c", "第三句同步输出");
+  eq(lines[3], "empty 0", "`all([])` 当场兑现成空数组（**它也要走 settle**：光改状态排不了队）");
+  eq(lines[4], "all 1,2", "`all` 按**输入顺序**收值（不是结清顺序）");
+  eq(lines[5], "map 10,20,30", "先 `map` 造一串承诺再 `all`");
+  eq(lines[6], "race fast", "`race`：第一个结清的定胜负");
+  eq(lines[7], "rejected bad", "有一个被拒绝 → 结果跟着拒绝 ✓、`catch` 接住 ✓");
+  eq(lines[8], "chain 8", "链式照旧（第 185 轮那条路没被动过）");
 });
 
 console.log("");
