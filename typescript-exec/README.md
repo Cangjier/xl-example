@@ -244,6 +244,52 @@
 > 它是**顺手用 `Boolean(x)` 那条缺口反查出来的**：`Boolean("")` 该给 `false` ✓，
 > 而实现它的那一格（`Value.AsBool`）给 `true` ✗，于是 `if ("")` **一直在走真那一支** ✓。
 
+### 第 252 轮的账（**拿到栈了：出事的是 `DoCallMethod` 拿一个 `undefined` 当接收者**）
+
+**这一轮只做了一件事** ✓：按上一轮定下的做法，在宿主通道的 `catch` 之前插探针 ✓——
+**它没打印** ✗。于是换到**顶层那个 `catch`** ✓（命令行包着 `RunSources` 的那一个 ✓），
+那一条打出来了 ✓：
+
+```
+PROBE-TOP msg=cannot read properties of undefined
+  at GetProperty            (build/ts/runtime/props.js:228)
+  at Vm.DoCallMethod        (build/ts/runtime/vm.js:733)
+  at Vm.Execute             (build/ts/runtime/vm.js:434)
+  at Vm.RunToDepth          (build/ts/runtime/vm.js:335)
+  at Vm.CallNative          (build/ts/runtime/vm.js:1381)
+  at Vm.RunNativeTask       (build/ts/runtime/vm.js:1848)
+  at Vm.DrainMicrotasks     (build/ts/runtime/vm.js:1725)
+  at Host.Call              (build/ts/runtime/host-abi.js:140)
+```
+
+**栈读出来的事** ✓：
+1. **它是 `DoCallMethod`** ✓（`o.m(...)` 那一族 ✓），**不是** `CallNative` 里面 ✗——
+   第 250 轮那句「那一抛来自 `CallNative` 里面」**到此为止被推翻了** ✓
+   （`CallNative` 在栈上 ✓，但它只是**外层** ✓：真正的抛出点在它下面的 `Execute` 那一层 ✓）；
+2. **它没有经过 `Guard`** ✗——所以它**从来没有被翻成脚本异常** ✓，
+   这也解释了为什么上一轮那句「宿主那一层的 `catch`」也没接到它 ✓（两条都不是它 ✓）；
+3. **接收者是 `undefined`** ✓（`GetProperty` 那一句就是「读 `null` / `undefined` 的属性」✓），
+   而**键是一个字符串** ✓（探针量到 `key` 的 `Tag` 是 `5` = 字符串 ✓）——
+   也就是说这句脚本在**读一个 `undefined` 的字符串属性** ✓，
+   现场就是 `…then(() => { console.log("4"); Promise.resolve().then(() => console.log("5")); })` ✓。
+
+**它把范围收到了「一行」** ✓：`vm.js:733` 那一句 ✓（`DoCallMethod` 里那一次 `GetProperty` ✓）——
+要答的问题是**它的接收者那一格为什么是 `undefined`** ✗；
+而在微任务里跑的这段码 ✓，接收者要么是 `Promise` ✓、要么是 `console` ✓——
+两者都在**全局对象**上 ✓，所以下一轮第一个要量的是
+**「微任务那一帧里，全局那一格还找得到吗」** ✓
+（`RunNativeTask` 是**另一次 `CallNative`** ✓，它建的帧与顶层那一帧**不是同一份词法环境** ✓）。
+
+**这一轮没有动一行仓库代码** ✓（探针都打在生成物上 ✓，量完 `npm run compile` 重生成 ✓）：
+`runtime:check` **241/241** ✓、`runtime:cli` **79/79** ✓、覆盖度与上一轮相同 ✓（`90.0%` ✓）。
+
+**方法上又留下一条** ✓：**栈比逐句探针便宜得多** ✗——
+第 250 轮插了四条探针 ✓ 才把范围收到「`CallNative` 那一句」✓，
+而这一轮**一条顶层 `catch` 探针就打出了十帧** ✓，其中**最后三帧**（`DrainMicrotasks` →
+`RunNativeTask` → `CallNative`）正是那三条探针花了一轮才拼出来的东西 ✓。
+**下一轮先找 `catch`** ✓：引擎里每一条「抛出去再说」的路 ✓ 都由某一层 `catch` 兜着 ✓，
+而在**兜住的那一句**上打栈 ✓，一行的信息量比四条探针还大 ✓。
+
 ### 第 251 轮的账（**上一轮那句结论要往前挪一格：那一抛不在引擎里，在宿主那一层**）
 
 **上一轮把嫌疑收成了「`CallNative` 里面」** ✓（四条探针 ✓）。
