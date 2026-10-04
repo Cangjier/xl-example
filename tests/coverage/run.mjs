@@ -267,7 +267,7 @@ const summary = {
   round: value("--round", ""),
   matrix: selected.length,
   skipped: skipped.map((entry) => ({ id: entry.id, layer: entry.layer, why: entry.skip })),
-  progress: Number(progress.toFixed(2)),
+  progressPercent: Number((progress * 100).toFixed(2)),
   layers: rows.map((bucket) => ({
     layer: bucket.layer,
     weight: weightOf(bucket.layer),
@@ -286,7 +286,14 @@ const summary = {
   regressions: regressions.map((r) => ({ id: r.entry.id, layer: r.entry.layer, detail: r.detail })),
 };
 
-if (writeReport) {
+// **过滤过的一次运行不覆盖读数** ✗（第 205 轮补的）：`report.json` 是**整张矩阵**的读数 ✓，
+// 而 `--layer` / `--filter` 只是一次查看 ✓——让它覆盖的话，那一次**部分**运行会被当成全局读数 ✓
+//（**静默** ✗：文件里还是那份 JSON，只是分母悄悄变了几条 ✓）。
+const filteredRun = layerFilter !== "" || idFilter !== "";
+if (writeReport && filteredRun) {
+  console.log("（这是**过滤后**的一次运行，`report.json` 不覆盖——去掉 `--layer` / `--filter` 再跑才会写读数）");
+}
+if (writeReport && !filteredRun) {
   fs.writeFileSync(reportPath, JSON.stringify(summary, null, 2) + "\n", "utf8");
   console.log(`report.json 已写：${path.relative(root, reportPath)}`);
 }
