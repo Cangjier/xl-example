@@ -6,6 +6,100 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 306 轮的账（**取属性那条路上的访问器 + 计算名生成器方法** —— 91.6% → 91.7%，收掉 3 格 + token 层 2 处）
+
+### 一、这一轮的选题：照上一轮量出来的根子收，而不是再铺分母
+
+第 305 轮把矩阵铺到 1098 条之后，缺口清单里**同一组判据最多的一簇**是 **④ 取属性那条路上没有访问器** ✓——
+两条判据看着像两件事 ✓（一条在标准库：`Object.prototype.toString` 不认 getter 提供的
+`Symbol.toStringTag` ✓；一条在语言层：`{...o}` 展开不调 getter ✓），量下来是**同一条路**上的事 ✗。
+顺带把**同一个形状的第三处**（对象剩余的**符号键** ✓）一起收 ✓。
+
+### 二、收掉的三格
+
+**① `{ ...{ get x() { … } } }` 要给 getter 的结果** ✓（判据 `c305-rt-object-spread-triggers-getter` ✓）
+
+对象展开与 `Object.assign` 在 JS 里走的都是 **`[[Get]]`** ✓（`CopyDataProperties` ✓）——
+而 `Object.assign` 那一支**访问器直接跳过** ✗（注释里写着「这一层不调 getter」✓），
+于是 `{...src}.x` 是 `undefined` ✓（Node 给 `1` ✓，**静默错值** ✗）。
+修法：键照旧先抄一遍 ✓（`Object.assign(o, o)` 那条「边读边写会让属性表在遍历中变长」的纪律还在 ✓），
+**访问器那一格的值不在收集趟里取** ✗——getter 的结果**不属于任何对象** ✓，
+抄进 `values` 再写就是让一个没人指着的值跨越一次分配 ✗——
+写那一趟按**键**重新认出访问器 ✓、**先问一次 room** ✓、再 `GetProperty` ✓、紧接着 `SetProperty` ✓。
+`call === null`（宿主没接通道 ✓）时照旧跳过 ✓：宁可少一格，也不凭空给一个 `undefined` ✗。
+
+**② 对象剩余要带走符号键** ✓（判据 `c305-rt-object-rest-keeps-symbol` ✓）
+
+`const { a, ...rest } = o` 里 `rest` 该带着 `o` 的**可枚举自有符号键** ✓，
+而 `RestObject` 那一句只认字符串 ✓ ⇒ 符号键**静默丢掉** ✓（`rest[s]` 是 `undefined` ✓）。
+**内部格不会因此漏出去** ✓：它们是**不可枚举**的 ✓（`SetHiddenProperty` ✓）。
+**修的时候当场踩了一脚** ✗：`InExcluded` 拿键去 `AsString()` ✓，
+遇到符号键当场抛 `heap object is not a string` ✓（**整份文件进不来** ✗，
+而那句话听起来像「对象表坏了」✗）——所以那一格先答「符号键不在名单里」✓
+（名单装的是**编译期算好的文本键** ✓，符号不可能等于任何文本 ✓）。
+**一处已知差写在明处** ✗：`const { [符号]: v, ...rest } = o` 里那个符号该被排除 ✓，
+而名单只有文本 ⇒ 它会被留下 ✓（判据里还没有这一格 ✓）。
+
+**③ `Object.prototype.toString` 要问 getter 版 `Symbol.toStringTag`** ✓（判据 `c305-std-symbol-tostringtag-custom` ✓）
+
+`class C { get [Symbol.toStringTag]() { return "Custom" } }` 是日常写法 ✓，
+而 `ObjectTagOverride` 用的是 `FindProperty` ✓（**只认数据属性** ✓）——
+访问器那一档直接 `return ""` ✓ ⇒ `[object Object]` ✓（Node 给 `[object Custom]` ✓）。
+修法：`ObjectTagOf` / `ObjectTagOverride` 各收 `room` 与 `call` 两格 ✓，
+有通道时走 `GetProperty` ✓（数据属性给值 ✓、访问器调 getter ✓、原型链照旧 ✓）；
+**没通道时退回老口径** ✓（只认数据属性 ✓，不猜 ✓）。
+`tests/runtime/check.mjs` 里那条单元判据（「不能给近似值的那几格」✓）**跟着改了调用点** ✓——
+它本来就是在量这一格的语义 ✓，没有通道就传 `null` ✓。
+
+### 三、token 层两处：计算名的生成器方法（与 TS 的 AST 对过）
+
+判据 `c305-e2e-linked-list-ops` 这一轮**从「投影错」推进到「运行期错」** ✓，
+中间在 token 层量出**两处** ✗，两处都修了 ✓、都用 `cases:tsast` 守着 ✓
+（**1444 条四方向全 0** ✓，节点集合与区间一个都没变 ✓）。
+
+**① 二元运算符的左操作数必须真的在运算符左边** ✓（`binary-operator.xl.md` ✓）
+
+`class A { *[k]() { … } }` 里那个 `*` 本该是**生成器标记** ✓，却被折成了**乘法** ✗：
+折出来的 `<BinaryOperator op="*">` 左孩子是**计算名那个 `[k]`** ✓（它排到了 `*` **后面** ✗）、
+右孩子是**形参那对圆括号** ✓（被收成了空 `ArrayLiteral` ✓）。
+**为什么以前没量到** ✗：`[k]()` 没有 `*` ✓、`*g()` 没有方括号 ✓，
+**两样凑齐才现形** ✓（生成器方法写成计算名 —— `*[Symbol.iterator]()` 正是这种写法 ✓）。
+修法是一条**次序判据** ✓：左操作数的终点不得晚于运算符的起点 ✓
+（真正的二元表达式里这一条**必然**成立 ✓，与优先级、结合性都无关 ✓）。
+**写它的时候自己踩了一次** ✗：第一版用了 `x.End!.Index > y.Start!.Index` ✓，
+于是**本文件自己**在 `cases:tsast` 里多出一个假 `BinaryExpression` ✓、一个假 `DotToken` ✓
+与一处区间漂移 ✓——本仓的规范文件**也是那面镜子的语料** ✓，
+而「非空断言串在成员链上」那一族**还没修完** ✓（第 303 / 304 轮的账 ✓）。
+改成两个本地量、一层一层判空 ✓，一个 `!` 都不写 ✓。
+
+**② 名字那一格不要收两遍** ✓（`method-declaration.xl.md` ✓）
+
+次序判据修好之后，投影还是不对 ✓：`parameters` 里冒出一个**空的 `ArrayLiteralExpression`** ✓
+（TS 给 `parameters: []` ✓），降级层报 `unimplemented: parameter without a name` ✓
+（**整份文件进不来** ✗，而那句话听起来像「形参写错了」✗）。
+根子在同一段里 ✗：计算名那一支已经把名字单元收进去了 ✓，
+而下面那个「把 `index` 与形参表之间的单元都收进来」的循环**从 `index + 1` 起步** ✓——
+「生成器记号 + 计算名」时 `nameIndex` 正好是 `index + 1` ✓ ⇒ 同一个单元收两次 ✓；
+`AddAndCloseLast` 是**搬** ✓，第二次收到的是一个**空壳** ✓。
+判据**必须带上 `computedName`** ✗：`*g() {}` 那一档 `nameIndex` 也等于 `index + 1` ✓，
+可名字正是靠这个循环收进去的 ✓——无条件跳过会把名字整格丢掉 ✗。
+
+### 四、这一轮**没**收掉的那一格（量准了，写在这里）
+
+投影修好之后这一条**还是没过** ✗，但卡的地方**深了一层** ✓——现在是**运行期**：
+
+| 写法 | 本仓 | Node |
+| --- | --- | --- |
+| `const it = a[Symbol.iterator](); it.next()` | ✓ `{value:1,done:false}` | ✓ |
+| `[...a]` / `Array.from(a)` / `for (const v of a)` | ✗ `suspend outside a generator` | ✓ `1,2` |
+| `[...a[Symbol.iterator]()]` | ✗ `[object Object]` | ✓ `1,2` |
+| 同一个生成器方法改个普通名、再用普通方法返回它 | ✓ 全对 | ✓ |
+
+⇒ 根子在**「计算成员名 + 生成器方法」进迭代协议那一条路**上 ✓（不在投影 ✓、不在降级层 ✓）：
+**直接调它对** ✓，**由协议 / 展开去调它就丢了生成器那一档** ✗。
+它与台账里 `c291-symbol-wellknown-custom-iterator` 那一行**是同一个根** ✓
+（那一行写的是「方法那一格建成了普通闭包」✓，这一轮把触发面量窄了 ✓）。
+
 ## 第 305 轮的账（**先把语料铺满：加宽 169 条 + 当场收掉 4 格** —— 94.9% → 91.6%，分母 +18%）
 
 ### 一、加宽：169 条候选，先普查再收编

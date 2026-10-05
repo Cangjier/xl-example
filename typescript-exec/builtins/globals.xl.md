@@ -536,7 +536,7 @@ return Value.FromString(table.CreateString(Units("__boundArgs")));
 「算术作用于非数值」✗——第 198 轮把 `ToPrimitive` 做出来之后 ✓，
 这一步就是**对象那一支的最后一块** ✓（`[] + 1` 早就有 `Array.prototype.toString` ✓ 了 ✓）。
 
-# method ObjectTagOf:(table:HeapTable, protos:Protos, value:Value)=>string
+# method ObjectTagOf:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, value:Value)=>string
 
 **`Object.prototype.toString` 该给哪个标签** ✓——**能证的证、不能证的抛** ✓（第 198 轮）。
 
@@ -594,7 +594,7 @@ if (value.Tag === ValueTag.Object && RtChainHas(table, value, protos.Error)) ret
 // `new Map()` 明明带 `__k` 标记 ✓，可 JS 给的是 `"[object Map]"` ✓，
 // 而那一格**正是** `Map.prototype[Symbol.toStringTag]` 供的 ✓（本仓没有那一格 ✗，
 // 所以下面那三族照旧抛 ✓）。**顺序反了**就会让「自己的 `toStringTag`」被标记格抢先 ✗。
-const tag = ObjectTagOverride(table, protos, value);
+const tag = ObjectTagOverride(room, call, table, protos, value);
 if (tag !== "") return tag;
 const marker = DateMarker(table, value);
 if (marker !== "") {
@@ -603,7 +603,7 @@ if (marker !== "") {
 return "Object";
 ```
 
-# method ObjectTagOverride:(table:HeapTable, protos:Protos, value:Value)=>string
+# method ObjectTagOverride:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, value:Value)=>string
 
 **这个对象自己的 `Symbol.toStringTag`**（第 229 轮 ✓）——没给、或者给的**不是字符串**就给空串 ✓。
 
@@ -619,10 +619,16 @@ return "Object";
 （`props.xl.md` ✓，第 184 轮 ✓）——引擎不该认识 `Symbol` 这六个字 ✓，
 而这一层是**语言层** ✓，所以它问的是**自己填的那张表** ✓。
 
-**`FindProperty` 而不是 `GetProperty`** ✓：这一格只该问**自有 + 原型链上的数据属性** ✓，
-而这个判断在**建库层**跑 ✓（拿不到 `NativeCall` ✓）——访问器那一档直接跳过 ✓
-（`{ get [Symbol.toStringTag]() { return "X" } }` 这种写法**给不出答案** ✗，记在明处 ✓，
-退到内置分派而不是猜一个 ✓）。
+**第 306 轮把「取值」那一步改对了** ✗（原来是 `FindProperty` ✓，只认数据属性 ✓）：
+JS 的 `o[Symbol.toStringTag]` 是一次 **`[[Get]]`** ✓——**访问器要调 getter** ✓。
+`class C { get [Symbol.toStringTag]() { return "Custom" } }` 是日常写法 ✓，
+而原来那一支对访问器**直接 `return ""`** ✗ ⇒ `Object.prototype.toString.call(new C())`
+给 `[object Object]` ✓（Node 给 `[object Custom]` ✓，**静默错值** ✗）。
+**与 `Object.assign` 的展开那一处是同一个根** ✓：读属性有两条路，
+这两处走的是**没有访问器那一档**的那条 ✓。
+
+**没有通道时退回老口径** ✓（`call === null` ✓）：照旧只认数据属性 ✓——
+宁可少答一格 ✓，也不能为了「看起来支持访问器」去猜一个值 ✗。
 
 ```ts
 if (protos.WellKnownSymbols <= 0) return "";
@@ -631,12 +637,23 @@ const symbolTable = Value.FromObject(protos.WellKnownSymbols);
 const lookupKey = Value.FromString(table.CreateString(Units("toStringTag")));
 const tagSymbol = GetProperty(NeverRoom, NeverCall, protos, table, symbolTable, lookupKey);
 if (tagSymbol.Tag !== ValueTag.Symbol) return "";
-const found = FindProperty(NeverRoom, table, value.Ref, tagSymbol);
-if (found === null) return "";
-const property = table.Get(found.Owner).Props[found.Index];
-if (property.Kind === PropertyKind.Accessor) return "";
-if (property.Value.Tag !== ValueTag.String) return "";
-return TextFrom(table, property.Value);
+let tagValue = Value.Undefined();
+if (call !== null) {
+  // **走 `[[Get]]`** ✓：数据属性给值 ✓、访问器调 getter ✓、原型链照旧走 ✓
+  //（`Map.prototype[Symbol.toStringTag]` 就在链上 ✓）。
+  // **它可能重入脚本** ✓（getter 是脚本 ✓）——所以先问一次 room ✓，
+  // 让回收落在「值还不存在」的时候 ✓（与上面 `Object.assign` 那一处同一条纪律 ✓）。
+  if (!room(PropertyCharge)) throw new Error("out of room");
+  tagValue = GetProperty(room, call, protos, table, value, tagSymbol);
+} else {
+  const found = FindProperty(NeverRoom, table, value.Ref, tagSymbol);
+  if (found === null) return "";
+  const property = table.Get(found.Owner).Props[found.Index];
+  if (property.Kind === PropertyKind.Accessor) return "";
+  tagValue = property.Value;
+}
+if (tagValue.Tag !== ValueTag.String) return "";
+return TextFrom(table, tagValue);
 ```
 
 # const NumberIsInteger:int = 320
@@ -2115,7 +2132,7 @@ if (id === ObjectToString) {
   if (self.Tag === ValueTag.Null) {
     return Value.FromString(table.CreateString(Units("[object Null]")));
   }
-  const text = "[object " + ObjectTagOf(table, protos, self) + "]";
+  const text = "[object " + ObjectTagOf(room, call, table, protos, self) + "]";
   if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(text)));
 }
@@ -2411,16 +2428,47 @@ if (id === ObjectAssign) {
     const keys: Value[] = [];
     const values: Value[] = [];
     for (let i = 0; i < own.Props.length; i++) {
-      if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
-      // **访问器跳过** ✓（`keys` / `values` / `entries` 那一条口径 ✓：这一层不调 getter ✗）。
-      if (own.Props[i].IsAccessor()) continue;
+      const keyHandle = own.Props[i].Key;
+      const keyTag = table.Get(keyHandle).Tag;
+      // **字符串键与符号键都要抄** ✓（第 306 轮修的 ✗）：JS 的对象展开 / `Object.assign`
+      // 带走**可枚举的自有符号键** ✓（`{ ...{ [s]: 1 } }` 里那个符号键在 ✓）——
+      // 原来这一句只认字符串 ✗ ⇒ 符号键**静默丢掉** ✓（判据 `c305-rt-object-rest-keeps-symbol` ✓）。
+      // **内部格不会因此漏出去** ✓：它们都是**不可枚举**的 ✓（`SetHiddenProperty` ✓），
+      // 下面那一句自己会挡 ✓。
+      if (keyTag !== ValueTag.String && keyTag !== ValueTag.Symbol) continue;
       // **可枚举才算**（第 182 轮，与 `keys` 那一条同一处修正 ✓）。
       if (!own.Props[i].IsEnumerable()) continue;
-      keys.push(Value.FromString(own.Props[i].Key));
+      // **访问器不再跳过** ✓（第 306 轮修的 ✗）：JS 的对象展开与 `Object.assign`
+      // 走的都是 **`[[Get]]`** ✓——`{ ...{ get x() { … } } }` 会**调 getter** ✓。
+      // 原来这里跳过 ✗ ⇒ 那一格**整格不见** ✓（判据 `c305-rt-object-spread-triggers-getter` ✓，
+      // **静默错值** ✗）。
+      //
+      // **值那一格这一刻不抄** ✗：getter 的结果**不属于任何对象** ✓（下面那条
+      // 「源是这次调用的根、抄进来的值住在源的属性表里」的理由对它不成立 ✓），
+      // 抄进 `values` 再写就是让一个没人指着的值跨越一次分配 ✗。
+      // 所以访问器那一格照旧 push（写那一趟会按**键**重新认出它 ✓），
+      // 真取值放在写那一趟、紧挨着 `SetProperty` ✓。
+      keys.push(keyTag === ValueTag.Symbol
+        ? Value.FromRef(ValueTag.Symbol, keyHandle)
+        : Value.FromString(keyHandle));
       values.push(own.Props[i].Value);
     }
     for (let i = 0; i < keys.length; i++) {
-      SetProperty(room, NeverCall, table, target, keys[i], values[i]);
+      let value = values[i];
+      const again = FindProperty(room, table, source.Ref, keys[i]);
+      if (again !== null && again.Owner === source.Ref
+        && table.Get(again.Owner).Props[again.Index].Kind === PropertyKind.Accessor) {
+        // **没有通道时照旧跳过** ✓（`call === null` 是「宿主没接那一格」✓，
+        // 与 `failed` / `keep` 同一条可选服务的纪律 ✓——那时宁可少一格 ✓，
+        // 也不能凭空给一个 `undefined` ✗）。
+        if (call === null) continue;
+        // **取值就在这一刻** ✓：读到写之间只有这两句 ✓——先问一次 room ✓，
+        // 让可能发生的那次回收落在**值还不存在**的时候 ✓（与 `Object.groupBy`
+        // 那两处「先问 room、再分配」同一条纪律 ✓）。
+        if (!room(PropertyCharge)) throw new Error("out of room");
+        value = GetProperty(room, call, protos, table, source, keys[i]);
+      }
+      SetProperty(room, NeverCall, table, target, keys[i], value);
     }
   }
   // **返回的是目标本身** ✓（JS 的口径 ✓，不是一份拷贝 ✓）。

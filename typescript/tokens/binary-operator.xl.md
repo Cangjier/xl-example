@@ -413,7 +413,38 @@ if (this.IsCommaExpressionComma(units, index) === false) {
 if (this.IsOperator(current) === false) {
   return false;
 }
-if (this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index))) === false) {
+// **左操作数必须真的在运算符左边** ✓（第 306 轮 ✓）——**次序**这一条与「是不是操作数」
+// 是两件事 ✗：上面那一句只问「那一格长得像不像操作数」✓，而这一条问的是
+// 「它**真的排在运算符前面**吗」✓。
+//
+// **不挡的话会折出一个语法上不可能的节点** ✗，实测的形状是**生成器 + 计算成员名** ✓：
+// `class A { *[k]() { … } }` 里那个 `*` 本该是**生成器标记** ✓，可它被当成了**乘法** ✗——
+// 折出来的 `<BinaryOperator op="*">` 左孩子是**计算名那个 `[k]`** ✓（它的起点在 `*`
+// **之后** ✓）、右孩子是**形参那对圆括号** ✓（被收成了空 `ArrayLiteral` ✓），
+// 于是方法声明那一格拿不到名字 ✓：`*[k]()` 的 `name` 成了 `"k"` ✓（`*[Symbol.iterator]()`
+// 干脆是空串 ✓），而降级层报 `ast node MethodDeclaration has no child name` ✓
+//（**整份文件进不来** ✗，判据 `c305-e2e-linked-list-ops` ✓）。
+// **与 `ts.createSourceFile` 对过** ✓（用户口径里那一句 ✓）：
+// TS 给的是 `MethodDeclaration(asteriskToken) > name: ComputedPropertyName` ✓——**名字在** ✓。
+//
+// **为什么这一条是安全的** ✓：一个真正的二元表达式里，左操作数**必然**结束于运算符之前 ✓
+//（这是源码顺序决定的 ✓，与优先级、结合性都无关 ✓）。所以它只挡「本来就排错了的那一次折」✓。
+// **范围任一格没签**（`null` ✓）就照旧放行 ✓——不拿一个猜出来的位置当判据 ✓。
+//
+// **`!` 一个都不要写** ✗（实测踩过 ✓）：这一段**自己也是 `cases:tsast` 的语料** ✓，
+// 而「非空断言串在成员链上」那一族**还没修完** ✓（第 303 / 304 轮的账 ✓）——
+// 写成 `x.End!.Index > y.Start!.Index` 会让**本文件**当场多出一个假 `BinaryExpression` ✓、
+// 一个假 `DotToken` ✓ 与一处区间漂移 ✓（`cases:tsast` 报的就是这三格 ✓）。
+// 收成两个本地量、一层一层判空 ✓，既不写 `!` ✓，读起来也更直白 ✓。
+const opStart = current.SourceRange.Start;
+const leftUnit = Get(units, SkipPreviousWrapSymbol(units, index));
+if (leftUnit !== null && opStart !== null) {
+  const leftEnd = leftUnit.SourceRange.End;
+  if (leftEnd !== null && leftEnd.Index > opStart.Index) {
+    return false;
+  }
+}
+if (this.IsOperand(leftUnit) === false) {
   return false;
 }
 // **右结合的运算符要先折右边那一处**（第 164 轮）✓。

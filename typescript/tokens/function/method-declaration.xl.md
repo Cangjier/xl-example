@@ -645,6 +645,26 @@ if (privateMark !== null) {
 let i = index + 1;
 while (i < parametersIndex) {
   const item = Get(units, i);
+  // **计算名那一格不要收第二遍** ✓（第 306 轮 ✓）——**只有「生成器记号 + 计算名」
+  // 这个组合会撞上** ✗：那时 `nameIndex` 是 `index + 1`（`*` 后面那一格 ✓），
+  // 而上面 `computedName` 那一支已经把它收进去了 ✓，这个循环又从 `index + 1` 起步 ✓
+  // ⇒ 同一个单元被收两次 ✓。
+  //
+  // **第二次收的后果不是「多一格名字」** ✗：`AddAndCloseLast` 是**搬**（搬完那一格
+  // 在父列表里就空了 ✓），再收一次得到的是一个**空的 `ArrayLiteral`** ✓——
+  // 实测产物：`<MethodDeclaration name=""><ArrayLiteral>[Symbol.iterator]</ArrayLiteral>
+  // <SymbolToken>*</SymbolToken><ArrayLiteral></ArrayLiteral><Bracket startBracket="(">…`
+  // （中间那个空 `ArrayLiteral` 就是它 ✓）。投影按 `WRAPPER_FIELDS` 把 `Bracket` 摊成
+  // `parameters` ✓，而那个空数组字面量**也**落在 `parameters` 里 ✓ ⇒ 降级层报
+  // `unimplemented: parameter without a name` ✓（**整份文件进不来** ✗，
+  // 而那句话听起来像「形参写错了」✗，判据 `c305-e2e-linked-list-ops` ✓）。
+  //
+  // **判据必须带上 `computedName`** ✗：`*g() {}` 那一档 `nameIndex` 也等于 `index + 1` ✓，
+  // 可名字（`Identifier`）**正是**靠这个循环收进去的 ✓——无条件跳过会把名字整格丢掉 ✗。
+  if (computedName && i === nameIndex) {
+    i = i + 1;
+    continue;
+  }
   if (!(item instanceof LineWrap)) {
     result.AddAndCloseLast(item!);
   }

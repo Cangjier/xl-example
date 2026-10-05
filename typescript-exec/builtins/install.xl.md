@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } from "../../runtime/heap.xl.md"
+import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyCharge, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
@@ -149,7 +149,7 @@ if (id === ArrayRestId) {
 }
 if (id === RestObjectId) {
   if (args.length < 2) throw new Error("unimplemented: rest_object needs (source, excluded)");
-  return RestObject(room, table, protos, args[0], args[1]);
+  return RestObject(room, call, table, protos, args[0], args[1]);
 }
 // **`String.split` 也要 `protos`**（第 120 轮）：它返回一个数组 ✓——理由与上面那一条一字不差 ✓
 // （`InvokeString` 的签名里没有原型表，而为了一个方法去改那一块的签名会牵动所有调用点 ✓）。
@@ -776,7 +776,7 @@ for (let i = at; i < count; i++) {
 return out;
 ```
 
-# method RestObject:(room:RoomChecker, table:HeapTable, protos:Protos, source:Value, excluded:Value)=>Value
+# method RestObject:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, source:Value, excluded:Value)=>Value
 
 **`const {a, ...rest} = o` 里的那个 `rest`**（第 135 轮）：把 `source` 的**自有可枚举**属性
 抄进一个新对象，**去掉 `excluded` 里列出的那些键** ✓。
@@ -785,8 +785,14 @@ return out;
 而「已经拆走的」在**编译期**就知道 ✓（同一份模式里前面那几个成员的键 ✓）。
 引擎不认识「模式」✗，所以名单由降级层算好递进来 ✓（形状与 `ArrayRest` 那条一致 ✓）。
 
-**访问器跳过** ✓（与 `Object.assign` / `keys` / `values` 同一条口径 ✓）——
-**一处已知差**：JS 的对象剩余走 `[[Get]]` ✓，会调 getter ✗（记在台账 ✓）。
+**第 306 轮把两处与 `Object.assign` 拉齐了** ✓（它们本来就是**同一件事** ✓：
+JS 的对象剩余与对象展开走的都是 `CopyDataProperties` ✓）：
+**① 访问器要取值** ✓——JS 的对象剩余走 `[[Get]]` ✓、会调 getter ✓，
+原来这里跳过 ✗（那一格整格不见 ✓，**静默错值** ✗）；
+**② 符号键要带走** ✓——JS 抄的是「可枚举的自有属性」✓，
+**字符串键与符号键都算** ✓（`const { a, ...rest } = o` 里 `rest` 带着 `o` 的符号键 ✓），
+原来那一句只认字符串 ✗ ⇒ 符号键静默丢掉 ✓（判据 `c305-rt-object-rest-keeps-symbol` ✓）。
+**内部格不会因此漏出去** ✓：它们是**不可枚举**的 ✓（`SetHiddenProperty` ✓）。
 
 **源不是对象就给空对象** ✓（`{...null}` / `{...undefined}` 在 JS 里都是 `{}` ✓）；
 **原始值来源跳过** ✗（JS 的 `{...'ab'}` 给 `{0:'a',1:'b'}` ✓——本仓没有装箱那一层 ✓，
@@ -799,14 +805,28 @@ const own = table.Get(source.Ref);
 const keys: Value[] = [];
 const values: Value[] = [];
 for (let i = 0; i < own.Props.length; i++) {
-  if (table.Get(own.Props[i].Key).Tag !== ValueTag.String) continue;
-  if (own.Props[i].IsAccessor()) continue;
-  if (InExcluded(table, excluded, own.Props[i].Key)) continue;
-  keys.push(Value.FromString(own.Props[i].Key));
+  const keyHandle = own.Props[i].Key;
+  const keyTag = table.Get(keyHandle).Tag;
+  if (keyTag !== ValueTag.String && keyTag !== ValueTag.Symbol) continue;
+  if (!own.Props[i].IsEnumerable()) continue;
+  if (InExcluded(table, excluded, keyHandle)) continue;
+  // **访问器那一格的值这一刻不抄** ✓（与 `Object.assign` 那一趟同一条理由 ✓）：
+  // getter 的结果不属于任何对象 ✓，不能跨越一次分配 ✓——写那一趟按**键**重新认它 ✓。
+  keys.push(keyTag === ValueTag.Symbol
+    ? Value.FromRef(ValueTag.Symbol, keyHandle)
+    : Value.FromString(keyHandle));
   values.push(own.Props[i].Value);
 }
 for (let i = 0; i < keys.length; i++) {
-  SetProperty(room, NeverCall, table, out, keys[i], values[i]);
+  let value = values[i];
+  const again = FindProperty(room, table, source.Ref, keys[i]);
+  if (again !== null && again.Owner === source.Ref
+    && table.Get(again.Owner).Props[again.Index].Kind === PropertyKind.Accessor) {
+    if (call === null) continue;
+    if (!room(PropertyCharge)) throw new Error("out of room");
+    value = GetProperty(room, call, protos, table, source, keys[i]);
+  }
+  SetProperty(room, NeverCall, table, out, keys[i], value);
 }
 return out;
 ```
@@ -821,6 +841,15 @@ return out;
 
 ```ts
 if (excluded.Tag !== ValueTag.Array) return false;
+// **符号键不在名单里** ✓（第 306 轮 ✓）：那份名单装的是**编译期算好的文本键** ✓
+//（`lowering.xl.md` 的 `KeyUnitsOf` ✓），而符号**不可能**等于任何文本 ✓——
+// 所以这一格直接答「没排除」✓。
+// **少了这一句会当场抛** ✗：`table.Get(key).AsString()` 拿到一个符号时抛
+// `heap object is not a string` ✓（**整份文件进不来** ✗，本轮实测踩过一次 ✓——
+// 它发生在把符号键收进剩余之后 ✓，所以是**同一处改动**带出来的 ✓）。
+// **一处已知差**写在明处 ✗：`const { [符号]: v, ...rest } = o` 这条写法里那个符号
+// 该被排除 ✓，而名单只有文本 ⇒ 它会被留下 ✓（判据里还没有这一格 ✓，先记在这里 ✓）。
+if (table.Get(key).Tag !== ValueTag.String) return false;
 const items = table.Get(excluded.Ref).AsArray();
 const needle = table.Get(key).AsString();
 for (let i = 0; i < items.GetLength(); i++) {

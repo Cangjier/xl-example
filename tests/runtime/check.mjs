@@ -8547,9 +8547,13 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
   const table = new HeapTable();
   const machine = new Vm(table, 1 << 20, 10000);
   const protos = InitProtos(machine.Room(), table);
+  // **`ObjectTagOf` 第 306 轮多了两格** ✓（`room` 与 `call` ✓）：走 `[[Get]]` 之后
+  // 访问器要**调 getter** ✓，那是一次重入 ✓——所以它要一个房间检查与一条调用通道 ✓。
+  // 这一条单元判据**没有通道** ✓，于是传 `null` ✓：语义退回「只认数据属性」✓
+  //（正是下面这几格要量的东西 ✓，一个都不受影响 ✓）。
   const ask = (value) => {
     try {
-      return ObjectTagOf(table, protos, value);
+      return ObjectTagOf(machine.Room(), null, table, protos, value);
     } catch (error) {
       return "!" + String(error.message);
     }

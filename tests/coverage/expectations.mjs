@@ -676,8 +676,6 @@ export const EXPECTATIONS = {
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
   "c305-rt-let-loop-inner-const-capture": { expect: "differ", why: "**循环体里的 `const` 不是每一轮一格**：`for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包该给 `0,10,20`，本仓给空/0/1（**静默错值**）。与 `c304-rt-closure-capture-in-forof`、`rt-loop-capture-let-vs-var` **同一个根**：降级层还没有「每个迭代开一格环境」" },
-  "c305-rt-object-rest-keeps-symbol": { expect: "differ", why: "对象剩余**丢掉符号键**：`const { a, ...rest } = o` 之后 `rest[s]` 是 `undefined`（Node 给 `2`——`{ ...o }` 与 `...rest` 都带走**可枚举的符号键**）。根子在那一支只按**文本键**扫 `Props`（符号键是句柄、不是文本）" },
-  "c305-rt-object-spread-triggers-getter": { expect: "differ", why: "对象展开**不取值**：`{ ...src }` 里 `src.x` 是一个 getter，Node 会调它一次，本仓给 `undefined`（**静默错值**）。根子是展开读的是**属性表里那一格**，没走「读属性」（访问器）那条路——与 `c305-std-symbol-tostringtag-custom` 同一个根" },
   "c305-rt-async-generator-await-inside": { expect: "differ", why: "**异步生成器里 `await` 之后再 `yield` 什么都不出**：`for await (const v of g())` 一行都不打印（Node 给 `10,20`）。同步生成器与 `yield await` 之外的异步生成器是好的 ⇒ 挂起点与微任务队列在异步生成器那一帧上的交界没接上" },
   "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
   "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
@@ -689,7 +687,6 @@ export const EXPECTATIONS = {
   "c305-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers` 没有——要造一对结清回调并把它们与承诺一起交出去（`MakeSettleCallback` 那一族现成）" },
   "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
   "c305-std-then-returns-promise-adoption": { expect: "differ", why: "`then` 回调**返回一个承诺**时要采纳它：本仓当成普通值灌进去 ⇒ 后面 `.then` 拿到承诺对象。与 `c304-rt-promise-then-returns-promise`、`promise-constructor` 同一个根（`AdoptInto` 从未被触达）" },
-  "c305-std-symbol-tostringtag-custom": { expect: "differ", why: "实例上**用 getter 提供的** `Symbol.toStringTag` 不被认：`Object.prototype.toString.call(new C())` 给 `[object Object]`（Node 给 `[object Custom]`）——`ObjectTagOverride` 读的是属性表里那一格，没走访问器取值那条路。与 `c305-rt-object-spread-triggers-getter` **同一个根**" },
   "c305-std-string-trim-unicode-space": { expect: "blocked", why: "非 ASCII 空白（`\\u00a0` / `\\u3000`）在 JS 里可被 `trim`，本仓只认 ASCII 那一档、且是**响亮地抛**（`string-concat-and-trim-families` 从第 287 轮起拖着同一个根）" },
   "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
   "c305-std-encodeuri-roundtrip": { expect: "blocked", why: "`encodeURIComponent` / `decodeURIComponent` / `encodeURI` 都不在（与 `c304-std-encodeuri-decodeuri` 同一个根）——按 UTF-8 字节做百分号编解码 + 四个全局名" },
@@ -703,16 +700,20 @@ export const EXPECTATIONS = {
   "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },
   "c305-e2e-async-load-pipeline": { expect: "differ", why: "异步管道里 `yield await fetchRow(i)`（异步生成器 + `await` 之后再 `yield`）⇒ `good` 一行是空的（Node 给 `good 1,2,4,5,7`）。与 `c305-rt-async-generator-await-inside` **同一个根**" },
   "c305-e2e-lru-cache": { expect: "differ", why: "`this.#map.keys().next().value` 报 `cannot call a non-closure value`——数组迭代器那条 `next()` 是挂上去的**隐藏属性**（第 279 轮），私有字段里取出来的那个数组上没有它" },
-  // **这一条与 `ts.createSourceFile` 逐节点对过** ✓（用户口径里那一句「与 TS 的 AST 比」✓）：
-  // TS 给的是 `MethodDeclaration(asteriskToken) > name: ComputedPropertyName(PropertyAccess(Symbol, iterator))` ✓
-  // ——**名字在** ✓、而且是**一个**成员 ✓。
-  // 本仓的产物（`cjcli --xml` 实测 ✓）是：
-  // `<MethodDeclaration name=""> <BinaryOperator op="*"> <ArrayLiteral>[Symbol.iterator]</ArrayLiteral>
-  //  <SymbolToken>*</SymbolToken> <ArrayLiteral>()</ArrayLiteral> </BinaryOperator> …`
-  // ——**名字那一格是空的** ✗，而 `*` 被折成了**乘法** ✓，
-  // 两个操作数分别是**计算名那个方括号**（它排到了 `*` **前面** ✗）与**形参那对圆括号**
-  // （被当成了空数组字面量 ✗）。所以根子在 **token 层** ✓：`*` 与后面那个 `[` 之间
-  // 少一道「左操作数必须真的在运算符**左边**」的次序判据 ✓——
-  // 记在 `typescript-exec/README.md` 第 305 轮那账的组 ⑧ 里 ✓，下一轮照这一条修 ✓。
-  "c305-e2e-linked-list-ops": { expect: "blocked", why: "生成器 + 计算成员名：`*[Symbol.iterator]() { … }` 报 `ast node MethodDeclaration has no child name`。与 TS 的 AST 对过：TS 是 `MethodDeclaration(asteriskToken) > name: ComputedPropertyName`（名字在），本仓的 XML 却把 `*` 折成了 `<BinaryOperator op=\"*\">`——左操作数是**计算名那个方括号**（它排到了 `*` 前面）、右操作数是**形参那对圆括号**（被当成空数组字面量）⇒ `name` 是空串。根子在 token 层（`*` 与 `[` 之间少一道「左操作数必须在运算符左边」的次序判据），不在投影或降级层" },
+  // **第 306 轮把上面那两处都修好了** ✓（token 层的次序判据 + 名字收两遍 ✓），
+  // 与 `ts.createSourceFile` 逐节点对过的形状现在**一字不差** ✓：
+  // `MethodDeclaration(asteriskToken) > name: ComputedPropertyName` ✓、
+  // `parameters: []` ✓（不再冒出那个假 `ArrayLiteralExpression` ✓）。
+  // 这一条**还是没过** ✗，但卡的地方**深了一层** ✓——现在是**运行期**：
+  // `tsrun: 脚本抛出：suspend outside a generator` ✓（Node 给 `1,2` ✓）。
+  // **量窄过**（一次性探针 ✓）：同一个类里
+  // ① `const it = a[Symbol.iterator](); it.next()` ——**好的** ✓（给 `{value:1,done:false}` ✓）；
+  // ② `[...a]` / `Array.from(a)` / `for (const v of a)` ——**全抛** ✗；
+  // ③ `[...a[Symbol.iterator]()]` ——**给 `[object Object]`** ✗；
+  // ④ 把同一个生成器方法**改个普通名**、再用一个普通方法返回它 —— **全对** ✓。
+  // 所以根子在**「计算成员名 + 生成器方法」进迭代协议那条路**上 ✓（不在投影 ✓、不在降级 ✓）：
+  // 直接调它是对的 ✓、**由协议/展开去调它就丢了生成器那一档** ✗——
+  // 与台账里 `c291-symbol-wellknown-custom-iterator` 那一行**是同一个根** ✓（那一行写着
+  // 「方法那一格建成了普通闭包」✓，这一轮把它量得更准了 ✓）。下一轮从这里下手 ✓。
+  "c305-e2e-linked-list-ops": { expect: "blocked", why: "生成器 + 计算成员名：第 306 轮把 token 层那两处修好了（`*` 不再被折成乘法、名字不再收两遍），投影与 TS 的 AST 现在一字不差。**卡的地方深了一层**，现在是运行期 `suspend outside a generator`：同一个生成器方法 `a[Symbol.iterator]()` 直接调是好的（`it.next()` 给 `{value:1,done:false}`），而 `[...a]` / `Array.from(a)` / `for..of` 全抛，`[...a[Symbol.iterator]()]` 还给 `[object Object]`；换个普通方法名再用普通方法返回它就全对 ⇒ 根子在「计算成员名 + 生成器方法」进迭代协议那一条路上（与 `c291-symbol-wellknown-custom-iterator` 同一个根）" },
 };

@@ -1,5 +1,5 @@
 {
-  "round": "305",
+  "round": "306",
   "matrix": 1098,
   "skipped": [
     {
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 91.55,
+  "progressPercent": 91.75,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 354,
-      "pass": 318,
+      "pass": 320,
       "blocked": 16,
-      "differ": 20,
+      "differ": 18,
       "nodefail": 0,
-      "coverage": 89.83
+      "coverage": 90.4
     },
     {
       "layer": "exec",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 448,
-      "pass": 407,
+      "pass": 408,
       "blocked": 22,
-      "differ": 19,
+      "differ": 18,
       "nodefail": 0,
-      "coverage": 90.85
+      "coverage": 91.07
     },
     {
       "layer": "e2e",
@@ -351,7 +351,7 @@
       "id": "c305-e2e-linked-list-ops",
       "layer": "e2e",
       "title": "链表：类 + 私有字段 + 迭代器协议 + 反转",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node MethodDeclaration has no child name"
+      "detail": "tsrun: 脚本抛出：suspend outside a generator"
     }
   ],
   "differ": [
@@ -450,18 +450,6 @@
       "layer": "runtime",
       "title": "经典 `for` 的每一次迭代里再取一个 const 给闭包",
       "detail": "stdout 不同：第 1 行：node «0,10,20» vs tsrun «,0,1»"
-    },
-    {
-      "id": "c305-rt-object-rest-keeps-symbol",
-      "layer": "runtime",
-      "title": "对象剩余**保留**可枚举的符号键（`{ ...o }` 与 `...rest` 同一条口径）",
-      "detail": "stdout 不同：第 1 行：node «1 b 2 {\"a\":1,\"b\":3}» vs tsrun «1 b undefined {\"a\":1,\"b\":3}»"
-    },
-    {
-      "id": "c305-rt-object-spread-triggers-getter",
-      "layer": "runtime",
-      "title": "`{ ...src }` 会把 getter 取值一次（不是搬运那格描述符）",
-      "detail": "stdout 不同：第 1 行：node «getter» vs tsrun «undefined»"
     },
     {
       "id": "c305-rt-async-generator-await-inside",
@@ -576,12 +564,6 @@
       "layer": "stdlib",
       "title": "`then` 回调返回承诺：结果承诺采纳它",
       "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
-    },
-    {
-      "id": "c305-std-symbol-tostringtag-custom",
-      "layer": "stdlib",
-      "title": "自定义 `Symbol.toStringTag` 影响 `Object.prototype.toString`",
-      "detail": "stdout 不同：第 1 行：node «[object Custom] [object Custom]» vs tsrun «[object Object] [object Object]»"
     },
     {
       "id": "c305-std-number-wrapper-object",
