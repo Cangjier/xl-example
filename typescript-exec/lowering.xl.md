@@ -4461,12 +4461,19 @@ for (let i = 0; i < properties.length; i++) {
   let value = -1;
   if (kind === "PropertyAssignment") {
     const name = Child(property, "name");
-    value = this.LowerExpression(Child(property, "initializer"));
     if (NodeKind(name) === "ComputedPropertyName") {
-      const keySlot = this.LowerExpression(Child(name, "expression"));
-      this.SetPropertyValue(object, keySlot, value);
+      // **键在前、值在后** ✓（第 284 轮把次序改对了 ✓）：JS 的规范是
+      // `EvaluatePropertyAccessWithExpressionKey` **先算键** ✓、再算值 ✓——
+      // 只有键 / 值里带**副作用**时才看得出来 ✓（`{ [(log(1), "a")]: log(2) }` ✓）,
+      // 而这一格原来是**值在前** ✗（第 183 轮那一版自己把它记成了「已知差」✓）。
+      // `SetPropertyValue` 的三格是「对象 / 键 / 值」✓，所以键那一格先占 ✓、
+      // 值那一格后占 ✓，**两个格子都活着** ✓（`Reserve` 只抬水位 ✓，不搬东西 ✓）。
+      const computedKey = this.LowerExpression(Child(name, "expression"));
+      const computedValue = this.LowerExpression(Child(property, "initializer"));
+      this.SetPropertyValue(object, computedKey, computedValue);
       continue;
     }
+    value = this.LowerExpression(Child(property, "initializer"));
     keyConst = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
   } else if (kind === "ShorthandPropertyAssignment") {
     const name = Child(property, "name");
@@ -4480,12 +4487,14 @@ for (let i = 0; i < properties.length; i++) {
     // `ast node ComputedPropertyName has no text` ✓（**整份文件进不来** ✗）。
     // 做法与上面 `PropertyAssignment` 那条**一字不差** ✓：键算成一格**值** ✓、
     // 走 `set_prop` 的值键那条路（`SetPropertyValue` ✓）。
-    // **求值顺序**与上面那条保持一致 ✓（先算值、再算键 ✗）——JS 的规范是**键在前** ✓，
-    // 两处的这一格次序都记在台账里 ✗（只有键 / 值里带副作用才看得出来 ✓）。
+    // **求值顺序：键在前、值在后** ✓（第 284 轮改对 ✓，与 `PropertyAssignment`
+    // 那一支同一条理由 ✓）。这一处原来写的是「与上面那条保持一致（**先算值、再算键**）」
+    // ✓，并且自己把它记成了「已知差」✗——第 284 轮把**两处一起**改对了 ✓
+    //（只有键 / 值里带副作用才看得出来 ✓，所以它一直没被量到 ✓）。
     if (NodeKind(name) === "ComputedPropertyName") {
-      value = this.LowerFunctionValue(property, "<computed>");
-      const keySlot = this.LowerExpression(Child(name, "expression"));
-      this.SetPropertyValue(object, keySlot, value);
+      const computedKey = this.LowerExpression(Child(name, "expression"));
+      const computedValue = this.LowerFunctionValue(property, "<computed>");
+      this.SetPropertyValue(object, computedKey, computedValue);
       continue;
     }
     // **方法名要把外面那条提示顶掉** ✓（第 238 轮 ✓，**实测踩过** ✗）：
@@ -4511,6 +4520,25 @@ for (let i = 0; i < properties.length; i++) {
     // `{ get x() {} set x(v) {} }` 是**两条**成员，各自只带一半——**缺的那一半给
     // `undefined`**（`DefineAccessor` 的规矩：`setter = undefined` 就是只读访问器）。
     const name = Child(property, "name");
+    // **计算键的访问器**（第 284 轮修 ✓）：`{ get [k + "2"]() { … } }` ✓——
+    // 名字那一格是 `ComputedPropertyName` ✓，而这一支原来无条件走 `KeyUnitsOf` ✗
+    //（那条路最后落在 `TextOf` 上 ✓）→ 报 `ast node ComputedPropertyName has no text` ✓
+    //（**整份文件进不来** ✗，判据 `ex-object-literal-accessors` 现场就是它 ✓）。
+    //
+    // **这是第三处** ✗：`PropertyAssignment` ✓ 与 `MethodDeclaration` ✓ 两条
+    // 第 183 轮就收下了计算键 ✓，而访问器这一条**漏了** ✗——
+    // 同一个形状在同一个函数里写三遍 ✓，漏的那一遍隔了 100 轮才被量到 ✓。
+    // 做法与那两条**一字不差** ✓：键算成一格**值** ✓ → 走 `set_prop` 的值键那条路 ✓
+    //（`EmitDefineAccessor` 本来收的就是一格键 ✓，值键与常量键在它那里是同一条 ✓）。
+    if (NodeKind(name) === "ComputedPropertyName") {
+      // **键在前、值在后** ✓（第 284 轮 ✓，JS 的规范就是这样 ✓）——
+      // 见下面那一段「求值顺序」的说明 ✓。
+      const computedKey = this.LowerExpression(Child(name, "expression"));
+      const computedHalf = this.LowerFunctionValue(property,
+        kind === "GetAccessor" ? "<getter>" : "<setter>");
+      this.EmitDefineAccessor(object, computedKey, computedHalf, kind === "GetAccessor");
+      continue;
+    }
     const key = this.Reserve(1);
     this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name))), -1, -1);
     const half = this.LowerFunctionValue(property, kind === "GetAccessor" ? "<getter>" : "<setter>");

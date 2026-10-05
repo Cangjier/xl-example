@@ -334,8 +334,14 @@ export const EXPECTATIONS = {
   // ② 对象字面量里的**计算访问器名** ✓（`get [k + "2"]()`）——报的是
   //   `ast node ComputedPropertyName has no text` ✓；而**普通**计算方法名
   //   （`{ [k]() {} }` ✓，`ex-computed-member-call` 那条）一直是好的 ✓。
+  //   **第 284 轮清空了这一条** ✓：根子是**同一个形状在同一个函数里写了三遍** ✗——
+  //   `PropertyAssignment` ✓ 与 `MethodDeclaration` ✓ 两条第 183 轮就收下了计算键 ✓，
+  //   而**访问器那一条漏了** ✗（它无条件走 `KeyUnitsOf` ✓，最后落在 `TextOf` 上 ✓）。
+  //   **漏的那一遍隔了 100 轮才被量到** ✓。顺带把那一族**求值顺序**改对了 ✓：
+  //   三条计算键的路原来都是**值在前、键在后** ✗（第 183 轮自己把它记成「已知差」✓），
+  //   而 JS 的规范是**键在前** ✓——只有键 / 值里带副作用才看得出来 ✓，
+  //   所以一直没被量到 ✓。**新加了一条判据守着它** ✓（`ex-object-literal-key-order` ✓）。
   "ex-angle-bracket-assertion": { expect: "blocked", why: "`unimplemented: expression TypeAssertionExpression`：尖括号断言与 `as` 在 TS 的 AST 里是两个 kind，只认了 `as`。裁判要用 `--experimental-transform-types`（剥离模式明确拒收尖括号写法）" },
-  "ex-object-literal-accessors": { expect: "blocked", why: "对象字面量里的**计算访问器名**（`get [k + \"2\"]()`）报 `ast node ComputedPropertyName has no text`；普通计算方法名（`{ [k]() {} }`）是好的。入口：对象字面量成员那一支的投影" },
   // 这一条与组 10 的「成员不在那儿」是**同一类** ✓，只是它住在 `ex` 层 ✗
   //（`String.raw` 是 `String` 上的一格 ✓，而它挡住的是一条**标签模板**的用例 ✗）。
   "ex-string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——第 273 轮量到。与组 10 那些「成员不在那儿」同类，只是这条落在 `exec` 层（它挡住的是一条标签模板用例）" },

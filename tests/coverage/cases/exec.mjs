@@ -1062,4 +1062,27 @@ console.log(inFunction(), inArrow(), inIife(), reverse(), new Holder().get(), Co
 `,
     nodeArgs: ["--experimental-transform-types"],
   },
+  // **第 284 轮加宽（1 条）** ✓：这一条钉的是那一轮顺手改对的**求值顺序** ✓——
+  // 对象字面量的**计算键**该**先算键、再算值** ✓（JS 的规范 ✓），
+  // 而三条计算键的路原来**都是值在前** ✗（第 183 轮自己记成「已知差」✓）。
+  // **为什么要有判据守着** ✗：只有**键或值里带副作用**时才看得出来 ✓——
+  // 也就是说，「值在前」这个错在**所有没有副作用的写法上都不出声** ✗，
+  // 光靠读代码或跑普通用法都发现不了 ✓，所以它搁了 100 轮 ✓。
+  // **符号键的访问器**也放进来 ✓（`get [sym]()` ✓）：那是同一条路 ✓，
+  // 而符号键的字符串化与数值键/字符串键**不是同一格**（`KeyUnitsOf` 那条路走不了符号 ✓）。
+  {
+    id: "ex-object-literal-key-order",
+    title: "对象字面量的计算键：先算键再算值（含符号键访问器）",
+    src: `
+const order: string[] = [];
+const next = (tag: string): string => { order.push(tag); return tag; };
+const o: any = { [next("key")]: next("value") };
+console.log(order.join(","), o.key);
+const sym = Symbol("s");
+const so: any = { get [sym]() { return "sym"; }, set [sym](v: string) { order.push("set:" + v); } };
+console.log(so[sym]);
+so[sym] = "x";
+console.log(order.join(","));
+`,
+  },
 ];

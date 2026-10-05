@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 396,
+  "matrix": 397,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 89.29,
+  "progressPercent": 89.69,
   "layers": [
     {
       "layer": "runtime",
@@ -33,12 +33,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 81,
-      "pass": 73,
-      "blocked": 6,
+      "total": 82,
+      "pass": 75,
+      "blocked": 5,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 90.12
+      "coverage": 91.46
     },
     {
       "layer": "stdlib",
@@ -109,12 +109,6 @@
       "layer": "exec",
       "title": "尖括号断言 `<T>expr`（与 `as` 同一个意思）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
-    },
-    {
-      "id": "ex-object-literal-accessors",
-      "layer": "exec",
-      "title": "对象字面量里的 get / set（含计算键）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ComputedPropertyName has no text"
     },
     {
       "id": "ex-string-raw-and-tagged",
