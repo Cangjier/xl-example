@@ -722,8 +722,6 @@ export const EXPECTATIONS = {
   //（`typeof` 给 `"function"` ✗，Node 给 `"object"` ✓，**静默错值** ✗）——
   // 而同一个形状换**字符串字面量**键就是对的 ✓。两条与缺口清单 #9 那一族同源 ✓
   //（「`typeof` 的操作数位」✓），下一轮照这两条修 ✓。
-  "c307-rt-typeof-element-call-bare": { expect: "blocked", why: "`typeof o[\"m\"]()`（**没有外层括号**）报 `cannot call a non-closure value`——token 树把 `b[\"m\"]` 收进了 `UnaryOperator(typeof)` 里面、而那个 `()` 留在外面平级 ⇒ `typeof` 先算出一个函数、括号成了对结果的调用。加一层括号 `typeof (o[\"m\"]())` 就是好的" },
-  "c307-rt-typeof-element-call-in-args": { expect: "differ", why: "`typeof` 的操作数是**下标调用**、而它又不是**实参表的第一格**时，给的是**方法本身**：`console.log(\"x\", typeof (o[\"m\"]()))` 在 Node 里印 `object`，本仓印 `function`（**静默错值**）。**同一个形状摆在第一格就是对的**（`console.log(typeof (o[\"m\"]()))` ✓）——所以它是**位置**决定的 ✗，不是形状决定的 ✓；与上一条（没有外层括号那一半）同源，都是 `typeof` 的操作数位" },
   // **第 308 轮量到的第三个面** ✓（同一个族的另一处排布 ✓）：**展开位**里写
   // 「取 `Symbol.iterator` 再调」时，那个 `()` **逃出了 `Spread`** ✗——实测的产物是
   // `<ArrayLiteral><Spread><SymbolToken>...</SymbolToken><PropertyAccess>a[Symbol.iterator]</PropertyAccess></Spread><Bracket startBracket="("></Bracket></ArrayLiteral>`：
@@ -733,5 +731,4 @@ export const EXPECTATIONS = {
   // 都只往后吃**一个**单元 ✓（`SkipNextWrapSymbol` ✓），而**调用括号是又一个单元** ✓
   // ——`o["m"]()` 这种形状能对 ✓，是因为 `MethodReorganization` 先把它折成了一个 `Method` ✓；
   // 而键本身是**成员链**（`Symbol.iterator` / `obj.key` ✓）时那一折没赶上 ✓ ⇒ 括号剩在外面 ✗。
-  "c308-std-symbol-iterator-call-in-spread": { expect: "blocked", why: "展开位里的「取 Symbol.iterator 再调」：`[...a[Symbol.iterator]()]` 报 `this method needs an array receiver`。实测产物：`()` **逃出了 `Spread`**——`<Spread>...a[Symbol.iterator]</Spread>` 加一个**平级的 `<Bracket>(</Bracket>`，于是展开只吃到方法本身、圆括号成了数组的第二个元素。`Spread.Process` 与 `UnaryOperator.Process`（`typeof` 那一处）都只往后吃**一个**单元，而调用括号是又一个单元：`o[\"m\"]()` 能对是因为 `MethodReorganization` 先折出了 `Method`，键是**成员链**时那一折没赶上" },
 };

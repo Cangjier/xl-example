@@ -6,6 +6,62 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 309 轮的账（**展开位里的调用把接收者丢了** + 「调用括号没被吃进操作数」那两处 —— 92.6% → 92.8%）
+
+### 一、根子：`LowerCall` 先看 kind，而 `...` 那一层还没剥
+
+第 308 轮把 `[...a[Symbol.iterator]()]` 收进矩阵时，读到的是
+`this method needs an array receiver` ✓。这一轮先量它到底坏在哪 ✓——
+**token 树与投影都是对的** ✓（`CallExpression{ expression: SpreadElement{ ElementAccessExpression } }` ✓），
+坏在**降级层** ✗：
+
+`LowerCall` 的三条分支判的是 `NodeKind(Child(node, "expression"))` ✓——
+而展开位里的调用，那个孩子是 **`SpreadElement`** ✗ ⇒ 三条分支**一条都不命中** ✓
+⇒ 落到「别的形状」那条通用路 ✓ ⇒ **接收者没了** ✗（`Op.Call` 的 `D` 给 `-1` ✓、`this` 是 `undefined` ✓）。
+
+**这副症状的两种面孔** ✓：`[...o["m"]()]` 报 `cannot read properties of undefined` ✓
+（听起来像「对象是空的」✗）、`a[Symbol.iterator]()` 报 `this method needs an array receiver` ✓
+（内建拿到的 `self` 是 `undefined` ✓）。
+
+**为什么一直没露** ✗：探针与语料里那种写法大多是**箭头函数** ✓（不看 `this` ✓）——
+`{ m: () => [1, 2] }` 恰好全对 ✓，换成 `{ xs: [1, 2], m() { return this.xs } }`
+当场现形 ✓（实测 ✓）。
+**修法**：在选分支**之前**把 `SpreadElement` 剥掉 ✓——剥掉之后与 `o[k]()` 那条路
+**一字不差** ✓。`SpreadElement` 在别处本来就会被 `LowerExpression` 剥掉 ✓（第 234 轮 ✓），
+差别正是**在哪一步剥** ✗（在那里剥已经太晚：分支已经选完 ✓）。
+
+### 二、`typeof` 的两个面：一元运算的作用范围是整个调用
+
+`typeof o["m"]()` 在 JS 里是 **`typeof (o["m"]())`** ✓，而 `UnaryOperator.Process`
+只往后吃**一个**单元 ✗ ⇒ 那对 `()` 留在外面**平级** ✓ ⇒ 投影交给 `typeof` 的只有 `o["m"]` ✓
+⇒ 算出来是**方法本身** ✓（`"function"` ✗，Node 给 `"object"` ✓，**静默错值** ✗）。
+
+**为什么 `.` 那个形状一直是对的** ✗：`typeof o.m()` 里 `(` 先被折进了**同一条成员链** ✓
+（`PropertyAccess.ChainEndIndex` 认 `Method` ✓）；而**下标那一格**在链上只是一对方括号 ✓、
+后面那个 `(` **不在链的定义里** ✗（实测 XML：`typeof o.m()` 的 `Method` 在 `PropertyAccess`
+**里面** ✓，`typeof o["m"]()` 的 `()` 却在 `UnaryOperator` **外面** ✓）。
+
+**两处修，一处各解决一个面** ✓：
+
+| 面 | 修在哪 | 为什么在那儿 |
+| --- | --- | --- |
+| `typeof o["m"]()` | `unary-operator.xl.md` 的 `Process` ✓：操作数后面**还跟着调用括号**时，把它一并吃进来 ✓（只吃这一档 ✗，`.b` / `[i]` 归成员链 ✓） | 一元运算的作用范围本来就含那次调用 ✓，也是 JS 对 ASI 的口径 ✓ |
+| `console.log("x", typeof (o["m"]()))` | `print-ast-common.xl.md` 的链循环 ✓：**调用括号也是链上的一格** ✓——下标那支建出 `ElementAccessExpression` 之后，紧跟的 `()` 是对它的调用 ✓ | 少了这一格，循环在那里 `break` ✓ ⇒ 只剩 `ElementAccessExpression` ✓ ⇒ **那次调用整格消失** ✗（与「末尾是 `(` 括号」那条规则 3b 是同一件事 ✓，区别只是这里在处理一条**已经开始的链** ✓） |
+
+**第二面为什么是「位置决定」的** ✓：同一个形状摆在实参表**第一格**时，
+括号里折出了 `PropertyAccess` 单元 ✓（走的是另一条输入路径 ✓）、链循环于是接得上 ✓；
+摆到第二格时里面是**平铺的三格** ✗，就撞上了上面那个 `break` ✓。
+
+### 三、这一轮收掉的 3 格
+
+`c307-rt-typeof-element-call-bare` ✓ / `c307-rt-typeof-element-call-in-args` ✓ /
+`c308-std-symbol-iterator-call-in-spread` ✓——**三条都是第 307 / 308 轮当场收进矩阵的语料** ✓
+（用户口径里那句「发现新问题就补语料」✓：**上一轮补的，这一轮收的** ✓）。
+
+**读数**：**引擎 90.2% → 90.7%** ✓、**标准库 91.6% → 91.8%** ✓、**红的一栏 0** ✓；
+`cases:tsast` **1444 条四方向全 0** ✓（token 层与投影各动了一处 ✓，
+这一条是唯一看得见它们有没有走样的尺子 ✓）。
+
 ## 第 308 轮的账（**`Array.prototype[Symbol.iterator]` 一直没人挂** —— 92.5% → 92.6%，收掉 4 格）
 
 ### 一、选题：照「成员不在那儿」那一组里**最大的一簇**收

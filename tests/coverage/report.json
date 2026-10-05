@@ -1,5 +1,5 @@
 {
-  "round": "308",
+  "round": "309",
   "matrix": 1102,
   "skipped": [
     {
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 92.61,
+  "progressPercent": 92.81,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 356,
-      "pass": 321,
-      "blocked": 16,
-      "differ": 19,
+      "pass": 323,
+      "blocked": 15,
+      "differ": 18,
       "nodefail": 0,
-      "coverage": 90.17
+      "coverage": 90.73
     },
     {
       "layer": "exec",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 450,
-      "pass": 412,
-      "blocked": 19,
+      "pass": 413,
+      "blocked": 18,
       "differ": 19,
       "nodefail": 0,
-      "coverage": 91.56
+      "coverage": 91.78
     },
     {
       "layer": "e2e",
@@ -166,12 +166,6 @@
       "layer": "runtime",
       "title": "具名类表达式：名字只在类体里可见",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
-    },
-    {
-      "id": "c307-rt-typeof-element-call-bare",
-      "layer": "runtime",
-      "title": "`typeof` 后面直接跟「下标调用」（没有外层括号）",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "ex-tagged-template-suffix",
@@ -322,12 +316,6 @@
       "layer": "stdlib",
       "title": "`Object.getOwnPropertyDescriptors` 一次拿全部描述符",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c308-std-symbol-iterator-call-in-spread",
-      "layer": "stdlib",
-      "title": "展开位里「取 `Symbol.iterator` 再调」——`()` 会逃出展开",
-      "detail": "tsrun: 脚本抛出：this method needs an array receiver"
     }
   ],
   "differ": [
@@ -438,12 +426,6 @@
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
-    },
-    {
-      "id": "c307-rt-typeof-element-call-in-args",
-      "layer": "runtime",
-      "title": "`typeof` 的操作数是「下标调用」，而且它不是实参表的第一格",
-      "detail": "stdout 不同：第 1 行：node «x object» vs tsrun «x function»"
     },
     {
       "id": "ex-getter-setter-class",

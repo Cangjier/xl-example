@@ -2659,6 +2659,32 @@ new Set([
         i += 1;
         continue;
       }
+      // **调用括号也是链上的一格** ✓（第 309 轮 ✓）——`o["m"]()` 的产物是
+      // `[Identifier(o), Bracket([m]), Bracket(())]` ✓（**下标那一格是平级的** ✓，
+      // 与 `o.m()` 不同 ✗：那个形状里 `(` 会被折进 `Method` ✓）。
+      // 上面那一支替 `[m]` 建出 `ElementAccessExpression` ✓ 之后，紧跟的 `()` 是
+      // **对它的调用** ✓——少了这一格，循环在这里 `break` ✓ ⇒ 只剩 `ElementAccessExpression` ✓
+      // ⇒ **那次调用整格消失** ✗（`typeof (o["m"]())` 于是算的是**方法本身** ✓、
+      // 给 `"function"` ✗，Node 给 `"object"` ✓——**静默错值** ✗；
+      // 判据 `c307-rt-typeof-element-call-in-args` ✓）。
+      // **做法与上面下标那一支同款** ✓（先把左边折好，再套一层 ✓），
+      // 与 `projectExpression` 里那条「末尾是 `(` 括号」的规则（3b）**是同一件事** ✓
+      // ——区别只是这里在处理**一条已经开始的链** ✓。
+      // **它必须排在下标那一支之后** ✗：`a[i]` 与 `a(i)` 长得像 ✓，
+      // 而那个 `[` / `(` 的分别正是 `startBracket` 那一格 ✓。
+      if (ck[i].get("type") === "Bracket" && ck[i].get("startBracket") === "(") {
+        left = {
+          kind: "CallExpression",
+          expression: left,
+          arguments: splitTopLevel(projectableKids(view(ck[i])), ctx, ",")
+            .map((group) => (group.length === 0 ? undefined : projectExpression(group, ctx)))
+            .filter((a) => a !== undefined),
+          pos: left.pos,
+          end: endOf(ck[i]),
+        };
+        i += 1;
+        continue;
+      }
       if (!isSymbol(ck[i], ".") || i + 1 >= ck.length) {
         // **`!` 非空断言接在链中间**（第 143 轮）：`source.Pre()!.Pre()` 的产物是
         // `[…, Method(Pre), NotNull, ., Method(Pre)]`——`!` 是**一个单元**，它把左边整段

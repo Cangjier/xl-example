@@ -6837,7 +6837,27 @@ return dest;
 **参数个数为 0 时也要占一格**：结果是写在参数基址上的，没有基址就没地方写。
 
 ```ts
-const callee = Child(node, "expression");
+// **`...` 那一层要先剥掉** ✓（第 309 轮 ✓）——**展开位里的调用**投影出来是
+// `CallExpression{ expression: SpreadElement{ ElementAccessExpression } }` ✓
+// （展开的**被操作数**是那次调用 ✓，投影把调用套在 `SpreadElement` **外面** ✓）。
+//
+// **不剥会怎样** ✗：`NodeKind(callee)` 是 `SpreadElement` ✓，下面三条分支**一条都不命中** ✓，
+// 于是落到「别的形状」那条通用路 ✓ ⇒ **接收者没了** ✗（`D` 给 `-1` ✓、`this` 是 `undefined` ✓）。
+// 症状有两副面孔 ✓：`[...o["m"]()]` 报 `cannot read properties of undefined` ✓
+//（听起来像「对象是空的」✗）、`[...a[Symbol.iterator]()]` 报
+// `this method needs an array receiver` ✓（内建拿到的 `self` 是 `undefined` ✓）。
+//
+// **为什么一直没露** ✗：语料里那种写法大多是**箭头函数** ✓（不看 `this` ✓）——
+// `{ m: () => [1, 2] }` 恰好全对 ✓，换成 `{ xs: [1, 2], m() { return this.xs } }`
+// 当场现形 ✓（实测 ✓）。
+//
+// **剥掉之后与 `o[k]()` 那条路一字不差** ✓：`SpreadElement` 在别处本来就会被
+// `LowerExpression` 剥掉 ✓（第 234 轮那一段 ✓）——差别正是**在哪一步剥** ✗
+//（在那里剥已经太晚：分支已经选完了 ✓）。
+const calleeNode = Child(node, "expression");
+const callee = NodeKind(calleeNode) === "SpreadElement"
+  ? (OptionalChild(calleeNode, "expression") ?? calleeNode)
+  : calleeNode;
 const calleeKind = NodeKind(callee);
 if (calleeKind === "PropertyAccessExpression") {
   return this.LowerMethodCall(node, callee);

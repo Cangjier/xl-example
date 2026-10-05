@@ -344,20 +344,46 @@ if (after !== null
   after = Get(units, SkipNextWrapSymbol(units, index));
 }
 if (this.IsOperand(after)) {
+  // **被操作者后面还跟着调用括号时，那个括号属于这一元运算** ✓（第 309 轮 ✓）——
+  // JS 里 `typeof o["m"]()` 是 **`typeof (o["m"]())`** ✓（一元运算的作用范围是整个调用 ✓），
+  // 而这一支只往后吃**一个**单元 ✗ ⇒ 那对 `()` 留在外面**平级** ✓
+  // ⇒ 投影交给 `typeof` 的只有 `o["m"]` ✓ ⇒ 算出来是**方法本身** ✓（`typeof` 给 `"function"` ✗，
+  // Node 给 `"object"` ✓，**静默错值** ✗）；不带外层括号时更直接：
+  // `typeof o["m"]()` 报 `cannot call a non-closure value` ✓（括号成了对 `typeof` 结果的调用 ✓）。
+  //
+  // **为什么 `.` 那个形状一直是对的** ✗：`typeof o.m()` 里 `(` 先被折进了**同一条成员链** ✓
+  //（`PropertyAccess` 的 `ChainEndIndex` 认 `Method` ✓），而**下标那一格**在链上只是
+  // `[` 括号 ✓、后面那个 `(` 不在链的定义里 ✗（实测 XML ✓：`typeof o.m()` 的 Method 在
+  // `PropertyAccess` **里面** ✓，`typeof o["m"]()` 的 `()` 却在 `UnaryOperator` **外面** ✓）。
+  //
+  // **只吃「调用括号」这一档** ✗（不顺手吃任意后缀）：`.b` / `[i]` 那些属于**成员链** ✓，
+  // 各自有规则管 ✓；这里要的只是「这一元运算的**操作数是一次调用**」✓。
+  // **它也是 JS 本来的口径** ✓：`typeof x` 换行再写 `(function(){})()`
+  // 在 JS 里同样是「`x` 被调用」✓（ASI 在这里不插分号 ✓）。
+  let operandEnd = afterIndex;
+  while (true) {
+    const nextIndex = SkipNextWrapSymbol(units, operandEnd);
+    const nextUnit = Get(units, nextIndex);
+    if (nextUnit instanceof Bracket && nextUnit.startBracket === "(") {
+      operandEnd = nextIndex;
+      continue;
+    }
+    break;
+  }
   const result = new UnaryOperator(template);
   result.Parent = current.Parent;
   result.op = this.OperatorText(current);
   result.SignIn(current.SourceRange.Start!);
-  result.SignOut(after!.SourceRange.End!);
+  result.SignOut(Get(units, operandEnd)!.SourceRange.End!);
   result.AddAndCloseLast(current);
-  for (let i = index + 1; i <= afterIndex; i++) {
+  for (let i = index + 1; i <= operandEnd; i++) {
     const item = Get(units, i);
     if (item !== null && !(item instanceof LineWrap)) {
       result.AddAndCloseLast(item);
     }
   }
   result.TryToClose();
-  return ReplaceCountAt(units, index, afterIndex - index + 1, result);
+  return ReplaceCountAt(units, index, operandEnd - index + 1, result);
 }
 const beforeIndex = SkipPreviousWrapSymbol(units, index);
 const before = Get(units, beforeIndex);
