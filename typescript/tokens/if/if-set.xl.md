@@ -8,6 +8,8 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { GetSkipNextTrivia } from "../../text-common-util.xl.md"
+import { SkipNextTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Statement } from "../statement.xl.md"
@@ -62,7 +64,32 @@ return next instanceof Bracket && next.startBracket === "(";
 3. **第一段与后续段的签入点不同**：第一段（`Data.Count == 1`）从关键字自身签入；`else if` 从关键字**前一个**单元签入（带上 `else`），`else` 从关键字自身签入。
 4. **条件括号**：`if` 后面必须跟一个 `Bracket`，把括号里的子单元整体 `MoveDataTo` 给新建的 `IfCondition`，再按括号的起止签入签出。
 5. **语句体**：括号后面若是 `{` 开头的 `Bracket`，整块搬给 `IfStatement`；否则当成单条语句，用 `Statement.SearchStatementEnd` 找回语句结尾（`-1` 即失败），取 `[currentIndex, endIndex]` 这一段用数组原生的 `slice(currentIndex, endIndex + 1)` 取出，按 `AddRange` 交给 `IfStatement`。
-6. **续段判定**：语句体之后再跳掉软换行，若遇到内容为 `else` 的 `Identifier`，就再看它后面是不是 `if`：是则把 `lastKeyIndex` / `currentIndex` 都推到那个 `if`（`else if`），否则把 `lastKeyIndex` 设到 `else`（最后一段）；不是 `else` 就把 `endIndex = currentIndex - 1` 并收尾。
+6. **续段判定**：语句体之后再跳掉 **trivia**（软换行**与注释**），若遇到内容为 `else` 的
+   `Identifier`，就再看它后面（同样跳 trivia）是不是 `if`：是则把 `lastKeyIndex` /
+   `currentIndex` 都推到那个 `if`（`else if`），否则把 `lastKeyIndex` 设到 `else`（最后一段）；
+   不是 `else` 就把 `endIndex = currentIndex - 1` 并收尾。
+
+   **第 288 轮把这两处从 `SkipNextWrapSymbol` 换成 `SkipNextTrivia`** ✗——
+   原来只跳过软换行 ✓，于是**两者之间夹一条注释就断链** ✗
+   （`if (value > best) best = value;` 换行、一条 `//` 注释、再换行、
+   然后才是 `else if (value === 0 && best === 0) best = value;`）。
+
+   实测：产物把这一条 `if / else if` 拆成了**两个各自独立的 `IfSet`** ✗
+   （`IfStatement` 的区间只到第一条语句为止 ✓），而 TS 那边**是一个 `IfStatement`** ✓
+   （`else` 是词法记号、注释只是 trivia ✓——`ts.forEachChild` 连看都不看它 ✓）。
+   判据当场指着两处 ✗：**区间漂移**（外层 `IfStatement` 短了 ✓）与**多出来的节点**（第二条
+   `IfStatement` 本该是 `elseStatement` ✓）。
+
+   **为什么原来没被量到** ✗：这是**同一个形状在两种 trivia 上只做了一半** ✓——
+   `SkipNextWrapSymbol` 那一族管的是「**软换行**」✓，而注释从一开始就是另一档 ✓
+   （`IsTriviaUnit` / `SkipNextTrivia` 那一对**早就有了** ✓，`conditional-type.xl.md` 也在用 ✓）。
+   语料里此前**没有一条**「`if` 体与 `else` 之间夹注释」的写法 ✗，
+   所以它一直没红 ✓——**第 288 轮改一处 `Math.min` / `Math.max` 的判据时顺手写了这种排版** ✓，
+   于是 `cases:tsast` 当场报了出来 ✓（`完全一致的文件 1441 / 1442` ✓）。
+
+   **为什么要顺手加语料** ✗：这一条**已经被修好了** ✓，而「修好的形状要有判据守着」是
+   第 273 轮立下的规矩 ✓——所以 `tests/parse/cases/statements/` 里补了一条
+   `if-else-with-comment.ts` ✓（同时盖住 `else if` 与最后的 `else` 两种续段 ✓）。
 
 ```ts
 const result = new IfSet(template);
@@ -126,10 +153,10 @@ while (true) {
     ifStatement.TryToClose();
     currentIndex = endIndex;
   }
-  currentIndex = SkipNextWrapSymbol(units, currentIndex);
+  currentIndex = SkipNextTrivia(units, currentIndex);
   const nextCommon = Get(units, currentIndex);
   if (nextCommon instanceof Identifier && nextCommon.Is("else")) {
-    const nextKeyworkdIndex = SkipNextWrapSymbol(units, currentIndex);
+    const nextKeyworkdIndex = SkipNextTrivia(units, currentIndex);
     const ifCommon = Get(units, nextKeyworkdIndex);
     if (ifCommon instanceof Identifier && ifCommon.Is("if")) {
       lastKeyIndex = nextKeyworkdIndex;

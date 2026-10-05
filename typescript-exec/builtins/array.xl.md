@@ -269,10 +269,37 @@ if (self.Tag !== ValueTag.Array) {
 
 取第 `index` 个实参当整数；**没有就给 `fallback`**（`slice` 的两个参数都可省）。
 
+**第 288 轮之前它是 `args[index].AsInt()`** ✗——而 `AsInt` 对 `Float64` **一律给 `0`** ✓
+（`value.xl.md` 写着「取整数载荷，其余给 `0`」✓，它**不是 `ToNumber`** ✓）。
+于是**每一个小数实参都静默变成 `0`** ✗：`"a".repeat(2.9)` 给空串 ✓（JS 给 `"aa"` ✓）、
+`[1,2,3].fill(9, 1.5)` 从 0 开始填 ✗（JS 从 1 ✓）……
+**这正是第 287 轮加宽量到的那一条** ✓（`string-pad-and-repeat-edge-forms` ✓）。
+
+**为什么改在这里、不改在各个调用点** ✗：这个取值器是**十几个内建共用**的 ✓
+（`slice` / `splice` / `fill` / `copyWithin` / `at` / `padStart` / `repeat` / `indexOf` … ✓）——
+一处一处改就是十几份会走偏的判据 ✗（第 283 轮那条教训：**第二份迟早与第一份走偏** ✓）。
+**第 274 轮 `flat` 那一处已经单独绕过过一次** ✓（`ArgOr` 读不出 `Infinity` ✓），
+这一轮把**共用那一份**补上 ✓。
+
+口径与 JS 的 **`ToIntegerOrInfinity`** 对齐 ✓（`flat` 那一段与它是同一张表 ✓）：
+
 ```ts
 if (index >= args.length) return fallback;
-if (!args[index].IsNumber()) return fallback;
-return args[index].AsInt();
+if (args[index].Tag === ValueTag.Int32) return args[index].Int;
+// **不是数字（含 `Bool` / `undefined` / 字符串）⇒ `fallback`** ✓——与改动前**一字不差** ✓
+//（这一档是「缺省值」那一类，不是 `ToIntegerOrInfinity` 的活 ✓）。
+if (args[index].Tag !== ValueTag.Float64) return fallback;
+const asFloat = args[index].Dbl;
+// **`NaN` ⇒ `0`** ✓（JS 的 `ToIntegerOrInfinity(NaN)` 也是 0 ✓）。
+if (asFloat !== asFloat) return 0;
+// **`±Infinity` ⇒ 一个够大的上界** ✓：`int` 在各目标语言里装不下 `Infinity` ✗，
+// 而 2³¹-1 与「无穷大」在这些调用点（都是与长度比大小 ✓）**等价** ✓——见 `flat` 那一段的同一条理由 ✓。
+if (asFloat === Infinity) return 2147483647;
+if (asFloat === -Infinity) return -2147483647;
+// **向零截断** ✓（`2.9` 给 `2` ✓、`-0.5` 给 `-0` ✓ ⇒ `0` ✓）——
+// 不是 `floor` ✗：`ArgOr(args, -0.5)` 在 JS 里是 `-0`（`slice(-0.5)` 给整个数组 ✓），
+// 写成 `floor` 就变成 `-1`（从最后一格起数 ✗）——**静默差一格** ✗。
+return asFloat < 0 ? Math.ceil(asFloat) : Math.floor(asFloat);
 ```
 
 # method NormalizeRangeIndex:(index:int, length:int)=>int

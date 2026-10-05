@@ -149,6 +149,51 @@ import { BuildPromise } from "./promise.xl.md"
 `log1p(0)` 同理 ✓。**所以七格一律交给宿主那一格** ✓（一个一个转调 ✓），
 **不自己用别的函数凑** ✗。
 
+# const MathSin:int = 360
+
+# const MathCos:int = 361
+
+# const MathTan:int = 362
+
+# const MathAsin:int = 363
+
+# const MathAcos:int = 364
+
+# const MathAtan:int = 365
+
+# const MathAtan2:int = 366
+
+**三角七格**（第 288 轮 ✓）——号开在 `360..366` ✓（`350..359` 第 275 轮已用 ✓）。
+
+**为什么它们拖到第 288 轮才被量到** ✗：这一族**不在**第 273 轮那份普查的候选里 ✓
+（那份普查按「已经想到的形状」铺 ✓），而第 287 轮的加宽把 `Math.sin` / `Math.cos` / `Math.tan`
+写进了一条用例 ✓ ⇒ 它当场报 `cannot call a non-closure value` ✓（**七格一格都没装** ✗）。
+
+**七个都交给宿主那一格** ✓（`Math.sin` … `Math.atan2` ✓）——与第 275 轮那十格同一条纪律 ✗：
+`asin` / `acos` / `atan` **不是**「用别的函数凑出来的」✓（凑出来的在边界上会差最后一位 ✓，
+而判据是**逐字节**比 ✓）。`atan2(y, x)` 是**两个实参**那一档 ✓（与 `pow` / `imul` 同形 ✓）。
+
+**`Math.sin` 这一族是「每天都在用」的那一档** ✓（角度换算、波形、几何 ✓），
+而它们的缺席是**响亮地抛** ✓——比第 287 轮那七条静默错值好查得多 ✓。
+
+# const NumberIsSafeInteger:int = 325
+
+**`Number.isSafeInteger(x)`**（第 288 轮 ✓）——号在 `320..324` 之后的**下一个** ✓。
+
+**它与 `isInteger` 只差一个边界** ✗：`2**53 - 1` 是 `true` ✓、`2**53` 是 **`false`** ✓
+（`isInteger(2**53)` 给 `true` ✓——那是**整数** ✓，只是**不安全** ✓）。
+**所以判据是两句** ✓：「是整数」✓ **且** `|x| <= 2^53 - 1` ✓——
+`isInteger` 那一段的那一句**照用** ✓（不另写一份 ✗：第二份迟早与第一份走偏 ✓）。
+
+# const ObjectGetOwnPropertySymbols:int = 417
+
+**`Object.getOwnPropertySymbols(o)`**（第 288 轮 ✓）——号在 `411..416` 之后的**下一个** ✓。
+
+**它是 `Object.getOwnPropertyNames` 的**镜像** ✓**：同一趟扫描 ✓、
+同一处「内部标记不算自有属性」的过滤 ✓，**只把「键是不是字符串」翻成「键是不是符号」** ✓
+（属性表里符号键那一格是 `ValueTag.Symbol` ✓，见 `props.xl.md` 的 `SamePropertyKey` ✓）。
+**次序照属性表的次序** ✓（JS 也是插入序 ✓——符号键**不参与**整数键优先那一套 ✗）。
+
 # const ObjectIs:int = 411
 
 **`Object.is(a, b)`**（第 275 轮 ✓）——号在 `Object` 那一段的**下一个** ✓（`401..410` 已用 ✓）。
@@ -1534,8 +1579,18 @@ if (id === MathMax || id === MathMin) {
     if (value !== value) return MathResult(NaN);
     if (id === MathMax) {
       if (value > best) best = value;
+      // **两个零之间的次序** ✗（第 288 轮）：JS 的 `Math.max(-0, 0)` 是 **`+0`** ✓、
+      // `Math.max(-0, -0)` 是 `-0` ✓——而 `-0 > 0` 是**假** ✗，于是上面那一句
+      // **静默**把 `+0` 丢了 ✓（实测 `1 / Math.max(-0, 0)` 给 `-Infinity`，
+      // Node 给 `Infinity` ✓ —— 与 `Math.min` 那一半**正好相反** ✓）。
+      // 判据收在一句上 ✓：**两个都是零时，`+0` 赢** ✓（`value === 0` 对两种零都真 ✓，
+      // 而 `1 / value > 0` 只对 `+0` 真 ✓）。
+      else if (value === 0 && best === 0 && 1 / value > 1 / best) best = value;
     } else {
       if (value < best) best = value;
+      // **`min` 那一半：`-0` 赢** ✓（`Math.min(0, -0)` 是 `-0` ✓，`Math.min(-0, -0)` 也是 `-0` ✓）。
+      // 同一句判据翻个方向 ✓——`1 / value < 1 / best` 只对 `-0` 真 ✓。
+      else if (value === 0 && best === 0 && 1 / value < 1 / best) best = value;
     }
   }
   return MathResult(best);
@@ -1559,6 +1614,13 @@ if (id === MathLog || id === MathExp || id === MathCbrt || id === MathHypot) {
   // **第 206 轮补的四格** ✓（`log` / `exp` / `cbrt` / `hypot` ✓）——
   // 与 `sqrt` / `pow` 同一档（结果多为非整数 ✓，第 124 轮之后才谈得上放行 ✓）。
   // `hypot` 是**多实参**那一档（与 `max` / `min` 同形 ✓）：`Math.hypot(3, 4)` 是 `5` ✓。
+  //
+  // **零实参那一档** ✗（第 288 轮）：JS 的 `Math.hypot()` 是 **`0`** ✓
+  //（「谁都没有、平方和是 0」✓）。原来这里直接读 `args[0]` ✗ ⇒ `MathArgOf(undefined)` 崩
+  //（`Cannot read properties of undefined (reading 'IsObject')` ✓——那句话听起来像引擎坏了 ✗，
+  // 其实是**少了一条早退** ✓）。与 `Math.max()` / `Math.min()` 第 206 轮那条早退
+  // **同一个形状** ✓（那一处也写着理由 ✓）。
+  if (args.length === 0) return MathResult(0);
   const first = MathArgOf(room, call, protos, table, args[0]);
   if (id === MathLog) return MathResult(Math.log(first));
   if (id === MathExp) return MathResult(Math.exp(first));
@@ -1569,6 +1631,23 @@ if (id === MathLog || id === MathExp || id === MathCbrt || id === MathHypot) {
     sum = sum + value * value;
   }
   return MathResult(Math.sqrt(sum));
+}
+if (id === MathSin || id === MathCos || id === MathTan || id === MathAsin
+  || id === MathAcos || id === MathAtan || id === MathAtan2) {
+  // **三角七格**（第 288 轮 ✓）——一律交给宿主那一格 ✓（与第 275 轮那十格同一条纪律 ✗：
+  // `asin` / `acos` / `atan` 照着别的函数凑出来的在边界上会差最后一位 ✓，而判据是逐字节比 ✓）。
+  // **`atan2` 是两个实参那一档** ✓（与 `pow` / `imul` 同形 ✓）。
+  const firstTrig = MathArgOf(room, call, protos, table, args[0]);
+  if (id === MathSin) return MathResult(Math.sin(firstTrig));
+  if (id === MathCos) return MathResult(Math.cos(firstTrig));
+  if (id === MathTan) return MathResult(Math.tan(firstTrig));
+  if (id === MathAtan2) {
+    return MathResult(Math.atan2(MathArgOf(room, call, protos, table, args[0]),
+      MathArgOf(room, call, protos, table, args[1])));
+  }
+  if (id === MathAsin) return MathResult(Math.asin(firstTrig));
+  if (id === MathAcos) return MathResult(Math.acos(firstTrig));
+  return MathResult(Math.atan(firstTrig));
 }
 if (id === MathImul || id === MathClz32 || id === MathFround || id === MathExpm1 || id === MathSinh
   || id === MathCosh || id === MathTanh || id === MathLog2 || id === MathLog10 || id === MathLog1p) {
@@ -1935,16 +2014,28 @@ if (id === ParseInt || id === ParseFloat) {
   const hasRadix = args.length > 1 && !args[1].IsUndefined();
   return ParseIntText(text, hasRadix ? ArgOr(args, 1, 10) : 10, hasRadix);
 }
-if (id === NumberIsInteger) {
+if (id === NumberIsInteger || id === NumberIsSafeInteger) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
   // **只认真整数** ✓（不做转换 ✓，与 JS 一致 ✓）。
-  if (target.Tag === ValueTag.Int32) return Value.FromBool(true);
-  if (target.Tag === ValueTag.Float64) {
-    const number = target.Dbl;
-    return Value.FromBool(number === number && number !== Infinity && number !== -Infinity
-      && number === Math.floor(number));
+  let isInt = false;
+  let number = 0;
+  if (target.Tag === ValueTag.Int32) {
+    isInt = true;
+    number = target.Int;
+  } else if (target.Tag === ValueTag.Float64) {
+    number = target.Dbl;
+    isInt = number === number && number !== Infinity && number !== -Infinity
+      && number === Math.floor(number);
   }
-  return Value.FromBool(false);
+  // **`isSafeInteger` 与 `isInteger` 只差一个边界** ✗（第 288 轮 ✓）：
+  // `2**53 - 1` 是 `true` ✓、`2**53` 是 **`false`** ✓（它是**整数** ✓，只是**不安全** ✓）。
+  // 判据**照用**上面那一句 ✓、只多问一句「在安全区间里没有」✓——
+  // 不另写一份整数判据 ✗（第二份迟早与第一份走偏 ✓）。
+  if (id === NumberIsSafeInteger) {
+    return Value.FromBool(isInt && number >= -9007199254740991 && number <= 9007199254740991);
+  }
+  if (target.Tag === ValueTag.Int32) return Value.FromBool(true);
+  return Value.FromBool(isInt);
 }
 if (id === NumberIsNaN) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
@@ -2523,6 +2614,44 @@ if (id === ObjectGetOwnPropertyNames) {
     namesResult.Push(Value.FromString(table.CreateString(Units(ownNames[i]))));
   }
   return Value.FromArray(namesHandle);
+}
+if (id === ObjectGetOwnPropertySymbols) {
+  // **`Object.getOwnPropertySymbols(o)`** ✓（第 288 轮 ✓）——`getOwnPropertyNames` 的**镜像** ✓：
+  // 同一趟扫描 ✓、同一处「**内部标记不算自有属性**」的过滤 ✓（第 276 轮那条 ✓），
+  // **只把「键是不是字符串」翻成「键是不是符号」** ✓。
+  //
+  // **次序照属性表的次序** ✓：符号键**不参与**「整数键优先」那一套 ✗
+  //（JS 的 `[[OwnPropertyKeys]]` 是「整数键 → 字符串键 → 符号键」三段 ✓，
+  //  而这一段**本身就是最后那一段** ✓ ⇒ 直接按插入序交出去 ✓）。
+  //
+  // **`length` 与下标键都不在结果里** ✓：它们不是符号键 ✓——
+  // 所以这一支**不需要** `IndexKeyPositions` 那一套 ✓（那一套是给字符串键用的 ✓），
+  // 也不需要在数组 / 字符串上特判 ✓。
+  const symbolsTarget = args.length > 0 ? args[0] : Value.Undefined();
+  if (symbolsTarget.Tag !== ValueTag.String && symbolsTarget.Tag !== ValueTag.Array
+    && !symbolsTarget.IsObject()) {
+    throw new Error("Object.getOwnPropertySymbols needs an object");
+  }
+  // **字符串与数组的符号键在属性表里** ✓（`length` / 下标不在 ✓，而它们也不是符号 ✓）——
+  // 所以这一句与 `getOwnPropertyNames` 那一边的取法一致 ✓。
+  const symbolsItem = symbolsTarget.Tag === ValueTag.String ? null : table.Get(symbolsTarget.Ref);
+  const ownSymbols: Value[] = [];
+  if (symbolsItem !== null) {
+    for (let i = 0; i < symbolsItem.Props.length; i++) {
+      // **键是句柄** ✓（`heap.xl.md` 的 `Property.Key` ✓）——它指向一个 `HeapString`
+      // 或 `HeapSymbol` ✓，**看那一格的 `Tag`** ✓（与 `getOwnPropertyNames` 那边
+      // 判「是不是字符串」用的是同一句 ✓，只翻了个方向 ✓）。
+      if (table.Get(symbolsItem.Props[i].Key).Tag !== ValueTag.Symbol) continue;
+      if (IsSealedMarkProperty(table, symbolsItem.Props[i])) continue;
+      ownSymbols.push(Value.FromRef(ValueTag.Symbol, symbolsItem.Props[i].Key));
+    }
+  }
+  if (!room(ObjectCharge + ValueCharge * ownSymbols.length)) throw new Error("out of room");
+  const symbolsHandle = table.CreateArray();
+  table.Get(symbolsHandle).Proto = protos.Array;
+  const symbolsResult = table.Get(symbolsHandle).AsArray();
+  for (let i = 0; i < ownSymbols.length; i++) symbolsResult.Push(ownSymbols[i]);
+  return Value.FromArray(symbolsHandle);
 }
 if (id === ObjectFromEntries) {
   // **`Object.fromEntries(entries)`** ✓（第 214 轮 ✓）：`[[k, v], …]` 或一个 `Map` ✓ →
@@ -3673,10 +3802,13 @@ const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "tru
   "log", "exp", "cbrt", "hypot",
   // **第 275 轮补的十格** ✓（号开在 `350..359` ✓，理由见那十段号 ✓）——
   // 名字与号**一一对齐** ✓（两张表按下标配 ✓，错一格就是**静默**换语义 ✗）。
-  "imul", "clz32", "fround", "expm1", "sinh", "cosh", "tanh", "log2", "log10", "log1p"];
+  "imul", "clz32", "fround", "expm1", "sinh", "cosh", "tanh", "log2", "log10", "log1p",
+  // **第 288 轮补的三角七格** ✓（号开在 `360..366` ✓）——同样**按下标配** ✓。
+  "sin", "cos", "tan", "asin", "acos", "atan", "atan2"];
 const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign,
   MathSqrt, MathPow, MathLog, MathExp, MathCbrt, MathHypot,
-  MathImul, MathClz32, MathFround, MathExpm1, MathSinh, MathCosh, MathTanh, MathLog2, MathLog10, MathLog1p];
+  MathImul, MathClz32, MathFround, MathExpm1, MathSinh, MathCosh, MathTanh, MathLog2, MathLog10, MathLog1p,
+  MathSin, MathCos, MathTan, MathAsin, MathAcos, MathAtan, MathAtan2];
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));
@@ -3874,6 +4006,12 @@ const parseFloatTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(Par
 const isIntegerKey = Value.FromString(table.CreateString(Units("isInteger")));
 const isIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsInteger, 0));
 SetProperty(vm.Room(), NeverCall, table, numberObject, isIntegerKey, isIntegerTarget);
+// **`Number.isSafeInteger`**（第 288 轮 ✓）：与 `isInteger` **同一支实现** ✓
+//（只差一句区间判据 ✓，见那一支的理由 ✓）——所以这里挂的是**另一个能力号** ✓，
+// 而**不是另一份实现** ✗。
+const isSafeIntegerKey = Value.FromString(table.CreateString(Units("isSafeInteger")));
+const isSafeIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsSafeInteger, 0));
+SetProperty(vm.Room(), NeverCall, table, numberObject, isSafeIntegerKey, isSafeIntegerTarget);
 const isNaNAKey = Value.FromString(table.CreateString(Units("isNaN")));
 const isNaNTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsNaN, 0));
 SetProperty(vm.Room(), NeverCall, table, numberObject, isNaNAKey, isNaNTarget);
@@ -4084,6 +4222,11 @@ SetProperty(vm.Room(), NeverCall, table, objectObject,
 SetProperty(vm.Room(), NeverCall, table, objectObject,
   Value.FromString(table.CreateString(Units("getOwnPropertyNames"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertyNames, 0)));
+// **`Object.getOwnPropertySymbols`**（第 288 轮 ✓）：与 `getOwnPropertyNames` **挨着挂** ✓
+//（同一族、同一趟扫描、同一个 `417` 的号 ✓——放远了看不出它们是镜像 ✗）。
+SetProperty(vm.Room(), NeverCall, table, objectObject,
+  Value.FromString(table.CreateString(Units("getOwnPropertySymbols"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertySymbols, 0)));
 SetProperty(vm.Room(), NeverCall, table, objectObject,
   Value.FromString(table.CreateString(Units("fromEntries"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectFromEntries, 0)));

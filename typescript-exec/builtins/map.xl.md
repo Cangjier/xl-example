@@ -66,8 +66,10 @@ import { NeverCall } from "./array.xl.md"
 
 **它靠 `NativeCall` 重入分派循环** ✓（访问器 getter/setter 早就走这条路 ✓）：
 内建把回调当普通值调一次，`vm.xl.md` 的 `Native` 把机器包成那个回调 ✓。
-**已知差异**（`NativeCall` 只带**一个**实参 ✓）：这里给回调的是**值** ✓，
-JS 的 `(值, 键, 映射)` 后两个**不传** ✗——`forEach(v => …)` 这种写法两边一致 ✓。
+**回调收 `(值, 键, 映射)` 三格** ✓（第 142 轮给了前两格 ✓、**第 288 轮补上第三格** ✓）——
+第 116 轮时 `NativeCall` 只带**一个**实参 ✗（那时给回调的是值 ✓，后两个不传 ✓），
+第 142 轮把实参表开宽成**一整个数组** ✓，前两格当场就对了 ✓；第三格一直缺 ✓
+（`self` 就在手边 ✓，见下面那一支 ✓）。
 
 # method Units:(text:string)=>Array<int>
 
@@ -285,8 +287,13 @@ if (id === MapForEach) {
     // 于是 `m.forEach((v, k) => …)` 里的 `k` 是 `undefined` ✗（**静默错值** ✓，
     // 普查里那一条就是它：`map-iterate` 打出 `undefined1` 而不是 `a1` ✓）。
     // **键是现成的值** ✓（`keys` 那个数组里存的就是它 ✓）——不要再包一层 ✗。
+    // **第三格是「这个 Map 自己」** ✓（第 288 轮 ✓）：JS 的签名是 `(值, 键, 映射)` ✓——
+    // 原来只给前两格 ✗，于是 `m.forEach((v, k, self) => self.size)` 里 `self` 是 `undefined` ✓
+    // ⇒ 读 `.size` 当场炸 ✓（判据 `map-iteration-and-foreach` 量到的就是它 ✓）。
+    // **给的就是接收者 `self`** ✓（不是另造一个包装 ✓——JS 给的是**同一个对象** ✓，
+    // 判据里那一句 `self === m` 量的就是它 ✓）。
     call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i),
-      table.Get(keys.Ref).AsArray().GetAt(i)]);
+      table.Get(keys.Ref).AsArray().GetAt(i), self]);
     // **回调抛出就收摊** ✓（第 228 轮 ✓，与 `Array.prototype.forEach` 那条同一条口径 ✓）：
     // 不问这一句，回调里那次 `throw` 要等整张表走完才冒出来 ✓
     //（**静默**那一类 ✗：多跑的每一轮都可能已经改了脚本自己的状态 ✓）。

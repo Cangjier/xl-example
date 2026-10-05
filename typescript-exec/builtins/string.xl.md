@@ -77,7 +77,10 @@ import { ValueUnits } from "./text.xl.md"
 
 `repeat(次数)` 的号。
 
-**非整数先向下取整** ✓（JS 是 `ToIntegerOrInfinity` ✓）；**负数抛** ✓。
+**非整数按 `ToIntegerOrInfinity` 折** ✓（**向零截断** ✗ 不是向下取整 ✓——`repeat(-0.5)` 在 JS 里
+是 `repeat(-0)` ⇒ **空串** ✓，写成 `floor` 会变成 `-1` ⇒ **抛** ✗）；**负数抛** ✓。
+**第 288 轮这一格才真的对** ✓：次数取自 `ArgOr` ✓，而它在第 288 轮之前对小数**一律给 `0`** ✗
+（`"a".repeat(2.9)` 给空串 ✓，JS 给 `"aa"` ✓——**静默错值** ✓，理由记在 `ArgOr` 那一段 ✓）。
 **太多次不另设上限** ✓：它自己会在 `room` 那一关被拦下 ✓（那是一条**可捕获的错误** ✓），
 再加一个人为上限就是第二个「上限」了 ✗——两处不一致比一处更坏 ✓。
 
@@ -514,10 +517,15 @@ if (id === StringSubstring) {
   return Value.FromString(table.CreateString(cut));
 }
 if (id === StringRepeat) {
-  // **先向下取整；负数抛** ✓（JS 的 `ToIntegerOrInfinity` + RangeError ✓）。
+  // **向零截断；负数抛 `RangeError`** ✓（JS 的 `ToIntegerOrInfinity` + RangeError ✓）。
+  // **抛的必须是 `RangeError`** ✗（第 288 轮改）：原来抛的是**裸 `Error`** ✓，
+  // 于是脚本里 `e.name` 给 `"Error"` ✗（Node 给 `"RangeError"` ✓）——
+  // 而 `install.xl.md` 那一支**恰恰按宿主异常的类**翻族 ✓（`error instanceof RangeError` ✓），
+  // 所以「抛什么」是**能被脚本看见**的 ✓（判据 `string-pad-and-repeat-edge-forms` 量的就是它 ✓）。
+  // 同一个文件里 `fromCodePoint` 那一支早就抛 `RangeError` ✓（第 275 轮 ✓）——这一处是漏的 ✗。
   const raw = args.length > 0 ? ArgOr(args, 0, 0) : 0;
   const count = raw < 0 ? -1 : raw;
-  if (count < 0) throw new Error("repeat needs a count that is not negative");
+  if (count < 0) throw new RangeError("repeat needs a count that is not negative");
   const total = units.length * count;
   // **上限交给 room** ✓（见 `StringRepeat` 那一段：不另设一个人为的上限 ✓）。
   if (!room(ObjectCharge + CodeUnitCharge * total)) throw new Error("out of room");

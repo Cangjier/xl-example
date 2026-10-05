@@ -52,7 +52,7 @@ import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 `clear()` 的号（清空并返回 `undefined`）。
 # const SetForEach:int = 619
 `forEach(回调)` 的号——与 `Map` 同一条路（靠 `NativeCall` 重入分派循环 ✓）。
-**已知差异**（`NativeCall` 只带一个实参 ✓）：给回调的是**值** ✓，JS 的 `(值, 值, 集合)` 后两个不传 ✗。
+**回调收 `(值, 值, 集合)` 三格** ✓（第 288 轮补齐 ✓——前两格是同一个值 ✓，第三格是接收者 ✓）。
 
 # method SetMethodNameOf:(id:int)=>string
 
@@ -180,7 +180,11 @@ if (id === SetForEach) {
   const eachTotal = table.Get(values.Ref).AsArray().GetLength();
   for (let i = 0; i < eachTotal; i++) {
     if (table.Get(values.Ref).AsArray().IsHole(i)) continue;
-    call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i), table.Get(values.Ref).AsArray().GetAt(i)]);
+    // **三格**（第 288 轮 ✓）：JS 的签名是 `(值, 值, 集合)` ✓——前两格是**同一个值** ✓
+    //（`s.forEach((v, k) => …)` 里 `k === v` ✓），第三格是**这个 Set 自己** ✓
+    //（给的就是接收者 `self` ✓，不是另造一个包装 ✓）。判据 `set-methods-and-iteration` ✓。
+    call(args[0], Value.Undefined(), [table.Get(values.Ref).AsArray().GetAt(i),
+      table.Get(values.Ref).AsArray().GetAt(i), self]);
     // **回调抛出就收摊** ✓（第 228 轮 ✓，与 `Map.forEach` / `Array.prototype.forEach` 同一条口径 ✓）。
     if (failed !== null && failed()) return Value.Undefined();
   }

@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 88.45,
+  "progressPercent": 89.38,
   "layers": [
     {
       "layer": "runtime",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 216,
-      "pass": 184,
-      "blocked": 5,
-      "differ": 27,
+      "pass": 192,
+      "blocked": 4,
+      "differ": 20,
       "nodefail": 0,
-      "coverage": 85.19
+      "coverage": 88.89
     },
     {
       "layer": "e2e",
@@ -169,12 +169,6 @@
       "layer": "stdlib",
       "title": "defineProperty：getter / 不可枚举 / 不可写 / 只读现值",
       "detail": "tsrun: 脚本抛出：unimplemented: Object.defineProperty with a get/set descriptor"
-    },
-    {
-      "id": "math-trig-and-hyperbolic",
-      "layer": "stdlib",
-      "title": "三角与双曲：sin / cos / tan / atan2 / sinh 的确定读数",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "e2e-event-emitter",
@@ -335,12 +329,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs two string arguments (regex and function r"
     },
     {
-      "id": "string-pad-and-repeat-edge-forms",
-      "layer": "stdlib",
-      "title": "padStart / padEnd / repeat 的截断、负数与零次",
-      "detail": "stdout 不同：第 3 行：node «ababab   2» vs tsrun «ababab   0»"
-    },
-    {
       "id": "string-concat-and-trim-families",
       "layer": "stdlib",
       "title": "concat 的多参 · trim / trimStart / trimEnd 的空白集",
@@ -359,24 +347,6 @@
       "detail": "stdout 不同：第 1 行：node «6 T T» vs tsrun «{ valueOf: [Function: a], toString: [Function: a] } T 5»"
     },
     {
-      "id": "math-sign-and-negzero",
-      "layer": "stdlib",
-      "title": "Math.sign / abs / min / max 在 ±0 与 NaN 上",
-      "detail": "stdout 不同：第 3 行：node «-0 -Infinity 0 Infinity» vs tsrun «0 Infinity -0 -Infinity»"
-    },
-    {
-      "id": "math-pow-and-roots-edge",
-      "layer": "stdlib",
-      "title": "Math.pow / sqrt / cbrt / hypot 的边界",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Cannot read properties of undefined (reading 'IsObject')"
-    },
-    {
-      "id": "number-static-family",
-      "layer": "stdlib",
-      "title": "Number.isInteger / isSafeInteger / isFinite / isNaN 与全局那两个的分工",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "json-stringify-replacer-array-and-fn",
       "layer": "stdlib",
       "title": "JSON.stringify 的 replacer：数组白名单与函数改写",
@@ -387,24 +357,6 @@
       "layer": "stdlib",
       "title": "JSON.stringify 的 toJSON / undefined / 函数 / NaN 口径",
       "detail": "stdout 不同：第 1 行：node «{\"replaced\":true}» vs tsrun «{\"a\":1}»"
-    },
-    {
-      "id": "map-iteration-and-foreach",
-      "layer": "stdlib",
-      "title": "Map 的迭代顺序、forEach 三个实参、展开",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
-    },
-    {
-      "id": "set-methods-and-iteration",
-      "layer": "stdlib",
-      "title": "Set：add / has / delete / size / 迭代 / forEach",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
-    },
-    {
-      "id": "symbol-description-and-tostring",
-      "layer": "stdlib",
-      "title": "Symbol：description / toString / 唯一性 / 作为键",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "symbol-toprimitive-and-concat",
@@ -447,11 +399,5 @@
     }
   ],
   "newlyPassing": [],
-  "regressions": [
-    {
-      "id": "math-trig-and-hyperbolic",
-      "layer": "stdlib",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    }
-  ]
+  "regressions": []
 }

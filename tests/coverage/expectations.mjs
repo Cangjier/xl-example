@@ -483,14 +483,18 @@ export const EXPECTATIONS = {
   // `nodefail` 的 4 条是**用例自己不合法** ✗ ⇒ 当场改写成合法形状 ✓ 再收 ✓），
   // 于是矩阵里**一条 `nodefail` 都没有** ✓。下面按**根子**分组 ✓。
 
-  // ---- 组 A：引擎的**静默错值**（7 条，最危险：不抛、给了一个看起来成立的答案）----
+  // ---- 组 A：引擎的**静默错值**（第 287 轮 7 条，**第 288 轮收掉 1 条**）----
   // 这一组是这一轮最值钱的读数 ✗——它们**全是亮的** ✓（没有一句异常），
   // 所以只能靠「与 `node` 逐字节比」才看得见 ✓。
+  // **第 288 轮删掉了 `math-sign-and-negzero` 那一行** ✓（它过了 ✓）：
+  // `Math.min` / `Math.max` 那两个支路原来只写了一句「比大小」✗，而 **`-0 > 0` 是假** ✗
+  // ⇒ **两个零之间的次序丢了** ✓（`1 / Math.max(-0, 0)` 给 `-Infinity` ✗，Node 给 `Infinity` ✓）。
+  // 修法是**一句补充判据** ✓：两个都是零时，`+0` 在 `max` 赢 / `-0` 在 `min` 赢 ✓
+  //（`1 / value > 1 / best` 与它的反向 ✓，一处一行 ✓）。
   "rt-delete-array-element": { expect: "differ", why: "**静默错值**：`delete xs[1]` 什么都没做（`xs.length` 还是 3、`1 in xs` 还是 true）。`delete` 落在**下标位**上时被当成了「写一个 undefined」而不是「删掉这一格」" },
   "rt-IIFE-module-scope": { expect: "differ", why: "**静默错值**：内层 `const value = \"inner\"` 覆盖了外层的 `value`（打完是 `inner inner`，Node 给 `outer inner`）——函数体的绑定没有落进**新的一层环境格**，直接写进了外层那一格" },
   "ex-nonnull-and-as-chain": { expect: "differ", why: "**静默错值**：`o!.a!.b![1]` 给整个数组而不是 `2`——非空断言串在成员链上时把后面那一截丢掉了（`(o as any).a.b.length` 是对的）" },
   "object-valueof-override": { expect: "differ", why: "**静默错值**：`{ valueOf: () => 5 } + 1` 给 `[object Object]1`（Node 给 `6`）——对象当 `ToPrimitive` 时**没有先问 `valueOf`**。`toString` 那一半是对的（`[object Object]` 与 `T` 都对）" },
-  "math-sign-and-negzero": { expect: "differ", why: "**静默错值**：`Math.min(0, -0)` 该给 `-0`、`Math.max(-0, 0)` 该给 `0`（JS 的 ±0 有次序），本仓把两个的符号**都反了**（`1 / Math.min(0, -0)` 给 `Infinity`，Node 给 `-Infinity`）" },
   "rt-iife-forms": { expect: "differ", why: "**静默错值**：`((a: number, b: number) => a + b)(2, 3)` 给 `NaN`——**带类型标注**的箭头函数出现在立即调用位置时，形参没绑上（不带标注的箭头立即调用是对的）" },
   "rt-class-expr-and-static-this": { expect: "differ", why: "**静默错值**：具名类表达式 `const C = class Named { static who() { return this.name } }` 里 `this.name` 给 `undefined`（Node 给 `Named`）——类表达式的名字没挂到构造函数自己那一格上（`C.name = \"Renamed\"` 之后仍给 `undefined`，说明属性读也没落在它身上）" },
 
@@ -518,32 +522,46 @@ export const EXPECTATIONS = {
   "ex-namespace-with-values": { expect: "blocked", why: "`unimplemented: statement ModuleDeclaration`：`namespace` 里有运行期东西（`export const` / `export function`）⇒ 要造一个对象并把成员挂上去" },
   "ex-namespace-nested-with-values": { expect: "blocked", why: "同上，外加**嵌套**那一层（`Outer.Inner.v`）——两层都要造对象并接上去" },
 
-  // ---- 组 G：标准库**成员不在那儿**（6 条，先问「在不在」量出来的）----
+  // ---- 组 G：标准库**成员不在那儿**（第 287 轮 7 条，**第 288 轮收掉 3 条**）----
   // 量法与第 273 轮一致 ✓：一个探针把候选成员逐个 `typeof` 一遍 ✓，
   // 把「根本不在那儿」与「在、但语义不对」分开 ✓（修法不一样 ✓）。
+  //
+  // **第 288 轮收掉的三格** ✓（`Math` 三角七格 ✓ · `Number.isSafeInteger` ✓ ·
+  // `Object.getOwnPropertySymbols` ✓）——**两条教训** ✗：
+  // ① **三角七格是本轮最便宜的一格** ✓（往 `Math` 那两张按下标的表里各加七项 ✓）——
+  //    而它拖到第 288 轮才被量到 ✗，因为第 273 轮那份普查按「**已经想到的形状**」铺 ✓，
+  //    没人想到去写 `Math.sin` ✓（第 287 轮的加宽把它问了出来了 ✓）。
+  // ② **`isSafeInteger` 与 `isInteger` 只差一个边界** ✓、**`getOwnPropertySymbols` 与
+  //    `getOwnPropertyNames` 只差「键是不是符号」** ✓——两处都**复用**了兄弟那一支 ✓，
+  //    没有另写一份 ✗（第 283 轮那条「第二份迟早与第一份走偏」✓）。
   "string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof (String as any).raw` 给 `undefined`）——标签模板的 `raw` 那一栏投影里也没有" },
-  "math-trig-and-hyperbolic": { expect: "blocked", why: "`Math.asin` / `acos` / `atan` / `atan2` 四个都不在（`sin` / `cos` / `tan` 与双曲那一族是在的）" },
-  "number-static-family": { expect: "differ", why: "`Number.isSafeInteger` 不在那儿（`isInteger` / `isFinite` / `isNaN` 都在）" },
-  "symbol-description-and-tostring": { expect: "differ", why: "`Object.getOwnPropertySymbols` 不在那儿（符号当键的**读**是对的 ✓，差的是把符号键列出来那一格）" },
   "date-getters-and-setters": { expect: "differ", why: "两处：本地 getter 一族（`getFullYear` / `getHours` …）一格都没有；`new Date(2020, 0, 2, …)` 那种**多实参**构造没接（把第一个实参当成了毫秒数给 `2020`）" },
   "object-create-and-prototype-forms": { expect: "blocked", why: "`unimplemented: Object.create(null) (a proto-less object)`——`null` 原型那一档没接（带属性的那一档是好的 ✓）" },
   "object-defineproperty-forms": { expect: "blocked", why: "`unimplemented: Object.defineProperty with a get/set descriptor`——描述符里的访问器那一档没接（`value` 那一档是好的 ✓）" },
 
-  // ---- 组 H：标准库**在、但语义不对**（15 条）----
+  // ---- 组 H：标准库**在、但语义不对**（第 287 轮 15 条，**第 288 轮收掉 5 条**）----
   // 与组 A 同样是**静默错值** ✓，只是这一组住在标准库里 ✓。
-  "map-iteration-and-foreach": { expect: "differ", why: "**静默错值**：`Map.prototype.forEach` 的**第三格实参**给 `undefined`（JS 给这个 `Map` 自己）；`cannot read properties of undefined` 是脚本读 `self.size` 时炸的" },
-  "set-methods-and-iteration": { expect: "differ", why: "同上：`Set.prototype.forEach` 的第三格实参给 `undefined`（前两格 ✓ `v` 与 `k === v` 都对）" },
+  //
+  // **第 288 轮收掉的五条** ✓：
+  // ① `Map` / `Set` 的 `forEach` **第三格实参**（两条 ✓）——`self` 就在手边 ✓，
+  //    补一格实参就完了 ✓（第 142 轮把实参表开宽之后这是**顺手**的 ✓，只是没人回头补 ✗）；
+  // ② `"a".repeat(2.9)`（一条 ✓）——**根子不在 `repeat`** ✗，在**共用的取值器 `ArgOr`** ✓：
+  //    它原来对 `Float64` 一律走 `AsInt()` ✓ ⇒ **每一个小数实参都静默变成 `0`** ✗
+  //    （`fill(9, 1.5)` 从 0 开始填 ✗、`at(1.5)` 给第 0 格 ✗ ……）。
+  //    改在 `ArgOr` 一处 ✓ ⇒ 十几个内建一起对 ✓；同一条判据当场抓到第二处 ✗：
+  //    `repeat(-1)` 抛的是**裸 `Error`** ✓，而脚本看得见 `e.name` ✓（Node 给 `RangeError` ✓）；
+  // ③ `Math.hypot()` **空实参**（一条 ✓）——少一条早退 ✓（`Math.max()` 第 206 轮那条
+  //    **同一个形状** ✓，`hypot` 那一支当时没跟着补 ✗）；
+  // ④ `-0` 那一格记在组 A ✓。
   "object-assign-forms-and-order": { expect: "differ", why: "**静默错值**：`Object.assign({}, \"ab\")` 给 `{}`（Node 给 `{\"0\":\"a\",\"1\":\"b\"}`）——字符串当源时要按**码元**展开成下标键" },
   "json-stringify-tojson-and-specials": { expect: "differ", why: "`JSON.stringify` 不认 `toJSON`（`{ a: 1, toJSON() { return { replaced: true } } }` 给 `{\"a\":1}`）——`JsonText` 是个纯查询、没有调用通道" },
   "json-stringify-replacer-array-and-fn": { expect: "differ", why: "`JSON.stringify` 的第二格实参（replacer 数组 / 函数）被忽略——与 `json-stringify-replacer` 同一格" },
   "date-toiso-and-json": { expect: "differ", why: "`JSON.stringify(new Date(0))` 给 `{}`（要 `Date.prototype.toJSON`，与 `toJSON` 那条通道同一格）；前半条（`toISOString` / `toJSON` 直接调）是好的 ✓" },
   "string-replace-patterns": { expect: "differ", why: "`String.replace` 只认两个字符串实参：**函数替换**与 `$&` 一类替换记号没接（`replaceAll` 的计数形态也是同一格）" },
-  "string-pad-and-repeat-edge-forms": { expect: "differ", why: "**静默错值**：`\"a\".repeat(2.9)` 给**空串**（Node 给 `\"aa\"`）——重复次数该**向零取整**再判越界，本仓把非整数当成了不合法" },
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "string-charcodes-and-units": { expect: "differ", why: "**码元 vs 码点**：`[...\"A\\u{1F600}B\"]` 给 4 个（代理对被拆开），Node 给 3 个——与 `rt-surrogate-iteration` 同一个根" },
   "symbol-toprimitive-and-concat": { expect: "differ", why: "`Symbol.toPrimitive` 没被 `+` / 模板 / `String()` 问过（`{} + 1` 给 `…1`、`String(o)` 给 `default`）——引擎的 `ToPrimitive` 只认 `valueOf` / `toString` 两个名字" },
   "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
-  "math-pow-and-roots-edge": { expect: "differ", why: "`Math.hypot()` **空实参**时崩（`Cannot read properties of undefined (reading 'IsObject')`）——零实参那一档没走「返回 0」的短路" },
   "function-prototype-and-bind-forms": { expect: "differ", why: "`bound.length` 给 `undefined`（Node 给 `1`）——绑定函数的 `length` 该是「原函数形参数 − 已绑定的实参数」；`call` / `apply` / `bind` 本身都是好的 ✓" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
 };

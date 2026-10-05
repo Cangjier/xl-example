@@ -6,6 +6,64 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 288 轮的账（标准库「表里挂一格」那一批 —— 88.5% → 89.4%）
+
+**选题**：第 287 轮那张缺口清单里最便宜的一组 ✓（[`tests/coverage/README.md`](../tests/coverage/README.md)
+的「剩下的活」#1 / #2 ✓）——**八条判据一起转绿** ✓，红的一栏没动 ✓。
+
+| 格 | 号 | 修法 | 判据 |
+| --- | --- | --- | --- |
+| `Math.sin` / `cos` / `tan` / `asin` / `acos` / `atan` / `atan2` | `360..366` | `InstallMath` 那两张表**按下标各加七项**；分派那一支**一律交给宿主**（不自己凑 ✗） | `math-trig-and-hyperbolic` |
+| `Number.isSafeInteger` | `325` | **与 `isInteger` 共用同一支** ✓，只多一句区间判据（`2**53-1` 是 `true`、`2**53` 是 `false`） | `number-static-family` |
+| `Object.getOwnPropertySymbols` | `417` | `getOwnPropertyNames` 的**镜像** ✓：同一趟扫描、**只把「键是不是字符串」翻成「键是不是符号」** ✓（键是**句柄**，看 `table.Get(key).Tag` ✓） | `symbol-description-and-tostring` |
+| `Math.hypot()` **空实参** | — | 补一条早退给 `0` ✓（`Math.max()` / `Math.min()` 第 206 轮那条**同一个形状** ✓） | `math-pow-and-roots-edge` |
+| `Math.min(0, -0)` / `Math.max(-0, 0)` | — | **补一句「两个都是零时谁赢」** ✓（`-0 > 0` 是假 ✗ ⇒ 原来**静默**丢了 `+0` ✓） | `math-sign-and-negzero` |
+| `Map` / `Set` 的 `forEach` **第三格** | — | 把 `self` 补进实参表 ✓（第 142 轮开宽实参表之后这一步是**顺手**的 ✓，只是没人回头补 ✗） | `map-iteration-and-foreach` · `set-methods-and-iteration` |
+
+**最值钱的一处不在上面那张表里** ✗：`"a".repeat(2.9)` 给**空串** ✓（Node 给 `"aa"` ✓）——
+**根子不在 `repeat`** ✗，在**十几个内建共用**的那个取值器 **`ArgOr`** ✓：
+它原来对 `Float64` 走 `args[i].AsInt()` ✓，而 `AsInt` 对**非整数一律给 `0`** ✓
+（`value.xl.md` 明写着「取整数载荷，其余给 `0`」✓）⇒ **每一个小数实参都静默变成 `0`** ✗
+（`fill(9, 1.5)` 从 0 开始填 ✗、`at(1.5)` 给第 0 格 ✗、`slice(1.5)` 从 0 切 ✗ ……）。
+
+**为什么改在 `ArgOr` 一处** ✓：**第 283 轮那条教训**——「第二份判据迟早与第一份走偏」✓；
+而 **第 274 轮 `flat` 那一处已经单独绕过过一次** ✓（它写了一段自己的 `ToIntegerOrInfinity` ✓，
+因为 `ArgOr` 读不出 `Infinity` ✓）——这一轮把**共用那一份**补上 ✓，
+按 JS 的 `ToIntegerOrInfinity` 对齐 ✓（`NaN` ⇒ `0` ✓、`±Infinity` ⇒ 一个够大的上界 ✓、
+**向零截断** ✗ 不是 `floor` ✓——`slice(-0.5)` 在 JS 里给整个数组 ✓，写成 `floor` 会**静默差一格** ✗）。
+
+**同一条判据当场抓到第二处** ✗：`repeat(-1)` 抛的是**裸 `Error`** ✓，
+而 `install.xl.md` 那一支**恰恰按宿主异常的类翻族** ✓（`error instanceof RangeError` ✓）
+⇒ 脚本里 `e.name` 给 `"Error"` ✗（Node 给 `"RangeError"` ✓）。
+**同一个文件里 `fromCodePoint` 那一支早就抛 `RangeError`** ✓（第 275 轮 ✓）——
+所以这一处是**漏的** ✗，不是「本仓的选择」✓。修法是换一个异常类 ✓（一行 ✓）。
+
+**读数**：**497 / 556 = 89.38%**（引擎 91.67% ✓ / 降级层 91.06% ✓ /
+标准库 85.19% → **88.89%** ✓ / 端到端 84.62% ✓）。**没有一条 `REGRESSION`** ✓；
+`runtime:check` 241 条 ✓、`runtime:cli` 79 份 ✓ 两把门照旧全绿 ✓。
+
+### 顺带量出来的一条 **token 层**缺口（本轮最值钱的那一条 ✗）
+
+这一轮改 `Math.min` / `Math.max` 的判据时，顺手在 `if` 体与 `else` 之间写了一行注释 ✓——
+于是 `cases:tsast` 当场报 **1441 / 1442** ✗：
+
+- 产物把 `if (…) …;` + 注释 + `else if (…) …;` 拆成了**两个各自独立的 `IfSet`** ✗
+  （外层 `IfStatement` 的区间只到第一条语句为止 ✓）；
+- 而 TS 那边**是一个 `IfStatement`** ✓——`else` 是词法记号 ✓、注释只是 trivia ✓，
+  `ts.forEachChild` 连看都不看它 ✓。
+
+**根子**在 `typescript/tokens/if/if-set.xl.md` 的 `Process` ✓：
+续段判定用的是 `SkipNextWrapSymbol` ✓——**它只跳软换行** ✗，
+而注释从一开始就是**另一档 trivia** ✓（`IsTriviaUnit` / `SkipNextTrivia` 那一对**早就有** ✓，
+`conditional-type.xl.md` 也在用 ✓）。**修法是换两个调用** ✓（`else` 那两处 ✓）。
+
+**为什么它一直没被量到** ✗：**同一个形状在两种 trivia 上只做了一半** ✓——
+而语料里此前**没有一条**「`if` 体与 `else` 之间夹注释」的写法 ✓。
+**修好的形状要有判据守着** ✓（第 273 轮立的规矩 ✓）⇒ 新增
+`tests/parse/cases/statements/if-else-with-comment.ts` ✓
+（同时盖住 `else if` 与最后的 `else` 两种续段、行注释与块注释两种 trivia ✓）。
+修完之后 **1443 / 1443 完全一致** ✓，四方向全 0 ✓。
+
 ## 第 287 轮的账（**只加宽**：矩阵 397 → 556 条，读数 92.1% → 88.5%）
 
 **用户这一轮的选题是「先把 exec / runtime / 标准库 的语料铺满，再照读数决定下一步」** ✓，
@@ -94,12 +152,13 @@
 | --- | --- | --- | --- | --- |
 | 引擎（`runtime/`） | 25% | **91.67%** | 187 / 204 | 22.92 |
 | 降级层（含 `typescript/` 那一半：token / 投影） | 30% | **91.06%** | 112 / 123 | 27.32 |
-| 标准库（`builtins/`） | 25% | **85.19%** | 184 / 216 | 21.30 |
+| 标准库（`builtins/`） | 25% | **88.89%** | 192 / 216 | 22.22 |
 | 端到端（普通 `.ts` 直接跑） | 20% | **84.62%** | 11 / 13 | 16.92 |
-| **合计** | 100% | — | **494 / 556** | **88.45%** |
+| **合计** | 100% | — | **497 / 556** | **89.38%** |
 
-（上表是**第 287 轮**的读数 ✓：那一轮把矩阵从 397 条**加宽到 556 条** ✓
-——**分母变诚实** ✓，所以四个数都比第 286 轮低 ✓。逐轮的账见文末与
+（上表是**第 288 轮**的读数 ✓：第 287 轮把矩阵从 397 条**加宽到 556 条** ✓
+——**分母变诚实** ✓，所以四个数都比第 286 轮低 ✓；第 288 轮在标准库那一栏收回了 3.7 个点 ✓。
+逐轮的账见文末与
 [`tests/coverage/README.md`](../tests/coverage/README.md) ✓。）
 
 **这两个数（99.5% 与 90.7%）量的不是同一件事** ✓，两个都留着：
