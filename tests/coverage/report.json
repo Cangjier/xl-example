@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 85.47,
+  "progressPercent": 86.28,
   "layers": [
     {
       "layer": "runtime",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 154,
-      "pass": 130,
-      "blocked": 15,
-      "differ": 9,
+      "pass": 135,
+      "blocked": 12,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 84.42
+      "coverage": 87.66
     },
     {
       "layer": "e2e",
@@ -183,24 +183,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "string-trim-variants",
-      "layer": "stdlib",
-      "title": "trim / trimStart / trimEnd 与各种空白",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "math-imul-clz32",
-      "layer": "stdlib",
-      "title": "Math.imul / clz32 / fround 这三个 32 位工具",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "object-is",
-      "layer": "stdlib",
-      "title": "Object.is 与 `===` 的两处不同",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "object-getownpropertydescriptor",
       "layer": "stdlib",
       "title": "getOwnPropertyDescriptor 的形状与缺失",
@@ -315,18 +297,6 @@
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
-    },
-    {
-      "id": "string-at-and-codepoints",
-      "layer": "stdlib",
-      "title": "at / codePointAt / fromCodePoint 与代理对",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "math-hypot-and-roots",
-      "layer": "stdlib",
-      "title": "Math.hypot / cbrt / exp / log 一支",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "json-stringify-replacer",

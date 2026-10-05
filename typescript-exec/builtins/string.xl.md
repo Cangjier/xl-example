@@ -135,6 +135,39 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 
 **`localeCompare`**（第 208 轮 ✓）——按**码元**比、**只做 ASCII** ✓（没有区域表 ✓，理由写在实现里 ✓）。
 
+# const StringTrimStart:int = 124
+
+# const StringTrimEnd:int = 125
+
+**`trimStart` / `trimEnd`**（第 275 轮 ✓）——`trim` 的**两个半边** ✓。
+**三个共用同一段实现** ✓（只差「从哪一头裁」✓）：那一支里有两件**不能抄**的东西 ✗——
+「**只做 ASCII 空白**」那张表 ✓、以及「**边缘是非 ASCII 就抛**」那条纪律 ✓
+（它挡的是 `U+00A0` 那一类这一层认不出来的空白 ✓）。
+抄成三份就是三处会漂的答案 ✗，而漂了的症状是「有一头**静默**少裁了一个字符」✓。
+
+**它们是第 273 轮普查量到的** ✓：判据 `string-trim-variants` 在报
+`cannot call a non-closure value` ✓——即**那一格根本没装** ✗（`trim` 一直是好的 ✓）。
+
+# const StringFromCodePoint:int = 126
+
+**`String.fromCodePoint(码位…)`**（第 275 轮 ✓）——**静态方法** ✓
+（与 `fromCharCode` 同一条先例 ✓：`self` 是那个 `String` **普通对象** ✓，
+所以它必须排在 `RequireString` **前面** ✓）。
+
+**它与 `fromCharCode` 不是一回事** ✗，而且差在**两头** ✓：
+- **实参**是**码位** ✓（`fromCodePoint(0x1F600)` 给**一个**字符 ✓），
+  而 `fromCharCode` 收的是**码元** ✓（`fromCharCode(0x1F600)` 给**一个**越界码元 ✓，
+  它**不是**那个 emoji ✓）；
+- **输出**可能**不止一个码元** ✓（代理对 ✓）——所以这一格要**按码位拆成码元** ✓，
+  不能像 `fromCharCode` 那样「一个实参一个码元」✗。
+
+**越界要抛 `RangeError`** ✓（JS 的口径 ✓）：`fromCodePoint(-1)` / `fromCodePoint(0x110000)`
+在 JS 里都抛 ✓，而 `fromCharCode` 是**夹住** ✓——**两个函数的边角口径不同** ✗，
+这一句也是不能互相顶替的地方 ✓。
+
+**它是第 273 轮普查量到的** ✓：判据 `string-at-and-codepoints` 量到
+`String.fromCodePoint` 不在那儿 ✓（同一条里 `.at()` 与 `.codePointAt()` 一直是好的 ✓）。
+
 **`replaceAll(找, 换)`**（第 150 轮）——与 `replace` **共用同一段实现** ✓（只差「换一处 / 换全部」✓）。
 **不是「把 `replace` 的结果反复跑一遍」** ✗（那在替换文本里含针时会无限增长 ✓）；
 扫描接着**这一处之后**走 ✓（`"aaa".replaceAll("a","aa")` 给 `"aaaaaa"` ✓——JS 就是三处 ✓）。
@@ -183,6 +216,40 @@ if (id === StringFromCharCode) {
   }
   if (!room(ObjectCharge + CodeUnitCharge * codes.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(codes));
+}
+if (id === StringFromCodePoint) {
+  // **静态方法，排在 `RequireString` 前面** ✓（与 `fromCharCode` 同一条先例 ✓，理由见号那一段 ✓）。
+  // **一个码位可能拆成两个码元** ✓（代理对 ✓）——所以先把整张码元表算出来 ✓，
+  // 再一次性开串 ✓（`CreateString` 收的是**整张表** ✓，不是「能追加的串」✗）。
+  // **两头都与 `fromCharCode` 不同** ✗：实参是**码位**（不是码元 ✓）、
+  // 越界**抛 `RangeError`**（不是夹住 ✓）——JS 把这两个函数的口径分得很开 ✓。
+  const codeUnits: number[] = [];
+  for (let i = 0; i < args.length; i++) {
+    // **不是数字就抛** ✓（JS 先 `ToNumber` ✓，拿不到整码位就抛 ✓）——
+    // 这里**不做 `ToNumber`** ✗（那要碰堆 ✓），直接要求一个数值格子 ✓；
+    // 给别的类型就落到这一句抛上 ✓（**响亮**，不是静默跳过 ✗）。
+    if (!args[i].IsNumber()) {
+      throw new RangeError("invalid code point for String.fromCodePoint");
+    }
+    const point = args[i].AsDouble();
+    // **整数、且落在 `0..0x10FFFF`** ✓：`NaN` / 小数 / 越界**一律抛** ✓（JS 的口径 ✓）。
+    // `NaN` 那一格由 `point !== Math.floor(point)` 顺手接住 ✓
+    //（`Math.floor(NaN)` 是 `NaN` ✓，两者不等 ✓）。
+    if (point !== Math.floor(point) || point < 0 || point > 0x10ffff) {
+      throw new RangeError("invalid code point for String.fromCodePoint");
+    }
+    if (point <= 0xffff) {
+      codeUnits.push(point);
+      continue;
+    }
+    // **代理对的两个公式**（JS 的 `UTF16EncodeCodePoint` ✓）：
+    // 高位是 `0xD800 + (偏移 >> 10)` ✓、低位是 `0xDC00 + (偏移 & 0x3FF)` ✓。
+    const offset = point - 0x10000;
+    codeUnits.push(0xd800 + (offset >> 10));
+    codeUnits.push(0xdc00 + (offset & 0x3ff));
+  }
+  if (!room(ObjectCharge + CodeUnitCharge * codeUnits.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(codeUnits));
 }
 RequireString(table, self);
 const units = TextUnitsOf(table, self);
@@ -365,19 +432,37 @@ if (id === StringToUpperCase || id === StringToLowerCase) {
   if (!room(ObjectCharge + CodeUnitCharge * out.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(out));
 }
-if (id === StringTrim) {
+if (id === StringTrim || id === StringTrimStart || id === StringTrimEnd) {
   // **只做 ASCII 空白**（9 / 10 / 11 / 12 / 13 / 32）✓，理由与大小写那一条一模一样 ✓：
   // 扫到**边缘**是 > 127 的码元时**抛** ✓——它可能就是 JS 要裁掉的
   // `U+00A0` / `U+2028` 那一类空白，而这一层认不出来 ✗。
+  //
+  // **第 275 轮把三个半边收成一支** ✓（`trim` / `trimStart` / `trimEnd` ✓）：
+  // 三个只差「从哪一头裁」✓，而上面那条纪律与那张空白表**两样都长在这一支里** ✗——
+  // 抄成三份就是三处会漂的答案 ✓，而漂了的症状是「有一头**静默**少裁了一个字符」✗。
+  const trimFront = id !== StringTrimEnd;
+  const trimBack = id !== StringTrimStart;
   const blank = (unit: number): boolean => {
     return unit === 32 || unit === 9 || unit === 10 || unit === 11 || unit === 12 || unit === 13;
   };
   let start = 0;
   let end = units.length;
-  while (start < end && blank(units[start])) start++;
-  while (end > start && blank(units[end - 1])) end--;
-  if (start < end && (units[start] > 127 || units[end - 1] > 127)) {
-    throw new Error("unimplemented: trim with a non-ASCII edge (that character may be trimmable in JS)");
+  if (trimFront) {
+    while (start < end && blank(units[start])) start++;
+  }
+  if (trimBack) {
+    while (end > start && blank(units[end - 1])) end--;
+  }
+  // **边缘检查也要按「裁哪一头」走** ✓：**不裁的那一头不参与这一问** ✗——
+  // `trimStart` 不该因为**尾巴**上有个非 ASCII 就抛 ✓（那一头是原样保留的 ✓）。
+  // 这一句是「三个半边共用一个实现」时唯一必须分开写的地方 ✓（写错了会**多抛** ✓）。
+  if (start < end) {
+    if (trimFront && units[start] > 127) {
+      throw new Error("unimplemented: trim with a non-ASCII edge (that character may be trimmable in JS)");
+    }
+    if (trimBack && units[end - 1] > 127) {
+      throw new Error("unimplemented: trim with a non-ASCII edge (that character may be trimmable in JS)");
+    }
   }
   const cut: number[] = [];
   for (let i = start; i < end; i++) cut.push(units[i]);
@@ -637,12 +722,16 @@ const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "startsWith", "endsWith", "substring", "repeat", "padStart", "padEnd", "replace", "replaceAll",
   // **第 208 轮补的四格** ✓（`at` / `codePointAt` / `concat` / `lastIndexOf` ✓）——
   // 号**追加在表尾** ✓、已有的一个都没动 ✓。
-  "at", "codePointAt", "concat", "lastIndexOf", "localeCompare"];
+  "at", "codePointAt", "concat", "lastIndexOf", "localeCompare",
+  // **第 275 轮补的两格** ✓（`trimStart` / `trimEnd` ✓）——号**照旧追加在表尾** ✓
+  //（`124` / `125` ✓），已有的一个都没动 ✓。
+  "trimStart", "trimEnd"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
   StringReplace, StringReplaceAll,
-  StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare];
+  StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare,
+  StringTrimStart, StringTrimEnd];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

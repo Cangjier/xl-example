@@ -30,7 +30,7 @@
 
 | # | 缺口（条数） | 入口（文件 · 符号） | 难点 / 已经想到的路 |
 | --- | --- | --- | --- |
-| 1 | **标准库「成员不在那儿」（剩 12 条）**：数组迭代器的 `next()` · `trimStart`/`trimEnd` · `String.fromCodePoint` · `String.raw` · `Math.imul`/`clz32`/`fround` · `Math.expm1`/`sinh`/`cosh`/`tanh`/`log2`/`log10`/`log1p` · `Object.is` · `Object.getOwnPropertyDescriptor` · `Object.seal`/`isSealed`/`defineProperties` · `JSON.parse` 的 reviver · `JSON.stringify` 的 replacer · `Symbol.for`/`keyFor` · `Date.toISOString`/`toJSON`/`Date.UTC`/`setUTC*`/`new Date(字符串)` · `SyntaxError` 那一族不是全局名 | `typescript-exec/builtins/*.xl.md` 的 `entries` 表 | **第 274 轮收掉了 Array 那一族七格** ✓（`findLast`/`findLastIndex` · `reduceRight` · `copyWithin` · `toSorted`/`toReversed`/`with` ✓）——**这一组仍然最便宜** ✓：剩下的全是「往表里挂一格」的活 ✓。`Object.is` 尤其现成 ✓（`SameValue` 的判据第 207 轮就在 ✓）；`SyntaxError` 那一族还牵着一处：**读一个未声明的全局名在降级期就抛** ✗（`CollectDeclaredNames`），那是「全局名表」这一层的口径 ✓ |
+| 1 | **标准库「成员不在那儿」（剩 10 条）**：数组迭代器的 `next()` · `String.raw` · `Object.getOwnPropertyDescriptor` · `Object.seal`/`isSealed`/`defineProperties` · `JSON.parse` 的 reviver · `JSON.stringify` 的 replacer · `Symbol.for`/`keyFor` · `Date.toISOString`/`toJSON`/`Date.UTC`/`setUTC*`/`new Date(字符串)` · **`SyntaxError` 那一族不是全局名** | `typescript-exec/builtins/*.xl.md` 的 `entries` 表 | **第 274 / 275 两轮把这一组从 17 条收到 10 条** ✓（274 收 Array 七格 ✓、275 收 `Math` 十格 + `Object.is` + `trimStart`/`trimEnd` + `String.fromCodePoint` ✓）——**这一组仍然最便宜** ✓：剩下的多是「往表里挂一格」的活 ✓。**两处不是挂一格** ✗：`String.raw` 要「标签模板的 `raw` 那一栏」✓（投影那边的事 ✓，与 `ex-tagged-template-suffix` 同一处 ✓）；`SyntaxError` 那一族还牵着「**读一个未声明的全局名在降级期就抛**」✗（`CollectDeclaredNames`），那是「全局名表」这一层的口径 ✓ |
 | 2 | **async 那一族（9 条）** | `typescript-exec/builtins/promise.xl.md` · `runtime/vm.xl.md` 的 `RunNativeTask` 收尾 | **最深的一处，也是 e2e 那三条全挂在它上面** ✗。`.then` 回调跑完之后收尾就出事 ✓（探针证明 `AdoptInto` **一次都没被触达** ✓）；要连着「`async` 函数返回承诺」一起做 ✓（第 229 轮只做「包一个已兑现承诺」那一半，判据当场红两条 ✓，退回来了 ✓） |
 | 3 | **静态成员不随 `extends` 走（2 条）** | `typescript-exec/lowering.xl.md` 类降级建 `extends` 那一段 + `props.xl.md` | JS 的 `extends` 是**两步** ✓（原型链 **加** 把子构造函数自己的 `[[Prototype]]` 接到父构造函数 ✓），只做了前一步 ✗。连带 `super` 在**静态**成员里要从**父构造函数**起读 ✓——第 243 轮的 `GetPropFrom` 起点那一格要按「静态 / 实例」分两种 ✓ |
 | 4 | **`implements` 子句被当成值（2 条）** | `typescript-exec/lowering.xl.md` 认 `heritageClauses` 那一支 | 只认了 `extends` ✗（同一个数组的第二格是 `implements` ✓）。**是「少认一格」，不是「要新造机制」** ✓ |
@@ -89,6 +89,7 @@
 | 273 | **84.3%** | 93.9% | 85.0% | 79.9% | 76.9% | **340 / 395** | **矩阵加宽 120 条**（275 → 395）：**先普查、再收编**——候选先逐条交给 `node` 与 `tsrun` 各跑一遍，只留裁判跑得动的；120 条里 **83 条当场通过**、**37 条是新量到的缺口**。读数因此从 90.7% **落到 84.3%**——那是**分母变诚实** ✓ 不是倒退 ✓（分母 +44%）。37 条按**根子**分成 15 组写进 `expectations.mjs`，最大两组是**标准库「成员不在那儿」17 条**与 **`async` 那一族 9 条** |
 | 274 | **85.5%** | 93.9% | 85.0% | **84.4%** | 76.9% | **347 / 395** | **Array 那一族七格一起收**（`findLast`/`findLastIndex` · `reduceRight` · `copyWithin` · `toSorted`/`toReversed`/`with`）+ **三处静默错值**（`includes` 丢掉起始下标 · `flat(0)` 掉进 `depth \|\| 1` · `Math.abs(-0)` 给 `-0`）——七条判据一起转绿，**红的一栏没动**（`regressions` / `moved` / `bad` 全空 ✓） |
 | 274 | | | | | | | **口径**：这一轮的选题是 **`report.json` 那张清单里最大的一组**（标准库「成员不在那儿」17 条 ✓）——先收**最便宜又能一次收干净**的那一族（Array ✓），因为七格全在同一个文件、共用同一批零件 ✓（`AppendSlot` ✓ / `NormalizeRangeIndex` ✓ / `halted()` ✓），**一趟构建就验完** ✓ |
+| 275 | **86.3%** | 93.9% | 85.0% | **87.7%** | 76.9% | **352 / 395** | **「成员不在那儿」再收五条**：`Object.is`（**第三张判等表** `SameValue` ✓——与 `===` 差 `NaN` ✓、与 `SameValueZero` 差 `±0` ✓，**两处都翻** ✓）· `Math` 十格（`imul` / `clz32` / `fround` / `expm1` / `sinh` / `cosh` / `tanh` / `log2` / `log10` / `log1p` ✓）· `trimStart` / `trimEnd`（与 `trim` **共用一支** ✓）· `String.fromCodePoint`（**与 `fromCharCode` 差在两头** ✓：实参是码位不是码元 ✓、越界抛而不是夹住 ✓）——标准库 84.4% → **87.7%**，**红的一栏没动** ✓ |
 
 > **第 273 轮的意义就是这一句** ✓：90.7% 量的是一张**只装了「已经想到的形状」**的矩阵 ✓；
 > 加宽之后再量，同一个实现是 **84.3%** ✓。两个数都真 ✓，后者才是「一份普通 `.ts` 交给
@@ -99,6 +100,13 @@
 > 后者要动「引擎调脚本、并把结果接回来」那个交界面 ✓（第 244 轮量出来的那个 ✓）。
 > 于是这一轮先收 **Array 那一族**：七格住同一个文件 ✓、共用同一批零件 ✓、
 > 判据现成 ✓——**收干净、验完、红的一栏没动** ✓。
+>
+> **第 275 轮接着收同一组** ✓：这一轮的五条有一个共同形状 ✗——
+> **「要新装的那一格，恰好与某个已有的兄弟只差一处，而那一处是最容易写错的地方」** ✓：
+> `Object.is` 与 `===` / `SameValueZero` 差两格 ✓、`trimStart` / `trimEnd` 与 `trim` 差一头 ✓、
+> `fromCodePoint` 与 `fromCharCode` 差两头 ✓、`Math` 那十格每一个都有一处
+> 「照着近义函数自己凑就会错」✓。所以这一轮的账**几乎全是「差在哪一处」** ✓，
+> 而**每一处都写进了规范** ✗（下一个做这批的人不必再推一遍 ✓）。
 
 **两处「口径边界」不算缺口** ✓（它们**注定**逐字节对不上 ✓，进了缺口单只会让百分比不可信 ✗）：
 `Object.freeze` 之后写属性（本仓抛 / `node` 把 `.ts` 当 CJS 跑是松散模式 ✓）、

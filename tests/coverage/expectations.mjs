@@ -311,19 +311,19 @@ export const EXPECTATIONS = {
   // `Math.abs(-0)` 给 `-0` ✓）。七格一起收在 `array.xl.md` 与 `globals.xl.md` 里 ✓，
   // 逐条账见 `typescript-exec/README.md` 的「第 274 轮的账」✓。
 
+  // **第 275 轮删掉了这五行** ✓（它们过了 ✓）：`Object.is`（第三张判等表 `SameValue` ✓）、
+  // `Math` 那十格（`imul` / `clz32` / `fround` / `expm1` / `sinh` / `cosh` / `tanh` /
+  // `log2` / `log10` / `log1p` ✓）、`trimStart` / `trimEnd` ✓、`String.fromCodePoint` ✓。
+  // 逐条账见 `typescript-exec/README.md` 的「第 275 轮的账」✓。
+
   // ---- 组 10：标准库**成员不在那儿**（14 条）----
   // 这一组的量法是**先问「在不在」** ✓：一个探针把候选成员逐个 `typeof` 一遍 ✓，
   // 于是「根本不在那儿」与「在、但语义不对」被分开了 ✓（修法不一样 ✓）。
   // 全部是「往表里挂一格」（或几格）的活 ✓——`Object.is` 尤其便宜 ✓：
   // 引擎里 `SameValue` 的判据**早就有** ✓（第 207 轮那张具名的表 ✓），缺的只是往 `Object` 上挂一格 ✗。
   "array-iterator-manual": { expect: "blocked", why: "数组迭代器**没有 `next()`**：`.values()` / `.keys()` / `.entries()` 交出来的东西能被 `[...]` 与 `for..of` 用（引擎的 drain），但不能手动走一步。第 229 轮给**生成器**补的 `next()` 是另一条路" },
-  "string-trim-variants": { expect: "blocked", why: "`trimStart` / `trimEnd` 不在那儿（`trim` 在）" },
-  "string-at-and-codepoints": { expect: "differ", why: "`String.fromCodePoint` 不在那儿（`String.fromCharCode` 与 `.at()` / `.codePointAt()` 都在）" },
-  "math-imul-clz32": { expect: "blocked", why: "`Math.imul` / `clz32` / `fround` 三个 32 位工具不在那儿" },
   // **第 273 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：它抛出之前**已经打印了一行** ✓
   // （`Math.hypot` 与 `Math.cbrt` 是**在的** ✓），所以判决落在 `differ` 上 ✓ 而不是 `blocked` ✓。
-  "math-hypot-and-roots": { expect: "differ", why: "`Math.expm1` / `sinh` / `cosh` / `tanh` / `log2` / `log10` / `log1p` 不在那儿（`hypot` / `cbrt` / `exp` / `log` 在，所以第一行先打出来了）" },
-  "object-is": { expect: "blocked", why: "`Object.is` 不在那儿。引擎里 `SameValue` 的判据**早就有**（第 207 轮那张具名的表），缺的只是往 `Object` 上挂一格" },
   "object-getownpropertydescriptor": { expect: "blocked", why: "`Object.getOwnPropertyDescriptor` 不在那儿（`getOwnPropertyNames` 在）" },
   "object-seal-and-defineProperties": { expect: "blocked", why: "`Object.seal` / `isSealed` / `defineProperties` 不在那儿（`defineProperty` 与 `freeze` 在）" },
   "json-parse-reviver": { expect: "blocked", why: "`JSON.parse` 的**第二格实参**（reviver）没接；同一条里 `SyntaxError` 也不是全局名" },

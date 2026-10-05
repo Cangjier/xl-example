@@ -2,12 +2,12 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
-import { StringFromCharCode } from "./string.xl.md"
+import { StringFromCharCode, StringFromCodePoint } from "./string.xl.md"
 import { ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
 import { MapCtor, NameValue, ReadOwn } from "./map.xl.md"
@@ -89,6 +89,73 @@ import { BuildPromise } from "./promise.xl.md"
 # const MathCbrt:int = 215
 
 # const MathHypot:int = 216
+
+**第 275 轮补的十格** ✓（号**开一段新的**：`350..359` ✗）。
+
+**为什么不接着 201..219 往下排** ✗：那一段的下一个号是 **`220`** ✓，
+而它已经是 **`StringCtor`** 了 ✓（构造器那一族占着 `220..225` ✓）——
+**号是跨目标的契约** ✓（见 `ArrayAt` 那一段的教训 ✓），所以不能挤 ✗。
+`350..359` 这一段是**空的** ✓（`330..345` 是原始值原型那一族 ✓，`346..349` 没人用 ✓），
+放在这里读起来也顺 ✓：**「第 275 轮补的第二批 Math」** ✓。
+
+**这一批的共同点与 `201..216` 那一段不同** ✗：那一段里 **多数结果是整数** ✓
+（`floor` / `round` / `ceil` / `trunc` / `sign` ✓），所以能落在「整的给 `Int32`」那条口径上 ✓；
+而这十格**结果几乎全是浮点** ✓（`imul` / `clz32` 除外 ✓）——
+它们能放行靠的是**第 124 轮那条浮点文本形态** ✓（「算得出、打不出」的坑那时才填上 ✓）。
+
+**这十格全是第 273 轮普查量到的** ✓：判据 `math-imul-clz32` 与 `math-hypot-and-roots`
+两条在报 `cannot call a non-closure value` ✓——也就是**那一格根本没装** ✗。
+
+# const MathImul:int = 350
+
+**`Math.imul(a, b)`**（第 275 轮 ✓）——**32 位有符号整数乘法** ✓。
+**它不是 `a * b`** ✗：`Math.imul(0xffffffff, 5)` 是 `-5` ✓（乘的是**低 32 位** ✓），
+而 `a * b` 给 `21474836475` ✓——**这是两种不同的语义** ✗，
+所以这一格**不能**用宿主那个 `imul` 之外的任何写法顶替 ✓。
+
+# const MathClz32:int = 351
+
+**`Math.clz32(x)`**（第 275 轮 ✓）——**前导零个数** ✓（32 位无符号 ✓）。
+**`Math.clz32(0)` 是 `32`** ✓（全都零 ✓），而 `Math.clz32(1)` 是 `31` ✓。
+
+# const MathFround:int = 352
+
+**`Math.fround(x)`**（第 275 轮 ✓）——**最近的那个 f32** ✓。
+**它是本仓唯一一处 f32** ✓：`0.1` 走一趟回来是 `0.10000000149011612` ✓——
+所以这一格**不能**照着「原样交出去」写 ✓（那样 `Math.fround(0.1)` 会**静默**给 `0.1` ✗）。
+
+# const MathExpm1:int = 353
+
+# const MathSinh:int = 354
+
+# const MathCosh:int = 355
+
+# const MathTanh:int = 356
+
+# const MathLog2:int = 357
+
+# const MathLog10:int = 358
+
+# const MathLog1p:int = 359
+
+**`expm1` / `sinh` / `cosh` / `tanh` / `log2` / `log10` / `log1p`**（第 275 轮 ✓）——
+**七个单实参的数学函数** ✓，与 `log` / `exp` / `cbrt` 同一档 ✓：
+结果多为非整数 ✓，交给宿主那一格 ✓、走 `MathResult` ✓。
+
+**它们为什么值得单独列出来** ✗：每一个都有一处「**照着近义函数写就会错**」的地方 ✓——
+`log2(8)` 是 `3` ✓（不是 `log(8) / log(2)` 那种自己算的近似 ✓，
+判据里 `Math.log2(8)` 与 `3` 是**逐字节**比的 ✓）；`expm1(0)` 是 `0` ✓
+（不是 `exp(0) - 1` ✓——那个在**很小的入参**上会丢掉全部有效位 ✓）；
+`log1p(0)` 同理 ✓。**所以七格一律交给宿主那一格** ✓（一个一个转调 ✓），
+**不自己用别的函数凑** ✗。
+
+# const ObjectIs:int = 411
+
+**`Object.is(a, b)`**（第 275 轮 ✓）——号在 `Object` 那一段的**下一个** ✓（`401..410` 已用 ✓）。
+
+**它要的是第三张判等表** ✗：`Object.is` 用的是 **SameValue** ✓，
+与 `===` 差 `NaN` ✓、与 `SameValueZero` 差 `±0` ✓——
+两处都翻 ✓，所以**任何一张现成的表都不对** ✗（见 `rt.xl.md` 的 `SameValue` ✓）。
 
 # const ConsoleLog:int = 301
 
@@ -1289,6 +1356,32 @@ if (id === MathLog || id === MathExp || id === MathCbrt || id === MathHypot) {
   }
   return MathResult(Math.sqrt(sum));
 }
+if (id === MathImul || id === MathClz32 || id === MathFround || id === MathExpm1 || id === MathSinh
+  || id === MathCosh || id === MathTanh || id === MathLog2 || id === MathLog10 || id === MathLog1p) {
+  // **第 275 轮补的十格** ✓。**一律交给宿主那一格** ✓（一个一个转调 ✓）：
+  // 这十格每一个都有一处「照着近义函数自己凑就会错」的地方 ✓——
+  // `imul` 不是 `a * b` ✓（乘的是低 32 位 ✓）、`fround` 不是原样交出去 ✓（要过一趟 f32 ✓）、
+  // `expm1` 不是 `exp(x) - 1` ✓（很小的入参上后者会把有效位全丢掉 ✓）、
+  // `log1p` 同理 ✓、`log2` / `log10` 也不是「换底自己算」✓。
+  // **自己凑出来的东西看着是对的** ✗——而判据是**逐字节**比 ✓（`Math.log2(8)` 对 `3` ✓），
+  // 所以这一批**一个字都不自己算** ✓。
+  // **`MathArgOf` 对缺实参给 `NaN`** ✓（与 JS 一致 ✓），所以不必为「少给一个」另立一条抛 ✓。
+  const first = MathArgOf(room, call, protos, table, args[0]);
+  if (id === MathImul) {
+    // **两个实参** ✓（与 `pow` / `max` 同形 ✓）。
+    return MathResult(Math.imul(MathArgOf(room, call, protos, table, args[0]),
+      MathArgOf(room, call, protos, table, args[1])));
+  }
+  if (id === MathClz32) return MathResult(Math.clz32(first));
+  if (id === MathFround) return MathResult(Math.fround(first));
+  if (id === MathExpm1) return MathResult(Math.expm1(first));
+  if (id === MathSinh) return MathResult(Math.sinh(first));
+  if (id === MathCosh) return MathResult(Math.cosh(first));
+  if (id === MathTanh) return MathResult(Math.tanh(first));
+  if (id === MathLog2) return MathResult(Math.log2(first));
+  if (id === MathLog10) return MathResult(Math.log10(first));
+  return MathResult(Math.log1p(first));
+}
 if (id === MathPow) {
   // **两个实参**（与 `max` / `min` 同形 ✓）；少给就抛（`MathArgOf(undefined)` 给 `NaN` ✓，
   // 而 JS 的 `Math.pow(undefined, …)` 也是 `NaN` ✓——**两边一致** ✓，所以不必另立一条抛 ✓）。
@@ -1698,6 +1791,18 @@ if (id === ObjectAssign) {
   }
   // **返回的是目标本身** ✓（JS 的口径 ✓，不是一份拷贝 ✓）。
   return target;
+}
+if (id === ObjectIs) {
+  // **`Object.is(a, b)`**（第 275 轮 ✓）——它要的是**第三张判等表** ✗
+  //（见 `rt.xl.md` 的 `SameValue` ✓）：与 `===` 差 `NaN` ✓、与 `SameValueZero` 差 `±0` ✓，
+  // **两处都翻** ✓。所以这一格**不能**借 `RtCmpEqStrict` 或 `SameValueZero` 顶替 ✗——
+  // 借了会在另一格上**静默**给错答案 ✓（`Object.is(NaN, NaN)` 给假 ✗、
+  // 或 `Object.is(0, -0)` 给真 ✗，而 node 给真与假 ✓）。
+  // **缺实参给 `undefined`** ✓（与这一块其余实参位同一条 ✓）：
+  // 于是 `Object.is()` 与 `Object.is(undefined, undefined)` 一致 ✓（JS 也是 ✓）。
+  const isLeft = args.length > 0 ? args[0] : Value.Undefined();
+  const isRight = args.length > 1 ? args[1] : Value.Undefined();
+  return Value.FromBool(SameValue(table, isLeft, isRight));
 }
 if (id === ObjectFreeze) {
   // **冻结 = 把自有数据属性的 `writable` 清掉**（第 182 轮）✓——
@@ -2669,9 +2774,13 @@ const table = vm.Table;
 const globals = NewPlainObject(vm.Room(), table, protos);
 const math = NewPlainObject(vm.Room(), table, protos);
 const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "trunc", "sign", "sqrt", "pow",
-  "log", "exp", "cbrt", "hypot"];
+  "log", "exp", "cbrt", "hypot",
+  // **第 275 轮补的十格** ✓（号开在 `350..359` ✓，理由见那十段号 ✓）——
+  // 名字与号**一一对齐** ✓（两张表按下标配 ✓，错一格就是**静默**换语义 ✗）。
+  "imul", "clz32", "fround", "expm1", "sinh", "cosh", "tanh", "log2", "log10", "log1p"];
 const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign,
-  MathSqrt, MathPow, MathLog, MathExp, MathCbrt, MathHypot];
+  MathSqrt, MathPow, MathLog, MathExp, MathCbrt, MathHypot,
+  MathImul, MathClz32, MathFround, MathExpm1, MathSinh, MathCosh, MathTanh, MathLog2, MathLog10, MathLog1p];
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));
@@ -2695,6 +2804,11 @@ const objectObject = NewPlainObject(vm.Room(), table, protos);
 const keysKey = Value.FromString(table.CreateString(Units("keys")));
 const keysTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectKeys, 0));
 SetProperty(vm.Room(), NeverCall, table, objectObject, keysKey, keysTarget);
+// **`Object.is`**（第 275 轮 ✓）：与 `keys` **同一张对象**上再挂一格 ✓
+//（与 `JSON.stringify` / `parse` 那两格的写法一字不差 ✓）。
+const isKey = Value.FromString(table.CreateString(Units("is")));
+const isTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectIs, 0));
+SetProperty(vm.Room(), NeverCall, table, objectObject, isKey, isTarget);
 
 const jsonObject = NewPlainObject(vm.Room(), table, protos);
 const stringifyKey = Value.FromString(table.CreateString(Units("stringify")));
@@ -2905,6 +3019,13 @@ table.AttachCallable(stringObject.Ref, StringCtor, 0);
 const fromCharCodeKey = Value.FromString(table.CreateString(Units("fromCharCode")));
 const fromCharCodeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCharCode, 0));
 SetProperty(vm.Room(), NeverCall, table, stringObject, fromCharCodeKey, fromCharCodeTarget);
+// **`String.fromCodePoint`**（第 275 轮 ✓）：与 `fromCharCode` **同一张对象**上再挂一格 ✓。
+// **两者不是一回事** ✗（一个是码元、一个是码位 ✓，越界一个夹住一个抛 ✓）——
+// 所以这一格**不能**指到上面那个号上顶替 ✗（指过去就是**静默**换语义 ✓，
+// `String.fromCodePoint(0x1F600)` 会变成一个越界码元 ✗）。
+const fromCodePointKey = Value.FromString(table.CreateString(Units("fromCodePoint")));
+const fromCodePointTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCodePoint, 0));
+SetProperty(vm.Room(), NeverCall, table, stringObject, fromCodePointKey, fromCodePointTarget);
 const stringKey = Value.FromString(table.CreateString(Units("String")));
 SetProperty(vm.Room(), NeverCall, table, globals, stringKey, stringObject);
 // **`String.prototype` / `Object.prototype`**（第 137 轮）：与 `Array` 同款 ✓

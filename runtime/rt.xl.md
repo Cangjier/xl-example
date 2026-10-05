@@ -996,6 +996,47 @@ const rightNaN = right.Tag === ValueTag.Float64 && right.Dbl !== right.Dbl;
 return leftNaN && rightNaN;
 ```
 
+# method SameValue:(table:HeapTable, left:Value, right:Value)=>bool
+
+**SameValue**（第 275 轮 ✓）：`SameValueZero` **再减一条**——**`0` 与 `-0` 不相等** ✓。
+
+**JS 里其实有第三张表** ✗（上面那张表只数了两张 ✓）：`Object.is` 用的就是这一张 ✓，
+而它是**唯一**一处用它 ✓（`Object.is` 与 `SameValue` 在 JS 里就是同一件事 ✓）。
+
+| 表 | `NaN` vs `NaN` | `0` vs `-0` | 谁在用 |
+| --- | --- | --- | --- |
+| `===`（`RtCmpEqStrict` ✓） | **假** ✓ | **真** ✓ | 运算符 ✓、`indexOf` / `lastIndexOf` ✓ |
+| **SameValueZero** ✓ | **真** ✓ | **真** ✓ | `Array.includes` ✓、`Map` / `Set` 的键 ✓ |
+| **SameValue** | **真** ✓ | **假** ✗ | **`Object.is`** ✓ |
+
+**三张表、两处差别** ✓——`Object.is` 恰好把两处都翻了 ✓：
+`Object.is(NaN, NaN)` 是**真** ✓（与 `===` 不同 ✓）、`Object.is(0, -0)` 是**假** ✗
+（与另外两张都不同 ✓）。所以它的值**不是**「随便挑一张表」✓，把它并进任何一张
+都会在另一格上**静默**给错答案 ✗（判据 `object-is` 量的就是这两格 ✓）。
+
+**做法是「先借 `SameValueZero`，再把 `±0` 那一格翻回来」** ✓——
+不必把上面那一整段抄一遍 ✗（抄一份就是多一份会漂的答案 ✓）。
+**只有 `SameValueZero` 为真时才谈得上翻** ✓：两张表在其余每一格上**都一样** ✓，
+所以 `SameValueZero` 为假时 `SameValue` 一定也为假 ✓，直接交出去 ✓。
+
+**负零怎么认** ✓：`0` 与 `-0` 在 `===` 下**相等** ✓，所以只能看**符号** ✓；
+而 `1 / 0` 是 `Infinity` ✓、`1 / -0` 是 `-Infinity` ✓——**用一次除法判号** ✓，
+不必去碰 `Float64` 的位 ✗（那要另一套位运算工具 ✓，而这一格不值得为它开一条路 ✗）。
+**只有 `Float64` 才谈得上负零** ✓：`Int32` 的 `0` **永远是正零** ✓（整数没有符号位 ✓）——
+这一句是**必写的** ✗：少了它就要去问「`Int32` 的 `0` 是不是 `-0`」✓，那是个**没有答案**的问题 ✗。
+
+```ts
+if (!SameValueZero(table, left, right)) return false;
+// 走到这里：两张表只在「两个零异号」这一格不同 ✓。
+// **判据是「这一格是不是负零」** ✓——`Int32` 直接给假 ✓（整数没有负零 ✓）。
+const isNegativeZero = (value: Value): boolean => {
+  if (value.Tag !== ValueTag.Float64) return false;
+  return value.Dbl === 0 && 1 / value.Dbl < 0;
+};
+// **两边同为负零、或同为正零，都算相同** ✓（同号即相同 ✓）——所以比的是「是否异号」✓。
+return isNegativeZero(left) === isNegativeZero(right);
+```
+
 # method RtCmpEqLoose:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, left:Value, right:Value)=>Value
 
 `==`——**JS 的抽象相等比较**（第 198 轮 ✓）。
