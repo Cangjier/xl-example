@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 397,
+  "matrix": 556,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,37 +18,37 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 92.06,
+  "progressPercent": 88.45,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 148,
-      "pass": 143,
-      "blocked": 3,
-      "differ": 2,
+      "total": 204,
+      "pass": 187,
+      "blocked": 6,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 96.62
+      "coverage": 91.67
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 82,
-      "pass": 75,
-      "blocked": 5,
-      "differ": 2,
+      "total": 123,
+      "pass": 112,
+      "blocked": 8,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 91.46
+      "coverage": 91.06
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 154,
-      "pass": 145,
-      "blocked": 1,
-      "differ": 8,
+      "total": 216,
+      "pass": 184,
+      "blocked": 5,
+      "differ": 27,
       "nodefail": 0,
-      "coverage": 94.16
+      "coverage": 85.19
     },
     {
       "layer": "e2e",
@@ -81,6 +81,24 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeOfKeyword"
     },
     {
+      "id": "rt-string-index-write-ignored",
+      "layer": "runtime",
+      "title": "给字符串下标赋值：静默无效（松散模式）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assigning an index on a primitive receiver"
+    },
+    {
+      "id": "rt-accessor-override",
+      "layer": "runtime",
+      "title": "访问器覆盖：子类 getter 调 super 的 getter",
+      "detail": "tsrun: 脚本抛出：unimplemented: assigning a property on a primitive receiver"
+    },
+    {
+      "id": "rt-ternary-nesting-and-assign",
+      "layer": "runtime",
+      "title": "三元嵌套与三元里的赋值",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: return"
+    },
+    {
       "id": "ex-namespace",
       "layer": "exec",
       "title": "namespace：要真的造一个对象出来（含嵌套与导出）",
@@ -111,10 +129,52 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
     },
     {
+      "id": "ex-class-computed-and-static-init",
+      "layer": "exec",
+      "title": "类的计算成员名 · 静态字段与静态块的初始化顺序",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed class field name"
+    },
+    {
+      "id": "ex-namespace-with-values",
+      "layer": "exec",
+      "title": "namespace 里有运行期东西：对象、函数、内部引用",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
+    },
+    {
+      "id": "ex-namespace-nested-with-values",
+      "layer": "exec",
+      "title": "嵌套 namespace：外层套内层、两层的值都能取到",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
+    },
+    {
       "id": "object-freeze",
       "layer": "stdlib",
       "title": "Object.freeze / isFrozen：属性写不动、加不上",
       "detail": "tsrun: 脚本抛出：unimplemented: this should throw a TypeError (read-only property)"
+    },
+    {
+      "id": "string-raw-and-tagged",
+      "layer": "stdlib",
+      "title": "String.raw 作为标签 + 普通调用两种形态",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "object-create-and-prototype-forms",
+      "layer": "stdlib",
+      "title": "Object.create：null 原型 / 带属性 / 继承来的键",
+      "detail": "tsrun: 脚本抛出：unimplemented: Object.create(null) (a proto-less object)"
+    },
+    {
+      "id": "object-defineproperty-forms",
+      "layer": "stdlib",
+      "title": "defineProperty：getter / 不可枚举 / 不可写 / 只读现值",
+      "detail": "tsrun: 脚本抛出：unimplemented: Object.defineProperty with a get/set descriptor"
+    },
+    {
+      "id": "math-trig-and-hyperbolic",
+      "layer": "stdlib",
+      "title": "三角与双曲：sin / cos / tan / atan2 / sinh 的确定读数",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "e2e-event-emitter",
@@ -143,6 +203,60 @@
       "detail": "stdout 不同：第 1 行：node «4 3 3» vs tsrun «4 4 4»"
     },
     {
+      "id": "rt-iife-forms",
+      "layer": "runtime",
+      "title": "三种立即调用：函数表达式 / 箭头 / 带实参",
+      "detail": "stdout 不同：第 3 行：node «5» vs tsrun «NaN»"
+    },
+    {
+      "id": "rt-loop-capture-let-vs-var",
+      "layer": "runtime",
+      "title": "循环变量捕获：let 每个迭代一个、var 共用一个",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：environment index out of range: 1"
+    },
+    {
+      "id": "rt-delete-array-element",
+      "layer": "runtime",
+      "title": "delete 数组元素留洞、delete 对象属性真的没有",
+      "detail": "stdout 不同：第 1 行：node «3 1||3 false undefined» vs tsrun «3 1|2|3 true 2»"
+    },
+    {
+      "id": "rt-instanceof-custom",
+      "layer": "runtime",
+      "title": "instanceof 认 Symbol.hasInstance（静态方法优先）",
+      "detail": "stdout 不同：第 1 行：node «true false false» vs tsrun «false false false»"
+    },
+    {
+      "id": "rt-class-expr-and-static-this",
+      "layer": "runtime",
+      "title": "类表达式赋值给常量 · 静态方法里的 this 是构造函数",
+      "detail": "stdout 不同：第 1 行：node «Named» vs tsrun «undefined»"
+    },
+    {
+      "id": "rt-generator-return-early",
+      "layer": "runtime",
+      "title": "生成器：提前 return 收尾、finally 照跑",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "rt-generator-throw-into",
+      "layer": "runtime",
+      "title": "往生成器里 throw：体内 catch 接住、还能继续 yield",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "rt-optional-chain-null-base",
+      "layer": "runtime",
+      "title": "可选链在中途 null / undefined 上短路整条链",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "rt-IIFE-module-scope",
+      "layer": "runtime",
+      "title": "用立即调用函数圈一块作用域：内外同名互不影响",
+      "detail": "stdout 不同：第 1 行：node «outer inner» vs tsrun «inner inner»"
+    },
+    {
       "id": "ex-getter-setter-class",
       "layer": "exec",
       "title": "类里的访问器 + 继承的访问器",
@@ -153,6 +267,12 @@
       "layer": "exec",
       "title": "索引签名 + 调用签名 + 构造签名（都是类型位）",
       "detail": "stdout 不同：第 1 行：node «3 2 t 4» vs tsrun «3 2 t undefined»"
+    },
+    {
+      "id": "ex-nonnull-and-as-chain",
+      "layer": "exec",
+      "title": "非空断言与 as 串在一条链上",
+      "detail": "stdout 不同：第 1 行：node «2 3» vs tsrun «[ 1, 2, 3 ] 3»"
     },
     {
       "id": "object-freeze-array-element",
@@ -201,6 +321,120 @@
       "layer": "stdlib",
       "title": "Function.prototype.toString 给源码文本",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
+    },
+    {
+      "id": "string-charcodes-and-units",
+      "layer": "stdlib",
+      "title": "charAt / charCodeAt / codePointAt 在越界与代理对上",
+      "detail": "stdout 不同：第 3 行：node «3 [\"A\",\"😀\",\"B\"]» vs tsrun «4 [\"A\",\"�\",\"�\",\"B\"]»"
+    },
+    {
+      "id": "string-replace-patterns",
+      "layer": "stdlib",
+      "title": "replace / replaceAll：字符串模式、$& 与 $1 一类替换记号、函数替换",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs two string arguments (regex and function r"
+    },
+    {
+      "id": "string-pad-and-repeat-edge-forms",
+      "layer": "stdlib",
+      "title": "padStart / padEnd / repeat 的截断、负数与零次",
+      "detail": "stdout 不同：第 3 行：node «ababab   2» vs tsrun «ababab   0»"
+    },
+    {
+      "id": "string-concat-and-trim-families",
+      "layer": "stdlib",
+      "title": "concat 的多参 · trim / trimStart / trimEnd 的空白集",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: trim with a non-ASCII edge (that character may be trimmable in "
+    },
+    {
+      "id": "object-assign-forms-and-order",
+      "layer": "stdlib",
+      "title": "Object.assign：多源、覆盖顺序、返回目标、undefined 源",
+      "detail": "stdout 不同：第 3 行：node «{\"0\":\"a\",\"1\":\"b\"}» vs tsrun «{}»"
+    },
+    {
+      "id": "object-valueof-override",
+      "layer": "stdlib",
+      "title": "valueOf / toString 参与隐式转换的优先顺序",
+      "detail": "stdout 不同：第 1 行：node «6 T T» vs tsrun «{ valueOf: [Function: a], toString: [Function: a] } T 5»"
+    },
+    {
+      "id": "math-sign-and-negzero",
+      "layer": "stdlib",
+      "title": "Math.sign / abs / min / max 在 ±0 与 NaN 上",
+      "detail": "stdout 不同：第 3 行：node «-0 -Infinity 0 Infinity» vs tsrun «0 Infinity -0 -Infinity»"
+    },
+    {
+      "id": "math-pow-and-roots-edge",
+      "layer": "stdlib",
+      "title": "Math.pow / sqrt / cbrt / hypot 的边界",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Cannot read properties of undefined (reading 'IsObject')"
+    },
+    {
+      "id": "number-static-family",
+      "layer": "stdlib",
+      "title": "Number.isInteger / isSafeInteger / isFinite / isNaN 与全局那两个的分工",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "json-stringify-replacer-array-and-fn",
+      "layer": "stdlib",
+      "title": "JSON.stringify 的 replacer：数组白名单与函数改写",
+      "detail": "stdout 不同：第 1 行：node «{\"a\":1,\"c\":3}» vs tsrun «{\"a\":1,\"b\":2,\"c\":3}»"
+    },
+    {
+      "id": "json-stringify-tojson-and-specials",
+      "layer": "stdlib",
+      "title": "JSON.stringify 的 toJSON / undefined / 函数 / NaN 口径",
+      "detail": "stdout 不同：第 1 行：node «{\"replaced\":true}» vs tsrun «{\"a\":1}»"
+    },
+    {
+      "id": "map-iteration-and-foreach",
+      "layer": "stdlib",
+      "title": "Map 的迭代顺序、forEach 三个实参、展开",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "set-methods-and-iteration",
+      "layer": "stdlib",
+      "title": "Set：add / has / delete / size / 迭代 / forEach",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "symbol-description-and-tostring",
+      "layer": "stdlib",
+      "title": "Symbol：description / toString / 唯一性 / 作为键",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "symbol-toprimitive-and-concat",
+      "layer": "stdlib",
+      "title": "Symbol.toPrimitive 的三种提示与符号拼接抛错",
+      "detail": "stdout 不同：第 1 行：node «default1 S S» vs tsrun «{} default S»"
+    },
+    {
+      "id": "date-getters-and-setters",
+      "layer": "stdlib",
+      "title": "Date：getTime / UTC 取值 / 本地与 UTC 的同一时刻",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "date-toiso-and-json",
+      "layer": "stdlib",
+      "title": "Date：toISOString / toJSON / JSON.stringify 里的日期",
+      "detail": "stdout 不同：第 1 行：node «1970-01-01T00:00:00.000Z 1970-01-01T00:00:00.000Z {\"at\":\"1970-01-01T00:00:00.000Z\"}» vs tsrun «1970-01-01T00:00:00.000Z 1970-01-01T00:00:00.000Z {\"at\":{}}»"
+    },
+    {
+      "id": "global-explicit-and-implicit",
+      "layer": "stdlib",
+      "title": "全局函数与隐式转换：Boolean / Number / String / Array / Object",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
+    },
+    {
+      "id": "function-prototype-and-bind-forms",
+      "layer": "stdlib",
+      "title": "Function.prototype：call / apply / bind 的 this 与实参形态",
+      "detail": "stdout 不同：第 2 行：node «21 1 function» vs tsrun «21 undefined function»"
     }
   ],
   "bad": [],
@@ -213,5 +447,11 @@
     }
   ],
   "newlyPassing": [],
-  "regressions": []
+  "regressions": [
+    {
+      "id": "math-trig-and-hyperbolic",
+      "layer": "stdlib",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    }
+  ]
 }

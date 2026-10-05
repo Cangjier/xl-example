@@ -197,7 +197,7 @@ if (verbose) {
 if (jsonOut !== "") {
   const summary = {
     total,
-    passed,
+    passed: tally.pass,
     layers: [...buckets.values()],
     results: results.map((r) => ({
       id: r.entry.id,

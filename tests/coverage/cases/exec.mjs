@@ -1085,4 +1085,529 @@ so[sym] = "x";
 console.log(order.join(","));
 `,
   },
+
+  // ============ 第 287 轮加宽（降级层：类型位擦除 / 泛型 / 修饰词 / 解构 / 展开 / 枚举 / namespace） ============
+  {
+    id: "ex-type-alias-erased",
+    title: "type 别名整族擦除：联合 / 交叉 / 数组 / 元组 / 对象类型",
+    src: `
+type Id = number;
+type Pair = [string, number];
+type Union = "a" | "b" | 1 | null;
+type Inter = { a: number } & { b: string };
+type Fn = (x: number) => string;
+const id: Id = 7;
+const pair: Pair = ["x", 1];
+const u: Union = "b";
+const f: Fn = (x) => String(x);
+console.log(id, pair.join(":"), u, f(3));
+`,
+  },
+  {
+    id: "ex-interface-erased-and-value",
+    title: "interface 只是形状：实现它的对象照跑",
+    src: `
+interface Point { x: number; y: number; label?: string }
+interface Named extends Point { name: string }
+const p: Point = { x: 1, y: 2 };
+const n: Named = { x: 3, y: 4, name: "n" };
+function dist(a: Point, b: Point) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+console.log(p.x, n.name, dist(p, n));
+`,
+  },
+  {
+    id: "ex-generic-class-and-method",
+    title: "泛型类 + 泛型方法 + 约束：类型位全擦、运行期只有值",
+    src: `
+class Box<T> {
+  v: T;
+  constructor(v: T) { this.v = v; }
+  get(): T { return this.v; }
+  map<U>(f: (x: T) => U): Box<U> { return new Box<U>(f(this.v)); }
+}
+function first<T extends { length: number }>(xs: T): number { return xs.length; }
+const b = new Box<number>(3).map((x) => x * 2);
+console.log(b.get(), first("abcd"), first([1, 2, 3]));
+`,
+  },
+  {
+    id: "ex-modifiers-erased",
+    title: "readonly / public / private / protected / abstract 在值位上的效果",
+    src: `
+abstract class Shape {
+  abstract area(): number;
+  describe(): string { return "area=" + this.area(); }
+}
+class Square extends Shape {
+  private readonly side: number;
+  constructor(side: number) { super(); this.side = side; }
+  area(): number { return this.side * this.side; }
+}
+console.log(new Square(3).describe(), new Square(3).area());
+`,
+  },
+  {
+    id: "ex-nonnull-and-as-chain",
+    title: "非空断言与 as 串在一条链上",
+    src: `
+const o: any = { a: { b: [1, 2, 3] } };
+console.log(o!.a!.b![1], (o as any).a.b.length);
+const s: string | null = "x";
+console.log(s!.length, (s as string).toUpperCase());
+const n = (1 as unknown as string) as unknown as number;
+console.log(n + 1);
+`,
+  },
+  {
+    id: "ex-satisfies-erased",
+    title: "satisfies 是纯检查：产物一个指令都不该多",
+    src: `
+const config = { host: "h", port: 1 } satisfies { host: string; port: number };
+const list = [1, 2] satisfies number[];
+const nested = { a: { b: 1 } } satisfies Record<string, unknown>;
+console.log(config.port, list.length, nested.a.b);
+`,
+  },
+  {
+    id: "ex-definite-assignment",
+    title: "明确赋值断言 `!:` 与可选字段 `?:`：一个都不产生属性",
+    src: `
+class C {
+  v!: number;
+  w?: string;
+  init() { this.v = 5; }
+}
+const c = new C();
+console.log("v" in c, "w" in c, c.w);
+c.init();
+console.log(c.v, "v" in c, Object.keys(c).join(","));
+`,
+  },
+  {
+    id: "ex-overload-implementation",
+    title: "重载签名 + 一条实现：前面的签名一个指令都不产生",
+    src: `
+function pick(n: number): string;
+function pick(s: string): number;
+function pick(v: any): any { return typeof v === "number" ? String(v) : v.length; }
+console.log(pick(7), pick("abcd"));
+`,
+  },
+  {
+    id: "ex-optional-catch-binding",
+    title: "catch 不带绑定（`catch {`）：照样接得住",
+    src: `
+try { throw new Error("x"); } catch { console.log("caught"); }
+try { JSON.parse("{"); } catch { console.log("parse failed"); }
+`,
+  },
+  {
+    id: "ex-do-while-and-scope",
+    title: "do..while 的块作用域与循环外的可见性",
+    src: `
+let n = 0;
+do { const step = 2; n += step; } while (n < 5);
+console.log(n);
+let outer = "before";
+{ let outer = "inner"; console.log(outer); }
+console.log(outer);
+`,
+  },
+  {
+    id: "ex-for-of-destructure-map",
+    title: "for..of 头部解构：Map 的键值对 / 数组的元组",
+    src: `
+const m = new Map([["a", 1], ["b", 2]]);
+for (const [k, v] of m) console.log(k, v);
+for (const [i, v] of [[0, "x"], [1, "y"]]) console.log(i, v);
+const pairs: Array<[string, number]> = [["p", 1]];
+for (const [k, v] of pairs) console.log(k, v);
+`,
+  },
+  {
+    id: "ex-for-of-string-labels",
+    title: "for..of 走字符串（按码点）与带标签的循环退出",
+    src: `
+const chars: string[] = [];
+for (const c of "abc") chars.push(c);
+console.log(chars.join("-"), chars.length);
+outer: for (const a of [1, 2]) { for (const b of [3, 4]) { if (b === 4) continue outer; console.log(a, b); } }
+`,
+  },
+  {
+    id: "ex-object-spread-and-destructure-mixed",
+    title: "对象展开与解构混用：重命名 / 默认值 / 剩余",
+    src: `
+const src = { a: 1, b: 2, c: 3, d: 4 };
+const { a, b: renamed, e = 9, ...rest } = src;
+console.log(a, renamed, e, JSON.stringify(rest));
+const merged = { ...src, b: 20, extra: true };
+console.log(JSON.stringify(merged));
+const nested: any = { p: { q: { r: 5 } } };
+const { p: { q: { r } } } = nested;
+console.log(r);
+`,
+  },
+  {
+    id: "ex-array-destructure-defaults-holes",
+    title: "数组解构：跳位 / 默认值 / 剩余 / 嵌套",
+    src: `
+const xs = [1, , 3, 4, 5];
+const [first, second = 20, , fourth, ...tail] = xs;
+console.log(first, second, fourth, tail.join(","));
+const [[a], [b, c = 0]] = [[1], [2]];
+console.log(a, b, c);
+`,
+  },
+  {
+    id: "ex-spread-in-new-and-call",
+    title: "展开落在 new 的实参与调用实参里（两个位置各一个）",
+    src: `
+class P { x: number; y: number; constructor(x: number, y: number) { this.x = x; this.y = y; } sum() { return this.x + this.y; } }
+const args: [number, number] = [3, 4];
+console.log(new P(...args).sum());
+console.log(Math.max(...args), [0, ...args, 9].join(","));
+const obj = { ...{ k: 1 }, ...{ k: 2 } };
+console.log(JSON.stringify(obj));
+`,
+  },
+  {
+    id: "ex-computed-member-and-call",
+    title: "计算成员访问与计算成员调用（含字符串键与数字键）",
+    src: `
+const key = "val";
+const idx = 2;
+const o: any = { val: () => "called", 2: "two" };
+console.log(o[key](), o[idx], o[String(idx)]);
+const arr: any = [10, 20, 30];
+console.log(arr[idx], arr["length"], arr[arr.length - 1]);
+`,
+  },
+  {
+    id: "ex-object-literal-accessors-computed",
+    title: "对象字面量里的访问器与计算键访问器",
+    src: `
+let store = 1;
+const suffix = "X";
+const o = {
+  get plain() { return store; },
+  set plain(v: number) { store = v; },
+  get ["key" + suffix]() { return store * 10; },
+  set ["key" + suffix](v: number) { store = v / 10; },
+};
+o.plain = 4;
+console.log(o.plain, o.keyX);
+o.keyX = 100;
+console.log(store, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "ex-class-computed-and-static-init",
+    title: "类的计算成员名 · 静态字段与静态块的初始化顺序",
+    src: `
+const k = "dyn";
+const order: string[] = [];
+class C {
+  static a = (order.push("static-a"), 1);
+  static { order.push("block"); }
+  static b = (order.push("static-b"), 2);
+  [k] = (order.push("field-dyn"), 3);
+  plain = (order.push("field-plain"), 4);
+  constructor() { order.push("ctor"); }
+}
+const c: any = new C();
+console.log(order.join(","), c.dyn, c.plain, C.a, C.b);
+`,
+  },
+  {
+    id: "ex-private-methods-and-static-private",
+    title: "私有方法 / 静态私有成员 / 私有名访问",
+    src: `
+class Counter {
+  #n = 0;
+  static #instances = 0;
+  constructor() { Counter.#instances += 1; }
+  #bump() { this.#n += 1; return this.#n; }
+  tick() { return this.#bump(); }
+  static get count() { return Counter.#instances; }
+  has(o: any) { return #n in o; }
+}
+const a = new Counter();
+const b = new Counter();
+a.tick(); a.tick(); b.tick();
+console.log(a.tick(), Counter.count, a.has(a), a.has({}));
+`,
+  },
+  {
+    id: "ex-arrow-and-this-binding",
+    title: "箭头函数的 this 来自定义处：类字段箭头 / 嵌套箭头 / 回调",
+    src: `
+class Greeter {
+  name = "g";
+  arrow = () => this.name;
+  nested = () => (() => this.name)();
+  regular() { return [1].map(() => this.name)[0]; }
+}
+const g = new Greeter();
+const loose = g.arrow;
+console.log(loose(), g.nested(), g.regular());
+`,
+  },
+  {
+    id: "ex-getter-in-class-and-inherit-chain",
+    title: "类的访问器沿继承链走：三层各写一半",
+    src: `
+class A { get v() { return 1; } }
+class B extends A { get v() { return super.v + 10; } }
+class C extends B { get v() { return super.v + 100; } }
+console.log(new A().v, new B().v, new C().v);
+`,
+  },
+  {
+    id: "ex-enum-heterogeneous",
+    title: "异构 enum（数字 + 字符串成员）与反向映射",
+    src: `
+enum Mixed { A = 1, B = 2, C = "c" }
+console.log(Mixed.A, Mixed.B, Mixed.C, Mixed[1], Mixed[2], Mixed["c"]);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-enum-const-and-usage",
+    title: "const enum 在模块内的用法（与普通 enum 同形）",
+    src: `
+const enum Dir { Up, Down }
+function move(d: Dir) { return d === Dir.Up ? "up" : "down"; }
+console.log(Dir.Up, Dir.Down, move(Dir.Up), Dir[0]);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-namespace-with-values",
+    title: "namespace 里有运行期东西：对象、函数、内部引用",
+    src: `
+namespace Utils {
+  export const version = 2;
+  export function add(a: number, b: number) { return a + b; }
+  export const doubled = add(version, version);
+}
+console.log(Utils.version, Utils.add(1, 2), Utils.doubled);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-namespace-nested-with-values",
+    title: "嵌套 namespace：外层套内层、两层的值都能取到",
+    src: `
+namespace Outer {
+  export namespace Inner {
+    export const v = "deep";
+    export function f() { return v + "!"; }
+  }
+  export const top = "top";
+}
+console.log(Outer.top, Outer.Inner.v, Outer.Inner.f());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-parameter-properties-variants",
+    title: "参数属性的四种修饰：public / private / readonly / 默认值",
+    src: `
+class C {
+  constructor(public a: number, private b: string, protected readonly c = 3, public d?: number) {}
+  show() { return this.a + this.b + this.c + this.d; }
+}
+const c = new C(1, "x");
+console.log(c.show(), c.a, Object.keys(c).join(","));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-abstract-implements-shape",
+    title: "abstract class + implements：接口只擦掉、抽象方法由子类补",
+    src: `
+interface Runner { run(): string }
+abstract class Base implements Runner {
+  abstract run(): string;
+  go() { return "go:" + this.run(); }
+}
+class Impl extends Base { run() { return "impl"; } }
+console.log(new Impl().go(), new Impl().run());
+`,
+  },
+  {
+    id: "ex-type-assertion-in-expressions",
+    title: "as 落在实参 / 返回 / 数组元素 / 三元分支里",
+    src: `
+function id(x: any) { return x; }
+console.log(id(1 as any), id("s" as string), [1 as number, 2 as number].length);
+const flag = true;
+console.log(flag ? (1 as number) : (2 as number));
+const cast = { a: 1 } as { a: number };
+console.log(cast.a);
+`,
+  },
+  {
+    id: "ex-this-parameter-and-type-predicate",
+    title: "this 形参与类型谓词：两个都只活在类型位",
+    src: `
+function isString(this: any, v: any): v is string { return typeof v === "string"; }
+interface Box { n: number }
+function hasN(v: any): v is Box { return typeof v.n === "number"; }
+console.log(isString("a"), isString(1), hasN({ n: 1 }), hasN({}));
+`,
+  },
+  {
+    id: "ex-index-signature-object",
+    title: "索引签名类型：字面量照跑、读法照常",
+    src: `
+interface Dict { [k: string]: number }
+const d: Dict = { a: 1, b: 2 };
+d.c = 3;
+let total = 0;
+for (const k in d) total += d[k];
+console.log(total, Object.keys(d).join(","), d["a"] + d["b"]);
+`,
+  },
+  {
+    id: "ex-tuple-and-readonly-array",
+    title: "元组类型与 readonly 数组：类型位只擦掉",
+    src: `
+type Pair = readonly [string, number];
+const p: Pair = ["k", 1];
+const xs: readonly number[] = [1, 2, 3];
+console.log(p[0], p[1], xs.length, xs.reduce((a, b) => a + b, 0));
+const asConst = [1, "a"] as const;
+console.log(asConst[0], asConst.length);
+`,
+  },
+  {
+    id: "ex-import-type-erased",
+    title: "`import type` 与类型位限定名：一个运行期引用都不产生",
+    src: `
+type Local = { v: number };
+const x: Local = { v: 1 };
+type Key = keyof Local;
+type Val = Local["v"];
+const k: Key = "v";
+const val: Val = 2;
+console.log(x.v, k, val);
+`,
+  },
+  {
+    id: "ex-declare-and-ambient-erased",
+    title: "declare 一族（const / let / function / class / global）：全擦掉",
+    src: `
+declare const ambientValue: number;
+declare function ambientFn(x: number): string;
+declare class AmbientClass { m(): void }
+declare global { interface Window { extra: number } }
+const local = 1;
+console.log(local, typeof ambientValue);
+`,
+  },
+  {
+    id: "ex-arrow-returning-object-and-ternary",
+    title: "箭头函数返回对象字面量 / 三元 / 数组",
+    src: `
+const make = (n: number) => ({ n, doubled: n * 2 });
+const pick = (b: boolean) => (b ? { ok: true } : { ok: false });
+const list = (n: number) => [n, n + 1];
+console.log(make(3).doubled, pick(false).ok, list(5).join(","));
+`,
+  },
+  {
+    id: "ex-template-literal-shapes",
+    title: "模板字面量：多行 / 嵌套调用 / 表达式里再模板",
+    src: `
+const n = 3;
+const multi = \`a
+b\${n}\`;
+const nested = \`outer \${\`inner \${n * 2}\`} end\`;
+const inExpr = \`\${n > 2 ? \`big:\${n}\` : "small"}\`;
+console.log(multi, nested, inExpr, multi.length);
+`,
+  },
+  {
+    id: "ex-optional-chain-in-many-slots",
+    title: "可选链落在实参 / 数组元素 / 模板 / 条件里（第 143 轮那一族）",
+    src: `
+const o: any = { a: 1 };
+function f(v: any) { return v === undefined ? "u" : v; }
+console.log(f(o?.a), f(o?.missing), [o?.a, o?.b].join(","));
+console.log(\`\${o?.a}|\${o?.b}\`);
+if (o?.a) console.log("truthy");
+console.log(o?.a?.toString?.().length ?? -1);
+`,
+  },
+  {
+    id: "ex-nested-function-and-scope-capture",
+    title: "函数里再声明函数：捕获、遮蔽、互相调用",
+    src: `
+function outer() {
+  const v = "outer";
+  function inner() { return v; }
+  function shadow() { const v = "shadow"; return v; }
+  return inner() + "/" + shadow();
+}
+function mutual(n: number): number { return n <= 0 ? 0 : even(n - 1); }
+function even(n: number): number { return n <= 0 ? 1 : mutual(n - 1); }
+console.log(outer(), mutual(4), even(4));
+`,
+  },
+  {
+    id: "ex-function-decl-in-block-scope",
+    title: "块里的函数声明：块内可见、块外是另一格",
+    src: `
+function f() {
+  { function g() { return "inner"; } console.log(g()); }
+  return typeof g;
+}
+console.log(f());
+const h = function named() { return "named"; };
+console.log(h(), typeof named);
+`,
+  },
+  {
+    id: "ex-async-arrow-and-method",
+    title: "async 的三条形状：箭头 / 方法 / 类方法，各自 await",
+    src: `
+const arrow = async (n: number) => (await Promise.resolve(n)) + 1;
+const obj = { async m(n: number) { return (await Promise.resolve(n)) * 2; } };
+class C { async run(n: number) { return (await Promise.resolve(n)) - 1; } }
+async function main() {
+  console.log(await arrow(1), await obj.m(2), await new C().run(3));
+}
+main();
+`,
+  },
+  {
+    id: "ex-try-catch-finally-typed-and-optional",
+    title: "try / catch 带类型标注 / finally 三件套齐活",
+    src: `
+function run(mode: string) {
+  const log: string[] = [];
+  try { log.push("try"); if (mode === "throw") throw new TypeError("t"); log.push("ok"); }
+  catch (e: unknown) { log.push("catch:" + (e as Error).message); }
+  finally { log.push("finally"); }
+  return log.join("|");
+}
+console.log(run("throw"), run("fine"));
+`,
+  },
+  {
+    id: "ex-switch-with-union-types",
+    title: "switch 上判别联合类型的几个成员：类型位不影响运行",
+    src: `
+type Shape = { kind: "circle"; r: number } | { kind: "square"; side: number };
+function area(s: Shape) {
+  switch (s.kind) {
+    case "circle": return Math.round(3 * s.r * s.r);
+    case "square": return s.side * s.side;
+  }
+}
+console.log(area({ kind: "circle", r: 2 }), area({ kind: "square", side: 3 }));
+`,
+  },
 ];
