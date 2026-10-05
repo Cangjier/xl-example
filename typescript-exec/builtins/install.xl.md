@@ -49,7 +49,10 @@ import { InvokeSet, SetCtor } from "./set.xl.md"
 不是新加的门槛 ✓（与 `schedule` / `settle` / `drain` / `keep` 四样同一条纪律 ✓）。
 
 ```ts
-if (id >= 100 && id < 200) return InvokeString(room, table, id, self, args);
+// **字符串那一块第 296 轮也要 `call`** ✓：`String.replace` 的第二格实参是**函数**时
+// 要回调脚本 ✓——与数组 / `Map` / `Set` 那几块同一条纪律 ✓（用不到的不塞进签名 ✓，
+// 而这一块从第 296 轮起**用得着** ✓）。
+if (id >= 100 && id < 200) return InvokeString(room, table, call, id, self, args);
 if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args, keep, failed);
 throw new Error("unimplemented: builtin id " + id);
 ```

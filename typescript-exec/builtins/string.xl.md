@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
-import { RoomChecker } from "../../runtime/rt.xl.md"
+import { RoomChecker, IsCallableValue } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
@@ -210,7 +210,7 @@ if (self.Tag !== ValueTag.String) {
 }
 ```
 
-# method InvokeString:(room:RoomChecker, table:HeapTable, id:int, self:Value, args:Array<Value>)=>Value
+# method InvokeString:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
 
 **字符串内建的分派与实现**。
 
@@ -605,12 +605,25 @@ if (id === StringReplace || id === StringReplaceAll) {
   // 「换一处还是换全部」✓——分成两份实现的话，空串那一格 / 找不到那一格
   // 就要各写一遍 ✓（而它们正是最容易走偏的两格 ✓）。
   const replaceEverywhere = id === StringReplaceAll;
-  if (args.length < 2 || args[0].Tag !== ValueTag.String || args[1].Tag !== ValueTag.String) {
-    throw new Error("unimplemented: String.replace needs two string arguments "
-      + "(regex and function replacements are not supported)");
+  // **第 296 轮把另外两半接上了** ✓：
+  //   · **替换值是函数** ✓（每一处匹配调它一次 ✓，实参 `(匹配文本, 位置, 整个串)` ✓）；
+  //   · **替换文本里的记号** ✓（`$$` / `$&` / `` $` `` / `$'` ✓，见 `JsSubstitutionUnits` ✓）。
+  // **正则那一半仍旧不做** ✗（`RegExp` 是 v1 写死的非目标 ✓）——它现在**响亮地抛** ✓，
+  // 而且抛的是「需要字符串模式」而不是「需要两个字符串实参」✓（话说得更准了 ✓）。
+  const replacementIsCallable = args.length > 1 && IsCallableValue(table, args[1]);
+  if (args.length < 2 || args[0].Tag !== ValueTag.String
+    || (args[1].Tag !== ValueTag.String && !replacementIsCallable)) {
+    throw new Error("unimplemented: String.replace needs a string pattern and a string or function replacement "
+      + "(regex patterns are not supported)");
   }
   const needle = JsTextUnits(table, args[0]);
-  const replacement = JsTextUnits(table, args[1]);
+  const replacement = args[1].Tag === ValueTag.String ? JsTextUnits(table, args[1]) : [];
+  if (needle.length === 0 && replacementIsCallable) {
+    // **空针 + 函数**那一格**没做** ✗（判据没有量它 ✓）：JS 会在**每一个**插入点上调一次回调 ✓
+    // （`replaceAll` 是 `长度 + 1` 次 ✓、`replace` 是 1 次 ✓）——形状与下面那条循环不同 ✓，
+    // 所以**响亮地抛** ✓，不当成「匹配到了空串」糊过去 ✗。
+    throw new Error("unimplemented: String.replace with an empty pattern and a function replacement");
+  }
   if (needle.length === 0) {
     // **空串那一格两种调用不一样** ✗（实测抓到的 ✓）：
     //   · `"ab".replace("", "-")` 给 `"-ab"` ✓（**只在最前面插一次** ✓）；
@@ -665,19 +678,99 @@ if (id === StringReplace || id === StringReplaceAll) {
   }
   // **找不到就原样返回** ✓（JS 的口径 ✓；返回的还是同一个字符串值 ✓）。
   if (hits.length === 0) return self;
-  const total = units.length + hits.length * (replacement.length - needle.length);
+  // **每一处要用什么替换文本**（第 296 轮 ✓）：两种来源 ✓、逐处算 ✓——
+  // 所以长度是**逐处累加**出来的 ✗（原来是「每一处一样长」那个乘法 ✓：
+  // 记号（`$'` 之类）与函数都会让每一处**不一样长** ✓）。
+  const pieces: number[][] = [];
+  for (let k = 0; k < hits.length; k++) {
+    if (replacementIsCallable) {
+      if (call === null) {
+        throw new Error("String.replace needs a call channel (the host must pass one)");
+      }
+      const matched: number[] = [];
+      for (let j = 0; j < needle.length; j++) matched.push(units[hits[k] + j]);
+      // **实参是 `(匹配文本, 位置, 整个串)`** ✓（JS 的口径 ✓——没有捕获组时就是这三个 ✓）。
+      const produced = call(args[1], Value.Undefined(),
+        [Value.FromString(table.CreateString(matched)), Value.FromInt(hits[k]), self]);
+      // **返回值按 `ToString` 折** ✓（JS 的口径 ✓：返回一个数就印那个数 ✓）。
+      pieces.push(JsTextUnits(table, produced));
+    } else {
+      pieces.push(JsSubstitutionUnits(replacement, units, hits[k], needle.length));
+    }
+  }
+  let total = units.length;
+  for (let k = 0; k < pieces.length; k++) total = total + pieces[k].length - needle.length;
   if (!room(ObjectCharge + CodeUnitCharge * total)) throw new Error("out of room");
   const joined: number[] = [];
   let cursor = 0;
   for (let k = 0; k < hits.length; k++) {
     for (let i = cursor; i < hits[k]; i++) joined.push(units[i]);
-    for (let i = 0; i < replacement.length; i++) joined.push(replacement[i]);
+    for (let i = 0; i < pieces[k].length; i++) joined.push(pieces[k][i]);
     cursor = hits[k] + needle.length;
   }
   for (let i = cursor; i < units.length; i++) joined.push(units[i]);
   return Value.FromString(table.CreateString(joined));
 }
 throw new Error("unimplemented: string builtin " + id);
+```
+
+# method JsSubstitutionUnits:(template:Array<int>, units:Array<int>, at:int, length:int)=>Array<int>
+
+**替换文本里的记号**（第 296 轮 ✓）——`String.prototype.replace` 的第二格实参**不是纯文本** ✗：
+它里面那几个 `$` 开头的记号会被换成与**匹配位置有关**的东西 ✓。
+
+| 记号 | 换成 |
+| --- | --- |
+| `$$` | 一个 `$` ✓ |
+| `$&` | **匹配到的那一段** ✓ |
+| `` $` `` | 匹配**之前**的那一段 ✓ |
+| `$'` | 匹配**之后**的那一段 ✓ |
+| `$n` / `$nn` | **捕获组** ✓——而**字符串模式没有捕获组** ✗ ⇒ **原样留着** ✓ |
+
+**`$1` 那一格为什么是「原样留着」而不是「换成空串」** ✗：JS 的规矩是
+「**没有那个组就不动它**」✓（`"abc".replace("b", "$1")` 给 `"a$1c"` ✓）——
+换成空串是**静默错值** ✓，而且错得很像对的 ✓（少了一个 `$1`，看不出是错的 ✗）。
+**正则那一档要等 `RegExp`** ✓（口径外 ✓），所以这一格**今天永远不会**有捕获组 ✓。
+
+**为什么单独一个方法** ✗：`replace` 与 `replaceAll` 共用它 ✓，而**逐处的顺序**是语义 ✓——
+`$'` 取的是「这一处之后」✓、`` $` `` 取的是「这一处之前」✓，两处都跟着**当前这一处**走 ✓
+（写成「整个串的前后」在 `replaceAll` 上会**每一处都一样** ✗ ⇒ 静默错值 ✓）。
+
+```ts
+const out: number[] = [];
+let i = 0;
+while (i < template.length) {
+  const unit = template[i];
+  if (unit !== 36) {
+    out.push(unit);
+    i = i + 1;
+    continue;
+  }
+  const next = i + 1 < template.length ? template[i + 1] : -1;
+  if (next === 36) {
+    out.push(36);
+    i = i + 2;
+    continue;
+  }
+  if (next === 38) {
+    for (let j = 0; j < length; j++) out.push(units[at + j]);
+    i = i + 2;
+    continue;
+  }
+  if (next === 96) {
+    for (let j = 0; j < at; j++) out.push(units[j]);
+    i = i + 2;
+    continue;
+  }
+  if (next === 39) {
+    for (let j = at + length; j < units.length; j++) out.push(units[j]);
+    i = i + 2;
+    continue;
+  }
+  out.push(36);
+  i = i + 1;
+}
+return out;
 ```
 
 # method SplitString:(room:RoomChecker, table:HeapTable, protos:Protos, self:Value, args:Array<Value>)=>Value

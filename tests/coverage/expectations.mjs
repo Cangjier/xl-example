@@ -563,7 +563,6 @@ export const EXPECTATIONS = {
   //    **同一个形状** ✓，`hypot` 那一支当时没跟着补 ✗）；
   // ④ `-0` 那一格记在组 A ✓。
   "object-assign-forms-and-order": { expect: "differ", why: "**静默错值**：`Object.assign({}, \"ab\")` 给 `{}`（Node 给 `{\"0\":\"a\",\"1\":\"b\"}`）——字符串当源时要按**码元**展开成下标键" },
-  "string-replace-patterns": { expect: "differ", why: "`String.replace` 只认两个字符串实参：**函数替换**与 `$&` 一类替换记号没接（`replaceAll` 的计数形态也是同一格）" },
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "string-charcodes-and-units": { expect: "differ", why: "**码元 vs 码点**：`[...\"A\\u{1F600}B\"]` 给 4 个（代理对被拆开），Node 给 3 个——与 `rt-surrogate-iteration` 同一个根" },
   "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
@@ -606,8 +605,6 @@ export const EXPECTATIONS = {
   "rt-instanceof-array-subclass": { expect: "blocked", why: "`class MyList extends Array {}` 报 `this method needs an array receiver`——实例是普通对象、数组方法不认它。要一条「按内置类做实例的 `[[Prototype]]` 与内部槽」的路" },
   //
   // **组 H：`replace` 的那两格（2 条）** ✓——`String.replace` 只认两个字符串实参 ✗。
-  "string-replace-function-form": { expect: "blocked", why: "`replace` 的替换值是**函数**时没接：要按匹配位置调一次脚本函数、把返回值当替换文本（回调通道现成，缺的是这条调用路径本身）" },
-  "string-replace-dollar-forms": { expect: "differ", why: "**静默错值**：`\"abc\".replace(\"b\", \"[$&]\")` 给 `a[$&]c`（Node 给 `a[b]c`）——`$&` / `$\\\`` / `$'` / `$$` 这几个替换记号一个都不认。`$1` 那一格要等正则（口径外）" },
   //
   // **组 I：`Date` 的文本（1 条）** ✓
   //
@@ -622,8 +619,6 @@ export const EXPECTATIONS = {
   "c291-ex-nested-namespace-with-values": { expect: "blocked", why: "这一条是**一行写完**的那个形状（`namespace Outer { export namespace Inner { … } export const w = Inner.v + 1; }`）——第 292 轮把 `namespace` 本身做出来了 ✓（另外 7 条当场转绿 ✓），剩下的根子**不在降级层** ✗：`Namespace` 这个单元**不算语句边界** ⇒ 同一行后面那句 `export const w = …` 的 `=` 被读成**二元运算符**、左边正好是它 ⇒ 投影出来是 `ExpressionStatement(BinaryExpression(ModuleDeclaration, EqualsToken, …))`，降级层报 `unimplemented: assignment to a non-identifier`。第 292 轮**试过**把 `Namespace` 收进 `IsStatementUnit`：那一处修好了 ✓，可外层 `ModuleBlock` 的产物从 `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration`（实测 `--ts-ast`）⇒ 降级层取不到语句 ⇒ 内层命名空间**根本没建**、报 `cannot read properties of undefined`（**静默错值** ✗）。收益 1 条、代价是嵌套那一档从「报错」变成「静默错值」，所以**退回来了**；要动就得把「语句边界」与「`ModuleBlock` 的收法」一起改" },
   //
   // **组 B：属性枚举的整数键优先序（2 条）** ✓——**静默错值** ✗。
-  "c291-rt-object-iteration-order": { expect: "differ", why: "**静默错值**：`Object.keys({ b: 1, 2: 2, a: 3, 1: 4 })` 给 `b,2,a,1`（Node 给 `1,2,b,a`）——整数键要**按数值升序排在最前**，本仓一律用插入序。根子在属性表那一趟枚举" },
-  "c291-rt-object-key-order-and-json": { expect: "differ", why: "同一格：`JSON.stringify` 也走那一趟枚举，于是文本里的键序一起歪（Node `{\"2\":4,\"10\":2,\"z\":1,\"a\":3}` / 本仓 `{\"z\":1,\"10\":2,\"a\":3,\"2\":4}`）——修一处、两个出口一起对" },
   //
   // **组 C：生成器的 `next(v)` 送值（1 条）** ✓——与 `rt-generator-next-sends-value` 同一根。
   "c291-rt-generator-forms": { expect: "differ", why: "生成器的 `next(5)` 送值：`const x = yield 1` 收不到（给 `undefined`，于是 `x * 2` 印 `null`）——`yield` 表达式要读**上一格送进来的值**" },

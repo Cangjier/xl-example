@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 90.46,
+  "progressPercent": 90.88,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 252,
-      "pass": 225,
+      "pass": 227,
       "blocked": 12,
-      "differ": 15,
+      "differ": 13,
       "nodefail": 0,
-      "coverage": 89.29
+      "coverage": 90.08
     },
     {
       "layer": "exec",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 327,
-      "pass": 299,
-      "blocked": 12,
-      "differ": 16,
+      "pass": 302,
+      "blocked": 11,
+      "differ": 14,
       "nodefail": 0,
-      "coverage": 91.44
+      "coverage": 92.35
     },
     {
       "layer": "e2e",
@@ -210,12 +210,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "string-replace-function-form",
-      "layer": "stdlib",
-      "title": "replace 的替换值是函数",
-      "detail": "tsrun: 脚本抛出：unimplemented: String.replace needs two string arguments (regex and function replacements are not supported)"
-    },
-    {
       "id": "object-getownpropertydescriptors",
       "layer": "stdlib",
       "title": "Object.getOwnPropertyDescriptors（复数）",
@@ -332,12 +326,6 @@
       "detail": "stdout 不同：第 2 行：node «got 7» vs tsrun «got undefined»"
     },
     {
-      "id": "c291-rt-object-iteration-order",
-      "layer": "runtime",
-      "title": "整数键在前、插入序在后的枚举顺序",
-      "detail": "stdout 不同：第 1 行：node «1,2,b,a {\"1\":4,\"2\":2,\"b\":1,\"a\":3}» vs tsrun «1,2,b,a {\"b\":1,\"2\":2,\"a\":3,\"1\":4}»"
-    },
-    {
       "id": "c291-rt-generator-forms",
       "layer": "runtime",
       "title": "生成器：双向传值与三段返回",
@@ -348,12 +336,6 @@
       "layer": "runtime",
       "title": "代理对在长度、展开、码点上的三种读法",
       "detail": "stdout 不同：第 1 行：node «4 3 true true» vs tsrun «4 4 true true»"
-    },
-    {
-      "id": "c291-rt-object-key-order-and-json",
-      "layer": "runtime",
-      "title": "键顺序在 Object.keys 与 JSON 上一致",
-      "detail": "stdout 不同：第 2 行：node «{\"2\":4,\"10\":2,\"z\":1,\"a\":3}» vs tsrun «{\"z\":1,\"10\":2,\"a\":3,\"2\":4}»"
     },
     {
       "id": "ex-getter-setter-class",
@@ -422,12 +404,6 @@
       "detail": "stdout 不同：第 3 行：node «3 [\"A\",\"😀\",\"B\"]» vs tsrun «4 [\"A\",\"�\",\"�\",\"B\"]»"
     },
     {
-      "id": "string-replace-patterns",
-      "layer": "stdlib",
-      "title": "replace / replaceAll：字符串模式、$& 与 $1 一类替换记号、函数替换",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: String.replace needs two string arguments (regex and function r"
-    },
-    {
       "id": "string-concat-and-trim-families",
       "layer": "stdlib",
       "title": "concat 的多参 · trim / trimStart / trimEnd 的空白集",
@@ -444,12 +420,6 @@
       "layer": "stdlib",
       "title": "全局函数与隐式转换：Boolean / Number / String / Array / Object",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
-    },
-    {
-      "id": "string-replace-dollar-forms",
-      "layer": "stdlib",
-      "title": "replace 的 $& / $` / $' 替换记号",
-      "detail": "stdout 不同：第 1 行：node «a[b]c» vs tsrun «a[$&]c»"
     },
     {
       "id": "object-create-with-properties",
@@ -486,39 +456,23 @@
   "moved": [],
   "newlyPassing": [
     {
-      "id": "array-tolocalestring",
+      "id": "c291-rt-object-iteration-order",
+      "layer": "runtime"
+    },
+    {
+      "id": "c291-rt-object-key-order-and-json",
+      "layer": "runtime"
+    },
+    {
+      "id": "string-replace-patterns",
       "layer": "stdlib"
     },
     {
-      "id": "promise-race-any-allsettled",
+      "id": "string-replace-function-form",
       "layer": "stdlib"
     },
     {
-      "id": "error-aggregate",
-      "layer": "stdlib"
-    },
-    {
-      "id": "weakmap-basic",
-      "layer": "stdlib"
-    },
-    {
-      "id": "object-groupby",
-      "layer": "stdlib"
-    },
-    {
-      "id": "c291-weakset-and-weakmap-forms",
-      "layer": "stdlib"
-    },
-    {
-      "id": "c291-promise-all-race-settled",
-      "layer": "stdlib"
-    },
-    {
-      "id": "c291-promise-any-and-finally",
-      "layer": "stdlib"
-    },
-    {
-      "id": "c291-error-families-and-messages",
+      "id": "string-replace-dollar-forms",
       "layer": "stdlib"
     }
   ],

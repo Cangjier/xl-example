@@ -3882,11 +3882,14 @@ if (value.Tag === ValueTag.Object) {
     if (whiteFirst) return "{}";
     return whiteText + (multi ? "\n" + JsonIndent(depth, indent) + "}" : "}");
   }
+  // **次序**（第 296 轮 ✓）：三趟遍历走**同一张下标表** ✓——见 `JsonKeyOrder` 那一段 ✓。
+  // **白名单那一支不走它** ✗（那一支按**数组给的顺序** ✓，与对象自己的次序无关 ✓）。
+  const order = JsonKeyOrder(table, value.Ref);
   // **缩进那一档**（同上）：先按「有没有可渲染的键」判一次 ✓——空对象照旧是 `{}` ✓。
   let renderedCount = 0;
   if (indent !== "") {
-    for (let i = 0; i < item.Props.length; i++) {
-      const probe = item.Props[i];
+    for (let oi = 0; oi < order.length; oi++) {
+      const probe = item.Props[order[oi]];
       if (table.Get(probe.Key).Tag !== ValueTag.String) continue;
       if (probe.Kind === PropertyKind.Accessor) continue;
       if (!probe.IsEnumerable()) continue;
@@ -3897,8 +3900,8 @@ if (value.Tag === ValueTag.Object) {
     if (renderedCount > 0) {
       let text = "{\n";
       let firstIndented = true;
-      for (let i = 0; i < item.Props.length; i++) {
-        const property = item.Props[i];
+      for (let oi = 0; oi < order.length; oi++) {
+        const property = item.Props[order[oi]];
         if (table.Get(property.Key).Tag !== ValueTag.String) continue;
         if (property.Kind === PropertyKind.Accessor) continue;
         if (!property.IsEnumerable()) continue;
@@ -3915,8 +3918,8 @@ if (value.Tag === ValueTag.Object) {
   }
   let text = "{";
   let first = true;
-  for (let i = 0; i < item.Props.length; i++) {
-    const property = item.Props[i];
+  for (let oi = 0; oi < order.length; oi++) {
+    const property = item.Props[order[oi]];
     const keyValue = table.Get(property.Key);
     if (keyValue.Tag !== ValueTag.String) continue;
     if (property.Kind === PropertyKind.Accessor) continue;
@@ -3955,6 +3958,63 @@ throw new Error("unimplemented: JSON of this kind of value");
 ```ts
 if (!room(ValueCharge * 2)) throw new Error("out of room");
 table.Get(anchor).AsArray().SetAt(depth, value);
+```
+
+# method JsonKeyOrder:(table:HeapTable, owner:int)=>Array<int>
+
+**一个对象该按什么顺序序列化**（第 296 轮 ✓）——**返回的是属性表里的下标** ✓。
+
+**JS 的次序是语义** ✗，而且是**两条规矩**：**整数样的键升序在最前** ✓、
+**其余按创建顺序** ✓（`OrdinaryOwnPropertyKeys` ✓）。`JSON.stringify({b:1, 2:2, a:3, 1:4})`
+在 Node 里是 `{"1":4,"2":2,"b":1,"a":3}` ✓。
+
+**原来这里是照 `Props` 的原样走** ✗（纯插入序 ✓）⇒ 打出来是
+`{"b":1,"2":2,"a":3,"1":4}` ✓——**一句异常都没有** ✓（**静默错值** ✓，
+而 `Object.keys` 从第 210 轮起就是对的 ✓ ⇒ **同一个对象两个出口两个次序** ✗，
+判据 `c291-rt-object-key-order-and-json` 与 `c291-rt-object-iteration-order` 量的就是这一对 ✓）。
+
+**为什么收成一个方法** ✗：`Object` 那一支有**三条**遍历 ✓（白名单那条不算 ✓——
+它按**数组给的顺序** ✓，与这里无关 ✗；剩下**探测一次、缩进渲染一次、紧凑渲染一次** ✓）——
+三处各写一遍次序就是**三处会漂** ✓，而漂了的症状是「同一个对象在同一个出口里两种次序」✓。
+
+**判据与 `Object.keys` 共用** ✓（`IsIndexKeyText` ✓）：两处各写一份「什么算下标键」
+就是两处会漂 ✓——`"01"` / `"1.5"` / `"-1"` / `"1e3"` **都不是**下标键 ✓。
+
+```ts
+const item = table.Get(owner);
+const indexAt: number[] = [];
+const indexValue: number[] = [];
+const plainAt: number[] = [];
+for (let i = 0; i < item.Props.length; i++) {
+  const property = item.Props[i];
+  if (table.Get(property.Key).Tag !== ValueTag.String) continue;
+  if (property.Kind === PropertyKind.Accessor) continue;
+  if (!property.IsEnumerable()) continue;
+  const text = TextFrom(table, Value.FromString(property.Key));
+  if (IsIndexKeyText(text)) {
+    indexAt.push(i);
+    indexValue.push(Number(text));
+    continue;
+  }
+  plainAt.push(i);
+}
+// **整数样那一摞升序**（插入排序 ✓——键数很少 ✓，与 `Object.keys` 那一处同一个写法 ✓）。
+for (let i = 1; i < indexAt.length; i++) {
+  const curAt = indexAt[i];
+  const curValue = indexValue[i];
+  let j = i - 1;
+  while (j >= 0 && indexValue[j] > curValue) {
+    indexAt[j + 1] = indexAt[j];
+    indexValue[j + 1] = indexValue[j];
+    j = j - 1;
+  }
+  indexAt[j + 1] = curAt;
+  indexValue[j + 1] = curValue;
+}
+const order: number[] = [];
+for (let i = 0; i < indexAt.length; i++) order.push(indexAt[i]);
+for (let i = 0; i < plainAt.length; i++) order.push(plainAt[i]);
+return order;
 ```
 
 # method JsonIndent:(depth:int, indent:string)=>string
