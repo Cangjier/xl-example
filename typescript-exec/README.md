@@ -6,6 +6,75 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 303 轮的账（**非空断言后面直接跟下标** —— 95.0% → 95.4%，降级层 95.7% → 96.8%）
+
+### 一、症状：`[1]` 整段丢掉
+
+```
+const o = { b: [1, 2, 3] };
+o.b![1]              ⇒ [1, 2, 3]      ✗（Node 给 2）——给的是**那个数组本身** ✓
+o.b![2] + 0          ⇒ [1, 2, 3]      ✗（Node 给 3）
+(o.b!)[1]            ⇒ 2              ✓（加了括号就对 ✓）
+o.b[1]               ⇒ 2              ✓
+```
+
+**一句异常都没有** ✗——判据 `ex-nonnull-chain-index` / `ex-nonnull-and-as-chain` ✓。
+
+### 二、根子：那个方括号**按「数组字面量」成形**了
+
+`o.b![1]` 的产物（`cjcli` 直接看 ✓）：
+
+```
+<Statement>
+  <NotNull><PropertyAccess>o.b</PropertyAccess><SymbolToken>!</SymbolToken></NotNull>
+  <ArrayLiteral>1</ArrayLiteral>          ← 平级兄弟 ✗
+</Statement>
+```
+
+`!` 那一格只把**左边**包起来 ✓，后面那个 `[` 谁也不认它 ✓——
+它不在下标位 ✓（下标要跟在表达式后面 ✓，而前一格是 `!` ✓），也不在数组字面量位 ✓，
+于是**按数组字面量成形** ✗。
+
+**于是投影的链分支进不来** ✗（它要求 `kids[1]` 是 `.` 或**真下标** ✓），
+`NotNull` 单独投影 ✓ ⇒ `[1]` **整个丢掉** ✗。
+
+### 三、修法：两处各补一格
+
+| 在哪 | 补什么 | 为什么 |
+| --- | --- | --- |
+| `print-ast-common.xl.md` 的链分支 | 链上出现过**非空断言**之后的 `ArrayLiteral` **当下标** ✓ | 数组字面量不会紧跟在表达式后面 ✓（`o.b [1]` 在 JS 里就是 `o.b[1]` ✓） |
+| `tokens/not-null.xl.md` 的 `Previous` | `ArrayLiteral` 也算**可以被断言的东西** ✓ | `arr[0]!` 的产物就是 `<ArrayLiteral>` ✓ |
+
+**第二格不补的后果更远** ✗：`x[1]![0]` 里第二个 `!` 会**留在原地** ✓，
+被 `UnaryOperatorReorganization` 收成**前缀取反** ✗（实测产物
+`<UnaryOperator op="!"><SymbolToken>!</SymbolToken><ArrayLiteral(0)></UnaryOperator>` ✓）——
+**一个「非空断言」变成了「逻辑取反」** ✓，而两者在源码上只差一个位置 ✓。
+
+**顺带修好的** ✓：`a[0]!` 与 `o.k[0]! + 1` ✓（原来两处都是错的 ✗）。
+
+### 四、没做的两格（写在明处）
+
+- `x![1]![0]`：**第二个**方括号会掉 ✓（它前一格是**已经折好的** `ElementAccessExpression` ✓，
+  不再挨着 `NotNull` ✓）；
+- `o.b![2] + 0`：那个方括号会被**折进 `BinaryOperator` 里** ✓。
+
+两格都**不在矩阵里** ✓，也写进了 `c303-nonnull-then-index` 那条判据的注释 ✓——
+**不假装它们在 ✓**。
+
+### 五、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   91.7%   232/253   (blocked 12 · differ 9 · bad 0)   没动
+exec      96.8%   179/185   (blocked 5  · differ 1  · bad 0)   +2 条（含新加 1 条）
+stdlib    93.6%   307/328   (blocked 9  · differ 12 · bad 0)   没动
+e2e      100.0%    13/13    (blocked 0  · differ 0  · bad 0)   没动
+合计      95.4%   731/779   blocked 26 · differ 22 · bad 0
+```
+
+**红的一栏是 0** ✓；`runtime:check` **241 条** ✓、`runtime:cli` **79 份** ✓、
+`cases:tsast` **1444 / 1444** ✓。
+
 ## 第 302 轮的账（**实参表里的逗号：被调用者换一种形状就切不开了** —— 94.8% → 95.0%，引擎 91.3% → 91.7%、降级层 95.1% → 95.7%）
 
 **症状**（判据 `rt-iife-forms` / `ex-arrow-immediately-invoked-typed` ✓）：

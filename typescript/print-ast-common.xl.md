@@ -2581,7 +2581,19 @@ new Set([
   // **第 70 轮**：token 层新增了 `PropertyAccess`（成员访问链在 token 层就折成一个单元），
   // 所以这里的两条输入路径都要认——`PropertyAccess` 单元走同一个递归（见 `projectNode`），
   // 而**值位里散着的平铺链**（类型位、`?.` 让路之后的残留）仍走这一支。
-  if (kids.length >= 2 && (isSymbol(kids[1], ".") || isIndexBracket(kids[1]))) {
+  // **`!` 后面那个下标被收成了「数组字面量」兄弟** ✗（第 303 轮 ✓）：
+  // `o.b![1]` 的产物是 `<NotNull(PropertyAccess(o.b), !)>` 与 `<ArrayLiteral(1)>`
+  // **两个平级单元** ✓——`!` 那一格只把**左边**包起来 ✓，后面那个 `[` 谁也不认它 ✓
+  // （它不是下标位、也不是数组字面量位 ✓，于是**按数组字面量成形** ✗）。
+  // 于是原来的链分支进不来 ✓（它要求 `kids[1]` 是 `.` 或**真下标** ✓），
+  // `NotNull` 单独投影 ✓ ⇒ **`[1]` 整个丢掉** ✗：
+  // `o.b![1]` 在 Node 里是 `2` ✓，本仓给的是**那个数组本身** ✓——**静默错值** ✗
+  // （判据 `ex-nonnull-chain-index` / `ex-nonnull-and-as-chain` ✓）。
+  if (
+    kids.length >= 2 &&
+    (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
+      (kids[0].get("type") === "NotNull" && kids[1].get("type") === "ArrayLiteral"))
+  ) {
     // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
     // `this.Parent!.Data.splice(1, 2)` 实测是
     // `[NotNull(this.Parent), ., PropertyAccess([Data, ., Method(splice)])]`，
@@ -2618,10 +2630,24 @@ new Set([
       ck[0].get("type") === "Bracket" && ck[0].get("startBracket") === "("
         ? parenthesizedOf(ck[0], ctx)
         : projectNode(ck[0], ctx);
+    // **这一条链上出现过非空断言**（第 303 轮 ✓）：出现过之后 ✓，
+    // 后面那些「按数组字面量成形的方括号」**每一格都是下标** ✓——
+    // `o.b![1]![0]` 里**两个** `[` 都是这种形状 ✓（第二个的前一格是**已经折好的**
+    // `ElementAccessExpression` ✗，不再挨着那个 `NotNull` ✓）。
+    // 只看「前一格是不是 `NotNull`」的话，第二个下标会**整段丢掉** ✗
+    //（判据 `c303-nonnull-then-index` 第二版量的就是它 ✓）。
+    let sawNullAssert = ck[0].get("type") === "NotNull";
     let i = 1;
     while (i < ck.length) {
       // **下标链接**：`a[i]` → `ElementAccessExpression`（第 80 轮）。
-      if (isIndexBracket(ck[i])) {
+      //
+      // **紧跟在一个「非空断言」后面的 `ArrayLiteral` 也是下标** ✗（第 303 轮 ✓，理由见上面
+      // 那一段 ✓）：`o.b![1]` 里那个 `[1]` 是按**数组字面量**成形的 ✓，
+      // 而它在**链上**（前一格是 `NotNull` ✓）就只能是下标 ✓——
+      // 数组字面量不会紧跟在表达式后面出现 ✓（`o.b [1]` 在 JS 里就是 `o.b[1]` ✓）。
+      const indexLike = isIndexBracket(ck[i]) ||
+        (ck[i].get("type") === "ArrayLiteral" && sawNullAssert);
+      if (indexLike) {
         const argument = projectExpression(projectableKids(view(ck[i])), ctx);
         left = {
           kind: "ElementAccessExpression",
@@ -2640,6 +2666,7 @@ new Set([
         // 后面那整段链会掉成平级节点（实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
         if (ck[i].get("type") === "NotNull") {
           left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(ck[i]) };
+          sawNullAssert = true;
           i += 1;
           continue;
         }

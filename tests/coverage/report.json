@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 778,
+  "matrix": 779,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.02,
+  "progressPercent": 95.35,
   "layers": [
     {
       "layer": "runtime",
@@ -48,12 +48,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 184,
-      "pass": 176,
+      "total": 185,
+      "pass": 179,
       "blocked": 5,
-      "differ": 3,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 95.65
+      "coverage": 96.76
     },
     {
       "layer": "stdlib",
@@ -296,18 +296,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: this should throw a TypeError (accessor without a setter)"
     },
     {
-      "id": "ex-nonnull-and-as-chain",
-      "layer": "exec",
-      "title": "非空断言与 as 串在一条链上",
-      "detail": "stdout 不同：第 1 行：node «2 3» vs tsrun «[ 1, 2, 3 ] 3»"
-    },
-    {
-      "id": "ex-nonnull-chain-index",
-      "layer": "exec",
-      "title": "非空断言串在成员链上：o!.a!.b![1]",
-      "detail": "stdout 不同：第 1 行：node «2» vs tsrun «[ 1, 2 ]»"
-    },
-    {
       "id": "object-freeze-array-element",
       "layer": "stdlib",
       "title": "Object.freeze 的**数组元素**：push 在严格模式里该抛",
@@ -382,6 +370,15 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "ex-nonnull-and-as-chain",
+      "layer": "exec"
+    },
+    {
+      "id": "ex-nonnull-chain-index",
+      "layer": "exec"
+    }
+  ],
   "regressions": []
 }

@@ -7,6 +7,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
+import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Method } from "./method.xl.md"
 import { PropertyAccess } from "./property-access.xl.md"
@@ -63,12 +64,21 @@ if (this.IsDefiniteAssignment(units, index)) {
 if (this.IsStatementKeyword(previous)) {
   return false;
 }
+// **`ArrayLiteral` 也是「可以被断言的东西」** ✗（第 303 轮 ✓）——它在这里代表的是
+// **一次下标访问** ✓（`arr[0]!` 的产物把那个 `[0]` 收成 `<ArrayLiteral>` ✓，
+// 理由与投影那边那一段一字不差 ✓）。**不认它的后果** ✗：`x[1]![0]` 里第二个 `!`
+// 会**留在原地** ✓、被 `UnaryOperatorReorganization` 收成**前缀取反** ✗
+//（实测产物：`<UnaryOperator op="!"><SymbolToken>!</SymbolToken><ArrayLiteral(0)></UnaryOperator>` ✓），
+// 后面那个 `[0]` 于是既不是下标、也不是数组字面量 ✓ ⇒ **整段丢掉** ✓
+// （判据 `c303-nonnull-then-index` 第三版量到的就是它 ✓：`deep!.a!.b![1]![0]` 给 `[3,4]` ✓，
+// Node 给 `3` ✓——**一句异常都没有** ✗）。
 return (
   previous instanceof Identifier ||
   previous instanceof Bracket ||
   previous instanceof Method ||
   previous instanceof PropertyAccess ||
-  previous instanceof NotNull
+  previous instanceof NotNull ||
+  previous instanceof ArrayLiteral
 );
 ```
 
