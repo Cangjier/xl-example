@@ -2814,4 +2814,500 @@ try {
 console.log(sum);
 `,
   },
+
+  // ===== 第 305 轮：加宽矩阵（44 条）=====
+
+  {
+    id: "c305-ex-async-generator-declaration",
+    title: "`async function*` 声明 + `for await..of`",
+    src: `
+async function* range(n: number): AsyncGenerator<number> {
+  for (let i = 0; i < n; i++) yield i;
+}
+async function main() {
+  const out: number[] = [];
+  for await (const v of range(3)) out.push(v);
+  console.log(out.join(","));
+}
+main();
+`,
+  },
+  {
+    id: "c305-ex-async-generator-method-in-class",
+    title: "类里的 `async *items()` 方法",
+    src: `
+class Stream {
+  #base = 10;
+  async *items(): AsyncGenerator<number> {
+    yield this.#base;
+    yield this.#base + 1;
+  }
+}
+async function main() {
+  const out: number[] = [];
+  for await (const v of new Stream().items()) out.push(v);
+  console.log(out.join(","));
+}
+main();
+`,
+  },
+  {
+    id: "c305-ex-async-generator-interface-type",
+    title: "异步迭代器的类型标注（`AsyncIterable` / `Symbol.asyncIterator`）",
+    src: `
+async function* g(): AsyncGenerator<number> { yield 1; }
+const it: AsyncIterable<number> = g();
+console.log(typeof (it as any)[Symbol.asyncIterator], typeof (it as any).next);
+`,
+  },
+  {
+    id: "c305-ex-for-await-of-array",
+    title: "`for await..of` 一个普通字符串数组",
+    src: `
+async function main() {
+  const out: string[] = [];
+  for await (const v of ["a", "b"]) out.push(v);
+  console.log(out.join("-"));
+}
+main();
+`,
+  },
+  {
+    id: "c305-ex-for-await-of-map-entries",
+    title: "`for await..of` 一个 `Map` 的 entries，并解构",
+    src: `
+async function main() {
+  const m = new Map<string, number>([["a", 1], ["b", 2]]);
+  const out: string[] = [];
+  for await (const [k, v] of m) out.push(k + "=" + v);
+  console.log(out.join(","));
+}
+main();
+`,
+  },
+  {
+    id: "c305-ex-declare-namespace-and-value",
+    title: "`declare namespace` 整块擦掉，旁边那句照跑",
+    src: `
+declare namespace D {
+  const x: number;
+  function f(): void;
+}
+console.log("declared", typeof (globalThis as any).D);
+`,
+  },
+  {
+    id: "c305-ex-namespace-enum-and-const-value",
+    title: "命名空间里同时有 `enum` 与引用它的 `const`",
+    src: `
+namespace Outer {
+  export enum E { A = 1, B = 2 }
+  export const v = E.A + 10;
+}
+console.log(Outer.v, Outer.E.A, Outer.E[2]);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-ex-nonnull-on-call-result",
+    title: "非空断言落在调用结果上（`maybe()!.length`）",
+    src: `
+function maybe(): string | null { return "xyz"; }
+console.log(maybe()!.length, maybe()?.length, maybe()!.toUpperCase());
+`,
+  },
+  {
+    id: "c305-ex-as-on-call-result-chain",
+    title: "`as` 落在调用结果与后续成员链上",
+    src: `
+const f = () => ({ a: 1, b: { c: 2 } });
+console.log((f() as { a: number }).a, (f() as any).b.c, (f() as any).b["c"]);
+`,
+  },
+  {
+    id: "c305-ex-static-block-with-try-catch",
+    title: "静态块里写 `try/catch`",
+    src: `
+class C {
+  static v: number;
+  static {
+    try {
+      throw new Error("x");
+    } catch {
+      C.v = 2;
+    }
+  }
+}
+console.log(C.v);
+`,
+  },
+  {
+    id: "c305-ex-static-computed-key-and-method",
+    title: "静态计算键字段 + 实例计算键方法",
+    src: `
+const KEY = "kind";
+class C {
+  static [KEY] = "c";
+  [KEY](): string { return "m"; }
+}
+console.log(C.kind, new C().kind());
+`,
+  },
+  {
+    id: "c305-ex-class-field-reserved-names",
+    title: "字段名用保留字（`static default` / `null`）",
+    src: `
+class C {
+  static default = 1;
+  null = 2;
+}
+console.log(C.default, new C().null);
+`,
+  },
+  {
+    id: "c305-ex-abstract-getter-implemented",
+    title: "抽象类里的抽象 getter，子类实现它",
+    src: `
+abstract class Base {
+  abstract get value(): number;
+}
+class Impl extends Base {
+  get value(): number { return 42; }
+}
+console.log(new Impl().value);
+`,
+  },
+  {
+    id: "c305-ex-generic-class-private-field",
+    title: "泛型类 + 私有字段 + 泛型 getter",
+    src: `
+class Box<T> {
+  #v: T;
+  constructor(v: T) { this.#v = v; }
+  get value(): T { return this.#v; }
+}
+console.log(new Box(5).value, new Box("s").value, new Box([1, 2]).value.length);
+`,
+  },
+  {
+    id: "c305-ex-tuple-rest-element",
+    title: "带剩余元素的元组类型 + 解构",
+    src: `
+type T = [string, ...number[]];
+const t: T = ["a", 1, 2];
+const [head, ...tail] = t;
+console.log(head, tail.join(","), t.length);
+`,
+  },
+  {
+    id: "c305-ex-catch-unknown-narrowing",
+    title: "`catch (e: unknown)` 加 `instanceof` 收窄",
+    src: `
+try {
+  throw new Error("x");
+} catch (e: unknown) {
+  if (e instanceof Error) console.log("msg", e.message);
+  else console.log("other");
+}
+`,
+  },
+  {
+    id: "c305-ex-class-method-overloads",
+    title: "类里方法的重载签名 + 一个实现",
+    src: `
+class Util {
+  parse(v: string): number;
+  parse(v: number): number;
+  parse(v: any): number { return typeof v === "string" ? v.length : v; }
+}
+console.log(new Util().parse("abc"), new Util().parse(7));
+`,
+  },
+  {
+    id: "c305-ex-destructure-assign-to-members",
+    title: "解构赋值写进成员位（`({ a: o.x } = src)`）",
+    src: `
+const o: any = {};
+const src = { a: 1, b: 2 };
+({ a: o.x, b: o.y } = src);
+console.log(o.x, o.y);
+`,
+  },
+  {
+    id: "c305-ex-type-alias-function-value",
+    title: "函数类型的别名当标注用",
+    src: `
+type Fn = (n: number) => number;
+const double: Fn = (n) => n * 2;
+const use = (f: Fn, v: number) => f(v);
+console.log(double(21), use(double, 4));
+`,
+  },
+  {
+    id: "c305-ex-computed-optional-chain-index",
+    title: "计算成员位上的可选链（`o?.list?.[1]`）",
+    src: `
+const o: any = { list: [1, 2, 3] };
+console.log(o?.list?.[1], o.list?.[5], o?.missing?.[0]);
+`,
+  },
+  {
+    id: "c305-ex-enum-as-object-key",
+    title: "用枚举值当对象的计算键",
+    src: `
+enum Color { Red, Green }
+const names: Record<number, string> = { [Color.Red]: "red", [Color.Green]: "green" };
+console.log(names[Color.Red], names[Color.Green], Color[1]);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-ex-readonly-class-property-init",
+    title: "`readonly` 字段在构造函数里赋值",
+    src: `
+class P {
+  readonly id: number;
+  name: string;
+  constructor(id: number, name: string) {
+    this.id = id;
+    this.name = name;
+  }
+}
+const p = new P(1, "a");
+console.log(p.id, p.name, Object.keys(p).join(","));
+`,
+  },
+  {
+    id: "c305-ex-definite-assignment-field",
+    title: "明确赋值断言字段（`v!: number`）在构造函数里补上",
+    src: `
+class C {
+  v!: number;
+  constructor() { this.init(); }
+  init() { this.v = 5; }
+}
+console.log(new C().v);
+`,
+  },
+  {
+    id: "c305-ex-generic-default-type-param-class",
+    title: "泛型类带默认类型实参",
+    src: `
+class Holder<T = string> {
+  constructor(public value: T) {}
+}
+console.log(new Holder("a").value, new Holder<number>(2).value);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-ex-interface-extends-multiple",
+    title: "接口继承多个接口，类实现它",
+    src: `
+interface A { a: number; }
+interface B { b: string; }
+interface C extends A, B { c: boolean; }
+class Impl implements C {
+  a = 1;
+  b = "x";
+  c = true;
+}
+const v: C = new Impl();
+console.log(v.a, v.b, v.c);
+`,
+  },
+  {
+    id: "c305-ex-type-assertion-in-call-args",
+    title: "实参位上的 `as` 与尖括号之外的两种断言形状",
+    src: `
+function take(v: unknown): string { return typeof v; }
+console.log(take(1 as unknown), take("s" as unknown), take(({ a: 1 } as unknown)));
+`,
+  },
+  {
+    id: "c305-ex-optional-chain-nonnull-mix",
+    title: "可选链与非空断言混在同一条链上",
+    src: `
+const o: any = { a: { b: 1 } };
+console.log(o?.a!.b, o.a?.b, o?.a?.b, o?.a!.b! + 1);
+`,
+  },
+  {
+    id: "c305-ex-class-expression-extends-generic",
+    title: "类表达式 `extends` 一个泛型基类",
+    src: `
+class Base<T> {
+  constructor(public value: T) {}
+  get(): T { return this.value; }
+}
+const Sub = class extends Base<number> {
+  double(): number { return this.value * 2; }
+};
+const s = new Sub(3);
+console.log(s.get(), s.double(), s instanceof Base);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-ex-arrow-typed-params-immediately-called",
+    title: "带类型标注的箭头函数立即调用（括号那两种形状）",
+    src: `
+console.log(((a: number, b: number) => a + b)(1, 2));
+const add = (a: number, b: number): number => a + b;
+console.log(add(3, 4));
+console.log(((x: string) => x.toUpperCase())("ab"));
+`,
+  },
+  {
+    id: "c305-ex-var-in-block-and-function-scope",
+    title: "`var` 在块里声明、在块外可见（函数作用域）",
+    src: `
+function f(): string {
+  if (true) { var inside = 1; }
+  return "v" + inside;
+}
+console.log(f());
+`,
+  },
+  {
+    id: "c305-ex-function-overload-union-param",
+    title: "重载声明的实参联合类型",
+    src: `
+function fmt(v: string): string;
+function fmt(v: number): string;
+function fmt(v: any): string { return typeof v === "string" ? "s:" + v : "n:" + v; }
+console.log(fmt("a"), fmt(1));
+`,
+  },
+  {
+    id: "c305-ex-satisfies-preserves-literal",
+    title: "`satisfies` 不影响运行期值（只是形状检查）",
+    src: `
+const conf = { mode: "dev", retries: 3 } satisfies { mode: string; retries: number };
+console.log(conf.mode, conf.retries, JSON.stringify(conf));
+`,
+  },
+  {
+    id: "c305-ex-mapped-type-over-union",
+    title: "映射类型只在类型位（运行期一个指令都不产生）",
+    src: `
+type Flags<T> = { [K in keyof T]: boolean };
+type Person = { name: string; age: number };
+const f: Flags<Person> = { name: true, age: false };
+console.log(JSON.stringify(f));
+`,
+  },
+  {
+    id: "c305-ex-conditional-type-with-infer-value",
+    title: "带 `infer` 的条件类型只擦掉、值照跑",
+    src: `
+type ElementOf<T> = T extends (infer U)[] ? U : never;
+const xs: ElementOf<number[]> = 1;
+console.log(xs + 1);
+`,
+  },
+  {
+    id: "c305-ex-template-literal-type-value",
+    title: "模板字面量类型（类型位）+ 同形的一个运行期模板串",
+    src: "\ntype Greeting = `hello ${string}`;\nconst g = \"hello world\";\nconst t: Greeting = g;\nconsole.log(t, t.length);\n",
+  },
+  {
+    id: "c305-ex-keyof-typeof-value-usage",
+    title: "`keyof typeof` 取出来的键在运行期读属性",
+    src: `
+const shapes = { circle: 1, square: 2 };
+type ShapeKey = keyof typeof shapes;
+const k: ShapeKey = "circle";
+console.log(shapes[k], shapes.square);
+`,
+  },
+  {
+    id: "c305-ex-index-signature-object-iteration",
+    title: "索引签名对象的遍历",
+    src: `
+interface Dict { [key: string]: number }
+const d: Dict = { a: 1, b: 2 };
+let total = 0;
+for (const k of Object.keys(d)) total += d[k];
+console.log(total, Object.keys(d).join(","));
+`,
+  },
+  {
+    id: "c305-ex-abstract-class-with-protected-members",
+    title: "抽象类的 `protected` 成员在子类里用",
+    src: `
+abstract class Base {
+  protected label = "base";
+  abstract run(): string;
+  describe(): string { return this.label + ":" + this.run(); }
+}
+class Impl extends Base {
+  run(): string { return "impl"; }
+}
+console.log(new Impl().describe());
+`,
+  },
+  {
+    id: "c305-ex-parameter-property-optional-and-readonly",
+    title: "参数属性：`readonly` 与可选一起用",
+    src: `
+class P {
+  constructor(readonly id: number, private tag?: string) {}
+  get(): string { return this.id + "/" + (this.tag ?? "none"); }
+}
+console.log(new P(1).get(), new P(2, "t").get(), Object.keys(new P(3)).join(","));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-ex-namespace-export-function-and-const",
+    title: "命名空间导出函数与常量，再从外面调用",
+    src: `
+namespace Util {
+  export const base = 10;
+  export function add(n: number): number { return n + base; }
+}
+console.log(Util.add(1), Util.base, typeof Util);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-ex-declare-const-and-function-erased",
+    title: "`declare const` / `declare function` 整条擦掉",
+    src: `
+declare const VERSION: string;
+declare function nativeFn(x: number): number;
+console.log("erased", typeof VERSION);
+`,
+  },
+  {
+    id: "c305-ex-enum-const-folding-values",
+    title: "`const enum` 的成员在运行期是普通对象上的属性",
+    src: `
+const enum Level { Low = 1, High = 2 }
+console.log(Level.Low, Level.High, Level[1]);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-ex-type-predicate-arrow-callback",
+    title: "类型谓词箭头当 `filter` 回调",
+    src: `
+const xs: (string | null)[] = ["a", null, "b"];
+const isStr = (v: string | null): v is string => typeof v === "string";
+console.log(xs.filter(isStr).join(","));
+`,
+  },
+  {
+    id: "c305-ex-never-void-unknown-values",
+    title: "`never` / `void` / `unknown` 标注下的值照跑",
+    src: `
+function fail(): never { throw new Error("nope"); }
+function nothing(): void { console.log("void fn"); }
+let u: unknown = 5;
+nothing();
+try { fail(); } catch (e) { console.log("caught"); }
+console.log(typeof u, (u as number) + 1);
+`,
+  },
 ];

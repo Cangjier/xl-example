@@ -672,4 +672,47 @@ export const EXPECTATIONS = {
   "c304-std-symbol-iterator-manual": { expect: "blocked", why: "`[10, 20][Symbol.iterator]()` 报 `cannot call a non-closure value`——`Protos.Array` 上**没有 `Symbol.iterator` 那一格**（`for..of` 与展开走的是引擎指令，不走这个方法），要按 `protos.WellKnownSymbols` 里那个句柄挂一格" },
   "c304-std-promise-race-forms": { expect: "blocked", why: "`new Promise(执行器)` 那一格（缺口清单 #15）：执行器要**同步跑**、`resolve` / `reject` 要绑定过 ⇒ 报 `the script is waiting for a promise the host has not settled`。同一条里 `race` / `allSettled` / `any` 三格本身是好的" },
   "c304-std-string-normalize-ascii-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（`string-normalize` 从第 293 轮起拖着同一个根）——要一张 NFC/NFD 的组合表；本条里 `\"e\\u0301\".normalize(\"NFC\").length` 是 `1`，所以「只做 ASCII」不够" },
+
+  // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
+
+  "c305-rt-let-loop-inner-const-capture": { expect: "differ", why: "**循环体里的 `const` 不是每一轮一格**：`for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包该给 `0,10,20`，本仓给空/0/1（**静默错值**）。与 `c304-rt-closure-capture-in-forof`、`rt-loop-capture-let-vs-var` **同一个根**：降级层还没有「每个迭代开一格环境」" },
+  "c305-rt-object-rest-keeps-symbol": { expect: "differ", why: "对象剩余**丢掉符号键**：`const { a, ...rest } = o` 之后 `rest[s]` 是 `undefined`（Node 给 `2`——`{ ...o }` 与 `...rest` 都带走**可枚举的符号键**）。根子在那一支只按**文本键**扫 `Props`（符号键是句柄、不是文本）" },
+  "c305-rt-object-spread-triggers-getter": { expect: "differ", why: "对象展开**不取值**：`{ ...src }` 里 `src.x` 是一个 getter，Node 会调它一次，本仓给 `undefined`（**静默错值**）。根子是展开读的是**属性表里那一格**，没走「读属性」（访问器）那条路——与 `c305-std-symbol-tostringtag-custom` 同一个根" },
+  "c305-rt-async-generator-await-inside": { expect: "differ", why: "**异步生成器里 `await` 之后再 `yield` 什么都不出**：`for await (const v of g())` 一行都不打印（Node 给 `10,20`）。同步生成器与 `yield await` 之外的异步生成器是好的 ⇒ 挂起点与微任务队列在异步生成器那一帧上的交界没接上" },
+  "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
+  "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
+  "c305-ex-async-generator-interface-type": { expect: "differ", why: "异步生成器对象上**没有 `Symbol.asyncIterator` 那一格**（`(it as any)[Symbol.asyncIterator]` 是 `undefined`，Node 给 `function`）——`for await` 走的是引擎指令，不走这个方法" },
+  "c305-ex-static-computed-key-and-method": { expect: "blocked", why: "计算类字段名报 `unimplemented: computed class field name`（第 287 轮组 F 的那一格：`static [KEY] = \"c\"`）——实例方法上的计算键是好的，字段上这一格没有" },
+  "c305-ex-optional-chain-nonnull-mix": { expect: "differ", why: "可选链与非空断言混在同一条链上时**后面那一截丢掉**：`o?.a!.b` 给 `{ b: 1 }`（Node 给 `1`）。与第 303 / 304 轮的链式缺口同一条（`print-ast-common.xl.md` 的链分支），这一条是「`?.` 在前、`!` 在后」那一种排布" },
+  "c305-std-queue-microtask-order": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进与 `Promise.then` 同一个微任务队列（队列本身第 248 轮就有了）" },
+  "c305-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮装上了）——同一个分组实现，只是返回 `Map` 而不是对象" },
+  "c305-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers` 没有——要造一对结清回调并把它们与承诺一起交出去（`MakeSettleCallback` 那一族现成）" },
+  "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
+  "c305-std-then-returns-promise-adoption": { expect: "differ", why: "`then` 回调**返回一个承诺**时要采纳它：本仓当成普通值灌进去 ⇒ 后面 `.then` 拿到承诺对象。与 `c304-rt-promise-then-returns-promise`、`promise-constructor` 同一个根（`AdoptInto` 从未被触达）" },
+  "c305-std-symbol-tostringtag-custom": { expect: "differ", why: "实例上**用 getter 提供的** `Symbol.toStringTag` 不被认：`Object.prototype.toString.call(new C())` 给 `[object Object]`（Node 给 `[object Custom]`）——`ObjectTagOverride` 读的是属性表里那一格，没走访问器取值那条路。与 `c305-rt-object-spread-triggers-getter` **同一个根**" },
+  "c305-std-string-trim-unicode-space": { expect: "blocked", why: "非 ASCII 空白（`\\u00a0` / `\\u3000`）在 JS 里可被 `trim`，本仓只认 ASCII 那一档、且是**响亮地抛**（`string-concat-and-trim-families` 从第 287 轮起拖着同一个根）" },
+  "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
+  "c305-std-encodeuri-roundtrip": { expect: "blocked", why: "`encodeURIComponent` / `decodeURIComponent` / `encodeURI` 都不在（与 `c304-std-encodeuri-decodeuri` 同一个根）——按 UTF-8 字节做百分号编解码 + 四个全局名" },
+  "c305-std-array-iterator-symbol-method": { expect: "blocked", why: "`Protos.Array` 上没有 `Symbol.iterator` 那一格（`[1,2][Symbol.iterator]()` 报 `cannot call a non-closure value`）——与 `c304-std-symbol-iterator-manual` 同一个根（`for..of` 与展开走引擎指令，不走这个方法）" },
+  "c305-std-number-wrapper-object": { expect: "differ", why: "包装对象整族还没造：`new Number(5)` 返回的是**原始值** ⇒ `typeof` 给 `number`（Node 给 `object`）。与 `c291-number-wrapper-and-negative-zero` 同一个根" },
+  "c305-std-object-wrapper-call": { expect: "blocked", why: "`Object(1)` 报 `unimplemented: Object(primitive) needs wrapper objects`（与 `c291-global-object-wrappers`、`global-explicit-and-implicit` 同一个根）——`new Object(null)` 是对的，差的是给原始值造包装对象" },
+  "c305-std-string-wrapper-methods": { expect: "differ", why: "`new String(\"ab\")` 返回的是**原始值**（`typeof` 给 `string`，Node 给 `object`）——包装对象族同一个根；方法本身都对" },
+  "c305-std-boolean-object-truthiness": { expect: "differ", why: "`new Boolean(false)` 的真假那一半是对的（`Boolean(b)` 给真），差的是包装对象自己：`b.valueOf()` 给内部那格 `{ __b: false }`、`String(b)` 给 `[object Object]`（Node 给 `false` / `false`）——`Boolean.prototype.valueOf` / `toString` 两格没有" },
+  "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
+  "c305-std-object-getownpropertydescriptors-all": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors` 那一格没有（`getOwnPropertyDescriptor` 第 276 轮就装上了）——一次拿全表，是同一个扫描的镜像" },
+  "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },
+  "c305-e2e-async-load-pipeline": { expect: "differ", why: "异步管道里 `yield await fetchRow(i)`（异步生成器 + `await` 之后再 `yield`）⇒ `good` 一行是空的（Node 给 `good 1,2,4,5,7`）。与 `c305-rt-async-generator-await-inside` **同一个根**" },
+  "c305-e2e-lru-cache": { expect: "differ", why: "`this.#map.keys().next().value` 报 `cannot call a non-closure value`——数组迭代器那条 `next()` 是挂上去的**隐藏属性**（第 279 轮），私有字段里取出来的那个数组上没有它" },
+  // **这一条与 `ts.createSourceFile` 逐节点对过** ✓（用户口径里那一句「与 TS 的 AST 比」✓）：
+  // TS 给的是 `MethodDeclaration(asteriskToken) > name: ComputedPropertyName(PropertyAccess(Symbol, iterator))` ✓
+  // ——**名字在** ✓、而且是**一个**成员 ✓。
+  // 本仓的产物（`cjcli --xml` 实测 ✓）是：
+  // `<MethodDeclaration name=""> <BinaryOperator op="*"> <ArrayLiteral>[Symbol.iterator]</ArrayLiteral>
+  //  <SymbolToken>*</SymbolToken> <ArrayLiteral>()</ArrayLiteral> </BinaryOperator> …`
+  // ——**名字那一格是空的** ✗，而 `*` 被折成了**乘法** ✓，
+  // 两个操作数分别是**计算名那个方括号**（它排到了 `*` **前面** ✗）与**形参那对圆括号**
+  // （被当成了空数组字面量 ✗）。所以根子在 **token 层** ✓：`*` 与后面那个 `[` 之间
+  // 少一道「左操作数必须真的在运算符**左边**」的次序判据 ✓——
+  // 记在 `typescript-exec/README.md` 第 305 轮那账的组 ⑧ 里 ✓，下一轮照这一条修 ✓。
+  "c305-e2e-linked-list-ops": { expect: "blocked", why: "生成器 + 计算成员名：`*[Symbol.iterator]() { … }` 报 `ast node MethodDeclaration has no child name`。与 TS 的 AST 对过：TS 是 `MethodDeclaration(asteriskToken) > name: ComputedPropertyName`（名字在），本仓的 XML 却把 `*` 折成了 `<BinaryOperator op=\"*\">`——左操作数是**计算名那个方括号**（它排到了 `*` 前面）、右操作数是**形参那对圆括号**（被当成空数组字面量）⇒ `name` 是空串。根子在 token 层（`*` 与 `[` 之间少一道「左操作数必须在运算符左边」的次序判据），不在投影或降级层" },
 };

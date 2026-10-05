@@ -4959,12 +4959,23 @@ this.Release(window);
 
 `obj[key] = value`，键是**算出来的值**（计算键）。
 
+**走 `set_index`、不走 `set_prop`** ✓（第 305 轮修的 ✗）——理由是**同一个形状在别处早有答案** ✓：
+
+计算键在 JS 里是 `ToPropertyKey(key)` ✓：先 `ToPrimitive(key, "string")` ✓、
+是符号就留着 ✓、否则 `ToString` ✓。而 `set_prop` **只收字符串 / 符号键** ✗
+（`props.xl.md` 的 `KeyMatches` ✓，别的键当场抛 `property keys must be strings or symbols` ✓）——
+于是 `{ [Color.Red]: "red" }`（枚举成员是**数** ✓）**整份文件进不来** ✗，
+而同一句话写成 `o[Color.Red] = "red"` 是好的 ✓（`o[k] = v` 那条路第 190 / 191 轮就走 `set_index` ✓）。
+`set_index` 那一支**本来就替我们做完了 `ToPropertyKey`** ✓（`vm.xl.md` ✓：
+数组按下标 ✓、其余接收者把键字符串化再走属性 ✓、符号键原样 ✓），
+`get_index` 在**读**那一侧是同一条口径 ✓（`o[k](...)` 第 178 轮就是这么修的 ✓）。
+
 ```ts
 const window = this.Reserve(3);
 this.Emit(Op.Move, window, object, -1, -1);
 this.Emit(Op.Move, window + 1, key, -1, -1);
 this.Emit(Op.Move, window + 2, value, -1, -1);
-this.EmitRt(RtOp.SetProp, window, window, 3);
+this.EmitRt(RtOp.SetIndex, window, window, 3);
 this.Release(window);
 ```
 
@@ -5633,7 +5644,15 @@ for (let i = 0; i < members.length; i++) {
     && NodeKind(memberName) !== "PrivateIdentifier") {
     throw new Error("unimplemented: computed or numeric class member name");
   }
-  const closure = this.LowerFunctionValue(member, computedName ? "<computed>" : name + "." + TextOf(memberName));
+  // **方法的名字就是方法名自己，不带类名前缀** ✓（第 305 轮修的 ✗）：
+  // `HeapClosure.Name` 那一格**同时**是 `fn.name` 与 `console.log(fn)` 的显示名 ✓
+  //（第 238 / 291 轮 ✓），而 Node 对 `C.prototype.m` 给的是 **`"m"`** ✓
+  //（`[Function: m]` ✓）——写成 `name + "." + TextOf(memberName)` 会给 `"C.m"` ✗
+  //（**静默错值** ✓：`fn.name` 与 `console.log` 两处都跟着歪 ✓，
+  // 判据 `c305-std-function-method-length-and-name` 量到的就是它 ✓）。
+  // **类名那一格没有别处指望它** ✓：`super` 的起点走的是 `SuperName` ✓（下面几行 ✓），
+  // 与这一格无关 ✓。
+  const closure = this.LowerFunctionValue(member, computedName ? "<computed>" : TextOf(memberName));
   // **给刚排队的方法也盖上父类名**（第 104 轮）：构造函数在它自己那一处盖，
   // 而方法**以前没盖** ✗——于是方法体里的 `super.m(...)` 一降级就报
   // 「outside a derived class method」（`InSuperName` 挂在排队函数上，空串就是不认识 `super`）。

@@ -3813,4 +3813,506 @@ console.log(errs.map((e) => e instanceof Error).join(","));
 console.log(String(errs[2]), errs[3].message);
 `,
   },
+
+  // ===== 第 305 轮：加宽矩阵（60 条）=====
+
+  {
+    id: "c305-std-queue-microtask-order",
+    title: "`queueMicrotask` 排在 `Promise.then` 同一队里",
+    src: `
+queueMicrotask(() => console.log("micro"));
+Promise.resolve().then(() => console.log("then"));
+console.log("sync");
+`,
+  },
+  {
+    id: "c305-std-map-groupby",
+    title: "`Map.groupBy` 分出来的是 `Map`（键可以是任意值）",
+    src: `
+const m = Map.groupBy([1, 2, 3, 4], (n) => (n % 2 === 0 ? "even" : "odd"));
+console.log(m instanceof Map, m.size, JSON.stringify([...m.entries()]));
+`,
+  },
+  {
+    id: "c305-std-object-groupby-key-types",
+    title: "`Object.groupBy` 的键一定是字符串",
+    src: `
+const g = Object.groupBy([1, 2, 3], (n) => n % 2);
+console.log(Object.keys(g).join(","), JSON.stringify(g));
+`,
+  },
+  {
+    id: "c305-std-promise-withresolvers",
+    title: "`Promise.withResolvers`",
+    src: `
+const { promise, resolve, reject } = Promise.withResolvers<number>();
+promise.then((v) => console.log("got", v));
+resolve(3);
+console.log(typeof reject);
+`,
+  },
+  {
+    id: "c305-std-json-stringify-tojson-on-array",
+    title: "数组自己带 `toJSON` 时 `JSON.stringify` 先问它",
+    src: `
+const arr: any = [1, 2];
+arr.toJSON = () => "custom";
+console.log(JSON.stringify(arr), JSON.stringify({ arr }));
+`,
+  },
+  {
+    id: "c305-std-json-stringify-omits-functions",
+    title: "`JSON.stringify`：对象里的函数整格丢掉、数组里的写 null",
+    src: `
+console.log(JSON.stringify({ a: 1, f: () => 1, u: undefined }), JSON.stringify([1, () => 1, undefined]));
+`,
+  },
+  {
+    id: "c305-std-json-stringify-nested-tojson",
+    title: "嵌套的 `toJSON` 一层层都问",
+    src: `
+const o = {
+  a: { toJSON: () => "A" },
+  b: [{ toJSON: () => "B" }],
+};
+console.log(JSON.stringify(o));
+`,
+  },
+  {
+    id: "c305-std-object-entries-with-symbols",
+    title: "`Object.entries` 含符号键吗（不含），`getOwnPropertySymbols` 含",
+    src: `
+const s = Symbol("s");
+const o: any = { a: 1, [s]: 2 };
+console.log(Object.entries(o).length, Object.getOwnPropertySymbols(o).length, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "c305-std-object-assign-three-sources",
+    title: "`Object.assign` 三个来源，后面的覆盖前面的",
+    src: `
+const target = Object.assign({}, { a: 1 }, { b: 2 }, { a: 3 });
+console.log(JSON.stringify(target), target.a, target.b);
+`,
+  },
+  {
+    id: "c305-std-array-sort-undefined-and-holes",
+    title: "`sort` 把 `undefined` 放最后、洞再往后",
+    src: `
+const xs: any[] = [3, undefined, 1, , 2];
+console.log(xs.sort().join(","), xs.length, 4 in xs);
+`,
+  },
+  {
+    id: "c305-std-array-every-some-empty",
+    title: "空数组上的 `every` / `some` / `reduce` 带初值",
+    src: `
+console.log([].every(() => false), [].some(() => true), [].reduce((a, b) => a + b, 5));
+`,
+  },
+  {
+    id: "c305-std-string-surrogate-units",
+    title: "代理对的 `length` / `charCodeAt` / `codePointAt`",
+    src: `
+const s = "😀";
+console.log(s.length, s.charCodeAt(0), s.codePointAt(0), s.charCodeAt(0).toString(16));
+`,
+  },
+  {
+    id: "c305-std-string-fromcharcode-pair",
+    title: "`fromCharCode` 拼代理对 与 `fromCodePoint` 一个码位",
+    src: `
+console.log(String.fromCharCode(0xd83d, 0xde00), String.fromCodePoint(0x1f600), String.fromCharCode(0x41));
+`,
+  },
+  {
+    id: "c305-std-string-tostring-radix-36",
+    title: "`toString(radix)` 的几个基数",
+    src: `
+console.log((255).toString(16), (255).toString(2), (123456789).toString(36), (0.5).toString(2));
+`,
+  },
+  {
+    id: "c305-std-math-round-half-and-float",
+    title: "`Math.round` 的平局方向与浮点尾巴",
+    src: `
+console.log(Math.round(0.5), Math.round(-0.5), Math.round(2.5), Math.round(-2.5), Math.round(1.005 * 100) / 100);
+`,
+  },
+  {
+    id: "c305-std-array-from-holes-and-length",
+    title: "`Array.from` 对数组式对象与洞的填法",
+    src: `
+console.log(Array.from({ length: 3 }, (_, i) => i * 2).join(","));
+console.log(Array.from({ 0: "a", 2: "c", length: 3 }).join(","));
+`,
+  },
+  {
+    id: "c305-std-object-fromentries-duplicates",
+    title: "`Object.fromEntries` 遇到重复键：最后一个赢",
+    src: `
+console.log(JSON.stringify(Object.fromEntries([["a", 1], ["b", 2], ["a", 3]])));
+`,
+  },
+  {
+    id: "c305-std-function-method-length-and-name",
+    title: "类方法的 `length` / `name`",
+    src: `
+class C {
+  m(a: number, b = 1, ...rest: number[]) { return a + b + rest.length; }
+}
+console.log(C.prototype.m.length, C.prototype.m.name, new C().m(1));
+`,
+  },
+  {
+    id: "c305-std-bound-function-length",
+    title: "`bind` 之后那个函数的 `length` 与 `name`",
+    src: `
+function f(a: number, b: number, c: number) { return a + b + c; }
+const g = f.bind(null, 1, 2);
+console.log(g(3), g.length, g.name);
+`,
+  },
+  {
+    id: "c305-std-array-valueof-identity",
+    title: "数组的 `valueOf` 给的就是它自己",
+    src: `
+const xs = [1];
+console.log(xs.valueOf() === xs, typeof xs.valueOf(), Array.isArray(xs.valueOf()));
+`,
+  },
+  {
+    id: "c305-std-array-tostring-in-template",
+    title: "数组进模板串走的是 `toString`（即 `join`）",
+    src: "\nconsole.log(\"xs=\" + [1, 2] + \"!\", `ys=${[3, 4]}`);\n",
+  },
+  {
+    id: "c305-std-object-tostring-in-template",
+    title: "普通对象进模板串给 `[object Object]`",
+    src: "\nconsole.log(`o=${({ a: 1 })}`, \"x\" + { a: 1 });\n",
+  },
+  {
+    id: "c305-std-promise-all-with-rejection",
+    title: "`Promise.all` 里有一项被拒绝",
+    src: `
+Promise.all([Promise.resolve(1), Promise.reject(new Error("no"))]).catch((e) => console.log("caught", (e as Error).message));
+console.log("sync");
+`,
+  },
+  {
+    id: "c305-std-promise-all-empty",
+    title: "`Promise.all([])` 与 `Promise.race` 的空实参",
+    src: `
+Promise.all([]).then((xs) => console.log("all", JSON.stringify(xs)));
+console.log("sync");
+`,
+  },
+  {
+    id: "c305-std-thenable-adoption",
+    title: "`async` 返回一个 thenable：该被采纳",
+    src: `
+async function f() {
+  return { then(res: any) { res(42); } } as any;
+}
+f().then((v) => console.log("v", v));
+console.log("sync");
+`,
+  },
+  {
+    id: "c305-std-then-returns-promise-adoption",
+    title: "`then` 回调返回承诺：结果承诺采纳它",
+    src: `
+Promise.resolve(1)
+  .then(() => Promise.resolve(2))
+  .then((v) => console.log("value", v));
+console.log("sync");
+`,
+  },
+  {
+    id: "c305-std-error-cause-and-name",
+    title: "`Error` 的 `cause` 与自定义 `name`",
+    src: `
+const e = new Error("m", { cause: new RangeError("inner") });
+console.log(e.message, e.name, (e.cause as Error).name);
+class MyErr extends Error { name = "MyErr"; }
+const m = new MyErr("x");
+console.log(m.name, m.message, m instanceof Error, String(m));
+`,
+  },
+  {
+    id: "c305-std-date-parse-invalid-forms",
+    title: "`Date.parse` 的几种非 ISO 输入给 NaN",
+    src: `
+console.log(Date.parse("2021-03-04"), Date.parse("2021-03-04T05:06:07Z"), Number.isNaN(Date.parse("nope")));
+`,
+  },
+  {
+    id: "c305-std-date-setmonth-rollover",
+    title: "`setMonth` 溢出会进位",
+    src: `
+const d = new Date(0);
+d.setUTCMonth(13);
+console.log(d.getUTCFullYear(), d.getUTCMonth());
+`,
+  },
+  {
+    id: "c305-std-map-delete-return-and-has",
+    title: "`Map.delete` 的返回值与删不存在的键",
+    src: `
+const m = new Map([["a", 1]]);
+console.log(m.delete("a"), m.delete("a"), m.has("a"), m.size);
+`,
+  },
+  {
+    id: "c305-std-set-foreach-args",
+    title: "`Set.forEach` 的三个实参",
+    src: `
+const s = new Set(["a", "b"]);
+s.forEach((v, k, self) => console.log(v, k, self === s));
+`,
+  },
+  {
+    id: "c305-std-symbol-tostringtag-custom",
+    title: "自定义 `Symbol.toStringTag` 影响 `Object.prototype.toString`",
+    src: `
+class C { get [Symbol.toStringTag]() { return "Custom"; } }
+console.log(Object.prototype.toString.call(new C()), String(new C()));
+`,
+  },
+  {
+    id: "c305-std-array-fill-with-object",
+    title: "`fill` 同一个引用填满（与 `map` 造新对象对照）",
+    src: `
+const filled = new Array(3).fill({ n: 0 });
+filled[0].n = 9;
+console.log(filled.map((x) => x.n).join(","), filled[0] === filled[1]);
+`,
+  },
+  {
+    id: "c305-std-array-flatmap-and-depth",
+    title: "`flatMap` 只摊一层",
+    src: `
+console.log([[1], [2, 3]].flatMap((x) => x).join(","), [[[1]], [[2]]].flatMap((x) => x).length);
+`,
+  },
+  {
+    id: "c305-std-string-split-empty-and-limit",
+    title: "`split` 的分隔符为空串与 limit",
+    src: `
+console.log(JSON.stringify("abc".split("")), JSON.stringify("a,b,c".split(",", 2)), JSON.stringify("".split(",")));
+`,
+  },
+  {
+    id: "c305-std-string-replace-special-patterns",
+    title: "替换文本里的 `$&` / `$1`（字符串模式没有捕获组）",
+    src: `
+console.log("abc".replace("b", "[$&]"), "abc".replace("b", "$1"));
+`,
+  },
+  {
+    id: "c305-std-string-trim-unicode-space",
+    title: "非 ASCII 空白（`\\u00a0`）在 JS 里可被 `trim`",
+    src: "\nconsole.log(JSON.stringify(\"\\u00a0x\\u00a0\".trim()), JSON.stringify(\"\\u3000y\".trim()));\n",
+  },
+  {
+    id: "c305-std-string-normalize-forms",
+    title: "`normalize` 的四种形式在纯 ASCII 上是恒等",
+    src: `
+console.log("abc".normalize("NFC"), "abc".normalize("NFD"), "abc".normalize(), "abc".normalize("NFKC") === "abc");
+`,
+  },
+  {
+    id: "c305-std-encodeuri-roundtrip",
+    title: "`encodeURIComponent` / `decodeURIComponent` 往返",
+    src: `
+const s = "a b&c=d";
+const enc = encodeURIComponent(s);
+console.log(enc, decodeURIComponent(enc) === s, encodeURI("http://x/y z"));
+`,
+  },
+  {
+    id: "c305-std-array-iterator-symbol-method",
+    title: "数组的 `Symbol.iterator` 是一个可调用的方法",
+    src: `
+const xs = [1, 2];
+const it = (xs as any)[Symbol.iterator]();
+console.log(typeof (xs as any)[Symbol.iterator], JSON.stringify(it.next()), JSON.stringify(it.next()));
+`,
+  },
+  {
+    id: "c305-std-custom-iterable-symbol-iterator",
+    title: "对象自定义 `Symbol.iterator` 之后能进 `for..of` 与展开",
+    src: `
+const range: any = {
+  from: 1,
+  to: 3,
+  [Symbol.iterator]() {
+    let i = this.from;
+    const to = this.to;
+    return { next: () => (i <= to ? { value: i++, done: false } : { value: undefined, done: true }) };
+  },
+};
+console.log([...range].join(","));
+for (const v of range) console.log("v", v);
+`,
+  },
+  {
+    id: "c305-std-number-wrapper-object",
+    title: "`new Number(5)` 是一个对象，`Number(5)` 是原始值",
+    src: `
+const boxed = new Number(5);
+console.log(typeof boxed, boxed.valueOf(), typeof Number(5), boxed + 1);
+`,
+  },
+  {
+    id: "c305-std-object-wrapper-call",
+    title: "`Object(1)` / `Object(\"a\")` 给包装对象",
+    src: `
+console.log(typeof Object(1), typeof Object("a"), typeof Object(true), Object(1).valueOf());
+`,
+  },
+  {
+    id: "c305-std-string-wrapper-methods",
+    title: "包装对象上的字符串方法",
+    src: `
+const s = new String("ab");
+console.log(s.length, s.toUpperCase(), s + "c", typeof s);
+`,
+  },
+  {
+    id: "c305-std-boolean-object-truthiness",
+    title: "`new Boolean(false)` 是真值",
+    src: `
+const b = new Boolean(false);
+console.log(typeof b, Boolean(b), b.valueOf(), String(b));
+`,
+  },
+  {
+    id: "c305-std-array-tostring-custom-element",
+    title: "`Array.prototype.toString` 该问每个元素的 `toString`",
+    src: `
+class C { toString() { return "C!"; } }
+console.log([new C(), 1].toString(), [new C()].join("-"));
+`,
+  },
+  {
+    id: "c305-std-console-log-function-name-from-property",
+    title: "`console.log({ f: () => 1 })` 里那个函数的显示名",
+    src: `
+const f = () => 1;
+console.log({ f }, { m() {} }, [function named() {}]);
+`,
+  },
+  {
+    id: "c305-std-object-getownpropertydescriptors-all",
+    title: "`Object.getOwnPropertyDescriptors` 一次拿全部描述符",
+    src: `
+const o = { a: 1 };
+Object.defineProperty(o, "b", { value: 2, enumerable: false });
+const ds = Object.getOwnPropertyDescriptors(o);
+console.log(Object.keys(ds).join(","), ds.a.writable, ds.b.enumerable, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "c305-std-object-defineproperty-getter-setter",
+    title: "`defineProperty` 的 get/set 描述符能用",
+    src: `
+const o: any = { _v: 1 };
+Object.defineProperty(o, "v", {
+  get() { return this._v * 10; },
+  set(next: number) { this._v = next; },
+  enumerable: true,
+});
+o.v = 3;
+console.log(o.v, o._v, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "c305-std-array-length-nonwritable",
+    title: "把数组 `length` 设成不可写之后 `push`",
+    src: `
+const xs: any = [1, 2];
+Object.defineProperty(xs, "length", { writable: false });
+try {
+  xs.push(3);
+  console.log("pushed", xs.length);
+} catch (e) {
+  console.log("threw", (e as Error).name);
+}
+`,
+  },
+  {
+    id: "c305-std-json-stringify-indent-object",
+    title: "`JSON.stringify` 的缩进形态在嵌套对象上",
+    src: `
+console.log(JSON.stringify({ a: 1, b: { c: [1, 2] } }, null, 2));
+`,
+  },
+  {
+    id: "c305-std-json-parse-nested-types",
+    title: "`JSON.parse` 出来的嵌套结构再走一遍方法",
+    src: `
+const v = JSON.parse('{"xs":[3,1,2],"name":"n"}');
+console.log(v.xs.sort().join(","), v.name.toUpperCase(), Array.isArray(v.xs));
+`,
+  },
+  {
+    id: "c305-std-error-stack-absent-forms",
+    title: "`Error` 的 `message` / `name` 与 `toString` 三种形态",
+    src: `
+console.log(String(new Error("m")), String(new TypeError("t")), String(new Error()));
+`,
+  },
+  {
+    id: "c305-std-global-isfinite-vs-number",
+    title: "全局 `isFinite` 会转换，`Number.isFinite` 不会",
+    src: `
+console.log(isFinite("1"), Number.isFinite("1"), isNaN("x"), Number.isNaN("x"));
+`,
+  },
+  {
+    id: "c305-std-parseint-prefix-and-radix",
+    title: "`parseInt` 的前缀、空白与非法尾部",
+    src: `
+console.log(parseInt("0x10"), parseInt("10", 2), parseInt("  12px"), parseInt(""), parseInt("-3.9"));
+`,
+  },
+  {
+    id: "c305-std-number-tostring-exponential",
+    title: "`toExponential` 的缺省位数与给位数",
+    src: `
+console.log((12345.678).toExponential(), (12345.678).toExponential(2), (0.000123).toExponential(1));
+`,
+  },
+  {
+    id: "c305-std-math-sign-negzero-and-trunc",
+    title: "`Math.sign(-0)` / `Math.trunc` 的边角",
+    src: `
+console.log(Math.sign(-0), 1 / Math.sign(-0), Math.trunc(-0.9), Math.trunc(0.9), Math.cbrt(-8));
+`,
+  },
+  {
+    id: "c305-std-array-reduce-right-and-findindex",
+    title: "`reduceRight` 与 `findIndex` / `findLastIndex`",
+    src: `
+console.log([1, 2, 3].reduceRight((a, b) => a + "" + b), [1, 2, 3].findIndex((n) => n > 1), [1, 2, 3].findLastIndex((n) => n < 3));
+`,
+  },
+  {
+    id: "c305-std-object-freeze-nested",
+    title: "`Object.freeze` 是浅的（内层照改）",
+    src: `
+const o = Object.freeze({ inner: { n: 1 } });
+o.inner.n = 2;
+console.log(o.inner.n, Object.isFrozen(o), Object.isFrozen(o.inner));
+`,
+  },
+  {
+    id: "c305-std-array-tospliced-and-with",
+    title: "`toSpliced` / `with` 不改原数组",
+    src: `
+const xs = [1, 2, 3];
+console.log(xs.toSpliced(1, 1, 9).join(","), xs.with(0, 7).join(","), xs.join(","));
+`,
+  },
 ];

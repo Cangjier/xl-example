@@ -2248,21 +2248,41 @@ if (id === RtOp.GetIndex) {
 if (id === RtOp.SetIndex) {
   RequireArgc(argc, 3, "set_index");
   const indexTarget = slots[base];
-  if (indexTarget.Tag !== ValueTag.Array) {
-    if (!indexTarget.IsObject()) {
-      throw new Error("unimplemented: assigning an index on a primitive receiver");
+  // **键统一「字符串化 + 判下标」** —— 与上面 `get_index` **一字不差**（第 305 轮 ✓）。
+  //
+  // **原来数组那一支把键原样递下去** ✗：`props.SetIndex` 只认数字键 ✓，于是
+  // `a["1"] = 20` 报 `unimplemented: non-numeric index needs ToString` ✓
+  //（**整份文件进不来** ✗）——而同一个键**读**是好的 ✓（`get_index` 第 190 / 191 轮
+  // 就统一过了 ✓），所以「读得到、写不了」这一半一直没被问过 ✗。
+  // 两档都要认 ✓（与 `delete` 那一支同一条理由 ✓）：`xs[1]` 的键是**数字** ✓、
+  // `xs["1"]` 的键是**文本** ✓，而「`"1"` 是不是下标」这件事只有 `ArrayIndexAt` 有答案 ✓
+  //（它写着前导零不算 ✓、超 `i32` 不算 ✓）——不在这里另写一份判据 ✗。
+  // **符号键原样** ✓（`o[sym] = v` 的键就是那个符号 ✓，字符串化会与同名的字符串键撞上 ✗）。
+  const rawSetKey = slots[base + 1];
+  const setKeyText = rawSetKey.Tag === ValueTag.Symbol
+    ? rawSetKey
+    : RtToString(this.Room(), this.Table, rawSetKey);
+  const setAt = ArrayIndexAt(this.Table, setKeyText);
+  const setValue = slots[base + 2];
+  if (indexTarget.Tag === ValueTag.Array) {
+    if (setAt >= 0) {
+      return this.Guard(() => SetIndex(this.Room(), this.Table, indexTarget, Value.FromInt(setAt), setValue));
     }
-    const setProtoTable = this.Protos;
-    if (setProtoTable === null) throw new Error("no prototype table");
-    // 符号键不许字符串化（同上：`o[sym] = v` 的键就是那个符号）。
-    const rawSetKey = slots[base + 1];
-    const setKey = rawSetKey.Tag === ValueTag.Symbol
-      ? rawSetKey
-      : RtToString(this.Room(), this.Table, rawSetKey);
+    // **不是下标 ⇒ 走属性那条路** ✓（`arr[1.5] = v` ✓ / `arr["x"] = v` ✓ /
+    // `arr["length"] = 2` ✓——JS 里那三格都是**属性** ✗，不是元素 ✓）。
+    // `props.SetProperty` 认得 `length` 那一格（截断）✓，与 `arr.length = 2` 同一条 ✓。
+    const arraySetProtoTable = this.Protos;
+    if (arraySetProtoTable === null) throw new Error("no prototype table");
     return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table,
-      indexTarget, setKey, slots[base + 2]));
+      indexTarget, setKeyText, setValue));
   }
-  return this.Guard(() => SetIndex(this.Room(), this.Table, indexTarget, slots[base + 1], slots[base + 2]));
+  if (!indexTarget.IsObject()) {
+    throw new Error("unimplemented: assigning an index on a primitive receiver");
+  }
+  const setProtoTable = this.Protos;
+  if (setProtoTable === null) throw new Error("no prototype table");
+  return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table,
+    indexTarget, setKeyText, setValue));
 }
 if (id === RtOp.NewObject) {
   RequireArgc(argc, 0, "new_object");

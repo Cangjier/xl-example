@@ -3954,7 +3954,14 @@ return text + "\"";
 
 ```ts
 if (depth > MaxJsonDepth) {
-  throw new Error("this structure is too deep to serialize (a cycle looks the same)");
+  // **抛的是 `TypeError`** ✓（第 305 轮改的 ✗）：JS 里 `JSON.stringify(循环引用)` 抛
+  // **`TypeError`** ✓（"Converting circular structure to JSON" ✓），本仓这一句同时也是
+  // **深度上限**那一格 ✓（"a cycle looks the same" ✓）——所以它是**同一个出口** ✓。
+  // 原来抛的是**裸 `Error`** ✗ ⇒ 脚本里 `e.name` 给 `"Error"` ✗（Node 给 `"TypeError"` ✓）。
+  // 与 `string.xl.md` 的 `repeat(-1)`（第 288 轮 ✓）、`fromCodePoint` 越界（第 275 轮 ✓）
+  // **同一条口径** ✓：内建抛**宿主的那一族** ✓，`install.xl.md` 那一支按类翻族 ✓
+  //（它写着「只映射能证明的两族」✓）——这里一个字都不用改 ✓。
+  throw new TypeError("this structure is too deep to serialize (a cycle looks the same)");
 }
 // **`toJSON`** ✓（第 294 轮 ✓）：JS 在序列化**每一个**值之前先问它有没有 `toJSON` ✓
 //（`SerializeJSONProperty` 的第一步 ✓）——`Date.prototype.toJSON` 就是靠它生效的 ✓

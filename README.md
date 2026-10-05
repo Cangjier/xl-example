@@ -153,8 +153,31 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 304 轮读数：**867 / 929 = 94.9%**，
-其中**引擎 90.0%** ✓、**降级层 96.5%** ✓、标准库 **93.8%** ✓、**端到端 100.0%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 305 轮读数：**1007 / 1098 = 91.6%**，
+其中**引擎 89.8%** ✓、**降级层 95.9%** ✓、标准库 **90.8%** ✓、**端到端 88.0%** ✓——
+**第 305 轮**照旧先做用户那句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓：
+候选分四层写了 **169 条** ✓（引擎 53 ✓ / 降级层 44 ✓ / 标准库 60 ✓ / **端到端 12** ✓——
+端到端那一层此前只有 13 条 ✓，这一轮**按「一份完整的 `.ts` 程序」**补了 12 份 ✓），
+先过 `sweep.mjs` 普查 ✓（**136 条当场通过** ✓、**33 条是新量到的缺口** ✗、`nodefail` **0 条** ✓），
+**当场收掉 4 格** ✓：
+`a["1"] = 20` ✓（**读得到、写不了** ✗：`set_index` 那一支把键原样递给 `props.SetIndex` ✓，
+而它只认数字键 ✓ ⇒ 报 `non-numeric index needs ToString` ✓——修法是把 `get_index` 第 190 / 191 轮
+那套「字符串化 + 判下标」**照搬到写这一侧** ✓，顺带 `arr[1.5] = v` / `arr["length"] = 2` 也一起对了 ✓）、
+`{ [Color.Red]: "red" }` ✓（**计算键是一个数** ⇒ 原来把数直接当键交给引擎 ✓、
+报 `property keys must be strings or symbols` ✓——`SetPropertyValue` 改走 `set_index` ✓，
+`ToPropertyKey` 那一套于是**只有一处** ✓）、`JSON.stringify(循环引用)` 抛的**族** ✓
+（裸 `Error` → **`TypeError`** ✓，与第 275 / 288 轮 `fromCodePoint` / `repeat` 同一条口径 ✓）、
+类方法的 `fn.name` ✓（`"C.m"` → **`"m"`** ✓——同一格同时是 `fn.name` 与 `console.log` 的显示名 ✓）。
+**本轮量到的新缺口按根子分十组** ✓（写在 `expectations.mjs` 里 ✓）：异步生成器里 `await` 之后再 `yield` ✓、
+`for await..of` 一个**承诺数组** ✓、`queueMicrotask` ✓、`Map.groupBy` ✓、`Promise.withResolvers` ✓、
+`Object.getOwnPropertyDescriptors` ✓、**包装对象那一族**（`new Number` / `new String` / `new Boolean` ✓）、
+**取属性那条路上没有访问器**（`{...o}` 展开 getter ✓ 与 `Symbol.toStringTag` 的 getter ✓ **同源** ✓）、
+**数组 `length` 不可写时 `push` 拦不住** ✓、**每个迭代开一格环境**（经典 `for` 与 `for..of` 都缺 ✓）。
+矩阵 929 → **1098 条** ✓（**分母 +18%** ✓），读数因此从 94.9% **落到 91.6%** ✓
+——**分母变诚实** ✓ 不是倒退 ✓（与第 273 / 287 / 290 / 291 / 304 轮同一条口径 ✓），
+**标准库那一层掉了 3.0 个点** ✓（93.8% → 90.8% ✓：新收的 60 条里有 **17 条**过不去 ✓——
+这一轮正好把「标准库还没做的那一片」量了出来 ✓）。
+
 **第 304 轮**做的是用户那句「**先把 exec / runtime / 标准库的语料铺满**」✓ 加上新的一条
 「**发现新问题就补语料、与 TS 的 AST 比、然后解决**」✗：候选分三层写了 **150 条** ✓，
 先过 `sweep.mjs` 普查 ✓（**135 条当场通过** ✓、**15 条是新量到的缺口** ✗、`nodefail` **0 条** ✓），

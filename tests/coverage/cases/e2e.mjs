@@ -345,4 +345,323 @@ const snapshot = [...store.keys()].map((k) => k.toUpperCase());
 console.log(snapshot.join("-"));
 `,
   },
+
+  // ===== 第 305 轮：加宽矩阵（12 条）=====
+
+  {
+    id: "c305-e2e-inventory-report",
+    title: "库存报表：接口 + 类 + Map + 排序 + JSON + 模板串",
+    src: `
+interface Item { name: string; qty: number; price: number }
+class Store {
+  private items = new Map<string, Item>();
+  add(item: Item): void { this.items.set(item.name, item); }
+  total(): number {
+    let sum = 0;
+    for (const { qty, price } of this.items.values()) sum += qty * price;
+    return sum;
+  }
+  report(): string[] {
+    return [...this.items.values()]
+      .sort((a, b) => b.qty * b.price - a.qty * a.price)
+      .map(({ name, qty, price }) => name + " x" + qty + " = " + (qty * price).toFixed(2));
+  }
+}
+const s = new Store();
+s.add({ name: "bolt", qty: 10, price: 0.5 });
+s.add({ name: "nut", qty: 4, price: 1.25 });
+s.add({ name: "washer", qty: 100, price: 0.05 });
+for (const line of s.report()) console.log(line);
+console.log("total", s.total().toFixed(2));
+console.log(JSON.stringify(s.report().length));
+`,
+  },
+  {
+    id: "c305-e2e-async-load-pipeline",
+    title: "异步管道：`async function*` 逐个取数、`for await` 汇总",
+    src: `
+interface Row { id: number; ok: boolean }
+async function fetchRow(id: number): Promise<Row> {
+  await null;
+  return { id, ok: id % 3 !== 0 };
+}
+async function* rows(n: number): AsyncGenerator<Row> {
+  for (let i = 1; i <= n; i++) yield await fetchRow(i);
+}
+async function main(): Promise<void> {
+  const good: number[] = [];
+  const bad: number[] = [];
+  for await (const r of rows(7)) {
+    if (r.ok) good.push(r.id);
+    else bad.push(r.id);
+  }
+  console.log("good", good.join(","));
+  console.log("bad", bad.join(","));
+  const counts = await Promise.all(good.map(async (id) => (await fetchRow(id)).id * 10));
+  console.log("counts", counts.join(","));
+}
+main();
+`,
+  },
+  {
+    id: "c305-e2e-order-state-machine",
+    title: "订单状态机：闭包 + `switch` + 抛错收尾",
+    src: `
+type State = "new" | "paid" | "shipped" | "done";
+function machine(initial: State) {
+  let state: State = initial;
+  const log: string[] = [];
+  return {
+    send(event: string): State {
+      switch (state) {
+        case "new":
+          if (event === "pay") { state = "paid"; break; }
+          throw new Error("bad " + event + " in " + state);
+        case "paid":
+          if (event === "ship") { state = "shipped"; break; }
+          throw new Error("bad " + event + " in " + state);
+        case "shipped":
+          if (event === "deliver") { state = "done"; break; }
+          throw new Error("bad " + event + " in " + state);
+        default:
+          throw new Error("closed");
+      }
+      log.push(state);
+      return state;
+    },
+    history(): string { return log.join(">"); },
+  };
+}
+const m = machine("new");
+console.log(m.send("pay"), m.send("ship"), m.send("deliver"));
+console.log(m.history());
+try { m.send("pay"); } catch (e) { console.log("stopped", (e as Error).message); }
+`,
+  },
+  {
+    id: "c305-e2e-lru-cache",
+    title: "LRU 缓存：`Map` 的插入序 + 泛型 + 私有字段",
+    src: `
+class Lru<K, V> {
+  #map = new Map<K, V>();
+  constructor(private cap: number) {}
+  get(k: K): V | undefined {
+    if (!this.#map.has(k)) return undefined;
+    const v = this.#map.get(k) as V;
+    this.#map.delete(k);
+    this.#map.set(k, v);
+    return v;
+  }
+  set(k: K, v: V): void {
+    if (this.#map.has(k)) this.#map.delete(k);
+    this.#map.set(k, v);
+    if (this.#map.size > this.cap) {
+      const oldest = this.#map.keys().next().value as K;
+      this.#map.delete(oldest);
+    }
+  }
+  keys(): string { return [...this.#map.keys()].join(","); }
+}
+const c = new Lru<string, number>(2);
+c.set("a", 1); c.set("b", 2);
+console.log(c.get("a"), c.keys());
+c.set("c", 3);
+console.log(c.keys(), c.get("b"));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-e2e-csv-stats",
+    title: "CSV 解析与统计：`split` + `map` + `reduce` + `sort`",
+    src: "\nconst csv = \"name,score\\nann,90\\nbob,75\\ncid,88\\ndee,75\";\nconst lines = csv.split(\"\\n\");\nconst header = lines[0].split(\",\");\nconst rows = lines.slice(1).map((line) => {\n  const cells = line.split(\",\");\n  const rec: Record<string, string | number> = {};\n  header.forEach((h, i) => { rec[h] = i === 0 ? cells[i] : Number(cells[i]); });\n  return rec as { name: string; score: number };\n});\nconst scores = rows.map((r) => r.score);\nconsole.log(\"n\", rows.length, \"max\", Math.max(...scores), \"min\", Math.min(...scores));\nconsole.log(\"avg\", (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2));\nconsole.log(\"pass\", rows.filter((r) => r.score >= 80).map((r) => r.name).sort().join(\",\"));\n",
+  },
+  {
+    id: "c305-e2e-event-emitter-generic",
+    title: "泛型事件总线：`Map` + `Set` + 回调 + `Array.from`",
+    src: `
+type Handler<T> = (payload: T) => void;
+class Bus<T extends Record<string, unknown>> {
+  #handlers = new Map<keyof T, Set<Handler<any>>>();
+  on<K extends keyof T>(event: K, fn: Handler<T[K]>): void {
+    const set = this.#handlers.get(event) ?? new Set<Handler<any>>();
+    set.add(fn);
+    this.#handlers.set(event, set);
+  }
+  emit<K extends keyof T>(event: K, payload: T[K]): number {
+    const set = this.#handlers.get(event);
+    if (!set) return 0;
+    for (const fn of set) fn(payload);
+    return set.size;
+  }
+  count(): number {
+    let n = 0;
+    for (const set of this.#handlers.values()) n += set.size;
+    return n;
+  }
+}
+const bus = new Bus<{ tick: number; name: string }>();
+const seen: string[] = [];
+bus.on("tick", (n) => seen.push("t" + n));
+bus.on("tick", (n) => seen.push("T" + n * 2));
+bus.on("name", (s) => seen.push("n:" + s));
+console.log(bus.emit("tick", 3), bus.emit("name", "x"), bus.emit("tick", 1));
+console.log(seen.join(","), bus.count());
+`,
+  },
+  {
+    id: "c305-e2e-bank-ledger",
+    title: "账本：自定义错误类 + `try/catch` + `reduce` + 排序",
+    src: `
+class InsufficientFunds extends Error {
+  constructor(readonly needed: number, readonly have: number) {
+    super("need " + needed + " have " + have);
+    this.name = "InsufficientFunds";
+  }
+}
+class Account {
+  private balance = 0;
+  private log: string[] = [];
+  deposit(n: number): void { this.balance += n; this.log.push("+" + n); }
+  withdraw(n: number): void {
+    if (n > this.balance) throw new InsufficientFunds(n, this.balance);
+    this.balance -= n;
+    this.log.push("-" + n);
+  }
+  get amount(): number { return this.balance; }
+  history(): string { return this.log.join(" "); }
+}
+const a = new Account();
+a.deposit(100);
+a.withdraw(30);
+try { a.withdraw(1000); } catch (e) {
+  const err = e as InsufficientFunds;
+  console.log(err.name, err.needed, err.have, err instanceof Error, err.message);
+}
+console.log(a.amount, a.history());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-e2e-word-frequency",
+    title: "词频：`Map` + 排序 + 大小写归一",
+    src: `
+const text = "the quick brown fox jumps over the lazy dog the fox";
+const counts = new Map<string, number>();
+for (const w of text.split(" ")) {
+  const k = w.toLowerCase();
+  counts.set(k, (counts.get(k) ?? 0) + 1);
+}
+const ranked = [...counts.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+for (const [w, n] of ranked.slice(0, 3)) console.log(w, n);
+console.log("unique", counts.size);
+`,
+  },
+  {
+    id: "c305-e2e-config-merge",
+    title: "配置深合并：递归 + 展开 + `JSON` 往返",
+    src: `
+type Config = Record<string, any>;
+function merge(base: Config, over: Config): Config {
+  const out: Config = { ...base };
+  for (const key of Object.keys(over)) {
+    const a = out[key];
+    const b = over[key];
+    out[key] = a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)
+      ? merge(a, b)
+      : b;
+  }
+  return out;
+}
+const base = { server: { host: "localhost", port: 80 }, debug: false, tags: ["a"] };
+const user = { server: { port: 8080 }, debug: true, tags: ["b"] };
+const merged = merge(base, user);
+console.log(JSON.stringify(merged));
+console.log(merged.server.host, merged.server.port, merged.tags.join(","), base.server.port);
+`,
+  },
+  {
+    id: "c305-e2e-matrix-ops",
+    title: "矩阵运算：嵌套数组 + `map` / `reduce` + 转置",
+    src: `
+type Matrix = number[][];
+function transpose(m: Matrix): Matrix {
+  return m[0].map((_, c) => m.map((row) => row[c]));
+}
+function multiply(a: Matrix, b: Matrix): Matrix {
+  const bt = transpose(b);
+  return a.map((row) => bt.map((col) => row.reduce((sum, v, i) => sum + v * col[i], 0)));
+}
+const A: Matrix = [[1, 2], [3, 4]];
+const B: Matrix = [[5, 6], [7, 8]];
+console.log(JSON.stringify(multiply(A, B)));
+console.log(JSON.stringify(transpose(A)));
+console.log(A.flat().reduce((a, b) => a + b, 0));
+`,
+  },
+  {
+    id: "c305-e2e-linked-list-ops",
+    title: "链表：类 + 私有字段 + 迭代器协议 + 反转",
+    src: `
+class Node2<T> {
+  constructor(public value: T, public next: Node2<T> | null = null) {}
+}
+class List<T> implements Iterable<T> {
+  head: Node2<T> | null = null;
+  push(v: T): this {
+    const node = new Node2(v);
+    if (!this.head) this.head = node;
+    else {
+      let cur = this.head;
+      while (cur.next) cur = cur.next;
+      cur.next = node;
+    }
+    return this;
+  }
+  *[Symbol.iterator](): Generator<T> {
+    let cur = this.head;
+    while (cur) {
+      yield cur.value;
+      cur = cur.next;
+    }
+  }
+  reverse(): void {
+    let prev: Node2<T> | null = null;
+    let cur = this.head;
+    while (cur) {
+      const next = cur.next;
+      cur.next = prev;
+      prev = cur;
+      cur = next;
+    }
+    this.head = prev;
+  }
+}
+const list = new List<number>();
+list.push(1).push(2).push(3);
+console.log([...list].join(","));
+list.reverse();
+console.log([...list].join(","), [...list].length);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c305-e2e-functional-utils",
+    title: "函数式小工具：`compose` / `pipe` / 柯里化 / 闭包计数器",
+    src: `
+type Fn = (n: number) => number;
+const compose = (...fns: Fn[]): Fn => (n) => fns.reduceRight((acc, f) => f(acc), n);
+const pipe = (...fns: Fn[]): Fn => (n) => fns.reduce((acc, f) => f(acc), n);
+const add = (a: number) => (b: number) => a + b;
+const inc: Fn = (n) => n + 1;
+const dbl: Fn = (n) => n * 2;
+console.log(compose(inc, dbl)(5), pipe(inc, dbl)(5), add(3)(4));
+function counter(): () => number {
+  let n = 0;
+  return () => ++n;
+}
+const c1 = counter();
+const c2 = counter();
+console.log(c1(), c1(), c2(), c1());
+`,
+  },
 ];

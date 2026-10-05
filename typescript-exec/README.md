@@ -6,6 +6,86 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 305 轮的账（**先把语料铺满：加宽 169 条 + 当场收掉 4 格** —— 94.9% → 91.6%，分母 +18%）
+
+### 一、加宽：169 条候选，先普查再收编
+
+用户这一轮的口径还是那两句 ✓：「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓
+与「**发现新问题就补语料、与 TS 的 AST 比、然后解决**」✓。
+
+候选分**四**层写 ✓（运行时 53 条 ✓ / 降级层 44 条 ✓ / 标准库 60 条 ✓ / **端到端 12 条** ✓），
+逐条过 `sweep.mjs` ✓（**先量再收** ✓，与第 287 / 290 / 291 / 304 轮同一条）：
+**136 条当场通过** ✓、**33 条是新量到的缺口** ✗、**`nodefail` 一条都没有** ✓。
+矩阵 **929 → 1098 条** ✓（**分母 +18%** ✓），读数从 94.9% **落到 91.6%** ✓——
+**这是分母变诚实** ✓，不是倒退 ✓。
+
+**端到端那一层是这一轮真正补上的** ✗：它此前只有 **13** 条 ✓（第 202 轮那一批 ✓），
+而权重大小是 **20%** ✓——一条值 1.5 个点 ✓，所以它一直是**最薄**的一层 ✓。
+这一轮按「**一份完整的 `.ts` 程序**」补了 **12 份** ✓（库存报表 ✓ / 异步管道 ✓ / 订单状态机 ✓ /
+LRU 缓存 ✓ / CSV 统计 ✓ / 泛型事件总线 ✓ / 账本 ✓ / 词频 ✓ / 配置深合并 ✓ /
+矩阵运算 ✓ / 链表 ✓ / 函数式小工具 ✓），**9 份当场通过** ✓、3 份过不去 ✓。
+那一层因此从 **100.0% 落到 88.0%** ✓——**「一份普通 `.ts` 能不能跑对」这个问题
+第一次有了成规模的读数** ✓，而挡住它的是三个根 ✓（其中一个是新的 ✗）。
+
+### 二、当场收掉的 4 格
+
+**四格里有三格是「同一个形状在别处早有答案，只有这一处没接上」** ✓——这一轮最值钱的一课 ✗。
+
+**① 数组的写：读得到、写不了** ✓（判据 `c305-rt-array-string-index` ✓）
+
+`a["1"] = 20` 报 `unimplemented: non-numeric index needs ToString` ✓（**整份文件进不来** ✗），
+而同一个键**读**是好的 ✓——`get_index` 第 190 / 191 轮就把「**键统一字符串化 + 判下标**」
+收成一条判据了 ✓（符号键原样 ✓、`"0"` 与 `0` 是同一格 ✓、`1.5` 走属性 ✓），
+`set_index` 那一支却把键**原样递**给 `props.SetIndex` ✓，而它只认数字键 ✓。
+修法就是把读取值那一套**照搬到写这一侧** ✓：先 `RtToString`（符号除外 ✓）✓、
+再 `ArrayIndexAt` ✓（前导零不算 ✓、超 `i32` 不算 ✓——**不另写一份判据** ✗）✓，
+是下标就走元素 ✓、不是就走属性 ✓。顺带 `arr[1.5] = v` ✓、`arr["x"] = v` ✓、
+`arr["length"] = 2` ✓（截断 ✓）三格一起对了 ✓。
+
+**② 计算键是一个数：`{ [Color.Red]: "red" }`** ✓（判据 `c305-ex-enum-as-object-key` ✓）
+
+报 `property keys must be strings or symbols` ✓——JS 的属性键一律先 `ToPropertyKey` ✓
+（先 `ToPrimitive(key, "string")` ✓、是符号就留着 ✓、否则 `ToString` ✓），
+而 `set_prop` **只收字符串 / 符号** ✓。降级层里算出来的键走的是 `SetPropertyValue` ✓，
+它发的是 `set_prop` ✗——可**同一句话**写成 `o[Color.Red] = "red"` 是好的 ✓
+（`o[k] = v` 那条路走 `set_index` ✓，`ToPropertyKey` 由它替我们做完 ✓）。
+所以 `SetPropertyValue` 改成发 `set_index` ✓：**一处改动** ✓，
+对象字面量的计算键 ✓、计算方法名 ✓、类的计算成员名 ✓、命名空间挂导出 ✓ 一起走上同一条口径 ✓
+（与第 178 轮 `o[k](...)` 走 `get_index` **一字不差** ✓——读、写、取出来调三处现在是同一个答案 ✓）。
+
+**③ `JSON.stringify(循环引用)` 抛的族** ✓（判据 `c305-rt-json-stringify-circular` ✓）
+
+本仓那一句（同时是**深度上限** ✓）抛的是**裸 `Error`** ✗ ⇒ 脚本里 `e.name` 给 `"Error"` ✓，
+Node 给 **`TypeError`** ✓。修法与第 275 轮 `fromCodePoint` 越界 ✓、第 288 轮 `repeat(-1)` ✓
+**一字不差** ✓：内建抛**宿主的那一族** ✓，`install.xl.md` 那一支按类翻族 ✓
+（它写着「**只映射能证明的两族**」✓）——这一处一个字都不用改 ✓。
+
+**④ 类方法的 `fn.name` 带上了类名** ✓（判据 `c305-std-function-method-length-and-name` ✓）
+
+`C.prototype.m.name` 给 **`"C.m"`** ✗（Node 给 `"m"` ✓）。根子是一行 ✗：
+挂方法时传的显示名是 `name + "." + TextOf(memberName)` ✓，而 `HeapClosure.Name` 那一格
+**同时**是 `fn.name` 与 `console.log(fn)` 的显示名 ✓（第 238 / 291 轮 ✓）——
+改成**方法名自己** ✓ 两处一起对 ✓（`super` 的起点走的是 `SuperName` ✓，与这一格无关 ✓）。
+
+### 三、新量到的 33 条缺口，按根子分十组
+
+| 组 | 条数 | 根子（一句话） | 入口 |
+| --- | --- | --- | --- |
+| ① 异步生成器 | 2 | `await` 之后再 `yield` 什么都不出（同步生成器与 `yield await` 之外是好的） | `runtime/vm.xl.md` 的挂起点 + 微任务队列 |
+| ② `for await..of` 承诺数组 | 1 | 同步迭代器那一支少了「每项一次 `await`」（给 `[object Object],2,…`） | 同上 |
+| ③ 每个迭代开一格环境 | 2 | 经典 `for` 的**循环体** `const` ✓ 与 `for..of` 的 `const` ✓ **同一个根** | `typescript-exec/lowering.xl.md` + `scope.xl.md` |
+| ④ 取属性那条路上没有访问器 | 2 | `{...o}` 不调 getter ✓ 与 `get [Symbol.toStringTag]()` 不被问 ✓ **同源**（展开与 `Object.prototype.toString` 读的是属性表那一格） | `builtins/globals.xl.md` |
+| ⑤ 包装对象那一族 | 5 | `new Number/String/Boolean` 返回**原始值** ✓、`Object(1)` 明写未实现 ✓ | `builtins/globals.xl.md` |
+| ⑥ 标准库「成员不在那儿」 | 8 | `queueMicrotask` ✓ · `Map.groupBy` ✓ · `Promise.withResolvers` ✓ · `Object.getOwnPropertyDescriptors` ✓ · `Array.prototype[Symbol.iterator]` ✓ · `encodeURI` 四名 ✓ · `normalize` ✓ · `String.raw` ✓ | `builtins/{globals,string,install}.xl.md` |
+| ⑦ 链式非空断言 | 1 | `o?.a!.b` 的**后一截**丢掉（`?.` 在前、`!` 在后那一种排布） | `typescript/print-ast-common.xl.md` 的链分支 |
+| ⑧ 计算成员名两格 | 2 | `static [KEY] = v`（字段 ✓）与 `*[Symbol.iterator]()`（**计算名的生成器方法** ✓——报 `MethodDeclaration has no child name` ✓） | `lowering.xl.md` + 投影 |
+| ⑨ 数组 `length` 不可写 | 1 | `push` 静默成功（Node 抛 `TypeError` ✓）——数组写路径不看 `length` 那一格的写标志 | `runtime/heap.xl.md` 的写屏障 |
+| ⑩ 承诺采纳 | 2 | thenable 与「`then` 回调返回承诺」**同一条**采纳通道（`AdoptInto` 从未被触达 ✓） | `builtins/promise.xl.md` + `runtime/vm.xl.md` |
+
+**这一轮最值钱的一处不在表里** ✗：**④ 与 ③ 各是「一个根、两个症状」** ✓——
+展开的 getter 与 `Symbol.toStringTag` 的 getter ✓ 看着像两件事 ✓（一个在标准库、一个在语言层 ✓），
+量下来是**同一条**路上的事 ✓；经典 `for` 与 `for..of` 的闭包捕获 ✓ 也是 ✓。
+
 ## 第 304 轮的账（**先把语料铺满：加宽 150 条 + 当场收掉 9 格** —— 95.4% → 94.9%，分母 +19%）
 
 ### 一、加宽：150 条候选，先普查再收编

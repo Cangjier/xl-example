@@ -1,6 +1,6 @@
 {
-  "round": "304",
-  "matrix": 929,
+  "round": "305",
+  "matrix": 1098,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,47 +33,47 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.9,
+  "progressPercent": 91.55,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 301,
-      "pass": 271,
-      "blocked": 15,
-      "differ": 15,
+      "total": 354,
+      "pass": 318,
+      "blocked": 16,
+      "differ": 20,
       "nodefail": 0,
-      "coverage": 90.03
+      "coverage": 89.83
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 227,
-      "pass": 219,
-      "blocked": 6,
-      "differ": 2,
+      "total": 271,
+      "pass": 260,
+      "blocked": 7,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 96.48
+      "coverage": 95.94
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 388,
-      "pass": 364,
-      "blocked": 13,
-      "differ": 11,
+      "total": 448,
+      "pass": 407,
+      "blocked": 22,
+      "differ": 19,
       "nodefail": 0,
-      "coverage": 93.81
+      "coverage": 90.85
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 13,
-      "pass": 13,
-      "blocked": 0,
-      "differ": 0,
+      "total": 25,
+      "pass": 22,
+      "blocked": 1,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 88
     }
   ],
   "blocked": [
@@ -168,6 +168,12 @@
       "detail": "tsrun: 脚本抛出：unimplemented: assigning a property on a primitive receiver"
     },
     {
+      "id": "c305-rt-class-expression-named-self-reference",
+      "layer": "runtime",
+      "title": "具名类表达式：名字只在类体里可见",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
+    },
+    {
       "id": "ex-tagged-template-suffix",
       "layer": "exec",
       "title": "标签模板后面接成员 / 运算符 / 实参",
@@ -202,6 +208,12 @@
       "layer": "exec",
       "title": "函数与命名空间合并（挂静态格）",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c305-ex-static-computed-key-and-method",
+      "layer": "exec",
+      "title": "静态计算键字段 + 实例计算键方法",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed class field name"
     },
     {
       "id": "object-freeze",
@@ -280,6 +292,66 @@
       "layer": "stdlib",
       "title": "normalize 在已规范化的串上是恒等",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c305-std-queue-microtask-order",
+      "layer": "stdlib",
+      "title": "`queueMicrotask` 排在 `Promise.then` 同一队里",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: queueMicrotask"
+    },
+    {
+      "id": "c305-std-map-groupby",
+      "layer": "stdlib",
+      "title": "`Map.groupBy` 分出来的是 `Map`（键可以是任意值）",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c305-std-promise-withresolvers",
+      "layer": "stdlib",
+      "title": "`Promise.withResolvers`",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c305-std-string-trim-unicode-space",
+      "layer": "stdlib",
+      "title": "非 ASCII 空白（`\\u00a0`）在 JS 里可被 `trim`",
+      "detail": "tsrun: 脚本抛出：unimplemented: trim with a non-ASCII edge (that character may be trimmable in JS)"
+    },
+    {
+      "id": "c305-std-string-normalize-forms",
+      "layer": "stdlib",
+      "title": "`normalize` 的四种形式在纯 ASCII 上是恒等",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c305-std-encodeuri-roundtrip",
+      "layer": "stdlib",
+      "title": "`encodeURIComponent` / `decodeURIComponent` 往返",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: encodeURIComponent"
+    },
+    {
+      "id": "c305-std-array-iterator-symbol-method",
+      "layer": "stdlib",
+      "title": "数组的 `Symbol.iterator` 是一个可调用的方法",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c305-std-object-wrapper-call",
+      "layer": "stdlib",
+      "title": "`Object(1)` / `Object(\"a\")` 给包装对象",
+      "detail": "tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
+    },
+    {
+      "id": "c305-std-object-getownpropertydescriptors-all",
+      "layer": "stdlib",
+      "title": "`Object.getOwnPropertyDescriptors` 一次拿全部描述符",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c305-e2e-linked-list-ops",
+      "layer": "e2e",
+      "title": "链表：类 + 私有字段 + 迭代器协议 + 反转",
+      "detail": "tsrun: 还没实现的构造或语言层错误：ast node MethodDeclaration has no child name"
     }
   ],
   "differ": [
@@ -374,6 +446,36 @@
       "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
     },
     {
+      "id": "c305-rt-let-loop-inner-const-capture",
+      "layer": "runtime",
+      "title": "经典 `for` 的每一次迭代里再取一个 const 给闭包",
+      "detail": "stdout 不同：第 1 行：node «0,10,20» vs tsrun «,0,1»"
+    },
+    {
+      "id": "c305-rt-object-rest-keeps-symbol",
+      "layer": "runtime",
+      "title": "对象剩余**保留**可枚举的符号键（`{ ...o }` 与 `...rest` 同一条口径）",
+      "detail": "stdout 不同：第 1 行：node «1 b 2 {\"a\":1,\"b\":3}» vs tsrun «1 b undefined {\"a\":1,\"b\":3}»"
+    },
+    {
+      "id": "c305-rt-object-spread-triggers-getter",
+      "layer": "runtime",
+      "title": "`{ ...src }` 会把 getter 取值一次（不是搬运那格描述符）",
+      "detail": "stdout 不同：第 1 行：node «getter» vs tsrun «undefined»"
+    },
+    {
+      "id": "c305-rt-async-generator-await-inside",
+      "layer": "runtime",
+      "title": "异步生成器体里 `await` 之后的 `yield`",
+      "detail": "stdout 不同：第 1 行：node «10,20» vs tsrun «»"
+    },
+    {
+      "id": "c305-rt-for-await-of-promises",
+      "layer": "runtime",
+      "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
+      "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
+    },
+    {
       "id": "ex-getter-setter-class",
       "layer": "exec",
       "title": "类里的访问器 + 继承的访问器",
@@ -384,6 +486,18 @@
       "layer": "exec",
       "title": "非空断言与可选链混着写",
       "detail": "stdout 不同：第 2 行：node «1 2» vs tsrun «[ [ 1 ], [ 2 ] ] 2»"
+    },
+    {
+      "id": "c305-ex-async-generator-interface-type",
+      "layer": "exec",
+      "title": "异步迭代器的类型标注（`AsyncIterable` / `Symbol.asyncIterator`）",
+      "detail": "stdout 不同：第 1 行：node «function function» vs tsrun «undefined function»"
+    },
+    {
+      "id": "c305-ex-optional-chain-nonnull-mix",
+      "layer": "exec",
+      "title": "可选链与非空断言混在同一条链上",
+      "detail": "stdout 不同：第 1 行：node «1 1 1 2» vs tsrun «{ b: 1 } 1 1 [object Object]1»"
     },
     {
       "id": "object-freeze-array-element",
@@ -450,6 +564,66 @@
       "layer": "stdlib",
       "title": "console.log 的嵌套容器形状",
       "detail": "stdout 不同：第 3 行：node «{ n: null, u: undefined, f: [Function: f] }» vs tsrun «{ n: null, u: undefined, f: [Function (anonymous)] }»"
+    },
+    {
+      "id": "c305-std-thenable-adoption",
+      "layer": "stdlib",
+      "title": "`async` 返回一个 thenable：该被采纳",
+      "detail": "stdout 不同：第 2 行：node «v 42» vs tsrun «v { then: [Function: then] }»"
+    },
+    {
+      "id": "c305-std-then-returns-promise-adoption",
+      "layer": "stdlib",
+      "title": "`then` 回调返回承诺：结果承诺采纳它",
+      "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
+    },
+    {
+      "id": "c305-std-symbol-tostringtag-custom",
+      "layer": "stdlib",
+      "title": "自定义 `Symbol.toStringTag` 影响 `Object.prototype.toString`",
+      "detail": "stdout 不同：第 1 行：node «[object Custom] [object Custom]» vs tsrun «[object Object] [object Object]»"
+    },
+    {
+      "id": "c305-std-number-wrapper-object",
+      "layer": "stdlib",
+      "title": "`new Number(5)` 是一个对象，`Number(5)` 是原始值",
+      "detail": "stdout 不同：第 1 行：node «object 5 number 6» vs tsrun «number 5 number 6»"
+    },
+    {
+      "id": "c305-std-string-wrapper-methods",
+      "layer": "stdlib",
+      "title": "包装对象上的字符串方法",
+      "detail": "stdout 不同：第 1 行：node «2 AB abc object» vs tsrun «2 AB abc string»"
+    },
+    {
+      "id": "c305-std-boolean-object-truthiness",
+      "layer": "stdlib",
+      "title": "`new Boolean(false)` 是真值",
+      "detail": "stdout 不同：第 1 行：node «object true false false» vs tsrun «object true { __b: false } [object Object]»"
+    },
+    {
+      "id": "c305-std-array-tostring-custom-element",
+      "layer": "stdlib",
+      "title": "`Array.prototype.toString` 该问每个元素的 `toString`",
+      "detail": "stdout 不同：第 1 行：node «C!,1 C!» vs tsrun «[object Object],1 [object Object]»"
+    },
+    {
+      "id": "c305-std-array-length-nonwritable",
+      "layer": "stdlib",
+      "title": "把数组 `length` 设成不可写之后 `push`",
+      "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 3»"
+    },
+    {
+      "id": "c305-e2e-async-load-pipeline",
+      "layer": "e2e",
+      "title": "异步管道：`async function*` 逐个取数、`for await` 汇总",
+      "detail": "stdout 不同：第 1 行：node «good 1,2,4,5,7» vs tsrun «good »"
+    },
+    {
+      "id": "c305-e2e-lru-cache",
+      "layer": "e2e",
+      "title": "LRU 缓存：`Map` 的插入序 + 泛型 + 私有字段",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "bad": [],
