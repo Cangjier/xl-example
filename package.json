@@ -21,6 +21,7 @@
     "cases:tsast": "node ./tests/parse/ts-ast.mjs",
     "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli",
     "coverage": "node ./tests/coverage/run.mjs",
+    "coverage:sweep": "node ./tests/coverage/sweep.mjs",
     "cpp:check": "node tests/cpp/check.mjs"
   },
   "devDependencies": {

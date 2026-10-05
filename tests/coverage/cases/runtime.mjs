@@ -1286,4 +1286,523 @@ try { [1, 2].forEach(() => { n += 1; if (n === 1) throw new Error("x"); }); } ca
 console.log("n", n, [5, 6].every((v: number) => v > 0));
 `,
   },
+
+  // ============ 第 273 轮加宽（42 条）：把「普通 `.ts` 里常见、此前一条都没盖到」的形状补上 ============
+  //
+  // 这一批是**普查**收进来的 ✓：先把候选写成一堆独立 `.ts` 交给 `node` 与 `tsrun` 各跑一遍，
+  // 只留下**裁判跑得动**（`node` 退出码 0、stdout 非空）的 ✓，然后整批进矩阵 ✓。
+  // 量出来的缺口写进 `tests/coverage/expectations.mjs` ✓（每一条一句话说清根子 ✓）。
+  // **覆盖率会因为这个分母变大而下降** ✓——那正是这一批的用途：把「90.7%」那个读数
+  // 换成一个**分母更诚实**的读数 ✓。
+  {
+    id: "rt-ref-identity",
+    title: "引用同一性：对象按引用相等，改一处两处都变",
+    src: `
+const a = { n: 1 };
+const b = a;
+b.n = 2;
+const c = { n: 2 };
+console.log(a.n, a === b, a === c, a !== c);
+const xs = [1, 2];
+const ys = xs;
+ys.push(3);
+console.log(xs.length, xs === ys, xs === [1, 2, 3]);
+`,
+  },
+  {
+    id: "rt-nested-structures",
+    title: "深层嵌套结构的读写与序列化",
+    src: `
+const cfg: any = { a: { b: { c: [1, { d: 2 }] } } };
+console.log(cfg.a.b.c[1].d);
+cfg.a.b.c[1].d = 9;
+cfg.x = { y: [3, 4] };
+console.log(cfg.a.b.c[1].d, cfg.x.y[1], JSON.stringify(cfg));
+`,
+  },
+  {
+    id: "rt-string-building",
+    title: "循环里拼字符串：长度与首尾切片",
+    src: `
+let out = "";
+for (let i = 0; i < 200; i++) out += i % 10;
+console.log(out.length, out.slice(0, 10), out.slice(-3), out[199]);
+`,
+  },
+  {
+    id: "rt-sort-objects-stability",
+    title: "对象数组按键排序：比较器拿到的次序与稳定性",
+    src: `
+const xs = [{ k: 2, v: "a" }, { k: 1, v: "b" }, { k: 2, v: "c" }, { k: 1, v: "d" }];
+const sorted = xs.slice().sort((p, q) => p.k - q.k);
+console.log(sorted.map((x) => x.v).join(""), sorted.map((x) => x.k).join(","));
+console.log(xs.map((x) => x.v).join(""));
+`,
+  },
+  {
+    id: "rt-closure-shared",
+    title: "两个闭包共享一格：各自实例互不串",
+    src: `
+function make() {
+  let n = 0;
+  return { inc: () => ++n, get: () => n };
+}
+const c1 = make();
+const c2 = make();
+c1.inc();
+c1.inc();
+c2.inc();
+console.log(c1.get(), c2.get());
+`,
+  },
+  {
+    id: "rt-currying",
+    title: "柯里化：连着三次调用各带一格",
+    src: `
+const add = (a: number) => (b: number) => (c: number) => a + b + c;
+console.log(add(1)(2)(3), add(10)(20)(30));
+const apply2 = (f: (n: number) => number, v: number) => f(v);
+console.log(apply2(add(1)(2), 3));
+`,
+  },
+  {
+    id: "rt-mutual-recursion",
+    title: "互递归：两条函数声明互相调用",
+    src: `
+function isEven(n: number): boolean { return n === 0 ? true : isOdd(n - 1); }
+function isOdd(n: number): boolean { return n === 0 ? false : isEven(n - 1); }
+console.log(isEven(10), isOdd(10), isEven(7), isOdd(7));
+`,
+  },
+  {
+    id: "rt-generator-return",
+    title: "生成器的 return：收尾那一步给的是返回值",
+    src: `
+function* g(): any { yield 1; yield 2; return "end"; }
+const it = g();
+const a = it.next();
+const b = it.next();
+const c = it.next();
+const d = it.next();
+console.log(a.value, a.done, b.value, b.done, c.value, c.done, d.done);
+console.log([...g()].join(","));
+`,
+  },
+  {
+    id: "rt-switch-string-fallthrough",
+    title: "switch 落在字符串上：贯穿与 default 在中间",
+    src: `
+function classify(s: string): string {
+  let out = "";
+  switch (s) {
+    case "a":
+    case "b": out += "ab"; break;
+    case "c": out += "c";
+    default: out += "+d";
+  }
+  return out;
+}
+console.log(classify("a"), classify("b"), classify("c"), classify("z"));
+`,
+  },
+  {
+    id: "rt-nested-finally-order",
+    title: "嵌套 try 的 finally 次序：内层先、外层后",
+    src: `
+function f(): string {
+  try {
+    try { throw new Error("inner"); } finally { console.log("inner finally"); }
+  } catch (e) {
+    console.log("caught", (e as Error).message);
+  } finally {
+    console.log("outer finally");
+  }
+  return "done";
+}
+console.log(f());
+`,
+  },
+  {
+    id: "rt-throw-primitive-values",
+    title: "抛非 Error 的值：字符串 / 数字 / 对象 / null",
+    src: `
+try { throw "s"; } catch (e) { console.log("str", e, typeof e); }
+try { throw 42; } catch (e) { console.log("num", (e as number) + 1); }
+try { throw { code: 7 }; } catch (e) { console.log("obj", (e as any).code); }
+try { throw null; } catch (e) { console.log("null", e); }
+`,
+  },
+  {
+    id: "rt-optional-method-this",
+    title: "`o.m?.()`：守的是取出来的方法，`this` 仍是 `o`",
+    src: `
+const o: any = { n: 5, m() { return this.n * 2; }, z: null };
+console.log(o.m?.(), o.z?.(), o.missing?.());
+`,
+  },
+  {
+    id: "rt-getter-side-effect-once",
+    title: "访问器每次读都算一次（不是缓存）",
+    src: `
+let n = 0;
+const o = { get v() { n++; return n; }, plain: 0 };
+console.log(o.v, o.v, o.v, n);
+o.plain = 5;
+console.log(o.plain, n);
+`,
+  },
+  {
+    id: "rt-prototype-chain-create",
+    title: "Object.create 的原型链：读穿、`in` 认、keys 不认",
+    src: `
+const base = { greet() { return "hi " + (this as any).name; }, shared: 1 };
+const child: any = Object.create(base);
+child.name = "kim";
+console.log(child.greet(), child.shared, "shared" in child, Object.keys(child).join(","));
+console.log(Object.getPrototypeOf(child) === base, child.hasOwnProperty("shared"));
+`,
+  },
+  {
+    id: "rt-delete-and-in",
+    title: "delete 一个属性之后：`in`、keys、再 delete",
+    src: `
+const o: any = { a: 1, b: 2 };
+console.log(delete o.a, "a" in o, Object.keys(o).join(","));
+console.log(delete o.zzz, o.b);
+delete o["b"];
+console.log(Object.keys(o).length);
+`,
+  },
+  {
+    id: "rt-array-hole-semantics",
+    title: "稀疏数组的洞：length 算、forEach / map 跳过",
+    src: `
+const xs: any[] = [1, , 3];
+console.log(xs.length, xs[1], 1 in xs, 2 in xs);
+let seen = "";
+xs.forEach((v, i) => { seen += i + ":" + v + " "; });
+console.log(seen.trim());
+console.log(xs.map((v) => v).length, xs.filter(() => true).length);
+`,
+  },
+  {
+    id: "rt-loose-eq-null-undefined",
+    title: "`==` 的强制转换表：null / undefined / 空串 / 数组",
+    src: `
+console.log(null == undefined, null === undefined, null == 0, undefined == 0);
+console.log("" == 0, "1" == 1, "  " == 0, [] == false, [1] == 1, [1, 2] == "1,2");
+console.log(NaN == NaN, NaN === NaN);
+`,
+  },
+  {
+    id: "rt-coercion-table",
+    title: "`+` 与 `-` 的强制转换：数组 / 对象 / 布尔 / null",
+    src: `
+console.log([] + {}, [] + [], [1] + [2], 1 + "2", "3" - 1, "3" * "2");
+console.log(true + 1, null + 1, undefined + 1, +true, +"");
+console.log([] ? "truthy" : "falsy", ({} ? "t" : "f"));
+`,
+  },
+  {
+    id: "rt-object-key-order",
+    title: "属性的枚举顺序：整数键在前且升序，其余按写入",
+    src: `
+const o: any = { b: 1, 2: 2, a: 3, 1: 4, c: 5 };
+console.log(Object.keys(o).join(","));
+console.log(JSON.stringify(Object.keys(o)));
+const p: any = {};
+p.z = 1;
+p[0] = 2;
+p.y = 3;
+console.log(Object.keys(p).join(","));
+`,
+  },
+  {
+    id: "rt-symbol-as-key",
+    title: "符号当键：读得到、不算进 keys / JSON",
+    src: `
+const s = Symbol("k");
+const o: any = { [s]: 1, a: 2 };
+console.log(o[s], Object.keys(o).join(","), JSON.stringify(o));
+console.log("a" in o, typeof s);
+`,
+  },
+  {
+    id: "rt-map-object-keys",
+    title: "Map 用对象当键：按引用认",
+    src: `
+const m = new Map<any, string>();
+const k1: any = { id: 1 };
+const k2: any = { id: 1 };
+m.set(k1, "a");
+m.set(k2, "b");
+console.log(m.get(k1), m.get(k2), m.get({ id: 1 }), m.size);
+m.set(k1, "c");
+console.log(m.get(k1), m.size);
+`,
+  },
+  {
+    id: "rt-set-dedupe-nan-zero",
+    title: "Set 的去重口径：NaN 与 -0",
+    src: `
+const s = new Set<any>([NaN, NaN, 0, -0, "0", 0]);
+console.log(s.size, s.has(NaN), s.has(0), s.has(-0), s.has("0"));
+const t = new Set<number>([1, 2, 2, 3, 1]);
+console.log([...t].join(","));
+`,
+  },
+  {
+    id: "rt-var-shared-in-loop",
+    title: "`var` 每轮共享一格（与 `let` 对照）",
+    src: `
+const fns: any[] = [];
+for (var i = 0; i < 3; i++) fns.push(() => i);
+console.log(fns.map((f) => f()).join(","));
+const lets: any[] = [];
+for (let j = 0; j < 3; j++) lets.push(() => j);
+console.log(lets.map((f) => f()).join(","));
+`,
+  },
+  {
+    id: "rt-void-comma-operators",
+    title: "`,` 与 `void`：求值次序与结果值",
+    src: `
+let a = 0;
+const b = (a = 1, a + 1);
+console.log(b, a);
+const c = (a = 5, a = 6, a);
+console.log(c, a, void 0, typeof void 0);
+`,
+  },
+  {
+    id: "rt-typeof-all-kinds",
+    title: "typeof 每一种值（含类表达式）",
+    src: `
+console.log(typeof 1, typeof "s", typeof true, typeof undefined, typeof null);
+console.log(typeof {}, typeof [], typeof (() => 1), typeof Symbol("x"));
+const f = function named() { return 1; };
+console.log(typeof f, typeof class C { }, typeof console.log);
+`,
+  },
+  {
+    id: "rt-numeric-precision",
+    title: "浮点的位与十进制往返",
+    src: `
+console.log(0.1 + 0.2, 0.1 + 0.2 === 0.3);
+console.log(1 / 3, (1 / 3).toFixed(10), 1e21, 1e-7, 123456789012345678901234567890);
+console.log(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 1 === Number.MAX_SAFE_INTEGER + 2);
+`,
+  },
+  {
+    id: "rt-surrogate-iteration",
+    title: "代理对：for..of 一次一个码点，下标一次一个码元",
+    src: `
+const s = "a\\u{1F600}b";
+console.log(s.length, [...s].length, Array.from(s).length);
+const seen: string[] = [];
+for (const ch of s) seen.push(ch);
+console.log(seen.length, seen[1].length);
+console.log(s[1].length);
+`,
+  },
+  {
+    id: "rt-default-param-earlier",
+    title: "默认值可以引用前面的形参，也可以调函数",
+    src: `
+function f(a: number, b: number = a * 2, c: string = "c" + b): string { return a + "/" + b + "/" + c; }
+console.log(f(1), f(1, 5), f(1, undefined, "z"));
+function g(x: number, y: number = h(x)): number { return y; }
+function h(n: number): number { return n + 100; }
+console.log(g(1), g(1, 2));
+`,
+  },
+  {
+    id: "rt-spread-multiple-args",
+    title: "一次调用里展开两处，外加普通实参",
+    src: `
+function f(...xs: any[]): string { return xs.join("|"); }
+const a = [1, 2];
+const b = [3, 4];
+console.log(f(...a, 9, ...b));
+console.log(f(0, ...a, ...b, 5));
+console.log(Math.max(...a, ...b, 100));
+console.log([...a, ...b, 7].join(","));
+`,
+  },
+  {
+    id: "rt-object-spread-order",
+    title: "对象展开的覆盖次序：后写的赢",
+    src: `
+const base = { a: 1, b: 2 };
+const over: any = { ...base, b: 3, c: 4 };
+console.log(JSON.stringify(over), Object.keys(over).join(","));
+const back: any = { b: 3, ...base };
+console.log(JSON.stringify(back));
+const copy: any = { ...base };
+console.log(copy !== base, copy.a);
+`,
+  },
+  {
+    id: "rt-static-inheritance",
+    title: "静态成员随继承走：`this` 是那一个类",
+    src: `
+class A {
+  static tag = "A";
+  static make(): string { return "made:" + this.tag; }
+}
+class B extends A {
+  static tag = "B";
+}
+console.log(A.make(), B.make(), B.tag, A.tag);
+`,
+  },
+  {
+    id: "rt-instanceof-primitives",
+    title: "instanceof 对原始值与内建",
+    src: `
+console.log(1 instanceof Number, "s" instanceof String, true instanceof Boolean);
+console.log([] instanceof Array, [] instanceof Object, {} instanceof Object);
+console.log((() => 1) instanceof Function, null instanceof Object);
+`,
+  },
+  {
+    id: "rt-reiterable-protocol",
+    title: "自定义可迭代对象要能反复迭代（每次给新迭代器）",
+    src: `
+class Range {
+  lo: number;
+  hi: number;
+  constructor(lo: number, hi: number) { this.lo = lo; this.hi = hi; }
+  [Symbol.iterator](): any {
+    let i = this.lo;
+    const hi = this.hi;
+    return { next: () => (i <= hi ? { value: i++, done: false } : { value: 0, done: true }) };
+  }
+}
+const r = new Range(1, 4);
+console.log([...r].join(","), [...r].join(","));
+let sum = 0;
+for (const v of r) sum += v;
+console.log(sum);
+`,
+  },
+  {
+    id: "rt-large-array-pipeline",
+    title: "500 个元素的 filter / map / reduce 流水线",
+    src: `
+const xs: number[] = [];
+for (let i = 0; i < 500; i++) xs.push(i);
+const squares = xs.filter((v) => v % 3 === 0).map((v) => v * v);
+console.log(xs.length, squares.length, squares[0], squares[squares.length - 1]);
+console.log(xs.reduce((a, b) => a + b, 0), squares.reduce((a, b) => a + b, 0));
+`,
+  },
+  {
+    id: "rt-recursive-data-walk",
+    title: "递归走一棵树，用 reduce + concat 收集路径",
+    src: `
+type Node = { name: string; kids: Node[] };
+const tree: Node = {
+  name: "root",
+  kids: [{ name: "a", kids: [] }, { name: "b", kids: [{ name: "c", kids: [] }] }],
+};
+function paths(n: Node, prefix: string): string[] {
+  const here = prefix + n.name;
+  if (n.kids.length === 0) return [here];
+  return n.kids.reduce((acc, k) => acc.concat(paths(k, here + "/")), [] as string[]);
+}
+console.log(paths(tree, "").join(" "));
+`,
+  },
+  {
+    id: "rt-error-custom-fields",
+    title: "自定义错误：字段、name、instanceof、String(e)",
+    src: `
+class ValidationError extends Error {
+  field: string;
+  constructor(field: string, msg: string) {
+    super(msg);
+    this.name = "ValidationError";
+    this.field = field;
+  }
+}
+const e = new ValidationError("age", "too young");
+console.log(e.message, e.field, e.name);
+console.log(String(e));
+console.log(e instanceof ValidationError, e instanceof Error);
+try { throw e; } catch (x) { console.log((x as ValidationError).field, (x as Error).message); }
+`,
+  },
+  {
+    id: "rt-multi-return-object",
+    title: "用一个对象返回多个值（含解构那一半）",
+    src: `
+function divmod(a: number, b: number): { q: number; r: number } {
+  return { q: Math.floor(a / b), r: a % b };
+}
+const { q, r } = divmod(17, 5);
+console.log(q, r, divmod(17, 5).r, divmod(-7, 3).q, divmod(-7, 3).r);
+`,
+  },
+  {
+    id: "rt-nested-destructure-deep",
+    title: "深层解构：对象里套数组、数组里套对象、默认值",
+    src: `
+const data: any = { user: { name: "kim", tags: ["x", "y"] }, counts: [[1, 2], [3]] };
+const { user: { name, tags: [first, ...restTags] }, counts: [[a, b], [c]] } = data;
+console.log(name, first, restTags.join(""), a + b + c);
+const { missing: { deep = "dflt" } = {} } = data;
+console.log(deep);
+const [x = 1, y = 2, z = 3] = [undefined, 9];
+console.log(x, y, z);
+`,
+  },
+  {
+    id: "rt-class-getter-static-and-inherit",
+    title: "静态访问器与继承下来的静态访问器",
+    src: `
+class A {
+  static get kind(): string { return "A-static"; }
+  get own(): string { return "own"; }
+}
+class B extends A {
+  static get kind(): string { return "B+" + super.kind; }
+}
+console.log(B.kind, new B().own, new A().own);
+`,
+  },
+  {
+    id: "rt-method-this-via-call",
+    title: "普通函数借 `call` / `apply` / `bind` 换 `this`",
+    src: `
+function who(this: any, suffix: string): string { return this.name + suffix; }
+console.log(who.call({ name: "kim" }, "!"));
+console.log(who.apply({ name: "lee" }, ["?"]));
+const bound = who.bind({ name: "park" });
+console.log(bound("."));
+`,
+  },
+  {
+    id: "rt-array-nested-mutation",
+    title: "二维数组的按行改与整体观察",
+    src: `
+const grid: number[][] = [[1, 2], [3, 4]];
+grid[0][1] = 9;
+grid.push([5, 6]);
+console.log(JSON.stringify(grid));
+const copy = grid.slice();
+copy[0][0] = 100;
+console.log(grid[0][0], copy[0][0], grid === copy);
+`,
+  },
+  {
+    id: "rt-deep-call-chain",
+    title: "连着调用 / 连着取属性的长链",
+    src: `
+const o: any = { a: { b: { c: { d: () => ({ e: [1, 2, 3] }) } } } };
+console.log(o.a.b.c.d().e.length, o.a.b.c.d().e[2]);
+const f = (n: number) => (m: number) => (k: number) => n + m + k;
+console.log(f(1)(2)(3));
+`,
+  },
 ];

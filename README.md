@@ -153,8 +153,17 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 270 轮读数：**257 / 275 = 90.7%**，
-其中**引擎 95.3%** ✓、降级层 **93.6%** ✓、标准库 **93.6%** ✓、端到端 **76.9%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 273 轮读数：**340 / 395 = 84.3%**，
+其中**引擎 93.9%** ✓、降级层 **85.0%** ✓、标准库 **79.9%** ✓、端到端 **76.9%** ✓——
+**第 273 轮把矩阵从 275 条加宽到 395 条**：用户口径是「先按『普通 `.ts` 里会出现什么』
+把 exec / runtime / 标准库 的语料铺满，再照覆盖度读数决定下一步」，所以那一天做的是
+**先普查、再收编**——候选先逐条交给 `node`（裁判）与 `tsrun` 各跑一遍，只留裁判跑得动的；
+**120 条里 83 条当场通过、37 条是新量到的缺口**，读数因此从 90.7% **落到 84.3%**
+——那是**分母变诚实** ✓ 不是倒退 ✓（分母 +44%）。37 条按**根子**分成 15 组记在
+[tests/coverage/expectations.mjs](tests/coverage/expectations.mjs)，
+最大两组是**标准库「成员不在那儿」**（17 条：`reduceRight` · `copyWithin` · `findLast` ·
+`Object.is` · `Symbol.for` · `Date.toISOString` · `SyntaxError` 那一族不是全局名……）
+与 **`async` 那一族**（9 条）。**前面几轮的格子**照旧：
 第 246 轮补上了**「调一个不是函数的东西」要能被脚本接住**（那一抛带上 `TypeError` 类别 ✓）；
 第 243 轮补上了 **`super.v`**（`RtOp.GetPropFrom`：起点 / 键 / 接收者三格 ✓）；
 第 241 轮补上了 **`s.description`**（符号没有原型那一格 ⇒ 由 `get_prop` 特判 ✓）；
@@ -228,6 +237,7 @@ npm run cases:tsast:cli    # 发布路径：真的开 cjcli 进程再对拍（�
 npm run runtime:check      # 执行侧：值模型 / 堆 / GC / IR / 执行器 / 降级层 的判据（快）
 npm run runtime:cli        # **直接执行 .ts**：tsrun 与 node 逐字节对拍（真进程）
 npm run coverage           # **场景覆盖度**：exec / runtime / 标准库 / 端到端，一格一条（尺子，不是门）
+npm run coverage:sweep -- tmp-cand.mjs   # **加宽矩阵的第一步**：候选先普查（不写读数、不看台账、不红）
 npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成员名 / 字面量）
 ```
 
@@ -451,7 +461,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:tsast` | 语料 **1436** 个文件、解析成功 1436、抛异常 0；**完全一致 1436 / 1436**，缺 0 / 漂移 0 / 多出 0 / 字段名 0 / 未映射 0 / 缺 range 0 / 区间越界 0，退出码 0（trivia 越界 2 处单列：注释与软换行是被扫进来的、不参与签入签出，是约定的形态） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：**语料全部**、解析成功全部、失败 0，**完全一致**，四方向 0，报未映射标签的文件 0 个 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具逐字节一致，且「命令行 = 库 API」 |
-| `cases:check` | **1043** 条用例，0 条不合格 |
+| `cases:check` | **1048** 条用例，0 条不合格 |
 
 **语料数是活的。** `dist/ts/**` 也在语料里（[ts-ast.mjs:423](tests/parse/ts-ast.mjs#L423)），
 所以**每新增一条规范就多一份语料**：上面的具体数字是**本轮读数**，

@@ -152,7 +152,10 @@ export const EXPECTATIONS = {
   // 它能出现在那里只是因为外面的数组字面量已经认过它了 ✓。
   "object-freeze": { expect: "blocked", why: "**口径分歧**：本仓对只读属性**抛**（严格模式），node 把 `.ts` 当 CJS 跑是**松散模式**静默失败" },
   "object-freeze-array-element": { expect: "differ", why: "**静默错值**：冻住的数组还能 `push`（要动引擎的写屏障）" },
-  "object-tostring-tag": { expect: "blocked", why: "`Object.prototype.toString` 只答了能证的那一格，`call` 这条形状过不去" },
+  // **第 273 轮把这个 blocked 那一行删掉了** ✓（这两条一直是过的 ✓，判据每轮都提示
+  // `NEWLY-PASSING` ✓）：`object-tostring-tag` 与 `symbol-tostringtag` 是第 229 轮修好的 ✓
+  //（`Object.prototype.toString` 先问 `Symbol.toStringTag` ✓），台账那一行忘了删 ✗。
+  // 留着的代价是**读数看不见**：它们一直算 `pass` ✓，只是每次跑都提示一遍 ✓。
   // **第 228 轮删掉了 `symbol-concat-throws` 那一行** ✓（它过了 ✓）：`TextUnitsOf` 对符号
   // 抛的是**宿主的 `TypeError`** ✓，而 `Guard` 现在按**宿主异常的类**认类别 ✓
   // （`ErrorKindType` / `ErrorKindRange` ✓），`tsrun` 的错误工厂把它翻成脚本的那一族 ✓——
@@ -167,7 +170,7 @@ export const EXPECTATIONS = {
   // 这种**计算成员名**现在降级得出来 ✓（第 229 轮 ✓），差的是 `instanceof` 那头
   // **还没问那一格** ✗（引擎的 `RtInstanceOf` 只沿原型链找 ✓）。
   "symbol-hasinstance": { expect: "differ", why: "**第 229 轮做掉了一半** ✓：`static [Symbol.hasInstance](v) { … }` 这种**计算成员名**现在降级得出来 ✓（原来整份文件进不来 ✗）。差的是一半 ✗：`instanceof` 那头**还没问那一格** ✓——引擎的 `RtInstanceOf`（`rt.xl.md`）只沿原型链找 `C.prototype` ✓，「先问 `C[Symbol.hasInstance]`、有就调它」那条路没有 ✗。而那一格是**计算键** ✓、值是一个**闭包** ✓，要调它得有一条 `NativeCall` ✓（引擎里那一处只有 `room` ✓）——所以这一半不是一个顺手的小改 ✗。" },
-  "symbol-tostringtag": { expect: "blocked", why: "`Symbol.toStringTag` 没装" },
+  // **第 273 轮把这个 blocked 那一行也删掉了** ✓（理由与 `object-tostring-tag` 同一处 ✓）。
   // **第 241 轮删掉了 `symbol-description` 那一行** ✓（它过了 ✓）：
   // 原来记的理由是「要挂在符号的**原型**上，而 `Protos` 表里没有符号那一格」✓——
   // **那一半是真的** ✓（符号既没有属性表 ✓、也没有原型那一格 ✓），
@@ -222,4 +225,131 @@ export const EXPECTATIONS = {
   "e2e-event-emitter": { expect: "blocked", why: "类字段初始化器里引一个全局名（`new Map`）报「name used before its declaration」" },
   "e2e-async-workflow": { expect: "blocked", why: "`await` 一个非承诺值 + `async` 方法（同前面两格）" },
   "e2e-mixed-everything": { expect: "blocked", why: "**第 229 轮做掉了一半** ✓：类里的**生成器方法**（`*keys()`）现在降级得出来 ✓（原来整份文件进不来 ✗）——差的是同一个类里的 `async total(key)` ✗（`async method in a class` 照旧**响亮地抛** ✓）。**为什么 async 那一半不顺手做** ✗：`async` 的三条语义差写在 `lowering.xl.md` 文首 ✓——本仓的 `await` 挂的是**当前帧** ✓，所以调用者拿不到承诺 ✗；第 229 轮试过「把非承诺值包成已兑现承诺」那一半 ✓，判据**当场红两条** ✗（原来「响亮地抛」变成「静默 `undefined`」✗），于是退回来了 ✓。**那一整条要连着「async 函数返回承诺」一起做** ✗。" },
+
+  // ===================== 第 273 轮加宽：矩阵 275 → 395 条，新盖到 37 条缺口 =====================
+  //
+  // **这一轮的读数一定会掉** ✓（90.7% → 约 84.3%）——那是**分母变诚实** ✓，不是倒退 ✓：
+  // 分母涨了 44%（275 → 395），新收的 120 条里有 37 条过不去 ✓。
+  // 前面那一批（第 202~270 轮）的 90.7% 量的是一张**只装了「已经想到的形状」**的矩阵 ✓；
+  // 这一批按「**普通 `.ts` 里会出现什么**」重新铺了一遍 ✓，于是把 37 条一直没被问过的
+  // 形状问了出来 ✓。
+  //
+  // 下面按**根子**分组 ✓（不是按 id 排 ✓）——同一组的修法一样 ✓，一起做才不白付 ✓。
+  //
+  // ---- 组 1：`implements` 子句被当成值求值（2 条）----
+  // `class Person implements Named, Aged` 报 `name is not a local or a capture: Named` ✓。
+  // **`extends` 与 `implements` 在 TS 的 AST 里是同一个数组的两格** ✓
+  //（`heritageClauses[0]` / `[1]` ✓），而本仓只认了前者 ✗——后者的实体名被当**值**降级了 ✓，
+  // 于是「一个指令都不该产生」的类型位变成了一次**未声明名字的读** ✗。
+  "ex-implements-and-heritage": { expect: "blocked", why: "`implements` 子句被当成**值**降级（`name is not a local or a capture: Named`）：TS 的 `heritageClauses` 里 `extends` 与 `implements` 是两格，只认了 `extends`。入口 `typescript-exec/lowering.xl.md` 类降级认 heritage 那一支" },
+  "ex-abstract-implements": { expect: "blocked", why: "同 `implements` 那一处（`abstract class Base implements Shape`）——不是 abstract 的问题" },
+
+  // ---- 组 2：枚举名在**函数体里**看不见（1 条）----
+  // `ex-enum-numeric` 一直是绿的 ✓（它在**文件顶层**用 `Color` ✓）；这一条把同一件事放进
+  // `function weight` 里 ✓ 就报 `name is not a local or a capture: Kind` ✗。
+  // 也就是说枚举的名字只进了**最外那一层**的名字表 ✓，函数那一层没有 ✗。
+  "ex-enum-in-switch": { expect: "blocked", why: "枚举名在**函数体里**看不见（`name is not a local or a capture: Kind`）——顶层用是好的。入口 `typescript-exec/scope.xl.md` 的 `CollectDeclaredNames` / `Hoist`" },
+
+  // ---- 组 3：枚举的反向映射只认字面量（1 条）----
+  // 第 230 轮自己写下的已知差 ✓（当时判据量不到 ✓）：`IsNumericInitializer` 只认
+  // 「没有初始化式」与「数值字面量」两档 ✓，`A = BASE` / `C = 1 + 1` 这种**算出来的数**
+  // 不挂反向格 ✗ ⇒ `E[10]` 给 `undefined` ✓（Node 给 `"A"` ✓）。
+  "ex-enum-computed-initializer": { expect: "differ", why: "反向映射只给「没有初始化式」与「数值字面量」两档：`A = BASE` / `C = 1 + 1` 不挂反向格 ⇒ `E[10]` 是 `undefined`（Node 给 `\"A\"`）。第 230 轮记下的已知差" },
+
+  // ---- 组 4：静态成员不随 `extends` 走（2 条）----
+  // 这一组是**同一个根** ✓，两半：继承（`B.make` 是 undefined ✓）与 `super`（静态里
+  // `super.kind` 是 undefined ✓）。JS 里 `class B extends A` 做的是**两步** ✗：
+  // `B.prototype.__proto__ = A.prototype` **与** `Object.setPrototypeOf(B, A)` ✓，
+  // 而本仓只做了第一步 ✗。`super` 在**静态**成员里要从**父构造函数**起读 ✓，
+  // 第 243 轮的 `RtOp.GetPropFrom` 起点那一格因此要按「静态 / 实例」分两种 ✓。
+  "rt-static-inheritance": { expect: "blocked", why: "**静态成员不随 `extends` 走**：`class B extends A {}` 之后 `B.make` 是 `undefined`（`cannot call a non-closure value`）。JS 的 `extends` 是两步——原型链**加**「把子构造函数自己的 `[[Prototype]]` 接到父构造函数」，只做了前一步" },
+  "rt-class-getter-static-and-inherit": { expect: "differ", why: "**静态访问器里的 `super`**：`static get kind() { return super.kind }` 给 `B+undefined`。`super` 在静态成员里该从**父构造函数**起读，本仓照实例那一支从**父原型**起读（第 243 轮的 `GetPropFrom` 起点要按静态/实例分两种）" },
+
+  // ---- 组 5：`new` 一个**常量里的类表达式**不跑构造函数（1 条）----
+  // 实测分得很清 ✓：`const C = class { constructor(n) { this.n = n } }; new C(4).n` 给 `undefined` ✗，
+  // 而 `class D { … }; const D2 = D; new D2(5).n` 给 `5` ✓——所以问题不在「`new` 一个变量」✗，
+  // 在**那个变量的值是类表达式**这一格 ✗（`instanceof` 反而是对的 ✓）。
+  "ex-index-and-call-signatures": { expect: "differ", why: "`new` 一个**常量里的类表达式**不跑构造函数（`new C(4).n` 给 `undefined`；把类换成一则**类声明**再赋给常量就对）。它与 `instanceof` 无关（那一半是对的）。入口 `typescript-exec/lowering.xl.md` 的 `DoNew` + 类表达式降级" },
+
+  // ---- 组 6：`typeof` 的**类表达式**操作数没被收（1 条）----
+  // `typeof class C { }` ✓——与第 233 轮那个 `typeof {a: 1}` **同一族** ✓：
+  // `typeof` 后面那个操作数表达式没被收进操作数位 ✓，
+  // 投影只留下一个**孤零零的 `TypeOfKeyword`** ✗。
+  "rt-typeof-all-kinds": { expect: "blocked", why: "`typeof class C { }` 报 `unimplemented: expression TypeOfKeyword`：操作数是**类表达式**时 `typeof` 那一格没被收（与第 233 轮 `typeof {}` 同一族，那时补的是「后面跟 `{`」那一格）" },
+
+  // ---- 组 7：字符串按**码元**迭代（1 条）----
+  // `[...s].length` / `Array.from(s).length` 给 4 ✓（Node 给 3 ✓）：
+  // `for..of` 一个字符串该**一次一个码点** ✓（代理对要合起来 ✓），而本仓一次一个码元 ✗。
+  "rt-surrogate-iteration": { expect: "differ", why: "字符串迭代按 **UTF-16 码元**走：`[...\"a\\u{1F600}b\"].length` 给 4（Node 给 3）。JS 的字符串迭代器一次一个**码点**，代理对要合起来" },
+
+  // ---- 组 8：投影不认的两种形状（2 条）----
+  // 两条都是「降到一半发现树上的节点形状不是预期的那一个」✓，而根子在**投影** ✗：
+  // ① 尖括号断言 `<T>expr` ✓——TS 的 AST 里它与 `as` 是**两个 kind**
+  //   （`TypeAssertionExpression` vs `AsExpression` ✓），本仓只认了后者 ✗；
+  //   顺带记一笔**裁判的取法** ✗：`node` 的剥离模式**明确拒收**尖括号写法 ✓
+  //   （「与 JSX 有歧义」✓），所以这一条的 `nodeArgs` 是 `--experimental-transform-types` ✓。
+  // ② 对象字面量里的**计算访问器名** ✓（`get [k + "2"]()`）——报的是
+  //   `ast node ComputedPropertyName has no text` ✓；而**普通**计算方法名
+  //   （`{ [k]() {} }` ✓，`ex-computed-member-call` 那条）一直是好的 ✓。
+  "ex-angle-bracket-assertion": { expect: "blocked", why: "`unimplemented: expression TypeAssertionExpression`：尖括号断言与 `as` 在 TS 的 AST 里是两个 kind，只认了 `as`。裁判要用 `--experimental-transform-types`（剥离模式明确拒收尖括号写法）" },
+  "ex-object-literal-accessors": { expect: "blocked", why: "对象字面量里的**计算访问器名**（`get [k + \"2\"]()`）报 `ast node ComputedPropertyName has no text`；普通计算方法名（`{ [k]() {} }`）是好的。入口：对象字面量成员那一支的投影" },
+  // 这一条与组 10 的「成员不在那儿」是**同一类** ✓，只是它住在 `ex` 层 ✗
+  //（`String.raw` 是 `String` 上的一格 ✓，而它挡住的是一条**标签模板**的用例 ✗）。
+  "ex-string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——第 273 轮量到。与组 10 那些「成员不在那儿」同类，只是这条落在 `exec` 层（它挡住的是一条标签模板用例）" },
+
+  // ---- 组 9：整块都是类型位的 `namespace` 该**整块擦掉**（1 条）----
+  // 这一条不是「namespace 没做」那一条 ✗——它体内**一个运行期东西都没有** ✓
+  //（`export type` 与 `export interface` 都是类型位 ✓），所以正确结局是
+  // **一个指令都不产生** ✓，而不是造一个空对象 ✓。挡在门口的却是同一句
+  // `unimplemented: statement ModuleDeclaration` ✗——也就是「先问体内有没有运行期东西」
+  // 这一问还不存在 ✗。
+  "ex-nested-namespace-type-only": { expect: "blocked", why: "体内**全是类型位**的 `namespace`（`export type` / `export interface`）本该整块擦掉（产生的运行期东西一个都没有），却和真 `namespace` 一样挡住：`unimplemented: statement ModuleDeclaration`。要先做「体内有没有运行期东西」这一问" },
+
+  // ---- 组 10：标准库**成员不在那儿**（14 条）----
+  // 这一组的量法是**先问「在不在」** ✓：一个探针把候选成员逐个 `typeof` 一遍 ✓，
+  // 于是「根本不在那儿」与「在、但语义不对」被分开了 ✓（修法不一样 ✓）。
+  // 全部是「往表里挂一格」（或几格）的活 ✓——`Object.is` 尤其便宜 ✓：
+  // 引擎里 `SameValue` 的判据**早就有** ✓（第 207 轮那张具名的表 ✓），缺的只是往 `Object` 上挂一格 ✗。
+  "array-reduceRight": { expect: "blocked", why: "`Array.prototype.reduceRight` 不在那儿（`typeof` 给 `undefined`）——与 `reduce` 共用一段实现，只是方向相反" },
+  "array-copyWithin": { expect: "blocked", why: "`Array.prototype.copyWithin` 不在那儿" },
+  "array-findLast": { expect: "blocked", why: "`findLast` / `findLastIndex` 不在那儿——与 `find` / `findIndex` 共用实现，方向相反" },
+  "array-toSorted-and-with": { expect: "blocked", why: "`toSorted` / `toReversed` / `with`（ES2023 的三个非破坏式方法）不在那儿" },
+  "array-iterator-manual": { expect: "blocked", why: "数组迭代器**没有 `next()`**：`.values()` / `.keys()` / `.entries()` 交出来的东西能被 `[...]` 与 `for..of` 用（引擎的 drain），但不能手动走一步。第 229 轮给**生成器**补的 `next()` 是另一条路" },
+  "string-trim-variants": { expect: "blocked", why: "`trimStart` / `trimEnd` 不在那儿（`trim` 在）" },
+  "string-at-and-codepoints": { expect: "differ", why: "`String.fromCodePoint` 不在那儿（`String.fromCharCode` 与 `.at()` / `.codePointAt()` 都在）" },
+  "math-imul-clz32": { expect: "blocked", why: "`Math.imul` / `clz32` / `fround` 三个 32 位工具不在那儿" },
+  // **第 273 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：它抛出之前**已经打印了一行** ✓
+  // （`Math.hypot` 与 `Math.cbrt` 是**在的** ✓），所以判决落在 `differ` 上 ✓ 而不是 `blocked` ✓。
+  "math-hypot-and-roots": { expect: "differ", why: "`Math.expm1` / `sinh` / `cosh` / `tanh` / `log2` / `log10` / `log1p` 不在那儿（`hypot` / `cbrt` / `exp` / `log` 在，所以第一行先打出来了）" },
+  "object-is": { expect: "blocked", why: "`Object.is` 不在那儿。引擎里 `SameValue` 的判据**早就有**（第 207 轮那张具名的表），缺的只是往 `Object` 上挂一格" },
+  "object-getownpropertydescriptor": { expect: "blocked", why: "`Object.getOwnPropertyDescriptor` 不在那儿（`getOwnPropertyNames` 在）" },
+  "object-seal-and-defineProperties": { expect: "blocked", why: "`Object.seal` / `isSealed` / `defineProperties` 不在那儿（`defineProperty` 与 `freeze` 在）" },
+  "json-parse-reviver": { expect: "blocked", why: "`JSON.parse` 的**第二格实参**（reviver）没接；同一条里 `SyntaxError` 也不是全局名" },
+  "symbol-registry": { expect: "blocked", why: "`Symbol.for` / `Symbol.keyFor` 不在那儿——按名字去重的**注册表**要新造一张" },
+  "date-iso-and-json": { expect: "blocked", why: "`Date.prototype.toISOString` / `toJSON` 不在那儿，`Date.UTC` 也不在，`new Date(字符串)` 报 `new Date(x) needs a number of milliseconds`" },
+  "date-utc-setters": { expect: "blocked", why: "`setUTCFullYear` / `setUTCMonth` / `setUTCHours` 不在那儿（读入口那几格在）" },
+  "error-cause-and-family": { expect: "blocked", why: "`SyntaxError` **不是全局名**（`typeof` 给 `undefined`，而**读**一个未声明的名字在降级期就抛 `name is not a local or a capture`）；`new Error(msg, { cause })` 的 `cause` 也不装" },
+
+  // ---- 组 11：标准库**在、但语义不对**（3 条）----
+  // 这三条比组 10 危险 ✓：**静默错值** ✓，不是响亮地抛 ✓。
+  "array-indexof-fromindex": { expect: "differ", why: "**`includes` 的第二格实参（起始下标）被忽略**：`[1,2,3,2,1].includes(2, 4)` 给 `true`（Node 给 `false`）。`indexOf` / `lastIndexOf` 的起始格是对的——**同一个参数三处写法只对了两处**" },
+  "array-flat-depth": { expect: "differ", why: "**`flat(0)` 被当成「没给」**：`[1,[2,[3,[4]]]].flat(0).length` 给 3（Node 给 2）——`0` 掉进了 `depth || 1` 那一支" },
+  "math-min-max-edge": { expect: "differ", why: "**`Math.abs(-0)` 给 `-0`**（Node 给 `0`，于是 `1 / Math.abs(-0)` 是 `-Infinity`）：直接把入参交出去了，没把 `-0` 折成 `0`" },
+
+  // ---- 组 12：函数当 `ToPrimitive` 该给**源码文本**（1 条）----
+  // `fn.toString()` ✓ 与 `String(fn)` ✓ 报的是同一句
+  // `unimplemented: ToPrimitive of a function (JS renders source text)` ✓——
+  // 与 `ex-tagged-template-suffix` **同一个根** ✓（JS 里 `Function.prototype.toString`
+  // 要给**源码文本** ✓，而源码文本得由降级层把区间抄下来 ✓）。
+  "function-prototype-tostring": { expect: "differ", why: "`unimplemented: ToPrimitive of a function (JS renders source text)`——与 `ex-tagged-template-suffix` 同一个根：函数当 `ToPrimitive` 要给源码文本，而源码文本要由降级层按区间抄下来" },
+
+  // ---- 组 13：JSON 的那两格扩展（1 条，与组 10 的 reviver 同族）----
+  "json-stringify-replacer": { expect: "differ", why: "`JSON.stringify(o, [\"a\", \"c\"])` 的 **replacer 数组被忽略**（打出了整个对象）；`JSON.stringify({ when: new Date(0) })` 给 `{\"when\":{}}`（`Date.prototype.toJSON` 不在）" },
+
+  // ---- 组 14：函数的 `length` / `name` 两个属性（1 条）----
+  "function-length-and-name": { expect: "differ", why: "`fn.length` 与 `fn.name` 都是 `undefined`：闭包那一格上没挂这两个属性（第 238 轮补的是 `HeapClosure.Name` 那一格**内部**的名字，供 `console.log` 用；属性读那一面没有）" },
+
+  // ---- 组 15：async 那一族（1 条，与 `prm-microtask-order` 同一个根）----
+  "promise-then-value-and-throw": { expect: "differ", why: "与 `prm-microtask-order` 同一个根：`.then` 回调跑完之后收尾就出事（`AdoptInto` 从未被触达），所以「回调返回一个值」与「回调里抛错」两条路都走不到" },
 };
+

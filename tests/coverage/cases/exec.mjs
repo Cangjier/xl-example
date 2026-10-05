@@ -620,4 +620,423 @@ console.log(typeof readFileSync);
 `,
     skip: "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**",
   },
+
+  // ============ 第 273 轮加宽（33 条）：TS 形状里「普通 `.ts` 常见」的那些写法 ============
+  //
+  // 与 `runtime.mjs` 那一批同一条普查口径 ✓：只留裁判跑得动的 ✓。
+  // **`nodeArgs` 有两处** ✗：`enum` / 构造函数参数属性要变换（类型剥离拒收 ✓），
+  // 以及**尖括号断言** `<T>expr` ✓——`node` 的剥离模式明确拒收它 ✓
+  //（「与 JSX 有歧义」✓），所以要 `--experimental-transform-types` 才有一个裁判 ✓。
+  {
+    id: "ex-class-member-modifiers",
+    title: "成员修饰词全上：public / private / protected / readonly / static / override",
+    src: `
+class A {
+  public a = 1;
+  private b = 2;
+  protected c = 3;
+  readonly d = 4;
+  static s = 5;
+  sum(): number { return this.a + this.b + this.c + this.d + A.s; }
+}
+class B extends A {
+  override sum(): number { return super.sum() * 10; }
+  static s = 50;
+}
+console.log(new A().sum(), new B().sum(), B.s, A.s);
+`,
+  },
+  {
+    id: "ex-implements-and-heritage",
+    title: "implements 多个接口 + 接口继承",
+    src: `
+interface Named { name: string }
+interface Aged { age: number }
+interface Employee extends Named, Aged { id: number }
+class Person implements Named, Aged {
+  constructor(public name: string, public age: number) {}
+}
+const e: Employee = { name: "k", age: 1, id: 2 };
+const p = new Person("a", 3);
+console.log(p.name, p.age, e.id, e.name);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-index-and-call-signatures",
+    title: "索引签名 + 调用签名 + 构造签名（都是类型位）",
+    src: `
+interface Dict { [k: string]: number }
+interface Fn { (a: number): number; tag: string }
+interface Ctor { new (n: number): { n: number } }
+const d: Dict = { a: 1, b: 2 };
+const f: Fn = Object.assign((n: number) => n + 1, { tag: "t" });
+const C: Ctor = class { n: number; constructor(n: number) { this.n = n; } };
+console.log(d.a + d["b"], f(1), f.tag, new C(4).n);
+`,
+  },
+  {
+    id: "ex-angle-bracket-assertion",
+    title: "尖括号断言 `<T>expr`（与 `as` 同一个意思）",
+    src: `
+const v: any = "abc";
+console.log((<string>v).length, (<number>(<any>1)) + 1);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-never-unknown-void-any",
+    title: "never / unknown / void / any 四个特殊类型",
+    src: `
+function fail(msg: string): never { throw new Error(msg); }
+function logIt(v: unknown): void { console.log("v", v); }
+const a: any = 1;
+logIt(a);
+logIt(undefined);
+console.log(typeof fail, a, typeof logIt);
+try { fail("boom"); } catch (e) { console.log((e as Error).message); }
+`,
+  },
+  {
+    id: "ex-as-const",
+    title: "`as const`：字面量数组/对象照常跑",
+    src: `
+const dirs = ["up", "down"] as const;
+const cfg = { level: 2, name: "x" } as const;
+console.log(dirs[0], dirs.length, dirs.join(","), cfg.level, cfg.name);
+`,
+  },
+  {
+    id: "ex-readonly-arrays-tuples",
+    title: "readonly 数组 / 元组 / 具名元组成员 / 变长元素",
+    src: `
+const xs: readonly number[] = [1, 2, 3];
+const t: readonly [number, string] = [1, "a"];
+const tup: [a: number, b?: string, ...rest: number[]] = [1, "z", 3, 4];
+console.log(xs.length, t[1], tup[0], tup[2], xs.reduce((a, b) => a + b, 0));
+`,
+  },
+  {
+    id: "ex-type-predicate-and-assertion",
+    title: "类型谓词 `v is T` 与断言函数 `asserts v`",
+    src: `
+function isString(v: unknown): v is string { return typeof v === "string"; }
+function assert(v: unknown): asserts v { if (!v) throw new Error("no"); }
+const xs: unknown[] = [1, "a", true, "b"];
+console.log(xs.filter(isString).length, xs.filter(isString).join(""));
+assert(1);
+console.log("asserted");
+`,
+  },
+  {
+    id: "ex-this-parameter",
+    title: "`this` 形参（类型位，但调用要真的换 this）",
+    src: `
+function read(this: { n: number }, k: number): number { return this.n + k; }
+const box = { n: 10 };
+console.log(read.call(box, 1));
+console.log(read.apply(box, [2]));
+`,
+  },
+  {
+    id: "ex-generic-constraints-defaults",
+    title: "泛型约束 + 默认类型参数 + 多参数",
+    src: `
+function pick<T, K extends keyof T = keyof T>(o: T, k: K): T[K] { return o[k]; }
+class Pair<A, B = A> { constructor(public first: A, public second: B) {} }
+console.log(pick({ a: 1, b: "s" }, "a"), new Pair(1, "x").second, new Pair(2, 3).first);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-keyof-typeof-types",
+    title: "`keyof` / `typeof` 在类型位，`in` 作类型映射",
+    src: `
+const cfg = { a: 1, b: "s" };
+type Cfg = typeof cfg;
+type K = keyof Cfg;
+type Mapped = { [P in K]: Cfg[P] };
+const m: Mapped = { a: 2, b: "t" };
+console.log(m.a, m.b, Object.keys(m).join(","));
+`,
+  },
+  {
+    id: "ex-conditional-mapped-types",
+    title: "条件类型 + 映射类型 + 模板字面量类型（只在类型位）",
+    src: `
+type IsString<T> = T extends string ? "yes" : "no";
+type Wrap<T> = { [K in keyof T]: T[K] };
+type Event = \`on\${"Click" | "Hover"}\`;
+type A = IsString<string>;
+type B = IsString<number>;
+const w: Wrap<{ n: number }> = { n: 1 };
+const ev: Event = "onClick";
+console.log(w.n, ev, 1 as any satisfies number);
+`,
+  },
+  {
+    id: "ex-enum-in-switch",
+    title: "enum 当 switch 的分派键（**函数体里**用枚举名）",
+    src: `
+enum Kind { A = "a", B = "b", C = "c" }
+function weight(k: Kind): number {
+  switch (k) {
+    case Kind.A: return 1;
+    case Kind.B: return 2;
+    case Kind.C: return 3;
+    default: return 0;
+  }
+}
+console.log(weight(Kind.A), weight(Kind.B), weight(Kind.C), Kind.B);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-enum-computed-initializer",
+    title: "enum 成员的初始化式是算出来的（反向映射那一格）",
+    src: `
+const BASE = 10;
+enum E { A = BASE, B = BASE * 2, C = 1 + 1 }
+console.log(E.A, E.B, E.C, E[10], E[20], E[2]);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-delete-optional-chain",
+    title: "`delete` 落在可选链与计算键上",
+    src: `
+const o: any = { a: { b: 1 }, c: 2 };
+console.log(delete o?.a?.b, o.a.b);
+console.log(delete o?.zzz, delete o["c"], Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "ex-object-literal-accessors",
+    title: "对象字面量里的 get / set（含计算键）",
+    src: `
+let stored = 0;
+const key = "v";
+const o: any = {
+  get v() { return stored; },
+  set v(x: number) { stored = x * 2; },
+  get [key + "2"]() { return stored + 1000; },
+  n: 1,
+};
+o.v = 5;
+console.log(o.v, o.v2, o.n, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "ex-arrow-returning-object",
+    title: "箭头函数直接返回对象字面量 / 再套一层箭头",
+    src: `
+const make = (n: number) => ({ n, id: "x" + n });
+const nested = () => () => ({ a: 1 });
+const withBody = (n: number) => { return { n }; };
+console.log(make(1).n, make(2).id, nested()().a, withBody(3).n);
+`,
+  },
+  {
+    id: "ex-class-expression-extends",
+    title: "类表达式继承 + 用 `super` + instanceof",
+    src: `
+class Base { m(): string { return "base"; } }
+const Sub = class extends Base { m(): string { return "sub:" + super.m(); } };
+const Named = class Self extends Base { m(): string { return "named"; } };
+const s = new Sub();
+console.log(s.m(), s instanceof Base, new Named().m());
+`,
+  },
+  {
+    id: "ex-computed-class-members",
+    title: "类里的计算成员名：方法 / 访问器 / 静态",
+    src: `
+const m = "run";
+const g = "val";
+class C {
+  [m](): number { return 1; }
+  get [g](): number { return 2; }
+  static ["make"](): string { return "s"; }
+}
+console.log(new C().run(), (new C() as any).val, C.make(), Object.getOwnPropertyNames(C.prototype).join(","));
+`,
+  },
+  {
+    id: "ex-function-decl-in-block",
+    title: "块里的函数声明：块内可见、块外不泄漏",
+    src: `
+if (true) { function f(): string { return "in if"; } console.log(f()); }
+function outer(): string { { function g(): string { return "in block"; } return g(); } }
+console.log(outer(), typeof f);
+`,
+  },
+  {
+    id: "ex-switch-no-default",
+    title: "switch 没有 default / 只有 default / 空体",
+    src: `
+function f(n: number): string {
+  let out = "";
+  switch (n) {
+    case 1: out += "one";
+    case 2: out += "two"; break;
+    case 3: out += "three";
+  }
+  return out === "" ? "none" : out;
+}
+function g(n: number): string { switch (n) { default: return "d"; } }
+function h(): string { switch (1) { } return "empty"; }
+console.log(f(1), f(2), f(3), f(9), g(1), h());
+`,
+  },
+  {
+    id: "ex-try-only-finally",
+    title: "只有 finally 的 try（没有 catch）",
+    src: `
+function f(): number {
+  let n = 0;
+  try { n = 1; } finally { n += 10; }
+  return n;
+}
+function g(): string {
+  try { return "early"; } finally { console.log("g finally"); }
+}
+console.log(f(), g());
+`,
+  },
+  {
+    id: "ex-string-raw-and-tagged",
+    title: "`String.raw` 与标签模板的 `raw` 那一栏",
+    src: `
+function tag(parts: any): string { return parts.raw[0] + "|" + parts[0]; }
+console.log(String.raw\`a\\nb\`.length, "a\\nb".length);
+console.log(tag\`c\\td\`);
+console.log(String.raw\`x\${1}y\`);
+`,
+  },
+  {
+    id: "ex-in-operator-narrowing",
+    title: "`in` 当类型守卫（值位照常跑）",
+    src: `
+type A = { kind: "a"; x: number };
+type B = { kind: "b"; y: string };
+function f(v: A | B): string { return "x" in v ? "x=" + v.x : "y=" + v.y; }
+console.log(f({ kind: "a", x: 1 }), f({ kind: "b", y: "s" }));
+console.log("x" in { x: 1 }, "toString" in {});
+`,
+  },
+  {
+    id: "ex-interface-merging",
+    title: "同名 interface 合并（纯类型位，合并后形状要能用）",
+    src: `
+interface I { a: number }
+interface I { b: string }
+interface J extends I { c: boolean }
+const v: J = { a: 1, b: "s", c: true };
+console.log(v.a, v.b, v.c);
+`,
+  },
+  {
+    id: "ex-class-field-definite-and-optional",
+    title: "`n!: number` 与 `m?: string` 两种字段声明",
+    src: `
+class C {
+  n!: number;
+  m?: string;
+  o: number = 0;
+  init(): void { this.n = 1; }
+}
+const c = new C();
+c.init();
+console.log(c.n, c.m, c.o, "m" in c, JSON.stringify(c));
+`,
+  },
+  {
+    id: "ex-abstract-implements",
+    title: "abstract class 被 implements / 抽象成员被子类实现",
+    src: `
+interface Shape { area(): number }
+abstract class Base implements Shape {
+  abstract area(): number;
+  describe(): string { return "area=" + this.area().toFixed(1); }
+}
+class Sq extends Base { constructor(private s: number) { super(); } area(): number { return this.s * this.s; } }
+console.log(new Sq(3).describe());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-optional-params-and-rest",
+    title: "可选形参 + 剩余形参 + 实参少于形参",
+    src: `
+function f(a: number, b?: number, ...rest: number[]): string {
+  return [a, b, rest.length, rest.join("")].join("/");
+}
+console.log(f(1), f(1, 2), f(1, 2, 3, 4), f(1, undefined, 5));
+const g = (x: number, y = 10) => x + y;
+console.log(g(1), g(1, 2), g(1, undefined));
+`,
+  },
+  {
+    id: "ex-tagged-template-suffix-forms",
+    title: "标签模板后面接的属性 / 下标 / 调用",
+    src: `
+const tag = (s: any, ...v: any[]) => ({ text: s.join("|") + v.join(""), len: s[0].length });
+const r: any = tag\`ab\${1}c\`;
+console.log(r.text, r.len);
+const arr = [tag\`x\`, tag\`y\`];
+console.log(arr.length, arr[1].text);
+function wrap(f: any): any { return f\`p\`; }
+console.log(wrap(tag).text);
+`,
+  },
+  {
+    id: "ex-nested-namespace-type-only",
+    title: "namespace 只用类型位的那一半（`export type` / `export interface`）",
+    src: `
+namespace Types {
+  export type Id = string | number;
+  export interface Box { v: number }
+}
+const id: Types.Id = 1;
+const b: Types.Box = { v: 2 };
+console.log(id, b.v);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-modifier-argument-expressions",
+    title: "实参位里的各种表达式：三元 / 逻辑 / 展开 / 逗号",
+    src: `
+function f(...xs: any[]): string { return xs.join("|"); }
+const flags = [1, 2];
+console.log(f(true ? "t" : "f", null ?? "n", 0 || "o", ...flags, (1, 2)));
+console.log(f([1, 2].length, { a: 1 }.a, typeof 1));
+`,
+  },
+  {
+    id: "ex-class-field-init-this-and-arrow",
+    title: "字段初始化式里用 `this` 与箭头函数捕获 `this`",
+    src: `
+class C {
+  n = 5;
+  doubled = this.n * 2;
+  arrow = () => this.n + 1;
+  m(): number { return this.arrow(); }
+}
+const c = new C();
+console.log(c.doubled, c.arrow(), c.m(), c.n);
+const detached = c.arrow;
+console.log(detached());
+`,
+  },
+  {
+    id: "ex-getter-setter-inheritance-chain",
+    title: "三层继承里的访问器与 `super` 链",
+    src: `
+class A { get v(): number { return 1; } }
+class B extends A { get v(): number { return super.v + 10; } }
+class C extends B { get v(): number { return super.v + 100; } }
+console.log(new A().v, new B().v, new C().v);
+`,
+  },
 ];

@@ -8,6 +8,11 @@
 `node`（裁判）与 `build/ts/tsrun.js`（被测），比 **stdout 逐字节 + 退出码**。
 覆盖度 = **过关的条数 / 矩阵条数**（按层加权）。
 
+**分母是活的，而且它比分子重要** ✗：矩阵只装「**普通 `.ts` 里会出现什么**」✓，
+不装「我们碰巧实现了什么」✓。第 273 轮就是照这一条把矩阵从 275 条铺到 395 条 ✓——
+读数当场从 90.7% 掉到 84.3% ✓，而**两个数都真** ✓：前者量的是一张窄矩阵 ✗，
+后者才是那个问题的答案 ✓。所以「看到百分比下降先别慌 ✓，先看分母是不是变诚实了 ✓」。
+
 ## 进度曲线（每一轮结束后跑一次整矩阵的读数）
 
 **这是本仓唯一一个「进度」读数** ✓——其余百分比都是折算 ✓。表里的每一行都有对应的
@@ -19,19 +24,34 @@
 每一条都写清**根子在哪个文件的哪个符号** ✓，以及**为什么它不是顺手就能改的** ✓。
 这一栏里每一条都是**量过、读过、想清楚**才写下来的 ✗ 不是猜 ✓；按「普通 `.ts` 里有多常见」排 ✓。
 
-| # | 缺口 | 入口（文件 · 符号） | 难点 / 已经想到的路 |
+**第 273 轮把这一栏整个重铺了一遍** ✓——原来那 11 条里有 9 条已经修掉了 ✓，而矩阵同时从
+275 条加宽到 395 条 ✓，于是缺口清单也换成了下面这一份 ✓（**按根子分组** ✓：同一组的修法一样 ✓，
+一起做才不白付 ✓）。读数见 `report.json`（哪一条没过、为什么，一条一行 ✓）。
+
+| # | 缺口（条数） | 入口（文件 · 符号） | 难点 / 已经想到的路 |
 | --- | --- | --- | --- |
-| 1 | 回调里抛的异常没有立刻中断内建的循环 | `runtime/vm.xl.md` · `CallNative` 的第 3 条前提 | 那条前提只对 **rt 算子**成立 ✗；语言内建是宿主的 JS 循环 ✓，拿到 `undefined` 会接着转 ✗。要「**幂等**地停」✓（把状态里已记录的那份原样交出去 ✓）——「从内建抛宿主异常」那条路第 153 轮已被证伪 ✗ |
-| 2 | `Function.prototype.call` / `apply` / `bind` | 与 #1 **同一条通道**（`NativeCall`）+ `install.xl.md` 的语言内建号段 | 引擎的 `Op.Call` 本来就带 `this` 操作数 ✓，机制现成 ✓——难的是它与 #1 共用同一条通道 ✓，**一起做才不白付** ✓ |
-| 3 | `typeof <对象字面量>` 那一族 | `typescript/` 的重组队列（`typeof` 被留成了兄弟单元 `TypeOfKeyword` ✗） | 与第 205 轮那个私有名**同一类根子** ✓；判据 `cases:tsast` 1442 条现成 ✓，改完当场知道对不对 ✓ |
-| 4 | 语言层的 `throw` 没有类别 | **第 227 轮做掉了一半**：`install.xl.md` 的 `RaiseFromHost` 现在按**宿主异常的类**映射到脚本的族 ✓（`TypeError` ⇒ `TypeError` 族 ✓、`RangeError` ⇒ `RangeError` 族 ✓、其余 ⇒ `Error` ✓），`array.xl.md` 的空数组 `reduce` 改抛宿主 `TypeError` ⇒ 判据 `array-reduce` **通过** ✓。**还剩两处**：`symbol-concat-throws`（`"x" + Symbol()` ✓，抛点在拼接 / `TextUnitsOf` 那条路上 ✓）与 `error-engine-throws`（调一个非函数的值 ✓，`vm.xl.md` 的 `CallNative` 里那段注释写着它为什么今天接不住 ✓） |
-| 5 | 生成器对象的 `next()` | `install.xl.md` 的迭代那一段 ✓ | `for..of` / 展开两条路是好的 ✓（引擎那张 `drain` ✓），缺的是**直接调 `next()`** ✗——4 条判据拖着它 ✓ |
-| 6 | `super.v` 属性访问 | `typescript-exec/lowering.xl.md` 成员读那一支（`super.m(...)` 的兄弟 ✓，第 104 轮 ✓） | 要「**从父原型开始找 + `this` 是实例**」✓，而 `GetProperty` 从接收者起找 ✗、`FindProperty` + `ReadProperty` 凑不到一起 ✗ ⇒ 要给引擎加一条**带接收者的原型起读** ✓（`props.xl.md` ✓） |
-| 7 | `Symbol.description` | `runtime/props.xl.md` · `Protos`（**没有符号那一格** ✗） | 先给引擎加**符号原型** ✓（与 `Number.prototype` 让原始值读得到方法同源 ✓），再在 `globals.xl.md` 用 `DefineAccessor` 挂访问器 ✓ |
-| 8 | `Object.freeze` 的数组元素 | `runtime/heap.xl.md` · `HeapArray` 的写路径（**写屏障** ✗） | 引擎级的活 ✓ |
-| 9 | 标准库剩的几格 | `typescript-exec/builtins/globals.xl.md` ✓ | `Object.prototype.toString` 的其余标签 ✓、`global-array-object-ctors` 的 `as` 形状 ✓、`[...cond ? a : b]` ✓ |
-| 10 | `gc-churn` 的步数预算 | `runtime/vm.xl.md` · 步数预算 ✓ | 两万次普通循环就耗尽 ✓ |
-| 11 | 异步那一族 | `typescript-exec/builtins/promise.xl.md` ✓ | `await` 非承诺值 ✓、`async` 里 `throw` 不成拒绝 ✓、`Promise.all` 里非承诺的项 ✓、`new Promise(执行器)` ✓ |
+| 1 | **标准库「成员不在那儿」（17 条）**：`reduceRight` · `copyWithin` · `findLast`/`findLastIndex` · `toSorted`/`toReversed`/`with` · 数组迭代器的 `next()` · `trimStart`/`trimEnd` · `String.fromCodePoint` · `String.raw` · `Math.imul`/`clz32`/`fround` · `Math.expm1`/`sinh`/`cosh`/`tanh`/`log2`/`log10`/`log1p` · `Object.is` · `Object.getOwnPropertyDescriptor` · `Object.seal`/`isSealed`/`defineProperties` · `JSON.parse` 的 reviver · `JSON.stringify` 的 replacer · `Symbol.for`/`keyFor` · `Date.toISOString`/`toJSON`/`Date.UTC`/`setUTC*`/`new Date(字符串)` · `SyntaxError` 那一族不是全局名 | `typescript-exec/builtins/*.xl.md` 的 `entries` 表 | **这一组最便宜** ✓：全是「往表里挂一格」的活 ✓。`Object.is` 尤其现成 ✓（`SameValue` 的判据第 207 轮就在 ✓）；`reduceRight` / `findLast` 与它们正向的兄弟**共用一段实现** ✓；`SyntaxError` 那一族还牵着一处：**读一个未声明的全局名在降级期就抛** ✗（`CollectDeclaredNames`），那是「全局名表」这一层的口径 ✓ |
+| 2 | **async 那一族（9 条）** | `typescript-exec/builtins/promise.xl.md` · `runtime/vm.xl.md` 的 `RunNativeTask` 收尾 | **最深的一处，也是 e2e 那三条全挂在它上面** ✗。`.then` 回调跑完之后收尾就出事 ✓（探针证明 `AdoptInto` **一次都没被触达** ✓）；要连着「`async` 函数返回承诺」一起做 ✓（第 229 轮只做「包一个已兑现承诺」那一半，判据当场红两条 ✓，退回来了 ✓） |
+| 3 | **静态成员不随 `extends` 走（2 条）** | `typescript-exec/lowering.xl.md` 类降级建 `extends` 那一段 + `props.xl.md` | JS 的 `extends` 是**两步** ✓（原型链 **加** 把子构造函数自己的 `[[Prototype]]` 接到父构造函数 ✓），只做了前一步 ✗。连带 `super` 在**静态**成员里要从**父构造函数**起读 ✓——第 243 轮的 `GetPropFrom` 起点那一格要按「静态 / 实例」分两种 ✓ |
+| 4 | **`implements` 子句被当成值（2 条）** | `typescript-exec/lowering.xl.md` 认 `heritageClauses` 那一支 | 只认了 `extends` ✗（同一个数组的第二格是 `implements` ✓）。**是「少认一格」，不是「要新造机制」** ✓ |
+| 5 | **枚举那两处（2 条）** | `typescript-exec/scope.xl.md` 的 `CollectDeclaredNames` / `Hoist` + `lowering.xl.md` 的 `LowerEnum` | ① 枚举名在**函数体里**看不见 ✗（顶层用是好的 ✓）——名字只进了最外那一层 ✓；② 反向映射只认「没有初始化式」与「数值字面量」两档 ✗（`A = 1 + 1` 不挂 ✓，第 230 轮自己写下的已知差 ✓） |
+| 6 | **`namespace` 那一半：整块都是类型位的该擦掉（1 条）** | `typescript-exec/lowering.xl.md` 的 `LowerStatement(ModuleDeclaration)` | 与「`namespace` 没做」不是一回事 ✗：体内**一个运行期东西都没有** ✓（`export type` / `export interface`）⇒ 正确结局是**一个指令都不产生** ✓。缺的是「先问体内有没有运行期东西」这一问 ✓ |
+| 7 | **投影不认的两种形状（2 条）** | token 层 / `typescript/ts-ast.xl.md` | ① 尖括号断言 `<T>expr`（TS 的 AST 里与 `as` 是**两个 kind** ✓，只认了后者 ✗）；② 对象字面量里的**计算访问器名**（`get [k + "2"]()` ✗——普通计算方法名是好的 ✓）。**改完 `cases:tsast` 当场知道对不对** ✓ |
+| 8 | **`typeof` 的类表达式操作数（1 条）** | `typescript/` 的重组队列（`typeof` 被留成了兄弟单元 ✗） | 与第 233 轮 `typeof {}` **同一族** ✓（那时补的是「后面跟 `{`」那一格 ✓）——`typeof` 的操作数位还不全 ✓ |
+| 9 | **`new` 一个常量里的类表达式（1 条）** | `typescript-exec/lowering.xl.md` 的 `DoNew` + 类表达式降级 | 实测分得很清 ✓：类**声明**赋给常量是对的 ✓、**类表达式**赋给常量不跑构造函数 ✗；`instanceof` 反而对 ✓ |
+| 10 | **字符串按码元迭代（1 条）** | `runtime/vm.xl.md` 的字符串迭代那一支 | `[...s]` 该一次一个**码点** ✓（代理对合起来 ✓），本仓一次一个码元 ✗ |
+| 11 | **标准库「在、但语义不对」（3 条）** | `builtins/array.xl.md` · `globals.xl.md` | **静默错值** ✓，比 #1 危险 ✗：`includes` 的第二格实参（起始下标）被忽略 ✓、`flat(0)` 掉进 `depth \|\| 1` ✓、`Math.abs(-0)` 给 `-0` ✓ |
+| 12 | **函数当 `ToPrimitive` / 两个属性（2 条）** | 降级层按区间抄源码文本 + `heap.xl.md` 的闭包那一格 | `fn.toString()` / `String(fn)` 要给**源码文本** ✓（与 `ex-tagged-template-suffix` 同一个根 ✓）；`fn.length` / `fn.name` 属性读那一面还没有 ✓（第 238 轮补的是**内部**那一格 ✓，供 `console.log` 用 ✓） |
+| 13 | **`Object.freeze` 的写屏障（2 条）** | `runtime/heap.xl.md` · `HeapArray` 的写路径 | 引擎级的活 ✓ |
+| 14 | **具名函数表达式的名字（1 条）** | `typescript-exec/scope.xl.md` | 名字该只在**函数体内**可见 ✓ |
+| 15 | **`gc-churn` 的步数预算（1 条）** | `runtime/vm.xl.md` · 步数预算 | 两万次普通循环就耗尽 ✓ |
+
+**两处「口径边界」不算缺口** ✓（它们**注定**逐字节对不上 ✓，进了缺口单只会让百分比不可信 ✗）：
+`Object.freeze` 之后写属性 / 只读访问器上赋值（本仓一律抛，那是**严格模式**的选择 ✓；
+`node` 把 `.ts` 当 CJS 跑是**松散模式** ✓ 静默失败 ✓）、
+`console.log(new Error("x"))`（Node 打的是**栈** ✓，路径与行号由宿主决定 ✓）。
+这三条留在矩阵里**看得见** ✓，但**不当作「还差多少」** ✓。
+
 
 | 轮 | 整体 | 引擎 | 降级层 | 标准库 | 端到端 | 条数 | 这一轮动的格子 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -66,6 +86,11 @@
 | 246 | **89.6%** | 94.3% | 91.5% | **92.7%** | 76.9% | **254 / 275** | 「调一个不是函数的东西」要能被脚本接住：两处入口都让那一抛带上 TypeError 类别（三条 runtime:check 断言按新口径改过） |
 | 247 | **90.0%** | **95.3%** | 91.5% | **93.6%** | 76.9% | **256 / 275** | `Promise.all` 里不是承诺的那几项要当「已经兑现为它自己」（包一个已兑现的承诺）——两条判据一起通 |
 | 270 | **90.7%** | 95.3% | **93.6%** | 93.6% | 76.9% | **257 / 275** | `#n in o` 私有名的品牌检查：本仓的私有名就是属性名（`KeyUnitsOf` 取 `text`）⇒ 照 `in` 那一支办 |
+| 273 | **84.3%** | 93.9% | 85.0% | 79.9% | 76.9% | **340 / 395** | **矩阵加宽 120 条**（275 → 395）：**先普查、再收编**——候选先逐条交给 `node` 与 `tsrun` 各跑一遍，只留裁判跑得动的；120 条里 **83 条当场通过**、**37 条是新量到的缺口**。读数因此从 90.7% **落到 84.3%**——那是**分母变诚实** ✓ 不是倒退 ✓（分母 +44%）。37 条按**根子**分成 15 组写进 `expectations.mjs`，最大两组是**标准库「成员不在那儿」17 条**与 **`async` 那一族 9 条** |
+
+> **第 273 轮的意义就是这一句** ✓：90.7% 量的是一张**只装了「已经想到的形状」**的矩阵 ✓；
+> 加宽之后再量，同一个实现是 **84.3%** ✓。两个数都真 ✓，后者才是「一份普通 `.ts` 交给
+> `tsrun` 能跑对多少」的答案 ✓。**下一步的路由 `report.json` 那张清单决定** ✓。
 
 **两处「口径边界」不算缺口** ✓（它们**注定**逐字节对不上 ✓，进了缺口单只会让百分比不可信 ✗）：
 `Object.freeze` 之后写属性（本仓抛 / `node` 把 `.ts` 当 CJS 跑是松散模式 ✓）、
@@ -80,6 +105,27 @@ node tests/coverage/run.mjs --verbose           # 每条一行（含耗时）
 node tests/coverage/run.mjs --strict            # 只要有一条不是 pass 就红
 node tests/coverage/run.mjs --emit-expectations # 按现状打一份台账骨架（给人改）
 ```
+
+### 怎么**加宽**矩阵（第 273 轮起是一条固定工序）
+
+分母比分子重要 ✓，所以「加语料」不是随手往 `cases/*.mjs` 里塞 ✗——先**普查** ✓：
+
+```bash
+# 1. 候选写在一个临时 .mjs 里（形状与 cases/*.mjs 一模一样：导出几个数组、每项 { id, title, src }）
+# 2. 先量一遍：只留下裁判跑得动的，同时把缺口一次看全
+node tests/coverage/sweep.mjs tmp-cand.mjs
+node tests/coverage/sweep.mjs tmp-cand.mjs --json tmp-sweep.json   # 逐条读数落成 JSON
+# 3. 把候选整批收进 cases/{runtime,exec,stdlib}.mjs（pass 的照原样、缺口的也收）
+npm run coverage                                                  # 拿新的读数
+node tests/coverage/run.mjs --emit-expectations                   # 按现状打一份台账骨架
+# 4. 把骨架贴进 expectations.mjs——但 why 那一栏要**人写**（写根子，不是抄 stderr）
+```
+
+**为什么加宽要单独一个工具** ✗：`run.mjs` 量的是**矩阵** ✓，它要求每条都有账 ✓，
+没登记的没过就是 `REGRESSION`（红 ✓）；而加宽的第一步恰好**还不知道哪些会过** ✗——
+拿 `run.mjs` 去试会得到一片红 ✗，红里混着「真坏了」与「本来就还没做」✓，读不出东西 ✗。
+`sweep.mjs` 的口径与它**完全相同** ✓（stdout 逐字节 + 退出码 + 真 `node` 当裁判 ✓），
+只是**不写读数、不看台账、不红** ✓。
 
 ## 四层与权重
 
@@ -133,14 +179,15 @@ node tests/coverage/run.mjs --emit-expectations # 按现状打一份台账骨架
 5. **产物新鲜度**：规范比产物新就直接红（与 `runtime:check` / `runtime:cli` 同一条规矩）——
    判据读的是 `build/**/*.js`，跳过 `xl build --force` 量的是上一版。
 
-## 与另外三条判据的分工
+## 与另外四条判据的分工
 
 | 判据 | 量什么 | 现在 |
 | --- | --- | --- |
 | `npm run runtime:check` | 引擎的**机制**（IR / 堆 / GC / 帧 / 宿主） | 241 条 |
 | `npm run runtime:cli` | **必须全过**的端到端语料（过不了的进不去） | 79 份 |
 | `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍** | 1442 条 |
-| **`npm run coverage`** | **场景覆盖面**（含「现在过不了」的那些） | 273 条 |
+| `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） | 1048 条 |
+| **`npm run coverage`** | **场景覆盖面**（含「现在过不了」的那些） | **395 条**（第 273 轮加宽前是 275 条） |
 
-前三条是**门**（过不了就红），这一条是**尺**——它把「还差多少」变成可复现的读数，
+前四条是**门**（过不了就红），这一条是**尺**——它把「还差多少」变成可复现的读数，
 并把每一格的缺口写成一张**带原因的清单**（`report.json`）。
