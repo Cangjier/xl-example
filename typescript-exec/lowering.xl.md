@@ -957,6 +957,17 @@ this.IsDefault = isDefault;
 ```ts
 const clauses = ListOf(node, "heritageClauses");
 for (let i = 0; i < clauses.length; i++) {
+  // **只看 `extends` 那一条** ✗（第 281 轮 ✓）：`implements` 那一条投影出来与它**形状一样** ✓
+  //（都只有 `types` ✓），而原来这一版取的是**第一条能找到名字的子句** ✗——
+  // 于是 `class Person implements Named, Aged` 把 `Named`（一个**接口** ✓）当成了父类 ✓，
+  // 紧接着 `ResolveAccess("Named")` 报 `name is not a local or a capture: Named` ✓
+  //（**响亮** ✓，可那句话听起来像脚本写错了变量名 ✗，离真相很远 ✓）。
+  // **判据是 `token` 那一格** ✓（`ts-ast` 侧第 281 轮把它收进了投影 ✓，
+  // 理由写在 `heritage-clause.xl.md` 的 `PrintAst` 里 ✓）。
+  // **没有 `token` 就跳过** ✓（老产物 / 别处造的树 ✓）：跳过的后果是「找不到父类」✓，
+  // 而**当成 `extends`** 的后果是「把接口当父类」✗——**两个都不是好事 ✓，
+  // 但前者是静默地少一件事 ✓、后者是响亮地错一件事 ✗**，所以取前者 ✓。
+  if (clauses[i]["token"] !== "extends") continue;
   const types = ListOf(clauses[i], "types");
   for (let j = 0; j < types.length; j++) {
     const base = Child(types[j], "expression");

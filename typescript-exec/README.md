@@ -289,6 +289,70 @@
 **而三行现场（`class E { private h = new Map(); }`）是验证这一点最省事的一条** ✓——
 它没有异步 ✓、没有闭包 ✓，**数一遍 `EmitFieldDefaults` 前后的 `NextFree` 就能证实或否掉** ✓。
 
+### 第 281 轮的账（**`implements` 那一族 —— 以及「信息在上一层就丢了」**）
+
+**这一轮收的是同一个根的两条** ✓（`ex-implements-and-heritage` 与 `ex-abstract-implements` ✓）。
+
+**① 第 273 轮写下的诊断是错的** ✗
+
+那一版记的是「TS 的 `heritageClauses` 里 `extends` 与 `implements` 是两格，只认了 `extends`」✓——
+**前半句对** ✓（确实是同一个数组 ✓），**后半句不对** ✗：
+`SuperClassNameOf` 取的是**第一条能找到名字的子句** ✓——
+而 `class Person implements Named, Aged` **只有一条子句**（`implements` ✓），
+于是它把 `Named`（一个**接口** ✓）当成了父类 ✓，
+紧接着 `ResolveAccess("Named")` 报 `name is not a local or a capture: Named` ✓。
+**那句话听起来像脚本写错了变量名** ✗（与第 277 轮 `SyntaxError` 那一格是同一个形状 ✓）。
+
+**② 难点不在降级层** ✗
+
+修法看着像「按子句种类过滤」✓——可**降级层拿不到那个信息** ✗：
+两条子句投影出来**形状完全一样** ✓（都只有 `types` ✓，`ExpressionWithTypeArguments` ✓），
+所以「哪一条是 `extends`」在那一层**无从回答** ✗。
+
+**信息是在投影那一头丢的** ✗：`ts-ast` 侧那个 `PrintAst` 按 TS 的 `forEachChild` 口径
+**把子句词滤掉了** ✓——那一滤是对的 ✓（不加的话投影会多出 **2192 个** `ExtendsKeyword` 节点 ✓），
+可它同时也**只保留了 `types`** ✗，于是 `token` 那一格（TS 的 `HeritageClause`
+明明有 ✓）就没进来 ✓。
+
+**③ 修法：把子句词作为属性收进投影，而不是留在 `types` 里** ✓
+
+这一轮把它收成 **`token`** ✓（名字照 TS ✓），值是**关键词文本** ✓——
+与这一层「kind 一律用名字」同一条口径 ✓（`"Identifier"` / `"ClassDeclaration"` 都是名字 ✓，
+不是 TS 的数字 ✓）。降级层再按 `token === "extends"` 过滤 ✓。
+
+**为什么这样改不破坏 `cases:tsast`** ✗：那一把尺子的「字段名」**只统计值里含节点的键** ✓
+（`childFieldsOf` 走 `ts.forEachChild` ✓，投影那一侧也只取「值是节点或节点数组」的键 ✓），
+而 `token` 是一个**字符串** ✓ ⇒ **节点集合一个都没变** ✓。
+实测：**1442 / 1442 逐文件完全一致** ✓，缺 / 漂移 / 多出 / 字段名**四方向全 0** ✓。
+
+**④ 顺带补了一份夹具** ✓
+
+`samples/declarations.expected.tsast.json` **钉着旧的投影形状** ✗（它就是干这个的 ✓：
+样本的 TS 形状逐字节对照 ✓）。这一轮跟着补了两处 `token` ✓——
+判据取自**源码区间** ✓（夹具里每个节点都带 `pos` / `end` ✓，
+所以「这一条是 `extends` 还是 `implements`」是从 `samples/declarations.ts` 里读出来的 ✓，
+不是手填的 ✓）。
+
+**⑤ 一条可复用的读法** ✓
+
+这一轮的形状与第 277 轮那个「属性读有两条路」是**一族** ✓：
+**答案在别处、而你要在错的那一层把它找出来** ✗。
+两轮的教训合起来是一句：**先问「这个信息还在不在我手里」** ✓——
+不在就**回到它还在的那一层**去取 ✓（第 277 轮是回引擎 ✓，这一轮是回投影 ✓），
+而不是在手上这一层**猜一个** ✗。
+
+**验收** ✓：`npm run coverage` 从 **361 / 395 = 87.8%** 到 **363 / 395 = 88.5%** ✓
+（降级层 85.0% → **87.5%** ✓）——两条转绿 ✓，
+`regressions` / `moved` / `bad` **三栏全空** ✓。
+这一轮动了**投影** ✓，所以解析侧那把尺子也重跑过 ✓：
+`cases:tsast` **1442 / 1442 完全一致** ✓、`cases:check` 0 不合格 ✓、`samples` 三份 ✓
+（其中一份跟着补了夹具 ✓）。
+另外照旧：`runtime:check` **241 条 0 失败** ✓、`runtime:cli` **79 / 79** ✓、
+`xl check` 177 文件 0 错 ✓。
+另写了一份**逐行对拍**的临时语料（6 行 ✓：多个接口的 `implements` ✓、**只有** `implements` ✓、
+`extends` 与 `implements` 同时出现 ✓、`abstract … implements` ✓、
+接口 `extends` 接口 ✓、带泛型的 `implements` ✓），**与 `node` 逐字节相同** ✓。
+
 ### 第 280 轮的账（**`Date` 的九个日历格 —— 以及「号撞车是静默的」**）
 
 **这一轮收的是 `Date` 家族剩下的那一半** ✓（`date-utc-setters` 过了 ✓、

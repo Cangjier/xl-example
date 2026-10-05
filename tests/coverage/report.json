@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 87.75,
+  "progressPercent": 88.5,
   "layers": [
     {
       "layer": "runtime",
@@ -34,11 +34,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 80,
-      "pass": 68,
-      "blocked": 9,
+      "pass": 70,
+      "blocked": 7,
       "differ": 3,
       "nodefail": 0,
-      "coverage": 85
+      "coverage": 87.5
     },
     {
       "layer": "stdlib",
@@ -105,12 +105,6 @@
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
     },
     {
-      "id": "ex-implements-and-heritage",
-      "layer": "exec",
-      "title": "implements 多个接口 + 接口继承",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
-    },
-    {
       "id": "ex-angle-bracket-assertion",
       "layer": "exec",
       "title": "尖括号断言 `<T>expr`（与 `as` 同一个意思）",
@@ -133,12 +127,6 @@
       "layer": "exec",
       "title": "`String.raw` 与标签模板的 `raw` 那一栏",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "ex-abstract-implements",
-      "layer": "exec",
-      "title": "abstract class 被 implements / 抽象成员被子类实现",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Shape"
     },
     {
       "id": "ex-nested-namespace-type-only",

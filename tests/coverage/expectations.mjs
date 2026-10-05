@@ -236,13 +236,22 @@ export const EXPECTATIONS = {
   //
   // 下面按**根子**分组 ✓（不是按 id 排 ✓）——同一组的修法一样 ✓，一起做才不白付 ✓。
   //
-  // ---- 组 1：`implements` 子句被当成值求值（2 条）----
-  // `class Person implements Named, Aged` 报 `name is not a local or a capture: Named` ✓。
-  // **`extends` 与 `implements` 在 TS 的 AST 里是同一个数组的两格** ✓
-  //（`heritageClauses[0]` / `[1]` ✓），而本仓只认了前者 ✗——后者的实体名被当**值**降级了 ✓，
-  // 于是「一个指令都不该产生」的类型位变成了一次**未声明名字的读** ✗。
-  "ex-implements-and-heritage": { expect: "blocked", why: "`implements` 子句被当成**值**降级（`name is not a local or a capture: Named`）：TS 的 `heritageClauses` 里 `extends` 与 `implements` 是两格，只认了 `extends`。入口 `typescript-exec/lowering.xl.md` 类降级认 heritage 那一支" },
-  "ex-abstract-implements": { expect: "blocked", why: "同 `implements` 那一处（`abstract class Base implements Shape`）——不是 abstract 的问题" },
+  // ---- 组 1：`implements` 子句被当成值求值（2 条）**第 281 轮清空了** ✓ ----
+  //
+  // **原来写的诊断是错的** ✗（第 273 轮那一版说的是「只认了 `extends` 那一格」✓）：
+  // 真相是 `SuperClassNameOf` 取的是**第一条能找到名字的子句** ✗——
+  // 而 `class Person implements Named, Aged` **只有 `implements` 一条** ✓，
+  // 于是它把 `Named`（一个**接口** ✓）当成了父类 ✓。
+  // **难点不在降级层** ✗：投影出来的两条子句**形状完全一样** ✓（都只有 `types` ✓），
+  // 所以「哪一条是 `extends`」在那一层**无从回答** ✗。
+  // **信息在投影那一头丢了** ✗：`PrintAst` 按 TS 的 `forEachChild` 口径把子句词
+  // **滤掉了** ✓（不加这一滤，投影会多出 2192 个 `ExtendsKeyword` 节点 ✓）——
+  // 可它也**只保留 `types`** ✓，于是 `token` 那一格（TS 里明明有 ✓）没了 ✗。
+  // **第 281 轮的修法**：把子句词作为 `token` 属性**收进投影** ✓（不进 `types` ✓，
+  // 所以节点集合一个都没变 ✓——`cases:tsast` 的「字段名」只统计**值里含节点**的键 ✓，
+  // 而它是字符串 ✓），降级层再按 `token === "extends"` 过滤 ✓。
+  // **顺带把一条老账修了** ✓：`samples/declarations.expected.tsast.json` 那份夹具
+  // 钉着旧的投影形状 ✓，跟着补了两处 `token` ✓。
 
   // ---- 组 2：枚举名在**函数体里**看不见（1 条）----
   // `ex-enum-numeric` 一直是绿的 ✓（它在**文件顶层**用 `Color` ✓）；这一条把同一件事放进
