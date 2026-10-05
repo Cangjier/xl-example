@@ -2817,4 +2817,194 @@ delete o[key];
 console.log(o.k, "k" in o);
 `,
   },
+  // ===== 第 291 轮加宽：exec / runtime / 标准库 三层一起铺 =====
+  {
+    id: "c291-rt-number-to-string-forms",
+    title: "数字取文本的几种量级",
+    src: `
+console.log(0.1 + 0.2, 1e21, 1e-7, 123456789.123456789);
+console.log((0.000001).toString(), (0.0000001).toString(), (-1e21).toString());
+`,
+  },
+  {
+    id: "c291-rt-array-pipeline-forms",
+    title: "数组管道的链式写法",
+    src: `
+const xs = [5, 3, 8, 1];
+console.log(xs.filter((n) => n > 2).map((n) => n * 2).reduce((a, b) => a + b, 0));
+console.log(xs.slice().sort((a, b) => a - b).join(","), xs.join(","));
+`,
+  },
+  {
+    id: "c291-rt-object-iteration-order",
+    title: "整数键在前、插入序在后的枚举顺序",
+    src: `
+const o: any = {};
+o.b = 1; o["2"] = 2; o.a = 3; o["1"] = 4;
+console.log(Object.keys(o).join(","), JSON.stringify(o));
+`,
+  },
+  {
+    id: "c291-rt-error-propagation-forms",
+    title: "错误的包装与 cause 的传播",
+    src: `
+function inner() { throw new RangeError("deep"); }
+function outer() { try { inner(); } catch (e) { throw new Error("wrapped", { cause: e }); } }
+try { outer(); } catch (e: any) { console.log(e.message, e.cause.message); }
+`,
+  },
+  {
+    id: "c291-rt-generator-forms",
+    title: "生成器：双向传值与三段返回",
+    src: `
+function* gen() { const x = yield 1; yield x * 2; }
+const g = gen();
+console.log(JSON.stringify(g.next()), JSON.stringify(g.next(5)), JSON.stringify(g.next()));
+`,
+  },
+  {
+    id: "c291-rt-class-shapes",
+    title: "类的字段 / 访问器 / 继承 / 静态成员的形状",
+    src: `
+class A { x = 1; static s = 2; get y() { return this.x + 1; } set y(v) { this.x = v; } }
+class B extends A { constructor() { super(); this.z = 3; } }
+const b = new B();
+console.log(b.x, b.y, b.z, A.s, b instanceof A, Object.getPrototypeOf(B) === A);
+`,
+  },
+  {
+    id: "c291-rt-json-roundtrip-shapes",
+    title: "JSON 往返：文本与解析回来的结构",
+    src: `
+const data = { list: [1, 2, 3], nested: { flag: true } };
+const text = JSON.stringify(data);
+console.log(text, JSON.parse(text).list.length);
+`,
+  },
+  {
+    id: "c291-rt-string-methods-chain",
+    title: "字符串方法链",
+    src: `
+console.log("  Hello World  ".trim().toLowerCase().replace(" ", "-").split("-").join("|"));
+`,
+  },
+  {
+    id: "c291-rt-closure-and-method-this",
+    title: "闭包里的 this 与方法调用",
+    src: `
+const obj = { v: 10, get() { return () => this.v; } };
+console.log(obj.get()());
+const o = { n: 1, inc() { this.n++; return this; } };
+console.log(o.inc().inc().n, o.n);
+`,
+  },
+  {
+    id: "c291-rt-iteration-protocol-forms",
+    title: "手写可迭代对象 + for..of",
+    src: `
+const arr = [1, 2, 3];
+const it = arr[Symbol.iterator]();
+let out = "";
+for (const v of { [Symbol.iterator]: () => it } as any) out += v;
+console.log(out);
+`,
+  },
+  {
+    id: "c291-rt-spread-and-rest-forms",
+    title: "剩余参数与展开实参",
+    src: `
+function sum(...xs: number[]) { return xs.reduce((a, b) => a + b, 0); }
+console.log(sum(...[1, 2, 3]), sum(1, ...[2, 3]), Math.max(...[1, 5, 3]));
+const [a, ...rest] = [1, 2, 3];
+console.log(a, rest.join(","));
+`,
+  },
+  {
+    id: "c291-rt-switch-and-fallthrough-forms",
+    title: "switch 的穿透与 default",
+    src: `
+function t(x: number) { let s = ""; switch (x) { case 1: s += "a"; case 2: s += "b"; break; default: s += "d"; } return s; }
+console.log(t(1), t(2), t(3));
+`,
+  },
+  {
+    id: "c291-rt-deep-recursion-forms",
+    title: "朴素递归的深度",
+    src: `
+function fib(n: number): number { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
+console.log(fib(20));
+`,
+  },
+  {
+    id: "c291-rt-prototype-and-inheritance-forms",
+    title: "三层继承与 super 方法链",
+    src: `
+class Base { m() { return "base"; } }
+class Mid extends Base { m() { return super.m() + "-mid"; } }
+class Leaf extends Mid { m() { return super.m() + "-leaf"; } }
+console.log(new Leaf().m(), new Leaf() instanceof Base);
+`,
+  },
+  {
+    id: "c291-rt-optional-and-nullish-forms",
+    title: "可选链与空值合并的几种位置",
+    src: `
+const o: any = { a: { b: null } };
+console.log(o?.a?.b ?? "d", o?.z?.y ?? "d2", o.a?.["b"] ?? "d3");
+console.log(o?.a?.b?.c, o.missing?.());
+`,
+  },
+  {
+    id: "c291-rt-numeric-edge-forms",
+    title: "浮点与安全整数边界",
+    src: `
+console.log(0.1 + 0.2 === 0.3, Math.abs(0.1 + 0.2 - 0.3) < 1e-10);
+console.log(Number.MAX_SAFE_INTEGER + 1 === Number.MAX_SAFE_INTEGER + 2);
+console.log(1 / 3, 2 ** 53, -(2 ** 53));
+`,
+  },
+  {
+    id: "c291-rt-string-unicode-forms",
+    title: "代理对在长度、展开、码点上的三种读法",
+    src: `
+const s = "a😀b";
+console.log(s.length, [...s].length, s.charCodeAt(1) > 255, s.codePointAt(1) > 65535);
+`,
+  },
+  {
+    id: "c291-rt-error-in-nested-callbacks",
+    title: "回调里抛出的中断与捕获",
+    src: `
+try {
+  [1, 2].forEach((v) => { if (v === 2) throw new Error("stop"); });
+} catch (e: any) { console.log("caught", e.message); }
+console.log("after");
+`,
+  },
+  {
+    id: "c291-rt-truthiness-table",
+    title: "真假值表的常用几格",
+    src: `
+const vals: any[] = [0, -0, "", "0", null, undefined, NaN, [], {}, () => 1];
+console.log(vals.map((v) => (v ? "T" : "F")).join(""));
+console.log(!!NaN, !!0, !![], !!{});
+`,
+  },
+  {
+    id: "c291-rt-equality-table",
+    title: "== 与 === 的对照表",
+    src: `
+console.log(null == undefined, null === undefined, 0 == "", 0 == false, "" == false);
+console.log(NaN == NaN, NaN === NaN, [] == false, [1] == 1, "1" == 1);
+`,
+  },
+  {
+    id: "c291-rt-object-key-order-and-json",
+    title: "键顺序在 Object.keys 与 JSON 上一致",
+    src: `
+const o: any = { z: 1, 10: 2, a: 3, 2: 4 };
+console.log(Object.keys(o).join(","));
+console.log(JSON.stringify(o));
+`,
+  },
 ];

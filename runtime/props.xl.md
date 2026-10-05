@@ -360,6 +360,26 @@ if (units[5] !== 104) return false;
 return true;
 ```
 
+# method IsNameKey:(table:HeapTable, key:Value)=>bool
+
+这个键是不是 `"name"`（第 291 轮 ✓）。
+
+**与 `IsLengthKey` 同一个写法、同一个理由** ✓（按码元逐个比 ✓，不造中间字符串 ✓）：
+闭包的 `fn.name` 是**结构属性** ✓（住在 `HeapClosure.Name` 上 ✓，不在属性表里 ✗）——
+与数组 / 字符串的 `length` 是同一档东西 ✓。**判定只写在这里一处** ✓
+（散成两份的话，总有一天一份会漂 ✓）。
+
+```ts
+if (key.Tag !== ValueTag.String) return false;
+const units = table.Get(key.Ref).AsString().Units;
+if (units.length !== 4) return false;
+if (units[0] !== 110) return false;
+if (units[1] !== 97) return false;
+if (units[2] !== 109) return false;
+if (units[3] !== 101) return false;
+return true;
+```
+
 # method KeyMatches:(table:HeapTable, property:Property, key:Value)=>bool
 
 这一格属性的键是不是 `key`。
@@ -500,6 +520,21 @@ if (receiver.Tag === ValueTag.Undefined || receiver.Tag === ValueTag.Null) {
 if (IsLengthKey(table, key)) {
   if (receiver.Tag === ValueTag.Array) return Value.FromInt(table.Get(receiver.Ref).AsArray().GetLength());
   if (receiver.Tag === ValueTag.String) return Value.FromInt(table.Get(receiver.Ref).AsString().GetLength());
+  // **闭包的 `fn.length`**（第 291 轮 ✓）——与上面两格**同一档结构属性** ✓
+  //（住在 `HeapClosure.Arity` 上 ✓，不在属性表里 ✗，所以必须在这里答 ✓）。
+  // **第 291 轮之前它给 `undefined`** ✗（`function-length-and-name` /
+  // `function-length-with-defaults` 两条判据一起报的就是这个 ✓）——
+  // 而 `Arity` 那一格**本来就是为它留的** ✓（`heap.xl.md` ✓），只是从第 238 轮到
+  // 第 290 轮**一直没人填、也没人读** ✓。
+  if (receiver.Tag === ValueTag.Closure) return Value.FromInt(table.Get(receiver.Ref).AsClosure().Arity);
+}
+// **闭包的 `fn.name`**（第 291 轮 ✓）：`Name` 是**字符串句柄** ✓、`0` 表示匿名 ✓——
+// 匿名给**空串** ✓（JS 的 `(function () {}).name` 是 `""` ✓，不是 `undefined` ✗；
+// `console.log` 那边印 `[Function (anonymous)]` 是**宿主**的写法 ✓，见 `inspect.xl.md` ✓）。
+if (receiver.Tag === ValueTag.Closure && IsNameKey(table, key)) {
+  const nameHandle = table.Get(receiver.Ref).AsClosure().Name;
+  if (nameHandle === 0) return Value.FromString(table.CreateString([]));
+  return Value.FromString(nameHandle);
 }
 if (!receiver.IsObject()) {
   // **原始值接收者：从它自己的原型起步**（第 150 轮把数字与布尔接了进来 ✓）——

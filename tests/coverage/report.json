@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 648,
+  "matrix": 774,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,37 +33,37 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 88.13,
+  "progressPercent": 87.85,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 231,
-      "pass": 210,
-      "blocked": 9,
-      "differ": 12,
+      "total": 252,
+      "pass": 225,
+      "blocked": 12,
+      "differ": 15,
       "nodefail": 0,
-      "coverage": 90.91
+      "coverage": 89.29
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 156,
-      "pass": 142,
-      "blocked": 9,
+      "total": 182,
+      "pass": 165,
+      "blocked": 12,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 91.03
+      "coverage": 90.66
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 248,
-      "pass": 210,
-      "blocked": 15,
-      "differ": 23,
+      "total": 327,
+      "pass": 280,
+      "blocked": 25,
+      "differ": 22,
       "nodefail": 0,
-      "coverage": 84.68
+      "coverage": 85.63
     },
     {
       "layer": "e2e",
@@ -132,6 +132,24 @@
       "detail": "tsrun: 脚本抛出：this method needs an array receiver"
     },
     {
+      "id": "c291-rt-class-shapes",
+      "layer": "runtime",
+      "title": "类的字段 / 访问器 / 继承 / 静态成员的形状",
+      "detail": "tsrun: 脚本抛出：unimplemented: Object.getPrototypeOf over this kind of value"
+    },
+    {
+      "id": "c291-rt-closure-and-method-this",
+      "layer": "runtime",
+      "title": "闭包里的 this 与方法调用",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c291-rt-iteration-protocol-forms",
+      "layer": "runtime",
+      "title": "手写可迭代对象 + for..of",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
       "id": "ex-namespace",
       "layer": "exec",
       "title": "namespace：要真的造一个对象出来（含嵌套与导出）",
@@ -183,6 +201,24 @@
       "id": "ex-enum-namespace-merge",
       "layer": "exec",
       "title": "enum 与 namespace 合并：两份都在同一个名字上",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
+    },
+    {
+      "id": "c291-ex-namespace-with-values",
+      "layer": "exec",
+      "title": "带值的 namespace",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
+    },
+    {
+      "id": "c291-ex-nested-namespace-with-values",
+      "layer": "exec",
+      "title": "嵌套一层的 namespace",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
+    },
+    {
+      "id": "c291-ex-enum-namespace-merge",
+      "layer": "exec",
+      "title": "枚举与 namespace 合并",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
     },
     {
@@ -276,6 +312,66 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
+      "id": "c291-array-iterator-protocol-manual",
+      "layer": "stdlib",
+      "title": "手写迭代协议：next() 的三段返回形状",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c291-string-normalize-ascii",
+      "layer": "stdlib",
+      "title": "normalize：ASCII 上原样、组合字符上合一",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c291-weakset-and-weakmap-forms",
+      "layer": "stdlib",
+      "title": "WeakSet / WeakMap 的四个格子",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: WeakSet"
+    },
+    {
+      "id": "c291-symbol-wellknown-custom-iterator",
+      "layer": "stdlib",
+      "title": "自定义 Symbol.iterator：可迭代对象与 Object.keys 的对照",
+      "detail": "tsrun: 脚本抛出：suspend outside a generator"
+    },
+    {
+      "id": "c291-date-parse-and-iso-roundtrip",
+      "layer": "stdlib",
+      "title": "Date.parse 与 toISOString 的往返",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c291-promise-all-race-settled",
+      "layer": "stdlib",
+      "title": "Promise.all / race / allSettled 三种组合",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c291-promise-any-and-finally",
+      "layer": "stdlib",
+      "title": "Promise.any / reject / finally",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c291-function-tostring-forms",
+      "layer": "stdlib",
+      "title": "函数的源码文本：三种写法的 toString",
+      "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
+    },
+    {
+      "id": "c291-error-families-and-messages",
+      "layer": "stdlib",
+      "title": "错误家族的 name / message 与 instanceof",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: ReferenceError"
+    },
+    {
+      "id": "c291-global-object-wrappers",
+      "layer": "stdlib",
+      "title": "Object(原始值) 的包装对象",
+      "detail": "tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
+    },
+    {
       "id": "e2e-event-emitter",
       "layer": "e2e",
       "title": "事件总线：Map<string, 回调数组> + 闭包 + 剩余参数",
@@ -320,12 +416,6 @@
       "detail": "stdout 不同：第 1 行：node «true false false» vs tsrun «false false false»"
     },
     {
-      "id": "rt-class-expr-and-static-this",
-      "layer": "runtime",
-      "title": "类表达式赋值给常量 · 静态方法里的 this 是构造函数",
-      "detail": "stdout 不同：第 1 行：node «Named» vs tsrun «undefined»"
-    },
-    {
       "id": "rt-generator-return-early",
       "layer": "runtime",
       "title": "生成器：提前 return 收尾、finally 照跑",
@@ -360,6 +450,30 @@
       "layer": "runtime",
       "title": "生成器：第一次 next 的实参被丢掉",
       "detail": "stdout 不同：第 2 行：node «got 7» vs tsrun «got undefined»"
+    },
+    {
+      "id": "c291-rt-object-iteration-order",
+      "layer": "runtime",
+      "title": "整数键在前、插入序在后的枚举顺序",
+      "detail": "stdout 不同：第 1 行：node «1,2,b,a {\"1\":4,\"2\":2,\"b\":1,\"a\":3}» vs tsrun «1,2,b,a {\"b\":1,\"2\":2,\"a\":3,\"1\":4}»"
+    },
+    {
+      "id": "c291-rt-generator-forms",
+      "layer": "runtime",
+      "title": "生成器：双向传值与三段返回",
+      "detail": "stdout 不同：第 1 行：node «{\"value\":1,\"done\":false} {\"value\":10,\"done\":false} {\"done\":true}» vs tsrun «{\"value\":1,\"done\":false} {\"value\":null,\"done\":false} {\"done\":true}»"
+    },
+    {
+      "id": "c291-rt-string-unicode-forms",
+      "layer": "runtime",
+      "title": "代理对在长度、展开、码点上的三种读法",
+      "detail": "stdout 不同：第 1 行：node «4 3 true true» vs tsrun «4 4 true true»"
+    },
+    {
+      "id": "c291-rt-object-key-order-and-json",
+      "layer": "runtime",
+      "title": "键顺序在 Object.keys 与 JSON 上一致",
+      "detail": "stdout 不同：第 2 行：node «{\"2\":4,\"10\":2,\"z\":1,\"a\":3}» vs tsrun «{\"z\":1,\"10\":2,\"a\":3,\"2\":4}»"
     },
     {
       "id": "ex-getter-setter-class",
@@ -428,12 +542,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: new Date(x) needs a number of milliseconds"
     },
     {
-      "id": "function-length-and-name",
-      "layer": "stdlib",
-      "title": "函数的 length / name 与声明式 / 箭头式 / 方法",
-      "detail": "stdout 不同：第 1 行：node «3 2 4 three two» vs tsrun «undefined undefined undefined undefined undefined»"
-    },
-    {
       "id": "function-prototype-tostring",
       "layer": "stdlib",
       "title": "Function.prototype.toString 给源码文本",
@@ -494,12 +602,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
     },
     {
-      "id": "function-prototype-and-bind-forms",
-      "layer": "stdlib",
-      "title": "Function.prototype：call / apply / bind 的 this 与实参形态",
-      "detail": "stdout 不同：第 2 行：node «21 1 function» vs tsrun «21 undefined function»"
-    },
-    {
       "id": "string-replace-dollar-forms",
       "layer": "stdlib",
       "title": "replace 的 $& / $` / $' 替换记号",
@@ -512,33 +614,37 @@
       "detail": "stdout 不同：第 1 行：node «hi 1 a» vs tsrun «hi undefined »"
     },
     {
-      "id": "function-name-inference",
-      "layer": "stdlib",
-      "title": "函数的 name：声明 / 表达式 / 推断 / 方法",
-      "detail": "stdout 不同：第 1 行：node «decl f g m » vs tsrun «undefined undefined undefined undefined undefined»"
-    },
-    {
-      "id": "function-length-with-defaults",
-      "layer": "stdlib",
-      "title": "函数的 length：默认值与剩余形参都不算",
-      "detail": "stdout 不同：第 1 行：node «2 1 1» vs tsrun «undefined undefined undefined»"
-    },
-    {
       "id": "array-tostring-custom-values",
       "layer": "stdlib",
       "title": "数组 toString 走元素的 toString",
       "detail": "stdout 不同：第 1 行：node «C!,1» vs tsrun «[object Object],1»"
+    },
+    {
+      "id": "c291-number-wrapper-and-negative-zero",
+      "layer": "stdlib",
+      "title": "Number 包装对象与 -0 的两条路",
+      "detail": "stdout 不同：第 1 行：node «object 5 6 5» vs tsrun «number 5 6 5»"
+    },
+    {
+      "id": "c291-function-prototype-shape",
+      "layer": "stdlib",
+      "title": "函数自带的三格与 prototype 的形状",
+      "detail": "stdout 不同：第 2 行：node «1 function» vs tsrun «undefined function»"
+    },
+    {
+      "id": "c291-console-log-nested-shapes",
+      "layer": "stdlib",
+      "title": "console.log 的嵌套容器形状",
+      "detail": "stdout 不同：第 3 行：node «{ n: null, u: undefined, f: [Function: f] }» vs tsrun «{ n: null, u: undefined, f: [Function (anonymous)] }»"
     }
   ],
   "bad": [],
-  "moved": [
+  "moved": [],
+  "newlyPassing": [
     {
-      "id": "promise-constructor",
-      "layer": "stdlib",
-      "why": "`new Promise(执行器)` 的执行器已经会同步跑了，差的是「`resolve` 被当普通函数调时怎么知道它管哪个承诺」——下一轮让它绑定过（承诺写进实参表第一格）",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：the script is waiting for a promise the host has not settled"
+      "id": "function-name-inference",
+      "layer": "stdlib"
     }
   ],
-  "newlyPassing": [],
   "regressions": []
 }

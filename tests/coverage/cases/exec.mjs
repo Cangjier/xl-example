@@ -1976,4 +1976,257 @@ interface I { n: number } const v: I = { n: 1 }; console.log(v.n);
 type G = { a: number } | null; const g: G = { a: 2 }; console.log(g.a);
 `,
   },
+  // ===== 第 291 轮加宽：exec / runtime / 标准库 三层一起铺 =====
+  {
+    id: "c291-ex-type-only-constructs-erased",
+    title: "类型位整族擦除：type / interface / declare",
+    src: `
+type A = { x: number };
+interface B { y: string }
+declare const z: number;
+const a: A = { x: 1 };
+const b: B = { y: "s" };
+console.log(a.x, b.y);
+`,
+  },
+  {
+    id: "c291-ex-generics-erased-forms",
+    title: "泛型函数与泛型类的擦除",
+    src: `
+function id<T>(x: T): T { return x; }
+class Box<T> { v: T; constructor(v: T) { this.v = v; } get(): T { return this.v; } }
+console.log(id(1), id("s"), new Box(5).get());
+`,
+  },
+  {
+    id: "c291-ex-enum-numeric-and-string",
+    title: "数值枚举的反向映射与字符串枚举",
+    src: `
+enum Color { Red, Green = 5, Blue }
+enum Name { A = "a", B = "b" }
+console.log(Color.Red, Color.Green, Color.Blue, Color[5]);
+console.log(Name.A, Name.B);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c291-ex-declare-module-erased",
+    title: "declare module / declare global 一行运行期东西都不产生",
+    src: `
+declare module "x" { export const y: number; }
+declare global { interface Window { z: number } }
+console.log("ok", 1);
+`,
+  },
+  {
+    id: "c291-ex-overloads-erased",
+    title: "重载签名擦除、只剩实现",
+    src: `
+function f(a: number): number;
+function f(a: string): string;
+function f(a: any): any { return a; }
+console.log(f(1), f("s"));
+`,
+  },
+  {
+    id: "c291-ex-abstract-members",
+    title: "抽象类与抽象成员",
+    src: `
+abstract class A { abstract m(): number; n = 1; }
+class B extends A { m() { return this.n; } }
+console.log(new B().m());
+`,
+  },
+  {
+    id: "c291-ex-readonly-tuple-and-assertions",
+    title: "as const 与 readonly 数组",
+    src: `
+const t = [1, "a"] as const;
+const ro: readonly number[] = [1, 2];
+console.log(t[0], t[1], ro.length, ro[0]);
+`,
+  },
+  {
+    id: "c291-ex-satisfies-forms",
+    title: "satisfies 的两种位置",
+    src: `
+const cfg = { a: 1, b: "x" } satisfies { a: number; b: string };
+const arr = [1, 2] satisfies number[];
+console.log(cfg.a, cfg.b, arr.length);
+`,
+  },
+  {
+    id: "c291-ex-optional-chain-and-nonnull",
+    title: "可选链与非空断言混用",
+    src: `
+const o: any = { a: { b: 1 } };
+console.log(o?.a?.b, o!.a!.b, o?.["a"]?.["b"]);
+console.log(o.m?.[0], (o as any).z?.y);
+`,
+  },
+  {
+    id: "c291-ex-class-modifiers-erased",
+    title: "类成员的修饰词与私有名",
+    src: `
+class C {
+  private a = 1;
+  protected b = 2;
+  public readonly c = 3;
+  static d = 4;
+  #e = 5;
+  sum() { return this.a + this.b + this.c + this.#e; }
+  static getD() { return C.d; }
+}
+console.log(new C().sum(), C.getD());
+`,
+  },
+  {
+    id: "c291-ex-this-parameter",
+    title: "this 形参",
+    src: `
+function f(this: { n: number }) { return this.n; }
+console.log(f.call({ n: 5 }));
+`,
+  },
+  {
+    id: "c291-ex-type-predicates",
+    title: "类型谓词不产生运行期东西",
+    src: `
+function isString(x: unknown): x is string { return typeof x === "string"; }
+console.log(isString("a"), isString(1));
+`,
+  },
+  {
+    id: "c291-ex-mapped-and-conditional-types",
+    title: "映射类型与条件类型的擦除",
+    src: `
+type Keys<T> = { [K in keyof T]: T[K] };
+type Unwrap<T> = T extends Promise<infer U> ? U : T;
+const v: Keys<{ a: number }> = { a: 1 };
+const r: Unwrap<number> = 2;
+console.log(v.a, r);
+`,
+  },
+  {
+    id: "c291-ex-template-literal-types",
+    title: "模板字面量类型",
+    src: `
+type Greeting = \`hello \${string}\`;
+const g: Greeting = "hello world";
+console.log(g);
+`,
+  },
+  {
+    id: "c291-ex-discriminated-union-narrowing",
+    title: "可辨识联合：类型位擦除、值位照样缩窄",
+    src: `
+type Shape = { kind: "circle"; r: number } | { kind: "square"; s: number };
+function area(x: Shape): number {
+  if (x.kind === "circle") return 3 * x.r * x.r;
+  return x.s * x.s;
+}
+console.log(area({ kind: "circle", r: 2 }), area({ kind: "square", s: 3 }));
+`,
+  },
+  {
+    id: "c291-ex-destructure-params-and-defaults",
+    title: "解构形参与默认值",
+    src: `
+function f({ a, b = 2 }: { a: number; b?: number }, [c, d = 4]: number[] = [3]) { return a + b + c + d; }
+console.log(f({ a: 1 }), f({ a: 1, b: 10 }, [1, 2]));
+`,
+  },
+  {
+    id: "c291-ex-class-expression-and-name",
+    title: "类表达式与具名类表达式",
+    src: `
+const C = class { m() { return "c"; } };
+const D = class Named extends C { m() { return super.m() + "D"; } };
+console.log(new C().m(), new D().m(), typeof D);
+`,
+  },
+  {
+    id: "c291-ex-parameter-properties-variants",
+    title: "构造函数参数属性的三种修饰",
+    src: `
+class P { constructor(private readonly a: number, public b = 2, protected c?: string) {} sum() { return this.a + this.b + (this.c?.length ?? 0); } }
+console.log(new P(1).sum(), new P(1, 5, "ab").sum());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c291-ex-as-and-index-precedence",
+    title: "as / 非空断言与下标、成员访问的优先级",
+    src: `
+const x: any = { a: [1, 2, 3] };
+console.log((x as any).a.length, x!.a[0], (x as any)["a"][1]);
+`,
+  },
+  {
+    id: "c291-ex-const-enum-and-usage",
+    title: "const enum 的使用",
+    src: `
+const enum Dir { Up = 1, Down }
+const d: Dir = Dir.Up;
+console.log(d, d === 1, Dir.Down);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c291-ex-optional-catch-and-finally",
+    title: "可选 catch 绑定与 finally",
+    src: `
+try { throw new Error("x"); } catch { console.log("caught"); } finally { console.log("fin"); }
+`,
+  },
+  {
+    id: "c291-ex-interface-only-file",
+    title: "只有类型位的文件照样跑得动",
+    src: `
+interface I { a: number }
+type T = I | null;
+const i: I = { a: 1 };
+const t: T = i;
+console.log(t === i, i.a);
+`,
+  },
+  {
+    id: "c291-ex-class-implements-and-generic",
+    title: "implements 与泛型约束",
+    src: `
+interface Shape { area(): number }
+class Sq implements Shape { constructor(private n: number) {} area() { return this.n * this.n; } }
+function measure<T extends Shape>(s: T): number { return s.area(); }
+console.log(measure(new Sq(3)));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c291-ex-namespace-with-values",
+    title: "带值的 namespace",
+    src: `
+namespace N { export const a = 1; export function f() { return a + 1; } }
+console.log(N.a, N.f());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c291-ex-nested-namespace-with-values",
+    title: "嵌套一层的 namespace",
+    src: `
+namespace Outer { export namespace Inner { export const v = 2; } export const w = Inner.v + 1; }
+console.log(Outer.w, Outer.Inner.v);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c291-ex-enum-namespace-merge",
+    title: "枚举与 namespace 合并",
+    src: `
+enum E { A = 1 }
+namespace E { export const extra = 2; }
+console.log(E.A, E.extra);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
 ];

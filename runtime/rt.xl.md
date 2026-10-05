@@ -1161,14 +1161,18 @@ return Value.FromBool(value.IsNullish());
 **为什么是回调、而不是让这一层去认 `Vm`**：依赖方向只能是 `vm → rt`（机器用算子），
 反过来就成环了。四个目标都有函数类型（C++ 是 `std::function`），这个成本可以接受。
 
-# method RtNewClosure:(room:RoomChecker, table:HeapTable, env:Value, code:int)=>Value
+# method RtNewClosure:(room:RoomChecker, table:HeapTable, env:Value, code:int, arity:int)=>Value
 
 造一个闭包：`Code` 是入口，`Env` **从槽里取**——「这个闭包捕获哪一层」是降级期决定好的
 （见 `ir.xl.md` 的 `EnvNew`：进入一个块会把当前帧的 `Env` 换掉，所以降级层必须显式说出
 它要哪一份环境）。
 
-`Arity` 与 `Name` 这一轮先留 0：调用路径用的是函数表的 `SlotCount`（`vm.xl.md`），
-名字只影响将来的报错文本——等错误对象那一层再接上，**不在这里猜**。
+**`Arity` 是第 291 轮才真的落下来的** ✓（在那之前这一格一直是 `0` ✗）：
+调用路径用的是函数表的 `SlotCount`（`vm.xl.md` ✓），所以它**不影响调用** ✓——
+它只为 `fn.length` 这一格存在 ✓（JS 的 `Function.prototype.length` ✓）。
+**算它的人是降级层** ✓（`lowering.xl.md` 的 `FunctionArity` ✓）：
+「第一个默认值 / 剩余参数之前有几个」是**语法上的事** ✓，引擎从 IR 里读不出来 ✗。
+`Name` 仍然由 `vm.xl.md` 的 `MakeClosure` 补 ✓（名字要过一遍值那一层 ✓，见那一处 ✓）。
 
 **`undefined` 是合法环境，意思是「没有环境」**（句柄 0）。
 
@@ -1187,5 +1191,5 @@ if (env.Tag === ValueTag.Object) {
 if (!room(ObjectCharge + ValueCharge)) {
   throw new Error("out of room");
 }
-return Value.FromRef(ValueTag.Closure, table.CreateClosure(code, envHandle, 0, 0));
+return Value.FromRef(ValueTag.Closure, table.CreateClosure(code, envHandle, arity, 0));
 ```

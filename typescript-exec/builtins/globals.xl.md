@@ -242,6 +242,22 @@ import { BuildPromise } from "./promise.xl.md"
 **已知差异写在明处** ✗：它和那些内部格一样，会出现在 `Object.getOwnPropertyNames` 里 ✓
 （**这不是新开的一个口子** ✗——`__k` / `__v` / `__b` / 绑定函数的三个槽今天都这样 ✓）。
 
+# const ObjectIsExtensible:int = 418
+
+**`Object.isExtensible(对象)`**（第 291 轮 ✓）——**第 276 轮那张底牌的正面** ✓：
+`isSealed` / `isFrozen` 问的都是「**这个对象被标记过不可扩展吗**」✓，
+而这一格正是**那一格的取反** ✓（不是另开一个标记 ✗——两处标记迟早会漂 ✓）。
+**判据 `c291-object-freeze-and-is`** 把三格钉在一起 ✓（`freeze` 之后三个答案同时要对 ✓）。
+
+# const NumberToExponential:int = 367
+
+**`(0.000123).toExponential(位数?)`**（第 291 轮 ✓）——**与 `toFixed` / `toPrecision` 同一张表** ✓
+（`NumberToFixed` / `NumberToPrecision` ✓），**号追加在表尾** ✓。
+**语义同样借宿主** ✓（理由与 `NumberToFixed` 那一段一字不差 ✓：ECMAScript 逐字定死了
+「用精确的数学值做十进制舍入」✓）。
+**它是第 291 轮普查量到的** ✗：判据 `c291-number-tostring-radix-and-format` 报
+`cannot call a non-closure value` ✓——即**那一格根本没装** ✗（`toFixed` 一直是好的 ✓）。
+
 # const ConsoleLog:int = 301
 
 # const ParseInt:int = 303
@@ -1704,7 +1720,7 @@ if (id === MathPow) {
   return MathResult(Math.pow(MathArgOf(room, call, protos, table, args[0]),
     MathArgOf(room, call, protos, table, args[1])));
 }
-if (id === NumberToFixed || id === NumberToPrecision || id === NumberToStringRadix
+if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponential || id === NumberToStringRadix
   || id === BooleanToString || id === NumberValueOf || id === BooleanValueOf) {
   // **原始值的方法：`self` 就是那个原始值本身** ✓（`GetProperty` 把 receiver 递过来 ✓，
   // 不是装箱对象 ✓——本仓不装箱 ✓）。所以这里直接取它的数值 / 真假 ✓。
@@ -1717,12 +1733,23 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToStringRad
     return Value.FromString(table.CreateString(Units(self.AsBool() ? "true" : "false")));
   }
   const number = NumericOf(self);
-  if (id === NumberToFixed || id === NumberToPrecision) {
+  if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponential) {
     // **位数缺省是 0** ✓（`(1.5).toFixed()` 是 `"2"` ✓，JS 的口径 ✓）。
-    const digits = args.length > 0 ? NumericOf(args[0]) : 0;
+    // **`toExponential` 那一格的缺省与另外两个不同** ✗（第 291 轮 ✓）：不带实参时
+    // JS 要**尽可能多的位数** ✓（`(0.000123).toExponential()` 是 `"1.23e-4"` ✓），
+    // 而 `toFixed()` / `toPrecision()` 都按 `0` ✓——所以三格**不能共用一个缺省值** ✗，
+    // 这也正是「同一张表上的兄弟只差一处、而那一处最容易写错」那条老形状 ✓。
+    const digits = args.length > 0 ? NumericOf(args[0])
+      : (id === NumberToExponential ? -1 : 0);
     // **`toPrecision` 与 `toFixed` 只差最后那一个调用** ✓（第 182 轮 ✓）——
     // 两张语义都借宿主 ✓、理由同一个 ✓（见号那两段 ✓）。
-    const text = id === NumberToFixed ? number.toFixed(digits) : number.toPrecision(digits);
+    // **`toExponential` 的「不给位数」借宿主的 `undefined`** ✓（宿主把 `undefined`
+    // 读成「尽可能多」✓，与 JS 一字不差 ✓）。
+    let text = "";
+    if (id === NumberToFixed) text = number.toFixed(digits);
+    else if (id === NumberToPrecision) text = number.toPrecision(digits);
+    else if (digits < 0) text = number.toExponential();
+    else text = number.toExponential(digits);
     if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
     return Value.FromString(table.CreateString(Units(text)));
   }
@@ -1865,7 +1892,11 @@ if (id === FunctionBind) {
   }
   // **三格一起问 room** ✓（一个对象头 + 三个属性 + 值 + 一个实参数组 ✓）：
   // 分三次问会在中间那一次分配之后留下**没有根保护的中间值** ✗（与 `TextUnitsOf` 那条同一个坎 ✓）。
-  if (!room(ObjectCharge * 2 + PropertyCharge * 3 + ValueCharge * 4 + (args.length + 1) * ValueCharge)) {
+  // **第 291 轮加到五格两串** ✓：`length` / `name` 两个隐藏属性 ✓，以及那三个键串
+  //（`"length"` / `"name"` / `"bound "` ✓）与名字串本身 ✓——**估少了的后果是
+  // 「分配刚好越界」** ✗，而它离现场很远 ✓（与这一整段同一条纪律 ✓）。
+  if (!room(ObjectCharge * 2 + PropertyCharge * 5 + ValueCharge * 4 + (args.length + 1) * ValueCharge
+    + CodeUnitCharge * 64)) {
     throw new Error("out of room");
   }
   const boundArgs = NewPlainArray(room, table, protos);
@@ -1876,7 +1907,8 @@ if (id === FunctionBind) {
   table.AttachCallable(bound.Ref, BoundCall, 0);
   // **绑定出来的东西的原型是 `Function.prototype`** ✓（第 228 轮 ✓）：
   // JS 里 `f.bind(o)` 返回的是一个**函数** ✓，所以 `bound.call(...)`、
-  // `bound.bind(...)`、`bound.length`（本仓没做 ✓）都从那一格上找 ✓。
+  // `bound.bind(...)`、`bound.length`（**第 291 轮补上了** ✓，见下面那一段 ✓）
+  // 都从那一格上找 ✓。
   // **不给这一格就是「一半对」** ✗：`bound(2)` 能跑 ✓、而 `bound.call(o, 2)` 报
   // `calling a non-closure value` ✗——那句话听起来像调用写错了 ✓，
   // 其实是**这一格没人填** ✓（与闭包那一格第 228 轮修的是同一个形状 ✓）。
@@ -1885,6 +1917,31 @@ if (id === FunctionBind) {
   SetHiddenProperty(room, table, bound, BoundThisName(table),
     args.length > 0 ? args[0] : Value.Undefined());
   SetHiddenProperty(room, table, bound, BoundArgsName(table), boundArgs);
+  // **`bound.length` / `bound.name`**（第 291 轮 ✓）——第 228 轮那一句注释里
+  // 明写着「`bound.length`（本仓没做 ✓）」，这一轮把它补上 ✓。
+  //
+  // **两个都按 JS 的规矩算** ✓，都不是照抄目标的那两格 ✗：
+  // `length` 是**原函数的形参个数减掉已经绑定的实参数** ✓（`f.bind(o, 1).length`
+  // 在 `f` 有两个形参时是 **1** ✓）——**不减就是静默错值** ✗；负数要夹到 `0` ✓。
+  // `name` 是 `"bound " + 原名` ✓（Node 印 `"bound f"` ✓）——**原名要真读一次**
+  //（目标可能是闭包 ✓、也可能**又是一个绑定** ✓，套两层就是 `"bound bound f"` ✓）。
+  //
+  // **写成隐藏属性** ✓：`GetProperty` 那条路照旧走得通 ✓（`BoundTargetName` 那一族
+  // 就是这么读的 ✓），而 `Object.keys(bound)` / `JSON.stringify(bound)` **看不见它们** ✓
+  //（与 `__boundTarget` 三格同一条口径 ✓——JS 里这三个也都是**不可枚举**的 ✓）。
+  const boundLengthKey = Value.FromString(table.CreateString(Units("length")));
+  const targetLength = GetProperty(room, NeverCall, protos, table, self, boundLengthKey);
+  let boundArity = 0;
+  if (targetLength.IsNumber()) {
+    boundArity = targetLength.AsInt() - (args.length > 0 ? args.length - 1 : 0);
+    if (boundArity < 0) boundArity = 0;
+  }
+  SetHiddenProperty(room, table, bound, boundLengthKey, Value.FromInt(boundArity));
+  const boundNameKey = Value.FromString(table.CreateString(Units("name")));
+  const targetName = GetProperty(room, NeverCall, protos, table, self, boundNameKey);
+  const targetText = targetName.Tag === ValueTag.String ? TextFrom(table, targetName) : "";
+  SetHiddenProperty(room, table, bound, boundNameKey,
+    Value.FromString(table.CreateString(Units("bound " + targetText))));
   return bound;
 }
 if (id === BoundCall) {
@@ -2375,6 +2432,15 @@ if (id === ObjectSeal) {
   // **标记也要打上** ✓——`isSealed` / `isFrozen` 从它起手 ✓（理由见号那一段 ✓）。
   MarkUnextensible(room, table, args[0]);
   return args[0];
+}
+if (id === ObjectIsExtensible) {
+  // **`Object.isExtensible(对象)`**（第 291 轮 ✓）——**与上面那两格共用同一张底牌** ✓，
+  // 只是**不取反** ✓（见号那一段 ✓：另开一个标记迟早会与 `IsUnextensible` 漂开 ✓）。
+  // **原始值一律答假** ✓（JS 的口径 ✓）：`Object.isExtensible(1)` 是**假** ✓——
+  // 与 `isSealed` / `isFrozen` 那两格的「原始值答真」**正好相反** ✗，
+  // 所以这一句**不能顺手抄上面那一支** ✗（抄了就是三格一起**静默**反向 ✓）。
+  if (args.length < 1 || !args[0].IsObject()) return Value.FromBool(false);
+  return Value.FromBool(!IsUnextensible(room, table, args[0]));
 }
 if (id === ObjectIsSealed || id === ObjectIsFrozen) {
   // **两个问法共用一张底牌** ✓（第 276 轮 ✓）：**先问「标记在不在」** ✓——
@@ -3853,6 +3919,25 @@ SetProperty(vm.Room(), NeverCall, table, math,
   Value.FromString(table.CreateString(Units("PI"))), Value.FromDouble(Math.PI));
 SetProperty(vm.Room(), NeverCall, table, math,
   Value.FromString(table.CreateString(Units("E"))), Value.FromDouble(Math.E));
+// **第 291 轮补的六个常量** ✓（`LN2` / `LN10` / `LOG2E` / `LOG10E` / `SQRT2` / `SQRT1_2` ✓）。
+// **`Math.PI` 与 `Math.E` 两条先例的照抄** ✓：常量是**数** ✓，挂的是 `Value.FromDouble(...)` 本身 ✓
+// ——**不是** `HostRef` ✗（挂错的话 `Math.LN2` 会变成一个「能被调用的号」✓，
+// 于是 `Math.LN2 > 0.69` 静默给假 ✗）。
+// **它们是第 291 轮普查量到的** ✗：判据 `c291-math-constants-and-pow` 量到
+// `Math.LN2 > 0.69` 与 `Math.SQRT2 > 1.41` 都给**假** ✓——即**那两格根本没装** ✗
+//（PI / E / pow 一直是好的 ✓）。**静默错值** ✓：一句异常都没有 ✓。
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("LN2"))), Value.FromDouble(Math.LN2));
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("LN10"))), Value.FromDouble(Math.LN10));
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("LOG2E"))), Value.FromDouble(Math.LOG2E));
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("LOG10E"))), Value.FromDouble(Math.LOG10E));
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("SQRT2"))), Value.FromDouble(Math.SQRT2));
+SetProperty(vm.Room(), NeverCall, table, math,
+  Value.FromString(table.CreateString(Units("SQRT1_2"))), Value.FromDouble(Math.SQRT1_2));
 const consoleObject = NewPlainObject(vm.Room(), table, protos);
 const logKey = Value.FromString(table.CreateString(Units("log")));
 const logTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ConsoleLog, 0));
@@ -3871,9 +3956,12 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, isKey, isTarget);
 //（按下标配 ✓，错一格就是**静默**换语义 ✗）。它们围着**描述符**这一件事 ✓：
 // 读一格 / 写多格 / 标志位的三种问法 ✓。
 const objectExtraNames: string[] = ["getOwnPropertyDescriptor", "defineProperties", "seal",
-  "isSealed", "isFrozen"];
+  "isSealed", "isFrozen",
+  // **第 291 轮补的一格** ✓（`isExtensible` ✓）——它与上面两格**共用同一张底牌** ✓
+  //（见号那一段 ✓）。名字与号照旧**按下标配** ✓。
+  "isExtensible"];
 const objectExtraIds: number[] = [ObjectGetOwnPropertyDescriptor, ObjectDefineProperties, ObjectSeal,
-  ObjectIsSealed, ObjectIsFrozen];
+  ObjectIsSealed, ObjectIsFrozen, ObjectIsExtensible];
 for (let i = 0; i < objectExtraNames.length; i++) {
   const extraKey = Value.FromString(table.CreateString(Units(objectExtraNames[i])));
   const extraTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(objectExtraIds[i], 0));
@@ -4104,6 +4192,11 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("valueOf"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberValueOf, 0)));
+// **`toExponential`**（第 291 轮 ✓）：与 `toFixed` / `toPrecision` 同一格原型 ✓
+//（三格同一张表 ✓、只差缺省位数与那个宿主调用 ✓，见号那一段 ✓）。
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+  Value.FromString(table.CreateString(Units("toExponential"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToExponential, 0)));
 // **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款 ✓），
 // 上面挂**静态方法** `fromCharCode` ✓。
 // **第 145 轮它同时能被调用** ✓：`String(x)` 与 `String.fromCharCode(65)` 一起成立 ✓

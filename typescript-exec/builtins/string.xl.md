@@ -151,6 +151,21 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 **它们是第 273 轮普查量到的** ✓：判据 `string-trim-variants` 在报
 `cannot call a non-closure value` ✓——即**那一格根本没装** ✗（`trim` 一直是好的 ✓）。
 
+# const StringSubstr:int = 127
+
+**`substr(起, 长度?)`**（第 291 轮 ✓）——**号照旧追加在表尾** ✓（`126` 之后 ✓）。
+
+**它不是 `substring` 的别名** ✗，也不是 `slice` 的 ✗：第二个实参是**长度** ✓
+（`"abcdef".substr(1, 2)` 是 `"bc"` ✓，而 `substring(1, 2)` 是 `"b"` ✓）；
+**负起点从尾巴数** ✓（`substr(-2)` 是 `"ef"` ✓，而 `substring(-2)` 夹到 `0` ⇒ 整串 ✓）；
+**起点在尾巴之外给空串** ✓。三条合起来正好说明**它是第三张表** ✓——
+与 `StringSubstring` 那一段里记的「`slice` 与 `substring` 只差两处」对照着读 ✓：
+`substr` 与它们**每一处都不同** ✓，所以既不能顶替、也不能共用 ✓。
+
+**它是第 291 轮普查量到的** ✓：判据 `c291-string-slice-substring-substr`
+报 `cannot call a non-closure value` ✓——即**那一格根本没装** ✗
+（`slice` / `substring` 一直是好的 ✓）。
+
 # const StringFromCodePoint:int = 126
 
 **`String.fromCodePoint(码位…)`**（第 275 轮 ✓）——**静态方法** ✓
@@ -516,6 +531,28 @@ if (id === StringSubstring) {
   if (!room(ObjectCharge + CodeUnitCharge * cut.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(cut));
 }
+if (id === StringSubstr) {
+  // **第三个实参是「长度」** ✓（见 `StringSubstr` 那一段 ✓）——三处与 `slice` / `substring` 都不同 ✗：
+  // 负起点**从尾巴数** ✓、缺省长度是「到尾巴」✓、起点越界给**空串** ✓（不是夹到尾巴 ✗）。
+  const length = units.length;
+  const rawStart = args.length > 0 ? ArgOr(args, 0, 0) : 0;
+  // **向零截断** ✓（JS 的 `ToIntegerOrInfinity` ✓，与 `repeat` 那条同一个折法 ✓）。
+  let start = rawStart < 0 ? Math.ceil(rawStart) : Math.floor(rawStart);
+  if (start < 0) start = length + start;
+  if (start < 0) start = 0;
+  if (start > length) start = length;
+  let count = length - start;
+  if (args.length > 1 && !args[1].IsUndefined()) {
+    const rawCount = ArgOr(args, 1, 0);
+    const asked = rawCount < 0 ? 0 : Math.floor(rawCount);
+    if (asked < count) count = asked;
+  }
+  if (count < 0) count = 0;
+  const cut: number[] = [];
+  for (let i = start; i < start + count; i++) cut.push(units[i]);
+  if (!room(ObjectCharge + CodeUnitCharge * cut.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(cut));
+}
 if (id === StringRepeat) {
   // **向零截断；负数抛 `RangeError`** ✓（JS 的 `ToIntegerOrInfinity` + RangeError ✓）。
   // **抛的必须是 `RangeError`** ✗（第 288 轮改）：原来抛的是**裸 `Error`** ✓，
@@ -733,13 +770,15 @@ const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "at", "codePointAt", "concat", "lastIndexOf", "localeCompare",
   // **第 275 轮补的两格** ✓（`trimStart` / `trimEnd` ✓）——号**照旧追加在表尾** ✓
   //（`124` / `125` ✓），已有的一个都没动 ✓。
-  "trimStart", "trimEnd"];
+  "trimStart", "trimEnd",
+  // **第 291 轮补的一格** ✓（`substr` ✓）——号**照旧追加在表尾** ✓（`127` ✓）。
+  "substr"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
   StringReplace, StringReplaceAll,
   StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare,
-  StringTrimStart, StringTrimEnd];
+  StringTrimStart, StringTrimEnd, StringSubstr];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

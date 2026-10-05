@@ -6,6 +6,77 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 291 轮的账（**加宽 126 条 + 当场收掉 11 条** —— 648 → 774 条，88.1% → 87.8%）
+
+**选题还是用户那一句** ✓：「先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景，
+根据 case 覆盖度明确进度」✓——与第 287 / 290 轮同一条口径 ✓。
+**不同的是这一轮加宽与收账一起做** ✓（前两轮只加宽 ✗）：
+先铺满、再照读数挑，**挑到的当场修掉** ✓。
+
+### 一、加宽：126 条候选，97 条当场通过、29 条是新量到的缺口
+
+候选写在 `tmp-cand-291.mjs`（**不进仓** ✓），先过 `sweep.mjs` ✓：
+
+```
+层           总   pass  blocked differ  bad
+exec         26    22       3      0     1
+runtime      21    14       3      4     0
+stdlib       79    60      11      8     0
+合计        126    96      17     12     1
+```
+
+**那一条 `bad` 是「用例自己不合法」** ✗（`import type … from "./nope"` 让裁判自己都跑不动 ✓），
+当场换成一条可辨识联合缩窄的用例 ✓ ⇒ **`nodefail` 归零** ✓。
+29 条缺口按**根子**分 21 组写进
+[`tests/coverage/expectations.mjs`](../tests/coverage/expectations.mjs) ✓
+（组 A `namespace` 带值 3 条 · 组 B 属性枚举的整数键优先序 2 条 · 组 C 生成器 `next(v)` 1 条 ·
+组 D 构造函数上的原型读 1 条 · 组 E 计算键上的函数值 2 条 · 组 F 码元 vs 码点 1 条 ·
+组 G 显式取出的迭代器 1 条 · 组 H/I/J 标准库三格 3 条 · 组 K 包装对象 2 条 ·
+组 L `Math` 常量 1 条 · 组 M `Object.isExtensible` 1 条 · 组 N `WeakSet` 1 条 ·
+组 O 计算键 + 生成器方法 1 条 · 组 P `Date.parse` 1 条 · 组 Q 承诺组合子 2 条 ·
+组 R 函数 `name` / `length` 3 条 · 组 S 函数源码文本 1 条 · 组 T `ReferenceError` 1 条 ·
+组 U 显示名推断 1 条 ✓）。
+
+### 二、当场收掉的 11 条（四簇，都带判据守着）
+
+| # | 症状 | 根子 | 修法 |
+| --- | --- | --- | --- |
+| ① | **标准库最日常的四格**：`String.prototype.substr` ✓ / `Math.LN2` · `Math.SQRT2` 那一族六个常量 ✓ / `Number.prototype.toExponential` ✓ / `Object.isExtensible` ✓ | 四格**都不在表里** ✗——而每一格都有一处「照着近义兄弟自己凑就会错」的地方 ✓（见下） | `builtins/string.xl.md` 加 `StringSubstr`（号 **127** ✓）＋ `builtins/globals.xl.md` 加 `NumberToExponential`（**367** ✓）/ `ObjectIsExtensible`（**418** ✓）与六个 `Math` 常量 ✓ |
+| ② | **函数自己的 `name` / `length`**（**7 条判据** ✓） | `HeapClosure` 的 `Arity`（第 238 轮留下）与 `Name` 两格**一直没人读** ✗——**留好的格子空着** ✓ | `runtime/props.xl.md` 的 `GetProperty` 补**闭包的结构属性** ✓（与数组 / 字符串的 `length` 同一档 ✓）；`runtime/rt.xl.md` + `vm.xl.md` 让 `new_closure` 收**第四格**（`argc` 三档各判一次 ✓）；`lowering.xl.md` 新增 `FunctionArity` ✓ |
+| ③ | **`const arr = [function () {}]` 里那个函数也叫 `arr`** ✗（Node 给空串 ✓） | 「命名位置」被放宽成了「右边**含**函数值」 ✗——JS 的 NamedEvaluation 只认右边**本身就是**函数 / 箭头 / 类表达式 ✓ | `lowering.xl.md` 新增 `NamesFunctionValue` ✓（剥掉括号 / `as` / `satisfies` / `!` 这四种**不改语义的壳** ✓） |
+| ④ | **`const expr = function named() {}` 的 `name` 给 `"expr"`** ✗（Node 给 `"named"` ✓） | `FunctionNameHint` **无条件排在最前** ✗——而它只该管**匿名**的那一档 ✓ | 名字的优先级改成「自带的真名 → 提示 → 匿名」✓（占位符以 `<` 开头那一格照旧 ✓） |
+
+**四簇各自的「差在哪一处」都写进了规范** ✗（下一个做这批的人不必再推一遍 ✓）：
+
+- **`substr` 与 `slice` / `substring` 每一处都不同** ✓：第二个实参是**长度** ✓、负起点**从尾巴数** ✓、
+  起点越界给**空串** ✓——所以既不能顶替、也不能共用 ✓；
+- **`toExponential` 的缺省位数与 `toFixed` / `toPrecision` 不同** ✗：不带实参要「尽可能多」✓
+  （`(0.000123).toExponential()` 是 `"1.23e-4"` ✓）⇒ **三格不能共用一个缺省值** ✗；
+- **`Math` 常量挂错成 `HostRef` 就是静默给假** ✓（`Math.LN2 > 0.69` 会是**假** ✓）——
+  `PI` / `E` 那两条先例照抄 ✓；
+- **`Object.isExtensible` 与 `isSealed` / `isFrozen` 共用同一张底牌** ✓（**不取反的那一面** ✓）——
+  另开一个标记迟早会漂 ✗；而**原始值那一格三格相反** ✗（`isExtensible(1)` 是假 ✓、
+  `isSealed(1)` 是真 ✓），**不能顺手抄上面那一支** ✗；
+- **`fn.length` 不是形参个数** ✗：数到**第一个默认值 / 剩余之前**为止 ✓
+  （`function f(a, b = 1, c)` 的 `length` 是 **1** ✓）——而**解构形参要算** ✓，与默认值那条**正相反** ✗。
+
+### 三、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   89.3%   225/252   (blocked 12 · differ 15 · bad 0)
+exec      90.7%   165/182   (blocked 12 · differ 5  · bad 0)
+stdlib    85.6%   280/327   (blocked 25 · differ 22 · bad 0)
+e2e       84.6%    11/13    (blocked 2  · differ 0  · bad 0)
+合计      87.8%   681/774   blocked 51 · differ 42 · bad 0
+```
+
+**分母 +19%** ✓（648 → 774 ✓），读数从 88.1% **落到 87.8%** ✓——与第 273 / 287 / 290 轮同一条口径 ✓
+（**分母变诚实** ✓，不是倒退 ✓）；而**修掉的那 11 条**是按**分子**算的 ✓：
+不加宽的话这一轮是 **584 / 648 = 90.1%** ✓。
+**红的一栏是 0** ✓（`regressions` / `bad` 全空 ✓）、`runtime:check` **241 条** ✓、
+`runtime:cli` **79 份** ✓、`cases:tsast` **1444 / 1444** ✓。
+
 ## 第 290 轮的账（**先把语料铺满，再照读数修** —— 556 → 648 条，89.9% → 88.1%）
 
 **这一轮的选题是用户给的那一句** ✓：「先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景，

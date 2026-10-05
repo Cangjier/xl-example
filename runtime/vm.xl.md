@@ -2063,6 +2063,8 @@ if (id === RtOp.IsNullish) {
 }
 if (id === RtOp.NewClosure) {
   // **`argc` 从 2 起，可以到 3** ✓（第 238 轮 ✓）：第三格是**函数名**（一个字符串值 ✓）。
+  // **第 291 轮又开了第四格** ✓：**形参个数**（一个整数 ✓，`fn.length` 用它 ✓）——
+  // 与名字同一个理由 ✓（「第一个默认值之前有几个」是**语法上的事** ✓，引擎读不出来 ✓）。
   // **为什么名字要走这里、而不是另开一条算子** ✗：`new_closure` 是**所有脚本函数**出生
   // 的那一道门 ✓（`MakeClosure` 那一段写着 ✓），而名字**只有造它的那一方知道** ✓
   //（降级层手里就有那个标识符的文本 ✓ 或者 `PendingFunction.Name` ✓）——
@@ -2070,15 +2072,18 @@ if (id === RtOp.NewClosure) {
   // **不给第三格就是匿名** ✓（`MakeClosure` 那一档留着 ✓）——
   // 这一条是**向后兼容**的关键 ✗：降级层不传的地方照旧 ✓。
   //
-  // **`RequireArgc` 是「严格等于」的** ✗（见它的定义 ✓）——所以这里**两档各判一次** ✓，
+  // **`RequireArgc` 是「严格等于」的** ✗（见它的定义 ✓）——所以这里**三档各判一次** ✓，
   // 而不是「先按 2 判、再看 `argc >= 3`」✗（那样 `argc === 3` 会在**第一句**就被拒 ✓，
   // 报的是 `rt op new_closure expects 2 arguments, got 3` ✓——
   // **一句话听起来像降级层多传了一格** ✓，其实是**这一句自己写窄了** ✗，第 238 轮实测踩过 ✓）。
+  if (argc === 4) {
+    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2], slots[base + 3].AsInt());
+  }
   if (argc === 3) {
-    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2]);
+    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2], 0);
   }
   RequireArgc(argc, 2, "new_closure");
-  return this.MakeClosure(slots[base], slots[base + 1].AsInt(), Value.Undefined());
+  return this.MakeClosure(slots[base], slots[base + 1].AsInt(), Value.Undefined(), 0);
 }
 if (id === RtOp.GetProp) {
   RequireArgc(argc, 2, "get_prop");
@@ -3696,7 +3701,7 @@ try {
 }
 ```
 
-## method MakeClosure:(env:Value, code:int, name:Value)=>Value
+## method MakeClosure:(env:Value, code:int, name:Value, arity:int)=>Value
 
 造闭包（走 `Guard`：它要分配）。
 
@@ -3711,6 +3716,10 @@ try {
 
 **名字从哪来** ✓：`new_closure` 的第三格 ✓——**只有造它的那一方知道** ✓
 （降级层手里就有那个标识符的文本 ✓）。
+
+**`arity` 是第 291 轮加进来的第四格** ✓：它是 `fn.length` 的答案 ✓——
+**算它的活不在这里** ✗（降级层的 `FunctionArity` ✓：那是**语法上的事** ✓，
+从 IR 里读不出「第一个默认值之前有几个形参」✓）。这一处只是把它**交给闭包那一格** ✓。
 
 **闭包要挂上 `Function.prototype`** ✓（第 228 轮 ✓）——这是**所有脚本函数**出生的那一道门 ✓
 （降级层每个函数声明 / 函数表达式 / 箭头 / 方法都发 `new_closure` ✓，见
@@ -3732,7 +3741,7 @@ try {
 没接上时不说谎，只是不特殊 ✓）。
 
 ```ts
-const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code));
+const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code, arity));
 // **`Guard` 可能什么都没造出来** ✓（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined` ✓）——
 // 那种情况下再去读 `Ref` 会撞上「这不是一个引用值」✗，而那句话离现场很远 ✓。
 if (!created.IsRef()) return created;

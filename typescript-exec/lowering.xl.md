@@ -2248,10 +2248,13 @@ if (initializer === null) {
   // **只在右边是一个函数值时才留下痕迹** ✓：`const x = 1` 也走这一句 ✓，
   // 而 `LowerFunctionValue` 是**唯一读它的人** ✓——所以别的形状一点影响都没有 ✓
   //（读不到就读不到 ✓，见 `FunctionNameHint` 那一格 ✓）。
+  // **第 291 轮把它收窄成「命名位置」** ✓（见 `NamesFunctionValue` ✓）：
+  // 原来只要右边**含**一个函数值就留痕 ✗，于是 `const arr = [function () {}]` 里那个
+  // 函数也叫 `arr` ✓（Node 给空串 ✓，**静默错值** ✗）。
   // **用完就清** ✓：不清的话「下一个函数值」会白继承上一个名字 ✗
   //（`const a = () => 1; const b = () => 2;` 两个都叫 `a` ✓，而那是**静默错值** ✗）。
   const savedHint = this.FunctionNameHint;
-  this.FunctionNameHint = text;
+  this.FunctionNameHint = this.NamesFunctionValue(initializer) ? text : "";
   this.LowerInto(value, initializer);
   this.FunctionNameHint = savedHint;
 }
@@ -4120,6 +4123,63 @@ if (parameters.length === 0) return false;
 return OptionalChild(parameters[parameters.length - 1], "dotDotDotToken") !== null;
 ```
 
+## method FunctionArity:(node:AstNode)=>int
+
+**JS 的 `fn.length` 是几**（第 291 轮 ✓）——**数到第一个「带默认值」或「剩余」之前为止** ✓。
+
+**它不是形参个数** ✗（那是另一回事 ✓）：`function f(a, b = 1, c)` 的 `length` 是 **1** ✓、
+`function f(a, ...r)` 是 **1** ✓、`function f(a, b)` 是 **2** ✓——
+所以 `params.length` 直接交出去是**静默错值** ✓（`function-length-with-defaults` 那条判据量的就是它 ✓）。
+
+**`this` 那一格不算** ✓（与 `FunctionParams` / `CollectDefaults` 同一条判据 ✓）：
+它不占槽 ✓，数进去 `function f(this: any, a: number)` 的 `length` 会变成 2 ✗（JS 给 1 ✓）。
+
+**解构形参要算** ✓（`function f({ a }) {}` 的 `length` 是 1 ✓）——**这与默认值那条正相反** ✗，
+所以这里只能按「有没有 `initializer`」判 ✓，不能按「名字是不是标识符」判 ✗。
+
+```ts
+const parameters = ListOf(node, "parameters");
+let arity = 0;
+for (let i = 0; i < parameters.length; i++) {
+  if (this.IsThisParameter(parameters[i])) continue;
+  // **剩余参数位与它后面的都不算** ✓（`...r` 本身不算 ✓，而它按定义在最后 ✓）。
+  if (OptionalChild(parameters[i], "dotDotDotToken") !== null) break;
+  // **第一个带默认值的也不算、它后面的更不算** ✓（JS 在这一格上**不数了** ✓，不是跳过它继续数 ✗）。
+  if (OptionalChild(parameters[i], "initializer") !== null) break;
+  arity = arity + 1;
+}
+return arity;
+```
+
+## method NamesFunctionValue:(node:AstNode)=>bool
+
+**这一格右边的东西会不会从左边那个名字上取名**（第 291 轮 ✓）——JS 的 NamedEvaluation ✓。
+
+**不能只看「右边有没有函数」** ✗：`const arr = [function () {}]` 的右边**含**一个函数值 ✓，
+可那个函数**不在命名位置上** ✓——Node 给 `arr[0].name === ""` ✓，而本仓给 `"arr"` ✗
+（**静默错值** ✓，判据 `function-name-inference` 量到的正是它 ✓）。
+
+**命名位置只有三种** ✓：右边**本身就是**一个函数表达式 / 箭头 / 类表达式 ✓
+（外面可以套**不改语义的壳** ✓：括号 ✓、`as` ✓、`satisfies` ✓、`!` ✓）。
+**条件表达式 / 调用 / 数组 / 对象字面量都不算** ✗
+（`const f = cond ? () => 1 : () => 2` 在 JS 里两个箭头都是匿名的 ✓）。
+
+```ts
+let current = node;
+for (let guard = 0; guard < 8; guard++) {
+  const kind = NodeKind(current);
+  if (kind === "ParenthesizedExpression" || kind === "AsExpression" || kind === "SatisfiesExpression"
+    || kind === "NonNullExpression") {
+    const inner = OptionalChild(current, "expression");
+    if (inner === null) return false;
+    current = inner;
+    continue;
+  }
+  return kind === "ArrowFunction" || kind === "FunctionExpression" || kind === "ClassExpression";
+}
+return false;
+```
+
 ## method CollectDefaults:(node:AstNode, at:Array<int>, defaults:Array<AstNode>)=>void
 
 **参数默认值：位置与初始化式两份平行数组**（第 119 轮）。
@@ -4301,19 +4361,29 @@ const patch = this.Program().AddConst(Constant.OfInt(0));
 //（`ex-computed-member-call` 那条判据现场红的正是这一处 ✓）。
 //
 // **名字从哪来**（三档 ✓，次序是语义 ✗）：
-// 1. **`FunctionNameHint` 优先** ✓（`const arrow = () => 2` 那一档 ✓，
+// 1. **函数表达式自带的真名优先** ✓（第 291 轮改 ✓）：`const expr = function named() {}`
+//    的 `name` 是 **`"named"`** ✓——**不是**它被绑定的那个 `expr` ✗。
+//    原来 `FunctionNameHint` 无条件排在最前 ✗，于是 `expr.name` 给 `"expr"` ✓
+//    （**静默错值** ✓，第 291 轮的判据 `c291-function-name-and-length-forms` 量到的就是它 ✓）。
+//    **怎么分**：`name` 不是那两个占位符（不以 `<` 开头 ✓）就说明**它自己有名** ✓；
+// 2. **否则用 `FunctionNameHint`** ✓（`const arrow = () => 2` 那一档 ✓，
 //    名字来自**绑定的那一刻** ✓，见那一格 ✓）；
-// 2. **否则用 `name`** ✓（调用方给的：函数表达式的真名 ✓、或者
-//    `"<arrow>"` / `"<function>"` 那两个**占位符** ✓）；
-// 3. **占位符要当匿名** ✓——见下面那一句（`<` 开头的不传 ✓，否则
+// 3. **还是占位符就当匿名** ✓——见下面那一句（`<` 开头的不传 ✓，否则
 //    `console.log(() => 1)` 会印出 `[Function: <arrow>]` ✓，
 //    而 Node 印的是 `[Function (anonymous)]` ✓，**实测踩过** ✓）。
-let displayName = this.FunctionNameHint !== "" ? this.FunctionNameHint : name;
+let displayName = name;
+if (displayName.length > 0 && displayName.charAt(0) === "<") {
+  displayName = this.FunctionNameHint;
+}
 if (displayName.length > 0 && displayName.charAt(0) === "<") displayName = "";
 const nameConst = displayName === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(displayName)));
-const window = this.Reserve(3);
+// **形参个数那一格**（第 291 轮 ✓）：`new_closure` 的**第四格** ✓——
+// `fn.length` 是本仓此前**一条判据都没有**的一格 ✗（`HeapClosure.Arity` 一直是 0 ✓）。
+// **与名字同一条路** ✓（名字也只有造它的那一方知道 ✓），见 `FunctionArity` 那一段 ✓。
+const arityConst = this.Program().AddConst(Constant.OfInt(this.FunctionArity(node)));
+const window = this.Reserve(4);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
   this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -4322,8 +4392,9 @@ if (enclosing === null) {
 }
 this.Emit(Op.Const, window + 1, patch, -1, -1);
 this.Emit(Op.Const, window + 2, nameConst, -1, -1);
+this.Emit(Op.Const, window + 3, arityConst, -1, -1);
 const slot = this.Reserve(1);
-this.EmitRt(RtOp.NewClosure, slot, window, 3);
+this.EmitRt(RtOp.NewClosure, slot, window, 4);
 // **退到闭包之上，不是退到窗口**：窗口是先预留的，`Release(window)` 会把**闭包格**
 // 一起退掉——下一个分配就盖在它上面（表现是「调用了非闭包的值」）。
 this.Release(slot + 1);
@@ -5397,7 +5468,9 @@ const patch = this.Program().AddConst(Constant.OfInt(0));
 // **函数名那一格**（第 238 轮 ✓）：见 `LowerFunctionValue` 那一段 ✓
 //（函数声明这条路原来一个名字都不带 ✗，于是 `function greet(){}` 也是 `[Function (anonymous)]` ✓）。
 const nameConst = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
-const window = this.Reserve(3);
+// **形参个数那一格**（第 291 轮 ✓）：与函数值那条路一字不差 ✓（见 `FunctionArity` ✓）。
+const arityConst = this.Program().AddConst(Constant.OfInt(this.FunctionArity(node)));
+const window = this.Reserve(4);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
   this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -5406,7 +5479,8 @@ if (enclosing === null) {
 }
 this.Emit(Op.Const, window + 1, patch, -1, -1);
 this.Emit(Op.Const, window + 2, nameConst, -1, -1);
-this.EmitRt(RtOp.NewClosure, slot, window, 3);
+this.Emit(Op.Const, window + 3, arityConst, -1, -1);
+this.EmitRt(RtOp.NewClosure, slot, window, 4);
 // **退到闭包之上，不是退到窗口**（理由见 `LowerFunctionValue` 那一处）。
 this.Release(slot + 1);
 // **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。

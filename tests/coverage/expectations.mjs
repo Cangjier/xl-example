@@ -221,7 +221,7 @@ export const EXPECTATIONS = {
   //（**看起来像运行器卡住** ✗）。**两条候选都写在 `promise.xl.md` 的 `MakeSettleCallback`**
   // （本轮引擎那半边加了 `InvokeCallback` 的接收者格 ✓，可它传不到 `resolve` 身上 ✗；
   // 下一轮最短的一步是让那个值**绑定过** ✓——把承诺写进实参表第一格 ✓，宿主读 `args[0]` ✓）。
-  "promise-constructor": { expect: "blocked", why: "`new Promise(执行器)` 的执行器已经会同步跑了，差的是「`resolve` 被当普通函数调时怎么知道它管哪个承诺」——下一轮让它绑定过（承诺写进实参表第一格）" },
+  "promise-constructor": { expect: "differ", why: "`new Promise(执行器)` 的执行器已经会同步跑了，差的是「`resolve` 被当普通函数调时怎么知道它管哪个承诺」——下一轮让它绑定过（承诺写进实参表第一格）" },
   // **第 286 轮删掉了 `promise-chaining-errors` 那一行** ✓（它过了 ✓）：
   // `.then` 回调里抛的错现在**变成结果承诺的拒绝** ✓——
   // 修在 `RunNativeTask` 那一处 ✓（回调跑完看 `Status === Threw` ✓ ⇒ 拒绝 ✓、
@@ -469,7 +469,6 @@ export const EXPECTATIONS = {
   "json-stringify-replacer": { expect: "differ", why: "`JSON.stringify(o, [\"a\", \"c\"])` 的 **replacer 数组被忽略**（打出了整个对象）；`JSON.stringify({ when: new Date(0) })` 给 `{\"when\":{}}`（`Date.prototype.toJSON` 不在）" },
 
   // ---- 组 14：函数的 `length` / `name` 两个属性（1 条）----
-  "function-length-and-name": { expect: "differ", why: "`fn.length` 与 `fn.name` 都是 `undefined`：闭包那一格上没挂这两个属性（第 238 轮补的是 `HeapClosure.Name` 那一格**内部**的名字，供 `console.log` 用；属性读那一面没有）" },
 
   // ---- 组 15：async 那一族（第 286 轮清空了）----
   // **`promise-then-value-and-throw` 那一行删掉了** ✓（它过了 ✓）：与 `prm-microtask-order`
@@ -514,7 +513,6 @@ export const EXPECTATIONS = {
   //    `CellOf` 在它假的时候直接给 `-1` ✓——那个名字于是落到「现在占槽」那一条 ✓。
   "ex-nonnull-and-as-chain": { expect: "differ", why: "**静默错值**：`o!.a!.b![1]` 给整个数组而不是 `2`——非空断言串在成员链上时把后面那一截丢掉了（`(o as any).a.b.length` 是对的）" },
   "rt-iife-forms": { expect: "differ", why: "**静默错值**：`((a: number, b: number) => a + b)(2, 3)` 给 `NaN`——**带类型标注**的箭头函数出现在立即调用位置时，形参没绑上（不带标注的箭头立即调用是对的）" },
-  "rt-class-expr-and-static-this": { expect: "differ", why: "**静默错值**：具名类表达式 `const C = class Named { static who() { return this.name } }` 里 `this.name` 给 `undefined`（Node 给 `Named`）——类表达式的名字没挂到构造函数自己那一格上（`C.name = \"Renamed\"` 之后仍给 `undefined`，说明属性读也没落在它身上）" },
 
   // ---- 组 B：`delete` 与**原始值接收者**上的赋值（2 条）----
   // 两条都卡在同一族判据上 ✓：写操作先问「接收者是不是对象」✓，
@@ -579,7 +577,6 @@ export const EXPECTATIONS = {
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "string-charcodes-and-units": { expect: "differ", why: "**码元 vs 码点**：`[...\"A\\u{1F600}B\"]` 给 4 个（代理对被拆开），Node 给 3 个——与 `rt-surrogate-iteration` 同一个根" },
   "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
-  "function-prototype-and-bind-forms": { expect: "differ", why: "`bound.length` 给 `undefined`（Node 给 `1`）——绑定函数的 `length` 该是「原函数形参数 − 已绑定的实参数」；`call` / `apply` / `bind` 本身都是好的 ✓" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
 
   // ===== 第 290 轮：矩阵加宽 95 条量到的那一批（29 条缺口，按根子分组）=====
@@ -604,8 +601,6 @@ export const EXPECTATIONS = {
   "promise-race-any-allsettled": { expect: "blocked", why: "`Promise.any` / `allSettled` 没装（`race` 与 `all` 是好的）——两者都要「一组承诺各自收尾、再按结局汇总」，与 `PromiseAll` 的步进器同一形状" },
   //
   // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
-  "function-name-inference": { expect: "differ", why: "**静默错值**：`fn.name` 一律 `undefined`（Node 给 `decl` / `f` / `g` / `m`）。第 238 轮补的是 `HeapClosure.Name` 那一格**内部**的名字（给 `console.log` 用），属性读那一面还没挂；与已有的 `function-length-and-name` 同一件事" },
-  "function-length-with-defaults": { expect: "differ", why: "**静默错值**：`fn.length` 一律 `undefined`（Node 按「第一个默认值/剩余形参之前的形参数」给）。名字与长度是闭包那一格上的两个兄弟，一起做" },
   "object-create-with-properties": { expect: "differ", why: "**静默错值**：`Object.create(proto, { a: { value: 1, enumerable: true } })` 的第二格被丢掉（`o.a` 给 `undefined` 而不是 `1`）——描述符那条路（`DefineOwnFromDescriptor`）现成，缺的是「收下第二格并逐键写一遍」" },
   "array-tostring-custom-values": { expect: "differ", why: "**静默错值**：`[new C(), 1].toString()` 给 `[object Object],1`（Node 给 `C!,1`）——`ValueUnits` 对普通对象**写死了 `[object Object]`**，没走 `ToPrimitive(el, \"string\")` ⇒ 元素自己那个 `toString` 根本不被调。根子与 `json-stringify-tojson-and-specials` 同一处：**取文本这条路上没有回调通道**" },
   //
@@ -634,5 +629,73 @@ export const EXPECTATIONS = {
   //
   // **组 I：`Date` 的文本（1 条）** ✓
   "date-invalid-values": { expect: "blocked", why: "`String(new Date(NaN))` 报 `unimplemented: ToPrimitive of a Date with a string hint`——缺 `Date.prototype.toString`（`Invalid Date` 那一条也在这张表上）。**抛比静默错值好**，所以这一格是**明写的缺口**，不是坏掉" },
+  //
+  // ===== 第 291 轮加宽：exec / runtime / 标准库 三层一起铺（126 条候选）=====
+  // 逐条读数（`sweep.mjs`）：**97 pass / 17 blocked / 12 differ / 0 nodefail**。
+  // 下面 29 行按**根子**分组 ✓——同一组的修法一样，一起做才不白付 ✓。
+  // 这一轮**量到的**多半是「普通 `.ts` 里天天见、此前一条判据都没有」的形状 ✗：
+  // `fn.name` / `fn.length` / `String.substr` / `Date.parse` / `Math.LN2` /
+  // `Object.isExtensible` / `WeakSet` / `ReferenceError` / `Promise.allSettled` ✓。
+  //
+  // **组 A：`namespace` 带值那一族（3 条）** ✓——与缺口清单 #4 同一根。
+  "c291-ex-namespace-with-values": { expect: "blocked", why: "`namespace N { export const a = 1 }` 报 `unimplemented: statement ModuleDeclaration`——降级层的 `LowerStatement` 还没有那一格。要做的是「造一个对象 + 把成员按顺序挂上去」（`export` 只是可见性、不改形状）" },
+  "c291-ex-nested-namespace-with-values": { expect: "blocked", why: "嵌套一层的 namespace 同一个根：内层也要造对象再挂到外层那一格上——`Outer.Inner.v` 证明挂的是**真那个对象**，不是影子" },
+  "c291-ex-enum-namespace-merge": { expect: "blocked", why: "枚举与 namespace 合并：两条声明落在同一个名字上（枚举先建对象、namespace 再往上挂 `extra`），根子还是 ModuleDeclaration 那一格" },
+  //
+  // **组 B：属性枚举的整数键优先序（2 条）** ✓——**静默错值** ✗。
+  "c291-rt-object-iteration-order": { expect: "differ", why: "**静默错值**：`Object.keys({ b: 1, 2: 2, a: 3, 1: 4 })` 给 `b,2,a,1`（Node 给 `1,2,b,a`）——整数键要**按数值升序排在最前**，本仓一律用插入序。根子在属性表那一趟枚举" },
+  "c291-rt-object-key-order-and-json": { expect: "differ", why: "同一格：`JSON.stringify` 也走那一趟枚举，于是文本里的键序一起歪（Node `{\"2\":4,\"10\":2,\"z\":1,\"a\":3}` / 本仓 `{\"z\":1,\"10\":2,\"a\":3,\"2\":4}`）——修一处、两个出口一起对" },
+  //
+  // **组 C：生成器的 `next(v)` 送值（1 条）** ✓——与 `rt-generator-next-sends-value` 同一根。
+  "c291-rt-generator-forms": { expect: "differ", why: "生成器的 `next(5)` 送值：`const x = yield 1` 收不到（给 `undefined`，于是 `x * 2` 印 `null`）——`yield` 表达式要读**上一格送进来的值**" },
+  //
+  // **组 D：构造函数上的原型读（1 条）** ✓
+  "c291-rt-class-shapes": { expect: "blocked", why: "`Object.getPrototypeOf(B) === A` 报 `unimplemented: Object.getPrototypeOf over this kind of value`——第 278 轮给 `extends` 补了**第二步**（`B` 自己的链），但那一格在**函数值**上没有读出来的口子" },
+  //
+  // **组 E：计算键上的函数值 / 方法里的箭头（2 条）** ✓
+  "c291-rt-closure-and-method-this": { expect: "blocked", why: "`obj.get()()` 报 `cannot call a non-closure value`——方法体里 `return () => this.v` 返回的箭头要带着 `this` 出帧、再被调用" },
+  "c291-rt-iteration-protocol-forms": { expect: "blocked", why: "`{ [Symbol.iterator]: () => it }` 报 `cannot call a non-closure value`——与上一格同一族（计算键上的函数值那条路），也牵着 `c291-symbol-wellknown-custom-iterator`" },
+  //
+  // **组 F：码元 vs 码点（1 条）** ✓——与 `rt-surrogate-iteration` 同一根。
+  "c291-rt-string-unicode-forms": { expect: "differ", why: "`[...\"a😀b\"].length` 给 4（Node 给 3）——字符串迭代要**按码点**走，本仓一次一个码元" },
+  //
+  // **组 G：显式取出来的迭代器（1 条）** ✓
+  "c291-array-iterator-protocol-manual": { expect: "blocked", why: "`xs[Symbol.iterator]()` 报 `cannot call a non-closure value`——`for..of` 内部那条路是好的，**显式取出来自己调**这一格还没接（组 E 那一族的另一半）" },
+  //
+  // **组 H / I / J：标准库「成员不在那儿」最日常的三格（3 条）** ✓
+  "c291-string-normalize-ascii": { expect: "blocked", why: "`String.prototype.normalize` 还没挂表（与 `string-normalize` 同一格）。ASCII 上该原样返回；组合字符上要合一（那一档要 Unicode 归一化表，是单独的活）" },
+  //
+  // **组 K：包装对象（2 条）** ✓
+  "c291-number-wrapper-and-negative-zero": { expect: "differ", why: "`typeof new Number(5)` 给 `\"number\"`（Node 给 `\"object\"`）——包装对象整族还没造（`new Number` 返回的是原始值）。`-0` 那两格是对的" },
+  "c291-global-object-wrappers": { expect: "blocked", why: "`Object(1)` 报 `unimplemented: Object(primitive) needs wrapper objects`——与上一格同一根，`install.xl.md` 里那一支是**明写**的缺口" },
+  //
+  // **组 L：Math 的两个常量（1 条）** ✓——**静默错值** ✗。
+  //
+  // **组 M：`Object.isExtensible`（1 条）** ✓
+  //
+  // **组 N：`WeakSet`（1 条）** ✓
+  "c291-weakset-and-weakmap-forms": { expect: "blocked", why: "`WeakSet` 连全局名都没有（`name is not a local or a capture`）——`WeakMap` 同样在 `GlobalNames` 里缺名（`weakmap-basic` 也是这一格）" },
+  //
+  // **组 O：计算键 + 生成器方法（1 条）** ✓
+  "c291-symbol-wellknown-custom-iterator": { expect: "blocked", why: "对象字面量里**计算键 + 生成器方法**（`{ [Symbol.iterator]: function* () {} }`）报 `suspend outside a generator`——方法那一格建成了普通闭包，`yield` 就落在生成器外面" },
+  //
+  // **组 P：`Date.parse`（1 条）** ✓
+  "c291-date-parse-and-iso-roundtrip": { expect: "blocked", why: "`Date.parse` 还没挂表（`Date.UTC` / `toISOString` 第 280 轮收下了）——字符串那一档要有日期文本解析器，是个单独的活" },
+  //
+  // **组 Q：承诺组合子少两格（2 条）** ✓
+  "c291-promise-all-race-settled": { expect: "blocked", why: "`Promise.allSettled` 还没挂表（`all` / `race` 是好的）——每个结果要包成 `{ status, value | reason }`" },
+  "c291-promise-any-and-finally": { expect: "blocked", why: "`Promise.any` 还没挂表（与上一格同一张表的两格）" },
+  //
+  // **组 R：函数自己的 `name` / `length`（3 条）** ✓
+  "c291-function-prototype-shape": { expect: "differ", why: "`Function.prototype.call.length` 给 `undefined`（Node 给 `1`）——内建函数自己的 `length` 这一格没填，与上面两条同一组" },
+  //
+  // **组 S：函数当 `ToPrimitive` 要给源码文本（1 条）** ✓——缺口清单 #11。
+  "c291-function-tostring-forms": { expect: "blocked", why: "`fn.toString()` 报 `unimplemented: ToPrimitive of a function (JS renders source text)`——函数要交出**源码文本**，得由降级层按区间抄下来（与 `function-prototype-tostring` 同一根）" },
+  //
+  // **组 T：`ReferenceError`（1 条）** ✓
+  "c291-error-families-and-messages": { expect: "blocked", why: "`ReferenceError` 连全局名都没有（`name is not a local or a capture`）——错误家族第四个原型那一格，与第 277 轮 `SyntaxError` 同一个形状" },
+  //
+  // **组 U：函数显示名的推断（1 条）** ✓
+  "c291-console-log-nested-shapes": { expect: "differ", why: "`console.log({ f: () => 1 })` 印 `[Function (anonymous)]`（Node 印 `[Function: f]`）——匿名函数要**从属性名反推显示名**（与 `function-name-inference` 同一族）" },
 };
 
