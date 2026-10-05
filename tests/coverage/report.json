@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 777,
+  "matrix": 778,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,27 +33,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.75,
+  "progressPercent": 95.02,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 253,
-      "pass": 231,
+      "pass": 232,
       "blocked": 12,
-      "differ": 10,
+      "differ": 9,
       "nodefail": 0,
-      "coverage": 91.3
+      "coverage": 91.7
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 183,
-      "pass": 174,
+      "total": 184,
+      "pass": 176,
       "blocked": 5,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 95.08
+      "coverage": 95.65
     },
     {
       "layer": "stdlib",
@@ -236,12 +236,6 @@
   ],
   "differ": [
     {
-      "id": "rt-iife-forms",
-      "layer": "runtime",
-      "title": "三种立即调用：函数表达式 / 箭头 / 带实参",
-      "detail": "stdout 不同：第 3 行：node «5» vs tsrun «NaN»"
-    },
-    {
       "id": "rt-loop-capture-let-vs-var",
       "layer": "runtime",
       "title": "循环变量捕获：let 每个迭代一个、var 共用一个",
@@ -306,12 +300,6 @@
       "layer": "exec",
       "title": "非空断言与 as 串在一条链上",
       "detail": "stdout 不同：第 1 行：node «2 3» vs tsrun «[ 1, 2, 3 ] 3»"
-    },
-    {
-      "id": "ex-arrow-immediately-invoked-typed",
-      "layer": "exec",
-      "title": "带类型标注的箭头立即调用",
-      "detail": "stdout 不同：第 1 行：node «3» vs tsrun «NaN»"
     },
     {
       "id": "ex-nonnull-chain-index",
@@ -394,11 +382,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "ex-index-and-call-signatures",
-      "layer": "exec"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }

@@ -2250,4 +2250,24 @@ const d = new Derived();
 console.log(d.greet(), d.tag);
 `
   },
+  // ===== 第 302 轮补的一条：被调用者是括号 / 成员链的立即调用 =====
+  // 它是**量那条红条时顺手加的** ✓（用户口径：「发现新问题就加对应语料」✓）——
+  // 实参括号里的逗号在**时序上**先被折成了算子单元 ✓，于是 `arguments` 只剩一格 ✗、
+  // 形参拿到的是**最后一个**实参 ✓（`NaN` ✓，**一句异常都没有** ✗）。
+  // 这一条把**四种被调用者形状**一起钉住 ✓：括号 ✓、括号里的箭头 ✓、括号里的函数表达式 ✓、
+  // 以及**成员链**（`o.m` / `arr[0]`）那两种里已经通了的那一种 ✓。
+  {
+    id: "c302-callee-shapes-with-arguments",
+    title: "被调用者是括号 / 箭头 / 函数表达式时，实参表照样按顶层逗号切开",
+    src: `
+const h = (a: number, b: number) => a + b;
+console.log((h)(1, 2), ((a: number, b: number) => a + b)(3, 4));
+console.log((function (a: number, b: number) { return a * b; })(5, 6));
+console.log((((a: number, b: number) => a - b))(7, 8));
+const three = ((a: number, b: number, c: number) => a + b + c)(1, 2, 3);
+console.log(three);
+const group = (1, 2);
+console.log(group);
+`
+  },
 ];

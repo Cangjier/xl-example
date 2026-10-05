@@ -196,6 +196,79 @@ return index;
 
 它由重组造出来、自己不消费字符，因此 `Process` 沿用 `IndependentToken` 的空实现。
 
+## static method CommaOperator:(ctx:any, kid:any)=>bool
+
+**这一格是不是「顶层逗号」**（第 302 轮 ✓）：类型是 `BinaryOperator`、且它里面有一枚 `,` 符号 ✓。
+
+**为什么要问「里面」而不是问原文** ✗：这个单元的区间是**整段** `1, 2` ✓
+（实测 `ctx.TextOf` 给的就是 `"1, 2"` ✓），拿原文比 `","` 永远为假 ✓。
+
+```ts
+if (kid.get("type") !== "BinaryOperator") return false;
+for (const inner of ctx.Kids(kid)) {
+  if (inner.get("type") === "SymbolToken" && ctx.TextOf(inner) === ",") return true;
+}
+return false;
+```
+
+## static method ArgumentGroups:(ctx:any, kids:Array<any>)=>Array<Array<any>>
+
+**实参按顶层逗号切组**（第 302 轮 ✓）——切在**两种**逗号上 ✗：
+
+1. 一个独立的 `SymbolToken(",")` ✓（绝大多数形状 ✓，与 `ctx.Split(kids, ",")` 一致 ✓）；
+2. **一个「逗号算子单元」** ✗——即 `BinaryOperator` 类型、里面那枚符号是 `,` ✓。
+
+**为什么第 2 种非有不可** ✗：逗号什么时候已经被折成**算子单元** ✓ 取决于**队列时序** ✗——
+`h(1, 2)` 里那对括号被 `MethodReorganization` 收走时 ✓ 逗号还是**独立的符号** ✓；
+而 `(h)(1, 2)` / `arr[0](1, 2)` / `((a, b) => a + b)(1, 2)` 这些**括号或成员链当被调用者**的形状，
+`Previous` 要等**前一个括号先闭合**才成立 ✓ ⇒ 那对实参括号里的逗号**先被折成了算子** ✓。
+
+**症状**（判据 `rt-iife-forms` / `ex-arrow-immediately-invoked-typed` ✓）：
+`((a, b) => a + b)(1, 2)` 投出来的 `arguments` **只有一格** ✓
+（那一格是 `BinaryExpression(left:1, right:2)` 带着 `CommaToken` ✓），
+降级层于是只铺**一个**实参 ✓ ⇒ 形参 `a` 拿到**最后一个**实参、`b` 是 `undefined` ✓ ⇒ `NaN` ✓
+——**一句异常都没有** ✗。
+
+**那个算子单元要「摊开」而不是「当成一个分隔符」** ✗（第一版就是后者 ✓）：
+它的区间是**整段** `1, 2` ✓，按分隔符切只会切出两个**空组** ✓
+（实测 `groups` 给 `[[], []]` ✓、`arguments` 给 `[]` ✓——**比原来还少** ✗）。
+所以要把它**换成它的子单元**（摊开 ✓）之后再切 ✓，而且**要摊到没有为止** ✓
+（`1, 2, 3` 可能一层层折 ✓）。
+
+**为什么这一刀是安全的** ✗：实参表里的**顶层**逗号**永远**是分隔符 ✓——
+真正的逗号运算符必须先有自己的括号 ✓（`f((1, 2))` 给**一个**实参 `2` ✓，
+而那一格是**嵌套的括号单元** ✓，摊不到这里 ✓）。
+
+```ts
+let pending: any[] = [];
+for (const kid of kids) pending.push(kid);
+while (true) {
+  let expanded = false;
+  const next: any[] = [];
+  for (const kid of pending) {
+    if (Method.CommaOperator(ctx, kid)) {
+      for (const inner of ctx.Kids(kid)) next.push(inner);
+      expanded = true;
+      continue;
+    }
+    next.push(kid);
+  }
+  pending = next;
+  if (!expanded) break;
+}
+const groups: any[] = [];
+let current: any[] = [];
+for (const kid of pending) {
+  if (kid.get("type") === "SymbolToken" && ctx.TextOf(kid) === ",") {
+    groups.push(current);
+    current = [];
+    continue;
+  }
+  current.push(kid);
+}
+groups.push(current);
+return groups.filter((group) => group.length > 0);
+```
 ## method PrintAst:(ctx:any, v:any)=>any
 
 调用 `f(a)` → `CallExpression`（`expression` + `arguments` + 可选 `typeArguments`；
@@ -242,10 +315,9 @@ return index;
       return {
         kind: "CallExpression",
         expression: ctx.Expression([innerCall]),
-        arguments: ctx
-          .Split(rest, ",")
-          .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
-          .filter((a: any) => a !== undefined),
+        arguments: Method.ArgumentGroups(ctx, rest)
+      .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
+      .filter((a: any) => a !== undefined),
         pos: v.start,
         end,
       };
@@ -268,8 +340,7 @@ return index;
       return {
         kind: "CallExpression",
         expression: ctx.ParenthesizedOf(brace),
-        arguments: ctx
-          .Split(rest, ",")
+        arguments: Method.ArgumentGroups(ctx, rest)
           .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
           .filter((a: any) => a !== undefined),
         pos: v.start,
@@ -347,8 +418,7 @@ return index;
         : anonymousCallee !== undefined
           ? ctx.Project(anonymousCallee)
           : { kind: ctx.LeafKind(calleeText), text: calleeText, pos: v.start, end: calleeEnd },
-    arguments: ctx
-      .Split(args, ",")
+    arguments: Method.ArgumentGroups(ctx, args)
       .map((group: any) => (group.length === 0 ? undefined : ctx.Expression(group)))
       .filter((a: any) => a !== undefined),
     pos: v.start,

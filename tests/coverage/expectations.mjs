@@ -503,7 +503,6 @@ export const EXPECTATIONS = {
   //    （**静默错值** ✓）。修法是给降级层加一格 `OwnEnv` ✓（进门置假、真开了才置真 ✓），
   //    `CellOf` 在它假的时候直接给 `-1` ✓——那个名字于是落到「现在占槽」那一条 ✓。
   "ex-nonnull-and-as-chain": { expect: "differ", why: "**静默错值**：`o!.a!.b![1]` 给整个数组而不是 `2`——非空断言串在成员链上时把后面那一截丢掉了（`(o as any).a.b.length` 是对的）" },
-  "rt-iife-forms": { expect: "differ", why: "**静默错值**：`((a: number, b: number) => a + b)(2, 3)` 给 `NaN`——**带类型标注**的箭头函数出现在立即调用位置时，形参没绑上（不带标注的箭头立即调用是对的）" },
 
   // ---- 组 B：`delete` 与**原始值接收者**上的赋值（2 条）----
   // 两条都卡在同一族判据上 ✓：写操作先问「接收者是不是对象」✓，
@@ -578,7 +577,6 @@ export const EXPECTATIONS = {
   "array-tostring-custom-values": { expect: "differ", why: "**静默错值**：`[new C(), 1].toString()` 给 `[object Object],1`（Node 给 `C!,1`）——`ValueUnits` 对普通对象**写死了 `[object Object]`**，没走 `ToPrimitive(el, \"string\")` ⇒ 元素自己那个 `toString` 根本不被调。根子与 `json-stringify-tojson-and-specials` 同一处：**取文本这条路上没有回调通道**" },
   //
   // **组 C：降级层 / token 层（3 条）** ✓
-  "ex-arrow-immediately-invoked-typed": { expect: "differ", why: "**静默错值**：`((a: number, b: number) => a + b)(1, 2)` 给 `NaN`——带类型标注的箭头出现在立即调用位置时形参没绑上（不带标注的箭头立即调用是对的）。与已有的 `rt-iife-forms` **同一个根**：括号里的形参表怎么被收" },
   "ex-nonnull-chain-index": { expect: "differ", why: "**静默错值**：`o!.a!.b![1]` 给整个数组而不是 `2`——非空断言串在成员链上时把后面那一截丢掉了。与已有的 `ex-nonnull-and-as-chain` **同一个根**（投影层 `!` 的尾）" },
   //
   // **组 D：`arguments`（2 条）** ✓——`arguments` 这个对象**这一层根本没有** ✗。
