@@ -90,7 +90,12 @@ throw new Error("unimplemented: builtin id " + id);
 // 按窄到宽判 ✓（写反了会被下面的全局段截走 ✗，症状是「Promise.resolve 报别的号」✗）。
 // **240 / 241 是第 285 轮加的**（执行器拿到的 `resolve` / `reject` 两个宿主回调 ✓）——
 // 它们**不是静态方法** ✓，与 `238` / `239` 那两步回调同一条形状 ✓。
-if (id >= 230 && id < 242) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
+// **242..247 是第 295 轮加的** ✓（`allSettled` / `any` 两个静态方法 + 四步回调 ✓）——
+// **上界从 `< 242` 挪到 `< 248`** ✗：窄段的上界与「承诺这一族有多少个号」是**同一件事** ✓，
+// 少挪一格就是 `unimplemented: global builtin 243` ✓
+//（**一句话听起来像「有个全局号没实现」** ✓，其实是**这一段的上界写窄了** ✗，
+// 与第 116 轮 `Map` / `Set` 那一处**一模一样** ✓）。
+if (id >= 230 && id < 248) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
 // **「一个可迭代物 → 一个数组」这件家务事留在这一层** ✓（不放进 `map.xl.md` / `set.xl.md` ✗）：

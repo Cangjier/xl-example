@@ -1346,7 +1346,14 @@ const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach",
   // （没给实参时 `join` 的默认分隔符就是 `,` ✓），所以**指到同一格能力号** ✓
   // ——同一件事不写第二份实现 ✓。实测：`[1, [2, 3]].toString()` 原来报
   // `unimplemented: calling a non-closure value` ✗（那一格根本没装 ✓）。
-  "toString"];
+  "toString",
+  // **`toLocaleString` 指到同一格** ✓（第 295 轮 ✓）：JS 的 `Array.prototype.toLocaleString`
+  // 是「对每个元素调它自己的 `toLocaleString`（没有就 `toString`）再用 `,` 接起来」✓——
+  // 本仓**没有区域设置** ✓（`toLocaleString` 与 `toString` 在 ASCII 数字上本来就一样 ✓），
+  // 而**元素自己那一层**走的还是同一条 `ValueUnits` 老路 ✓（`array-tostring-custom-values`
+  // 拖着它 ✓）。**已知差异写在明处** ✗：JS 会先问元素自己的 `toLocaleString` ✓，
+  // 本仓直接走 `toString` 那一条 ✓（判据只量了数字与嵌套数组 ✓）。
+  "toLocaleString"];
 const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice, ArrayForEach,
   ArrayMap, ArrayFilter, ArrayFind, ArraySome, ArrayEvery, ArrayConcat, ArrayReverse, ArrayIncludes,
   ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat, ArrayAt, ArraySplice,
@@ -1354,7 +1361,7 @@ const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice,
   ArrayKeys, ArrayValues, ArrayEntries,
   ArrayFindLast, ArrayFindLastIndex, ArrayReduceRight, ArrayCopyWithin,
   ArrayToSorted, ArrayToReversed, ArrayWith,
-  ArrayJoin];
+  ArrayJoin, ArrayJoin];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

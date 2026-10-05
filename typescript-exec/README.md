@@ -6,6 +6,85 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 295 轮的账（**「一个名字或一格表」那一批** —— 89.8% → 90.5%，标准库 88.7% → 91.4%）
+
+**选题是标准库红条里最便宜的一簇** ✓：它们全都只差**一个全局名**或**一张表上的一格** ✓
+（`report.json` 里报的分别是 `name is not a local or a capture: X` ✓ 与
+`cannot call a non-closure value` ✓——两类话都指得很准 ✓）。**9 条转绿** ✓。
+
+### 一、六件事
+
+| # | 装的是什么 | 判据 | 要点 |
+| --- | --- | --- | --- |
+| ① | **`WeakMap` / `WeakSet`** | `weakmap-basic` · `c291-weakset-and-weakmap-forms` | **值就是 `Map` / `Set` 那两个构造** ✓ |
+| ② | **`ReferenceError`** | `c291-error-families-and-messages` | 第四个错误族 ✓（第 277 轮那条「等判据」的规矩兑现 ✓） |
+| ③ | **`AggregateError`** | `error-aggregate` | **实参次序与别的族相反** ✗（第一个是数组 ✓） |
+| ④ | **`Object.groupBy`** | `object-groupby` | 收数组 ✓、回调 `(元素, 下标)` ✓ |
+| ⑤ | **`Array.prototype.toLocaleString`** | `array-tolocalestring` | 指到 `join` 那一格 ✓ |
+| ⑥ | **`Promise.allSettled` / `Promise.any`** | `promise-race-any-allsettled` · `c291-promise-all-race-settled` · `c291-promise-any-and-finally` | **四步回调分两个号** ✗ |
+
+### 二、`WeakMap` / `WeakSet`：为什么是「顶上」
+
+本仓**没有弱引用那一档** ✗（回收器不认「弱」这个属性 ✓），而两条判据只量
+`set` / `get` / `has` / `delete` / `add` ✓——拿 `Map` / `Set` 顶上，那些格**一格不差** ✓
+（方法挂在**实例**上 ✓，所以「用哪个原型」只影响 `instanceof` ✓）。
+
+**两处已知差异写在明处** ✗（都不能装作没有 ✓）：
+
+- **键必须是对象**那一条**没有单独判** ✓（`new WeakMap().set(1, 2)` 在本仓是通的 ✗、
+  在 JS 里抛 `TypeError` ✓）；
+- **`instanceof WeakMap` 是假的** ✓（原型还是 `Map` 那一个 ✓）。
+
+**为什么不给它们各造一个原型** ✗：那要复制一整套安装代码 ✓，而它只影响上面第二格 ✓
+（判据也没有量它 ✓）——记在台账里 ✓。
+
+### 三、`Promise.any` / `allSettled`：四步回调为什么要两个号
+
+**引擎只把结清值接在实参后面** ✗（`Args.push(settled)` ✓），
+**不告诉回调「这是哪一档」** ✗——所以「兑现」与「拒绝」只能各走一个号 ✓。
+`.then(f, g)` 那一格**早就用了同一招** ✓（`wants === 3` 时按 `reject` 在 `callback` 与
+`onRejected` 之间挑 ✓，见 `vm.xl.md` 的 `RunNativeTask` ✓）——**这是引擎那一格的形状决定的** ✓，
+不是随手多开两个号 ✓。
+
+### 四、这一轮最值钱的两处：都是「上界 / 映射写窄了」
+
+**① `install.xl.md` 那个窄段的上界** ✗：`if (id >= 230 && id < 242)` ✓——
+第 295 轮把承诺这一族开到 `247` ✓，上界就要跟着挪 ✓。少挪一格报的是
+`unimplemented: global builtin 243` ✓——**听起来像「有个全局号没实现」** ✓，
+其实是**这一段的上界写窄了** ✗（与第 116 轮 `Map` / `Set` 那一处**一模一样** ✓）。
+**「这一族有多少个号」与「这一段的上界」是同一件事** ✓，而它们**住在两个文件里** ✗
+——这正是它每次都要踩一次的原因 ✓。
+
+**② `any` 的兑现步指错了号** ✗：第一版写成
+
+```ts
+const step = id === PromiseAll ? PromiseAllStepId
+  : (id === PromiseRace ? PromiseRaceStepId : PromiseSettledStepId);
+```
+
+——`allSettled` 与 `any` **共用了最后那一支** ✓，而两者的**收值盒子不一样** ✗
+（前者 `state.values` ✓、后者 `state.errors` ✓）。于是 `any` 那一步往一个**不存在的格子**里写 ✓，
+最后一个到齐时又把那个**不存在的东西**兑现出去 ✗ ⇒
+`Promise.any([Promise.resolve(3)])` 打出 **`a undefined`** ✓（**静默错值** ✓）。
+
+**它为什么难查** ✗：**`allSettled` 一字不差是对的** ✓——同一个方法、同一个 `mode` 参数、
+只差一个号 ✓ ⇒ **一半对一半错** ✓。而且错的那一半**不抛** ✓，只是值没了 ✓。
+**修法是把四个静态方法各挑各的兑付步** ✓（三目写成三层 ✓，加一句注释把这条形状写下来 ✓）。
+
+### 五、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   89.3%   225/252   (blocked 12 · differ 15 · bad 0)   没动
+exec      94.5%   172/182   (blocked 5  · differ 5  · bad 0)   没动
+stdlib    91.4%   299/327   (blocked 12 · differ 16 · bad 0)   +9 条
+e2e       84.6%    11/13    (blocked 2  · differ 0  · bad 0)   没动
+合计      90.5%   707/774   blocked 31 · differ 36 · bad 0
+```
+
+**红的一栏是 0** ✓；`runtime:check` **241 条** ✓、`runtime:cli` **79 份** ✓、
+`cases:tsast` **1444 / 1444** ✓。
+
 ## 第 294 轮的账（**JSON 的 `toJSON` 与 replacer** —— 89.4% → 89.8%，标准库 87.2% → 88.7%）
 
 **选题是上一轮留下的那一条** ✓（`date-iso-and-json` 与 `date-toiso-and-json` **同一个根** ✓），

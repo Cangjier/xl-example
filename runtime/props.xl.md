@@ -173,12 +173,29 @@ this.Index = index;
 **它在这一层就是一个空原型** ✓（与那三条一样 ✓）：`name` / `message` / `constructor`
 三格由建库层挂 ✓（`globals.xl.md` ✓），这一层只管造一个空对象并**把链接到 `Error.prototype`** ✓。
 
-**剩下三个名字没补** ✗（`ReferenceError` / `URIError` / `EvalError` ✓）：
+**剩下两个名字没补** ✗（`URIError` / `EvalError` ✓）：
 它们今天**没有判据** ✓（矩阵里没有一条量它们 ✓），而「加一格」的成本在这一层是**四处** ✓
 （字段 ✓ + 根 ✓ + 建对象 ✓ + 接链 ✓，再加建库层那三格 ✓）——
 所以按这一层的规矩：**等有判据了再补** ✓，而不是先把名字占了 ✗
 （`GlobalNames` 那张名单与 `BuildGlobals` 是**同一份约定** ✓，
 名单里有、没挂 ⇒ 「声明了却没提供」✗，判据里量着这一条 ✓）。
+
+## field ReferenceError:int = 0
+
+**`ReferenceError` 的原型**（第 295 轮 ✓）——链与上面三条一字不差 ✓。
+
+**为什么第 295 轮才补它** ✗：第 277 轮那一格写着「等有判据了再补」✓，
+而判据**来了** ✓（`c291-error-families-and-messages` ✓：它把五个错误族排在一起 ✓，
+`new ReferenceError("f")` 在**降级期**就报 `name is not a local or a capture: ReferenceError` ✓）。
+**它自己就是那条规矩的一个例子** ✓——按规矩等着 ✓，等到判据出现 ✓。
+
+## field AggregateError:int = 0
+
+**`AggregateError` 的原型**（第 295 轮 ✓）——链与上面几条一字不差 ✓。
+
+**它与其他几个不同的一点** ✗：它自己带一格 `errors` ✓（第一个实参那个数组 ✓，由建库层挂 ✓）。
+**`instanceof Error` 也要成立** ✓（判据量着它 ✓）——所以它同样要接在 `Error.prototype` 下面 ✓。
+
 
 ## field Map:int = 0
 
@@ -254,6 +271,8 @@ if (this.Error > 0) roots.AddHandle(this.Error);
 if (this.TypeError > 0) roots.AddHandle(this.TypeError);
 if (this.RangeError > 0) roots.AddHandle(this.RangeError);
 if (this.SyntaxError > 0) roots.AddHandle(this.SyntaxError);
+if (this.ReferenceError > 0) roots.AddHandle(this.ReferenceError);
+if (this.AggregateError > 0) roots.AddHandle(this.AggregateError);
 if (this.Map > 0) roots.AddHandle(this.Map);
 if (this.Set > 0) roots.AddHandle(this.Set);
 if (this.Date > 0) roots.AddHandle(this.Date);
@@ -272,18 +291,20 @@ if (this.WellKnownSymbols > 0) roots.AddHandle(this.WellKnownSymbols);
 造十四个空原型。**要先问 room**（要造十四个堆对象）。
 
 **四格 `Error` 的链是「接上去」的** ✓：`Error.prototype` 的原型是 `Object.prototype` ✓、
-`TypeError.prototype` / `RangeError.prototype` / `SyntaxError.prototype` 的原型是
+`TypeError.prototype` / `RangeError.prototype` / `SyntaxError.prototype` /
+**`ReferenceError.prototype` / `AggregateError.prototype`**（第 295 轮 ✓）的原型是
 `Error.prototype` ✓（JS 里就是如此 ✓）——所以 `e instanceof Object` 与
 `new TypeError() instanceof Error` 都成立 ✓。
-**四个成员共用「报错对象的原型」这一件事** ✓，所以 `/ 13` 那个上界第 277 轮跟着变成 `/ 14` ✓
-——**这个数是手写的** ✗（`ObjectCharge * 13` ✓），改成员数时**两处都要改** ✓
+**这几个成员共用「报错对象的原型」这一件事** ✓，所以 `/ 13` 那个上界跟着
+第 277 轮变成 `/ 14` ✓、第 295 轮变成 **`* 16`** ✓
+——**这个数是手写的** ✗（`ObjectCharge * 16` ✓），改成员数时**两处都要改** ✓
 （少改一处就是「房间问少了」✓：`CreateObject` 自己**不做房间检查** ✗）。
 **`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上** ✓（第 138 轮 ✓）。
 **`Number` / `Boolean` 两格也是** ✓（第 150 轮 ✓）——它们与 `String` 那一格同一个用途 ✓：
 **原始值接收者的方法从这里找** ✓（`(1.5).toFixed(2)` ✓、`true.toString()` ✓）。
 
 ```ts
-if (!room(ObjectCharge * 14)) {
+if (!room(ObjectCharge * 16)) {
   throw new Error("out of room");
 }
 const protos = new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
@@ -309,6 +330,11 @@ protos.RangeError = table.CreateObject();
 table.Get(protos.RangeError).Proto = protos.Error;
 protos.SyntaxError = table.CreateObject();
 table.Get(protos.SyntaxError).Proto = protos.Error;
+// **第 295 轮补的两格** ✓（`ReferenceError` / `AggregateError` ✓）——链与上面三条一字不差 ✓。
+protos.ReferenceError = table.CreateObject();
+table.Get(protos.ReferenceError).Proto = protos.Error;
+protos.AggregateError = table.CreateObject();
+table.Get(protos.AggregateError).Proto = protos.Error;
 // **`Map` / `Set` / `Date` 三格**（第 138 轮）：它们直接接在 `Object.prototype` 上 ✓
 // （JS 里 `Map.prototype` 的原型就是 `Object.prototype` ✓），
 // 于是 `new Map() instanceof Object` 也成立 ✓。

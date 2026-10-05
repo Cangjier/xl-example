@@ -1077,6 +1077,28 @@ if (id === PowId) {
 所以要先 `+4` 再取模 ✓）——**这个偏移写错就是静默错一天** ✓，判据 `date-getters-and-setters`
 钉着它 ✓。
 
+# const ReferenceErrorCtor:int = 326
+
+**`ReferenceError`**（第 295 轮 ✓）——号**追加在表尾** ✓（`280..283` 那一段已经占了四个 ✓）。
+
+**它是「等有判据了再补」那条规矩的例子** ✓：第 277 轮补 `SyntaxError` 时，
+`props.xl.md` 那一格明写着「剩下三个名字（`ReferenceError` / `URIError` / `EvalError`）
+**没有判据** ✓，所以先不占名字」✓——第 295 轮判据来了 ✓
+（`c291-error-families-and-messages` 把五个族排在一起 ✓），于是照规矩补上 ✓。
+
+# const AggregateErrorCtor:int = 327
+
+**`AggregateError(内层数组, 消息?)`**（第 295 轮 ✓）——号**追加在表尾** ✓。
+
+**它与其余几个只差一格** ✓：第一个实参是**内层那个数组** ✓（挂成不可枚举的 `errors` ✓），
+消息是**第二个** ✓（不是第一个 ✗）——所以它**不能**直接落进
+`ErrorCtorName` / `ErrorCtorProto` 那一支的实参解析里 ✓（那一支的第一个实参是消息 ✓）。
+**`Promise.any` 也用它** ✓（全部被拒绝时抛的就是它 ✓）。
+
+# const ObjectGroupBy:int = 328
+
+**`Object.groupBy(可迭代, 回调)`**（第 295 轮 ✓）——号**追加在表尾** ✓。
+
 # const ObjectKeys:int = 401
 
 `Object.keys` 的能力号（`Object` 段从 400 起）。
@@ -1225,7 +1247,11 @@ if (id === PowId) {
 ```ts
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
   "RangeError", "SyntaxError", "Array", "Number", "String", "Boolean", "Promise", "Function", "parseInt",
-  "parseFloat", "NaN", "Infinity", "isNaN", "isFinite", "globalThis"];
+  "parseFloat", "NaN", "Infinity", "isNaN", "isFinite", "globalThis",
+  // **第 295 轮补的四个名字** ✓（`ReferenceError` ✓ / `AggregateError` ✓ /
+  // `WeakMap` ✓ / `WeakSet` ✓）——**名单与 `BuildGlobals` 是同一份约定** ✓，
+  // 四条都**两边一起**加了 ✓（少一边就是「声明了却没提供」✗，判据里量着这一条 ✓）。
+  "ReferenceError", "AggregateError", "WeakMap", "WeakSet"];
 ```
 
 **`Function` 是第 228 轮加进来的** ✓（与 `Boolean` / `Promise` 那两条同一个理由 ✓）：
@@ -2049,7 +2075,8 @@ if (id === PowId) {
   // **不是全局名** ✓：脚本里写 `PowId` 找不到它 ✓。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
 }
-if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === SyntaxErrorCtor) {
+if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === SyntaxErrorCtor
+  || id === ReferenceErrorCtor) {
   // **`new Error(msg)` 与 `Error(msg)` 同一支**（号相同、两条调用路都落到这里）✓。
   // **四个号共用一支**（第 137 轮三个、第 277 轮加 `SyntaxError` ✓）：
   // 它们只差**原型**与**名字** ✓——复制四份的下场是「改了一处忘了一处」✗
@@ -2115,6 +2142,70 @@ if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === 
   // **新造的那一条也要挂** ✓（与 `self` 那一支对称 ✓）。
   if (hasCause) SetHiddenProperty(room, table, built, NameValue(table, "cause"), causeValue);
   return built;
+}
+if (id === AggregateErrorCtor) {
+  // **`AggregateError(内层数组, 消息?)`** ✓（第 295 轮 ✓）——**实参次序与别的族相反** ✗：
+  // 第一个是**那个数组** ✓（JS 的口径 ✓），消息是第二个 ✓。
+  // **它自己那一格 `errors` 是普通（可枚举的）属性** ✓（与 `message` / `name` 同款 ✓）——
+  // 与 `cause` **不同** ✗（后者是不可枚举的 ✓，见上面那一支 ✓）：`JSON.stringify(e)` 在 JS 里
+  // 给 `{"errors":[]}` ✓（`message` / `name` 在**原型**上 ✓、不是自有属性 ✓）——
+  // 那一条**记在台账里** ✓（本仓是自有属性 ⇒ 会多印两格 ✓）。
+  const innerList = args.length > 0 ? args[0] : Value.Undefined();
+  const aggregateText = args.length > 1 ? ValueText(table, args[1]) : "";
+  if (self.IsObject()) {
+    SetProperty(room, NeverCall, table, self, NameValue(table, "message"),
+      Value.FromString(table.CreateString(Units(aggregateText))));
+    SetProperty(room, NeverCall, table, self, NameValue(table, "name"),
+      Value.FromString(table.CreateString(Units("AggregateError"))));
+    SetProperty(room, NeverCall, table, self, NameValue(table, "errors"), innerList);
+    return self;
+  }
+  const aggregateBuilt = NewErrorLike(room, table, protos, protos.AggregateError, "AggregateError", aggregateText);
+  SetProperty(room, NeverCall, table, aggregateBuilt, NameValue(table, "errors"), innerList);
+  return aggregateBuilt;
+}
+if (id === ObjectGroupBy) {
+  // **`Object.groupBy(可迭代, 回调)`** ✓（第 295 轮 ✓）——按回调的返回值分组 ✓。
+  //
+  // **只收数组** ✗（可迭代那一半没做 ✓）：判据用的是数组 ✓，而
+  // 「按迭代协议走一遍」那一套要走 `GetIterator` ✓——**没量到就不做** ✗，
+  // 而**响亮地抛**比「把别的形状当数组读」好 ✓。
+  //
+  // **回调每个元素调一次** ✓（实参 `(元素, 下标)` ✓，与 `Array.map` 那一族同一个形状 ✓）。
+  //
+  // **已知差异写在明处** ✗：JS 给的分组对象**没有原型** ✓（`Object.groupBy` 返回的是
+  // null-prototype 对象 ✓），本仓给的是**普通对象** ✓——`Object.create(null)` 那一档
+  // 本仓表达不了 ✓（见 `ObjectCreate` 那一支 ✓）。所以 `"toString" in g` 在本仓是**真** ✓、
+  // 在 JS 里是**假** ✓。
+  if (args.length < 2) throw new Error("Object.groupBy needs two arguments");
+  if (!IsCallableValue(table, args[1])) {
+    throw new Error("Object.groupBy needs a function as the second argument");
+  }
+  if (call === null) {
+    throw new Error("Object.groupBy needs a call channel (the host must pass one)");
+  }
+  if (args[0].Tag !== ValueTag.Array) {
+    throw new Error("unimplemented: Object.groupBy over a value that is not an array");
+  }
+  const groupSource = table.Get(args[0].Ref).AsArray();
+  const groups = NewPlainObject(room, table, protos);
+  for (let i = 0; i < groupSource.GetLength(); i++) {
+    const member = groupSource.GetAt(i);
+    const bucketName = call(args[1], Value.Undefined(), [member, Value.FromInt(i)]);
+    const bucketKey = Value.FromString(table.CreateString(Units(ValueText(table, bucketName))));
+    let bucket = GetProperty(room, NeverCall, protos, table, groups, bucketKey);
+    if (bucket.Tag !== ValueTag.Array) {
+      // **先问 room、再分配** ✓：`SetProperty` 自己也会问 room ✓——
+      // 那一次如果触发了回收，这个**还没有人指着**的新数组就会被收走 ✓
+      //（与 `Promise.all` 那个 `state` 同一条纪律 ✓）。
+      if (!room(ObjectCharge + PropertyCharge + ValueCharge * 2)) throw new Error("out of room");
+      bucket = NewPlainArray(room, table, protos);
+      SetProperty(room, NeverCall, table, groups, bucketKey, bucket);
+    }
+    if (!room(ValueCharge)) throw new Error("out of room");
+    table.Get(bucket.Ref).AsArray().Push(member);
+  }
+  return groups;
 }
 if (id === ParseInt || id === ParseFloat) {
   // **两个全局函数**（第 126 轮）：实参先 ToString ✓（`parseInt(12.5)` 是 `12` ✓），
@@ -3184,6 +3275,7 @@ throw new Error("unimplemented: global builtin " + id);
 if (id === TypeErrorCtor) return "TypeError";
 if (id === RangeErrorCtor) return "RangeError";
 if (id === SyntaxErrorCtor) return "SyntaxError";
+if (id === ReferenceErrorCtor) return "ReferenceError";
 return "Error";
 ```
 
@@ -3199,6 +3291,7 @@ return "Error";
 if (id === TypeErrorCtor) return protos.TypeError;
 if (id === RangeErrorCtor) return protos.RangeError;
 if (id === SyntaxErrorCtor) return protos.SyntaxError;
+if (id === ReferenceErrorCtor) return protos.ReferenceError;
 return protos.Error;
 ```
 
@@ -4365,6 +4458,10 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, freezeKey, freezeTarget);
 const definePropertyKey = Value.FromString(table.CreateString(Units("defineProperty")));
 const definePropertyTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectDefineProperty, 0));
 SetProperty(vm.Room(), NeverCall, table, objectObject, definePropertyKey, definePropertyTarget);
+// **`Object.groupBy`**（第 295 轮 ✓）：与上面那些**同一张对象**上再挂一格 ✓。
+const groupByKey = Value.FromString(table.CreateString(Units("groupBy")));
+const groupByTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGroupBy, 0));
+SetProperty(vm.Room(), NeverCall, table, objectObject, groupByKey, groupByTarget);
 
 // `Error` 是一个**宿主构造函数**（`new Error(msg)` 走 `Op.New` 的宿主那条分支 ✓，
 // `Error(msg)` 走 `Op.Call` ✓——同一个号两支都通，见 `ErrorCtor` 的说明）。
@@ -4395,6 +4492,37 @@ const syntaxErrorKey = Value.FromString(table.CreateString(Units("SyntaxError"))
 const syntaxErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SyntaxErrorCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, syntaxErrorKey, syntaxErrorTarget);
 vm.RegisterConstructorProto(SyntaxErrorCtor, protos.SyntaxError);
+// **`ReferenceError` / `AggregateError` 两格**（第 295 轮 ✓）：挂全局名 ✓、登记原型 ✓——
+// 与上面那三条一字不差 ✓。**原型上的 `name` / `message` / `constructor` 三格**
+// 由下面那段循环一起挂 ✓（它们就在那张名单里 ✓）。
+const referenceErrorKey = Value.FromString(table.CreateString(Units("ReferenceError")));
+const referenceErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ReferenceErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, referenceErrorKey, referenceErrorTarget);
+vm.RegisterConstructorProto(ReferenceErrorCtor, protos.ReferenceError);
+const aggregateErrorKey = Value.FromString(table.CreateString(Units("AggregateError")));
+const aggregateErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(AggregateErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, aggregateErrorKey, aggregateErrorTarget);
+vm.RegisterConstructorProto(AggregateErrorCtor, protos.AggregateError);
+// **`WeakMap` / `WeakSet`**（第 295 轮 ✓）：**值就是 `Map` / `Set` 那两个构造** ✓——
+// 本仓**没有弱引用那一档** ✗（回收器不认「弱」这个属性 ✓），
+// 而它们拖着的两条判据只量 `set` / `get` / `has` / `delete` / `add` ✓——
+// 拿 `Map` / `Set` 顶上，那些格**一格不差** ✓。
+//
+// **两处已知差异写在明处** ✗（都不能装作没有 ✓）：
+// · **键必须是对象**那一条**没有单独判** ✓（`new WeakMap().set(1, 2)` 在本仓是通的 ✗、
+//   在 JS 里抛 `TypeError` ✓）；
+// · **`instanceof WeakMap` 是假的** ✓（原型还是 `Map` 那一个 ✓）。
+// **为什么不给它们各造一个原型** ✗：方法挂在**实例**上 ✓（`map.xl.md` 的 `InstallMapMethods` ✓），
+// 所以「用哪个原型」只影响 `instanceof` 那一格 ✓——为它复制一整套安装代码不成比例 ✓
+//（判据也没有量它 ✓），记在台账里 ✓。
+const weakMapKey = Value.FromString(table.CreateString(Units("WeakMap")));
+const weakMapObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(weakMapObject.Ref, MapCtor, 0);
+SetProperty(vm.Room(), NeverCall, table, globals, weakMapKey, weakMapObject);
+const weakSetKey = Value.FromString(table.CreateString(Units("WeakSet")));
+const weakSetObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(weakSetObject.Ref, SetCtor, 0);
+SetProperty(vm.Room(), NeverCall, table, globals, weakSetKey, weakSetObject);
 // **`Map` / `Set` 两个号登记**（第 138 轮）：它们是**宿主引用值** ✓（与 `Error` 同款 ✗），
 // 只能走登记表 ✓。**`Date` 不走这条路** ✗——它的全局值是**普通对象** ✓
 // （`new Date()` 由降级层落成一条 `host_call(DateCtor, …)` ✓，见 `DateCtor` 的说明 ✓），
@@ -4443,6 +4571,21 @@ SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table,
 SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table, "constructor"), syntaxErrorTarget);
+// **`ReferenceError.prototype` / `AggregateError.prototype` 上的同名三格**（第 295 轮 ✓）——
+// **一字不差地照上面那三族写** ✓。**`toString` 同样不必再挂一份** ✓（挂在 `Error.prototype` 上 ✓，
+// 而这两格的原型链都接着它 ✓）。
+const referenceErrorProtoValue = Value.FromObject(protos.ReferenceError);
+SetProperty(vm.Room(), NeverCall, table, referenceErrorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("ReferenceError"))));
+SetProperty(vm.Room(), NeverCall, table, referenceErrorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetProperty(vm.Room(), NeverCall, table, referenceErrorProtoValue, NameValue(table, "constructor"), referenceErrorTarget);
+const aggregateErrorProtoValue = Value.FromObject(protos.AggregateError);
+SetProperty(vm.Room(), NeverCall, table, aggregateErrorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("AggregateError"))));
+SetProperty(vm.Room(), NeverCall, table, aggregateErrorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetProperty(vm.Room(), NeverCall, table, aggregateErrorProtoValue, NameValue(table, "constructor"), aggregateErrorTarget);
 
 // **`Array` 是一个普通对象**（与 `Math` / `Date` 同款 ✓），上面只挂**静态方法** `isArray` ✓
 // （第 123 轮）。

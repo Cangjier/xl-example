@@ -581,12 +581,7 @@ export const EXPECTATIONS = {
   // `Object.getOwnPropertyDescriptors` / `Object.groupBy` ✓、`Array.prototype.toLocaleString` ✓、
   // `String.normalize` ✗（要 Unicode 归一化表 ✓，与 `localeCompare` 同一条纪律 ✓）。
   "object-getownpropertydescriptors": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors`（复数）没装——单数那格（412）第 276 轮就有了，缺的是「一趟扫自有键、每格复用同一次读描述符」" },
-  "object-groupby": { expect: "blocked", why: "`Object.groupBy` 没装（ES2024）——要按回调的返回值分桶，回调通道现成（与 `map` / `filter` 同一条）" },
-  "array-tolocalestring": { expect: "blocked", why: "`Array.prototype.toLocaleString` 没装——它与 `toString` 只差「元素各自走 `toLocaleString`」，而本仓本来就没有区域表（与 `localeCompare` 同一条纪律：宁可缺）" },
   "string-normalize": { expect: "blocked", why: "`String.normalize` 没装——NFC / NFD 要一张 Unicode 归一化表，本仓没有（与 `toUpperCase` / `localeCompare` 同一条纪律：不编一个看起来对的答案）" },
-  "error-aggregate": { expect: "blocked", why: "`AggregateError` 没装：第五个错误原型 + 一个全局名 + 一格 `errors`（第 277 轮装 `SyntaxError` 时走的就是这条路）" },
-  "weakmap-basic": { expect: "blocked", why: "`WeakMap` 没装——它可以照 `Map` 那一套做（键限对象、没有 `size` / 迭代），但**弱引用语义在精确 GC 上要单独的根集规则**，不是挂一格的事" },
-  "promise-race-any-allsettled": { expect: "blocked", why: "`Promise.any` / `allSettled` 没装（`race` 与 `all` 是好的）——两者都要「一组承诺各自收尾、再按结局汇总」，与 `PromiseAll` 的步进器同一形状" },
   //
   // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
   "object-create-with-properties": { expect: "differ", why: "**静默错值**：`Object.create(proto, { a: { value: 1, enumerable: true } })` 的第二格被丢掉（`o.a` 给 `undefined` 而不是 `1`）——描述符那条路（`DefineOwnFromDescriptor`）现成，缺的是「收下第二格并逐键写一遍」" },
@@ -658,7 +653,6 @@ export const EXPECTATIONS = {
   // **组 M：`Object.isExtensible`（1 条）** ✓
   //
   // **组 N：`WeakSet`（1 条）** ✓
-  "c291-weakset-and-weakmap-forms": { expect: "blocked", why: "`WeakSet` 连全局名都没有（`name is not a local or a capture`）——`WeakMap` 同样在 `GlobalNames` 里缺名（`weakmap-basic` 也是这一格）" },
   //
   // **组 O：计算键 + 生成器方法（1 条）** ✓
   "c291-symbol-wellknown-custom-iterator": { expect: "blocked", why: "对象字面量里**计算键 + 生成器方法**（`{ [Symbol.iterator]: function* () {} }`）报 `suspend outside a generator`——方法那一格建成了普通闭包，`yield` 就落在生成器外面" },
@@ -666,8 +660,6 @@ export const EXPECTATIONS = {
   // **组 P：`Date.parse`（1 条）** ✓
   //
   // **组 Q：承诺组合子少两格（2 条）** ✓
-  "c291-promise-all-race-settled": { expect: "blocked", why: "`Promise.allSettled` 还没挂表（`all` / `race` 是好的）——每个结果要包成 `{ status, value | reason }`" },
-  "c291-promise-any-and-finally": { expect: "blocked", why: "`Promise.any` 还没挂表（与上一格同一张表的两格）" },
   //
   // **组 R：函数自己的 `name` / `length`（3 条）** ✓
   "c291-function-prototype-shape": { expect: "differ", why: "`Function.prototype.call.length` 给 `undefined`（Node 给 `1`）——内建函数自己的 `length` 这一格没填，与上面两条同一组" },
@@ -676,7 +668,6 @@ export const EXPECTATIONS = {
   "c291-function-tostring-forms": { expect: "blocked", why: "`fn.toString()` 报 `unimplemented: ToPrimitive of a function (JS renders source text)`——函数要交出**源码文本**，得由降级层按区间抄下来（与 `function-prototype-tostring` 同一根）" },
   //
   // **组 T：`ReferenceError`（1 条）** ✓
-  "c291-error-families-and-messages": { expect: "blocked", why: "`ReferenceError` 连全局名都没有（`name is not a local or a capture`）——错误家族第四个原型那一格，与第 277 轮 `SyntaxError` 同一个形状" },
   //
   // **组 U：函数显示名的推断（1 条）** ✓
   "c291-console-log-nested-shapes": { expect: "differ", why: "`console.log({ f: () => 1 })` 印 `[Function (anonymous)]`（Node 印 `[Function: f]`）——匿名函数要**从属性名反推显示名**（与 `function-name-inference` 同一族）" },

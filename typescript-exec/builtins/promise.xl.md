@@ -1,9 +1,9 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, ValueCharge, PromiseState } from "../../runtime/heap.xl.md"
+import { HeapTable, ObjectCharge, ValueCharge, PropertyCharge, PromiseState } from "../../runtime/heap.xl.md"
 import { RoomChecker } from "../../runtime/rt.xl.md"
-import { Protos, SetProperty, GetProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
+import { Protos, SetProperty, SetHiddenProperty, GetProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Units, NeverCall } from "./array.xl.md"
 import { NameValue } from "./map.xl.md"
@@ -53,6 +53,43 @@ import { NameValue } from "./map.xl.md"
 # const PromiseRace:int = 234
 
 **`Promise.race(数组)`** ✓。
+
+# const PromiseAllSettled:int = 242
+
+**`Promise.allSettled(数组)`**（第 295 轮 ✓）——号**追加在表尾** ✓（`230..241` 已经占了 ✓）。
+
+**它与 `all` 只差一条** ✓：**永远兑现** ✓（每一项都变成 `{status, value}` / `{status, reason}` ✓，
+`all` 则是「有一个被拒绝就整个拒绝」✓）——所以它要**两档都收** ✗
+（`all` 只认兑现那一档 ✓，见下面那一支的 `wants` ✓）。
+
+# const PromiseAny:int = 243
+
+**`Promise.any(数组)`**（第 295 轮 ✓）——号**追加在表尾** ✓。
+
+**它与 `race` 只差一条** ✓：**只认兑现** ✓（第一个兑现的定胜负 ✓）；
+**全部被拒绝**时抛一个 **`AggregateError`** ✓（里面按输入顺序装着每一个拒绝原因 ✓）。
+
+# const PromiseSettledStepId:int = 244
+
+**`allSettled` 的「兑现」那一步** ✓（第 295 轮 ✓）。
+
+# const PromiseRejectedStepId:int = 245
+
+**`allSettled` 的「拒绝」那一步** ✓（第 295 轮 ✓）。
+
+# const PromiseAnyStepId:int = 246
+
+**`any` 的「兑现」那一步** ✓（第 295 轮 ✓）。
+
+# const PromiseAnyRejectStepId:int = 247
+
+**`any` 的「拒绝」那一步** ✓（第 295 轮 ✓）。
+
+**为什么两步要**两个号** ✗：引擎**只把结清值接在实参后面** ✓（`Args.push(settled)` ✓），
+**不告诉回调「这是哪一档」** ✗——所以「兑现」与「拒绝」只能各走一个号 ✓
+（`.then(f, g)` 那一格早就用了同一招 ✓：`wants === 3` 时按 `reject` 在
+`callback` 与 `onRejected` 之间挑 ✓，见 `vm.xl.md` 的 `RunNativeTask` ✓）。
+**这是引擎那一格的形状决定的** ✓，不是随手多开两个号 ✓。
 
 # const PromiseThen:int = 235
 
@@ -206,6 +243,13 @@ return GetProperty(room, NeverCall, protos, table, object,
 // ——那句话听起来像「有个静态方法没实现」✗，其实是「回调没人接」✓。
 if (id === PromiseAllStepId) return PromiseAllStep(room, table, protos, self, args, settle);
 if (id === PromiseRaceStepId) return PromiseRaceStep(room, table, protos, self, args, settle);
+// **第 295 轮那四步** ✓（`allSettled` 两档 ✓、`any` 两档 ✓）：同一处收口 ✓——
+// 它们的形状与上面两步一字不差 ✓（引擎回调到这儿 ✓），差的只是**收到值之后干什么** ✓。
+// `mode` 就是「哪一个号」✓：`0/1` = `allSettled` 的兑现/拒绝 ✓、`2/3` = `any` 的兑现/拒绝 ✓。
+if (id === PromiseSettledStepId) return PromiseCollectStep(room, table, protos, 0, args, settle);
+if (id === PromiseRejectedStepId) return PromiseCollectStep(room, table, protos, 1, args, settle);
+if (id === PromiseAnyStepId) return PromiseCollectStep(room, table, protos, 2, args, settle);
+if (id === PromiseAnyRejectStepId) return PromiseCollectStep(room, table, protos, 3, args, settle);
 // **执行器递出去的那两个也要接住** ✓（第 285 轮 ✓）：它们与上面那两步**同一条形状** ✓
 // ——语言层自己造的宿主回调 ✓，回到这个分派 ✓。
 // **「哪一个承诺」在 `self` 里** ✓：`MakeSettleCallback` 把它写进了宿主引用的 `Opaque` ✓
@@ -234,13 +278,13 @@ if (id === PromiseReject) {
   const value = args.length > 0 ? args[0] : Value.Undefined();
   return MakePromise(room, table, PromiseState.Rejected, value);
 }
-if (id === PromiseAll || id === PromiseRace) {
+if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id === PromiseAny) {
   if (schedule === null) {
-    throw new Error("unimplemented: Promise.all/race needs the task channel (the host did not provide it)");
+    throw new Error("unimplemented: Promise.all/race/allSettled/any needs the task channel (the host did not provide it)");
   }
   const source = args.length > 0 ? args[0] : Value.Undefined();
   if (source.Tag !== ValueTag.Array) {
-    throw new Error("unimplemented: Promise.all/race needs an array of promises");
+    throw new Error("unimplemented: Promise.all/race/allSettled/any needs an array of promises");
   }
   const count = table.Get(source.Ref).AsArray().GetLength();
   // **语言层现在能结清一个承诺了** ✓（第 186 轮 ✓）：引擎多给了一格 `settle` ✓
@@ -255,21 +299,49 @@ if (id === PromiseAll || id === PromiseRace) {
   // 建库层没有「上一次」可记 ✓——所以「还差几个」与「已经收到哪些值」都得进堆 ✓。
   const state = NewPlainObject(room, table, protos);
   SetNumberProp(room, table, state, "remaining", Value.FromInt(count));
-  if (id === PromiseAll) {
-    const values = NewPlainArray(room, table, protos);
+  // **要收值的那两条各收各的** ✓（第 295 轮把 `allSettled` / `any` 接上 ✓）：
+  // `all` / `allSettled` 收**结果**（按输入下标 ✓）、`any` 收**拒绝原因** ✓。
+  const collects = id === PromiseAll || id === PromiseAllSettled;
+  if (collects || id === PromiseAny) {
+    const box = NewPlainArray(room, table, protos);
     for (let i = 0; i < count; i++) {
       if (!room(ValueCharge)) throw new Error("out of room");
-      table.Get(values.Ref).AsArray().Push(Value.Undefined());
+      table.Get(box.Ref).AsArray().Push(Value.Undefined());
     }
-    SetNumberProp(room, table, state, "values", values);
+    SetNumberProp(room, table, state, collects ? "values" : "errors", box);
   }
-  // **`all([])` 当场兑现成空数组** ✓（JS 的口径 ✓）；**`race([])` 永不结清** ✓（也是 JS 的口径 ✓）。
-  if (count === 0 && id === PromiseAll) {
-    settle(result, ReadProp(room, table, protos, state, "values"), false);
+  // **空数组那一档** ✓（JS 的口径 ✓）：`all([])` 兑现成 `[]` ✓、`allSettled([])` 也是 `[]` ✓、
+  // **`any([])` 拒绝成 `AggregateError`** ✓（一条都没兑现、也没有原因 ✓）、
+  // **`race([])` 永不结清** ✓。
+  if (count === 0) {
+    if (id === PromiseAll || id === PromiseAllSettled) {
+      settle(result, ReadProp(room, table, protos, state, collects ? "values" : "errors"), false);
+      return result;
+    }
+    if (id === PromiseAny) {
+      settle(result, NewAggregateError(room, table, protos, ReadProp(room, table, protos, state, "errors"), ""), true);
+      return result;
+    }
     return result;
   }
-  const step = id === PromiseAll ? PromiseAllStepId : PromiseRaceStepId;
+  // **四个静态方法各挑各的兑现步** ✗（第 295 轮实测踩过 ✓）：
+  // 第一版把 `any` 也指到 `PromiseSettledStepId` ✓——那一步往 `state.values` 里写记录 ✓，
+  // 而 `any` 造的是 `state.errors` ✓ ⇒ 那一格**根本不存在** ✗ ⇒ 最后一个到齐时
+  // `settle(result, ReadProp(state, "values"), false)` 把 **`undefined`** 兑现出去 ✓
+  //（**静默错值** ✓：`Promise.any([Promise.resolve(3)])` 打出 `a undefined` ✓，
+  //  而 `allSettled` 一字不差是对的 ✓——**一半对一半错**最难查 ✓）。
+  const step = id === PromiseAll ? PromiseAllStepId
+    : (id === PromiseRace ? PromiseRaceStepId
+      : (id === PromiseAllSettled ? PromiseSettledStepId : PromiseAnyStepId));
   const stepValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(step, 0));
+  // **第 295 轮那两条要两个回调** ✓（`wants = 3` ✓，与 `.then(f, g)` 同一格 ✓）：
+  // 「兑现」与「拒绝」各一个号 ✓——引擎只把结清值接在实参后面 ✓，
+  // **不告诉回调这是哪一档** ✗（理由写在 `PromiseRejectedStepId` 那一段 ✓）。
+  const rejectStep = id === PromiseAllSettled ? PromiseRejectedStepId
+    : (id === PromiseAny ? PromiseAnyRejectStepId : 0);
+  const rejectStepValue = rejectStep === 0
+    ? Value.Undefined()
+    : Value.FromRef(ValueTag.HostRef, table.CreateHostRef(rejectStep, 0));
   for (let i = 0; i < count; i++) {
     const item = table.Get(source.Ref).AsArray().GetAt(i);
     // **不是承诺的项要当「已经兑现为它自己」** ✓（第 247 轮 ✓）——
@@ -293,9 +365,11 @@ if (id === PromiseAll || id === PromiseRace) {
       : MakePromise(room, table, PromiseState.Fulfilled, item);
     // **`all` 只认兑现那一档** ✓（某一步被拒绝时**回调不跑** ✓、
     // 拒绝顺着「结果承诺」自动传下去 ✓——那正是 JS 的语义 ✓）；
-    // **`race` 两档都认** ✓（谁先结清谁定 ✓）。
-    const wants = id === PromiseAll ? 0 : 2;
-    schedule(one, stepValue, [state, Value.FromInt(i), result], result, wants, false, Value.Undefined());
+    // **`race` 两档都认** ✓（谁先结清谁定 ✓）；
+    // **`allSettled` / `any` 两档都收、但收到的东西不同** ✓（第 295 轮 ✓）
+    // ——所以它们走 `wants = 3`（两个回调 ✓），而 `all` / `race` 走 0 / 2 ✓。
+    const wants = id === PromiseAll ? 0 : (id === PromiseRace ? 2 : 3);
+    schedule(one, stepValue, [state, Value.FromInt(i), result], result, wants, false, rejectStepValue);
   }
   return result;
 }
@@ -439,6 +513,96 @@ settle(result, produced, false);
 return Value.Undefined();
 ```
 
+# method NewAggregateError:(room:RoomChecker, table:HeapTable, protos:Protos, errors:Value, message:string)=>Value
+
+**造一个 `AggregateError`**（第 295 轮 ✓）——`Promise.any` 全部被拒绝时抛的就是它 ✓。
+
+**为什么这里自己造、不转调 `globals.xl.md` 的 `NewErrorLike`** ✗：依赖方向是
+**`globals` → `promise`** ✓（`globals.xl.md` 要 import `BuildPromise` ✓）——
+反过来 import 就是**环形依赖** ✓。而这一段只有四行 ✓（造对象 ✓、接原型 ✓、
+`message` / `name` 两个不可枚举的格 ✓、`errors` 一格 ✓），抄一份的代价比造环小 ✓。
+**四行与 `NewErrorLike` 的差别只有 `errors` 那一格** ✓（它**是可枚举的** ✗——
+JS 里 `AggregateError.prototype.errors` 是自有属性 ✓、`message` / `name` 在原型上 ✓；
+本仓两者都挂自有 ✓，那一条差异记在台账里 ✓）。
+
+```ts
+const aggregate = NewPlainObject(room, table, protos);
+table.Get(aggregate.Ref).Proto = protos.AggregateError;
+SetHiddenProperty(room, table, aggregate, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(message))));
+SetHiddenProperty(room, table, aggregate, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("AggregateError"))));
+SetProperty(room, NeverCall, table, aggregate, NameValue(table, "errors"), errors);
+return aggregate;
+```
+
+# method PromiseCollectStep:(room:RoomChecker, table:HeapTable, protos:Protos, mode:int, args:Array<Value>, settle:TaskSettler | null)=>Value
+
+**`allSettled` / `any` 的那一步**（第 295 轮 ✓）——四种情形共用一个方法 ✓，
+`mode` 就是「哪一个号」✓：`0` = `allSettled` 的兑现 ✓、`1` = `allSettled` 的拒绝 ✓、
+`2` = `any` 的兑现 ✓、`3` = `any` 的拒绝 ✓。
+
+**收值的形状** ✓：`allSettled` 按**下标**放进 `values` ✓
+（JS 的顺序是**输入顺序** ✓，不是结清顺序 ✓）——与 `PromiseAllStep` 同一条规矩 ✓；
+`any` 把拒绝原因按下标放进 `errors` ✓（**全部被拒绝**时那个 `AggregateError` 要按顺序装 ✓）。
+
+**`any` 的兑现当场定胜负** ✓（第一个兑现的就是答案 ✓）：幂等交给引擎 ✓
+（`ResolvePromise` 自己判 `Pending` ✓，与 `PromiseRaceStep` 一字不差 ✓）。
+
+**`allSettled` 永远兑现** ✓：两档都往 `values` 里写一格 ✓，最后一个到齐才结清 ✓
+——**拒绝那一条也走同一个出口** ✓（这正是它与 `all` 的唯一区别 ✗）。
+
+```ts
+const state = args.length > 0 ? args[0] : Value.Undefined();
+const index = args.length > 1 ? args[1].AsInt() : 0;
+const result = args.length > 2 ? args[2] : Value.Undefined();
+const produced = args.length > 3 ? args[3] : Value.Undefined();
+if (!state.IsObject() || !result.IsObject()) return Value.Undefined();
+if (settle === null) {
+  throw new Error("unimplemented: Promise.allSettled/any needs the settle channel");
+}
+if (mode === 2) {
+  settle(result, produced, false);
+  return Value.Undefined();
+}
+const remaining = ReadProp(room, table, protos, state, "remaining");
+if (mode === 3) {
+  const errors = ReadProp(room, table, protos, state, "errors");
+  if (errors.Tag === ValueTag.Array && index >= 0) {
+    table.Get(errors.Ref).AsArray().SetAt(index, produced);
+  }
+} else {
+  // **`allSettled` 的那个记录** ✓：`{ status, value }` / `{ status, reason }` ✓——
+  // **先问 room、再分配** ✗（与 `Promise.all` 那段同一个理由 ✓：
+  // 下面那两句 `SetProperty` 自己也会问 room ✓，触发回收时它还没有人指着 ✓）。
+  if (!room(ObjectCharge + PropertyCharge * 2 + ValueCharge * 4)) throw new Error("out of room");
+  const record = NewPlainObject(room, table, protos);
+  const statusText = mode === 0 ? "fulfilled" : "rejected";
+  const detailName = mode === 0 ? "value" : "reason";
+  SetProperty(room, NeverCall, table, record, NameValue(table, "status"),
+    Value.FromString(table.CreateString(Units(statusText))));
+  SetProperty(room, NeverCall, table, record, NameValue(table, detailName), produced);
+  const values = ReadProp(room, table, protos, state, "values");
+  if (values.Tag === ValueTag.Array && index >= 0) {
+    table.Get(values.Ref).AsArray().SetAt(index, record);
+  }
+}
+const left = remaining.AsInt() - 1;
+SetNumberProp(room, table, state, "remaining", Value.FromInt(left));
+if (left > 0) return Value.Undefined();
+if (mode === 1) {
+  settle(result, ReadProp(room, table, protos, state, "values"), false);
+  return Value.Undefined();
+}
+if (mode === 0) {
+  settle(result, ReadProp(room, table, protos, state, "values"), false);
+  return Value.Undefined();
+}
+settle(result, NewAggregateError(room, table, protos,
+  ReadProp(room, table, protos, state, "errors"), "All promises were rejected"), true);
+return Value.Undefined();
+```
+
 # method BuildPromise:(vm:Vm, protos:Protos)=>Value
 
 **造 `Promise` 这个名字** ✓——调用方（`globals.xl.md` 的 `InstallGlobals` ✓）
@@ -460,5 +624,10 @@ SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "all"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAll, 0)));
 SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "race"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseRace, 0)));
+// **第 295 轮补的两格** ✓（`allSettled` / `any` ✓）——与上面四个**同一张对象**上再挂 ✓。
+SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "allSettled"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAllSettled, 0)));
+SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "any"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAny, 0)));
 return promiseObject;
 ```
