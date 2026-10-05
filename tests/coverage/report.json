@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 86.93,
+  "progressPercent": 87.27,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 148,
-      "pass": 139,
-      "blocked": 6,
-      "differ": 3,
+      "pass": 141,
+      "blocked": 5,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 93.92
+      "coverage": 95.27
     },
     {
       "layer": "exec",
@@ -91,12 +91,6 @@
       "layer": "runtime",
       "title": "typeof 每一种值（含类表达式）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeOfKeyword"
-    },
-    {
-      "id": "rt-static-inheritance",
-      "layer": "runtime",
-      "title": "静态成员随继承走：`this` 是那一个类",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "ex-namespace",
@@ -225,12 +219,6 @@
       "layer": "runtime",
       "title": "代理对：for..of 一次一个码点，下标一次一个码元",
       "detail": "stdout 不同：第 1 行：node «4 3 3» vs tsrun «4 4 4»"
-    },
-    {
-      "id": "rt-class-getter-static-and-inherit",
-      "layer": "runtime",
-      "title": "静态访问器与继承下来的静态访问器",
-      "detail": "stdout 不同：第 1 行：node «B+A-static own own» vs tsrun «B+undefined own own»"
     },
     {
       "id": "ex-getter-setter-class",

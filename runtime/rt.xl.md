@@ -438,16 +438,34 @@ return false;
 
 **改一个对象的原型**（`set_proto`）。
 
-**两边都必须是对象**：不是就抛——「给原始值设原型」在 JS 里是**静默无效**的，
+**接收者必须是对象**：不是就抛——「给原始值设原型」在 JS 里是**静默无效**的，
 而静默无效正是这一层最不该有的行为。
+**而原型那一格第 278 轮改成了「不是对象就**不做事**」** ✗（见下面那一段 ✓）。
 
 **自环当场拒绝**：`set_proto(a, a)` 会让下一次属性查找绕着自己转。
 虽然 `MaxProtoDepth` 也会拦（**抛**，不是挂住），但**能当场说清楚的错不要留给下游**。
 **更深的环**（`a → b → a`）不在这里查——那要一趟遍历，而 `MaxProtoDepth` 已经兜住了。
 
+**为什么两边的口径不一样** ✗（第 278 轮）：`class E extends Error {}` 这一类写法里，
+父类是**内建构造函数** ✓——而本仓的内建构造函数是**宿主引用值** ✓（`HostRef` ✓，
+`IsObject()` 是**假** ✗），所以那一句 `set_proto` 的**原型那一格**会拿到一个非对象 ✓。
+**JS 在这一格是「不做事」** ✓（`Object.setPrototypeOf(o, 1)` 不抛也不改 ✓），
+而**抛的下场是把一条完全合法的 `extends` 挡住** ✗（实测：`class MyError extends Error {}`
+报 `set_proto needs two objects` ✓，判据 `runtime:check` 与 `runtime:cli` 各红两条 ✓）。
+**接收者那一格仍然抛** ✓：它内部约定就是「一定是个对象」✓，
+拿到别的说明降级层接线错了 ✓——**该响的那一处一个字都没松** ✓。
+
+**已知代价写在明处** ✗：内建父类的**静态成员继承不了** ✓
+（`class E extends Error {}` 之后 `E.name` 不来自 `Error` ✓）——
+这不是这一句造成的 ✓，是同一条「内建构造函数没有属性表」✓（`vm.xl.md` 那一处记着 ✓）。
+
 ```ts
-if (!receiver.IsObject() || !proto.IsObject()) {
-  throw new Error("set_proto needs two objects");
+if (!receiver.IsObject()) {
+  throw new Error("set_proto needs an object receiver");
+}
+// **原型那一格不是对象就不做事** ✓（JS 的口径 ✓）——见上面那一段的理由 ✓。
+if (!proto.IsObject()) {
+  return receiver;
 }
 if (receiver.Ref === proto.Ref) {
   throw new Error("set_proto would create a cycle");

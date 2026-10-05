@@ -789,6 +789,16 @@ return -1;
 而父类构造函数是**外层作用域里的一个名字**——跨帧只能用**环境**这条通道，
 所以这里存名字，降级 `super` 时照常 `ResolveAccess`（链上找、深度算，一行都不用新写）。
 
+## field SuperStatic:bool = false
+
+**这个函数体是**静态**成员吗**（第 278 轮 ✓）——`super.v` 与 `super.m()` 找起的**起点**由它决定 ✓。
+
+**为什么「父类名」不够** ✗：`super` 的起点在 JS 里分两种 ✓——
+**实例成员**从 `父类.prototype` 起读 ✓（`super.v` 读的是原型链 ✓），
+**静态成员**从**父类构造函数自己**起读 ✓（`super.kind` 读的是 `A.kind` ✓）。
+只存名字的话这两处**分不开** ✗，于是静态那一半会去读 `A.prototype.kind` ✓
+⇒ `undefined` ✓（判据 `rt-class-getter-static-and-inherit` 现场给的正是 `B+undefined` ✓）。
+
 ## constructor:(name:string, body:AstNode, params:Array<string>, patch:int, defaultAt:Array<int>, defaults:Array<AstNode>, patternAt:Array<int>, patterns:Array<AstNode>)=>void
 
 登记一个待降级的函数体。
@@ -1132,6 +1142,16 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 与 `InGenerator` / `InAsync` 同一套用法（进一层设、出一层恢复）。
 **它存的是名字**：父类构造函数在外层作用域里，跨帧只走**环境**这条通道——
 降级 `super` 时照常 `ResolveAccess`（链上找、深度算，一行新代码都不欠）。
+
+## field InSuperStatic:bool = false
+
+**当前这一层是不是静态成员**（第 278 轮 ✓）——与 `InSuperName` **成对进出** ✓
+（同一处设、同一处恢复 ✓），决定 `super.x` 的起点是父类**自己**还是父类**原型** ✓。
+
+**为什么它与 `InSuperName` 必须一起进出** ✗：两个字段描述的是**同一件事的两半** ✓
+（「有没有父类」✓ 与「从哪一半找」✓）——只恢复一个的话，
+内层函数降级完之后外层会带着内层的「静态」标记继续走 ✓，
+于是**实例方法里的 `super.v` 会去读父类构造函数** ✓（`undefined` ✓，静默 ✓）。
 
 ## field DeferredItem:PendingFunction | null = null
 
@@ -1658,10 +1678,14 @@ this.PushScope();
 const outerInGenerator = this.InGenerator;
 const outerInAsync = this.InAsync;
 const outerSuperName = this.InSuperName;
+// **「静态」那一半与名字成对进出** ✓（第 278 轮 ✓）——只存不恢复的话，
+// 内层函数降级完之后**外层会带着内层的标记继续走** ✓（见 `InSuperStatic` 那一段 ✓）。
+const outerSuperStatic = this.InSuperStatic;
 const outerInArrow = this.InArrow;
 this.InGenerator = item.IsGenerator;
 this.InAsync = item.IsAsync;
 this.InSuperName = item.SuperName;
+this.InSuperStatic = item.SuperStatic;
 this.InArrow = item.IsArrow;
 // **解构形参里的名字也要进「这一层声明了什么」**（第 134 轮）✗：`CollectDeclaredNames`
 // 扫的是**函数体** ✓，而模式里的名字**只出现在形参表上** ✗——漏了它们，
@@ -1756,6 +1780,7 @@ this.PopScope();
 this.InGenerator = outerInGenerator;
 this.InAsync = outerInAsync;
 this.InSuperName = outerSuperName;
+this.InSuperStatic = outerSuperStatic;
 this.InArrow = outerInArrow;
 ```
 
@@ -3547,13 +3572,21 @@ if (parentAccess.InEnv) {
   this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
 }
 const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-const superProto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+// **起点分两种** ✓（第 278 轮 ✓）：**静态成员从父类构造函数自己起读** ✓
+//（`static get kind() { return super.kind }` 读的是 `A.kind` ✓），
+// **实例成员从 `父类.prototype` 起读** ✓（`get v() { return super.v }` ✓）。
+// **这里原来只有后一种** ✗，于是静态那一半去读了 `A.prototype.kind` ✓ ⇒ `undefined` ✓
+//（判据 `rt-class-getter-static-and-inherit` 现场给的是 `B+undefined` ✓——**静默错值** ✗）。
+let superStart = parent;
+if (!this.InSuperStatic) {
+  superStart = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+}
 // **接收者是当前实例** ✓（`load_this` ✓——与 `super.m()` 那一处同一格 ✓）。
 const superSelf = this.Reserve(1);
 this.Emit(Op.LoadThis, superSelf, -1, -1, -1);
 // **起点 / 键 / 接收者** ✓（`RtOp.GetPropFrom` 的三格 ✓）。
 const window = this.Reserve(3);
-this.Emit(Op.Move, window, superProto, -1, -1);
+this.Emit(Op.Move, window, superStart, -1, -1);
 this.Emit(Op.Const, window + 1, this.Program().AddConst(Constant.OfString(UnitsOf(name))), -1, -1);
 this.Emit(Op.Move, window + 2, superSelf, -1, -1);
 const result = this.Reserve(1);
@@ -3588,7 +3621,15 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
     this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
   }
   const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-  const proto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+  // **起点也分两种** ✓（第 278 轮 ✓，与 `super.v` 那一支一字不差 ✓）：
+  // 静态成员在**父类构造函数自己**身上找方法 ✓（`static m() { return super.m() }` ✓），
+  // 实例成员在 `父类.prototype` 上找 ✓。
+  // **`this` 那两格不受影响** ✗——它照旧是当前实例 ✓（静态成员的 `this` 是构造函数 ✓，
+  // 而 `load_this` 取的就是当前帧的那一格 ✓，两类成员都靠它 ✓）。
+  let proto = parent;
+  if (!this.InSuperStatic) {
+    proto = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+  }
   const name = Child(callee, "name");
   if (NodeKind(name) !== "Identifier") {
     throw new Error("unimplemented: super call with a computed name");
@@ -5092,6 +5133,27 @@ const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototyp
 const proto = this.RtCall2(RtOp.GetProp, ctor, prototypeKey);
 if (superProto >= 0) {
   this.RtCallValues(RtOp.SetProto, proto, superProto);
+  // **静态成员那一半** ✗（第 278 轮）：JS 的 `class B extends A` 是**两步** ✓——
+  // 上面那一句接的是 `B.prototype` 的链 ✓（`b.m()` 从那儿找 ✓），
+  // 这一句接的是 **`B` 自己**的链 ✓（`B.make` 从那儿找 ✓）。
+  // **少了这一句的表现很安静** ✗：`B.make` 是 `undefined` ✓、
+  // 报的是「调用一个非闭包」✓（离「静态成员不随继承走」这个真相很远 ✗），
+  // 而 `B.tag` 只是 `undefined` ✓——判据 `rt-static-inheritance` 量的正是这两样 ✓。
+  //
+  // **父类那一格要重新取一遍** ✗：上面那个 `baseSlot` 是 `Reserve(1)` 拿的 ✓，
+  // 而中间隔了一次 `LowerFunctionValue` ✓（它自己要用槽 ✓）——复用那个号就是**踩别人的槽** ✗
+  //（症状与「静态成员没继承」一模一样 ✓，所以这一句写在这里当注释 ✓）。
+  // **`ResolveAccess` 本来就要调第二次** ✓：第一次的结果是一个**槽号** ✓，
+  // 而槽号是会过期的 ✗（`ResolveAccess` 查的是名字到位置的映射 ✓，名字没变 ✓，
+  // 所以重查一次得到的是**同一个位置** ✓——过期的是「那个位置当时装着谁」✗，不是映射 ✓）。
+  const staticAccess = this.ResolveAccess(baseName);
+  const staticBaseSlot = this.Reserve(1);
+  if (staticAccess.InEnv) {
+    this.Emit(Op.EnvGet, staticBaseSlot, staticAccess.Depth, staticAccess.Cell, -1);
+  } else {
+    this.Emit(Op.Move, staticBaseSlot, staticAccess.Slot, -1, -1);
+  }
+  this.RtCallValues(RtOp.SetProto, ctor, staticBaseSlot);
 }
 for (let i = 0; i < members.length; i++) {
   const member = members[i];
@@ -5149,6 +5211,10 @@ for (let i = 0; i < members.length; i++) {
   // **盖在 `LowerFunctionValue` 之后**：它就是 push 那一格，和构造函数那条路同一个手法。
   if (baseName !== "") {
     this.Pending[this.Pending.length - 1].SuperName = baseName;
+    // **静态那一半也盖上** ✓（第 278 轮 ✓）：`super.v` / `super.m()` 的**起点**由它决定 ✓——
+    // 实例成员从 `父类.prototype` 起 ✓、静态成员从**父类自己**起 ✓。
+    // **构造函数永远是实例那一半** ✓（`isStatic` 在这里恒为假 ✓，写在明处 ✓）。
+    this.Pending[this.Pending.length - 1].SuperStatic = isStatic;
   }
   const target = isStatic ? ctor : proto;
   // **计算键那一档** ✓：键是一个**值** ✓（`Symbol.iterator` 那类 ✓），

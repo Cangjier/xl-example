@@ -3381,7 +3381,24 @@ check("set_proto：链上之后属性查找沿链走、自环当场拒绝（引�
   } catch (error) {
     primitive = String(error.message);
   }
-  eq(primitive.indexOf("two objects") >= 0, true, "原始值当接收者要抛（不许静默无效）：" + primitive);
+  // **断言按第 278 轮的新口径改过** ✓：那一轮把 `set_proto` 的**两格分了开来**——
+  // **接收者**必须是个对象 ✓（拿到别的说明降级层接线错了 ✓，照旧**响亮地抛** ✓），
+  // 而**原型那一格**不是对象时**不做事** ✓（JS 的口径 ✓：`Object.setPrototypeOf(o, 1)`
+  // 不抛也不改 ✓）。分开的理由是 `class E extends Error {}` ✓：内建构造函数是
+  // **宿主引用值** ✓（`IsObject()` 是假 ✓），合成不出来一个对象 ✗——
+  // 原来那一句抛会把一条**完全合法**的 `extends` 挡住 ✓（实测踩到 ✓）。
+  // **这一条量的是接收者那一半** ✓，所以词也跟着改准 ✓（原来钉的是「two objects」✓）。
+  eq(primitive.indexOf("an object receiver") >= 0, true,
+    "原始值当接收者要抛（不许静默无效）：" + primitive);
+  // **原型那一半反过来：不抛、也不改** ✓（同一次改动里的另一半 ✓）。
+  let notAnObject = "";
+  try {
+    RtSetProto(table, child, Value.FromInt(1));
+  } catch (error) {
+    notAnObject = String(error.message);
+  }
+  eq(notAnObject, "", "原型不是对象时不抛（JS 的口径）：" + notAnObject);
+  eq(table.Get(child.Ref).Proto, parent.Ref, "而且原型一个字节都没动");
   machine.Release(parent.Ref);
   machine.Release(child.Ref);
 });

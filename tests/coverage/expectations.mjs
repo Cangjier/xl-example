@@ -262,8 +262,15 @@ export const EXPECTATIONS = {
   // `B.prototype.__proto__ = A.prototype` **与** `Object.setPrototypeOf(B, A)` ✓，
   // 而本仓只做了第一步 ✗。`super` 在**静态**成员里要从**父构造函数**起读 ✓，
   // 第 243 轮的 `RtOp.GetPropFrom` 起点那一格因此要按「静态 / 实例」分两种 ✓。
-  "rt-static-inheritance": { expect: "blocked", why: "**静态成员不随 `extends` 走**：`class B extends A {}` 之后 `B.make` 是 `undefined`（`cannot call a non-closure value`）。JS 的 `extends` 是两步——原型链**加**「把子构造函数自己的 `[[Prototype]]` 接到父构造函数」，只做了前一步" },
-  "rt-class-getter-static-and-inherit": { expect: "differ", why: "**静态访问器里的 `super`**：`static get kind() { return super.kind }` 给 `B+undefined`。`super` 在静态成员里该从**父构造函数**起读，本仓照实例那一支从**父原型**起读（第 243 轮的 `GetPropFrom` 起点要按静态/实例分两种）" },
+  // **第 278 轮删掉了这两行** ✓（它们过了 ✓）——**两条是同一个根** ✓：
+  // ① `extends` 在 JS 里是**两步** ✓（`B.prototype` 的链 ✓ **加** `B` 自己的链 ✓），
+  //   本仓只做了前一步 ✗ ⇒ `B.make` / `B.tag` 都读不到 ✓；
+  // ② 静态成员里的 `super.x` 该从**父类构造函数**起读 ✓，本仓照实例那一支从父原型起 ✓。
+  // 第 278 轮把两半都接上 ✓，**顺带撞出一条引擎侧的** ✗：`class E extends Error {}` 里
+  // 父类是**宿主引用值** ✓（`IsObject()` 是假 ✗），于是 `set_proto` 那一抛把一条
+  // **完全合法**的 `extends` 挡住了 ✓——`set_proto` 的两格因此分了开来 ✓
+  //（接收者仍然抛 ✓、原型不是对象时不做事 ✓，JS 的口径 ✓）。
+  // 逐条账见 `typescript-exec/README.md` 的「第 278 轮的账」✓。
 
   // ---- 组 5：`new` 一个**常量里的类表达式**不跑构造函数（1 条）----
   // 实测分得很清 ✓：`const C = class { constructor(n) { this.n = n } }; new C(4).n` 给 `undefined` ✗，

@@ -289,6 +289,64 @@
 **而三行现场（`class E { private h = new Map(); }`）是验证这一点最省事的一条** ✓——
 它没有异步 ✓、没有闭包 ✓，**数一遍 `EmitFieldDefaults` 前后的 `NextFree` 就能证实或否掉** ✓。
 
+### 第 278 轮的账（**静态成员随继承走 —— 以及「同一个根，四处同时报」**）
+
+**这一轮收的是同一个根的两半** ✓（判据 `rt-static-inheritance` 与
+`rt-class-getter-static-and-inherit` ✓）。
+
+**① `extends` 是两步，只做了一步** ✗
+
+JS：`class B extends A {}` 做的是——
+`B.prototype.[[Prototype]] = A.prototype` ✓ **以及** `B.[[Prototype]] = A` ✓。
+本仓第 104 轮做的是**前一步** ✓（`RtOp.SetProto` ✓），后一步一直没做 ✗
+⇒ `B.make` 是 `undefined` ✓（**调用一个非闭包** ✓，离现场很远 ✗）、`B.tag` 也是 `undefined` ✓。
+**判据量的正是这两样** ✓（第 273 轮普查收进来的 ✓）。
+
+**做法照旧是拼现成的东西** ✓：父类那一格**重新取一遍** ✓——
+上面那个 `baseSlot` 是 `Reserve(1)` 拿的 ✓，而中间隔了一次 `LowerFunctionValue` ✓
+（它自己要用槽 ✓），复用那个号就是**踩别人的槽** ✗（症状与「静态成员没继承」一模一样 ✓）。
+**`ResolveAccess` 查的是名字到位置的映射** ✓，名字没变 ✓ ⇒ 重查得到同一个位置 ✓；
+过期的是「那个位置当时装着谁」✗，不是映射 ✓。
+
+**② 静态成员里的 `super` 起点是父类**自己**，不是父类原型** ✗
+
+`super.v` 与 `super.m()` 那一支原来**都**先读 `父类.prototype` ✓——
+实例成员对 ✓、静态成员错 ✗（`static get kind() { return super.kind }` 去读了
+`A.prototype.kind` ✓ ⇒ `undefined` ✓，**静默错值** ✗）。
+修法是给排队函数加一格 `SuperStatic` ✓（与 `SuperName` **成对进出** ✓，
+理由写在 `InSuperStatic` 那一段 ✓），两处按它分叉 ✓。
+**`this` 那两格不受影响** ✓：静态成员的 `this` 是构造函数 ✓，
+而 `load_this` 取的就是当前帧那一格 ✓——**两处都不用改** ✓。
+
+**③ 红过一次：同一个根，四处同时报** ✗（这一轮最值得记的一段）
+
+`extends` 补上第二步之后，`class MyError extends Error {}` 这一类写法**当场炸** ✓：
+父类 `Error` 是**宿主引用值** ✓（`HostRef` ✓，`IsObject()` 是**假** ✗），
+而 `RtSetProto` 原来**两边都要求是对象** ✓ ⇒ 报 `set_proto needs two objects` ✓。
+**四处同时变红** ✗：`runtime:check` **1 条** ✓、`runtime:cli` **2 份** ✓、
+覆盖矩阵 **3 条** ✓（`rt-error-custom-fields` / `exc-error-family` / `exc-nested-error-fields` ✓）——
+**四条判据量的是同一件事** ✓，所以一个根坏了就一起坏 ✓（这正是「多把尺子」的用处 ✓：
+它告诉你**根有多大** ✓）。
+
+**修法是把那一句的两格分开** ✓，因为 JS 在原型那一格**就是「不做事」** ✓
+（`Object.setPrototypeOf(o, 1)` 不抛也不改 ✓）：
+**接收者仍然抛** ✓（它内部约定就是「一定是个对象」✓，拿到别的说明降级层接线错了 ✓——
+**该响的那一处一个字都没松** ✓）、**原型不是对象时不做事** ✓。
+顺带在 `runtime:check` 里**补了另一半的断言** ✓（「原型不是对象时不抛、而且原型一个字节都没动」✓），
+并把原来那条按**新词**改准 ✓（它钉的是 `"two objects"` ✓，现在只有接收者那一半会抛 ✓）。
+
+**已知代价写在明处** ✗：内建父类的**静态成员继承不了** ✓
+（`class E extends Error {}` 之后 `E.name` 不来自 `Error` ✓）——
+这不是这一轮造成的 ✓，是同一条「**内建构造函数没有属性表**」✓（`vm.xl.md` 那一处记着 ✓）。
+
+**验收** ✓：`npm run coverage` 从 **356 / 395 = 86.9%** 到 **358 / 395 = 87.3%** ✓
+（引擎 93.9% → **95.3%** ✓）——两条转绿 ✓，`regressions` / `moved` / `bad` 三栏全空 ✓。
+两条引擎侧的判据都是**先红后绿**的 ✓：`runtime:check` **241 条 0 失败** ✓、
+`runtime:cli` **79 / 79** ✓、`xl check` 177 文件 0 错 ✓。
+另写了两份**逐行对拍**的临时语料（12 行 ✓：静态方法 / 静态字段 / 三层继承 ✓、
+`D.prototype instanceof C` ✓、静态 **与** 实例 `super` 混在一个类里 ✓、
+以及「实例那一半不能被带坏」✓），**与 `node` 逐字节相同** ✓。
+
 ### 第 277 轮的账（**`Symbol` 注册表 · `SyntaxError` 一族 · `Error.cause` —— 以及「属性读有两条路」**）
 
 **这一轮接着收同一组** ✓（标准库「成员不在那儿」17 条 → 现剩 7 条 ✓）。
