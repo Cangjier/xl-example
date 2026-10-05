@@ -153,17 +153,21 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 273 轮读数：**340 / 395 = 84.3%**，
-其中**引擎 93.9%** ✓、降级层 **85.0%** ✓、标准库 **79.9%** ✓、端到端 **76.9%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 274 轮读数：**347 / 395 = 85.5%**，
+其中**引擎 93.9%** ✓、降级层 **85.0%** ✓、标准库 **84.4%** ✓、端到端 **76.9%** ✓——
+**第 274 轮**照第 273 轮那张清单办事：清单里最大的两组是**标准库「成员不在那儿」**（17 条 ✓）
+与 **`async` 那一族**（9 条 ✓），选前者的理由是**代价差一个量级** ✗（前者是往表里挂一格 ✓，
+后者要动「引擎调脚本、并把结果接回来」那个交界面 ✓）。这一轮收的是 **Array 那一族七格** ✓
+（`findLast`/`findLastIndex` · `reduceRight` · `copyWithin` · `toSorted`/`toReversed`/`with` ✓）
+外加**三处静默错值** ✗（`includes` 丢掉第二格实参 ✓、`flat(0)` 掉进 `depth || 1` ✓、
+`Math.abs(-0)` 给 `-0` ✓）——标准库那一层 79.9% → **84.4%** ✓，**红的一栏没动** ✓。
 **第 273 轮把矩阵从 275 条加宽到 395 条**：用户口径是「先按『普通 `.ts` 里会出现什么』
 把 exec / runtime / 标准库 的语料铺满，再照覆盖度读数决定下一步」，所以那一天做的是
 **先普查、再收编**——候选先逐条交给 `node`（裁判）与 `tsrun` 各跑一遍，只留裁判跑得动的；
 **120 条里 83 条当场通过、37 条是新量到的缺口**，读数因此从 90.7% **落到 84.3%**
 ——那是**分母变诚实** ✓ 不是倒退 ✓（分母 +44%）。37 条按**根子**分成 15 组记在
-[tests/coverage/expectations.mjs](tests/coverage/expectations.mjs)，
-最大两组是**标准库「成员不在那儿」**（17 条：`reduceRight` · `copyWithin` · `findLast` ·
-`Object.is` · `Symbol.for` · `Date.toISOString` · `SyntaxError` 那一族不是全局名……）
-与 **`async` 那一族**（9 条）。**前面几轮的格子**照旧：
+[tests/coverage/expectations.mjs](tests/coverage/expectations.mjs)。
+**前面几轮的格子**照旧：
 第 246 轮补上了**「调一个不是函数的东西」要能被脚本接住**（那一抛带上 `TypeError` 类别 ✓）；
 第 243 轮补上了 **`super.v`**（`RtOp.GetPropFrom`：起点 / 键 / 接收者三格 ✓）；
 第 241 轮补上了 **`s.description`**（符号没有原型那一格 ⇒ 由 `get_prop` 特判 ✓）；

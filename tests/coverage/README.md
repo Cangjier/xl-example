@@ -30,7 +30,7 @@
 
 | # | 缺口（条数） | 入口（文件 · 符号） | 难点 / 已经想到的路 |
 | --- | --- | --- | --- |
-| 1 | **标准库「成员不在那儿」（17 条）**：`reduceRight` · `copyWithin` · `findLast`/`findLastIndex` · `toSorted`/`toReversed`/`with` · 数组迭代器的 `next()` · `trimStart`/`trimEnd` · `String.fromCodePoint` · `String.raw` · `Math.imul`/`clz32`/`fround` · `Math.expm1`/`sinh`/`cosh`/`tanh`/`log2`/`log10`/`log1p` · `Object.is` · `Object.getOwnPropertyDescriptor` · `Object.seal`/`isSealed`/`defineProperties` · `JSON.parse` 的 reviver · `JSON.stringify` 的 replacer · `Symbol.for`/`keyFor` · `Date.toISOString`/`toJSON`/`Date.UTC`/`setUTC*`/`new Date(字符串)` · `SyntaxError` 那一族不是全局名 | `typescript-exec/builtins/*.xl.md` 的 `entries` 表 | **这一组最便宜** ✓：全是「往表里挂一格」的活 ✓。`Object.is` 尤其现成 ✓（`SameValue` 的判据第 207 轮就在 ✓）；`reduceRight` / `findLast` 与它们正向的兄弟**共用一段实现** ✓；`SyntaxError` 那一族还牵着一处：**读一个未声明的全局名在降级期就抛** ✗（`CollectDeclaredNames`），那是「全局名表」这一层的口径 ✓ |
+| 1 | **标准库「成员不在那儿」（剩 12 条）**：数组迭代器的 `next()` · `trimStart`/`trimEnd` · `String.fromCodePoint` · `String.raw` · `Math.imul`/`clz32`/`fround` · `Math.expm1`/`sinh`/`cosh`/`tanh`/`log2`/`log10`/`log1p` · `Object.is` · `Object.getOwnPropertyDescriptor` · `Object.seal`/`isSealed`/`defineProperties` · `JSON.parse` 的 reviver · `JSON.stringify` 的 replacer · `Symbol.for`/`keyFor` · `Date.toISOString`/`toJSON`/`Date.UTC`/`setUTC*`/`new Date(字符串)` · `SyntaxError` 那一族不是全局名 | `typescript-exec/builtins/*.xl.md` 的 `entries` 表 | **第 274 轮收掉了 Array 那一族七格** ✓（`findLast`/`findLastIndex` · `reduceRight` · `copyWithin` · `toSorted`/`toReversed`/`with` ✓）——**这一组仍然最便宜** ✓：剩下的全是「往表里挂一格」的活 ✓。`Object.is` 尤其现成 ✓（`SameValue` 的判据第 207 轮就在 ✓）；`SyntaxError` 那一族还牵着一处：**读一个未声明的全局名在降级期就抛** ✗（`CollectDeclaredNames`），那是「全局名表」这一层的口径 ✓ |
 | 2 | **async 那一族（9 条）** | `typescript-exec/builtins/promise.xl.md` · `runtime/vm.xl.md` 的 `RunNativeTask` 收尾 | **最深的一处，也是 e2e 那三条全挂在它上面** ✗。`.then` 回调跑完之后收尾就出事 ✓（探针证明 `AdoptInto` **一次都没被触达** ✓）；要连着「`async` 函数返回承诺」一起做 ✓（第 229 轮只做「包一个已兑现承诺」那一半，判据当场红两条 ✓，退回来了 ✓） |
 | 3 | **静态成员不随 `extends` 走（2 条）** | `typescript-exec/lowering.xl.md` 类降级建 `extends` 那一段 + `props.xl.md` | JS 的 `extends` 是**两步** ✓（原型链 **加** 把子构造函数自己的 `[[Prototype]]` 接到父构造函数 ✓），只做了前一步 ✗。连带 `super` 在**静态**成员里要从**父构造函数**起读 ✓——第 243 轮的 `GetPropFrom` 起点那一格要按「静态 / 实例」分两种 ✓ |
 | 4 | **`implements` 子句被当成值（2 条）** | `typescript-exec/lowering.xl.md` 认 `heritageClauses` 那一支 | 只认了 `extends` ✗（同一个数组的第二格是 `implements` ✓）。**是「少认一格」，不是「要新造机制」** ✓ |
@@ -40,7 +40,7 @@
 | 8 | **`typeof` 的类表达式操作数（1 条）** | `typescript/` 的重组队列（`typeof` 被留成了兄弟单元 ✗） | 与第 233 轮 `typeof {}` **同一族** ✓（那时补的是「后面跟 `{`」那一格 ✓）——`typeof` 的操作数位还不全 ✓ |
 | 9 | **`new` 一个常量里的类表达式（1 条）** | `typescript-exec/lowering.xl.md` 的 `DoNew` + 类表达式降级 | 实测分得很清 ✓：类**声明**赋给常量是对的 ✓、**类表达式**赋给常量不跑构造函数 ✗；`instanceof` 反而对 ✓ |
 | 10 | **字符串按码元迭代（1 条）** | `runtime/vm.xl.md` 的字符串迭代那一支 | `[...s]` 该一次一个**码点** ✓（代理对合起来 ✓），本仓一次一个码元 ✗ |
-| 11 | **标准库「在、但语义不对」（3 条）** | `builtins/array.xl.md` · `globals.xl.md` | **静默错值** ✓，比 #1 危险 ✗：`includes` 的第二格实参（起始下标）被忽略 ✓、`flat(0)` 掉进 `depth \|\| 1` ✓、`Math.abs(-0)` 给 `-0` ✓ |
+| 11 | ~~标准库「在、但语义不对」~~ **第 274 轮清空了** ✓ | `builtins/array.xl.md` · `globals.xl.md` | 三处**静默错值**全收 ✓：`includes` 的第二格实参（起始下标）✓、`flat(0)` 掉进 `depth \|\| 1` ✓、`Math.abs(-0)` 给 `-0` ✓。**这一格的教训留着** ✗：它们比 #1 危险 ✓——「成员不在那儿」是**响亮地抛** ✓，而这三条**给了一个看起来成立的答案** ✗（`[1,2,3,2,1].includes(2, 4)` 给 `true`、`flat(0)` 给 3 项、`1 / Math.abs(-0)` 给 `-Infinity` ✓） |
 | 12 | **函数当 `ToPrimitive` / 两个属性（2 条）** | 降级层按区间抄源码文本 + `heap.xl.md` 的闭包那一格 | `fn.toString()` / `String(fn)` 要给**源码文本** ✓（与 `ex-tagged-template-suffix` 同一个根 ✓）；`fn.length` / `fn.name` 属性读那一面还没有 ✓（第 238 轮补的是**内部**那一格 ✓，供 `console.log` 用 ✓） |
 | 13 | **`Object.freeze` 的写屏障（2 条）** | `runtime/heap.xl.md` · `HeapArray` 的写路径 | 引擎级的活 ✓ |
 | 14 | **具名函数表达式的名字（1 条）** | `typescript-exec/scope.xl.md` | 名字该只在**函数体内**可见 ✓ |
@@ -87,10 +87,18 @@
 | 247 | **90.0%** | **95.3%** | 91.5% | **93.6%** | 76.9% | **256 / 275** | `Promise.all` 里不是承诺的那几项要当「已经兑现为它自己」（包一个已兑现的承诺）——两条判据一起通 |
 | 270 | **90.7%** | 95.3% | **93.6%** | 93.6% | 76.9% | **257 / 275** | `#n in o` 私有名的品牌检查：本仓的私有名就是属性名（`KeyUnitsOf` 取 `text`）⇒ 照 `in` 那一支办 |
 | 273 | **84.3%** | 93.9% | 85.0% | 79.9% | 76.9% | **340 / 395** | **矩阵加宽 120 条**（275 → 395）：**先普查、再收编**——候选先逐条交给 `node` 与 `tsrun` 各跑一遍，只留裁判跑得动的；120 条里 **83 条当场通过**、**37 条是新量到的缺口**。读数因此从 90.7% **落到 84.3%**——那是**分母变诚实** ✓ 不是倒退 ✓（分母 +44%）。37 条按**根子**分成 15 组写进 `expectations.mjs`，最大两组是**标准库「成员不在那儿」17 条**与 **`async` 那一族 9 条** |
+| 274 | **85.5%** | 93.9% | 85.0% | **84.4%** | 76.9% | **347 / 395** | **Array 那一族七格一起收**（`findLast`/`findLastIndex` · `reduceRight` · `copyWithin` · `toSorted`/`toReversed`/`with`）+ **三处静默错值**（`includes` 丢掉起始下标 · `flat(0)` 掉进 `depth \|\| 1` · `Math.abs(-0)` 给 `-0`）——七条判据一起转绿，**红的一栏没动**（`regressions` / `moved` / `bad` 全空 ✓） |
+| 274 | | | | | | | **口径**：这一轮的选题是 **`report.json` 那张清单里最大的一组**（标准库「成员不在那儿」17 条 ✓）——先收**最便宜又能一次收干净**的那一族（Array ✓），因为七格全在同一个文件、共用同一批零件 ✓（`AppendSlot` ✓ / `NormalizeRangeIndex` ✓ / `halted()` ✓），**一趟构建就验完** ✓ |
 
 > **第 273 轮的意义就是这一句** ✓：90.7% 量的是一张**只装了「已经想到的形状」**的矩阵 ✓；
 > 加宽之后再量，同一个实现是 **84.3%** ✓。两个数都真 ✓，后者才是「一份普通 `.ts` 交给
 > `tsrun` 能跑对多少」的答案 ✓。**下一步的路由 `report.json` 那张清单决定** ✓。
+>
+> **第 274 轮照那句话办** ✓：清单里最大的两组是**标准库成员不在那儿**（17 ✓）与
+> **`async` 那一族**（9 ✓）。选前者的理由是**代价差一个量级** ✗——前者是往表里挂一格 ✓，
+> 后者要动「引擎调脚本、并把结果接回来」那个交界面 ✓（第 244 轮量出来的那个 ✓）。
+> 于是这一轮先收 **Array 那一族**：七格住同一个文件 ✓、共用同一批零件 ✓、
+> 判据现成 ✓——**收干净、验完、红的一栏没动** ✓。
 
 **两处「口径边界」不算缺口** ✓（它们**注定**逐字节对不上 ✓，进了缺口单只会让百分比不可信 ✗）：
 `Object.freeze` 之后写属性（本仓抛 / `node` 把 `.ts` 当 CJS 跑是松散模式 ✓）、

@@ -305,15 +305,17 @@ export const EXPECTATIONS = {
   // 这一问还不存在 ✗。
   "ex-nested-namespace-type-only": { expect: "blocked", why: "体内**全是类型位**的 `namespace`（`export type` / `export interface`）本该整块擦掉（产生的运行期东西一个都没有），却和真 `namespace` 一样挡住：`unimplemented: statement ModuleDeclaration`。要先做「体内有没有运行期东西」这一问" },
 
+  // **第 274 轮删掉了这七行** ✓（它们过了 ✓）——第 273 轮普查收进来的那四条
+  // 「那一格根本没装」✗（`reduceRight` / `copyWithin` / `findLast` / `toSorted`·`with` ✓），
+  // 加上三条**静默错值** ✗（`includes` 丢掉起始下标 ✓、`flat(0)` 掉进 `depth || 1` ✓、
+  // `Math.abs(-0)` 给 `-0` ✓）。七格一起收在 `array.xl.md` 与 `globals.xl.md` 里 ✓，
+  // 逐条账见 `typescript-exec/README.md` 的「第 274 轮的账」✓。
+
   // ---- 组 10：标准库**成员不在那儿**（14 条）----
   // 这一组的量法是**先问「在不在」** ✓：一个探针把候选成员逐个 `typeof` 一遍 ✓，
   // 于是「根本不在那儿」与「在、但语义不对」被分开了 ✓（修法不一样 ✓）。
   // 全部是「往表里挂一格」（或几格）的活 ✓——`Object.is` 尤其便宜 ✓：
   // 引擎里 `SameValue` 的判据**早就有** ✓（第 207 轮那张具名的表 ✓），缺的只是往 `Object` 上挂一格 ✗。
-  "array-reduceRight": { expect: "blocked", why: "`Array.prototype.reduceRight` 不在那儿（`typeof` 给 `undefined`）——与 `reduce` 共用一段实现，只是方向相反" },
-  "array-copyWithin": { expect: "blocked", why: "`Array.prototype.copyWithin` 不在那儿" },
-  "array-findLast": { expect: "blocked", why: "`findLast` / `findLastIndex` 不在那儿——与 `find` / `findIndex` 共用实现，方向相反" },
-  "array-toSorted-and-with": { expect: "blocked", why: "`toSorted` / `toReversed` / `with`（ES2023 的三个非破坏式方法）不在那儿" },
   "array-iterator-manual": { expect: "blocked", why: "数组迭代器**没有 `next()`**：`.values()` / `.keys()` / `.entries()` 交出来的东西能被 `[...]` 与 `for..of` 用（引擎的 drain），但不能手动走一步。第 229 轮给**生成器**补的 `next()` 是另一条路" },
   "string-trim-variants": { expect: "blocked", why: "`trimStart` / `trimEnd` 不在那儿（`trim` 在）" },
   "string-at-and-codepoints": { expect: "differ", why: "`String.fromCodePoint` 不在那儿（`String.fromCharCode` 与 `.at()` / `.codePointAt()` 都在）" },
@@ -332,9 +334,6 @@ export const EXPECTATIONS = {
 
   // ---- 组 11：标准库**在、但语义不对**（3 条）----
   // 这三条比组 10 危险 ✓：**静默错值** ✓，不是响亮地抛 ✓。
-  "array-indexof-fromindex": { expect: "differ", why: "**`includes` 的第二格实参（起始下标）被忽略**：`[1,2,3,2,1].includes(2, 4)` 给 `true`（Node 给 `false`）。`indexOf` / `lastIndexOf` 的起始格是对的——**同一个参数三处写法只对了两处**" },
-  "array-flat-depth": { expect: "differ", why: "**`flat(0)` 被当成「没给」**：`[1,[2,[3,[4]]]].flat(0).length` 给 3（Node 给 2）——`0` 掉进了 `depth || 1` 那一支" },
-  "math-min-max-edge": { expect: "differ", why: "**`Math.abs(-0)` 给 `-0`**（Node 给 `0`，于是 `1 / Math.abs(-0)` 是 `-Infinity`）：直接把入参交出去了，没把 `-0` 折成 `0`" },
 
   // ---- 组 12：函数当 `ToPrimitive` 该给**源码文本**（1 条）----
   // `fn.toString()` ✓ 与 `String(fn)` ✓ 报的是同一句

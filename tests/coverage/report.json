@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 84.33,
+  "progressPercent": 85.47,
   "layers": [
     {
       "layer": "runtime",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 154,
-      "pass": 123,
-      "blocked": 19,
-      "differ": 12,
+      "pass": 130,
+      "blocked": 15,
+      "differ": 9,
       "nodefail": 0,
-      "coverage": 79.87
+      "coverage": 84.42
     },
     {
       "layer": "e2e",
@@ -175,30 +175,6 @@
       "layer": "stdlib",
       "title": "async 箭头函数 / 方法 / await 链",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: async method in a class"
-    },
-    {
-      "id": "array-reduceRight",
-      "layer": "stdlib",
-      "title": "reduceRight 的方向与初值",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "array-copyWithin",
-      "layer": "stdlib",
-      "title": "copyWithin 的三格实参与负下标",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "array-findLast",
-      "layer": "stdlib",
-      "title": "findLast / findLastIndex 与没找到",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "array-toSorted-and-with",
-      "layer": "stdlib",
-      "title": "非破坏式的那几支：toSorted / toReversed / with",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "array-iterator-manual",
@@ -341,18 +317,6 @@
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
     },
     {
-      "id": "array-indexof-fromindex",
-      "layer": "stdlib",
-      "title": "indexOf / lastIndexOf / includes 的起始下标与负数",
-      "detail": "stdout 不同：第 3 行：node «false true» vs tsrun «true true»"
-    },
-    {
-      "id": "array-flat-depth",
-      "layer": "stdlib",
-      "title": "flat 的深度参数与 Infinity",
-      "detail": "stdout 不同：第 2 行：node «2 0» vs tsrun «3 0»"
-    },
-    {
       "id": "string-at-and-codepoints",
       "layer": "stdlib",
       "title": "at / codePointAt / fromCodePoint 与代理对",
@@ -363,12 +327,6 @@
       "layer": "stdlib",
       "title": "Math.hypot / cbrt / exp / log 一支",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "math-min-max-edge",
-      "layer": "stdlib",
-      "title": "Math.min / max 的边界：空参 / Infinity / NaN，与 Math.abs(-0)",
-      "detail": "stdout 不同：第 3 行：node «0 Infinity true» vs tsrun «-0 -Infinity true»"
     },
     {
       "id": "json-stringify-replacer",

@@ -136,6 +136,53 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 
 # const ArrayEntries:int = 32
 
+**第 274 轮补的七格** ✓（号**追加在表尾** ✓，已有的一个都没动 ✓）。
+它们有一个共同形状 ✓：**每一个都有一个已有的兄弟，只差一个方向或一次拷贝** ✗——
+`findLast` / `findLastIndex` 之于 `find` / `findIndex` ✓、
+`reduceRight` 之于 `reduce` ✓、`toSorted` / `toReversed` 之于 `sort` / `reverse` ✓、
+`copyWithin` / `with` 之于「读一段写一段」✓。
+所以修法一律是**接上兄弟那一支**（多一格方向 / 多一步拷贝 ✓），
+**不另写一份实现** ✗——复制一份回调循环就是复制一份
+「回调抛出要收摊」「洞要跟着走」「累加器要挂根」那三处隐患 ✓。
+
+**这一批是第 273 轮普查量出来的** ✓：矩阵里 `array-reduceRight` / `array-findLast` /
+`array-copyWithin` / `array-toSorted-and-with` 四条**都在报
+`cannot call a non-closure value`** ✓——也就是「那个成员根本不在表里」✗，
+而不是「它在、但算错了」✓（后者更危险 ✓，见 `ArrayIncludes` 与 `ArrayFlat` 那两支 ✓）。
+
+# const ArrayFindLast:int = 33
+
+**`findLast(pred)`**（第 274 轮 ✓）——`find` 的**反向**版 ✓：从后往前找第一个满足的 ✓、
+给**原值**（没有给 `undefined` ✓）。
+
+# const ArrayFindLastIndex:int = 34
+
+**`findLastIndex(pred)`**（第 274 轮 ✓）——同上，给**下标**（没有给 `-1` ✓）。
+
+# const ArrayReduceRight:int = 35
+
+**`reduceRight(回调, 初值?)`**（第 274 轮 ✓）——`reduce` 的**反向**版 ✓（从最后一格往第一格折 ✓）。
+
+# const ArrayCopyWithin:int = 36
+
+**`copyWithin(目标, 起点?, 终点?)`**（第 274 轮 ✓）——**就地**把一段搬到目标处 ✓、返回**自己** ✓。
+三格都走 `slice` 那张**夹取**口径 ✓（`NormalizeRangeIndex` ✓，第 192 轮给它抽出来的 ✓）。
+**重叠要先读出来** ✗（理由写在那一支里 ✓）。
+
+# const ArrayToSorted:int = 37
+
+**`toSorted(比较器?)`**（第 274 轮 ✓）——`sort` 的**不改原数组**版 ✓（返回一个新数组 ✓）。
+
+# const ArrayToReversed:int = 38
+
+**`toReversed()`**（第 274 轮 ✓）——`reverse` 的**不改原数组**版 ✓。
+
+# const ArrayWith:int = 39
+
+**`with(下标, 值)`**（第 274 轮 ✓）——返回一个**换了某一格**的副本 ✓（原数组不动 ✓）。
+**下标允许负数** ✓（与 `at` 同一条口径 ✓），**越界要抛 `RangeError`** ✓——
+这是 JS 里少数**明确要抛**的那一档 ✗（不是静默给原数组 ✓）。
+
 # const ArraySplice:int = 25
 
 **`splice(起点, 删几个, …插进去的)`**（第 150 轮）——就地改、返回删掉的那些 ✓。
@@ -461,22 +508,41 @@ if (id === ArrayConcat) {
   }
   return Value.FromArray(handle);
 }
-if (id === ArrayReverse) {
-  // **原地改、返回同一个数组** ✓（JS 就是这样 ✗ 不是给新数组 ✓）。
-  // **洞按位置跟着换** ✓：读的时候 `IsHole` 先看一眼 ✓，
-  // 写回去时洞走 `SetHole` ✓（写成 `undefined` 会把洞变成真值 ✗）。
+if (id === ArrayReverse || id === ArrayToReversed) {
+  const reverseInPlace = id === ArrayReverse;
   const length = source.GetLength();
-  const half = Math.floor(length / 2);
-  for (let i = 0; i < half; i++) {
-    const j = length - 1 - i;
-    const leftHole = source.IsHole(i);
-    const rightHole = source.IsHole(j);
-    const left = source.GetAt(i);
-    const right = source.GetAt(j);
-    if (rightHole) source.SetHole(i); else source.SetAt(i, right);
-    if (leftHole) source.SetHole(j); else source.SetAt(j, left);
+  if (reverseInPlace) {
+    // **原地改、返回同一个数组** ✓（JS 就是这样 ✗ 不是给新数组 ✓）。
+    // **洞按位置跟着换** ✓：读的时候 `IsHole` 先看一眼 ✓，
+    // 写回去时洞走 `SetHole` ✓（写成 `undefined` 会把洞变成真值 ✗）。
+    const half = Math.floor(length / 2);
+    for (let i = 0; i < half; i++) {
+      const j = length - 1 - i;
+      const leftHole = source.IsHole(i);
+      const rightHole = source.IsHole(j);
+      const left = source.GetAt(i);
+      const right = source.GetAt(j);
+      if (rightHole) source.SetHole(i); else source.SetAt(i, right);
+      if (leftHole) source.SetHole(j); else source.SetAt(j, left);
+    }
+    return self;
   }
-  return self;
+  // **`toReversed` 倒着抄一份** ✓（第 274 轮）：它与上面那支**不是**两条实现 ✗——
+  // 上面动的是「换位的写法」✓，这里动的是「抄的次序」✓，而**「洞怎么办」与
+  // 「原型怎么来」那两条口径落在同一处** ✓：洞走 `AppendSlot` ✓
+  //（写成 `undefined` 会把洞变成真值 ✗、`1 in copy` 从假变真 ✗）、
+  // 原型跟着源数组走 ✓（与 `slice` / `map` / `concat` 同一条 ✓）。
+  // **不写成「先拷一份再调 `reverse`」** ✗：那要多一轮写与一次 `Recount` ✓，
+  // 而且会把「非破坏式」变成「破坏副本」✓——读的人要绕一圈才知道原数组没动 ✗。
+  if (!room(ObjectCharge + ValueCharge * length)) throw new Error("out of room");
+  const handle = table.CreateArray();
+  table.Get(handle).Proto = table.Get(self.Ref).Proto;
+  const created = table.Get(handle).AsArray();
+  for (let i = length - 1; i >= 0; i--) {
+    AppendSlot(created, source, i);
+  }
+  table.Recount(handle);
+  return Value.FromArray(handle);
 }
 if (id === ArrayIncludes) {
   // **它是 `indexOf` 的布尔版** ✓——但**判等的表不是同一张** ✗（第 207 轮改 ✓）：
@@ -485,8 +551,18 @@ if (id === ArrayIncludes) {
   // 这条差别原来写在注释里 ✓（「今天碰不到」✓）——**第 206 轮把 `Number.NaN` 装上之后就碰得到了** ✓
   //（判据 `array-indexOf-includes` 现场红的 ✓），所以这一轮换到那张**具名的**表上 ✓
   //（`rt.xl.md` 的 `SameValueZero` ✓——同一张表 `Map` / `Set` 也在用 ✓）。
+  //
+  // **第二格实参（起始下标）第 274 轮才接上** ✗——原来整个丢掉 ✓，
+  // 于是 `[1,2,3,2,1].includes(2, 4)` 给**真** ✗（JS 给假 ✓）：**静默错值** ✓。
+  // 它与 `indexOf` / `lastIndexOf` 是**同一个参数** ✓（那两支的起始格一直是对的 ✓）——
+  // **三处写法只对了两处** ✗，正是那种「看起来像没写全、其实是写漏了」的形状 ✓。
+  // 夹取口径与 `slice` / `fill` **同一处** ✓（`NormalizeRangeIndex` ✓：负数从末尾数 ✓、
+  // 越界夹到 `[0, length]` ✓——`from` 被夹成 `length` 时循环一圈都不跑 ✓，正好给假 ✓）。
+  // **`undefined` / 非数字都给 0** ✓（`ArgOr` 的 fallback ✓，JS 的 `ToIntegerOrInfinity` 同款 ✓）。
   const needle = args.length > 0 ? args[0] : Value.Undefined();
-  for (let i = 0; i < source.GetLength(); i++) {
+  const total = source.GetLength();
+  const from = NormalizeRangeIndex(ArgOr(args, 1, 0), total);
+  for (let i = from; i < total; i++) {
     if (SameValueZero(table, source.GetAt(i), needle)) return Value.FromBool(true);
   }
   return Value.FromBool(false);
@@ -552,10 +628,13 @@ if (id === ArrayForEach || id === ArrayMap || id === ArrayFilter) {
   if (collected >= 0 && keep !== null) keep(Value.FromArray(collected), false);
   return id === ArrayForEach ? Value.Undefined() : Value.FromArray(collected);
 }
-if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFindIndex) {
-  // **谓词族**（第 118 轮；`findIndex` 第 130 轮加入 ✓）：与 `forEach`/`map`/`filter` 同一条回调通道 ✓，
+if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFindIndex
+  || id === ArrayFindLast || id === ArrayFindLastIndex) {
+  // **谓词族**（第 118 轮；`findIndex` 第 130 轮加入 ✓；`findLast` / `findLastIndex` 第 274 轮 ✓）：
+  // 与 `forEach`/`map`/`filter` 同一条回调通道 ✓，
   // 但**结果不同**：`find` 给原值（没有给 `undefined`）✓、`some` 有一个为真即真 ✓、
-  // `every` 全真才真 ✓、`findIndex` 给**下标**（没有给 `-1` ✓）。
+  // `every` 全真才真 ✓、`findIndex` 给**下标**（没有给 `-1` ✓）、
+  // 后两格是**反向**的两格 ✓（只差 `i` 怎么走 ✓，其余一个字都不差 ✓）。
   // **空数组**：`some` 给**假**、`every` 给**真** ✓（JS 的口径 ✓；`every` 这一条最容易写反 ✗）。
   // **真假也走 `RtToBoolean`** ✓（第 144 轮，与 `filter` 同一条 ✓）：
   // `[""].some(s => s)` 是**假** ✓、`[""].find(s => s)` 是 `undefined` ✓——写 `AsBool()` 就会反过来 ✗。
@@ -563,7 +642,14 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
     throw new Error("this array method needs a function and a call channel (the host must pass one)");
   }
   const predicateTotal = source.GetLength();
-  for (let i = 0; i < predicateTotal; i++) {
+  // **方向只有这一格** ✓（第 274 轮）：`findLast` / `findLastIndex` 与它们正向的兄弟
+  // **共用下面整段** ✗——「洞要跳过」✓、「回调抛出要收摊」✓、「真假走 `RtToBoolean`」✓
+  // 三处全在这段里 ✓，复制一份就是复制三处隐患 ✓。
+  // **`i` 由 `step` 算出来** ✓（不是两条循环 ✗）：这样「回调拿到的那两个值」与
+  // 「数组被改了下标还算不算数」这些口径**只有一份** ✓。
+  const backwards = id === ArrayFindLast || id === ArrayFindLastIndex;
+  for (let step = 0; step < predicateTotal; step++) {
+    const i = backwards ? predicateTotal - 1 - step : step;
     // **洞不访问** ✓（第 210 轮 ✓，与 `forEach` / `map` 那一条同一处 ✓）：
     // JS 的谓词族也**跳过洞** ✓（`[1, , 3].some(f)` 里 `f` 只被调 2 次 ✓）。
     if (source.IsHole(i)) continue;
@@ -573,93 +659,75 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
     // `RtToBoolean` 对 `undefined` 给**假** ✓——不问这一句的话，`some` / `every` 会把这个
     // 「假」当成回调的答案用 ✗（`every` 于是当场返回 `false` ✓，**静默错值** ✗）。
     if (halted()) return Value.Undefined();
-    if (id === ArrayFind) {
+    if (id === ArrayFind || id === ArrayFindLast) {
       if (answered) return item;
       continue;
     }
-    if (id === ArrayFindIndex) {
+    if (id === ArrayFindIndex || id === ArrayFindLastIndex) {
       if (answered) return Value.FromInt(i);
       continue;
     }
     if (id === ArraySome && answered) return Value.FromBool(true);
     if (id === ArrayEvery && !answered) return Value.FromBool(false);
   }
-  if (id === ArrayFind) return Value.Undefined();
-  if (id === ArrayFindIndex) return Value.FromInt(-1);
+  if (id === ArrayFind || id === ArrayFindLast) return Value.Undefined();
+  if (id === ArrayFindIndex || id === ArrayFindLastIndex) return Value.FromInt(-1);
   // 走到这里：`some` 一个都没中（假）、`every` 一个都没反（真）——**空数组也落在这一支** ✓。
   return Value.FromBool(id === ArrayEvery);
 }
-if (id === ArraySort) {
-  // **比较器可选** ✓（不给就按「转成字符串再比」✓，见 `ArraySort` 那一段 ✓）。
+if (id === ArraySort || id === ArrayToSorted) {
+  // **比较器可选** ✓（不给就按「转成字符串再比」✓，见 `CompareAsText` ✓）。
   // **「可调用」的判据与回调族同一条** ✓（`IsCallableValue` ✓，第 145 轮）——
   // 写 `IsCallable()` 的话 `[2, 1].sort(String)` 会**静默**走文本那一支 ✗（不是拒绝，是换语义 ✗）。
   const comparator = args.length > 0 && IsCallableValue(table, args[0]) ? args[0] : Value.Undefined();
   const hasComparator = IsCallableValue(table, comparator);
-  // **插入排序**（稳定 ✓）：从第二格起，每格往前挪到该在的位置 ✓。
-  for (let i = 1; i < source.GetLength(); i++) {
-    const item = source.GetAt(i);
-    const itemHole = source.IsHole(i);
-    let j = i - 1;
-    while (j >= 0) {
-      const other = source.GetAt(j);
-      const otherHole = source.IsHole(j);
-      // **比较器的两个实参要按 JS 的次序给** ✓（第 228 轮改 ✓）：**「要挪的那个」在前、
-      // 「已经就位的那个」在后** ✓——也就是 `comparator(item, other)` ✓。
-      //
-      // **这一格极容易写反，而且写反了有不出声的代价** ✗：本仓原来给的是
-      // `(other, item)` 再把符号反过来（结果**一样** ✓）——**排序结果照样对** ✓，
-      // 但**回调可观察到的次序与实参全都反了** ✗：
-      //   · 带副作用的比较器（打日志 / 计数 ✓）看到的两个数是**反的** ✓；
-      //   · **条件抛出**那一条最致命 ✗——`if (a === 2) throw` 这种写法在 JS 里会抛 ✓，
-      //     而实参反了之后**根本不抛** ✓（判据 `exc-throw-in-callback-map-filter` 现场红的 ✓，
-      //     本仓当时给的是 `1,2,3` 而 node 抛出了异常 ✓）。
-      // **「结果一样」不是理由** ✗：比较器是**脚本** ✓，它的每一次调用都是可观察的 ✓。
-      // **顺手把符号也归位** ✓：`item` 在前 ⇒ 它该排在前面时 `other` 不动 ✓，
-      // 也就是**判据是「负数」** ✓（`cmp(a, b) < 0` ⇒ `a` 在前 ✓，JS 的口径 ✓）。
-      // 原来那版拿 `> 0` 配 `(other, item)` ✓——**两处一起反**才让结果看着是对的 ✗：
-      // 改实参次序而忘了翻符号，`[3,1,2].sort((a, b) => a - b)` 当场给 `3,2,1` ✓
-      // （实测踩过一次 ✓）。
-      let otherFirst = false;
-      if (hasComparator && call !== null) {
-        const verdict = call(comparator, Value.Undefined(), [item, other]);
-        // **比较器抛出就收摊** ✓（第 228 轮）：`verdict` 这时是 `undefined` ✓，
-        // 不问这一句就把它当成「不小于 0」用 ✗——排序会停在一个**半排好的**数组上 ✓
-        //（而异常等到整个 `sort` 返回才冒出来 ✓，那时数组已经被改过了 ✗）。
-        if (halted()) return Value.Undefined();
-        // **负数 = 第一个参数该排在前面 = `other` 往前挪** ✓（JS 的口径 ✓：
-        // `cmp(a, b) < 0` 表示 `a` 在 `b` 前面 ✓）。
-        if (verdict.Tag === ValueTag.Int32) otherFirst = verdict.Int < 0;
-        else if (verdict.Tag === ValueTag.Float64) otherFirst = verdict.Dbl < 0;
-      } else {
-        otherFirst = CompareAsText(table, item, other) < 0;
-      }
-      if (!otherFirst) break;
-      // **洞要跟着格子一起挪** ✓：`SetAt` 会**清掉**那一格的洞标记 ✓（`heap.xl.md` 的 `SetAt` ✓），
-      // 所以「挪过来的本来是洞」时要**再标回去** ✓——少了这一步，洞里会冒出一个显式的
-      // `undefined` ✗（形状变了 ✓：`in` 从假变真 ✗）。
-      source.SetAt(j + 1, other);
-      if (otherHole) source.SetHole(j + 1);
-      j = j - 1;
+  const inPlace = id === ArraySort;
+  // **`toSorted` 先拷一份** ✓（第 274 轮）：排序**跑在副本上** ✓，原数组一个字节都不动 ✓。
+  // 那一段排序循环第 274 轮**抽成了方法** ✓（`SortArrayInPlace` ✓）——
+  // 理由写在那个方法的说明里 ✓：不是「顺手抽一下」✗，是因为那段里有两处
+  // **写反了不出声**的地方 ✓（比较器的实参次序 ✓、`halted()` 那一句 ✓），
+  // 复制一份就是复制两处隐患 ✗。
+  let work = source;
+  let workRef = self.Ref;
+  if (!inPlace) {
+    if (!room(ObjectCharge + ValueCharge * source.GetLength())) throw new Error("out of room");
+    const handle = table.CreateArray();
+    table.Get(handle).Proto = table.Get(self.Ref).Proto;
+    work = table.Get(handle).AsArray();
+    // **洞照抄** ✓（`AppendSlot` ✓，与 `concat` / `slice` 那几支同一条 ✓）：
+    // 写成 `undefined` 会把洞变成真值 ✗（`1 in copy` 从假变真 ✓）。
+    for (let i = 0; i < source.GetLength(); i++) {
+      AppendSlot(work, source, i);
     }
-    source.SetAt(j + 1, item);
-    if (itemHole) source.SetHole(j + 1);
+    workRef = handle;
   }
-  table.Recount(self.Ref);
-  return self;
+  if (!SortArrayInPlace(table, call, failed, work, hasComparator, comparator)) {
+    // **收摊** ✓（比较器抛了 / 预算用尽 ✓）：与其余八处回调循环同一条口径 ✓。
+    return Value.Undefined();
+  }
+  table.Recount(workRef);
+  return inPlace ? self : Value.FromArray(workRef);
 }
-if (id === ArrayReduce) {
+if (id === ArrayReduce || id === ArrayReduceRight) {
   // **回调与通道都要有** ✓（少了就响亮地说清 ✓，与别的回调族一样 ✓）。
   if (args.length < 1 || !args[0].IsCallable() || call === null) {
     throw new Error("reduce needs a function and a call channel (the host must pass one)");
   }
   const total = source.GetLength();
+  // **`reduceRight` 与 `reduce` 共用下面整段** ✓（第 274 轮）：只差 `i` 怎么走 ✓。
+  // **必须共用** ✗——这一段里有「**累加器要挂根**」那一处 ✓（第 200 轮 ✓），
+  // 它是全块最难自己想出来的一格 ✓（症状是「`reduce` 到某一项突然拿到一个死句柄」✗，
+  // 离现场很远 ✓）；复制一份就是再埋一颗同款的雷 ✗。
+  // **没给初值时「第一项当初值」也跟着反向** ✓（JS 的口径 ✓：`reduceRight` 的第一项是**最后一格** ✓）。
+  const backwards = id === ArrayReduceRight;
   let accumulator = Value.Undefined();
   let started = false;
   if (args.length > 1) {
     accumulator = args[1];
     started = true;
   }
-  for (let i = 0; i < total; i++) {
+  for (let step = 0; step < total; step++) {
+    const i = backwards ? total - 1 - step : step;
     // **洞跳过** ✓（JS 的 `reduce` 只走存在的下标 ✓）。
     if (source.IsHole(i)) continue;
     if (!started) {
@@ -802,26 +870,104 @@ if (id === ArrayFill) {
 if (id === ArrayFlat) {
   // **要在 `RequireArray` 之后、`self` 上做** ✓——结果是一个**新数组** ✓（JS 不改原数组 ✓），
   // 原型**跟着源数组走** ✓（与 `slice`/`map` 那几支同一条 ✓）。
+  //
+  // **深度那一格第 274 轮才接上** ✗——原来**只有 `flat()` 一档** ✓，实参被整个丢掉 ✓。
+  // 代价是**静默错值** ✓：`[1,[2,[3,[4]]]].flat(0).length` 给 3 ✗（JS 给 2 ✓）——
+  // **给了一个看起来成立的答案** ✗，比响亮地抛危险 ✓（判据 `array-flat-depth` 量的就是它 ✓）。
+  //
+  // **不能写 `ArgOr(args, 0, 1)`** ✗：那个取值器走 `AsInt()` ✓，于是
+  // **`Infinity` 会落成一个与 1 分不开的整数** ✓（`flat(Infinity)` 会**静默只摊一层** ✗）。
+  // 所以这里按**三种值**分开读 ✓（与 JS 的 `ToIntegerOrInfinity` 同一张表 ✓）：
+  //   · **没给** ⇒ `1` ✓（缺省 ✓）；
+  //   · **不是数字** ⇒ `0` ✓（`flat("x")` 在 JS 里是 `0` ⇒ 不摊 ✓）；
+  //   · **数字** ⇒ 那一格 ✓（负数按 0 ✓；`Infinity` 给一个**够大**的上界 ✓——
+  //     它就是「摊到底」✓，而这个数组是有限的 ✓，所以上界取到 2³¹-1 与「无限」等价 ✓、又不会溢出 ✓）。
+  //   · **`NaN`** ⇒ `0` ✓（`NaN !== NaN` 那一判 ✓，JS 的 `ToIntegerOrInfinity(NaN)` 也是 0 ✓）。
+  let depth = 1;
+  if (args.length > 0) {
+    const raw = args[0];
+    if (raw.Tag === ValueTag.Int32) {
+      depth = raw.Int < 0 ? 0 : raw.Int;
+    } else if (raw.Tag === ValueTag.Float64) {
+      const asFloat = raw.Dbl;
+      if (asFloat !== asFloat) depth = 0;
+      else if (asFloat === Infinity) depth = 2147483647;
+      else if (asFloat < 0) depth = 0;
+      else depth = Math.floor(asFloat);
+    } else {
+      depth = 0;
+    }
+  }
   const flatRoom = thisFlatRoom(room, source.GetLength());
   if (!flatRoom) throw new Error("out of room");
   const flattened = table.CreateArray();
   table.Get(flattened).Proto = table.Get(self.Ref).Proto;
   const target = table.Get(flattened).AsArray();
-  for (let i = 0; i < source.GetLength(); i++) {
-    if (source.IsHole(i)) continue;
-    const item = source.GetAt(i);
-    if (item.Tag === ValueTag.Array) {
-      const inner = table.Get(item.Ref).AsArray();
-      for (let j = 0; j < inner.GetLength(); j++) {
-        if (inner.IsHole(j)) continue;
-        target.Push(inner.GetAt(j));
-      }
-      continue;
-    }
-    target.Push(item);
-  }
+  // **摊的过程抽成了方法** ✓（`FlattenInto` ✓，第 274 轮）：深度 > 1 时它要**递归** ✓。
+  FlattenInto(table, target, source, depth);
   table.Recount(flattened);
   return Value.FromArray(flattened);
+}
+if (id === ArrayCopyWithin) {
+  // **就地改、返回自己** ✓（JS 就是这样 ✗ 不是给新数组 ✓）。
+  // 三格都走 `slice` 那张**夹取**口径 ✓（`NormalizeRangeIndex` ✓：负数从末尾数 ✓、
+  // 越界夹到 `[0, total]` ✓）——第 192 轮抽它的时候写着「`fill` 与**将来的 `copyWithin`**
+  // 用同一处」✓，这一轮把它兑现了 ✓（**同一件事不写第三份** ✓）。
+  const total = source.GetLength();
+  const target = NormalizeRangeIndex(ArgOr(args, 0, 0), total);
+  const from = NormalizeRangeIndex(ArgOr(args, 1, 0), total);
+  const till = NormalizeRangeIndex(ArgOr(args, 2, total), total);
+  let count = till - from;
+  const roomLeft = total - target;
+  if (count > roomLeft) count = roomLeft;
+  if (count > 0) {
+    // **先把源头读出来再写** ✗（第 274 轮 ✓）：两段**重叠**时逐格搬会**自我覆盖** ✓——
+    // 实测 `[1,2,3,4,5].copyWithin(1, 0, 2)` 边搬边写给 `1,1,1,4,5` ✗，JS 给 `1,1,2,4,5` ✓。
+    // **洞也要先读** ✓（不只是值）：写回去的时候「这一格本来是不是洞」已经**看不出来了** ✗
+    //（写过的位置把源头那一格盖掉了 ✓），所以洞标记与值**一起**读进两个宿主数组 ✓。
+    // **这一段中间不调脚本** ✗（没有回收窗口 ✓）：读出来的是**值** ✓，
+    // 它们的根仍然挂在源数组身上 ✓（`self` 是调用方的槽 ✓ 本来就是根 ✓）——
+    // 与 `slice` 那一支同一个理由 ✓，所以这里**不需要** `keep` ✓。
+    const buffer: Value[] = [];
+    const holes: boolean[] = [];
+    for (let i = 0; i < count; i++) {
+      holes.push(source.IsHole(from + i));
+      buffer.push(source.GetAt(from + i));
+    }
+    for (let i = 0; i < count; i++) {
+      // **洞跟着位置走** ✓（与 `reverse` 同一条 ✓：写回时洞走 `SetHole` ✓）。
+      if (holes[i]) source.SetHole(target + i); else source.SetAt(target + i, buffer[i]);
+    }
+    table.Recount(self.Ref);
+  }
+  return self;
+}
+if (id === ArrayWith) {
+  // **不改原数组** ✓（返回一个副本 ✓）：ES2023 那三个非破坏式方法里最直接的一个 ✓。
+  const total = source.GetLength();
+  // **下标允许负数** ✓（与 `at` 同一条口径 ✓：`-1` 是最后一格 ✓）——
+  // 但**与 `at` 有一处不同** ✗：`at` 越界给 `undefined` ✓，`with` 越界**抛 `RangeError`** ✓。
+  let at = ArgOr(args, 0, 0);
+  if (at < 0) at = total + at;
+  // **越界要抛** ✓：这是 JS 里少数**明确要抛**的那一档 ✗——
+  // 与 `array-reduce` 那一处同一条纪律 ✓：**不许**静默给一个看起来成立的结果 ✗
+  //（静默返回一份「什么都没换」的副本 ✓，调用方完全看不出来 ✓）。
+  if (at < 0 || at >= total) {
+    throw new RangeError("invalid index for with");
+  }
+  const replacement = args.length > 1 ? args[1] : Value.Undefined();
+  if (!room(ObjectCharge + ValueCharge * total)) throw new Error("out of room");
+  const handle = table.CreateArray();
+  table.Get(handle).Proto = table.Get(self.Ref).Proto;
+  const created = table.Get(handle).AsArray();
+  for (let i = 0; i < total; i++) {
+    AppendSlot(created, source, i);
+  }
+  // **换掉那一格** ✓：`SetAt` 会**清掉**洞标记 ✓——这里正是想要的 ✓
+  //（JS 的 `with` 就是把那一格变成一个真值 ✓，原来是洞也不再是 ✓）。
+  created.SetAt(at, replacement);
+  table.Recount(handle);
+  return Value.FromArray(handle);
 }
 if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
   // **`keys` / `values` / `entries`** ✓（第 214 轮 ✓）——**返回的是数组** ✓，不是迭代器 ✓。
@@ -869,6 +1015,108 @@ if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
   return Value.FromArray(iterationHandle);
 }
 throw new Error("unimplemented: array builtin " + id);
+```
+
+# method SortArrayInPlace:(table:HeapTable, call:NativeCall | null, failed:CallFailed | null, source:HeapArray, hasComparator:bool, comparator:Value)=>bool
+
+**就地**把 `source` 排好（第 274 轮从 `InvokeArray` 里抽出来 ✓）。返回 `false` 表示**收摊** ✓。
+
+**为什么抽出来** ✗：`toSorted` 要的就是「**同一段排序跑在一个副本上**」✓——
+把那段循环留在 `sort` 那一支里，`toSorted` 就只能**复制一份** ✗，而那段里有两处
+**极易写反、写反了还不出声**的地方 ✓：
+
+- **比较器的实参次序** ✓（`comparator(item, other)` ✓，第 228 轮）：写反了**排序结果照样对** ✓，
+  但**脚本可观察到的每一次调用都是反的** ✗（带副作用的比较器看到的两个数反了 ✓、
+  `if (a === 2) throw` 这种条件抛出**根本不抛** ✓——判据 `exc-throw-in-callback-map-filter` 现场红过 ✓）；
+- **`halted()` 那一句** ✓（第 228 轮）：少了它，`verdict` 是 `undefined` ✓，
+  会被当成「不小于 0」用 ✗——排序停在一个**半排好的**数组上 ✓，
+  而异常要等到整个 `sort` 返回才冒出来 ✓，那时数组已经被改过了 ✗。
+
+复制一份就是复制这两处隐患 ✗。**返回 `bool` 而不是 `Value`** ✓：这一支**没有值要交** ✓，
+调用方按自己的样子收摊 ✓（`sort` 与 `toSorted` 各交各的数组 ✓）。
+
+**`failed === null` 时 `halted` 恒为假** ✓（与 `InvokeArray` 里那个局部量同一条口径 ✓，
+见 `props.xl.md` 的 `CallFailed` ✓）。
+
+```ts
+const halted = () => failed !== null && failed();
+// **插入排序**（稳定 ✓）：从第二格起，每格往前挪到该在的位置 ✓。
+for (let i = 1; i < source.GetLength(); i++) {
+  const item = source.GetAt(i);
+  const itemHole = source.IsHole(i);
+  let j = i - 1;
+  while (j >= 0) {
+    const other = source.GetAt(j);
+    const otherHole = source.IsHole(j);
+    // **比较器的两个实参要按 JS 的次序给** ✓（第 228 轮改 ✓）：**「要挪的那个」在前、
+    // 「已经就位的那个」在后** ✓——也就是 `comparator(item, other)` ✓。
+    //
+    // **这一格极容易写反，而且写反了有不出声的代价** ✗：本仓原来给的是
+    // `(other, item)` 再把符号反过来（结果**一样** ✓）——**排序结果照样对** ✓，
+    // 但**回调可观察到的次序与实参全都反了** ✗：
+    //   · 带副作用的比较器（打日志 / 计数 ✓）看到的两个数是**反的** ✓；
+    //   · **条件抛出**那一条最致命 ✗——`if (a === 2) throw` 这种写法在 JS 里会抛 ✓，
+    //     而实参反了之后**根本不抛** ✓（判据 `exc-throw-in-callback-map-filter` 现场红的 ✓，
+    //     本仓当时给的是 `1,2,3` 而 node 抛出了异常 ✓）。
+    // **「结果一样」不是理由** ✗：比较器是**脚本** ✓，它的每一次调用都是可观察的 ✓。
+    // **顺手把符号也归位** ✓：`item` 在前 ⇒ 它该排在前面时 `other` 不动 ✓，
+    // 也就是**判据是「负数」** ✓（`cmp(a, b) < 0` ⇒ `a` 在前 ✓，JS 的口径 ✓）。
+    // 原来那版拿 `> 0` 配 `(other, item)` ✓——**两处一起反**才让结果看着是对的 ✗：
+    // 改实参次序而忘了翻符号，`[3,1,2].sort((a, b) => a - b)` 当场给 `3,2,1` ✓
+    // （实测踩过一次 ✓）。
+    let otherFirst = false;
+    if (hasComparator && call !== null) {
+      const verdict = call(comparator, Value.Undefined(), [item, other]);
+      // **比较器抛出就收摊** ✓（第 228 轮）：`verdict` 这时是 `undefined` ✓，
+      // 不问这一句就把它当成「不小于 0」用 ✗——排序会停在一个**半排好的**数组上 ✓
+      //（而异常等到整个 `sort` 返回才冒出来 ✓，那时数组已经被改过了 ✗）。
+      if (halted()) return false;
+      // **负数 = 第一个参数该排在前面 = `other` 往前挪** ✓（JS 的口径 ✓：
+      // `cmp(a, b) < 0` 表示 `a` 在 `b` 前面 ✓）。
+      if (verdict.Tag === ValueTag.Int32) otherFirst = verdict.Int < 0;
+      else if (verdict.Tag === ValueTag.Float64) otherFirst = verdict.Dbl < 0;
+    } else {
+      otherFirst = CompareAsText(table, item, other) < 0;
+    }
+    if (!otherFirst) break;
+    // **洞要跟着格子一起挪** ✓：`SetAt` 会**清掉**那一格的洞标记 ✓（`heap.xl.md` 的 `SetAt` ✓），
+    // 所以「挪过来的本来是洞」时要**再标回去** ✓——少了这一步，洞里会冒出一个显式的
+    // `undefined` ✗（形状变了 ✓：`in` 从假变真 ✗）。
+    source.SetAt(j + 1, other);
+    if (otherHole) source.SetHole(j + 1);
+    j = j - 1;
+  }
+  source.SetAt(j + 1, item);
+  if (itemHole) source.SetHole(j + 1);
+}
+return true;
+```
+
+# method FlattenInto:(table:HeapTable, target:HeapArray, from:HeapArray, depth:int)=>void
+
+把 `from` 按 `depth` 摊进 `target`（第 274 轮抽出来 ✓，`flat` 用 ✓）。
+
+**洞在**任何**深度都要摘掉** ✓：JS 的 `flat` 就是「先把洞去掉，再看要不要摊」✓——
+所以 `[1, , 2].flat(0)` 给 `[1, 2]` ✓（长度 2 ✓），而**不是**把洞原样带走 ✗。
+**`depth === 0` 时仍然摘洞** ✓（这正是 `flat(0)` 与「原样返回」的差别 ✓）。
+
+**只有真数组才摊** ✓（`item.Tag === ValueTag.Array` ✓）：字符串、类数组都不摊 ✓
+（`[1, [2], "ab"].flat()` 给 `[1, 2, "ab"]` ✓）。
+
+**`target.Push` 不做房间检查** ✗（`heap.xl.md` 的 `Push` 不做 ✓）：
+调用方 `flat` 那一支只问了一个**保守的下界** ✓（`thisFlatRoom` ✓）——
+深度一大就可能不够 ✓，这是**已知**的 ✗，写在那一支的说明里 ✓（宁可问一句、也不假装算得准 ✓）。
+
+```ts
+for (let i = 0; i < from.GetLength(); i++) {
+  if (from.IsHole(i)) continue;
+  const item = from.GetAt(i);
+  if (depth > 0 && item.Tag === ValueTag.Array) {
+    FlattenInto(table, target, table.Get(item.Ref).AsArray(), depth - 1);
+    continue;
+  }
+  target.Push(item);
+}
 ```
 
 # method thisFlatRoom:(room:RoomChecker, length:int)=>bool
@@ -986,6 +1234,12 @@ const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach",
   "unshift", "lastIndexOf", "flatMap",
   // **第 214 轮补的三格** ✓（`keys` / `values` / `entries` ✓）。
   "keys", "values", "entries",
+  // **第 274 轮补的七格** ✓（`findLast` / `findLastIndex` / `reduceRight` / `copyWithin` /
+  // `toSorted` / `toReversed` / `with` ✓）——号**照旧追加在表尾** ✓、已有的一个都没动 ✓。
+  // **它们全是第 273 轮普查量到的** ✓：矩阵里那四条都在报
+  // `cannot call a non-closure value` ✓——也就是「那一格根本没装」✗，
+  // 而不是「装了但算错」✓（后者更危险 ✓）。
+  "findLast", "findLastIndex", "reduceRight", "copyWithin", "toSorted", "toReversed", "with",
   // **`toString` 就是 `join(",")`**（第 193 轮 ✓）：JS 的 `Array.prototype.toString` 正是它 ✓
   // （没给实参时 `join` 的默认分隔符就是 `,` ✓），所以**指到同一格能力号** ✓
   // ——同一件事不写第二份实现 ✓。实测：`[1, [2, 3]].toString()` 原来报
@@ -996,6 +1250,8 @@ const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice,
   ArrayFindIndex, ArraySort, ArrayReduce, ArrayShift, ArrayFill, ArrayFlat, ArrayAt, ArraySplice,
   ArrayUnshift, ArrayLastIndexOf, ArrayFlatMap,
   ArrayKeys, ArrayValues, ArrayEntries,
+  ArrayFindLast, ArrayFindLastIndex, ArrayReduceRight, ArrayCopyWithin,
+  ArrayToSorted, ArrayToReversed, ArrayWith,
   ArrayJoin];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));

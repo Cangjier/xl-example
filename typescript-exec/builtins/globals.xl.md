@@ -1224,6 +1224,13 @@ if (id === MathFloor) {
 }
 if (id === MathAbs) {
   const value = MathArgOf(room, call, protos, table, args[0]);
+  // **`-0` 要折成 `+0`** ✗（第 274 轮）：下面那句「负数就取反」的判据是 `value < 0` ✓，
+  // 而 **`-0 < 0` 在 JS 里是假** ✗——于是 `-0` 被原样交了出去 ✓。
+  // 实测 `Math.abs(-0)` 给 `-0` ✓、`1 / Math.abs(-0)` 给 `-Infinity` ✗（node 给 `0` 与 `Infinity` ✓）：
+  // **静默错值** ✓（判据 `math-min-max-edge` 量到的就是它 ✓，第 273 轮普查收进来的 ✓）。
+  // **判据是 `value === 0`** ✓：`-0 === 0` 是**真** ✓，于是两种零都收到同一个出口 ✓；
+  // 而 `NaN` 不走这一支 ✓（`NaN === 0` 是假 ✓），落回下面那句、原样交出去 ✓（JS 也是 `NaN` ✓）。
+  if (value === 0) return MathResult(0);
   return MathResult(value < 0 ? 0 - value : value);
 }
 if (id === MathMax || id === MathMin) {
