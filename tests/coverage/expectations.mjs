@@ -442,7 +442,6 @@ export const EXPECTATIONS = {
   // 剩下的是**最后一句** ✗：`new Date("2021-03-04T05:06:07Z")` 那个**字符串实参** ✓
   // （要一个 ISO 解析器 ✓），以及 `JSON.stringify({ d })` 要**认 `toJSON`** ✓
   //（`JsonText` 是个纯查询 ✓、没有调用通道 ✗——那要给它加一格 ✓）。
-  "date-iso-and-json": { expect: "differ", why: "**只剩 `toJSON` 那条调用通道** ✓——第 293 轮把 `new Date(字符串)` / `Date.parse` / 多实参构造 / 本地那七个 getter / `Date.prototype.toString`（非法日期那一档）都装上了 ✓，这一条此前报的 `unimplemented: new Date(x) needs a number of milliseconds` 已经没了 ✗。现在差的是 `JSON.stringify({ d })`：JS 序列化每个值之前**先问它有没有 `toJSON`** ✓，而 `JsonText` 至今是个**纯查询**（刻意不调脚本 ✓）⇒ 打出来是 `{\"__t\":0}` 而不是 ISO 串。入口在 `globals.xl.md` 的 `JsonText`——要**把 `NativeCall` 一路递进去** ✓，并且**整棵树在这一次调用期间要锚住** ✓（回调里会分配 ✓，与第 279 轮 `JSON.parse` 的 reviver 同一处坎 ✓）" },
   // **第 280 轮删掉了这一行** ✓（它过了 ✓）：七个 `setUTC*` + `toISOString` ✓——
   // 而这一族最值钱的一格是**逆变换** ✓（`DateDaysFromCivil` ✓，Hinnant 的 `days_from_civil` ✓）：
   // `DateParts` 从第 138 轮起就给了正向 ✓，而逆变换一直没有 ✗ ⇒ `Date.UTC` 与七个 setter
@@ -464,7 +463,6 @@ export const EXPECTATIONS = {
   "function-prototype-tostring": { expect: "differ", why: "`unimplemented: ToPrimitive of a function (JS renders source text)`——与 `ex-tagged-template-suffix` 同一个根：函数当 `ToPrimitive` 要给源码文本，而源码文本要由降级层按区间抄下来" },
 
   // ---- 组 13：JSON 的那两格扩展（1 条，与组 10 的 reviver 同族）----
-  "json-stringify-replacer": { expect: "differ", why: "`JSON.stringify(o, [\"a\", \"c\"])` 的 **replacer 数组被忽略**（打出了整个对象）；`JSON.stringify({ when: new Date(0) })` 给 `{\"when\":{}}`（`Date.prototype.toJSON` 不在）" },
 
   // ---- 组 14：函数的 `length` / `name` 两个属性（1 条）----
 
@@ -565,9 +563,6 @@ export const EXPECTATIONS = {
   //    **同一个形状** ✓，`hypot` 那一支当时没跟着补 ✗）；
   // ④ `-0` 那一格记在组 A ✓。
   "object-assign-forms-and-order": { expect: "differ", why: "**静默错值**：`Object.assign({}, \"ab\")` 给 `{}`（Node 给 `{\"0\":\"a\",\"1\":\"b\"}`）——字符串当源时要按**码元**展开成下标键" },
-  "json-stringify-tojson-and-specials": { expect: "differ", why: "`JSON.stringify` 不认 `toJSON`（`{ a: 1, toJSON() { return { replaced: true } } }` 给 `{\"a\":1}`）——`JsonText` 是个纯查询、没有调用通道" },
-  "json-stringify-replacer-array-and-fn": { expect: "differ", why: "`JSON.stringify` 的第二格实参（replacer 数组 / 函数）被忽略——与 `json-stringify-replacer` 同一格" },
-  "date-toiso-and-json": { expect: "differ", why: "与 `date-iso-and-json` **同一个根** ✓：`d.toISOString()` / `d.toJSON()` 直接调都是好的 ✓（第 280 轮 ✓），差的只是 `JSON.stringify({ at: d })` / `JSON.stringify([d])` **不会去调 `toJSON`** ✗——`JsonText` 是纯查询 ⇒ 打出 `{\"__t\":0}`。要动的是同一条调用通道 ✓（含根保护 ✓）" },
   "string-replace-patterns": { expect: "differ", why: "`String.replace` 只认两个字符串实参：**函数替换**与 `$&` 一类替换记号没接（`replaceAll` 的计数形态也是同一格）" },
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "string-charcodes-and-units": { expect: "differ", why: "**码元 vs 码点**：`[...\"A\\u{1F600}B\"]` 给 4 个（代理对被拆开），Node 给 3 个——与 `rt-surrogate-iteration` 同一个根" },

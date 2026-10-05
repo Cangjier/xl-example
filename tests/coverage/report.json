@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 89.39,
+  "progressPercent": 89.77,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 327,
-      "pass": 285,
+      "pass": 290,
       "blocked": 21,
-      "differ": 21,
+      "differ": 16,
       "nodefail": 0,
-      "coverage": 87.16
+      "coverage": 88.69
     },
     {
       "layer": "e2e",
@@ -464,18 +464,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：the script is waiting for a promise the host has not settled"
     },
     {
-      "id": "json-stringify-replacer",
-      "layer": "stdlib",
-      "title": "JSON.stringify 的 replacer 数组与 toJSON",
-      "detail": "stdout 不同：第 1 行：node «{\"a\":1,\"c\":3}» vs tsrun «{\"a\":1,\"b\":2,\"c\":3,\"d\":{\"e\":4}}»"
-    },
-    {
-      "id": "date-iso-and-json",
-      "layer": "stdlib",
-      "title": "Date 的 toISOString / toJSON / 各处 UTC 取值",
-      "detail": "stdout 不同：第 1 行：node «2020-01-02T03:04:05.000Z 2020-01-02T03:04:05.000Z {\"d\":\"2020-01-02T03:04:05.000Z\"}» vs tsrun «2020-01-02T03:04:05.000Z 2020-01-02T03:04:05.000Z {\"d\":{}}»"
-    },
-    {
       "id": "function-prototype-tostring",
       "layer": "stdlib",
       "title": "Function.prototype.toString 给源码文本",
@@ -504,24 +492,6 @@
       "layer": "stdlib",
       "title": "Object.assign：多源、覆盖顺序、返回目标、undefined 源",
       "detail": "stdout 不同：第 3 行：node «{\"0\":\"a\",\"1\":\"b\"}» vs tsrun «{}»"
-    },
-    {
-      "id": "json-stringify-replacer-array-and-fn",
-      "layer": "stdlib",
-      "title": "JSON.stringify 的 replacer：数组白名单与函数改写",
-      "detail": "stdout 不同：第 1 行：node «{\"a\":1,\"c\":3}» vs tsrun «{\"a\":1,\"b\":2,\"c\":3}»"
-    },
-    {
-      "id": "json-stringify-tojson-and-specials",
-      "layer": "stdlib",
-      "title": "JSON.stringify 的 toJSON / undefined / 函数 / NaN 口径",
-      "detail": "stdout 不同：第 1 行：node «{\"replaced\":true}» vs tsrun «{\"a\":1}»"
-    },
-    {
-      "id": "date-toiso-and-json",
-      "layer": "stdlib",
-      "title": "Date：toISOString / toJSON / JSON.stringify 里的日期",
-      "detail": "stdout 不同：第 1 行：node «1970-01-01T00:00:00.000Z 1970-01-01T00:00:00.000Z {\"at\":\"1970-01-01T00:00:00.000Z\"}» vs tsrun «1970-01-01T00:00:00.000Z 1970-01-01T00:00:00.000Z {\"at\":{}}»"
     },
     {
       "id": "global-explicit-and-implicit",
@@ -570,23 +540,23 @@
   "moved": [],
   "newlyPassing": [
     {
-      "id": "date-getters-and-setters",
+      "id": "json-stringify-replacer",
       "layer": "stdlib"
     },
     {
-      "id": "date-multi-arg-ctor",
+      "id": "date-iso-and-json",
       "layer": "stdlib"
     },
     {
-      "id": "date-string-parse",
+      "id": "json-stringify-replacer-array-and-fn",
       "layer": "stdlib"
     },
     {
-      "id": "date-invalid-values",
+      "id": "json-stringify-tojson-and-specials",
       "layer": "stdlib"
     },
     {
-      "id": "c291-date-parse-and-iso-roundtrip",
+      "id": "date-toiso-and-json",
       "layer": "stdlib"
     }
   ],

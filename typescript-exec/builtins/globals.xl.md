@@ -2890,7 +2890,47 @@ if (id === JsonStringify) {
       jsonIndent = rawIndent.length > 10 ? rawIndent.substring(0, 10) : rawIndent;
     }
   }
-  const rendered = JsonText(table, target, 0, false, jsonIndent);
+  // **锚那一格**（第 294 轮 ✓）：`JsonText` 调完 `toJSON` / replacer 之后，那一趟的产物
+  // **只有宿主变量指着** ✓，而递归里还会再调脚本 ✓（脚本里会分配 ✓）——
+  // 所以先造一个**数组**当锚、**挂到 `protos.WellKnownSymbols` 上** ✓
+  //（与第 279 轮 `JSON.parse` 的 reviver **同一处坎、同一个理由** ✓：
+  // 这一层手里只有 `protos` ✓，没有模块级可变量 ✓）。
+  // **按递归深度分格** ✓（一层一格 ✓）——理由写在 `JsonAnchor` 那一段 ✓。
+  // **存旧的、跑完恢复** ✗：`toJSON` / replacer 里还可能再调一次 `JSON.stringify` ✓（合法 ✓）——
+  // 不恢复的话内层跑完会把外层这一格换掉 ✓。
+  //
+  // **没有 `call` 通道时一次都不会用它** ✓：`JsonText` 里那两支（`call !== null`）
+  // 根本不会跑 ✓——**照旧的纯查询一条都不变** ✓。
+  const jsonAnchorKey = Value.FromString(table.CreateString(Units("__jsonTextAnchor")));
+  const jsonAnchorAt = FindProperty(room, table, protos.WellKnownSymbols, jsonAnchorKey);
+  let previousJsonAnchor = Value.Undefined();
+  let hadJsonAnchor = false;
+  if (jsonAnchorAt !== null && jsonAnchorAt.Owner === protos.WellKnownSymbols) {
+    previousJsonAnchor = table.Get(protos.WellKnownSymbols).Props[jsonAnchorAt.Index].Value;
+    hadJsonAnchor = true;
+  }
+  let jsonAnchor = 0;
+  if (call !== null) {
+    if (!room(ObjectCharge + PropertyCharge + ValueCharge * 2)) throw new Error("out of room");
+    const anchorArray = NewPlainArray(room, table, protos);
+    jsonAnchor = anchorArray.Ref;
+    SetHiddenProperty(room, table, Value.FromObject(protos.WellKnownSymbols), jsonAnchorKey,
+      Value.FromArray(anchorArray.Ref));
+  }
+  // **第二格实参（replacer）** ✓（第 294 轮 ✓）：JS 收**函数**（逐格改写 ✓）
+  // 与**数组**（键的白名单 ✓）两种 ✓，别的（`null` / 对象 ✓）一律**忽略** ✓。
+  // 这里是**原样递下去** ✓：是哪一种由 `JsonText` 那两处按类型判 ✓
+  //（分开判两次比在这里折成两种参数少一层 ✓）。
+  const jsonReplacer = args.length > 1 ? args[1] : Value.Undefined();
+  const rendered = JsonText(room, call, protos, table, jsonAnchor, jsonReplacer, target,
+    Value.FromString(table.CreateString([])), Value.Undefined(), 0, false, jsonIndent);
+  if (call !== null) {
+    if (hadJsonAnchor) {
+      SetHiddenProperty(room, table, Value.FromObject(protos.WellKnownSymbols), jsonAnchorKey, previousJsonAnchor);
+    } else {
+      DeleteProperty(table, protos.WellKnownSymbols, jsonAnchorKey);
+    }
+  }
   if (rendered === null) return Value.Undefined();
   if (!room(ObjectCharge + CodeUnitCharge * rendered.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(rendered)));
@@ -3595,9 +3635,16 @@ for (let i = 0; i < units.length; i++) {
 return text + "\"";
 ```
 
-# method JsonText:(table:HeapTable, value:Value, depth:int, insideArray:bool, indent:string)=>string | null
+# method JsonText:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, anchor:int, replacer:Value, value:Value, key:Value, parent:Value, depth:int, insideArray:bool, indent:string)=>string | null
 
 **序列化一个值**；返回 `null` 表示「这个值没有 JSON 形态」（于是**键整个省略**）。
+
+**第 294 轮多了六格** ✗（`room` / `call` / `protos` / `anchor` / `replacer` / `parent` ✓）——
+为的是接上 **`toJSON`** ✓ 与 **replacer** ✓（见下面那两支 ✓）。
+**`anchor` 是「锚」那个数组** ✓（由 `JsonStringify` 造好、挂在 `protos.WellKnownSymbols` 上 ✓）：
+这一趟里那些**只有宿主变量指着**的中间值就存在它身上 ✓（理由写在 `JsonAnchor` 那一支里 ✓）。
+**`key` 是这一格在父容器里的键** ✓、**`parent` 是那个容器本身** ✓——
+`toJSON(键)` 要前者 ✓、`replacer.call(parent, 键, 值)` 要后者 ✓。
 
 **三种「没有形态」要分开处理**（JS 就是这么定的）：
 
@@ -3614,6 +3661,53 @@ return text + "\"";
 ```ts
 if (depth > MaxJsonDepth) {
   throw new Error("this structure is too deep to serialize (a cycle looks the same)");
+}
+// **`toJSON`** ✓（第 294 轮 ✓）：JS 在序列化**每一个**值之前先问它有没有 `toJSON` ✓
+//（`SerializeJSONProperty` 的第一步 ✓）——`Date.prototype.toJSON` 就是靠它生效的 ✓
+//（第 280 轮把那一格装上了 ✓，可 `JSON.stringify({ d })` 一直给 `{"__t":0}` ✗：
+// **没有人调它** ✗——而 `JsonText` 从第 122 轮起就是个**纯查询** ✓，刻意不调脚本 ✓）。
+//
+// **它必须排在最前面** ✗（在 `Array` / `Object` 那两条分支之前 ✓）：JS 是**先换值**、
+// 再按**换过之后**的值决定走哪一支 ✓——`toJSON` 交出一个字符串就是字符串 ✓（不再是对象 ✓）。
+//
+// **只在对象上问** ✓（JS 的口径 ✓：原始值身上没有 `toJSON` 那一格 ✓）——
+// 对原始值多问一趟是热路径上的白花 ✓，而且读 `null` 的属性会抛 ✓。
+//
+// **键要真的递进去** ✗（`toJSON(键)` ✓）：`{ toJSON(k) { return k } }` 是合法的 ✓，
+// 递一个空串就是**静默错值** ✓——与「`Date` 那一格用不上」是两回事 ✗
+//（那一格是**用不上** ✓，这一格是**用得上却给错了** ✓）。
+//
+// **产物要锚住** ✗（与第 279 轮 `JSON.parse` 的 reviver 是**同一处坎** ✓）：
+// 它**只有这一个宿主变量指着** ✓，而下面那一趟递归里还会再调脚本 ✓（脚本里会分配 ✓）——
+// 不锚的话某一轮之后它可能已经被收走 ✓（症状是「拿到死句柄」✗）。
+// **锚在按深度分格的那个数组上** ✓（见 `JsonAnchor` 那一段：一层一格 ✓，
+// 所以内层再调一次 `toJSON` 也挤不掉外层正在遍历的那个容器 ✓）。
+//
+// **两支都只换值、不递归** ✓：换完继续往下走同一趟分派 ✓——
+// JS 就是「换过之后再按**换过之后**的值分派」✓，写成「换完递归一遍」会让 replacer
+// **对同一格跑两次** ✓（`(k, v) => k === "b" ? undefined : v` 于是把 `b` 又放回去 ✗）。
+if (value.IsObject() && call !== null) {
+  const toJsonKey = Value.FromString(table.CreateString(Units("toJSON")));
+  const toJson = GetProperty(room, call, protos, table, value, toJsonKey);
+  if (IsCallableValue(table, toJson)) {
+    value = call(toJson, value, [key]);
+    JsonAnchor(room, table, anchor, depth, value);
+  }
+}
+// **replacer** ✓（第 294 轮 ✓）：JS 的 `SerializeJSONProperty` 是**三步**——
+// 取值 ✓、**`toJSON`** ✓、**replacer** ✓——次序是语义 ✗（`toJSON` 先 ✓、replacer 后 ✓）。
+// **第二格实参是函数时**它就是这一步 ✓（是数组时它改成「键的白名单」✓，见 `Object` 那一支 ✓）。
+//
+// **`this` 是那个容器** ✓（JS 的口径 ✓）：`replacer.call(容器, 键, 值)` ✓——
+// 所以它要 `parent` 那一格 ✓。**根那一格的 `parent` 是 `undefined`** ✗
+// （JS 给的是一个 `{"": 值}` 的临时对象 ✓）——**写在明处** ✓：
+// 用 `this` 的 replacer 在**根**这一格上与 JS 不同 ✓（嵌套那几格是对的 ✓）。
+//
+// **返回 `undefined` 就是「这一格没有」** ✓：后面按类型分派时它落进
+// 「对象里省略 / 数组里变 `null`」那条老规矩 ✓（与 `JSON.stringify(undefined)` 同一条 ✓）。
+if (call !== null && IsCallableValue(table, replacer)) {
+  value = call(replacer, parent, [key, value]);
+  JsonAnchor(room, table, anchor, depth, value);
 }
 if (value.Tag === ValueTag.Null) return "null";
 if (value.Tag === ValueTag.Undefined) return insideArray ? "null" : null;
@@ -3644,7 +3738,8 @@ if (value.Tag === ValueTag.Array) {
     let text = "[\n";
     for (let i = 0; i < count; i++) {
       if (i > 0) text = text + ",\n";
-      const rendered = JsonText(table, array.GetAt(i), depth + 1, true, indent);
+      const rendered = JsonText(room, call, protos, table, anchor, replacer, array.GetAt(i),
+        Value.FromInt(i), value, depth + 1, true, indent);
       text = text + JsonIndent(depth + 1, indent) + (rendered === null ? "null" : rendered);
     }
     return text + "\n" + JsonIndent(depth, indent) + "]";
@@ -3652,13 +3747,48 @@ if (value.Tag === ValueTag.Array) {
   let text = "[";
   for (let i = 0; i < count; i++) {
     if (i > 0) text = text + ",";
-    const rendered = JsonText(table, array.GetAt(i), depth + 1, true, indent);
+    const rendered = JsonText(room, call, protos, table, anchor, replacer, array.GetAt(i),
+      Value.FromInt(i), value, depth + 1, true, indent);
     text = text + (rendered === null ? "null" : rendered);
   }
   return text + "]";
 }
 if (value.Tag === ValueTag.Object) {
   const item = table.Get(value.Ref);
+  // **replacer 是数组时：它就是「键的白名单」** ✓（第 294 轮 ✓）——
+  // JS 的 `PropertyList` ✓：**只收列出来的那几个键** ✓，而且**按数组的顺序** ✓
+  //（不是按对象自己的顺序 ✗——`JSON.stringify({b:1,a:2}, ["a","b"])` 给 `{"a":2,"b":1}` ✓）。
+  // **它只管对象** ✗：数组那一支不看白名单 ✓（JS 的口径 ✓：数组的键永远是下标 ✓），
+  // 所以这一支排在 `Array` 那条**后面** ✓、只写在 `Object` 里面 ✓。
+  // **符号键与别的类型要排掉** ✓：JS 收的是「字符串与数字」✓（数字按 `ToString` 折成键 ✓），
+  // 其余（符号 / 对象 / 函数 ✓）**整个条目丢掉** ✓——不是「当字符串硬转」✗。
+  if (replacer.Tag === ValueTag.Array) {
+    const whiteList = table.Get(replacer.Ref).AsArray();
+    const multi = indent !== "";
+    let whiteText = multi ? "{\n" : "{";
+    let whiteFirst = true;
+    for (let i = 0; i < whiteList.GetLength(); i++) {
+      let asked = whiteList.GetAt(i);
+      if (asked.Tag === ValueTag.Symbol) continue;
+      if (asked.Tag !== ValueTag.String) {
+        asked = Value.FromString(table.CreateString(JsTextUnits(table, asked)));
+      }
+      const found = FindProperty(room, table, value.Ref, asked);
+      if (found === null || found.Owner !== value.Ref) continue;
+      const property = item.Props[found.Index];
+      if (property.Kind === PropertyKind.Accessor) continue;
+      if (!property.IsEnumerable()) continue;
+      const rendered = JsonText(room, call, protos, table, anchor, replacer, property.Value,
+        asked, value, depth + 1, false, indent);
+      if (rendered === null) continue;
+      if (!whiteFirst) whiteText = whiteText + (multi ? ",\n" : ",");
+      whiteFirst = false;
+      whiteText = whiteText + (multi ? JsonIndent(depth + 1, indent) : "")
+        + QuoteJson(table, asked) + (multi ? ": " : ":") + rendered;
+    }
+    if (whiteFirst) return "{}";
+    return whiteText + (multi ? "\n" + JsonIndent(depth, indent) + "}" : "}");
+  }
   // **缩进那一档**（同上）：先按「有没有可渲染的键」判一次 ✓——空对象照旧是 `{}` ✓。
   let renderedCount = 0;
   if (indent !== "") {
@@ -3667,7 +3797,8 @@ if (value.Tag === ValueTag.Object) {
       if (table.Get(probe.Key).Tag !== ValueTag.String) continue;
       if (probe.Kind === PropertyKind.Accessor) continue;
       if (!probe.IsEnumerable()) continue;
-      if (JsonText(table, probe.Value, depth + 1, false, indent) === null) continue;
+      if (JsonText(room, call, protos, table, anchor, replacer, probe.Value,
+        Value.FromString(probe.Key), value, depth + 1, false, indent) === null) continue;
       renderedCount = renderedCount + 1;
     }
     if (renderedCount > 0) {
@@ -3678,7 +3809,8 @@ if (value.Tag === ValueTag.Object) {
         if (table.Get(property.Key).Tag !== ValueTag.String) continue;
         if (property.Kind === PropertyKind.Accessor) continue;
         if (!property.IsEnumerable()) continue;
-        const renderedHere = JsonText(table, property.Value, depth + 1, false, indent);
+        const renderedHere = JsonText(room, call, protos, table, anchor, replacer, property.Value,
+          Value.FromString(property.Key), value, depth + 1, false, indent);
         if (renderedHere === null) continue;
         if (!firstIndented) text = text + ",\n";
         firstIndented = false;
@@ -3699,7 +3831,8 @@ if (value.Tag === ValueTag.Object) {
     // （与 `Object.keys` 同一条口径 ✓）——`Object.defineProperty(o, "x", { value: 1 })`
     // 默认不可枚举 ✓，所以它**不该**出现在 JSON 里 ✗（实测判据当场量到这一格 ✓）。
     if (!property.IsEnumerable()) continue;
-    const rendered = JsonText(table, property.Value, depth + 1, false, indent);
+    const rendered = JsonText(room, call, protos, table, anchor, replacer, property.Value,
+      Value.FromString(property.Key), value, depth + 1, false, indent);
     if (rendered === null) continue;
     if (!first) text = text + ",";
     first = false;
@@ -3708,6 +3841,27 @@ if (value.Tag === ValueTag.Object) {
   return text + "}";
 }
 throw new Error("unimplemented: JSON of this kind of value");
+```
+
+# method JsonAnchor:(room:RoomChecker, table:HeapTable, anchor:int, depth:int, value:Value)=>void
+
+**把「只有宿主变量指着」的那一格存进锚里**（第 294 轮 ✓）。
+
+**锚是一个数组** ✓（`JsonStringify` 造好、挂在 `protos.WellKnownSymbols` 上的那一个 ✓）——
+**按递归深度存** ✓：`depth` 那一格给「这一层正在序列化的值」✓。
+
+**为什么按深度分格、不是一个格子来回换** ✗：内层**可能再调一次 `toJSON` / replacer** ✓
+（合法 ✓），一层一层叠上去 ✓——共用一个格子的话，内层会把**外层正在遍历的那个容器**挤掉 ✓，
+而外层接着 `table.Get(value.Ref)` 就是**一个已经被收走的句柄** ✓
+（与第 200 轮 `reduce` 那个累加器、第 279 轮 reviver 的根**同一处坎** ✓）。
+**深度天然就是层号** ✓（递归进子节点时 `depth + 1` ✓），所以不必再维护一个计数器 ✓。
+
+**没有回调时一次都不会调它** ✓（`anchor` 那一路只在 `call !== null` 的分支里走 ✓）——
+所以「纯查询」那条老路**一格都没变** ✓。
+
+```ts
+if (!room(ValueCharge * 2)) throw new Error("out of room");
+table.Get(anchor).AsArray().SetAt(depth, value);
 ```
 
 # method JsonIndent:(depth:int, indent:string)=>string
