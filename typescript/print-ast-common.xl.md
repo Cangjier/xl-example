@@ -3501,6 +3501,32 @@ return (
       }
       return { ...node, left: stripped, pos: stripped.pos, end: node.end };
     };
+    // **后缀壳要能穿透**（第 290 轮）✓：`u += 2 as number` 的展开式是
+    // `u = (u + 2) as number` ✓（`As` 是**语句级**最后一个单元 ✓），
+    // 而 TypeScript 要的是 `u += (2 as number)` ✓——`as` 贴的是**复合赋值右操作数**那一段 ✓
+    //（实测 `ts.createSourceFile`：`BinaryExpression(u, «+=», AsExpression(2))` ✓）。
+    // 原来的剥自己那一格只认**最外层就是 `BinaryExpression`** ✗
+    // ⇒ 包着壳时一格都没剥 ✓ ⇒ 下游拿到 `u += (u + 2)` ✓ ⇒ **静默错值** ✗
+    //（`total += xs.shift() as number` 实测从 499500 变成 `1.07e+301` ✓）。
+    // 判据：壳（`As` / `Satisfies` / `!`）里那一格剥完，壳**照原样罩回去** ✓；
+    // 壳里剥不动就整个不动 ✗（`u += (2 as number)` 那一格本来就没问题 ✓）。
+    const stripSelfThrough = (node) => {
+      if (node === undefined) return undefined;
+      if (node.kind === "AsExpression" || node.kind === "SatisfiesExpression" || node.kind === "NonNullExpression") {
+        const inner = stripSelfThrough(node.expression);
+        if (inner === undefined) return undefined;
+        return { ...node, expression: inner, pos: inner.pos };
+      }
+      return stripSelf(node);
+    };
+    // 壳里那一格是什么（只看形状，不动它）——用来核对「是不是同一个复合运算符」。
+    const coreOf = (node) => {
+      if (node === undefined) return undefined;
+      if (node.kind === "AsExpression" || node.kind === "SatisfiesExpression" || node.kind === "NonNullExpression") {
+        return coreOf(node.expression);
+      }
+      return node;
+    };
     // **左嵌套的复合赋值展开**（第 168 轮）：`a += b -= c` 的产物是
     // `[a, «+=», HEAD(二元: a ⊕ b), «-=», TAIL(二元: (a ⊕ b) ⊖ c)]`——token 层把 `a`
     // 埋进了最左边那一格，于是通用递归拿到的左操作数是 `a ⊕ b` 而不是 `b`
@@ -3548,13 +3574,14 @@ return (
     if (
       opText.length > 1 &&
       right !== undefined &&
-      right.kind === "BinaryExpression" &&
-      right.left !== undefined &&
+      coreOf(right) !== undefined &&
+      coreOf(right).kind === "BinaryExpression" &&
+      coreOf(right).left !== undefined &&
       // 展开出来的那个运算符单元**沿用同一个区间**（`+=` 的 [2,4)），所以判据看 kind、不看区间。
-      right.operatorToken !== undefined &&
-      right.operatorToken.kind === tokenKind(opText.slice(0, -1))
+      coreOf(right).operatorToken !== undefined &&
+      coreOf(right).operatorToken.kind === tokenKind(opText.slice(0, -1))
     ) {
-      const stripped = stripSelf(right);
+      const stripped = stripSelfThrough(right);
       if (stripped !== undefined) {
         right = stripped;
       }

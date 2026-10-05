@@ -2,13 +2,13 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint } from "./string.xl.md"
-import { ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
+import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
 import { MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
@@ -1392,7 +1392,7 @@ if (id === StringCtor) {
   // **一处变响的已知差异** ✓：`String(new Date(0))` 现在会**抛**
   // `unimplemented: ToPrimitive of a Date with a string hint` ✓（`Date.prototype.toString`
   // 还没装 ✓）——原来它静默印 `"[object Object]"` ✗。**抛比静默错值好** ✓（台账里记着 ✓）。
-  const stringUnits = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[0], ToPrimitiveString));
+  const stringUnits = JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, args[0], ToPrimitiveString));
   if (!room(CodeUnitCharge * stringUnits.length + ObjectCharge)) throw new Error("out of room");
   return Value.FromString(table.CreateString(stringUnits));
 }
@@ -1727,9 +1727,10 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToStringRad
     return Value.FromString(table.CreateString(Units(text)));
   }
   const radix = args.length > 0 ? NumericOf(args[0]) : 10;
-  // **基数 10 走引擎那一处借用** ✓（`host-text.xl.md`：`NaN` / `±Infinity` / `-0` 的名字
-  // 都在那里定死 ✓）；**其余基数借宿主** ✓（见号那一段的说明 ✓）。
-  const text = radix === 10 ? NumberToHostText(number) : number.toString(radix);
+  // **基数 10 走语言层那一处** ✓（`text.xl.md` 的 `NumberToJsText` ✓——它在
+  // `NumberToHostText` 之上补了 `-0` 那一格 ✓：JS 的 `(-0).toString()` 是 `"0"` ✓）；
+  // **其余基数借宿主** ✓（见号那一段的说明 ✓）。
+  const text = radix === 10 ? NumberToJsText(number) : number.toString(radix);
   if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(text)));
 }
@@ -2088,8 +2089,8 @@ if (id === StringConcat || id === TemplateConcat) {
   if (args.length < 2) throw new Error("unimplemented: string_concat needs (left, right)");
   // **唯一分岔** ✓：模板串那一格用 `string` ✓。
   const concatHint = id === TemplateConcat ? ToPrimitiveString : ToPrimitiveDefault;
-  const left = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[0], concatHint));
-  const right = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[1], concatHint));
+  const left = JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, args[0], concatHint));
+  const right = JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, args[1], concatHint));
   if (!room(ObjectCharge + CodeUnitCharge * (left.length + right.length))) {
     throw new Error("out of room");
   }
@@ -2755,7 +2756,7 @@ if (id === JsonParse) {
   // **先把 holder 锚上、再解析** ✓：`JsonParseText` 自己会分配一大堆 ✓，
   // 而它交出来的那棵树**还没有人指着** ✓——锚在前面就没有那个窗口 ✓。
   SetHiddenProperty(room, table, Value.FromObject(protos.WellKnownSymbols), anchorKey, rootHolder);
-  const parsed = JsonParseText(room, table, protos, TextUnitsOf(table, args[0]));
+  const parsed = JsonParseText(room, table, protos, JsTextUnits(table, args[0]));
   SetProperty(room, NeverCall, table, rootHolder, Value.FromString(table.CreateString(Units(""))), parsed);
   // **没有 reviver（或它不可调）就到此为止** ✓（JS 的口径 ✓：`JSON.parse(x, 1)` 是**忽略** ✓）。
   if (args.length < 2 || !IsCallableValue(table, args[1]) || call === null) {
@@ -3158,7 +3159,7 @@ return TextFrom(table, Value.FromString(property.Key)) === SealedMarkName();
 而**建库层的产物是宿主自己的字符串**，这里没有别的选择，也不需要别的选择。
 
 ```ts
-const units = TextUnitsOf(table, value);
+const units = JsTextUnits(table, value);
 let text = "";
 for (let i = 0; i < units.length; i++) {
   text = text + String.fromCharCode(units[i]);
@@ -3298,7 +3299,7 @@ JSON 字符串字面量（**带上引号与转义**）。
 **不转义非 ASCII**：`JSON.stringify` 输出的是可读的 UTF-16 文本（判据正是拿它跟 Node 比）。
 
 ```ts
-const units = TextUnitsOf(table, value);
+const units = JsTextUnits(table, value);
 let text = "\"";
 for (let i = 0; i < units.length; i++) {
   const unit = units[i];

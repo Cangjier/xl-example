@@ -6889,20 +6889,26 @@ check("端到端：日常形状里的位运算（复合赋值 · 箭头体 · �
   const tokenRes = RunSources(tokenRequest, (text) => tokenFix.push(text), () => null);
   eq(tokenRes.Outcome, HostOutcome.Ok, "运行器：" + tokenRes.Message);
   eq(tokenFix[0], "3 true false", "箭头体（括号式与块式）里的位运算都通了");;
+  let aliasLines = [];
   let aliasMessage = "";
   try {
     const aliasRequest = new RunRequest();
     aliasRequest.Sources = ["type F = A & B; console.log(1);"];
     aliasRequest.Entry = "";
-    RunSources(aliasRequest, () => {}, () => null);
+    RunSources(aliasRequest, (text) => aliasLines.push(text), () => null);
   } catch (error) {
     aliasMessage = String(error.message);
   }
-  // **一档记在明处的缺口** ✗（第 147 轮量出来的 ✓，**与位运算无关** ✓）：
-  // `type` / `interface` **声明**今天整体没做 ✓——任何一份带类型声明的普通 `.ts`
-  // 都会在降级期整份失败 ✗。这一条判据把它钉在明处 ✓：做出来那天它会当场变红 ✓。
-  ok(aliasMessage.indexOf("TypeAliasDeclaration") >= 0,
-    "**已知缺口**：`type X = …` 让整份文件失败（接口同理）：" + aliasMessage);
+  // **第 290 轮把这一格修好了** ✓（这条判据当时钉的就是那个缺口 ✓，所以它**按设计**红了 ✓）。
+  //
+  // 原来那一档是：`type F = A & B;` 与后面的语句**写在同一行**时，
+  // `TypeAssign` 把结尾那个 `;` **装进了自己** ✓——而语句切分那一趟（`StatementReorganization`）
+  // **只看列表里的单元** ✗，于是这一行再也断不开 ✓，投影给出
+  // `BinaryExpression(TypeAliasDeclaration, =, 1)` ✓，降级层报 `assignment to a non-identifier` ✗。
+  // **换行版一直是好的** ✓（换行自己就是边界 ✓），所以它只在「一行写两条」时露头 ✗。
+  // 修法：`;` **只进范围、不进子单元**（见 `typescript/tokens/type-assign.xl.md` 的 `dataEnd` ✓）。
+  eq(aliasMessage, "", "`type F = A & B; console.log(1)`（同一行两条语句）不再整份失败：" + aliasMessage);
+  eq(aliasLines[0], "1", "同一行的类型别名 + 语句：别名被擦掉、语句照跑");
   // **另一档已知缺口**：括号表达式当**非第一个实参**时被判成类型位（`before` 是 `,` ✓）——
   // 实测插桩 `owner=Bracket at=2 before=SymbolToken/,` ✓，`console.log("x", (a & b))` 会折成
   // `IntersectionType` ✗。与 `=>` 那一格同源（都是「括号在它自己那一层前面是什么」判错 ✓），

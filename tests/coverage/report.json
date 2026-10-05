@@ -1,7 +1,12 @@
 {
   "round": "",
-  "matrix": 556,
+  "matrix": 648,
   "skipped": [
+    {
+      "id": "rt-bigint-forms",
+      "layer": "runtime",
+      "why": "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）"
+    },
     {
       "id": "ex-decorators-on-class",
       "layer": "exec",
@@ -16,39 +21,49 @@
       "id": "ex-module-import",
       "layer": "exec",
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
+    },
+    {
+      "id": "regexp-literal-basic",
+      "layer": "stdlib",
+      "why": "口径外：`RegExp` 是 v1 写死的非目标（docs/runtime-architecture.md §15）——留在矩阵里看得见，不算进分母"
+    },
+    {
+      "id": "string-match-and-split-regex",
+      "layer": "stdlib",
+      "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 89.86,
+  "progressPercent": 88.13,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 204,
-      "pass": 189,
-      "blocked": 6,
-      "differ": 9,
+      "total": 231,
+      "pass": 210,
+      "blocked": 9,
+      "differ": 12,
       "nodefail": 0,
-      "coverage": 92.65
+      "coverage": 90.91
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 123,
-      "pass": 112,
-      "blocked": 8,
-      "differ": 3,
+      "total": 156,
+      "pass": 142,
+      "blocked": 9,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 91.06
+      "coverage": 91.03
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 216,
-      "pass": 194,
-      "blocked": 4,
-      "differ": 18,
+      "total": 248,
+      "pass": 210,
+      "blocked": 15,
+      "differ": 23,
       "nodefail": 0,
-      "coverage": 89.81
+      "coverage": 84.68
     },
     {
       "layer": "e2e",
@@ -99,6 +114,24 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: return"
     },
     {
+      "id": "rt-arguments-object",
+      "layer": "runtime",
+      "title": "arguments：length / 下标 / 箭头里看外层那一份",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: arguments"
+    },
+    {
+      "id": "rt-arguments-vs-rest",
+      "layer": "runtime",
+      "title": "arguments 与剩余形参同时存在",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: arguments"
+    },
+    {
+      "id": "rt-instanceof-array-subclass",
+      "layer": "runtime",
+      "title": "extends Array：instanceof 两条链都对",
+      "detail": "tsrun: 脚本抛出：this method needs an array receiver"
+    },
+    {
       "id": "ex-namespace",
       "layer": "exec",
       "title": "namespace：要真的造一个对象出来（含嵌套与导出）",
@@ -147,6 +180,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
     },
     {
+      "id": "ex-enum-namespace-merge",
+      "layer": "exec",
+      "title": "enum 与 namespace 合并：两份都在同一个名字上",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
+    },
+    {
       "id": "object-freeze",
       "layer": "stdlib",
       "title": "Object.freeze / isFrozen：属性写不动、加不上",
@@ -169,6 +208,72 @@
       "layer": "stdlib",
       "title": "defineProperty：getter / 不可枚举 / 不可写 / 只读现值",
       "detail": "tsrun: 脚本抛出：unimplemented: Object.defineProperty with a get/set descriptor"
+    },
+    {
+      "id": "array-tolocalestring",
+      "layer": "stdlib",
+      "title": "Array.toLocaleString 与 toString 的差别",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "string-normalize",
+      "layer": "stdlib",
+      "title": "String.normalize：NFC 把组合字符合成一个",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "string-replace-function-form",
+      "layer": "stdlib",
+      "title": "replace 的替换值是函数",
+      "detail": "tsrun: 脚本抛出：unimplemented: String.replace needs two string arguments (regex and function replacements are not supported)"
+    },
+    {
+      "id": "object-getownpropertydescriptors",
+      "layer": "stdlib",
+      "title": "Object.getOwnPropertyDescriptors（复数）",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "date-multi-arg-ctor",
+      "layer": "stdlib",
+      "title": "new Date(y, m, d, h, mi, s)：多实参构造",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "date-string-parse",
+      "layer": "stdlib",
+      "title": "Date.parse 与 new Date(字符串)",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "date-invalid-values",
+      "layer": "stdlib",
+      "title": "无效日期的口径：Invalid Date / NaN / toISOString 抛",
+      "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a Date with a string hint (JS needs Date.prototype.toString)"
+    },
+    {
+      "id": "promise-race-any-allsettled",
+      "layer": "stdlib",
+      "title": "Promise.race / any / allSettled",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "error-aggregate",
+      "layer": "stdlib",
+      "title": "AggregateError：名字、消息、内层数组",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: AggregateError"
+    },
+    {
+      "id": "weakmap-basic",
+      "layer": "stdlib",
+      "title": "WeakMap：set / get / has / delete",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: WeakMap"
+    },
+    {
+      "id": "object-groupby",
+      "layer": "stdlib",
+      "title": "Object.groupBy 分组",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "e2e-event-emitter",
@@ -239,6 +344,24 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
+      "id": "rt-forin-order-and-inherited",
+      "layer": "runtime",
+      "title": "for..in：整数键在前、继承来的键也在、数组给下标串",
+      "detail": "stdout 不同：第 3 行：node «own,inherited» vs tsrun «own»"
+    },
+    {
+      "id": "rt-generator-next-sends-value",
+      "layer": "runtime",
+      "title": "生成器：next(v) 把值送进挂起点",
+      "detail": "stdout 不同：第 2 行：node «{\"value\":11,\"done\":false}» vs tsrun «{\"value\":null,\"done\":false}»"
+    },
+    {
+      "id": "rt-generator-next-arg-ignored-first",
+      "layer": "runtime",
+      "title": "生成器：第一次 next 的实参被丢掉",
+      "detail": "stdout 不同：第 2 行：node «got 7» vs tsrun «got undefined»"
+    },
+    {
       "id": "ex-getter-setter-class",
       "layer": "exec",
       "title": "类里的访问器 + 继承的访问器",
@@ -255,6 +378,18 @@
       "layer": "exec",
       "title": "非空断言与 as 串在一条链上",
       "detail": "stdout 不同：第 1 行：node «2 3» vs tsrun «[ 1, 2, 3 ] 3»"
+    },
+    {
+      "id": "ex-arrow-immediately-invoked-typed",
+      "layer": "exec",
+      "title": "带类型标注的箭头立即调用",
+      "detail": "stdout 不同：第 1 行：node «3» vs tsrun «NaN»"
+    },
+    {
+      "id": "ex-nonnull-chain-index",
+      "layer": "exec",
+      "title": "非空断言串在成员链上：o!.a!.b![1]",
+      "detail": "stdout 不同：第 1 行：node «2» vs tsrun «[ 1, 2 ]»"
     },
     {
       "id": "object-freeze-array-element",
@@ -363,6 +498,36 @@
       "layer": "stdlib",
       "title": "Function.prototype：call / apply / bind 的 this 与实参形态",
       "detail": "stdout 不同：第 2 行：node «21 1 function» vs tsrun «21 undefined function»"
+    },
+    {
+      "id": "string-replace-dollar-forms",
+      "layer": "stdlib",
+      "title": "replace 的 $& / $` / $' 替换记号",
+      "detail": "stdout 不同：第 1 行：node «a[b]c» vs tsrun «a[$&]c»"
+    },
+    {
+      "id": "object-create-with-properties",
+      "layer": "stdlib",
+      "title": "Object.create 带第二格属性描述表",
+      "detail": "stdout 不同：第 1 行：node «hi 1 a» vs tsrun «hi undefined »"
+    },
+    {
+      "id": "function-name-inference",
+      "layer": "stdlib",
+      "title": "函数的 name：声明 / 表达式 / 推断 / 方法",
+      "detail": "stdout 不同：第 1 行：node «decl f g m » vs tsrun «undefined undefined undefined undefined undefined»"
+    },
+    {
+      "id": "function-length-with-defaults",
+      "layer": "stdlib",
+      "title": "函数的 length：默认值与剩余形参都不算",
+      "detail": "stdout 不同：第 1 行：node «2 1 1» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "array-tostring-custom-values",
+      "layer": "stdlib",
+      "title": "数组 toString 走元素的 toString",
+      "detail": "stdout 不同：第 1 行：node «C!,1» vs tsrun «[object Object],1»"
     }
   ],
   "bad": [],

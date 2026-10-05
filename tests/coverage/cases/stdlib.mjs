@@ -2143,4 +2143,306 @@ const g = new C(1).get;
 console.log(g.call(new C(9)));
 `,
   },
+
+  {
+    id: "array-tolocalestring",
+    title: "Array.toLocaleString 与 toString 的差别",
+    src: `
+console.log([1, 2, 3].toLocaleString(), [].toLocaleString(), [1, [2, 3]].toLocaleString());
+`,
+  },
+  {
+    id: "string-normalize",
+    title: "String.normalize：NFC 把组合字符合成一个",
+    src: `
+const s = "e\\u0301";
+console.log(s.length, s.normalize("NFC").length, s.normalize("NFC") === "\\u00e9");
+`,
+  },
+  {
+    id: "string-replace-function-form",
+    title: "replace 的替换值是函数",
+    src: `
+console.log("abc".replace("b", (m) => m.toUpperCase()));
+console.log("a-b-c".replace("-", (m, i) => "<" + i + ">"));
+`,
+  },
+  {
+    id: "string-replace-dollar-forms",
+    title: "replace 的 $& / $` / $' 替换记号",
+    src: `
+console.log("abc".replace("b", "[$&]"));
+console.log("abc".replace("b", "[$']"));
+console.log("abc".replace("b", "$1"), "abc".replace("b", "$$"));
+`,
+  },
+  {
+    id: "regexp-literal-basic",
+    title: "正则字面量与 exec / test",
+    src: `
+const re = /a(b+)c/;
+const m = re.exec("xabbc");
+console.log(m ? m[0] + "|" + m[1] : "none", /z/.test("abc"));
+`,
+    skip: "口径外：`RegExp` 是 v1 写死的非目标（docs/runtime-architecture.md §15）——留在矩阵里看得见，不算进分母",
+  },
+  {
+    id: "string-match-and-split-regex",
+    title: "字符串方法收正则：match / split(/\\s+/)",
+    src: `
+console.log("a1b2".match(/\\d/g)?.join(","));
+console.log("a  b   c".split(/\\s+/).join("|"));
+`,
+    skip: "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里",
+  },
+  {
+    id: "object-getownpropertydescriptors",
+    title: "Object.getOwnPropertyDescriptors（复数）",
+    src: `
+const o = { a: 1 };
+const d = Object.getOwnPropertyDescriptors(o);
+console.log(d.a.value, d.a.writable, d.a.enumerable, d.a.configurable);
+`,
+  },
+  {
+    id: "object-create-with-properties",
+    title: "Object.create 带第二格属性描述表",
+    src: `
+const proto = { greet: () => "hi" };
+const o = Object.create(proto, { a: { value: 1, enumerable: true } });
+console.log(o.greet(), o.a, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "object-getownpropertydescriptors-symbols",
+    title: "Object.getOwnPropertySymbols 与 keys 的分工",
+    src: `
+const s = Symbol("s");
+const o = { a: 1, [s]: 2 };
+console.log(Object.keys(o).join(","), Object.getOwnPropertySymbols(o).length, Object.getOwnPropertyNames(o).join(","));
+`,
+  },
+  {
+    id: "function-name-inference",
+    title: "函数的 name：声明 / 表达式 / 推断 / 方法",
+    src: `
+function decl() {}
+const f = function () {};
+const g = () => {};
+const o = { m() {} };
+const arr = [function () {}];
+console.log(decl.name, f.name, g.name, o.m.name, arr[0].name);
+`,
+  },
+  {
+    id: "function-length-with-defaults",
+    title: "函数的 length：默认值与剩余形参都不算",
+    src: `
+function a(x: number, y: number) {}
+function b(x: number, y = 1) {}
+function c(x: number, ...r: number[]) {}
+console.log(a.length, b.length, c.length);
+`,
+  },
+  {
+    id: "object-freeze-shallow",
+    title: "Object.freeze 是浅的：内层照样能改",
+    src: `
+const o = Object.freeze({ a: { b: 1 } });
+o.a.b = 2;
+console.log(o.a.b, Object.isFrozen(o), Object.isFrozen(o.a));
+`,
+  },
+  {
+    id: "array-tostring-custom-values",
+    title: "数组 toString 走元素的 toString",
+    src: `
+class C {
+  toString() {
+    return "C!";
+  }
+}
+console.log([new C(), 1].toString());
+`,
+  },
+  {
+    id: "array-reduce-empty-throws",
+    title: "空数组 reduce 不给初值：抛 TypeError",
+    src: `
+try {
+  [].reduce((a: number, b: number) => a + b);
+} catch (e) {
+  console.log((e as Error).name);
+}
+console.log([].reduce((a: number, b: number) => a + b, 10));
+`,
+  },
+  {
+    id: "array-flat-deep-levels",
+    title: "flat 的深度：2 与 Infinity",
+    src: `
+const xs = [1, [2, [3, [4]]]];
+console.log(xs.flat(2).join(","), xs.flat(Infinity).join(","), xs.flat(0).length);
+`,
+  },
+  {
+    id: "string-at-negative-and-beyond",
+    title: "String.at：负下标与越界",
+    src: `
+console.log("abc".at(-1), "abc".at(0), "abc".at(5), "abc".at(-5));
+`,
+  },
+  {
+    id: "math-cbrt-trunc-sign",
+    title: "Math.cbrt / trunc / sign / log2 的组合",
+    src: `
+console.log(Math.cbrt(27), Math.cbrt(-8), Math.trunc(-1.7), Math.sign(-3), Math.log2(8), Math.log10(1000));
+`,
+  },
+  {
+    id: "number-constants-and-limits",
+    title: "Number 的常量：EPSILON / MAX_SAFE_INTEGER / MIN_VALUE",
+    src: `
+console.log(Number.EPSILON, Number.MAX_SAFE_INTEGER, Number.MIN_VALUE, Number.MAX_VALUE);
+`,
+  },
+  {
+    id: "number-tostring-edge-values",
+    title: "数字转字符串的边界：1e21 / 1e-7 / 极小",
+    src: `
+console.log((1e21).toString(), (1e-7).toString(), (1e-21).toString(), (0.1).toString());
+`,
+  },
+  {
+    id: "parseint-parsefloat-edge",
+    title: "parseInt / parseFloat 的边界",
+    src: `
+console.log(parseInt("0x10"), parseInt("10", 2), parseInt(" 42abc"), parseInt("abc"), parseFloat("3.5e2"), parseFloat(".5"));
+`,
+  },
+  {
+    id: "date-multi-arg-ctor",
+    title: "new Date(y, m, d, h, mi, s)：多实参构造",
+    src: `
+const d = new Date(2020, 0, 2, 3, 4, 5);
+console.log(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getUTCFullYear());
+`,
+  },
+  {
+    id: "date-string-parse",
+    title: "Date.parse 与 new Date(字符串)",
+    src: `
+const ms = Date.parse("1970-01-01T00:00:00.000Z");
+console.log(ms, new Date(ms).toISOString(), new Date("1970-01-01T00:00:00.000Z").getTime());
+`,
+  },
+  {
+    id: "date-invalid-values",
+    title: "无效日期的口径：Invalid Date / NaN / toISOString 抛",
+    src: `
+const d = new Date(NaN);
+console.log(String(d), d.getTime(), Number.isNaN(d.getTime()));
+try {
+  d.toISOString();
+} catch (e) {
+  console.log((e as Error).name);
+}
+`,
+  },
+  {
+    id: "promise-race-any-allsettled",
+    title: "Promise.race / any / allSettled",
+    src: `
+Promise.race([Promise.resolve(1), Promise.resolve(2)]).then((v) => console.log("race", v));
+Promise.any([Promise.reject(new Error("x")), Promise.resolve(3)]).then((v) => console.log("any", v));
+Promise.allSettled([Promise.resolve(1), Promise.reject(new Error("y"))]).then((rs) => console.log(rs.map((r) => r.status).join(",")));
+`,
+  },
+  {
+    id: "error-aggregate",
+    title: "AggregateError：名字、消息、内层数组",
+    src: `
+const e = new AggregateError([new Error("a")], "many");
+console.log(e.name, e.message, e.errors.length, e instanceof Error);
+`,
+  },
+  {
+    id: "weakmap-basic",
+    title: "WeakMap：set / get / has / delete",
+    src: `
+const wm = new WeakMap<object, number>();
+const k = {};
+wm.set(k, 1);
+console.log(wm.get(k), wm.has(k), wm.delete(k), wm.has(k));
+`,
+  },
+  {
+    id: "object-groupby",
+    title: "Object.groupBy 分组",
+    src: `
+const g = Object.groupBy([1, 2, 3, 4], (n) => (n % 2 ? "odd" : "even"));
+console.log(g.odd!.join(","), g.even!.join(","));
+`,
+  },
+  {
+    id: "json-stringify-space-forms",
+    title: "JSON.stringify 的第三格：数字与字符串缩进",
+    src: `
+console.log(JSON.stringify({ a: 1, b: [2, 3] }, null, 2));
+console.log(JSON.stringify([1, { c: 2 }], null, "\\t"));
+`,
+  },
+  {
+    id: "map-entries-to-array-forms",
+    title: "Map 与 Object.entries / Array.from 互转",
+    src: `
+const m = new Map(Object.entries({ a: 1, b: 2 }));
+console.log([...m.keys()].join(","), m.get("b"));
+console.log(Array.from(new Map([[1, "x"], [2, "y"]]), ([k, v]) => k + v).join(","));
+`,
+  },
+  {
+    id: "set-operations-forms",
+    title: "Set 与数组互转、去重、size 与 delete",
+    src: `
+const s = new Set([1, 1, 2, 3]);
+console.log(s.size, [...s].join(","), s.delete(2), s.has(2));
+console.log([...new Set("aabbc")].join(""));
+`,
+  },
+  {
+    id: "string-padstart-forms",
+    title: "padStart / padEnd 的各种实参形态",
+    src: `
+console.log("5".padStart(3, "0"), "5".padEnd(3, "0"), "abc".padStart(2), "x".padStart(4, "ab"));
+`,
+  },
+  {
+    id: "global-functions-forms",
+    title: "全局函数：isNaN / isFinite / Boolean / String / Number",
+    src: `
+console.log(isNaN("x"), Number.isNaN("x"), isFinite("3"), Number.isFinite("3"));
+console.log(Boolean(""), Boolean("a"), String(null), Number(""), Number(" 7 "));
+`,
+  },
+  {
+    id: "symbol-tostring-and-primitive",
+    title: "Symbol 的 description / toString / String()",
+    src: `
+const s = Symbol("desc");
+console.log(s.description, s.toString(), String(s), typeof s);
+console.log(Symbol().description);
+`,
+  },
+  {
+    id: "console-log-nested-empty",
+    title: "console.log 的容器形状：空数组、空对象、嵌套",
+    src: `
+console.log([]);
+console.log({});
+console.log([[]]);
+console.log({ a: {} });
+console.log([1, [2, [3]]]);
+`,
+  },
 ];

@@ -2,14 +2,14 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId } from "./promise.xl.md"
-import { ValueText } from "./text.xl.md"
+import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, SymbolToString } from "./globals.xl.md"
@@ -461,7 +461,7 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
 }
 if (source.Tag === ValueTag.String) {
   // **按码元拆** ✓：与 `.length` / 下标 / `charAt` 同一条口径 ✓（代理对算两个 ✓）。
-  const units = TextUnitsOf(table, source);
+  const units = JsTextUnits(table, source);
   for (let i = 0; i < units.length; i++) {
     if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
     table.Get(out.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
@@ -688,7 +688,7 @@ if (items.Tag === ValueTag.Array) {
   return target;
 }
 if (items.Tag === ValueTag.String) {
-  const units = TextUnitsOf(table, items);
+  const units = JsTextUnits(table, items);
   for (let i = 0; i < units.length; i++) {
     if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
     table.Get(target.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));

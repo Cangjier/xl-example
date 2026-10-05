@@ -77,6 +77,39 @@ return produced;
 这一轮先把**语言层自己经手文本的地方**全部走通 ✓：
 `console.log` / `Array.join` / `Error` 的消息 / `JSON` 的数字 ✓。
 
+# method NumberToJsText:(value:double)=>string
+
+**双精度 → JS 的 `String(x)` 那一条文本**（第 290 轮 ✓）——它与 `host-text.xl.md` 的
+`NumberToHostText` **只差 `-0` 一格** ✓：JS 的 `String(-0)` 是 `"0"` ✓，
+而线形态的规范文本必须**逐位往返** ⇒ 那一处只能是 `"-0"` ✓（`ir-verify` 钉着它 ✓）。
+
+**为什么单开这一个方法** ✗：`-0` 这一格原来**只在 `ValueUnits` 里补过** ✓
+（`console.log` 那条路 ✓），而**其余每一条取文本的路都直接问引擎** ✗
+——实测四条全给 `"-0"` ✓：`String(-0)` ✓、`(-0).toString()` ✓、`` `${-0}` `` ✓、
+`"" + -0` ✓——与 Node 逐字节比就是**四处静默错值** ✓。
+
+**它不替换 `NumberToHostText`** ✗：两者的口径**故意不同** ✓（线形态要那一份 ✓、
+JS 的字符串语义要这一份 ✓）。收成一处的是**「谁该用哪一份」** ✓，不是那一份本身 ✓。
+
+```ts
+const text = NumberToHostText(value);
+return text === "-0" ? "0" : text;
+```
+
+# method JsTextUnits:(table:HeapTable, value:Value)=>Array<int>
+
+**任意值 → JS 的 `ToString` 码元**：引擎的 `TextUnitsOf` 加上 `-0` 那一格（见上 ✓）。
+
+语言层凡是「按 JS 取文本」的地方（`String(x)` ✓ / `+` 与模板串 ✓ / 各 `toString` ✓ /
+把实参转成字符串的每一个内建 ✓）都走它 ✓；**线形态**（`ir-verify` ✓）与
+**`console.log` 的数值渲染**（`inspect.xl.md` 直接问 `NumberToHostText` ✓，Node 的
+`util.inspect(-0)` 印的就是 `-0` ✓）**不走** ✓。
+
+```ts
+if (value.Tag === ValueTag.Float64) return HostTextUnits(NumberToJsText(value.Dbl));
+return TextUnitsOf(table, value);
+```
+
 # const TextMaxDepth:int = 64
 
 **嵌套上限**（与 `MaxJsonDepth` 同一个理由 ✓）：数组可以**自引用** ✓
@@ -136,14 +169,12 @@ if (depth > TextMaxDepth) {
   throw new Error("this value is nested too deeply to render (a cycle looks the same)");
 }
 if (value.Tag === ValueTag.Float64) {
-  // **浮点 → 文本这一条第 129 轮起收进引擎那一处** ✓（`runtime/host-text.xl.md` ✓）：
+  // **浮点 → 文本这一条收在 `JsTextUnits` 那一处** ✓（第 290 轮 ✓）：
   // 同一张符号名表（`NaN` / `±Infinity` / `-0`）原先在这里也有一份 ✗，两份就会有一天走偏 ✗。
-  const text = NumberToHostText(value.Dbl);
-  // **两处的口径在这里必须不同** ✓：JS 的 `String(-0)` 是 `"0"` ✓（字符串语义 ✓），
-  // 而线形态的规范文本是 `"-0"` ✓（它要**逐位往返** ✓）。
-  // 差别只有这一格 ✓，所以它是一条**明写的判断** ✓，不是两套渲染器 ✓。
-  if (text === "-0") return HostUnits("0");
-  return HostUnits(text);
+  // **两处的口径在那里必须不同** ✓：JS 的 `String(-0)` 是 `"0"` ✓（字符串语义 ✓），
+  // 而线形态的规范文本是 `"-0"` ✓（它要**逐位往返** ✓）——差别只有这一格 ✓，
+  // 所以它是一条**明写的判断** ✓，不是两套渲染器 ✓。
+  return JsTextUnits(table, value);
 }
 if (value.Tag === ValueTag.Object) {
   // **可调用对象与函数同一条**（第 145 轮）✓：`String` / `Number` / `Date` 这些

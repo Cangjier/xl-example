@@ -295,6 +295,19 @@ for (let i = index - 1; i >= 0; i--) {
       return this.HasExtendsMarker(units, i);
     }
     if (text === "|" || text === "&") {
+      // **已经跨过 `=` 之后，`|` / `&` 说的是左边那份标注**（第 290 轮 ✓）：
+      // `const x: number | string = { a: 1 }` 从值位那个 `{` 回扫 ⇒ `=`（记住跨过赋值 ✓）
+      // ⇒ `string` ⇒ `|` ✓——`|` 属于**变量标注**、与这个 `{` 是值位还是类型位**无关** ✓。
+      // 原来在 `|` 处直接判「类型位」✗ ⇒ 对象字面量被收成 `TypeLiteral` ✓，
+      // 整份文件报 `unimplemented: expression TypeLiteral` ✗
+      // （实测：`const x: number | string = { a: 1 } as any` ✓、
+      //  `const x: { a: number } | number = { a: 1 }` ✓、`let m: { n: number } | null = { n: 1 }` ✓
+      //  ——**三条都是普通 `.ts` 里遍地都是的写法** ✓）。
+      // **判据是「跨过 `=` 之后」** ✓：`type X = A | { … }` 那一格回扫**先撞上 `|`** ✓
+      // （`=` 还在它更左边 ✓），`crossedAssignment` 还是假 ✓ ⇒ 照旧判类型位 ✓。
+      if (crossedAssignment) {
+        continue;
+      }
       return true;
     }
     if (text === "=>") {

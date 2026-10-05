@@ -2,11 +2,11 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
+import { RoomChecker } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
-import { ValueUnits } from "./text.xl.md"
+import { JsTextUnits, ValueUnits } from "./text.xl.md"
 ```
 
 # namespace cangjie
@@ -255,7 +255,7 @@ if (id === StringFromCodePoint) {
   return Value.FromString(table.CreateString(codeUnits));
 }
 RequireString(table, self);
-const units = TextUnitsOf(table, self);
+const units = JsTextUnits(table, self);
 if (id === StringCharAt) {
   const at = ArgOr(args, 0, 0);
   if (at < 0 || at >= units.length) {
@@ -278,7 +278,7 @@ if (id === StringLocaleCompare) {
   // **`localeCompare`**（第 208 轮 ✓）：JS 的完整语义要**一张区域表** ✗（本仓没有 ✓），
   // 所以这里按**码元**比 ✓、并且**只做 ASCII** ✓——非 ASCII 当场抛 ✓
   //（与 `toUpperCase` / `toLowerCase` 同一条纪律 ✓：宁可缺，也不静默换一个「看起来对」的答案 ✗）。
-  const other = args.length > 0 ? TextUnitsOf(table, args[0]) : [];
+  const other = args.length > 0 ? JsTextUnits(table, args[0]) : [];
   for (let i = 0; i < units.length; i++) {
     if (units[i] > 127) throw new Error("unimplemented: localeCompare outside ASCII (there is no collation table here)");
   }
@@ -294,7 +294,7 @@ if (id === StringLocaleCompare) {
   return Value.FromInt(units.length < other.length ? -1 : 1);
 }
 if (id === StringIndexOf || id === StringLastIndexOf) {
-  const needle = args.length > 0 ? TextUnitsOf(table, args[0]) : [];
+  const needle = args.length > 0 ? JsTextUnits(table, args[0]) : [];
   const length0 = units.length;
   // **`fromIndex` 那一格**（第 208 轮 ✓）：与数组那一轮同一处缺口 ✓——
   // 第二个实参原来**被丢掉** ✓（`"hello".indexOf("o", 5)` 从 0 找起 ✗，**静默错值** ✗）。
@@ -405,7 +405,7 @@ if (id === StringIncludes) {
   // **`includes` 与 `indexOf` 共用一趟扫描** ✓：差别只在「给不给下标」✓。
   // **空串恒为真** ✓（JS 就是这么定的：`"abc".includes("")` 是真 ✓）——
   // 这一条与 `indexOf` 给 `0` 是同一件事的两种说法 ✓。
-  const needle = args.length > 0 ? TextUnitsOf(table, args[0]) : [];
+  const needle = args.length > 0 ? JsTextUnits(table, args[0]) : [];
   if (needle.length === 0) return Value.FromBool(true);
   for (let i = 0; i + needle.length <= units.length; i++) {
     let same = true;
@@ -475,7 +475,7 @@ if (id === StringTrim || id === StringTrimStart || id === StringTrimEnd) {
 if (id === StringStartsWith || id === StringEndsWith) {
   // **两个都收可选的第二个参数**（第 123 轮）✓——但它们的含义**不一样** ✗：
   // `startsWith` 的那个是**起点** ✓，`endsWith` 的那个是**结束位置** ✓（JS 就是这么定的 ✓）。
-  const needle = args.length > 0 ? TextUnitsOf(table, args[0]) : [];
+  const needle = args.length > 0 ? JsTextUnits(table, args[0]) : [];
   const length = units.length;
   let from = ArgOr(args, 1, id === StringEndsWith ? length : 0);
   if (from < 0) from = 0;
@@ -540,7 +540,7 @@ if (id === StringPadStart || id === StringPadEnd) {
   // 目标长度不大于当前长度就**原样返回** ✓；**填充串是空串就不补** ✓。
   const target = ArgOr(args, 0, 0);
   const fill = args.length > 1 && args[1].Tag === ValueTag.String
-    ? TextUnitsOf(table, args[1])
+    ? JsTextUnits(table, args[1])
     : Units(" ");
   if (target <= units.length || fill.length === 0) {
     if (!room(ObjectCharge + CodeUnitCharge * units.length)) throw new Error("out of room");
@@ -572,8 +572,8 @@ if (id === StringReplace || id === StringReplaceAll) {
     throw new Error("unimplemented: String.replace needs two string arguments "
       + "(regex and function replacements are not supported)");
   }
-  const needle = TextUnitsOf(table, args[0]);
-  const replacement = TextUnitsOf(table, args[1]);
+  const needle = JsTextUnits(table, args[0]);
+  const replacement = JsTextUnits(table, args[1]);
   if (needle.length === 0) {
     // **空串那一格两种调用不一样** ✗（实测抓到的 ✓）：
     //   · `"ab".replace("", "-")` 给 `"-ab"` ✓（**只在最前面插一次** ✓）；
@@ -667,7 +667,7 @@ throw new Error("unimplemented: string builtin " + id);
 
 ```ts
 RequireString(table, self);
-const units = TextUnitsOf(table, self);
+const units = JsTextUnits(table, self);
 // **`limit` 那一格**（第 208 轮 ✓）：原来这里**抛** ✗（理由写得很对 ✓：忽略它会让
 // `split(",", 2)` 静默给错形状 ✗）——这一轮把它做出来 ✓。
 // **JS 的语义是「最多几段」** ✓：到了上限就**不再收**（连尾巴那一段也不收 ✓）——
@@ -683,7 +683,7 @@ if (args.length === 0 || args[0].IsUndefined()) {
   if (limit !== 0) result.Push(self);
   return out;
 }
-const separator = TextUnitsOf(table, args[0]);
+const separator = JsTextUnits(table, args[0]);
 if (!room(ObjectCharge + ValueCharge * (units.length + 1)
   + CodeUnitCharge * (units.length + 1))) {
   throw new Error("out of room");

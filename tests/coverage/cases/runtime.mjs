@@ -2456,4 +2456,365 @@ counter(); counter();
 console.log(counter());
 `,
   },
+
+  {
+    id: "rt-arguments-object",
+    title: "arguments：length / 下标 / 箭头里看外层那一份",
+    src: `
+function f(a: number, b: number) {
+  console.log(arguments.length, arguments[0], arguments[1], arguments[5]);
+}
+f(1, 2);
+f(1, 2, 3, 4, 5, 6);
+function g() {
+  const inner = () => arguments.length;
+  console.log(inner());
+}
+g(1, 2, 3);
+`,
+  },
+  {
+    id: "rt-arguments-vs-rest",
+    title: "arguments 与剩余形参同时存在",
+    src: `
+function f(a: number, ...rest: number[]) {
+  return rest.join("+") + ":" + arguments.length;
+}
+console.log(f(1, 2, 3), f(1), f());
+`,
+  },
+  {
+    id: "rt-forin-order-and-inherited",
+    title: "for..in：整数键在前、继承来的键也在、数组给下标串",
+    src: `
+const o: any = { b: 1, a: 2 };
+o[2] = "two";
+o[1] = "one";
+const keys: string[] = [];
+for (const k in o) keys.push(k);
+console.log(keys.join(","));
+const arr = ["x", "y"];
+const idx: string[] = [];
+for (const i in arr) idx.push(i);
+console.log(idx.join(","));
+const child: any = Object.create({ inherited: true });
+child.own = 1;
+const both: string[] = [];
+for (const k in child) both.push(k);
+console.log(both.join(","));
+`,
+  },
+  {
+    id: "rt-generator-next-sends-value",
+    title: "生成器：next(v) 把值送进挂起点",
+    src: `
+function* g() {
+  const a = yield 1;
+  const b = yield a + 1;
+  return a + b;
+}
+const it = g();
+console.log(JSON.stringify(it.next()));
+console.log(JSON.stringify(it.next(10)));
+console.log(JSON.stringify(it.next(20)));
+`,
+  },
+  {
+    id: "rt-generator-next-arg-ignored-first",
+    title: "生成器：第一次 next 的实参被丢掉",
+    src: `
+function* g() {
+  const a = yield "start";
+  console.log("got", a);
+}
+const it = g();
+console.log(JSON.stringify(it.next(99)));
+console.log(JSON.stringify(it.next(7)));
+`,
+  },
+  {
+    id: "rt-delete-object-property",
+    title: "delete 对象属性：删掉、in 变假、读回 undefined",
+    src: `
+const o: any = { a: 1, b: 2 };
+console.log(delete o.a, "a" in o, o.a, Object.keys(o).join(","));
+console.log(delete o.missing);
+`,
+  },
+  {
+    id: "rt-prototype-chain-create-depth",
+    title: "Object.create 串三层：读沿链走、keys 只看自己",
+    src: `
+const base = { a: 1 };
+const mid: any = Object.create(base);
+mid.b = 2;
+const leaf: any = Object.create(mid);
+leaf.c = 3;
+console.log(leaf.a, leaf.b, leaf.c);
+console.log(Object.keys(leaf).join(","), "a" in leaf, leaf.hasOwnProperty("a"), leaf.hasOwnProperty("c"));
+`,
+  },
+  {
+    id: "rt-try-continue-finally",
+    title: "循环里 try/finally 夹着 continue：finally 照跑",
+    src: `
+const out: number[] = [];
+for (let i = 0; i < 5; i++) {
+  try {
+    if (i % 2) continue;
+    out.push(i);
+  } finally {
+    out.push(100 + i);
+  }
+}
+console.log(out.join(","));
+`,
+  },
+  {
+    id: "rt-labeled-continue-forof",
+    title: "for..of 套 for..of：continue 跳到外层那一个",
+    src: `
+const out: string[] = [];
+outer: for (const a of [1, 2]) {
+  for (const b of [1, 2]) {
+    if (b === 2) continue outer;
+    out.push(a + "-" + b);
+  }
+}
+console.log(out.join(","));
+`,
+  },
+  {
+    id: "rt-nested-destructure-defaults",
+    title: "嵌套解构 + 默认值 + 数组洞",
+    src: `
+const cfg: any = { a: { b: [1, , 3] } };
+const { a: { b: [x, y = 9, z] } } = cfg;
+console.log(x, y, z);
+const [, second = "s", ...rest] = ["first", undefined, "third", "fourth"];
+console.log(second, rest.join(","));
+`,
+  },
+  {
+    id: "rt-error-in-getter-caught",
+    title: "getter 里抛：try 接得住、类别还在",
+    src: `
+const o = {
+  get boom(): number {
+    throw new Error("bad");
+  },
+};
+try {
+  console.log(o.boom);
+} catch (e) {
+  console.log(e instanceof Error, (e as Error).message);
+}
+console.log("after");
+`,
+  },
+  {
+    id: "rt-recursive-tree-reduce",
+    title: "递归走树：reduce 累积 + 闭包内自引用",
+    src: `
+type N = { v: number; kids: N[] };
+const tree: N = { v: 1, kids: [{ v: 2, kids: [] }, { v: 3, kids: [{ v: 4, kids: [] }] }] };
+const sum = (n: N): number => n.v + n.kids.reduce((acc, k) => acc + sum(k), 0);
+console.log(sum(tree));
+`,
+  },
+  {
+    id: "rt-class-static-accessor",
+    title: "静态 getter / setter 与它们背后的字段",
+    src: `
+class C {
+  static _v = 1;
+  static get v(): number {
+    return C._v * 2;
+  }
+  static set v(x: number) {
+    C._v = x;
+  }
+}
+console.log(C.v);
+C.v = 5;
+console.log(C.v, C._v);
+`,
+  },
+  {
+    id: "rt-switch-scoped-case-block",
+    title: "switch 的 case 里开一个块：作用域不串",
+    src: `
+function f(n: number): string {
+  switch (n) {
+    case 1: {
+      const t = "one";
+      return t;
+    }
+    case 2: {
+      const t = "two";
+      return t;
+    }
+    default:
+      return "other";
+  }
+}
+console.log(f(1), f(2), f(3));
+`,
+  },
+  {
+    id: "rt-array-hole-in-operator",
+    title: "数组的洞：in 是假、join 空、JSON 变 null",
+    src: `
+const xs: any[] = [1, , 3];
+console.log(1 in xs, 0 in xs, xs.length, xs.join("|"), JSON.stringify(xs));
+`,
+  },
+  {
+    id: "rt-symbol-key-excluded-from-keys",
+    title: "符号键：不进制符串键表、能读回来",
+    src: `
+const s = Symbol("k");
+const o: any = { a: 1, [s]: 2 };
+console.log(Object.keys(o).join(","), Object.getOwnPropertySymbols(o).length, o[s]);
+`,
+  },
+  {
+    id: "rt-closure-object-pair",
+    title: "闭包成对：一个改、一个读",
+    src: `
+function counter() {
+  let n = 0;
+  return { inc: () => ++n, get: () => n };
+}
+const c = counter();
+c.inc();
+c.inc();
+console.log(c.get());
+const d = counter();
+console.log(d.get(), c.get());
+`,
+  },
+  {
+    id: "rt-optional-call-on-method",
+    title: "o.m?.()：方法取出来是 null 就不调",
+    src: `
+const o: any = { m: () => "called", n: null };
+console.log(o.m?.(), o.n?.());
+`,
+  },
+  {
+    id: "rt-logical-assign-forms",
+    title: "||= / &&= / ??= 的短路与返回值",
+    src: `
+let a: number | null = null;
+console.log((a ??= 5), a);
+let b = 1;
+console.log((b ||= 2), b);
+let c = 0;
+console.log((c &&= 3), c);
+let d: any = { n: 0 };
+console.log((d.n ||= 7), d.n);
+`,
+  },
+  {
+    id: "rt-number-string-forms",
+    title: "数字转字符串：大数、小数、指数、负零",
+    src: `
+console.log(String(1e21), String(1e-7), String(-0), (1234.5678).toString(), (0.1 + 0.2).toString());
+console.log((255).toString(16), (8).toString(2), (-0).toString(), Object.is(-0, -0));
+`,
+  },
+  {
+    id: "rt-do-while-break-and-continue",
+    title: "do..while 里的 break 与 continue",
+    src: `
+let i = 0;
+const out: number[] = [];
+do {
+  i++;
+  if (i === 2) continue;
+  if (i === 4) break;
+  out.push(i);
+} while (i < 10);
+console.log(out.join(","), i);
+`,
+  },
+  {
+    id: "rt-nested-ternary-chain",
+    title: "三元串成链：每个分支都带副作用",
+    src: `
+let mark = "";
+const pick = (n: number): string => (n < 0 ? ((mark += "a"), "neg") : n === 0 ? ((mark += "b"), "zero") : ((mark += "c"), "pos"));
+console.log(pick(-1), pick(0), pick(1), mark);
+`,
+  },
+  {
+    id: "rt-array-large-pipeline-push",
+    title: "大量 push / shift：不 OOM、次序正确",
+    src: `
+const xs: number[] = [];
+for (let i = 0; i < 2000; i++) xs.push(i);
+let total = 0;
+for (let i = 0; i < 1000; i++) total += xs.shift() as number;
+console.log(xs.length, total, xs[0]);
+`,
+  },
+  {
+    id: "rt-string-in-operator",
+    title: "in 在对象 / 数组 / 原型链上的口径",
+    src: `
+const o: any = { a: 1 };
+console.log("a" in o, "b" in o, "toString" in o);
+console.log(0 in [1, 2], 2 in [1, 2], "length" in []);
+`,
+  },
+  {
+    id: "rt-bigint-forms",
+    title: "BigInt：字面量、运算、typeof、转换",
+    src: `
+console.log(1n + 2n, typeof 1n, BigInt(5), (10n).toString());
+`,
+    skip: "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）",
+  },
+  {
+    id: "rt-throw-in-finally-overrides",
+    title: "finally 里再抛：盖掉原来的返回值",
+    src: `
+function f(): string {
+  try {
+    return "try";
+  } finally {
+    throw new Error("from-finally");
+  }
+}
+try {
+  console.log(f());
+} catch (e) {
+  console.log("caught", (e as Error).message);
+}
+`,
+  },
+  {
+    id: "rt-instanceof-array-subclass",
+    title: "extends Array：instanceof 两条链都对",
+    src: `
+class MyList extends Array {}
+const m = new MyList();
+m.push(1);
+console.log(m instanceof MyList, m instanceof Array, m.length, Array.isArray(m));
+`,
+  },
+  {
+    id: "rt-computed-member-and-call-forms",
+    title: "计算成员：读、写、调、delete 四条路",
+    src: `
+const key = "k";
+const o: any = { [key]: () => 1 };
+console.log(o[key](), o["k"]());
+o[key] = () => 2;
+console.log(o.k());
+delete o[key];
+console.log(o.k, "k" in o);
+`,
+  },
 ];

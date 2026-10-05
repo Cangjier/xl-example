@@ -581,5 +581,58 @@ export const EXPECTATIONS = {
   "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
   "function-prototype-and-bind-forms": { expect: "differ", why: "`bound.length` 给 `undefined`（Node 给 `1`）——绑定函数的 `length` 该是「原函数形参数 − 已绑定的实参数」；`call` / `apply` / `bind` 本身都是好的 ✓" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
+
+  // ===== 第 290 轮：矩阵加宽 95 条量到的那一批（29 条缺口，按根子分组）=====
+  //
+  // 这一轮的选题是「先把 exec / runtime / 标准库 的语料铺满」✓，所以**先加宽、再照读数挑** ✓
+  //（与第 287 轮同一条口径 ✓）。下面按**根子**分组 ✓——同一组的修法一样 ✓，一起做才不白付 ✓。
+  //
+  // **组 A：标准库「成员不在那儿」（9 条）** ✓——都是 `cannot call a non-closure value` ✓
+  //（即那一格**根本没装** ✗）。按「普通 `.ts` 里有多常见」排 ✓：`Date` 多实参构造与 `Date.parse` ✓、
+  // `fn.name` / `fn.length` ✓（与已有的 `function-length-and-name` 同一件事 ✓）、
+  // `Promise.any` / `allSettled` ✓、`WeakMap` ✓、`AggregateError` ✓、
+  // `Object.getOwnPropertyDescriptors` / `Object.groupBy` ✓、`Array.prototype.toLocaleString` ✓、
+  // `String.normalize` ✗（要 Unicode 归一化表 ✓，与 `localeCompare` 同一条纪律 ✓）。
+  "date-multi-arg-ctor": { expect: "blocked", why: "`new Date(y, m, d, …)` 多实参构造没装（把第一个实参当成了毫秒数）——要一个 `DateMakeMs`，而逆变换 `DateDaysFromCivil` 第 280 轮已经有了" },
+  "date-string-parse": { expect: "blocked", why: "`Date.parse` / `new Date(字符串)` 没装（ISO 解析不在）——`Date.UTC` / `toISOString` 那半第 280 轮是好的" },
+  "object-getownpropertydescriptors": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors`（复数）没装——单数那格（412）第 276 轮就有了，缺的是「一趟扫自有键、每格复用同一次读描述符」" },
+  "object-groupby": { expect: "blocked", why: "`Object.groupBy` 没装（ES2024）——要按回调的返回值分桶，回调通道现成（与 `map` / `filter` 同一条）" },
+  "array-tolocalestring": { expect: "blocked", why: "`Array.prototype.toLocaleString` 没装——它与 `toString` 只差「元素各自走 `toLocaleString`」，而本仓本来就没有区域表（与 `localeCompare` 同一条纪律：宁可缺）" },
+  "string-normalize": { expect: "blocked", why: "`String.normalize` 没装——NFC / NFD 要一张 Unicode 归一化表，本仓没有（与 `toUpperCase` / `localeCompare` 同一条纪律：不编一个看起来对的答案）" },
+  "error-aggregate": { expect: "blocked", why: "`AggregateError` 没装：第五个错误原型 + 一个全局名 + 一格 `errors`（第 277 轮装 `SyntaxError` 时走的就是这条路）" },
+  "weakmap-basic": { expect: "blocked", why: "`WeakMap` 没装——它可以照 `Map` 那一套做（键限对象、没有 `size` / 迭代），但**弱引用语义在精确 GC 上要单独的根集规则**，不是挂一格的事" },
+  "promise-race-any-allsettled": { expect: "blocked", why: "`Promise.any` / `allSettled` 没装（`race` 与 `all` 是好的）——两者都要「一组承诺各自收尾、再按结局汇总」，与 `PromiseAll` 的步进器同一形状" },
+  //
+  // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
+  "function-name-inference": { expect: "differ", why: "**静默错值**：`fn.name` 一律 `undefined`（Node 给 `decl` / `f` / `g` / `m`）。第 238 轮补的是 `HeapClosure.Name` 那一格**内部**的名字（给 `console.log` 用），属性读那一面还没挂；与已有的 `function-length-and-name` 同一件事" },
+  "function-length-with-defaults": { expect: "differ", why: "**静默错值**：`fn.length` 一律 `undefined`（Node 按「第一个默认值/剩余形参之前的形参数」给）。名字与长度是闭包那一格上的两个兄弟，一起做" },
+  "object-create-with-properties": { expect: "differ", why: "**静默错值**：`Object.create(proto, { a: { value: 1, enumerable: true } })` 的第二格被丢掉（`o.a` 给 `undefined` 而不是 `1`）——描述符那条路（`DefineOwnFromDescriptor`）现成，缺的是「收下第二格并逐键写一遍」" },
+  "array-tostring-custom-values": { expect: "differ", why: "**静默错值**：`[new C(), 1].toString()` 给 `[object Object],1`（Node 给 `C!,1`）——`ValueUnits` 对普通对象**写死了 `[object Object]`**，没走 `ToPrimitive(el, \"string\")` ⇒ 元素自己那个 `toString` 根本不被调。根子与 `json-stringify-tojson-and-specials` 同一处：**取文本这条路上没有回调通道**" },
+  //
+  // **组 C：降级层 / token 层（3 条）** ✓
+  "ex-arrow-immediately-invoked-typed": { expect: "differ", why: "**静默错值**：`((a: number, b: number) => a + b)(1, 2)` 给 `NaN`——带类型标注的箭头出现在立即调用位置时形参没绑上（不带标注的箭头立即调用是对的）。与已有的 `rt-iife-forms` **同一个根**：括号里的形参表怎么被收" },
+  "ex-nonnull-chain-index": { expect: "differ", why: "**静默错值**：`o!.a!.b![1]` 给整个数组而不是 `2`——非空断言串在成员链上时把后面那一截丢掉了。与已有的 `ex-nonnull-and-as-chain` **同一个根**（投影层 `!` 的尾）" },
+  "ex-enum-namespace-merge": { expect: "blocked", why: "`enum E {}` 与 `namespace E {}` 合并：namespace 那一半没做（与 `ex-namespace-with-values` 同一个根），合并只多一件「两份挂在同一个名字上」" },
+  //
+  // **组 D：`arguments`（2 条）** ✓——`arguments` 这个对象**这一层根本没有** ✗。
+  "rt-arguments-object": { expect: "blocked", why: "`arguments` 没做（`name is not a local or a capture: arguments`）——它是有运行期语义的一格（形参个数 / 下标 / 箭头里看外层那一份），要走「函数进门时造一个数组式对象」那条路" },
+  "rt-arguments-vs-rest": { expect: "blocked", why: "同上：`arguments` 与剩余形参并存时两者都要对（`arguments.length` 是**实参**个数）" },
+  //
+  // **组 E：生成器少了「送进挂起点」那一格（2 条）** ✓——**静默错值** ✗。
+  "rt-generator-next-sends-value": { expect: "differ", why: "**静默错值**：`it.next(10)` 的值没送进挂起点（`yield a + 1` 里 `a` 拿到 `null` / `undefined`，Node 给 `10`）。`next()` 第 229 轮就接上了，缺的是「实参写进 `yield` 表达式那一格」" },
+  "rt-generator-next-arg-ignored-first": { expect: "differ", why: "同上，另一半：**第一次 `next(v)` 的实参必须被丢掉**（JS 的规矩）——这一条要等上一条做完才谈得上" },
+  //
+  // **组 F：`for..in` 只走自有键（1 条）** ✓——**静默错值** ✗。
+  "rt-forin-order-and-inherited": { expect: "differ", why: "**静默错值**：`for (const k in o)` 只给自有键（Node 还会走原型链上的可枚举键）。根子在 `lowering.xl.md` 的 `LowerForIn`——它把这一条**拼成 `Object.keys`**，而 `Object.keys` 的口径就是自有键；那句「今天原型上没挂可枚举东西，所以差别看不见」现在被 `Object.create({ inherited: true })` 当场证伪" },
+  //
+  // **组 G：`class X extends Array`（1 条）** ✓
+  "rt-instanceof-array-subclass": { expect: "blocked", why: "`class MyList extends Array {}` 报 `this method needs an array receiver`——实例是普通对象、数组方法不认它。要一条「按内置类做实例的 `[[Prototype]]` 与内部槽」的路" },
+  //
+  // **组 H：`replace` 的那两格（2 条）** ✓——`String.replace` 只认两个字符串实参 ✗。
+  "string-replace-function-form": { expect: "blocked", why: "`replace` 的替换值是**函数**时没接：要按匹配位置调一次脚本函数、把返回值当替换文本（回调通道现成，缺的是这条调用路径本身）" },
+  "string-replace-dollar-forms": { expect: "differ", why: "**静默错值**：`\"abc\".replace(\"b\", \"[$&]\")` 给 `a[$&]c`（Node 给 `a[b]c`）——`$&` / `$\\\`` / `$'` / `$$` 这几个替换记号一个都不认。`$1` 那一格要等正则（口径外）" },
+  //
+  // **组 I：`Date` 的文本（1 条）** ✓
+  "date-invalid-values": { expect: "blocked", why: "`String(new Date(NaN))` 报 `unimplemented: ToPrimitive of a Date with a string hint`——缺 `Date.prototype.toString`（`Invalid Date` 那一条也在这张表上）。**抛比静默错值好**，所以这一格是**明写的缺口**，不是坏掉" },
 };
 

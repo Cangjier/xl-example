@@ -28,6 +28,8 @@ import { LineWrap } from "./line-wrap.xl.md"
 `Previous` 认的是「`type` + 名字 + `=` 三个实义单元依次相邻（跨过软换行）」这一串。
 
 `Process` 从 `type`（含它前面的 `export`）一直收到 `;` 为止——**没有** `;` 时就收到列表末尾。
+**那个 `;` 只进范围、不进子单元**（第 290 轮 ✓）：它是语句终结符，留在列表里给语句切分用 ✓
+（见 `Process` 里 `dataEnd` 那一段的说明 ✓）。
 
 ## static readonly field Instance:TypeAssignReorganization = new TypeAssignReorganization()
 
@@ -138,11 +140,26 @@ if (previousIndex !== -1 && IsDeclarationModifier(previous)) {
   modifiers.push((previous as Identifier).TempToString());
 }
 const endIndex = this.AliasEnd(units, index);
+// **结尾那个 `;` 不装进本单元**（第 290 轮 ✓）：它是**语句终结符** ✓，
+// 而语句切分那一趟（`statement.xl.md` 的 `StatementReorganization`）**只看列表里的单元** ✗
+// ——`;` 一旦被装进 `TypeAssign` ✓，`type A = number; let x: A = 1;` 这一行就**再也断不开** ✗：
+// 实测产物是 `<Statement><TypeAssign …/><Let …/><TypeDefine>…</TypeDefine><SymbolToken>=</SymbolToken>
+// <Identifier>1</Identifier></Statement>` ✓，投影于是给出
+// `BinaryExpression(TypeAliasDeclaration, =, 1)` ✓，降级层报
+// `unimplemented: assignment to a non-identifier` ✗（`type A = number; console.log(1)` 同理 ✓）。
+// **换行版的同一条形状一直是好的** ✓（换行自己就是边界 ✓）——所以这个坑只在
+// **一行写两条**时露头 ✗（`type X = …;` 与后续语句同一行 ✓）。
+//
+// **区间仍然算到 `;` 的末尾** ✓：TS 的 `TypeAliasDeclaration` 就包含那个 `;` ✓
+// （实测 `ts.createSourceFile`：`type A = number;\nlet x …` 的别名节点是 `[0,16)` ✓，
+//  含 `;` ✓）——所以只把**数据**少收一格 ✓，`SignOut` 照旧问 `endIndex` ✓。
+const tail = Get(units, endIndex);
+const dataEnd = tail instanceof SymbolToken && tail.Is(";") && endIndex > startIndex ? endIndex - 1 : endIndex;
 const result = new TypeAssign(template);
 result.Parent = current.Parent;
 result.alias = name.TempToString();
 result.modifiers = modifiers.join(",");
-for (let i = index; i <= endIndex; i++) {
+for (let i = index; i <= dataEnd; i++) {
   const item = Get(units, i);
   if (i === index || i === nameIndex) {
     continue;
@@ -154,7 +171,7 @@ for (let i = index; i <= endIndex; i++) {
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();
-return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
+return ReplaceCountAt(units, startIndex, dataEnd - startIndex + 1, result);
 ```
 
 # class TypeAssign extends IndependentToken

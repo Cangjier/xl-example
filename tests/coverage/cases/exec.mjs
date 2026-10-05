@@ -1610,4 +1610,370 @@ function area(s: Shape) {
 console.log(area({ kind: "circle", r: 2 }), area({ kind: "square", side: 3 }));
 `,
   },
+
+  {
+    id: "ex-generic-arrow-function",
+    title: "泛型箭头函数：<T>(x: T) => x",
+    src: `
+const id = <T>(x: T): T => x;
+console.log(id(1), id("a"), id(true));
+`,
+  },
+  {
+    id: "ex-generic-arrow-constraint",
+    title: "泛型箭头带约束：<T extends { length: number }>",
+    src: `
+const len = <T extends { length: number }>(x: T): number => x.length;
+console.log(len("abc"), len([1, 2]), len({ length: 9 }));
+`,
+  },
+  {
+    id: "ex-constructor-overloads",
+    title: "构造函数重载签名 + 一个实现",
+    src: `
+class P {
+  x: number;
+  constructor(x: number);
+  constructor(x: string);
+  constructor(x: any) {
+    this.x = typeof x === "number" ? x : x.length;
+  }
+}
+console.log(new P(3).x, new P("abcd").x);
+`,
+  },
+  {
+    id: "ex-abstract-method-and-implement",
+    title: "抽象方法 + 子类实现 + instanceof",
+    src: `
+abstract class Shape {
+  abstract area(): number;
+  describe(): string {
+    return "area=" + this.area();
+  }
+}
+class Sq extends Shape {
+  s: number;
+  constructor(s: number) {
+    super();
+    this.s = s;
+  }
+  area(): number {
+    return this.s * this.s;
+  }
+}
+const q = new Sq(3);
+console.log(q.area(), q.describe(), q instanceof Shape);
+`,
+  },
+  {
+    id: "ex-interface-extends-generic-implements",
+    title: "接口继承泛型接口，类再 implements",
+    src: `
+interface A<T> { a: T }
+interface B<T> extends A<T> { b: T }
+class C implements B<number> { a = 1; b = 2 }
+const c = new C();
+console.log(c.a + c.b);
+`,
+  },
+  {
+    id: "ex-declare-module-and-global",
+    title: "declare module / declare global 一条运行期指令都不产生",
+    src: `
+declare module "some-lib" {
+  export const value: number;
+}
+declare global {
+  interface Window { z: number }
+}
+declare const ambient: number;
+console.log("ok", typeof ambient);
+`,
+  },
+  {
+    id: "ex-optional-chain-index",
+    title: "可选链接下标：o.a?.[0]?.b",
+    src: `
+const o: any = { a: [{ b: 1 }] };
+console.log(o.a?.[0]?.b, o.x?.[0]?.b, o.a?.[1]?.b);
+`,
+  },
+  {
+    id: "ex-arrow-immediately-invoked-typed",
+    title: "带类型标注的箭头立即调用",
+    src: `
+console.log(((a: number, b: number) => a + b)(1, 2));
+`,
+  },
+  {
+    id: "ex-nonnull-chain-index",
+    title: "非空断言串在成员链上：o!.a!.b![1]",
+    src: `
+const o: any = { a: { b: [1, 2] } };
+console.log(o!.a!.b![1]);
+`,
+  },
+  {
+    id: "ex-as-arithmetic-precedence",
+    title: "as 与二元运算符的优先级：(a as number) + 1",
+    src: `
+const a: unknown = 1;
+console.log((a as number) + 1, (a as number) * 3);
+`,
+  },
+  {
+    id: "ex-satisfies-as-const-combo",
+    title: "as const 与 satisfies 一起用",
+    src: `
+const cfg = { a: 1, b: "x" } as const satisfies { a: number; b: string };
+console.log(cfg.a, cfg.b);
+const fn = ((x: number) => x * 2) satisfies (x: number) => number;
+console.log(fn(3));
+`,
+  },
+  {
+    id: "ex-enum-namespace-merge",
+    title: "enum 与 namespace 合并：两份都在同一个名字上",
+    src: `
+enum E { A = 1, B = 2 }
+namespace E { export const label = "e"; }
+console.log(E.A, E.B, E.label);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "ex-this-type-and-polymorphic",
+    title: "this 类型：返回 this、链式调用",
+    src: `
+class C {
+  v = 0;
+  set(n: number): this {
+    this.v = n;
+    return this;
+  }
+}
+const c = new C().set(1).set(2);
+console.log(c.v, c instanceof C);
+`,
+  },
+  {
+    id: "ex-indexed-access-and-keyof",
+    title: "keyof / 下标访问类型：只用类型、运行期照样跑",
+    src: `
+type O = { a: number; b: string };
+type K = keyof O;
+type V = O["a"];
+const k: K = "a";
+const v: V = 1;
+console.log(k, v, typeof v);
+`,
+  },
+  {
+    id: "ex-mapped-type-modifiers",
+    title: "映射类型带 readonly / 可选修饰",
+    src: `
+type M<T> = { readonly [K in keyof T]?: T[K] };
+const m: M<{ a: number }> = { a: 1 };
+console.log(m.a);
+`,
+  },
+  {
+    id: "ex-template-literal-type",
+    title: "模板字面量类型：`hello ${string}`",
+    src: `
+type Greet = \`hello \${string}\`;
+const g: Greet = "hello world";
+console.log(g);
+`,
+  },
+  {
+    id: "ex-conditional-infer-type",
+    title: "条件类型里的 infer",
+    src: `
+type El<T> = T extends (infer U)[] ? U : never;
+const x: El<number[]> = 3;
+const y: El<string> = "z" as never;
+console.log(x, typeof y);
+`,
+  },
+  {
+    id: "ex-assertion-function",
+    title: "断言函数：asserts x is string",
+    src: `
+function assertIsString(x: unknown): asserts x is string {
+  if (typeof x !== "string") throw new Error("not a string");
+}
+const v: unknown = "hi";
+assertIsString(v);
+console.log(v.length);
+try {
+  assertIsString(1 as unknown);
+} catch (e) {
+  console.log((e as Error).message);
+}
+`,
+  },
+  {
+    id: "ex-destructured-params-defaults",
+    title: "解构形参 + 整段默认值 + 元素默认值",
+    src: `
+function f({ a = 1, b }: { a?: number; b: string } = { b: "z" }) {
+  return a + b;
+}
+console.log(f(), f({ b: "q" }), f({ a: 5, b: "w" }));
+`,
+  },
+  {
+    id: "ex-static-block-with-loop",
+    title: "静态块里跑循环与判断",
+    src: `
+class C {
+  static xs: number[] = [];
+  static {
+    for (let i = 0; i < 4; i++) {
+      if (i % 2 === 0) C.xs.push(i);
+    }
+  }
+}
+console.log(C.xs.join(","));
+`,
+  },
+  {
+    id: "ex-readonly-array-param",
+    title: "readonly 数组形参：类型位擦掉、值照走",
+    src: `
+function sum(xs: readonly number[]): number {
+  return xs.reduce((a, b) => a + b, 0);
+}
+const xs: readonly number[] = [1, 2, 3];
+console.log(sum(xs), sum([4, 5]));
+`,
+  },
+  {
+    id: "ex-union-narrowing-typeof",
+    title: "联合类型 + typeof 收窄：两个分支都跑",
+    src: `
+function f(x: string | number): string {
+  if (typeof x === "string") return x.toUpperCase();
+  return x.toFixed(1);
+}
+console.log(f("abc"), f(2));
+`,
+  },
+  {
+    id: "ex-intersection-type-value",
+    title: "交叉类型：值位只是对象字面量",
+    src: `
+type A = { a: number };
+type B = { b: number };
+const ab: A & B = { a: 1, b: 2 };
+console.log(ab.a + ab.b);
+`,
+  },
+  {
+    id: "ex-unique-symbol-type",
+    title: "unique symbol 与计算属性名",
+    src: `
+const key: unique symbol = Symbol("k");
+const o = { [key]: 1 };
+console.log(o[key], typeof key);
+`,
+  },
+  {
+    id: "ex-as-in-default-param",
+    title: "默认值里写 as",
+    src: `
+function f(x = 1 as number) {
+  return x;
+}
+console.log(f(), f(2));
+`,
+  },
+  {
+    id: "ex-optional-chain-on-call-result",
+    title: "调用结果上的可选链：f()?.a",
+    src: `
+const f = (): any => ({ a: 1 });
+console.log(f()?.a, f()?.b?.c);
+`,
+  },
+  {
+    id: "ex-type-predicate-arrow-as-callback",
+    title: "类型谓词写在箭头上、当回调传",
+    src: `
+const isNum = (x: unknown): x is number => typeof x === "number";
+console.log([1, "a", 2].filter(isNum).join(","));
+`,
+  },
+  {
+    id: "ex-generic-class-static-and-field",
+    title: "泛型类：静态成员、字段、方法各一份",
+    src: `
+class Box<T> {
+  static count = 0;
+  v: T;
+  constructor(v: T) {
+    this.v = v;
+    Box.count++;
+  }
+  map<U>(f: (x: T) => U): Box<U> {
+    return new Box(f(this.v));
+  }
+}
+const b = new Box(2).map((x) => x * 3);
+console.log(b.v, Box.count);
+`,
+  },
+  {
+    id: "ex-abstract-new-type-position",
+    title: "类型位上的 abstract new：值位只是一个类",
+    src: `
+type Ctor<T> = abstract new (x: number) => T;
+class A {
+  x: number;
+  constructor(x: number) {
+    this.x = x;
+  }
+}
+const C: Ctor<A> = A;
+console.log(new C(4).x);
+`,
+  },
+  {
+    id: "ex-optional-and-rest-with-generics",
+    title: "带泛型的可选形参与剩余形参",
+    src: `
+function f<T>(a: T, b?: T, ...rest: T[]): string {
+  return [a, b, rest.length].join("|");
+}
+console.log(f(1), f(1, 2), f("a", "b", "c", "d"));
+`,
+  },
+  {
+    id: "ex-nonnull-in-call-args",
+    title: "非空断言落在实参位上",
+    src: `
+let maybe: { m: () => number } | null = { m: () => 3 };
+console.log(maybe!.m());
+`,
+  },
+  {
+    id: "ex-arrow-generic-in-call-args",
+    title: "泛型箭头直接当实参",
+    src: `
+const apply = <T, U>(v: T, f: (x: T) => U): U => f(v);
+console.log(apply(2, <T,>(x: T): T => x));
+`,
+  },
+
+  {
+    id: "ex-type-alias-same-line",
+    title: "类型别名与后续语句写在同一行：别名擦掉、语句照跑",
+    src: `
+type F = () => number; const f: F = () => 7; console.log(f());
+interface I { n: number } const v: I = { n: 1 }; console.log(v.n);
+type G = { a: number } | null; const g: G = { a: 2 }; console.log(g.a);
+`,
+  },
 ];
