@@ -4236,4 +4236,17 @@ const src = { a: 1, b: { c: 2 } };
 console.log(o.x, o.y);
 `,
   },
+
+  // ===== 第 307 轮：量「`typeof` 的操作数位」时新收的两条 =====
+
+  {
+    id: "c307-rt-typeof-element-call-bare",
+    title: "`typeof` 后面直接跟「下标调用」（没有外层括号）",
+    src: "\nconst o: any = { m: () => ({ a: 1 }) };\nconsole.log(typeof o[\"m\"](), typeof o.m());\n",
+  },
+  {
+    id: "c307-rt-typeof-element-call-in-args",
+    title: "`typeof` 的操作数是「下标调用」，而且它不是实参表的第一格",
+    src: "\nconst o: any = { m: () => ({ a: 1 }) };\nconsole.log(\"x\", typeof (o[\"m\"]()));\n",
+  },
 ];

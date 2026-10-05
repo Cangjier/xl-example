@@ -1,6 +1,6 @@
 {
-  "round": "306",
-  "matrix": 1098,
+  "round": "307",
+  "matrix": 1100,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 91.75,
+  "progressPercent": 92.48,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 354,
+      "total": 356,
       "pass": 320,
-      "blocked": 16,
-      "differ": 18,
+      "blocked": 17,
+      "differ": 19,
       "nodefail": 0,
-      "coverage": 90.4
+      "coverage": 89.89
     },
     {
       "layer": "exec",
@@ -59,21 +59,21 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 448,
-      "pass": 408,
-      "blocked": 22,
+      "pass": 409,
+      "blocked": 21,
       "differ": 18,
       "nodefail": 0,
-      "coverage": 91.07
+      "coverage": 91.29
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 25,
-      "pass": 22,
-      "blocked": 1,
+      "pass": 23,
+      "blocked": 0,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 88
+      "coverage": 92
     }
   ],
   "blocked": [
@@ -174,6 +174,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
     },
     {
+      "id": "c307-rt-typeof-element-call-bare",
+      "layer": "runtime",
+      "title": "`typeof` 后面直接跟「下标调用」（没有外层括号）",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
       "id": "ex-tagged-template-suffix",
       "layer": "exec",
       "title": "标签模板后面接成员 / 运算符 / 实参",
@@ -250,12 +256,6 @@
       "layer": "stdlib",
       "title": "normalize：ASCII 上原样、组合字符上合一",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c291-symbol-wellknown-custom-iterator",
-      "layer": "stdlib",
-      "title": "自定义 Symbol.iterator：可迭代对象与 Object.keys 的对照",
-      "detail": "tsrun: 脚本抛出：suspend outside a generator"
     },
     {
       "id": "c291-function-tostring-forms",
@@ -346,12 +346,6 @@
       "layer": "stdlib",
       "title": "`Object.getOwnPropertyDescriptors` 一次拿全部描述符",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c305-e2e-linked-list-ops",
-      "layer": "e2e",
-      "title": "链表：类 + 私有字段 + 迭代器协议 + 反转",
-      "detail": "tsrun: 脚本抛出：suspend outside a generator"
     }
   ],
   "differ": [
@@ -462,6 +456,12 @@
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
+    },
+    {
+      "id": "c307-rt-typeof-element-call-in-args",
+      "layer": "runtime",
+      "title": "`typeof` 的操作数是「下标调用」，而且它不是实参表的第一格",
+      "detail": "stdout 不同：第 1 行：node «x object» vs tsrun «x function»"
     },
     {
       "id": "ex-getter-setter-class",

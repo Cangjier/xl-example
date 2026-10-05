@@ -2644,6 +2644,44 @@ const info = FunctionAtEntry(this.Code(), closure.Code);
 if (info === null) {
   throw new Error("closure points at no function: " + closure.Code);
 }
+// **生成器函数在这一条路上也要「只造对象、不跑体」** ✓（第 307 轮修的 ✗）。
+//
+// **这一格原来是漏的** ✗：`DoCallValue`（`Op.Call` / `Op.CallMethod` 那一族 ✓）**有**这一支 ✓，
+// 而 `CallNative` 这一条**重入**路（访问器 ✓、内建回调 ✓、**迭代协议** ✓）**没有** ✗——
+// 于是一个生成器函数**经重入被调**时，它按普通函数压帧跑 ✓ ⇒ 体里第一条 `suspend` 就报
+// `suspend outside a generator` ✗（那一帧的 `Generator` 是 0 ✓，见 `DoSuspend` ✓）。
+//
+// **症状很会骗人** ✗（实测 ✓）：`const it = a[Symbol.iterator](); it.next()` **全对** ✓
+//（那是脚本自己发的 `Op.CallMethod` ✓，走 `DoCallValue` ✓），
+// 而 `[...a]` / `Array.from(a)` / `for (const v of a)` **全抛** ✗
+//（那三条都由引擎经 `call` 通道去调那个方法 ✓）。
+// **同一条判据两种结局**，看起来像「展开坏了」✗，其实是**两条调用路少了一支** ✓。
+//
+// **修法与 `DoCallValue` 那一支一字不差** ✓：开一帧（但**不上栈** ✓）、把实参铺进去 ✓、
+// 包成生成器对象 ✓、把这**对象**交回去 ✓——体由 `next()` 推着跑 ✓（`DoIterNext` ✓）。
+// **它必须排在上面那几件重入记账之前** ✗：这一趟**根本不进分派循环** ✓
+//（`NativeDepth` / `NativeResult` / 「这一趟出过事吗」都无从谈起 ✓），
+// 排在后面会把一次「只是造个对象」的调用记成一次重入 ✗。
+//
+// **一处已知差写在明处** ✗（与这一支的**非生成器**那一半同一条 ✓）：
+// 这一条路只按格数铺实参 ✓、**不收剩余参数** ✗（`FillParameters` 要调用者的帧 ✓，
+// 而重入没有调用者的帧 ✓）——`*[Symbol.iterator](...xs)` 这种写法今天仍是丢的 ✓；
+// 普通函数经重入调时**也一样丢** ✓（同一个缺口 ✓），不是这一轮带出来的 ✗。
+if (info.IsGenerator) {
+  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge)) return Value.Undefined();
+  const createdHandle = this.Table.CreateFrame(closure.Code, info.SlotCount, 0, -1);
+  const created = this.Table.Get(createdHandle).AsFrame();
+  created.Pc = closure.Code;
+  created.Env = closure.Env;
+  created.This = thisValue;
+  for (let i = 0; i < args.length && i < info.SlotCount; i++) {
+    created.Slots[i] = args[i];
+  }
+  const generatorHandle = this.Table.CreateGenerator(createdHandle);
+  created.Generator = generatorHandle;
+  this.AttachGeneratorProto(generatorHandle);
+  return Value.FromObject(generatorHandle);
+}
 if (this.NativeDepth >= MaxNativeDepth) {
   throw new Error("native re-entry is too deep: " + this.NativeDepth);
 }

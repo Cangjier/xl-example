@@ -638,7 +638,6 @@ export const EXPECTATIONS = {
   // **组 N：`WeakSet`（1 条）** ✓
   //
   // **组 O：计算键 + 生成器方法（1 条）** ✓
-  "c291-symbol-wellknown-custom-iterator": { expect: "blocked", why: "对象字面量里**计算键 + 生成器方法**（`{ [Symbol.iterator]: function* () {} }`）报 `suspend outside a generator`——方法那一格建成了普通闭包，`yield` 就落在生成器外面" },
   //
   // **组 P：`Date.parse`（1 条）** ✓
   //
@@ -715,5 +714,17 @@ export const EXPECTATIONS = {
   // 直接调它是对的 ✓、**由协议/展开去调它就丢了生成器那一档** ✗——
   // 与台账里 `c291-symbol-wellknown-custom-iterator` 那一行**是同一个根** ✓（那一行写着
   // 「方法那一格建成了普通闭包」✓，这一轮把它量得更准了 ✓）。下一轮从这里下手 ✓。
-  "c305-e2e-linked-list-ops": { expect: "blocked", why: "生成器 + 计算成员名：第 306 轮把 token 层那两处修好了（`*` 不再被折成乘法、名字不再收两遍），投影与 TS 的 AST 现在一字不差。**卡的地方深了一层**，现在是运行期 `suspend outside a generator`：同一个生成器方法 `a[Symbol.iterator]()` 直接调是好的（`it.next()` 给 `{value:1,done:false}`），而 `[...a]` / `Array.from(a)` / `for..of` 全抛，`[...a[Symbol.iterator]()]` 还给 `[object Object]`；换个普通方法名再用普通方法返回它就全对 ⇒ 根子在「计算成员名 + 生成器方法」进迭代协议那一条路上（与 `c291-symbol-wellknown-custom-iterator` 同一个根）" },
+  // **第 307 轮量到、当场收进矩阵的两条** ✓（同一族的两个面 ✓）：`typeof` 的操作数位
+  // 遇到「下标调用」时会把它**拆开** ✗——实测的 token 树是
+  // `<UnaryOperator op="typeof"><Keyword>typeof</Keyword><PropertyAccess>b["m"]</PropertyAccess></UnaryOperator>`
+  // **加上一个平级的 `()` 括号** ✓：于是 `typeof b["m"]` 先算出一个**函数** ✓、
+  // 那个括号成了**对结果的调用** ✓ ⇒ `cannot call a non-closure value` ✗（离现场很远 ✗）。
+  // **加一层括号就对了** ✓（`typeof (o["m"]())` ✓）——所以判据写清了是**哪一种排布** ✓。
+  // **第二条是它的另一半** ✗：有了外层括号之后 token 树是对的 ✓，可当键是**符号值**
+  // （`c[s]()` / `e[Symbol.iterator]()` ✓）时**投影/降级又把它读成了方法本身** ✓
+  //（`typeof` 给 `"function"` ✗，Node 给 `"object"` ✓，**静默错值** ✗）——
+  // 而同一个形状换**字符串字面量**键就是对的 ✓。两条与缺口清单 #9 那一族同源 ✓
+  //（「`typeof` 的操作数位」✓），下一轮照这两条修 ✓。
+  "c307-rt-typeof-element-call-bare": { expect: "blocked", why: "`typeof o[\"m\"]()`（**没有外层括号**）报 `cannot call a non-closure value`——token 树把 `b[\"m\"]` 收进了 `UnaryOperator(typeof)` 里面、而那个 `()` 留在外面平级 ⇒ `typeof` 先算出一个函数、括号成了对结果的调用。加一层括号 `typeof (o[\"m\"]())` 就是好的" },
+  "c307-rt-typeof-element-call-in-args": { expect: "differ", why: "`typeof` 的操作数是**下标调用**、而它又不是**实参表的第一格**时，给的是**方法本身**：`console.log(\"x\", typeof (o[\"m\"]()))` 在 Node 里印 `object`，本仓印 `function`（**静默错值**）。**同一个形状摆在第一格就是对的**（`console.log(typeof (o[\"m\"]()))` ✓）——所以它是**位置**决定的 ✗，不是形状决定的 ✓；与上一条（没有外层括号那一半）同源，都是 `typeof` 的操作数位" },
 };
