@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 88.92,
+  "progressPercent": 89.29,
   "layers": [
     {
       "layer": "runtime",
@@ -34,11 +34,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 81,
-      "pass": 72,
+      "pass": 73,
       "blocked": 6,
-      "differ": 3,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 88.89
+      "coverage": 90.12
     },
     {
       "layer": "stdlib",
@@ -195,12 +195,6 @@
       "layer": "exec",
       "title": "索引签名 + 调用签名 + 构造签名（都是类型位）",
       "detail": "stdout 不同：第 1 行：node «3 2 t 4» vs tsrun «3 2 t undefined»"
-    },
-    {
-      "id": "ex-enum-computed-initializer",
-      "layer": "exec",
-      "title": "enum 成员的初始化式是算出来的（反向映射那一格）",
-      "detail": "stdout 不同：第 1 行：node «10 20 2 A B C» vs tsrun «10 20 2 undefined undefined undefined»"
     },
     {
       "id": "object-freeze-array-element",

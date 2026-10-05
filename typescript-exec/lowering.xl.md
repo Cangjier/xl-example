@@ -2252,6 +2252,7 @@ TS 编译器做的是**变换**（`--experimental-transform-types` ✓），不�
 | `enum C { Red, Green = 5, Blue }` | `C.Red = 0` / `C.Green = 5` / `C.Blue = 6` ✓ | `C[0] = "Red"` / `C[5] = "Green"` / `C[6] = "Blue"` ✓ |
 | `enum S { A = "a" }` | `S.A = "a"` ✓ | **没有** ✗（`S["a"]` 是 `undefined` ✓，实测 ✓） |
 | `enum M { X = 1, Y = "why", Z = 3 }` | `M.X = 1` / `M.Y = "why"` / `M.Z = 3` ✓ | `M[1] = "X"` / `M[3] = "Z"` ✓（`"why"` 那一格没有 ✓） |
+| **`enum F { A = BASE, B = BASE * 2, C = 1 + 1 }`** | `F.A = 10` / `F.B = 20` / `F.C = 2` ✓ | **三格全挂** ✓（`F[10] = "A"` ✓ … `F[2] = "C"` ✓）——**第 283 轮改准的口径** ✓（原来这三格**一格都不挂** ✗，见 `TakesReverseMapping` 那一段 ✓） |
 
 **自动累加的两条规矩** ✓（与 Node 的变换逐值对过 ✓）：
 - **没有初始化式的成员** = **上一个成员的数值 + 1** ✓（一个都没有就是 `0` ✓）；
@@ -2330,12 +2331,14 @@ for (let i = 0; i < members.length; i++) {
   const nameKey = this.Reserve(1);
   this.Emit(Op.Const, nameKey, this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(memberName)))), -1, -1);
   this.SetPropertyValue(object, nameKey, value);
-  // **反向那一格** ✓：只在「值是一个数值」时挂 ✓（字符串成员**不挂** ✓，见上面那张表 ✓）。
-  // **判据在编译期问一次** ✗：`IsNumericInitializer` 只认「没有初始化式」与
-  // 「初始化式是数值字面量」两档 ✓——`A = 1 + 1` 那种**算出来的数**这一轮**不做** ✗
-  // （它要在运行期才知道是不是数 ✓，而 `set_prop` 的值键那条路**不区分** ✓，
-  //  真要做就得先问一次 `typeof` ✓——记在台账里 ✓，不静默挂错一格 ✗）。
-  if (this.IsNumericInitializer(initializer)) {
+  // **反向那一格** ✓：**只有字符串成员不挂** ✓（第 283 轮把口径改准了 ✓）。
+  //
+  // **原来那一版只认前两档** ✗（「没有初始化式」与「初始化式是数值字面量」✓）——
+  // 于是 `A = BASE` ✓、`B = BASE * 2` ✓、`C = 1 + 1` ✓ 这些**算出来的数**
+  // 全都**少挂了一格** ✗（判据 `ex-enum-computed-initializer` 现场就是它 ✓：
+  // 正向三格都对 ✓、反向三格全是 `undefined` ✗）。
+  // **理由与那张表都在 `TakesReverseMapping` 那一段** ✓（含「为什么不必问运行期 `typeof`」✓）。
+  if (this.TakesReverseMapping(initializer)) {
     // **数值那一格**：键先**字符串化**再挂 ✓（`RtOp.ToString` ✓）。
     // **这一步不能省** ✗：`set_prop` 的键只认字符串 / 符号 ✓（`props.xl.md` 的 `KeyMatches` ✓，
     // 它见到别的就抛 `property keys must be strings or symbols` ✓）——
@@ -2370,24 +2373,42 @@ this.BindName(TextOf(nameNode), object, false);
 return NumberFromText(text);
 ```
 
-## method IsNumericInitializer:(initializer:AstNode | null)=>bool
+## method TakesReverseMapping:(initializer:AstNode | null)=>bool
 
-**这一格成员的值是不是一个数值**（第 230 轮 ✓）——**反向映射要不要挂**靠它 ✓。
+**这一格成员要不要挂反向那一格**（第 230 轮 ✓，第 283 轮**把口径改准** ✓）。
 
-**只认能证的两档** ✓（不猜 ✗）：
-- **没有初始化式** ✓ ⇒ 一定是数值 ✓（自动累加那条路 ✓）；
-- **初始化式是数值字面量** ✓（`NumericLiteral` ✓，含 `0x10` 那几种写法 ✓——
-  投影把它们都投成 `NumericLiteral` ✓，`text` 里是原文 ✓）。
+**TS 的口径是「只有字符串成员不挂」** ✗——不是「只有数值字面量才挂」✗。
+两者在**算出来的数**上分道扬镳 ✓：
 
-**其余一律给假** ✗：`A = 1 + 1` ✓、`A = other` ✓、字符串字面量 ✓——
-**假的意思是「不挂反向那一格」** ✓，而 `enum { X = 1 + 1 }` 在 JS 里**是挂的** ✗
-（那一格是 `C[2] = "X"` ✓）——所以这是一处**已知差** ✓，记在台账里 ✓。
-**为什么不静默按「字符串」或「数值」猜一个** ✗：猜错了挂出来的是**一个错的键** ✓
-（`C["2"]` 找不到 ✓），而那种错**不报错** ✗——「少挂一格」至少是**缺**，不是**错** ✓。
+| 初始化式 | 反向那一格 |
+| --- | --- |
+| 没有（自动累加 ✓） | **挂** ✓ |
+| `5` / `0x10` ✓ | **挂** ✓ |
+| `BASE`（引用一个 `const` ✓） | **挂** ✓ |
+| `BASE * 2` / `1 + 1` ✓ | **挂** ✓（**这一档原来漏了** ✗） |
+| `"a"` / `` `a` `` / `` `a${b}` `` ✓ | **不挂** ✗ |
+
+**为什么原来那一版只认前两档** ✓（第 230 轮自己写下的理由 ✓）：
+反向那一格要**先知道值是不是数** ✓，而 `set_prop` 的值键那条路**不区分类型** ✗
+（挂一个字符串键也照挂 ✓）——所以当初只敢挂「编译期能证是数」的那两档 ✓。
+
+**那一条理由现在不成立了** ✗：能证的不是「值是不是数」✓，而是**「TS 会不会挂这一格」** ✓。
+而 TS 的判据是**语法上的** ✓：初始化式**不是字符串字面量**就挂 ✓
+（`emitEnumMember` 只看这一件事 ✓，值算出来是什么它不管 ✓）。
+**于是这一格完全不需要运行期 `typeof`** ✓（第 230 轮那句「真要做就得先问一次 `typeof`」
+**是多余的** ✗——语法上就能定 ✓）。
+
+**为什么「算出来的数是字符串」那一档不必担心** ✓：TS **在编译期就拒收**它 ✓
+（「计算属性名必须是数值」✓），所以「不是字符串字面量就挂」这条口径
+**不会挂出一个错的键** ✓。
+
+**判据复用 `IsTextLiteral`** ✓（`+` 那条换路用的同一个 ✓）：它认三种字符串形态 ✓
+（`StringLiteral` ✓、没有内插的模板 ✓、有内插的模板 ✓）——**不另写一份** ✗，
+第二份迟早会与第一份走偏 ✓。
 
 ```ts
 if (initializer === null) return true;
-return NodeKind(initializer) === "NumericLiteral";
+return !this.IsTextLiteral(initializer);
 ```
 
 ## method BindName:(name:string, value:int, isVar:bool)=>void
