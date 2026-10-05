@@ -153,8 +153,16 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 300 轮读数：**722 / 776 = 94.6%**，
-其中**引擎 91.3%** ✓、降级层 **94.5%** ✓、标准库 **93.6%** ✓、**端到端 100.0%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 301 轮读数：**725 / 777 = 94.8%**，
+其中**引擎 91.3%** ✓、**降级层 95.1%** ✓、标准库 **93.6%** ✓、**端到端 100.0%** ✓——
+**第 301 轮**由一条红条牵出**一格投影** ✓：`const K: Ctor = class { n: number; constructor(n) { this.n = n } }`
+之后 `new K(4).n` 给 `undefined` ✓（Node 给 `4` ✓），而 `class { n = 1; constructor(v) { this.n = v } }`
+给 **`1`** ✓（Node 给 `7` ✓）——**字段初始化式把构造函数的赋值盖掉了** ✓，**一句异常都没有** ✗。
+**根子**：投影里 `constructor` → `Constructor` 那条规矩只认 `parentKind === "ClassDeclaration"` ✗，
+类**表达式**的成员于是留成 `MethodDeclaration` ✓；降级层按 `NodeKind === "Constructor"` 找显式构造函数 ✓，
+找不到就**合成一个空的** ✓（写着的那个整条不跑 ✗）。
+**TS 两种都投 `Constructor`** ✓ ⇒ 是**投影漏了一格** ✗，补上之后 `cases:tsast` **1444/1444 照旧全绿** ✓
+（它本来就不该红 ✓，而语料里**没有**这一格 ✗——按口径补了一条判据 ✓）。
 **第 300 轮把端到端那一层清了** ✓（13/13 ✓，这一条从第 296 轮起红了两轮 ✓，
 而两轮的红**不是同一个病** ✓）。**根子**：`CallFailed` 的两格（`NativeFailed` / `NativeEscaped`）
 是**重入**的账本 ✓，只在 `CallNative` 里按趟归零 ✓——而**能力调用那一条路不经过 `CallNative`** ✗

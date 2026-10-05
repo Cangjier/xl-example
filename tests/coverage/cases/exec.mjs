@@ -2229,4 +2229,25 @@ console.log(E.A, E.extra);
 `,
     nodeArgs: ["--experimental-transform-types"],
   },
+  // ===== 第 301 轮补的一条：类表达式里的 constructor =====
+  // 它是**量那条红条时顺手加的** ✓（用户口径：「发现新问题就加对应语料」✓）——
+  // 类**表达式**里的 `constructor` 原来被投成 `MethodDeclaration` ✗（只有 `ClassDeclaration`
+  // 那一格认它 ✓），降级层于是**合成一个空构造函数** ✓、写着的那个整条不跑 ✗。
+  // 这一条把**三个落点**一起钉住 ✓：构造函数体跑了 ✓、字段初始化式的**次序**对 ✓、
+  // 以及**派生类**那一档不受影响 ✓。
+  {
+    id: "c301-class-expression-constructor",
+    title: "类表达式里的 constructor：体要跑、字段初始化要在体之前",
+    src: `
+interface Ctor { new (n: number): { n: number } }
+const K: Ctor = class { n: number; constructor(n: number) { this.n = n; } };
+console.log(new K(4).n);
+const L = class Named { n = 1; constructor(v: number) { this.n = v; } };
+console.log(new L(7).n);
+const Base = class { greet(): string { return "base"; } };
+const Derived = class extends Base { tag = "d"; constructor() { super(); this.tag = this.tag + "!"; } };
+const d = new Derived();
+console.log(d.greet(), d.tag);
+`
+  },
 ];

@@ -1018,7 +1018,7 @@ new Map([
   }
   else if (
     v.type === "MethodDeclaration" &&
-    parentKind === "ClassDeclaration" &&
+    (parentKind === "ClassDeclaration" || parentKind === "ClassExpression") &&
     v.attrs.get("name") === "constructor"
   ) {
     // **判据是 `name` 属性、不是 `textOf`**：方法单元自己没有 `value`，
@@ -1027,6 +1027,20 @@ new Map([
     // kind 名是 **`Constructor`**（`ts.SyntaxKind[177]` 印出来就是 `Constructor`；
     // `ConstructorDeclaration` 在这个 TypeScript 里是 `undefined`——按后者投，
     // 尺子上 269 处构造签名会一直算作「缺 `Constructor`」）。
+    //
+    // **`ClassExpression` 是第 301 轮补上的** ✗——原来只认 `ClassDeclaration` ✓，
+    // 于是**类表达式里的 `constructor` 一直是 `MethodDeclaration`** ✗
+    //（判据 `ex-index-and-call-signatures` 现场红的 ✓：`const K: Ctor = class { n: number;
+    //  constructor(n) { this.n = n } }` 之后 `new K(4).n` 给 `undefined` ✓，
+    //  Node 给 `4` ✓）。**TS 那边两种都投 `Constructor`** ✓（`ClassExpression` 的成员
+    // 就是 `ConstructorDeclaration` ✓）——所以这是**投影漏了一格** ✗，不是「两种口径」✗。
+    //
+    // **不补这一格的后果离现场很远** ✗：降级层按 `NodeKind(members[i]) === "Constructor"`
+    // 找显式构造函数 ✓（`LowerClass` ✓）——找不到就**合成一个空的** ✓，
+    // 于是**写着的构造函数整条不跑** ✗，字段初始化式还照常发 ✓
+    // ⇒ `n: number`（无初始化式 ✓）留下 `undefined` ✓、`n = 1` 把构造函数的赋值**盖掉** ✓
+    //（实测 `class { n = 1; constructor(v) { this.n = v } }` 给 `1` ✓，Node 给 `7` ✓）。
+    // **一句异常都没有** ✗——只有与 `node` 逐字节对拍才看得见 ✓。
     kind = "Constructor";
   }
   // **取值器 / 设值器**（`get x(): A { … }` / `set x(v) { … }`，第 93 轮）：

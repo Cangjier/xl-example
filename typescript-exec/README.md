@@ -6,6 +6,69 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 301 轮的账（**类表达式里的 `constructor`** —— 94.6% → 94.8%，降级层 94.5% → 95.1%）
+
+**一条红条牵出一格投影** ✓——而它藏得住的理由，正是「**没试过的写法看起来和对的一样**」✓。
+
+### 一、症状：写着的构造函数整条不跑
+
+```
+const K: Ctor = class { n: number; constructor(n: number) { this.n = n; } };
+new K(4).n                       ⇒ undefined      ✗（Node 给 4）
+const L = class { n = 1; constructor(v: number) { this.n = v; } };
+new L(7).n                       ⇒ 1              ✗（Node 给 7）
+```
+
+第二条把话说死了 ✓：**字段初始化式把构造函数的赋值盖掉了** ✗——
+说明构造函数体**根本没跑** ✓，而字段初始化式照常发 ✓。
+
+**一句异常都没有** ✗、退出码 0 ✓。
+
+### 二、根子：投影那条规矩只认一种父节点
+
+`print-ast-common.xl.md` 里把成员投成 `Constructor` 的那一条 ✓：
+
+```ts
+v.type === "MethodDeclaration" &&
+parentKind === "ClassDeclaration" &&      // ← 只有声明这一格 ✗
+v.attrs.get("name") === "constructor"
+```
+
+**类表达式的父节点是 `ClassExpression`** ✗ ⇒ 它的 `constructor` 一直留成 `MethodDeclaration` ✓。
+而降级层找显式构造函数用的是 `NodeKind(members[i]) === "Constructor"` ✓
+（`LowerClass` ✓）——找不到就**合成一个空的** ✓：**写着的那个整条不跑** ✗。
+
+**TS 那边两种都投 `Constructor`** ✓（`ClassExpression` 的成员就是 `ConstructorDeclaration` ✓）
+⇒ 这是**投影漏了一格** ✗，不是「两种口径」✓——所以修法是**加一个父节点** ✓，不是记一条已知差 ✗。
+
+### 三、`cases:tsast` 为什么没红
+
+补上那一格之后 **`cases:tsast` 1444 / 1444 照旧全绿** ✓——它**本来就不该红** ✓
+（TS 的答案一直是 `Constructor` ✓）。它没红是因为**语料里没有「类表达式 + 构造函数」这一格** ✗：
+按用户的「发现新问题就加对应语料」补了一条 ✓（`c301-class-expression-constructor` ✓，
+三个落点一起钉 ✓：体要跑 ✓、字段初始化在体**之前** ✓、派生类那一档不受影响 ✓）。
+
+### 四、它为什么藏得住
+
+类表达式**多为「匿名交出去」** ✓（`const K = class { }` 这类 ✓），
+而**没有显式构造函数**时，降级层合成的那一个**恰好就是对的** ✓——
+只有**写了构造函数**的那一格才露 ✓。**「没试过」与「一样」在纸上是分不开的** ✓
+（与第 297 / 299 轮那两条同一类 ✓）。
+
+### 五、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   91.3%   231/253   (blocked 12 · differ 10 · bad 0)   没动
+exec      95.1%   174/183   (blocked 5  · differ 4  · bad 0)   +1 条（含新加 1 条）
+stdlib    93.6%   307/328   (blocked 9  · differ 12 · bad 0)   没动
+e2e      100.0%    13/13    (blocked 0  · differ 0  · bad 0)   没动
+合计      94.8%   725/777   blocked 26 · differ 26 · bad 0
+```
+
+**红的一栏是 0** ✓；`runtime:check` **241 条** ✓、`runtime:cli` **79 份** ✓、
+`cases:tsast` **1444 / 1444** ✓。
+
 ## 第 300 轮的账（**一次早就被处理掉的展开，把账本留在了「真」上** —— 93.0% → 94.6%，端到端 92.3% → 100.0%）
 
 **端到端那一层清了** ✓（13/13 ✓）——这一条从第 296 轮起红了两轮 ✓，

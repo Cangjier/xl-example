@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 776,
+  "matrix": 777,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.58,
+  "progressPercent": 94.75,
   "layers": [
     {
       "layer": "runtime",
@@ -48,12 +48,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 182,
-      "pass": 172,
+      "total": 183,
+      "pass": 174,
       "blocked": 5,
-      "differ": 5,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 94.51
+      "coverage": 95.08
     },
     {
       "layer": "stdlib",
@@ -302,12 +302,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: this should throw a TypeError (accessor without a setter)"
     },
     {
-      "id": "ex-index-and-call-signatures",
-      "layer": "exec",
-      "title": "索引签名 + 调用签名 + 构造签名（都是类型位）",
-      "detail": "stdout 不同：第 1 行：node «3 2 t 4» vs tsrun «3 2 t undefined»"
-    },
-    {
       "id": "ex-nonnull-and-as-chain",
       "layer": "exec",
       "title": "非空断言与 as 串在一条链上",
@@ -402,8 +396,8 @@
   "moved": [],
   "newlyPassing": [
     {
-      "id": "e2e-mixed-everything",
-      "layer": "e2e"
+      "id": "ex-index-and-call-signatures",
+      "layer": "exec"
     }
   ],
   "regressions": []

@@ -348,7 +348,6 @@ export const EXPECTATIONS = {
   // 实测分得很清 ✓：`const C = class { constructor(n) { this.n = n } }; new C(4).n` 给 `undefined` ✗，
   // 而 `class D { … }; const D2 = D; new D2(5).n` 给 `5` ✓——所以问题不在「`new` 一个变量」✗，
   // 在**那个变量的值是类表达式**这一格 ✗（`instanceof` 反而是对的 ✓）。
-  "ex-index-and-call-signatures": { expect: "differ", why: "`new` 一个**常量里的类表达式**不跑构造函数（`new C(4).n` 给 `undefined`；把类换成一则**类声明**再赋给常量就对）。它与 `instanceof` 无关（那一半是对的）。入口 `typescript-exec/lowering.xl.md` 的 `DoNew` + 类表达式降级" },
 
   // ---- 组 6：`typeof` 的**类表达式**操作数没被收（1 条）----
   // `typeof class C { }` ✓——与第 233 轮那个 `typeof {a: 1}` **同一族** ✓：
