@@ -27,6 +27,8 @@ import { Lamda } from "./lamda/lamda.xl.md"
 import { BinaryOperator } from "./binary-operator.xl.md"
 import { LogicalOperator } from "./logical-operator.xl.md"
 import { NullConditionalOperator } from "./null-conditional-operator.xl.md"
+import { As } from "./as.xl.md"
+import { Satisfies } from "./satisfies.xl.md"
 ```
 
 # namespace cangjie
@@ -136,7 +138,14 @@ return (
   unit instanceof BinaryOperator ||
   unit instanceof LogicalOperator ||
   unit instanceof NullConditionalOperator ||
-  unit instanceof PropertyAccess
+  unit instanceof PropertyAccess ||
+  // **`As` / `Satisfies` 也是表达式** ✓（第 288 轮 ✗）：`a as number + 1` 在 TS 里是
+  // **`(a as number) + 1`** ✓——`as` 那一趟收工之后，`+` 前面站的是**折好的 `As` 单元** ✓。
+  // 少了这一格，`+` 会被读成「前面不是操作数」✗ ⇒ **前缀一元加** ✗
+  //（产物 `<UnaryOperator op="+">+ 1</UnaryOperator>` ✓，与第 69 行那条纪律写的是同一件事 ✓：
+  //  **两份名单必须对齐** ✓，而 `As` 是这一轮才第一次站到那个位置上的 ✓）。
+  unit instanceof As ||
+  unit instanceof Satisfies
 );
 ```
 

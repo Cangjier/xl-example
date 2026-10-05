@@ -756,6 +756,29 @@ return MathResult(Number(literal));
 结果**一定是字符串** ✓——因为调用点上已经保证「有一边是字符串字面量」✓
 （`1 + "x"` 也是 `"1x"` ✓，照 JS 给 ✓）。
 
+# const TemplateConcat:int = 305
+
+**模板串的拼接**（第 288 轮 ✓）——与 `StringConcat` **共用同一支实现** ✓，
+只把 hint 从 `default` 换成 **`string`** ✓。
+
+**为什么非得分两格** ✗：JS 里这两件事的 `ToPrimitive` **hint 不同** ✓：
+
+| 写法 | 规范里的第一步 | 先问谁 |
+| --- | --- | --- |
+| `"x" + o` | `ToPrimitive(o, default)` ✓ | **`valueOf`** ✓ |
+| `` `${o}` `` | `ToString(o)` ⇒ `ToPrimitive(o, string)` ✓ | **`toString`** ✓ |
+
+于是 `const a = { valueOf: () => 5, toString: () => "T" }` 上两个答案**必须不同** ✓：
+`a + 1` 给 `6` ✓、`` `${a}` `` 给 `"T"` ✓。
+本仓原来**两处都走 `StringConcat`** ✗（`default` ✓）⇒ `` `${a}` `` 给 `"5"` ✗——
+**静默错值** ✓，判据 `object-valueof-override` 量的就是它 ✓。
+
+**为什么不给 `StringConcat` 加一个「hint 实参」** ✗：那条路的调用方是**降级层的 `+`** ✓
+（`ConcatValues` ✓），它永远不需要别的 hint ✓；多一个只被一处用的实参
+就是**多一处能传错的地方** ✗（第 283 轮那条：判据分两份迟早走偏 ✓）。
+两个号、一支实现 ✓ 才是这一层本来的形状 ✓（`ParseInt` / `String.fromCharCode` 那一族同款 ✓）。
+
+
 # const StringCtor:int = 220
 
 **`String(x)`** 的能力号（第 145 轮）——**把它当函数调**那一档。
@@ -2042,9 +2065,13 @@ if (id === NumberIsNaN) {
   if (target.Tag !== ValueTag.Float64) return Value.FromBool(false);
   return Value.FromBool(target.Dbl !== target.Dbl);
 }
-if (id === StringConcat) {
-  // **两个值按字符串拼起来**（第 125 轮）——**两边都先 `ToPrimitive`（hint `default`）** ✓
+if (id === StringConcat || id === TemplateConcat) {
+  // **两个值按字符串拼起来**（第 125 轮）——**两边都先 `ToPrimitive`** ✓
   // （第 203 轮改 ✓，走的是与 `RtAdd` **同一张表** ✓：`rt.xl.md` 的 `ToPrimitiveOf` ✓）。
+  //
+  // **hint 按调用方分** ✓（第 288 轮 ✓）：`+` 走 `default` ✓（先 `valueOf` ✓）、
+  // **模板串走 `string`** ✓（先 `toString` ✓）——见 `TemplateConcat` 那一段的表 ✓。
+  // 两支**共用下面这一整段实现** ✓，只在读 hint 那一句上分开 ✓。
   //
   // **原来这里走的是 `ToString`** ✗（`text.xl.md` 的 `ValueUnits` ✓，外加一次
   // 「对象自己的 `toString`」✓，第 193 轮 ✓）——那是**另一个问题** ✗：
@@ -2059,8 +2086,10 @@ if (id === StringConcat) {
   // `ToPrimitive` **可能调脚本** ✓（`valueOf` / `Symbol.toPrimitive` ✓），
   // 而两边都先算完、最后只问一次 room、只分配一次 ✓（与 `RtAdd` 那条纪律同一条 ✓）。
   if (args.length < 2) throw new Error("unimplemented: string_concat needs (left, right)");
-  const left = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[0], ToPrimitiveDefault));
-  const right = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[1], ToPrimitiveDefault));
+  // **唯一分岔** ✓：模板串那一格用 `string` ✓。
+  const concatHint = id === TemplateConcat ? ToPrimitiveString : ToPrimitiveDefault;
+  const left = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[0], concatHint));
+  const right = TextUnitsOf(table, ToPrimitiveOf(room, call, protos, table, args[1], concatHint));
   if (!room(ObjectCharge + CodeUnitCharge * (left.length + right.length))) {
     throw new Error("out of room");
   }

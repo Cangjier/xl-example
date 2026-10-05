@@ -483,18 +483,36 @@ export const EXPECTATIONS = {
   // `nodefail` 的 4 条是**用例自己不合法** ✗ ⇒ 当场改写成合法形状 ✓ 再收 ✓），
   // 于是矩阵里**一条 `nodefail` 都没有** ✓。下面按**根子**分组 ✓。
 
-  // ---- 组 A：引擎的**静默错值**（第 287 轮 7 条，**第 288 轮收掉 1 条**）----
+  // ---- 组 A：引擎的**静默错值**（第 287 轮 7 条，**第 288 / 289 两轮收掉 2 条**）----
   // 这一组是这一轮最值钱的读数 ✗——它们**全是亮的** ✓（没有一句异常），
   // 所以只能靠「与 `node` 逐字节比」才看得见 ✓。
-  // **第 288 轮删掉了 `math-sign-and-negzero` 那一行** ✓（它过了 ✓）：
-  // `Math.min` / `Math.max` 那两个支路原来只写了一句「比大小」✗，而 **`-0 > 0` 是假** ✗
-  // ⇒ **两个零之间的次序丢了** ✓（`1 / Math.max(-0, 0)` 给 `-Infinity` ✗，Node 给 `Infinity` ✓）。
-  // 修法是**一句补充判据** ✓：两个都是零时，`+0` 在 `max` 赢 / `-0` 在 `min` 赢 ✓
-  //（`1 / value > 1 / best` 与它的反向 ✓，一处一行 ✓）。
-  "rt-delete-array-element": { expect: "differ", why: "**静默错值**：`delete xs[1]` 什么都没做（`xs.length` 还是 3、`1 in xs` 还是 true）。`delete` 落在**下标位**上时被当成了「写一个 undefined」而不是「删掉这一格」" },
-  "rt-IIFE-module-scope": { expect: "differ", why: "**静默错值**：内层 `const value = \"inner\"` 覆盖了外层的 `value`（打完是 `inner inner`，Node 给 `outer inner`）——函数体的绑定没有落进**新的一层环境格**，直接写进了外层那一格" },
+  // **第 289 轮删掉了 `object-valueof-override` 那一行** ✓（它过了 ✓）——
+  // **而它有两个根** ✗，两个都是**静默错值** ✓，两个都在这一轮修掉 ✓：
+  // ① **`as` 的优先级**：`a as number + 1` 在 TS 里是 **`(a as number) + 1`** ✓
+  //   （`ts.createSourceFile` 给 `BinaryExpression(AsExpression(a, number), +, 1)` ✓），
+  //   而本规则把 `+ 1` 当成**类型的一部分**吞进了 `As` ✗ ⇒ 降级之后那个 `+ 1` 整个没了 ✓。
+  //   修法在 token 层：`AsReorganization` 收到**值位二元运算符**就收工 ✓（`+ - * / % ** && || ?? == != === !== ^ !` ✓）。
+  //   顺带量出**第二处** ✗：收工之后 `+` 前面站的是**折好的 `As` 单元** ✓，
+  //   而 `UnaryOperator` / `BinaryOperator` 两份 `IsOperand` 名单里**都没有 `As`** ✗
+  //   ⇒ `+` 被读成**前缀一元加** ✗（`<UnaryOperator op="+">+ 1</UnaryOperator>` ✓）。两处一起补才对 ✓。
+  // ② **模板串的 hint**：`` `${o}` `` 在 JS 里是 `ToString(o)` ✓ ⇒ `ToPrimitive(o, "string")` ✓
+  //   **先问 `toString`** ✓——与 `"x" + o`（`default` ✓ **先问 `valueOf`** ✓）**不是同一件事** ✗。
+  //   而本仓两处都走 `StringConcat` ✗ ⇒ `{ valueOf: () => 5, toString: () => "T" }` 印出 `5` ✗（Node 印 `T` ✓）。
+  //   修法是**多一个能力号** `TemplateConcat` ✓（与 `StringConcat` **共用同一支实现** ✓，只换 hint ✓）。
+  // **第 289 轮删掉了 `symbol-toprimitive-and-concat` 那一行** ✓（它过了 ✓）：
+  // 同一条修正顺带把它带过去了 ✓（它那句 `` `${o}` `` 原来也走 `default` ✓）。
+  //
+  // **第 289 轮还删掉了 `rt-delete-array-element` 与 `rt-IIFE-module-scope` 两行** ✓：
+  // ① `delete xs[1]` —— 元素**不住在 `Props` 里** ✓（在 `HeapArray` 的 `Elements` 上 ✓），
+  //    而 `DeleteProperty` 只扫 `Props` ✗ ⇒ **一格都碰不到** ✓ 而且**返回 `true`** ✓。
+  //    修法是在那一段前面加「数组 + 下标键 ⇒ `SetHole`」✓——键有**两种形态** ✗
+  //    （`xs[1]` 给一个整数 ✓、`xs[i]` 也是 ✓；`ArrayIndexAt` 只认字符串 ✓），两档都要认 ✓。
+  // ② `(function () { const n = 2 })()` 改写外层的 `n` —— 根子在 `CellOf` ✗：
+  //    它看的是 `Env.Last()` ✓（**链上最近的一格**），而本函数**没开环境**时
+  //    链尾是**外层函数**的格子 ✓ ⇒ 本层的 `let` / `const` 走 `EnvSet` 写进了外层 ✓
+  //    （**静默错值** ✓）。修法是给降级层加一格 `OwnEnv` ✓（进门置假、真开了才置真 ✓），
+  //    `CellOf` 在它假的时候直接给 `-1` ✓——那个名字于是落到「现在占槽」那一条 ✓。
   "ex-nonnull-and-as-chain": { expect: "differ", why: "**静默错值**：`o!.a!.b![1]` 给整个数组而不是 `2`——非空断言串在成员链上时把后面那一截丢掉了（`(o as any).a.b.length` 是对的）" },
-  "object-valueof-override": { expect: "differ", why: "**静默错值**：`{ valueOf: () => 5 } + 1` 给 `[object Object]1`（Node 给 `6`）——对象当 `ToPrimitive` 时**没有先问 `valueOf`**。`toString` 那一半是对的（`[object Object]` 与 `T` 都对）" },
   "rt-iife-forms": { expect: "differ", why: "**静默错值**：`((a: number, b: number) => a + b)(2, 3)` 给 `NaN`——**带类型标注**的箭头函数出现在立即调用位置时，形参没绑上（不带标注的箭头立即调用是对的）" },
   "rt-class-expr-and-static-this": { expect: "differ", why: "**静默错值**：具名类表达式 `const C = class Named { static who() { return this.name } }` 里 `this.name` 给 `undefined`（Node 给 `Named`）——类表达式的名字没挂到构造函数自己那一格上（`C.name = \"Renamed\"` 之后仍给 `undefined`，说明属性读也没落在它身上）" },
 
@@ -560,7 +578,6 @@ export const EXPECTATIONS = {
   "string-replace-patterns": { expect: "differ", why: "`String.replace` 只认两个字符串实参：**函数替换**与 `$&` 一类替换记号没接（`replaceAll` 的计数形态也是同一格）" },
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "string-charcodes-and-units": { expect: "differ", why: "**码元 vs 码点**：`[...\"A\\u{1F600}B\"]` 给 4 个（代理对被拆开），Node 给 3 个——与 `rt-surrogate-iteration` 同一个根" },
-  "symbol-toprimitive-and-concat": { expect: "differ", why: "`Symbol.toPrimitive` 没被 `+` / 模板 / `String()` 问过（`{} + 1` 给 `…1`、`String(o)` 给 `default`）——引擎的 `ToPrimitive` 只认 `valueOf` / `toString` 两个名字" },
   "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
   "function-prototype-and-bind-forms": { expect: "differ", why: "`bound.length` 给 `undefined`（Node 给 `1`）——绑定函数的 `length` 该是「原函数形参数 − 已绑定的实参数」；`call` / `apply` / `bind` 本身都是好的 ✓" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },

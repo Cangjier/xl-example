@@ -631,8 +631,35 @@ return value;
 不可配置的属性删不掉（严格模式下该抛 `TypeError`，见缺口 2）。
 **属性本来就不存在也算成功**（返回 `true`）——`delete` 一个不存在的属性不报错。
 
+**数组元素要单独删** ✗（第 289 轮 ✓）：元素**不住在 `Props` 里** ✓（在 `Elements` 上 ✓，
+见 `heap.xl.md` 的 `HeapArray` ✓），所以下面那一趟**一格都碰不到它** ✓
+⇒ `delete xs[1]` **什么都没做** ✓ 而且**返回 `true`** ✓——**静默错值** ✗
+（判据 `rt-delete-array-element` 量的就是它 ✓：`1 in xs` 还是真 ✓、`xs[1]` 还是原值 ✓；
+ 而 JS 给的是「那一格变成**洞**」✓：`1 in xs` 假 ✓、`xs.length` **不变** ✓）。
+
+判据与 `ArrayIndexAt` **共用同一个答案** ✓（它写着「前导零不算下标」✓、「超出 `i32` 不算」✓）——
+另写一份「数字键」的判据就是第二处会漂的答案 ✗。
+**越界不算删掉什么** ✓：`delete xs[9]` 在 JS 里是「本来就没有」⇒ 成功 ✓（落到下面那句 `return true` ✓）。
+
 ```ts
 const item = table.Get(receiver);
+if (item.Tag === ValueTag.Array) {
+  // **键有两种形态** ✗：`xs[1]` 的键是一个**整数** ✓（`rt.xl.md` 的 `ArrayIndexAt` 只认字符串 ✓），
+  // 而 `xs[i]` 里 `i` 是数字时同样落成一个数字键 ✓——所以两档都要认 ✓。
+  // **浮点不算下标** ✓（`xs[1.5]` 是属性 ✗）；**负下标不算** ✓（JS 里那是属性 ✗）。
+  let at = -1;
+  if (key.Tag === ValueTag.Int32) {
+    at = key.Int;
+  } else {
+    at = ArrayIndexAt(table, key);
+  }
+  const elements = item.AsArray();
+  if (at >= 0 && at < elements.GetLength()) {
+    elements.SetHole(at);
+    table.Recount(receiver);
+    return true;
+  }
+}
 for (let i = 0; i < item.Props.length; i++) {
   if (!KeyMatches(table, item.Props[i], key)) continue;
   if ((item.Props[i].Flags & PropertyFlagConfigurable) === 0) {

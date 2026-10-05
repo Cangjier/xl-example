@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 89.38,
+  "progressPercent": 89.86,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 204,
-      "pass": 187,
+      "pass": 189,
       "blocked": 6,
-      "differ": 11,
+      "differ": 9,
       "nodefail": 0,
-      "coverage": 91.67
+      "coverage": 92.65
     },
     {
       "layer": "exec",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 216,
-      "pass": 192,
+      "pass": 194,
       "blocked": 4,
-      "differ": 20,
+      "differ": 18,
       "nodefail": 0,
-      "coverage": 88.89
+      "coverage": 89.81
     },
     {
       "layer": "e2e",
@@ -209,12 +209,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：environment index out of range: 1"
     },
     {
-      "id": "rt-delete-array-element",
-      "layer": "runtime",
-      "title": "delete 数组元素留洞、delete 对象属性真的没有",
-      "detail": "stdout 不同：第 1 行：node «3 1||3 false undefined» vs tsrun «3 1|2|3 true 2»"
-    },
-    {
       "id": "rt-instanceof-custom",
       "layer": "runtime",
       "title": "instanceof 认 Symbol.hasInstance（静态方法优先）",
@@ -243,12 +237,6 @@
       "layer": "runtime",
       "title": "可选链在中途 null / undefined 上短路整条链",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "rt-IIFE-module-scope",
-      "layer": "runtime",
-      "title": "用立即调用函数圈一块作用域：内外同名互不影响",
-      "detail": "stdout 不同：第 1 行：node «outer inner» vs tsrun «inner inner»"
     },
     {
       "id": "ex-getter-setter-class",
@@ -341,12 +329,6 @@
       "detail": "stdout 不同：第 3 行：node «{\"0\":\"a\",\"1\":\"b\"}» vs tsrun «{}»"
     },
     {
-      "id": "object-valueof-override",
-      "layer": "stdlib",
-      "title": "valueOf / toString 参与隐式转换的优先顺序",
-      "detail": "stdout 不同：第 1 行：node «6 T T» vs tsrun «{ valueOf: [Function: a], toString: [Function: a] } T 5»"
-    },
-    {
       "id": "json-stringify-replacer-array-and-fn",
       "layer": "stdlib",
       "title": "JSON.stringify 的 replacer：数组白名单与函数改写",
@@ -357,12 +339,6 @@
       "layer": "stdlib",
       "title": "JSON.stringify 的 toJSON / undefined / 函数 / NaN 口径",
       "detail": "stdout 不同：第 1 行：node «{\"replaced\":true}» vs tsrun «{\"a\":1}»"
-    },
-    {
-      "id": "symbol-toprimitive-and-concat",
-      "layer": "stdlib",
-      "title": "Symbol.toPrimitive 的三种提示与符号拼接抛错",
-      "detail": "stdout 不同：第 1 行：node «default1 S S» vs tsrun «{} default S»"
     },
     {
       "id": "date-getters-and-setters",

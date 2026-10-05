@@ -7,7 +7,7 @@ import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md
 import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId } from "./builtins/install.xl.md"
-import { StringConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
+import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
 ```
 
 # namespace cangjie
@@ -1006,6 +1006,16 @@ return "";
 **当前可见的环境链**（链尾是当前帧的环境）。内层函数体的链是登记时抄下来的那一份
 （见 `scope.xl.md` 的 `EnvChain` 与 `PendingFunction`）。
 
+## field OwnEnv:bool = false
+
+**本函数自己开了一格环境没有**（第 289 轮 ✓）——`EnterFunctionBody` 进门置假 ✓、
+真开了才置真 ✓。
+
+**为什么需要它** ✗：`Env.Last()` 给的是**链上最近的一格** ✓，而本函数**没开环境**时
+那仍然是**外层函数**的格子 ✓ ⇒ `CellOf` 会把本层的 `let` / `const` **错写进外层那一格** ✗
+（`(function () { const n = 2; return n; })()` 把外层的 `n` 改掉 ✓，**静默错值** ✗）。
+判据是 `rt-IIFE-module-scope` ✓；账写在 `CellOf` 那一段 ✓。
+
 ## field EnvSlot:int = -1
 
 当前帧的环境值在哪一格；`-1` 表示这一层没有环境（那也就不必往下传）。
@@ -1321,6 +1331,10 @@ this.Loops = [];
 
 ```ts
 const declared: string[] = [];
+// **本函数还没开环境** ✗（第 289 轮 ✓）：`CellOf` 要拿它区分
+// 「链尾是本函数那一格」与「链尾是外层函数那一格」✓——见那个方法里的账 ✓。
+// 置假要放在**最前面** ✓：下面任何一条早退（`captured` 为空 ✓）都会原样留着它 ✓。
+this.OwnEnv = false;
 for (let i = 0; i < params.length; i++) declared.push(params[i]);
 CollectDeclaredNames(body, declared);
 // **默认值里的声明也算进这一层**（保守）：初始化式里不会有函数声明或 `var`，
@@ -1381,6 +1395,7 @@ if (needsThis) {
   this.Release(scratch);
 }
 this.Env.Push(scope);
+this.OwnEnv = true;
 this.EnvSlot = slot;
 ```
 
@@ -1409,7 +1424,20 @@ this.Release(scope.FirstSlot);
 **只看链尾**（当前函数的环境）：外层环境里的同名变量与本层的局部变量是两回事，
 把两者混起来会把「本层的新变量」错写进外层那一格。
 
+**「当前函数的环境」要显式判一次** ✗（第 289 轮 ✓）——
+`this.Env.Last()` 给的是**链上最近的一格环境** ✓，而**不是**「本函数开的那一格」✗：
+本函数**没有开环境**时（一个捕获都没有、也没有内层函数），链尾仍然是**外层函数**的那一格 ✓
+⇒ 上面那句话说的错就真的发生了 ✗：`(function () { const n = 2; return n; })()` 里的 `n`
+**写进了外层那一格** ✓——判据 `rt-IIFE-module-scope` 量的就是它 ✓
+（外层 `const n = "outer"` 打完变成 `"inner"` ✓，而 **Node 给 `"outer"`** ✓；**静默错值** ✓）。
+
+**判据是 `OwnEnv`** ✓：`EnterFunctionBody` 进门时置假 ✓、真开了一格环境才置真 ✓——
+于是「本函数没开环境」这条路**直接给 `-1`** ✓，那个名字就落到 `BindName` 的
+「现在占槽、现在声明名字」那一条 ✓（本层的局部槽 ✓，与 JS 的词法作用域一致 ✓）。
+
 ```ts
+// **本函数没开环境 ⇒ 链尾不是本层的** ✗（第 289 轮 ✓）：直接说「不在本层」✓。
+if (!this.OwnEnv) return -1;
 const scope = this.Env.Last();
 if (scope === null) return -1;
 return scope.Resolve(name);
@@ -4813,7 +4841,11 @@ this.Emit(Op.Const, result, headText, -1, -1);
 const spans = ListOf(node, "templateSpans");
 for (let i = 0; i < spans.length; i++) {
   const value = this.LowerExpression(Child(spans[i], "expression"));
-  const joined = this.ConcatValues(result, value);
+  // **模板串的内插走 `string` 那一支** ✓（第 288 轮 ✗）：JS 的 `${o}` 是 `ToString(o)` ✓
+  // ⇒ `ToPrimitive(o, "string")` ✓ ⇒ **先问 `toString`** ✓——与 `"x" + o`（`default` ✓、
+  // 先问 `valueOf` ✓）**不是同一件事** ✓。走错那一支的后果是**静默错值** ✓
+  //（`{ valueOf: () => 5, toString: () => "T" }` 印出 `5` ✗，Node 印 `T` ✓）。
+  const joined = this.TemplateConcatValues(result, value);
   const literal = Child(spans[i], "literal");
   const literalText = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(literal))));
   // **常量要先落进一格**：`ConcatValues` 收的是**槽号** ✓（与 `RtCall2` 那条收常量的路不同 ✗）。
@@ -6196,12 +6228,35 @@ return base;
 **两个值按字符串拼起来** ✓——走 `StringConcat` 那条**语言内建调用** ✓，
 窗口形状与别的内部调用一模一样 ✓（`[号, 参数…]` + 一条 `host_call`，结果落在窗口第一格 ✓）。
 
+**它是 `+` 那一支** ✓（hint `default` ✓，先问 `valueOf` ✓）——
+**模板串走的是 `TemplateConcat`** ✓（hint `string` ✓，先问 `toString` ✓，见下面那一支 ✓）。
+
 **调用方负责把结果搬走**（本方法只保证「窗口第一格是结果」✓）——
 三处调用点各自把那格搬到自己的结果位上 ✓（`+` 搬到 `base` ✓、复合赋值搬到 `result` ✓）。
 
 ```ts
 const window = this.Reserve(3);
 this.Emit(Op.Const, window, this.IntConst(StringConcat), -1, -1);
+this.Emit(Op.Move, window + 1, first, -1, -1);
+this.Emit(Op.Move, window + 2, second, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 3);
+this.Release(window + 1);
+return window;
+```
+
+## method TemplateConcatValues:(first:int, second:int)=>int
+
+**模板串那一支的拼接** ✓（第 288 轮 ✗）——与 `ConcatValues` **只差一个能力号** ✓
+（`TemplateConcat` ✓ ⇒ 建库层那边用 hint `string` ✓）。
+
+**为什么不能复用 `ConcatValues`** ✗：JS 里 `"x" + o` 与 `` `${o}` `` 的 `ToPrimitive` **hint 不同** ✓
+（`default` 先问 `valueOf` ✓、`string` 先问 `toString` ✓），
+于是 `{ valueOf: () => 5, toString: () => "T" }` 上两个答案**必须**分别是 `6` 与 `"T"` ✓。
+本仓原来两处都走 `default` ✗ ⇒ `` `${a}` `` 给 `"5"` ✗（**静默错值** ✓）。
+
+```ts
+const window = this.Reserve(3);
+this.Emit(Op.Const, window, this.IntConst(TemplateConcat), -1, -1);
 this.Emit(Op.Move, window + 1, first, -1, -1);
 this.Emit(Op.Move, window + 2, second, -1, -1);
 this.EmitRt(RtOp.HostCall, window, window, 3);

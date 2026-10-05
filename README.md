@@ -153,21 +153,34 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 288 轮读数：**497 / 556 = 89.4%**，
-其中**引擎 91.7%** ✓、降级层 **91.1%** ✓、标准库 **88.9%** ✓、端到端 **84.6%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 289 轮读数：**500 / 556 = 89.9%**，
+其中**引擎 92.6%** ✓、降级层 **91.1%** ✓、标准库 **89.8%** ✓、端到端 **84.6%** ✓——
+**第 289 轮**收的是**「静默错值」那一批**（4 条转绿 ✓，红的一栏没动 ✓）：
+`delete xs[1]` **什么都没做** ✓（元素不住在 `Props` 里 ✓，而 `DeleteProperty` 只扫 `Props` ✗）·
+内层 `const n = 2` **改写了外层的 `n`** ✓（`CellOf` 看的是 `Env.Last()` ✗——本函数**没开环境**时
+链尾是**外层函数**的 ✓）· `a as number + 1` 里 **`+ 1` 整个没了** ✓
+（`AsReorganization` 把 `+ 1` **当成类型的一部分吞了** ✗——TS 是 `(a as number) + 1` ✓）·
+`` `${o}` `` 印出 `5` ✓（Node 印 `"T"` ✓——模板串是 `ToString` ⇒ hint **`string`** ✓ **先问 `toString`** ✓，
+而 `StringConcat` 是 `default` ✓ **先问 `valueOf`** ✓）。
+**四条里三条的根子不在引擎** ✗（在降级层与 token 层 ✓）。
+**顺带量出并修掉两条 token 层的** ✗（都由 `cases:tsast` 当场点名 ✓）：
+`if` 体与 `else` 之间夹一条注释 ⇒ `IfSet` 断成两条 ✓（续段判定用 `SkipNextWrapSymbol` ✗，
+它**只跳软换行** ✓，而注释是**另一档 trivia** ✓）；
+`as` 的收工位置 ✓（收工后 `+` 前面站着折好的 `As` ✓，而两份 `IsOperand` 名单**都没有 `As`** ✗
+⇒ `+` 被读成**前缀一元加** ✗）。两条都**补了语料** ✓ ⇒ `cases:tsast` **1444 / 1444** ✓。
 **第 288 轮**收的是**标准库「表里挂一格」那一批**（8 条转绿 ✓，红的一栏没动 ✓）：
 `Math` **三角七格**（`sin`/`cos`/`tan`/`asin`/`acos`/`atan`/`atan2` ✓——号 `360..366` ✓）、
 `Number.isSafeInteger` ✓（与 `isInteger` **共用同一支** ✓）、
 `Object.getOwnPropertySymbols` ✓（`getOwnPropertyNames` 的**镜像** ✓）、
 `Math.hypot()` **空实参**给 `0` ✓、`Math.min(0, -0)` 的 **±0 次序** ✓、
 `Map`/`Set` 的 `forEach` **第三格实参** ✓。
-**最值钱的一处不在这些格里** ✗：`"a".repeat(2.9)` 给空串 ✓ 的根子在**共用的取值器 `ArgOr`** ✓
+**那一轮最值钱的一处不在那些格里** ✗：`"a".repeat(2.9)` 给空串 ✓ 的根子在**共用的取值器 `ArgOr`** ✓
 ——它原来对 `Float64` 走 `AsInt()` ✓ ⇒ **每一个小数实参都静默变成 `0`** ✗
 （`fill(9, 1.5)` / `at(1.5)` / `slice(1.5)` 一起歪 ✓）。改一处、**十几个内建一起对** ✓；
 同一条判据当场抓到第二处 ✗：`repeat(-1)` 抛的是**裸 `Error`** ✓，
 而 `install.xl.md` 那一支按**宿主异常的类**翻族 ✓ ⇒ 脚本里 `e.name` 给 `"Error"` ✗
 （Node 给 `"RangeError"` ✓）。
-**本轮还量出一条 token 层的缺口** ✗：改 `Math.min` / `Math.max` 的判据时顺手在 `if` 体与
+**第 288 轮还量出一条 token 层的缺口** ✗：改 `Math.min` / `Math.max` 的判据时顺手在 `if` 体与
 `else` 之间写了一行注释 ✓ ⇒ `npm run cases:tsast` 当场报 **1441 / 1442** ✓——
 `IfSet` 的续段判定用的是 `SkipNextWrapSymbol` ✓（**只跳软换行** ✗），
 而注释是**另一档 trivia** ✓（`SkipNextTrivia` 那一对**早就有了** ✓、

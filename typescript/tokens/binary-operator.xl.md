@@ -26,6 +26,8 @@ import { SymbolToken } from "./symbol-token.xl.md"
 import { UnaryOperator } from "./unary-operator.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
+import { As } from "./as.xl.md"
+import { Satisfies } from "./satisfies.xl.md"
 ```
 
 # namespace cangjie
@@ -282,7 +284,14 @@ if (
   unit instanceof Lamda ||
   unit instanceof LogicalOperator ||
   unit instanceof NullConditionalOperator ||
-  unit instanceof PropertyAccess
+  unit instanceof PropertyAccess ||
+  // **`As` / `Satisfies` 也是表达式** ✓（第 288 轮 ✗）：`a as number + 1` 在 TS 里是
+  // **`(a as number) + 1`** ✓——`as` 那一趟收工之后，`+` 的左边站的正是**折好的 `As` 单元** ✓。
+  // 这条与 `unary-operator.xl.md` 那份名单**必须对齐** ✓（那一份第 69 行的纪律 ✓）——
+  // 只补一边的话，`+` 会先被**一元**那一趟抢走 ✗（`UnaryOperator op="+"` ✓），
+  // 而这里也就永远收不到它 ✓（**静默少一个节点** ✗）。
+  unit instanceof As ||
+  unit instanceof Satisfies
 ) {
   return true;
 }
@@ -698,6 +707,36 @@ if (before instanceof NullConditionalOperator && beforeBefore instanceof NullCon
   before = Get(units, startIndex);
   if (before === null) {
     throw new Error("BinaryOperatorReorganization.Process: 链的起点没了");
+  }
+}
+// **左操作数是 `As` / `Satisfies` 时要连它的基名一起收进来** ✓（第 288 轮 ✗）——
+// 与上面那条 NCO 的走法**同一个形状** ✓，理由也一样 ✓：
+// `As` 单元**不装自己的基名** ✗（`as.xl.md` 的 `Data` 只有 `as` **右边**那一段类型 ✓，
+// 基名是它在**外层**的前一个兄弟 ✓）。于是 `a as number + 1` 到这一步时是
+// `[a, As(number), +, 1]` ✓——只取紧挨着的那一格，`+` 的左操作数就成了 `As` ✗，
+// 而 `a` **留在外面** ✗ ⇒ 投影投出来缺整个 `AsExpression` ✓（`a` 与类型接不上 ✓）。
+//
+// **TS 的口径**：`a as number + 1` 是 **`(a as number) + 1`** ✓——
+// 那个 `+` 的左边是**整条 `AsExpression`** ✓，所以这里必须把基名一起吞进去 ✓。
+//
+// **为什么往回走是安全的** ✗：`As` 的基名**必然是紧挨着的前一格** ✓
+//（`Process` 替换的是 `[as, …类型]` 那一段 ✓，左邻就是基名 ✓）；
+// 而 `a as B as C` 那种串写是**两格 `As`** ✓——`while` 会一路退到最前面那个基名 ✓。
+let asCursor = startIndex;
+let asGuard = 0;
+while (asGuard < 64) {
+  const unit = Get(units, asCursor);
+  if (!(unit instanceof As) && !(unit instanceof Satisfies)) {
+    break;
+  }
+  asGuard = asGuard + 1;
+  asCursor = SkipPreviousWrapSymbol(units, asCursor);
+}
+if (asCursor !== startIndex) {
+  startIndex = asCursor;
+  before = Get(units, startIndex);
+  if (before === null) {
+    throw new Error("BinaryOperatorReorganization.Process: `as` 的基名没了");
   }
 }
 const result = new BinaryOperator(template);
