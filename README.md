@@ -153,14 +153,17 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 275 轮读数：**352 / 395 = 86.3%**，
-其中**引擎 93.9%** ✓、降级层 **85.0%** ✓、标准库 **87.7%** ✓、端到端 **76.9%** ✓——
-**第 275 轮**接着第 274 轮收同一组（标准库「成员不在那儿」17 条 ✓，现剩 10 条 ✓）：
-`Object.is`（**第三张判等表** `SameValue` ✓——与 `===` 差 `NaN` ✓、与 `SameValueZero`
-差 `±0` ✓，**两处都翻** ✓）· `Math` 十格（`imul` / `clz32` / `fround` / `expm1` / `sinh` /
-`cosh` / `tanh` / `log2` / `log10` / `log1p` ✓）· `trimStart` / `trimEnd`（与 `trim`
-**共用一支** ✓，只差「裁哪一头」✓）· `String.fromCodePoint`（**与 `fromCharCode`
-差在两头** ✗：实参是**码位**不是码元 ✓、越界**抛**而不是夹住 ✓）——标准库 84.4% → **87.7%** ✓。
+**场景覆盖度**是 `npm run coverage`（第 276 轮读数：**354 / 395 = 86.6%**，
+其中**引擎 93.9%** ✓、降级层 **85.0%** ✓、标准库 **89.0%** ✓、端到端 **76.9%** ✓——
+**第 276 轮**收的是**描述符那一族五格** ✓（`Object.getOwnPropertyDescriptor` ✓ /
+`defineProperties` ✓ / `seal` ✓ / `isSealed` ✓ / `isFrozen` ✓）。这一轮的账里有一处
+**一条判据也推不出来、只能实测**的东西 ✗：**同一种「下标」在三种接收者上的描述符标志不一样** ✓
+（数组元素三个全真 ✓、字符串下标不可写不可配置 ✓、`length` 又是第三种 ✓）——
+所以规范里那三套标志都标着「实测」✓。
+**第 275 轮**收的是 `Object.is`（**第三张判等表** `SameValue` ✓——与 `===` 差 `NaN` ✓、
+与 `SameValueZero` 差 `±0` ✓，**两处都翻** ✓）· `Math` 十格 ✓ ·
+`trimStart` / `trimEnd`（与 `trim` **共用一支** ✓）· `String.fromCodePoint` ✓
+——标准库 84.4% → **87.7%** ✓。
 **第 274 轮**收的是 **Array 那一族七格** ✓
 （`findLast`/`findLastIndex` · `reduceRight` · `copyWithin` · `toSorted`/`toReversed`/`with` ✓）
 外加**三处静默错值** ✗（`includes` 丢掉第二格实参 ✓、`flat(0)` 掉进 `depth || 1` ✓、

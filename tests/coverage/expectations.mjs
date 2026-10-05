@@ -316,6 +316,11 @@ export const EXPECTATIONS = {
   // `log2` / `log10` / `log1p` ✓）、`trimStart` / `trimEnd` ✓、`String.fromCodePoint` ✓。
   // 逐条账见 `typescript-exec/README.md` 的「第 275 轮的账」✓。
 
+  // **第 276 轮删掉了这两行** ✓（它们过了 ✓）：`Object.getOwnPropertyDescriptor` ✓
+  // （`defineProperty` 的反面 ✓）与 `Object.defineProperties` / `seal` / `isSealed` /
+  // `isFrozen` ✓（描述符的复数版与标志位的三种问法 ✓）。
+  // 逐条账见 `typescript-exec/README.md` 的「第 276 轮的账」✓。
+
   // ---- 组 10：标准库**成员不在那儿**（14 条）----
   // 这一组的量法是**先问「在不在」** ✓：一个探针把候选成员逐个 `typeof` 一遍 ✓，
   // 于是「根本不在那儿」与「在、但语义不对」被分开了 ✓（修法不一样 ✓）。
@@ -324,8 +329,6 @@ export const EXPECTATIONS = {
   "array-iterator-manual": { expect: "blocked", why: "数组迭代器**没有 `next()`**：`.values()` / `.keys()` / `.entries()` 交出来的东西能被 `[...]` 与 `for..of` 用（引擎的 drain），但不能手动走一步。第 229 轮给**生成器**补的 `next()` 是另一条路" },
   // **第 273 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：它抛出之前**已经打印了一行** ✓
   // （`Math.hypot` 与 `Math.cbrt` 是**在的** ✓），所以判决落在 `differ` 上 ✓ 而不是 `blocked` ✓。
-  "object-getownpropertydescriptor": { expect: "blocked", why: "`Object.getOwnPropertyDescriptor` 不在那儿（`getOwnPropertyNames` 在）" },
-  "object-seal-and-defineProperties": { expect: "blocked", why: "`Object.seal` / `isSealed` / `defineProperties` 不在那儿（`defineProperty` 与 `freeze` 在）" },
   "json-parse-reviver": { expect: "blocked", why: "`JSON.parse` 的**第二格实参**（reviver）没接；同一条里 `SyntaxError` 也不是全局名" },
   "symbol-registry": { expect: "blocked", why: "`Symbol.for` / `Symbol.keyFor` 不在那儿——按名字去重的**注册表**要新造一张" },
   "date-iso-and-json": { expect: "blocked", why: "`Date.prototype.toISOString` / `toJSON` 不在那儿，`Date.UTC` 也不在，`new Date(字符串)` 报 `new Date(x) needs a number of milliseconds`" },

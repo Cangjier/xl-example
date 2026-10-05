@@ -157,6 +157,46 @@ import { BuildPromise } from "./promise.xl.md"
 与 `===` 差 `NaN` ✓、与 `SameValueZero` 差 `±0` ✓——
 两处都翻 ✓，所以**任何一张现成的表都不对** ✗（见 `rt.xl.md` 的 `SameValue` ✓）。
 
+**第 276 轮补的五格** ✓（`Object` 那一段的下五个号 ✓ `412..416` ✓）——
+它们围着**同一件事**转 ✓：**描述符**（descriptor ✓）。
+`getOwnPropertyDescriptor` 是 `defineProperty` 的**反面** ✓（读一格 → 一个描述符对象 ✓）、
+`defineProperties` 是它的**复数版** ✓（一趟写多格 ✓）、
+`seal` / `isSealed` / `isFrozen` 是**标志位的三种问法** ✓。
+
+**它们是第 273 轮普查量到的** ✓：判据 `object-getownpropertydescriptor` 与
+`object-seal-and-defineProperties` 两条都在报 `cannot call a non-closure value` ✓——
+即**那几格根本没装** ✗（`defineProperty` 与 `freeze` 一直是好的 ✓）。
+
+# const ObjectGetOwnPropertyDescriptor:int = 412
+
+**`Object.getOwnPropertyDescriptor(对象, 键)`**（第 276 轮 ✓）——把那一格读成
+`{ value, writable, enumerable, configurable }` ✓，**没有那一格给 `undefined`** ✓。
+
+# const ObjectDefineProperties:int = 413
+
+**`Object.defineProperties(对象, 描述符表)`**（第 276 轮 ✓）——一趟写多格 ✓。
+**它与 `defineProperty` 共用同一个方法** ✓（`DefineOwnFromDescriptor` ✓）：
+「怎么把描述符写进去」那段里有两处**不能抄**的判断 ✓（默认三个标志全是假 ✓、
+访问器描述符要抛 ✗），抄成两份就是两处会漂的答案 ✗。
+
+# const ObjectSeal:int = 414
+
+**`Object.seal(对象)`**（第 276 轮 ✓）——**不可配置**（`configurable` 全清 ✓）、
+但**仍然可写** ✓（这正是它与 `freeze` 的分界 ✓）。
+
+# const ObjectIsSealed:int = 415
+
+# const ObjectIsFrozen:int = 416
+
+**`Object.isSealed` / `Object.isFrozen`**（第 276 轮 ✓）——**两个问法共用一张底牌** ✓：
+「**这个对象被标记过不可扩展吗**」✓。**为什么需要一个标记** ✗：
+「每个自有属性都不可配置」在**空对象**上是**真空成立**的 ✓——
+`Object.isSealed({})` 于是会答**真** ✗，而 JS 答**假** ✓（它是可扩展的 ✓）。
+**静默错值** ✓，所以这一格不能只看标志位 ✗。
+标记走 `SetHiddenProperty` ✓（与 `Map` 的 `__k` / `Boolean` 的 `__b` 同一条路 ✓），
+**已知差异写在明处** ✗：它和那些内部格一样，会出现在 `Object.getOwnPropertyNames` 里 ✓
+（**这不是新开的一个口子** ✗——`__k` / `__v` / `__b` / 绑定函数的三个槽今天都这样 ✓）。
+
 # const ConsoleLog:int = 301
 
 # const ParseInt:int = 303
@@ -1808,6 +1848,10 @@ if (id === ObjectFreeze) {
   // **冻结 = 把自有数据属性的 `writable` 清掉**（第 182 轮）✓——
   // `SetProperty` 那一支**早就**照着这个标志抛 ✓（`props.xl.md`：不可写的属性写入抛 TypeError ✓），
   // 所以这里只要改标志 ✓，一个引擎改动都不用 ✓（见号那一段的两处缺口 ✗）。
+  //
+  // **第 276 轮补上另一半** ✓：JS 的 `freeze` 是 `seal` **再加一步** ✓——
+  // 「不可配置」那一半原来没做 ✗（`isSealed(frozen)` 会答**假** ✓，而 JS 答**真** ✓）。
+  // 顺带接上「不可扩展」那个标记 ✓（`seal` / `isSealed` / `isFrozen` 三格都要它 ✓）。
   if (args.length < 1 || !args[0].IsObject()) {
     throw new Error("unimplemented: Object.freeze needs an object "
       + "(boxing a primitive is not supported)");
@@ -1819,57 +1863,216 @@ if (id === ObjectFreeze) {
     if ((property.Flags & PropertyFlagWritable) !== 0) {
       property.Flags = property.Flags - PropertyFlagWritable;
     }
+    // **不可配置那一半** ✓（与 `Object.seal` 同一句 ✓）。
+    if ((property.Flags & PropertyFlagConfigurable) !== 0) {
+      property.Flags = property.Flags - PropertyFlagConfigurable;
+    }
   }
+  MarkUnextensible(room, table, args[0]);
   // **返回的是那个对象本身** ✓（JS 的口径 ✓，不是一份拷贝 ✓）。
   return args[0];
 }
 if (id === ObjectDefineProperty) {
   // **`Object.defineProperty(对象, 键, 描述符)`**（第 182 轮）✓——
-  // 找到那一格（**只在自有属性里找** ✓，JS 的 `defineProperty` 不看原型链 ✓），
-  // 把描述符里的 `value` 与三个标志写进去 ✓；没有那一格就**新建**一个 ✓。
-  // **默认三个都是 `false`** ✓（JS 的口径 ✓：少给哪个字段就是 `false` ✓）——
-  // 所以标志位是**从零开始拼**的 ✓，不是「拿旧的改一改」✗。
+  // 「怎么把描述符写进去」那一段第 276 轮**抽成了方法** ✓（`DefineOwnFromDescriptor` ✓）：
+  // `defineProperties` 要的就是「同一件事跑在描述符表上每一格」✓，
+  // 而那段里有两处**不能抄**的判断 ✓（默认三个标志全是假 ✓、访问器描述符要抛 ✗）——
+  // 抄成两份就是两处会漂的答案 ✗。
   if (args.length < 3 || !args[0].IsObject() || args[1].Tag !== ValueTag.String || !args[2].IsObject()) {
     throw new Error("unimplemented: Object.defineProperty needs (object, string key, descriptor object)");
   }
-  const defineTarget = table.Get(args[0].Ref);
-  const descriptor = table.Get(args[2].Ref);
-  // **读描述符的字段** ✓：描述符是一个**普通对象字面量** ✓，所以直接扫它的属性表 ✓
-  // （访问器跳过 ✗——理由与 `Object.values` 那一条相同 ✓：这一层不调 getter ✓）。
-  const fieldOf = (name: string) => {
-    for (let i = 0; i < descriptor.Props.length; i++) {
-      const property = descriptor.Props[i];
-      if (property.Kind === PropertyKind.Accessor) continue;
-      if (TextFrom(table, Value.FromString(property.Key)) === name) return property.Value;
-    }
-    return Value.Undefined();
-  };
-  // **访问器描述符响亮地抛** ✗（见号那一段 ✓）。
-  if (fieldOf("get").Tag !== ValueTag.Undefined || fieldOf("set").Tag !== ValueTag.Undefined) {
-    throw new Error("unimplemented: Object.defineProperty with a get/set descriptor");
-  }
-  let flags = 0;
-  if (RtToBoolean(table, fieldOf("enumerable")).AsBool()) flags = flags + PropertyFlagEnumerable;
-  if (RtToBoolean(table, fieldOf("writable")).AsBool()) flags = flags + PropertyFlagWritable;
-  if (RtToBoolean(table, fieldOf("configurable")).AsBool()) flags = flags + PropertyFlagConfigurable;
-  const defineKey = args[1];
-  const existing = FindProperty(room, table, args[0].Ref, defineKey);
-  if (existing !== null && existing.Owner === args[0].Ref) {
-    const property = defineTarget.Props[existing.Index];
-    if (property.Kind === PropertyKind.Accessor) {
-      throw new Error("unimplemented: redefining an accessor property needs the accessor path");
-    }
-    property.Value = fieldOf("value");
-    property.Flags = flags;
-    return args[0];
-  }
-  if (!room(PropertyCharge)) throw new Error("out of room");
-  const created = new Property(defineKey.Ref, fieldOf("value"));
-  created.Flags = flags;
-  defineTarget.Props.push(created);
-  table.Recount(args[0].Ref);
+  DefineOwnFromDescriptor(room, table, args[0], args[1], args[2]);
   // **返回的还是那个对象** ✓（JS 的口径 ✓）。
   return args[0];
+}
+if (id === ObjectDefineProperties) {
+  // **`Object.defineProperties(对象, 描述符表)`**（第 276 轮 ✓）——
+  // 把描述符表里**每一个可枚举的自有属性**当成一格描述符写进去 ✓。
+  // **只走可枚举的那一份** ✓（JS 在这里用的就是 `Object.keys` 那一套 ✓）：
+  // 描述符表是一个**普通对象字面量** ✓（`{ a: {…}, b: {…} }` ✓），
+  // 里面每一项都可枚举 ✓；不可枚举的那些 JS **不看** ✓。
+  if (args.length < 2 || !args[0].IsObject() || !args[1].IsObject()) {
+    throw new Error("unimplemented: Object.defineProperties needs (object, descriptors object)");
+  }
+  const descriptorTable = table.Get(args[1].Ref);
+  // **先把条数抄下来再走循环** ✓：写的是**另一个对象** ✓，所以扫的这一摞不会被改 ✓；
+  // 而 `Props.length` 中途可能长 ✓（前面几格写进 `args[1]` 时不会 ✗，
+  // 但**把它抄成一个宿主数**读起来更明确 ✓——与 `Object.keys` 那一支同一条理由 ✓）。
+  const descriptorCount = descriptorTable.Props.length;
+  for (let i = 0; i < descriptorCount; i++) {
+    const entry = descriptorTable.Props[i];
+    if (entry.Kind === PropertyKind.Accessor) continue;
+    if (!entry.IsEnumerable()) continue;
+    if (table.Get(entry.Key).Tag !== ValueTag.String) continue;
+    DefineOwnFromDescriptor(room, table, args[0], Value.FromString(entry.Key), entry.Value);
+  }
+  return args[0];
+}
+if (id === ObjectGetOwnPropertyDescriptor) {
+  // **`Object.getOwnPropertyDescriptor(对象, 键)`**（第 276 轮 ✓）——`defineProperty` 的**反面** ✓：
+  // 把那一格的 `value` 与三个标志装成一个**普通对象** ✓。
+  // **没有那一格给 `undefined`** ✓（JS 的口径 ✓——**不是**给一个空描述符 ✗）。
+  // **字符串也是合法接收者** ✓（与 `Object.keys` / `getOwnPropertyNames` 那两支同一条 ✓，
+  // 第 210 轮 ✓）：`Object.getOwnPropertyDescriptor("ab", "1")` 在 JS 里给一个描述符 ✓，
+  // 而字符串**不是 `IsObject()`** ✗（它是 `HeapString` ✓）——所以这一句要**显式放行** ✓，
+  // 只写 `IsObject()` 会把字符串挡在门外 ✓（**响亮地抛** ✓，不是静默错值 ✓，但那是**假缺口** ✗）。
+  if (args.length < 2 || args[1].Tag !== ValueTag.String
+    || (!args[0].IsObject() && args[0].Tag !== ValueTag.String)) {
+    throw new Error("unimplemented: Object.getOwnPropertyDescriptor needs (object or string, string key)");
+  }
+  const receiver = args[0];
+  const ownKey = args[1];
+  const ownKeyText = TextFrom(table, ownKey);
+  // **① 下标键先答** ✓：数组的元素与字符串的下标**不住在 `Props` 里** ✗
+  //（与 `Object.keys` / `getOwnPropertyNames` 那两支同一条次序 ✓，第 210 轮 ✓）。
+  //
+  // **两种接收者的标志不一样** ✗（第 276 轮**实测**过 ✓，不是推的 ✓）：
+  //   · **数组元素**：`可写 / 可枚举 / 可配置` **三个全真** ✓（JS 就是这样 ✓）；
+  //   · **字符串下标**：`不可写 / 可枚举 / 不可配置` ✗——字符串是**不可变**的 ✓。
+  // 写成一套（「都是数组那样」）就是**静默错值** ✓：`Object.getOwnPropertyDescriptor("ab", "1").writable`
+  // 会答**真** ✗，而 JS 答**假** ✓。
+  if (IsIndexKeyText(ownKeyText)) {
+    const at = Number(ownKeyText);
+    let element = Value.Undefined();
+    let present = false;
+    let elementWritable = true;
+    // **字符串那一支要留着码元表** ✗：下面开串时还要用 ✓
+    //（`element` 该是一个 **1 码元的串** ✓，不是码元数 ✗——第 276 轮实测 ✓：
+    // `Object.getOwnPropertyDescriptor("ab", "1").value` 在 JS 里是 `"b"` ✓）。
+    let elementUnits: number[] = [];
+    if (receiver.Tag === ValueTag.Array) {
+      const items = table.Get(receiver.Ref).AsArray();
+      if (at < items.GetLength() && !items.IsHole(at)) {
+        element = items.GetAt(at);
+        present = true;
+      }
+    } else if (receiver.Tag === ValueTag.String) {
+      elementUnits = table.Get(receiver.Ref).AsString().Units;
+      if (at < elementUnits.length) {
+        present = true;
+        elementWritable = false;
+      }
+    }
+    // **洞与越界都不是自有属性** ✓ ⇒ 落到最后的 `undefined` ✓（JS 的口径 ✓）。
+    if (!present) return Value.Undefined();
+    // **房间要一起问** ✓：字符串那一支要**开一个新串** ✓，所以 `CodeUnitCharge` 也算上 ✓
+    //（与 `Object.keys` 那一支同一条规矩 ✓：开之前先问 ✓）。
+    if (!room(ObjectCharge + PropertyCharge * 4 + CodeUnitCharge)) throw new Error("out of room");
+    if (receiver.Tag === ValueTag.String) {
+      element = Value.FromString(table.CreateString([elementUnits[at]]));
+    }
+    const elementDescriptor = NewPlainObject(room, table, protos);
+    SetProperty(room, NeverCall, table, elementDescriptor, NameValue(table, "value"), element);
+    SetProperty(room, NeverCall, table, elementDescriptor, NameValue(table, "writable"), Value.FromBool(elementWritable));
+    SetProperty(room, NeverCall, table, elementDescriptor, NameValue(table, "enumerable"), Value.FromBool(true));
+    // **两个不可配置、一个可配置** ✓：数组元素可配置 ✓、字符串下标不可 ✓
+    //（`elementWritable` 那两格是同一次实测出来的 ✓）。
+    SetProperty(room, NeverCall, table, elementDescriptor, NameValue(table, "configurable"), Value.FromBool(elementWritable));
+    return elementDescriptor;
+  }
+  // **② `length` 也是自有属性** ✓（与 `Object.getOwnPropertyNames` 那一支同一条 ✓，第 214 轮 ✓）：
+  // 它**不住在属性表里** ✗（在 `HeapArray` / `HeapString` 上 ✓）。
+  // **两种接收者的标志又不一样** ✗（同一次实测 ✓）：
+  //   · **数组**：`可写 / 不可枚举 / 不可配置` ✓（`xs.length = 0` 是合法的 ✓）；
+  //   · **字符串**：`不可写 / 不可枚举 / 不可配置` ✓。
+  // 次序也要紧 ✗：`"length"` **不是**下标键 ✓（`IsIndexKeyText` 看的是全数字 ✓），
+  // 所以它落在这一支而不是上面那一支 ✓。
+  if (ownKeyText === "length" && (receiver.Tag === ValueTag.Array || receiver.Tag === ValueTag.String)) {
+    const lengthValue = receiver.Tag === ValueTag.Array
+      ? table.Get(receiver.Ref).AsArray().GetLength()
+      : table.Get(receiver.Ref).AsString().Units.length;
+    if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+    const lengthDescriptor = NewPlainObject(room, table, protos);
+    SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "value"), Value.FromInt(lengthValue));
+    SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "writable"),
+      Value.FromBool(receiver.Tag === ValueTag.Array));
+    SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "enumerable"), Value.FromBool(false));
+    SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "configurable"), Value.FromBool(false));
+    return lengthDescriptor;
+  }
+  // **② 自有属性表** ✓。**只在自有属性里找** ✓（与 `defineProperty` 同一条 ✓）：
+  // `FindProperty` 会**沿原型链**找 ✗，所以找到之后还要问一句 `Owner === receiver.Ref` ✓——
+  // 不问的话 `Object.getOwnPropertyDescriptor({}, "toString")` 会给一个描述符 ✗（JS 给 `undefined` ✓）。
+  const ownFound = FindProperty(room, table, receiver.Ref, ownKey);
+  if (ownFound === null || ownFound.Owner !== receiver.Ref) {
+    // **函数上的 `length` / `name` 这一层还没有** ✗：JS 给一个描述符 ✓
+    //（实测：`Object.getOwnPropertyDescriptor(function f(a, b) {}, "length")` 是
+    // `2 / 不可写 / 不可枚举 / 可配置` ✓——注意它是**四个里唯一可配置的** ✗），
+    // 而本仓的函数是 `Closure` / `Function` ✓、那两个名字**不在属性表里** ✓。
+    // **响亮地抛** ✓，不静默给 `undefined` ✗——后者正是判据 `function-length-and-name`
+    // 拖着的那一格 ✓（它今天也还没过 ✓，两处指的是同一件事 ✓）。
+    if (receiver.Tag === ValueTag.Function || receiver.Tag === ValueTag.Closure) {
+      throw new Error("unimplemented: Object.getOwnPropertyDescriptor on a function "
+        + "(function length / name are not modelled)");
+    }
+    return Value.Undefined();
+  }
+  const ownProperty = table.Get(receiver.Ref).Props[ownFound.Index];
+  // **内部标记不算自有属性** ✓（第 276 轮 ✓）：`Object.getOwnPropertyDescriptor(o, "__sealed")`
+  // 该给 `undefined` ✓——它是实现细节 ✓，不该被描述符接口看见 ✓（见那个方法的说明 ✓）。
+  if (IsSealedMarkProperty(table, ownProperty)) return Value.Undefined();
+  // **访问器那一格响亮地抛** ✗（与 `defineProperty` 同一条 ✓）：它的描述符该有 `get` / `set` ✓，
+  // 而这一层还没有那两格 ✓——静默给一个只有 `value: undefined` 的描述符是最坏的一种 ✗。
+  if (ownProperty.Kind === PropertyKind.Accessor) {
+    throw new Error("unimplemented: Object.getOwnPropertyDescriptor on an accessor property");
+  }
+  if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+  const ownFlags = ownProperty.Flags;
+  const ownDescriptor = NewPlainObject(room, table, protos);
+  SetProperty(room, NeverCall, table, ownDescriptor, NameValue(table, "value"), ownProperty.Value);
+  SetProperty(room, NeverCall, table, ownDescriptor, NameValue(table, "writable"),
+    Value.FromBool((ownFlags & PropertyFlagWritable) !== 0));
+  SetProperty(room, NeverCall, table, ownDescriptor, NameValue(table, "enumerable"),
+    Value.FromBool((ownFlags & PropertyFlagEnumerable) !== 0));
+  SetProperty(room, NeverCall, table, ownDescriptor, NameValue(table, "configurable"),
+    Value.FromBool((ownFlags & PropertyFlagConfigurable) !== 0));
+  return ownDescriptor;
+}
+if (id === ObjectSeal) {
+  // **`Object.seal(对象)`**（第 276 轮 ✓）——**不可配置、但仍然可写** ✓。
+  // **这正是它与 `freeze` 的分界** ✓：`freeze` 两样都清 ✓、`seal` 只清 `configurable` ✓——
+  // 两条判据（`object-freeze` 与这一条）量的就是这两样的**差** ✓。
+  // **访问器跳过** ✗（与 `freeze` 同一条 ✓）：它的「可配置」挂在访问器那一格上 ✓，
+  // 而这一层还没有那一格的门 ✓。
+  if (args.length < 1 || !args[0].IsObject()) {
+    throw new Error("unimplemented: Object.seal needs an object "
+      + "(boxing a primitive is not supported)");
+  }
+  const sealTarget = table.Get(args[0].Ref);
+  for (let i = 0; i < sealTarget.Props.length; i++) {
+    const property = sealTarget.Props[i];
+    if (property.Kind === PropertyKind.Accessor) continue;
+    if ((property.Flags & PropertyFlagConfigurable) !== 0) {
+      property.Flags = property.Flags - PropertyFlagConfigurable;
+    }
+  }
+  // **标记也要打上** ✓——`isSealed` / `isFrozen` 从它起手 ✓（理由见号那一段 ✓）。
+  MarkUnextensible(room, table, args[0]);
+  return args[0];
+}
+if (id === ObjectIsSealed || id === ObjectIsFrozen) {
+  // **两个问法共用一张底牌** ✓（第 276 轮 ✓）：**先问「标记在不在」** ✓——
+  // 少了这一问，空对象会因为「每个自有属性都不可配置」**真空成立**而答**真** ✗
+  //（JS 答**假** ✓：空对象是可扩展的 ✓）。**静默错值** ✓，所以这一格不能只看标志位 ✗。
+  //
+  // **原始值一律答真** ✓（JS 的口径 ✓）：`Object.isSealed(1)` 与 `Object.isFrozen(1)`
+  // 在 JS 里都是**真** ✓——原始值本来就不可扩展、也没有属性可改 ✓。
+  // 所以这一支的**缺省是「真」** ✗，与别的内建那套「缺省给假」正好相反 ✓（写在明处 ✓）。
+  if (args.length < 1 || !args[0].IsObject()) return Value.FromBool(true);
+  if (!IsUnextensible(room, table, args[0])) return Value.FromBool(false);
+  if (id === ObjectIsSealed) return Value.FromBool(true);
+  // **`isFrozen` 再问一层** ✓：每个自有**数据**属性都不能可写 ✓
+  //（访问器跳过 ✗——与 `freeze` / `seal` 那两支同一条 ✓）。
+  const frozenTarget = table.Get(args[0].Ref);
+  for (let i = 0; i < frozenTarget.Props.length; i++) {
+    const property = frozenTarget.Props[i];
+    if (property.Kind === PropertyKind.Accessor) continue;
+    // **内部标记不算自有属性** ✓（第 276 轮实测踩到 ✓：它自己就是**可写**的 ✓，
+    // 不跳过这一格，`Object.isFrozen(Object.freeze({y: 1}))` 会答**假** ✗）。
+    if (IsSealedMarkProperty(table, property)) continue;
+    if ((property.Flags & PropertyFlagWritable) !== 0) return Value.FromBool(false);
+  }
+  return Value.FromBool(true);
 }
 if (id === ObjectKeys) {
   // **`Object.keys` = 自有 + 可枚举 × 「下标键在前、其余按创建顺序」** ✓（第 210 轮补后两条 ✓）。
@@ -2076,6 +2279,11 @@ if (id === ObjectGetOwnPropertyNames) {
   if (nameItem !== null) {
     for (let i = 0; i < nameItem.Props.length; i++) {
       if (table.Get(nameItem.Props[i].Key).Tag !== ValueTag.String) continue;
+      // **内部标记不算自有属性** ✓（第 276 轮 ✓）：它挂在**不可枚举**那一档上 ✓，
+      // 而这一支的判据恰恰是「**不管 `enumerable`**」✗——所以它会漏出来 ✓
+      //（实测：`Object.getOwnPropertyNames(Object.seal({x: 1}))` 给 `["x","__sealed"]` ✗，
+      //  JS 给 `["x"]` ✓）。**这一句是这一支与 `Object.keys` 唯一的差别多出来的一行** ✓。
+      if (IsSealedMarkProperty(table, nameItem.Props[i])) continue;
       const text = TextFrom(table, Value.FromString(nameItem.Props[i].Key));
       if (IsIndexKeyText(text)) {
         let coveredName = false;
@@ -2276,6 +2484,129 @@ return created;
 
 ```ts
 return NewErrorLike(room, table, protos, protos.Error, "Error", message);
+```
+
+# method SealedMarkName:()=>string
+
+**「这个对象不可扩展」那个标记的名字**（第 276 轮 ✓）——`seal` / `freeze` 写它 ✓、
+`isSealed` / `isFrozen` 读它 ✓，所以**收成一个方法** ✗（同一个字符串写四遍就是四处会漂的答案 ✓）。
+
+**为什么带两个下划线** ✓：与 `__k` / `__v` / `__b` 那几格同一族 ✓——它们都是「**内部格**」✓，
+`Object.keys` 看不见 ✓（`SetHiddenProperty` 写的是不可枚举 ✓）。
+
+```ts
+return "__sealed";
+```
+
+# method MarkUnextensible:(room:RoomChecker, table:HeapTable, target:Value)=>void
+
+**给一个对象打上「不可扩展」的标记**（第 276 轮 ✓）——`seal` 与 `freeze` 都调它 ✓。
+
+**重复调用是幂等的** ✓：先问一句「已经有了吗」✓——少了这一问，`seal` 之后再 `seal`
+会在属性表里**再堆一格** ✗（`Object.getOwnPropertyNames` 于是越数越多 ✓）。
+
+```ts
+const key = NameValue(table, SealedMarkName());
+const existing = FindProperty(room, table, target.Ref, key);
+if (existing !== null && existing.Owner === target.Ref) return;
+SetHiddenProperty(room, table, target, key, Value.FromBool(true));
+```
+
+# method IsUnextensible:(room:RoomChecker, table:HeapTable, target:Value)=>bool
+
+**这个对象被标记过「不可扩展」吗**（第 276 轮 ✓）——`isSealed` 与 `isFrozen` 都从它起手 ✓。
+
+**回答的是「有没有那一格」，不是「那一格是什么」** ✓：标记只有「在」这一种状态 ✓
+（`SetHiddenProperty` 写的是 `true` ✓），所以判空比读值更贴题 ✓，
+也**不必为那一格分配一个值来读** ✓。
+
+```ts
+const key = NameValue(table, SealedMarkName());
+const found = FindProperty(room, table, target.Ref, key);
+return found !== null && found.Owner === target.Ref;
+```
+
+# method DefineOwnFromDescriptor:(room:RoomChecker, table:HeapTable, target:Value, key:Value, descriptor:Value)=>void
+
+**把一个描述符对象写进 `target` 的那一格**（第 276 轮从 `Object.defineProperty` 里抽出来 ✓，
+`defineProperties` 也调它 ✓）。没有那一格就**新建一个** ✓。
+
+**默认三个标志全是假** ✓（JS 的口径 ✓：少给哪个字段就是 `false` ✓）——
+所以标志位是**从零开始拼**的 ✓，不是「拿旧的改一改」✗。
+
+**访问器描述符响亮地抛** ✗：它的描述符该有 `get` / `set` 两格 ✓，
+而这一层还没有那两格的门 ✓——静默把它当成一个「没有 `value()` 的数据属性」是最坏的一种 ✗
+（`o.x` 会变成 `undefined` ✓，而调用方以为它写进去了 ✓）。
+
+**只看自有属性，而且这一句是必写的** ✗：JS 的 `defineProperty` **不看原型链** ✓——
+所以「找到之后还要问 `Owner === target.Ref`」✓。少了它，
+`Object.defineProperty({}, "toString", …)` 会去改**原型上**那一格 ✓，
+那是把一个对象的改动**泄漏到所有对象上** ✗（一改全改 ✓，而且不报错 ✗）。
+
+```ts
+const defineTarget = table.Get(target.Ref);
+const descriptorObject = table.Get(descriptor.Ref);
+// **读描述符的字段** ✓：描述符是一个**普通对象字面量** ✓，所以直接扫它的属性表 ✓
+// （访问器跳过 ✗——理由与 `Object.values` 那一条相同 ✓：这一层不调 getter ✓）。
+const fieldOf = (name: string) => {
+  for (let i = 0; i < descriptorObject.Props.length; i++) {
+    const property = descriptorObject.Props[i];
+    if (property.Kind === PropertyKind.Accessor) continue;
+    // **键必须是字符串** ✓：描述符的字段名一律是字符串 ✓——
+    // 不判这一句的话，一个**符号键**会被 `Value.FromString` 读成一段越界码元 ✓（静默 ✓）。
+    if (table.Get(property.Key).Tag !== ValueTag.String) continue;
+    if (TextFrom(table, Value.FromString(property.Key)) === name) return property.Value;
+  }
+  return Value.Undefined();
+};
+if (fieldOf("get").Tag !== ValueTag.Undefined || fieldOf("set").Tag !== ValueTag.Undefined) {
+  throw new Error("unimplemented: Object.defineProperty with a get/set descriptor");
+}
+let flags = 0;
+if (RtToBoolean(table, fieldOf("enumerable")).AsBool()) flags = flags + PropertyFlagEnumerable;
+if (RtToBoolean(table, fieldOf("writable")).AsBool()) flags = flags + PropertyFlagWritable;
+if (RtToBoolean(table, fieldOf("configurable")).AsBool()) flags = flags + PropertyFlagConfigurable;
+const existing = FindProperty(room, table, target.Ref, key);
+if (existing !== null && existing.Owner === target.Ref) {
+  const property = defineTarget.Props[existing.Index];
+  if (property.Kind === PropertyKind.Accessor) {
+    throw new Error("unimplemented: redefining an accessor property needs the accessor path");
+  }
+  property.Value = fieldOf("value");
+  property.Flags = flags;
+  return;
+}
+if (!room(PropertyCharge)) throw new Error("out of room");
+const created = new Property(key.Ref, fieldOf("value"));
+created.Flags = flags;
+defineTarget.Props.push(created);
+table.Recount(target.Ref);
+```
+
+# method IsSealedMarkProperty:(table:HeapTable, property:Property)=>bool
+
+**这一格是不是「不可扩展」那个内部标记**（第 276 轮 ✓）。
+
+**为什么需要它** ✗（第 276 轮实测踩到 ✓）：那个标记是**一个真的数据属性** ✓，
+而 `SetHiddenProperty` 只保证它**不可枚举** ✗——`writable` / `configurable` 它不管 ✓。
+于是两处一起坏 ✓：
+
+- **`isFrozen` 会答假** ✗：它问的是「每个自有数据属性都不可写」✓，
+  而**标记自己就可写** ✓（`Object.freeze({y: 1})` 之后的 `isFrozen` 给 `false` ✗，实测 ✓）；
+- **`getOwnPropertyNames` 里多一格** ✗（实测：给 `["x", "__sealed"]` ✓，JS 给 `["x"]` ✓）。
+
+所以「**这个标记不算自有属性**」这句话要在**三处**各说一遍 ✓
+（`isSealed` / `isFrozen` 的循环 ✓、`getOwnPropertyNames` ✓、`getOwnPropertyDescriptor` ✓）——
+收进这一个方法 ✓，三处调它 ✓。
+
+**它为什么不像 `__k` / `__v` / `__b` 那样留在明面上** ✗：那几格是**对象自己的一部分** ✓
+（`Map` 的数据就在那儿 ✓），漏出去顶多是多一格 ✓；而这一个标记是**纯内部状态** ✓，
+它出现在 `Object.getOwnPropertyNames(Object.seal(o))` 里会让人以为那个对象真有一格叫 `__sealed` ✓
+——**能挡住就挡住** ✓。
+
+```ts
+if (table.Get(property.Key).Tag !== ValueTag.String) return false;
+return TextFrom(table, Value.FromString(property.Key)) === SealedMarkName();
 ```
 
 # method TextFrom:(table:HeapTable, value:Value)=>string
@@ -2809,6 +3140,18 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, keysKey, keysTarget);
 const isKey = Value.FromString(table.CreateString(Units("is")));
 const isTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectIs, 0));
 SetProperty(vm.Room(), NeverCall, table, objectObject, isKey, isTarget);
+// **第 276 轮补的五格** ✓（`Object` 那一段的 `412..416` ✓）——**名字与号一一对齐** ✓
+//（按下标配 ✓，错一格就是**静默**换语义 ✗）。它们围着**描述符**这一件事 ✓：
+// 读一格 / 写多格 / 标志位的三种问法 ✓。
+const objectExtraNames: string[] = ["getOwnPropertyDescriptor", "defineProperties", "seal",
+  "isSealed", "isFrozen"];
+const objectExtraIds: number[] = [ObjectGetOwnPropertyDescriptor, ObjectDefineProperties, ObjectSeal,
+  ObjectIsSealed, ObjectIsFrozen];
+for (let i = 0; i < objectExtraNames.length; i++) {
+  const extraKey = Value.FromString(table.CreateString(Units(objectExtraNames[i])));
+  const extraTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(objectExtraIds[i], 0));
+  SetProperty(vm.Room(), NeverCall, table, objectObject, extraKey, extraTarget);
+}
 
 const jsonObject = NewPlainObject(vm.Room(), table, protos);
 const stringifyKey = Value.FromString(table.CreateString(Units("stringify")));
