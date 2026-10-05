@@ -6,6 +6,93 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 299 轮的账（**描述符那一簇：门早就有了，只是没人接上去** —— 92.8% → 93.0%，标准库 92.7% → 93.6%）
+
+**三条红条同一个形状** ✗：**引擎里的门早就造好了** ✓，只是**这一层没把描述符接上去** ✗。
+
+| 红条 | 原来的做法 | 其实缺什么 |
+| --- | --- | --- |
+| `object-defineproperty-forms` | `get` / `set` 描述符**整支抛** ✗ | `Property.Accessor` 那个工厂 ✓、`DefineAccessor` ✓ |
+| `object-create-with-properties` | 第二格**整格丢掉** ✗ | 与 `defineProperties` **同一条路** ✓ |
+| `object-create-and-prototype-forms` | `Object.create(null)` **响亮地抛** ✗ | `Proto = 0` 就是「没有原型」✓ |
+
+### 一、`get` / `set` 描述符：**理由写着「没有门」，门在第 98 轮就装好了**
+
+那一支的注释写的是「这一层还没有那两格的门」✓——可引擎**早就读得懂访问器** ✗：
+`props.xl.md` 的 `DefineAccessor` 从**第 98 轮**起就在用 ✓（对象字面量的 `{ get x() {} }` ✓、
+类里的 `get x()` ✓ 都走它 ✓），`ReadProperty` / `SetProperty` 两条读写分支也一直在跑 ✓。
+缺的只是**把描述符的两格接上去** ✓。
+
+**顺手要看清的一格**：访问器上 **`writable` 无意义** ✓（JS 的口径 ✓）——
+标志位只拼 `enumerable` 与 `configurable` ✓。把 `writable` 也算进去是**静默**多一位 ✗
+（`getOwnPropertyDescriptor(o, "g").writable` 会答假 ✓，而 JS 那两格**根本不在** ✓）。
+
+**`get` / `set` 不是函数就丢掉** ✓（JS 的口径 ✓）：不是「原样存进去」✗——
+那会让 `o.g` 去调一个数字 ✓，报的是「调了一个不是函数的东西」✓（离现场很远 ✗）。
+
+### 二、`Object.create` 的第二格
+
+`Object.create(proto, { a: { value: 1, enumerable: true } })` 之后 `o.a` 是 `undefined` ✓、
+`Object.keys(o)` 是空的 ✓——**两句都看着像「那个对象就是空的」** ✓，**静默错值** ✗。
+
+**修法不新写一条路** ✓：扫描述符表里**可枚举的自有属性** ✓、逐格调
+`DefineOwnFromDescriptor` ✓——与 `defineProperties` 一字不差 ✓。
+**新写一条就是第二份「描述符怎么读」** ✗，而里面有两处**不能抄**的判断 ✓
+（默认三个标志全是假 ✓、访问器那两格 ✓）。
+
+### 三、`Object.create(null)`：**那句「长得一样」是没量过的**
+
+第 209 轮那句理由：「`Proto` 是句柄，`0` 是『没有』✓，而『没有』与『`Object.prototype`』
+在 `GetProperty` 那条路上**长得一样**」✗。
+
+**量了一下：不一样** ✗——`FindProperty` 的循环判的是 `current > 0` ✓，
+所以 `Proto = 0` **天然就是「到此为止」** ✓（沿链找不到 ⇒ `undefined` ✓，
+`"toString" in Object.create(null)` 是**假** ✓，与 JS 一致 ✓）。
+
+**那句担心其实说的是另一件事** ✓：`NewPlainObject` 给新对象填的是 `protos.Object` ✓——
+所以「**没设过**」与「**设成 0**」**是两档** ✓，只是当时**没有把 `0` 真的写进去过** ✗。
+**「长得一样」与「我没试过」在纸上分不开** ✓——这条记在这里，与第 297 轮那条
+「已知差的理由本身不成立」是同一类 ✓。
+
+### 四、`e2e-mixed-everything` 剩下的那一格：**量准了，但没修好**
+
+第 298 轮把它从 blocked 推到 differ ✓；这一轮把它**量准** ✓：
+
+```
+async function bad() { throw new Error("x"); }     // 同步就抛出
+bad().catch(…);
+function* g() { yield 1; yield 2; }
+it.next()            ⇒ {"value":1,"done":false}     ✓ 好的
+Array.from(g())      ⇒ [1,2]                        ✓ 好的（走引擎那张 drain）
+[...g()]             ⇒ []                           ✗ 空的
+for (const v of g()) ⇒ 一个值都不给                  ✗ 空的
+```
+
+**前两条走的是「引擎自己那条 `drain`」** ✓（一个 `Guard` 里跑完 ✓），
+**后两条走的是「语言层那条协议循环」** ✓（逐步发 `iter_next` ✓）——
+**同一件事两条路，一条好一条坏** ✓。**一句异常都没有** ✗、退出码 0 ✓。
+
+**这一轮为此改了一处引擎收尾** ✓（`DoThrow` 把那一抛转成拒绝之后**把废掉的帧弹掉** ✓、
+`Pending` 清空 ✓、状态按 `Finished` 放回 ✓——第 285 轮那一版**只拒绝、不收拾** ✗：
+帧一个都没弹 ✓、`Pending` 还留着那一抛 ✓）。
+**它没修好这一格** ✗（矩阵读数一格没动 ✓）——**但四道判据全过** ✓，
+而那一处的旧写法本身就与第 285 轮注释里那句担心（「留着那些死帧，宿主下一次调用会压在它们上面」✓）
+自相矛盾 ✓。**下一轮从这里接** ✓：那条协议循环逐步走时，**哪一处状态被上一次拒绝留脏了** ✓。
+
+### 五、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   91.3%   231/253   (blocked 12 · differ 10 · bad 0)   没动
+exec      94.5%   172/182   (blocked 5  · differ 5  · bad 0)   没动
+stdlib    93.6%   307/328   (blocked 9  · differ 12 · bad 0)   +3 条
+e2e       92.3%    12/13    (blocked 0  · differ 1  · bad 0)   没动
+合计      93.0%   721/776   blocked 26 · differ 28 · bad 0
+```
+
+**红的一栏是 0** ✓；`runtime:check` **241 条** ✓、`runtime:cli` **79 份** ✓、
+`cases:tsast` **1444 / 1444** ✓。
+
 ## 第 298 轮的账（**类字段初始化式里的全局名** —— 91.2% → 92.8%，引擎 90.9% → 91.3%、端到端 84.6% → 92.3%）
 
 **选题是「按权重挑」的结果** ✓：`e2e` 那一层只有 **13 条** ✓，一条就值 **1.5 个点** ✓

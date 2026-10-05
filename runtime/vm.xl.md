@@ -1893,6 +1893,9 @@ this.NativeEscaped = true;
 // 照旧要冒到宿主 ✓（第 121 轮那条兜底判据钉的就是它 ✓）。
 const unwound = this.Frames.Handles;
 let converted = false;
+// **那一段已经废掉的帧要弹掉** ✗（第 299 轮 ✓）——弹到**那个 async 帧自己**为止 ✓，
+// **它的调用者留着** ✓（照 JS：调用者手里已经拿到承诺了 ✓，它后面的语句照样跑 ✓）。
+let convertedDepth = -1;
 for (let i = unwound.length - 1; i >= 0; i--) {
   const dying = this.Table.Get(unwound[i]);
   if (dying === null) continue;
@@ -1903,6 +1906,7 @@ for (let i = unwound.length - 1; i >= 0; i--) {
     // 而它**已经交到调用者手里** ✓，所以这里要结清的正是它 ✓。
     this.RejectPromise(Value.FromObject(dying.Frame.AsyncPromise), value);
     converted = true;
+    convertedDepth = this.DepthOfFrame(unwound[i]);
     // **只拒绝最里面那一个** ✓（后进先出 ✓）：它外面的那些 async 帧
     // 是**调用者** ✓——它们的承诺要等这一帧的拒绝**顺着 `await` 链传上去** ✓
     //（那正是 JS 的语义 ✓：`await` 一个被拒绝的承诺会抛 ✓，于是外层那条
@@ -1912,7 +1916,28 @@ for (let i = unwound.length - 1; i >= 0; i--) {
     break;
   }
 }
-if (converted) return;
+if (converted) {
+  // **第 299 轮补的三句** ✗——第 285 轮那一版**只拒绝、不收拾** ✓：
+  // 「到此为止」那一条**只管住了状态** ✓（不置 `Threw` ✓），
+  // 可**帧一个都没弹** ✗、`Pending` 也**留着那一抛** ✗。
+  //
+  // **为什么要弹** ✗：那些帧已经**废了** ✓（它们的处理点刚刚被逐个作废 ✓），
+  // 留着的话栈顶就是**那一帧** ✓——而调用者在**它下面** ✓。
+  // 实测的症状正是从这个「栈顶错了」长出来的 ✓：那一抛之后
+  // **同一个片段里后面新建的生成器一个值都不产出** ✓（`[...g()]` 给空数组 ✓，
+  // 而 `node` 给两个值 ✓）——**一句异常都没有** ✓、退出码还是 0 ✓，
+  // 判据 `c298-async-reject-then-sync` 与 `e2e-mixed-everything` 量的就是它 ✓。
+  //
+  // **`Pending` 也要清** ✓（与 `TakeRaise` 那条一字不差 ✓）：那一抛已经**变成一份拒绝**了 ✓，
+  // 不再是「脚本站内异常」✗——留着它，下一次宿主调用会读到**上一次的错** ✓。
+  // **状态放回哪一档由 `Finished` 说** ✓（第 285 轮 `RunNativeTask` 那一处同一个写法 ✓）：
+  // 入口已经返回 ⇒ 这一趟是宿主在排空微任务 ✓ ⇒ `Halted` ✓；
+  // 否则这一趟是**脚本自己同步跑出来的 async 调用立刻抛了** ✓ ⇒ `Ready` ✓。
+  while (this.Frames.Depth() > convertedDepth) this.Frames.Pop();
+  this.Pending = new Value();
+  this.Status = this.Finished ? VmStatus.Halted : VmStatus.Ready;
+  return;
+}
 this.Frames.Clear();
 this.Status = VmStatus.Threw;
 ```

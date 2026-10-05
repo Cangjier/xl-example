@@ -261,7 +261,7 @@ export const EXPECTATIONS = {
   // 与 `e2e-event-emitter` **一字不差的同一个根** ✓（全局名没进内层帧的环境 ✓）。
   // 台账从 `pass` 变成 `blocked` 不是倒退 ✗：这一条**从来没有真跑起来过** ✓
   //（原来整份文件在降级期就进不来 ✓）——它只是原来被记成了「类型位擦除」那一档 ✓。
-  "e2e-mixed-everything": { expect: "differ", why: "**第 298 轮从 blocked 走到 differ** ✓（那一轮修掉了类字段初始化式里的全局名 ✓——这一条此前报的 `cannot call a non-closure value` 就是它 ✓）。现在剩下的那一行是**另一件事** ✗：`const snapshot = [...store.keys()].map((k) => k.toUpperCase())` 打出**空串**（Node 给 `A-B`）✓——而**同一份程序里第一次** `[...store.keys()]` 是对的 ✓（打出 `a,b` ✓）。量到的现场是「**一个被拒绝的 async 方法调用之后，紧跟的那条同步语句被整条丢掉**」✓：`total(\"zzz\").catch(…)` 之后那一句 `console.log` 一条都不打 ✓、**退出码还是 0** ✓（所以只有逐字节对拍才看得见 ✓）。**简化成独立函数那一版是好的** ✓（`fail().catch(…)` 后跟同步语句 —— 判据 `c298-async-reject-then-sync` 现在是绿的 ✓），所以触发条件与**类方法 / 生成器 / `this.data`** 里的哪一样有关还没定 ✓——下一轮的第一条" },
+  "e2e-mixed-everything": { expect: "differ", why: "**第 298 轮从 blocked 走到 differ** ✓（那一轮修掉了类字段初始化式里的全局名 ✓）。第 299 轮把剩下的那一格**量准了** ✓：**一个「同步就抛出」的 async 函数被调用之后，同一个片段里后面新建的生成器在「语言层那条迭代路」上一个值都不产出** ✗——而**三条对照同时成立** ✓：① 显式 `it.next()` 是好的 ✓（`{value:1,done:false}` ✓）；② **`Array.from(g())` 也是好的** ✓（走引擎那张 `drain` ✓）；③ 只有 `[...g()]` 与 `for..of`（走**语言层那条协议循环** ✓、逐步发 `iter_next` ✓）给**空** ✗。**一句异常都没有** ✗、退出码 0 ✓。第 299 轮为此改了一处**引擎**的收尾（`DoThrow` 把那一抛转成拒绝之后**把废掉的帧弹掉、`Pending` 清空、状态按 `Finished` 放回** ✓——第 285 轮那一版只拒绝、不收拾 ✓），**它没修好这一格** ✗（矩阵读数没动 ✓），但 241 条 `runtime:check` 与 79 份 `runtime:cli` 都照旧全过 ✓；**下一步**是那条协议循环逐步走时「哪一处状态被上一次拒绝留脏了」✓" },
 
   // ===================== 第 273 轮加宽：矩阵 275 → 395 条，新盖到 37 条缺口 =====================
   //
@@ -542,8 +542,6 @@ export const EXPECTATIONS = {
   //    `getOwnPropertyNames` 只差「键是不是符号」** ✓——两处都**复用**了兄弟那一支 ✓，
   //    没有另写一份 ✗（第 283 轮那条「第二份迟早与第一份走偏」✓）。
   "string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof (String as any).raw` 给 `undefined`）——标签模板的 `raw` 那一栏投影里也没有" },
-  "object-create-and-prototype-forms": { expect: "blocked", why: "`unimplemented: Object.create(null) (a proto-less object)`——`null` 原型那一档没接（带属性的那一档是好的 ✓）" },
-  "object-defineproperty-forms": { expect: "blocked", why: "`unimplemented: Object.defineProperty with a get/set descriptor`——描述符里的访问器那一档没接（`value` 那一档是好的 ✓）" },
 
   // ---- 组 H：标准库**在、但语义不对**（第 287 轮 15 条，**第 288 轮收掉 5 条**）----
   // 与组 A 同样是**静默错值** ✓，只是这一组住在标准库里 ✓。
@@ -579,7 +577,6 @@ export const EXPECTATIONS = {
   "string-normalize": { expect: "blocked", why: "`String.normalize` 没装——NFC / NFD 要一张 Unicode 归一化表，本仓没有（与 `toUpperCase` / `localeCompare` 同一条纪律：不编一个看起来对的答案）" },
   //
   // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
-  "object-create-with-properties": { expect: "differ", why: "**静默错值**：`Object.create(proto, { a: { value: 1, enumerable: true } })` 的第二格被丢掉（`o.a` 给 `undefined` 而不是 `1`）——描述符那条路（`DefineOwnFromDescriptor`）现成，缺的是「收下第二格并逐键写一遍」" },
   "array-tostring-custom-values": { expect: "differ", why: "**静默错值**：`[new C(), 1].toString()` 给 `[object Object],1`（Node 给 `C!,1`）——`ValueUnits` 对普通对象**写死了 `[object Object]`**，没走 `ToPrimitive(el, \"string\")` ⇒ 元素自己那个 `toString` 根本不被调。根子与 `json-stringify-tojson-and-specials` 同一处：**取文本这条路上没有回调通道**" },
   //
   // **组 C：降级层 / token 层（3 条）** ✓

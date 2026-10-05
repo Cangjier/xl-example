@@ -1844,16 +1844,43 @@ if (id === ObjectCreate) {
   if (args.length === 0) return made;
   const proto = args[0];
   if (proto.Tag === ValueTag.Null) {
-    // **`Object.create(null)` 响亮地抛** ✗：本仓的 `Value` 表达不了「没有原型」那一档 ✓
-    //（`Proto` 是句柄，`0` 是「没有」✓，而「没有」与「`Object.prototype`」在
-    //  `GetProperty` 那条路上**长得一样** ✗）——静默给一个 `Object.prototype` 的后代
-    // 会让 `"toString" in o` **由假变真** ✗，那是**静默错值** ✓。
-    throw new Error("unimplemented: Object.create(null) (a proto-less object)");
+    // **`Object.create(null)`** ✓（第 299 轮 ✓）——`Proto = 0` 就是「没有原型」✓。
+    //
+    // **第 209 轮那一版抛了** ✗，理由写的是「『没有』与『`Object.prototype`』在
+    // `GetProperty` 那条路上**长得一样**」✓——**量了一下：它们不一样** ✗。
+    // `props.xl.md` 的 `FindProperty` 循环判的是 `current > 0` ✓，
+    // 所以 `Proto = 0` 那一档**天然就是「到此为止」** ✓（`GetProperty` 沿链找不到 ⇒ `undefined` ✓）。
+    // 而「长得一样」说的是**另一件事** ✗：`NewPlainObject` 给新对象填的是 `protos.Object` ✓——
+    // 所以「没设过」与「设成 0」**是两档** ✓，只是当时没有把 `0` 真的写进去过 ✓。
+    // **判据就是这一句** ✓：`"toString" in Object.create(null)` 在 JS 里是**假** ✓
+    //（判据 `object-create-and-prototype-forms` 量着它 ✓）。
+    table.Get(made.Ref).Proto = 0;
+    return made;
   }
   if (proto.Tag !== ValueTag.Object) {
     throw new Error("unimplemented: Object.create over a prototype that is not an object");
   }
   table.Get(made.Ref).Proto = proto.Ref;
+  // **第二格实参：属性描述表** ✓（第 299 轮 ✓）——以前**整格丢掉** ✗
+  //（`Object.create(proto, { a: { value: 1, enumerable: true } })` 之后 `o.a` 是 `undefined` ✓，
+  //  而 `Object.keys(o)` 是空的 ✓——**两句都看着像「那个对象就是空的」** ✓，**静默错值** ✗，
+  //  判据 `object-create-with-properties` / `object-create-and-prototype-forms` 量的就是它 ✓）。
+  //
+  // **走 `DefineOwnFromDescriptor` 那条既有的路** ✓（与 `defineProperties` 一字不差 ✓）：
+  // 扫描述符表里**可枚举的自有属性** ✓、逐格写 ✓——**不新写一条** ✗
+  //（新写一条就是第二份「描述符怎么读」✓，而里面有两处**不能抄**的判断 ✓：
+  //  默认三个标志全是假 ✓、访问器那两格 ✓）。
+  if (args.length > 1 && args[1].IsObject()) {
+    const createDescriptors = table.Get(args[1].Ref);
+    const createCount = createDescriptors.Props.length;
+    for (let i = 0; i < createCount; i++) {
+      const entry = createDescriptors.Props[i];
+      if (entry.Kind === PropertyKind.Accessor) continue;
+      if (!entry.IsEnumerable()) continue;
+      if (table.Get(entry.Key).Tag !== ValueTag.String) continue;
+      DefineOwnFromDescriptor(room, table, made, Value.FromString(entry.Key), entry.Value);
+    }
+  }
   return made;
 }
 if (id === ObjectGetPrototypeOf) {
@@ -3408,8 +3435,43 @@ const fieldOf = (name: string) => {
   }
   return Value.Undefined();
 };
-if (fieldOf("get").Tag !== ValueTag.Undefined || fieldOf("set").Tag !== ValueTag.Undefined) {
-  throw new Error("unimplemented: Object.defineProperty with a get/set descriptor");
+// **访问器那一支** ✓（第 299 轮 ✓）：`{ get: …, set: … }` 以前**整支抛** ✗——
+// 理由写的是「这一层还没有那两格的门」✓，而**引擎早就有门了** ✗：
+// `Property.Accessor` 那个工厂 ✓、`ReadProperty` / `SetProperty` 两条读写的分支 ✓、
+// 以及 `props.xl.md` 的 `DefineAccessor` ✓（第 98 轮 ✓，对象字面量与类方法一直走它 ✓）。
+// 缺的只是**把描述符的那两格接上去** ✓。
+//
+// **`writable` 在访问器上无意义** ✓（JS 的口径 ✓）：标志位只拼
+// `enumerable` 与 `configurable` 两个 ✓——把 `writable` 也算进去是**静默**多一位 ✗
+//（`Object.getOwnPropertyDescriptor(o, "g").writable` 于是会答假 ✓，而 JS 那两格**根本不在** ✓）。
+//
+// **`get` / `set` 不是函数就丢掉** ✓（JS 的口径 ✓：`{ get: 1 }` 是「没有 getter」✓）——
+// 不是「原样存进去」✗：那会让 `o.g` 去调一个数字 ✓，报的是「调了一个不是函数的东西」✓。
+const accessorGet = fieldOf("get");
+const accessorSet = fieldOf("set");
+if (accessorGet.Tag !== ValueTag.Undefined || accessorSet.Tag !== ValueTag.Undefined) {
+  const storedGetter = IsCallableValue(table, accessorGet) ? accessorGet : Value.Undefined();
+  const storedSetter = IsCallableValue(table, accessorSet) ? accessorSet : Value.Undefined();
+  let accessorFlags = 0;
+  if (RtToBoolean(table, fieldOf("enumerable")).AsBool()) accessorFlags = accessorFlags + PropertyFlagEnumerable;
+  if (RtToBoolean(table, fieldOf("configurable")).AsBool()) accessorFlags = accessorFlags + PropertyFlagConfigurable;
+  const accessorExisting = FindProperty(room, table, target.Ref, key);
+  if (accessorExisting !== null && accessorExisting.Owner === target.Ref) {
+    // **原地换那一格** ✓（与上面数据属性那一支同一个写法 ✓）：`Kind` 一改，
+    // 读写两条路立刻按访问器走 ✓（`ReadProperty` 调 getter ✓、`SetProperty` 调 setter ✓）。
+    const accessorProperty = defineTarget.Props[accessorExisting.Index];
+    accessorProperty.Kind = PropertyKind.Accessor;
+    accessorProperty.Getter = storedGetter;
+    accessorProperty.Setter = storedSetter;
+    accessorProperty.Flags = accessorFlags;
+    return;
+  }
+  if (!room(PropertyCharge)) throw new Error("out of room");
+  const createdAccessor = Property.Accessor(key.Ref, storedGetter, storedSetter);
+  createdAccessor.Flags = accessorFlags;
+  defineTarget.Props.push(createdAccessor);
+  table.Recount(target.Ref);
+  return;
 }
 let flags = 0;
 if (RtToBoolean(table, fieldOf("enumerable")).AsBool()) flags = flags + PropertyFlagEnumerable;

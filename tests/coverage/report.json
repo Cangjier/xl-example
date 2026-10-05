@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 92.81,
+  "progressPercent": 93.04,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 328,
-      "pass": 304,
-      "blocked": 11,
-      "differ": 13,
+      "pass": 307,
+      "blocked": 9,
+      "differ": 12,
       "nodefail": 0,
-      "coverage": 92.68
+      "coverage": 93.6
     },
     {
       "layer": "e2e",
@@ -190,18 +190,6 @@
       "layer": "stdlib",
       "title": "String.raw 作为标签 + 普通调用两种形态",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "object-create-and-prototype-forms",
-      "layer": "stdlib",
-      "title": "Object.create：null 原型 / 带属性 / 继承来的键",
-      "detail": "tsrun: 脚本抛出：unimplemented: Object.create(null) (a proto-less object)"
-    },
-    {
-      "id": "object-defineproperty-forms",
-      "layer": "stdlib",
-      "title": "defineProperty：getter / 不可枚举 / 不可写 / 只读现值",
-      "detail": "tsrun: 脚本抛出：unimplemented: Object.defineProperty with a get/set descriptor"
     },
     {
       "id": "string-normalize",
@@ -386,12 +374,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
     },
     {
-      "id": "object-create-with-properties",
-      "layer": "stdlib",
-      "title": "Object.create 带第二格属性描述表",
-      "detail": "stdout 不同：第 1 行：node «hi 1 a» vs tsrun «hi undefined »"
-    },
-    {
       "id": "array-tostring-custom-values",
       "layer": "stdlib",
       "title": "数组 toString 走元素的 toString",
@@ -423,22 +405,19 @@
     }
   ],
   "bad": [],
-  "moved": [
-    {
-      "id": "e2e-mixed-everything",
-      "layer": "e2e",
-      "why": "同一个根：`private data = new Map<…>()`（类字段初始化式里的全局名 ✓）。**前半条已经做掉** ✓：类里的 `async total(key)` 与生成器方法 `*keys()` 都降级得出来 ✓（原来整份文件进不了门 ✗）",
-      "detail": "stdout 不同：第 2 行：node «A-B» vs tsrun «»"
-    }
-  ],
+  "moved": [],
   "newlyPassing": [
     {
-      "id": "prm-microtask-order",
-      "layer": "runtime"
+      "id": "object-create-and-prototype-forms",
+      "layer": "stdlib"
     },
     {
-      "id": "e2e-event-emitter",
-      "layer": "e2e"
+      "id": "object-defineproperty-forms",
+      "layer": "stdlib"
+    },
+    {
+      "id": "object-create-with-properties",
+      "layer": "stdlib"
     }
   ],
   "regressions": []
