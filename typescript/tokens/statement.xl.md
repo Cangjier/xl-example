@@ -394,6 +394,21 @@ return item instanceof IfSet
   // 再 import 它们会绕出更深的环（与上面 `Let` 那条同一个理由）。
   || item.constructor.name === "StaticBlock"
   || item.constructor.name === "NamespaceExport";
+  // **`Namespace` 故意不在表里** ✗（第 292 轮试过、量了、退回来了 ✓）：
+  // 加进去确实修好一处 ✓——「一条命名空间后面**同一行**再跟一句」
+  //（`namespace O { … } console.log(O.a);` ✓ 原来是
+  // `unimplemented: expression ModuleDeclaration` ✓），
+  // 因为那个 `Namespace` 单元从此自己就是语句边界 ✓。
+  //
+  // **但它同时改掉了嵌套那一档的形状** ✗，而且是**静默**改 ✓：
+  // `namespace O { export namespace I { … } }` 里外层 `ModuleBlock` 的产物
+  // 从 `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration` ✓
+  //（实测 `--ts-ast` 的投影 ✓）——降级层读的是 `ListOf(block, "statements")` ✓，
+  // 于是一个语句都取不到 ✓ ⇒ 内层命名空间**根本没建** ✓，
+  // 脚本报的是 `cannot read properties of undefined` ✓（离现场很远 ✗）。
+  // 两处一比：**收益 1 条、代价是嵌套那一档从「报错」变成「静默错值」** ✗ ——
+  // 所以退回来 ✓，把那一处**记成台账里的缺口** ✓（根子在语句边界与 `ModuleBlock`
+  // 的收法这两件事的耦合上 ✓，要动就得一起动 ✓）。
 ```
 
 ## static method IsStatementBoundary:(units:Array<Token>, index:int)=>bool

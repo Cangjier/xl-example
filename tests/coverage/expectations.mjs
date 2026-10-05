@@ -81,7 +81,6 @@ export const EXPECTATIONS = {
   // 而**数值那一格的键要先字符串化** ✓（`set_prop` 的键只认字符串 / 符号 ✓）。
   // **另一处已知差** ✗：`A = 1 + 1` 那种**算出来的数**这一轮**不挂反向格** ✓
   //（`IsNumericInitializer` 只认「没有初始化式」与「数值字面量」两档 ✓——不猜 ✓）。
-  "ex-namespace": { expect: "blocked", why: "`namespace` 没做（含嵌套与导出）——有运行期语义" },
   "ex-tagged-template-suffix": { expect: "blocked", why: "函数当 `ToPrimitive` 时该给**源码文本**（`Function.prototype.toString`）" },
   // **第 233 轮删掉了 `ex-typeof-value-expression` 那一行** ✓（它过了 ✓，与
   // `op-typeof-forms` 同一处 ✓）：它的第一项 `typeof ({}).toString` 原来把括号里的 `{}`
@@ -392,7 +391,6 @@ export const EXPECTATIONS = {
   // **一个指令都不产生** ✓，而不是造一个空对象 ✓。挡在门口的却是同一句
   // `unimplemented: statement ModuleDeclaration` ✗——也就是「先问体内有没有运行期东西」
   // 这一问还不存在 ✗。
-  "ex-nested-namespace-type-only": { expect: "blocked", why: "体内**全是类型位**的 `namespace`（`export type` / `export interface`）本该整块擦掉（产生的运行期东西一个都没有），却和真 `namespace` 一样挡住：`unimplemented: statement ModuleDeclaration`。要先做「体内有没有运行期东西」这一问" },
 
   // **第 274 轮删掉了这七行** ✓（它们过了 ✓）——第 273 轮普查收进来的那四条
   // 「那一格根本没装」✗（`reduceRight` / `copyWithin` / `findLast` / `toSorted`·`with` ✓），
@@ -535,8 +533,6 @@ export const EXPECTATIONS = {
 
   // ---- 组 F：降级层的两种形状（3 条）----
   "ex-class-computed-and-static-init": { expect: "blocked", why: "`unimplemented: computed class field name`：类字段的计算名 `[k] = v` 没接（计算**方法**名第 229 轮就通了 ✓）" },
-  "ex-namespace-with-values": { expect: "blocked", why: "`unimplemented: statement ModuleDeclaration`：`namespace` 里有运行期东西（`export const` / `export function`）⇒ 要造一个对象并把成员挂上去" },
-  "ex-namespace-nested-with-values": { expect: "blocked", why: "同上，外加**嵌套**那一层（`Outer.Inner.v`）——两层都要造对象并接上去" },
 
   // ---- 组 G：标准库**成员不在那儿**（第 287 轮 7 条，**第 288 轮收掉 3 条**）----
   // 量法与第 273 轮一致 ✓：一个探针把候选成员逐个 `typeof` 一遍 ✓，
@@ -607,7 +603,6 @@ export const EXPECTATIONS = {
   // **组 C：降级层 / token 层（3 条）** ✓
   "ex-arrow-immediately-invoked-typed": { expect: "differ", why: "**静默错值**：`((a: number, b: number) => a + b)(1, 2)` 给 `NaN`——带类型标注的箭头出现在立即调用位置时形参没绑上（不带标注的箭头立即调用是对的）。与已有的 `rt-iife-forms` **同一个根**：括号里的形参表怎么被收" },
   "ex-nonnull-chain-index": { expect: "differ", why: "**静默错值**：`o!.a!.b![1]` 给整个数组而不是 `2`——非空断言串在成员链上时把后面那一截丢掉了。与已有的 `ex-nonnull-and-as-chain` **同一个根**（投影层 `!` 的尾）" },
-  "ex-enum-namespace-merge": { expect: "blocked", why: "`enum E {}` 与 `namespace E {}` 合并：namespace 那一半没做（与 `ex-namespace-with-values` 同一个根），合并只多一件「两份挂在同一个名字上」" },
   //
   // **组 D：`arguments`（2 条）** ✓——`arguments` 这个对象**这一层根本没有** ✗。
   "rt-arguments-object": { expect: "blocked", why: "`arguments` 没做（`name is not a local or a capture: arguments`）——它是有运行期语义的一格（形参个数 / 下标 / 箭头里看外层那一份），要走「函数进门时造一个数组式对象」那条路" },
@@ -638,9 +633,7 @@ export const EXPECTATIONS = {
   // `Object.isExtensible` / `WeakSet` / `ReferenceError` / `Promise.allSettled` ✓。
   //
   // **组 A：`namespace` 带值那一族（3 条）** ✓——与缺口清单 #4 同一根。
-  "c291-ex-namespace-with-values": { expect: "blocked", why: "`namespace N { export const a = 1 }` 报 `unimplemented: statement ModuleDeclaration`——降级层的 `LowerStatement` 还没有那一格。要做的是「造一个对象 + 把成员按顺序挂上去」（`export` 只是可见性、不改形状）" },
-  "c291-ex-nested-namespace-with-values": { expect: "blocked", why: "嵌套一层的 namespace 同一个根：内层也要造对象再挂到外层那一格上——`Outer.Inner.v` 证明挂的是**真那个对象**，不是影子" },
-  "c291-ex-enum-namespace-merge": { expect: "blocked", why: "枚举与 namespace 合并：两条声明落在同一个名字上（枚举先建对象、namespace 再往上挂 `extra`），根子还是 ModuleDeclaration 那一格" },
+  "c291-ex-nested-namespace-with-values": { expect: "blocked", why: "这一条是**一行写完**的那个形状（`namespace Outer { export namespace Inner { … } export const w = Inner.v + 1; }`）——第 292 轮把 `namespace` 本身做出来了 ✓（另外 7 条当场转绿 ✓），剩下的根子**不在降级层** ✗：`Namespace` 这个单元**不算语句边界** ⇒ 同一行后面那句 `export const w = …` 的 `=` 被读成**二元运算符**、左边正好是它 ⇒ 投影出来是 `ExpressionStatement(BinaryExpression(ModuleDeclaration, EqualsToken, …))`，降级层报 `unimplemented: assignment to a non-identifier`。第 292 轮**试过**把 `Namespace` 收进 `IsStatementUnit`：那一处修好了 ✓，可外层 `ModuleBlock` 的产物从 `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration`（实测 `--ts-ast`）⇒ 降级层取不到语句 ⇒ 内层命名空间**根本没建**、报 `cannot read properties of undefined`（**静默错值** ✗）。收益 1 条、代价是嵌套那一档从「报错」变成「静默错值」，所以**退回来了**；要动就得把「语句边界」与「`ModuleBlock` 的收法」一起改" },
   //
   // **组 B：属性枚举的整数键优先序（2 条）** ✓——**静默错值** ✗。
   "c291-rt-object-iteration-order": { expect: "differ", why: "**静默错值**：`Object.keys({ b: 1, 2: 2, a: 3, 1: 4 })` 给 `b,2,a,1`（Node 给 `1,2,b,a`）——整数键要**按数值升序排在最前**，本仓一律用插入序。根子在属性表那一趟枚举" },

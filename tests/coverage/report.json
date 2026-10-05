@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 87.85,
+  "progressPercent": 89,
   "layers": [
     {
       "layer": "runtime",
@@ -49,11 +49,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 182,
-      "pass": 165,
-      "blocked": 12,
+      "pass": 172,
+      "blocked": 5,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 90.66
+      "coverage": 94.51
     },
     {
       "layer": "stdlib",
@@ -150,12 +150,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "ex-namespace",
-      "layer": "exec",
-      "title": "namespace：要真的造一个对象出来（含嵌套与导出）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
-    },
-    {
       "id": "ex-tagged-template-suffix",
       "layer": "exec",
       "title": "标签模板后面接成员 / 运算符 / 实参",
@@ -174,52 +168,16 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "ex-nested-namespace-type-only",
-      "layer": "exec",
-      "title": "namespace 只用类型位的那一半（`export type` / `export interface`）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
-    },
-    {
       "id": "ex-class-computed-and-static-init",
       "layer": "exec",
       "title": "类的计算成员名 · 静态字段与静态块的初始化顺序",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed class field name"
     },
     {
-      "id": "ex-namespace-with-values",
-      "layer": "exec",
-      "title": "namespace 里有运行期东西：对象、函数、内部引用",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
-    },
-    {
-      "id": "ex-namespace-nested-with-values",
-      "layer": "exec",
-      "title": "嵌套 namespace：外层套内层、两层的值都能取到",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
-    },
-    {
-      "id": "ex-enum-namespace-merge",
-      "layer": "exec",
-      "title": "enum 与 namespace 合并：两份都在同一个名字上",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
-    },
-    {
-      "id": "c291-ex-namespace-with-values",
-      "layer": "exec",
-      "title": "带值的 namespace",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
-    },
-    {
       "id": "c291-ex-nested-namespace-with-values",
       "layer": "exec",
       "title": "嵌套一层的 namespace",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
-    },
-    {
-      "id": "c291-ex-enum-namespace-merge",
-      "layer": "exec",
-      "title": "枚举与 namespace 合并",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: statement ModuleDeclaration"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier"
     },
     {
       "id": "object-freeze",
@@ -640,11 +598,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "function-name-inference",
-      "layer": "stdlib"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }

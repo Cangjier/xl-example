@@ -755,6 +755,23 @@ return -1;
 
 与 `PatternAt` 一一对应的那些模式 ✓。
 
+## field Arity:int = 0
+
+**`fn.length` 的答案**（第 291 轮 ✓，第 292 轮搬到这一格 ✓）：形参里**第一个默认值 / 剩余之前**有几个 ✓
+（算它的是 `FunctionArity` ✓）。它**不属于** `ParamCount` ✗——那一格是「这一帧要铺几个参数」✓，
+而 `function f(a, b = 1, c)` 的 `ParamCount` 是 3 ✓、`length` 是 **1** ✓。
+两格混用就是**静默错值** ✓（`fn.length` 会变成形参个数 ✓），所以它们是两格 ✓。
+
+## field IsNamespace:bool = false
+
+**这一帧是 `namespace` 的体**（第 292 轮 ✓）——它的形参表只有一格（那个对象 ✓），
+而**体内的导出要在降级时挂回对象上** ✓。
+
+**为什么它必须是一帧、而不是「把体塞进外层」** ✗：体内的名字属于**命名空间自己那一层** ✓
+（`scope.xl.md` 的 `CollectDeclaredNames` 从第 231 轮起就写着「命名空间是作用域边界」✓）——
+塞进外层只有两种错法 ✗：**泄漏到外面** ✓（静默错值 ✓）、或者体内函数读到**别的帧的槽号** ✓（垃圾值 ✓）。
+开一帧之后，体内那个 `f` 引用 `a` 走的是**捕获**那条既有路 ✓（`a` 是本帧的局部 ✓）。
+
 ## field FieldDefaults:Array<AstNode> = []
 
 **这个构造函数开局要跑的实例字段初始化式**（第 128 轮补；只有构造函数非空）。
@@ -1803,7 +1820,12 @@ if (item.FieldInitDeferred && item.FieldDefaults.length > 0) {
   // **只对「这个函数的体」这一层挂**（内层块不欠它，理由见 `DeferredItem`）✓。
   this.DeferredItem = item;
 }
-if (item.IsExpressionBody) {
+if (item.IsNamespace) {
+  // **`namespace` 的体**（第 292 轮 ✓）：与 `LowerStatementsOf` 只差一件事 ✗——
+  // 带 `export` 的声明降完**还要挂到那个对象上** ✓（见 `BindNamespaceExports` ✓）。
+  // 形参表只有一格 ✓（那个对象 ✓），名字就是它 ✓。
+  this.LowerNamespaceBody(body, item.Params[0]);
+} else if (item.IsExpressionBody) {
   // 箭头函数的表达式体：值就是返回值（**不是**「跑完给 undefined」）。
   const value = this.LowerExpression(body);
   this.Emit(Op.Return, value, -1, -1, -1);
@@ -1821,6 +1843,215 @@ this.InAsync = outerInAsync;
 this.InSuperName = outerSuperName;
 this.InSuperStatic = outerSuperStatic;
 this.InArrow = outerInArrow;
+```
+
+## method EmitClosure:(item:PendingFunction)=>int
+
+**造一个闭包、把它的体排队，返回闭包那一格**（第 292 轮 ✓）。
+
+**为什么收口** ✗：这一形状原先**写了两遍** ✓（函数值 ✓、函数声明 ✓）——
+第 292 轮要写**第三遍** ✓（`namespace` 的体也要开一帧 ✓）。
+三遍就是**三处会写错操作数**的机会 ✗，而算错槽的症状是「值悄悄换成别的」✗
+（`EmitCallArray` 那一段写着同一条理由 ✓）。第 291 轮那第四格（形参个数 ✓）
+也是同一个形状：**加一格要改三处** ✗。
+
+**调用方仍然管两件事** ✗（它们不是「形状固定」的那一半 ✓）：
+- **名字** ✓：函数表达式自带的真名 / 绑定那一刻的提示 / 匿名 —— 见 `LowerFunctionValue` 的三档 ✓；
+- **`prototype` 那一格** ✓：只有函数声明与函数表达式才挂 ✓（箭头与对象方法不挂 ✓）。
+
+**`window` 是先预留的** ✗：所以退水位要退到**闭包之上** ✓、不是退到窗口 ✓
+（退到窗口会把闭包格一起退掉 ✓，下一个分配就盖在它上面 ✓——表现是「调用了非闭包的值」✓）。
+
+**预留的顺序是「先闭包格、再窗口」** ✓（第 292 轮收口时定下来的 ✓）：
+这样一句 `Release(slot + 1)` 就**只放掉窗口、留下闭包** ✓。
+倒过来写（先窗口、后闭包 ✓，那是第 292 轮之前**函数值**那一条的写法 ✗）
+`Release(slot + 1)` 落在水位顶上 ✓ ⇒ **窗口那四格永远留着** ✓——
+不致命 ✓（只是每一处闭包多占四格 ✓），但它是**悄悄长胖**的那一类 ✗，
+而两个调用点在这个细节上**原来不一致** ✗（函数声明那一处是对的 ✓）——
+收口的好处之一就是把这种不一致一次抹平 ✓。
+
+```ts
+const slot = this.Reserve(1);
+item.Patch = this.Program().AddConst(Constant.OfInt(0));
+const nameConst = item.Name === ""
+  ? this.Program().AddConst(Constant.OfUndefined())
+  : this.Program().AddConst(Constant.OfString(UnitsOf(item.Name)));
+const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity));
+const window = this.Reserve(4);
+const enclosing = this.Env.Last();
+if (enclosing === null) {
+  this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+} else {
+  this.Emit(Op.Move, window, enclosing.Slot, -1, -1);
+}
+this.Emit(Op.Const, window + 1, item.Patch, -1, -1);
+this.Emit(Op.Const, window + 2, nameConst, -1, -1);
+this.Emit(Op.Const, window + 3, arityConst, -1, -1);
+this.EmitRt(RtOp.NewClosure, slot, window, 4);
+this.Release(slot + 1);
+item.Envs = this.Env.Clone();
+this.Pending.push(item);
+return slot;
+```
+
+## method LowerNamespace:(node:AstNode)=>void
+
+**`namespace N { … }` / `module N { … }`**（第 292 轮 ✓）。
+
+**它是有运行期语义的一格** ✓（与 `type` / `interface` **恰好相反** ✗）：
+`namespace N { export const a = 1 }` 之后运行期真的有一个 `N` ✓，
+而且**它的体真的跑一遍** ✓（`export const doubled = add(version, version)` 里那次调用会发生 ✓）。
+**`enum` 与它是同一档** ✓（都是 TS 的**变换**、不是擦除 ✓）——所以判据都要 `--experimental-transform-types` ✓。
+
+**它落成什么** ✓（与 TS 自己的变换同一个形状 ✓）：
+「**造一个对象** + **开一帧跑体** + **把导出的名字挂到那个对象上**」✓。
+
+**为什么必须开一帧** ✗：体内的名字（`const a` / `function f`）属于**命名空间自己那一层** ✓——
+`scope.xl.md` 的 `CollectDeclaredNames` 从第 231 轮起就写着「命名空间是作用域边界」✓
+（**不往下走** ✓）。那就意味着它们**不是外层函数的局部** ✗——而**跨帧的局部名只有捕获一条路** ✓
+（`rt-loop-capture-let-vs-var` 那一族量出来的同一条规矩 ✓）。
+把体塞进外层会得到两种错法 ✗：`a` **泄漏到命名空间外面** ✓（**静默错值** ✓），
+或者体内那个 `f` 读到一个**别的帧的槽号** ✓（读出来是垃圾 ✓）。
+
+**对象怎么进去** ✗：**按形参** ✓——体那一帧的形参表就是 `[N]` ✓，
+调用时把刚造的那个对象当第 0 个实参递进去 ✓（与 TS 变换里 `(function (N) { … })(N)`
+那个形参**一字不差** ✓）。**不能靠捕获** ✗：`CapturedNames` 的定义是
+「**进了内层函数才算**」✓（`scope.xl.md` 的 `CollectInsideFunctions` ✓）——
+体里对 `N` 的**直接**引用不算捕获 ✗，于是那一格根本不会开 ✓
+（症状是 `name is not a local or a capture: N` ✓，听起来像名字写错了 ✗）。
+
+**对象是「有就复用、没有就造」** ✓：`enum E { A = 1 } namespace E { export const label = "e" }`
+里两份声明落在**同一个名字**上 ✓（TS 自己的变换也是 `E || (E = {})` ✓）。
+复用判据是**最内那一层作用域**上有没有这个名字 ✓（第 292 轮 ✓）——
+**不是 `FindLocal`** ✗：那一趟会一路往外找 ✓，于是「函数里的 `namespace E`」
+会去改**模块外面**那个同名对象 ✓（**静默错值** ✓，而且改的是别人 ✓）。
+
+**体在哪儿跑** ✓：**就在这一处** ✓（IIFE ✓，与 TS 的位置一字不差 ✓）——
+不是「排到后面某个时候」✗：`namespace` 的体里的 `export const doubled = add(…)`
+必须在**这一句之后**就看得见 ✓。
+
+```ts
+const nameNode = OptionalChild(node, "name");
+if (nameNode === null || NodeKind(nameNode) !== "Identifier") {
+  throw new Error("unimplemented: namespace declaration without a name");
+}
+const body = OptionalChild(node, "body");
+// **没有体就是环境声明** ✓（`declare namespace N;` 那一支上面已经拦过 ✓，
+// 而没有体的 `namespace N;` 在 TS 里同样是「外面已经有它」✓）——什么都不产生 ✓。
+if (body === null) return;
+if (NodeKind(body) !== "ModuleBlock") {
+  throw new Error("unimplemented: a namespace body that is not a block");
+}
+const name = TextOf(nameNode);
+// **① 那个对象** ✓
+let existing = -1;
+if (this.Scope.length > 0) existing = this.Scope[this.Scope.length - 1].Resolve(name);
+let object = -1;
+if (existing >= 0) {
+  object = this.Reserve(1);
+  this.Emit(Op.Move, object, existing, -1, -1);
+} else {
+  object = this.Reserve(1);
+  this.EmitRt(RtOp.NewObject, object, object, 0);
+  // **绑定之后不退水位** ✓（与 `LowerEnum` 一字不差 ✓）：`BindName` 会在上面留一格
+  // 给变量 ✓，而 `Release` 是「从这一格往上全放掉」✗ ⇒ 退下去会让下一次分配盖住它 ✓
+  //（症状是「算术遇到了非数值」✓）。所以这一格**留着** ✓（一个模块里至多几个 ✓）。
+  this.BindName(name, object, false);
+}
+// **② 体那一帧** ✓（形参就是那个对象 ✓）
+const item = new PendingFunction(name, body, [name], 0, [], [], [], []);
+// **这一帧不叫那个名字** ✓：那个名字要留给「按名字调函数」用 ✓，而 `N` 是一个**对象** ✗
+//（`console.log(N)` 在 Node 那边也不是 `[Function: N]` ✓）。
+item.Name = "";
+item.Arity = 1;
+item.IsNamespace = true;
+const closure = this.EmitClosure(item);
+// **③ 立刻调一次** ✓（体跑在**这一处** ✓）
+const callBase = this.Reserve(1);
+this.Emit(Op.Move, callBase, object, -1, -1);
+this.Emit(Op.Call, closure, callBase, 1, -1);
+// **调用结果没人要** ✓（体那一帧的返回值是 `undefined` ✓）——所以退到**闭包格**就够 ✓：
+// 它把结果格与闭包格一起交出去 ✓，而**对象格与变量格在下面** ✓（不被碰到 ✓）。
+this.Release(closure);
+// **复用那一档可以把对象格也放掉** ✓（它是这一处自己 `Reserve` 的临时格 ✓）；
+// **新造那一档不行** ✗（它下面还压着 `BindName` 留的变量格 ✓，见上面那一段 ✓）。
+if (existing >= 0) this.Release(object);
+```
+
+## method LowerNamespaceBody:(body:AstNode, namespaceName:string)=>void
+
+**降级 `namespace` 的体**（第 292 轮 ✓）——与 `LowerStatementsOf` **只差一件事** ✗：
+带 `export` 的声明降完**还要挂到那个对象上** ✓。
+
+**为什么挂在这里、不挂进 `LowerStatement`** ✗：那一处是**所有语句**的分派 ✓——
+把命名空间的事塞进去，每一次 `LowerStatement` 都要先问一句「我在不在命名空间里」✓，
+而**这个问题的答案在整棵树里只有一处是真的** ✓（体那一帧 ✓）。
+收在这里就没有这个问题 ✓：**进这一帧就挂** ✓、**出去就不挂** ✓。
+
+**挂哪些名字**（`export` 只管「挂不挂」✓，声明本身的语义一个字都不变 ✓）——
+类型位那两档（`export type` / `export interface`）**一个名字都不挂** ✓
+（它们不产生运行期东西 ✓，体里 `LowerStatement` 本来就整条跳过 ✓）。
+
+```ts
+const statements = ListOf(body, "statements");
+for (let i = 0; i < statements.length; i++) {
+  const statement = statements[i];
+  this.LowerStatement(statement);
+  this.BindNamespaceExports(namespaceName, statement);
+}
+```
+
+## method BindNamespaceExports:(namespaceName:string, statement:AstNode)=>void
+
+**把一条带 `export` 的声明挂到命名空间对象上**（第 292 轮 ✓）。
+
+**名字从哪来** ✓：三种声明的名字都在 `name` 那一格上 ✓
+（`FunctionDeclaration` / `ClassDeclaration` / `EnumDeclaration` / `ModuleDeclaration` ✓）——
+而**变量声明是一格 `declarationList`** ✓，里面的**模式**要用 `CollectPatternNames` 递归收 ✓
+（`export const { a, b } = o` 是合法的 ✓，只认标识符会**少挂两格** ✓——**静默错值** ✓）。
+
+**只认这四种 `kind`** ✓（与 `CollectDeclaredNames` 那张名单**同一条纪律** ✓）：
+`export type` / `export interface` **带 `name` 却不产生运行期东西** ✓——
+按字段约定收进来会在那个对象上挂出一个**空槽** ✓（**静默错值** ✓），
+而「类型名当值用」本该**响亮地报错** ✓。
+
+**读那个值走 `ResolveAccess`** ✓：体内的名字可能是**本帧的局部** ✓（大多数 ✓），
+也可能是**被捕获的环境格** ✓（体内还有内层函数引用它时 ✓）——两条路各只有一处 ✓。
+
+```ts
+if (!this.HasModifier(statement, "ExportKeyword")) return;
+const kind = NodeKind(statement);
+const names: string[] = [];
+if (kind === "VariableStatement") {
+  const list = OptionalChild(statement, "declarationList");
+  if (list !== null) {
+    const declarations = ListOf(list, "declarations");
+    for (let i = 0; i < declarations.length; i++) {
+      const pattern = OptionalChild(declarations[i], "name");
+      if (pattern !== null) CollectPatternNames(pattern, names);
+    }
+  }
+} else if (kind === "FunctionDeclaration" || kind === "ClassDeclaration"
+  || kind === "EnumDeclaration" || kind === "ModuleDeclaration") {
+  const nameNode = OptionalChild(statement, "name");
+  if (nameNode !== null && NodeKind(nameNode) === "Identifier") names.push(TextOf(nameNode));
+} else {
+  return;
+}
+const object = this.ResolveLocal(namespaceName);
+for (let i = 0; i < names.length; i++) {
+  const access = this.ResolveAccess(names[i]);
+  const value = this.Reserve(1);
+  if (access.InEnv) {
+    this.Emit(Op.EnvGet, value, access.Depth, access.Cell, -1);
+  } else {
+    this.Emit(Op.Move, value, access.Slot, -1, -1);
+  }
+  const key = this.Reserve(1);
+  this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(UnitsOf(names[i]))), -1, -1);
+  this.SetPropertyValue(object, key, value);
+  this.Release(key);
+}
 ```
 
 ## method LowerStatementsOf:(block:AstNode)=>void
@@ -2160,6 +2391,13 @@ if (kind === "ClassDeclaration") {
 }
 if (kind === "EnumDeclaration") {
   this.LowerEnum(node);
+  return;
+}
+// **`namespace` / `module`** ✓（第 292 轮 ✓）：它与 `enum` **同一档** ✗——
+// 都是 TS 的**变换**（有运行期语义 ✓），不是擦除（`type` / `interface` 那一档 ✗）。
+// 体在**这一处**就跑 ✓（IIFE ✓），因为后面那句 `export const doubled = add(…)` 要看得见它 ✓。
+if (kind === "ModuleDeclaration") {
+  this.LowerNamespace(node);
   return;
 }
 if (kind === "EmptyStatement") return;
@@ -4354,7 +4592,6 @@ const patternAt: number[] = [];
 const patterns: AstNode[] = [];
 this.CollectPatternParams(node, patternAt, patterns);
 const body = Child(node, "body");
-const patch = this.Program().AddConst(Constant.OfInt(0));
 // **函数名那一格**（第 238 轮 ✓）：`HeapClosure.Name` 一直**没人填** ✗，
 // 于是**每一个脚本函数**在 `console.log` 里都是 `[Function (anonymous)]` ✓，
 // 而 Node 给 `[Function: greet]` ✓ / `[Function: arrow]` ✓——**实测过** ✓
@@ -4376,33 +4613,10 @@ if (displayName.length > 0 && displayName.charAt(0) === "<") {
   displayName = this.FunctionNameHint;
 }
 if (displayName.length > 0 && displayName.charAt(0) === "<") displayName = "";
-const nameConst = displayName === ""
-  ? this.Program().AddConst(Constant.OfUndefined())
-  : this.Program().AddConst(Constant.OfString(UnitsOf(displayName)));
-// **形参个数那一格**（第 291 轮 ✓）：`new_closure` 的**第四格** ✓——
-// `fn.length` 是本仓此前**一条判据都没有**的一格 ✗（`HeapClosure.Arity` 一直是 0 ✓）。
-// **与名字同一条路** ✓（名字也只有造它的那一方知道 ✓），见 `FunctionArity` 那一段 ✓。
-const arityConst = this.Program().AddConst(Constant.OfInt(this.FunctionArity(node)));
-const window = this.Reserve(4);
-const enclosing = this.Env.Last();
-if (enclosing === null) {
-  this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
-} else {
-  this.Emit(Op.Move, window, enclosing.Slot, -1, -1);
-}
-this.Emit(Op.Const, window + 1, patch, -1, -1);
-this.Emit(Op.Const, window + 2, nameConst, -1, -1);
-this.Emit(Op.Const, window + 3, arityConst, -1, -1);
-const slot = this.Reserve(1);
-this.EmitRt(RtOp.NewClosure, slot, window, 4);
-// **退到闭包之上，不是退到窗口**：窗口是先预留的，`Release(window)` 会把**闭包格**
-// 一起退掉——下一个分配就盖在它上面（表现是「调用了非闭包的值」）。
-this.Release(slot + 1);
-// **函数表达式自带 `prototype`**（箭头与对象方法不——它们不可构造）。
-if (NodeKind(node) === "FunctionExpression") {
-  this.AttachPrototype(slot);
-}
-const item = new PendingFunction(name, body, params, patch, defaultAt, defaults, patternAt, patterns);
+// **造闭包 + 排队那一段收在 `EmitClosure`** ✓（第 292 轮 ✓——它原先在这里与
+// 函数声明那一处**各写了一遍** ✗，而 `namespace` 的体是第三个调用点 ✓）。
+const item = new PendingFunction(displayName, body, params, 0, defaultAt, defaults, patternAt, patterns);
+item.Arity = this.FunctionArity(node);
 item.IsExpressionBody = NodeKind(body) !== "Block";
 // **箭头与其余函数值的区别就在这一格**（第 119 轮）：箭头没有自己的 `this`，
 // 于是它的 `this` 去环境链上取（`PendingFunction.IsArrow` 那一段写着理由）。
@@ -4421,8 +4635,11 @@ item.HasRest = this.HasRestParam(node);
 // 报的是 `suspend outside a generator` ✗（离现场很远 ✗）。
 // **现在三处共用 `LowerFunctionValue` 到这里为止的那一段** ✓——
 // 类那条路只要不再自己抛 ✓，标记就自然对上了 ✓。
-item.Envs = this.Env.Clone();
-this.Pending.push(item);
+const slot = this.EmitClosure(item);
+// **函数表达式自带 `prototype`**（箭头与对象方法不——它们不可构造）。
+if (NodeKind(node) === "FunctionExpression") {
+  this.AttachPrototype(slot);
+}
 return slot;
 ```
 
@@ -5463,40 +5680,24 @@ this.CollectDefaults(node, defaultAt, defaults);
 const patternAt: number[] = [];
 const patterns: AstNode[] = [];
 this.CollectPatternParams(node, patternAt, patterns);
-const slot = this.Reserve(1);
-const patch = this.Program().AddConst(Constant.OfInt(0));
 // **函数名那一格**（第 238 轮 ✓）：见 `LowerFunctionValue` 那一段 ✓
 //（函数声明这条路原来一个名字都不带 ✗，于是 `function greet(){}` 也是 `[Function (anonymous)]` ✓）。
-const nameConst = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(name))));
-// **形参个数那一格**（第 291 轮 ✓）：与函数值那条路一字不差 ✓（见 `FunctionArity` ✓）。
-const arityConst = this.Program().AddConst(Constant.OfInt(this.FunctionArity(node)));
-const window = this.Reserve(4);
-const enclosing = this.Env.Last();
-if (enclosing === null) {
-  this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
-} else {
-  this.Emit(Op.Move, window, enclosing.Slot, -1, -1);
-}
-this.Emit(Op.Const, window + 1, patch, -1, -1);
-this.Emit(Op.Const, window + 2, nameConst, -1, -1);
-this.Emit(Op.Const, window + 3, arityConst, -1, -1);
-this.EmitRt(RtOp.NewClosure, slot, window, 4);
-// **退到闭包之上，不是退到窗口**（理由见 `LowerFunctionValue` 那一处）。
-this.Release(slot + 1);
-// **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。
-this.AttachPrototype(slot);
-// **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
-// 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
-this.DeclareLocal(TextOf(name), slot);
-const item = new PendingFunction(TextOf(name), Child(node, "body"), params, patch, defaultAt, defaults, patternAt, patterns);
-item.Slot = slot;
+// **造闭包 + 排队那一段收在 `EmitClosure`** ✓（第 292 轮 ✓——它原先在这里与
+// 函数值那一处**各写了一遍** ✗，而 `namespace` 的体是第三个调用点 ✓）。
+const item = new PendingFunction(TextOf(name), Child(node, "body"), params, 0, defaultAt, defaults, patternAt, patterns);
+item.Arity = this.FunctionArity(node);
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
 // 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
 item.HasRest = this.HasRestParam(node);
-item.Envs = this.Env.Clone();
-this.Pending.push(item);
+const slot = this.EmitClosure(item);
+// **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。
+this.AttachPrototype(slot);
+// **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
+// 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
+this.DeclareLocal(TextOf(name), slot);
+item.Slot = slot;
 ```
 
 **环境从哪来**：链尾那一层的 `Slot`——它是**当前帧**里那一格，所以一条 `Move` 就够

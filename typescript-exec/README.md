@@ -6,6 +6,110 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 292 轮的账（**`namespace` 那一族** —— 87.8% → 89.0%，降级层 90.7% → 94.5%）
+
+**选题是 `report.json` 那张清单里最大的单个簇** ✓：缺口清单 #4 的 `namespace` / `module`
+（矩阵里已经躺着 8 条 ✓，此前 8 条**全红** ✗）。
+
+### 一、它为什么是「有运行期语义」的那一档
+
+`type` / `interface` 是**纯类型位** ✓（第 148 轮起整条跳过 ✓），而 `namespace` **恰好相反** ✗：
+`namespace N { export const a = 1 }` 之后运行期真的有一个 `N` ✓，
+而且**它的体真的跑一遍** ✓（`export const doubled = add(version, version)` 里那次调用会发生 ✓）。
+判据全都要 `--experimental-transform-types` ✓（与 `enum` 同一档 ✓——TS 做的是**变换**、不是擦除 ✓）。
+
+### 二、落成什么（与 TS 自己的变换同一个形状）
+
+```
+namespace Outer { export const a = 1; export function f() { return a + 1; } }
+```
+→ 「**造一个对象** + **开一帧跑体** + **把导出的名字挂到那个对象上**」✓
+——就是 TS 那边 `var Outer; (function (Outer) { … })(Outer || (Outer = {}));` 的三步 ✓。
+
+**为什么必须开一帧、不能把体塞进外层** ✗：体内的名字（`const a` / `function f`）
+属于**命名空间自己那一层** ✓——`scope.xl.md` 的 `CollectDeclaredNames` 从第 231 轮起
+就写着「**命名空间是作用域边界**」✓（**不往下走** ✓）。那就意味着它们**不是外层函数的局部** ✗，
+而**跨帧的局部名只有捕获一条路** ✓（`rt-loop-capture-let-vs-var` 那一族量出来的同一条规矩 ✓）。
+塞进外层会得到两种错法 ✗：
+
+- `a` **泄漏到命名空间外面** ✓（`namespace N { const a = 1 } console.log(a)` 会印 `1` ✗）——**静默错值** ✓；
+- 体内那个 `f` 读到一个**别的帧的槽号** ✓（`Scope` 在函数体降级完就退了 ✗，读出来是垃圾 ✓）。
+
+### 三、对象怎么进去：**按形参**，不能靠捕获
+
+体那一帧的形参表就是 `[N]` ✓，调用时把刚造的对象当第 0 个实参递进去 ✓
+（与 TS 变换里的 `(function (N) { … })(N)` 那个形参**一字不差** ✓）。
+
+**不能靠捕获** ✗：`CapturedNames` 的定义是「**进了内层函数才算**」✓
+（`CollectInsideFunctions` 的 `inside > 0` ✓）——体里对 `N` 的**直接**引用不算捕获 ✗，
+那一格根本不会开 ✓（症状是 `name is not a local or a capture: N` ✓，听起来像名字写错了 ✗）。
+
+### 四、导出的名字怎么挂上去
+
+体内带 `export` 的声明**照常降级** ✓（名字仍然是本帧的局部 ✓），**降完再补一条
+`set_prop(N, "名字", 那个值)`** ✓——`export` 只决定「挂不挂」✓，声明本身的语义一个字都不变 ✓。
+
+**只认四种 `kind`** ✓（与 `CollectDeclaredNames` 那张名单**同一条纪律** ✓）：
+`VariableStatement` ✓ / `FunctionDeclaration` ✓ / `ClassDeclaration` ✓ / `EnumDeclaration` ✓ /
+`ModuleDeclaration` ✓。`export type` / `export interface` **带 `name` 却不产生运行期东西** ✓——
+按字段约定收进来会在那个对象上挂出一个**空槽** ✓（**静默错值** ✓），
+而「类型名当值用」本该**响亮地报错** ✓。变量声明那一格要用 `CollectPatternNames` 递归收 ✓
+（`export const { a, b } = o` 只认标识符会**少挂两格** ✓）。
+
+**体在哪儿跑** ✓：**就在声明那一处** ✓（IIFE ✓）——不是「排到后面某个时候」✗。
+
+### 五、顺带收口一处重复：`EmitClosure`
+
+「造闭包 + 把体排队」那一段原先**写了两遍** ✓（函数值 ✓、函数声明 ✓）——
+第 291 轮加第四格（形参个数 ✓）时就是**改两处** ✗，而第 292 轮要写**第三遍** ✓
+（`namespace` 的体也要开一帧 ✓）。收成 `EmitClosure` 之后：
+
+- **`PendingFunction` 多了两格** ✓：`Arity` ✓（第 291 轮那个「形参个数」从参数搬进字段 ✓——
+  它**不属于** `ParamCount` ✗，两格混用就是 `fn.length` 静默变成形参个数 ✓）与
+  `IsNamespace` ✓；
+- **两个调用点在预留顺序上的不一致被抹平了** ✗：函数值那一处是「先窗口、后闭包格」✓
+  ⇒ `Release(slot + 1)` 落在水位顶上 ✓ ⇒ **窗口那四格永远留着** ✓；
+  函数声明那一处是对的 ✓。收口之后统一成「**先闭包格、再窗口**」✓，
+  一句 `Release(slot + 1)` 只放掉窗口 ✓。不致命 ✓，但它是**悄悄长胖**的那一类 ✗。
+
+### 六、试过又退回来的一处（token 层）
+
+第 8 条判据是**一行写完**的那个形状 ✓：
+`namespace Outer { export namespace Inner { … } export const w = Inner.v + 1; }` ✓。
+
+量出来的根子 ✗：`Namespace` 这个单元**不算语句边界** ✓ ⇒ 同一行后面那句
+`export const w = …` 的 `=` 被读成**二元运算符** ✓、左边正好是它 ✓ ⇒ 投影出来是
+`ExpressionStatement(BinaryExpression(ModuleDeclaration, EqualsToken, …))` ✓，
+降级层报 `unimplemented: assignment to a non-identifier` ✓
+（**一句话听起来像赋值写错了** ✓，其实是**语句没有断开** ✗）。
+
+**修法试过了** ✓：把 `Namespace` 收进 `statement.xl.md` 的 `IsStatementUnit` ✓
+（`Class` / `Enum` / `Interface` 都在那张表里 ✓）。**那一处确实修好了** ✓——
+可它同时把外层 `ModuleBlock` 的产物从 `statements: [ModuleDeclaration]` 改成
+`body: ModuleDeclaration` ✓（实测 `--ts-ast` ✓），而降级层读的是
+`ListOf(block, "statements")` ✓ ⇒ 一个语句都取不到 ✓ ⇒ 内层命名空间**根本没建** ✓，
+脚本报的是 `cannot read properties of undefined` ✓（离现场很远 ✗）。
+
+**收益 1 条、代价是嵌套那一档从「报错」变成「静默错值」** ✗ —— 所以**退回来了** ✓，
+根子与这段经过都留在 `statement.xl.md` 与台账里 ✓。要动就得把
+「语句边界」与「`ModuleBlock` 的收法」**一起**改 ✓。
+
+### 七、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   89.3%   225/252   (blocked 12 · differ 15 · bad 0)   没动
+exec      94.5%   172/182   (blocked 5  · differ 5  · bad 0)   +7 条
+stdlib    85.6%   280/327   (blocked 25 · differ 22 · bad 0)   没动
+e2e       84.6%    11/13    (blocked 2  · differ 0  · bad 0)   没动
+合计      89.0%   688/774   blocked 44 · differ 42 · bad 0
+```
+
+**红的一栏是 0** ✓（`regressions` / `bad` 全空 ✓）；`runtime:check` **241 条** ✓
+（其中一条是**合同翻面** ✗：`namespace` 原来钉的是「照旧抛 `ModuleDeclaration`」✓，
+第 292 轮把它改成「必须跑对、而且只挂导出的」✓——**这是合同变了** ✓，不是「原来那条坏了」✗）、
+`runtime:cli` **79 份** ✓、`cases:tsast` **1444 / 1444** ✓。
+
 ## 第 291 轮的账（**加宽 126 条 + 当场收掉 11 条** —— 648 → 774 条，88.1% → 87.8%）
 
 **选题还是用户那一句** ✓：「先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景，

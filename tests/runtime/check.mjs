@@ -6981,21 +6981,33 @@ check("`type` / `interface` / `declare` 那一族跳过；带体的声明照旧"
   }
   ok(ambientMessage.indexOf("not a local or a capture") >= 0,
     "**环境值不是值**：用它在降级期就抛（响亮，而且话指对了方向）：" + ambientMessage);
-  // **`namespace N { … }` 照旧抛** ✓（它有运行期语义 ✓，本仓不做 ✓）：
-  // 这条钉住「跳过」的边界——**擦掉的只有「类型位」那些** ✗，不是所有声明 ✓。
+  // **`namespace N { … }` 现在真的会跑** ✓（第 292 轮 ✓）——这一格原来钉的是**反的** ✗
+  // （「它有运行期语义 ✓、本仓不做 ✗ ⇒ 照旧抛 `ModuleDeclaration`」✓）。
+  // 第 292 轮把它降级成「**造一个对象 + 开一帧跑体 + 把导出的名字挂上去**」✓
+  // （与 TS 自己的变换同一个形状 ✓），所以判据**翻面** ✓。
+  //
+  // **这是「合同变了」，不是「原来那条坏了」** ✗——区别落在判据上：
+  // 原来断言「必须抛」✓，现在断言「必须跑对、而且**跑出正确的东西**」✓。
+  // 三件事一起钉 ✓：**体真的跑了**（`doubled` 是调用算出来的 ✓）、
+  // **导出的名字挂上去了** ✓、**没导出的名字没挂** ✓（`typeof N.hidden` 是 `"undefined"` ✓）。
   // （语句之间**要换行** ✓：`namespace N { … } const y = 1;` 这个形状会踩到
-  //  README 里记的「块与表达式之间没有分隔符」那条老缺口 ✓——那是**另一件事** ✗。）
-  let namespaceMessage = "";
-  try {
-    const ns = new RunRequest();
-    ns.Sources = ["namespace N { export const x = 1 }\nconst y = N.x;\nconsole.log(y);"];
-    ns.Entry = "";
-    RunSources(ns, () => {}, () => null);
-  } catch (error) {
-    namespaceMessage = String(error.message);
-  }
-  ok(namespaceMessage.indexOf("ModuleDeclaration") >= 0,
-    "**运行期的 `namespace` 不在擦除名单里**（照旧抛）：" + namespaceMessage);
+  //  README 与 `statement.xl.md` 里记的「块与表达式之间没有分隔符」那条老缺口 ✓——
+  //  那是**另一件事** ✗，第 292 轮量过、也试过修，代价记在 `statement.xl.md` 里 ✓。）
+  const namespaceLines = [];
+  const ns = new RunRequest();
+  ns.Sources = [[
+    "namespace N {",
+    "  export const x = 1;",
+    "  export function f(): number { return x + 1; }",
+    "  const hidden = 9;",
+    "}",
+    "console.log(N.x, N.f(), typeof N.hidden);",
+  ].join("\n")];
+  ns.Entry = "";
+  const nsRes = RunSources(ns, (text) => namespaceLines.push(text), () => null);
+  eq(nsRes.Outcome, HostOutcome.Ok, "运行器：" + nsRes.Message);
+  eq(namespaceLines[0], "1 2 undefined",
+    "**运行期的 `namespace`：造对象 · 跑体 · 只挂导出的**（第 292 轮）");
   // **`declare namespace` 也跳过** ✓（第 148 轮实测 ✓）：`declare` 那一族整族一样 ✓，
   // 里面装的是类型还是值都不影响 ✓（那份文件跑起来两者都不存在 ✓）。
   //
