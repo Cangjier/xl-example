@@ -362,7 +362,6 @@ export const EXPECTATIONS = {
   // ---- 组 7：字符串按**码元**迭代（1 条）----
   // `[...s].length` / `Array.from(s).length` 给 4 ✓（Node 给 3 ✓）：
   // `for..of` 一个字符串该**一次一个码点** ✓（代理对要合起来 ✓），而本仓一次一个码元 ✗。
-  "rt-surrogate-iteration": { expect: "differ", why: "字符串迭代按 **UTF-16 码元**走：`[...\"a\\u{1F600}b\"].length` 给 4（Node 给 3）。JS 的字符串迭代器一次一个**码点**，代理对要合起来" },
 
   // ---- 组 8：投影不认的两种形状（2 条）----
   // 两条都是「降到一半发现树上的节点形状不是预期的那一个」✓，而根子在**投影** ✗：
@@ -564,7 +563,6 @@ export const EXPECTATIONS = {
   // ④ `-0` 那一格记在组 A ✓。
   "object-assign-forms-and-order": { expect: "differ", why: "**静默错值**：`Object.assign({}, \"ab\")` 给 `{}`（Node 给 `{\"0\":\"a\",\"1\":\"b\"}`）——字符串当源时要按**码元**展开成下标键" },
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
-  "string-charcodes-and-units": { expect: "differ", why: "**码元 vs 码点**：`[...\"A\\u{1F600}B\"]` 给 4 个（代理对被拆开），Node 给 3 个——与 `rt-surrogate-iteration` 同一个根" },
   "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
 
@@ -631,7 +629,6 @@ export const EXPECTATIONS = {
   "c291-rt-iteration-protocol-forms": { expect: "blocked", why: "`{ [Symbol.iterator]: () => it }` 报 `cannot call a non-closure value`——与上一格同一族（计算键上的函数值那条路），也牵着 `c291-symbol-wellknown-custom-iterator`" },
   //
   // **组 F：码元 vs 码点（1 条）** ✓——与 `rt-surrogate-iteration` 同一根。
-  "c291-rt-string-unicode-forms": { expect: "differ", why: "`[...\"a😀b\"].length` 给 4（Node 给 3）——字符串迭代要**按码点**走，本仓一次一个码元" },
   //
   // **组 G：显式取出来的迭代器（1 条）** ✓
   "c291-array-iterator-protocol-manual": { expect: "blocked", why: "`xs[Symbol.iterator]()` 报 `cannot call a non-closure value`——`for..of` 内部那条路是好的，**显式取出来自己调**这一格还没接（组 E 那一族的另一半）" },

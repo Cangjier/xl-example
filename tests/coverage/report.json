@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 774,
+  "matrix": 775,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 90.88,
+  "progressPercent": 91.16,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 252,
-      "pass": 227,
+      "pass": 229,
       "blocked": 12,
-      "differ": 13,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 90.08
+      "coverage": 90.87
     },
     {
       "layer": "exec",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 327,
-      "pass": 302,
+      "total": 328,
+      "pass": 304,
       "blocked": 11,
-      "differ": 14,
+      "differ": 13,
       "nodefail": 0,
-      "coverage": 92.35
+      "coverage": 92.68
     },
     {
       "layer": "e2e",
@@ -266,12 +266,6 @@
       "detail": "stdout 不同：第 4 行：node «4» vs tsrun «»"
     },
     {
-      "id": "rt-surrogate-iteration",
-      "layer": "runtime",
-      "title": "代理对：for..of 一次一个码点，下标一次一个码元",
-      "detail": "stdout 不同：第 1 行：node «4 3 3» vs tsrun «4 4 4»"
-    },
-    {
       "id": "rt-iife-forms",
       "layer": "runtime",
       "title": "三种立即调用：函数表达式 / 箭头 / 带实参",
@@ -330,12 +324,6 @@
       "layer": "runtime",
       "title": "生成器：双向传值与三段返回",
       "detail": "stdout 不同：第 1 行：node «{\"value\":1,\"done\":false} {\"value\":10,\"done\":false} {\"done\":true}» vs tsrun «{\"value\":1,\"done\":false} {\"value\":null,\"done\":false} {\"done\":true}»"
-    },
-    {
-      "id": "c291-rt-string-unicode-forms",
-      "layer": "runtime",
-      "title": "代理对在长度、展开、码点上的三种读法",
-      "detail": "stdout 不同：第 1 行：node «4 3 true true» vs tsrun «4 4 true true»"
     },
     {
       "id": "ex-getter-setter-class",
@@ -398,12 +386,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
     },
     {
-      "id": "string-charcodes-and-units",
-      "layer": "stdlib",
-      "title": "charAt / charCodeAt / codePointAt 在越界与代理对上",
-      "detail": "stdout 不同：第 3 行：node «3 [\"A\",\"😀\",\"B\"]» vs tsrun «4 [\"A\",\"�\",\"�\",\"B\"]»"
-    },
-    {
       "id": "string-concat-and-trim-families",
       "layer": "stdlib",
       "title": "concat 的多参 · trim / trimStart / trimEnd 的空白集",
@@ -456,23 +438,15 @@
   "moved": [],
   "newlyPassing": [
     {
-      "id": "c291-rt-object-iteration-order",
+      "id": "rt-surrogate-iteration",
       "layer": "runtime"
     },
     {
-      "id": "c291-rt-object-key-order-and-json",
+      "id": "c291-rt-string-unicode-forms",
       "layer": "runtime"
     },
     {
-      "id": "string-replace-patterns",
-      "layer": "stdlib"
-    },
-    {
-      "id": "string-replace-function-form",
-      "layer": "stdlib"
-    },
-    {
-      "id": "string-replace-dollar-forms",
+      "id": "string-charcodes-and-units",
       "layer": "stdlib"
     }
   ],

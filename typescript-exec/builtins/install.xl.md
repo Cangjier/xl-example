@@ -468,11 +468,22 @@ if (source.IsObject() && source.Tag !== ValueTag.Array
   }
 }
 if (source.Tag === ValueTag.String) {
-  // **按码元拆** ✓：与 `.length` / 下标 / `charAt` 同一条口径 ✓（代理对算两个 ✓）。
-  const units = JsTextUnits(table, source);
-  for (let i = 0; i < units.length; i++) {
-    if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
-    table.Get(out.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
+  // **第 297 轮把这一支也收口到引擎那张迭代器上** ✗——**同一条规矩原先写在这儿** ✓，
+  // 而第 297 轮把引擎那一处（`iter_next` 的字符串游标 ✓）改成**按码点** ✓ ⇒
+  // 两处**分了岔** ✗：`for (const c of "😀")` 给一个 ✓、`Array.from("😀")` 给两个 ✗
+  //（**同一种东西两种答案** ✓，而且**一句异常都没有** ✓——判据
+  //  `c291-rt-string-unicode-forms` / `string-charcodes-and-units` 量的就是这一对 ✓）。
+  // **收口的办法**：`drain` 走的就是 `iter_next` ✓ ⇒ 一条规矩只有一处 ✓。
+  if (drain === null) {
+    throw new Error("unimplemented: Array.from over a string needs the engine's iterator service");
+  }
+  const drainedText = drain(source);
+  if (failed !== null && failed()) return Value.Undefined();
+  const textItems = table.Get(drainedText.Ref).AsArray();
+  const textCount = textItems.GetLength();
+  if (!room(ValueCharge * textCount)) throw new Error("out of room");
+  for (let i = 0; i < textCount; i++) {
+    table.Get(out.Ref).AsArray().Push(textItems.GetAt(i));
   }
   if (keep !== null) keep(out, false);
   return MapArrayItems(room, table, out, mapper, hasMapper, call, failed);
@@ -696,10 +707,21 @@ if (items.Tag === ValueTag.Array) {
   return target;
 }
 if (items.Tag === ValueTag.String) {
-  const units = JsTextUnits(table, items);
-  for (let i = 0; i < units.length; i++) {
-    if (!room(ObjectCharge + CodeUnitCharge + ValueCharge)) throw new Error("out of room");
-    table.Get(target.Ref).AsArray().Push(Value.FromString(table.CreateString([units[i]])));
+  // **第 297 轮：这一支不再自己按码元拆** ✗——**同一件规矩原先写在三处** ✓
+  //（引擎的 `iter_next` ✓、`Array.from` ✓、与这一处 ✓），三处**各自都说自己是对的** ✓，
+  // 而第 297 轮把引擎那一处改成**按码点** ✓ ⇒ 剩下两处就与它分了岔 ✗
+  //（`[...\"😀\"]` 给两个、`for (const c of \"😀\")` 给一个 ✓——**同一种东西两种答案** ✓）。
+  // **收口到引擎那张迭代器上** ✓：`drain` 走的就是 `iter_next` ✓。
+  if (drain === null) {
+    throw new Error("unimplemented: spreading a string needs the engine's iterator service");
+  }
+  const drainedText = drain(items);
+  if (failed !== null && failed()) return Value.Undefined();
+  const textItems = table.Get(drainedText.Ref).AsArray();
+  const textCount = textItems.GetLength();
+  if (!room(ValueCharge * textCount)) throw new Error("out of room");
+  for (let i = 0; i < textCount; i++) {
+    table.Get(target.Ref).AsArray().Push(textItems.GetAt(i));
   }
   return target;
 }

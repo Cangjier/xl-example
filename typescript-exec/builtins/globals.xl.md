@@ -3712,6 +3712,12 @@ JSON 字符串字面量（**带上引号与转义**）。
 **只转义必要的那些**：引号、反斜杠、`\n` / `\r` / `\t`，以及其它控制字符走 `\u00XX`。
 **不转义非 ASCII**：`JSON.stringify` 输出的是可读的 UTF-16 文本（判据正是拿它跟 Node 比）。
 
+**孤立代理要转义** ✓（第 297 轮 ✓）：ES2019 那条「well-formed JSON.stringify」规定
+**落单的代理码元写成 `\uXXXX`** ✓（合起来的代理对**照旧原样输出** ✓，因为那是合法的 UTF-16 ✓）。
+**它原来原样吐出去** ✗：`JSON.stringify("\uD800")` 于是给了一串**不是合法 UTF-16 的文本** ✓——
+拷到别处就变成一个替换字符 ✓（**静默**：本仓自己打出来看着「就是那个字符」✓，
+而 Node 打的是 `"\ud800"` ✓）。**判据是第 297 轮量的** ✓（原来一条都没有 ✓）。
+
 ```ts
 const units = JsTextUnits(table, value);
 let text = "\"";
@@ -3723,7 +3729,20 @@ for (let i = 0; i < units.length; i++) {
   else if (unit === 13) text = text + "\\r";
   else if (unit === 9) text = text + "\\t";
   else if (unit < 32) text = text + "\\u" + unit.toString(16).padStart(4, "0");
-  else text = text + String.fromCharCode(unit);
+  else if (unit >= 55296 && unit <= 56319) {
+    // **前导代理：后面跟着后随代理才算一对** ✓（那样两个都原样输出 ✓）——
+    // 否则它是**落单**的 ✓，按 well-formed 那条规矩转义 ✓。
+    const follower = i + 1 < units.length ? units[i + 1] : -1;
+    if (follower >= 56320 && follower <= 57343) {
+      text = text + String.fromCharCode(unit) + String.fromCharCode(follower);
+      i = i + 1;
+    } else {
+      text = text + "\\u" + unit.toString(16).padStart(4, "0");
+    }
+  } else if (unit >= 56320 && unit <= 57343) {
+    // **后随代理走到这里就是落单的** ✓（前面那一格没把它带走 ✓）。
+    text = text + "\\u" + unit.toString(16).padStart(4, "0");
+  } else text = text + String.fromCharCode(unit);
 }
 return text + "\"";
 ```

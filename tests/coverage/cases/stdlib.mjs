@@ -3215,4 +3215,21 @@ console.log(Object.keys(m as any).length, (m as any).a, Object.keys(s as any).le
 console.log(m.size, s.size);
 `,
   },
+  // ===== 第 297 轮补的一条：字符串迭代按码点 =====
+  // 它是**发现孤立代理那一格时顺手加的** ✓（用户口径：「发现新问题就加对应语料」✓）——
+  // 三件事一起钉 ✓：代理对合成一个 ✓、**孤立代理也要给出来** ✓、
+  // 以及 **JSON.stringify 里落单的代理要写成 \\uXXXX** ✓（ES2019 那条 well-formed ✓）。
+  {
+    id: "c297-string-codepoint-iteration",
+    title: "字符串迭代按码点：代理对合成一个、孤立代理原样、JSON 里落单的要转义",
+    src: `
+const s = "a\\u{1F600}b";
+const seen: string[] = [];
+for (const c of s) seen.push(c);
+console.log(s.length, [...s].length, Array.from(s).length, seen.length, seen[1].length);
+const [x, y] = "a\\u{1F600}";
+console.log(x, y.length, [..."\\uDC00\\uD800"].length);
+console.log(JSON.stringify([..."\\uD800"]), JSON.stringify("\\uD83D\\uDE00"));
+`,
+  },
 ];

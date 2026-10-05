@@ -2665,14 +2665,26 @@ if (item.Iterator !== null) {
     throw new Error("iterator without a source");
   }
   const source = this.Table.Get(cursor.Source);
-  // **字符串的游标**（第 136 轮）：一次给一个**码元** ✓。
+  // **字符串的游标**（第 136 轮）：一次给一个**码点** ✓（第 297 轮改的 ✓）。
   //
-  // **按码元拆，不按码点** ✓——与 `.length` / 下标 / `charAt` / `spread_into`
-  // **同一条口径** ✓（代理对算两个 ✓）。JS 那边字符串迭代是**按码点**的 ✗
-  //（`for (const c of "😀")` 只给一个 ✓，而 `"😀".length` 是 2 ✓）。
-  // **为什么不照 JS 办** ✗：整层的口径是码元 ✓——单独让迭代按码点，会让
-  // 「`[...s]` 与 `for (const c of s)` 给的不一样」✗（同一种东西两种答案，比一起偏更糟 ✓）。
-  // 这是一处**已知差** ✓，记在台账里 ✓。
+  // **第 136 轮那一版按「码元」拆** ✗，理由写的是「与 `.length` / 下标 / `charAt` 同一条口径 ✓，
+  // 单独让迭代按码点会让 `[...s]` 与 `for (const c of s)` 给的不一样」✓——**那个理由不成立** ✗：
+  // 这一支**就是** `[...s]` / `for..of` / `Array.from(s)` / 数组解构**共用的迭代器** ✓
+  //（`install.xl.md` 的 `GetIterator` ✓），所以它们**天然一致** ✓——按码点拆之后仍然一致 ✓。
+  //
+  // **JS 自己就是「两种口径」** ✗（不是本仓要消灭的那种不一致 ✓）：
+  // `"😀".length` 是 **2** ✓（码元 ✓）、`"😀"[0]` 是**一个孤立代理** ✓（码元 ✓），
+  // 而 `for (const c of "😀")` **只给一个** ✓（码点 ✓）。**两边本来就是两回事** ✓，
+  // 所以「`.length` 按码元」与「迭代按码点」**并不冲突** ✓——原来那一版是把
+  // 「同一个东西的两种视角」当成了「同一种东西的两种答案」✓，于是**与 JS 差一格** ✗
+  //（判据 `rt-surrogate-iteration` / `c291-rt-string-unicode-forms` /
+  //  `string-charcodes-and-units` 三条一起量的就是它 ✓：`[...s].length` 给 4 ✓、
+  //  Node 给 3 ✓——**一句异常都没有** ✓）。
+  //
+  // **判据是「代理对」那一条** ✓（JS 的 `StringIterator` ✓）：这一格是**前导代理**
+  //（`0xD800..0xDBFF` ✓）而**下一格是后随代理**（`0xDC00..0xDFFF` ✓）⇒ 一次给**两格** ✓；
+  // 其余（含**孤立代理** ✓）一次给一格 ✓。**孤立代理要给出去** ✗（不能吞掉 ✓）——
+  // 吞掉的话 `[..."\uD800"]` 会变成空数组 ✓（JS 给一个长度 1 的数组 ✓）。
   if (source.Tag === ValueTag.String) {
     // **`TextUnitsOf` 收的是 `Value`** ✓，而 `Get` 给的是**载荷** ✗——
     // 所以要现包一个值出来 ✓（第一版直接递载荷，编译期就报
@@ -2680,16 +2692,24 @@ if (item.Iterator !== null) {
     const units = TextUnitsOf(this.Table, Value.FromString(cursor.Source));
     const at = cursor.Index;
     if (at >= units.length) return this.MakeIterResult(Value.Undefined(), true);
-    cursor.Index = at + 1;
     const unit = units[at];
+    let take = 1;
+    if (unit >= 55296 && unit <= 56319 && at + 1 < units.length) {
+      const follower = units[at + 1];
+      if (follower >= 56320 && follower <= 57343) take = 2;
+    }
+    cursor.Index = at + take;
+    const piece: number[] = [unit];
+    if (take === 2) piece.push(units[at + 1]);
     // **造字符串要先问房间** ✓（与 `spread_into` 那条一字不差 ✓）——
     // 这一支也可能从**宿主**那条路进来（`it.next()` ✓），所以自己包一层 `Guard` ✓
-    //（`MakeIterResult` 也是这么办的 ✓）。
+    //（`MakeIterResult` 也是这么办的 ✓）。**计费按真实的码元数** ✗（`take` ✓，
+    // 写死 1 会让代理对那一次**少问一格** ✓）。
     return this.Guard(() => {
-      if (!this.NeedRoom(ObjectCharge + CodeUnitCharge + ValueCharge)) {
+      if (!this.NeedRoom(ObjectCharge + CodeUnitCharge * take + ValueCharge)) {
         throw new Error("out of room");
       }
-      return this.MakeIterResult(Value.FromString(this.Table.CreateString([unit])), false);
+      return this.MakeIterResult(Value.FromString(this.Table.CreateString(piece)), false);
     });
   }
   if (source.Tag !== ValueTag.Array) {
