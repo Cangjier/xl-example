@@ -152,7 +152,27 @@ if (protos.WellKnownSymbols > 0) {
 // **`+new Date()` 不受影响** ✓：一元 `+` 走的是 hint `number` ✓（`valueOf` 先 ✓、给毫秒数 ✓）。
 // **放在 `Symbol.toPrimitive` 之后** ✓：脚本自己定义了那一格的话，它照旧优先 ✓（JS 的口径 ✓）。
 if (hint !== ToPrimitiveNumber && RtChainHas(table, value, protos.Date)) {
-  throw new Error("unimplemented: ToPrimitive of a Date with a string hint (JS needs Date.prototype.toString)");
+  // **第 293 轮把这条路障收窄成「没装 `toString` 时」** ✓：那一格从第 293 轮起**装上了** ✓
+  //（`Date.prototype.toString` ✓，只做 `Invalid Date` 那一档 ✓），于是
+  // `String(new Date(NaN))` 该**走那条正常路** ✓（JS 给 `"Invalid Date"` ✓）。
+  //
+  // **不能把整条路障删掉** ✗：合法日期那一档本仓**仍旧没有** `toString` 的答案 ✓
+  //（JS 给的是**本地时区**那一串 ✓，随机器变 ✗）——所以判据是
+  // 「**这一格可不可调**」✓，不是「是不是 `Date`」✗。
+  // 少了这一问，`new Date(0) + 1` 会走 `valueOf` 把答案悄悄变成数字 ✗（**静默错值** ✗）；
+  // 留着它而 `toString` 又在（非法日期那一档）时**不该抛** ✓——两件事分开判 ✓。
+  const dateText = GetProperty(room, call, protos, table, value,
+    Value.FromString(table.CreateString(HostTextUnits("toString"))));
+  if (!IsCallableValue(table, dateText)) {
+    throw new Error("unimplemented: ToPrimitive of a Date with a string hint (JS needs Date.prototype.toString)");
+  }
+  // **`default` 对 `Date` 要当 `string` 用** ✓——**这就是 JS 那条特例的正身** ✓
+  //（`OrdinaryToPrimitive` 里唯一一格 ✓）。第 293 轮之前这一条**做不到** ✗
+  //（`toString` 那一格不存在 ✓，所以只能整族抛 ✓）；装上之后**必须**把 hint 翻过来 ✓，
+  // 否则下面那一支按「`default` 先 `valueOf`」走 ✓ ⇒ `new Date(0) + 1` 给 **`1`** ✗
+  //（JS 给日期串接 `1` ✓）——**静默错值** ✓，而且正是这条路障当初要挡的那一格 ✓
+  //（`tests/runtime/check.mjs` 第 198 轮那条判据当场把它抓回来了 ✓）。
+  hint = ToPrimitiveString;
 }
 const toStringKey = Value.FromString(table.CreateString(HostTextUnits("toString")));
 const valueOfKey = Value.FromString(table.CreateString(HostTextUnits("valueOf")));

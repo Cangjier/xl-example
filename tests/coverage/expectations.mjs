@@ -442,7 +442,7 @@ export const EXPECTATIONS = {
   // 剩下的是**最后一句** ✗：`new Date("2021-03-04T05:06:07Z")` 那个**字符串实参** ✓
   // （要一个 ISO 解析器 ✓），以及 `JSON.stringify({ d })` 要**认 `toJSON`** ✓
   //（`JsonText` 是个纯查询 ✓、没有调用通道 ✗——那要给它加一格 ✓）。
-  "date-iso-and-json": { expect: "differ", why: "`new Date(字符串)` 还没接（`new Date(x) needs a number of milliseconds`），以及 `JSON.stringify({ d })` 要认 `toJSON`（`JsonText` 没有调用通道）。**前半条：`Date.UTC` / `toISOString` / `toJSON` / 七个 `setUTC*` 第 280 轮装上了** ✓" },
+  "date-iso-and-json": { expect: "differ", why: "**只剩 `toJSON` 那条调用通道** ✓——第 293 轮把 `new Date(字符串)` / `Date.parse` / 多实参构造 / 本地那七个 getter / `Date.prototype.toString`（非法日期那一档）都装上了 ✓，这一条此前报的 `unimplemented: new Date(x) needs a number of milliseconds` 已经没了 ✗。现在差的是 `JSON.stringify({ d })`：JS 序列化每个值之前**先问它有没有 `toJSON`** ✓，而 `JsonText` 至今是个**纯查询**（刻意不调脚本 ✓）⇒ 打出来是 `{\"__t\":0}` 而不是 ISO 串。入口在 `globals.xl.md` 的 `JsonText`——要**把 `NativeCall` 一路递进去** ✓，并且**整棵树在这一次调用期间要锚住** ✓（回调里会分配 ✓，与第 279 轮 `JSON.parse` 的 reviver 同一处坎 ✓）" },
   // **第 280 轮删掉了这一行** ✓（它过了 ✓）：七个 `setUTC*` + `toISOString` ✓——
   // 而这一族最值钱的一格是**逆变换** ✓（`DateDaysFromCivil` ✓，Hinnant 的 `days_from_civil` ✓）：
   // `DateParts` 从第 138 轮起就给了正向 ✓，而逆变换一直没有 ✗ ⇒ `Date.UTC` 与七个 setter
@@ -547,7 +547,6 @@ export const EXPECTATIONS = {
   //    `getOwnPropertyNames` 只差「键是不是符号」** ✓——两处都**复用**了兄弟那一支 ✓，
   //    没有另写一份 ✗（第 283 轮那条「第二份迟早与第一份走偏」✓）。
   "string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof (String as any).raw` 给 `undefined`）——标签模板的 `raw` 那一栏投影里也没有" },
-  "date-getters-and-setters": { expect: "differ", why: "两处：本地 getter 一族（`getFullYear` / `getHours` …）一格都没有；`new Date(2020, 0, 2, …)` 那种**多实参**构造没接（把第一个实参当成了毫秒数给 `2020`）" },
   "object-create-and-prototype-forms": { expect: "blocked", why: "`unimplemented: Object.create(null) (a proto-less object)`——`null` 原型那一档没接（带属性的那一档是好的 ✓）" },
   "object-defineproperty-forms": { expect: "blocked", why: "`unimplemented: Object.defineProperty with a get/set descriptor`——描述符里的访问器那一档没接（`value` 那一档是好的 ✓）" },
 
@@ -568,7 +567,7 @@ export const EXPECTATIONS = {
   "object-assign-forms-and-order": { expect: "differ", why: "**静默错值**：`Object.assign({}, \"ab\")` 给 `{}`（Node 给 `{\"0\":\"a\",\"1\":\"b\"}`）——字符串当源时要按**码元**展开成下标键" },
   "json-stringify-tojson-and-specials": { expect: "differ", why: "`JSON.stringify` 不认 `toJSON`（`{ a: 1, toJSON() { return { replaced: true } } }` 给 `{\"a\":1}`）——`JsonText` 是个纯查询、没有调用通道" },
   "json-stringify-replacer-array-and-fn": { expect: "differ", why: "`JSON.stringify` 的第二格实参（replacer 数组 / 函数）被忽略——与 `json-stringify-replacer` 同一格" },
-  "date-toiso-and-json": { expect: "differ", why: "`JSON.stringify(new Date(0))` 给 `{}`（要 `Date.prototype.toJSON`，与 `toJSON` 那条通道同一格）；前半条（`toISOString` / `toJSON` 直接调）是好的 ✓" },
+  "date-toiso-and-json": { expect: "differ", why: "与 `date-iso-and-json` **同一个根** ✓：`d.toISOString()` / `d.toJSON()` 直接调都是好的 ✓（第 280 轮 ✓），差的只是 `JSON.stringify({ at: d })` / `JSON.stringify([d])` **不会去调 `toJSON`** ✗——`JsonText` 是纯查询 ⇒ 打出 `{\"__t\":0}`。要动的是同一条调用通道 ✓（含根保护 ✓）" },
   "string-replace-patterns": { expect: "differ", why: "`String.replace` 只认两个字符串实参：**函数替换**与 `$&` 一类替换记号没接（`replaceAll` 的计数形态也是同一格）" },
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "string-charcodes-and-units": { expect: "differ", why: "**码元 vs 码点**：`[...\"A\\u{1F600}B\"]` 给 4 个（代理对被拆开），Node 给 3 个——与 `rt-surrogate-iteration` 同一个根" },
@@ -586,8 +585,6 @@ export const EXPECTATIONS = {
   // `Promise.any` / `allSettled` ✓、`WeakMap` ✓、`AggregateError` ✓、
   // `Object.getOwnPropertyDescriptors` / `Object.groupBy` ✓、`Array.prototype.toLocaleString` ✓、
   // `String.normalize` ✗（要 Unicode 归一化表 ✓，与 `localeCompare` 同一条纪律 ✓）。
-  "date-multi-arg-ctor": { expect: "blocked", why: "`new Date(y, m, d, …)` 多实参构造没装（把第一个实参当成了毫秒数）——要一个 `DateMakeMs`，而逆变换 `DateDaysFromCivil` 第 280 轮已经有了" },
-  "date-string-parse": { expect: "blocked", why: "`Date.parse` / `new Date(字符串)` 没装（ISO 解析不在）——`Date.UTC` / `toISOString` 那半第 280 轮是好的" },
   "object-getownpropertydescriptors": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors`（复数）没装——单数那格（412）第 276 轮就有了，缺的是「一趟扫自有键、每格复用同一次读描述符」" },
   "object-groupby": { expect: "blocked", why: "`Object.groupBy` 没装（ES2024）——要按回调的返回值分桶，回调通道现成（与 `map` / `filter` 同一条）" },
   "array-tolocalestring": { expect: "blocked", why: "`Array.prototype.toLocaleString` 没装——它与 `toString` 只差「元素各自走 `toLocaleString`」，而本仓本来就没有区域表（与 `localeCompare` 同一条纪律：宁可缺）" },
@@ -623,7 +620,6 @@ export const EXPECTATIONS = {
   "string-replace-dollar-forms": { expect: "differ", why: "**静默错值**：`\"abc\".replace(\"b\", \"[$&]\")` 给 `a[$&]c`（Node 给 `a[b]c`）——`$&` / `$\\\`` / `$'` / `$$` 这几个替换记号一个都不认。`$1` 那一格要等正则（口径外）" },
   //
   // **组 I：`Date` 的文本（1 条）** ✓
-  "date-invalid-values": { expect: "blocked", why: "`String(new Date(NaN))` 报 `unimplemented: ToPrimitive of a Date with a string hint`——缺 `Date.prototype.toString`（`Invalid Date` 那一条也在这张表上）。**抛比静默错值好**，所以这一格是**明写的缺口**，不是坏掉" },
   //
   // ===== 第 291 轮加宽：exec / runtime / 标准库 三层一起铺（126 条候选）=====
   // 逐条读数（`sweep.mjs`）：**97 pass / 17 blocked / 12 differ / 0 nodefail**。
@@ -673,7 +669,6 @@ export const EXPECTATIONS = {
   "c291-symbol-wellknown-custom-iterator": { expect: "blocked", why: "对象字面量里**计算键 + 生成器方法**（`{ [Symbol.iterator]: function* () {} }`）报 `suspend outside a generator`——方法那一格建成了普通闭包，`yield` 就落在生成器外面" },
   //
   // **组 P：`Date.parse`（1 条）** ✓
-  "c291-date-parse-and-iso-roundtrip": { expect: "blocked", why: "`Date.parse` 还没挂表（`Date.UTC` / `toISOString` 第 280 轮收下了）——字符串那一档要有日期文本解析器，是个单独的活" },
   //
   // **组 Q：承诺组合子少两格（2 条）** ✓
   "c291-promise-all-race-settled": { expect: "blocked", why: "`Promise.allSettled` 还没挂表（`all` / `race` 是好的）——每个结果要包成 `{ status, value | reason }`" },

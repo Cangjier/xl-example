@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 89,
+  "progressPercent": 89.39,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 327,
-      "pass": 280,
-      "blocked": 25,
-      "differ": 22,
+      "pass": 285,
+      "blocked": 21,
+      "differ": 21,
       "nodefail": 0,
-      "coverage": 85.63
+      "coverage": 87.16
     },
     {
       "layer": "e2e",
@@ -228,24 +228,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "date-multi-arg-ctor",
-      "layer": "stdlib",
-      "title": "new Date(y, m, d, h, mi, s)：多实参构造",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "date-string-parse",
-      "layer": "stdlib",
-      "title": "Date.parse 与 new Date(字符串)",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "date-invalid-values",
-      "layer": "stdlib",
-      "title": "无效日期的口径：Invalid Date / NaN / toISOString 抛",
-      "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a Date with a string hint (JS needs Date.prototype.toString)"
-    },
-    {
       "id": "promise-race-any-allsettled",
       "layer": "stdlib",
       "title": "Promise.race / any / allSettled",
@@ -292,12 +274,6 @@
       "layer": "stdlib",
       "title": "自定义 Symbol.iterator：可迭代对象与 Object.keys 的对照",
       "detail": "tsrun: 脚本抛出：suspend outside a generator"
-    },
-    {
-      "id": "c291-date-parse-and-iso-roundtrip",
-      "layer": "stdlib",
-      "title": "Date.parse 与 toISOString 的往返",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c291-promise-all-race-settled",
@@ -497,7 +473,7 @@
       "id": "date-iso-and-json",
       "layer": "stdlib",
       "title": "Date 的 toISOString / toJSON / 各处 UTC 取值",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: new Date(x) needs a number of milliseconds"
+      "detail": "stdout 不同：第 1 行：node «2020-01-02T03:04:05.000Z 2020-01-02T03:04:05.000Z {\"d\":\"2020-01-02T03:04:05.000Z\"}» vs tsrun «2020-01-02T03:04:05.000Z 2020-01-02T03:04:05.000Z {\"d\":{}}»"
     },
     {
       "id": "function-prototype-tostring",
@@ -540,12 +516,6 @@
       "layer": "stdlib",
       "title": "JSON.stringify 的 toJSON / undefined / 函数 / NaN 口径",
       "detail": "stdout 不同：第 1 行：node «{\"replaced\":true}» vs tsrun «{\"a\":1}»"
-    },
-    {
-      "id": "date-getters-and-setters",
-      "layer": "stdlib",
-      "title": "Date：getTime / UTC 取值 / 本地与 UTC 的同一时刻",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "date-toiso-and-json",
@@ -598,6 +568,27 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "date-getters-and-setters",
+      "layer": "stdlib"
+    },
+    {
+      "id": "date-multi-arg-ctor",
+      "layer": "stdlib"
+    },
+    {
+      "id": "date-string-parse",
+      "layer": "stdlib"
+    },
+    {
+      "id": "date-invalid-values",
+      "layer": "stdlib"
+    },
+    {
+      "id": "c291-date-parse-and-iso-roundtrip",
+      "layer": "stdlib"
+    }
+  ],
   "regressions": []
 }

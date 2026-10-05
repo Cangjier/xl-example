@@ -1044,10 +1044,42 @@ if (id === PowId) {
 **它的默认值与 `new Date(...)` 那一条不同** ✗（`月` 缺省 `0` ✓、`日` 缺省 `1` ✓、
 `时/分/秒/毫秒` 缺省 `0` ✓），而**年份的 `0..99` 要加 1900** ✓（JS 的口径 ✓）。
 
+# const DateParse:int = 368
+
+**静态的 `Date.parse(文本)`**（第 293 轮 ✓）——号**追加在表尾** ✓。
+
+**收的是 ISO 8601 的一个最小子集** ✓：`YYYY-MM-DD` ✓、`YYYY-MM-DDTHH:mm` ✓、
+`…:ss` ✓、`…:ss.sss` ✓，后面可跟 `Z` ✓ / `±HH:mm` ✓ / 什么都不跟 ✓。
+**其余形状一律给 `NaN`** ✓（不猜 ✗——`"Jan 1 2020"` / `"2020/01/02"` 这一族要么是本地化的、
+要么歧义 ✓，编一个答案就是**静默错值** ✓）。
+**`new Date(字符串)` 走的是同一条** ✓（见 `DateCtor` ✓）。
+
+# const DateToString:int = 369
+
+**`Date.prototype.toString`**（第 293 轮 ✓）——号**追加在表尾** ✓。
+
+**只做「非法日期」那一档** ✓：JS 的 `String(new Date(NaN))` 是 **`"Invalid Date"`** ✓，
+而它**与时区无关** ✓（所以这一档能逐字节对上 ✓）。
+**合法日期那一条仍旧响亮地抛** ✓：JS 给的是**本地时区**的一串
+（`Thu Jan 01 1970 08:00:00 GMT+0800 (China Standard Time)` ✓），
+它**随机器变** ✗——编一个出来只会让「本机对、别处错」✓（判据 `date-invalid-values`
+只量了 `NaN` 那一档 ✓，所以**只做那一档** ✓）。
+
+# const DateGetUTCMilliseconds:int = 370
+
+**`getUTCMilliseconds` / `getMilliseconds`**（第 293 轮 ✓）——号**追加在表尾** ✓。
+它与 `getUTCSeconds` 同一族 ✓，只是**那一格以前没人要** ✗（`DateClockParts` 早就给了 ✓）。
+
+# const DateGetUTCDay:int = 371
+
+**`getUTCDay` / `getDay`**（第 293 轮 ✓）——**星期几** ✓（`0` = 周日 ✓）。
+**它是从纪元起的天数对 7 取模** ✓（`1970-01-01` 是**周四** ⇒ `0` 对应周四 ✓，
+所以要先 `+4` 再取模 ✓）——**这个偏移写错就是静默错一天** ✓，判据 `date-getters-and-setters`
+钉着它 ✓。
+
 # const ObjectKeys:int = 401
 
 `Object.keys` 的能力号（`Object` 段从 400 起）。
-
 # const ObjectValues:int = 402
 
 `Object.values` 的能力号（第 120 轮补）。
@@ -2871,8 +2903,35 @@ if (id === DateCtor) {
   // 后者决定 `d instanceof Date` ✓。少了后者，`instanceof` 那一族又是「一半对」✗。
   const created = NewPlainObject(room, table, protos);
   table.Get(created.Ref).Proto = protos.Date;
-  const ms = args.length > 0 ? args[0] : Value.FromInt(0);
-  if (!ms.IsNumber()) throw new Error("unimplemented: new Date(x) needs a number of milliseconds");
+  // **四条构造形态** ✓（第 293 轮把后三条补齐 ✓）：
+  //   · 不给实参 ⇒ `0` ✗（**没有时钟接口** ✓，见 `ClockNow` 那一段 ✓——宿主真接了时钟的话走的是 `Date.now` ✓）；
+  //   · 一个数 ⇒ 毫秒数 ✓（第 138 轮 ✓）；
+  //   · **一个字符串 ⇒ `Date.parse`** ✓（与静态那条**同一条** ✓，不写第二份解析器 ✗）；
+  //   · **两个以上 ⇒ 年 / 月 / 日 / 时 / 分 / 秒 / 毫秒** ✓（缺的按 JS 的默认值补 ✓：
+  //     日缺省 `1` ✓、其余缺省 `0` ✓）。
+  //
+  // **`0..99` 的年份要加 1900** ✓（JS 的两条构造**都是**这条口径 ✓，与 `Date.UTC` 一字不差 ✓）——
+  // 少了它 `new Date(99, 0, 1)` 会变成**公元 99 年** ✓（**静默错值** ✓，而且是错 1900 年 ✓）。
+  //
+  // **本地时间那一档本仓当 UTC 用** ✗（写在明处 ✓）：本仓没有时区库 ✓，
+  // 所以「构造用哪个口径、读取就用哪个口径」✓——`new Date(2020, 0, 2, 3, 4, 5)` 与
+  // `getFullYear()` / `getHours()` 这一对**自洽** ✓（判据量的正是这一对 ✓）。
+  // 而**混用**本地与 UTC 的程序会与 Node 差一个时区偏移 ✓（例如 `new Date(0).getHours()`
+  // 在 UTC+8 的机器上 Node 给 `8` ✓、本仓给 `0` ✓）——记在台账里 ✓。
+  let ms = Value.FromInt(0);
+  if (args.length === 1) {
+    if (args[0].Tag === ValueTag.String) {
+      ms = Value.FromDouble(DateParseUnits(JsTextUnits(table, args[0])));
+    } else {
+      ms = args[0];
+    }
+  } else if (args.length > 1) {
+    const askedYear = ArgOr(args, 0, 0);
+    const fullYear = askedYear >= 0 && askedYear <= 99 ? askedYear + 1900 : askedYear;
+    ms = Value.FromDouble(DateMakeMs(fullYear, ArgOr(args, 1, 0), ArgOr(args, 2, 1),
+      ArgOr(args, 3, 0), ArgOr(args, 4, 0), ArgOr(args, 5, 0), ArgOr(args, 6, 0)));
+  }
+  if (!ms.IsNumber()) throw new Error("unimplemented: new Date(x) needs a number of milliseconds or an ISO string");
   // **`__t` 也是不可枚举的**（第 194 轮 ✓）：JS 的 `Object.keys(new Date())` 是 `[]` ✓
   //（本仓原来给 8 个键 ✗）。**`JSON.stringify(date)` 那一格仍旧不同** ✗：
   // JS 走 `toJSON` ✓ 给 ISO 字符串 ✓，本仓给 `{"__t":0}` ✓——那是**另一件事** ✓，
@@ -2885,18 +2944,30 @@ if (id === DateCtor) {
     DateToISOString, DateToISOString,
     // **七个 `setUTC*`** ✓（第 280 轮 ✓）——名字与号**一一对齐** ✓（按下标配 ✓）。
     DateSetUTCFullYear, DateSetUTCMonth, DateSetUTCDate, DateSetUTCHours,
-    DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds];
+    DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds,
+    // **第 293 轮补的九个名字** ✓——**本地那一族与 UTC 共用同一个号** ✓
+    //（`getFullYear` = `getUTCFullYear` ✓ …），理由是**本仓的本地口径就是 UTC** ✓
+    //（见上面那一段 ✓）：写第二份实现就是第二份会漂的答案 ✗
+    //（与 `valueOf` = `getTime` ✓、`toJSON` = `toISOString` ✓ 同一条先例 ✓）。
+    DateGetUTCMilliseconds, DateGetUTCMilliseconds, DateGetUTCDay, DateGetUTCDay,
+    DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate, DateGetUTCHours,
+    DateGetUTCMinutes, DateGetUTCSeconds,
+    // **`toString` 单独一个号** ✓（只做 `Invalid Date` 那一档 ✓，见号那一段 ✓）。
+    DateToString];
   // **`valueOf` 就是 `getTime`**（第 198 轮 ✓）：JS 的 `Date.prototype.valueOf` 给的正是那一格
   // 毫秒数 ✓——**同一个能力号** ✓（同一件事不写第二份实现 ✓，与数组的 `toString` = `join` 同款 ✓）。
   // 它让**日常那个写法**通了 ✓：`+new Date()`（一元 `+` 是 `ToNumber` ✓ →
   // `ToPrimitive(date, number)` ✓ → `valueOf` ✓ → 毫秒数 ✓）。
   // **`date + 1` 仍旧响亮地抛** ✓（那是 hint `default` ✓，JS 按 `string` 走 ✓，
-  // 会给日期串 ✗——本仓没有 `Date.prototype.toString` ✓，见 `ToPrimitiveOf` 里那条路障 ✓）。
+  // 会给日期串 ✗——本仓的 `toString` 只做 `Invalid Date` 那一档 ✓，见号那一段 ✓）。
   const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
     "getUTCHours", "getUTCMinutes", "getUTCSeconds", "valueOf",
     "toISOString", "toJSON",
     "setUTCFullYear", "setUTCMonth", "setUTCDate", "setUTCHours",
-    "setUTCMinutes", "setUTCSeconds", "setUTCMilliseconds"];
+    "setUTCMinutes", "setUTCSeconds", "setUTCMilliseconds",
+    "getMilliseconds", "getUTCMilliseconds", "getDay", "getUTCDay",
+    "getFullYear", "getMonth", "getDate", "getHours", "getMinutes", "getSeconds",
+    "toString"];
   for (let i = 0; i < methodIds.length; i++) {
     // **方法也不可枚举**（第 194 轮 ✓）：`Object.keys(new Date())` 在 JS 里是 `[]` ✓。
     SetHiddenProperty(room, table, created,
@@ -2907,7 +2978,7 @@ if (id === DateCtor) {
 }
 if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   || id === DateGetUTCDate || id === DateGetUTCHours || id === DateGetUTCMinutes
-  || id === DateGetUTCSeconds) {
+  || id === DateGetUTCSeconds || id === DateGetUTCMilliseconds || id === DateGetUTCDay) {
   // **实例方法**：先从 `__t` 取毫秒（`self` 就是那个实例）。
   const stored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
@@ -2923,7 +2994,45 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   const secondOfDay = ((seconds % 86400) + 86400) % 86400;
   if (id === DateGetUTCHours) return Value.FromInt(Math.floor(secondOfDay / 3600));
   if (id === DateGetUTCMinutes) return Value.FromInt(Math.floor(secondOfDay / 60) % 60);
-  return Value.FromInt(secondOfDay % 60);
+  if (id === DateGetUTCSeconds) return Value.FromInt(secondOfDay % 60);
+  if (id === DateGetUTCMilliseconds) {
+    // **毫秒那一格要从原始 `ms` 取** ✗（不是上面那个「一天的秒数」✓）——
+    // 负毫秒上写成 `ms % 1000` 会给负数 ✓（`-1` 该给 `999` ✓），所以先折回非负 ✓。
+    const whole = Math.floor(ms);
+    return Value.FromInt(((whole % 1000) + 1000) % 1000);
+  }
+  // **星期几** ✓（第 293 轮 ✓）：从纪元起的**天数**对 7 取模 ✓，
+  // 而 `1970-01-01` 是**周四** ✓ ⇒ 加 4 之后 `0` 才是周日 ✓。
+  // **先 `floor` 到天** ✗（不是拿毫秒除 ✓：`-1` 毫秒是 1969-12-31 ✓，纳秒级的截断会让它差一天 ✓）。
+  const dayNumber = Math.floor(ms / 86400000);
+  return Value.FromInt((((dayNumber + 4) % 7) + 7) % 7);
+}
+if (id === DateParse) {
+  // **`Date.parse(文本)`** ✓（第 293 轮 ✓）——与 `new Date(字符串)` **共用同一条解析器** ✓
+  //（见 `DateParseUnits` ✓）。
+  //
+  // **非字符串响亮地抛** ✗（不 `ToString` 一遍 ✓）：JS 在这里是 `ToString` 之后再解析 ✓
+  //（`Date.parse(2020)` 于是走 `"2020"` ⇒ `NaN` ✓），而那一档在本仓**一条判据也没有** ✓——
+  // 猜一个「数字当文本」出来只会多一处会漂的地方 ✗（与 `DateParseUnits` 里
+  // 「其余形状一律给 `NaN`」**不是**同一条：那一条是**已经给了文本** ✓）。
+  if (args.length === 0) return Value.FromDouble(NaN);
+  if (args[0].Tag !== ValueTag.String) {
+    throw new Error("unimplemented: Date.parse needs a string argument");
+  }
+  return Value.FromDouble(DateParseUnits(JsTextUnits(table, args[0])));
+}
+if (id === DateToString) {
+  // **`Date.prototype.toString`** ✓（第 293 轮 ✓）——**只做非法日期那一档** ✓。
+  const textStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (textStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const textMs = NumericOf(table.Get(textStored.Owner).Props[textStored.Index].Value);
+  if (textMs === textMs) {
+    // **合法日期响亮地抛** ✓（JS 给的是本地时区那一串 ✓，随机器变 ✗——见号那一段 ✓）。
+    throw new Error("unimplemented: Date.prototype.toString for a valid date (JS renders local time)");
+  }
+  if (!room(ObjectCharge + CodeUnitCharge * 12)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units("Invalid Date")));
 }
 if (id === DateToISOString) {
   // **`toISOString` 与 `toJSON` 共用这一支** ✓（第 280 轮 ✓，同一个号 ✓）。
@@ -3316,6 +3425,112 @@ return era * 146097 + doe - 719468;
 ```ts
 return DateDaysFromCivil(year, month, day) * 86400000
   + hours * 3600000 + minutes * 60000 + seconds * 1000 + millis;
+```
+
+# method DateParseUnits:(units:Array<int>)=>float
+
+**ISO 8601 的一个最小子集**（第 293 轮 ✓）——`Date.parse` 与 `new Date(字符串)` 的**同一条** ✓。
+
+**收的形状** ✓：`YYYY-MM-DD` ✓、`YYYY-MM-DDTHH:mm` ✓、`…:ss` ✓、`…:ss.sss` ✓，
+后面可跟 `Z` ✓ / `±HH:mm` ✓ / 什么都不跟 ✓（日期与时间之间收 `T` / `t` / 一个空格 ✓）。
+
+**其余一律给 `NaN`** ✓（**不猜** ✗）：`"Jan 1 2020"` ✓、`"2020/01/02"` ✓、`"20200102"` ✓
+这些要么是本地化的 ✓、要么有歧义 ✓——编一个答案就是**静默错值** ✓，
+而 JS 自己对不合规的文本给的正是 `NaN` ✓（所以「不认就给 NaN」**与 JS 一致** ✓，
+不是「做不到就先给个错的」✗）。
+
+**三处最容易写错的地方** ✗（每一处都有一条判据或一句 JS 的明文在背后 ✓）：
+- **`.5` 是 500 不是 5** ✓（不足三位要**按位补零** ✓）、**`.1234` 是 123** ✓（多于三位**只取前三位** ✓）——
+  两档方向**相反** ✓，写成一处就会有一半错 ✓；
+- **偏移是「减去」** ✓（`+08:00` 的时刻比 UTC **早** 8 小时 ✓ ⇒ 毫秒数**小** 8 小时 ✓）；
+- **没有偏移的时间串按 UTC 算** ✗（JS 按**本地**算 ✓）——与上面 `DateCtor` 那段同一个口径 ✓
+  （本仓的本地时间就是 UTC ✓），而**带偏移**的那些形状两边**完全一致** ✓。
+
+```ts
+const n = units.length;
+if (n < 10) return NaN;
+const digitAt = (at: number): number => {
+  if (at < 0 || at >= n) return -1;
+  const code = units[at];
+  if (code < 48 || code > 57) return -1;
+  return code - 48;
+};
+const numberAt = (from: number, count: number): number => {
+  let read = 0;
+  for (let i = 0; i < count; i++) {
+    const digit = digitAt(from + i);
+    if (digit < 0) return -1;
+    read = read * 10 + digit;
+  }
+  return read;
+};
+const year = numberAt(0, 4);
+if (year < 0) return NaN;
+if (units[4] !== 45) return NaN;
+const month = numberAt(5, 2);
+if (month < 1 || month > 12) return NaN;
+if (units[7] !== 45) return NaN;
+const day = numberAt(8, 2);
+if (day < 1 || day > 31) return NaN;
+let at = 10;
+let hours = 0;
+let minutes = 0;
+let seconds = 0;
+let millis = 0;
+if (at < n) {
+  const separator = units[at];
+  if (separator !== 84 && separator !== 116 && separator !== 32) return NaN;
+  at = at + 1;
+  hours = numberAt(at, 2);
+  if (hours < 0 || hours > 24) return NaN;
+  at = at + 2;
+  if (at >= n || units[at] !== 58) return NaN;
+  at = at + 1;
+  minutes = numberAt(at, 2);
+  if (minutes < 0 || minutes > 59) return NaN;
+  at = at + 2;
+  if (at < n && units[at] === 58) {
+    at = at + 1;
+    seconds = numberAt(at, 2);
+    if (seconds < 0 || seconds > 59) return NaN;
+    at = at + 2;
+    if (at < n && units[at] === 46) {
+      at = at + 1;
+      const first = at;
+      while (at < n && digitAt(at) >= 0) at = at + 1;
+      const shown = at - first;
+      if (shown === 0) return NaN;
+      for (let i = 0; i < 3; i++) {
+        const digit = i < shown ? digitAt(first + i) : 0;
+        millis = millis * 10 + (digit < 0 ? 0 : digit);
+      }
+    }
+  }
+}
+let offsetMinutes = 0;
+if (at < n) {
+  const zone = units[at];
+  if (zone === 90 || zone === 122) {
+    at = at + 1;
+  } else if (zone === 43 || zone === 45) {
+    const zoneHours = numberAt(at + 1, 2);
+    if (zoneHours < 0) return NaN;
+    let zoneMinutes = 0;
+    let zoneAt = at + 3;
+    if (zoneAt < n && units[zoneAt] === 58) {
+      zoneMinutes = numberAt(zoneAt + 1, 2);
+      if (zoneMinutes < 0) return NaN;
+      zoneAt = zoneAt + 3;
+    }
+    offsetMinutes = zoneHours * 60 + zoneMinutes;
+    if (zone === 45) offsetMinutes = 0 - offsetMinutes;
+    at = zoneAt;
+  } else {
+    return NaN;
+  }
+}
+if (at !== n) return NaN;
+return DateMakeMs(year, month - 1, day, hours, minutes, seconds, millis) - offsetMinutes * 60000;
 ```
 
 # method PadNumber:(value:int, width:int)=>string
@@ -4479,6 +4694,11 @@ SetProperty(vm.Room(), NeverCall, table, dateObject, nowKey, nowTarget);
 const utcKey = Value.FromString(table.CreateString(Units("UTC")));
 const utcTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DateUTC, 0));
 SetProperty(vm.Room(), NeverCall, table, dateObject, utcKey, utcTarget);
+// **`Date.parse`**（第 293 轮 ✓）：与 `now` / `UTC` **同一张对象**上再挂一格 ✓
+//（`Date` 既是对象 ✓、也能被 `new` ✓——两件事同时成立，见第 145 轮 ✓）。
+const dateParseKey = Value.FromString(table.CreateString(Units("parse")));
+const dateParseTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DateParse, 0));
+SetProperty(vm.Room(), NeverCall, table, dateObject, dateParseKey, dateParseTarget);
 const dateKey = Value.FromString(table.CreateString(Units("Date")));
 SetProperty(vm.Room(), NeverCall, table, globals, dateKey, dateObject);
 // **`Promise`**（第 185 轮 ✓）：值由 `promise.xl.md` 造 ✓（那里有四个静态方法 ✓），

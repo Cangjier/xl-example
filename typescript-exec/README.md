@@ -6,6 +6,73 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 293 轮的账（**`Date` 那一族** —— 89.0% → 89.4%，标准库 85.6% → 87.2%）
+
+**选题是标准库那一层里最大的一组** ✓（`report.json` 里 `Date` 相关的 7 条 ✓，
+此前 7 条**全红** ✗）。这一轮收掉 5 条 ✓，剩下 2 条**同一个根** ✓（`JSON.stringify` 不调 `toJSON` ✓，
+记在台账里 ✓）。
+
+### 一、装上的四件事
+
+| # | 装的是什么 | 判据 | 最容易写错的地方 |
+| --- | --- | --- | --- |
+| ① | **`Date.parse` / `new Date(字符串)`** | `date-string-parse` · `c291-date-parse-and-iso-roundtrip` | ISO 的**最小子集** ✓（`YYYY-MM-DD` ✓ / `…THH:mm` ✓ / `…:ss` ✓ / `…:ss.sss` ✓ + `Z` ✓ / `±HH:mm` ✓），**其余一律 `NaN`** ✓ |
+| ② | **多实参构造** `new Date(年, 月, 日, 时, 分, 秒, 毫秒)` | `date-multi-arg-ctor` | `0..99` 的年份要**加 1900** ✓；缺的那几格按 JS 的默认值补 ✓（日缺省 `1` ✓） |
+| ③ | **本地那七个 getter + `getDay`** | `date-getters-and-setters` | **与 UTC 那七个共用同一个能力号** ✓（本仓的本地口径就是 UTC ✓，见下） |
+| ④ | **`Date.prototype.toString`** | `date-invalid-values` | **只做 `Invalid Date` 那一档** ✓ |
+
+### 二、最值钱的一处不在这些格里
+
+`ToPrimitiveOf` 里那条路障（第 198 轮）原来**整族抛** ✓：
+「JS 的 `OrdinaryToPrimitive` 对 `Date` 有一条特例 ✓——`default` 要当 `string` 用 ✓」
+而本仓的 `Date.prototype` 上**没有 `toString`** ✗，所以只能抛 ✓。
+
+第 293 轮把 `toString` 装上之后，**必须把 hint 翻过来** ✓（`hint = ToPrimitiveString` ✓）——
+**第一版漏了这一句** ✗：路障变成「只问 `toString` 可不可调」✓，可调之后**照原样往下走** ✓，
+而下面那一支按「`default` 先 `valueOf`」办 ✓ ⇒ `new Date(0) + 1` 给 **`1`** ✗
+（JS 给日期串接 `1` ✓）——**静默错值** ✓，而且正是这条路障当初要挡的那一格 ✓。
+
+**是判据把它抓回来的** ✓：`tests/runtime/check.mjs` 第 198 轮那条
+「不能给近似值的那几格：**响亮地抛**」当场报红 ✓（`Date 的 default 那一档必须响亮地抛`✓）。
+**这正是「合同变了要连判据一起翻面」的反面** ✗：那里是判据要跟着合同改 ✓，
+这里是**判据不许改** ✓——它量的那条口径（响亮 vs 静默）与第 198 轮**一字不差** ✓。
+
+**收窄而不是删掉那条路障** ✓：判据从「是不是 `Date`」变成「**`toString` 那一格可不可调**」✗——
+少了这一问，`new Date(0) + 1` 会走 `valueOf` 变成数字 ✓（**静默错值** ✓）；
+而留着旧的写法，非法日期那一档（`String(new Date(NaN))` ⇒ `"Invalid Date"` ✓）
+又会**白白抛掉** ✓。两件事必须分开判 ✓。
+
+### 三、一处已知差异（写在明处）
+
+**本仓没有时区库** ✗（与 `DateParts` 用 Hinnant 公式而不是宿主日期库同一条理由 ✓）——
+所以**本地时间的口径就是 UTC** ✓：构造（`new Date(y, m, d)` ✓）与读取
+（`getFullYear()` ✓ / `getHours()` ✓）用**同一个**口径 ✓ ⇒ 这一对**自洽** ✓
+（判据量的正是这一对 ✓，而且在任何 `TZ` 下 Node 给的都是同一个答案 ✓）。
+
+**而「混用」本地与 UTC 的程序会差一个时区偏移** ✓：
+`new Date(0).getHours()` 在 UTC+8 的机器上 Node 给 `8` ✓、本仓给 `0` ✓。
+**这是记在台账里的已知差异** ✓，不是「顺手糊过去」✗——`Date.prototype.toString`
+（合法日期那一档 ✓）因此**仍旧响亮地抛** ✓：那一串里带 `GMT+0800` ✓，编不出来 ✓。
+
+### 四、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   89.3%   225/252   (blocked 12 · differ 15 · bad 0)   没动
+exec      94.5%   172/182   (blocked 5  · differ 5  · bad 0)   没动
+stdlib    87.2%   285/327   (blocked 21 · differ 21 · bad 0)   +5 条
+e2e       84.6%    11/13    (blocked 2  · differ 0  · bad 0)   没动
+合计      89.4%   693/774   blocked 40 · differ 41 · bad 0
+```
+
+**红的一栏是 0** ✓；`runtime:check` **241 条** ✓（并且**没有**改合同 ✓）、
+`runtime:cli` **79 份** ✓、`cases:tsast` **1444 / 1444** ✓。
+
+**下一轮的第一条** ✓：`date-iso-and-json` 与 `date-toiso-and-json` 是**同一个根** ✓——
+`JSON.stringify` 不调 `toJSON` ✗（`JsonText` 是个**纯查询** ✓，刻意不调脚本 ✓）。
+要做就得把 `NativeCall` **一路递进 `JsonText`** ✓，并且**整棵树在这一次调用期间锚住** ✓
+（回调里会分配 ✓——与第 279 轮 `JSON.parse` 的 reviver **同一处坎** ✓）。
+
 ## 第 292 轮的账（**`namespace` 那一族** —— 87.8% → 89.0%，降级层 90.7% → 94.5%）
 
 **选题是 `report.json` 那张清单里最大的单个簇** ✓：缺口清单 #4 的 `namespace` / `module`
