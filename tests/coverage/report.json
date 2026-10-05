@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 775,
+  "matrix": 776,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 91.16,
+  "progressPercent": 92.81,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 252,
-      "pass": 229,
+      "total": 253,
+      "pass": 231,
       "blocked": 12,
-      "differ": 11,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 90.87
+      "coverage": 91.3
     },
     {
       "layer": "exec",
@@ -69,11 +69,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 11,
-      "blocked": 2,
-      "differ": 0,
+      "pass": 12,
+      "blocked": 0,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 84.62
+      "coverage": 92.31
     }
   ],
   "blocked": [
@@ -244,27 +244,9 @@
       "layer": "stdlib",
       "title": "Object(原始值) 的包装对象",
       "detail": "tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
-    },
-    {
-      "id": "e2e-event-emitter",
-      "layer": "e2e",
-      "title": "事件总线：Map<string, 回调数组> + 闭包 + 剩余参数",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "e2e-mixed-everything",
-      "layer": "e2e",
-      "title": "一锅端：类 + 生成器 + 承诺 + 异常 + 集合 + 解构",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "differ": [
-    {
-      "id": "prm-microtask-order",
-      "layer": "runtime",
-      "title": "微任务的顺序：同步先跑完，再按排队的先后",
-      "detail": "stdout 不同：第 4 行：node «4» vs tsrun «»"
-    },
     {
       "id": "rt-iife-forms",
       "layer": "runtime",
@@ -432,22 +414,31 @@
       "layer": "stdlib",
       "title": "console.log 的嵌套容器形状",
       "detail": "stdout 不同：第 3 行：node «{ n: null, u: undefined, f: [Function: f] }» vs tsrun «{ n: null, u: undefined, f: [Function (anonymous)] }»"
+    },
+    {
+      "id": "e2e-mixed-everything",
+      "layer": "e2e",
+      "title": "一锅端：类 + 生成器 + 承诺 + 异常 + 集合 + 解构",
+      "detail": "stdout 不同：第 2 行：node «A-B» vs tsrun «»"
     }
   ],
   "bad": [],
-  "moved": [],
+  "moved": [
+    {
+      "id": "e2e-mixed-everything",
+      "layer": "e2e",
+      "why": "同一个根：`private data = new Map<…>()`（类字段初始化式里的全局名 ✓）。**前半条已经做掉** ✓：类里的 `async total(key)` 与生成器方法 `*keys()` 都降级得出来 ✓（原来整份文件进不了门 ✗）",
+      "detail": "stdout 不同：第 2 行：node «A-B» vs tsrun «»"
+    }
+  ],
   "newlyPassing": [
     {
-      "id": "rt-surrogate-iteration",
+      "id": "prm-microtask-order",
       "layer": "runtime"
     },
     {
-      "id": "c291-rt-string-unicode-forms",
-      "layer": "runtime"
-    },
-    {
-      "id": "string-charcodes-and-units",
-      "layer": "stdlib"
+      "id": "e2e-event-emitter",
+      "layer": "e2e"
     }
   ],
   "regressions": []

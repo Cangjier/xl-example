@@ -6,6 +6,77 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 298 轮的账（**类字段初始化式里的全局名** —— 91.2% → 92.8%，引擎 90.9% → 91.3%、端到端 84.6% → 92.3%）
+
+**选题是「按权重挑」的结果** ✓：`e2e` 那一层只有 **13 条** ✓，一条就值 **1.5 个点** ✓
+（标准库那 328 条里的一条只值 0.08 ✓）——而它那两条红条的报错都是
+`cannot call a non-closure value` ✓。
+
+### 一、症状与根子隔着一整层
+
+```
+class Emitter {
+  private handlers = new Map<string, Array<(...args: any[]) => void>>();
+  …
+}
+```
+⇒ `tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)` ✓
+
+**那句话听起来像「调用写错了」** ✗，真相是**字段初始化式里的全局名读成了 `undefined`** ✓。
+最小现场（`class E { h = Map; }` ⇒ `typeof new E().h` 给 `undefined` ✓，Node 给 `"function"` ✓）
+把范围一口咬定到「**类字段初始化式 + 全局名**」这一格 ✓——
+`h = Math.PI` 报 `cannot read properties of undefined` ✓、`const M = Map; h = M` **是对的** ✓
+（模块级 `const` 走的是另一条路 ✓）。
+
+### 二、根子：**算捕获用的名单里混着全局名**
+
+`EnterFunctionBody` 里那句 `CapturedNames(body, declared)` ✗——而 `declared` 里
+**含全局名** ✓（第 128 轮为了让「内层函数看得见 `Math`」推进去的 ✓）。
+
+**全局名的值住在入口那一帧** ✓（`BindGlobals` 把它们绑成入口帧的槽 / 环境格 ✓），
+而**内层帧永远不会声明它们** ✗ ⇒ 捕获名单里出现 `Map` 时：
+那一帧 `EnvNew` **开一格** ✓、而 `EnvSet` **永远不来** ✗（没人写它 ✓）⇒ 读出来 `undefined` ✓。
+
+**它为什么一路都「看着对」** ✗：编译期 `Env.Resolve("Map")` 给出 `Depth 0, Cell 0` ✓
+（那一帧**确实**在自己的环境里留了一格 ✓），运行期那一格**就是**空的 ✓——
+**两边都没说谎** ✓，断的是「**谁负责给它写值**」这一环 ✗。
+实测的两条打印把这件事摆得很直白：`ENVNEW slot 0 cells 1 captured ["Map"]` ✓
+（那一帧开了环境、把 `Map` 算成自己的捕获 ✓），而 `ENVGET depth 0 cell 0 … val 0` ✓（那一格是空的 ✓）。
+
+### 三、修法：算捕获用另一份名单
+
+`bindable` = 「**这一帧真的会绑的名字**」✓ —— 与 `declared` 同源，但**不含全局名** ✗。
+**只有入口那一帧例外** ✓：那一条捕获**兑现得了** ✓（`BindGlobals` 就在下面几行 ✓），
+而第 128 轮要的正是它 ✓。
+
+**为什么不是「在三处各改一遍」** ✗：这次只有一处要改 ✓（`EnterFunctionBody` 里那两个调用 ✓），
+但**名单的语义**从此写清楚了 ✓：`declared` 管「TDZ 那句话怎么报」✓、
+`bindable` 管「谁进环境格」✓——**两件事长得很像，原来共用一份名单** ✗。
+
+**收口之后最诱人的那条歧路** ✗：把全局名从 `declared` 里彻底删掉 ✓——
+那会让第 128 轮那条判据（`class A { constructor() { Math… } }` ✓）**重新变红** ✓
+（入口帧不再捕获全局名 ⇒ 内层帧的环境链上没有它的值 ✓）。
+所以是**两份名单**，不是「删掉一处」✓。
+
+### 四、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   91.3%   231/253   (blocked 12 · differ 10 · bad 0)   +2 条（含新加 1 条）
+exec      94.5%   172/182   (blocked 5  · differ 5  · bad 0)   没动
+stdlib    92.7%   304/328   (blocked 11 · differ 13 · bad 0)   没动
+e2e       92.3%    12/13    (blocked 0  · differ 1  · bad 0)   +1 条、另 1 条从 blocked 走到 differ
+合计      92.8%   718/776   blocked 28 · differ 29 · bad 0
+```
+
+**红的一栏是 0** ✓；`runtime:check` **241 条** ✓、`runtime:cli` **79 份** ✓、
+`cases:tsast` **1444 / 1444** ✓。
+
+**顺手量到一条新的** ✓（用户口径：「发现新问题就加对应语料」✓）：一个**被拒绝的 `async` 方法**
+之后，紧跟的那条**同步语句整条被丢掉** ✓（**退出码还是 0** ✓）。独立函数那一版是好的 ✓
+（新加的 `c298-async-reject-then-sync` 是绿的 ✓），触发条件与**类方法 / 生成器 / `this.data`**
+里的哪一样有关**还没定** ✓——记在台账里 ✓，是下一轮的第一条 ✓。
+
 ## 第 297 轮的账（**字符串迭代按码点** —— 90.9% → 91.2%，引擎 90.1% → 90.9%、标准库 92.4% → 92.7%）
 
 **选题是「同一件规矩写在几处」那一族** ✓：第 296 轮刚收过一处（JSON 的键序 ✓），

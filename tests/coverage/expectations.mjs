@@ -68,7 +68,6 @@ export const EXPECTATIONS = {
   // 这一条链**根本走不到「回调的返回值」那一步** ✓——
   // 它在**回调跑完之后、收尾之前**就出事了 ✓（`cannot read properties of undefined` ✓）。
   // **所以采纳要修，而它前面还有一个更要紧的缺口** ✗。
-  "prm-microtask-order": { expect: "differ", why: "`.then(…).then(…)` 的返回值链：回调跑完之后收尾就出事（还走不到「采纳返回值」那一步）——探针证明 `AdoptInto` 从未被触达" },
   "gc-churn": { expect: "blocked", why: "**步数预算**：两万次循环就 `step budget exhausted`（普通循环够不着这个量级）" },
 
   // ===== exec：TS 形状 → 运行期语义 =====
@@ -256,14 +255,13 @@ export const EXPECTATIONS = {
   // 它差的正是 async 那一整族 ✓（`await` 一个非承诺值 ✓、`for..of` 里的 `total += await f(n)` ✓、
   // 类里的 `async` 方法 ✓）——本轮一起做掉了 ✓。
   // **`e2e-mixed-everything` 从「降级期就抛」走到了「运行期同一个根」** ✓（见下面 ✓）。
-  "e2e-event-emitter": { expect: "blocked", why: "类字段初始化器里引一个全局名（`new Map`）报「cannot call a non-closure value」——**第 286 轮量清了根子**：全局名没进那个内层帧的环境（`env_get` 读到 `undefined` ✓），而**它不是本轮引入的**（拿第 284 轮的产物验过，同一个现象 ✓）。同一个根还挡住 `new Date()` / `new Set()` 当字段初始式。" },
   // **`e2e-mixed-everything` 第 286 轮从「降级期就抛」走到了「运行期同一个根」** ✓：
   // 类里的 `async total(key)` 已经能降级 ✓（async 那一族本轮做掉了 ✓），
   // 现在卡在**这个类自己的字段初始化式**上 ✓——`private data = new Map<…>()` ✓，
   // 与 `e2e-event-emitter` **一字不差的同一个根** ✓（全局名没进内层帧的环境 ✓）。
   // 台账从 `pass` 变成 `blocked` 不是倒退 ✗：这一条**从来没有真跑起来过** ✓
   //（原来整份文件在降级期就进不来 ✓）——它只是原来被记成了「类型位擦除」那一档 ✓。
-  "e2e-mixed-everything": { expect: "blocked", why: "同一个根：`private data = new Map<…>()`（类字段初始化式里的全局名 ✓）。**前半条已经做掉** ✓：类里的 `async total(key)` 与生成器方法 `*keys()` 都降级得出来 ✓（原来整份文件进不了门 ✗）" },
+  "e2e-mixed-everything": { expect: "differ", why: "**第 298 轮从 blocked 走到 differ** ✓（那一轮修掉了类字段初始化式里的全局名 ✓——这一条此前报的 `cannot call a non-closure value` 就是它 ✓）。现在剩下的那一行是**另一件事** ✗：`const snapshot = [...store.keys()].map((k) => k.toUpperCase())` 打出**空串**（Node 给 `A-B`）✓——而**同一份程序里第一次** `[...store.keys()]` 是对的 ✓（打出 `a,b` ✓）。量到的现场是「**一个被拒绝的 async 方法调用之后，紧跟的那条同步语句被整条丢掉**」✓：`total(\"zzz\").catch(…)` 之后那一句 `console.log` 一条都不打 ✓、**退出码还是 0** ✓（所以只有逐字节对拍才看得见 ✓）。**简化成独立函数那一版是好的** ✓（`fail().catch(…)` 后跟同步语句 —— 判据 `c298-async-reject-then-sync` 现在是绿的 ✓），所以触发条件与**类方法 / 生成器 / `this.data`** 里的哪一样有关还没定 ✓——下一轮的第一条" },
 
   // ===================== 第 273 轮加宽：矩阵 275 → 395 条，新盖到 37 条缺口 =====================
   //

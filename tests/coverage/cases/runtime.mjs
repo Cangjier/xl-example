@@ -3007,4 +3007,28 @@ console.log(Object.keys(o).join(","));
 console.log(JSON.stringify(o));
 `,
   },
+  // ===== 第 298 轮补的一条：被拒绝的 async 之后的同步语句 =====
+  // 它是**量 e2e 那两条时顺手撞见的** ✓（用户口径：「发现新问题就加对应语料」✓）——
+  // 现场：`total("zzz").catch(…)` 之后那一句**同步** `console.log` **一条都不打** ✓，
+  // 而 `node` 打「先同步那一句、再微任务那一句」✓——**静默少一半输出** ✗，
+  // 退出码还是 0 ✗（所以只有逐字节对拍才看得见 ✓）。
+  {
+    id: "c298-async-reject-then-sync",
+    title: "被拒绝的 async 之后的同步语句：先同步、后微任务",
+    src: `
+class Box {
+  private data = new Map<string, number>();
+  add(key: string, value: number): void { this.data.set(key, value); }
+  async total(key: string): Promise<number> {
+    const found = this.data.get(key);
+    if (found === undefined) throw new Error("no key " + key);
+    return found;
+  }
+}
+const box = new Box();
+box.add("a", 1);
+box.total("zzz").catch((e: any) => console.log("caught", e.message));
+console.log("sync after");
+`,
+  },
 ];

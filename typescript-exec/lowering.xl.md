@@ -1138,6 +1138,15 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 **这门语言**的建库层决定的（`builtins/globals.xl.md` 给出那张名单）。
 降级器只认识「有一批全局名」，不认识它们是谁——**换一门语言，名单换掉，降级器不动**。
 
+## field EntryFrame:bool = false
+
+**正在降级的是不是入口那一帧**（第 298 轮 ✓）——`LowerModule` 在 `EnterFunctionBody` 前后设与清 ✓。
+
+**它只影响一件事** ✗：**全局名算不算这一帧的「捕获」** ✓（见 `EnterFunctionBody` 里那两个名单 ✓）。
+**入口那一帧要算** ✓（第 128 轮 ✓：全局名的**值**住在入口那一帧的环境格里 ✓，
+内层函数要靠它才看得见 `Math` ✓）；**其余每一帧都不算** ✗——理由写在
+`EnterFunctionBody` 那一段（那是第 298 轮实测抓到的 `undefined` ✓）。
+
 ## field ExtraDeclared:Array<string> = []
 
 `EnterFunctionBody` 算「本层声明了哪些名字」时要**额外算进来**的名字（全局名走这里）。
@@ -1382,13 +1391,49 @@ this.ExtraDeclared = [];
 const globals = this.Globals;
 for (let i = 0; i < globals.length; i++) declared.push(globals[i]);
 this.DeclaredNames = declared;
+// **「算捕获」用另一份名单** ✗（第 298 轮 ✓）：`declared` 里混着**全局名** ✓，
+// 而全局名的值住在**入口那一帧**的环境格 / 槽里 ✓——内层帧**永远不会**声明它们 ✗。
+//
+// **第一版拿 `declared` 去算捕获** ✗（第 128 轮起就是这样 ✓），后果是：
+// 只要某一帧的 `extras`（字段初始化式 / 形参默认值 ✓）里出现一个全局名 ✓，
+// 那一帧就会**决定把它捕获进自己的环境** ✓ ⇒ `EnvNew` 开一格 ✓、
+// 而 `EnvSet` **永远不会来** ✗（这一帧根本没有声明 `Map` ✓，没人给它写值 ✓）⇒
+// 那一格里是 `undefined` ✓，读它就是 `undefined` ✓。
+//
+// **实测的现场**（判据 `e2e-event-emitter` / `e2e-mixed-everything` ✓）：
+// `class E { private handlers = new Map<…>() }` 报 `cannot call a non-closure value` ✓
+// ——**一句话听起来像调用写错了** ✓，其实是**类字段初始化式里的全局名读成了 `undefined`** ✗
+//（`class E { h = Map }` 单独一行的最小现场给 `undefined` ✓，而 `h = Math.PI` 报
+//  `cannot read properties of undefined` ✓）。
+//
+// **为什么它看起来「哪里都对」** ✗：编译期 `Env.Resolve("Map")` 给出 `Depth 0, Cell 0` ✓
+//（那一帧**确实**在自己的环境里留了一格 ✓），运行期那一格**就是**空的 ✓——
+// 两边都没说谎 ✓，断的是「谁负责给它写值」这一环 ✗。
+//
+// **修法**：算捕获的那份名单**不含全局名** ✓，**只有入口那一帧例外** ✓
+//（第 128 轮要的就是「全局名的值进入口那一帧的环境」✓——那一帧**真的**会绑它们 ✓
+//（`BindGlobals` ✓），所以那一条捕获是**兑现得了的** ✓）。
+// 内层帧不捕获全局名之后，读 `Map` 照旧走**环境链** ✓（入口那一帧在链上 ✓）——
+// 第 128 轮那条判据（`class A { constructor() { Math… } }` ✓）**一位都没动** ✓。
+const bindable: string[] = [];
+for (let i = 0; i < declared.length; i++) bindable.push(declared[i]);
+if (!this.EntryFrame) {
+  // **把全局名摘掉** ✓（入口那一帧照旧留着 ✓）。
+  const own: string[] = [];
+  for (let i = 0; i < bindable.length; i++) {
+    if (Contains(globals, bindable[i])) continue;
+    own.push(bindable[i]);
+  }
+  bindable.length = 0;
+  for (let i = 0; i < own.length; i++) bindable.push(own[i]);
+}
 const functions: string[] = [];
 CollectFunctionNames(body, functions);
-const captured = CapturedNames(body, declared);
+const captured = CapturedNames(body, bindable);
 let needsThis = HasArrowFunction(body);
 let hasNested = HasNestedFunction(body, 0);
 for (let e = 0; e < extras.length; e++) {
-  const more = CapturedNames(extras[e], declared);
+  const more = CapturedNames(extras[e], bindable);
   for (let i = 0; i < more.length; i++) {
     if (!Contains(captured, more[i])) captured.push(more[i]);
   }
@@ -1657,7 +1702,11 @@ for (let i = 0; i < prelude.length; i++) {
   this.CollectImports(prelude[i]);
 }
 this.ExtraDeclared = this.Globals;
+// **入口那一帧** ✓（第 298 轮 ✓）：只有它把全局名算进「本层真的会绑的名字」✓
+//（`BindGlobals` 就在下面几行 ✓）——其余每一帧都不算 ✗，理由见 `EnterFunctionBody` ✓。
+this.EntryFrame = true;
 this.EnterFunctionBody(source, [], []);
+this.EntryFrame = false;
 this.Hoist(source);
 this.BindGlobals();
 const statements = ListOf(source, "statements");
