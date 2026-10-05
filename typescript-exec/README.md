@@ -6,6 +6,90 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 304 轮的账（**先把语料铺满：加宽 150 条 + 当场收掉 9 格** —— 95.4% → 94.9%，分母 +19%）
+
+### 一、加宽：150 条候选，先普查再收编
+
+用户这一轮的口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
+外加一条新的 ✗：「**发现新问题就补语料、与 TS 的 AST 比、然后解决**」✓。
+
+候选分三层写 ✓（运行时 48 条 ✓ / 降级层 42 条 ✓ / 标准库 60 条 ✓），逐条过 `sweep.mjs` ✓
+（**先量再收** ✓，与第 287 / 290 / 291 轮同一条）：**135 条当场通过** ✓、**15 条是新量到的缺口** ✗、
+**`nodefail` 一条都没有** ✓。矩阵 **779 → 929 条** ✓（**分母 +19%** ✓），
+读数从 95.4% **落到 94.9%** ✓——**这是分母变诚实** ✓，不是倒退 ✓
+（第 273 / 287 / 290 / 291 轮都是同一个形状 ✓）。
+
+**普查里先撞出 5 条「用例自己不合法」** ✗——它们**不进矩阵** ✓，但每一条都值得记：
+
+| 形状 | 病 |
+| --- | --- |
+| `constructor(private side: number)` / `const enum` | 类型**剥离**拒收 ✓，要 `--experimental-transform-types` ✓（矩阵里本来就有这条先例 ✓） |
+| `JSON.parse('"a\nb"')` | 转义**少了一层** ✓——用例里的 `\\` 到 `.ts` 里只剩一个 ✓ ⇒ 成了**真的换行** ✓（`Bad control character` ✓） |
+| 只有类型的 `namespace Types { export type … }` | 那个名字**运行期不存在** ✓（TS 自己就把它整段擦掉 ✓），拿它当值 ⇒ 裁判自己就抛 ✓ |
+| `accessor count = 0`（TS 4.9 自动访问器） | **node 的 amaro 根本不吃** ✓（两种模式都拒收 ✓）⇒ **裁判给不出来** ✓，只能记成口径外 ✓ |
+
+### 二、收掉的 9 格
+
+| 格 | 号 | 根子 |
+| --- | --- | --- |
+| `Array.prototype.toSpliced` | Array `41` | `splice` 的**不改原数组**版 ✓；顺手把 `splice` 那一段抽成 `SpliceArray` ✓——那一段里有**三处写错了不出声**的地方 ✓（起点为负 ✓ / 删除个数夹取 ✓ / 先搬尾再截断 ✓），与第 274 轮抽 `SortArrayInPlace` 同一个理由 ✓ |
+| `Object.setPrototypeOf` | Object `419` | 走**引擎早就有的** `RtSetProto` ✓（第 278 轮为 `extends` 写的 ✓）——不另写一份，否则「原型不是对象」那一档会与 `extends` 分岔 ✓ |
+| `Object.preventExtensions` | Object `420` | **只打「不可扩展」那个标记** ✓、不动任何属性标志 ✓（`seal` / `freeze` 各多清一样 ✓） |
+| `Object.prototype.isPrototypeOf` | Object `421` | 落回 `RtChainHas` ✓（`instanceof` 的第三段 ✓）——不另写一趟走链（深度上限与终止条件都只有一处 ✓） |
+| `"abc".toString()` / `"abc".valueOf()` | String `128` / `129` | 两格**共用一个实现** ✓（都返回接收者自己 ✓）。不装的话查找会落到 `Object.prototype.toString` ✓ ⇒ `"[object String]"` ✓——**静默错值** ✗ |
+| `getOwnPropertyDescriptor` 的**访问器**那一格 | — | 第 276 轮这里**响亮地抛** ✓（理由写的是「这一层还没有那两格的门」✓）——**量了一下：门早就在** ✗（`Property.Getter` / `Setter` ✓，对象字面量与类方法从第 98 轮起就走它 ✓）。**描述符的形状也不同** ✗：访问器那一档没有 `value` / `writable` ✓、多的是 `get` / `set` ✓ |
+| `Object.assign` 的**字符串源** | — | 按**码元**展开成下标键 ✓（与 `Object.keys("ab")` 同一条口径 ✓）⇒ `Object.assign({}, "ab")` 从 `{}` 变成 `{"0":"a","1":"b"}` ✓（台账里 `object-assign-forms-and-order` 那一行**删掉了** ✓） |
+| `reduce` 回调的**下标与数组**两格 | — | JS 是 `(累计, 值, 下标, 数组)` ✓，原来只给前两格 ✗ ⇒ `acc + i` 算 `NaN` ✓（**静默错值** ✓）。`reduceRight` 走同一句 ✓（给的是**真实的那个下标** ✓，不是「第几步」✗） |
+| `Object.isSealed` 在 `preventExtensions` 之后 | — | **本轮发现的新问题** ✗——单独记在下一节 ✓ |
+
+### 三、本轮发现的新问题：`isSealed` 只问了那个标记
+
+加宽时写了一条 `preventExtensions` 的用例 ✓，当场量到：
+
+```
+Object.preventExtensions({ x: 1 }); Object.isSealed(o)   ⇒ true   ✗（Node 给 false）
+```
+
+**JS 里 `seal` 是两件事** ✓：**不可扩展** ✓ **且每一格都不可配置** ✓。
+这一格原来只问了**标记** ✓——那一半是**必要的** ✓（第 276 轮的理由：空对象上
+「每格都不可配置」**真空成立** ✓，少了它 `Object.isSealed({})` 会答真 ✗），
+但**不是充分的** ✗。修法是两件事都问 ✓（标记 + 一趟扫 `configurable` ✓）。
+按用户那条口径**补了语料守着它** ✓：`c304-std-object-issealed-after-preventextensions` ✓
+——**修好的形状要有判据** ✓，否则下一次重构会静默地把它弄回去 ✗（第 273 轮的规矩 ✓）。
+
+### 四、量准了、但这一轮没做的一格
+
+`arr![0]![0]` 投影出来是 `NonNullExpression(arr)` ✓——**两个方括号与第二个 `!` 全丢了** ✓。
+本轮拿 `cjcli --ts-ast` 与 `ts.createSourceFile` **对过** ✓：
+
+```
+TS：ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)
+本仓：NonNullExpression(Identifier(arr))        ✗
+```
+
+正是第 303 轮账里写的「**没做的两格**」之一 ✓（那一轮写的是 `x![1]![0]` ✓）。
+这一轮**没有动它** ✗，但把它从「账上的一句话」变成了**矩阵里的一条判据** ✓
+（`c304-ex-nonnull-in-optional-chain` ✓）——**下一轮照红线找得着** ✓。
+
+### 五、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   90.0%   271/301   (blocked 15 · differ 15 · bad 0)   加宽 +48 条
+exec      96.5%   219/227   (blocked 6  · differ 2  · bad 0)   加宽 +42 条
+stdlib    93.8%   364/388   (blocked 13 · differ 11 · bad 0)   加宽 +60 条、**93.6% → 93.8%**
+e2e      100.0%    13/13    (blocked 0  · differ 0  · bad 0)   没动
+合计      94.9%   867/929   blocked 34 · differ 28 · bad 0
+```
+
+**红的一栏是 0** ✓（`bad` 0 ✓、`REGRESSION` 0 ✓、`MOVED` 0 ✓）；
+`runtime:check` **241 条通过 / 0 条失败** ✓；`cases:tsast` **四方向全 0** ✓
+（投影未覆盖的产物标签、多出来的节点、区间漂移都是空的 ✓、785836 个节点**缺 range 0 个** ✓）。
+
+**标准库那一层是唯一往上走的一层** ✓（93.6% → 93.8% ✓）——分母加了 60 条、分子加了 57 条 ✓
+（收掉的那 4 格标准库的活都在这 60 条里 ✓）。
+
+
 ## 第 303 轮的账（**非空断言后面直接跟下标** —— 95.0% → 95.4%，降级层 95.7% → 96.8%）
 
 ### 一、症状：`[1]` 整段丢掉

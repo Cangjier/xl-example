@@ -151,6 +151,23 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 **它们是第 273 轮普查量到的** ✓：判据 `string-trim-variants` 在报
 `cannot call a non-closure value` ✓——即**那一格根本没装** ✗（`trim` 一直是好的 ✓）。
 
+# const StringToString:int = 128
+
+**`"abc".toString()`**（第 304 轮 ✓）——返回**接收者自己** ✓（`valueOf` 与它一字不差 ✓）。
+
+**不装它的代价是静默错值** ✗：`Protos.String` 上找不到 `toString` ✓，属性查找就
+一路落到 `Object.prototype.toString` ✓，于是 `"abc".toString()` 打出
+**`"[object String]"`** ✓——**看着像个值** ✓、一句异常都没有 ✗
+（判据 `c304-std-string-valueof-tostring` 量的就是它 ✓）。
+**同一族的 `String.prototype.toString.call(s)`** 走的也是这一格 ✓
+（`String.prototype` 从第 137 轮起就是 `Protos.String` 本人 ✓）。
+
+# const StringValueOf:int = 129
+
+**`"abc".valueOf()`**（第 304 轮 ✓）——与 `toString` **同一个实现** ✓
+（JS 里这两个方法在字符串上返回的都是接收者自己 ✓，所以指到**同一格能力号** ✓——
+同一件事不写第二份实现 ✓，与 `Array.prototype.toString` / `toLocaleString` 那条先例同款 ✓）。
+
 # const StringSubstr:int = 127
 
 **`substr(起, 长度?)`**（第 291 轮 ✓）——**号照旧追加在表尾** ✓（`126` 之后 ✓）。
@@ -711,6 +728,13 @@ if (id === StringReplace || id === StringReplaceAll) {
   for (let i = cursor; i < units.length; i++) joined.push(units[i]);
   return Value.FromString(table.CreateString(joined));
 }
+if (id === StringToString || id === StringValueOf) {
+  // **`"abc".toString()` / `"abc".valueOf()`**（第 304 轮 ✓）——两个都返回**接收者自己** ✓
+  //（JS 的 `String.prototype.toString` / `valueOf` 就是恒等 ✓）。
+  // **接收者那一关由上面那句 `RequireString` 把着** ✓：不是字符串就抛 ✓
+  //（JS 在这里也抛 `TypeError` ✓——`String.prototype.toString.call(1)` 不是**静默**给 `1` ✓）。
+  return self;
+}
 throw new Error("unimplemented: string builtin " + id);
 ```
 
@@ -865,13 +889,17 @@ const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   //（`124` / `125` ✓），已有的一个都没动 ✓。
   "trimStart", "trimEnd",
   // **第 291 轮补的一格** ✓（`substr` ✓）——号**照旧追加在表尾** ✓（`127` ✓）。
-  "substr"];
+  "substr",
+  // **第 304 轮补的两格** ✓（`toString` / `valueOf` ✓）——号**照旧追加在表尾** ✓
+  //（`128` / `129` ✓），已有的一个都没动 ✓。**两格共用一个实现** ✓（见号那一段 ✓）。
+  "toString", "valueOf"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
   StringReplace, StringReplaceAll,
   StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare,
-  StringTrimStart, StringTrimEnd, StringSubstr];
+  StringTrimStart, StringTrimEnd, StringSubstr,
+  StringToString, StringValueOf];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

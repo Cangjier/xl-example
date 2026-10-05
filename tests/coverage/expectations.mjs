@@ -553,7 +553,9 @@ export const EXPECTATIONS = {
   // ③ `Math.hypot()` **空实参**（一条 ✓）——少一条早退 ✓（`Math.max()` 第 206 轮那条
   //    **同一个形状** ✓，`hypot` 那一支当时没跟着补 ✗）；
   // ④ `-0` 那一格记在组 A ✓。
-  "object-assign-forms-and-order": { expect: "differ", why: "**静默错值**：`Object.assign({}, \"ab\")` 给 `{}`（Node 给 `{\"0\":\"a\",\"1\":\"b\"}`）——字符串当源时要按**码元**展开成下标键" },
+  // **第 304 轮删掉了 `object-assign-forms-and-order` 那一行** ✓（它过了 ✓）：
+  // `Object.assign({}, "ab")` 从静默 `{}` 变成 `{"0":"a","1":"b"}` ✓——
+  // 修的是字符串当源那一格（按**码元**展开成下标键 ✓，与 `Object.keys("ab")` 同一条口径 ✓）。
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
@@ -652,5 +654,22 @@ export const EXPECTATIONS = {
   //
   // **组 U：函数显示名的推断（1 条）** ✓
   "c291-console-log-nested-shapes": { expect: "differ", why: "`console.log({ f: () => 1 })` 印 `[Function (anonymous)]`（Node 印 `[Function: f]`）——匿名函数要**从属性名反推显示名**（与 `function-name-inference` 同一族）" },
-};
 
+  // ===== 第 304 轮：加宽矩阵时量到的缺口（15 条）=====
+
+  "c304-rt-new-target-in-ctor": { expect: "blocked", why: "`new.target` 报 `unimplemented: expression MetaProperty`——投影给出的是 `MetaProperty` 这个 kind，而降级层没有那一格。要的是「当前这一帧是不是构造调用」（引擎帧上的一格），读成一个值即可" },
+  "c304-rt-delete-nonconfigurable": { expect: "blocked", why: "**口径边界（严格模式的选择）**：`delete` 一个不可配置的属性，本仓一律抛（那一抛还冒出脚本、接不住），而 `node` 把 `.ts` 当 CJS 跑是**松散模式**、静默返回假——与 README 里 `Object.freeze` 写属性那一条同源" },
+  "c304-rt-iife-arrow-this": { expect: "differ", why: "**口径边界（严格模式的选择）**：普通函数调用在松散模式下 `this` 是全局对象，本仓一律 `undefined`。同一个根还拖着下面那条" },
+  "c304-rt-closure-capture-in-forof": { expect: "differ", why: "`for (const n of [1, 2, 3])` 里每一次迭代该有**自己那一格**（JS 的 per-iteration binding），本仓三个闭包共用一格 ⇒ 全给 `3`（**静默错值**）。与 `rt-loop-capture-let-vs-var`（经典 `for` 那一格）**同一个根**：降级层还没有「每个迭代开一格环境」" },
+  "c304-rt-super-property-write": { expect: "blocked", why: "`super.x = v` 报 `assigning a property on a primitive receiver`——降级层把 `super` 那一格当成了接收者。接收者该是**当前实例**、起点才是父原型（第 243 轮补的是读那一半 `super.v`，写这一半还没有）" },
+  "c304-rt-detached-method-this-undefined": { expect: "differ", why: "**口径边界（严格模式的选择）**：与方法摘下来单独调那一格同一个根（见上一条）" },
+  "c304-rt-optional-chain-call-forms": { expect: "differ", why: "`f?.()` 那一格（**基名自己是空值**的可选调用）。第 152 轮分过「空值在接收者上」与「空值在取出来的方法上」，这是第三格；同一条里 `o.n?.()` / `o.missing?.()` 两半是对的" },
+  "c304-rt-generator-early-break-finally": { expect: "differ", why: "`for..of` 提前 `break` 要调生成器的 `return()`（于是体里的 `finally` 照跑）；本仓 `break` 只退出循环，生成器那一帧被丢掉 ⇒ `cleanup` 一行都没有" },
+  "c304-rt-promise-then-returns-promise": { expect: "differ", why: "回调**返回一个承诺**时要采纳它（缺口清单 #15 的那一格）：本仓当成普通值灌进去 ⇒ 后面 `.then` 拿到的是承诺对象。与 `promise-constructor` 同一条" },
+  "c304-ex-nonnull-in-optional-chain": { expect: "differ", why: "`arr![0]![0]` 投影出来是 `NonNullExpression(arr)`——**两个方括号与第二个 `!` 全丢了**（本轮实测：TS 那边是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)`）。这是第 303 轮那条链的**下一个形状**（`x![1]![0]`），入口在 `print-ast-common.xl.md` 的链分支" },
+  "c304-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`namespace make { … }` 该挂在**函数值自己**那一格上（静态格），降级层只造了函数、没造那一格 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`" },
+  "c304-std-encodeuri-decodeuri": { expect: "blocked", why: "`encodeURI` / `decodeURI` / `encodeURIComponent` / `decodeURIComponent` **四个全局名一个都没有**（报 `name is not a local or a capture`）——要按 UTF-8 字节做百分号编解码，四个名字还要进 `GlobalNames`" },
+  "c304-std-symbol-iterator-manual": { expect: "blocked", why: "`[10, 20][Symbol.iterator]()` 报 `cannot call a non-closure value`——`Protos.Array` 上**没有 `Symbol.iterator` 那一格**（`for..of` 与展开走的是引擎指令，不走这个方法），要按 `protos.WellKnownSymbols` 里那个句柄挂一格" },
+  "c304-std-promise-race-forms": { expect: "blocked", why: "`new Promise(执行器)` 那一格（缺口清单 #15）：执行器要**同步跑**、`resolve` / `reject` 要绑定过 ⇒ 报 `the script is waiting for a promise the host has not settled`。同一条里 `race` / `allSettled` / `any` 三格本身是好的" },
+  "c304-std-string-normalize-ascii-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（`string-normalize` 从第 293 轮起拖着同一个根）——要一张 NFC/NFD 的组合表；本条里 `\"e\\u0301\".normalize(\"NFC\").length` 是 `1`，所以「只做 ASCII」不够" },
+};

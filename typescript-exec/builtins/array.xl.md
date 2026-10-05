@@ -194,6 +194,16 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 **下标允许负数** ✓（与 `at` 同一条口径 ✓），**越界要抛 `RangeError`** ✓——
 这是 JS 里少数**明确要抛**的那一档 ✗（不是静默给原数组 ✓）。
 
+# const ArrayToSpliced:int = 41
+
+**`toSpliced(起点, 删几个?, …插进去的)`**（第 304 轮 ✓）——`splice` 的**不改原数组**版 ✓
+（返回一个改好的**新**数组 ✓，原数组一个字节都不动 ✓）。
+**它与 `splice` 共用 `SpliceArray` 那一段** ✓（第 304 轮抽出来的 ✓，理由见那个方法 ✓）。
+
+**它是第 304 轮加宽矩阵时量到的** ✗：判据 `c304-std-array-tospliced` 报
+`cannot call a non-closure value` ✓——即**那一格根本没装** ✗
+（`toSorted` / `toReversed` / `with` 三条从第 274 轮起就是好的 ✓，它们是**同一族的兄弟** ✓）。
+
 # const ArraySplice:int = 25
 
 **`splice(起点, 删几个, …插进去的)`**（第 150 轮）——就地改、返回删掉的那些 ✓。
@@ -781,7 +791,12 @@ if (id === ArrayReduce || id === ArrayReduceRight) {
     // 症状是 `reduce` 到某一项突然拿到一个死句柄 ✓（同族实测：`map` 那条三千项就炸 ✓）。
     const previous = accumulator;
     if (keep !== null) keep(previous, true);
-    const next = call(args[0], Value.Undefined(), [previous, source.GetAt(i)]);
+    // **实参是四格** ✓（第 304 轮修的 ✗）：JS 的 `reduce` 回调收
+    // `(累计, 值, 下标, 数组)` ✓——原来只给**前两格** ✗，于是 `i` 是 `undefined` ✓，
+    // `acc + i` 算出 `NaN` ✓（**静默错值** ✓：`[1,2].reduce((a, v, i) => a + i, 0)`
+    // 本仓给 `NaN` ✓，Node 给 `1` ✓）。判据 `c304-std-array-reduce-forms` 量的就是它 ✓。
+    // **`reduceRight` 也走这一句** ✓（它给的就是**真实的那个下标** ✓，不是「第几步」✗）。
+    const next = call(args[0], Value.Undefined(), [previous, source.GetAt(i), Value.FromInt(i), self]);
     // **回调抛出就收摊** ✓（第 228 轮）：`next` 这时是 `undefined` ✓——
     // 不问这一句就把它当成**累加器**继续用 ✗（下一轮的回调会拿到 `undefined` ✓，
     // 于是脚本看到的是「累加器莫名其妙变空了」✗，而不是「回调抛了」✓）。
@@ -838,56 +853,38 @@ if (id === ArrayAt) {
   // **洞也照读** ✓（`GetAt` 对洞给 `undefined` ✓——JS 的 `at` 就是读那一格 ✓）。
   return source.GetAt(index);
 }
-if (id === ArraySplice) {
+if (id === ArraySplice || id === ArrayToSpliced) {
   // **`splice(起点, 删几个, …插进去的)`**（第 150 轮）✓——**就地改** ✓，返回**删掉的那些** ✓
   //（新数组 ✓、原型跟着源数组走 ✓——与 `slice` / `map` 同一条 ✓）。
-  //
   // **三档缺省都是 JS 的口径** ✓：起点缺省 0 ✓、**起点为负从尾巴数** ✓、
   // 删除个数缺省是「删到尾巴」 ✓（`splice(1)` 删掉 1 之后全部 ✓）。
-  const length = source.GetLength();
-  let start = args.length > 0 ? ToInt32Of(args[0]) : 0;
-  if (start < 0) start = start + length;
-  if (start < 0) start = 0;
-  if (start > length) start = length;
-  let removeCount = length - start;
-  if (args.length > 1) {
-    const asked = ToInt32Of(args[1]);
-    removeCount = asked < 0 ? 0 : asked;
-    if (removeCount > length - start) removeCount = length - start;
-  }
-  const insertCount = args.length > 2 ? args.length - 2 : 0;
-  const removedRoom = thisSpliceRoom(room, length);
-  if (!removedRoom) throw new Error("out of room");
-  const removed = table.CreateArray();
-  table.Get(removed).Proto = table.Get(self.Ref).Proto;
-  const removedArray = table.Get(removed).AsArray();
-  for (let i = 0; i < removeCount; i++) removedArray.Push(source.GetAt(start + i));
-  // **先把尾巴搬到位、再截断 / 追加** ✓（顺序是语义 ✗）：`splice` 是**就地**的 ✓，
-  // 而 `Array` 这一层只有 `GetAt` / `SetAt` / `Push` / `Truncate` ✓——
-  // 所以「搬移」要自己写 ✓（没有 `RemoveAt` / `InsertAt` ✗，那是下一层的事 ✓）。
   //
-  // **两头的方向为什么不一样** ✓：左边（`start` 之前）不动 ✓；
-  // 中间要腾出 `insertCount - removeCount` 格的差 ✓——
-  // 差为正（插得多）时**从后往前**搬 ✓（不然会把还没读的覆盖掉 ✗），
-  // 差为负（删得多）时**从前往后**搬 ✓。
-  const delta = insertCount - removeCount;
-  if (delta > 0) {
-    if (!room(ObjectCharge)) throw new Error("out of room");
-    for (let i = length - 1; i >= start + removeCount; i--) {
-      source.SetAt(i + delta, source.GetAt(i));
+  // **第 304 轮把 `toSpliced` 接在同一支上** ✓：两者只差**跑在哪一份数组上** ✓——
+  // `splice` 改的是 `self` 自己 ✓、`toSpliced` 先**拷一份**再改那份拷贝 ✓
+  //（原数组一个字节都不动 ✓——与 `sort` / `toSorted` 那一对**同一条纪律** ✓）。
+  // **为什么不各写一份** ✗：`SpliceArray` 那一段里有三处**写错了不出声**的地方 ✓
+  //（起点为负从尾巴数 ✓、删除个数夹到区间 ✓、先搬尾再截断 ✓）——
+  // 抄成两份就是两份会漂的答案 ✗（与第 274 轮抽 `SortArrayInPlace` 同一个理由 ✓）。
+  const length = source.GetLength();
+  let target = source;
+  let targetRef = self.Ref;
+  if (id === ArrayToSpliced) {
+    // **拷贝那一段与 `toSorted` 一字不差** ✓（`AppendSlot` ✓）：
+    // **洞照抄** ✓——写成 `undefined` 会把洞变成真值 ✗。
+    if (!room(ObjectCharge + ValueCharge * length)) throw new Error("out of room");
+    const handle = table.CreateArray();
+    table.Get(handle).Proto = table.Get(self.Ref).Proto;
+    target = table.Get(handle).AsArray();
+    for (let i = 0; i < length; i++) {
+      AppendSlot(target, source, i);
     }
-    for (let i = 0; i < delta; i++) source.SetAt(start + removeCount + i, Value.Undefined());
-  } else if (delta < 0) {
-    for (let i = start + removeCount; i < length; i++) {
-      source.SetAt(i + delta, source.GetAt(i));
-    }
+    targetRef = handle;
   }
-  source.Truncate(length + delta);
-  for (let i = 0; i < insertCount; i++) source.SetAt(start + i, args[2 + i]);
-  table.Recount(self.Ref);
-  // **`CreateArray` 给的是堆上的把手** ✓，返回值要包成值 ✓（`Value.FromArray` ✓——
-  // 与 `slice` / `flat` 那两支同一个写法 ✓）。
-  return Value.FromArray(removed);
+  const removed = SpliceArray(room, table, target, targetRef, args, length);
+  table.Recount(targetRef);
+  // **两条各交各的** ✓：`splice` 交**删掉的那些** ✓、`toSpliced` 交**那份改好的拷贝** ✓
+  //（`CreateArray` 给的是堆上的把手 ✓，返回值要包成值 ✓——与 `slice` / `flat` 同一写法 ✓）。
+  return id === ArraySplice ? Value.FromArray(removed) : Value.FromArray(targetRef);
 }
 if (id === ArrayFill) {
   if (args.length < 1) throw new Error("fill needs a value");
@@ -1119,6 +1116,60 @@ if (id === ArrayIteratorNext) {
 throw new Error("unimplemented: array builtin " + id);
 ```
 
+# method SpliceArray:(room:RoomChecker, table:HeapTable, target:HeapArray, targetRef:int, args:Array<Value>, length:int)=>int
+
+**把 `splice` 那一段跑在一份数组上**（第 304 轮从 `InvokeArray` 里抽出来 ✓），
+返回**被删掉的那个新数组的把手** ✓。
+
+**为什么抽出来** ✗：`toSpliced` 要的就是「**同一段改写跑在一个副本上**」✓——
+把这段留在 `splice` 那一支里，`toSpliced` 就只能**复制一份** ✗，而这段里有三处
+**写错了不出声**的地方 ✓：
+
+- **起点为负从尾巴数** ✓（`splice(-2)` 从头数会删错地方 ✓，而结果**看着像个数组** ✓）；
+- **删除个数夹到 `[0, 长度 - 起点]`** ✓（给了负数不夹就会少删 ✓）；
+- **先搬尾、再截断、最后才写插入项** ✓（顺序是语义 ✗）：`Array` 这一层只有
+  `GetAt` / `SetAt` / `Push` / `Truncate` ✓，所以「搬移」要自己写 ✓——
+  差为正（插得多）时**从后往前**搬 ✓（不然会把还没读的覆盖掉 ✗），
+  差为负（删得多）时**从前往后**搬 ✓。
+
+**被删掉的那个新数组的原型跟着接收者走** ✓（与 `slice` / `map` 同一条 ✓）——
+所以 `targetRef` 要**一起传进来** ✓（`toSpliced` 那一份拷贝有自己的把手 ✓）。
+
+```ts
+let start = args.length > 0 ? ToInt32Of(args[0]) : 0;
+if (start < 0) start = start + length;
+if (start < 0) start = 0;
+if (start > length) start = length;
+let removeCount = length - start;
+if (args.length > 1) {
+  const asked = ToInt32Of(args[1]);
+  removeCount = asked < 0 ? 0 : asked;
+  if (removeCount > length - start) removeCount = length - start;
+}
+const insertCount = args.length > 2 ? args.length - 2 : 0;
+const removedRoom = thisSpliceRoom(room, length);
+if (!removedRoom) throw new Error("out of room");
+const removed = table.CreateArray();
+table.Get(removed).Proto = table.Get(targetRef).Proto;
+const removedArray = table.Get(removed).AsArray();
+for (let i = 0; i < removeCount; i++) removedArray.Push(target.GetAt(start + i));
+const delta = insertCount - removeCount;
+if (delta > 0) {
+  if (!room(ObjectCharge)) throw new Error("out of room");
+  for (let i = length - 1; i >= start + removeCount; i--) {
+    target.SetAt(i + delta, target.GetAt(i));
+  }
+  for (let i = 0; i < delta; i++) target.SetAt(start + removeCount + i, Value.Undefined());
+} else if (delta < 0) {
+  for (let i = start + removeCount; i < length; i++) {
+    target.SetAt(i + delta, target.GetAt(i));
+  }
+}
+target.Truncate(length + delta);
+for (let i = 0; i < insertCount; i++) target.SetAt(start + i, args[2 + i]);
+return removed;
+```
+
 # method SortArrayInPlace:(table:HeapTable, call:NativeCall | null, failed:CallFailed | null, source:HeapArray, hasComparator:bool, comparator:Value)=>bool
 
 **就地**把 `source` 排好（第 274 轮从 `InvokeArray` 里抽出来 ✓）。返回 `false` 表示**收摊** ✓。
@@ -1342,6 +1393,11 @@ const entries: string[] = ["push", "pop", "join", "indexOf", "slice", "forEach",
   // `cannot call a non-closure value` ✓——也就是「那一格根本没装」✗，
   // 而不是「装了但算错」✓（后者更危险 ✓）。
   "findLast", "findLastIndex", "reduceRight", "copyWithin", "toSorted", "toReversed", "with",
+  // **第 304 轮补的一格** ✓（`toSpliced` ✓）——号**照旧追加在表尾** ✓（`41` ✓），
+  // 已有的一个都没动 ✓。**它与 `toSorted` / `toReversed` / `with` 是同一族的兄弟** ✓，
+  // 而它是第 304 轮加宽矩阵时**当场量到的** ✗（`c304-std-array-tospliced` 报
+  // `cannot call a non-closure value` ✓——那一格根本没装 ✗）。
+  "toSpliced",
   // **`toString` 就是 `join(",")`**（第 193 轮 ✓）：JS 的 `Array.prototype.toString` 正是它 ✓
   // （没给实参时 `join` 的默认分隔符就是 `,` ✓），所以**指到同一格能力号** ✓
   // ——同一件事不写第二份实现 ✓。实测：`[1, [2, 3]].toString()` 原来报
@@ -1361,6 +1417,7 @@ const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice,
   ArrayKeys, ArrayValues, ArrayEntries,
   ArrayFindLast, ArrayFindLastIndex, ArrayReduceRight, ArrayCopyWithin,
   ArrayToSorted, ArrayToReversed, ArrayWith,
+  ArrayToSpliced,
   ArrayJoin, ArrayJoin];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));

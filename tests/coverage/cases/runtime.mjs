@@ -3031,4 +3031,619 @@ box.total("zzz").catch((e: any) => console.log("caught", e.message));
 console.log("sync after");
 `,
   },
+
+  // ===== 第 304 轮：加宽矩阵（48 条）=====
+
+  {
+    id: "c304-rt-new-target-in-ctor",
+    title: "new.target：直接构造认得出、普通调用是 undefined",
+    src: `
+function F() { console.log("called", new.target === F); }
+F();
+new F();
+class B { constructor() { console.log("name", new.target && new.target.name); } }
+new B();
+`,
+  },
+  {
+    id: "c304-rt-setprototypeof-and-isprototypeof",
+    title: "Object.setPrototypeOf / isPrototypeOf 的链",
+    src: `
+const base = { kind: "base" };
+const child = Object.create(base);
+console.log(child.kind, base.isPrototypeOf(child), Object.prototype.isPrototypeOf({}));
+const other: any = { kind: "other" };
+Object.setPrototypeOf(other, base);
+console.log(other.kind, base.isPrototypeOf(other));
+`,
+  },
+  {
+    id: "c304-rt-preventextensions-and-isextensible",
+    title: "Object.preventExtensions / isExtensible：标记打上了、可扩展性翻了面",
+    src: `
+const o: any = { a: 1 };
+console.log(Object.isExtensible(o));
+Object.preventExtensions(o);
+console.log(Object.isExtensible(o), Object.isExtensible({}), Object.isExtensible(1), JSON.stringify(o));
+`,
+  },
+  {
+    id: "c304-rt-getter-setter-on-prototype-object",
+    title: "对象字面量里的访问器（get / set 一对）",
+    src: `
+const o = {
+  _n: 1,
+  get n() { return this._n * 10; },
+  set n(v: number) { this._n = v + 1; },
+};
+o.n = 4;
+console.log(o.n, o._n);
+`,
+  },
+  {
+    id: "c304-rt-delete-nonconfigurable",
+    title: "delete 一个不可配置的属性：松散模式静默返回 false",
+    src: `
+const o: any = {};
+Object.defineProperty(o, "fixed", { value: 1, configurable: false });
+console.log(delete o.fixed, o.fixed);
+const p: any = { x: 1 };
+console.log(delete p.x, "x" in p);
+`,
+  },
+  {
+    id: "c304-rt-numeric-separators",
+    title: "数字分隔符 `1_000_000` 与各种进制一起用",
+    src: `
+console.log(1_000_000, 0xFF_FF, 0b1010_1010, 0o7_7);
+console.log(1_0.5_0, 1e1_0);
+`,
+  },
+  {
+    id: "c304-rt-shift-and-mask",
+    title: "移位与掩码：负数、超宽位移、无符号右移",
+    src: `
+console.log(-8 >> 2, -8 >>> 2, 1 << 31, 1 << 32, 1 << 33);
+console.log(0xffffffff | 0, 0xffffffff >>> 0, ~5, 5 & 3, 5 | 3, 5 ^ 3);
+`,
+  },
+  {
+    id: "c304-rt-exponent-assign-forms",
+    title: "`**` 与 `**=`：右结合、与一元负号的关系",
+    src: `
+let n = 2;
+n **= 3;
+console.log(n, 2 ** 3 ** 2, (-2) ** 2, 2 ** -1);
+console.log((2 ** 0.5).toFixed(4));
+`,
+  },
+  {
+    id: "c304-rt-nested-try-finally-order",
+    title: "嵌套 try/finally 的收尾次序（含内层抛、外层接住）",
+    src: `
+const log: string[] = [];
+try {
+  try {
+    log.push("inner-throw");
+    throw new Error("x");
+  } finally {
+    log.push("inner-finally");
+  }
+} catch (e) {
+  log.push("outer-catch");
+} finally {
+  log.push("outer-finally");
+}
+console.log(log.join(">"));
+`,
+  },
+  {
+    id: "c304-rt-switch-true-pattern",
+    title: "`switch (true)` 的分支写法",
+    src: `
+function grade(n: number): string {
+  switch (true) {
+    case n >= 90: return "A";
+    case n >= 80: return "B";
+    case n >= 70: return "C";
+    default: return "F";
+  }
+}
+console.log(grade(95), grade(85), grade(75), grade(10));
+`,
+  },
+  {
+    id: "c304-rt-do-while-label-continue",
+    title: "带标号的 do/while 与 continue",
+    src: `
+let i = 0;
+const seen: number[] = [];
+outer: do {
+  i += 1;
+  if (i % 2 === 0) continue outer;
+  seen.push(i);
+} while (i < 6);
+console.log(seen.join(","));
+`,
+  },
+  {
+    id: "c304-rt-ternary-with-assignments",
+    title: "三元表达式里带赋值与逗号",
+    src: `
+let a = 1;
+let b = 2;
+const pick = a < b ? (a = 10, "less") : (b = 20, "more");
+console.log(pick, a, b);
+console.log(a > b ? "gt" : a === b ? "eq" : "lt");
+`,
+  },
+  {
+    id: "c304-rt-void-and-comma-forms",
+    title: "void 与逗号运算符的返回值",
+    src: `
+let n = 0;
+const r = (n += 1, n += 2, n);
+console.log(r, n);
+console.log(void 0, void "x", typeof void 0);
+const f = () => void console.log("side");
+console.log(f());
+`,
+  },
+  {
+    id: "c304-rt-iife-arrow-this",
+    title: "箭头 IIFE 里的 this 与外部一致",
+    src: `
+const obj = {
+  tag: "obj",
+  run() {
+    return (() => this.tag)();
+  },
+  run2() {
+    return (function (this: any) { return this === undefined ? "undefined" : "bound"; })();
+  },
+};
+console.log(obj.run(), obj.run2());
+`,
+  },
+  {
+    id: "c304-rt-closure-capture-in-forof",
+    title: "for..of 里每个迭代一格闭包",
+    src: `
+const fns: Array<() => number> = [];
+for (const n of [1, 2, 3]) fns.push(() => n);
+console.log(fns.map((f) => f()).join(","));
+const byIndex: Array<() => number> = [];
+for (let i = 0; i < 3; i++) byIndex.push(() => i);
+console.log(byIndex.map((f) => f()).join(","));
+`,
+  },
+  {
+    id: "c304-rt-class-arrow-field-this",
+    title: "类字段里的箭头函数：this 永远是这个实例",
+    src: `
+class Counter {
+  n = 0;
+  bump = () => { this.n += 1; return this.n; };
+}
+const c = new Counter();
+const detached = c.bump;
+console.log(detached(), detached(), c.n);
+`,
+  },
+  {
+    id: "c304-rt-super-property-read",
+    title: "super.x 读的是父类原型上的那一格",
+    src: `
+class A { get label() { return "A"; } m() { return "A.m"; } }
+class B extends A {
+  get label() { return "B+" + super.label; }
+  m() { return "B+" + super.m(); }
+}
+const b = new B();
+console.log(b.label, b.m());
+`,
+  },
+  {
+    id: "c304-rt-super-property-write",
+    title: "super.x = v 落在父类原型那一格上",
+    src: `
+class A { set label(v: string) { console.log("A.set", v); } }
+class B extends A { set label(v: string) { super.label = v.toUpperCase(); } }
+const b = new B();
+b.label = "hi";
+`,
+  },
+  {
+    id: "c304-rt-static-private-field",
+    title: "静态私有字段与静态方法一起用",
+    src: `
+class Registry {
+  static #items: string[] = [];
+  static add(x: string) { Registry.#items.push(x); return Registry.#items.length; }
+  static get all() { return Registry.#items.join(","); }
+}
+console.log(Registry.add("a"), Registry.add("b"), Registry.all);
+`,
+  },
+  {
+    id: "c304-rt-defineproperty-getter-on-instance",
+    title: "defineProperty 在实例上装一个 getter",
+    src: `
+const o: any = { _v: 2 };
+Object.defineProperty(o, "double", { get() { return this._v * 2; }, enumerable: true });
+console.log(o.double, Object.keys(o).join(","));
+o._v = 5;
+console.log(o.double);
+`,
+  },
+  {
+    id: "c304-rt-symbol-as-map-key",
+    title: "符号当 Map 的键：每次 for 都是新键",
+    src: `
+const a = Symbol("k");
+const b = Symbol("k");
+const m = new Map<any, number>();
+m.set(a, 1);
+m.set(b, 2);
+m.set("a", 3);
+console.log(m.size, m.get(a), m.get(b), m.get("a"));
+`,
+  },
+  {
+    id: "c304-rt-map-delete-during-iteration",
+    title: "迭代 Map 时删掉当前项",
+    src: `
+const m = new Map<string, number>([["a", 1], ["b", 2], ["c", 3]]);
+const seen: string[] = [];
+for (const [k, v] of m) {
+  seen.push(k + "=" + v);
+  if (k === "b") m.delete(k);
+}
+console.log(seen.join(","), m.size, [...m.keys()].join(","));
+`,
+  },
+  {
+    id: "c304-rt-set-object-identity-and-size",
+    title: "Set 认对象身份，两个同形状的对象是两个元素",
+    src: `
+const s = new Set<any>();
+const o1 = { a: 1 };
+const o2 = { a: 1 };
+s.add(o1);
+s.add(o2);
+s.add(o1);
+console.log(s.size, s.has(o1), s.has({ a: 1 }), [...s].length);
+`,
+  },
+  {
+    id: "c304-rt-array-from-set-and-map",
+    title: "Array.from 吃 Set 与 Map 的 entries",
+    src: `
+console.log(Array.from(new Set([3, 1, 3])).join(","));
+const m = new Map([["a", 1], ["b", 2]]);
+console.log(Array.from(m).map((p) => p[0] + p[1]).join(","));
+console.log(Array.from("abc").join("-"));
+`,
+  },
+  {
+    id: "c304-rt-detached-method-this-undefined",
+    title: "把方法摘下来单独调：松散模式 this 是全局对象",
+    src: `
+const o = { tag: "o", who(this: any) { return this === undefined ? "undefined" : this === globalThis ? "global" : "other"; } };
+const f = o.who;
+console.log(f(), o.who());
+`,
+  },
+  {
+    id: "c304-rt-call-apply-bind-forms",
+    title: "call / apply / bind 三种调用形态",
+    src: `
+function sum(this: any, a: number, b: number) { return a + b + (this?.base ?? 0); }
+const ctx = { base: 10 };
+console.log(sum.call(ctx, 1, 2), sum.apply(ctx, [3, 4]));
+const bound = sum.bind(ctx, 5);
+console.log(bound(6), bound.length, bound.name);
+`,
+  },
+  {
+    id: "c304-rt-array-length-grow-and-shrink",
+    title: "改 length：变长留洞、变短截断",
+    src: `
+const xs = [1, 2, 3];
+xs.length = 5;
+console.log(xs.length, xs[3], JSON.stringify(xs));
+xs.length = 1;
+console.log(xs.length, JSON.stringify(xs), xs[5]);
+`,
+  },
+  {
+    id: "c304-rt-nested-destructure-rename",
+    title: "嵌套解构 + 改名 + 默认值一起",
+    src: `
+const src = { user: { name: "kim", tags: ["a", "b"] }, extra: null };
+const { user: { name: who, tags: [first, second = "z"] }, extra = "none" } = src as any;
+console.log(who, first, second, extra);
+`,
+  },
+  {
+    id: "c304-rt-destructure-in-forof-entries",
+    title: "for..of 里直接解构 entries 与数组的数组",
+    src: `
+const pairs: Array<[string, number]> = [["a", 1], ["b", 2]];
+for (const [k, v] of pairs) console.log(k, v * 2);
+for (const [i, x] of ["p", "q"].entries()) console.log(i, x);
+`,
+  },
+  {
+    id: "c304-rt-rest-in-object-destructure",
+    title: "对象解构里的剩余",
+    src: `
+const o = { a: 1, b: 2, c: 3 };
+const { a, ...rest } = o;
+console.log(a, JSON.stringify(rest), Object.keys(rest).join(","));
+const { b: renamed, ...rest2 } = o;
+console.log(renamed, JSON.stringify(rest2));
+`,
+  },
+  {
+    id: "c304-rt-optional-chain-call-forms",
+    title: "可选调用的三种位置",
+    src: `
+const o: any = { m() { return "m"; }, n: null };
+console.log(o.m?.(), o.n?.(), o.n?.[0], o.missing?.());
+const f: any = null;
+console.log(f?.());
+`,
+  },
+  {
+    id: "c304-rt-nullish-assign-forms",
+    title: "??= / ||= / &&= 与副作用的次数",
+    src: `
+let calls = 0;
+const bump = () => { calls += 1; return undefined; };
+let a: any = null;
+a ??= "filled";
+let b: any = "keep";
+b ||= "no";
+let c: any = 1;
+c &&= c + 1;
+console.log(a, b, c, calls);
+let d: any = undefined;
+d ??= bump();
+console.log(d, calls);
+`,
+  },
+  {
+    id: "c304-rt-comma-in-return-and-args",
+    title: "逗号表达式出现在 return 与实参位",
+    src: `
+function f() { return (1, 2, 3); }
+console.log(f());
+function g(a: number, b: number) { return a + b; }
+let t = 0;
+console.log(g((t = 1, 10), (t = 2, 20)), t);
+`,
+  },
+  {
+    id: "c304-rt-generator-early-break-finally",
+    title: "for..of 提前 break：生成器里的 finally 照跑",
+    src: `
+function* gen() {
+  try {
+    yield 1;
+    yield 2;
+  } finally {
+    console.log("cleanup");
+  }
+}
+for (const v of gen()) {
+  console.log("got", v);
+  break;
+}
+`,
+  },
+  {
+    id: "c304-rt-promise-then-returns-promise",
+    title: "then 里返回一个承诺：会被展开",
+    src: `
+Promise.resolve(1)
+  .then((v) => Promise.resolve(v + 1))
+  .then((v) => { console.log("value", v); return v * 10; })
+  .then((v) => console.log("chained", v));
+console.log("sync-first");
+`,
+  },
+  {
+    id: "c304-rt-async-loop-sequential",
+    title: "async 函数里顺序 await 一个循环",
+    src: `
+const delay = (v: number) => Promise.resolve(v);
+async function run() {
+  let total = 0;
+  for (const n of [1, 2, 3]) total += await delay(n);
+  return total;
+}
+run().then((t) => console.log("total", t));
+console.log("started");
+`,
+  },
+  {
+    id: "c304-rt-await-in-try-finally",
+    title: "await 落在 try/finally 里：收尾次序",
+    src: `
+async function run() {
+  try {
+    console.log("try", await Promise.resolve("a"));
+    return "from-try";
+  } finally {
+    console.log("finally", await Promise.resolve("b"));
+  }
+}
+run().then((v) => console.log("result", v));
+`,
+  },
+  {
+    id: "c304-rt-throw-in-async-caught",
+    title: "async 体里抛：承诺被拒绝、调用处接得住",
+    src: `
+async function boom() {
+  throw new Error("async-boom");
+}
+boom().catch((e) => console.log("caught", e.message));
+async function viaAwait() {
+  try {
+    await boom();
+  } catch (e: any) {
+    return "handled:" + e.message;
+  }
+}
+viaAwait().then((v) => console.log(v));
+`,
+  },
+  {
+    id: "c304-rt-custom-error-instanceof",
+    title: "自定义错误子类：instanceof 两条链都对",
+    src: `
+class AppError extends Error {
+  code: number;
+  constructor(msg: string, code = 500) { super(msg); this.name = "AppError"; this.code = code; }
+}
+const e = new AppError("bad");
+console.log(e instanceof AppError, e instanceof Error, e.message, e.code, e.name);
+try {
+  throw new AppError("thrown", 404);
+} catch (err: any) {
+  console.log(err instanceof AppError, err.code);
+}
+`,
+  },
+  {
+    id: "c304-rt-arrow-in-method-this",
+    title: "方法里的箭头回调拿到的是实例的 this",
+    src: `
+class Box {
+  items: number[] = [1, 2, 3];
+  sum(): number {
+    return this.items.reduce((acc, x) => acc + x, 0);
+  }
+  doubled(): number[] {
+    return this.items.map((x) => x * this.items.length);
+  }
+}
+const b = new Box();
+console.log(b.sum(), b.doubled().join(","));
+`,
+  },
+  {
+    id: "c304-rt-proto-chain-walk",
+    title: "顺着原型链往上找，直到没有",
+    src: `
+class A { a() { return "a"; } }
+class B extends A { b() { return "b"; } }
+const inst = new B() as any;
+const names: string[] = [];
+let p = inst;
+while (p) {
+  names.push(Object.getOwnPropertyNames(p).join("+"));
+  p = Object.getPrototypeOf(p);
+}
+console.log(names.length > 2, names[0].includes("b") || names[1].includes("b"));
+console.log(typeof inst.a, typeof inst.b, typeof inst.zzz);
+`,
+  },
+  {
+    id: "c304-rt-object-keys-order-after-delete",
+    title: "删掉再插回来：键的次序跟着变",
+    src: `
+const o: any = { a: 1, b: 2, c: 3 };
+delete o.b;
+o.b = 9;
+o[2] = "two";
+o[1] = "one";
+console.log(Object.keys(o).join(","), JSON.stringify(o));
+`,
+  },
+  {
+    id: "c304-rt-string-key-iteration-order",
+    title: "for..in 与 Object.keys 在同一个对象上同序",
+    src: `
+const o: any = { z: 1, 10: "ten", a: 2, 2: "two" };
+const viaForIn: string[] = [];
+for (const k in o) viaForIn.push(k);
+console.log(viaForIn.join(","));
+console.log(Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "c304-rt-recursion-memo",
+    title: "递归加记忆化：Map 当缓存",
+    src: `
+const cache = new Map<number, number>();
+function fib(n: number): number {
+  if (n < 2) return n;
+  const hit = cache.get(n);
+  if (hit !== undefined) return hit;
+  const v = fib(n - 1) + fib(n - 2);
+  cache.set(n, v);
+  return v;
+}
+console.log(fib(30), cache.size);
+`,
+  },
+  {
+    id: "c304-rt-large-array-reduce",
+    title: "大数组上的 reduce / filter / map 串起来",
+    src: `
+const xs = Array.from({ length: 2000 }, (_, i) => i + 1);
+const total = xs.filter((n) => n % 3 === 0).map((n) => n * 2).reduce((a, b) => a + b, 0);
+console.log(total, xs.length);
+`,
+  },
+  {
+    id: "c304-rt-getter-throws-and-finally",
+    title: "getter 里抛：try/finally 收尾，属性没变",
+    src: `
+const o: any = {
+  _v: 1,
+  get v() { if (this._v < 0) throw new RangeError("negative"); return this._v; },
+};
+try {
+  o._v = -1;
+  console.log(o.v);
+} catch (e: any) {
+  console.log(e.name, e.message);
+} finally {
+  o._v = 5;
+}
+console.log(o.v);
+`,
+  },
+  {
+    id: "c304-rt-string-number-coercion-table",
+    title: "字符串与数字的隐式转换表",
+    src: `
+console.log("5" * 2, "5" + 2, "5" - 2, "" + null, "" + undefined, 1 / "2");
+console.log([1, 2] + "", [] + "", [null] + "", true + 1, null + 1, undefined + 1);
+console.log(Number("  12  "), Number(""), Number("0x10"), Number("1e3"));
+`,
+  },
+  {
+    id: "c304-rt-nested-closure-mutation",
+    title: "三层闭包改同一个变量",
+    src: `
+function outer() {
+  let n = 0;
+  return function middle() {
+    return function inner() {
+      n += 1;
+      return n;
+    };
+  };
+}
+const mid = outer();
+const a = mid();
+const b = mid();
+console.log(a(), a(), b(), a());
+`,
+  },
 ];

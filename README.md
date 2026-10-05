@@ -153,8 +153,28 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 303 轮读数：**731 / 779 = 95.4%**，
-其中**引擎 91.7%** ✓、**降级层 96.8%** ✓、标准库 **93.6%** ✓、**端到端 100.0%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 304 轮读数：**867 / 929 = 94.9%**，
+其中**引擎 90.0%** ✓、**降级层 96.5%** ✓、标准库 **93.8%** ✓、**端到端 100.0%** ✓——
+**第 304 轮**做的是用户那句「**先把 exec / runtime / 标准库的语料铺满**」✓ 加上新的一条
+「**发现新问题就补语料、与 TS 的 AST 比、然后解决**」✗：候选分三层写了 **150 条** ✓，
+先过 `sweep.mjs` 普查 ✓（**135 条当场通过** ✓、**15 条是新量到的缺口** ✗、`nodefail` **0 条** ✓），
+**当场收掉 9 格** ✓：`Array.prototype.toSpliced` ✓（顺手把 `splice` 那一段抽成 `SpliceArray` ✓——
+那里面有**三处写错了不出声**的地方 ✓）、`Object.setPrototypeOf` ✓（走引擎**早就有的** `RtSetProto` ✓）、
+`Object.preventExtensions` ✓、`Object.prototype.isPrototypeOf` ✓（落回 `RtChainHas` ✓）、
+`"abc".toString()` / `valueOf()` ✓（不装的话查找会落到 `Object.prototype.toString` ✓
+⇒ `"[object String]"` ✓，**静默错值** ✗）、`getOwnPropertyDescriptor` 的**访问器**那一格 ✓
+（第 276 轮抛的理由是「门还没有」✓——**量了一下门早就在** ✗）、
+`Object.assign` 的**字符串源** ✓（按码元展开 ✓）、`reduce` 回调的**下标 / 数组**两格 ✓
+（`acc + i` 原来给 `NaN` ✓）。
+**本轮发现的新问题** ✗：`Object.isSealed` 只问了「不可扩展」那个标记 ✓ ⇒
+`preventExtensions({ x: 1 })` 之后答**真** ✗（Node 答假 ✓——那一格还可配置 ✓）——
+`seal` 是**两件事** ✓，修完**补了语料守着它** ✓（`c304-std-object-issealed-after-preventextensions` ✓）。
+**量准但没做的一格** ✗：`arr![0]![0]` 投影出来是 `NonNullExpression(arr)` ✓
+（与 `ts.createSourceFile` 对过 ✓：TS 是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)` ✓）
+——第 303 轮账里「没做的两格」之一 ✓，这一轮**把它收进了矩阵** ✓。
+矩阵 779 → **929 条** ✓（**分母 +19%** ✓），读数因此从 95.4% **落到 94.9%** ✓
+——**分母变诚实** ✓ 不是倒退 ✓（与第 287 / 290 / 291 轮同一条口径 ✓），
+而**标准库那一层是唯一往上走的一层** ✓（93.6% → 93.8% ✓）。
 **第 303 轮**收的是**非空断言后面直接跟下标**（2 条转绿 + 矩阵加宽 1 条 ✓）：
 `o.b![1]` 的产物是 `<NotNull(o.b, !)>` 与 `<ArrayLiteral(1)>` **两个平级单元** ✓——
 `!` 只把**左边**包起来 ✓，于是那个方括号**按「数组字面量」成形** ✗、投影的链分支进不来 ✓

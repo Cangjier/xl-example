@@ -2296,4 +2296,522 @@ console.log(deep!.a!.b![1]);
 //   · 下标后面**再进一个二元运算**（o.b![2] + 0 ✓）——那个方括号会被折进 BinaryOperator 里。
 `,
   },
+
+  // ===== 第 304 轮：加宽矩阵（42 条）=====
+
+  {
+    id: "c304-ex-generic-call-type-args",
+    title: "泛型函数带显式类型实参调用",
+    src: `
+function first<T>(xs: T[]): T | undefined { return xs[0]; }
+console.log(first<number>([1, 2]), first<string>(["a"]));
+const pick = <T,>(v: T): T => v;
+console.log(pick<number>(7), pick("s"));
+`,
+  },
+  {
+    id: "c304-ex-type-param-defaults-value",
+    title: "类型形参带默认值：运行期一个痕迹都没有",
+    src: `
+interface Box<T = string> { value: T }
+function wrap<T = number>(v: T): Box<T> { return { value: v }; }
+console.log(wrap(1).value, wrap<boolean>(true).value);
+const b: Box = { value: "s" };
+console.log(b.value);
+`,
+  },
+  {
+    id: "c304-ex-interface-multiple-implements",
+    title: "一个类 implements 两个接口",
+    src: `
+interface Named { name: string }
+interface Aged { age: number }
+class Person implements Named, Aged {
+  name: string;
+  age: number;
+  constructor(name: string, age: number) { this.name = name; this.age = age; }
+}
+const p: Named & Aged = new Person("kim", 30);
+console.log(p.name, p.age, p instanceof Person);
+`,
+  },
+  {
+    id: "c304-ex-enum-inside-function",
+    title: "枚举写在函数体里面",
+    src: `
+function pick(which: string): string {
+  enum Mode { A = "a", B = "b" }
+  return which === "a" ? Mode.A : Mode.B;
+}
+console.log(pick("a"), pick("z"), pick("b"));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c304-ex-const-assertion-object",
+    title: "`as const` 落在对象与数组上",
+    src: `
+const cfg = { mode: "fast", retries: 3 } as const;
+const dirs = ["up", "down"] as const;
+console.log(cfg.mode, cfg.retries, dirs.join(","));
+function use(d: typeof dirs[number]) { return d.toUpperCase(); }
+console.log(use("up"));
+`,
+  },
+  {
+    id: "c304-ex-satisfies-with-generic",
+    title: "satisfies 配上泛型调用",
+    src: `
+type Handler<T> = (v: T) => string;
+const h = ((v: number) => "n" + v) satisfies Handler<number>;
+console.log(h(3));
+const table = { a: 1, b: 2 } satisfies Record<string, number>;
+console.log(Object.keys(table).join(","), table.a + table.b);
+`,
+  },
+  {
+    id: "c304-ex-abstract-static-members",
+    title: "抽象类里的静态成员与子类实现",
+    src: `
+abstract class Shape {
+  static count = 0;
+  abstract area(): number;
+  describe(): string { return this.constructor.name + ":" + this.area(); }
+}
+class Square extends Shape {
+  constructor(private side: number) { super(); Shape.count += 1; }
+  area(): number { return this.side * this.side; }
+}
+const s = new Square(3);
+console.log(s.describe(), Shape.count, s instanceof Shape);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c304-ex-parameter-property-with-default",
+    title: "参数属性带默认值，还有 readonly",
+    src: `
+class Point {
+  constructor(public x = 0, public y = 0, private readonly tag = "p") {}
+  show(): string { return this.tag + "(" + this.x + "," + this.y + ")"; }
+}
+console.log(new Point().show(), new Point(1, 2).show(), new Point(3).y);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c304-ex-declare-const-and-usage",
+    title: "declare const 只声明形状，值由别处给",
+    src: `
+declare const VERSION: string;
+declare function external(x: number): number;
+type Cfg = { a: number };
+const cfg: Cfg = { a: 1 };
+console.log(cfg.a, typeof VERSION, typeof external);
+`,
+  },
+  {
+    id: "c304-ex-generic-const-type-param",
+    title: "const 类型形参（TS 5.0）",
+    src: `
+function tuple<const T extends readonly unknown[]>(xs: T): T { return xs; }
+const t = tuple([1, "a", true]);
+console.log(t.length, t[0], t[2]);
+const lit = <const T,>(v: T) => v;
+console.log(lit("x"));
+`,
+  },
+  {
+    id: "c304-ex-as-const-tuple",
+    title: "`as const` 元组与展开",
+    src: `
+const pair = [1, "two"] as const;
+const [n, s] = pair;
+console.log(n, s, pair.length);
+const spread = [...pair] as const;
+console.log(spread[0], spread[1]);
+`,
+  },
+  {
+    id: "c304-ex-nonnull-in-optional-chain",
+    title: "非空断言与可选链混着写",
+    src: `
+type Node2 = { next?: Node2 | null; value: number };
+const n: Node2 = { value: 1, next: { value: 2 } };
+console.log(n.next!.value, n.next?.value, n.next!.next?.value);
+const arr: number[][] | null = [[1], [2]];
+console.log(arr![0]![0], arr?.[1]?.[0]);
+`,
+  },
+  {
+    id: "c304-ex-type-predicate-callback",
+    title: "类型谓词写在回调与箭头里",
+    src: `
+function isString(v: unknown): v is string { return typeof v === "string"; }
+const mixed: unknown[] = [1, "a", true, "b"];
+console.log(mixed.filter(isString).join(","));
+const isNum = (v: unknown): v is number => typeof v === "number";
+console.log(mixed.filter(isNum).length);
+`,
+  },
+  {
+    id: "c304-ex-readonly-class-property",
+    title: "readonly 字段：只在类型位，运行期可写",
+    src: `
+class Cfg {
+  readonly name: string;
+  readonly items: readonly string[];
+  constructor(name: string, items: string[]) { this.name = name; this.items = items; }
+}
+const c = new Cfg("a", ["x"]);
+console.log(c.name, c.items.join(","));
+`,
+  },
+  {
+    id: "c304-ex-definite-assignment-class-field",
+    title: "确定赋值断言 `x!: T` 落在类字段上",
+    src: `
+class Holder {
+  value!: number;
+  init() { this.value = 7; return this.value; }
+}
+const h = new Holder();
+console.log(h.init(), h.value);
+`,
+  },
+  {
+    id: "c304-ex-override-modifier",
+    title: "`override` 修饰符：运行期一个字都不留",
+    src: `
+class Base { greet(): string { return "base"; } }
+class Derived extends Base {
+  override greet(): string { return "derived+" + super.greet(); }
+}
+console.log(new Derived().greet());
+`,
+  },
+  {
+    id: "c304-ex-satisfies-array-value",
+    title: "satisfies 落在数组字面量上",
+    src: `
+const xs = [1, 2, 3] satisfies number[];
+const ys = ["a", "b"] satisfies readonly string[];
+console.log(xs.reduce((a, b) => a + b, 0), ys.join(""));
+const nested = { list: [1, 2] } satisfies { list: number[] };
+console.log(nested.list.length);
+`,
+  },
+  {
+    id: "c304-ex-infer-conditional-type",
+    title: "条件类型里的 infer 只活在类型位",
+    src: `
+type Unwrap<T> = T extends Promise<infer U> ? U : T extends Array<infer V> ? V : T;
+type A = Unwrap<Promise<number>>;
+type B = Unwrap<string[]>;
+const a: A = 1;
+const b: B = "s";
+console.log(a, b, typeof a, typeof b);
+`,
+  },
+  {
+    id: "c304-ex-template-literal-type-value",
+    title: "模板字面量类型与运行期模板串同时出现",
+    src: "\ntype Greeting = `hello ${string}`;\nfunction greet(who: Greeting): string { return who + \"!\"; }\nconst name = \"world\";\nconsole.log(greet(`hello ${name}`));\nconsole.log(`n=${1 + 2}`);\n",
+  },
+  {
+    id: "c304-ex-this-type-in-method",
+    title: "this 类型与多态 this 只在类型位",
+    src: `
+class Builder {
+  value = "";
+  add(s: string): this { this.value += s; return this; }
+}
+class Sub extends Builder { tag = "sub"; }
+const out = new Sub().add("a").add("b");
+console.log(out.value, out.tag, out instanceof Sub);
+`,
+  },
+  {
+    id: "c304-ex-namespace-merged-function",
+    title: "函数与命名空间合并（挂静态格）",
+    src: `
+function make(n: number): number { return n * 2; }
+namespace make {
+  export const version = "1.0";
+  export function help(): string { return "help:" + version; }
+}
+console.log(make(3), make.version, make.help());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c304-ex-class-implements-generic",
+    title: "类实现泛型接口并带头部类型实参",
+    src: `
+interface Repo<T> { get(id: number): T | undefined; all(): T[] }
+class MemRepo<T extends { id: number }> implements Repo<T> {
+  private rows: T[] = [];
+  add(row: T) { this.rows.push(row); }
+  get(id: number): T | undefined { return this.rows.find((r) => r.id === id); }
+  all(): T[] { return this.rows.slice(); }
+}
+const r = new MemRepo<{ id: number; name: string }>();
+r.add({ id: 1, name: "a" });
+console.log(r.get(1)?.name, r.all().length);
+`,
+  },
+  {
+    id: "c304-ex-arrow-return-type",
+    title: "箭头函数的返回类型标注（带对象与联合）",
+    src: `
+const f = (n: number): { doubled: number } => ({ doubled: n * 2 });
+const g = (n: number): number | string => (n > 0 ? n : "neg");
+console.log(f(2).doubled, g(1), g(-1));
+const h = (): void => { console.log("void-arrow"); };
+h();
+`,
+  },
+  {
+    id: "c304-ex-generic-arrow-in-generic-call",
+    title: "泛型箭头当实参传给泛型函数",
+    src: `
+function apply<T, R>(v: T, f: (x: T) => R): R { return f(v); }
+const r = apply<number, string>(3, (x) => "n" + x);
+console.log(r);
+console.log(apply("s", (x) => x.length));
+`,
+  },
+  {
+    id: "c304-ex-as-expression-in-condition",
+    title: "`as` 出现在条件与逻辑表达式里",
+    src: `
+const raw: unknown = "5";
+if ((raw as string).length > 0) console.log("nonempty", (raw as string).toUpperCase());
+const n = Number(raw as string);
+console.log(n, (n as number) > 1 && (raw as string).startsWith("5"));
+`,
+  },
+  {
+    id: "c304-ex-typeof-value-in-type-position",
+    title: "`typeof` 同时出现在值位与类型位",
+    src: `
+const cfg = { a: 1, b: "s" };
+type Cfg = typeof cfg;
+type Keys = keyof Cfg;
+const k: Keys = "a";
+console.log(typeof cfg, k in cfg, cfg[k]);
+const t: typeof cfg.b = "x";
+console.log(t, typeof t);
+`,
+  },
+  {
+    id: "c304-ex-keyof-generic-constraint",
+    title: "keyof 当泛型约束，运行期按下标取",
+    src: `
+function pluck<T, K extends keyof T>(obj: T, key: K): T[K] { return obj[key]; }
+const row = { id: 1, name: "kim" };
+console.log(pluck(row, "id"), pluck(row, "name"));
+`,
+  },
+  {
+    id: "c304-ex-indexed-access-type-value",
+    title: "索引访问类型 T[K] 与实际下标读并存",
+    src: `
+type Person = { name: string; age: number };
+type NameType = Person["name"];
+const key: keyof Person = "age";
+const p: Person = { name: "a", age: 2 };
+const v: NameType = "b";
+const n: Person["age"] = p[key] as number;
+console.log(v, n);
+`,
+  },
+  {
+    id: "c304-ex-mapped-type-keyof-value",
+    title: "映射类型 + keyof：只擦类型，值照跑",
+    src: `
+type Flags<T> = { [K in keyof T]: boolean };
+const flags: Flags<{ a: number; b: string }> = { a: true, b: false };
+console.log(flags.a, flags.b, Object.keys(flags).join(","));
+`,
+  },
+  {
+    id: "c304-ex-conditional-distributive-value",
+    title: "分配式条件类型与运行期判断同形",
+    src: `
+type IsArray<T> = T extends any[] ? "yes" : "no";
+type R1 = IsArray<number[]>;
+type R2 = IsArray<number>;
+function check(v: unknown): string { return Array.isArray(v) ? "yes" : "no"; }
+const a: R1 = "yes";
+const b: R2 = "no";
+console.log(a, b, check([1]), check(1));
+`,
+  },
+  {
+    id: "c304-ex-function-overload-union",
+    title: "函数重载签名 + 联合实现",
+    src: `
+function fmt(v: number): string;
+function fmt(v: string): string;
+function fmt(v: boolean): string;
+function fmt(v: number | string | boolean): string {
+  return typeof v + ":" + String(v);
+}
+console.log(fmt(1), fmt("a"), fmt(true));
+`,
+  },
+  {
+    id: "c304-ex-abstract-property",
+    title: "抽象属性由子类用字段实现",
+    src: `
+abstract class Node3 {
+  abstract id: number;
+  abstract label: string;
+  show(): string { return this.id + ":" + this.label; }
+}
+class Leaf extends Node3 {
+  id = 1;
+  label = "leaf";
+}
+console.log(new Leaf().show());
+`,
+  },
+  {
+    id: "c304-ex-optional-method-in-interface",
+    title: "接口里的可选方法与值侧的可选调用",
+    src: `
+interface Logger { log?(msg: string): void; name: string }
+const quiet: Logger = { name: "quiet" };
+const loud: Logger = { name: "loud", log: (m) => console.log("LOG", m) };
+quiet.log?.("a");
+loud.log?.("b");
+console.log(quiet.name, loud.name);
+`,
+  },
+  {
+    id: "c304-ex-type-alias-fn-value",
+    title: "函数类型别名既当标注又当值用",
+    src: `
+type Mapper = (s: string) => number;
+const len: Mapper = (s) => s.length;
+const runner: Mapper = function (s) { return s.length * 2; };
+console.log(len("abc"), runner("ab"));
+`,
+  },
+  {
+    id: "c304-ex-tuple-labeled",
+    title: "带标签的元组类型只是类型",
+    src: `
+type Pair = [first: number, second: string];
+const p: Pair = [1, "a"];
+const q: [x: number, y: number] = [2, 3];
+console.log(p[0], p[1], q[0] + q[1], p.length);
+`,
+  },
+  {
+    id: "c304-ex-enum-const-in-class",
+    title: "const 枚举当类字段的初始值",
+    src: `
+const enum Level { Low = 1, High = 10 }
+class Threshold {
+  level: Level = Level.High;
+  isHigh(): boolean { return this.level === Level.High; }
+}
+const t = new Threshold();
+console.log(t.level, t.isHigh());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c304-ex-namespace-export-type-only",
+    title: "命名空间里只有类型：那个名字运行期不存在",
+    src: `
+namespace Types {
+  export type Id = number;
+  export interface Row { id: Id }
+}
+const n: Types.Row = { id: 1 };
+
+namespace Mixed {
+  export type T = string;
+  export const value = 42;
+}
+console.log(n.id, Mixed.value, JSON.stringify(Mixed));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c304-ex-assertion-in-arrow",
+    title: "断言与箭头挤在一行",
+    src: `
+const f = (v: unknown) => (v as string).trim();
+const g = <T,>(v: T) => v as unknown as string;
+console.log(f("  x  "), g("y"));
+const arr = [1, 2] as number[];
+console.log(arr.map((n) => (n as number) + 1).join(","));
+`,
+  },
+  {
+    id: "c304-ex-parameter-property-optional",
+    title: "参数属性 + 可选形参 + 默认值混用",
+    src: `
+class Req {
+  constructor(public url: string, public method = "GET", public body?: string) {}
+  show(): string { return this.url + " " + this.method + " " + (this.body ?? "-"); }
+}
+console.log(new Req("/a").show(), new Req("/b", "POST", "x").show());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c304-ex-generic-class-static-and-field",
+    title: "泛型类的静态成员与实例字段",
+    src: `
+class Stack<T> {
+  static created = 0;
+  private items: T[] = [];
+  constructor() { Stack.created += 1; }
+  push(v: T): this { this.items.push(v); return this; }
+  pop(): T | undefined { return this.items.pop(); }
+  get size(): number { return this.items.length; }
+}
+const s = new Stack<number>().push(1).push(2);
+console.log(s.pop(), s.size, Stack.created);
+`,
+  },
+  {
+    id: "c304-ex-as-in-return-and-throw",
+    title: "`as` 落在 return 与 throw 的表达式里",
+    src: `
+function parse(s: string): number {
+  const n = Number(s);
+  if (Number.isNaN(n)) throw new Error("bad: " + s) as Error;
+  return n as number;
+}
+console.log(parse("3"));
+try {
+  parse("x");
+} catch (e: any) {
+  console.log(e.message);
+}
+`,
+  },
+  {
+    id: "c304-ex-type-annotation-in-catch-and-loop",
+    title: "catch 形参与 for 头部里的类型标注",
+    src: `
+const rows: Array<{ id: number }> = [{ id: 1 }, { id: 2 }];
+let sum: number = 0;
+for (const row of rows as Array<{ id: number }>) sum += row.id;
+for (let i: number = 0; i < 2; i++) sum += i;
+for (const k in { a: 1, b: 2 }) sum += k.length;
+try {
+  throw new TypeError("t");
+} catch (e: unknown) {
+  sum += (e as Error).message.length;
+}
+console.log(sum);
+`,
+  },
 ];

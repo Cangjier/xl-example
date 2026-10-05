@@ -1,6 +1,6 @@
 {
-  "round": "",
-  "matrix": 779,
+  "round": "304",
+  "matrix": 929,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,37 +33,37 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.35,
+  "progressPercent": 94.9,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 253,
-      "pass": 232,
-      "blocked": 12,
-      "differ": 9,
+      "total": 301,
+      "pass": 271,
+      "blocked": 15,
+      "differ": 15,
       "nodefail": 0,
-      "coverage": 91.7
+      "coverage": 90.03
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 185,
-      "pass": 179,
-      "blocked": 5,
-      "differ": 1,
+      "total": 227,
+      "pass": 219,
+      "blocked": 6,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 96.76
+      "coverage": 96.48
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 328,
-      "pass": 307,
-      "blocked": 9,
-      "differ": 12,
+      "total": 388,
+      "pass": 364,
+      "blocked": 13,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 93.6
+      "coverage": 93.81
     },
     {
       "layer": "e2e",
@@ -150,6 +150,24 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
+      "id": "c304-rt-new-target-in-ctor",
+      "layer": "runtime",
+      "title": "new.target：直接构造认得出、普通调用是 undefined",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression MetaProperty"
+    },
+    {
+      "id": "c304-rt-delete-nonconfigurable",
+      "layer": "runtime",
+      "title": "delete 一个不可配置的属性：松散模式静默返回 false",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: this should throw a TypeError (non-configurable)"
+    },
+    {
+      "id": "c304-rt-super-property-write",
+      "layer": "runtime",
+      "title": "super.x = v 落在父类原型那一格上",
+      "detail": "tsrun: 脚本抛出：unimplemented: assigning a property on a primitive receiver"
+    },
+    {
       "id": "ex-tagged-template-suffix",
       "layer": "exec",
       "title": "标签模板后面接成员 / 运算符 / 实参",
@@ -178,6 +196,12 @@
       "layer": "exec",
       "title": "嵌套一层的 namespace",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier"
+    },
+    {
+      "id": "c304-ex-namespace-merged-function",
+      "layer": "exec",
+      "title": "函数与命名空间合并（挂静态格）",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "object-freeze",
@@ -232,6 +256,30 @@
       "layer": "stdlib",
       "title": "Object(原始值) 的包装对象",
       "detail": "tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
+    },
+    {
+      "id": "c304-std-encodeuri-decodeuri",
+      "layer": "stdlib",
+      "title": "encodeURI / decodeURI / encodeURIComponent",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: encodeURI"
+    },
+    {
+      "id": "c304-std-symbol-iterator-manual",
+      "layer": "stdlib",
+      "title": "手动拿数组的 Symbol.iterator 再 next",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c304-std-promise-race-forms",
+      "layer": "stdlib",
+      "title": "Promise.race / allSettled / any 的三种结清",
+      "detail": "tsrun: 第 0 份模块求值：the script is waiting for a promise the host has not settled"
+    },
+    {
+      "id": "c304-std-string-normalize-ascii-forms",
+      "layer": "stdlib",
+      "title": "normalize 在已规范化的串上是恒等",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "differ": [
@@ -290,10 +338,52 @@
       "detail": "stdout 不同：第 1 行：node «{\"value\":1,\"done\":false} {\"value\":10,\"done\":false} {\"done\":true}» vs tsrun «{\"value\":1,\"done\":false} {\"value\":null,\"done\":false} {\"done\":true}»"
     },
     {
+      "id": "c304-rt-iife-arrow-this",
+      "layer": "runtime",
+      "title": "箭头 IIFE 里的 this 与外部一致",
+      "detail": "stdout 不同：第 1 行：node «obj bound» vs tsrun «obj undefined»"
+    },
+    {
+      "id": "c304-rt-closure-capture-in-forof",
+      "layer": "runtime",
+      "title": "for..of 里每个迭代一格闭包",
+      "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «3,3,3»"
+    },
+    {
+      "id": "c304-rt-detached-method-this-undefined",
+      "layer": "runtime",
+      "title": "把方法摘下来单独调：松散模式 this 是全局对象",
+      "detail": "stdout 不同：第 1 行：node «global other» vs tsrun «undefined other»"
+    },
+    {
+      "id": "c304-rt-optional-chain-call-forms",
+      "layer": "runtime",
+      "title": "可选调用的三种位置",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c304-rt-generator-early-break-finally",
+      "layer": "runtime",
+      "title": "for..of 提前 break：生成器里的 finally 照跑",
+      "detail": "stdout 不同：第 2 行：node «cleanup» vs tsrun «»"
+    },
+    {
+      "id": "c304-rt-promise-then-returns-promise",
+      "layer": "runtime",
+      "title": "then 里返回一个承诺：会被展开",
+      "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
+    },
+    {
       "id": "ex-getter-setter-class",
       "layer": "exec",
       "title": "类里的访问器 + 继承的访问器",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: this should throw a TypeError (accessor without a setter)"
+    },
+    {
+      "id": "c304-ex-nonnull-in-optional-chain",
+      "layer": "exec",
+      "title": "非空断言与可选链混着写",
+      "detail": "stdout 不同：第 2 行：node «1 2» vs tsrun «[ [ 1 ], [ 2 ] ] 2»"
     },
     {
       "id": "object-freeze-array-element",
@@ -332,12 +422,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: trim with a non-ASCII edge (that character may be trimmable in "
     },
     {
-      "id": "object-assign-forms-and-order",
-      "layer": "stdlib",
-      "title": "Object.assign：多源、覆盖顺序、返回目标、undefined 源",
-      "detail": "stdout 不同：第 3 行：node «{\"0\":\"a\",\"1\":\"b\"}» vs tsrun «{}»"
-    },
-    {
       "id": "global-explicit-and-implicit",
       "layer": "stdlib",
       "title": "全局函数与隐式转换：Boolean / Number / String / Array / Object",
@@ -370,15 +454,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "ex-nonnull-and-as-chain",
-      "layer": "exec"
-    },
-    {
-      "id": "ex-nonnull-chain-index",
-      "layer": "exec"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }

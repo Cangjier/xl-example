@@ -3232,4 +3232,585 @@ console.log(x, y.length, [..."\\uDC00\\uD800"].length);
 console.log(JSON.stringify([..."\\uD800"]), JSON.stringify("\\uD83D\\uDE00"));
 `,
   },
+
+  // ===== 第 304 轮：加宽矩阵（60 条）=====
+
+  {
+    id: "c304-std-array-tospliced",
+    title: "Array.prototype.toSpliced / toReversed（不改原数组）",
+    src: `
+const xs = [1, 2, 3, 4];
+console.log(xs.toSpliced(1, 2, "a", "b").join(","), xs.join(","));
+console.log(xs.toReversed().join(","), xs.join(","));
+console.log(xs.with(0, 9).join(","), xs.join(","));
+`,
+  },
+  {
+    id: "c304-std-array-findindex-forms",
+    title: "findIndex / findLastIndex 的命中与未命中",
+    src: `
+const xs = [5, 12, 8, 130, 44];
+console.log(xs.findIndex((n) => n > 10), xs.findLastIndex((n) => n > 10));
+console.log(xs.findIndex((n) => n > 1000), xs.findLast((n) => n > 10));
+`,
+  },
+  {
+    id: "c304-std-array-sort-numeric-string",
+    title: "sort 缺省按字符串、给比较器按数字",
+    src: `
+const xs = [10, 1, 2, 20];
+console.log(xs.slice().sort().join(","), xs.slice().sort((a, b) => a - b).join(","));
+const words = ["b", "A", "a", "B"];
+console.log(words.slice().sort().join(","));
+`,
+  },
+  {
+    id: "c304-std-array-fill-and-copywithin-forms",
+    title: "fill / copyWithin 的负下标与越界",
+    src: `
+console.log([1, 2, 3, 4, 5].fill(0, -2).join(","));
+console.log([1, 2, 3, 4, 5].copyWithin(0, 3).join(","), [1, 2, 3].copyWithin(1, -1).join(","));
+console.log([1, 2, 3].fill(9).join(","));
+`,
+  },
+  {
+    id: "c304-std-object-isprototypeof",
+    title: "Object.prototype.isPrototypeOf",
+    src: `
+class A {}
+class B extends A {}
+const b = new B();
+console.log(A.prototype.isPrototypeOf(b), Object.prototype.isPrototypeOf(b), B.prototype.isPrototypeOf({}));
+console.log(A.isPrototypeOf(b));
+`,
+  },
+  {
+    id: "c304-std-object-setprototypeof-value",
+    title: "Object.setPrototypeOf 之后方法的归属变了",
+    src: `
+const proto = { greet() { return "hi " + this.name; } };
+const o: any = { name: "kim" };
+Object.setPrototypeOf(o, proto);
+console.log(o.greet(), Object.getPrototypeOf(o) === proto, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "c304-std-object-preventextensions-forms",
+    title: "preventExtensions / seal / freeze 三档：isExtensible 与两个问法的答案",
+    src: `
+const a: any = { x: 1 };
+const backA = Object.preventExtensions(a);
+console.log(backA === a, Object.isExtensible(a), Object.isSealed(a), Object.isFrozen(a));
+const b: any = { x: 1 };
+Object.seal(b);
+console.log(Object.isExtensible(b), Object.isSealed(b), Object.isFrozen(b));
+const c: any = { x: 1 };
+Object.freeze(c);
+console.log(Object.isExtensible(c), Object.isSealed(c), Object.isFrozen(c));
+console.log(Object.isSealed({}), Object.isExtensible("s"));
+`,
+  },
+  {
+    id: "c304-std-object-issealed-after-preventextensions",
+    title: "preventExtensions 之后 isSealed 该是假（那一格还可配置）",
+    src: `
+const o: any = { x: 1 };
+Object.preventExtensions(o);
+console.log(Object.isExtensible(o), Object.isSealed(o), Object.isFrozen(o));
+const p: any = { x: 1 };
+Object.seal(p);
+console.log(Object.isSealed(p), Object.isFrozen(p), Object.isExtensible(p));
+const q: any = {};
+Object.preventExtensions(q);
+console.log(Object.isSealed(q), Object.isFrozen(q));
+`,
+  },
+  {
+    id: "c304-std-object-descriptor-accessor",
+    title: "getOwnPropertyDescriptor 读访问器那一格",
+    src: `
+const o: any = { _v: 1 };
+Object.defineProperty(o, "v", { get() { return this._v; }, set(n: number) { this._v = n; }, enumerable: true });
+const d = Object.getOwnPropertyDescriptor(o, "v");
+console.log(typeof d?.get, typeof d?.set, d?.enumerable, d?.configurable);
+o.v = 5;
+console.log(o.v);
+`,
+  },
+  {
+    id: "c304-std-object-defineproperties-forms",
+    title: "defineProperties 一次装好几格",
+    src: `
+const o: any = {};
+Object.defineProperties(o, {
+  a: { value: 1, enumerable: true },
+  b: { value: 2, enumerable: false, writable: true },
+  c: { get() { return 3; }, enumerable: true },
+});
+console.log(o.a, o.b, o.c, Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "c304-std-function-apply-forms",
+    title: "apply 的实参数组与 this",
+    src: `
+function add(a: number, b: number) { return a + b + (this?.base ?? 0); }
+console.log(add.apply({ base: 100 }, [1, 2]), add.apply(null, [3, 4]));
+console.log(Math.max.apply(null, [3, 9, 4]));
+`,
+  },
+  {
+    id: "c304-std-function-bind-partial",
+    title: "bind 的偏应用与新函数形状",
+    src: `
+function tag(prefix: string, a: string, b: string) { return prefix + a + b; }
+const withPrefix = tag.bind(null, "#");
+console.log(withPrefix("a", "b"), withPrefix.name, withPrefix.length);
+const bound = tag.bind(null);
+console.log(bound("x", "y", "z"));
+`,
+  },
+  {
+    id: "c304-std-function-call-chain",
+    title: "call 连着用，以及绑定后的再绑定",
+    src: `
+function who(this: any) { return this.name; }
+const o = { name: "o" };
+const p = { name: "p" };
+console.log(who.call(o), who.call(p), who.bind(o).call(p));
+`,
+  },
+  {
+    id: "c304-std-string-valueof-tostring",
+    title: "valueOf / toString 在字符串包装上的取值",
+    src: `
+const s = "abc";
+console.log(s.valueOf(), s.toString(), String.prototype.toString.call(s));
+console.log(s.length, s[1], s.charAt(2));
+`,
+  },
+  {
+    id: "c304-std-string-charcodeat-forms",
+    title: "charCodeAt / codePointAt 在代理对上的两种答案",
+    src: `
+const s = "a😀b";
+console.log(s.length, s.charCodeAt(0), s.charCodeAt(1), s.codePointAt(1), s.codePointAt(0));
+console.log(s.charCodeAt(99), s.codePointAt(-1));
+`,
+  },
+  {
+    id: "c304-std-string-repeat-and-split-forms",
+    title: "repeat / split 的边界",
+    src: `
+console.log("ab".repeat(0) + "|", "ab".repeat(2), "a".repeat(2.9) + "|");
+console.log(JSON.stringify("a,b,,c".split(",")), JSON.stringify("abc".split("")), JSON.stringify("".split(",")));
+console.log(JSON.stringify("a1b2c".split("1")));
+`,
+  },
+  {
+    id: "c304-std-string-includes-and-indexof-forms",
+    title: "includes / indexOf / startsWith 的起始位置",
+    src: `
+const s = "banana";
+console.log(s.includes("na"), s.includes("na", 3), s.indexOf("na"), s.indexOf("na", 3), s.indexOf("zz"));
+console.log(s.startsWith("ba"), s.endsWith("na"), s.startsWith("na", 2));
+`,
+  },
+  {
+    id: "c304-std-number-isnan-forms",
+    title: "Number.isNaN / isFinite 与全局那两个的分工",
+    src: `
+console.log(Number.isNaN(NaN), Number.isNaN("NaN"), isNaN("NaN"), isNaN(NaN));
+console.log(Number.isFinite("1"), isFinite("1"), Number.isFinite(Infinity), isFinite(Infinity));
+`,
+  },
+  {
+    id: "c304-std-number-parseint-vs-global",
+    title: "Number.parseInt / parseFloat 与全局的同不同",
+    src: `
+console.log(Number.parseInt("42px"), parseInt("42px"), Number.parseInt("0x1f"), parseInt("1f", 16));
+console.log(Number.parseFloat("3.5e2x"), parseFloat(".5"), Number.parseFloat("x"));
+`,
+  },
+  {
+    id: "c304-std-number-toexponential-forms",
+    title: "toExponential 的位数与缺省",
+    src: `
+console.log((123.456).toExponential(2), (0.000123).toExponential(), (5).toExponential(0));
+console.log((12345).toExponential(1));
+`,
+  },
+  {
+    id: "c304-std-number-limits-forms",
+    title: "Number 的常量族：EPSILON / MAX_SAFE_INTEGER / 各极值",
+    src: `
+console.log(Number.EPSILON > 0, Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER);
+console.log(Number.MAX_VALUE > 1e308, Number.MIN_VALUE > 0, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY);
+console.log(Number.isSafeInteger(Number.MAX_SAFE_INTEGER), Number.isSafeInteger(Number.MAX_SAFE_INTEGER + 1));
+`,
+  },
+  {
+    id: "c304-std-math-cbrt-expm1-log1p",
+    title: "Math.cbrt / expm1 / log1p 的取值",
+    src: `
+console.log(Math.cbrt(27), Math.cbrt(-8), Math.expm1(0), Math.log1p(0));
+console.log(Math.expm1(1).toFixed(6), Math.log1p(Math.E - 1).toFixed(6));
+`,
+  },
+  {
+    id: "c304-std-math-atan2-forms",
+    title: "Math.atan2 的四个象限与零",
+    src: `
+console.log(Math.atan2(1, 1).toFixed(6), Math.atan2(1, -1).toFixed(6));
+console.log(Math.atan2(-1, -1).toFixed(6), Math.atan2(0, 0), Math.atan2(1, 0).toFixed(6));
+`,
+  },
+  {
+    id: "c304-std-math-sign-and-trunc-forms",
+    title: "Math.sign / trunc 在 ±0 与小数上",
+    src: `
+console.log(Math.sign(-3), Math.sign(0), Object.is(Math.sign(-0), -0), Math.sign(NaN));
+console.log(Math.trunc(4.9), Math.trunc(-4.9), Math.trunc(0.5), Math.trunc(-0.5));
+`,
+  },
+  {
+    id: "c304-std-math-clz32-forms",
+    title: "Math.clz32 / imul / fround 的组合",
+    src: `
+console.log(Math.clz32(1), Math.clz32(0), Math.clz32(0xffffffff), Math.clz32(4));
+console.log(Math.imul(3, 4), Math.imul(-5, 12), Math.fround(0.1).toFixed(10));
+`,
+  },
+  {
+    id: "c304-std-encodeuri-decodeuri",
+    title: "encodeURI / decodeURI / encodeURIComponent",
+    src: `
+const s = "a b&c=d?e";
+console.log(encodeURI(s));
+console.log(encodeURIComponent(s));
+console.log(decodeURI(encodeURI(s)), decodeURIComponent(encodeURIComponent("中文 & 符号")));
+`,
+  },
+  {
+    id: "c304-std-json-stringify-undefined-and-holes",
+    title: "JSON.stringify 遇到 undefined / 函数 / 洞",
+    src: `
+const o: any = { a: undefined, b: () => 1, c: 1, d: null };
+console.log(JSON.stringify(o));
+console.log(JSON.stringify([undefined, () => 1, 1, null]));
+console.log(JSON.stringify(undefined), JSON.stringify(() => 1), JSON.stringify(null));
+`,
+  },
+  {
+    id: "c304-std-json-stringify-nested-arrays",
+    title: "JSON.stringify 的嵌套数组与空容器",
+    src: `
+console.log(JSON.stringify({ a: [[1, 2], [], [null]], b: {}, c: [] }));
+console.log(JSON.stringify([1, [2, [3, [4]]]]));
+`,
+  },
+  {
+    id: "c304-std-json-parse-forms",
+    title: "JSON.parse 的空白、转义与数字",
+    src: "\nconsole.log(JSON.stringify(JSON.parse('  { \"a\" : 1 , \"b\" : [ true , null ] }  ')));\nconsole.log(JSON.parse('\"a\\\\nb\"').length, JSON.parse(\"-1.5e2\"), JSON.parse(\"0\"));\n",
+  },
+  {
+    id: "c304-std-map-getset-delete-forms",
+    title: "Map 的增删改查与 size",
+    src: `
+const m = new Map<string, number>();
+m.set("a", 1).set("b", 2);
+console.log(m.size, m.get("a"), m.has("c"), m.delete("a"), m.size, m.get("a"));
+m.clear();
+console.log(m.size, [...m.keys()].length);
+`,
+  },
+  {
+    id: "c304-std-map-nan-and-object-keys",
+    title: "Map 的键：NaN 与 ±0 的同一性",
+    src: `
+const m = new Map<any, string>();
+m.set(NaN, "nan");
+m.set(0, "zero");
+m.set(-0, "negzero");
+console.log(m.size, m.get(NaN), m.get(0), m.get(-0));
+const o = {};
+m.set(o, "obj");
+console.log(m.get(o), m.get({}));
+`,
+  },
+  {
+    id: "c304-std-set-delete-has-forms",
+    title: "Set 的增删与 NaN / ±0",
+    src: `
+const s = new Set<any>([1, 2, NaN, 0, -0]);
+console.log(s.size, s.has(NaN), s.has(0), s.has(-0));
+console.log(s.delete(2), s.size, [...s].length);
+`,
+  },
+  {
+    id: "c304-std-weakmap-getset",
+    title: "WeakMap 的 get / set / has / delete",
+    src: `
+const wm = new WeakMap<object, number>();
+const k = {};
+wm.set(k, 1);
+console.log(wm.get(k), wm.has(k), wm.delete(k), wm.has(k), wm.get(k));
+`,
+  },
+  {
+    id: "c304-std-symbol-description-forms",
+    title: "符号的 description / toString / 注册表",
+    src: `
+const a = Symbol("desc");
+const b = Symbol();
+console.log(a.description, b.description, a.toString(), String(a).length > 0);
+console.log(Symbol.for("x") === Symbol.for("x"), Symbol.keyFor(Symbol.for("x")), Symbol.keyFor(a));
+`,
+  },
+  {
+    id: "c304-std-symbol-iterator-manual",
+    title: "手动拿数组的 Symbol.iterator 再 next",
+    src: `
+const it = [10, 20][Symbol.iterator]();
+console.log(it.next().value, it.next().value, it.next().done);
+const s = "ab"[Symbol.iterator]();
+console.log(s.next().value, s.next().value, s.next().done);
+`,
+  },
+  {
+    id: "c304-std-date-epoch-forms",
+    title: "Date 的时间戳读法与 UTC 年月的往返",
+    src: `
+const d = new Date(0);
+console.log(d.getTime(), d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+const d2 = new Date(Date.UTC(2020, 5, 15, 12, 30, 45, 123));
+console.log(d2.getTime(), d2.toISOString());
+console.log(new Date(1e12).getUTCFullYear());
+`,
+  },
+  {
+    id: "c304-std-promise-all-forms",
+    title: "Promise.all 的次序与非承诺项",
+    src: `
+Promise.all([Promise.resolve(3), 1, Promise.resolve(2)]).then((xs) => console.log(xs.join(",")));
+Promise.all([]).then((xs) => console.log("empty", xs.length));
+Promise.all([Promise.resolve(1), Promise.reject(new Error("no"))]).catch((e) => console.log("rejected", e.message));
+`,
+  },
+  {
+    id: "c304-std-promise-race-forms",
+    title: "Promise.race / allSettled / any 的三种结清",
+    src: `
+Promise.race([Promise.resolve("fast"), new Promise((r) => r("slow"))]).then((v) => console.log("race", v));
+Promise.allSettled([Promise.resolve(1), Promise.reject(new Error("x"))]).then((rs) => console.log(rs.map((r) => r.status).join(",")));
+Promise.any([Promise.reject(new Error("a")), Promise.resolve("ok")]).then((v) => console.log("any", v));
+`,
+  },
+  {
+    id: "c304-std-promise-finally-order",
+    title: "finally 的返回值不改结论、次序在中间",
+    src: `
+Promise.resolve(1)
+  .finally(() => console.log("f1"))
+  .then((v) => { console.log("then", v); return v + 1; })
+  .finally(() => console.log("f2"))
+  .then((v) => console.log("last", v));
+`,
+  },
+  {
+    id: "c304-std-async-map-await",
+    title: "async 里的 map + await 串行",
+    src: `
+async function double(n: number) { return n * 2; }
+async function run() {
+  const out: number[] = [];
+  for (const n of [1, 2, 3]) out.push(await double(n));
+  return out.join(",");
+}
+run().then((s) => console.log(s));
+`,
+  },
+  {
+    id: "c304-std-console-log-undefined-null",
+    title: "console.log 打 undefined / null / 空串 / 布尔",
+    src: `
+console.log(undefined, null, "", true, false);
+console.log([undefined, null, ""], { a: undefined, b: null });
+`,
+  },
+  {
+    id: "c304-std-console-log-nested-arrays",
+    title: "console.log 打嵌套数组与稀疏数组",
+    src: `
+console.log([1, [2, [3, [4]]]]);
+console.log([1, , 3]);
+console.log(new Array(3));
+`,
+  },
+  {
+    id: "c304-std-global-parseint-forms",
+    title: "全局 parseInt 的基数与前缀",
+    src: `
+console.log(parseInt("0x10"), parseInt("0x10", 16), parseInt("10", 2), parseInt("0b10"));
+console.log(parseInt("  42  "), parseInt("-7.9"), parseInt("zz"), parseInt(""), Number.isNaN(parseInt("x")));
+`,
+  },
+  {
+    id: "c304-std-global-isnan-coercion",
+    title: "全局 isNaN / isFinite 的隐式转换",
+    src: `
+console.log(isNaN(undefined), isNaN(null), isNaN(""), isNaN(" "), isNaN("1a"), isNaN([]), isNaN([1]));
+console.log(isFinite(""), isFinite(null), isFinite([]), isFinite([1]));
+`,
+  },
+  {
+    id: "c304-std-string-fromcodepoint-forms",
+    title: "String.fromCodePoint / fromCharCode 在代理对上的差别",
+    src: `
+console.log(String.fromCodePoint(0x1f600).length, String.fromCharCode(0x1f600).length);
+console.log(String.fromCodePoint(65, 66), String.fromCharCode(65, 66));
+console.log(String.fromCharCode(0xd83d, 0xde00).length);
+`,
+  },
+  {
+    id: "c304-std-array-of-and-from-forms",
+    title: "Array.of 与 Array.from 的三种来源",
+    src: `
+console.log(Array.of(1, 2, 3).join(","), Array.of(3).length, new Array(3).length);
+console.log(Array.from([1, 2], (x) => x * 2).join(","));
+console.log(Array.from({ length: 3 }, (_, i) => i).join(","));
+`,
+  },
+  {
+    id: "c304-std-object-keys-on-array",
+    title: "Object.keys / entries 作用在数组与字符串上",
+    src: `
+console.log(Object.keys([1, 2, 3]).join(","));
+console.log(Object.entries([7, 8]).map((p) => p[0] + p[1]).join(","));
+console.log(Object.keys("ab").join(","), Object.values({ x: 1, y: 2 }).join(","));
+`,
+  },
+  {
+    id: "c304-std-object-fromentries-forms",
+    title: "Object.fromEntries 的三种来源",
+    src: `
+console.log(JSON.stringify(Object.fromEntries([["a", 1], ["b", 2]])));
+console.log(JSON.stringify(Object.fromEntries(new Map([["k", "v"]]))));
+console.log(JSON.stringify(Object.fromEntries([["x", 1], ["x", 2]])));
+`,
+  },
+  {
+    id: "c304-std-error-tostring-forms",
+    title: "Error.prototype.toString 的拼法",
+    src: `
+console.log(String(new Error("boom")));
+console.log(String(new TypeError("bad")));
+const e = new Error("m");
+e.name = "";
+console.log(String(e));
+const e2 = new Error("");
+e2.name = "Custom";
+console.log(String(e2));
+`,
+  },
+  {
+    id: "c304-std-array-reduce-forms",
+    title: "reduce 的初值与空数组",
+    src: `
+console.log([1, 2, 3].reduce((a, b) => a + b));
+console.log([1, 2, 3].reduce((a, b) => a + b, 10));
+console.log([].reduce((a, b) => a + b, 0));
+const words = ["a", "b"];
+console.log(words.reduce((acc, w, i) => acc + i + w, ""));
+`,
+  },
+  {
+    id: "c304-std-array-iterator-manual-forms",
+    title: "手动用 keys / values / entries 迭代器",
+    src: `
+const k = ["a", "b"].keys();
+const v = ["a", "b"].values();
+const e = ["a", "b"].entries();
+console.log(k.next().value, v.next().value, JSON.stringify(e.next().value));
+console.log(JSON.stringify([...["x", "y"].entries()]));
+`,
+  },
+  {
+    id: "c304-std-array-flat-and-flatmap-forms",
+    title: "flat / flatMap 的深度与空结果",
+    src: `
+console.log([1, [2, [3, [4]]]].flat().length, [1, [2, [3, [4]]]].flat(2).join(","));
+console.log([1, [2, [3, [4]]]].flat(Infinity).join(","));
+console.log([1, 2].flatMap((x) => (x === 1 ? [] : [x, x])).join(","));
+`,
+  },
+  {
+    id: "c304-std-array-at-and-slice-negative",
+    title: "at / slice 的负下标组合",
+    src: `
+const xs = [1, 2, 3, 4, 5];
+console.log(xs.at(-1), xs.at(0), xs.at(9), xs.at(-9));
+console.log(xs.slice(-3, -1).join(","), xs.slice(2, 1).join(",") + "|");
+`,
+  },
+  {
+    id: "c304-std-string-normalize-ascii-forms",
+    title: "normalize 在已规范化的串上是恒等",
+    src: "\nconst s = \"abc\";\nconsole.log(s.normalize(), s.normalize(\"NFC\") === s, s.normalize(\"NFD\") === s);\nconsole.log(\"e\\u0301\".normalize(\"NFC\").length, \"\\u00e9\".normalize(\"NFD\").length);\n",
+  },
+  {
+    id: "c304-std-string-replace-forms",
+    title: "replace / replaceAll 的字符串形态与 $ 记号",
+    src: "\nconsole.log(\"a-b-c\".replace(\"-\", \"+\"), \"a-b-c\".replaceAll(\"-\", \"+\"));\nconsole.log(\"abc\".replace(\"b\", \"[$&]\"), \"abc\".replace(\"b\", \"[$`]\"), \"abc\".replace(\"b\", \"[$']\"));\nconsole.log(\"ab\".replace(\"a\", \"$$\"));\n",
+  },
+  {
+    id: "c304-std-map-set-spread-and-construct",
+    title: "Map / Set 的构造来源与展开",
+    src: `
+const m = new Map<string, number>([["a", 1]]);
+console.log([...m.keys()].join(","), [...m.values()].join(","), JSON.stringify([...m.entries()]));
+const s = new Set<number>([1, 1, 2]);
+console.log([...s].join(","), new Set("aab").size);
+console.log(new Map(m).size, new Set(s).size);
+`,
+  },
+  {
+    id: "c304-std-array-tostring-and-join-holes",
+    title: "数组 join / toString 遇到洞、null、嵌套",
+    src: `
+const xs: any[] = [1, , 3, null, undefined, [4, 5], { a: 1 }];
+console.log(xs.join("|"));
+console.log(String(xs) === xs.join(","), [].join("|") + "|", [null].join("|") + "|");
+`,
+  },
+  {
+    id: "c304-std-object-assign-forms",
+    title: "Object.assign 的多源、覆盖与返回目标",
+    src: `
+const target = { a: 1 };
+const out = Object.assign(target, { b: 2 }, { a: 9 }, null as any, undefined as any);
+console.log(out === target, JSON.stringify(target), Object.keys(target).join(","));
+console.log(JSON.stringify(Object.assign({}, "ab")));
+`,
+  },
+  {
+    id: "c304-std-date-parse-and-invalid",
+    title: "Date.parse 的合法与非法形状",
+    src: `
+console.log(Date.parse("1970-01-01T00:00:00.000Z"), Date.parse("2020-05-15T10:20:30Z"));
+console.log(Number.isNaN(Date.parse("not a date")), Number.isNaN(new Date("nope").getTime()));
+console.log(new Date(0).toISOString(), String(new Date(NaN)));
+`,
+  },
+  {
+    id: "c304-std-error-families-forms",
+    title: "五个错误族的 name / message / instanceof",
+    src: `
+const errs = [new Error("e"), new TypeError("t"), new RangeError("r"), new SyntaxError("s"), new ReferenceError("f")];
+console.log(errs.map((e) => e.name).join(","));
+console.log(errs.map((e) => e instanceof Error).join(","));
+console.log(String(errs[2]), errs[3].message);
+`,
+  },
 ];

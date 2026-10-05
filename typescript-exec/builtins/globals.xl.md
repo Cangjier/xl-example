@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
@@ -248,6 +248,51 @@ import { BuildPromise } from "./promise.xl.md"
 `isSealed` / `isFrozen` 问的都是「**这个对象被标记过不可扩展吗**」✓，
 而这一格正是**那一格的取反** ✓（不是另开一个标记 ✗——两处标记迟早会漂 ✓）。
 **判据 `c291-object-freeze-and-is`** 把三格钉在一起 ✓（`freeze` 之后三个答案同时要对 ✓）。
+
+# const ObjectSetPrototypeOf:int = 419
+
+**`Object.setPrototypeOf(对象, 原型)`**（第 304 轮 ✓）——号在 `411..418` 之后的**下一个** ✓。
+
+**它落的正是引擎里早就有的那一步** ✓：`set_proto` 那条路（`rt.xl.md` 的 `RtSetProto` ✓）
+——第 278 轮为 `extends` 写过一遍 ✓（那时发现「父类可能是宿主引用值」⇒ **原型那一格不是对象就不做事** ✓，
+**接收者那一格仍然抛** ✓）。**不另写一份** ✗：两处各写一遍，`extends` 与这一格就会在
+「原型不是对象」那一档上**分岔** ✓（JS 在这一格是**不做事** ✓，不是抛 ✓）。
+
+**它是第 304 轮加宽矩阵时量到的** ✗：判据 `c304-std-object-setprototypeof-value` 与
+`c304-rt-setprototypeof-and-isprototypeof` 都在报 `cannot call a non-closure value` ✓
+——即**那一格根本没装** ✗（`Object.create` / `getPrototypeOf` 从第 209 轮起就是好的 ✓，
+它们是**同一族的三格** ✓，偏偏中间那一格没人做 ✓）。
+
+# const ObjectPreventExtensions:int = 420
+
+**`Object.preventExtensions(对象)`**（第 304 轮 ✓）——**只打「不可扩展」那个标记** ✓，
+**不动任何一个属性标志** ✓。**这正是它与 `seal` 的分界** ✓：
+`seal` 还要把每一格的 `configurable` 清掉 ✓、`freeze` 连 `writable` 一起清 ✓——
+所以三档是**同一件事的三层** ✓，而 `isExtensible` / `isSealed` / `isFrozen` 三个问法
+读的都是**同一个标记** ✓（第 291 轮那一格就是它的正面 ✓）。
+
+**已知差异写在明处** ✗：这一层**只标记、不真的拦写** ✗——JS 里
+`Object.preventExtensions(o)` 之后 `o.b = 1` 在**松散模式**下静默无效 ✓，
+而本仓的 `SetProperty` 今天只认 `seal` / `freeze` 清出来的**属性标志** ✓，
+不认「不可扩展」这个对象级标记 ✓（判据只量 `isExtensible` 与既有属性 ✓）。
+
+**它是第 304 轮加宽矩阵时量到的** ✗：判据 `c304-std-object-preventextensions-forms`
+与 `c304-rt-preventextensions-and-isextensible` 都在报 `cannot call a non-closure value` ✓
+——即**那一格根本没装** ✗（`isExtensible` 从第 291 轮起就是好的 ✓，
+**有问的人、没有做的人** ✓）。
+
+# const ObjectIsPrototypeOf:int = 421
+
+**`Object.prototype.isPrototypeOf(对象)`**（第 304 轮 ✓）——**原型方法** ✓
+（与 `hasOwnProperty` 同一条路 ✓：挂在 `Protos.Object` 上 ✓、**隐藏**挂 ✓——
+`Object.keys({})` 必须还是空的 ✓，挂成普通属性它当场变成 3 ✗）。
+
+**它与 `instanceof` 不是一回事** ✗：那个比的是**构造函数的 `prototype`** ✓，
+这个问的是「**链上有没有这一格**」✓——所以它**正好落在 `RtChainHas` 上** ✓
+（`instanceof` 的第三段 ✓，第 137 轮抽出来的那个 ✓）。**不另写一趟走链** ✗：
+两处各走一遍就是两处会漂的上限与终止条件 ✓。
+
+**原始值一律答假** ✓（JS 的口径 ✓：`Object.prototype.isPrototypeOf(1)` 是**假** ✓）。
 
 # const NumberToExponential:int = 367
 
@@ -2339,6 +2384,22 @@ if (id === ObjectAssign) {
   const target = args[0];
   for (let s = 1; s < args.length; s++) {
     const source = args[s];
+    // **字符串来源要按下标展开** ✓（第 304 轮修的 ✗）：JS 的 `Object.assign({}, "ab")`
+    // 给 `{"0":"a","1":"b"}` ✓——字符串的**可枚举自有属性就是那些下标** ✓
+    //（`length` 是**不可枚举**的 ✓，所以它不进去 ✓）。
+    // 原来这一支被「不是对象就跳过」**整段丢掉** ✓ ⇒ 静默给 `{}` ✓（判据
+    // `c304-std-object-assign-forms` 量的就是它 ✓，而 `object-assign-forms-and-order`
+    // 从第 293 轮起拖着同一个根 ✓）。
+    // **按码元走** ✓（与 `Object.keys("ab")` 那一条口径一字不差 ✓——不另写一份下标规矩 ✗）。
+    if (source.Tag === ValueTag.String) {
+      const sourceUnits = table.Get(source.Ref).AsString().Units;
+      if (!room(PropertyCharge * sourceUnits.length)) throw new Error("out of room");
+      for (let i = 0; i < sourceUnits.length; i++) {
+        SetProperty(room, NeverCall, table, target,
+          Value.FromString(table.CreateString(Units(String(i)))), Value.FromString(table.CreateString([sourceUnits[i]])));
+      }
+      continue;
+    }
     // **不是对象的来源跳过** ✓（JS 的口径 ✓：`Object.assign({}, null)` 合法 ✓、`(…, 1)` 也算合法 ✓——
     // 一个数没有自有可枚举属性 ✓）。
     if (!source.IsObject()) continue;
@@ -2544,10 +2605,24 @@ if (id === ObjectGetOwnPropertyDescriptor) {
   // **内部标记不算自有属性** ✓（第 276 轮 ✓）：`Object.getOwnPropertyDescriptor(o, "__sealed")`
   // 该给 `undefined` ✓——它是实现细节 ✓，不该被描述符接口看见 ✓（见那个方法的说明 ✓）。
   if (IsSealedMarkProperty(table, ownProperty)) return Value.Undefined();
-  // **访问器那一格响亮地抛** ✗（与 `defineProperty` 同一条 ✓）：它的描述符该有 `get` / `set` ✓，
-  // 而这一层还没有那两格 ✓——静默给一个只有 `value: undefined` 的描述符是最坏的一种 ✗。
+  // **访问器那一格给 `get` / `set` 两格** ✓（第 304 轮修的 ✗）——第 276 轮这里**响亮地抛** ✓，
+  // 理由是「这一层还没有那两格的门」✓；**量了一下：门早就在** ✗——
+  // 访问器就住在 `Property.Getter` / `Property.Setter` 上 ✓（`heap.xl.md` ✓），
+  // 而对象字面量与类方法从第 98 轮起就一直走 `DefineAccessor` ✓。
+  // **描述符的**形状**与数据属性不一样** ✗：访问器那一档**没有 `value` / `writable`** ✓，
+  // 多的是 `get` / `set` ✓——写成「四格都填」就是**静默错值** ✓
+  //（`"value" in d` 会从假变真 ✓，判据 `c304-std-object-descriptor-accessor` 量着它 ✓）。
   if (ownProperty.Kind === PropertyKind.Accessor) {
-    throw new Error("unimplemented: Object.getOwnPropertyDescriptor on an accessor property");
+    if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+    const accessorFlags = ownProperty.Flags;
+    const accessorDescriptor = NewPlainObject(room, table, protos);
+    SetProperty(room, NeverCall, table, accessorDescriptor, NameValue(table, "get"), ownProperty.Getter);
+    SetProperty(room, NeverCall, table, accessorDescriptor, NameValue(table, "set"), ownProperty.Setter);
+    SetProperty(room, NeverCall, table, accessorDescriptor, NameValue(table, "enumerable"),
+      Value.FromBool((accessorFlags & PropertyFlagEnumerable) !== 0));
+    SetProperty(room, NeverCall, table, accessorDescriptor, NameValue(table, "configurable"),
+      Value.FromBool((accessorFlags & PropertyFlagConfigurable) !== 0));
+    return accessorDescriptor;
   }
   if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
   const ownFlags = ownProperty.Flags;
@@ -2592,6 +2667,37 @@ if (id === ObjectIsExtensible) {
   if (args.length < 1 || !args[0].IsObject()) return Value.FromBool(false);
   return Value.FromBool(!IsUnextensible(room, table, args[0]));
 }
+if (id === ObjectSetPrototypeOf) {
+  // **`Object.setPrototypeOf(对象, 原型)`**（第 304 轮 ✓）——**走引擎那一条现成的路** ✓
+  //（`RtSetProto` ✓，第 278 轮为 `extends` 写的 ✓）：那里已经定了两格的口径 ✓——
+  // **接收者不是对象就抛** ✓、**原型不是对象就不做事** ✓（JS 的口径 ✓）。
+  // **不在这里自己写 `table.Get(...).Proto = ...`** ✗：抄一遍就是第二处会漂的答案 ✓，
+  // 而漂的表现是「`extends` 与这一格在某一档上分岔」✓（最难查的一种 ✓）。
+  if (args.length < 2) {
+    throw new Error("unimplemented: Object.setPrototypeOf needs (object, prototype)");
+  }
+  return RtSetProto(table, args[0], args[1]);
+}
+if (id === ObjectPreventExtensions) {
+  // **`Object.preventExtensions(对象)`**（第 304 轮 ✓）——**只打标记、不动属性标志** ✓
+  //（与 `seal` / `freeze` 的分界写在号那一段 ✓）。**返回的是那个对象本身** ✓（JS 的口径 ✓）。
+  // **原始值原样返回** ✓（JS 的口径 ✓：`Object.preventExtensions(1)` 给 `1` ✓，不抛 ✓）。
+  if (args.length < 1) return Value.Undefined();
+  if (!args[0].IsObject()) return args[0];
+  MarkUnextensible(room, table, args[0]);
+  return args[0];
+}
+if (id === ObjectIsPrototypeOf) {
+  // **`Object.prototype.isPrototypeOf(对象)`**（第 304 轮 ✓）——问「`self` 在它的原型链上吗」✓。
+  // **走 `RtChainHas`** ✓（`instanceof` 的第三段 ✓，第 137 轮抽出来的 ✓）：
+  // 它把**深度上限**与**终止条件**都写在一处 ✓（`props.xl.md` 的 `MaxProtoDepth` ✓）——
+  // 自己再走一趟就是第二处会漂的环保护 ✓。
+  // **两边都不是对象就答假** ✓（JS 的口径 ✓：`Object.prototype.isPrototypeOf(1)` 是假 ✓，
+  // 而 `1..isPrototypeOf({})` 也是假 ✓——原始值身上没有原型链可走 ✓）。
+  if (args.length < 1 || !args[0].IsObject()) return Value.FromBool(false);
+  if (!self.IsObject()) return Value.FromBool(false);
+  return Value.FromBool(RtChainHas(table, args[0], self.Ref));
+}
 if (id === ObjectIsSealed || id === ObjectIsFrozen) {
   // **两个问法共用一张底牌** ✓（第 276 轮 ✓）：**先问「标记在不在」** ✓——
   // 少了这一问，空对象会因为「每个自有属性都不可配置」**真空成立**而答**真** ✗
@@ -2602,7 +2708,21 @@ if (id === ObjectIsSealed || id === ObjectIsFrozen) {
   // 所以这一支的**缺省是「真」** ✗，与别的内建那套「缺省给假」正好相反 ✓（写在明处 ✓）。
   if (args.length < 1 || !args[0].IsObject()) return Value.FromBool(true);
   if (!IsUnextensible(room, table, args[0])) return Value.FromBool(false);
-  if (id === ObjectIsSealed) return Value.FromBool(true);
+  if (id === ObjectIsSealed) {
+    // **`seal` 是两件事** ✓（第 304 轮修正 ✗）：**不可扩展** ✓ **且每一格都不可配置** ✓。
+    // 原来这一格只问了那个**标记** ✓ ⇒ `Object.preventExtensions({ x: 1 })` 之后
+    // `Object.isSealed` 答**真** ✗（JS 答**假** ✓——那一格还是可配置的 ✓）。
+    // 标记这一半是**必要的** ✓（空对象上「每格都不可配置」**真空成立** ✓，
+    // 少了它 `Object.isSealed({})` 会答真 ✗），但**不是充分的** ✗——两件事都要问 ✓。
+    // **内部标记不算自有属性** ✓（与 `isFrozen` 那一支同一条 ✓：它自己就是可写的 ✓）。
+    const sealedTarget = table.Get(args[0].Ref);
+    for (let i = 0; i < sealedTarget.Props.length; i++) {
+      const sealedProperty = sealedTarget.Props[i];
+      if (IsSealedMarkProperty(table, sealedProperty)) continue;
+      if ((sealedProperty.Flags & PropertyFlagConfigurable) !== 0) return Value.FromBool(false);
+    }
+    return Value.FromBool(true);
+  }
   // **`isFrozen` 再问一层** ✓：每个自有**数据**属性都不能可写 ✓
   //（访问器跳过 ✗——与 `freeze` / `seal` 那两支同一条 ✓）。
   const frozenTarget = table.Get(args[0].Ref);
@@ -4562,9 +4682,15 @@ const objectExtraNames: string[] = ["getOwnPropertyDescriptor", "definePropertie
   "isSealed", "isFrozen",
   // **第 291 轮补的一格** ✓（`isExtensible` ✓）——它与上面两格**共用同一张底牌** ✓
   //（见号那一段 ✓）。名字与号照旧**按下标配** ✓。
-  "isExtensible"];
+  "isExtensible",
+  // **第 304 轮补的两格** ✓（`setPrototypeOf` / `preventExtensions` ✓）——
+  // 号在 `419` / `420` ✓，名字与号**按下标配** ✓（错一格就是**静默**换语义 ✗）。
+  // 它们是第 304 轮加宽矩阵时**当场量到的** ✗（两条判据都在报
+  // `cannot call a non-closure value` ✓——那一族**有问的人、没有做的人** ✓）。
+  "setPrototypeOf", "preventExtensions"];
 const objectExtraIds: number[] = [ObjectGetOwnPropertyDescriptor, ObjectDefineProperties, ObjectSeal,
-  ObjectIsSealed, ObjectIsFrozen, ObjectIsExtensible];
+  ObjectIsSealed, ObjectIsFrozen, ObjectIsExtensible,
+  ObjectSetPrototypeOf, ObjectPreventExtensions];
 for (let i = 0; i < objectExtraNames.length; i++) {
   const extraKey = Value.FromString(table.CreateString(Units(objectExtraNames[i])));
   const extraTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(objectExtraIds[i], 0));
@@ -4987,6 +5113,12 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
   Value.FromString(table.CreateString(Units("hasOwnProperty"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectHasOwnProperty, 0)));
+// **`isPrototypeOf`**（第 304 轮 ✓）：与上面三格**同一条路** ✓（`Object.prototype` 上的方法 ✓、
+// **隐藏**挂上 ✓——`Object.keys({})` 必须还是空的 ✓）。**它与 `hasOwnProperty` 是同一族的两半** ✓：
+// 一个只问**自己**那一格 ✓、一个问**整条链**上有没有某一格 ✓。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
+  Value.FromString(table.CreateString(Units("isPrototypeOf"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectIsPrototypeOf, 0)));
 // **`Object.create` / `Object.getPrototypeOf`**（第 209 轮 ✓）：与 `keys` / `values` 那几张
 // **同一张对象** ✓（都是 `Object` 的静态方法 ✓），分派在 `InvokeGlobal` 里 ✓（那一支有 `table` ✓）。
 SetProperty(vm.Room(), NeverCall, table, objectObject,
