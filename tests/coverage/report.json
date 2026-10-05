@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 395,
+  "matrix": 396,
   "skipped": [
     {
       "id": "ex-decorators-on-class",
@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 88.5,
+  "progressPercent": 88.92,
   "layers": [
     {
       "layer": "runtime",
@@ -33,12 +33,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 80,
-      "pass": 70,
-      "blocked": 7,
+      "total": 81,
+      "pass": 72,
+      "blocked": 6,
       "differ": 3,
       "nodefail": 0,
-      "coverage": 87.5
+      "coverage": 88.89
     },
     {
       "layer": "stdlib",
@@ -109,12 +109,6 @@
       "layer": "exec",
       "title": "尖括号断言 `<T>expr`（与 `as` 同一个意思）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
-    },
-    {
-      "id": "ex-enum-in-switch",
-      "layer": "exec",
-      "title": "enum 当 switch 的分派键（**函数体里**用枚举名）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Kind"
     },
     {
       "id": "ex-object-literal-accessors",

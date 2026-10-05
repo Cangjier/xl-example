@@ -313,12 +313,25 @@ WalkChildren(body, (child) => {
 ```
 
 # method CollectDeclaredNames:(body:AstNode, out:Array<string>)=>void
-**这一层声明出来的名字**：变量、函数、参数（内层函数体不进去）。
+
+**这一层声明出来的名字**：变量、函数、参数、类、**枚举**（内层函数体不进去）。
 
 「名字出现在 `name` 字段上」这件事在投影里对 `VariableDeclaration` / `FunctionDeclaration` /
-`Parameter` 是一致的——所以这里仍然只认三种 `kind` 加一条字段约定，
+`Parameter` 是一致的——所以这里仍然只认几种 `kind` 加一条字段约定，
 **而不是枚举每一种可能带 `name` 的节点**（枚举漏一个就是少一个声明，
 后果是「以为是捕获、其实是本层变量」这种反过来的错）。
+
+**`EnumDeclaration` 是第 282 轮补进来的** ✗——漏了它的后果与上面那句**正好相反** ✗：
+不是「以为是捕获」，而是**「明明是本层声明的，却被当成不认识的名字」** ✓。
+症状很窄 ✓：**顶层用枚举是好的** ✓（那时 `BindName` 已经把名字放进了当前作用域 ✓），
+而**函数体里一提就报 `name is not a local or a capture: Color`** ✓
+（判据 `ex-enum-in-switch` 现场就是这句话 ✓）。**中间隔着一次「内层函数看外层」** ✗：
+那一趟要靠这张名单才认得出「这是捕获」✓，名单里没有它 ⇒ 这个引用**哪儿都不属于** ✗。
+
+**为什么不顺手把「所有带 `name` 的节点」都收进来** ✗（那正是这条注释一直在挡的事 ✓）：
+`InterfaceDeclaration` / `TypeAliasDeclaration` **带 `name` 却不产生运行期东西** ✓——
+收进来会让「类型名当值用」从**响亮地报错** ✓变成「读到一个空槽」✓（**静默错值** ✗）。
+所以这一格是**按 kind 一个一个点名** ✓，不是按字段约定 ✓。
 
 ```ts
 const kind = NodeKind(body);
@@ -329,7 +342,7 @@ const kind = NodeKind(body);
 // 排掉之后报的是 `name is not a local or a capture: AMBIENT` ✓，与真相一致 ✓。
 if (HasDeclareModifier(body)) return;
 if (kind === "VariableDeclaration" || kind === "FunctionDeclaration" || kind === "Parameter"
-  || kind === "ClassDeclaration") {
+  || kind === "ClassDeclaration" || kind === "EnumDeclaration") {
   const name = body["name"];
   if (name !== undefined && name !== null && typeof name === "object") {
     CollectPatternNames(name as AstNode, out);

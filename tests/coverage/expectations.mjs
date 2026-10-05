@@ -253,11 +253,21 @@ export const EXPECTATIONS = {
   // **顺带把一条老账修了** ✓：`samples/declarations.expected.tsast.json` 那份夹具
   // 钉着旧的投影形状 ✓，跟着补了两处 `token` ✓。
 
-  // ---- 组 2：枚举名在**函数体里**看不见（1 条）----
-  // `ex-enum-numeric` 一直是绿的 ✓（它在**文件顶层**用 `Color` ✓）；这一条把同一件事放进
-  // `function weight` 里 ✓ 就报 `name is not a local or a capture: Kind` ✗。
-  // 也就是说枚举的名字只进了**最外那一层**的名字表 ✓，函数那一层没有 ✗。
-  "ex-enum-in-switch": { expect: "blocked", why: "枚举名在**函数体里**看不见（`name is not a local or a capture: Kind`）——顶层用是好的。入口 `typescript-exec/scope.xl.md` 的 `CollectDeclaredNames` / `Hoist`" },
+  // ---- 组 2：枚举名在**函数体里**看不见（1 条）**第 282 轮清空了** ✓ ----
+  //
+  // **诊断写对了，但入口指错了半格** ✗（第 273 轮记的是 `CollectDeclaredNames` / `Hoist` ✓）：
+  // 真相是 **`CollectDeclaredNames` 那张 `kind` 名单漏了 `EnumDeclaration`** ✓——
+  // 与 `Hoist` 无关 ✗（枚举本来就不进提升 ✓，它像 `let` ✓，按书写位置降级 ✓）。
+  // **症状很窄** ✓：顶层用枚举是好的 ✓（那时 `BindName` 已经把名字放进当前作用域 ✓），
+  // 而**内层函数一提就报 `name is not a local or a capture`** ✓——
+  // 中间隔着一次「内层看外层」✓，那一趟要靠这张名单才认得出「这是捕获」✗。
+  // **为什么不能顺手把「所有带 `name` 的节点」都收进来** ✗：
+  // `InterfaceDeclaration` / `TypeAliasDeclaration` 带 `name` 却**不产生运行期东西** ✓，
+  // 收进来会把「类型名当值用」从**响亮地报错**变成「读到一个空槽」✗（**静默错值** ✓）。
+  //
+  // **同时加宽了一条** ✓：`ex-enum-in-nested-scopes` ✓（函数 / 箭头 / 立即调用 / 类方法
+  // 四种内层各来一个 ✓，外加反向映射 `N[1]` ✓——它证明进环境格的是**真那个枚举对象** ✓，
+  // 不是一个只带正向格子的影子 ✓）。
 
   // ---- 组 3：枚举的反向映射只认字面量（1 条）----
   // 第 230 轮自己写下的已知差 ✓（当时判据量不到 ✓）：`IsNumericInitializer` 只认

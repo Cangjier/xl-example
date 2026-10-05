@@ -1039,4 +1039,27 @@ class C extends B { get v(): number { return super.v + 100; } }
 console.log(new A().v, new B().v, new C().v);
 `,
   },
+  // **第 282 轮加宽（1 条）** ✓：这一条钉的是那一轮修好的形状 ✓——
+  // 枚举名在**内层作用域**里也要看得见 ✓（原来只有顶层看得见 ✓，
+  // 因为「这一层声明了哪些名字」那张名单漏了 `EnumDeclaration` ✓）。
+  // **四种内层各来一个** ✗（函数 / 箭头 / 立即调用 / 类方法 ✓）：
+  // 它们走的是同一条「内层看外层」的路 ✓，而那条路要**先认出这是捕获** ✓——
+  // 名单里没有它，这个引用就**哪儿都不属于** ✓（报 `name is not a local or a capture` ✓）。
+  // **反向映射也放进来** ✓（`N[1]` 给 `"A"` ✓）：它证明进环境格的是**真那个枚举对象** ✓，
+  // 不是一个只带正向格子的影子 ✓。
+  {
+    id: "ex-enum-in-nested-scopes",
+    title: "枚举名在内层作用域里可见（函数 / 箭头 / 立即调用 / 类方法）",
+    src: `
+enum Color { Red = "r", Blue = "b" }
+enum N { A = 1, B = 2 }
+function inFunction(): string { return Color.Red; }
+function inArrow(): number { return ((k: Color) => (k === Color.Blue ? 1 : 0))(Color.Blue); }
+function inIife(): number { return (function (): number { return N.A + N.B; })(); }
+function reverse(): string { return N[1]; }
+class Holder { kind = Color.Blue; get(): string { return this.kind; } }
+console.log(inFunction(), inArrow(), inIife(), reverse(), new Holder().get(), Color.Red);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
 ];
