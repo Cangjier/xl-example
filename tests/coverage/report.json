@@ -18,17 +18,17 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 89.69,
+  "progressPercent": 92.06,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 148,
-      "pass": 141,
-      "blocked": 5,
+      "pass": 143,
+      "blocked": 3,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 95.27
+      "coverage": 96.62
     },
     {
       "layer": "exec",
@@ -44,21 +44,21 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 154,
-      "pass": 142,
-      "blocked": 4,
+      "pass": 145,
+      "blocked": 1,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 92.21
+      "coverage": 94.16
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 10,
-      "blocked": 3,
+      "pass": 11,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 76.92
+      "coverage": 84.62
     }
   ],
   "blocked": [
@@ -67,18 +67,6 @@
       "layer": "runtime",
       "title": "具名函数表达式：名字只在函数体内可见",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: f"
-    },
-    {
-      "id": "prm-async-await",
-      "layer": "runtime",
-      "title": "async / await：顺序、返回值、await 一个非承诺",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "prm-async-throw",
-      "layer": "runtime",
-      "title": "async 函数里 throw ⇒ 返回的承诺被拒绝",
-      "detail": "tsrun: 脚本抛出：async-fail"
     },
     {
       "id": "gc-churn",
@@ -129,40 +117,16 @@
       "detail": "tsrun: 脚本抛出：unimplemented: this should throw a TypeError (read-only property)"
     },
     {
-      "id": "promise-constructor",
-      "layer": "stdlib",
-      "title": "`new Promise(executor)`：同步跑执行器、resolve / reject",
-      "detail": "tsrun: 脚本抛出：unimplemented: new Promise(executor)"
-    },
-    {
-      "id": "promise-chaining-errors",
-      "layer": "stdlib",
-      "title": "链上的错误：抛出来的会被下一段 catch 接住",
-      "detail": "tsrun: 脚本抛出：mid"
-    },
-    {
-      "id": "promise-async-await-forms",
-      "layer": "stdlib",
-      "title": "async 箭头函数 / 方法 / await 链",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: async method in a class"
-    },
-    {
       "id": "e2e-event-emitter",
       "layer": "e2e",
       "title": "事件总线：Map<string, 回调数组> + 闭包 + 剩余参数",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "e2e-async-workflow",
-      "layer": "e2e",
-      "title": "异步工作流：串行 / 并行 / 失败重试",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression AwaitKeyword"
-    },
-    {
       "id": "e2e-mixed-everything",
       "layer": "e2e",
       "title": "一锅端：类 + 生成器 + 承诺 + 异常 + 集合 + 解构",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: async method in a class"
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "differ": [
@@ -170,7 +134,7 @@
       "id": "prm-microtask-order",
       "layer": "runtime",
       "title": "微任务的顺序：同步先跑完，再按排队的先后",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+      "detail": "stdout 不同：第 4 行：node «4» vs tsrun «»"
     },
     {
       "id": "rt-surrogate-iteration",
@@ -209,6 +173,12 @@
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
     },
     {
+      "id": "promise-constructor",
+      "layer": "stdlib",
+      "title": "`new Promise(executor)`：同步跑执行器、resolve / reject",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：the script is waiting for a promise the host has not settled"
+    },
+    {
       "id": "json-stringify-replacer",
       "layer": "stdlib",
       "title": "JSON.stringify 的 replacer 数组与 toJSON",
@@ -231,16 +201,17 @@
       "layer": "stdlib",
       "title": "Function.prototype.toString 给源码文本",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
-      "id": "promise-then-value-and-throw",
-      "layer": "stdlib",
-      "title": "then 回调的返回值 / 抛错两条路",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：mid"
     }
   ],
   "bad": [],
-  "moved": [],
+  "moved": [
+    {
+      "id": "promise-constructor",
+      "layer": "stdlib",
+      "why": "`new Promise(执行器)` 的执行器已经会同步跑了，差的是「`resolve` 被当普通函数调时怎么知道它管哪个承诺」——下一轮让它绑定过（承诺写进实参表第一格）",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：the script is waiting for a promise the host has not settled"
+    }
+  ],
   "newlyPassing": [],
   "regressions": []
 }

@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, PromiseState } from "../../runtime/heap.xl.md"
 import { RoomChecker } from "../../runtime/rt.xl.md"
 import { Protos, SetProperty, GetProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
-import { Vm, TaskScheduler, TaskSettler } from "../../runtime/vm.xl.md"
+import { Vm, TaskScheduler, TaskSettler, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Units, NeverCall } from "./array.xl.md"
 import { NameValue } from "./map.xl.md"
 ```
@@ -74,6 +74,71 @@ import { NameValue } from "./map.xl.md"
 
 **`Promise.race` 的第一步** ✓。
 
+# const PromiseResolveCallbackId:int = 240
+
+**执行器拿到的那个 `resolve`** ✓（第 285 轮 ✓）——`new Promise((resolve) => resolve(5))` ✓。
+
+**它不是静态方法** ✗：与 `PromiseAllStepId` / `PromiseRaceStepId` 那两步同一条形状 ✓
+（语言层自己造的宿主回调 ✓，由 `InvokePromise` 分派回来 ✓）。
+**漏了这一支的症状**是 `unimplemented: promise builtin id 240` ✗
+——那句话听起来像「有个静态方法没实现」✗，其实是「执行器递出去的那个函数没人接」✓。
+
+# const PromiseRejectCallbackId:int = 241
+
+**执行器拿到的那个 `reject`** ✓（第 285 轮 ✓）——`new Promise((_r, reject) => reject("no"))` ✓。
+
+# method MakeSettleCallback:(table:HeapTable, promise:Value, rejected:bool)=>Value
+
+**造一个「结清这个承诺」的宿主回调** ✓（第 285 轮 ✓）——执行器的两个形参就是它 ✓。
+
+**两个号、一份实现** ✗：`resolve` 与 `reject` 只差**认哪一档** ✓，
+所以它们落在号段里相邻的两个号上 ✓（240 = 兑现 ✓、241 = 拒绝 ✓）、
+由 `InvokePromise` 分成两支 ✓——**写成两份实现就是两处会漂** ✗
+（而漂的症状正是「`reject` 之后 `resolve` 又生效」✓，那是 JS 里**明令**不许的 ✓：
+承诺结清一次就定死了 ✓）。
+
+**「哪一个承诺」藏在宿主引用的 `Opaque` 那一格里** ✗：宿主引用值自己带着一个整数 ✓
+（`CreateHostRef(号, 不透明值)` ✓）——于是**不必**给这一族再开一张表 ✓，
+与 `bind` 造出来的那个通知对象同一个手法 ✓（`globals.xl.md` 的 `BoundCall` ✓）。
+
+**`Opaque` 收的是句柄、不是值** ✓：`Value` 是「标签 + 下标」两格 ✓，
+而 `Opaque` 只有一格 ✓——收句柄、用的时候现包一个值 ✓（见 `SettleOfCallback` ✓）。
+
+**它还差一步（第 286 轮量清、下一轮做）** ✗：脚本里 `resolve` 是**当普通函数**调的 ✓
+（`(resolve) => resolve(1)` ✓，**没有接收者** ✓），而这一族读的是
+**接收者**那一格 ✓（`InvokePromise` 的 `self` ✓）——于是 `self` 是 `undefined` ✓，
+宿主读 `self.Tag` 报 `Cannot read properties of undefined (reading 'Tag')` ✗，
+那一抛被抬成脚本异常 ✓ ⇒ 这个新承诺被**拒绝** ✗ ⇒
+宿主说「脚本挂着等一个它没结清的承诺」✓（**看起来像运行器卡住** ✗）。
+**两条候选**（都试过、都差最后一步 ✗）：① 引擎那条 `InvokeCallback` 多收一格
+**接收者** ✓（`invoke(executor, self, args)` ✓，本轮加了 ✓）——可 `resolve` 是**脚本自己**
+调的 ✓，`self` 由**那条调用**决定 ✓，给执行器一个接收者**传不到它身上** ✗；
+② 让 `MakeSettleCallback` 造一个**绑定过的**值 ✓（把承诺写进实参表第一格 ✓，
+宿主分派那一支读 `args[0]` ✓）——这条路要用 `bind` 那条already有的机关 ✓，
+是下一轮最短的一步 ✓。
+
+```ts
+return Value.FromRef(ValueTag.HostRef, table.CreateHostRef(
+  rejected ? PromiseRejectCallbackId : PromiseResolveCallbackId, promise.Ref));
+```
+
+# method SettleOfCallback:(table:HeapTable, self:Value)=>Value
+
+**从一个结清回调里读回它管的那个承诺** ✓（第 285 轮 ✓）。
+
+**读不到就响亮地抛** ✗（不静默给 `undefined` ✓）：能走到这一支的
+只可能是「语言层自己造的回调」✓——读不到就是**建库层或引擎的 bug** ✓，
+不是脚本写错了 ✓（与 `get_index` 那条「形状不对就抛」同一条纪律 ✓）。
+
+```ts
+if (self.Tag !== ValueTag.HostRef) {
+  throw new Error("unimplemented: a promise settle callback needs its host reference");
+}
+const payload = table.Get(self.Ref).Host;
+if (payload === null) throw new Error("unimplemented: a promise settle callback without a payload");
+return Value.FromObject(payload.Opaque);
+```
+
 # method MakePromise:(room:RoomChecker, table:HeapTable, state:int, settled:Value)=>Value
 
 **造一个承诺，并把两个方法挂在它自己身上** ✓。
@@ -125,7 +190,7 @@ return GetProperty(room, NeverCall, protos, table, object,
   Value.FromString(table.CreateString(Units(name))));
 ```
 
-# method InvokePromise:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, schedule:TaskScheduler | null, settle:TaskSettler | null)=>Value
+# method InvokePromise:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, schedule:TaskScheduler | null, settle:TaskSettler | null, invoke:InvokeCallback | null, takeThrown:ThrownTaker | null)=>Value
 
 **承诺族的实现**（号段 230..239 ✓，由 `install.xl.md` 那一层分派到这儿 ✓）。
 
@@ -141,6 +206,26 @@ return GetProperty(room, NeverCall, protos, table, object,
 // ——那句话听起来像「有个静态方法没实现」✗，其实是「回调没人接」✓。
 if (id === PromiseAllStepId) return PromiseAllStep(room, table, protos, self, args, settle);
 if (id === PromiseRaceStepId) return PromiseRaceStep(room, table, protos, self, args, settle);
+// **执行器递出去的那两个也要接住** ✓（第 285 轮 ✓）：它们与上面那两步**同一条形状** ✓
+// ——语言层自己造的宿主回调 ✓，回到这个分派 ✓。
+// **「哪一个承诺」在 `self` 里** ✓：`MakeSettleCallback` 把它写进了宿主引用的 `Opaque` ✓
+// ——**不是**实参 ✓（脚本调 `resolve(5)` 时那一个实参是**兑现值** ✓）。
+if (id === PromiseResolveCallbackId) {
+  if (settle === null) {
+    throw new Error("unimplemented: a promise settle callback needs the settle channel");
+  }
+  const value = args.length > 0 ? args[0] : Value.Undefined();
+  settle(SettleOfCallback(table, self), value, false);
+  return Value.Undefined();
+}
+if (id === PromiseRejectCallbackId) {
+  if (settle === null) {
+    throw new Error("unimplemented: a promise settle callback needs the settle channel");
+  }
+  const reason = args.length > 0 ? args[0] : Value.Undefined();
+  settle(SettleOfCallback(table, self), reason, true);
+  return Value.Undefined();
+}
 if (id === PromiseResolve) {
   const value = args.length > 0 ? args[0] : Value.Undefined();
   return MakePromise(room, table, PromiseState.Fulfilled, value);
@@ -245,11 +330,52 @@ if (id === PromiseFinally) {
   return result;
 }
 if (id === PromiseCtor) {
-  // **执行器还不做** ✗：`new Promise(exec)` 要**同步**调 `exec(兑现函数)` ✓，
-  // 而这一档的工具今天只有属性与承诺两样 ✓（那条路要「造两个宿主回调 + 同步重入」✓，
-  // 单独立一轮 ✓）。**给了执行器就响亮地抛** ✓，不静默给一个永远不结清的承诺 ✗。
-  if (args.length > 0) {
-    throw new Error("unimplemented: new Promise(executor)");
+  // **`new Promise(执行器)`** ✓（第 285 轮 ✓）：执行器要**同步跑一次** ✓
+  //（JS 的口径 ✓：`new Promise((r) => { console.log("x"); r(1) })` 在**这一句**里印 `x` ✓），
+  // 拿到两个**结清回调** ✓——`(resolve, reject)` ✓。
+  //
+  // **执行器自己抛 ⇒ 结果承诺被拒绝** ✓（JS 的口径 ✓）：那一抛不能变成宿主错误 ✗
+  //（`new Promise(() => { throw new Error("x") }).catch(e => …)` 在 Node 里接得住 ✓）。
+  // 判据是引擎给的 `TakeThrown` ✓（见 `vm.xl.md` ✓）——**不是**一个宿主 `try` ✗：
+  // 脚本异常在本仓里**不是**宿主异常 ✓（它从 `CallNative` 里出来时状态已经变了 ✓，
+  // 值留在 `Pending` 里 ✓）——用宿主 `try` 接只会接到引擎内部的 bug ✓。
+  //
+  // **没有执行器 ⇒ 一个永远等着的承诺** ✓（`new Promise()` 在 JS 里是 `TypeError` ✓，
+  // 而那一条**响亮的报**留给判据 ✓——引擎这一格不替它决定 ✓）。
+  //
+  // **没接通道就响亮地抛** ✗（与 `.then` 那几支同一条纪律 ✓）：
+  // 静默给一个永远不结清的承诺是最难查的一种 ✓。
+  if (args.length > 0 && args[0].Tag !== ValueTag.Undefined) {
+    if (invoke === null) {
+      throw new Error("unimplemented: new Promise(executor) needs the invoke channel (the host did not provide it)");
+    }
+    if (settle === null) {
+      throw new Error("unimplemented: new Promise(executor) needs the settle channel");
+    }
+    if (takeThrown === null) {
+      throw new Error("unimplemented: new Promise(executor) needs the thrown channel");
+    }
+    const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+    const onFulfilled = MakeSettleCallback(table, result, false);
+    const onRejected = MakeSettleCallback(table, result, true);
+    const executor = args[0];
+    const pair: Value[] = [];
+    pair.push(onFulfilled);
+    pair.push(onRejected);
+    // **执行器按方法调**（`invoke` 是引擎那条「同步调一个脚本值」的通道 ✓）：
+    // 接收者给**那个承诺本身** ✓、实参是 `(resolve, reject)` ✓。
+    //
+    // **接收者还没解决问题** ✗（第 286 轮量清 ✓）：脚本里 `resolve` 是**自己当普通函数**
+    // 调的 ✓（`(resolve) => resolve(1)` ✓），所以执行器有接收者**传不到 `resolve` 身上** ✗
+    // ——真相写在 `MakeSettleCallback` 那一段（两条候选与下一轮最短的一步 ✓）。
+    invoke(executor, result, pair);
+    // **执行器抛出来的那一抛：把结果拒绝掉** ✓（`takeThrown` 取走即清 ✓，
+    // 顺手把状态放回去 ✓——外层那一段脚本还要接着跑 ✓）。
+    const thrown = takeThrown();
+    if (thrown.Tag !== ValueTag.Undefined) {
+      settle(result, thrown, true);
+    }
+    return result;
   }
   return MakePromise(room, table, PromiseState.Pending, Value.Undefined());
 }

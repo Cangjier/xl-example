@@ -5233,18 +5233,18 @@ for (let i = 0; i < members.length; i++) {
   if (OptionalChild(member, "body") === null) continue;
   // **静态成员的落点是构造函数自己**，不是原型（下面那个 `target` 就是这一条）。
   const isStatic = this.HasModifier(member, "StaticKeyword");
-  // **生成器方法与 `async` 方法收下了** ✓（第 229 轮 ✓）：它们与普通方法的区别**只在
-  // `PendingFunction` 那三格标记上** ✓（`IsGenerator` / `IsAsync` ✓）——而
-  // `LowerFunctionValue` 现在**自己从树上读** ✓（那一段写着为什么 ✓）。
+  // **生成器方法与 `async` 方法收下了** ✓（第 229 轮收的生成器 ✓、第 285 轮收的 `async` ✓）：
+  // 它们与普通方法的区别**只在 `PendingFunction` 那三格标记上** ✓
+  //（`IsGenerator` / `IsAsync` ✓）——而 `LowerFunctionValue` 现在**自己从树上读** ✓
+  //（那一段写着为什么 ✓）。
   //
-  // 原来这里对两者**响亮地抛** ✗（比静默当成普通方法好 ✓——生成器体里那对
-  // `suspend` / `resume` 落在一个普通帧上会**静默挂死** ✗）。可这两条写法在类里很正常 ✓
-  //（判据 `e2e-mixed-everything` 就是一个 `*keys()` ✓），而机制**早就有了** ✓：
-  // 函数声明与函数表达式那两条路第 129 轮就把 `*` 收下了 ✓，只是**方法与它们差了那三句** ✗
-  //（**同一个形状三处各写一遍** ✗）。
-  if (this.NodeIsAsync(member)) {
-    throw new Error("unimplemented: async method in a class");
-  }
+  // **`async` 那一支原来在这儿响亮地抛** ✗（第 229 轮留下的那一句 ✓）：
+  // 抛的理由当时是对的 ✓（引擎还不认识 async 帧 ✓，静默当成普通方法会**挂死** ✗），
+  // 可**标记那三句早就在 `LowerFunctionValue` 里了** ✓——
+  // 这一句只是「没人把另一半做掉」的那一半 ✓（`e2e-mixed-everything` 卡的就是它 ✓）。
+  // **删掉它就是全部** ✓：类方法、对象方法、箭头、函数声明四条路**共用同一段** ✓，
+  // `DoCallMethod` 与 `DoCallValue` 也**共用同一个** `DoCallValue` ✓
+  //（`this` 的来处不同 ✓、开帧那一段一模一样 ✓）。
   const memberName = Child(member, "name");
   // **私有名也是成员名**（第 195 轮 ✓）：`#m()` 那一格的 kind 是 `PrivateIdentifier` ✓，
   // 与私有**字段**（`#n = 1` ✓，第 128 轮就通了 ✓）走的是同一条路 ✓——

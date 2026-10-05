@@ -235,7 +235,33 @@ if (unit instanceof Identifier) {
     // **与一元那份对齐**（第 167 轮）✓：`typeof` / `void` / `delete` 也**不算操作数** ✓——
     // 不排的话 `typeof typeof x === "string"` 会被折成 `typeof (x === "string")` ✗，
     // 而那是**值都变了** ✗（Node 给 `true` ✓、本仓给 `"boolean"` ✗）。
-    // **`new` / `await` 照旧不排** ✗（第 288 行那段写着理由 ✓：`new X * 2` 是合法乘法 ✓）。
+    // **`new` / `await`**：第 288 行那段写着 `new` 为什么**不能排**（`new X * 2` ✓）。
+    // **`await` 是第 286 轮量出来的反例** ✗——它**必须排** ✓，而且这一条与
+    // `yield` 那条（上面）**同一条理由** ✓：`await` 是**前缀运算符** ✓，
+    // 永远不是某个二元运算符的右操作数 ✓——`t += await f(1)` 在 JS / TS 里是
+    // `t += (await f(1))` ✓，而这里认了它，`+` 就会把 `await` **整格吃掉** ✗。
+    //
+    // **吃掉之后的样子**（实测 `tmp-ast3.ts` 的 XML ✓）：
+    //
+    // ```
+    // <Identifier>t</Identifier>
+    // <SymbolToken>=</SymbolToken>
+    // <BinaryOperator op="+"><Identifier>t</Identifier><SymbolToken>+</SymbolToken><Keyword>await</Keyword></BinaryOperator>
+    // <Method name="f">…</Method>          ← **`f(1)` 掉在运算符外面** ✗
+    // ```
+    //
+    // 于是投影那边 `Keyword(await)` 的**下一格不是它的操作数** ✓
+    //（操作数在二元运算符外面 ✓），合成不出来 `AwaitExpression` ✓——
+    // 投出来的是 `AwaitKeyword` ✓，降级层报
+    // `unimplemented: expression AwaitKeyword` ✓（**离现场很远** ✗：
+    // 那句话听起来像「`await` 没人支持」✗，而 `const a = await f()` **一直是好的** ✓）。
+    //
+    // **为什么 `yield` 早就排了、`await` 却漏了** ✗：`yield` 那一条是当年实测补的 ✓
+    //（`yield a + b` 与 `t += yield f()` 同一个形状 ✓），`await` 是**同一个形状的另一个词** ✓
+    //——两条判据本该一起写 ✓（**同一个形状两处各写一遍就是两处会漂** ✗，
+    // 这一格漂了整整一个版本 ✓：`for (const n of xs) total += await f(n)`
+    // 是**最普通的一种 async 写法** ✓）。
+    text === "await" ||
     text === "typeof" ||
     text === "void" ||
     text === "delete"

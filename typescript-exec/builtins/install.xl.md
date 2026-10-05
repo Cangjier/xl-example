@@ -4,11 +4,11 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
-import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper } from "../../runtime/vm.xl.md"
+import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
-import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId } from "./promise.xl.md"
+import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId } from "./promise.xl.md"
 import { ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
@@ -54,7 +54,7 @@ if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args, k
 throw new Error("unimplemented: builtin id " + id);
 ```
 
-# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null, failed:CallFailed | null = null, constructing:bool = false)=>Value
+# method InvokeWithSink:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, call:NativeCall | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, drain:IteratorDrain | null = null, keep:RootKeeper | null = null, failed:CallFailed | null = null, constructing:bool = false, invoke:InvokeCallback | null = null, takeThrown:ThrownTaker | null = null)=>Value
 
 **宿主实际接的那个通道**：带 `sink` 的总分派。
 
@@ -75,15 +75,22 @@ throw new Error("unimplemented: builtin id " + id);
 「上一次重入没跑完」的查询 ✓——只有**跑回调**的那几处收它 ✓
 （数组那一块 ✓、`Map` / `Set` 的 `forEach` ✓、`Array.from` 的映射 ✓）。
 
+**`invoke` 是第 285 轮加的第七样** ✓（`InvokeCallback` ✓，见 `vm.xl.md` ✓）：
+「**同步**调一个脚本值」✓——`new Promise(执行器)` 那一格要用它 ✓
+（执行器必须**当场**跑一次 ✓，而 `call` 那个通道是**反的** ✗：它是宿主被调 ✓，
+不是内建主动调 ✓）。与前面六样**同一条纪律** ✓：只有承诺那一块收它 ✓。
+
 ```ts
 // **集合那一段要原型表**（它们造普通对象与数组）——`NeverCall` 是写数据属性时的现成空实现。
 // **段内再分段，按窄到宽判，避免重叠**：`Map` 是 600..610（含第 116 轮的 `forEach`），
 // `Set` 是 611..659（其号从 `SetCtor = 611` 起，610 一直空着）。
 // **边界要写成 611 而不是 610** ✗：写成 610 会把 `Map.forEach` 误判成 Set 的（第 116 轮实测：
 // 报的是 `unimplemented: set id 610`，离现场很远）。
-// **承诺那一段排在集合之前**（第 185 轮 ✓）：230..239 是**全局段里的一个窄段** ✓，
+// **承诺那一段排在集合之前**（第 185 轮 ✓）：230..241 是**全局段里的一个窄段** ✓，
 // 按窄到宽判 ✓（写反了会被下面的全局段截走 ✗，症状是「Promise.resolve 报别的号」✗）。
-if (id >= 230 && id < 240) return InvokePromise(room, table, protos, id, self, args, schedule, settle);
+// **240 / 241 是第 285 轮加的**（执行器拿到的 `resolve` / `reject` 两个宿主回调 ✓）——
+// 它们**不是静态方法** ✓，与 `238` / `239` 那两步回调同一条形状 ✓。
+if (id >= 230 && id < 242) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
 // **「一个可迭代物 → 一个数组」这件家务事留在这一层** ✓（不放进 `map.xl.md` / `set.xl.md` ✗）：
@@ -930,6 +937,19 @@ InstallString(host.Machine, protos);
 // （**不加进名单的症状是 `capability is not registered: 231`** ✗）。
 const promiseSlots = [PromiseResolve, PromiseReject, PromiseAll, PromiseRace,
   PromiseAllStepId, PromiseRaceStepId,
+  // **`then` / `catch` / `finally` 三格是第 285 轮加的** ✓（它们原来**不在名单里** ✗）：
+  // 引擎现在**自己造** async 帧的那个承诺 ✓（`vm.xl.md` 的 `MakeAsyncPromise` ✓）——
+  // 而它挂上去的三个方法值**是引擎造的宿主引用** ✓，那个号**必须已经在能力表里** ✓，
+  // 否则 `.then` 读得到、调不了 ✓（**报的是 `capability is not registered: 235`** ✗）。
+  //
+  // **症状与建库层那条不一样、更难查** ✗：建库层造的承诺一直好好的 ✓
+  //（`Promise.resolve(1).then(f)` 从头到尾都对 ✓）——**只有 `async` 函数返回的那个**缺方法 ✓，
+  // 于是 `f().then(…)` 报「调了一个不是函数的东西」✓（听起来像脚本写错了 ✗）。
+  PromiseThen, PromiseCatch, PromiseFinally,
+  // **执行器那两格同理** ✓（第 285 轮 ✓）：它们也是**引擎造的宿主引用** ✓
+  //（`MakeSettleCallback` ✓），而且是在 `new Promise(执行器)` **跑起来的那一刻**才造的 ✓
+  //——漏了这两格，`new Promise((r) => r(1))` 报 `capability is not registered: 240` ✗。
+  PromiseResolveCallbackId, PromiseRejectCallbackId,
   // **符号的 `toString`**（第 277 轮 ✓）：与上面那几格同一个理由 ✓——
   // 它的值是**引擎在 `get_prop` 那一处造出来的** ✓（`HostRef(SymbolToString)` ✓，
   // 见 `vm.xl.md` 的 `ToStringKey` ✓），而那个号**必须已经在能力表里** ✓，

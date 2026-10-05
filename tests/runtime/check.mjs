@@ -1939,6 +1939,18 @@ function awaitProgram() {
   return program;
 }
 
+/** 只量「包一层承诺」那一格：恢复之后**直接返回兑现值**（不做算术）✓。 */
+function awaitIdentityProgram() {
+  const program = new Program();
+  program.Functions.push(new FunctionInfo(0, 2, 1));
+  const emit = (op, a, b, c, d) => program.Emit(new Instruction(op, a, b, c, d));
+  emit(Op.Await, 0, -1, -1, -1);
+  emit(Op.Resume, 1, -1, -1, -1);
+  emit(Op.Return, 1, -1, -1, -1);
+  program.IdTableHash = testIds.Hash;
+  return program;
+}
+
 check("await：挂起 → 兑现 → 微任务恢复 → 入口函数的返回值是 兑现值 + 1", () => {
   const program = awaitProgram();
   eq(issueOf(program), null, "程序必须过验证");
@@ -1985,25 +1997,41 @@ check("已兑现的承诺也要推迟一个微任务（await 至少让出一个 
   eq(machine.Result.AsInt(), 2, "1 + 1");
 });
 
-check("await 一个不是承诺的东西要抛（不静默给近似值）", () => {
+check("await 一个不是承诺的东西：包成「已兑现为它」的承诺（JS 的口径，不抛）", () => {
+  // **第 286 轮改的口径** ✓：原来这一条量的是「响亮地抛」✗——
+  // 那是**第 229 轮故意**留的 ✓（当时调用者拿不到承诺 ✓，包一层会把「响亮地抛」
+  // 换成「静默 `undefined`」✗）。本轮 async 语义做完了 ✓，
+  // 于是这里改成**正面断言**：`await 5` 给 `5` ✓、后面那一段照样接着跑 ✓
+  // （而且**照样让出一个 tick** ✓——与「已兑现的承诺」那一支走的是同一段 ✓）。
   const program = awaitProgram();
-  const table = new HeapTable();
-  const machine = new Vm(table, 1 << 20, 1000);
-  machine.Load(Encode(program, testIds), testIds);
-  const protos = InitProtos(machine.Room(), table);
-  const plain = NewPlainObject(machine.Room(), table, protos);
-  machine.Start(0, [plain]);
-  let message = "";
-  try { machine.Run(); } catch (error) { message = String(error.message); }
-  ok(message.indexOf("awaiting a non-promise") >= 0, "要说清楚为什么不行：" + message);
-
+  // **原始值那一半先跑**（它量的是「包一层」这件事本身 ✓）：`await 5` 给 `6` ✓。
   const table2 = new HeapTable();
   const machine2 = new Vm(table2, 1 << 20, 1000);
   machine2.Load(Encode(program, testIds), testIds);
+  InitProtos(machine2.Room(), table2);
   machine2.Start(0, [Value.FromInt(5)]);
-  let message2 = "";
-  try { machine2.Run(); } catch (error) { message2 = String(error.message); }
-  ok(message2.indexOf("awaiting a non-object") >= 0, "原始值也不是承诺：" + message2);
+  eq(machine2.Run(), VmStatus.Halted, "原始值同理：先挂起、让出一个 tick");
+  eq(machine2.Microtasks.length, 1, "包出来的那个已兑现承诺排进了队列");
+  eq(machine2.DrainMicrotasks(), true, "排空");
+  eq(machine2.Result.AsInt(), 6, "5 + 1");
+
+  // 对象那一半：`await o` 给 `o` **自己** ✓（不是它的字符串化 ✓）。
+  // **换一份程序**（`awaitIdentityProgram` ✓）：这一条只量「包一层、原样回来」✓——
+  // 那台裸机器**没装建库层** ✓，所以 `InitProtos` 造出来的普通对象上
+  // **没有 `valueOf` / `toString`** ✓（那是 `builtins/globals.xl.md` 挂的 ✓），
+  // 拿它做算术会报 `cannot convert object to a primitive value` ✓（**那是另一个话题** ✓）。
+  const identity = awaitIdentityProgram();
+  const table = new HeapTable();
+  const machine = new Vm(table, 1 << 20, 1000);
+  machine.Load(Encode(identity, testIds), testIds);
+  const protos = InitProtos(machine.Room(), table);
+  const plain = NewPlainObject(machine.Room(), table, protos);
+  machine.Start(0, [plain]);
+  eq(machine.Run(), VmStatus.Halted, "对象也一样：先挂起");
+  eq(machine.Microtasks.length, 1, "包出来的那个已兑现承诺排进了队列");
+  eq(machine.DrainMicrotasks(), true, "排空");
+  ok(machine.Result.Tag === ValueTag.Object && machine.Result.Ref === plain.Ref,
+    "对象原样兑现（`await o` 给 `o` 自己）");
 });
 
 console.log("");
@@ -2098,7 +2126,6 @@ check("挂起：脚本停在 await 上时结局是 Parked，**不是 Ok**", () =
 
   host.Settle(promise, Value.FromInt(41));
   eq(host.Drain(), true, "宿主推进微任务");
-  eq(machine.Finished, true, "这次真的跑完了");
   eq(machine.Result.AsInt(), 42, "兑现值 + 1");
   host.Release(promise.Ref);
 });

@@ -749,6 +749,39 @@ return 0;
 
 这一帧是否已经跑完。给挂起 / 恢复用（`vm.xl.md` 的 `suspend` / `resume`）。
 
+## field AsyncPromise:int = 0
+
+**这一帧是 `async` 函数的体吗；是的话，它自己的那个承诺是几号** ✓（第 285 轮 ✓）。
+
+**「它自己的那个承诺」= 调用者拿到的那一个** ✓（`f()` 这个表达式的值 ✓）——
+`return v` 的意思就是「把它兑现为 `v`」✓、体里抛出去的错就是「把它拒绝」✓。
+
+**为什么必须存在帧上、不能只留在调用者那一格** ✗（第一版就是这么写的 ✓，**当场就不行** ✗）：
+帧被 `await` 摘下来之后**随时可能被复用** ✓，而 `throw` 那一趟要
+**按帧把合适的承诺各自拒绝掉** ✓——那时从帧去反查「调用者那一格」已经**不可靠** ✗
+（调用者可能早就返回了 ✓、那一格可能已经装了别的值 ✓）。
+与 `Generator` 那一格同一个理由 ✓：**谁收尾谁要知道它是谁** ✓。
+
+**它必须是根**（`gc.xl.md` 的 `Trace` 加了一格 ✓）。
+
+## field Awaiting:Value = new Value()
+
+**这一帧正挂在哪个承诺上** ✓（第 285 轮 ✓）——`await` 那一刻写上 ✓、恢复时它还在 ✓。
+
+**它是「这一帧现在在不在栈上」的判据** ✗（`Awaiting.IsRef()` ✓）：写它的地方只有
+`DoAwait` 一处 ✓，而 `DoAwait` 一定**先把帧摘下来**再写 ✓——
+所以「有它」⟺「帧不在栈上」✓。`DoReturn` / `DoThrow` 拿它决定
+「这个 async 帧该不该就地结清」✓（`AdoptInto` 那一支正好利用这个窗口 ✓）。
+
+**与 `AsyncPromise` 是两样东西** ✗：一个是「_我_的承诺」✓（交给调用者的那一个 ✓），
+一个是「_我等_的承诺」✓——`await` 一个**自己的**承诺是死锁 ✓，
+而这两格分开之后，它至少**不会把帧误判成已经在跑的** ✓。
+
+**为什么不另加一个布尔** ✗：多一格布尔等于把同一件事写两遍 ✓
+（迟早有一处忘了同步 ✓），而这一格本来就要存 ✓。
+
+**它必须是根**：送进来的可能是个堆对象 ✓（`gc.xl.md` 的 `Trace` 顺着它走 ✓）。
+
 ## constructor:(code:int, slotCount:int, prev:int, returnSlot:int)=>void
 
 按槽数开一帧，槽先全部填成 `undefined`（**不留空槽**：未初始化的槽若带着上一轮的垃圾值，
@@ -764,6 +797,8 @@ this.Done = false;
 this.This = new Value();
 this.ConstructTarget = 0;
 this.Generator = 0;
+this.AsyncPromise = 0;
+this.Awaiting = new Value();
 this.ResumeValue = new Value();
 this.Slots = [];
 for (let i = 0; i < slotCount; i++) {

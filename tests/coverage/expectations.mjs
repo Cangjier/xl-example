@@ -36,8 +36,21 @@ export const EXPECTATIONS = {
   // ——与 Node 逐字节相同 ✓。
   "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
   // **第 247 轮删掉了 `prm-combinators` 那一行** ✓（它过了 ✓）：差的是 `Promise.all` 里**不是承诺的那几项** ✓（`Promise.all([Promise.resolve(1), Promise.resolve(2), 3])` ✓——第三项是裸数字 ✓）。JS 对每一项先做一次 `Promise.resolve` ✓；而这里原来把它**直接交给调度器** ✗ ⇒ 那一格永远不会被触发 ✓ ⇒ `remaining` 减不到 0 ✓ ⇒ 结果承诺**永不结清** ✓（打出 `1,2,` ✓，Node 给 `1,2,3` ✓）。**静默错值** ✓。
-  "prm-async-await": { expect: "blocked", why: "`await` 一个**不是承诺**的值" },
-  "prm-async-throw": { expect: "blocked", why: "`async` 函数里 `throw` 没有变成返回承诺的**拒绝**" },
+  // **第 286 轮删掉了 `prm-async-await` 那一行** ✓（它过了 ✓）：`async` 的三条语义差
+  // （`lowering.xl.md` 文首那张表 ✓）这一轮**一起**做掉了 ✓——
+  // ① 调用者立刻拿到承诺 ✓（`DoCallValue` 的 async 那一支：承诺在**开帧那一刻**就造好 ✓、
+  // 当场写进调用者那一格 ✓，帧的 `ReturnSlot` 给 `-1` ✓）；
+  // ② `return v` / 体里抛的错 = 那个承诺**兑现 / 拒绝** ✓（`DoReturn` 与 `DoThrow`
+  // 各认 `AsyncPromise` 那一格 ✓）；③ `await` 一个**不是承诺**的值 ✓
+  // （包一个已兑现的承诺 ✓、照样让出一个 tick ✓，见 `DoAwait` ✓）。
+  // **顺带撞出四处「只有这个形状才现形」的** ✗，四处都写进了规范 ✓：
+  // 实参被承诺盖掉（写承诺要在铺参数**之后** ✓）、`DoIterNext` 清掉机器级的 `Finished`
+  // （`DrainMicrotasks` 要连它一起还原 ✓）、`DoThrow` 拒绝之后**必须收摊**
+  // （不然「同步就抛的 async」会把整段脚本打断 ✓）、`MakeAsyncPromise`
+  // （引擎自己造的承诺也得带 `then` / `catch` / `finally` ✓）。
+  // **第 286 轮删掉了 `prm-async-throw` 那一行** ✓（它过了 ✓）：同一个根 ✓——
+  // `boom().catch(…)` 现在接得到 ✓，`try { await boom() } catch (e)` 也接得到 ✓
+  //（后者靠「只拒绝最里面那一个 async 帧」✓：外面那些要等拒绝顺着 `await` 传上去 ✓）。
   // **第 248 轮把这条的理由改准了** ✓（原来记的是「次序」✗，**量下来次序是对的** ✓）：
   // 判据是 `Promise.resolve().then(…)` 那一族 ✓，而**纯次序**那一面早就对 ✓——
   // 实测 `1 / 2 / 3 / 4` 三条普通 `.then` ✓ 与 Node 逐字节相同 ✓。
@@ -199,10 +212,28 @@ export const EXPECTATIONS = {
   //（「调一个数值要说清楚为什么不行」看的是那句 `non-closure` ✓、
   //  「没接上原型名字时要报出来」原来靠异常越过宿主那一层 ✓）——
   // 两条都改成看**新口径** ✓（结局是「脚本抛出」✓、话里仍然点名 ✓）。
-  "promise-constructor": { expect: "blocked", why: "`new Promise(执行器)` 没做（要同步跑一次执行器 + 造两个宿主回调）" },
-  "promise-chaining-errors": { expect: "blocked", why: "`.then` 回调里抛的错没接到拒绝链上" },
+  // **第 286 轮改成了「还差一步」** ✓（原来记 `blocked` ✓）：执行器**已经会同步跑了** ✓
+  //（`PromiseCtor` 那一支 ✓：造两个结清回调 ✓、`invoke(执行器, 承诺, [resolve, reject])` ✓、
+  // 执行器自己抛 ⇒ 结果承诺被拒绝 ✓）。**差的最后一步**是：脚本里 `resolve` 是
+  // **当普通函数**调的 ✓（`(resolve) => resolve(1)` ✓），而这一族读的是**接收者** ✓
+  //（`InvokePromise` 的 `self` ✓）⇒ `self` 是 `undefined` ✓ ⇒ 宿主读 `self.Tag` 抛 ✓
+  // ⇒ 那个新承诺被**拒绝** ✗ ⇒ 宿主说「脚本挂着等一个它没结清的承诺」✓
+  //（**看起来像运行器卡住** ✗）。**两条候选都写在 `promise.xl.md` 的 `MakeSettleCallback`**
+  // （本轮引擎那半边加了 `InvokeCallback` 的接收者格 ✓，可它传不到 `resolve` 身上 ✗；
+  // 下一轮最短的一步是让那个值**绑定过** ✓——把承诺写进实参表第一格 ✓，宿主读 `args[0]` ✓）。
+  "promise-constructor": { expect: "blocked", why: "`new Promise(执行器)` 的执行器已经会同步跑了，差的是「`resolve` 被当普通函数调时怎么知道它管哪个承诺」——下一轮让它绑定过（承诺写进实参表第一格）" },
+  // **第 286 轮删掉了 `promise-chaining-errors` 那一行** ✓（它过了 ✓）：
+  // `.then` 回调里抛的错现在**变成结果承诺的拒绝** ✓——
+  // 修在 `RunNativeTask` 那一处 ✓（回调跑完看 `Status === Threw` ✓ ⇒ 拒绝 ✓、
+  // 把状态放回去 ✓，否则 `.catch` 那一条链一步都不跑 ✗）。
   // **第 247 轮删掉了 `promise-all-kinds` 那一行** ✓（它过了 ✓，与 `prm-combinators` 同一处 ✓）：`Promise.all([1, Promise.resolve(2), "3"])` 从 `mixed ,2,` ✓ 变成 `mixed 1,2,3` ✓。修法就是**包一个已兑现的承诺** ✓（`MakePromise(…, Fulfilled, item)` ✓，与 `PromiseResolve` 那一支一字不差 ✓）——**不直接调一步** ✗：那样 `all` 与 `race` 要各写一遍 ✓，而且同步调与承诺结清后调的**次序**会不同 ✓。
-  "promise-async-await-forms": { expect: "blocked", why: "类里的 `async` 方法（`async method in a class`）" },
+  // **第 286 轮删掉了 `promise-async-await-forms` 那一行** ✓（它过了 ✓）：
+  // 类里的 `async` 方法原来在**降级期**响亮地抛 ✓（`unimplemented: async method in a class` ✓）。
+  // 那一句是第 229 轮**故意**留的 ✓（引擎那时还不认识 async 帧 ✓，静默当成普通方法会挂死 ✗），
+  // 而标记那三句（`IsGenerator` / `IsAsync` / `HasRest` ✓）**早就在 `LowerFunctionValue` 里** ✓
+  // ——四条路（函数声明 / 函数表达式 / 箭头 / 类方法）**共用同一段** ✓。
+  // **删掉那一句就是全部** ✓：`DoCallMethod` 与 `DoCallValue` 也共用同一个 `DoCallValue` ✓
+  //（`this` 的来处不同 ✓、开帧那一段一模一样 ✓）。
   // **第 232 轮删掉了 `global-boolean` 那一行** ✓（它过了 ✓）：
   // `new Boolean(false)` 在 JS 里是**真** ✓（任何对象都是真 ✓），
   // 而本仓原来把它按假算 ✗（`BooleanCtor` 只有「转真假」那一支 ✓）。
@@ -222,9 +253,18 @@ export const EXPECTATIONS = {
   // **`Object` 这一格是唯一用它的人** ✓（`Array` / `String` / `Function` 两档本来就同义 ✓）。
 
   // ===== e2e：几族合起来 =====
-  "e2e-event-emitter": { expect: "blocked", why: "类字段初始化器里引一个全局名（`new Map`）报「name used before its declaration」" },
-  "e2e-async-workflow": { expect: "blocked", why: "`await` 一个非承诺值 + `async` 方法（同前面两格）" },
-  "e2e-mixed-everything": { expect: "blocked", why: "**第 229 轮做掉了一半** ✓：类里的**生成器方法**（`*keys()`）现在降级得出来 ✓（原来整份文件进不来 ✗）——差的是同一个类里的 `async total(key)` ✗（`async method in a class` 照旧**响亮地抛** ✓）。**为什么 async 那一半不顺手做** ✗：`async` 的三条语义差写在 `lowering.xl.md` 文首 ✓——本仓的 `await` 挂的是**当前帧** ✓，所以调用者拿不到承诺 ✗；第 229 轮试过「把非承诺值包成已兑现承诺」那一半 ✓，判据**当场红两条** ✗（原来「响亮地抛」变成「静默 `undefined`」✗），于是退回来了 ✓。**那一整条要连着「async 函数返回承诺」一起做** ✗。" },
+  // **第 286 轮删掉了 `e2e-async-workflow` 那一行** ✓（它过了 ✓）：
+  // 它差的正是 async 那一整族 ✓（`await` 一个非承诺值 ✓、`for..of` 里的 `total += await f(n)` ✓、
+  // 类里的 `async` 方法 ✓）——本轮一起做掉了 ✓。
+  // **`e2e-mixed-everything` 从「降级期就抛」走到了「运行期同一个根」** ✓（见下面 ✓）。
+  "e2e-event-emitter": { expect: "blocked", why: "类字段初始化器里引一个全局名（`new Map`）报「cannot call a non-closure value」——**第 286 轮量清了根子**：全局名没进那个内层帧的环境（`env_get` 读到 `undefined` ✓），而**它不是本轮引入的**（拿第 284 轮的产物验过，同一个现象 ✓）。同一个根还挡住 `new Date()` / `new Set()` 当字段初始式。" },
+  // **`e2e-mixed-everything` 第 286 轮从「降级期就抛」走到了「运行期同一个根」** ✓：
+  // 类里的 `async total(key)` 已经能降级 ✓（async 那一族本轮做掉了 ✓），
+  // 现在卡在**这个类自己的字段初始化式**上 ✓——`private data = new Map<…>()` ✓，
+  // 与 `e2e-event-emitter` **一字不差的同一个根** ✓（全局名没进内层帧的环境 ✓）。
+  // 台账从 `pass` 变成 `blocked` 不是倒退 ✗：这一条**从来没有真跑起来过** ✓
+  //（原来整份文件在降级期就进不来 ✓）——它只是原来被记成了「类型位擦除」那一档 ✓。
+  "e2e-mixed-everything": { expect: "blocked", why: "同一个根：`private data = new Map<…>()`（类字段初始化式里的全局名 ✓）。**前半条已经做掉** ✓：类里的 `async total(key)` 与生成器方法 `*keys()` 都降级得出来 ✓（原来整份文件进不了门 ✗）" },
 
   // ===================== 第 273 轮加宽：矩阵 275 → 395 条，新盖到 37 条缺口 =====================
   //
@@ -431,7 +471,9 @@ export const EXPECTATIONS = {
   // ---- 组 14：函数的 `length` / `name` 两个属性（1 条）----
   "function-length-and-name": { expect: "differ", why: "`fn.length` 与 `fn.name` 都是 `undefined`：闭包那一格上没挂这两个属性（第 238 轮补的是 `HeapClosure.Name` 那一格**内部**的名字，供 `console.log` 用；属性读那一面没有）" },
 
-  // ---- 组 15：async 那一族（1 条，与 `prm-microtask-order` 同一个根）----
-  "promise-then-value-and-throw": { expect: "differ", why: "与 `prm-microtask-order` 同一个根：`.then` 回调跑完之后收尾就出事（`AdoptInto` 从未被触达），所以「回调返回一个值」与「回调里抛错」两条路都走不到" },
+  // ---- 组 15：async 那一族（第 286 轮清空了）----
+  // **`promise-then-value-and-throw` 那一行删掉了** ✓（它过了 ✓）：与 `prm-microtask-order`
+  // 同一个根 ✓——`.then` 回调的返回值与回调里抛的错两条路都通了 ✓
+  //（前者一直是好的 ✓，后者修在 `RunNativeTask` ✓：回调跑完看 `Status === Threw` ✓）。
 };
 

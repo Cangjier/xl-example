@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
-import { HeapFrame, HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, GeneratorState, PromiseState } from "./heap.xl.md"
+import { HeapFrame, HeapPromise, HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, GeneratorState, PromiseState } from "./heap.xl.md"
 import { Collector, RootSet } from "./gc.xl.md"
 import { Program, Instruction, Op, RtOpName, RtOp, FunctionInfo, BuiltinBase } from "./ir.xl.md"
 import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
@@ -95,6 +95,28 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 **返回值必须是一个完整的 `Value`**：宿主想长期留着它，得先 `Retain`
 （`host-abi.xl.md` 的借用规矩）——回收器看不见宿主语言里的变量。
 
+# type InvokeCallback = (callee:Value, self:Value, args:Array<Value>)=>Value
+
+**「同步调一个脚本值」的形状**（第 285 轮 ✓）——`InvokeValue` 那个方法面朝语言层的形状 ✓。
+
+**谁问它** ✓：`new Promise(执行器)` ✓（`promise.xl.md` 的 `PromiseCtor` 那一支 ✓）——
+执行器**必须同步跑一次** ✓（JS 的口径 ✓：`new Promise((r) => { console.log("x"); r(1) })`
+在**这一句**里就印 `x` ✓），而建库层手上只有 `call`（`NativeCall` ✓）——
+那个形状是**建库层被动**的（宿主调它 ✓），**主动调**要另给一格 ✓。
+
+**与 `NativeCall` 的差别只有「谁发起」** ✗：两者最终都走 `CallNative` ✓
+（压帧、跑到返回、取返回值 ✓）——`NativeCall` 是「宿主 → 脚本」✓、
+这一条是「脚本层的内建 → 脚本」✓。**返回值同样是 `Value`** ✓，
+失败时给 `undefined` ✓（真的失败了吗，用下面那一格问 ✓）。
+
+# type ThrownTaker = ()=>Value
+
+**「上一次同步调用抛了吗；抛的是什么」的形状** ✓（第 285 轮 ✓）——
+`TakeThrown` 那个方法面朝语言层的形状 ✓（`Invoker` ↔ `InvokeCallback` 同一个手法 ✓）。
+
+**非 `Threw` 一律给 `undefined`** ✓——调用点写成 `if (thrown.Tag !== ValueTag.Undefined)` ✓
+（见 `promise.xl.md` 的 `PromiseCtor` ✓）。
+
 # type IteratorDrain = (source:Value)=>Value
 
 **把「引擎认得的可迭代物」走完，产出的值收成一个新数组**（第 199 轮 ✓）——
@@ -159,6 +181,21 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 
 取 64 而不是更大：重入的每一步都要**真的**在宿主栈上跑一层
 （`RunToDepth` 是从 `CallNative` 里调进去的），所以它确实消耗宿主栈。
+
+# const PromiseThenId:int = 235
+
+# const PromiseCatchId:int = 236
+
+# const PromiseFinallyId:int = 237
+
+**`then` / `catch` / `finally` 三格的号** ✓（第 285 轮 ✓）——见 `MakeAsyncPromise` ✓。
+
+**为什么引擎里会出现三个「语言层的号」** ✗：这正是 `ConstructorProtos` / `SetErrorFactory` /
+`PrototypeKey` 那一套分界的**同一个形状** ✓——引擎**不认识 `"then"` 这个词的意思** ✓
+（它只是把一个号放进一个属性格 ✓），而**号是语言层的约定** ✓
+（`promise.xl.md` 的那三格 ✓）。三个号在那边是**公开的常量** ✓，
+这一层照抄 ✓——两边对不上就是「挂上去的方法调不了」✗
+（症状是 `capability is not registered: 235` ✓，听起来像谁忘了登记 ✓）。
 
 # enum VmStatus
 
@@ -1056,6 +1093,12 @@ return value;
 就用那个对象，否则用当初造出来的那个（`DoNew` 给的）。少了这一条，`new` 出来的东西
 就不是 JS 语义里的那个（`function C() { return {a: 1} }` 会被丢掉）。
 
+**`async` 帧的收尾在这里分岔** ✓（第 285 轮 ✓）：`AsyncPromise > 0` 时**不在栈上** ✓
+（它是被 `await` 摘下来之后又恢复的 ✓），而且返回值**不写回调用者** ✗——
+调用者早就拿到承诺走了 ✓。「`return v`」在 async 里的意思是
+**「那个承诺兑现为 `v`」** ✓（`v` 本身又是一个承诺时按 JS 的采纳规矩跟着它走 ✓，
+见 `SettleAsync` ✓）。
+
 **先把要读的都读出来，再弹帧**——弹出去的帧随时可能被回收复用，它的字段当场失效。
 
 ```ts
@@ -1063,9 +1106,19 @@ let value = Value.Undefined();
 if (instr.A >= 0) value = frame.Slots[instr.A];
 const returnSlot = frame.ReturnSlot;
 const constructTarget = frame.ConstructTarget;
+// **async 那一支要在弹帧之前把承诺号读下来** ✓（弹出去的帧随时会被复用 ✓）。
+const asyncPromise = frame.AsyncPromise;
 this.Frames.Pop();
 if (constructTarget > 0) {
   if (!value.IsObject()) value = Value.FromObject(constructTarget);
+}
+if (asyncPromise > 0) {
+  // **这条路上没有调用者要照顾** ✓：async 帧开出来时 `ReturnSlot` 就是 `-1` ✓
+  //（承诺**在开帧那一刻就交出去了** ✓，见 `DoCallValue` 的 async 那一支 ✓）——
+  // 所以这里只管「把那个承诺结清」✓，返回的那个值**不给任何人** ✓
+  //（调用者手上是承诺 ✓，它要的值由承诺通道交 ✓）。
+  this.SettleAsync(asyncPromise, value);
+  return;
 }
 if (returnSlot === NativeReturnSlot) {
   this.NativeResult = value;
@@ -1224,12 +1277,134 @@ if (info.IsGenerator) {
 const restCount = this.RestCountOf(info, count);
 if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge
     + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0))) return;
+// **`async` 函数先把承诺交给调用者，再跑体** ✓（第 285 轮 ✓）。
+//
+// 这是第 229 轮量出来、留了一整轮的那条语义差 ✓：JS 里 `f()` 拿到的是
+// **一个承诺** ✓，调用者**不等**它 ✓（体跑到第一个 `await` 就还回去 ✓）。
+// 本仓的 `await` 挂的是**当前帧** ✓——所以只要还照「帧压在调用者上面」开，
+// `f()` 就会把调用者一起停住 ✓，调用者拿到的是 `undefined` ✗（那不是承诺 ✓）。
+//
+// **修法是三句话** ✓：
+//   ① 承诺**在开帧那一刻就造好** ✓、当场写进调用者指定的那一格 ✓
+//      （于是 `f()` 这个表达式的值就是承诺 ✓，一格都不用等 ✓）；
+//   ② 帧的 `ReturnSlot` 给 **`-1`** ✓ ——**它没有调用者** ✓：
+//      `return v` 的意思是「承诺兑现为 `v`」✓（`DoReturn` 认 `AsyncPromise` ✓），
+//      而**那个承诺早就交出去了** ✓，用不着再写回谁的一格 ✓；
+//   ③ `AsyncPromise` 从开帧起就是那个承诺 ✓ ——这样「这是不是 async 帧」
+//      在**收尾那一刻**也回答得出来 ✓（`throw` 那条路要把它变成**拒绝** ✓，
+//      而 `await` 过的帧**不在栈上** ✓，那时更没法反查调用者 ✓）。
+//
+// **体照常压帧跑** ✓（**同步跑到第一个 `await`** ✓，与 V8 一字不差 ✓）：
+// `await` 那一刻帧被摘下来 ✓，`DoAwait` 把「在等谁」记进 `Awaiting` ✓。
+//
+// **只做一半就是「响亮地抛」换成「静默 `undefined`」** ✗（第 229 轮的红就是这么来的 ✓）——
+// 所以 `return` 与 `throw` 两条收尾路**一起**改 ✓。
+//
+// **`room` 要一次问够** ✓：承诺 + 帧 + 槽 + 剩余参数数组（帧那一格自己也要 ✓）——
+// 少问一格时 `NeedRoom` 会在**分配中途**才说不 ✓，而那时承诺已经造出来了 ✗
+// （那一格就是**泄漏**：没人拿得到它 ✓）。
+//
+// **`NeedRoom` 失败时不许写调用者那一格** ✗（状态已经是 `OutOfMemory` ✓、
+// 循环立刻退出 ✓；写进去的是一个「永远不结清的承诺」✗，比停下更坏 ✓）。
+if (info.IsAsync) {
+  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge
+      + ValueCharge + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0))) return;
+  // **承诺走 `MakeAsyncPromise`** ✓（不是裸的 `CreatePromise` ✓）：脚本对 `f()` 的
+  // 第一件事几乎总是 `.then(…)` ✓，而那三个方法是**挂上去的属性** ✓——
+  // 裸承诺上没有它们 ✓（症状见 `MakeAsyncPromise` 那一段 ✓）。
+  const asyncHandle = this.Frames.Push(closure.Code, info.SlotCount, -1);
+  const asyncFrame = this.Table.Get(asyncHandle).AsFrame();
+  asyncFrame.Env = closure.Env;
+  asyncFrame.This = thisValue;
+  asyncFrame.ConstructTarget = constructTarget;
+  // **先把实参抄进新帧，再把承诺写回调用者那一格** ✓（第 286 轮实测**逼出来**的 ✗）。
+  //
+  // **反过来的那份顺序是错的** ✗（第一版就是先写承诺 ✗）：这里「写回哪一格」
+  // 与「实参放在哪」**是同一格** ✓——调用约定说结果落在**参数基址**上 ✓
+  //（`ir.xl.md`：`call` 的 `B` 既是参数基址、又是返回格 ✓）。
+  // 于是先写承诺就等于**把第一个实参盖掉** ✓：
+  // `async function f(n) {}` 里 `n` 收到的是**那个承诺** ✗
+  //（实测现象：`console.log("f got", n)` 打出 `{ then: …, catch: …, finally: … }` ✓，
+  // 而 `n * 2` 报「cannot convert object to a primitive value」✗——
+  // **一句话里没有一个字提到参数** ✓，离现场很远 ✗）。
+  // **无参的 async 函数照旧是对的** ✓（没有实参可盖 ✓）——所以这个缺口
+  // 只在「带参数的 async 函数」上现形 ✓（那是最普通的一种 ✓）。
+  this.FillParameters(asyncFrame, info, frame, argBase, argArray, count);
+  const asyncPromise = this.MakeAsyncPromise(PromiseState.Pending, Value.Undefined());
+  if (returnSlot >= 0) frame.Slots[returnSlot] = asyncPromise;
+  asyncFrame.AsyncPromise = asyncPromise.Ref;
+  return;
+}
 const handle = this.Frames.Push(closure.Code, info.SlotCount, returnSlot);
 const created = this.Table.Get(handle).AsFrame();
 created.Env = closure.Env;
 created.This = thisValue;
 created.ConstructTarget = constructTarget;
 this.FillParameters(created, info, frame, argBase, argArray, count);
+```
+
+## method ThrownTaker:()=>ThrownTaker
+
+**把这台机器包成「上一次同步调用抛了吗」的回调** ✓（第 285 轮 ✓）——
+与 `Invoker()` / `Scheduler()` 同一条理由 ✓（语言层不该认识 `Vm` ✓）。
+
+**为什么它不是 `TakeThrown` 本身** ✗：那个是**方法** ✓（要用 `this` ✓），
+而语言层拿到手的必须是一个**不带接收者也能调**的函数 ✓——
+方法引用会丢 `this` ✓（第 185 轮实测过 ✓），**所以照旧包一层箭头函数** ✓。
+
+```ts
+return (): Value => this.TakeThrown();
+```
+
+## method Invoker:()=>InvokeCallback
+
+**把这台机器包成「同步调一个脚本值」的回调** ✓（第 285 轮 ✓）——
+与 `Native()` / `Scheduler()` 同一条理由 ✓（语言层不该认识 `Vm` ✓），
+**也同样是包一层箭头函数** ✗（方法引用会丢 `this` ✓，第 185 轮实测过 ✓）。
+
+```ts
+return (callee: Value, self: Value, args: Value[]): Value => {
+  // **接收者由调用方给** ✓（第 286 轮 ✓）：`new Promise(执行器)` 那一格把
+  // **那个承诺**递进来 ✓——脚本里写的是 `(resolve) => resolve(1)` ✓，
+  // 那个 `resolve` 是**当普通函数**调的 ✓（没有接收者 ✓），
+  // 而「它管哪一个承诺」藏在**它自己的宿主引用**里 ✓（`MakeSettleCallback` 的 `Opaque` ✓）。
+  // **所以这里不许自己猜一个** ✗——`callee` 是宿主引用时它
+  // **身上没有那一格** ✓（`String(x)` / `Array(n)` 那几格都不看 `this` ✓，
+  // 可 `resolve` 恰恰**全靠 `this`** ✓）。
+  //
+  // **少了它会怎样** ✗：宿主拿到 `self = undefined` ✓，`SettleOfCallback`
+  // 读 `self.Tag` 报 `Cannot read properties of undefined (reading 'Tag')` ✗
+  //（**一句话里没有一个字提到承诺** ✓），而那一抛被引擎抬成脚本异常 ✓ ⇒
+  // 这个承诺被**拒绝** ✗ ⇒ 宿主 `Classify` 说「脚本挂着等一个它没结清的承诺」✓——
+  // **看起来像运行器卡住了** ✗，真相是**接收者传丢了** ✓。
+  return this.CallNative(callee, self, args);
+};
+```
+
+## method TakeThrown:()=>Value
+
+**「上一次同步调用是不是抛了；抛的是什么」** ✓（第 285 轮 ✓）——
+取走并**把状态放回去** ✓（与 `TakeRaise` 那条「取走即清空」同一条纪律 ✓）。
+
+**为什么必须有它** ✗：`new Promise((r) => { throw new Error("boom") })` 里那一抛
+在 JS 里**不是**宿主错误 ✓——它是**结果承诺被拒绝** ✓（`p.catch(e => …)` 接得住 ✓）。
+可那一抛在本仓里是「宿主异常从 `CallNative` 里冒出来、把状态置成 `Threw`」✓——
+建库层要接住它，就得有一句话问得出「刚才是抛了吗、抛的是什么」✓。
+
+**非 `Threw` 一律给 `undefined`** ✓（**不是**「返回 `null` 表示没有」✗）：
+调用点几乎都是 `if (thrown.Tag !== ValueTag.Undefined)` 这一形状 ✓
+（见 `promise.xl.md` 的 `PromiseCtor` ✓）——多一种哨兵就多一处判据 ✓。
+
+**状态要放回去** ✗（与 `RunNativeTask` 那一处一字不差 ✓）：`DoThrow` 把它置成
+`Threw` 了 ✓，而这一趟**脚本还要接着跑** ✓（那个 `catch` 就挂在后面 ✓）——
+不放回去，外层那一段**悄悄停下** ✗（而且不报错 ✓）。
+
+```ts
+if (this.Status !== VmStatus.Threw) return Value.Undefined();
+const value = this.Pending;
+this.Pending = new Value();
+this.Status = this.Finished ? VmStatus.Halted : VmStatus.Ready;
+return value;
 ```
 
 ## method IsHostCallable:(value:Value)=>bool
@@ -1679,12 +1854,65 @@ while (this.Handlers.length > 0) {
 }
 // **一个处理点都不剩：异常要冒到宿主，帧栈必须清空。**
 //
+// **清之前先把在册的 async 帧各自拒绝掉** ✓（第 285 轮 ✓）：JS 里
+// `async function f() { throw new Error("x") }` 的那一抛**不是**宿主错误 ✓——
+// 它是 `boom()` 那个承诺被**拒绝** ✓（`boom().catch(…)` 接的就是它 ✓）。
+// 而这**跟有没有经过 `await` 无关** ✗（`await` 只影响这一帧在不在栈上 ✓），
+// 所以判据是 `AsyncPromise > 0` ✓，不是 `Awaiting.IsRef()` ✓。
+//
+// **反过来也有一半** ✗：`frame.Awaiting.IsRef()` 为真的帧**不在栈上** ✓，
+// 也**不在这一摞句柄里** ✓——它由 `DoReturn` 的 async 那一支结清 ✓
+//（走到这儿说明它已经不欠谁了 ✓）。
+//
+// **为什么不等 `Frames.Clear()` 之后再说** ✗：那时句柄已经没了 ✗。
+//
 // 留着那些死帧，宿主下一次调用会压在它们上面：被调方返回时 `Frames.IsEmpty()`
 // 是假，于是返回值写进了**死帧的槽**——宿主导到的结果是 `undefined`，
 // 而「错」离现场几百条指令（判据报的是「`finally` 里的写读回来还是 0」）。
 //
 // **这条路上当然也跨过了** ✓：一个处理点都不剩 ⇒ 连最外层那一帧都没接住 ✓。
 this.NativeEscaped = true;
+// **从外到内拒绝**（后进先出 ✓）：`RejectPromise` 会把等着它们的回调排进微任务 ✓——
+// 那时的次序就是 JS 的次序 ✓（最内层那个承诺先被拒绝 ✓）。
+//
+// **最里面那个 async 帧是「接住这一抛」的那一份** ✓（第 286 轮 ✓，见下 ✓）——
+// 于是这一抛**到此为止** ✓：状态不改 ✗、帧栈不清 ✗、`Pending` 留着（脚本站内异常
+// 与「已经变成拒绝的那一份」是两回事 ✓，调用方不会再读它 ✓）。
+//
+// **为什么必须「到此为止」** ✗（第 285 轮那版没做这一步 ✓，判据当场红 ✓）：
+// 一个「**同步就能抛出**的 async 函数」（`async function boom() { throw new Error("x") }` ✓）
+// 在 JS 里**一个字都不往外冒** ✓——它只把承诺拒绝掉 ✓，
+// 于是**同一个片段后面的语句照样跑** ✓（`boom().catch(…)` ✓、`console.log("end")` ✓），
+// `.catch` 挂上之后的回调由这一趟的微任务排空来跑 ✓。
+// 而「冒到宿主」那条路会把**整段脚本**打断 ✓：`end` 不印 ✓、
+// `catch` 永远挂不上去 ✓、宿主看到的是 `脚本抛出：async-fail` ✗
+//（实测现场就是这个 ✓，而 Node 打的是 `end` + `caught async-fail` ✓）。
+//
+// **判据是「有没有拒绝过」** ✓（一个局部布尔 ✓，不是「这帧是不是 async」✗）：
+// 只有**真的交出去了一份拒绝**才算接住 ✓——否则（纯脚本机器、没有任何 async 帧 ✓）
+// 照旧要冒到宿主 ✓（第 121 轮那条兜底判据钉的就是它 ✓）。
+const unwound = this.Frames.Handles;
+let converted = false;
+for (let i = unwound.length - 1; i >= 0; i--) {
+  const dying = this.Table.Get(unwound[i]);
+  if (dying === null) continue;
+  if (dying.Frame === null) continue;
+  if (dying.Frame.AsyncPromise > 0) {
+    // **拒绝的是「它自己那个承诺」** ✓（不是新造一个 ✗）——
+    // 那个句柄在开帧时就写在帧上了 ✓（见 `AsyncPromise` ✓），
+    // 而它**已经交到调用者手里** ✓，所以这里要结清的正是它 ✓。
+    this.RejectPromise(Value.FromObject(dying.Frame.AsyncPromise), value);
+    converted = true;
+    // **只拒绝最里面那一个** ✓（后进先出 ✓）：它外面的那些 async 帧
+    // 是**调用者** ✓——它们的承诺要等这一帧的拒绝**顺着 `await` 链传上去** ✓
+    //（那正是 JS 的语义 ✓：`await` 一个被拒绝的承诺会抛 ✓，于是外层那条
+    // `DoThrow` 再走一遍这一支 ✓）。一次把整摞都拒绝掉是**错的** ✗：
+    // 中间那些帧的 `try { … } catch { … }` 会被跳过 ✓（实测：`tryInside` 那条
+    // 打印的是「没接住」而不是 `handled:…` ✗）。
+    break;
+  }
+}
+if (converted) return;
 this.Frames.Clear();
 this.Status = VmStatus.Threw;
 ```
@@ -2745,6 +2973,26 @@ return (value: Value, on: boolean): void => {
 };
 ```
 
+## method ThrowValue:(value:Value)=>void
+
+**抛一个已经造好的脚本值** ✓（第 285 轮 ✓）——`DoThrow` 就是它 ✓。
+
+**为什么还要这一层** ✗：`DoThrow` 的调用点原来只有两条，两条手上都是
+**宿主异常的文字** ✓（`throw` 指令那条是脚本值 ✓，可它也是从槽里取的 ✓）。
+`await` 一个**被拒绝**的承诺那一支手上是一个**脚本值**（拒绝理由 ✓，
+字符串 / 数字 / `Error` 对象都可能 ✓）——它**一个字的翻译都不需要** ✓，
+直接抛才对 ✓（JS 的 `await` 抛的正是那个理由本身 ✓）。
+走 `Guard` + 错误工厂那条路会把「一个字符串理由」变成 `Error("…")` ✗——
+`catch (e) { console.log(e) }` 于是印出别的东西 ✗（**静默错值** ✗）。
+
+**所以这不是转发，是多给一条入口** ✓：`DoThrow` 是「把手上这个值抛出去」✓，
+这一条是「让调用方说得清它手上那个值的来处」✓——两处都是**一个方法体** ✓，
+收在这里是为了让「抛一个值」只有一份实现 ✓。
+
+```ts
+this.DoThrow(value);
+```
+
 ## method DoAwait:(frame:HeapFrame, instr:Instruction)=>void
 
 `await`：把当前帧挂到承诺上，等它结清。
@@ -2754,56 +3002,222 @@ return (value: Value, on: boolean): void => {
 - **挂起就是弹出帧栈**（与 `suspend` 一样），恢复由 `DrainMicrotasks` 负责；
 - **兑现值写进帧的 `ResumeValue`**：由紧跟其后的 `resume` 搬进槽里——与生成器同一套。
 
-**拒绝的承诺还没有路**（那要错误对象那一层），所以遇到它抛宿主错误、把这一条明确记下来。
+**`await` 一个不是承诺的值** ✓（第 285 轮 ✓）：JS 把它当成**已兑现为它**的值 ✓
+（`await 2` 是 `2` ✓），而且**照样让出一个 tick** ✓。所以既不是抛 ✓、
+也不能当场把值塞进槽里 ✗（那样 `console.log` 的行序会与 Node 差一行 ✓）。
+做法是 `ResolveIntoPromise` 包一个已兑现的承诺 ✓——
+**它与「已兑现的承诺」那一支走的是同一段** ✓，一个字的特例都没有 ✓。
 
-**`await` 一个不是承诺的值：仍然响亮地抛** ✗（第 229 轮试过、**退回来了** ✓）。
-JS 把它当成**已兑现的值** ✓（`await 2` 是 `2` ✓）——所以「造一个已兑现的承诺把它包起来」
-看起来是顺手的事 ✓（`ResolveIntoPromise` 就在下面 ✓）。**但试过之后判据当场红了两条** ✗：
-那两条**不是**在量这一格 ✗，它们在量 `async` 的**语义差** ✓（`lowering.xl.md` 文首那三条 ✓）——
-本仓的 `await` 挂的是**当前帧** ✓，所以 `f()` 里的 `await` 会把**调用者**一起停住 ✓，
-`const p = f()` 拿到的是 `undefined` ✗（JS 拿到的是承诺 ✓）。
-**包一层承诺**只修了「值那一半」✓，而**调用者那一半**照旧 ✗——
-于是原来的「响亮地抛」变成「静默给 `undefined`」✓（**静默错值** ✗，比抛坏得多 ✓）。
-**所以这一格要连着「async 函数返回承诺」那条一起做** ✗（台账里记着 ✓），
-**不能只做一半** ✗——这一轮把它退回去 ✓，并把结论写在 `ResolveIntoPromise` 那一段 ✓。
+**`await` 一个被拒绝的承诺要抛** ✓（第 285 轮 ✓）：抛的是**拒绝理由本身** ✓
+（`throw` 那一支，见 `ThrowValue` ✓）。**位置很要紧** ✗：
+那一抛必须在 `Frames.Pop()` **之前** ✓——`await` 写在 `try` 里时，
+处理点是**这一帧**在册的 ✓；先弹帧再抛，展开会跳过它 ✗
+（症状是 `try { await Promise.reject("x") } catch` 接不住 ✓）。
+
+**承诺是「采纳」来的也要等**（`await` 一个「兑现值是承诺」的承诺 ✓）：
+这种「承诺链」挂在**内层**那个承诺的反应表上 ✓——见 `ResolvePromise` 的采纳那一支 ✓。
+
+**它是 async 帧**：离开栈之前把「我在等谁」写进帧那一格 ✓（`AsyncPromise` ✓）——
+`DoReturn` 与 `DoThrow` 收尾时按它认人 ✓。**写在这一处而不是 `DoCallValue`** ✗：
+`DoCallValue` 写的是「**我这个 async 函数自己的承诺**」✓（交给调用者的那一个 ✓），
+而这里写的是「**我现在等的是谁**」✓——**两个不同的承诺** ✓，
+只是同一格在两个阶段各住一次 ✓（在栈上时是前者 ✓、悬着时是后者 ✓）。
+
+**而这一格「悬着还是跑着」正是恢复路要的那条判据** ✓（见下面 `awaited.Ref` 那一行 ✓）：
+`awaited.Ref` 与 `frame.AsyncPromise` 一定是**两个不同的句柄** ✓——
+「我自己那个承诺」与「我等的那个承诺」不是一回事 ✓
+（除非 `await` 自己的承诺 ✓，那是**死锁** ✓，JS 里也永远不结清 ✓——
+而这一格写成这样，它至少**不会把帧当成已经在跑的** ✓）。
 
 ```ts
 const target = frame.Slots[instr.A];
-if (!target.IsObject()) throw new Error("unimplemented: awaiting a non-object");
-const item = this.Table.Get(target.Ref);
-if (item.Promise === null) throw new Error("unimplemented: awaiting a non-promise");
+// **不是承诺就包一个** ✓：`ResolveIntoPromise` 是第 229 轮就留好的那一步 ✓
+//（它当时只差「调用者那一半」，而那一半这一轮做完了 ✓）。
+const awaited = this.IsPromiseValue(target) ? target : this.ResolveIntoPromise(target);
+const item = this.Table.Get(awaited.Ref);
+if (item.Promise === null) throw new Error("awaited value is not a promise");
 const promise = item.Promise;
+// **拒绝那一档：带着理由抛** ✓（弹帧之前 ✓，理由见上）。
 if (promise.State === PromiseState.Rejected) {
-  throw new Error("unimplemented: awaiting a rejected promise needs the error layer");
+  this.ThrowValue(promise.Value);
+  return;
 }
 const handle = this.Frames.TopHandle();
 this.Frames.Pop();
+// **帧离开栈之前先记住「它在等谁」** ✓：恢复时 `DoReturn` / `DoThrow` 要用它 ✓，
+// 而它同时就是「这一帧现在不在栈上」那条判据 ✓（见 `HeapFrame.Awaiting` ✓）。
+frame.Awaiting = awaited;
+// **已经兑现的：当场就能排** ✓——**除非这一帧已经挂在同一个承诺上了** ✓。
+//
+// **那一档是可能的** ✗（第 285 轮想到的 ✓）：`await p` 写在**嵌在 `p.then(…)`
+// 里的那个函数**里时 ✓，「等 `p`」与「被 `p` 恢复」是同一件事 ✓——
+// 再排一次，这一段就会被**重复恢复** ✓（`resume` 拿到的是**上一次**的 `ResumeValue` ✓ ⇒
+// 一个看起来成立、其实早了的值 ✗，**静默错值** ✓）。
+// 与 `AdoptInto` 那一处**同一条判据**（`IsAwaitedBy` ✓）——
+// 「别把一个已经等着我的帧再排一次」只有一份实现 ✓。
 if (promise.State === PromiseState.Fulfilled) {
   frame.ResumeValue = promise.Value;
-  this.Microtasks.push(handle);
+  if (!this.IsAwaitedBy(promise, handle)) this.Microtasks.push(handle);
   return;
 }
-promise.Reactions.push(handle);
+// **还是 `Pending`**：这一刻也可能它「其实是一个承诺链」✓——
+// 那种承诺一直是 `Pending` ✓、反应表是**内层**那个承诺在管 ✓。
+if (!this.IsAwaitedBy(promise, handle)) promise.Reactions.push(handle);
 ```
 
-## method ResolveIntoPromise:(value:Value)=>Value
+## method IsAwaitedBy:(promise:HeapPromise, handle:int)=>bool
 
-**把一个任意值包成「已兑现为它」的承诺**（第 229 轮 ✓）——`Promise.resolve(v)` 的语义只有这一份 ✓。
+**这一帧是不是已经挂在这个承诺的反应表上了** ✓（第 285 轮 ✓）。
 
-**它今天是给「`await` 一个不是承诺的值」留的那条路** ✓，
-而**那一条这一轮退回来了** ✗（理由写在 `DoAwait` 那一段 ✓：
-它必须与「async 函数返回承诺」一起做 ✓，只做一半就是把「响亮地抛」换成「静默 `undefined`」✗）。
-**留着它** ✓：它是一个**已经证明过、只差另一半**的动作 ✓——
-下一轮做 async 那条语义时，这里就是那一步 ✓（不必再想一遍「怎么包」✓）。
+**为什么必须有这一问** ✗：`AdoptInto` 会把**待恢复的 async 帧**推进反应表 ✓，
+而 `await` 那一支也会推 ✓——两条路推的是**同一个承诺、同一帧**时，
+这一段会被恢复两次 ✓（第二次拿到的是**上一次**留下的 `ResumeValue` ✓ ⇒ 静默错值 ✓）。
+
+```ts
+for (let i = 0; i < promise.Reactions.length; i++) {
+  if (promise.Reactions[i] === handle) return true;
+}
+return false;
+```
+
+## method IsPromiseValue:(value:Value)=>bool
+
+**这个值是不是一个承诺** ✓（第 285 轮 ✓）——`await` 那一支要判一次 ✓，
+而建库层那一份判据（`promise.xl.md` 的 `IsPromise` ✓）**在另一棵树里** ✗
+（`runtime/` 不认识 `typescript-exec/` ✓）。
+
+```ts
+if (!value.IsObject()) return false;
+return this.Table.Get(value.Ref).Promise !== null;
+```
+
+## method SettleAsync:(promiseHandle:int, value:Value)=>void
+
+**兑现一个 async 帧的承诺** ✓（第 285 轮 ✓）——`return v` 的语义就是它 ✓。
+
+**`v` 本身是承诺时要「采纳」** ✗（JS 的 `Promise` 解决过程 ✓）：
+`async function f() { return Promise.resolve(1) }` 的 `f()` 兑现为 **`1`** ✓，
+不是那个承诺 ✓——所以不能把承诺当值灌进去 ✓。
+
+```ts
+const promise = Value.FromObject(promiseHandle);
+if (this.IsPromiseValue(value)) {
+  this.AdoptInto(promise, value);
+  return;
+}
+this.ResolvePromise(promise, value);
+```
+
+## method AdoptInto:(promise:Value, inner:Value)=>void
+
+**让 `promise` 跟随 `inner`** ✓（第 285 轮 ✓）——JS 的 `Promise` 解决过程里
+「兑现值是一个承诺」那一支 ✓。
+
+**实现是一格反应** ✓（与 `await` 挂帧**走的是同一张表** ✓，一个机关都没多 ✓）：
+`inner` 结清时把 `promise` 的句柄推进微任务队列 ✓——
+那一刻 `DrainMicrotasks` 会 `PushBack` 它 ✓（因为 `Promise > 0` ✓），
+而它从前一条指令（`await` 后面那条 `resume`）接着跑 ✓，
+**承接值就在 `ResumeValue` 里** ✓（`ResolvePromise` 那一句写的 ✓）。
+
+**这一格「帧」从来不在栈上** ✓：它是**待恢复的 async 帧** ✓——
+所以 `Promise > 0` 那条判据（`DrainMicrotasks` ✓）正好认得它 ✓。
+
+```ts
+if (!inner.IsObject()) return;
+const item = this.Table.Get(inner.Ref);
+if (item.Promise === null) {
+  this.ResolvePromise(promise, inner);
+  return;
+}
+const innerPromise = item.Promise;
+if (innerPromise.State === PromiseState.Fulfilled) {
+  this.ResolvePromise(promise, innerPromise.Value);
+  return;
+}
+if (innerPromise.State === PromiseState.Rejected) {
+  this.RejectPromise(promise, innerPromise.Value);
+  return;
+}
+if (!promise.IsObject()) return;
+if (!this.IsAwaitedBy(innerPromise, promise.Ref)) innerPromise.Reactions.push(promise.Ref);
+```
+
+## method MakeAsyncPromise:(state:int, settled:Value)=>Value
+
+**造一个承诺，并把 `then` / `catch` / `finally` 挂在它身上** ✓（第 285 轮 ✓）——
+async 帧（以及执行器那一格）的承诺都由这里造 ✓。
+
+**为什么引擎要自己造、不能借建库层的 `MakePromise`** ✗（**第一版就是直接 `CreatePromise`** ✗）：
+两个调用点**在引擎内部** ✓——`DoCallValue` 的 async 那一支 ✓ 与 `DoThrow` 的拒绝那一支 ✓，
+那一刻手上只有自己的字段 ✓（`runtime/` 不认识 `typescript-exec/` ✓，依赖方向不能倒 ✗）。
+可**光造一个裸承诺是不够的** ✗：脚本对 `f()` 的第一件事**几乎总是 `.then(…)`** ✓——
+而 `.then` 是**建库层挂上去的属性** ✓，裸承诺上没有它 ✓
+（症状：`f().then(v => …)` 报「调了一个不是函数的东西」✗，
+听起来像脚本写错了 ✓，其实是**`f()` 返回的那个承诺少了三个方法** ✗）。
+
+**三个号从哪来** ✗：引擎造**宿主引用**（`HostRef` ✓），而号是**语言层的约定** ✓
+（`promise.xl.md` 的 `PromiseThen` = 235 ✓、`PromiseCatch` = 236 ✓、`PromiseFinally` = 237 ✓）。
+这与 `ConstructorProtos` / `SetErrorFactory` / `PrototypeKey` 是**同一套分界** ✓：
+**引擎不认识「then」这个词是什么意思** ✓，它只是把一个号放进一个属性格 ✓；
+那个号**必须已经在能力表里** ✓（`install.xl.md` 那一趟登记 ✓，
+漏了就是 `capability is not registered: 235` ✗）。
+
+**三格属性 + 三个宿主引用 + 一格承诺 + 三个字符串句柄** ✓——
+`room` 一次问够 ✓（少问一格就是**分配中途**才说不 ✗）。
 
 ```ts
 const protos = this.Protos;
 if (protos === null) throw new Error("no prototype table");
 return this.Guard(() => {
   const room = this.Room();
-  if (!room(ObjectCharge + ValueCharge)) throw new Error("out of room");
-  return Value.FromObject(this.Table.CreatePromise(PromiseState.Fulfilled, value));
+  if (!room(ObjectCharge + PropertyCharge * 4 + ValueCharge * 8)) {
+    throw new Error("out of room");
+  }
+  const promise = Value.FromObject(this.Table.CreatePromise(state, settled));
+  SetProperty(room, this.NeverCall, this.Table, promise,
+    Value.FromString(this.Table.CreateString(HostTextUnits("then"))),
+    Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(PromiseThenId, 0)));
+  SetProperty(room, this.NeverCall, this.Table, promise,
+    Value.FromString(this.Table.CreateString(HostTextUnits("catch"))),
+    Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(PromiseCatchId, 0)));
+  SetProperty(room, this.NeverCall, this.Table, promise,
+    Value.FromString(this.Table.CreateString(HostTextUnits("finally"))),
+    Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(PromiseFinallyId, 0)));
+  return promise;
 });
+```
+
+## method NeverCall:(callee:Value, self:Value, args:Array<Value>)=>Value
+
+**装上属性时用的调用通道桩** ✓（第 285 轮 ✓）——`SetProperty` 要一个通道 ✓
+（万一碰上访问器就要调它 ✓），而这里写的是**刚造出来的承诺** ✓（它自己的格全是数据属性 ✓）。
+
+**它一次都不该被调到** ✓，真被调到就**报出来** ✗（比静默好 ✓）——
+与 `builtins/array.xl.md` 那个同名的桩**一字不差** ✓（那是另一棵树里的 ✓，
+两棵树的依赖方向不允许共用一个 ✓）。
+
+```ts
+throw new Error("unreachable: installing a promise method never calls a function");
+```
+
+## method ResolveIntoPromise:(value:Value)=>Value
+
+**把一个任意值包成「已兑现为它」的承诺**（第 229 轮 ✓）——`Promise.resolve(v)` 的语义只有这一份 ✓。
+
+**它今天是给「`await` 一个不是承诺的值」用的** ✓（第 285 轮接上了 ✓）：
+`await 2` 在 JS 里等于「等一个已兑现为 `2` 的承诺」✓——**照样让出一个 tick** ✓
+（不包的话，`await 2` 后面的那一段会与同步代码挤在同一个 tick 里 ✗，
+而 Node 的行序会当场露出来 ✓）。
+
+**第 229 轮它只差另一半** ✗（当时调用者拿不到承诺 ✓，于是一条「响亮地抛」
+会变成「静默 `undefined`」✗）——那一半这一轮补齐了 ✓（`DoCallValue` 的 async 那一支 ✓）。
+
+**它走 `MakeAsyncPromise`** ✓（第 285 轮 ✓）：`await somePromise` 里那个承诺
+**最后可能落到脚本手上** ✓（`const p = await (async () => …)(); p.then(…)` ✓），
+所以它也得带着那三个方法 ✓——**一个「少三个方法的承诺」是最难查的一种** ✗。
+
+```ts
+return this.MakeAsyncPromise(PromiseState.Fulfilled, value);
 ```
 
 ## method ResolvePromise:(promise:Value, settled:Value)=>void
@@ -2887,8 +3301,33 @@ this.ForgetNativeHost(promise.Ref);
 - 全跑完之后**把外层状态还原**：这一趟只是「顺手把微任务清了」，
   不该把「入口函数已经返回（`Halted`）」改写成 `Ready`。
 
+**`Finished` 也要一起还原** ✓（第 286 轮实测**逼出来**的 ✗）——它原来只还原了 `Status` ✗。
+
+**为什么它是必需的** ✗：`Finished` 是**机器级**的一个结论 ✓（「入口函数返回了没有」✓），
+而**微任务里跑的那些调用会顺手改它** ✗——现场是 `DoIterNext` ✓：
+它一进来就把 `Finished` 清成假 ✓（那一条是**为生成器入口**写的 ✓：
+宿主从外面推生成器时，上一次那台机器的结论不许带进来 ✓）。
+
+**症状**（实测 `tmp-wf1.ts` ✓）：模块顶层跑了 `for (const n of [1, 2, 3])` ✓
+⇒ 那一趟把 `Finished` 清成假 ✓ ⇒ 而**入口函数早就返回了** ✓（它本来就该是真 ✓）
+⇒ 宿主 `Classify` 于是看到「没跑完、还挂着」✗ ⇒
+`tsrun` 打的是 **`第 0 份模块求值：the script is waiting for a promise the host has not settled`** ✗
+——**而 stdout 是逐字节正确的** ✓（那一条 `serial` 早就印出来了 ✓）。
+**一句话里没有一个字提到 `for..of` 或 `Finished`** ✓，离现场极远 ✗；
+**而它只在「入口那一趟跑过一次 `for..of`、之后还有微任务」时才出现** ✓
+（所以 `e2e-async-workflow` 红、`prm-async-await` 绿 ✓——同一个实现两份判决 ✓）。
+
+**为什么还原比「让 `DoIterNext` 别写」更对** ✗：`DoIterNext` 那一条**是对的** ✓
+（宿主推生成器时确实不该继承上一次的结论 ✓）——错的是**这一趟不该把它带走** ✗。
+「谁改了它、谁就负责还原」在这里就是「排空微任务这一个动作不许改机器的结论」✓，
+与 `Status` 那一句是**同一件事的两半** ✓。
+
 ```ts
 const outer = this.Status;
+// **`Finished` 是同一个「外层结论」的另一半** ✓（理由见上 ✓）。
+// **`DoIterNext` 会在微任务里把它清掉** ✗——不还回去，宿主就会把
+// 「入口早就返回了」读成「还挂着」✓（`Classify` 那句 `Parked` ✓）。
+const outerFinished = this.Finished;
 while (this.Microtasks.length > 0) {
   const before: VmStatus = this.Status;
   if (before !== VmStatus.Ready && before !== VmStatus.Halted) return false;
@@ -2910,6 +3349,7 @@ while (this.Microtasks.length > 0) {
   if (after !== VmStatus.Ready && after !== VmStatus.Halted) return false;
 }
 this.Status = outer;
+this.Finished = outerFinished;
 return true;
 ```
 
@@ -3055,6 +3495,34 @@ if (wants === 3 && reject) {
   chosen = onRejected;
 }
 const produced = this.CallNative(chosen, Value.Undefined(), args);
+// **回调里抛出来的错要变成「结果承诺被拒绝」** ✓（第 285 轮 ✓）——
+// 这是 `promise-chaining-errors` / `promise-then-value-and-throw` 两条判据的根 ✓。
+//
+// **它原来是「整份程序挂掉」** ✗：回调里那一抛一个处理点都找不到 ✓，
+// `DoThrow` 于是把状态置成 `Threw` ✓、把帧栈清空 ✓、把值留在 `Pending` ✓——
+// 而这一句之后**没有任何人看那三样** ✓，于是 `tsrun` 打的是
+// `脚本抛出：mid` ✓（判据现场就是这个 ✓），而 Node 打的是 `caught mid` ✓。
+//
+// **判据是 `Status === Threw` 这一条，不是 `CallFailed`** ✗：
+// 脚本自己在回调里 `try { … } catch { … }` 接住的那些**也**让 `Throws` 加一 ✓、
+// 也让 `NativeFailed` 为真 ✓——可它们**不是失败** ✓（状态是 `Ready` ✓）。
+// 只有「展开到了最外面、一个处理点都不剩」才是这一格要管的 ✓。
+//
+// **结清之后要把状态放回去** ✗：`DoThrow` 把它置成了 `Threw` ✓，
+// 而这一趟微任务**还要接着跑**（`.catch` 的回调就排在队里 ✓）——
+// `DrainMicrotasks` 每一轮都要求 `Ready` / `Halted` ✓（它自己的守卫 ✓），
+// 不还原的话，**接住这个拒绝的那条链一步都不会跑** ✗
+// （症状是「`.catch` 明明挂上了却一声不响」✓）。
+//
+// **放回哪一档由 `Finished` 说** ✓：入口函数已经返回 ⇒ 这一趟是宿主在排空微任务 ✓
+// ⇒ `Halted` ✓；否则这一趟是**脚本自己同步跑出来的回调立刻抛了** ✓ ⇒ `Ready` ✓
+// （错的那一档会让外层那一段脚本**悄悄停下** ✗——比抛坏得多 ✓）。
+if (this.Status === VmStatus.Threw) {
+  this.RejectPromise(result, this.Pending);
+  this.Pending = new Value();
+  this.Status = this.Finished ? VmStatus.Halted : VmStatus.Ready;
+  return;
+}
 if (passThrough) {
   if (reject) {
     this.RejectPromise(result, carried);
@@ -3068,8 +3536,11 @@ if (carry) {
   // （`reject` ✓）决定结果的档 ✗——于是 `catch` / `then(f, g)` **接住了**拒绝之后 ✓，
   // 结果承诺**还是被拒绝** ✗✗：后面接的 `.then(onFulfilled)` **一句都不跑** ✓，
   // 而且**不报错** ✗（实测：`Promise.reject("e").then(f, g).then(cb)` 印不出东西 ✓，
-  // 而 Node 印 `g` 的返回值 ✓）。**「谁接住了这一档，结果就是兑现」** ✓——
-  // 抛出异常那一档本仓还没有错误对象那一层 ✓（那才是「结果跟着拒绝」的另一种情形 ✓）。
+  // 而 Node 印 `g` 的返回值 ✓）。**「谁接住了这一档，结果就是兑现」** ✓。
+  //
+  // **抛出去那一档是另一条** ✗（第 285 轮 ✓）：回调里抛的错**在这一句之前**
+  // 就按「结果承诺被拒绝」处置掉了 ✓（上面那一段 ✓）——所以能走到这儿的
+  // `produced` 一定是**正常返回值** ✓（拿它去兑现是对的 ✓）。
   this.ResolvePromise(result, produced);
 }
 ```
