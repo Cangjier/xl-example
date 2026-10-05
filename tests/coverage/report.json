@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 87.59,
+  "progressPercent": 87.75,
   "layers": [
     {
       "layer": "runtime",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 154,
-      "pass": 141,
-      "blocked": 6,
-      "differ": 7,
+      "pass": 142,
+      "blocked": 4,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 91.56
+      "coverage": 92.21
     },
     {
       "layer": "e2e",
@@ -171,18 +171,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: async method in a class"
     },
     {
-      "id": "date-iso-and-json",
-      "layer": "stdlib",
-      "title": "Date 的 toISOString / toJSON / 各处 UTC 取值",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "date-utc-setters",
-      "layer": "stdlib",
-      "title": "Date 的 UTC 写入口与时间戳往返",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "e2e-event-emitter",
       "layer": "e2e",
       "title": "事件总线：Map<string, 回调数组> + 闭包 + 剩余参数",
@@ -255,6 +243,12 @@
       "layer": "stdlib",
       "title": "JSON.stringify 的 replacer 数组与 toJSON",
       "detail": "stdout 不同：第 1 行：node «{\"a\":1,\"c\":3}» vs tsrun «{\"a\":1,\"b\":2,\"c\":3,\"d\":{\"e\":4}}»"
+    },
+    {
+      "id": "date-iso-and-json",
+      "layer": "stdlib",
+      "title": "Date 的 toISOString / toJSON / 各处 UTC 取值",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: new Date(x) needs a number of milliseconds"
     },
     {
       "id": "function-length-and-name",

@@ -908,6 +908,58 @@ if (id === PowId) {
 # const DateGetUTCSeconds:int = 272
 `getUTCSeconds()` 的号（0..59）。
 
+**第 280 轮补的九格** ✓（`Date` 家族：`284..292` ✓）——它们围着**日历算术**转 ✓：
+`toISOString` ✓（正向 ✓）、七个 `setUTC*` ✓（逆变换 ✓）、以及**静态的 `Date.UTC`** ✓
+（也是逆变换 ✓，只是不带接收者 ✓）。
+**两个方向都要有** ✗：`DateParts` 从第 138 轮起就给了正向 ✓，而**逆变换一直没有** ✗——
+`Date.UTC` 与七个 `setUTC*` 全都要它 ✓（判据 `date-utc-setters` 与 `date-iso-and-json` 量的正是这两半 ✓）。
+
+**为什么从 `284` 起、而不是接着 `272` 往下排** ✗（**这一轮踩到了** ✓）：
+`273..279` 确实是空的 ✓，可 **`280` / `281` / `282` / `283` 已经被
+`ErrorCtor` / `TypeErrorCtor` / `RangeErrorCtor` / `SyntaxErrorCtor` 占了** ✓——
+第一版把这一批排在 `273..281` ✗，于是 `DateUTC` **撞上了 `TypeErrorCtor`** ✓，
+而分派表**先问错误构造器那一支** ✓ ⇒ `Date.UTC(2020, 0, 2)` 返回了一个
+**`TypeError` 对象** ✓（`console.log` 打出来是 `[Function (anonymous)]` ✓，
+而真相是「号撞了」✗，**离现场很远** ✗）。
+**这是这一个文件里的老毛病** ✓：第 150 轮 `ArrayAt = 22` 撞上 `ArrayFlat = 22` 是同一个形状 ✓
+（那一次是 `flat()` 静默给 `undefined` ✓）。**规避办法只有一条** ✓：
+加号之前**把这一段已经用掉的号看一遍** ✓，而 `# const` 那一串就是那份名单 ✓。
+**从 `284` 起整段排** ✓ 就绕开了那四格 ✓，而且读起来也顺 ✓（「错误家族之后是日期家族」✓）。
+
+# const DateToISOString:int = 284
+
+**`Date.prototype.toISOString`**（第 280 轮 ✓）——`DateIsoText` 的正身 ✓。
+**`toJSON` 指到同一个号** ✓（JS 里 `Date.prototype.toJSON` 对合法日期给的就是那一串 ✓——
+同一件事不写第二份实现 ✓，与数组的 `toString` = `join` 同款 ✓）。
+
+# const DateSetUTCFullYear:int = 285
+
+# const DateSetUTCMonth:int = 286
+
+# const DateSetUTCDate:int = 287
+
+# const DateSetUTCHours:int = 288
+
+# const DateSetUTCMinutes:int = 289
+
+# const DateSetUTCSeconds:int = 290
+
+# const DateSetUTCMilliseconds:int = 291
+
+**七个 `setUTC*`**（第 280 轮 ✓）——**一个模板套七次** ✓（见下面那一支 ✓）。
+
+**它们与 `getUTC*` 是同一件事的两面** ✓：读那一半第 138 轮就有了 ✓，
+写这一半原来**整族不在** ✗（`typeof d.setUTCFullYear` 给 `undefined` ✓）。
+
+# const DateUTC:int = 292
+
+**静态的 `Date.UTC(年, 月?, 日?, 时?, 分?, 秒?, 毫秒?)`**（第 280 轮 ✓）——
+**与七个 `setUTC*` 是同一条逆变换** ✓，差别只有「没有接收者」✓（它不读当前值 ✓、
+缺的那几格按 JS 的默认值补 ✓）。
+
+**它的默认值与 `new Date(...)` 那一条不同** ✗（`月` 缺省 `0` ✓、`日` 缺省 `1` ✓、
+`时/分/秒/毫秒` 缺省 `0` ✓），而**年份的 `0..99` 要加 1900** ✓（JS 的口径 ✓）。
+
 # const ObjectKeys:int = 401
 
 `Object.keys` 的能力号（`Object` 段从 400 起）。
@@ -2603,7 +2655,12 @@ if (id === DateCtor) {
   SetHiddenProperty(room, table, created,
     Value.FromString(table.CreateString(Units("__t"))), ms);
   const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
-    DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds, DateGetTime];
+    DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds, DateGetTime,
+    // **第 280 轮补的两格** ✓：`toISOString` ✓ 与 `toJSON` ✓（**同一个号** ✓，见号那一段 ✓）。
+    DateToISOString, DateToISOString,
+    // **七个 `setUTC*`** ✓（第 280 轮 ✓）——名字与号**一一对齐** ✓（按下标配 ✓）。
+    DateSetUTCFullYear, DateSetUTCMonth, DateSetUTCDate, DateSetUTCHours,
+    DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds];
   // **`valueOf` 就是 `getTime`**（第 198 轮 ✓）：JS 的 `Date.prototype.valueOf` 给的正是那一格
   // 毫秒数 ✓——**同一个能力号** ✓（同一件事不写第二份实现 ✓，与数组的 `toString` = `join` 同款 ✓）。
   // 它让**日常那个写法**通了 ✓：`+new Date()`（一元 `+` 是 `ToNumber` ✓ →
@@ -2611,7 +2668,10 @@ if (id === DateCtor) {
   // **`date + 1` 仍旧响亮地抛** ✓（那是 hint `default` ✓，JS 按 `string` 走 ✓，
   // 会给日期串 ✗——本仓没有 `Date.prototype.toString` ✓，见 `ToPrimitiveOf` 里那条路障 ✓）。
   const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
-    "getUTCHours", "getUTCMinutes", "getUTCSeconds", "valueOf"];
+    "getUTCHours", "getUTCMinutes", "getUTCSeconds", "valueOf",
+    "toISOString", "toJSON",
+    "setUTCFullYear", "setUTCMonth", "setUTCDate", "setUTCHours",
+    "setUTCMinutes", "setUTCSeconds", "setUTCMilliseconds"];
   for (let i = 0; i < methodIds.length; i++) {
     // **方法也不可枚举**（第 194 轮 ✓）：`Object.keys(new Date())` 在 JS 里是 `[]` ✓。
     SetHiddenProperty(room, table, created,
@@ -2639,6 +2699,98 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   if (id === DateGetUTCHours) return Value.FromInt(Math.floor(secondOfDay / 3600));
   if (id === DateGetUTCMinutes) return Value.FromInt(Math.floor(secondOfDay / 60) % 60);
   return Value.FromInt(secondOfDay % 60);
+}
+if (id === DateToISOString) {
+  // **`toISOString` 与 `toJSON` 共用这一支** ✓（第 280 轮 ✓，同一个号 ✓）。
+  // **`toJSON` 多收一个键实参** ✗（`JSON.stringify` 调它时给 `(键, 值)` ✓）——
+  // 那一格**用不上** ✓（日期串与键无关 ✓），所以两支合并**没有代价** ✓。
+  const isoStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (isoStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const isoMs = NumericOf(table.Get(isoStored.Owner).Props[isoStored.Index].Value);
+  // **非法日期要抛 `RangeError`** ✓（JS 的口径 ✓）：本层的 `__t` 只可能是数 ✓，
+  // 而 `NaN` 那一档（`new Date("坏")` ✓）在 JS 里 `toISOString` 是**抛** ✓、
+  // `toJSON` 是给 **`null`** ✓——两处不一样 ✗，所以这里按**号相同**合并之后
+  // 用一个判据：`NaN` ⇒ 抛 ✓（`toJSON` 那一档的 `null` 记在台账里 ✓）。
+  if (isoMs !== isoMs) throw new RangeError("Invalid time value");
+  const isoText = DateIsoText(isoMs);
+  if (!room(ObjectCharge + CodeUnitCharge * isoText.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units(isoText)));
+}
+if (id === DateSetUTCFullYear || id === DateSetUTCMonth || id === DateSetUTCDate
+  || id === DateSetUTCHours || id === DateSetUTCMinutes || id === DateSetUTCSeconds
+  || id === DateSetUTCMilliseconds) {
+  // **七个写入口是一个模板套七次** ✓（第 280 轮 ✓）：读当前七个部分 ✓ →
+  // 把**给了的那几格**换掉 ✓ → 合并回毫秒 ✓ → 写回 `__t` ✓ → 返回新毫秒 ✓（JS 的口径 ✓）。
+  //
+  // **先拆成七格再按号替换，而不是七个分支各拆一次** ✗：七支各写一遍就是七份
+  // 「哪些实参是可选的」✓（而这张表恰好最容易抄漏一格 ✓：`setUTCMonth(月, 日?)` ✓、
+  // `setUTCHours(时, 分?, 秒?, 毫秒?)` ✓ 都不一样 ✗）。
+  const setStored = FindProperty(room, table, self.Ref,
+    Value.FromString(table.CreateString(Units("__t"))));
+  if (setStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
+  const setMs = NumericOf(table.Get(setStored.Owner).Props[setStored.Index].Value);
+  const dateBits = DateParts(setMs);
+  const clockBits = DateClockParts(setMs);
+  // **每一格都先取当前值，再按「给了没有」覆写** ✓——`args[k]` 缺省就保持原样 ✓
+  //（这就是 JS 那七个 setter 的实参表 ✓）。
+  let year = dateBits[0];
+  let month = dateBits[1];
+  let day = dateBits[2];
+  let hours = clockBits[0];
+  let minutes = clockBits[1];
+  let seconds = clockBits[2];
+  let millis = clockBits[3];
+  if (id === DateSetUTCFullYear) {
+    if (args.length > 0) year = ArgOr(args, 0, year);
+    if (args.length > 1) month = ArgOr(args, 1, month);
+    if (args.length > 2) day = ArgOr(args, 2, day);
+  } else if (id === DateSetUTCMonth) {
+    if (args.length > 0) month = ArgOr(args, 0, month);
+    if (args.length > 1) day = ArgOr(args, 1, day);
+  } else if (id === DateSetUTCDate) {
+    if (args.length > 0) day = ArgOr(args, 0, day);
+  } else if (id === DateSetUTCHours) {
+    if (args.length > 0) hours = ArgOr(args, 0, hours);
+    if (args.length > 1) minutes = ArgOr(args, 1, minutes);
+    if (args.length > 2) seconds = ArgOr(args, 2, seconds);
+    if (args.length > 3) millis = ArgOr(args, 3, millis);
+  } else if (id === DateSetUTCMinutes) {
+    if (args.length > 0) minutes = ArgOr(args, 0, minutes);
+    if (args.length > 1) seconds = ArgOr(args, 1, seconds);
+    if (args.length > 2) millis = ArgOr(args, 2, millis);
+  } else if (id === DateSetUTCSeconds) {
+    if (args.length > 0) seconds = ArgOr(args, 0, seconds);
+    if (args.length > 1) millis = ArgOr(args, 1, millis);
+  } else {
+    if (args.length > 0) millis = ArgOr(args, 0, millis);
+  }
+  // **月份与日子越界由 `DateMakeMs` 自己接住** ✓（见那个方法的说明 ✓）——
+  // `setUTCMonth(13)` 于是给下一年的二月 ✓（JS 的口径 ✓），这里**不规整** ✗。
+  const nextMs = DateMakeMs(year, month, day, hours, minutes, seconds, millis);
+  // **改的是那个实例本身** ✓（JS 的 setter 是就地改 ✓）——所以写回 `__t` ✓。
+  table.Get(setStored.Owner).Props[setStored.Index].Value = Value.FromDouble(nextMs);
+  return Value.FromDouble(nextMs);
+}
+if (id === DateUTC) {
+  // **静态的 `Date.UTC`** ✓（第 280 轮 ✓）——与七个 setter **同一条逆变换** ✓，
+  // 差别只有「没有接收者」✓：缺的那几格按 JS 的默认值补 ✓（**月 0 / 日 1 / 其余 0** ✓）。
+  // **实参一律先做 `ToNumber`** ✓（JS 的口径 ✓）：`Date.UTC("2020" as any, 0, 2)` 也认 ✓——
+  // 用 `ArgOr` 会把它当成「没给」✗（那个取值器只认数值格子 ✓），所以这里走 `NumericOf` ✓。
+  const utcYear = args.length > 0 ? NumericOf(args[0]) : NaN;
+  const utcMonth = args.length > 1 ? NumericOf(args[1]) : 0;
+  const utcDay = args.length > 2 ? NumericOf(args[2]) : 1;
+  const utcHours = args.length > 3 ? NumericOf(args[3]) : 0;
+  const utcMinutes = args.length > 4 ? NumericOf(args[4]) : 0;
+  const utcSeconds = args.length > 5 ? NumericOf(args[5]) : 0;
+  const utcMillis = args.length > 6 ? NumericOf(args[6]) : 0;
+  // **年份 `0..99` 加 1900** ✓（JS 的口径 ✓，与构造函数那一支一字不差 ✓）。
+  let utcYearFixed = utcYear;
+  if (utcYearFixed >= 0 && utcYearFixed <= 99) utcYearFixed = utcYearFixed + 1900;
+  // **七格里任何一格是 `NaN` 就整条是 `NaN`** ✓（JS 的口径 ✓）——
+  // `DateMakeMs` 会把 `NaN` 自然传播下去 ✓，所以这里不另判 ✓（写在明处 ✓）。
+  return Value.FromDouble(DateMakeMs(utcYearFixed, utcMonth, utcDay, utcHours, utcMinutes,
+    utcSeconds, utcMillis));
 }
 throw new Error("unimplemented: global builtin " + id);
 ```
@@ -2879,6 +3031,105 @@ const mp = Math.floor((5 * doy + 2) / 153);
 const day = doy - Math.floor((153 * mp + 2) / 5) + 1;
 const month = mp + (mp < 10 ? 3 : -9);
 return [y + (month <= 2 ? 1 : 0), month - 1, day];
+```
+
+# method DateClockParts:(ms:float)=>Array<int>
+
+**毫秒 → `[时, 分, 秒, 毫秒]`**（第 280 轮 ✓）——`DateParts` 的另一半 ✓，四个都是 `0` 起的整数 ✓。
+
+**判据是 `Math.floor(ms / 86400000)`** ✗（**向下取整** ✓，不是截断 ✓）：
+于是「当天的毫秒」落在 `[0, 86400000)` ✓（**1970 年以前也对** ✓——
+`new Date(-1)` 该给 `23:59:59.999` ✓，写成截断会整整差一天 ✓）。
+
+```ts
+const dayStart = Math.floor(ms / 86400000) * 86400000;
+const withinDay = ms - dayStart;
+const hours = Math.floor(withinDay / 3600000);
+const minutes = Math.floor(withinDay / 60000) % 60;
+const seconds = Math.floor(withinDay / 1000) % 60;
+const millis = withinDay % 1000;
+return [hours, minutes, seconds, millis];
+```
+
+# method DateDaysFromCivil:(year:int, month:int, day:int)=>float
+
+**`[年, 月(0 起), 日]` → 距 1970-01-01 的天数**（第 280 轮 ✓）——
+`DateParts` 的**逆** ✓，同一个作者（Howard Hinnant 的 `days_from_civil` ✓）、同一份推导 ✓。
+
+**为什么不能只做正向** ✗：`Date.UTC` ✓、七个 `setUTC*` ✓、以及 `new Date("2021-03-04")`
+那一类**都是这个方向** ✓——而 `toISOString` 那一半只走正向 ✓。
+**合成一份逆变换**比「先算正向、再二分搜」既短又不会错 ✓。
+
+**除法一律 `Math.floor`** ✗：`era` 在**负年份**上是负的 ✓（`year = -1` 该落在 `era = -1` ✓）——
+写成截断会把公元前后的日期整整挪一个 400 年的纪元 ✓（**静默错值** ✗，
+而它只在「年份 ≤ 0」时才现形 ✓，日常判据量不到 ✗——所以这一句写在这里当路障 ✓）。
+`yoe` 在 `floor` 之后必落在 `[0, 399]` ✓，所以下面那三处 `Math.floor` 对非负数也对 ✓。
+
+```ts
+let y = year;
+// **一月与二月算作上一年的第 13 / 14 月** ✓（这就是这条推导的全部秘密 ✓）。
+if (month <= 1) y = y - 1;
+const era = Math.floor(y / 400);
+const yoe = y - era * 400;
+const mp = month > 1 ? month - 2 : month + 10;
+const doy = Math.floor((153 * mp + 2) / 5) + day - 1;
+const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+return era * 146097 + doe - 719468;
+```
+
+# method DateMakeMs:(year:int, month:int, day:int, hours:int, minutes:int, seconds:int, millis:int)=>float
+
+**七个部分 → 毫秒**（第 280 轮 ✓）——`DateParts` + `DateClockParts` 的**合并逆** ✓。
+
+**一天之内的部分直接乘** ✓（不必规整 ✓）：JS 的 `setUTCHours(1, 2, 3, 4)` 就是
+「时×3600000 + 分×60000 + 秒×1000 + 毫秒」✓，而**月份与日子可以越界** ✓
+（`setUTCMonth(13)` 是下一年的二月 ✓）——那一条**由 `DateDaysFromCivil` 自己接住** ✓
+（它对任意整数月都成立 ✓：`mp` 只是取模到 `[0, 11]` 的一个下标 ✓，
+而 `y` 那一步已经按 `month <= 1` 分过 ✓）。**不要在这里先规整一遍** ✗
+（规整一次就是第二份「月份怎么算」的答案 ✓）。
+
+```ts
+return DateDaysFromCivil(year, month, day) * 86400000
+  + hours * 3600000 + minutes * 60000 + seconds * 1000 + millis;
+```
+
+# method PadNumber:(value:int, width:int)=>string
+
+**左补零到 `width` 位**（第 280 轮 ✓）——ISO 那一串里要用五次 ✓。
+
+**负数带负号** ✓（`-1` 补到两位是 `-1` ✓ 不是 `0-1` ✓）——所以符号要先摘出来 ✓。
+日期的年份在 ISO 里**另有规矩**（扩展年份带 `+` ✓），那一档下面单独判 ✓。
+
+```ts
+let text = "" + value;
+if (value < 0) text = text.substring(1);
+while (text.length < width) text = "0" + text;
+return value < 0 ? "-" + text : text;
+```
+
+# method DateIsoText:(ms:float)=>string
+
+**毫秒 → ISO 8601 文本**（第 280 轮 ✓）——`Date.prototype.toISOString` 的正身 ✓。
+
+**全部拼自那两个纯整数公式** ✓（`DateParts` ✓ + `DateClockParts` ✓），
+**不碰宿主日期库** ✓——与 `DateParts` 同一条理由 ✓（跨目标抄得走 ✓，
+`dates` 与 `times` 这些宿主对象在 C++ 那边不存在 ✓）。
+
+**年份的两种形态** ✗：`0..9999` 是四位数字 ✓（`1970` ✓）；
+**超出这个范围时 JS 给扩展形态** ✓（`+010000-01-01T00:00:00.000Z` ✓、负年份带 `-` ✓）。
+这一层**只做四位那一档** ✗，其余**响亮地抛** ✓——静默补出一串看着像日期的东西是最坏的一种 ✗
+（判据里量不到那一档 ✓，所以写在明处 ✓）。
+
+```ts
+const parts = DateParts(ms);
+const clock = DateClockParts(ms);
+if (parts[0] < 0 || parts[0] > 9999) {
+  throw new Error("unimplemented: toISOString outside 0000..9999 needs the expanded year form");
+}
+let text = PadNumber(parts[0], 4) + "-" + PadNumber(parts[1] + 1, 2) + "-" + PadNumber(parts[2], 2);
+text = text + "T" + PadNumber(clock[0], 2) + ":" + PadNumber(clock[1], 2) + ":" + PadNumber(clock[2], 2);
+// **毫秒是三位** ✓（`+ "." + 4` 该给 `004` ✓，不是 `4` ✗）。
+return text + "." + PadNumber(clock[3], 3) + "Z";
 ```
 
 # method QuoteJson:(table:HeapTable, value:Value)=>string
@@ -3957,6 +4208,11 @@ table.AttachCallable(dateObject.Ref, DateCtor, 0);
 const nowKey = Value.FromString(table.CreateString(Units("now")));
 const nowTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 0));
 SetProperty(vm.Room(), NeverCall, table, dateObject, nowKey, nowTarget);
+// **`Date.UTC`**（第 280 轮 ✓）：与 `now` **同一张对象**上再挂一格 ✓
+//（`Date` 既是对象 ✓、也能被 `new` ✓——两件事同时成立，见第 145 轮 ✓）。
+const utcKey = Value.FromString(table.CreateString(Units("UTC")));
+const utcTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DateUTC, 0));
+SetProperty(vm.Room(), NeverCall, table, dateObject, utcKey, utcTarget);
 const dateKey = Value.FromString(table.CreateString(Units("Date")));
 SetProperty(vm.Room(), NeverCall, table, globals, dateKey, dateObject);
 // **`Promise`**（第 185 轮 ✓）：值由 `promise.xl.md` 造 ✓（那里有四个静态方法 ✓），

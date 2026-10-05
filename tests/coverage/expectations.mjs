@@ -357,8 +357,21 @@ export const EXPECTATIONS = {
   // 所以多了一格 `DeclareSymbolToString` ✓，还带出一条「属性读有两条路」的教训 ✓），
   // 以及 `SyntaxError` 那一族（第四个错误原型 ✓ + `GlobalNames` 补一个名字 ✓）与
   // `Error(msg, { cause })` ✓。逐条账见 `typescript-exec/README.md` 的「第 277 轮的账」✓。
-  "date-iso-and-json": { expect: "blocked", why: "`Date.prototype.toISOString` / `toJSON` 不在那儿，`Date.UTC` 也不在，`new Date(字符串)` 报 `new Date(x) needs a number of milliseconds`" },
-  "date-utc-setters": { expect: "blocked", why: "`setUTCFullYear` / `setUTCMonth` / `setUTCHours` 不在那儿（读入口那几格在）" },
+  // **第 280 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：它**进得了门**了 ✓——
+  // `Date.UTC` ✓、`toISOString` ✓、`toJSON` ✓、七个 `setUTC*` ✓ 都装上了 ✓。
+  // 剩下的是**最后一句** ✗：`new Date("2021-03-04T05:06:07Z")` 那个**字符串实参** ✓
+  // （要一个 ISO 解析器 ✓），以及 `JSON.stringify({ d })` 要**认 `toJSON`** ✓
+  //（`JsonText` 是个纯查询 ✓、没有调用通道 ✗——那要给它加一格 ✓）。
+  "date-iso-and-json": { expect: "differ", why: "`new Date(字符串)` 还没接（`new Date(x) needs a number of milliseconds`），以及 `JSON.stringify({ d })` 要认 `toJSON`（`JsonText` 没有调用通道）。**前半条：`Date.UTC` / `toISOString` / `toJSON` / 七个 `setUTC*` 第 280 轮装上了** ✓" },
+  // **第 280 轮删掉了这一行** ✓（它过了 ✓）：七个 `setUTC*` + `toISOString` ✓——
+  // 而这一族最值钱的一格是**逆变换** ✓（`DateDaysFromCivil` ✓，Hinnant 的 `days_from_civil` ✓）：
+  // `DateParts` 从第 138 轮起就给了正向 ✓，而逆变换一直没有 ✗ ⇒ `Date.UTC` 与七个 setter
+  // **全都落不下来** ✓。逆变换的 `Math.floor` 那三处是**路障** ✓（负年份上写成截断会整整挪一个纪元 ✓，
+  // 而它只在「年份 ≤ 0」时才现形 ✗）。
+  // **顺带撞出一条静默的**：第一版把这九格排在 `273..281` ✗，而 `280` / `281` 已经是
+  // `ErrorCtor` / `TypeErrorCtor` ✓ ⇒ `Date.UTC(…)` 返回了一个 `TypeError` **对象** ✓
+  //（分派表先问错误构造器那一支 ✓）——**号撞车是静默的** ✓，与第 150 轮
+  // `ArrayAt = 22` 撞上 `ArrayFlat = 22` 是同一个形状 ✓。改到 `284..292` ✓。
 
   // ---- 组 11：标准库**在、但语义不对**（3 条）----
   // 这三条比组 10 危险 ✓：**静默错值** ✓，不是响亮地抛 ✓。
