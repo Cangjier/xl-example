@@ -12,7 +12,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, ObjectAssign, PowId, GeneratorNextId } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, ObjectAssign, PowId, GeneratorNextId, SymbolToString } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet, SetCtor } from "./set.xl.md"
 ```
@@ -896,6 +896,14 @@ try {
   } else if (error instanceof RangeError) {
     failedProto = protos.RangeError;
     failedName = "RangeError";
+  } else if (error instanceof SyntaxError) {
+    // **`SyntaxError` 是第 277 轮加的第三族** ✓——它是**被需要的** ✗ 不是补齐好看 ✓：
+    // `JSON.parse(坏输入)` 在 JS 里抛的正是 `SyntaxError` ✓，而脚本那一侧
+    // `catch (e) { e instanceof SyntaxError }` 是**日常写法** ✓（判据 `json-parse-reviver` 量的就是它 ✓）。
+    // **这一格一加，内建那边一个字都不用改** ✓：`globals.xl.md` 的七处 JSON 解析失败
+    // 照旧写 `throw new SyntaxError(…)` ✓（**宿主的**那个类 ✓），映射在这里做 ✓。
+    failedProto = protos.SyntaxError;
+    failedName = "SyntaxError";
   }
   machine.Raise(NewErrorLike(machine.Room(), machine.Table, protos, failedProto, failedName,
     HostErrorText(error)));
@@ -921,7 +929,15 @@ InstallString(host.Machine, protos);
 // **`Promise` 那四个静态方法要登记**（第 185 轮 ✓）：理由与下面那张辅助表一字不差 ✓
 // （**不加进名单的症状是 `capability is not registered: 231`** ✗）。
 const promiseSlots = [PromiseResolve, PromiseReject, PromiseAll, PromiseRace,
-  PromiseAllStepId, PromiseRaceStepId];
+  PromiseAllStepId, PromiseRaceStepId,
+  // **符号的 `toString`**（第 277 轮 ✓）：与上面那几格同一个理由 ✓——
+  // 它的值是**引擎在 `get_prop` 那一处造出来的** ✓（`HostRef(SymbolToString)` ✓，
+  // 见 `vm.xl.md` 的 `ToStringKey` ✓），而那个号**必须已经在能力表里** ✓，
+  // 否则调用它报 `capability is not registered: 254` ✓——
+  // 那句话听起来像「号写错了」✗，其实是「这一格没人登记」✓。
+  // **`SymbolDescription`（251）不在名单里也不要紧** ✗：那一支**返回的是一个值** ✓
+  //（描述就在堆里 ✓），根本不经过能力表 ✓——这一格是这一族里**第一个要发回的** ✓。
+  SymbolToString];
 for (const slot of promiseSlots) {
   host.Register(slot,
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(slot, 0)));

@@ -289,6 +289,88 @@
 **而三行现场（`class E { private h = new Map(); }`）是验证这一点最省事的一条** ✓——
 它没有异步 ✓、没有闭包 ✓，**数一遍 `EmitFieldDefaults` 前后的 `NextFree` 就能证实或否掉** ✓。
 
+### 第 277 轮的账（**`Symbol` 注册表 · `SyntaxError` 一族 · `Error.cause` —— 以及「属性读有两条路」**）
+
+**这一轮接着收同一组** ✓（标准库「成员不在那儿」17 条 → 现剩 7 条 ✓）。
+
+**① `Symbol.for` / `keyFor`：注册表得挂在「够得着的那个对象」上** ✗
+
+`Symbol.for("a") === Symbol.for("a")` 是**真** ✓，而 `Symbol("a") !== Symbol("a")` ✓——
+**「按名字去重」是这一族唯一一处这么做的地方** ✗，所以它必须**有个地方记着** ✓。
+**记在哪** ✗：`InvokeGlobal` 手里只有 `protos` ✓（这一层全是纯函数 ✓、没有模块级可变量 ✓），
+所以表只能挂在**够得着的对象**上 ✓——用的是 `protos.WellKnownSymbols` ✓（第 184 轮那张 ✓）。
+
+**条目带一个 `for:` 前缀** ✓，而**前缀本身就是「注册过」的判据** ✗：
+那张表**同时**装着五个知名符号 ✓，而 `Symbol.keyFor(Symbol.iterator)` 在 JS 里是
+`undefined` ✓——没有前缀的话，反查那一趟会把知名符号认成注册过的 ✓（**静默错值** ✓）。
+
+**反查是线性扫一趟** ✗：符号**没有属性表** ✓（`SetHiddenProperty` 落不下去 ✓），
+所以「这个符号注册时叫什么名字」**只能从注册表那一侧查** ✓。表很小 ✓，扫一趟是应该的 ✓。
+**`keyFor` 收到不是符号的实参要抛 `TypeError`** ✓（JS 的口径 ✓）——
+静默给 `undefined` 会让「没注册过」与「你给的不是符号」变成同一个答案 ✓。
+
+**② `Symbol.prototype.toString`：引擎特判那一支第一次要交出一个「能被调的东西」** ✗
+
+`String(s)` 一直是好的 ✓（第 215 轮 ✓，那是**转文本**那条路 ✓），而 `s.toString()` 是
+**取一格属性再调用** ✗——符号没有原型那一格 ✓，所以它也走引擎特判 ✓。
+**但两支的产出不一样** ✗：`description` 交的是**一个值** ✓（描述就在堆里 ✓），
+而 `toString` 要交一个 `HostRef` ✓——**而能力号是语言层的事** ✗（引擎不认识那些号 ✓，
+与 `ErrorKindType` 同一条道理 ✓）。所以多了一格 `DeclareSymbolToString(名字, 号)` ✓
+（`host-abi.xl.md` ✓）与两个 VM 字段 ✓。
+**名字与号一次给** ✓：分开给会留一段「键认得出、号还是 `0`」的窗口 ✓，
+那一段里 `s.toString` 是个**假的调用目标** ✓。
+
+**③ 一条更普遍的教训：属性读有两条路** ✗
+
+这一格第一次没成 ✓，报的还是 `cannot call a non-closure value` ✓。根因是：
+`a.toString`（**取值**）走 `RtOp.GetProp` ✓，而 `a.toString()`（**调用**）走
+`Op.CallMethod` 里那一句**直呼 `GetProperty`** ✗——**两处各写一份判据** ✓，
+于是「取值拿得到、调用拿不到」✓（**一半对一半错** ✗，比两处都错更难查 ✓）。
+修法是把它收成一个方法 ✓（`SymbolMethodOf` ✓），**两处都调它** ✓。
+**`description` 那一格没暴露这件事** ✗——它只用「取值」那条路 ✓；
+**这一条是「同一个概念有两条实现路」的又一个样本** ✓，与第 232 轮那个
+`new` 的实参位分块、第 143 轮那个实参位可选链是同一族 ✓。
+
+**④ `SyntaxError`：第四个错误原型 + `GlobalNames` 补一个名字** ✓
+
+`JSON.parse(坏输入)` 在 JS 里抛的是 `SyntaxError` ✓，而这一族原来只有三个成员 ✓
+⇒ `catch (e) { e instanceof SyntaxError }` **没有落点** ✗。
+补的是四处 ✓：`props.xl.md` 的原型字段 / 根 / 建对象 / 接链 ✓，
+再加建库层那三格（名字 / 消息 / 构造器 ✓）与 `GlobalNames` 里一个名字 ✓。
+**`GlobalNames` 那一格顺带修掉了更基础的一条** ✗：`SyntaxError` 原来**不在名单里** ✓，
+于是 `typeof SyntaxError` 在**降级期**就报 `name is not a local or a capture` ✓
+（听起来像脚本写错了变量名 ✗，其实是名单少了一个名字 ✓——与第 145 轮的 `Boolean` 一模一样 ✓）。
+
+**解析失败那一侧一个字都不用改** ✓：`globals.xl.md` 里那 **22 处**
+`throw new SyntaxError("JSON.parse: …")` 写的是**宿主的**那个类 ✓，
+映射交给 `RaiseFromHost` ✓（第 227 轮那条桥 ✓，这一轮加了第三个分支 ✓）——
+**这正是那条桥存在的理由** ✓：宿主说「我意思是语法错」✓，语言层翻成脚本的族 ✓。
+
+**⑤ `Error(msg, { cause })`：判据是「那一格在不在」** ✗
+
+`new Error("x", {})` 与 `new Error("x", { cause: undefined })` 在 JS 里**不一样** ✓
+（前者**没有**那一格 ✓、后者有，值是 `undefined` ✓）。
+拿「第二个实参在不在」顶替就是**静默错值** ✓（`"cause" in e` 从假变真 ✓）。
+`cause` 走 `SetHiddenProperty` ✓（JS 里它不可枚举 ✓），
+**两条产出路都要挂** ✓（`super(m, { cause })` 那一支与 `NewErrorLike` 那一支 ✓——
+只挂一支的话「派生类产的错误没有 `cause`、内建产的有」✓，**一半对一半错** ✗）。
+
+**验收** ✓：`npm run coverage` 从 **354 / 395 = 86.6%** 到 **356 / 395 = 86.9%** ✓
+（标准库 89.0% → **90.3%** ✓）——两条转绿 ✓、`json-parse-reviver` 从 `blocked`
+**进了门**（`differ`）✓，`regressions` / `moved` / `bad` **三栏全空** ✓。
+**这一轮动了三个引擎文件** ✓（`props.xl.md` / `vm.xl.md` / `host-abi.xl.md` ✓），
+所以两条引擎侧的判据都重跑过 ✓：`runtime:check` **241 条 0 失败** ✓、
+`runtime:cli` **79 / 79** ✓、`xl check` 177 文件 0 错 ✓。
+另写了一份**逐行对拍**的临时语料（20 行 ✓：注册表的两问与负例 ✓、知名符号不是注册过的 ✓、
+`Symbol()` 没描述那一格 ✓、四个错误族的名字与 `instanceof` 矩阵 ✓、
+坏 JSON 的两处 ✓、`cause` 的三种给法 ✓），**与 `node` 逐字节相同** ✓。
+
+**顺带量到一条还没修的** ✗（记在这里，下一轮可选）：`"s".toString()` 给 `[object String]` ✓
+（node 给 `"s"` ✓）——读到的其实是 `Object.prototype.toString` ✓，
+与「`String.prototype.toString` 还没装」是同一件事 ✓。**它不在矩阵里** ✗，
+所以不影响读数 ✓；记在这里是因为**它是这一轮那条教训的另一个面** ✓：
+「同一件事两条路」的反面——**同一件事两个名字** ✓。
+
 ### 第 276 轮的账（**描述符那一族五格：三套标志一条判据也推不出来，只能实测**）
 
 **这一轮接着收同一组** ✓（标准库「成员不在那儿」17 条 → 现剩 8 条 ✓）。

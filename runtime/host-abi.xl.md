@@ -266,6 +266,22 @@ this.Machine.SetPrototypeKey(this.Machine.Table.CreateString(units));
 this.Machine.SetDescriptionKey(this.Machine.Table.CreateString(units));
 ```
 
+## method DeclareSymbolToString:(units:Array<int>, methodId:int)=>void
+
+**告诉这台机器：符号上那一格叫 `toString`、该调哪个号**（第 277 轮 ✓）。
+
+**为什么它比 `DeclareDescriptionKey` 多一格实参** ✗：`description` 那一支交出去的是**一个值** ✓
+（描述就在堆里 ✓），而 `toString` 那一支要交出一个**能被调的东西** ✓——一个 `HostRef` ✓——
+**而能力号是语言层的事** ✗（引擎不认识那些号 ✓，与 `ErrorKindType` 同一条道理 ✓），
+所以号只能从这里进去 ✓。
+
+**名字与号一次给** ✓（与 `SetToStringKeys` 那一处同一条理由 ✓）：
+分开给会留一段「键认得出、号还是 `0`」的窗口 ✓，那一段里 `s.toString` 是个假的调用目标 ✓。
+
+```ts
+this.Machine.SetToStringKeys(this.Machine.Table.CreateString(units), methodId);
+```
+
 ## method InstallHost:(invoker:HostInvoker)=>void
 
 装上真正去执行宿主函数的那个通道（客户语言里的实现）。

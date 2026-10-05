@@ -6,7 +6,7 @@ import { TextContext } from "./typescript/text-context.xl.md"
 import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
-import { GlobalNames, BuildGlobals, TextFrom, LogSink, NewError, NewErrorLike } from "./typescript-exec/builtins/globals.xl.md"
+import { GlobalNames, BuildGlobals, TextFrom, LogSink, NewError, NewErrorLike, SymbolToString } from "./typescript-exec/builtins/globals.xl.md"
 import { ValueText } from "./typescript-exec/builtins/text.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
@@ -268,6 +268,11 @@ host.DeclarePrototypeKey(Units("prototype"));
 //（没有属性表 ✓、没有原型那一格 ✓），所以那一格**只能由引擎在 `get_prop` 处特判** ✓——
 // 而引擎不认识「description」这几个字母 ✗，名字由这里给 ✓（与上一行一字不差 ✓）。
 host.DeclareDescriptionKey(Units("description"));
+// **符号上的 `toString` 也走同一条** ✓（第 277 轮 ✓）——它是 `DeclareDescriptionKey` 的**兄弟** ✓，
+// 差别只有「交出去的是一个**能被调的东西**」✗：所以这一句多带一个**能力号** ✓
+//（`SymbolToString` ✓，在 `globals.xl.md` 里 ✓）。引擎不认识那个号 ✓，与不认识
+// 「description」这几个字母是同一件事 ✓。
+host.DeclareSymbolToString(Units("toString"), SymbolToString);
 // **建库与宿主要在第 0 份模块求值之前装好**（第 119 轮改的顺序）：模块**顶层的语句**
 // 也是脚本，它一样会 `console.log` / `arr.push` / 造对象字面量的访问器 ✗——
 // 原来这四步排在 `Evaluate` **之后** ✗，于是「直接跑一个 .ts 文件」这种最普通的形状

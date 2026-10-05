@@ -1450,9 +1450,44 @@ if (this.Protos === null) throw new Error("no prototype table");
 // **形状与那两处一字不差** ✓（`Guard` + `ErrorKindType` ✓）——
 // 引擎**仍然不认识** `"TypeError"` 这几个字母 ✓，它只把**类别**交给错误工厂 ✓。
 // **这一次读的结果**要留成一格 ✓（下面调它时要用 ✓），所以不能像那两处一样直接 `return` ✓。
+// **符号上那一格先问一句** ✓（第 277 轮 ✓）：`a.toString()` 走的是**这一处直呼 `GetProperty`** ✗，
+// 不是 `RtOp.GetProp` ✓——两处各写一份判据就是两处会漂的答案 ✓
+//（判据集中在 `SymbolMethodOf` ✓，那里写着为什么 ✓）。
+// **不是符号上的那一格时它给 `undefined`** ✓，于是下面那一句照旧 ✓（一个字都没变 ✓）。
+const symbolCallee = this.SymbolMethodOf(receiver, key);
+if (symbolCallee.Tag !== ValueTag.Undefined) {
+  this.DoCallValue(frame, symbolCallee, instr.C, instr.D, instr.C, receiver, 0);
+  return;
+}
 const callee = this.Guard(() => GetProperty(this.Room(), this.Native(), this.Protos!, this.Table, receiver, key),
   ErrorKindType);
 this.DoCallValue(frame, callee, instr.C, instr.D, instr.C, receiver, 0);
+```
+
+## method SymbolMethodOf:(receiver:Value, key:Value)=>Value
+
+**符号上那一格要**调**的东西**（第 277 轮 ✓）——`Op.CallMethod` 那条路要的正是它 ✓。
+不是符号上的那一格就给 `undefined` ✓（调用方接着走原来的路 ✓）。
+
+**为什么它必须单独存在** ✗：属性读有**两条**路 ✓——
+`RtOp.GetProp`（`a.toString` 这一种**取值** ✓）与**这一处直呼 `GetProperty`**
+（`a.toString()` 这一种**调用** ✓，第 1452 行 ✓）。
+**两处各写一份判据就是两处会漂的答案** ✗，而漂了的表现是
+「`a.toString` 拿得到、`a.toString()` 拿不到」✓——**一半对一半错** ✓，
+正是第 277 轮实测踩到的那个形状 ✓（`description` 那一格只用「取值」那条路 ✓，
+所以它没暴露这件事 ✗）。
+
+**`0` 的两个都要判** ✗（键没给 ✓、号没给 ✓）：只判一个会交出一个 `HostRef(0)` ✓，
+而那不是个东西 ✓（症状是「调用一个非闭包」✓，离真相很远 ✗）。
+
+```ts
+if (receiver.Tag !== ValueTag.Symbol) return Value.Undefined();
+if (this.ToStringKey <= 0 || this.SymbolToStringId <= 0) return Value.Undefined();
+if (key.Tag !== ValueTag.String) return Value.Undefined();
+if (!RtCmpEqStrict(this.Table, key, Value.FromString(this.ToStringKey)).AsBool()) {
+  return Value.Undefined();
+}
+return Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(this.SymbolToStringId, 0));
 ```
 
 ## method DoNew:(frame:HeapFrame, instr:Instruction)=>void
@@ -1521,6 +1556,37 @@ if (!this.NeedRoom(ObjectCharge + ValueCharge)) throw new Error("out of room");
 const handle = this.Table.CreateObject();
 this.Table.Get(handle).Proto = proto;
 return Value.FromObject(handle);
+```
+
+## field ToStringKey:int = 0
+
+**`s.toString` 里的 `toString` 是哪个字符串**（第 277 轮 ✓）——与 `DescriptionKey` 同一个理由 ✓：
+符号不是对象 ✓，那一格只能由引擎特判 ✓，而引擎不认识 `"toString"` 这几个字母 ✗。
+
+## field SymbolToStringId:int = 0
+
+**`s.toString()` 该调哪一个能力号**（第 277 轮 ✓，由语言层给 ✓；`0` = 没设 ✓）。
+
+**为什么这一格要单独存在** ✗：`description` 那一支返回的是一个**值** ✓
+（描述就在堆里那一格 ✓，取出来就完了 ✓），而 `toString` 这一支要返回一个**能被调的东西** ✓——
+也就是一个 `HostRef` ✓。**而能力号是语言层的事** ✗（引擎根本不认识那些号 ✓，
+与 `ErrorKindType` 那一条同一个道理 ✓），所以号**也只能由语言层交进来** ✓。
+
+**两个 `0` 都要判** ✗：`ToStringKey` 是「找哪个键」✓、`SymbolToStringId` 是「调哪个号」✓——
+只判一个的话，没接上时会给一个 `HostRef(0)` ✓，而那不是个东西 ✓
+（症状是「调用一个非闭包」✓，离「引擎没接上」这个真相很远 ✗）。
+
+## method SetToStringKeys:(keyHandle:int, methodId:int)=>void
+
+语言层告诉这台机器：**符号上那一格叫什么、该调哪个号**（第 277 轮 ✓）。
+
+**两格一次给** ✗（与上面两个 setter 不同 ✓）：它们**必须同时有效** ✓——
+分开给的话中间那一段是「键认得出、号是 `0`」✓，而那一段里 `s.toString` 会给一个假的可调用值 ✓。
+**收成一次**就没有那一段 ✓。
+
+```ts
+this.ToStringKey = keyHandle;
+this.SymbolToStringId = methodId;
 ```
 
 ## method SetPrototypeKey:(handle:int)=>void
@@ -1823,6 +1889,17 @@ if (id === RtOp.GetProp) {
     // 而 `Symbol("").description` 是**空串** ✓——两件事不能混 ✗）。
     if (symbolRecord.Description === 0) return Value.Undefined();
     return Value.FromString(symbolRecord.Description);
+  }
+  // **符号上的 `toString`** ✓（第 277 轮 ✓）：与上一支同一个理由 ✓（符号没有原型那一格 ✓），
+  // 差别只有「**交出去的是一个能被调的东西**」✗——也就是一个 `HostRef` ✓
+  //（`description` 那一支交的是一个值 ✓，取出来就完了 ✓）。
+  // **两格都要判** ✗（`ToStringKey` 是「找哪个键」✓、`SymbolToStringId` 是「调哪个号」✓）：
+  // 只判键的话，语言层还没接上号时这里会交出一个 `HostRef(0)` ✓——
+  // 而调用它的症状是「调用一个非闭包」✓，离「引擎没接上」这个真相很远 ✗。
+  if (propReceiver.Tag === ValueTag.Symbol && this.ToStringKey > 0 && this.SymbolToStringId > 0
+    && propKey.Tag === ValueTag.String
+    && RtCmpEqStrict(this.Table, propKey, Value.FromString(this.ToStringKey)).AsBool()) {
+    return Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(this.SymbolToStringId, 0));
   }
   // **读 `null` / `undefined` 的属性是「类型失败」** ✓（第 139 轮）：
   // JS 那边这一类全是 `TypeError` ✓——`kind` 那一格就是给它留的 ✓。

@@ -329,11 +329,18 @@ export const EXPECTATIONS = {
   "array-iterator-manual": { expect: "blocked", why: "数组迭代器**没有 `next()`**：`.values()` / `.keys()` / `.entries()` 交出来的东西能被 `[...]` 与 `for..of` 用（引擎的 drain），但不能手动走一步。第 229 轮给**生成器**补的 `next()` 是另一条路" },
   // **第 273 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：它抛出之前**已经打印了一行** ✓
   // （`Math.hypot` 与 `Math.cbrt` 是**在的** ✓），所以判决落在 `differ` 上 ✓ 而不是 `blocked` ✓。
-  "json-parse-reviver": { expect: "blocked", why: "`JSON.parse` 的**第二格实参**（reviver）没接；同一条里 `SyntaxError` 也不是全局名" },
-  "symbol-registry": { expect: "blocked", why: "`Symbol.for` / `Symbol.keyFor` 不在那儿——按名字去重的**注册表**要新造一张" },
+  // **第 277 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：`SyntaxError` 那一族装上之后
+  // 它**进得了门**了 ✓（坏输入那一句现在给 `true` ✓）——剩下的是**第一句** ✗：
+  // `JSON.parse(文本, reviver)` 的**第二格实参**还没接 ✓，所以数字没有过一遍回调 ✓。
+  "json-parse-reviver": { expect: "differ", why: "`JSON.parse` 的**第二格实参**（reviver）没接：数字没有过一遍回调 ⇒ `{\"a\":1,\"b\":{\"c\":2}}`（Node 给全部乘 10 的那一份）。**`SyntaxError` 那一半第 277 轮修好了** ✓（坏输入现在能被 `catch (e) { e instanceof SyntaxError }` 接住 ✓）" },
+  // **第 277 轮删掉了这两行** ✓（它们过了 ✓）：`Symbol.for` / `keyFor`（注册表挂在
+  // `protos.WellKnownSymbols` 上 ✓，键带 `for:` 前缀 ✓——前缀就是「注册过」的判据 ✓）
+  // + `Symbol.prototype.toString` ✓（**引擎特判那一支第一次要交出一个可调用值** ✗，
+  // 所以多了一格 `DeclareSymbolToString` ✓，还带出一条「属性读有两条路」的教训 ✓），
+  // 以及 `SyntaxError` 那一族（第四个错误原型 ✓ + `GlobalNames` 补一个名字 ✓）与
+  // `Error(msg, { cause })` ✓。逐条账见 `typescript-exec/README.md` 的「第 277 轮的账」✓。
   "date-iso-and-json": { expect: "blocked", why: "`Date.prototype.toISOString` / `toJSON` 不在那儿，`Date.UTC` 也不在，`new Date(字符串)` 报 `new Date(x) needs a number of milliseconds`" },
   "date-utc-setters": { expect: "blocked", why: "`setUTCFullYear` / `setUTCMonth` / `setUTCHours` 不在那儿（读入口那几格在）" },
-  "error-cause-and-family": { expect: "blocked", why: "`SyntaxError` **不是全局名**（`typeof` 给 `undefined`，而**读**一个未声明的名字在降级期就抛 `name is not a local or a capture`）；`new Error(msg, { cause })` 的 `cause` 也不装" },
 
   // ---- 组 11：标准库**在、但语义不对**（3 条）----
   // 这三条比组 10 危险 ✓：**静默错值** ✓，不是响亮地抛 ✓。

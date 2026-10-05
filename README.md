@@ -153,10 +153,18 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 276 轮读数：**354 / 395 = 86.6%**，
-其中**引擎 93.9%** ✓、降级层 **85.0%** ✓、标准库 **89.0%** ✓、端到端 **76.9%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 277 轮读数：**356 / 395 = 86.9%**，
+其中**引擎 93.9%** ✓、降级层 **85.0%** ✓、标准库 **90.3%** ✓、端到端 **76.9%** ✓——
+**第 277 轮**收的是 **`Symbol` 注册表 + `SyntaxError` 一族 + `Error.cause`** ✓：
+`Symbol.for` / `keyFor`（注册表挂在 `protos.WellKnownSymbols` 上 ✓，键带 `for:` 前缀 ✓
+——前缀就是「注册过」的判据 ✓）、`Symbol.prototype.toString`（**引擎特判那一支
+第一次要交出一个可调用值** ✗ ⇒ 多一格 `DeclareSymbolToString` ✓）、
+`SyntaxError`（第四个错误原型 ✓ + `GlobalNames` 补一个名字 ✓）、
+`Error(msg, { cause })`（判据是「描述符里有没有 `cause` 这一格」✗，不是「第二个实参在不在」✓）。
+**顺带量到一条更普遍的教训** ✗：**属性读有两条路** ✓——`a.x`（取值 ✓）与
+`a.x()`（调用 ✓，那一处直呼 `GetProperty` ✓）——**一条判据写两遍就会一半对一半错** ✓。
 **第 276 轮**收的是**描述符那一族五格** ✓（`Object.getOwnPropertyDescriptor` ✓ /
-`defineProperties` ✓ / `seal` ✓ / `isSealed` ✓ / `isFrozen` ✓）。这一轮的账里有一处
+`defineProperties` ✓ / `seal` ✓ / `isSealed` ✓ / `isFrozen` ✓）。那一轮的账里有一处
 **一条判据也推不出来、只能实测**的东西 ✗：**同一种「下标」在三种接收者上的描述符标志不一样** ✓
 （数组元素三个全真 ✓、字符串下标不可写不可配置 ✓、`length` 又是第三种 ✓）——
 所以规范里那三套标志都标着「实测」✓。

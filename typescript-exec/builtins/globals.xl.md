@@ -825,6 +825,39 @@ if (id === PowId) {
 **它不是构造函数**：JS 里 `Symbol()` **不带 `new`**（`new Symbol()` 会抛）——
 所以它只是一个普通的宿主函数值，走 `Op.Call` 那条路，和 `Map` / `Set`（走 `Op.New`）不同。
 
+# const SymbolFor:int = 252
+
+**`Symbol.for(名字)`**（第 277 轮 ✓）——**全局注册表**：同一个名字永远给**同一个符号** ✓
+（`Symbol.for("a") === Symbol.for("a")` 是**真** ✓，而 `Symbol("a") !== Symbol("a")` ✓）。
+**这一格是 `Symbol` 与别的构造器最不一样的地方** ✗：别的都要「按身份」✓，
+只有它要「**按名字去重**」✓——所以它必须有个地方**记着** ✓。
+
+# const SymbolKeyFor:int = 253
+
+**`Symbol.keyFor(符号)`**（第 277 轮 ✓）——反查 ✓：**注册表里的**给名字 ✓、
+其余的给 `undefined` ✓。
+
+**两个号都在 `250..259` 这一段里** ✓（`Symbol` 家族：构造 250 ✓、`description` 251 ✓、
+这两个 252 / 253 ✓）——与 `SymbolCtor` 挤在一段读起来顺 ✓。
+
+**注册表放在哪** ✗：`InvokeGlobal` 手里只有 `protos` ✓（没有任何模块级的可变量 ✓，
+这一层全是纯函数 ✓），所以注册表得**挂在一个够得着的对象上** ✓——
+用的是 `protos.WellKnownSymbols` ✓（第 184 轮那张知名符号表 ✓），
+条目**带一个前缀** ✓（理由是「`keyFor` 不能把知名符号认成注册过的」✓，写在实现里 ✓）。
+
+# const SymbolToString:int = 254
+
+**`s.toString()`**（第 277 轮 ✓）——`description` 那一格的**兄弟** ✓，
+差别只有「交出去的是一个**能被调的东西**」✗（见 `vm.xl.md` 的 `SymbolToStringId` ✓）。
+
+**为什么它到今天才做** ✗：`String(s)` 一直是好的 ✓（第 215 轮 ✓，那是**转文本**那条路 ✓），
+而 `s.toString()` 是**取一格属性再调用** ✗——符号没有原型那一格 ✓，
+所以它和 `description` 一样**只能由引擎特判** ✓，而特判那一支要交出一个 `HostRef` ✓
+（于是引擎得知道一个**语言层的号** ✗——多一格 `DeclareSymbolToString` ✓，见 `host-abi.xl.md` ✓）。
+
+**判据 `symbol-registry` 量的就是它** ✓（那一句是 `a.toString() === c.toString()` ✓，
+第 273 轮普查收进来的 ✓）。
+
 # const ClockNow:int = 260
 
 **`Date.now()` 的能力号——它是一个「必须由宿主回答」的号。**
@@ -962,6 +995,20 @@ if (id === PowId) {
 
 **`RangeError` 的能力号**（第 137 轮）——与 `TypeError` 同款 ✓（同一支实现、换原型与名字 ✓）。
 
+# const SyntaxErrorCtor:int = 283
+
+**`SyntaxError` 的能力号**（第 277 轮 ✓）——与 `TypeError` / `RangeError` 同款 ✓
+（同一支实现、换原型与名字 ✓）。
+
+**为什么第 277 轮才补它** ✗：这一族原来三个成员 ✓，而判据要的是第四个 ✓——
+`JSON.parse("oops")` 抛的是 `SyntaxError` ✓，脚本里那个
+`catch (e) { e instanceof SyntaxError }` 于是**没有落点** ✗
+（`protos` 里没有那一格 ✓ ⇒ 引擎连「该找什么」都不知道 ✓）。
+**顺带修掉一条更基础的** ✗：`SyntaxError` 原来**不在 `GlobalNames` 里** ✓，
+所以 `typeof SyntaxError` 在**降级期**就报 `name is not a local or a capture: SyntaxError` ✓
+——那句话听起来像脚本写错了变量名 ✗，其实是名单少了一个名字 ✓
+（与第 145 轮的 `Boolean` 一模一样 ✓）。
+
 # const JsonStringify:int = 501
 
 `JSON.stringify` 的能力号（`JSON` 段从 500 起）。
@@ -1009,8 +1056,8 @@ if (id === PowId) {
 
 ```ts
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
-  "RangeError", "Array", "Number", "String", "Boolean", "Promise", "Function", "parseInt", "parseFloat", "NaN",
-  "Infinity", "isNaN", "isFinite", "globalThis"];
+  "RangeError", "SyntaxError", "Array", "Number", "String", "Boolean", "Promise", "Function", "parseInt",
+  "parseFloat", "NaN", "Infinity", "isNaN", "isFinite", "globalThis"];
 ```
 
 **`Function` 是第 228 轮加进来的** ✓（与 `Boolean` / `Promise` 那两条同一个理由 ✓）：
@@ -1325,6 +1372,81 @@ if (id === SymbolDescription) {
   const record = table.Get(self.Ref).AsSymbol();
   if (record.Description === 0) return Value.Undefined();
   return Value.FromString(record.Description);
+}
+if (id === SymbolToString) {
+  // **`s.toString()`**（第 277 轮 ✓）——引擎在 `get_prop` 那一处交出一个 `HostRef` ✓
+  //（见 `vm.xl.md` 的 `ToStringKey` ✓），调用落到这里 ✓。
+  // **`self` 就是那个符号** ✓（与 `SymbolDescription` 一条路 ✓）。
+  // **没描述给 `Symbol()`** ✓（JS 的口径 ✓：`Symbol().toString()` 是 `"Symbol()"` ✓）——
+  // 所以判据还是**句柄是不是 `0`** ✗，不是「串长不长」✗（与上面那一支一字不差 ✓）。
+  // **不是符号就抛** ✓：这一格**只**由上面那条特判交出来 ✓，真走到别处说明接线错了 ✓
+  //（静默给一个 `"Symbol()"` 会让 `(1).toString()` 变成一个看不出问题的答案 ✗）。
+  if (self.Tag !== ValueTag.Symbol) {
+    throw new TypeError("Symbol.prototype.toString needs a symbol");
+  }
+  const toStringRecord = table.Get(self.Ref).AsSymbol();
+  const rendered = toStringRecord.Description === 0
+    ? "Symbol()"
+    : "Symbol(" + TextFrom(table, Value.FromString(toStringRecord.Description)) + ")";
+  if (!room(ObjectCharge + CodeUnitCharge * rendered.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units(rendered)));
+}
+if (id === SymbolFor) {
+  // **`Symbol.for(名字)`**（第 277 轮 ✓）——**按名字去重** ✓（这一层唯一一处这么做的地方 ✓）。
+  // **名字先 `ToString`** ✓（JS 的口径 ✓）：`Symbol.for(1)` 与 `Symbol.for("1")` 是**同一个** ✓——
+  // 所以键不能用实参本身的类型去拼 ✓（`ValueText` 走的是与 `console.log` 同一个出口 ✓）。
+  const forName = args.length > 0 ? ValueText(table, args[0]) : "undefined";
+  // **注册表的键带一个前缀** ✓（`for:` ✓）——理由是 `keyFor` 那一问 ✓：
+  // 那张表**同时**装着五个知名符号 ✓（`"iterator"` 那几格 ✓），
+  // 而 `Symbol.keyFor(Symbol.iterator)` 在 JS 里是 `undefined` ✓（它**不是**注册过的 ✓）。
+  // 没有前缀的话，反查那一趟会把知名符号认成注册过的 ✓（**静默错值** ✓）；
+  // 有前缀则「**键以 `for:` 开头**」就是「注册过」的判据 ✓（知名符号的名字都不会这么开头 ✓）。
+  const registryKey = Value.FromString(table.CreateString(Units("for:" + forName)));
+  const registry = Value.FromObject(protos.WellKnownSymbols);
+  const already = FindProperty(room, table, protos.WellKnownSymbols, registryKey);
+  if (already !== null && already.Owner === protos.WellKnownSymbols) {
+    return table.Get(protos.WellKnownSymbols).Props[already.Index].Value;
+  }
+  // **造一个新符号，描述就是那个名字** ✓（JS 的口径 ✓：`Symbol.for("x").description` 是 `"x"` ✓）。
+  if (!room(ObjectCharge + ValueCharge * 2 + CodeUnitCharge * forName.length)) {
+    throw new Error("out of room");
+  }
+  const created = Value.FromRef(ValueTag.Symbol, table.CreateSymbol(table.CreateString(Units(forName))));
+  SetHiddenProperty(room, table, registry, registryKey, created);
+  return created;
+}
+if (id === SymbolKeyFor) {
+  // **`Symbol.keyFor(符号)`**（第 277 轮 ✓）——**反着查一趟注册表** ✓。
+  //
+  // **为什么是线性扫而不是「符号上存个名字」** ✗：符号**没有属性表** ✓
+  //（它不是一个对象 ✓，`SetHiddenProperty` 落不下去 ✓）——所以反查只能在**注册表那一侧**做 ✓。
+  // 表很小 ✓（只有脚本自己 `Symbol.for` 过的那些 ✓），扫一趟是应该的 ✓。
+  //
+  // **不是符号就抛 `TypeError`** ✓（JS 的口径 ✓：`Symbol.keyFor(1)` 抛 ✓）——
+  // **不静默给 `undefined`** ✗：那会让「这个符号没注册过」与「你给的根本不是符号」
+  // 变成同一个答案 ✓（调用方分不出来 ✓）。
+  if (args.length < 1 || args[0].Tag !== ValueTag.Symbol) {
+    throw new TypeError("Symbol.keyFor needs a symbol");
+  }
+  const registryItem = table.Get(protos.WellKnownSymbols);
+  for (let i = 0; i < registryItem.Props.length; i++) {
+    const entry = registryItem.Props[i];
+    if (entry.Kind === PropertyKind.Accessor) continue;
+    if (table.Get(entry.Key).Tag !== ValueTag.String) continue;
+    const entryName = TextFrom(table, Value.FromString(entry.Key));
+    // **前缀就是「注册过」的判据** ✓（理由写在 `SymbolFor` 那一支里 ✓）。
+    if (entryName.length < 4 || entryName[0] !== "f" || entryName[1] !== "o" || entryName[2] !== "r"
+      || entryName[3] !== ":") {
+      continue;
+    }
+    if (entry.Value.Tag !== ValueTag.Symbol) continue;
+    if (entry.Value.Ref !== args[0].Ref) continue;
+    const keyForName = entryName.slice(4);
+    if (!room(ObjectCharge + CodeUnitCharge * keyForName.length)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(Units(keyForName)));
+  }
+  // **注册表里没有就给 `undefined`** ✓（JS 的口径 ✓：`Symbol("x")` 与知名符号都走这一支 ✓）。
+  return Value.Undefined();
 }
 if (id === MathFloor) {
   return MathResult(Math.floor(MathArgOf(room, call, protos, table, args[0])));
@@ -1683,13 +1805,40 @@ if (id === PowId) {
   // **不是全局名** ✓：脚本里写 `PowId` 找不到它 ✓。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
 }
-if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor) {
+if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === SyntaxErrorCtor) {
   // **`new Error(msg)` 与 `Error(msg)` 同一支**（号相同、两条调用路都落到这里）✓。
-  // **三个号共用一支**（第 137 轮）✓：它们只差**原型**与**名字** ✓——
-  // 复制三份的下场是「改了一处忘了一处」✗（而症状是「`TypeError` 的 `name` 写着 `Error`」✓）。
+  // **四个号共用一支**（第 137 轮三个、第 277 轮加 `SyntaxError` ✓）：
+  // 它们只差**原型**与**名字** ✓——复制四份的下场是「改了一处忘了一处」✗
+  //（而症状是「`SyntaxError` 的 `name` 写着 `Error`」✓）。
+  // 名字与原型第 277 轮各收成一个方法 ✓（`ErrorCtorName` / `ErrorCtorProto` ✓，
+  // 理由写在它们那儿 ✓）——**每加一个成员要改的地方从两处收到了一处** ✓。
   // **实参走「任意值 → 文本」**（第 124 轮）✓：`new Error({})` 在 JS 里得到
   // `"[object Object]"` ✓——以前这里用引擎的 `TextFrom`，那会在对象上**抛** ✗。
   const text = args.length > 0 ? ValueText(table, args[0]) : "";
+  // **第二格实参 `{ cause }`** ✓（第 277 轮 ✓）：`new Error(msg, { cause: inner })` 在 JS 里
+  // 把 `cause` 挂成一个**不可枚举的自有属性** ✓（`Object.keys(e)` 看不见它 ✓）⇒ `SetHiddenProperty` ✓。
+  //
+  // **判据是「描述符里有没有 `cause` 这一格」** ✗，**不是**「第二个实参在不在」✗：
+  // `new Error("x", {})` 与 `new Error("x", { cause: undefined })` 在 JS 里**不一样** ✓
+  //（前者**没有**那一格 ✓、后者有，值是 `undefined` ✓）——拿「实参在不在」顶替就是**静默错值** ✓
+  //（`"cause" in e` 会从假变真 ✓）。
+  //
+  // **访问器跳过、非字符串键跳过** ✓（与 `DefineOwnFromDescriptor` 那一处同一条 ✓）：
+  // 不跳的话一个符号键会被 `Value.FromString` 读成一段越界码元 ✓（静默 ✓）。
+  let causeValue = Value.Undefined();
+  let hasCause = false;
+  if (args.length > 1 && args[1].IsObject()) {
+    const options = table.Get(args[1].Ref);
+    for (let i = 0; i < options.Props.length; i++) {
+      const option = options.Props[i];
+      if (option.Kind === PropertyKind.Accessor) continue;
+      if (table.Get(option.Key).Tag !== ValueTag.String) continue;
+      if (TextFrom(table, Value.FromString(option.Key)) !== "cause") continue;
+      causeValue = option.Value;
+      hasCause = true;
+    }
+  }
+  const selfName = ErrorCtorName(id);
   // **`super(m)`：往「传进来的那个 `this`」上初始化**（第 140 轮做掉了 ✓）。
   //
   // **为什么它是这一族最要紧的一格** ✗：`class MyErr extends Error { constructor(m) { super(m);
@@ -1710,14 +1859,18 @@ if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor) {
   if (self.IsObject()) {
     SetProperty(room, NeverCall, table, self, NameValue(table, "message"),
       Value.FromString(table.CreateString(Units(text))));
-    const selfName = id === TypeErrorCtor ? "TypeError" : (id === RangeErrorCtor ? "RangeError" : "Error");
     SetProperty(room, NeverCall, table, self, NameValue(table, "name"),
       Value.FromString(table.CreateString(Units(selfName))));
+    // **`cause` 也走同一处** ✓：`super(m, { cause })` 在派生类里也该挂上 ✓——
+    // 少了这一句，`class E extends Error { constructor(m) { super(m, { cause: 1 }) } }`
+    // 的实例**没有 `cause`** ✗，而 `new Error(m, { cause: 1 })` 有 ✓（**一半对一半错** ✗）。
+    if (hasCause) SetHiddenProperty(room, table, self, NameValue(table, "cause"), causeValue);
     return self;
   }
-  if (id === TypeErrorCtor) return NewErrorLike(room, table, protos, protos.TypeError, "TypeError", text);
-  if (id === RangeErrorCtor) return NewErrorLike(room, table, protos, protos.RangeError, "RangeError", text);
-  return NewErrorLike(room, table, protos, protos.Error, "Error", text);
+  const built = NewErrorLike(room, table, protos, ErrorCtorProto(protos, id), selfName, text);
+  // **新造的那一条也要挂** ✓（与 `self` 那一支对称 ✓）。
+  if (hasCause) SetHiddenProperty(room, table, built, NameValue(table, "cause"), causeValue);
+  return built;
 }
 if (id === ParseInt || id === ParseFloat) {
   // **两个全局函数**（第 126 轮）：实参先 ToString ✓（`parseInt(12.5)` 是 `12` ✓），
@@ -2363,7 +2516,7 @@ if (id === JsonParse) {
   // **`JSON.parse`**（第 122 轮）：实参必须是字符串 ✓——坏输入**抛** ✓，
   // 而那个抛由宿主通道抬成**脚本接得住**的异常 ✓（第 121 轮那条路 ✓）。
   if (args.length < 1 || args[0].Tag !== ValueTag.String) {
-    throw new Error("JSON.parse needs a string");
+    throw new SyntaxError("JSON.parse needs a string");
   }
   return JsonParseText(room, table, protos, TextUnitsOf(table, args[0]));
 }
@@ -2444,6 +2597,39 @@ if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   return Value.FromInt(secondOfDay % 60);
 }
 throw new Error("unimplemented: global builtin " + id);
+```
+
+# method ErrorCtorName:(id:int)=>string
+
+**这一族成员的名字**（第 277 轮把「三条三元表达式」收成一处 ✓）。
+
+**为什么要收** ✗：名字在**两处**要用 ✓（写 `self` 的自有属性那一处 ✓、
+走 `NewErrorLike` 那一处 ✓），而每加一个成员就要改两处 ✓——
+第 277 轮加 `SyntaxError` 时正是这么踩的 ✓：三元的链再套一层就成了一行读不懂的东西 ✓。
+**名字写错的表现是「看着对」的** ✗：`new SyntaxError().name` 给 `"Error"` ✓（**不是抛** ✓），
+而 `e instanceof SyntaxError` **照样是真** ✓——两半里只错了一半 ✓，
+`String(e)` 于是给 `"Error: boom"` 而不是 `"SyntaxError: boom"` ✓（静默 ✓）。
+
+```ts
+if (id === TypeErrorCtor) return "TypeError";
+if (id === RangeErrorCtor) return "RangeError";
+if (id === SyntaxErrorCtor) return "SyntaxError";
+return "Error";
+```
+
+# method ErrorCtorProto:(protos:Protos, id:int)=>int
+
+**这一族成员的原型句柄**（第 277 轮 ✓）——与名字同一个理由 ✓。
+
+**写错一格的下场与名字写错正好差一半** ✗：`e instanceof SyntaxError` 会**静默**给假 ✓
+（而 `e.name` 是对的 ✓）。两处各错一半 ⇒ **比两处都错更难查** ✓
+（两处都错的话 `catch (e) { e instanceof TypeError }` 什么都不匹配 ✓，一眼就看出来了 ✓）。
+
+```ts
+if (id === TypeErrorCtor) return protos.TypeError;
+if (id === RangeErrorCtor) return protos.RangeError;
+if (id === SyntaxErrorCtor) return protos.SyntaxError;
+return protos.Error;
 ```
 
 # method NewErrorLike:(room:RoomChecker, table:HeapTable, protos:Protos, protoHandle:int, name:string, message:string)=>Value
@@ -2836,7 +3022,7 @@ while (cursor.At < text.length) {
 ```ts
 for (let i = 0; i < word.length; i++) {
   if (cursor.At >= text.length || text[cursor.At] !== word.charCodeAt(i)) {
-    throw new Error("JSON.parse: expected " + word);
+    throw new SyntaxError("JSON.parse: expected " + word);
   }
   cursor.At = cursor.At + 1;
 }
@@ -2855,21 +3041,21 @@ for (let i = 0; i < word.length; i++) {
 
 ```ts
 if (cursor.At >= text.length || text[cursor.At] !== 34) {
-  throw new Error("JSON.parse: expected a string");
+  throw new SyntaxError("JSON.parse: expected a string");
 }
 cursor.At = cursor.At + 1;
 const out: number[] = [];
 while (true) {
-  if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated string");
+  if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: unterminated string");
   const unit = text[cursor.At];
   cursor.At = cursor.At + 1;
   if (unit === 34) return out;
-  if (unit < 32) throw new Error("JSON.parse: a raw control character in a string");
+  if (unit < 32) throw new SyntaxError("JSON.parse: a raw control character in a string");
   if (unit !== 92) {
     out.push(unit);
     continue;
   }
-  if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated escape");
+  if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: unterminated escape");
   const escape = text[cursor.At];
   cursor.At = cursor.At + 1;
   if (escape === 34) {
@@ -2904,12 +3090,12 @@ while (true) {
     out.push(9);
     continue;
   }
-  if (escape !== 117) throw new Error("JSON.parse: unknown escape");
+  if (escape !== 117) throw new SyntaxError("JSON.parse: unknown escape");
   let value = 0;
   for (let i = 0; i < 4; i++) {
-    if (cursor.At >= text.length) throw new Error("JSON.parse: truncated \\u escape");
+    if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: truncated \\u escape");
     const digit = JsonHexDigit(text[cursor.At]);
-    if (digit < 0) throw new Error("JSON.parse: bad \\u escape");
+    if (digit < 0) throw new SyntaxError("JSON.parse: bad \\u escape");
     value = value * 16 + digit;
     cursor.At = cursor.At + 1;
   }
@@ -2934,7 +3120,7 @@ while (true) {
 ```ts
 const start = cursor.At;
 if (cursor.At < text.length && text[cursor.At] === 45) cursor.At = cursor.At + 1;
-if (cursor.At >= text.length) throw new Error("JSON.parse: a number with no digits");
+if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: a number with no digits");
 if (text[cursor.At] === 48) {
   // **前导零只许一个** ✓：`01` 是坏的 ✓。
   cursor.At = cursor.At + 1;
@@ -2943,12 +3129,12 @@ if (text[cursor.At] === 48) {
     cursor.At = cursor.At + 1;
   }
 } else {
-  throw new Error("JSON.parse: a number must start with a digit");
+  throw new SyntaxError("JSON.parse: a number must start with a digit");
 }
 if (cursor.At < text.length && text[cursor.At] === 46) {
   cursor.At = cursor.At + 1;
   if (cursor.At >= text.length || text[cursor.At] < 48 || text[cursor.At] > 57) {
-    throw new Error("JSON.parse: a fraction needs digits");
+    throw new SyntaxError("JSON.parse: a fraction needs digits");
   }
   while (cursor.At < text.length && text[cursor.At] >= 48 && text[cursor.At] <= 57) {
     cursor.At = cursor.At + 1;
@@ -2960,7 +3146,7 @@ if (cursor.At < text.length && (text[cursor.At] === 101 || text[cursor.At] === 6
     cursor.At = cursor.At + 1;
   }
   if (cursor.At >= text.length || text[cursor.At] < 48 || text[cursor.At] > 57) {
-    throw new Error("JSON.parse: an exponent needs digits");
+    throw new SyntaxError("JSON.parse: an exponent needs digits");
   }
   while (cursor.At < text.length && text[cursor.At] >= 48 && text[cursor.At] <= 57) {
     cursor.At = cursor.At + 1;
@@ -2990,9 +3176,9 @@ return Value.FromDouble(number);
 而解析出来的每一段文本都是新对象 ✓——不问就是绕过资源上限 ✗。
 
 ```ts
-if (depth > MaxJsonDepth) throw new Error("JSON.parse: this document is nested too deeply");
+if (depth > MaxJsonDepth) throw new SyntaxError("JSON.parse: this document is nested too deeply");
 JsonSkipSpace(text, cursor);
-if (cursor.At >= text.length) throw new Error("JSON.parse: unexpected end of input");
+if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: unexpected end of input");
 const unit = text[cursor.At];
 if (unit === 123) {
   cursor.At = cursor.At + 1;
@@ -3007,7 +3193,7 @@ if (unit === 123) {
     const key = JsonParseString(text, cursor);
     JsonSkipSpace(text, cursor);
     if (cursor.At >= text.length || text[cursor.At] !== 58) {
-      throw new Error("JSON.parse: expected ':'");
+      throw new SyntaxError("JSON.parse: expected ':'");
     }
     cursor.At = cursor.At + 1;
     const value = JsonParseValue(room, table, protos, text, cursor, depth + 1);
@@ -3018,7 +3204,7 @@ if (unit === 123) {
     // 判据当场抓住了这一格 ✓：那条 check 报的是「期望 {...}、实际 {}」✓。
     SetProperty(room, NeverCall, table, created, Value.FromString(table.CreateString(key)), value);
     JsonSkipSpace(text, cursor);
-    if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated object");
+    if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: unterminated object");
     if (text[cursor.At] === 44) {
       cursor.At = cursor.At + 1;
       continue;
@@ -3027,7 +3213,7 @@ if (unit === 123) {
       cursor.At = cursor.At + 1;
       return created;
     }
-    throw new Error("JSON.parse: expected a comma or the closing brace");
+    throw new SyntaxError("JSON.parse: expected a comma or the closing brace");
   }
 }
 if (unit === 91) {
@@ -3042,7 +3228,7 @@ if (unit === 91) {
     const value = JsonParseValue(room, table, protos, text, cursor, depth + 1);
     table.Get(array.Ref).AsArray().Push(value);
     JsonSkipSpace(text, cursor);
-    if (cursor.At >= text.length) throw new Error("JSON.parse: unterminated array");
+    if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: unterminated array");
     if (text[cursor.At] === 44) {
       cursor.At = cursor.At + 1;
       continue;
@@ -3051,7 +3237,7 @@ if (unit === 91) {
       cursor.At = cursor.At + 1;
       return array;
     }
-    throw new Error("JSON.parse: expected a comma or the closing bracket");
+    throw new SyntaxError("JSON.parse: expected a comma or the closing bracket");
   }
 }
 if (unit === 34) {
@@ -3072,7 +3258,7 @@ if (unit === 110) {
   return Value.Null();
 }
 if (unit === 45 || (unit >= 48 && unit <= 57)) return JsonParseNumber(text, cursor);
-throw new Error("JSON.parse: unexpected character");
+throw new SyntaxError("JSON.parse: unexpected character");
 ```
 
 # method JsonParseText:(room:RoomChecker, table:HeapTable, protos:Protos, text:Array<int>)=>Value
@@ -3089,7 +3275,7 @@ throw new Error("JSON.parse: unexpected character");
 const cursor = { At: 0 };
 const value = JsonParseValue(room, table, protos, text, cursor, 0);
 JsonSkipSpace(text, cursor);
-if (cursor.At !== text.length) throw new Error("JSON.parse: trailing characters after the value");
+if (cursor.At !== text.length) throw new SyntaxError("JSON.parse: trailing characters after the value");
 return value;
 ```
 
@@ -3202,6 +3388,15 @@ const rangeErrorKey = Value.FromString(table.CreateString(Units("RangeError")));
 const rangeErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(RangeErrorCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, rangeErrorKey, rangeErrorTarget);
 vm.RegisterConstructorProto(RangeErrorCtor, protos.RangeError);
+// **`SyntaxError` 那三样**（第 277 轮 ✓）：挂全局名 ✓、登记原型 ✓、原型上三个属性 ✓——
+// 与上面那两条一字不差 ✓。**三处缺一处的表现各不相同** ✗（都记在明处 ✓）：
+// 只挂名字不登记原型 ⇒ `e instanceof SyntaxError` **抛**「右边没有原型对象」✓；
+// 登记了原型但没挂 `name` ⇒ `new SyntaxError().name` 读到 `Error.prototype` 的 `"Error"` ✓
+//（**看着对** ✓）；没挂 `constructor` ⇒ `e.constructor === SyntaxError` 给假 ✓。
+const syntaxErrorKey = Value.FromString(table.CreateString(Units("SyntaxError")));
+const syntaxErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SyntaxErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, syntaxErrorKey, syntaxErrorTarget);
+vm.RegisterConstructorProto(SyntaxErrorCtor, protos.SyntaxError);
 // **`Map` / `Set` 两个号登记**（第 138 轮）：它们是**宿主引用值** ✓（与 `Error` 同款 ✗），
 // 只能走登记表 ✓。**`Date` 不走这条路** ✗——它的全局值是**普通对象** ✓
 // （`new Date()` 由降级层落成一条 `host_call(DateCtor, …)` ✓，见 `DateCtor` 的说明 ✓），
@@ -3241,6 +3436,15 @@ SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, 
 SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "constructor"), rangeErrorTarget);
+// **`SyntaxError.prototype` 上的同名三格**（第 277 轮 ✓）——**一字不差地照上面那两族写** ✓。
+// **`toString` 不必再挂一份** ✓：它挂在 `Error.prototype` 上 ✓，
+// 而这一格的原型链接着 `Error.prototype` ✓（第 137 轮那条链 ✓）——挂两份就是两处会漂的答案 ✗。
+const syntaxErrorProtoValue = Value.FromObject(protos.SyntaxError);
+SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("SyntaxError"))));
+SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table, "constructor"), syntaxErrorTarget);
 
 // **`Array` 是一个普通对象**（与 `Math` / `Date` 同款 ✓），上面只挂**静态方法** `isArray` ✓
 // （第 123 轮）。
@@ -3557,6 +3761,19 @@ const symbolObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(symbolObject.Ref, SymbolCtor, 0);
 const symbolKey = Value.FromString(table.CreateString(Units("Symbol")));
 SetProperty(vm.Room(), NeverCall, table, globals, symbolKey, symbolObject);
+// **`Symbol.for` / `Symbol.keyFor` 两格**（第 277 轮 ✓）：与 `String.fromCharCode` 那几格一样，
+// **挂在那个全局对象上** ✓（`Symbol` 既是一个普通对象 ✓、又带一格可调用载荷 ✓——
+// 两件事同时成立，见第 145 轮 ✓）。
+// **注册表不在这一层** ✗：它挂在 `protos.WellKnownSymbols` 上 ✓——
+// `InvokeGlobal` 手里只有 `protos` ✓（这一层没有模块级可变量 ✓），
+// 所以「记着谁注册过」这件事只能落在**够得着的那个对象**上 ✓（理由见 `SymbolFor` 那一段 ✓）。
+const symbolStaticNames: string[] = ["for", "keyFor"];
+const symbolStaticIds: number[] = [SymbolFor, SymbolKeyFor];
+for (let i = 0; i < symbolStaticNames.length; i++) {
+  const symbolStaticKey = Value.FromString(table.CreateString(Units(symbolStaticNames[i])));
+  const symbolStaticTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(symbolStaticIds[i], 0));
+  SetProperty(vm.Room(), NeverCall, table, symbolObject, symbolStaticKey, symbolStaticTarget);
+}
 // **知名符号**：每个名字造**一次**✓——JS 要求 `Symbol.iterator` **永远是同一个值** ✓
 //（`o[Symbol.iterator] === o[Symbol.iterator]` ✓、拿它当键的两处要落到同一格 ✓）。
 // 描述按 JS 的写法给全名 ✓（`Symbol.iterator` 的描述就是 `"Symbol.iterator"` ✓）。
