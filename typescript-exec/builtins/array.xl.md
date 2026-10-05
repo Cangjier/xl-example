@@ -1,9 +1,9 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge } from "../../runtime/heap.xl.md"
+import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
-import { SetProperty, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, FindProperty, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 ```
@@ -178,6 +178,17 @@ import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 **`toReversed()`**（第 274 轮 ✓）——`reverse` 的**不改原数组**版 ✓。
 
 # const ArrayWith:int = 39
+
+**第 279 轮补的一格** ✓：
+
+# const ArrayIteratorNext:int = 40
+
+**数组迭代器的 `next()`**（第 279 轮 ✓）——它**不是原型方法** ✗
+（`[1, 2].next()` 在 JS 里也是没有的 ✓），而是**挂在那一次调用造出来的那个数组上** ✓
+（见 `keys` / `values` / `entries` 那一支的说明 ✓）。
+**所以它不进 `InstallArray` 的表** ✗，只进能力表 ✓（`install.xl.md` 的 `helpers` ✓）。
+**少了那一格登记的症状是 `capability is not registered: 40`** ✓——
+那句话听起来像「号写错了」✗，其实是「这一格没人登记」✓（第 277 轮踩过同一个形状 ✓）。
 
 **`with(下标, 值)`**（第 274 轮 ✓）——返回一个**换了某一格**的副本 ✓（原数组不动 ✓）。
 **下标允许负数** ✓（与 `at` 同一条口径 ✓），**越界要抛 `RangeError`** ✓——
@@ -986,7 +997,8 @@ if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
   const iterationCount = iterationLength;
   // **`entries` 每一项还要再造一个两格的小数组** ✓，所以房间按它算 ✓。
   const pairCharge = id === ArrayEntries ? 2 : 0;
-  if (!room(ObjectCharge + ValueCharge * iterationCount * (1 + pairCharge))) {
+  // **第 279 轮还要两格属性** ✓（游标 `__i` 与那一格 `next` ✓，见下面 ✓）。
+  if (!room(ObjectCharge + ValueCharge * iterationCount * (1 + pairCharge) + PropertyCharge * 2)) {
     throw new Error("out of room");
   }
   const iterationHandle = table.CreateArray();
@@ -1012,7 +1024,70 @@ if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
     iterationResult.Push(Value.FromArray(itemPairHandle));
   }
   table.Recount(iterationHandle);
+  // **真迭代器那一套第 279 轮接上了** ✓（`it.next()` ✓）。
+  //
+  // **表示没变** ✗——返回的**仍然是数组** ✓（上面那一段写着为什么必须如此 ✓：
+  // 引擎的迭代只认数组与生成器 ✓，换成「对象 + `next`」会把
+  // `[...xs.keys()]` / `for..of` / `Array.from` **一起弄坏** ✗）。
+  // 接上的办法是**在这个数组上挂两格隐藏属性** ✓：
+  //   · `__i`：游标 ✓（`0` 起 ✓，`next()` 自己加 ✓）；
+  //   · `next`：指向 `ArrayIteratorNext` 那一格能力的宿主引用 ✓。
+  // **数据就在数组自己身上** ✓（`values` 的元素 ✓、`keys` 的下标 ✓、`entries` 的对 ✓），
+  // 所以 `next()` **一格都不必另存** ✗——它只读 `self` 的第 `__i` 格 ✓。
+  // **隐藏的**（`SetHiddenProperty` ✓）：`Object.keys(it)` 与 `JSON.stringify(it)` 看不见它们 ✓，
+  // 而 `[...it]` 走的是**元素**那条路 ✓，与属性无关 ✓。
+  SetHiddenProperty(room, table, Value.FromArray(iterationHandle),
+    Value.FromString(table.CreateString(Units("__i"))), Value.FromInt(0));
+  SetHiddenProperty(room, table, Value.FromArray(iterationHandle),
+    Value.FromString(table.CreateString(Units("next"))),
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorNext, 0)));
   return Value.FromArray(iterationHandle);
+}
+if (id === ArrayIteratorNext) {
+  // **数组迭代器的 `next()`** ✓（第 279 轮 ✓）——`self` 就是上面那一支造出来的**那个数组** ✓
+  //（它身上挂着游标 `__i` 与这一格能力 ✓，理由写在那一支的说明里 ✓）。
+  //
+  // **状态在 `self` 上，不在一个真迭代器对象里** ✗：换表示会把
+  // `[...xs.keys()]` / `for..of` / `Array.from` 一起弄坏 ✓（引擎的迭代只认数组 ✓）——
+  // 所以「谁记着走到哪儿」这一件事只能落在这个数组自己身上 ✓。
+  if (self.Tag !== ValueTag.Array) {
+    // **不是数组 ⇒ 这一格能力被接到了别处** ✓：它只该由上面那一支挂出去 ✓，
+    // 真走到别处说明接线错了 ✓（静默给一个 `done: true` 会让
+    // 「这不是迭代器」与「迭代到头了」变成同一个答案 ✗）。
+    throw new TypeError("next() needs an array iterator");
+  }
+  const cursorKey = Value.FromString(table.CreateString(Units("__i")));
+  const cursorAt = FindProperty(room, table, self.Ref, cursorKey);
+  if (cursorAt === null || cursorAt.Owner !== self.Ref) {
+    // **没有游标 ⇒ 这是一个普通数组** ✓（`[1, 2].next` 取不到东西 ✗，
+    // 但 `Array.prototype.next` 万一被接到别处就会走到这里 ✓）。
+    // **响亮地抛** ✗，理由与上面那一句相同 ✓。
+    throw new Error("unimplemented: next() on an array that is not an iterator");
+  }
+  const cursor = table.Get(self.Ref).Props[cursorAt.Index].Value.AsInt();
+  const items = table.Get(self.Ref).AsArray();
+  // **走完给 `{ value: undefined, done: true }`** ✓（JS 的口径 ✓）——
+  // 而且**不越界读** ✓（`GetAt` 越界也是 `undefined` ✓，**看着一样** ✗，
+  // 但「走到头」与「读越界」在这个模型里是两件事 ✓，分开写更清楚 ✓）。
+  const exhausted = cursor >= items.GetLength();
+  if (!room(ObjectCharge + PropertyCharge * 2)) throw new Error("out of room");
+  const stepHandle = table.CreateObject();
+  // **那一格的 `{ value, done }` 是一个普通对象** ✓。**原型跟着被迭代的数组走** ✗
+  //（与 `entries` 那对小数组同一条 ✓，这一层拿不到 `protos` ✓）——
+  // 两个读法都是自有属性 ✓，所以原型在这里不影响答案 ✓。
+  table.Get(stepHandle).Proto = table.Get(self.Ref).Proto;
+  const step = Value.FromObject(stepHandle);
+  SetProperty(room, NeverCall, table, step,
+    Value.FromString(table.CreateString(Units("value"))),
+    exhausted ? Value.Undefined() : items.GetAt(cursor));
+  SetProperty(room, NeverCall, table, step,
+    Value.FromString(table.CreateString(Units("done"))), Value.FromBool(exhausted));
+  // **走到头之后游标不再动** ✓（JS 的迭代器就是这样 ✓：再调几次都是同一个答案 ✓）。
+  if (!exhausted) {
+    table.Get(self.Ref).Props[cursorAt.Index].Value = Value.FromInt(cursor + 1);
+  }
+  table.Recount(stepHandle);
+  return step;
 }
 throw new Error("unimplemented: array builtin " + id);
 ```

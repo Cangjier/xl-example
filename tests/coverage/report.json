@@ -18,7 +18,7 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     }
   ],
-  "progressPercent": 87.27,
+  "progressPercent": 87.59,
   "layers": [
     {
       "layer": "runtime",
@@ -44,11 +44,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 154,
-      "pass": 139,
-      "blocked": 7,
-      "differ": 8,
+      "pass": 141,
+      "blocked": 6,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 90.26
+      "coverage": 91.56
     },
     {
       "layer": "e2e",
@@ -171,12 +171,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: async method in a class"
     },
     {
-      "id": "array-iterator-manual",
-      "layer": "stdlib",
-      "title": "手动取数组迭代器：values / keys / entries 的 next()",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "date-iso-and-json",
       "layer": "stdlib",
       "title": "Date 的 toISOString / toJSON / 各处 UTC 取值",
@@ -261,12 +255,6 @@
       "layer": "stdlib",
       "title": "JSON.stringify 的 replacer 数组与 toJSON",
       "detail": "stdout 不同：第 1 行：node «{\"a\":1,\"c\":3}» vs tsrun «{\"a\":1,\"b\":2,\"c\":3,\"d\":{\"e\":4}}»"
-    },
-    {
-      "id": "json-parse-reviver",
-      "layer": "stdlib",
-      "title": "JSON.parse 的 reviver 与错误那一档",
-      "detail": "stdout 不同：第 1 行：node «{\"a\":10,\"b\":{\"c\":20}}» vs tsrun «{\"a\":1,\"b\":{\"c\":2}}»"
     },
     {
       "id": "function-length-and-name",

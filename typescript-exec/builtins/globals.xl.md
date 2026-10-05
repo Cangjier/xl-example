@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf, RtToBoolean, MakeNumber, RtChainHas, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint } from "./string.xl.md"
@@ -2515,10 +2515,54 @@ if (id === ObjectFromEntries) {
 if (id === JsonParse) {
   // **`JSON.parse`**（第 122 轮）：实参必须是字符串 ✓——坏输入**抛** ✓，
   // 而那个抛由宿主通道抬成**脚本接得住**的异常 ✓（第 121 轮那条路 ✓）。
+  //
+  // **坏输入抛的是 `SyntaxError`** ✓（第 277 轮 ✓）：那 22 处写的是**宿主的**那个类 ✓，
+  // 由 `RaiseFromHost` 翻成脚本的族 ✓（第 227 轮那条桥 ✓）。
   if (args.length < 1 || args[0].Tag !== ValueTag.String) {
     throw new SyntaxError("JSON.parse needs a string");
   }
-  return JsonParseText(room, table, protos, TextUnitsOf(table, args[0]));
+  // **第二格实参（reviver）** ✓（第 279 轮 ✓）：JS 的规矩是**自底向上**走一遍 ——
+  // 先让每一格过一遍回调 ✓，最后再拿**根**调一次 ✓（键是空串 ✓）。
+  //
+  // **根要锚住** ✗：整棵解析出来的树在这一次调用期间**只有宿主变量指着它** ✓，
+  // 而回调里会分配 ✓（脚本跑起来什么都可能造 ✓）——不锚的话，某一轮回调之后
+  // 剩下的那些格子**可能已经被收走** ✓（症状是「回调跑到一半拿到死句柄」✗，
+  // 与第 200 轮 `reduce` 那个累加器一模一样的形状 ✓）。
+  // **锚在哪** ✗：`protos.WellKnownSymbols` ✓——它由 `Protos.Roots` 挂着 ✓（第 184 轮 ✓），
+  // 而这一层手里只有 `protos` ✓（没有模块级可变量 ✓，与 `Symbol.for` 那张注册表同一个理由 ✓）。
+  // **要存旧的、跑完恢复** ✗：回调里还可能再调一次 `JSON.parse` ✓（合法 ✓）——
+  // 不恢复的话内层跑完会把外层的根换掉 ✓，外层剩下那几格就没人指着了 ✓。
+  const anchorKey = Value.FromString(table.CreateString(Units("__jsonRoot")));
+  const anchorAt = FindProperty(room, table, protos.WellKnownSymbols, anchorKey);
+  let previousAnchor = Value.Undefined();
+  let hadAnchor = false;
+  if (anchorAt !== null && anchorAt.Owner === protos.WellKnownSymbols) {
+    previousAnchor = table.Get(protos.WellKnownSymbols).Props[anchorAt.Index].Value;
+    hadAnchor = true;
+  }
+  if (!room(ObjectCharge + PropertyCharge * 2 + ValueCharge)) throw new Error("out of room");
+  const rootHolder = NewPlainObject(room, table, protos);
+  // **先把 holder 锚上、再解析** ✓：`JsonParseText` 自己会分配一大堆 ✓，
+  // 而它交出来的那棵树**还没有人指着** ✓——锚在前面就没有那个窗口 ✓。
+  SetHiddenProperty(room, table, Value.FromObject(protos.WellKnownSymbols), anchorKey, rootHolder);
+  const parsed = JsonParseText(room, table, protos, TextUnitsOf(table, args[0]));
+  SetProperty(room, NeverCall, table, rootHolder, Value.FromString(table.CreateString(Units(""))), parsed);
+  // **没有 reviver（或它不可调）就到此为止** ✓（JS 的口径 ✓：`JSON.parse(x, 1)` 是**忽略** ✓）。
+  if (args.length < 2 || !IsCallableValue(table, args[1]) || call === null) {
+    if (hadAnchor) {
+      SetHiddenProperty(room, table, Value.FromObject(protos.WellKnownSymbols), anchorKey, previousAnchor);
+    } else {
+      DeleteProperty(table, protos.WellKnownSymbols, anchorKey);
+    }
+    return parsed;
+  }
+  const revived = JsonRevive(room, table, call, failed, rootHolder, "", args[1]);
+  if (hadAnchor) {
+    SetHiddenProperty(room, table, Value.FromObject(protos.WellKnownSymbols), anchorKey, previousAnchor);
+  } else {
+    DeleteProperty(table, protos.WellKnownSymbols, anchorKey);
+  }
+  return revived;
 }
 if (id === JsonStringify) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
@@ -3259,6 +3303,90 @@ if (unit === 110) {
 }
 if (unit === 45 || (unit >= 48 && unit <= 57)) return JsonParseNumber(text, cursor);
 throw new SyntaxError("JSON.parse: unexpected character");
+```
+
+# method JsonRevive:(room:RoomChecker, table:HeapTable, call:NativeCall | null, failed:CallFailed | null, holder:Value, name:string, reviver:Value)=>Value
+
+**`JSON.parse` 的 reviver 那一步**（第 279 轮 ✓）——JS 的 `InternalizeJSONProperty` ✓。
+
+**顺序是「先自底向上、再调回调」** ✗：`holder[name]` 若是对象 ✓，
+就**先把它的每一格都过一遍** ✓，然后才拿**这一格**调 `reviver.call(holder, name, value)` ✓
+（JS 就是这么定的 ✓）。**反过来写**（先调自己再走孩子）会让父回调看到**没走完的孩子** ✓
+——判据里所有数字都乘了 10 ✓，写反了就会**一部分乘了、一部分没乘** ✓。
+
+**回调返回 `undefined` 是「删掉这一格」** ✗（JS 的口径 ✓，不是「写一个 `undefined`」✓）：
+`{"a":1}` 配 `(k, v) => typeof v === "number" ? undefined : v` 在 JS 里给 `{}` ✓，
+而写成「写入 `undefined`」会给 `{"a":undefined}` ✓（**形状变了** ✓，`"a" in o` 从真变假 ✗）。
+
+**数组那一支不能删格** ✗：JS 对数组元素用的是**定义那一格** ✓
+（`len` 不变 ✓，返回 `undefined` 就把它设成 `undefined` ✓）。两处**不是同一条** ✓
+——所以下面分成两支写 ✓，而不是合成一句「删掉」✗。
+
+**`failed` 那一问每一轮都要问** ✓（与这一块其余回调循环同一条 ✓）：
+回调抛出之后 `walked` 是 `undefined` ✓，不问的话会被当成**回调的答案**用 ✓
+（于是「抛了」变成「把那一格设成了 `undefined`」✗，**静默错值** ✓）。
+
+```ts
+const holderKey = Value.FromString(table.CreateString(Units(name)));
+// **① `holder[name]`**：数组按下标 ✓、对象按自有属性 ✓。
+// **洞与缺席都给 `undefined`** ✓（JS 的 `Get` 也是这个答案 ✓）——两者在这里不必分开 ✓。
+let current = Value.Undefined();
+if (holder.Tag === ValueTag.Array) {
+  const holderItems = table.Get(holder.Ref).AsArray();
+  const at = Number(name);
+  if (at >= 0 && at < holderItems.GetLength() && !holderItems.IsHole(at)) {
+    current = holderItems.GetAt(at);
+  }
+} else {
+  const here = FindProperty(room, table, holder.Ref, holderKey);
+  if (here !== null && here.Owner === holder.Ref) {
+    current = table.Get(holder.Ref).Props[here.Index].Value;
+  }
+}
+// **② 是容器就先把孩子走完** ✓（对象与数组**都是** `IsObject()` ✓——数组也是对象 ✓）。
+if (current.IsObject()) {
+  const container = table.Get(current.Ref);
+  if (current.Tag === ValueTag.Array) {
+    const containerItems = container.AsArray();
+    const length = containerItems.GetLength();
+    for (let i = 0; i < length; i++) {
+      const walked = JsonRevive(room, table, call, failed, current, "" + i, reviver);
+      if (failed !== null && failed()) return Value.Undefined();
+      // **数组：定义那一格，不删** ✓（见上面那一段 ✓）。`SetAt` 会把洞清掉 ✓——正是想要的 ✓。
+      containerItems.SetAt(i, walked);
+    }
+  } else {
+    // **先把键抄下来再改** ✗：走一趟回调会**改这一摞属性** ✓（返回 `undefined` 时删掉 ✓），
+    // 边扫边改就是**边遍历边改容器** ✓——抄一份是唯一稳的写法 ✓。
+    // **只看自有 + 可枚举 + 字符串键** ✓（JS 的 `EnumerableOwnPropertyNames` ✓）：
+    // 访问器跳过 ✗（读它要重入 ✓，而 JSON 解析出来的树上**根本没有访问器** ✓——
+    // 跳过的代价是零 ✓，写进去的代价是「遍历顺序里冒出一格不存在的东西」✗）。
+    const childNames: string[] = [];
+    for (let i = 0; i < container.Props.length; i++) {
+      const property = container.Props[i];
+      if (property.Kind === PropertyKind.Accessor) continue;
+      if (!property.IsEnumerable()) continue;
+      if (table.Get(property.Key).Tag !== ValueTag.String) continue;
+      childNames.push(TextFrom(table, Value.FromString(property.Key)));
+    }
+    for (let i = 0; i < childNames.length; i++) {
+      const walked = JsonRevive(room, table, call, failed, current, childNames[i], reviver);
+      if (failed !== null && failed()) return Value.Undefined();
+      const childKey = Value.FromString(table.CreateString(Units(childNames[i])));
+      if (walked.Tag === ValueTag.Undefined) {
+        // **`undefined` ⇒ 删掉这一格** ✓（JS 的 `DeletePropertyOrThrow` ✓）。
+        DeleteProperty(table, current.Ref, childKey);
+      } else {
+        SetProperty(room, NeverCall, table, current, childKey, walked);
+      }
+    }
+  }
+}
+// **③ 最后才拿这一格调回调** ✓（顺序见上面那一段 ✓）。
+// **`this` 是 holder** ✓（JS 的 `Call(reviver, holder, «name, value»)` ✓）——
+// 写成 `Value.Undefined()` 会让 `reviver` 里读 `this` 的那一支拿到 `undefined` ✓（静默 ✓）。
+if (call === null) return current;
+return call(reviver, holder, [holderKey, current]);
 ```
 
 # method JsonParseText:(room:RoomChecker, table:HeapTable, protos:Protos, text:Array<int>)=>Value

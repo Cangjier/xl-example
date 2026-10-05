@@ -333,13 +333,24 @@ export const EXPECTATIONS = {
   // 于是「根本不在那儿」与「在、但语义不对」被分开了 ✓（修法不一样 ✓）。
   // 全部是「往表里挂一格」（或几格）的活 ✓——`Object.is` 尤其便宜 ✓：
   // 引擎里 `SameValue` 的判据**早就有** ✓（第 207 轮那张具名的表 ✓），缺的只是往 `Object` 上挂一格 ✗。
-  "array-iterator-manual": { expect: "blocked", why: "数组迭代器**没有 `next()`**：`.values()` / `.keys()` / `.entries()` 交出来的东西能被 `[...]` 与 `for..of` 用（引擎的 drain），但不能手动走一步。第 229 轮给**生成器**补的 `next()` 是另一条路" },
+  // **第 279 轮删掉了这两行** ✓（它们过了 ✓）——**两条都是「差最后一步」** ✓：
+  // ① 数组迭代器只差 `next()` ✓——而**表示没动** ✗（返回的仍然是数组 ✓，
+  //    否则 `[...xs.keys()]` / `for..of` / `Array.from` 会一起坏 ✓）：
+  //    接上的办法是在那个数组上挂两格**隐藏属性** ✓（游标 `__i` ✓ 与 `next` ✓）。
+  //    **已知的表示差异**写在明处 ✗：`Object.keys(it)` 给 `["0"]` ✓（JS 给 `[]` ✓）、
+  //    `JSON.stringify(it)` 给 `[1]` ✓（JS 给 `{}` ✓）——**这是老账** ✓
+  //    （「返回数组而不是迭代器」第 214 轮就写在规范里了 ✓），这一轮**没有让它变大** ✓。
+  // ② `JSON.parse` 的 reviver 只差**那一趟自底向上** ✓（`SyntaxError` 第 277 轮修好了 ✓）——
+  //    顺带接上了一条更基础的：**整棵树在这一次调用期间要锚住** ✓
+  //    （回调里会分配 ✓），锚在 `protos.WellKnownSymbols` 上并**存旧恢复** ✓
+  //    （回调里再调一次 `JSON.parse` 是合法的 ✓）。
+  // 逐条账见 `typescript-exec/README.md` 的「第 279 轮的账」✓。
   // **第 273 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：它抛出之前**已经打印了一行** ✓
   // （`Math.hypot` 与 `Math.cbrt` 是**在的** ✓），所以判决落在 `differ` 上 ✓ 而不是 `blocked` ✓。
   // **第 277 轮把这一条从 `blocked` 改成 `differ`** ✓（量准了）：`SyntaxError` 那一族装上之后
   // 它**进得了门**了 ✓（坏输入那一句现在给 `true` ✓）——剩下的是**第一句** ✗：
   // `JSON.parse(文本, reviver)` 的**第二格实参**还没接 ✓，所以数字没有过一遍回调 ✓。
-  "json-parse-reviver": { expect: "differ", why: "`JSON.parse` 的**第二格实参**（reviver）没接：数字没有过一遍回调 ⇒ `{\"a\":1,\"b\":{\"c\":2}}`（Node 给全部乘 10 的那一份）。**`SyntaxError` 那一半第 277 轮修好了** ✓（坏输入现在能被 `catch (e) { e instanceof SyntaxError }` 接住 ✓）" },
+  // **第 279 轮它整个过了** ✓（那一趟自底向上接上了 ✓），所以这一行也删掉了 ✓。
   // **第 277 轮删掉了这两行** ✓（它们过了 ✓）：`Symbol.for` / `keyFor`（注册表挂在
   // `protos.WellKnownSymbols` 上 ✓，键带 `for:` 前缀 ✓——前缀就是「注册过」的判据 ✓）
   // + `Symbol.prototype.toString` ✓（**引擎特判那一支第一次要交出一个可调用值** ✗，

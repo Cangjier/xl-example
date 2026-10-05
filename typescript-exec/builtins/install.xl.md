@@ -10,7 +10,7 @@ import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId } from "./promise.xl.md"
 import { ValueText } from "./text.xl.md"
-import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues } from "./array.xl.md"
+import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, ObjectAssign, PowId, GeneratorNextId, SymbolToString } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
@@ -958,7 +958,7 @@ for (const slot of promiseSlots) {
 // 漏一个的症状是**运行期**报 `capability is not registered: <号>` ✓（离现场很远 ✗，
 // 第 197 轮实测踩过一次 ✓：号改了、名单忘改 ✓）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
-  ObjectAssign, PowId, SetHiddenId, GeneratorNextId];
+  ObjectAssign, PowId, SetHiddenId, GeneratorNextId, ArrayIteratorNext];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));
