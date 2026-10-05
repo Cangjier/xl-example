@@ -1,6 +1,6 @@
 {
-  "round": "307",
-  "matrix": 1100,
+  "round": "308",
+  "matrix": 1102,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 92.48,
+  "progressPercent": 92.61,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 356,
-      "pass": 320,
-      "blocked": 17,
+      "pass": 321,
+      "blocked": 16,
       "differ": 19,
       "nodefail": 0,
-      "coverage": 89.89
+      "coverage": 90.17
     },
     {
       "layer": "exec",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 448,
-      "pass": 409,
-      "blocked": 21,
-      "differ": 18,
+      "total": 450,
+      "pass": 412,
+      "blocked": 19,
+      "differ": 19,
       "nodefail": 0,
-      "coverage": 91.29
+      "coverage": 91.56
     },
     {
       "layer": "e2e",
@@ -141,12 +141,6 @@
       "id": "c291-rt-closure-and-method-this",
       "layer": "runtime",
       "title": "闭包里的 this 与方法调用",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c291-rt-iteration-protocol-forms",
-      "layer": "runtime",
-      "title": "手写可迭代对象 + for..of",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
@@ -246,12 +240,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c291-array-iterator-protocol-manual",
-      "layer": "stdlib",
-      "title": "手写迭代协议：next() 的三段返回形状",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c291-string-normalize-ascii",
       "layer": "stdlib",
       "title": "normalize：ASCII 上原样、组合字符上合一",
@@ -274,12 +262,6 @@
       "layer": "stdlib",
       "title": "encodeURI / decodeURI / encodeURIComponent",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: encodeURI"
-    },
-    {
-      "id": "c304-std-symbol-iterator-manual",
-      "layer": "stdlib",
-      "title": "手动拿数组的 Symbol.iterator 再 next",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c304-std-promise-race-forms",
@@ -330,12 +312,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: encodeURIComponent"
     },
     {
-      "id": "c305-std-array-iterator-symbol-method",
-      "layer": "stdlib",
-      "title": "数组的 `Symbol.iterator` 是一个可调用的方法",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c305-std-object-wrapper-call",
       "layer": "stdlib",
       "title": "`Object(1)` / `Object(\"a\")` 给包装对象",
@@ -346,6 +322,12 @@
       "layer": "stdlib",
       "title": "`Object.getOwnPropertyDescriptors` 一次拿全部描述符",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c308-std-symbol-iterator-call-in-spread",
+      "layer": "stdlib",
+      "title": "展开位里「取 `Symbol.iterator` 再调」——`()` 会逃出展开",
+      "detail": "tsrun: 脚本抛出：this method needs an array receiver"
     }
   ],
   "differ": [
@@ -552,6 +534,12 @@
       "layer": "stdlib",
       "title": "console.log 的嵌套容器形状",
       "detail": "stdout 不同：第 3 行：node «{ n: null, u: undefined, f: [Function: f] }» vs tsrun «{ n: null, u: undefined, f: [Function (anonymous)] }»"
+    },
+    {
+      "id": "c304-std-symbol-iterator-manual",
+      "layer": "stdlib",
+      "title": "手动拿数组的 Symbol.iterator 再 next",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c305-std-thenable-adoption",

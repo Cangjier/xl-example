@@ -617,12 +617,10 @@ export const EXPECTATIONS = {
   //
   // **组 E：计算键上的函数值 / 方法里的箭头（2 条）** ✓
   "c291-rt-closure-and-method-this": { expect: "blocked", why: "`obj.get()()` 报 `cannot call a non-closure value`——方法体里 `return () => this.v` 返回的箭头要带着 `this` 出帧、再被调用" },
-  "c291-rt-iteration-protocol-forms": { expect: "blocked", why: "`{ [Symbol.iterator]: () => it }` 报 `cannot call a non-closure value`——与上一格同一族（计算键上的函数值那条路），也牵着 `c291-symbol-wellknown-custom-iterator`" },
   //
   // **组 F：码元 vs 码点（1 条）** ✓——与 `rt-surrogate-iteration` 同一根。
   //
   // **组 G：显式取出来的迭代器（1 条）** ✓
-  "c291-array-iterator-protocol-manual": { expect: "blocked", why: "`xs[Symbol.iterator]()` 报 `cannot call a non-closure value`——`for..of` 内部那条路是好的，**显式取出来自己调**这一格还没接（组 E 那一族的另一半）" },
   //
   // **组 H / I / J：标准库「成员不在那儿」最日常的三格（3 条）** ✓
   "c291-string-normalize-ascii": { expect: "blocked", why: "`String.prototype.normalize` 还没挂表（与 `string-normalize` 同一格）。ASCII 上该原样返回；组合字符上要合一（那一档要 Unicode 归一化表，是单独的活）" },
@@ -668,7 +666,7 @@ export const EXPECTATIONS = {
   "c304-ex-nonnull-in-optional-chain": { expect: "differ", why: "`arr![0]![0]` 投影出来是 `NonNullExpression(arr)`——**两个方括号与第二个 `!` 全丢了**（本轮实测：TS 那边是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)`）。这是第 303 轮那条链的**下一个形状**（`x![1]![0]`），入口在 `print-ast-common.xl.md` 的链分支" },
   "c304-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`namespace make { … }` 该挂在**函数值自己**那一格上（静态格），降级层只造了函数、没造那一格 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`" },
   "c304-std-encodeuri-decodeuri": { expect: "blocked", why: "`encodeURI` / `decodeURI` / `encodeURIComponent` / `decodeURIComponent` **四个全局名一个都没有**（报 `name is not a local or a capture`）——要按 UTF-8 字节做百分号编解码，四个名字还要进 `GlobalNames`" },
-  "c304-std-symbol-iterator-manual": { expect: "blocked", why: "`[10, 20][Symbol.iterator]()` 报 `cannot call a non-closure value`——`Protos.Array` 上**没有 `Symbol.iterator` 那一格**（`for..of` 与展开走的是引擎指令，不走这个方法），要按 `protos.WellKnownSymbols` 里那个句柄挂一格" },
+  "c304-std-symbol-iterator-manual": { expect: "differ", why: "**这一条第 308 轮走了一半** ✓：数组那一半（`[10, 20][Symbol.iterator]()` ✓）**已经修好** ✓——`Protos.Array` 上原来**没有那一格** ✗，挂上去之后 `it.next()` 与 `[...it]` 都对 ✓。剩下的**是字符串那一半** ✗：`\"ab\"[Symbol.iterator]()` 报 `cannot call a non-closure value` ✓——`Protos.String` 上同样缺那一格 ✓，而字符串的迭代要**按码点** ✓（代理对合起来 ✓，与引擎的 `iter_next` 第 297 轮改的那一条**同一条规矩** ✓）——语言层今天没有那个判据 ✗（`drain` 是引擎递给语言层的服务 ✓，而 `InvokeString` 的签名里没有它 ✓），所以这一格要先把「码点」那条规矩收成**一处**再做 ✓" },
   "c304-std-promise-race-forms": { expect: "blocked", why: "`new Promise(执行器)` 那一格（缺口清单 #15）：执行器要**同步跑**、`resolve` / `reject` 要绑定过 ⇒ 报 `the script is waiting for a promise the host has not settled`。同一条里 `race` / `allSettled` / `any` 三格本身是好的" },
   "c304-std-string-normalize-ascii-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（`string-normalize` 从第 293 轮起拖着同一个根）——要一张 NFC/NFD 的组合表；本条里 `\"e\\u0301\".normalize(\"NFC\").length` 是 `1`，所以「只做 ASCII」不够" },
 
@@ -689,7 +687,6 @@ export const EXPECTATIONS = {
   "c305-std-string-trim-unicode-space": { expect: "blocked", why: "非 ASCII 空白（`\\u00a0` / `\\u3000`）在 JS 里可被 `trim`，本仓只认 ASCII 那一档、且是**响亮地抛**（`string-concat-and-trim-families` 从第 287 轮起拖着同一个根）" },
   "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
   "c305-std-encodeuri-roundtrip": { expect: "blocked", why: "`encodeURIComponent` / `decodeURIComponent` / `encodeURI` 都不在（与 `c304-std-encodeuri-decodeuri` 同一个根）——按 UTF-8 字节做百分号编解码 + 四个全局名" },
-  "c305-std-array-iterator-symbol-method": { expect: "blocked", why: "`Protos.Array` 上没有 `Symbol.iterator` 那一格（`[1,2][Symbol.iterator]()` 报 `cannot call a non-closure value`）——与 `c304-std-symbol-iterator-manual` 同一个根（`for..of` 与展开走引擎指令，不走这个方法）" },
   "c305-std-number-wrapper-object": { expect: "differ", why: "包装对象整族还没造：`new Number(5)` 返回的是**原始值** ⇒ `typeof` 给 `number`（Node 给 `object`）。与 `c291-number-wrapper-and-negative-zero` 同一个根" },
   "c305-std-object-wrapper-call": { expect: "blocked", why: "`Object(1)` 报 `unimplemented: Object(primitive) needs wrapper objects`（与 `c291-global-object-wrappers`、`global-explicit-and-implicit` 同一个根）——`new Object(null)` 是对的，差的是给原始值造包装对象" },
   "c305-std-string-wrapper-methods": { expect: "differ", why: "`new String(\"ab\")` 返回的是**原始值**（`typeof` 给 `string`，Node 给 `object`）——包装对象族同一个根；方法本身都对" },
@@ -727,4 +724,14 @@ export const EXPECTATIONS = {
   //（「`typeof` 的操作数位」✓），下一轮照这两条修 ✓。
   "c307-rt-typeof-element-call-bare": { expect: "blocked", why: "`typeof o[\"m\"]()`（**没有外层括号**）报 `cannot call a non-closure value`——token 树把 `b[\"m\"]` 收进了 `UnaryOperator(typeof)` 里面、而那个 `()` 留在外面平级 ⇒ `typeof` 先算出一个函数、括号成了对结果的调用。加一层括号 `typeof (o[\"m\"]())` 就是好的" },
   "c307-rt-typeof-element-call-in-args": { expect: "differ", why: "`typeof` 的操作数是**下标调用**、而它又不是**实参表的第一格**时，给的是**方法本身**：`console.log(\"x\", typeof (o[\"m\"]()))` 在 Node 里印 `object`，本仓印 `function`（**静默错值**）。**同一个形状摆在第一格就是对的**（`console.log(typeof (o[\"m\"]()))` ✓）——所以它是**位置**决定的 ✗，不是形状决定的 ✓；与上一条（没有外层括号那一半）同源，都是 `typeof` 的操作数位" },
+  // **第 308 轮量到的第三个面** ✓（同一个族的另一处排布 ✓）：**展开位**里写
+  // 「取 `Symbol.iterator` 再调」时，那个 `()` **逃出了 `Spread`** ✗——实测的产物是
+  // `<ArrayLiteral><Spread><SymbolToken>...</SymbolToken><PropertyAccess>a[Symbol.iterator]</PropertyAccess></Spread><Bracket startBracket="("></Bracket></ArrayLiteral>`：
+  // 展开只吃到了**方法本身** ✓、而那对圆括号成了**数组的第二个元素** ✗ ⇒ 报
+  // `this method needs an array receiver` ✓（**那句话听起来像「方法用错了接收者」** ✗）。
+  // **两处判据的分工** ✗：`Spread.Process` 与 `UnaryOperator.Process`（`typeof` 那一处）
+  // 都只往后吃**一个**单元 ✓（`SkipNextWrapSymbol` ✓），而**调用括号是又一个单元** ✓
+  // ——`o["m"]()` 这种形状能对 ✓，是因为 `MethodReorganization` 先把它折成了一个 `Method` ✓；
+  // 而键本身是**成员链**（`Symbol.iterator` / `obj.key` ✓）时那一折没赶上 ✓ ⇒ 括号剩在外面 ✗。
+  "c308-std-symbol-iterator-call-in-spread": { expect: "blocked", why: "展开位里的「取 Symbol.iterator 再调」：`[...a[Symbol.iterator]()]` 报 `this method needs an array receiver`。实测产物：`()` **逃出了 `Spread`**——`<Spread>...a[Symbol.iterator]</Spread>` 加一个**平级的 `<Bracket>(</Bracket>`，于是展开只吃到方法本身、圆括号成了数组的第二个元素。`Spread.Process` 与 `UnaryOperator.Process`（`typeof` 那一处）都只往后吃**一个**单元，而调用括号是又一个单元：`o[\"m\"]()` 能对是因为 `MethodReorganization` 先折出了 `Method`，键是**成员链**时那一折没赶上" },
 };

@@ -6,6 +6,67 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 308 轮的账（**`Array.prototype[Symbol.iterator]` 一直没人挂** —— 92.5% → 92.6%，收掉 4 格）
+
+### 一、选题：照「成员不在那儿」那一组里**最大的一簇**收
+
+第 305 轮普查进来的十组缺口里，**「标准库成员不在那儿」**那一组最大 ✓。
+这一轮挑了其中**一处就能带三条判据**的：`Array.prototype[Symbol.iterator]` ✓
+（`c304-std-symbol-iterator-manual` ✓ / `c291-array-iterator-protocol-manual` ✓ /
+`c305-std-array-iterator-symbol-method` ✓，还有一条 runtime 的 `c291-rt-iteration-protocol-forms` ✓）。
+
+**为什么它一直缺着** ✗：引擎的迭代（`for..of` ✓、展开 ✓、`Array.from` ✓）走的是**指令**那条路 ✓
+（`iter_new` / `iter_next` ✓），**根本不问这一格** ✓——于是 `[...xs]` 一直是对的 ✓，
+而**显式取出来自己调**（`xs[Symbol.iterator]()` ✓）报 `cannot call a non-closure value` ✗。
+那句话听起来像「迭代器这一套还没做」✗，真相是**只是没人往这一格挂东西** ✓
+（与第 274 轮那七格、第 304 轮 `toSpliced` **同一个形状** ✓）。
+
+**修法**：在 `globals.xl.md` 里、紧挨着第 229 轮挂 `Symbol.toStringTag` 那一处 ✓
+（`protos.WellKnownSymbols` 刚填好 ✓），把 `Symbol.iterator` 那一格指到
+**`ArrayValues` 那一格能力号** ✓——JS 里 `Array.prototype[Symbol.iterator]` **就是 `values`** ✓
+（同一个函数对象 ✓），**同一件事不写第二份实现** ✓。键必须走那张知名符号表 ✗
+（符号按句柄比 ✓，现造一个就对不上 ✓）。
+**一处已知差写在明处** ✗：本仓两次 `InstallArray` 会造**两个**宿主引用 ✓，
+所以 `[][Symbol.iterator] === [].values` 在本仓是**假** ✗（JS 给真 ✓）——
+判定「是不是同一个函数」的写法别用它 ✓。
+
+### 二、这一轮收掉的 4 格
+
+| 判据 | 原来 | 现在 |
+| --- | --- | --- |
+| `c291-rt-iteration-protocol-forms` | blocked | **pass** ✓ |
+| `c291-array-iterator-protocol-manual` | blocked | **pass** ✓ |
+| `c305-std-array-iterator-symbol-method` | blocked | **pass** ✓ |
+| `c304-std-symbol-iterator-manual` | blocked | **differ** ✓（走了一半 ✓） |
+
+**最后那一条只走了一半** ✗：它同时量了数组与**字符串**两半 ✓——
+`[10, 20][Symbol.iterator]()` ✓ **好了** ✓，而 `"ab"[Symbol.iterator]()` 仍报
+`cannot call a non-closure value` ✓（`Protos.String` 上同样缺那一格 ✓）。
+**字符串那一半不能顺手照抄** ✗：JS 的字符串迭代**按码点** ✓（代理对合起来 ✓），
+而那条规矩今天只在**引擎**里（`iter_next` ✓，第 297 轮改的 ✓）——
+`drain` 是引擎递给**语言层**的服务 ✓，可 `InvokeString` 的签名里没有它 ✗。
+要在语言层做，就得把「码点」那条判据再写一遍 ✗——**先把它收成一处**再做 ✓。
+台账那一行的 `why` 已经重写成这一句 ✓。
+
+### 三、量到一个**新的面**（当场收进矩阵）
+
+顺手探「取 `Symbol.iterator` 再调」的各种排布 ✓，量到**展开位**那一个是坏的 ✗，
+**收进了矩阵** ✓（用户口径那句「发现新问题就补语料」✓）：
+
+```
+[...a[Symbol.iterator]()]   ⇒  this method needs an array receiver
+```
+
+实测的产物是：`<ArrayLiteral><Spread>...a[Symbol.iterator]</Spread><Bracket startBracket="("></Bracket></ArrayLiteral>`
+——那个 `()` **逃出了 `Spread`** ✗，展开只吃到**方法本身** ✓、圆括号成了**数组的第二个元素** ✗
+（**一句话里没有一个字提到展开** ✗）。
+**根子**：`Spread.Process` 与 `UnaryOperator.Process`（第 307 轮那条 `typeof` 那一处 ✓）
+都只往后吃**一个**单元 ✓，而**调用括号是又一个单元** ✓——
+`o["m"]()` 那种能对 ✓，是因为 `MethodReorganization` 先把它折成了一个 `Method` ✓；
+键本身是**成员链**时（`Symbol.iterator` ✓ / `obj.key` ✓）那一折**没赶上** ✓ ⇒ 括号剩在外面 ✗。
+它与第 307 轮那两条 `typeof` 判据**是同一个族** ✓（「调用括号没被吃进操作数」✓），
+下一轮一起修 ✓。
+
 ## 第 307 轮的账（**重入那条路少了「生成器」那一支** —— 91.7% → 92.5%，端到端 88.0% → 92.0%）
 
 ### 一、上一轮留下的那一格，根子量到了**引擎**里

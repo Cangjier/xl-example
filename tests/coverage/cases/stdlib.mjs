@@ -4315,4 +4315,17 @@ const xs = [1, 2, 3];
 console.log(xs.toSpliced(1, 1, 9).join(","), xs.with(0, 7).join(","), xs.join(","));
 `,
   },
+
+  // ===== 第 308 轮：`Array.prototype[Symbol.iterator]` 挂上之后补的一条 =====
+
+  {
+    id: "c308-std-array-symbol-iterator-manual",
+    title: "数组的 `Symbol.iterator` 是一个真方法（取出来自己走）",
+    src: "\nconst it: any = [10, 20][Symbol.iterator]();\nconsole.log(it.next().value, it.next().value, it.next().done);\nconst cursor: any = [1, 2, 3][Symbol.iterator]();\nconsole.log([...cursor].join(\",\"));\nconsole.log(typeof [][Symbol.iterator]);\n",
+  },
+  {
+    id: "c308-std-symbol-iterator-call-in-spread",
+    title: "展开位里「取 `Symbol.iterator` 再调」——`()` 会逃出展开",
+    src: "\nconst a: any = [10, 20];\nconsole.log([...a[Symbol.iterator]()].join(\",\"));\n",
+  },
 ];

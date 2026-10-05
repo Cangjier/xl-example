@@ -153,8 +153,26 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
 里面），带括号时反而对——连同 `o.m?.(1, 2)`、`o.m?.().k + 1` 一起记进台账）、
 **`.ts` 已经能直接执行**（`node build/ts/tsrun.js <文件.ts>`，stdout 与 `node <文件.ts>` 逐字节相同）——
 判据见 `npm run runtime:check`（241 条）与 `npm run runtime:cli`（79 份语料）；
-**场景覆盖度**是 `npm run coverage`（第 307 轮读数：**1012 / 1100 = 92.5%**，
-其中**引擎 89.9%** ✓、**降级层 95.9%** ✓、标准库 **91.3%** ✓、**端到端 92.0%** ✓——
+**场景覆盖度**是 `npm run coverage`（第 308 轮读数：**1016 / 1102 = 92.6%**，
+其中**引擎 90.2%** ✓、**降级层 95.9%** ✓、标准库 **91.6%** ✓、**端到端 92.0%** ✓——
+**第 308 轮**收的是「标准库成员不在那儿」那一组里**一处带三条判据**的那一格 ✓：
+**`Array.prototype[Symbol.iterator]` 一直没人挂** ✗。**为什么一直没量到** ✗：
+引擎的迭代（`for..of` ✓、展开 ✓、`Array.from` ✓）走的是**指令**那条路 ✓
+（`iter_new` / `iter_next` ✓），**根本不问这一格** ✓——于是 `[...xs]` 一直是对的 ✓、
+而**显式取出来自己调**（`xs[Symbol.iterator]()` ✓）报 `cannot call a non-closure value` ✗
+（听起来像「迭代器这一套还没做」✗，真相是**只是没人往那一格挂东西** ✓）。
+修法：在挂 `Symbol.toStringTag` 的**同一处** ✓、用**同一张**知名符号表 ✓，
+把那一格指到 **`ArrayValues` 那一格能力号** ✓——JS 里它就是 `values` ✓（同一个函数对象 ✓），
+**同一件事不写第二份实现** ✓。**收掉 4 格** ✓（三条转 pass ✓、一条走了一半 ✓）：
+`c291-rt-iteration-protocol-forms` ✓ / `c291-array-iterator-protocol-manual` ✓ /
+`c305-std-array-iterator-symbol-method` ✓，以及 `c304-std-symbol-iterator-manual` ✓——
+**它只走了一半** ✗：数组那半好了 ✓、**字符串那半还缺** ✗（`"ab"[Symbol.iterator]()` ✓），
+而字符串迭代要**按码点** ✓（那条规矩今天只在引擎里 ✓、`InvokeString` 拿不到 `drain` ✗）
+——先把「码点」收成一处再做 ✓。**顺手量到、当场收进矩阵的新面** ✓：
+`[...a[Symbol.iterator]()]` 报 `this method needs an array receiver` ✓——
+产物里那个 `()` **逃出了 `Spread`** ✗（`<Spread>...a[Symbol.iterator]</Spread>`
+加一个**平级**的 `<Bracket>(</Bracket>` ✓），与第 307 轮那两条 `typeof` 判据**同一个族** ✓
+（「调用括号没被吃进操作数」✓），矩阵 **1100 → 1102** 条 ✓。
 **第 307 轮**收的是第 306 轮**留下的那一格** ✓（判据没变 ✓，根子从投影挪到了**引擎** ✓）：
 **两条调用路少了一支** ✗——脚本自己发起的调用（`Op.Call` / `Op.CallMethod` → `DoCallValue` ✓）
 **有**「生成器」那一档 ✓（第 229 轮补的 ✓），而**重入**那条

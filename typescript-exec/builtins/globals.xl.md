@@ -6,7 +6,7 @@ import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberO
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf, ArrayValues } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
@@ -5304,6 +5304,28 @@ const tagNames = ["Map", "Set", "Date"];
 for (let i = 0; i < tagTargets.length; i++) {
   SetProperty(room, NeverCall, table, Value.FromObject(tagTargets[i]), toStringTagKey,
     Value.FromString(table.CreateString(Units(tagNames[i]))));
+}
+// **`Array.prototype[Symbol.iterator]`** ✓（第 308 轮 ✓）——JS 里它就是 `values` ✓
+//（**同一个函数对象** ✓：`[][Symbol.iterator] === [].values` ✓），所以**指到同一格能力号** ✓
+//（`ArrayValues` ✓）——**同一件事不写第二份实现** ✓。
+//
+// **为什么这一格一直缺着** ✗：引擎的迭代（`for..of` ✓、展开 ✓、`Array.from` ✓）走的是
+// **指令**那条路 ✓（`iter_new` / `iter_next` ✓），**根本不问这一格** ✓——
+// 于是 `[...xs]` 一直是对的 ✓，而**显式取出来自己调**（`xs[Symbol.iterator]()` ✓）
+// 报 `cannot call a non-closure value` ✗。那句话听起来像「迭代器这一套还没做」✗，
+// 真相是**只是没人往这一格挂东西** ✓（与第 274 轮那七格、第 304 轮 `toSpliced` 同一形状 ✓）。
+// 判据 `c304-std-symbol-iterator-manual` ✓ / `c291-array-iterator-protocol-manual` ✓ /
+// `c305-std-array-iterator-symbol-method` ✓ 三条一起拖着它 ✓。
+//
+// **挂的位置与上面那三族的 `toStringTag` 同一处** ✓：`protos.WellKnownSymbols` 刚填好 ✓、
+// 键就是那张表里那个句柄 ✓。**键必须走那张表** ✗（不能现造一个符号 ✓）：
+// 符号在属性查找里是**按句柄**比的 ✓（`props.xl.md` ✓），三处拿到的必须是**同一个** ✓
+// ——知名符号的规矩就是「只造一次」✓（上面那一段写着 ✓）。
+const arrayIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("iterator"))));
+if (arrayIteratorKey.Tag === ValueTag.Symbol) {
+  SetProperty(room, NeverCall, table, Value.FromObject(protos.Array), arrayIteratorKey,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayValues, 0)));
 }
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。
