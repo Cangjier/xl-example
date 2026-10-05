@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 93.04,
+  "progressPercent": 94.58,
   "layers": [
     {
       "layer": "runtime",
@@ -69,11 +69,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 13,
-      "pass": 12,
+      "pass": 13,
       "blocked": 0,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 92.31
+      "coverage": 100
     }
   ],
   "blocked": [
@@ -396,28 +396,14 @@
       "layer": "stdlib",
       "title": "console.log 的嵌套容器形状",
       "detail": "stdout 不同：第 3 行：node «{ n: null, u: undefined, f: [Function: f] }» vs tsrun «{ n: null, u: undefined, f: [Function (anonymous)] }»"
-    },
-    {
-      "id": "e2e-mixed-everything",
-      "layer": "e2e",
-      "title": "一锅端：类 + 生成器 + 承诺 + 异常 + 集合 + 解构",
-      "detail": "stdout 不同：第 2 行：node «A-B» vs tsrun «»"
     }
   ],
   "bad": [],
   "moved": [],
   "newlyPassing": [
     {
-      "id": "object-create-and-prototype-forms",
-      "layer": "stdlib"
-    },
-    {
-      "id": "object-defineproperty-forms",
-      "layer": "stdlib"
-    },
-    {
-      "id": "object-create-with-properties",
-      "layer": "stdlib"
+      "id": "e2e-mixed-everything",
+      "layer": "e2e"
     }
   ],
   "regressions": []

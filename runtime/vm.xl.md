@@ -2322,7 +2322,34 @@ if (id === RtOp.HostCall) {
   for (let i = 1; i < argc; i++) {
     args.push(slots[base + i]);
   }
+  // **「这一次内建出没出事」要在这一趟里量** ✗（第 300 轮 ✓）——`CallFailed` 那两格是
+  // **重入**的账本 ✓（`CallNative` 每趟开头清 `NativeEscaped` ✓、收尾把
+  // 「`Throws` 变了」并进 `NativeFailed` ✓），而**能力调用这一条路不经过 `CallNative`** ✗
+  // ⇒ 那两格**没人按趟归零** ✓ ⇒ 一次**早就被处理掉**的展开会把 `NativeEscaped` 留在**真**上 ✗，
+  // 于是**后面每一次**问 `failed()` 的内建都以为「上一次重入没跑完」✗。
+  //
+  // **实测的现场** ✓（判据 `e2e-mixed-everything` ✓）：一个「同步就抛出」的 async 被调用之后，
+  // 同一个片段里 `[...g()]` 与 `[...\"ab\"]` 都拿到**空数组** ✓——
+  // `SpreadInto` 里 `drain` 明明收齐了 2 项 ✓（实测打印 ✓），紧接着那句
+  // `if (failed()) return Value.Undefined();` 把它**整批丢掉** ✓：
+  // 落回调用方的 `undefined` 被写进临时槽 ✓、而那个数组**留在原地空着** ✓
+  // ⇒ 脚本看到的是 `[]` ✓——**一句异常都没有** ✗、退出码还是 0 ✗。
+  // **哪些地方看着「没问题」** ✗：`Array.from` 那一条**不问 `failed()`** ✓、
+  // `[...[1,2]]` 走的是**数组那一支**（也不问 ✓）✓——所以红的只有
+  // 「**展开一个生成器 / 一个字符串**」这两格 ✓（同一种病两种症状 ✓）。
+  //
+  // **做法**：把内建这一次调用**当成一趟**来记账 ✓（与 `CallNative` 一字不差 ✓）——
+  // 进来清零 ✓、出去把「`Throws` 变过 / `NativeEscaped`」并进 `NativeFailed` ✓，
+  // 而**外层**那两格照旧保留 ✓（里面那一趟的结论**不能**把外面那一趟的账抹掉 ✗）。
+  const escapedBefore = this.NativeEscaped;
+  const failedBefore = this.NativeFailed;
+  const thrownBefore = this.Throws;
+  this.NativeEscaped = false;
+  this.NativeFailed = false;
   const produced = invoker(target, Value.Undefined(), args, this.Room());
+  this.NativeFailed = this.NativeFailed || this.Throws !== thrownBefore || this.NativeEscaped;
+  this.NativeEscaped = this.NativeEscaped || escapedBefore;
+  this.NativeFailed = this.NativeFailed || failedBefore;
   // 与 `DoCallValue` 的宿主分支同一个检查（**两处都要**：能力调用走的是这一条）。
   const raised = this.TakeRaise();
   if (raised !== null) {

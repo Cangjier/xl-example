@@ -6,6 +6,93 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 300 轮的账（**一次早就被处理掉的展开，把账本留在了「真」上** —— 93.0% → 94.6%，端到端 92.3% → 100.0%）
+
+**端到端那一层清了** ✓（13/13 ✓）——这一条从第 296 轮起红了两轮 ✓，
+而两轮的红**不是同一个病** ✓（第 298 轮修掉的是「类字段初始化式里的全局名」✓）。
+
+### 一、症状：**`drain` 明明收齐了，数组还是空的**
+
+```
+async function bad() { throw new Error("x"); }
+bad().catch(…);
+function* g() { yield 1; yield 2; }
+[...g()]              ⇒ []        ✗（Node 给 [1,2]）
+[...\"ab\"]            ⇒ []        ✗（Node 给 ["a","b"]）
+Array.from(g())       ⇒ [1,2]     ✓
+[...[1,2]]            ⇒ [1,2]     ✓
+for (const v of g())  ⇒ 正常       ✓
+```
+
+**一句异常都没有** ✗、**退出码还是 0** ✗——只有逐字节对拍才看得见 ✓。
+
+**打印出来的是决定性的一句** ✓：`SpreadInto` 里 `drain` 收到的数组**长度是 2** ✓
+（`SPREAD drain tag 7 len 2` ✓），可那个数组**最终是空的** ✗ ⇒
+问题不在「收没收齐」✓，在**收齐之后那一句把它丢了** ✗：
+
+```ts
+const drained = drain(items);
+if (failed !== null && failed()) return Value.Undefined();   // ← 这里整批丢掉
+```
+
+### 二、根子：`CallFailed` 的两格是**重入**的账本，可能力调用不走重入
+
+`CallFailed()` 答三个问题之一 ✓：
+
+```ts
+return this.NativeFailed || this.NativeEscaped
+  || (this.Status !== Status.Ready && this.Status !== Status.Halted);
+```
+
+而那两个标志的生命周期**只在 `CallNative` 里被管** ✓：每趟开头清 `NativeEscaped` ✓
+（第 2610 行 ✓）、收尾把「`Throws` 变过 / `NativeEscaped`」并进 `NativeFailed` ✓。
+
+**能力调用（`HostCall` 那一条）不经过 `CallNative`** ✗——于是那两格
+**没有任何人按趟归零** ✓：一次**早就被 `.catch` 接住**的展开把 `NativeEscaped` 留在**真**上 ✗，
+此后**每一次**问 `failed()` 的内建都读到「上一次重入没跑完」✗。
+
+**实测的那一行** ✓（临时打印 `CallFailed` 的三个项 ✓）：
+`CALLFAILED -> true NativeFailed false NativeEscaped true Status 0 Throws 1` ✓——
+状态是 `Ready` ✓（不是失败 ✓）、`NativeFailed` 是假 ✓，**只有 `NativeEscaped` 那一格在说谎** ✗。
+
+### 三、为什么红的正好是那两格
+
+| 路径 | 问不问 `failed()` | 结果 |
+| --- | --- | --- |
+| `[...[1,2]]` | **不问**（数组那一支 ✓） | ✓ |
+| `Array.from(g())` | **不问**（`drain` 之后直接搬 ✓） | ✓ |
+| `[...g()]` | **问**（生成器那一支 ✓） | ✗ |
+| `[...\"ab\"]` | **问**（字符串那一支 ✓，第 297 轮刚落 ✓） | ✗ |
+
+**同一种病，两种症状** ✓——而「哪几条红」看着像是**三件不相干的事** ✗
+（一条关于生成器 ✓、一条关于字符串 ✓、`Array.from` 又是好的 ✓）。
+**「谁问了那句话」才是把这几格串起来的那条线** ✓。
+
+### 四、修法：把内建这一次调用**当成一趟**来记账
+
+在 `HostCall` 那一条里照 `CallNative` 的写法补上 ✓：进来清零 ✓、
+出去把「`Throws` 变过 / `NativeEscaped`」并进 `NativeFailed` ✓——
+而**外层**那两格**照旧保留** ✓（里面那一趟的结论**不能**把外面那一趟的账抹掉 ✗：
+`forEach` 的回调里再跑一个内建 ✓，那一趟的结论不该顶掉外层的 ✓）。
+
+**第 299 轮那一次改动仍然留着** ✓（`DoThrow` 把那一抛转成拒绝之后**弹掉废帧、清 `Pending`** ✓）——
+它当时**没修好这一格** ✓（读数一格没动 ✓），而这一轮量清之后可以看出：
+**它修的是另一件事** ✓（那一摞废帧 ✓），两件事都在同一格症状上现形 ✓。
+
+### 五、读数
+
+```
+层        覆盖度              条数                      这一轮
+runtime   91.3%   231/253   (blocked 12 · differ 10 · bad 0)   没动
+exec      94.5%   172/182   (blocked 5  · differ 5  · bad 0)   没动
+stdlib    93.6%   307/328   (blocked 9  · differ 12 · bad 0)   没动
+e2e      100.0%    13/13    (blocked 0  · differ 0  · bad 0)   +1 条 ⇒ **这一层清空**
+合计      94.6%   722/776   blocked 26 · differ 27 · bad 0
+```
+
+**红的一栏是 0** ✓；`runtime:check` **241 条** ✓、`runtime:cli` **79 份** ✓、
+`cases:tsast` **1444 / 1444** ✓。**端到端那一层台账空了** ✓。
+
 ## 第 299 轮的账（**描述符那一簇：门早就有了，只是没人接上去** —— 92.8% → 93.0%，标准库 92.7% → 93.6%）
 
 **三条红条同一个形状** ✗：**引擎里的门早就造好了** ✓，只是**这一层没把描述符接上去** ✗。
