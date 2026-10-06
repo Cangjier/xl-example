@@ -6,6 +6,66 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 363 轮的账（**命名空间对象那一格按「可能是捕获」读** —— 99.6% → **99.7%**，收掉 1 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮**收在降级层** ✓，而且是**上一轮隔离出来的那一条** ✓。
+
+### 一、那一格（`c331-ex-enum-and-namespace-merge`）
+
+```ts
+enum Level { Low = 1, High = 2 }
+namespace Level {
+  export function label(value: Level): string {
+    return value === Level.Low ? "low" : "high";
+  }
+}
+console.log(Level.Low, Level.High, Level.label(Level.High), Level[1]);
+```
+
+**Node 给 `1 2 high Low`** ✓、本仓报 **`name is not a local (captures need env records): Level`** ✗。
+
+### 二、二分与根因
+
+**三种形态只有一种炸** ✓：
+
+| 形态 | 结果 |
+| --- | --- |
+| `enum E { A = 1 } namespace E { export const x = E.A; }` | **对** ✓ |
+| `namespace N { export function g() { return 7; } }` | **对** ✓ |
+| `enum E { A = 1 } namespace E { export function f() { return E.A; } }` | **炸** ✗ |
+
+⇒ **触发条件是「枚举名被命名空间体内层的函数引用」** ✓ ⇒ 它按 `DeclareLocal` 的规矩
+**进了环境格** ✓。
+
+**抛点只有一处** ✓：`ResolveLocal`（**只认槽** ✗）——而 `BindNamespaceExports` 里读
+**那个对象**用的正是它 ✓，读**导出名**却用的是 `ResolveAccess`（**两样都认** ✓）。
+**同一个文件里两条路两套判据** ✗，于是漂了 ✓。
+
+### 三、修法（一行换成同一套）
+
+对象那一格改成 `ResolveAccess` + `EnvGet`/`Move` ✓，与下面读导出名**一致** ✓。
+**报错那句话里没有一个字提到「命名空间的对象住在环境里」** ✗，
+所以这条缺口**从第 292 轮活到现在** ✗。
+
+### 四、这一格的教训（**值得记** ✓）
+
+与第 360 轮「**同一个词两种词形**」（`Identifier` / `Keyword` ✓）、
+第 357 轮「**同一个对象两种表示**」（标签跟谁走 ✓）**同一族** ✗——
+**同一个名字可能住在槽里、也可能住在环境格里** ✓，而**「只认槽」的那条路**就是缺口所在 ✓；
+仓库里**早就有**两样都认的那一条 ✓（`ResolveAccess` ✓），**先找它、别另写** ✓。
+
+**读数** ✓：`pass` **1337 → 1338** ✓、`blocked` **4 → 3** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **37.6s 全绿** ✓；**引擎 99.3%** ✓、降级层 99.4% ✓、标准库 99.4% ✓、端到端 100% ✓。
+**剩下 5 格** ✓。
+
+### 五、下一轮的入口
+
+**① 链式调用** ✓（**用正确参数名在 `projectNode` 入口按形状拦** ✓——上一轮探针写错的就是这一处 ✓）；
+**② 嵌套命名空间** ✓（报错已带「`left is ModuleDeclaration at 19..65`」✓；根在投影层语句切分 ✓）；
+**③ `Array.fromAsync`** ✓（**根本没有实现** ✗）；**④ 错误要有 `stack`** ✓；
+**⑤ 其余**（`IdTable` 容量口径 ✓、`Map`/`Set`/`Date` 的 `size` 该是原型 getter ✓、错误对象的内部槽标记 ✓）。
+
 ## 第 362 轮的账（**两处缺口各推进一层：链式调用的产者排除五处 + enum/namespace 的捕获触发条件** —— 99.6%，未收格 ✗）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
