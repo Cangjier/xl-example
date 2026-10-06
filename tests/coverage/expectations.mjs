@@ -518,8 +518,15 @@ export const EXPECTATIONS = {
   // 本仓的生成器对象只有 `next` ✗（`cannot call a non-closure value`）。
   "rt-generator-return-early": { expect: "differ", why: "`it.return(9)` 不在那儿（生成器对象上只有 `next`）——`return` 要跑 `finally` 并把 `done` 置上" },
 
-  // ---- 组 E：可选调用那一条（1 条）----
-  "rt-optional-chain-null-base": { expect: "differ", why: "**基名是 null 的可选调用**（`f?.()`）报 `cannot call a non-closure value`——`?.` 该整条短路，这里却照样去调了（`f?.[0]` / `f?.p` 那一半是对的）" },
+  // ---- 组 E：可选调用那一条（1 条）---- **第 325 轮收了** ✓（那一行撤了 ✓）
+  //
+  // **「空值在哪一层」这是第三格** ✗：第 152 轮分过两格（`o?.m()` 空在**接收者**上 ✓、
+  // `o.m?.()` 空在**取出来的方法**上 ✓），而 **`f?.()` 空在「被调的那个值自己」身上** ✓
+  // ——`LowerCall` 的通用路与下标路**都没看那一格** ✗ ⇒ `?.` 被无视 ✓ ⇒ 照样去调 `undefined` ✓
+  // ⇒ 报 `cannot call a non-closure value` ✓（听起来像「那个名字不是函数」✗，其实是**该短路** ✓）。
+  // **修法**：守卫排在**实参求值之前** ✓（JS 里 `f?.(a())` 在 `f` 空值时**连 `a()` 都不求** ✓——
+  // 排在后面就是把副作用也跑了 ✗），结果落在结果格里 ✓；那一小段抽成
+  // `PatchOptionalCall` ✓（`LowerAccess` 的可选链与这里**同一个形状** ✓，只写一处 ✓）。
 
   // ---- 组 F：降级层的两种形状（3 条）----
   // **`ex-class-computed-and-static-init` 第 323 轮过了** ✓（那一行撤了 ✓）：
@@ -666,14 +673,19 @@ export const EXPECTATIONS = {
   "c304-rt-iife-arrow-this": { expect: "differ", why: "**口径边界（严格模式的选择）**：普通函数调用在松散模式下 `this` 是全局对象，本仓一律 `undefined`。同一个根还拖着下面那条" },
   "c304-rt-super-property-write": { expect: "blocked", why: "`super.x = v` 报 `assigning a property on a primitive receiver`——降级层把 `super` 那一格当成了接收者。接收者该是**当前实例**、起点才是父原型（第 243 轮补的是读那一半 `super.v`，写这一半还没有）" },
   "c304-rt-detached-method-this-undefined": { expect: "differ", why: "**口径边界（严格模式的选择）**：与方法摘下来单独调那一格同一个根（见上一条）" },
-  "c304-rt-optional-chain-call-forms": { expect: "differ", why: "`f?.()` 那一格（**基名自己是空值**的可选调用）。第 152 轮分过「空值在接收者上」与「空值在取出来的方法上」，这是第三格；同一条里 `o.n?.()` / `o.missing?.()` 两半是对的" },
+  // **`c304-rt-optional-chain-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
+  // 同一条里的 `o.n?.()` / `o.missing?.()` 两半本来就对 ✓，这一轮补的是
+  // **第三格**（`f?.()`：空值在**被调的那个值自己**身上 ✓）——见上面组 E 那一段 ✓。
   "c304-rt-generator-early-break-finally": { expect: "differ", why: "`for..of` 提前 `break` 要调生成器的 `return()`（于是体里的 `finally` 照跑）；本仓 `break` 只退出循环，生成器那一帧被丢掉 ⇒ `cleanup` 一行都没有" },
   // **`c304-rt-promise-then-returns-promise` 与 `c305-std-then-returns-promise-adoption`
   // 第 317 轮修掉了** ✓（`ResolvePromise` 现在走「兑现值本身是承诺就采纳」那一支 ✓）——
   // 两行都撤了 ✓。留一句在这里：它们当初报的是「后面 `.then` 拿到的是**承诺对象**」✓，
   // 根子是**「兑现值是个承诺」这条语义只长在 async 那一条支路上** ✗。
   "c304-ex-nonnull-in-optional-chain": { expect: "differ", why: "`arr![0]![0]` 投影出来是 `NonNullExpression(arr)`——**两个方括号与第二个 `!` 全丢了**（本轮实测：TS 那边是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)`）。这是第 303 轮那条链的**下一个形状**（`x![1]![0]`），入口在 `print-ast-common.xl.md` 的链分支" },
-  "c304-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`namespace make { … }` 该挂在**函数值自己**那一格上（静态格），降级层只造了函数、没造那一格 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`" },
+  // **`c304-ex-namespace-merged-function` 第 325 轮过了** ✓（那一行撤了 ✓）——
+  // 根子与第 323 轮记的那一句**不一样** ✗：**不是**「那一格没造」✓，
+  // 而是**「有就复用」只看了本层的槽** ✓、**没看本帧环境里的那一格** ✗
+  // （见下一条那一段账 ✓）。
   "c304-std-symbol-iterator-manual": { expect: "differ", why: "**这一条第 308 轮走了一半** ✓：数组那一半（`[10, 20][Symbol.iterator]()` ✓）**已经修好** ✓——`Protos.Array` 上原来**没有那一格** ✗，挂上去之后 `it.next()` 与 `[...it]` 都对 ✓。剩下的**是字符串那一半** ✗：`\"ab\"[Symbol.iterator]()` 报 `cannot call a non-closure value` ✓——`Protos.String` 上同样缺那一格 ✓，而字符串的迭代要**按码点** ✓（代理对合起来 ✓，与引擎的 `iter_next` 第 297 轮改的那一条**同一条规矩** ✓）——语言层今天没有那个判据 ✗（`drain` 是引擎递给语言层的服务 ✓，而 `InvokeString` 的签名里没有它 ✓），所以这一格要先把「码点」那条规矩收成**一处**再做 ✓" },
   "c304-std-string-normalize-ascii-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（`string-normalize` 从第 293 轮起拖着同一个根）——要一张 NFC/NFD 的组合表；本条里 `\"e\\u0301\".normalize(\"NFC\").length` 是 `1`，所以「只做 ASCII」不够" },
 
@@ -771,9 +783,22 @@ export const EXPECTATIONS = {
   // 显示名推断 ✓），它们**不加新账**、只是把旧账的覆盖面加宽 ✓。
 
   // A —— 名字只在该在的那一层里可见（4 条）
-  "c323-ex-named-function-expression": { expect: "blocked", why: "具名函数表达式 `const f = function self(n) { … self(n - 1) }` 的名字**没绑进函数自己那一层作用域**（与 `fn-named-expression` 同一条）——`self` 既不是本层声明、也不算捕获 ⇒ 报 `name is not a local or a capture: self`。JS 里这个名字只在**函数体内部**可见（外面 `typeof f.self` 是 `undefined`），所以修法是「进门时在函数自己那一层绑一格」" },
+  "c323-ex-named-function-expression": { expect: "blocked", why: "具名函数表达式 `const f = function self(n) { … self(n - 1) }` 的名字**没绑进函数自己那一层作用域**（与 `fn-named-expression` 同一条）——`self` 既不是本层声明、也不算捕获 ⇒ 报 `name is not a local or a capture: self`。JS 里这个名字只在**函数体内部**可见（外面 `typeof f.self` 是 `undefined`），所以修法是「进门时在函数自己那一层绑一格」。**第 325 轮把入口量清了** ✗：那一格要装的是**闭包自己** ✓，而**帧上没有它** ✗（`HeapFrame` 只有 `Code` / `Env` / `This` / `ConstructTarget` ✓，没有「我是哪个闭包」那一格 ✓）——所以这条路要先给帧补一格 + 一条读它的算子 ✓，而且**四条开帧的路**（脚本调用 ✓ / 重入 ✓ / 宿主直调 ✓ / 生成器恢复 ✓）都要写对 ✓（第 307 / 312 / 320 轮各踩过一次「同一个语义长在两条路上」✓）；与 `fn-named-expression` 一起做才划算（2 条 ✓）" },
   "c323-ex-class-expression-name-in-body": { expect: "blocked", why: "具名类表达式的名字在**类体**里读不到：`const K = class Named { static id = \"n1\"; get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`——与上一条**同一个根**（名字只在该在的那一层可见），只是那一层从函数体换成了类体（静态格与实例方法都在里面）" },
-  "c323-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`function make(n) {…}` + `namespace make { export const version = … }` 该把导出挂在**函数值自己**那一格上（静态格），降级层只造了函数、那一格没造 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`（与 `c304-ex-namespace-merged-function` 同一个根，这一条把「常量 + 函数 + 互相引用」三格一起考）" },
+  // **`c323-ex-namespace-merged-function` 第 325 轮也过了** ✓（同一处修 ✓，那一行撤了 ✓）
+  //
+  // **量出来的根子与第 323 轮记的那一句不一样** ✗（那次是**猜**的 ✓，这次是**读出来**的 ✓）：
+  // 不是「那一格没造」✗，而是 **`LowerNamespace` 的「有就复用」只看了本层的槽** ✗
+  // （`this.Scope[last].Resolve(name)` ✓）——**函数的名字自己**在捕获分析里被算成
+  // 「内层函数里的引用」✓（`CollectInsideFunctions` 走进 `FunctionDeclaration` 时
+  // `inside + 1` ✓，而 `name` 那一格正好在它**里面** ✓）⇒ `DeclareLocal` 把闭包
+  // 写进了**环境格** ✓、**没进槽** ✗ ⇒ `Resolve` 给 `-1` ✓ ⇒ 这一支**另造了一个对象** ✓、
+  // `BindName` 又把它写进**同一格环境** ✓ ⇒ **函数被对象盖掉** ✓
+  // ⇒ `make(3)` 报 `cannot call a non-closure value` ✓（**静默错值** ✓）。
+  // **`enum` + `namespace` 合并一直是好的** ✓：枚举名不在函数节点里面 ✓，
+  // 所以它没被误算成捕获 ✓、一直住在槽里 ✓——差别只在**名字住哪儿** ✓。
+  // **修法**：复用判据加一格 ✓（`CellOf` ✓，读的时候按**本帧第 0 层** ✓，
+  // 与 `DeclareLocal` 写它的那一句对称 ✓）。
   "c323-rt-super-in-object-literal": { expect: "blocked", why: "对象字面量里的方法用 `super.greet()`：JS 的 `super` 在方法简写里指向 `[[HomeObject]]` 的原型（`{ __proto__: proto, greet() { return super.greet() } }` 是合法的）；降级层只认**派生类方法**里那一格（`InSuperName` 由类降级时写进排队函数）⇒ 报 `unimplemented: super.m(...) outside a derived class method`" },
   // B —— 标准库成员不在那儿（6 条，都是「挂一格」那一族）
   // **`c323-std-object-getownpropertydescriptors` 与 `c323-std-set-union-intersection`
@@ -799,8 +824,11 @@ export const EXPECTATIONS = {
   // D —— 同一个形状只认了一半（2 条）
   "c323-ex-angle-bracket-assertion-forms": { expect: "blocked", why: "尖括号断言 `<T>expr` 报 `unimplemented: expression TypeAssertionExpression`——它与 `as` 在 TS 的 AST 里是**两个 kind**（`TypeAssertion` 与 `AsExpression` ✓），投影 / 降级只认了后者（与 `ex-angle-bracket-assertion` 同一个根，这一条把「变量 / 字面量 / 嵌套」三种操作数一起考）。**裁判要用 `--experimental-transform-types`** ✓：剥离模式明确拒收尖括号写法 ✓" },
   "c323-ex-nonnull-in-chains": { expect: "differ", why: "非空断言与下标混在同一条链上时**后面那一截整个丢掉**：`arr![0]![0]` 给 `[ [ 1, 2 ] ]`（Node 给 `1`）、`o!.a!.b![0]` 也少一层。与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` 同一条链（`print-ast-common.xl.md` 的链分支），这一条把「`!` 在链首」那一种排布一起考了" },
-  // 旧账加宽（4 条：不加新账，只是同一个根换了写法）
-  "c323-ex-optional-call-forms": { expect: "blocked", why: "可选调用的**三种基名**放在一条判据里：`o.m?.()` ✓ 与 `o.n?.k?.()` ✓ 是对的那一半，`o.missing?.()` 也过 ✓；**卡住的是 `f?.()`**（基名**自己**是空值）——`?.` 该整条短路，这里却照样去调 ⇒ `cannot call a non-closure value`（缺口清单 #6，第 152 轮分过「空值在接收者上」与「空值在取出来的方法上」，这是**第三格**）" },
+  // 旧账加宽（3 条：不加新账，只是同一个根换了写法）
+  // **`c323-ex-optional-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
+  // 这一条把**三种基名**放在一起考 ✓（`o.m?.()` ✓ / `o.n?.k?.()` ✓ / `o.missing?.()` ✓ /
+  // **`f?.()`** ✓）——前面三种本来就对 ✓，补上的正是**第三格** ✓
+  // （空值在**被调的那个值自己**身上 ✓，见组 E 那一段 ✓）。
   "c323-rt-generator-early-return-cleanup": { expect: "differ", why: "提前结束生成器：`it.return(9)` 要**在挂起点送一次「完成」进去**（于是体里的 `finally` 照跑、`cleanup` 要印出来），本仓报 `unimplemented: generator return() needs the finally chain (a lowering-level construct)`——那条 `finally` 链是**降级期**的构造，引擎手里没有「这个帧欠哪些 `finally`」那张表（缺口清单 #5，与 `c304-rt-generator-early-break-finally` 同一个根）" },
   "c323-std-console-shapes": { expect: "differ", why: "`console.log({ f: () => 1 }.f.name)` 给**空串**（Node 给 `\"f\"`）——**从属性名反推显示名**那一格没有（缺口清单 #10 那一族：`HeapClosure.Name` 的四个来源里少了「对象字面量的属性名」这一条）；同一条里的容器形状（`[1, 2]` / `{ a: 1 }` / 嵌套数组）与多实参那两行都是对的 ✓" },
 };

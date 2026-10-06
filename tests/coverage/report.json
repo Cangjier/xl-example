@@ -33,27 +33,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.88,
+  "progressPercent": 95.31,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 390,
-      "pass": 363,
+      "pass": 365,
       "blocked": 17,
-      "differ": 10,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 93.08
+      "coverage": 93.59
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 298,
-      "pass": 284,
-      "blocked": 10,
+      "pass": 287,
+      "blocked": 7,
       "differ": 4,
       "nodefail": 0,
-      "coverage": 95.3
+      "coverage": 96.31
     },
     {
       "layer": "stdlib",
@@ -198,12 +198,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier"
     },
     {
-      "id": "c304-ex-namespace-merged-function",
-      "layer": "exec",
-      "title": "函数与命名空间合并（挂静态格）",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c323-ex-angle-bracket-assertion-forms",
       "layer": "exec",
       "title": "尖括号断言：变量、字面量、嵌套三格",
@@ -226,18 +220,6 @@
       "layer": "exec",
       "title": "具名函数表达式的名字在函数体内可见（可递归）",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: self"
-    },
-    {
-      "id": "c323-ex-optional-call-forms",
-      "layer": "exec",
-      "title": "可选调用的三种基名：null、缺方法、接收者为 null",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c323-ex-namespace-merged-function",
-      "layer": "exec",
-      "title": "函数与命名空间合并：静态格挂在函数值自己身上",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "object-freeze",
@@ -338,12 +320,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: generator return() needs the finally chain (a lowering"
     },
     {
-      "id": "rt-optional-chain-null-base",
-      "layer": "runtime",
-      "title": "可选链在中途 null / undefined 上短路整条链",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "rt-forin-order-and-inherited",
       "layer": "runtime",
       "title": "for..in：整数键在前、继承来的键也在、数组给下标串",
@@ -360,12 +336,6 @@
       "layer": "runtime",
       "title": "把方法摘下来单独调：松散模式 this 是全局对象",
       "detail": "stdout 不同：第 1 行：node «global other» vs tsrun «undefined other»"
-    },
-    {
-      "id": "c304-rt-optional-chain-call-forms",
-      "layer": "runtime",
-      "title": "可选调用的三种位置",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c304-rt-generator-early-break-finally",

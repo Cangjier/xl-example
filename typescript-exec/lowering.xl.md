@@ -2088,12 +2088,33 @@ if (NodeKind(body) !== "ModuleBlock") {
 }
 const name = TextOf(nameNode);
 // **① 那个对象** ✓
+//
+// **「有就复用」要看两个地方** ✗（第 325 轮修的 ✓）：**本层的槽** ✓ 与
+// **本帧环境里的那一格** ✓（`CellOf` ✓）——判据是**同一个问题** ✓：
+// 「这个名字这一层已经绑过东西了吗」✓。
+// **原来只看槽** ✗（`this.Scope[last].Resolve` ✓），于是
+// `function make() {}` + `namespace make { … }` 走的是**另一条路** ✗：
+// 函数的**名字自己**在捕获分析里被算成「内层函数里的引用」✓
+// （`CollectInsideFunctions` 走进 `FunctionDeclaration` 时 `inside + 1` ✓，
+// 而 `name` 那一格正好在它**里面** ✓）⇒ `DeclareLocal` 把闭包写进了**环境格** ✓、
+// **没进槽** ✗ ⇒ `Resolve` 给 `-1` ✓ ⇒ 这一支**造了一个新对象** ✓、
+// `BindName` 又把它写进**同一格环境** ✓ ⇒ **函数被对象盖掉** ✓
+// ——症状是 `make(3)` 报 `cannot call a non-closure value` ✓
+//（听起来像「函数没定义」✗，其实是**名字还在、值被换了** ✓，**静默错值** ✓）。
+// **`enum` 与 `namespace` 合并一直是好的** ✓（枚举名不在函数节点里面 ✓，
+// 所以它没被误算成捕获 ✓，一直住在槽里 ✓）——差别只在**名字住哪儿** ✓。
 let existing = -1;
 if (this.Scope.length > 0) existing = this.Scope[this.Scope.length - 1].Resolve(name);
+const existingCell = existing < 0 ? this.CellOf(name) : -1;
 let object = -1;
 if (existing >= 0) {
   object = this.Reserve(1);
   this.Emit(Op.Move, object, existing, -1, -1);
+} else if (existingCell >= 0) {
+  // **环境格按「本帧第 0 层」读** ✓——与 `DeclareLocal` 写它的那一句**对称** ✓
+  //（`EnvSet(slot, 0, cell)` ✓），两处口径不一样就是「写进去、读不出来」✓。
+  object = this.Reserve(1);
+  this.Emit(Op.EnvGet, object, 0, existingCell, -1);
 } else {
   object = this.Reserve(1);
   this.EmitRt(RtOp.NewObject, object, object, 0);
@@ -2119,7 +2140,7 @@ this.Emit(Op.Call, closure, callBase, 1, -1);
 this.Release(closure);
 // **复用那一档可以把对象格也放掉** ✓（它是这一处自己 `Reserve` 的临时格 ✓）；
 // **新造那一档不行** ✗（它下面还压着 `BindName` 留的变量格 ✓，见上面那一段 ✓）。
-if (existing >= 0) this.Release(object);
+if (existing >= 0 || existingCell >= 0) this.Release(object);
 ```
 
 ## method LowerNamespaceBody:(body:AstNode, namespaceName:string)=>void
@@ -7103,6 +7124,12 @@ if (calleeKind === "ElementAccessExpression") {
   const elementFn = this.RtCallValues(RtOp.GetIndex, elementReceiver, elementKey);
   const selfSlot = this.Reserve(1);
   this.Emit(Op.Move, selfSlot, elementReceiver, -1, -1);
+  // **`o[k]?.()`**（第 325 轮 ✓）：空值在**取出来的那个值自己**身上 ✓——
+  // 与 `o.m?.()` 那一格**同一个语义** ✓（第 152 轮分过三种：接收者上空 ✓、
+  // 取出来的方法上空 ✓、**基名自己空** ✗——这一处与下面那条通用路各补一格 ✓）。
+  const elementOptional = OptionalChild(node, "questionDotToken") !== null;
+  let elementSkip = -1;
+  if (elementOptional) elementSkip = this.JumpIfNullish(elementFn);
   const elementArgs = ListOf(node, "arguments");
   const elementCount = elementArgs.length;
   if (this.HasSpread(elementArgs)) {
@@ -7111,6 +7138,9 @@ if (calleeKind === "ElementAccessExpression") {
     // 与上面那条非展开的 `Op.Call` 一字不差 ✓）。
     const spreadArray = this.BuildArgsArray(elementArgs);
     const spreadDest = this.EmitCallArray(elementFn, spreadArray, selfSlot);
+    if (elementOptional) {
+      this.PatchOptionalCall(elementSkip, spreadDest);
+    }
     return spreadDest;
   }
   const elementBase = this.Reserve(elementCount > 0 ? elementCount : 1);
@@ -7120,6 +7150,9 @@ if (calleeKind === "ElementAccessExpression") {
   this.Emit(Op.Call, elementFn, elementBase, elementCount, selfSlot);
   // **退到结果之上**（接收者那格、`this` 那格都在下面）。
   this.Release(elementBase + 1);
+  if (elementOptional) {
+    this.PatchOptionalCall(elementSkip, elementBase);
+  }
   return elementBase;
 }
 if (calleeKind === "SuperKeyword") {
@@ -7210,11 +7243,24 @@ if (calleeKind === "Identifier") {
 }
 const args = ListOf(node, "arguments");
 const count = args.length;
+// **`f?.()`：空值在「被调的那个值自己」身上** ✓（第 325 轮 ✓）——可选链的**第三格** ✓
+// （前两格第 152 轮就分过了 ✓：`o?.m()` 空在**接收者**上 ✓、`o.m?.()` 空在**取出来的方法**上 ✓）。
+// **修之前这一条整格没做** ✗：`?.` 被无视 ✓ ⇒ 照样去调 `undefined` ✓，报
+// `cannot call a non-closure value` ✓（听起来像「那个名字不是函数」✗，其实是**该短路** ✓）。
+//
+// **守卫要排在实参求值之前** ✓：JS 里 `f?.(a())` 在 `f` 是空值时**连 `a()` 都不求** ✓
+// ——排在后面就是把实参的副作用也跑了 ✗（**静默错值**的一种 ✓）。
+// **结果落在结果格里** ✓（缺省是 `undefined` ✓，与 `LowerAccess` 那条可选链**同一个形状** ✓：
+// 「跳过去、给一个 `undefined`、再跳回来」✓）。
+const optionalCall = OptionalChild(node, "questionDotToken") !== null;
+let callSkip = -1;
+if (optionalCall) callSkip = this.JumpIfNullish(calleeSlot);
 if (this.HasSpread(args)) {
   // **`f(...xs)`**（第 133 轮）：被调方先算成一格 ✓，实参铺成数组 ✓，然后 `call_array` ✓。
   // **`this` 给 `-1`** ✓（普通调用没有接收者 ✓——与上面那条 `Op.Call` 的 `D = -1` 同一条语义 ✓）。
   const spreadArray = this.BuildArgsArray(args);
   const spreadDest = this.EmitCallArray(calleeSlot, spreadArray, -1);
+  if (optionalCall) this.PatchOptionalCall(callSkip, spreadDest);
   return spreadDest;
 }
 const base = this.Reserve(count > 0 ? count : 1);
@@ -7223,5 +7269,25 @@ for (let i = 0; i < count; i++) {
 }
 this.Emit(Op.Call, calleeSlot, base, count, -1);
 this.Release(base + 1);
+// **`optionalCall` 时才多那两条指令** ✓（不要实参那一条路一个字节都没变 ✓）。
+if (optionalCall) this.PatchOptionalCall(callSkip, base);
 return base;
+```
+
+## method PatchOptionalCall:(skipIndex:int, result:int)=>void
+
+**可选调用短路时那一小段**（第 325 轮抽出来 ✓）——`LowerAccess` 里的可选链
+与 `LowerCall` 里的可选调用**用的是同一个形状** ✓（「跳过去、写一个 `undefined`、
+再跳回来」✓），所以只写这一处 ✓。
+
+**为什么值得单开** ✗：这一小段有**两个回填点**（`skipIndex` 是守卫那条 ✓、
+`done` 是自己那条 ✓）与**一个常量**（`undefined` ✓）——两处调用点各抄一遍，
+抄错的那个表现是「短路之后拿到上一格的值」✓（**静默错值** ✓，而且只在空值那一趟现形 ✓）。
+
+```ts
+const done = this.Here();
+this.Emit(Op.Jump, -1, 0, -1, -1);
+this.PatchTarget(skipIndex, this.Here());
+this.Emit(Op.Const, result, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+this.PatchTarget(done, this.Here());
 ```
