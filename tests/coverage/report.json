@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1319,
+  "matrix": 1339,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.49,
+  "progressPercent": 97.95,
   "layers": [
     {
       "layer": "runtime",
@@ -68,12 +68,12 @@
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 55,
-      "pass": 55,
+      "total": 75,
+      "pass": 73,
       "blocked": 0,
-      "differ": 0,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 97.33
     }
   ],
   "blocked": [
@@ -222,6 +222,18 @@
       "layer": "stdlib",
       "title": "Array.fromAsync：异步可迭代对象收成数组",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
+    },
+    {
+      "id": "c338-e2e-join-and-tostring",
+      "layer": "e2e",
+      "title": "数组的 `join` / `toString` 走元素的 `toString`",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：this method needs an array receiver"
+    },
+    {
+      "id": "c338-e2e-async-queue-and-generators",
+      "layer": "e2e",
+      "title": "异步：微任务次序、异步生成器与 `for await`",
+      "detail": "stdout 不同：第 2 行：node «1,2,3 start,microtask,after-await,second-then,then7» vs tsrun «1,2,3 start»"
     }
   ],
   "bad": [],

@@ -11,6 +11,22 @@
 
 export const EXPECTATIONS = {
 
+  // ===== 第 338 轮：端到端加宽**新量到**的缺口（2 条）=====
+
+  // **类数组只接了 `slice`** ✓（第 335 轮 ✓）：那一轮把类数组那一档接上了 ✓，
+  // 但**只接了 `slice`** ✗（`join` / `indexOf` / `forEach` 那些整段建在 `HeapArray` 上 ✓）。
+  // 这一轮加端到端语料时当场撞上 ✓：`Array.prototype.join.call(like, "/")` 报
+  // 「this method needs an array receiver」✓。**修法与 `slice` 那一支一字不差** ✓
+  //（`ArrayLikeLength` + `ArrayLikeAt` + `JsElementUnits` 三个都现成 ✓，抄一遍就有 ✓）。
+  "c338-e2e-join-and-tostring": { expect: "differ", why: "**类数组接收者只接了 `slice`**（第 335 轮）：`Array.prototype.join.call({0:\"a\",1:\"b\",length:2}, \"/\")` 报「this method needs an array receiver」——`join` / `indexOf` / `forEach` 那些整段建在 `HeapArray` 上，要通用得各加一条类数组分支（三个助手都现成）" },
+
+  // **异步那一族：微任务队列在「模块同步部分跑完之后」没有排空完** ✓。
+  // 实测（最小反例）：一个 `async` 生成器 + `for await` 的 IIFE ✓ + 三个先排好的微任务 ✓——
+  // 那一趟**跑了够多的微任务让 IIFE 完成** ✓，可 `queueMicrotask` / `after-await` / `then7`
+  // **一个都没跑** ✗（Node 全跑了 ✓）。**下一步从这里查** ✓：驱动那一侧排空微任务的条件
+  //（`DrainMicrotasks` ✓ 与宿主的事件循环那一圈 ✓），看它是不是**跑到「模块那一帧结束」就收手** ✓。
+  "c338-e2e-async-queue-and-generators": { expect: "differ", why: "**微任务队列没有排空完**：`queueMicrotask` / `await` 之后的续体 / `.then` 三个先排好的微任务，在「async 生成器 + `for await` 的 IIFE」跑完之后**一个都没执行**（Node 五个全跑：`start, microtask, after-await, second-then, then7`）——驱动那一侧排空微任务的条件要查（像是跑到「模块那一帧结束」就收手）" },
+
   // ===== 第 336 轮：加宽语料时**新量到**的缺口（1 条）=====
 
   // **`return` 从 `for..of` 里出去，也要 IteratorClose** ✓（第 336 轮量到 ✓）：

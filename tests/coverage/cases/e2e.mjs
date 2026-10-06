@@ -1515,4 +1515,435 @@ console.log(set.values().next().value, set.entries().next().value.join("-"));
 console.log([...scores.values()].reduce((sum, n) => sum + n, 0));
 `,
   },
+  // ===== 第 338 轮收编：端到端加宽（20 条）=====
+  {
+    id: "c338-e2e-template-and-escapes",
+    title: "模板串：内插、转义、行继续与原文",
+    src: `
+const name = "world";
+const n = 42;
+console.log(\`hello \${name}, n=\${n}\`);
+console.log(\`tab:\\tend\`, \`tab:\\tend\`.length);
+console.log(\`multi
+line\`, \`multi
+line\`.split("\\n").length);
+console.log(\`esc \\\${notInterp}\`, \`a\\\\b\`);
+function tag(parts: any, ...rest: any[]): string {
+  return parts.raw.join("|") + "#" + rest.length;
+}
+console.log(tag\`x\\ty\${1}z\`);
+console.log(\`\${1 + 1}\${"a"}\${true}\`);
+`,
+  },
+  {
+    id: "c338-e2e-this-binding-forms",
+    title: "`this` 的几种绑法：方法、摘下来、call/apply/bind、箭头",
+    src: `
+const counter = {
+  n: 0,
+  bump() { this.n = this.n + 1; return this.n; },
+  describe() { return \`n=\${this.n}\`; },
+};
+console.log(counter.bump(), counter.bump(), counter.describe());
+const detached = counter.describe;
+console.log(typeof detached(), detached() === "n=2");
+console.log(detached.call(counter), counter.describe.apply(counter, []));
+const bound = counter.bump.bind(counter);
+console.log(bound(), bound(), counter.n);
+const arrowUser = {
+  n: 9,
+  run() { const f = () => this.n; return f(); },
+};
+console.log(arrowUser.run());
+function plain(this: any): string { return this === globalThis ? "global" : "other"; }
+console.log(plain(), plain.call(undefined), plain.call(null), plain.call({}));
+`,
+  },
+  {
+    id: "c338-e2e-join-and-tostring",
+    title: "数组的 `join` / `toString` 走元素的 `toString`",
+    nodeArgs: ["--experimental-transform-types"],
+    src: `
+class Money {
+  constructor(public cents: number) {}
+  toString(): string { return "$" + (this.cents / 100).toFixed(2); }
+}
+const row = [new Money(199), new Money(50)];
+console.log(row.join(" | "), row.toString(), String(row));
+console.log([1, [2, [3]]].join("-"), [1, [2, [3]]].toString());
+console.log([null, undefined, false].join(","), [1, , 3].join("-"));
+const like = { 0: "a", 1: "b", length: 2 };
+console.log([].slice.call(like as any).join("+"), Array.prototype.join.call(like as any, "/"));
+`,
+  },
+  {
+    id: "c338-e2e-structured-clone-graph",
+    title: "`structuredClone`：对象图、环与几种内建",
+    src: `
+const team: any = { name: "core", members: ["a", "b"] };
+team.self = team;
+team.meta = { created: new Date(0), tags: new Set(["x", "y"]), index: new Map([["a", 1]]) };
+const copy = structuredClone(team);
+copy.members.push("c");
+copy.meta.tags.add("z");
+copy.meta.index.set("b", 2);
+console.log(team.members.length, copy.members.length);
+console.log(team.meta.tags.has("z"), copy.meta.tags.has("z"), copy.meta.tags.has("x"));
+console.log(copy.meta.index.get("b"), team.meta.index.get("b"));
+console.log(copy.self === copy, copy.meta.created.getTime());
+const frozen = Object.freeze({ keep: 1 });
+const frozenCopy = structuredClone(frozen);
+console.log(Object.isFrozen(frozenCopy), frozenCopy.keep);
+`,
+  },
+  {
+    id: "c338-e2e-generator-cleanup",
+    title: "生成器的收尾：`break` / `return` / `throw` 三条路都跑 `finally`",
+    src: `
+const log: string[] = [];
+function* resource(tag: string) {
+  log.push("open " + tag);
+  try {
+    yield 1;
+    yield 2;
+    yield 3;
+  } finally {
+    log.push("close " + tag);
+  }
+}
+for (const v of resource("loop")) { if (v === 2) break; }
+function takeFirst(): number {
+  for (const v of resource("func")) return v;
+  return -1;
+}
+console.log(takeFirst());
+const it = resource("manual");
+console.log(it.next().value);
+console.log(JSON.stringify(it.return(7)));
+try {
+  const it2 = resource("throw");
+  it2.next();
+  it2.throw(new Error("boom"));
+} catch (e) {
+  log.push("caught " + (e as Error).message);
+}
+console.log(log.join(","));
+`,
+  },
+  {
+    id: "c338-e2e-array-subclass-and-arraylike",
+    title: "`extends Array` 与类数组接收者",
+    src: `
+class Stack extends Array {
+  peek() { return this[this.length - 1]; }
+  push2(v: number) { this.push(v); return this; }
+}
+const s = new Stack();
+s.push2(1).push2(2).push2(3);
+console.log(s.length, s.peek(), s.join(","), Array.isArray(s), s instanceof Stack, s instanceof Array);
+console.log(s.slice(1).join(","), s.map((v: number) => v * 2).join(","));
+const args = { 0: "x", 1: "y", 2: "z", length: 3 };
+console.log(Array.prototype.slice.call(args as any, 1).join("-"));
+function gather(): string { return ([] as any).slice.call(arguments as any).join("|"); }
+console.log(gather("p", "q", "r"));
+`,
+  },
+  {
+    id: "c338-e2e-arguments-and-names",
+    title: "`arguments`、具名函数表达式与 `toString`",
+    src: `
+function collect(a: number, b: number): string {
+  return a + "/" + b + "/" + arguments.length + "/" + arguments[3];
+}
+console.log(collect(1, 2), collect(1, 2, 3, 4));
+const named = function self(n: number): number { return n <= 1 ? 1 : n * self(n - 1); };
+console.log(named(5), typeof (named as any).self);
+function outer(x: number) { const inner = () => arguments.length; return inner() + x; }
+console.log(outer(10, 20, 30));
+console.log(named.toString().includes("self"), (() => 1).toString().includes("=>"));
+`,
+  },
+  {
+    id: "c338-e2e-date-formatting",
+    title: "`Date`：UTC 读写、格式化与比较",
+    src: `
+const d = new Date(Date.UTC(2020, 0, 2, 3, 4, 5, 6));
+console.log(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours());
+console.log(d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
+console.log(d.toISOString());
+console.log(d.getTime(), new Date(0).getTime(), new Date(1000).getTime());
+const later = new Date(d.getTime() + 86400000);
+console.log(later.getUTCDate(), later > d, d < later);
+const parsed = new Date("2020-01-02T03:04:05.006Z");
+console.log(parsed.getTime() === d.getTime());
+console.log(typeof d.getTime(), d.getUTCDay() >= 0);
+`,
+  },
+  {
+    id: "c338-e2e-set-operations",
+    title: "`Set` 的集合运算与迭代",
+    src: `
+const a = new Set([1, 2, 3]);
+const b = new Set([3, 4]);
+console.log(a.size, a.has(2), b.has(2));
+console.log([...a.union(b)].join(","));
+console.log([...a.intersection(b)].join(","));
+console.log([...a.difference(b)].join(","));
+console.log(a.isSubsetOf(new Set([1, 2, 3, 4])), a.isDisjointFrom(new Set([9])));
+const seen: string[] = [];
+a.forEach((v: number) => { seen.push("v" + v); });
+console.log(seen.join(","), [...a.values()].join("-"), [...a.keys()].join("-"));
+console.log([...a.entries()].map((e: number[]) => e.join(":")).join(" "));
+`,
+  },
+  {
+    id: "c338-e2e-map-and-iteration",
+    title: "`Map` 的迭代、分组与 `Array.from`",
+    src: `
+const counts = new Map<string, number>();
+for (const word of "b a b c a b".split(" ")) {
+  counts.set(word, (counts.get(word) || 0) + 1);
+}
+console.log(counts.size, counts.get("b"), counts.has("z"));
+console.log([...counts.keys()].join(","), [...counts.values()].join(","));
+const grouped = new Map<string, string[]>();
+for (const [k, v] of counts.entries()) {
+  const key = v > 1 ? "many" : "one";
+  if (!grouped.has(key)) grouped.set(key, []);
+  (grouped.get(key) as string[]).push(k + ":" + v);
+}
+console.log([...grouped.entries()].map((e: any[]) => e[0] + "=" + e[1].join("/")).join(" "));
+console.log(Array.from(counts.entries()).length, Array.from(counts.keys()).join("|"));
+counts.delete("c");
+console.log(counts.size, [...counts.keys()].join(","));
+`,
+  },
+  {
+    id: "c338-e2e-sort-comparators",
+    title: "`sort` 的比较器与稳定性",
+    src: `
+const rows = [
+  { k: "b", v: 2 }, { k: "a", v: 1 }, { k: "c", v: 2 }, { k: "d", v: 1 },
+];
+const byV = rows.slice().sort((x, y) => x.v - y.v);
+console.log(byV.map((r) => r.k + r.v).join(","));
+const byK = rows.slice().sort((x, y) => (x.k < y.k ? -1 : x.k > y.k ? 1 : 0));
+console.log(byK.map((r) => r.k).join(""));
+console.log([10, 9, 100, 1].sort().join(","), [10, 9, 100, 1].sort((x, y) => x - y).join(","));
+console.log([3, 1, 2].sort().reverse().join(","));
+const words = ["pear", "apple", "fig"];
+console.log(words.sort().join(","), words.join(","));
+`,
+  },
+  {
+    id: "c338-e2e-destructuring-and-spread",
+    title: "解构、默认值、剩余与展开的组合",
+    src: `
+const [first = 0, ...others] = [1, 2, 3];
+console.log(first, others.join(","));
+const { a = 1, b: renamed = 2, ...rest } = { a: 10, c: 3, d: 4 } as any;
+console.log(a, renamed, JSON.stringify(rest));
+const nested = { list: [{ id: 1, tags: ["x"] }, { id: 2 }] };
+const [{ id: id0, tags: [t0] = [] }, { id: id1 }] = nested.list;
+console.log(id0, t0, id1);
+const merged = { ...nested, extra: true };
+console.log(Object.keys(merged).sort().join(","));
+const nums = [0, ...[1, 2], 3];
+console.log(nums.join(","), Math.max(...nums));
+function sum(...xs: number[]): number { return xs.reduce((s, x) => s + x, 0); }
+console.log(sum(...nums), sum(1, ...others, 10));
+`,
+  },
+  {
+    id: "c338-e2e-accessors-and-freeze",
+    title: "访问器、`defineProperty` 与冻结",
+    src: `
+const box: any = { _v: 1 };
+Object.defineProperty(box, "v", {
+  get() { return this._v; },
+  set(next: number) { this._v = next * 2; },
+  enumerable: true,
+  configurable: true,
+});
+box.v = 5;
+console.log(box.v, box._v);
+const plain: any = { x: 1 };
+Object.defineProperty(plain, "ro", { value: 7, writable: false, enumerable: true });
+plain.ro = 9;
+console.log(plain.ro);
+const frozen: any = Object.freeze({ a: 1 });
+frozen.a = 2;
+frozen.b = 3;
+console.log(frozen.a, frozen.b, Object.isFrozen(frozen), Object.isFrozen({}));
+const arr: any = Object.freeze([1]);
+try { arr.push(2); console.log("pushed"); } catch (e) { console.log("threw", (e as Error).name); }
+`,
+  },
+  {
+    id: "c338-e2e-async-queue-and-generators",
+    title: "异步：微任务次序、异步生成器与 `for await`",
+    src: `
+const order: string[] = [];
+async function producer(): Promise<number> {
+  order.push("start");
+  await null;
+  order.push("after-await");
+  return 7;
+}
+queueMicrotask(() => order.push("microtask"));
+producer().then((v) => order.push("then" + v));
+console.log(order.join(","));
+setTimeoutMicrotaskish();
+function setTimeoutMicrotaskish(): void {
+  Promise.resolve().then(() => order.push("second-then"));
+}
+async function* stream(): AsyncGenerator<number> {
+  for (let i = 1; i <= 3; i++) yield i;
+}
+(async () => {
+  const got: number[] = [];
+  for await (const v of stream()) got.push(v);
+  console.log(got.join(","), order.join(","));
+})();
+`,
+  },
+  {
+    id: "c338-e2e-class-features",
+    title: "类：字段、静态块、访问器、私有感与参数属性",
+    nodeArgs: ["--experimental-transform-types"],
+    src: `
+class Config {
+  static registry: string[] = [];
+  static { Config.registry.push("static-block"); }
+  static kind = "config";
+  #secret = 42;
+  readonly name: string;
+  constructor(name: string, private level: number = 1) { this.name = name; }
+  get label(): string { return this.name + "@" + this.level; }
+  set label(next: string) { this.name = next; }
+  reveal(): number { return this.#secret; }
+  static describe(): string { return Config.kind + "/" + Config.registry.length; }
+}
+const c = new Config("root");
+console.log(c.label, c.reveal(), Config.describe());
+c.label = "changed";
+console.log(c.label, c instanceof Config);
+class Sub extends Config {
+  constructor() { super("sub", 2); }
+  get label(): string { return "sub:" + super.label; }
+}
+const sub = new Sub();
+console.log(sub.label, sub.reveal(), Sub.describe(), sub instanceof Config);
+`,
+  },
+  {
+    id: "c338-e2e-untyped-recursion-and-dp",
+    title: "递归、记忆化与动态规划",
+    src: `
+function fib(n: number, memo: Map<number, number> = new Map()): number {
+  if (n < 2) return n;
+  const hit = memo.get(n);
+  if (hit !== undefined) return hit;
+  const value = fib(n - 1, memo) + fib(n - 2, memo);
+  memo.set(n, value);
+  return value;
+}
+console.log(fib(10), fib(30));
+const grid = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+function paths(r: number, c: number, memo: Map<string, number> = new Map()): number {
+  if (r === 0 || c === 0) return 1;
+  const key = r + "," + c;
+  const hit = memo.get(key);
+  if (hit !== undefined) return hit;
+  const value = paths(r - 1, c, memo) + paths(r, c - 1, memo);
+  memo.set(key, value);
+  return value;
+}
+console.log(paths(2, 2), paths(5, 5));
+console.log(grid.map((row) => row.reduce((s, v) => s + v, 0)).join(","));
+`,
+  },
+  {
+    id: "c338-e2e-number-and-math",
+    title: "数字、`Math` 与解析",
+    src: `
+console.log((1.005).toFixed(2), (255).toString(16), (8).toString(2));
+console.log(parseInt("42px", 10), parseFloat("3.5rem"), Number("  12  "), Number("x"));
+console.log(Number.isInteger(3), Number.isInteger(3.5), Number.isFinite(Infinity));
+console.log(Math.round(2.5), Math.floor(-1.5), Math.trunc(-1.7), Math.sign(-3));
+console.log(Math.max(1, 9, 5), Math.min(1, 9, 5), Math.pow(2, 10), Math.sqrt(81) , Math.abs(-4));
+console.log(Math.PI > 3.14, Number.MAX_SAFE_INTEGER, 0.1 + 0.2);
+console.log((1234.5678).toPrecision(6), (0.000001234).toString());
+console.log((-0).toString(), 1 / 0, -1 / 0, Number.isNaN(NaN));
+`,
+  },
+  {
+    id: "c338-e2e-unicode-text",
+    title: "文本：码点、代理对、规范化与大小写",
+    src: `
+const emoji = "a\\u{1F600}b";
+console.log(emoji.length, [...emoji].length, emoji.codePointAt(1));
+console.log("e\\u0301".normalize("NFC") === "\\u00e9", "\\u00e9".normalize("NFD").length);
+console.log("ABC".toLowerCase(), "abc".toUpperCase(), "x".repeat(3));
+console.log("  trim  ".trim(), "pad".padStart(5, "*"), "pad".padEnd(5, "-"));
+console.log("a-b-c".split("-").join("+"), "abc".includes("b"), "abc".startsWith("a"), "abc".endsWith("c"));
+console.log("hello".slice(1, 3), "hello".substring(3), "hello".charAt(0), "hello"[4]);
+console.log("ab".isWellFormed(), "\\uD800".isWellFormed(), "\\uD800".toWellFormed().length);
+console.log(String.fromCharCode(65, 66), String.fromCodePoint(0x1F600).length);
+`,
+  },
+  {
+    id: "c338-e2e-errors-and-boundaries",
+    title: "错误：自定义类、分类接住与资源清理",
+    nodeArgs: ["--experimental-transform-types"],
+    src: `
+class AppError extends Error {
+  constructor(message: string, public code: number) {
+    super(message);
+    this.name = "AppError";
+  }
+}
+class NotFound extends AppError {
+  constructor(what: string) { super("missing " + what, 404); }
+}
+const log: string[] = [];
+function run(kind: string): string {
+  try {
+    if (kind === "missing") throw new NotFound("user");
+    if (kind === "bad") throw new AppError("bad input", 400);
+    throw new TypeError("plain");
+  } catch (e) {
+    if (e instanceof NotFound) return "notfound:" + e.code;
+    if (e instanceof AppError) return "app:" + e.code + ":" + e.message;
+    if (e instanceof TypeError) return "type:" + (e as Error).message;
+    return "unknown";
+  } finally {
+    log.push("fin:" + kind);
+  }
+}
+console.log(run("missing"), run("bad"), run("weird"));
+console.log(log.join(","));
+console.log(new NotFound("x") instanceof Error, new NotFound("x").name, String(new AppError("m", 1)));
+console.log(Object.prototype.toString.call(new AppError("m", 1)));
+`,
+  },
+  {
+    id: "c338-e2e-symbols-and-reflection",
+    title: "符号键、`Object` 反射与属性序",
+    src: `
+const sym = Symbol("k");
+const obj: any = { b: 2, 2: "two", 1: "one", a: 1, [sym]: "hidden" };
+console.log(Object.keys(obj).join(","));
+console.log(Object.getOwnPropertyNames(obj).join(","));
+console.log(Object.getOwnPropertySymbols(obj).length, obj[sym]);
+console.log(Object.entries({ x: 1, y: 2 }).map((e: any[]) => e.join("=")).join(" "));
+console.log(JSON.stringify({ ...obj }), JSON.stringify(obj[sym]));
+console.log(Object.assign({}, { a: 1 }, { b: 2 }).b);
+console.log(Object.fromEntries([["k", 9]]).k, Object.is(1, 1), Object.is(NaN, NaN));
+const proto = { greet() { return "hi"; } };
+const made = Object.create(proto);
+made.own = 1;
+console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, "greet" in made);
+`,
+  },
 ];
