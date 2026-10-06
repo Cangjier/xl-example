@@ -6891,14 +6891,21 @@ if (kind === "TypeOfExpression") {
   const value = this.LowerExpression(subject);
   return this.RtCall1(RtOp.Typeof, value);
 }
-if (kind === "AsExpression" || kind === "SatisfiesExpression") {
-  // **`x as T` / `x satisfies T` 是类型位的语法**（第 163 轮）：把那一层**擦掉** ✓，值就是 `x` ✓。
-  // 与第 148 轮那条口径同源 ✓（**类型位一律擦除** ✓）——`as` 不改变运行期的值 ✓
-  //（它只让类型检查器换个看法 ✓），`satisfies` 更是纯检查 ✓。
+if (kind === "AsExpression" || kind === "SatisfiesExpression" || kind === "TypeAssertionExpression") {
+  // **`x as T` / `x satisfies T` / `<T>x` 都是类型位的语法**（第 163 轮 ✓，第 342 轮补上第三种 ✓）：
+  // 把那一层**擦掉** ✓，值就是 `x` ✓。与第 148 轮那条口径同源 ✓（**类型位一律擦除** ✓）——
+  // `as` 不改变运行期的值 ✓（它只让类型检查器换个看法 ✓），`satisfies` 更是纯检查 ✓，
+  // 而**尖括号断言 `<T>x` 是同一件事的另一种写法** ✓（老 TS 代码里到处都是 ✓）。
   //
   // **它俩原来都报 `unimplemented`** ✗（整份文件进不来 ✗），而 `x as T` 在真实 `.ts` 里
   // 到处都是 ✓——量出来的现场：`const s = "abc" as unknown as string;` ✓
   //（`as unknown as T` 那种「双重断言」也很常见 ✓，擦两层与擦一层是同一件事 ✓）。
+  //
+  // **`TypeAssertionExpression` 是第 342 轮补的** ✗（**实测撞到的** ✓）：
+  // 两条判据（`ex-angle-bracket-assertion` ✓ / `c323-ex-angle-bracket-assertion-forms` ✓）
+  // 报的正是 `unimplemented: expression TypeAssertionExpression` ✓——
+  // **两处写法、一条口径** ✓，所以三种一起擦 ✓（`jsx` 那一档与这里无关 ✗：
+  // 本仓不解析 `jsx` ✓，`<T>x` 在 `.ts` 里就是尖括号断言 ✓）。
   return this.LowerExpression(Child(node, "expression"));
 }
 if (kind === "VoidExpression") {

@@ -2698,7 +2698,15 @@ if (id === RtOp.SetIndex) {
     });
   }
   if (!indexTarget.IsObject()) {
-    throw new Error("unimplemented: assigning an index on a primitive receiver");
+    // **非严格：给原始值写一格也一声不响** ✗（第 342 轮 ✓，**实测撞到的** ✓）：
+    // `(s as any)[0] = "z"` 与 `(boxed as any)[0] = "q"`（第 333 / 342 轮那两条判据 ✓）
+    // 在 JS 里**都是空操作** ✓——字符串是不可变的 ✓、装箱对象那种写法也没有可写的元素格 ✓
+    // （`new String("xy")` 那一条走的是对象那一支 ✓，落进 `SetProperty` 之后
+    //  同样一声不响 ✓）。**原来在这里抛** ✗，与 `set_prop`（第 333 轮 ✓）那条口径**相反** ✗：
+    // 那一处早就改成「写不下去也一声不响」了 ✓，而**下标这一条路是另一条** ✗
+    // ⇒ 同一件事两处口径不同 ✓（判据 `rt-string-index-write-ignored` 现场就是这个 ✓）。
+    // **返回值照旧给那个值** ✓（JS 的赋值表达式的值 ✓），只是**没有地方落** ✓。
+    return setValue;
   }
   const setProtoTable = this.Protos;
   if (setProtoTable === null) throw new Error("no prototype table");

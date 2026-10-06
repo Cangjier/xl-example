@@ -407,7 +407,7 @@ export const EXPECTATIONS = {
   //   三条计算键的路原来都是**值在前、键在后** ✗（第 183 轮自己把它记成「已知差」✓），
   //   而 JS 的规范是**键在前** ✓——只有键 / 值里带副作用才看得出来 ✓，
   //   所以一直没被量到 ✓。**新加了一条判据守着它** ✓（`ex-object-literal-key-order` ✓）。
-  "ex-angle-bracket-assertion": { expect: "blocked", why: "`unimplemented: expression TypeAssertionExpression`：尖括号断言与 `as` 在 TS 的 AST 里是两个 kind，只认了 `as`。裁判要用 `--experimental-transform-types`（剥离模式明确拒收尖括号写法）" },
+  // **第 342 轮过了** ✓（这一行撤了 ✓）：尖括号断言 `<T>x` 与 `as` 一起擦掉 ✓；给原始值写一格下标 = 空操作 ✓（非严格 ✓）。
   // 这一条与组 10 的「成员不在那儿」是**同一类** ✓，只是它住在 `ex` 层 ✗
   //（`String.raw` 是 `String` 上的一格 ✓，而它挡住的是一条**标签模板**的用例 ✗）。
   // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
@@ -541,7 +541,7 @@ export const EXPECTATIONS = {
   // ---- 组 B：`delete` 与**原始值接收者**上的赋值（2 条）----
   // 两条都卡在同一族判据上 ✓：写操作先问「接收者是不是对象」✓，
   // 而 JS 在这一格上**不抛** ✗（松散模式静默无效 ✓）。
-  "rt-string-index-write-ignored": { expect: "blocked", why: "`unimplemented: assigning an index on a primitive receiver`：`\"abc\"[0] = \"z\"` 在 JS 里**静默无效**（不抛），本仓在降级期就挡住" },
+  // **第 342 轮过了** ✓（这一行撤了 ✓）：尖括号断言 `<T>x` 与 `as` 一起擦掉 ✓；给原始值写一格下标 = 空操作 ✓（非严格 ✓）。
   // **`rt-accessor-override` 第 326 轮过了** ✓（那一行撤了 ✓）：根子就是写那一半的入口 ✓——
   // `super.value = x` 该写进**接收者**（实例 ✓），而查找起点是**父原型** ✓；
   // 原来降级层把 `super` 那一格当成了接收者 ✓ ⇒ 接收者是一个 `undefined` ✓ ⇒
@@ -894,7 +894,7 @@ export const EXPECTATIONS = {
   // 「查找起点」与「接收者」在写这一半上原来是**同一个东西** ✗。
   // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
   // D —— 同一个形状只认了一半（2 条）
-  "c323-ex-angle-bracket-assertion-forms": { expect: "blocked", why: "尖括号断言 `<T>expr` 报 `unimplemented: expression TypeAssertionExpression`——它与 `as` 在 TS 的 AST 里是**两个 kind**（`TypeAssertion` 与 `AsExpression` ✓），投影 / 降级只认了后者（与 `ex-angle-bracket-assertion` 同一个根，这一条把「变量 / 字面量 / 嵌套」三种操作数一起考）。**裁判要用 `--experimental-transform-types`** ✓：剥离模式明确拒收尖括号写法 ✓" },
+  // **第 342 轮过了** ✓（这一行撤了 ✓）：尖括号断言 `<T>x` 与 `as` 一起擦掉 ✓；给原始值写一格下标 = 空操作 ✓（非严格 ✓）。
   // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
   // 旧账加宽（3 条：不加新账，只是同一个根换了写法）
   // **`c323-ex-optional-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：

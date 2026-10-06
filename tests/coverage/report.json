@@ -33,27 +33,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.61,
+  "progressPercent": 98.85,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 427,
-      "pass": 417,
-      "blocked": 9,
+      "pass": 418,
+      "blocked": 8,
       "differ": 1,
       "nodefail": 0,
-      "coverage": 97.66
+      "coverage": 97.89
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 318,
-      "pass": 313,
-      "blocked": 5,
+      "pass": 315,
+      "blocked": 3,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.43
+      "coverage": 99.06
     },
     {
       "layer": "stdlib",
@@ -82,12 +82,6 @@
       "layer": "runtime",
       "title": "大量短命分配：回收器要跟得上（不 OOM）",
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "rt-string-index-write-ignored",
-      "layer": "runtime",
-      "title": "给字符串下标赋值：静默无效（松散模式）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assigning an index on a primitive receiver"
     },
     {
       "id": "rt-ternary-nesting-and-assign",
@@ -132,22 +126,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
     },
     {
-      "id": "ex-angle-bracket-assertion",
-      "layer": "exec",
-      "title": "尖括号断言 `<T>expr`（与 `as` 同一个意思）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
-    },
-    {
       "id": "c291-ex-nested-namespace-with-values",
       "layer": "exec",
       "title": "嵌套一层的 namespace",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier"
-    },
-    {
-      "id": "c323-ex-angle-bracket-assertion-forms",
-      "layer": "exec",
-      "title": "尖括号断言：变量、字面量、嵌套三格",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
     },
     {
       "id": "c331-ex-enum-and-namespace-merge",
