@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.81,
+  "progressPercent": 99.9,
   "layers": [
     {
       "layer": "runtime",
@@ -49,11 +49,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 318,
-      "pass": 317,
-      "blocked": 1,
+      "pass": 318,
+      "blocked": 0,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.69
+      "coverage": 100
     },
     {
       "layer": "stdlib",
@@ -76,20 +76,13 @@
       "coverage": 100
     }
   ],
-  "blocked": [
-    {
-      "id": "c291-ex-nested-namespace-with-values",
-      "layer": "exec",
-      "title": "嵌套一层的 namespace",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is ModuleDeclaration at 19..65)"
-    }
-  ],
+  "blocked": [],
   "differ": [
     {
       "id": "console-log-special",
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15584/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
+      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10692/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
     },
     {
       "id": "c323-std-array-fromasync",

@@ -393,7 +393,16 @@ return item instanceof IfSet
   // 用类名判定而不是 `instanceof`：本文件被几乎所有 token 文件 import，
   // 再 import 它们会绕出更深的环（与上面 `Let` 那条同一个理由）。
   || item.constructor.name === "StaticBlock"
-  || item.constructor.name === "NamespaceExport";
+  || item.constructor.name === "NamespaceExport"
+  // **`Namespace` 现在在表里了** ✓（第 367 轮 ✓，**把第 292 轮退回来的那一半补上** ✓）：
+  // 它在的第 292 轮账还在下面 ✓——当时加进去修好了「命名空间后面**同一行**再跟一句」✓，
+  // 可**嵌套那一档从「报错」变成「静默错值」** ✗（外层 `ModuleBlock` 的产物从
+  // `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration` ✗ ⇒ 降级层
+  // 读 `ListOf(block, "statements")` 一个语句都取不到 ✗ ⇒ 内层命名空间根本没建 ✓）。
+  // **那一半在这一轮一起补上了** ✓（`print-ast-common.xl.md` 的 `BODY_FIELDS` 那一处
+  // 改成「`Namespace` 的 `body` 只在父亲也是 `Namespace` 时成立」✓）——
+  // 这正是那句「**要动就得一起动**」✓。
+  || item.constructor.name === "Namespace";
   // **`Namespace` 故意不在表里** ✗（第 292 轮试过、量了、退回来了 ✓）：
   // 加进去确实修好一处 ✓——「一条命名空间后面**同一行**再跟一句」
   //（`namespace O { … } console.log(O.a);` ✓ 原来是

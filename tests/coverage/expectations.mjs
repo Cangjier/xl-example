@@ -663,7 +663,7 @@ export const EXPECTATIONS = {
   // `Object.isExtensible` / `WeakSet` / `ReferenceError` / `Promise.allSettled` ✓。
   //
   // **组 A：`namespace` 带值那一族（3 条）** ✓——与缺口清单 #4 同一根。
-  "c291-ex-nested-namespace-with-values": { expect: "blocked", why: "这一条是**一行写完**的那个形状（`namespace Outer { export namespace Inner { … } export const w = Inner.v + 1; }`）——第 292 轮把 `namespace` 本身做出来了 ✓（另外 7 条当场转绿 ✓），剩下的根子**不在降级层** ✗：`Namespace` 这个单元**不算语句边界** ⇒ 同一行后面那句 `export const w = …` 的 `=` 被读成**二元运算符**、左边正好是它 ⇒ 投影出来是 `ExpressionStatement(BinaryExpression(ModuleDeclaration, EqualsToken, …))`，降级层报 `unimplemented: assignment to a non-identifier`。第 292 轮**试过**把 `Namespace` 收进 `IsStatementUnit`：那一处修好了 ✓，可外层 `ModuleBlock` 的产物从 `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration`（实测 `--ts-ast`）⇒ 降级层取不到语句 ⇒ 内层命名空间**根本没建**、报 `cannot read properties of undefined`（**静默错值** ✗）。收益 1 条、代价是嵌套那一档从「报错」变成「静默错值」，所以**退回来了**；要动就得把「语句边界」与「`ModuleBlock` 的收法」一起改" },
+  // **第 367 轮过了** ✓（这一行撤了 ✓）：把第 292 轮退回来的那一半补上 ✓——`Namespace` 进语句边界表 ✓ + `BODY_FIELDS` 的 `body` 只在父亲是 `ModuleDeclaration`（点号嵌套）时成立 ✓。
   //
   // **组 B：属性枚举的整数键优先序（2 条）** ✓——**静默错值** ✗。
   //

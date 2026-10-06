@@ -5940,8 +5940,20 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
       // **体节点**：改字段名，但自己仍是一个节点（见 `BODY_FIELDS`）。
       const body = BODY_FIELDS.get(x.get("type"));
       if (body !== undefined) {
-        props[body] = projectNode(x, ctx);
-        continue;
+        // **`Namespace` 那一档只在「点号命名空间的嵌套」里成立** ✓（第 367 轮 ✓，
+        // **第 292 轮那股改动的另一半** ✓）：
+        // `namespace A.B.C { … }` 的产物是**三层 `Namespace` 套着** ✓ ⇒ 内层字段名是
+        // `body` ✓（TS 的 `ModuleDeclaration.body` 就是里面那层 ✓）；
+        // 而 `namespace O { export namespace I { … } }` 里那个内层 `Namespace` 是
+        // 外层 **`ModuleBlock` 的孩子** ✓ ⇒ TS 那边它躺在 `statements` 里 ✓。
+        // 一律收成 `body` 的后果（第 292 轮实测 ✓）：降级层 `ListOf(block, "statements")`
+        // **一个语句都取不到** ✗ ⇒ 内层命名空间根本没建 ✓ ⇒ 脚本报
+        // `cannot read properties of undefined` ✓（**离现场很远** ✗）。
+        const nestedNamespaceInBody = x.get("type") === "Namespace" && kind !== "ModuleDeclaration";
+        if (nestedNamespaceInBody === false) {
+          props[body] = projectNode(x, ctx);
+          continue;
+        }
       }
       const target = wrapperTarget(x);
       if (target === undefined) {
