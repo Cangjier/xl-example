@@ -1156,8 +1156,6 @@ export const EXPECTATIONS = {
   "c371-e2e-async-pool-with-errors": { expect: "differ", why: "异步池的结果次序（并发回调里 `await` 的排空时机）——根子待量。" },
 
   // ---- **以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。
-  "c371-e2e-typed-config-merge-deep": { expect: "blocked", why: "**以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。" },
-  "c371-e2e-permissions-matrix": { expect: "blocked", why: "**以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。" },
 
   // ---- `validate` 递归里同一个 schema 走了两遍（数组 `items` 那一支重复校验）。
 

@@ -6,6 +6,9 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { Bracket } from "./bracket.xl.md"
+import { SymbolToken } from "./symbol-token.xl.md"
+import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
 ```
 
 # namespace cangjie
@@ -38,6 +41,45 @@ import { Identifier } from "./identifier.xl.md"
 ```ts
 const unit = Get(units, index);
 if (unit instanceof Identifier && unit.Parent !== null && unit.Parent.constructor.name === "As" && unit.Is("const")) {
+  return false;
+}
+// **`override` 是「上下文关键字」** ✗（第 383 轮 ✓）——与上面 `as const` 那一格**同一个形状** ✗
+// （都是「这个词在别的位置上不是关键字」✓，所以判据也放在同一处 ✓）。
+//
+// 它只在**类成员 / 形参的修饰位**上才是关键字 ✓（`override foo() {}` ✓），
+// 而它同时是一个**完全合法的变量名** ✓——判据 `c371-e2e-permissions-matrix` 里
+// 就是这么写的：`const override = overrides[key];` ✓。
+// **少了这一条会怎样** ✗：`const override = 1; console.log(override + 1)` 里
+// **声明处**那个词活在 `Let.fieldName` 这个**属性**上 ✓（不受影响 ✓），
+// 而**使用处**被升成 `Keyword` ✗ ⇒ 降级层报
+// `unimplemented: expression OverrideKeyword` ✓（**整份文件进不来** ✗）。
+//
+// **判据看后一个有意义的单元** ✓：
+//   · 修饰位后面一定跟着一个**名字** ✓——`Identifier` ✓、引号名（`String` ✓）、
+//     生成器那个 `*` ✓；
+//   · 值位后面跟着的是 `=` ✓ / 运算符 ✓ / `;` ✓ / `,` ✓ / `[` ✓ 那一类 ✓。
+// **`[` 不算名字** ✗（第一版把它算进去了 ✓，当场踩到 ✓）：`override && override[action]`
+// 里那个 `override` 后面也是 `[` ✓，可那是**下标访问** ✓ 不是计算成员名 ✗——
+// 它一被算成名字就又升成 `Keyword` ✗（判据 `c371-e2e-permissions-matrix` 第二次红的就是它 ✓）。
+// **计算成员名那一档今天让掉** ✗：`override [k]()` 在真实语料里很少 ✓，
+// 而它的**修饰词收集是按文本做的** ✓（`declaration-common.xl.md` 的 `IsDeclarationModifier` ✓），
+// 所以让掉只影响那个 `OverrideKeyword` **节点** ✓，不影响「成员还是成员」✓。
+// **只在「后一格是名字」时升级** ✓——`override: number`（一个叫 `override` 的成员 ✓）
+// 后面是 `:` ✓ ⇒ 也不升级 ✓（TS 那边它是一个属性名 ✓）。
+if (unit instanceof Identifier && unit.Is("override")) {
+  const after = Get(units, SkipNextWrapSymbol(units, index));
+  if (after === null) {
+    return false;
+  }
+  if (after instanceof Identifier) {
+    return true;
+  }
+  if (after.constructor.name === "String") {
+    return true;
+  }
+  if (after instanceof SymbolToken && after.TempToString() === "*") {
+    return true;
+  }
   return false;
 }
 return unit instanceof Identifier && unit.Template.KeywordTemplate.IsKeyword(unit.TempToString());

@@ -6,6 +6,66 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 383 轮的账（**`override` 的两副面孔** —— 96.9% → **97.1%**，端到端 94.5% → **95.8%**）
+
+用户口径不变 ✓。这一轮换到**端到端**那几条 `blocked` 上找 ✓——
+两条报的是同一句话 ✗：`unimplemented: expression OverrideKeyword` ✓。
+
+### 一、根子：`override` 是**上下文关键字**
+
+```ts
+const override = overrides[key];
+if (override && override[action] !== undefined) return override[action] as boolean;
+```
+
+`override` 在 TS 里**只在类成员 / 形参的修饰位**上是关键字 ✓
+（`override m() { … }` ✓），而它同时是一个**完全合法的变量名** ✗——上面两行就是真实写法 ✓。
+
+**它却在全局关键字名单里** ✓（`parse-pipeline.xl.md` 的 `KeyWords` ✓）⇒
+**使用处**那个 `override` 被 `KeywordReorganization` 升成 `Keyword` ✓ ⇒
+降级层遇到一个 `OverrideKeyword` 表达式 ✓ ⇒ 报 `unimplemented: expression OverrideKeyword` ✓
+⇒ **整份文件进不来** ✗。**声明处**不受影响 ✓（那个名字活在 `Let.fieldName` 这个**属性**上 ✓）——
+**一处升、一处不升**，正是这一类错最典型的样子 ✓。
+
+### 二、修法：与 `as const` 同一处、同一个形状
+
+`KeywordReorganization.Previous` 里**本来就有一个例外** ✓（第 62 轮 ✓）：
+`as const` 里的 `const` 不升级 ✓——判据是「它的父亲是 `As`」✓。
+**`override` 是同一个形状** ✗（「这个词在别的位置上不是关键字」✓），
+所以例外也加在同一处 ✓，判据看**后一个有意义的单元** ✓：
+
+| 后一格 | 判断 | 例 |
+| --- | --- | --- |
+| `Identifier` / 引号名 / `*` | **升级**（修饰位后面一定跟着名字 ✓） | `override m() {}` ✓、`override get g()` ✓、`override *gen()` ✓ |
+| `=` / 运算符 / `;` / `,` / `[` | **不升级**（值位 ✓） | `const override = 1` ✓、`override + 1` ✓、`override && …` ✓ |
+
+### 三、第一版踩的坑：`[` 不是名字
+
+**第一版把 `[计算名]` 也当成「名字」** ✗（`override [k]() {}` 那种 ✓），
+结果判据**第二次红** ✓：`override && override[action] !== undefined` 里那个 `override`
+后面**也是** `[` ✓——可那是**下标访问** ✗，不是计算成员名 ✗。
+
+**所以计算成员名那一档今天让掉** ✓（**写在明处** ✗）：
+- 它在真实语料里很少 ✓；
+- 而**修饰词的收集是按文本做的** ✓（`declaration-common.xl.md` 的 `IsDeclarationModifier` ✓
+  那张表里就有 `override` ✓）⇒ 让掉**只影响那个 `OverrideKeyword` 节点** ✓，
+  不影响「这个成员还是成员」✓（`cases:tsast` 全绿 ✓ 就是这条的实测证据 ✓）。
+
+### 四、读数与下一轮
+
+`pass` **1663 → 1666** ✓（两条端到端 + 补的 1 条语料 ✓；分母同时 1710 → **1711** ✓）、
+`blocked` **14 → 12** ✓、`differ` **33 → 33** ✓、**红的一栏 0** ✓、
+整体 **96.9% → 97.1%** ✓、**端到端 94.5% → 95.8%** ✓、六道门 **35.2s 全绿** ✓。
+
+**两条一起绿的** ✓：`c371-e2e-permissions-matrix` ✓（`const override = …` 那种写法 ✓）
+与 `c371-e2e-typed-config-merge-deep` ✓（同一个词 ✓）。
+
+**下一轮** ✓：端到端还剩 **3 条 `blocked`** ✓——
+`binary-encoding`（`unimplemented: expression IntersectionType` ✓，**同一个家族**：
+类型位的东西漏到了值位 ✓）、`observer-with-priority`（`class member ExpressionStatement` ✓）、
+`multi-source-merge`（`name is not a local or a capture: priority` ✓）。
+**`IntersectionType` 那一条与这一轮同源** ✓（都是「类型位该消失的东西没消失」✓），先看它 ✓。
+
 ## 第 382 轮的账（**对象字面量里转义的键** —— 96.9%，`pass` 1662 → **1663**）
 
 用户口径不变 ✓。这一轮接着第 381 轮那**两个还没接上的子形状**做 ✓：

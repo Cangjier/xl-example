@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1710,
+  "matrix": 1711,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.87,
+  "progressPercent": 97.12,
   "layers": [
     {
       "layer": "runtime",
@@ -73,12 +73,12 @@
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 164,
-      "pass": 155,
-      "blocked": 5,
+      "total": 165,
+      "pass": 158,
+      "blocked": 3,
       "differ": 4,
       "nodefail": 0,
-      "coverage": 94.51
+      "coverage": 95.76
     }
   ],
   "blocked": [
@@ -143,12 +143,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member ExpressionStatement"
     },
     {
-      "id": "c371-e2e-typed-config-merge-deep",
-      "layer": "e2e",
-      "title": "配置深合并：数组策略、默认值、来源优先级",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: parameter without a name"
-    },
-    {
       "id": "c371-e2e-binary-encoding",
       "layer": "e2e",
       "title": "二进制编码：位打包、位读取、校验和",
@@ -159,12 +153,6 @@
       "layer": "e2e",
       "title": "多来源合并：去重、优先级、冲突报告",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: priority"
-    },
-    {
-      "id": "c371-e2e-permissions-matrix",
-      "layer": "e2e",
-      "title": "权限矩阵：角色 × 资源 × 动作 + 审计",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression OverrideKeyword"
     }
   ],
   "differ": [

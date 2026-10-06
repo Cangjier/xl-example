@@ -2449,5 +2449,15 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     "id": "c371-e2e-permissions-matrix",
     "title": "权限矩阵：角色 × 资源 × 动作 + 审计",
     "src": "type Role = \"admin\" | \"editor\" | \"viewer\";\ntype Action2 = \"read\" | \"write\" | \"delete\";\nconst rules: Record<Role, Record<Action2, boolean>> = {\n  admin: { read: true, write: true, delete: true },\n  editor: { read: true, write: true, delete: false },\n  viewer: { read: true, write: false, delete: false },\n};\nconst overrides: Record<string, Partial<Record<Action2, boolean>>> = {\n  \"editor:secret\": { read: false },\n  \"viewer:public\": { write: true },\n};\nfunction can(role: Role, resource: string, action: Action2): boolean {\n  const key = role + \":\" + resource;\n  const override = overrides[key];\n  if (override && override[action] !== undefined) return override[action] as boolean;\n  return rules[role][action];\n}\nconst audit: string[] = [];\nfunction attempt(role: Role, resource: string, action: Action2): string {\n  const allowed = can(role, resource, action);\n  audit.push(role + \"/\" + resource + \"/\" + action + \"=\" + (allowed ? \"y\" : \"n\"));\n  return allowed ? \"ok\" : \"denied\";\n}\nconst cases: [Role, string, Action2][] = [\n  [\"admin\", \"secret\", \"delete\"],\n  [\"editor\", \"secret\", \"read\"],\n  [\"editor\", \"doc\", \"write\"],\n  [\"viewer\", \"public\", \"write\"],\n  [\"viewer\", \"doc\", \"delete\"],\n];\nfor (const [role, resource, action] of cases) console.log(role, resource, action, attempt(role, resource, action));\nconsole.log(audit.length, audit.filter((a) => a.endsWith(\"y\")).length);\nconst matrix: string[] = [];\nfor (const role of [\"admin\", \"editor\", \"viewer\"] as Role[]) {\n  matrix.push(role + \":\" + ([\"read\", \"write\", \"delete\"] as Action2[]).map((a) => (rules[role][a] ? \"1\" : \"0\")).join(\"\"));\n}\nconsole.log(matrix.join(\" \"));"
+  },
+
+  // ===== 第 383 轮：`override` 的两副面孔（1 条）=====
+  {
+    "id": "c383-e2e-override-as-value-and-modifier",
+    "title": "`override` 的两副面孔：类成员修饰词 vs 普通变量名",
+    "src": "// TS 里 `override` 是**上下文关键字**：只在类成员 / 形参的修饰位上是关键字，\n// 而它同时是一个**完全合法的变量名**。两副面孔必须同时成立。\nclass Base {\n  m(): number { return 1; }\n  get g(): number { return 10; }\n}\nclass Derived extends Base {\n  override m(): number { return 2; }\n  override get g(): number { return 20; }\n}\nconsole.log(\"A\", new Derived().m(), new Derived().g);\ninterface Shape2 { override: number; }\nconst shaped: Shape2 = { override: 5 };\nconsole.log(\"B\", shaped.override);\nclass Holder {\n  override = 7;\n}\nconsole.log(\"C\", new Holder().override);\nconst override = 9;\nconsole.log(\"D\", override + 1, typeof override);\nconst overrides: Record<string, number> = { k: 3 };\nfunction pick(key: string): number {\n  const override = overrides[key];\n  if (override && override > 0) return override;\n  return -1;\n}\nconsole.log(\"E\", pick(\"k\"), pick(\"nope\"));\nconst table = { override: 11 };\nconsole.log(\"F\", table.override, table[\"override\"]);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
   }
 ];
