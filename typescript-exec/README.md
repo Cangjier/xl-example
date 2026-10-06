@@ -6,6 +6,85 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 340 轮的账（**`for..in` 的原型链 + 类成员不可枚举 + `runtime:cli` 的裁判侧也成批** —— 98.5% → **98.6%**）
+
+用户口径这一轮是两句：**「先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口」** ✓
+与 **「所有 gate 能不能都默认为 batch 模式？」** ✓。
+
+### 一、`for..in` 那一处缺口（1 格转绿 + 1 条守住）
+
+`for (const k in obj)` 在 JS 里**沿原型链走** ✓，而本仓借的是 **`Object.keys`** ✗
+（口径是**自有** ✗）⇒ `Object.create({ inherited: true })` 的子对象**只给 `own`** ✗
+（Node 给 `own,inherited` ✓）。
+
+- **给「`for..in` 要的那串键」单独一条口径** ✓：`Object` 构造函数上一格**隐藏**静态
+  **`forInKeys`** ✓（不可枚举 ✓），降级层**按名字取它** ✓（与取 `keys` 同一个形状 ✓）；
+- 实现是 **`CollectForInKeys`** ✓：沿链走 ✓、每层取「自有 + 可枚举」✓、
+  **被内层压住的只算一次** ✓；
+- 顺带把 `Object.keys` 那**四十多行**扫描抽成 **`OwnEnumerableKeyTexts`** ✓、两支共用 ✓
+  （**两处各写一遍就会漂** ✗——第 307 / 312 / 320 / 338 轮各踩过一次 ✓）。
+
+### 二、同一条根上还有两块：枚举性
+
+`for..in` 走上原型链之后 ✓，**看见的东西本身也不该在那儿** ✗：
+
+- **`Array.prototype` 上的方法** ✓：`InstallArray` 原来用 `SetProperty` 挂 ✓
+  ⇒ `for (const i in ["x", "y"])` **除了下标还列出三十多个方法名** ✓ ⇒ 改 `SetHiddenProperty` ✓；
+- **类的方法与 `constructor`** ✓：`SetPropertyConst` / `SetPropertyValue` 挂的 ✓
+  ⇒ `for (const k in new A())` 多出 `constructor,m` ✓ ⇒ 改走 `set_hidden` ✓；
+  **计算键那一档单开 `EmitHiddenSetValue`** ✗（键是**运行期的值** ✓，
+  塞进 `Op.Const` 就是**读错一格** ✓）；
+- **类里的访问器** ✓：与对象字面量**共用** `EmitDefineAccessor` ✓，而
+  **对象字面量的访问器可枚举 ✓、类里的不可枚举** ✗ ⇒ 给那一条加了**第六格 `enumerable`** ✓
+  （缺省真 = 老行为不变 ✓），类那一档传 `false` ✓；`define_accessor` 的窗口跟着多一格 ✓。
+
+**新加的那条判据当场量到第三块** ✓（`c340-rt-forin-prototype-chain` 第 2 行 ✓）——
+**「一步只改一半」是这类缺口最容易留下的形状** ✓。
+
+### 三、顺带：`set_hidden` 收符号键
+
+类成员的**计算键**（`[Symbol.iterator]() { … }` ✓）走 `set_hidden` ✓，而它**只收字符串** ✗
+⇒ **三个「自己写一个可迭代集合」的语料当场抛** ✓。符号键在 JS 里本来也不进
+`for..in` / `Object.keys` ✓，所以「隐藏」对符号键只是**同一件事的延续** ✓。
+
+### 四、`runtime:cli` 的裁判侧也成批（用户口径：所有门默认成批）
+
+**六道门逐个看** ✓：`samples` / `cases:check` / `runtime:check` **本来就是进程内**的 ✓
+（没有「每条一进程」这回事 ✓）；`coverage` 与被测侧第 320 / 321 轮就批起来了 ✓；
+`cases:tsast` 走的是**分片** ✓。**只有 `runtime:cli` 的裁判侧还是每条一个 `node` 进程** ✗
+（79 次启动 ✓，每次 ~100ms 且并行度很差 ✓）。
+
+这一轮换成 `coverage` 那道门用了六轮的 **`judge-batch.mjs`** ✓（协议一字不差 ✓）：
+
+- **会排异步工作那几份不进批** ✓（`node file.ts` 会在退出前跑干净微任务 ✓，
+  批里那一条 `import()` 不会 ✓——第 320 轮实测：不筛时 `bad` 从 0 涨到 4 ✓）；
+- **73 份一个进程跑完** ✓、剩下 **6 份照旧一条一进程** ✓；
+- **`--no-batch` 仍是权威口径** ✓，**两种模式都实测 79 份一致** ✓；
+- **实测 11.6s → 5.1s** ✓（门里 **12.1s → 6.2s** ✓）。
+
+### 五、判据侧两处顺序（实测撞到的）
+
+这一轮起**每个函数**都要 `set_hidden(708)` 写 `prototype.constructor` ✓ ⇒ 两条走**低层 API**
+的判据（`machine.Load` + `host.Evaluate` ✓）在求值那一刻报
+`capability is not registered: 708` ✓ ⇒ 补上 `InstallBuiltins` + `InstallHost` ✓、
+顺序排成「装载 → 装库 → **装宿主** → 求值」✓。
+
+**顺手试过「登记失败就抛」** ✓（规范原话是「不是静默忽略」✓）——**当场量到判据那张
+`IdTable` 本来就小** ✓（`capability 40` 登记不进去 ✓）。**那是另一件事** ✓
+（要动 `IsValid` 与 `BuiltinSlots` 的口径 ✓，还会牵到**线形态指纹** ✓），
+账写在 `install.xl.md` 里 ✓、**留给下一轮** ✓。
+
+**读数** ✓：`pass` **1318 → 1319** ✓（1 格转绿 + 补 1 条 ✓）、**端到端保持 75 / 75** ✓、
+**红的一栏 0** ✓、六道门 **30.0s 全绿** ✓、矩阵 **1340 → 1341** ✓。
+
+**下一轮的入口** ✓：
+**① 那张 IdTable 的容量口径** ✓（上面刚量到的 ✓，与线形态指纹一起做 ✓）；
+**② `Map` / `Set` / `Date` 的方法该挂原型** ✓（第 338 轮量到的结构差 ✓——
+它顺带会让 `Object.getOwnPropertyNames(new Map())` 与 Node 一致 ✓）；
+**③ `Error.isError` / `Symbol.hasInstance` / 手写 `Symbol.iterator`** ✓（4 条 ✓，
+都在「壳」那一族 ✓）；**④ `thenable` 采纳 / `Array.fromAsync`** ✓（2 条 ✓）；
+**⑤ 零散** ✓（`console.log(Error)` 要栈 ✗、`new.target` ✓、尖括号断言 ✓ ×2 ✓ 等 ✓）。
+
 ## 第 339 轮的账（**`for await` 的每一轮真的让出微任务** —— 98.2% → **98.5%**，收掉 3 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
