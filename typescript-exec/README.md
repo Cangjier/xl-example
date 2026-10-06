@@ -6,6 +6,64 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 338 轮的账（**数组 `join` 的每一格走它自己的 `toString` + `structuredClone`** —— 98.3% → **98.5%**，收掉 4 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
+这一轮**两簇一起收** ✓（补了 1 条守着 `join` 那一处 ✓）。
+
+### 一、`join` / `toString` 的每一格先走 `ToPrimitive(v, "string")`（2 格）
+
+`[obj, 1].toString()` 在 JS 里是 `obj.toString() + "," + "1"` ✓
+（`Array.prototype.toString` = `join(",")` ✓），而 `ValueUnitsAt` 对普通对象
+**一律给 `[object Object]`** ✗（那是 `ValueUnits` 表格里写着的一档口径 ✓）——
+Node 给 `C!,1` ✓、本仓给 `[object Object],1` ✓（**静默错值** ✗）。
+
+新增 **`JsElementUnits`** ✓（`text.xl.md` ✓）：洞 / `null` / `undefined` 给空串 ✓，
+**其余先 `ToPrimitive` 再当文本** ✓——**一次就够** ✓，因为 `ToPrimitive` 自己会走到
+**自定义 `toString`** ✓ / **数组的 `toString`** ✓ / **`Object.prototype.toString`** ✓ 三档 ✓。
+`ArrayJoin` 改用它 ✓（那一层现在有 `protos` 了 ✓——第 335 轮刚给它加的 ✓）；
+**`call === null` 时退回老口径** ✓（**写在明处** ✓：调不动任何 `toString` 时，
+`[object Object]` 是当时能做到的最好 ✓）。
+
+### 二、`structuredClone`（2 格）
+
+新增全局名 ✓ + 能力号 **346** ✓ + **`CloneStructured`** ✓（`globals.xl.md` ✓）：
+
+- **原始值原样返回** ✓；
+- **数组**给新数组 ✓（原型照抄 ✓、元素递归 ✓、**洞要保住** ✗——`SetAt` 会把洞抹成真值 ✓）；
+- **对象**给新对象 ✓（原型 ✓、键 ✓、`Kind` ✓、`Flags` ✓ 一起抄 ✓、值递归 ✓）；
+- **`Map` / `Set` / `Date` 不必特判** ✗——本仓把它们**就是**做成「带几格隐藏属性的普通对象」的 ✓，
+  **对象那一条顺手就把它们带上了** ✓（原型也照抄 ✓ ⇒ `cloned.map.get(...)` 找得到方法 ✓）；
+- **环要认** ✓（`seen` 记「源句柄 → 新句柄」✓、**先登记再递归** ✗——否则宿主栈溢出
+  **不可捕获** ✗，`README` 的硬性约定第 2 条 ✓）；
+- **函数 / 符号响亮地抛** ✓（JS 给 `DataCloneError` ✓）：原样返回会让两边**共用同一个函数对象** ✓
+  （改一边看另一边也变 ✓——**静默错值** ✓）。
+
+### 三、实测踩到的一处（**值得记** ✓）
+
+**一律对函数抛会当场炸** ✓：本仓的 `Map` / `Set` / `Date` 把**方法挂在每个实例自己身上** ✗
+（`Object.getOwnPropertyNames(new Map())` 会列出 `get` / `set` / … ✓，而 Node 给**空数组** ✗）
+⇒ `structuredClone({ map, set, date })` 报「cannot clone a function」✓。
+
+判据用「**可不可枚举**」分开 ✓：内建方法是用 `SetHiddenProperty` 挂的 ✓（**不可枚举** ✓），
+而用户写在对象字面量里的函数是**可枚举**的 ✓——**后者抛**（与 JS 一致 ✓）、**前者照抄** ✓。
+**这背后是另一处结构差** ✗（`Map` 的方法该挂**原型** ✓、而本仓挂在**实例**上 ✗），
+记在注释里 ✓——那一处要改的是 `map.xl.md` / `set.xl.md` / `Date` 的装法 ✓，不是这一条 ✓。
+
+**读数** ✓：`pass` **1290 → 1295** ✓（4 格转绿 + 补 1 条 ✓）、**端到端保持 100%** ✓、
+**红的一栏 0** ✓、六道门 **35.4s 全绿** ✓、矩阵 **1318 → 1319** ✓。
+
+**下一轮的入口** ✓（按「普通 `.ts` 里有多常见」排）：
+**① `Error.isError` / `Symbol.hasInstance`** ✓（3 条 ✓——后两条**卡在壳上** ✓，
+与第 324 轮 `Map.groupBy` 是同一个坎 ✓）；
+**② `thenable` 采纳 / `for await` 承诺数组 / `Array.fromAsync`** ✓（3 条 ✓，都在承诺那一族 ✓）；
+**③ `Map` / `Set` / `Date` 的方法该挂原型** ✓（**上面刚量到的那处结构差** ✓，
+它顺带会让 `Object.getOwnPropertyNames(new Map())` 与 Node 一致 ✓）；
+**④ 零散** ✓（`new.target` ✓、尖括号断言 ✓、`console.log(Error)` ✓、手写 `Symbol.iterator` ✓、
+`rt-instanceof-custom` ✓、`rt-forin-order-and-inherited` ✓、`rt-ternary-nesting-and-assign` ✓、
+`gc-churn` 的步数预算 ✓、`c291-rt-class-shapes` ✓ / `c291-rt-closure-and-method-this` ✓、
+`rt-string-index-write-ignored` ✓、`c291-function-prototype-shape` ✓）。
+
 ## 第 337 轮的账（**IteratorClose 的 `return` 那一档 + 非严格 `this`** —— 98.2% → **98.3%**，收掉 3 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
