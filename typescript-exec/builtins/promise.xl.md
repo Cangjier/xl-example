@@ -597,6 +597,16 @@ if (id === PromiseQueueMicrotask) {
 }
 if (id === PromiseResolve) {
   const value = args.length > 0 ? args[0] : Value.Undefined();
+  // **`Promise.resolve(p) === p` 要是真** ✗（第 377 轮 ✓）：JS 的口径是
+  // 「实参**已经是**这一族造出来的承诺 ⇒ **原样交回**」✓（`Promise.resolve(p)` 不套一层 ✓）。
+  // **原来一律包一个新的** ✗ ⇒ 身份不等 ✓（`===` 给假 ✗），而「包一层」在语义上
+  // 几乎总是等价 ✓——**只有身份比较看得出来** ✓，所以它一直没被查到 ✓
+  //（判据 `c371-stdlib-promise-resolve-identity` 量的就是这一格 ✓）。
+  // **判据是现成的** ✓（`IsPromise` ✓，第 285 轮就有 ✓）——不另写一份「这是不是我们的承诺」✗
+  //（`MakePromise` 造出来的那一族认它 ✓，宿主自己的 thenable 不认 ✓——那正是不该原样交回的那些 ✓）。
+  if (IsPromise(table, value)) {
+    return value;
+  }
   return MakePromise(room, table, PromiseState.Fulfilled, value);
 }
 if (id === PromiseReject) {

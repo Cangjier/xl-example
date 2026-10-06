@@ -1465,8 +1465,29 @@ if (!room(PropertyCharge + CodeUnitCharge * 6)) throw new Error("out of room");
 const found = FindProperty(room, table, receiver.Ref, lengthKey);
 if (found === null) return 0;
 const raw = ReadProperty(call === null ? NeverCall : call, table, found, receiver);
-if (!raw.IsNumber()) return 0;
-const count = raw.AsInt();
+// **`length` 要先过 `ToLength`** ✗（第 377 轮补上前面半步 ✓）：JS 是
+// `ToLength(Get(O, "length"))` ✓——`{ length: "2", 0: 1, 1: 2 }` 里的 `"2"` **要变成 2** ✓
+//（判据口径：`f.apply(null, { length: "2", … })` 的实参是**两个** ✓）。
+// **原来非数字一律给 0** ✗ ⇒ `"2"` 当成 0 ✓、`"1"` 也一样 ✓——**静默少传实参** ✗
+//（而少传实参的症状是「后面那些形参是 `undefined`」✓，与「调用点写错了」长得一样 ✗）。
+// **只认数字文本那一档** ✓：不玩 `valueOf` 那一套 ✗（本仓的 `ToNumber` 就在手边 ✓，
+// 但 `ArrayLikeLength` 的签名里没有 `protos` ✓——与那一格「不为一个方法改签名」同一条纪律 ✓）。
+let count = 0;
+if (raw.IsNumber()) {
+  count = raw.AsInt();
+} else if (raw.Tag === ValueTag.String) {
+  // **纯十进制文本才认** ✓（逐位判 ✓，不引新助手 ✗——这一层已经有两个「读文本」的入口了 ✓）。
+  const digits = TextUnitsOf(table, raw);
+  let allDigits = digits.length > 0;
+  for (let d = 0; d < digits.length; d++) {
+    if (digits[d] < 48 || digits[d] > 57) allDigits = false;
+  }
+  if (allDigits) {
+    // **十进制的文本 → 数** ✓：只用 `Number` ✓（这一段是本仓自己的规范文件 ✓，
+    // 而它是 `cases:tsast` 的语料 ✓——少一层转换少一处风险 ✓）。
+    count = Number(digits.map((u) => String.fromCharCode(u)).join(""));
+  }
+}
 return count < 0 ? 0 : count;
 ```
 

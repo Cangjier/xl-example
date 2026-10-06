@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1700,
+  "matrix": 1703,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.7,
+  "progressPercent": 96.78,
   "layers": [
     {
       "layer": "runtime",
@@ -63,12 +63,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 631,
-      "pass": 613,
+      "total": 634,
+      "pass": 618,
       "blocked": 0,
-      "differ": 18,
+      "differ": 16,
       "nodefail": 0,
-      "coverage": 97.15
+      "coverage": 97.48
     },
     {
       "layer": "e2e",
@@ -265,12 +265,6 @@
       "detail": "stdout 不同：第 2 行：node «true» vs tsrun «false»"
     },
     {
-      "id": "c371-stdlib-object-values-entries-primitive",
-      "layer": "stdlib",
-      "title": "Object.keys / values / entries 落在字符串与数字上",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Object.keys needs an object"
-    },
-    {
       "id": "c371-stdlib-object-assign-getters-and-order",
       "layer": "stdlib",
       "title": "Object.assign：读源上的 getter、写目标上的 setter、键的顺序",
@@ -286,7 +280,7 @@
       "id": "c371-stdlib-promise-resolve-identity",
       "layer": "stdlib",
       "title": "Promise.resolve 的身份与 thenable 采纳",
-      "detail": "stdout 不同：第 1 行：node «true» vs tsrun «false»"
+      "detail": "stdout 不同：第 3 行：node «plain 2» vs tsrun «thenable { then: [Function: then] }»"
     },
     {
       "id": "c371-stdlib-promise-allsettled-any-race",
@@ -329,12 +323,6 @@
       "layer": "stdlib",
       "title": "Function.prototype.bind：偏实参、this、new、length/name",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：a bound function must be an object (the engine passes the receiver as this)"
-    },
-    {
-      "id": "c371-stdlib-function-call-apply",
-      "layer": "stdlib",
-      "title": "call / apply 的 this 与类数组实参",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Function.prototype.apply needs an array (array-likes are not su"
     },
     {
       "id": "c371-stdlib-function-tostring-and-name",

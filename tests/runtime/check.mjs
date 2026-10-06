@@ -5096,7 +5096,12 @@ check("内建的失败是**脚本接得住**的异常（第 121 轮：Vm.Raise +
   const called = guarded.host.CallExport(guarded.module.ExportOf("run"), []);
   eq(called.Outcome, HostOutcome.Ok, "运行成功（异常被脚本接住了）：" + called.Message);
   const caught = GetIndex(guarded.table, called.Value, Value.FromInt(0));
-  eq(hostStringOf(guarded.table, caught), "Object.keys needs an object", "catch 拿到的是我们自己的那句话");
+  // 第 377 轮：这句话改过一次 ✓——`Object.keys` 原来对**任何非对象**都抛 ✓，
+  // 而 JS 走的是 `ToObject` ✓（`Object.keys(5)` / `Object.keys(true)` 给**空数组** ✓，不抛 ✓）。
+  // 于是「抛」这一档收窄成 `null` / `undefined` ✓，那句话也跟着点名 ✓（判据量的是**抛**这件事 ✓，
+  // 以及「接住之后帧栈没坏」✓——**一个字面量跟着改**比留一句不再成立的话好 ✓）。
+  eq(hostStringOf(guarded.table, caught), "Object.keys called on null or undefined",
+    "catch 拿到的是我们自己的那句话");
   eq(hostStringOf(guarded.table, GetIndex(guarded.table, called.Value, Value.FromInt(1))), "reached",
     "接住之后**继续往下跑**（帧栈没有被打坏）");
 

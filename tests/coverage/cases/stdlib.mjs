@@ -5710,5 +5710,22 @@ console.log(typeof Error.isError, Error.prototype.constructor === Error);
     "id": "c376-stdlib-array-length-range",
     "title": "`length` 的写：截断 / 放大成洞 / 非法值抛 RangeError",
     "src": "const xs: any[] = [1, 2, 3, 4];\nxs.length = 2;\nconsole.log(\"A\", JSON.stringify(xs), xs.length);\nxs.length = 4;\nconsole.log(\"B\", JSON.stringify(xs), xs.length, 2 in xs);\ntry { xs.length = -1; } catch (e) { console.log(\"C\", (e as Error).name); }\ntry { xs.length = 1.5; } catch (e) { console.log(\"D\", (e as Error).name); }\ntry { xs.length = 4294967296; } catch (e) { console.log(\"E\", (e as Error).name); }\nconsole.log(\"F\", xs.length);\nconst obj: any = { length: 3 };\nconsole.log(\"G\", obj.length, Array.from({ length: 3 }, (_v, i) => i).join(\",\"));"
+  },
+
+  // ===== 第 377 轮：给修好的形状补的判据（3 条）=====
+  {
+    "id": "c377-stdlib-object-keys-primitives",
+    "title": "`Object.keys/values/entries` 收原始值：数字与布尔给空、null 与 undefined 抛",
+    "src": "console.log(\"A\", Object.keys(\"abc\").join(\",\"), JSON.stringify(Object.values(\"abc\")));\nconsole.log(\"B\", JSON.stringify(Object.entries(\"ab\")), Object.keys(\"\").length);\nconsole.log(\"C\", Object.keys(5).length, Object.keys(true).length, Object.keys(5.5).length);\nconsole.log(\"D\", JSON.stringify(Object.values(7)), JSON.stringify(Object.entries(false)));\ntry { Object.keys(null as any); } catch (e) { console.log(\"E\", (e as Error).name); }\ntry { Object.values(undefined as any); } catch (e) { console.log(\"F\", (e as Error).name); }\ntry { Object.entries(null as any); } catch (e) { console.log(\"G\", (e as Error).name); }\nconsole.log(\"H\", Object.keys({ 3: \"c\", 1: \"a\", \"b\": 2 }).join(\",\"));"
+  },
+  {
+    "id": "c377-stdlib-function-apply-array-like",
+    "title": "`Function.prototype.apply` 认类数组（含 `length` 是数字文本 + `arguments`）",
+    "src": "function f(this: any, a: number, b: number) { return [this.tag, a, b].join(\":\"); }\nconsole.log(\"A\", f.apply({ tag: \"T\" }, [1, 2]));\nconsole.log(\"B\", f.apply({ tag: \"T\" }, { length: 2, 0: 1, 1: 2 } as any));\nconsole.log(\"C\", f.apply({ tag: \"T\" }, { length: \"2\", 0: 1, 1: 2 } as any));\nconsole.log(\"D\", f.apply({ tag: \"T\" }, { length: 0 } as any));\nconsole.log(\"E\", f.apply({ tag: \"T\" }, { length: 5, 0: 1 } as any));\nfunction viaArguments(): string { return f.apply({ tag: \"A\" }, arguments as any); }\nconsole.log(\"F\", viaArguments(7, 8));\nconsole.log(\"G\", f.apply({ tag: \"T\" }, [] as any), f.call({ tag: \"C\" }, 3, 4));"
+  },
+  {
+    "id": "c377-stdlib-promise-resolve-identity",
+    "title": "`Promise.resolve` 的身份：已经是本族承诺就原样交回（thenable 那一半还没做）",
+    "src": "const p = Promise.resolve(1);\nconsole.log(\"A\", Promise.resolve(p) === p, Promise.resolve(1) === Promise.resolve(1));\nconst q = p.then((v) => v + 1);\nconsole.log(\"B\", Promise.resolve(q) === q);\nconst nested = Promise.resolve(p);\nconsole.log(\"C\", nested === p, nested === q);\nPromise.resolve(5).then((v) => console.log(\"D\", v));\n// 这一半还没做：Promise.resolve(thenable) 在 JS 里会**叫一次 then** ✓、\n// 用它结清的那个值兑现 ✓（本仓把 thenable **本身**当成值收下了 ✓）。记在台账里。\nconst thenable = { then(resolve: any) { resolve(2); } };\nconsole.log(\"E\", Promise.resolve(thenable) === thenable);"
   }
 ];

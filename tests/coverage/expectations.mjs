@@ -1088,7 +1088,6 @@ export const EXPECTATIONS = {
   // ---- `xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。
 
   // ---- `Object.keys / values / entries` 落在**字符串**上（本仓报 `needs an object`）。
-  "c371-stdlib-object-values-entries-primitive": { expect: "differ", why: "`Object.keys / values / entries` 落在**字符串**上（本仓报 `needs an object`）。" },
 
   // ---- `Object.assign` 往目标上的**访问器 setter** 写 ⇒ `unreachable: installing a builtin never calls a function`。
   "c371-stdlib-object-assign-getters-and-order": { expect: "differ", why: "`Object.assign` 往目标上的**访问器 setter** 写 ⇒ `unreachable: installing a builtin never calls a function`。" },
@@ -1099,7 +1098,7 @@ export const EXPECTATIONS = {
   "c371-stdlib-map-set-size-and-keys": { expect: "differ", why: "`Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, \"size\")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。" },
 
   // ---- `Promise.resolve(p) === p` 要是 `true`（同一个承诺原样返回）。
-  "c371-stdlib-promise-resolve-identity": { expect: "differ", why: "`Promise.resolve(p) === p` 要是 `true`（同一个承诺原样返回）。" },
+  "c371-stdlib-promise-resolve-identity": { expect: "differ", why: "**身份那一半第 377 轮修好了** ✓（`Promise.resolve(p) === p` ✓——原来一律包一层 ✗）。**剩下的是 thenable 那一半** ✗：`Promise.resolve({ then(resolve) { resolve(2) } })` 在 JS 里会**叫一次那个 `then`** ✓、用它结清的值兑现 ✓（Node 印 `2` ✓），而本仓把**那个对象本身**当成值收下 ✓（印出 `{ then: [Function] }` ✓）——**静默错值** ✓。根子在 `promise.xl.md` 的 `PromiseResolve`：它只看「是不是本族的承诺」✓（`IsPromise` ✓），**不看 `then`** ✗。" },
 
   // ---- `Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。
   "c371-stdlib-promise-allsettled-any-race": { expect: "differ", why: "`Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。" },
@@ -1125,7 +1124,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-function-bind-forms": { expect: "differ", why: "绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。" },
 
   // ---- `Function.prototype.apply` 只吃真数组（类数组实参报 `needs an array`）。
-  "c371-stdlib-function-call-apply": { expect: "differ", why: "`Function.prototype.apply` 只吃真数组（类数组实参报 `needs an array`）。" },
 
   // ---- 访问器函数的 `name`：`getOwnPropertyDescriptor(o, "g").get.name` 应当是 `get g`。
   "c371-stdlib-function-tostring-and-name": { expect: "differ", why: "访问器函数的 `name`：`getOwnPropertyDescriptor(o, \"g\").get.name` 应当是 `get g`。" },

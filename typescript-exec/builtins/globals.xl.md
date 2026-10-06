@@ -6,7 +6,7 @@ import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberO
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
@@ -2867,15 +2867,25 @@ if (id === FunctionCall || id === FunctionApply) {
     for (let i = 1; i < args.length; i++) invokedArgs.push(args[i]);
   } else {
     // **`apply`：第二格**就是实参表 ✓。
-    // **只认真的数组** ✗（JS 还认「类数组」✓）：`apply(self, {length: 2, 0: 1, 1: 2})`
-    // 在 JS 里是 `1,2` ✓、这里**响亮地抛** ✓——先算「还没做」的那一档，
-    // 比**静默**当成零个实参好 ✓（那种错值最难查 ✓）。
+    // **数组与「类数组」都认** ✓（第 377 轮补上后一半 ✓）：JS 的 `apply` 走的是
+    // `CreateListFromArrayLike` ✓——它只要「一个 `length` 与一串下标」✓，
+    // 所以 `f.apply(null, arguments)` ✓ / `f.apply(null, { length: 2, 0: 1, 1: 2 })` ✓
+    // 都是**日常写法** ✓（前者在真实代码里遍地都是 ✓）。
+    // **原来只认真数组** ✗，类数组**响亮地抛** ✓（那比静默当成零个实参好 ✓，可它仍然是缺口 ✓）。
+    // **两个助手都是现成的** ✓（第 335 / 338 轮给 `slice` / `join` 那一族备的 ✓：
+    // `ArrayLikeLength` ✓ / `ArrayLikeAt` ✓）——**不另写一份「长度怎么读」** ✗。
     if (args.length > 1 && args[1].Tag !== ValueTag.Undefined && args[1].Tag !== ValueTag.Null) {
-      if (args[1].Tag !== ValueTag.Array) {
-        throw new Error("unimplemented: Function.prototype.apply needs an array (array-likes are not supported)");
+      if (args[1].Tag === ValueTag.Array) {
+        const supplied = table.Get(args[1].Ref).AsArray();
+        for (let i = 0; i < supplied.GetLength(); i++) invokedArgs.push(supplied.GetAt(i));
+      } else if (args[1].IsObject()) {
+        // **类数组那一档** ✓：长度与每一格都按 JS 的 `CreateListFromArrayLike` 取 ✓
+        //（长度是 `ToLength(ToObject(值).length)` ✓，这里 `ArrayLikeLength` 做的就是那一趟 ✓）。
+        const likeLength = ArrayLikeLength(room, table, call, args[1]);
+        for (let i = 0; i < likeLength; i++) invokedArgs.push(ArrayLikeAt(room, table, call, args[1], i));
+      } else {
+        throw new TypeError("Function.prototype.apply: arguments list has a wrong type");
       }
-      const supplied = table.Get(args[1].Ref).AsArray();
-      for (let i = 0; i < supplied.GetLength(); i++) invokedArgs.push(supplied.GetAt(i));
     }
   }
   return call(self, invokedThis, invokedArgs);
@@ -3769,8 +3779,28 @@ if (id === ObjectKeys) {
   // **字符串也是合法的接收者** ✓（JS：`Object.keys("ab")` 给 `["0","1"]` ✓）——
   // 而字符串**没有属性表** ✗（它是 `HeapString` ✓），所以下面那一趟要跳过 ✓。
   const stringTarget = args[0].Tag === ValueTag.String;
-  if (!stringTarget && args[0].Tag !== ValueTag.Array && !args[0].IsObject()) {
-    throw new Error("Object.keys needs an object");
+  // **原始值里只有 `null` / `undefined` 抛** ✗（第 377 轮 ✓）：JS 走的是 `ToObject` ✓，
+  // 而 `Object.keys(5)` / `Object.keys(true)` **不抛** ✓（给空数组 ✓——装箱之后没有自有可枚举属性 ✓）。
+  // **原来非对象一律抛** ✗ ⇒ `Object.keys(5)` 报 `Object.keys needs an object` ✓
+  //（判据 `c371-stdlib-object-values-entries-primitive` 的第四行量的就是它 ✓）。
+  // `null` / `undefined` 那两档**照旧抛 `TypeError`** ✓（JS 也是 ✓，判据里两半都写着 ✓）。
+  if (args[0].IsNullish()) {
+    throw new TypeError("Object.keys called on null or undefined");
+  }
+  if (!stringTarget && args[0].Tag !== ValueTag.Array && !args[0].IsObject()
+    && args[0].Tag !== ValueTag.Int32 && args[0].Tag !== ValueTag.Float64
+    && args[0].Tag !== ValueTag.Bool) {
+    throw new Error("unimplemented: Object.keys on a " + args[0].Tag);
+  }
+  // **数字 / 布尔：装箱之后一个自有可枚举属性都没有** ✓ ⇒ 直接给空数组 ✓
+  //（不往下走那一趟扫描 ✓——它读的是 `Props` ✓，而原始值没有属性表 ✓）。
+  const boxedEmpty = args[0].Tag === ValueTag.Int32 || args[0].Tag === ValueTag.Float64
+    || args[0].Tag === ValueTag.Bool;
+  if (boxedEmpty) {
+    if (!room(ObjectCharge)) throw new Error("out of room");
+    const emptyHandle = table.CreateArray();
+    table.Get(emptyHandle).Proto = protos.Array;
+    return Value.FromArray(emptyHandle);
   }
   // **第 340 轮：这一趟扫描抽成了 `OwnEnumerableKeyTexts`** ✓——`for..in` 要在原型链的
   // **每一层**做同一件事 ✓（`CollectForInKeys` ✓），而「哪些键算数、按什么次序」
@@ -3800,8 +3830,22 @@ if (id === ObjectValues || id === ObjectEntries) {
   // 而它们**住在源对象的属性表里** ✓——属性表由 `args[0]` 拴着，`args[0]` 是这次调用的根 ✓，
   // 所以中途的分配不会把它们收走 ✓（`GetIterator` 那条路是同一个理由）。
   const stringTarget2 = args[0].Tag === ValueTag.String;
+  // **与 `keys` 那一支同一条口径** ✓（第 377 轮 ✓）：`null` / `undefined` 抛 `TypeError` ✓、
+  // **数字 / 布尔给空数组** ✓（装箱之后没有自有可枚举属性 ✓）。两处**必须一起改** ✗——
+  // 只改一处的话 `Object.keys(5)` 通、`Object.values(5)` 抛 ✓，而它们是同一个问题 ✓。
+  if (args[0].IsNullish()) {
+    throw new TypeError("Object.values/entries called on null or undefined");
+  }
+  const boxedEmpty2 = args[0].Tag === ValueTag.Int32 || args[0].Tag === ValueTag.Float64
+    || args[0].Tag === ValueTag.Bool;
+  if (boxedEmpty2) {
+    if (!room(ObjectCharge)) throw new Error("out of room");
+    const emptyHandle2 = table.CreateArray();
+    table.Get(emptyHandle2).Proto = protos.Array;
+    return Value.FromArray(emptyHandle2);
+  }
   if (!stringTarget2 && args[0].Tag !== ValueTag.Array && !args[0].IsObject()) {
-    throw new Error("Object.values/entries needs an object");
+    throw new Error("unimplemented: Object.values/entries on a " + args[0].Tag);
   }
   const own = stringTarget2 ? null : table.Get(args[0].Ref);
   const indexPositions2 = IndexKeyPositions(table, args[0]);
