@@ -80,7 +80,6 @@ export const EXPECTATIONS = {
   // 而**数值那一格的键要先字符串化** ✓（`set_prop` 的键只认字符串 / 符号 ✓）。
   // **另一处已知差** ✗：`A = 1 + 1` 那种**算出来的数**这一轮**不挂反向格** ✓
   //（`IsNumericInitializer` 只认「没有初始化式」与「数值字面量」两档 ✓——不猜 ✓）。
-  "ex-tagged-template-suffix": { expect: "blocked", why: "函数当 `ToPrimitive` 时该给**源码文本**（`Function.prototype.toString`）" },
   // **第 233 轮删掉了 `ex-typeof-value-expression` 那一行** ✓（它过了 ✓，与
   // `op-typeof-forms` 同一处 ✓）：它的第一项 `typeof ({}).toString` 原来把括号里的 `{}`
   // 投成了 **`TypeLiteral`** ✗（一个大括号被读成「类型」✓，而它是**值** ✓）。
@@ -723,4 +722,15 @@ export const EXPECTATIONS = {
   // 每轮的新环境也改成**以外层为父** ✓（JS 的 `CreatePerIterationEnvironment` 就是这条 ✓）。
   // 判据 `c314-rt-top-level-env-after-let-loop` 与 `rt-loop-capture-let-vs-var` 都已转 pass ✓，
   // **两行都撤了** ✓——留这一段在这里，是为了让「为什么 IR 里要多一条与 `env_new` 对称的算子」有出处 ✓。
+  // **一元运算符那一格今天还不通** ✗（第 321 轮量到、当场记下来 ✓）：
+  // `typeof t\`z\`` 报 `cannot call a non-closure value` ✗（Node 给 `"string"` ✓）——
+  // 与**二元**那一条（这一轮修好了 ✓）**同源** ✗：`UnaryOperator.Process` 只往后吃**一个**单元 ✓
+  //（第 309 轮给它加过「吃调用括号」那一档 ✓），而**模板串**是又一个单元 ✓ ⇒
+  // 被操作数只剩 `t` ✓、模板留给通用支 ✓ ⇒ 降级层当成「调用 `t` 的结果」✗。
+  // **修法**：照 `binary-operator.xl.md` 的 `StartsWithTemplate` 那一条**同一把判据** ✓
+  //（`String` 自己 ✓、或 `PropertyAccess` 的首个子单元是 `String` ✓）在 `Process` 里多收一格 ✓。
+  "c321-ex-tagged-template-after-unary": {
+    expect: "blocked",
+    why: "标签模板落在一元运算符的操作数位时，标签与模板被拆开：`typeof t`z`` 报 `cannot call a non-closure value`（Node 给 \"string\"）。根子与二元那一条同源 —— `UnaryOperator.Process` 只往后吃一个单元（第 309 轮给它加过「吃调用括号」那一档），而模板串是又一个单元 ⇒ 被操作数只剩 `t`、模板留给通用支 ⇒ 降级层当成「调用 `t` 的结果」。修法：照 `binary-operator.xl.md` 的 `StartsWithTemplate` 同一把判据在 `Process` 里多收一格",
+  },
 };

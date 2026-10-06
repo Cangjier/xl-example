@@ -22,11 +22,21 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 
-/** 六道门：名字 → 相对根的脚本路径（与 `package.json` 一一对应）。 */
+/**
+ * 六道门：名字 → 脚本路径（与 `package.json` 一一对应）。
+ *
+ * **`shards`** ✓（第 321 轮 ✓，用户口径：「n 个进程，每个进程跑一组任务」✓）：
+ * 这一门**自己不起子进程** ✓（1444 份语料在同一个进程里一份一份解析 + 投影 + 对拍 ✓），
+ * 所以「一个进程跑一批」这条对它不适用 ✗——它要的是**反过来**：
+ * **把那一批切成 n 组、每组一个进程** ✓（分片的判据在 `ts-ast.mjs` 里写着 ✓：
+ * 按**字节**轮转分配 ✓，因为 `typescript/lib` 那几份大 `.d.ts` 一份顶几百份小文件 ✓）。
+ * **每片各自算那七项** ✓，「每片都 0」⟺「整体都 0」✓——**不需要把计数合起来** ✓
+ *（那正是分片最容易出错的地方 ✓）。
+ */
 const GATES = [
   { name: "runtime:check", script: "tests/runtime/check.mjs" },
   { name: "runtime:cli", script: "tests/runtime/run-cli.mjs" },
-  { name: "cases:tsast", script: "tests/parse/ts-ast.mjs" },
+  { name: "cases:tsast", script: "tests/parse/ts-ast.mjs", shards: 4 },
   { name: "samples", script: "samples/check.mjs" },
   { name: "cases:check", script: "tests/parse/validate.mjs" },
   { name: "coverage", script: "tests/coverage/run.mjs" },
@@ -47,20 +57,39 @@ const jobs = Math.max(1, Math.min(GATES.length, Number(value("--jobs", String(GA
 const runOne = (gate) =>
   new Promise((resolve) => {
     const started = Date.now();
-    const child = spawn(process.execPath, [path.join(root, gate.script)], {
-      cwd: root,
-      stdio: ["ignore", "pipe", "pipe"],
+    // **分片那一档** ✓（第 321 轮 ✓）：这一门自己不起子进程 ✓，
+    // 所以由**这里**替它开 n 个（每个跑一组 ✓），并且**全都要绿** ✓。
+    const shards = gate.shards || 1;
+    const runs = Array.from({ length: shards }, (_, index) => {
+      const argv = [path.join(root, gate.script)];
+      if (shards > 1) argv.push("--shard", `${index}/${shards}`);
+      return new Promise((done) => {
+        const child = spawn(process.execPath, argv, {
+          cwd: root,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let out = "";
+        let err = "";
+        child.stdout.on("data", (chunk) => {
+          out += chunk;
+        });
+        child.stderr.on("data", (chunk) => {
+          err += chunk;
+        });
+        child.on("close", (code) => done({ code, out, err }));
+      });
     });
-    let out = "";
-    let err = "";
-    child.stdout.on("data", (chunk) => {
-      out += chunk;
-    });
-    child.stderr.on("data", (chunk) => {
-      err += chunk;
-    });
-    child.on("close", (code) => {
-      resolve({ gate, code, out, err, ms: Date.now() - started });
+    Promise.all(runs).then((all) => {
+      const code = all.every((one) => one.code === 0) ? 0 : 1;
+      // **报告取「最慢的那一片」的尾巴** ✓：它才是这一门的墙钟 ✓。
+      const slowest = all.reduce((best, one) => (one.out.length > best.out.length ? one : best), all[0]);
+      resolve({
+        gate,
+        code,
+        out: (shards > 1 ? `（${shards} 片并行）\n` : "") + slowest.out,
+        err: all.map((one) => one.err).join(""),
+        ms: Date.now() - started,
+      });
     });
   });
 

@@ -399,6 +399,11 @@ function compare(ours, theirs) {
   };
 }
 
+// **命令行参数在模块级也留一份** ✓（第 321 轮 ✓）：`collectFiles()` 要用 `--shard` ✓，
+// 而 `main()` 里那个 `args` 是它自己的局部量 ✗（第一版直接在 `collectFiles` 里用 `args` ✓，
+// 运行期报 `args is not defined` ✓）。
+const ARGS = process.argv.slice(2);
+
 function walk(dir, out) {
   let entries = [];
   try {
@@ -430,7 +435,50 @@ function corpus(mode) {
       files.push(c.file);
     }
   }
-  return [...new Set(files)];
+  const unique = [...new Set(files)];
+  // **分片**（第 321 轮 ✓，用户口径：「其他门能不能类似优化」✓）。
+  //
+  // **为什么这一门需要另一条路** ✗：它**不起子进程** ✓——1444 份语料是**同一个进程**里
+  // 一份一份解析 + 投影 + 对拍的 ✓（实测 47.7s ✓，而它是现在六道门里最慢的那一道 ✗）。
+  // **花在哪** ✓（第 321 轮量过 ✓）：`typescript/lib` 110 份 **4.3 MB** ✓、
+  // `@types` 72 份 **2.5 MB** ✓、`dist/ts` 178 份 **2.1 MB** ✓——
+  // 而**用例**那 1050 份只有 **189 KB** ✓（占量的零头 ✓）。所以瓶颈是那几份**大 `.d.ts`** ✓。
+  //
+  // **分片的判据按「字节」而不是「份数」** ✗：大文件一份顶几百份小文件 ✓——
+  // 按份数分会出现「一个分片全是大文件」✓（那一趟就是全程的墙钟 ✗）。
+  // 做法：按大小降序**轮转**分配 ✓（经典的 LPT 近似 ✓）。
+  //
+  // **正确性为什么不受影响** ✓：这一门的退出码是「缺 / 漂移 / 多出来 / 字段名 /
+  // 未映射 / 缺 range / 越界 **七项全为 0**」✓——**每一片各自算这七项** ✓，
+  // 「每片都 0」⟺「整体都 0」✓ ✓（不需要把计数合起来 ✓，那正是分片最容易出错的地方 ✓）。
+  // **用模块级的 `ARGS`** ✗（`main()` 里那个 `args` 在 `collectFiles` 里看不见 ✓——
+  // 第一版就是那么写的 ✓，运行期当场报 `args is not defined` ✓）。
+  const shard = ARGS.includes("--shard") ? String(ARGS[ARGS.indexOf("--shard") + 1] || "") : "";
+  if (shard !== "") {
+    const parts = shard.split("/");
+    const index = Number(parts[0]);
+    const count = Number(parts[1]);
+    if (!Number.isFinite(index) || !Number.isFinite(count) || count < 1 || index < 0 || index >= count) {
+      throw new Error(`--shard 要写成 i/n（i 从 0 起、n ≥ 1），收到 "${shard}"`);
+    }
+    const sized = unique.map((file) => {
+      let size = 0;
+      try {
+        size = fs.statSync(file).size;
+      } catch {
+        size = 0;
+      }
+      return { file, size };
+    });
+    sized.sort((a, b) => b.size - a.size);
+    const kept = [];
+    for (let at = 0; at < sized.length; at++) {
+      if (at % count === index) kept.push(sized[at].file);
+    }
+    console.log(`（分片 ${index}/${count}：${kept.length} / ${sized.length} 份文件）`);
+    return kept;
+  }
+  return unique;
 }
 
 function parseWith(source, file) {

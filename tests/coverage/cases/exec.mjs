@@ -3318,4 +3318,17 @@ console.log(typeof u, (u as number) + 1);
     title: "生成器的两条接口：同步那族有 `Symbol.iterator`、异步那族两个都有",
     src: "\nfunction* sync(): Generator<number> { yield 1; }\nasync function* asy(): AsyncGenerator<number> { yield 2; }\nconst s: any = sync();\nconst a: any = asy();\nconsole.log(typeof s[Symbol.iterator], typeof s[Symbol.asyncIterator]);\nconsole.log(typeof a[Symbol.iterator], typeof a[Symbol.asyncIterator]);\nconsole.log(s[Symbol.iterator]() === s, a[Symbol.asyncIterator]() === a);\n",
   },
+
+  // ===== 第 321 轮：标签模板当操作数 =====
+
+  {
+    id: "c321-ex-tagged-template-as-operand",
+    title: "标签模板出现在二元 / 实参位时，标签与模板不能被拆开",
+    src: "\nconst t = (s: any, ...v: any[]) => s[0] + v.join(\"\");\nconsole.log(t`abc`.length, 1 + t`xy`.length, t`a${1}b`.toUpperCase());\nconsole.log(2 * t`q`.length);\nconsole.log([t`m`, t`n`].join(\"-\"));\n",
+  },
+  {
+    id: "c321-ex-tagged-template-after-unary",
+    title: "标签模板出现在一元运算符的操作数位（`typeof t`z``）",
+    src: "\nconst t = (s: any, ...v: any[]) => s[0] + v.join(\"\");\nconsole.log(typeof t`z`);\nconsole.log(!t``);\n",
+  },
 ];

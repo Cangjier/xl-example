@@ -22,8 +22,9 @@
 // 裁判是**真的 Node 进程**（`node <用例>`）；被测是**真的 tsrun 进程**
 // （`node build/ts/tsrun.js <用例>`）——两个进程、两条完整链路，中间没有打桩。
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -88,23 +89,38 @@ function listCases() {
     .map((name) => path.join(casesDir, name));
 }
 
-/** 跑一个进程，拿 `{ status, stdout, stderr }`（stdout/stderr 都是**字节**，好逐字节比）。 */
-function run(file, argv) {
-  const started = process.hrtime.bigint();
-  const result = spawnSync(process.execPath, argv, {
-    cwd: root,
-    encoding: "buffer",
-    maxBuffer: 64 * 1024 * 1024,
+/**
+ * 跑一个进程，拿 `{ status, stdout, stderr }`（stdout/stderr 都是**字节**，好逐字节比）。
+ *
+ * **异步 + 池**（第 321 轮 ✓）：原来一条一条 `spawnSync` ✓，79 份语料就是
+ * **158 次串行进程启动** ✓（实测 48 秒 ✓，而这一门现在是六道门里最慢的之一 ✗）。
+ * 两条路各自有更省的办法 ✓：
+ * · **被测侧**：`tsrun --batch` 一个进程跑完 ✓（第 319 轮就有的能力 ✓）；
+ * · **裁判侧**：`node <用例>` 没有批量那一说 ✓（每条一个**真进程**才是裁判 ✓），
+ *   但可以**并行** ✓——它们是 I/O 等待 ✓，池子一开就重叠 ✓。
+ */
+function runAsync(file, argv) {
+  return new Promise((resolve, reject) => {
+    const started = process.hrtime.bigint();
+    const child = spawn(process.execPath, argv, {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const out = [];
+    const err = [];
+    child.stdout.on("data", (chunk) => out.push(chunk));
+    child.stderr.on("data", (chunk) => err.push(chunk));
+    child.on("error", reject);
+    child.on("close", (status) => {
+      resolve({
+        file,
+        status,
+        stdout: Buffer.concat(out),
+        stderr: Buffer.concat(err),
+        elapsed: Number(process.hrtime.bigint() - started) / 1e6,
+      });
+    });
   });
-  const elapsed = Number(process.hrtime.bigint() - started) / 1e6;
-  if (result.error) throw result.error;
-  return {
-    file,
-    status: result.status,
-    stdout: result.stdout,
-    stderr: result.stderr,
-    elapsed,
-  };
 }
 
 /** 第一条不同的行（对拍失败时给人看的那一眼）。 */
@@ -137,11 +153,60 @@ console.log(`语料 ${cases.length} 份、被测 ${path.relative(root, tsrun)}`)
 console.log("");
 
 let failed = 0;
-for (const file of cases) {
+// **被测侧：一个进程跑完所有语料** ✓（第 321 轮 ✓）——与 coverage 那边同一个形状 ✓
+//（`tsrun --batch` 与 `tsrun <file>` 共用 `RunSources` ✓，语义没变 ✓）。
+// **每进程一个工作目录** ✓（第 321 轮 ✓，用户口径 ✓）：清单原来写在**仓库里一个固定名字**上 ✗
+// ——两个实例（或 `gates` 与手跑）撞在一起时，后写的那个会把前一个的清单换掉 ✗
+//（症状是「某几份语料找不到」✓，而它看起来像用例坏了 ✗）。按 pid + 随机后缀分开之后互不相干 ✓。
+const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `tsrun-cli-${process.pid}-`));
+const manifestPath = path.join(workDir, "cases-manifest.json");
+fs.writeFileSync(manifestPath, JSON.stringify(cases.map((file, index) => ({
+  id: String(index),
+  path: file,
+}))), "utf8");
+const batch = await runAsync("(batch)", [tsrun, "--batch", manifestPath]);
+fs.rmSync(workDir, { recursive: true, force: true });
+const mine = new Map();
+for (const line of batch.stdout.toString("utf8").split("\n")) {
+  if (line.trim() === "" || line.startsWith('{"begin"')) continue;
+  let record = null;
+  try {
+    record = JSON.parse(line);
+  } catch {
+    continue;
+  }
+  if (record === null || record.id === undefined) continue;
+  mine.set(Number(record.id), {
+    status: record.status,
+    stdout: Buffer.from(record.stdout, "utf8"),
+    stderr: Buffer.from(record.stderr, "utf8"),
+  });
+}
+// **裁判侧：并行** ✓（每条一个真进程 ✓，但不再一条等一条 ✓）。
+const jobs = Math.max(1, Math.min(16, os.cpus().length));
+const oracles = new Array(cases.length);
+{
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(jobs, cases.length) }, async () => {
+    for (;;) {
+      const index = cursor++;
+      if (index >= cases.length) return;
+      oracles[index] = await runAsync(cases[index], [cases[index]]);
+    }
+  }));
+}
+for (let index = 0; index < cases.length; index++) {
+  const file = cases[index];
   const name = path.relative(casesDir, file);
   try {
-    const oracle = run(file, [file]);
-    const machine = run(file, [tsrun, file]);
+    const oracle = oracles[index];
+    const machine = mine.get(index);
+    if (machine === undefined) {
+      failed += 1;
+      console.log(`FAIL     ${name}`);
+      console.log("           这一份没从批量那一趟里交回结果（那一趟可能整份崩了）");
+      continue;
+    }
     const problems = [];
     if (oracle.status !== machine.status) {
       problems.push(`退出码 node=${oracle.status} tsrun=${machine.status}`);
@@ -163,7 +228,7 @@ for (const file of cases) {
       continue;
     }
     const lines = machine.stdout.toString("utf8").split("\n").filter((line) => line !== "").length;
-    console.log(`ok       ${name}  （stdout ${lines} 行、退出码 ${machine.status}、${machine.elapsed.toFixed(0)} ms）`);
+    console.log(`ok       ${name}  （stdout ${lines} 行、退出码 ${machine.status}）`);
     if (verbose && machine.stderr.length > 0) {
       console.log(`           tsrun stderr: ${machine.stderr.toString("utf8").trim().split("\n")[0]}`);
     }

@@ -470,7 +470,51 @@ if (rightAssociative) {
     return false;
   }
 }
+// **右操作数后面紧跟一个字符串 ⇒ 那是「标签 + 模板」** ✓（第 321 轮 ✓）——
+// 这一格**先放过** ✗，交给**投影**去合成 `TaggedTemplateExpression` ✓
+//（`print-ast-common` 的 0b / 0c 两条 ✓：产物那边标签与模板是**两格平级** ✓）。
+//
+// **判据为什么成立** ✓：一个字符串字面量**不可能**紧跟在**一个操作数**后面出现 ✗
+//（`t "x"` 不是合法 JS ✓）——所以「操作数 + 字符串」这个相邻关系**只可能是**
+// `` t`x` `` ✓。这一条与 `property-access.xl.md` 里「数组字面量不会紧跟在表达式后面」
+// 是**同一条推理** ✓（那里用它把 `o.b![1]` 的 `[1]` 认成下标 ✓）。
+//
+// **不挡会怎样** ✗：这里先把 `1 + t` 折成一个 `BinaryOperator` ✓，
+// 于是标签与模板被**拆进两棵子树** ✓——投影拿到 `[BinaryOperator(1,+,t), PropertyAccess(模板,.,length)]` ✓
+// ⇒ 右操作数只剩 `t` ✓、后缀整片丢掉 ✗（实测：`` 1 + t`xy`.length `` 报
+// `unimplemented: ToPrimitive of a function` ✓，Node 给 `3` ✓——**静默错值** ✗）。
+const rightOperandIndex = SkipNextWrapSymbol(units, index);
+const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
+// **两种形状都算** ✗（第一版只认 `String` ✓，实测不够 ✓）：
+// 模板后面**还跟着后缀**时（`` t`x`.length `` ✓），产物那一格是
+// **`PropertyAccess(模板, ., length)`** ✓——标签在外面、模板与后缀在同一个 `PropertyAccess` 里 ✓
+//（投影 0c 那一段写着这个形状 ✓）。所以判据是「**这个单元以模板开头**」✓：
+// 它自己就是 `String` ✓，或者它是一个 `PropertyAccess` 、**第一个可投影子单元是 `String`** ✓。
+if (this.StartsWithTemplate(afterOperand)) {
+  return false;
+}
 return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
+```
+
+## private method StartsWithTemplate:(unit:Token | null)=>bool
+
+**这一格是不是「模板开头」** ✓（第 321 轮 ✓）——`String` 自己 ✓、
+或者一个 `PropertyAccess` 而它**第一个**非软换行子单元是 `String` ✓
+（`` t`x`.length `` 就是这一种 ✓，投影 0c 那一段量过同一个形状 ✓）。
+
+**为什么看的是「第一个子单元」而不是「有没有 `String`」** ✗：`a.b.length` 里没有字符串 ✓；
+而 `` t`x` `` 那个 `PropertyAccess` 的**第一个**孩子就是模板 ✓ ✓。
+换行那两格不算 ✓（`AddAndCloseLast` 不把 `LineWrap` 收进去 ✓，与那两条规则同一条口径 ✓）。
+
+```ts
+if (unit === null) return false;
+if (unit instanceof String) return true;
+if (!(unit instanceof PropertyAccess)) return false;
+for (const child of unit.Data) {
+  if (child instanceof LineWrap) continue;
+  return child instanceof String;
+}
+return false;
 ```
 
 ## private method IsCommaExpressionComma:(units:Array<Token>, index:int)=>bool
