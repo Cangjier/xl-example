@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.75,
+  "progressPercent": 95.81,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 390,
-      "pass": 367,
-      "blocked": 15,
+      "pass": 368,
+      "blocked": 14,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 94.1
+      "coverage": 94.36
     },
     {
       "layer": "exec",
@@ -88,12 +88,6 @@
       "layer": "runtime",
       "title": "大量短命分配：回收器要跟得上（不 OOM）",
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "rt-typeof-all-kinds",
-      "layer": "runtime",
-      "title": "typeof 每一种值（含类表达式）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeOfKeyword"
     },
     {
       "id": "rt-string-index-write-ignored",

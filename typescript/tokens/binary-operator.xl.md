@@ -28,6 +28,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { As } from "./as.xl.md"
 import { Satisfies } from "./satisfies.xl.md"
+import { Class } from "./class/class.xl.md"
 ```
 
 # namespace cangjie
@@ -291,7 +292,12 @@ if (
   // 只补一边的话，`+` 会先被**一元**那一趟抢走 ✗（`UnaryOperator op="+"` ✓），
   // 而这里也就永远收不到它 ✓（**静默少一个节点** ✗）。
   unit instanceof As ||
-  unit instanceof Satisfies
+  unit instanceof Satisfies ||
+  // **类表达式也是操作数** ✓（第 328 轮 ✓）：`x + class { }` 是合法的 JS ✓，
+  // 而 `typeof class C { }`（读那一半）靠的也是这一格的**对称补充** ✓——
+  // 两份名单**必须对齐** ✗（`unary-operator.xl.md` 第 69 行那条纪律 ✓）：
+  // 只补一边的话，`+` 会先被**一元**那一趟抢走 ✗（`UnaryOperator op="+"` ✓）。
+  unit instanceof Class
 ) {
   return true;
 }

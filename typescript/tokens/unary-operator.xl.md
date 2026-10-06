@@ -29,6 +29,7 @@ import { LogicalOperator } from "./logical-operator.xl.md"
 import { NullConditionalOperator } from "./null-conditional-operator.xl.md"
 import { As } from "./as.xl.md"
 import { Satisfies } from "./satisfies.xl.md"
+import { Class } from "./class/class.xl.md"
 ```
 
 # namespace cangjie
@@ -145,7 +146,16 @@ return (
   //（产物 `<UnaryOperator op="+">+ 1</UnaryOperator>` ✓，与第 69 行那条纪律写的是同一件事 ✓：
   //  **两份名单必须对齐** ✓，而 `As` 是这一轮才第一次站到那个位置上的 ✓）。
   unit instanceof As ||
-  unit instanceof Satisfies
+  unit instanceof Satisfies ||
+  // **类表达式也是操作数** ✓（第 328 轮 ✓）：`typeof class C { }` 在 TS 里是
+  // `TypeOfExpression(ClassExpression)` ✓（**与 `typeof { }` 同一族** ✓，第 233 轮那一格 ✓）。
+  // 少了它，`IsOperand` 给假 ✓ ⇒ `typeof` **折不起来** ✗ ⇒ 投影只吐一个光秃秃的
+  // `TypeOfKeyword` ✓（实测：TS 节点 10、投影 8 ✓，缺的正是 `TypeOfExpression` 与它下面的
+  // `ClassExpression` / `Identifier` ✓），降级层报 `unimplemented: expression TypeOfKeyword` ✓
+  //（听起来像「`typeof` 没实现」✗——**别的 `typeof` 全是好的** ✓）。
+  // **两份名单一起补** ✗（本文件第 69 行那条纪律 ✓）：`x + class { }` 是合法的 JS ✓，
+  // 二元那一份少了它，`+` 就会被**一元**那一趟抢走 ✓（`UnaryOperator op="+"` ✓）。
+  unit instanceof Class
 );
 ```
 

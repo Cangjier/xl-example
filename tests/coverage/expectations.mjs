@@ -351,7 +351,13 @@ export const EXPECTATIONS = {
   // `typeof class C { }` ✓——与第 233 轮那个 `typeof {a: 1}` **同一族** ✓：
   // `typeof` 后面那个操作数表达式没被收进操作数位 ✓，
   // 投影只留下一个**孤零零的 `TypeOfKeyword`** ✗。
-  "rt-typeof-all-kinds": { expect: "blocked", why: "`typeof class C { }` 报 `unimplemented: expression TypeOfKeyword`：操作数是**类表达式**时 `typeof` 那一格没被收（与第 233 轮 `typeof {}` 同一族，那时补的是「后面跟 `{`」那一格）" },
+  // **`rt-typeof-all-kinds` 第 328 轮过了** ✓（那一行撤了 ✓）：第 233 轮补的是
+  // 「`typeof` 后面跟 `{`」那一格 ✓（`typeof {}` ✓），这一轮补的是**类表达式** ✓——
+  // 两条**同一个根** ✗：`IsOperand` 的那份名单里少了那个 kind ✓。
+  // `typeof class C { }` 折不起来 ⇒ 投影只吐一个**孤零零的 `TypeOfKeyword`** ✗
+  //（实测：TS 节点 10、投影 8 ✓，缺的正是 `TypeOfExpression` 与它下面的两格 ✓）。
+  // **两份名单一起补** ✓（`unary-operator.xl.md` 第 69 行那条纪律 ✓）：
+  // `x + class { }` 是合法的 JS ✓，二元那一份少了它，`+` 会被**一元**那一趟抢走 ✓。
 
   // ---- 组 7：字符串按**码元**迭代（1 条）----
   // `[...s].length` / `Array.from(s).length` 给 4 ✓（Node 给 3 ✓）：
