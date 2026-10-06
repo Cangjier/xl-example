@@ -1,6 +1,6 @@
 {
-  "round": "313",
-  "matrix": 1106,
+  "round": "314",
+  "matrix": 1107,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,12 +38,12 @@
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 358,
-      "pass": 329,
+      "total": 359,
+      "pass": 330,
       "blocked": 15,
       "differ": 14,
       "nodefail": 0,
-      "coverage": 91.9
+      "coverage": 91.92
     },
     {
       "layer": "exec",
@@ -326,12 +326,6 @@
       "detail": "stdout 不同：第 1 行：node «obj bound» vs tsrun «obj undefined»"
     },
     {
-      "id": "c304-rt-closure-capture-in-forof",
-      "layer": "runtime",
-      "title": "for..of 里每个迭代一格闭包",
-      "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «3,3,3»"
-    },
-    {
       "id": "c304-rt-detached-method-this-undefined",
       "layer": "runtime",
       "title": "把方法摘下来单独调：松散模式 this 是全局对象",
@@ -372,6 +366,12 @@
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
+    },
+    {
+      "id": "c314-rt-top-level-env-after-let-loop",
+      "layer": "runtime",
+      "title": "顶层 `for (let …)` 造过闭包之后，循环后面的代码读环境格会读错链",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：environment index out of range: 1"
     },
     {
       "id": "ex-getter-setter-class",

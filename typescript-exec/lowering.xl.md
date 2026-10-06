@@ -3466,6 +3466,42 @@ this.LowerIterationLoop(iterableWindow, node);
 ```ts
 const iteratorSlot = this.Reserve(1);
 this.EmitRt(RtOp.IterNew, iteratorSlot, iterableSlot, 1);
+// **`for (const x of …)` 每个迭代一格** ✓（第 314 轮 ✓）——与 `for (let i = …)` 那条
+// 同一个语义 ✓（`lowering.xl.md` 的 `LowerFor` ✓）：**每一轮建一个新环境** ✓，
+// 于是体里造出来的闭包各自捕到**自己那一轮**的 `x` ✓。
+//
+// **不建会怎样** ✗：绑定落在**同一格**里 ✓ ⇒ 三个闭包都读到最后那个值 ✓
+//（实测 `for (const n of [1,2,3]) fns.push(() => n)` 给 `3,3,3` ✗，Node 给 `1,2,3` ✓，
+//  **一句异常都没有** ✗——判据 `c304-rt-closure-capture-in-forof` ✓）。
+//
+// **三条闸与 `LowerFor` 那条一字不差** ✓：声明是 `let`/`const`（不是 `var` ✓）、
+// 只有一个标识符名字（模式那一支今天不接 ✗，与 `LowerFor` 同一条 ✓）、
+// 且**体里有函数值** ✓（`HasNestedFunction` ✓——**保守但便宜** ✓：
+// 多建几个环境只是慢一点 ✓，少建一次就是错值 ✓）。
+//
+// **这里不需要「从上一轮拷进新一轮」那一段** ✗（`LowerFor` 有 ✓）：
+// `for..of` 的值每一轮都是**新赋**的 ✓（下一句就是 `BindForOfTarget` ✓），
+// 拷过去只会立刻被覆盖 ✓；而**上一轮那些闭包**抓着的是**上一轮那个环境** ✓，
+// 新环境是**另一个** ✓ ⇒ 它们读到的仍然是旧值 ✓（正是 JS 的语义 ✓）。
+//
+// **`EnvNew` 排在续跳点** ✓：`continue` 会跳到那里 ✓（`context.ContinueTarget` ✓），
+// 否则 `continue` 会绕过新环境 ✓——那正是 `LowerFor` 里写着「否则 `continue` 就绕过了它」✓
+// 的同一条坑 ✓。
+const target = Child(node, "initializer");
+let perIteration = false;
+let envSlot = -1;
+if (NodeKind(target) === "VariableDeclarationList" && !IsVarList(target)
+  && HasNestedFunction(Child(node, "statement"), 0)) {
+  const declarations = ListOf(target, "declarations");
+  if (declarations.length === 1 && NodeKind(Child(declarations[0], "name")) === "Identifier") {
+    perIteration = true;
+    envSlot = this.Reserve(1);
+    this.Emit(Op.EnvNew, envSlot, 1, -1, -1);
+    const scope = new EnvScope(envSlot);
+    scope.Declare(TextOf(Child(declarations[0], "name")), 0);
+    this.Env.Push(scope);
+  }
+}
 const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
 const start = this.Here();
 const context = this.EnterLoop(true, start);
@@ -3478,11 +3514,17 @@ const running = this.RtCall1(RtOp.Not, done);
 const exitIndex = this.Here();
 this.Emit(Op.JumpIfFalse, running, 0, -1, -1);
 const value = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(0));
-this.BindForOfTarget(Child(node, "initializer"), value);
+this.BindForOfTarget(target, value);
 this.LowerStatement(Child(node, "statement"));
+// `continue` 在这里落点：**下一轮的新环境也要建** ✓（否则 `continue` 就绕过了它 ✓）。
+context.ContinueTarget = this.Here();
+if (perIteration) {
+  this.Emit(Op.EnvNew, envSlot, 1, -1, -1);
+}
 this.Emit(Op.Jump, -1, start, -1, -1);
 this.PatchTarget(exitIndex, this.Here());
 this.LeaveLoop(context);
+if (perIteration) this.Env.Pop();
 this.PopScope();
 ```
 

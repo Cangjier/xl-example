@@ -4265,4 +4265,12 @@ console.log(o.x, o.y);
     title: "往生成器里 `throw`：体内接得住，没接住的那一抛连 `done` 一起收尾",
     src: "\nfunction* g(): Generator<string, void, void> {\n  try { yield \"a\"; } catch (e: any) { yield \"caught:\" + e.message; }\n  yield \"end\";\n}\nconst it: any = g();\nconsole.log(it.next().value);\nconsole.log(it.throw(new Error(\"in\")).value);\nconsole.log(it.next().value, it.next().done);\nfunction* uncaught(): Generator<number, void, void> { yield 1; }\nconst u: any = uncaught();\nconsole.log(u.next().value);\ntry { u.throw(new Error(\"boom\")); console.log(\"no throw\"); } catch (e: any) { console.log(\"caught outside\", e.message); }\nconsole.log(JSON.stringify(u.next()));\n",
   },
+
+  // ===== 第 314 轮：循环之后的环境链（当天只量到，没修） =====
+
+  {
+    id: "c314-rt-top-level-env-after-let-loop",
+    title: "顶层 `for (let …)` 造过闭包之后，循环后面的代码读环境格会读错链",
+    src: "\nconst fns: Array<() => number> = [];\nfor (let i = 0; i < 3; i++) fns.push(() => i);\nconsole.log(\"A\", fns.map((f) => f()).join(\",\"));\nfunction mk(): () => number { let n = 5; return () => n; }\nconsole.log(\"H\", mk()());\n",
+  },
 ];

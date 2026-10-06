@@ -649,7 +649,6 @@ export const EXPECTATIONS = {
   "c304-rt-new-target-in-ctor": { expect: "blocked", why: "`new.target` 报 `unimplemented: expression MetaProperty`——投影给出的是 `MetaProperty` 这个 kind，而降级层没有那一格。要的是「当前这一帧是不是构造调用」（引擎帧上的一格），读成一个值即可" },
   "c304-rt-delete-nonconfigurable": { expect: "blocked", why: "**口径边界（严格模式的选择）**：`delete` 一个不可配置的属性，本仓一律抛（那一抛还冒出脚本、接不住），而 `node` 把 `.ts` 当 CJS 跑是**松散模式**、静默返回假——与 README 里 `Object.freeze` 写属性那一条同源" },
   "c304-rt-iife-arrow-this": { expect: "differ", why: "**口径边界（严格模式的选择）**：普通函数调用在松散模式下 `this` 是全局对象，本仓一律 `undefined`。同一个根还拖着下面那条" },
-  "c304-rt-closure-capture-in-forof": { expect: "differ", why: "`for (const n of [1, 2, 3])` 里每一次迭代该有**自己那一格**（JS 的 per-iteration binding），本仓三个闭包共用一格 ⇒ 全给 `3`（**静默错值**）。与 `rt-loop-capture-let-vs-var`（经典 `for` 那一格）**同一个根**：降级层还没有「每个迭代开一格环境」" },
   "c304-rt-super-property-write": { expect: "blocked", why: "`super.x = v` 报 `assigning a property on a primitive receiver`——降级层把 `super` 那一格当成了接收者。接收者该是**当前实例**、起点才是父原型（第 243 轮补的是读那一半 `super.v`，写这一半还没有）" },
   "c304-rt-detached-method-this-undefined": { expect: "differ", why: "**口径边界（严格模式的选择）**：与方法摘下来单独调那一格同一个根（见上一条）" },
   "c304-rt-optional-chain-call-forms": { expect: "differ", why: "`f?.()` 那一格（**基名自己是空值**的可选调用）。第 152 轮分过「空值在接收者上」与「空值在取出来的方法上」，这是第三格；同一条里 `o.n?.()` / `o.missing?.()` 两半是对的" },
@@ -716,4 +715,17 @@ export const EXPECTATIONS = {
   // 都只往后吃**一个**单元 ✓（`SkipNextWrapSymbol` ✓），而**调用括号是又一个单元** ✓
   // ——`o["m"]()` 这种形状能对 ✓，是因为 `MethodReorganization` 先把它折成了一个 `Method` ✓；
   // 而键本身是**成员链**（`Symbol.iterator` / `obj.key` ✓）时那一折没赶上 ✓ ⇒ 括号剩在外面 ✗。
+  // **第 314 轮量到、当天没修** ✗：`for (let i…)` 那个「每轮一个新环境」在**循环出口**
+  // 把 `frame.Env` 留在**最后那个多出来的环境**上 ✓——而 IR 里**没有「退回上一层环境」那条指令** ✗
+  // （`ir.xl.md` 只有 `env_new` / `env_get` / `env_set` ✓），于是循环**之后**的代码
+  // 按词法深度读环境时读到的链少了一层 ✓ ⇒ 报 `environment index out of range: 1` ✓，
+  // 或者**一声不响地把后面的语句丢掉** ✗（实测两种都出现过 ✓：上一条是这个形状的下半个面 ✓）。
+  // **判据 `c314-rt-top-level-env-after-let-loop` 钉的就是它** ✓（最小复现：一个顶层
+  // `for (let i…)` 里造闭包 ✓，后面再出现**任何**读环境格的代码 ✓）。
+  // **修法**：要么给引擎加一条「退回上一层环境」的算子 ✓（`EnvLeave` ✓，与 `EnvNew` 对称 ✓），
+  // 要么让每轮环境的建立点落在**别处** ✓——两条都要动引擎与降级期两处 ✓，另起一轮 ✓。
+  "c314-rt-top-level-env-after-let-loop": {
+    expect: "differ",
+    why: "顶层 `for (let i…)` 造过闭包之后，**循环后面的代码读环境格会读错链**：本仓只印 `A 0,1,2`（后面那行 `H 5` **丢了**，一句异常都没有），Node 印两行。根子是那个「每轮一个新环境」在**循环出口**把 `frame.Env` 留在最后多出来的那个环境上，而 IR 里没有「退回上一层环境」的指令（只有 env_new / env_get / env_set）⇒ 循环之后按词法深度读环境就少了一层。同一条根的另一副面孔是 `environment index out of range: 1`（把两段前后调换顺序就能看到）。修法：给引擎加一条与 `env_new` 对称的「退回上一层」算子，或改每轮环境的建立点——两处都要动，另起一轮",
+  },
 };
