@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.9,
+  "progressPercent": 99.01,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 427,
-      "pass": 418,
+      "pass": 419,
       "blocked": 8,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 97.89
+      "coverage": 98.13
     },
     {
       "layer": "exec",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 523,
-      "pass": 517,
+      "pass": 518,
       "blocked": 0,
-      "differ": 6,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 98.85
+      "coverage": 99.04
     },
     {
       "layer": "e2e",
@@ -145,18 +145,6 @@
     }
   ],
   "differ": [
-    {
-      "id": "rt-instanceof-custom",
-      "layer": "runtime",
-      "title": "instanceof 认 Symbol.hasInstance（静态方法优先）",
-      "detail": "stdout 不同：第 1 行：node «true false false» vs tsrun «false false false»"
-    },
-    {
-      "id": "symbol-hasinstance",
-      "layer": "stdlib",
-      "title": "Symbol.hasInstance：自定义 instanceof",
-      "detail": "stdout 不同：第 1 行：node «true false» vs tsrun «false false»"
-    },
     {
       "id": "console-log-special",
       "layer": "stdlib",

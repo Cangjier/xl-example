@@ -429,6 +429,29 @@ return Value.FromString(table.CreateString(units));
 if (prototypeKey <= 0) {
   throw new Error("instanceof needs the prototype key (the host declares it, see DeclarePrototypeKey)");
 }
+// **① `C[Symbol.hasInstance]` 先问** ✓（第 344 轮 ✓）：JS 的 `instanceof` 第一步就是
+// 「右边有没有那一格、可不可调」✓——有就以它的布尔结果为准 ✓，
+// **根本不看原型链** ✗（判据 `rt-instanceof-custom` / `symbol-hasinstance` ✓：
+// `class Even { static [Symbol.hasInstance](v) { … } }` 之后 `2 instanceof Even` 是**真** ✓）。
+//
+// **名字从那张小表里取** ✓——与上面 `ToPrimitive` 那一处**一字不差** ✓
+// （引擎不认识 `Symbol` 这六个字 ✓，只知道「语言层在那张小表里放了一格叫这个名字的东西」✓）；
+// **表是空的（`<= 0`）就整档跳过** ✓，与 `IteratorMethodOf` 同一口径 ✓。
+// **`call` 是必须的** ✗：调不了就跳过这一档 ✓（那正是「宿主没接调用通道」那一档 ✓）。
+if (call !== null && protos.WellKnownSymbols > 0) {
+  const hasInstanceTable = Value.FromObject(protos.WellKnownSymbols);
+  const lookupName = Value.FromString(table.CreateString(HostTextUnits("hasInstance")));
+  const hasInstanceKey = GetProperty(room, call, protos, table, hasInstanceTable, lookupName);
+  if (hasInstanceKey.Tag === ValueTag.Symbol) {
+    const hasInstanceMethod = GetProperty(room, call, protos, table, right, hasInstanceKey);
+    if (IsCallableValue(table, hasInstanceMethod)) {
+      const hasArgs: Value[] = [left];
+      // **`RtToBoolean` 给的是一个 `Bool` 值** ✓（不是宿主布尔 ✗）：`instanceof` 要的是
+      // `Value.FromBool(bool)` ✓，所以这里取 `.AsBool()` ✓——与 `RtNot` 那一支同一处口径 ✓。
+      return Value.FromBool(RtToBoolean(table, call(hasInstanceMethod, right, hasArgs)).AsBool());
+    }
+  }
+}
 const key = Value.FromString(prototypeKey);
 const target = GetProperty(room, call, protos, table, right, key);
 if (!target.IsObject()) {

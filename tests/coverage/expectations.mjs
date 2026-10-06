@@ -207,7 +207,7 @@ export const EXPECTATIONS = {
   // **`symbol-hasinstance` 从 blocked 变成 differ 了** ✓：`static [Symbol.hasInstance](v)`
   // 这种**计算成员名**现在降级得出来 ✓（第 229 轮 ✓），差的是 `instanceof` 那头
   // **还没问那一格** ✗（引擎的 `RtInstanceOf` 只沿原型链找 ✓）。
-  "symbol-hasinstance": { expect: "differ", why: "**第 229 轮做掉了一半** ✓：`static [Symbol.hasInstance](v) { … }` 这种**计算成员名**现在降级得出来 ✓（原来整份文件进不来 ✗）。差的是一半 ✗：`instanceof` 那头**还没问那一格** ✓——引擎的 `RtInstanceOf`（`rt.xl.md`）只沿原型链找 `C.prototype` ✓，「先问 `C[Symbol.hasInstance]`、有就调它」那条路没有 ✗。而那一格是**计算键** ✓、值是一个**闭包** ✓，要调它得有一条 `NativeCall` ✓（引擎里那一处只有 `room` ✓）——所以这一半不是一个顺手的小改 ✗。" },
+  // **第 344 轮过了** ✓（这一行撤了 ✓）：`instanceof` 先问 `C[Symbol.hasInstance]` ✓（名字从那张小表里取 ✓，与 `ToPrimitive` 那一处一字不差 ✓）。
   // **第 273 轮把这个 blocked 那一行也删掉了** ✓（理由与 `object-tostring-tag` 同一处 ✓）。
   // **第 241 轮删掉了 `symbol-description` 那一行** ✓（它过了 ✓）：
   // 原来记的理由是「要挂在符号的**原型**上，而 `Protos` 表里没有符号那一格」✓——
@@ -613,7 +613,7 @@ export const EXPECTATIONS = {
   // **第 304 轮删掉了 `object-assign-forms-and-order` 那一行** ✓（它过了 ✓）：
   // `Object.assign({}, "ab")` 从静默 `{}` 变成 `{"0":"a","1":"b"}` ✓——
   // 修的是字符串当源那一格（按**码元**展开成下标键 ✓，与 `Object.keys("ab")` 同一条口径 ✓）。
-  "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
+  // **第 344 轮过了** ✓（这一行撤了 ✓）：`instanceof` 先问 `C[Symbol.hasInstance]` ✓（名字从那张小表里取 ✓，与 `ToPrimitive` 那一处一字不差 ✓）。
 
   // ===== 第 290 轮：矩阵加宽 95 条量到的那一批（29 条缺口，按根子分组）=====
   //
