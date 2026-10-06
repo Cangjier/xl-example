@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.32,
+  "progressPercent": 99.38,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 427,
-      "pass": 421,
-      "blocked": 6,
+      "pass": 422,
+      "blocked": 5,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.59
+      "coverage": 98.83
     },
     {
       "layer": "exec",
@@ -90,12 +90,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: return"
     },
     {
-      "id": "c291-rt-class-shapes",
-      "layer": "runtime",
-      "title": "类的字段 / 访问器 / 继承 / 静态成员的形状",
-      "detail": "tsrun: 脚本抛出：unimplemented: Object.getPrototypeOf over this kind of value"
-    },
-    {
       "id": "c291-rt-closure-and-method-this",
       "layer": "runtime",
       "title": "闭包里的 this 与方法调用",
@@ -131,7 +125,7 @@
       "id": "console-log-special",
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-9636/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
+      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-1248/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
     },
     {
       "id": "c305-std-thenable-adoption",

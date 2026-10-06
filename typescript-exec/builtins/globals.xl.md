@@ -2643,12 +2643,28 @@ if (id === ObjectGetPrototypeOf) {
   if (target.Tag === ValueTag.String) return Value.FromObject(protos.String);
   if (target.Tag === ValueTag.Int32 || target.Tag === ValueTag.Float64) return Value.FromObject(protos.Number);
   if (target.Tag === ValueTag.Bool) return Value.FromObject(protos.Boolean);
-  if (target.Tag !== ValueTag.Object && target.Tag !== ValueTag.Array) {
+  // **闭包 / 函数也要认** ✓（第 357 轮 ✓，**实测撞到的** ✓）：`class B extends A { }` 里
+  // **类对象自己**也是一个对象 ✓（`Object.getPrototypeOf(B) === A` ✓，判据
+  // `c291-rt-class-shapes` 第 6 格量的就是它 ✓）——而函数那一档原来**一律抛** ✗
+  //（`unimplemented: Object.getPrototypeOf over this kind of value` ✓，
+  // **一句话里没有一个字提到「函数也是对象」** ✗）。
+  // 它们在值模型里同样住堆上 ✓（`HeapClosure` / `HeapFunction` 都有 `Proto` 那一格 ✓），
+  // 所以这里只是**放行** ✓、下面那句读法一个字都不用改 ✓。
+  if (target.Tag !== ValueTag.Object && target.Tag !== ValueTag.Array
+    && target.Tag !== ValueTag.Closure && target.Tag !== ValueTag.Function) {
     throw new Error("unimplemented: Object.getPrototypeOf over this kind of value");
   }
   const protoHandle = table.Get(target.Ref).Proto;
   if (protoHandle === 0) return Value.Null();
-  return Value.FromObject(protoHandle);
+  // **标签要跟着那一格自己的** ✓（第 357 轮 ✓，**实测撞到的** ✓）：`class B extends A {}` 的
+  // **`B` 自己**是一条 `set_proto` 到 **`A` 那个闭包**上的 ✓（`LowerClass` 里那句
+  // `SetProto(ctor, staticBaseSlot)` ✓）——而这里原来一律 `Value.FromObject` ✗
+  // ⇒ 拿到的是一个 **Object 标签**的值 ✓，与 `A`（**Closure 标签** ✓）用 `===` 一比
+  // **永远是假** ✗（症状：`Object.getPrototypeOf(B) === A` 给 `false` ✓，而链上**确实**是 `A` ✓
+  // ——`c291-rt-class-shapes` 第 6 格量的就是它 ✓）。
+  // **`HeapObject.Tag` 就是为这件事留的** ✓（堆上每一项都记着自己是什么 ✓）——
+  // 不再猜、也不再写第二份「哪些 tag 算对象」的名单 ✓。
+  return Value.FromRef(table.Get(protoHandle).Tag, protoHandle);
 }
 if (id === ErrorToString) {
   // **`Error.prototype.toString`** ✓（第 213 轮 ✓）——JS 的三条规矩 ✓：
