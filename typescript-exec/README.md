@@ -6,6 +6,71 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 367 轮的账（**嵌套命名空间：把第 292 轮退回来的那一半补上** —— 99.8% → **99.9%**，`blocked` 归零）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮收在 **token 层 + 投影层** ✓，
+而且是**照着台账里现成的施工图**收的 ✓。
+
+### 一、那一格（`c291-ex-nested-namespace-with-values`）
+
+```ts
+namespace Outer { export namespace Inner { export const v = 2; } export const w = Inner.v + 1; }
+console.log(Outer.w, Outer.Inner.v);
+```
+
+**Node 给 `3 2`** ✓、本仓原来报 **`assignment to a non-identifier (left is ModuleDeclaration at 19..65)`** ✗
+（**命名空间声明与后面那句被并成了一条语句** ✗）。
+
+### 二、这一档早就写在台账里，连修法都写好了
+
+`statement.xl.md` 里有一段**第 292 轮**留下的账 ✓：把 `Namespace` 加进语句边界表
+**确实能修好**「命名空间后面同一行再跟一句」✓，但它**同时把嵌套那一档从「报错」变成「静默错值」** ✗——
+外层 `ModuleBlock` 的产物从 `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration` ✗
+⇒ 降级层读 `ListOf(block, "statements")` **一个语句都取不到** ✗ ⇒ 内层命名空间根本没建 ✓
+⇒ 脚本报 `cannot read properties of undefined` ✓（**离现场很远** ✗）。
+
+那一轮的选择是「**收益 1 条、代价是把报错换成静默错值**」✗ ⇒ **退回来** ✓，
+并写下「**要动就得一起动**」✓。
+
+### 三、这一轮把两半一起动了
+
+- `statement.xl.md`：`Namespace` 进语句边界表 ✓；
+- `print-ast-common.xl.md` 的 `BODY_FIELDS` 那一处：`body` **只在「父亲是 `ModuleDeclaration`」
+  时成立** ✓（点号命名空间 `namespace A.B.C` ✓），其余（`ModuleBlock` 里的内层命名空间 ✓）
+  **留在 `statements` 里** ✓。
+
+**判据是量出来的，不是猜的** ✓：
+
+| 条件 | 快循环 |
+| --- | --- |
+| 父亲按 `Namespace` 判 | 字段名不符 **4** ✗ |
+| 父亲按 `ModuleBlock` 判 | 字段名不符 **9** ✗ |
+| 父亲按 **`ModuleDeclaration`** 判 | **0 / 0 / 0** ✓ |
+
+中间那一步还给出过一条**有用的中间信号** ✓：错误从「assignment to a non-identifier」
+变成「**name used before its declaration: Inner**」✓ ⇒ **说明语句切分那一半已经对了** ✓——
+**「错误换了一句话」本身就是进度** ✓。
+
+### 四、这一格的教训（**值得记** ✓）
+
+**「退回来的改动 + 写清楚的代价」等于一张现成的施工图** ✓——第 292 轮那句
+「要动就得一起动」✓ 把这一轮的工作量从「重新定位」压成「补另一半」✓；
+而**「同一个字段名要看父亲」** ✓ 又是第 357 / 360 / 363 / 365 轮那一族 ✓
+（**同一个东西两种表示** ✓）。
+
+**读数** ✓：`pass` **1340 → 1341** ✓、**`blocked` 1 → 0** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **37.2s 全绿** ✓；**引擎 99.3%** ✓、降级层 99.7% ✓、标准库 99.4% ✓、端到端 100% ✓。
+**剩下 2 格，都是 `differ`** ✓：`console-log-special`（要 `stack` ✓）与
+`c323-std-array-fromasync`（**没有实现** ✗）。
+
+### 五、下一轮的入口
+
+**① `Array.fromAsync`** ✓（**根本没有实现** ✗——它要等**异步迭代器** ✓，是承诺那一族的事 ✓；
+   今天那条的症状是**空输出** ✗，因为 `async` 里抛的错被吞成了拒绝 ✓）；
+**② 错误要有 `stack`** ✓（IR 要带源码位置 ✓——这一条是**结构性的** ✗，
+   要么给 IR 补位置信息 ✓、要么在台账里把它记成**已知的形状差** ✓）。
+
 ## 第 366 轮的账（**链式调用 `x.get()()`：外层 `Method` 的名字是空的** —— 99.8%，收掉 1 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
