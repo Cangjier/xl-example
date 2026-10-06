@@ -5283,4 +5283,387 @@ for (const k in shadow) s2.push(k + "=" + shadow[k]);
 console.log(s2.join(","));
 `,
   },
+
+  // ===== 第 371 轮：加宽矩阵收编的候选（75 条）=====
+  {
+    "id": "c371-rt-number-edge-values",
+    "title": "数值边界：-0 / NaN / Infinity / 精度 / 溢出",
+    "src": "console.log(1 / -0, Object.is(-0, 0), -0 + 0, Object.is(-0 + 0, 0));\nconsole.log(NaN === NaN, Number.isNaN(NaN), Infinity - Infinity);\nconsole.log(0.1 + 0.2, 1 / 3, 2 ** 53 + 1, 2 ** 53 + 1 === 2 ** 53);\nconsole.log(Number.MAX_VALUE * 2, Number.MIN_VALUE / 2, 1e308 * 10);\nconsole.log((0.1 + 0.2).toFixed(17));"
+  },
+  {
+    "id": "c371-rt-bitwise-32bit",
+    "title": "位运算的 32 位口径与移位计数",
+    "src": "console.log(5 & 3, 5 | 3, 5 ^ 3, ~5, ~0);\nconsole.log(1 << 31, (1 << 31) >>> 0, -1 >>> 0, -1 >> 1);\nconsole.log(1 << 32, 1 << 33, 1 << -1, 1 >>> 32);\nconsole.log(0x7fffffff + 1, (0x7fffffff + 1) | 0, 2 ** 31 | 0);\nconsole.log(1.9 | 0, -1.9 | 0, NaN | 0, Infinity | 0);"
+  },
+  {
+    "id": "c371-rt-equality-tables",
+    "title": "相等三张表的差别：== / === / Object.is / SameValueZero",
+    "src": "const pairs: [unknown, unknown][] = [[null, undefined], [0, \"\"], [\"0\", false], [NaN, NaN], [0, -0], [1, \"1\"], [[], \"\"], [[1], 1], [{}, \"[object Object]\"]];\nfor (const [a, b] of pairs) console.log(String(a == (b as any)), String(a === (b as any)), Object.is(a, b));\nconsole.log([NaN].includes(NaN), [0].includes(-0), [NaN].indexOf(NaN));"
+  },
+  {
+    "id": "c371-rt-truthiness-full",
+    "title": "真假值表：所有原始值与包装对象",
+    "src": "const vals: any[] = [undefined, null, false, true, 0, -0, 1, NaN, \"\", \"0\", \"false\", [], [0], {}, function () {}, new Boolean(false), new Number(0), new String(\"\")];\nconsole.log(vals.map((v) => (v ? \"T\" : \"F\")).join(\"\"));\nconsole.log(Boolean(new Boolean(false)), !!new Boolean(false), Boolean(new String(\"\")));"
+  },
+  {
+    "id": "c371-rt-property-semantics",
+    "title": "属性语义：自有 / 继承 / 访问器 / 缺失 / 原型上的写",
+    "src": "const proto: any = { inherited: 1, get computed() { return \"p\"; } };\nconst o: any = Object.create(proto);\no.own = 2;\nconsole.log(o.own, o.inherited, o.computed, o.missing, \"inherited\" in o, Object.hasOwn(o, \"inherited\"));\no.inherited = 3;\nconsole.log(o.inherited, proto.inherited, Object.hasOwn(o, \"inherited\"));\nconst arr = [1, 2, 3];\narr[5] = 6;\nconsole.log(arr.length, arr[4], arr[3], 3 in arr, JSON.stringify(arr));"
+  },
+  {
+    "id": "c371-rt-array-vs-object-keys",
+    "title": "数组下标键与普通字符串键在枚举上的分工",
+    "src": "const a: any = [1, 2];\na.extra = \"e\";\na[-1] = \"neg\";\na[1.5] = \"frac\";\na[\"2\"] = 3;\nconsole.log(a.length, Object.keys(a).join(\",\"), JSON.stringify(a));\nconsole.log(a.extra, a[-1], a[\"1.5\"], a[2]);\nconsole.log(Array.isArray(a), a instanceof Array);"
+  },
+  {
+    "id": "c371-rt-delete-semantics",
+    "title": "delete：自有 / 继承 / 数组元素 / 不可配置",
+    "src": "const o: any = { a: 1, b: 2 };\nconsole.log(delete o.a, o.a, \"a\" in o, Object.keys(o).join(\",\"));\nconst proto = { p: 1 };\nconst child: any = Object.create(proto);\nconsole.log(delete child.p, child.p, \"p\" in child);\nconst arr: any = [1, 2, 3];\nconsole.log(delete arr[1], arr.length, JSON.stringify(arr), 1 in arr);\nconst frozen: any = {};\nObject.defineProperty(frozen, \"f\", { value: 1, configurable: false });\nconsole.log(delete frozen.f, frozen.f);"
+  },
+  {
+    "id": "c371-rt-prototype-chain-deep",
+    "title": "深原型链上的读 / 写 / instanceof / isPrototypeOf",
+    "src": "const a = { level: \"a\" };\nconst b = Object.create(a);\nconst c = Object.create(b);\nconst d = Object.create(c);\nconsole.log(d.level, a.isPrototypeOf(d), b.isPrototypeOf(d), d.isPrototypeOf(a));\nconsole.log(Object.getPrototypeOf(d) === c, Object.getPrototypeOf(Object.getPrototypeOf(c)) === b);\nd.level = \"d\";\nconsole.log(d.level, a.level);\nlet depth = 0;\nlet walk: any = d;\nwhile (walk !== null) { depth += 1; walk = Object.getPrototypeOf(walk); }\nconsole.log(depth);"
+  },
+  {
+    "id": "c371-rt-class-field-init-order",
+    "title": "字段初始化顺序：基类先、字段按书写、静态先于实例",
+    "src": "const log: string[] = [];\nclass Base {\n  b1 = (log.push(\"b1\"), 1);\n  constructor() { log.push(\"base-ctor\"); }\n}\nclass Derived extends Base {\n  d1 = (log.push(\"d1\"), 1);\n  constructor() { super(); log.push(\"derived-ctor\"); this.d2 = (log.push(\"d2\"), 2); }\n  d2 = 0;\n}\nconst d = new Derived();\nconsole.log(log.join(\",\"), d.d1, d.d2);\nconst log2: string[] = [];\nclass S { static a = (log2.push(\"a\"), 1); static b = (log2.push(\"b\"), 2); }\nconsole.log(log2.join(\",\"), S.a + S.b);"
+  },
+  {
+    "id": "c371-rt-private-fields-brand",
+    "title": "私有字段：品牌检查、继承里的可见性、跨实例访问",
+    "src": "class Vault {\n  #secret = 1;\n  static #shared = \"s\";\n  get secret(): number { return this.#secret; }\n  static same(a: Vault, b: Vault): boolean { return a.#secret === b.#secret; }\n  static brand(o: unknown): boolean { return #secret in (o as object); }\n  static shared(): string { return Vault.#shared; }\n}\nclass Sub extends Vault {}\nconst a = new Vault();\nconst b = new Vault();\nconsole.log(a.secret, Vault.same(a, b), Vault.brand(a), Vault.brand({}), Vault.brand(new Sub()));\nconsole.log(Vault.shared(), new Sub().secret);"
+  },
+  {
+    "id": "c371-rt-super-and-this-binding",
+    "title": "super 与 this：方法、箭头、解构、回调里的绑定",
+    "src": "class Base {\n  v = 1;\n  m(): string { return \"B\" + this.v; }\n}\nclass Derived extends Base {\n  v = 2;\n  arrow = () => this.v;\n  callSuper(): string { return super.m(); }\n  detached(): () => string { return this.m; }\n  m(): string { return \"D\" + this.v; }\n}\nconst d = new Derived();\nconsole.log(d.callSuper(), d.m(), d.arrow());\nconst detached = d.detached();\ntry { console.log(detached()); } catch (e) { console.log(\"detached needs this\"); }\nconsole.log(d.arrow.call({} as any));"
+  },
+  {
+    "id": "c371-rt-closure-env-forms",
+    "title": "闭包与环境：循环变量、嵌套、共享与独立",
+    "src": "const fns: (() => number)[] = [];\nfor (let i = 0; i < 3; i++) fns.push(() => i);\nconsole.log(fns.map((f) => f()).join(\",\"));\nconst varFns: (() => number)[] = [];\nfor (var j = 0; j < 3; j++) varFns.push(() => j);\nconsole.log(varFns.map((f) => f()).join(\",\"));\nfunction counter(): () => number { let n = 0; return () => (n += 1); }\nconst c1 = counter();\nconst c2 = counter();\nconsole.log(c1(), c1(), c2());\nconst shared: (() => number)[] = [];\n{ let x = 1; shared.push(() => x); x = 2; }\nconsole.log(shared[0]());"
+  },
+  {
+    "id": "c371-rt-block-scope-and-tdz",
+    "title": "块作用域、遮蔽、先声明后使用的顺序",
+    "src": "let x = \"outer\";\n{\n  let x = \"block\";\n  console.log(x);\n}\nconsole.log(x);\nfunction f(): string {\n  let y = \"f\";\n  if (true) { let y = \"if\"; return y; }\n  return y;\n}\nconsole.log(f());\nconst order: string[] = [];\nfunction g(): void { order.push(typeof z); var z = 1; order.push(String(z)); }\ng();\nconsole.log(order.join(\",\"));\nconsole.log([1, 2, 3].map((n) => { const d = n * 2; return d; }).join(\",\"));"
+  },
+  {
+    "id": "c371-rt-try-catch-finally-matrix",
+    "title": "try / catch / finally 的六种收口方式",
+    "src": "function a(): string { try { return \"t\"; } finally { console.log(\"f1\"); } }\nfunction b(): string { try { throw new Error(\"x\"); } catch { return \"c\"; } finally { console.log(\"f2\"); } }\nfunction c(): string { try { return \"t\"; } finally { return \"f\"; } }\nfunction d(): string { try { throw new Error(\"x\"); } finally { return \"f\"; } }\nfunction e(): string { try { return \"t\"; } catch { return \"c\"; } }\nfunction g(): string { let out = \"\"; try { out += \"t\"; } finally { out += \"f\"; } return out; }\nconsole.log(a(), b(), c(), d(), e(), g());\ntry { try { throw new Error(\"inner\"); } finally { console.log(\"f3\"); } } catch (err) { console.log(\"outer\", (err as Error).message); }"
+  },
+  {
+    "id": "c371-rt-throw-non-error",
+    "title": "抛原始值、抛对象、rethrow 与 finally 里的抛",
+    "src": "for (const v of [\"s\", 1, null, undefined, { code: 1 }, [1, 2]]) {\n  try { throw v; } catch (e) { console.log(typeof e, JSON.stringify(e)); }\n}\ntry {\n  try { throw new Error(\"orig\"); } catch (e) { throw new Error(\"wrapped: \" + (e as Error).message); }\n} catch (e) { console.log((e as Error).message); }\ntry {\n  try { throw new Error(\"a\"); } finally { throw new Error(\"b\"); }\n} catch (e) { console.log(\"winner\", (e as Error).message); }"
+  },
+  {
+    "id": "c371-rt-iteration-protocol-forms",
+    "title": "迭代协议：手动 next、提前退出、return() 收尾",
+    "src": "const iterable = {\n  data: [1, 2, 3],\n  [Symbol.iterator]() {\n    let i = 0;\n    const self = this;\n    return {\n      next: () => (i < self.data.length ? { value: self.data[i++], done: false } : { value: undefined, done: true }),\n      return: () => { console.log(\"closed\"); return { value: undefined, done: true }; },\n    };\n  },\n};\nconsole.log([...iterable].join(\",\"));\nfor (const v of iterable) { if (v === 2) break; console.log(\"got\", v); }\nconst it = iterable[Symbol.iterator]();\nconsole.log(JSON.stringify(it.next()), JSON.stringify(it.next()));\nconsole.log([...iterable].length, Array.from(iterable).length);"
+  },
+  {
+    "id": "c371-rt-generator-forms",
+    "title": "生成器：传值、委托、return、throw、提前结束",
+    "src": "function* twoWay() {\n  const a = yield 1;\n  const b = yield a + 1;\n  return a + b;\n}\nconst g = twoWay();\nconsole.log(JSON.stringify(g.next()), JSON.stringify(g.next(10)), JSON.stringify(g.next(20)));\nfunction* inner() { yield \"i1\"; yield \"i2\"; }\nfunction* outer() { yield \"o1\"; yield* inner(); yield \"o2\"; }\nconsole.log([...outer()].join(\",\"));\nfunction* withReturn() { try { yield 1; yield 2; } finally { console.log(\"gen-finally\"); } }\nconst h = withReturn();\nconsole.log(JSON.stringify(h.next()), JSON.stringify(h.return(9)));\nfunction* catcher() { try { yield 1; } catch (e) { console.log(\"caught\", (e as Error).message); } }\nconst k = catcher();\nk.next();\nk.throw(new Error(\"into\"));\nconsole.log([...k].length);"
+  },
+  {
+    "id": "c371-rt-for-of-vs-for-in",
+    "title": "for..of 与 for..in 走过的东西不一样",
+    "src": "const arr = [10, 20, 30];\nfor (const v of arr) console.log(\"of\", v);\nfor (const k in arr) console.log(\"in\", k, typeof k);\nconst o = { a: 1, b: 2 };\nfor (const k in o) console.log(\"obj\", k, o[k as \"a\"]);\nconst s = \"ab\";\nfor (const ch of s) console.log(\"str\", ch);\nfor (const k in s) console.log(\"strk\", k);\nconst m = new Map([[\"k\", 1]]);\nfor (const [key, v] of m) console.log(\"map\", key, v);"
+  },
+  {
+    "id": "c371-rt-promise-chaining-values",
+    "title": "承诺链：值的透传、返回承诺、链上抛错",
+    "src": "Promise.resolve(1)\n  .then((v) => v + 1)\n  .then((v) => Promise.resolve(v * 10))\n  .then((v) => { console.log(\"final\", v); return v; })\n  .then((v) => { throw new Error(\"at \" + v); })\n  .catch((e) => \"recovered:\" + (e as Error).message)\n  .then((v) => console.log(v));\nPromise.resolve(\"a\").then(() => {}).then((v) => console.log(\"undefined-passthrough\", v === undefined));\nPromise.reject(new Error(\"r1\")).then(() => console.log(\"skip\")).catch((e) => console.log(\"c1\", (e as Error).message));\nconsole.log(\"sync\");"
+  },
+  {
+    "id": "c371-rt-async-await-order",
+    "title": "async / await 的执行顺序与返回值",
+    "src": "async function f(): Promise<number> {\n  console.log(\"f-start\");\n  const a = await Promise.resolve(1);\n  console.log(\"f-mid\");\n  const b = await 2;\n  console.log(\"f-end\");\n  return a + b;\n}\nconsole.log(\"before\");\nf().then((v) => console.log(\"result\", v));\nconsole.log(\"after\");\n(async () => {\n  for (const v of [1, 2]) {\n    const r = await Promise.resolve(v * 10);\n    console.log(\"loop\", r);\n  }\n})();"
+  },
+  {
+    "id": "c371-rt-async-error-paths",
+    "title": "async 里的抛错 / 拒绝 / try-catch / finally",
+    "src": "async function boom(): Promise<void> { throw new Error(\"boom\"); }\nasync function reject(): Promise<void> { await Promise.reject(new Error(\"rej\")); }\nasync function guarded(): Promise<string> {\n  try { await boom(); return \"no\"; } catch (e) { return \"caught:\" + (e as Error).message; } finally { console.log(\"fin\"); }\n}\nboom().catch((e) => console.log(\"1\", (e as Error).message));\nreject().catch((e) => console.log(\"2\", (e as Error).message));\nguarded().then((v) => console.log(\"3\", v));\n(async () => { try { await Promise.reject(\"raw\"); } catch (e) { console.log(\"4\", e); } })();"
+  },
+  {
+    "id": "c371-rt-map-set-identity",
+    "title": "Map / Set 的身份语义与迭代中的修改",
+    "src": "const m = new Map<any, number>();\nconst key = { id: 1 };\nm.set(key, 1);\nm.set({ id: 1 }, 2);\nconsole.log(m.size, m.get(key));\nfor (const [k, v] of m) { }\nconst seen: string[] = [];\nm.forEach((v, k) => seen.push(String(v)));\nconsole.log(seen.join(\",\"), m.has(key));\nconst s = new Set<number>([1, 2, 3]);\nfor (const v of s) { if (v === 2) s.delete(3); }\nconsole.log([...s].join(\",\"), s.size);"
+  },
+  {
+    "id": "c371-rt-object-spread-and-rest",
+    "title": "对象展开与剩余：符号键、访问器、原型属性",
+    "src": "const sym = Symbol(\"s\");\nconst proto = { inherited: 1 };\nconst src: any = Object.create(proto);\nsrc.own = 2;\nsrc[sym] = 3;\nconst copy = { ...src };\nconsole.log(JSON.stringify(copy), Object.getOwnPropertySymbols(copy).length, (copy as any).inherited);\nconst { own, ...rest } = src;\nconsole.log(own, JSON.stringify(rest), Object.getOwnPropertySymbols(rest).length);\nlet reads = 0;\nconst withGetter: any = {};\nObject.defineProperty(withGetter, \"g\", { get() { reads += 1; return reads; }, enumerable: true });\nconst spread = { ...withGetter };\nconsole.log(spread.g, reads);"
+  },
+  {
+    "id": "c371-rt-array-methods-chain-deep",
+    "title": "长数组方法链上的中间值与惰性",
+    "src": "const xs = Array.from({ length: 10 }, (_, i) => i);\nconst result = xs\n  .map((v) => v * 2)\n  .filter((v) => v % 4 === 0)\n  .map((v) => v + 1)\n  .reduce((a, b) => a + b, 0);\nconsole.log(result);\nlet calls = 0;\nconst counted = xs.filter((v) => { calls += 1; return v > 5; });\nconsole.log(counted.length, calls);\nconsole.log(xs.slice(2, 5).join(\",\"), xs.splice(0, 0).length, xs.length);"
+  },
+  {
+    "id": "c371-rt-string-builder-stress",
+    "title": "字符串拼接的压力：一万次追加与连接",
+    "src": "let acc = \"\";\nfor (let i = 0; i < 10000; i++) acc += i % 10;\nconsole.log(acc.length, acc.slice(0, 5), acc.slice(-5));\nconst parts: string[] = [];\nfor (let i = 0; i < 5000; i++) parts.push(\"x\" + (i % 7));\nconsole.log(parts.join(\"\").length, parts.length);\nconst big = \"ab\".repeat(20000);\nconsole.log(big.length, big.slice(0, 2), big.indexOf(\"ab\", 1000));"
+  },
+  {
+    "id": "c371-rt-large-collections",
+    "title": "大集合的压力：一万条 Map / Set / 数组",
+    "src": "const m = new Map<number, number>();\nfor (let i = 0; i < 10000; i++) m.set(i, i * 2);\nconsole.log(m.size, m.get(9999), m.has(10000));\nconst s = new Set<number>();\nfor (let i = 0; i < 10000; i++) s.add(i % 1000);\nconsole.log(s.size, s.has(999), s.has(1000));\nconst arr: number[] = [];\nfor (let i = 0; i < 10000; i++) arr.push(i);\nconsole.log(arr.length, arr[9999], arr.reduce((a, b) => a + b, 0));"
+  },
+  {
+    "id": "c371-rt-recursion-depth",
+    "title": "递归深度：线性递归、树递归、相互递归",
+    "src": "function sum(n: number): number { return n === 0 ? 0 : n + sum(n - 1); }\nconsole.log(sum(2000));\nfunction fib(n: number): number { return n < 2 ? n : fib(n - 1) + fib(n - 2); }\nconsole.log(fib(20));\nfunction isEven(n: number): boolean { return n === 0 ? true : isOdd(n - 1); }\nfunction isOdd(n: number): boolean { return n === 0 ? false : isEven(n - 1); }\nconsole.log(isEven(1000), isOdd(7));\ntype Tree = { v: number; kids: Tree[] };\nconst tree: Tree = { v: 1, kids: [{ v: 2, kids: [] }, { v: 3, kids: [{ v: 4, kids: [] }] }] };\nfunction totalOf(t: Tree): number { return t.v + t.kids.reduce((a, k) => a + totalOf(k), 0); }\nconsole.log(totalOf(tree));"
+  },
+  {
+    "id": "c371-rt-deep-object-graph",
+    "title": "深对象图：建立、遍历、序列化",
+    "src": "type N = { id: number; next?: N };\nlet head: N | undefined = undefined;\nfor (let i = 50; i >= 0; i--) head = { id: i, next: head };\nlet count = 0;\nlet walk = head;\nconst ids: number[] = [];\nwhile (walk) { count += 1; if (walk.id % 10 === 0) ids.push(walk.id); walk = walk.next; }\nconsole.log(count, ids.join(\",\"));\nconst json = JSON.stringify(head);\nconsole.log(json.length, JSON.parse(json).id);\nconst tree: any = { name: \"root\", children: [] };\nlet cursor = tree;\nfor (let i = 0; i < 30; i++) { const child = { name: \"n\" + i, children: [] }; cursor.children.push(child); cursor = child; }\nlet depth = 0;\nlet probe: any = tree;\nwhile (probe.children.length > 0) { depth += 1; probe = probe.children[0]; }\nconsole.log(depth, probe.name);"
+  },
+  {
+    "id": "c371-rt-string-unicode-forms",
+    "title": "Unicode：代理对、码点、长度、切片",
+    "src": "const s = \"a\\u{1F600}b\\u{1F601}c\";\nconsole.log(s.length, [...s].length, Array.from(s).map((c) => c.length).join(\",\"));\nconsole.log(s.charAt(1).charCodeAt(0), s.charCodeAt(1), s.codePointAt(1));\nconsole.log(s.slice(0, 3).length, s.substring(1, 3).length);\nconsole.log(JSON.stringify(s), s.split(\"\").length, s.split(\"b\").length);\nconsole.log(s.indexOf(\"b\"), s.includes(\"\\u{1F600}\"), s.lastIndexOf(\"c\"));"
+  },
+  {
+    "id": "c371-rt-number-to-string-table",
+    "title": "数字转文本的完整口径",
+    "src": "const nums = [0, -0, 1, -1, 0.5, 1e21, 1e-7, 1e-6, NaN, Infinity, -Infinity, 123456789012345680000];\nfor (const n of nums) console.log(String(n));\nconsole.log(String(0.1 + 0.2), String(1 / 3), (1234.5678).toFixed(2), (0.000001).toString());\nconsole.log(`${1e21}`, `${1e-7}`, `${-0}`);"
+  },
+  {
+    "id": "c371-rt-json-deep-and-specials",
+    "title": "JSON 深结构与特殊值：undefined、函数、稀疏数组",
+    "src": "const deep: any = { a: { b: { c: { d: [1, [2, [3, [4]]]] } } } };\nconsole.log(JSON.stringify(deep));\nconsole.log(JSON.stringify({ u: undefined, f: () => 0, n: null }));\nconst sparse: any[] = [1, , 3];\nconsole.log(JSON.stringify(sparse), JSON.stringify(Array.from(sparse)));\nconsole.log(JSON.stringify({ d: new Date(0) }));\nconsole.log(JSON.stringify({ nested: { arr: [{ x: 1 }, { y: [true, false] }] } }));"
+  },
+  {
+    "id": "c371-rt-getter-on-prototype-chain",
+    "title": "访问器沿原型链的查找与 this",
+    "src": "const base = {\n  _v: 1,\n  get v() { return this._v; },\n  set v(x: number) { this._v = x * 10; },\n};\nconst child: any = Object.create(base);\nchild._v = 2;\nconsole.log(child.v, base.v);\nchild.v = 3;\nconsole.log(child._v, child.v, base._v, Object.hasOwn(child, \"v\"));\nconst grandchild = Object.create(child);\nconsole.log(grandchild.v);\ngrandchild.v = 4;\nconsole.log(grandchild.v, child._v, Object.hasOwn(grandchild, \"_v\"));"
+  },
+  {
+    "id": "c371-rt-symbol-keyed-properties",
+    "title": "符号键：不参与枚举 / JSON / for..in，但参与取值",
+    "src": "const s1 = Symbol(\"a\");\nconst s2 = Symbol.for(\"b\");\nconst o: any = { plain: 1, [s1]: 2, [s2]: 3, [Symbol.iterator]: function* () { yield 9; } };\nconsole.log(o[s1], o[s2], o.plain, Object.keys(o).join(\",\"), JSON.stringify(o));\nfor (const k in o) console.log(\"in\", k);\nconsole.log([...o].join(\",\"), Object.getOwnPropertySymbols(o).length);"
+  },
+  {
+    "id": "c371-rt-instanceof-and-prototype",
+    "title": "instanceof 与原型替换、跨类判定",
+    "src": "class A {}\nclass B extends A {}\nclass C extends B {}\nconst c = new C();\nconsole.log(c instanceof C, c instanceof B, c instanceof A, c instanceof Object);\nconsole.log(Object.getPrototypeOf(C) === B, Object.getPrototypeOf(c) === C.prototype);\nconst o = Object.create(C.prototype);\nconsole.log(o instanceof C, o instanceof A);\nC.prototype = {} as any;\nconsole.log(c instanceof C, o instanceof C, new C() instanceof A);"
+  },
+  {
+    "id": "c371-rt-object-to-primitive-hints",
+    "title": "ToPrimitive 的三种 hint 与顺序",
+    "src": "const log: string[] = [];\nconst o = {\n  valueOf() { log.push(\"valueOf\"); return 1; },\n  toString() { log.push(\"toString\"); return \"T\"; },\n};\nconsole.log(o + 1, log.join(\",\"));\nlog.length = 0;\nconsole.log(String(o), log.join(\",\"));\nlog.length = 0;\nconsole.log(Number(o), log.join(\",\"));\nlog.length = 0;\nconsole.log(`${o}`, log.join(\",\"));\nconst onlyValue = { valueOf() { return 5; } };\nconsole.log(onlyValue + \"\", String(onlyValue), Number(onlyValue));"
+  },
+  {
+    "id": "c371-rt-array-holes-everywhere",
+    "title": "稀疏数组：洞在每一种方法下的命运",
+    "src": "const xs: any[] = [1, , 3];\nconsole.log(xs.length, 1 in xs, xs[1], JSON.stringify(xs));\nconsole.log(xs.map((v) => v * 2).length, 1 in xs.map((v) => v * 2));\nconsole.log(xs.filter(() => true).length, [...xs].length, Array.from(xs).length);\nconsole.log(xs.join(\"-\"), xs.indexOf(undefined), xs.includes(undefined));\nconsole.log(Object.keys(xs).join(\",\"), xs.every((v) => v !== undefined), xs.some((v) => v === undefined));"
+  },
+  {
+    "id": "c371-rt-date-arithmetic-forms",
+    "title": "日期的创建、算术与比较",
+    "src": "const a = new Date(Date.UTC(2020, 0, 1));\nconst b = new Date(Date.UTC(2020, 11, 31));\nconsole.log(b.getTime() - a.getTime(), a < b, a.getTime() === a.getTime());\nconsole.log(new Date(a.getTime() + 86400000).toISOString().slice(0, 10));\nconst times = [a, b].sort((x, y) => x.getTime() - y.getTime());\nconsole.log(times.map((d) => d.toISOString().slice(0, 4)).join(\",\"));\nconsole.log(Number(a) === a.getTime(), a.toISOString().length, JSON.stringify(a).slice(1, 5));"
+  },
+  {
+    "id": "c371-rt-arguments-object",
+    "title": "arguments：类数组、与形参的联动、箭头里没有",
+    "src": "function f(a: number, b: number): string {\n  console.log(arguments.length, arguments[0], arguments[2]);\n  const out: number[] = [];\n  for (let i = 0; i < arguments.length; i++) out.push(arguments[i]);\n  a = 99;\n  return out.join(\",\") + \"/\" + a + \"/\" + b;\n}\nconsole.log(f(1, 2, 3));\nfunction g(...rest: number[]): string { return rest.join(\"-\") + \"/\" + Array.isArray(rest); }\nconsole.log(g(1, 2));\nconst arrow = (...xs: number[]) => xs.length;\nconsole.log(arrow(1, 2, 3));"
+  },
+  {
+    "id": "c371-rt-frames-and-default-params",
+    "title": "默认参数与实参个数：undefined 触发、null 不触发",
+    "src": "function f(a: number = 1, b: string = \"b\", c?: number): string { return [a, b, c].join(\",\"); }\nconsole.log(f(), f(2), f(2, \"x\"), f(undefined, \"y\"), f(null as any, \"z\"), f(1, undefined, 3));\nfunction g(a: number, b: number = a * 2, c: number = b + a): number { return a + b + c; }\nconsole.log(g(1), g(1, 2), g(1, 2, 3));\nfunction h(...rest: number[]): number { return rest.length; }\nconsole.log(h(), h(1), h(1, 2, 3), h.length);"
+  },
+  {
+    "id": "c371-rt-console-inspect-shapes",
+    "title": "console.log 对复杂值的渲染",
+    "src": "console.log([1, 2, 3], [[1], [2]]);\nconsole.log({ a: 1, b: [1, 2], c: { d: null } });\nconsole.log(new Map([[\"k\", 1]]), new Set([1, 2]));\nconsole.log(new Date(0), new Error(\"e\").message);\nconsole.log([undefined, null, NaN, -0, Infinity]);\nconsole.log({ fn: function named() {}, arrow: () => 0, cls: class C {} });"
+  },
+  {
+    "id": "c371-rt-string-method-numeric-args",
+    "title": "字符串方法收到小数 / 负数 / NaN 实参时的取值口径",
+    "src": "const s = \"abcdefgh\";\nconsole.log(s.slice(1.5, 3.9), s.substring(1.5, 3.9), s.substr(1.5, 3.9));\nconsole.log(s.indexOf(\"c\", 1.5), s.lastIndexOf(\"c\", 3.9));\nconsole.log(JSON.stringify(s.split(\"\", 2.9)));\nconsole.log(\"x\".repeat(3.9), \"x\".padStart(5.9, \"0\"));\nconsole.log(s.charAt(1.5), s.charCodeAt(1.5), s.at(1.5));"
+  },
+  {
+    "id": "c371-rt-array-method-numeric-args",
+    "title": "数组方法收到小数 / 负数 / 越界实参",
+    "src": "const xs = [1, 2, 3, 4, 5];\nconsole.log(JSON.stringify(xs.slice(1.5, 3.9)), JSON.stringify(xs.slice(-2.5)));\nconsole.log(JSON.stringify(xs.splice(1.5, 2.5)), JSON.stringify(xs));\nconsole.log(JSON.stringify([1, 2, 3].fill(9, 1.5)), JSON.stringify([1, 2, 3].copyWithin(0, 1.5)));\nconsole.log([1, 2, 3].indexOf(2, 1.5), [1, 2, 3].includes(2, 1.5), [1, 2, 3].at(1.5));\nconsole.log([1, 2, 3].join().length, JSON.stringify([1, 2, 3].concat(4).slice(NaN)));"
+  },
+  {
+    "id": "c371-rt-logical-and-nullish-forms",
+    "title": "逻辑运算与空值合并：短路、返回值、赋值的结合",
+    "src": "const a = 0 || \"fallback\";\nconst b = \"\" && \"never\";\nconst c = null ?? \"d\";\nconst d = 0 ?? \"e\";\nconst e = undefined ?? null ?? \"last\";\nconsole.log(a, JSON.stringify(b), c, d, e);\nlet n: number | null = null;\nn ??= 5;\nconsole.log(n);\nn ||= 9;\nconsole.log(n);\nn &&= 0;\nconsole.log(n);\nconst o: any = { v: { deep: 1 } };\nconsole.log(o?.v?.deep ?? \"no\", o.x?.y ?? \"no2\", o.v.deep ?? \"no3\");"
+  },
+  {
+    "id": "c371-rt-computed-keys-evaluation",
+    "title": "计算键与取值顺序（键先于值、从左到右）",
+    "src": "const log: string[] = [];\nfunction key(name: string): string { log.push(\"key:\" + name); return name; }\nfunction val(name: string, v: number): number { log.push(\"val:\" + name); return v; }\nconst o = { [key(\"a\")]: val(\"a\", 1), [key(\"b\")]: val(\"b\", 2) };\nconsole.log(log.join(\",\"), JSON.stringify(o));\nlog.length = 0;\nconst arr = [val(\"x\", 1), val(\"y\", 2)];\nconsole.log(log.join(\",\"), arr.join(\",\"));\nlog.length = 0;\nclass C { [key(\"m\")](): number { return val(\"m\", 3); } }\nconsole.log(log.join(\",\"), new C().m());\nconst spread = { ...(val(\"s\", 0), { k: 1 }) };\nconsole.log(JSON.stringify(spread));"
+  },
+  {
+    "id": "c371-rt-gc-churn-forms",
+    "title": "分配压力：反复建造与丢弃对象",
+    "src": "let last = 0;\nfor (let i = 0; i < 20000; i++) {\n  const o = { a: i, b: [i, i + 1], c: \"s\" + i };\n  last = o.b[0];\n}\nconsole.log(last);\nconst pooled: number[][] = [];\nfor (let i = 0; i < 2000; i++) pooled.push(new Array(10).fill(i));\nconsole.log(pooled.length, pooled[1999][9]);\nconst strings: string[] = [];\nfor (let i = 0; i < 3000; i++) strings.push(String(i));\nconsole.log(strings.join(\"\").length);\nconsole.log(\"done\");"
+  },
+  {
+    "id": "c371-rt-shared-mutable-state",
+    "title": "共享可变状态：模块级对象、闭包、实例之间",
+    "src": "const registry: Record<string, number> = {};\nfunction bump(k: string): number { registry[k] = (registry[k] ?? 0) + 1; return registry[k]; }\nconsole.log(bump(\"a\"), bump(\"a\"), bump(\"b\"), JSON.stringify(registry));\nconst counters = { total: 0 };\nclass Inc { constructor(public bag: { total: number }) {} add(): void { this.bag.total += 1; } }\nconst a = new Inc(counters);\nconst b = new Inc(counters);\na.add();\nb.add();\nconsole.log(counters.total, Object.keys(registry).length);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-rt-switch-and-jump-forms",
+    "title": "switch 的严格相等、贯穿、与表达式求值次数",
+    "src": "function classify(v: unknown): string {\n  switch (v) {\n    case \"1\": return \"string-1\";\n    case 1: return \"number-1\";\n    case true: return \"true\";\n    case null: return \"null\";\n    case undefined: return \"undefined\";\n    default: return \"other\";\n  }\n}\nconsole.log(classify(\"1\"), classify(1), classify(true), classify(null), classify(undefined), classify(0));\nlet evaluated = 0;\nfunction pick(v: number): number { evaluated += 1; return v; }\nswitch (pick(2)) {\n  case 1: console.log(\"one\"); break;\n  case 2:\n  case 3: console.log(\"two-or-three\"); break;\n  default: console.log(\"default\");\n}\nconsole.log(evaluated);"
+  },
+  {
+    "id": "c371-rt-ternary-and-conditional-chains",
+    "title": "三元与条件的嵌套、赋值、短路",
+    "src": "const score = 75;\nconst grade = score >= 90 ? \"A\" : score >= 80 ? \"B\" : score >= 70 ? \"C\" : \"F\";\nconsole.log(grade);\nlet n = 0;\nconst r = true ? (n = 1, \"t\") : (n = 2, \"f\");\nconsole.log(r, n);\nconst nested = (1 ? (0 ? \"a\" : \"b\") : \"c\") + (null ? \"x\" : \"y\");\nconsole.log(nested);\nlet flag = false;\nconst side = flag ? (flag = true, \"set\") : \"unset\";\nconsole.log(side, flag);\nconsole.log([1, 2, 3].map((v) => (v % 2 ? \"odd\" : \"even\")).join(\",\"));"
+  },
+  {
+    "id": "c371-rt-class-static-and-instance-isolation",
+    "title": "静态与实例成员的隔离，静态块里的 this",
+    "src": "class Config {\n  static defaults: Record<string, number> = { a: 1 };\n  static instances = 0;\n  private data: Record<string, number>;\n  constructor(overrides: Record<string, number> = {}) {\n    this.data = { ...Config.defaults, ...overrides };\n    Config.instances += 1;\n  }\n  get(key: string): number { return this.data[key]; }\n  static { Config.defaults.extra = Config.defaults.a + 1; }\n}\nconst a = new Config();\nconst b = new Config({ a: 10 });\na.data[\"a\"] = 99;\nconsole.log(a.get(\"a\"), b.get(\"a\"), Config.defaults.a, Config.defaults.extra, Config.instances);\nconsole.log(Object.keys(a).join(\",\"), Object.keys(Config).join(\",\"));"
+  },
+  {
+    "id": "c371-rt-interface-free-duck-typing",
+    "title": "鸭子类型：结构化对象在运行期只是一组键",
+    "src": "type Point = { x: number; y: number };\ntype Move = (p: Point, by: number) => Point;\nconst move: Move = (p, by) => ({ x: p.x + by, y: p.y + by });\nconst points: Point[] = [{ x: 0, y: 0 }, { x: 1, y: 2 }];\nconsole.log(points.map((p) => move(p, 1)).map((p) => p.x + \":\" + p.y).join(\",\"));\nconst asJson = JSON.parse('[{\"x\":3,\"y\":4}]') as Point[];\nconsole.log(asJson[0].x, asJson.length, \"x\" in asJson[0], \"z\" in asJson[0]);\nfunction area(p: Point): number { return p.x * p.y; }\nconsole.log(points.map(area).join(\",\"));"
+  },
+  {
+    "id": "c371-rt-error-catch-and-rethrow",
+    "title": "错误的捕获、分类、重抛与 finally 的清理",
+    "src": "function parseNumber(text: string): number {\n  const n = Number(text);\n  if (Number.isNaN(n)) throw new TypeError(\"not a number: \" + text);\n  if (!Number.isFinite(n)) throw new RangeError(\"not finite: \" + text);\n  return n;\n}\nfor (const t of [\"1\", \"x\", \"Infinity\"]) {\n  try { console.log(\"ok\", parseNumber(t)); }\n  catch (e) {\n    const err = e as Error;\n    console.log(err instanceof TypeError ? \"T\" : err instanceof RangeError ? \"R\" : \"?\", err.message);\n  }\n}\nconst cleanups: string[] = [];\nfunction work(fail: boolean): string {\n  try { if (fail) throw new Error(\"w\"); return \"done\"; }\n  catch (e) { cleanups.push(\"catch\"); throw e; }\n  finally { cleanups.push(\"finally\"); }\n}\ntry { work(true); } catch (e) { cleanups.push(\"outer\"); }\nconsole.log(cleanups.join(\",\"), work(false));"
+  },
+  {
+    "id": "c371-rt-nested-functions-hoisting",
+    "title": "函数声明的提升与嵌套定义",
+    "src": "console.log(typeof outer, outer());\nfunction outer(): string { return \"outer:\" + inner(); }\nfunction inner(): string { return \"inner\"; }\nconsole.log(typeof inner);\nfunction make(): string {\n  const before = later();\n  function later(): string { return \"later\"; }\n  return before;\n}\nconsole.log(make());\nconst expr = function namedExpr(): string { return \"named\"; };\nconsole.log(expr(), expr.name);\nconsole.log(typeof hoisted, hoisted());\nfunction hoisted(): string { return \"h\"; }"
+  },
+  {
+    "id": "c371-rt-label-and-loop-forms",
+    "title": "循环的四种写法与标签控制",
+    "src": "const out: string[] = [];\nfor (let i = 0; i < 3; i++) out.push(\"f\" + i);\nlet j = 0;\nwhile (j < 2) { out.push(\"w\" + j); j += 1; }\nlet k = 0;\ndo { out.push(\"d\" + k); k += 1; } while (k < 2);\nconst obj = { a: 1, b: 2 };\nfor (const key in obj) out.push(\"i\" + key);\nouter: for (const x of [1, 2, 3]) {\n  for (const y of [1, 2]) {\n    if (y === 2) continue outer;\n    if (x === 3) break outer;\n    out.push(\"n\" + x + y);\n  }\n}\nconsole.log(out.join(\",\"));"
+  },
+  {
+    "id": "c371-rt-value-vs-reference-arguments",
+    "title": "实参传递：原始值拷贝、对象引用共享、重新赋值",
+    "src": "function mutate(n: number, o: { v: number }, arr: number[]): void {\n  n = 99;\n  o.v = 99;\n  arr.push(99);\n  arr = [0];\n}\nlet n = 1;\nconst o = { v: 1 };\nconst arr = [1];\nmutate(n, o, arr);\nconsole.log(n, o.v, JSON.stringify(arr));\nfunction replace(o: { v: number }): void { o = { v: 5 }; }\nconst keep = { v: 1 };\nreplace(keep);\nconsole.log(keep.v);\nconst shared = { v: 1 };\nconst alias = shared;\nalias.v = 2;\nconsole.log(shared.v, shared === alias, { v: 2 }.v === shared.v);"
+  },
+  {
+    "id": "c371-rt-string-vs-number-coercion-ops",
+    "title": "运算符两侧的强制转换：+ - * / 与比较",
+    "src": "console.log(\"1\" + 1, \"1\" - 1, \"3\" * \"2\", \"10\" / \"2\", \"5\" % \"2\");\nconsole.log(1 + \"2\" + 3, 1 + 2 + \"3\", \"a\" + null, \"a\" + undefined);\nconsole.log([] + [], [] + {}, [1] + [2], [1, 2] + 3);\nconsole.log(\"2\" > 1, \"2\" > \"10\", 2 > \"10\", null >= 0, undefined >= 0);\nconsole.log(true + true, false - 1, +true, +\"\", +\" 1 \");"
+  },
+  {
+    "id": "c371-rt-iteration-of-builtins",
+    "title": "内建可迭代对象：数组 / 字符串 / Map / Set / 生成器",
+    "src": "const sources: [string, Iterable<unknown>][] = [\n  [\"array\", [1, 2]],\n  [\"string\", \"ab\"],\n  [\"map\", new Map([[\"k\", 1]])],\n  [\"set\", new Set([1])],\n  [\"generator\", (function* () { yield \"g\"; })()],\n  [\"entries\", [1, 2].entries()],\n];\nfor (const [name, it] of sources) console.log(name, [...it].length);\nconsole.log([...\"abc\"].join(\"-\"), [...new Set([1, 1, 2])].join(\",\"));\nfunction* range(n: number) { for (let i = 0; i < n; i++) yield i; }\nconsole.log([...range(5)].join(\",\"), Array.from(range(3)).join(\",\"));\nconst [first, ...rest] = range(4);\nconsole.log(first, rest.join(\",\"));"
+  },
+  {
+    "id": "c371-rt-object-keys-stability",
+    "title": "键顺序在增删之后仍然稳定",
+    "src": "const o: any = { c: 1, a: 2, 2: 3, 1: 4, b: 5 };\nconsole.log(Object.keys(o).join(\",\"));\ndelete o.a;\no.a = 6;\nconsole.log(Object.keys(o).join(\",\"));\no[\"10\"] = 7;\no[\"3\"] = 8;\nconsole.log(Object.keys(o).join(\",\"));\nconsole.log(Object.values(o).join(\",\"));\nconst m = new Map<string, number>();\nm.set(\"z\", 1); m.set(\"a\", 2); m.set(\"z\", 3);\nconsole.log([...m.keys()].join(\",\"));"
+  },
+  {
+    "id": "c371-rt-function-name-and-length",
+    "title": "函数的 name / length 在各种定义形态下",
+    "src": "function decl(a: number, b: number, c = 1) {}\nconst arrow = (a: number, b = 2) => a + b;\nconst assigned = function (a: number) { return a; };\nconst method = { m(a: number, b: number) { return a + b; } };\nconst cls = class Named { m(a: number) {} };\nconsole.log(decl.name, decl.length, arrow.name, arrow.length, assigned.name, assigned.length);\nconsole.log(method.m.name, method.m.length, cls.name, cls.prototype.m.name.length >= 0);\nconst bound = decl.bind(null);\nconsole.log(bound.name, bound.length);\nconst computed = { [\"k\" + 1]() {} };\nconsole.log(Object.keys(computed).join(\",\"), (computed as any).k1.name);"
+  },
+  {
+    "id": "c371-rt-bind-call-apply-forms",
+    "title": "bind / call / apply 的 this 与实参形态",
+    "src": "function who(this: any, ...rest: unknown[]): string { return String(this && this.tag) + \":\" + rest.join(\"|\"); }\nconsole.log(who.call({ tag: \"o\" }, 1, 2));\nconsole.log(who.apply({ tag: \"a\" }, [3, 4]));\nconst bound = who.bind({ tag: \"b\" }, 5);\nconsole.log(bound(6, 7));\nconsole.log(who.call(null as any, 1), who.apply(undefined as any, []));\nconst obj = { tag: \"m\", who };\nconsole.log(obj.who(8));\nconst detached = obj.who;\nconsole.log(typeof detached(9));"
+  },
+  {
+    "id": "c371-rt-nested-destructuring-defaults",
+    "title": "嵌套解构的缺省与 undefined 触发",
+    "src": "const data: any = { a: { b: [{ c: 1 }] } };\nconst { a: { b: [{ c }] } } = data;\nconsole.log(c);\nconst { x = 1, y: { z = 2 } = {}, ...rest } = { y: {}, extra: 3 } as any;\nconsole.log(x, z, JSON.stringify(rest));\nconst [p = 1, [q = 2] = [], ...others] = [undefined, [], 3, 4] as any;\nconsole.log(p, q, JSON.stringify(others));\nconst { m = 5 } = { m: null } as any;\nconsole.log(m);\nconst swap = { first: 1, second: 2 };\n({ first: swap.second, second: swap.first } = swap) as any;\nconsole.log(swap.first, swap.second);"
+  },
+  {
+    "id": "c371-rt-array-and-object-nesting-json",
+    "title": "嵌套结构的 JSON 往返与逐层校验",
+    "src": "const data = {\n  users: [\n    { id: 1, tags: [\"a\", \"b\"], meta: { active: true } },\n    { id: 2, tags: [], meta: { active: false, note: null } },\n  ],\n  count: 2,\n};\nconst text = JSON.stringify(data);\nconst back = JSON.parse(text);\nconsole.log(text.length, back.users.length, back.users[0].tags.join(\"|\"));\nconsole.log(back.users[1].meta.note, back.count, JSON.stringify(back.users[0]) === JSON.stringify(data.users[0]));\nconsole.log(Object.keys(back.users[1].meta).join(\",\"), Array.isArray(back.users));"
+  },
+  {
+    "id": "c371-rt-numbers-in-json-and-parse",
+    "title": "数字在 JSON 与 parse 上的精度与形态",
+    "src": "console.log(JSON.stringify([1, 1.5, -0, 1e21, 1e-7]));\nconsole.log(JSON.parse(\"[1,1.5,1e21,1e-7]\").join(\",\"));\nconsole.log(JSON.parse(\"1e400\"), JSON.parse(\"-1e400\"));\nconsole.log(JSON.stringify(0.1 + 0.2), JSON.parse(String(0.1 + 0.2)));\nconsole.log(JSON.parse(\"9007199254740993\"), 9007199254740993);"
+  },
+  {
+    "id": "c371-rt-set-and-map-conversion",
+    "title": "Map / Set 与数组、对象之间的转换",
+    "src": "const entries: [string, number][] = [[\"a\", 1], [\"b\", 2]];\nconst m = new Map(entries);\nconsole.log(JSON.stringify([...m]), JSON.stringify(Object.fromEntries(m)));\nconst back = new Map(Object.entries(Object.fromEntries(m)));\nconsole.log(back.size, back.get(\"a\"));\nconst s = new Set([1, 2, 3]);\nconsole.log([...s].map((v) => v * 2).join(\",\"), new Set([...s].filter((v) => v > 1)).size);\nconsole.log(Array.from(s).reduce((a, b) => a + b, 0), new Set(\"aabb\").size);"
+  },
+  {
+    "id": "c371-rt-object-entries-live-vs-snapshot",
+    "title": "keys / values / entries 返回的是快照",
+    "src": "const o: any = { a: 1, b: 2 };\nconst keys = Object.keys(o);\no.c = 3;\nconsole.log(keys.join(\",\"), Object.keys(o).join(\",\"));\nconst vals = Object.values(o);\no.a = 99;\nconsole.log(vals.join(\",\"), Object.values(o).join(\",\"));\nconst entries = Object.entries(o);\no.d = 4;\nconsole.log(entries.length, Object.entries(o).length);\nconst frozen = Object.freeze({ ...o });\nconsole.log(Object.keys(frozen).join(\",\"), Object.isFrozen(frozen));"
+  },
+  {
+    "id": "c371-rt-void-and-undefined-forms",
+    "title": "void / undefined / 缺失返回值的统一口径",
+    "src": "function noReturn(): void { }\nfunction returnsUndefined(): undefined { return undefined; }\nconsole.log(noReturn(), returnsUndefined(), void 0, typeof void 0);\nconsole.log(JSON.stringify(noReturn()), String(noReturn()), noReturn() === undefined);\nconst o: any = {};\nconsole.log(o.missing, o[undefined as any], o[\"undefined\"]);\nfunction returnsNothing() { if (false) return 1; }\nconsole.log(returnsNothing(), [1].find((v) => v > 5), [].pop(), [].shift());\nconsole.log((() => {})() === undefined, [1, 2].forEach(() => {}) === undefined);"
+  },
+  {
+    "id": "c371-rt-proxy-free-reflection",
+    "title": "不用 Reflect / Proxy 的反射：描述符与原型",
+    "src": "const o: any = { a: 1 };\nObject.defineProperty(o, \"b\", { value: 2, enumerable: false, writable: false });\nconsole.log(Object.keys(o).join(\",\"), Object.getOwnPropertyNames(o).join(\",\"));\nconst d = Object.getOwnPropertyDescriptors(o);\nconsole.log(Object.keys(d).join(\",\"), d.b.writable, d.a.enumerable);\nconst copy = Object.defineProperties({}, d);\nconsole.log(copy.a, copy.b, Object.keys(copy).join(\",\"));\nconst clone = Object.create(Object.getPrototypeOf(o), d);\nconsole.log(clone.a, Object.getPrototypeOf(clone) === Object.prototype);"
+  },
+  {
+    "id": "c371-rt-async-generator-and-for-await",
+    "title": "异步生成器与 for await 的完整回合",
+    "src": "async function* pages(): AsyncGenerator<number[]> {\n  yield [1, 2];\n  await Promise.resolve();\n  yield [3];\n}\nasync function main(): Promise<void> {\n  const all: number[] = [];\n  for await (const page of pages()) {\n    for (const v of page) all.push(v);\n  }\n  console.log(all.join(\",\"));\n  const it = pages();\n  const first = await it.next();\n  console.log(first.done, JSON.stringify(first.value));\n  const second = await it.next();\n  console.log(second.done, JSON.stringify(second.value));\n  const third = await it.next();\n  console.log(third.done, third.value);\n}\nmain();"
+  },
+  {
+    "id": "c371-rt-microtask-and-sync-mixing",
+    "title": "同步代码与微任务的交替次序",
+    "src": "const order: string[] = [];\norder.push(\"start\");\nPromise.resolve().then(() => order.push(\"p1\"));\norder.push(\"sync1\");\n(async () => { order.push(\"async-start\"); await null; order.push(\"async-after-await\"); })();\nqueueMicrotask(() => order.push(\"qm\"));\norder.push(\"sync2\");\nPromise.resolve().then(() => { order.push(\"p2\"); return Promise.resolve(); }).then(() => order.push(\"p3\"));\nqueueMicrotask(() => console.log(\"microtask-order\", order.join(\",\")));\nconsole.log(\"sync-order\", order.join(\",\"));"
+  },
+  {
+    "id": "c371-rt-tostring-tags-and-inspect",
+    "title": "Symbol.toStringTag 与内建对象的标签",
+    "src": "class Custom { get [Symbol.toStringTag]() { return \"Custom\"; } }\nconst objs: [string, unknown][] = [[\"obj\", {}], [\"arr\", []], [\"fn\", () => 0], [\"map\", new Map()], [\"set\", new Set()], [\"date\", new Date(0)], [\"err\", new Error(\"e\")], [\"custom\", new Custom()], [\"promise\", Promise.resolve(1)]];\nfor (const [name, v] of objs) console.log(name, Object.prototype.toString.call(v));\nconsole.log(Object.prototype.toString.call(null), Object.prototype.toString.call(undefined));\nconsole.log(String(new Custom()), `${new Custom()}`);"
+  },
+  {
+    "id": "c371-rt-getter-throws-and-cleanup",
+    "title": "访问器里抛错时的展开与清理",
+    "src": "const log: string[] = [];\nconst o: any = {\n  get bad() { log.push(\"get\"); throw new Error(\"getter\"); },\n  set bad(_v: unknown) { log.push(\"set\"); throw new Error(\"setter\"); },\n};\ntry { console.log(o.bad); } catch (e) { log.push(\"caught:\" + (e as Error).message); }\ntry { o.bad = 1; } catch (e) { log.push(\"caught:\" + (e as Error).message); }\nconst nested: any = { inner: o };\ntry { nested.inner.bad; } catch (e) { log.push(\"deep\"); }\nfunction safe(v: () => unknown): unknown { try { return v(); } catch { return \"fallback\"; } }\nconsole.log(safe(() => o.bad), log.join(\",\"));"
+  },
+  {
+    "id": "c371-rt-large-string-operations",
+    "title": "大字符串上的查找 / 切分 / 替换",
+    "src": "const text = \"abcd\".repeat(1000);\nconsole.log(text.length, text.indexOf(\"z\"), text.indexOf(\"cd\"), text.lastIndexOf(\"cd\"));\nconsole.log(text.split(\"ab\").length, text.split(\"\").length, text.slice(0, 4));\nconsole.log(text.replace(\"abcd\", \"x\").length, text.startsWith(\"abcd\"), text.endsWith(\"abcd\"));\nconsole.log(text.split(\"abcd\").length, text.includes(\"dcba\"), text.length / 4);\nconsole.log(text.substring(0, 2), text.charAt(3), \"abcd\".repeat(3));"
+  },
+  {
+    "id": "c371-rt-equality-in-collections-and-objects",
+    "title": "集合与对象上的判等：引用、键、includes",
+    "src": "const a = { v: 1 };\nconst b = { v: 1 };\nconst arr = [a, b];\nconsole.log(arr.indexOf(b) >= 0, arr.includes(a), arr.indexOf({ v: 1 }));\nconst s = new Set([a, b, a]);\nconsole.log(s.size, s.has(a), s.has({ v: 1 }));\nconst m = new Map([[a, \"A\"]]);\nconsole.log(m.get(a), m.get(b), m.get({ v: 1 } as any));\nconsole.log(a === b, a == b, JSON.stringify(a) === JSON.stringify(b));"
+  },
+  {
+    "id": "c371-rt-inheritance-and-override-chain",
+    "title": "三层继承：方法解析、super、字段遮蔽",
+    "src": "class A { v = \"a\"; who(): string { return \"A:\" + this.v; } }\nclass B extends A { v = \"b\"; who(): string { return \"B(\" + super.who() + \")\"; } }\nclass C extends B { v = \"c\"; who(): string { return \"C(\" + super.who() + \")\"; } }\nconst c = new C();\nconsole.log(c.who(), c.v, new A().who(), new B().who());\nconsole.log(Object.keys(c).join(\",\"), c instanceof A, c instanceof B, Object.getPrototypeOf(C.prototype) === B.prototype);\nconsole.log(A.prototype.who.call(c), B.prototype.who.call(c));"
+  },
+  {
+    "id": "c371-rt-tostring-override-and-json",
+    "title": "覆盖 toString / valueOf 对模板与字符串化的影响",
+    "src": "class Money {\n  constructor(private amount: number, private unit: string) {}\n  toString(): string { return this.amount.toFixed(2) + this.unit; }\n  valueOf(): number { return this.amount; }\n  toJSON(): { amount: number; unit: string } { return { amount: this.amount, unit: this.unit }; }\n}\nconst m = new Money(12.5, \"USD\");\nconsole.log(String(m), `${m}`, m + 1, m > 10);\nconsole.log(JSON.stringify(m), JSON.stringify({ price: m }));\nconsole.log([m, m].join(\",\"), m.toString().length);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-rt-exception-across-frames",
+    "title": "异常跨多层函数帧展开并回到调用者",
+    "src": "function level3(): never { throw new Error(\"deep\"); }\nfunction level2(): string { try { return level3(); } catch (e) { throw new Error(\"wrapped(\" + (e as Error).message + \")\"); } }\nfunction level1(): string {\n  const cleanups: string[] = [];\n  try { return level2(); }\n  catch (e) { cleanups.push(\"caught\"); throw e; }\n  finally { cleanups.push(\"finally\"); console.log(cleanups.join(\",\")); }\n}\ntry { level1(); } catch (e) { console.log(\"top\", (e as Error).message); }\nfunction loop(): number {\n  let total = 0;\n  for (let i = 0; i < 5; i++) {\n    try { if (i === 2) throw new Error(\"at \" + i); total += i; }\n    catch { total += 100; }\n    finally { total += 1; }\n  }\n  return total;\n}\nconsole.log(loop());"
+  }
 ];

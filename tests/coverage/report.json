@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1343,
+  "matrix": 1688,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,51 +38,509 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 100,
+  "progressPercent": 94.4,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 427,
-      "pass": 427,
-      "blocked": 0,
-      "differ": 0,
+      "total": 502,
+      "pass": 489,
+      "blocked": 4,
+      "differ": 9,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 97.41
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 318,
-      "pass": 318,
-      "blocked": 0,
-      "differ": 0,
+      "total": 395,
+      "pass": 382,
+      "blocked": 9,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 96.71
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 523,
-      "pass": 523,
-      "blocked": 0,
-      "differ": 0,
+      "total": 627,
+      "pass": 601,
+      "blocked": 2,
+      "differ": 24,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 95.85
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 75,
-      "pass": 75,
-      "blocked": 0,
-      "differ": 0,
+      "total": 164,
+      "pass": 140,
+      "blocked": 13,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 85.37
     }
   ],
-  "blocked": [],
-  "differ": [],
+  "blocked": [
+    {
+      "id": "c371-rt-property-semantics",
+      "layer": "runtime",
+      "title": "属性语义：自有 / 继承 / 访问器 / 缺失 / 原型上的写",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-rt-gc-churn-forms",
+      "layer": "runtime",
+      "title": "分配压力：反复建造与丢弃对象",
+      "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "c371-rt-class-static-and-instance-isolation",
+      "layer": "runtime",
+      "title": "静态与实例成员的隔离，静态块里的 this",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c371-rt-bind-call-apply-forms",
+      "layer": "runtime",
+      "title": "bind / call / apply 的 this 与实参形态",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-ex-enum-numeric-forms",
+      "layer": "exec",
+      "title": "数值枚举：自动编号、显式值、反向映射",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: A"
+    },
+    {
+      "id": "c371-ex-enum-const-and-computed",
+      "layer": "exec",
+      "title": "const enum 与带常量表达式的成员",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Low"
+    },
+    {
+      "id": "c371-ex-class-implements-and-interface",
+      "layer": "exec",
+      "title": "implements 是擦除的；接口不产生运行期值",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Shape"
+    },
+    {
+      "id": "c371-ex-assertion-forms",
+      "layer": "exec",
+      "title": "as / 尖括号 / ! / satisfies / as const 四种断言的优先级",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
+    },
+    {
+      "id": "c371-ex-destructuring-everywhere",
+      "layer": "exec",
+      "title": "解构：参数、默认、重命名、嵌套、rest、for-of、catch",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BindingElement"
+    },
+    {
+      "id": "c371-ex-new-expression-type-args",
+      "layer": "exec",
+      "title": "new 的类型实参与实参位上的断言混在一起",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c371-ex-type-assertions-in-operands",
+      "layer": "exec",
+      "title": "断言出现在运算符的操作数位上",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: number"
+    },
+    {
+      "id": "c371-ex-unicode-identifiers",
+      "layer": "exec",
+      "title": "Unicode 标识符与字符串里的转义",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: abc"
+    },
+    {
+      "id": "c371-ex-labels-and-control",
+      "layer": "exec",
+      "title": "标签 + break / continue 在嵌套循环与块上",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
+    },
+    {
+      "id": "c371-stdlib-object-hasown-and-in",
+      "layer": "stdlib",
+      "title": "Object.hasOwn / hasOwnProperty / in 三者口径",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-stdlib-error-families-and-fields",
+      "layer": "stdlib",
+      "title": "Error 家族：name / message / instanceof / cause",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: EvalError"
+    },
+    {
+      "id": "c371-e2e-sudoku-validator",
+      "layer": "e2e",
+      "title": "数独校验器：行 / 列 / 宫",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c371-e2e-maze-bfs",
+      "layer": "e2e",
+      "title": "迷宫寻路：BFS 最短路与路径还原",
+      "detail": "tsrun: 脚本抛出：not found: E"
+    },
+    {
+      "id": "c371-e2e-lru-with-ttl",
+      "layer": "e2e",
+      "title": "带 TTL 的 LRU 缓存（注入时钟）",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-e2e-observer-with-priority",
+      "layer": "e2e",
+      "title": "观察者模式：优先级、退订、一次性监听",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-typed-config-merge-deep",
+      "layer": "e2e",
+      "title": "配置深合并：数组策略、默认值、来源优先级",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: parameter without a name"
+    },
+    {
+      "id": "c371-e2e-priority-scheduler",
+      "layer": "e2e",
+      "title": "任务调度器：优先级队列 + 依赖等待",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-e2e-coordinate-geometry",
+      "layer": "e2e",
+      "title": "二维几何：距离、点在多边形内、凸包",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c371-e2e-graph-coloring",
+      "layer": "e2e",
+      "title": "图着色：贪心 + 回溯找最少颜色",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: c"
+    },
+    {
+      "id": "c371-e2e-binary-encoding",
+      "layer": "e2e",
+      "title": "二进制编码：位打包、位读取、校验和",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression IntersectionType"
+    },
+    {
+      "id": "c371-e2e-object-pool",
+      "layer": "e2e",
+      "title": "对象池：借用、归还、上限与统计",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-e2e-multi-source-merge",
+      "layer": "e2e",
+      "title": "多来源合并：去重、优先级、冲突报告",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: priority"
+    },
+    {
+      "id": "c371-e2e-debounce-and-batch",
+      "layer": "e2e",
+      "title": "批处理调度：合并、去重、按序冲刷",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-e2e-permissions-matrix",
+      "layer": "e2e",
+      "title": "权限矩阵：角色 × 资源 × 动作 + 审计",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression OverrideKeyword"
+    }
+  ],
+  "differ": [
+    {
+      "id": "c371-rt-super-and-this-binding",
+      "layer": "runtime",
+      "title": "super 与 this：方法、箭头、解构、回调里的绑定",
+      "detail": "stdout 不同：第 2 行：node «detached needs this» vs tsrun «Dundefined»"
+    },
+    {
+      "id": "c371-rt-iteration-protocol-forms",
+      "layer": "runtime",
+      "title": "迭代协议：手动 next、提前退出、return() 收尾",
+      "detail": "stdout 不同：第 3 行：node «closed» vs tsrun «{\"value\":1,\"done\":false} {\"value\":2,\"done\":false}»"
+    },
+    {
+      "id": "c371-rt-async-error-paths",
+      "layer": "runtime",
+      "title": "async 里的抛错 / 拒绝 / try-catch / finally",
+      "detail": "stdout 不同：第 1 行：node «1 boom» vs tsrun «fin»"
+    },
+    {
+      "id": "c371-rt-getter-on-prototype-chain",
+      "layer": "runtime",
+      "title": "访问器沿原型链的查找与 this",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-rt-instanceof-and-prototype",
+      "layer": "runtime",
+      "title": "instanceof 与原型替换、跨类判定",
+      "detail": "stdout 不同：第 4 行：node «true true true» vs tsrun «false false false»"
+    },
+    {
+      "id": "c371-rt-array-holes-everywhere",
+      "layer": "runtime",
+      "title": "稀疏数组：洞在每一种方法下的命运",
+      "detail": "stdout 不同：第 4 行：node «1--3 -1 true» vs tsrun «1--3 1 true»"
+    },
+    {
+      "id": "c371-rt-console-inspect-shapes",
+      "layer": "runtime",
+      "title": "console.log 对复杂值的渲染",
+      "detail": "stdout 不同：第 6 行：node «{ fn: [Function: named], arrow: [Function: arrow], cls: [class C] }» vs tsrun «{ fn: [Function: named], arrow: [Function: arrow], cls: [Function: C] }»"
+    },
+    {
+      "id": "c371-rt-function-name-and-length",
+      "layer": "runtime",
+      "title": "函数的 name / length 在各种定义形态下",
+      "detail": "stdout 不同：第 4 行：node «k1 k1» vs tsrun «k1 »"
+    },
+    {
+      "id": "c371-rt-tostring-tags-and-inspect",
+      "layer": "runtime",
+      "title": "Symbol.toStringTag 与内建对象的标签",
+      "detail": "stdout 不同：第 9 行：node «promise [object Promise]» vs tsrun «promise [object Object]»"
+    },
+    {
+      "id": "c371-ex-namespace-type-only-body",
+      "layer": "exec",
+      "title": "只有类型的 namespace 体是空操作",
+      "detail": "stdout 不同：第 1 行：node «1 s 7 undefined value» vs tsrun «1 s 7 object value»"
+    },
+    {
+      "id": "c371-ex-nonnull-in-chains",
+      "layer": "exec",
+      "title": "非空断言落在链的每一段上",
+      "detail": "stdout 不同：第 4 行：node «7 7» vs tsrun «[Function: fn] 7»"
+    },
+    {
+      "id": "c371-ex-spread-forms",
+      "layer": "exec",
+      "title": "展开：调用、new、数组、对象、rest 参数",
+      "detail": "stdout 不同：第 3 行：node «{\"a\":9,\"b\":2,\"c\":3} {\"0\":1,\"1\":2,\"2\":3}» vs tsrun «{\"a\":9,\"b\":2,\"c\":3} {}»"
+    },
+    {
+      "id": "c371-ex-class-expression-forms",
+      "layer": "exec",
+      "title": "类表达式：匿名、具名自引用、extends 表达式",
+      "detail": "stdout 不同：第 1 行：node «1 2 Named bc true» vs tsrun «1 2 Named bc false»"
+    },
+    {
+      "id": "c371-stdlib-string-case-forms",
+      "layer": "stdlib",
+      "title": "toUpperCase / toLowerCase / toLocale* 的边界",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: case conversion outside ASCII (there is no mapping table here)"
+    },
+    {
+      "id": "c371-stdlib-array-splice-return-and-argc",
+      "layer": "stdlib",
+      "title": "splice 的返回值与实参个数口径",
+      "detail": "stdout 不同：第 4 行：node «[] [1,2,3]» vs tsrun «[1,2,3] []»"
+    },
+    {
+      "id": "c371-stdlib-array-every-some-empty",
+      "layer": "stdlib",
+      "title": "every / some / filter / find 在空数组与洞上的口径",
+      "detail": "stdout 不同：第 4 行：node «undefined 1» vs tsrun «undefined -1»"
+    },
+    {
+      "id": "c371-stdlib-array-iterator-aliases",
+      "layer": "stdlib",
+      "title": "values / keys / entries 与 Symbol.iterator 是同一件东西",
+      "detail": "stdout 不同：第 2 行：node «true» vs tsrun «false»"
+    },
+    {
+      "id": "c371-stdlib-array-length-write-forms",
+      "layer": "stdlib",
+      "title": "length 的写：截断、放大成洞、非法值抛错",
+      "detail": "stdout 不同：第 3 行：node «RangeError» vs tsrun «Error»"
+    },
+    {
+      "id": "c371-stdlib-object-values-entries-primitive",
+      "layer": "stdlib",
+      "title": "Object.keys / values / entries 落在字符串与数字上",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Object.keys needs an object"
+    },
+    {
+      "id": "c371-stdlib-object-assign-getters-and-order",
+      "layer": "stdlib",
+      "title": "Object.assign：读源上的 getter、写目标上的 setter、键的顺序",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unreachable: installing a builtin never calls a function"
+    },
+    {
+      "id": "c371-stdlib-math-trig-hyperbolic",
+      "layer": "stdlib",
+      "title": "三角函数与双曲函数在 0 / π / 大值上的读数",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-stdlib-map-set-size-and-keys",
+      "layer": "stdlib",
+      "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "c371-stdlib-promise-resolve-identity",
+      "layer": "stdlib",
+      "title": "Promise.resolve 的身份与 thenable 采纳",
+      "detail": "stdout 不同：第 1 行：node «true» vs tsrun «false»"
+    },
+    {
+      "id": "c371-stdlib-promise-allsettled-any-race",
+      "layer": "stdlib",
+      "title": "allSettled / any / race 的形状",
+      "detail": "stdout 不同：第 3 行：node «agg AggregateError 2» vs tsrun «agg undefined 2»"
+    },
+    {
+      "id": "c371-stdlib-promise-finally-passthrough",
+      "layer": "stdlib",
+      "title": "finally：值透传、异常替换、返回承诺要等",
+      "detail": "stdout 不同：第 3 行：node «c3 replaced» vs tsrun «v 1»"
+    },
+    {
+      "id": "c371-stdlib-date-now-and-construction",
+      "layer": "stdlib",
+      "title": "Date.now / new Date(ms) / new Date(string) 的读数",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: global builtin 260"
+    },
+    {
+      "id": "c371-stdlib-date-parse-and-json",
+      "layer": "stdlib",
+      "title": "Date.parse 与 toJSON；无效日期的字符串形态",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Invalid time value"
+    },
+    {
+      "id": "c371-stdlib-symbol-species-and-hasinstance",
+      "layer": "stdlib",
+      "title": "Symbol.hasInstance 与 Symbol.species 的缺省语义",
+      "detail": "stdout 不同：第 2 行：node «true true true» vs tsrun «true true false»"
+    },
+    {
+      "id": "c371-stdlib-error-print-and-types",
+      "layer": "stdlib",
+      "title": "错误对象的枚举键与 name 的可写性",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-stdlib-function-bind-forms",
+      "layer": "stdlib",
+      "title": "Function.prototype.bind：偏实参、this、new、length/name",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：a bound function must be an object (the engine passes the receiver as this)"
+    },
+    {
+      "id": "c371-stdlib-function-call-apply",
+      "layer": "stdlib",
+      "title": "call / apply 的 this 与类数组实参",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Function.prototype.apply needs an array (array-likes are not su"
+    },
+    {
+      "id": "c371-stdlib-function-tostring-and-name",
+      "layer": "stdlib",
+      "title": "函数对象的 toString / name / length 三个内省口",
+      "detail": "stdout 不同：第 3 行：node «m get g» vs tsrun «m »"
+    },
+    {
+      "id": "c371-stdlib-globals-uri-family",
+      "layer": "stdlib",
+      "title": "encodeURI / decodeURI / encodeURIComponent 的差别",
+      "detail": "退出码 node=0 tsrun=null"
+    },
+    {
+      "id": "c371-stdlib-object-tostring-on-builtins",
+      "layer": "stdlib",
+      "title": "内建对象的 toString 与 valueOf 的组合",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Date.prototype.toString for a valid date (JS renders local time"
+    },
+    {
+      "id": "c371-stdlib-object-keys-shadowing",
+      "layer": "stdlib",
+      "title": "遮蔽内建原型方法与 Object.keys 的自有性",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-stdlib-array-of-and-isarray",
+      "layer": "stdlib",
+      "title": "Array.of / Array.isArray / new Array 的三种构造",
+      "detail": "stdout 不同：第 4 行：node «true [null,null,null]» vs tsrun «false [null,null,null]»"
+    },
+    {
+      "id": "c371-stdlib-array-tostring-forms",
+      "layer": "stdlib",
+      "title": "数组的 toString / join 在嵌套与稀疏上的读数",
+      "detail": "stdout 不同：第 4 行：node « ,» vs tsrun « »"
+    },
+    {
+      "id": "c371-e2e-quick-and-merge-sort",
+      "layer": "e2e",
+      "title": "快排 / 归并 / 插入排序三种实现与稳定性对比",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "c371-e2e-mustache-template",
+      "layer": "e2e",
+      "title": "极简模板引擎：变量、点路径、循环、条件",
+      "detail": "stdout 不同：第 1 行：node «Hello Ann! [admin]» vs tsrun «Hello false! [admin]»"
+    },
+    {
+      "id": "c371-e2e-html-template-tagged",
+      "layer": "e2e",
+      "title": "标签模板做 HTML 转义与拼接",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-e2e-roman-numerals",
+      "layer": "e2e",
+      "title": "罗马数字互转与全表校验",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "c371-e2e-rle-compression",
+      "layer": "e2e",
+      "title": "游程编码压缩与解压",
+      "detail": "stdout 不同：第 1 行：node «\"aaabbbcccd\" -> \"3a3b3cd\" -> \"aaabbbcccd\" true» vs tsrun «\"aaabbbcccd\" -> \"truefalsefalsefalse\" -> \"truefalsefalsefalse\" false»"
+    },
+    {
+      "id": "c371-e2e-plugin-registry",
+      "layer": "e2e",
+      "title": "插件注册表：惰性工厂、依赖顺序、失败隔离",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c371-e2e-matrix-linear-algebra",
+      "layer": "e2e",
+      "title": "矩阵运算：乘、转置、行列式、单位阵",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "c371-e2e-async-pool-with-errors",
+      "layer": "e2e",
+      "title": "异步任务池：并发上限、错误隔离、结果汇总",
+      "detail": "stdout 不同：第 1 行：node «10,20,40,50,70,80» vs tsrun «»"
+    },
+    {
+      "id": "c371-e2e-rate-limiting-window",
+      "layer": "e2e",
+      "title": "滑动窗口限流与统计",
+      "detail": "stdout 不同：第 3 行：node «8 2» vs tsrun «1 1»"
+    },
+    {
+      "id": "c371-e2e-json-schema-lite",
+      "layer": "e2e",
+      "title": "极简 JSON Schema 校验：类型、必需、数组项、枚举",
+      "detail": "stdout 不同：第 2 行：node «2 $.name: shorter than 3 | $.tags[0]: shorter than 2» vs tsrun «4 $.name: shorter than 3 | $.tags[0]: shorter than 2 | $.name: shorter than 3 | $.tags[0]: shorter than 2»"
+    },
+    {
+      "id": "c371-e2e-string-search-index",
+      "layer": "e2e",
+      "title": "倒排索引：建索引、查询、打分排序",
+      "detail": "stdout 不同：第 1 行：node «11 1:1,3:1,4:1» vs tsrun «11 1,1:3,1»"
+    }
+  ],
   "bad": [],
   "moved": [],
   "newlyPassing": [],

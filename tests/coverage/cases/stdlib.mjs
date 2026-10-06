@@ -5167,4 +5167,526 @@ console.log(b2(2), b2.call({ tag: "ignored" }, 3));
 console.log(typeof Error.isError, Error.prototype.constructor === Error);
 `,
   },
+
+  // ===== 第 371 轮：加宽矩阵收编的候选（104 条）=====
+  {
+    "id": "c371-stdlib-string-at-forms",
+    "title": "String.prototype.at：负数 / 越界 / 与 charAt 的分工",
+    "src": "const s = \"hello\";\nconsole.log(s.at(0), s.at(-1), s.at(-5), s.at(5), s.at(-6));\nconsole.log(s.charAt(0), s.charAt(-1), s.charAt(5), JSON.stringify(s.charAt(5)));\nconsole.log(s.at(1.5), s.charAt(1.9));"
+  },
+  {
+    "id": "c371-stdlib-string-slice-family-negatives",
+    "title": "slice / substring / substr 三种负下标口径",
+    "src": "const s = \"abcdef\";\nconsole.log(s.slice(-3), s.slice(1, -1), s.slice(-2, -1), s.slice(4, 2));\nconsole.log(s.substring(4, 2), s.substring(-2, 3), s.substring(2));\nconsole.log(s.substr(-2), s.substr(1, 3), s.substr(-10, 3));"
+  },
+  {
+    "id": "c371-stdlib-string-pad-forms",
+    "title": "padStart / padEnd：目标长度小于原长、填充串多字符",
+    "src": "console.log(\"5\".padStart(3, \"0\"), \"5\".padEnd(3, \"0\"));\nconsole.log(\"abc\".padStart(2, \"0\"), \"abc\".padEnd(2, \"0\"));\nconsole.log(\"5\".padStart(6, \"ab\"), \"5\".padEnd(6, \"ab\"));\nconsole.log(\"x\".padStart(4), JSON.stringify(\"x\".padStart(4)));\nconsole.log(\"x\".padStart(4, \"\"), \"x\".padEnd(4, \"\"));"
+  },
+  {
+    "id": "c371-stdlib-string-repeat-edge",
+    "title": "repeat：0 次、小数、负数抛错",
+    "src": "console.log(JSON.stringify(\"ab\".repeat(0)), \"ab\".repeat(1), \"ab\".repeat(3));\nconsole.log(\"ab\".repeat(2.9));\ntry { \"ab\".repeat(-1); } catch (e) { console.log((e as Error).name); }\nconsole.log(\"ab\".repeat(NaN).length);"
+  },
+  {
+    "id": "c371-stdlib-string-index-of-forms",
+    "title": "indexOf / lastIndexOf / includes / startsWith / endsWith 的起始位",
+    "src": "const s = \"abcabc\";\nconsole.log(s.indexOf(\"a\"), s.indexOf(\"a\", 1), s.indexOf(\"z\"), s.indexOf(\"\"));\nconsole.log(s.lastIndexOf(\"a\"), s.lastIndexOf(\"a\", 2), s.lastIndexOf(\"z\"));\nconsole.log(s.includes(\"bc\"), s.includes(\"bc\", 3), s.startsWith(\"bc\", 1), s.endsWith(\"ab\", 5));"
+  },
+  {
+    "id": "c371-stdlib-string-trim-whitespace-set",
+    "title": "trim 家族：非 ASCII 空白与零宽字符",
+    "src": "const s = \"\\u00a0\\u2028\\t x \\n\\u3000\";\nconsole.log(JSON.stringify(s.trim()), JSON.stringify(s.trimStart()), JSON.stringify(s.trimEnd()));\nconsole.log(JSON.stringify(\"\\u200b x\".trim()));\nconsole.log(\"\\uFEFFx\".trim().length);"
+  },
+  {
+    "id": "c371-stdlib-string-case-forms",
+    "title": "toUpperCase / toLowerCase / toLocale* 的边界",
+    "src": "console.log(\"aBc\".toUpperCase(), \"AbC\".toLowerCase());\nconsole.log(\"ß\".toUpperCase(), \"İ\".toLowerCase().length);\nconsole.log(\"abc\".toLocaleUpperCase(), \"ABC\".toLocaleLowerCase());"
+  },
+  {
+    "id": "c371-stdlib-string-replaceall-count",
+    "title": "replaceAll：普通串、空串、与 replace 的差别",
+    "src": "console.log(\"a-b-c\".replaceAll(\"-\", \"+\"));\nconsole.log(\"aaa\".replace(\"a\", \"b\"), \"aaa\".replaceAll(\"a\", \"b\"));\nconsole.log(\"abc\".replaceAll(\"\", \"-\"));\nconsole.log(\"x\".replaceAll(\"x\", \"$&$&\"));"
+  },
+  {
+    "id": "c371-stdlib-string-concat-and-plus",
+    "title": "String.prototype.concat 与 `+` 的结果一致",
+    "src": "const s = \"a\";\nconsole.log(s.concat(\"b\", 1, true, null, undefined));\nconsole.log(s + \"b\" + 1 + true + null + undefined);\nconsole.log([...s.concat(\"bc\")].join(\"|\"));"
+  },
+  {
+    "id": "c371-stdlib-string-codepoint-forms",
+    "title": "codePointAt / fromCodePoint / 代理对",
+    "src": "const s = \"a\\u{1F600}b\";\nconsole.log(s.length, [...s].length);\nconsole.log(s.codePointAt(0), s.codePointAt(1), s.codePointAt(2), s.codePointAt(3));\nconsole.log(String.fromCodePoint(97), String.fromCodePoint(0x1f600).length);\nconsole.log(String.fromCharCode(0x1f600).length, String.fromCharCode(65, 66));\ntry { String.fromCodePoint(-1); } catch (e) { console.log((e as Error).name); }"
+  },
+  {
+    "id": "c371-stdlib-string-split-limit-and-empty",
+    "title": "split：limit、空分隔串、capture-free 形态",
+    "src": "console.log(JSON.stringify(\"a,b,c\".split(\",\", 2)));\nconsole.log(JSON.stringify(\"abc\".split(\"\")));\nconsole.log(JSON.stringify(\"\".split(\",\")), JSON.stringify(\"\".split(\"\")));\nconsole.log(JSON.stringify(\"a,,b\".split(\",\")));\nconsole.log(JSON.stringify(\"abc\".split(undefined as any)));"
+  },
+  {
+    "id": "c371-stdlib-string-locale-compare",
+    "title": "localeCompare 的符号与数字串",
+    "src": "console.log(\"a\".localeCompare(\"b\") < 0, \"b\".localeCompare(\"a\") > 0, \"a\".localeCompare(\"a\"));\nconsole.log([\"b\", \"a\", \"c\"].sort((x, y) => x.localeCompare(y)).join(\"\"));\nconsole.log(\"10\".localeCompare(\"9\") < 0);"
+  },
+  {
+    "id": "c371-stdlib-string-normalize",
+    "title": "normalize 的 NFC / NFD / 无实参",
+    "src": "const composed = \"\\u00e9\";\nconst decomposed = \"e\\u0301\";\nconsole.log(composed.length, decomposed.length);\nconsole.log(composed.normalize(\"NFD\").length, decomposed.normalize(\"NFC\").length);\nconsole.log(composed.normalize(\"NFC\") === composed, composed.normalize() === composed);\nconsole.log(decomposed.normalize(\"NFC\") === composed);"
+  },
+  {
+    "id": "c371-stdlib-string-raw",
+    "title": "String.raw 与标签模板的 raw 那一栏",
+    "src": "console.log(String.raw`a\\nb`);\nfunction tag(parts: TemplateStringsArray, ...vals: unknown[]) {\n  console.log(parts.raw[0] === \"x\\\\ny\", parts.length, vals.join(\",\"));\n  return parts.join(\"|\");\n}\nconsole.log(tag`x\\ny${1}z${2}`);"
+  },
+  {
+    "id": "c371-stdlib-array-at-and-negative",
+    "title": "Array.prototype.at：负下标与越界",
+    "src": "const xs = [1, 2, 3];\nconsole.log(xs.at(0), xs.at(-1), xs.at(-3), xs.at(3), xs.at(-4));\nconsole.log([].at(0));\nconsole.log(xs.at(-0), xs.at(1.9));"
+  },
+  {
+    "id": "c371-stdlib-array-tospliced-and-reversed",
+    "title": "toSpliced / toReversed / toSorted / with 不改原数组",
+    "src": "const xs = [3, 1, 2];\nconsole.log(JSON.stringify(xs.toSorted()), JSON.stringify(xs.toSorted((a: number, b: number) => b - a)));\nconsole.log(JSON.stringify(xs.toReversed()), JSON.stringify(xs.with(1, 9)));\nconsole.log(JSON.stringify(xs.toSpliced(1, 1, 7, 8)));\nconsole.log(JSON.stringify(xs));\ntry { console.log(JSON.stringify(xs.with(9, 0))); } catch (e) { console.log((e as Error).name); }"
+  },
+  {
+    "id": "c371-stdlib-array-fill-and-copywithin-negative",
+    "title": "fill / copyWithin 的负下标与越界夹取",
+    "src": "console.log(JSON.stringify([1, 2, 3, 4].fill(0, 1, 3)));\nconsole.log(JSON.stringify([1, 2, 3, 4].fill(9, -2)));\nconsole.log(JSON.stringify([1, 2, 3, 4, 5].copyWithin(0, 3)));\nconsole.log(JSON.stringify([1, 2, 3, 4, 5].copyWithin(1, -2, -1)));\nconsole.log(JSON.stringify([1, 2, 3].copyWithin(0, 10)));"
+  },
+  {
+    "id": "c371-stdlib-array-splice-return-and-argc",
+    "title": "splice 的返回值与实参个数口径",
+    "src": "const a = [1, 2, 3, 4];\nconsole.log(JSON.stringify(a.splice(1, 2)), JSON.stringify(a));\nconst b = [1, 2, 3];\nconsole.log(JSON.stringify(b.splice(1)), JSON.stringify(b));\nconst c = [1, 2, 3];\nconsole.log(JSON.stringify(c.splice(-1)), JSON.stringify(c));\nconst d = [1, 2, 3];\nconsole.log(JSON.stringify(d.splice()), JSON.stringify(d));"
+  },
+  {
+    "id": "c371-stdlib-array-sort-stability-and-holes",
+    "title": "sort：稳定性、undefined 排在最后、洞被移到尾部",
+    "src": "const rows = [{ k: 1, n: \"a\" }, { k: 0, n: \"b\" }, { k: 1, n: \"c\" }, { k: 0, n: \"d\" }];\nconsole.log(rows.slice().sort((x, y) => x.k - y.k).map((r) => r.n).join(\"\"));\nconst mixed: any[] = [3, undefined, 1, , 2];\nconsole.log(JSON.stringify(mixed.slice().sort()));\nconsole.log(JSON.stringify([10, 9, 100].sort()));"
+  },
+  {
+    "id": "c371-stdlib-array-from-mapfn-thisarg",
+    "title": "Array.from：映射函数、类数组、可迭代、thisArg",
+    "src": "console.log(Array.from(\"abc\").join(\"-\"));\nconsole.log(Array.from({ length: 3, 0: \"x\" } as any).map((v: any) => String(v)).join(\",\"));\nconsole.log(Array.from([1, 2, 3], (v: number) => v * 2).join(\",\"));\nconsole.log(Array.from(new Set([1, 1, 2])).join(\",\"));\nconsole.log(Array.from({ length: 2 }, (_: unknown, i: number) => i).join(\",\"));"
+  },
+  {
+    "id": "c371-stdlib-array-reduce-empty-forms",
+    "title": "reduce / reduceRight：空数组与初值的有无",
+    "src": "console.log([1, 2, 3].reduce((a, b) => a + b));\nconsole.log([1, 2, 3].reduce((a, b) => a + b, 10));\nconsole.log([1, 2, 3].reduceRight((a, b) => a - b));\ntry { ([] as number[]).reduce((a, b) => a + b); } catch (e) { console.log((e as Error).name); }\nconsole.log(([] as number[]).reduce((a, b) => a + b, 5));\nconsole.log([1, , 3].reduce((a: number, b: number) => a + b, 0));"
+  },
+  {
+    "id": "c371-stdlib-array-join-holes-and-nullish",
+    "title": "join：洞与 undefined / null 都当空串，分隔串默认逗号",
+    "src": "const xs: any[] = [1, , 3, undefined, null];\nconsole.log(JSON.stringify(xs.join()));\nconsole.log(JSON.stringify(xs.join(\"-\")));\nconsole.log(JSON.stringify(xs.toString()));\nconsole.log(JSON.stringify([].join(\"-\")), JSON.stringify([1].join()));"
+  },
+  {
+    "id": "c371-stdlib-array-flat-depth-forms",
+    "title": "flat / flatMap：深度、Infinity、洞",
+    "src": "console.log(JSON.stringify([1, [2, [3, [4]]]].flat()));\nconsole.log(JSON.stringify([1, [2, [3, [4]]]].flat(2)));\nconsole.log(JSON.stringify([1, [2, [3, [4]]]].flat(Infinity)));\nconsole.log(JSON.stringify([1, [2, [3]]].flat(0)));\nconsole.log([1, 2].flatMap((v) => [v, v * 10]).join(\",\"));"
+  },
+  {
+    "id": "c371-stdlib-array-every-some-empty",
+    "title": "every / some / filter / find 在空数组与洞上的口径",
+    "src": "console.log(([] as number[]).every((v) => v > 0), ([] as number[]).some((v) => v > 0));\nconsole.log([1, 2].every(Boolean), [0, 1].some(Boolean));\nconsole.log(JSON.stringify([1, , 3].filter((v: number) => v > 1)));\nconsole.log([1, , 3].find((v: number) => v === undefined), [1, , 3].findIndex((v: number) => v === undefined));"
+  },
+  {
+    "id": "c371-stdlib-array-iterator-aliases",
+    "title": "values / keys / entries 与 Symbol.iterator 是同一件东西",
+    "src": "const xs = [\"a\", \"b\"];\nconsole.log([...xs.values()].join(\"\"), [...xs.keys()].join(\"\"), [...xs.entries()].map((e) => e.join(\":\")).join(\" \"));\nconsole.log(xs[Symbol.iterator] === xs.values);\nconst it = xs[Symbol.iterator]();\nconsole.log(JSON.stringify(it.next()), JSON.stringify(it.next()), JSON.stringify(it.next()));"
+  },
+  {
+    "id": "c371-stdlib-array-concat-forms",
+    "title": "concat：非数组实参、洞的保留、Symbol.isConcatSpreadable 缺省",
+    "src": "console.log(JSON.stringify([1].concat([2, 3], 4, \"ab\")));\nconsole.log(JSON.stringify([1].concat([[2], [3]])));\nconst xs: any[] = [1, , 3];\nconsole.log(xs.length, JSON.stringify(xs.concat([])));\nconsole.log(JSON.stringify([].concat(1, [2], [[3]])));"
+  },
+  {
+    "id": "c371-stdlib-array-length-write-forms",
+    "title": "length 的写：截断、放大成洞、非法值抛错",
+    "src": "const xs = [1, 2, 3, 4];\nxs.length = 2;\nconsole.log(JSON.stringify(xs), xs.length);\nxs.length = 4;\nconsole.log(JSON.stringify(xs), xs.length, 2 in xs);\ntry { xs.length = -1; } catch (e) { console.log((e as Error).name); }\ntry { xs.length = 1.5; } catch (e) { console.log((e as Error).name); }"
+  },
+  {
+    "id": "c371-stdlib-array-index-and-length-key",
+    "title": "下标键 / length 键 / 字符串键在数组上的分工",
+    "src": "const xs: any[] = [1, 2, 3];\nxs[\"3\"] = 4;\nconsole.log(xs.length, JSON.stringify(xs));\nxs[\"01\"] = 5;\nconsole.log(xs.length, xs[\"01\"]);\nconsole.log(Object.keys(xs).join(\",\"));\nconsole.log(JSON.stringify(Object.keys([, , 1])));"
+  },
+  {
+    "id": "c371-stdlib-object-keys-order-mixed",
+    "title": "键的顺序：整数键在前、字符串键按插入、符号最后",
+    "src": "const o: any = {};\no.b = 1; o[\"2\"] = 2; o.a = 3; o[\"1\"] = 4; o[\"01\"] = 5;\nconsole.log(Object.keys(o).join(\",\"));\no[Symbol(\"s\")] = 6;\nconsole.log(Object.keys(o).join(\",\"), Object.getOwnPropertySymbols(o).length);\nconsole.log(JSON.stringify(Object.entries(o)));"
+  },
+  {
+    "id": "c371-stdlib-object-values-entries-primitive",
+    "title": "Object.keys / values / entries 落在字符串与数字上",
+    "src": "console.log(Object.keys(\"abc\").join(\",\"));\nconsole.log(JSON.stringify(Object.values(\"abc\")));\nconsole.log(JSON.stringify(Object.entries(\"ab\")));\nconsole.log(Object.keys(5).length, Object.keys(true).length, Object.keys(\"\").length);"
+  },
+  {
+    "id": "c371-stdlib-object-assign-getters-and-order",
+    "title": "Object.assign：读源上的 getter、写目标上的 setter、键的顺序",
+    "src": "const src: any = {};\nObject.defineProperty(src, \"g\", { get() { return 7; }, enumerable: true });\nconst target: any = { a: 1 };\nObject.assign(target, src, { b: 2 });\nconsole.log(JSON.stringify(target));\nconst writes: string[] = [];\nconst sink: any = {};\nObject.defineProperty(sink, \"s\", { set(v: unknown) { writes.push(\"set:\" + v); }, enumerable: true });\nObject.assign(sink, { s: 9 });\nconsole.log(writes.join(\",\"));"
+  },
+  {
+    "id": "c371-stdlib-object-create-null-and-descriptors",
+    "title": "Object.create：null 原型、带属性描述符、链式原型",
+    "src": "const bare = Object.create(null);\nbare.x = 1;\nconsole.log(typeof (bare as any).toString, Object.getPrototypeOf(bare));\nconst base = { greet() { return \"hi\"; } };\nconst child = Object.create(base, { n: { value: 5, enumerable: true, writable: true } });\nconsole.log(child.greet(), child.n, Object.keys(child).join(\",\"));\nconsole.log(Object.getPrototypeOf(child) === base);"
+  },
+  {
+    "id": "c371-stdlib-object-defineproperty-accessor",
+    "title": "defineProperty：访问器、不可写、不可枚举、getOwnPropertyDescriptor",
+    "src": "const o: any = {};\nlet backing = 1;\nObject.defineProperty(o, \"v\", { get() { return backing; }, set(x: number) { backing = x * 2; }, enumerable: false, configurable: true });\no.v = 5;\nconsole.log(o.v, backing, Object.keys(o).length);\nconst d = Object.getOwnPropertyDescriptor(o, \"v\");\nconsole.log(typeof d.get, typeof d.set, d.enumerable, d.configurable);\nconsole.log(Object.getOwnPropertyDescriptor(o, \"nope\"));"
+  },
+  {
+    "id": "c371-stdlib-object-descriptor-flags-array-vs-string",
+    "title": "描述符标志：数组元素、length、字符串下标三套不同",
+    "src": "const a = [1];\nconst d = Object.getOwnPropertyDescriptor(a, \"0\");\nconsole.log(d.writable, d.enumerable, d.configurable);\nconst dl = Object.getOwnPropertyDescriptor(a, \"length\");\nconsole.log(dl.writable, dl.enumerable, dl.configurable);\nconst ds = Object.getOwnPropertyDescriptor(\"ab\", \"0\");\nconsole.log(ds.writable, ds.enumerable, ds.configurable);"
+  },
+  {
+    "id": "c371-stdlib-object-freeze-seal-write",
+    "title": "freeze / seal / preventExtensions 之后的可写与可加",
+    "src": "const f: any = { a: 1 };\nObject.freeze(f);\nf.a = 2;\nconsole.log(f.a, Object.isFrozen(f), Object.isSealed(f), Object.isExtensible(f));\nconst s: any = { a: 1 };\nObject.seal(s);\ns.a = 2;\ns.b = 3;\nconsole.log(s.a, s.b, Object.isSealed(s), Object.isFrozen(s));\nconst p: any = { a: 1 };\nObject.preventExtensions(p);\np.b = 2;\nconsole.log(p.b, Object.isExtensible(p), Object.isSealed(p));"
+  },
+  {
+    "id": "c371-stdlib-object-getownpropertynames-vs-symbols",
+    "title": "getOwnPropertyNames 与 getOwnPropertySymbols 的镜像关系",
+    "src": "const o: any = { a: 1, 2: 2 };\no[Symbol(\"x\")] = 3;\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"));\nconsole.log(Object.getOwnPropertySymbols(o).length);\nconst arr = [1, 2];\nconsole.log(Object.getOwnPropertyNames(arr).join(\",\"));"
+  },
+  {
+    "id": "c371-stdlib-object-prototype-and-instanceof",
+    "title": "getPrototypeOf / setPrototypeOf / isPrototypeOf / instanceof",
+    "src": "const base = { kind: \"base\" };\nconst o: any = Object.create(base);\nconsole.log(Object.getPrototypeOf(o) === base, base.isPrototypeOf(o), o instanceof Object);\nconst other = {};\nObject.setPrototypeOf(other, base);\nconsole.log(other.kind, Object.getPrototypeOf(other) === base);\nconsole.log(Object.prototype.toString.call(o), Object.prototype.isPrototypeOf([]));"
+  },
+  {
+    "id": "c371-stdlib-object-is-and-samevalue",
+    "title": "Object.is：NaN / ±0 / 引用",
+    "src": "const o = {};\nconsole.log(Object.is(NaN, NaN), Object.is(0, -0), Object.is(-0, -0), Object.is(o, o), Object.is({}, {}));\nconsole.log(NaN === NaN, 0 === -0);\nconsole.log([NaN].includes(NaN), [0].includes(-0), [0].indexOf(-0));"
+  },
+  {
+    "id": "c371-stdlib-object-hasown-and-in",
+    "title": "Object.hasOwn / hasOwnProperty / in 三者口径",
+    "src": "const proto = { inherited: 1 };\nconst o: any = Object.create(proto);\no.own = 2;\nconsole.log(Object.hasOwn(o, \"own\"), Object.hasOwn(o, \"inherited\"), Object.hasOwn(o, \"toString\"));\nconsole.log(o.hasOwnProperty(\"own\"), o.hasOwnProperty(\"inherited\"));\nconsole.log(\"inherited\" in o, \"toString\" in o, \"nope\" in o);\nconsole.log(Object.hasOwn([1], \"0\"), Object.hasOwn([1], \"length\"));"
+  },
+  {
+    "id": "c371-stdlib-object-fromentries-and-roundtrip",
+    "title": "Object.fromEntries 与 entries 的往返",
+    "src": "const pairs: [string, number][] = [[\"a\", 1], [\"b\", 2]];\nconst o = Object.fromEntries(pairs);\nconsole.log(JSON.stringify(o), JSON.stringify(Object.entries(o)));\nconsole.log(JSON.stringify(Object.fromEntries(new Map([[\"k\", \"v\"]]))));\nconsole.log(JSON.stringify(Object.fromEntries([[\"x\", undefined], [\"y\", null]])));"
+  },
+  {
+    "id": "c371-stdlib-object-groupby",
+    "title": "Object.groupBy / Map.groupBy",
+    "src": "const xs = [1, 2, 3, 4, 5];\nconst byParity = Object.groupBy(xs, (v: number) => (v % 2 === 0 ? \"even\" : \"odd\"));\nconsole.log(JSON.stringify(byParity));\nconst m = Map.groupBy(xs, (v: number) => v % 3);\nconsole.log([...m.entries()].map((e) => e[0] + \":\" + e[1].join(\"|\")).join(\" \"));"
+  },
+  {
+    "id": "c371-stdlib-object-tostring-tags",
+    "title": "Object.prototype.toString 的各类标签",
+    "src": "const cases: unknown[] = [undefined, null, 1, \"s\", true, {}, [], () => 0, new Map(), new Set(), new Date(0), Symbol(\"x\")];\nconsole.log(cases.map((v) => Object.prototype.toString.call(v)).join(\" \"));\nclass C { get [Symbol.toStringTag]() { return \"Custom\"; } }\nconsole.log(Object.prototype.toString.call(new C()));"
+  },
+  {
+    "id": "c371-stdlib-object-valueof-and-conversion",
+    "title": "valueOf / toString 在强制转换里的顺序",
+    "src": "const o = { valueOf() { return 3; }, toString() { return \"T\"; } };\nconsole.log(o + 1, String(o), `${o}`, Number(o));\nconst onlyToString = { toString() { return \"9\"; } };\nconsole.log(onlyToString + 1, Number(onlyToString));\nconst sym = { [Symbol.toPrimitive](hint: string) { return hint; } };\nconsole.log(`${sym}`, sym + \"\", +sym);"
+  },
+  {
+    "id": "c371-stdlib-object-spread-getters",
+    "title": "对象展开读的是值、不是描述符；getter 被求值一次",
+    "src": "let reads = 0;\nconst src: any = {};\nObject.defineProperty(src, \"g\", { get() { reads = reads + 1; return reads; }, enumerable: true });\nconst copy = { ...src };\nconsole.log(copy.g, reads, Object.getOwnPropertyDescriptor(copy, \"g\").get);\nconst merged = { a: 1, ...{ a: 2, b: 3 }, b: 4 };\nconsole.log(JSON.stringify(merged));"
+  },
+  {
+    "id": "c371-stdlib-number-constants-and-checks",
+    "title": "Number 的常量与三个检查",
+    "src": "console.log(Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, Number.EPSILON > 0);\nconsole.log(Number.isInteger(5), Number.isInteger(5.5), Number.isInteger(-0), Number.isInteger(\"5\" as any));\nconsole.log(Number.isSafeInteger(2 ** 53 - 1), Number.isSafeInteger(2 ** 53), Number.isFinite(1 / 0));\nconsole.log(Number.isNaN(NaN), Number.isNaN(\"NaN\" as any), isNaN(\"NaN\" as any));"
+  },
+  {
+    "id": "c371-stdlib-number-parse-forms",
+    "title": "Number() / parseInt / parseFloat 的分工",
+    "src": "console.log(Number(\"\"), Number(\" 12 \"), Number(\"0x10\"), Number(\"1e3\"), Number(\"12px\"), Number(null as any), Number(true));\nconsole.log(parseInt(\"12px\"), parseInt(\"0x1f\"), parseInt(\"08\"), parseInt(\"101\", 2), parseInt(\"z\", 36), parseInt(\"\"));\nconsole.log(parseFloat(\"3.5x\"), parseFloat(\".5\"), parseFloat(\"1e2\"), parseFloat(\"Infinity\"));"
+  },
+  {
+    "id": "c371-stdlib-number-tostring-radix-edge",
+    "title": "toString(radix)：2 / 8 / 16 / 36 / 越界",
+    "src": "console.log((255).toString(16), (255).toString(2), (8).toString(8), (35).toString(36));\nconsole.log((-255).toString(16), (0.5).toString(2));\ntry { (1).toString(1); } catch (e) { console.log((e as Error).name); }\ntry { (1).toString(37); } catch (e) { console.log((e as Error).name); }\nconsole.log((1.5).toString(), (1e21).toString(), (1e-7).toString());"
+  },
+  {
+    "id": "c371-stdlib-number-tofixed-toprecision",
+    "title": "toFixed / toPrecision / toExponential 的取舍与边界",
+    "src": "console.log((1.005).toFixed(2), (2.5).toFixed(0), (-1.5).toFixed(0), (0).toFixed(3));\nconsole.log((123.456).toPrecision(4), (0.000123).toPrecision(2));\nconsole.log((12345).toExponential(2), (0.5).toExponential());\ntry { (1).toFixed(101); } catch (e) { console.log((e as Error).name); }"
+  },
+  {
+    "id": "c371-stdlib-number-valueof-and-wrapper",
+    "title": "包装对象：new Number / valueOf / ==与===",
+    "src": "const n = new Number(5);\nconsole.log(n.valueOf(), typeof n, n == 5 as any, n === (5 as any));\nconst s = new String(\"ab\");\nconsole.log(s.length, s.toUpperCase(), s + \"\", typeof s);\nconst b = new Boolean(false);\nconsole.log(b.valueOf(), b ? \"truthy\" : \"falsy\", !!b, Boolean(b));"
+  },
+  {
+    "id": "c371-stdlib-math-rounding-boundaries",
+    "title": "Math.round / floor / ceil / trunc 对 ±0.5 与负零",
+    "src": "console.log(Math.round(0.5), Math.round(-0.5), Math.round(2.5), Math.round(-2.5));\nconsole.log(Math.floor(-0.5), Math.ceil(-0.5), Math.trunc(-0.5), Math.trunc(0.5));\nconsole.log(1 / Math.round(-0.5), 1 / Math.floor(-0), 1 / Math.ceil(-0.5));\nconsole.log(Math.round(4.5), Math.round(5.5), Math.round(1e21));"
+  },
+  {
+    "id": "c371-stdlib-math-min-max-edge",
+    "title": "min / max：空实参、NaN、±0",
+    "src": "console.log(Math.min(), Math.max());\nconsole.log(Math.min(1, NaN), Math.max(1, NaN), Math.min(NaN, 1));\nconsole.log(1 / Math.min(0, -0), 1 / Math.max(-0, 0));\nconsole.log(Math.min(\"2\" as any, 3), Math.max(1, 2, 3));"
+  },
+  {
+    "id": "c371-stdlib-math-pow-and-roots-edge",
+    "title": "pow / sqrt / cbrt / hypot 的边界",
+    "src": "console.log(Math.pow(2, 10), Math.pow(2, -1), Math.pow(-8, 1 / 3), Math.pow(1, Infinity));\nconsole.log(Math.sqrt(9), Math.sqrt(-1), 1 / Math.sqrt(0));\nconsole.log(Math.cbrt(27), Math.cbrt(-8), Math.hypot(3, 4), Math.hypot());\nconsole.log(Math.pow(NaN, 0), Math.pow(0, -1) === Infinity);"
+  },
+  {
+    "id": "c371-stdlib-math-logs-and-exp",
+    "title": "log / log2 / log10 / log1p / exp / expm1",
+    "src": "console.log(Math.log(1), Math.log(0), Math.log(-1));\nconsole.log(Math.log2(8), Math.log10(1000), Math.log1p(0));\nconsole.log(Math.exp(0), Math.expm1(0), Math.log1p(Math.E - 1));\nconsole.log(Math.exp(1) === Math.E);"
+  },
+  {
+    "id": "c371-stdlib-math-trig-hyperbolic",
+    "title": "三角函数与双曲函数在 0 / π / 大值上的读数",
+    "src": "console.log(Math.sin(0), Math.cos(0), Math.tan(0));\nconsole.log(Math.sin(Math.PI / 2), Math.cos(Math.PI));\nconsole.log(Math.asin(0), Math.acos(1), Math.atan(0), Math.atan2(0, -1) === Math.PI);\nconsole.log(Math.sinh(0), Math.cosh(0), Math.tanh(0));\nconsole.log(Math.asinh(0), Math.acosh(1), Math.atanh(0));\nconsole.log(Math.sin(Infinity), Math.atan2(0, 0));"
+  },
+  {
+    "id": "c371-stdlib-math-imul-clz32-fround",
+    "title": "imul / clz32 / fround / sign / trunc 的 32 位口径",
+    "src": "console.log(Math.imul(3, 4), Math.imul(-5, 12), Math.imul(0x7fffffff, 2));\nconsole.log(Math.clz32(1), Math.clz32(0), Math.clz32(0x80000000), Math.clz32(-1));\nconsole.log(Math.fround(1.5), Math.fround(0.1), Math.fround(1e40));\nconsole.log(Math.sign(-3), Math.sign(0), Math.sign(-0), Math.sign(NaN));\nconsole.log(Math.trunc(4.9), Math.trunc(-4.9));"
+  },
+  {
+    "id": "c371-stdlib-json-stringify-undefined-forms",
+    "title": "stringify：undefined / 函数 / 符号在对象与数组里的两种命运",
+    "src": "console.log(JSON.stringify({ a: undefined, b: () => 0, c: Symbol(\"s\"), d: 1 }));\nconsole.log(JSON.stringify([undefined, () => 0, Symbol(\"s\"), 1]));\nconsole.log(JSON.stringify(undefined), JSON.stringify(() => 0), JSON.stringify(Symbol(\"s\")));\nconsole.log(JSON.stringify({ a: undefined }), JSON.stringify([undefined]));"
+  },
+  {
+    "id": "c371-stdlib-json-stringify-tojson",
+    "title": "stringify 里的 toJSON：Date、自定义对象、嵌套",
+    "src": "console.log(JSON.stringify(new Date(0)));\nconsole.log(JSON.stringify({ d: new Date(86400000) }));\nconst o = { toJSON() { return { wrapped: true }; }, other: 1 };\nconsole.log(JSON.stringify(o), JSON.stringify({ nested: o }));\nconsole.log(JSON.stringify({ toJSON() { return undefined; } }));"
+  },
+  {
+    "id": "c371-stdlib-json-stringify-replacer-forms",
+    "title": "stringify 的 replacer：函数形态与数组形态",
+    "src": "const o = { a: 1, b: 2, c: { d: 3 } };\nconsole.log(JSON.stringify(o, [\"a\", \"c\", \"d\"]));\nconsole.log(JSON.stringify(o, (k: string, v: unknown) => (k === \"b\" ? undefined : v)));\nconsole.log(JSON.stringify(o, (k: string, v: unknown) => (typeof v === \"number\" ? v * 10 : v)));\nconsole.log(JSON.stringify([1, 2], (_k: string, v: unknown) => (v === 1 ? undefined : v)));"
+  },
+  {
+    "id": "c371-stdlib-json-stringify-indent-forms",
+    "title": "stringify 的缩进实参：数字、字符串、超范围",
+    "src": "console.log(JSON.stringify({ a: [1, 2] }, null, 2));\nconsole.log(JSON.stringify({ a: 1 }, null, \"\\t\"));\nconsole.log(JSON.stringify({ a: 1 }, null, 0));\nconsole.log(JSON.stringify({ a: 1 }, null, 11));"
+  },
+  {
+    "id": "c371-stdlib-json-stringify-circular-and-specials",
+    "title": "stringify：循环引用抛错、NaN / Infinity 成 null",
+    "src": "const o: any = { a: 1 };\no.self = o;\ntry { JSON.stringify(o); } catch (e) { console.log((e as Error).name); }\nconsole.log(JSON.stringify({ n: NaN, i: Infinity, m: -Infinity }), JSON.stringify([NaN]));\nconsole.log(JSON.stringify({ s: \"\\u2028\\u2029\" }));"
+  },
+  {
+    "id": "c371-stdlib-json-parse-forms",
+    "title": "parse：空白、原始值、重复键、__proto__ 键",
+    "src": "console.log(JSON.parse(\"  { \\\"a\\\" : 1 }  \").a);\nconsole.log(JSON.parse(\"null\"), JSON.parse(\"true\"), JSON.parse(\"1\"), JSON.parse(\"\\\"s\\\"\"));\nconsole.log(JSON.stringify(JSON.parse('{\"a\":1,\"a\":2}')));\nconst p = JSON.parse('{\"__proto__\":{\"x\":1}}') as any;\nconsole.log(p.x, Object.getPrototypeOf(p) === Object.prototype);\ntry { JSON.parse(\"{a:1}\"); } catch (e) { console.log((e as Error).name); }"
+  },
+  {
+    "id": "c371-stdlib-json-parse-reviver-forms",
+    "title": "parse 的 reviver：自底向上、删除项、根的那一次",
+    "src": "const seen: string[] = [];\nJSON.parse('{\"a\":{\"b\":1},\"c\":2}', (k, v) => { seen.push(k); return v; });\nconsole.log(seen.join(\",\"));\nconsole.log(JSON.stringify(JSON.parse('{\"a\":1,\"b\":2}', (k, v) => (k === \"b\" ? undefined : v))));\nconsole.log(JSON.stringify(JSON.parse('{\"a\":1}', (k, v) => (k === \"\" ? { root: v } : v))));"
+  },
+  {
+    "id": "c371-stdlib-map-keys-identity-and-nan",
+    "title": "Map 的键：NaN / ±0 / 对象身份 / 字符串与数字分开",
+    "src": "const m = new Map<any, string>();\nm.set(NaN, \"nan\"); m.set(-0, \"zero\"); m.set(\"1\", \"str\"); m.set(1, \"num\");\nconsole.log(m.size, m.get(NaN), m.get(0), m.get(\"1\"), m.get(1));\nm.set(NaN, \"nan2\");\nconsole.log(m.size, m.get(NaN));\nconst k = {};\nm.set(k, \"obj\");\nconsole.log(m.get(k), m.get({}));"
+  },
+  {
+    "id": "c371-stdlib-map-iteration-order-forms",
+    "title": "Map 的迭代：插入序、删后重加排到末尾、forEach 三实参",
+    "src": "const m = new Map([[\"a\", 1], [\"b\", 2], [\"c\", 3]]);\nm.delete(\"a\");\nm.set(\"a\", 9);\nconsole.log([...m.keys()].join(\",\"), [...m.values()].join(\",\"));\nconst rows: string[] = [];\nm.forEach((v, k, self) => rows.push(k + \"=\" + v + \"/\" + (self === m)));\nconsole.log(rows.join(\" \"));\nconsole.log([...m].map((e) => e.join(\":\")).join(\" \"), m.size);"
+  },
+  {
+    "id": "c371-stdlib-map-constructor-sources",
+    "title": "new Map 的几种来源与 clear / delete 的返回值",
+    "src": "console.log(new Map([[\"a\", 1]]).size, new Map(Object.entries({ a: 1, b: 2 })).size);\nconsole.log(new Map(new Map([[\"x\", 1]])).get(\"x\"));\nconst empty = new Map();\nconsole.log(empty.delete(\"nope\"), empty.has(\"nope\"));\nconst m = new Map([[\"a\", 1], [\"b\", 2]]);\nconsole.log(m.delete(\"a\"), m.size);\nm.clear();\nconsole.log(m.size, [...m.keys()].length, m.get(\"b\"));"
+  },
+  {
+    "id": "c371-stdlib-set-constructor-and-ops",
+    "title": "Set：去重、NaN / ±0、迭代序、has 的返回值",
+    "src": "const s = new Set<any>([1, 1, \"1\", NaN, NaN, -0, 0, null, undefined]);\nconsole.log(s.size, [...s].map((v) => String(v)).join(\",\"));\nconsole.log(s.has(NaN), s.has(0), s.has(-0), s.has(\"1\"));\nconst t = new Set(\"aabbc\");\nconsole.log([...t].join(\"\"), t.size);\nconsole.log(new Set([[1], [1]]).size);"
+  },
+  {
+    "id": "c371-stdlib-map-set-size-and-keys",
+    "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
+    "src": "const m = new Map([[\"a\", 1]]);\nconst s = new Set([1]);\nconsole.log(m.size, s.size, Object.keys(m as any).length, Object.keys(s as any).length);\nconst d = Object.getOwnPropertyDescriptor(Map.prototype, \"size\");\nconsole.log(typeof d!.get, d!.set === undefined, d!.enumerable);\nconsole.log(JSON.stringify(m), JSON.stringify(s));"
+  },
+  {
+    "id": "c371-stdlib-promise-resolve-identity",
+    "title": "Promise.resolve 的身份与 thenable 采纳",
+    "src": "const p = Promise.resolve(1);\nconsole.log(Promise.resolve(p) === p);\nconst thenable = { then(res: (v: number) => void) { res(42); } };\nPromise.resolve(thenable as any).then((v) => console.log(\"thenable\", v));\nPromise.resolve(2).then((v) => console.log(\"plain\", v));\nconsole.log(\"sync-first\");"
+  },
+  {
+    "id": "c371-stdlib-promise-all-mixed",
+    "title": "Promise.all：非承诺项、空数组、一项拒绝",
+    "src": "Promise.all([1, Promise.resolve(2), \"3\"]).then((vs) => console.log(\"all\", vs.join(\",\")));\nPromise.all([]).then((vs) => console.log(\"empty\", vs.length));\nPromise.all([Promise.resolve(1), Promise.reject(new Error(\"boom\")), Promise.resolve(3)])\n  .then(() => console.log(\"never\"))\n  .catch((e) => console.log(\"catch\", e.message));\nPromise.all([Promise.reject(new Error(\"first\")), Promise.reject(new Error(\"second\"))])\n  .catch((e) => console.log(\"which\", e.message));\nconsole.log(\"sync\");"
+  },
+  {
+    "id": "c371-stdlib-promise-allsettled-any-race",
+    "title": "allSettled / any / race 的形状",
+    "src": "Promise.allSettled([Promise.resolve(1), Promise.reject(new Error(\"e\"))]).then((rs) => {\n  console.log(rs.map((r) => r.status + \":\" + (r.status === \"fulfilled\" ? r.value : r.reason.message)).join(\"|\"));\n});\nPromise.any([Promise.reject(new Error(\"a\")), Promise.resolve(\"ok\")]).then((v) => console.log(\"any\", v));\nPromise.any([Promise.reject(new Error(\"a\")), Promise.reject(new Error(\"b\"))])\n  .catch((e: any) => console.log(\"agg\", e.constructor.name, e.errors.length));\nPromise.race([Promise.resolve(\"fast\"), new Promise(() => {})]).then((v) => console.log(\"race\", v));"
+  },
+  {
+    "id": "c371-stdlib-promise-finally-passthrough",
+    "title": "finally：值透传、异常替换、返回承诺要等",
+    "src": "Promise.resolve(1).finally(() => console.log(\"fin1\")).then((v) => console.log(\"v\", v));\nPromise.reject(new Error(\"orig\")).finally(() => console.log(\"fin2\")).catch((e) => console.log(\"c\", e.message));\nPromise.reject(new Error(\"orig3\"))\n  .finally(() => { throw new Error(\"replaced\"); })\n  .catch((e) => console.log(\"c3\", e.message));\nPromise.resolve(4).finally(() => Promise.resolve(9)).then((v) => console.log(\"wait\", v));"
+  },
+  {
+    "id": "c371-stdlib-promise-executor-throw",
+    "title": "执行器里同步抛错 = 拒绝；resolve 之后抛错被忽略",
+    "src": "new Promise(() => { throw new Error(\"sync\"); }).catch((e) => console.log(\"caught\", e.message));\nnew Promise((res) => { res(1); throw new Error(\"late\"); }).then((v) => console.log(\"v\", v));\nnew Promise((res, rej) => { res(1); rej(new Error(\"second\")); }).then((v) => console.log(\"first-wins\", v));\nconsole.log(\"sync\");"
+  },
+  {
+    "id": "c371-stdlib-promise-microtask-order",
+    "title": "微任务顺序：then 链、await、queueMicrotask 的穿插",
+    "src": "console.log(\"1\");\nPromise.resolve().then(() => console.log(\"2\"));\nqueueMicrotask(() => console.log(\"3\"));\nPromise.resolve().then(() => console.log(\"4\")).then(() => console.log(\"5\"));\nconsole.log(\"6\");\n(async () => { console.log(\"7\"); await null; console.log(\"8\"); })();\nconsole.log(\"9\");"
+  },
+  {
+    "id": "c371-stdlib-date-now-and-construction",
+    "title": "Date.now / new Date(ms) / new Date(string) 的读数",
+    "src": "const t = new Date(0);\nconsole.log(t.getTime(), t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());\nconsole.log(new Date(\"2020-01-02T03:04:05.000Z\").getTime());\nconsole.log(new Date(2020, 0, 2).getFullYear(), typeof Date.now(), Date.now() > 0);\nconsole.log(new Date(NaN).getTime(), String(new Date(NaN)));"
+  },
+  {
+    "id": "c371-stdlib-date-part-getters-utc",
+    "title": "Date 的 getUTC* 一族与 toISOString 的往返",
+    "src": "const d = new Date(Date.UTC(2021, 5, 7, 8, 9, 10, 11));\nconsole.log(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());\nconsole.log(d.getUTCDay(), d.toISOString());\nconsole.log(new Date(d.toISOString()).getTime() === d.getTime());"
+  },
+  {
+    "id": "c371-stdlib-date-setters-and-overflow",
+    "title": "setUTC* 的溢出进位与 Date.UTC 的月份口径",
+    "src": "const d = new Date(Date.UTC(2021, 0, 31));\nd.setUTCMonth(1);\nconsole.log(d.toISOString());\nd.setUTCDate(d.getUTCDate() + 1);\nconsole.log(d.toISOString());\nconsole.log(new Date(Date.UTC(2021, 12, 1)).toISOString());\nconsole.log(new Date(Date.UTC(2021, 0, 0)).toISOString());"
+  },
+  {
+    "id": "c371-stdlib-date-parse-and-json",
+    "title": "Date.parse 与 toJSON；无效日期的字符串形态",
+    "src": "console.log(Date.parse(\"1970-01-01T00:00:00.000Z\"), Date.parse(\"2020-01-01\"));\nconsole.log(JSON.stringify(new Date(0)), JSON.stringify({ at: new Date(86400000) }));\nconsole.log(JSON.stringify(new Date(NaN)));\nconsole.log(new Date(0).toJSON() === new Date(0).toISOString());"
+  },
+  {
+    "id": "c371-stdlib-date-arithmetic",
+    "title": "日期算术：差值、比较、克隆",
+    "src": "const a = new Date(Date.UTC(2020, 0, 1));\nconst b = new Date(Date.UTC(2020, 0, 2));\nconsole.log((b.getTime() - a.getTime()) / 3600000, b > a, a < b, a.getTime() === b.getTime());\nconsole.log(new Date(a.getTime()).toISOString(), +a === a.getTime(), a - (0 as any) === a.getTime());"
+  },
+  {
+    "id": "c371-stdlib-symbol-registry-and-keys",
+    "title": "Symbol.for / keyFor / 作为键的唯一性",
+    "src": "const a = Symbol.for(\"k\");\nconst b = Symbol.for(\"k\");\nconsole.log(a === b, Symbol.keyFor(a), Symbol(\"k\") === Symbol(\"k\"), Symbol.keyFor(Symbol(\"k\")));\nconst o: any = {};\no[a] = 1;\no[\"k\"] = 2;\nconsole.log(o[a], o[\"k\"], JSON.stringify(o), Object.keys(o).join(\",\"));\nconsole.log(Symbol.for(\"k\").toString(), a.description);"
+  },
+  {
+    "id": "c371-stdlib-symbol-wellknown-forms",
+    "title": "内建符号：iterator / toPrimitive / toStringTag / hasInstance",
+    "src": "class Box {\n  [Symbol.toPrimitive](hint: string) { return hint === \"number\" ? 1 : \"box\"; }\n}\nconst b = new Box();\nconsole.log(b + \"\", +b as any, `${b}`, String(b));\nclass Tag { get [Symbol.toStringTag]() { return \"Tagged\"; } }\nconsole.log(Object.prototype.toString.call(new Tag()));\nconsole.log(typeof Symbol.iterator, typeof Symbol.asyncIterator, typeof Symbol.hasInstance);"
+  },
+  {
+    "id": "c371-stdlib-symbol-species-and-hasinstance",
+    "title": "Symbol.hasInstance 与 Symbol.species 的缺省语义",
+    "src": "class Even {\n  static [Symbol.hasInstance](v: unknown) { return typeof v === \"number\" && (v as number) % 2 === 0; }\n}\nconsole.log(2 instanceof (Even as any), 3 instanceof (Even as any));\nclass MyArray extends Array {}\nconst out = new MyArray().concat([1]);\nconsole.log(out instanceof MyArray, out instanceof Array, (MyArray as any)[Symbol.species] === MyArray);"
+  },
+  {
+    "id": "c371-stdlib-error-families-and-fields",
+    "title": "Error 家族：name / message / instanceof / cause",
+    "src": "const errs = [new Error(\"e\"), new TypeError(\"t\"), new RangeError(\"r\"), new SyntaxError(\"s\"), new ReferenceError(\"ref\"), new EvalError(\"ev\"), new URIError(\"u\")];\nconsole.log(errs.map((e) => e.name).join(\",\"));\nconsole.log(errs.map((e) => e instanceof Error).join(\",\"));\nconsole.log(new TypeError(\"t\") instanceof TypeError, new TypeError(\"t\") instanceof RangeError);\nconst withCause = new Error(\"outer\", { cause: new Error(\"inner\") });\nconsole.log((withCause as any).cause.message, String(new Error(\"x\")));\nconsole.log(new Error().message === \"\", new Error(\"m\").toString());"
+  },
+  {
+    "id": "c371-stdlib-error-subclass-shapes",
+    "title": "自定义错误子类：name / instanceof / 捕获",
+    "src": "class AppError extends Error {\n  code: number;\n  constructor(message: string, code: number) {\n    super(message);\n    this.name = \"AppError\";\n    this.code = code;\n  }\n}\nclass NotFound extends AppError {\n  constructor(what: string) { super(\"missing \" + what, 404); this.name = \"NotFound\"; }\n}\ntry { throw new NotFound(\"file\"); } catch (e) {\n  const err = e as NotFound;\n  console.log(err.name, err.message, err.code, err instanceof NotFound, err instanceof AppError, err instanceof Error);\n}\nconsole.log(String(new AppError(\"m\", 1)));"
+  },
+  {
+    "id": "c371-stdlib-error-print-and-types",
+    "title": "错误对象的枚举键与 name 的可写性",
+    "src": "const e = new Error(\"boom\");\nconsole.log(Object.keys(e).join(\",\"), e.message, e.name);\ne.name = \"Custom\";\nconsole.log(e.name, String(e));\nconsole.log(JSON.stringify({ err: new Error(\"x\") }));\nconsole.log(e.propertyIsEnumerable(\"message\"), e.propertyIsEnumerable(\"name\"));"
+  },
+  {
+    "id": "c371-stdlib-console-log-shapes",
+    "title": "console.log 的多实参、嵌套对象与数组",
+    "src": "console.log(\"a\", 1, true, null, undefined);\nconsole.log({ a: 1, b: { c: [1, 2] } });\nconsole.log([1, [2, [3]]]);\nconsole.log({ arr: [], obj: {}, fn: () => 0, sym: Symbol(\"s\"), big: undefined });\nconsole.log(\"nested\", { s: \"x\", n: NaN, i: Infinity, neg: -0 });"
+  },
+  {
+    "id": "c371-stdlib-console-log-numbers",
+    "title": "console.log 的数字打印口径",
+    "src": "console.log(1, 1.5, -0, 1 / 3, 1e21, 1e-7, NaN, Infinity, -Infinity);\nconsole.log(0.1 + 0.2, 2 ** 53, -(2 ** 53));\nconsole.log(Number.MAX_VALUE, Number.MIN_VALUE);\nconsole.log(255, -255, 0.000001, 1000000000000000000000);"
+  },
+  {
+    "id": "c371-stdlib-function-bind-forms",
+    "title": "Function.prototype.bind：偏实参、this、new、length/name",
+    "src": "function add(a: number, b: number, c: number) { return a + b + c; }\nconst one = add.bind(null, 1);\nconsole.log(one(2, 3), one.length, one.name);\nconst ctx = { base: 10, add(this: any, x: number) { return this.base + x; } };\nconst bound = ctx.add.bind({ base: 100 });\nconsole.log(bound(1), ctx.add(1));\nfunction Point(this: any, x: number) { this.x = x; }\nconst BoundPoint = Point.bind(null);\nconsole.log(new (BoundPoint as any)(5).x);"
+  },
+  {
+    "id": "c371-stdlib-function-call-apply",
+    "title": "call / apply 的 this 与类数组实参",
+    "src": "function describe(this: any, a: number, b: number) { return this.tag + \":\" + a + \":\" + b; }\nconsole.log(describe.call({ tag: \"c\" }, 1, 2));\nconsole.log(describe.apply({ tag: \"a\" }, [3, 4]));\nconsole.log(Math.max.apply(null, [1, 5, 3] as any));\nconst args = { length: 2, 0: \"x\", 1: \"y\" };\nconsole.log(describe.apply({ tag: \"like\" }, args as any));"
+  },
+  {
+    "id": "c371-stdlib-function-tostring-and-name",
+    "title": "函数对象的 toString / name / length 三个内省口",
+    "src": "function named(a: number, b: number) { return a + b; }\nconsole.log(named.name, named.length, named.toString().startsWith(\"function named\"));\nconst arrow = (x: number) => x;\nconsole.log(arrow.name, arrow.length);\nconst obj = { m() { return 0; }, get g() { return 1; } };\nconsole.log(obj.m.name, Object.getOwnPropertyDescriptor(obj, \"g\")!.get!.name);\nconsole.log((function () { return 0; }).name === \"\", typeof Function.prototype);"
+  },
+  {
+    "id": "c371-stdlib-globals-uri-family",
+    "title": "encodeURI / decodeURI / encodeURIComponent 的差别",
+    "src": "const s = \"a b/c?d=e&f+g\";\nconsole.log(encodeURI(s));\nconsole.log(encodeURIComponent(s));\nconsole.log(decodeURI(encodeURI(s)) === s, decodeURIComponent(encodeURIComponent(s)) === s);\nconsole.log(encodeURIComponent(\"\\u00e9\\u4e2d\"));\ntry { decodeURIComponent(\"%\"); } catch (e) { console.log((e as Error).name); }"
+  },
+  {
+    "id": "c371-stdlib-globals-coercion-table",
+    "title": "全局强制转换：Number / String / Boolean 的一览",
+    "src": "const vals: any[] = [undefined, null, true, false, 0, -0, 1, \"\", \"x\", \"0\", \" 1 \", [], [1], [1, 2], {}, NaN];\nconsole.log(vals.map((v) => String(v)).join(\"|\"));\nconsole.log(vals.map((v) => (v ? 1 : 0)).join(\"\"));\nconsole.log(vals.map((v) => Number(v)).join(\",\"));"
+  },
+  {
+    "id": "c371-stdlib-globals-parse-family",
+    "title": "parseInt / parseFloat / isNaN / isFinite 的松散口径",
+    "src": "console.log(isNaN(NaN), isNaN(\"abc\" as any), isNaN(\"\" as any), isNaN(undefined as any), isNaN(null as any));\nconsole.log(isFinite(\"1\" as any), isFinite(\"\" as any), isFinite(null as any), isFinite(Infinity));\nconsole.log(parseInt(\"0b101\" as any), parseInt(\"10\", 16), parseFloat(\" 3.5 \"), parseFloat(\"-.5\"));"
+  },
+  {
+    "id": "c371-stdlib-string-iterator-codepoints",
+    "title": "字符串迭代按码点、下标按码元（两把尺子的差别）",
+    "src": "const s = \"a\\u{1F600}b\";\nconsole.log(s.length, [...s].length, Array.from(s).length);\nconsole.log([...s].map((c) => c.length).join(\",\"));\nfor (const ch of s) console.log(\"ch\", ch.length);\nconsole.log(s[1], s[2], s.slice(1, 3).length);"
+  },
+  {
+    "id": "c371-stdlib-map-set-weak-free-spread",
+    "title": "把 Map / Set 摊开成数组的几种写法",
+    "src": "const m = new Map([[\"a\", 1], [\"b\", 2]]);\nconsole.log(JSON.stringify([...m]), JSON.stringify(Array.from(m)));\nconst s = new Set([1, 2]);\nconsole.log([...s].join(\",\"), JSON.stringify(Array.from(s, (v: number) => v * 2)));\nconst o = Object.fromEntries(m);\nconsole.log(JSON.stringify(o));\nconsole.log([...m.values()].reduce((a, b) => a + b, 0));"
+  },
+  {
+    "id": "c371-stdlib-array-from-iterable-forms",
+    "title": "Array.from 吃下各种可迭代对象",
+    "src": "console.log(Array.from(new Map([[\"a\", 1]])).length, JSON.stringify(Array.from(new Map([[\"a\", 1]]))));\nconsole.log(Array.from(new Set(\"abc\")).join(\"-\"));\nfunction* gen() { yield 1; yield 2; }\nconsole.log(Array.from(gen()).join(\",\"));\nconst custom = { [Symbol.iterator]() { let i = 0; return { next: () => (i < 2 ? { value: i++, done: false } : { value: undefined, done: true }) }; } };\nconsole.log(Array.from(custom as any).join(\",\"));"
+  },
+  {
+    "id": "c371-stdlib-object-tostring-on-builtins",
+    "title": "内建对象的 toString 与 valueOf 的组合",
+    "src": "console.log(String([]), String([1, 2]), String([null, 1]), String({}));\nconsole.log([1, 2] + \"\", [] + 1, [5] * 2);\nconsole.log(String(new Map()), String(new Set()), String(new Date(0)).length > 0);\nconsole.log(String(new Error(\"e\")), String(new TypeError(\"t\")));"
+  },
+  {
+    "id": "c371-stdlib-json-nested-roundtrip",
+    "title": "JSON 往返：嵌套结构、特殊数字、空容器",
+    "src": "const data = { a: [1, { b: [2, 3] }], c: { d: null }, e: [], f: {}, g: \"s\" };\nconst text = JSON.stringify(data);\nconsole.log(text);\nconsole.log(JSON.stringify(JSON.parse(text)) === text);\nconsole.log(JSON.stringify([{}, [], null, 0, \"\"]), JSON.stringify({ a: 0, b: \"\" }));"
+  },
+  {
+    "id": "c371-stdlib-string-split-join-roundtrip",
+    "title": "split / join 的往返与空项",
+    "src": "const parts = \"a,,b,\".split(\",\");\nconsole.log(JSON.stringify(parts), parts.join(\"|\"), parts.length);\nconsole.log(JSON.stringify(\"a b  c\".split(\" \")), JSON.stringify(\"a b  c\".split(\" \", 2)));\nconsole.log(\"a,b\".split(\",\", 0).length, \"abc\".split(\"\", 2).join(\"-\"));"
+  },
+  {
+    "id": "c371-stdlib-object-keys-shadowing",
+    "title": "遮蔽内建原型方法与 Object.keys 的自有性",
+    "src": "const o: any = { toString: () => \"own\", valueOf: () => 7 };\nconsole.log(String(o), o + 1, Object.prototype.toString.call(o));\nconsole.log(Object.keys(o).join(\",\"), \"toString\" in o, Object.hasOwn(o, \"toString\"));\nconst d: any = Object.create(null);\nd.k = 1;\nconsole.log(Object.keys(d).join(\",\"), typeof d.toString);"
+  },
+  {
+    "id": "c371-stdlib-array-of-and-isarray",
+    "title": "Array.of / Array.isArray / new Array 的三种构造",
+    "src": "console.log(JSON.stringify(Array.of(1, 2)), JSON.stringify(Array.of(3)), JSON.stringify(Array.of()));\nconsole.log(JSON.stringify(new Array(3)), new Array(3).length, JSON.stringify(new Array(1, 2)));\nconsole.log(Array.isArray([]), Array.isArray(\"ab\" as any), Array.isArray(new Array(0)));\nconsole.log(Array.isArray(Array.prototype), JSON.stringify([...new Array(3)]));"
+  },
+  {
+    "id": "c371-stdlib-string-match-free-forms",
+    "title": "不含正则的字符串查找：search 之外的手段",
+    "src": "const text = \"alpha beta gamma\";\nconsole.log(text.split(\" \").indexOf(\"beta\"), text.indexOf(\"beta\") > 0);\nconsole.log(text.split(\" \").filter((w) => w.includes(\"a\")).join(\",\"));\nconsole.log(text.split(\" \").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(\" \"));\nconsole.log(text.split(\" \").some((w) => w.startsWith(\"g\")), text.split(\" \").find((w) => w.length > 4));"
+  },
+  {
+    "id": "c371-stdlib-number-format-via-string",
+    "title": "不靠 Intl 的数字格式化：toFixed + 千分位",
+    "src": "function group(n: number): string {\n  const s = Math.abs(n).toFixed(2);\n  const dot = s.indexOf(\".\");\n  let int = s.slice(0, dot);\n  const frac = s.slice(dot);\n  let out = \"\";\n  while (int.length > 3) {\n    out = \",\" + int.slice(int.length - 3) + out;\n    int = int.slice(0, int.length - 3);\n  }\n  return (n < 0 ? \"-\" : \"\") + int + out + frac;\n}\nconsole.log(group(1234567.891), group(-12.5), group(0), group(999.999));"
+  },
+  {
+    "id": "c371-stdlib-array-tostring-forms",
+    "title": "数组的 toString / join 在嵌套与稀疏上的读数",
+    "src": "console.log(String([[1, 2], [3]]), [[1, 2], [3]].join(\";\"));\nconsole.log(JSON.stringify([1, null, undefined, , 2].join(\"-\")));\nconsole.log([1, [2, [3]]].toString());\nconsole.log(String([]), String([, ,]));"
+  },
+  {
+    "id": "c371-stdlib-string-pad-in-table",
+    "title": "用 padEnd / padStart 对齐一列文本",
+    "src": "const rows = [[\"id\", \"name\"], [\"1\", \"alice\"], [\"22\", \"bob\"]];\nfor (const [a, b] of rows) console.log(a.padStart(3) + \" | \" + b.padEnd(6) + \"|\");\nconsole.log(rows.map((r) => r[1].padEnd(8, \".\")).join(\"\"));\nconsole.log(\"header\".padEnd(10, \"=\"));"
+  }
 ];

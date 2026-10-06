@@ -1000,4 +1000,207 @@ export const EXPECTATIONS = {
   // **旧账换写法** ✓（与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` /
   // `c323-ex-nonnull-in-chains` / `c330-ex-nonnull-assertion-forms` **同一个根** ✓，不加新账 ✓）。
   // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
+
+  // ===== 第 371 轮：矩阵加宽 345 条，新量到的缺口（76 条）=====
+  //
+  // 这一轮**只做加宽**（用户口径：「先增加 exec / runtime / 标准库 / e2e cases，尽量覆盖所有场景」），
+  // 345 条候选里 **269 条当场通过**、**76 条是新量到的缺口**、`nodefail` **0**（用例自身都合法）。
+  // 下面按**根子**分组：同一条根子下的用例共用一句话。
+
+  // ---- 枚举成员初始化式**引用同一枚举里前面的成员** ⇒ `name is not a local or a capture`。
+  "c371-ex-enum-numeric-forms": { expect: "blocked", why: "枚举成员初始化式**引用同一枚举里前面的成员** ⇒ `name is not a local or a capture`。" },
+
+  // ---- `const enum` 成员表达式与同类引用（与 `enumMemberRef` 同源）。
+  "c371-ex-enum-const-and-computed": { expect: "blocked", why: "`const enum` 成员表达式与同类引用（与 `enumMemberRef` 同源）。" },
+
+  // ---- 只有类型的 `namespace` 体在运行期应当是 `undefined`（本仓给了一个对象）。
+  "c371-ex-namespace-type-only-body": { expect: "differ", why: "只有类型的 `namespace` 体在运行期应当是 `undefined`（本仓给了一个对象）。" },
+
+  // ---- 接口名出现在**值位**（`typeof (Shape as any)`）⇒ 应当擦成 `undefined`，现在报 `name is not a local`。
+  "c371-ex-class-implements-and-interface": { expect: "blocked", why: "接口名出现在**值位**（`typeof (Shape as any)`）⇒ 应当擦成 `undefined`，现在报 `name is not a local`。" },
+
+  // ---- 尖括号断言的对象字面量那一格 ⇒ `unimplemented: expression Block`。
+  "c371-ex-assertion-forms": { expect: "blocked", why: "尖括号断言的对象字面量那一格 ⇒ `unimplemented: expression Block`。" },
+
+  // ---- 非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。
+  "c371-ex-nonnull-in-chains": { expect: "differ", why: "非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。" },
+  "c371-e2e-multi-source-merge": { expect: "blocked", why: "非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。" },
+
+  // ---- 解构里的 `BindingElement`（对象模式 + 默认值 + 类型标注的组合）⇒ `unimplemented: expression BindingElement`。
+  "c371-ex-destructuring-everywhere": { expect: "blocked", why: "解构里的 `BindingElement`（对象模式 + 默认值 + 类型标注的组合）⇒ `unimplemented: expression BindingElement`。" },
+
+  // ---- 展开数组（`{...xs}`）应当带上下标键（Node 给 `{"0":1,…}`，本仓给 `{}`）。
+  "c371-ex-spread-forms": { expect: "differ", why: "展开数组（`{...xs}`）应当带上下标键（Node 给 `{\"0\":1,…}`，本仓给 `{}`）。" },
+
+  // ---- 类表达式在体内 `Named.name` 可见（本仓给 `false` 那一格）。
+  "c371-ex-class-expression-forms": { expect: "differ", why: "类表达式在体内 `Named.name` 可见（本仓给 `false` 那一格）。" },
+
+  // ---- **类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。
+  "c371-ex-new-expression-type-args": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
+  "c371-rt-class-static-and-instance-isolation": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
+  "c371-e2e-sudoku-validator": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
+  "c371-e2e-coordinate-geometry": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
+
+  // ---- **尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。
+  "c371-ex-type-assertions-in-operands": { expect: "blocked", why: "**尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。" },
+
+  // ---- **转义写法的标识符** `\u0061bc` 没有被解成 `abc` ⇒ 名字对不上。
+  "c371-ex-unicode-identifiers": { expect: "blocked", why: "**转义写法的标识符** `\\u0061bc` 没有被解成 `abc` ⇒ 名字对不上。" },
+
+  // ---- **标签名**（`block:`）被当成了要解析的名字。
+  "c371-ex-labels-and-control": { expect: "blocked", why: "**标签名**（`block:`）被当成了要解析的名字。" },
+
+  // ---- `Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。
+  "c371-rt-property-semantics": { expect: "blocked", why: "`Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。" },
+  "c371-rt-getter-on-prototype-chain": { expect: "differ", why: "`Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。" },
+  "c371-stdlib-object-hasown-and-in": { expect: "blocked", why: "`Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。" },
+
+  // ---- 脱离接收者调方法时的 `this`（Node 丢 `this` ⇒ 抛错；本仓给 `Dundefined`）——与第 337 轮那条松散模式口径同源。
+  "c371-rt-super-and-this-binding": { expect: "differ", why: "脱离接收者调方法时的 `this`（Node 丢 `this` ⇒ 抛错；本仓给 `Dundefined`）——与第 337 轮那条松散模式口径同源。" },
+
+  // ---- `for..of` 提前 `break` 时要调迭代器的 `return()`（本仓没调 ⇒ Node 打了 `closed`、本仓没打）。
+  "c371-rt-iteration-protocol-forms": { expect: "differ", why: "`for..of` 提前 `break` 时要调迭代器的 `return()`（本仓没调 ⇒ Node 打了 `closed`、本仓没打）。" },
+
+  // ---- async 的错误路径与微任务次序（`fin` 早于 `1 boom`，与 Node 相反）。
+  "c371-rt-async-error-paths": { expect: "differ", why: "async 的错误路径与微任务次序（`fin` 早于 `1 boom`，与 Node 相反）。" },
+
+  // ---- 换掉 `C.prototype` 之后 `instanceof` 的判定（Node 给 `true true true`）。
+  "c371-rt-instanceof-and-prototype": { expect: "differ", why: "换掉 `C.prototype` 之后 `instanceof` 的判定（Node 给 `true true true`）。" },
+
+  // ---- `findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。
+  "c371-rt-array-holes-everywhere": { expect: "differ", why: "`findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。" },
+  "c371-stdlib-array-every-some-empty": { expect: "differ", why: "`findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。" },
+
+  // ---- `console.log(class C {})` 的标签应当是 `[class C]` 而不是 `[Function: C]`。
+  "c371-rt-console-inspect-shapes": { expect: "differ", why: "`console.log(class C {})` 的标签应当是 `[class C]` 而不是 `[Function: C]`。" },
+
+  // ---- **步数预算**在万级循环上耗尽（与 `gc-churn` 同一条已知缺口）。
+  "c371-rt-gc-churn-forms": { expect: "blocked", why: "**步数预算**在万级循环上耗尽（与 `gc-churn` 同一条已知缺口）。" },
+
+  // ---- 计算键方法的名字（`{ ["k"+1]() {} }.k1.name` 给空串）。
+  "c371-rt-function-name-and-length": { expect: "differ", why: "计算键方法的名字（`{ [\"k\"+1]() {} }.k1.name` 给空串）。" },
+
+  // ---- 带**剩余参数**的函数经 `.call(...)` 调用 ⇒ `cannot call a non-closure value`；最小反例 `function f(...r){}; f.call({}, 1)`。
+  "c371-rt-bind-call-apply-forms": { expect: "blocked", why: "带**剩余参数**的函数经 `.call(...)` 调用 ⇒ `cannot call a non-closure value`；最小反例 `function f(...r){}; f.call({}, 1)`。" },
+
+  // ---- `Object.prototype.toString.call(promise)` 应当是 `[object Promise]`。
+  "c371-rt-tostring-tags-and-inspect": { expect: "differ", why: "`Object.prototype.toString.call(promise)` 应当是 `[object Promise]`。" },
+
+  // ---- 非 ASCII 的大小写转换要一张映射表（本仓只有 ASCII ⇒ 直接报 `unimplemented`）。
+  "c371-stdlib-string-case-forms": { expect: "differ", why: "非 ASCII 的大小写转换要一张映射表（本仓只有 ASCII ⇒ 直接报 `unimplemented`）。" },
+
+  // ---- `splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。
+  "c371-stdlib-array-splice-return-and-argc": { expect: "differ", why: "`splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。" },
+
+  // ---- `xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。
+  "c371-stdlib-array-iterator-aliases": { expect: "differ", why: "`xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。" },
+
+  // ---- `xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。
+  "c371-stdlib-array-length-write-forms": { expect: "differ", why: "`xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。" },
+
+  // ---- `Object.keys / values / entries` 落在**字符串**上（本仓报 `needs an object`）。
+  "c371-stdlib-object-values-entries-primitive": { expect: "differ", why: "`Object.keys / values / entries` 落在**字符串**上（本仓报 `needs an object`）。" },
+
+  // ---- `Object.assign` 往目标上的**访问器 setter** 写 ⇒ `unreachable: installing a builtin never calls a function`。
+  "c371-stdlib-object-assign-getters-and-order": { expect: "differ", why: "`Object.assign` 往目标上的**访问器 setter** 写 ⇒ `unreachable: installing a builtin never calls a function`。" },
+
+  // ---- `Math.asinh` / `Math.acosh` / `Math.atanh` 不在那儿（`sinh`/`cosh`/`tanh` 是好的）。
+  "c371-stdlib-math-trig-hyperbolic": { expect: "differ", why: "`Math.asinh` / `Math.acosh` / `Math.atanh` 不在那儿（`sinh`/`cosh`/`tanh` 是好的）。" },
+
+  // ---- `Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, "size")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。
+  "c371-stdlib-map-set-size-and-keys": { expect: "differ", why: "`Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, \"size\")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。" },
+
+  // ---- `Promise.resolve(p) === p` 要是 `true`（同一个承诺原样返回）。
+  "c371-stdlib-promise-resolve-identity": { expect: "differ", why: "`Promise.resolve(p) === p` 要是 `true`（同一个承诺原样返回）。" },
+
+  // ---- `Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。
+  "c371-stdlib-promise-allsettled-any-race": { expect: "differ", why: "`Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。" },
+
+  // ---- `finally` 里抛错要**替换**原来那个拒绝（Node 给 `c3 replaced`，本仓给 `v 1`）。
+  "c371-stdlib-promise-finally-passthrough": { expect: "differ", why: "`finally` 里抛错要**替换**原来那个拒绝（Node 给 `c3 replaced`，本仓给 `v 1`）。" },
+
+  // ---- `new Date(2020, 0, 2)`（多实参构造）与 `new Date("…")`（字符串解析）还没接上 ⇒ `unimplemented: global builtin 260`。
+  "c371-stdlib-date-now-and-construction": { expect: "differ", why: "`new Date(2020, 0, 2)`（多实参构造）与 `new Date(\"…\")`（字符串解析）还没接上 ⇒ `unimplemented: global builtin 260`。" },
+
+  // ---- `JSON.stringify(new Date(NaN))`：Node 给 `null`，本仓在 `toJSON` 里先抛了 `Invalid time value`。
+  "c371-stdlib-date-parse-and-json": { expect: "differ", why: "`JSON.stringify(new Date(NaN))`：Node 给 `null`，本仓在 `toJSON` 里先抛了 `Invalid time value`。" },
+
+  // ---- `MyArray[Symbol.species] === MyArray`（物种那一格的缺省值）。
+  "c371-stdlib-symbol-species-and-hasinstance": { expect: "differ", why: "`MyArray[Symbol.species] === MyArray`（物种那一格的缺省值）。" },
+
+  // ---- `EvalError` 这个全局名不在那儿。
+  "c371-stdlib-error-families-and-fields": { expect: "blocked", why: "`EvalError` 这个全局名不在那儿。" },
+
+  // ---- `Object.prototype.propertyIsEnumerable` 不在那儿。
+  "c371-stdlib-error-print-and-types": { expect: "differ", why: "`Object.prototype.propertyIsEnumerable` 不在那儿。" },
+  "c371-stdlib-object-keys-shadowing": { expect: "differ", why: "`Object.prototype.propertyIsEnumerable` 不在那儿。" },
+
+  // ---- 绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。
+  "c371-stdlib-function-bind-forms": { expect: "differ", why: "绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。" },
+
+  // ---- `Function.prototype.apply` 只吃真数组（类数组实参报 `needs an array`）。
+  "c371-stdlib-function-call-apply": { expect: "differ", why: "`Function.prototype.apply` 只吃真数组（类数组实参报 `needs an array`）。" },
+
+  // ---- 访问器函数的 `name`：`getOwnPropertyDescriptor(o, "g").get.name` 应当是 `get g`。
+  "c371-stdlib-function-tostring-and-name": { expect: "differ", why: "访问器函数的 `name`：`getOwnPropertyDescriptor(o, \"g\").get.name` 应当是 `get g`。" },
+
+  // ---- `encodeURI` 族在某一条上**挂住不返回**（退出码 `null` ⇒ 被 30s 超时杀掉）。
+  "c371-stdlib-globals-uri-family": { expect: "differ", why: "`encodeURI` 族在某一条上**挂住不返回**（退出码 `null` ⇒ 被 30s 超时杀掉）。" },
+
+  // ---- `String(new Date(0))` 要渲染**本地时间**（本仓明确不做）。
+  "c371-stdlib-object-tostring-on-builtins": { expect: "differ", why: "`String(new Date(0))` 要渲染**本地时间**（本仓明确不做）。" },
+
+  // ---- `Array.isArray(Array.prototype)` 要给 `true`（数组原型自己也是数组）。
+  "c371-stdlib-array-of-and-isarray": { expect: "differ", why: "`Array.isArray(Array.prototype)` 要给 `true`（数组原型自己也是数组）。" },
+
+  // ---- 稀疏数组的 `toString` / `join` 在**全洞**时（`[, ,]`）Node 给 `,`。
+  "c371-stdlib-array-tostring-forms": { expect: "differ", why: "稀疏数组的 `toString` / `join` 在**全洞**时（`[, ,]`）Node 给 `,`。" },
+
+  // ---- **步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。
+  "c371-e2e-quick-and-merge-sort": { expect: "differ", why: "**步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。" },
+  "c371-e2e-roman-numerals": { expect: "differ", why: "**步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。" },
+  "c371-e2e-matrix-linear-algebra": { expect: "differ", why: "**步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。" },
+
+  // ---- 字符串数组里逐字符找 `E` 失败（`charAt` 那一圈没找到，根子待量）。
+  "c371-e2e-maze-bfs": { expect: "blocked", why: "字符串数组里逐字符找 `E` 失败（`charAt` 那一圈没找到，根子待量）。" },
+
+  // ---- `render` 里对象当上下文时字段读不到（`{{user.name}}` 给 `false`）。
+  "c371-e2e-mustache-template": { expect: "differ", why: "`render` 里对象当上下文时字段读不到（`{{user.name}}` 给 `false`）。" },
+
+  // ---- **回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set(["build"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。
+  "c371-e2e-html-template-tagged": { expect: "differ", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
+  "c371-e2e-plugin-registry": { expect: "differ", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
+  "c371-e2e-priority-scheduler": { expect: "blocked", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
+
+  // ---- `encode` 里 `String(run)` 与 `charAt` 的分支被走成了布尔串（`truefalse…`）。
+  "c371-e2e-rle-compression": { expect: "differ", why: "`encode` 里 `String(run)` 与 `charAt` 的分支被走成了布尔串（`truefalse…`）。" },
+
+  // ---- 泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` 是 `undefined` ⇒ 调它报 non-closure（非泛型那一版是对的）。
+  "c371-e2e-lru-with-ttl": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
+  "c371-e2e-rate-limiting-window": { expect: "differ", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
+  "c371-e2e-object-pool": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
+  "c371-e2e-debounce-and-batch": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
+
+  // ---- **类成员位置的表达式语句**（字段上的对象类型标注里带方法签名那一格）⇒ `unimplemented: class member ExpressionStatement`。
+  "c371-e2e-observer-with-priority": { expect: "blocked", why: "**类成员位置的表达式语句**（字段上的对象类型标注里带方法签名那一格）⇒ `unimplemented: class member ExpressionStatement`。" },
+
+  // ---- 异步池的结果次序（并发回调里 `await` 的排空时机）——根子待量。
+  "c371-e2e-async-pool-with-errors": { expect: "differ", why: "异步池的结果次序（并发回调里 `await` 的排空时机）——根子待量。" },
+
+  // ---- **以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。
+  "c371-e2e-typed-config-merge-deep": { expect: "blocked", why: "**以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。" },
+  "c371-e2e-permissions-matrix": { expect: "blocked", why: "**以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。" },
+
+  // ---- `validate` 递归里同一个 schema 走了两遍（数组 `items` 那一支重复校验）。
+  "c371-e2e-json-schema-lite": { expect: "differ", why: "`validate` 递归里同一个 schema 走了两遍（数组 `items` 那一支重复校验）。" },
+
+  // ---- 闭包里引用了**在它后面声明**的 `const`（`name used before its declaration: c`）——TDZ 与提升的口径。
+  "c371-e2e-graph-coloring": { expect: "blocked", why: "闭包里引用了**在它后面声明**的 `const`（`name used before its declaration: c`）——TDZ 与提升的口径。" },
+
+  // ---- **交叉类型被当成表达式**（`unimplemented: expression IntersectionType`）。
+  "c371-e2e-binary-encoding": { expect: "blocked", why: "**交叉类型被当成表达式**（`unimplemented: expression IntersectionType`）。" },
+
+  // ---- `Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。
+  "c371-e2e-string-search-index": { expect: "differ", why: "`Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。" },
+
 };

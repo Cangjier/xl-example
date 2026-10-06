@@ -3881,4 +3881,436 @@ console.log(tag\`x\${1}y\${2}z\`);
 console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
 `,
   },
+
+  // ===== 第 371 轮：加宽矩阵收编的候选（77 条）=====
+  {
+    "id": "c371-ex-annotation-positions",
+    "title": "类型标注在每一种位置上都被擦掉",
+    "src": "const a: number = 1;\nlet b: string | null = \"s\";\nvar c: readonly number[] = [1];\nfunction f(x: number, y?: string, ...rest: boolean[]): number { return x + (y ? y.length : 0) + rest.length; }\nclass K { field: number = 1; static s: string = \"x\"; m(v: Map<string, number[]>): void {} }\nconst g = (x: number): number => x;\nconst h: (n: number) => number = (n) => n;\nfor (const v of [1, 2] as number[]) { const z: number = v; }\ntry { throw new Error(\"e\"); } catch (err: unknown) { }\nconsole.log(a, b, c.length, f(1, \"ab\", true, false), new K().field, K.s, g(2), h(3));"
+  },
+  {
+    "id": "c371-ex-interface-and-type-alias-erased",
+    "title": "interface / type 在任何值位都不产生东西",
+    "src": "interface Point { x: number; y: number; m?(): string }\ntype Alias = { a: string };\ntype Fn = (x: number) => string;\ntype Union = \"a\" | \"b\" | 1;\ntype Tup = [number, string?, ...boolean[]];\ninterface Ext extends Point { z: number }\nconst p: Point = { x: 1, y: 2 };\nconst f: Fn = (n) => String(n);\nconsole.log(p.x + p.y, f(3), typeof ({} as Alias), ([\"a\"] as Union[]).length, ([1] as Tup).length);"
+  },
+  {
+    "id": "c371-ex-generics-erased-forms",
+    "title": "泛型参数、约束、默认值都被擦掉",
+    "src": "function id<T>(x: T): T { return x; }\nfunction pick<T, K extends keyof T>(o: T, k: K): T[K] { return o[k]; }\nfunction withDefault<T = string>(x: T): T { return x; }\nclass Box<T> { v: T; constructor(v: T) { this.v = v; } get(): T { return this.v; } }\nconst map = new Map<string, number>();\nmap.set(\"a\", 1);\nconst arr = new Array<number>(1, 2);\nconsole.log(id(1), id(\"s\"), pick({ a: 1 }, \"a\"), withDefault(2), new Box(\"b\").get(), map.get(\"a\"), arr.length);"
+  },
+  {
+    "id": "c371-ex-generic-arrow-and-method",
+    "title": "泛型箭头函数与泛型方法",
+    "src": "const first = <T,>(xs: T[]): T => xs[0];\nconst pair = <A, B>(a: A, b: B): [A, B] => [a, b];\nclass Repo {\n  items: string[] = [];\n  add<T extends string>(x: T): this { this.items.push(x); return this; }\n  all<T>(): T[] { return this.items as unknown as T[]; }\n}\nconsole.log(first([3, 4]), pair(1, \"x\").join(\"-\"), new Repo().add(\"a\").add(\"b\").all().join(\"\"));"
+  },
+  {
+    "id": "c371-ex-overload-signatures-erased",
+    "title": "重载签名只是声明，实现体才是运行期的东西",
+    "src": "function fmt(x: number): string;\nfunction fmt(x: string): string;\nfunction fmt(x: number | string): string { return typeof x === \"number\" ? \"n\" + x : \"s\" + x; }\nclass C {\n  run(x: number): string;\n  run(x: string): string;\n  run(x: any): string { return \"r\" + x; }\n}\nconsole.log(fmt(1), fmt(\"a\"), new C().run(2), new C().run(\"b\"), fmt.length);"
+  },
+  {
+    "id": "c371-ex-declare-and-ambient-erased",
+    "title": "declare 声明一律不产生运行期代码",
+    "src": "declare const ambient: number;\ndeclare function ambientFn(x: number): string;\ndeclare class AmbientClass { m(): void }\ndeclare namespace AmbientNs { const v: number }\ndeclare module \"some-module\" { export const x: number }\nconst local = 1;\nconsole.log(local, typeof ambient, typeof ambientFn, typeof AmbientClass, typeof AmbientNs);"
+  },
+  {
+    "id": "c371-ex-enum-numeric-forms",
+    "title": "数值枚举：自动编号、显式值、反向映射",
+    "src": "enum Color { Red, Green = 5, Blue }\nenum Flags { None = 0, A = 1 << 0, B = 1 << 1, Both = A | B }\nconst c: Color = Color.Green;\nconsole.log(Color.Red, Color.Green, Color.Blue, Color[5], Color[0], Color[6]);\nconsole.log(Flags.A, Flags.B, Flags.Both, Flags[2], Object.keys(Color).join(\",\"));\nconsole.log(c === Color.Green);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-enum-string-and-heterogeneous",
+    "title": "字符串枚举与异构枚举：只有数值那一半有反向映射",
+    "src": "enum S { A = \"a\", B = \"b\" }\nenum H { N = 1, T = \"t\" }\nconsole.log(S.A, S.B, S[\"A\"], Object.keys(S).join(\",\"), S[0]);\nconsole.log(H.N, H.T, H[1], H[\"T\"], Object.keys(H).join(\",\"));\nconsole.log(S.A === \"a\", H.N === 1);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-enum-const-and-computed",
+    "title": "const enum 与带常量表达式的成员",
+    "src": "const enum Level { Low = 1, Mid = Low + 1, High = Mid * 2 }\nenum Computed { A = \"x\".length, B = 2 + 3, C = 1 << 4 }\nconsole.log(Level.Mid, Level.High, Computed.A, Computed.B, Computed.C, Computed[5]);\nconsole.log(Object.keys(Computed).join(\",\"));",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-enum-in-class-and-function",
+    "title": "枚举在有运行期语义的内层作用域里",
+    "src": "enum E { A = \"a\", B = \"b\" }\nfunction pick(k: string): string { return k === \"a\" ? E.A : E.B; }\nclass Holder { tag = E.A; static all = [E.A, E.B]; m(): string { return E.B; } }\nconst arrow = (): string => E.A + E.B;\nconsole.log(pick(\"a\"), new Holder().tag, Holder.all.join(\",\"), new Holder().m(), arrow());",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-namespace-with-values",
+    "title": "namespace 带值：导出、内层、嵌套",
+    "src": "namespace Outer {\n  export const a = 1;\n  export function f(): number { return a + 1; }\n  export namespace Inner {\n    export const b = 2;\n    export const g = (): number => b * 3;\n  }\n}\nconsole.log(Outer.a, Outer.f(), Outer.Inner.b, Outer.Inner.g());",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-namespace-merging",
+    "title": "namespace 与函数 / 类 / 枚举合并",
+    "src": "function build(): string { return \"build\"; }\nnamespace build { export const tag = \"fn\"; }\nclass Widget { v = 1; }\nnamespace Widget { export const kind = \"cls\"; }\nenum Mode { On = 1 }\nnamespace Mode { export const label = \"mode\"; }\nconsole.log(build(), build.tag, new Widget().v, Widget.kind, Mode.On, Mode.label);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-namespace-type-only-body",
+    "title": "只有类型的 namespace 体是空操作",
+    "src": "namespace Types { export interface A { x: number } export type B = string; }\nnamespace Mixed { export type T = number; export const value = 7; }\nconst a: Types.A = { x: 1 };\nconst b: Types.B = \"s\";\nconsole.log(a.x, b, Mixed.value, typeof (Types as any), Object.keys(Mixed).join(\",\"));",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-parameter-properties-forms",
+    "title": "参数属性：public / private / protected / readonly / 可选 / 默认值",
+    "src": "class Service {\n  constructor(\n    public name: string,\n    private secret: number = 3,\n    protected flag?: boolean,\n    public readonly id: string = \"x\",\n  ) {}\n  describe(): string { return this.name + this.secret + String(this.flag) + this.id; }\n}\nconst s = new Service(\"svc\");\nconsole.log(s.name, s.describe(), s.id, Object.keys(s).join(\",\"));\ns.name = \"other\";\nconsole.log(s.name);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-class-modifier-forms",
+    "title": "类成员修饰符：static / readonly / override / abstract 的擦除",
+    "src": "abstract class Base {\n  abstract run(): string;\n  protected helper(): string { return \"h\"; }\n  readonly tag: string = \"b\";\n  static kind = \"base\";\n  abstract get value(): number;\n}\nclass Impl extends Base {\n  override run(): string { return \"r\" + this.helper() + this.tag + Base.kind; }\n  get value(): number { return 5; }\n}\nconst i: Base = new Impl();\nconsole.log(i.run(), i.value, Base.kind, Impl.kind);"
+  },
+  {
+    "id": "c371-ex-class-implements-and-interface",
+    "title": "implements 是擦除的；接口不产生运行期值",
+    "src": "interface Shape { area(): number; kind: string }\ninterface Named extends Shape { name: string }\nclass Circle implements Named {\n  kind = \"circle\";\n  constructor(public name: string, private r: number) {}\n  area(): number { return 3 * this.r * this.r; }\n}\nconst c: Named = new Circle(\"c1\", 2);\nconsole.log(c.kind, c.name, c.area(), c instanceof Circle, typeof (Shape as any));",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-class-private-and-static-block",
+    "title": "私有字段 / 私有方法 / 静态块 / 计算键一起上",
+    "src": "class Counter {\n  #count = 0;\n  static #instances = 0;\n  static registry: Record<string, number> = {};\n  static { Counter.registry[\"init\"] = 1; }\n  constructor() { Counter.#instances = Counter.#instances + 1; }\n  #bump(by: number): number { this.#count = this.#count + by; return this.#count; }\n  get value(): number { return this.#count; }\n  static get instances(): number { return Counter.#instances; }\n  [\"dyn\" + \"amic\"](): string { return \"d\"; }\n  static has(obj: unknown): boolean { return #count in (obj as object); }\n}\nconst c = new Counter();\nconsole.log(c.value, c.dynamic(), Counter.instances, Counter.has(c), Counter.registry.init);\ntry { console.log((c as any).count); } catch (e) { console.log(\"no field\"); }"
+  },
+  {
+    "id": "c371-ex-accessors-and-computed-keys",
+    "title": "访问器 / 计算键 / 静态访问器 / 继承链上的访问器",
+    "src": "const key = \"computed\";\nclass Base {\n  protected backing = 1;\n  get value(): number { return this.backing; }\n  set value(v: number) { this.backing = v * 2; }\n}\nclass Derived extends Base {\n  [key]: string = \"c\";\n  static get kind(): string { return \"derived\"; }\n  get doubled(): number { return this.value * 2; }\n}\nconst d = new Derived();\nd.value = 5;\nconsole.log(d.value, d.doubled, d.computed, Derived.kind);\nconsole.log(Object.getOwnPropertyDescriptor(Base.prototype, \"value\") !== undefined);"
+  },
+  {
+    "id": "c371-ex-assertion-forms",
+    "title": "as / 尖括号 / ! / satisfies / as const 四种断言的优先级",
+    "src": "const raw: unknown = { a: { b: [1, 2] } };\nconsole.log((raw as { a: { b: number[] } }).a.b.length);\nconsole.log((<{ n: number }>{ n: 1 }).n);\nconst maybe: string | null = \"x\";\nconsole.log(maybe!.length, (maybe as string).toUpperCase());\nconst cfg = { mode: \"fast\", retries: 2 } as const;\nconst check = { mode: \"slow\", n: 1 } satisfies Record<string, unknown>;\nconsole.log(cfg.mode, cfg.retries, check.mode, check.n);\nconsole.log(((raw as any).a as { b: number[] }).b.length + 1);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-nonnull-in-chains",
+    "title": "非空断言落在链的每一段上",
+    "src": "const data: { a?: { b?: { c?: number[] } | null } } = { a: { b: { c: [1, 2, 3] } } };\nconsole.log(data.a!.b!.c![0]);\nconsole.log(data.a?.b?.c?.length);\nconsole.log(data!.a!.b!.c!.slice(1).length);\nconst fn: (() => { k: number }) | null = () => ({ k: 7 });\nconsole.log(fn!().k, fn?.().k);"
+  },
+  {
+    "id": "c371-ex-optional-chain-forms",
+    "title": "可选链：成员、下标、调用、与 ?? 混用",
+    "src": "const o: any = { a: { b: () => ({ c: [1] }) }, n: null };\nconsole.log(o?.a?.b?.().c?.[0], o.n?.x, o.missing?.y?.z, o?.a?.b?.().c?.[9]);\nconsole.log(o.n?.[0], o[\"n\"]?.[\"0\"], o.fn?.(), o.a.b?.call?.(null).c.length);\nconst f: ((x: number) => number) | undefined = undefined;\nconsole.log(f?.(1) ?? \"none\", (o?.n ?? \"fallback\"));"
+  },
+  {
+    "id": "c371-ex-destructuring-everywhere",
+    "title": "解构：参数、默认、重命名、嵌套、rest、for-of、catch",
+    "src": "function f({ a, b: { c } = { c: 0 } }: any, [x, y = 2, ...rest]: number[] = [1]): string {\n  return [a, c, x, y, rest.length].join(\",\");\n}\nconst { p, q: renamed = 5, ...others } = { p: 1, r: 2, s: 3 } as any;\nfor (const [k, v] of [[\"a\", 1], [\"b\", 2]] as [string, number][]) { }\ntry { throw { code: 7, info: { msg: \"m\" } }; } catch ({ code, info: { msg } }: any) { console.log(code, msg); }\nconsole.log(f({ a: 1, b: { c: 2 } }, [3, 4, 5]), p, renamed, JSON.stringify(others));"
+  },
+  {
+    "id": "c371-ex-spread-forms",
+    "title": "展开：调用、new、数组、对象、rest 参数",
+    "src": "const xs = [1, 2, 3];\nfunction sum(...ns: number[]): number { return ns.reduce((a, b) => a + b, 0); }\nclass P { constructor(public vals: number[]) {} }\nconst obj = { a: 1, ...{ b: 2 }, ...(true ? { c: 3 } : {}) };\nconsole.log(sum(...xs), sum(...xs, 4), Math.max(...xs));\nconsole.log(new P([...xs]).vals.length, JSON.stringify([0, ...xs, 4]));\nconsole.log(JSON.stringify({ ...obj, a: 9 }), JSON.stringify({ ...xs }));",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-arrow-forms",
+    "title": "箭头函数的各种写法与返回值形态",
+    "src": "const a = () => 1;\nconst b = (x: number) => ({ v: x });\nconst c = (x: number): number => { return x * 2; };\nconst d = async (x: number) => x + 1;\nconst e = (x: number) => (y: number) => x + y;\nconst f = <T,>(xs: T[]): number => xs.length;\nconsole.log(a(), b(1).v, c(3), e(1)(2), f([1, 2]), a.length, b.length);\nd(1).then((v) => console.log(\"async\", v));\nconst nested = () => () => () => \"deep\";\nconsole.log(nested()()());"
+  },
+  {
+    "id": "c371-ex-template-literal-forms",
+    "title": "模板串：多行、嵌套、表达式、与类型无关",
+    "src": "const name = \"w\";\nconst n = 3;\nconst t = `hello ${name} #${n} ${n > 2 ? \"big\" : \"small\"}`;\nconst multi = `line1\nline2 ${1 + 1}`;\nconst nested = `a${((): string => `b${n}`)()}`;\nconsole.log(t);\nconsole.log(multi.split(\"\\n\").length, multi.split(\"\\n\")[1]);\nconsole.log(nested, `${\"x\"}`.length, ``.length === 0);"
+  },
+  {
+    "id": "c371-ex-tagged-template-forms",
+    "title": "标签模板：cooked / raw / 前后缀、返回值参与运算",
+    "src": "function tag(strings: TemplateStringsArray, ...values: unknown[]): string {\n  return strings.length + \":\" + values.length + \":\" + strings.join(\"|\") + \":\" + strings.raw.join(\"|\");\n}\nconsole.log(tag`a${1}b${2}c`);\nconsole.log(tag`no-sub`);\nconsole.log(tag`x\\ny`.indexOf(\"\\\\n\") >= 0);\nfunction upper(strings: TemplateStringsArray, ...values: unknown[]): string {\n  return strings.reduce((acc, s, i) => acc + s.toUpperCase() + (i < values.length ? String(values[i]) : \"\"), \"\");\n}\nconsole.log(upper`a${1}b`.length, upper`${\"z\"}`);"
+  },
+  {
+    "id": "c371-ex-type-only-constructs",
+    "title": "条件 / 映射 / 模板字面量 / infer 类型一律擦除",
+    "src": "type Cond<T> = T extends string ? \"s\" : \"n\";\ntype Mapped<T> = { [K in keyof T]?: T[K] };\ntype Ev<T> = { [K in keyof T as `get${string & K}`]: () => T[K] };\ntype Infer<T> = T extends Array<infer U> ? U : never;\ntype Tpl = `v-${number}`;\nclass Store { items: Mapped<{ a: number; b: string }> = { a: 1 }; }\nconst s = new Store();\nconsole.log(s.items.a, typeof ({} as Cond<string>), typeof (null as unknown as Infer<number[]>));"
+  },
+  {
+    "id": "c371-ex-this-parameter-and-predicates",
+    "title": "this 形参与类型谓词都是擦除的",
+    "src": "function describe(this: { tag: string }, n: number): string { return this.tag + n; }\nfunction isString(v: unknown): v is string { return typeof v === \"string\"; }\nfunction assertNum(v: unknown): asserts v is number { if (typeof v !== \"number\") throw new Error(\"not num\"); }\nclass Chain { v = 1; self(this: Chain): this { return this; } }\nconsole.log(describe.call({ tag: \"t\" }, 1), isString(\"x\"), isString(1));\ntry { assertNum(\"s\"); } catch (e) { console.log((e as Error).message); }\nconsole.log(new Chain().self().v, describe.length, isString.length);"
+  },
+  {
+    "id": "c371-ex-class-field-forms",
+    "title": "类字段：初始化式、顺序、可选、确定赋值、静态块顺序",
+    "src": "const log: string[] = [];\nclass Ordered {\n  static s1 = (log.push(\"s1\"), 1);\n  a = (log.push(\"a\"), 1);\n  static { log.push(\"block\"); }\n  static s2 = (log.push(\"s2\"), 2);\n  b = (log.push(\"b\"), this.a + 1);\n  c?: number;\n  d!: string;\n  constructor() { this.d = \"d\"; }\n}\nconst o = new Ordered();\nconsole.log(log.join(\",\"), o.a, o.b, o.c, o.d, Ordered.s1 + Ordered.s2);"
+  },
+  {
+    "id": "c371-ex-super-forms",
+    "title": "super：构造、方法、静态方法、访问器、属性写",
+    "src": "class Base {\n  v = 1;\n  constructor(public tag: string) {}\n  get doubled(): number { return this.v * 2; }\n  m(): string { return \"base\" + this.tag; }\n  static s(): string { return \"S\"; }\n}\nclass Derived extends Base {\n  extra = 2;\n  constructor() { super(\"d\"); this.v = 3; }\n  m(): string { return super.m() + \"/derived\"; }\n  static s(): string { return super.s() + \"D\"; }\n  get total(): number { return super.doubled + this.extra; }\n}\nconst d = new Derived();\nconsole.log(d.tag, d.v, d.m(), Derived.s(), d.total);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-class-expression-forms",
+    "title": "类表达式：匿名、具名自引用、extends 表达式",
+    "src": "const A = class { v = 1; };\nconst B = class Named { static self(): string { return Named.name; } v = 2; };\nconst Base = class { base(): string { return \"b\"; } };\nconst C = class extends Base { extra(): string { return this.base() + \"c\"; } };\nconst pick = true;\nconst D = class extends (pick ? Base : (class {})) { };\nconsole.log(new A().v, new B().v, B.self(), new C().extra(), new D() instanceof Base);"
+  },
+  {
+    "id": "c371-ex-new-expression-type-args",
+    "title": "new 的类型实参与实参位上的断言混在一起",
+    "src": "class Box<T> { constructor(public v: T) {} }\nconst b = new Box<number>(1);\nconst c = new Map<string, number>([[\"a\", 1]]);\nconst dyn = new (class { x = 5; })();\nconst fromExpr = new (b.v > 0 ? Box : Box)<string>(\"s\");\nconsole.log(b.v, c.get(\"a\"), dyn.x, fromExpr.v);\nconst withAs = new Box<{ n: number }>({ n: 1 } as { n: number });\nconsole.log(withAs.v.n);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-abstract-and-static-members",
+    "title": "抽象成员、抽象静态、抽象访问器都不产生实现",
+    "src": "abstract class Repo<T> {\n  abstract find(id: string): T | undefined;\n  abstract get size(): number;\n  static create(): Repo<string> { return new Mem(); }\n  list(): T[] { return []; }\n}\nclass Mem extends Repo<string> {\n  private data = new Map<string, string>();\n  find(id: string): string | undefined { return this.data.get(id); }\n  get size(): number { return this.data.size; }\n  add(id: string, v: string): void { this.data.set(id, v); }\n}\nconst r = Repo.create() as Mem;\nr.add(\"a\", \"1\");\nconsole.log(r.find(\"a\"), r.size, r.list().length, r instanceof Repo);"
+  },
+  {
+    "id": "c371-ex-type-assertions-in-operands",
+    "title": "断言出现在运算符的操作数位上",
+    "src": "const a: unknown = 1;\nconst b: unknown = 2;\nconsole.log((a as number) + (b as number));\nconsole.log(<number>a + <number>b);\nconsole.log(((a as number) + 1) * 2);\nconst s: unknown = \"x\";\nconsole.log((s as string).length + 1, (s as string) + \"!\");\nconsole.log(({ n: 1 } as { n: number }).n + (2 as number));",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-asi-and-comments",
+    "title": "ASI 与夹在语句里的注释不改变语义",
+    "src": "const a = 1\nconst b = 2\nfunction f() {\n  return (\n    a + b\n  )\n}\nconst c = /* inline */ 3;\nif (a > 0) {\n  console.log(\"pos\");\n} /* between */ else {\n  console.log(\"neg\");\n}\nconst d = [\n  1, // one\n  2, // two\n];\nconsole.log(f(), c, d.length, a\n  + b);\nconsole.log(typeof c === \"number\" ? \"n\" : \"other\");"
+  },
+  {
+    "id": "c371-ex-numeric-literal-forms",
+    "title": "数字字面量：分隔符、进制、指数、BigInt 之外的全部形态",
+    "src": "const forms = [1_000_000, 0b1010, 0o17, 0xff, 1e3, 1E-2, 0.5, .5, 5., 1_0.5_0];\nconsole.log(forms.join(\",\"));\nconsole.log(0.1 + 0.2, 1e21, 1e-7, 9007199254740991, 0x10 + 0o10 + 0b10);\nconsole.log((123.456).toFixed(2), 1_000 + 1);"
+  },
+  {
+    "id": "c371-ex-unicode-identifiers",
+    "title": "Unicode 标识符与字符串里的转义",
+    "src": "const \\u0061bc = 1;\nconst café = 2;\nconst 日本語 = 3;\nconst $d = 4;\nconst _e = 5;\nconsole.log(abc, café, 日本語, $d, _e);\nconsole.log(\"\\u0041\\x42\\u{43}\", \"a\\tb\".length, \"\\0\".length);"
+  },
+  {
+    "id": "c371-ex-void-comma-and-sequence",
+    "title": "void / 逗号运算符 / 序列表达式",
+    "src": "let n = 0;\nconst r = (n = 1, n = 2, n + 1);\nconsole.log(r, n);\nconsole.log(void 0, void \"x\", typeof void 0);\nfor (let i = 0, j = 3; i < j; i++, j--) { }\nconsole.log((1, 2), (n = 5, n * 2), n);\nconst f = () => (n = 7, n); \nconsole.log(f(), n);"
+  },
+  {
+    "id": "c371-ex-optional-catch-and-finally",
+    "title": "可选捕获绑定、try-finally、带类型的 catch",
+    "src": "function risky(fail: boolean): string {\n  try {\n    if (fail) throw new TypeError(\"bad\");\n    return \"ok\";\n  } catch {\n    return \"caught\";\n  } finally {\n    console.log(\"fin\", fail);\n  }\n}\nfunction onlyFinally(): number { try { return 1; } finally { console.log(\"f2\"); } }\nconsole.log(risky(false), risky(true), onlyFinally());\ntry { throw new Error(\"e\"); } catch (err: unknown) { console.log((err as Error).message); }"
+  },
+  {
+    "id": "c371-ex-labels-and-control",
+    "title": "标签 + break / continue 在嵌套循环与块上",
+    "src": "const out: string[] = [];\nouter: for (let i = 0; i < 3; i++) {\n  inner: for (let j = 0; j < 3; j++) {\n    if (j === 1) continue inner;\n    if (i === 2) break outer;\n    out.push(i + \"\" + j);\n  }\n}\nblock: { out.push(\"b\"); if (out.length > 0) break block; out.push(\"never\"); }\nswitch (2) { case 1: out.push(\"one\"); case 2: out.push(\"two\"); case 3: out.push(\"three\"); break; default: out.push(\"d\"); }\nconsole.log(out.join(\",\"));"
+  },
+  {
+    "id": "c371-ex-function-decl-in-block",
+    "title": "块里的函数声明与 var / let 的分工",
+    "src": "function f(): string {\n  if (true) {\n    function inner(): string { return \"inner\"; }\n    var v = 1;\n    let l = 2;\n    return inner() + v + l;\n  }\n  return typeof inner;\n}\nconsole.log(f(), typeof v === \"undefined\");\n{\n  let scoped = 1;\n  const also = 2;\n  console.log(scoped + also);\n}\nconsole.log(typeof scoped === \"undefined\");"
+  },
+  {
+    "id": "c371-ex-arrow-typed-immediately-called",
+    "title": "带类型标注的箭头立即调用与嵌套的立即调用",
+    "src": "console.log(((a: number, b: number): number => a + b)(1, 2));\nconsole.log(((x: string): string => ((): string => x + \"!\" )())(\"a\"));\nconsole.log((<T,>(v: T): T => v)(5));\nconst obj = { m: (n: number): number => n * 2 };\nconsole.log(obj.m(3), ((f: (n: number) => number) => f(4))((n) => n + 1));"
+  },
+  {
+    "id": "c371-ex-class-in-const-and-static-computed",
+    "title": "类声明 / 类表达式赋给常量，静态计算键",
+    "src": "class Declared { v = 1; }\nconst Expr = class { v = 2; };\nconst key = \"k\" + \"ey\";\nclass WithComputed {\n  static [key] = \"static-value\";\n  [key](): string { return \"method\"; }\n  static [\"n\" + 1](): string { return \"n1\"; }\n}\nconst instance = new WithComputed();\nconsole.log(new Declared().v, new Expr().v, (WithComputed as any).key, (WithComputed as any).n1(), instance.key());"
+  },
+  {
+    "id": "c371-ex-getter-setter-with-types",
+    "title": "带类型标注的访问器与只读属性",
+    "src": "class Temp {\n  private _c = 0;\n  get celsius(): number { return this._c; }\n  set celsius(v: number) { this._c = v; }\n  get fahrenheit(): number { return this._c * 9 / 5 + 32; }\n  readonly id: string = \"t1\";\n}\nconst t = new Temp();\nt.celsius = 100;\nconsole.log(t.celsius, t.fahrenheit, t.id);\nconst lit = { get v(): number { return 3; }, set v(_x: number) {} };\nconsole.log(lit.v);"
+  },
+  {
+    "id": "c371-ex-keyof-typeof-in-type-position",
+    "title": "类型位上的 keyof / typeof / 索引访问不产生运行期读取",
+    "src": "const config = { host: \"h\", port: 1 };\ntype Keys = keyof typeof config;\ntype Host = (typeof config)[\"host\"];\nfunction get(k: Keys): unknown { return config[k]; }\nconst k: Keys = \"host\";\nconsole.log(get(k), get(\"port\"), typeof (null as unknown as Host));\nconsole.log(Object.keys(config).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-readonly-and-tuples",
+    "title": "readonly 数组 / 元组 / 只读参数不影响运行期",
+    "src": "const ro: readonly number[] = [1, 2, 3];\nconst tup: readonly [string, number, ...boolean[]] = [\"a\", 1, true];\nfunction consume(xs: readonly string[]): number { return xs.length; }\nconst opt: [number, string?] = [1];\nconst named: [first: number, second: string] = [2, \"s\"];\nconsole.log(ro.length, tup.length, consume([\"a\"]), opt.length, named.join(\",\"));\nconsole.log([...ro].join(\"-\"), ro.map((v) => v * 2).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-mapped-and-indexed-types",
+    "title": "映射类型 / 索引访问类型 / 交叉类型都是擦除的",
+    "src": "type Base = { a: number; b: string };\ntype Partial2 = { [K in keyof Base]?: Base[K] };\ntype Picked = Pick<Base, \"a\">;\ntype Combined = Base & { c: boolean };\nconst p: Partial2 = { a: 1 };\nconst picked: Picked = { a: 2 };\nconst combined: Combined = { a: 1, b: \"s\", c: true };\nconsole.log(p.a, picked.a, combined.b, combined.c, Object.keys(combined).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-generic-constraints-defaults",
+    "title": "泛型的约束与默认值只是编译期信息",
+    "src": "interface HasId { id: string }\nfunction byId<T extends HasId, K extends keyof T = keyof T>(items: T[], key: K): T[] {\n  return items.slice().sort((x, y) => String(x[key]).localeCompare(String(y[key])));\n}\nclass Store<T extends HasId = HasId> {\n  private items: T[] = [];\n  add(item: T): void { this.items.push(item); }\n  all(): T[] { return this.items; }\n}\nconst s = new Store();\ns.add({ id: \"b\" });\ns.add({ id: \"a\" });\nconsole.log(s.all().map((x) => x.id).join(\",\"), byId([{ id: \"z\" }, { id: \"y\" }], \"id\").map((x) => x.id).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-union-narrowing-runtime",
+    "title": "联合类型收窄的判据全是运行期的 typeof",
+    "src": "type Shape = { kind: \"circle\"; r: number } | { kind: \"square\"; s: number } | string;\nfunction area(x: Shape): number {\n  if (typeof x === \"string\") return x.length;\n  if (x.kind === \"circle\") return 3 * x.r * x.r;\n  return x.s * x.s;\n}\nfunction describe(v: string | number | null | undefined): string {\n  if (v === null) return \"null\";\n  if (v === undefined) return \"undef\";\n  return typeof v === \"string\" ? \"s:\" + v : \"n:\" + v;\n}\nconsole.log(area({ kind: \"circle\", r: 2 }), area({ kind: \"square\", s: 3 }), area(\"abcd\"));\nconsole.log(describe(null), describe(undefined), describe(\"x\"), describe(1));"
+  },
+  {
+    "id": "c371-ex-decorator-free-mixins",
+    "title": "不用装饰器的混入：类表达式 + 泛型构造器签名",
+    "src": "type Ctor<T = {}> = new (...args: any[]) => T;\nfunction Timestamped<TBase extends Ctor>(Base: TBase) {\n  return class extends Base {\n    createdAt = 1000;\n    stamp(): string { return \"t\" + this.createdAt; }\n  };\n}\nfunction Tagged<TBase extends Ctor>(Base: TBase) {\n  return class extends Base {\n    tag = \"x\";\n    describe(): string { return this.tag; }\n  };\n}\nclass Plain { v = 1; }\nconst Mixed = Tagged(Timestamped(Plain));\nconst m = new Mixed();\nconsole.log(m.v, m.createdAt, m.stamp(), m.tag, m.describe(), m instanceof Plain);"
+  },
+  {
+    "id": "c371-ex-import-type-erased",
+    "title": "import type / export type 这一档在单文件里只是擦除",
+    "src": "type Local = { n: number };\nconst value: Local = { n: 1 };\nfunction use<T>(x: T): T { return x; }\nconsole.log(use(value).n, use(\"s\"), typeof use);\ndeclare const anything: unknown;\nconsole.log(typeof anything, value.n + 1);"
+  },
+  {
+    "id": "c371-ex-function-type-values",
+    "title": "函数类型标注、可选参数、剩余参数、默认参数一起",
+    "src": "type Handler = (event: string, payload?: unknown) => void;\ntype Reducer = (state: number, action: { type: string }) => number;\nconst handlers: Handler[] = [];\nhandlers.push((e, p) => console.log(\"h1\", e, p === undefined));\nconst reducer: Reducer = (state, action) => state + (action.type === \"inc\" ? 1 : 0);\nfunction configure(opts: { retries?: number; onError?: Handler } = {}): number { return opts.retries ?? 0; }\nhandlers[0](\"e\");\nconsole.log(reducer(reducer(0, { type: \"inc\" }), { type: \"dec\" }), configure(), configure({ retries: 3 }));"
+  },
+  {
+    "id": "c371-ex-never-unknown-void-values",
+    "title": "never / unknown / void 作为值位与返回位",
+    "src": "function fail(msg: string): never { throw new Error(msg); }\nfunction log(msg: string): void { console.log(msg); }\nfunction parse(v: unknown): number { return typeof v === \"number\" ? v : 0; }\nconst v: unknown = \"x\";\nconsole.log(parse(v), parse(2), log(\"logged\"), parse(undefined));\ntry { fail(\"boom\"); } catch (e) { console.log(\"caught\", (e as Error).message); }"
+  },
+  {
+    "id": "c371-ex-switch-with-types-and-blocks",
+    "title": "switch 里的类型标注、块作用域与贯穿",
+    "src": "type Cmd = \"add\" | \"del\" | \"list\";\nfunction run(cmd: Cmd, n: number): string {\n  let acc = 0;\n  switch (cmd) {\n    case \"add\": {\n      const step: number = n;\n      acc += step;\n      break;\n    }\n    case \"del\":\n      acc -= n;\n    case \"list\":\n      acc += 100;\n      break;\n    default: {\n      const never: never = cmd;\n      acc = -1;\n    }\n  }\n  return String(acc);\n}\nconsole.log(run(\"add\", 5), run(\"del\", 5), run(\"list\", 1));"
+  },
+  {
+    "id": "c371-ex-class-generic-static-and-instance",
+    "title": "泛型类的静态成员与实例成员分工",
+    "src": "class Registry<T> {\n  static count = 0;\n  static of<T>(v: T): Registry<T> { Registry.count++; return new Registry<T>(v); }\n  private items: T[] = [];\n  constructor(private seed: T) { this.items.push(seed); }\n  add(v: T): this { this.items.push(v); return this; }\n  values(): T[] { return this.items; }\n  static reset(): void { Registry.count = 0; }\n}\nconst r = Registry.of(\"a\").add(\"b\");\nconsole.log(r.values().join(\",\"), Registry.count, typeof Registry.of);\nRegistry.reset();\nconsole.log(Registry.count);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c371-ex-nested-scopes-and-shadowing",
+    "title": "嵌套作用域、遮蔽、与枚举/常量在内层",
+    "src": "const name = \"outer\";\nfunction f(): string {\n  const name = \"inner\";\n  {\n    const name = \"block\";\n    if (true) {\n      const name = \"if\";\n      return name;\n    }\n  }\n  return name;\n}\nlet counter = 0;\nfor (let i = 0; i < 2; i++) { counter += i; }\nconsole.log(f(), name, counter, (() => { const name = \"arrow\"; return name; })());"
+  },
+  {
+    "id": "c371-ex-type-assertion-in-return-throw",
+    "title": "return / throw / yield 位置上的断言与泛型",
+    "src": "function f(v: unknown): { n: number } { return { n: v as number }; }\nfunction g(): void { throw new Error(String(1 as number)); }\nfunction* gen(): Generator<number> { yield 1 as number; yield* [2, 3] as number[]; }\nasync function h(): Promise<string> { return \"s\" as string; }\nconsole.log(f(1).n, [...gen()].join(\",\"));\nh().then((v) => console.log(v));\ntry { g(); } catch (e) { console.log((e as Error).message); }"
+  },
+  {
+    "id": "c371-ex-for-await-and-async-generator",
+    "title": "for await 与异步生成器的类型标注",
+    "src": "async function* source(): AsyncGenerator<number> {\n  yield 1;\n  yield 2;\n}\nasync function main(): Promise<void> {\n  const out: number[] = [];\n  for await (const v of source()) out.push(v);\n  for await (const v of [Promise.resolve(\"a\"), \"b\"] as any) out.push(String(v).length);\n  console.log(out.join(\",\"));\n}\nmain();"
+  },
+  {
+    "id": "c371-ex-class-implements-generic-and-multiple",
+    "title": "implements 多个接口 / 泛型接口的形状擦除",
+    "src": "interface Readable<T> { read(): T }\ninterface Writable<T> { write(v: T): void }\ninterface Store<T> extends Readable<T>, Writable<T> { size: number }\nclass Mem<T> implements Store<T> {\n  private items: T[] = [];\n  read(): T { return this.items[0]; }\n  write(v: T): void { this.items.push(v); }\n  get size(): number { return this.items.length; }\n}\nconst m = new Mem<number>();\nm.write(1);\nm.write(2);\nconsole.log(m.read(), m.size, m instanceof Mem);"
+  },
+  {
+    "id": "c371-ex-type-predicate-callbacks",
+    "title": "类型谓词写在回调上（运行期就是个布尔函数）",
+    "src": "const values: unknown[] = [1, \"a\", null, 2, undefined, \"b\"];\nconst isNum = (v: unknown): v is number => typeof v === \"number\";\nconst nums: number[] = values.filter(isNum);\nconst strs: string[] = values.filter((v): v is string => typeof v === \"string\");\nconsole.log(nums.join(\",\"), strs.join(\",\"), values.filter(Boolean).length);\nconsole.log(values.find(isNum), values.findIndex(isNum), values.every((v) => v !== 0));"
+  },
+  {
+    "id": "c371-ex-abstract-new-and-polymorphism",
+    "title": "抽象类的多态调用与 instanceof 分派",
+    "src": "abstract class Animal {\n  abstract sound(): string;\n  describe(): string { return this.constructor.name + \":\" + this.sound(); }\n}\nclass Dog extends Animal { sound(): string { return \"woof\"; } }\nclass Cat extends Animal { sound(): string { return \"meow\"; } }\nconst zoo: Animal[] = [new Dog(), new Cat()];\nconsole.log(zoo.map((a) => a.describe()).join(\"|\"));\nconsole.log(zoo.filter((a) => a instanceof Dog).length, zoo.every((a) => a instanceof Animal));"
+  },
+  {
+    "id": "c371-ex-class-field-reserved-and-computed",
+    "title": "字段名与语言关键字 / 内建名字撞车",
+    "src": "class Odd {\n  static = 1;\n  get = 2;\n  set = 3;\n  class = 5;\n  function = 6;\n  default = 7;\n  if = 8;\n  typeof = 9;\n}\nconst o = new Odd();\nconsole.log(o.static, o.get, o.set, (o as any).class, (o as any).function);\nconsole.log((o as any).default, (o as any).if, (o as any).typeof, Object.keys(o).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-optional-and-rest-params",
+    "title": "可选参数、默认参数、剩余参数的实参个数口径",
+    "src": "function f(a: number, b?: string, c: number = 10, ...rest: boolean[]): string {\n  return [a, b, c, rest.length].join(\",\");\n}\nconsole.log(f(1), f(1, \"s\"), f(1, \"s\", 2), f(1, undefined, 2, true, false));\nconsole.log(f.length, ((...xs: number[]) => xs.length).length);\nfunction withDefault(x: number = 1, y: number = x + 1): number { return x + y; }\nconsole.log(withDefault(), withDefault(5), withDefault(undefined, 7));"
+  },
+  {
+    "id": "c371-ex-this-type-in-methods",
+    "title": "this 类型与链式调用",
+    "src": "class Builder {\n  parts: string[] = [];\n  add(p: string): this { this.parts.push(p); return this; }\n  build(): string { return this.parts.join(\"+\"); }\n}\nclass Sub extends Builder {\n  extra(): this { this.parts.push(\"E\"); return this; }\n}\nconsole.log(new Sub().add(\"a\").extra().build());\nconst b: Builder = new Builder();\nconsole.log(b.add(\"x\").add(\"y\").build());"
+  },
+  {
+    "id": "c371-ex-as-precedence-with-operators",
+    "title": "as 与算术 / 一元 / 成员运算的优先级",
+    "src": "const n: unknown = 3;\nconst s: unknown = \"ab\";\nconsole.log((n as number) + 1, 1 + (n as number), (n as number) * 2);\nconsole.log(-(n as number), !(n as number), typeof (n as number));\nconsole.log(((s as string) + \"\").length, (s as string).length + 1);\nconst o = { v: 1 } as { v: number };\nconsole.log(o.v + 1, o.v as number);"
+  },
+  {
+    "id": "c371-ex-object-literal-and-interface",
+    "title": "对象字面量喂给接口：多余的键与嵌套",
+    "src": "interface Cfg { host: string; port: number; opts?: { debug: boolean } }\nconst a: Cfg = { host: \"h\", port: 1 };\nconst b: Cfg = { host: \"h\", port: 2, opts: { debug: true } };\nconst list: Cfg[] = [a, b];\nconsole.log(a.port, b.opts!.debug, list.length);\nconsole.log(JSON.stringify(list.map((c) => c.host)), Object.keys(a).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-generic-inference-at-call-site",
+    "title": "调用点上显式类型实参与推断的结果一致",
+    "src": "function wrap<T>(v: T): { v: T } { return { v }; }\nfunction tuple<A, B>(a: A, b: B): [A, B] { return [a, b]; }\nconst a = wrap(1);\nconst b = wrap<string>(\"s\");\nconst c = tuple(1, \"x\");\nconst d = tuple<number, string>(2, \"y\");\nconsole.log(a.v, b.v, c.join(\"-\"), d.join(\"-\"), wrap<boolean>(true).v);\nclass Queue<T> { items: T[] = []; push(v: T): void { this.items.push(v); } pop(): T | undefined { return this.items.shift(); } }\nconst q = new Queue<number>();\nq.push(1);\nconsole.log(q.pop(), q.pop());"
+  },
+  {
+    "id": "c371-ex-satisfies-and-as-const-combo",
+    "title": "satisfies + as const：值不变、类型收窄",
+    "src": "const routes = {\n  home: { path: \"/\", auth: false },\n  admin: { path: \"/admin\", auth: true },\n} as const satisfies Record<string, { path: string; auth: boolean }>;\nfunction navigate(name: keyof typeof routes): string { return routes[name].path; }\nconsole.log(navigate(\"home\"), navigate(\"admin\"), routes.admin.auth);\nconsole.log(Object.keys(routes).join(\",\"), routes.home.path.length);"
+  },
+  {
+    "id": "c371-ex-index-signature-iteration",
+    "title": "索引签名对象的遍历与取值",
+    "src": "interface Dict { [key: string]: number }\nconst d: Dict = { a: 1, b: 2 };\nd[\"c\"] = 3;\nlet total = 0;\nfor (const k in d) total += d[k];\nconsole.log(total, Object.keys(d).join(\",\"), Object.values(d).join(\",\"));\nconst entries = Object.entries(d);\nconsole.log(entries.map(([k, v]) => k + \"=\" + v).join(\" \"));\nconsole.log(d[\"missing\"]);"
+  },
+  {
+    "id": "c371-ex-exhaustive-switch-never-default",
+    "title": "穷尽性检查（default 里给 never）与运行期无关",
+    "src": "type Kind = \"a\" | \"b\";\nfunction handle(k: Kind): string {\n  switch (k) {\n    case \"a\": return \"A\";\n    case \"b\": return \"B\";\n    default: {\n      const unreachable: never = k;\n      return String(unreachable);\n    }\n  }\n}\nconsole.log(handle(\"a\"), handle(\"b\"), handle(\"c\" as Kind));\nconst map: Record<Kind, number> = { a: 1, b: 2 };\nconsole.log(map.a + map.b);"
+  },
+  {
+    "id": "c371-ex-class-static-inheritance",
+    "title": "静态成员随继承走，静态里用 this",
+    "src": "class Base {\n  static kind = \"base\";\n  static describe(): string { return \"k=\" + this.kind; }\n  static create(): Base { return new this(); }\n  v = 1;\n}\nclass Mid extends Base {\n  static kind = \"mid\";\n}\nclass Leaf extends Mid {\n  static kind = \"leaf\";\n  static parentKind(): string { return super.kind; }\n}\nconsole.log(Base.describe(), Mid.describe(), Leaf.describe());\nconsole.log(Leaf.parentKind(), Leaf.create() instanceof Leaf, Mid.create() instanceof Mid);\nconsole.log(Object.getPrototypeOf(Leaf) === Mid, (Leaf as any).kind);"
+  },
+  {
+    "id": "c371-ex-union-of-literals-keys",
+    "title": "字面量联合类型与 Record 的键在运行期就是字符串",
+    "src": "type Key = \"x\" | \"y\" | \"z\";\nconst keys: Key[] = [\"x\", \"y\", \"z\"];\nconst counters = {} as Record<Key, number>;\nfor (const k of keys) counters[k] = 0;\ncounters.x += 1;\ncounters[\"y\"] = 5;\nconsole.log(JSON.stringify(counters), Object.keys(counters).join(\",\"));\nfunction get(o: Record<Key, number>, k: Key): number { return o[k]; }\nconsole.log(get(counters, \"z\"));"
+  },
+  {
+    "id": "c371-ex-class-and-namespace-same-name",
+    "title": "同名类型与值可以并存",
+    "src": "interface User { id: number }\nconst User = { create(n: number): User { return { id: n }; } };\ntype Status = \"ok\" | \"err\";\nconst Status = { ok: \"ok\" as Status, err: \"err\" as Status };\nconsole.log(User.create(1).id, Status.ok, Status.err);\nclass Node2 { v = 1; }\ninterface Node2 { extra: string }\nconst n: Node2 = Object.assign(new Node2(), { extra: \"e\" });\nconsole.log(n.v, n.extra);"
+  },
+  {
+    "id": "c371-ex-generic-constraint-keyof-usage",
+    "title": "keyof 约束下的动态取值与 set",
+    "src": "function get<T, K extends keyof T>(o: T, k: K): T[K] { return o[k]; }\nfunction set<T, K extends keyof T>(o: T, k: K, v: T[K]): void { o[k] = v; }\nconst rec = { a: 1, b: \"s\" };\nconsole.log(get(rec, \"a\"), get(rec, \"b\"));\nset(rec, \"a\", 5);\nconsole.log(rec.a, Object.keys(rec).length);\nconst arr: { id: number }[] = [{ id: 1 }, { id: 2 }];\nconsole.log(arr.map((x) => get(x, \"id\")).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-declare-global-and-usage",
+    "title": "declare global 里的东西不产生运行期绑定",
+    "src": "declare global { interface Window { custom: number } }\nconst local = 1;\nfunction use(x: number): number { return x + local; }\nconsole.log(use(1), typeof globalThis, local);\nconst arr = [1, 2, 3];\nconsole.log(arr.map((v) => use(v)).join(\",\"));"
+  },
+  {
+    "id": "c371-ex-arrow-with-defaults-and-destructure",
+    "title": "箭头函数的默认值与解构参数",
+    "src": "const f = ({ a, b = 2 }: { a: number; b?: number } = { a: 1 }): number => a + b;\nconst g = ([x, y = 10]: number[] = []): number => x + y;\nconst h = (n: number, cb: (v: number) => number = (v) => v): number => cb(n);\nconsole.log(f(), f({ a: 5 }), g(), g([1]), g([1, 2]), h(3), h(3, (v) => v * 2));\nconsole.log(f.length, g.length, h.length);"
+  },
+  {
+    "id": "c371-ex-class-expression-name-in-body",
+    "title": "具名类表达式在体内能看见自己的名字",
+    "src": "const A = class Self {\n  static name2(): string { return Self.name; }\n  who(): string { return Self.name2(); }\n};\nconst B = class { static name2(): string { return typeof (this as any); } };\nconsole.log(new A().who(), A.name, new B() instanceof B);\nconst C = class Named { static create(): Named { return new Named(); } v = 1; };\nconsole.log(C.create().v, C.name);"
+  }
 ];
