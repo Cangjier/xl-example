@@ -6,7 +6,7 @@ import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberO
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf, ArrayValues, AttachArrayIterator } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
@@ -5738,6 +5738,13 @@ SetProperty(vm.Room(), NeverCall, table, arrayObject, fromKey, fromTarget);
 const ofKey = Value.FromString(table.CreateString(Units("of")));
 const ofTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayOf, 0));
 SetProperty(vm.Room(), NeverCall, table, arrayObject, ofKey, ofTarget);
+// **`Array.fromAsync`** ✓（第 369 轮 ✓）：与 `from` / `of` 同一张对象 ✓、同一个形状 ✓
+//（静态方法 ✓、号在数组段 ✓、分派在 `install.xl.md` ✓）。
+// **它比那两个多要一条通道** ✓：承诺那条（`schedule` / `settle` / `invoke` ✓）——
+// 而 `InvokeArray` 那一支递不下来 ✗，所以走 `install` 这条 ✓（与 `from` 同一个理由 ✓，**多一条** ✓）。
+const fromAsyncKey = Value.FromString(table.CreateString(Units("fromAsync")));
+const fromAsyncTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFromAsync, 0));
+SetProperty(vm.Room(), NeverCall, table, arrayObject, fromAsyncKey, fromAsyncTarget);
 const arrayKey = Value.FromString(table.CreateString(Units("Array")));
 SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
 // **`Array.prototype`**（第 137 轮）：`Array` 是**普通对象** ✓，所以直接挂一个属性就行 ✓——

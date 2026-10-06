@@ -883,7 +883,7 @@ export const EXPECTATIONS = {
   // 六道门 + 1202 条覆盖一起绿的 ✓。
   // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
-  "c323-std-array-fromasync": { expect: "differ", why: "`Array.fromAsync` 没有（本仓**一行都不打**，Node 给 `1,2,3`）——两个来源都要：**异步可迭代对象**（`async function*` ✓，本仓的 `for await` 已经能收 ✓）与**带映射函数的同步数组**（每一项 `await` 一次 ✓）。它是 `Array.from` 的异步姊妹，落在同一张表上" },
+  // **第 369 轮过了** ✓（这一行撤了 ✓）：`Array.fromAsync` 实现了 ✓——状态机照 `Promise.all`（堆上状态 + `schedule` 的实参表 + `settle`）✓，两个步进号 259/261 ✓（要各加一条分派 ✓，与第 359 轮同一个坑 ✓）。
   // C —— 写那一半没有对应的入口（2 条）
   // 写那一半没有对应的入口 **只剩下 1 条**（数组子类 ✓）
   //

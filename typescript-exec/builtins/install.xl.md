@@ -8,9 +8,9 @@ import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallba
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
-import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt } from "./promise.xl.md"
+import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId } from "./promise.xl.md"
 import { JsTextUnits, ValueText } from "./text.xl.md"
-import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
+import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, InstallDatePrototype, BoundCall } from "./globals.xl.md"
 import { InvokeMap, MapCtor, MapGroupBy, NameValue, ReadOwn, InstallMapPrototype } from "./map.xl.md"
@@ -124,6 +124,11 @@ if (id >= 230 && id < 250) return InvokePromise(room, table, protos, id, self, a
 // 只是号落在家族外面 ✓（230..249 已经**一个不剩** ✗，见 `PromiseThenableAdopt` 那一段的账 ✓），
 // 所以这里要**单独一句** ✓（上面那条范围 `id < 250` 收不到它 ✓）。
 if (id === PromiseThenableAdopt) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
+// **`Array.fromAsync` 的两步号也落在 230..249 外面** ✗（第 369 轮 ✓）——**同一个坑** ✗：
+// 上面那条范围（`id < 250` ✓）收不到它们 ✓，所以也要**各来一句** ✓。
+// 号为什么在外面：家族里 **230..249 一个不剩** ✓（第 359 轮的账 ✓）。
+if (id === PromiseArrayFromStepId) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
+if (id === PromiseArrayFromMapStepId) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 if (id === PromiseQueueMicrotask) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
@@ -195,6 +200,11 @@ if (id === StringSplit) return SplitString(room, table, protos, self, args);
 // 而且它的 `self` 是那个 `Array` **普通对象** ✓——放进 `InvokeArray` 就要同时改签名与
 // `RequireArray` 的先后 ✓，两个改动都白付 ✓。
 if (id === ArrayFrom) return ArrayFromValues(room, table, protos, args, call, drain, keep, failed);
+// **`Array.fromAsync`** ✓（第 369 轮 ✓）：与 `Array.from` **同一个位置** ✓——
+// 它也要原型表（返回新数组 ✓），而且还要承诺那条通道 ✓（`schedule` / `settle` / `invoke` ✓）。
+if (id === ArrayFromAsync) {
+  return ArrayFromAsyncValues(room, table, protos, args, invoke, schedule, settle, takeThrown);
+}
 // **`Array.of` 与它同一处** ✓（第 206 轮 ✓）：也是静态方法、也要原型表 ✓——
 // 理由与上面那一条一字不差 ✓（`self` 是 `Array` 那个普通对象 ✓）。
 // **它不收 `failed`** ✗：它一个回调都不跑 ✓（只是把实参收成数组 ✓）——

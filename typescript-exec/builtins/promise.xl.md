@@ -213,6 +213,192 @@ import { NameValue } from "./map.xl.md"
 （`takeThrown` 就是那一格 ✓）——**不接住**的话异常会冒到调用者 ✓，
 而调用者是**引擎** ✓（症状是「整段微任务处理被打断」✓，离现场很远 ✗）。
 
+# const PromiseArrayFromStepId:int = 259
+
+**`Array.fromAsync` 的「迭代器那一步」** ✓（第 369 轮 ✓）。
+
+**状态从实参来** ✓（不是从不透明值 ✗）：与 `PromiseAllStepId` 那一格**同一个手法** ✓——
+`schedule(承诺, 回调, [state], 结果承诺, wants, …)` ✓，引擎把**结清值接在实参后面** ✓
+（`vm.xl.md` 的 `TaskScheduler` ✓）。**这是第 368 轮留下的那个未知点** ✓，
+问的正是「`Promise.all` 是怎么把状态塞进回调实参的」✓——答案是**第三格那个实参表** ✓。
+
+# const PromiseArrayFromMapStepId:int = 261
+
+**`Array.fromAsync` 的「映射函数那一步」** ✓（第 369 轮 ✓）。
+
+**为什么两步要两个号** ✗：与 `allSettled` 那两步**同一条理由** ✓——引擎**只把结清值接在实参后面** ✓、
+**不告诉回调「这是哪一次等待的结果」** ✗ ⇒ 「等迭代器」与「等映射函数」只能各走一个号 ✓。
+
+# method ArrayFromAsyncValues:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
+
+**`Array.fromAsync(可迭代物, 映射函数?)`** ✓（第 369 轮 ✓）。
+
+**它缺的是什么** ✗：`Array.from` 那条路是**同步**的 ✓（读一项、放一项 ✓），而这一条**每一项都可能是
+一个承诺** ✓ ⇒ 「读一项 → 等它 → 再读下一项」这条链**只能靠承诺回调接起来** ✓
+（建库层没有「回来接着跑」这种东西 ✗）。
+
+**零件全是现成的** ✓（第 368 轮量过 ✓）：状态机照 `Promise.all` ✓（堆上的状态对象 ✓ +
+`SetNumberProp` / `ReadProp` ✓ + `schedule` 的实参表 ✓ + `settle` 结清 ✓）、
+「等一等」用引擎现成的调度器 ✓——**一个新机关都没有** ✓。
+
+**为什么不用 `invoke(then)`** ✗：`.then` 那条路**只接结清值** ✓、**没有地方塞状态** ✗；
+而 `schedule` 的第三个实参**就是为这件事存在的** ✓（`Promise.all` 那一格写着 ✓）。
+
+```ts
+if (invoke === null || schedule === null || settle === null) {
+  throw new Error("unimplemented: Array.fromAsync needs the settle channel (the host did not provide it)");
+}
+const source = args.length > 0 ? args[0] : Value.Undefined();
+const mapper = args.length > 1 ? args[1] : Value.Undefined();
+const out = NewPlainArray(room, table, protos);
+const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+const state = NewPlainObject(room, table, protos);
+SetNumberProp(room, table, state, "out", out);
+SetNumberProp(room, table, state, "result", result);
+SetNumberProp(room, table, state, "mapper", mapper);
+SetNumberProp(room, table, state, "index", Value.FromInt(0));
+// **迭代器怎么拿** ✓：先认异步那一格 ✓（`Symbol.asyncIterator` ✓，第 320 轮挂上 ✓），
+// 没有就退回同步的 ✓（`Symbol.iterator` ✓）。**两个键都从 `Symbol` 对象上取** ✓，
+// 不在这一层写死号 ✓。
+const asyncKey = WellKnownSymbolValue(room, invoke, protos, table, "asyncIterator");
+const syncKey = WellKnownSymbolValue(room, invoke, protos, table, "iterator");
+let iteratorMethod = asyncKey.Tag === ValueTag.Symbol
+  ? GetProperty(room, invoke, protos, table, source, asyncKey) : Value.Undefined();
+if (!IsCallableValue(table, iteratorMethod) && syncKey.Tag === ValueTag.Symbol) {
+  iteratorMethod = GetProperty(room, invoke, protos, table, source, syncKey);
+}
+if (!IsCallableValue(table, iteratorMethod)) {
+  // **没有迭代器这一档** ✓（JS 里 `Array.fromAsync({ length: 3 })` 也走下标 ✓）——
+  // 与 `Array.from` 的数组式那一支同一条路 ✓（`install.xl.md` 的 `ArrayFromValues` ✓），
+  // **今天不做** ✗：先让「有迭代器」这两类（同步 / 异步 ✓）对起来 ✓。
+  settle(result, out, false);
+  return result;
+}
+const iterator = invoke(iteratorMethod, source, []);
+SetNumberProp(room, table, state, "iterator", iterator);
+const nextMethod = GetProperty(room, invoke, protos, table, iterator, NameValue(table, "next"));
+SetNumberProp(room, table, state, "next", nextMethod);
+ArrayFromAsyncPump(room, table, protos, state.Ref, invoke, schedule, settle, takeThrown);
+return result;
+```
+
+# method WellKnownSymbolValue:(room:RoomChecker, invoke:InvokeCallback | null, protos:Protos, table:HeapTable, name:string)=>Value
+
+**从全局 `Symbol` 上取一个众所周知符号** ✓（`asyncIterator` / `iterator` ✓）。
+
+**为什么不在这一层写死** ✗：符号值住在堆里 ✓（`SymbolFor` 那张表 ✓），
+在这一层写一个号就是第 359 轮那次撞号的同类 ✗。
+**表挂在原型表上** ✓（`protos.WellKnownSymbols` ✓，`globals.xl.md` 建它的时候写的 ✓）
+⇒ **任何建库层文件都够得着** ✓，不必绕全局对象 ✓（第一版写了个 `GetGlobalObject()` ✗，那东西不存在 ✓）。
+
+```ts
+if (invoke === null) return Value.Undefined();
+const wellKnown = protos.WellKnownSymbols > 0
+  ? Value.FromRef(ValueTag.Object, protos.WellKnownSymbols) : Value.Undefined();
+if (!wellKnown.IsObject()) return Value.Undefined();
+return GetProperty(room, invoke, protos, table, wellKnown,
+  Value.FromString(table.CreateString(Units(name))));
+```
+
+# method ArrayFromAsyncPump:(room:RoomChecker, table:HeapTable, protos:Protos, stateRef:int, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>void
+
+**走一步** ✓：读下一项 ✓，再让**调度器**在它结清之后接着走 ✓。
+
+**判据是「它是不是承诺」** ✓（不是「像不像」✗）：异步迭代器的 `next()` 给承诺 ✓，
+同步的给 `{ value, done }` ✓——`Promise.all` 对**普通项**的处理是「包一个已兑现的承诺」✓
+（第 247 轮 ✓），这里照抄 ✓。
+
+```ts
+if (invoke === null || schedule === null || settle === null) return;
+const state = Value.FromRef(ValueTag.Object, stateRef);
+const iterator = ReadProp(room, table, protos, state, "iterator");
+const nextMethod = ReadProp(room, table, protos, state, "next");
+const raw = invoke(nextMethod, iterator, []);
+const thrown = takeThrown === null ? Value.Undefined() : takeThrown();
+if (thrown.Tag !== ValueTag.Undefined) {
+  settle(ReadProp(room, table, protos, state, "result"), thrown, true);
+  return;
+}
+const one = IsPromise(table, raw) ? raw : MakePromise(room, table, PromiseState.Fulfilled, raw);
+const stepValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseArrayFromStepId, 0));
+const result = ReadProp(room, table, protos, state, "result");
+schedule(one, stepValue, [state], result, 0, false, Value.Undefined());
+```
+
+# method ArrayFromAsyncReceive:(room:RoomChecker, table:HeapTable, protos:Protos, record:Value, state:Value, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>void
+
+**拿到了一条迭代器结果** ✓（`{ value, done }` ✓）：完事就结清 ✓，否则过一遍映射函数 ✓、
+推一项 ✓、再走一步 ✓。
+
+**映射函数那一格的两条路** ✓：它可能**同步**给一个值 ✓（`(v) => v * 2` ✓）、
+也可能给一个承诺 ✓（`(v) => Promise.resolve(v * 2)` ✓，判据里那一条 ✓）——
+**同一条「是不是承诺」的判据** ✓（与上面 `Pump` 一字不差 ✓）。
+
+```ts
+if (invoke === null || schedule === null || settle === null) return;
+const result = ReadProp(room, table, protos, state, "result");
+const doneValue = ReadProp(room, table, protos, record, "done");
+if (doneValue.Tag === ValueTag.Bool && doneValue.AsBool()) {
+  settle(result, ReadProp(room, table, protos, state, "out"), false);
+  return;
+}
+const item = ReadProp(room, table, protos, record, "value");
+const mapper = ReadProp(room, table, protos, state, "mapper");
+if (IsCallableValue(table, mapper)) {
+  const index = ReadProp(room, table, protos, state, "index");
+  const mapArgs: Value[] = [item, index];
+  const mapped = invoke(mapper, Value.Undefined(), mapArgs);
+  const thrownMap = takeThrown === null ? Value.Undefined() : takeThrown();
+  if (thrownMap.Tag !== ValueTag.Undefined) {
+    settle(result, thrownMap, true);
+    return;
+  }
+  const oneMapped = IsPromise(table, mapped) ? mapped : MakePromise(room, table, PromiseState.Fulfilled, mapped);
+  const mapStep = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseArrayFromMapStepId, 0));
+  schedule(oneMapped, mapStep, [state], result, 0, false, Value.Undefined());
+  return;
+}
+ArrayFromAsyncPush(room, table, protos, item, state);
+ArrayFromAsyncPump(room, table, protos, state.Ref, invoke, schedule, settle, takeThrown);
+```
+
+# method ArrayFromAsyncPush:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, state:Value)=>void
+
+**推一项进结果数组** ✓（顺带把下标加一 ✓）。
+
+```ts
+if (!room(ValueCharge)) throw new Error("out of room");
+const out = ReadProp(room, table, protos, state, "out");
+table.Get(out.Ref).AsArray().Push(value);
+const index = ReadProp(room, table, protos, state, "index");
+SetNumberProp(room, table, state, "index", Value.FromInt(index.AsInt() + 1));
+```
+
+# method PromiseArrayFromStep:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
+
+**「等迭代器」那一步** ✓（号 `PromiseArrayFromStepId` ✓）——`args[0]` 是状态 ✓、`args[1]` 是结清值 ✓。
+
+```ts
+const state = args.length > 0 ? args[0] : Value.Undefined();
+const record = args.length > 1 ? args[1] : Value.Undefined();
+if (!state.IsObject()) return Value.Undefined();
+ArrayFromAsyncReceive(room, table, protos, record, state, invoke, schedule, settle, takeThrown);
+return Value.Undefined();
+```
+
+# method PromiseArrayFromMapStep:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
+
+**「等映射函数」那一步** ✓（号 `PromiseArrayFromMapStepId` ✓）——`args[1]` 是**映射之后**的值 ✓。
+
+```ts
+const state = args.length > 0 ? args[0] : Value.Undefined();
+const mapped = args.length > 1 ? args[1] : Value.Undefined();
+if (!state.IsObject()) return Value.Undefined();
+ArrayFromAsyncPush(room, table, protos, mapped, state);
+ArrayFromAsyncPump(room, table, protos, state.Ref, invoke, schedule, settle, takeThrown);
+return Value.Undefined();
+```
+
 # method PromiseThenableStep:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, invoke:InvokeCallback | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
 
 **判据与调用**（第 359 轮 ✓）——与上面那个号一对 ✓。
@@ -358,6 +544,10 @@ return GetProperty(room, NeverCall, protos, table, object,
 // **漏了这两支的症状是 `unimplemented: promise builtin id 238`** ✗
 // ——那句话听起来像「有个静态方法没实现」✗，其实是「回调没人接」✓。
 if (id === PromiseAllStepId) return PromiseAllStep(room, table, protos, self, args, settle);
+// **`Array.fromAsync` 的两步** ✓（第 369 轮 ✓）：与上面那几步**同一个形状** ✓——
+// 号在家族里 ✓、状态走 `schedule` 的实参表 ✓。
+if (id === PromiseArrayFromStepId) return PromiseArrayFromStep(room, table, protos, args, invoke, schedule, settle, takeThrown);
+if (id === PromiseArrayFromMapStepId) return PromiseArrayFromMapStep(room, table, protos, args, invoke, schedule, settle, takeThrown);
 if (id === PromiseThenableAdopt) {
   // **引擎问的这一句** ✓（第 359 轮 ✓）：见那个号与 `PromiseThenableStep` 的账 ✓。
   return PromiseThenableStep(room, table, protos, args, invoke, settle, takeThrown);

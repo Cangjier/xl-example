@@ -243,6 +243,11 @@ import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits } from "./text.xl
 **元素里的洞跳过** ✓（JS 的 `flat` 会跳过洞 ✓）；**不是数组的元素照收** ✓
 （`[1, [2]].flat()` 给 `[1, 2]` ✓——**只有数组才摊** ✓，字符串不摊 ✗）。
 # const ArrayFrom:int = 17
+
+# const ArrayFromAsync:int = 258
+
+**`Array.fromAsync(可迭代物, 映射函数?)`** 的号 ✓（第 369 轮 ✓）——与 `Array.from` **同一个形状** ✓
+（静态方法 ✓、要原型表 ✓ ⇒ 分派在 `install.xl.md` ✓），只是一路**等**下去 ✓。
 **`Array.from(可迭代物)`** 的号（第 130 轮）——**静态方法** ✓，而且它要**原型表**
 （返回的是新数组 ✓），所以它**不在 `InvokeArray` 里分派** ✓，走 `install.xl.md` 那条
 （与 `String.split` 同一处、同一个理由 ✓）。
