@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1315,
+  "matrix": 1317,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.99,
+  "progressPercent": 98.12,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 422,
-      "pass": 405,
+      "total": 424,
+      "pass": 409,
       "blocked": 9,
-      "differ": 8,
+      "differ": 6,
       "nodefail": 0,
-      "coverage": 95.97
+      "coverage": 96.46
     },
     {
       "layer": "exec",
@@ -188,12 +188,6 @@
       "detail": "stdout 不同：第 1 行：node «true false false» vs tsrun «false false false»"
     },
     {
-      "id": "rt-generator-return-early",
-      "layer": "runtime",
-      "title": "生成器：提前 return 收尾、finally 照跑",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: generator return() needs the finally chain (a lowering"
-    },
-    {
       "id": "rt-forin-order-and-inherited",
       "layer": "runtime",
       "title": "for..in：整数键在前、继承来的键也在、数组给下标串",
@@ -212,22 +206,16 @@
       "detail": "stdout 不同：第 1 行：node «global other» vs tsrun «undefined other»"
     },
     {
-      "id": "c304-rt-generator-early-break-finally",
-      "layer": "runtime",
-      "title": "for..of 提前 break：生成器里的 finally 照跑",
-      "detail": "stdout 不同：第 2 行：node «cleanup» vs tsrun «»"
-    },
-    {
       "id": "c305-rt-for-await-of-promises",
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
     },
     {
-      "id": "c323-rt-generator-early-return-cleanup",
+      "id": "c336-rt-iterator-close-forms",
       "layer": "runtime",
-      "title": "提前结束生成器：return() 要跑 finally",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: generator return() needs the finally chain (a lowering"
+      "title": "`for..of` 提前退出的收尾：break / return / 正常跑完",
+      "detail": "stdout 不同：第 4 行：node «close return» vs tsrun «took 2»"
     },
     {
       "id": "symbol-hasinstance",

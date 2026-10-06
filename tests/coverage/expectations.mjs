@@ -10,6 +10,18 @@
 // 所以红只红在「比昨天差」，不红在「还差多少」——**还差多少由覆盖度那一栏说**。
 
 export const EXPECTATIONS = {
+
+  // ===== 第 336 轮：加宽语料时**新量到**的缺口（1 条）=====
+
+  // **`return` 从 `for..of` 里出去，也要 IteratorClose** ✓（第 336 轮量到 ✓）：
+  // 这一轮把 IteratorClose 接上了 ✓，可只接了 **`break`** 那一档 ✗
+  //（`break` 走的是 `LoopContext.Breaks` ✓，落点在循环出口 ✓）；
+  // **`return` 走的是另一条路** ✗（`EmitPendingFinalies` 那一条只认 `finally` ✓），
+  // 所以 `for (const v of gen()) { if (…) return v; }` 里的 `finally` **还是不跑** ✓。
+  // **修法已经看得见** ✓：`LowerReturn` 那一条也要把**在册的迭代循环**从里到外收一遍 ✓
+  //（`this.Loops` 就在手上 ✓——只是那要区分「迭代循环」与「普通循环」 ✓，
+  //  也就是给 `LoopContext` 再加一格 ✓）。**下一轮从这里接** ✓。
+  "c336-rt-iterator-close-forms": { expect: "differ", why: "`for..of` 提前退出里的 **`return`** 那一档还没接 IteratorClose（只接了 `break`）：`for (const v of gen()) { if (v === 2) return v }` 里生成器那句 `finally` 不跑（Node 打 `close func`、本仓不打）——两档走的是两条路（`break` 走 `LoopContext.Breaks`、`return` 走 `EmitPendingFinalies`），修法是让 `LowerReturn` 也把在册的**迭代**循环收一遍" },
   // ===== runtime：引擎与语言层手里的那几张表 =====
   // **第 233 轮删掉了 `op-typeof-forms` 那一行** ✓（它过了 ✓）：
   // `typeof {a: 1}` / `typeof {}` 原来只给一个**孤零零的 `TypeOfKeyword`** ✗
@@ -529,7 +541,7 @@ export const EXPECTATIONS = {
   // ---- 组 D：生成器对象上那两格（2 条）----
   // `it.return(v)` / `it.throw(e)` 是 `Generator.prototype` 上的两格 ✓，
   // 本仓的生成器对象只有 `next` ✗（`cannot call a non-closure value`）。
-  "rt-generator-return-early": { expect: "differ", why: "`it.return(9)` 不在那儿（生成器对象上只有 `next`）——`return` 要跑 `finally` 并把 `done` 置上" },
+  // **第 336 轮过了** ✓（这一行撤了 ✓）：`generator.return(v)` 跑 `finally` 链 ✓（引擎只把「叫停」+「值」带到挂起点 ✓，降级层在每个 `yield` 后面问一句 ✓）；`for..of` 提前退出调 `iterator.return()` ✓（IteratorClose ✓）。
 
   // ---- 组 E：可选调用那一条（1 条）---- **第 325 轮收了** ✓（那一行撤了 ✓）
   //
@@ -697,7 +709,7 @@ export const EXPECTATIONS = {
   // **`c304-rt-optional-chain-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
   // 同一条里的 `o.n?.()` / `o.missing?.()` 两半本来就对 ✓，这一轮补的是
   // **第三格**（`f?.()`：空值在**被调的那个值自己**身上 ✓）——见上面组 E 那一段 ✓。
-  "c304-rt-generator-early-break-finally": { expect: "differ", why: "`for..of` 提前 `break` 要调生成器的 `return()`（于是体里的 `finally` 照跑）；本仓 `break` 只退出循环，生成器那一帧被丢掉 ⇒ `cleanup` 一行都没有" },
+  // **第 336 轮过了** ✓（这一行撤了 ✓）：`generator.return(v)` 跑 `finally` 链 ✓（引擎只把「叫停」+「值」带到挂起点 ✓，降级层在每个 `yield` 后面问一句 ✓）；`for..of` 提前退出调 `iterator.return()` ✓（IteratorClose ✓）。
   // **`c304-rt-promise-then-returns-promise` 与 `c305-std-then-returns-promise-adoption`
   // 第 317 轮修掉了** ✓（`ResolvePromise` 现在走「兑现值本身是承诺就采纳」那一支 ✓）——
   // 两行都撤了 ✓。留一句在这里：它们当初报的是「后面 `.then` 拿到的是**承诺对象**」✓，
@@ -873,7 +885,7 @@ export const EXPECTATIONS = {
   // 这一条把**三种基名**放在一起考 ✓（`o.m?.()` ✓ / `o.n?.k?.()` ✓ / `o.missing?.()` ✓ /
   // **`f?.()`** ✓）——前面三种本来就对 ✓，补上的正是**第三格** ✓
   // （空值在**被调的那个值自己**身上 ✓，见组 E 那一段 ✓）。
-  "c323-rt-generator-early-return-cleanup": { expect: "differ", why: "提前结束生成器：`it.return(9)` 要**在挂起点送一次「完成」进去**（于是体里的 `finally` 照跑、`cleanup` 要印出来），本仓报 `unimplemented: generator return() needs the finally chain (a lowering-level construct)`——那条 `finally` 链是**降级期**的构造，引擎手里没有「这个帧欠哪些 `finally`」那张表（缺口清单 #5，与 `c304-rt-generator-early-break-finally` 同一个根）" },
+  // **第 336 轮过了** ✓（这一行撤了 ✓）：`generator.return(v)` 跑 `finally` 链 ✓（引擎只把「叫停」+「值」带到挂起点 ✓，降级层在每个 `yield` 后面问一句 ✓）；`for..of` 提前退出调 `iterator.return()` ✓（IteratorClose ✓）。
   // **`c323-std-console-shapes` 第 330 轮过了** ✓（那一行撤了 ✓）：
   // 同一处修 ✓——`{ f: () => 1 }.f.name` 现在给 `"f"` ✓；
   // 同一条里的容器形状与多实参那两行本来就是对 ✓。

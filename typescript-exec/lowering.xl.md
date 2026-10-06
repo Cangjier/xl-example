@@ -1405,6 +1405,12 @@ this.VarSlots = [];
 this.DeclaredNames = [];
 this.FinallyBlocks = [];
 this.Loops = [];
+// **生成器那三格也要逐函数清** ✓（第 336 轮 ✓）：它们是**这一层函数**的状态 ✓——
+// 不清的话，内层生成器记下的问句会留到外层 ✓ ⇒ 外层的体末尾会**多发几段**
+// 属于内层的 `return` 收尾 ✗（`Reserve` 的槽号也是内层那一帧的 ✗，**静默错值** ✓）。
+this.GeneratorReturns = [];
+this.GeneratorReturnScopes = [];
+this.GeneratorReturnSlot = -1;
 ```
 
 ## method EnterFunctionBody:(body:AstNode, params:Array<string>, extras:Array<AstNode>)=>void
@@ -1997,6 +2003,17 @@ this.ExtraDeclared = patternNames;
 //（箭头引用过 ✓），而环境是那一趟才开的 ✓——`DeclareLocal` 正是照环境格认的 ✓。
 let argumentsSlot = -1;
 if (item.NeedsArguments) argumentsSlot = this.Reserve(1);
+// **生成器那一格在**函数一进来**就占** ✓（第 336 轮 ✓，**实测踩过一次** ✗）：
+// `it.return(v)` 的值要落到一格固定的槽上 ✓——第一版是**在第一个 `yield` 那儿现占**的 ✗，
+// 而那时体的水位已经涨上去了 ✓ ⇒ 后面某处 `Release` 把水位退到它**下面** ✓ ⇒
+// 再 `Reserve` 就拿到**同一个号** ✓ ⇒ 那一格被别的东西盖掉 ✓
+//（实测：`it.return(9).value` 给的是 `console` 那个对象 ✓，**一句话都没报** ✓）。
+// 排在这里它就落在**所有临时量之下** ✓（与形参同一档 ✓），谁也不会把它退掉 ✓。
+let generatorReturnSlot = -1;
+if (item.IsGenerator) {
+  generatorReturnSlot = this.Reserve(1);
+  this.GeneratorReturnSlot = generatorReturnSlot;
+}
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
 //
@@ -2084,6 +2101,12 @@ if (item.IsNamespace) {
 }
 this.DeferredItem = outerDeferred;
 this.Emit(Op.Return, -1, -1, -1, -1);
+// **生成器那些「答句」发在这里** ✓（第 336 轮 ✓）：`yield` 位置上记下的跳转要落到
+// **一套 `return` 收尾**上 ✓，而那一套只有在**体发完之后**才排得下 ✓
+//（`EmitGeneratorReturnEpilogues` 那一段写着为什么 ✓）。
+// **它排在隐式 `Return` 之后** ✓：正常跑完的函数在那一条就交出去了 ✓，
+// 这几段只有**跳转**才会落到 ✓（每条自带 `Op.Return` ✓ ⇒ 谁也不会掉进下一条 ✓）。
+this.EmitGeneratorReturnEpilogues();
 item.SlotCount = this.Peak;
 this.PopScope();
 this.InGenerator = outerInGenerator;
@@ -3888,14 +3911,62 @@ if (perIteration) {
   this.Emit(Op.EnvNew, envSlot, 1, -1, -1);
 }
 this.Emit(Op.Jump, -1, start, -1, -1);
-this.PatchTarget(exitIndex, this.Here());
-// **出口也要退回去** ✓（第 315 轮 ✓）：`break` 与「迭代到头」都落在这里 ✓。
+// **两条出口要分开** ✗（第 336 轮 ✓）：**迭代到头**（`done` ✓）不该调 `iterator.return()` ✓，
+// 而 **`break`** 要调 ✓（JS 的 IteratorClose ✓）——原来两条都落在同一个 pc 上 ✓，
+// 于是 `for (const v of gen()) { break }` 里生成器那句 `finally { console.log("cleanup") }`
+// **一声不响** ✓（判据 `c304-rt-generator-early-break-finally` 量的就是它 ✓）。
+//
+// 所以：**正常出口先跳过去** ✓，而 `break` 落到下面那一段 close 上 ✓
+//（`LeaveLoop` 把这一层所有 `break` 回填到**它被调用那一刻**的 pc ✓——所以它必须排在
+//  close **之前** ✓，这正是「先记落点、再发代码」那条老规矩 ✓）。
+const normalExit = this.Here();
+// **`done` 那一趟也走这里** ✓（它落在那条 `Jump` 上 ✓ ⇒ 跳过 close ✓）。
+this.PatchTarget(exitIndex, normalExit);
+this.Emit(Op.Jump, -1, 0, -1, -1);
+this.LeaveLoop(context);
+this.EmitIteratorClose(iteratorSlot);
+this.PatchTarget(normalExit, this.Here());
+// **出口也要退回去** ✓（第 315 轮 ✓）：`break` 与「迭代到头」都落到这一处 ✓
+//（close 那一段**在**这一句之前 ✓——它在循环那一层环境里跑 ✓，而迭代器那一格
+//  是**循环之外**占的 ✓，两处都读得到 ✓）。
 if (perIteration) {
   this.Emit(Op.EnvLeave, -1, -1, -1, -1);
 }
-this.LeaveLoop(context);
 if (perIteration) this.Env.Pop();
 this.PopScope();
+```
+
+## method EmitIteratorClose:(iteratorSlot:int)=>void
+
+**`for..of` 提前退出时把迭代器收掉** ✓（第 336 轮 ✓）——JS 的 **IteratorClose** ✓：
+`break` / `return` / 抛出去这三档都要调一次 `iterator.return()` ✓（**迭代到头不调** ✗ ✓）。
+
+**它为什么值得做** ✗：`for (const v of gen()) { break }` 里生成器那句 `finally` **要跑** ✓
+（判据 `c304-rt-generator-early-break-finally` ✓）——而 `finally` 只有 `return()` 那条路会跑 ✓
+（第 336 轮刚把 `generator.return()` 接上 ✓，见 `ir.xl.md` 的 `CheckGeneratorReturn` ✓）。
+少了这一句，**`finally` 里那些清理一声不响地不跑** ✓（`for..of` + `break` 是真实代码里的常客 ✓）。
+
+**`return` 那一格按普通属性读** ✓（`get_prop` ✓）：JS 里它是可选的 ✓——
+**`undefined` 就跳过** ✓（数组的迭代器就没有 ✓）。**其余不是函数的值**在 JS 里抛 `TypeError` ✗，
+这一档**还没有量到** ✓，先按「不是 undefined 就调」办 ✓（**写在明处** ✓：
+真调一个不是函数的东西会报 `calling a non-closure value` ✓——**响亮** ✓，不是静默 ✓）。
+
+**代码形状与 `RtCall2` / `Op.Call` 那两处一字不差** ✓（`D` 操作数是 `this` ✓——
+`iterator.return()` 的 `this` 必须是**那个迭代器** ✓）。
+
+```ts
+const returnKey = this.Program().AddConst(Constant.OfString(UnitsOf("return")));
+const closeFn = this.RtCall2(RtOp.GetProp, iteratorSlot, returnKey);
+const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
+const missing = this.RtCall2(RtOp.CmpEqStrict, closeFn, undefinedConst);
+const callIndex = this.Here();
+this.Emit(Op.JumpIfFalse, missing, 0, -1, -1);
+// **跳过**那一支：`return` 是 `undefined` ⇒ 直接出去 ✓。
+const skipIndex = this.Here();
+this.Emit(Op.Jump, -1, 0, -1, -1);
+this.PatchTarget(callIndex, this.Here());
+this.Emit(Op.Call, closeFn, this.Reserve(1), 0, iteratorSlot);
+this.PatchTarget(skipIndex, this.Here());
 ```
 
 ## method LowerForIn:(node:AstNode)=>void
@@ -5815,7 +5886,79 @@ if (operand === null) {
 this.Emit(Op.Suspend, slot, -1, -1, -1);
 const sent = this.Reserve(1);
 this.Emit(Op.Resume, sent, -1, -1, -1);
+// **问一句「有人叫停吗」** ✓（第 336 轮 ✓）：`it.return(v)` 要的是一次
+// **`return` 完成** ✓（跑 `finally` ✓、不接 `catch` ✓），而那几段收尾代码是
+// **降级期就地内联**的 ✓（`FinallyBlocks` ✓）——所以引擎只把「叫停」+「值」带到这一格 ✓，
+// **问句与答句都写在这里** ✓（`Op.CheckGeneratorReturn` ✓，见 `ir.xl.md` ✓）。
+//
+// **「是」的时候跳到哪儿** ✗：跳到**这个 `yield` 位置上**那一套 `return` 收尾 ✓——
+// 而它要等到**函数体发完**才排得下 ✓（现在还不知道后面还有多少指令 ✓），
+// 所以这里只**记下**（跳转下标 + **当时在册的 `finally` 快照** ✓），
+// 由 `LowerFunctionBody` 收尾时一起发 ✓（`EmitGeneratorReturnEpilogues` ✓）。
+//
+// **值先落到一格固定的槽** ✓（`GeneratorReturnSlot` ✓，**函数一进来就占好了** ✓）：
+// 跳过去之后要 `Op.Return(那一格)` ✓，而**每个 `yield` 各有一条问句** ✗ ⇒
+// 一格共用就够 ✓（问句只会有一条成立 ✓）。**来源是 `sent` 那一格** ✓
+//（`resume` 刚把恢复值放进去 ✓，而帧上那格 `ResumeValue` **已经被它清掉了** ✗——
+//  第一版读的是它 ✓，症状见 `ir.xl.md` ✓）。
+const checkIndex = this.Here();
+this.Emit(Op.CheckGeneratorReturn, this.GeneratorReturnSlot, 0, sent, -1);
+this.GeneratorReturns.push(checkIndex);
+const scope: AstNode[] = [];
+for (let i = 0; i < this.FinallyBlocks.length; i++) scope.push(this.FinallyBlocks[i]);
+this.GeneratorReturnScopes.push(scope);
 return sent;
+```
+
+## field GeneratorReturns:Array<int> = []
+
+**生成器里那些「有人叫停吗」问句的跳转下标** ✓（第 336 轮 ✓）——与
+`GeneratorReturnScopes` **一一对应** ✓（两份平行数组 ✓，与 `DefaultAt` / `Defaults` 同一条写法 ✓：
+收尾时要「跳转 + 当时那几层 `finally`」两样一起用 ✓，而它们是在**不同时刻**记下来的 ✓）。
+
+## field GeneratorReturnScopes:Array<Array<AstNode>> = []
+
+**每一条问句在写下它那一刻「在册的 `finally`」** ✓（第 336 轮 ✓，快照一份 ✓）。
+
+**为什么必须快照** ✗：`FinallyBlocks` 是**当前词法位置**的状态 ✓——`yield` 在 `try` 里、
+收尾却在函数体末尾 ✓，那时它已经空了 ✗ ⇒ 不收尾就**一层 `finally` 都不跑** ✗
+（症状：`try { yield 1 } finally { console.log("cleanup") }` 里那句**一声不响** ✓）。
+
+## field GeneratorReturnSlot:int = -1
+
+**`it.return(v)` 的值往哪一格落** ✓（第 336 轮 ✓）——一个生成器**共用一格** ✓：
+问句只会有一条成立 ✓（标记读走就清 ✓），所以不必一 `yield` 一格 ✓。
+
+**它由 `LowerFunctionBody` 在函数一进来就占** ✓（`item.IsGenerator` 那一档 ✓）——
+**不能在第一个 `yield` 那儿现占** ✗（**实测踩过一次** ✗：那时水位已经涨上去了 ✓，
+后面某处 `Release` 会退到它下面 ✓ ⇒ 再 `Reserve` 拿到**同一个号** ✓ ⇒
+那一格被别的东西盖掉 ✓，`it.return(9).value` 于是拿到 `console` 那个对象 ✓
+——**一句话都没报** ✓）。排在函数开头它就落在**所有临时量之下** ✓，谁也不会把它退掉 ✓。
+
+## method EmitGeneratorReturnEpilogues:()=>void
+
+**把每一条问句的「答句」发出来** ✓（第 336 轮 ✓）——由 `LowerFunctionBody` 在**体发完之后**叫一次 ✓。
+
+**答句就是一次 `return`** ✓：`EmitPendingFinalies()` ✓（把**当时**在册的那几层 `finally`
+从里到外发一遍 ✓——`FinallyBlocks` 是临时的「当前状态」✓，所以发每一段之前先把它摆成
+那一份快照 ✓，发完**恢复** ✓，与 `EmitPendingFinalies` 自己那条 save/restore 同一套手法 ✓）
++ `Op.Return(GeneratorReturnSlot)` ✓。
+
+**发在体之后、而且每条各自 `Return`** ✓：跳转是**跳过来**的 ✓，所以落到这里就一定要走 ✓；
+发完之后**接着**发下一条 ✓（互相之间隔着一条 `Op.Return` ✓ ⇒ 谁也不会掉进下一条 ✓）。
+
+**顺序无关** ✓（每条自带 `Return` ✓），但**照记下的次序**发 ✓——读起来与源码同序 ✓。
+
+```ts
+if (this.GeneratorReturns.length === 0) return;
+const saved = this.FinallyBlocks;
+for (let i = 0; i < this.GeneratorReturns.length; i++) {
+  this.PatchTarget(this.GeneratorReturns[i], this.Here());
+  this.FinallyBlocks = this.GeneratorReturnScopes[i];
+  this.EmitPendingFinalies();
+  this.FinallyBlocks = saved;
+  this.Emit(Op.Return, this.GeneratorReturnSlot, -1, -1, -1);
+}
 ```
 
 ## method LowerYieldDelegation:(source:AstNode)=>int

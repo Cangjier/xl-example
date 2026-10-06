@@ -692,14 +692,17 @@ check("编号只追加：成员顺序就是跨目标的约定", () => {
   // **第 315 轮从 23 变成 24** ✓：`env_leave` 加在**最后**（`call_array` 之后 ✓）——
   // 这一轮**当场红过一次** ✗：`EnvLeave` 第一版插在 `env_set` 后面 ✓，
   // 于是**后面每一个算子的号都挪了一格** ✗，就是这一条拦下来的 ✓（**这正是它存在的意义** ✓）。
-  eq(enumMembers(Op), 24, "指令条数");
+  // **第 336 轮从 24 变成 25** ✓：`check_generator_return` 加在**最后**（`env_leave` 之后 ✓）——
+  // 同一条规矩、同一处代价 ✓（下面那条「必须在最后」的断言跟着挪 ✓）。
+  eq(enumMembers(Op), 25, "指令条数");
   eq(Op.Halt, 0, "第一条");
   eq(Op.Const, 1, "第二条");
   eq(Op.Resume, 18, "生成器用的那两条之前");
   eq(Op.LoadThis, 19, "读 this 的那条");
   eq(Op.Caught, 21, "catch 绑定那条（第 133 轮之前是最后一条）");
   eq(Op.CallArray, 22, "按数组铺开参数那条（第 133 轮追加的）");
-  eq(Op.EnvLeave, 23, "退出环境那条（第 315 轮追加的，**必须在最后**）");
+  eq(Op.EnvLeave, 23, "退出环境那条（第 315 轮追加的）");
+  eq(Op.CheckGeneratorReturn, 24, "问一句「有人叫停吗」那条（第 336 轮追加的，**必须在最后**）");
   eq(Op.Await, 20, "承诺那条");
   eq(Op.Caught, 21, "这一轮追加的那条");
   eq(enumMembers(RtOp), RtOpCount, "通用算子条数与规范里那个常量一致");
@@ -1051,7 +1054,9 @@ check("指令码不在表内", () => {
   // ⇒ 这一条当场红 ✓（**正是「只追加」那条规矩的第二种代价** ✓：
   //   不只是上界要挪 ✓，「拿号算出来的假指令」也会过期 ✓）。
   // 现在写成「表尾再往后一个」✓，加新算子时它**自动**还是未知的 ✓。
-  program.Instrs[0] = new Instruction(Op.EnvLeave + 1, 0, 0, -1, -1);
+  // **第 336 轮它又跟着挪了一格** ✓（`env_leave` 不再是表尾 ✓，`check_generator_return` 才是 ✓）
+  // ——正因为写成了「表尾 + 1」✓，这一轮**只改了这一个名字** ✓（没有第二处数字要同步 ✓）。
+  program.Instrs[0] = new Instruction(Op.CheckGeneratorReturn + 1, 0, 0, -1, -1);
   const issue = issueOf(program);
   ok(issue !== null && issue.Code === IssueUnknownOp && issue.Pc === 0, "未知指令码带 PC");
 });

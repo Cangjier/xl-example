@@ -839,6 +839,24 @@ return 0;
 
 **它不是根** ✓（一个布尔 ✓）；初值 `false` ✓。
 
+## field GeneratorReturnRequested:bool = false
+
+**这一次恢复，是一次 `return` 完成（`it.return(v)`）吗** ✓（第 336 轮 ✓）。
+
+**它与 `ResumeRaises` 住在同一族、同一个位置** ✓（都在帧上 ✓，理由与上面那一段一字不差 ✓：
+**排队等着恢复的不止一个** ✓，而每一条各自的答案只有它自己知道 ✓）。
+
+**为什么不能与 `ResumeRaises` 合成一格** ✗：`return` 要的**不是抛** ✓——
+抛出去会被 `catch` 接住 ✗，而 JS 的 `return` **只跑 `finally`** ✓、`catch` 不接 ✓
+（`try { yield 1 } catch { … } finally { … }` 里 `it.return()` 只跑 `finally` ✓）。
+所以「抛一个哨兵、让降级层自己认」那一招也不能用 ✗（哨兵会被 `catch` 接走 ✓）。
+
+**谁写谁清** ✓：`DoIterNext`（`return` 那一路 ✓）写 ✓，`Op.CheckGeneratorReturn`
+读走并清掉 ✓——**只写不清就是下一次恢复也跳一次** ✗（而那时 JS 那边早就把它交给
+`finally` 里那个 `yield` 了 ✓）。
+
+**它不是根** ✓；初值 `false` ✓。
+
 ## constructor:(code:int, slotCount:int, prev:int, returnSlot:int)=>void
 
 按槽数开一帧，槽先全部填成 `undefined`（**不留空槽**：未初始化的槽若带着上一轮的垃圾值，
@@ -859,6 +877,7 @@ this.Awaiting = new Value();
 this.SuspendedInAwait = false;
 this.ResumeRaises = false;
 this.ResumeValue = new Value();
+this.GeneratorReturnRequested = false;
 this.Slots = [];
 for (let i = 0; i < slotCount; i++) {
   this.Slots.push(Value.Undefined());

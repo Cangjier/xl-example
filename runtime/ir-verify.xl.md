@@ -561,11 +561,12 @@ return program;
 （判据会当场报 `unknown opcode`，不会静默放过去）。
 
 ```ts
-// **上界跟着最后一个成员挪**（第 133 轮挪到了 `call_array` ✓、**第 315 轮挪到了 `env_leave`** ✓）：
+// **上界跟着最后一个成员挪**（第 133 轮挪到了 `call_array` ✓、**第 315 轮挪到了 `env_leave`** ✓、
+// **第 336 轮挪到了 `check_generator_return`** ✓）：
 // 这条规矩的代价写在上面 ✓——忘了挪的症状是「新指令被判成未知指令码」✓，
 // 判据会当场报出来 ✓（**第 315 轮实测拦到了** ✗：`for (let …)` 那一条判据报
 // `unknown opcode: 23` ✓，位置在**验证层**而不在跑出来的结果里 ✓——正是「不会静默放过去」✓）。
-return op >= 0 && op <= Op.EnvLeave;
+return op >= 0 && op <= Op.CheckGeneratorReturn;
 ```
 
 # method SlotOk:(slot:int, slotCount:int, allowNone:bool)=>bool
@@ -755,6 +756,23 @@ if (item.Op === Op.Return) {
 if (item.Op === Op.Throw) {
   if (!SlotOk(item.A, slotCount, false)) {
     return new VerifyIssue(IssueOperand, pc, "throw slot out of range");
+  }
+}
+// **第 336 轮追加的那一条** ✓（`check_generator_return` ✓）：`A` 是**写返回值的槽** ✓
+// （与 `creturn` 那条同一条检查 ✓）、`B` 是**跳转目标** ✓（与 `jump` 那条同一句 ✓）。
+// **两样都要查** ✗：这一条是「按位置编号」的新算子 ✓，
+// 而**验层正是拦住「号挪了、别处没跟上」的唯一一道** ✓（`IsKnownOp` 那一段写着 ✓）。
+if (item.Op === Op.CheckGeneratorReturn) {
+  if (!SlotOk(item.A, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "generator return slot out of range");
+  }
+  if (item.B < 0 || item.B >= program.Instrs.length) {
+    return new VerifyIssue(IssueTarget, pc, "jump target is not an instruction");
+  }
+  // **来源那一格也要查** ✓（第 336 轮 ✓）：它是**第一版漏掉的那一样** ✓
+  //（那一版让引擎去读帧上那格已经被清掉的 `ResumeValue` ✓，症状见 `ir.xl.md` ✓）。
+  if (!SlotOk(item.C, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "generator return source slot out of range");
   }
 }
 if (item.Op === Op.TryPush) {

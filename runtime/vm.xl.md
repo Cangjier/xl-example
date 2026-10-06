@@ -1053,6 +1053,28 @@ if (instr.Op === Op.EnvLeave) {
   frame.Env = parent;
   return;
 }
+if (instr.Op === Op.CheckGeneratorReturn) {
+  // **生成器被 `return(v)` 叫停了吗** ✓（第 336 轮 ✓）：见 `ir.xl.md` 那一段的账 ✓。
+  // **不叫停就一条指令都不做** ✗（这是热路径上的一条 ✓：每个 `yield` 后面都跟着它 ✓）。
+  // **叫停时把**恢复值**搬进 `A`** ✓：`return(v)` 的 `v` 走的就是 `ResumeValue` 那一格 ✓
+  //（`DoIterNext` 写的 ✓，与 `next(v)` 是同一格 ✓）——降级层于是把**它**当成
+  // 「这次 `return` 要交出去的值」✓（`Op.Return(A)` ✓）。
+  // **标记要清掉** ✓：不clear的话，`finally` 里再 `yield` 一次之后 ✓
+  // 那个标记还在 ⇒ **第二次也跳** ✗（而 JS 那边 `return` 已经交给那个 `yield` 了 ✓）。
+  if (frame.GeneratorReturnRequested) {
+    // **值的来源是 `C`、不是帧上那一格 `ResumeValue`** ✗（**实测踩过一次** ✓）：
+    // 紧接着的 `Op.Resume` **已经把它读走并清掉了** ✓（那是它的本分 ✓），
+    // 走到这里时它已经是空的 ✓——第一版就是读它 ✓，于是 `it.return(9).value`
+    // 给的是**帧里某一格碰巧装着的东西** ✓（实测拿到的是 `console` 那个对象 ✓，
+    // **一句话都没报** ✓）。
+    // 所以来源由降级层指认 ✓：**它刚刚把恢复值放进哪一格** ✓（`yield` 那一格 ✓），
+    // 这里原样搬过来 ✓。
+    frame.Slots[instr.A] = frame.Slots[instr.C];
+    frame.GeneratorReturnRequested = false;
+    frame.Pc = instr.B;
+  }
+  return;
+}
 if (instr.Op === Op.EnvGet) {
   const env = this.WalkEnv(frame.Env, instr.B);
   const slots = this.Table.Get(env).AsEnv().Slots;
@@ -1263,8 +1285,24 @@ if (this.GeneratorStepKind(callee) !== 0) {
   //（`lowering.xl.md` 的 `FinallyBlocks` ✓：每处 `return` 都是**就地发出**那几段收尾代码 ✓），
   // 引擎手里没有「这个帧欠哪些 `finally`」那张表 ✗ ⇒ 做不了 ✓。
   // **`throw()` 做得了** ✓（在挂起点抛一个值 ✓，`Op.Resume` 那条路 ✓）——见 `DoIterNext` ✓。
+  // **`return()` 第 336 轮做掉了** ✓（原来在这里响亮地抛 ✗，理由见 `ir.xl.md` 的
+  // `CheckGeneratorReturn` 那一段 ✓）：引擎把「有人叫停」+「叫停时给的值」带到挂起点 ✓，
+  // **降级层在每个 `yield` 后面问一句** ✓、答「是」就跳到自己**已经备好的**
+  // 「`return` 那一套」上 ✓（`EmitPendingFinalies` + `Op.Return` ✓）——
+  // **`finally` 那一段逻辑一个字都没有新写** ✓，引擎也不必知道「这个帧欠哪些 `finally`」✓。
+  //
+  // **`returns = true` 那一格** ✓：它与 `raises` **不是同一档** ✗（`return` 只跑 `finally` ✓、
+  // `catch` 不接 ✓）——所以是**两格**而不是「抛一个哨兵」✓（见 `ir.xl.md` ✓）。
   if (stepKind === 2) {
-    throw new Error("unimplemented: generator return() needs the finally chain (a lowering-level construct)");
+    const producedByReturn = this.NextStepOf(thisValue, sentByCaller, false, null, true);
+    if (returnSlot >= 0) {
+      frame.Slots[returnSlot] = producedByReturn;
+    } else {
+      this.Result = producedByReturn;
+      this.Finished = true;
+      this.Status = VmStatus.Halted;
+    }
+    return;
   }
   const producedByNext = this.NextStepOf(thisValue, sentByCaller, stepKind === 3, null);
   if (returnSlot >= 0) {
@@ -3189,7 +3227,7 @@ this.Frames.Pop();
 this.NativeResult = value;
 ```
 
-## method DoIterNext:(iterator:Value, sent:Value, raises:bool = false)=>Value
+## method DoIterNext:(iterator:Value, sent:Value, raises:bool = false, returns:bool = false)=>Value
 
 `next(v)`：恢复一个挂起的生成器，返回一对 `[产出值, 是否结束]`。
 
@@ -3294,6 +3332,12 @@ generatorFrame.ResumeValue = sent;
 // **第 330 轮它写在帧上** ✗（原来是 `this.ResumeRaises` ✓）：`RejectPromise` 是第二个写它的人 ✓，
 // 而那里一次可能给**好几个**帧留下不同的答案 ✓ ⇒ 只能一帧一格 ✓。
 generatorFrame.ResumeRaises = raises;
+// **「这次恢复是一次 `return` 完成」也要交给那一帧** ✓（第 336 轮 ✓）：
+// 与上面那两格**同一个形状、同一个位置** ✓——引擎把「有人叫停」带到挂起点 ✓，
+// 而**跑 `finally` 链是降级层的事** ✗（见 `Op.CheckGeneratorReturn` 那一段 ✓）。
+// **它不能与 `raises` 合成一格** ✗：`return` 要的**不是抛** ✓——
+// 抛出去的话 `catch` 会接住它 ✗（而 JS 的 `return` 只跑 `finally` ✓、`catch` 不接 ✓）。
+generatorFrame.GeneratorReturnRequested = returns;
 generator.State = GeneratorState.Running;
 const depth = this.Frames.Depth();
 this.NativeDepth = this.NativeDepth + 1;
@@ -3482,7 +3526,7 @@ if (protos.Generator <= 0) return;
 this.Table.Get(generatorHandle).Proto = protos.Generator;
 ```
 
-## method NextStepOf:(iterator:Value, sent:Value, raises:bool, keep:RootKeeper | null = null)=>Value
+## method NextStepOf:(iterator:Value, sent:Value, raises:bool, keep:RootKeeper | null = null, returns:bool = false)=>Value
 
 **走一步生成器，把结果包成脚本看得见的那一对 `{ value, done }`**（第 229 轮 ✓）。
 
@@ -3505,7 +3549,7 @@ this.Table.Get(generatorHandle).Proto = protos.Generator;
 
 ```ts
 // **推进一步**：`DoIterNext` 自己包了 `Guard` ✓（见它那一段 ✓），这一层不必再包一遍 ✗。
-const pair = this.DoIterNext(iterator, sent, raises);
+const pair = this.DoIterNext(iterator, sent, raises, returns);
 const cells = this.Table.Get(pair.Ref).AsArray();
 const produced = cells.GetAt(0);
 if (keep !== null) keep(produced, true);

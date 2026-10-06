@@ -88,7 +88,6 @@ import { HeapTable } from "./heap.xl.md"
 永远会挂起当前帧、把恢复排进微任务队列（`vm.xl.md` 的 `DrainMicrotasks`）。
 - case Caught
 `A` ← **正在飞的那个异常值**（`Vm.Pending`）。
-
 **它是 `catch` 绑定的原语**：展开把 `Pc` 跳到处理点之后，异常值在 `Pending` 里，
 而**除了这一条没有别的路能把它取出来**——`catch (e)` 因此必须先发一条 `caught e`
 再进 `catch` 体。少了它，`catch` 能接住异常却拿不到异常值（那等于半个 `catch`）。
@@ -123,6 +122,32 @@ import { HeapTable } from "./heap.xl.md"
 **`A` / `B` / `C` 都不看** ✓：退几层由**降级期**决定（它连发几条 ✓），
 因为「退到哪一层」是词法信息 ✓（与 `EnvGet` 的层数是同一个道理 ✓）。
 **没有 `Parent` 就响亮地抛** ✗（那是降级期多发了一条 ✓，不是脚本的错 ✓）。
+
+- case CheckGeneratorReturn
+**生成器被 `return(v)` 叫停了吗** ✓（第 336 轮 ✓）：是就把**槽 `C` 的值搬进槽 `A`** ✓、
+**清掉那一格标记** ✓、跳到 `B` ✓；不是就往下走 ✓（三个操作数都不看 ✓）。
+
+**为什么值是「从 `C` 搬」而不是「读帧上那一格 `ResumeValue`」** ✗（**实测踩过一次** ✓）：
+紧跟 `resume` 的那一条**已经把它读走并清掉了** ✓，走到这里时它是空的 ✗——
+第一版读的就是它 ✓，于是 `it.return(9).value` 拿到**帧里某一格碰巧装着的东西** ✓
+（实测是 `console` 那个对象 ✓，**一句话都没报** ✓）。所以来源由降级层指认 ✓：
+**它刚刚把恢复值放进哪一格**（`yield` 那一格 ✓），这里原样搬过来 ✓。
+
+**它为什么必须是一条新算子** ✗：`it.return(v)` 要的是**一次 `return` 完成** ✓——
+而那个完成**必须跑 `finally` 链** ✓，那条链是**降级期就地内联**的构造 ✗
+（`lowering.xl.md` 的 `FinallyBlocks` ✓：每个 `return` 点各自把那几段发一遍 ✓），
+**引擎手里没有「这个帧欠哪些 `finally`」那张表** ✗（`vm.xl.md` 那两句「unimplemented:
+generator return() needs the finally chain」写的就是这件事 ✓）。
+所以分工是：**引擎只把「有人叫停」+「叫停时给的值」带到挂起点** ✓，
+**降级层在每个 `yield` 后面问一句** ✓、答「是」就跳到自己**已经备好的**
+「`return` 那一套」上 ✓（`EmitPendingFinalies` + `Op.Return` ✓）——
+**一个字节的 `finally` 逻辑都没有新写** ✓。
+
+**为什么不用「抛一个哨兵」那招** ✗（第 313 轮一度想过 ✓）：哨兵要**两层都认识** ✓
+（引擎造一个、降级层比一个 ✗），而这一条只要**一个布尔 + 一格值** ✓。
+
+**它追加在 `env_leave` 之后** ✓（**同一条硬规矩** ✗：各目标按**位置**编号 ✓，
+新算子只能接在**最后一个**后面 ✓——`tests/runtime/check.mjs` 里那条「编号只追加」的检查会拦 ✓）。
 
 # enum RtOp
 
@@ -653,6 +678,13 @@ if (this.Op === Op.LoadThis) return "load_this";
 if (this.Op === Op.Await) return "await";
 if (this.Op === Op.Caught) return "caught";
 if (this.Op === Op.CallArray) return "call_array";
+// **第 336 轮追加** ✓（`check_generator_return` ✓——这一条与 `Op` 的**编号顺序无关** ✗：
+// 名字表是**手写**的一串 `if` ✓，而编号是按 `- case` 的出现次序生成的 ✓，
+// 两边各按各的读法 ✓（`tests/runtime/check.mjs` 那条「每个 id 都有名字」量的是**覆盖全不全** ✓）。
+// **第一版在这里又写了一遍 `env_leave`** ✗ ⇒ TS 报「`CheckGeneratorReturn` 与 `EnvLeave`
+// 没有重叠」✓——因为那一句**上面已经有了** ✓（`EnvNew` 后面那句 ✓），
+// 于是走到这里时类型已经收窄 ✓。**它拦下来的正是「抄一遍」这个动作** ✓。
+if (this.Op === Op.CheckGeneratorReturn) return "check_generator_return";
 return "unknown";
 ```
 
