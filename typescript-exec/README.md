@@ -6,6 +6,84 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 335 轮的账（**类数组那一簇 + 号段去重的自动检查** —— 97.8% → **98.0%**，收掉 3 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
+这一轮**先补那道自动检查、再按根子收账** ✓（补了 2 条守着新修的那几格 ✓）。
+
+### 一、号撞车那道自动检查（**两轮之内被咬两次** ✗）
+
+第 332 轮 `queueMicrotask` 撞 `SymbolCtor` ✓、第 334 轮 `FunctionToString` 撞 `BoundCall` ✓
+——两次的症状都**离现场很远** ✓，所以这一轮把它变成**每次跑门都会验的那一条** ✓。
+
+**加在 `runtime:check` 里** ✓，不是新开一道门 ✗：「六道门」那句话在文档里出现 **50 处** ✓，
+而这一条本来就属于「引擎那一侧的能力号表」✓（那一门里本来就有 `eq(RtOp.SetPropFrom, 41, …)`
+这种钉号数的判据 ✓）。
+
+**判据是「同一个文件里不许重复」** ✓——**文件就是段** ✓：`heap` 的计费常量 ✓、
+`array` 的方法号 ✓、`ir-verify` 的问题号 ✓ 各自成段 ✓，本来就重号 ✓。
+**三处已知的「同文件、不同段」写进名单** ✓（计费 vs 标志位 ✓、线格式版本 vs 问题码 ✓），
+**名单之外的任何一处重复都要红** ✓。**读的是源码** ✓（`# const NAME:int = N` 那一行 ✓），
+不是产物 ✗（产物里那一行会被展开成别的形状 ✓）。
+
+**并且证明它会响** ✗（一道从没红过的门等于没有 ✓）：临时造一处撞号 ✓（`globals` 里再写一个 `406` ✓）
+→ 门红 ✓、报出「号 406 被占了两次：`ObjectFreeze` / `TempCollisionProbe`」✓
+→ 撤回 ✓、逐字节相同 ✓。**顺手** ✓：那条 `# const` 计数哨兵第一版写 `> 400` ✓，
+实测只有 **307** ✓——扫到的本来没那么多 ✓（别拍脑袋定阈值 ✓）。
+
+### 二、`class X extends Array`（2 格）
+
+`new MyList()` 在 JS 里是 `Array.isArray(m) === true` ✓——因为 `super()` 调的 `Array`
+**自己造了一个数组** ✓，而「基类构造返回对象就用那个对象当 `this`」是 JS 的规矩 ✓。
+**本仓的模型里那一步不存在** ✗（实例在 `new` 那一刻就造好了 ✓、`super()` 的结果被丢掉 ✓），
+所以退一步看**原型链** ✓：链上先碰到 `protos.Array` 就造数组 ✓。
+
+**这是一条代理判据** ✓（写在注释里 ✓，连同它**唯一已知的差别** ✓：
+`Object.setPrototypeOf(X.prototype, Array.prototype)` 而不 `extends Array` 在 JS 里给普通对象 ✓
+——**实测到的差别只有这一种** ✓），而它**比现状更接近 JS** ✓
+（现状是「`extends Array` 的实例根本不是数组」✗）。
+
+**顺带修掉一处真 bug** ✓（**这一轮最值钱的一处** ✓）：`DoReturn` 在「构造函数没返回对象」时
+用 **`Value.FromObject(constructTarget)` 重建实例** ✗——**把那个句柄重新包成一个「普通对象」，
+`Tag` 当场丢掉** ✓。症状极隐蔽 ✓：`class MyList extends Array {}` 的 `new MyList()` 在构造函数体里
+`Array.isArray(this)` 是**真** ✓、出来就变成**假** ✗（**同一个值，进去是数组、出来是对象** ✓，
+而现场没有一句话提到「标签」✗）。`frame.This` 本来就是那个实例 ✓，**原样用那个值** ✓
+（**在弹帧之前读下来** ✓——弹出去的帧随时会被复用 ✓）。
+
+### 三、`[].slice.call(类数组)`（1 格）
+
+JS 的数组方法**是通用的** ✓，而 `[].slice.call({ 0: "a", 1: "b", length: 2 })`
+是真实代码里「把类数组转成真数组」的**惯用法** ✓（`arguments` ✓、`{ length: n }` 那种工厂 ✓，
+`Array.from` 是后来的替代品 ✓）。
+
+新增 `ArrayLikeLength` / `ArrayLikeAt` ✓：数组走**快路径** ✓、别的对象按
+`Get(O, ToString(i))` 走 ✓——**数组的元素不在属性表里** ✗，按字符串键去找一个都找不到 ✓
+⇒ 两档都留着 ✓。**只接 `slice` 这一档** ✗：`join` / `indexOf` / `forEach` 那些也可以通用 ✓，
+但它们**整段建在 `HeapArray` 上** ✓，要通用得把每一处都改过来 ✓——**写在明处，不假装它已经通用** ✓。
+
+`InvokeArray` 与 `InvokeBuiltin` 因此多收一格 `protos` ✓：那两句旧注释里
+「为 `Array.from` 改签名白付」的理由到这一轮**不成立了** ✓（`slice` 要造一个带
+`Array.prototype` 的新数组 ✓，而那一格只有路由那一层有 ✓），注释跟着改 ✓。
+
+### 四、两处实测踩到的
+
+- 类数组那一支一开始放在 `RequireArray(table, self)` **之后** ✓ ⇒ **那个判据先抛** ✓、
+  `[].slice.call(...)` 还是报「needs an array receiver」✓——**判据把新路挡住了** ✗；
+- 引擎自测里有两条**直接调 `InvokeArray` / `InvokeBuiltin`** 的用例 ✓
+  （参数位置那次改动把它们一起撞红 ✓），跟着补上 `protos` ✓。
+
+**读数** ✓：`pass` **1277 → 1282** ✓（3 格转绿 + 补 2 条 ✓）、**端到端保持 100%** ✓、
+**红的一栏 0** ✓、六道门 **38.6s 全绿** ✓、矩阵 **1313 → 1315** ✓、
+`runtime:check` **242 条** ✓（多出来的那条就是号段去重 ✓）。
+
+**下一轮的入口** ✓（按「普通 `.ts` 里有多常见」排）：
+**① 生成器的 `return()` 与 `finally` 链** ✓（3 条 ✓——`unimplemented: generator return` ✓）；
+**② 严格 / 非严格模式下的 `this`** ✓（3 条 ✓——与写屏障同一族的设计决定 ✓）；
+**③ `structuredClone` / `Error.isError` / `Symbol.hasInstance`** ✓（5 条 ✓——
+后两条**卡在壳上** ✓，与第 324 轮 `Map.groupBy` 是同一个坎 ✓）；
+**④ `thenable` 采纳 / `for await` 承诺数组 / `Array.fromAsync`** ✓（3 条 ✓，都在承诺那一族 ✓）；
+**⑤ 零散** ✓（`new.target` ✓、尖括号断言 ✓、`console.log(Error)` ✓）。
+
 ## 第 334 轮的账（**`Function.prototype.toString` / `String(fn)`** —— 97.7% → **97.8%**，收掉 2 格 + 三处顺带）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
