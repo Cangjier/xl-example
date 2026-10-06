@@ -5,6 +5,7 @@ import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, SetProperty, SetHiddenProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall, AttachArrayIterator } from "./array.xl.md"
+import { Vm } from "../../runtime/vm.xl.md"
 ```
 
 # namespace cangjie
@@ -152,7 +153,17 @@ SetHiddenProperty(room, table, self, NameValue(table, name), value);
 
 # method InstallMapMethods:(room:RoomChecker, table:HeapTable, map:Value)=>void
 
-把方法挂到实例上（每个值都是带本模块号的宿主引用）。
+**把方法挂到一个对象上**（每个值都是带本模块号的宿主引用）✓。
+
+**第 341 轮：调用点从「每个实例」改成了「原型那一格」** ✗（**实测撞到的** ✓）：
+写成「跟着实例走」时 ✓，`Object.getOwnPropertyNames(new Map())` 会列出
+`get` / `set` / `keys` / … ✓，而 **Node 给空数组** ✗——那是**结构差** ✓，
+它顺带把 `structuredClone` 逼出一个「靠可不可枚举来区分内建方法与用户函数」的补丁 ✗
+（第 338 轮 ✓），也让 `for..in` 多出一串 ✓（第 340 轮 ✓）。
+**JS 的形状**：方法在 `Map.prototype` 上 ✓、实例上**一格都没有** ✓——
+`map.get(...)` 靠原型链找 ✓，而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例** ✓
+（方法的每一处都读 `self.__k` ✓ ⇒ 行为一个字都不变 ✓）。
+**函数体不必改** ✗：它收的本来就是 `self` ✓，不是「自己身上那几格方法」 ✓。
 
 ```ts
 const ids = [MapSet, MapGet, MapHas, MapDelete, MapKeys, MapValues, MapEntries, MapClear,
@@ -161,6 +172,20 @@ for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, map, MethodNameOf(ids[i]), fn);
 }
+```
+
+# method InstallMapPrototype:(vm:Vm, protos:Protos)=>void
+
+**把 Map 那一族的方法装到 `Protos.Map` 上** ✓（第 341 轮 ✓）——由 `InstallBuiltins` 调 ✓，
+与 `InstallArray` / `InstallString` **同一个位置、同一个形状** ✓。
+
+**`size` 不在这里** ✗：本仓把它做成**实例上的一个数据格** ✓（`__k` / `__v` 的同伴 ✓），
+而 JS 里它是原型上的一个 **getter** ✓——那是**另一处结构差** ✓，
+这一轮不动它 ✓（`map.size` 读得到、写不进 ✓ 两边的**可见行为**一致 ✓）。
+
+```ts
+const proto = Value.FromObject(protos.Map);
+InstallMapMethods(vm.Room(), vm.Table, proto);
 ```
 
 # method IndexOfKey:(table:HeapTable, keys:Value, key:Value)=>int
@@ -196,13 +221,13 @@ if (id === MapCtor) {
   // **实例挂在 `Protos.Map` 上**（第 138 轮）✗：`new Map() instanceof Map` 要在链上
   // 找到那一格 ✓——不挂的话链上是 `Object.prototype` ✓，于是 `instanceof Map` 给
   // **`false`** ✗（而 `instanceof Object` 是对的 ✓，又是一种「一半对」✓）。
-  // **方法仍然挂在实例自己身上** ✓（`InstallMapMethods` ✓）——这两件事不冲突 ✓：
-  // 原型只负责「我是哪一族」✓，方法今天跟着实例走 ✓（见 `Protos.Map` 那一段的说明 ✓）。
+  // **方法第 341 轮搬到了原型上** ✓（见 `InstallMapPrototype` ✓）：这一行原来还跟着一句
+  // 「方法仍然挂在实例自己身上」✗——那一句现在是**错的** ✓，所以一并改掉 ✓
+  //（本项目里，「注释与代码相反」比没有注释更坏 ✗）。
   table.Get(map.Ref).Proto = protos.Map;
   WriteOwn(room, NeverCall, table, map, "__k", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, map, "__v", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, map, "size", Value.FromInt(0));
-  InstallMapMethods(room, table, map);
   // **初始条目**（第 130 轮）：`new Map([[k, v], …])` ✓——实参是**数组**的那一种 ✓
   // （`new Map(Object.entries(o))` 就是这个形状 ✓，日常代码里最常见 ✓）。
   // **生成器第 199 轮通了** ✓：`new Map(生成器)` 现在给的是全部产出 ✓——

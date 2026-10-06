@@ -12,9 +12,9 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString } from "./globals.xl.md"
-import { InvokeMap, MapCtor, MapGroupBy, NameValue, ReadOwn } from "./map.xl.md"
-import { InvokeSet, SetCtor } from "./set.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, InstallDatePrototype } from "./globals.xl.md"
+import { InvokeMap, MapCtor, MapGroupBy, NameValue, ReadOwn, InstallMapPrototype } from "./map.xl.md"
+import { InvokeSet, SetCtor, InstallSetPrototype } from "./set.xl.md"
 ```
 
 # namespace cangjie
@@ -1034,6 +1034,15 @@ try {
 ```ts
 InstallArray(host.Machine, protos);
 InstallString(host.Machine, protos);
+// **第 341 轮：`Map` / `Set` / `Date` 那一族也搬到原型上** ✓（**实测撞到的** ✓）：
+// 它们原来把方法挂在**每个实例**上 ✗ ⇒ `Object.getOwnPropertyNames(new Map())` 列出
+// 十四个方法名 ✓（**Node 给空数组** ✗）。搬到原型之后 `instanceof` 与方法的 `self` 都不变 ✓
+//（`DoCallMethod` 递进去的仍然是那个实例 ✓），只是**形状**与 JS 对齐了 ✓。
+// **装的位置就在这里** ✓：与 `InstallArray` / `InstallString` 并排 ✓——
+// 「哪些原型上有什么」只有这一处名单 ✓（别处再装一次就是两处会漂 ✗）。
+InstallMapPrototype(host.Machine, protos);
+InstallSetPrototype(host.Machine, protos);
+InstallDatePrototype(host.Machine, protos);
 // **`Promise` 那四个静态方法要登记**（第 185 轮 ✓）：理由与下面那张辅助表一字不差 ✓
 // （**不加进名单的症状是 `capability is not registered: 231`** ✗）。
 const promiseSlots = [PromiseResolve, PromiseReject, PromiseAll, PromiseRace,

@@ -3932,44 +3932,13 @@ if (id === DateCtor) {
   // 与新加的 `Date.prototype.toJSON` 一起单独立一轮 ✓（记在台账里 ✓）。
   SetHiddenProperty(room, table, created,
     Value.FromString(table.CreateString(Units("__t"))), ms);
-  const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
-    DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds, DateGetTime,
-    // **第 280 轮补的两格** ✓：`toISOString` ✓ 与 `toJSON` ✓（**同一个号** ✓，见号那一段 ✓）。
-    DateToISOString, DateToISOString,
-    // **七个 `setUTC*`** ✓（第 280 轮 ✓）——名字与号**一一对齐** ✓（按下标配 ✓）。
-    DateSetUTCFullYear, DateSetUTCMonth, DateSetUTCDate, DateSetUTCHours,
-    DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds,
-    // **第 293 轮补的九个名字** ✓——**本地那一族与 UTC 共用同一个号** ✓
-    //（`getFullYear` = `getUTCFullYear` ✓ …），理由是**本仓的本地口径就是 UTC** ✓
-    //（见上面那一段 ✓）：写第二份实现就是第二份会漂的答案 ✗
-    //（与 `valueOf` = `getTime` ✓、`toJSON` = `toISOString` ✓ 同一条先例 ✓）。
-    DateGetUTCMilliseconds, DateGetUTCMilliseconds, DateGetUTCDay, DateGetUTCDay,
-    DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate, DateGetUTCHours,
-    DateGetUTCMinutes, DateGetUTCSeconds,
-    // **`toString` 单独一个号** ✓（只做 `Invalid Date` 那一档 ✓，见号那一段 ✓）。
-    DateToString];
-  // **`valueOf` 就是 `getTime`**（第 198 轮 ✓）：JS 的 `Date.prototype.valueOf` 给的正是那一格
-  // 毫秒数 ✓——**同一个能力号** ✓（同一件事不写第二份实现 ✓，与数组的 `toString` = `join` 同款 ✓）。
-  // 它让**日常那个写法**通了 ✓：`+new Date()`（一元 `+` 是 `ToNumber` ✓ →
-  // `ToPrimitive(date, number)` ✓ → `valueOf` ✓ → 毫秒数 ✓）。
-  // **`date + 1` 仍旧响亮地抛** ✓（那是 hint `default` ✓，JS 按 `string` 走 ✓，
-  // 会给日期串 ✗——本仓的 `toString` 只做 `Invalid Date` 那一档 ✓，见号那一段 ✓）。
-  const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
-    "getUTCHours", "getUTCMinutes", "getUTCSeconds", "valueOf",
-    "toISOString", "toJSON",
-    "setUTCFullYear", "setUTCMonth", "setUTCDate", "setUTCHours",
-    "setUTCMinutes", "setUTCSeconds", "setUTCMilliseconds",
-    "getMilliseconds", "getUTCMilliseconds", "getDay", "getUTCDay",
-    "getFullYear", "getMonth", "getDate", "getHours", "getMinutes", "getSeconds",
-    "toString"];
-  for (let i = 0; i < methodIds.length; i++) {
-    // **方法也不可枚举**（第 194 轮 ✓）：`Object.keys(new Date())` 在 JS 里是 `[]` ✓。
-    SetHiddenProperty(room, table, created,
-      Value.FromString(table.CreateString(Units(methodNames[i]))),
-      Value.FromRef(ValueTag.HostRef, table.CreateHostRef(methodIds[i], 0)));
-  }
+  // **方法第 341 轮搬到了原型上** ✓（`InstallDatePrototype` ✓）：这一行原来写着
+  // 「方法挂在实例自己身上」✗——那一句现在是**错的** ✓，所以一并改掉 ✓
+  //（`Object.getOwnPropertyNames(new Date())` 在 Node 里是**空数组** ✓、本仓原来列出二十七个名字 ✗）。
+  // `__t` 仍然留在实例上 ✓（它是**这个实例的数据** ✓，不是方法 ✓）。
   return created;
 }
+
 if (id === DateGetTime || id === DateGetUTCFullYear || id === DateGetUTCMonth
   || id === DateGetUTCDate || id === DateGetUTCHours || id === DateGetUTCMinutes
   || id === DateGetUTCSeconds || id === DateGetUTCMilliseconds || id === DateGetUTCDay) {
@@ -4120,6 +4089,61 @@ if (id === DateUTC) {
     utcSeconds, utcMillis));
 }
 throw new Error("unimplemented: global builtin " + id);
+```
+
+# method InstallDateMethods:(room:RoomChecker, table:HeapTable, target:Value)=>void
+
+**把 Date 那一族的方法挂到一个对象上** ✓（第 341 轮从 `DateCtor` 那一支**原样搬出来** ✓）——
+调用点从「每个实例」改成「原型那一格」✓，理由与 `map.xl.md` 的 `InstallMapMethods`
+那一段**一字不差** ✓。**函数体不必改** ✗：它们读的是 `self.__t` ✓，
+而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例** ✓。
+
+```ts
+const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
+  DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds, DateGetTime,
+  // **第 280 轮补的两格** ✓：`toISOString` ✓ 与 `toJSON` ✓（**同一个号** ✓，见号那一段 ✓）。
+  DateToISOString, DateToISOString,
+  // **七个 `setUTC*`** ✓（第 280 轮 ✓）——名字与号**一一对齐** ✓（按下标配 ✓）。
+  DateSetUTCFullYear, DateSetUTCMonth, DateSetUTCDate, DateSetUTCHours,
+  DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds,
+  // **第 293 轮补的九个名字** ✓——**本地那一族与 UTC 共用同一个号** ✓
+  //（`getFullYear` = `getUTCFullYear` ✓ …），理由是**本仓的本地口径就是 UTC** ✓
+  //（见上面那一段 ✓）：写第二份实现就是第二份会漂的答案 ✗
+  //（与 `valueOf` = `getTime` ✓、`toJSON` = `toISOString` ✓ 同一条先例 ✓）。
+  DateGetUTCMilliseconds, DateGetUTCMilliseconds, DateGetUTCDay, DateGetUTCDay,
+  DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate, DateGetUTCHours,
+  DateGetUTCMinutes, DateGetUTCSeconds,
+  // **`toString` 单独一个号** ✓（只做 `Invalid Date` 那一档 ✓，见号那一段 ✓）。
+  DateToString];
+// **`valueOf` 就是 `getTime`**（第 198 轮 ✓）：JS 的 `Date.prototype.valueOf` 给的正是那一格
+// 毫秒数 ✓——**同一个能力号** ✓（同一件事不写第二份实现 ✓，与数组的 `toString` = `join` 同款 ✓）。
+// 它让**日常那个写法**通了 ✓：`+new Date()`（一元 `+` 是 `ToNumber` ✓ →
+// `ToPrimitive(date, number)` ✓ → `valueOf` ✓ → 毫秒数 ✓）。
+// **`date + 1` 仍旧响亮地抛** ✓（那是 hint `default` ✓，JS 按 `string` 走 ✓，
+// 会给日期串 ✗——本仓的 `toString` 只做 `Invalid Date` 那一档 ✓，见号那一段 ✓）。
+const methodNames = ["getTime", "getUTCFullYear", "getUTCMonth", "getUTCDate",
+  "getUTCHours", "getUTCMinutes", "getUTCSeconds", "valueOf",
+  "toISOString", "toJSON",
+  "setUTCFullYear", "setUTCMonth", "setUTCDate", "setUTCHours",
+  "setUTCMinutes", "setUTCSeconds", "setUTCMilliseconds",
+  "getMilliseconds", "getUTCMilliseconds", "getDay", "getUTCDay",
+  "getFullYear", "getMonth", "getDate", "getHours", "getMinutes", "getSeconds",
+  "toString"];
+for (let i = 0; i < methodIds.length; i++) {
+  // **方法也不可枚举**（第 194 轮 ✓）：`Object.keys(new Date())` 在 JS 里是 `[]` ✓。
+  SetHiddenProperty(room, table, target,
+    Value.FromString(table.CreateString(Units(methodNames[i]))),
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(methodIds[i], 0)));
+}
+```
+
+# method InstallDatePrototype:(vm:Vm, protos:Protos)=>void
+
+**把 Date 那一族的方法装到 `Protos.Date` 上** ✓（第 341 轮 ✓）——与 `InstallMapPrototype`
+同一个位置、同一个形状 ✓。
+
+```ts
+InstallDateMethods(vm.Room(), vm.Table, Value.FromObject(protos.Date));
 ```
 
 # method ErrorCtorName:(id:int)=>string

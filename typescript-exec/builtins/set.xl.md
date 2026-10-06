@@ -6,6 +6,7 @@ import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../.
 import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall, Units, AttachArrayIterator } from "./array.xl.md"
 import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
+import { Vm } from "../../runtime/vm.xl.md"
 ```
 
 # namespace cangjie
@@ -106,7 +107,12 @@ throw new Error("unimplemented: set method id " + id);
 
 # method InstallSetMethods:(room:RoomChecker, table:HeapTable, target:Value)=>void
 
-把方法挂到实例上（每个值都是带本模块号的宿主引用）。
+**把方法挂到一个对象上**（每个值都是带本模块号的宿主引用）✓。
+
+**第 341 轮：调用点从「每个实例」改成了「原型那一格」** ✗——理由与 `map.xl.md`
+`InstallMapMethods` 那一段**一字不差** ✓（`Object.getOwnPropertyNames(new Set())`
+在 Node 里是**空数组** ✓、本仓原来列出十四个方法名 ✗）。**函数体不必改** ✗：
+它们读的是 `self.__v` ✓，而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例** ✓。
 
 ```ts
 const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear, SetForEach,
@@ -118,6 +124,16 @@ for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, target, SetMethodNameOf(ids[i]), fn);
 }
+```
+
+# method InstallSetPrototype:(vm:Vm, protos:Protos)=>void
+
+**把 Set 那一族的方法装到 `Protos.Set` 上** ✓（第 341 轮 ✓）——与 `InstallMapPrototype`
+同一个位置、同一个形状 ✓。**`size` 不在这里** ✗（本仓把它做成实例上的数据格 ✓，
+见 `map.xl.md` 那一处写的同一笔账 ✓）。
+
+```ts
+InstallSetMethods(vm.Room(), vm.Table, Value.FromObject(protos.Set));
 ```
 
 # method InvokeSet:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, failed:CallFailed | null = null)=>Value
@@ -138,7 +154,6 @@ if (id === SetCtor) {
   table.Get(created.Ref).Proto = protos.Set;
   WriteOwn(room, NeverCall, table, created, "__v", NewPlainArray(room, table, protos));
   WriteOwn(room, NeverCall, table, created, "size", Value.FromInt(0));
-  InstallSetMethods(room, table, created);
   // **初始值**（第 130 轮）：`new Set([1, 2])` ✓——实参是**数组**的那一种 ✓
   // （`new Set(Array.from(x))` / `new Set([...])` 都是这个形状 ✓；**注意**后者的 `[...]`
   // 还要展开语法 ✓，那是降级层的事 ✓）。**复用 `add` 那条路** ✓：去重与 `size` 都不必写第二遍 ✓。
