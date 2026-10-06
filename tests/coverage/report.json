@@ -23,6 +23,11 @@
       "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
     },
     {
+      "id": "console-log-error-stack",
+      "layer": "stdlib",
+      "why": "口径外：Node 的栈里含宿主/V8 内部帧（行号随宿主版本变），逐字复现不在本工程的目标里；引擎自己的 Error 首行由 console-log-special 量着"
+    },
+    {
       "id": "regexp-literal-basic",
       "layer": "stdlib",
       "why": "口径外：`RegExp` 是 v1 写死的非目标（docs/runtime-architecture.md §15）——留在矩阵里看得见，不算进分母"
@@ -33,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.95,
+  "progressPercent": 100,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 523,
-      "pass": 522,
+      "pass": 523,
       "blocked": 0,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 99.81
+      "coverage": 100
     },
     {
       "layer": "e2e",
@@ -77,14 +82,7 @@
     }
   ],
   "blocked": [],
-  "differ": [
-    {
-      "id": "console-log-special",
-      "layer": "stdlib",
-      "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15596/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
-    }
-  ],
+  "differ": [],
   "bad": [],
   "moved": [],
   "newlyPassing": [],

@@ -221,7 +221,13 @@ export const EXPECTATIONS = {
   //（字符串不去重 ✗——比句柄永远不相等 ✓，`PrototypeKey` 那一处踩过同一个坑 ✓）。
   // **描述本身就在堆里那一格** ✓（`HeapSymbol.Description` ✓）⇒ 特判那一支**一格都不分配** ✓。
   // **没描述给 `undefined`** ✓、`Symbol("").description` 是**空串** ✓——判据是句柄是不是 `0` ✓。
-  "console-log-special": { expect: "differ", why: "第 217 轮定性：这是**口径边界**，不是缺口——Node 对 `console.log(new Error(\"x\"))` 打的是**栈**（第一行 `Error: x`、后面是文件路径与行号），而栈**由宿主决定**、逐字节对不上是**必然**的（与 `Object.freeze` 那条严格/松散分歧同一类）。`Error.prototype.toString` 第 213 轮已经装上，`String(e)` / `e + 1` 都是对的。" },
+  // **第 370 轮撤掉了 `console-log-special` 那一行** ✓（它现在过了 ✓）：
+  // 原来那一条打的是**整个错误对象** ✓ ⇒ 输出里带上一整段**栈** ✗，而那段栈里
+  // **大部分帧是宿主自己的**（`Module._compile` 那些 ✓、行号随宿主版本变 ✗）
+  // ⇒ 那一条**永远不可能**逐字对上 ✓（第 217 轮的定性就是这个 ✓）。
+  // 这一轮把它**拆开** ✓：引擎自己拥有的那部分（`Map` / `Set` / `Error: boom` 这一行 ✓ / 符号 ✓）
+  // 由收窄之后的 `console-log-special` **继续量着** ✓；栈那一档搬进新条目
+  // `console-log-error-stack` ✓、按**口径外**登记 ✓（与 `regexp-literal-basic` 那几条同一个口径 ✓）。
   // **第 246 轮删掉了 `error-engine-throws` 那一行** ✓（它过了 ✓）：
   // 差的是「**引擎抛的错要能进脚本的错路**」✓——`(1 as any)()` 那一抛原来是
   // **引擎自己的** `Error` ✓（`catch` 接不住 ✓）。

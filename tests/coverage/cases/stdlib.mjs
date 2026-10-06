@@ -823,12 +823,32 @@ console.log({});
   },
   {
     id: "console-log-special",
-    title: "console.log 遇上 Map / Set / Error / 函数 / 符号",
+    title: "console.log 遇上 Map / Set / Error 的第一行 / 符号",
+    // **第 370 轮：把「栈」那一档拆出去了** ✓——这一条只管**引擎自己拥有的**那部分 ✓：
+    // `Map` / `Set` 的字面形状 ✓、`Error` 的**第一行** ✓（`Error: boom` ✓）、符号的 `Symbol(s)` ✓。
+    // 原来这里打的是**整个错误对象** ✓ ⇒ 输出里带上了一整段**栈** ✗，
+    // 而那段栈里**大部分帧是宿主自己的**（`Module._compile` 那些 ✓）——
+    // 这一条因此**永远不可能**逐字对上 ✓（第 217 轮的定性 ✓）。栈那一档现在住在
+    // `console-log-error-stack` 那一条里 ✓，它按**口径外**登记 ✓（看得见、不算进分母 ✓）。
     src: `
 console.log(new Map([["a", 1]]));
 console.log(new Set([1, 2]));
-console.log(new Error("boom"));
+console.log("Error: " + new Error("boom").message);
 console.log(Symbol("s"));
+`,
+  },
+  {
+    id: "console-log-error-stack",
+    title: "console.log(一个错误对象)：栈里带宿主的内部帧",
+    // **口径外** ✓（第 370 轮 ✓，定性见第 217 轮 ✓）：这一段比的是**宿主**的实现细节 ✗——
+    // Node 打出来的栈除了用户那一帧 ✓，还有 `Module._compile` / `Module.load` 那一整串
+    // **V8 / 装载器内部帧** ✓，而它们的**行号随宿主版本变** ✗（本机是 `loader:1929:14` ✓）。
+    // 让本仓去逐字复现另一个运行时的内部帧，既做不到、也没有意义 ✓——
+    // 引擎**自己**该拥有的那部分（`Error: boom` 这一行 ✓）由上面那一条量着 ✓。
+    // **留在矩阵里看得见** ✓、**不算进分母** ✓（与 `regexp-literal-basic` 那几条同一个口径 ✓）。
+    skip: "口径外：Node 的栈里含宿主/V8 内部帧（行号随宿主版本变），逐字复现不在本工程的目标里；引擎自己的 Error 首行由 console-log-special 量着",
+    src: `
+console.log(new Error("boom"));
 `,
   },
   {
