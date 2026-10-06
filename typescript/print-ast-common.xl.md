@@ -4,6 +4,7 @@
 ```
 ```xl
 import { Token } from "../core/syntax/token.xl.md"
+import { Translate } from "./tokens/string/translate.xl.md"
 ```
 
 # namespace cangjie
@@ -516,7 +517,14 @@ new Map([
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
   // 由这条统一合成（见 `leafKindOfText` 的同一条判据），产物那边它只是一个普通文本块。
-  const nameKind = name.length > 1 && name[0] === "#" ? "PrivateIdentifier" : "Identifier";
+  // **位置用「原文」，`text` 用解开的** ✗（第 381 轮 ✓）——两件事要的字符串不一样：
+  // `\u0066` 这个名字在源码里占 **6 个字符** ✓（`indexOf` 与 `end` 都按它算 ✓），
+  // 而它的**名字**是 `f` ✓（TS 的 AST `text` 也是 `f` ✓）。
+  // **这一格踩过** ✗：第一版在调用点就把名字解开了 ✓ ⇒ `end` 按解开的长度算 ✓
+  // ⇒ 函数声明的名字区间短一截 ✓ ⇒ 参数表跟着错位 ✓（`function f\u0066() {}` 报
+  // `unimplemented: parameter without a name` ✓）。
+  const nameText = Translate.DecodeIdentifierEscapes(name);
+  const nameKind = nameText.length > 1 && nameText[0] === "#" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
   // **首选产物自己记的位置**：token 层在扫描那一刻就知道名字单元在哪，
   // 于是把它记成 `nameStart` / `nameEnd` 两个字段（见 `class.xl.md` 的 `NameStart`）。
@@ -524,7 +532,7 @@ new Map([
   const start = v.attrs.get("nameStart");
   const end = v.attrs.get("nameEnd");
   if (typeof start === "number" && typeof end === "number" && start >= 0 && end >= start) {
-    return { kind: nameKind, text: name, pos: start, end: end + 1 };
+    return { kind: nameKind, text: nameText, pos: start, end: end + 1 };
   }
   const modifiers = v.attrs.get("modifiers");
   let from = v.start;
@@ -548,7 +556,7 @@ new Map([
   // 用 `found < v.end` 会把它判成越界（踩过：`const f = <T>(x: T): T => x` 的名字一直取不到）。
   const limit = ctx.source.length;
   const pos = found >= 0 && found < limit ? found : from;
-  return { kind: nameKind, text: name, pos, end: pos + name.length };
+  return { kind: nameKind, text: nameText, pos, end: pos + name.length };
 ```
 
 # private method view:(node:any)=>any
@@ -5017,6 +5025,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 ```ts
   const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
+  // **属性里那个名字也要解转义** ✗（第 381 轮 ✓）：`const \u0061bc = 1` 的名字住在
+  // `Let.fieldName` 这个**属性**上 ✓（不是子单元 ✓），`x.\u0061` 的键同理 ✓。
+  // **与 `Identifier.PrintAst` 共用一份解码** ✓（`text-common-util.xl.md` 的
+  // `DecodeIdentifierEscapes` ✓）——两处各写一份就是两处会漂的答案 ✗（这一轮第一版
+  // 只改了标识符那一格 ✓，于是 `function f\u0066()` 绿了 ✓、`const \u0061bc` 还是红的 ✓）。
   const name = typeof rawName === "string" ? rawName : "";
   const computed = computedNameUnit(v, ctx);
   if (computed !== null) {
@@ -5983,6 +5996,11 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // 「字段名对拍」就多一处看不出根因的假差异。
   // 命名空间是唯一的例外：它的名字落在 `namespace` 属性上（不是 `name`）。
   const rawName = v.attrs.get("name") ?? v.attrs.get("fieldName") ?? v.attrs.get("namespace");
+  // **属性里那个名字也要解转义** ✗（第 381 轮 ✓）：`const \u0061bc = 1` 的名字住在
+  // `Let.fieldName` 这个**属性**上 ✓（不是子单元 ✓），`x.\u0061` 的键同理 ✓。
+  // **与 `Identifier.PrintAst` 共用一份解码** ✓（`text-common-util.xl.md` 的
+  // `DecodeIdentifierEscapes` ✓）——两处各写一份就是两处会漂的答案 ✗（这一轮第一版
+  // 只改了标识符那一格 ✓，于是 `function f\u0066()` 绿了 ✓、`const \u0061bc` 还是红的 ✓）。
   const name = typeof rawName === "string" ? rawName : "";
   let nameNode = null;
   // 计算属性名的那个单元（`[Symbol.toPrimitive]`）；它在下面的段循环里要**跳过**。

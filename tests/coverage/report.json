@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1707,
+  "matrix": 1709,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 407,
-      "pass": 394,
+      "total": 409,
+      "pass": 396,
       "blocked": 8,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 96.81
+      "coverage": 96.82
     },
     {
       "layer": "stdlib",
@@ -107,12 +107,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BindingElement"
     },
     {
-      "id": "c371-ex-unicode-identifiers",
-      "layer": "exec",
-      "title": "Unicode 标识符与字符串里的转义",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: abc"
-    },
-    {
       "id": "c371-ex-labels-and-control",
       "layer": "exec",
       "title": "标签 + break / continue 在嵌套循环与块上",
@@ -135,6 +129,12 @@
       "layer": "exec",
       "title": "标签的冒号 vs 类型标注的冒号（两个子形状，**还没修**）",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
+    },
+    {
+      "id": "c381-ex-escaped-property-key",
+      "layer": "exec",
+      "title": "转义的键 + `\\u{…}` 那种花括号写法 —— **还没修**",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: escaped"
     },
     {
       "id": "c371-e2e-observer-with-priority",

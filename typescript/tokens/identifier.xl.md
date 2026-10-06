@@ -9,6 +9,7 @@ import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsLeadingDotNumber, IsUnicodeEscapeStart } from "../text-common-util.xl.md"
+import { Translate } from "./string/translate.xl.md"
 ```
 
 # namespace cangjie
@@ -350,9 +351,17 @@ return items.includes(this.TempToString());
 （`bar` 是 `Identifier`、`0` 是 `NumericLiteral`、`true` 是 `TrueKeyword`、`"x"` 是 `StringLiteral`）。
 这条「按值分名」的规则原来在 `typescript/ts-ast.xl.md` 的中央 `switch` 里，现在跟这个类待在一起。
 
+**转义要**解**开** ✗（第 381 轮 ✓）：`const \u0061bc = 1; console.log(abc)` 在 JS / TS 里
+声明的名字就是 `abc` ✓（TS 的 AST `text` 也是 `abc` ✓）。而投影这一格原来直接把
+**源码切片**当名字 ✓ ⇒ 声明的是 `\u0061bc` ✓、用的是 `abc` ✓ ⇒ 降级层报
+`name is not a local or a capture: abc` ✓；同一个毛病在**属性键**上是**静默错值** ✗
+（`x.\u0061` 给 `undefined` ✓，Node 给 `x.a` ✓）。
+**只在这一格解** ✗（`ctx.Text` 是共用的 ✓，`TempToString` 还要认数字与关键字 ✓）——
+标识符里合法转义只有 `\uXXXX` 与 `\u{…}` 两种 ✓，别的形态原样留着 ✓。
+
 ```ts
 const text = ctx.Text(v);
-return ctx.Node(ctx.LeafKind(text), { text }, v);
+return ctx.Node(ctx.LeafKind(text), { text: Translate.DecodeIdentifierEscapes(text) }, v);
 ```
 
 ## method Clone:()=>Token

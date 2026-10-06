@@ -4399,5 +4399,23 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "id": "c380-ex-label-colon-versus-type-annotation",
     "title": "标签的冒号 vs 类型标注的冒号（两个子形状，**还没修**）",
     "src": "// **同一个冒号、两种意思**：`outer: { … }` 是标签，`x: { … }` 是类型标注。\n// 词法阶段是平列表，分不出这两者——靠的是 `LabelReorganization` 抢在\n// `TypeDefineReorganization` 前面把标签收走。它**只在一种位置上抢不到**：\n// 标签前面还有别的语句时（那一刻前一条语句还没成形，前一个单元是它那个 `}` 括号，\n// `IsStatementStart` 给假）。\n//\n// 子形状 ①：标签块前面还有一条语句\nconst out: string[] = [];\nfor (let i = 0; i < 1; i++) { out.push(\"f\" + i); }\nblock: { out.push(\"b\"); break block; out.push(\"never\"); }\nconsole.log(\"A\", out.join(\",\"));\n// 子形状 ②：标签块里再嵌一个裸块，裸块里 `break` 那个标签\nconst other: string[] = [];\nlbl: { other.push(\"a\"); { break lbl; } other.push(\"never\"); }\nconsole.log(\"B\", other.join(\",\"));"
+  },
+
+  // ===== 第 381 轮：标识符转义（2 条）=====
+  {
+    "id": "c381-ex-identifier-unicode-escapes",
+    "title": "标识符写成 `\\uXXXX` / `\\u{…}`：声明的名字就是它解出来的那个",
+    "src": "// TS 的规矩：标识符可以写成转义形式，**它的名字是解出来的那个**\n// （TS 的 AST `text` 也是解出来的那个）——所以声明处与使用处必须比同一个字符串。\nconst \\u0061bc = 1;\nconsole.log(\"A\", abc);\nconst caf\\u00e9 = 2;\nconsole.log(\"B\", café);\nconst 日本語 = 4;\nconsole.log(\"D\", 日本語);\nfunction f\\u0066(a: number): number { return a + 1; }\nconsole.log(\"E\", ff(1));\nclass C\\u006cass { v = 8; \\u006dethod(): number { return 9; } }\nconsole.log(\"G\", new Class().v, new Class().method());\nconst mixed = \\u0061bc + caf\\u00e9 + ff(0);\nconsole.log(\"H\", mixed, typeof f\\u0066);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c381-ex-escaped-property-key",
+    "title": "转义的键 + `\\u{…}` 那种花括号写法 —— **还没修**",
+    "src": "// 两个还没接上的子形状（都在同一族里）：\n// ① **对象字面量的键**：Node 给 1，本仓给 undefined（静默错值）——键那一路上没人解转义。\n// ② **\\u{…} 花括号写法**：词法层就把 \\u{65}scaped 劈成了「{65} 括号 + scaped」\n//    （\\uXXXX 四位那种是好的）。\n// **边界量清了**：变量声明 / 函数名 / 方法名 / 类名 + 四位 \\uXXXX 都是好的\n// （c381-ex-identifier-unicode-escapes 那条语料守着）。\nconst x = { \\u0061: 1, b: 2 };\nconsole.log(\"A\", x.a, x.b, Object.keys(x).join(\",\"));\nconst \\u{65}scaped = 3;\nconsole.log(\"B\", escaped);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
   }
 ];
