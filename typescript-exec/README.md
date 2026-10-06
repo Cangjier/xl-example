@@ -6,6 +6,56 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 341 轮的账（**`Map` / `Set` / `Date` 的方法搬到原型上** —— 98.6%，收掉第 338 轮量到的那处结构差）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓，
+这一轮把**上一轮登记的入口**（第 338 轮量到的结构差 ✓）做掉 ✓。
+
+### 一、那一处结构差
+
+本仓把这三个族的方法挂在**每个实例**上 ✗，而 JS 挂在**原型**上 ✓：
+
+| 探针 | Node | 本仓（改前） |
+| --- | --- | --- |
+| `Object.getOwnPropertyNames(new Map())` | `[]` | **14 个方法名** |
+| `Object.getOwnPropertyNames(new Set())` | `[]` | **14 个方法名** |
+| `Object.getOwnPropertyNames(new Date())` | `[]` | **27 个名字** |
+
+它顺带把 `structuredClone` 逼出一个「靠**可不可枚举**区分内建方法与用户函数」的补丁 ✗
+（第 338 轮 ✓），也让 `for..in` 多出一串 ✓（第 340 轮 ✓）——**同一处结构差在三轮里露了三次面** ✓。
+
+### 二、改法：装的位置从「构造函数里、每个实例」搬到「`InstallBuiltins` 里、原型那一格」
+
+- `InstallMapMethods` / `InstallSetMethods` 的调用点改成 **`InstallMapPrototype` /
+  `InstallSetPrototype`** ✓（与 `InstallArray` / `InstallString` **并排** ✓——
+  **「哪些原型上有什么」只有这一处名单** ✓，别处再装一次就是两处会漂 ✗）；
+- `Date` 那一支的**二十七个名字**原样搬成 `InstallDateMethods` + `InstallDatePrototype` ✓；
+- **函数体一个字都没改** ✓：它们读的是 `self.__k` / `self.__v` / `self.__t` ✓，
+  而 `DoCallMethod` 递进去的 `self` 仍然是**那个实例** ✓；
+- 两处**「注释与代码相反」**的旧注释一并改掉 ✓（`map.xl.md` 的「方法仍然挂在实例自己身上」✓、
+  `globals.xl.md` 的同一句 ✓）——**本项目里，「注释与代码相反」比没有注释更坏** ✗。
+
+### 三、剩下的形状差（写在明处）
+
+实例上还剩内部槽 `__k` / `__v` / `size` / `__t` ✓（Node 用**真内部槽** ✓，一格自有属性都没有 ✓）。
+**`size` 尤其显眼** ✓：JS 里它是原型上的 **getter** ✓，本仓是实例上的**数据格** ✓——
+**读写行为一致、形状不同** ✓。这一轮不动它 ✓，账写在 `map.xl.md` 的 `InstallMapPrototype` 那一段 ✓。
+
+### 四、读数
+
+`pass` **1319 → 1320** ✓（补 1 条守着这一轮 ✓：方法在原型上 ✓、`Object.keys` 为空 ✓、
+`for..in` 一个键都不给 ✓、`instanceof` 与调用路径照旧 ✓）、矩阵 **1341 → 1342** ✓、
+**红的一栏 0** ✓、六道门 **34.8s 全绿** ✓。
+**这一改一处行为都没变** ✓（六道门逐条一致 ✓），**量到的只有形状** ✓——
+**正是「结构差」该有的样子** ✓。
+
+**下一轮的入口** ✓：
+**① 那张 `IdTable` 的容量口径** ✓（第 340 轮量到 ✓：`IsValid` 与 `BuiltinSlots` 要对齐 ✓，
+会牵到**线形态指纹** ✓）；**② `Error.isError` / `Symbol.hasInstance` / 手写 `Symbol.iterator`** ✓
+（4 条 ✓，都在「壳」那一族 ✓）；**③ `thenable` 采纳 / `Array.fromAsync`** ✓（2 条 ✓）；
+**④ `size` 该是原型上的 getter** ✓（上面刚写下的形状差 ✓）；
+**⑤ 零散** ✓（`console.log(Error)` 要栈 ✗、`new.target` ✓、尖括号断言 ✓ ×2 ✓ 等 ✓）。
+
 ## 第 340 轮的账（**`for..in` 的原型链 + 类成员不可枚举 + `runtime:cli` 的裁判侧也成批** —— 98.5% → **98.6%**）
 
 用户口径这一轮是两句：**「先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口」** ✓
