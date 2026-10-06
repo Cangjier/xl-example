@@ -6,6 +6,77 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 385 轮的账（**`!` 后面那一格被外层单元吞了** —— 根子量到了，这一轮没修成 ✗）
+
+用户口径不变 ✓。这一轮接第 384 轮结尾那张单子 ✓：端到端的 `multi-source-merge` 报
+`name is not a local or a capture: priority` ✓。**它看起来像「上下文关键字」那一族** ✗
+（第 383 轮刚修过 `override` ✓），**其实不是** ✓——`priority` 根本不是关键字 ✓。
+
+### 一、根子：`!` 后面那一格被吞了
+
+```ts
+if (!existing || source.priority >= sources.find((s) => s.rows.some((r) => r.id === existing.id))!.priority) {
+```
+
+**XML 实测**（`@types` 无关 ✓，一个最小复现就够 ✓）：
+
+```ts
+const xs = [{ p: 1 }];
+const source = { priority: 2 };
+if (source.priority >= xs.find((s) => s.p === 1)!.p) { … }
+```
+
+产物里那个 `>=` 的单元是：
+
+    <BinaryOperator op=">=">
+      <PropertyAccess>source.priority</PropertyAccess>
+      <SymbolToken>>=</SymbolToken>
+      <NotNull><PropertyAccess>xs.find(…)</PropertyAccess><SymbolToken>!</SymbolToken></NotNull>
+      <SymbolToken>.</SymbolToken>          ← ✗ 这两格被吞进来了
+      <Identifier>p</Identifier>
+    </BinaryOperator>
+
+**`NotNull` 后面那两格（`.` 与 `p`）本该属于 NotNull 那条链** ✗，却被 `BinaryOperator` 收走了 ✓。
+
+**症状为什么难认** ✗：落到降级层时那个 `p` 走的是**赋值目标**那条路 ✓
+（插桩实测：`DBG unresolved-TARGET id=p pos=931` ✓），于是报出来的是
+`name is not a local or a capture: priority` ✓——**点的是 `priority`**（`source.priority` 那一格 ✓）、
+**真正落下的却是 `p`** ✗。**报错里的名字与真正出错的那一格不是一个** ✗，
+所以从那句话往回看会一直看错地方 ✓。
+
+### 二、边界（这一轮量清的）
+
+| 形状 | 结果 |
+| --- | --- |
+| `a.b >= c.d` | 好 ✓ |
+| `x!.p >= 1`（`!` 在**左**边） | 好 ✓ |
+| `x! >= 1` | 好 ✓ |
+| `fn!().k` | **坏** ✗（判据 `c371-ex-nonnull-in-chains`，`differ` ✓） |
+| `a.b >= c.find(…)!.p`（`!` 在**右**边） | **坏** ✗ |
+
+⇒ **只有「右边是一个 `NotNull` 链再接着点属性 / 调用」这一格** ✗。
+
+### 三、为什么没修成，以及下一轮的方向
+
+这一轮**只做到量准根子** ✗（与第 380 轮那次同一种收尾 ✓）。查的路走了一半：
+`binary-operator.xl.md` 里「能当操作数的」那张名单**有** `NotNull` ✓（第 279 行 ✓），
+所以收右操作数时它在名单里 ✓——**缺的是「收完之后不许再吃后面的 `.` 与名字」** ✗
+（那两格属于 `NotNull` 那条链 ✓）。下一轮从 `binary-operator.xl.md` 收右操作数那一段接 ✓。
+
+**两条同一个根子** ✓：`c371-ex-nonnull-in-chains`（`differ` ✓）与
+`c371-e2e-multi-source-merge`（`blocked` ✓）——**一起修能一次收两格** ✓。
+
+### 四、读数与下一轮
+
+`pass` **1668 → 1668** ✗（这一轮**没有**推进覆盖度 ✓——与第 380 轮一样 ✓）、
+`blocked` **11 → 11** ✓、`differ` **33 → 33** ✓、**红的一栏 0** ✓、
+六道门 **32.1s 全绿** ✓、整体 **97.2%** ✓。
+**两条判据的台账都改写了** ✓（把根子与实测写进去 ✓，下一个人不必再走一遍 ✓）。
+
+**下一轮** ✓：按上面那条方向修 `binary-operator.xl.md` 收右操作数那一格 ✓
+（**一次两格** ✓）；端到端还剩 **2 条 `blocked`** ✓
+（`observer-with-priority` 的 `class member ExpressionStatement` ✓ 与这一条 ✓）。
+
 ## 第 384 轮的账（**`A | (B & C)` 的两副面孔** —— 97.1% → **97.2%**，端到端 95.8% → **96.4%**）
 
 用户口径不变 ✓。这一轮接第 383 轮结尾那张单子 ✓：端到端的 `binary-encoding` 报

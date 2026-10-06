@@ -1021,8 +1021,8 @@ export const EXPECTATIONS = {
   "c371-ex-assertion-forms": { expect: "blocked", why: "尖括号断言的对象字面量那一格 ⇒ `unimplemented: expression Block`。" },
 
   // ---- 非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。
-  "c371-ex-nonnull-in-chains": { expect: "differ", why: "非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。" },
-  "c371-e2e-multi-source-merge": { expect: "blocked", why: "非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。" },
+  "c371-ex-nonnull-in-chains": { expect: "differ", why: "**第 385 轮把它与 `c371-e2e-multi-source-merge` 认成同一个根子**：`!` 后面的那一格（`.k` / `.p` / `()`）**被外层单元吞了**——`fn!().k` 的产物里那个 `.k` 与 `()` 都没落在 `NotNull` 的链上。XML 实测（`source.priority >= xs.find(…)!.p`）：`>=` 的 `BinaryOperator` 里在 `NotNull` 之后还跟着 `SymbolToken(.)` 与 `Identifier(p)`。**两条一起修能一次收两格**。**下一轮的方向**：`binary-operator.xl.md` 收右操作数时遇到 `NotNull` 之后不该再吃 `.` 与名字。" },
+  "c371-e2e-multi-source-merge": { expect: "blocked", why: "**第 385 轮把根子量到了**，但这一轮没修成。**根子**：`source.priority >= xs.find(…)!.p` 这个形状里，`BinaryOperator` 单元**把 `!` 后面那一格 `.p` 吞进去了**（XML 实测：`>=` 的 `BinaryOperator` 里在 `NotNull` 之后还跟着 `SymbolToken(.)` 与 `Identifier(p)`）。落到降级层时那个 `p` 走的是**赋值目标**那条路（插桩：`DBG unresolved-TARGET id=p pos=931`），于是报`name is not a local or a capture: priority`——**名字都点错了**（点的是 `priority`，而真正落下的是 `p`），所以从报错看不出来。**边界量清了**：`a.b >= c.d` 好、`x!.p >= 1` 好、`x! >= 1` 好——**只有「`>=` 右边是一个 `NotNull` 链再点属性」这一格**。**同族还有一条判据**：`c371-ex-nonnull-in-chains`（`fn!().k`，**differ**）——两条同一个根子，一起修能一次收两格。**下一轮的方向**：`binary-operator.xl.md` 收右操作数时，遇到 `NotNull` 之后**不该再吃 `.` 与名字**（那两格属于 NotNull 那条链）。" },
 
   // ---- 解构里的 `BindingElement`（对象模式 + 默认值 + 类型标注的组合）⇒ `unimplemented: expression BindingElement`。
   "c371-ex-destructuring-everywhere": { expect: "blocked", why: "解构里的 `BindingElement`（对象模式 + 默认值 + 类型标注的组合）⇒ `unimplemented: expression BindingElement`。" },
