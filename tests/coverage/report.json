@@ -1,6 +1,6 @@
 {
-  "round": "316",
-  "matrix": 1109,
+  "round": "317",
+  "matrix": 1110,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 93.94,
+  "progressPercent": 94.07,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 361,
-      "pass": 335,
+      "total": 362,
+      "pass": 337,
       "blocked": 15,
-      "differ": 11,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 92.8
+      "coverage": 93.09
     },
     {
       "layer": "exec",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 452,
-      "pass": 426,
+      "pass": 427,
       "blocked": 13,
-      "differ": 13,
+      "differ": 12,
       "nodefail": 0,
-      "coverage": 94.25
+      "coverage": 94.47
     },
     {
       "layer": "e2e",
@@ -338,12 +338,6 @@
       "detail": "stdout 不同：第 2 行：node «cleanup» vs tsrun «»"
     },
     {
-      "id": "c304-rt-promise-then-returns-promise",
-      "layer": "runtime",
-      "title": "then 里返回一个承诺：会被展开",
-      "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
-    },
-    {
       "id": "c305-rt-async-generator-await-inside",
       "layer": "runtime",
       "title": "异步生成器体里 `await` 之后的 `yield`",
@@ -438,12 +432,6 @@
       "layer": "stdlib",
       "title": "`async` 返回一个 thenable：该被采纳",
       "detail": "stdout 不同：第 2 行：node «v 42» vs tsrun «v { then: [Function: then] }»"
-    },
-    {
-      "id": "c305-std-then-returns-promise-adoption",
-      "layer": "stdlib",
-      "title": "`then` 回调返回承诺：结果承诺采纳它",
-      "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
     },
     {
       "id": "c305-std-array-tostring-custom-element",

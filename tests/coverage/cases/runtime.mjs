@@ -4289,4 +4289,12 @@ console.log(o.x, o.y);
     title: "块也开一层环境：两次进入同一个块、块里的两个同名 `const` 各是各的",
     src: "\nfunction make(): (() => number)[] {\n  const out: (() => number)[] = [];\n  { const a = 1; out.push(() => a); }\n  { const a = 2; out.push(() => a); }\n  return out;\n}\nconst pair = make();\nconsole.log(pair[0](), pair[1]());\nfunction twice(): number {\n  let total = 0;\n  for (let k = 0; k < 2; k++) {\n    const local = k + 1;\n    total += (() => local)();\n  }\n  return total;\n}\nconsole.log(twice());\n",
   },
+
+  // ===== 第 317 轮：承诺的「采纳」那一支 =====
+
+  {
+    id: "c317-rt-promise-adoption-chain",
+    title: "兑现值本身是承诺时的「采纳」：内层已结清 / 内层还挂着 / 内层被拒绝",
+    src: "\nPromise.resolve(1)\n  .then((v) => Promise.resolve(v + 1))\n  .then((v) => { console.log(\"chain\", v); return v; })\n  .then(async () => 5)\n  .then((v) => console.log(\"pending-inner\", v))\n  .then(() => Promise.reject(new Error(\"x\")))\n  .catch((e: any) => console.log(\"reject-prop\", e.message));\n",
+  },
 ];

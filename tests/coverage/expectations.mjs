@@ -219,7 +219,7 @@ export const EXPECTATIONS = {
   //（**看起来像运行器卡住** ✗）。**两条候选都写在 `promise.xl.md` 的 `MakeSettleCallback`**
   // （本轮引擎那半边加了 `InvokeCallback` 的接收者格 ✓，可它传不到 `resolve` 身上 ✗；
   // 下一轮最短的一步是让那个值**绑定过** ✓——把承诺写进实参表第一格 ✓，宿主读 `args[0]` ✓）。
-  "promise-constructor": { expect: "differ", why: "`new Promise(执行器)` 的执行器已经会同步跑了，差的是「`resolve` 被当普通函数调时怎么知道它管哪个承诺」——下一轮让它绑定过（承诺写进实参表第一格）" },
+  "promise-constructor": { expect: "differ", why: "`new Promise(执行器)`：执行器**同步跑**对了 ✓，差的是**执行器递出来的那两格**（`resolve` / `reject`）——脚本是**当普通函数**调它们的（`(res) => res(1)`，**没有接收者**）⇒ 走宿主那条路时语言层拿不到「它管的是哪个承诺」⇒ 那个承诺**永远不结清**（症状是宿主那句 `the script is waiting for a promise the host has not settled`，听起来像运行器卡住）。**第 317 轮试过并撤回了那条修法**：按生成器那三格的办法（引擎按载荷号认出这两格、承诺句柄就在 `HostRef.Opaque` 里），把判据插进那**两处**宿主调用点（`DoCallValue` / `CallNative` 的 `IsHostCallable` 分支）——**实测那两处都没被这一步经过**（把判据改成无条件抛，抛的是**别的**可调用值，说明 `res(1)` 走的是**第三条路**）。所以这一格今天的结论是：**先找出「对一个 HostRef 形参的裸调用」走的是哪条路**（诊断手法写在 `typescript-exec/README.md` 第 317 轮那一段），再照生成器那条先例做——撤回是对的：留着就是一段**从不执行**的判据" },
   // **第 286 轮删掉了 `promise-chaining-errors` 那一行** ✓（它过了 ✓）：
   // `.then` 回调里抛的错现在**变成结果承诺的拒绝** ✓——
   // 修在 `RunNativeTask` 那一处 ✓（回调跑完看 `Status === Threw` ✓ ⇒ 拒绝 ✓、
@@ -655,7 +655,10 @@ export const EXPECTATIONS = {
   "c304-rt-detached-method-this-undefined": { expect: "differ", why: "**口径边界（严格模式的选择）**：与方法摘下来单独调那一格同一个根（见上一条）" },
   "c304-rt-optional-chain-call-forms": { expect: "differ", why: "`f?.()` 那一格（**基名自己是空值**的可选调用）。第 152 轮分过「空值在接收者上」与「空值在取出来的方法上」，这是第三格；同一条里 `o.n?.()` / `o.missing?.()` 两半是对的" },
   "c304-rt-generator-early-break-finally": { expect: "differ", why: "`for..of` 提前 `break` 要调生成器的 `return()`（于是体里的 `finally` 照跑）；本仓 `break` 只退出循环，生成器那一帧被丢掉 ⇒ `cleanup` 一行都没有" },
-  "c304-rt-promise-then-returns-promise": { expect: "differ", why: "回调**返回一个承诺**时要采纳它（缺口清单 #15 的那一格）：本仓当成普通值灌进去 ⇒ 后面 `.then` 拿到的是承诺对象。与 `promise-constructor` 同一条" },
+  // **`c304-rt-promise-then-returns-promise` 与 `c305-std-then-returns-promise-adoption`
+  // 第 317 轮修掉了** ✓（`ResolvePromise` 现在走「兑现值本身是承诺就采纳」那一支 ✓）——
+  // 两行都撤了 ✓。留一句在这里：它们当初报的是「后面 `.then` 拿到的是**承诺对象**」✓，
+  // 根子是**「兑现值是个承诺」这条语义只长在 async 那一条支路上** ✗。
   "c304-ex-nonnull-in-optional-chain": { expect: "differ", why: "`arr![0]![0]` 投影出来是 `NonNullExpression(arr)`——**两个方括号与第二个 `!` 全丢了**（本轮实测：TS 那边是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)`）。这是第 303 轮那条链的**下一个形状**（`x![1]![0]`），入口在 `print-ast-common.xl.md` 的链分支" },
   "c304-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`namespace make { … }` 该挂在**函数值自己**那一格上（静态格），降级层只造了函数、没造那一格 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`" },
   "c304-std-symbol-iterator-manual": { expect: "differ", why: "**这一条第 308 轮走了一半** ✓：数组那一半（`[10, 20][Symbol.iterator]()` ✓）**已经修好** ✓——`Protos.Array` 上原来**没有那一格** ✗，挂上去之后 `it.next()` 与 `[...it]` 都对 ✓。剩下的**是字符串那一半** ✗：`\"ab\"[Symbol.iterator]()` 报 `cannot call a non-closure value` ✓——`Protos.String` 上同样缺那一格 ✓，而字符串的迭代要**按码点** ✓（代理对合起来 ✓，与引擎的 `iter_next` 第 297 轮改的那一条**同一条规矩** ✓）——语言层今天没有那个判据 ✗（`drain` 是引擎递给语言层的服务 ✓，而 `InvokeString` 的签名里没有它 ✓），所以这一格要先把「码点」那条规矩收成**一处**再做 ✓" },
@@ -674,7 +677,7 @@ export const EXPECTATIONS = {
   "c305-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮装上了）——同一个分组实现，只是返回 `Map` 而不是对象" },
   "c305-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers` 没有——要造一对结清回调并把它们与承诺一起交出去（`MakeSettleCallback` 那一族现成）" },
   "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
-  "c305-std-then-returns-promise-adoption": { expect: "differ", why: "`then` 回调**返回一个承诺**时要采纳它：本仓当成普通值灌进去 ⇒ 后面 `.then` 拿到承诺对象。与 `c304-rt-promise-then-returns-promise`、`promise-constructor` 同一个根（`AdoptInto` 从未被触达）" },
+  // （`c305-std-then-returns-promise-adoption` 也在第 317 轮转 pass ✓、那一行同样撤了 ✓。）
   "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
   "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
   "c305-std-object-getownpropertydescriptors-all": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors` 那一格没有（`getOwnPropertyDescriptor` 第 276 轮就装上了）——一次拿全表，是同一个扫描的镜像" },

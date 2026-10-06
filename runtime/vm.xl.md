@@ -3469,12 +3469,38 @@ const item = this.Table.Get(promise.Ref);
 if (item.Promise === null) throw new Error("not a promise");
 const promise2 = item.Promise;
 if (promise2.State !== PromiseState.Pending) return;
+// **兑现值本身是承诺时要「采纳」** ✓（第 317 轮 ✓）——JS 的解决过程那一支 ✓：
+// `p.then(() => Promise.resolve(1))` 的结果承诺**跟随内层** ✓（不是把承诺对象当值灌进去 ✗）、
+// `new Promise(r => r(other))` 同理 ✓。
+//
+// **为什么落在这里** ✗：走 `ResolvePromise` 的路**不止一条** ✓——`.then` 回调的返回值 ✓、
+// 执行器里的 `resolve(x)` ✓、`Promise.all` 收的值 ✓、`SettleAsync` ✓——
+// 而**「兑现值是个承诺」的语义在每一条上都一样** ✓。收在**最下面这一处** ✓
+// 就是「同一个语义一处实现」✓（原来只有引擎那条 async 支路做了它 ✗，
+// 于是 `async` 那一半对 ✓、`.then(() => Promise.resolve(…))` 那一半**把承诺对象当值** ✗，
+// 实测：后面那个 `.then` 收到的是**一个带 `then`/`catch`/`finally` 的对象** ✓，Node 收到 `3` ✓）。
+//
+// **自己等自己**那一格（JS 抛 `TypeError`）**没做** ✗：记在台账里 ✓
+//（做的话要一条环检测 + `TypeError` 那一族 ✓）。
+if (this.IsPromiseValue(settled)) {
+  this.AdoptInto(promise, settled);
+  return;
+}
 promise2.State = PromiseState.Fulfilled;
 promise2.Value = settled;
 for (let i = 0; i < promise2.Reactions.length; i++) {
   const handle = promise2.Reactions[i];
   if (this.Table.IsValid(handle)) {
-    this.Table.Get(handle).AsFrame().ResumeValue = settled;
+    const waiting = this.Table.Get(handle);
+    // **等在这一格上的是一个「被采纳的承诺」** ✓（`AdoptInto` 的 pending 那一支 ✓）：
+    // 它要的是**同一个结清** ✓，不是「被当成帧推回栈上」✗——`AsFrame()` 对一个承诺对象
+    // 只会把值写进一堆不相干的格 ✓，然后把承诺句柄推给 `DrainMicrotasks` ✓，
+    // 而那边按「帧」处理它 ✗（**静默错值** ✗）。判据是它自己有没有承诺载荷 ✓。
+    if (waiting.Promise !== null) {
+      this.ResolvePromise(Value.FromObject(handle), settled);
+      continue;
+    }
+    waiting.AsFrame().ResumeValue = settled;
     this.Microtasks.push(handle);
   }
 }
@@ -3512,6 +3538,18 @@ const promise2 = item.Promise;
 if (promise2.State !== PromiseState.Pending) return;
 promise2.State = PromiseState.Rejected;
 promise2.Value = reason;
+for (let i = 0; i < promise2.Reactions.length; i++) {
+  const handle = promise2.Reactions[i];
+  if (!this.Table.IsValid(handle)) continue;
+  const waiting = this.Table.Get(handle);
+  // **被采纳的那个承诺也要跟着被拒绝** ✓（第 317 轮 ✓，与 `ResolvePromise` 那条对称 ✓）：
+  // 内层失败时外层**跟随**它失败 ✓（JS 的解决过程 ✓）。**帧那一档仍然不动** ✗
+  // （上面那条写着理由 ✓：`await` 一个被拒绝的承诺要**抛**，那一层在别处 ✓）。
+  if (waiting.Promise !== null) {
+    this.RejectPromise(Value.FromObject(handle), reason);
+  }
+}
+promise2.Reactions = [];
 for (let i = 0; i < promise2.NativeReactions.length; i++) {
   const index = promise2.NativeReactions[i];
   const task = this.NativeTasks[index];
