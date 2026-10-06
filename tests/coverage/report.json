@@ -89,7 +89,7 @@
       "id": "console-log-special",
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13468/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
+      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-15584/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
     },
     {
       "id": "c323-std-array-fromasync",
