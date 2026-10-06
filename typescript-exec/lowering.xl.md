@@ -2423,7 +2423,21 @@ if (kind === "VariableStatement") {
 } else {
   return;
 }
-const object = this.ResolveLocal(namespaceName);
+// **对象那一格也要按「可能是捕获」读** ✓（第 363 轮 ✓，**实测撞到的** ✓）：
+// `enum E { A = 1 } namespace E { export function f() { return E.A; } }` 里 `E` **被内层函数引用** ✓
+// ⇒ 按 `DeclareLocal` 的规矩它进了**环境格** ✗ ⇒ 而这里原来用 `ResolveLocal` ✓，
+// 那个方法**只认槽** ✗ ⇒ 抛 `name is not a local (captures need env records): E` ✓
+//（**一句话里没有一个字提到「命名空间的对象住在环境里」** ✗；判据 `c331-ex-enum-and-namespace-merge` ✓
+//  的三种形态里只有**这一种**炸 ✓——直接引用 `E.A` 的、和没有内层函数的都不炸 ✓）。
+// 改成与下面读导出名**同一套**（`ResolveAccess` + `EnvGet`/`Move` ✓）——
+// **两条路共用一份判据** ✓，而不是「一个只认槽、一个两样都认」✗。
+const objectAccess = this.ResolveAccess(namespaceName);
+const object = this.Reserve(1);
+if (objectAccess.InEnv) {
+  this.Emit(Op.EnvGet, object, objectAccess.Depth, objectAccess.Cell, -1);
+} else {
+  this.Emit(Op.Move, object, objectAccess.Slot, -1, -1);
+}
 for (let i = 0; i < names.length; i++) {
   const access = this.ResolveAccess(names[i]);
   const value = this.Reserve(1);

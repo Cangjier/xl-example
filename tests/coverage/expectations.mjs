@@ -988,7 +988,7 @@ export const EXPECTATIONS = {
   // **与第 325 轮那条「有就复用只看了本层的槽」同一条链** ✓（名字住在环境格里 ✓），
   // 而这一格多一层：命名空间体是**开一帧跑**的 ✓，那一帧要能把外层那个已经存在的
   // `Level` 对象**按名字读回来** ✓——缺的是「合并时把老值的住址一起带进去」那一步 ✓。
-  "c331-ex-enum-and-namespace-merge": { expect: "blocked", why: "`enum` 与同名 `namespace` 合并之后，**命名空间体内的函数回头读那个枚举成员**时报 `unimplemented: name is not a local (captures need env records)`——命名空间的体是**开一帧跑**的（第 292 轮 ✓），而那一帧读外层那个已经存在的 `Level` 对象时，名字没有落在它够得着的地方。矩阵里那条 `ex-enum-namespace-merge`（体内不读枚举）**是过的**，这一条把「合并 + 体内回头用」写全了；与第 325 轮「有就复用只看了本层的槽」是同一条链" },
+  // **第 363 轮过了** ✓（这一行撤了 ✓）：命名空间对象那一格原来用 `ResolveLocal`（**只认槽**）✓，而枚举名被内层函数引用时它住在**环境格** ✓ ⇒ 改成 `ResolveAccess` + `EnvGet`/`Move`（与读导出名同一套 ✓）。
   //
   // ---- 组 C：非空断言与可选链混写（1 条）----
   // **旧账换写法** ✓（与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` /
