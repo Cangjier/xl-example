@@ -850,7 +850,16 @@ if (item.Tag === ValueTag.Array) {
 for (let i = 0; i < item.Props.length; i++) {
   if (!KeyMatches(table, item.Props[i], key)) continue;
   if ((item.Props[i].Flags & PropertyFlagConfigurable) === 0) {
-    throw new Error("unimplemented: this should throw a TypeError (non-configurable)");
+    // **第 347 轮：不可配置 ⇒ 给 `false`，不抛** ✗（**实测撞到的** ✓）：
+    // `delete o.fixed`（`fixed` 是不可配置的 ✓）在**非严格**模式里**返回 `false`** ✓、
+    // **不抛** ✗——而这一支原来抛「unimplemented: this should throw a TypeError」✓。
+    // **那句注释记的是严格模式** ✓（`'use strict'` 下确实该抛 ✓），
+    // 而本仓的口径是**非严格** ✓（第 333 轮写屏障 / 第 337 轮 `this` 两处都按这条定的 ✓）——
+    // `delete` 这一处当时没跟上 ✗（判据 `c304-rt-delete-nonconfigurable` ✓：
+    // Node 给 `false 1` ✓、本仓抛 ✓）。
+    // **给 `false` 是 JS 的语义** ✓，不是「差不多」✗：`Boolean(delete o.fixed)` 与
+    // `"fixed" in o` 两条判据都钉着它 ✓。
+    return false;
   }
   item.Props = RemoveAt(item.Props, i);
   table.Recount(receiver);

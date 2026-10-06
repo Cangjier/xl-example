@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.12,
+  "progressPercent": 99.17,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 427,
-      "pass": 420,
-      "blocked": 7,
+      "pass": 421,
+      "blocked": 6,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.36
+      "coverage": 98.59
     },
     {
       "layer": "exec",
@@ -100,12 +100,6 @@
       "layer": "runtime",
       "title": "闭包里的 this 与方法调用",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c304-rt-delete-nonconfigurable",
-      "layer": "runtime",
-      "title": "delete 一个不可配置的属性：松散模式静默返回 false",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: this should throw a TypeError (non-configurable)"
     },
     {
       "id": "c323-rt-super-in-object-literal",

@@ -714,7 +714,7 @@ export const EXPECTATIONS = {
   // ===== 第 304 轮：加宽矩阵时量到的缺口（15 条）=====
 
   // **第 346 轮过了** ✓（这一行撤了 ✓）：`new.target` 落地了 ✓（帧上多一格 NewTarget ✓ + 一条 LoadNewTarget ✓ + 投影层把 `new.target.name` 的点号链接上 ✓）。
-  "c304-rt-delete-nonconfigurable": { expect: "blocked", why: "**口径边界（严格模式的选择）**：`delete` 一个不可配置的属性，本仓一律抛（那一抛还冒出脚本、接不住），而 `node` 把 `.ts` 当 CJS 跑是**松散模式**、静默返回假——与 README 里 `Object.freeze` 写属性那一条同源" },
+  // **第 347 轮过了** ✓（这一行撤了 ✓）：`delete` 一个不可配置的属性在非严格下给 `false` ✓（原来抛「this should throw a TypeError」——那句注释记的是**严格**模式 ✓，本仓口径是非严格 ✓）。
   // **第 337 轮过了** ✓（这一行撤了 ✓）：非严格 `this` —— 普通函数调用（含摘下来的方法）收**全局对象** ✓（`Protos.Global` ✓，由语言层填 ✓），箭头不受影响（它从捕获的环境格读 `this` ✓）。
   // **`c304-rt-super-property-write` 第 326 轮过了** ✓（那一行撤了 ✓）：
   // 第 243 轮补的是读那一半（`super.v` ✓），这一轮补的是**写那一半** ✓——
