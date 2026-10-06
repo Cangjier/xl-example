@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.38,
+  "progressPercent": 99.43,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 427,
-      "pass": 422,
-      "blocked": 5,
+      "pass": 423,
+      "blocked": 4,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.83
+      "coverage": 99.06
     },
     {
       "layer": "exec",
@@ -77,12 +77,6 @@
     }
   ],
   "blocked": [
-    {
-      "id": "gc-churn",
-      "layer": "runtime",
-      "title": "大量短命分配：回收器要跟得上（不 OOM）",
-      "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
     {
       "id": "rt-ternary-nesting-and-assign",
       "layer": "runtime",
@@ -125,7 +119,7 @@
       "id": "console-log-special",
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-1812/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
+      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14384/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
     },
     {
       "id": "c305-std-thenable-adoption",

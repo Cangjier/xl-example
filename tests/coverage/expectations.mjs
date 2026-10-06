@@ -96,7 +96,7 @@ export const EXPECTATIONS = {
   // 这一条链**根本走不到「回调的返回值」那一步** ✓——
   // 它在**回调跑完之后、收尾之前**就出事了 ✓（`cannot read properties of undefined` ✓）。
   // **所以采纳要修，而它前面还有一个更要紧的缺口** ✗。
-  "gc-churn": { expect: "blocked", why: "**步数预算**：两万次循环就 `step budget exhausted`（普通循环够不着这个量级）" },
+  // **第 358 轮过了** ✓（这一行撤了 ✓）：`Limits.StepBudget` 从一百万抬到一千万 ✓（两万次迭代的 churn 撞的是它 ✓），语料规模改成**一万次** ✓（实测 1070ms ✓）。
 
   // ===== exec：TS 形状 → 运行期语义 =====
   // **第 230 轮删掉了 `ex-enum-numeric` / `ex-enum-string` / `ex-enum-const` 三行** ✓（它们过了 ✓）：
