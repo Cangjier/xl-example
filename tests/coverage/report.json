@@ -1,6 +1,6 @@
 {
-  "round": "309",
-  "matrix": 1102,
+  "round": "310",
+  "matrix": 1103,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 92.81,
+  "progressPercent": 93.2,
   "layers": [
     {
       "layer": "runtime",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 450,
-      "pass": 413,
-      "blocked": 18,
-      "differ": 19,
+      "total": 451,
+      "pass": 421,
+      "blocked": 16,
+      "differ": 14,
       "nodefail": 0,
-      "coverage": 91.78
+      "coverage": 93.35
     },
     {
       "layer": "e2e",
@@ -246,12 +246,6 @@
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
     },
     {
-      "id": "c291-global-object-wrappers",
-      "layer": "stdlib",
-      "title": "Object(原始值) 的包装对象",
-      "detail": "tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
-    },
-    {
       "id": "c304-std-encodeuri-decodeuri",
       "layer": "stdlib",
       "title": "encodeURI / decodeURI / encodeURIComponent",
@@ -304,12 +298,6 @@
       "layer": "stdlib",
       "title": "`encodeURIComponent` / `decodeURIComponent` 往返",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: encodeURIComponent"
-    },
-    {
-      "id": "c305-std-object-wrapper-call",
-      "layer": "stdlib",
-      "title": "`Object(1)` / `Object(\"a\")` 给包装对象",
-      "detail": "tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
     },
     {
       "id": "c305-std-object-getownpropertydescriptors-all",
@@ -488,22 +476,10 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: trim with a non-ASCII edge (that character may be trimmable in "
     },
     {
-      "id": "global-explicit-and-implicit",
-      "layer": "stdlib",
-      "title": "全局函数与隐式转换：Boolean / Number / String / Array / Object",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Object(primitive) needs wrapper objects"
-    },
-    {
       "id": "array-tostring-custom-values",
       "layer": "stdlib",
       "title": "数组 toString 走元素的 toString",
       "detail": "stdout 不同：第 1 行：node «C!,1» vs tsrun «[object Object],1»"
-    },
-    {
-      "id": "c291-number-wrapper-and-negative-zero",
-      "layer": "stdlib",
-      "title": "Number 包装对象与 -0 的两条路",
-      "detail": "stdout 不同：第 1 行：node «object 5 6 5» vs tsrun «number 5 6 5»"
     },
     {
       "id": "c291-function-prototype-shape",
@@ -534,24 +510,6 @@
       "layer": "stdlib",
       "title": "`then` 回调返回承诺：结果承诺采纳它",
       "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
-    },
-    {
-      "id": "c305-std-number-wrapper-object",
-      "layer": "stdlib",
-      "title": "`new Number(5)` 是一个对象，`Number(5)` 是原始值",
-      "detail": "stdout 不同：第 1 行：node «object 5 number 6» vs tsrun «number 5 number 6»"
-    },
-    {
-      "id": "c305-std-string-wrapper-methods",
-      "layer": "stdlib",
-      "title": "包装对象上的字符串方法",
-      "detail": "stdout 不同：第 1 行：node «2 AB abc object» vs tsrun «2 AB abc string»"
-    },
-    {
-      "id": "c305-std-boolean-object-truthiness",
-      "layer": "stdlib",
-      "title": "`new Boolean(false)` 是真值",
-      "detail": "stdout 不同：第 1 行：node «object true false false» vs tsrun «object true { __b: false } [object Object]»"
     },
     {
       "id": "c305-std-array-tostring-custom-element",

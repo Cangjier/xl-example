@@ -4328,4 +4328,12 @@ console.log(xs.toSpliced(1, 1, 9).join(","), xs.with(0, 7).join(","), xs.join(",
     title: "展开位里「取 `Symbol.iterator` 再调」——`()` 会逃出展开",
     src: "\nconst a: any = [10, 20];\nconsole.log([...a[Symbol.iterator]()].join(\",\"));\n",
   },
+
+  // ===== 第 310 轮：包装对象那一族（本轮的修法） =====
+
+  {
+    id: "c310-std-wrapper-object-shapes",
+    title: "三族包装对象的形状：`typeof` / `valueOf` / 下标 / `Object.keys` / `JSON`",
+    src: "\nconst s: any = new String(\"ab\");\nconsole.log(s.length, s[0], s[1], Object.keys(s).join(\",\"));\nconsole.log(typeof s, s.valueOf(), s.toString(), s.toUpperCase());\nconst n: any = new Number(5);\nconsole.log(typeof n, n.valueOf(), n + 1, n.toFixed(1));\nconst b: any = new Boolean(false);\nconsole.log(typeof b, b.valueOf(), String(b), b + \"\");\nconsole.log(JSON.stringify(n), JSON.stringify(b), JSON.stringify(s));\n",
+  },
 ];

@@ -557,7 +557,6 @@ export const EXPECTATIONS = {
   // `Object.assign({}, "ab")` 从静默 `{}` 变成 `{"0":"a","1":"b"}` ✓——
   // 修的是字符串当源那一格（按**码元**展开成下标键 ✓，与 `Object.keys("ab")` 同一条口径 ✓）。
   "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
-  "global-explicit-and-implicit": { expect: "differ", why: "`unimplemented: Object(primitive) needs wrapper objects`——`Object(1)` 那一档要造包装对象（`new Object(null)` 是好的 ✓）" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
 
   // ===== 第 290 轮：矩阵加宽 95 条量到的那一批（29 条缺口，按根子分组）=====
@@ -626,8 +625,6 @@ export const EXPECTATIONS = {
   "c291-string-normalize-ascii": { expect: "blocked", why: "`String.prototype.normalize` 还没挂表（与 `string-normalize` 同一格）。ASCII 上该原样返回；组合字符上要合一（那一档要 Unicode 归一化表，是单独的活）" },
   //
   // **组 K：包装对象（2 条）** ✓
-  "c291-number-wrapper-and-negative-zero": { expect: "differ", why: "`typeof new Number(5)` 给 `\"number\"`（Node 给 `\"object\"`）——包装对象整族还没造（`new Number` 返回的是原始值）。`-0` 那两格是对的" },
-  "c291-global-object-wrappers": { expect: "blocked", why: "`Object(1)` 报 `unimplemented: Object(primitive) needs wrapper objects`——与上一格同一根，`install.xl.md` 里那一支是**明写**的缺口" },
   //
   // **组 L：Math 的两个常量（1 条）** ✓——**静默错值** ✗。
   //
@@ -687,10 +684,6 @@ export const EXPECTATIONS = {
   "c305-std-string-trim-unicode-space": { expect: "blocked", why: "非 ASCII 空白（`\\u00a0` / `\\u3000`）在 JS 里可被 `trim`，本仓只认 ASCII 那一档、且是**响亮地抛**（`string-concat-and-trim-families` 从第 287 轮起拖着同一个根）" },
   "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
   "c305-std-encodeuri-roundtrip": { expect: "blocked", why: "`encodeURIComponent` / `decodeURIComponent` / `encodeURI` 都不在（与 `c304-std-encodeuri-decodeuri` 同一个根）——按 UTF-8 字节做百分号编解码 + 四个全局名" },
-  "c305-std-number-wrapper-object": { expect: "differ", why: "包装对象整族还没造：`new Number(5)` 返回的是**原始值** ⇒ `typeof` 给 `number`（Node 给 `object`）。与 `c291-number-wrapper-and-negative-zero` 同一个根" },
-  "c305-std-object-wrapper-call": { expect: "blocked", why: "`Object(1)` 报 `unimplemented: Object(primitive) needs wrapper objects`（与 `c291-global-object-wrappers`、`global-explicit-and-implicit` 同一个根）——`new Object(null)` 是对的，差的是给原始值造包装对象" },
-  "c305-std-string-wrapper-methods": { expect: "differ", why: "`new String(\"ab\")` 返回的是**原始值**（`typeof` 给 `string`，Node 给 `object`）——包装对象族同一个根；方法本身都对" },
-  "c305-std-boolean-object-truthiness": { expect: "differ", why: "`new Boolean(false)` 的真假那一半是对的（`Boolean(b)` 给真），差的是包装对象自己：`b.valueOf()` 给内部那格 `{ __b: false }`、`String(b)` 给 `[object Object]`（Node 给 `false` / `false`）——`Boolean.prototype.valueOf` / `toString` 两格没有" },
   "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
   "c305-std-object-getownpropertydescriptors-all": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors` 那一格没有（`getOwnPropertyDescriptor` 第 276 轮就装上了）——一次拿全表，是同一个扫描的镜像" },
   "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },

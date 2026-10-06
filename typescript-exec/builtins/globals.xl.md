@@ -8,7 +8,7 @@ import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Pr
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf, ArrayValues } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint } from "./string.xl.md"
-import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject } from "./text.xl.md"
+import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
 import { MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
@@ -476,6 +476,53 @@ import { BuildPromise } from "./promise.xl.md"
 
 ```ts
 return Value.FromString(table.CreateString(Units("__boundTarget")));
+```
+
+# method MakeBox:(room:RoomChecker, table:HeapTable, protos:Protos, protoHandle:int, inner:Value)=>Value
+
+**造一个包装对象**（第 310 轮 ✓）——**普通对象 + 一格隐藏的原值** ✓，原型指到 `protoHandle` ✓。
+
+三处用它 ✓（`new Number(x)` ✓ / `new String(x)` ✓ / `new Boolean(x)` ✓、以及 `Object(原始值)` ✓）——
+**同一件事写三遍就是三处会走偏** ✗（判据要的是**三族行为一致** ✓：`typeof` 是 `"object"` ✓、
+`valueOf` 给回原值 ✓、`Object.keys` 是 `[]` ✓）。
+
+**为什么原型要显式指过去** ✗：`NewPlainObject` 给的是 `Object.prototype` ✓——
+不换的话 `(new Number(5)).toFixed(2)` 找不到那一格 ✗（报的是
+`cannot call a non-closure value` ✓，听起来像「`toFixed` 没做」✗，而它**早就有了** ✓）。
+
+**里面那一格为什么是隐藏属性** ✗：见 `BoxKey` 那一段 ✓（`Object.keys` 必须给 `[]` ✓）。
+
+```ts
+const boxed = NewPlainObject(room, table, protos);
+table.Get(boxed.Ref).Proto = protoHandle;
+SetHiddenProperty(room, table, boxed, BoxKey(table), inner);
+return boxed;
+```
+
+# method MakeStringBox:(room:RoomChecker, table:HeapTable, protos:Protos, primitive:Value)=>Value
+
+**造一个字符串包装对象**（第 310 轮 ✓）——`MakeBox` 再加两样 ✓。
+
+**JS 的字符串对象是「奇异对象」** ✗：它**自己**带着下标格与 `length` ✓——
+`new String("ab").length` 是 2 ✓、`s[0]` 是 `"a"` ✓、`s[1]` 是 `"b"` ✓，
+而且 `Object.keys(new String("ab"))` 是 **`["0", "1"]`** ✓（那两格**是可枚举的自有属性** ✓，
+不是内部格 ✗——所以它们走 `SetProperty` ✓，只有 `length` 走隐藏那一支 ✓）。
+
+**不补这两样会怎样** ✗：`s.length` 沿原型链找不到 ✓ ⇒ `undefined` ✓（**静默错值** ✗）；
+`s[0]` 同理 ✓。判据 `c305-std-string-wrapper-methods` 量的正是这两格 ✓。
+
+```ts
+const boxed = MakeBox(room, table, protos, protos.String, primitive);
+const units = table.Get(primitive.Ref).AsString().Units;
+if (!room(PropertyCharge * (units.length + 1) + ObjectCharge)) throw new Error("out of room");
+for (let i = 0; i < units.length; i++) {
+  SetProperty(room, NeverCall, table, boxed,
+    Value.FromString(table.CreateString(Units(String(i)))),
+    Value.FromString(table.CreateString([units[i]])));
+}
+// **`length` 不可枚举** ✓（JS 的口径 ✓）——它走隐藏那一支 ✓。
+SetHiddenProperty(room, table, boxed, NameValue(table, "length"), Value.FromInt(units.length));
+return boxed;
 ```
 
 # method BooleanBoxKey:(table:HeapTable)=>Value
@@ -1498,7 +1545,10 @@ if (id === StringCtor) {
   // **`String()` 给空串、`String(undefined)` 给 `"undefined"`** ✓——两格不一样 ✓，
   // 所以不给实参这一支要**先判**（`ValueUnits` 对 `undefined` 给 `"undefined"` ✓，
   // 那是 `String(x)` 的答案 ✓，不是 `String()` 的 ✓）。
-  if (args.length === 0) return Value.FromString(table.CreateString([]));
+  if (args.length === 0) {
+    const empty = Value.FromString(table.CreateString([]));
+    return constructing ? MakeStringBox(room, table, protos, empty) : empty;
+  }
   // **`String(符号)` 是一条特例** ✓（第 215 轮 ✓）：JS 在这里**不走 `ToPrimitive`** ✗
   //（走的话会得到 `Symbol(…)` 的字符串化 **之前**就抛 ✓）——`String(sym)` 给
   // **`"Symbol(描述)"`** ✓，没有描述就给 `"Symbol()"` ✓。
@@ -1511,7 +1561,8 @@ if (id === StringCtor) {
       symText = "Symbol(" + HostUnitsText(table.Get(symRecord.Description).AsString().Units) + ")";
     }
     if (!room(ObjectCharge + CodeUnitCharge * symText.length)) throw new Error("out of room");
-    return Value.FromString(table.CreateString(Units(symText)));
+    const fromSymbol = Value.FromString(table.CreateString(Units(symText)));
+    return constructing ? MakeStringBox(room, table, protos, fromSymbol) : fromSymbol;
   }
   // **`String(o)` 就是 `ToPrimitive(o, "string")` 再取文本** ✓（第 213 轮收口 ✓）。
   //
@@ -1530,11 +1581,18 @@ if (id === StringCtor) {
   // 还没装 ✓）——原来它静默印 `"[object Object]"` ✗。**抛比静默错值好** ✓（台账里记着 ✓）。
   const stringUnits = JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, args[0], ToPrimitiveString));
   if (!room(CodeUnitCharge * stringUnits.length + ObjectCharge)) throw new Error("out of room");
-  return Value.FromString(table.CreateString(stringUnits));
+  const primitive = Value.FromString(table.CreateString(stringUnits));
+  // **`new String(x)` 给的是包装对象** ✓（第 310 轮 ✓）——与 `Number` / `Boolean` 那两族
+  // 同一个形状 ✓（`typeof` 给 `"object"` ✓、`valueOf` 给回原值 ✓）。
+  if (constructing) return MakeStringBox(room, table, protos, primitive);
+  return primitive;
 }
 if (id === NumberCtor) {
   // **不给实参给 `0`** ✓（JS 的 `Number()` 是 `0` ✓，不是 `NaN` ✗）。
-  return NumberFromValue(room, call, table, protos, args.length > 0 ? args[0] : Value.FromInt(0));
+  const converted = NumberFromValue(room, call, table, protos, args.length > 0 ? args[0] : Value.FromInt(0));
+  // **`new Number(x)` 给的是包装对象** ✓（第 310 轮 ✓）。
+  if (constructing) return MakeBox(room, table, protos, protos.Number, converted);
+  return converted;
 }
 if (id === BooleanCtor) {
   // **不给实参给 `false`** ✓，走的是**唯一那条真假口径** ✓（第 144 轮的 `TruthyOf` ✓）。
@@ -1551,13 +1609,13 @@ if (id === BooleanCtor) {
   // **已知差** ✗：`String(new Boolean(false))` 在这里给 `"[object Object]"` ✓，
   // 而 JS 给 `"false"` ✓（那要 `Boolean.prototype.toString` / `valueOf` 那一族 ✓）。
   // **它比「静默按假算」好** ✓：真假这一档是对的 ✓，缺的是**原始值的那两个方法** ✓。
+  // **第 310 轮把那一族补上了** ✓：箱有了**自己的原型** ✓（`protos.Boolean` ✓）、
+  // 两个方法在原型上 ✓、而且它们都先**脱箱** ✓ ——`String(new Boolean(false))` 现在给 `"false"` ✓。
   if (constructing) {
-    const boxed = NewPlainObject(room, table, protos);
     // **里面那一格存的是 `RtToBoolean` 的答案** ✓（它是**值**不是宿主 `bool` ✓）——
     // 直接存 `Value.FromBool(…)` 是编译不过的 ✗（那一句是「类型当场拦下来」的好例子 ✓）。
     const inner = RtToBoolean(table, args.length > 0 ? args[0] : Value.Undefined());
-    SetHiddenProperty(room, table, boxed, BooleanBoxKey(table), inner);
-    return boxed;
+    return MakeBox(room, table, protos, protos.Boolean, inner);
   }
   return RtToBoolean(table, args.length > 0 ? args[0] : Value.Undefined());
 }
@@ -1581,8 +1639,18 @@ if (id === ObjectCtor) {
   if (only.IsObject()) return only;
   // **`null` / `undefined` 也原样返回** ✓（`Object(null)` 是 `null` ✓）。
   if (only.Tag === ValueTag.Null || (only.Tag === ValueTag.Undefined)) return only;
-  // **其余原始值要包装对象，而本仓没有包装对象** ✗ ⇒ 响亮地抛 ✓（不静默给一个近似值 ✗）。
-  throw new Error("unimplemented: Object(primitive) needs wrapper objects");
+  // **其余原始值给包装对象** ✓（第 310 轮把这一格补上了 ✗）——
+  // 原来这里**响亮地抛** ✓（`unimplemented: Object(primitive) needs wrapper objects` ✓），
+  // 理由是「本仓没有包装对象」✗；现在三族都有了 ✓（`StringCtor` / `NumberCtor` /
+  // `BooleanCtor` 那个 `constructing` 分支 ✓），所以这里按**各自的族**造 ✓。
+  // **`Symbol` 仍抛** ✗：符号包装对象今天没有别的用处 ✓（`Object(sym).description` 那种），
+  // 而本仓的符号连属性表都没有 ✓——**不猜** ✓（响亮地抛 ✓，与原来同一条纪律 ✓）。
+  if (only.Tag === ValueTag.Bool) return MakeBox(room, table, protos, protos.Boolean, only);
+  if (only.Tag === ValueTag.Int32 || only.Tag === ValueTag.Float64) {
+    return MakeBox(room, table, protos, protos.Number, only);
+  }
+  if (only.Tag === ValueTag.String) return MakeStringBox(room, table, protos, only);
+  throw new Error("unimplemented: Object(symbol) needs a symbol wrapper");
 }
 if (id === ArrayCtor) {  // **一个数是长度、其余是元素** ✓（JS 的口径 ✓，见 `ArrayCtor` 那一段 ✓）。
   if (args.length === 1 && args[0].Tag === ValueTag.Int32) {
@@ -1846,13 +1914,20 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponenti
   // 不是装箱对象 ✓——本仓不装箱 ✓）。所以这里直接取它的数值 / 真假 ✓。
   // **`valueOf` 更简单**（第 182 轮）✓：`ToPrimitive` 的第一步就是「原始值给回自己」✓，
   // 所以它**连转换都不做** ✓——直接返回 `self` ✓。
+  //
+  // **包装对象要先脱箱** ✓（第 310 轮 ✓）：`new Number(5).toFixed(2)` 与
+  // `new Boolean(false).valueOf()` 的接收者都是**普通对象** ✓（方法是从原型上找到的 ✓）——
+  // 不脱箱的话 `NumericOf(self)` / `self.AsBool()` 拿到的是一个对象 ✗
+  //（症状是 `NaN` 或 `"false"` 变成别的东西 ✓）。脱箱只有一处 ✓（`UnwrapBox` ✓），
+  // 三族共用 ✓——不是三个方法各写一遍 ✗。
+  const receiver = UnwrapBox(table, self);
   if (id === NumberValueOf || id === BooleanValueOf) {
-    return self;
+    return receiver;
   }
   if (id === BooleanToString) {
-    return Value.FromString(table.CreateString(Units(self.AsBool() ? "true" : "false")));
+    return Value.FromString(table.CreateString(Units(receiver.AsBool() ? "true" : "false")));
   }
-  const number = NumericOf(self);
+  const number = NumericOf(receiver);
   if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponential) {
     // **位数缺省是 0** ✓（`(1.5).toFixed()` 是 `"2"` ✓，JS 的口径 ✓）。
     // **`toExponential` 那一格的缺省与另外两个不同** ✗（第 291 轮 ✓）：不带实参时
@@ -4058,8 +4133,20 @@ if (call !== null && IsCallableValue(table, replacer)) {
   value = call(replacer, parent, [key, value]);
   JsonAnchor(room, table, anchor, depth, value);
 }
+// **包装对象要脱箱** ✓（第 310 轮 ✓）——`SerializeJSONProperty` 的**第三步** ✓
+//（`if Type(value) is Object` 那一段 ✓：`[[NumberData]]` / `[[StringData]]` / `[[BooleanData]]`
+// 三种内部槽都要换回**它们里面的原始值** ✓）。
+// 少了它：`JSON.stringify(new Number(5))` 给 `"{}"` ✗（Node 给 `"5"` ✓）、
+// `JSON.stringify(new String("ab"))` 给 `"{}"` ✗（Node 给 `'"ab"'` ✓）——**静默错值** ✗
+//（判据 `c291-global-object-wrappers` 那一族量的就是它 ✓）。
+// **位置在三步的最末** ✗（`toJSON` 之后 ✓、replacer 之后 ✓）：JS 就是「取值 → `toJSON` → replacer
+// → 再按**换过之后**的值分派」✓，脱箱是**分派之前的最后一步** ✓。
+// **脱箱只有一处** ✓（`UnwrapBox` ✓，与 `valueOf` 那条路**同一份** ✓）——
+// 不是包装对象它就原样返回 ✓（`{}` 与普通对象一个字节都不变 ✓）。
+value = UnwrapBox(table, value);
 if (value.Tag === ValueTag.Null) return "null";
 if (value.Tag === ValueTag.Undefined) return insideArray ? "null" : null;
+
 if (value.Tag === ValueTag.Bool) return value.AsBool() ? "true" : "false";
 if (value.Tag === ValueTag.Int32) return value.Int.toString();
 if (value.Tag === ValueTag.Float64) {

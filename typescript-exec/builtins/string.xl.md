@@ -6,7 +6,7 @@ import { RoomChecker, IsCallableValue } from "../../runtime/rt.xl.md"
 import { SetProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
-import { JsTextUnits, ValueUnits } from "./text.xl.md"
+import { JsTextUnits, ValueUnits, UnwrapBox } from "./text.xl.md"
 ```
 
 # namespace cangjie
@@ -286,6 +286,15 @@ if (id === StringFromCodePoint) {
   if (!room(ObjectCharge + CodeUnitCharge * codeUnits.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(codeUnits));
 }
+// **包装对象要在这里脱箱** ✓（第 310 轮 ✓）：`new String("ab").toUpperCase()` ✓——
+// 接收者是一个**普通对象** ✓（方法是从 `String.prototype` 上找到的 ✓），
+// 而下面**每一条**都按「`self` 是字符串」写 ✓。
+// **脱箱只有一处** ✓（`text.xl.md` 的 `UnwrapBox` ✓，与 `globals.xl.md` 那一处
+// **同一份** ✓）——在两个文件里各写一遍就是两处会漂 ✗（`globals` 已经 import 了本文件 ✗，
+// 所以那个判据只能落在 `text.xl.md` ✓）。
+// **它排在这里**（静态方法那几支之后 ✓）：那几支的 `self` 是 `String` **对象本身** ✗，
+// 不该被当成包装对象 ✓。
+self = UnwrapBox(table, self);
 RequireString(table, self);
 const units = JsTextUnits(table, self);
 if (id === StringCharAt) {
@@ -820,6 +829,10 @@ return out;
 **先问一次 room 再分配** ✓：段的个数上界是「码元数 + 1」✓（空分隔符那一支正好等于码元数 ✓）。
 
 ```ts
+// **与 `InvokeString` 那一处同一条口径** ✓（第 310 轮 ✓）：`String.split` 走的是
+// 这一条独立的路 ✓（它要 `protos` 造数组 ✓），而包装对象的接收者照样要先脱箱 ✓
+// ——`new String("a,b").split(",")` ✓。
+self = UnwrapBox(table, self);
 RequireString(table, self);
 const units = JsTextUnits(table, self);
 // **`limit` 那一格**（第 208 轮 ✓）：原来这里**抛** ✗（理由写得很对 ✓：忽略它会让

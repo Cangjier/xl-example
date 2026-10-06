@@ -1,15 +1,54 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, HeapArray } from "../../runtime/heap.xl.md"
+import { HeapTable, HeapArray, PropertyKind } from "../../runtime/heap.xl.md"
 import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
 import { HostTextUnits, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { GetProperty, NativeCall, Protos } from "../../runtime/props.xl.md"
+import { GetProperty, NativeCall, Protos, FindProperty, NeverRoom } from "../../runtime/props.xl.md"
 ```
 
 # namespace cangjie
 
 **标准库的一小块：任意值 → 文本**（第 124 轮）。
+
+# method BoxKey:(table:HeapTable)=>Value
+
+**包装对象上「里面那个原始值」挂在哪个键下**（第 310 轮 ✓）——
+与 `__k` / `__v` / `__boundTarget` 那一族**同一个理由** ✓（每一次现造 ✓，按内容比 ✓）。
+
+**为什么是隐藏属性而不是普通属性** ✗：`Object.keys(new Number(5))` 在 JS 里是 `[]` ✓，
+挂成普通属性会当场给 `["__box"]` ✗——**静默错值** ✓
+（与 `Map` 的内部格、`__b` 那条同一个坑 ✓）。
+
+**为什么放在这一层** ✓：`globals.xl.md` 与 `string.xl.md` **都要它** ✓
+（前者造箱、后者脱箱 ✓），而两边**互相不能 import** ✗（`globals` 已经 import 了 `string` ✓）。
+`text.xl.md` 是它们共同的落点 ✓——而且「取这个值里面的原始值」本来就是一桩**值与文本之间**的家务事 ✓。
+
+**用 `HostUnits` 而不是 `Units`** ✗：后者在 `array.xl.md` 里 ✓，而 `array` **import 了本文件** ✓
+——import 回来就是一个环 ✗（本文件自己那个 `HostUnits` 正是为这种事准备的 ✓）。
+
+```ts
+return Value.FromString(table.CreateString(HostUnits("__box")));
+```
+
+# method UnwrapBox:(table:HeapTable, value:Value)=>Value
+
+**包装对象 → 里面那个原始值**；**不是包装对象就原样返回** ✓（第 310 轮 ✓）。
+
+**判据是「自有那一格在不在」** ✓——`FindProperty` 会**沿原型链**找 ✗，
+所以找到之后还要问一句 `Owner === value.Ref` ✓（与 `defineProperty` 那条同一个写法 ✓）。
+
+**不是对象就直接返回** ✓（原始值走的正是这一支 ✓，绝大多数调用都是它 ✓）。
+
+```ts
+if (value.Tag !== ValueTag.Object) return value;
+const found = FindProperty(NeverRoom, table, value.Ref, BoxKey(table));
+if (found === null || found.Owner !== value.Ref) return value;
+const property = table.Get(found.Owner).Props[found.Index];
+// **访问器不算** ✓（内部格一定是数据属性 ✓；真遇到访问器就当它不是箱 ✓）。
+if (property.Kind === PropertyKind.Accessor) return value;
+return property.Value;
+```
 
 # method ToStringOfObject:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, value:Value)=>Value | null
 

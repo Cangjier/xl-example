@@ -6,6 +6,62 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 310 轮的账（**包装对象那一族：一个箱子 + 一处脱箱** —— 92.8% → 93.2%，收掉 7 格）
+
+### 一、选题：缺口清单里剩下最大的一簇
+
+第 305 轮普查进来的十组缺口里，**「包装对象那一族」**是剩下最大的一簇 ✓
+（`new Number(5)` ✓ / `new String("ab")` ✓ / `new Boolean(false)` ✓ / `Object(1)` ✓，
+连着两条**第 291 轮的老账** ✓）。这一轮把它一次做掉 ✓——**7 条判据一起转绿** ✓。
+
+### 二、本仓原来有什么、缺什么
+
+`BooleanCtor` 第 232 轮就**造了箱** ✓（普通对象 + 一格隐藏的 `__b` ✓），
+可那个箱**没有自己的原型** ✗（`NewPlainObject` 给的是 `Object.prototype` ✓）
+——于是 `b.valueOf()` 落到 `Object.prototype.valueOf` 上给回**箱自己** ✓（判据现场就是它 ✓）；
+`Number` / `String` 两族更彻底 ✗：**连箱都没有** ✓（`new Number(5)` 直接返回原始值 ✓，
+`typeof` 于是给 `"number"` ✗）；`Object(1)` 则**响亮地抛** ✓（写着「本仓没有包装对象」✓）。
+
+### 三、做法：**一个箱子** + **一处脱箱**
+
+**箱子**（`globals.xl.md` 的 `MakeBox` ✓）：普通对象 + 一格隐藏的原值 ✓，
+**原型显式指到那一族自己的** ✓——不换原型的话 `(new Number(5)).toFixed(2)` 找不到那一格 ✗
+（报的是 `cannot call a non-closure value` ✓，听起来像「`toFixed` 没做」✗，而它**早就有了** ✓）。
+`MakeStringBox` 是它的兄弟 ✓：字符串对象在 JS 里是**奇异对象** ✓——
+它**自己**带着下标格与 `length` ✓（`s[0]` 是 `"a"` ✓、`Object.keys(new String("ab"))` 是 `["0","1"]` ✓
+——那两格是**可枚举的自有属性** ✓，只有 `length` 走隐藏那一支 ✓）。
+
+**脱箱**（`text.xl.md` 的 `UnwrapBox` ✓）：**判据只有一处** ✓，
+三个调用点共用（数值/布尔的那些方法 ✓、`String` 的那一大家族 ✓、`JSON.stringify` ✓）：
+
+| 调用点 | 不脱箱会怎样 |
+| --- | --- |
+| `new Number(5).toFixed(2)` ✓ / `new Boolean(false).valueOf()` ✓ | 接收者是**普通对象** ✓ ⇒ `NumericOf` / `AsBool` 拿到对象 ✗ |
+| `new String("ab").toUpperCase()` ✓（`InvokeString` 与 `SplitString` 两处 ✓） | 过不了 `RequireString` ✓（**响亮地抛** ✓，不是静默 ✓） |
+| `JSON.stringify(new Number(5))` ✓ | 给 `"{}"` ✗（Node 给 `"5"` ✓，**静默错值** ✗） |
+
+**`UnwrapBox` 为什么落在 `text.xl.md`** ✗：`globals` 与 `string` **都要它** ✓，
+而两边**互相不能 import** ✗（`globals` 已经 import 了 `string` ✓）——
+`text.xl.md` 是它们共同的落点 ✓（而且「取这个值里面的原始值」本来就是一桩值与文本之间的家务事 ✓）。
+它自己那个 `HostUnits`（而不是 `array.xl.md` 的 `Units` ✓）也是同一个理由 ✓：**import 回来就是一个环** ✗。
+
+**JSON 那一步的位置是语义** ✓：JS 的 `SerializeJSONProperty` 是「取值 → `toJSON` → replacer
+→ **再按换过之后的值分派**」✓，所以脱箱排在**三步的最末** ✓、在 `Array` / `Object` 两条分支**之前** ✓。
+
+### 四、收掉的 7 格
+
+`c305-std-number-wrapper-object` ✓ / `c305-std-string-wrapper-methods` ✓ /
+`c305-std-boolean-object-truthiness` ✓ / `c305-std-object-wrapper-call` ✓ /
+`c291-number-wrapper-and-negative-zero` ✓ / `c291-global-object-wrappers` ✓ /
+`global-explicit-and-implicit` ✓。
+
+**顺带补了一条语料** ✓（`c310-std-wrapper-object-shapes` ✓，用户口径那句「发现新问题就补语料」✓）：
+把三族的形状钉在一处 ✓——`typeof` ✓、`valueOf` ✓、下标与 `Object.keys` ✓、
+`JSON.stringify` 脱箱 ✓。**`Object(符号)` 仍然抛** ✓（符号连属性表都没有 ✓，不猜 ✓）。
+
+**读数**：**标准库 91.8% → 93.3%** ✓、**整体 92.8% → 93.2%** ✓、**红的一栏 0** ✓；
+`runtime:check` **241 条通过 / 0 条失败** ✓。
+
 ## 第 309 轮的账（**展开位里的调用把接收者丢了** + 「调用括号没被吃进操作数」那两处 —— 92.6% → 92.8%）
 
 ### 一、根子：`LowerCall` 先看 kind，而 `...` 那一层还没剥
