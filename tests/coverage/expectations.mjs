@@ -383,9 +383,9 @@ export const EXPECTATIONS = {
   // 这一条与组 10 的「成员不在那儿」是**同一类** ✓，只是它住在 `ex` 层 ✗
   //（`String.raw` 是 `String` 上的一格 ✓，而它挡住的是一条**标签模板**的用例 ✗）。
   // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
-  "ex-string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗。`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓" },
-  "string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof (String as any).raw` 给 `undefined`）——标签模板的 `raw` 那一栏投影里也没有" },
-  "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：`String.raw` 与标签模板的 `raw` ——降级层给段落数组挂上 `raw` ✓（`SetPropertyConst` ✓），每一段按 `TemplateCookedText` 熟一遍 ✓（投影对带内插的段给的是**原文** ✓，没有内插的那一档反而给的是熟的 ✓——两条口径都在注释里 ✓）。
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：`String.raw` 与标签模板的 `raw` ——降级层给段落数组挂上 `raw` ✓（`SetPropertyConst` ✓），每一段按 `TemplateCookedText` 熟一遍 ✓（投影对带内插的段给的是**原文** ✓，没有内插的那一档反而给的是熟的 ✓——两条口径都在注释里 ✓）。
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：`String.raw` 与标签模板的 `raw` ——降级层给段落数组挂上 `raw` ✓（`SetPropertyConst` ✓），每一段按 `TemplateCookedText` 熟一遍 ✓（投影对带内插的段给的是**原文** ✓，没有内插的那一档反而给的是熟的 ✓——两条口径都在注释里 ✓）。
 
   // ---- 组 9：整块都是类型位的 `namespace` 该**整块擦掉**（1 条）----
   // 这一条不是「namespace 没做」那一条 ✗——它体内**一个运行期东西都没有** ✓

@@ -3852,4 +3852,33 @@ const maybe: { run?(): number } = {};
 console.log(maybe.run?.(), maybe.run?.() ?? -1);
 `,
   },
+  // ===== 第 333 轮收编（2 条）=====
+  {
+    id: "c333-ex-template-cooked-parts",
+    title: "带内插的模板串：每一段都是**熟**的",
+    src: `
+const x = 1;
+console.log(\`a\\nb\${x}\`.length, \`a\\nb\${x}\`.indexOf("\\n"));
+console.log(\`c\\td\${x}e\`.length, \`\\u00e9\${x}\`.length);
+console.log(\`\\x41\\u0042\${x}\`.length, \`\\u{1F600}\${x}\`.length);
+console.log(\`q\\\\r\${x}\`.length);
+const long = \`one
+two\${x}\`;
+console.log(long.length, long.indexOf("\\n") > 0);
+`,
+  },
+  {
+    id: "c333-ex-tagged-template-raw",
+    title: "标签模板的 `raw` 与熟串各是各的",
+    src: `
+function tag(parts: any, ...rest: any[]): string {
+  const raw = parts.raw;
+  return raw.join("|") + "#" + parts.join("|") + "#" + rest.length;
+}
+console.log(tag\`c\\td\`);
+console.log(tag\`a\\nb\${1}c\`);
+console.log(tag\`x\${1}y\${2}z\`);
+console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
+`,
+  },
 ];

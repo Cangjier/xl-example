@@ -230,7 +230,7 @@ const byLanguage = BuiltinSlots();
 const ids = new IdTable(RtOpCount, byCapability > byLanguage ? byCapability : byLanguage);
 const modules: LoweredModule[] = [];
 for (let i = 0; i < request.Sources.length; i++) {
-  const lowering = new Lowering();
+  const lowering = new Lowering(request.Sources[i]);
   lowering.DeclareGlobals(GlobalNames());
   if (request.Capabilities.length > 0) {
     lowering.DeclareCapabilities(LookupOf(bindings));

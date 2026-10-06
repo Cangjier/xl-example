@@ -1006,6 +1006,20 @@ this.IsDefault = isDefault;
 
 产物（`LowerModule` 会把它换成一个新的）。
 
+## field SourceText:string = ""
+
+**这份模块的源码** ✓（第 333 轮 ✓）——**降级层里唯一一处「回头看原文」的地方** ✓。
+
+**为什么它必须在这里** ✗：有一件事在投影里**取不到** ✓——**没有内插的模板串的原文** ✓。
+投影对 `NoSubstitutionTemplateLiteral` 给的是**熟的**那一串 ✓（`stringText` ✓，与 TS 逐节点相同 ✓），
+而 `raw` 要的是**原文** ✓（`` `a\nb` `` 给 `a` + 反斜杠 + `n` + `b` ✓）——
+`raw` 是**不可逆**的 ✗：熟的那一串里那个换行已经是一个字符了 ✓，回不去 ✓。
+**带内插的那三个段**反而不用回头 ✓（投影给的就是原文 ✓，只是要**熟**一遍 ✓，见 `CookTemplateText` ✓）。
+
+**构造器那一格给的是缺省空串** ✓：`new Lowering()` 在 `tests/runtime/check.mjs` 里出现十几处 ✓，
+它们量的是 IR 的形状 ✓、不看 `raw` ✓——所以加的是**带缺省值的参数** ✓（一处调用点都不用改 ✓），
+只有真正跑脚本的那一条（`tsrun.xl.md` ✓）把源码递进来 ✓。
+
 ## method SuperClassNameOf:(node:AstNode)=>string
 
 这个类声明 `extends` 的是哪个名字；没有（或不是简单名）给空串 ✓。
@@ -1283,14 +1297,18 @@ for (let i = 0; i < names.length; i++) {
 }
 ```
 
-## constructor:()=>void
+## constructor:(sourceText:string = "")=>void
 
 一开始是一份空产物、空作用域栈、空队列。
+
+**源码是唯一的入参、而且有缺省值** ✓（第 333 轮 ✓）：`SourceText` 那一段写着为什么 ✓
+（它是**唯一一处回头看原文**的地方 ✓，而有十几处 `new Lowering()` 只想量 IR 形状 ✓）。
 
 ```ts
 this.Module = new LoweredModule(new Program());
 this.Scope = [];
 this.Pending = [];
+this.SourceText = sourceText;
 ```
 
 ## method Program:()=>Program
@@ -5663,9 +5681,11 @@ return result;
 
 **投影保证两件事**（第 66 轮刚补上）：三个模板段的 `text` 都在（**不含分隔符**），
 所以这里直接取文本即可，不必回头去扫源码。
+**第 333 轮补了「熟」那一步** ✗：带内插的段在投影里是**原文** ✓（与 TS 逐节点相同 ✓），
+直接 `TextOf` 会得到**四个字符**的 `` c\td `` ✗——`TemplateCookedText` 那一段写着为什么 ✓。
 
 ```ts
-const headText = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(Child(node, "head")))));
+const headText = this.Program().AddConst(Constant.OfString(UnitsOf(this.TemplateCookedText(Child(node, "head")))));
 const result = this.Reserve(1);
 this.Emit(Op.Const, result, headText, -1, -1);
 const spans = ListOf(node, "templateSpans");
@@ -5677,7 +5697,7 @@ for (let i = 0; i < spans.length; i++) {
   //（`{ valueOf: () => 5, toString: () => "T" }` 印出 `5` ✗，Node 印 `T` ✓）。
   const joined = this.TemplateConcatValues(result, value);
   const literal = Child(spans[i], "literal");
-  const literalText = this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(literal))));
+  const literalText = this.Program().AddConst(Constant.OfString(UnitsOf(this.TemplateCookedText(literal))));
   // **常量要先落进一格**：`ConcatValues` 收的是**槽号** ✓（与 `RtCall2` 那条收常量的路不同 ✗）。
   const tailSlot = this.Reserve(1);
   this.Emit(Op.Const, tailSlot, literalText, -1, -1);
@@ -5687,6 +5707,36 @@ for (let i = 0; i < spans.length; i++) {
   this.Release(result + 1);
 }
 return result;
+```
+
+## method TemplateCookedText:(node:AstNode)=>string
+
+**模板某一段「跑起来那一串」** ✓（第 333 轮 ✓）——`LowerTemplate` 与
+`LowerTaggedTemplate` 都取它 ✓（两处取同一件事，所以只有一处答案 ✓）。
+
+**为什么必须多这一步** ✗（第 333 轮实测撞到的 ✓）：投影对**带内插**的模板段给的是
+**原文** ✓——`TemplateHead` / `TemplateMiddle` / `TemplateTail` 的 `text` 是
+`ctx.source.slice(...)` ✓（那一头的口径与 TS 逐节点相同 ✓，`cases:tsast` 钉着它 ✓），
+于是 `` `c\td${x}` `` 的段文本是**四个字符**（反斜杠 + `t` + `d` + 尾段 ✓）✗，
+而 JS 要的是**三个**（一个真制表符 ✓）。**实测**：
+`` console.log(`a\nb${1}`.length) `` Node 给 `4` ✓、本仓给 `5` ✓——**静默错值** ✗，
+而且 `` `${x}\n` `` 这种写法在真实代码里到处都是 ✓。
+
+**没有内插的那一档不用再过一遍** ✗：`NoSubstitutionTemplateLiteral` 的 `text`
+**已经是熟的** ✓（投影那一支走的是 `stringText` ✓，与引号串同一条 ✓）——
+再过一遍会把 `\\n` 这种真正的反斜杠吃掉 ✗。
+**所以这一档要自己剥反引号** ✓（`TemplatePartText` 那一格第 333 轮起给的是**原文** ✗，
+它现在专门服务 `raw` ✓——两件事分成两格，谁都不必猜另一格的口径 ✓）。
+
+```ts
+if (NodeKind(node) === "NoSubstitutionTemplateLiteral") {
+  let cooked = TextOf(node);
+  if (cooked.length >= 2 && cooked[0] === "`" && cooked[cooked.length - 1] === "`") {
+    cooked = cooked.slice(1, cooked.length - 1);
+  }
+  return cooked;
+}
+return CookTemplateText(this.TemplatePartText(node));
 ```
 
 ## method LowerYield:(node:AstNode)=>int
@@ -7232,10 +7282,24 @@ this.Release(at);
 （`` `a` `` 给 `` "`a`" `` ✓、`` `c` `` 给 `` "`c`" `` ✓）✓——所以这里把那对反引号剥掉 ✓，
 **两种口径都接住** ✓（有反引号才剥 ✓，与 `NoSubstitutionTemplateLiteral` 那一支同一条规矩 ✓）。
 
+**第 333 轮起它只用来拿「原文」那一半** ✓（`raw` ✓）：**带内插**的段投影给的就是原文 ✓，
+直接用 ✓；**没有内插**的那一档投影给的是**熟的** ✗，所以这时要**回头看源码** ✓
+（`SourceText` 那一段写着为什么 ✓）——按节点的区间切、再把两头那对反引号剥掉 ✓。
+**没给源码时（`tests/runtime/check.mjs` 那十几处 `new Lowering()` ✓）退回熟串** ✓：
+那里量的是 IR 形状 ✓、不看 `raw` ✓，而**安静地算错**比**响亮地抛**更糟 ✗——所以这一支留在明处 ✓。
+
 ```ts
 let raw = TextOf(node);
 if (raw.length >= 2 && raw[0] === "`" && raw[raw.length - 1] === "`") {
   raw = raw.slice(1, raw.length - 1);
+}
+// **没有内插的那一档：正文是熟的，原文要去源码里切** ✓（第 333 轮 ✓）。
+if (NodeKind(node) === "NoSubstitutionTemplateLiteral" && this.SourceText !== "") {
+  const start = node["pos"] as number;
+  const end = node["end"] as number;
+  if (end - start >= 2) {
+    return this.SourceText.slice(start + 1, end - 1);
+  }
 }
 return raw;
 ```
@@ -7253,9 +7317,11 @@ return raw;
 （TS 自己的字段名就是 `literal` 与 `expression` ✓，投影按同一套名字存 ✓）；
 **没有内插**时整个模板就是一个 `NoSubstitutionTemplateLiteral` ✓（段落只有一个 ✓、实参没有 ✓）。
 
-**`raw` 这一档先不铺** ✗：那要给段落数组**挂一个 `raw` 属性** ✓，而这一层还没有「挂属性」的那条路 ✗
-——所以 `` String.raw`…` `` 仍然不对 ✗（**记在台账里** ✓），其余 tag 照常 ✓。
-**同理「同一个调用点共用一个段落数组」那条身份约定** ✗（JS 要求每次求值拿到**同一个**数组对象 ✓）
+**`raw` 这一档第 333 轮补齐了** ✓：JS 给标签的第一个实参是**段落数组** ✓，
+它身上还挂着一格 `raw` ✓（**同一批段落的原文** ✓——`` `a\nb` `` 的 `raw[0]` 是
+`a` + 反斜杠 + `n` + `b` ✓，而 `parts[0]` 里那个 `\n` 是**真的换行** ✓）。
+两半都实测过 ✓：`String.raw` / 自带 `tag` 的 `parts.raw[0]` ✓。
+**同一个调用点共用一个段落数组那条身份约定** ✗（JS 要求每次求值拿到**同一个**数组对象 ✓）
 这里也还没做 ✓：每次求值新建一个 ✓（对绝大多数 tag 无影响 ✓，对拿它当缓存键的库有影响 ✗）✓。
 
 ```ts
@@ -7265,15 +7331,29 @@ const args = this.Reserve(1);
 this.EmitRt(RtOp.NewArray, args, args, 0);
 const parts = this.Reserve(1);
 this.EmitRt(RtOp.NewArray, parts, parts, 0);
+// **原文那一摞也要一个数组** ✓（第 333 轮 ✓）：它就是 `parts.raw` ✓。
+const raws = this.Reserve(1);
+this.EmitRt(RtOp.NewArray, raws, raws, 0);
 const texts: Array<string> = [];
+const rawTexts: Array<string> = [];
 const substitutions: Array<AstNode> = [];
 if (NodeKind(template) === "NoSubstitutionTemplateLiteral") {
-  texts.push(this.TemplatePartText(template));
+  // **没有内插那一档：熟的走 `TemplateCookedText`、原文走 `TemplatePartText`** ✓（第 333 轮 ✓）——
+  // 两格**不是同一个字符串** ✗：`` `c\td` `` 的熟串是**三个**字符（一个真制表符 ✓）、
+  // 原文是**四个**（反斜杠 + `t` ✓）。第一版把同一个字符串塞进两摞 ✗，
+  // 症状是 `parts.raw[0]` 对 ✓、`parts[0]` 错 ✓（`tag\`c\td\`` 给 `c\td|c\td` ✓，
+  // 而 Node 给 `c\td|c<TAB>d` ✓——**只错一半** ✗，最难看见的那一种 ✓）。
+  texts.push(this.TemplateCookedText(template));
+  rawTexts.push(this.TemplatePartText(template));
 } else {
-  texts.push(this.TemplatePartText(Child(template, "head")));
+  const headNode = Child(template, "head");
+  texts.push(this.TemplateCookedText(headNode));
+  rawTexts.push(this.TemplatePartText(headNode));
   for (const span of ListOf(template, "templateSpans")) {
     substitutions.push(Child(span, "expression"));
-    texts.push(this.TemplatePartText(Child(span, "literal")));
+    const literalNode = Child(span, "literal");
+    texts.push(this.TemplateCookedText(literalNode));
+    rawTexts.push(this.TemplatePartText(literalNode));
   }
 }
 for (let i = 0; i < texts.length; i++) {
@@ -7282,6 +7362,16 @@ for (let i = 0; i < texts.length; i++) {
   this.PushArrayElement(parts, slot);
   this.Release(slot);
 }
+for (let i = 0; i < rawTexts.length; i++) {
+  const slot = this.Reserve(1);
+  this.Emit(Op.Const, slot, this.Program().AddConst(Constant.OfString(UnitsOf(rawTexts[i]))), -1, -1);
+  this.PushArrayElement(raws, slot);
+  this.Release(slot);
+}
+// **把 `raw` 挂到段落数组上** ✓：`set_prop(parts, "raw", raws)` ✓——
+// 走的是降级层现成的那条「挂属性」的路 ✓（`SetPropertyConst` ✓，一个引擎改动都不用 ✓）。
+this.SetPropertyConst(parts, this.Program().AddConst(Constant.OfString(UnitsOf("raw"))), raws);
+this.Release(raws);
 this.PushArrayElement(args, parts);
 for (let i = 0; i < substitutions.length; i++) {
   this.PushArrayElement(args, this.LowerExpression(substitutions[i]));
@@ -7583,4 +7673,110 @@ this.Emit(Op.Jump, -1, 0, -1, -1);
 this.PatchTarget(skipIndex, this.Here());
 this.Emit(Op.Const, result, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
 this.PatchTarget(done, this.Here());
+```
+
+# method CookTemplateText:(raw:string)=>string
+
+**模板段的原文 → 那一段的正文** ✓（第 333 轮 ✓）——ES 的 `TV`（模板值）那一步 ✓。
+
+**它按规范逐条来** ✓，一张表就是全部：
+
+| 原文 | 正文 |
+| --- | --- |
+| `\n` `\t` `\r` `\b` `\f` `\v` | 对应的那一个字符 ✓ |
+| `\0`（后面**不是**数字） | `NUL` ✓ |
+| `\xHH` / `\uHHHH` / `\u{…}` | 那一个码元 / 码位 ✓ |
+| 反斜杠 + **换行** | **什么都不产出** ✓（行继续 ✓，`\r\n` 与 `\r` 都算一个 ✓） |
+| 反斜杠 + 别的任何字符 | **就是那个字符** ✓（`\\` ✓ / `` \` `` ✓ / `\$` ✓ / `\'` ✓ / `\"` ✓） |
+| 原文里的 `\r\n` / `\r` | 一个 `\n` ✓（行终止符归一 ✓） |
+
+**为什么这件事在降级层、而不是在投影层** ✗：投影给的那一格必须与 TS **逐节点相同** ✓
+（`cases:tsast` 1413 份钉着它 ✓），而 TS 对这三个模板段给的就是**原文** ✓——
+所以「熟的那一串」只能在这里现算 ✓。**引号串那一档不在这里** ✓：投影对它给的就是熟的 ✓
+（`"a\nb".length` 早就是 `3` ✓），两个口径**各有各的原因** ✓，写在这里免得后人以为漏了一处 ✓。
+
+```ts
+let out = "";
+let i = 0;
+while (i < raw.length) {
+  const ch = raw[i];
+  if (ch === "\\") {
+    i += 1;
+    if (i >= raw.length) break;
+    const esc = raw[i];
+    i += 1;
+    if (esc === "n") { out = out + "\n"; continue; }
+    if (esc === "t") { out = out + "\t"; continue; }
+    if (esc === "r") { out = out + "\r"; continue; }
+    if (esc === "b") { out = out + "\b"; continue; }
+    if (esc === "f") { out = out + "\f"; continue; }
+    if (esc === "v") { out = out + "\v"; continue; }
+    // **行继续**：反斜杠 + 一个行终止符 ⇒ 不产出任何字符 ✓（`\r\n` 算一个 ✓）。
+    if (esc === "\n") continue;
+    if (esc === "\r") {
+      if (i < raw.length && raw[i] === "\n") i += 1;
+      continue;
+    }
+    // **十六进制那两档** ✓：`\xHH` 两个、`\uHHHH` 四个、`\u{…}` 一到大六个 ✓。
+    if (esc === "x" || esc === "u") {
+      let count = esc === "x" ? 2 : 4;
+      let braced = false;
+      if (esc === "u" && i < raw.length && raw[i] === "{") {
+        braced = true;
+        count = 6;
+        i += 1;
+      }
+      let value = 0;
+      let digits = 0;
+      while (digits < count && i < raw.length) {
+        const at = HexDigit(raw[i]);
+        if (at < 0) break;
+        if (braced && digits === 6) break;
+        value = value * 16 + at;
+        digits += 1;
+        i += 1;
+      }
+      if (braced && i < raw.length && raw[i] === "}") i += 1;
+      // **一个码位可能拆成两个码元** ✓（代理对 ✓）——与 `String.fromCodePoint` 同一件事 ✓。
+      if (value > 0xffff) {
+        const rest = value - 0x10000;
+        out = out + String.fromCharCode(0xd800 + (rest >> 10));
+        out = out + String.fromCharCode(0xdc00 + (rest & 0x3ff));
+      } else {
+        out = out + String.fromCharCode(value);
+      }
+      continue;
+    }
+    // **`\0` 后面跟着数字就不算 NUL** ✓（规范那一条：那是老式八进制，本仓响亮地按「就是 `0`」办 ✓）。
+    if (esc === "0" && !(i < raw.length && raw[i] >= "0" && raw[i] <= "9")) {
+      out = out + String.fromCharCode(0);
+      continue;
+    }
+    // **其余一律「就是那个字符」** ✓（`\\` ✓ / `` \` `` ✓ / `\$` ✓ / 未知转义 ✓）。
+    out = out + esc;
+    continue;
+  }
+  // **行终止符归一**：`\r\n` 与 `\r` 都产出一个 `\n` ✓（这是规范里的 TV 那一步 ✓）。
+  if (ch === "\r") {
+    out = out + "\n";
+    i += 1;
+    if (i < raw.length && raw[i] === "\n") i += 1;
+    continue;
+  }
+  out = out + ch;
+  i += 1;
+}
+return out;
+```
+
+# method HexDigit:(ch:string)=>int
+
+**一个十六进制字符的值** ✓（第 333 轮 ✓）——不是十六进制就给 `-1` ✓
+（`CookTemplateText` 用它判断「还有没有下一位」✓）。
+
+```ts
+if (ch >= "0" && ch <= "9") return ch.charCodeAt(0) - 48;
+if (ch >= "a" && ch <= "f") return ch.charCodeAt(0) - 87;
+if (ch >= "A" && ch <= "F") return ch.charCodeAt(0) - 55;
+return -1;
 ```

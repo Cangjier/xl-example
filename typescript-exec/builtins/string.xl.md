@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, IsCallableValue } from "../../runtime/rt.xl.md"
-import { SetProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
+import { SetProperty, GetProperty, GetIndex, FindProperty, ReadProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
 import { JsTextUnits, ValueUnits, UnwrapBox } from "./text.xl.md"
@@ -221,6 +221,24 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 两者逐码位相同 ✓，但**未来 Unicode 版本更新时两边会一起变** ✓（这正是「借被标准定死的东西」
 的含义 ✓，与浮点那条**一字不差** ✓）。
 
+# const StringRaw:int = 133
+
+**`String.raw(段落, …内插)`** ✓（第 333 轮 ✓，ES2015 ✓）——**唯一一个把原文交出来的地方** ✓。
+
+**它读的是 `段落.raw`** ✓（**不是** `段落` 自己 ✗）：`` String.raw`a\nb` `` 给的是
+`a` + 反斜杠 + `n` + `b` ✓（**四个字符** ✓），而 `段落[0]` 里那个是**真换行** ✓。
+两半各在各自的家 ✓：`raw` 那一摞由**降级层**铺好 ✓（`LowerTaggedTemplate` ✓，
+投影对带内插的模板段给的就是原文 ✓），这里只管按 JS 的规矩把它们与内插**交错**起来 ✓。
+
+**交错那一段是全部语义** ✓：`raw[0] + 内插[0] + raw[1] + …` ✓——
+**段落比内插多一个** ✓（`String.raw({ raw: ["p", "q"] }, "-")` 给 `"p-q"` ✓），
+多出来的那一个照接 ✓（循环写「先接段落、再接内插（如果有）」就自然对 ✓）。
+
+**`raw` 那一格按普通属性读** ✓（`GetProperty` ✓）：JS 里它就是一个可枚举的自有属性 ✓
+（两条判据都拿手写的 `{ raw: [...] }` 量过 ✓）；**它可以是任何东西** ✓
+（数组 ✓、带 `length` 的对象 ✓）——所以下面按「一段一段取 `length` / 下标」办 ✓，
+不假设它是真数组 ✓。
+
 # const StringFromCodePoint:int = 126
 
 **`String.fromCodePoint(码位…)`**（第 275 轮 ✓）——**静态方法** ✓
@@ -320,6 +338,67 @@ if (id === StringFromCharCode) {
   }
   if (!room(ObjectCharge + CodeUnitCharge * codes.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(codes));
+}
+if (id === StringRaw) {
+  const cooked = args.length > 0 ? args[0] : Value.Undefined();
+  if (!cooked.IsObject()) {
+    throw new TypeError("String.raw needs an object with a raw property");
+  }
+  // **不借 `GetProperty`** ✗（这一层没有原型表 ✓——`install.xl.md` 写着为什么不为一个方法改签名 ✓）：
+  // `raw` 与 `length` 在 JS 里都是**自有**属性 ✓（`String.raw` 只认自有那一格 ✓），
+  // 所以「找一格 + 读一格」那两步就够 ✓，而它俩一个要 `room`、一个要 `call` ✓，都在手上 ✓。
+  const rawKey = Value.FromString(table.CreateString(Units("raw")));
+  if (!room(ObjectCharge + CodeUnitCharge * 6)) throw new Error("out of room");
+  const rawFound = FindProperty(room, table, cooked.Ref, rawKey);
+  if (rawFound === null || rawFound.Owner !== cooked.Ref) {
+    throw new TypeError("String.raw needs an object with a raw property");
+  }
+  const raws = ReadProperty(NeverCall, table, rawFound, cooked);
+  if (!raws.IsObject()) {
+    throw new TypeError("String.raw needs an object with a raw property");
+  }
+  // **段落个数** ✓：`raw.length` ✓（按整数读 ✓——与 `Array.from({ length: n })` 同一条口径 ✓）。
+  //
+  // **数组那一档要单独认** ✗（第 333 轮实测踩到 ✓）：数组的 `length` **不在属性表里** ✓
+  //（它是结构属性 ✓，`props.xl.md` 的 `IsLengthKey` 那一段写着 ✓）——
+  // 所以拿 `FindProperty` 去找它**永远找不到** ✓ ⇒ 段落数算成 `0` ✓ ⇒
+  // `` String.raw`a\nb` `` 给**空串** ✗（实测：第一版就是这个症状 ✓，而报错一声不响 ✓）。
+  const lengthKey = Value.FromString(table.CreateString(Units("length")));
+  if (!room(ObjectCharge + CodeUnitCharge * 6)) throw new Error("out of room");
+  let count = 0;
+  if (raws.Tag === ValueTag.Array) {
+    count = table.Get(raws.Ref).AsArray().GetLength();
+  } else {
+    const lengthFound = FindProperty(room, table, raws.Ref, lengthKey);
+    const countValue = lengthFound === null
+      ? Value.Undefined()
+      : ReadProperty(NeverCall, table, lengthFound, raws);
+    count = countValue.IsNumber() ? countValue.AsInt() : 0;
+  }
+  const pieces: number[][] = [];
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    // **一段一段取** ✓：字符串段落直接给码元 ✓，别的一律 `ToString` ✓（`JsTextUnits` 管这一档 ✓）。
+    const units = JsTextUnits(table, GetIndex(table, raws, Value.FromInt(i)));
+    pieces.push(units);
+    total = total + units.length;
+  }
+  // **内插接在段落之间** ✓：`raw[0] + sub[0] + raw[1] + …` ✓（段落比内插多一个 ✓）。
+  const innerUnits: number[][] = [];
+  for (let i = 0; i + 1 < args.length; i++) {
+    const units = ValueUnits(table, args[i + 1], 0);
+    innerUnits.push(units);
+    total = total + units.length;
+  }
+  if (!room(CodeUnitCharge * total + ObjectCharge)) throw new Error("out of room");
+  const joined: number[] = [];
+  for (let i = 0; i < pieces.length; i++) {
+    for (let j = 0; j < pieces[i].length; j++) joined.push(pieces[i][j]);
+    if (i < innerUnits.length) {
+      for (let j = 0; j < innerUnits[i].length; j++) joined.push(innerUnits[i][j]);
+    }
+  }
+  return Value.FromString(table.CreateString(joined));
 }
 if (id === StringFromCodePoint) {
   // **静态方法，排在 `RequireString` 前面** ✓（与 `fromCharCode` 同一条先例 ✓，理由见号那一段 ✓）。

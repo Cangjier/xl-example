@@ -7,7 +7,7 @@ import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runti
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf, ArrayValues } from "./array.xl.md"
-import { StringFromCharCode, StringFromCodePoint } from "./string.xl.md"
+import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, NameValue, ReadOwn } from "./map.xl.md"
@@ -5445,6 +5445,14 @@ SetProperty(vm.Room(), NeverCall, table, stringObject, fromCharCodeKey, fromChar
 const fromCodePointKey = Value.FromString(table.CreateString(Units("fromCodePoint")));
 const fromCodePointTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCodePoint, 0));
 SetProperty(vm.Room(), NeverCall, table, stringObject, fromCodePointKey, fromCodePointTarget);
+// **`String.raw`** ✓（第 333 轮 ✓）：它是**静态** ✓（`String.raw\`…\`` ✓），
+// 所以挂在这一张**构造函数对象**上 ✓——**不是** `protos.String` 上 ✗
+//（挂到原型上就是「所有字符串都有 `.raw()`」✓，而 JS 里 `"x".raw` 是 `undefined` ✓）。
+// 第一版就是挂在原型那张表里的 ✗，症状是 `` String.raw`a` `` 报
+// `cannot call a non-closure value` ✓（**离现场很远** ✓）。
+const rawKey = Value.FromString(table.CreateString(Units("raw")));
+const rawTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringRaw, 0));
+SetProperty(vm.Room(), NeverCall, table, stringObject, rawKey, rawTarget);
 const stringKey = Value.FromString(table.CreateString(Units("String")));
 SetProperty(vm.Room(), NeverCall, table, globals, stringKey, stringObject);
 // **`String.prototype` / `Object.prototype`**（第 137 轮）：与 `Array` 同款 ✓

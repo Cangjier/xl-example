@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1309,
+  "matrix": 1311,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.52,
+  "progressPercent": 97.71,
   "layers": [
     {
       "layer": "runtime",
@@ -48,22 +48,22 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 316,
-      "pass": 310,
-      "blocked": 6,
+      "total": 318,
+      "pass": 313,
+      "blocked": 5,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.1
+      "coverage": 98.43
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 518,
-      "pass": 503,
-      "blocked": 6,
+      "pass": 505,
+      "blocked": 4,
       "differ": 9,
       "nodefail": 0,
-      "coverage": 97.1
+      "coverage": 97.49
     },
     {
       "layer": "e2e",
@@ -156,12 +156,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
     },
     {
-      "id": "ex-string-raw-and-tagged",
-      "layer": "exec",
-      "title": "`String.raw` 与标签模板的 `raw` 那一栏",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c291-ex-nested-namespace-with-values",
       "layer": "exec",
       "title": "嵌套一层的 namespace",
@@ -186,22 +180,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ArrayBindingPattern has no text"
     },
     {
-      "id": "string-raw-and-tagged",
-      "layer": "stdlib",
-      "title": "String.raw 作为标签 + 普通调用两种形态",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c291-function-tostring-forms",
       "layer": "stdlib",
       "title": "函数的源码文本：三种写法的 toString",
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
-      "id": "c323-std-string-raw",
-      "layer": "stdlib",
-      "title": "String.raw：标签模板的 raw 那一栏原样取出",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c330-std-structuredclone-basic",
@@ -328,23 +310,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "ex-getter-setter-class",
-      "layer": "exec"
-    },
-    {
-      "id": "object-freeze",
-      "layer": "stdlib"
-    },
-    {
-      "id": "object-freeze-array-element",
-      "layer": "stdlib"
-    },
-    {
-      "id": "c305-std-array-length-nonwritable",
-      "layer": "stdlib"
-    }
-  ],
+  "newlyPassing": [],
   "regressions": []
 }
