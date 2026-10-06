@@ -673,7 +673,7 @@ export const EXPECTATIONS = {
   // **第 357 轮过了** ✓（这一行撤了 ✓）：`Object.getPrototypeOf` 放行闭包 ✓ + 取回来时**标签跟着那一格自己**（`HeapObject.Tag` ✓）——`class B extends A` 里 `B` 的原型是 `A` 那个闭包 ✓，以前一律 `Value.FromObject` ⇒ 与 Closure 标签的 `A` 比永远假 ✓。
   //
   // **组 E：计算键上的函数值 / 方法里的箭头（2 条）** ✓
-  "c291-rt-closure-and-method-this": { expect: "blocked", why: "`obj.get()()` 报 `cannot call a non-closure value`——方法体里 `return () => this.v` 返回的箭头要带着 `this` 出帧、再被调用" },
+  // **第 366 轮过了** ✓（这一行撤了 ✓）：`x.get()()` 里外层那个 `Method` 的**名字是空的** ✓——投影层那条链支先把**内层**折成成员调用 ✓、再把「调用这个结果」套上去 ✓。
   //
   // **组 F：码元 vs 码点（1 条）** ✓——与 `rt-surrogate-iteration` 同一根。
   //

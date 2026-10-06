@@ -2866,6 +2866,41 @@ new Set([
         // 那个 `Method` 盖住的是 `log(1)`，而**名字**只占开头的几个字符，
         // 所以这里按名字宽度切一段 `Identifier` 出来（TS 的 `Identifier(log)` 正是这一段）。
         const name = String(next.get("name") ?? "");
+        // **空名字的 `Method` = 「把左边那个值再调一次」** ✓（第 366 轮 ✓，**实测撞到的** ✓）：
+        // `x.get()()` 的产物是
+        // `PropertyAccess{ Identifier(x), ., Method(name="", child=Method(name="get")) }`
+        // （实测 `cjcli` 打出来的单元树 ✓）——**外层那个 `Method` 的名字是空的** ✗，
+        // 而这条链支（`projectExpression` 里按 `projectableKids` 直接走的那一条 ✓）
+        // **正是它走的路** ✓（在 `projectNode` 入口按形状拦的探针**没响** ✓——
+        // 所以第 348 / 362 两轮一直在**旁边那份副本**上找 ✗）。
+        // 照下面那条走会造出一个 `Identifier("")` 的成员 ✗ ⇒ 语义变成「取一个空名字的属性」✗
+        // ⇒ 降级层报 `cannot call a non-closure value` ✓（**一句话里没有一个字提到空名字** ✗）。
+        // 正确的形状是 `CallExpression{ expression: <左边那一段>, arguments: […] }` ✓。
+        if (name === "") {
+          // **两步** ✓（第 366 轮 ✓，**实测撞到的** ✓）：外层那个 `Method` 的**名字是空的** ✓，
+          // 而它的第一个子单元就是**内层那一格**（`Method(name="get")` ✓）——
+          // 直接 `projectNode(外层)` 得到的是**被调者为空**的调用 ✗（那一格要靠下面这段填 ✓），
+          // 所以先把**内层**当成普通的成员调用折一遍 ✓、再把「调用这个结果」套上去 ✓。
+          const innerKids = projectableKids(view(next));
+          const innerMethod = innerKids.length > 0 && innerKids[0].get("type") === "Method" ? innerKids[0] : undefined;
+          if (innerMethod !== undefined) {
+            const innerName = String(innerMethod.get("name") ?? "");
+            const innerAt = startOf(innerMethod);
+            const innerMember = {
+              kind: "PropertyAccessExpression",
+              expression: left,
+              name: { kind: "Identifier", text: innerName, pos: innerAt, end: innerAt + innerName.length },
+              pos: left.pos,
+              end: innerAt + innerName.length,
+            };
+            const innerCall = projectNode(innerMethod, ctx);
+            left = Object.assign({}, innerCall, { expression: innerMember, pos: innerMember.pos });
+          }
+          const outerCall = projectNode(next, ctx);
+          left = Object.assign({}, outerCall, { expression: left, pos: left.pos });
+          i += 2;
+          continue;
+        }
         const at = startOf(next);
         const member = {
           kind: "PropertyAccessExpression",
