@@ -6,6 +6,60 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 386 轮的账（**`!` 后面那一格：根子量得更准了，三条路都没修成** ✗ —— 97.2%）
+
+用户口径不变 ✓。这一轮是第 385 轮那条的**继续** ✓——**三条路都试过、都退回来了** ✗，
+按这一层的规矩把三条路与它们各自的下场写下来 ✓，下一个人不必再走一遍 ✓。
+
+### 一、根子（比第 385 轮准）
+
+`!` 后面那一格被 **`BinaryOperator` 的右操作数跨度**吃进自己的 Data ✓：
+
+    <BinaryOperator op=">=">
+      <PropertyAccess>source.priority</PropertyAccess>
+      <SymbolToken>>=</SymbolToken>
+      <NotNull>…</NotNull>
+      <SymbolToken>.</SymbolToken>     ← 运算符把它吃进来了
+      <Identifier>p</Identifier>
+    </BinaryOperator>
+
+**为什么难修** ✗：**运算符吃它的时候 `x!` 还不存在** ✓——那时产物里是
+`Identifier(x)` + `SymbolToken(!)` 两格（`NotNullReorganization` 还没跑 ✓）。所以：
+
+- 链那一趟（`PropertyAccessReorganization` ✓）**排在前面** ✓ ⇒ 它认不出「起点是 `x!`」✗；
+- `NotNull` 那一趟**排在后面** ✓ ⇒ 等它成形 ✗，`.` 与 `p` **已经在运算符的 Data 里了** ✗。
+
+### 二、试过的三条路（都退回来了）
+
+| # | 改法 | 下场 |
+| --- | --- | --- |
+| ① | 把 `NotNull` 加进 `PropertyAccessReorganization.IsChainBase` | **一点效果都没有** ✗（链那一趟跑在前面，那时还没有 `NotNull`） |
+| ② | 在 `NotNull.Process` 里当场把 `.成员` 吸进 `PropertyAccess`（判据与形状**照抄链那一份**） | **形状一点没变** ✗（说明 `.p` 那时已经在运算符的 Data 里了） |
+| ③ | 把 `NotNullReorganization` 挪到 `PropertyAccessReorganization` **前面**（通用队列 ✓） | **更糟** ✗✗：`data.a!.b!.c![0]` 当场给**整个数组**、还多报一个 `not a local or a capture: find` |
+
+**③ 为什么更糟** ✓：链那一趟还管着**别的形状** ✓（`a!.b!.c![0]` 那一族 ✓）——
+把 `NotNull` 提到它前面 ✓，链在那些形状上认到的起点就变了 ✓。
+**「顺序即语义」**那句话（`parse-pipeline.xl.md` ✓）在这一轮又验了一次 ✓。
+
+### 三、下一轮的方向
+
+判据要落在 **`binary-operator.xl.md` 的右操作数跨度**上 ✓：
+**不许跨过一个「结束操作数的 `!`」去吃后面的 `.` 与名字** ✓
+（那个 `!` 是 `NotNull` 的收尾 ✓，`.p` 属于那条链 ✓）；
+或者让**运算符那一趟排在链与 `NotNull` 之后** ✓。
+
+**两条同一个根子** ✓：`c371-ex-nonnull-in-chains`（`differ` ✓）与
+`c371-e2e-multi-source-merge`（`blocked` ✓）——**一起修能一次收两格** ✓。
+两条判据的台账都改写了 ✓（把三条路与实测一起写进去 ✓）。
+
+### 四、读数
+
+`pass` **1668 → 1668** ✗（这一轮没有推进覆盖度 ✓）、`blocked` **11 → 11** ✓、
+`differ` **33 → 33** ✓、**红的一栏 0** ✓、六道门 **30.5s 全绿** ✓、整体 **97.2%** ✓。
+
+**下一轮** ✓：按上面那条方向修 ✓；端到端还剩 **2 条 `blocked`** ✓
+（`observer-with-priority` 的 `class member ExpressionStatement` ✓ 与这一条 ✓）。
+
 ## 第 385 轮的账（**`!` 后面那一格被外层单元吞了** —— 根子量到了，这一轮没修成 ✗）
 
 用户口径不变 ✓。这一轮接第 384 轮结尾那张单子 ✓：端到端的 `multi-source-merge` 报
