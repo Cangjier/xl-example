@@ -6,6 +6,71 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 348 轮的账（**链式调用的那一处根子：查清了，没合上** —— 99.2% 持平，**没有收格**）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓——
+这一轮**只做到了「按根子」的前一半** ✗：**把根子钉死** ✓、**没把口子合上** ✗。
+**如实记在这里** ✓（连同两条**试过、都没生效**的路 ✓），免得下一轮重走 ✓。
+
+### 一、把上一轮缩到最小的那处缺口查到根子
+
+上一轮的最小重现（`c291-rt-closure-and-method-this` ✓）：
+
+```ts
+obj.get()();                 // 报 cannot call a non-closure value
+(obj.get())();               // 对（10）
+const f = obj.get(); f();    // 对
+```
+
+这一轮用**临时探针**（`LowerCall` 入口 ✓、`this.SourceText.slice(pos, end)` 筛短的那一条 ✓）
+把降级层当时看到的**节点原样打出来** ✓：
+
+```json
+PROBE text=a.get()() calleeKind=PropertyAccessExpression
+{"kind":"CallExpression",
+ "expression":{"kind":"PropertyAccessExpression",
+   "expression":{"kind":"Identifier","text":"a","pos":59,"end":60},
+   "name":{"kind":"Identifier","text":"","pos":61,"end":61},"pos":59,"end":61},
+ "arguments":[],"pos":59,"end":68}
+```
+
+**也就是说** ✓：`a.get()()` 被**投影层**投成了**一个** `CallExpression` ✓，
+被调方是 **`a.<空名字>`** ✓，而**内层那次 `a.get()` 整个丢了** ✗
+（既没有 `CallExpression` ✓、也没有实参那一段 ✓）。降级层拿到「空名字的成员访问」
+只能去查**空键** ✓ ⇒ 调用 `undefined` ✓。
+
+### 二、试过、都没生效的两条路（**账留着** ✓）
+
+- **(a) 在投影层点号链那一支给「`Method` 单元名字为空」加一版守卫** ✓
+  （投成 `CallExpression{expression: 前面那一段}` ✓）——**门全绿，但这条重现一点没变** ✗
+  ⇒ 那个空名字是**另一条支**造的 ✓，那一版是**死代码** ✓、**撤了** ✓；
+- **(b) 在降级层通用路把「空名字的 `PropertyAccess`」拆开当被调方** ✓——**也没生效** ✗：
+  `calleeKind` 是 `PropertyAccessExpression` ✓、走的是**成员那一支** ✓、**根本到不了通用路** ✗。
+
+**结论** ✗：**信息在投影层就丢了** ✓（内层那次调用**不在节点里** ✓），
+**降级层补不回来** ✗——根在 `typescript/print-ast-common.xl.md` 那条链上 ✓，
+而 **`cases:tsast` 抓不到它** ✗（语料里没有这种形状 ✓）。
+**上一轮那句「投影没错、问题在降级层」被这一轮推翻了** ✗（账已在进度表里改口 ✓）。
+
+### 三、下一轮从这里接（两条线索）
+
+- **(a)** 照这一轮的办法把探针挪到**投影层那几支的入口** ✓，
+  看 `a.get()()` 的 `Method` 单元**到底走的是哪一支** ✓
+  （链那一支的四个分支：`NotNull` ✓、私有名 ✓、`Method` ✓、默认成员 ✓）；
+- **(b)** **判据侧加一条语料**把这种形状钉进 `cases:tsast` ✓
+  （那边一比就知道投影对不对 ✓）——**比在运行期猜快得多** ✓。
+
+**读数** ✓：`pass` **1330 / 1343 = 99.2%** ✓（与上一轮持平 ✓）、**红的一栏 0** ✓、
+六道门 **30.1s 全绿** ✓。**剩下 13 格** ✓。
+
+**下一轮的入口** ✓：
+**① 上面那条线索** ✓（`cases:tsast` 加语料 + 探针挪到投影层 ✓）；
+**② 那张 `IdTable` 的容量口径** ✓（第 340 轮量到 ✓）；**③ `Map` / `Set` / `Date` 的 `size`
+该是原型上的 getter** ✓（第 341 轮 ✓）；**④ 错误对象的内部槽标记** ✓（第 343 轮 ✓）；
+**⑤ 零散** ✓（`thenable` 采纳 ✓、`Array.fromAsync` ✓、`console.log(Error)` 要栈 ✗、
+三元的箭头分支 ✓、`super` 在对象字面量里 ✓、宿主函数的 `length` ✓、
+`c291-rt-class-shapes` 的 `Object.getPrototypeOf(B) === A` ✓ 等 ✓）。
+
 ## 第 347 轮的账（**`delete` 不可配置的属性给 `false`** —— 99.1% → **99.2%**，收掉 1 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓。
