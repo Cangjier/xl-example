@@ -6,6 +6,62 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 359 轮的账（**可采纳对象（thenable）也要被采纳** —— 99.4% → **99.5%**，收掉 1 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮**三层都动了** ✓（引擎那一格 ✓、
+语言层那个号与判据 ✓、建库那一句登记 ✓）。
+
+### 一、那一格（`c305-std-thenable-adoption`）
+
+```ts
+async function f() { return { then(res: any) { res(42); } } as any; }
+f().then((v) => console.log("v", v));
+```
+
+**Node 给 `sync / v 42`** ✓、本仓原来给 `sync / v { then: [Function: then] }` ✗——
+**把 thenable 当普通值灌进去了** ✗。
+
+### 二、分工（与 `Symbol.hasInstance` 同一条分界）
+
+判据「有没有一格**可调的** `then`」要**读属性、还可能要调它** ✓，
+而**引擎不认识那个名字** ✗ ⇒ **引擎只负责「看到对象就问语言层一句」** ✓、
+语言层登记一个**能力号** ✓（与 `BoundCallId` **同形** ✓）：
+
+- **`vm.xl.md`**：`ThenableHookId` 那一格 ✓ + `RegisterThenableHook(id)` ✓ +
+  `ResolvePromise` 里那一档 ✓（**钩子返回真才停** ✓；**没登记时整段跳过** ✓、**行为一字不改** ✓）；
+- **`promise.xl.md`**：`PromiseThenableAdopt(257)` ✓ + `PromiseThenableStep` ✓
+  （读 `then` ✓、造两个结清回调 ✓、调它 ✓、**把抛接住变拒绝** ✓）——
+  两个回调借的是**现成的 `MakeSettleCallback`** ✓、**一个字的回调机关都没新写** ✓；
+- **`install.xl.md`**：`RegisterThenableHook(PromiseThenableAdopt)` ✓。
+
+### 三、实测撞的一次号（**值得记** ✗）
+
+第一版把新号写成 **249** ✓，正好与 **`PromiseTry`** 同号 ✗ ⇒ `Promise.try` 被分派到新那一格 ✓、
+**返回布尔假** ✓ ⇒ 调用方拿到的「承诺」是 `false` ✓ ⇒ 下一步 `p.then(...)` 报
+**`cannot call a non-closure value`** ✗（**一句话里没有一个字提到 `Promise.try`** ✗），
+**一次打红四格** ✗。**230..249 那一族已经一个不剩** ✗。改号到 **257** ✓，
+并给它**一条自己的分派** ✓（那条范围收不到它 ✓）。
+
+**静态检查当时没拦住** ✗：它认的是**指令表**（`Op` ✓），**语言层新加的常量不在里面** ✗。
+这一轮把这条补进 **`runtime:check`** ✓：`builtins` 里**同一个文件内**的 `# const …:int = N`
+**不许重复** ✓——第一版写成「builtins 全局不许重复」✗，一跑报了**四处误报** ✗
+（`InspectDepth = 2` 与 `ArrayPop = 2` 是**两码事** ✓），收到**同文件**之后 **0 误报** ✓，
+而**真正那次事故正是同文件** ✓（`promise.xl.md` 里两个 249 ✓）。
+
+**读数** ✓：`pass` **1334 → 1335** ✓、`differ` **3 → 2** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **33.9s 全绿** ✓；**引擎 99.1%** ✓、降级层 99.4% ✓、标准库 99.4% ✓、端到端 100% ✓。
+**剩下 8 格** ✓。
+
+### 四、下一轮的入口
+
+**① 嵌套命名空间** ✓（报错已带「`left is ModuleDeclaration at 19..65`」✓；根在投影层语句切分 ✓）；
+**② `Array.fromAsync`** ✓（**根本没有实现** ✗——它要等**异步迭代器** ✓，是承诺那一族的事 ✓；
+今天 `c323-std-array-fromasync` 的症状是**空输出** ✗，因为 async 里抛的错被吞成了拒绝 ✓）；
+**③ 错误要有 `stack`** ✓（IR 要带源码位置 ✓）；**④ 其余**（`IdTable` 容量口径 ✓、
+`Map`/`Set`/`Date` 的 `size` 该是原型 getter ✓、错误对象的内部槽标记 ✓、
+`super` 在对象字面量里 ✓、三元与链式调用两处已知缺口 ✓）。
+
 ## 第 358 轮的账（**步数预算从一百万抬到一千万** —— 99.4%，收掉 1 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
