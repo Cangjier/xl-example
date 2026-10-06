@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1339,
+  "matrix": 1340,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.22,
+  "progressPercent": 98.55,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 425,
-      "pass": 413,
+      "total": 426,
+      "pass": 415,
       "blocked": 9,
-      "differ": 3,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 97.18
+      "coverage": 97.42
     },
     {
       "layer": "exec",
@@ -69,11 +69,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 75,
-      "pass": 74,
+      "pass": 75,
       "blocked": 0,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 98.67
+      "coverage": 100
     }
   ],
   "blocked": [
@@ -182,12 +182,6 @@
       "detail": "stdout 不同：第 3 行：node «own,inherited» vs tsrun «own»"
     },
     {
-      "id": "c305-rt-for-await-of-promises",
-      "layer": "runtime",
-      "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
-      "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
-    },
-    {
       "id": "symbol-hasinstance",
       "layer": "stdlib",
       "title": "Symbol.hasInstance：自定义 instanceof",
@@ -222,12 +216,6 @@
       "layer": "stdlib",
       "title": "Array.fromAsync：异步可迭代对象收成数组",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
-    },
-    {
-      "id": "c338-e2e-async-queue-and-generators",
-      "layer": "e2e",
-      "title": "异步：微任务次序、异步生成器与 `for await`",
-      "detail": "stdout 不同：第 2 行：node «1,2,3 start,microtask,after-await,second-then,then7» vs tsrun «1,2,3 start»"
     }
   ],
   "bad": [],

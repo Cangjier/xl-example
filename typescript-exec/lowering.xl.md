@@ -3855,6 +3855,22 @@ this.PopScope();
 
 ```ts
 this.PushScope();
+// **`for await (… of …)` 的 `awaitModifier`** ✓（第 339 轮 ✓）：
+// TS 的 `ForOfStatement` 在 `for` 与 `(` 之间留了一个子节点 ✓（`foreach.xl.md` 记着它 ✓），
+// 而**这一步以前被丢掉了** ✗ ⇒ `for await` 走成了**同步**的 `for..of` ✓——
+// 症状是**次序**：JS 里每一轮至少让出一个微任务 ✓，所以
+// `for await` 之后的代码**永远排在**已经排好的微任务**后面** ✓；
+// 丢掉之后它**同步跑完** ✓（实测：`for await` 那个 IIFE 的日志印在模块那句
+// `console.log("sync")` **之前** ✗，而 Node 印在**之后** ✓——
+// 判据 `c338-e2e-async-queue-and-generators` ✓）。
+// **判据只问属性、不问 `Child`** ✗（**实测踩过一次** ✓）：第一版写成
+// `Child(node, "awaitModifier") !== null || …` ✓，而**每一个普通 `for..of` 都会在那里抛** ✗
+//（`Child` 对**不存在的子节点**是响亮地抛 ✓，不是给 `null` ✗）⇒ 那一刻**整片语料变成
+// `blocked`** ✓（实测：15 → **96** ✓、加权 98.2% → **86.2%** ✓）。
+// 投影层是**按需挂**这个属性的 ✓（`foreach.xl.md` 的 `props.awaitModifier` ✓），
+// 所以「有没有」问属性就够了 ✓。
+const modifier = node["awaitModifier"];
+const awaits = modifier !== undefined && modifier !== null;
 // **先把「要被迭代的值」交给语言层过一遍**（`get_iterator`，号段 700..799，第 111 轮补）：
 // 引擎只认**数组与生成器**，而 `Map`/`Set` 是语言层的对象——让引擎认识它们就反了分层 ✗。
 // 语言层这一步对数组与生成器**原样返回** ✓，对 `Map` 给 `[键, 值]` 对的数组 ✓（正是 JS 的形状），
@@ -3869,10 +3885,10 @@ this.Emit(Op.Move, iterableWindow + 1, iterableSource, -1, -1);
 this.EmitRt(RtOp.HostCall, iterableWindow, iterableWindow, 2);
 // 结果落在窗口第一格；退到它「之上」（参数那一格可以还回去了）。
 this.Release(iterableWindow + 1);
-this.LowerIterationLoop(iterableWindow, node);
+this.LowerIterationLoop(iterableWindow, node, awaits);
 ```
 
-## method LowerIterationLoop:(iterableSlot:int, node:AstNode)=>void
+## method LowerIterationLoop:(iterableSlot:int, node:AstNode, awaits:bool = false)=>void
 
 **`for..of` 与 `for..in` 共用的循环尾**：拿到一个「可迭代的东西」之后，剩下的完全一样。
 
@@ -3924,15 +3940,44 @@ const context = this.EnterLoop(true, start);
 //（`EmitPendingIteratorCloses` 扫的正是 `this.Loops` 上这一摞 ✓）。
 context.IteratorSlot = iteratorSlot;
 const pair = this.RtCall2(RtOp.IterNext, iteratorSlot, undefinedConst);
-const done = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(1));
+// **`for await` 的每一轮至少让出一个微任务** ✓（第 339 轮 ✓）：
+// `await` 一条**不是承诺的值**也照样推迟一个微任务 ✓（`ir.xl.md` 的 `await` 那一段写着 ✓），
+// 所以这里把 `iter_next` 的**那一对**与**每一项的值**各 `Await` 一次 ✓——
+// **次序**与 JS 对齐 ✓（每一轮两次让出 ✓），而**语义**不变 ✓
+//（不是承诺的值 `Await` 出来就是它自己 ✓）。
+//
+// **它必须排在 `GetIndex` 之前** ✓：`Await` 的结果要落进一格、后面读的是**那一格** ✓
+//（`await` 的兑现值不是原来那一格 ✓，见 `LowerAwait` ✓）。
+//
+// **不在 `async` 里就抛** ✓（与 `LowerAwait` 同一条）：
+// 放到运行期会把普通帧挂住 ✓，而调用者还在下面等 ✓——**整条链静默停住** ✗。
+let pairSlot = pair;
+if (awaits) {
+  if (!this.InAsync) {
+    throw new Error("unimplemented: for await outside an async function");
+  }
+  this.Emit(Op.Await, pair, -1, -1, -1);
+  pairSlot = this.Reserve(1);
+  this.Emit(Op.Resume, pairSlot, -1, -1, -1);
+}
+const done = this.RtCall2(RtOp.GetIndex, pairSlot, this.IntConst(1));
 // **极性**：`jump_if_false` 在条件为假时跳走。`done` 为真才该出去，
 // 所以要跳的是「非 done」——少了这个 `not`，循环会一直跑下去、越界读出 `undefined`，
 // 而报错出现在几十条指令之外（`0 + undefined`），**不是**在跳转那里。
 const running = this.RtCall1(RtOp.Not, done);
 const exitIndex = this.Here();
 this.Emit(Op.JumpIfFalse, running, 0, -1, -1);
-const value = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(0));
-this.BindForOfTarget(target, value);
+const value = this.RtCall2(RtOp.GetIndex, pairSlot, this.IntConst(0));
+// **每一项自己也要 `Await` 一次** ✓（第 339 轮 ✓）：JS 的 `for await` 里
+// 「`await` 迭代器给的下一对」与「`await` 那一项的值」**是两次让出** ✓
+//（`AsyncIteratorStep` 那两步 ✓）——一次都不让就会同步跑完 ✓（见上面那一段的账 ✓）。
+let boundValue = value;
+if (awaits) {
+  this.Emit(Op.Await, value, -1, -1, -1);
+  boundValue = this.Reserve(1);
+  this.Emit(Op.Resume, boundValue, -1, -1, -1);
+}
+this.BindForOfTarget(target, boundValue);
 this.LowerStatement(Child(node, "statement"));
 // `continue` 在这里落点：**下一轮的新环境也要建** ✓（否则 `continue` 就绕过了它 ✓）。
 context.ContinueTarget = this.Here();

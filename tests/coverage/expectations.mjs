@@ -25,7 +25,7 @@ export const EXPECTATIONS = {
   // 那一趟**跑了够多的微任务让 IIFE 完成** ✓，可 `queueMicrotask` / `after-await` / `then7`
   // **一个都没跑** ✗（Node 全跑了 ✓）。**下一步从这里查** ✓：驱动那一侧排空微任务的条件
   //（`DrainMicrotasks` ✓ 与宿主的事件循环那一圈 ✓），看它是不是**跑到「模块那一帧结束」就收手** ✓。
-  "c338-e2e-async-queue-and-generators": { expect: "differ", why: "**微任务队列没有排空完**：`queueMicrotask` / `await` 之后的续体 / `.then` 三个先排好的微任务，在「async 生成器 + `for await` 的 IIFE」跑完之后**一个都没执行**（Node 五个全跑：`start, microtask, after-await, second-then, then7`）——驱动那一侧排空微任务的条件要查（像是跑到「模块那一帧结束」就收手）" },
+  // **第 339 轮过了** ✓（这一行撤了 ✓）：`for await` 的每一轮真的让出微任务了 ✓——`awaitModifier` 以前被丢掉 ⇒ 走成了**同步**的 `for..of` ✓。
 
   // ===== 第 336 轮：加宽语料时**新量到**的缺口（1 条）=====
 
@@ -740,7 +740,7 @@ export const EXPECTATIONS = {
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
-  "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
+  // **第 339 轮过了** ✓（这一行撤了 ✓）：`for await` 的每一轮真的让出微任务了 ✓——`awaitModifier` 以前被丢掉 ⇒ 走成了**同步**的 `for..of` ✓。
   // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
   // **`c305-ex-static-computed-key-and-method` 第 323 轮也过了** ✓（同一处修 ✓，
   // 那一行撤了 ✓）：`static [KEY] = "c"` 那一格与实例字段那一条**共用同一段** ✓——

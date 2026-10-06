@@ -5219,4 +5219,32 @@ const arrowThis = { tag: "lex", run() { return (() => this.tag)(); } };
 console.log(arrowThis.run());
 `,
   },
+  // ===== 第 339 轮收编（1 条）=====
+  {
+    id: "c339-rt-for-await-defers-each-step",
+    title: "`for await` 的每一轮至少让出一次（次序对齐 JS）",
+    src: `
+const order: string[] = [];
+queueMicrotask(() => order.push("qm"));
+Promise.resolve().then(() => order.push("then"));
+async function* stream(): AsyncGenerator<number> {
+  for (let i = 1; i <= 2; i++) yield i;
+}
+(async () => {
+  const got: number[] = [];
+  for await (const v of stream()) {
+    got.push(v);
+    order.push("body" + v);
+  }
+  console.log("A", got.join(","), order.join(","));
+})();
+console.log("sync", order.join(","));
+const sync = [1, 2];
+(async () => {
+  const seen: number[] = [];
+  for await (const v of sync) seen.push(v * 10);
+  console.log("B", seen.join(","), order.join(","));
+})();
+`,
+  },
 ];
