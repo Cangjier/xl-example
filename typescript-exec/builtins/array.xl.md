@@ -512,11 +512,18 @@ if (id === ArrayIndexOf || id === ArrayLastIndexOf) {
   }
   if (id === ArrayLastIndexOf) {
     for (let i = from; i >= 0; i--) {
+      // **`indexOf` / `lastIndexOf` 跳过洞** ✗（第 376 轮 ✓）：JS 口径 ✓——
+      // `[1, , 3].indexOf(undefined)` 给 `-1` ✓（洞不算「有一个 `undefined`」✓），
+      // 而 `includes(undefined)` 给**真** ✓（它把洞当 `undefined` 看 ✓，第 213 轮就是那么写的 ✓）。
+      // **原来这里不判洞** ✗ ⇒ 读到洞里的 `undefined` ✓ ⇒ 返回那个下标 ✗
+      //（判据 `c371-rt-array-holes-everywhere` 的第四行：Node `-1`、本仓 `1` ✓）。
+      if (source.IsHole(i)) continue;
       if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromInt(i);
     }
     return Value.FromInt(-1);
   }
   for (let i = from; i < length0; i++) {
+    if (source.IsHole(i)) continue;
     if (RtCmpEqStrict(table, source.GetAt(i), needle).AsBool()) return Value.FromInt(i);
   }
   return Value.FromInt(-1);
@@ -776,9 +783,16 @@ if (id === ArrayFind || id === ArraySome || id === ArrayEvery || id === ArrayFin
   const backwards = id === ArrayFindLast || id === ArrayFindLastIndex;
   for (let step = 0; step < predicateTotal; step++) {
     const i = backwards ? predicateTotal - 1 - step : step;
-    // **洞不访问** ✓（第 210 轮 ✓，与 `forEach` / `map` 那一条同一处 ✓）：
-    // JS 的谓词族也**跳过洞** ✓（`[1, , 3].some(f)` 里 `f` 只被调 2 次 ✓）。
-    if (source.IsHole(i)) continue;
+    // **洞有两种口径，按方法分** ✗（第 376 轮修正 ✓）：
+    // `some` / `every` **跳过**洞 ✓（与 `forEach` / `map` / `filter` 同一条 ✓，
+    // 见第 210 轮那一条 ✓）；而 **`find` / `findIndex` / `findLast` / `findLastIndex` 要访问洞** ✓
+    //（JS 的口径 ✓：这四者的回调对**每一个下标**都被调用 ✓，洞读出来是 `undefined` ✓）。
+    //
+    // **原来四个都跳过** ✗ ⇒ `[1, , 3].findIndex((v) => v === undefined)` 给 `-1` ✓
+    //（Node 给 `1` ✓）——**静默错值** ✓，判据 `c371-stdlib-array-every-some-empty` /
+    // `c371-rt-array-holes-everywhere` 量的就是它 ✓。
+    const skipsHoles = id === ArraySome || id === ArrayEvery;
+    if (skipsHoles && source.IsHole(i)) continue;
     const item = source.GetAt(i);
     const answered = RtToBoolean(table, call(args[0], Value.Undefined(), [item, Value.FromInt(i), self])).AsBool();
     // **回调抛出就收摊** ✓（第 228 轮，与 `forEach` 那一条同一处口径 ✓）：
@@ -1243,8 +1257,22 @@ if (start < 0) start = start + length;
 if (start < 0) start = 0;
 if (start > length) start = length;
 let removeCount = length - start;
-if (args.length > 1) {
-  const asked = ToInt32Of(args[1]);
+// **一个实参都不给 ⇒ 什么都不删** ✗（第 376 轮 ✓）：JS 的口径是
+// 「`start` 没给 ⇒ 取 0 ✓；**`deleteCount` 没给** 且 **`start` 也没给** ⇒ 删 0 个」✓
+//（`[1, 2, 3].splice()` 返回 `[]` ✓、数组**原样不动** ✓）。
+// **只给一个实参是另一档** ✓：`splice(1)` 删到尾巴 ✓（那正是上面那个缺省的含义 ✓）。
+// **原来两档不分** ✗ ⇒ `splice()` 返回**全部**、并把数组**清空** ✓——
+// 而它看起来只是「函数没给参数」✓，**静默错值** ✓
+//（判据 `c371-stdlib-array-splice-return-and-argc` 量的就是这一格 ✓）。
+if (args.length === 0) {
+  removeCount = 0;
+} else if (args.length > 1) {
+  // **`deleteCount` 先过「缺省值」那一档** ✗（第 376 轮 ✓）：JS 走的是
+  // `ToIntegerOrInfinity` ✓ ⇒ `undefined` / `null` / `NaN` **都算 0** ✓
+  //（`[1, 2, 3].splice(1, undefined)` 返回 `[]` ✓、数组不动 ✓）。
+  // **直接交给 `ToInt32Of` 会抛** ✗（`unimplemented: arithmetic on a non-numeric operand` ✓）——
+  // 而 `splice(1, undefined)` 是真实代码里**很常见**的写法 ✓（参数透传时它常常是 `undefined` ✓）。
+  const asked = args[1].IsNullish() ? 0 : ToInt32Of(args[1]);
   removeCount = asked < 0 ? 0 : asked;
   if (removeCount > length - start) removeCount = length - start;
 }

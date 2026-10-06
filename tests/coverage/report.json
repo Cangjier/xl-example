@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1696,
+  "matrix": 1700,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.45,
+  "progressPercent": 96.7,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 492,
+      "pass": 493,
       "blocked": 1,
-      "differ": 9,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 98.01
+      "coverage": 98.21
     },
     {
       "layer": "exec",
@@ -63,12 +63,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 627,
-      "pass": 604,
-      "blocked": 1,
-      "differ": 22,
+      "total": 631,
+      "pass": 613,
+      "blocked": 0,
+      "differ": 18,
       "nodefail": 0,
-      "coverage": 96.33
+      "coverage": 97.15
     },
     {
       "layer": "e2e",
@@ -143,12 +143,6 @@
       "detail": "tsrun: 脚本抛出：cannot read properties of undefined"
     },
     {
-      "id": "c371-stdlib-error-families-and-fields",
-      "layer": "stdlib",
-      "title": "Error 家族：name / message / instanceof / cause",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: EvalError"
-    },
-    {
       "id": "c371-e2e-observer-with-priority",
       "layer": "e2e",
       "title": "观察者模式：优先级、退订、一次性监听",
@@ -203,12 +197,6 @@
       "layer": "runtime",
       "title": "instanceof 与原型替换、跨类判定",
       "detail": "stdout 不同：第 4 行：node «true true true» vs tsrun «false false false»"
-    },
-    {
-      "id": "c371-rt-array-holes-everywhere",
-      "layer": "runtime",
-      "title": "稀疏数组：洞在每一种方法下的命运",
-      "detail": "stdout 不同：第 4 行：node «1--3 -1 true» vs tsrun «1--3 1 true»"
     },
     {
       "id": "c371-rt-console-inspect-shapes",
@@ -271,28 +259,10 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: case conversion outside ASCII (there is no mapping table here)"
     },
     {
-      "id": "c371-stdlib-array-splice-return-and-argc",
-      "layer": "stdlib",
-      "title": "splice 的返回值与实参个数口径",
-      "detail": "stdout 不同：第 4 行：node «[] [1,2,3]» vs tsrun «[1,2,3] []»"
-    },
-    {
-      "id": "c371-stdlib-array-every-some-empty",
-      "layer": "stdlib",
-      "title": "every / some / filter / find 在空数组与洞上的口径",
-      "detail": "stdout 不同：第 4 行：node «undefined 1» vs tsrun «undefined -1»"
-    },
-    {
       "id": "c371-stdlib-array-iterator-aliases",
       "layer": "stdlib",
       "title": "values / keys / entries 与 Symbol.iterator 是同一件东西",
       "detail": "stdout 不同：第 2 行：node «true» vs tsrun «false»"
-    },
-    {
-      "id": "c371-stdlib-array-length-write-forms",
-      "layer": "stdlib",
-      "title": "length 的写：截断、放大成洞、非法值抛错",
-      "detail": "stdout 不同：第 3 行：node «RangeError» vs tsrun «Error»"
     },
     {
       "id": "c371-stdlib-object-values-entries-primitive",
@@ -371,12 +341,6 @@
       "layer": "stdlib",
       "title": "函数对象的 toString / name / length 三个内省口",
       "detail": "stdout 不同：第 3 行：node «m get g» vs tsrun «m »"
-    },
-    {
-      "id": "c371-stdlib-globals-uri-family",
-      "layer": "stdlib",
-      "title": "encodeURI / decodeURI / encodeURIComponent 的差别",
-      "detail": "退出码 node=0 tsrun=null"
     },
     {
       "id": "c371-stdlib-object-tostring-on-builtins",

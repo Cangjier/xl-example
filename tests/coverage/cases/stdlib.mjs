@@ -5688,5 +5688,27 @@ console.log(typeof Error.isError, Error.prototype.constructor === Error);
     "id": "c371-stdlib-string-pad-in-table",
     "title": "用 padEnd / padStart 对齐一列文本",
     "src": "const rows = [[\"id\", \"name\"], [\"1\", \"alice\"], [\"22\", \"bob\"]];\nfor (const [a, b] of rows) console.log(a.padStart(3) + \" | \" + b.padEnd(6) + \"|\");\nconsole.log(rows.map((r) => r[1].padEnd(8, \".\")).join(\"\"));\nconsole.log(\"header\".padEnd(10, \"=\"));"
+  },
+
+  // ===== 第 376 轮：给修好的形状补的判据（4 条）=====
+  {
+    "id": "c376-stdlib-error-families-seven",
+    "title": "七个错误族 + `decodeURIComponent` 抛出来的名字",
+    "src": "const errs = [new Error(\"e\"), new TypeError(\"t\"), new RangeError(\"r\"), new SyntaxError(\"s\"),\n  new ReferenceError(\"ref\"), new EvalError(\"ev\"), new URIError(\"u\")];\nconsole.log(\"A\", errs.map((e) => e.name).join(\",\"));\nconsole.log(\"B\", errs.map((e) => e instanceof Error).join(\",\"));\nconsole.log(\"C\", new TypeError(\"t\") instanceof TypeError, new TypeError(\"t\") instanceof RangeError);\nconsole.log(\"D\", new URIError(\"u\") instanceof URIError, new EvalError(\"e\") instanceof EvalError);\nconsole.log(\"E\", new URIError(\"x\").message, String(new EvalError(\"boom\")), new URIError(\"u\").constructor === URIError);\ntry { decodeURIComponent(\"%\"); } catch (e) { console.log(\"F\", (e as Error).name, (e as Error).message); }\ntry { decodeURIComponent(\"%zz\"); } catch (e) { console.log(\"G\", (e as Error).name); }\ntry { decodeURI(\"%\"); } catch (e) { console.log(\"H\", (e as Error).name); }\ntry { decodeURI(\"%E4%B8\"); } catch (e) { console.log(\"I\", (e as Error).name); }\nconsole.log(\"J\", decodeURIComponent(\"%E4%B8%AD\"), decodeURIComponent(\"a%20b\"), encodeURIComponent(\"\\u00e9\\u4e2d\"));"
+  },
+  {
+    "id": "c376-stdlib-array-holes-per-method",
+    "title": "洞按方法分：find 访问、some 跳过、indexOf 跳过、includes 算 undefined",
+    "src": "const holes: any[] = [1, , 3];\nconsole.log(\"A find\", holes.find((v) => v === undefined), \"findIndex\", holes.findIndex((v) => v === undefined));\nconsole.log(\"B findLast\", holes.findLast((v) => v === undefined), \"findLastIndex\", holes.findLastIndex((v) => v === undefined));\nconsole.log(\"C some\", holes.some((v) => v === undefined), \"every\", holes.every((v) => v !== undefined));\nlet calls = 0;\nholes.forEach(() => { calls += 1; });\nconsole.log(\"D forEach calls\", calls);\nconsole.log(\"E indexOf\", holes.indexOf(undefined), \"lastIndexOf\", holes.lastIndexOf(undefined), \"includes\", holes.includes(undefined));\nconsole.log(\"F join\", holes.join(\"-\"), \"length\", holes.length, \"in\", 1 in holes);"
+  },
+  {
+    "id": "c376-stdlib-splice-argument-forms",
+    "title": "`splice` 的实参个数口径：不给 / 给一个 / 给 undefined",
+    "src": "const a = [1, 2, 3, 4];\nconsole.log(\"A\", JSON.stringify(a.splice()), JSON.stringify(a));\nconst b = [1, 2, 3];\nconsole.log(\"B\", JSON.stringify(b.splice(1)), JSON.stringify(b));\nconst c = [1, 2, 3];\nconsole.log(\"C\", JSON.stringify(c.splice(1, undefined)), JSON.stringify(c));\nconst d = [1, 2, 3];\nconsole.log(\"D\", JSON.stringify(d.splice(1, 0, 9)), JSON.stringify(d));\nconst e = [1, 2, 3];\nconsole.log(\"E\", JSON.stringify(e.splice(-2)), JSON.stringify(e));\nconst f = [1, 2, 3];\nconsole.log(\"F\", JSON.stringify(f.splice(5)), JSON.stringify(f));\nconst g = [1, 2, 3];\nconsole.log(\"G\", JSON.stringify(g.splice(0, 99)), JSON.stringify(g));"
+  },
+  {
+    "id": "c376-stdlib-array-length-range",
+    "title": "`length` 的写：截断 / 放大成洞 / 非法值抛 RangeError",
+    "src": "const xs: any[] = [1, 2, 3, 4];\nxs.length = 2;\nconsole.log(\"A\", JSON.stringify(xs), xs.length);\nxs.length = 4;\nconsole.log(\"B\", JSON.stringify(xs), xs.length, 2 in xs);\ntry { xs.length = -1; } catch (e) { console.log(\"C\", (e as Error).name); }\ntry { xs.length = 1.5; } catch (e) { console.log(\"D\", (e as Error).name); }\ntry { xs.length = 4294967296; } catch (e) { console.log(\"E\", (e as Error).name); }\nconsole.log(\"F\", xs.length);\nconst obj: any = { length: 3 };\nconsole.log(\"G\", obj.length, Array.from({ length: 3 }, (_v, i) => i).join(\",\"));"
   }
 ];

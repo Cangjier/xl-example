@@ -1062,8 +1062,6 @@ export const EXPECTATIONS = {
   "c371-rt-instanceof-and-prototype": { expect: "differ", why: "换掉 `C.prototype` 之后 `instanceof` 的判定（Node 给 `true true true`）。" },
 
   // ---- `findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。
-  "c371-rt-array-holes-everywhere": { expect: "differ", why: "`findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。" },
-  "c371-stdlib-array-every-some-empty": { expect: "differ", why: "`findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。" },
 
   // ---- `console.log(class C {})` 的标签应当是 `[class C]` 而不是 `[Function: C]`。
   "c371-rt-console-inspect-shapes": { expect: "differ", why: "`console.log(class C {})` 的标签应当是 `[class C]` 而不是 `[Function: C]`。" },
@@ -1083,13 +1081,11 @@ export const EXPECTATIONS = {
   "c371-stdlib-string-case-forms": { expect: "differ", why: "非 ASCII 的大小写转换要一张映射表（本仓只有 ASCII ⇒ 直接报 `unimplemented`）。" },
 
   // ---- `splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。
-  "c371-stdlib-array-splice-return-and-argc": { expect: "differ", why: "`splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。" },
 
   // ---- `xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。
   "c371-stdlib-array-iterator-aliases": { expect: "differ", why: "`xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。" },
 
   // ---- `xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。
-  "c371-stdlib-array-length-write-forms": { expect: "differ", why: "`xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。" },
 
   // ---- `Object.keys / values / entries` 落在**字符串**上（本仓报 `needs an object`）。
   "c371-stdlib-object-values-entries-primitive": { expect: "differ", why: "`Object.keys / values / entries` 落在**字符串**上（本仓报 `needs an object`）。" },
@@ -1121,7 +1117,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-symbol-species-and-hasinstance": { expect: "differ", why: "`MyArray[Symbol.species] === MyArray`（物种那一格的缺省值）。" },
 
   // ---- `EvalError` 这个全局名不在那儿。
-  "c371-stdlib-error-families-and-fields": { expect: "blocked", why: "`EvalError` 这个全局名不在那儿。" },
 
   // ---- `Object.prototype.propertyIsEnumerable` 不在那儿。
   "c371-stdlib-error-print-and-types": { expect: "differ", why: "错误对象上的 `name` 在本仓是**自有、不可枚举**的一格 ✗（Node 把它放在 `Error.prototype` 上 ✓）⇒ `e.name = \"Custom\"` 之后 `e.propertyIsEnumerable(\"name\")` 答**假** ✓（Node 答真 ✓，因为那一写建出的是一个新的自有可枚举属性 ✓）。`propertyIsEnumerable` 本身已经装上了 ✓（上半条对 ✓），差的是**错误对象的形状** ✓。" },
@@ -1136,7 +1131,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-function-tostring-and-name": { expect: "differ", why: "访问器函数的 `name`：`getOwnPropertyDescriptor(o, \"g\").get.name` 应当是 `get g`。" },
 
   // ---- `encodeURI` 族在某一条上**挂住不返回**（退出码 `null` ⇒ 被 30s 超时杀掉）。
-  "c371-stdlib-globals-uri-family": { expect: "differ", why: "`encodeURI` 族在某一条上**挂住不返回**（退出码 `null` ⇒ 被 30s 超时杀掉）。" },
 
   // ---- `String(new Date(0))` 要渲染**本地时间**（本仓明确不做）。
   "c371-stdlib-object-tostring-on-builtins": { expect: "differ", why: "`String(new Date(0))` 要渲染**本地时间**（本仓明确不做）。" },

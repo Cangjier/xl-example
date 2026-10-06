@@ -917,8 +917,14 @@ return out;
 吐回去的是**大写十六进制** ✓（JS 原样保留输入里那两个字符的大小写 ✗，本仓统一大写 ✓，
 **写在明处** ✓：`decodeURI("%2f")` 在 JS 里是 `"%2f"` ✓、这里是 `"%2F"` ✓）。
 
-**坏输入响亮地抛** ✓（JS 抛 `URIError` ✓）：本仓**没有** `URIError` 那一族 ✗，
-所以抛的是一个普通 `Error` 并**点名** ✓（编一个「看起来像对的」答案是静默错值 ✗）。
+**坏输入响亮地抛** ✓（JS 抛 `URIError` ✓）——**第 376 轮起抛的就是真的 `URIError`** ✓：
+那一族原来**不存在** ✗（`props.xl.md` 那一格写着「等有判据了再补」✓），
+所以这里原来抛一个普通 `Error` 并点名 ✓（编一个「看起来像对的」答案是静默错值 ✗）。
+判据来了 ✓（`c371-stdlib-globals-uri-family` 量 `e.name` ✓），于是那一族补上了 ✓、
+这里换成 `throw new URIError(…)` ✓——**消息照 JS** ✓（`"URI malformed"` ✓），
+而「宿主类 → 脚本族」那一步在 `install.xl.md` 里做 ✓（内建这边只管抛**宿主的**那个类 ✓）。
+**同一轮还修了这里的死循环** ✗（`decodeURIComponent("%")` 原来**转不动** ✓，
+见下面 `bytes.length === 0` 那一句 ✓）。
 
 ```ts
 const units = JsTextUnits(table, value);
@@ -937,10 +943,22 @@ while (i < units.length) {
     const high = UriHex(units[j + 1]);
     const low = UriHex(units[j + 2]);
     if (high < 0 || low < 0) {
-      throw new Error("unimplemented: malformed percent-encoding (JS throws URIError)");
+      throw new URIError("URI malformed");
     }
     bytes.push(high * 16 + low);
     j += 3;
+  }
+  // **一个完整的 `%XX` 都没读到 ⇒ 坏输入，响亮地抛** ✗（第 376 轮 ✓）。
+  //
+  // **少了这一条是死循环** ✗（不是错值 ✓，是**转不动** ✓）：`decodeURIComponent("%")` 里
+  // `j + 2 < units.length` 当场为假 ✓ ⇒ 上面那个 `while` **一次都不进** ✓ ⇒ `bytes` 空 ✓ ⇒
+  // 解码那一段也整段跳过 ✓ ⇒ 最后 `i = j` 里 `j` **还是 `i`** ✗ ⇒ 外层 `while` 原地打转 ✓。
+  // **实测**：`tsrun` 跑 `decodeURIComponent("%")` **不返回** ✓（被判据的 30s 超时杀掉 ✓，
+  // 报告里那一格是「退出码 `null`」✓）——而这一条**拖慢了整轮判据** ✗：
+  // 它让所在那一批被超时杀掉 ✓、单条重跑再花 30s ✓（第 371 轮的账里记着这件事 ✓）。
+  // **同族的 `"a%"` / `"abc%2"` 全是同一个形状** ✓（都是「有 `%`、后面不够两位」✓）。
+  if (bytes.length === 0) {
+    throw new URIError("URI malformed");
   }
   let k = 0;
   while (k < bytes.length) {
@@ -959,15 +977,15 @@ while (i < units.length) {
       code = lead - 240;
       need = 3;
     } else {
-      throw new Error("unimplemented: malformed UTF-8 in percent-encoding (JS throws URIError)");
+      throw new URIError("URI malformed");
     }
     if (k + need >= bytes.length) {
-      throw new Error("unimplemented: truncated UTF-8 in percent-encoding (JS throws URIError)");
+      throw new URIError("URI malformed");
     }
     for (let n = 1; n <= need; n++) {
       const follow = bytes[k + n];
       if (follow < 128 || follow >= 192) {
-        throw new Error("unimplemented: malformed UTF-8 in percent-encoding (JS throws URIError)");
+        throw new URIError("URI malformed");
       }
       code = code * 64 + (follow - 128);
     }
@@ -1712,6 +1730,25 @@ JS 的口径就是**返回它自己** ✓，所以这一支也只做「把 `self
 
 # const AggregateErrorCtor:int = 327
 
+# const URIErrorCtor:int = 375
+
+# const EvalErrorCtor:int = 376
+
+**`URIError` / `EvalError`**（第 376 轮 ✓）——号**追加在表尾** ✓（`372..374` 给数学那三格 ✓，
+而 `301..371` 那一段全是别的族 ✓）。**`326` / `327` 是第 295 轮那两格** ✓，挨着看的 ✓。
+
+**它们是「等有判据了再补」那条规矩的第二个例子** ✓：第 277 轮 `props.xl.md` 那一格明写着
+「剩下三个名字没有判据 ✓，先不占名字」✓——第 376 轮判据来了 ✓
+（`c371-stdlib-error-families-and-fields` 一次量七个族 ✓，
+`c371-stdlib-globals-uri-family` 量的是 `decodeURIComponent("%")` **抛出来的名字** ✓），
+于是照规矩补上 ✓。**七族齐了** ✓。
+
+**`URIError` 与另外六族有一处不同** ✗：**它是被内建自己抛出来的** ✓
+（`DecodePercent` 那一支 ✓）——所以它除了「能 `new` 出来」✓，还要在
+`install.xl.md` 那条**宿主异常 → 脚本族**的映射里占一格 ✓（否则脚本 `catch` 到的是 `Error` ✗）。
+`EvalError` 反过来 ✓：本仓没有 `eval` ✓（非目标清单 ✓），
+**没有任何内建会抛它** ✓——它存在的意义就是「`new EvalError(…)` 通、`instanceof` 对」✓。
+
 **`AggregateError(内层数组, 消息?)`**（第 295 轮 ✓）——号**追加在表尾** ✓。
 
 **它与其余几个只差一格** ✓：第一个实参是**内层那个数组** ✓（挂成不可枚举的 `errors` ✓），
@@ -2016,6 +2053,11 @@ return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"
   // `WeakMap` ✓ / `WeakSet` ✓）——**名单与 `BuildGlobals` 是同一份约定** ✓，
   // 四条都**两边一起**加了 ✓（少一边就是「声明了却没提供」✗，判据里量着这一条 ✓）。
   "ReferenceError", "AggregateError", "WeakMap", "WeakSet",
+  // **第 376 轮补的两个名字** ✓（`URIError` ✓ / `EvalError` ✓）——**名单与 `BuildGlobals`
+  // 是同一份约定** ✓，两边一起加 ✓（少一边就是「声明了却没提供」✗，判据里量着这一条 ✓）。
+  // **它们拖着的两条判据** ✓：`c371-stdlib-error-families-and-fields`（七族一起量 ✓）与
+  // `c371-stdlib-globals-uri-family`（`decodeURIComponent("%")` 抛出来的**名字** ✓）。
+  "URIError", "EvalError",
   // **第 332 轮补的一个名字** ✓（`queueMicrotask` ✓）——**名单与 `BuildGlobals` 是同一份约定** ✓，
   // 两边一起加 ✓（少一边就是「声明了却没提供」✗）。
   // **它的号落在承诺那一段的尾巴上** ✗（`promise.xl.md` 的 `PromiseQueueMicrotask = 250` ✓）——
@@ -3023,7 +3065,12 @@ if (id === ErrorIsError) {
   return Value.FromBool(RtChainHas(table, args[0], protos.Error));
 }
 if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === SyntaxErrorCtor
-  || id === ReferenceErrorCtor) {
+  || id === ReferenceErrorCtor
+  // **第 376 轮补的两族** ✓（`URIError` / `EvalError` ✓）——**七个号共用这一支** ✓
+  //（第 137 轮三个 ✓、第 277 轮加 `SyntaxError` ✓、第 295 轮加 `ReferenceError` ✓）：
+  // 它们只差**原型**与**名字** ✓（两样都由 `ErrorCtorProto` / `ErrorCtorName` 各自回答 ✓），
+  // 复制七份的下场是「改了一处忘了一处」✗（而症状上面那一段写着：一半错、一半对 ✓）。
+  || id === URIErrorCtor || id === EvalErrorCtor) {
   // **`new Error(msg)` 与 `Error(msg)` 同一支**（号相同、两条调用路都落到这里）✓。
   // **四个号共用一支**（第 137 轮三个、第 277 轮加 `SyntaxError` ✓）：
   // 它们只差**原型**与**名字** ✓——复制四份的下场是「改了一处忘了一处」✗
@@ -4380,6 +4427,9 @@ if (id === TypeErrorCtor) return "TypeError";
 if (id === RangeErrorCtor) return "RangeError";
 if (id === SyntaxErrorCtor) return "SyntaxError";
 if (id === ReferenceErrorCtor) return "ReferenceError";
+// **第 376 轮补的两族** ✓（`URIError` / `EvalError` ✓）——与上面四行一字不差 ✓。
+if (id === URIErrorCtor) return "URIError";
+if (id === EvalErrorCtor) return "EvalError";
 return "Error";
 ```
 
@@ -4396,6 +4446,9 @@ if (id === TypeErrorCtor) return protos.TypeError;
 if (id === RangeErrorCtor) return protos.RangeError;
 if (id === SyntaxErrorCtor) return protos.SyntaxError;
 if (id === ReferenceErrorCtor) return protos.ReferenceError;
+// **第 376 轮补的两族** ✓（`URIError` / `EvalError` ✓）——与上面四行一字不差 ✓。
+if (id === URIErrorCtor) return protos.URIError;
+if (id === EvalErrorCtor) return protos.EvalError;
 return protos.Error;
 ```
 
@@ -5754,6 +5807,20 @@ const aggregateErrorKey = Value.FromString(table.CreateString(Units("AggregateEr
 const aggregateErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(AggregateErrorCtor, 0));
 SetProperty(vm.Room(), NeverCall, table, globals, aggregateErrorKey, aggregateErrorTarget);
 vm.RegisterConstructorProto(AggregateErrorCtor, protos.AggregateError);
+// **`URIError` / `EvalError` 两格**（第 376 轮 ✓）：挂全局名 ✓、登记原型 ✓——
+// 与上面那四条一字不差 ✓。**原型上的 `name` / `message` / `constructor` 三格**在下面 ✓。
+// **`URIError` 那一格是「真的会被抛出来」的** ✗（另外六族里除了 `SyntaxError` 都是「只由脚本造」✓）：
+// 它还要在 `install.xl.md` 那条宿主异常 → 脚本族的映射里占一格 ✓
+//（`DecodePercent` 抛的是**宿主的** `URIError` ✓，映射在那一侧做 ✓——与第 277 轮
+// 「内建那边一个字都不用改」是同一条做法 ✓）。
+const uriErrorKey = Value.FromString(table.CreateString(Units("URIError")));
+const uriErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(URIErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, uriErrorKey, uriErrorTarget);
+vm.RegisterConstructorProto(URIErrorCtor, protos.URIError);
+const evalErrorKey = Value.FromString(table.CreateString(Units("EvalError")));
+const evalErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(EvalErrorCtor, 0));
+SetProperty(vm.Room(), NeverCall, table, globals, evalErrorKey, evalErrorTarget);
+vm.RegisterConstructorProto(EvalErrorCtor, protos.EvalError);
 // **`WeakMap` / `WeakSet`**（第 295 轮 ✓）：**值就是 `Map` / `Set` 那两个构造** ✓——
 // 本仓**没有弱引用那一档** ✗（回收器不认「弱」这个属性 ✓），
 // 而它们拖着的两条判据只量 `set` / `get` / `has` / `delete` / `add` ✓——
@@ -5839,6 +5906,21 @@ SetProperty(vm.Room(), NeverCall, table, aggregateErrorProtoValue, NameValue(tab
 SetProperty(vm.Room(), NeverCall, table, aggregateErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, aggregateErrorProtoValue, NameValue(table, "constructor"), aggregateErrorTarget);
+// **`URIError.prototype` / `EvalError.prototype` 上的同名三格**（第 376 轮 ✓）——
+// **一字不差地照上面那五族写** ✓。**`toString` 同样不必再挂一份** ✓（挂在 `Error.prototype` 上 ✓，
+// 而这两格的原型链都接着它 ✓）。
+const uriErrorProtoValue = Value.FromObject(protos.URIError);
+SetProperty(vm.Room(), NeverCall, table, uriErrorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("URIError"))));
+SetProperty(vm.Room(), NeverCall, table, uriErrorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetHiddenProperty(vm.Room(), table, uriErrorProtoValue, NameValue(table, "constructor"), uriErrorTarget);
+const evalErrorProtoValue = Value.FromObject(protos.EvalError);
+SetProperty(vm.Room(), NeverCall, table, evalErrorProtoValue, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("EvalError"))));
+SetProperty(vm.Room(), NeverCall, table, evalErrorProtoValue, NameValue(table, "message"),
+  Value.FromString(table.CreateString(Units(""))));
+SetHiddenProperty(vm.Room(), table, evalErrorProtoValue, NameValue(table, "constructor"), evalErrorTarget);
 
 // **`Array` 是一个普通对象**（与 `Math` / `Date` 同款 ✓），上面只挂**静态方法** `isArray` ✓
 // （第 123 轮）。

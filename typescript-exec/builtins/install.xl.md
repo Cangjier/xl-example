@@ -1026,6 +1026,15 @@ try {
     // 照旧写 `throw new SyntaxError(…)` ✓（**宿主的**那个类 ✓），映射在这里做 ✓。
     failedProto = protos.SyntaxError;
     failedName = "SyntaxError";
+  } else if (error instanceof URIError) {
+    // **`URIError` 是第 376 轮加的第四族** ✓——它与上面三族**同一个形状** ✓：
+    // 内建那边**一个字都不用改** ✓（`globals.xl.md` 的 `DecodePercent` 照旧
+    // `throw new URIError(…)` ✓，那是**宿主的**那个类 ✓），映射在这里做 ✓。
+    // **为什么它必须先有这一格** ✗：`decodeURIComponent("%")` 在 JS 里抛的是 `URIError` ✓，
+    // 而脚本那一侧 `catch (e) { console.log(e.name) }` 是**日常写法** ✓
+    //（判据 `c371-stdlib-globals-uri-family` 量的就是它 ✓：原来印出 `Error` ✗）。
+    failedProto = protos.URIError;
+    failedName = "URIError";
   }
   machine.Raise(NewErrorLike(machine.Room(), machine.Table, protos, failedProto, failedName,
     HostErrorText(error)));

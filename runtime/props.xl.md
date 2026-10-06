@@ -173,12 +173,28 @@ this.Index = index;
 **它在这一层就是一个空原型** ✓（与那三条一样 ✓）：`name` / `message` / `constructor`
 三格由建库层挂 ✓（`globals.xl.md` ✓），这一层只管造一个空对象并**把链接到 `Error.prototype`** ✓。
 
-**剩下两个名字没补** ✗（`URIError` / `EvalError` ✓）：
-它们今天**没有判据** ✓（矩阵里没有一条量它们 ✓），而「加一格」的成本在这一层是**四处** ✓
-（字段 ✓ + 根 ✓ + 建对象 ✓ + 接链 ✓，再加建库层那三格 ✓）——
-所以按这一层的规矩：**等有判据了再补** ✓，而不是先把名字占了 ✗
-（`GlobalNames` 那张名单与 `BuildGlobals` 是**同一份约定** ✓，
-名单里有、没挂 ⇒ 「声明了却没提供」✗，判据里量着这一条 ✓）。
+**剩下两个名字**（`URIError` / `EvalError` ✓）**第 376 轮补上了** ✓——
+判据来了 ✓（`c371-stdlib-error-families-and-field` 一次量七个族 ✓、
+`c371-stdlib-globals-uri-family` 量的是 `decodeURIComponent("%")` 抛出来的名字 ✓）。
+**与上一条同一句规矩** ✓：名单里有、没挂 ⇒ 「声明了却没提供」✗，所以「等有判据了再补」✓。
+
+## field URIError:int = 0
+
+**`URIError` 的原型**（第 376 轮 ✓）——链与上面几条一字不差 ✓。
+
+**它是「抛出来的那一族」** ✗（不只是「能 new 出来」✓）：`decodeURIComponent("%")` 在 JS 里抛的
+正是 `URIError` ✓，而本仓原来抛一个**普通 `Error`** ✗——症状是脚本里
+`catch (e) { console.log(e.name) }` 印出 `Error` ✓（判据 `c371-stdlib-globals-uri-family` 量的就是它 ✓）。
+**它还有一个副产品** ✗：那一族**原来在 `DecodePercent` 里是死循环** ✓（第 376 轮一起修的 ✓，
+见 `globals.xl.md` 那一段 ✓）。
+
+## field EvalError:int = 0
+
+**`EvalError` 的原型**（第 376 轮 ✓）——链与上面几条一字不差 ✓。
+
+**它是七族里唯一「只由脚本造」的一个** ✓：本仓没有 `eval` ✓（非目标清单里 ✓），
+所以没有任何内建会抛它 ✓——`new EvalError("e")` 与 `e instanceof EvalError` 是它的全部用途 ✓
+（而那正是判据量的两件事 ✓）。
 
 ## field ReferenceError:int = 0
 
@@ -302,6 +318,11 @@ if (this.RangeError > 0) roots.AddHandle(this.RangeError);
 if (this.SyntaxError > 0) roots.AddHandle(this.SyntaxError);
 if (this.ReferenceError > 0) roots.AddHandle(this.ReferenceError);
 if (this.AggregateError > 0) roots.AddHandle(this.AggregateError);
+// **第 376 轮补的两族** ✓（`URIError` / `EvalError` ✓）——与上面几行一字不差 ✓。
+// **根集漏一格的症状是「看着对、偶尔不对」** ✗：那一格会被回收器当成不可达 ✓，
+// 而它偏偏还是 `e instanceof URIError` 要用的那一格 ✓ ⇒ 报出来的错与现场无关 ✗。
+if (this.URIError > 0) roots.AddHandle(this.URIError);
+if (this.EvalError > 0) roots.AddHandle(this.EvalError);
 if (this.Map > 0) roots.AddHandle(this.Map);
 if (this.Set > 0) roots.AddHandle(this.Set);
 if (this.Date > 0) roots.AddHandle(this.Date);
@@ -330,15 +351,16 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 `Error.prototype` ✓（JS 里就是如此 ✓）——所以 `e instanceof Object` 与
 `new TypeError() instanceof Error` 都成立 ✓。
 **这几个成员共用「报错对象的原型」这一件事** ✓，所以 `/ 13` 那个上界跟着
-第 277 轮变成 `/ 14` ✓、第 295 轮变成 **`* 16`** ✓
-——**这个数是手写的** ✗（`ObjectCharge * 16` ✓），改成员数时**两处都要改** ✓
+第 277 轮变成 `/ 14` ✓、第 295 轮变成 **`* 16`** ✓、**第 376 轮变成 `* 18`** ✓
+（`URIError` / `EvalError` 两格 ✓）——**这个数是手写的** ✗（`ObjectCharge * 18` ✓），
+改成员数时**两处都要改** ✓
 （少改一处就是「房间问少了」✓：`CreateObject` 自己**不做房间检查** ✗）。
 **`Map` / `Set` / `Date` 三格接在 `Object.prototype` 上** ✓（第 138 轮 ✓）。
 **`Number` / `Boolean` 两格也是** ✓（第 150 轮 ✓）——它们与 `String` 那一格同一个用途 ✓：
 **原始值接收者的方法从这里找** ✓（`(1.5).toFixed(2)` ✓、`true.toString()` ✓）。
 
 ```ts
-if (!room(ObjectCharge * 16)) {
+if (!room(ObjectCharge * 18)) {
   throw new Error("out of room");
 }
 const protos = new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
@@ -369,6 +391,12 @@ protos.ReferenceError = table.CreateObject();
 table.Get(protos.ReferenceError).Proto = protos.Error;
 protos.AggregateError = table.CreateObject();
 table.Get(protos.AggregateError).Proto = protos.Error;
+// **第 376 轮补的两格** ✓（`URIError` / `EvalError` ✓）——链与上面几条一字不差 ✓
+//（JS 里这两个也直接继承 `Error.prototype` ✓）。
+protos.URIError = table.CreateObject();
+table.Get(protos.URIError).Proto = protos.Error;
+protos.EvalError = table.CreateObject();
+table.Get(protos.EvalError).Proto = protos.Error;
 // **`Map` / `Set` / `Date` 三格**（第 138 轮）：它们直接接在 `Object.prototype` 上 ✓
 // （JS 里 `Map.prototype` 的原型就是 `Object.prototype` ✓），
 // 于是 `new Map() instanceof Object` 也成立 ✓。
@@ -751,8 +779,20 @@ bug 的形状**。原型那一格只有在「直接对原型对象赋值」时�
 
 ```ts
 if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
-  if (!value.IsNumber()) throw new Error("unimplemented: array length must be a number");
-  table.Get(receiver.Ref).AsArray().Truncate(value.AsInt());
+  if (!value.IsNumber()) throw new RangeError("Invalid array length");
+  // **`length` 的取值范围也要判** ✗（第 376 轮 ✓）——`Array.prototype.length` 是一个
+  // **合法的数组下标**（`0 .. 2^32 - 1` ✓）：
+  // `xs.length = -1` / `xs.length = 1.5` 在 JS 里都抛 **`RangeError: Invalid array length`** ✓
+  //（判据 `c371-stdlib-array-length-write-forms` 量的就是这两格 ✓）。
+  // **原来直接交给 `Truncate`** ✗ ⇒ 抛出来的是宿主的一个普通 `Error` ✓ ⇒ 脚本里
+  // `e.name` 给 `"Error"` ✓（Node 给 `"RangeError"` ✓）——**抛**是对的 ✓、**族**不对 ✗。
+  // **`RangeError` 这个族第 137 轮就在** ✓，只是没人从这里抛它 ✓。
+  const asked = value.AsInt();
+  if (asked < 0 || value.AsDouble() !== value.AsDouble()
+    || value.AsDouble() !== Math.floor(value.AsDouble()) || value.AsDouble() > 4294967295) {
+    throw new RangeError("Invalid array length");
+  }
+  table.Get(receiver.Ref).AsArray().Truncate(asked);
   table.Recount(receiver.Ref);
   return true;
 }
