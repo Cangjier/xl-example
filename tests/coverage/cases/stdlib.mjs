@@ -4336,4 +4336,12 @@ console.log(xs.toSpliced(1, 1, 9).join(","), xs.with(0, 7).join(","), xs.join(",
     title: "三族包装对象的形状：`typeof` / `valueOf` / 下标 / `Object.keys` / `JSON`",
     src: "\nconst s: any = new String(\"ab\");\nconsole.log(s.length, s[0], s[1], Object.keys(s).join(\",\"));\nconsole.log(typeof s, s.valueOf(), s.toString(), s.toUpperCase());\nconst n: any = new Number(5);\nconsole.log(typeof n, n.valueOf(), n + 1, n.toFixed(1));\nconst b: any = new Boolean(false);\nconsole.log(typeof b, b.valueOf(), String(b), b + \"\");\nconsole.log(JSON.stringify(n), JSON.stringify(b), JSON.stringify(s));\n",
   },
+
+  // ===== 第 311 轮：百分号编解码与 trim 的非 ASCII 那一批 =====
+
+  {
+    id: "c311-std-percent-encoding-edges",
+    title: "百分号编解码的边界：代理对 · 保留字符 · 非 ASCII 空白",
+    src: "\nconsole.log(encodeURIComponent(\"😀\"), decodeURIComponent(\"%F0%9F%98%80\"));\nconsole.log(decodeURI(\"%2F\"), decodeURIComponent(\"%2F\"));\nconsole.log(encodeURI(\"http://x/y z\"), encodeURIComponent(\"\\u00a0|\\u3000\"));\nconsole.log(JSON.stringify(\"\\u00a0x\\u00a0\".trim()), JSON.stringify(\"\\u3000y\".trim()), JSON.stringify(\"\\ufeffz\".trim()));\n",
+  },
 ];

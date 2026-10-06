@@ -477,18 +477,30 @@ if (id === StringToUpperCase || id === StringToLowerCase) {
   return Value.FromString(table.CreateString(out));
 }
 if (id === StringTrim || id === StringTrimStart || id === StringTrimEnd) {
-  // **只做 ASCII 空白**（9 / 10 / 11 / 12 / 13 / 32）✓，理由与大小写那一条一模一样 ✓：
-  // 扫到**边缘**是 > 127 的码元时**抛** ✓——它可能就是 JS 要裁掉的
-  // `U+00A0` / `U+2028` 那一类空白，而这一层认不出来 ✗。
+  // **JS 要裁的那张表是标准定死的** ✓（第 311 轮补全 ✓）。原来这里**只认 ASCII 六格**
+  // （9 / 10 / 11 / 12 / 13 / 32 ✓）、扫到 > 127 的边缘码元就**抛** ✓——
+  // 那是「认不出来就不猜」✓ 的写法 ✓，可这张表**根本不用猜** ✗：
+  // `WhiteSpace` + `LineTerminator` 的名单是规范里写着的 ✓（`String.prototype.trim`
+  // 的「white space」= **WhiteSpace ∪ LineTerminator** ✓）。
   //
-  // **第 275 轮把三个半边收成一支** ✓（`trim` / `trimStart` / `trimEnd` ✓）：
-  // 三个只差「从哪一头裁」✓，而上面那条纪律与那张空白表**两样都长在这一支里** ✗——
-  // 抄成三份就是三处会漂的答案 ✓，而漂了的症状是「有一头**静默**少裁了一个字符」✗。
+  // **两半** ✓：`WhiteSpace` = TAB(9) ✓ VT(11) ✓ FF(12) ✓ SP(32) ✓ NBSP(U+00A0) ✓
+  // ZWNBSP(U+FEFF) ✓ 以及 **Unicode 的 `Zs`**（U+1680 ✓、U+2000..U+200A ✓、
+  // U+202F ✓、U+205F ✓、U+3000 ✓）；`LineTerminator` = LF(10) ✓ CR(13) ✓
+  // LS(U+2028) ✓ PS(U+2029) ✓。
+  //
+  // **`Zs` 那一段写成区间** ✓（U+2000..U+200A 是连续十个 ✓）——逐个列出来更容易漏 ✓，
+  // 而漏一个的症状是「那一格**静默**没裁掉」✗（判据 `c305-std-string-trim-unicode-space` ✓：
+  // `"\u00a0x\u00a0".trim()` ✓ 与 `"\u3000y".trim()` ✓）。
+  // **那张名单里没有任何东西需要问宿主** ✓：它是规范里的**字面表** ✓，
+  // 与「大小写要 Unicode 表」是两回事 ✗（后者是一张巨大的映射表 ✓，前者是二十来个码元 ✓）。
+  const blank = (unit: number): boolean => {
+    if (unit === 32 || unit === 9 || unit === 10 || unit === 11 || unit === 12 || unit === 13) return true;
+    if (unit === 0xa0 || unit === 0xfeff || unit === 0x1680) return true;
+    if (unit === 0x2028 || unit === 0x2029 || unit === 0x202f || unit === 0x205f || unit === 0x3000) return true;
+    return unit >= 0x2000 && unit <= 0x200a;
+  };
   const trimFront = id !== StringTrimEnd;
   const trimBack = id !== StringTrimStart;
-  const blank = (unit: number): boolean => {
-    return unit === 32 || unit === 9 || unit === 10 || unit === 11 || unit === 12 || unit === 13;
-  };
   let start = 0;
   let end = units.length;
   if (trimFront) {
@@ -496,17 +508,6 @@ if (id === StringTrim || id === StringTrimStart || id === StringTrimEnd) {
   }
   if (trimBack) {
     while (end > start && blank(units[end - 1])) end--;
-  }
-  // **边缘检查也要按「裁哪一头」走** ✓：**不裁的那一头不参与这一问** ✗——
-  // `trimStart` 不该因为**尾巴**上有个非 ASCII 就抛 ✓（那一头是原样保留的 ✓）。
-  // 这一句是「三个半边共用一个实现」时唯一必须分开写的地方 ✓（写错了会**多抛** ✓）。
-  if (start < end) {
-    if (trimFront && units[start] > 127) {
-      throw new Error("unimplemented: trim with a non-ASCII edge (that character may be trimmable in JS)");
-    }
-    if (trimBack && units[end - 1] > 127) {
-      throw new Error("unimplemented: trim with a non-ASCII edge (that character may be trimmable in JS)");
-    }
   }
   const cut: number[] = [];
   for (let i = start; i < end; i++) cut.push(units[i]);

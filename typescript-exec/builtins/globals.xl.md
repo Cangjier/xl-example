@@ -188,11 +188,36 @@ import { BuildPromise } from "./promise.xl.md"
 # const ObjectGetOwnPropertySymbols:int = 417
 
 **`Object.getOwnPropertySymbols(o)`**（第 288 轮 ✓）——号在 `411..416` 之后的**下一个** ✓。
-
 **它是 `Object.getOwnPropertyNames` 的**镜像** ✓**：同一趟扫描 ✓、
 同一处「内部标记不算自有属性」的过滤 ✓，**只把「键是不是字符串」翻成「键是不是符号」** ✓
 （属性表里符号键那一格是 `ValueTag.Symbol` ✓，见 `props.xl.md` 的 `SamePropertyKey` ✓）。
 **次序照属性表的次序** ✓（JS 也是插入序 ✓——符号键**不参与**整数键优先那一套 ✗）。
+
+# const EncodeURIComponent:int = 422
+
+**`encodeURIComponent(s)`**（第 311 轮 ✓）——号**追加在全局段表尾** ✓（`421` 之后 ✓）。
+
+**四个名字一次做完** ✓（`encodeURI` ✓ / `encodeURIComponent` ✓ / `decodeURI` ✓ /
+`decodeURIComponent` ✓）：它们是**同一件事的两个参数** ✗——「哪些字符留着」那张表
+差十一个保留字符 ✓、别的算法一个字都不差 ✓。**写四份就是四处会漂** ✗。
+
+**为什么它们是「能证明」的那一档** ✓：UTF-8 的字节规则 ✓ 与那张百分号表 ✓
+都由标准定死 ✓（与 `Math.pow` 那类「各目标可能差最后一位」**不是**一回事 ✗）。
+
+# const EncodeURI:int = 423
+
+**`encodeURI(s)`**（第 311 轮 ✓）——与 `encodeURIComponent` **共用同一支实现** ✓，
+只多留 `; , / ? : @ & = + $ #` 这十一个保留字符 ✓（见 `UriKeep` ✓）。
+
+# const DecodeURIComponent:int = 424
+
+**`decodeURIComponent(s)`**（第 311 轮 ✓）——按 UTF-8 把 `%XX` 串解回码点 ✓。
+
+# const DecodeURI:int = 425
+
+**`decodeURI(s)`**（第 311 轮 ✓）——与 `decodeURIComponent` **共用同一支实现** ✓，
+差别只有一处 ✓：解出来的**保留字符原样吐回 `%XX`** ✓（JS 的口径 ✓——
+`decodeURI("%2F")` 是 `"%2F"` ✓，而 `decodeURIComponent("%2F")` 是 `"/"` ✓）。
 
 # const ObjectIs:int = 411
 
@@ -523,6 +548,185 @@ for (let i = 0; i < units.length; i++) {
 // **`length` 不可枚举** ✓（JS 的口径 ✓）——它走隐藏那一支 ✓。
 SetHiddenProperty(room, table, boxed, NameValue(table, "length"), Value.FromInt(units.length));
 return boxed;
+```
+
+# method UriKeep:(unit:number, component:bool)=>bool
+
+**这个 ASCII 码元在百分号编码里要不要留着**（第 311 轮 ✓）。
+
+三档 ✓（规范的 `uriUnescaped` / `uriReserved` 两张表 ✓）：
+**字母数字** ✓、**`- _ . ! ~ * ' ( )`** ✓（永远留着 ✓）、
+以及 `component === false`（即 `encodeURI` ✓）时**多留的十一个保留字符** ✓。
+
+**非 ASCII 一律不留** ✗（它们要走 UTF-8 那一支 ✓）——所以判据只对 `< 128` 有意义 ✓，
+调用方也只在那一档问它 ✓。
+
+```ts
+if ((unit >= 65 && unit <= 90) || (unit >= 97 && unit <= 122) || (unit >= 48 && unit <= 57)) return true;
+if (unit === 45 || unit === 95 || unit === 46 || unit === 33 || unit === 126 || unit === 42
+  || unit === 39 || unit === 40 || unit === 41) return true;
+if (!component && UriReserved(unit)) return true;
+return false;
+```
+
+# method UriReserved:(unit:number)=>bool
+
+**那十一个保留字符**（第 311 轮 ✓）：`; , / ? : @ & = + $ #` ✓。
+
+**两处都问它** ✓：`encodeURI` 留它们 ✓（`UriKeep` ✓）、`decodeURI` 遇到它们**不解** ✓
+（解出来的还是 `%XX` ✓）——**同一张表两处用** ✓，各写一遍就是两处会漂 ✗。
+
+```ts
+return unit === 59 || unit === 44 || unit === 47 || unit === 63 || unit === 58 || unit === 64
+  || unit === 38 || unit === 61 || unit === 43 || unit === 36 || unit === 35;
+```
+
+# method UriHex:(unit:number)=>int
+
+**十六进制数字 → 值**；不是就 `-1` ✓（第 311 轮 ✓）。
+
+```ts
+if (unit >= 48 && unit <= 57) return unit - 48;
+if (unit >= 65 && unit <= 70) return unit - 55;
+if (unit >= 97 && unit <= 102) return unit - 87;
+return -1;
+```
+
+# method EncodePercent:(table:HeapTable, value:Value, component:bool)=>Array<int>
+
+**值 → 百分号编码的码元表**（第 311 轮 ✓）。`value` 先过 `JsTextUnits` ✓（JS 的 `ToString` ✓）。
+
+**按码点走** ✓（代理对合起来 ✓）：`encodeURIComponent("😀")` 是 `%F0%9F%98%80` ✓（四个字节 ✓），
+拆成两个码元去编码会得到**两串三字节** ✗（**静默错值** ✓，而且长度也对不上 ✓）。
+
+```ts
+const units = JsTextUnits(table, value);
+const out: number[] = [];
+const hexDigits = "0123456789ABCDEF";
+let i = 0;
+while (i < units.length) {
+  let code = units[i];
+  let width = 1;
+  if (code >= 0xd800 && code <= 0xdbff && i + 1 < units.length
+    && units[i + 1] >= 0xdc00 && units[i + 1] <= 0xdfff) {
+    code = 0x10000 + ((code - 0xd800) * 1024) + (units[i + 1] - 0xdc00);
+    width = 2;
+  }
+  if (code < 128 && UriKeep(code, component)) {
+    out.push(code);
+    i += width;
+    continue;
+  }
+  const bytes: number[] = [];
+  if (code < 0x80) {
+    bytes.push(code);
+  } else if (code < 0x800) {
+    bytes.push(192 + Math.floor(code / 64));
+    bytes.push(128 + (code % 64));
+  } else if (code < 0x10000) {
+    bytes.push(224 + Math.floor(code / 4096));
+    bytes.push(128 + (Math.floor(code / 64) % 64));
+    bytes.push(128 + (code % 64));
+  } else {
+    bytes.push(240 + Math.floor(code / 262144));
+    bytes.push(128 + (Math.floor(code / 4096) % 64));
+    bytes.push(128 + (Math.floor(code / 64) % 64));
+    bytes.push(128 + (code % 64));
+  }
+  for (let b = 0; b < bytes.length; b++) {
+    out.push(37);
+    out.push(hexDigits.charCodeAt(Math.floor(bytes[b] / 16)));
+    out.push(hexDigits.charCodeAt(bytes[b] % 16));
+  }
+  i += width;
+}
+return out;
+```
+
+# method DecodePercent:(table:HeapTable, value:Value, component:bool)=>Array<int>
+
+**百分号编码 → 码元表**（第 311 轮 ✓）。
+
+**用算术而不是位运算** ✓（`Math.floor` / `%` ✓）：这一段是本仓自己的规范文件 ✓，
+而它是 `cases:tsast` 的语料 ✓——位运算写得再对也只是多一层风险 ✓（`& 0x3f` 那几处
+在这一版里没有一处非它不可 ✓）。
+
+**`component === false` 时保留字符不解** ✓（`decodeURI("%2F")` 给 `"%2F"` ✓）——
+吐回去的是**大写十六进制** ✓（JS 原样保留输入里那两个字符的大小写 ✗，本仓统一大写 ✓，
+**写在明处** ✓：`decodeURI("%2f")` 在 JS 里是 `"%2f"` ✓、这里是 `"%2F"` ✓）。
+
+**坏输入响亮地抛** ✓（JS 抛 `URIError` ✓）：本仓**没有** `URIError` 那一族 ✗，
+所以抛的是一个普通 `Error` 并**点名** ✓（编一个「看起来像对的」答案是静默错值 ✗）。
+
+```ts
+const units = JsTextUnits(table, value);
+const out: number[] = [];
+const hexDigits = "0123456789ABCDEF";
+let i = 0;
+while (i < units.length) {
+  if (units[i] !== 37) {
+    out.push(units[i]);
+    i += 1;
+    continue;
+  }
+  const bytes: number[] = [];
+  let j = i;
+  while (j + 2 < units.length && units[j] === 37) {
+    const high = UriHex(units[j + 1]);
+    const low = UriHex(units[j + 2]);
+    if (high < 0 || low < 0) {
+      throw new Error("unimplemented: malformed percent-encoding (JS throws URIError)");
+    }
+    bytes.push(high * 16 + low);
+    j += 3;
+  }
+  let k = 0;
+  while (k < bytes.length) {
+    const lead = bytes[k];
+    let code = 0;
+    let need = 0;
+    if (lead < 128) {
+      code = lead;
+    } else if (lead >= 192 && lead < 224) {
+      code = lead - 192;
+      need = 1;
+    } else if (lead >= 224 && lead < 240) {
+      code = lead - 224;
+      need = 2;
+    } else if (lead >= 240 && lead < 248) {
+      code = lead - 240;
+      need = 3;
+    } else {
+      throw new Error("unimplemented: malformed UTF-8 in percent-encoding (JS throws URIError)");
+    }
+    if (k + need >= bytes.length) {
+      throw new Error("unimplemented: truncated UTF-8 in percent-encoding (JS throws URIError)");
+    }
+    for (let n = 1; n <= need; n++) {
+      const follow = bytes[k + n];
+      if (follow < 128 || follow >= 192) {
+        throw new Error("unimplemented: malformed UTF-8 in percent-encoding (JS throws URIError)");
+      }
+      code = code * 64 + (follow - 128);
+    }
+    k += need + 1;
+    if (!component && code < 128 && UriReserved(code)) {
+      out.push(37);
+      out.push(hexDigits.charCodeAt(Math.floor(code / 16)));
+      out.push(hexDigits.charCodeAt(code % 16));
+      continue;
+    }
+    if (code < 0x10000) {
+      out.push(code);
+    } else {
+      const offset = code - 0x10000;
+      out.push(0xd800 + Math.floor(offset / 1024));
+      out.push(0xdc00 + (offset % 1024));
+    }
+  }
+  i = j;
+}
+return out;
 ```
 
 # method BooleanBoxKey:(table:HeapTable)=>Value
@@ -1357,6 +1561,10 @@ if (id === PowId) {
 return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol", "Date", "Error", "TypeError",
   "RangeError", "SyntaxError", "Array", "Number", "String", "Boolean", "Promise", "Function", "parseInt",
   "parseFloat", "NaN", "Infinity", "isNaN", "isFinite", "globalThis",
+  // **第 311 轮补的四个名字** ✓（`encodeURI` ✓ / `encodeURIComponent` ✓ /
+  // `decodeURI` ✓ / `decodeURIComponent` ✓）——**名单与 `BuildGlobals` 是同一份约定** ✓，
+  // 四条都**两边一起**加了 ✓（少一边就是「声明了却没提供」✗，判据里量着这一条 ✓）。
+  "encodeURI", "encodeURIComponent", "decodeURI", "decodeURIComponent",
   // **第 295 轮补的四个名字** ✓（`ReferenceError` ✓ / `AggregateError` ✓ /
   // `WeakMap` ✓ / `WeakSet` ✓）——**名单与 `BuildGlobals` 是同一份约定** ✓，
   // 四条都**两边一起**加了 ✓（少一边就是「声明了却没提供」✗，判据里量着这一条 ✓）。
@@ -2370,6 +2578,21 @@ if (id === ObjectGroupBy) {
     table.Get(bucket.Ref).AsArray().Push(member);
   }
   return groups;
+}
+if (id === EncodeURIComponent || id === EncodeURI || id === DecodeURIComponent || id === DecodeURI) {
+  // **百分号编解码四个名字**（第 311 轮 ✓）——**两个参数合起来只有一位不同** ✗：
+  // 「哪些字符留着」与「哪些字符不解」都只看 `component` 这一格 ✓（见 `UriKeep` ✓）。
+  // **实参缺了也要走** ✓（JS 的 `encodeURIComponent()` 是 `"undefined"` ✓——
+  // `ToString(undefined)` ✓；`EncodePercent` / `DecodePercent` 里的 `JsTextUnits`
+  // 正是做这件事 ✓）。
+  const component = id === EncodeURIComponent || id === DecodeURIComponent;
+  const source = args.length > 0 ? args[0] : Value.Undefined();
+  const encoded = id === EncodeURIComponent || id === EncodeURI;
+  const result = encoded
+    ? EncodePercent(table, source, component)
+    : DecodePercent(table, source, component);
+  if (!room(ObjectCharge + CodeUnitCharge * result.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(result));
 }
 if (id === ParseInt || id === ParseFloat) {
   // **两个全局函数**（第 126 轮）：实参先 ToString ✓（`parseInt(12.5)` 是 `12` ✓），
@@ -5308,6 +5531,15 @@ SetProperty(vm.Room(), NeverCall, table, globals,
 SetProperty(vm.Room(), NeverCall, table, globals,
   Value.FromString(table.CreateString(Units("isFinite"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(IsFinite, 0)));
+// **百分号编解码四个名字**（第 311 轮 ✓）：与 `isNaN` / `isFinite` **同一条路** ✓
+//（全局对象上的四个函数 ✓）——`GlobalNames` 那张名单里也有它们 ✓（**两边是同一份约定** ✓）。
+const percentNames: string[] = ["encodeURI", "encodeURIComponent", "decodeURI", "decodeURIComponent"];
+const percentIds: number[] = [EncodeURI, EncodeURIComponent, DecodeURI, DecodeURIComponent];
+for (let i = 0; i < percentNames.length; i++) {
+  SetProperty(vm.Room(), NeverCall, table, globals,
+    Value.FromString(table.CreateString(Units(percentNames[i]))),
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(percentIds[i], 0)));
+}
 // **`globalThis` 指向那个环境对象自己**（第 149 轮）✓：`globalThis.Math === Math` ✓。
 // **加它的直接原因是 `typeof` 那一格的新规矩** ✓：未声明的名字给 `"undefined"` ✓，
 // 而 `globalThis` 在 Node 里是 `"object"` ✓——不补这一格就是一处**静默**的不一致 ✗。

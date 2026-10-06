@@ -556,7 +556,6 @@ export const EXPECTATIONS = {
   // **第 304 轮删掉了 `object-assign-forms-and-order` 那一行** ✓（它过了 ✓）：
   // `Object.assign({}, "ab")` 从静默 `{}` 变成 `{"0":"a","1":"b"}` ✓——
   // 修的是字符串当源那一格（按**码元**展开成下标键 ✓，与 `Object.keys("ab")` 同一条口径 ✓）。
-  "string-concat-and-trim-families": { expect: "differ", why: "`unimplemented: trim with a non-ASCII edge`：`\\u00a0`（不换行空格）在 JS 里**是可 trim 的**，本仓只认 ASCII 那一档" },
   "rt-instanceof-custom": { expect: "differ", why: "与 `symbol-hasinstance` **同一个根**：`static [Symbol.hasInstance](v)` 降级得出来 ✓，但 `instanceof` 那头没问那一格（引擎的 `RtInstanceOf` 只沿原型链找 `C.prototype`）" },
 
   // ===== 第 290 轮：矩阵加宽 95 条量到的那一批（29 条缺口，按根子分组）=====
@@ -662,7 +661,6 @@ export const EXPECTATIONS = {
   "c304-rt-promise-then-returns-promise": { expect: "differ", why: "回调**返回一个承诺**时要采纳它（缺口清单 #15 的那一格）：本仓当成普通值灌进去 ⇒ 后面 `.then` 拿到的是承诺对象。与 `promise-constructor` 同一条" },
   "c304-ex-nonnull-in-optional-chain": { expect: "differ", why: "`arr![0]![0]` 投影出来是 `NonNullExpression(arr)`——**两个方括号与第二个 `!` 全丢了**（本轮实测：TS 那边是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)`）。这是第 303 轮那条链的**下一个形状**（`x![1]![0]`），入口在 `print-ast-common.xl.md` 的链分支" },
   "c304-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`namespace make { … }` 该挂在**函数值自己**那一格上（静态格），降级层只造了函数、没造那一格 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`" },
-  "c304-std-encodeuri-decodeuri": { expect: "blocked", why: "`encodeURI` / `decodeURI` / `encodeURIComponent` / `decodeURIComponent` **四个全局名一个都没有**（报 `name is not a local or a capture`）——要按 UTF-8 字节做百分号编解码，四个名字还要进 `GlobalNames`" },
   "c304-std-symbol-iterator-manual": { expect: "differ", why: "**这一条第 308 轮走了一半** ✓：数组那一半（`[10, 20][Symbol.iterator]()` ✓）**已经修好** ✓——`Protos.Array` 上原来**没有那一格** ✗，挂上去之后 `it.next()` 与 `[...it]` 都对 ✓。剩下的**是字符串那一半** ✗：`\"ab\"[Symbol.iterator]()` 报 `cannot call a non-closure value` ✓——`Protos.String` 上同样缺那一格 ✓，而字符串的迭代要**按码点** ✓（代理对合起来 ✓，与引擎的 `iter_next` 第 297 轮改的那一条**同一条规矩** ✓）——语言层今天没有那个判据 ✗（`drain` 是引擎递给语言层的服务 ✓，而 `InvokeString` 的签名里没有它 ✓），所以这一格要先把「码点」那条规矩收成**一处**再做 ✓" },
   "c304-std-promise-race-forms": { expect: "blocked", why: "`new Promise(执行器)` 那一格（缺口清单 #15）：执行器要**同步跑**、`resolve` / `reject` 要绑定过 ⇒ 报 `the script is waiting for a promise the host has not settled`。同一条里 `race` / `allSettled` / `any` 三格本身是好的" },
   "c304-std-string-normalize-ascii-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（`string-normalize` 从第 293 轮起拖着同一个根）——要一张 NFC/NFD 的组合表；本条里 `\"e\\u0301\".normalize(\"NFC\").length` 是 `1`，所以「只做 ASCII」不够" },
@@ -681,9 +679,7 @@ export const EXPECTATIONS = {
   "c305-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers` 没有——要造一对结清回调并把它们与承诺一起交出去（`MakeSettleCallback` 那一族现成）" },
   "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
   "c305-std-then-returns-promise-adoption": { expect: "differ", why: "`then` 回调**返回一个承诺**时要采纳它：本仓当成普通值灌进去 ⇒ 后面 `.then` 拿到承诺对象。与 `c304-rt-promise-then-returns-promise`、`promise-constructor` 同一个根（`AdoptInto` 从未被触达）" },
-  "c305-std-string-trim-unicode-space": { expect: "blocked", why: "非 ASCII 空白（`\\u00a0` / `\\u3000`）在 JS 里可被 `trim`，本仓只认 ASCII 那一档、且是**响亮地抛**（`string-concat-and-trim-families` 从第 287 轮起拖着同一个根）" },
   "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
-  "c305-std-encodeuri-roundtrip": { expect: "blocked", why: "`encodeURIComponent` / `decodeURIComponent` / `encodeURI` 都不在（与 `c304-std-encodeuri-decodeuri` 同一个根）——按 UTF-8 字节做百分号编解码 + 四个全局名" },
   "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
   "c305-std-object-getownpropertydescriptors-all": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors` 那一格没有（`getOwnPropertyDescriptor` 第 276 轮就装上了）——一次拿全表，是同一个扫描的镜像" },
   "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },

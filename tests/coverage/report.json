@@ -1,6 +1,6 @@
 {
-  "round": "310",
-  "matrix": 1103,
+  "round": "311",
+  "matrix": 1104,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 93.2,
+  "progressPercent": 93.43,
   "layers": [
     {
       "layer": "runtime",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 451,
-      "pass": 421,
-      "blocked": 16,
-      "differ": 14,
+      "total": 452,
+      "pass": 426,
+      "blocked": 13,
+      "differ": 13,
       "nodefail": 0,
-      "coverage": 93.35
+      "coverage": 94.25
     },
     {
       "layer": "e2e",
@@ -246,12 +246,6 @@
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
     },
     {
-      "id": "c304-std-encodeuri-decodeuri",
-      "layer": "stdlib",
-      "title": "encodeURI / decodeURI / encodeURIComponent",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: encodeURI"
-    },
-    {
       "id": "c304-std-promise-race-forms",
       "layer": "stdlib",
       "title": "Promise.race / allSettled / any 的三种结清",
@@ -282,22 +276,10 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c305-std-string-trim-unicode-space",
-      "layer": "stdlib",
-      "title": "非 ASCII 空白（`\\u00a0`）在 JS 里可被 `trim`",
-      "detail": "tsrun: 脚本抛出：unimplemented: trim with a non-ASCII edge (that character may be trimmable in JS)"
-    },
-    {
       "id": "c305-std-string-normalize-forms",
       "layer": "stdlib",
       "title": "`normalize` 的四种形式在纯 ASCII 上是恒等",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c305-std-encodeuri-roundtrip",
-      "layer": "stdlib",
-      "title": "`encodeURIComponent` / `decodeURIComponent` 往返",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: encodeURIComponent"
     },
     {
       "id": "c305-std-object-getownpropertydescriptors-all",
@@ -468,12 +450,6 @@
       "layer": "stdlib",
       "title": "Function.prototype.toString 给源码文本",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
-      "id": "string-concat-and-trim-families",
-      "layer": "stdlib",
-      "title": "concat 的多参 · trim / trimStart / trimEnd 的空白集",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: trim with a non-ASCII edge (that character may be trimmable in "
     },
     {
       "id": "array-tostring-custom-values",
