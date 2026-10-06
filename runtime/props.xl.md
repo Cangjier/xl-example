@@ -212,6 +212,17 @@ this.Index = index;
 
 **`Date` 的原型**（第 138 轮）——与上面两格同款 ✓。
 
+## field AsyncGenerator:int = 0
+
+**异步生成器的原型**（第 320 轮 ✓）——与 `Generator` 那格**同一个用途** ✓、
+**但不能合成一格** ✗：JS 里同步生成器**没有** `Symbol.asyncIterator` ✓
+（`for await (const x of syncGen)` 是 `TypeError` ✓），而异步生成器有 ✓。
+合在一起的话，同步生成器会**自称可异步迭代** ✗——那是**说谎** ✓（比缺一格更坏 ✗）。
+
+**谁用它** ✓：`vm.xl.md` 的 `AttachGeneratorProto` ✓（三处造生成器的地方都问它 ✓，
+判据是 `info.IsAsync` ✓）；**方法挂在哪** ✓：`globals.xl.md` 的 `BuildGlobals` ✓
+（`Symbol.asyncIterator` ✓，键取自 `protos.WellKnownSymbols` ✓）。
+
 ## field Generator:int = 0
 
 **生成器的原型**（第 229 轮 ✓）——**方法挂在它上面** ✓（与字符串 / 数字 / 布尔那三格
@@ -350,6 +361,16 @@ table.Get(protos.Date).Proto = protos.Object;
 // （`globals.xl.md` 的 `BuildGlobals` 挂 ✓），与 `Error.prototype` 那三格同一条分界 ✓。
 protos.Generator = table.CreateObject();
 table.Get(protos.Generator).Proto = protos.Object;
+// **异步生成器自己那一格** ✓（第 320 轮 ✓）：`Proto` 指 **`Object`** ✓
+// ——**不能指 `Generator`** ✗（第一版就是那么写的 ✓，判据当场把它拦下来了 ✓）：
+// 继承 `Generator` 会**顺带**继承 `Symbol.iterator` ✗，而 JS 里异步生成器
+// **没有**那一格 ✓（`for..of` 一个异步生成器是 `TypeError` ✓；实测 Node 给
+// `typeof asy[Symbol.iterator] === "undefined"` ✓）。
+// **那 `next` / `return` / `throw` 怎么来** ✗：**两格原型各挂一份** ✓
+//（`globals.xl.md` 的 `BuildGlobals` ✓：同一批能力号挂两处 ✓，见那一句的说明 ✓）——
+// 「同一个实现、两处挂载」比「继承过来、再想办法遮掉一格」干净 ✓。
+protos.AsyncGenerator = table.CreateObject();
+table.Get(protos.AsyncGenerator).Proto = protos.Object;
 return protos;
 ```
 

@@ -1370,7 +1370,7 @@ if (info.IsGenerator) {
   const generatorHandle = this.Table.CreateGenerator(createdHandle);
   created.Generator = generatorHandle;
   // **生成器对象要带上那一格原型** ✓（第 229 轮 ✓）：见 `AttachGeneratorProto` ✓。
-  this.AttachGeneratorProto(generatorHandle);
+  this.AttachGeneratorProto(generatorHandle, info.IsAsync);
   if (returnSlot >= 0) frame.Slots[returnSlot] = Value.FromObject(generatorHandle);
   return;
 }
@@ -1685,7 +1685,7 @@ for (let i = 0; i < args.length; i++) {
 }
 const generatorHandle = this.Table.CreateGenerator(createdHandle);
 created.Generator = generatorHandle;
-this.AttachGeneratorProto(generatorHandle);
+this.AttachGeneratorProto(generatorHandle, info.IsAsync);
 this.Result = Value.FromObject(generatorHandle);
 // **这一次宿主调用到此结束**：产出就是那个生成器对象。
 // 曾经不标它，宿主把这次调用判成「在等承诺」（`Parked`）——因为「没帧了、又没结束」
@@ -2803,11 +2803,47 @@ if (info.IsGenerator) {
   }
   const generatorHandle = this.Table.CreateGenerator(createdHandle);
   created.Generator = generatorHandle;
-  this.AttachGeneratorProto(generatorHandle);
+  this.AttachGeneratorProto(generatorHandle, info.IsAsync);
   return Value.FromObject(generatorHandle);
 }
 if (this.NativeDepth >= MaxNativeDepth) {
   throw new Error("native re-entry is too deep: " + this.NativeDepth);
+}
+// **`async` 函数经重入调时也要给一个承诺** ✓（第 320 轮 ✓）——与上面「生成器」那一支
+// **同一个位置、同一条理由** ✓：`DoCallValue` 里那条 `IsAsync` 分支（第 286 轮 ✓）
+// **只长在调用路** ✗，而**重入路**（`CallNative` ✓：`Array.prototype.map` 那种回调 ✓、
+// 访问器 ✓、内建方法 ✓）没有它 ✗ ⇒ 异步函数被当普通函数跑 ✓：
+// 体里的 `await` 把这一帧摘下栈 ✓，而**调用者立刻拿到的**是 `NativeResult` 里那个
+// **还没写过的空格** ✗ ⇒ 一个 `undefined` ✗（**静默错值** ✓）。
+// **实测**：`[1,2].map(async (x) => { await null; return x * 10 })` ✓
+// 在 `Promise.all` 之后给 `[,]` ✓（两个 `undefined` ✓），Node 给 `10,20` ✓；
+// 而同一批「直接调」的（`for` 里 `g(n)` ✓ 走 `DoCallValue` ✓）**是对的** ✓
+// ——**同一个语义长在两条路上** ✓，这个形状第 307 / 312 / 313 / 318 轮各踩过一次 ✓。
+//
+// **先问房间、再造承诺** ✗（第 286 轮那条教训 ✓）：反过来的话 `NeedRoom` 会在
+// 分配中途才说不 ✓，而那时承诺已经造出来了 ✗（没人拿得到它 ✓ = 泄漏 ✓）。
+if (info.IsAsync) {
+  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge + ValueCharge)) {
+    return Value.Undefined();
+  }
+  const asyncPromise = this.MakeAsyncPromise(PromiseState.Pending, Value.Undefined());
+  const asyncDepth = this.Frames.Depth();
+  const asyncHandle = this.Frames.Push(closure.Code, info.SlotCount, NativeReturnSlot);
+  const asyncFrame = this.Table.Get(asyncHandle).AsFrame();
+  asyncFrame.Env = closure.Env;
+  asyncFrame.This = thisValue;
+  // **实参照上面那条铺** ✓（同一份规矩：铺到帧的格数为止 ✓）。
+  for (let i = 0; i < args.length && i < info.SlotCount; i++) {
+    asyncFrame.Slots[i] = args[i];
+  }
+  // **承诺挂在帧上** ✓：`DoReturn` / `DoThrow` 收尾时按它结清 ✓
+  //（那两条路本来就是这么认人的 ✓，与 `DoCallValue` 那一支**同一处机关** ✓）。
+  asyncFrame.AsyncPromise = asyncPromise.Ref;
+  // **跑起来**：跑到它第一次挂起（`await` ✓）或者跑完 ✓——
+  // **跑到挂起不是失败** ✗：状态是 `Halted` ✓（帧不在栈上了 ✓），上面那条
+  // 「`Halted` 也算成功」的判据本来就是为这一类写的 ✓。
+  this.RunToDepth(asyncDepth);
+  return asyncPromise;
 }
 if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge)) return Value.Undefined();
 const depth = this.Frames.Depth();
@@ -3121,9 +3157,9 @@ return this.Guard(() => {
 return (source: Value): Value => this.DrainIterator(source);
 ```
 
-## method AttachGeneratorProto:(generatorHandle:int)=>void
+## method AttachGeneratorProto:(generatorHandle:int, isAsync:bool)=>void
 
-**给刚造出来的生成器对象挂上那一格原型**（第 229 轮 ✓）。
+**给刚造出来的生成器对象挂上那一格原型**（第 229 轮 ✓；第 320 轮分成两格 ✓）。
 
 **为什么生成器需要原型** ✗：它就是 `HeapObject` 上那一格 `Generator` 载荷 ✓
 （**没有属性表** ✗，`heap.xl.md` ✓），所以 `it.next()` 里的 `next` 只能**沿原型链找** ✓
@@ -3131,17 +3167,30 @@ return (source: Value): Value => this.DrainIterator(source);
 `calling a non-closure value` ✗（听起来像调用写错了 ✗，其实是**那一格不存在** ✓，
 与第 150 轮 `(1.5).toFixed(2)` **同一个形状** ✓）。
 
-**收成一个方法** ✗：造生成器的地方有**两处** ✓（`DoCallValue` 的生成器分支 ✓、
-宿主直调那一趟 `StartGenerator` ✓）——写两遍就是两处会漂 ✗，
+**收成一个方法** ✗：造生成器的地方有**三处** ✓（`DoCallValue` 的生成器分支 ✓、
+宿主直调那一趟 `StartGenerator` ✓、重入那条 `CallNative` ✓）——写三遍就是三处会漂 ✗，
 而漂了的表现是「从脚本里调 `g()` 拿到的能 `next`、从宿主调那一趟不行」✓（**一半对** ✗，
 这种最贵 ✓）。
 
+**`async` 的要有自己那一格** ✓（第 320 轮 ✓）：JS 里**同步**生成器**没有**
+`Symbol.asyncIterator` ✓（`for await (const x of syncGen)` 是 `TypeError` ✓），
+而**异步**生成器有 ✓。挂在同一格上的话，同步生成器会**自称可异步迭代** ✗
+——那是**说谎** ✓（比缺一格更坏 ✗）。所以 `protos.AsyncGenerator` 单独一格 ✓、
+由**调用方**告诉这一处「这个生成器是同步的还是异步的」✓（三处手里都有 `info.IsAsync` ✓）。
+**`AsyncGenerator` 那一格还没装时退回同步那一格** ✓（不说谎，只是不特殊 ✓——
+装不上是装载顺序的事 ✓，而退回去只少 `Symbol.asyncIterator` ✓，不会把同步的说成异步的 ✓）。
+
 **`Protos` 还没装时什么也不做** ✓（与 `MakeClosure` 挂 `Function.prototype` 那一格
-同一条纪律 ✓）：**不说谎，只是不特殊** ✓。
+同一条纪律 ✓）。
 
 ```ts
 const protos = this.Protos;
-if (protos === null || protos.Generator <= 0) return;
+if (protos === null) return;
+if (isAsync && protos.AsyncGenerator > 0) {
+  this.Table.Get(generatorHandle).Proto = protos.AsyncGenerator;
+  return;
+}
+if (protos.Generator <= 0) return;
 this.Table.Get(generatorHandle).Proto = protos.Generator;
 ```
 

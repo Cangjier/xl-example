@@ -1,6 +1,6 @@
 {
-  "round": "319",
-  "matrix": 1112,
+  "round": "",
+  "matrix": 1113,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.26,
+  "progressPercent": 95.17,
   "layers": [
     {
       "layer": "runtime",
@@ -48,12 +48,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 271,
-      "pass": 260,
+      "total": 272,
+      "pass": 262,
       "blocked": 7,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 95.94
+      "coverage": 96.32
     },
     {
       "layer": "stdlib",
@@ -69,11 +69,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 25,
-      "pass": 23,
+      "pass": 24,
       "blocked": 0,
-      "differ": 2,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 92
+      "coverage": 96
     }
   ],
   "blocked": [
@@ -350,12 +350,6 @@
       "detail": "stdout 不同：第 2 行：node «1 2» vs tsrun «[ [ 1 ], [ 2 ] ] 2»"
     },
     {
-      "id": "c305-ex-async-generator-interface-type",
-      "layer": "exec",
-      "title": "异步迭代器的类型标注（`AsyncIterable` / `Symbol.asyncIterator`）",
-      "detail": "stdout 不同：第 1 行：node «function function» vs tsrun «undefined function»"
-    },
-    {
       "id": "c305-ex-optional-chain-nonnull-mix",
       "layer": "exec",
       "title": "可选链与非空断言混在同一条链上",
@@ -426,12 +420,6 @@
       "layer": "stdlib",
       "title": "把数组 `length` 设成不可写之后 `push`",
       "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 3»"
-    },
-    {
-      "id": "c305-e2e-async-load-pipeline",
-      "layer": "e2e",
-      "title": "异步管道：`async function*` 逐个取数、`for await` 汇总",
-      "detail": "stdout 不同：第 3 行：node «counts 10,20,40,50,70» vs tsrun «counts ,,,,»"
     },
     {
       "id": "c305-e2e-lru-cache",

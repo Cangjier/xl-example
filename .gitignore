@@ -11,6 +11,5 @@ node_modules
 # 探针脚本 tmp-*.mjs / 输出 tmp-*.txt / 旧 build 快照 tmp-build/）
 tmp-*
 
-# coverage 的裁判缓存（第 318 轮：加速用，随时可删；内容只与用例源码有关）
-tests/coverage/.judge-cache.json
-tests/coverage/.lock
+# coverage 的工作目录：**每个实例一份**（第 320 轮：按 pid 分开，互不干扰）
+tests/coverage/.work-*/

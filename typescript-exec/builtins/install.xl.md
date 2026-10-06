@@ -12,7 +12,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, SymbolToString } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet, SetCtor } from "./set.xl.md"
 ```
@@ -1048,7 +1048,7 @@ for (const slot of promiseSlots) {
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
   ObjectAssign, PowId, SetHiddenId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
-  PromiseResolveCallbackId, PromiseRejectCallbackId, ArrayIteratorNext];
+  PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));

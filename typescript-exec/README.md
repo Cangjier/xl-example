@@ -6,6 +6,53 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 320 轮的账（**异步函数经重入调 + 生成器那两族的接口** —— 94.3% → 95.2%，收掉 2 格 + 补 1 条语料）
+
+### 一、异步函数经**重入**调时没有承诺（端到端那一格就是这么掉的）
+
+`DoCallValue` 里那条 `IsAsync` 分支（第 286 轮 ✓）**只长在调用路** ✗——
+而**重入路**（`CallNative` ✓：`Array.prototype.map` 那种回调 ✓、访问器 ✓、内建方法 ✓）**没有它** ✗
+⇒ 异步函数被当普通函数跑 ✓：体里的 `await` 把这一帧摘下栈 ✓，
+而**调用者立刻拿到的**是 `NativeResult` 里那个**还没写过的空格** ✗（**静默错值** ✓）。
+
+**实测**：`[1,2].map(async (x) => { await null; return x * 10 })` 经 `Promise.all` 给 `[,]` ✓，
+Node 给 `10,20` ✓；而**直接调**那一半（`for` 里 `g(n)` ✓ 走 `DoCallValue` ✓）**是对的** ✓
+——**同一个语义长在两条路上** ✓，这个形状第 307 / 312 / 313 / 318 轮各踩过一次 ✓。
+
+**修法照 `DoCallValue` 那一支抄** ✓：**先问房间、再造承诺** ✗（第 286 轮那条教训 ✓：
+反了的话 `NeedRoom` 在分配中途才说不 ✓，而承诺已经造出来了 ✗）；承诺挂帧上 ✓
+（`DoReturn` / `DoThrow` 收尾时按它结清 ✓）；**跑到第一次挂起不是失败** ✗
+（状态是 `Halted` ✓，上面那条「`Halted` 也算成功」本来就是为这一类写的 ✓）。
+
+### 二、生成器那两族的接口（`Symbol.iterator` / `Symbol.asyncIterator`）
+
+`Symbol.asyncIterator` 原来**没人挂** ✓——与第 308 轮 `Array.prototype[Symbol.iterator]`
+**一模一样** ✓：`for await` 走的是**指令**那条路 ✓、**根本不问这一格** ✓，
+于是「跑得对」与「这一格存在」是两件事 ✓。一个真实项目的类型标注会**显式读它** ✓
+（判据 `c305-ex-async-generator-interface-type` ✓ 钉的就是 `typeof` 那一问 ✓）。
+
+**做这一格时顺手量到同步那一半也缺** ✓（`gen[Symbol.iterator]` 是 `undefined` ✗）⇒ 两格一起做 ✓。
+**两格必须分开挂** ✗：同步生成器有 `Symbol.iterator` 而**没有** `Symbol.asyncIterator` ✓；
+异步生成器**两个都有** ✓。
+
+**关键的一步是「两格原型」，而不是继承** ✗：第一版让 `AsyncGenerator.Proto = Generator` ✓
+（图省事 ✓），**继承会顺带带来 `Symbol.iterator`** ✗——而 JS 里异步生成器**没有**它 ✓
+（`for..of` 一个异步生成器是 `TypeError` ✓）。**刚补的判据当场把它拦下来** ✓：
+`c320-ex-generator-interface-shapes` 第一跑就报「Node 给 `undefined` ✓、本仓给 `function`」✗。
+改成「**同一个实现、两处挂载**」✓（`next` / `return` / `throw` 三个能力号挂两处原型 ✓），
+`AsyncGenerator.Proto` 指回 `Object` ✓ ⇒ 四条接口与 Node 逐字一致 ✓。
+
+### 三、读数 + 覆盖度跑快了（用户口径：优先把它解决好）
+
+**降级层 95.9% → 96.3%** ✓、**端到端 92.0% → 96.0%** ✓、**整体 94.3% → 95.2%** ✓、
+**红的一栏 0** ✓、`npm run gates` **60 秒全绿** ✓。
+
+**覆盖度：两侧都批、去掉缓存** ✓（细节写在 `tests/coverage/README.md` 的「跑一次要多久」✓）：
+这台机器**进程创建是串行的** ✓（实测 16 路并发与 1 路**每次都是 ~100ms** ✓）
+⇒ 「多开进程」没用 ✗，只能「少起进程」✓ ⇒ 被测侧 `tsrun --batch` ✓、裁判侧 `judge-batch.mjs` ✓
+⇒ **600s → 13s** ✓。**去掉缓存** ✓：判定只由「今天的源码 + 今天的 node + 今天的 tsrun」决定 ✓。
+**批量与逐条逐条对拍一致** ✓（`--no-batch` 跑一整轮 ✓，1113 条逐条一致 ✓、加权同为 95.17% ✓）。
+
 ## 第 319 轮的账（**异步生成器：两种挂起在帧上原来一模一样** + 一个进程跑一批 —— 94.2% → 94.3%，收掉 1 格 + 补 1 条语料）
 
 ### 一、收掉的那一格：`await` 摘的挂起不是这一次的产出

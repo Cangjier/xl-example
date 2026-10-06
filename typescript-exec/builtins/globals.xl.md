@@ -1221,6 +1221,37 @@ if (id === PowId) {
 **「生成器的 `throw`」那一格**（第 313 轮 ✓）——`it.throw(e)` 落到这里 ✓，
 实现在**引擎**里 ✓（在挂起点抛 `e` ✓：`vm.xl.md` 的 `ResumeRaises` ✓）。
 
+# const GeneratorSelf:int = 427
+
+**`gen[Symbol.iterator]()`** ✓（第 320 轮 ✓）——与 `AsyncGeneratorSelf` 那一条**同一个形状** ✓：
+JS 的口径就是**返回它自己** ✓，所以这一支也只做「把 `self` 交出去」 ✓。
+
+**它是怎么做这一格时顺手量到的** ✓：做完 `Symbol.asyncIterator` 那一格，顺手量了**同步**生成器 ✓
+——Node 给 `typeof gen[Symbol.iterator] === "function"` ✓、本仓给 `undefined` ✗，
+**同一个缺口**（`for..of` 走指令 ✓、不问这一格 ✓），只是**同步那一半** ✓。
+**两格必须分开挂** ✗：同步生成器有 `Symbol.iterator` 而**没有** `Symbol.asyncIterator` ✓；
+异步生成器**两个都有** ✓（它继承 `Generator` 那一格 ✓）——所以
+`Symbol.iterator` 挂 `Generator` ✓、`asyncIterator` 挂 `AsyncGenerator` ✓。
+
+# const AsyncGeneratorSelf:int = 426
+
+**`asyncGen[Symbol.asyncIterator]()`** ✓（第 320 轮 ✓）——号在**全局段** ✓（`422..425` 是
+第 311 轮那四条百分号编解码 ✓，这一格接在它们后面 ✓；它**不是全局名** ✗：脚本里没有
+叫这个名字的东西 ✓，只是原型上一格方法的能力号 ✓）。——JS 的口径就是**返回它自己** ✓
+（与同步生成器的 `[Symbol.iterator]()` 一样 ✓），所以这里**一行实现都不用写**：
+那一支只做「把 `self` 交出去」✓（见 `InvokeGlobal` 里那一句 ✓）。
+
+**为什么这一格值得存在** ✗：`for await` 在**引擎**里走的是指令那条路 ✓
+（`iter_new` / `iter_next` ✓），**根本不问这一格** ✓——与第 308 轮
+`Array.prototype[Symbol.iterator]` 那一条**一模一样** ✓：`for await` 一直是对的 ✓，
+而**显式取出来自己调**报 `it[Symbol.asyncIterator] is not a function` ✗
+（那句话听起来像「异步迭代还没做」✗，真相是**没人往这一格挂东西** ✓）。
+判据 `c305-ex-async-generator-interface-type` ✓ 钉的就是 `typeof` 那一问 ✓。
+
+**挂在哪一格是**有讲究的** ✗：只挂 `protos.AsyncGenerator` ✓（**不能**挂 `protos.Generator` ✓）
+——同步生成器要是也带上它，就会**自称可异步迭代** ✓（JS 里那是 `TypeError` ✓，
+**说谎比缺一格更坏** ✗）。
+
 # const GeneratorReturnId:int = 710
 
 **「生成器的 `return`」那一格**（第 313 轮 ✓）——`it.return(v)` 落到这里 ✓，
@@ -2596,6 +2627,15 @@ if (id === ObjectGroupBy) {
     table.Get(bucket.Ref).AsArray().Push(member);
   }
   return groups;
+}
+if (id === GeneratorSelf || id === AsyncGeneratorSelf) {
+  // **`gen[Symbol.iterator]()` / `asyncGen[Symbol.asyncIterator]()` 都是「它自己」** ✓
+  //（第 320 轮 ✓）——两族**共用这一支** ✓（同一个语义一处实现 ✓），差的只是挂在哪个原型上 ✓。
+  // **不是对象就响亮地抛** ✗（那是把它当普通函数调 ✓）。
+  if (self.Tag !== ValueTag.Object) {
+    throw new Error("this method needs a generator receiver");
+  }
+  return self;
 }
 if (id === EncodeURIComponent || id === EncodeURI || id === DecodeURIComponent || id === DecodeURI) {
   // **百分号编解码四个名字**（第 311 轮 ✓）——**两个参数合起来只有一位不同** ✗：
@@ -5476,6 +5516,21 @@ const generatorThrow = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorThrow.Ref, GeneratorThrowId, 0);
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("throw"))), generatorThrow);
+// **同一批方法还要挂到异步生成器那一格上** ✓（第 320 轮 ✓）——**不能靠继承** ✗：
+// 异步生成器的原型指 `Object` ✓（`props.xl.md` 写着理由 ✓：继承 `Generator` 会**顺带**
+// 得到 `Symbol.iterator` ✗，而 JS 里异步生成器**没有**那一格 ✓——判据
+// `c320-ex-generator-interface-shapes` 当场把它拦下来了 ✓）。
+// **同一个实现、两处挂载** ✓：能力号与上面那三个对象**完全一样** ✓
+//（`next` / `return` / `throw` 的语义两族本来就一致 ✓），所以这不是两份实现 ✗。
+if (protos.AsyncGenerator > 0) {
+  const asyncGeneratorProto = Value.FromObject(protos.AsyncGenerator);
+  SetProperty(vm.Room(), NeverCall, table, asyncGeneratorProto,
+    Value.FromString(table.CreateString(Units("next"))), generatorNext);
+  SetProperty(vm.Room(), NeverCall, table, asyncGeneratorProto,
+    Value.FromString(table.CreateString(Units("return"))), generatorReturn);
+  SetProperty(vm.Room(), NeverCall, table, asyncGeneratorProto,
+    Value.FromString(table.CreateString(Units("throw"))), generatorThrow);
+}
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);
@@ -5678,6 +5733,26 @@ const arrayIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTa
 if (arrayIteratorKey.Tag === ValueTag.Symbol) {
   SetProperty(room, NeverCall, table, Value.FromObject(protos.Array), arrayIteratorKey,
     Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayValues, 0)));
+}
+// **异步生成器那一格：`Symbol.asyncIterator`** ✓（第 320 轮 ✓）——与上面那一条
+// **同一个形状** ✓（同一个知名符号表取键 ✓、挂一格宿主引用 ✓），差的是**挂在别的原型上** ✓。
+// **只挂 `AsyncGenerator`** ✗：同步生成器**没有**这一格（JS 里那里是 `TypeError` ✓）——
+// 挂到 `Generator` 上就是**说谎** ✓（判据 `c305-ex-async-generator-interface-type` ✓
+// 只问异步那一侧 ✓，而「同步那侧不该有」这一条**写在注释里** ✓：矩阵里还没有那一格 ✓，
+// 补一条是下一轮的事 ✓）。
+const asyncIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("asyncIterator"))));
+if (asyncIteratorKey.Tag === ValueTag.Symbol && protos.AsyncGenerator > 0) {
+  SetProperty(room, NeverCall, table, Value.FromObject(protos.AsyncGenerator), asyncIteratorKey,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(AsyncGeneratorSelf, 0)));
+}
+// **同步生成器那一格：`Symbol.iterator`** ✓（第 320 轮 ✓，做上面那一格时顺手量到的 ✓）
+// ——挂 `Generator` ✓（异步生成器**继承**它 ✓，所以两族都有 ✓ ✓，与 JS 一致 ✓）。
+const generatorIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("iterator"))));
+if (generatorIteratorKey.Tag === ValueTag.Symbol && protos.Generator > 0) {
+  SetProperty(room, NeverCall, table, Value.FromObject(protos.Generator), generatorIteratorKey,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(GeneratorSelf, 0)));
 }
 // `Date` 是一个**普通对象**（像 `Math` 一样），上面挂 `now`——
 // 而 `now` 指向的是**宿主**要回答的能力号（见 `ClockNow` 的说明：建库层没有时钟）。

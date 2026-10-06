@@ -3310,4 +3310,12 @@ try { fail(); } catch (e) { console.log("caught"); }
 console.log(typeof u, (u as number) + 1);
 `,
   },
+
+  // ===== 第 320 轮：生成器那两族的接口 ===== 
+
+  {
+    id: "c320-ex-generator-interface-shapes",
+    title: "生成器的两条接口：同步那族有 `Symbol.iterator`、异步那族两个都有",
+    src: "\nfunction* sync(): Generator<number> { yield 1; }\nasync function* asy(): AsyncGenerator<number> { yield 2; }\nconst s: any = sync();\nconst a: any = asy();\nconsole.log(typeof s[Symbol.iterator], typeof s[Symbol.asyncIterator]);\nconsole.log(typeof a[Symbol.iterator], typeof a[Symbol.asyncIterator]);\nconsole.log(s[Symbol.iterator]() === s, a[Symbol.asyncIterator]() === a);\n",
+  },
 ];

@@ -667,7 +667,6 @@ export const EXPECTATIONS = {
 
   "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
   "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
-  "c305-ex-async-generator-interface-type": { expect: "differ", why: "异步生成器对象上**没有 `Symbol.asyncIterator` 那一格**（`(it as any)[Symbol.asyncIterator]` 是 `undefined`，Node 给 `function`）——`for await` 走的是引擎指令，不走这个方法" },
   "c305-ex-static-computed-key-and-method": { expect: "blocked", why: "计算类字段名报 `unimplemented: computed class field name`（第 287 轮组 F 的那一格：`static [KEY] = \"c\"`）——实例方法上的计算键是好的，字段上这一格没有" },
   "c305-ex-optional-chain-nonnull-mix": { expect: "differ", why: "可选链与非空断言混在同一条链上时**后面那一截丢掉**：`o?.a!.b` 给 `{ b: 1 }`（Node 给 `1`）。与第 303 / 304 轮的链式缺口同一条（`print-ast-common.xl.md` 的链分支），这一条是「`?.` 在前、`!` 在后」那一种排布" },
   "c305-std-queue-microtask-order": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进与 `Promise.then` 同一个微任务队列（队列本身第 248 轮就有了）" },
@@ -679,7 +678,6 @@ export const EXPECTATIONS = {
   "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
   "c305-std-object-getownpropertydescriptors-all": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors` 那一格没有（`getOwnPropertyDescriptor` 第 276 轮就装上了）——一次拿全表，是同一个扫描的镜像" },
   "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },
-  "c305-e2e-async-load-pipeline": { expect: "differ", why: "异步管道里 `yield await fetchRow(i)`（异步生成器 + `await` 之后再 `yield`）⇒ `good` 一行是空的（Node 给 `good 1,2,4,5,7`）。与 `c305-rt-async-generator-await-inside` **同一个根**" },
   "c305-e2e-lru-cache": { expect: "differ", why: "`this.#map.keys().next().value` 报 `cannot call a non-closure value`——数组迭代器那条 `next()` 是挂上去的**隐藏属性**（第 279 轮），私有字段里取出来的那个数组上没有它" },
   // **第 306 轮把上面那两处都修好了** ✓（token 层的次序判据 + 名字收两遍 ✓），
   // 与 `ts.createSourceFile` 逐节点对过的形状现在**一字不差** ✓：
