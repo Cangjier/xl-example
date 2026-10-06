@@ -6,6 +6,52 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 344 轮的账（**`instanceof` 先问 `Symbol.hasInstance`** —— 98.9% → **99.0%**，收掉 2 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓。
+
+### 一、那两格判据
+
+```ts
+class Even { static [Symbol.hasInstance](v: any) { return typeof v === "number" && v % 2 === 0; } }
+console.log(2 instanceof Even, 3 instanceof Even, "2" instanceof Even);
+```
+
+**Node 给 `true false false`** ✓、本仓原来**一律 `false`** ✗——右边那一格**根本没被问过** ✗。
+
+### 二、修法：在 `RtInstanceOf` 的最前面插一档
+
+JS 的 `instanceof` **第一步就是「右边有没有 `Symbol.hasInstance`、可不可调」** ✓，
+有就以它的布尔结果为准 ✓、**根本不看原型链** ✗。名字从 `protos.WellKnownSymbols`
+那张**语言层填的小表**里取 ✓——与**同一个文件里 `ToPrimitive` 那一处一字不差** ✓
+（引擎不认识 `Symbol` 这六个字 ✓，只知道「语言层在那张小表里放了一格叫这个名字的东西」✓）；
+**表是空的（`<= 0`）就整档跳过** ✓、**`call` 是 `null` 也跳过** ✓（宿主没接调用通道那一档 ✓）。
+
+**实测踩到一处类型错** ✗：`RtToBoolean` 给的是 **`Bool` 值** ✓、不是**宿主布尔** ✗
+⇒ 要 `.AsBool()` 再包 `Value.FromBool` ✓（第一版直接塞进去 ✓，
+`tsc` **当场报**「`Value` 不能当 `boolean`」✓）。
+
+### 三、顺手量到下一轮的入口
+
+`c304-std-symbol-iterator-manual` 的**数组那一半已经对** ✓
+（第 308 轮挂过 `Array.prototype[Symbol.iterator]` ✓），错的是**字符串那一半** ✗：
+`"ab"[Symbol.iterator]` 报「cannot call a non-closure value」✗——
+**`String.prototype` 上那一格从来没挂过** ✗。修法与数组那一支**同形** ✓
+（给 `protos.String` 挂一格 `Symbol.iterator` ✓，键从那张小表取 ✓），实现可以走
+「把这串**按码点**收成数组、再挂上数组迭代器那两格」✓（`AttachArrayIterator` **现成** ✓）——
+或先查 `GetIterator` / `IterDrain` 认不认字符串 ✓，认的话直接借它 ✓、
+**省掉自己那份码点规则** ✓。
+
+**读数** ✓：`pass` **1325 → 1327** ✓（2 格转绿 ✓）、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **37.4s 全绿** ✓；四层都往上走了 ✓：**引擎 98.1%** ✓、**降级层 99.1%** ✓、
+**标准库 99.0%** ✓、**端到端 100%** ✓。
+
+**下一轮的入口** ✓：
+**① `String.prototype[Symbol.iterator]`** ✓（**上面刚量到的** ✓，修法也写着 ✓）；
+**② 那张 `IdTable` 的容量口径** ✓（第 340 轮量到 ✓）；**③ `Map` / `Set` / `Date` 的 `size`
+该是原型上的 getter** ✓（第 341 轮写下的形状差 ✓）；**④ 错误对象的内部槽标记** ✓（第 343 轮 ✓）；
+**⑤ 零散** ✓（`console.log(Error)` 要栈 ✗、`new.target` ✓、`thenable` 采纳 ✓ 等 ✓）。
+
 ## 第 343 轮的账（**按载荷号分开两条 `this` 规则 + `Error.isError` 落地** —— 98.9%，收掉 1 格 + 补 1 条）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓，
