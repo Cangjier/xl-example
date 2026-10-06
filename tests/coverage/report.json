@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.4,
+  "progressPercent": 94.67,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 489,
-      "blocked": 4,
-      "differ": 9,
+      "pass": 492,
+      "blocked": 2,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 97.41
+      "coverage": 98.01
     },
     {
       "layer": "exec",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 627,
-      "pass": 601,
-      "blocked": 2,
-      "differ": 24,
+      "pass": 604,
+      "blocked": 1,
+      "differ": 22,
       "nodefail": 0,
-      "coverage": 95.85
+      "coverage": 96.33
     },
     {
       "layer": "e2e",
@@ -82,18 +82,6 @@
     }
   ],
   "blocked": [
-    {
-      "id": "c371-rt-property-semantics",
-      "layer": "runtime",
-      "title": "属性语义：自有 / 继承 / 访问器 / 缺失 / 原型上的写",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c371-rt-gc-churn-forms",
-      "layer": "runtime",
-      "title": "分配压力：反复建造与丢弃对象",
-      "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
     {
       "id": "c371-rt-class-static-and-instance-isolation",
       "layer": "runtime",
@@ -159,12 +147,6 @@
       "layer": "exec",
       "title": "标签 + break / continue 在嵌套循环与块上",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
-    },
-    {
-      "id": "c371-stdlib-object-hasown-and-in",
-      "layer": "stdlib",
-      "title": "Object.hasOwn / hasOwnProperty / in 三者口径",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c371-stdlib-error-families-and-fields",
@@ -271,12 +253,6 @@
       "detail": "stdout 不同：第 1 行：node «1 boom» vs tsrun «fin»"
     },
     {
-      "id": "c371-rt-getter-on-prototype-chain",
-      "layer": "runtime",
-      "title": "访问器沿原型链的查找与 this",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c371-rt-instanceof-and-prototype",
       "layer": "runtime",
       "title": "instanceof 与原型替换、跨类判定",
@@ -373,12 +349,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unreachable: installing a builtin never calls a function"
     },
     {
-      "id": "c371-stdlib-math-trig-hyperbolic",
-      "layer": "stdlib",
-      "title": "三角函数与双曲函数在 0 / π / 大值上的读数",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c371-stdlib-map-set-size-and-keys",
       "layer": "stdlib",
       "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
@@ -424,7 +394,7 @@
       "id": "c371-stdlib-error-print-and-types",
       "layer": "stdlib",
       "title": "错误对象的枚举键与 name 的可写性",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+      "detail": "stdout 不同：第 4 行：node «false true» vs tsrun «false false»"
     },
     {
       "id": "c371-stdlib-function-bind-forms",
@@ -457,12 +427,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Date.prototype.toString for a valid date (JS renders local time"
     },
     {
-      "id": "c371-stdlib-object-keys-shadowing",
-      "layer": "stdlib",
-      "title": "遮蔽内建原型方法与 Object.keys 的自有性",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c371-stdlib-array-of-and-isarray",
       "layer": "stdlib",
       "title": "Array.of / Array.isArray / new Array 的三种构造",
@@ -478,7 +442,7 @@
       "id": "c371-e2e-quick-and-merge-sort",
       "layer": "e2e",
       "title": "快排 / 归并 / 插入排序三种实现与稳定性对比",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：out of room"
     },
     {
       "id": "c371-e2e-mustache-template",
@@ -496,7 +460,7 @@
       "id": "c371-e2e-roman-numerals",
       "layer": "e2e",
       "title": "罗马数字互转与全表校验",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+      "detail": "stdout 不同：第 1 行：node «1 I 1» vs tsrun «1 I 0»"
     },
     {
       "id": "c371-e2e-rle-compression",
@@ -514,7 +478,7 @@
       "id": "c371-e2e-matrix-linear-algebra",
       "layer": "e2e",
       "title": "矩阵运算：乘、转置、行列式、单位阵",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：out of room"
     },
     {
       "id": "c371-e2e-async-pool-with-errors",

@@ -242,7 +242,15 @@ for (let i = 0; i < modules.length; i++) {
   programs.push(modules[i].Program);
 }
 const linked = LinkPrograms(programs);
-const machine = new Vm(table, 1 << 20, 1000000);
+// **步数预算只有一个答案** ✓（第 372 轮修的 ✗）：这里原来**写死 1000000** ✗，
+// 而宿主那一侧宣告的是 `Limits.Default()`（`10000000` ✓，`host-abi.xl.md` ✓）——
+// 于是两份上限同时在，**小的那一份说了算** ✓，而它离现场很远 ✗
+//（症状是「一份普通 `.ts` 跑到一半报 `step budget exhausted`」✓，
+//  看起来像脚本自己有问题 ✗——第 371 轮那批端到端语料里当场量到 3 条 ✓：
+//  两万次分配的 churn ✓、3999 次罗马数字换算 ✓、一个实操规模的排序 ✓）。
+// **改成从宿主那一份取** ✓：上限仍然是一层安全（`vm.xl.md` 第 10 节第 4 层 ✓），
+// 只是**不再有两个数** ✓（两个数的账本仓最贵 ✗：改了一个、另一个还在原地 ✓）。
+const machine = new Vm(table, 1 << 20, Limits.Default().StepBudget);
 const host = new Host(machine, Limits.Default());
 // **把机器与表交给宿主**（见 `RunResult` 那两个字段的说明）：宿主才是事件循环。
 result.Machine = machine;

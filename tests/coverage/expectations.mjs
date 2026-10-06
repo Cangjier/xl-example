@@ -1051,9 +1051,6 @@ export const EXPECTATIONS = {
   "c371-ex-labels-and-control": { expect: "blocked", why: "**标签名**（`block:`）被当成了要解析的名字。" },
 
   // ---- `Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。
-  "c371-rt-property-semantics": { expect: "blocked", why: "`Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。" },
-  "c371-rt-getter-on-prototype-chain": { expect: "differ", why: "`Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。" },
-  "c371-stdlib-object-hasown-and-in": { expect: "blocked", why: "`Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。" },
 
   // ---- 脱离接收者调方法时的 `this`（Node 丢 `this` ⇒ 抛错；本仓给 `Dundefined`）——与第 337 轮那条松散模式口径同源。
   "c371-rt-super-and-this-binding": { expect: "differ", why: "脱离接收者调方法时的 `this`（Node 丢 `this` ⇒ 抛错；本仓给 `Dundefined`）——与第 337 轮那条松散模式口径同源。" },
@@ -1075,7 +1072,6 @@ export const EXPECTATIONS = {
   "c371-rt-console-inspect-shapes": { expect: "differ", why: "`console.log(class C {})` 的标签应当是 `[class C]` 而不是 `[Function: C]`。" },
 
   // ---- **步数预算**在万级循环上耗尽（与 `gc-churn` 同一条已知缺口）。
-  "c371-rt-gc-churn-forms": { expect: "blocked", why: "**步数预算**在万级循环上耗尽（与 `gc-churn` 同一条已知缺口）。" },
 
   // ---- 计算键方法的名字（`{ ["k"+1]() {} }.k1.name` 给空串）。
   "c371-rt-function-name-and-length": { expect: "differ", why: "计算键方法的名字（`{ [\"k\"+1]() {} }.k1.name` 给空串）。" },
@@ -1105,7 +1101,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-object-assign-getters-and-order": { expect: "differ", why: "`Object.assign` 往目标上的**访问器 setter** 写 ⇒ `unreachable: installing a builtin never calls a function`。" },
 
   // ---- `Math.asinh` / `Math.acosh` / `Math.atanh` 不在那儿（`sinh`/`cosh`/`tanh` 是好的）。
-  "c371-stdlib-math-trig-hyperbolic": { expect: "differ", why: "`Math.asinh` / `Math.acosh` / `Math.atanh` 不在那儿（`sinh`/`cosh`/`tanh` 是好的）。" },
 
   // ---- `Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, "size")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。
   "c371-stdlib-map-set-size-and-keys": { expect: "differ", why: "`Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, \"size\")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。" },
@@ -1132,8 +1127,7 @@ export const EXPECTATIONS = {
   "c371-stdlib-error-families-and-fields": { expect: "blocked", why: "`EvalError` 这个全局名不在那儿。" },
 
   // ---- `Object.prototype.propertyIsEnumerable` 不在那儿。
-  "c371-stdlib-error-print-and-types": { expect: "differ", why: "`Object.prototype.propertyIsEnumerable` 不在那儿。" },
-  "c371-stdlib-object-keys-shadowing": { expect: "differ", why: "`Object.prototype.propertyIsEnumerable` 不在那儿。" },
+  "c371-stdlib-error-print-and-types": { expect: "differ", why: "错误对象上的 `name` 在本仓是**自有、不可枚举**的一格 ✗（Node 把它放在 `Error.prototype` 上 ✓）⇒ `e.name = \"Custom\"` 之后 `e.propertyIsEnumerable(\"name\")` 答**假** ✓（Node 答真 ✓，因为那一写建出的是一个新的自有可枚举属性 ✓）。`propertyIsEnumerable` 本身已经装上了 ✓（上半条对 ✓），差的是**错误对象的形状** ✓。" },
 
   // ---- 绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。
   "c371-stdlib-function-bind-forms": { expect: "differ", why: "绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。" },
@@ -1157,9 +1151,9 @@ export const EXPECTATIONS = {
   "c371-stdlib-array-tostring-forms": { expect: "differ", why: "稀疏数组的 `toString` / `join` 在**全洞**时（`[, ,]`）Node 给 `,`。" },
 
   // ---- **步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。
-  "c371-e2e-quick-and-merge-sort": { expect: "differ", why: "**步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。" },
-  "c371-e2e-roman-numerals": { expect: "differ", why: "**步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。" },
-  "c371-e2e-matrix-linear-algebra": { expect: "differ", why: "**步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。" },
+  "c371-e2e-quick-and-merge-sort": { expect: "differ", why: "**假值段里下标位上的后缀自增不生效** ✗ ⇒ 归并的 `left[i++]` 永不前进 ✓ ⇒ 死循环 ✓（1M 步数上限时报 `step budget exhausted` ✓，第 372 轮上限抬到 10M 之后改报 `out of room` ✓——**同一个根、两个症状**）。最小反例：`const r = false ? 0 : a[i++];`（Node 给 `a[0]` 且 `i=1`、本仓给 `a[0]` 而 `i=0`）；真值段是好的 ✓、`if/else` 里也是好的 ✓。" },
+  "c371-e2e-roman-numerals": { expect: "differ", why: "复合赋值的右操作数**只吃到三元的条件段** ✗：`total += cur < next ? -cur : cur` 在 JS 里是 `total += (三元)` ✓，本仓把 `+=` 展开成 `t = t + cur` 之后**再**去折三元 ✗ ⇒ 变成 `(t + cur) ? -cur : cur` ✓——静默错值（`fromRoman(\"I\")` 给 `0` ✓）。最小反例：`let t = 0; t += 1 < 10 ? -1 : 1;`（Node `-1`、本仓 `1`）。" },
+  "c371-e2e-matrix-linear-algebra": { expect: "differ", why: "与 `c371-e2e-roman-numerals` **同一个根** ✗：`total += (c % 2 === 0 ? 1 : -1) * a[0][c] * det(minor)` —— 复合赋值只吃条件段 ✓ ⇒ 行列式算不完 ✓（`out of room`）。" },
 
   // ---- 字符串数组里逐字符找 `E` 失败（`charAt` 那一圈没找到，根子待量）。
   "c371-e2e-maze-bfs": { expect: "blocked", why: "字符串数组里逐字符找 `E` 失败（`charAt` 那一圈没找到，根子待量）。" },

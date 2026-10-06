@@ -165,6 +165,26 @@ import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 
 **三角七格**（第 288 轮 ✓）——号开在 `360..366` ✓（`350..359` 第 275 轮已用 ✓）。
 
+# const MathAsinh:int = 372
+
+# const MathAcosh:int = 373
+
+# const MathAtanh:int = 374
+
+**`asinh` / `acosh` / `atanh`**（第 372 轮 ✓）——**双曲函数的反函数三格** ✓，
+与 `sinh` / `cosh` / `tanh`（`354..356` ✓）**同一族的另一半** ✓。
+
+**为什么它们拖到第 372 轮才被量到** ✗：理由与第 288 轮那三角七格**一字不差** ✓——
+第 287 轮的加宽铺的是「已经想到的形状」✓，而第 371 轮那批新语料第一次写了
+`Math.asinh(0)` ✓ ⇒ 当场报 `cannot call a non-closure value` ✓（**没装** ✗）。
+**号开在 `372..374`** ✓（`367..371` 是 `Number` / `Date` 那两段用掉的 ✓，
+而 `350..366` 是数学那两段 ✓——**号只追加、不复用** ✓）。
+
+**这三格与小十格、三角七格是同一条口径** ✓：**一律交给宿主那一格** ✓，
+一个字都不自己凑 ✓（`atanh(0)` 是 `0` ✓、`acosh(1)` 是 `0` ✓、
+`asinh(0)` 是 `0` ✓——而 `acosh(x)` 写成 `log(x + sqrt(x*x - 1))` 在大入参上会丢有效位 ✗）。
+
+
 **为什么它们拖到第 288 轮才被量到** ✗：这一族**不在**第 273 轮那份普查的候选里 ✓
 （那份普查按「已经想到的形状」铺 ✓），而第 287 轮的加宽把 `Math.sin` / `Math.cos` / `Math.tan`
 写进了一条用例 ✓ ⇒ 它当场报 `cannot call a non-closure value` ✓（**七格一格都没装** ✗）。
@@ -259,6 +279,37 @@ import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 这些**已经定过的口径**不必再想一遍 ✓。
 （第 333 轮起第三样没了 ✓：那个 `__sealed` 内部标记属性搬去了堆上的一格布尔 ✓
 ——`heap.xl.md` 的 `Extensible` ✓，它本来就不该是一个属性 ✓。）
+
+# const ObjectHasOwn:int = 429
+
+**`Object.hasOwn(对象, 键)`**（第 372 轮 ✓）——`hasOwnProperty` 的**静态版** ✓：
+同一个问法 ✓（**只问自己那一格** ✓，原型链上的不算 ✓），
+而**接收者从 `self` 换成第一个实参** ✓（`Object.hasOwn(o, "k")` ✓）。
+
+**为什么拖到第 372 轮才被量到** ✗：它是 **ES2022** 才进标准的 ✓，
+第 273 轮那份普查按「已经想到的形状」铺 ✓ ⇒ 没写上 ✓；而第 371 轮那批新语料里
+`Object.hasOwn` 一口气出现在 **3 条**里 ✓ ⇒ 当场报 `cannot call a non-closure value` ✓（**没装** ✗）。
+
+**它不另写一份「自有属性」的判据** ✗：**逐格复用 `getOwnPropertyDescriptor` 那一支** ✓
+（与 `getOwnPropertyDescriptors` 第 324 轮那条**同一个做法** ✓）——
+于是「数组元素算自有 ✓、字符串下标算自有 ✓、`length` 算自有 ✓、
+洞与越界不算 ✓、函数上的 `length` / `name` 也算 ✓」**一条都不必在这里再写一遍** ✓
+（抄一遍就是第二处会漂的答案 ✗，而漂出来的是「单数对、静态版错」✓）。
+
+# const ObjectPropertyIsEnumerable:int = 430
+
+**`Object.prototype.propertyIsEnumerable(键)`**（第 372 轮 ✓）——接收者是 `self` ✓、
+只收**一个**键实参 ✓；问的是「**那一格存在、而且可枚举**吗」 ✓。
+
+**它落在谁的旁边是要紧的** ✓：号紧挨着 `Object.hasOwn`（`429` ✓）——
+两格是**同一个问法的两半** ✓（一个问「在不在」✓、一个问「在而且可枚举吗」✓），
+而 `hasOwnProperty` / `isPrototypeOf` 那两格（`338` / `421` ✓）就是这条路的先例 ✓。
+
+**它同样复用 `getOwnPropertyDescriptor`** ✓：拿到描述符之后只读**一格**（`enumerable` ✓）——
+三套标志（数组元素三个真 ✓、字符串下标不可写不可配 ✓、`length` 不可枚举不可配 ✓）
+**已经在那一处定过了** ✓。**函数上的 `length` / `name`** ✓ 是唯一要在这里手工认的一档
+（它们**不在属性表里** ✓，见 `getOwnPropertyDescriptor` 那一支同一句话 ✓）：JS 里它们是
+**自有、不可枚举** ✓ ⇒ `hasOwn` 真 ✓、`propertyIsEnumerable` 假 ✓。
 
 # const ObjectDefineProperties:int = 413
 **`Object.defineProperties(对象, 描述符表)`**（第 276 轮 ✓）——一趟写多格 ✓。
@@ -2490,7 +2541,10 @@ if (id === MathSin || id === MathCos || id === MathTan || id === MathAsin
   return MathResult(Math.atan(firstTrig));
 }
 if (id === MathImul || id === MathClz32 || id === MathFround || id === MathExpm1 || id === MathSinh
-  || id === MathCosh || id === MathTanh || id === MathLog2 || id === MathLog10 || id === MathLog1p) {
+  || id === MathCosh || id === MathTanh || id === MathLog2 || id === MathLog10 || id === MathLog1p
+  // **第 372 轮补的三格** ✓（双曲函数的反函数 ✓，号 `372..374` ✓）——
+  // 与上面这十格**走同一支** ✓（同一个实参取值器 ✓、同一个 `MathResult` ✓、同样不自己凑 ✓）。
+  || id === MathAsinh || id === MathAcosh || id === MathAtanh) {
   // **第 275 轮补的十格** ✓。**一律交给宿主那一格** ✓（一个一个转调 ✓）：
   // 这十格每一个都有一处「照着近义函数自己凑就会错」的地方 ✓——
   // `imul` 不是 `a * b` ✓（乘的是低 32 位 ✓）、`fround` 不是原样交出去 ✓（要过一趟 f32 ✓）、
@@ -2511,6 +2565,9 @@ if (id === MathImul || id === MathClz32 || id === MathFround || id === MathExpm1
   if (id === MathSinh) return MathResult(Math.sinh(first));
   if (id === MathCosh) return MathResult(Math.cosh(first));
   if (id === MathTanh) return MathResult(Math.tanh(first));
+  if (id === MathAsinh) return MathResult(Math.asinh(first));
+  if (id === MathAcosh) return MathResult(Math.acosh(first));
+  if (id === MathAtanh) return MathResult(Math.atanh(first));
   if (id === MathLog2) return MathResult(Math.log2(first));
   if (id === MathLog10) return MathResult(Math.log10(first));
   return MathResult(Math.log1p(first));
@@ -2585,6 +2642,57 @@ if (id === ObjectHasOwnProperty) {
     if (KeyMatches(table, ownProps[i], askedKey)) return Value.FromBool(true);
   }
   return Value.FromBool(false);
+}
+if (id === ObjectHasOwn || id === ObjectPropertyIsEnumerable) {
+  // **`Object.hasOwn(o, k)`** ✓ 与 **`Object.prototype.propertyIsEnumerable(k)`** ✓（第 372 轮 ✓）——
+  // 两格是**同一个问法的两半** ✓：一个问「那一格**在不在**」✓、
+  // 一个问「那一格**在、而且可枚举**吗」✓。**所以两格走同一支** ✗（同一个接收者取值 ✓、
+  // 同一次 `getOwnPropertyDescriptor` ✓）——分成两支就是两处会漂的答案 ✗。
+  //
+  // **接收者与键的取法不一样** ✗（这是两格唯一的差别 ✓）：
+  //   · `hasOwn`：接收者是**第一个实参** ✓、键是**第二个** ✓（`Object.hasOwn(o, "k")` ✓）；
+  //   · `propertyIsEnumerable`：接收者是 **`self`** ✓（`GetProperty` 递过来的 ✓）、
+  //     键是**第一个**实参 ✓。少给实参一律当 `undefined` ✓（与本块其余实参位同一条 ✓）。
+  const hasOwnMode = id === ObjectHasOwn;
+  const ownReceiver = hasOwnMode ? (args.length > 0 ? args[0] : Value.Undefined()) : self;
+  const ownAsked = hasOwnMode
+    ? (args.length > 1 ? args[1] : Value.Undefined())
+    : (args.length > 0 ? args[0] : Value.Undefined());
+  // **原始值里只有字符串有自有属性** ✓：`Object.hasOwn("ab", 0)` 在 JS 里是**真** ✓
+  //（字符串的每一个码元下标都是自有属性 ✓），而数字 / 布尔 / `null` / `undefined` 一律**假** ✓
+  //（JS 把它们装箱之后也没有自有属性 ✓——`Object.hasOwn(1, "x")` 是假 ✓、不抛 ✓）。
+  // **所以这里先挡一道** ✓，而不是把它交给 `getOwnPropertyDescriptor` ✗（那一支对非对象
+  // **响亮地抛** ✓——那是它自己的口径 ✓，可用在这里会把「假」变成「抛」 ✗）。
+  if (ownReceiver.Tag !== ValueTag.Object && ownReceiver.Tag !== ValueTag.Array
+    && ownReceiver.Tag !== ValueTag.String && ownReceiver.Tag !== ValueTag.Function
+    && ownReceiver.Tag !== ValueTag.Closure) {
+    return Value.FromBool(false);
+  }
+  // **键先过一趟 `ToPropertyKey`** ✓（`TextFrom` 就是那一趟 ✓）：`Object.hasOwn([1], 0)` 是**真** ✓
+  //（数字键与下标键是同一格 ✓——`hasOwnProperty` 那一支同一句话 ✓）。
+  const ownKeyText = TextFrom(table, ownAsked);
+  // **函数上的 `length` / `name` 是唯一手工认的一档** ✓：它们**不住在属性表里** ✗
+  //（`getOwnPropertyDescriptor` 那一支对函数**响亮地抛** ✓，同一句话在那边写着 ✓）。
+  // JS 里这两格是**自有、不可枚举** ✓ ⇒ `hasOwn` 真 ✓、`propertyIsEnumerable` 假 ✓。
+  if ((ownReceiver.Tag === ValueTag.Function || ownReceiver.Tag === ValueTag.Closure)
+    && (ownKeyText === "length" || ownKeyText === "name")) {
+    return Value.FromBool(hasOwnMode);
+  }
+  const ownDescriptor = InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertyDescriptor,
+    ownReceiver, [ownReceiver, Value.FromString(table.CreateString(Units(ownKeyText)))],
+    sink, failed, false);
+  // **「不是自有属性」= 那一支给 `undefined`** ✓（洞 ✓、越界 ✓、继承来的 ✓ 全是这一档 ✓）。
+  if (ownDescriptor.IsNullish()) return Value.FromBool(false);
+  if (hasOwnMode) return Value.FromBool(true);
+  // **可枚举那一格** ✓：描述符的**形状**（数据属性四格 ✓ / 访问器两格 ✓）已经在
+  // `getOwnPropertyDescriptor` 那一处定过了 ✓——这里只读**一格** ✓，不重建描述符 ✓。
+  const enumerableKey = NameValue(table, "enumerable");
+  const enumerableFound = FindProperty(room, table, ownDescriptor.Ref, enumerableKey);
+  if (enumerableFound === null || enumerableFound.Owner !== ownDescriptor.Ref) return Value.FromBool(false);
+  // **`FindProperty` 给的是「哪一格」** ✓（`Owner` + `Index` ✓，不是值本身 ✗）——
+  // 值与 `getOwnPropertyDescriptor` 那一支取法**一字不差** ✓（`Props[Index]` ✓）。
+  const enumerableProperty = table.Get(ownDescriptor.Ref).Props[enumerableFound.Index];
+  return Value.FromBool(RtToBoolean(table, enumerableProperty.Value).AsBool());
 }
 if (id === ObjectCreate) {
   // **`Object.create(proto)`**（第 209 轮 ✓）：造一个空对象、把它的**原型**指过去 ✓。
@@ -5455,11 +5563,17 @@ const mathNames: string[] = ["floor", "abs", "max", "min", "round", "ceil", "tru
   // 名字与号**一一对齐** ✓（两张表按下标配 ✓，错一格就是**静默**换语义 ✗）。
   "imul", "clz32", "fround", "expm1", "sinh", "cosh", "tanh", "log2", "log10", "log1p",
   // **第 288 轮补的三角七格** ✓（号开在 `360..366` ✓）——同样**按下标配** ✓。
-  "sin", "cos", "tan", "asin", "acos", "atan", "atan2"];
+  "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+  // **第 372 轮补的三格** ✓（双曲函数的反函数 ✓，号开在 `372..374` ✓）——同样**按下标配** ✓。
+  // 它们是第 371 轮加宽语料时**当场量到的** ✗（`Math.asinh(0)` 报
+  // `cannot call a non-closure value` ✓——那一族**有写的人、没有装的人** ✓，
+  // 与第 304 轮 `setPrototypeOf` / `preventExtensions` 那两格**同一个形状** ✓）。
+  "asinh", "acosh", "atanh"];
 const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, MathCeil, MathTrunc, MathSign,
   MathSqrt, MathPow, MathLog, MathExp, MathCbrt, MathHypot,
   MathImul, MathClz32, MathFround, MathExpm1, MathSinh, MathCosh, MathTanh, MathLog2, MathLog10, MathLog1p,
-  MathSin, MathCos, MathTan, MathAsin, MathAcos, MathAtan, MathAtan2];
+  MathSin, MathCos, MathTan, MathAsin, MathAcos, MathAtan, MathAtan2,
+  MathAsinh, MathAcosh, MathAtanh];
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));
@@ -5541,6 +5655,14 @@ for (let i = 0; i < objectExtraNames.length; i++) {
   const extraTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(objectExtraIds[i], 0));
   SetProperty(vm.Room(), NeverCall, table, objectObject, extraKey, extraTarget);
 }
+// **`Object.hasOwn`**（第 372 轮 ✓）——**单开一句** ✗（不进上面那两张按下标对齐的表 ✓）：
+// 那两张表的口径是「**名字与号一一对齐**」✓，而这一格是**追加**的 ✓（号开在 `429` ✓，
+// 与表里那一段 `412..420` / `428` 不连号 ✓）⇒ 塞进去反而要重新对一遍下标 ✓，
+// 而那正是第 280 轮**号撞车**那一类错的温床 ✓。**摆在这里**（描述符那一族后面 ✓）
+// 是因为它是**同一个问法的静态版** ✓——`hasOwnProperty` 就在下面 `Object.prototype` 那一摞里 ✓。
+SetProperty(vm.Room(), NeverCall, table, objectObject,
+  Value.FromString(table.CreateString(Units("hasOwn"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectHasOwn, 0)));
 
 const jsonObject = NewPlainObject(vm.Room(), table, protos);
 const stringifyKey = Value.FromString(table.CreateString(Units("stringify")));
@@ -6058,6 +6180,13 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
   Value.FromString(table.CreateString(Units("isPrototypeOf"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectIsPrototypeOf, 0)));
+// **`propertyIsEnumerable`**（第 372 轮 ✓）：与上面四格**同一条路** ✓
+//（`Object.prototype` 上的方法 ✓、**隐藏**挂上 ✓——`Object.keys({})` 必须还是空的 ✓）。
+// **它是 `hasOwnProperty` 的另一半** ✓：一个问「在不在」✓、一个问「在、而且可枚举吗」✓，
+// 所以这一格**挨着 `hasOwnProperty` 挂** ✓（两处放远了看不出它们是一对 ✗）。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
+  Value.FromString(table.CreateString(Units("propertyIsEnumerable"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectPropertyIsEnumerable, 0)));
 // **`Object.create` / `Object.getPrototypeOf`**（第 209 轮 ✓）：与 `keys` / `values` 那几张
 // **同一张对象** ✓（都是 `Object` 的静态方法 ✓），分派在 `InvokeGlobal` 里 ✓（那一支有 `table` ✓）。
 SetProperty(vm.Room(), NeverCall, table, objectObject,
