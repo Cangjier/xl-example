@@ -6,6 +6,53 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 356 轮的账（**让「缺口自己说出形状与位置」** —— 99.3%，未收格 ✗）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮**继续第 355 轮那条经验** ✓：
+**先把「定位」变便宜** ✓。
+
+### 一、两处同类工具改动
+
+**① 赋值那句抛带上形状与区间** ✓（与 `TextOf` 那一处**同一条纪律** ✓）：
+原来只有 `assignment to a non-identifier` ✗——第 354 轮为了知道左边是**一棵 `ModuleDeclaration`** ✓
+还得临时插一次探针 ✓。现在：
+
+    unimplemented: assignment to a non-identifier (left is ModuleDeclaration at 19..65)
+
+`19..65` **正好是** `export namespace Inner { export const v = 2 }` ✓ ⇒ **根因与区间一起落在报错里** ✓：
+投影层把**嵌套的模块声明**折成了 `w` 那次赋值的**左操作数** ✓
+（`BinaryExpression(ModuleDeclaration, EqualsToken(81..82), Inner.v + 1)` ✓），
+降级层**一路走到赋值那一格才炸** ✓。
+
+**② `inspect` 那一层：`console.log(new Error("boom"))` 现在印 `Error: boom`** ✓：
+沿链找到 `name` 是字符串 `Error` 就按 `Error.prototype.toString` 的文本印 ✓
+（消息为空时只印 `name` ✓；**访问器给空串** ✓——去调它会把 `console.log` 变成有副作用的东西 ✗）。
+形状与 `ReadMarker` / `MarkerArray` 那两条**一致** ✓（同一个 `MarkerKey` ✓、同一个 `FindProperty` ✓），
+差的只是**读出来是字符串** ✓——新增一处 `MarkerText` ✓。
+
+### 二、这一轮为什么仍然没**收格**（如实记）
+
+`console-log-special` 第 3 行在 Node 那边**后面还跟着调用栈** ✓
+（`at Object.<anonymous> (…:4:13)` …），而本仓到 `Error: boom` 就结束了 ✓——
+**那一格真正的门槛是「错误要有 `stack`」** ✗、**不是印法** ✗。
+本仓的 IR 里**不带源码位置** ✗ ⇒ 真栈是一个**独立特性** ✓（不是一两行能补的 ✓），
+记成下一段的入口 ✓；`inspect` 这一改是它的**先决条件** ✓、**不是白做** ✓。
+
+**读数** ✓：`pass` **1332 / 1343 = 99.3%** ✓（与上一轮持平 ✓）、**红的一栏 0** ✓、
+六道门 **31.2s 全绿** ✓。两处改动都是「**让报错更值钱**」✓，**没有动语义** ✓。
+
+### 三、下一轮从这里接
+
+**① 嵌套命名空间** ✓：从投影层的**语句切分**入手 ✓——判据是「`ModuleDeclaration` 这类
+**自带括号的声明**应当是**独立语句的结尾**」✓（`export` 那几格在它前面 ✓，
+切在它后面不会把修饰词切走 ✓）。报错里已经带着区间 ✓，改完跑一次就知道对不对 ✓。
+**② 错误要有 `stack`** ✓（`console-log-special` 的真门槛 ✓）：IR 里要能给出**源码位置** ✓——
+那是比这一格大得多的特性 ✓，排在后面 ✓。
+**③ 其余**（`IdTable` 容量口径 ✓、`Map`/`Set`/`Date` 的 `size` 该是原型 getter ✓、
+错误对象的内部槽标记 ✓、`thenable` 采纳 ✓、`Array.fromAsync` ✓、`super` 在对象字面量里 ✓、
+`c291-rt-class-shapes` ✓、三元与链式调用两处已知缺口 ✓）。
+
 ## 第 355 轮的账（**先让「定位」变便宜，再一次收格** —— 99.2% → **99.3%**，收掉 1 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
