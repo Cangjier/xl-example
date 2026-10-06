@@ -6,6 +6,61 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 361 轮的账（**对象字面量里的 `super`** —— 99.5% → **99.6%**，收掉 1 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮**引擎与降级层各补一档** ✓。
+
+### 一、那一格（`c323-rt-super-in-object-literal`）
+
+```ts
+const proto = { greet() { return "hi"; } };
+const o = { __proto__: proto, greet() { return super.greet() + "!"; } };
+console.log(o.greet());
+```
+
+**Node 给 `hi!`** ✓、本仓原来**整份文件进不来** ✗
+（`unimplemented: super.m(...) outside a derived class method` ✓）。
+
+### 二、两处补齐（**都是「本来就该有、却一直没有」的档** ✓）
+
+**(a) 降级层** ✓：`super.m()` 那一路原来**只认类方法** ✓（`InSuperName` 非空 ✓），
+而**对象字面量方法的家对象就是 `this`** ✓ ⇒ 起点换成 **`get_proto(this)`** ✓；
+**名字查找 / `this` / 实参 / 展开那几段一个字都没改** ✓（它们本来就只认 `proto` 那一格 ✓）。
+**已知差别写在明处** ✗：用 `this` 而不是真的家对象 ✓ ⇒ `const f = o.greet; f()` 会去取
+**空值的原型** ✗（要真对齐得把家对象当**隐藏形参**传进闭包 ✓，与命名空间体那一帧同一手法 ✓）。
+
+**(b) 引擎** ✓：`RtOp` **表尾追加 `GetProto`**（第 42 格 ✓）+ `RtGetProto` ✓ + `RunRtOp` 那一支 ✓
++ **`RtOpName` 的名字** ✓ + **`RtOpCount` 42 → 43** ✓ + `check.mjs` 那条「**必须在最后**」的断言
+挪到新算子身上 ✓。**值带的是堆上那一格自己的标签** ✓（与第 357 轮 `Object.getPrototypeOf`
+**同一条纪律** ✓）。
+
+**(c) 顺手补上 `__proto__: p`** ✓（非计算键 ✓）——**全仓原来搜不到 `__proto__`** ✗，
+它被当成**普通属性** ✓ ⇒ 对象自己的原型还是 `Object.prototype` ✗ ⇒ `super` 读成 `undefined` ✓
+⇒ 报 **`cannot call a non-closure value`** ✓（**一句话里没有一个字提到 `__proto__`** ✗）。
+**只认非计算的那一档** ✓：`{ ["__proto__"]: p }` 在 JS 里是**普通属性** ✓（规范如此 ✓）。
+
+### 三、这一格的教训（**值得记** ✓）
+
+**「一次都没做过的档」会以别的面孔出现** ✗——`super` 那一路抛的是「不在派生类方法里」✓
+（听起来像语法限制 ✗）；补完之后下一句报的是「调用一个非闭包」✓（听起来像取值错 ✗）；
+**两句都没提 `__proto__`** ✓。**一路补下去才到真正的缺口** ✓。
+
+**读数** ✓：`pass` **1336 → 1337** ✓、`blocked` **5 → 4** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **31.0s 全绿** ✓；**引擎 99.3%** ✓、降级层 99.4% ✓、标准库 99.4% ✓、端到端 100% ✓。
+**剩下 6 格** ✓。
+
+### 四、下一轮的入口
+
+**① 嵌套命名空间** ✓（报错已带「`left is ModuleDeclaration at 19..65`」✓；根在投影层语句切分 ✓）；
+**② 链式调用** ✓（这一轮拿到了确凿形状 ✓：产物里是
+`<PropertyAccess><Identifier>x</Identifier>.<Method name=""><Method name="get"/></Method></PropertyAccess>` ✓
+——**空名字的 `Method` 嵌在 `PropertyAccess` 里面** ✓，所以第 348 轮那个扫平级单元的探针
+**永远看不到它** ✓ ⇒ 下一轮从 `projectNode` 的 `PropertyAccess` 那一支入手 ✓）；
+**③ `Array.fromAsync`** ✓（**根本没有实现** ✗）；**④ 错误要有 `stack`** ✓；
+**⑤ 其余**（`IdTable` 容量口径 ✓、`Map`/`Set`/`Date` 的 `size` 该是原型 getter ✓、
+错误对象的内部槽标记 ✓）。
+
 ## 第 360 轮的账（**三元条件段的起点判据认「受限产生式那个词」** —— 99.5%，收掉 1 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
