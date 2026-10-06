@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
@@ -490,31 +490,10 @@ const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
 // **`PropertyAccess(模板, ., length)`** ✓——标签在外面、模板与后缀在同一个 `PropertyAccess` 里 ✓
 //（投影 0c 那一段写着这个形状 ✓）。所以判据是「**这个单元以模板开头**」✓：
 // 它自己就是 `String` ✓，或者它是一个 `PropertyAccess` 、**第一个可投影子单元是 `String`** ✓。
-if (this.StartsWithTemplate(afterOperand)) {
+if (StartsWithTemplate(afterOperand)) {
   return false;
 }
 return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
-```
-
-## private method StartsWithTemplate:(unit:Token | null)=>bool
-
-**这一格是不是「模板开头」** ✓（第 321 轮 ✓）——`String` 自己 ✓、
-或者一个 `PropertyAccess` 而它**第一个**非软换行子单元是 `String` ✓
-（`` t`x`.length `` 就是这一种 ✓，投影 0c 那一段量过同一个形状 ✓）。
-
-**为什么看的是「第一个子单元」而不是「有没有 `String`」** ✗：`a.b.length` 里没有字符串 ✓；
-而 `` t`x` `` 那个 `PropertyAccess` 的**第一个**孩子就是模板 ✓ ✓。
-换行那两格不算 ✓（`AddAndCloseLast` 不把 `LineWrap` 收进去 ✓，与那两条规则同一条口径 ✓）。
-
-```ts
-if (unit === null) return false;
-if (unit instanceof String) return true;
-if (!(unit instanceof PropertyAccess)) return false;
-for (const child of unit.Data) {
-  if (child instanceof LineWrap) continue;
-  return child instanceof String;
-}
-return false;
 ```
 
 ## private method IsCommaExpressionComma:(units:Array<Token>, index:int)=>bool

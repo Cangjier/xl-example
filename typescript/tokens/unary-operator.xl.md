@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, StartsWithTemplate } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
@@ -369,6 +369,24 @@ if (this.IsOperand(after)) {
       continue;
     }
     break;
+  }
+  // **被操作者后面紧跟「模板开头」的单元 ⇒ 那也是这一元运算的操作数** ✓（第 322 轮 ✓）——
+  // `` typeof t`z` `` 里标签与模板在 token 层是**两格平级** ✓（合成 `TaggedTemplateExpression`
+  // 是投影那一层的事 ✓），而这一支只吃**一个**单元 ✗ ⇒ 被操作数只剩 `t` ✓、模板留给通用支 ✓
+  // ⇒ 降级层把 `t` 当成「被调用者」✗（实测报 `cannot call a non-closure value` ✓，
+  // Node 给 `"string"` ✓——**静默错值** ✗）。
+  //
+  // **与二元那一条同一把判据** ✓（`text-common-util.xl.md` 的 `StartsWithTemplate` ✓，
+  // 第 321 轮在 `binary-operator.xl.md` 里为同一个形状加的 ✓）——**同一个语义一处实现** ✓。
+  // `` !t`x`.length `` 那种「模板 + 后缀」也算 ✓：那一格是 `PropertyAccess` ✓、
+  // 它的首个子单元是模板 ✓ ⇒ 整格收进来 ✓（区间也照它算 ✓）。
+  // **别写成裸块** ✗（第一版就是 `{ const tailIndex = … }` ✓）：这一份文件**自己也是
+  // `cases:tsast` 的语料** ✓（`dist/ts` 整个目录都在对拍范围内 ✓）——裸块那一格投出来
+  // **缺一个 `Block`** ✗、还多出两个 `BinaryExpression` ✓（实测 `--file dist/ts/typescript/tokens/unary-operator.ts`
+  // 报 缺 3 / 漂移 2 / 多出 8 ✓）。摊平就没有这一格 ✓。
+  const tailIndex = SkipNextWrapSymbol(units, operandEnd);
+  if (StartsWithTemplate(Get(units, tailIndex))) {
+    operandEnd = tailIndex;
   }
   const result = new UnaryOperator(template);
   result.Parent = current.Parent;

@@ -729,8 +729,7 @@ export const EXPECTATIONS = {
   // 被操作数只剩 `t` ✓、模板留给通用支 ✓ ⇒ 降级层当成「调用 `t` 的结果」✗。
   // **修法**：照 `binary-operator.xl.md` 的 `StartsWithTemplate` 那一条**同一把判据** ✓
   //（`String` 自己 ✓、或 `PropertyAccess` 的首个子单元是 `String` ✓）在 `Process` 里多收一格 ✓。
-  "c321-ex-tagged-template-after-unary": {
-    expect: "blocked",
-    why: "标签模板落在一元运算符的操作数位时，标签与模板被拆开：`typeof t`z`` 报 `cannot call a non-closure value`（Node 给 \"string\"）。根子与二元那一条同源 —— `UnaryOperator.Process` 只往后吃一个单元（第 309 轮给它加过「吃调用括号」那一档），而模板串是又一个单元 ⇒ 被操作数只剩 `t`、模板留给通用支 ⇒ 降级层当成「调用 `t` 的结果」。修法：照 `binary-operator.xl.md` 的 `StartsWithTemplate` 同一把判据在 `Process` 里多收一格",
-  },
+  // **一元那一格第 322 轮也收了** ✓（同一把判据 `StartsWithTemplate` ✓，搬进
+  // `text-common-util.xl.md` 两处共用 ✓；判据 `c321-ex-tagged-template-after-unary`
+  // 已转 pass ✓，那一行撤了 ✓）——留这一段是为了让「为什么一元也要多收一格」有出处 ✓。
 };

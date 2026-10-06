@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.18,
+  "progressPercent": 95.29,
   "layers": [
     {
       "layer": "runtime",
@@ -49,11 +49,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 274,
-      "pass": 264,
-      "blocked": 7,
+      "pass": 265,
+      "blocked": 6,
       "differ": 3,
       "nodefail": 0,
-      "coverage": 96.35
+      "coverage": 96.72
     },
     {
       "layer": "stdlib",
@@ -202,12 +202,6 @@
       "layer": "exec",
       "title": "静态计算键字段 + 实例计算键方法",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed class field name"
-    },
-    {
-      "id": "c321-ex-tagged-template-after-unary",
-      "layer": "exec",
-      "title": "标签模板出现在一元运算符的操作数位（`typeof t`z``）",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "object-freeze",

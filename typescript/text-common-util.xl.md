@@ -27,6 +27,35 @@ import { LineWrap } from "./tokens/line-wrap.xl.md"
 它读的是 `ReorganizationTemplate.DefaultValue`，也就是**通用重组队列**，属于解析优先级契约的一部分，
 已经搬到 `./parse-pipeline.xl.md`，与 `GeneralReorganize` 放在一起。
 
+# method StartsWithTemplate:(unit:Token | null)=>bool
+
+**这一格是不是「模板开头」** ✓（第 321 轮 ✓，第 322 轮搬到这里共用 ✓）。
+
+**为什么要有这一条** ✗：`` t`x` `` 在 token 层是**两格平级** ✓（标签一格、模板一格 ✓，
+或者模板与后缀合成一个 `PropertyAccess` ✓）——合成 `TaggedTemplateExpression` 是**投影**那一层的事 ✓
+（`print-ast-common` 的 0b / 0c ✓）。所以「二元 / 一元运算符该不该把右边收成操作数」这一类判断 ✓
+都要问同一个问题：**下一个单元是不是模板开头** ✓（是的话就**先放过** ✗，别把标签与模板拆开 ✓）。
+
+**判据为什么不看类名** ✓：写成 `unit instanceof PropertyAccess` 会在 util 这一层**引进一个环** ✗
+（`property-access.xl.md` 自己就 import 本文件 ✓）。改成**只看「最左边那个叶子是不是字符串」** ✓：
+`String` 自己算 ✓，否则往**第一个**非软换行子单元里走一层 ✓（`PropertyAccess(模板, ., length)`
+的第一个孩子就是模板 ✓）。这一条不需要认识任何容器类 ✓，而结论与「以模板开头」等价 ✓。
+
+**它为什么不会认错** ✓：字符串字面量**不可能**紧跟在一个操作数后面 ✗
+（`t "x"` 不是合法 JS ✓）——所以「操作数 + 字符串」这个相邻关系**只可能是** `` t`x` `` ✓。
+这与 `property-access.xl.md` 里「数组字面量不会紧跟在表达式后面」是**同一条推理** ✓
+（那里用它把 `o.b![1]` 的 `[1]` 认成下标 ✓）。
+
+```ts
+if (unit === null) return false;
+if (unit instanceof String) return true;
+for (const child of unit.Data) {
+  if (child instanceof LineWrap) continue;
+  return StartsWithTemplate(child);
+}
+return false;
+```
+
 # method SkipNextWrapSymbol:(units:Array<Token>, index:number)=>int
 
 从 `index + 1` 起向后跳过所有 `LineWrap`，返回第一个非 `LineWrap` 的下标。
