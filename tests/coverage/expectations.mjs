@@ -505,7 +505,11 @@ export const EXPECTATIONS = {
   // 两条都卡在同一族判据上 ✓：写操作先问「接收者是不是对象」✓，
   // 而 JS 在这一格上**不抛** ✗（松散模式静默无效 ✓）。
   "rt-string-index-write-ignored": { expect: "blocked", why: "`unimplemented: assigning an index on a primitive receiver`：`\"abc\"[0] = \"z\"` 在 JS 里**静默无效**（不抛），本仓在降级期就挡住" },
-  "rt-accessor-override": { expect: "blocked", why: "`unimplemented: assigning a property on a primitive receiver`：报在子类 `set value(next) { super.value = next }` 那一句上——`super.value = x` 该写进**接收者**（实例），却被当成了写在一个原始值上" },
+  // **`rt-accessor-override` 第 326 轮过了** ✓（那一行撤了 ✓）：根子就是写那一半的入口 ✓——
+  // `super.value = x` 该写进**接收者**（实例 ✓），而查找起点是**父原型** ✓；
+  // 原来降级层把 `super` 那一格当成了接收者 ✓ ⇒ 接收者是一个 `undefined` ✓ ⇒
+  // `assigning a property on a primitive receiver` ✓（听起来像「往一个数上写」✗，
+  // 其实是**接收者根本没算出来** ✓）。见 `SetPropertyFrom` / `SuperStartSlot` 那两段 ✓。
 
   // ---- 组 C：环境格与闭包（2 条）----
   // **`var` 那一半第 315 轮修好了** ✓（`EnvLeave` ✓，判据转 pass ✓、这一行撤了 ✓）——
@@ -671,7 +675,11 @@ export const EXPECTATIONS = {
   "c304-rt-new-target-in-ctor": { expect: "blocked", why: "`new.target` 报 `unimplemented: expression MetaProperty`——投影给出的是 `MetaProperty` 这个 kind，而降级层没有那一格。要的是「当前这一帧是不是构造调用」（引擎帧上的一格），读成一个值即可" },
   "c304-rt-delete-nonconfigurable": { expect: "blocked", why: "**口径边界（严格模式的选择）**：`delete` 一个不可配置的属性，本仓一律抛（那一抛还冒出脚本、接不住），而 `node` 把 `.ts` 当 CJS 跑是**松散模式**、静默返回假——与 README 里 `Object.freeze` 写属性那一条同源" },
   "c304-rt-iife-arrow-this": { expect: "differ", why: "**口径边界（严格模式的选择）**：普通函数调用在松散模式下 `this` 是全局对象，本仓一律 `undefined`。同一个根还拖着下面那条" },
-  "c304-rt-super-property-write": { expect: "blocked", why: "`super.x = v` 报 `assigning a property on a primitive receiver`——降级层把 `super` 那一格当成了接收者。接收者该是**当前实例**、起点才是父原型（第 243 轮补的是读那一半 `super.v`，写这一半还没有）" },
+  // **`c304-rt-super-property-write` 第 326 轮过了** ✓（那一行撤了 ✓）：
+  // 第 243 轮补的是读那一半（`super.v` ✓），这一轮补的是**写那一半** ✓——
+  // 引擎侧是一条与 `get_prop_from` **对称**的 `set_prop_from` ✓（四格：起点 / 键 / 值 / 接收者 ✓），
+  // 降级侧的起点走**同一个** `SuperStartSlot` ✓（静态那一半从父类构造函数起 ✓、
+  // 实例那一半从 `父类.prototype` 起 ✓——两处各写一遍就会漂 ✓）。
   "c304-rt-detached-method-this-undefined": { expect: "differ", why: "**口径边界（严格模式的选择）**：与方法摘下来单独调那一格同一个根（见上一条）" },
   // **`c304-rt-optional-chain-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
   // 同一条里的 `o.n?.()` / `o.missing?.()` 两半本来就对 ✓，这一轮补的是
@@ -819,7 +827,13 @@ export const EXPECTATIONS = {
   "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗（`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓）" },
   "c323-std-array-fromasync": { expect: "differ", why: "`Array.fromAsync` 没有（本仓**一行都不打**，Node 给 `1,2,3`）——两个来源都要：**异步可迭代对象**（`async function*` ✓，本仓的 `for await` 已经能收 ✓）与**带映射函数的同步数组**（每一项 `await` 一次 ✓）。它是 `Array.from` 的异步姊妹，落在同一张表上" },
   // C —— 写那一半没有对应的入口（2 条）
-  "c323-ex-super-property-write": { expect: "blocked", why: "`super.x = v` 报 `assigning a property on a primitive receiver`：降级层把 `super` 那一格当成了**接收者**（而 `super` 在值位给的是 `undefined`）——接收者该是**当前实例** ✓、起点才是父原型 ✓。读那一半第 243 轮补了 `RtOp.GetPropFrom`，写这一半要一条对称的 `set_prop_from`（引擎里还没有那一格）。与 `rt-accessor-override` / `c304-rt-super-property-write` 同一个根，这一条是「父类只有数据字段、子类用访问器写」那种排布" },
+  // 写那一半没有对应的入口 **只剩下 1 条**（数组子类 ✓）
+  //
+  // **`c323-ex-super-property-write` 第 326 轮过了** ✓（那一行撤了 ✓）：
+  // 这一条是「父类只有数据字段、子类用访问器写」那种排布 ✓——
+  // 与 `rt-accessor-override`（父类是访问器 ✓）和 `c304-rt-super-property-write`
+  // （父类是 setter ✓）**三种排布一起转绿** ✓，因为根子是**同一处** ✓：
+  // 「查找起点」与「接收者」在写这一半上原来是**同一个东西** ✗。
   "c323-rt-array-subclass-and-methods": { expect: "blocked", why: "`class List extends Array` 报 `this method needs an array receiver`——实例是**普通对象**（`extends` 只连了原型链），而数组方法（`push` / `join`）认的是真数组。要一条「按内置类造实例」的路（`[[Prototype]]` 与内部槽一起给），与 `rt-instanceof-array-subclass` 同一个根" },
   // D —— 同一个形状只认了一半（2 条）
   "c323-ex-angle-bracket-assertion-forms": { expect: "blocked", why: "尖括号断言 `<T>expr` 报 `unimplemented: expression TypeAssertionExpression`——它与 `as` 在 TS 的 AST 里是**两个 kind**（`TypeAssertion` 与 `AsExpression` ✓），投影 / 降级只认了后者（与 `ex-angle-bracket-assertion` 同一个根，这一条把「变量 / 字面量 / 嵌套」三种操作数一起考）。**裁判要用 `--experimental-transform-types`** ✓：剥离模式明确拒收尖括号写法 ✓" },

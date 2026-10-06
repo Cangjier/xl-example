@@ -253,11 +253,25 @@ import { HeapTable } from "./heap.xl.md"
 `pow` 的舍入**没有标准定死** ✗，所以它落成**语言内建**那条路 ✓，
 与 `StringConcat` 同一套做法 ✓）。
 
+- case SetPropFrom
+**从指定的原型起写一格属性，写下去的接收者另给**（第 326 轮 ✓）——
+四个操作数：**起点** ✓（一个对象：从它开始沿原型链找 ✓）、**键** ✓、**值** ✓、
+**接收者** ✓。`super.x = v` 那一格要的正是它 ✓（见 `props.xl.md` 的 `SetPropertyFrom` ✓）。
+
+**它与 `get_prop_from` 是一对** ✓（第 243 轮那一格读、这一格写 ✓）：
+`set_prop` 的**查找起点是接收者自己** ✗——`set value(v) { super.value = v }`
+会先命中**子类自己**那一格 setter ⇒ **无限递归** ✓（与读那一半第 242 轮量到的是同一件事 ✓）。
+
+**为什么也排在末尾** ✓：同一条纪律 ✓（只追加、不改号 ✓）——
+**第一版想插在 `set_prop` 旁边** ✓，那会把 `del_prop` 之后**每一个**算子的号都挪一格 ✗，
+而这张表是「编译出来的程序」与「跑它的引擎」之间的握手 ✓
+（`tests/runtime/check.mjs` 的「编号只追加」那一条当场会红 ✓，第 315 轮已经拦过一次 ✓）。
+
 # const BuiltinBase:int = 64
 语言内建 id 的起点。通用算子表留出前 64 个号——**留空比「以后插队」便宜**：
 真正要在中间插一个通用算子时，插队会改掉所有已编译程序的号，而扩到 64 只是浪费几个号。
 
-# const RtOpCount:int = 41
+# const RtOpCount:int = 42
 
 **通用算子表有几条**（= `RtOp` 的成员数）。
 
@@ -317,6 +331,8 @@ if (id === RtOp.HostCall) return "host_call";
 if (id === RtOp.SetProto) return "set_proto";
 if (id === RtOp.BitNot) return "bit_not";
 if (id === RtOp.UShr) return "ushr";
+// **第 326 轮追加的** ✓（`super.x = v` 那一格 ✓，号也在**表尾** ✓）。
+if (id === RtOp.SetPropFrom) return "set_prop_from";
 return "unknown";
 ```
 

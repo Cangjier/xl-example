@@ -4142,27 +4142,15 @@ return result;
 它是**调用** ✓，报出来更好查 ✓。
 
 ```ts
-if (this.InSuperName === "") {
+// **起点是抽出来的** ✓（第 326 轮 ✓）：`super.v` 读那一半与 `super.x = v` 写这一半
+// **必须同一个起点** ✗——两处各写一遍，漂的表现是「静态那一半写到实例上」✓
+//（正是第 278 轮修过一次的那种错 ✓）。**不在派生类里就给 `-1`** ✓，
+// 调用方各自决定怎么处理 ✓（读那一半给 `undefined` ✓、写那一半响亮地抛 ✓）。
+const superStart = this.SuperStartSlot();
+if (superStart < 0) {
   const missing = this.Reserve(1);
   this.Emit(Op.Const, missing, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
   return missing;
-}
-const parentAccess = this.ResolveAccess(this.InSuperName);
-const parent = this.Reserve(1);
-if (parentAccess.InEnv) {
-  this.Emit(Op.EnvGet, parent, parentAccess.Depth, parentAccess.Cell, -1);
-} else {
-  this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
-}
-const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-// **起点分两种** ✓（第 278 轮 ✓）：**静态成员从父类构造函数自己起读** ✓
-//（`static get kind() { return super.kind }` 读的是 `A.kind` ✓），
-// **实例成员从 `父类.prototype` 起读** ✓（`get v() { return super.v }` ✓）。
-// **这里原来只有后一种** ✗，于是静态那一半去读了 `A.prototype.kind` ✓ ⇒ `undefined` ✓
-//（判据 `rt-class-getter-static-and-inherit` 现场给的是 `B+undefined` ✓——**静默错值** ✗）。
-let superStart = parent;
-if (!this.InSuperStatic) {
-  superStart = this.RtCall2(RtOp.GetProp, parent, prototypeKey);
 }
 // **接收者是当前实例** ✓（`load_this` ✓——与 `super.m()` 那一处同一格 ✓）。
 const superSelf = this.Reserve(1);
@@ -4175,6 +4163,76 @@ this.Emit(Op.Move, window + 2, superSelf, -1, -1);
 const result = this.Reserve(1);
 this.EmitRt(RtOp.GetPropFrom, result, window, 3);
 return result;
+```
+
+## method SuperStartSlot:()=>int
+**`super` 那一格的起点是哪一格**（第 326 轮 ✓）——**静态成员从父类构造函数自己起读** ✓
+（`static get kind() { return super.kind }` 读的是 `A.kind` ✓），
+**实例成员从 `父类.prototype` 起读** ✓（`get v() { return super.v }` ✓）。
+
+**为什么值得单开一个函数** ✗：读那一半（`LowerSuperProperty` ✓）与写那一半
+（`super.x = v` ✓）要的是**同一个起点** ✓——两处各写一遍就是两处会漂的答案 ✓，
+而漂的表现是「静态那一半写到实例上」✓（**静默错值** ✓，第 278 轮修过一次 ✓）。
+
+**父类怎么找到** ✓：`InSuperName` 是类降级时写进排队函数的父类名 ✓，
+照常 `ResolveAccess` ✓，再读一次 `prototype` ✓。
+
+**不在派生类方法里给 `-1`** ✓（**不抛** ✗）：`super` 写在别处本来就是语法错误 ✓，
+走到这一支说明树不该到这儿 ✓——**两个调用方各自决定怎么处理** ✓
+（读那一半给 `undefined` ✓ 是最省事的那一档 ✓；写那一半是**写** ✓，响亮地抛更好查 ✓）。
+
+```ts
+if (this.InSuperName === "") return -1;
+const parentAccess = this.ResolveAccess(this.InSuperName);
+const parent = this.Reserve(1);
+if (parentAccess.InEnv) {
+  this.Emit(Op.EnvGet, parent, parentAccess.Depth, parentAccess.Cell, -1);
+} else {
+  this.Emit(Op.Move, parent, parentAccess.Slot, -1, -1);
+}
+if (this.InSuperStatic) return parent;
+const prototypeKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+return this.RtCall2(RtOp.GetProp, parent, prototypeKey);
+```
+
+## method LowerSuperAssignment:(left:AstNode, right:AstNode)=>int
+
+**`super.x = v`**（第 326 轮 ✓）——**从父原型起找那一格，但写下去的接收者是当前实例** ✓
+（与读那一半 `LowerSuperProperty` **对称** ✓，引擎那边对应的是 `RtOp.SetPropFrom` ✓）。
+
+**为什么必须是一条新路** ✗（与读那一半同一条理由 ✓）：`set value(v) { super.value = v }`
+如果按「接收者自己」去找 ✓，会先命中**子类自己**那一格 setter ⇒ **无限递归** ✓。
+
+**求值顺序照 JS** ✓：接收者是 `this`（不算 ✓）、键是常量 ✓、**值是右表达式** ✓
+——所以值**只求一次** ✓、在写之前 ✓（`super.x = f()` 里 `f()` 恰好调一次 ✓）。
+
+**四格窗口** ✓（起点 / 键 / 值 / 接收者 ✓），与 `RtOp.SetPropFrom` 的签名一一对应 ✓；
+**赋值表达式的值就是右边那一格** ✓（JS 的口径 ✓，与 `o.x = v` 那条一字不差 ✓）。
+
+```ts
+const name = Child(left, "name");
+if (NodeKind(name) !== "Identifier") {
+  throw new Error("unimplemented: super with a computed name");
+}
+const start = this.SuperStartSlot();
+if (start < 0) {
+  // **写那一半响亮地抛** ✗（读那一半给 `undefined` ✓）：`super.x = v` 写在派生类方法外面
+  // 在 TS 里就是语法错误 ✓，而「静默什么都没写」是最坏的那一档 ✓（**静默错值** ✓）。
+  throw new Error("unimplemented: super.x = v outside a derived class method");
+}
+const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
+const selfSlot = this.Reserve(1);
+this.Emit(Op.LoadThis, selfSlot, -1, -1, -1);
+const value = this.LowerExpression(right);
+const window = this.Reserve(4);
+this.Emit(Op.Move, window, start, -1, -1);
+this.Emit(Op.Const, window + 1, key, -1, -1);
+this.Emit(Op.Move, window + 2, value, -1, -1);
+this.Emit(Op.Move, window + 3, selfSlot, -1, -1);
+const result = this.Reserve(1);
+this.EmitRt(RtOp.SetPropFrom, result, window, 4);
+this.Release(window);
+return value;
 ```
 
 ## method LowerMethodCall:(call:AstNode, callee:AstNode)=>int
@@ -6724,6 +6782,17 @@ if (operatorText === "=") {
     return rhs;
   }
   if (leftKind === "PropertyAccessExpression" || leftKind === "ElementAccessExpression") {
+    // **`super.x = v` 要先认出来** ✓（第 326 轮 ✓）：接收者那一格是 `SuperKeyword` ✓——
+    // 它不是普通表达式 ✗（`LowerExpression(SuperKeyword)` 那一支给 `undefined` ✓），
+    // 于是原来落到 `SetProperty(undefined, …)` ✓ ⇒ 报
+    // `assigning a property on a primitive receiver` ✓
+    //（听起来像「往一个数上写属性」✗，其实是**接收者根本没算出来** ✓）。
+    // **与读那一半同一个判据、同一个起点** ✓：判据落在**父节点**上 ✓（`Child(left, "expression")` ✓），
+    // 起点走 `SuperStartSlot` ✓——两处各写一遍就会漂 ✓。
+    if (leftKind === "PropertyAccessExpression"
+      && NodeKind(Child(left, "expression")) === "SuperKeyword") {
+      return this.LowerSuperAssignment(left, Child(node, "right"));
+    }
     // **求值顺序是语义**：接收者 → 下标 → 值（JS 就是这个顺序，副作用按它发生）。
     const receiver = this.LowerExpression(Child(left, "expression"));
     if (leftKind === "PropertyAccessExpression") {

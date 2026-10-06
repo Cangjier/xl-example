@@ -10,7 +10,7 @@ import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtB
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
 import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
-import { GetPropertyFrom } from "./props.xl.md"
+import { GetPropertyFrom, SetPropertyFrom } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 import { HostTextUnits } from "./host-text.xl.md"
 ```
@@ -2274,6 +2274,15 @@ if (id === RtOp.GetPropFrom) {
 if (id === RtOp.SetProp) {
   RequireArgc(argc, 3, "set_prop");
   return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table, slots[base], slots[base + 1], slots[base + 2]));
+}
+if (id === RtOp.SetPropFrom) {
+  // **从指定的原型起写**（第 326 轮 ✓）：四格 = 起点 / 键 / 值 / 接收者 ✓——
+  // `super.x = v` 那一格要的正是它 ✓（理由见 `props.xl.md` 的 `SetPropertyFrom` ✓）。
+  // **失败类别与 `set_prop` 同一档** ✓（`ErrorKindType` ✓）：它们失败的原因是同一族
+  //（不可写 ✓ / 访问器没有 setter ✓ / 接收者不是对象 ✓）——分两档就是在两处猜「这算哪种错」✗。
+  RequireArgc(argc, 4, "set_prop_from");
+  return this.Guard(() => SetPropertyFrom(this.Room(), this.Native(), this.Table,
+    slots[base], slots[base + 1], slots[base + 2], slots[base + 3]), ErrorKindType);
 }
 if (id === RtOp.SetProto) {
   RequireArgc(argc, 2, "set_proto");

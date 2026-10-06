@@ -648,6 +648,36 @@ return property.Value;
 
 写属性，返回写进去的值（赋值表达式的值就是它）。
 
+**它是 `SetPropertySearched` 的「从头找」那一档** ✓（第 326 轮抽出来 ✓）：
+查找起点**就是接收者自己** ✓——`super.x = v` 要的是「起点另给一个、接收者照旧」✓，
+两件事只差**一个参数** ✗，所以规矩只有一处 ✓（见 `SetPropertyFrom` ✓）。
+
+```ts
+return SetPropertySearched(room, call, table, receiver.Ref, key, value, receiver);
+```
+
+# method SetPropertyFrom:(room:RoomChecker, call:NativeCall, table:HeapTable, start:Value, key:Value, value:Value, receiver:Value)=>Value
+
+**从 `start` 起沿原型链找那一格，但写下去的接收者是 `receiver`**（第 326 轮 ✓）——
+`super.x = v` 那一格要的正是它 ✓（与读那一半的 `GetPropertyFrom` **对称** ✓）。
+
+**它为什么必须与 `SetProperty` 分开** ✗：`SetProperty` 的查找起点是**接收者自己** ✓——
+`set value(v) { super.value = v }` 会先命中**子类自己**那一格 setter ⇒ **无限递归** ✓
+（读那一半第 242 轮踩的是同一件事 ✓）。
+
+**起点不是对象**（`null` / `undefined` ✓）**就跳过查找** ✓：父原型为空时 JS 照样往下走
+（在接收者上定义 ✓），**不抛** ✗。
+
+```ts
+const searchRef = start.IsObject() ? start.Ref : -1;
+return SetPropertySearched(room, call, table, searchRef, key, value, receiver);
+```
+
+# method SetPropertySearched:(room:RoomChecker, call:NativeCall, table:HeapTable, searchRef:int, key:Value, value:Value, receiver:Value)=>Value
+
+**写属性那一套规矩本身**（第 326 轮从 `SetProperty` 里抽出来 ✓）——`searchRef` 是
+**查找起点**（`< 0` 表示「不找」✓），接收者永远是 `receiver` ✓。
+
 四条分支，**顺序是语义**：
 
 1. **数组的 `length`**：写它**截断**（JS 语义：`a.length = 2` 把后面丢掉）；
@@ -677,7 +707,10 @@ if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
 if (!receiver.IsObject()) {
   throw new Error("unimplemented: assigning a property on a primitive receiver");
 }
-const found = FindProperty(room, table, receiver.Ref, key);
+// **起点另给时走同一套分支** ✓（`< 0` 就是「不找」✓ ⇒ 直接落到第 4 条 ✓）——
+// 三条语义（访问器调 setter ✓ / 数据属性写到**接收者**上 ✓ / 没找到就新建 ✓）
+// **一个字都不新写** ✓，两个入口只差这一句查找 ✓。
+const found = searchRef < 0 ? null : FindProperty(room, table, searchRef, key);
 if (found !== null) {
   const property = table.Get(found.Owner).Props[found.Index];
   if (property.Kind === PropertyKind.Accessor) {
