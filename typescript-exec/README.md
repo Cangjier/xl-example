@@ -6,6 +6,60 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 345 轮的账（**`String.prototype[Symbol.iterator]`** —— 99.0% → **99.1%**，收掉 1 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓，
+这一轮把**上一轮顺手量到、修法也写着**的那一格做掉 ✓。
+
+### 一、那一格判据
+
+```ts
+const s = "ab"[Symbol.iterator]();
+console.log(s.next().value, s.next().value, s.next().done);
+```
+
+**Node 给 `a b true`** ✓、本仓原来报「**cannot call a non-closure value**」✗。
+`for (const c of "abc")` 与 `[...s]` **一直是对的** ✓（那两条走**引擎**那条 `iter_next` ✓，
+字符串它自己认 ✓），而**手写那一句**走的是 `String.prototype` 上那一格 ✗——
+**那一格从来没挂过** ✗（数组那一格**第 308 轮挂过** ✓）。
+**同一个口径两条路，只接了一条** ✗。
+
+### 二、修法：借现成的两步，一行码点规则都不新写
+
+- **`StringIteratorSelf`**（号 **349** ✓）走 **`Array.from` 那条能力**（`ArrayFrom = 17` ✓）
+  把字符串收成数组 ✓——`ArrayFromValues` 那一支里写着「先 `GetIterator` 再 `drain`」✓，
+  而字符串两处都现成 ✓，拿到的正是**逐码点的数组** ✓；
+- 再 `AttachArrayIterator` 把 `__i` / `next` 两格挂上去 ✓，`next()` 于是给 `{ value, done }` ✓。
+
+**为什么走能力号而不是直接 import** ✗：`ArrayFromValues` 住在 `install.xl.md` ✓，
+而那一份**要 import 这一份**（`InvokeGlobal` ✓）——直接调就**成环** ✗；
+能力号那条路是**反的** ✓（宿主那一头把它接回来 ✓），与**内建之间互调**同一形状 ✓。
+挂的位置与数组那一格**并排** ✓（**同一个键** ✓：知名符号只造一次 ✓，从同一张小表里取 ✓）。
+
+### 三、试过又收回来的一半：`new.target`
+
+计划是「帧上多一格 `NewTarget`（被调的构造函数**本身** ✓），降级层把 `MetaProperty`
+落成一条新指令 `LoadNewTarget` ✓」——**摸了一遍发现要动七处换一格** ✗
+（`heap` / `vm` / `gc` / `ir` / `ir-verify` / `lowering` / `runtime:check` ✓），
+**改动面与收益不成比例** ✗。这一轮**先收回来** ✓（四份文件 `git checkout` ✓、
+`xl_build --force` 重建 ✓、门全绿 ✓），**账留在下一轮的入口里** ✓：
+
+- 写新帧值时一起写 `NewTarget` ✓（构造调用给 `callee` ✓、其余给 `undefined` ✓）；
+- `gc` 的帧扫描加一格 ✓（它是一个 `Value` ✓，与 `This` 同一形状 ✓）；
+- `ir` 追加 `LoadNewTarget` ✓（**编号在表尾** ✓）、`ir-verify` 跟着挪上界与操作数检查 ✓、
+  `runtime:check` 那两条**硬编码数字**跟着挪 ✓（第 336 轮那次的经验：写成「表尾 + 1」就只改一个名字 ✓）。
+
+**读数** ✓：`pass` **1327 → 1328** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **38.2s 全绿** ✓；**标准库 99.2%** ✓、引擎 98.1% ✓、降级层 99.1% ✓、端到端 100% ✓。
+**剩下 15 格** ✓。
+
+**下一轮的入口** ✓：
+**① `new.target`** ✓（**上面刚写全的清单** ✓）；**② 那张 `IdTable` 的容量口径** ✓（第 340 轮量到 ✓）；
+**③ `Map` / `Set` / `Date` 的 `size` 该是原型上的 getter** ✓（第 341 轮 ✓）；
+**④ 错误对象的内部槽标记** ✓（第 343 轮 ✓）；**⑤ 零散** ✓（`console.log(Error)` 要栈 ✗、
+`thenable` 采纳 ✓、`Array.fromAsync` ✓、`delete` 非可配置 ✓、
+`super` 在对象字面量里 ✓、三元与箭头 ✓、`for..in` 的次序 ✓ 等 ✓）。
+
 ## 第 344 轮的账（**`instanceof` 先问 `Symbol.hasInstance`** —— 98.9% → **99.0%**，收掉 2 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓。
