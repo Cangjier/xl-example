@@ -13,7 +13,7 @@ import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString } from "./globals.xl.md"
-import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
+import { InvokeMap, MapCtor, MapGroupBy, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet, SetCtor } from "./set.xl.md"
 ```
 
@@ -98,7 +98,9 @@ throw new Error("unimplemented: builtin id " + id);
 // 少挪一格就是 `unimplemented: global builtin 243` ✓
 //（**一句话听起来像「有个全局号没实现」** ✓，其实是**这一段的上界写窄了** ✗，
 // 与第 116 轮 `Map` / `Set` 那一处**一模一样** ✓）。
-if (id >= 230 && id < 248) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
+// **248 是第 327 轮加的** ✓（`withResolvers` ✓）——同一条账又走了一遍 ✓：
+// 上界从 `< 248` 挪到 `< 249` ✓（**号段的上界跟着新号走** ✗，这不是「顺手多挪一格」✓）。
+if (id >= 230 && id < 249) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
 // **「一个可迭代物 → 一个数组」这件家务事留在这一层** ✓（不放进 `map.xl.md` / `set.xl.md` ✗）：
@@ -110,6 +112,8 @@ if (id === MapCtor || id === SetCtor
   // 是**任意可迭代物** ✓（`a.union(new Set([3]))` ✓、`a.union([3])` ✓、`a.union(生成器)` ✓），
   // 而 `set.xl.md` 那一层**只认数组** ✓（它不能 import 这一层 ✗，依赖方向是反的 ✓）——
   // 与 `new Set(生成器)` **一字不差**的理由 ✓（第 199 轮 ✓）。
+  // **`Map.groupBy` 的第一个实参也是可迭代物** ✓（第 327 轮 ✓）——同一条理由 ✓。
+  || id === MapGroupBy
   || (id >= 620 && id <= 625)) {
   // **`null` / `undefined` 是空集合** ✓（JS 的口径 ✓），**不是**「没有迭代器」✗——
   // 而其余非可迭代物（`new Set(42)` ✓）由 `IterDrain` **响亮地抛** ✓（JS 也是 `TypeError` ✓）。
@@ -118,7 +122,11 @@ if (id === MapCtor || id === SetCtor
   }
 }
 if (id >= 611 && id < 660) return InvokeSet(room, protos, table, call, id, self, args, failed);
-if (id >= 600 && id < 611) return InvokeMap(room, protos, table, call, id, self, args, failed);
+// **`MapGroupBy = 660` 也要走 `Map` 那一块** ✓（第 327 轮 ✓）：`600..610` 那一段满了 ✓，
+// 而 `611..659` 是 `Set` 的 ✓——所以它是**下一位** ✓。**判据写成「区间或那一个号」** ✓
+// （写成 `600..660` 会把 `Set` 那一段抢走 ✗——它们按**窄到宽**判 ✓，而这一句在 `Set` 之后 ✓，
+// 所以 660 落到这里是对的 ✓；**顺序换了就静默换语义** ✗）。
+if (id === MapGroupBy || (id >= 600 && id < 611)) return InvokeMap(room, protos, table, call, id, self, args, failed);
 // **700..799：语言内部辅助**（第 99 轮开的段）。
 // 它们**不是全局名**——降级层为了落实现某条语法（访问器、`for..of` 的入口）而发的内部调用。
 // 与全局段分开编号，是为了让「脚本能看见的名字」与「降级层的家务事」一眼可辨。

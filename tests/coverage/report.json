@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.54,
+  "progressPercent": 95.75,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 479,
-      "pass": 452,
-      "blocked": 14,
+      "pass": 456,
+      "blocked": 10,
       "differ": 13,
       "nodefail": 0,
-      "coverage": 94.36
+      "coverage": 95.2
     },
     {
       "layer": "e2e",
@@ -246,33 +246,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: queueMicrotask"
     },
     {
-      "id": "c305-std-map-groupby",
-      "layer": "stdlib",
-      "title": "`Map.groupBy` 分出来的是 `Map`（键可以是任意值）",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c305-std-promise-withresolvers",
-      "layer": "stdlib",
-      "title": "`Promise.withResolvers`",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c305-std-string-normalize-forms",
       "layer": "stdlib",
       "title": "`normalize` 的四种形式在纯 ASCII 上是恒等",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c323-std-map-groupby",
-      "layer": "stdlib",
-      "title": "Map.groupBy：按键分组成 Map",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c323-std-promise-withresolvers",
-      "layer": "stdlib",
-      "title": "Promise.withResolvers：一对结清回调与承诺",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {

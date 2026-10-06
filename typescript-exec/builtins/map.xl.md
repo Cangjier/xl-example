@@ -71,6 +71,22 @@ import { NeverCall } from "./array.xl.md"
 第 142 轮把实参表开宽成**一整个数组** ✓，前两格当场就对了 ✓；第三格一直缺 ✓
 （`self` 就在手边 ✓，见下面那一支 ✓）。
 
+# const MapGroupBy:int = 660
+
+**`Map.groupBy(可迭代, 回调)`**（第 327 轮 ✓）——**静态方法** ✓，号落在
+**`600..610` 之外** ✗（那一段满了 ✓，而 `611..659` 是 `Set` 的 ✓）——
+所以它是**下一位 660** ✓，分派那一句写成「`600..610` **或** `660`」 ✓
+（`install.xl.md` ✓；**段号不连续要写在明处** ✗：将来再加一个 Map 的静态方法时，
+「下一个号是几」不能按 `610 + 1` 推 ✓）。
+
+**它为什么不能直接挂在 `Map` 那个值上** ✗（这一格量出来的第一件事 ✓）：
+`Map` 这一格是**宿主引用值** ✓——它**没有属性表** ✗，所以「往 `Map` 上挂一格静态方法」
+根本挂不上去 ✓（`Object.groupBy` 能挂 ✓，是因为 `Object` 本来就是普通对象 ✓）。
+修法与第 183 轮 `Symbol` 那条**一字不差** ✓：把 `Map` 改成
+**带可调用载荷的对象** ✓（`AttachCallable` ✓）——`new Map()` 照旧走 `Op.New` 的
+宿主那一条 ✓（`IsHostCallable` **两种壳都认** ✓，第 145 轮 ✓），
+`instanceof Map` 照旧走登记表 ✓（`RegisterConstructorProto` 按**号**认 ✓，与壳无关 ✓）。
+
 # method Units:(text:string)=>Array<int>
 
 名字 → 码元（与别的建库文件里那一个同形）。
@@ -208,6 +224,52 @@ if (id === MapCtor) {
     }
   }
   return map;
+}
+if (id === MapGroupBy) {
+  // **`Map.groupBy(可迭代, 回调)`** ✓（第 327 轮 ✓）——与 `Object.groupBy` **同一套分组** ✓，
+  // 差的是**分组键是任意值** ✓（对象那一版只能按字符串键 ✓——对象的键是字符串 ✓）。
+  // **两处不是抄一遍** ✗：键那一格本来就不同（一边 `ToString` ✓、一边原样 ✓），
+  // 但**回调的调用形状**（每个元素调一次 ✓、`(元素, 下标)` 两格 ✓）与它**一字不差** ✓。
+  //
+  // **它必须排在 `ReadOwn` 那两句之前** ✗（第一版写在函数末尾 ✓，报
+  // `unimplemented: not a Map receiver (no __k)` ✓）：它是**静态**方法 ✓，
+  // 接收者是 `Map` **那个对象**（没有 `__k` ✓）——排在后面就等于先拿它当实例读了 ✓。
+  // 「静态方法要先于实例那几句」这条次序与 `MapCtor` 那一支**同一个位置** ✓。
+  //
+  // **源只收数组** ✗（与 `Object.groupBy` 同一条 ✓）：可迭代那一半在
+  // `install.xl.md` 的号段翻译那一趟**已经收成数组** ✓（与 `new Map(生成器)` 同一处 ✓）。
+  //
+  // **桶用 `Map` 自己装** ✓：`get` 找、没有就 `set` 一个新数组 ✓——
+  // 于是「键是同一个值时合成一组」交给 `SameValueZero` 那一位 ✓（`NaN` ✓、对象引用 ✓，
+  // 与 `Map` 别的分支**同一张表** ✓）。
+  if (args.length < 2) throw new Error("Map.groupBy needs two arguments");
+  if (!IsCallableValue(table, args[1])) {
+    throw new Error("Map.groupBy needs a function as the second argument");
+  }
+  if (call === null) {
+    throw new Error("Map.groupBy needs a call channel (the host must pass one)");
+  }
+  if (args[0].Tag !== ValueTag.Array) {
+    throw new Error("unimplemented: Map.groupBy over a value that is not an array");
+  }
+  const groupSource = table.Get(args[0].Ref).AsArray();
+  const grouped = InvokeMap(room, protos, table, call, MapCtor, Value.Undefined(), []);
+  for (let i = 0; i < groupSource.GetLength(); i++) {
+    const member = groupSource.GetAt(i);
+    const bucketKey = call(args[1], Value.Undefined(), [member, Value.FromInt(i)]);
+    let bucket = InvokeMap(room, protos, table, call, MapGet, grouped, [bucketKey]);
+    if (bucket.Tag !== ValueTag.Array) {
+      // **先问 room、再分配** ✓（与 `Object.groupBy` 那一条同一个理由 ✓）：
+      // `MapSet` 自己也会问 room ✓——那一次如果触发了回收，这个**还没有人指着**的
+      // 新数组就会被收走 ✓。
+      if (!room(ObjectCharge * 2 + ValueCharge * 2)) throw new Error("out of room");
+      bucket = NewPlainArray(room, table, protos);
+      InvokeMap(room, protos, table, call, MapSet, grouped, [bucketKey, bucket]);
+    }
+    if (!room(ValueCharge)) throw new Error("out of room");
+    table.Get(bucket.Ref).AsArray().Push(member);
+  }
+  return grouped;
 }
 const keys = ReadOwn(room, table, self, "__k");
 const values = ReadOwn(room, table, self, "__v");

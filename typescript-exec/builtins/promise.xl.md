@@ -124,6 +124,18 @@ import { NameValue } from "./map.xl.md"
 
 **执行器拿到的那个 `reject`** ✓（第 285 轮 ✓）——`new Promise((_r, reject) => reject("no"))` ✓。
 
+# const PromiseWithResolvers:int = 248
+
+**`Promise.withResolvers()`**（第 327 轮 ✓）——号**追加在承诺段尾** ✓
+（`230..247` 已经满了 ✓，所以号段的**上界也跟着挪一格** ✗：`install.xl.md` 那一句
+`id >= 230 && id < 248` 改成 `< 249` ✓——**上界与「这一段有多少个号」是同一件事** ✓，
+少挪一格就是 `unimplemented: global builtin 248` ✓，第 295 轮踩过一模一样的 ✓）。
+
+**它是「三样东西一起交出去」** ✓：一个**待结清**的承诺 ✓ + `resolve` ✓ + `reject` ✓，
+装在一个普通对象上 ✓（`{ promise, resolve, reject }` ✓）。
+**一件新东西都没有** ✗：承诺走 `MakePromise` ✓（三个方法照挂 ✓）、
+两个回调走 `MakeSettleCallback` ✓（第 285 轮那一对 ✓）——这一格只是**把它们装到一起** ✓。
+
 # method MakeSettleCallback:(table:HeapTable, promise:Value, rejected:bool)=>Value
 
 **造一个「结清这个承诺」的宿主回调** ✓（第 285 轮 ✓）——执行器的两个形参就是它 ✓。
@@ -277,6 +289,22 @@ if (id === PromiseResolve) {
 if (id === PromiseReject) {
   const value = args.length > 0 ? args[0] : Value.Undefined();
   return MakePromise(room, table, PromiseState.Rejected, value);
+}
+if (id === PromiseWithResolvers) {
+  // **`Promise.withResolvers()`** ✓（第 327 轮 ✓）——三样一起交出去 ✓：
+  // 一个**待结清**的承诺 ✓（`MakePromise` 顺手把三个方法挂上 ✓）、
+  // 一对结清回调 ✓（`MakeSettleCallback` ✓，第 285 轮那一对 ✓）。
+  //
+  // **房间先问齐** ✓（与 `MakePromise` / 这一层别处同一条纪律 ✓）：
+  // 一个普通对象 ✓ + 三格值 ✓——**问到一半才失败**的话，前面造出来的东西
+  // 已经挂在那儿了 ✓（这一层没有「回滚」✗）。
+  if (!room(ObjectCharge * 2 + ValueCharge * 3)) throw new Error("out of room");
+  const pendingPromise = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  const resolvers = NewPlainObject(room, table, protos);
+  SetNumberProp(room, table, resolvers, "promise", pendingPromise);
+  SetNumberProp(room, table, resolvers, "resolve", MakeSettleCallback(table, pendingPromise, false));
+  SetNumberProp(room, table, resolvers, "reject", MakeSettleCallback(table, pendingPromise, true));
+  return resolvers;
 }
 if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id === PromiseAny) {
   if (schedule === null) {
@@ -629,5 +657,9 @@ SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "allSettled"
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAllSettled, 0)));
 SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "any"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseAny, 0)));
+// **第 327 轮补的一格** ✓（`withResolvers` ✓）——与上面六个**同一张对象**上再挂 ✓
+//（名字与号**一一对齐** ✓：`PromiseWithResolvers = 248` ✓，而 `248` 正是这一段的下一格 ✓）。
+SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "withResolvers"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseWithResolvers, 0)));
 return promiseObject;
 ```

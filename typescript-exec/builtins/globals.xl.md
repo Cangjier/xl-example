@@ -10,7 +10,7 @@ import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf, ArrayValues 
 import { StringFromCharCode, StringFromCodePoint } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
-import { MapCtor, NameValue, ReadOwn } from "./map.xl.md"
+import { MapCtor, MapGroupBy, NameValue, ReadOwn } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
 import { BuildPromise } from "./promise.xl.md"
 ```
@@ -5687,11 +5687,21 @@ for (let i = 0; i < percentNames.length; i++) {
 // 而 `globalThis` 在 Node 里是 `"object"` ✓——不补这一格就是一处**静默**的不一致 ✗。
 SetProperty(vm.Room(), NeverCall, table, globals,
   Value.FromString(table.CreateString(Units("globalThis"))), globals);
-// **`Map` 是一个宿主引用值**（不是普通对象）：`new Map()` 走 `Op.New` 的
-// 「宿主构造函数」那条分支——宿主自己把对象造好返回（见 `map.xl.md`）。
+// **`Map` 从「宿主引用」改成「带可调用载荷的对象」** ✓（第 327 轮 ✓）：
+// 它现在要挂一格**静态方法**（`Map.groupBy` ✓），而**宿主引用没有属性表** ✗
+// ——与第 183 轮 `Symbol` 那一条**一字不差** ✓（那一次是为了挂知名符号 ✓）。
+// **两件事都不受影响** ✓：`new Map()` 照旧走 `Op.New` 的宿主那一条 ✓
+//（`IsHostCallable` **两种壳都认** ✓，第 145 轮 ✓）；`instanceof Map` 照旧走登记表 ✓
+//（`RegisterConstructorProto` 按**号**认 ✓，与壳无关 ✓）。六道门一起验过 ✓。
+const mapObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(mapObject.Ref, MapCtor, 0);
 const mapKey = Value.FromString(table.CreateString(Units("Map")));
-const mapTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapCtor, 0));
-SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapTarget);
+SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapObject);
+// **`Map.groupBy`** ✓（第 327 轮 ✓）：挂在**那个对象**上 ✓（它现在有属性表了 ✓）。
+// **号是 660** ✗（不是 `611` ✓）：`600..610` 满了 ✓、`611..659` 是 `Set` 的 ✓——见 `map.xl.md`。
+SetProperty(vm.Room(), NeverCall, table, mapObject,
+  Value.FromString(table.CreateString(Units("groupBy"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapGroupBy, 0)));
 // `Set` 同样是**宿主引用值**（`new Set()` 走 `Op.New` 的宿主构造函数那条分支）。
 const setKey = Value.FromString(table.CreateString(Units("Set")));
 const setTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SetCtor, 0));
@@ -5842,7 +5852,13 @@ SetProperty(vm.Room(), NeverCall, table, globals, promiseKey, BuildPromise(vm, p
 // （`RtCmpEqStrict` 对 `HostRef` 比的是载荷句柄 ✓）——现造一个新句柄的话，
 // `new Map().constructor === Map` 给 **`false`** ✗（判据现场就是这么红的 ✓）。
 // 所以这里用的是上面那几个变量 **本身** ✓，不是再造一个 ✓。
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Map), NameValue(table, "constructor"), mapTarget);
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Map), NameValue(table, "constructor"), mapObject);
+// **`Map.prototype` 也要挂上** ✓（第 327 轮 ✓）：`Map` 现在是**对象** ✓，
+// 而 `instanceof` 走「读右边的 `prototype` 属性」那一条 ✓（登记表现在只给宿主引用值用 ✗）——
+// 不挂的话 `m instanceof Map` 报 `the right side of instanceof has no prototype object` ✓
+//（**响亮的错** ✓，但它是一处**回归** ✗：改壳之前那一条是好的 ✓，
+// 所以六道门里 `runtime:check` 与覆盖矩阵一起验过 ✓）。与 `Date` 那一行**同一个形状** ✓。
+SetProperty(vm.Room(), NeverCall, table, mapObject, NameValue(table, "prototype"), Value.FromObject(protos.Map));
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Set), NameValue(table, "constructor"), setTarget);
 SetProperty(vm.Room(), NeverCall, table, dateObject, NameValue(table, "prototype"), Value.FromObject(protos.Date));
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Date), NameValue(table, "constructor"), dateObject);

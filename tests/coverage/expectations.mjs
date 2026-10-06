@@ -707,8 +707,14 @@ export const EXPECTATIONS = {
   // 不需要②（捕获那一条是给实例字段的 ✓）。
   "c305-ex-optional-chain-nonnull-mix": { expect: "differ", why: "可选链与非空断言混在同一条链上时**后面那一截丢掉**：`o?.a!.b` 给 `{ b: 1 }`（Node 给 `1`）。与第 303 / 304 轮的链式缺口同一条（`print-ast-common.xl.md` 的链分支），这一条是「`?.` 在前、`!` 在后」那一种排布" },
   "c305-std-queue-microtask-order": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进与 `Promise.then` 同一个微任务队列（队列本身第 248 轮就有了）" },
-  "c305-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮装上了）——同一个分组实现，只是返回 `Map` 而不是对象" },
-  "c305-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers` 没有——要造一对结清回调并把它们与承诺一起交出去（`MakeSettleCallback` 那一族现成）" },
+  // **`c305-std-map-groupby` 与 `c305-std-promise-withresolvers` 第 327 轮都过了** ✓
+  // （两行撤了 ✓）——修法与号写在各自的规范那一段里 ✓：
+  // · `Map.groupBy` ✓：`Map` 从**宿主引用**改成**带可调用载荷的对象** ✓（第 183 轮 `Symbol` 那条 ✓），
+  //   静态方法于是挂得上去 ✓；号 `660` ✗（`600..610` 满了 ✓、`611..659` 是 `Set` 的 ✓）；
+  //   **顺手补一处回归** ✗：`instanceof` 走「读右边的 `prototype` 属性」那一条 ✓，
+  //   所以 `Map.prototype` 也要挂 ✓（`Date` 那一行同一个形状 ✓）；
+  // · `Promise.withResolvers` ✓：号 `248` ✓，号段的**上界跟着挪一格** ✗
+  //   （`id >= 230 && id < 248` → `< 249` ✓，第 295 轮踩过一模一样的 ✓）。
   "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
   // （`c305-std-then-returns-promise-adoption` 也在第 317 轮转 pass ✓、那一行同样撤了 ✓。）
   "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
@@ -821,8 +827,12 @@ export const EXPECTATIONS = {
   // 要做得先照第 183 轮 `Symbol` 那一条办 ✓：把 `Map` 改成**带可调用载荷的对象** ✓
   //（`AttachCallable` ✓，`IsHostCallable` 两种壳都认 ✓）——那是一次**结构性改动** ✓，
   // 要连同 `instanceof` 与 `new Map()` 两条判据一起验 ✓，单独一轮做 ✓。
-  "c323-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮就装上了）——同一个分组实现，只是**返回 `Map` 而不是对象**（分组键是任意值 ⇒ 不能用对象那一条路）。**卡点不在分组本身** ✗：`Map` 是**宿主引用值**（没有属性表 ✓），静态方法挂不上去 ✓——要先把 `Map` 改成「带可调用载荷的对象」（第 183 轮 `Symbol` 那一条 ✓），那是一次结构性改动 ✓。与 `c305-std-map-groupby` 同一个根，这一条多考了「键是同一个值时合成一组」那一格" },
-  "c323-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers()` 没有——它要**造一个承诺 + 一对结清回调**并交成一个对象（`MakeSettleCallback` 那一族现成 ✓，缺的是「把三样装进一个对象再返回」这一步）" },
+  // **`c323-std-map-groupby` 与 `c323-std-promise-withresolvers` 第 327 轮也过了** ✓
+  //（同一处修 ✓，两行撤了 ✓）。**`Map` 那一格的卡点量得准** ✓：确实**不在分组本身** ✗，
+  // 而是「静态方法挂不上去」✓——第 323 轮猜的那一句这一轮**兑现了** ✓。
+  // **改名那一刀的风险也量清了** ✗：`new Map()`（`IsHostCallable` 两种壳都认 ✓）与
+  // `instanceof Map`（改成读 `prototype` 属性 ✓、并且**顺手补上那一格** ✓）两条都验过 ✓，
+  // 六道门 + 1202 条覆盖一起绿的 ✓。
   "c323-std-queue-microtask": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进**与 `Promise.then` 同一条**微任务队列（队列本身第 248 轮就有；缺的是「宿主把「排一个纯回调」这件事借给语言层」那条服务，与第 199 轮的 `IteratorDrainer` 同一形状）" },
   "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗（`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓）" },
   "c323-std-array-fromasync": { expect: "differ", why: "`Array.fromAsync` 没有（本仓**一行都不打**，Node 给 `1,2,3`）——两个来源都要：**异步可迭代对象**（`async function*` ✓，本仓的 `for await` 已经能收 ✓）与**带映射函数的同步数组**（每一项 `await` 一次 ✓）。它是 `Array.from` 的异步姊妹，落在同一张表上" },
