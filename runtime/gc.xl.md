@@ -238,6 +238,10 @@ if (item.Frame !== null) {
   if (item.Frame.AsyncPromise > 0) stack.push(item.Frame.AsyncPromise);
   this.MarkValue(item.Frame.Awaiting, stack);
   this.MarkValue(item.Frame.This, stack);
+  // **`new.target` 那一格也是根** ✓（第 346 轮 ✓）：它是一个**值** ✓（构造函数本身 ✓），
+  // 与 `This` 同一形状 ✓——漏了它，症状是「某个构造函数里 `new.target` 某一天空了」✗
+  //（**只在回收之后出现** ✓，最难复现的一种 ✓）。
+  this.MarkValue(item.Frame.NewTarget, stack);
   this.MarkValue(item.Frame.ResumeValue, stack);
   for (let i = 0; i < item.Frame.Slots.length; i++) {
     this.MarkValue(item.Frame.Slots[i], stack);

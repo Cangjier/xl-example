@@ -149,6 +149,20 @@ generator return() needs the finally chain」写的就是这件事 ✓）。
 **它追加在 `env_leave` 之后** ✓（**同一条硬规矩** ✗：各目标按**位置**编号 ✓，
 新算子只能接在**最后一个**后面 ✓——`tests/runtime/check.mjs` 里那条「编号只追加」的检查会拦 ✓）。
 
+- case LoadNewTarget
+**`A` ← 这一帧的 `new.target`** ✓（第 346 轮 ✓）：构造调用时是**被调的那个构造函数** ✓，
+其余是 `undefined` ✓（`heap.xl.md` 的 `HeapFrame.NewTarget` ✓）。
+
+**为什么必须有它** ✗：`new.target` **不是词法信息** ✓——同一个函数体
+（`function F() { … new.target … }` ✓）在 `F()` 与 `new F()` 两条路上给的是**两个答案** ✓，
+而那个答案**只有帧知道** ✗。它与 `load_this` 是**同一条理由、同一个形状** ✓
+（「读帧上的一个属性」✓），所以也不进环境链 ✗（箭头函数**没有**自己的 `new.target` ✓：
+它取外层那一格 ✓，而那是**词法**的 ✓——这一格由降级层决定走哪条路 ✓）。
+
+**它追加在 `check_generator_return` 之后** ✓（**同一条硬规矩** ✗：各目标按**位置**编号 ✓，
+新算子只能接在**最后一个**后面 ✓——`tests/runtime/check.mjs` 里那条「编号只追加」的检查会拦 ✓，
+**第 340 / 343 轮都亲眼见过它拦下来** ✓）。
+
 # enum RtOp
 
 运行时算子的 **id 表的第一段**（通用算子）。
@@ -685,6 +699,8 @@ if (this.Op === Op.CallArray) return "call_array";
 // 没有重叠」✓——因为那一句**上面已经有了** ✓（`EnvNew` 后面那句 ✓），
 // 于是走到这里时类型已经收窄 ✓。**它拦下来的正是「抄一遍」这个动作** ✓。
 if (this.Op === Op.CheckGeneratorReturn) return "check_generator_return";
+// **第 346 轮追加** ✓（`load_new_target` ✓）——与 `load_this` 并排 ✓、同一条形状 ✓。
+if (this.Op === Op.LoadNewTarget) return "load_new_target";
 return "unknown";
 ```
 

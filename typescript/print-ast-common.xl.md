@@ -2038,7 +2038,25 @@ new Set([
       };
       at += 2;
     }
-    const rest = kids.slice(3);
+    // **后面那些 `.名字` 也要继续接上** ✗（第 346 轮 ✓，**实测撞到的** ✓）：
+    // 原来到这里直接 `kids.slice(3)` 丢给 `foldBinaryFrom` ✓——而 `.` 在那一支里
+    // 会当成**二元运算符** ✗ ⇒ `new.target.name` 投出来是一个**光秃秃的 `Identifier(name)`** ✗
+    //（症状：降级期报「name is not a local or a capture: name」✓——
+    //  **一句话里没有一个字提到 `new.target`** ✗）。
+    // 所以先把点号链**走完** ✓，再把手里的余下部分交给二元那一支 ✓。
+    let after = 3;
+    while (after + 1 < kids.length && isSymbol(kids[after], ".")) {
+      const member = kids[after + 1];
+      meta = {
+        kind: "PropertyAccessExpression",
+        expression: meta,
+        name: nameOf(member, ctx),
+        pos: meta.pos,
+        end: endOf(member),
+      };
+      after += 2;
+    }
+    const rest = kids.slice(after);
     if (rest.length === 0) return meta;
     return foldBinaryFrom(meta, rest, ctx);
   }

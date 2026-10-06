@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.06,
+  "progressPercent": 99.12,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 427,
-      "pass": 419,
-      "blocked": 8,
+      "pass": 420,
+      "blocked": 7,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 98.13
+      "coverage": 98.36
     },
     {
       "layer": "exec",
@@ -100,12 +100,6 @@
       "layer": "runtime",
       "title": "闭包里的 this 与方法调用",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c304-rt-new-target-in-ctor",
-      "layer": "runtime",
-      "title": "new.target：直接构造认得出、普通调用是 undefined",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression MetaProperty"
     },
     {
       "id": "c304-rt-delete-nonconfigurable",

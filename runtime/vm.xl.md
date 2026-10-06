@@ -1128,6 +1128,13 @@ if (instr.Op === Op.LoadThis) {
   frame.Slots[instr.A] = frame.This;
   return;
 }
+if (instr.Op === Op.LoadNewTarget) {
+  // **`new.target`** ✓（第 346 轮 ✓）：帧上那一格 ✓——构造调用时是**被调的那个构造函数** ✓、
+  // 其余是 `undefined` ✓（谁写进去的见 `DoCallValue` 那一段 ✓；
+  // 「为什么它不是词法信息」见 `ir.xl.md` 那一段 ✓）。与上面那条**同一个形状** ✓。
+  frame.Slots[instr.A] = frame.NewTarget;
+  return;
+}
 if (instr.Op === Op.Suspend) {
   this.DoSuspend(frame, instr);
   return;
@@ -1524,7 +1531,13 @@ if (info.IsAsync) {
   const asyncFrame = this.Table.Get(asyncHandle).AsFrame();
   asyncFrame.Env = closure.Env;
   asyncFrame.This = thisValue;
+  // **`new.target` 要的是「哪一个构造函数」** ✓（第 346 轮 ✓）——
+  // 与 `ConstructTarget`（那是**实例**的句柄 ✓，`DoReturn` 用它 ✓）**不是一回事** ✗，
+  // 所以另开一格存**被调的那个值** ✓（宿主引用 ✓ / 闭包 ✓ / 可调用对象 ✓ 都行）。
+  // **不是构造调用时给 `undefined`** ✓（JS 的 `F()` 里 `new.target` 就是 `undefined` ✓，
+  // 判据 `c304-rt-new-target-in-ctor` 第 1 行钉着它 ✓）。
   asyncFrame.ConstructTarget = constructTarget;
+  asyncFrame.NewTarget = constructTarget > 0 ? callee : Value.Undefined();
   // **先把实参抄进新帧，再把承诺写回调用者那一格** ✓（第 286 轮实测**逼出来**的 ✗）。
   //
   // **反过来的那份顺序是错的** ✗（第一版就是先写承诺 ✗）：这里「写回哪一格」
@@ -1547,7 +1560,13 @@ const handle = this.Frames.Push(closure.Code, info.SlotCount, returnSlot);
 const created = this.Table.Get(handle).AsFrame();
 created.Env = closure.Env;
 created.This = thisValue;
+// **`new.target` 要的是「哪一个构造函数」** ✓（第 346 轮 ✓）——
+// 与 `ConstructTarget`（那是**实例**的句柄 ✓，`DoReturn` 用它 ✓）**不是一回事** ✗，
+// 所以另开一格存**被调的那个值** ✓（宿主引用 ✓ / 闭包 ✓ / 可调用对象 ✓ 都行）。
+// **不是构造调用时给 `undefined`** ✓（JS 的 `F()` 里 `new.target` 就是 `undefined` ✓，
+// 判据 `c304-rt-new-target-in-ctor` 第 1 行钉着它 ✓）。
 created.ConstructTarget = constructTarget;
+created.NewTarget = constructTarget > 0 ? callee : Value.Undefined();
 this.FillParameters(created, info, frame, argBase, argArray, count);
 ```
 

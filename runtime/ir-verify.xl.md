@@ -566,7 +566,7 @@ return program;
 // 这条规矩的代价写在上面 ✓——忘了挪的症状是「新指令被判成未知指令码」✓，
 // 判据会当场报出来 ✓（**第 315 轮实测拦到了** ✗：`for (let …)` 那一条判据报
 // `unknown opcode: 23` ✓，位置在**验证层**而不在跑出来的结果里 ✓——正是「不会静默放过去」✓）。
-return op >= 0 && op <= Op.CheckGeneratorReturn;
+return op >= 0 && op <= Op.LoadNewTarget;
 ```
 
 # method SlotOk:(slot:int, slotCount:int, allowNone:bool)=>bool
@@ -773,6 +773,13 @@ if (item.Op === Op.CheckGeneratorReturn) {
   //（那一版让引擎去读帧上那格已经被清掉的 `ResumeValue` ✓，症状见 `ir.xl.md` ✓）。
   if (!SlotOk(item.C, slotCount, false)) {
     return new VerifyIssue(IssueOperand, pc, "generator return source slot out of range");
+  }
+}
+// **第 346 轮追加的那一条** ✓（`load_new_target` ✓）：与 `load_this` 那条**一字不差** ✓
+//（「读帧上的一个属性、写进一格」✓，B / C / D 都不看 ✓）。
+if (item.Op === Op.LoadNewTarget) {
+  if (!SlotOk(item.A, slotCount, false)) {
+    return new VerifyIssue(IssueOperand, pc, "new.target slot out of range");
   }
 }
 if (item.Op === Op.TryPush) {

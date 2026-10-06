@@ -6779,6 +6779,32 @@ if (kind === "NullKeyword") {
   this.Emit(Op.Const, slot, this.Program().AddConst(Constant.OfNull()), -1, -1);
   return slot;
 }
+if (kind === "MetaProperty") {
+  // **`new.target`** ✓（第 346 轮 ✓）：投影层把它投成一个 `MetaProperty` ✓、名字放在 `name` 上 ✓
+  //（`typescript/print-ast-common.xl.md` 那一支写着形状 ✓：`new.target ⇒ MetaProperty[Identifier(target)]` ✓）。
+  //
+  // **它不是词法信息** ✗：同一个函数体在 `F()` 与 `new F()` 两条路上给**两个答案** ✓，
+  // 所以它落成一条**读帧**的指令 ✓（`Op.LoadNewTarget` ✓，与 `load_this` **同一形状** ✓）——
+  // **不进环境链** ✗（`import.meta` 那一路才需要去找外面 ✓，而本仓不做它 ✓，见下面那一抛 ✓）。
+  //
+  // **一处已知差别写在明处** ✗：JS 里**箭头函数没有自己的 `new.target`** ✓
+  //（它取外层那一个 ✓，与 `this` 同一规则 ✓）——本仓这一条读的是**当前帧** ✓
+  // ⇒ 箭头体里的 `new.target` 会给 `undefined` ✗（而 Node 给外层那个 ✓）。
+  // **要补得上得像 `this` 那样把它也做成一个隐藏捕获** ✓（`InArrow` 那一支 ✓），
+  // 而判据里还没有那一格 ✓（`c304-rt-new-target-in-ctor` 量的是普通函数与类 ✓）——**记在这里** ✓。
+  // **`name` 那一格是一个**子节点**，不是字符串** ✗（**实测踩过一次** ✓）：投影层把它
+  // 投成 `Identifier` ✓（`probe={"kind":"Identifier","text":"target",…}` ✓），
+  // 所以名字要**从子节点取** ✓（`TextOf` ✓）——`String(node["name"])` 给的是
+  // `"[object Object]"` ✓，而那句抛里**没有一个字提到形状** ✗。
+  const metaChild = node["name"];
+  const metaName = metaChild === undefined || metaChild === null ? "" : TextOf(metaChild);
+  if (metaName !== "target") {
+    throw new Error("unimplemented: MetaProperty " + metaName + " (only new.target is done)");
+  }
+  const metaSlot = this.Reserve(1);
+  this.Emit(Op.LoadNewTarget, metaSlot, -1, -1, -1);
+  return metaSlot;
+}
 if (kind === "ThisKeyword") {
   const slot = this.Reserve(1);
   // **只有箭头才在环境链上找 `this`**（`InArrow` 那一段写着为什么）：

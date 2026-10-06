@@ -745,6 +745,20 @@ return 0;
 `return` 时按 JS 的规矩收尾：**构造函数返回对象就用那个对象，否则用这里这个**
 （`vm.xl.md` 的 `DoReturn`）。少了这一条，`new` 出来的东西就不是 JS 语义里的那个。
 
+## field NewTarget:Value = new Value()
+
+**`new.target` 那一个值** ✓（第 346 轮 ✓）——**被调的那个构造函数本身** ✓
+（闭包 ✓、宿主引用 ✓、可调用对象 ✓ 都行），**不是实例** ✗。
+
+**为什么不复用上面那一格** ✗：`ConstructTarget` 存的是**实例的句柄** ✓（`int` ✓，
+`DoReturn` 那一支要用 ✓），而 `new.target` 要的是**构造函数那个值** ✓——**两件事** ✓。
+**不是构造调用时给 `undefined`** ✓（JS 的 `F()` 里 `new.target` 就是 `undefined` ✓，
+判据 `c304-rt-new-target-in-ctor` 第 1 行钉着它 ✓）。
+
+**它是 `Value`、上面那格是 `int`** ✓——与 `This` 同一形状 ✓（帧是回收根 ✓，
+所以这一格要**在 `gc.xl.md` 的帧扫描里一起标** ✓：漏了它的症状是
+「某个构造函数里 `new.target` 某一天空了」✗，**只在回收之后出现** ✓）。
+
 ## field Generator:int = 0
 
 这一帧属于哪个生成器（句柄）；`0` 表示它是普通调用帧。
@@ -871,6 +885,7 @@ this.ReturnSlot = returnSlot;
 this.Done = false;
 this.This = new Value();
 this.ConstructTarget = 0;
+this.NewTarget = new Value();
 this.Generator = 0;
 this.AsyncPromise = 0;
 this.Awaiting = new Value();
