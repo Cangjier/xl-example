@@ -463,6 +463,30 @@ WalkChildren(body, (child) => {
 });
 ```
 
+# method ReferencesArguments:(body:AstNode)=>bool
+
+**这一层的代码用不用 `arguments`** ✓（第 332 轮 ✓）——用来问一句
+「这一帧要不要开那一格」✓。
+
+**箭头要往下走** ✗：箭头**没有自己的 `arguments`** ✓，用的是**外层那一份** ✓
+（JS 的规矩 ✓）——所以「箭头里写了 `arguments`」等于「外层要用」✓。
+**别的函数不走** ✓：那份是它们自己的 ✓，进了它们的体就与本层无关 ✓。
+
+**这一条只是「要不要开那一格」的判据** ✗：值本身由**开帧的人**收 ✓
+（`ir.xl.md` 的 `NeedsArguments` 那一段写着为什么 ✓——多出来的实参
+**在被调方自己的帧里没有格子** ✓）。
+
+```ts
+const kind = NodeKind(body);
+if (kind === "Identifier" && TextOf(body) === "arguments") return true;
+if (IsFunctionNode(body) && kind !== "ArrowFunction") return false;
+let found = false;
+WalkChildren(body, (child: AstNode) => {
+  if (!found && ReferencesArguments(child)) found = true;
+});
+return found;
+```
+
 # method IsVarList:(list:AstNode)=>bool
 
 **这个声明列表是不是 `var`**（第 135 轮）。

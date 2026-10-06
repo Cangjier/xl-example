@@ -90,6 +90,11 @@ for (let i = 0; i < programs.length; i++) {
     // 都要跟着加一行 ✓（`link.xl.md` 是一处，`Decode` 是另一处 ✓）——
     // 而**这一处没人提醒** ✗：它不在 `ir.xl.md` 里 ✓。所以这一条写在这里 ✓。
     info.HasRest = original.HasRest;
+    // **`NeedsArguments` 也是同一条** ✓（第 332 轮 ✓）：它把「这一帧要一个 `arguments`」
+    // 从被链接进来的那一份带到这一份 ✓——漏了这一行，跨模块调用的函数
+    // **`arguments` 拿到的是上一格里的垃圾** ✓（不是 `undefined` ✓，因为那一格
+    // 可能刚被别的实参铺过 ✓——**静默错值** ✓）。第 133 轮那一条写的规矩在这里又走一遍 ✓。
+    info.NeedsArguments = original.NeedsArguments;
     linked.Functions.push(info);
   }
   // ④ 异常表：三个 pc 字段都挪（`FrameDepth` 是层数，不动）。

@@ -609,8 +609,8 @@ export const EXPECTATIONS = {
   // **组 C：降级层 / token 层（3 条）** ✓
   //
   // **组 D：`arguments`（2 条）** ✓——`arguments` 这个对象**这一层根本没有** ✗。
-  "rt-arguments-object": { expect: "blocked", why: "`arguments` 没做（`name is not a local or a capture: arguments`）——它是有运行期语义的一格（形参个数 / 下标 / 箭头里看外层那一份），要走「函数进门时造一个数组式对象」那条路" },
-  "rt-arguments-vs-rest": { expect: "blocked", why: "同上：`arguments` 与剩余形参并存时两者都要对（`arguments.length` 是**实参**个数）" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`arguments` 由**开帧的人**收（`FunctionInfo.NeedsArguments` ✓），落在**形参之后那一格**（`ParamCount` ✓）——与剩余参数同一个位置、同一条理由（多出来的实参在被调方自己的帧里没有格子 ✓）。
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`arguments` 由**开帧的人**收（`FunctionInfo.NeedsArguments` ✓），落在**形参之后那一格**（`ParamCount` ✓）——与剩余参数同一个位置、同一条理由（多出来的实参在被调方自己的帧里没有格子 ✓）。
   //
   // **组 E：生成器少了「送进挂起点」那一格（2 条）** ✓——**静默错值** ✗。
   //

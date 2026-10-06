@@ -1360,8 +1360,10 @@ if (info.IsGenerator) {
   // **剩余参数要在开帧时收掉**（第 133 轮）：多出来的那些实参**在自己的帧里没有格子** ✗
   //（`SlotCount` 定死 ✓、调用方传几个编译期不知道 ✓），所以**开帧的人顺手收** ✓。
   const restCount = this.RestCountOf(info, count);
+  const argsCount = this.ArgumentsCountOf(info, count);
   if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge
-      + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0))) return;
+      + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0)
+      + (argsCount > 0 ? ObjectCharge + ValueCharge * argsCount : 0))) return;
   const createdHandle = this.Table.CreateFrame(closure.Code, info.SlotCount, 0, -1);
   const created = this.Table.Get(createdHandle).AsFrame();
   created.Pc = closure.Code;
@@ -1376,8 +1378,10 @@ if (info.IsGenerator) {
   return;
 }
 const restCount = this.RestCountOf(info, count);
+const argsCount = this.ArgumentsCountOf(info, count);
 if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge
-    + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0))) return;
+    + (restCount > 0 ? ObjectCharge + ValueCharge * restCount : 0)
+    + (argsCount > 0 ? ObjectCharge + ValueCharge * argsCount : 0))) return;
 // **`async` 函数先把承诺交给调用者，再跑体** ✓（第 285 轮 ✓）。
 //
 // 这是第 229 轮量出来、留了一整轮的那条语义差 ✓：JS 里 `f()` 拿到的是
@@ -1639,16 +1643,37 @@ if (!info.HasRest) {
   for (let i = fixed; i < total; i++) {
     created.Slots[i] = this.CallArgAt(frame, argBase, argArray, i);
   }
-  return;
+} else {
+  const restCount = this.RestCountOf(info, count);
+  const restHandle = this.Table.CreateArray();
+  if (this.Protos !== null) this.Table.Get(restHandle).Proto = this.Protos.Array;
+  for (let i = 0; i < restCount; i++) {
+    // **每一趟现取视图** ✓（`heap.xl.md` 那条：句柄稳定、视图不稳定 ✓）。
+    this.Table.Get(restHandle).AsArray().Push(this.CallArgAt(frame, argBase, argArray, fixed + i));
+  }
+  if (fixed < info.SlotCount) created.Slots[fixed] = Value.FromArray(restHandle);
 }
-const restCount = this.RestCountOf(info, count);
-const restHandle = this.Table.CreateArray();
-if (this.Protos !== null) this.Table.Get(restHandle).Proto = this.Protos.Array;
-for (let i = 0; i < restCount; i++) {
-  // **每一趟现取视图** ✓（`heap.xl.md` 那条：句柄稳定、视图不稳定 ✓）。
-  this.Table.Get(restHandle).AsArray().Push(this.CallArgAt(frame, argBase, argArray, fixed + i));
+// **`arguments` 收在形参之后那一格** ✓（第 332 轮 ✓）——**与剩余参数同一个位置、同一条理由** ✓：
+// 多出来的实参在**被调方自己的帧里没有格子** ✗（`SlotCount` 定死 ✓），
+// 所以**开帧的人顺手收** ✓。次序是语义 ✗：它必须排在**铺实参那两趟之后** ✓——
+// 上面那个 `for (i = fixed; i < total)` 会把实参写进**形参之后的格** ✓，
+// 而 `arguments` 那一格正是 `ParamCount` ✓ ⇒ 先收就会被**覆盖掉** ✗（**静默错值** ✓）。
+//
+// **它必须在「有没有剩余参数」那两条路之外** ✗（第 332 轮 ✓，**第一版就是放在里面** ✓）：
+// 那一支原先写成「没有剩余参数 ⇒ 铺完就 `return`」✓ ⇒ 这一整段**只对带 `...rest` 的函数生效** ✗
+// ——症状是 `function f(a, b) { arguments.length }` 读出来是 `undefined` ✓
+//（而 `function f(a, ...r)` 那一格反而是好的 ✓，**同一句话两种结局** ✓）。
+// **收的是全部 `count` 项** ✓（不是「多出来的」✗）：`arguments[0]` 必须是第一个形参 ✓。
+// **数组带数组原型** ✓（与剩余参数那条一字不差 ✓，理由见上 ✓）。
+if (info.NeedsArguments && info.ParamCount >= 0 && info.ParamCount < info.SlotCount) {
+  const argCount = this.ArgumentsCountOf(info, count);
+  const argsHandle = this.Table.CreateArray();
+  if (this.Protos !== null) this.Table.Get(argsHandle).Proto = this.Protos.Array;
+  for (let i = 0; i < argCount; i++) {
+    this.Table.Get(argsHandle).AsArray().Push(this.CallArgAt(frame, argBase, argArray, i));
+  }
+  created.Slots[info.ParamCount] = Value.FromArray(argsHandle);
 }
-if (fixed < info.SlotCount) created.Slots[fixed] = Value.FromArray(restHandle);
 ```
 
 ## method DoCallArray:(frame:HeapFrame, instr:Instruction)=>void
@@ -1680,6 +1705,23 @@ const fixed = info.ParamCount - 1;
 if (fixed < 0) return 0;
 if (count <= fixed) return 0;
 return count - fixed;
+```
+
+## method ArgumentsCountOf:(info:FunctionInfo, count:int)=>int
+
+**这个 `arguments` 要装几项**（第 332 轮 ✓）——**全部实参** ✓（不是「多出来的」✗）。
+
+**与 `RestCountOf` 是同一个形状、同一个用法** ✓（`NeedRoom` 那一问与 `FillParameters` 那一铺 ✓）：
+两处都用它 ⇒ **同一个数只算一处** ✓。
+
+**它收的是 `count`** ✓：`arguments` 里**前几个也在** ✓（`f(1,2)` 的 `arguments` 是 `[1, 2]` ✓、
+不是 `[]` ✗）——这正是它与剩余参数的分界 ✓。
+
+```ts
+if (!info.NeedsArguments) return 0;
+if (info.ParamCount < 0) return 0;
+if (info.ParamCount >= info.SlotCount) return 0;
+return count;
 ```
 
 ## method StartGenerator:(callee:Value, args:Array<Value>)=>bool

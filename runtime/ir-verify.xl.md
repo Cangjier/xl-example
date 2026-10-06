@@ -434,6 +434,9 @@ for (let i = 0; i < program.Functions.length; i++) {
   // **第 3 位是「最后一个形参是剩余参数」**（第 133 轮）✓——`flags` **只追加位** ✓，
   // 与 `Op` / `ValueTag` 那条「只追加、不改序」是同一条规矩 ✓（老程序那一位是 0 ✓）。
   if (item.HasRest) flags = flags + 4;
+  // **第 4 位是「这一帧要一个 `arguments`」** ✓（第 332 轮 ✓）——同一条规矩 ✓：
+  // `flags` **只追加位** ✓，老程序那一位是 0 ✓（= 不要 `arguments` ✓）。
+  if (item.NeedsArguments) flags = flags + 8;
   writer.WriteByte(flags);
 }
 for (let i = 0; i < program.Handlers.length; i++) {
@@ -521,6 +524,7 @@ for (let i = 0; i < functionCount; i++) {
   item.IsGenerator = (flags & 1) !== 0;
   item.IsAsync = (flags & 2) !== 0;
   item.HasRest = (flags & 4) !== 0;
+  item.NeedsArguments = (flags & 8) !== 0;
   program.Functions.push(item);
 }
 for (let i = 0; i < handlerCount; i++) {

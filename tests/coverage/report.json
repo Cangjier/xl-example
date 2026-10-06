@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.38,
+  "progressPercent": 96.5,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 420,
-      "pass": 398,
-      "blocked": 14,
+      "pass": 400,
+      "blocked": 12,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 94.76
+      "coverage": 95.24
     },
     {
       "layer": "exec",
@@ -94,18 +94,6 @@
       "layer": "runtime",
       "title": "三元嵌套与三元里的赋值",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: return"
-    },
-    {
-      "id": "rt-arguments-object",
-      "layer": "runtime",
-      "title": "arguments：length / 下标 / 箭头里看外层那一份",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: arguments"
-    },
-    {
-      "id": "rt-arguments-vs-rest",
-      "layer": "runtime",
-      "title": "arguments 与剩余形参同时存在",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: arguments"
     },
     {
       "id": "rt-instanceof-array-subclass",

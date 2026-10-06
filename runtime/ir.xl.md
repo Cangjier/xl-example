@@ -731,6 +731,21 @@ this.FrameDepth = frameDepth;
 **它借用 flags 字节的第 3 位**（`IsGenerator` = 1、`IsAsync` = 2 ✓）——
 线形态**只追加** ✓，老程序那一位是 0 ✓，读出来就是「没有剩余参数」✓。
 
+## field NeedsArguments:bool = false
+
+**这一帧要不要一个 `arguments`** ✓（第 332 轮 ✓）——与 `HasRest` **同一条理由、同一个位置** ✓：
+`arguments` 要的是**这次实际传进来的全部实参** ✓，而多出来的那些
+**在被调方自己的帧里没有格子** ✗（`SlotCount` 定死 ✓、调用方传几个编译期不知道 ✓）——
+所以**开帧的人顺手收** ✓，收到**形参之后那一格**（`ParamCount` ✓）上。
+
+**为什么不用「被调方自己在序言里收」** ✗：它能看见的只有自己帧里那几格 ✓，
+而 `f(1, 2, 3, 4, 5, 6)` 传给 `function f(a, b)` 的后四个**根本不在格子里** ✗
+（`FillParameters` 只铺到 `SlotCount` ✓）。**这一条与剩余参数一模一样** ✓
+（那一格是 `ParamCount - 1` ✓、这一格是 `ParamCount` ✓，两者可以同时存在 ✓）。
+
+**它借用 flags 字节的第 4 位**（1 = 生成器 ✓、2 = `async` ✓、4 = 剩余 ✓）——
+线形态**只追加** ✓，老程序那一位是 0 ✓，读出来就是「不要 `arguments`」✓。
+
 ## constructor:(entry:int, slotCount:int, paramCount:int)=>void
 
 造一项。
@@ -742,6 +757,8 @@ this.ParamCount = paramCount;
 this.Name = -1;
 this.IsGenerator = false;
 this.IsAsync = false;
+this.HasRest = false;
+this.NeedsArguments = false;
 ```
 
 # method ShiftPc:(instr:Instruction, base:int)=>void

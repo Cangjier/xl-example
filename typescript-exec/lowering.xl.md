@@ -4,7 +4,7 @@ import { Value } from "../runtime/value.xl.md"
 import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from "../runtime/ir.xl.md"
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
-import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames, HasNamedExpression } from "./scope.xl.md"
+import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames, HasNamedExpression, ReferencesArguments } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId } from "./builtins/install.xl.md"
 import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
@@ -782,9 +782,22 @@ return -1;
 而 `function f(a, b = 1, c)` 的 `ParamCount` 是 3 ✓、`length` 是 **1** ✓。
 两格混用就是**静默错值** ✓（`fn.length` 会变成形参个数 ✓），所以它们是两格 ✓。
 
+## field NeedsArguments:bool = false
+
+**这一帧要不要一个 `arguments`** ✓（第 332 轮 ✓）——由 `ReferencesArguments` 判 ✓
+（`scope.xl.md` ✓：箭头要往里走 ✓、别的函数不往里走 ✓）。
+
+**箭头永远是假** ✗：它**没有自己的 `arguments`** ✓，用的是外层那一份 ✓——
+这一条写在 `LowerFunctionValue` 那一句上 ✓（`!item.IsArrow && …` ✓）。
+
+**为什么这件事必须写到函数表上** ✗：与 `HasRest` **一字不差** ✓——
+值是**开帧的人**收的 ✓（多出来的实参在被调方自己的帧里没有格子 ✓），
+原样递给 `FunctionInfo.NeedsArguments` ✓（`ir.xl.md` 那一段写着为什么 ✓）。
+
 ## field SelfName:string = ""
 
 **具名函数表达式自带的那个名字** ✓（第 332 轮 ✓）——`const f = function self() { … }` 里的 `self` ✓。
+空串 = 没有（箭头、匿名函数、函数声明、方法 ✓）。
 空串 = 没有（箭头、匿名函数、函数声明、方法 ✓）。
 
 **为什么它与 `Name` 是两格** ✗：`Name` 是**显示名** ✓（`fn.name` 与 `console.log` 用的 ✓，
@@ -1792,6 +1805,8 @@ for (let i = 0; i < this.Pending.length; i++) {
   // 「这次实际传了几个」✓，而被调方自己的帧里**没有格子**放多出来的实参 ✓
   //（`ir.xl.md` 的 `FunctionInfo.HasRest` 那一段写着为什么 ✓）。
   info.HasRest = item.HasRest;
+  // **`arguments` 那一位**（第 332 轮 ✓）：与 `HasRest` 同一条路 ✓——开帧的人要用它 ✓。
+  info.NeedsArguments = item.NeedsArguments;
   this.Program().Functions.push(info);
   // **这个常量的值是「函数入口 pc」**——链接时要跟着基址挪（`ir.xl.md` 的
   // `EntryConstants`）：不声明的话，链接器只能靠「值相等」去猜，
@@ -1938,7 +1953,21 @@ const patternNames: string[] = [];
 for (let p = 0; p < item.Patterns.length; p++) {
   CollectPatternNames(item.Patterns[p], patternNames);
 }
+// **`arguments` 也要进「这一层声明了什么」** ✓（第 332 轮 ✓）：它是一个**隐含的绑定** ✓
+// （JS 给每个非箭头函数的第一个东西 ✓），可它在树上**一个声明都没有** ✗——
+// 不进这张名单，体内读它就报 `name is not a local or a capture: arguments` ✓
+//（判据 `rt-arguments-object` 现场量的就是它 ✓），而**箭头里读它**时还算不上捕获 ✗
+//（箭头用的是外层那一份 ✓，那正是捕获的定义 ✓）。
+if (item.NeedsArguments) patternNames.push("arguments");
 this.ExtraDeclared = patternNames;
+// **`arguments` 那一格要占在形参之后** ✗（第 332 轮 ✓）：开帧的人往 `ParamCount`
+// 那一格写 ✓（`ir.xl.md` 的 `NeedsArguments` ✓），所以**降级期必须先占住它** ✓——
+// 而它必须排在 `EnterFunctionBody` **之前** ✓：那一趟自己也要 `Reserve(1)` 开环境格 ✓，
+// 排在后面就占成别的号了 ✗（写进去的值与读出来的格子对不上 ✓，**静默错值** ✓）。
+// **声明那个名字要等 `EnterFunctionBody` 之后** ✓：它可能落在**环境格**里 ✓
+//（箭头引用过 ✓），而环境是那一趟才开的 ✓——`DeclareLocal` 正是照环境格认的 ✓。
+let argumentsSlot = -1;
+if (item.NeedsArguments) argumentsSlot = this.Reserve(1);
 // **环境要在声明参数之前开**：参数里也有被捕获的（内层函数引用外层函数的参数），
 // 而那些名字必须一上来就住进环境格——`DeclareLocal` 是照着环境格认的。
 //
@@ -1966,6 +1995,10 @@ for (let i = 0; i < item.FieldDefaults.length; i++) captureDefaults.push(item.Fi
 // **另一半在 `scope.xl.md`** ✓：`CollectInsideFunctions` 要把字段初始化式当**内层代码**走 ✓，
 // 否则**外层**（`make`）算不出「有人在引用 `k`」✓、也就不开环境 ✗。
 this.EnterFunctionBody(body, item.Params, captureDefaults);
+// **`arguments` 这个名字在环境开好之后才声明** ✓（第 332 轮 ✓，理由见上面那一格 ✓）：
+// 被箭头引用过 ⇒ `DeclareLocal` 会把刚占住的那一格搬进**环境格** ✓，之后体内走 `EnvGet` ✓
+//（与形参那一条**一字不差** ✓）；没被引用过 ⇒ 它就是一个普通的局部槽 ✓。
+if (argumentsSlot >= 0) this.DeclareLocal("arguments", argumentsSlot);
 for (let i = 0; i < item.Params.length; i++) {
   this.DeclareLocal(item.Params[i], i);
 }
@@ -5067,6 +5100,12 @@ if (NodeKind(node) === "FunctionExpression") {
   const selfNode = OptionalChild(node, "name");
   if (selfNode !== null) item.SelfName = TextOf(selfNode);
 }
+// **`arguments` 那一格** ✓（第 332 轮 ✓）：**箭头不算** ✗——它没有自己的那一份 ✓
+//（用的是外层的 ✓，而外层的名字会**作为捕获**进箭头那一帧的 `Envs` ✓，
+// 见 `EnterFunctionBody` 的 `ExtraDeclared` ✓）。其余的函数（声明 ✓、表达式 ✓、方法 ✓）
+// 都有自己的 ✓。**判据是 `ReferencesArguments`** ✓（只收「这一层真的用得到」✓，
+// 于是绝大多数函数**一格都不多占** ✓）。
+item.NeedsArguments = !item.IsArrow && ReferencesArguments(body);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
 // 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
 item.HasRest = this.HasRestParam(node);
@@ -6234,6 +6273,14 @@ this.CollectPatternParams(node, patternAt, patterns);
 // 函数值那一处**各写了一遍** ✗，而 `namespace` 的体是第三个调用点 ✓）。
 const item = new PendingFunction(TextOf(name), Child(node, "body"), params, 0, defaultAt, defaults, patternAt, patterns);
 item.Arity = this.FunctionArity(node);
+// **函数声明这一条路也要问 `arguments`** ✗（第 332 轮 ✓，**实测踩过** ✓）：
+// 那一位原本只写在 `LowerFunctionValue` 里 ✓，而**函数声明不走那一条** ✗——
+// 它自己建 `PendingFunction`、自己调 `EmitClosure` ✓（第 292 轮收口时留下的两处 ✓）。
+// 症状：`function f(a, b) { arguments.length }` 报 `name is not a local or a capture: arguments` ✓
+//（**整份文件进不来** ✗），而同一个函数写成表达式就是好的 ✓——**同一句话两种结局** ✓。
+// **教训**：「某一格要跟着树走」这种东西，**每一条建 `PendingFunction` 的路都要问一遍** ✓
+//（与 `HasRest` 那一位同一条 ✓，第 133 轮也是两处一起加的 ✓）。
+item.NeedsArguments = ReferencesArguments(Child(node, "body"));
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
