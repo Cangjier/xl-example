@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1318,
+  "matrix": 1319,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.29,
+  "progressPercent": 98.49,
   "layers": [
     {
       "layer": "runtime",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 520,
-      "pass": 509,
-      "blocked": 3,
-      "differ": 8,
+      "total": 521,
+      "pass": 514,
+      "blocked": 1,
+      "differ": 6,
       "nodefail": 0,
-      "coverage": 97.88
+      "coverage": 98.66
     },
     {
       "layer": "e2e",
@@ -162,18 +162,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ArrayBindingPattern has no text"
     },
     {
-      "id": "c330-std-structuredclone-basic",
-      "layer": "stdlib",
-      "title": "`structuredClone`：对象与数组是深拷贝",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: structuredClone"
-    },
-    {
-      "id": "c330-std-structuredclone-containers",
-      "layer": "stdlib",
-      "title": "`structuredClone`：Map / Set / Date 与循环引用",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: structuredClone"
-    },
-    {
       "id": "c330-std-error-iserror",
       "layer": "stdlib",
       "title": "`Error.isError`：只有错误对象给真",
@@ -197,7 +185,7 @@
       "id": "c305-rt-for-await-of-promises",
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
-      "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
+      "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
     },
     {
       "id": "symbol-hasinstance",
@@ -210,12 +198,6 @@
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
-    },
-    {
-      "id": "array-tostring-custom-values",
-      "layer": "stdlib",
-      "title": "数组 toString 走元素的 toString",
-      "detail": "stdout 不同：第 1 行：node «C!,1» vs tsrun «[object Object],1»"
     },
     {
       "id": "c291-function-prototype-shape",
@@ -234,12 +216,6 @@
       "layer": "stdlib",
       "title": "`async` 返回一个 thenable：该被采纳",
       "detail": "stdout 不同：第 2 行：node «v 42» vs tsrun «v { then: [Function: then] }»"
-    },
-    {
-      "id": "c305-std-array-tostring-custom-element",
-      "layer": "stdlib",
-      "title": "`Array.prototype.toString` 该问每个元素的 `toString`",
-      "detail": "stdout 不同：第 1 行：node «C!,1 C!» vs tsrun «[object Object],1 [object Object]»"
     },
     {
       "id": "c323-std-array-fromasync",

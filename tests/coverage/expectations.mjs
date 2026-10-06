@@ -619,7 +619,7 @@ export const EXPECTATIONS = {
   // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   //
   // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
-  "array-tostring-custom-values": { expect: "differ", why: "**静默错值**：`[new C(), 1].toString()` 给 `[object Object],1`（Node 给 `C!,1`）——`ValueUnits` 对普通对象**写死了 `[object Object]`**，没走 `ToPrimitive(el, \"string\")` ⇒ 元素自己那个 `toString` 根本不被调。根子与 `json-stringify-tojson-and-specials` 同一处：**取文本这条路上没有回调通道**" },
+  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
   //
   // **组 C：降级层 / token 层（3 条）** ✓
   //
@@ -743,7 +743,7 @@ export const EXPECTATIONS = {
   "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
   // （`c305-std-then-returns-promise-adoption` 也在第 317 轮转 pass ✓、那一行同样撤了 ✓。）
   // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
-  "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
+  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
   // **`c305-std-object-getownpropertydescriptors-all` 第 324 轮也过了** ✓（同一处修 ✓）：
   // 这一条比第 323 轮新收的那一条**更宽** ✓——它考的是「**复数拿全表、且与单数逐格一致**」✓
   // （`enumerable` / `configurable` / 访问器那一格都在里面 ✓）。
@@ -913,8 +913,8 @@ export const EXPECTATIONS = {
   // 号取 `249` ✓、**号段的上界第三次跟着挪** ✗（`< 249` → `< 250` ✓——
   // 295 / 327 / 331 三个轮次踩的是同一处 ✓）。
   // **它还顺手带出一条引擎级的静默错值** ✓，见下面组 B 那一段 ✓。
-  "c330-std-structuredclone-basic": { expect: "blocked", why: "`structuredClone` 连**全局名**都没有（`name is not a local or a capture`）——它是一个**宿主级的深拷贝**：普通对象 / 数组按结构走 ✓、`Map` / `Set` / `Date` 各按自己的内部格走 ✓、**循环引用**要有一张「已访问」表 ✓（`JSON.parse(JSON.stringify(x))` 那条路在环上会抛 ✓，不能拿它顶 ✓）。落在 `globals.xl.md` 那一张表上（与 `Object.assign` / `Array.from` 同一处 ✓）" },
-  "c330-std-structuredclone-containers": { expect: "blocked", why: "同上——这一条把 `Map` / `Set` / `Date` 与**循环引用**一起考（`copy.self === copy` 那一条是「已访问」表存在的唯一证据）" },
+  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
+  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
   // `Error.isError` 这一条**卡在壳上** ✗（与第 324 轮 `Map.groupBy` 量到的是同一个坎 ✓）：
   // `Error` 是**宿主引用值** ✓、**没有属性表** ✗ ⇒ 静态方法挂不上去 ✓——
   // 要照第 183 轮 `Symbol` / 第 327 轮 `Map` 那一条先把它改成**带可调用载荷的对象** ✓

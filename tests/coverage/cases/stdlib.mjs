@@ -5083,4 +5083,18 @@ console.log(Object.prototype.toString.call(f));
 console.log(Object.keys(Function.prototype).length, Object.keys(Object.prototype).length);
 `,
   },
+  // ===== 第 338 轮收编（1 条）=====
+  {
+    id: "c338-std-array-tostring-and-join",
+    title: "`join` / `toString` 的每一格走它自己的 `toString`",
+    src: `
+const custom = { toString() { return "C!"; } };
+const nested = [1, [2, 3]];
+console.log([custom, 1].join("|"), [custom, 1].toString(), String([custom]));
+console.log(nested.join("-"), nested.toString(), String(nested));
+console.log([null, undefined, true].join(","), [1, , 3].join("-"));
+class Box { toString() { return "box"; } }
+console.log([new Box(), "x"].join("+"));
+`,
+  },
 ];

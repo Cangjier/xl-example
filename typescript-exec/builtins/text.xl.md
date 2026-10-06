@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, TextUnitsOf } from "../../runtime/rt.xl.md"
+import { RoomChecker, TextUnitsOf, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { HostTextUnits, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { GetProperty, NativeCall, Protos, FindProperty, NeverRoom } from "../../runtime/props.xl.md"
 ```
@@ -186,6 +186,36 @@ if (item.IsHole(index)) return [];
 const element = item.GetAt(index);
 if (element.Tag === ValueTag.Undefined || element.Tag === ValueTag.Null) return [];
 return ValueUnits(table, element, depth + 1);
+```
+
+# method JsElementUnits:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, item:HeapArray, index:int, depth:int)=>Array<int>
+
+**`Array.prototype.join` 里某一格该渲染成什么** ✓（第 338 轮 ✓）——**JS 的那一条** ✓：
+洞 / `undefined` / `null` 给空串 ✓，**其余先走 `ToPrimitive(v, "string")`** ✓
+（也就是**先问它自己的 `toString`** ✓），再把结果当文本 ✓。
+
+**为什么不能直接用 `ValueUnitsAt`** ✗（**实测撞到的** ✓）：那一支对面对象**一律给
+`[object Object]`** ✗（`ValueUnits` 的表格里写着 ✓，那是**它那一档的口径** ✓），
+而 JS 的 `[obj, 1].toString()` 是 `obj.toString() + "," + "1"` ✓——
+判据 `array-tostring-custom-values` / `c305-std-array-tostring-custom-element` 量的就是它 ✓
+（Node 给 `C!,1` ✓、本仓给 `[object Object],1` ✓——**静默错值** ✗）。
+
+**它凭什么一次就够** ✓：`ToPrimitive` 会**自己走到对象的 `toString`** ✓——
+自定义的那个 ✓、`Array.prototype.toString`（= `join` ✓）✓、`Object.prototype.toString` ✓
+**三档都落在同一条路上** ✓，所以这里**不必**自己递归数组 ✗（第 130 轮那条老判别仍然在
+`ValueUnits` 里 ✓，它服务的是「没有调用通道」的那几处 ✓）。
+
+**`call === null` 时退回老口径** ✓（`ValueUnitsAt` ✓）：宿主没接调用通道时
+**调不动任何 `toString`** ✗，那时给 `[object Object]` 是**当时能做到的最好** ✓
+（与「不说谎，只是不特殊」同一条 ✓——**写在明处** ✓）。
+
+```ts
+if (item.IsHole(index)) return [];
+const element = item.GetAt(index);
+if (element.Tag === ValueTag.Undefined || element.Tag === ValueTag.Null) return [];
+if (call === null) return ValueUnits(table, element, depth + 1);
+const primitive = ToPrimitiveOf(room, call, protos, table, element, ToPrimitiveString);
+return JsTextUnits(table, primitive);
 ```
 
 # method ValueUnits:(table:HeapTable, value:Value, depth:int)=>Array<int>

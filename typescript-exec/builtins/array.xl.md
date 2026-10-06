@@ -5,7 +5,7 @@ import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, Proper
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
 import { SetProperty, SetHiddenProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
-import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
+import { ValueUnits, ValueUnitsAt, JsElementUnits } from "./text.xl.md"
 ```
 
 # namespace cangjie
@@ -430,7 +430,17 @@ if (id === ArrayJoin) {
     // `"[object Object]|1,2"` ✓——用引擎的 `TextUnitsOf` 会在对象上**抛** ✗（那是它的口径 ✓）。
     // **空格（洞 / `null` / `undefined`）渲染成空串** ✓——那条规矩在 `ValueUnitsAt` 里
     // 只有一处 ✓（顶层与嵌套共用 ✓；判据现场：`[1, , 3].join('-')` 该给 `"1--3"` ✓）。
-    const units = ValueUnitsAt(table, source, i, 0);
+    //
+    // **第 338 轮：元素要先走 `ToPrimitive(v, "string")`** ✗（**实测撞到的** ✓）：
+    // `[obj, 1].toString()` 在 JS 里是 `obj.toString() + ",1"` ✓（`Array.prototype.toString`
+    // = `join(",")` ✓），而 `ValueUnitsAt` 对普通对象**一律给 `[object Object]`** ✗
+    //（那是 `ValueUnits` 表格里写着的一档口径 ✓）⇒ Node 给 `C!,1` ✓、本仓给
+    // `[object Object],1` ✓——**静默错值** ✗（判据 `array-tostring-custom-values` ✓ /
+    // `c305-std-array-tostring-custom-element` ✓）。
+    // **`JsElementUnits` 收的正是这件事** ✓（理由写在 `text.xl.md` ✓：
+    // `ToPrimitive` 自己会走到自定义 `toString` ✓ / 数组的 `toString` ✓ /
+    // `Object.prototype.toString` ✓ 三档 ✓）。
+    const units = JsElementUnits(room, call, protos, table, source, i, 0);
     parts.push(units);
     total = total + units.length;
   }

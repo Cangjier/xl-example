@@ -505,6 +505,121 @@ import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 （`rt.xl.md` 的 `FunctionSourceText` ✓）——**一处实现、三处用户** ✓
 （`f + 1` ✓ / `` `${f}` `` ✓ / `f.toString()` ✓，与第 331 轮 `AttachArrayIterator` 同一个形状 ✓）。
 
+# const StructuredCloneId:int = 346
+
+**`structuredClone(v)`** ✓（第 338 轮 ✓）——**一个全局函数** ✓，它**深拷贝**一份值 ✓。
+
+**它为什么落在这一层** ✗：拷贝要读的是**堆的形状** ✓（对象的 `Props` ✓、数组的 `Elements` ✓、
+原型那一格 ✓），而语言层本来就在直接读堆 ✓（`GetProperty` 那一族 ✓）——
+不必为它开一条新通道 ✓。**引擎那一侧一格都不用改** ✓。
+
+**它认哪些东西** ✓：原始值**原样返回** ✓（JS 的口径 ✓）；
+**数组**给一个新数组 ✓（原型照抄 ✓、元素递归 ✓）；**对象**给一个新对象 ✓
+（原型照抄 ✓、每一格属性按原来的键与标志位复制 ✓、值递归 ✓）。
+**`Map` / `Set` / `Date` 不必特判** ✗——本仓把它们**就是**做成「带几格隐藏属性的普通对象」的 ✓
+（`__k` / `__v` / `__b` ✓、`Date` 那几格 ✓），所以对象那一条**顺手就把它们带上了** ✓
+（原型也照抄 ✓ ⇒ `cloned.map.get(...)` 找得到方法 ✓）。
+
+**环要认** ✓（`const a = { }; a.self = a` ✓——判据 `c330-std-structuredclone-containers` ✓）：
+`seen` 记的是「源句柄 → 新句柄」✓，**先登记再递归** ✓（后登记就成了无限递归 ✗，
+而宿主栈溢出**不可捕获** ✗——`README` 的硬性约定第 2 条 ✓）。
+
+**函数那一档响亮地抛** ✗（JS 给 `DataCloneError` ✓）：拷贝一个函数**没有正确的做法** ✓，
+而「原样返回」会让两边**共用同一个函数对象** ✓——**静默错值** ✓（改一边看另一边也变 ✓）。
+**符号那一档同样抛** ✓（JS 也不许克隆符号 ✓）。
+
+**房间**：每一格分配之前先问 ✓（这一层每一处都守这条 ✓）。
+
+# method CloneStructured:(room:RoomChecker, table:HeapTable, value:Value, seen:any)=>Value
+
+**`structuredClone` 的那一趟深拷贝** ✓（第 338 轮 ✓）——见 `StructuredCloneId` 那一段的账 ✓。
+
+**`seen` 是一张宿主 `Map`** ✓（`句柄 → 句柄` ✓）：语言层是**宿主代码** ✓，
+所以它可以用宿主的容器 ✓——这**不是**「引擎侧不许用宿主库」那一条的地盘 ✗
+（那一条管的是 `runtime/` ✓）。
+
+**先登记、再递归** ✗（`seen.set` 排在走成员之前 ✓）：反过来的话自引用就是**无限递归** ✓，
+而宿主栈溢出**不可捕获** ✗（`README` 的硬性约定第 2 条 ✓）。
+
+**数组按 `Elements` 抄** ✓（**洞要保住** ✗：`[1, , 3]` 抄成 `[1, undefined, 3]` 会让
+`1 in copy` 从假变真 ✓——**形状变了** ✓；`SetHole` 就是为这一格留的 ✓）。
+**对象按 `Props` 抄** ✓（键、`Kind`、`Flags` 一起 ✓——`Map` / `Set` / `Date` 那几格
+**隐藏属性**也在这里被带上 ✓，所以它们不必特判 ✓）。
+
+```ts
+if (!value.IsObject()) {
+  // **函数与宿主引用要响亮地抛** ✗（JS 给 `DataCloneError` ✓）：原样返回会让两边
+  // **共用同一个函数对象** ✓（改一边看另一边也变 ✓——**静默错值** ✓）。
+  if (value.Tag === ValueTag.Closure || value.Tag === ValueTag.Function || value.Tag === ValueTag.HostRef) {
+    throw new TypeError("structuredClone cannot clone a function");
+  }
+  // **符号也抛** ✓（JS 也不许克隆符号 ✓）。
+  if (value.Tag === ValueTag.Symbol) {
+    throw new TypeError("structuredClone cannot clone a symbol");
+  }
+  return value;
+}
+const seenHandle = seen.get(value.Ref);
+if (seenHandle !== undefined) return Value.FromRef(value.Tag, seenHandle);
+if (value.Tag === ValueTag.Array) {
+  const source = table.Get(value.Ref).AsArray();
+  if (!room(ObjectCharge + ValueCharge * source.GetLength())) throw new Error("out of room");
+  const handle = table.CreateArray();
+  seen.set(value.Ref, handle);
+  table.Get(handle).Proto = table.Get(value.Ref).Proto;
+  const target = table.Get(handle).AsArray();
+  for (let i = 0; i < source.GetLength(); i++) {
+    // **洞要保住** ✗（见上面那一段 ✓）：`SetAt` 会把洞抹成一个真值 ✓。
+    if (source.IsHole(i)) {
+      target.Push(Value.Undefined());
+      target.SetHole(target.GetLength() - 1);
+      continue;
+    }
+    target.Push(CloneStructured(room, table, source.GetAt(i), seen));
+  }
+  table.Recount(handle);
+  return Value.FromArray(handle);
+}
+const sourceProps = table.Get(value.Ref).Props;
+if (!room(ObjectCharge + PropertyCharge * sourceProps.length)) throw new Error("out of room");
+const handle = table.CreateObject();
+seen.set(value.Ref, handle);
+table.Get(handle).Proto = table.Get(value.Ref).Proto;
+for (let i = 0; i < sourceProps.length; i++) {
+  const original = sourceProps[i];
+  // **值那一档：可枚举的函数要抛、不可枚举的内建方法照抄** ✗（**实测踩过一次** ✓）。
+  //
+  // **为什么不能一律抛** ✗：本仓的 `Map` / `Set` / `Date` 把**方法**挂在**每个实例自己**身上 ✓
+  //（`Object.getOwnPropertyNames(new Map())` 会列出 `get` / `set` / … ✓，
+  //  而 Node 给**空数组** ✗——那是**另一处**结构差 ✓，记在下面 ✓）。
+  // 一律抛的话 `structuredClone({ map, set, date })` 当场报
+  // 「cannot clone a function」✓（判据 `c330-std-structuredclone-containers` 现场就是这个 ✓）。
+  //
+  // **判据是「可不可枚举」** ✓：内建方法是用 `SetHiddenProperty` 挂的 ✓（不可枚举 ✓），
+  // 而用户写在对象字面量里的函数是**可枚举**的 ✓——JS 对后者抛 `DataCloneError` ✓
+  //（`structuredClone({ f: () => 1 })` 在 Node 里抛 ✓）。**这就是两类东西的分界** ✓
+  //（**结构差写在明处** ✗：本仓 Map 的实例多出一堆自有方法 ✓，Node 没有 ✓——
+  //  那一处要改的是 `map.xl.md` / `set.xl.md` / `Date` 的装法 ✓，不是这一条 ✓）。
+  const isFunction = original.Value.Tag === ValueTag.Closure
+    || original.Value.Tag === ValueTag.Function || original.Value.Tag === ValueTag.HostRef;
+  const enumerable = (original.Flags & PropertyFlagEnumerable) !== 0;
+  if (isFunction && enumerable) {
+    throw new TypeError("structuredClone cannot clone a function");
+  }
+  // **键与标志位照抄、值递归** ✓：标志位不抄的话，`Object.freeze` 过的那个副本
+  // 会变成**可写**的 ✓（`isFrozen(copy)` 从真变假 ✗——第 333 轮那条账刚量过同型的错 ✓）。
+  const copied = isFunction ? original.Value : CloneStructured(room, table, original.Value, seen);
+  const copy = new Property(original.Key, copied);
+  copy.Kind = original.Kind;
+  copy.Flags = original.Flags;
+  copy.Getter = original.Getter;
+  copy.Setter = original.Setter;
+  table.Get(handle).Props.push(copy);
+}
+table.Recount(handle);
+return Value.FromObject(handle);
+```
+
 # const GeneratorNextId:int = 709
 
 **「生成器的 `next`」那一格**（第 229 轮 ✓）——`it.next()` 落到这里 ✓，
@@ -1678,7 +1793,10 @@ return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"
   // **它的号落在承诺那一段的尾巴上** ✗（`promise.xl.md` 的 `PromiseQueueMicrotask = 250` ✓）——
   // 理由写在那一段 ✓：它要的那条通道（`schedule` ✓）只有那里有 ✓。
   // **名字与号不是一个东西** ✓：号只是路由的键 ✓，挂在哪儿是这一层的事 ✓。
-  "queueMicrotask"];
+  "queueMicrotask",
+  // **第 338 轮补的一个名字** ✓（`structuredClone` ✓）——**同一条约定** ✓（名单与 `BuildGlobals`
+  // 两边一起加 ✓）；号取 `346` ✓（那一段里第一个空号 ✓，第 335 轮那道去重检查会拦撞车 ✓）。
+  "structuredClone"];
 ```
 
 **`Function` 是第 228 轮加进来的** ✓（与 `Boolean` / `Promise` 那两条同一个理由 ✓）：
@@ -2509,6 +2627,12 @@ if (id === BoundCall) {
   }
   for (let i = 0; i < args.length; i++) merged.push(args[i]);
   return call(boundTarget, boundSelf, merged);
+}
+if (id === StructuredCloneId) {
+  // **`structuredClone(v)`** ✓（第 338 轮 ✓）：见 `StructuredCloneId` 那一段的账 ✓。
+  // **`seen` 从一只空表起** ✓（宿主 `Map` ✓——这一层是宿主代码 ✓，用宿主容器是应该的 ✓）。
+  const target = args.length > 0 ? args[0] : Value.Undefined();
+  return CloneStructured(room, table, target, new Map());
 }
 if (id === FunctionToString) {
   // **`f.toString()`** ✓（第 334 轮 ✓）：读闭包上那一格 ✓（`FunctionSourceText` ✓，
@@ -5632,6 +5756,12 @@ SetProperty(vm.Room(), NeverCall, table, globals, parseFloatKey, parseFloatTarge
 const queueMicrotaskKey = Value.FromString(table.CreateString(Units("queueMicrotask")));
 SetProperty(vm.Room(), NeverCall, table, globals, queueMicrotaskKey,
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseQueueMicrotask, 0)));
+// **`structuredClone` 也是全局函数** ✓（第 338 轮 ✓）——与上面三个同一形状 ✓
+//（`String.raw` 那次踩过「挂在原型上 ⇒ cannot call a non-closure value」✗，
+//  所以这里照旧挂在**全局对象**上 ✓）。
+const structuredCloneKey = Value.FromString(table.CreateString(Units("structuredClone")));
+SetProperty(vm.Room(), NeverCall, table, globals, structuredCloneKey,
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StructuredCloneId, 0)));
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));
 const consoleKey = Value.FromString(table.CreateString(Units("console")));
