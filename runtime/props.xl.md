@@ -545,6 +545,29 @@ return FindProperty(NeverRoom, table, receiver, key) !== null;
 if ((protos !== null && (receiver.Ref === protos.Object || receiver.Ref === protos.Function))
   || receiver.IsCallable() || receiver.Tag === ValueTag.HostRef) {
   if (protos !== null) {
+    // **自有那一格先看** ✗（第 334 轮修的 ✓，**实测撞过一次** ✓）：那两个原型对象
+    // **自己有属性表** ✓——`Object.prototype.toString`（号 337 ✓）就在 `protos.Object` 自己表里 ✓、
+    // `Function.prototype.toString`（号 345 ✓，第 334 轮新加的 ✓）在 `protos.Function` 自己表里 ✓。
+    //
+    // **少了这一句会怎样** ✗：读 `Object.prototype.toString` 会先命中 `protos.Function` 上那一格 ✓
+    // ⇒ `Object.prototype.toString.call([])` 变成调「读闭包源码」那一条 ✓ ⇒ 给**空串** ✓
+    //（判据 `object-tostring-tags` ✓ / `symbol-tostringtag` ✓ / `c291-object-tostring-and-tag` ✓ /
+    // `c305-std-symbol-tostringtag-custom` ✓ / `error-family-and-cause` ✓ /
+    // `function-prototype-shape` ✓ ——**六条一起红** ✓），
+    // 而报的是「`[object Array]` 变成了空的」✓——**离现场很远** ✗。
+    // **两边都有 `toString` 才是这一格的触发器** ✗：第 228 轮加这一段时
+    // `protos.Function` 上只有 `call` / `apply` / `bind` ✓，三格在 `protos.Object` 上都没有 ✓
+    // ⇒ 「先找哪边」看不出来 ✗；第 334 轮补上第四格才把它点着 ✓。
+    //
+    // **宿主引用没有自己的表** ✓（`HostRef` 那一档 ✓）⇒ 它们照旧落到下面那一句 ✓，
+    // 这正是这一段当初存在的理由 ✓（第 228 轮 ✓：`.call` 挂在 `protos.Function` 上，
+    // 而宿主引用顺着 `Proto` 走是走不到的 ✗）。
+    if (receiver.Ref === protos.Object || receiver.Ref === protos.Function) {
+      const own = FindProperty(room, table, receiver.Ref, key);
+      if (own !== null && own.Owner === receiver.Ref) {
+        return ReadProperty(call, table, own, receiver);
+      }
+    }
     const onFunction = FindProperty(room, table, protos.Function, key);
     if (onFunction !== null) return ReadProperty(call, table, onFunction, receiver);
   }

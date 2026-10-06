@@ -462,7 +462,7 @@ export const EXPECTATIONS = {
   // `unimplemented: ToPrimitive of a function (JS renders source text)` ✓——
   // 与 `ex-tagged-template-suffix` **同一个根** ✓（JS 里 `Function.prototype.toString`
   // 要给**源码文本** ✓，而源码文本得由降级层把区间抄下来 ✓）。
-  "function-prototype-tostring": { expect: "differ", why: "`unimplemented: ToPrimitive of a function (JS renders source text)`——与 `ex-tagged-template-suffix` 同一个根：函数当 `ToPrimitive` 要给源码文本，而源码文本要由降级层按区间抄下来" },
+  // **第 334 轮过了** ✓（这一行撤了 ✓）：`Function.prototype.toString` ——闭包上多一格 `Source`（降级层按节点区间从源码里切 ✓），三处读同一格 ✓（`f + 1` ✓ / `` `${f}` `` ✓ / `f.toString()` ✓）。
 
   // ---- 组 13：JSON 的那两格扩展（1 条，与组 10 的 reviver 同族）----
 
@@ -672,7 +672,7 @@ export const EXPECTATIONS = {
   "c291-function-prototype-shape": { expect: "differ", why: "`Function.prototype.call.length` 给 `undefined`（Node 给 `1`）——内建函数自己的 `length` 这一格没填，与上面两条同一组" },
   //
   // **组 S：函数当 `ToPrimitive` 要给源码文本（1 条）** ✓——缺口清单 #11。
-  "c291-function-tostring-forms": { expect: "blocked", why: "`fn.toString()` 报 `unimplemented: ToPrimitive of a function (JS renders source text)`——函数要交出**源码文本**，得由降级层按区间抄下来（与 `function-prototype-tostring` 同一根）" },
+  // **第 334 轮过了** ✓（这一行撤了 ✓）：`Function.prototype.toString` ——闭包上多一格 `Source`（降级层按节点区间从源码里切 ✓），三处读同一格 ✓（`f + 1` ✓ / `` `${f}` `` ✓ / `f.toString()` ✓）。
   //
   // **组 T：`ReferenceError`（1 条）** ✓
   //

@@ -5056,4 +5056,31 @@ function g(x: number) {
 console.log(g(9));
 `,
   },
+  // ===== 第 334 轮收编（2 条）=====
+  {
+    id: "c334-std-function-tostring-and-primitive",
+    title: "`f.toString()` 与 `f + 1` 各走一条路、读同一格",
+    src: `
+function named(a: number): number { return a + 1; }
+const arrow = (n: number) => n;
+console.log(typeof named.toString(), named.toString().includes("named"));
+console.log(arrow.toString().startsWith("(n"), String(named) === named.toString());
+console.log((named + 1).endsWith("1"), named.toString().indexOf("return a + 1") > 0);
+const obj = { m() { return 1; } };
+console.log(obj.m.toString().includes("m"), typeof obj.m.toString());
+console.log([].push.toString().includes("native"), typeof (() => 1).toString());
+`,
+  },
+  {
+    id: "c334-std-object-tostring-not-shadowed",
+    title: "`Object.prototype.toString` 不被 `Function.prototype.toString` 遮住",
+    src: `
+console.log(Object.prototype.toString.call([]), Object.prototype.toString.call({}));
+console.log(Object.prototype.toString.call(1), Object.prototype.toString.call("x"));
+console.log(Object.prototype.toString.call(null), Object.prototype.toString.call(undefined));
+const f = function () { return 1; };
+console.log(Object.prototype.toString.call(f));
+console.log(Object.keys(Function.prototype).length, Object.keys(Object.prototype).length);
+`,
+  },
 ];

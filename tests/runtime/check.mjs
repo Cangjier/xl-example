@@ -8530,11 +8530,11 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
   // ② **单元**：原话由 `ObjectTagOf`（那条判据的正身 ✓）那一层量 ✓——
   //    造那几族只要一格标记 / 一次 `AttachCallable` / 一次 `Proto` 赋值 ✓，不必真造一个 `Map` ✓。
   const loud = [
-    ["函数", "function f() {}\nconsole.log(f + 1);"],
-    // **`Map` / `Set` 从这一档里划掉了**（第 229 轮）：那一轮把 `Symbol.toStringTag`
-    // 挂到了 `Map.prototype` / `Set.prototype` 上（`ObjectTagOf` 的第一步 ✓），
-    // 于是 `new Map() + 1` 有**真答案**（`"[object Map]1"`，与 Node 逐字相同 ✓）——
-    // 它们已经不在「不能给近似值」那一档里。判据跟着改：下面另有一条「必须给对」✓。
+    // **「函数」那一档第 334 轮划掉了** ✓：`HeapClosure.Source` 那一格补上之后
+    // `f + 1` 有**真答案**了 ✓（`"function f() {}1"` ✓）——与 `Map` / `Set`（第 229 轮 ✓）、
+    // `Error`（第 213 轮 ✓）**同一条路** ✓：一旦给得出真答案，就从这张表里搬走 ✓，
+    // 并在下面另起一条「必须给对」✓。**留着它就是钉住旧口径** ✗
+    // （这一轮实测：它红了 ✓，而红的话是「必须响亮地抛」✓——**读起来像新东西坏了** ✗）。
     ["Date 的 default", "console.log(new Date(0) + 1);"],
     // **`Error` 从这一档里划掉了**（第 213 轮）：那一轮把 `Error.prototype.toString` 装上之后，
     // `new Error("x") + 1` 有**真答案**（`"Error: x1"`，与 Node 逐字相同）——它已经不在
@@ -8569,6 +8569,24 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
     eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
     eq(lines[0], "Error: x Error: y1",
       "`Error.prototype.toString` 装上之后，`String(e)` 与 `e + 1` 都给 `\"Error: …\"`（与 Node 一致）");
+  }
+  // **函数那一档现在也给真答案**（第 334 轮）：`f + 1` = 源码 + `"1"` ✓。
+  //
+  // **为什么这里只量两头、不与 Node 逐字节比** ✗：本仓给的是**原文** ✓
+  //（`function f(): number { … }` ✓，类型注解原样 ✓），而 Node 跑的是
+  // **擦过类型的那一份** ✓——它把注解那一段**换成空格**（`function f(         ) { … }` ✓，
+  // 实测 ✓）。**两种都「对」** ✓：规范要的是「这段函数的源码」✓，
+  // 而「TS 的源码」与「擦完类型的源码」是两个都说得通的口径 ✓——
+  // 本仓选了**原文** ✓（用户手里那一份就是它 ✓），差别写在这里当账 ✓。
+  {
+    const request = new RunRequest();
+    request.Sources = ['function f(a) { return a; }\nconsole.log(f + 1, String(f) === f.toString());'];
+    request.Entry = "";
+    const lines = [];
+    const res = RunSources(request, (text) => lines.push(text), () => null);
+    eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+    eq(lines[0].startsWith("function f(a) { return a; }") && lines[0].endsWith("1 true"), true,
+      "`f + 1` 给「源码 + 1」、`String(f) === f.toString()` 为真（实测：" + lines[0] + "）");
   }
 
   // **单元那一半**：`ObjectTagOf` 答「哪个标签」，答不了就**点名**缺什么 ✓。
@@ -8617,15 +8635,26 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
   table.AttachCallable(callable.Ref, 1, 0);
   ok(ask(callable).indexOf("callable object") >= 0,
     "带可调用载荷 → 点名（JS 印源码文本）：" + ask(callable));
-  // **函数那一档在 `ToPrimitiveOf` 里** ✓（它压根走不到 `ObjectTagOf` ✓）：标签那两档就点名 ✓。
-  const closure = Value.FromRef(ValueTag.Closure, table.CreateClosure(0, 0, 0, 0));
+  // **函数那一档第 334 轮搬走了** ✓：它原来在 `ToPrimitiveOf` 里**响亮地抛** ✓
+  // （「JS 印源码文本、而引擎拿不到那一份」✓——那在当时是事实 ✓）；
+  // `HeapClosure.Source` 那一格补上之后 ✓，它有**真答案**了 ✓（源码文本 ✓），
+  // 所以这里改成量「**给得出那一串**」✗（不是量它抛 ✓）。
+  // **没有源码那一档仍然点名** ✓（`new Lowering()` 那十几处 ✓）——下面那一条量着它 ✓。
+  const withSource = table.CreateClosure(0, 0, 0, 0, 0);
+  table.Get(withSource).AsClosure().Source = propKey(table, "function f() { return 1; }").Ref;
+  const produced = ToPrimitiveOf(machine.Room(), null, protos, table,
+    Value.FromRef(ValueTag.Closure, withSource), ToPrimitiveDefault);
+  eq(produced.Tag, ValueTag.String, "有源码的闭包 → `ToPrimitive` 给字符串（不再是抛）");
+  eq(produced.Ref, table.Get(withSource).AsClosure().Source, "给的就是闭包上那一格");
+  const closure = Value.FromRef(ValueTag.Closure, table.CreateClosure(0, 0, 0, 0, 0));
   let closureMessage = "";
   try {
     ToPrimitiveOf(machine.Room(), null, protos, table, closure, ToPrimitiveDefault);
   } catch (error) {
     closureMessage = String(error.message);
   }
-  ok(closureMessage.indexOf("ToPrimitive of a function") >= 0, "函数那一档点名：" + closureMessage);
+  ok(closureMessage.indexOf("ToPrimitive of a function") >= 0,
+    "**没有源码**的闭包仍然点名（不编一个空的）：" + closureMessage);
 
   // **反面**：这三样**必须给答案** ✓（不能因为「怕错」就把它们也关了 ✗）。
   const fine = (source) => {

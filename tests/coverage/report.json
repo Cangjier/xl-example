@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1311,
+  "matrix": 1313,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.71,
+  "progressPercent": 97.81,
   "layers": [
     {
       "layer": "runtime",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 518,
-      "pass": 505,
-      "blocked": 4,
-      "differ": 9,
+      "total": 520,
+      "pass": 509,
+      "blocked": 3,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 97.49
+      "coverage": 97.88
     },
     {
       "layer": "e2e",
@@ -180,12 +180,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ArrayBindingPattern has no text"
     },
     {
-      "id": "c291-function-tostring-forms",
-      "layer": "stdlib",
-      "title": "函数的源码文本：三种写法的 toString",
-      "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
       "id": "c330-std-structuredclone-basic",
       "layer": "stdlib",
       "title": "`structuredClone`：对象与数组是深拷贝",
@@ -264,12 +258,6 @@
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
-    },
-    {
-      "id": "function-prototype-tostring",
-      "layer": "stdlib",
-      "title": "Function.prototype.toString 给源码文本",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
     },
     {
       "id": "array-tostring-custom-values",

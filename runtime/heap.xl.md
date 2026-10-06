@@ -467,7 +467,23 @@ return total;
 
 名字字符串的句柄；`0` 表示匿名。
 
-## constructor:(code:int, env:int, arity:int, name:int)=>void
+## field Source:int = 0
+
+**这个函数的源码文本** ✓（第 334 轮 ✓）——字符串句柄 ✓；`0` 表示「没有」（宿主函数 ✓、
+或者降级时没给源码 ✓）。
+
+**为什么它住在闭包上、而不是某一层现算** ✗：`f.toString()` 在 JS 里给的是
+**定义它那一段源码** ✓（`function named(a) { return a + 1; }` ✓），
+而**运行期只认得出「这是哪个闭包」** ✓——那段文本只有**造它的那一方**知道 ✓
+（降级层手里同时有源码与节点的区间 ✓，与 `Name` 那一格**同一个理由** ✓）。
+
+**它为什么不是一个常量池下标** ✗：这一层不认识常量池 ✓（`Code` 是函数表下标 ✓、
+`Name` 是字符串句柄 ✓，两个都是**表里的句柄** ✓）——要读常量池就得再开一条宿主通道 ✓，
+而句柄这条路**本来就有** ✓。代价是「同一个函数求值两次 ⇒ 两张字符串」✓
+（`const f = () => 1` 在循环里 ✓）——**字符串是不可变的** ✓，多一份只是多一份计费 ✓，
+语义上察觉不到 ✓（JS 自己也是每次求值造一个新的函数对象 ✓）。
+
+## constructor:(code:int, env:int, arity:int, name:int, source:int)=>void
 
 造一个闭包。
 
@@ -476,6 +492,7 @@ this.Code = code;
 this.Env = env;
 this.Arity = arity;
 this.Name = name;
+this.Source = source;
 ```
 
 ## method Charge:()=>int
@@ -1371,14 +1388,14 @@ this.Finish(handle);
 return handle;
 ```
 
-## method CreateClosure:(code:int, env:int, arity:int, name:int)=>int
+## method CreateClosure:(code:int, env:int, arity:int, name:int, source:int)=>int
 
 造一个闭包。
 
 ```ts
 const handle = this.AllocateRaw(ValueTag.Closure);
 const item = this.Objects[handle];
-item.Closure = new HeapClosure(code, env, arity, name);
+item.Closure = new HeapClosure(code, env, arity, name, source);
 this.Finish(handle);
 return handle;
 ```

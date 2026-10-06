@@ -790,6 +790,17 @@ return -1;
 **箭头永远是假** ✗：它**没有自己的 `arguments`** ✓，用的是外层那一份 ✓——
 这一条写在 `LowerFunctionValue` 那一句上 ✓（`!item.IsArrow && …` ✓）。
 
+## field Source:string = ""
+
+**这个函数的源码文本** ✓（第 334 轮 ✓）——`f.toString()` 的答案 ✓
+（`HeapClosure.Source` 那一段写着为什么它挂在闭包上 ✓）。
+
+**从哪来** ✓：`SourceSliceOf` ✓——按节点的 `[pos, end)` 从 `SourceText` 里切 ✓。
+**空串 = 没有** ✓（合成出来的那些：`namespace` 的体 ✓、静态块 ✓——JS 里它们
+本来就没有「一段源码」对应 ✓）。**`new Lowering()` 那十几处（`tests/runtime/check.mjs` ✓）
+也没给源码** ✓ ⇒ 切出来是空串 ✓ ⇒ 闭包那一格留 `0` ✓ ⇒ `fn.toString()` 走
+「造不出来」那一档 ✓——那里量的是 IR 形状 ✓，不看它 ✓。
+
 **为什么这件事必须写到函数表上** ✗：与 `HasRest` **一字不差** ✓——
 值是**开帧的人**收的 ✓（多出来的实参在被调方自己的帧里没有格子 ✓），
 原样递给 `FunctionInfo.NeedsArguments` ✓（`ir.xl.md` 那一段写着为什么 ✓）。
@@ -2145,7 +2156,7 @@ const nameConst = item.Name === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(item.Name)));
 const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity));
-const window = this.Reserve(4);
+const window = this.Reserve(5);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
   this.Emit(Op.Const, window, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
@@ -2155,7 +2166,14 @@ if (enclosing === null) {
 this.Emit(Op.Const, window + 1, item.Patch, -1, -1);
 this.Emit(Op.Const, window + 2, nameConst, -1, -1);
 this.Emit(Op.Const, window + 3, arityConst, -1, -1);
-this.EmitRt(RtOp.NewClosure, slot, window, 4);
+// **第五格：源码文本** ✓（第 334 轮 ✓）——`f.toString()` 的答案 ✓。
+// **空串 ⇒ 给 `undefined`** ✓（与名字那一档**一字不差** ✓）：闭包那一格留 `0` ✓，
+// 于是 `FunctionSourceText` 走「造不出来」那一档 ✓、不编一个空的源码 ✗。
+const sourceConst = item.Source === ""
+  ? this.Program().AddConst(Constant.OfUndefined())
+  : this.Program().AddConst(Constant.OfString(UnitsOf(item.Source)));
+this.Emit(Op.Const, window + 4, sourceConst, -1, -1);
+this.EmitRt(RtOp.NewClosure, slot, window, 5);
 this.Release(slot + 1);
 item.Envs = this.Env.Clone();
 // **具名函数表达式那三步的收尾** ✓（第 332 轮 ✓）：先把**降级侧**那一层退掉 ✓
@@ -2167,6 +2185,24 @@ if (selfEnv >= 0) {
 }
 this.Pending.push(item);
 return slot;
+```
+
+## method SourceSliceOf:(node:AstNode)=>string
+
+**这个节点的源码那一段** ✓（第 334 轮 ✓）——`[pos, end)` 从 `SourceText` 里切 ✓。
+
+**没有源码就给空串** ✓（`new Lowering()` 那十几处 ✓）：调用方把它当「没有」✓，
+于是闭包那一格留 `0` ✓——**不编一个假的** ✗（判据可能就指着一格文本 ✓）。
+
+**区间要夹住** ✗：`end > SourceText.length` 时给空串 ✓——那说明投影与源码不是同一份 ✓
+（这种不一致**响亮地**退化成「没有源码」✓，而不是切出半个字 ✓）。
+
+```ts
+if (this.SourceText === "") return "";
+const start = node["pos"] as number;
+const end = node["end"] as number;
+if (end <= start || end > this.SourceText.length) return "";
+return this.SourceText.slice(start, end);
 ```
 
 ## method LowerNamespace:(node:AstNode)=>void
@@ -5124,6 +5160,9 @@ if (NodeKind(node) === "FunctionExpression") {
 // 都有自己的 ✓。**判据是 `ReferencesArguments`** ✓（只收「这一层真的用得到」✓，
 // 于是绝大多数函数**一格都不多占** ✓）。
 item.NeedsArguments = !item.IsArrow && ReferencesArguments(body);
+// **源码那一格** ✓（第 334 轮 ✓）：箭头 / 函数表达式 / 方法都走这一条 ✓——
+// JS 的 `f.toString()` 给的就是**定义它那一段** ✓（`(n) => n` ✓、`m() { return 1 }` ✓）。
+item.Source = this.SourceSliceOf(node);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
 // 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
 item.HasRest = this.HasRestParam(node);
@@ -6331,6 +6370,8 @@ item.Arity = this.FunctionArity(node);
 // **教训**：「某一格要跟着树走」这种东西，**每一条建 `PendingFunction` 的路都要问一遍** ✓
 //（与 `HasRest` 那一位同一条 ✓，第 133 轮也是两处一起加的 ✓）。
 item.NeedsArguments = ReferencesArguments(Child(node, "body"));
+// **源码那一格** ✓（第 334 轮 ✓）：函数声明也有它 ✓（`function f() {}` 是**最常见**的那一档 ✓）。
+item.Source = this.SourceSliceOf(node);
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，

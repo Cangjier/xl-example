@@ -119,9 +119,20 @@ throw new Error("unimplemented: arithmetic on a non-numeric operand");
 ```ts
 // **原始值就是恒等** ✓（`ToPrimitive` 对它们一步都不走 ✓）。
 if (!value.IsObject()) return value;
-// **函数那一档**：JS 渲染源码文本 ✗，引擎拿不到 ✓ → 响亮地抛 ✓，绝不编一个 ✗。
+// **函数那一档：JS 渲染源码文本** ✓——第 334 轮起**给得出来了** ✓（`HeapClosure.Source` ✓）：
+// `f + 1` 在 JS 里是 `"function f() {}1"` ✓（判据 `function-prototype-tostring` 量着它 ✓）。
+// **原来这里响亮地抛** ✗（「引擎拿不到那一份」✓），那是当时的事实 ✓——
+// 现在那一格住在闭包上 ✓，所以这一支从「抛」变成「读一格」✓。
+// **`0`（造不出来 / 宿主那两档）就给 `[object Function]`** ✓：
+// `ToPrimitive` 的下一步会去试 `valueOf` ✓（拿回对象本身 ✓），再试 `toString` ✓——
+// 而那一条**语言层已经装好了** ✓（`Function.prototype.toString` ✓），
+// 所以这里只需要「别把路堵死」✓：抛出来会把 `f + 1` 整句变成异常 ✗（Node 给字符串 ✓）。
 if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure) {
-  throw new Error("unimplemented: ToPrimitive of a function (JS renders source text)");
+  const sourceHandle = FunctionSourceText(room, table, value);
+  if (sourceHandle === 0) {
+    throw new Error("unimplemented: ToPrimitive of a function (source text unavailable)");
+  }
+  return Value.FromString(sourceHandle);
 }
 if (call === null) return value;
 // **① `Symbol.toPrimitive`** ✓（可调就用它 ✓）
@@ -1181,7 +1192,54 @@ return Value.FromBool(value.IsNullish());
 **为什么是回调、而不是让这一层去认 `Vm`**：依赖方向只能是 `vm → rt`（机器用算子），
 反过来就成环了。四个目标都有函数类型（C++ 是 `std::function`），这个成本可以接受。
 
-# method RtNewClosure:(room:RoomChecker, table:HeapTable, env:Value, code:int, arity:int)=>Value
+# method FunctionSourceText:(room:RoomChecker, table:HeapTable, value:Value)=>int
+
+**一个函数值的源码文本** ✓（第 334 轮 ✓）——返回**字符串句柄** ✓；`0` 表示「造不出来」✓。
+
+**两档** ✓：
+
+- **闭包** ✓：`HeapClosure.Source` 那一格就是它 ✓（降级层从源码里切出来放进去的 ✓，
+  见 `heap.xl.md` ✓）——**有就是有、没有就是没有** ✗，这一层**不编** ✓；
+- **内建 / 宿主函数**（`Function` 那一档 ✓）：JS 给的是
+  `function () { [native code] }` ✓——**那不是编的** ✗，是规范里定的那一串 ✓
+  （`Function.prototype.toString` 对非 ECMAScript 函数的要求 ✓），所以这里照做 ✓。
+
+**为什么收成一个方法** ✗：`f + 1` ✓（`ToPrimitiveOf` ✓）、`` `${f}` `` ✓
+（`text.xl.md` 的 `ToStringOfObject` ✓）、`f.toString()` ✓（语言层那一格 ✓）**三处**都要它 ✓
+——三处各写一遍就是三处会漂的答案 ✓（第 324 / 330 轮各踩过一次同型的错 ✓）。
+
+**零个字符串要分配** ✓：`room` 先问 ✓（这一层每一处分配都先问 ✓）。
+**没房间就给 `0`** ✓——调用方把它当成「造不出来」✓，与「本来就没有」**同一档** ✓
+（两档都得到 `undefined` ✗ 不行：`f.toString()` 在 JS 里**永远**给一个字符串 ✓，
+所以调用方在 `0` 时用空串兜 ✓——见 `FunctionToString` 那一支 ✓）。
+
+```ts
+// **闭包那一档** ✓：`Source` 那一格是降级层从源码里切出来的 ✓（`0` = 没有 ✓）。
+if (value.Tag === ValueTag.Closure) {
+  return table.Get(value.Ref).AsClosure().Source;
+}
+// **内建 / 宿主函数** ✓（`Function` 那一档 ✓，以及**带可调用载荷的对象** ✓——
+// `[].push` / `Object.prototype.toString` 这些就是后者 ✗）：JS 给的是
+// `function <名字>() { [native code] }` ✓——**名字要从那一格读** ✗，
+// 少了它 `[].push.toString()` 会变成 `function () { [native code] }` ✓
+//（判据 `c334-std-function-tostring-and-primitive` 量着这一格 ✓：
+// Node 给 `function push() { [native code] }` ✓）。
+// **匿名就给空的圆括号** ✓（`function () { … }` ✓，与 V8 一字不差 ✓）。
+if (value.Tag === ValueTag.Function || value.Tag === ValueTag.HostRef
+    || (value.IsObject() && table.Get(value.Ref).Host !== null)) {
+  let name = "";
+  if (value.Tag === ValueTag.Function) {
+    const nameHandle = table.Get(value.Ref).AsFunction().Name;
+    if (nameHandle !== 0) name = HostUnitsText(table.Get(nameHandle).AsString().Units);
+  }
+  const nativeText = HostTextUnits("function " + name + "() { [native code] }");
+  if (!room(ObjectCharge + CodeUnitCharge * nativeText.length)) return 0;
+  return table.CreateString(nativeText);
+}
+return 0;
+```
+
+# method RtNewClosure:(room:RoomChecker, table:HeapTable, env:Value, code:int, arity:int, source:int)=>Value
 
 造一个闭包：`Code` 是入口，`Env` **从槽里取**——「这个闭包捕获哪一层」是降级期决定好的
 （见 `ir.xl.md` 的 `EnvNew`：进入一个块会把当前帧的 `Env` 换掉，所以降级层必须显式说出
@@ -1193,6 +1251,11 @@ return Value.FromBool(value.IsNullish());
 **算它的人是降级层** ✓（`lowering.xl.md` 的 `FunctionArity` ✓）：
 「第一个默认值 / 剩余参数之前有几个」是**语法上的事** ✓，引擎从 IR 里读不出来 ✗。
 `Name` 仍然由 `vm.xl.md` 的 `MakeClosure` 补 ✓（名字要过一遍值那一层 ✓，见那一处 ✓）。
+
+**`source` 是第 334 轮加进来的第五格** ✓：**源码文本的字符串句柄** ✓（`0` 表示没有 ✓）——
+`f.toString()` 要的就是它 ✓（`HeapClosure.Source` 那一段写着为什么它住在闭包上 ✓）。
+**它由降级层从源码里切出来** ✓（`SourceText` ✓：节点的区间一取就是那一段 ✓），
+而这一层只是把它**交给闭包那一格** ✓——与 `Arity` **一字不差**的同一条分工 ✓。
 
 **`undefined` 是合法环境，意思是「没有环境」**（句柄 0）。
 
@@ -1211,5 +1274,5 @@ if (env.Tag === ValueTag.Object) {
 if (!room(ObjectCharge + ValueCharge)) {
   throw new Error("out of room");
 }
-return Value.FromRef(ValueTag.Closure, table.CreateClosure(code, envHandle, arity, 0));
+return Value.FromRef(ValueTag.Closure, table.CreateClosure(code, envHandle, arity, 0, source));
 ```

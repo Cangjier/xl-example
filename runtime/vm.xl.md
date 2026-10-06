@@ -2396,14 +2396,19 @@ if (id === RtOp.NewClosure) {
   // 而不是「先按 2 判、再看 `argc >= 3`」✗（那样 `argc === 3` 会在**第一句**就被拒 ✓，
   // 报的是 `rt op new_closure expects 2 arguments, got 3` ✓——
   // **一句话听起来像降级层多传了一格** ✓，其实是**这一句自己写窄了** ✗，第 238 轮实测踩过 ✓）。
+  if (argc === 5) {
+    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2], slots[base + 3].AsInt(),
+      slots[base + 4]);
+  }
   if (argc === 4) {
-    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2], slots[base + 3].AsInt());
+    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2], slots[base + 3].AsInt(),
+      Value.Undefined());
   }
   if (argc === 3) {
-    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2], 0);
+    return this.MakeClosure(slots[base], slots[base + 1].AsInt(), slots[base + 2], 0, Value.Undefined());
   }
   RequireArgc(argc, 2, "new_closure");
-  return this.MakeClosure(slots[base], slots[base + 1].AsInt(), Value.Undefined(), 0);
+  return this.MakeClosure(slots[base], slots[base + 1].AsInt(), Value.Undefined(), 0, Value.Undefined());
 }
 if (id === RtOp.GetProp) {
   RequireArgc(argc, 2, "get_prop");
@@ -4441,7 +4446,7 @@ try {
 }
 ```
 
-## method MakeClosure:(env:Value, code:int, name:Value, arity:int)=>Value
+## method MakeClosure:(env:Value, code:int, name:Value, arity:int, source:Value)=>Value
 
 造闭包（走 `Guard`：它要分配）。
 
@@ -4481,7 +4486,7 @@ try {
 没接上时不说谎，只是不特殊 ✓）。
 
 ```ts
-const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code, arity));
+const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code, arity, 0));
 // **`Guard` 可能什么都没造出来** ✓（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined` ✓）——
 // 那种情况下再去读 `Ref` 会撞上「这不是一个引用值」✗，而那句话离现场很远 ✓。
 if (!created.IsRef()) return created;
@@ -4494,6 +4499,13 @@ if (protos !== null && protos.Function > 0) {
 // `Ref` 去写 ✗：那是个别的值 ✓）。
 if (name.IsString()) {
   this.Table.Get(created.Ref).AsClosure().Name = name.Ref;
+}
+// **源码那一格** ✓（第 334 轮 ✓）：与名字**同一条规矩** ✓——只有真给了字符串才写 ✓
+//（`0` 表示「没有」✓，宿主那两档的字面由 `FunctionSourceText` 现造 ✓）。
+// **它进的是 `RtNewClosure` 的第五格** ✓：那一格是**字符串句柄** ✓、不是常量池下标 ✗
+//（`heap.xl.md` 的 `Source` 那一段写着为什么 ✓）。
+if (source.IsString()) {
+  this.Table.Get(created.Ref).AsClosure().Source = source.Ref;
 }
 return created;
 ```
