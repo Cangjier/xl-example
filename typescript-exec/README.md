@@ -6,6 +6,65 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 339 轮的账（**`for await` 的每一轮真的让出微任务** —— 98.2% → **98.5%**，收掉 3 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
+这一轮**先把上一轮量到的那处缺口查到根子** ✓（补了 1 条守着它 ✓）。
+
+### 一、上一轮量到的那处缺口，根子是 `for await` 被丢掉了
+
+上一轮那 20 条端到端里有一条报「微任务队列没排空完」✓。这一轮把它缩到**更小** ✓：
+
+```ts
+const order: string[] = [];
+queueMicrotask(() => order.push("qm"));
+Promise.resolve().then(() => order.push("then"));
+(async () => { for await (const v of stream()) got.push(v); console.log("A", order.join(",")); })();
+console.log("sync", order.join(","));
+```
+
+**Node 先印 `sync`** ✓、`for await` 那一趟**后印** ✓ 且那时 `order` 里已经有 `qm,then` ✓；
+**本仓反过来** ✗：那个 IIFE **同步跑完** ✓、`sync` 印在它**之后** ✓、`order` 还是空的 ✓。
+
+**根子** ✗：投影层留下的 **`awaitModifier`** 在降级时**被丢掉了** ✗
+（`foreach.xl.md` 记着那一格 ✓）⇒ `for await` 走成了**同步**的 `for..of` ✓。
+
+### 二、修法
+
+`LowerForOf` 读出 `awaitModifier` ✓、`LowerIterationLoop` 多收一格 `awaits` ✓；
+是 `for await` 时**在 `iter_next` 的那一对与每一项的值上各 `Await` 一次** ✓
+（JS 的 `AsyncIteratorStep` 就是这两步 ✓）——`Await` 一条**不是承诺的值**也照样
+推迟一个微任务 ✓（`ir.xl.md` 的 `await` 那一段写着 ✓），所以**次序与 JS 对齐** ✓、
+**语义不变** ✓。**不在 `async` 里就抛** ✓（与 `LowerAwait` 同一条口径 ✓）。
+
+### 三、实测踩到的一处（**写得响** ✓）
+
+判据第一版写成 `Child(node, "awaitModifier") !== null || …` ✓，而
+**`Child` 对不存在的子节点是响亮地抛** ✗、不是给 `null` ✗——于是**每一个普通 `for..of`**
+都在那里抛 ✓，**整片语料变成 `blocked`** ✓（实测 **15 → 96** ✓、加权 **98.2% → 86.2%** ✓）。
+投影层是**按需挂**这个属性的 ✓，所以「有没有」**问属性就够了** ✓。
+
+### 四、顺带收掉一格
+
+**`c305-rt-for-await-of-promises`** ✓——它一直在 `blocked` 名单里 ✓，
+根子与这一处**是同一个** ✓（`for await` 的那一趟本来就没让出 ✓）。
+
+**读数** ✓：`pass` **1314 → 1317** ✓（2 格转绿 + 补 1 条 ✓）、**端到端回到 75 / 75 = 100%** ✓、
+**红的一栏 0** ✓、六道门 **30.5s 全绿** ✓、矩阵 **1339 → 1340** ✓。
+
+**下一轮的入口** ✓（按「普通 `.ts` 里有多常见」排）：
+**① `Error.isError` / `Symbol.hasInstance` / `Symbol.iterator` 手写那一格** ✓
+（4 条 ✓，都在「壳」那一族 ✓——与第 324 轮 `Map.groupBy` 是同一个坎 ✓）；
+**② `thenable` 采纳 / `Array.fromAsync`** ✓（2 条 ✓，都在承诺那一族 ✓）；
+**③ `console.log(Error)`** ✓（1 条 ✓，落在 `inspect.xl.md` 的「认得错误对象」那一格 ✓）；
+**④ `rt-instanceof-custom`** ✓（1 条 ✓）与 **`rt-forin-order-and-inherited`** ✓
+（1 条 ✓，`for..in` 走原型链上可枚举键 ✓——那一处 `LowerForIn` 的注释里写着「等原型真的会被挂东西时再回来补」✓，
+**现在就是那个时候** ✓）；
+**⑤ 零散** ✓（`new.target` ✓、尖括号断言 ✓ ×2 ✓、`delete` 非可配置 ✓、
+对象字面量里的 `super` ✓、枚举与命名空间合并 ✓、解构形参 ✓、`gc-churn` 的步数预算 ✓、
+`c291-rt-class-shapes` ✓ / `c291-rt-closure-and-method-this` ✓、数组子类的 `instanceof` ✓、
+`function.prototype.shape` ✓、三元嵌套赋值 ✓、字符串下标写 ✓）。
+
 ## 第 338b 轮的账（**端到端加宽 20 条** —— 用户口径：「e2e 也增加一些 case，尽量覆盖全场景」）
 
 **端到端从 55 条加到 75 条** ✓（**18 条过、2 条当场量到缺口** ✓）——
