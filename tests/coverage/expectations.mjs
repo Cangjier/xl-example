@@ -552,7 +552,7 @@ export const EXPECTATIONS = {
   // **`var` 那一半第 315 轮修好了** ✓（`EnvLeave` ✓，判据转 pass ✓、这一行撤了 ✓）——
   // 留一句在这里：它当初报的是 `environment index out of range: 1` ✓，
   // 根子是「循环出口没把环境退回去」✓（见文件末尾那一段 ✓）。
-  "rt-ternary-nesting-and-assign": { expect: "blocked", why: "`flag ? (flag = false) : (flag = true)` 报 `name is not a local or a capture: return`——**三元的分支位**上放一个赋值表达式时，作用域收集把 `return` 当成了要绑的名字" },
+  // **第 360 轮过了** ✓（这一行撤了 ✓）：三元条件段的起点判据原来只认 `Identifier` 的 `return` ✓，而产物里那是一个 `Keyword` ✗ ⇒ 回扫冲过它、条件段把 `return` 收进去 ✓。改用 `Statement.IsRestrictedKeyword` ✓。
 
   // ---- 组 D：生成器对象上那两格（2 条）----
   // `it.return(v)` / `it.throw(e)` 是 `Generator.prototype` 上的两格 ✓，

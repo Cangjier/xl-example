@@ -275,7 +275,19 @@ if (current instanceof SymbolToken) {
   }
   return false;
 }
-if (current instanceof Identifier && current.Is("return")) {
+// **`return` 那一档要按「受限产生式那个词」认，不能只看 `Identifier`** ✗
+// （第 360 轮 ✓，**实测撞到的** ✓）：产物里 `return` 是**一个 `Keyword`** ✓
+// （见 `print-ast-common.xl.md` 的 `KEYWORD_STATEMENT` ✓），而这一句原来只认
+// `Identifier` ✗ ⇒ 回扫**冲过** `return` ✓、一路没找到起点 ✓ ⇒ `SearchFront` 给 `-1` ✗
+// ⇒ `condition.AddRange(TakeRange(units, 0, …))` ✓ ⇒ **条件段把 `return` 那个词收进去了** ✗
+// ⇒ 投影出一个 `ConditionalExpression` 的**条件是一格 `Identifier("return")`** ✗
+// ⇒ 降级层报 **`name is not a local or a capture: return`** ✓
+//（**一句话里没有一个字提到三元** ✗）。判据 `rt-ternary-nesting-and-assign` 量的就是它 ✓：
+// `return n >= 90 ? "A" : n >= 80 ? "B" : n >= 70 ? "C" : "F"` ✓——**三层的链**才现形 ✓
+//（两层的链在**同一趟**里就成形了 ✓，根本走不到这条回扫 ✓，所以它藏了这么久 ✓）。
+// 复用 `Statement.IsRestrictedKeyword` ✓（`return` / `throw` / `break` / `continue` / `yield` ✓，
+// 它走的是 `Statement.WordOf` ✓，两种词形都认 ✓）——**不另写一份「哪些词算 return」的名单** ✗。
+if (Statement.IsRestrictedKeyword(current)) {
   return true;
 }
 return false;
