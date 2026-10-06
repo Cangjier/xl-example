@@ -467,6 +467,29 @@ import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 落到哪一段代码由**这一格号**决定 ✓（引擎不认识 `"bind"` 这几个字母 ✗，
 与 `Symbol` / `Map` 同一条分界 ✓），实现在 `InvokeGlobal` 的 `FunctionBind` 那一支 ✓。
 
+# method MethodObject:(room:RoomChecker, table:HeapTable, protos:Protos, id:int, arity:int)=>Value
+
+**一个「能被调、而且有 `length`」的方法值** ✓（第 350 轮 ✓）——`Function.prototype` 上
+那四格用的就是它 ✓。
+
+**为什么不直接挂一个宿主引用** ✗（**实测撞到的** ✓）：宿主引用**没有属性表** ✗ ⇒
+`Function.prototype.call.length` 永远给 `undefined` ✗
+（判据 `c291-function-prototype-shape` ✓：Node 给 `1` ✓、本仓给 `undefined` ✗）。
+**JS 里那四格是函数、函数有 `length`** ✓ ⇒ 做成「对象 + 可调用载荷」✓（第 145 轮那一款 ✓）：
+对象照旧能被调 ✓（**同一个能力号** ✓）、`typeof` 也给 `"function"` ✓ ✓，
+而多出来的一张属性表正好用来放 `length` ✓。
+
+**`length` 是隐藏挂的** ✓：`Object.keys(Function.prototype)` 在 JS 里是空数组 ✓
+（那四格的**值**不进枚举 ✓）——而 `toString.call.length` 这一类读法照样成立 ✓。
+
+```ts
+const fn = NewPlainObject(room, table, protos);
+table.AttachCallable(fn.Ref, id, 0);
+SetHiddenProperty(room, table, fn, Value.FromString(table.CreateString(Units("length"))),
+  Value.FromInt(arity));
+return fn;
+```
+
 # const FunctionCtor:int = 343
 
 **`Function` 这个全局对象自己**（第 228 轮 ✓）：`Function.prototype.call` 这一族要一个落点 ✓，
@@ -5884,6 +5907,15 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function), NameValue
 // **三格方法** ✓：`call` / `apply` / `bind` ✓——**隐藏挂** ✓（与 `Object.prototype` 那三格同一条
 // 规矩 ✓：`for..in` 不该看见它们 ✓，而 `Object.keys(Function.prototype)` 在 JS 里是空数组 ✓）。
 //
+// **第 350 轮：四格方法改成「带载荷的对象」** ✗（**实测撞到的** ✓）：
+// 它们原来挂的是**光秃秃的宿主引用** ✗——而宿主引用**没有属性表** ✗ ⇒
+// `Function.prototype.call.length` 永远给 `undefined` ✗
+//（判据 `c291-function-prototype-shape` ✓：Node 给 `1` ✓、本仓给 `undefined` ✗）。
+// **JS 里它们是函数、函数有 `length`** ✓ ⇒ 做成「对象 + 可调用载荷」✓（第 145 轮那一款 ✓）：
+// 对象照旧能被调 ✓（同一个能力号 ✓）、`typeof` 也给 `"function"` ✓ ✓，
+// 而多出来的一张属性表正好用来放 `length` ✓。**`length` 也隐藏挂** ✓
+//（`Object.keys(Function.prototype)` 在 JS 里是空数组 ✓——那四格的**值**不进枚举 ✓）。
+//
 // **`BoundTargetKey` / `BoundThisKey` / `BoundArgsKey` 三格字符串也要造** ✓
 // （它们是**属性名**，脚本看不见 ✓、也没有人会念出它们 ✓）——造在 `protos.Function` 上
 // 是**故意的** ✗（`GetProperty` 从接收者沿链找 ✓，而 `bound` 那个对象的原型就是 `protos.Object` ✓，
@@ -5891,13 +5923,13 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function), NameValue
 // `Value.FromString(BoundTargetKey)` ✓——**同一个句柄、同一张表的两处** ✓。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("call"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionCall, 0)));
+  MethodObject(vm.Room(), table, protos, FunctionCall, 1));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("apply"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionApply, 0)));
+  MethodObject(vm.Room(), table, protos, FunctionApply, 2));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("bind"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionBind, 0)));
+  MethodObject(vm.Room(), table, protos, FunctionBind, 1));
 // **第四格：`toString`** ✓（第 334 轮 ✓）——与那三格**同一条口径** ✓（隐藏挂 ✓：
 // `Object.keys(Function.prototype)` 在 JS 里是空数组 ✓）。
 //
@@ -5906,7 +5938,7 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
 // 第四格跟着走 ✓（**同一族的东西用同一个手法** ✓，别的地方也不用再想一遍 ✓）。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
   Value.FromString(table.CreateString(Units("toString"))),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(FunctionToString, 0)));
+  MethodObject(vm.Room(), table, protos, FunctionToString, 0));
 // **`protos.Function` 三格方法** ✓ 与 **`protos.Generator.next`** ✓ 都在这一带挂上。
 //
 // **生成器那一格**（第 229 轮 ✓）：生成器对象**没有属性表** ✗（它就是 `HeapObject`

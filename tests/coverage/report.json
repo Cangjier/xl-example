@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.17,
+  "progressPercent": 99.22,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 523,
-      "pass": 519,
+      "pass": 520,
       "blocked": 0,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 99.24
+      "coverage": 99.43
     },
     {
       "layer": "e2e",
@@ -138,12 +138,6 @@
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
-    },
-    {
-      "id": "c291-function-prototype-shape",
-      "layer": "stdlib",
-      "title": "函数自带的三格与 prototype 的形状",
-      "detail": "stdout 不同：第 2 行：node «1 function» vs tsrun «undefined function»"
     },
     {
       "id": "c305-std-thenable-adoption",

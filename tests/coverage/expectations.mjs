@@ -697,7 +697,7 @@ export const EXPECTATIONS = {
   // **组 Q：承诺组合子少两格（2 条）** ✓
   //
   // **组 R：函数自己的 `name` / `length`（3 条）** ✓
-  "c291-function-prototype-shape": { expect: "differ", why: "`Function.prototype.call.length` 给 `undefined`（Node 给 `1`）——内建函数自己的 `length` 这一格没填，与上面两条同一组" },
+  // **第 350 轮过了** ✓（这一行撤了 ✓）：`Function.prototype` 那四格改成「对象 + 可调用载荷」✓（宿主引用没有属性表 ⇒ `call.length` 永远是 undefined ✓）。
   //
   // **组 S：函数当 `ToPrimitive` 要给源码文本（1 条）** ✓——缺口清单 #11。
   // **第 334 轮过了** ✓（这一行撤了 ✓）：`Function.prototype.toString` ——闭包上多一格 `Source`（降级层按节点区间从源码里切 ✓），三处读同一格 ✓（`f + 1` ✓ / `` `${f}` `` ✓ / `f.toString()` ✓）。
