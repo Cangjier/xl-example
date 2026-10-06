@@ -6,6 +6,58 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 343 轮的账（**按载荷号分开两条 `this` 规则 + `Error.isError` 落地** —— 98.9%，收掉 1 格 + 补 1 条）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓，
+这一轮把**上一轮量到、写明修法**的那一处做掉 ✓（`typescript-exec/README.md` 第 342 轮那一段 ✓）。
+
+### 一、两条相反的 `this` 规则，按载荷号分开
+
+第 342 轮把 `Error` 改成「对象 + 可调用载荷」时撞上这件事 ✓：语言层原来给
+**可调用对象**一律补上**对象自己**当 `this` ✓（第 228 轮 ✓，**为 `bind` 造的** ✓），
+而 `super(m)` 是一条**带接收者**的调用 ✓、接收者正是**在造的那个实例** ✓
+⇒ 被顶掉之后派生错误类的实例 `message` **空串** ✓。
+
+**两条路要的东西相反** ✓ ⇒ 判据必须窄到「**就是 `bind` 那一格**」✓：
+
+- `vm.xl.md` 多一格 **`BoundCallId`** ✓ + **`RegisterBoundCall`** ✓
+  （与 `RegisterGeneratorMethods` **同一形状** ✓：语言层知道号 ✓、引擎不知道 ✗）；
+- **`IsBoundCall(callee)`** 按载荷号认 ✓（**`BoundCallId <= 0` 时恒假** ✓——
+  与 `GeneratorStepKind` 那条**一字不差** ✓：`HostRef.CapabilityId` 的默认值**也是 `0`** ✓，
+  不排掉就会**静默走错分支** ✗）；
+- `hostThis` 改成「**只有 `bind` 那一格给自己、其余照调用方给的**」✓。
+
+**实测踩到两次** ✗：第一版多带了「**调用方没给接收者时也给对象自己**」✓
+⇒ `Error("without new")` 拿到的是**那个构造函数对象** ✓ ⇒ `called instanceof Error`
+从**真**变成**假** ✗（判据 `29-instanceof-and-errors` 第 4 行 ✓——
+**一句话里没有一个字提到 `Error` 对象** ✓）；去掉那一句之后两条都对 ✓。
+
+### 二、`Error.isError` 落地（1 格 + 1 条守着）
+
+`Error` 从光秃秃的宿主引用改成**普通对象 + 可调用载荷** ✓（`prototype` 显式摆上 ✓、
+`isError` **隐藏挂** ✓、号 **348** ✓），`Error.prototype.constructor` **指回那个对象** ✓——
+**上一轮退回来的那一改** ✓，先决条件（上面那条规则 ✓）解开之后**一次就对了** ✓。
+
+### 三、一处已知差别（**实测量到的** ✓）
+
+JS 的 `Error.isError` 问的是**内部槽** ✓，所以 `Object.create(Error.prototype)`
+在 Node 里 `isError` 是 **`false`** ✓、`instanceof` 是 **`true`** ✓——
+**两者不是同一个判据** ✗。本仓没有内部槽 ✓，拿**原型链近似** ✓
+⇒ 上面那种「手工接上原型」的对象**会被算成错误** ✗
+（**要真对齐得给每个错误对象留一格隐藏标记** ✓，与 `Date` 的 `__t` 同一形状 ✓——
+**那是另一件事** ✓，账写在 `ErrorIsError` 那一段 ✓）。
+
+**读数** ✓：`pass` **1323 → 1325** ✓（1 格转绿 + 补 1 条 ✓）、矩阵 **1342 → 1343** ✓、
+**红的一栏 0** ✓、六道门 **36.9s 全绿** ✓；`runtime:cli` **79 份一致** ✓
+（那一份 `29-instanceof-and-errors` 在两轮之间被撞红过一次 ✓、**当场修回来** ✓）。
+
+**下一轮的入口** ✓：
+**① 那张 `IdTable` 的容量口径** ✓（第 340 轮量到 ✓：`IsValid` 与 `BuiltinSlots` 要对齐 ✓，
+会牵到**线形态指纹** ✓）；**② `Map` / `Set` / `Date` 的 `size` 该是原型上的 getter** ✓
+（第 341 轮写下的形状差 ✓）；**③ `Symbol.hasInstance` / 手写 `Symbol.iterator`** ✓（3 条 ✓）；
+**④ 错误对象的内部槽标记** ✓（上面刚写下的差别 ✓——它一并让 `Error.isError` 与 JS 对齐 ✓）；
+**⑤ 零散** ✓（`console.log(Error)` 要栈 ✗、`new.target` ✓ 等 ✓）。
+
 ## 第 342 轮的账（**尖括号断言 + 给原始值写下标** —— 98.6% → **98.9%**，收掉 3 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓。
