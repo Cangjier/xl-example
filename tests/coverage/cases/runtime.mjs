@@ -5121,4 +5121,39 @@ console.log("a,b,c".split(",").map((part) => part.toUpperCase()).join(""));
 console.log("repeat".repeat(2), "x".at(-1), "x".charCodeAt(0));
 `,
   },
+  // ===== 第 335 轮收编（2 条）=====
+  {
+    id: "c335-rt-array-subclass-and-species",
+    title: "`extends Array` 的实例：进去是数组、出来也是数组",
+    src: `
+class MyList extends Array {
+  constructor(items: number) {
+    super();
+    for (let i = 0; i < items; i++) this.push(i);
+  }
+  first() { return this[0]; }
+}
+const m = new MyList(3);
+console.log(Array.isArray(m), m.length, m.first(), m instanceof MyList, m instanceof Array);
+console.log(m.join("-"), m.slice(1).join("-"), m.map((v: number) => v * 2).join(","));
+class Plain { constructor() {} }
+const p = new Plain();
+console.log(Array.isArray(p), p instanceof Plain);
+`,
+  },
+  {
+    id: "c335-rt-array-like-slice-forms",
+    title: "类数组接收者：`slice` 的通用那一档",
+    src: `
+const like = { 0: "a", 1: "b", 2: "c", length: 3 };
+console.log([].slice.call(like as any).join("-"));
+console.log(Array.prototype.slice.call(like as any, 1).join("-"));
+console.log([].slice.call(like as any, -2).join("-"));
+console.log([].slice.call({ length: 0 } as any).length);
+function args(): string {
+  return ([] as any).slice.call(arguments as any, 1).join(",");
+}
+console.log(args("x", "y", "z"));
+`,
+  },
 ];

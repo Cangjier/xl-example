@@ -31,7 +31,7 @@ import { InvokeSet, SetCtor } from "./set.xl.md"
 **依赖方向**：`builtins/` 依赖 `runtime/`，不反过来。所以「装库」这一步永远由
 **知道两边的那一层**（宿主 / 驱动）显式调用——`runtime/` 里不会出现 `builtins` 的名字。
 
-# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
+# method InvokeBuiltin:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
 
 **按能力号总分派**。
 
@@ -41,6 +41,14 @@ import { InvokeSet, SetCtor } from "./set.xl.md"
 **`keep` 是第 200 轮加的** ✓：数组那一块有四处要挂根 ✓（见 `InvokeArray` 那一段 ✓）。
 **只有它收这一样** ✓——字符串 / 全局 / 集合那几块都用不到 ✓，
 与 `sink` / `protos` 同一条分派纪律 ✓（用不到的不塞进签名 ✓）。
+
+**`protos` 是第 335 轮加的** ✗（**这一条与上面那句纪律的关系要写清楚** ✓）：
+原来这一层**故意不往数组那一块传它** ✓（第 130 轮那条注释：「`Array.from` 是静态方法 ✓，
+路由在 `InvokeWithSink` 那一层就分掉了 ✓，为它改签名白付」✓）——
+**那一句到第 335 轮不成立了** ✗：`[].slice.call(类数组)` 要造一个**带
+`Array.prototype` 的新数组** ✓（`ArrayLikeLength` / `ArrayLikeAt` 那两条注释写着为什么 ✓），
+而那个原型**只有这一层有** ✓（`InvokeArray` 的签名里没有它 ✗，函数体内也造不出来 ✗）。
+**代价量过了** ✓：两处签名 + 一处调用点 ✓（`InvokeBuiltin` 只有 `InvokeWithSink` 一个调用者 ✓）。
 
 **`failed` 是第 228 轮加的** ✓（`CallFailed` ✓）：与 `keep` **同一条纪律** ✓——
 只有**有回调循环的那几块**收它 ✓（数组 ✓、`Map` / `Set` ✓、走迭代协议的那三处 ✓）。
@@ -53,7 +61,7 @@ import { InvokeSet, SetCtor } from "./set.xl.md"
 // 要回调脚本 ✓——与数组 / `Map` / `Set` 那几块同一条纪律 ✓（用不到的不塞进签名 ✓，
 // 而这一块从第 296 轮起**用得着** ✓）。
 if (id >= 100 && id < 200) return InvokeString(room, table, call, id, self, args);
-if (id >= 1 && id < 100) return InvokeArray(room, table, call, id, self, args, keep, failed);
+if (id >= 1 && id < 100) return InvokeArray(room, table, protos, call, id, self, args, keep, failed);
 throw new Error("unimplemented: builtin id " + id);
 ```
 
@@ -196,7 +204,7 @@ if (id >= 700 && id < 800) return InvokeObjectHelper(room, table, id, self, args
 // **不让 `InvokeGlobal` 自己去问机器** ✗：这一层**没有机器** ✓（它只收 `room` / `table` ✓），
 // 而为了这一位把机器灌进来会让「用不到它的那二十格」也以为自己在构造 ✓。
 if (id >= 200) return InvokeGlobal(room, call, table, protos, id, self, args, sink, failed, constructing);
-return InvokeBuiltin(room, table, call, id, self, args, keep, failed);
+return InvokeBuiltin(room, table, protos, call, id, self, args, keep, failed);
 ```
 
 # const GetIteratorId:int = 702

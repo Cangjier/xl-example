@@ -1157,11 +1157,24 @@ let value = Value.Undefined();
 if (instr.A >= 0) value = frame.Slots[instr.A];
 const returnSlot = frame.ReturnSlot;
 const constructTarget = frame.ConstructTarget;
+// **`this` 也要在弹帧之前读下来** ✗（第 335 轮修的 ✓，见下面那一支 ✓）。
+const thisValue = frame.This;
 // **async 那一支要在弹帧之前把承诺号读下来** ✓（弹出去的帧随时会被复用 ✓）。
 const asyncPromise = frame.AsyncPromise;
 this.Frames.Pop();
 if (constructTarget > 0) {
-  if (!value.IsObject()) value = Value.FromObject(constructTarget);
+  // **回退到「当初造出来的那个实例」时要连它的 `Tag` 一起留着** ✗（第 335 轮 ✓）：
+  // 原来是 `Value.FromObject(constructTarget)` ✓——**把那个句柄重新包成一个「普通对象」** ✗
+  // ⇒ 实例上原来那个标签**当场丢掉** ✓。
+  // **症状**：`class MyList extends Array {}` 的 `new MyList()` 在构造函数体里
+  // `Array.isArray(this)` 是**真** ✓、出来就变成**假** ✗（判据
+  // `rt-instanceof-array-subclass` / `c323-rt-array-subclass-and-methods` 量的就是它 ✓）——
+  // **同一个值，进去是数组、出来是对象** ✓，而现场没有一句话提到「标签」✗。
+  // **`frame.This` 本来就是那个实例** ✓（`DoCallValue` 建的帧把它放在这一格 ✓、
+  // 构造函数里没人能改它 ✗）——所以这里**原样用那个值** ✓，一个字节都不重建 ✓。
+  // **顺带把「`super()` 返回对象就换 `this`」那一条也写在明处** ✗：本仓的模型里
+  // `this` 在 `new` 那一刻就定好了 ✓、`super()` 的结果被丢掉 ✗（见 `CreateInstance` 那一处 ✓）。
+  if (!value.IsObject()) value = thisValue;
 }
 if (asyncPromise > 0) {
   // **这条路上没有调用者要照顾** ✓：async 帧开出来时 `ReturnSlot` 就是 `-1` ✓
@@ -1932,9 +1945,24 @@ if (this.PrototypeKey > 0 && callee.IsObject()) {
   if (found.IsObject()) proto = found.Ref;
 }
 if (!this.NeedRoom(ObjectCharge + ValueCharge)) throw new Error("out of room");
-const handle = this.Table.CreateObject();
+// **`class X extends Array` 的实例是一个「真的数组」** ✗（第 335 轮 ✓）：
+// `new MyList()` 在 JS 里是 `Array.isArray(m) === true` ✓、`m.length` / `m.push` 都成立 ✓——
+// 因为 `super()` 调的 `Array` **自己造了一个数组** ✓，而「基类构造返回对象就用那个对象当 `this`」
+// 是 JS 的规矩 ✓。
+//
+// **本仓的模型里那一步不存在** ✗（实例在 `new` 的那一刻就造好了 ✓，`super()` 的结果被丢掉 ✗），
+// 所以这里退一步：**看原型链** ✓——链上先碰到 `protos.Array` 就造数组 ✓，否则造普通对象 ✓。
+// **这是一条代理判据** ✓（与第 203 轮撤掉的那条「父类有没有构造函数」同一类 ✗），
+// 它**不**完全等价 ✓：`Object.setPrototypeOf(X.prototype, Array.prototype)` 而不 `extends Array`
+// 在 JS 里给的是普通对象 ✓，这里会给数组 ✗。**实测到的差别只有这一种** ✓（exotic ✓），
+// 而它**比现状更接近 JS** ✓（现状是「`extends Array` 的实例根本不是数组」✗——
+// 判据 `rt-instanceof-array-subclass` / `c323-rt-array-subclass-and-methods` 量的就是它 ✓）。
+// **要真做对** ✗：让 `super(...)` 的结果能成为 `this` ✓（那是「`this` 由基类决定」那一整套 ✓），
+// 记在台账里 ✓。
+const isArrayInstance = proto === protos.Array || RtChainHas(this.Table, Value.FromObject(proto), protos.Array);
+const handle = isArrayInstance ? this.Table.CreateArray() : this.Table.CreateObject();
 this.Table.Get(handle).Proto = proto;
-return Value.FromObject(handle);
+return isArrayInstance ? Value.FromArray(handle) : Value.FromObject(handle);
 ```
 
 ## field ToStringKey:int = 0

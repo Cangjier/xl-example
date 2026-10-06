@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
-import { SetProperty, SetHiddenProperty, FindProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 ```
@@ -329,7 +329,7 @@ if (index < 0) {
 return index > length ? length : index;
 ```
 
-# method InvokeArray:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
+# method InvokeArray:(room:RoomChecker, table:HeapTable, protos:Protos, call:NativeCall | null, id:int, self:Value, args:Array<Value>, keep:RootKeeper | null = null, failed:CallFailed | null = null)=>Value
 
 **数组内建的分派与实现**。
 
@@ -365,6 +365,34 @@ return index > length ? length : index;
 if (id === ArrayIsArray) {
   const target = args.length > 0 ? args[0] : Value.Undefined();
   return Value.FromBool(target.Tag === ValueTag.Array);
+}
+if (id === ArraySlice && self.Tag !== ValueTag.Array) {
+  // **类数组那一档** ✓（第 335 轮 ✓）：JS 的数组方法**是通用的** ✓——
+  // `[].slice.call({ 0: "a", 1: "b", length: 2 })` 在 Node 里给 `["a", "b"]` ✓
+  //（判据 `c330-rt-array-like-slice-call` ✓）。那句写法看着绕 ✗，可它是真实代码里
+  // 「把类数组转成真数组」的**惯用法** ✓（`arguments` ✓、DOM 集合 ✓、
+  // `{ length: n }` 那种工厂 ✓ 都靠它 ✓），而 `Array.from` 是后来的替代品 ✓。
+  //
+  // **只接 `slice` 这一档** ✗（**写在明处** ✓）：`join` / `indexOf` / `forEach` 那些
+  // 也可以通用 ✓，可它们现在**整段**都建在 `HeapArray` 上 ✗（`source.GetAt` ✓）——
+  // 要通用得把每一处都改成「走 `ArrayLikeAt`」✓，那是**另一轮**的活 ✓。
+  // **只做一半而不说** = 下一个来这里的人会以为是漏了 ✓，所以说清楚 ✓。
+  //
+  // **原型从哪来** ✓：接收者不是数组 ✗ ⇒ 用 `protos.Array` ✓——
+  // 与数组那一支「从源继承」不同 ✓（那边源**是**数组 ✓，`table.Get(self.Ref).Proto` 读得到 ✓）。
+  const likeLength = ArrayLikeLength(room, table, call, self);
+  const likeStart = NormalizeRangeIndex(ArgOr(args, 0, 0), likeLength);
+  let likeEnd = NormalizeRangeIndex(ArgOr(args, 1, likeLength), likeLength);
+  if (likeEnd < likeStart) likeEnd = likeStart;
+  const likeCount = likeEnd - likeStart;
+  if (!room(ObjectCharge + ValueCharge * likeCount)) throw new Error("out of room");
+  const likeHandle = table.CreateArray();
+  table.Get(likeHandle).Proto = protos.Array;
+  const likeSlice = table.Get(likeHandle).AsArray();
+  for (let i = likeStart; i < likeEnd; i++) {
+    likeSlice.Push(ArrayLikeAt(room, table, call, self, i));
+  }
+  return Value.FromArray(likeHandle);
 }
 RequireArray(table, self);
 const source = table.Get(self.Ref).AsArray();
@@ -1338,6 +1366,54 @@ for (let i = 0; i < ownProps.length; i++) {
     throw new TypeError("cannot assign to read only property 'length' of an array");
   }
 }
+```
+
+# method ArrayLikeLength:(room:RoomChecker, table:HeapTable, call:NativeCall | null, receiver:Value)=>int
+
+**类数组的 `length`** ✓（第 335 轮 ✓）——数组直接给 ✓，别的对象去读它自己（或原型链上）
+那一格 `length` ✓，读不到 / 不是数字就给 `0` ✓。
+
+**为什么「不是数字给 `0`」而不是抛** ✗：JS 在这里做的是 `ToLength(Get(O, "length"))` ✓
+（`undefined` ⇒ `0` ✓、`"3"` ⇒ `3` ✓）——**它从来不会因为 `length` 长得怪而抛** ✓，
+所以这里也不抛 ✓（能救回来的都救 ✓）。
+
+**找那一格用 `FindProperty`** ✓（要 `room` ✓）、**读它用 `ReadProperty`** ✓（要 `call` ✓）——
+`GetProperty` 要 `protos` ✗，而这一层的签名里没有它 ✓（`install.xl.md` 写着为什么不为一个方法
+改签名 ✓）。
+
+```ts
+if (receiver.Tag === ValueTag.Array) return table.Get(receiver.Ref).AsArray().GetLength();
+if (!receiver.IsObject()) return 0;
+const lengthKey = Value.FromString(table.CreateString(Units("length")));
+if (!room(PropertyCharge + CodeUnitCharge * 6)) throw new Error("out of room");
+const found = FindProperty(room, table, receiver.Ref, lengthKey);
+if (found === null) return 0;
+const raw = ReadProperty(call === null ? NeverCall : call, table, found, receiver);
+if (!raw.IsNumber()) return 0;
+const count = raw.AsInt();
+return count < 0 ? 0 : count;
+```
+
+# method ArrayLikeAt:(room:RoomChecker, table:HeapTable, call:NativeCall | null, receiver:Value, at:int)=>Value
+
+**类数组的第 `at` 项** ✓（第 335 轮 ✓）——数组直接给元素 ✓，
+别的对象按 JS 的规矩 `Get(O, ToString(at))` ✓：**键是那个下标的十进制文本** ✓，
+读不到给 `undefined` ✓（**不抛** ✗：越界在 JS 里就是 `undefined` ✓）。
+
+**数组那一档必须走 `GetAt`** ✗：数组的元素**不在 `Props` 里** ✓（住在 `Elements` ✓）——
+按字符串键去找会**一个都找不到** ✓（于是 `[1,2].slice(0)` 会变成 `[undefined, undefined]` ✗，
+**静默错值** ✓）。所以两档都留着 ✓。
+
+```ts
+if (receiver.Tag === ValueTag.Array) return table.Get(receiver.Ref).AsArray().GetAt(at);
+if (!receiver.IsObject()) return Value.Undefined();
+// **键是十进制的下标文本** ✓（与 `ArrayIndexAt` 的判据对称：那边是「文本 → 下标」✓）。
+const text = Units("" + at);
+if (!room(PropertyCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
+const key = Value.FromString(table.CreateString(text));
+const found = FindProperty(room, table, receiver.Ref, key);
+if (found === null) return Value.Undefined();
+return ReadProperty(call === null ? NeverCall : call, table, found, receiver);
 ```
 
 # method thisFlatRoom:(room:RoomChecker, length:int)=>bool

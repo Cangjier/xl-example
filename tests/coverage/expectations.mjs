@@ -621,7 +621,7 @@ export const EXPECTATIONS = {
   "rt-forin-order-and-inherited": { expect: "differ", why: "**静默错值**：`for (const k in o)` 只给自有键（Node 还会走原型链上的可枚举键）。根子在 `lowering.xl.md` 的 `LowerForIn`——它把这一条**拼成 `Object.keys`**，而 `Object.keys` 的口径就是自有键；那句「今天原型上没挂可枚举东西，所以差别看不见」现在被 `Object.create({ inherited: true })` 当场证伪。**第 329 轮把修法的前提量清了（当天没做）** ✗：把 `LowerForIn` 改成一条内部调用（逐层 `Object.keys` + 按第一次出现去重 ✓）之后，`own,inherited` 确实出来了 ✓，**可它后面还跟着一堆** ✗——`constructor` ✓、数组那一串方法（`push` / `pop` / … 40 个 ✓）。根子**不在 `for..in`** ✗：**本仓的宿主原型上那些方法是可枚举的** ✓（`InstallArray` / `InstallString` / `Object.prototype.constructor` 都走 `SetProperty` ✓），而 JS 里它们**一律不可枚举** ✓ ⇒ `Object.keys(Array.prototype)` 在 JS 里是 **`[]`** ✓、本仓给那 40 个 ✗。所以这一格的**前置**是「把那些安装改成不可枚举」✓（`SetHiddenProperty` ✓，`Map` / `Set` 的方法第 194 轮就是这么挂的 ✓）——**那是另一件事，也是另一条判据的根** ✓（`Object.keys(Array.prototype)` 与 `for..in` 会一起转绿 ✓）。**撤销的这次尝试留在账上** ✓：改法、量到的读数、以及「为什么它不是只改 `LowerForIn` 一处」都在这儿 ✓" },
   //
   // **组 G：`class X extends Array`（1 条）** ✓
-  "rt-instanceof-array-subclass": { expect: "blocked", why: "`class MyList extends Array {}` 报 `this method needs an array receiver`——实例是普通对象、数组方法不认它。要一条「按内置类做实例的 `[[Prototype]]` 与内部槽」的路" },
+  // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
   //
   // **组 H：`replace` 的那两格（2 条）** ✓——`String.replace` 只认两个字符串实参 ✗。
   //
@@ -864,7 +864,7 @@ export const EXPECTATIONS = {
   // 与 `rt-accessor-override`（父类是访问器 ✓）和 `c304-rt-super-property-write`
   // （父类是 setter ✓）**三种排布一起转绿** ✓，因为根子是**同一处** ✓：
   // 「查找起点」与「接收者」在写这一半上原来是**同一个东西** ✗。
-  "c323-rt-array-subclass-and-methods": { expect: "blocked", why: "`class List extends Array` 报 `this method needs an array receiver`——实例是**普通对象**（`extends` 只连了原型链），而数组方法（`push` / `join`）认的是真数组。要一条「按内置类造实例」的路（`[[Prototype]]` 与内部槽一起给），与 `rt-instanceof-array-subclass` 同一个根" },
+  // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
   // D —— 同一个形状只认了一半（2 条）
   "c323-ex-angle-bracket-assertion-forms": { expect: "blocked", why: "尖括号断言 `<T>expr` 报 `unimplemented: expression TypeAssertionExpression`——它与 `as` 在 TS 的 AST 里是**两个 kind**（`TypeAssertion` 与 `AsExpression` ✓），投影 / 降级只认了后者（与 `ex-angle-bracket-assertion` 同一个根，这一条把「变量 / 字面量 / 嵌套」三种操作数一起考）。**裁判要用 `--experimental-transform-types`** ✓：剥离模式明确拒收尖括号写法 ✓" },
   // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
@@ -928,7 +928,7 @@ export const EXPECTATIONS = {
   "c330-ex-ternary-arrow-branches": { expect: "blocked", why: "三元的两支是**不套括号的箭头函数**时整份文件进不来（`unimplemented: binary operator ?`）——`?` 后面那个 `(` 被判成**函数类型**的开头（条件类型里 `? () => C : D` 是合法类型），于是箭头成了 `FunctionType`、`?` 配不成三元。**边界量清楚了**：函数表达式那一支是好的、套了括号的箭头也是好的，只有「真值段直接写箭头」塌（六条探针见台账）" },
   //
   // ---- 组 C：数组方法是通用的（1 条）----
-  "c330-rt-array-like-slice-call": { expect: "blocked", why: "`[].slice.call({0:\"a\",1:\"b\",length:2})` 报 `this method needs an array receiver`——JS 里 `Array.prototype` 上的方法**不要求接收者是真数组** ✓（`slice` / `map` / `indexOf` 那一族都按 `length` + 下标读「类数组」✓），而本仓的 `RequireArray` 只认真数组 ✗。修法是给这一族补一条**按 `length` 读**的接收者（`ArrayLike` 那一档 ✓），要连同「数组快路不许慢下来」一起看 ✓" },
+  // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
   //
   // ---- 组 D：非空断言链上的名字（1 条）----
   // **与 `c323-ex-nonnull-in-chains` 是同一族** ✓（旧账换写法 ✓，不加新账 ✓）：

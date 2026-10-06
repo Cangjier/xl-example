@@ -12,6 +12,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+// **第 335 轮加**：能力号那一格判据要读仓里的 `*.xl.md` 清单 ✓（`git ls-files` ✓）。
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
@@ -720,6 +722,66 @@ check("每个 id 都有名字（加了成员忘了加名字要被抓住）", () 
     eq(RtOpName(id) !== "unknown", true, `算子 ${id} 没有名字`);
   }
   eq(RtOpName(BuiltinBase), "unknown", "内建段不在这张名表里");
+});
+
+console.log("");
+console.log("=== 能力号：同一段里不许重复（第 335 轮加）===");
+
+check("同一段里的能力号不许重复（号撞车是静默的）", () => {
+  // **为什么单独立一条判据** ✗：号撞车**两次**都让症状离现场很远 ✓——
+  //   · 第 332 轮 `queueMicrotask` 取 `250` ✓，而 `250` 是 `SymbolCtor` ✓：
+  //     窄段上界一挪，`Symbol` 那一族被截走 ✗ ⇒ `Symbol("x")` 给 `undefined` ✓、
+  //     **21 条判据当场红** ✓，而报的话分布在三种（`typeof` 给 `undefined` ✓ /
+  //     `Symbol.keyFor needs a symbol` ✓ / `invalid handle: 0` ✓）——**一句都没提号** ✗；
+  //   · 第 334 轮 `FunctionToString` 取 `344` ✓，而 `344` 是 `BoundCall` ✓，
+  //     **同一个文件、同一段** ✓ ⇒ `bound(2)` 报 `a bound function lost its target` ✓
+  //     ——那句话听起来像绑定对象坏了 ✗。
+  //
+  // **判据是「同一个文件里不许重复」** ✓，不是整个仓库 ✗：号是**按段**用的 ✓
+  //（`heap.xl.md` 的计费常量 ✓、`array.xl.md` 的方法号 ✓、`ir-verify.xl.md` 的问题号 ✓
+  // ——**文件就是段** ✓，而两次撞车都发生在同一个文件里 ✓）。
+  //
+  // **它读的是源码** ✓（`# const NAME:int = N` 那一行 ✓），不是产物 ✗：
+  // 产物里那一行会被展开成别的形状 ✓，而这一条要的是「写下来的那一格有没有撞」✓。
+  //
+  // **三处已知的「同文件、不同段」写在名单里** ✗（不是漏掉 ✓，是**写明白** ✓）：
+  // 它们各自是**两套完全不同的号** ✓（计费字节 vs 属性标志位 ✓、线格式版本 vs
+  // 问题码 ✓），谁也不会拿另一套去查表 ✓。**名单之外的任何一处重复都要红** ✓——
+  // 这正是这一条存在的意义 ✓（两次实测撞的都是名单之外 ✓）。
+  const ALLOWED = new Map([
+    ["runtime/heap.xl.md:1", "`HoleCharge` / `PropertyFlagEnumerable`：两套号（计费 vs 标志位）"],
+    ["runtime/heap.xl.md:2", "`CodeUnitCharge` / `PropertyFlagWritable`：同上"],
+    ["runtime/ir-verify.xl.md:2", "`WireVersion` / `IssueIdTable`：两套号（线格式版本 vs 问题码）"],
+  ]);
+  const sources = execFileSync("git", ["ls-files", "*.xl.md"], { cwd: root, encoding: "utf8" })
+    .split("\n").map((line) => line.trim()).filter((line) => line !== "");
+  ok(sources.length > 100, "源码清单看着像空的：" + sources.length);
+  const decl = /^# const (\w+):int = (\d+)\s*$/;
+  const collisions = [];
+  let counted = 0;
+  for (const file of sources) {
+    const text = fs.readFileSync(path.join(root, file), "utf8");
+    const byId = new Map();
+    for (const line of text.split(/\r?\n/)) {
+      const match = decl.exec(line);
+      if (match === null) continue;
+      counted += 1;
+      const id = Number(match[2]);
+      if (!byId.has(id)) byId.set(id, []);
+      byId.get(id).push(match[1]);
+    }
+    for (const [id, names] of byId) {
+      if (names.length < 2) continue;
+      if (ALLOWED.has(`${file}:${id}`)) continue;
+      collisions.push(`${file}: 号 ${id} 被占了两次：${names.join(" / ")}`);
+    }
+  }
+  // **用 `ok` 而不是 `eq`** ✗：`eq` 比的是同一个值 ✓（数组各是各的 ✓，空数组也不相等 ✓）——
+  // 第一版写成 `eq(collisions, [])` ✓，红起来那句是「期望 ，实际 」✓（**看不出所以然** ✗）。
+  ok(collisions.length === 0, "同一段里号撞车：" + collisions.join("；"));
+  // **这一条是「扫描器还活着」的哨兵** ✓（实测 **307** 条 ✓）：写成 `> 400` 是第一版的拍脑袋值 ✗
+  // （不少常量是别的形状 ✓：`:=` ✓、写在代码块里的 ✓——扫到的本来就没那么多 ✓）。
+  ok(counted > 250, "扫到的 `# const` 条数看着不对：" + counted);
 });
 
 console.log("");
@@ -2773,7 +2835,9 @@ check("标准库第一块：Array 原型方法（push/pop/join/indexOf/slice）�
   // 调用通道：**按能力号分派**——一个宿主函数服务全部内建
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeArray(room, table, null, id, self, args);
+    // **`protos` 是第 335 轮加进去的第二格** ✓（`[].slice.call(类数组)` 要造一个带
+    // `Array.prototype` 的新数组 ✓，而那一格只有路由那一层有 ✓——`install.xl.md` 写着账 ✓）。
+    return InvokeArray(room, table, host.Machine.Protos, null, id, self, args);
   });
 
   const call = (name, args) => host.CallExport(module.ExportOf(name), args || []);
@@ -2802,7 +2866,8 @@ check("标准库第二块：String 原型方法（charAt/charCodeAt/indexOf/slic
   InstallBuiltins(host, host.Machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
-    return InvokeBuiltin(room, table, null, id, self, args);
+    // **`protos` 同第 335 轮那一处** ✓（`InvokeBuiltin` 的签名跟着 `InvokeArray` 一起挪 ✓）。
+    return InvokeBuiltin(room, table, host.Machine.Protos, null, id, self, args);
   });
 
   const call = (name, text) => host.CallExport(module.ExportOf(name),
