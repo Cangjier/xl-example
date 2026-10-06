@@ -4281,4 +4281,12 @@ console.log(o.x, o.y);
     title: "`continue` 那一跳也要重建环境：两种循环的每轮一格都经得起 `continue`",
     src: "\nconst fns: (() => number)[] = [];\nfor (let i = 0; i < 4; i++) { if (i === 1) continue; fns.push(() => i); }\nconsole.log(fns.map((f) => f()).join(\",\"));\nconst gns: (() => string)[] = [];\nfor (const ch of [\"a\", \"b\", \"c\"]) { if (ch === \"b\") continue; gns.push(() => ch); }\nconsole.log(gns.map((f) => f()).join(\",\"));\n",
   },
+
+  // ===== 第 316 轮：块那一层环境 =====
+
+  {
+    id: "c316-rt-block-scope-env",
+    title: "块也开一层环境：两次进入同一个块、块里的两个同名 `const` 各是各的",
+    src: "\nfunction make(): (() => number)[] {\n  const out: (() => number)[] = [];\n  { const a = 1; out.push(() => a); }\n  { const a = 2; out.push(() => a); }\n  return out;\n}\nconst pair = make();\nconsole.log(pair[0](), pair[1]());\nfunction twice(): number {\n  let total = 0;\n  for (let k = 0; k < 2; k++) {\n    const local = k + 1;\n    total += (() => local)();\n  }\n  return total;\n}\nconsole.log(twice());\n",
+  },
 ];

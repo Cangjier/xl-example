@@ -1,6 +1,6 @@
 {
-  "round": "315",
-  "matrix": 1108,
+  "round": "316",
+  "matrix": 1109,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 93.87,
+  "progressPercent": 93.94,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 360,
-      "pass": 333,
+      "total": 361,
+      "pass": 335,
       "blocked": 15,
-      "differ": 12,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 92.5
+      "coverage": 92.8
     },
     {
       "layer": "exec",
@@ -342,12 +342,6 @@
       "layer": "runtime",
       "title": "then 里返回一个承诺：会被展开",
       "detail": "stdout 不同：第 2 行：node «value 2» vs tsrun «value {»"
-    },
-    {
-      "id": "c305-rt-let-loop-inner-const-capture",
-      "layer": "runtime",
-      "title": "经典 `for` 的每一次迭代里再取一个 const 给闭包",
-      "detail": "stdout 不同：第 1 行：node «0,10,20» vs tsrun «,,»"
     },
     {
       "id": "c305-rt-async-generator-await-inside",

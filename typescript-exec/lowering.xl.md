@@ -1764,6 +1764,101 @@ return this.Module;
 **这一位错了就等于「按名字调到了别的函数」**——判据当场报的是「`add(2, 3)` 给了 0」，
 因为下标 0 是入口函数，它跑完只留下一条 `halt`。
 
+## method OpenBlockEnv:(node:AstNode)=>bool
+
+**给一个块开一层环境** ✓（第 316 轮 ✓）——块里**被闭包捕到**的那些 `let`/`const` 住进去 ✓。
+
+**为什么块也需要一层** ✗：第 315 轮之前，环境只有**函数入口**与**两个循环**会开 ✓
+（`Op.EnvNew` 的那几处 ✓）⇒ 块里声明的捕获名只好落在**外面那一层**的同一格里 ✓
+⇒ **同一格被每一轮/每一次进入写一遍** ✓ ⇒ 闭包读到的就不是「它被造出来那一刻」的值 ✓
+（实测 `for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包给 `,,` ✗，
+Node 给 `0,10,20` ✓——**静默错值** ✗）。
+
+**判据是「有没有被捕获」** ✓（与函数入口那条同一把尺子 ✓ `CapturedNames` ✓）：
+块里没有任何被捕获的声明时**一个环境都不开** ✓（最常见的那种块一步不多 ✓）——
+**多开一层只是慢一点 ✓，少开一层就是错值** ✗（与两个循环那条保守判据同一条纪律 ✓）。
+
+**收集用 `CollectDeclaredNames`** ✓（深一层也收 ✓）：内层块**自己**也会开一层 ✓
+（同一个名字在内层被声明时 ✓，`CellOf` 取的是**最内**那一层 ✓ ⇒ 名字在几层里都出现也无害 ✓）。
+
+**`catch` 的那个绑定今天不在此列** ✗（它有自己的作用域形状 ✓，记在台账里 ✓）。
+
+```ts
+const declared: string[] = [];
+this.BlockDeclaredNames(node, declared);
+if (declared.length === 0) return false;
+const captured = CapturedNames(node, declared);
+if (captured.length === 0) return false;
+const slot = this.Reserve(1);
+this.Emit(Op.EnvNew, slot, captured.length, -1, -1);
+const scope = new EnvScope(slot);
+for (let i = 0; i < captured.length; i++) scope.Declare(captured[i], i);
+this.Env.Push(scope);
+return true;
+```
+
+## method BlockDeclaredNames:(node:AstNode, out:Array<string>)=>void
+
+**这一个块**（**只这一层** ✗）声明了哪些能进环境的**名字** ✓（第 316 轮 ✓）。
+
+**只收 `let` / `const` / `class` / `enum` 四种** ✗：
+- **`var` 不收** ✓——它是**函数作用域** ✓，落在提升后的槽（或函数那一层环境 ✓）里 ✓；
+- **`function` 也不收** ✗——函数声明在本仓里**提升到函数作用域** ✓（`Hoist` ✓），
+  它的名字写的是**外面那一格** ✓；把它也收进块这一层，读的那一句会落到**这一层的新格**上 ✓
+  ⇒ 读到 `undefined` ✓（**第 316 轮实测踩到过** ✗：判据 `ex-function-decl-in-block` 与
+  `ex-function-decl-in-block-scope` 当场红 ✓，报的是 `in block undefined` ✓）。
+
+**只走这一层的 `statements`** ✗（不递归 ✓）：内层块**自己**会开一层 ✓
+（同一个名字在内层被声明时 ✓，`CellOf` 取**最内**那一层 ✓）——
+递归着收会把内层的名字也开在外层 ✓，那就是**多开**（只是慢 ✓）但**层次错了** ✗。
+
+```ts
+const statements = ListOf(node, "statements");
+for (let i = 0; i < statements.length; i++) {
+  const statement = statements[i];
+  const kind = NodeKind(statement);
+  if (kind === "VariableDeclarationList" || kind === "VariableStatement") {
+    // **`VariableStatement` 与 `VariableDeclarationList` 两种形状都认** ✓
+    // （前者是「带分号的语句」✓、后者是 `for` 头那一种 ✓，取证时两种都出现过 ✓）。
+    const list = kind === "VariableStatement" ? Child(statement, "declarationList") : statement;
+    if (list === null || IsVarList(list)) continue;
+    const declarations = ListOf(list, "declarations");
+    for (let d = 0; d < declarations.length; d++) {
+      const name = Child(declarations[d], "name");
+      const nameKind = NodeKind(name);
+      if (nameKind === "Identifier") {
+        out.push(TextOf(name));
+      } else if (nameKind === "ArrayBindingPattern" || nameKind === "ObjectBindingPattern") {
+        CollectPatternNames(name, out);
+      }
+    }
+    continue;
+  }
+  if (kind === "ClassDeclaration" || kind === "EnumDeclaration") {
+    const name = OptionalChild(statement, "name");
+    if (name !== null && NodeKind(name) === "Identifier") out.push(TextOf(name));
+  }
+}
+```
+
+## method CloseBlockEnv:()=>void
+
+**把上一层开的那层环境退回去** ✓（第 316 轮 ✓）——`EnvNew` 的反面 ✓。
+
+**这一句不能省** ✗（第 315 轮那条教训的**同一个形状** ✓）：`EnvNew` 会改当前帧的 `Env` ✓，
+不退的话**块之后的代码**按词法深度读环境就少了一层 ✓
+（症状两种：报 `environment index out of range` ✓，或者**一声不响地把后面的语句丢掉** ✗）。
+**`break` / `continue` / `return` 跳出这个块时也要退** ✗——那三条各是一条跳转 ✓，
+而环境是**运行期**的东西 ✓，跳出去不会自动收 ✓；所以这里与两个循环一样，
+出口那一句是**必需**的 ✓（今天 `break` 跳的是循环出口 ✓，
+而循环出口那一条 `EnvLeave` **只退循环自己那一层** ✗——所以块的这一层要在**离开块**的地方退 ✓，
+两者是两层、两条指令 ✓）。
+
+```ts
+this.Emit(Op.EnvLeave, -1, -1, -1, -1);
+this.Env.Pop();
+```
+
 ## method LowerFunctionBody:(item:PendingFunction)=>void
 
 降级一个排队的函数体。
@@ -2415,7 +2510,9 @@ if (kind === "ContinueStatement") {
 }
 if (kind === "Block") {
   this.PushScope();
+  const opened = this.OpenBlockEnv(node);
   this.LowerStatementsOf(node);
+  if (opened) this.CloseBlockEnv();
   this.PopScope();
   return;
 }

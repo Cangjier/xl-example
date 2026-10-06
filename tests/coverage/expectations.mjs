@@ -664,7 +664,6 @@ export const EXPECTATIONS = {
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
-  "c305-rt-let-loop-inner-const-capture": { expect: "differ", why: "**循环体里的 `const` 每一轮要一个新格**（与循环变量那一条是**两个面**，第 315 轮量清 ✓）：`for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包该给 `0,10,20`，本仓给 `,,`——**三个都是 `undefined`** ✓（第 314 轮修 `for..of` 之前给的是 `,0,1` ✓，两个症状都不对 ✓）。根子与循环变量那一条**不是同一条** ✗：循环变量那一层环境第 314 / 315 轮已经修好 ✓（`c304-rt-closure-capture-in-forof` 与 `rt-loop-capture-let-vs-var` 都转了 pass ✓），而**块**今天**根本不建环境** ✗——降级期只有函数入口与那两个循环会发 `EnvNew` ✓（`lowering.xl.md` 里那四处 ✓），所以体内的 `const` 落在**外层同一格**里 ✓：写的那一句与读的那一句一旦不在同一层上 ✓，读到的就是 `undefined` ✓（**静默错值** ✗）。**修法**：给「块里声明了被捕获的 `let`/`const`」也发一对 `env_new` / `env_leave` ✓（`EnvLeave` 第 315 轮已经有了 ✓，缺的是**块那一侧**的调用点 ✓），另起一轮 ✓" },
   "c305-rt-async-generator-await-inside": { expect: "differ", why: "**异步生成器里 `await` 之后再 `yield` 什么都不出**：`for await (const v of g())` 一行都不打印（Node 给 `10,20`）。同步生成器与 `yield await` 之外的异步生成器是好的 ⇒ 挂起点与微任务队列在异步生成器那一帧上的交界没接上" },
   "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
   "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
