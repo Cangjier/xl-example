@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.95,
+  "progressPercent": 98.22,
   "layers": [
     {
       "layer": "runtime",
@@ -69,11 +69,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 75,
-      "pass": 73,
+      "pass": 74,
       "blocked": 0,
-      "differ": 2,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 97.33
+      "coverage": 98.67
     }
   ],
   "blocked": [
@@ -222,12 +222,6 @@
       "layer": "stdlib",
       "title": "Array.fromAsync：异步可迭代对象收成数组",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
-    },
-    {
-      "id": "c338-e2e-join-and-tostring",
-      "layer": "e2e",
-      "title": "数组的 `join` / `toString` 走元素的 `toString`",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：this method needs an array receiver"
     },
     {
       "id": "c338-e2e-async-queue-and-generators",

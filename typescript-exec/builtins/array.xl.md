@@ -2,10 +2,10 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
-import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
+import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
 import { SetProperty, SetHiddenProperty, FindProperty, ReadProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
-import { ValueUnits, ValueUnitsAt, JsElementUnits } from "./text.xl.md"
+import { ValueUnits, ValueUnitsAt, JsElementUnits, JsTextUnits } from "./text.xl.md"
 ```
 
 # namespace cangjie
@@ -373,10 +373,15 @@ if (id === ArraySlice && self.Tag !== ValueTag.Array) {
   // 「把类数组转成真数组」的**惯用法** ✓（`arguments` ✓、DOM 集合 ✓、
   // `{ length: n }` 那种工厂 ✓ 都靠它 ✓），而 `Array.from` 是后来的替代品 ✓。
   //
-  // **只接 `slice` 这一档** ✗（**写在明处** ✓）：`join` / `indexOf` / `forEach` 那些
-  // 也可以通用 ✓，可它们现在**整段**都建在 `HeapArray` 上 ✗（`source.GetAt` ✓）——
+  // **只接 `slice` 与 `join` 这两档** ✗（**写在明处** ✓）：`indexOf` / `forEach` / `map`
+  // 那一族也可以通用 ✓，可它们现在**整段**都建在 `HeapArray` 上 ✗（`source.GetAt` ✓）——
   // 要通用得把每一处都改成「走 `ArrayLikeAt`」✓，那是**另一轮**的活 ✓。
   // **只做一半而不说** = 下一个来这里的人会以为是漏了 ✓，所以说清楚 ✓。
+  // **第 338 轮补上 `join`** ✓：加端到端语料时当场撞到它 ✓
+  //（`Array.prototype.join.call({0:"a",1:"b",length:2}, "/")` 报
+  //  「this method needs an array receiver」✓——判据 `c338-e2e-join-and-tostring` ✓）——
+  // 而它**只多十来行** ✓：三个助手（`ArrayLikeLength` / `ArrayLikeAt` / `JsElementUnits` ✓）
+  // 第 335 / 338 轮都备好了 ✓。
   //
   // **原型从哪来** ✓：接收者不是数组 ✗ ⇒ 用 `protos.Array` ✓——
   // 与数组那一支「从源继承」不同 ✓（那边源**是**数组 ✓，`table.Get(self.Ref).Proto` 读得到 ✓）。
@@ -393,6 +398,34 @@ if (id === ArraySlice && self.Tag !== ValueTag.Array) {
     likeSlice.Push(ArrayLikeAt(room, table, call, self, i));
   }
   return Value.FromArray(likeHandle);
+}
+if (id === ArrayJoin && self.Tag !== ValueTag.Array) {
+  // **类数组那一档的 `join`** ✓（第 338 轮 ✓，见上面那一段的账 ✓）。
+  // **与数组那一支的三条规矩一字不差** ✓：分隔符缺省是 `","` ✓、洞 / `null` / `undefined`
+  // 给空串 ✓、其余**先 `ToPrimitive(v, "string")`** ✓（`JsElementUnits` ✓）——
+  // **两处各写一遍就会漂** ✗（第 307 / 312 / 320 轮各踩过一次「同一个语义长在两条路上」✓，
+  // 所以这里逐句对着上面那一支写 ✓，并把「另一支在哪儿」写在两句注释里 ✓）。
+  const likeLength = ArrayLikeLength(room, table, call, self);
+  const likeSeparator = args.length > 0 && args[0].Tag === ValueTag.String
+    ? TextUnitsOf(table, args[0])
+    : Units(",");
+  const likeParts: number[][] = [];
+  let likeTotal = likeSeparator.length * (likeLength > 0 ? likeLength - 1 : 0);
+  for (let i = 0; i < likeLength; i++) {
+    const element = ArrayLikeAt(room, table, call, self, i);
+    const units = (element.Tag === ValueTag.Undefined || element.Tag === ValueTag.Null)
+      ? []
+      : JsTextUnits(table, ToPrimitiveOf(room, call, protos, table, element, ToPrimitiveString));
+    likeParts.push(units);
+    likeTotal = likeTotal + units.length;
+  }
+  if (!room(CodeUnitCharge * likeTotal + ObjectCharge)) throw new Error("out of room");
+  const likeJoined: number[] = [];
+  for (let i = 0; i < likeParts.length; i++) {
+    if (i > 0) for (let j = 0; j < likeSeparator.length; j++) likeJoined.push(likeSeparator[j]);
+    for (let j = 0; j < likeParts[i].length; j++) likeJoined.push(likeParts[i][j]);
+  }
+  return Value.FromString(table.CreateString(likeJoined));
 }
 RequireArray(table, self);
 const source = table.Get(self.Ref).AsArray();

@@ -18,7 +18,7 @@ export const EXPECTATIONS = {
   // 这一轮加端到端语料时当场撞上 ✓：`Array.prototype.join.call(like, "/")` 报
   // 「this method needs an array receiver」✓。**修法与 `slice` 那一支一字不差** ✓
   //（`ArrayLikeLength` + `ArrayLikeAt` + `JsElementUnits` 三个都现成 ✓，抄一遍就有 ✓）。
-  "c338-e2e-join-and-tostring": { expect: "differ", why: "**类数组接收者只接了 `slice`**（第 335 轮）：`Array.prototype.join.call({0:\"a\",1:\"b\",length:2}, \"/\")` 报「this method needs an array receiver」——`join` / `indexOf` / `forEach` 那些整段建在 `HeapArray` 上，要通用得各加一条类数组分支（三个助手都现成）" },
+  // **第 338b 轮过了** ✓（这一行撤了 ✓）：`join` 也接了**类数组**那一档 ✓（三个助手都现成 ✓，与 `slice` 那一支一字不差 ✓）。
 
   // **异步那一族：微任务队列在「模块同步部分跑完之后」没有排空完** ✓。
   // 实测（最小反例）：一个 `async` 生成器 + `for await` 的 IIFE ✓ + 三个先排好的微任务 ✓——
