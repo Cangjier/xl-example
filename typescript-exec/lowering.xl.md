@@ -3053,6 +3053,10 @@ if (nameNode === null || NodeKind(nameNode) !== "Identifier") {
 // **先造那个对象** ✓（与对象字面量同一处口径 ✓）。
 const object = this.Reserve(1);
 this.EmitRt(RtOp.NewObject, object, object, 0);
+// **这条 `enum` 自己的一层作用域** ✗（第 378 轮 ✓）——见下面 `Declare` 那一句的理由 ✓。
+// **`object` 那一格是在 `PushScope` 之前占的** ✓ ⇒ `PopScope` 退水位时**退不到它** ✓
+//（`PushScope` 记的是当时的 `NextFree` ✓，而它比 `object` 大 ✓）。
+this.PushScope();
 const members = ListOf(node, "members");
 // **上一个数值成员的数值** ✓（`-1` 表示「还没有」✓）：见上面自动累加那两条 ✓。
 let previous = -1;
@@ -3127,7 +3131,29 @@ for (let i = 0; i < members.length; i++) {
     this.SetPropertyValue(object, reverseKey, nameKey);
   }
   this.Release(nameKey);
+  // **算完的成员要在这一层看得见** ✗（第 378 轮 ✓）——**TS 的规矩是「初始化式可以引用
+  // 前面的成员」** ✓，而且**不带任何前缀** ✓：`enum Level { Low = 1, Mid = Low + 1, High = Mid * 2 }` ✓、
+  // `enum Flags { None = 0, A = 1 << 0, B = 1 << 1, Both = A | B }` ✓。
+  //
+  // **少了这一句会怎样** ✗：`LowerExpression(initializer)` 走到那个 `A` ✓ ⇒ `ResolveAccess` 里
+  // 既不是局部、也不是捕获 ✗ ⇒ 报 `name is not a local or a capture: A` ✓
+  // ⇒ **整份文件进不来** ✓（判据 `c371-ex-enum-numeric-forms` / `c371-ex-enum-const-and-computed` ✓；
+  // 前者报的是 `A` ✓、后者报的是 `Low` ✓——两处**同一个根子** ✓）。
+  //
+  // **为什么直接写 `Scope`，不走 `DeclareLocal`** ✗：`DeclareLocal` 见到「被捕获的名字」
+  // 会**写进环境格** ✓（第 128 轮那条纪律 ✓：一份状态只许有一处存放 ✓）——
+  // 而这里要的是**遮蔽** ✓：TS 的枚举成员名是**这条 enum 自己那一层**的 ✓，
+  // 不该动外层任何东西 ✓（`function f() { let A = 1; return () => A; }` 里
+  // 那个 `A` 是捕获的 ✓——`DeclareLocal` 会把它的环境格改掉 ✗）。
+  // **`ResolveAccess` 是先查槽、再查环境** ✓（`FindLocal` 那一句 ✓），所以写进作用域就够了 ✓。
+  //
+  // **值就是 `value` 那一格** ✓——它已经在手上 ✓，不必再造一个 ✓；
+  // 它是在 `PushScope` 之后占的 ✓ ⇒ `PopScope` 会把它退掉 ✓（那时整条 enum 已经写完了 ✓）。
+  this.Scope[this.Scope.length - 1].Declare(TextOf(memberName), value);
 }
+// **退出这一层** ✓（成员名**不许漏到外面** ✗：`enum C { Red }` 之后
+// `console.log(Red)` 在 TS 里是**编译错误** ✓，而漏出去的话本仓会**静默**给 `0` ✗）。
+this.PopScope();
 // **绑定这个名字** ✓（与类声明走同一条路 ✓：`let` 那样的块作用域 ✓，不进 `Entries` ✗——
 // 导出表装的是**函数** ✓，而 `enum` 是一个对象 ✓。它与 `const` 走同一条 ✓）。
 this.BindName(TextOf(nameNode), object, false);

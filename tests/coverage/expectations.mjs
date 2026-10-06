@@ -1008,10 +1008,8 @@ export const EXPECTATIONS = {
   // 下面按**根子**分组：同一条根子下的用例共用一句话。
 
   // ---- 枚举成员初始化式**引用同一枚举里前面的成员** ⇒ `name is not a local or a capture`。
-  "c371-ex-enum-numeric-forms": { expect: "blocked", why: "枚举成员初始化式**引用同一枚举里前面的成员** ⇒ `name is not a local or a capture`。" },
 
   // ---- `const enum` 成员表达式与同类引用（与 `enumMemberRef` 同源）。
-  "c371-ex-enum-const-and-computed": { expect: "blocked", why: "`const enum` 成员表达式与同类引用（与 `enumMemberRef` 同源）。" },
 
   // ---- 只有类型的 `namespace` 体在运行期应当是 `undefined`（本仓给了一个对象）。
   "c371-ex-namespace-type-only-body": { expect: "differ", why: "只有类型的 `namespace` 体在运行期应当是 `undefined`（本仓给了一个对象）。" },
@@ -1039,7 +1037,7 @@ export const EXPECTATIONS = {
   "c371-rt-class-static-and-instance-isolation": { expect: "differ", why: "从 `blocked` 走进了 `differ` ✓（第 375 轮把类型位那两处修掉之后 ✓，它现在跑得出来了 ✓）。**剩下的这一半** ✗：`Object.keys(Config)` 多出了 `prototype` ✓（Node 给 `defaults,instances` ✓、本仓多一格 ✓）——**类对象上合成出来的 `prototype` 是可枚举的** ✗，而 JS 里它**不可枚举** ✓（与第 276 轮实测的那三套描述符标志同一族 ✓）。" },
 
   // ---- **尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。
-  "c371-ex-type-assertions-in-operands": { expect: "blocked", why: "**尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。" },
+  "c371-ex-type-assertions-in-operands": { expect: "blocked", why: "**`as` / `satisfies` / `<T>x` 三种断言第 163 / 342 轮就擦掉了** ✓（`(a as number) + 1` ✓、`<number>a` 单独用 ✓、`(s as string).length` ✓、`({n:1} as {n:number}).n` ✓ 都是好的 ✓）。**剩下的只有一处** ✗：**尖括号断言出现在「左操作数」位置上** ✓——`<number>a + <number>b` 被投影成 `(a < number) > b` ✓（两个比较 ✓）外加第二个 `<number>` 挂到了**调用**的 `typeArguments` 上 ✓ ✗。根子在**投影**：`<` 在**操作数位置**（表达式开头 ✓）才是断言 ✓，在**操作数之后**是比较 ✓（TS 的规矩 ✓）——两条判据（`c371-ex-type-assertions-in-operands` ✓ / `c371-ex-angle-bracket-assertion-forms` ✓）等这一格 ✓。" },
 
   // ---- **转义写法的标识符** `\u0061bc` 没有被解成 `abc` ⇒ 名字对不上。
   "c371-ex-unicode-identifiers": { expect: "blocked", why: "**转义写法的标识符** `\\u0061bc` 没有被解成 `abc` ⇒ 名字对不上。" },

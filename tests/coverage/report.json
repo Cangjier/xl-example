@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1703,
+  "matrix": 1704,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.78,
+  "progressPercent": 96.93,
   "layers": [
     {
       "layer": "runtime",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 403,
-      "pass": 389,
-      "blocked": 9,
+      "total": 404,
+      "pass": 392,
+      "blocked": 7,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 96.53
+      "coverage": 97.03
     },
     {
       "layer": "stdlib",
@@ -87,18 +87,6 @@
       "layer": "runtime",
       "title": "bind / call / apply 的 this 与实参形态",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c371-ex-enum-numeric-forms",
-      "layer": "exec",
-      "title": "数值枚举：自动编号、显式值、反向映射",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: A"
-    },
-    {
-      "id": "c371-ex-enum-const-and-computed",
-      "layer": "exec",
-      "title": "const enum 与带常量表达式的成员",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Low"
     },
     {
       "id": "c371-ex-class-implements-and-interface",

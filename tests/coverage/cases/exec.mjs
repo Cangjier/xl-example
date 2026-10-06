@@ -4364,5 +4364,15 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "id": "c375-ex-arrow-return-type-annotations",
     "title": "箭头的返回类型标注（数组 / 联合 / 元组 / 类型字面量）与块体",
     "src": "// **返回类型标注长什么样，都不能把箭头的块体带成类型字面量**。\nconst build = (list: number[]): number[] => {\n  const out: number[] = [];\n  for (const v of list) out.push(v * 2);\n  return out;\n};\nconsole.log(\"A\", build([1, 2]).join(\",\"));\nconst pick = (cells: string[]): string | null => {\n  if (cells.length === 0) return null;\n  return cells[0];\n};\nconsole.log(\"B\", pick([\"x\"]), pick([]));\nconst tuple = (): [number, string] => {\n  return [1, \"s\"];\n};\nconsole.log(\"C\", tuple().join(\":\"));\nconst obj = (n: number): { v: number } => {\n  return { v: n + 1 };\n};\nconsole.log(\"D\", obj(2).v);\nconst gen = (n: number): Array<number> => {\n  return [n];\n};\nconsole.log(\"E\", gen(3).length);\nconst plain = (n: number): number => {\n  return n;\n};\nconsole.log(\"F\", plain(4));\nconst noAnno = (n: number) => {\n  return n * 2;\n};\nconsole.log(\"G\", noAnno(5));\nconst nested = (xs: number[]): number[] => {\n  const inner = (ys: number[]): number[] => {\n    return ys;\n  };\n  return inner(xs);\n};\nconsole.log(\"H\", nested([6]).join(\",\"));"
+  },
+
+  // ===== 第 378 轮：给修好的形状补的判据（1 条）=====
+  {
+    "id": "c378-ex-enum-member-references",
+    "title": "枚举的初始化式引用前面的成员（含遮蔽外层同名变量）",
+    "src": "// TS 的规矩：枚举成员的初始化式可以**不带前缀**引用这条 enum 里前面的成员。\nenum Level { Low = 1, Mid = Low + 1, High = Mid * 2 }\nconsole.log(\"A\", Level.Low, Level.Mid, Level.High, Level[2], Level[4]);\nenum Flags { None = 0, A = 1 << 0, B = 1 << 1, Both = A | B, All = None | A | B | Both }\nconsole.log(\"B\", Flags.A, Flags.B, Flags.Both, Flags.All, Flags[3], Flags[1]);\nconst enum Const { X = 2, Y = X * X, Z = Y + X }\nconsole.log(\"C\", Const.X, Const.Y, Const.Z, Object.keys(Const).join(\",\"));\nenum Mixed { A = \"x\".length, B = A + 4, C = B << 1 }\nconsole.log(\"D\", Mixed.A, Mixed.B, Mixed.C, Mixed[5]);\n// **成员名只属于那条 enum**：外层同名的变量照旧、被闭包捕获的那个也不许被改。\nfunction scoped(): string {\n  let A = 1;\n  const read = (): number => A;\n  enum E { A = 2, B = A + 1 }\n  return [A, E.A, E.B, read()].join(\",\");\n}\nconsole.log(\"E\", scoped());\nfunction outer(): string {\n  const base = 10;\n  enum F { A = base, B = base * 2 }\n  return [base, F.A, F.B].join(\",\");\n}\nconsole.log(\"F\", outer());",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
   }
 ];
