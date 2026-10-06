@@ -665,7 +665,6 @@ export const EXPECTATIONS = {
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
-  "c305-rt-async-generator-await-inside": { expect: "differ", why: "**异步生成器里 `await` 之后再 `yield` 什么都不出**：`for await (const v of g())` 一行都不打印（Node 给 `10,20`）。同步生成器与 `yield await` 之外的异步生成器是好的 ⇒ 挂起点与微任务队列在异步生成器那一帧上的交界没接上" },
   "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
   "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
   "c305-ex-async-generator-interface-type": { expect: "differ", why: "异步生成器对象上**没有 `Symbol.asyncIterator` 那一格**（`(it as any)[Symbol.asyncIterator]` 是 `undefined`，Node 给 `function`）——`for await` 走的是引擎指令，不走这个方法" },

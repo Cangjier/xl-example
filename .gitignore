@@ -13,3 +13,4 @@ tmp-*
 
 # coverage 的裁判缓存（第 318 轮：加速用，随时可删；内容只与用例源码有关）
 tests/coverage/.judge-cache.json
+tests/coverage/.lock

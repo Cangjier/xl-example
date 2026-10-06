@@ -1101,6 +1101,9 @@ if (instr.Op === Op.Suspend) {
   return;
 }
 if (instr.Op === Op.Resume) {
+  // **恢复之后「被 `await` 摘下来」这一格就作废了** ✓（第 319 轮 ✓）：
+  // 它只描述「上一次为什么离开栈」✓——不清的话下一次被当成还在等 ✗（**静默错值** ✗）。
+  frame.SuspendedInAwait = false;
   // **两种恢复** ✓（第 313 轮 ✓）：`next(v)` 是把 `v` 放进 `yield` 那一格 ✓；
   // 而 `it.throw(e)` 是**在挂起点抛 `e`** ✗——那正是生成器体里 `try { yield } catch { }`
   // 能接住它的原因 ✓（JS 的 `GeneratorResumeAbrupt` ✓）。
@@ -2973,6 +2976,29 @@ this.NativeDepth = this.NativeDepth + 1;
 this.NativeResult = new Value();
 this.Frames.PushExisting(generator.Frame, NativeReturnSlot);
 this.RunToDepth(depth);
+// **`await` 摘的挂起不是这一次的答案** ✓（第 319 轮 ✓）——
+// 异步生成器体里写 `yield await x`（或者 `await` 之后再 `yield` ✓）时，
+// 帧会在 `await` 上离开栈 ✓，而**这一帧还没有产出** ✗。
+// **判据是那一格 `SuspendedInAwait`** ✓（`DoAwait` 写 ✓、`resume` 清 ✓）：
+// 它答的是「上一次为什么离开栈」✓——`Awaiting` 答不了这个 ✗（恢复之后还留着 ✓）。
+// **做法是把微任务排空** ✓：那一趟会把这个帧恢复 ✓（`DrainMicrotasks` 的帧那一路 ✓），
+// 它于是接着跑到**下一个 `yield`** ✓ 或者跑完 ✓；**又 await 了就再来一轮** ✓（循环 ✓）。
+//
+// **为什么是同步地等** ✗：JS 那边这是一条**承诺**（`next()` 给的 ✓），
+// 而本仓的 `NextStepOf` 给的是 `{value, done}` 那一对 ✓——
+// 语言层的 `await it.next()` **照样成立** ✓（`await` 一个不是承诺的值就是它自己 ✓，
+// 第 285 轮那条 ✓），`for await` 那一侧也一样 ✓。
+// **边界写在明处** ✗：`await` 一个**永远不结清**的承诺时，这里会**一直排下去** ✓
+//（JS 那边是挂住 ✓）——判据里没有这一格 ✓，先记在这里 ✓。
+// **判据不能带 `State === Suspended`** ✗（第一版就是这个错 ✓）：
+// `generator.State` 在推进之前被置成 `Running` ✓，而只有 **`suspend`（`yield`）**
+// 会把它改回 `Suspended` ✓——**`await` 摘下来的那一帧仍然是 `Running`** ✗
+// ⇒ 带上那一条判据，这个循环**一次都不进** ✓（症状：改完什么都不变 ✓，实测就是这个 ✓）。
+// 所以只问两件事 ✓：**还没结束** ✓、以及**上一次离开栈是被 `await` 摘的** ✓。
+while (generator.State !== GeneratorState.Done
+  && this.Table.Get(generator.Frame).AsFrame().SuspendedInAwait) {
+  if (!this.DrainMicrotasks()) break;
+}
 this.NativeDepth = this.NativeDepth - 1;
 const produced = this.NativeResult;
 this.NativeResult = new Value();
@@ -3342,6 +3368,14 @@ this.Frames.Pop();
 // **帧离开栈之前先记住「它在等谁」** ✓：恢复时 `DoReturn` / `DoThrow` 要用它 ✓，
 // 而它同时就是「这一帧现在不在栈上」那条判据 ✓（见 `HeapFrame.Awaiting` ✓）。
 frame.Awaiting = awaited;
+// **还要记住「它是被 `await` 摘下来的」** ✓（第 319 轮 ✓）：
+// 生成器与异步生成器**都会**因为 `await` 离开栈 ✓，而 `suspend`（`yield`）也是同一件事 ✗
+// ——两种挂起在帧上原来是**一模一样**的 ✓ ⇒ 推进异步生成器的那一侧只看得到
+// 「挂起了」✓，分不出「产出了一个值」与「还在等一个承诺」✗
+//（症状：`yield await x` 之后那一次 `next()` 被当成**结束** ✓，
+//  实测 `await it.next()` 给 `{"done":true}` ✓，Node 给 `{"value":2,"done":false}` ✗）。
+// **它由紧跟其后的 `resume` 清掉** ✓（两条恢复路都经过那一条指令 ✓）。
+frame.SuspendedInAwait = true;
 // **已经兑现的：当场就能排** ✓——**除非这一帧已经挂在同一个承诺上了** ✓。
 //
 // **那一档是可能的** ✗（第 285 轮想到的 ✓）：`await p` 写在**嵌在 `p.then(…)`

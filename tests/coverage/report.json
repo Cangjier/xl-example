@@ -1,6 +1,6 @@
 {
-  "round": "",
-  "matrix": 1111,
+  "round": "319",
+  "matrix": 1112,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.19,
+  "progressPercent": 94.26,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 362,
-      "pass": 337,
+      "total": 363,
+      "pass": 339,
       "blocked": 15,
-      "differ": 10,
+      "differ": 9,
       "nodefail": 0,
-      "coverage": 93.09
+      "coverage": 93.39
     },
     {
       "layer": "exec",
@@ -332,12 +332,6 @@
       "detail": "stdout 不同：第 2 行：node «cleanup» vs tsrun «»"
     },
     {
-      "id": "c305-rt-async-generator-await-inside",
-      "layer": "runtime",
-      "title": "异步生成器体里 `await` 之后的 `yield`",
-      "detail": "stdout 不同：第 1 行：node «10,20» vs tsrun «»"
-    },
-    {
       "id": "c305-rt-for-await-of-promises",
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
@@ -437,7 +431,7 @@
       "id": "c305-e2e-async-load-pipeline",
       "layer": "e2e",
       "title": "异步管道：`async function*` 逐个取数、`for await` 汇总",
-      "detail": "stdout 不同：第 1 行：node «good 1,2,4,5,7» vs tsrun «good »"
+      "detail": "stdout 不同：第 3 行：node «counts 10,20,40,50,70» vs tsrun «counts ,,,,»"
     },
     {
       "id": "c305-e2e-lru-cache",

@@ -69,7 +69,7 @@ import { DefineAccessorId } from "./typescript-exec/builtins/install.xl.md"
 （承诺住在堆里，而堆是运行器建的）。宿主在这里拿到表与机器，就能自己造。
 **这也把「谁是事件循环」这件事说清楚了：宿主才是。**
 
-# type RunOptions = { Input:string; Entry:string; Help:boolean; Version:boolean; Error?:string }
+# type RunOptions = { Input:string; Entry:string; Help:boolean; Version:boolean; Batch:string; Error?:string }
 
 **命令行的参数**（与 `cjcli.xl.md` 的 `CliOptions` 同一个写法）。
 
@@ -477,7 +477,7 @@ return [
 而结果是「入口没调」这种**看起来像程序自己有问题**的现象。
 
 ```ts
-const options: RunOptions = { Input: "", Entry: "", Help: false, Version: false };
+const options: RunOptions = { Input: "", Entry: "", Help: false, Version: false, Batch: "" };
 let index = 0;
 while (index < args.length) {
   const item = args[index];
@@ -497,6 +497,19 @@ while (index < args.length) {
       return options;
     }
     options.Entry = args[index + 1];
+    index = index + 2;
+    continue;
+  }
+  // **`--batch 清单.json`：一个进程跑多条用例** ✓（第 319 轮 ✓，用户口径
+  // 「一次 tsrun，一个进程跑多个 case，同时起 CPU 核心数那么多个」✓）。
+  // 清单是 `[{id, path}]` ✓；每一条的 stdout 被**逐条捕获** ✓、按 JSON 一行一条交出去 ✓
+  // （见 `RunBatch` ✓）——所以这个选项与 `Input` 是**两选一** ✓。
+  if (item === "--batch") {
+    if (index + 1 >= args.length) {
+      options.Error = item + " 需要一个清单文件";
+      return options;
+    }
+    options.Batch = args[index + 1];
     index = index + 2;
     continue;
   }
@@ -624,10 +637,14 @@ if (options.Help) {
 if (options.Version) {
   RunWrite(RunVersion() + "\n");
   return;
-}
-if (options.Error !== undefined) {
+}if (options.Error !== undefined) {
   RunWriteError("tsrun: " + options.Error + "\n");
   process.exitCode = 1;
+  return;
+}
+// **批量那一路先判** ✓（第 319 轮 ✓）：它与 `Input` 是两选一 ✓（见 `RunParseArguments` ✓）。
+if (options.Batch !== "") {
+  RunBatch(options.Batch);
   return;
 }
 if (options.Input === "") {
@@ -677,6 +694,92 @@ if (result.Outcome !== HostOutcome.Ok) {
   }
   process.exitCode = 1;
   return;
+}
+```
+
+# method RunBatch:(manifestPath:string)=>void
+
+**一个进程跑多条用例** ✓（第 319 轮 ✓）——用户的口径是
+「一次 tsrun（一个进程跑多个 case），同时起 CPU 核心数那么多个」✓。
+
+**为什么它比「一个进程一条」快** ✗：实测一条用例要起**两个** `node` ✓，
+而 `tsrun` 那一侧 ~265ms 里**大半是进程启动**（裸 `node -e 0` 就要 130ms ✓）
+——1111 条就是 1111 次启动 ✓。合成一批之后，**启动次数 = 批数** ✓
+（分 16 批就是 16 次 ✓），每条用例只剩**真正的解析 + 降级 + 执行** ✓。
+
+**每一批内部是串行的** ✗（一批一个进程 ✓），所以提速靠的是**批与批并行** ✓：
+调用方起 `min(核数, …)` 个进程 ✓（`tests/coverage/run.mjs` 的 `--jobs` ✓）。
+
+**协议**（父进程按行读 ✓）：每跑完一条，**往 stdout 打一行 JSON** ✓：
+`{"id": …, "status": 0|1, "stdout": …, "stderr": …}` ✓。
+**用例自己的输出一律被 `sink` 捕获** ✓（不落到 stdout ✓）——
+否则一行 JSON 里会混进用户的 `console.log` ✓，父进程再也分不清哪一行是什么 ✗
+（这正是「日志的形态由宿主决定」那条：`RunSources` 收的是一个 sink ✓，命令行给它什么就写什么 ✓）。
+
+**先出一行 `{"begin": true}`** ✓：父进程拿它确认「这一批真的开跑了」✓——
+批量模式最坏的一种失败是**父进程以为跑了、其实子进程早就死了** ✗，
+有这一行就分得清 ✓（`run.mjs` 用它决定要不要按单条重跑 ✓）。
+
+**退出码** ✓：批量模式**总是 0** ✓（除非清单本身读不了 ✓）——
+每一条的成败在它自己那一行里 ✓；某一批里有失败不该让整批的协议作废 ✗。
+
+```ts
+let manifestText = "";
+try {
+  manifestText = RunReadFile(RunAbsolutePath(manifestPath));
+} catch (error) {
+  RunWriteError("tsrun: 读不了清单：" + RunErrorText(error) + "\n");
+  process.exitCode = 1;
+  return;
+}
+const parsed = JSON.parse(manifestText);
+const items: Array<any> = Array.isArray(parsed) ? parsed : [];
+RunWrite(JSON.stringify({ begin: true, count: items.length }) + "\n");
+for (let index = 0; index < items.length; index++) {
+  const item = items[index];
+  const id = String(item.id);
+  const lines: Array<string> = [];
+  let status = 0;
+  let failure = "";
+  let content = "";
+  try {
+    content = RunReadFile(RunAbsolutePath(String(item.path)));
+  } catch (error) {
+    failure = "tsrun: 读不了输入文件：" + RunErrorText(error);
+    status = 1;
+  }
+  if (status === 0) {
+    const request = new RunRequest();
+    request.Sources = [content];
+    request.Entry = "";
+    request.DriveLoop = true;
+    let result = new RunResult();
+    try {
+      result = RunSources(request, (line) => {
+        lines.push(line);
+      }, () => null);
+    } catch (error) {
+      // **与单条那一路说同一句话** ✓（第 121 轮那条口径 ✓）：父进程拿到的 stderr
+      // 与「一条一条跑」时**逐字相同** ✓——不然台账里那些「为什么没过」会换一套说法 ✗。
+      failure = "tsrun: 还没实现的构造或语言层错误：" + RunErrorText(error);
+      status = 1;
+    }
+    if (status === 0 && result.Outcome !== HostOutcome.Ok) {
+      if (result.Outcome === HostOutcome.ScriptThrew && result.Table !== null) {
+        failure = "tsrun: 脚本抛出：" + RunDescribe(result.Table, result.Error);
+      } else {
+        failure = "tsrun: " + result.Message;
+      }
+      status = 1;
+    }
+  }
+  const record = {
+    id: id,
+    status: status,
+    stdout: lines.length === 0 ? "" : lines.join("\n") + "\n",
+    stderr: failure === "" ? "" : failure + "\n",
+  };
+  RunWrite(JSON.stringify(record) + "\n");
 }
 ```
 

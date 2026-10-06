@@ -782,6 +782,24 @@ return 0;
 
 **它必须是根**：送进来的可能是个堆对象 ✓（`gc.xl.md` 的 `Trace` 顺着它走 ✓）。
 
+## field SuspendedInAwait:bool = false
+
+**这一帧上一次离开栈，是 `await` 摘的、还是 `suspend`（`yield`）摘的** ✓（第 319 轮 ✓）。
+
+**为什么这一格不是「同一件事写两遍」** ✗：上面那条说的是 `Awaiting` 与 `AsyncPromise` ✓，
+而这一格问的是**另一个问题** ✓——「上一次为什么离开栈」✓。
+**`Awaiting` 答不了它** ✗：它**恢复之后还留着** ✓（那一段自己写着 ✓），
+所以「有没有 `Awaiting`」只说明**曾经**等过 ✓，不说明**这一次**是为什么挂的 ✓。
+**两种挂起在帧上原来一模一样** ✗（都是「不在栈上、`ResumeValue` 等着一格 ✓」）
+⇒ 推进**异步生成器**的那一侧分不出「产出了一个值」与「还在等一个承诺」✗
+（症状：`yield await x` 之后那一次 `next()` 被当成**结束** ✓，
+实测 `await it.next()` 给 `{"done":true}` ✓，Node 给 `{"value":2,"done":false}` ✗）。
+
+**谁写谁清** ✓：`DoAwait` 写 ✓（`vm.xl.md`）；两条恢复路都经过 `resume` 那条指令 ✓，
+由它清掉 ✓（只写不清就是下一次误判 ✓）。
+
+**它不是根** ✓（一个布尔 ✓，不指向堆 ✓）；初值 `false` ✓。
+
 ## constructor:(code:int, slotCount:int, prev:int, returnSlot:int)=>void
 
 按槽数开一帧，槽先全部填成 `undefined`（**不留空槽**：未初始化的槽若带着上一轮的垃圾值，
@@ -799,6 +817,7 @@ this.ConstructTarget = 0;
 this.Generator = 0;
 this.AsyncPromise = 0;
 this.Awaiting = new Value();
+this.SuspendedInAwait = false;
 this.ResumeValue = new Value();
 this.Slots = [];
 for (let i = 0; i < slotCount; i++) {

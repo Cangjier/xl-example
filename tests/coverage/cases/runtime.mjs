@@ -4297,4 +4297,12 @@ console.log(o.x, o.y);
     title: "兑现值本身是承诺时的「采纳」：内层已结清 / 内层还挂着 / 内层被拒绝",
     src: "\nPromise.resolve(1)\n  .then((v) => Promise.resolve(v + 1))\n  .then((v) => { console.log(\"chain\", v); return v; })\n  .then(async () => 5)\n  .then((v) => console.log(\"pending-inner\", v))\n  .then(() => Promise.reject(new Error(\"x\")))\n  .catch((e: any) => console.log(\"reject-prop\", e.message));\n",
   },
+
+  // ===== 第 319 轮：异步生成器那两种挂起 =====
+
+  {
+    id: "c319-rt-async-generator-two-suspends",
+    title: "异步生成器：`await` 摘的挂起与 `yield` 摘的挂起不是一回事",
+    src: "\nasync function* g(): AsyncGenerator<number> { yield 1; yield await Promise.resolve(2); yield 3; }\nasync function main(): Promise<void> {\n  const it: any = g();\n  console.log(\"next1\", JSON.stringify(await it.next()));\n  console.log(\"next2\", JSON.stringify(await it.next()));\n  console.log(\"next3\", JSON.stringify(await it.next()));\n  console.log(\"done\", JSON.stringify(await it.next()));\n  const plain = (async function* (): AsyncGenerator<number> { yield 7; })();\n  console.log(\"plain\", JSON.stringify(await plain.next()));\n}\nmain();\n",
+  },
 ];
