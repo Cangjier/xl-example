@@ -6,6 +6,58 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 347 轮的账（**`delete` 不可配置的属性给 `false`** —— 99.1% → **99.2%**，收掉 1 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓。
+
+### 一、那一格
+
+```ts
+const o: any = {};
+Object.defineProperty(o, "fixed", { value: 1, configurable: false });
+console.log(delete o.fixed, o.fixed);   // Node: false 1
+```
+
+本仓抛 `unimplemented: this should throw a TypeError (non-configurable)` ✗。
+
+### 二、根子是「严格 / 非严格」那一处没跟上
+
+那半句注释记的是**严格模式** ✓（`'use strict'` 下确实该抛 ✓），而本仓的口径是**非严格** ✓
+（**第 333 轮写屏障** ✓、**第 337 轮 `this`** ✓，两处都按这条定的 ✓）——`delete` 这一处
+**当时没跟上** ✗。改成 **`return false`** ✓：**这是 JS 的语义** ✓，不是「差不多」✗——
+`Boolean(delete o.fixed)` 与 `"fixed" in o` **两条都钉着它** ✓。
+
+### 三、顺手量到一处真 bug（**下一轮的第一件** ✓）
+
+`c291-rt-closure-and-method-this` 报「cannot call a non-closure value」✓，**缩到最小是** ✓：
+
+```ts
+const obj = { v: 10, get() { return () => this.v; } };
+obj.get()();                 // 报错
+(obj.get())();               // 对（10）
+const f = obj.get(); f();    // 对
+obj["get"]()();              // 也不对（印出来是那个函数本身）
+```
+
+**一般化的链式调用是对的** ✓（`g()()` ✓ / `outer()()` ✓ / `h(1)(2)` ✓ 全对 ✓），
+**只有「成员调用之后紧跟一次调用」这一种形态不对** ✗。
+**`cases:tsast` 是绿的** ✓ ⇒ **投影没错** ✓，问题在**降级层的 `LowerCall`** ✗：
+它按 `callee` 的 `kind` 分三条路 ✓（`PropertyAccess` ✓ / `ElementAccess` ✓ / 其它 ✓），
+而 `callee` 是 `CallExpression` 时落进「其它」那条**通用路** ✓——**下一轮从这里查** ✓
+（先看那条通用路给 `D` 什么、以及它是不是把 callee 求值了两次 ✓）。
+
+**读数** ✓：`pass` **1329 → 1330** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **39.0s 全绿** ✓；**引擎 98.6%** ✓、降级层 99.1% ✓、标准库 99.2% ✓、端到端 100% ✓。
+**剩下 13 格** ✓。
+
+**下一轮的入口** ✓：
+**① `LowerCall` 的「成员调用之后紧跟一次调用」** ✓（**上面刚缩到最小** ✓）；
+**② 那张 `IdTable` 的容量口径** ✓（第 340 轮量到 ✓）；**③ `Map` / `Set` / `Date` 的 `size`
+该是原型上的 getter** ✓（第 341 轮 ✓）；**④ 错误对象的内部槽标记** ✓（第 343 轮 ✓）；
+**⑤ 零散** ✓（`thenable` 采纳 ✓、`Array.fromAsync` ✓、`console.log(Error)` 要栈 ✗、
+三元的箭头分支 ✓、`super` 在对象字面量里 ✓、宿主函数的 `length` ✓、
+`c291-rt-class-shapes` 的 `Object.getPrototypeOf(B) === A` ✓ 等 ✓）。
+
 ## 第 346 轮的账（**`new.target`** —— 99.1%，收掉 1 格；含**投影层的一处修正**）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
