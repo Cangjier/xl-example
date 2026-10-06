@@ -956,6 +956,26 @@ this.Label = label;
 
 这一层里 `continue` 那些跳转的下标（回填到 `ContinueTarget`）。
 
+## field Labelled:bool = false
+
+**这一层是不是带标签的** ✓（第 337 轮 ✓）——`outer: for (…)` ✓。
+**它决定 `break` / `continue` 找不找得到它** ✓（`LowerBreak` 扫的是 `Label` ✗）——
+所以这一格今天是**记账用**的 ✓：写在这里免得下一个人以为 `Label !== ""` 就等于「带标签」✗
+（那一条本来就够用 ✓）。**留着它是因为它下面那一格需要一句同伴说明** ✗。
+
+## field IteratorSlot:int = -1
+
+**这一层是「迭代循环」吗；是的话迭代器在哪一格** ✓（第 337 轮 ✓）——
+`for..of` / `for..in` 都走 `LowerIterationLoop` ✓，两者都设它 ✓；普通循环 `-1` ✓。
+
+**为什么它必须记在上下文里** ✗：`return` 出循环时要 **IteratorClose** ✓（`for..of` 的收尾 ✓），
+而 `return` 那一支手上只有**这一摞 `Loops`** ✓（`this.Loops` ✓）——
+不知道哪几层是迭代循环、也不知道它们的迭代器在哪一格 ✗（那两样都是**发循环时**定下来的 ✓）。
+
+**顺带一处已知的次序差** ✗：`return` 那一支**先 close、后 `finally`** ✓——
+而 JS 的规矩是「按进入的次序倒着退」✓（两者嵌套交错时次序应当相反 ✗）。
+**没有判据量着那一种** ✓，写在 `ReturnStatement` 那一段 ✓。
+
 ## constructor:(isLoop:bool, continueTarget:int)=>void
 
 建一层上下文。
@@ -2653,12 +2673,25 @@ if (kind === "ReturnStatement") {
   // 修之前这一格是**降级期就抛** ✗（「`return` 会跳过 `finally`」✓）——
   // 那一抛本身是对的 ✓（静默跳过 `finally` 是**静默错值** ✗），但 `try { … } finally { … }`
   // 加 `return` 是**普通 `.ts` 里最常见的一条** ✓，所以这一轮把那段改写补上了 ✓。
-  if (this.FinallyBlocks.length > 0) {
+  //
+  // **第 337 轮：`return` 出 `for..of` 也要 IteratorClose** ✓（上一轮加宽语料时量到的 ✓，
+  // 见 `expectations.mjs` 里 `c336-rt-iterator-close-forms` 那一行 ✓）：
+  // `for (const v of gen()) { if (v === 2) return v }` 里生成器那句 `finally`
+  // **还是要跑** ✓（JS 的 IteratorClose ✓）——上一轮只接了 `break` 那一档 ✗
+  //（`break` 走 `LoopContext.Breaks` ✓，而 `return` 走的是**这一支** ✓）。
+  //
+  // **次序写在明处** ✗：这里**先 close、后 `finally`** ✓。JS 的规矩是「**按进入的次序倒着退**」✓，
+  // 所以两者**嵌套交错的形状**（`for { try { return } finally {} }` ✓）次序应当相反 ✗——
+  // 本仓**没有**把这两摞按进入次序合并 ✗（那要给两边都编上序号 ✓），
+  // 而**没有判据量着那一种** ✓：判据里 `return` 出循环都是「循环在外、没有 `finally`」✓、
+  // 或者「`finally` 在内、没有循环」✓。**记在这里** ✓（下一轮要合并时从这里改 ✓）。
+  if (this.FinallyBlocks.length > 0 || this.HasPendingIteratorCloses()) {
     // **返回值先落到一格** ✓：跑 `finally` 会用到临时格 ✗，而它是**往上分配**的 ✓
     //（`Reserve` ✓），所以这一格不会被盖掉 ✓——`finally` 里那些 `Release` 退到的是
     // **它自己那一段的基址** ✓，在返回值这一格**之上** ✓。
     let value = -1;
     if (expression !== null) value = this.LowerExpression(expression);
+    this.EmitPendingIteratorCloses();
     this.EmitPendingFinalies();
     this.Emit(Op.Return, value, -1, -1, -1);
     return;
@@ -3887,6 +3920,9 @@ if (NodeKind(target) === "VariableDeclarationList" && !IsVarList(target)
 const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
 const start = this.Here();
 const context = this.EnterLoop(true, start);
+// **这一层是迭代循环** ✓（第 337 轮 ✓）：`return` 出循环时要靠这一格找到迭代器 ✓
+//（`EmitPendingIteratorCloses` 扫的正是 `this.Loops` 上这一摞 ✓）。
+context.IteratorSlot = iteratorSlot;
 const pair = this.RtCall2(RtOp.IterNext, iteratorSlot, undefinedConst);
 const done = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(1));
 // **极性**：`jump_if_false` 在条件为假时跳走。`done` 为真才该出去，
@@ -4195,6 +4231,42 @@ this.PatchTarget(toEnd, this.Here());
 
 ```ts
 this.LowerStatement(block);
+```
+
+## method EmitPendingIteratorCloses:()=>void
+
+**把在册的迭代循环从里到外收一遍** ✓（第 337 轮 ✓）——JS 的 **IteratorClose** ✓：
+`return` 从 `for..of` / `for..in` 里出去时，那些迭代器**每一个都要 `.return()` 一次** ✓
+（**迭代到头不调** ✗ ✓——那一档走的是循环自己的正常出口 ✓）。
+
+**从里到外** ✓（`this.Loops` 的栈顶是最近那一层 ✓）：`for (a of xs) for (b of ys) return` ✓
+先收 `ys` 那个 ✓（它是最后拿到手的 ✓），与 JS 的「按进入次序倒着退」一致 ✓。
+
+**只收「迭代循环」** ✓（`IteratorSlot >= 0` ✓）：普通 `for` / `while` 没有迭代器 ✓。
+
+**`throw` / `break` 那两档还没有接** ✗（**写在明处** ✓）：`throw` 出循环在 JS 里也要 close ✓
+（由那张「重抛」的网管 ✓，本仓还没有 ✓）；**带标签的 `break` 跳到外层循环** ✓
+中间夹着的迭代循环也要 close ✓，而 `LowerBreak` 现在只回填**最近那一层** ✓。
+
+```ts
+for (let i = this.Loops.length - 1; i >= 0; i--) {
+  const context = this.Loops[i];
+  if (context.IteratorSlot < 0) continue;
+  this.EmitIteratorClose(context.IteratorSlot);
+}
+```
+
+## method HasPendingIteratorCloses:()=>bool
+
+**在册的迭代循环里有没有要收的** ✓（第 337 轮 ✓）——`return` 那一支用它决定要不要走
+「先收尾再 `Return`」那条路 ✓（没有它的话，`return` 在**没有 `finally`** 的循环里
+会走另一条更短的路 ✓，而那条路**不收迭代器** ✗）。
+
+```ts
+for (let i = 0; i < this.Loops.length; i++) {
+  if (this.Loops[i].IteratorSlot >= 0) return true;
+}
+return false;
 ```
 
 ## method EmitPendingFinalies:()=>void

@@ -21,7 +21,7 @@ export const EXPECTATIONS = {
   // **修法已经看得见** ✓：`LowerReturn` 那一条也要把**在册的迭代循环**从里到外收一遍 ✓
   //（`this.Loops` 就在手上 ✓——只是那要区分「迭代循环」与「普通循环」 ✓，
   //  也就是给 `LoopContext` 再加一格 ✓）。**下一轮从这里接** ✓。
-  "c336-rt-iterator-close-forms": { expect: "differ", why: "`for..of` 提前退出里的 **`return`** 那一档还没接 IteratorClose（只接了 `break`）：`for (const v of gen()) { if (v === 2) return v }` 里生成器那句 `finally` 不跑（Node 打 `close func`、本仓不打）——两档走的是两条路（`break` 走 `LoopContext.Breaks`、`return` 走 `EmitPendingFinalies`），修法是让 `LowerReturn` 也把在册的**迭代**循环收一遍" },
+  // **第 337 轮过了** ✓（这一行撤了 ✓）：`return` 出 `for..of` 也要 IteratorClose ✓——`LoopContext` 多一格 `IteratorSlot` ✓，`ReturnStatement` 那一支先收迭代器、再跑 `finally` ✓。
   // ===== runtime：引擎与语言层手里的那几张表 =====
   // **第 233 轮删掉了 `op-typeof-forms` 那一行** ✓（它过了 ✓）：
   // `typeof {a: 1}` / `typeof {}` 原来只给一个**孤零零的 `TypeOfKeyword`** ✗
@@ -699,13 +699,13 @@ export const EXPECTATIONS = {
 
   "c304-rt-new-target-in-ctor": { expect: "blocked", why: "`new.target` 报 `unimplemented: expression MetaProperty`——投影给出的是 `MetaProperty` 这个 kind，而降级层没有那一格。要的是「当前这一帧是不是构造调用」（引擎帧上的一格），读成一个值即可" },
   "c304-rt-delete-nonconfigurable": { expect: "blocked", why: "**口径边界（严格模式的选择）**：`delete` 一个不可配置的属性，本仓一律抛（那一抛还冒出脚本、接不住），而 `node` 把 `.ts` 当 CJS 跑是**松散模式**、静默返回假——与 README 里 `Object.freeze` 写属性那一条同源" },
-  "c304-rt-iife-arrow-this": { expect: "differ", why: "**口径边界（严格模式的选择）**：普通函数调用在松散模式下 `this` 是全局对象，本仓一律 `undefined`。同一个根还拖着下面那条" },
+  // **第 337 轮过了** ✓（这一行撤了 ✓）：非严格 `this` —— 普通函数调用（含摘下来的方法）收**全局对象** ✓（`Protos.Global` ✓，由语言层填 ✓），箭头不受影响（它从捕获的环境格读 `this` ✓）。
   // **`c304-rt-super-property-write` 第 326 轮过了** ✓（那一行撤了 ✓）：
   // 第 243 轮补的是读那一半（`super.v` ✓），这一轮补的是**写那一半** ✓——
   // 引擎侧是一条与 `get_prop_from` **对称**的 `set_prop_from` ✓（四格：起点 / 键 / 值 / 接收者 ✓），
   // 降级侧的起点走**同一个** `SuperStartSlot` ✓（静态那一半从父类构造函数起 ✓、
   // 实例那一半从 `父类.prototype` 起 ✓——两处各写一遍就会漂 ✓）。
-  "c304-rt-detached-method-this-undefined": { expect: "differ", why: "**口径边界（严格模式的选择）**：与方法摘下来单独调那一格同一个根（见上一条）" },
+  // **第 337 轮过了** ✓（这一行撤了 ✓）：非严格 `this` —— 普通函数调用（含摘下来的方法）收**全局对象** ✓（`Protos.Global` ✓，由语言层填 ✓），箭头不受影响（它从捕获的环境格读 `this` ✓）。
   // **`c304-rt-optional-chain-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
   // 同一条里的 `o.n?.()` / `o.missing?.()` 两半本来就对 ✓，这一轮补的是
   // **第三格**（`f?.()`：空值在**被调的那个值自己**身上 ✓）——见上面组 E 那一段 ✓。

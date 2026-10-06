@@ -1254,6 +1254,36 @@ if (returnSlot >= 0) {
 // 都要能走这两条路 ✓——所以「有几个」与「第 i 个是谁」各收成一个方法 ✓，
 // 而不是在两处各写一遍三元表达式 ✗（那正是**两处会走偏**的形状 ✗）。
 const count = this.CallArgCount(frame, argBase, argc, argArray);
+// **非严格的 `this`：普通函数调用收全局对象** ✓（第 337 轮 ✓）。
+//
+// **JS 的规矩** ✓：函数被**当作函数**调用（没有接收者 ✓）时，
+// **非严格**的那一档 `this` 是**全局对象** ✓（严格才是 `undefined` ✗）；
+// 「摘下来的方法」（`const f = o.who; f()` ✓）走的正是这一档 ✓——
+// 判据 `c304-rt-detached-method-this-undefined` ✓ / `c304-rt-iife-arrow-this` ✓ 量的就是它 ✓。
+//
+// **本仓原来一律给 `undefined`** ✗（`ir.xl.md` 的 `LoadThis` 那一段写着
+// 「严格模式语义」✓——那是一个**选择** ✓，而这一轮按实测把它改成**非严格** ✓：
+// 与第 333 轮写屏障那条「本仓选定非严格」是**同一个决定** ✓）。
+//
+// **全局对象由语言层给** ✓（`Protos.Global` ✓，与那张知名符号表同一条机制 ✓）——
+// 引擎不认识「全局对象」这个名字 ✗，它只是把**那一格**递出去 ✓；
+// **那一格是 `0`（宿主没接）就给 `undefined`** ✓（**不说谎，只是不特殊** ✓）。
+//
+// **只对闭包兜** ✗：宿主那一档（内建方法 ✓）的 `this` 由调用点决定 ✓
+//（`arr.push` 里的 `arr` ✓），**不能动** ✗。箭头也**不受影响** ✓：
+// 它的 `this` 是从**捕获的环境格**里读的 ✓（`lowering.xl.md` 的 `ThisKeyword` ✓），
+// 根本不看这一格 ✓。
+//
+// **`null` 与 `undefined` 是同一档** ✗（**实测踩过一次** ✓）：JS 的 `[[Call]]` 把
+// 「`this` 是 `null` 或 `undefined`」**一起**换成全局对象 ✓（`f.call(null)` 与 `f()` 一样 ✓）——
+// 第一版只写了 `undefined` ✗ ⇒ `who.call(null)` 给的是 `null` 本身 ✓（判据
+// `c337-rt-sloppy-this-forms` 第 2 行当场红 ✓：Node 给 `global` ✓、本仓给 `other` ✓）。
+if ((thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) && callee.Tag === ValueTag.Closure) {
+  const globalProtos = this.Protos;
+  if (globalProtos !== null && globalProtos.Global > 0) {
+    thisValue = Value.FromObject(globalProtos.Global);
+  }
+}
 // **可调用值的两种**（第 145 轮）：宿主引用 ✓，以及**带可调用载荷的对象** ✓
 //（`String(1)` 里的 `String` 是**对象**——它还要能挂静态属性 ✓，见 `heap.xl.md`
 // 的 `AttachCallable` 那一段 ✓）。两者走的是**同一条**宿主通道 ✓——
@@ -3057,6 +3087,18 @@ if (callee.Tag !== ValueTag.Closure) {
   return Value.Undefined();
 }
 const closure = this.Table.Get(callee.Ref).AsClosure();
+// **非严格那条兜底在这条路上也要走** ✓（第 337 轮 ✓，与 `DoCallValue` 那一支**一字不差** ✓）：
+// 重入路的调用者（`Array.prototype.map` ✓、访问器 ✓、`Symbol.iterator` ✓）递进来的
+// `this` 常常是 `undefined` ✓（`[1,2].map(function () { return this })` ✓）——
+// 而 JS 的非严格规矩是**收全局对象** ✓。**两条路各写一遍就会漂** ✗
+//（第 307 / 312 / 320 轮各踩过一次「同一个语义长在两条路上」✓），所以这里照抄那一句 ✓，
+// 并在两处都留一行注释指向对方 ✓。
+if (thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) {
+  const globalProtos = this.Protos;
+  if (globalProtos !== null && globalProtos.Global > 0) {
+    thisValue = Value.FromObject(globalProtos.Global);
+  }
+}
 const info = FunctionAtEntry(this.Code(), closure.Code);
 if (info === null) {
   throw new Error("closure points at no function: " + closure.Code);

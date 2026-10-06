@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1317,
+  "matrix": 1318,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.12,
+  "progressPercent": 98.29,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 424,
-      "pass": 409,
+      "total": 425,
+      "pass": 413,
       "blocked": 9,
-      "differ": 6,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 96.46
+      "coverage": 97.18
     },
     {
       "layer": "exec",
@@ -194,28 +194,10 @@
       "detail": "stdout 不同：第 3 行：node «own,inherited» vs tsrun «own»"
     },
     {
-      "id": "c304-rt-iife-arrow-this",
-      "layer": "runtime",
-      "title": "箭头 IIFE 里的 this 与外部一致",
-      "detail": "stdout 不同：第 1 行：node «obj bound» vs tsrun «obj undefined»"
-    },
-    {
-      "id": "c304-rt-detached-method-this-undefined",
-      "layer": "runtime",
-      "title": "把方法摘下来单独调：松散模式 this 是全局对象",
-      "detail": "stdout 不同：第 1 行：node «global other» vs tsrun «undefined other»"
-    },
-    {
       "id": "c305-rt-for-await-of-promises",
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
-    },
-    {
-      "id": "c336-rt-iterator-close-forms",
-      "layer": "runtime",
-      "title": "`for..of` 提前退出的收尾：break / return / 正常跑完",
-      "detail": "stdout 不同：第 4 行：node «close return» vs tsrun «took 2»"
     },
     {
       "id": "symbol-hasinstance",

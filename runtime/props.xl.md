@@ -251,6 +251,24 @@ this.Index = index;
 **宿主没接这一格时它就是 `0`** ✓，引擎那一侧退回「只认数组 / 字符串 / `Map` / `Set`」✓
 ——**不说谎，只是不特殊** ✓。
 
+## field Global:int = 0
+
+**全局对象那一格** ✓（第 337 轮 ✓）——语言层在装库时把它填进来 ✓，
+**引擎那一侧只在一处用它** ✓：非严格模式下**普通函数调用的 `this`** ✓
+（`vm.xl.md` 的 `DoCallValue` ✓）。
+
+**为什么它必须由语言层给** ✗：全局对象是**语言层造的那个对象** ✓
+（`globals.xl.md` 的 `BuildGlobals` ✓），引擎手里没有它 ✗——而 JS 的规矩是
+「**非严格**函数被**当作函数**调用时，`this` 是全局对象」✓（严格模式才是 `undefined` ✗）。
+**与 `WellKnownSymbols` 完全同一条机制** ✓：**结构由引擎提供、内容由语言层给** ✓；
+**宿主没接这一格时它是 `0`** ✓ ⇒ 引擎退回「给 `undefined`」✓（**不说谎，只是不特殊** ✓，
+与那一格一字不差 ✓）。
+
+**一处已知的差别写在明处** ✗：JS 里**类体里那些函数是严格的** ✓
+（`class A { m() {} }` 摘下来的 `m` 单独调 ⇒ `this` 是 `undefined` ✓），
+而本仓**一个函数一个口径** ✗（一律按非严格办 ✓）——与第 333 轮那条「本仓选定非严格」
+是**同一个决定** ✓。**没有判据量着那一档** ✓，写在这里 ✓。
+
 ## constructor:(objectHandle:int, arrayHandle:int, functionHandle:int, stringHandle:int)=>void
 
 记下四个句柄。**其余六格（三格 `Error` + `Map` / `Set` / `Date`）不在构造参数里** ✓：
@@ -295,6 +313,11 @@ if (this.Generator > 0) roots.AddHandle(this.Generator);
 // 而符号是**引用型**（`IsRef` 那一档 ✓）——不收根的话 `Symbol.iterator`
 // 会在某一次回收之后变成一个悬着的句柄 ✗（症状是「迭代协议某天突然不认了」✗）。
 if (this.WellKnownSymbols > 0) roots.AddHandle(this.WellKnownSymbols);
+// **全局对象那一格也要挂根** ✓（第 337 轮 ✓）：它是**语言层造的那个对象** ✓
+//（`BuildGlobals` ✓），而引擎在非严格调用的那条路上会**把它当 `this` 递出去** ✓——
+// 不收根的话，一次回收之后那个句柄就悬了 ✓，症状是「某个函数里的 `this` 突然是个野对象」✗
+//（与上面知名符号那条**一字不差**的理由 ✓）。
+if (this.Global > 0) roots.AddHandle(this.Global);
 ```
 
 # method InitProtos:(room:RoomChecker, table:HeapTable)=>Protos

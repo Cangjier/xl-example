@@ -5800,6 +5800,11 @@ for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstanc
     GetProperty(room, NeverCall, protos, table, symbolObject, symbolKey));
 }
 protos.WellKnownSymbols = wellKnownTable.Ref;
+// **全局对象那一格** ✓（第 337 轮 ✓）：引擎在**非严格**那条路上要用它当 `this` ✓
+//（`vm.xl.md` 的 `DoCallValue` ✓）——与上面那张知名符号表**同一条机制** ✓
+//（`props.xl.md` 的 `Protos.Global` ✓：**结构由引擎提供、内容由语言层给** ✓）。
+// **`globals` 就在手上** ✓（这一段的开头就是它 ✓），所以只是一句赋值 ✓。
+protos.Global = globals.Ref;
 // **`Symbol.toStringTag` 要挂到那三族的原型上** ✓（第 229 轮 ✓）：
 // `Object.prototype.toString.call(new Map())` 在 JS 里是 `"[object Map]"` ✓，
 // 而那一格**正是** `Map.prototype[Symbol.toStringTag] = "Map"` 供的 ✓
