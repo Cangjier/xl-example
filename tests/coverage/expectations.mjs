@@ -1152,26 +1152,19 @@ export const EXPECTATIONS = {
 
   // ---- **步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。
   "c371-e2e-quick-and-merge-sort": { expect: "differ", why: "**假值段里下标位上的后缀自增不生效** ✗ ⇒ 归并的 `left[i++]` 永不前进 ✓ ⇒ 死循环 ✓（1M 步数上限时报 `step budget exhausted` ✓，第 372 轮上限抬到 10M 之后改报 `out of room` ✓——**同一个根、两个症状**）。最小反例：`const r = false ? 0 : a[i++];`（Node 给 `a[0]` 且 `i=1`、本仓给 `a[0]` 而 `i=0`）；真值段是好的 ✓、`if/else` 里也是好的 ✓。" },
-  "c371-e2e-roman-numerals": { expect: "differ", why: "复合赋值的右操作数**只吃到三元的条件段** ✗：`total += cur < next ? -cur : cur` 在 JS 里是 `total += (三元)` ✓，本仓把 `+=` 展开成 `t = t + cur` 之后**再**去折三元 ✗ ⇒ 变成 `(t + cur) ? -cur : cur` ✓——静默错值（`fromRoman(\"I\")` 给 `0` ✓）。最小反例：`let t = 0; t += 1 < 10 ? -1 : 1;`（Node `-1`、本仓 `1`）。" },
-  "c371-e2e-matrix-linear-algebra": { expect: "differ", why: "与 `c371-e2e-roman-numerals` **同一个根** ✗：`total += (c % 2 === 0 ? 1 : -1) * a[0][c] * det(minor)` —— 复合赋值只吃条件段 ✓ ⇒ 行列式算不完 ✓（`out of room`）。" },
 
   // ---- 字符串数组里逐字符找 `E` 失败（`charAt` 那一圈没找到，根子待量）。
-  "c371-e2e-maze-bfs": { expect: "blocked", why: "字符串数组里逐字符找 `E` 失败（`charAt` 那一圈没找到，根子待量）。" },
 
   // ---- `render` 里对象当上下文时字段读不到（`{{user.name}}` 给 `false`）。
-  "c371-e2e-mustache-template": { expect: "differ", why: "`render` 里对象当上下文时字段读不到（`{{user.name}}` 给 `false`）。" },
 
   // ---- **回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set(["build"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。
-  "c371-e2e-html-template-tagged": { expect: "differ", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
   "c371-e2e-plugin-registry": { expect: "differ", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
   "c371-e2e-priority-scheduler": { expect: "blocked", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
 
   // ---- `encode` 里 `String(run)` 与 `charAt` 的分支被走成了布尔串（`truefalse…`）。
-  "c371-e2e-rle-compression": { expect: "differ", why: "`encode` 里 `String(run)` 与 `charAt` 的分支被走成了布尔串（`truefalse…`）。" },
 
   // ---- 泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` 是 `undefined` ⇒ 调它报 non-closure（非泛型那一版是对的）。
   "c371-e2e-lru-with-ttl": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
-  "c371-e2e-rate-limiting-window": { expect: "differ", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
   "c371-e2e-object-pool": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
   "c371-e2e-debounce-and-batch": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
 
@@ -1186,10 +1179,8 @@ export const EXPECTATIONS = {
   "c371-e2e-permissions-matrix": { expect: "blocked", why: "**以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。" },
 
   // ---- `validate` 递归里同一个 schema 走了两遍（数组 `items` 那一支重复校验）。
-  "c371-e2e-json-schema-lite": { expect: "differ", why: "`validate` 递归里同一个 schema 走了两遍（数组 `items` 那一支重复校验）。" },
 
   // ---- 闭包里引用了**在它后面声明**的 `const`（`name used before its declaration: c`）——TDZ 与提升的口径。
-  "c371-e2e-graph-coloring": { expect: "blocked", why: "闭包里引用了**在它后面声明**的 `const`（`name used before its declaration: c`）——TDZ 与提升的口径。" },
 
   // ---- **交叉类型被当成表达式**（`unimplemented: expression IntersectionType`）。
   "c371-e2e-binary-encoding": { expect: "blocked", why: "**交叉类型被当成表达式**（`unimplemented: expression IntersectionType`）。" },
@@ -1197,4 +1188,5 @@ export const EXPECTATIONS = {
   // ---- `Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。
   "c371-e2e-string-search-index": { expect: "differ", why: "`Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。" },
 
+  "c373-ex-compound-assign-logical-rhs": { expect: "differ", why: "复合赋值的右侧是 `||` 时**还是错的** ✗（`k += 0 || 5` 给 `-2` ✓，JS 给 `4` ✓）。**根子是既有的一条** ✓：`&&` / `||` 那一条规则（`LogicalOperator`）的位次**排在四则之前** ✓（`binary-operator.xl.md` 的 `IsOperand` 那一段自己记着这件事 ✓：`a && b + c` 也按 `(a && b) + c` 折 ✓）。第 373 轮把三元、`*=` / `-=` / `**=` 那些修好了 ✓（右操作数先折成一个单元 ✓），但 `||` 在那一刻**已经被逻辑规则折走了** ✓ ⇒ 标记运算符看到的左边是 `0` 而不是 `k + 0` ✓。**要修得把 `LogicalOperator` 挪到四则之后** ✓——那是另一次改动 ✓（会动到 `a && b + c` 这一族的形状 ✓）。" },
 };

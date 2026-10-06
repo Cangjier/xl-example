@@ -853,6 +853,30 @@ return SearchBackIndexed(units, index, (itemIndex, item) => Statement.IsStatemen
 ```ts
 const symbols = statementEndSymbols ?? [];
 const item = Get(units, itemIndex);
+// **一条已经成形的语句级单元，本身就是「语句到此结束」** ✓（第 373 轮 ✓）。
+//
+// 它是**一整条语句** ✓——所以「从这里往后找 `;`」的调用方应当**停在它身上** ✓，
+// 而不是扫过去、停到**下一条**语句的分号上 ✗。
+//
+// **少了这一条会漏掉一整族** ✗（实测收敛到两行）：
+//
+//     for (k = 0; k < 2; k++) if (k > 5) log.push("never");
+//     log.push("after");
+//
+// `if` 那一条**先**被收成 `IfSet` ✓（规则是轮询的 ✓，三元 / 复合赋值那些都是这个次序 ✓），
+// 于是 `for` 来找体尾时（`for.xl.md` 的 `SearchStatementEnd` ✓）一路**扫过** `IfSet` ✓、
+// 停在**下一条语句**的 `;` 上 ✗ ⇒ 体的范围成了「`if` + 后面那条语句」✓——
+// **静默错值** ✓：实测 `after` 被印了**两遍** ✓（每轮一遍 ✓），
+// 而 Node 只印一遍 ✓。同一个形状在真语料里的后果更大 ✓：
+// `for (...) if (cond) xs.push(a[i][j]);` 后面再跟一句 ✓，那一句每轮都跑 ✓。
+//
+// **为什么用 `IsStatementBoundary` 而不是 `IsStatementUnit`** ✗：后者把
+// `Function` / `Class` **无条件**当边界 ✓，而 `for (...) function () {} && y;` 那种
+// 位置上的函数是**表达式** ✓——`IsStatementBoundary` 多问一句「是不是声明位置」✓
+//（那一处自己写着这段实测 ✓）。两处用同一把尺子 ✓，不另写一份近似 ✗。
+if (Statement.IsStatementBoundary(units, itemIndex)) {
+  return true;
+}
 if (item instanceof SymbolToken && item.IsValueOrAny(";", [",", ...symbols])) {
   return true;
 }

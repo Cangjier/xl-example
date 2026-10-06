@@ -499,8 +499,78 @@ const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
 if (StartsWithTemplate(afterOperand)) {
   return false;
 }
+// **复合赋值展开出来的那一份运算符：要等右操作数先折成一个单元** ✓（第 373 轮 ✓）。
+// 判据与理由写在 `ExtendsRightOperand` 那一段 ✓（与上面 `**` 那条**同一个形状** ✓：
+// 「右边还没长完就先放过 ✓」）。
+if (current instanceof SymbolToken && current.FromCompoundAssignment
+  && this.ExtendsRightOperand(afterOperand)) {
+  return false;
+}
 return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
 ```
+
+## private method ExtendsRightOperand:(unit:Token | null)=>bool
+
+`unit` 是不是「**还能把右边继续吃下去**」的那个东西（第 373 轮 ✓）——
+用来回答「这一格运算符的右操作数**长完了没有**」✓。
+
+**为什么需要这一问** ✗：`a += b` 会被 `CompoundAssignmentOperatorReorganization` 展开成单元序列
+`a` `=` `a` `+` `b` ✓（见 `compound-assignment-operator.xl.md` ✓）——
+**插进来的那个 `+` 不是用户写的** ✓，它要表达的是「`op=` 这个符号」✓，
+所以它的**右操作数是整个赋值右侧** ✓（JS 里赋值右侧是一个完整的 AssignmentExpression ✓），
+也就必须**最后**才生效 ✓。而这一趟是**按优先级**折的 ✗ ⇒ 不挡的话 `a *= 1 + 2` 会先折 `a * 1` ✗
+⇒ 得到 `(a * 1) + 2` ✓——**静默错值** ✗（实测 `a *= 1 + 2` 给 `8` ✓，JS 给 `6` ✓；
+`t += cur < next ? -cur : cur` 给 `1` ✓，JS 给 `-1` ✓）。
+
+**挡法**：右操作数之后还跟着「能继续吃右边的东西」时**先放过** ✓，让右边先折 ✓、
+折完再回来 ✓（`**` 那条右结合用的是同一个套路 ✓）。
+
+**哪些算「能继续吃右边」** ✓——**除 `,` 以外的运算符** ✓ 加**三元那个 `?`** ✓：
+
+- **除 `,` 是必须的** ✗：逗号（序列）表达式**比赋值还松** ✓，所以 `a += b, c` 在 JS 里是
+  `(a += b), c` ✓ ⇒ 遇到 `,` 必须**先折** `a + b` ✓（实测：把 `,` 也挡进去，
+  那条语句会变成 `t + (u, …)` ✗）。
+- **`?` 也要挡** ✓：三元的条件段是**整个**比 `+` 松的东西 ✓。
+- **`.` / `(` / `[` 不在判据里** ✗：它们是**后缀** ✓，实测那十几条形状
+  （`a += o.k` ✓ / `a += f(x)` ✓ / `a += xs[0]` ✓ / `a += (2, 3)` ✓ / `a += -o.k` ✓）
+  在这一刻**右边已经折成单元了** ✓ ⇒ 不必挡 ✓——**没被验证过的判断不留** ✗（本仓的规矩 ✓）。
+
+```ts
+if (unit === null || !(unit instanceof SymbolToken)) {
+  return false;
+}
+const text = unit.TempToString();
+// **`,` 是最松的** ✗（见上面那段 ✓）——碰到它就说明右操作数已经长完了 ✓。
+if (text === ",") {
+  return false;
+}
+// **三元那个 `?`** ✓（本仓的 `?` 也是 `SymbolToken` ✓）。
+if (text === "?") {
+  return true;
+}
+// **「是不是运算符」不能问 `this.Operators`** ✗：它只有**本实例那一档** ✓
+//（加法实例上只有 `+` `-` ✓），而这里要认的是**任何一个**运算符 ✓
+//（`a *= 1 + 2` 里那个 `+` 归加法实例 ✓、`a += b < c` 里那个 `<` 归比较那一段 ✓）。
+// 两张表都是**现成的** ✓：比较符号在 `SymbolTemplate.CompareSymbols` 上 ✓，
+// 其余（算术 / 移位 / 位 / 逻辑 / 空值合并 / `in` / `instanceof`）在下面那张**并集**上 ✓。
+if (unit.Template.SymbolTemplate.IsCompareSymbol(text)) {
+  return true;
+}
+return BinaryOperatorReorganization.AllOperatorTexts.indexOf(text) !== -1;
+```
+
+## static readonly field AllOperatorTexts:Array<string> = ["**", "*", "/", "%", "+", "-", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof"]
+
+**所有二元运算符的文本，并成一张表**（第 373 轮 ✓）——给 `ExtendsRightOperand` 用 ✓
+（问「这一格之后还跟着运算符吗」✓）。
+
+**它是那十几个实例的 `Operators` 的并集** ✓（`PowerInstance` ✓ … `InstanceofInstance` ✓），
+**不另立新的口径** ✓：`<` / `>` / `<=` / `>=` / `==` / `===` / `!=` / `!==` 那八个
+走 `SymbolTemplate.CompareSymbols` ✓（它们本来就在那儿 ✓），
+而 `,` **有意不收** ✗（它比赋值松 ✓，见 `ExtendsRightOperand` 那一段 ✓）。
+
+**为什么需要一张并集** ✗：`IsOperator` 问的是**本实例**那一档 ✓（折的时候当然只认自己 ✓），
+而「右边还能不能长」问的是**所有**运算符 ✓——两件事 ✗。
 
 ## private method IsCommaExpressionComma:(units:Array<Token>, index:int)=>bool
 

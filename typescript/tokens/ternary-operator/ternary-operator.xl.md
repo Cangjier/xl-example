@@ -260,6 +260,19 @@ return parent.Data.some((item) => {
 if (current instanceof SymbolToken) {
   if (
     current.Template.SymbolTemplate.IsAssignmentSymbol(current.TempToString())
+    // **复合赋值的符号也是起点** ✓（第 373 轮 ✓）——**这是这一条真正要补的那一格** ✗。
+    //
+    // `IsAssignmentSymbol` 认的是 `AssignmentSymbols`，而那张表上**只有 `=`** ✓
+    //（`+=` / `*=` / `&&=` 那些在 `CompoundAssignmentSymbols` 上 ✓）⇒ 少了这一条，
+    // 回扫会**冲过** `+=` ✓、一路找到上一条语句的 `;` ✓ ⇒ 条件段收成 `a += c` ✗
+    // ⇒ 产物是 `(a += c) ? 2 : 3` ✗——**静默错值** ✓（实测 `a += c ? 2 : 3` 给 `2` ✓，JS 给 `3` ✓）。
+    // **判据要在这一层**（不是等展开之后看 `FromCompoundAssignment` ✓）：
+    // 规则是**按规则轮询、每条规则从左往右扫一遍所有下标** ✓（见 `core/syntax/token.xl.md` ✓），
+    // 而三元这一条**排在复合赋值展开之前** ✓——实测那一刻列表里还是 `Identifier += Identifier` ✓
+    //（插桩：`DBG ternary process q=11 start=7 list=… Identifier += Identifier ? …` ✓）。
+    // 下面那一条 `FromCompoundAssignment` 是**另一半** ✓：展开已经跑过的那一趟（同一趟里更靠后的三元 ✓、
+    // 或者下一趟 ✓）认的是标记 ✓——两条一起才把「`+=` 前面 / 后面」都盖住 ✓。
+    || current.Template.SymbolTemplate.IsCompoundAssignmentSymbol(current.TempToString())
     || current.Is(":")
     || current.Is("=>")
     || current.Is(",")
@@ -270,6 +283,25 @@ if (current instanceof SymbolToken) {
     // 把 `?` 也当边界之后，回扫在**外层的 `?`** 上停下，条件正好是 `b` ✓。
     // 右嵌套与普通三元不受影响：它们的回扫先撞上 `:` / `=` / `,` / `;`。
     || current.Is("?")
+    // **复合赋值展开出来的那一份运算符也是起点** ✓（第 373 轮 ✓）。
+    //
+    // 理由与 `CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart`
+    // 那一条**同源** ✓：`a += b` 会先被展开成单元序列 `a` `=` `a` `+` `b` ✓
+    //（见 `compound-assignment-operator.xl.md` ✓），而**插进来的那个 `+` 不是用户写的** ✓——
+    // 它表达的是「`op=` 这个符号」✓ ⇒ 它的**右操作数是整个赋值右侧** ✓
+    //（JS 里赋值右侧是一个完整的 AssignmentExpression ✓）。
+    //
+    // **少了这一条会怎样** ✗：`a += b ? c : d` 回扫从 `?` 往前先撞上 `=` ✓
+    // ⇒ 条件段收成 `a + b` ✗ ⇒ 产物是 `(a + b) ? c : d` ✗——**静默错值** ✓
+    //（实测 `a += c ? 2 : 3` 给 `2` ✓，JS 给 `3` ✓；`a += 1 < 2 ? 4 : 5` 给 `1` ✓，JS 给 `5` ✓）。
+    // 加上之后回扫在**标记运算符**上停下 ✓ ⇒ 条件正好是 `b` ✓ ⇒ 三元先成形 ✓、
+    // 插进来的 `+` 随后折它 ✓（与第 373 轮在二元那一侧加的「等右边长完」是**同一件事的两半** ✓：
+    // 那一半管 `*=` / `-=` 这类同层的 ✓，这一半管右边被三元切走的 ✓）。
+    //
+    // **它不会误伤** ✓：真正的三元里带复合赋值时，那一格总在**括号**自己的单元列表里 ✓
+    //（`x = (a += b) ? c : d` 的括号是一个单元 ✓，回扫撞到的是它 ✓），
+    // 而三元自己的真值段 / 假值段在 `?` 之后 ✓，回扫根本到不了 ✓。
+    || current.FromCompoundAssignment
   ) {
     return true;
   }

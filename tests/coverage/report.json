@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1688,
+  "matrix": 1691,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.67,
+  "progressPercent": 95.7,
   "layers": [
     {
       "layer": "runtime",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 395,
-      "pass": 382,
+      "total": 398,
+      "pass": 384,
       "blocked": 9,
-      "differ": 4,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 96.71
+      "coverage": 96.48
     },
     {
       "layer": "stdlib",
@@ -74,11 +74,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 164,
-      "pass": 140,
-      "blocked": 13,
-      "differ": 11,
+      "pass": 149,
+      "blocked": 11,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 85.37
+      "coverage": 90.85
     }
   ],
   "blocked": [
@@ -161,12 +161,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
     },
     {
-      "id": "c371-e2e-maze-bfs",
-      "layer": "e2e",
-      "title": "迷宫寻路：BFS 最短路与路径还原",
-      "detail": "tsrun: 脚本抛出：not found: E"
-    },
-    {
       "id": "c371-e2e-lru-with-ttl",
       "layer": "e2e",
       "title": "带 TTL 的 LRU 缓存（注入时钟）",
@@ -195,12 +189,6 @@
       "layer": "e2e",
       "title": "二维几何：距离、点在多边形内、凸包",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
-      "id": "c371-e2e-graph-coloring",
-      "layer": "e2e",
-      "title": "图着色：贪心 + 回溯找最少颜色",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name used before its declaration: c"
     },
     {
       "id": "c371-e2e-binary-encoding",
@@ -305,6 +293,12 @@
       "layer": "exec",
       "title": "类表达式：匿名、具名自引用、extends 表达式",
       "detail": "stdout 不同：第 1 行：node «1 2 Named bc true» vs tsrun «1 2 Named bc false»"
+    },
+    {
+      "id": "c373-ex-compound-assign-logical-rhs",
+      "layer": "exec",
+      "title": "复合赋值的右侧是 `||`：逻辑规则位次造成的优先级（**还没修**）",
+      "detail": "stdout 不同：第 1 行：node «A 4» vs tsrun «A -2»"
     },
     {
       "id": "c371-stdlib-string-case-forms",
@@ -445,58 +439,16 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：out of room"
     },
     {
-      "id": "c371-e2e-mustache-template",
-      "layer": "e2e",
-      "title": "极简模板引擎：变量、点路径、循环、条件",
-      "detail": "stdout 不同：第 1 行：node «Hello Ann! [admin]» vs tsrun «Hello false! [admin]»"
-    },
-    {
-      "id": "c371-e2e-html-template-tagged",
-      "layer": "e2e",
-      "title": "标签模板做 HTML 转义与拼接",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c371-e2e-roman-numerals",
-      "layer": "e2e",
-      "title": "罗马数字互转与全表校验",
-      "detail": "stdout 不同：第 1 行：node «1 I 1» vs tsrun «1 I 0»"
-    },
-    {
-      "id": "c371-e2e-rle-compression",
-      "layer": "e2e",
-      "title": "游程编码压缩与解压",
-      "detail": "stdout 不同：第 1 行：node «\"aaabbbcccd\" -> \"3a3b3cd\" -> \"aaabbbcccd\" true» vs tsrun «\"aaabbbcccd\" -> \"truefalsefalsefalse\" -> \"truefalsefalsefalse\" false»"
-    },
-    {
       "id": "c371-e2e-plugin-registry",
       "layer": "e2e",
       "title": "插件注册表：惰性工厂、依赖顺序、失败隔离",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c371-e2e-matrix-linear-algebra",
-      "layer": "e2e",
-      "title": "矩阵运算：乘、转置、行列式、单位阵",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：out of room"
-    },
-    {
       "id": "c371-e2e-async-pool-with-errors",
       "layer": "e2e",
       "title": "异步任务池：并发上限、错误隔离、结果汇总",
       "detail": "stdout 不同：第 1 行：node «10,20,40,50,70,80» vs tsrun «»"
-    },
-    {
-      "id": "c371-e2e-rate-limiting-window",
-      "layer": "e2e",
-      "title": "滑动窗口限流与统计",
-      "detail": "stdout 不同：第 3 行：node «8 2» vs tsrun «1 1»"
-    },
-    {
-      "id": "c371-e2e-json-schema-lite",
-      "layer": "e2e",
-      "title": "极简 JSON Schema 校验：类型、必需、数组项、枚举",
-      "detail": "stdout 不同：第 2 行：node «2 $.name: shorter than 3 | $.tags[0]: shorter than 2» vs tsrun «4 $.name: shorter than 3 | $.tags[0]: shorter than 2 | $.name: shorter than 3 | $.tags[0]: shorter than 2»"
     },
     {
       "id": "c371-e2e-string-search-index",

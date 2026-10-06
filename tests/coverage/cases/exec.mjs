@@ -4312,5 +4312,22 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "id": "c371-ex-class-expression-name-in-body",
     "title": "具名类表达式在体内能看见自己的名字",
     "src": "const A = class Self {\n  static name2(): string { return Self.name; }\n  who(): string { return Self.name2(); }\n};\nconst B = class { static name2(): string { return typeof (this as any); } };\nconsole.log(new A().who(), A.name, new B() instanceof B);\nconst C = class Named { static create(): Named { return new Named(); } v = 1; };\nconsole.log(C.create().v, C.name);"
+  },
+
+  // ===== 第 373 轮：给修好的形状补的判据（3 条）=====
+  {
+    "id": "c373-ex-compound-assign-precedence",
+    "title": "复合赋值的右操作数取整个赋值右侧（比自己松的那一段也算）",
+    "src": "// **复合赋值右侧是一个完整的 AssignmentExpression**——三元、比自己松的算术、\n// 比自己紧的算术，三种都要落对。\nconst flag = true;\nlet a = 2; a *= 1 + 2; console.log(\"A mul-of-sum\", a);\nlet b = 10; b -= 1 + 2; console.log(\"B sub-of-sum\", b);\nlet c = 1; c += flag ? 2 : 3; console.log(\"C add-of-ternary\", c);\nlet d = 1; d += 1 < 2 ? 4 : 5; console.log(\"D add-of-cmp-ternary\", d);\nlet e = 2; e **= 2 + 1; console.log(\"E pow-of-sum\", e);\nlet f = 8; f /= 1 + 1; console.log(\"F div-of-sum\", f);\nlet g = \"x\"; g += flag ? \"y\" : \"z\"; console.log(\"G concat-of-ternary\", g);\nlet h = 1; h += 2 + 3 + 4; console.log(\"H chain\", h);\nlet i = 1; i += 2 * 3; console.log(\"I tighter\", i);\nlet j = 1; j *= 2 + 3; console.log(\"J mul-then-add\", j);\nlet k = 1; k += (2 + 3) * 2; console.log(\"K paren\", k);\nlet m = 5; m %= 2 + 1; console.log(\"M mod-of-sum\", m);\nlet n = 1; n += 1; console.log(\"N plain\", n);\nlet p = 1; p += -2; console.log(\"P unary\", p);\nconsole.log(\"Q\", a, b, c, d, e, f, g, h, i, j, k, m, n, p);"
+  },
+  {
+    "id": "c373-ex-braceless-bodies",
+    "title": "无括号的语句体：`for` / `while` 体里的 `if` 只到自己那个分号为止",
+    "src": "// **一条已经成形的语句级单元本身就是语句结束**——for 体里的 if 收好之后，\n// 下一条语句**不该**被算进体里。\nconst log: string[] = [];\nlet i = 0;\nfor (i = 0; i < 2; i++) if (i > 5) log.push(\"never\");\nlog.push(\"after-for-if\");\nlet j = 0;\nfor (j = 0; j < 2; j++) if (j >= 0) log.push(\"body\" + j);\nlog.push(\"after\");\nlet k = 0;\nwhile (k < 2) { k += 1; }\nlog.push(\"after-while\");\nlet m = 0;\nfor (m = 0; m < 3; m++) if (m === 1) log.push(\"mid\");\nlog.push(\"tail\");\nlet n = 0;\nfor (n = 0; n < 2; n++) for (let q = 0; q < 2; q++) if (q === 1) log.push(\"n\" + n + q);\nlog.push(\"end\");\nconsole.log(log.join(\",\"));\nconsole.log(log.filter((x) => x === \"after\").length, log.length);"
+  },
+  {
+    "id": "c373-ex-compound-assign-logical-rhs",
+    "title": "复合赋值的右侧是 `||`：逻辑规则位次造成的优先级（**还没修**）",
+    "src": "// a += b || c 在 JS 里是 a += (b || c)。\n// 这一条**还没修**：&& / || 那一条规则的位次**排在四则之前**（历史位次），\n// 于是它先把 || 折了，而这时左边那一格还不是「整个 a + b」。\nconst flag = false;\nlet k = -1; k += 0 || 5; console.log(\"A\", k);\nlet m = 10; m += 0 || 5; console.log(\"B\", m);\nconsole.log(\"C\", flag || \"x\");"
   }
 ];
