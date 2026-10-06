@@ -1538,7 +1538,29 @@ if (!this.EntryFrame) {
 const functions: string[] = [];
 CollectFunctionNames(body, functions);
 const captured = CapturedNames(body, bindable);
-let needsThis = HasArrowFunction(body);
+// **`this` 那一格只在「拥有接收者的那一层」开** ✗（第 374 轮 ✓）——
+// 判据是 `HasArrowFunction(body) && !this.InArrow` ✓。
+//
+// **为什么箭头层不能自己开一格** ✗：`needsThis` 问的是「这一层里面的箭头要不要 `this`」✓，
+// 而这一格是拿 **`Op.LoadThis`** 填的 ✓（读**本帧的接收者** ✓）——
+// 箭头**没有自己的接收者** ✓，它的 `this` 是造它那一刻外层的 ✓
+//（`ThisKeyword` 那一段写着同样的口径 ✓：只有箭头才在环境链上找 ✓）。
+// 于是箭头层照开一格、还拿 `LoadThis` 去填 ✗ ⇒ 填进去的是**箭头自己的接收者**（没有 ✓）。
+//
+// **症状** ✗（第 371 轮记成 #21 ✓，最小反例收敛到一行 ✓）：
+// `class V { done = new Set(["build"]); ready() { return this.list().filter((j) => j.deps.every((d) => this.done.has(d))); } }`
+// —— 最外层那个箭头（`(j) => …`）照开一格 ✓、内层那个箭头（`(d) => …`）在链上**先撞到它** ✓
+// ⇒ 读到的是**空**✗ ⇒ `this.done` 是 `undefined` ✓ ⇒ 报 `cannot call a non-closure value` ✓。
+// **一句话听起来像调用写错了** ✗——与第 128 轮那条「全局名读成 `undefined`」**同一个症状** ✓。
+//
+// **不开这一格之后** ✓：内层箭头的 `Env.Resolve("this")` 自然走到**最近的那个普通函数**
+//（方法 ✓ / 构造函数 ✓ / 函数表达式 ✓）✓——那正是 JS 的口径 ✓，
+// 而深度那套东西**一行都不用改** ✓（`HasArrowFunction` 的说明里本来就写着那句话 ✓：
+// 「一个普通函数有它自己的 `this`，它里面的箭头归它管」✓）。
+//
+// **环境照旧要开** ✓（`hasNested` 那一档管着 ✓）：箭头层里面还有箭头 ⇒
+// `HasNestedFunction` 为真 ✓ ⇒ `EnvNew` 照发 ✓ ⇒ 链是连着的 ✓、深度也对得上 ✓。
+let needsThis = HasArrowFunction(body) && !this.InArrow;
 let hasNested = HasNestedFunction(body, 0);
 // **具名的函数 / 类表达式也要一层环境** ✗（第 332 轮 ✓）：
 // `const f = function self() { … self … }` 的 `self` 由 `EmitClosure` **单独开一层环境**装 ✓
@@ -1553,7 +1575,7 @@ for (let e = 0; e < extras.length; e++) {
   for (let i = 0; i < more.length; i++) {
     if (!Contains(captured, more[i])) captured.push(more[i]);
   }
-  if (HasArrowFunction(extras[e])) needsThis = true;
+  if (HasArrowFunction(extras[e]) && !this.InArrow) needsThis = true;
   if (HasNestedFunction(extras[e], 0)) hasNested = true;
   // **「额外那几段」也要问同一句** ✓（第 332 轮 ✓）：形参默认值与实例字段初始化式
   // 都跑在**这一帧**里 ✓（`extras` 那一段写着 ✓），所以那里面的具名表达式

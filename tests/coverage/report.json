@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1691,
+  "matrix": 1694,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.7,
+  "progressPercent": 96.12,
   "layers": [
     {
       "layer": "runtime",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 398,
-      "pass": 384,
-      "blocked": 9,
+      "total": 401,
+      "pass": 386,
+      "blocked": 10,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 96.48
+      "coverage": 96.26
     },
     {
       "layer": "stdlib",
@@ -74,11 +74,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 164,
-      "pass": 149,
-      "blocked": 11,
+      "pass": 153,
+      "blocked": 7,
       "differ": 4,
       "nodefail": 0,
-      "coverage": 90.85
+      "coverage": 93.29
     }
   ],
   "blocked": [
@@ -149,6 +149,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
     },
     {
+      "id": "c374-ex-throw-in-reentrant-callback",
+      "layer": "exec",
+      "title": "回调里**再进一次**原生回调并且抛出：异常要一路穿回最外层（**还没修**）",
+      "detail": "tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
       "id": "c371-stdlib-error-families-and-fields",
       "layer": "stdlib",
       "title": "Error 家族：name / message / instanceof / cause",
@@ -159,12 +165,6 @@
       "layer": "e2e",
       "title": "数独校验器：行 / 列 / 宫",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
-      "id": "c371-e2e-lru-with-ttl",
-      "layer": "e2e",
-      "title": "带 TTL 的 LRU 缓存（注入时钟）",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c371-e2e-observer-with-priority",
@@ -179,12 +179,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: parameter without a name"
     },
     {
-      "id": "c371-e2e-priority-scheduler",
-      "layer": "e2e",
-      "title": "任务调度器：优先级队列 + 依赖等待",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c371-e2e-coordinate-geometry",
       "layer": "e2e",
       "title": "二维几何：距离、点在多边形内、凸包",
@@ -197,22 +191,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression IntersectionType"
     },
     {
-      "id": "c371-e2e-object-pool",
-      "layer": "e2e",
-      "title": "对象池：借用、归还、上限与统计",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c371-e2e-multi-source-merge",
       "layer": "e2e",
       "title": "多来源合并：去重、优先级、冲突报告",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: priority"
-    },
-    {
-      "id": "c371-e2e-debounce-and-batch",
-      "layer": "e2e",
-      "title": "批处理调度：合并、去重、按序冲刷",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c371-e2e-permissions-matrix",

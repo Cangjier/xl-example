@@ -1159,14 +1159,10 @@ export const EXPECTATIONS = {
 
   // ---- **回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set(["build"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。
   "c371-e2e-plugin-registry": { expect: "differ", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
-  "c371-e2e-priority-scheduler": { expect: "blocked", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
 
   // ---- `encode` 里 `String(run)` 与 `charAt` 的分支被走成了布尔串（`truefalse…`）。
 
   // ---- 泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` 是 `undefined` ⇒ 调它报 non-closure（非泛型那一版是对的）。
-  "c371-e2e-lru-with-ttl": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
-  "c371-e2e-object-pool": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
-  "c371-e2e-debounce-and-batch": { expect: "blocked", why: "泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` " },
 
   // ---- **类成员位置的表达式语句**（字段上的对象类型标注里带方法签名那一格）⇒ `unimplemented: class member ExpressionStatement`。
   "c371-e2e-observer-with-priority": { expect: "blocked", why: "**类成员位置的表达式语句**（字段上的对象类型标注里带方法签名那一格）⇒ `unimplemented: class member ExpressionStatement`。" },
@@ -1189,4 +1185,5 @@ export const EXPECTATIONS = {
   "c371-e2e-string-search-index": { expect: "differ", why: "`Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。" },
 
   "c373-ex-compound-assign-logical-rhs": { expect: "differ", why: "复合赋值的右侧是 `||` 时**还是错的** ✗（`k += 0 || 5` 给 `-2` ✓，JS 给 `4` ✓）。**根子是既有的一条** ✓：`&&` / `||` 那一条规则（`LogicalOperator`）的位次**排在四则之前** ✓（`binary-operator.xl.md` 的 `IsOperand` 那一段自己记着这件事 ✓：`a && b + c` 也按 `(a && b) + c` 折 ✓）。第 373 轮把三元、`*=` / `-=` / `**=` 那些修好了 ✓（右操作数先折成一个单元 ✓），但 `||` 在那一刻**已经被逻辑规则折走了** ✓ ⇒ 标记运算符看到的左边是 `0` 而不是 `k + 0` ✓。**要修得把 `LogicalOperator` 挪到四则之后** ✓——那是另一次改动 ✓（会动到 `a && b + c` 这一族的形状 ✓）。" },
+  "c374-ex-throw-in-reentrant-callback": { expect: "blocked", why: "**异常从「重入的原生回调」那一层出来之后没有穿回最外层** ✗：最小反例 `function walk(n){ if (n === 0) throw new Error(\"bottom\"); return [n].map((x) => walk(n - 1))[0]; }` + `try { walk(3) } catch (e) { … }` ✓——Node 给 `A caught bottom` ✓，本仓报 `cannot read properties of undefined` ✓（**连 `try` 都没接住** ✓）。**边界**：回调里**只**抛错（不递归）是好的 ✓（`[1].map(() => { throw new Error(\"x\") })` 四条都接住了 ✓）；纯递归抛错也是好的 ✓——**只有「脚本 → 原生 → 脚本 → 原生」这条链** ✗。根子还没量（下一轮从这里查 ✓：异常从 `CallNative` 重入那一层出来时的收口 ✓）。" },
 };

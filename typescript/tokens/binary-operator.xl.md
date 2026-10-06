@@ -716,6 +716,48 @@ if (outsideName === "Keyword") {
     return false;
   }
 }
+// **`new Foo<T>(a, b)` 的括号是实参表** ✓（第 374 轮 ✓）——
+// 判据：括号前面那一格是**类型实参段**（`GenericType` ✓）、而它左边（同一层往前 ✓）
+// 一路跨过类型名（`Foo` ✓ / `.` ✓ / `a.b.C` 那几格 ✓）之后是 **`new` 这个词** ✓。
+//
+// **少了这一条会怎样** ✗：`new Q<number>(1, 2, 3)` 的顶层逗号被折成**一个逗号表达式** ✗
+//（插桩实测：`DBG comma-expr true: outside=GenericType owner=Root` ✓；
+//  投影出来的产物是「`NewExpression` 只有一个实参，内容是 `((1, 2), 3)`」✓）
+// ⇒ 构造函数**只收到一个实参**（那三个数合起来的值 ✓）⇒ 形参整体错位 ✓——
+// **静默错值** ✓，判据 `c371-e2e-lru-with-ttl` / `c371-e2e-object-pool` /
+// `c371-e2e-debounce-and-batch` / `c371-e2e-rate-limiting-window` 四条都是它 ✓
+//（它们都是「泛型类 + 参数属性 + 函数类型形参」，第 371 轮记成 #20 ✓——
+//  **真正的根子在这里** ✓，不在参数属性那一支 ✗）。
+//
+// **为什么泛型调用没这个毛病** ✗：`f<number>(1, 2)` 那一刻外面已经是一个 `Method` ✓
+//（实参表归它管 ✓，上面那条 `Method` 判据接住了 ✓），而 `new` 这一支在**实例化之前**
+// 还没有那层容器 ✓——所以只有 `new` 需要这一条 ✓。实测（第 374 轮）：
+// 泛型函数调用 ✓、泛型方法调用 ✓、不带类型实参的 `new` ✓ 全都对 ✓，只有 `new X<T>(…)` ✗。
+if (outsideName === "GenericType") {
+  const typeOwner = openBracket.Parent;
+  if (typeOwner !== null) {
+    let at = typeOwner.Data.indexOf(openBracket) - 1;
+    // **`new` 必须在跨类型名之前认** ✗（第一版写反了 ✓，实测没生效 ✓）：
+    // `new` 本身也是一个 `Identifier`（升级之后是 `Keyword` ✓）✓，
+    // 先按「类型名那一格」把它跨过去的话，它永远也认不到 ✓
+    //（插桩症状：判据走到了 ✓、`IsWordUnit` 那一句拿到的却是再往前那一格 ✗）。
+    while (at > 0) {
+      const before = typeOwner.Data[at - 1];
+      if (IsWordUnit(before, "new")) {
+        return false;
+      }
+      const beforeName = before === null ? "" : before.constructor.name;
+      if (before instanceof Identifier
+        || beforeName === "GenericType"
+        || beforeName === "PropertyAccess"
+        || (before instanceof SymbolToken && before.Is("."))) {
+        at = at - 1;
+        continue;
+      }
+      break;
+    }
+  }
+}
 return true;
 ```
 

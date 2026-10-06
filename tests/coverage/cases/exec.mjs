@@ -4329,5 +4329,25 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "id": "c373-ex-compound-assign-logical-rhs",
     "title": "复合赋值的右侧是 `||`：逻辑规则位次造成的优先级（**还没修**）",
     "src": "// a += b || c 在 JS 里是 a += (b || c)。\n// 这一条**还没修**：&& / || 那一条规则的位次**排在四则之前**（历史位次），\n// 于是它先把 || 折了，而这时左边那一格还不是「整个 a + b」。\nconst flag = false;\nlet k = -1; k += 0 || 5; console.log(\"A\", k);\nlet m = 10; m += 0 || 5; console.log(\"B\", m);\nconsole.log(\"C\", flag || \"x\");"
+  },
+
+  // ===== 第 374 轮：给修好的形状补的判据（3 条）=====
+  {
+    "id": "c374-ex-generic-new-arguments",
+    "title": "带类型实参的 `new`：实参表按顶层逗号切段（不是逗号表达式）",
+    "src": "// new Foo<T>(a, b, c) 里那个括号是**实参表**——里面的逗号是分隔符。\nclass Pair<T> {\n  constructor(public first: T, public second: T) {}\n}\nconst p = new Pair<number>(1, 2);\nconsole.log(\"A\", p.first, p.second, Object.keys(p).join(\",\"));\nclass Triple<T> {\n  constructor(public a: number, public b: number, public c: number) {}\n}\nconst t = new Triple<string>(3, 4, 5);\nconsole.log(\"B\", t.a, t.b, t.c);\nclass Var<T, U> {\n  constructor(public x: number, public y: number, public z: number) {}\n}\nconst v = new Var<string, boolean>(6, 7, 8);\nconsole.log(\"C\", v.x, v.y, v.z);\nnamespace NS { export class Deep<T> { constructor(public n: number, public m: number) {} } }\nconst d = new NS.Deep<number>(9, 10);\nconsole.log(\"D\", d.n, d.m);\nconst nested = new Pair<Pair<number>>(new Pair<number>(1, 2), new Pair<number>(3, 4));\nconsole.log(\"F\", nested.first.second, nested.second.first);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c374-ex-nested-arrow-this",
+    "title": "两层箭头里的 `this`：箭头自己不开格，取最近那个普通函数",
+    "src": "// 箭头**没有自己的接收者**——它的 this 是造它那一刻外层的，\n// 而「外层」要一路走到**最近的那个普通函数 / 方法 / 构造函数**。\ntype Job = { name: string; deps: string[] };\nclass Board {\n  done = new Set<string>([\"build\"]);\n  jobs(): Job[] { return [{ name: \"a\", deps: [\"build\"] }, { name: \"b\", deps: [\"x\"] }]; }\n  ready(): Job[] { return this.jobs().filter((j) => j.deps.every((d) => this.done.has(d))); }\n  names(): string[] { return this.jobs().filter((j) => j.deps.some((d) => this.done.has(d))).map((j) => j.name); }\n}\nconst b = new Board();\nconsole.log(\"A\", b.ready().length, b.names().join(\",\"));\n\nclass Level2 {\n  factor = 10;\n  apply(xs: number[]): number[] { return xs.map((x) => xs.map((y) => x + y + this.factor)[0]); }\n}\nconsole.log(\"B\", new Level2().apply([1, 2]).join(\",\"));\n\nclass FieldArrow {\n  factor = 5;\n  f = (xs: number[]): number => xs.filter((x) => x > this.factor).length;\n}\nconsole.log(\"C\", new FieldArrow().f([1, 6, 9]));\n\nclass ThreeDeep {\n  base = 1;\n  run(): number { return [[2]].map((outer) => outer.map((n) => [n].map((m) => m + this.base)[0])[0])[0]; }\n}\nconsole.log(\"D\", new ThreeDeep().run());\n\nfunction outerFn(this: any): number {\n  return [1].map(() => [2].map(() => this.tag)[0])[0];\n}\nconsole.log(\"E\", outerFn.call({ tag: \"t\" }));"
+  },
+  {
+    "id": "c374-ex-throw-in-reentrant-callback",
+    "title": "回调里**再进一次**原生回调并且抛出：异常要一路穿回最外层（**还没修**）",
+    "src": "// f 在 .map 的回调里**递归**，而递归那一层又进了一次 .map——\n// 也就是「脚本 → 原生 → 脚本 → 原生」这条链。\n// 这一条**还没修**：异常从重入那一层出来之后没有穿回最外层的 try。\nfunction walk(n: number): number {\n  if (n === 0) throw new Error(\"bottom\");\n  return [n].map((x) => walk(n - 1))[0];\n}\ntry { walk(3); console.log(\"no throw\"); } catch (e) { console.log(\"A caught\", (e as Error).message); }\nfunction plain(n: number): number { if (n === 0) throw new Error(\"plain-bottom\"); return plain(n - 1); }\ntry { plain(3); } catch (e) { console.log(\"B caught\", (e as Error).message); }\nconsole.log(\"done\");"
   }
 ];
