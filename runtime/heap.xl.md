@@ -949,6 +949,25 @@ return 0;
 
 原型对象的句柄（`0` 表示没有原型）。原型链查找是 `rt_get_prop` 的活，这里只存。
 
+## field Extensible:bool = true
+
+**这个对象还可不可以长出新属性** ✓（第 333 轮 ✓）——`Object.seal` / `Object.freeze` /
+`Object.preventExtensions` 三件事的**共同那一半** ✓。
+
+**为什么它必须住在这一层** ✗（这一轮实测撞到的 ✓）：`SetPropertySearched`
+（`props.xl.md` ✓）在「没找到 ⇒ 在接收者上新造一格」那一步要问它 ✓，
+而**语言层那一份标记**（`globals.xl.md` 的 `SealedMarkName` ✓ 一个隐藏属性 ✓）
+**它读不到** ✗——依赖方向是「语言层认识运行时」✓，反过来成环 ✗。
+
+**为什么不能省** ✗：少了这一问，`const o = Object.freeze({a: 1}); o.b = 3`
+会**真的造出 `b`** ✓——于是 `Object.isFrozen(o)` 从**真**变成**假** ✗
+（新造的那一格是「可写 + 可配置」✓），而**用户看到的因果是反的** ✗：
+先冻结、再赋值一次，冻结就没了 ✓（判据 `object-freeze` 现场量的就是这一条 ✓：
+Node 给 `1 undefined true false` ✓，本仓给 `1 3 false false` ✓——**三个都歪** ✗）。
+
+**默认是真** ✓（新造的对象都可扩展 ✓，与 JS 一致 ✓）；
+**只追加字段** ✓（线形态与回收器都不受影响 ✓——它不指向任何堆格子 ✓）。
+
 ## field Props:Array<Property> = []
 
 自有属性表。v1 是线性数组；超过阈值转哈希索引是**这一层**的事（存储优化），

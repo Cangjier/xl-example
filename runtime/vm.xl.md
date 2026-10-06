@@ -2468,16 +2468,29 @@ if (id === RtOp.GetPropFrom) {
 }
 if (id === RtOp.SetProp) {
   RequireArgc(argc, 3, "set_prop");
-  return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table, slots[base], slots[base + 1], slots[base + 2]));
+  // **非严格模式：写不下去也一声不响** ✗（第 333 轮 ✓）——
+  // `SetProperty` 交回的是「写没写下去」✓，而**赋值语句不看它** ✓
+  //（`o.x = 1` 在冻结的对象上什么都不做 ✓，Node 也是这样 ✓；理由写在 `props.xl.md` ✓）。
+  // **表达式本身的值照旧是右边那个** ✓：`y = (o.x = 5)` 给 `5` ✓（JS 的口径 ✓）。
+  return this.Guard(() => {
+    SetProperty(this.Room(), this.Native(), this.Table, slots[base], slots[base + 1], slots[base + 2]);
+    return slots[base + 2];
+  });
 }
 if (id === RtOp.SetPropFrom) {
   // **从指定的原型起写**（第 326 轮 ✓）：四格 = 起点 / 键 / 值 / 接收者 ✓——
   // `super.x = v` 那一格要的正是它 ✓（理由见 `props.xl.md` 的 `SetPropertyFrom` ✓）。
   // **失败类别与 `set_prop` 同一档** ✓（`ErrorKindType` ✓）：它们失败的原因是同一族
   //（不可写 ✓ / 访问器没有 setter ✓ / 接收者不是对象 ✓）——分两档就是在两处猜「这算哪种错」✗。
+  // **第 333 轮起「写不下去」不再是抛** ✗（见上面 `set_prop` 那一段 ✓）：`super.x = v`
+  // 与非严格赋值是同一条语义 ✓（JS 里 `super.x = v` 也是「`[[Set]]` 返假就拉倒」✓），
+  // 所以这里同样只看副作用、把右边那个值交出去 ✓。
   RequireArgc(argc, 4, "set_prop_from");
-  return this.Guard(() => SetPropertyFrom(this.Room(), this.Native(), this.Table,
-    slots[base], slots[base + 1], slots[base + 2], slots[base + 3]), ErrorKindType);
+  return this.Guard(() => {
+    SetPropertyFrom(this.Room(), this.Native(), this.Table,
+      slots[base], slots[base + 1], slots[base + 2], slots[base + 3]);
+    return slots[base + 3];
+  });
 }
 if (id === RtOp.SetProto) {
   RequireArgc(argc, 2, "set_proto");
@@ -2577,16 +2590,21 @@ if (id === RtOp.SetIndex) {
     // `props.SetProperty` 认得 `length` 那一格（截断）✓，与 `arr.length = 2` 同一条 ✓。
     const arraySetProtoTable = this.Protos;
     if (arraySetProtoTable === null) throw new Error("no prototype table");
-    return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table,
-      indexTarget, setKeyText, setValue));
+    // **非严格：写不下去也一声不响** ✗（第 333 轮 ✓，与 `set_prop` 那一段同一条 ✓）。
+    return this.Guard(() => {
+      SetProperty(this.Room(), this.Native(), this.Table, indexTarget, setKeyText, setValue);
+      return setValue;
+    });
   }
   if (!indexTarget.IsObject()) {
     throw new Error("unimplemented: assigning an index on a primitive receiver");
   }
   const setProtoTable = this.Protos;
   if (setProtoTable === null) throw new Error("no prototype table");
-  return this.Guard(() => SetProperty(this.Room(), this.Native(), this.Table,
-    indexTarget, setKeyText, setValue));
+  return this.Guard(() => {
+    SetProperty(this.Room(), this.Native(), this.Table, indexTarget, setKeyText, setValue);
+    return setValue;
+  });
 }
 if (id === RtOp.NewObject) {
   RequireArgc(argc, 0, "new_object");

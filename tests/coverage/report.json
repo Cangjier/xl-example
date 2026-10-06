@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.28,
+  "progressPercent": 97.52,
   "layers": [
     {
       "layer": "runtime",
@@ -49,21 +49,21 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 316,
-      "pass": 309,
+      "pass": 310,
       "blocked": 6,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 97.78
+      "coverage": 98.1
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 518,
-      "pass": 500,
-      "blocked": 7,
-      "differ": 11,
+      "pass": 503,
+      "blocked": 6,
+      "differ": 9,
       "nodefail": 0,
-      "coverage": 96.53
+      "coverage": 97.1
     },
     {
       "layer": "e2e",
@@ -186,12 +186,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ArrayBindingPattern has no text"
     },
     {
-      "id": "object-freeze",
-      "layer": "stdlib",
-      "title": "Object.freeze / isFrozen：属性写不动、加不上",
-      "detail": "tsrun: 脚本抛出：unimplemented: this should throw a TypeError (read-only property)"
-    },
-    {
       "id": "string-raw-and-tagged",
       "layer": "stdlib",
       "title": "String.raw 作为标签 + 普通调用两种形态",
@@ -278,18 +272,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: generator return() needs the finally chain (a lowering"
     },
     {
-      "id": "ex-getter-setter-class",
-      "layer": "exec",
-      "title": "类里的访问器 + 继承的访问器",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: this should throw a TypeError (accessor without a setter)"
-    },
-    {
-      "id": "object-freeze-array-element",
-      "layer": "stdlib",
-      "title": "Object.freeze 的**数组元素**：push 在严格模式里该抛",
-      "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 2»"
-    },
-    {
       "id": "symbol-hasinstance",
       "layer": "stdlib",
       "title": "Symbol.hasInstance：自定义 instanceof",
@@ -338,12 +320,6 @@
       "detail": "stdout 不同：第 1 行：node «C!,1 C!» vs tsrun «[object Object],1 [object Object]»"
     },
     {
-      "id": "c305-std-array-length-nonwritable",
-      "layer": "stdlib",
-      "title": "把数组 `length` 设成不可写之后 `push`",
-      "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 3»"
-    },
-    {
       "id": "c323-std-array-fromasync",
       "layer": "stdlib",
       "title": "Array.fromAsync：异步可迭代对象收成数组",
@@ -354,24 +330,20 @@
   "moved": [],
   "newlyPassing": [
     {
-      "id": "c304-ex-nonnull-in-optional-chain",
+      "id": "ex-getter-setter-class",
       "layer": "exec"
     },
     {
-      "id": "c305-ex-optional-chain-nonnull-mix",
-      "layer": "exec"
+      "id": "object-freeze",
+      "layer": "stdlib"
     },
     {
-      "id": "c323-ex-nonnull-in-chains",
-      "layer": "exec"
+      "id": "object-freeze-array-element",
+      "layer": "stdlib"
     },
     {
-      "id": "c330-ex-nonnull-assertion-forms",
-      "layer": "exec"
-    },
-    {
-      "id": "c331-ex-nonnull-and-optional-mix",
-      "layer": "exec"
+      "id": "c305-std-array-length-nonwritable",
+      "layer": "stdlib"
     }
   ],
   "regressions": []

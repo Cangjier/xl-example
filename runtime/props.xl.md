@@ -644,9 +644,20 @@ if (property.Kind === PropertyKind.Accessor) {
 return property.Value;
 ```
 
-# method SetProperty:(room:RoomChecker, call:NativeCall, table:HeapTable, receiver:Value, key:Value, value:Value)=>Value
+# method SetProperty:(room:RoomChecker, call:NativeCall, table:HeapTable, receiver:Value, key:Value, value:Value)=>bool
 
-写属性，返回写进去的值（赋值表达式的值就是它）。
+写属性。**返回的是「写下去了没有」** ✓（第 333 轮 ✓）——**不再是那个值** ✗。
+
+**为什么要把这一格交出来** ✗（这一轮实测撞到的 ✓）：JS 的 `[[Set]]` 本来就是**一个布尔** ✓，
+而**赋值语句与非严格模式**对它的处理是「**不看**」✓——`o.x = 1` 在不可写的属性上
+**一声不响什么都没做** ✓。本仓原来把它写成**抛** ✗ ⇒ 同一个脚本在 Node 里是好的、
+在这里报 `this should throw a TypeError (read-only property)` ✓（判据 `object-freeze` ✓）。
+
+**那为什么还要把布尔交出来** ✓：有一整族**内建方法**要**看得见**这个结果 ✓——
+`Array.prototype.push` 在冻结的数组上**必须抛 `TypeError`** ✓（JS 的口径 ✓：那是
+`CreateDataPropertyOrThrow` 那一类 ✓，与赋值语句**不是一回事** ✗）。所以：
+**引擎说「写没写下去」✓，谁去在乎由调用方决定** ✓——
+赋值那三条 rt 算子不看 ✓（非严格 ✓）、`push` 那些看 ✓（判据 `object-freeze-array-element` ✓）。
 
 **它是 `SetPropertySearched` 的「从头找」那一档** ✓（第 326 轮抽出来 ✓）：
 查找起点**就是接收者自己** ✓——`super.x = v` 要的是「起点另给一个、接收者照旧」✓，
@@ -656,7 +667,7 @@ return property.Value;
 return SetPropertySearched(room, call, table, receiver.Ref, key, value, receiver);
 ```
 
-# method SetPropertyFrom:(room:RoomChecker, call:NativeCall, table:HeapTable, start:Value, key:Value, value:Value, receiver:Value)=>Value
+# method SetPropertyFrom:(room:RoomChecker, call:NativeCall, table:HeapTable, start:Value, key:Value, value:Value, receiver:Value)=>bool
 
 **从 `start` 起沿原型链找那一格，但写下去的接收者是 `receiver`**（第 326 轮 ✓）——
 `super.x = v` 那一格要的正是它 ✓（与读那一半的 `GetPropertyFrom` **对称** ✓）。
@@ -673,7 +684,7 @@ const searchRef = start.IsObject() ? start.Ref : -1;
 return SetPropertySearched(room, call, table, searchRef, key, value, receiver);
 ```
 
-# method SetPropertySearched:(room:RoomChecker, call:NativeCall, table:HeapTable, searchRef:int, key:Value, value:Value, receiver:Value)=>Value
+# method SetPropertySearched:(room:RoomChecker, call:NativeCall, table:HeapTable, searchRef:int, key:Value, value:Value, receiver:Value)=>bool
 
 **写属性那一套规矩本身**（第 326 轮从 `SetProperty` 里抽出来 ✓）——`searchRef` 是
 **查找起点**（`< 0` 表示「不找」✓），接收者永远是 `receiver` ✓。
@@ -684,7 +695,7 @@ return SetPropertySearched(room, call, table, searchRef, key, value, receiver);
    字符串的 `length` 只读 → 抛（缺口 2）；
 2. **访问器**：**调它的 setter**（`this` 是接收者）——注意这一条在「自有还是继承」之前：
    继承来的 setter 也要调，**不是**在接收者上遮蔽一格；
-3. **自有数据属性**：写它那一格；不可写 → 抛（缺口 2）；
+3. **自有数据属性**：写它那一格；不可写 → **返回假**（第 333 轮 ✓，见 `SetProperty` 那一段 ✓）；
 4. **没找到，或者只在原型链上找到数据属性**：**在接收者上新建一个自有属性**。
 
 第 4 条里「只在原型链上找到」那一半容易写错，值得写清楚：JS 的 `[[Set]]` 遇到**继承来的
@@ -697,7 +708,7 @@ if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
   if (!value.IsNumber()) throw new Error("unimplemented: array length must be a number");
   table.Get(receiver.Ref).AsArray().Truncate(value.AsInt());
   table.Recount(receiver.Ref);
-  return value;
+  return true;
 }
 // **`length` 只有在数组上才是那一格特殊的**（第 182 轮修 ✓）：原来这里对**任何**接收者
 // 都抛「只读的 length」✗——于是 **`{ length: 3 }` 这种字面量根本造不出来** ✗
@@ -714,26 +725,41 @@ const found = searchRef < 0 ? null : FindProperty(room, table, searchRef, key);
 if (found !== null) {
   const property = table.Get(found.Owner).Props[found.Index];
   if (property.Kind === PropertyKind.Accessor) {
+    // **访问器没有 setter ⇒ 什么都没做** ✗（第 333 轮 ✓）：JS 的 `[[Set]]` 在这里返回**假** ✓，
+    // 而赋值语句（非严格）**不看**它 ✓ ⇒ `o.x = 1` 一声不响 ✓。
+    // 原来这里**抛** ✗ ⇒ `ex-getter-setter-class` 在 Node 里是好的、在这里报
+    // `this should throw a TypeError (accessor without a setter)` ✓（**同一句话两种结局** ✓）。
+    // **严格模式要抛** ✗——那是另一档（本仓选定非严格 ✓，与 `this` 那一条是同一条设计决定 ✓）：
+    // 谁需要「抛」谁自己看返回值 ✓（`push` 那一族 ✓，见 `SetProperty` 那一段 ✓）。
     if (!property.Setter.IsCallable()) {
-      throw new Error("unimplemented: this should throw a TypeError (accessor without a setter)");
+      return false;
     }
     call(property.Setter, receiver, [value]);
-    return value;
+    return true;
   }
+  // **不可写的数据属性 ⇒ 什么都没做** ✗（同上 ✓）：判据 `object-freeze` 量的就是它 ✓
+  //（`Object.freeze(o)` 之后 `o.x = 9` 在 Node 里**静默** ✓、`o.x` 还是原值 ✓）。
   if ((property.Flags & PropertyFlagWritable) === 0) {
-    throw new Error("unimplemented: this should throw a TypeError (read-only property)");
+    return false;
   }
   if (found.Owner === receiver.Ref) {
     property.Value = value;
-    return value;
+    return true;
   }
 }
 if (!room(PropertyCharge)) {
   throw new Error("out of room");
 }
+// **不可扩展的对象长不出新属性** ✗（第 333 轮 ✓）：JS 的 `[[Set]]` 走到最后一步之前
+// 要问一句 `[[IsExtensible]]` ✓，答假就**返回假** ✓（不是抛 ✗——非严格赋值不看它 ✓）。
+// **少了这一问的后果是「冻结会自己消失」** ✗（`heap.xl.md` 的 `Extensible` 那一段
+// 写着现场 ✓：`Object.freeze(o); o.b = 3` 之后 `Object.isFrozen(o)` 从真变假 ✓）。
+if (!table.Get(receiver.Ref).Extensible) {
+  return false;
+}
 table.Get(receiver.Ref).Props.push(new Property(key.Ref, value));
 table.Recount(receiver.Ref);
-return value;
+return true;
 ```
 
 # method DeleteProperty:(table:HeapTable, receiver:int, key:Value)=>bool

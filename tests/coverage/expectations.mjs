@@ -134,7 +134,7 @@ export const EXPECTATIONS = {
   //   要不要做严格 / 非严格模式是**一条设计决定** ✓（判据所在的 `.ts` 文件在 Node 那边
   //   是按 CommonJS 跑的 ✓、也就是**非严格** ✓），而本仓今天只有「响亮地抛」那一档 ✓。
   //   **所以它记成 `differ`** ✓（口径分歧 ✓），与 `object-freeze` 同一类 ✓。
-  "ex-getter-setter-class": { expect: "differ", why: "`super.v` 已修（`b.v` 给 `2`）；剩下的是「只读访问器上赋值」——本仓一律抛，而 Node 在非严格模式下静默失败（与 `object-freeze` 同一个根：严格/非严格模式是一条设计决定）" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
   // **第 234 轮删掉了 `ex-labeled-block` 那一行** ✓（它过了 ✓）：
   // 根子是「**标签只挂循环与 `switch`**」✗（`PendingLabel` 由 `EnterLoop` 消费 ✓），
   // 而 `outer: { … }` 里**没有任何东西会来消费那个标签** ✓——于是原来那句
@@ -160,8 +160,8 @@ export const EXPECTATIONS = {
   // **不经过这一句** ✓，所以剥掉它们的信息不丢 ✓。
   // **剥掉是对的** ✗：三元 / 二元 / 一元**操作数**位置上的 `...` 在 JS 里本来就是语法错误 ✓，
   // 它能出现在那里只是因为外面的数组字面量已经认过它了 ✓。
-  "object-freeze": { expect: "blocked", why: "**口径分歧**：本仓对只读属性**抛**（严格模式），node 把 `.ts` 当 CJS 跑是**松散模式**静默失败" },
-  "object-freeze-array-element": { expect: "differ", why: "**静默错值**：冻住的数组还能 `push`（要动引擎的写屏障）" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
   // **第 273 轮把这个 blocked 那一行删掉了** ✓（这两条一直是过的 ✓，判据每轮都提示
   // `NEWLY-PASSING` ✓）：`object-tostring-tag` 与 `symbol-tostringtag` 是第 229 轮修好的 ✓
   //（`Object.prototype.toString` 先问 `Symbol.toStringTag` ✓），台账那一行忘了删 ✗。
@@ -735,7 +735,7 @@ export const EXPECTATIONS = {
   // **`c305-std-object-getownpropertydescriptors-all` 第 324 轮也过了** ✓（同一处修 ✓）：
   // 这一条比第 323 轮新收的那一条**更宽** ✓——它考的是「**复数拿全表、且与单数逐格一致**」✓
   // （`enumerable` / `configurable` / 访问器那一格都在里面 ✓）。
-  "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
   // **`c305-e2e-lru-cache` 第 331 轮过了** ✓（那一行撤了 ✓）：`map.keys().next()` ✓——
   // 根子**不是**「私有字段里取出来的数组没有它」✗（第 305 轮猜的那一句 ✓），
   // 而是**这一族根本没接线** ✓：`Array.prototype` 的 `keys` / `values` / `entries`

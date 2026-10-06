@@ -255,8 +255,10 @@ import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 
 **键那一趟也复用** ✓：自有**字符串键**与自有**符号键**各走现成的那两支 ✓
 （`getOwnPropertyNames` ✓ / `getOwnPropertySymbols` ✓，第 214 / 288 轮 ✓）——
-于是「整数键在前 ✓、`length` 在不在里面 ✓、`__sealed` 那个内部标记不算 ✓」
+于是「整数键在前 ✓、`length` 在不在里面 ✓」
 这些**已经定过的口径**不必再想一遍 ✓。
+（第 333 轮起第三样没了 ✓：那个 `__sealed` 内部标记属性搬去了堆上的一格布尔 ✓
+——`heap.xl.md` 的 `Extensible` ✓，它本来就不该是一个属性 ✓。）
 
 # const ObjectDefineProperties:int = 413
 **`Object.defineProperties(对象, 描述符表)`**（第 276 轮 ✓）——一趟写多格 ✓。
@@ -3034,9 +3036,8 @@ if (id === ObjectGetOwnPropertyDescriptor) {
     return Value.Undefined();
   }
   const ownProperty = table.Get(receiver.Ref).Props[ownFound.Index];
-  // **内部标记不算自有属性** ✓（第 276 轮 ✓）：`Object.getOwnPropertyDescriptor(o, "__sealed")`
-  // 该给 `undefined` ✓——它是实现细节 ✓，不该被描述符接口看见 ✓（见那个方法的说明 ✓）。
-  if (IsSealedMarkProperty(table, ownProperty)) return Value.Undefined();
+  // **第 333 轮起没有那个内部标记属性了** ✓（`heap.xl.md` 的 `Extensible` ✓）——
+  // 「把它滤掉」那一套（名字 ✓ / 判据 ✓ / 五处 `continue` ✓）连同它一起删了 ✓。
   // **访问器那一格给 `get` / `set` 两格** ✓（第 304 轮修的 ✗）——第 276 轮这里**响亮地抛** ✓，
   // 理由是「这一层还没有那两格的门」✓；**量了一下：门早就在** ✗——
   // 访问器就住在 `Property.Getter` / `Property.Setter` 上 ✓（`heap.xl.md` ✓），
@@ -3180,11 +3181,11 @@ if (id === ObjectIsSealed || id === ObjectIsFrozen) {
     // `Object.isSealed` 答**真** ✗（JS 答**假** ✓——那一格还是可配置的 ✓）。
     // 标记这一半是**必要的** ✓（空对象上「每格都不可配置」**真空成立** ✓，
     // 少了它 `Object.isSealed({})` 会答真 ✗），但**不是充分的** ✗——两件事都要问 ✓。
-    // **内部标记不算自有属性** ✓（与 `isFrozen` 那一支同一条 ✓：它自己就是可写的 ✓）。
     const sealedTarget = table.Get(args[0].Ref);
     for (let i = 0; i < sealedTarget.Props.length; i++) {
       const sealedProperty = sealedTarget.Props[i];
-      if (IsSealedMarkProperty(table, sealedProperty)) continue;
+  // **第 333 轮起没有那个内部标记属性了** ✓（`heap.xl.md` 的 `Extensible` ✓）——
+  // 「把它滤掉」那一套（名字 ✓ / 判据 ✓ / 五处 `continue` ✓）连同它一起删了 ✓。
       if ((sealedProperty.Flags & PropertyFlagConfigurable) !== 0) return Value.FromBool(false);
     }
     return Value.FromBool(true);
@@ -3195,9 +3196,9 @@ if (id === ObjectIsSealed || id === ObjectIsFrozen) {
   for (let i = 0; i < frozenTarget.Props.length; i++) {
     const property = frozenTarget.Props[i];
     if (property.Kind === PropertyKind.Accessor) continue;
-    // **内部标记不算自有属性** ✓（第 276 轮实测踩到 ✓：它自己就是**可写**的 ✓，
     // 不跳过这一格，`Object.isFrozen(Object.freeze({y: 1}))` 会答**假** ✗）。
-    if (IsSealedMarkProperty(table, property)) continue;
+  // **第 333 轮起没有那个内部标记属性了** ✓（`heap.xl.md` 的 `Extensible` ✓）——
+  // 「把它滤掉」那一套（名字 ✓ / 判据 ✓ / 五处 `continue` ✓）连同它一起删了 ✓。
     if ((property.Flags & PropertyFlagWritable) !== 0) return Value.FromBool(false);
   }
   return Value.FromBool(true);
@@ -3407,11 +3408,10 @@ if (id === ObjectGetOwnPropertyNames) {
   if (nameItem !== null) {
     for (let i = 0; i < nameItem.Props.length; i++) {
       if (table.Get(nameItem.Props[i].Key).Tag !== ValueTag.String) continue;
-      // **内部标记不算自有属性** ✓（第 276 轮 ✓）：它挂在**不可枚举**那一档上 ✓，
       // 而这一支的判据恰恰是「**不管 `enumerable`**」✗——所以它会漏出来 ✓
-      //（实测：`Object.getOwnPropertyNames(Object.seal({x: 1}))` 给 `["x","__sealed"]` ✗，
       //  JS 给 `["x"]` ✓）。**这一句是这一支与 `Object.keys` 唯一的差别多出来的一行** ✓。
-      if (IsSealedMarkProperty(table, nameItem.Props[i])) continue;
+  // **第 333 轮起没有那个内部标记属性了** ✓（`heap.xl.md` 的 `Extensible` ✓）——
+  // 「把它滤掉」那一套（名字 ✓ / 判据 ✓ / 五处 `continue` ✓）连同它一起删了 ✓。
       const text = TextFrom(table, Value.FromString(nameItem.Props[i].Key));
       if (IsIndexKeyText(text)) {
         let coveredName = false;
@@ -3449,7 +3449,6 @@ if (id === ObjectGetOwnPropertyNames) {
 }
 if (id === ObjectGetOwnPropertySymbols) {
   // **`Object.getOwnPropertySymbols(o)`** ✓（第 288 轮 ✓）——`getOwnPropertyNames` 的**镜像** ✓：
-  // 同一趟扫描 ✓、同一处「**内部标记不算自有属性**」的过滤 ✓（第 276 轮那条 ✓），
   // **只把「键是不是字符串」翻成「键是不是符号」** ✓。
   //
   // **次序照属性表的次序** ✓：符号键**不参与**「整数键优先」那一套 ✗
@@ -3474,7 +3473,8 @@ if (id === ObjectGetOwnPropertySymbols) {
       // 或 `HeapSymbol` ✓，**看那一格的 `Tag`** ✓（与 `getOwnPropertyNames` 那边
       // 判「是不是字符串」用的是同一句 ✓，只翻了个方向 ✓）。
       if (table.Get(symbolsItem.Props[i].Key).Tag !== ValueTag.Symbol) continue;
-      if (IsSealedMarkProperty(table, symbolsItem.Props[i])) continue;
+  // **第 333 轮起没有那个内部标记属性了** ✓（`heap.xl.md` 的 `Extensible` ✓）——
+  // 「把它滤掉」那一套（名字 ✓ / 判据 ✓ / 五处 `continue` ✓）连同它一起删了 ✓。
       ownSymbols.push(Value.FromRef(ValueTag.Symbol, symbolsItem.Props[i].Key));
     }
   }
@@ -3843,7 +3843,6 @@ if (id === DateSetUTCFullYear || id === DateSetUTCMonth || id === DateSetUTCDate
   } else {
     if (args.length > 0) millis = ArgOr(args, 0, millis);
   }
-  // **月份与日子越界由 `DateMakeMs` 自己接住** ✓（见那个方法的说明 ✓）——
   // `setUTCMonth(13)` 于是给下一年的二月 ✓（JS 的口径 ✓），这里**不规整** ✗。
   const nextMs = DateMakeMs(year, month, day, hours, minutes, seconds, millis);
   // **改的是那个实例本身** ✓（JS 的 setter 是就地改 ✓）——所以写回 `__t` ✓。
@@ -3948,44 +3947,34 @@ return created;
 return NewErrorLike(room, table, protos, protos.Error, "Error", message);
 ```
 
-# method SealedMarkName:()=>string
-
-**「这个对象不可扩展」那个标记的名字**（第 276 轮 ✓）——`seal` / `freeze` 写它 ✓、
-`isSealed` / `isFrozen` 读它 ✓，所以**收成一个方法** ✗（同一个字符串写四遍就是四处会漂的答案 ✓）。
-
-**为什么带两个下划线** ✓：与 `__k` / `__v` / `__b` 那几格同一族 ✓——它们都是「**内部格**」✓，
-`Object.keys` 看不见 ✓（`SetHiddenProperty` 写的是不可枚举 ✓）。
-
-```ts
-return "__sealed";
-```
-
 # method MarkUnextensible:(room:RoomChecker, table:HeapTable, target:Value)=>void
 
-**给一个对象打上「不可扩展」的标记**（第 276 轮 ✓）——`seal` 与 `freeze` 都调它 ✓。
+**给一个对象打上「不可扩展」的标记**（第 276 轮 ✓）——`seal` / `freeze` / `preventExtensions`
+三处都调它 ✓。
 
-**重复调用是幂等的** ✓：先问一句「已经有了吗」✓——少了这一问，`seal` 之后再 `seal`
-会在属性表里**再堆一格** ✗（`Object.getOwnPropertyNames` 于是越数越多 ✓）。
+**第 333 轮起它写的是堆上那一格** ✗（`heap.xl.md` 的 `HeapObject.Extensible` ✓）：
+原来是**往属性表里塞一个隐藏属性**（`__sealed` ✓）✓——那样**运行时读不到它** ✗，
+而 `SetPropertySearched`（`props.xl.md` ✓）在「没找到 ⇒ 新造一格」那一步**必须**问这一句 ✓
+（依赖方向是「语言层认识运行时」✓，反过来成环 ✗）。
+**顺着这个改动，`SealedMarkName` 与 `IsSealedMarkProperty` 两格连同五处「把它滤掉」都没了** ✓
+——那一整套（名字 ✓ / 判据 ✓ / 五个 `continue` ✓）本来就是**为了绕开「它是个真属性」** ✓，
+现在没有那个属性了 ✓，所以**不是删了功能，是删了绕路** ✓。
+
+**重复调用仍然是幂等的** ✓：写一个布尔字段本来就幂等 ✓。
 
 ```ts
-const key = NameValue(table, SealedMarkName());
-const existing = FindProperty(room, table, target.Ref, key);
-if (existing !== null && existing.Owner === target.Ref) return;
-SetHiddenProperty(room, table, target, key, Value.FromBool(true));
+table.Get(target.Ref).Extensible = false;
 ```
 
 # method IsUnextensible:(room:RoomChecker, table:HeapTable, target:Value)=>bool
 
 **这个对象被标记过「不可扩展」吗**（第 276 轮 ✓）——`isSealed` 与 `isFrozen` 都从它起手 ✓。
 
-**回答的是「有没有那一格」，不是「那一格是什么」** ✓：标记只有「在」这一种状态 ✓
-（`SetHiddenProperty` 写的是 `true` ✓），所以判空比读值更贴题 ✓，
-也**不必为那一格分配一个值来读** ✓。
+**读的就是 `MarkUnextensible` 写的那一格** ✓（第 333 轮 ✓）：两份存储迟早会漂开 ✓
+（第 276 轮那条注释写的就是这句话 ✓，这一轮把它落到了底 ✓）。
 
 ```ts
-const key = NameValue(table, SealedMarkName());
-const found = FindProperty(room, table, target.Ref, key);
-return found !== null && found.Owner === target.Ref;
+return !table.Get(target.Ref).Extensible;
 ```
 
 # method DefineOwnFromDescriptor:(room:RoomChecker, table:HeapTable, target:Value, key:Value, descriptor:Value)=>void
@@ -4078,32 +4067,6 @@ const created = new Property(key.Ref, fieldOf("value"));
 created.Flags = flags;
 defineTarget.Props.push(created);
 table.Recount(target.Ref);
-```
-
-# method IsSealedMarkProperty:(table:HeapTable, property:Property)=>bool
-
-**这一格是不是「不可扩展」那个内部标记**（第 276 轮 ✓）。
-
-**为什么需要它** ✗（第 276 轮实测踩到 ✓）：那个标记是**一个真的数据属性** ✓，
-而 `SetHiddenProperty` 只保证它**不可枚举** ✗——`writable` / `configurable` 它不管 ✓。
-于是两处一起坏 ✓：
-
-- **`isFrozen` 会答假** ✗：它问的是「每个自有数据属性都不可写」✓，
-  而**标记自己就可写** ✓（`Object.freeze({y: 1})` 之后的 `isFrozen` 给 `false` ✗，实测 ✓）；
-- **`getOwnPropertyNames` 里多一格** ✗（实测：给 `["x", "__sealed"]` ✓，JS 给 `["x"]` ✓）。
-
-所以「**这个标记不算自有属性**」这句话要在**三处**各说一遍 ✓
-（`isSealed` / `isFrozen` 的循环 ✓、`getOwnPropertyNames` ✓、`getOwnPropertyDescriptor` ✓）——
-收进这一个方法 ✓，三处调它 ✓。
-
-**它为什么不像 `__k` / `__v` / `__b` 那样留在明面上** ✗：那几格是**对象自己的一部分** ✓
-（`Map` 的数据就在那儿 ✓），漏出去顶多是多一格 ✓；而这一个标记是**纯内部状态** ✓，
-它出现在 `Object.getOwnPropertyNames(Object.seal(o))` 里会让人以为那个对象真有一格叫 `__sealed` ✓
-——**能挡住就挡住** ✓。
-
-```ts
-if (table.Get(property.Key).Tag !== ValueTag.String) return false;
-return TextFrom(table, Value.FromString(property.Key)) === SealedMarkName();
 ```
 
 # method TextFrom:(table:HeapTable, value:Value)=>string

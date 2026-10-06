@@ -1518,7 +1518,10 @@ check("自有属性的读、写、缺省", () => {
   const object = NewPlainObject(machine.Room(), table, protos);
   const name = propKey(table, "x");
   eq(getProp(machine, table, object, name).IsUndefined(), true, "还没写 → undefined");
-  eq(setProp(machine, table, object, name, Value.FromInt(7)).AsInt(), 7, "写入返回赋的值");
+  // **第 333 轮起返回的是「写下去了没有」** ✓（一个布尔 ✓）——
+  // 原来是「返回赋的那个值」✗：JS 的 `[[Set]]` 本来就是**一个布尔** ✓，
+  // 而「要不要把那个值当表达式的结果」是**调用方**的事 ✓（`vm.xl.md` 的 `set_prop` ✓）。
+  eq(setProp(machine, table, object, name, Value.FromInt(7)), true, "写入成功 → 真");
   eq(getProp(machine, table, object, name).AsInt(), 7, "读回来");
   eq(getProp(machine, table, object, propKey(table, "y")).IsUndefined(), true, "缺的属性给 undefined");
   eq(typeof TypeOfName(table, object), "string", "typeof 的名字表留给建库层，这一层只给名字");
@@ -1604,27 +1607,40 @@ check("原始值接收者：字符串的 length 与下标", () => {
   eq(GetIndex(table, text, Value.FromInt(5)).IsUndefined(), true, "越界给 undefined");
 });
 
-check("访问器与只读属性：只读与「有 getter 没 setter」这一轮必须抛", () => {
+check("访问器与只读属性：写不下去时**返回假**（第 333 轮改的口径）", () => {
   const table = new HeapTable();
   const machine = new Vm(table, 1 << 20, 1000);
   const protos = InitProtos(machine.Room(), table);
   const object = NewPlainObject(machine.Room(), table, protos);
 
-  // 有 getter 没 setter：读得到（见下面那条），写要抛（该是 TypeError）
+  // **有 getter 没 setter：写要「不成功」，不是「抛」** ✗（第 333 轮 ✓）
+  //
+  // 这一条原来钉的是「必须抛」✓，那是**严格模式**的口径 ✗；本仓选定**非严格** ✓
+  //（与 `this` 那一条是同一个设计决定 ✓）：JS 的 `[[Set]]` 在这里返回**假** ✓，
+  // 而赋值语句**不看它** ✓ ⇒ `o.x = 1` 一声不响 ✓。
+  // **谁需要「抛」谁自己看返回值** ✓：`push` 那一族看 ✓（`RequireArrayGrowable` ✓），
+  // 赋值那三条 rt 算子不看 ✓（`vm.xl.md` 的 `set_prop` ✓）。
+  // **判据里量着的是行为** ✓（`ex-getter-setter-class` ✓ / `object-freeze` ✓ 两条都转绿 ✓）。
   const getterKey = propKey(table, "g");
   const getter = Value.FromRef(ValueTag.Closure, table.CreateClosure(0, 0, 0, 0));
   table.Get(object.Ref).Props.push(Property.Accessor(getterKey.Ref, getter, Value.Undefined()));
-  let threw = false;
-  try { setProp(machine, table, object, getterKey, Value.FromInt(1)); } catch { threw = true; }
-  eq(threw, true, "只有 getter 的访问器被赋值 → 抛");
+  eq(setProp(machine, table, object, getterKey, Value.FromInt(1)), false,
+    "只有 getter 的访问器被赋值 → 假（什么都没写）");
 
   const frozen = propKey(table, "f");
   const property = new Property(frozen.Ref, Value.FromInt(1));
   property.Flags = 0;
   table.Get(object.Ref).Props.push(property);
-  let threw2 = false;
-  try { setProp(machine, table, object, frozen, Value.FromInt(2)); } catch { threw2 = true; }
-  eq(threw2, true, "只读属性 → 抛（该是 TypeError，等错误对象那一层）");
+  eq(setProp(machine, table, object, frozen, Value.FromInt(2)), false, "只读属性 → 假");
+  eq(getProp(machine, table, object, frozen).AsInt(), 1, "而且那一格真的没变");
+
+  // **不可扩展的对象长不出新属性** ✓（第 333 轮 ✓）：没有这一问，
+  // `Object.freeze(o); o.b = 3` 会真的造出 `b` ✓ ⇒ `isFrozen` 从真变假 ✗。
+  const sealed = NewPlainObject(machine.Room(), table, protos);
+  table.Get(sealed.Ref).Extensible = false;
+  eq(setProp(machine, table, sealed, propKey(table, "b"), Value.FromInt(3)), false,
+    "不可扩展 → 假");
+  eq(getProp(machine, table, sealed, propKey(table, "b")).IsUndefined(), true, "那一格没有长出来");
 });
 
 console.log("");
@@ -6544,7 +6560,8 @@ check("`AttachCallable` 那一格：挂上之后**仍然是对象**，而且回�
   eq(IsCallableValue(table, object), false, "建库层那条判据也说不");
   // 它是**对象**：属性照写照读（挂载荷不能把这一半弄坏）
   const key = propKey(table, "staticMethod");
-  eq(SetProperty(machine.Room(), machine.Native(), table, object, key, Value.FromInt(7)).AsInt(), 7,
+  // **第 333 轮起 `SetProperty` 返回一个布尔** ✓（见上面「自有属性的读、写、缺省」那一条 ✓）。
+  eq(SetProperty(machine.Room(), machine.Native(), table, object, key, Value.FromInt(7)), true,
     "`SetProperty` 照旧");
   eq(GetProperty(machine.Room(), machine.Native(), protos, table, object, key).AsInt(), 7,
     "静态属性照读");

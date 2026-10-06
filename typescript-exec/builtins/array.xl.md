@@ -1,9 +1,9 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge } from "../../runtime/heap.xl.md"
+import { HeapTable, HeapArray, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyCharge, PropertyKind, PropertyFlagWritable } from "../../runtime/heap.xl.md"
 import {RoomChecker, TextUnitsOf, RtCmpEqStrict, SameValueZero, RtToBoolean, IsCallableValue, ToInt32Of } from "../../runtime/rt.xl.md"
-import { SetProperty, SetHiddenProperty, FindProperty, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, FindProperty, IsLengthKey, NativeCall, Protos, CallFailed } from "../../runtime/props.xl.md"
 import { Vm, RootKeeper } from "../../runtime/vm.xl.md"
 import { ValueUnits, ValueUnitsAt } from "./text.xl.md"
 ```
@@ -376,6 +376,7 @@ const source = table.Get(self.Ref).AsArray();
 const halted = () => failed !== null && failed();
 if (id === ArrayPush) {
   if (!room(ValueCharge * args.length)) throw new Error("out of room");
+  RequireArrayGrowable(table, self);
   for (let i = 0; i < args.length; i++) {
     source.Push(args[i]);
   }
@@ -450,6 +451,7 @@ if (id === ArrayUnshift) {
   const before = source.GetLength();
   const count0 = args.length;
   if (!room(ValueCharge * count0)) throw new Error("out of room");
+  RequireArrayGrowable(table, self);
   for (let i = 0; i < count0; i++) {
     source.Push(Value.Undefined());
   }
@@ -868,6 +870,9 @@ if (id === ArraySplice || id === ArrayToSpliced) {
   const length = source.GetLength();
   let target = source;
   let targetRef = self.Ref;
+  // **`toSpliced` 改的是新造的那一份** ✓ ⇒ 只有**就地**那一档要问「还长不长得出」✓
+  //（新数组当然可扩展 ✓——不问会把 `[].toSpliced(0, 0, 1)` 也一并拒掉 ✗）。
+  if (id === ArraySplice) RequireArrayGrowable(table, self);
   if (id === ArrayToSpliced) {
     // **拷贝那一段与 `toSorted` 一字不差** ✓（`AppendSlot` ✓）：
     // **洞照抄** ✓——写成 `undefined` 会把洞变成真值 ✗。
@@ -1290,6 +1295,48 @@ for (let i = 0; i < from.GetLength(); i++) {
     continue;
   }
   target.Push(item);
+}
+```
+
+# method RequireArrayGrowable:(table:HeapTable, self:Value)=>void
+
+**往一个数组里加格子之前先问两句** ✗（第 333 轮 ✓）——JS 也问那两句 ✓：
+
+1. **这个数组还可扩展吗** ✓：`Object.freeze` / `seal` / `preventExtensions` 都把它置假 ✓
+   （`heap.xl.md` 的 `HeapObject.Extensible` ✓，第 333 轮从语言层那个隐藏属性搬上去的 ✓）；
+2. **自有那一格 `length` 可写吗** ✓：`Object.defineProperty(xs, "length", { writable: false })`
+   会造出一个**真的数据属性** ✓（数组的 `length` 平时**不在属性表里** ✗，是结构属性 ✓）。
+
+**拒了就抛 `TypeError`** ✓——**这一档与直接赋值不同** ✗，两处都实测过 ✓：
+
+- `xs.length = 1`（自有 `length` 不可写）在非严格模式里**静默** ✓（`SetPropertySearched` 返假 ✓）；
+- `xs.push(3)` 在同一个数组上**抛 `TypeError`** ✓（JS 的 `push` 走
+  「`Set(O, "length", …, true)`」那一档 ✓，那个 `true` 就是「写不下去要抛」✓）。
+
+**原来两处都错，而且错在同一个方向** ✗：`push` 在**冻结**的数组上照样长 ✓
+（判据 `object-freeze-array-element`：Node 给 `threw TypeError` ✓、本仓给 `pushed 2` ✓），
+在 `length` 锁住的数组上照样长 ✓（`c305-std-array-length-nonwritable` 同一个形状 ✓）。
+**「拒」还是「静默」由调用方定** ✓——这一层只把「能不能」问清楚 ✓
+（`props.xl.md` 的 `SetProperty` 那一段写着同一句话 ✓）。
+
+```ts
+if (!table.Get(self.Ref).Extensible) {
+  throw new TypeError("cannot add property to a non-extensible object");
+}
+const ownProps = table.Get(self.Ref).Props;
+for (let i = 0; i < ownProps.length; i++) {
+  const property = ownProps[i];
+  // **`IsLengthKey` 是那一格判据的唯一答案** ✓（`props.xl.md` ✓：按码元逐个比 ✓、不造字符串 ✓）。
+  // **它收的是一个 `Value`、而属性表里那一格是句柄** ✗：先按标签判一次 ✓
+  //（`IsLengthKey` 自己也会判 ✓——这里那一句是为了**不把一个非字符串的句柄包成 `Value`** ✓）。
+  if (table.Get(property.Key).Tag !== ValueTag.String) continue;
+  if (!IsLengthKey(table, Value.FromRef(ValueTag.String, property.Key))) continue;
+  // **只有数据属性、且不可写**才算拒 ✓：访问器那一格不是这一条管的 ✓
+  //（数组自己不会长访问器式 `length` ✗，可 `defineProperty` 能造 ✓）。
+  if (property.Kind !== PropertyKind.Data) continue;
+  if ((property.Flags & PropertyFlagWritable) === 0) {
+    throw new TypeError("cannot assign to read only property 'length' of an array");
+  }
 }
 ```
 
