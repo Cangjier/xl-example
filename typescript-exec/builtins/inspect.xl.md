@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, HeapArray } from "../../runtime/heap.xl.md"
+import { HeapTable, HeapArray, PropertyKind } from "../../runtime/heap.xl.md"
 import { TextUnitsOf } from "../../runtime/rt.xl.md"
 import { NumberToHostText } from "../../runtime/host-text.xl.md"
 import { FindProperty, NeverRoom } from "../../runtime/props.xl.md"
@@ -483,6 +483,24 @@ if (value.Tag === ValueTag.Object) {
   // 所以给 `[Function (anonymous)]` ✓——与**宿主引用**那一档**同一个答案** ✓
   //（`console.log(Map)` 今天就是这个 ✓），两个同类的东西不该有两种印法 ✗。
   if (table.Get(value.Ref).Host !== null) return InspectFunction(table, value, level);
+  // **`Error` 那一档** ✓（第 356 轮 ✓，**实测撞到的** ✓）：Node 的
+  // `console.log(new Error("boom"))` 印的是 **`Error: boom`** ✓（`util.inspect` 对错误
+  // 走的就是 `Error.prototype.toString` 那个文本 ✓），而本仓原来把它当**普通对象**印 ✓
+  // ⇒ `{ message: 'boom', name: 'Error' }` ✗（判据 `console-log-special` 第 3 行量的就是它 ✓）。
+  //
+  // **它排在那三样标记之前** ✓：错误对象上不会有 `__t` / `__k` / `__v` ✓，
+  // 所以顺序无所谓 ✓——放在前面只是因为它更常见 ✓。
+  // **判据是「沿链找到 `name` 且它是字符串 `Error`」** ✓——**这是近似** ✗：
+  // JS 问的是**内部槽** ✓（本仓没有内部槽 ✓，`Error.isError` 那一处第 343 轮记过同一条账 ✓）。
+  // **不引 `protos` 是故意的** ✗：`InspectValue` 那一族有七八个签名 ✓，
+  // 为一行文本把它们全穿一遍不划算 ✓；而「`name` 是 `Error`」正是本仓 `new Error(msg)`
+  // 造出来的形状 ✓（实测那一格印出来的自有属性就是 `{ message: 'boom', name: 'Error' }` ✓）。
+  // **消息为空时只印 `name`** ✓（与 JS 的 `Error.prototype.toString` 一字不差 ✓）。
+  const errorName = MarkerText(table, value, "name");
+  if (errorName === "Error") {
+    const errorMessage = MarkerText(table, value, "message");
+    return errorMessage === "" ? "Error" : "Error: " + errorMessage;
+  }
   // **先认那三样**（第 131 轮）：`Date` / `Map` / `Set` 在值模型里都是普通对象 ✓，
   // 分别挂着 `__t` / `__k` / `__v` ✓（`Date` 那一族与 `map.xl.md` / `set.xl.md` 造的就是这个形状 ✓）。
   const marker = DateMarker(table, value);
@@ -516,6 +534,25 @@ return "[Object]";
 
 ```ts
 return InspectValue(table, value, 0);
+```
+
+# method MarkerText:(table:HeapTable, value:Value, name:string)=>string
+
+**沿链找到的那一格字符串属性** ✓（第 356 轮 ✓）——给 `console.log(new Error(…))` 认
+`name` / `message` 用 ✓。
+
+**与 `ReadMarker` / `MarkerArray` 同一形状** ✓（同一个 `MarkerKey` ✓、同一个 `FindProperty` ✓），
+差的只是**读出来是字符串** ✓（那两个分别要数字与数组 ✓）。
+**不是字符串就给空串** ✓（`{ name: 1 }` 不算错误 ✓）；**访问器也给空串** ✓
+（它没有格上的值 ✓，去调它会把 `console.log` 变成有副作用的东西 ✗）。
+
+```ts
+const found = FindProperty(NeverRoom, table, value.Ref, MarkerKey(table, name));
+if (found === null) return "";
+const prop = table.Get(found.Owner).Props[found.Index];
+if (prop.Kind !== PropertyKind.Data) return "";
+if (prop.Value.Tag !== ValueTag.String) return "";
+return TextFrom(table, prop.Value);
 ```
 
 # method DateMarker:(table:HeapTable, value:Value)=>string

@@ -117,7 +117,7 @@
       "id": "c291-ex-nested-namespace-with-values",
       "layer": "exec",
       "title": "嵌套一层的 namespace",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is ModuleDeclaration at 19..65)"
     },
     {
       "id": "c331-ex-enum-and-namespace-merge",
@@ -131,7 +131,7 @@
       "id": "console-log-special",
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
+      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-12716/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
     },
     {
       "id": "c305-std-thenable-adoption",

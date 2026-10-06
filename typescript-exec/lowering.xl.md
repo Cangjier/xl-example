@@ -7499,7 +7499,14 @@ if (operatorText === "=") {
     return value;
   }
   if (leftKind !== "Identifier") {
-    throw new Error("unimplemented: assignment to a non-identifier");
+    // **这句抛也要说出「是什么、在哪儿」** ✓（第 356 轮 ✓，与 `TextOf` 那一句**同一条纪律** ✓）：
+    // 原来只有「不是标识符」✗ ⇒ 第 354 轮为了知道左边是**一棵 `ModuleDeclaration`** ✓
+    // 还得临时插一次探针 ✓（那次探针本身是对的 ✓：`namespace Outer { export namespace Inner {…} }`
+    // 里那一层嵌套的模块声明**被当成了 `=` 的左操作数** ✓——投影层折成了一个
+    // `BinaryExpression(ModuleDeclaration, EqualsToken, …)` ✓）。
+    // `pos..end` 是投影层**每个节点都带**的 ✓，所以把形状与区间一起打出来**几乎免费** ✓。
+    throw new Error("unimplemented: assignment to a non-identifier (left is " + leftKind
+      + " at " + String(left["pos"]) + ".." + String(left["end"]) + ")");
   }
   const access = this.ResolveAccess(TextOf(left));
   const before = this.NextFree;
