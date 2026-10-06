@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1266,
+  "matrix": 1305,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,47 +33,47 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.73,
+  "progressPercent": 96.07,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 412,
-      "pass": 388,
+      "total": 420,
+      "pass": 396,
       "blocked": 16,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 94.17
+      "coverage": 94.29
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 308,
-      "pass": 297,
-      "blocked": 7,
-      "differ": 4,
+      "total": 316,
+      "pass": 302,
+      "blocked": 9,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 96.43
+      "coverage": 95.57
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 501,
-      "pass": 475,
-      "blocked": 15,
+      "total": 514,
+      "pass": 490,
+      "blocked": 13,
       "differ": 11,
       "nodefail": 0,
-      "coverage": 94.81
+      "coverage": 95.33
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 45,
-      "pass": 44,
+      "total": 55,
+      "pass": 55,
       "blocked": 0,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 97.78
+      "coverage": 100
     }
   ],
   "blocked": [
@@ -216,6 +216,18 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: id"
     },
     {
+      "id": "c331-ex-enum-and-namespace-merge",
+      "layer": "exec",
+      "title": "`enum` 与 `namespace` 合并（运行期两个都在）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: name is not a local (captures need env records): Level"
+    },
+    {
+      "id": "c331-ex-destructure-params-and-defaults",
+      "layer": "exec",
+      "title": "解构形参 + 默认值 + 重命名",
+      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ArrayBindingPattern has no text"
+    },
+    {
       "id": "object-freeze",
       "layer": "stdlib",
       "title": "Object.freeze / isFrozen：属性写不动、加不上",
@@ -273,18 +285,6 @@
       "id": "c323-std-string-raw",
       "layer": "stdlib",
       "title": "String.raw：标签模板的 raw 那一栏原样取出",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c330-std-promise-try-value",
-      "layer": "stdlib",
-      "title": "`Promise.try`：同步返回值兑现",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c330-std-promise-try-throw",
-      "layer": "stdlib",
-      "title": "`Promise.try`：同步抛出的错变成拒绝",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
@@ -380,6 +380,12 @@
       "detail": "stdout 不同：第 1 行：node «1» vs tsrun «[ [ 1, 2 ] ]»"
     },
     {
+      "id": "c331-ex-nonnull-and-optional-mix",
+      "layer": "exec",
+      "title": "非空断言与可选链写在同一条取值里",
+      "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[ { id: 1, tags: [ 'x' ] } ] 1»"
+    },
+    {
       "id": "object-freeze-array-element",
       "layer": "stdlib",
       "title": "Object.freeze 的**数组元素**：push 在严格模式里该抛",
@@ -444,12 +450,6 @@
       "layer": "stdlib",
       "title": "Array.fromAsync：异步可迭代对象收成数组",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
-    },
-    {
-      "id": "c305-e2e-lru-cache",
-      "layer": "e2e",
-      "title": "LRU 缓存：`Map` 的插入序 + 泛型 + 私有字段",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "bad": [],

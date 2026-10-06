@@ -4845,4 +4845,150 @@ console.log(Math.trunc(-1.7), Math.floor(-1.2), Math.ceil(-1.2));
 console.log(Math.sign(-0), 1 / Math.sign(-0));
 `,
   },
+  // ===== 第 331 轮收编（13 条）=====
+  {
+    id: "c331-std-try-as-property-name",
+    title: "`try` 当属性名：字面量键、成员读、成员写",
+    src: `
+const o = { try: 1, catch: 2, class: 3 };
+console.log(o.try, o.catch, o.class);
+const box: any = {};
+box.try = 5;
+console.log(box.try, box["try"]);
+console.log(typeof Promise.try);
+`,
+  },
+  {
+    id: "c331-std-promise-try-forms",
+    title: "`Promise.try`：同步值、多实参、异步返回值",
+    src: `
+console.log(typeof Promise.try);
+Promise.try(() => 7).then((v) => console.log("sync", v));
+Promise.try((a, b) => a * b, 6, 7).then((v) => console.log("args", v));
+Promise.try(() => Promise.resolve("inner")).then((v) => console.log("adopt", v));
+console.log("first");
+`,
+  },
+  {
+    id: "c331-std-promise-executor-throw",
+    title: "执行器里抛：结果承诺被拒绝，后面的语句照样跑",
+    src: `
+new Promise(() => { throw new Error("boom"); }).catch((e) => console.log("caught", e.message));
+console.log("after");
+`,
+  },
+  {
+    id: "c331-std-map-iterator-next-forms",
+    title: "`Map` / `Set` 的 `keys()` / `values()` / `entries()` 手动推进",
+    src: `
+const m = new Map<string, number>([["a", 1], ["b", 2]]);
+const k = m.keys();
+console.log(k.next().value, k.next().value, k.next().done);
+const v = m.values();
+console.log(v.next().value, v.next().value);
+const e = m.entries();
+console.log(e.next().value.join(":"));
+const s = new Set<string>(["x", "y"]);
+console.log(s.keys().next().value, s.entries().next().value.join(""));
+console.log([...m.keys()].join(","));
+`,
+  },
+  {
+    id: "c331-std-array-iterator-next-and-spread",
+    title: "数组迭代器：`next()` 与展开是同一个来源",
+    src: `
+const xs = [10, 20, 30];
+const it = xs.values();
+console.log(it.next().value, it.next().value, it.next().value, it.next().done);
+console.log([...xs.keys()].join(","), [...xs.entries()].map((p) => p.join(":")).join(" "));
+console.log(Array.from(xs.values()).length);
+`,
+  },
+  {
+    id: "c331-std-json-stringify-nested-arrays-and-null",
+    title: "`JSON.stringify` 的数组洞、null 与嵌套",
+    src: `
+console.log(JSON.stringify([1, null, undefined, 3]));
+console.log(JSON.stringify({ a: [1, [2, [3]]], b: null }));
+console.log(JSON.stringify(undefined), JSON.stringify(null), JSON.stringify(NaN));
+`,
+  },
+  {
+    id: "c331-std-object-entries-roundtrip",
+    title: "`Object.entries` / `fromEntries` 往返与次序",
+    src: `
+const o = { b: 2, 1: "one", a: 1 };
+const entries = Object.entries(o);
+console.log(entries.map((p) => p[0] + "=" + p[1]).join(","));
+console.log(JSON.stringify(Object.fromEntries(entries)));
+console.log(Object.values(o).join(","), Object.keys(o).join(","));
+`,
+  },
+  {
+    id: "c331-std-array-flat-and-concat-forms",
+    title: "`flat` 的深度与 `concat` 的嵌套形态",
+    src: `
+console.log(JSON.stringify([1, [2, [3, [4]]]].flat()));
+console.log(JSON.stringify([1, [2, [3, [4]]]].flat(2)));
+console.log(JSON.stringify([1, [2, [3, [4]]]].flat(Infinity)));
+console.log(JSON.stringify([1].concat([2, 3], 4, [[5]])));
+`,
+  },
+  {
+    id: "c331-std-string-split-and-join-roundtrip",
+    title: "字符串与数组之间的往返",
+    src: `
+const text = "a,b,,c";
+console.log(JSON.stringify(text.split(",")));
+console.log(text.split(",").join("|"));
+console.log("  padded  ".trim().split(" ").join("-"));
+console.log("a-b-c".split("-", 2).join("+"));
+`,
+  },
+  {
+    id: "c331-std-error-cause-and-instanceof",
+    title: "错误链：`cause`、家族与 `instanceof`",
+    src: `
+const root = new TypeError("bad type");
+const wrapped = new Error("outer", { cause: root });
+console.log(wrapped.message, wrapped.cause.message);
+console.log(wrapped instanceof Error, root instanceof TypeError, root instanceof Error);
+console.log(wrapped.name, root.name);
+`,
+  },
+  {
+    id: "c331-std-date-and-number-formats",
+    title: "`Date` 与数值格式化的几处日常写法",
+    src: `
+const d = new Date(0);
+console.log(d.toISOString(), d.getTime(), Date.UTC(1970, 0, 1));
+console.log((1234.5678).toFixed(2), (0.5).toFixed(0), (255).toString(16));
+console.log(Number((1.005).toFixed(2)), (1000000).toString());
+`,
+  },
+  {
+    id: "c331-std-collection-size-and-clear",
+    title: "`Map` / `Set` 的 `size` / `clear` / `delete` 返回值",
+    src: `
+const m = new Map<string, number>([["a", 1], ["b", 2]]);
+console.log(m.size, m.delete("a"), m.delete("zz"), m.size);
+m.clear();
+console.log(m.size, [...m.keys()].length);
+const s = new Set<number>([1, 2, 3]);
+console.log(s.delete(2), s.has(2), s.size);
+`,
+  },
+  {
+    id: "c331-std-object-freeze-and-keys",
+    title: "`Object.freeze` 之后键与查询",
+    src: `
+const o = { a: 1, b: 2 };
+Object.freeze(o);
+console.log(Object.isFrozen(o), Object.keys(o).join(","));
+const nested = { inner: { n: 1 } };
+Object.freeze(nested);
+nested.inner.n = 5;
+console.log(nested.inner.n, Object.isFrozen(nested.inner));
+`,
+  },
 ];

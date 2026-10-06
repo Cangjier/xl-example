@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
-import { NeverCall, Units } from "./array.xl.md"
+import { NeverCall, Units, AttachArrayIterator } from "./array.xl.md"
 import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 ```
 
@@ -193,6 +193,10 @@ if (id === SetValues || id === SetKeys) {
     if (source.IsHole(i)) continue;
     table.Get(out.Ref).AsArray().Push(source.GetAt(i));
   }
+  // **真迭代器那一套也要挂上** ✓（第 331 轮 ✓）：`set.keys().next()` 与 `Map` 那一族
+  // **是同一件事** ✓ ⇒ 用**同一个** `AttachArrayIterator` ✓（第 279 轮做出的那两格 ✓，
+  // 见 `array.xl.md` 那一段的理由 ✓——**抄第二遍就是第二处会漂的答案** ✗）。
+  AttachArrayIterator(room, table, out.Ref);
   return out;
 }
 if (id === SetEntries) {
@@ -207,6 +211,7 @@ if (id === SetEntries) {
     table.Get(pair.Ref).AsArray().Push(table.Get(values.Ref).AsArray().GetAt(i));
     table.Get(out.Ref).AsArray().Push(pair);
   }
+  AttachArrayIterator(room, table, out.Ref);
   return out;
 }
 if (id === SetForEach) {

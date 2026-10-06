@@ -1219,4 +1219,300 @@ console.log([...range].length);
 console.log(Array.from(range).join("-"));
 `,
   },
+  // ===== 第 331 轮收编（10 条）=====
+  {
+    id: "c331-e2e-cli-args",
+    title: "命令行参数解析：两种写法、缺省值、未知项",
+    src: `
+function parse(argv: string[]): { flags: Record<string, string | boolean>; rest: string[] } {
+  const flags: Record<string, string | boolean> = {};
+  const rest: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const token = argv[i];
+    if (!token.startsWith("--")) {
+      rest.push(token);
+      continue;
+    }
+    const eq = token.indexOf("=");
+    if (eq >= 0) {
+      flags[token.slice(2, eq)] = token.slice(eq + 1);
+      continue;
+    }
+    const next = argv[i + 1];
+    if (next !== undefined && !next.startsWith("--")) {
+      flags[token.slice(2)] = next;
+      i = i + 1;
+      continue;
+    }
+    flags[token.slice(2)] = true;
+  }
+  return { flags, rest };
+}
+const parsed = parse(["--name=ada", "--verbose", "--out", "dist", "input.ts", "extra.ts"]);
+console.log(parsed.flags["name"], parsed.flags["verbose"], parsed.flags["out"]);
+console.log(parsed.rest.join(","));
+console.log(Object.keys(parsed.flags).sort().join(","));
+`,
+  },
+  {
+    id: "c331-e2e-pagination",
+    title: "分页：切片、边界页与越界页",
+    src: `
+const items: number[] = [];
+for (let i = 1; i <= 23; i++) items.push(i);
+function page(all: number[], size: number, index: number): number[] {
+  const from = index * size;
+  return all.slice(from, from + size);
+}
+for (const index of [0, 2, 3, 99]) {
+  const got = page(items, 5, index);
+  console.log(index, got.length, got.length > 0 ? got[0] + ".." + got[got.length - 1] : "-");
+}
+console.log(Math.ceil(items.length / 5));
+`,
+  },
+  {
+    id: "c331-e2e-shopping-cart",
+    title: "购物车：Map 计数、折扣、格式化金额",
+    src: `
+type Line = { sku: string; price: number; qty: number };
+class Cart {
+  private lines = new Map<string, Line>();
+  add(sku: string, price: number, qty = 1): void {
+    const found = this.lines.get(sku);
+    if (found === undefined) {
+      this.lines.set(sku, { sku, price, qty });
+      return;
+    }
+    found.qty = found.qty + qty;
+  }
+  subtotal(): number {
+    let total = 0;
+    for (const line of this.lines.values()) total = total + line.price * line.qty;
+    return total;
+  }
+  discount(): number {
+    const base = this.subtotal();
+    return base >= 100 ? base * 0.1 : 0;
+  }
+  report(): string[] {
+    const out: string[] = [];
+    for (const line of this.lines.values()) {
+      out.push(line.sku + " x" + line.qty + " = " + (line.price * line.qty).toFixed(2));
+    }
+    out.push("subtotal " + this.subtotal().toFixed(2));
+    out.push("discount " + this.discount().toFixed(2));
+    out.push("total " + (this.subtotal() - this.discount()).toFixed(2));
+    return out;
+  }
+}
+const cart = new Cart();
+cart.add("apple", 3.5, 4);
+cart.add("bread", 12, 1);
+cart.add("apple", 3.5, 2);
+cart.add("milk", 8.25, 6);
+for (const line of cart.report()) console.log(line);
+`,
+  },
+  {
+    id: "c331-e2e-schedule-conflicts",
+    title: "日程排期：重叠检测与排序输出",
+    src: `
+type Slot = { name: string; start: number; end: number };
+const slots: Slot[] = [
+  { name: "standup", start: 9, end: 10 },
+  { name: "review", start: 11, end: 12 },
+  { name: "design", start: 10, end: 11 },
+  { name: "retro", start: 12, end: 13 },
+  { name: "overlap", start: 10.5, end: 11.5 },
+];
+slots.sort((a, b) => a.start - b.start);
+const conflicts: string[] = [];
+for (let i = 1; i < slots.length; i++) {
+  if (slots[i].start < slots[i - 1].end) {
+    conflicts.push(slots[i - 1].name + "/" + slots[i].name);
+  }
+}
+console.log(slots.map((s) => s.name).join(","));
+console.log(conflicts.join(" "));
+console.log(slots.length, conflicts.length);
+`,
+  },
+  {
+    id: "c331-e2e-tokenizer",
+    title: "词法分析器：数字 / 名字 / 运算符 / 空白",
+    src: `
+type Token = { kind: string; text: string };
+function tokenize(source: string): Token[] {
+  const out: Token[] = [];
+  let at = 0;
+  const isDigit = (ch: string) => ch >= "0" && ch <= "9";
+  const isAlpha = (ch: string) => (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_";
+  while (at < source.length) {
+    const ch = source.charAt(at);
+    if (ch === " ") {
+      at = at + 1;
+      continue;
+    }
+    if (isDigit(ch)) {
+      let text = "";
+      while (at < source.length && (isDigit(source.charAt(at)) || source.charAt(at) === ".")) {
+        text = text + source.charAt(at);
+        at = at + 1;
+      }
+      out.push({ kind: "number", text });
+      continue;
+    }
+    if (isAlpha(ch)) {
+      let text = "";
+      while (at < source.length && (isAlpha(source.charAt(at)) || isDigit(source.charAt(at)))) {
+        text = text + source.charAt(at);
+        at = at + 1;
+      }
+      out.push({ kind: "name", text });
+      continue;
+    }
+    out.push({ kind: "op", text: ch });
+    at = at + 1;
+  }
+  return out;
+}
+const tokens = tokenize("let x1 = 3.5 + y_2 * 10;");
+console.log(tokens.map((t) => t.kind + ":" + t.text).join("|"));
+console.log(tokens.filter((t) => t.kind === "number").length);
+`,
+  },
+  {
+    id: "c331-e2e-async-map-concurrent",
+    title: "并发：`Promise.all` 与串行 `for await` 两种写法",
+    src: `
+async function fetchValue(id: number): Promise<number> {
+  await null;
+  return id * 2;
+}
+async function main(): Promise<void> {
+  const ids = [1, 2, 3, 4];
+  const concurrent = await Promise.all(ids.map((id) => fetchValue(id)));
+  console.log("concurrent", concurrent.join(","));
+  const serial: number[] = [];
+  for (const id of ids) serial.push(await fetchValue(id));
+  console.log("serial", serial.join(","));
+  const settled = await Promise.allSettled(ids.map((id) => fetchValue(id)));
+  console.log("settled", settled.length, settled[0].status);
+}
+main();
+`,
+  },
+  {
+    id: "c331-e2e-deep-clone-and-compare",
+    title: "深拷贝与结构比较（不用 structuredClone）",
+    src: `
+type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
+function clone(value: Json): Json {
+  if (Array.isArray(value)) return value.map((item) => clone(item));
+  if (value !== null && typeof value === "object") {
+    const out: { [k: string]: Json } = {};
+    for (const key of Object.keys(value)) out[key] = clone(value[key]);
+    return out;
+  }
+  return value;
+}
+function equal(a: Json, b: Json): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!equal(a[i], b[i])) return false;
+    return true;
+  }
+  if (a !== null && b !== null && typeof a === "object" && typeof b === "object"
+      && !Array.isArray(a) && !Array.isArray(b)) {
+    const ka = Object.keys(a);
+    const kb = Object.keys(b);
+    if (ka.length !== kb.length) return false;
+    for (const key of ka) {
+      if (!(key in b)) return false;
+      if (!equal(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  return a === b;
+}
+const source: Json = { a: [1, { b: "x" }], c: null, d: true };
+const copy = clone(source);
+console.log(equal(source, copy));
+(copy as any).a.push(2);
+console.log(equal(source, copy), (source as any).a.length);
+console.log(JSON.stringify(source));
+`,
+  },
+  {
+    id: "c331-e2e-version-compare",
+    title: "版本号比较：分段数值、缺位与预发布标记",
+    src: `
+function compare(left: string, right: string): number {
+  const a = left.split(".");
+  const b = right.split(".");
+  const width = Math.max(a.length, b.length);
+  for (let i = 0; i < width; i++) {
+    const x = i < a.length ? parseInt(a[i]) : 0;
+    const y = i < b.length ? parseInt(b[i]) : 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+const versions = ["1.2.10", "1.2.9", "1.3", "1.2.9.1", "1.2"];
+versions.sort(compare);
+console.log(versions.join(" "));
+console.log(compare("1.2", "1.2.0"), compare("2.0", "10.0"));
+`,
+  },
+  {
+    id: "c331-e2e-promise-reject-paths",
+    title: "拒绝的四条路：执行器抛、then 抛、reject 调、throw 抛",
+    src: `
+function boomer(message: string): () => never {
+  return () => {
+    throw new Error(message);
+  };
+}
+async function main(): Promise<void> {
+  const a = await new Promise<string>((resolve, reject) => {
+    reject(new Error("rejected"));
+  }).catch((e) => "A:" + (e as Error).message);
+  console.log(a);
+  const b = await new Promise<string>(() => {
+    throw new Error("executor");
+  }).catch((e) => "B:" + (e as Error).message);
+  console.log(b);
+  const c = await Promise.resolve("seed")
+    .then(boomer("then"))
+    .catch((e) => "C:" + (e as Error).message);
+  console.log(c);
+  async function thrower(): Promise<string> {
+    throw new Error("async");
+  }
+  const d = await thrower().catch((e) => "D:" + (e as Error).message);
+  console.log(d);
+  const e = await Promise.try(boomer("try")).catch((err) => "E:" + (err as Error).message);
+  console.log(e);
+}
+main();
+`,
+  },
+  {
+    id: "c331-e2e-iterator-tools",
+    title: "迭代器工具：`map.keys()` / `entries()` / 手动推进",
+    src: `
+const scores = new Map<string, number>([["ada", 3], ["bob", 1], ["cy", 2]]);
+const first = scores.keys().next();
+console.log(first.value, first.done);
+const all: string[] = [];
+for (const [name, score] of scores.entries()) all.push(name + "=" + score);
+console.log(all.join(","));
+const sorted = [...scores.keys()].sort();
+console.log(sorted.join(","));
+const set = new Set<number>([10, 20]);
+console.log(set.values().next().value, set.entries().next().value.join("-"));
+console.log([...scores.values()].reduce((sum, n) => sum + n, 0));
+`,
+  },
 ];

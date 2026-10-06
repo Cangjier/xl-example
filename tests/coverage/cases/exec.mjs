@@ -3745,4 +3745,111 @@ const box: { get?(): number } = {};
 console.log(box.get?.() ?? -1, box.get?.());
 `,
   },
+  // ===== 第 331 轮收编（8 条）=====
+  {
+    id: "c331-ex-interface-and-type-erasure",
+    title: "类型位整片擦除：interface / type / declare",
+    src: `
+interface Point { x: number; y: number }
+type Pair<T> = [T, T];
+declare const injected: number;
+function origin(): Point {
+  return { x: 0, y: 0 };
+}
+const pair: Pair<string> = ["a", "b"];
+console.log(origin().x, pair.join("-"), typeof injected);
+`,
+  },
+  {
+    id: "c331-ex-generic-constraints-and-defaults",
+    title: "泛型的约束与默认值在运行期一行都不产生",
+    src: `
+class Container<T extends { id: number } = { id: number }> {
+  items: T[] = [];
+  add(item: T): void {
+    this.items.push(item);
+  }
+  ids(): number[] {
+    return this.items.map((item) => item.id);
+  }
+}
+const box = new Container();
+box.add({ id: 3 });
+box.add({ id: 4 });
+console.log(box.ids().join(","), box.items.length);
+`,
+  },
+  {
+    id: "c331-ex-enum-and-namespace-merge",
+    title: "`enum` 与 `namespace` 合并（运行期两个都在）",
+    nodeArgs: ["--experimental-transform-types"],
+    src: `
+enum Level { Low = 1, High = 2 }
+namespace Level {
+  export function label(value: Level): string {
+    return value === Level.Low ? "low" : "high";
+  }
+}
+console.log(Level.Low, Level.High, Level.label(Level.High), Level[1]);
+`,
+  },
+  {
+    id: "c331-ex-class-modifiers-erased",
+    title: "类上的修饰词与实现子句：运行期只见成员",
+    src: `
+interface Named { name: string }
+abstract class Base implements Named {
+  abstract kind(): string;
+  name = "base";
+}
+class Kid extends Base {
+  kind(): string {
+    return "kid";
+  }
+}
+const kid: Base = new Kid();
+console.log(kid.kind(), kid.name, kid instanceof Base, kid instanceof Kid);
+`,
+  },
+  {
+    id: "c331-ex-optional-and-rest-params",
+    title: "可选参数、默认值与剩余参数一起用",
+    src: `
+function tag(name: string, prefix = "#", ...rest: string[]): string {
+  return prefix + name + (rest.length > 0 ? ":" + rest.join("+") : "");
+}
+console.log(tag("a"), tag("b", "@"), tag("c", "!", "x", "y"));
+`,
+  },
+  {
+    id: "c331-ex-destructure-params-and-defaults",
+    title: "解构形参 + 默认值 + 重命名",
+    src: `
+function render({ title = "untitled", tags = [] as string[], meta: { width = 80 } = {} } = {}): string {
+  return title + "|" + tags.join(",") + "|" + width;
+}
+console.log(render());
+console.log(render({ title: "t", tags: ["a", "b"], meta: { width: 40 } }));
+`,
+  },
+  {
+    id: "c331-ex-satisfies-and-as-const",
+    title: "`satisfies` 与 `as const` 都不改运行期的值",
+    src: `
+const routes = { home: "/", about: "/about" } as const;
+const config = { retries: 3 } satisfies { retries: number };
+console.log(routes.home, routes.about, config.retries);
+console.log(Object.keys(routes).join(","));
+`,
+  },
+  {
+    id: "c331-ex-nonnull-and-optional-mix",
+    title: "非空断言与可选链写在同一条取值里",
+    src: `
+const data: { list?: { id: number; tags?: string[] }[] } = { list: [{ id: 1, tags: ["x"] }] };
+console.log(data.list![0].id, data.list![0].tags?.length);
+const maybe: { run?(): number } = {};
+console.log(maybe.run?.(), maybe.run?.() ?? -1);
+`,
+  },
 ];

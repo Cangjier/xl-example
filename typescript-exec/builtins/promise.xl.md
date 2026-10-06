@@ -136,6 +136,18 @@ import { NameValue } from "./map.xl.md"
 **一件新东西都没有** ✗：承诺走 `MakePromise` ✓（三个方法照挂 ✓）、
 两个回调走 `MakeSettleCallback` ✓（第 285 轮那一对 ✓）——这一格只是**把它们装到一起** ✓。
 
+# const PromiseTry:int = 249
+
+**`Promise.try(回调, …实参)`**（第 331 轮 ✓，ES2025 ✓）——号**照旧追加在承诺段尾** ✓。
+
+**上界要跟着挪第三次** ✗（`install.xl.md` 那一句 `< 249` → `< 250` ✓）：
+**295 / 327 / 331 三个轮次踩的是同一处** ✓——上界与「这一段有多少个号」是**同一件事** ✓，
+而症状每次都长得像「有一个全局号没实现」✓。**这一条账写在这一处，就是为了下次别再踩** ✓。
+
+**它不是 `Promise.resolve(回调())`** ✗，也不是 `new Promise(r => r(f()))` ✗——
+两条候选各自的错处写在 `InvokePromise` 那一支的说明里 ✓。**一件新东西都没有** ✓：
+承诺 ✓、调用通道 ✓、取走那一抛 ✓、结清 ✓，四样都是现成的 ✓。
+
 # method MakeSettleCallback:(table:HeapTable, promise:Value, rejected:bool)=>Value
 
 **造一个「结清这个承诺」的宿主回调** ✓（第 285 轮 ✓）——执行器的两个形参就是它 ✓。
@@ -305,6 +317,50 @@ if (id === PromiseWithResolvers) {
   SetNumberProp(room, table, resolvers, "resolve", MakeSettleCallback(table, pendingPromise, false));
   SetNumberProp(room, table, resolvers, "reject", MakeSettleCallback(table, pendingPromise, true));
   return resolvers;
+}
+// **`Promise.try(回调, …实参)`** ✓（第 331 轮 ✓，ES2025 ✓）——
+// **同步调一次那个回调** ✓，把「返回了什么 / 抛了什么」收成**一个承诺** ✓。
+//
+// **它不是 `Promise.resolve(回调())`** ✗：那样写有两个错 ✓——
+// 回调是**当场跑**的 ✓（这一条两边一样 ✓），可 `Promise.resolve(…)` 在 `f` **抛**时
+// 会把**整段代码**打断 ✗，而 `Promise.try` 要的是**把它变成一份拒绝** ✓
+//（调用者那一句照样跑完 ✓，与 `new Promise(执行器)` 那一支**同一条口径** ✓）。
+//
+// **它不是 `new Promise(r => r(f()))`** ✗：形状对得上 ✓，但多绕一层 ✓、
+// 还多挂两个结清回调 ✓——零件全是现成的 ✓（`MakePromise` ✓ / `invoke` ✓ /
+// `takeThrown` ✓ / `settle` ✓），一个字的特例都不用加 ✓。
+//
+// **兑现那一格会自动采纳承诺** ✓（`settle` 走 `ResolvePromise` ✓，第 317 轮 ✓）——
+// 所以 `Promise.try(async () => 1)` 给的是**那个内层承诺的结果** ✓，不是承诺套承诺 ✗。
+if (id === PromiseTry) {
+  if (invoke === null) {
+    throw new Error("unimplemented: Promise.try needs the invoke channel (the host did not provide it)");
+  }
+  if (settle === null) {
+    throw new Error("unimplemented: Promise.try needs the settle channel");
+  }
+  if (takeThrown === null) {
+    throw new Error("unimplemented: Promise.try needs the thrown channel");
+  }
+  const callback = args.length > 0 ? args[0] : Value.Undefined();
+  // **其余实参原样转给回调** ✓（JS 的 `Promise.try(f, a, b)` 就是 `f(a, b)` ✓）——
+  // 从第 1 格起切 ✓（第 0 格是回调自己 ✓）。
+  const rest: Value[] = [];
+  for (let i = 1; i < args.length; i++) rest.push(args[i]);
+  const produced = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  // **接收者给 `undefined`** ✓：JS 里 `Promise.try(f)` 的 `f` 是**普通调用** ✓
+  //（松散模式下 `this` 是全局对象 ✓，本仓一律给 `undefined` ✓——与整仓同一条口径 ✓）。
+  // **同步返回也要走 `settle`** ✓（不是「已经兑现的承诺」那一条捷径 ✗）：
+  // 语义上它照样要让出一个 tick ✓，而两条路在这里**合流** ✓——
+  // 引擎那一侧 `settle` 会把等着它的帧排进微任务 ✓。
+  const returned = invoke(callback, Value.Undefined(), rest);
+  const thrown = takeThrown();
+  if (thrown.Tag !== ValueTag.Undefined) {
+    settle(produced, thrown, true);
+    return produced;
+  }
+  settle(produced, returned, false);
+  return produced;
 }
 if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id === PromiseAny) {
   if (schedule === null) {
@@ -661,5 +717,9 @@ SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "any"),
 //（名字与号**一一对齐** ✓：`PromiseWithResolvers = 248` ✓，而 `248` 正是这一段的下一格 ✓）。
 SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "withResolvers"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseWithResolvers, 0)));
+// **第 331 轮补的一格** ✓（`try` ✓）——与上面七个**同一张对象**上再挂 ✓。
+// **它是「同步跑、异步收」那一格** ✓：回调当场跑 ✓，而结果承诺照样让出一个 tick ✓。
+SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "try"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseTry, 0)));
 return promiseObject;
 ```

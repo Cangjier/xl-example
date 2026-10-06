@@ -35,10 +35,37 @@ import { TryBody } from "./try-body.xl.md"
 
 `index` 处是不是 `try` 关键字。
 
+**只看「是不是这个名字」是不够的** ✗（第 331 轮 ✓）——**这一条是实测逼出来的** ✓。
+`try` 在 JS 里**合法地**能当属性名 ✓：`{ try: 1 }` ✓、`o.try` ✓、`o.try = 5` ✓，
+而 `Promise.try` 从 ES2025 起**是一个标准方法** ✓（第 331 轮刚把它做出来 ✓）。
+原来这一支只问「这个 `Identifier` 的文本是不是 `try`」✓ ⇒ 上面每一种写法都会被它**抢走** ✓，
+紧接着 `Process` 发现后面不是 `{` ⇒ 抛 `SyntaxException` ✓ ⇒
+**整份文件进不来** ✗（`throw by line 0 --->` ✓——**一句话里没有一个字提到 `try`** ✓，
+看起来像「语法层坏了」✗）。实测：`const o = { try: 1 }` ✓、`o.try = 5` ✓、
+`console.log(typeof Promise.try)` ✓ 三条**一起**是红的 ✓，
+而同族的 `catch` / `class` / `if` / `new` / `typeof` 当属性名**全是好的** ✓
+（它们的规则各有各的位置闸 ✓，只有这一支漏了 ✓）。
+
+**闸就架在「这一条规则自己要什么」上** ✓：`Process` 的第一件事是要求
+**紧跟一个 `{` 块** ✓（否则它自己就抛 `next is not Bracket` ✓）——
+所以「后面真的跟一个 `{` 块」本来就是这条规则的**前提** ✓，
+把前提提到 `Previous` 里，这一支就从「抢了再抛」变成「**不是我的让开**」✓。
+**没有另加一套位置判据** ✗（`IsStatementStart` 那一套在这里答不了 ✓：
+`o.try = 5` 里 `try` 前面是一个 `.` 符号 ✓、`{ try: 1 }` 里它前面是 `{` ✓，
+两处的「前一个单元」都不是 `Identifier`/`String` ✓ ⇒ 那一支会说「是语句开头」✗）。
+
+**代价写在明处** ✗：`try` 后面**不是**块的那种输入（本来就非法 ✓，`try x;` ✓）
+从「一条语法异常」变成「这一支不管它」✓——它接下来会当成普通标识符 ✓。
+
 ```ts
 const current = Get(units, index);
 if (current instanceof Identifier) {
-  return current.Is("try");
+  if (!current.Is("try")) return false;
+  // **后面必须真的跟一个 `{` 块** ✓（软换行要跳过去 ✓：`try` 与 `{` 分行是日常写法 ✓）。
+  const after = SkipNext(units, index, (item: Token) => item instanceof LineWrap);
+  const next = Get(units, after);
+  if (next === null) return false;
+  return next instanceof Bracket && next.startBracket === "{";
 }
 return false;
 ```

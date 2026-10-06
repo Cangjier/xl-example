@@ -733,7 +733,14 @@ export const EXPECTATIONS = {
   // 这一条比第 323 轮新收的那一条**更宽** ✓——它考的是「**复数拿全表、且与单数逐格一致**」✓
   // （`enumerable` / `configurable` / 访问器那一格都在里面 ✓）。
   "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },
-  "c305-e2e-lru-cache": { expect: "differ", why: "`this.#map.keys().next().value` 报 `cannot call a non-closure value`——数组迭代器那条 `next()` 是挂上去的**隐藏属性**（第 279 轮），私有字段里取出来的那个数组上没有它" },
+  // **`c305-e2e-lru-cache` 第 331 轮过了** ✓（那一行撤了 ✓）：`map.keys().next()` ✓——
+  // 根子**不是**「私有字段里取出来的数组没有它」✗（第 305 轮猜的那一句 ✓），
+  // 而是**这一族根本没接线** ✓：`Array.prototype` 的 `keys` / `values` / `entries`
+  // 第 279 轮就挂上了那两格隐藏属性（`__i` ✓ 与 `next` ✓）✓，
+  // 而 `Map` / `Set` 的那六个方法是**同一件事的另外几个用户** ✓、一个都没挂 ✗。
+  // 修法是把那两格抽成 **`AttachArrayIterator`** ✓（`array.xl.md` ✓）——
+  // **一处实现、四个用户** ✓（数组那三格 ✓、`Map` ✓、`Set` ✓）。
+  // **端到端那一层因此 97.8% → 100%** ✓（45 / 45 ✓）。
   // **第 306 轮把上面那两处都修好了** ✓（token 层的次序判据 + 名字收两遍 ✓），
   // 与 `ts.createSourceFile` 逐节点对过的形状现在**一字不差** ✓：
   // `MethodDeclaration(asteriskToken) > name: ComputedPropertyName` ✓、
@@ -884,8 +891,13 @@ export const EXPECTATIONS = {
   // **它不是「修 bug」那一类** ✗：这四格是**标准里写着、本仓没做** ✓
   //（与第 323 / 327 轮收的 `Array.fromAsync` / `Map.groupBy` / `Promise.withResolvers`
   //  是同一条口径 ✓：**标准里有的、普通 `.ts` 里会写的，就该在分母里** ✓）。
-  "c330-std-promise-try-value": { expect: "blocked", why: "`Promise.try` 不在那儿（`cannot call a non-closure value`）——`Promise` 是**普通对象** ✓（第 285 轮那一批静态方法就是挂上去的 ✓），所以卡点不在壳 ✗，而在**那一格实现**：它要把「同步返回 / 同步抛」都收成一个承诺 ✓（`try { return fn() } catch (e) { return Promise.reject(e) }` 的语义 ✓，而且**同步返回也要推迟** ✓）。零件全是现成的（`MakePromise` / `ResolvePromise` / `RejectPromise` ✓），差的是一次分派" },
-  "c330-std-promise-try-throw": { expect: "blocked", why: "同上——这一条考的是**同步抛**那一半（`Promise.try(boom).catch(...)` 要接得住），以及「同步返回的也要走微任务」那一条次序" },
+  // **`c330-std-promise-try-value` / `c330-std-promise-try-throw` 第 331 轮过了** ✓
+  //（那两行撤了 ✓）：`Promise.try` 做出来了 ✓——**它不是 `Promise.resolve(f())`** ✗
+  //（那个在 `f` 抛时把整段代码打断 ✓），做法与 `new Promise(执行器)` **共用四样零件** ✓
+  //（`MakePromise` ✓ / `invoke` ✓ / `takeThrown` ✓ / `settle` ✓），
+  // 号取 `249` ✓、**号段的上界第三次跟着挪** ✗（`< 249` → `< 250` ✓——
+  // 295 / 327 / 331 三个轮次踩的是同一处 ✓）。
+  // **它还顺手带出一条引擎级的静默错值** ✓，见下面组 B 那一段 ✓。
   "c330-std-structuredclone-basic": { expect: "blocked", why: "`structuredClone` 连**全局名**都没有（`name is not a local or a capture`）——它是一个**宿主级的深拷贝**：普通对象 / 数组按结构走 ✓、`Map` / `Set` / `Date` 各按自己的内部格走 ✓、**循环引用**要有一张「已访问」表 ✓（`JSON.parse(JSON.stringify(x))` 那条路在环上会抛 ✓，不能拿它顶 ✓）。落在 `globals.xl.md` 那一张表上（与 `Object.assign` / `Array.from` 同一处 ✓）" },
   "c330-std-structuredclone-containers": { expect: "blocked", why: "同上——这一条把 `Map` / `Set` / `Date` 与**循环引用**一起考（`copy.self === copy` 那一条是「已访问」表存在的唯一证据）" },
   // `Error.isError` 这一条**卡在壳上** ✗（与第 324 轮 `Map.groupBy` 量到的是同一个坎 ✓）：
@@ -921,4 +933,34 @@ export const EXPECTATIONS = {
   // 这一条的症状换成了 `name is not a local or a capture: id` ✓
   //（`data.items![0]!.id` 里那个 `id` 掉成了一枚**裸标识符** ✓，于是被当成要绑的名字 ✓）。
   "c330-ex-nonnull-assertion-forms": { expect: "blocked", why: "非空断言串在成员链上时**后面那一截被丢掉**：`data.items![0]!.id` 里那个 `id` 掉成一枚裸标识符（报 `name is not a local or a capture: id`）。与 `c323-ex-nonnull-in-chains` / `c305-ex-optional-chain-nonnull-mix` **同一个根**（`print-ast-common.xl.md` 的链分支），只是这一条把「`!` 在下标之前、之后又跟一个 `.`」那种排布写全了" },
+
+  // ===== 第 331 轮：新铺的 39 条里没过的那 3 条 =====
+  //
+  // **这一轮先量出「哪些已经对了」** ✓：39 条候选里 **36 条当场通过** ✓、
+  // **3 条是新量到的缺口** ✗、`nodefail` / `bad` 都是 **0** ✓。
+  // **端到端那一层 10 条全过** ✓（它现在是 **55 / 55 = 100%** ✓）。
+  //
+  // **三条按根子分三组** ✓：
+  //
+  // ---- 组 A：解构形参的**嵌套**模式（1 条）----
+  // `function render({ tags = [], meta: { width = 80 } = {} } = {})` 报
+  // `ast node ArrayBindingPattern has no text` ✓——**默认值是数组字面量**那一格 ✓
+  //（`tags = []` ✓）走的是 `BindingElement` 的取值路 ✓，而它按 `TextOf` 取名字 ✗。
+  // 与 `ex-destructuring-params` / `c291-ex-destructure-params-and-defaults`
+  // （那两条是**扁平**的 ✓、都过 ✓）不是同一个形状 ✓：这一条考的是**嵌了一层对象模式** ✓。
+  "c331-ex-destructure-params-and-defaults": { expect: "blocked", why: "解构形参里**默认值是数组字面量**（`{ tags = [] as string[] }`）时报 `ast node ArrayBindingPattern has no text`——`BindingElement` 那一支按 `TextOf` 取名字，而左边是一个**模式**（数组 / 对象）时它没有 `text`。扁平的那两条（`ex-destructuring-params` / `c291-ex-destructure-params-and-defaults`）一直是好的，这一条把**嵌了一层对象模式 + 两处默认值**一起写全了" },
+  //
+  // ---- 组 B：`enum` 与 `namespace` 的**同名合并**，且体内函数回头用那个枚举（1 条）----
+  // `enum Level { … }` 之后 `namespace Level { export function label(v: Level) { … Level.Low … } }` ✓——
+  // `ex-enum-namespace-merge`（矩阵里那条）**是过的** ✓，差别在**体内那个函数回头读枚举成员** ✓：
+  // 报 `unimplemented: name is not a local (captures need env records): Level` ✓。
+  // **与第 325 轮那条「有就复用只看了本层的槽」同一条链** ✓（名字住在环境格里 ✓），
+  // 而这一格多一层：命名空间体是**开一帧跑**的 ✓，那一帧要能把外层那个已经存在的
+  // `Level` 对象**按名字读回来** ✓——缺的是「合并时把老值的住址一起带进去」那一步 ✓。
+  "c331-ex-enum-and-namespace-merge": { expect: "blocked", why: "`enum` 与同名 `namespace` 合并之后，**命名空间体内的函数回头读那个枚举成员**时报 `unimplemented: name is not a local (captures need env records)`——命名空间的体是**开一帧跑**的（第 292 轮 ✓），而那一帧读外层那个已经存在的 `Level` 对象时，名字没有落在它够得着的地方。矩阵里那条 `ex-enum-namespace-merge`（体内不读枚举）**是过的**，这一条把「合并 + 体内回头用」写全了；与第 325 轮「有就复用只看了本层的槽」是同一条链" },
+  //
+  // ---- 组 C：非空断言与可选链混写（1 条）----
+  // **旧账换写法** ✓（与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` /
+  // `c323-ex-nonnull-in-chains` / `c330-ex-nonnull-assertion-forms` **同一个根** ✓，不加新账 ✓）。
+  "c331-ex-nonnull-and-optional-mix": { expect: "differ", why: "`data.list![0].id` 给的是**整个数组**（Node 给 `1`）——`!` 后面的 `[0]` 整格丢掉，与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` / `c323-ex-nonnull-in-chains` / `c330-ex-nonnull-assertion-forms` **同一个根**（`print-ast-common.xl.md` 的链分支）。这一条把「`!` 与 `?.` 写在同一条链上」那种排布一起考了（`data.list![0].tags?.length` 那一半是对的 ✓）" },
 };

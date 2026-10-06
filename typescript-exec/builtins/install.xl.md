@@ -100,7 +100,10 @@ throw new Error("unimplemented: builtin id " + id);
 // 与第 116 轮 `Map` / `Set` 那一处**一模一样** ✓）。
 // **248 是第 327 轮加的** ✓（`withResolvers` ✓）——同一条账又走了一遍 ✓：
 // 上界从 `< 248` 挪到 `< 249` ✓（**号段的上界跟着新号走** ✗，这不是「顺手多挪一格」✓）。
-if (id >= 230 && id < 249) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
+// **249 是第 331 轮加的** ✓（`try` ✓）——**第三次** ✓：上界 `< 249` → **`< 250`** ✓。
+// 这一条账值得单写一句 ✗：**三个轮次（295 / 327 / 331）踩的是同一处** ✓，
+// 而症状每次都长得像「有个全局号没实现」✓——它不是 ✓，是**上界与号数不同步** ✓。
+if (id >= 230 && id < 250) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
 // **「一个可迭代物 → 一个数组」这件家务事留在这一层** ✓（不放进 `map.xl.md` / `set.xl.md` ✗）：

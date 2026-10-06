@@ -946,8 +946,9 @@ if (this.Program === null) throw new Error("no program loaded");
 // **这一趟的边界** ✓（第 228 轮 ✓）：`DoThrow` 拿它判「处理点是不是在我这一层之上」✓
 // （见 `HandlerEntry.Depth` 与 `CallFailed` ✓）。
 // **写在外面还是里面都一样** ✗（一趟里它不动 ✓），写在循环前面是为了让「它属于这一趟」
-// 这件事一眼看得见 ✓。**退出时不用还原** ✓：下一趟进来会重新写 ✓
-// （`RunToDepth` 是**唯一**的入口 ✓——`Run` 只是 `depth = 0` 那一档 ✓）。
+// 这件事一眼看得见 ✓。**退出时要还原** ✗（第 331 轮 ✓，见这一段的末尾 ✓）——
+// 从这一轮起 `DoThrow` 也要读它 ✓（判「这一帧在不在**这次**重入里面」✓）。
+const outerBoundary = this.NativeBoundary;
 this.NativeBoundary = depth;
 this.Status = VmStatus.Ready;
 while (this.Status === VmStatus.Ready) {
@@ -965,6 +966,14 @@ while (this.Status === VmStatus.Ready) {
   frame.Pc = pc + 1;
   this.Execute(frame, this.Code().At(pc));
 }
+// **边界要还原** ✗（第 331 轮 ✓）——**这一句是跟着 `DoThrow` 那条判据一起来的** ✓：
+// 从这一轮起，`DoThrow` 拿 `NativeBoundary` 问「这一帧在**这次重入里面**吗」✓。
+// **不还原就是一处静默的过期值** ✗：一趟深的重入（`[1,2].map(x => new Promise(() => { throw }))` ✓
+// ——里层那一次 `RunToDepth(2)` 把边界写成 2 ✓）回来之后，
+// 顶层再调一个「同步就抛」的 async 函数 ✓，它的帧在**第 1 层** ✓ ⇒ `1 >= 2` 为假 ✓
+// ⇒ 那一抛**不再变成拒绝** ✗，而是冒到宿主 ✓（与第 285 轮刚修好的那一格**恰好相反** ✓）。
+// **症状会离现场很远** ✓（一会儿对、一会儿错，取决于前面跑过什么 ✓），所以这一句必须在这儿 ✓。
+this.NativeBoundary = outerBoundary;
 return this.Status;
 ```
 
@@ -1491,11 +1500,32 @@ return (callee: Value, self: Value, args: Value[]): Value => {
 `Threw` 了 ✓，而这一趟**脚本还要接着跑** ✓（那个 `catch` 就挂在后面 ✓）——
 不放回去，外层那一段**悄悄停下** ✗（而且不报错 ✓）。
 
+**放回哪一档不能只看 `Finished`** ✗（第 331 轮改 ✓）——**这一条是实测逼出来的** ✓。
+原来的判据是 `Finished ? Halted : Ready` ✓，它在**入口那一趟**是对的 ✓
+（`Finished` 为假 ⇒ 脚本还在跑 ⇒ `Ready` ✓）；可**微任务那一趟**里
+`Finished` **已经是真** ✓（入口函数早返回了 ✓），而这一趟**仍然有一帧在跑** ✓——
+`DrainMicrotasks` 是拿 `RunToDepth(0)` 跑的 ✓，它把挂起的帧 `PushBack` 回来接着跑 ✓。
+置成 `Halted` ⇒ **那个分派循环立刻停** ✓ ⇒ 那一帧**停在半句话上** ✗，
+而 `DrainMicrotasks` 只判「`Ready` 或 `Halted` 都算正常」✓ ⇒ **一声不响地跳到下一个微任务** ✗。
+
+**现场** ✓（d2 那条探针）：
+
+    async function main() {
+      await null;                                   // ← 这一帧是微任务里推回来的
+      const p = new Promise(() => { throw new Error("e"); });   // ← 执行器那一抛
+      console.log("m2b");                           // ← 这一行永远不执行
+    }
+
+Node 印 `m2b` ✓，本仓**一行都不印** ✓（退出码还是 0 ✗）。
+**判据换成「帧栈空不空」** ✓：还有帧要跑 ⇒ `Ready` ✓；真的空了 ⇒ `Halted` ✓。
+**它在原来那几档上给的是同一个答案** ✓（入口那一趟 `Finished` 为假时栈里一定有帧 ✓、
+执行器在顶层抛时栈里是 `[模块帧]` ✓）——所以这一改**只动了那一个原本错的格子** ✓。
+
 ```ts
 if (this.Status !== VmStatus.Threw) return Value.Undefined();
 const value = this.Pending;
 this.Pending = new Value();
-this.Status = this.Finished ? VmStatus.Halted : VmStatus.Ready;
+this.Status = this.Frames.IsEmpty() ? VmStatus.Halted : VmStatus.Ready;
 return value;
 ```
 
@@ -2007,7 +2037,33 @@ for (let i = unwound.length - 1; i >= 0; i--) {
   const dying = this.Table.Get(unwound[i]);
   if (dying === null) continue;
   if (dying.Frame === null) continue;
-  if (dying.Frame.AsyncPromise > 0) {
+  // **只有「重入那一段里面」的 async 帧才算接住这一抛** ✗（第 331 轮 ✓）——
+  // **这一条是实测逼出来的** ✓：判据原来只问 `AsyncPromise > 0` ✓，
+  // 于是它会**一路往下找到外层那个 async 调用者** ✓、把它拒绝掉 ✗。
+  //
+  // 现场 ✓（这一格的最日常写法）：
+  //
+  //     async function main() {
+  //       const b = await new Promise(() => { throw new Error("executor") })
+  //         .catch((e) => "B:" + e.message);
+  //     }
+  //
+  // 执行器那一抛发生在**一次重入里** ✓（`invoke` = `CallNative` ✓），
+  // 而语言层**打算自己接** ✓（`PromiseCtor` 那一支收尾问 `takeThrown` ✓）——
+  // 可这一趟先把 `main` 的承诺拒绝了 ✓、**顺手把 `Pending` 清掉** ✓（下面那一段 ✓），
+  // 于是 `takeThrown` 什么也拿不到 ✓ ⇒ 内层那个承诺**永远不结清** ✓
+  // ⇒ 宿主报 `the script is waiting for a promise the host has not settled` ✗。
+  // **症状看着像「承诺没结清」** ✓，根子是**这一抛被上面那个帧抢走了** ✗。
+  //
+  // **判据是层深** ✓：`NativeBoundary` 是**当前这一趟 `RunToDepth` 的起点** ✓
+  //（`CallNative` 压帧之前的那一层 ✓）——`i >= NativeBoundary` 才说明
+  // 「这一帧在**这次重入里面**」✓。**外层那些调用者一律不算** ✗：
+  // 它们手里已经拿到承诺了 ✓，要等这一份拒绝**顺着 `await` 链传上去** ✓（上面那条写着理由 ✓）。
+  //
+  // **为什么不是 `>`** ✗：重入的被调方那一帧**正好落在边界上** ✓
+  //（`RunToDepth` 是「压帧之前」记的边界 ✓）——写成 `>` 会把
+  // `[1, 2].map(async (x) => { throw … })` 那一格**放过去** ✗（第 320 轮刚修好的那一格 ✓）。
+  if (dying.Frame.AsyncPromise > 0 && i >= this.NativeBoundary) {
     // **拒绝的是「它自己那个承诺」** ✓（不是新造一个 ✗）——
     // 那个句柄在开帧时就写在帧上了 ✓（见 `AsyncPromise` ✓），
     // 而它**已经交到调用者手里** ✓，所以这里要结清的正是它 ✓。
@@ -2037,12 +2093,29 @@ if (converted) {
   //
   // **`Pending` 也要清** ✓（与 `TakeRaise` 那条一字不差 ✓）：那一抛已经**变成一份拒绝**了 ✓，
   // 不再是「脚本站内异常」✗——留着它，下一次宿主调用会读到**上一次的错** ✓。
-  // **状态放回哪一档由 `Finished` 说** ✓（第 285 轮 `RunNativeTask` 那一处同一个写法 ✓）：
-  // 入口已经返回 ⇒ 这一趟是宿主在排空微任务 ✓ ⇒ `Halted` ✓；
-  // 否则这一趟是**脚本自己同步跑出来的 async 调用立刻抛了** ✓ ⇒ `Ready` ✓。
+  // **状态放回哪一档不能只看 `Finished`** ✗（第 331 轮改 ✓，与 `TakeThrown` 那一处**同一个根** ✓）：
+  // `Finished` 说的是「**入口函数**返回了没有」✓，而**微任务那一趟**里它已经是真 ✓
+  //（入口早返回了 ✓），可这一趟**仍然有帧要跑** ✓——`DrainMicrotasks` 是拿 `RunToDepth(0)` 跑的 ✓、
+  // 它把挂起的帧 `PushBack` 回来接着跑 ✓。置成 `Halted` ⇒ **那个分派循环立刻停** ✓
+  // ⇒ 被重入推回来的那一帧**停在半句话上** ✗，而 `DrainMicrotasks` 只判
+  // 「`Ready` 或 `Halted` 都算正常」✓ ⇒ **一声不响地跳到下一个微任务** ✗（**静默错值** ✓）。
+  //
+  // **现场** ✓（g2 那条探针）：
+  //
+  //     async function thrower() { throw new Error("async"); }
+  //     async function main() {
+  //       await null;                                            // ← 微任务里推回来的一帧
+  //       const d = await thrower().catch((e) => "D:" + e.message);
+  //       console.log(d);                                        // ← 永远不执行
+  //     }
+  //
+  // Node 印 `D:async` ✓，本仓**一行都不印** ✓；而**把 `await null` 去掉**就对了 ✓
+  //（那时这一趟是入口那一趟，`Finished` 为假 ✓）——**同一句话两种结局** ✓，
+  // 判据差的就是「谁在跑这一趟」✓。
+  // **换成「帧栈空不空」** ✓：还有帧要跑 ⇒ `Ready` ✓；真的空了 ⇒ `Halted` ✓。
   while (this.Frames.Depth() > convertedDepth) this.Frames.Pop();
   this.Pending = new Value();
-  this.Status = this.Finished ? VmStatus.Halted : VmStatus.Ready;
+  this.Status = this.Frames.IsEmpty() ? VmStatus.Halted : VmStatus.Ready;
   return;
 }
 this.Frames.Clear();
@@ -2901,6 +2974,8 @@ const depth = this.Frames.Depth();
 //   · `escapedBefore`——上一趟有没有跨过边界 ✓（这一趟的判据要**重新算** ✗，
 //     不能继承上一次的结论 ✓：上一次要是跨过，后面每一次重入都会被判成「出事」✗）。
 const thrownBefore = this.Throws;
+// **还要记下外面那一摞帧** ✗（第 331 轮 ✓）——见下面 `RunToDepth` 之后那一句的说明 ✓。
+const outerFrames = this.Frames.Handles.slice(0, depth);
 this.NativeEscaped = false;
 this.NativeDepth = this.NativeDepth + 1;
 this.NativeResult = new Value();
@@ -2914,6 +2989,28 @@ for (let i = 0; i < args.length && i < info.SlotCount; i++) {
   frame.Slots[i] = args[i];
 }
 this.RunToDepth(depth);
+// **外面那一摞帧要放回来** ✗（第 331 轮 ✓）——**这一条是实测逼出来的** ✓。
+//
+// **它补的是什么** ✗：`DoThrow` 的「一个处理点都不剩」那一支会 `Frames.Clear()` ✓
+//（那一支的理由是对的 ✓，见它的说明 ✓）——可**重入里的那一抛未必是「没人接」** ✗：
+// 语言层的内建**自己会接** ✓。最日常的一格就是承诺执行器 ✓：
+//
+//     new Promise(() => { throw new Error("boom") }).catch(e => console.log(e.message));
+//     console.log("after");
+//
+// Node 给 `after` + `boom` ✓（那一抛在 JS 里**不是宿主错误** ✓，是结果承诺被拒绝 ✓，
+// 见 `TakeThrown` 那一格 ✓）；本仓**一行都不出** ✓，宿主报
+// `the script is waiting for a promise the host has not settled` ✗——
+// 看起来像运行器卡住 ✗，真相是**模块那一帧被一起清掉了** ✓
+// ⇒ 内建回来之后 `settle` 照做 ✓、可**没有帧接着跑** ✓（`console.log("after")` 永远不会执行 ✓）。
+//
+// **判据为什么是「比 `depth` 浅」** ✓：展开到外层处理点那一档是**合法的收窄** ✓
+//（`DoThrow` 把 `Pc` 指到处理点 ✓、`Frames.Depth()` 正好落在 `depth` ✓），
+// 所以只有**比 `depth` 还浅**才说明「整摞被清了」✓。
+// **一条判据两件事** ✗：`Frames.Clear()` 那一支与「重入里被接住的那一抛」是**同一个症状的两个来源** ✓，
+// 而这里只补后者 ✓——前者（真的没人接）仍旧让 `Status` 停在 `Threw` ✓，
+// 外面那台循环一看到它就停 ✓，宿主照旧报错 ✓（**净效果一个字都没变** ✓）。
+if (this.Frames.Depth() < depth) this.Frames.Handles = outerFrames;
 this.NativeDepth = this.NativeDepth - 1;
 // **「这一趟里出过事」有两个来源，缺一不可** ✓（第 228 轮 ✓）：
 //   · **计数变了** ✓ —— 重入里抛过（不管最后有没有被接住 ✓）；

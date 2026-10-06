@@ -4961,4 +4961,164 @@ console.log(0.1 + 0.2 === 0.3, (0.1 + 0.2).toFixed(2));
 console.log(9007199254740993, Number.isSafeInteger(9007199254740993));
 `,
   },
+  // ===== 第 331 轮收编（8 条）=====
+  {
+    id: "c331-rt-promise-reject-after-await",
+    title: "`await` 之后才被拒绝：三条路一起走",
+    src: `
+async function f(n: number): Promise<number> {
+  await null;
+  if (n === 2) throw new Error("boom");
+  return n;
+}
+async function run(): Promise<void> {
+  for (const n of [1, 2, 3]) {
+    const got = await f(n).then((v) => "ok" + v).catch((e) => "err" + (e as Error).message);
+    console.log(got);
+  }
+  const caught = await (async () => {
+    try {
+      await f(2);
+      return "no-throw";
+    } catch (e) {
+      return "caught:" + (e as Error).message;
+    }
+  })();
+  console.log(caught);
+}
+run();
+`,
+  },
+  {
+    id: "c331-rt-promise-executor-throw-and-sync",
+    title: "执行器里抛之后，同一段里的同步语句与微任务",
+    src: `
+const log: string[] = [];
+new Promise(() => {
+  log.push("exec");
+  throw new Error("x");
+}).catch((e) => log.push("catch:" + (e as Error).message));
+log.push("sync");
+Promise.resolve().then(() => {
+  log.push("micro");
+  console.log(log.join(","));
+});
+`,
+  },
+  {
+    id: "c331-rt-generator-two-way-communication",
+    title: "生成器：送进去的值与产出的值两条方向",
+    src: `
+function* accumulate(): Generator<number, number, number> {
+  let total = 0;
+  for (let i = 0; i < 3; i++) {
+    const sent: number = yield total;
+    total = total + sent;
+  }
+  return total;
+}
+const it = accumulate();
+console.log(JSON.stringify(it.next()));
+console.log(JSON.stringify(it.next(5)));
+console.log(JSON.stringify(it.next(10)));
+console.log(JSON.stringify(it.next(100)));
+`,
+  },
+  {
+    id: "c331-rt-try-catch-in-loops-and-functions",
+    title: "`try` 在循环里、在函数里、套着 `finally`",
+    src: `
+function risky(n: number): number {
+  try {
+    if (n % 2 === 1) throw new Error("odd " + n);
+    return n * 2;
+  } catch (e) {
+    return -1;
+  } finally {
+    // 只是观察：不改返回值
+  }
+}
+const out: number[] = [];
+for (const n of [1, 2, 3, 4]) out.push(risky(n));
+console.log(out.join(","));
+try {
+  for (const n of [1, 2]) {
+    if (n === 2) throw new Error("stop");
+    out.push(n);
+  }
+} catch (e) {
+  console.log("caught", (e as Error).message);
+}
+console.log(out.length);
+`,
+  },
+  {
+    id: "c331-rt-getter-setter-with-validation",
+    title: "访问器里的校验与副作用",
+    src: `
+class Temperature {
+  private celsius = 0;
+  private reads = 0;
+  get value(): number {
+    this.reads = this.reads + 1;
+    return this.celsius;
+  }
+  set value(next: number) {
+    if (next < -273.15) throw new RangeError("below absolute zero");
+    this.celsius = next;
+  }
+  get readCount(): number {
+    return this.reads;
+  }
+}
+const t = new Temperature();
+t.value = 25;
+console.log(t.value, t.value, t.readCount);
+try {
+  t.value = -300;
+} catch (e) {
+  console.log((e as Error).name, (e as Error).message.slice(0, 5));
+}
+console.log(t.value);
+`,
+  },
+  {
+    id: "c331-rt-array-methods-on-derived",
+    title: "数组方法链：`map` / `filter` / `reduce` 一起用",
+    src: `
+const numbers = [5, 12, 8, 130, 44];
+const result = numbers
+  .filter((n) => n > 10)
+  .map((n) => n * 2)
+  .reduce((sum, n) => sum + n, 0);
+console.log(result);
+console.log(numbers.find((n) => n > 100), numbers.findIndex((n) => n > 100));
+console.log(numbers.some((n) => n < 0), numbers.every((n) => n > 0));
+`,
+  },
+  {
+    id: "c331-rt-object-spread-and-rest",
+    title: "对象展开与剩余：次序是语义",
+    src: `
+const base = { a: 1, b: 2 };
+const over = { b: 3, c: 4 };
+const merged = { ...base, ...over };
+console.log(JSON.stringify(merged));
+const { a, ...rest } = merged;
+console.log(a, JSON.stringify(rest));
+const nested = { ...base, inner: { ...over } };
+console.log(nested.inner.b, base.b);
+`,
+  },
+  {
+    id: "c331-rt-string-methods-chain",
+    title: "字符串方法的链式写法与边界实参",
+    src: `
+const text = "  Hello, World  ";
+console.log(text.trim().toLowerCase().replace("world", "there"));
+console.log("abc".padStart(6, "*"), "abc".padEnd(6, "-"));
+console.log("a,b,c".split(",").map((part) => part.toUpperCase()).join(""));
+console.log("repeat".repeat(2), "x".at(-1), "x".charCodeAt(0));
+`,
+  },
 ];

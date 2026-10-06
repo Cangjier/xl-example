@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, SetProperty, SetHiddenProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
-import { NeverCall } from "./array.xl.md"
+import { NeverCall, AttachArrayIterator } from "./array.xl.md"
 ```
 
 # namespace cangjie
@@ -317,6 +317,13 @@ if (id === MapKeys || id === MapValues) {
     if (source.IsHole(i)) continue;
     table.Get(out.Ref).AsArray().Push(source.GetAt(i));
   }
+  // **真迭代器那一套也要挂上** ✓（第 331 轮 ✓）：`map.keys().next()` 是**日常写法** ✓
+  //（「拿第一个键」那一句 ✓），而本仓的 `keys()` 返回的是**数组** ✓、
+  // 数组上没有 `next` ✗ ⇒ 报 `cannot call a non-closure value` ✓
+  //（听起来像「那个方法没做」✗，其实是**接线漏了一族** ✓）。
+  // 用的是**同一个** `AttachArrayIterator` ✓（第 279 轮做出的那两格 ✓，见 `array.xl.md` ✓）——
+  // **一处实现、四个用户** ✓（数组三格 ✓、`Map` ✓、`Set` ✓）。
+  AttachArrayIterator(room, table, out.Ref);
   return out;
 }
 if (id === MapEntries) {
@@ -332,6 +339,7 @@ if (id === MapEntries) {
     table.Get(pair.Ref).AsArray().Push(table.Get(values.Ref).AsArray().GetAt(i));
     table.Get(out.Ref).AsArray().Push(pair);
   }
+  AttachArrayIterator(room, table, out.Ref);
   return out;
 }
 if (id === MapForEach) {

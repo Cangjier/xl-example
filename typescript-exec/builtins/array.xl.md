@@ -1053,18 +1053,10 @@ if (id === ArrayKeys || id === ArrayValues || id === ArrayEntries) {
   // **表示没变** ✗——返回的**仍然是数组** ✓（上面那一段写着为什么必须如此 ✓：
   // 引擎的迭代只认数组与生成器 ✓，换成「对象 + `next`」会把
   // `[...xs.keys()]` / `for..of` / `Array.from` **一起弄坏** ✗）。
-  // 接上的办法是**在这个数组上挂两格隐藏属性** ✓：
-  //   · `__i`：游标 ✓（`0` 起 ✓，`next()` 自己加 ✓）；
-  //   · `next`：指向 `ArrayIteratorNext` 那一格能力的宿主引用 ✓。
-  // **数据就在数组自己身上** ✓（`values` 的元素 ✓、`keys` 的下标 ✓、`entries` 的对 ✓），
-  // 所以 `next()` **一格都不必另存** ✗——它只读 `self` 的第 `__i` 格 ✓。
-  // **隐藏的**（`SetHiddenProperty` ✓）：`Object.keys(it)` 与 `JSON.stringify(it)` 看不见它们 ✓，
-  // 而 `[...it]` 走的是**元素**那条路 ✓，与属性无关 ✓。
-  SetHiddenProperty(room, table, Value.FromArray(iterationHandle),
-    Value.FromString(table.CreateString(Units("__i"))), Value.FromInt(0));
-  SetHiddenProperty(room, table, Value.FromArray(iterationHandle),
-    Value.FromString(table.CreateString(Units("next"))),
-    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorNext, 0)));
+  // 接上的办法是**在这个数组上挂两格隐藏属性** ✓（`AttachArrayIterator` ✓，
+  // 第 331 轮把它抽成了一处 ✓——`Map` / `Set` 的 `keys()` / `values()` / `entries()`
+  // 是**同一件事的另外三个用户** ✓，见那两个文件 ✓）。
+  AttachArrayIterator(room, table, iterationHandle);
   return Value.FromArray(iterationHandle);
 }
 if (id === ArrayIteratorNext) {
@@ -1114,6 +1106,35 @@ if (id === ArrayIteratorNext) {
   return step;
 }
 throw new Error("unimplemented: array builtin " + id);
+```
+
+# method AttachArrayIterator:(room:RoomChecker, table:HeapTable, handle:int)=>void
+
+**把「数组形状的迭代器」那两格挂上去** ✓（第 279 轮做出这一套 ✓，第 331 轮抽成一处 ✓）：
+`__i`（游标 ✓，`0` 起 ✓）与 `next`（指向 `ArrayIteratorNext` 那一格能力 ✓）。
+
+**为什么它必须是一个方法、不能在每个 `keys()` 里各写一遍** ✗：
+用户有**四个** ✓——`Array.prototype` 的 `keys` / `values` / `entries` ✓（`array.xl.md` 里那一支 ✓）、
+`Map.prototype` 的 ✓（`map.xl.md` ✓）、`Set.prototype` 的 ✓（`set.xl.md` ✓），
+再加上数组那一格 `[Symbol.iterator]` ✓（它指到 `values` ✓）。
+抄四遍就是四处会漂的答案 ✗，而漂了的症状是「**某一族的 `next()` 是 `undefined`**」✓
+——听起来像「那个方法没做」✗，其实是**接线漏了一族** ✓
+（实测：`c305-e2e-lru-cache` 卡在 `this.#map.keys().next()` 上整整 26 轮 ✓）。
+
+**为什么 `next` 不必另存一份状态** ✗：数据就在那个数组自己身上 ✓
+（`values` 的元素 ✓、`keys` 的下标 ✓、`entries` 的对 ✓），
+`ArrayIteratorNext` 只读 `self` 的第 `__i` 格 ✓。
+
+**两格都是隐藏的** ✓（`SetHiddenProperty` ✓）：`Object.keys(it)` 与 `JSON.stringify(it)`
+看不见它们 ✓（JS 里迭代器上也没有可枚举的自有属性 ✓），
+而 `[...it]` 走的是**元素**那条路 ✓，与属性无关 ✓。
+
+```ts
+SetHiddenProperty(room, table, Value.FromArray(handle),
+  Value.FromString(table.CreateString(Units("__i"))), Value.FromInt(0));
+SetHiddenProperty(room, table, Value.FromArray(handle),
+  Value.FromString(table.CreateString(Units("next"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIteratorNext, 0)));
 ```
 
 # method SpliceArray:(room:RoomChecker, table:HeapTable, target:HeapArray, targetRef:int, args:Array<Value>, length:int)=>int
