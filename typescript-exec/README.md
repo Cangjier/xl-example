@@ -6,6 +6,60 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 360 轮的账（**三元条件段的起点判据认「受限产生式那个词」** —— 99.5%，收掉 1 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮收在 **token 层** ✓。
+
+### 一、那一格（`rt-ternary-nesting-and-assign`）
+
+```ts
+function grade(n: number) { return n >= 90 ? "A" : n >= 80 ? "B" : n >= 70 ? "C" : "F"; }
+```
+
+报 **`name is not a local or a capture: return`** ✗——**把 `return` 这个词当成变量名了** ✗。
+
+### 二、二分与证据（**都靠投影对比，不靠猜** ✓）
+
+- **两层的链对** ✓、**三层的链才炸** ✓；
+- 同样三层放在 **`const` 初始化式**里**也对** ✓ ⇒ **与深度无关** ✓、**与「在 `return` 里」有关** ✓；
+- 投影对比**一眼看出** ✓：三层时那条语句变成 **`ExpressionStatement`** ✓、
+  且**外层条件那一格是一格 `Identifier`**（就是 `return` 那个词 ✓）、
+  而 `n >= 90` 掉进了**真值段** ✗。
+
+### 三、根因与修法（token 层一行）
+
+`ternary-operator.xl.md` 的 `IsTernaryOperatorStart` 里那条 `return` 判据写的是
+**`current instanceof Identifier && current.Is("return")`** ✗，而产物里 `return` 是一个 **`Keyword`** ✓
+（见 `print-ast-common.xl.md` 的 `KEYWORD_STATEMENT` 表 ✓）⇒ **回扫冲过它** ✗、
+一路找不到起点 ⇒ `SearchFront` 给 **`-1`** ✗ ⇒ 条件段**从 0 开始切** ✓
+⇒ **把 `return` 收进条件** ✗ ⇒ 投影出的条件是一格 `Identifier("return")` ✗ ⇒ 降级层报那句话 ✓
+（**一句话里没有一个字提到三元** ✗）。
+
+改成**复用 `Statement.IsRestrictedKeyword`** ✓（`return` / `throw` / `break` / `continue` / `yield` ✓，
+走 `WordOf` ✓、**两种词形都认** ✓）——**不另写一份「哪些词算 return」的名单** ✗。
+
+**两层为什么一直没露** ✓：同一条链在两层的规模下**同一趟就成形** ✓、
+**根本走不到这条回扫** ✓。
+
+**读数** ✓：`pass` **1335 → 1336** ✓、`blocked` **6 → 5** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **36.9s 全绿** ✓；**引擎 99.3%** ✓、降级层 99.4% ✓、标准库 99.6% ✓、端到端 100% ✓。
+**剩下 7 格** ✓。
+
+### 四、这一格的教训（**值得记** ✓）
+
+**同一个词有两种词形**（`Identifier` 与 `Keyword` ✓）——与第 357 轮「**同一个对象有两种表示**」
+是**同一类坑** ✗；而仓库里**早就有**一条认这种词的判据 ✓（`IsRestrictedKeyword` ✓），
+**先找它、别另写** ✓。
+
+### 五、下一轮的入口
+
+**① 嵌套命名空间** ✓（报错已带「`left is ModuleDeclaration at 19..65`」✓；根在投影层语句切分 ✓）；
+**② `Array.fromAsync`** ✓（**根本没有实现** ✗——它要等**异步迭代器** ✓）；
+**③ 错误要有 `stack`** ✓（IR 要带源码位置 ✓）；**④ 其余**（`IdTable` 容量口径 ✓、
+`Map`/`Set`/`Date` 的 `size` 该是原型 getter ✓、错误对象的内部槽标记 ✓、
+`super` 在对象字面量里 ✓、链式调用那处已知缺口 ✓）。
+
 ## 第 359 轮的账（**可采纳对象（thenable）也要被采纳** —— 99.4% → **99.5%**，收掉 1 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
