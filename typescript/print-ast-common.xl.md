@@ -2592,7 +2592,12 @@ new Set([
   if (
     kids.length >= 2 &&
     (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
-      (kids[0].get("type") === "NotNull" && kids[1].get("type") === "ArrayLiteral"))
+      (kids[0].get("type") === "NotNull" && kids[1].get("type") === "ArrayLiteral") ||
+      // **`!` 后面那一格以一次下标开头** ✗（第 333 轮 ✓）：`[1]!` ✓ 与 `[0].id` ✓
+      // 两种外壳（`NotNull` ✓ / `PropertyAccess` ✓）都要认 ✓——判据与理由见
+      // `isIndexFirstUnit` 那一段 ✓。少了它，`o.b![1]![0]` 与 `data.list![0].id`
+      // **整条链都进不来** ✗（后两个方括号连着丢 ✓）。
+      (kids[0].get("type") === "NotNull" && isIndexFirstUnit(kids[1], ctx)))
   ) {
     // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
     // `this.Parent!.Data.splice(1, 2)` 实测是
@@ -2625,6 +2630,33 @@ new Set([
         }
       }
       ck.push(k);
+    }
+    // **`!` 后面那一格「以一次下标开头」的单元要摊开** ✗（第 333 轮 ✓）：
+    // `data.list![0].id` 的 token 形状是 `[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]` ✓
+    // ——第二格的外壳是**属性访问** ✓，而它要落的其实是**两件事** ✓：
+    // 先按那个方括号下标 ✓、再把 `.id` 接上去 ✓。
+    // **不摊开的话**：循环看到的是一个 `PropertyAccess` ✓ ⇒ 既不是下标 ✓、也不是点号 ✓
+    // ⇒ `break` ✗ ⇒ 后面整段丢 ✓（`data.list![0].id` 于是给**整个数组** ✓，
+    // 而 Node 给 `1` ✓——**静默错值** ✓，判据 `c331-ex-nonnull-and-optional-mix` ✓）。
+    // **`NotNull` 那一档不在这里摊** ✗：它自带「断言」那一半 ✓，
+    // 摊成两格反而会把那个 `!` 丢成一枚裸符号 ✗——它由循环里那一支一起办 ✓（见下面 ✓）。
+    const headAssert = kids.length > 0 && kids[0].get("type") === "NotNull";
+    if (headAssert && ck.length > 0) {
+      const flattened: Array<any> = [];
+      for (let at = 0; at < ck.length; at++) {
+        const one = ck[at];
+        if (
+          at > 0 &&
+          one.get("type") === "PropertyAccess" &&
+          isIndexFirstUnit(one, ctx)
+        ) {
+          for (const inner of projectableKids(view(one))) flattened.push(inner);
+          continue;
+        }
+        flattened.push(one);
+      }
+      ck.length = 0;
+      for (const one of flattened) ck.push(one);
     }
     let left =
       ck[0].get("type") === "Bracket" && ck[0].get("startBracket") === "("
@@ -2691,6 +2723,26 @@ new Set([
         // 包成 `NonNullExpression`，链再照常往下接。不认它的话循环在这里 break，
         // 后面那整段链会掉成平级节点（实测 `string/string-guide.ts`：漂移 6 + 多出 4）。
         if (ck[i].get("type") === "NotNull") {
+          // **`[1]!` 这种「先下标、再断言」的一格** ✗（第 333 轮 ✓）：见 `isIndexFirstUnit`
+          // 那一段的表 ✓——中间那一格的外壳是 `NotNull` ✓，里层却是一个方括号 ✓。
+          // **次序是语义** ✗：TS 是 `((o.b!)[1])!` ✓——先下标、再把 `!` 套在那个结果上 ✓。
+          // 原来无条件写成「把 `left` 整个包进 `NonNullExpression`」✗ ⇒ 断言套在了**下标之前** ✓
+          // ⇒ 值一样 ✓（断言不改值 ✓）可**区间与层数都对不上** ✗，
+          // 而后面那个 `[0]` 又因为 `sawNullAssert` 已经置真而接上 ✓——
+          // 表面上跑得通 ✓，`cases:tsast` 一比就漂 ✓（实测 `arr![0]![0]`：缺两个
+          // `ElementAccessExpression` + 两个 `NumericLiteral` ✓、`NonNullExpression` 漂 4 ✓）。
+          const bangKids = projectableKids(view(ck[i]));
+          if (bangKids.length >= 1 && isIndexFirstUnit(bangKids[0], ctx)) {
+            const bracket = bangKids[0];
+            const argument = projectExpression(projectableKids(view(bracket)), ctx);
+            left = {
+              kind: "ElementAccessExpression",
+              expression: left,
+              argumentExpression: argument,
+              pos: left.pos,
+              end: endOf(bracket),
+            };
+          }
           left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(ck[i]) };
           sawNullAssert = true;
           i += 1;
@@ -3112,6 +3164,37 @@ return (
 );
 ```
 
+# method isIndexFirstUnit:(unit:any, ctx:any)=>bool
+
+**这一格是不是「以一次下标开头」** ✓（第 333 轮 ✓）——`isIndexFirstUnit` 是给
+**非空断言后面那一串**用的判据 ✓。
+
+**为什么需要它** ✗：`!` 是一个**单元** ✓，它只把**左边**包起来 ✓，而**右边**那一格
+谁也不认 ✓（它不是下标位、也不是数组字面量位 ✓）——于是 token 层会按**它能认的那个形状**
+成形 ✓。三种都实测到了 ✓：
+
+| 写法 | token 层给的形状 |
+| --- | --- |
+| `o.b![1]` | `[NotNull(o.b), ArrayLiteral(1)]` ✓（数组字面量当兄弟 ✓） |
+| `o.b![1]![0]` | `[NotNull(o.b), NotNull(ArrayLiteral(1)), ArrayLiteral(0)]` ✓（`[1]!` 又是一格 ✓） |
+| `data.list![0].id` | `[NotNull(data.list), PropertyAccess(ArrayLiteral(0), ., id)]` ✓（`.id` 折到了那个方括号上 ✓） |
+
+三者的**头一格都是下标** ✓——所以链那一支要认的不只是「兄弟是个方括号」✗，
+而是「这一格**以**一次下标开头」✓（里面可能再套一层 `!` ✓、也可能后面还接着 `.id` ✓）。
+
+**`PropertyAccess` 也要往里看** ✗：`[0].id` 那一格的外壳是属性访问 ✓，
+而它的**第一格**才是那个方括号 ✓——判据递归一层就够 ✓。
+
+```ts
+const kind = unit.get("type");
+if (kind === "ArrayLiteral" || isIndexBracket(unit)) return true;
+if (kind === "NotNull" || kind === "PropertyAccess") {
+  const inner = projectableKids(view(unit));
+  if (inner.length >= 1) return isIndexFirstUnit(inner[0], ctx);
+}
+return false;
+```
+
 # private method chainWithOptional:(left:any, unit:any, ctx:any)=>any
 
 `a.b?.c` / `a?.[i]` → 在链上再加一格（带 `questionDotToken`）。
@@ -3295,12 +3378,12 @@ return (
         };
         if (questionDot !== undefined) node.questionDotToken = questionDot;
       }
-      return {
+      return chainOnto({
         kind: "NonNullExpression",
         expression: node,
         pos: left.pos,
         end: endOf(bang),
-      };
+      }, kids.slice(1), ctx);
     }
   }
   // **`a?.b` 加模板串 ⇒ `TaggedTemplateExpression`**（第 175 轮）：`` a?.b`t` `` 的产物是
@@ -3435,6 +3518,28 @@ return (
       i += 1;
       continue;
     }
+    // **紧跟一个「按数组字面量成形的方括号」⇒ 那就是一次下标** ✗（第 333 轮 ✓）。
+    //
+    // **为什么它一定不是数组字面量** ✓：这一条路只在**链的续格**上走 ✓——
+    // 一个值后面紧跟着 `[` 在 JS 里就是下标 ✓（`a [1]` 与 `a[1]` 是一回事 ✓）。
+    // 而 token 层在**非空断言后面那一格**正好会给这个形状 ✓：
+    // `o?.a.b![0]` 的 NCO 里是 `[NotNull(PropertyAccess(a.b)), ArrayLiteral(0)]` ✓——
+    // `[0]` 谁也不认它 ✓ ⇒ 按数组字面量成形 ✓、与前面那一格**平级** ✗。
+    // 不认它的话这个下标**整段丢掉** ✗：Node 给 `7` ✓、本仓给 `[7]` ✓——**静默错值** ✓
+    //（判据 `c323-ex-nonnull-in-chains` 现场量的就是它 ✓）。
+    // **做法与上面那一支一字不差** ✓（只有「从哪个形状取实参」不同 ✓）。
+    if (unit.get("type") === "ArrayLiteral") {
+      const argument = projectExpression(projectableKids(view(unit)), ctx);
+      left = {
+        kind: "ElementAccessExpression",
+        expression: left,
+        argumentExpression: argument,
+        pos: left.pos,
+        end: endOf(unit),
+      };
+      i += 1;
+      continue;
+    }
     // **紧跟一对圆括号 ⇒ 对左边那个结果再调用一次**（第 168 轮）：`y(function(){})()`
     // 的产物是 `[…, Method(name="y"), Bracket( () )]`——末尾那对括号是**平级的兄弟**
     // （不在 `Method` 里），TS 那边是外面再套一层 `CallExpression`（区间到那个 `)`）。
@@ -3454,7 +3559,27 @@ return (
       continue;
     }
     if (!isDot(unit, ctx) || i + 1 >= units.length) break;
-    const next = units[i + 1];
+    // **点号后面那一格可能自带一个 `!`** ✗（第 333 轮 ✓）：`o?.a!.b!` 的 NCO 里是
+    // `[NotNull(a), ., NotNull(b)]` ✓——那个 `!` 与成员名**在同一格里** ✓
+    //（token 层把「名字 + 非空断言」折成了一个 `NotNull` ✓）。
+    // **不拆开的话**：下面那三支都不认 `NotNull` ✓ ⇒ 落到最后那个 `else` ✓ ⇒
+    // `nameOf(NotNull)` 把整段「名字 + `!`」当成**一个名字** ✗
+    //（实测：多出一个 `Identifier` 值叫 `"b!"` ✓、`NonNullExpression` 与
+    // `PropertyAccessExpression` 各漂 2 ✓），运行期于是给 `undefined` ✓
+    //（`+ 1` 变成 `NaN` ✓——**静默错值** ✓，判据 `c305-ex-optional-chain-nonnull-mix` ✓）。
+    //
+    // **次序是语义** ✗：先把**成员**接上 ✓，再把 `!` 套在**整条链**上 ✓
+    //（TS 是 `NonNull(PropertyAccess(…, b))` ✓，不是「名字叫 `b!`」✗）。
+    let bangUnit: any = undefined;
+    let next = units[i + 1];
+    if (next.get("type") === "NotNull") {
+      bangUnit = next;
+      const inner = projectableKids(view(next)).filter(
+        (k: any) => !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "!"),
+      );
+      if (inner.length === 0) break;
+      next = inner[0];
+    }
     if (next.get("type") === "Method") {
       const name = String(next.get("name") ?? "");
       const at = startOf(next);
@@ -3499,6 +3624,10 @@ return (
         pos: left.pos,
         end: endOf(next),
       };
+    }
+    // **那一格自带 `!` 的话，断言套在整条链上** ✓（见上面那一段 ✓）。
+    if (bangUnit !== undefined) {
+      left = { kind: "NonNullExpression", expression: left, pos: left.pos, end: endOf(bangUnit) };
     }
     i += 2;
   }

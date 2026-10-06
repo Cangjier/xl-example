@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.8,
+  "progressPercent": 97.28,
   "layers": [
     {
       "layer": "runtime",
@@ -49,11 +49,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 316,
-      "pass": 304,
-      "blocked": 7,
-      "differ": 5,
+      "pass": 309,
+      "blocked": 6,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 96.2
+      "coverage": 97.78
     },
     {
       "layer": "stdlib",
@@ -174,12 +174,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
     },
     {
-      "id": "c330-ex-nonnull-assertion-forms",
-      "layer": "exec",
-      "title": "非空断言在三种位置上的取值",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: id"
-    },
-    {
       "id": "c331-ex-enum-and-namespace-merge",
       "layer": "exec",
       "title": "`enum` 与 `namespace` 合并（运行期两个都在）",
@@ -290,30 +284,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: this should throw a TypeError (accessor without a setter)"
     },
     {
-      "id": "c304-ex-nonnull-in-optional-chain",
-      "layer": "exec",
-      "title": "非空断言与可选链混着写",
-      "detail": "stdout 不同：第 2 行：node «1 2» vs tsrun «[ [ 1 ], [ 2 ] ] 2»"
-    },
-    {
-      "id": "c305-ex-optional-chain-nonnull-mix",
-      "layer": "exec",
-      "title": "可选链与非空断言混在同一条链上",
-      "detail": "stdout 不同：第 1 行：node «1 1 1 2» vs tsrun «{ b: 1 } 1 1 [object Object]1»"
-    },
-    {
-      "id": "c323-ex-nonnull-in-chains",
-      "layer": "exec",
-      "title": "非空断言与下标 / 成员混在同一条链上",
-      "detail": "stdout 不同：第 1 行：node «1» vs tsrun «[ [ 1, 2 ] ]»"
-    },
-    {
-      "id": "c331-ex-nonnull-and-optional-mix",
-      "layer": "exec",
-      "title": "非空断言与可选链写在同一条取值里",
-      "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[ { id: 1, tags: [ 'x' ] } ] 1»"
-    },
-    {
       "id": "object-freeze-array-element",
       "layer": "stdlib",
       "title": "Object.freeze 的**数组元素**：push 在严格模式里该抛",
@@ -382,6 +352,27 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "c304-ex-nonnull-in-optional-chain",
+      "layer": "exec"
+    },
+    {
+      "id": "c305-ex-optional-chain-nonnull-mix",
+      "layer": "exec"
+    },
+    {
+      "id": "c323-ex-nonnull-in-chains",
+      "layer": "exec"
+    },
+    {
+      "id": "c330-ex-nonnull-assertion-forms",
+      "layer": "exec"
+    },
+    {
+      "id": "c331-ex-nonnull-and-optional-mix",
+      "layer": "exec"
+    }
+  ],
   "regressions": []
 }

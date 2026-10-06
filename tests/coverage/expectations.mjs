@@ -382,7 +382,10 @@ export const EXPECTATIONS = {
   "ex-angle-bracket-assertion": { expect: "blocked", why: "`unimplemented: expression TypeAssertionExpression`：尖括号断言与 `as` 在 TS 的 AST 里是两个 kind，只认了 `as`。裁判要用 `--experimental-transform-types`（剥离模式明确拒收尖括号写法）" },
   // 这一条与组 10 的「成员不在那儿」是**同一类** ✓，只是它住在 `ex` 层 ✗
   //（`String.raw` 是 `String` 上的一格 ✓，而它挡住的是一条**标签模板**的用例 ✗）。
-  "ex-string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——第 273 轮量到。与组 10 那些「成员不在那儿」同类，只是这条落在 `exec` 层（它挡住的是一条标签模板用例）" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
+  "ex-string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗。`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓" },
+  "string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof (String as any).raw` 给 `undefined`）——标签模板的 `raw` 那一栏投影里也没有" },
+  "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗" },
 
   // ---- 组 9：整块都是类型位的 `namespace` 该**整块擦掉**（1 条）----
   // 这一条不是「namespace 没做」那一条 ✗——它体内**一个运行期东西都没有** ✓
@@ -563,7 +566,7 @@ export const EXPECTATIONS = {
   // ② **`isSafeInteger` 与 `isInteger` 只差一个边界** ✓、**`getOwnPropertySymbols` 与
   //    `getOwnPropertyNames` 只差「键是不是符号」** ✓——两处都**复用**了兄弟那一支 ✓，
   //    没有另写一份 ✗（第 283 轮那条「第二份迟早与第一份走偏」✓）。
-  "string-raw-and-tagged": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof (String as any).raw` 给 `undefined`）——标签模板的 `raw` 那一栏投影里也没有" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
 
   // ---- 组 H：标准库**在、但语义不对**（第 287 轮 15 条，**第 288 轮收掉 5 条**）----
   // 与组 A 同样是**静默错值** ✓，只是这一组住在标准库里 ✓。
@@ -699,7 +702,7 @@ export const EXPECTATIONS = {
   // 第 317 轮修掉了** ✓（`ResolvePromise` 现在走「兑现值本身是承诺就采纳」那一支 ✓）——
   // 两行都撤了 ✓。留一句在这里：它们当初报的是「后面 `.then` 拿到的是**承诺对象**」✓，
   // 根子是**「兑现值是个承诺」这条语义只长在 async 那一条支路上** ✗。
-  "c304-ex-nonnull-in-optional-chain": { expect: "differ", why: "`arr![0]![0]` 投影出来是 `NonNullExpression(arr)`——**两个方括号与第二个 `!` 全丢了**（本轮实测：TS 那边是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)`）。这是第 303 轮那条链的**下一个形状**（`x![1]![0]`），入口在 `print-ast-common.xl.md` 的链分支" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
   // **`c304-ex-namespace-merged-function` 第 325 轮过了** ✓（那一行撤了 ✓）——
   // 根子与第 323 轮记的那一句**不一样** ✗：**不是**「那一格没造」✓，
   // 而是**「有就复用」只看了本层的槽** ✓、**没看本帧环境里的那一格** ✗
@@ -715,7 +718,7 @@ export const EXPECTATIONS = {
   // 那一行撤了 ✓）：`static [KEY] = "c"` 那一格与实例字段那一条**共用同一段** ✓——
   // 静态字段本来就在**类声明那一处**求值 ✓，所以它只需要①（认下计算名 ✓），
   // 不需要②（捕获那一条是给实例字段的 ✓）。
-  "c305-ex-optional-chain-nonnull-mix": { expect: "differ", why: "可选链与非空断言混在同一条链上时**后面那一截丢掉**：`o?.a!.b` 给 `{ b: 1 }`（Node 给 `1`）。与第 303 / 304 轮的链式缺口同一条（`print-ast-common.xl.md` 的链分支），这一条是「`?.` 在前、`!` 在后」那一种排布" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
   // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   // **`c305-std-map-groupby` 与 `c305-std-promise-withresolvers` 第 327 轮都过了** ✓
   // （两行撤了 ✓）——修法与号写在各自的规范那一段里 ✓：
@@ -851,7 +854,7 @@ export const EXPECTATIONS = {
   // `instanceof Map`（改成读 `prototype` 属性 ✓、并且**顺手补上那一格** ✓）两条都验过 ✓，
   // 六道门 + 1202 条覆盖一起绿的 ✓。
   // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
-  "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗（`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓）" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
   "c323-std-array-fromasync": { expect: "differ", why: "`Array.fromAsync` 没有（本仓**一行都不打**，Node 给 `1,2,3`）——两个来源都要：**异步可迭代对象**（`async function*` ✓，本仓的 `for await` 已经能收 ✓）与**带映射函数的同步数组**（每一项 `await` 一次 ✓）。它是 `Array.from` 的异步姊妹，落在同一张表上" },
   // C —— 写那一半没有对应的入口（2 条）
   // 写那一半没有对应的入口 **只剩下 1 条**（数组子类 ✓）
@@ -864,7 +867,7 @@ export const EXPECTATIONS = {
   "c323-rt-array-subclass-and-methods": { expect: "blocked", why: "`class List extends Array` 报 `this method needs an array receiver`——实例是**普通对象**（`extends` 只连了原型链），而数组方法（`push` / `join`）认的是真数组。要一条「按内置类造实例」的路（`[[Prototype]]` 与内部槽一起给），与 `rt-instanceof-array-subclass` 同一个根" },
   // D —— 同一个形状只认了一半（2 条）
   "c323-ex-angle-bracket-assertion-forms": { expect: "blocked", why: "尖括号断言 `<T>expr` 报 `unimplemented: expression TypeAssertionExpression`——它与 `as` 在 TS 的 AST 里是**两个 kind**（`TypeAssertion` 与 `AsExpression` ✓），投影 / 降级只认了后者（与 `ex-angle-bracket-assertion` 同一个根，这一条把「变量 / 字面量 / 嵌套」三种操作数一起考）。**裁判要用 `--experimental-transform-types`** ✓：剥离模式明确拒收尖括号写法 ✓" },
-  "c323-ex-nonnull-in-chains": { expect: "differ", why: "非空断言与下标混在同一条链上时**后面那一截整个丢掉**：`arr![0]![0]` 给 `[ [ 1, 2 ] ]`（Node 给 `1`）、`o!.a!.b![0]` 也少一层。与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` 同一条链（`print-ast-common.xl.md` 的链分支），这一条把「`!` 在链首」那一种排布一起考了" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
   // 旧账加宽（3 条：不加新账，只是同一个根换了写法）
   // **`c323-ex-optional-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
   // 这一条把**三种基名**放在一起考 ✓（`o.m?.()` ✓ / `o.n?.k?.()` ✓ / `o.missing?.()` ✓ /
@@ -932,7 +935,7 @@ export const EXPECTATIONS = {
   // 非空断言串在成员链上时**后面那一截被丢掉** ✓——
   // 这一条的症状换成了 `name is not a local or a capture: id` ✓
   //（`data.items![0]!.id` 里那个 `id` 掉成了一枚**裸标识符** ✓，于是被当成要绑的名字 ✓）。
-  "c330-ex-nonnull-assertion-forms": { expect: "blocked", why: "非空断言串在成员链上时**后面那一截被丢掉**：`data.items![0]!.id` 里那个 `id` 掉成一枚裸标识符（报 `name is not a local or a capture: id`）。与 `c323-ex-nonnull-in-chains` / `c305-ex-optional-chain-nonnull-mix` **同一个根**（`print-ast-common.xl.md` 的链分支），只是这一条把「`!` 在下标之前、之后又跟一个 `.`」那种排布写全了" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
 
   // ===== 第 331 轮：新铺的 39 条里没过的那 3 条 =====
   //
@@ -962,5 +965,5 @@ export const EXPECTATIONS = {
   // ---- 组 C：非空断言与可选链混写（1 条）----
   // **旧账换写法** ✓（与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` /
   // `c323-ex-nonnull-in-chains` / `c330-ex-nonnull-assertion-forms` **同一个根** ✓，不加新账 ✓）。
-  "c331-ex-nonnull-and-optional-mix": { expect: "differ", why: "`data.list![0].id` 给的是**整个数组**（Node 给 `1`）——`!` 后面的 `[0]` 整格丢掉，与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` / `c323-ex-nonnull-in-chains` / `c330-ex-nonnull-assertion-forms` **同一个根**（`print-ast-common.xl.md` 的链分支）。这一条把「`!` 与 `?.` 写在同一条链上」那种排布一起考了（`data.list![0].tags?.length` 那一半是对的 ✓）" },
+  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
 };
