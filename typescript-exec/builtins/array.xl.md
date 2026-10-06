@@ -1609,6 +1609,17 @@ const ids: number[] = [ArrayPush, ArrayPop, ArrayJoin, ArrayIndexOf, ArraySlice,
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
-  SetProperty(vm.Room(), NeverCall, table, proto, key, target);
+  // **第 340 轮：原型上的方法一律「不可枚举」** ✗（**实测撞到的** ✓）：
+  // JS 里 `Array.prototype.push` 这些**全是不可枚举的** ✓，而本仓原来用 `SetProperty` 挂 ✓
+  // ⇒ 它们**全是可枚举的** ✗ ⇒ `for (const i in ["x","y"])` 除了下标还列出**三十多个方法名** ✗
+  //（判据 `rt-forin-order-and-inherited` 第 2 行 ✓：Node 给 `0,1` ✓、本仓给
+  //  `0,1,push,pop,join,…` ✓——**静默多出一串** ✗）。
+  //
+  // **它是 `for..in` 那一处缺口的另一半** ✓：`CollectForInKeys` 沿原型链走 ✓
+  //（那一半修对了 ✓），而走上去之后**看见的东西本身就不该在那儿** ✗。
+  // `SetHiddenProperty` 走的是**同一张表**、只多一个「不可枚举」的标志 ✓——
+  // `arr.push` / `arr[0] = …` / `Object.keys(arr)` 的行为**一个都不变** ✓
+  //（可枚举只影响 `for..in` 与 `Object.keys` 这类**枚举**口径 ✓）。
+  SetHiddenProperty(vm.Room(), table, proto, key, target);
 }
 ```

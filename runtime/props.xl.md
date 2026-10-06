@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, Property, PropertyKind, ObjectCharge, PropertyCharge } from "./heap.xl.md"
-import { PropertyFlagWritable, PropertyFlagConfigurable } from "./heap.xl.md"
+import { PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagEnumerable } from "./heap.xl.md"
 import { RootSet } from "./gc.xl.md"
 import { RoomChecker } from "./rt.xl.md"
 ```
@@ -1042,7 +1042,7 @@ table.Get(handle).Proto = protos.Array;
 return Value.FromArray(handle);
 ```
 
-# method DefineAccessor:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value, getter:Value, setter:Value)=>bool
+# method DefineAccessor:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value, getter:Value, setter:Value, enumerable:bool = true)=>bool
 
 **把一处自有属性变成访问器**（第 98 轮补）——`{ get x() { … } }` 与类里 `get x()` 那类写法的落点。
 
@@ -1053,11 +1053,18 @@ return Value.FromArray(handle);
 
 **v1 的最小形状**（不是 `Object.defineProperty` 的全集）：
 
-- **只处理自有属性**：找不到就**新建一格**（新属性三标志全开，与普通赋值一致）；
+- **只处理自有属性**：找不到就**新建一格**（新属性三标志全开，与普通赋值一致，
+  **除了 `enumerable` 由第七个参数说了算** ✓——第 340 轮补 ✓：类里的访问器不可枚举 ✓）；
 - **找到的是访问器**（或可配置的数据属性）→ **原地替换**那一格的 `Kind`/`Getter`/`Setter`；
   **不可配置的要抛**（严格模式该抛 `TypeError`，见本文件文首的缺口清单）；
 - `setter` 传 `undefined` 就是**只读访问器**——读它没问题，写它会走到 `SetProperty`
   那条「访问器没有 setter」的分支上抛。
+
+**第七格 `enumerable` 是第 340 轮补的** ✗（**实测撞到的** ✓）：对象字面量那一档要真 ✓、
+**类那一档要假** ✓（JS 里 `class A { get g() {} }` 的 `g` **不进 `for..in`** ✓）——
+两档共用这一处 ✓，所以由调用方说 ✓（缺省真 ✓ = 老行为一字不改 ✓）。
+**替换那一支也要跟着改标志** ✓：同一个键先有数据属性、后来被 `get` 接手时，
+标志位留在原来那一格上 ✓ ⇒ 不改的话「类里同名的字段 + 访问器」还是会漏出去 ✗。
 
 ```ts
 if (!receiver.IsObject()) {
@@ -1070,6 +1077,12 @@ for (let i = 0; i < table.Get(receiver.Ref).Props.length; i++) {
   }
   const replaced = table.Get(receiver.Ref).Props[i];
   replaced.Kind = PropertyKind.Accessor;
+  // **第 340 轮：可枚举那一格也跟着改** ✓（理由见上面那一段 ✓）。
+  if (enumerable) {
+    replaced.Flags = replaced.Flags | PropertyFlagEnumerable;
+  } else {
+    replaced.Flags = replaced.Flags & (0 - 1 - PropertyFlagEnumerable);
+  }
   // **只改提供了的那一半**（与 JS 的描述符语义一致：描述符里没出现的字段不动）✗。
   // 少了这一条，`{ get x() {} set x(v) {} }` 的**第二次**调用（`getter` 传 `Value.Undefined`）
   // 会把刚装上的 getter 抹成 `undefined`——读它报的是「accessor without a getter」，
@@ -1084,7 +1097,13 @@ for (let i = 0; i < table.Get(receiver.Ref).Props.length; i++) {
 if (!room(PropertyCharge)) {
   throw new Error("out of room");
 }
-table.Get(receiver.Ref).Props.push(Property.Accessor(key.Ref, getter, setter));
+// **新建那一支：标志位按调用方说的来** ✓（第 340 轮 ✓）——`Property.Accessor` 造出来是
+// **三标志全开** ✓，所以「不可枚举」要在这一支里**补摘一下** ✓（返回之后没人再看它 ✓）。
+const created = Property.Accessor(key.Ref, getter, setter);
+if (!enumerable) {
+  created.Flags = created.Flags & (0 - 1 - PropertyFlagEnumerable);
+}
+table.Get(receiver.Ref).Props.push(created);
 table.Recount(receiver.Ref);
 return true;
 ```

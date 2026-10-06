@@ -646,7 +646,7 @@ export const EXPECTATIONS = {
   // **组 E：生成器少了「送进挂起点」那一格（2 条）** ✓——**静默错值** ✗。
   //
   // **组 F：`for..in` 只走自有键（1 条）** ✓——**静默错值** ✗。
-  "rt-forin-order-and-inherited": { expect: "differ", why: "**静默错值**：`for (const k in o)` 只给自有键（Node 还会走原型链上的可枚举键）。根子在 `lowering.xl.md` 的 `LowerForIn`——它把这一条**拼成 `Object.keys`**，而 `Object.keys` 的口径就是自有键；那句「今天原型上没挂可枚举东西，所以差别看不见」现在被 `Object.create({ inherited: true })` 当场证伪。**第 329 轮把修法的前提量清了（当天没做）** ✗：把 `LowerForIn` 改成一条内部调用（逐层 `Object.keys` + 按第一次出现去重 ✓）之后，`own,inherited` 确实出来了 ✓，**可它后面还跟着一堆** ✗——`constructor` ✓、数组那一串方法（`push` / `pop` / … 40 个 ✓）。根子**不在 `for..in`** ✗：**本仓的宿主原型上那些方法是可枚举的** ✓（`InstallArray` / `InstallString` / `Object.prototype.constructor` 都走 `SetProperty` ✓），而 JS 里它们**一律不可枚举** ✓ ⇒ `Object.keys(Array.prototype)` 在 JS 里是 **`[]`** ✓、本仓给那 40 个 ✗。所以这一格的**前置**是「把那些安装改成不可枚举」✓（`SetHiddenProperty` ✓，`Map` / `Set` 的方法第 194 轮就是这么挂的 ✓）——**那是另一件事，也是另一条判据的根** ✓（`Object.keys(Array.prototype)` 与 `for..in` 会一起转绿 ✓）。**撤销的这次尝试留在账上** ✓：改法、量到的读数、以及「为什么它不是只改 `LowerForIn` 一处」都在这儿 ✓" },
+  // **第 340 轮过了** ✓（这一行撤了 ✓）：`for..in` 沿原型链走 ✓（`Object.forInKeys` 那一格 ✓，不可枚举 ✓）——`Object.keys` 的口径是**自有** ✓，借错了。
   //
   // **组 G：`class X extends Array`（1 条）** ✓
   // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1340,
+  "matrix": 1341,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.55,
+  "progressPercent": 98.61,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 426,
-      "pass": 415,
+      "total": 427,
+      "pass": 417,
       "blocked": 9,
-      "differ": 2,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 97.42
+      "coverage": 97.66
     },
     {
       "layer": "exec",
@@ -174,12 +174,6 @@
       "layer": "runtime",
       "title": "instanceof 认 Symbol.hasInstance（静态方法优先）",
       "detail": "stdout 不同：第 1 行：node «true false false» vs tsrun «false false false»"
-    },
-    {
-      "id": "rt-forin-order-and-inherited",
-      "layer": "runtime",
-      "title": "for..in：整数键在前、继承来的键也在、数组给下标串",
-      "detail": "stdout 不同：第 3 行：node «own,inherited» vs tsrun «own»"
     },
     {
       "id": "symbol-hasinstance",

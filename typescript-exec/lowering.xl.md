@@ -2622,6 +2622,26 @@ this.EmitRt(RtOp.HostCall, window, window, 4);
 this.Release(window);
 ```
 
+## method EmitHiddenSetValue:(target:int, keySlot:int, valueSlot:int)=>void
+
+**一条 `set_hidden(对象, 键, 值)` 内部调用、键来自槽** ✓（第 340 轮 ✓）——
+与 `EmitHiddenSet` **同一个形状** ✓，差别只有**键从哪来** ✓：那一支要的是**常量池下标** ✓
+（键在降级期就是字面量 ✓），这一支要的是**运行期算出来的值** ✓
+（类成员那个**计算键** ✓，例如 `[Symbol.iterator]` ✓）。
+
+**为什么必须单开一条** ✗：常量的号与槽的号**不是一回事** ✗——把槽号塞进
+`Op.Const` 就是**读错一格** ✓（而 `set_hidden` 那一侧收的是**值** ✓，两处对不上就是静默取错键 ✓）。
+
+```ts
+const window = this.Reserve(4);
+this.Emit(Op.Const, window, this.IntConst(SetHiddenId), -1, -1);
+this.Emit(Op.Move, window + 1, target, -1, -1);
+this.Emit(Op.Move, window + 2, keySlot, -1, -1);
+this.Emit(Op.Move, window + 3, valueSlot, -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 4);
+this.Release(window);
+```
+
 ## method LowerStatement:(node:AstNode)=>void
 
 语句分派。
@@ -4062,6 +4082,15 @@ this.PatchTarget(skipIndex, this.Here());
 （`Object` 是全局名之一，见 `GlobalNames`）。没有就**明确报出来**并指出修法——
 含糊地报「未知名字」会让人以为是拼写问题。
 
+**第 340 轮：借的那一格从 `keys` 换成了 `forInKeys`** ✗（**实测撞到的** ✓）：
+`Object.keys` 的口径是**自有** ✓，而 `for..in` 要**沿原型链往上走** ✓——
+借错一格的表现是**少几个键** ✓（判据 `rt-forin-order-and-inherited` 第 3 行 ✓：
+Node 给 `own,inherited` ✓、本仓给 `own` ✗）。两格都在 `Object` 构造函数上 ✓、
+**同一条形状**（按名字取 ✓），差别只有语义 ✓；而**藏在 `Object` 上的那一格是不可枚举的** ✓
+（`SetHiddenProperty` ✓），所以谁都不会顺手看见它 ✓。实现与账见
+`builtins/globals.xl.md` 的 `CollectForInKeys` ✓。
+**`for..in` 只看字符串键** ✓、**原型链上层被下层压住的同名键只算一次** ✓——两条都在那里 ✓。
+
 **只遍历自有键**（`Object.keys` 的口径）：JS 的 `for..in` 还会走**原型链上的可枚举键**。
 今天对象的原型只有 `Protos.Object`（上面没挂可枚举东西），所以差别看不见；
 **这条写在这里**，等原型真的会被挂东西时再回来补。
@@ -4080,7 +4109,7 @@ if (access.InEnv) {
 } else {
   this.Emit(Op.Move, objectSlot, access.Slot, -1, -1);
 }
-const keysName = this.Program().AddConst(Constant.OfString(UnitsOf("keys")));
+const keysName = this.Program().AddConst(Constant.OfString(UnitsOf("forInKeys")));
 const keysFn = this.RtCall2(RtOp.GetProp, objectSlot, keysName);
 // **结果落回参数基址**（调用约定）：所以参数放哪一格，键数组就出现在哪一格。
 const target = this.Reserve(1);
@@ -5270,8 +5299,15 @@ const key = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
 this.SetPropertyConst(closure, key, proto);
 // **`prototype.constructor` 回指**：JS 里每个函数的原型都指回函数自己
 // （`x.constructor` 那种写法靠它，`instanceof` 的语义也要求这个形状）。
+//
+// **第 340 轮：这一格也改成「不可枚举」** ✗（**实测撞到的** ✓）：
+// JS 里 `X.prototype.constructor` 是**不枚举**的 ✓，而本仓原来用 `SetPropertyConst` 挂 ✓
+// ⇒ `for (const k in new A())` 多出一格 `constructor` ✓
+//（判据 `ctl-for-in` 第 2 行 ✓：Node 给 `own` ✓、本仓给 `own,constructor` ✓）。
+// 与第 334 轮那次**同一条理由** ✓（那一次是装库层的 15 处 `X.prototype.constructor` ✓，
+// 这一处是**用户类**的 ✓——两处都写对了才对齐 ✓）。
 const constructorKey = this.Program().AddConst(Constant.OfString(UnitsOf("constructor")));
-this.SetPropertyConst(proto, constructorKey, closure);
+this.EmitHiddenSet(proto, constructorKey, closure);
 ```
 
 ## method LowerFunctionValue:(node:AstNode, name:string)=>int
@@ -5441,18 +5477,24 @@ this.Release(array + 1);
 return array;
 ```
 
-## method EmitDefineAccessor:(target:int, key:int, half:int, isGetter:bool)=>void
+## method EmitDefineAccessor:(target:int, key:int, half:int, isGetter:bool, enumerable:bool = true)=>void
 
 **把半边访问器落到 `target` 上**（对象字面量与类共用这一处，第 102 轮抽出来的）。
 
 **为什么要抽出来**：窗口是 `[号, 目标, 键, getter, setter]` 五格，写两遍就是**两次**把槽算错的机会——
 而这个工程最贵的错就是算错槽（症状是「值悄悄换成别的」，不是崩溃）。
 
+**`enumerable` 那一格是第 340 轮补的** ✗（**实测撞到的** ✓）：JS 里
+**对象字面量的访问器是可枚举的** ✓、而**类里的访问器不可枚举** ✓——两者**共用这一处** ✓，
+所以「可不可枚举」必须由调用方说 ✓（默认真 ✓ = 对象字面量那一档 ✓）。
+**症状**（判据 `c340-rt-forin-prototype-chain` 第 2 行 ✓）：`class A { get g() { … } }` 之后
+`for (const k in new A())` 在 Node 里只给自有键 ✓、本仓多出一个 `g` ✓——**静默多出一串** ✗。
+
 **调用方负责 `key` 那一格**（键在两种场景下算法不同：对象字面量看 `name` 的 kind，
 类里已经判过名了），**并且负责在下面把目标留在活着的槽里**（循环还要用）。
 
 ```ts
-const window = this.Reserve(5);
+const window = this.Reserve(6);
 this.Emit(Op.Const, window, this.IntConst(DefineAccessorId), -1, -1);
 this.Emit(Op.Move, window + 1, target, -1, -1);
 this.Emit(Op.Move, window + 2, key, -1, -1);
@@ -5464,7 +5506,11 @@ if (isGetter) {
   this.Emit(Op.Const, window + 3, missing, -1, -1);
   this.Emit(Op.Move, window + 4, half, -1, -1);
 }
-this.EmitRt(RtOp.HostCall, window, window, 5);
+// **第五格：可不可枚举** ✓（第 340 轮 ✓，见上面那一段的账 ✓）——
+// 常量池里放两个布尔（`Constant.OfBool` ✓），按参数挑一个 ✓。
+this.Emit(Op.Const, window + 5,
+  this.Program().AddConst(Constant.OfBool(enumerable)), -1, -1);
+this.EmitRt(RtOp.HostCall, window, window, 6);
 // **结果不要**（`DefineAccessor` 返回 `true`）：退到 `key`，把键/半边/窗口一起退掉。
 // 目标在它们下面，仍然活着——循环还要用它。
 this.Release(key);
@@ -6526,6 +6572,16 @@ for (let i = 0; i < members.length; i++) {
     this.Pending[this.Pending.length - 1].SuperStatic = isStatic;
   }
   const target = isStatic ? ctor : proto;
+  // **第 340 轮：类成员用「不可枚举」挂** ✗（**实测撞到的** ✓）：
+  // JS 里**类的方法与访问器全是不枚举的** ✓（`class A { m() {} }` 之后
+  // `for (const k in new A())` **一个方法名都不给** ✓），而本仓原来用
+  // `SetPropertyConst` / `SetPropertyValue` 挂 ✓ ⇒ 它们是**可枚举的** ✗ ⇒
+  // `for..in` 会列出 `constructor,m` ✓（判据 `ctl-for-in` 第 2 行 ✓：
+  // Node 给 `own` ✓、本仓给 `own,constructor,m` ✓——**静默多出一串** ✗）。
+  //
+  // **它是 `for..in` 那处缺口的第三块** ✓：`CollectForInKeys` 沿原型链走 ✓（第一块 ✓）、
+  // 数组原型上的方法不可枚举 ✓（第二块 ✓）、**类成员也不可枚举** ✓（这一块 ✓）。
+  // `EmitDefineAccessor`（访问器那一支 ✓）本来就按描述符挂 ✓，已经是不可枚举的 ✓。
   // **计算键那一档** ✓：键是一个**值** ✓（`Symbol.iterator` 那类 ✓），
   // 而访问器与普通方法**都要**它 ✓——所以这条判据放在那两路**之前** ✓
   //（放在里面就是两个分支各写一遍 ✗）。
@@ -6538,16 +6594,18 @@ for (let i = 0; i < members.length; i++) {
       keySlot = this.Reserve(1);
       this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName))), -1, -1);
     }
-    this.EmitDefineAccessor(target, keySlot, closure, kind === "GetAccessor");
+    // **第 340 轮：类里的访问器不可枚举** ✓（`false` 那一格 ✓）——
+    // 对象字面量那一处**不传**（缺省真 ✓），两者共用 `EmitDefineAccessor` ✓。
+    this.EmitDefineAccessor(target, keySlot, closure, kind === "GetAccessor", false);
     if (computedKey < 0) this.Release(keySlot);
     continue;
   }
   if (computedKey >= 0) {
-    this.SetPropertyValue(target, computedKey, closure);
+    this.EmitHiddenSetValue(target, computedKey, closure);
     continue;
   }
   const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(memberName)));
-  this.SetPropertyConst(target, key, closure);
+  this.EmitHiddenSet(target, key, closure);
 }
 // **静态字段与静态块按源码顺序发** ✓（第 203 轮修 ✓）：两类都在类**声明的位置**求值，
 // 而 JS 的规矩是**它们按源码里出现的先后**跑 ✓（写进构造函数自己那一格 ✓）。

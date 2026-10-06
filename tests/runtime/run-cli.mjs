@@ -167,6 +167,7 @@ fs.writeFileSync(manifestPath, JSON.stringify(cases.map((file, index) => ({
 const batch = await runAsync("(batch)", [tsrun, "--batch", manifestPath]);
 fs.rmSync(workDir, { recursive: true, force: true });
 const mine = new Map();
+const oracles = new Array(cases.length);
 for (const line of batch.stdout.toString("utf8").split("\n")) {
   if (line.trim() === "" || line.startsWith('{"begin"')) continue;
   let record = null;
@@ -182,15 +183,73 @@ for (const line of batch.stdout.toString("utf8").split("\n")) {
     stderr: Buffer.from(record.stderr, "utf8"),
   });
 }
-// **裁判侧：并行** ✓（每条一个真进程 ✓，但不再一条等一条 ✓）。
+// **裁判侧：第 340 轮起也成批** ✓（用户口径：**「所有 gate 能不能都默认为 batch 模式？」** ✓）。
+//
+// **为什么必须批** ✗：这台机器上**每次 `node` 启动 ~100ms 且并行度很差** ✓
+//（第 320 轮实测：16 路并发考 64 次 `node -e 0` 是 6519ms ✓——**并发完全不省时间** ✗）。
+// 79 份语料在这儿原来是 **79 次启动** ✓，而 `judge-batch.mjs` 一个进程能跑一整批 ✓
+//（它写的协议与 `tsrun --batch` 一字不差 ✓，`coverage` 那一道第 320 轮就在用它 ✓）。
+//
+// **谁不能进批** ✓（与 `coverage` 的 `judgeGroup` **同一条纪律** ✓）：
+// **会排异步工作的那几份** ✗——`node file.ts` 在退出前会把微任务与事件循环跑干净 ✓，
+// 而批里那一条 `import()` 一返回就轮到下一条 ✓ ⇒ 前一条**迟到的输出会落进后一条的缓冲** ✗
+//（第 320 轮实测：不筛时 `bad` 从 0 涨到 4 ✓，**而它看起来只是「跑得快了」** ✗）。
+// 这里按**源码里有没有异步字样**筛 ✓（保守 ✓：多筛出去只是慢一点 ✓、少筛一份就是串味 ✗），
+// 筛出去的那些仍按**一条一进程**跑 ✓（与从前一模一样 ✓）。
+//
+// **`--no-batch` 仍是权威口径** ✓：一条一进程、与批量那一轮逐条对拍 ✓
+//（第 320 轮实测 1113 条逐条一致 ✓）——这一条纪律要一直留着 ✓。
+const noBatch = process.argv.includes("--no-batch");
+const asyncish = (file) => {
+  const text = fs.readFileSync(file, "utf8");
+  return /(\basync\b|\bawait\b|Promise|queueMicrotask|setTimeout|setInterval|\.then\s*\()/.test(text);
+};
+const singles = [];
+const batchable = [];
+for (let index = 0; index < cases.length; index++) {
+  if (noBatch || asyncish(cases[index])) singles.push(index);
+  else batchable.push(index);
+}
+let batchNote = "";
+if (batchable.length > 0 && !noBatch) {
+  const judgeDir = fs.mkdtempSync(path.join(os.tmpdir(), `cli-judge-${process.pid}-`));
+  const judgeManifest = path.join(judgeDir, "judge-manifest.json");
+  fs.writeFileSync(judgeManifest, JSON.stringify(batchable.map((index) => ({
+    id: String(index),
+    path: cases[index],
+  }))), "utf8");
+  // **`runAsync` 自己就是 `node`** ✓（`spawn(process.execPath, argv)` ✓）——
+  // 第一版把 `process.execPath` 又塞进 `argv` 的头上 ✗ ⇒ 跑的是
+  // `node node judge-batch.mjs …` ✓（**一条结果都交不回来** ✓，症状是
+  // 「Cannot read properties of undefined (reading 'status')」✗——离现场很远 ✓）。
+  const judged = await runAsync("(judge-batch)", [path.join(here, "..", "coverage", "judge-batch.mjs"), judgeManifest]);
+  fs.rmSync(judgeDir, { recursive: true, force: true });
+  for (const line of judged.stdout.toString("utf8").split("\n")) {
+    if (line.trim() === "" || line.startsWith('{"begin"')) continue;
+    let record = null;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (record === null || record.id === undefined) continue;
+    oracles[Number(record.id)] = {
+      status: record.status,
+      stdout: Buffer.from(record.stdout, "utf8"),
+      stderr: Buffer.from(record.stderr, "utf8"),
+    };
+  }
+  batchNote = `（裁判：${batchable.length} 份成批、${singles.length} 份按单条）`;
+}
+// **剩下的（异步那几份、以及 `--no-batch` 时的全部）并行一条一进程** ✓。
 const jobs = Math.max(1, Math.min(16, os.cpus().length));
-const oracles = new Array(cases.length);
 {
   let cursor = 0;
-  await Promise.all(Array.from({ length: Math.min(jobs, cases.length) }, async () => {
+  await Promise.all(Array.from({ length: Math.min(jobs, singles.length) }, async () => {
     for (;;) {
-      const index = cursor++;
-      if (index >= cases.length) return;
+      const cursorAt = cursor++;
+      if (cursorAt >= singles.length) return;
+      const index = singles[cursorAt];
       oracles[index] = await runAsync(cases[index], [cases[index]]);
     }
   }));
@@ -239,5 +298,5 @@ for (let index = 0; index < cases.length; index++) {
 }
 
 console.log("");
-console.log(`直接执行 .ts：${cases.length - failed} 份一致，${failed} 份不一致`);
+console.log(`直接执行 .ts：${cases.length - failed} 份一致，${failed} 份不一致${batchNote}`);
 process.exit(failed === 0 ? 0 : 1);

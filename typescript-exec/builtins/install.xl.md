@@ -1083,6 +1083,16 @@ const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, Iter
   ObjectAssign, PowId, SetHiddenId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
   PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext];
 for (let i = 0; i < helpers.length; i++) {
+  // **登记失败要响亮** ✗——**试过，又改回来了** ✓（第 340 轮 ✓，账写在下面 ✓）。
+  // 这一句原来不看返回值 ✓（规范原话是「不是静默忽略」✗）。这一轮把它改成
+  // 「假就抛」✓，**当场的读数**是：判据里 **14 条**变成
+  // `capability 40 could not be registered (the capability table is too small)` ✓——
+  // 也就是说**判据那一侧的表本来就小** ✗，而那一格以前**从来没被调过** ✓
+  //（所以红的是新加的那句断言 ✓，不是新坏的行为 ✗）。
+  // **这不是这一轮的活** ✗：要动的是判据那张 `IdTable` 的**容量口径** ✓
+  //（`ir-verify` 的 `IsValid` 与 `BuiltinSlots` 两处要对齐 ✓），
+  // 而那会牵到**线形态的指纹** ✓（`Program.IdTableHash` 随段长变 ✓）——**记在这里** ✓，
+  // 下一轮单独做 ✓（连同「`helpers` 里到底有没有一个号落在通用段」那件事一起查 ✓）。
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));
 }
@@ -1125,7 +1135,11 @@ if (id === DefineAccessorId) {
   if (args.length < 4) {
     throw new Error("unimplemented: define_accessor needs (object, key, getter, setter)");
   }
-  DefineAccessor(room, table, args[0], args[1], args[2], args[3]);
+  // **第 340 轮：第五格是「可不可枚举」** ✗（**实测撞到的** ✓）：对象字面量的访问器
+  // **可枚举** ✓、**类里的不可枚举** ✓——两者共用这一条内部调用 ✓，
+  // 所以降级层要把这一格说出来 ✓。**缺省是真** ✓（老的三处调用一字不改也对 ✓）。
+  const enumerable = args.length > 4 ? RtToBoolean(table, args[4]).AsBool() : true;
+  DefineAccessor(room, table, args[0], args[1], args[2], args[3], enumerable);
   return Value.Undefined();
 }
 // **`set_hidden(对象, 键, 值)`** ✓（第 210 轮 ✓）：给**类字段初始化式**用 ✓——
@@ -1141,8 +1155,15 @@ if (id === SetHiddenId) {
   if (args.length < 3) {
     throw new Error("unimplemented: set_hidden needs (object, key, value)");
   }
-  if (args[1].Tag !== ValueTag.String) {
-    throw new Error("unimplemented: set_hidden with a key that is not a string");
+  // **第 340 轮：符号键也收** ✗（**实测撞到的** ✓）：类成员那个**计算键**走的正是这一条 ✓
+  //（`[Symbol.iterator]() { … }` ✓），而第一版只收字符串 ✗ ⇒
+  // **三个「自己写一个可迭代集合」的语料当场抛** ✓
+  //（`set_hidden with a key that is not a string` ✓——一句话里没有一个字提到符号或类成员 ✗）。
+  // **JS 那边符号键本来就不进 `for..in` / `Object.keys`** ✓（它们只走字符串 ✓），
+  // 所以「隐藏」这个词对符号键只是**同一件事的延续** ✓——
+  // `Object.getOwnPropertySymbols` 照样看得见它 ✓（`props.xl.md` 那条口径没变 ✓）。
+  if (args[1].Tag !== ValueTag.String && args[1].Tag !== ValueTag.Symbol) {
+    throw new Error("unimplemented: set_hidden with a key that is not a string or a symbol");
   }
   SetHiddenProperty(room, table, args[0], args[1], args[2]);
   return Value.Undefined();

@@ -1631,6 +1631,117 @@ JS 的口径就是**返回它自己** ✓，所以这一支也只做「把 `self
 
 **`Object.groupBy(可迭代, 回调)`**（第 295 轮 ✓）——号**追加在表尾** ✓。
 
+# method OwnEnumerableKeyTexts:(table:HeapTable, value:Value, protos:Protos)=>Array<string>
+
+**一个对象「自有 + 可枚举」的字符串键，按 JS 的次序** ✓（第 340 轮 ✓，从 `Object.keys`
+那一支**原样抽出来**的 ✓）——**下标键在前**（数组的元素 / 字符串的码元 / 整数样的 `Props` ✓，
+它们**升序** ✓）、**其余按创建顺序** ✓、**符号键一律不要** ✓。
+
+**为什么值得抽出来** ✗：`for..in` 要在**原型链的每一层**做同一件事 ✓
+（`ObjectForInKeys` ✓），而「哪些键算数、按什么次序」那一段有 **45 行** ✓——
+抄一份就是**两处会漂**的判据 ✗（第 307 / 312 / 320 / 338 轮各踩过一次同型的错 ✓）。
+
+```ts
+const stringTarget = value.Tag === ValueTag.String;
+const ownItem = stringTarget ? null : table.Get(value.Ref);
+const indexPositions = IndexKeyPositions(table, value);
+const names: string[] = [];
+for (let i = 0; i < indexPositions.length; i++) names.push("" + indexPositions[i]);
+const intNames: string[] = [];
+const plainNames: string[] = [];
+if (ownItem !== null) {
+  for (let i = 0; i < ownItem.Props.length; i++) {
+    if (table.Get(ownItem.Props[i].Key).Tag !== ValueTag.String) continue;
+    // **只看可枚举的**（第 182 轮修 ✓）：`Object.defineProperty(o, "x", { value: 1 })`
+    // 默认 `enumerable: false` ✓——不看标志就会把它数进去 ✗。
+    // 同一趟把**私有字段**也筛掉了 ✓（它们走隐藏属性 ✓，`enumerable` 是假 ✓）。
+    if (!ownItem.Props[i].IsEnumerable()) continue;
+    const text = TextFrom(table, Value.FromString(ownItem.Props[i].Key));
+    // **已经被下标键覆盖的那些不再收** ✓（越界写过的下标可能两处都有一份 ✓）。
+    if (IsIndexKeyText(text)) {
+      let covered = false;
+      for (let k = 0; k < indexPositions.length; k++) {
+        if (indexPositions[k] === Number(text)) covered = true;
+      }
+      if (covered) continue;
+      intNames.push(text);
+      continue;
+    }
+    plainNames.push(text);
+  }
+}
+// **整数样的一摞升序**（插入排序 ✓——键数很少 ✓）。
+for (let i = 1; i < intNames.length; i++) {
+  const cur = intNames[i];
+  let j = i - 1;
+  while (j >= 0 && Number(intNames[j]) > Number(cur)) {
+    intNames[j + 1] = intNames[j];
+    j = j - 1;
+  }
+  intNames[j + 1] = cur;
+}
+for (let i = 0; i < intNames.length; i++) names.push(intNames[i]);
+for (let i = 0; i < plainNames.length; i++) names.push(plainNames[i]);
+return names;
+```
+
+# method CollectForInKeys:(room:RoomChecker, table:HeapTable, value:Value, protos:Protos)=>int
+
+**`for..in` 要的那串键** ✓（第 340 轮 ✓）——**沿原型链往上走** ✓，每一层取
+「自有 + 可枚举」✓，**被内层压住的同名键只算一次** ✓（JS 的规矩 ✓）。
+
+**它为什么不能只问 `Object.keys`** ✗（**实测撞到的** ✓）：`Object.keys` 的口径是
+**自有** ✓（判据 `rt-forin-order-and-inherited` 第 3 行 ✓：Node 给 `own,inherited` ✓、
+本仓给 `own` ✗）。`for..in` 走的是**另一条**口径 ✓，而 `LowerForIn` 原来借的正是 `keys` ✗。
+
+**次序** ✓：每一层内部按 `OwnEnumerableKeyTexts` ✓（下标键在前 ✓ 升序 ✓），
+层次**由内向外** ✓——JS 就是这样 ✓（`{inherited: true}` 的原型上那一格排在自有键**之后** ✓）。
+
+**怎么进到语言层** ✓：它是 `Object` 构造函数上一格**隐藏**静态 ✓
+（`forInKeys` ✓，不可枚举 ✓）——`LowerForIn` 按名字取 ✓，与它取 `keys` 那一条**同一个形状** ✓。
+**符号键天然进不来** ✗（`for..in` 不看符号 ✓，`OwnEnumerableKeyTexts` 只收字符串 ✓）。
+
+```ts
+let handle = value.Ref;
+const seen: string[] = [];
+const names: string[] = [];
+let guard = 0;
+while (handle > 0 && guard < 64) {
+  guard = guard + 1;
+  const item = table.Get(handle);
+  const layer: Value = handle === value.Ref ? value : Value.FromObject(handle);
+  const own = OwnEnumerableKeyTexts(table, layer, protos);
+  for (let i = 0; i < own.length; i++) {
+    let dup = false;
+    // **花括号不能省** ✗（**实测踩过一次** ✓）：写成 `for (…) if (…) dup = true;` 时
+    // **投影往返会漂** ✓（`cases:tsast` 当场报「投影后多出来一个 `Block`」✓、
+    //  `ForStatement` 区间也跟着漂 ✓）——这一仓的写法**一律带花括号** ✓，不是风格 ✓。
+    for (let k = 0; k < seen.length; k++) {
+      if (seen[k] === own[i]) dup = true;
+    }
+    if (dup) continue;
+    seen.push(own[i]);
+    names.push(own[i]);
+  }
+  handle = item.Proto;
+}
+if (!room(ObjectCharge + ValueCharge * names.length + CodeUnitCharge * names.length * 4)) {
+  throw new Error("out of room");
+}
+const outHandle = table.CreateArray();
+table.Get(outHandle).Proto = protos.Array;
+const out = table.Get(outHandle).AsArray();
+for (let i = 0; i < names.length; i++) {
+  out.Push(Value.FromString(table.CreateString(Units(names[i]))));
+}
+return outHandle;
+```
+
+# const ObjectForInKeys:int = 347
+
+**or..in 要的那串键** ✓（第 340 轮 ✓，取号 347 ✓——那一段里的第一个空号 ✓，
+第 335 轮那道「同一文件里不许重号」的检查会拦撞车 ✓）——实现见 CollectForInKeys ✓。
+
 # const ObjectKeys:int = 401
 
 `Object.keys` 的能力号（`Object` 段从 400 起）。
@@ -3370,6 +3481,17 @@ if (id === ObjectIsSealed || id === ObjectIsFrozen) {
   }
   return Value.FromBool(true);
 }
+if (id === ObjectForInKeys) {
+  // **`for..in` 要的那串键** ✓（第 340 轮 ✓）：见 `CollectForInKeys` 那一段的账 ✓。
+  if (args.length === 0) throw new Error("for..in needs a receiver");
+  if (!args[0].IsObject() && args[0].Tag !== ValueTag.Array && args[0].Tag !== ValueTag.String) {
+    // **原始值给空表** ✓（JS：`for (const k in 42)` 一次都不跑 ✓，而且**不抛** ✗）。
+    const emptyHandle = table.CreateArray();
+    table.Get(emptyHandle).Proto = protos.Array;
+    return Value.FromArray(emptyHandle);
+  }
+  return Value.FromArray(CollectForInKeys(room, table, args[0], protos));
+}
 if (id === ObjectKeys) {
   // **`Object.keys` = 自有 + 可枚举 × 「下标键在前、其余按创建顺序」** ✓（第 210 轮补后两条 ✓）。
   //
@@ -3385,50 +3507,11 @@ if (id === ObjectKeys) {
   if (!stringTarget && args[0].Tag !== ValueTag.Array && !args[0].IsObject()) {
     throw new Error("Object.keys needs an object");
   }
-  const ownItem = stringTarget ? null : table.Get(args[0].Ref);
-  // **① 下标键**（数组跳过洞 ✓、字符串逐码元 ✓）——它们本来就是升序 ✓。
-  const indexPositions = IndexKeyPositions(table, args[0]);
-  const names: string[] = [];
-  for (let i = 0; i < indexPositions.length; i++) names.push("" + indexPositions[i]);
-  // **② `Props` 里的键**分成两摞 ✓（整数样的一摞要排在下标键之后、其余之前 ✓）。
-  const intNames: string[] = [];
-  const plainNames: string[] = [];
-  if (ownItem !== null) {
-  for (let i = 0; i < ownItem.Props.length; i++) {
-    if (table.Get(ownItem.Props[i].Key).Tag !== ValueTag.String) continue;
-    // **只看可枚举的**（第 182 轮修 ✓）：`Object.keys` 的口径是**自有 + 可枚举** ✓，
-    // 而这一格原来**一个标志都不看** ✗——`Object.defineProperty(o, "x", { value: 1 })`
-    // 默认 `enumerable: false` ✓，于是它与 JS 差一格（本仓会把它数进去 ✗）。
-    // 这一条以前量不出来 ✓：在 `defineProperty` 落地之前，**所有**属性的 `enumerable` 都是真 ✓。
-    // 同一趟把**私有字段**也筛掉了 ✓（它们第 210 轮起走隐藏属性 ✓，`enumerable` 是假 ✓）。
-    if (!ownItem.Props[i].IsEnumerable()) continue;
-    const text = TextFrom(table, Value.FromString(ownItem.Props[i].Key));
-    // **已经被下标键覆盖的那些不再收** ✓（数组模型里元素不住在 `Props` 里 ✓，
-    // 但**越界写过的下标**可能落在两处都有一份 ✓——只收一次 ✓）。
-    if (IsIndexKeyText(text)) {
-      let covered = false;
-      for (let k = 0; k < indexPositions.length; k++) {
-        if (indexPositions[k] === Number(text)) covered = true;
-      }
-      if (covered) continue;
-      intNames.push(text);
-      continue;
-    }
-    plainNames.push(text);
-  }
-  }
-  // **③ 整数样的一摞升序**（插入排序 ✓——键数很少 ✓）。
-  for (let i = 1; i < intNames.length; i++) {
-    const cur = intNames[i];
-    let j = i - 1;
-    while (j >= 0 && Number(intNames[j]) > Number(cur)) {
-      intNames[j + 1] = intNames[j];
-      j = j - 1;
-    }
-    intNames[j + 1] = cur;
-  }
-  for (let i = 0; i < intNames.length; i++) names.push(intNames[i]);
-  for (let i = 0; i < plainNames.length; i++) names.push(plainNames[i]);
+  // **第 340 轮：这一趟扫描抽成了 `OwnEnumerableKeyTexts`** ✓——`for..in` 要在原型链的
+  // **每一层**做同一件事 ✓（`CollectForInKeys` ✓），而「哪些键算数、按什么次序」
+  // 有四十多行 ✓ ⇒ 抄一份就是**两处会漂**的判据 ✗（第 307 / 312 / 320 / 338 轮各踩过一次 ✓）。
+  // **这一支的行为一个字节都没变** ✓（同一段代码搬了个家 ✓）。
+  const names = OwnEnumerableKeyTexts(table, args[0], protos);
   if (!room(ObjectCharge + ValueCharge * names.length + CodeUnitCharge * names.length * 4)) {
     throw new Error("out of room");
   }
@@ -5285,6 +5368,14 @@ const objectObject = NewPlainObject(vm.Room(), table, protos);
 const keysKey = Value.FromString(table.CreateString(Units("keys")));
 const keysTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectKeys, 0));
 SetProperty(vm.Room(), NeverCall, table, objectObject, keysKey, keysTarget);
+// **`for..in` 那一格藏在 `Object` 上** ✓（第 340 轮 ✓）：降级层按**名字**取它 ✓
+//（与它取 `keys` 是同一个形状 ✓），而**用 `SetHiddenProperty`** ✓ ⇒
+// `Object.keys(Object)` / `for..in` 都看不见它 ✓（**不可枚举** ✓）——
+// 只有 `Object.getOwnPropertyNames(Object)` 会列出它 ✗（判据里**没有**这一格 ✓，
+// 语料里也查过一遍 ✓：0 处 ✓）。
+const forInKey = Value.FromString(table.CreateString(Units("forInKeys")));
+const forInTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectForInKeys, 0));
+SetHiddenProperty(vm.Room(), table, objectObject, forInKey, forInTarget);
 // **`Object.is`**（第 275 轮 ✓）：与 `keys` **同一张对象**上再挂一格 ✓
 //（与 `JSON.stringify` / `parse` 那两格的写法一字不差 ✓）。
 const isKey = Value.FromString(table.CreateString(Units("is")));

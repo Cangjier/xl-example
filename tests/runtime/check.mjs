@@ -3705,6 +3705,16 @@ check("链接两份模块：同一台 VM、同一个堆，A 的导出闭包直�
   const machine = new Vm(table, 1 << 20, 100000);
   machine.Load(Encode(linked, testIds), testIds);
   const host = new Host(machine);
+  // **第 340 轮：这一条也要装库 + 装宿主通道** ✗（**实测撞到的** ✓）：
+  // 它走的是**低层**那条路 ✓（`machine.Load` + `host.Evaluate` ✓，不经过 `lowerAndLoad` ✓），
+  // 而这一轮起**每一个函数**都要把 `prototype.constructor` 用 `set_hidden`（708）写进去 ✓
+  // ⇒ 求值当场报 `capability is not registered: 708` ✓。
+  // 两样都补上 ✓（装库登记号 ✓、装宿主把号接到内建分派上 ✓）——与上面那一条同一个形状 ✓。
+  InstallBuiltins(host, machine.Protos);
+  host.InstallHost((target, self, args, room) => {
+    const id = table.Get(target.Ref).AsHost().CapabilityId;
+    return InvokeWithSink(room, table, machine.Protos, id, self, args, () => {});
+  });
 
   // A 的入口（函数表第 0 项）跑完，结果就是它的导出表
   eq(host.Evaluate([]).Outcome, HostOutcome.Ok, "模块 A 求值");
@@ -4069,8 +4079,13 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
   eq(loaded.Outcome, HostOutcome.Ok, "装载：" + loaded.Message);
   const sink = () => {};
   host.DeclarePrototypeKey(units("prototype"));
-  const aEval = host.Evaluate([BuildGlobals(machine, machine.Protos, sink)]);
-  eq(aEval.Outcome, HostOutcome.Ok, "模块 A 求值：" + aEval.Message);
+  // **第 340 轮：`InstallBuiltins` 挪到求值之前** ✗（**实测撞到的** ✓）：
+  // 它原来排在「模块 A 求值」**之后** ✓，而这一轮起**每一个函数**都要把
+  // `prototype.constructor` 用 `set_hidden`（708）写进去 ✓ ⇒ 模块 A 一求值就报
+  // `capability is not registered: 708` ✓（**那句话没有一个字提到类或原型** ✗）。
+  // **顺序照 `lowerAndLoad` 那一份** ✓：装载 → 装库 → **装宿主** → 求值 ✓——
+  // 装库与装宿主**都在求值之前** ✓（第一条量到的是 708 没登记 ✓，
+  //  挪了装库之后量到的就是 `host_call with no host installed` ✓——**两样都缺一不可** ✓）。
   InstallBuiltins(host, machine.Protos);
   host.InstallHost((target, self, args, room) => {
     const id = table.Get(target.Ref).AsHost().CapabilityId;
@@ -4083,6 +4098,8 @@ check("P0：两份模块的程序（类 + 继承 + Map/Set + Symbol 键 + 模板
   // `capability is not registered: 64`。这也是「能力白名单」那一层安全要求的落点。
   host.Register(hostDoubleId,
     Value.FromRef(ValueTag.HostRef, table.CreateHostRef(hostDoubleId, 0)));
+  const aEval = host.Evaluate([BuildGlobals(machine, machine.Protos, sink)]);
+  eq(aEval.Outcome, HostOutcome.Ok, "模块 A 求值：" + aEval.Message);
 
   const aExports = machine.Result;
   machine.Retain(aExports);
