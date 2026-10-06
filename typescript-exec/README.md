@@ -6,6 +6,50 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 312 轮的账（**生成器的 `next(v)`：那半条路一直写死着 `undefined`** —— 93.4% → 93.6%，收掉 3 格）
+
+### 一、根子：一个写死的实参
+
+「生成器回去的那几格」是缺口清单里**剩下最大的一组** ✓（6 条 ✓）。这一轮先收**最便宜的三条** ✓
+（`rt-generator-next-sends-value` ✓ / `rt-generator-next-arg-ignored-first` ✓ /
+`c291-rt-generator-forms` ✓）——它们只有一个根 ✗：
+
+**「第一个实参要送进挂起点」那半条路，引擎两处都写死了 `Value.Undefined()`** ✗。
+两处就是两条调用路 ✓（第 307 轮那条教训的镜像 ✓）：
+
+| 谁在调 | 哪一处 |
+| --- | --- |
+| 脚本自己 `it.next(10)` | `DoCallValue` 的生成器那一支（`vm.xl.md`） |
+| 当成回调传出去（`xs.map(it.next)`） | `CallNative` 的生成器那一支（同一个文件） |
+
+两处都是从 `NextStepOf(iterator, sent, keep)` 那里**只递一个 `undefined`** ✓，
+于是 `const got = yield 1` 里的 `got` **永远是 `undefined`** ✗（**静默错值** ✗）。
+
+**修法各按自己的签名取「第 0 个实参」** ✓：`DoCallValue` 那一条从**槽**里取 ✓
+（`CallArgAt(frame, argBase, argArray, 0)` ✓）、`CallNative` 那一条从**实参表**取 ✓
+（`args.length > 0 ? args[0] : Value.Undefined()` ✓）——**两处的「第 0 个」是同一件事** ✓，
+只是来处不同 ✓（与第 307 轮 `FillParameters` 那两处一条纪律 ✓）。
+
+**「第一次 `next(v)` 的实参要丢掉」不用专门写** ✓：第一趟帧从**函数头**开始跑 ✓，
+根本不会执行到 `Resume` ✓——`ResumeValue` 写了也没人读 ✓。
+判据 `rt-generator-next-arg-ignored-first` 钉的就是这一条 ✓。
+
+### 二、收掉 3 格 + 补 1 条语料
+
+三条转绿 ✓（**引擎 90.7% → 91.6%** ✓），并补了一条把**双向通信**钉住的语料 ✓
+（`c312-rt-generator-next-two-way` ✓：`ask` → `echo:10` → `done:20` ✓，
+外加一个 `const got = yield 1; yield got * 2` 的形状 ✓）。
+
+### 三、**没做**的那一半：`return()` / `throw()`
+
+同组还有三条 ✗（`rt-generator-return-early` ✓ / `rt-generator-throw-into` ✓ /
+`c304-rt-generator-early-break-finally` ✓——最后那条是 `for..of` 提前 `break` 要调生成器的
+`return()` ✓，于是体里的 `finally` 照跑 ✓）。
+它们要的不是「送一个值进去」✗，而是**送一次「完成」进去** ✓：
+`return()` 要让当前那个 `yield` 点上**跑 `finally` 链** ✓、`throw()` 要在那一格**抛出** ✓——
+两样都要在**挂起的帧**上接上引擎里已有的 abrupt-completion 机关 ✓（第 201 轮那一套 ✓），
+是**另一件事** ✓，写在台账与这里 ✓，留给下一轮 ✓。
+
 ## 第 311 轮的账（**两张标准定死的表：空白与百分号** —— 93.2% → 93.4%，收掉 4 格）
 
 ### 一、选题：两处「不是做不到、是没把表抄全」

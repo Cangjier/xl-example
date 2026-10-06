@@ -582,8 +582,6 @@ export const EXPECTATIONS = {
   "rt-arguments-vs-rest": { expect: "blocked", why: "同上：`arguments` 与剩余形参并存时两者都要对（`arguments.length` 是**实参**个数）" },
   //
   // **组 E：生成器少了「送进挂起点」那一格（2 条）** ✓——**静默错值** ✗。
-  "rt-generator-next-sends-value": { expect: "differ", why: "**静默错值**：`it.next(10)` 的值没送进挂起点（`yield a + 1` 里 `a` 拿到 `null` / `undefined`，Node 给 `10`）。`next()` 第 229 轮就接上了，缺的是「实参写进 `yield` 表达式那一格」" },
-  "rt-generator-next-arg-ignored-first": { expect: "differ", why: "同上，另一半：**第一次 `next(v)` 的实参必须被丢掉**（JS 的规矩）——这一条要等上一条做完才谈得上" },
   //
   // **组 F：`for..in` 只走自有键（1 条）** ✓——**静默错值** ✗。
   "rt-forin-order-and-inherited": { expect: "differ", why: "**静默错值**：`for (const k in o)` 只给自有键（Node 还会走原型链上的可枚举键）。根子在 `lowering.xl.md` 的 `LowerForIn`——它把这一条**拼成 `Object.keys`**，而 `Object.keys` 的口径就是自有键；那句「今天原型上没挂可枚举东西，所以差别看不见」现在被 `Object.create({ inherited: true })` 当场证伪" },
@@ -608,7 +606,6 @@ export const EXPECTATIONS = {
   // **组 B：属性枚举的整数键优先序（2 条）** ✓——**静默错值** ✗。
   //
   // **组 C：生成器的 `next(v)` 送值（1 条）** ✓——与 `rt-generator-next-sends-value` 同一根。
-  "c291-rt-generator-forms": { expect: "differ", why: "生成器的 `next(5)` 送值：`const x = yield 1` 收不到（给 `undefined`，于是 `x * 2` 印 `null`）——`yield` 表达式要读**上一格送进来的值**" },
   //
   // **组 D：构造函数上的原型读（1 条）** ✓
   "c291-rt-class-shapes": { expect: "blocked", why: "`Object.getPrototypeOf(B) === A` 报 `unimplemented: Object.getPrototypeOf over this kind of value`——第 278 轮给 `extends` 补了**第二步**（`B` 自己的链），但那一格在**函数值**上没有读出来的口子" },

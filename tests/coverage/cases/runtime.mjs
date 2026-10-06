@@ -4249,4 +4249,12 @@ console.log(o.x, o.y);
     title: "`typeof` 的操作数是「下标调用」，而且它不是实参表的第一格",
     src: "\nconst o: any = { m: () => ({ a: 1 }) };\nconsole.log(\"x\", typeof (o[\"m\"]()));\n",
   },
+
+  // ===== 第 312 轮：生成器的 `next(v)` 那一半 =====
+
+  {
+    id: "c312-rt-generator-next-two-way",
+    title: "生成器的双向通信：`next(v)` 的值落在上一个 `yield` 那一格",
+    src: "\nfunction* talk(): Generator<string, string, number> {\n  const first = yield \"ask\";\n  const second = yield \"echo:\" + first;\n  return \"done:\" + second;\n}\nconst it: any = talk();\nconsole.log(it.next(1).value);\nconsole.log(it.next(10).value);\nconsole.log(JSON.stringify(it.next(20)));\nconst plain: any = (function* () { const got = yield 1; yield got * 2; })();\nplain.next();\nconsole.log(plain.next(21).value);\n",
+  },
 ];

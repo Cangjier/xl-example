@@ -1,6 +1,6 @@
 {
-  "round": "311",
-  "matrix": 1104,
+  "round": "312",
+  "matrix": 1105,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 93.43,
+  "progressPercent": 93.64,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 356,
-      "pass": 323,
+      "total": 357,
+      "pass": 327,
       "blocked": 15,
-      "differ": 18,
+      "differ": 15,
       "nodefail": 0,
-      "coverage": 90.73
+      "coverage": 91.6
     },
     {
       "layer": "exec",
@@ -324,24 +324,6 @@
       "layer": "runtime",
       "title": "for..in：整数键在前、继承来的键也在、数组给下标串",
       "detail": "stdout 不同：第 3 行：node «own,inherited» vs tsrun «own»"
-    },
-    {
-      "id": "rt-generator-next-sends-value",
-      "layer": "runtime",
-      "title": "生成器：next(v) 把值送进挂起点",
-      "detail": "stdout 不同：第 2 行：node «{\"value\":11,\"done\":false}» vs tsrun «{\"value\":null,\"done\":false}»"
-    },
-    {
-      "id": "rt-generator-next-arg-ignored-first",
-      "layer": "runtime",
-      "title": "生成器：第一次 next 的实参被丢掉",
-      "detail": "stdout 不同：第 2 行：node «got 7» vs tsrun «got undefined»"
-    },
-    {
-      "id": "c291-rt-generator-forms",
-      "layer": "runtime",
-      "title": "生成器：双向传值与三段返回",
-      "detail": "stdout 不同：第 1 行：node «{\"value\":1,\"done\":false} {\"value\":10,\"done\":false} {\"done\":true}» vs tsrun «{\"value\":1,\"done\":false} {\"value\":null,\"done\":false} {\"done\":true}»"
     },
     {
       "id": "c304-rt-iife-arrow-this",

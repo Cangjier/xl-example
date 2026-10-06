@@ -1184,7 +1184,15 @@ const count = this.CallArgCount(frame, argBase, argc, argArray);
 if (this.IsGeneratorNext(callee)) {
   // **`this` 就是那个生成器** ✓：`DoCallMethod` 找出来的方法挂在**生成器对象**身上 ✓，
   // 而它的 `this` 是**接收者**（那个生成器 ✓）——与 `o.m()` 的规矩一字不差 ✓。
-  const producedByNext = this.NextStepOf(thisValue, Value.Undefined(), null);
+  //
+  // **第一个实参要送进挂起点** ✓（第 312 轮修的 ✗）：`it.next(10)` 在 JS 里让
+  // **上一个 `yield` 表达式的值**成为 `10` ✓——而这里原来**写死了 `Value.Undefined()`** ✗
+  // ⇒ `const got = yield 1` 里的 `got` 永远是 `undefined` ✓（**静默错值** ✗，
+  // 判据 `rt-generator-next-sends-value` / `c291-rt-generator-forms` ✓）。
+  // **第一次 `next(v)` 的实参按 JS 的规矩丢掉** ✓——那一格自然成立 ✓：
+  // 第一趟帧从**函数头**开始跑 ✓，根本不会执行到 `Resume` ✓（`ResumeValue` 写了也没人读 ✓）。
+  const sentByCaller = count > 0 ? this.CallArgAt(frame, argBase, argArray, 0) : Value.Undefined();
+  const producedByNext = this.NextStepOf(thisValue, sentByCaller, null);
   if (returnSlot >= 0) {
     frame.Slots[returnSlot] = producedByNext;
   } else {
@@ -2600,7 +2608,10 @@ return this.NativeFailed || this.NativeEscaped
 // 而这一条路是**回调**那一侧 ✓（`xs.map(it.next)` 这种把方法当值传出去的写法 ✓）——
 // 判据与 `DoCallValue` 那一条**共用 `IsGeneratorNext`** ✓（写两遍就是两处会漂 ✗）。
 if (this.IsGeneratorNext(callee)) {
-  return this.NextStepOf(thisValue, Value.Undefined(), null);
+  // **第一个实参要送进挂起点** ✓（第 312 轮 ✓）——与 `DoCallValue` 那一处**同一条口径** ✓
+  //（那边从槽里取 ✓、这边从实参表取 ✓，两处的「第 0 个」是同一件事 ✓）。
+  const sentByCaller = args.length > 0 ? args[0] : Value.Undefined();
+  return this.NextStepOf(thisValue, sentByCaller, null);
 }
 if (this.IsHostCallable(callee)) {
   const hostThis = callee.Tag === ValueTag.Object ? callee : thisValue;
