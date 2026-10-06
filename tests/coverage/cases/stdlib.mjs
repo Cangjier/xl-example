@@ -4352,4 +4352,262 @@ console.log(xs.toSpliced(1, 1, 9).join(","), xs.with(0, 7).join(","), xs.join(",
     title: "执行器递出来的 `resolve` / `reject`：直接调、当值传出去、以及兑现值是承诺",
     src: "\nfunction handOff(cb: (v: number) => void): void { cb(7); }\nnew Promise<number>((res) => { res(1); })\n  .then((v) => { console.log(\"resolve\", v); return v; })\n  .then(() => new Promise<number>((_res, rej) => { rej(new Error(\"no\")); }))\n  .catch((e: any) => { console.log(\"reject\", e.message); return 0; })\n  .then(() => new Promise<number>((res) => { res(Promise.resolve(4) as any); }))\n  .then((v) => { console.log(\"resolve-promise\", v); return v; })\n  .then(() => new Promise<number>((res) => { handOff(res); }))\n  .then((v) => console.log(\"passed-as-value\", v));\n",
   },
+
+  // ============ 第 323 轮加宽：26 条 ============
+  {
+    id: "c323-std-map-groupby",
+    title: "Map.groupBy：按键分组成 Map",
+    src: `
+const xs = [1, 2, 3, 4, 5];
+const m = Map.groupBy(xs, (n) => (n % 2 === 0 ? "even" : "odd"));
+console.log(m instanceof Map, m.get("odd").join(","), m.get("even").join(","));
+`,
+  },
+  {
+    id: "c323-std-promise-withresolvers",
+    title: "Promise.withResolvers：一对结清回调与承诺",
+    src: `
+const { promise, resolve, reject } = Promise.withResolvers();
+promise.then((v) => console.log("resolved", v));
+resolve(7);
+const p2 = Promise.withResolvers();
+p2.promise.catch((e) => console.log("rejected", e));
+p2.reject("no");
+console.log(typeof resolve, typeof reject);
+`,
+  },
+  {
+    id: "c323-std-queue-microtask",
+    title: "queueMicrotask：与 Promise.then 同一个队列、按序",
+    src: `
+queueMicrotask(() => console.log("micro-1"));
+Promise.resolve().then(() => console.log("then-1"));
+queueMicrotask(() => console.log("micro-2"));
+console.log("sync");
+`,
+  },
+  {
+    id: "c323-std-object-getownpropertydescriptors",
+    title: "Object.getOwnPropertyDescriptors：一次拿全表的描述符",
+    src: `
+const o = { a: 1, get b() { return 2; } };
+Object.defineProperty(o, "c", { value: 3, enumerable: false, writable: false });
+const d = Object.getOwnPropertyDescriptors(o);
+console.log(Object.keys(d).join(","), d.a.value, d.a.enumerable, d.b.get !== undefined, d.c.writable);
+`,
+  },
+  {
+    id: "c323-std-set-union-intersection",
+    title: "Set 的集合运算：union / intersection / difference / symmetricDifference",
+    src: `
+const a = new Set([1, 2, 3]);
+const b = new Set([3, 4]);
+console.log([...a.union(b)].join(","));
+console.log([...a.intersection(b)].join(","));
+console.log([...a.difference(b)].join(","));
+console.log([...a.symmetricDifference(b)].join(","));
+console.log(a.isSubsetOf(new Set([1, 2, 3, 4])), a.isDisjointFrom(b));
+`,
+  },
+  {
+    id: "c323-std-array-fromasync",
+    title: "Array.fromAsync：异步可迭代对象收成数组",
+    src: `
+async function* page() { yield 1; yield 2; yield 3; }
+async function main() {
+  const xs = await Array.fromAsync(page());
+  console.log(xs.join(","));
+  console.log((await Array.fromAsync([1, 2], (v) => Promise.resolve(v * 2))).join(","));
+}
+main();
+`,
+  },
+  {
+    id: "c323-std-string-raw",
+    title: "String.raw：标签模板的 raw 那一栏原样取出",
+    src: `
+const s = String.raw\`a\\nb\`;
+console.log(s, s.length);
+console.log(String.raw\`x\${1 + 1}y\\t\`, String.raw({ raw: ["p", "q"] }, "-"));
+`,
+  },
+  {
+    id: "c323-std-date-local-getters",
+    title: "Date 的本地 getter 与多实参构造",
+    src: `
+const d = new Date(2020, 0, 2, 3, 4, 5);
+console.log(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
+console.log(new Date(2020, 5, 31).getMonth(), d.getDay() >= 0);
+`,
+  },
+  {
+    id: "c323-std-array-at-and-negative-index",
+    title: "Array.at 的负数下标与边界；字符串也有一份",
+    src: `
+const xs = [10, 20, 30];
+console.log(xs.at(0), xs.at(-1), xs.at(3), xs.at(-4));
+console.log("abc".at(-1), "abc".at(5));
+`,
+  },
+  {
+    id: "c323-std-string-padstart-padend",
+    title: "padStart / padEnd：目标长度、填充串截断",
+    src: `
+console.log("5".padStart(3, "0"), "5".padEnd(3, "*"), "abc".padStart(2));
+console.log("x".padStart(5, "ab"), "y".padEnd(4, "12"), "".padStart(3, "-"));
+`,
+  },
+  {
+    id: "c323-std-json-stringify-replacer-array",
+    title: "JSON.stringify 的 replacer 数组：挑键与嵌套",
+    src: `
+const o = { a: 1, b: { a: 2, c: 3 }, c: 4 };
+console.log(JSON.stringify(o, ["a", "b"]));
+console.log(JSON.stringify(o, ["a", "c"]));
+`,
+  },
+  {
+    id: "c323-std-json-parse-reviver-nested",
+    title: "JSON.parse 的 reviver：自底向上、整棵树",
+    src: `
+const out = JSON.parse('{"a":{"b":1},"c":[2,3]}', (k, v) => (typeof v === "number" ? v * 10 : v));
+console.log(JSON.stringify(out));
+`,
+  },
+  {
+    id: "c323-std-array-sort-stability",
+    title: "sort 的稳定性：相等元素保持原序",
+    src: `
+const rows = [{ k: 1, i: "a" }, { k: 0, i: "b" }, { k: 1, i: "c" }, { k: 0, i: "d" }];
+console.log(rows.sort((p, q) => p.k - q.k).map((r) => r.i).join(""));
+console.log([10, 9, 1, 2].sort().join(","));
+`,
+  },
+  {
+    id: "c323-std-map-and-set-iteration",
+    title: "Map / Set 的遍历：keys、values、entries、forEach",
+    src: `
+const m = new Map([["a", 1], ["b", 2]]);
+console.log([...m.keys()].join(","), [...m.values()].join(","));
+console.log([...m.entries()].map(([k, v]) => k + v).join("|"));
+m.forEach((v, k, self) => console.log(k, v, self.size));
+const s = new Set([1, 2]);
+s.forEach((v, v2) => console.log(v === v2));
+`,
+  },
+  {
+    id: "c323-std-promise-any-and-race",
+    title: "Promise.any 的聚合错误与 race 的第一个结清",
+    src: `
+Promise.any([Promise.reject("a"), Promise.resolve(2)]).then((v) => console.log("any", v));
+Promise.any([Promise.reject("x"), Promise.reject("y")]).catch((e) => console.log("agg", e.errors.join(",")));
+Promise.race([Promise.resolve("fast"), new Promise(() => {})]).then((v) => console.log("race", v));
+`,
+  },
+  {
+    id: "c323-std-function-bind-partial",
+    title: "bind 的偏应用与 this 固定；bound 的 length / name",
+    src: `
+function add(a: number, b: number, c: number) { return a + b + c; }
+const f = add.bind(null, 1);
+console.log(f(2, 3), f.length, f.name);
+const o = { v: 5, get() { return this.v; } };
+const g = o.get.bind(o);
+console.log(g(), g.name);
+`,
+  },
+  {
+    id: "c323-std-object-assign-and-getters",
+    title: "Object.assign 与访问器：取的是值不是描述符",
+    src: `
+const src = { get a() { return 1; } };
+const target: any = {};
+Object.assign(target, src);
+console.log(target.a, Object.getOwnPropertyDescriptor(target, "a").get === undefined);
+console.log(JSON.stringify(Object.assign({}, { x: 1 }, { y: 2 }, "ab")));
+`,
+  },
+  {
+    id: "c323-std-math-rounding-table",
+    title: "Math 取整那一族的边界：负数、半值、-0",
+    src: `
+console.log(Math.round(0.5), Math.round(-0.5), Math.round(2.5), Math.round(-2.5));
+console.log(Math.floor(-0.5), Math.ceil(-0.5), Math.trunc(-0.9), Math.sign(-3), 1 / Math.sign(-0));
+console.log(Math.min(), Math.max(), Math.min(0, -0), 1 / Math.min(0, -0));
+`,
+  },
+  {
+    id: "c323-std-string-trim-unicode",
+    title: "trim 的空白表：非 ASCII 空格与零宽不换行空格",
+    src: `
+console.log("\\u00a0 x \\u00a0".trim().length, "\\u3000y\\u3000".trim() === "y");
+console.log("\\ufeffz".trim() === "z", "a\\u2028".trimEnd() === "a", "\\u2009q".trimStart() === "q");
+`,
+  },
+  {
+    id: "c323-std-array-flat-and-with",
+    title: "flat 的深度与 with / toSorted 的不可变形态",
+    src: `
+console.log([1, [2, [3, [4]]]].flat().join(","), [1, [2, [3, [4]]]].flat(2).join(","));
+console.log([1, [2, [3, [4]]]].flat(Infinity).join(","));
+const xs = [3, 1, 2];
+console.log(xs.with(0, 9).join(","), xs.toSorted().join(","), xs.toReversed().join(","), xs.join(","));
+`,
+  },
+  {
+    id: "c323-std-weakmap-and-weakset",
+    title: "WeakMap / WeakSet：对象键、不可枚举、has/delete",
+    src: `
+const wm = new WeakMap();
+const k1 = {};
+wm.set(k1, 1);
+console.log(wm.get(k1), wm.has(k1), wm.delete(k1), wm.has(k1));
+const ws = new WeakSet([k1]);
+console.log(ws.has(k1), Object.keys(ws).length);
+`,
+  },
+  {
+    id: "c323-std-number-formats",
+    title: "数字格式化：toString 的基数、toFixed、指数与判别",
+    src: `
+console.log((255).toString(16), (8).toString(2), (1.5).toFixed(0), (1.005).toFixed(2));
+console.log((1234.5).toExponential(2), (0.00012).toString());
+console.log(Number.isInteger(1.0), Number.isFinite(Infinity), Number.isNaN(NaN), Number.parseInt("0x1f", 16));
+`,
+  },
+  {
+    id: "c323-std-global-parsing-functions",
+    title: "parseInt / parseFloat / isNaN / isFinite 的全家",
+    src: `
+console.log(parseInt("12px"), parseInt("0x10"), parseInt("10", 2), parseInt(""), parseFloat("3.5x"));
+console.log(isNaN("a"), Number.isNaN("a"), isFinite("1"), Number.isFinite("1"));
+console.log(Number(""), Number(" "), Number("0b11"), String(1e21));
+`,
+  },
+  {
+    id: "c323-std-symbol-registry-and-description",
+    title: "Symbol.for / keyFor / description 与 well-known 表",
+    src: `
+const s = Symbol.for("k");
+console.log(Symbol.keyFor(s), s.description, Symbol.for("k") === s);
+console.log(Symbol.iterator.description, typeof Symbol.asyncIterator, Symbol("x").description);
+`,
+  },
+  {
+    id: "c323-std-string-replace-and-split",
+    title: "replace 的三种形态：字符串、$&、函数",
+    src: `
+console.log("a-b".replace("-", "+"), "aaa".replace("a", "$&$&"), "a1b2".replace("1", "#"));
+console.log("a1b2".split("1").join("|"), "a,b,,c".split(",").length, "abc".split("").join("-"));
+`,
+  },
+  {
+    id: "c323-std-console-shapes",
+    title: "console.log 的形状：容器、嵌套、函数与多实参",
+    src: `
+console.log([1, 2], { a: 1 }, [[1], [2]]);
+console.log("s", 1, true, null, undefined);
+console.log({ f: () => 1 }.f.name, [1, 2, 3].join());
+`,
+  },
 ];

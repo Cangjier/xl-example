@@ -664,4 +664,217 @@ const c2 = counter();
 console.log(c1(), c1(), c2(), c1());
 `,
   },
+
+  // ============ 第 323 轮加宽：10 条 ============
+  {
+    id: "c323-e2e-typed-config-merge",
+    title: "端到端：带默认值的三层配置合并",
+    src: `
+interface Cfg { host: string; port: number; tls: { on: boolean; cert?: string }; tags: string[] }
+const defaults: Cfg = { host: "localhost", port: 80, tls: { on: false }, tags: ["base"] };
+const env: Partial<Cfg> = { port: 8080, tls: { on: true, cert: "c.pem" } };
+const user: Partial<Cfg> = { host: "example.com", tags: ["user"] };
+
+function merge(...parts: Partial<Cfg>[]): Cfg {
+  const out = JSON.parse(JSON.stringify(defaults)) as Cfg;
+  for (const p of parts) {
+    for (const k of Object.keys(p) as (keyof Cfg)[]) {
+      const v = p[k];
+      if (v !== undefined) (out as any)[k] = v;
+    }
+  }
+  return out;
+}
+const cfg = merge(env, user);
+console.log(cfg.host, cfg.port, cfg.tls.on, cfg.tls.cert);
+console.log(cfg.tags.length, JSON.stringify(Object.keys(cfg).sort()));
+`,
+  },
+  {
+    id: "c323-e2e-class-hierarchy-polymorphism",
+    title: "端到端：抽象基类 + 三个子类 + 多态分派与排序",
+    src: `
+abstract class Employee {
+  constructor(public name: string, protected base: number) {}
+  abstract pay(): number;
+  label(): string { return this.name + ":" + this.pay(); }
+}
+class Salaried extends Employee { pay() { return this.base; } }
+class Hourly extends Employee {
+  constructor(name: string, base: number, private hours: number) { super(name, base); }
+  pay() { return this.base * this.hours; }
+}
+class Commission extends Salaried {
+  constructor(name: string, base: number, private sales: number) { super(name, base); }
+  pay() { return super.pay() + this.sales * 0.1; }
+}
+const staff: Employee[] = [new Salaried("a", 100), new Hourly("b", 10, 5), new Commission("c", 50, 200)];
+for (const e of staff.sort((x, y) => y.pay() - x.pay())) console.log(e.label(), e instanceof Salaried);
+console.log(staff.reduce((sum, e) => sum + e.pay(), 0));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-e2e-async-retry-with-backoff",
+    title: "端到端：异步重试与错误分类（不用定时器）",
+    src: `
+class Transient extends Error {}
+async function attempt(n: number): Promise<string> {
+  if (n < 3) throw new Transient("flaky " + n);
+  return "ok@" + n;
+}
+async function withRetry(tries: number): Promise<string> {
+  const failures: string[] = [];
+  for (let i = 1; i <= tries; i++) {
+    try { return await attempt(i); }
+    catch (e) { failures.push((e as Error).message); }
+  }
+  throw new Error("gave up: " + failures.join("|"));
+}
+async function main() {
+  console.log(await withRetry(5));
+  try { await withRetry(2); } catch (e) { console.log((e as Error).message, e instanceof Error); }
+}
+main();
+`,
+  },
+  {
+    id: "c323-e2e-custom-iterable-collection",
+    title: "端到端：自己写一个可迭代集合类，接上 for..of 与展开",
+    src: `
+class Bag<T> {
+  private items: T[] = [];
+  add(v: T): this { this.items.push(v); return this; }
+  get size(): number { return this.items.length; }
+  [Symbol.iterator](): Iterator<T> {
+    let i = 0;
+    const items = this.items;
+    return { next: () => (i < items.length ? { value: items[i++], done: false } : { value: undefined as any, done: true }) };
+  }
+}
+const b = new Bag<number>().add(1).add(2).add(3);
+console.log([...b].join(","), b.size, Array.from(b).length);
+for (const v of b) console.log(v * 2);
+`,
+  },
+  {
+    id: "c323-e2e-text-table-report",
+    title: "端到端：一张对齐的文本报表（补齐、截断、汇总）",
+    src: `
+type Row = { name: string; qty: number; price: number };
+const rows: Row[] = [
+  { name: "widget", qty: 3, price: 2.5 },
+  { name: "a-very-long-name", qty: 1, price: 10 },
+  { name: "gizmo", qty: 12, price: 0.75 },
+];
+const pad = (s: string, n: number) => (s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length));
+const num = (s: string, n: number) => " ".repeat(Math.max(0, n - s.length)) + s;
+console.log(pad("name", 18) + num("qty", 5) + num("total", 9));
+for (const r of rows) console.log(pad(r.name, 18) + num(String(r.qty), 5) + num((r.qty * r.price).toFixed(2), 9));
+const total = rows.reduce((s, r) => s + r.qty * r.price, 0);
+console.log(pad("TOTAL", 18) + num("", 5) + num(total.toFixed(2), 9));
+`,
+  },
+  {
+    id: "c323-e2e-generator-pipeline-stages",
+    title: "端到端：生成器搭的三段流水线",
+    src: `
+function* source(n: number) { for (let i = 1; i <= n; i++) yield i; }
+function* doubled(xs: Iterable<number>) { for (const x of xs) yield x * 2; }
+function* onlyEven(xs: Iterable<number>) { for (const x of xs) if (x % 4 === 0) yield x; }
+const out = [...onlyEven(doubled(source(10)))];
+console.log(out.join(","), out.length);
+let first: number | undefined;
+for (const v of onlyEven(doubled(source(5)))) { first = v; break; }
+console.log(first);
+`,
+  },
+  {
+    id: "c323-e2e-word-index-and-search",
+    title: "端到端：建一个倒排索引并做查询（只用字符串方法）",
+    src: `
+const docs: Record<string, string> = {
+  d1: "the quick brown fox",
+  d2: "the lazy dog sleeps",
+  d3: "quick dogs and foxes",
+};
+const index = new Map<string, Set<string>>();
+for (const id of Object.keys(docs)) {
+  for (const raw of docs[id].split(" ")) {
+    const w = raw.toLowerCase();
+    if (!index.has(w)) index.set(w, new Set());
+    index.get(w)!.add(id);
+  }
+}
+function search(q: string): string {
+  const hits = index.get(q.toLowerCase());
+  return hits ? [...hits].sort().join(",") : "-";
+}
+console.log(search("the"), search("quick"), search("fox"), search("zzz"));
+console.log(index.size, [...index.keys()].length);
+`,
+  },
+  {
+    id: "c323-e2e-state-machine-with-map",
+    title: "端到端：用 Map 写的状态机驱动一段输入",
+    src: `
+type State = "idle" | "run" | "done";
+const table: Record<State, Record<string, State>> = {
+  idle: { start: "run" },
+  run: { tick: "run", stop: "done" },
+  done: {},
+};
+function drive(events: string[]): string[] {
+  const seen: string[] = [];
+  let cur: State = "idle";
+  for (const ev of events) {
+    const next = table[cur][ev];
+    seen.push(cur + "-" + ev + "->" + (next ?? "?"));
+    if (!next) break;
+    cur = next;
+  }
+  return seen;
+}
+console.log(drive(["start", "tick", "tick", "stop", "tick"]).join(" | "));
+console.log(drive(["tick"]).join(" | "));
+`,
+  },
+  {
+    id: "c323-e2e-error-boundary-and-cleanup",
+    title: "端到端：资源清理与错误边界（try/finally 嵌套）",
+    src: `
+const log: string[] = [];
+function withResource<T>(name: string, body: () => T): T {
+  log.push("open:" + name);
+  try { return body(); } finally { log.push("close:" + name); }
+}
+function work(fail: boolean): string {
+  return withResource("db", () => {
+    withResource("tx", () => { if (fail) throw new Error("boom"); });
+    return "committed";
+  });
+}
+console.log(work(false));
+try { work(true); } catch (e) { console.log("caught", (e as Error).message); }
+console.log(log.join(","));
+`,
+  },
+  {
+    id: "c323-e2e-memoize-and-generics",
+    title: "端到端：泛型 memoize + 递归 DP",
+    src: `
+function memo<A extends string | number, R>(f: (k: A) => R): (k: A) => R {
+  const cache = new Map<A, R>();
+  return (k: A) => {
+    if (!cache.has(k)) cache.set(k, f(k));
+    return cache.get(k)!;
+  };
+}
+let calls = 0;
+const fib = memo((n: number): number => { calls += 1; return n < 2 ? n : fib(n - 1) + fib(n - 2); });
+console.log(fib(20), calls);
+const key = memo((s: string) => s.toUpperCase() + "!");
+console.log(key("a"), key("a"), key("b"));
+`,
+  },
 ];

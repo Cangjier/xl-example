@@ -3331,4 +3331,286 @@ console.log(typeof u, (u as number) + 1);
     title: "标签模板出现在一元运算符的操作数位（`typeof t`z``）",
     src: "\nconst t = (s: any, ...v: any[]) => s[0] + v.join(\"\");\nconsole.log(typeof t`z`);\nconsole.log(!t``);\n",
   },
+
+  // ============ 第 323 轮加宽：24 条 ============
+  {
+    id: "c323-ex-computed-class-field-names",
+    title: "类字段的计算名（实例与静态各一格）",
+    src: `
+const KEY = "value";
+class Box {
+  [KEY] = 1;
+  ["static" + "Key"] = 2;
+}
+const b = new Box();
+console.log(b.value, (b as any).staticKey, Object.keys(b).sort().join(","));
+`,
+  },
+  {
+    id: "c323-ex-static-computed-field",
+    title: "静态计算名字段：类上可读、实例上不可读",
+    src: `
+const KEY = "count";
+function makeKey() { return KEY; }
+class Counter {
+  static [makeKey()] = 10;
+  static [KEY + "_next"] = 11;
+}
+console.log((Counter as any).count, (Counter as any).count_next, (new Counter() as any).count);
+`,
+  },
+  {
+    id: "c323-ex-angle-bracket-assertion-forms",
+    title: "尖括号断言：变量、字面量、嵌套三格",
+    src: `
+const a: unknown = "x";
+const b = <string>a;
+const c = <any>(1 as any) + 1;
+console.log(b, c, (<number>(2 as any)) * 3);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-ex-super-property-write",
+    title: "super 上的写：落在当前实例上，起点是父原型",
+    src: `
+class Base { value = 1; }
+class Sub extends Base {
+  set value(v: number) { super.value = v * 2; }
+  get value() { return super.value + 1; }
+}
+const s = new Sub();
+s.value = 5;
+console.log(s.value);
+`,
+  },
+  {
+    id: "c323-ex-class-expression-name-in-body",
+    title: "具名类表达式的名字在类体与静态初始化里可见",
+    src: `
+const K = class Named {
+  static id = "n1";
+  get tag() { return Named.id; }
+  static make() { return new Named(); }
+};
+console.log(K.id, new K().tag, K.make() instanceof K);
+`,
+  },
+  {
+    id: "c323-ex-named-function-expression",
+    title: "具名函数表达式的名字在函数体内可见（可递归）",
+    src: `
+const fact = function self(n: number): number { return n <= 1 ? 1 : n * self(n - 1); };
+console.log(fact(5), typeof (fact as any).self);
+`,
+  },
+  {
+    id: "c323-ex-parameter-properties",
+    title: "参数属性：进构造函数就挂在实例上",
+    src: `
+class Point {
+  constructor(public x: number, private y: number, readonly z = 3) {}
+  sum() { return this.x + this.y + this.z; }
+}
+const p = new Point(1, 2);
+console.log(p.x, p.sum(), Object.keys(p).join(","));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-ex-optional-call-forms",
+    title: "可选调用的三种基名：null、缺方法、接收者为 null",
+    src: `
+const o: any = { m() { return "m"; }, n: { k() { return "k"; } } };
+const f: any = null;
+console.log(o.m?.(), o.n?.k?.(), o.missing?.(), f?.());
+`,
+  },
+  {
+    id: "c323-ex-nonnull-in-chains",
+    title: "非空断言与下标 / 成员混在同一条链上",
+    src: `
+const arr: any = [[1, 2]];
+console.log(arr![0]![0]);
+const o: any = { a: { b: [7] } };
+console.log(o!.a!.b![0], o?.a.b![0]);
+`,
+  },
+  {
+    id: "c323-ex-generics-erased-forms",
+    title: "泛型的运行期：类型参数一律擦除，函数体照跑",
+    src: `
+function first<T>(xs: T[]): T { return xs[0]; }
+function pair<A, B>(a: A, b: B): [A, B] { return [a, b]; }
+class Box<T> { constructor(public value: T) {} get(): T { return this.value; } }
+console.log(first<number>([1, 2]), pair("a", 1).join(":"), new Box<string>("v").get());
+interface Wrap<T> { value: T }
+const w: Wrap<number> = { value: 3 };
+console.log(w.value);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-ex-abstract-and-overrides",
+    title: "抽象类：抽象方法与字段在子类上落地",
+    src: `
+abstract class Shape {
+  abstract area(): number;
+  name = "shape";
+  describe() { return this.name + ":" + this.area(); }
+}
+class Sq extends Shape {
+  name = "sq";
+  constructor(private side: number) { super(); }
+  area() { return this.side * this.side; }
+}
+console.log(new Sq(3).describe());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-ex-interface-and-type-erasure",
+    title: "interface / type / declare：一个运行期指令都不产生",
+    src: `
+interface Opts { n: number; s?: string }
+type Alias = Opts & { extra: boolean };
+declare const ghost: number;
+const f = (o: Opts): string => o.n + (o.s ?? "-");
+console.log(f({ n: 1 }), f({ n: 2, s: "x" }));
+`,
+  },
+  {
+    id: "c323-ex-satisfies-and-as-const",
+    title: "satisfies 与 as const：值本身照原样留下",
+    src: `
+const cfg = { mode: "fast", retries: 3 } satisfies { mode: string; retries: number };
+const modes = ["a", "b"] as const;
+console.log(cfg.mode, cfg.retries, modes.length, modes[0]);
+`,
+  },
+  {
+    id: "c323-ex-function-overloads",
+    title: "函数重载：实现体是唯一跑的那一份",
+    src: `
+function fmt(v: number): string;
+function fmt(v: string): string;
+function fmt(v: any): string { return typeof v === "number" ? v.toFixed(2) : v.toUpperCase(); }
+console.log(fmt(1.5), fmt("ab"));
+`,
+  },
+  {
+    id: "c323-ex-namespace-with-values",
+    title: "namespace 带值：导出常量与函数",
+    src: `
+namespace Math2 {
+  export const PI2 = 6;
+  export function twice(n: number) { return n * 2; }
+}
+console.log(Math2.PI2, Math2.twice(21));
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-ex-enum-runtime-forms",
+    title: "enum 的运行期：正向、反向映射、字符串枚举",
+    src: `
+enum Color { Red, Green = 5, Blue }
+enum Name { A = "a", B = "b" }
+console.log(Color.Red, Color.Green, Color.Blue, Color[5], Color[0]);
+console.log(Name.A, Name.B, (Name as any)[0]);
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-ex-namespace-merged-function",
+    title: "函数与命名空间合并：静态格挂在函数值自己身上",
+    src: `
+function make(n: number) { return n * 2; }
+namespace make {
+  export const version = "1.0";
+  export function help() { return "help:" + version; }
+}
+console.log(make(3), make.version, make.help());
+`,
+    nodeArgs: ["--experimental-transform-types"],
+  },
+  {
+    id: "c323-ex-decorator-free-mixins",
+    title: "混入模式：类表达式与 Object.assign 组合",
+    src: `
+type Ctor = new (...args: any[]) => any;
+function Tagged<T extends Ctor>(Base: T) {
+  return class extends Base { tag = "t"; };
+}
+class Plain { v = 1; }
+const Mixed = Tagged(Plain);
+const m = new Mixed();
+console.log(m.tag, m.v, m instanceof Plain);
+`,
+  },
+  {
+    id: "c323-ex-arrow-generic-and-iife",
+    title: "泛型箭头与带类型标注的立即调用",
+    src: `
+const id = <T,>(v: T): T => v;
+console.log(id("x"), ((a: number, b: number) => a + b)(1, 2));
+console.log(((a: string) => a.toUpperCase())("ab"));
+`,
+  },
+  {
+    id: "c323-ex-destructuring-in-many-slots",
+    title: "解构落在形参 / for..of 头 / catch / 赋值四种位置上",
+    src: `
+function f({ a, b = 2 }: { a: number; b?: number }) { return a + b; }
+for (const [k, v] of [["x", 1] as [string, number]]) console.log(k, v);
+try { throw { code: 7 }; } catch ({ code }) { console.log(code); }
+let p = 0, q = 0;
+[p, q] = [1, 2];
+console.log(f({ a: 1 }), p, q);
+`,
+  },
+  {
+    id: "c323-ex-union-narrowing-runtime",
+    title: "联合类型的收窄写法：typeof / in / instanceof 三种守卫",
+    src: `
+function show(v: string | number): string { return typeof v === "string" ? v.toUpperCase() : v.toFixed(1); }
+function has(o: { a?: number } | { b?: number }) { return "a" in o ? "A" : "B"; }
+class E1 {} class E2 {}
+function kind(v: E1 | E2) { return v instanceof E1 ? "e1" : "e2"; }
+console.log(show("a"), show(1), has({ a: 1 }), has({ b: 2 }), kind(new E1()), kind(new E2()));
+`,
+  },
+  {
+    id: "c323-ex-optional-and-readonly-members",
+    title: "可选成员与只读成员的读法：只影响类型、不影响运行期",
+    src: `
+interface Cfg { readonly host: string; port?: number }
+const c: Cfg = { host: "h" };
+console.log(c.host, c.port, "port" in c, Object.keys(c).join(","));
+`,
+  },
+  {
+    id: "c323-ex-import-type-and-export-erased",
+    title: "import type / export type / export 声明：单文件里都不产生运行期东西",
+    src: `
+type Local = { n: number };
+const v: Local = { n: 1 };
+console.log(v.n);
+`,
+  },
+  {
+    id: "c323-ex-private-members-forms",
+    title: "私有字段与私有方法：实例 / 静态 / 访问器",
+    src: `
+class Vault {
+  #secret = 1;
+  static #shared = 2;
+  #read() { return this.#secret + Vault.#shared; }
+  get total() { return this.#read(); }
+  static get shared() { return Vault.#shared; }
+}
+const v = new Vault();
+console.log(v.total, Vault.shared, Object.keys(v).length);
+`,
+  },
 ];

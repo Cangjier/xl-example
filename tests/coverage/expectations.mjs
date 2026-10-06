@@ -522,7 +522,17 @@ export const EXPECTATIONS = {
   "rt-optional-chain-null-base": { expect: "differ", why: "**基名是 null 的可选调用**（`f?.()`）报 `cannot call a non-closure value`——`?.` 该整条短路，这里却照样去调了（`f?.[0]` / `f?.p` 那一半是对的）" },
 
   // ---- 组 F：降级层的两种形状（3 条）----
-  "ex-class-computed-and-static-init": { expect: "blocked", why: "`unimplemented: computed class field name`：类字段的计算名 `[k] = v` 没接（计算**方法**名第 229 轮就通了 ✓）" },
+  // **`ex-class-computed-and-static-init` 第 323 轮过了** ✓（那一行撤了 ✓）：
+  // 根子就是「字段名那一格只认标识符 / 字符串 / 数字 / 私有名」✗——
+  // 而**计算方法名**第 229 轮就通了 ✓（`[Symbol.iterator]() {}` ✓），
+  // 于是同一个形状在同一个类里**一半能进、一半进不来** ✓。
+  // 修法两处 ✓：① `EmitFieldInit` 认下 `ComputedPropertyName`（键算成一个值 ✓、
+  // 走 `SetPropertyValue` ✓——`ToPropertyKey` 那条规矩在引擎里只有一处 ✓），
+  // **次序与 JS 一致**（键在前、值在后 ✓，与第 284 轮给对象字面量订正的那一条同源 ✓）；
+  // ② `scope.xl.md` 的 `CollectInsideFunctions` 补一条：**计算名也是「内层代码」** ✓
+  // ——`[KEY] = 1` 的 `KEY` 是**外层**的名字 ✓，而实例字段那一段跑在**构造函数那一帧**里 ✓，
+  // 不把计算名算进去，外层就不为它开格 ✓ ⇒ 降级到那儿报
+  // `name is not a local or a capture: KEY` ✓（**整份文件进不来** ✗，实测就是它 ✓）。
 
   // ---- 组 G：标准库**成员不在那儿**（第 287 轮 7 条，**第 288 轮收掉 3 条**）----
   // 量法与第 273 轮一致 ✓：一个探针把候选成员逐个 `typeof` 一遍 ✓，
@@ -666,7 +676,10 @@ export const EXPECTATIONS = {
 
   "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
   "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
-  "c305-ex-static-computed-key-and-method": { expect: "blocked", why: "计算类字段名报 `unimplemented: computed class field name`（第 287 轮组 F 的那一格：`static [KEY] = \"c\"`）——实例方法上的计算键是好的，字段上这一格没有" },
+  // **`c305-ex-static-computed-key-and-method` 第 323 轮也过了** ✓（同一处修 ✓，
+  // 那一行撤了 ✓）：`static [KEY] = "c"` 那一格与实例字段那一条**共用同一段** ✓——
+  // 静态字段本来就在**类声明那一处**求值 ✓，所以它只需要①（认下计算名 ✓），
+  // 不需要②（捕获那一条是给实例字段的 ✓）。
   "c305-ex-optional-chain-nonnull-mix": { expect: "differ", why: "可选链与非空断言混在同一条链上时**后面那一截丢掉**：`o?.a!.b` 给 `{ b: 1 }`（Node 给 `1`）。与第 303 / 304 轮的链式缺口同一条（`print-ast-common.xl.md` 的链分支），这一条是「`?.` 在前、`!` 在后」那一种排布" },
   "c305-std-queue-microtask-order": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进与 `Promise.then` 同一个微任务队列（队列本身第 248 轮就有了）" },
   "c305-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮装上了）——同一个分组实现，只是返回 `Map` 而不是对象" },
@@ -732,4 +745,45 @@ export const EXPECTATIONS = {
   // **一元那一格第 322 轮也收了** ✓（同一把判据 `StartsWithTemplate` ✓，搬进
   // `text-common-util.xl.md` 两处共用 ✓；判据 `c321-ex-tagged-template-after-unary`
   // 已转 pass ✓，那一行撤了 ✓）——留这一段是为了让「为什么一元也要多收一格」有出处 ✓。
+
+  // ===== 第 323 轮：加宽 87 条，当场收掉 5 格（计算字段名 2 · `yield*` 返回值 1 ·
+  // 两条端到端 async 的写法问题 0 ✓），落在下面的 18 条是这一轮量出来的缺口 =====
+  //
+  // **这一轮按「根子」分四簇** ✓（同簇的修法一样 ✓，一起做才不白付 ✓）：
+  //   A **名字只在该在的那一层里可见**（4 条：具名函数表达式 ✓ 具名类表达式 ✓
+  //     函数与命名空间合并 ✓ 对象字面量里的 `super` ✓）——都是「名字没绑进那一层」✓；
+  //   B **标准库成员不在那儿**（7 条：`Map.groupBy` ✓ `Promise.withResolvers` ✓
+  //     `queueMicrotask` ✓ `Object.getOwnPropertyDescriptors` ✓ `String.raw` ✓
+  //     `Array.fromAsync` ✓ `Set` 的集合运算族 ✓——**与第 287 / 288 / 289 轮同一张单子** ✓）；
+  //   C **写那一半没有对应的入口**（2 条：`super.x = v` ✓ 数组子类 ✓）；
+  //   D **同一个形状只认了一半**（2 条：尖括号断言 `<T>expr` ✓ 与「非空断言串在
+  //     成员链上、后面那一截丢掉」✓）——前者是 `TypeAssertion` 与 `AsExpression` 两个
+  //     kind 只认了后者 ✓，后者与第 303 / 304 / 305 轮那一条链同源 ✓
+  //     （入口都在 `print-ast-common.xl.md` 的链分支 ✓）。
+  // 另有 3 条是**已经登记过的缺口换了写法**（`f?.()` ✓ 生成器的 `return()` ✓
+  // 显示名推断 ✓），它们**不加新账**、只是把旧账的覆盖面加宽 ✓。
+
+  // A —— 名字只在该在的那一层里可见（4 条）
+  "c323-ex-named-function-expression": { expect: "blocked", why: "具名函数表达式 `const f = function self(n) { … self(n - 1) }` 的名字**没绑进函数自己那一层作用域**（与 `fn-named-expression` 同一条）——`self` 既不是本层声明、也不算捕获 ⇒ 报 `name is not a local or a capture: self`。JS 里这个名字只在**函数体内部**可见（外面 `typeof f.self` 是 `undefined`），所以修法是「进门时在函数自己那一层绑一格」" },
+  "c323-ex-class-expression-name-in-body": { expect: "blocked", why: "具名类表达式的名字在**类体**里读不到：`const K = class Named { static id = \"n1\"; get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`——与上一条**同一个根**（名字只在该在的那一层可见），只是那一层从函数体换成了类体（静态格与实例方法都在里面）" },
+  "c323-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`function make(n) {…}` + `namespace make { export const version = … }` 该把导出挂在**函数值自己**那一格上（静态格），降级层只造了函数、那一格没造 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`（与 `c304-ex-namespace-merged-function` 同一个根，这一条把「常量 + 函数 + 互相引用」三格一起考）" },
+  "c323-rt-super-in-object-literal": { expect: "blocked", why: "对象字面量里的方法用 `super.greet()`：JS 的 `super` 在方法简写里指向 `[[HomeObject]]` 的原型（`{ __proto__: proto, greet() { return super.greet() } }` 是合法的）；降级层只认**派生类方法**里那一格（`InSuperName` 由类降级时写进排队函数）⇒ 报 `unimplemented: super.m(...) outside a derived class method`" },
+  // B —— 标准库成员不在那儿（6 条，都是「挂一格」那一族）
+  "c323-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮就装上了）——同一个分组实现，只是**返回 `Map` 而不是对象**（分组键是任意值 ⇒ 不能用对象那一条路）。与 `c305-std-map-groupby` 同一个根，这一条多考了「键是同一个值时合成一组」那一格" },
+  "c323-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers()` 没有——它要**造一个承诺 + 一对结清回调**并交成一个对象（`MakeSettleCallback` 那一族现成 ✓，缺的是「把三样装进一个对象再返回」这一步）" },
+  "c323-std-queue-microtask": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进**与 `Promise.then` 同一条**微任务队列（队列本身第 248 轮就有；缺的是「宿主把「排一个纯回调」这件事借给语言层」那条服务，与第 199 轮的 `IteratorDrainer` 同一形状）" },
+  "c323-std-object-getownpropertydescriptors": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors`（复数）没装——单数那一格第 276 轮就有（`getOwnPropertyDescriptor` ✓），缺的是「一趟扫自有键、每格复用同一次读描述符」；与 `c305-std-object-getownpropertydescriptors-all` 同一个根，这一条多考了「不可枚举那一格也要在里面」" },
+  "c323-std-set-union-intersection": { expect: "blocked", why: "`Set` 的集合运算族（ES2025）：`union` / `intersection` / `difference` / `symmetricDifference` / `isSubsetOf` / `isDisjointFrom` 六个都没装（`add` / `has` / `delete` / `values` / `keys` / `entries` / `clear` / `forEach` 八格第 130 / 288 轮就有了）——做法与那八格同一套（号段 611..659 里还有空号 ✓，实现都是「造一个新 Set 或答一个是非」✓）" },
+  "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗（`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓）" },
+  "c323-std-array-fromasync": { expect: "differ", why: "`Array.fromAsync` 没有（本仓**一行都不打**，Node 给 `1,2,3`）——两个来源都要：**异步可迭代对象**（`async function*` ✓，本仓的 `for await` 已经能收 ✓）与**带映射函数的同步数组**（每一项 `await` 一次 ✓）。它是 `Array.from` 的异步姊妹，落在同一张表上" },
+  // C —— 写那一半没有对应的入口（2 条）
+  "c323-ex-super-property-write": { expect: "blocked", why: "`super.x = v` 报 `assigning a property on a primitive receiver`：降级层把 `super` 那一格当成了**接收者**（而 `super` 在值位给的是 `undefined`）——接收者该是**当前实例** ✓、起点才是父原型 ✓。读那一半第 243 轮补了 `RtOp.GetPropFrom`，写这一半要一条对称的 `set_prop_from`（引擎里还没有那一格）。与 `rt-accessor-override` / `c304-rt-super-property-write` 同一个根，这一条是「父类只有数据字段、子类用访问器写」那种排布" },
+  "c323-rt-array-subclass-and-methods": { expect: "blocked", why: "`class List extends Array` 报 `this method needs an array receiver`——实例是**普通对象**（`extends` 只连了原型链），而数组方法（`push` / `join`）认的是真数组。要一条「按内置类造实例」的路（`[[Prototype]]` 与内部槽一起给），与 `rt-instanceof-array-subclass` 同一个根" },
+  // D —— 同一个形状只认了一半（2 条）
+  "c323-ex-angle-bracket-assertion-forms": { expect: "blocked", why: "尖括号断言 `<T>expr` 报 `unimplemented: expression TypeAssertionExpression`——它与 `as` 在 TS 的 AST 里是**两个 kind**（`TypeAssertion` 与 `AsExpression` ✓），投影 / 降级只认了后者（与 `ex-angle-bracket-assertion` 同一个根，这一条把「变量 / 字面量 / 嵌套」三种操作数一起考）。**裁判要用 `--experimental-transform-types`** ✓：剥离模式明确拒收尖括号写法 ✓" },
+  "c323-ex-nonnull-in-chains": { expect: "differ", why: "非空断言与下标混在同一条链上时**后面那一截整个丢掉**：`arr![0]![0]` 给 `[ [ 1, 2 ] ]`（Node 给 `1`）、`o!.a!.b![0]` 也少一层。与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` 同一条链（`print-ast-common.xl.md` 的链分支），这一条把「`!` 在链首」那一种排布一起考了" },
+  // 旧账加宽（4 条：不加新账，只是同一个根换了写法）
+  "c323-ex-optional-call-forms": { expect: "blocked", why: "可选调用的**三种基名**放在一条判据里：`o.m?.()` ✓ 与 `o.n?.k?.()` ✓ 是对的那一半，`o.missing?.()` 也过 ✓；**卡住的是 `f?.()`**（基名**自己**是空值）——`?.` 该整条短路，这里却照样去调 ⇒ `cannot call a non-closure value`（缺口清单 #6，第 152 轮分过「空值在接收者上」与「空值在取出来的方法上」，这是**第三格**）" },
+  "c323-rt-generator-early-return-cleanup": { expect: "differ", why: "提前结束生成器：`it.return(9)` 要**在挂起点送一次「完成」进去**（于是体里的 `finally` 照跑、`cleanup` 要印出来），本仓报 `unimplemented: generator return() needs the finally chain (a lowering-level construct)`——那条 `finally` 链是**降级期**的构造，引擎手里没有「这个帧欠哪些 `finally`」那张表（缺口清单 #5，与 `c304-rt-generator-early-break-finally` 同一个根）" },
+  "c323-std-console-shapes": { expect: "differ", why: "`console.log({ f: () => 1 }.f.name)` 给**空串**（Node 给 `\"f\"`）——**从属性名反推显示名**那一格没有（缺口清单 #10 那一族：`HeapClosure.Name` 的四个来源里少了「对象字面量的属性名」这一条）；同一条里的容器形状（`[1, 2]` / `{ a: 1 }` / 嵌套数组）与多实参那两行都是对的 ✓" },
 };

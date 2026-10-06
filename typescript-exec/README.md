@@ -6,6 +6,80 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 323 轮的账（**先铺语料：加宽 87 条** + 收掉 5 格 —— **95.3% → 94.7%**，分母 +7.8%）
+
+用户口径照旧是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
+所以这一轮**先加宽、再收口** ✓——87 条候选过了 `sweep.mjs` ✓：
+**69 条当场通过** ✓、**14 条进不了门** ✗、**4 条跑得出来但不一样** ✓、`nodefail` **0 条** ✓
+（两条一开始被 `nodefail` 挡下来的——**顶层 `await` 在 `.ts` 里不成立** ✓：Node 的模块判定
+看得是 `import` / `export` ✓，裸的顶层 `await` 会被当 CJS 跑 ✗ ⇒ 改成 `async function main(){…}
+main();` 就对了 ✓，**这不是引擎的缺口，是用例自己的写法问题** ✓）。
+
+### 一、这一轮收掉的 5 格
+
+**① 计算类字段名**（4 条：`c323-ex-computed-class-field-names` ✓ `c323-ex-static-computed-field` ✓，
+外加上一轮留下的 `ex-class-computed-and-static-init` ✓ 与 `c305-ex-static-computed-key-and-method` ✓）——
+**一个形状，两处各写了一遍** ✗：**计算方法名**第 229 轮就通了 ✓（`[Symbol.iterator]() {}` ✓），
+而**字段**那一格一直响亮地抛 ✗（`unimplemented: computed class field name` ✓）——
+于是 `class Box { [KEY] = 1 }` 让**整个类**进不来 ✗（判据当场量到 ✓）。
+修法两处 ✓：
+- `lowering.xl.md` 的 `EmitFieldInit` 认下 `ComputedPropertyName` ✓：键算成**一格值** ✓、
+  走 `SetPropertyValue` ✓（`ToPropertyKey` 那条规矩在引擎里**只有一处** ✓，与 `o[k] = v` 同路 ✓）；
+  **次序与 JS 一致**（键在前、值在后 ✓）——与第 284 轮给对象字面量订正的那一条**同源** ✓；
+  顺手把「没有初始化式就写 `undefined`」那一小段抽成 `FieldInitialValue` ✓
+  （**它原来只写在 `EmitFieldInit` 里** ✓，而计算名那一支是**第二个用户** ✓——
+  同一个形状写两遍，漂的那一遍隔了一百轮才被量到 ✓，第 284 轮那条教训 ✓）。
+- `scope.xl.md` 的 `CollectInsideFunctions` 补一条 ✓：**计算名也是「内层代码」** ✓。
+  这一条是**第一版跑出来的** ✗：只改 `EmitFieldInit` 之后，`[KEY] = 1` 报
+  `name is not a local or a capture: KEY` ✓——**实例字段那一段跑在构造函数那一帧里** ✓，
+  而 `PropertyDeclaration` 那一支**只看 `initializer`** ✗（注释写着「`name` 是属性名」✓，
+  对**标识符名**是对的 ✓、对**计算名**是错的 ✗——那是一段真的会跑的表达式 ✓）。
+  两条判据的分工值得记 ✓：**改名那一半在降级层、捕获那一半在作用域** ✓，
+  **一处不改，另一处再对也进不来** ✗。
+  **写在明处的已知差** ✗：JS 里计算名在**类定义那一刻求值一次** ✓，
+  本仓落在构造函数那一帧里 ⇒ 每造一个实例求值一次 ✗（`class C { [f()] = 1 }` 会多调 `f` ✓）；
+  判据里没有带副作用的键 ✓，所以它今天不现形 ✓——**记在这里，不静默** ✓。
+
+**② `yield*` 那一步抄晚了**（1 条：`c323-rt-generator-delegation-and-return` ✓）——
+`const r = yield* inner()` 里 `r` 拿到的是**上一轮产出的值** ✗（实测给 `2` ✓，Node 给
+`"inner-done"` ✓，**静默错值** ✓）。根子是**次序** ✗：`LowerYieldDelegation` 把
+「把这一轮的值抄进 `lastValue`」排在 **`done` 判据之后** ✓——而**恰好 `done` 那一趟**
+`pair[0]` 才是**内层的返回值** ✓、也就是整个 `yield*` 表达式的值 ✓。
+`yield* [1, 2]` 看不出来 ✓（数组那一趟的值是 `undefined` ✓），**只有委托给生成器才现形** ✓
+（第 230 轮装它的时候判据正好是数组那一格 ✗）。修法就是把那一条 `Move` 挪到判据**之前** ✓
+——**两个算子、两行次序，一个字的语义** ✓。
+
+**读数** ✓：矩阵 **1115 → 1202 条** ✓（**分母 +7.8%** ✓）、
+`pass` **1058 → 1129** ✓；**整体 95.3% → 94.7%** ✓、
+**引擎 93.4% → 93.1%** ✓、**降级层 96.7% → 95.3%** ✓、**标准库 94.9% → 93.5%** ✓、
+**端到端 96.0% → 97.1%** ✓（那 10 份完整程序**全过** ✓）。
+**读数掉下来是「分母变诚实」** ✓ 不是倒退 ✓（与第 273 / 287 / 290 / 291 / 304 / 305 轮同一条口径 ✓）：
+新收的 87 条里有 **18 条**过不去 ✓，而**红的一栏是 0** ✓（没有一条「比昨天差」✓）。
+**六道门 29.3 秒全绿** ✓（`runtime:check` 241 ✓ / `runtime:cli` 79 ✓ /
+`cases:tsast` 1444 ✓ / `samples` ✓ / `cases:check` 1050 ✓ / `coverage` 1202 ✓）。
+
+### 二、这一轮量出来的 18 条缺口（按**根子**分四簇，写在 `expectations.mjs` 里）
+
+| 簇 | 条数 | 根子 | 入口 |
+| --- | --- | --- | --- |
+| A | 4 | **名字只在该在的那一层里可见**：具名函数表达式 · 具名类表达式（类体里） · 函数与命名空间合并 · 对象字面量里的 `super` | `lowering.xl.md` 开帧那一段（`Hoist` / `EmitClosure`）+ `PendingFunction` 的 `SuperName` |
+| B | 6 | **标准库成员不在那儿**：`Map.groupBy` · `Promise.withResolvers` · `queueMicrotask` · `Object.getOwnPropertyDescriptors` · `String.raw` · `Array.fromAsync` · `Set` 的集合运算族（六个方法） | `builtins/{globals,set,promise,array,string}.xl.md` 的 `entries` / `Install*`（**与第 287 / 288 / 289 轮同一张单子** ✓） |
+| C | 2 | **写那一半没有对应的入口**：`super.x = v`（读那一半第 243 轮有 `GetPropFrom`，写要一条对称的 `set_prop_from`）· 数组子类（`extends Array` 的实例不是真数组） | `runtime/props.xl.md` · `runtime/vm.xl.md` 的 `set_prop` / `set_index` 那两条 |
+| D | 2 | **链上的那一截被丢掉**：非空断言与下标混排（`arr![0]![0]`）· 可选链里夹 `!` | `print-ast-common.xl.md` 的链分支（**与第 303 / 304 / 305 轮同一条链** ✓） |
+
+另有 4 条是**旧账换写法** ✓（`f?.()` ✓ 生成器的 `return()` ✓ 显示名推断 ✓
+`console.log` 的容器形状 ✓），它们**不加新账** ✓、只是把旧账的覆盖面加宽 ✓——
+**这正是加宽分母的用处** ✓：同一个根多盖一种排布，将来修它的时候一次验得更多 ✓。
+
+### 三、下一轮的入口（按「普通 `.ts` 里有多常见」排）
+
+1. **B 簇最便宜** ✓（七个成员里有五个是「挂一格 + 一小段循环」✓：`Map.groupBy` ✓
+   `Object.getOwnPropertyDescriptors` ✓ `Set` 那六个 ✓ `Promise.withResolvers` ✓ `String.raw` ✓）
+   ——它是**一次能收 6 条**的一簇 ✓，与第 288 轮那一次（八条判据一起转绿 ✓）同一个形状 ✓；
+2. **A 簇最值钱** ✗（4 条，都是「名字没绑进那一层」✓——它同时挡着 `fn-named-expression`
+   与 `c305-rt-class-expression-named-self-reference` 两条老账 ✓，一次性收 6 条 ✓）；
+3. **D 簇的入口最清楚** ✓（链分支那一处 ★ 已经量过三轮 ✓）。
+
 ## 第 322 轮的账（**一元那一格：同一把判据、搬到共用处** —— 95.3%，收掉 1 格）
 
 第 321 轮把**二元**操作数位的标签模板修好了 ✓，并把**同源的一元那一格**（``typeof t`z```）

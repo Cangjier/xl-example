@@ -415,10 +415,24 @@ if (kind === "Identifier" && inside > 0) {
 //
 // **只走初始化式** ✓（不像别处那样再 `WalkChildren` 一遍 ✗）：`name` 是**属性名** ✗、
 // 类型位一律擦除 ✗——把它们当标识符收进来只会**多开一格** ✓（不致命，但没有理由 ✓）。
+//
+// **计算名是唯一那个例外** ✓（第 323 轮 ✓）：`[KEY] = 1` 的 `name` 那一格是
+// `ComputedPropertyName` ✓，**里面装的是一段真的会跑的表达式** ✓——它**不是**属性名 ✗。
+// 而**实例字段**的那一段是在**构造函数那一帧**里求值的 ✓（`EmitFieldInit` ✓，
+// 类表达式那一支甚至跑在别的函数体里 ✓）⇒ 它引用的外层名字**必须**被外层捕获 ✓，
+// 否则降级到那儿报 `name is not a local or a capture: KEY` ✓（**整份文件进不来** ✗，
+// 判据 `c323-ex-computed-class-field-names` 现场量的就是它 ✓）。
+// **`inside + 1` 与初始化式那一行同一个道理** ✓：它在语义上是**内层代码** ✓
+//（跑在构造函数那一帧里 ✓），语法上在不在函数里不是判据 ✓。
 if (kind === "PropertyDeclaration") {
   const initializer = body["initializer"];
   if (initializer !== undefined && initializer !== null && typeof initializer === "object") {
     CollectInsideFunctions(initializer as AstNode, inside + 1, out);
+  }
+  const nameNode = body["name"];
+  if (nameNode !== undefined && nameNode !== null && typeof nameNode === "object"
+      && NodeKind(nameNode as AstNode) === "ComputedPropertyName") {
+    CollectInsideFunctions(nameNode as AstNode, inside + 1, out);
   }
   return;
 }

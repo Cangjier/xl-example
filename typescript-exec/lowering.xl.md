@@ -2252,8 +2252,12 @@ for (let i = 0; i < item.FieldDefaults.length; i++) {
 **没有初始化式的字段也要写一次 `undefined`** ✓：JS 里 `class C { x }` 之后
 `"x" in new C()` 是**真** ✓——不写的话属性根本不存在，而那是一个**能被脚本看见**的差别 ✓。
 
-**算键只认标识符 / 字符串 / 数字**（与类方法同一条口径 ✓）：计算键要「先算键再赋值」，
-那是另一条路（`SetPropertyValue` 就在手边，缺的只是判据）。
+**算键今天认四种** ✓：标识符 / 字符串 / 数字 / 私有名 ✓，**外加计算名那一档** ✓
+（第 323 轮 ✓）——计算键要「先算键、再算值、最后赋值」✓，做法与**类方法**那一处
+（`SetPropertyValue` ✓）以及**对象字面量**那一处**一字不差** ✓；
+原来这一格**响亮地抛** ✗（`unimplemented: computed class field name` ✓），
+于是 `class Box { [KEY] = 1 }` 让**整个类**进不来 ✗——而**计算方法名**第 229 轮就通了 ✓，
+**同一个形状两处各写一遍就是两处会漂** ✗（这次漂的正是字段那一半 ✓）。
 
 **为什么 `this` 要就地发、不能先占一格**（第 128 轮实测抓到的）：先占的那一格会**压在参数槽上** ✗。
 现场是 `constructor(id: number) { … this.id = id }` 加一条 `extra = this.id * 10`：
@@ -2261,7 +2265,8 @@ for (let i = 0; i < item.FieldDefaults.length; i++) {
 紧接着构造函数体把**参数 1 号**（`id`）绑到同一格 ✗——于是体里读到的 `id` 是**接收者对象** ✗，
 `this.id = id` 把对象写进了 `id` 字段，最后在 `this.id * 10` 上报
 `arithmetic on a non-numeric operand` ✓（离现场两步远）。
-**就地发就没有这一格** ✓：窗口是现占的，参数与变量全在它下面 ✓。
+**就地发就没有这一格** ✓：窗口是现占的，参数与变量全在它下面 ✓——
+**计算名那一支照同一条规矩** ✓（先算键与值 ✓，`load_this` 落在**窗口那一格**里 ✓）。
 
 ```ts
 if (this.HasModifier(field, "DeclareKeyword")) return;
@@ -2274,8 +2279,31 @@ const nameKind = NodeKind(nameNode);
 // 与私有**方法**（同轮补 ✓）以及三个方法的取值路（`KeyUnitsOf` ✓）**同一个键** ✓。
 // 原来这里只认三种 ✗，于是带私有字段的类也进不来 ✗（实测报的就是这一句 ✓）。
 if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "NumericLiteral"
-    && nameKind !== "PrivateIdentifier") {
+    && nameKind !== "PrivateIdentifier" && nameKind !== "ComputedPropertyName") {
   throw new Error("unimplemented: computed class field name");
+}
+const initializer = OptionalChild(field, "initializer");
+// **计算名那一档** ✓（第 323 轮 ✓）：键是**一个值** ✓，所以它走 `set_index` 那条
+// （`SetPropertyValue` ✓——`ToPropertyKey` 那条规矩在引擎里只有一处 ✓）。
+// **次序与 JS 一致** ✓：键在前、值在后 ✓（`class C { [f()] = g() }` 先 `f()` ✓）——
+// 与第 284 轮给对象字面量订正的那一条**是同一条** ✓。
+// **`Release(key)` 不能发** ✗：`LowerExpression` 对**名字**返回的是**变量自己那一格** ✓
+//（在窗口**下面** ✓）⇒ 退到那里会把活格一起交出去 ✓（`Release` 那一条写着为什么 ✓）——
+// 而键与值都是**这一轮用完就死**的 ✓，不退只是多占几格 ✓（与上面 `fieldValue` 同一条口径 ✓）。
+if (nameKind === "ComputedPropertyName") {
+  const computedKey = this.LowerExpression(Child(nameNode, "expression"));
+  const computedValue = this.FieldInitialValue(initializer);
+  if (target < 0) {
+    const window = this.Reserve(3);
+    this.Emit(Op.LoadThis, window, -1, -1, -1);
+    this.Emit(Op.Move, window + 1, computedKey, -1, -1);
+    this.Emit(Op.Move, window + 2, computedValue, -1, -1);
+    this.EmitRt(RtOp.SetIndex, window, window, 3);
+    this.Release(window);
+    return;
+  }
+  this.SetPropertyValue(target, computedKey, computedValue);
+  return;
 }
 // **私有字段要藏起来** ✓（第 210 轮 ✓）：JS 里 `#n` **不是一个属性** ✓——
 // `Object.keys(new C())` 看不见它 ✓、`JSON.stringify` 也看不见 ✓。
@@ -2286,17 +2314,10 @@ if (nameKind !== "Identifier" && nameKind !== "StringLiteral" && nameKind !== "N
 //（认识它就要在 `heap` / `props` 里散布「以 `#` 开头的键特殊」这种规矩 ✗）。
 const isPrivateField = nameKind === "PrivateIdentifier";
 const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(nameNode)));
-const initializer = OptionalChild(field, "initializer");
 // **值先算出来** ✓（两种落点、两种挂法共用 ✓）：没有初始化式就写 `undefined` ✓——
 // JS 里 `class C { x }` 之后 `"x" in new C()` 是**真** ✓，不写的话属性根本不存在 ✓
 //（那是**能被脚本看见**的差别 ✓）。
-let fieldValue = -1;
-if (initializer === null) {
-  fieldValue = this.Reserve(1);
-  this.Emit(Op.Const, fieldValue, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
-} else {
-  fieldValue = this.LowerExpression(initializer);
-}
+const fieldValue = this.FieldInitialValue(initializer);
 // **私有字段落成 `set_hidden`** ✓（第 210 轮 ✓）：`set_hidden(接收者, 键, 值)` ——
 // 接收者是 `this`（实例字段 ✓）或构造函数那一格（静态字段 ✓），与下面那两条 SetProp 同源 ✓。
 if (isPrivateField) {
@@ -2320,6 +2341,24 @@ if (target < 0) {
   return;
 }
 this.SetPropertyConst(target, key, fieldValue);
+```
+
+## method FieldInitialValue:(initializer:AstNode | null)=>int
+
+**一条字段初始化式的值占哪一格** ✓（第 323 轮抽出来 ✓）——**没有初始化式就给 `undefined`** ✓。
+
+**为什么值得单独一个方法** ✗：这个「没有式子也算一个值」的小规矩原来写在
+`EmitFieldInit` 里 ✓，而计算名那一支是**第二个用户** ✓——两支各写一遍的话，
+将来改一处（比如换成建属性而不是赋值 ✓）就只改到一半 ✓
+（`nodeProps` 那条教训：同一个形状写两遍，漂的那一遍隔一百轮才被量到 ✓）。
+
+```ts
+if (initializer === null) {
+  const slot = this.Reserve(1);
+  this.Emit(Op.Const, slot, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
+  return slot;
+}
+return this.LowerExpression(initializer);
 ```
 
 ## method EmitHiddenSet:(target:int, key:int, value:int)=>void
@@ -5438,6 +5477,12 @@ return sent;
   （`yield* [1, 2]` 要两次 `next()` 才走完 ✓，判据 `gen-delegating` 钉的就是它 ✓）——
   少了 `Suspend` 就变成「一次收完再一起给」✗（那正是这一格原来那句抛的理由 ✓）。
 
+**第三处是第 323 轮补的** ✗：**「抄下这一轮的值」要排在 `done` 判据之前** ✓
+（那一趟的 `pair[0]` 是**内层的返回值** ✓，而它就是整个 `yield*` 表达式的值 ✓）——
+原来抄在判据之后 ✓ ⇒ **恰好 `done` 那一趟不抄** ✗ ⇒ `const r = yield* inner()` 里
+`r` 是**上一轮产出的值** ✗（`yield* [1, 2]` 看不出来 ✓——那时 `done` 那一趟的值是
+`undefined` ✓，而**生成器**那一趟有返回值 ✓，所以只有「委托给生成器」这一格现形 ✓）。
+
 **已知差** ✗：转发不了 `throw` / `return` 两个方向 ✓（见 `LowerYield` 那一段 ✓）。
 
 ```ts
@@ -5462,12 +5507,18 @@ const lastValue = this.Reserve(1);
 const start = this.Here();
 const context = this.EnterLoop(true, start);
 const pair = this.RtCall2(RtOp.IterNext, iteratorSlot, undefinedConst);
+const produced = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(0));
+// **抄写排在 `done` 那一判据之前** ✓（第 323 轮修的 ✗）：`done` 为真的那一趟
+// `pair[0]` 是**内层的返回值** ✓，它就是整个 `yield*` 表达式的值 ✓——
+// 排在判据之后的话，**恰好那一趟**不抄 ✓ ⇒ 整个 `yield*` 交出去的是
+// **上一轮产出的值** ✗（实测 `const r = yield* inner()` 里 `r` 拿到 `2` ✓，
+// Node 拿到 `"inner-done"` ✓；**静默错值** ✗——一句异常都没有 ✓，
+// 判据 `c323-rt-generator-delegation-and-return` 现场量的就是它 ✓）。
+this.Emit(Op.Move, lastValue, produced, -1, -1);
 const done = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(1));
 const running = this.RtCall1(RtOp.Not, done);
 const exitIndex = this.Here();
 this.Emit(Op.JumpIfFalse, running, 0, -1, -1);
-const produced = this.RtCall2(RtOp.GetIndex, pair, this.IntConst(0));
-this.Emit(Op.Move, lastValue, produced, -1, -1);
 // **每一项：先 `Suspend` 再 `Resume`** ✓（见上面那一段 ✓）。
 this.Emit(Op.Suspend, produced, -1, -1, -1);
 const sentItem = this.Reserve(1);

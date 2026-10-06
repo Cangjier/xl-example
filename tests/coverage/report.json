@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1115,
+  "matrix": 1202,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,47 +33,47 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.29,
+  "progressPercent": 94.67,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 363,
-      "pass": 339,
-      "blocked": 15,
-      "differ": 9,
+      "total": 390,
+      "pass": 363,
+      "blocked": 17,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 93.39
+      "coverage": 93.08
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 274,
-      "pass": 265,
-      "blocked": 6,
-      "differ": 3,
+      "total": 298,
+      "pass": 284,
+      "blocked": 10,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 96.72
+      "coverage": 95.3
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 453,
-      "pass": 430,
-      "blocked": 12,
-      "differ": 11,
+      "total": 479,
+      "pass": 448,
+      "blocked": 18,
+      "differ": 13,
       "nodefail": 0,
-      "coverage": 94.92
+      "coverage": 93.53
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 25,
-      "pass": 24,
+      "total": 35,
+      "pass": 34,
       "blocked": 0,
       "differ": 1,
       "nodefail": 0,
-      "coverage": 96
+      "coverage": 97.14
     }
   ],
   "blocked": [
@@ -168,6 +168,18 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
     },
     {
+      "id": "c323-rt-super-in-object-literal",
+      "layer": "runtime",
+      "title": "对象字面量里的方法用 `super` 取原型上的同名方法",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: super.m(...) outside a derived class method"
+    },
+    {
+      "id": "c323-rt-array-subclass-and-methods",
+      "layer": "runtime",
+      "title": "继承 Array 的类：实例方法与 length",
+      "detail": "tsrun: 脚本抛出：this method needs an array receiver"
+    },
+    {
       "id": "ex-angle-bracket-assertion",
       "layer": "exec",
       "title": "尖括号断言 `<T>expr`（与 `as` 同一个意思）",
@@ -178,12 +190,6 @@
       "layer": "exec",
       "title": "`String.raw` 与标签模板的 `raw` 那一栏",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "ex-class-computed-and-static-init",
-      "layer": "exec",
-      "title": "类的计算成员名 · 静态字段与静态块的初始化顺序",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed class field name"
     },
     {
       "id": "c291-ex-nested-namespace-with-values",
@@ -198,10 +204,40 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c305-ex-static-computed-key-and-method",
+      "id": "c323-ex-angle-bracket-assertion-forms",
       "layer": "exec",
-      "title": "静态计算键字段 + 实例计算键方法",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: computed class field name"
+      "title": "尖括号断言：变量、字面量、嵌套三格",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
+    },
+    {
+      "id": "c323-ex-super-property-write",
+      "layer": "exec",
+      "title": "super 上的写：落在当前实例上，起点是父原型",
+      "detail": "tsrun: 脚本抛出：unimplemented: assigning a property on a primitive receiver"
+    },
+    {
+      "id": "c323-ex-class-expression-name-in-body",
+      "layer": "exec",
+      "title": "具名类表达式的名字在类体与静态初始化里可见",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
+    },
+    {
+      "id": "c323-ex-named-function-expression",
+      "layer": "exec",
+      "title": "具名函数表达式的名字在函数体内可见（可递归）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: self"
+    },
+    {
+      "id": "c323-ex-optional-call-forms",
+      "layer": "exec",
+      "title": "可选调用的三种基名：null、缺方法、接收者为 null",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c323-ex-namespace-merged-function",
+      "layer": "exec",
+      "title": "函数与命名空间合并：静态格挂在函数值自己身上",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "object-freeze",
@@ -274,6 +310,42 @@
       "layer": "stdlib",
       "title": "`Object.getOwnPropertyDescriptors` 一次拿全部描述符",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c323-std-map-groupby",
+      "layer": "stdlib",
+      "title": "Map.groupBy：按键分组成 Map",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c323-std-promise-withresolvers",
+      "layer": "stdlib",
+      "title": "Promise.withResolvers：一对结清回调与承诺",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c323-std-queue-microtask",
+      "layer": "stdlib",
+      "title": "queueMicrotask：与 Promise.then 同一个队列、按序",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: queueMicrotask"
+    },
+    {
+      "id": "c323-std-object-getownpropertydescriptors",
+      "layer": "stdlib",
+      "title": "Object.getOwnPropertyDescriptors：一次拿全表的描述符",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c323-std-set-union-intersection",
+      "layer": "stdlib",
+      "title": "Set 的集合运算：union / intersection / difference / symmetricDifference",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c323-std-string-raw",
+      "layer": "stdlib",
+      "title": "String.raw：标签模板的 raw 那一栏原样取出",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "differ": [
@@ -332,6 +404,12 @@
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
     },
     {
+      "id": "c323-rt-generator-early-return-cleanup",
+      "layer": "runtime",
+      "title": "提前结束生成器：return() 要跑 finally",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: generator return() needs the finally chain (a lowering"
+    },
+    {
       "id": "ex-getter-setter-class",
       "layer": "exec",
       "title": "类里的访问器 + 继承的访问器",
@@ -348,6 +426,12 @@
       "layer": "exec",
       "title": "可选链与非空断言混在同一条链上",
       "detail": "stdout 不同：第 1 行：node «1 1 1 2» vs tsrun «{ b: 1 } 1 1 [object Object]1»"
+    },
+    {
+      "id": "c323-ex-nonnull-in-chains",
+      "layer": "exec",
+      "title": "非空断言与下标 / 成员混在同一条链上",
+      "detail": "stdout 不同：第 1 行：node «1» vs tsrun «[ [ 1, 2 ] ]»"
     },
     {
       "id": "object-freeze-array-element",
@@ -414,6 +498,18 @@
       "layer": "stdlib",
       "title": "把数组 `length` 设成不可写之后 `push`",
       "detail": "stdout 不同：第 1 行：node «threw TypeError» vs tsrun «pushed 3»"
+    },
+    {
+      "id": "c323-std-array-fromasync",
+      "layer": "stdlib",
+      "title": "Array.fromAsync：异步可迭代对象收成数组",
+      "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
+    },
+    {
+      "id": "c323-std-console-shapes",
+      "layer": "stdlib",
+      "title": "console.log 的形状：容器、嵌套、函数与多实参",
+      "detail": "stdout 不同：第 3 行：node «f 1,2,3» vs tsrun « 1,2,3»"
     },
     {
       "id": "c305-e2e-lru-cache",

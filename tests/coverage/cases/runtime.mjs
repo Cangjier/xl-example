@@ -4305,4 +4305,320 @@ console.log(o.x, o.y);
     title: "异步生成器：`await` 摘的挂起与 `yield` 摘的挂起不是一回事",
     src: "\nasync function* g(): AsyncGenerator<number> { yield 1; yield await Promise.resolve(2); yield 3; }\nasync function main(): Promise<void> {\n  const it: any = g();\n  console.log(\"next1\", JSON.stringify(await it.next()));\n  console.log(\"next2\", JSON.stringify(await it.next()));\n  console.log(\"next3\", JSON.stringify(await it.next()));\n  console.log(\"done\", JSON.stringify(await it.next()));\n  const plain = (async function* (): AsyncGenerator<number> { yield 7; })();\n  console.log(\"plain\", JSON.stringify(await plain.next()));\n}\nmain();\n",
   },
+
+  // ============ 第 323 轮加宽：27 条 ============
+  {
+    id: "c323-rt-super-in-object-literal",
+    title: "对象字面量里的方法用 `super` 取原型上的同名方法",
+    src: `
+const proto = { greet() { return "hi"; } };
+const o = { __proto__: proto, greet() { return super.greet() + "!"; } };
+console.log(o.greet());
+`,
+  },
+  {
+    id: "c323-rt-iterator-protocol-custom",
+    title: "自定义可迭代对象：`[Symbol.iterator]` + `next()` 对象",
+    src: `
+class Range {
+  n: number;
+  constructor(n: number) { this.n = n; }
+  [Symbol.iterator]() {
+    let i = 0;
+    const n = this.n;
+    return { next: () => (i < n ? { value: i++, done: false } : { value: undefined, done: true }) };
+  }
+}
+console.log([...new Range(4)].join(","));
+console.log(Array.from(new Range(3)).join("-"));
+`,
+  },
+  {
+    id: "c323-rt-getter-on-prototype-chain",
+    title: "原型链上的访问器：实例读、子类覆盖",
+    src: `
+class A { get label() { return "A"; } }
+class B extends A { get label() { return super.label + "B"; } }
+const b = new B();
+console.log(b.label, Object.getPrototypeOf(B.prototype) === A.prototype);
+`,
+  },
+  {
+    id: "c323-rt-throw-primitive-catch",
+    title: "抛原始值：字符串与数字都要被 catch 接住",
+    src: `
+function f(kind: string) {
+  if (kind === "s") throw "boom";
+  if (kind === "n") throw 42;
+  return "ok";
+}
+for (const k of ["s", "n", "x"]) {
+  try { console.log(k, f(k)); } catch (e) { console.log(k, "caught", e); }
+}
+`,
+  },
+  {
+    id: "c323-rt-finally-overrides-return",
+    title: "finally 里 return 覆盖 try 里的 return；finally 里 throw 覆盖一切",
+    src: `
+function a() { try { return 1; } finally { return 2; } }
+function b() { try { return 1; } finally { console.log("cleanup"); } }
+function c() { try { return 1; } finally { throw new Error("late"); } }
+console.log(a(), b());
+try { c(); } catch (e) { console.log((e as Error).message); }
+`,
+  },
+  {
+    id: "c323-rt-object-spread-order-and-override",
+    title: "对象展开的顺序：后面的覆盖前面的，自己写的在最后",
+    src: `
+const base = { a: 1, b: 2 };
+const o = { ...base, b: 3, ...{ c: 4 }, a: 9 };
+console.log(Object.keys(o).join(","), o.a, o.b, o.c);
+console.log(JSON.stringify({ ...base, ...{ a: 5 } }));
+`,
+  },
+  {
+    id: "c323-rt-map-keys-are-identity",
+    title: "Map 的键按同值零比较：NaN 与对象各是一个键",
+    src: `
+const m = new Map();
+const key = {};
+m.set(NaN, "nan");
+m.set(key, "obj");
+m.set("1", "str");
+m.set(1, "num");
+console.log(m.size, m.get(NaN), m.get(key), m.get("1"), m.get(1));
+`,
+  },
+  {
+    id: "c323-rt-array-length-truncate-and-fill",
+    title: "改 length 截断与留洞；洞的遍历行为",
+    src: `
+const xs = [1, 2, 3, 4];
+xs.length = 2;
+console.log(xs.join(","), xs.length, xs[3]);
+xs.length = 4;
+console.log(xs.join(","), Object.keys(xs).join(","), xs.includes(undefined));
+`,
+  },
+  {
+    id: "c323-rt-closure-counter-and-shared-state",
+    title: "闭包计数器：两个实例各有一份状态",
+    src: `
+function counter() { let n = 0; return { inc: () => ++n, get: () => n }; }
+const a = counter(); const b = counter();
+a.inc(); a.inc(); b.inc();
+console.log(a.get(), b.get());
+`,
+  },
+  {
+    id: "c323-rt-instanceof-across-hierarchy",
+    title: "instanceof 沿整条继承链；Object 那一格恒真",
+    src: `
+class A {} class B extends A {} class C extends B {}
+const c = new C();
+console.log(c instanceof C, c instanceof B, c instanceof A, c instanceof Object);
+console.log(new A() instanceof B, Object.create(null) instanceof Object);
+`,
+  },
+  {
+    id: "c323-rt-undefined-null-comparisons",
+    title: "null / undefined 的相等与排序口径",
+    src: `
+console.log(null == undefined, null === undefined, null == 0, undefined == 0);
+console.log(null < 1, undefined < 1, null >= 0, [null].includes(null));
+console.log(typeof null, typeof undefined, String(null), String(undefined));
+`,
+  },
+  {
+    id: "c323-rt-numeric-keys-ordering",
+    title: "属性枚举顺序：整数键在前升序，其余按插入序",
+    src: `
+const o: any = {};
+o.z = 1; o["2"] = 2; o.a = 3; o["10"] = 4; o["1"] = 5;
+console.log(Object.keys(o).join(","));
+console.log(JSON.stringify(o));
+`,
+  },
+  {
+    id: "c323-rt-array-from-iterable-and-mapfn",
+    title: "Array.from 三种来源：数组式对象、可迭代对象、映射函数",
+    src: `
+console.log(Array.from({ length: 2, 0: "a" }).join(","));
+console.log(Array.from(new Set([1, 2, 2])).join(","));
+console.log(Array.from([1, 2, 3], (v, i) => v * 10 + i).join(","));
+console.log(Array.from("abc").join(","), Array.from(new Map([["k", "v"]])).length);
+`,
+  },
+  {
+    id: "c323-rt-string-methods-on-primitives",
+    title: "原始值上的字符串方法：链式调用与只读性",
+    src: `
+const s = "  Hello World  ";
+console.log(s.trim().toLowerCase().split(" ").join("_"));
+console.log("abc".toUpperCase(), "abc".charAt(1), "abc".slice(-2), "abc".indexOf("c"));
+console.log(s.length, s[0] === " ", "ab".repeat(2));
+`,
+  },
+  {
+    id: "c323-rt-generator-delegation-and-return",
+    title: "yield* 委托：内层返回值与外层继续产出",
+    src: `
+function* inner() { yield 1; yield 2; return "inner-done"; }
+function* outer() { const r = yield* inner(); yield r; }
+const it = outer();
+console.log(JSON.stringify(it.next()));
+console.log(JSON.stringify(it.next()));
+console.log(JSON.stringify(it.next()));
+console.log(JSON.stringify(it.next()));
+`,
+  },
+  {
+    id: "c323-rt-destructuring-defaults-and-rest",
+    title: "解构的默认值只在严格 undefined 时生效；剩余收尾",
+    src: `
+const [a = 1, b = 2, c = 3] = [undefined, null, 0];
+const { x = 1, y = 2, ...rest } = { x: undefined, y: 5, z: 6, w: 7 };
+console.log(a, b, c, x, y, Object.keys(rest).join(","));
+`,
+  },
+  {
+    id: "c323-rt-array-methods-chain",
+    title: "数组方法链：map/filter/reduce/sort 一起用",
+    src: `
+const rows = [
+  { name: "b", n: 2 },
+  { name: "a", n: 3 },
+  { name: "c", n: 1 },
+];
+const out = rows
+  .filter((r) => r.n > 1)
+  .sort((p, q) => q.n - p.n)
+  .map((r) => r.name + ":" + r.n)
+  .join("|");
+console.log(out);
+console.log(rows.reduce((sum, r) => sum + r.n, 0));
+`,
+  },
+  {
+    id: "c323-rt-class-static-and-instance-fields-order",
+    title: "静态字段与实例字段的求值顺序",
+    src: `
+const log: string[] = [];
+class C {
+  static a = (log.push("static-a"), 1);
+  b = (log.push("inst-b"), 2);
+  static c = (log.push("static-c"), 3);
+  constructor() { log.push("ctor"); }
+}
+new C();
+console.log(log.join(","));
+console.log(C.a, C.c, new C().b);
+`,
+  },
+  {
+    id: "c323-rt-empty-and-sparse-behaviour",
+    title: "空数组与稀疏数组：map/forEach/reduce 的差别",
+    src: `
+const sparse: any[] = [1, , 3];
+console.log(sparse.length, sparse.map((v) => v * 2).join(","), sparse.filter((v) => v === undefined).length);
+let calls = 0;
+sparse.forEach(() => { calls += 1; });
+console.log(calls, [].reduce((a, b) => a + b, 0));
+console.log(sparse.join("-"), JSON.stringify(sparse));
+`,
+  },
+  {
+    id: "c323-rt-json-nested-and-specials",
+    title: "JSON 的嵌套、特殊值丢掉、以及循环引用",
+    src: `
+const o: any = { a: [1, { b: 2 }], c: null, d: undefined, e: () => 1, f: "x" };
+console.log(JSON.stringify(o));
+console.log(JSON.stringify([undefined, null, NaN, Infinity]));
+console.log(JSON.stringify({ n: 1 }, null, 2).split("\\n").length);
+const cyc: any = {}; cyc.self = cyc;
+try { JSON.stringify(cyc); } catch (e) { console.log((e as Error).name); }
+`,
+  },
+  {
+    id: "c323-rt-error-subclass-and-message",
+    title: "自定义错误类：name/message/instanceof 三格",
+    src: `
+class AppError extends Error {
+  code: number;
+  constructor(message: string, code: number) { super(message); this.name = "AppError"; this.code = code; }
+}
+const e = new AppError("bad", 7);
+console.log(e.message, e.name, e.code, e instanceof AppError, e instanceof Error);
+console.log(String(e));
+`,
+  },
+  {
+    id: "c323-rt-string-iteration-codepoints",
+    title: "字符串迭代按码点：代理对合成一个",
+    src: `
+const s = "a\\u{1F600}b";
+console.log([...s].length, s.length);
+console.log(Array.from(s).map((c) => c.length).join(","));
+for (const ch of s) console.log(ch.length);
+`,
+  },
+  {
+    id: "c323-rt-iife-and-arrow-this",
+    title: "箭头抓外层的 this；方法里的 this 指向接收者",
+    src: `
+const obj = {
+  v: 1,
+  arrow() { return (() => this.v)(); },
+  method() { return this.v + 1; },
+};
+console.log(obj.arrow(), obj.method(), obj.v);
+const f = () => typeof this;
+console.log(typeof f);
+`,
+  },
+  {
+    id: "c323-rt-array-subclass-and-methods",
+    title: "继承 Array 的类：实例方法与 length",
+    src: `
+class List extends Array {
+  first() { return this[0]; }
+}
+const xs = new List();
+xs.push(1, 2, 3);
+console.log(xs.length, xs.first(), xs.join(","), xs instanceof Array);
+`,
+  },
+  {
+    id: "c323-rt-object-keys-values-entries-roundtrip",
+    title: "keys / values / entries 与 fromEntries 的往返",
+    src: `
+const o = { a: 1, b: 2 };
+console.log(Object.keys(o).join(","), Object.values(o).join(","));
+console.log(Object.entries(o).map(([k, v]) => k + "=" + v).join("&"));
+console.log(JSON.stringify(Object.fromEntries(Object.entries(o))));
+`,
+  },
+  {
+    id: "c323-rt-optional-chain-all-slots",
+    title: "可选链的每一种位置：属性、下标、调用、以及整条链短路",
+    src: `
+const o: any = { a: { b: () => ({ c: 5 }) } };
+console.log(o?.a?.b?.().c, o?.x?.y, o?.a?.["b"]?.().c);
+const n: any = null;
+console.log(n?.a, n?.[0], n?.f?.());
+`,
+  },
+  {
+    id: "c323-rt-generator-early-return-cleanup",
+    title: "提前结束生成器：return() 要跑 finally",
+    src: `
+function* g() { try { yield 1; yield 2; } finally { console.log("cleanup"); } }
+const it = g();
+console.log(JSON.stringify(it.next()));
+console.log(JSON.stringify(it.return(9)));
+console.log(JSON.stringify(it.next()));
+`,
+  },
 ];
