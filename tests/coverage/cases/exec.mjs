@@ -4412,8 +4412,16 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
   },
   {
     "id": "c381-ex-escaped-property-key",
-    "title": "转义的键 + `\\u{…}` 那种花括号写法 —— **还没修**",
-    "src": "// 两个还没接上的子形状（都在同一族里）：\n// ① **对象字面量的键**：Node 给 1，本仓给 undefined（静默错值）——键那一路上没人解转义。\n// ② **\\u{…} 花括号写法**：词法层就把 \\u{65}scaped 劈成了「{65} 括号 + scaped」\n//    （\\uXXXX 四位那种是好的）。\n// **边界量清了**：变量声明 / 函数名 / 方法名 / 类名 + 四位 \\uXXXX 都是好的\n// （c381-ex-identifier-unicode-escapes 那条语料守着）。\nconst x = { \\u0061: 1, b: 2 };\nconsole.log(\"A\", x.a, x.b, Object.keys(x).join(\",\"));\nconst \\u{65}scaped = 3;\nconsole.log(\"B\", escaped);",
+    "title": "对象字面量里**转义的键**（`{ \\u0061: 1 }`）",
+    "src": "// 转义的名字在**对象字面量的键**那一格也要解（第 382 轮修好 ✓）。\n// **为什么它值得单独一条** ✗：这一支是投影**自己拿文本合一个节点**的（`nameOf`）✓，\n// 不经过 `Identifier.PrintAst` ✓、也不经过读属性那三处 ✓——第 381 轮那两处都改了 ✓，\n// 这一格却漏着 ✗ ⇒ `Object.keys` 给 [\"\\u0061\"] ✓、`x.a` 给 `undefined` ✓（**静默错值** ✗）。\nconst x = { \\u0061: 1, b: 2 };\nconsole.log(\"A\", x.a, x.b, Object.keys(x).join(\",\"));\nconst y = { caf\\u00e9: 3 };\nconsole.log(\"B\", y.café, Object.keys(y).join(\",\"));\nconst deep = { outer: { \\u0069nner: 4 } };\nconsole.log(\"C\", deep.outer.inner);\nfunction f(): number { return { \\u0076: 5 }.v; }\nconsole.log(\"D\", f());",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c382-ex-braced-escape",
+    "title": "`\\u{…}` 花括号写法 —— **还没修**",
+    "src": "// 词法层把 \\u{65}scaped 劈成了三格（实测产物：`Let fieldName=\"\\u\"` +\n// `Bracket{65}` + `Identifier(scaped)`）。\n// **边界量清了** ✗：四位 \\uXXXX 那种一直是好的 ✓（变量声明 / 函数名 / 类名 / 方法名 /\n// 对象键全都实测过 ✓）——只有花括号这一种写法 ✗。\n// **试过两处、都没生效** ✗：`Identifier.IsAppend` 放行 `{` 与十六进制 / `}` ✓、\n// `SymbolBranch` 给那几格让路 ✓——因为 `{` 那一刻 `unit.Last()` 已经不是那个 Identifier 了 ✓\n// （它已经被 `Let` 收走成名字属性 ✓）。\nconst \\u{65}scaped = 3;\nconsole.log(\"A\", escaped);",
     "nodeArgs": [
       "--experimental-transform-types"
     ]

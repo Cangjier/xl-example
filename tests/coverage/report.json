@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1709,
+  "matrix": 1710,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 409,
-      "pass": 396,
+      "total": 410,
+      "pass": 397,
       "blocked": 8,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 96.82
+      "coverage": 96.83
     },
     {
       "layer": "stdlib",
@@ -131,9 +131,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
     },
     {
-      "id": "c381-ex-escaped-property-key",
+      "id": "c382-ex-braced-escape",
       "layer": "exec",
-      "title": "转义的键 + `\\u{…}` 那种花括号写法 —— **还没修**",
+      "title": "`\\u{…}` 花括号写法 —— **还没修**",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: escaped"
     },
     {

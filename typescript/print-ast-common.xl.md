@@ -4462,10 +4462,20 @@ TS 把 `-1` 读成**前缀一元表达式**（`PrefixUnaryExpression{ operator: 
 
 # private method nameOf:(node:any, ctx:any)=>string
 
+**一个名字单元 → `Identifier` 节点**（第 4463 行这一格是 `ctx.NameOf` 的实现 ✓，
+对象字面量的键、限定名的右半、类型引用的名字都走它 ✓）。
+
+**位置用原文、`text` 用解开的** ✗（第 382 轮 ✓）：`{ \u0061: 1 }` 那个键在源码里占
+**6 个字符** ✓（`end` 要按它算 ✓），而它的**名字**是 `a` ✓（TS 的 AST `text` 也是 `a` ✓）。
+**这一格第 381 轮漏了** ✗——那时候改的是 `Identifier.PrintAst`（**子单元**那条路 ✓）
+与投影读**属性**那三处 ✓，而对象字面量这一支是**自己拿文本合一个节点**的 ✓
+（`ctx.NameOf(nameUnits[0])` ✓），压根不经过前两条 ✓ ⇒
+`Object.keys({ \u0061: 1 })` 给 `["\u0061"]` ✓、`x.a` 给 `undefined` ✓（**静默错值** ✗）。
+
 ```ts
   const text = textOfNode(node, ctx);
   const at = startOf(node);
-  return { kind: "Identifier", text, pos: at, end: at + text.length };
+  return { kind: "Identifier", text: Translate.DecodeIdentifierEscapes(text), pos: at, end: at + text.length };
 ```
 
 # private method projectTypeExpression:(nodes:Array<any>, ctx:any)=>any
