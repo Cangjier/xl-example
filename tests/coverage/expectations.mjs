@@ -1079,7 +1079,7 @@ export const EXPECTATIONS = {
   // ---- `splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。
 
   // ---- `xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。
-  "c371-stdlib-array-iterator-aliases": { expect: "differ", why: "**第 388 轮量到极小的复现**：`xs.values === xs[Symbol.iterator]` 在 Node 里是 **true**、本仓是 **false**——而 `xs.values === xs.values` 是 **true**，`typeof xs.values` 两边都是 `function`。⇒ **两次读到的不是同一个函数对象**。**查到的现场**：`globals.xl.md` 第 6489 行把 `Array.prototype[Symbol.iterator]`挂成 **`ArrayValues` 那一格宿主引用**——与 `values` **同一个能力号**、做法是对的；所以问题在**读**那一侧（符号键取到的是另一个东西）或 `===` 对宿主引用的比较。**第 388 轮没往下修**（先把上面那条数组洞的账做完）。" },
+  "c371-stdlib-array-iterator-aliases": { expect: "differ", why: "**第 389 轮把根子定到了 `CreateHostRef`**。极小复现：`Array.prototype[Symbol.iterator] === Array.prototype.values` 在 Node 里是 **true**、本仓是 **false**；而 `xs.values === Array.prototype.values` 与 `xs[Symbol.iterator] === Array.prototype[Symbol.iterator]`**两边都是 true** ⇒ 同一侧的两次读是一致的，**差在「两处安装」**。**根子**：`runtime/heap.xl.md` 的 `CreateHostRef(capabilityId, opaque)` **每次都 `AllocateRaw` 一个新句柄**⇒ 同一个能力号装两次（`globals.xl.md` 第 6489 行挂 `Symbol.iterator`、`array.xl.md` 的装库循环挂字符串键 `values`）拿到的是**两个句柄** ⇒ `===` 对宿主引用**比句柄** ⇒ 假。**同一族的第二个现场**：`Array.prototype.toString === Array.prototype.join`（JS 真——`toString` 就是 `join(\",\")`；本仓装了两格 `ArrayJoin` ⇒ 也是假）。**修法（下一轮）**：在 `CreateHostRef` 里按 **(capabilityId, opaque)** **驻留**（同一个对只造一次句柄）。**为什么没在这一轮做**：全仓 **110 处调用**（`globals` 72 / `promise` 17 / `vm` 12 …），`vm` 与 `promise` 那两处可能在热路径上 ⇒ 改动面太大，按本仓「不在一轮末尾动全局」的规矩留到下一轮。" },
 
   // ---- `xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。
 
@@ -1114,7 +1114,7 @@ export const EXPECTATIONS = {
   // ---- `EvalError` 这个全局名不在那儿。
 
   // ---- `Object.prototype.propertyIsEnumerable` 不在那儿。
-  "c371-stdlib-error-print-and-types": { expect: "differ", why: "**第 388 轮量到极小的复现**：`const e = new Error(\"boom\"); e.name = \"Custom\";` 之后`e.propertyIsEnumerable(\"name\")` 在 Node 里是 **true**、本仓是 **false**；`Object.keys(e)` Node 给 `name`、本仓给**空**；而 `Object.getOwnPropertyNames(e)`**两边都列出 `name`** ⇒ **自有属性是建出来了**，只是**可枚举那一格**读出来是假。**定位到的两处**：`props.xl.md` 的 `SetProperty` 在「命中在原型上」之后会落到`Props.push(new Property(...))`，而 `Property` 的 `Flags` 默认是 **7**（三个标志全开）；所以嫌疑落在 `globals.xl.md` 的 `propertyIsEnumerable`（它走`getOwnPropertyDescriptor` 再读 `enumerable` 那一格）。**第 388 轮没往下修**。" },
+  "c371-stdlib-error-print-and-types": { expect: "differ", why: "**第 389 轮修好了**（`globals.xl.md` 的 `NewErrorLike` 与 `super(m)` 那两支）。**根子**：`message` 与 `name` 都被造成**自有**属性（第 194 轮为让 `Object.keys` 给空而做的，不可枚举）。`Object.keys` 那一条**是对的**，但它**推不出 `name` 该是自有的**：JS 里 `name` **不在实例上**（住在 `Error.prototype` 上），所以 `hasOwnProperty(\"name\")` 是假、`e.name = \"Custom\"` 新建的是**自有可枚举**格 ⇒ `propertyIsEnumerable(\"name\")` 真、`Object.keys(e)` 给 `[\"name\"]`。**修法**：只留 `message`（不可枚举的自有属性），`name` 交给原型；`super(m)` 那支顺带把`message` 从 `SetProperty`（可枚举）改成 `SetHiddenProperty`。实测：`Object.getOwnPropertyNames(new Error(\"x\"))` 从 `message,name` 变成 `message`、`hasOwnProperty(\"name\")` 从 true 变成 false（Node 也是 false）。" },
 
   // ---- 绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。
   "c371-stdlib-function-bind-forms": { expect: "differ", why: "绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。" },

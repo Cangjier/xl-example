@@ -6,6 +6,79 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 389 轮的账（**`Error` 的 `name` 不是自有属性** —— 97.2% → **97.3%**）
+
+用户口径不变 ✓。这一轮接着第 388 轮结尾那两条小账 ✓：**修成一条** ✓（②）、
+**把另一条（①）的根子定死** ✓ 并按本仓的规矩**留到下一轮** ✗。
+
+### 一、修成的：`Error` 的 `name` 不该是自有属性
+
+```ts
+const e = new Error("x");
+Object.getOwnPropertyNames(e)   // Node: ["stack","message"]；本仓: ["message","name"]
+e.hasOwnProperty("name")        // Node: false；本仓: true
+e.name = "Custom";
+e.propertyIsEnumerable("name")  // Node: true；本仓: false
+Object.keys(e)                  // Node: ["name"]；本仓: []
+```
+
+**根子** ✓：`NewErrorLike` 与 `super(m)` 那两支都把 `message` 与 `name` 做成**自有**属性 ✓
+（第 194 轮为了「`Object.keys(new Error("x"))` 给空」而把它们做成不可枚举 ✓）。
+**那句话是对的**（`Object.keys` 确实该给空 ✓），
+但它**推不出 `name` 该是自有的** ✗——`[]` 只说明**可枚举的自有键为空** ✓，
+而 JS 那边 `message` **是**自有的（不可枚举 ✓）、`name` **根本不在实例上** ✓
+（住 `Error.prototype` ✓，也不可枚举 ✓）。
+
+**「自有」这一维的差别 `Object.keys` 看不见** ✗，可这四问都看得见 ✓：
+`getOwnPropertyNames` ✓ / `hasOwnProperty` ✓ / 赋值之后 `propertyIsEnumerable` ✓ / `keys` ✓
+——最后两问之所以错 ✓，是因为 `e.name = "Custom"` 写进的是那个**已有的自有**格 ✓，
+它带着「不可枚举」的标志 ✓（本仓 `SetProperty` 命中自有格时只改值 ✓，不动标志 ✓，与 JS 一致 ✓）。
+
+**修法** ✓（两处 ✓）：
+- `NewErrorLike`：**只留 `message`** ✓（不可枚举的自有属性 ✓），`name` 交给原型 ✓；
+- `super(m)` 那一支：同样不写 `name` ✓，并把 `message` 从 `SetProperty`
+  （**可枚举** ✗）改成 `SetHiddenProperty` ✓——这一格 JS 也是不可枚举 ✓。
+
+**实测**（三条一起变）✓：`getOwnPropertyNames` 从 `message,name` 变成 `message` ✓、
+`hasOwnProperty("name")` 从真变假 ✓（Node 也是假 ✓）、
+`propertyIsEnumerable("name")` 与 `Object.keys` 那两问跟着对上 ✓
+⇒ 判据 `c371-stdlib-error-print-and-types` ✓ **转绿** ✓（`differ` 32 → **31** ✓）。
+
+### 二、定死根子、留到下一轮的：两次安装 = 两个句柄
+
+```ts
+Array.prototype[Symbol.iterator] === Array.prototype.values   // Node: true；本仓: false
+xs.values === Array.prototype.values                          // 两边都 true
+xs[Symbol.iterator] === Array.prototype[Symbol.iterator]      // 两边都 true
+```
+
+**两侧各自的两次读都是一致的** ✓ ⇒ 差的**只在「两处安装」** ✓。
+**根子** ✓：`runtime/heap.xl.md` 的 `CreateHostRef(capabilityId, opaque)`
+**每次都 `AllocateRaw` 一个新句柄** ✗——而 `globals.xl.md` 第 6489 行挂 `Symbol.iterator` ✓、
+`array.xl.md` 的装库循环挂字符串键 `values` ✓，两边用的是**同一个能力号** `ArrayValues` ✓，
+却各自造了一个句柄 ✓ ⇒ `===` 对宿主引用**比句柄** ⇒ 假 ✗。
+
+**同一族的第二个现场** ✓（这一轮量到的 ✓）：
+`Array.prototype.toString === Array.prototype.join` 在 JS 里是**真** ✓
+（`toString` 就是 `join(",")` ✓），本仓装了两格 `ArrayJoin` ✓ ⇒ 也是**假** ✗。
+
+**修法（下一轮）** ✓：在 `CreateHostRef` 里按 **(capabilityId, opaque)** **驻留**
+（同一个对只造一次句柄 ✓）——这就是 JS 的「同一个函数对象只造一次」✓。
+**为什么不在这一轮做** ✗：全仓 **110 处调用** ✓（`globals` 72 ✓ / `promise` 17 ✓ / `vm` 12 ✓ …），
+`vm` 与 `promise` 那两处**可能在热路径上** ✓——按本仓「不在一轮末尾动全局」的规矩留下 ✓
+（第 385～387 轮的教训 ✓：末尾硬上，退回来的代价更高 ✓）。
+
+### 三、读数与下一轮
+
+`pass` **1669 → 1670** ✓、`differ` **32 → 31** ✓、`blocked` **12 → 12** ✓、
+**红的一栏 0** ✓、六道门 **33.8s 全绿** ✓、整体 **97.2% → 97.3%** ✓、标准库 **97.6% → 97.8%** ✓。
+
+**下一轮** ✓：① 把 `CreateHostRef` 的驻留做掉 ✓（一处改动能收
+`array-iterator-aliases` ✓ 与 `toString === join` 那一族 ✓）；
+② 标准库还剩 **14 条 `differ`** ✓，其中 `map-set-size-and-keys`（崩 ✓）、
+`object-assign-getters-and-order`（`installing a builtin never calls a function` ✓）、
+`function-tostring-and-name`（访问器名 ✓）三条看着都不大 ✓。
+
 ## 第 388 轮的账（**换成小目标：数组字面量的末尾洞** —— 97.2%，`pass` 1668 → **1669**）
 
 用户口径不变 ✓。第 387 轮结尾说过要**换打法** ✓——回到判据面上更小的那些 ✓。

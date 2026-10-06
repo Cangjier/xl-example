@@ -3129,13 +3129,18 @@ if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === 
   // **返回的是 `self`** ✗：`super(...)` 的结果在本仓被丢掉 ✓（降级层拿它当临时格 ✓），
   // 但**不能返回一个新对象** ✓——那会让「谁是真的 `this`」出现两个答案 ✓
   //（JS 的规矩是「父类构造函数改的就是那一个 `this`」✓）。
-  // **`name` 也写上去** ✓（与 `NewErrorLike` 一致 ✓）：不写的话，
-  // `class E extends Error {}` 的实例 `name` 来自原型 ✓（也是 `"Error"` ✓），两种写法结果一样 ✓。
+  //
+  // **这里也只写 `message`，不写 `name`** ✗（第 389 轮 ✓，与 `NewErrorLike` 那条同一个根子 ✓）：
+  // 原来这两句都写 ✓，而且都用 `SetProperty`（**可枚举** ✗）——
+  // 于是 `class E extends Error { constructor(m) { super(m) } }` 的实例上
+  // `Object.keys(e)` 会给出 `["message","name"]` ✗（JS 给 `[]` ✓）、
+  // 而 `e.name = "Custom"` 又写进那个自有格 ✓ ⇒ `propertyIsEnumerable("name")` 假 ✗（JS 真 ✓）。
+  // **`name` 交给原型** ✓：`ErrorCtorProto` 各族那张原型上就有 ✓，
+  // `class E extends Error {}` 的实例照样读到 `"Error"` ✓（第 3132 行那段旧注释里
+  // 「两种写法结果一样」这句话**只对值成立** ✗，对「自有 / 可枚举」两维都不成立 ✓）。
   if (self.IsObject()) {
-    SetProperty(room, NeverCall, table, self, NameValue(table, "message"),
+    SetHiddenProperty(room, table, self, NameValue(table, "message"),
       Value.FromString(table.CreateString(Units(text))));
-    SetProperty(room, NeverCall, table, self, NameValue(table, "name"),
-      Value.FromString(table.CreateString(Units(selfName))));
     // **`cause` 也走同一处** ✓：`super(m, { cause })` 在派生类里也该挂上 ✓——
     // 少了这一句，`class E extends Error { constructor(m) { super(m, { cause: 1 }) } }`
     // 的实例**没有 `cause`** ✗，而 `new Error(m, { cause: 1 })` 有 ✓（**一半对一半错** ✗）。
@@ -4515,12 +4520,31 @@ return protos.Error;
 ```ts
 const created = NewPlainObject(room, table, protos);
 table.Get(created.Ref).Proto = protoHandle;
-// **`message` 与 `name` 是不可枚举的**（第 194 轮 ✓）：JS 里 `Object.keys(new Error("x"))`
-// 是 `[]` ✓（本仓原来给 `message,name` ✗——**静默**多出来的键 ✓）。
+// **`message` 是不可枚举的自有属性；`name` **不是自有属性** ✗**（第 389 轮 ✓）。
+//
+// 第 194 轮把这两个都做成「自有 + 不可枚举」✓，理由是
+// 「JS 里 `Object.keys(new Error("x"))` 是 `[]` ✓」——**那句话是对的** ✓，
+// 但它**不足以推出 `name` 该是自有的** ✗：`[]` 只说明**可枚举的自有键为空** ✓，
+// 而 JS 那边 `message` **是**自有的（不可枚举 ✓）、`name` **根本不在实例上** ✓
+//（它住在 `Error.prototype` 上 ✓，也是不可枚举 ✓）。
+//
+// **两者差别在「自有」这一维** ✗——`Object.keys` 看不见 ✓，可下面这四问都看得见 ✓：
+//
+//     Object.getOwnPropertyNames(new Error("x"))   Node: ["stack","message"]
+//     new Error("x").hasOwnProperty("name")        Node: false
+//     const e = new Error("x"); e.name = "C";
+//     e.propertyIsEnumerable("name")               Node: true   ← 赋值新建的是**自有可枚举**
+//     Object.keys(e)                               Node: ["name"]
+//
+// 本仓原来给：`["message","name"]` ✓ / `true` ✗ / `false` ✗ / `[]` ✗
+//（判据 `c371-stdlib-error-print-and-types` ✓ 拖着的正是后两行 ✓——
+//  `e.name = "Custom"` 写进的是那个**已有的自有**格 ✓ ⇒ 它带着「不可枚举」的标志 ✓
+//  ⇒ 两问一起错 ✓）。
+//
+// **所以这里只留 `message`** ✓：`name` 由原型回答 ✓（`protos.Error` 上那一格 ✓，
+// `ErrorCtorProto` 各族各自建 ✓），`e.name` 照样是 `"Error"` / `"TypeError"` ✓ ✓。
 SetHiddenProperty(room, table, created, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(message))));
-SetHiddenProperty(room, table, created, NameValue(table, "name"),
-  Value.FromString(table.CreateString(Units(name))));
 return created;
 ```
 

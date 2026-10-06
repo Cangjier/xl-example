@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.22,
+  "progressPercent": 97.25,
   "layers": [
     {
       "layer": "runtime",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 619,
+      "pass": 620,
       "blocked": 0,
-      "differ": 15,
+      "differ": 14,
       "nodefail": 0,
-      "coverage": 97.63
+      "coverage": 97.79
     },
     {
       "layer": "e2e",
@@ -295,12 +295,6 @@
       "detail": "stdout 不同：第 2 行：node «true true true» vs tsrun «true true false»"
     },
     {
-      "id": "c371-stdlib-error-print-and-types",
-      "layer": "stdlib",
-      "title": "错误对象的枚举键与 name 的可写性",
-      "detail": "stdout 不同：第 4 行：node «false true» vs tsrun «false false»"
-    },
-    {
       "id": "c371-stdlib-function-bind-forms",
       "layer": "stdlib",
       "title": "Function.prototype.bind：偏实参、this、new、length/name",
@@ -352,6 +346,10 @@
   "bad": [],
   "moved": [],
   "newlyPassing": [
+    {
+      "id": "c371-stdlib-error-print-and-types",
+      "layer": "stdlib"
+    },
     {
       "id": "c371-stdlib-array-tostring-forms",
       "layer": "stdlib"
