@@ -936,7 +936,7 @@ export const EXPECTATIONS = {
   // 要照第 183 轮 `Symbol` / 第 327 轮 `Map` 那一条先把它改成**带可调用载荷的对象** ✓
   //（`AttachCallable` ✓、`IsHostCallable` 两种壳都认 ✓），那是**结构性改动** ✓，
   // 要连同 `new Error()` / `instanceof Error` / `Error.prototype.constructor` 三处一起验 ✓。
-  "c330-std-error-iserror": { expect: "blocked", why: "`Error.isError` 不在那儿（`cannot call a non-closure value`）——**卡点不在判据上** ✗（判据就是「是不是一个错误对象」✓，与 `instanceof Error` 同源 ✓），而在**壳**上：`Error` 是宿主引用值、没有属性表，静态方法挂不上去。与第 324 轮 `Map.groupBy` 量到的**是同一个坎** ✓，修法也一样（`AttachCallable`），而这一处要一起验的面更大（三个错误族 + `AggregateError` 全是宿主引用值）" },
+  // **第 343 轮过了** ✓（这一行撤了 ✓）：`Error.isError` 落地了 ✓——`Error` 改成「对象 + 可调用载荷」✓，先决条件是把 `this` 的两条相反规则按载荷号分开 ✓。
   //
   // ---- 组 B：三元的两支是箭头函数（1 条）----
   // **这一组是这一轮最值钱的发现** ✗：`const f = flag ? () => 1 : () => 2` 是**日常写法** ✓，

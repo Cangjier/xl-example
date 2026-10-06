@@ -664,6 +664,17 @@ return result;
 **它由 `RunToDepth` 每一趟写** ✓：一趟里 `Frames.Depth()` 会变 ✓，
 可这个边界**从头到尾不动** ✓（它就是「我这一趟从哪一层开始的」✓）。
 
+## field BoundCallId:int = 0
+
+**「`bind` 造出来的那个对象」那格载荷的能力号** ✓（第 343 轮 ✓）——由语言层在
+`RegisterBoundCall` 里告诉引擎 ✓，与 `GeneratorNextId` **同一条形状** ✓。
+
+**为什么引擎要记这一格** ✗：`this` 从哪来这件事**两条路要的东西相反** ✓——
+`bind` 的对象要**自己** ✓、其余可调用对象要**调用方给的接收者** ✓（见 `IsBoundCall` 的账 ✓）。
+**给 `0` 表示语言层没登记过** ✓：那时这条判据恒为假 ✓、
+**所有**可调用对象都按「调用方给的 `this`」办 ✓（`HostRef.CapabilityId` 的默认值也是 `0` ✓，
+所以这一条不能省 ✗——省了就静默走错分支 ✓）。
+
 ## field GeneratorNextId:int = 0
 
 **「生成器的 `next`」那格载荷的能力号**（第 229 轮 ✓）——由语言层在
@@ -1381,7 +1392,18 @@ if (this.IsHostCallable(callee)) {
   for (let i = 0; i < count; i++) {
     args.push(this.CallArgAt(frame, argBase, argArray, i));
   }
-  const hostThis = callee.Tag === ValueTag.Object ? callee : thisValue;
+  // **`bind` 的对象那一档例外** ✓（第 343 轮 ✓，**实测撞到的** ✓）：见 `IsBoundCall`
+  // 那一段的账 ✓——`super(m)` 是**带接收者**的调用 ✓，而接收者正是**在造的那个实例** ✓，
+  // 给「对象自己」就把它顶掉了 ✓。**为什么不能整个去掉这条规则** ✗：`bind` 造出来的那个
+  // 对象**只有拿到自己**才读得到那三样载荷 ✓（第 228 轮的账 ✓）。
+  // **只有 `bind` 那一格给自己** ✓（**第二轮实测撞到的** ✓）：第一版还多带了一句
+  // 「调用方没给接收者时也给对象自己」✗ ⇒ `Error("without new")` 拿到的
+  // 是**那个构造函数对象** ✓（`self` 是对象就写它、并把它交回去 ✓）
+  // ⇒ `called instanceof Error` 从**真**变成**假** ✗（判据 29 第 4 行 ✓：
+  // 「error-call-new without new」那一格 ✓——**一句话里没有一个字提到 `Error` 对象** ✓）。
+  // **其余可调用对象一律照调用方给的** ✓：它们**一个字节都不看 `this`** ✓
+  //（第 228 轮的注释里就是这么写的 ✓），所以给 `undefined` 与给对象自己是同一件事 ✓。
+  const hostThis = !this.HostConstructing && this.IsBoundCall(callee) ? callee : thisValue;
   const produced = this.CallHostValue(callee, hostThis, args);
   // **`null` 表示展开已经发生** ✓（宿主请求了一次脚本站内异常 ✓）：**连结果都不许写** ✗——
   // 写下去会盖掉处理点正要用的那一格 ✓（原来那版在这里 `return`，正是为了这一条 ✓）。
@@ -3058,7 +3080,18 @@ if (this.IsHostCallable(callee)) {
     }
     return Value.Undefined();
   }
-  const hostThis = callee.Tag === ValueTag.Object ? callee : thisValue;
+  // **`bind` 的对象那一档例外** ✓（第 343 轮 ✓，**实测撞到的** ✓）：见 `IsBoundCall`
+  // 那一段的账 ✓——`super(m)` 是**带接收者**的调用 ✓，而接收者正是**在造的那个实例** ✓，
+  // 给「对象自己」就把它顶掉了 ✓。**为什么不能整个去掉这条规则** ✗：`bind` 造出来的那个
+  // 对象**只有拿到自己**才读得到那三样载荷 ✓（第 228 轮的账 ✓）。
+  // **只有 `bind` 那一格给自己** ✓（**第二轮实测撞到的** ✓）：第一版还多带了一句
+  // 「调用方没给接收者时也给对象自己」✗ ⇒ `Error("without new")` 拿到的
+  // 是**那个构造函数对象** ✓（`self` 是对象就写它、并把它交回去 ✓）
+  // ⇒ `called instanceof Error` 从**真**变成**假** ✗（判据 29 第 4 行 ✓：
+  // 「error-call-new without new」那一格 ✓——**一句话里没有一个字提到 `Error` 对象** ✓）。
+  // **其余可调用对象一律照调用方给的** ✓：它们**一个字节都不看 `this`** ✓
+  //（第 228 轮的注释里就是这么写的 ✓），所以给 `undefined` 与给对象自己是同一件事 ✓。
+  const hostThis = !this.HostConstructing && this.IsBoundCall(callee) ? callee : thisValue;
   const produced = this.CallHostValue(callee, hostThis, args);
   if (produced === null) return Value.Undefined();
   return produced;
@@ -3666,6 +3699,43 @@ const registeredNext = this.RegisterCapability(nextId, Value.FromRef(ValueTag.Ho
 const registeredReturn = this.RegisterCapability(returnId, Value.FromRef(ValueTag.HostRef, returnHandle));
 const registeredThrow = this.RegisterCapability(throwId, Value.FromRef(ValueTag.HostRef, throwHandle));
 return registeredNext && registeredReturn && registeredThrow;
+```
+
+## method IsBoundCall:(callee:Value)=>bool
+
+**这个值是不是 `bind` 造出来的那个「带载荷的对象」** ✓（第 343 轮 ✓）——用来决定
+**这一趟调用的 `this` 从哪来** ✓（见 `DoCallValue` / `CallNative` 里那句 `hostThis` ✓）。
+
+**为什么需要它** ✗（**实测撞到的** ✓）：语言层原来给「**可调用对象**」一律补上
+**对象自己**当 `this` ✓（第 228 轮 ✓，为 `bind` 造的 ✓）——而 `super(m)` 是一条
+**带接收者**的调用 ✓，接收者正是**已经在造的那个实例** ✓ ⇒ 被顶掉之后
+`class A extends Error { constructor(m) { super(m) } }` 的实例 `message` 是**空串** ✓
+（而 `new Error("x")` 那一条是对的 ✓——**一半对一半错** ✗）。
+**两条路要的东西相反** ✓，所以判据必须**窄到「就是 `bind` 那一格」** ✓：
+- `bind` 的对象 ✓ ⇒ **给对象自己** ✓（那三样载荷藏在它自己的隐藏属性里 ✓）；
+- 别的可调用对象 ✓（`String` / `Array` / `Date` / **构造函数对象** ✓）⇒ **照调用方给的** ✓
+  （它们**一个字节都不看 `this`** ✓——第 228 轮的注释里就是这么写的 ✓，
+  只有 `bind` 那一格是例外 ✗）。
+
+**`BoundCallId > 0` 那一半不能省** ✗：与 `GeneratorStepKind` 那条**一字不差** ✓——
+语言层还没登记时它是 `0` ✓，而 `HostRef.CapabilityId` 的默认值**也是 `0`** ✓
+⇒ 不排掉的话**任何一个**没登记过号的宿主引用都会撞上这条判据 ✗（**静默**走错分支 ✓）。
+
+```ts
+if (this.BoundCallId <= 0) return false;
+if (callee.Tag !== ValueTag.Object) return false;
+const item = this.Table.Get(callee.Ref);
+if (item.Host === null) return false;
+return item.Host.CapabilityId === this.BoundCallId;
+```
+
+## method RegisterBoundCall:(id:int)=>void
+
+**告诉引擎「`bind` 是哪个号」** ✓（第 343 轮 ✓）——与 `RegisterGeneratorMethods` 同一条形状 ✓：
+语言层知道号 ✓、引擎不知道 ✗，所以由装库那一趟说一声 ✓（`install.xl.md` 的 `InstallBuiltins` ✓）。
+
+```ts
+this.BoundCallId = id;
 ```
 
 ## method GeneratorStepKind:(callee:Value)=>int

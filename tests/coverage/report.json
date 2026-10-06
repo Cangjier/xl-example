@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1342,
+  "matrix": 1343,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.85,
+  "progressPercent": 98.9,
   "layers": [
     {
       "layer": "runtime",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 522,
-      "pass": 515,
-      "blocked": 1,
+      "total": 523,
+      "pass": 517,
+      "blocked": 0,
       "differ": 6,
       "nodefail": 0,
-      "coverage": 98.66
+      "coverage": 98.85
     },
     {
       "layer": "e2e",
@@ -142,12 +142,6 @@
       "layer": "exec",
       "title": "解构形参 + 默认值 + 重命名",
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ArrayBindingPattern has no text"
-    },
-    {
-      "id": "c330-std-error-iserror",
-      "layer": "stdlib",
-      "title": "`Error.isError`：只有错误对象给真",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "differ": [

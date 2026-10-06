@@ -12,7 +12,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, InstallDatePrototype } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, InstallDatePrototype, BoundCall } from "./globals.xl.md"
 import { InvokeMap, MapCtor, MapGroupBy, NameValue, ReadOwn, InstallMapPrototype } from "./map.xl.md"
 import { InvokeSet, SetCtor, InstallSetPrototype } from "./set.xl.md"
 ```
@@ -1112,6 +1112,12 @@ for (let i = 0; i < helpers.length; i++) {
 // **少了这一句的症状** ✗：`it.next()` 报 `capability is not registered: 709` ✓——
 // 听起来像「谁忘了登记」✗，其实上面那一趟**已经登记过了** ✓（真相是「这三格该由引擎答」✓）。
 host.Machine.RegisterGeneratorMethods(GeneratorNextId, GeneratorReturnId, GeneratorThrowId);
+host.Machine.RegisterBoundCall(BoundCall);
+// **`bind` 那一格也要额外告诉引擎一声** ✓（第 343 轮 ✓）：与上面那一句**同一个形状** ✓——
+// 上面登记的是「这三格该由引擎答」✓，这一句登记的是「**这一格的 `this` 给对象自己**」✓
+// （那三样载荷藏在它自己的隐藏属性里 ✓）。**不登记会怎样** ✗：`bound.call(x)` 那一档
+// 会把 `x` 当 `this` 递进去 ✓ ⇒ 读不到自己的载荷 ✓ ⇒ 报
+// `a bound function lost its target` ✓（第 342 轮实测踩过一次 ✓）。
 // **执行器那两格（`resolve` / `reject`）也要额外告诉引擎一声** ✓（第 318 轮 ✓）：
 // 与上面那一句**同一个形状、同一条理由** ✓——脚本是把它们**当普通函数**调的 ✓
 //（`(resolve) => resolve(1)` ✓，**没有接收者** ✗），走宿主那条路语言层就找不到

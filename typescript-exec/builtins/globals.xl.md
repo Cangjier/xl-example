@@ -1799,6 +1799,31 @@ return outHandle;
 **与 `Object.keys` 的差别**：`keys` **不**跳过访问器（它只取名字，JS 也是这个口径 ✓）；
 `values` / `entries` 要**读值**，所以只能跳过 ✗——这一条写在明处，不假装它读到了 getter。
 
+# const ErrorIsError:int = 348
+
+**`Error.isError(v)`** ✓（第 343 轮 ✓，ES2025 ✓）——`Error` 上的**第一格静态** ✓。
+
+**它为什么存在** ✗：判「这是不是一个错误对象」在真实代码里**到处都是** ✓
+（日志那一层、错误边界那一层 ✓），而 `instanceof Error` **跨 realm 会失效** ✗——
+JS 为此加了这一格 ✓。本仓只有**一个 realm** ✓，所以这一格**近似**就是
+「链上有没有 `protos.Error`」✓。
+
+**一处已知差别写在明处** ✗（**实测量到的** ✓）：JS 的这一格问的是**内部槽** ✓，
+所以 `Error.isError(Object.create(Error.prototype))` 在 Node 里是 **`false`** ✓、
+而 `instanceof Error` 是 **`true`** ✓——**两者不是同一个判据** ✗。本仓没有内部槽 ✓，
+只有属性表与原型链 ✓ ⇒ 这一格拿**链**来近似 ✓ ⇒ 上面那种「手工接上原型」的对象
+**会被算成错误** ✗。**要真对齐得给每个错误对象留一格隐藏标记** ✓
+（与 `Date` 的 `__t` 同一形状 ✓）——**那是另一件事** ✓，记在这里 ✓。
+
+**它落在 `Error` 那个对象上、而且是隐藏挂** ✓（`SetHiddenProperty` ✓）：
+`Object.keys(Error)` 在 Node 里是**空数组** ✓（静态方法不可枚举 ✓），
+`for..in` 也不该看见它 ✓。
+
+**它第 342 轮试过一次、退回来了** ✗（**账在 `typescript-exec/README.md` 那一轮** ✓）：
+要让静态有落点就得把 `Error` 从「光秃秃的宿主引用」改成「**对象 + 可调用载荷**」✓，
+而那一改撞上了 `this` 的**两条相反规则** ✓——第 343 轮把那条规则按**载荷号**收窄之后 ✓，
+这一格才落得下来 ✓。
+
 # const ErrorCtor:int = 280
 
 **`Error` 的能力号**（第 120 轮补；200..299 这一段里的空号）。
@@ -2803,6 +2828,12 @@ if (id === PowId) {
   // 号不同（`PowId` 是降级层发的内部调用 ✓）、语义同一个 ✓。
   // **不是全局名** ✓：脚本里写 `PowId` 找不到它 ✓。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
+}
+if (id === ErrorIsError) {
+  // **`Error.isError(v)`** ✓（第 343 轮 ✓）：判据与 `instanceof Error` **同一个** ✓
+  //（链上有没有 `protos.Error` ✓）——见号那一段的账 ✓。
+  if (args.length === 0 || !args[0].IsObject()) return Value.FromBool(false);
+  return Value.FromBool(RtChainHas(table, args[0], protos.Error));
 }
 if (id === ErrorCtor || id === TypeErrorCtor || id === RangeErrorCtor || id === SyntaxErrorCtor
   || id === ReferenceErrorCtor) {
@@ -5468,8 +5499,25 @@ SetProperty(vm.Room(), NeverCall, table, objectObject, groupByKey, groupByTarget
 // `Error` 是一个**宿主构造函数**（`new Error(msg)` 走 `Op.New` 的宿主那条分支 ✓，
 // `Error(msg)` 走 `Op.Call` ✓——同一个号两支都通，见 `ErrorCtor` 的说明）。
 const errorKey = Value.FromString(table.CreateString(Units("Error")));
-const errorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorCtor, 0));
-SetProperty(vm.Room(), NeverCall, table, globals, errorKey, errorTarget);
+// **第 343 轮：`Error` 从「光秃秃的宿主引用」改成「普通对象 + 可调用载荷」** ✗
+// （**实测撞到的** ✓）：`Error.isError` 这种**静态**要挂在**那个值**身上 ✓，
+// 而**宿主引用没有属性表** ✗（`GetProperty(Error, "isError")` 永远给 `undefined` ✗）。
+// 形状照 `Function` / `Array` / `Number` / `String` 那一族抄 ✓：
+// 对象照旧是对象 ✓、只是多了一格「能被调」✓（`AttachCallable` ✓，第 145 轮 ✓）——
+// 于是 `Error(msg)` ✓ 与 `new Error(msg)` ✓ **两条路都不受影响** ✓（同一个号 ✓）。
+// **它是第 342 轮那次退回来的那一改** ✓：当时撞在 `this` 的两条相反规则上 ✓
+//（`super(m)` 要接收者 ✓、`bind` 要对象自己 ✓），第 343 轮按**载荷号**收窄之后 ✓
+// 两条都对了 ✓——所以这一格现在落得下来 ✓。
+const errorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(errorObject.Ref, ErrorCtor, 0);
+SetProperty(vm.Room(), NeverCall, table, globals, errorKey, errorObject);
+SetProperty(vm.Room(), NeverCall, table, errorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.Error));
+// **`Error.isError(v)`** ✓（第 343 轮 ✓）：判据是「链上有没有 `Error.prototype`」✓——
+// 与 `instanceof Error` **同一个判据** ✓（`Object.create(Error.prototype)` 也算 ✓，
+// 而那正是 JS 的规矩 ✓）。**原始值一律假** ✓（`Error.isError("Error")` 在 Node 里是 `false` ✓）。
+SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "isError"),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorIsError, 0)));
 // **`Error` 的 `prototype` 要登记**（第 137 轮）✗：它是**宿主引用值** ✓，
 // **没有属性表** ✗——所以 `GetProperty(Error, "prototype")` 永远给 `undefined` ✗，
 // 而 `instanceof` 正是靠读那个属性找目标的 ✓。登记一次，
@@ -5539,7 +5587,9 @@ SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "name
   Value.FromString(table.CreateString(Units("Error"))));
 SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
-SetHiddenProperty(vm.Room(), table, errorProtoValue, NameValue(table, "constructor"), errorTarget);
+// **`constructor` 指回那个对象** ✓（第 343 轮起 `Error` 是对象 ✓）：
+// `Error.prototype.constructor === Error` 在 JS 里是**真** ✓。
+SetHiddenProperty(vm.Room(), table, errorProtoValue, NameValue(table, "constructor"), errorObject);
 // **`Error.prototype.toString`** ✓（第 213 轮 ✓）：**隐藏挂** ✓（与 `Object.prototype` 那两格
 // 同一条规矩 ✓——`Object.keys` / `for..in` 不该看见它 ✓）。
 // **挂 `Error.prototype` 就够** ✓：三个错误子族的原型都**链在它下面** ✓（第 137 轮 ✓），
