@@ -34,7 +34,7 @@ export const EXPECTATIONS = {
   // 降级层在**父节点**上认出 `super.v` ✓（名字在那一层 ✓，与 `super.m(...)` 同一处形状 ✓）。
   // 实测：`get v() { return super.v + 1 }` 给 `2` ✓、`super.m() + super.v` 混合着用给 `11` ✓
   // ——与 Node 逐字节相同 ✓。
-  "fn-named-expression": { expect: "blocked", why: "具名函数表达式的名字没绑进函数自己那一层作用域" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
   // **第 247 轮删掉了 `prm-combinators` 那一行** ✓（它过了 ✓）：差的是 `Promise.all` 里**不是承诺的那几项** ✓（`Promise.all([Promise.resolve(1), Promise.resolve(2), 3])` ✓——第三项是裸数字 ✓）。JS 对每一项先做一次 `Promise.resolve` ✓；而这里原来把它**直接交给调度器** ✗ ⇒ 那一格永远不会被触发 ✓ ⇒ `remaining` 减不到 0 ✓ ⇒ 结果承诺**永不结清** ✓（打出 `1,2,` ✓，Node 给 `1,2,3` ✓）。**静默错值** ✓。
   // **第 286 轮删掉了 `prm-async-await` 那一行** ✓（它过了 ✓）：`async` 的三条语义差
   // （`lowering.xl.md` 文首那张表 ✓）这一轮**一起**做掉了 ✓——
@@ -710,7 +710,7 @@ export const EXPECTATIONS = {
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
   "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
-  "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
   // **`c305-ex-static-computed-key-and-method` 第 323 轮也过了** ✓（同一处修 ✓，
   // 那一行撤了 ✓）：`static [KEY] = "c"` 那一格与实例字段那一条**共用同一段** ✓——
   // 静态字段本来就在**类声明那一处**求值 ✓，所以它只需要①（认下计算名 ✓），
@@ -814,8 +814,8 @@ export const EXPECTATIONS = {
   // 显示名推断 ✓），它们**不加新账**、只是把旧账的覆盖面加宽 ✓。
 
   // A —— 名字只在该在的那一层里可见（4 条）
-  "c323-ex-named-function-expression": { expect: "blocked", why: "具名函数表达式 `const f = function self(n) { … self(n - 1) }` 的名字**没绑进函数自己那一层作用域**（与 `fn-named-expression` 同一条）——`self` 既不是本层声明、也不算捕获 ⇒ 报 `name is not a local or a capture: self`。JS 里这个名字只在**函数体内部**可见（外面 `typeof f.self` 是 `undefined`），所以修法是「进门时在函数自己那一层绑一格」。**第 325 轮把入口量清了** ✗：那一格要装的是**闭包自己** ✓，而**帧上没有它** ✗（`HeapFrame` 只有 `Code` / `Env` / `This` / `ConstructTarget` ✓，没有「我是哪个闭包」那一格 ✓）——所以这条路要先给帧补一格 + 一条读它的算子 ✓，而且**四条开帧的路**（脚本调用 ✓ / 重入 ✓ / 宿主直调 ✓ / 生成器恢复 ✓）都要写对 ✓（第 307 / 312 / 320 轮各踩过一次「同一个语义长在两条路上」✓）；与 `fn-named-expression` 一起做才划算（2 条 ✓）" },
-  "c323-ex-class-expression-name-in-body": { expect: "blocked", why: "具名类表达式的名字在**类体**里读不到：`const K = class Named { static id = \"n1\"; get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`——与上一条**同一个根**（名字只在该在的那一层可见），只是那一层从函数体换成了类体（静态格与实例方法都在里面）" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
   // **`c323-ex-namespace-merged-function` 第 325 轮也过了** ✓（同一处修 ✓，那一行撤了 ✓）
   //
   // **量出来的根子与第 323 轮记的那一句不一样** ✗（那次是**猜**的 ✓，这次是**读出来**的 ✓）：

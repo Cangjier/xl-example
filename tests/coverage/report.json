@@ -33,27 +33,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.07,
+  "progressPercent": 96.38,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 420,
-      "pass": 396,
-      "blocked": 16,
+      "pass": 398,
+      "blocked": 14,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 94.29
+      "coverage": 94.76
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 316,
-      "pass": 302,
-      "blocked": 9,
+      "pass": 304,
+      "blocked": 7,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 95.57
+      "coverage": 96.2
     },
     {
       "layer": "stdlib",
@@ -77,12 +77,6 @@
     }
   ],
   "blocked": [
-    {
-      "id": "fn-named-expression",
-      "layer": "runtime",
-      "title": "具名函数表达式：名字只在函数体内可见",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: f"
-    },
     {
       "id": "gc-churn",
       "layer": "runtime",
@@ -144,12 +138,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: this should throw a TypeError (non-configurable)"
     },
     {
-      "id": "c305-rt-class-expression-named-self-reference",
-      "layer": "runtime",
-      "title": "具名类表达式：名字只在类体里可见",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
-    },
-    {
       "id": "c323-rt-super-in-object-literal",
       "layer": "runtime",
       "title": "对象字面量里的方法用 `super` 取原型上的同名方法",
@@ -196,18 +184,6 @@
       "layer": "exec",
       "title": "尖括号断言：变量、字面量、嵌套三格",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeAssertionExpression"
-    },
-    {
-      "id": "c323-ex-class-expression-name-in-body",
-      "layer": "exec",
-      "title": "具名类表达式的名字在类体与静态初始化里可见",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Named"
-    },
-    {
-      "id": "c323-ex-named-function-expression",
-      "layer": "exec",
-      "title": "具名函数表达式的名字在函数体内可见（可递归）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: self"
     },
     {
       "id": "c330-ex-nonnull-assertion-forms",

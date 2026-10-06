@@ -625,3 +625,52 @@ for (let i = 0; i < declared.length; i++) {
 }
 return result;
 ```
+
+# method HasNamedExpression:(body:AstNode)=>bool
+
+**这一层里有没有「具名的函数 / 类表达式」** ✓（第 332 轮 ✓）——用来问一句
+「这一帧**必须**开一层环境吗」✓。
+
+**为什么这件事要问在这一层** ✗：具名函数表达式 `const f = function self() { … self … }` 的
+`self` **只在该函数体里可见** ✓（JS 的 Named Evaluation 之外还有一条：函数表达式的名字
+是**它自己那一层**的绑定 ✓）。落地的办法是**给这个闭包单独开一层环境** ✓
+（`lowering.xl.md` 的 `EmitClosure` ✓：`env_new` → `new_closure` → `env_set` → `env_leave` ✓）——
+而 `env_leave` 要求这一层**有父亲** ✓（引擎那一条写着「没有父亲就响亮地抛」✗）。
+于是**外面的那一帧必须先有一层环境** ✓，否则那四步的最后一步当场抛 ✓。
+
+**这就是「一问」的全部用处** ✓：只要**可能有**这样的表达式，就**保守地开一层** ✓
+（多开一层只是一个零格的环境对象 ✓，少开一层就是一条运行期异常 ✓——与两个循环、
+块那一层是同一条纪律 ✓）。
+
+**撞见一个就够** ✗（不用看它有没有名字）：`function () {}` 匿名时不落 `env_set` ✓，
+可这里多开一层没有代价 ✓；**少判一格**才是错的那一边 ✓。
+
+**它不往内层函数体里走** ✗：那里面的具名表达式属于**它自己那一帧** ✓——
+那一帧降级时会**自己问一遍** ✓（`EnterFunctionBody` 每一层都调它 ✓）。
+不走进去还有一个好处 ✓：这一趟的代价是**这一层的子树一次** ✓，不是整棵树 ✓
+（`typescript/lib` 那几份大 `.d.ts` 有几千个函数 ✓，每层都扫整棵树是另一个量级 ✗）。
+
+**类的体要往下走** ✓（`ClassDeclaration` / `ClassExpression` 都在这一趟里继续 ✓）：
+它们的**静态字段初始化式**是在**外层这一帧**求值的 ✓
+（`class C { static v = function self() {} }` 里那个 `env_new` 就发在外层 ✓）——
+所以保守地收进来 ✓。**这一条与「方法体是另一帧」不冲突** ✗：方法体走到底也只是
+多开一层环境 ✓。
+
+```ts
+const kind = NodeKind(body);
+if (kind === "FunctionExpression") {
+  // **它就是这一层直接求值的那个** ✓：有名字就落 `env_set` ✓、没有也不吃亏 ✓。
+  return true;
+}
+if (kind === "ArrowFunction" || kind === "FunctionDeclaration" || kind === "MethodDeclaration"
+    || kind === "Constructor" || kind === "GetAccessor" || kind === "SetAccessor") {
+  // **体是另一帧** ✗：那里面自己会问一遍 ✓。
+  return false;
+}
+let found = false;
+WalkChildren(body, (child: AstNode) => {
+  if (found) return;
+  if (HasNamedExpression(child)) found = true;
+});
+return found;
+```

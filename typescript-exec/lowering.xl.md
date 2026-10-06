@@ -4,7 +4,7 @@ import { Value } from "../runtime/value.xl.md"
 import { Program, Instruction, Op, RtOp, Constant, FunctionInfo, Handler } from "../runtime/ir.xl.md"
 import { IdTable } from "../runtime/ir-verify.xl.md"
 import { NumberToHostText, NumberFromHostText } from "../runtime/host-text.xl.md"
-import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames } from "./scope.xl.md"
+import { Access, EnvChain, EnvScope, EnvRef, CapturedNames, CollectDeclaredNames, Contains, CollectPatternNames, HasNamedExpression } from "./scope.xl.md"
 import { CollectFunctionNames, CollectHoistedVars, HasNestedFunction, HasArrowFunction, WalkChildren, IsFunctionNode, IsVarList } from "./scope.xl.md"
 import { DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, SetHiddenId } from "./builtins/install.xl.md"
 import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/globals.xl.md"
@@ -782,6 +782,16 @@ return -1;
 而 `function f(a, b = 1, c)` 的 `ParamCount` 是 3 ✓、`length` 是 **1** ✓。
 两格混用就是**静默错值** ✓（`fn.length` 会变成形参个数 ✓），所以它们是两格 ✓。
 
+## field SelfName:string = ""
+
+**具名函数表达式自带的那个名字** ✓（第 332 轮 ✓）——`const f = function self() { … }` 里的 `self` ✓。
+空串 = 没有（箭头、匿名函数、函数声明、方法 ✓）。
+
+**为什么它与 `Name` 是两格** ✗：`Name` 是**显示名** ✓（`fn.name` 与 `console.log` 用的 ✓，
+`const f = function self(){}` 两处都该是 `"self"` ✓、而 `const f = () => 1` 是 `"f"` ✓）；
+这一格是**词法绑定** ✓——`self` 在那个函数体里**是一个能取到的名字** ✓，
+而且**只在那里** ✓。`NamesFunctionValue` 那三档管的是前者 ✓，与这一格无关 ✓。
+
 ## field IsNamespace:bool = false
 
 **这一帧是 `namespace` 的体**（第 292 轮 ✓）——它的形参表只有一格（那个对象 ✓），
@@ -1452,6 +1462,14 @@ CollectFunctionNames(body, functions);
 const captured = CapturedNames(body, bindable);
 let needsThis = HasArrowFunction(body);
 let hasNested = HasNestedFunction(body, 0);
+// **具名的函数 / 类表达式也要一层环境** ✗（第 332 轮 ✓）：
+// `const f = function self() { … self … }` 的 `self` 由 `EmitClosure` **单独开一层环境**装 ✓
+//（`env_new` → `new_closure` → `env_set` → `env_leave` ✓），
+// 而那一步的最后一句要求这一层**有父亲** ✓（引擎那一条写着「没有父亲就响亮地抛」✗）。
+// 所以只要这一层**可能**有这样的表达式 ⇒ **保守地开一层** ✓
+//（零格的环境对象 ✓；少开一层就是一条运行期异常 ✓——与块那一层同一条纪律 ✓）。
+// **判据收在 `HasNamedExpression`** ✓（它不往内层函数体里走 ✓，理由写在那一段 ✓）。
+let needsSelfEnv = HasNamedExpression(body);
 for (let e = 0; e < extras.length; e++) {
   const more = CapturedNames(extras[e], bindable);
   for (let i = 0; i < more.length; i++) {
@@ -1459,8 +1477,12 @@ for (let e = 0; e < extras.length; e++) {
   }
   if (HasArrowFunction(extras[e])) needsThis = true;
   if (HasNestedFunction(extras[e], 0)) hasNested = true;
+  // **「额外那几段」也要问同一句** ✓（第 332 轮 ✓）：形参默认值与实例字段初始化式
+  // 都跑在**这一帧**里 ✓（`extras` 那一段写着 ✓），所以那里面的具名表达式
+  // 同样要这一帧先有一层环境 ✓。
+  if (HasNamedExpression(extras[e])) needsSelfEnv = true;
 }
-if (captured.length === 0 && !hasNested && !needsThis) return;
+if (captured.length === 0 && !hasNested && !needsThis && !needsSelfEnv) return;
 const cellCount = captured.length + (needsThis ? 1 : 0);
 const slot = this.Reserve(1);
 this.Emit(Op.EnvNew, slot, cellCount, -1, -1);
@@ -2036,6 +2058,37 @@ this.InArrow = outerInArrow;
 
 ```ts
 const slot = this.Reserve(1);
+// **具名函数表达式：名字住在「只属于这个闭包的一层环境」里** ✓（第 332 轮 ✓）。
+//
+// **为什么必须单开一层、而不是绑在外层** ✗：`const f = function self() { … self … }` 的
+// `self` 在 JS 里**只在该函数体里可见** ✓——绑在外层那一层，`typeof self` 在外面
+// 就从 `"undefined"` 变成了 `"function"` ✓（**静默错值** ✓，而两条判据只查了
+// `typeof (f as any).self` ✓——那是**属性**查找 ✗，两种做法都过 ✓。
+// **判据看不出来，也不能就这么写** ✗：这一仓最贵的一类错就是「判据没覆盖到的静默错值」✓）。
+//
+// **落成什么** ✓：`env_new` 一层一格 ✓ → `new_closure` **捕获它** ✓ →
+// `env_set(第 0 格, 闭包自己)` ✓ → `env_leave` ✓。于是体内读 `self` 走的是
+// **普通的捕获那条路** ✓（`ResolveAccess` 沿环境链找 ✓，深度由 `item.Envs` 算 ✓）——
+// 一件新机关都没有 ✓，`Locals` / `Scope` / 槽那几套**一个字都不用改** ✓。
+//
+// **三处次序是语义** ✗：
+// · `env_new` 必须在 `new_closure` **之前**（闭包要捕获的是**这一层** ✓，
+//   而 `new_closure` 的环境参数取的是 `this.Env.Last()` ✓）；
+// · `env_set` 必须在 `env_leave` **之前**（它按深度 0 写 ✓，也就是**当前那一层** ✓）；
+// · `this.Env` 那一份**降级侧**的链必须在 `item.Envs = Clone()` **之前**推 ✓、
+//   之后立刻退 ✓——不退的话，外面那些语句也会把 `self` 解析到这一格上 ✗
+//   （**静默错值** ✓：`typeof self` 在外面变成 `"function"` ✓）。
+//
+// **外面那一帧必须先有环境** ✗（`env_leave` 要求有父亲 ✓）：这一条由
+// `EnterFunctionBody` 的 `needsSelfEnv` 保证 ✓（`HasNamedExpression` 那一段写着理由 ✓）。
+let selfEnv = -1;
+if (item.SelfName !== "") {
+  selfEnv = this.Reserve(1);
+  this.Emit(Op.EnvNew, selfEnv, 1, -1, -1);
+  const selfScope = new EnvScope(selfEnv);
+  selfScope.Declare(item.SelfName, 0);
+  this.Env.Push(selfScope);
+}
 item.Patch = this.Program().AddConst(Constant.OfInt(0));
 const nameConst = item.Name === ""
   ? this.Program().AddConst(Constant.OfUndefined())
@@ -2054,6 +2107,13 @@ this.Emit(Op.Const, window + 3, arityConst, -1, -1);
 this.EmitRt(RtOp.NewClosure, slot, window, 4);
 this.Release(slot + 1);
 item.Envs = this.Env.Clone();
+// **具名函数表达式那三步的收尾** ✓（第 332 轮 ✓）：先把**降级侧**那一层退掉 ✓
+// （于是外面那些语句再也看不到 `self` ✓），再写值 ✓、再退出运行期那一层 ✓。
+if (selfEnv >= 0) {
+  this.Env.Pop();
+  this.Emit(Op.EnvSet, slot, 0, 0, -1);
+  this.Emit(Op.EnvLeave, -1, -1, -1, -1);
+}
 this.Pending.push(item);
 return slot;
 ```
@@ -4998,6 +5058,15 @@ item.IsArrow = NodeKind(node) === "ArrowFunction";
 // `suspend outside a generator`：体里那对 suspend/resume 落在了一个普通帧上）。
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
+// **具名函数表达式的词法绑定** ✓（第 332 轮 ✓）：`function self() { … self … }` 里的
+// `self` 只在**它自己那个体**里可见 ✓——这一行把名字交给 `EmitClosure` ✓，
+// 由它单开一层环境装 ✓（那一段写着为什么不能绑在外层 ✓）。
+// **只有 `FunctionExpression` 这一档** ✗：箭头没有名字 ✓、函数**声明**的名字是一个
+// 真真的外层绑定 ✓（`Hoist` 已经管了 ✓，那条路也走不到这里 ✓）、方法名是属性名 ✓。
+if (NodeKind(node) === "FunctionExpression") {
+  const selfNode = OptionalChild(node, "name");
+  if (selfNode !== null) item.SelfName = TextOf(selfNode);
+}
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次 ✓，
 // 之后由函数表那一格带着走 ✓（开帧的人要用它 ✓）。
 item.HasRest = this.HasRestParam(node);
@@ -5803,6 +5872,24 @@ if (!asExpression) {
     throw new Error("unimplemented: class declaration without a name");
   }
 }
+// **具名类表达式：名字只在自己那个体里可见** ✓（第 332 轮 ✓）——与具名函数表达式
+// **同一套机关** ✓（`EmitClosure` 那一段写着为什么不能绑在外层 ✓）：单开一层环境装 ✓。
+//
+// **为什么声明那一档不用它** ✗：`class C { m() { return C } }` 里那个 `C` 是**外层**的真绑定 ✓
+//（`BindName` 就在下面几行 ✓），方法捕获外层那一层就够了 ✓——所以这一支**只给表达式** ✓
+//（`asExpression` 那一格 ✓，与 `BindName` 那一句**同一条判据** ✓）。
+//
+// **它要一直推到静态成员发完** ✗：静态字段与静态块**跑在类声明这一帧**里 ✓
+//（不是另一个帧 ✓），所以 `class C { static tag = C.name }` 里那个 `C` 走的也是这一层 ✓。
+// 于是收尾在**返回之前** ✓（`env_set` → `env_leave` ✓）。
+let classSelfEnv = -1;
+if (asExpression && nameNode !== null && NodeKind(nameNode) === "Identifier") {
+  classSelfEnv = this.Reserve(1);
+  this.Emit(Op.EnvNew, classSelfEnv, 1, -1, -1);
+  const classSelfScope = new EnvScope(classSelfEnv);
+  classSelfScope.Declare(name, 0);
+  this.Env.Push(classSelfScope);
+}
 const members = ListOf(node, "members");
 let ctorNode: AstNode | null = null;
 let explicitCtor: AstNode | null = null;
@@ -6107,6 +6194,13 @@ for (let i = 0; i < members.length; i++) {
   const base = this.Reserve(1);
   this.Emit(Op.Call, closure, base, 0, selfSlot);
   this.Release(base + 1);
+}
+// **具名类表达式那三步的收尾** ✓（第 332 轮 ✓）：先后退**降级侧**那一层 ✓
+//（外面那些语句于是再也看不到这个名字 ✓），再写值 ✓、再退出运行期那一层 ✓。
+if (classSelfEnv >= 0) {
+  this.Env.Pop();
+  this.Emit(Op.EnvSet, ctor, 0, 0, -1);
+  this.Emit(Op.EnvLeave, -1, -1, -1, -1);
 }
 return ctor;
 ```
