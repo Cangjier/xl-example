@@ -4425,5 +4425,15 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "nodeArgs": [
       "--experimental-transform-types"
     ]
+  },
+
+  // ===== 第 387 轮：尖括号断言 + 类型字面量（1 条）=====
+  {
+    "id": "c387-ex-angle-assertion-with-type-literal",
+    "title": "尖括号断言的类型是**类型字面量**（`<{ n: number }>{ n: 1 }`）——**还没修**",
+    "src": "// 尖括号断言的**类型字面量**后面的那个**值**没有被收成对象字面量。\n// **token 层是对的**（XML 实测）：外层是 GenericType、里面是 TypeLiteral、\n// 紧跟着一格**裸的 Bracket**——那一格没有变成 ObjectLiteral。\n// **根子在那一格的归属**：IsStatementStart 说「这是语句开头」⇒\n// JsonObjectReorganization 让路 ⇒ 投影把它投成一个 **Block** ⇒\n// 降级层报 unimplemented: expression Block（整份文件进不来）。\n// **已试过、没生效**：在 IsStatementStart 里把「前一格是 GenericType」判成\n// 「不是语句开头」——形状一点没变（说明那一格的让路不经过它）。\n// **边界**：<number>x 好；花括号作为**类型**（断言里那半）好——\n// 只有「断言的类型是类型字面量、后面紧跟一个对象字面量」这一格。\nconst a = <{ n: number }>{ n: 1 };\nconsole.log(\"A\", a.n);\nconst b = (<{ n: number; m?: string }>{ n: 2, m: \"x\" }).m;\nconsole.log(\"B\", b);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
   }
 ];

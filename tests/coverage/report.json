@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1712,
+  "matrix": 1713,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.25,
+  "progressPercent": 97.18,
   "layers": [
     {
       "layer": "runtime",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 410,
+      "total": 411,
       "pass": 397,
-      "blocked": 8,
+      "blocked": 9,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 96.83
+      "coverage": 96.59
     },
     {
       "layer": "stdlib",
@@ -135,6 +135,12 @@
       "layer": "exec",
       "title": "`\\u{…}` 花括号写法 —— **还没修**",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: escaped"
+    },
+    {
+      "id": "c387-ex-angle-assertion-with-type-literal",
+      "layer": "exec",
+      "title": "尖括号断言的类型是**类型字面量**（`<{ n: number }>{ n: 1 }`）——**还没修**",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
     },
     {
       "id": "c371-e2e-observer-with-priority",

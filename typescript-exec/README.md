@@ -6,6 +6,62 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 387 轮的账（**换了个目标：`assertion-forms` 的 `expression Block`** —— 量到新根子，也没修成 ✗）
+
+用户口径不变 ✓。第 386 轮结尾那张单子上的那条（`!` 链）**太难** ✗，
+这一轮**换了个目标** ✓：`exec` 那几条 `blocked` 里的 `c371-ex-assertion-forms` ✓。
+
+### 一、量到的新形状（与 `!` 那条无关）
+
+```ts
+const a = <{ n: number }>{ n: 1 };      // 报 unimplemented: expression Block
+```
+
+**token 层是对的** ✓——**XML 实测**：
+
+    <GenericType startBracket="<" endBracket=">">
+      <TypeLiteral><TypeLiteralBody><Field name="n">…</Field></TypeLiteralBody></TypeLiteral>
+    </GenericType>
+    <Bracket startBracket="{" endBracket="}">     ← 就是这一格：裸的 Bracket，没成 ObjectLiteral
+      <Identifier>n</Identifier><SymbolToken>:</SymbolToken><Identifier>1</Identifier>
+    </Bracket>
+
+⇒ 投影把那一格投成一个 **`Block`** ✗ ⇒ 降级层报 `unimplemented: expression Block` ✓
+⇒ **整份文件进不来** ✗。
+
+**根子**：`JsonObjectReorganization` 对那一格**让了路** ✓——它把那个 `{` 当成
+「语句开头的块」✗（`const a = <T>{ … }` 里那个 `{` 前面正好是**类型实参段** ✓，
+而这正是本轮想改的那一格 ✓）。
+
+### 二、试过的一条路（没生效）
+
+| 改法 | 下场 |
+| --- | --- |
+| 在 `IsStatementStart` 里把「前一格是 `GenericType`」判成**不是语句开头** | **形状一点没变** ✗ |
+
+⇒ 那一格的让路**不经过 `IsStatementStart`** ✗（`JsonObjectReorganization` 另有判据 ✓）。
+**这一条本身是有价值的** ✓：下一轮省掉一次尝试 ✓。
+
+### 三、边界（量清了）
+
+| 形状 | 结果 |
+| --- | --- |
+| `<number>x` | 好 ✓ |
+| 断言里那个类型字面量本身（`<{ n: number }>`） | 好 ✓ |
+| **断言的类型是类型字面量 + 后面紧跟一个对象字面量** | **坏** ✗ |
+
+### 四、读数与下一轮（**换个打法**）
+
+`pass` **1668 → 1668** ✗、`blocked` **11 → 12** ✓（补的语料把新形状钉住 ✓）、
+`differ` **33 → 33** ✓、**红的一栏 0** ✓、六道门 **37.4s 全绿** ✓、整体 **97.2%** ✓。
+
+**这三轮（385 / 386 / 387）的形状值得记一笔** ✗：连着三轮都在**词法/投影层的深水区** ✓
+（`!` 链、运算符跨度、`{` 的归属 ✓），三轮都是「查清、没修成」✗ 或者靠别的根子才拿到增益 ✗。
+**下一轮换个打法** ✓：回到**判据面**上更小的那些 ✓——
+标准库那 16 条 `differ` ✓（`Symbol.species` ✓、`Function.name` ✓、`bind` 当构造函数 ✓、
+`Symbol.asyncIterator` ✓ 一类 ✓）与端到端那 4 条 `differ` ✓，
+它们的根子通常**一两处**就能收 ✓（第 376 / 377 两轮就是这么拿到 6 格的 ✓）。
+
 ## 第 386 轮的账（**`!` 后面那一格：根子量得更准了，三条路都没修成** ✗ —— 97.2%）
 
 用户口径不变 ✓。这一轮是第 385 轮那条的**继续** ✓——**三条路都试过、都退回来了** ✗，
