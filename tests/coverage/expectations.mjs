@@ -517,7 +517,6 @@ export const EXPECTATIONS = {
   // `it.return(v)` / `it.throw(e)` 是 `Generator.prototype` 上的两格 ✓，
   // 本仓的生成器对象只有 `next` ✗（`cannot call a non-closure value`）。
   "rt-generator-return-early": { expect: "differ", why: "`it.return(9)` 不在那儿（生成器对象上只有 `next`）——`return` 要跑 `finally` 并把 `done` 置上" },
-  "rt-generator-throw-into": { expect: "differ", why: "`it.throw(e)` 不在那儿（生成器对象上只有 `next`）——`throw` 要把那一抛投进**挂起点**，体内 `catch` 接得住" },
 
   // ---- 组 E：可选调用那一条（1 条）----
   "rt-optional-chain-null-base": { expect: "differ", why: "**基名是 null 的可选调用**（`f?.()`）报 `cannot call a non-closure value`——`?.` 该整条短路，这里却照样去调了（`f?.[0]` / `f?.p` 那一半是对的）" },

@@ -12,7 +12,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, SymbolToString } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, SymbolToString } from "./globals.xl.md"
 import { InvokeMap, MapCtor, NameValue, ReadOwn } from "./map.xl.md"
 import { InvokeSet, SetCtor } from "./set.xl.md"
 ```
@@ -889,6 +889,11 @@ if (RestObjectId > highest) highest = RestObjectId;
 // `capability id is out of range: 709` ✓（第 197 / 210 轮各踩过一次 ✓）。
 if (SetHiddenId > highest) highest = SetHiddenId;
 if (GeneratorNextId > highest) highest = GeneratorNextId;
+// **`return` / `throw` 两格**（第 313 轮 ✓）：同一条纪律 ✓——漏了它们的症状是
+// `capability id is out of range: 711` ✓（**三格一起加** ✗：只加 `next` 那一格
+// 会让 `it.throw(...)` 报一个与生成器毫无关系的号 ✓）。
+if (GeneratorReturnId > highest) highest = GeneratorReturnId;
+if (GeneratorThrowId > highest) highest = GeneratorThrowId;
 return highest + 1 - BuiltinBase;
 ```
 
@@ -1038,18 +1043,18 @@ for (const slot of promiseSlots) {
 // 第 197 轮实测踩过一次 ✓：号改了、名单忘改 ✓）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
-  ObjectAssign, PowId, SetHiddenId, GeneratorNextId, ArrayIteratorNext];
+  ObjectAssign, PowId, SetHiddenId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, ArrayIteratorNext];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));
 }
-// **生成器的 `next` 还要额外告诉引擎一声** ✓（第 229 轮 ✓）：上面那一趟只把号**登记进
-// 能力表** ✓，而这一格**不发回宿主** ✗——它由引擎自己答 ✓（`vm.xl.md` 的 `NextStepOf` ✓）。
-// 引擎于是把这一格号记下来 ✓（`GeneratorNextId` 那个字段 ✓），
-// 两条派发路上各截一次 ✓（`IsGeneratorNext` ✓）。
+// **生成器那三格方法还要额外告诉引擎一声** ✓（第 229 轮开的头 ✓、第 313 轮扩成三个 ✓）：
+// 上面那一趟只把号**登记进能力表** ✓，而这三格**不发回宿主** ✗——
+// 它们由引擎自己答 ✓（`vm.xl.md` 的 `NextStepOf` ✓）。
+// 引擎于是把三格号记下来 ✓（那三个字段 ✓），两条派发路上各截一次 ✓（`GeneratorStepKind` ✓）。
 // **少了这一句的症状** ✗：`it.next()` 报 `capability is not registered: 709` ✓——
-// 听起来像「谁忘了登记」✗，其实上面那一趟**已经登记过了** ✓（真相是「这一格该由引擎答」✓）。
-host.Machine.RegisterGeneratorNext(GeneratorNextId);
+// 听起来像「谁忘了登记」✗，其实上面那一趟**已经登记过了** ✓（真相是「这三格该由引擎答」✓）。
+host.Machine.RegisterGeneratorMethods(GeneratorNextId, GeneratorReturnId, GeneratorThrowId);
 ```
 
 # const DefineAccessorId:int = 701

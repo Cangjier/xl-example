@@ -667,16 +667,35 @@ return result;
 ## field GeneratorNextId:int = 0
 
 **「生成器的 `next`」那格载荷的能力号**（第 229 轮 ✓）——由语言层在
-`RegisterGeneratorNext` 里告诉引擎 ✓。
+`RegisterGeneratorMethods` 里告诉引擎 ✓。
 
 **为什么引擎要记这一格** ✗：`it.next()` 最终落到一条**宿主调用**上 ✓，
 而这条调用**不该发给宿主** ✗——它要落到引擎自己的 `NextStepOf` ✓。
-判据就是「载荷号是不是这一格」✓（`IsGeneratorNext` ✓）。
+判据就是「载荷号是不是这一格」✓（`GeneratorStepKind` ✓）。
 
 **给 `0` 表示语言层没登记过** ✓：那时候这条判据恒为假 ✓
 （与 `PrototypeKey` 给 `0` 时的纪律一字不差 ✓：**不说谎，只是不特殊** ✓）——
 **`0` 必须显式排掉** ✗：`HostRef.CapabilityId` 默认就是 `0` ✓，
 不排掉的话「任何一个没登记过的宿主引用」都会被当成生成器的 `next` ✗。
+
+## field GeneratorReturnId:int = 0
+
+**「生成器的 `return`」那一格的能力号**（第 313 轮 ✓）——与 `GeneratorNextId` 同一条纪律 ✓
+（同一个登记入口一次告诉引擎三个号 ✓）。
+
+## field GeneratorThrowId:int = 0
+
+**「生成器的 `throw`」那一格的能力号**（第 313 轮 ✓）——同上 ✓。
+
+## field ResumeRaises:bool = false
+
+**这一次恢复生成器是「往挂起点抛一个值」还是「把一个值放进 `yield` 那一格」**（第 313 轮 ✓）。
+
+**为什么是引擎级的一个瞬时格、而不是帧上的一格** ✗：它只在**恢复的那一瞬**有效 ✓——
+`DoIterNext` 设它、被恢复的那一帧的**第一条指令**（就是 `Resume` ✓）读它并清掉 ✓，
+中间不可能插进别的东西 ✓（`suspend` 之后 `Pc` 已经前进过 ✓，所以下一条正是 `Resume` ✓）。
+**嵌套恢复也安全** ✓：内层那一次一定在**外层那一条 `Resume` 执行完之前**不会发生 ✓
+（外层那一条是它被压回栈上之后**立刻**执行的 ✓）。
 
 ## constructor:(table:HeapTable, heapLimit:int, stepBudget:int)=>void
 
@@ -1064,6 +1083,16 @@ if (instr.Op === Op.Suspend) {
   return;
 }
 if (instr.Op === Op.Resume) {
+  // **两种恢复** ✓（第 313 轮 ✓）：`next(v)` 是把 `v` 放进 `yield` 那一格 ✓；
+  // 而 `it.throw(e)` 是**在挂起点抛 `e`** ✗——那正是生成器体里 `try { yield } catch { }`
+  // 能接住它的原因 ✓（JS 的 `GeneratorResumeAbrupt` ✓）。
+  // **判据走引擎级那一格** ✓（`ResumeRaises` ✓，见它的说明 ✓），读完就清 ✓——
+  // 不清的话下一次 `yield` 会**凭空抛一次** ✗（**静默错值** ✓）。
+  if (this.ResumeRaises) {
+    this.ResumeRaises = false;
+    this.DoThrow(frame.ResumeValue);
+    return;
+  }
   frame.Slots[instr.A] = frame.ResumeValue;
   return;
 }
@@ -1181,7 +1210,7 @@ const count = this.CallArgCount(frame, argBase, argc, argArray);
 // **它必须排在这一整支的最前面** ✗：落到下面那些分支上之后，
 // 它会以「能力号 709 没注册」的形态报出来 ✓（那句话听起来像「谁忘了登记」✗，
 // 而真相是「这一格本来就该由引擎自己答」✓）。
-if (this.IsGeneratorNext(callee)) {
+if (this.GeneratorStepKind(callee) !== 0) {
   // **`this` 就是那个生成器** ✓：`DoCallMethod` 找出来的方法挂在**生成器对象**身上 ✓，
   // 而它的 `this` 是**接收者**（那个生成器 ✓）——与 `o.m()` 的规矩一字不差 ✓。
   //
@@ -1192,7 +1221,17 @@ if (this.IsGeneratorNext(callee)) {
   // **第一次 `next(v)` 的实参按 JS 的规矩丢掉** ✓——那一格自然成立 ✓：
   // 第一趟帧从**函数头**开始跑 ✓，根本不会执行到 `Resume` ✓（`ResumeValue` 写了也没人读 ✓）。
   const sentByCaller = count > 0 ? this.CallArgAt(frame, argBase, argArray, 0) : Value.Undefined();
-  const producedByNext = this.NextStepOf(thisValue, sentByCaller, null);
+  const stepKind = this.GeneratorStepKind(callee);
+  // **`return()` / `throw()` 这两格今天响亮地抛** ✗（第 313 轮 ✓）：
+  // 它们要的不是「送一个值进去」✗ 而是**送一次「完成」进去** ✓——
+  // `return()` 得让那个 `yield` 点上**跑 `finally` 链** ✓，而那条链是**降级期**的构造 ✗
+  //（`lowering.xl.md` 的 `FinallyBlocks` ✓：每处 `return` 都是**就地发出**那几段收尾代码 ✓），
+  // 引擎手里没有「这个帧欠哪些 `finally`」那张表 ✗ ⇒ 做不了 ✓。
+  // **`throw()` 做得了** ✓（在挂起点抛一个值 ✓，`Op.Resume` 那条路 ✓）——见 `DoIterNext` ✓。
+  if (stepKind === 2) {
+    throw new Error("unimplemented: generator return() needs the finally chain (a lowering-level construct)");
+  }
+  const producedByNext = this.NextStepOf(thisValue, sentByCaller, stepKind === 3, null);
   if (returnSlot >= 0) {
     frame.Slots[returnSlot] = producedByNext;
   } else {
@@ -2332,7 +2371,7 @@ if (id === RtOp.IterNext) {
   // **也要走 `Guard`**（第 127 轮）：`DoIterNext` 对「不可迭代的东西」会抛 ✓
   // （`for (const x of 42)` ✓），而这一抛以前**冒出 `Run()`** ✗——
   // 与 rt 层其它失败一样，现在由错误工厂抬成**脚本接得住**的异常 ✓。
-  return this.Guard(() => this.DoIterNext(slots[base], slots[base + 1]));
+  return this.Guard(() => this.DoIterNext(slots[base], slots[base + 1], false));
 }
 if (id === RtOp.HostCall) {
   if (argc < 1) throw new Error("host_call needs a capability id");
@@ -2606,12 +2645,16 @@ return this.NativeFailed || this.NativeEscaped
 //
 // **生成器的 `next` 也要在这里截下来** ✓（第 229 轮 ✓）：它是**同一个载荷** ✓，
 // 而这一条路是**回调**那一侧 ✓（`xs.map(it.next)` 这种把方法当值传出去的写法 ✓）——
-// 判据与 `DoCallValue` 那一条**共用 `IsGeneratorNext`** ✓（写两遍就是两处会漂 ✗）。
-if (this.IsGeneratorNext(callee)) {
+// 判据与 `DoCallValue` 那一条**共用 `GeneratorStepKind`** ✓（写两遍就是两处会漂 ✗）。
+if (this.GeneratorStepKind(callee) !== 0) {
   // **第一个实参要送进挂起点** ✓（第 312 轮 ✓）——与 `DoCallValue` 那一处**同一条口径** ✓
   //（那边从槽里取 ✓、这边从实参表取 ✓，两处的「第 0 个」是同一件事 ✓）。
   const sentByCaller = args.length > 0 ? args[0] : Value.Undefined();
-  return this.NextStepOf(thisValue, sentByCaller, null);
+  const stepKind = this.GeneratorStepKind(callee);
+  if (stepKind === 2) {
+    throw new Error("unimplemented: generator return() needs the finally chain (a lowering-level construct)");
+  }
+  return this.NextStepOf(thisValue, sentByCaller, stepKind === 3, null);
 }
 if (this.IsHostCallable(callee)) {
   const hostThis = callee.Tag === ValueTag.Object ? callee : thisValue;
@@ -2755,7 +2798,7 @@ this.Frames.Pop();
 this.NativeResult = value;
 ```
 
-## method DoIterNext:(iterator:Value, sent:Value)=>Value
+## method DoIterNext:(iterator:Value, sent:Value, raises:bool = false)=>Value
 
 `next(v)`：恢复一个挂起的生成器，返回一对 `[产出值, 是否结束]`。
 
@@ -2854,6 +2897,9 @@ if (this.NativeDepth >= MaxNativeDepth) {
   throw new Error("native re-entry is too deep: " + this.NativeDepth);
 }
 this.Table.Get(generator.Frame).AsFrame().ResumeValue = sent;
+// **「恢复时抛」这一格要一起交给那一帧** ✓（第 313 轮 ✓）：它由 `Op.Resume` 读走并清掉 ✓
+//（见 `ResumeRaises` 那一段 ✓）。**只有 `throw` 那一路会给真** ✓。
+this.ResumeRaises = raises;
 generator.State = GeneratorState.Running;
 const depth = this.Frames.Depth();
 this.NativeDepth = this.NativeDepth + 1;
@@ -2868,6 +2914,24 @@ this.NativeResult = new Value();
 // 所以结局按**生成器自己的状态**判（Suspended 与 Done 都是正常结果）；
 // 真出了事（抛了 / 越限）就**响亮地报出来**，而不是让调用方拿到一个 `undefined`
 // 却以为「生成器产出的就是 undefined」。
+// **生成器体里没接住的那一抛** ✓（第 313 轮 ✓）——`it.throw(e)` 走到没有 `catch` 的那一层时
+// 就是这个形状 ✓。JS 的规矩是**这个生成器就此结束** ✓（此后 `next()` 恒给
+// `{ value: undefined, done: true }` ✓），而那个值要**抛给调用者** ✓。
+// **引擎这边没有「抛一个脚本值」的入口** ✗——走的是**宿主请求脚本站内异常**那条路 ✓
+//（`Raise` ✓，与内建失败那条兜底**一模一样** ✓）：宿主调用返回之后引擎把这次请求抬成
+// 脚本异常 ✓，于是脚本里的 `try { it.throw(e) } catch (e2)` 接得住 ✓。
+// **一处已知边界写在明处** ✗：`DoThrow` 找的是**整个帧栈上最近的**处理点 ✓——
+// 万一那一抛被 `it.throw()` 的**调用方**接住了 ✓，状态就不是 `Threw` ✓、
+// 这个生成器也就不会被标成 `Done` ✓（判据里还没有这一格 ✓，先记在这里 ✓）。
+// **状态要经一个局部量再比** ✗：这一趟开头刚给它赋过 `Ready` ✓（见 `DoIterNext` 那一段 ✓），
+// TS 于是把这一格的类型收窄成 `Ready` ✓——直接与 `Threw` 比会被它判成
+// 「这两个类型没有重叠」✗（**编译期就报** ✓，而那是**假报警** ✗：`RunToDepth` 早就改过它了 ✓）。
+const statusAfterStep: number = this.Status;
+if (statusAfterStep === VmStatus.Threw) {
+  generator.State = GeneratorState.Done;
+  this.Raise(this.TakePending());
+  return this.MakeIterResult(Value.Undefined(), true);
+}
 if (this.Status !== VmStatus.Ready && this.Status !== VmStatus.Halted) {
   throw new Error("the generator neither suspended nor finished (status " + this.Status + ")");
 }
@@ -2933,7 +2997,7 @@ return this.Guard(() => {
   this.Temps.push(out.Ref);
   const sent = Value.Undefined();
   while (true) {
-    const step = this.DoIterNext(iterator, sent);
+    const step = this.DoIterNext(iterator, sent, false);
     // **`iter_next` 给的是 `[值, done]` 一对** ✓（`MakeIterResult` ✓）。
     const pair = this.Table.Get(step.Ref).AsArray();
     const produced = pair.GetAt(0);
@@ -2988,7 +3052,7 @@ if (protos === null || protos.Generator <= 0) return;
 this.Table.Get(generatorHandle).Proto = protos.Generator;
 ```
 
-## method NextStepOf:(iterator:Value, sent:Value, keep:RootKeeper | null = null)=>Value
+## method NextStepOf:(iterator:Value, sent:Value, raises:bool, keep:RootKeeper | null = null)=>Value
 
 **走一步生成器，把结果包成脚本看得见的那一对 `{ value, done }`**（第 229 轮 ✓）。
 
@@ -3011,7 +3075,7 @@ this.Table.Get(generatorHandle).Proto = protos.Generator;
 
 ```ts
 // **推进一步**：`DoIterNext` 自己包了 `Guard` ✓（见它那一段 ✓），这一层不必再包一遍 ✗。
-const pair = this.DoIterNext(iterator, sent);
+const pair = this.DoIterNext(iterator, sent, raises);
 const cells = this.Table.Get(pair.Ref).AsArray();
 const produced = cells.GetAt(0);
 if (keep !== null) keep(produced, true);
@@ -3044,50 +3108,68 @@ return answer;
 
 ```ts
 return (iterator: Value, sent: Value, keep: RootKeeper | null = null): Value =>
-  this.NextStepOf(iterator, sent, keep);
+  this.NextStepOf(iterator, sent, false, keep);
 ```
 
-## method RegisterGeneratorNext:(capabilityId:int)=>bool
+## method RegisterGeneratorMethods:(nextId:int, returnId:int, throwId:int)=>bool
 
-**把「生成器的 `next`」这一格能力登记进能力表**（第 229 轮 ✓）——由语言层在
-`InstallBuiltins` 里调 ✓（与它登记 `DefineAccessorId` 那一族**同一条理由** ✓：
+**把生成器那三格方法的能力号登记进能力表**（第 229 轮开的头 ✓、第 313 轮扩成三个 ✓）——
+由语言层在 `InstallBuiltins` 里调 ✓（与它登记 `DefineAccessorId` 那一族**同一条理由** ✓：
 那一趟本来就在登记「哪些内部号存在」✓）。
 
 **为什么引擎要提供一个登记入口、而不是自己定号** ✗：号是**语言层**的（`globals.xl.md` ✓）✓——
-引擎只认「调用的时候那个载荷号是不是这一格」✓（`NextStepOf` 那条判据 ✓）。
+引擎只认「调用的时候那个载荷号是不是这三格之一」✓（`GeneratorStepKind` ✓）。
 **依赖方向仍然是 `vm → props` / `builtins → runtime`** ✓：引擎不认识「生成器」
 在语言里叫什么 ✓，它只认识**自己提供的那个服务** ✓。
+
+**三个号一次登记** ✓（第 313 轮改的 ✗）：它们**是同一件事的三个方向** ✓
+（往下走 / 结束掉 / 往里抛 ✓），而**引擎侧那两处判据只有一份** ✓
+（`GeneratorStepKind` ✓）——分成三个入口就是三处会漂 ✗。
 
 **返回假表示「号不在这一次装载的 id 表里」** ✓（与 `RegisterCapability` 的纪律一字不差 ✓）：
 登记不进去不是「静默忽略」✓，宿主必须知道 ✓。
 
 ```ts
-const handle = this.Table.CreateHostRef(capabilityId, 0);
-// **记下这一格号** ✓（第 229 轮 ✓）：`IsGeneratorNext` 靠它认「这一次调用是我自己的」✓
+const nextHandle = this.Table.CreateHostRef(nextId, 0);
+const returnHandle = this.Table.CreateHostRef(returnId, 0);
+const throwHandle = this.Table.CreateHostRef(throwId, 0);
+// **记下这三格号** ✓：`GeneratorStepKind` 靠它们认「这一次调用是我自己的」✓
 // ——见 `GeneratorNextId` 那一段为什么 `0` 要显式排掉 ✓。
-this.GeneratorNextId = capabilityId;
-return this.RegisterCapability(capabilityId, Value.FromRef(ValueTag.HostRef, handle));
+this.GeneratorNextId = nextId;
+this.GeneratorReturnId = returnId;
+this.GeneratorThrowId = throwId;
+const registeredNext = this.RegisterCapability(nextId, Value.FromRef(ValueTag.HostRef, nextHandle));
+const registeredReturn = this.RegisterCapability(returnId, Value.FromRef(ValueTag.HostRef, returnHandle));
+const registeredThrow = this.RegisterCapability(throwId, Value.FromRef(ValueTag.HostRef, throwHandle));
+return registeredNext && registeredReturn && registeredThrow;
 ```
 
-## method IsGeneratorNext:(callee:Value)=>bool
+## method GeneratorStepKind:(callee:Value)=>int
 
-**这一次调用是不是「生成器的 `next`」**（第 229 轮 ✓）——是三处判据里唯一的一处 ✓。
+**这一次调用是生成器的哪一格方法**（第 229 轮开的头 ✓、第 313 轮扩成三档 ✓）：
+`0` = 不是 ✓、`1` = `next` ✓、`2` = `return` ✓、`3` = `throw` ✓。
 
 **为什么收成一个方法** ✗：两条路要用同一条判据 ✓（`DoCallValue` 的调用路 ✓、
 `CallNative` 的重入路 ✓——`it.next()` 走第一条 ✓，而 `Array.from` 那类
 **急切**入口走的是引擎自己那条 `drain` ✓，不经过这里 ✓）。
 写两遍就是两处会漂 ✗，而漂了的表现是「脚本里直接 `next()` 可以、当回调传出去不行」✓。
+**第 313 轮把「哪一格」也收进同一个方法** ✓：`return` / `throw` 与 `next` 是**同一族的三个方向** ✓，
+分成三个 `Is…` 就是**六个调用点** ✗。
 
 **`GeneratorNextId > 0` 那一半不能省** ✗：语言层还没登记时它是 `0` ✓，
 而 `HostRef.CapabilityId` 的默认值**也是 `0`** ✓——不排掉的话，
 **任何一个**没登记过号的宿主引用都会撞上这条判据 ✗（**静默**走错分支 ✓）。
 
 ```ts
-if (this.GeneratorNextId <= 0) return false;
-if (callee.Tag !== ValueTag.Object) return false;
+if (this.GeneratorNextId <= 0) return 0;
+if (callee.Tag !== ValueTag.Object) return 0;
 const item = this.Table.Get(callee.Ref);
-if (item.Host === null) return false;
-return item.Host.CapabilityId === this.GeneratorNextId;
+if (item.Host === null) return 0;
+const id = item.Host.CapabilityId;
+if (id === this.GeneratorNextId) return 1;
+if (this.GeneratorReturnId > 0 && id === this.GeneratorReturnId) return 2;
+if (this.GeneratorThrowId > 0 && id === this.GeneratorThrowId) return 3;
+return 0;
 ```
 
 ## method RootKeeper:()=>RootKeeper

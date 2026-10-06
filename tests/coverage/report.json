@@ -1,6 +1,6 @@
 {
-  "round": "312",
-  "matrix": 1105,
+  "round": "313",
+  "matrix": 1106,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 93.64,
+  "progressPercent": 93.72,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 357,
-      "pass": 327,
+      "total": 358,
+      "pass": 329,
       "blocked": 15,
-      "differ": 15,
+      "differ": 14,
       "nodefail": 0,
-      "coverage": 91.6
+      "coverage": 91.9
     },
     {
       "layer": "exec",
@@ -305,13 +305,7 @@
       "id": "rt-generator-return-early",
       "layer": "runtime",
       "title": "生成器：提前 return 收尾、finally 照跑",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "rt-generator-throw-into",
-      "layer": "runtime",
-      "title": "往生成器里 throw：体内 catch 接住、还能继续 yield",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：unimplemented: generator return() needs the finally chain (a lowering"
     },
     {
       "id": "rt-optional-chain-null-base",

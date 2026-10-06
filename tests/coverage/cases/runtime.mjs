@@ -4257,4 +4257,12 @@ console.log(o.x, o.y);
     title: "生成器的双向通信：`next(v)` 的值落在上一个 `yield` 那一格",
     src: "\nfunction* talk(): Generator<string, string, number> {\n  const first = yield \"ask\";\n  const second = yield \"echo:\" + first;\n  return \"done:\" + second;\n}\nconst it: any = talk();\nconsole.log(it.next(1).value);\nconsole.log(it.next(10).value);\nconsole.log(JSON.stringify(it.next(20)));\nconst plain: any = (function* () { const got = yield 1; yield got * 2; })();\nplain.next();\nconsole.log(plain.next(21).value);\n",
   },
+
+  // ===== 第 313 轮：往生成器里 throw（两种结局） =====
+
+  {
+    id: "c313-rt-generator-throw-into",
+    title: "往生成器里 `throw`：体内接得住，没接住的那一抛连 `done` 一起收尾",
+    src: "\nfunction* g(): Generator<string, void, void> {\n  try { yield \"a\"; } catch (e: any) { yield \"caught:\" + e.message; }\n  yield \"end\";\n}\nconst it: any = g();\nconsole.log(it.next().value);\nconsole.log(it.throw(new Error(\"in\")).value);\nconsole.log(it.next().value, it.next().done);\nfunction* uncaught(): Generator<number, void, void> { yield 1; }\nconst u: any = uncaught();\nconsole.log(u.next().value);\ntry { u.throw(new Error(\"boom\")); console.log(\"no throw\"); } catch (e: any) { console.log(\"caught outside\", e.message); }\nconsole.log(JSON.stringify(u.next()));\n",
+  },
 ];

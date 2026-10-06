@@ -467,17 +467,24 @@ import { BuildPromise } from "./promise.xl.md"
 1. **`protos.Generator.next` 上挂的那个载荷用它** ✓（`BuildGlobals` 挂 ✓）——
    这样 `GetProperty` 沿原型链找到它、`DoCallMethod` 把它当方法调 ✓；
 2. **让引擎认得出「这一次调用是我自己的」** ✓：`InstallBuiltins` 调
-   `machine.RegisterGeneratorNext(GeneratorNextId)` ✓，
-   引擎于是把这一格号记下来 ✓（`GeneratorNextId` 那个字段 ✓），
-   两条派发路上各截一次 ✓（`IsGeneratorNext` ✓）。
+   `machine.RegisterGeneratorMethods(GeneratorNextId, GeneratorReturnId, GeneratorThrowId)` ✓，
+   引擎于是把这三格号记下来 ✓（`GeneratorNextId` 那三个字段 ✓），
+   两条派发路上各截一次 ✓（`GeneratorStepKind` ✓）。
 
 **为什么用能力号而不是新加一条算子** ✓：**一条指令都不用加** ✓——
 `AttachCallable` 与「宿主载荷的能力号分派」第 145 / 228 轮就都在了 ✓，
 这只是一次**新的用法** ✓（与 `Symbol` / `Date` 那种「对象带一格载荷」同一个形状 ✓）。
 
+**第 313 轮补了两格** ✓（`return` / `throw` ✓，`710` / `711` ✓）：
+它们是**同一件事的另外两个方向** ✓（结束掉 ✓ / 往里抛 ✓），
+所以**登记入口也合成一个** ✓（三个号一次交出去 ✓，引擎那边判据只有一份 ✓）。
+`throw` 那一个方向**做得了** ✓（在挂起点抛一个值 ✓，`Op.Resume` ✓）；
+`return` 那一个**做不了** ✗——它要让那个 `yield` 点上跑 `finally` 链 ✓，
+而那条链是**降级期**的构造 ✓（`lowering.xl.md` 的 `FinallyBlocks` ✓），
+引擎手里没有「这个帧欠哪些 `finally`」那张表 ✗ ⇒ 那一格今天**响亮地抛** ✓。
+
 **它在 709** ✓（700..799 是语言内部辅助那段 ✓，`SetHiddenId = 708` 是当前最大的 ✓）——
-**加号必须同时改 `BuiltinSlots`** ✗（`install.xl.md` ✓）：漏了它的症状是
-`capability id is out of range: 709` ✓（一句话里没提「名单」两个字 ✗，第 210 / 197 轮各踩过一次 ✓）。
+**加号必须同时改 `BuiltinSlots`** ✗（`install.xl.md` ✓）：漏了它的症状是`capability id is out of range: 709` ✓（一句话里没提「名单」两个字 ✗，第 210 / 197 轮各踩过一次 ✓）。
 
 # const BoundCall:int = 344
 
@@ -1208,6 +1215,17 @@ if (id === PowId) {
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
 }
 ```
+
+# const GeneratorThrowId:int = 711
+
+**「生成器的 `throw`」那一格**（第 313 轮 ✓）——`it.throw(e)` 落到这里 ✓，
+实现在**引擎**里 ✓（在挂起点抛 `e` ✓：`vm.xl.md` 的 `ResumeRaises` ✓）。
+
+# const GeneratorReturnId:int = 710
+
+**「生成器的 `return`」那一格**（第 313 轮 ✓）——`it.return(v)` 落到这里 ✓，
+而它今天**响亮地抛** ✗（要跑 `finally` 链 ✓，而那条链是降级期的构造 ✓，
+见 `GeneratorNextId` 那一段 ✓）。
 
 # const SymbolCtor:int = 250
 
@@ -5443,6 +5461,21 @@ const generatorNext = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorNext.Ref, GeneratorNextId, 0);
 SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("next"))), generatorNext);
+// **`return` / `throw` 两格** ✓（第 313 轮 ✓）：与 `next` **同一个形状** ✓
+//（带可调用载荷的对象 ✓、载荷号由引擎认 ✓）。
+// **`throw` 那一格今天真的能用** ✓（引擎在挂起点抛出 ✓）；
+// **`return` 那一格会响亮地抛** ✗（理由见号那一段 ✓——它要跑 `finally` 链，
+// 而那条链是降级期的构造 ✓）。**挂上去比空着好** ✗：空着报的是
+// `cannot call a non-closure value` ✓（听起来像「脚本写错了」✗），
+// 挂上去报的是「还差什么」✓。
+const generatorReturn = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(generatorReturn.Ref, GeneratorReturnId, 0);
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
+  Value.FromString(table.CreateString(Units("return"))), generatorReturn);
+const generatorThrow = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(generatorThrow.Ref, GeneratorThrowId, 0);
+SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
+  Value.FromString(table.CreateString(Units("throw"))), generatorThrow);
 // **`parseInt` / `parseFloat` 是全局函数** ✓（不是某个对象的方法 ✓）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);
