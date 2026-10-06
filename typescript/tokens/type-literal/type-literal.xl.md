@@ -258,6 +258,11 @@ if (index === 0 && current.Parent instanceof Bracket && current.Parent.startBrac
 }
 let crossedAssignment = false;
 let crossingArrow = false;
+// **「这一格与那个 `new` 之间跨过实义单元没有」** ✗（第 375 轮 ✓）——
+// 与 `text-common-util.xl.md` 的 `DecideBracketContext` 里那个 `sawUnit` **同一条判据** ✓
+//（两处是同一个判断的两份实现 ✓，本文件那一段注释里写着为什么不合并 ✓）。
+// 它只为 `new` 那一档服务 ✓（见下面 `text === "new"` 那一段 ✓）。
+let crossedUnit = false;
 for (let i = index - 1; i >= 0; i--) {
   const item = Get(units, i);
   if (item instanceof LineWrap) {
@@ -275,6 +280,9 @@ for (let i = index - 1; i >= 0; i--) {
     continue;
   }
   if (item instanceof GenericType) {
+    // **泛型实参段算「跨过一个实义单元」** ✓（`new Box<number>({ … })` 里那一段 ✓）——
+    // 它就在被构造者与实参表之间 ✓。
+    crossedUnit = true;
     continue;
   }
   if (item instanceof LineAnnotation || item instanceof AreaAnnotation) {
@@ -295,6 +303,16 @@ for (let i = index - 1; i >= 0; i--) {
       return this.HasExtendsMarker(units, i);
     }
     if (text === "|" || text === "&") {
+      // **正在跨箭头时，`|` / `&` 属于那个返回类型** ✗（第 375 轮 ✓）：
+      // `const check = (a: string): string | null => { … }` 从**块体**那个 `{` 回扫 ✓——
+      // `=>` 记下「正在跨箭头」✓ ⇒ `null` ✓ ⇒ `|` ✗。
+      // 少了这一条：`|` 在 `crossingArrow` 还亮着的时候就返回了**类型位** ✗
+      // ⇒ 箭头的块体被收成 `TypeLiteral` ✓（与 `number[]` 那个 `[` **同一个形状的第二半** ✗——
+      // 那一半是「返回类型是数组」，这一半是「返回类型是联合」✓）。
+      // **判据与 `:` 那一支对称** ✓（那里也先问 `crossingArrow` ✓）。
+      if (crossingArrow) {
+        continue;
+      }
       // **已经跨过 `=` 之后，`|` / `&` 说的是左边那份标注**（第 290 轮 ✓）：
       // `const x: number | string = { a: 1 }` 从值位那个 `{` 回扫 ⇒ `=`（记住跨过赋值 ✓）
       // ⇒ `string` ⇒ `|` ✓——`|` 属于**变量标注**、与这个 `{` 是值位还是类型位**无关** ✓。
@@ -322,7 +340,23 @@ for (let i = index - 1; i >= 0; i--) {
   }
   if (item instanceof Bracket) {
     if (crossingArrow) {
-      crossingArrow = false;
+      // **只有形参表那个 `(` 才收掉「正在跨箭头」这个状态** ✗（第 375 轮 ✓）。
+      //
+      // 返回类型本身也可能是括号 ✗：`(): number[] => { … }`（数组类型 ✓）、
+      // `(): [number, string] => { … }`（元组 ✓）、`(): { a: number } => { … }`（类型字面量 ✓）。
+      // 原来**不分种类一律收掉** ✗ ⇒ `number[]` 那个 `[` 先把状态吃掉 ✓
+      // ⇒ 回扫再往前撞上的是**返回类型的冒号** ✓ ⇒ 走到 `:` 那一支时 `crossingArrow` 已经是假 ✗
+      // ⇒ 判成**类型位** ✗ ⇒ 箭头函数的**块体被收成一个 `TypeLiteral`** ✓
+      //（`constructing === undefined ? … : { kind: … }` 那种形状同理 ✓）。
+      //
+      // **实测的现场** ✗：`const build = (list: number[]): number[] => { … }` ✓
+      // ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓（**整份文件进不来** ✗，
+      // 判据 `c371-e2e-coordinate-geometry` / `c371-e2e-sudoku-validator` 两条 ✓）。
+      // **对照** ✓：`(): number => { … }` ✓ 与 `(): Array<number> => { … }` ✓ 一直是好的 ✓——
+      // 它们没有那个 `[` ✓（`Array<…>` 是一个 `GenericType` ✓，在更上面那一支里 `continue` ✓）。
+      if (item.startBracket === "(") {
+        crossingArrow = false;
+      }
       continue;
     }
     return false;
@@ -360,7 +394,6 @@ for (let i = index - 1; i >= 0; i--) {
       text === "keyof" ||
       text === "typeof" ||
       text === "infer" ||
-      text === "new" ||
       text === "declare" ||
       text === "asserts" ||
       text === "is"
@@ -393,6 +426,28 @@ for (let i = index - 1; i >= 0; i--) {
     if (text === "let" || text === "var" || text === "const") {
       return crossedAssignment === false;
     }
+    // **`new` 要分两种** ✗（第 375 轮 ✓）——它原来在上面那张类型位名单里 ✓，
+    // 因为**构造签名** `new (a: string) => B` 是真的类型 ✓；
+    // 而它在**值位**上也遍地都是 ✗：`new Box({ n: 1 })` 里那个 `{` 是**对象字面量** ✗。
+    //
+    // **判据**：`new` 与这个 `{` 之间**跨过实义单元**（`crossedUnit` ✓）就说明
+    // 它是**`new` 表达式**（被构造者 + 实参表 ✓）⇒ **值位** ✓；
+    // 括号**紧跟在 `new` 后面**才是构造签名 ⇒ 类型位 ✓。
+    //
+    // **实测的现场** ✗：`new Box({ n: 3 })` 的 `{` 走到这里 ✓——它是括号里的**第一个**单元 ✓
+    // ⇒ 上面那条递归（`index === 0` 那一支 ✓）问的是**括号自己**在不在类型位 ✓，
+    // 回扫一路跨过 `Box` ✓、撞上 `new` ⇒ 判成类型位 ✗ ⇒ 收成 `TypeLiteral` ✗
+    // ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓（**整份文件进不来** ✗，
+    // 判据 `c371-e2e-sudoku-validator` / `c371-e2e-coordinate-geometry` /
+    // `c371-rt-class-static-and-instance-isolation` / `c371-ex-new-expression-type-args` 四条 ✓）。
+    // **为什么只有第一个实参中招** ✓：第二个实参前面隔着一个 `,` ✓，而符号那一支
+    // 「其它符号 → 值位」先把它接住了 ✓（实测 `new Box(1, { n: 3 })` 一直是好的 ✓）。
+    if (text === "new") {
+      return crossedUnit === false;
+    }
+    // **跨过了一个实义单元** ✓（被构造者那个名字 ✓、或者类型标注里别的名字 ✓）——
+    // 记下来给上面那一档用 ✓，然后照旧继续往前扫 ✓。
+    crossedUnit = true;
     continue;
   }
   return false;

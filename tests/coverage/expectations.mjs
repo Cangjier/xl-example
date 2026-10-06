@@ -1036,10 +1036,7 @@ export const EXPECTATIONS = {
   "c371-ex-class-expression-forms": { expect: "differ", why: "类表达式在体内 `Named.name` 可见（本仓给 `false` 那一格）。" },
 
   // ---- **类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。
-  "c371-ex-new-expression-type-args": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
-  "c371-rt-class-static-and-instance-isolation": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
-  "c371-e2e-sudoku-validator": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
-  "c371-e2e-coordinate-geometry": { expect: "blocked", why: "**类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。" },
+  "c371-rt-class-static-and-instance-isolation": { expect: "differ", why: "从 `blocked` 走进了 `differ` ✓（第 375 轮把类型位那两处修掉之后 ✓，它现在跑得出来了 ✓）。**剩下的这一半** ✗：`Object.keys(Config)` 多出了 `prototype` ✓（Node 给 `defaults,instances` ✓、本仓多一格 ✓）——**类对象上合成出来的 `prototype` 是可枚举的** ✗，而 JS 里它**不可枚举** ✓（与第 276 轮实测的那三套描述符标志同一族 ✓）。" },
 
   // ---- **尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。
   "c371-ex-type-assertions-in-operands": { expect: "blocked", why: "**尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。" },

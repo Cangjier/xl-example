@@ -311,12 +311,31 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         text === "keyof" ||
         text === "typeof" ||
         text === "infer" ||
-        text === "new" ||
         text === "declare" ||
         text === "asserts" ||
         text === "is"
       ) {
         return "type";
+      }
+      // **`new` 要分两种** ✗（第 375 轮 ✓）——它原来就在上面那张类型位名单里 ✓，
+      // 因为**构造签名** `new (a: string) => B` 是真的类型 ✓；
+      // 可它在**值位**上也遍地都是 ✗：`new Box({ n: 1 })` 里那个 `{` 是**对象字面量** ✗。
+      //
+      // **判据是「`new` 与这个括号之间有没有跨过实义单元」** ✓（`sawUnit` ✓）：
+      //   · `new Box({ … })` ⇒ 回扫先撞上 `Box`（一个 `Identifier` ✓ ⇒ `sawUnit` 为真 ✓）
+      //     ⇒ 这是**`new` 表达式**（被构造者 + 实参表 ✓）⇒ **值位** ✓；
+      //   · `new (a: { x: number }) => void` ⇒ 括号**紧跟在 `new` 后面** ✓（`sawUnit` 为假 ✓）
+      //     ⇒ 这是**构造签名** ⇒ 类型位 ✓。
+      //
+      // **少了这一条会怎样** ✗：`new Box({ n: 3 })` 的 `{` 被判成类型位 ✓ ⇒ 投影出一个
+      // `TypeLiteral` ✗ ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓——
+      // **整份文件进不来** ✗（判据 `c371-e2e-sudoku-validator` / `c371-e2e-coordinate-geometry` /
+      // `c371-rt-class-static-and-instance-isolation` / `c371-ex-new-expression-type-args` 四条 ✓）。
+      // **为什么只有第一个实参中招** ✓：第二个实参前面隔着一个 `,` ✓，
+      // 而「其它符号 → 值位」那一条先把它接住了 ✓（实测 `new Box(1, { n: 3 })` 一直是好的 ✓；
+      // 外面多套一层括号 `new Box(({ n: 3 }))` 也是好的 ✓——判据 `c371-e2e-journal-and-undo` 那一族 ✓）。
+      if (text === "new") {
+        return sawUnit ? "value" : "type";
       }
       if (text === "let" || text === "var" || text === "const") {
         return crossedAssignment ? "value" : "type";

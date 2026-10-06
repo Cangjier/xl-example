@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1694,
+  "matrix": 1696,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,27 +38,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.12,
+  "progressPercent": 96.45,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
       "pass": 492,
-      "blocked": 2,
-      "differ": 8,
+      "blocked": 1,
+      "differ": 9,
       "nodefail": 0,
       "coverage": 98.01
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 401,
-      "pass": 386,
-      "blocked": 10,
+      "total": 403,
+      "pass": 389,
+      "blocked": 9,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 96.26
+      "coverage": 96.53
     },
     {
       "layer": "stdlib",
@@ -74,20 +74,14 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 164,
-      "pass": 153,
-      "blocked": 7,
+      "pass": 155,
+      "blocked": 5,
       "differ": 4,
       "nodefail": 0,
-      "coverage": 93.29
+      "coverage": 94.51
     }
   ],
   "blocked": [
-    {
-      "id": "c371-rt-class-static-and-instance-isolation",
-      "layer": "runtime",
-      "title": "静态与实例成员的隔离，静态块里的 this",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
     {
       "id": "c371-rt-bind-call-apply-forms",
       "layer": "runtime",
@@ -125,12 +119,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BindingElement"
     },
     {
-      "id": "c371-ex-new-expression-type-args",
-      "layer": "exec",
-      "title": "new 的类型实参与实参位上的断言混在一起",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
       "id": "c371-ex-type-assertions-in-operands",
       "layer": "exec",
       "title": "断言出现在运算符的操作数位上",
@@ -161,12 +149,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: EvalError"
     },
     {
-      "id": "c371-e2e-sudoku-validator",
-      "layer": "e2e",
-      "title": "数独校验器：行 / 列 / 宫",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
       "id": "c371-e2e-observer-with-priority",
       "layer": "e2e",
       "title": "观察者模式：优先级、退订、一次性监听",
@@ -177,12 +159,6 @@
       "layer": "e2e",
       "title": "配置深合并：数组策略、默认值、来源优先级",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: parameter without a name"
-    },
-    {
-      "id": "c371-e2e-coordinate-geometry",
-      "layer": "e2e",
-      "title": "二维几何：距离、点在多边形内、凸包",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
     },
     {
       "id": "c371-e2e-binary-encoding",
@@ -239,6 +215,12 @@
       "layer": "runtime",
       "title": "console.log 对复杂值的渲染",
       "detail": "stdout 不同：第 6 行：node «{ fn: [Function: named], arrow: [Function: arrow], cls: [class C] }» vs tsrun «{ fn: [Function: named], arrow: [Function: arrow], cls: [Function: C] }»"
+    },
+    {
+      "id": "c371-rt-class-static-and-instance-isolation",
+      "layer": "runtime",
+      "title": "静态与实例成员的隔离，静态块里的 this",
+      "detail": "stdout 不同：第 2 行：node «data defaults,instances» vs tsrun «data prototype,defaults,instances»"
     },
     {
       "id": "c371-rt-function-name-and-length",

@@ -4349,5 +4349,20 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "id": "c374-ex-throw-in-reentrant-callback",
     "title": "回调里**再进一次**原生回调并且抛出：异常要一路穿回最外层（**还没修**）",
     "src": "// f 在 .map 的回调里**递归**，而递归那一层又进了一次 .map——\n// 也就是「脚本 → 原生 → 脚本 → 原生」这条链。\n// 这一条**还没修**：异常从重入那一层出来之后没有穿回最外层的 try。\nfunction walk(n: number): number {\n  if (n === 0) throw new Error(\"bottom\");\n  return [n].map((x) => walk(n - 1))[0];\n}\ntry { walk(3); console.log(\"no throw\"); } catch (e) { console.log(\"A caught\", (e as Error).message); }\nfunction plain(n: number): number { if (n === 0) throw new Error(\"plain-bottom\"); return plain(n - 1); }\ntry { plain(3); } catch (e) { console.log(\"B caught\", (e as Error).message); }\nconsole.log(\"done\");"
+  },
+
+  // ===== 第 375 轮：给修好的形状补的判据（2 条）=====
+  {
+    "id": "c375-ex-new-argument-object-literal",
+    "title": "`new` 实参表里的对象字面量（不是类型字面量）",
+    "src": "// new Box({ … }) 里那个 { 是**对象字面量**——new 不能把它拉成类型位。\nclass Box<T> {\n  constructor(public v: any) {}\n}\nconst a = new Box({ n: 3 });\nconsole.log(\"A\", a.v.n);\nconst b = new Box<number>({ n: 4 });\nconsole.log(\"B\", b.v.n);\nconst c = new Box<{ n: number }>({ n: 5 });\nconsole.log(\"C\", c.v.n);\nclass Pair {\n  constructor(public first: any, public second: any) {}\n}\nconst d = new Pair({ k: 1 }, { k: 2 });\nconsole.log(\"D\", d.first.k, d.second.k);\nclass Nested {\n  constructor(public v: any) {}\n}\nconst e = new Nested({ inner: { deep: 7 } });\nconsole.log(\"E\", e.v.inner.deep);\nconst f = new Nested([{ n: 8 }][0]);\nconsole.log(\"F\", f.v.n);\nconst g = new Nested(({ n: 9 }));\nconsole.log(\"G\", g.v.n);\nconst h = new Nested(new Nested({ n: 10 }));\nconsole.log(\"H\", h.v.v.n);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c375-ex-arrow-return-type-annotations",
+    "title": "箭头的返回类型标注（数组 / 联合 / 元组 / 类型字面量）与块体",
+    "src": "// **返回类型标注长什么样，都不能把箭头的块体带成类型字面量**。\nconst build = (list: number[]): number[] => {\n  const out: number[] = [];\n  for (const v of list) out.push(v * 2);\n  return out;\n};\nconsole.log(\"A\", build([1, 2]).join(\",\"));\nconst pick = (cells: string[]): string | null => {\n  if (cells.length === 0) return null;\n  return cells[0];\n};\nconsole.log(\"B\", pick([\"x\"]), pick([]));\nconst tuple = (): [number, string] => {\n  return [1, \"s\"];\n};\nconsole.log(\"C\", tuple().join(\":\"));\nconst obj = (n: number): { v: number } => {\n  return { v: n + 1 };\n};\nconsole.log(\"D\", obj(2).v);\nconst gen = (n: number): Array<number> => {\n  return [n];\n};\nconsole.log(\"E\", gen(3).length);\nconst plain = (n: number): number => {\n  return n;\n};\nconsole.log(\"F\", plain(4));\nconst noAnno = (n: number) => {\n  return n * 2;\n};\nconsole.log(\"G\", noAnno(5));\nconst nested = (xs: number[]): number[] => {\n  const inner = (ys: number[]): number[] => {\n    return ys;\n  };\n  return inner(xs);\n};\nconsole.log(\"H\", nested([6]).join(\",\"));"
   }
 ];
