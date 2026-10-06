@@ -1840,16 +1840,42 @@ new Set([
   // **泛型箭头函数不走这里**（`<T>(x: T): T => x` 也是 `[GenericType, Lamda]` 两格）——
   // 那一支在后面，这里先让开（判据是第二格是不是 `Lamda`）。
   if (kids[0].get("type") === "GenericType" && kids.length >= 2 && kids[1].get("type") !== "Lamda") {
+    // **被断言的是「一个一元表达式」，不是后面全部** ✗（第 379 轮 ✓）。
+    //
+    // TS 里 `<T>expr` 是**前缀**那一档 ✓（与 `!x` / `typeof x` 同一档 ✓）——
+    // 所以 `<number>a + b` 是 `(<number>a) + b` ✓，**不是** `<number>(a + b)` ✗。
+    // **原来把后面整段都吞了** ✗（`projectExpression(kids.slice(1))` ✓）：`<number>a + <number>b`
+    // 于是投成「一个断言套住整个加法」✓——**值看着一样** ✓（两边都算 `3` ✓），
+    // 可节点形状与区间都错 ✓，落到降级层就报 `name is not a local or a capture: number` ✓
+    //（判据 `c371-ex-type-assertions-in-operands` ✓、`ex-angle-bracket-assertion` 那一族 ✓）。
+    //
+    // **修法**：断言只吃**一个操作数** ✓（前缀运算符连着算 ✓），剩下那几格交给
+    // `foldBinaryFrom` ✓——第 141 / 180 轮那两处用的就是它 ✓（这里不另写一份折叠 ✗）。
     const asserted = projectTypeExpression(projectableKids(view(kids[0])), ctx);
-    const expression = projectExpression(kids.slice(1), ctx);
+    // **操作数有多长** ✓：前缀运算符一串 ✓，然后**一格**就是整个操作数 ✓——
+    // 后缀链（`.b` / `(…)` / `[…]`）在产物里**已经折成一格**了 ✓
+    //（`PropertyAccess` / `Method` / `Bracket` ✓），所以不必在这里再拼后缀 ✓。
+    let operandEnd = 1;
+    while (operandEnd < kids.length && isPrefixOperatorUnit(kids[operandEnd], ctx)) {
+      operandEnd += 1;
+    }
+    if (operandEnd < kids.length) {
+      operandEnd += 1;
+    }
+    const expression = projectExpression(kids.slice(1, operandEnd), ctx);
     if (asserted !== undefined && expression !== undefined) {
-      return {
+      const assertedNode = {
         kind: "TypeAssertionExpression",
         type: asserted,
         expression,
         pos: startOf(kids[0]),
         end: expression.end,
       };
+      const rest = kids.slice(operandEnd);
+      if (rest.length === 0) {
+        return assertedNode;
+      }
+      return foldBinaryFrom(assertedNode, rest, ctx);
     }
   }
   // **`GenericType` 没成形的那种**（第 152 轮）：`<number>1` 里 `>` 后面跟着一个**数字**，
@@ -3687,6 +3713,31 @@ return false;
   return left;
 ```
 
+# private method isPrefixOperatorUnit:(node:any, ctx:any)=>bool
+
+**这一格是不是一个前缀运算符** ✓（第 379 轮 ✓）——只给「尖括号断言要吃多长」那一处用 ✓。
+
+**为什么需要它** ✗：`<T>expr` 是**前缀**那一档 ✓，所以它的操作数是「一个**一元表达式**」✓：
+`<number>-x` 里断言管的是 `-x` ✓（不是 `-` 自己 ✓），`<number>a + b` 里断言管到 `a` 就停 ✓。
+判「到哪里停」要认得出前缀运算符那一串 ✓。
+
+**只认**：单元型 `UnaryOperator` ✓（`!x` / `typeof x` / `void x` / `delete x` / `await x` 与
+`++i` / `--i` 在产物里都是它 ✓），以及**裸符号** `!` `~` `+` `-` `++` `--` ✓
+（`+` / `-` 在操作数位置上不会落成 `BinaryOperator` ✓）。
+**二元运算符不在这里** ✓——它们住在 `BinaryOperator` / `LogicalOperator` 单元里 ✓，
+不是一个裸符号 ✓，所以 `a + b` 的那个 `+` 撞不到这一支 ✓。
+
+```ts
+  const type = node.get("type");
+  if (type === "UnaryOperator") return true;
+  if (type !== "SymbolToken") {
+    const text = textOfNode(node, ctx);
+    return text === "typeof" || text === "void" || text === "delete" || text === "await";
+  }
+  const text = textOfNode(node, ctx);
+  return text === "!" || text === "~" || text === "+" || text === "-" || text === "++" || text === "--";
+```
+
 # private method foldBinaryFrom:(left:any, rest:Array<any>, ctx:any)=>any
 
 从 `left` 起、把 `rest`（以运算符开头、`[op, 操作数, op, 操作数, …]`）折成 `BinaryExpression`。
@@ -3858,6 +3909,21 @@ return false;
     // 下一个「同级或更低优先级」的运算符就是这一段的终点。
     let stop = rest.length;
     for (let k = i + 1; k < rest.length; k++) {
+      // **尖括号断言那一组不是运算符** ✗（第 379 轮 ✓）。
+      //
+      // `x < <number>y` 与 `<number>a < <number>a` 里都有「一个 `<` 起的是**断言**」✓——
+      // 把它当成比较运算符就会在这一格切段 ✓ ⇒ 右操作数是**空的** ✓
+      // ⇒ 折出一个**没有 `right` 的 `BinaryExpression`** ✗，降级层报
+      // `ast node BinaryExpression has no child right` ✓（**形状层的内部错误** ✗，
+      // 比「读错了值」更难查 ✓）。
+      //
+      // **只在操作数位置上认** ✓：`k` 前面那一格是运算符（或它就是这一段的第一格 ✓）
+      // ⇒ 这个 `<` 前面**没有左操作数** ✓ ⇒ 只可能是断言 ✓。
+      // 比较式 `a < b < c` 的第二个 `<` 前面是 `b`（一个名字 ✓）⇒ 这里不跳 ✓，照旧切段 ✓。
+      if ((k === 0 || isOperatorUnit(rest[k - 1], ctx)) && angleAssertionLength(rest, k, ctx) > 0) {
+        k += angleAssertionLength(rest, k, ctx) - 1;
+        continue;
+      }
       if (isOperatorUnit(rest[k], ctx) && operatorRank(textOfNode(rest[k], ctx)) <= rank) {
         stop = k;
         break;
@@ -3875,6 +3941,59 @@ return false;
     i = stop;
   }
   return node;
+```
+
+# private method angleAssertionLength:(kids:Array<any>, at:int, ctx:any)=>int
+
+**从 `at` 起是不是一个「平的尖括号断言」**（`<T>操作数` ✓），是的话返回它有多长 ✓；
+不是就返回 `0` ✓（第 379 轮 ✓）。
+
+**为什么需要它** ✗：`x < <number>y` 里的第二个 `<` 在产物里是**平的符号** ✓
+（它不在表达式的最开头 ✓，所以 token 层没把它收成 `GenericType` ✗——
+第 379 轮把「运算符之后」那一档也放行了 ✓，于是**现在多半已经收起来了** ✓，
+可**收不起来的那些**（后继闸没过 ✓）仍然会走到这里 ✓）。
+把它当成比较运算符就会切出空的右操作数 ✓ ⇒ 折出一个没有 `right` 的节点 ✗
+（实测 `ast node BinaryExpression has no child right` ✓）。
+
+**判据只看形状** ✓：`<` ✓、配对到 `>` ✓、`>` 后面**还有一格操作数** ✓
+（前缀运算符可以连着几格 ✓，与断言那一支同一口径 ✓）。
+**「这个 `<` 前面有没有左操作数」由调用方判** ✗（那一格信息只有它手上有 ✓）——
+所以这里不做位置判断 ✓，只回答「这一组长得像不像断言」✓。
+
+```ts
+  if (at >= kids.length) {
+    return 0;
+  }
+  const opener = kids[at];
+  if (opener.get("type") !== "SymbolToken" || textOfNode(opener, ctx) !== "<") {
+    return 0;
+  }
+  let depth = 0;
+  let close = -1;
+  for (let i = at; i < kids.length; i++) {
+    const text = kids[i].get("type") === "SymbolToken" ? textOfNode(kids[i], ctx) : "";
+    if (text === "<") {
+      depth += 1;
+    } else if (text === ">") {
+      depth -= 1;
+      if (depth === 0) {
+        close = i;
+        break;
+      }
+    }
+  }
+  // **`<T>` 里至少要有一样东西，后面至少要跟着一格操作数** ✓（`< > x` 那种空段不算 ✓）。
+  if (close <= at + 1 || close + 1 >= kids.length) {
+    return 0;
+  }
+  let operandEnd = close + 1;
+  while (operandEnd < kids.length && isPrefixOperatorUnit(kids[operandEnd], ctx)) {
+    operandEnd += 1;
+  }
+  if (operandEnd >= kids.length) {
+    return 0;
+  }
+  return operandEnd + 1 - at;
 ```
 
 # private method operatorRank:(text:string)=>int

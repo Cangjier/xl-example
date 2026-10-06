@@ -12,6 +12,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../core/syntax/unit-token.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { Keyword } from "./keyword.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { IsTemplateTypeContent, IsTriviaUnit, IsTypeBracketPosition, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
@@ -120,10 +121,7 @@ if (last instanceof SymbolToken && last.Is("?")) {
   hasName = true;
   last = beforeMark;
 }
-const isOperandStart =
-  (last instanceof SymbolToken && (last.Is("=") || last.Is("=>") || last.Is(":") || last.Is(";") || last.Is(","))) ||
-  last instanceof Bracket ||
-  last instanceof LineWrap;
+const isOperandStart = this.IsOperandStartUnit(unit);
 if (!hasName && isOperandStart === false) {
   return false;
 }
@@ -655,6 +653,66 @@ if (unit instanceof Bracket && unit.Parent !== null) {
 return false;
 ```
 
+## private method IsOperandStartUnit:(unit:Token)=>bool
+
+**宿主这一格是不是「`<` 前面还没有左操作数」** ✓（第 379 轮 ✓）——名字闸与后继闸**共用它** ✓。
+
+**为什么需要它** ✗：`f<T>(…)` / `Array<T>` 这类泛型前面**有一个名字** ✓（走名字闸的第一支 ✓），
+而 `<T>x` 这种**尖括号断言**前面**什么都没有** ✓——它只可能出现在**操作数位置**上 ✓：
+语句（或实参）的开头 ✓、`=` / `=>` / `:` / `;` / `,` 之后 ✓、括号与软换行之后 ✓、
+以及**二元运算符之后** ✓（`a + <number>b` ✓——第 379 轮补的就是最后这一档 ✗）。
+
+**原来只列了前几档** ✗：运算符之后那一格没列 ✓ ⇒ `a + <number>b` 里的 `<` 连名字闸都过不了 ✓
+⇒ 退回比较运算符 ✓ ⇒ `number` 被当成值 ✓（降级层报 `name is not a local or a capture: number` ✓）。
+
+**列进运算符是安全的** ✓：那个位置上按定义**还没有操作数** ✓，
+所以 `< b > c` 只可能是断言 `<b>c` ✓，读不成「谁小于 b」✗——
+而真正的比较式 `a + b < c > d` 里 `<` 前面是 `b`（一个名字 ✓）⇒ 这一支不成立 ✓。
+**`<` / `>` 自己不列** ✗（`a < <T>b` 不是合法写法 ✓，列进去只会给比较链开口子 ✓）。
+
+```ts
+  // **宿主还是空的**（语句 / 实参的开头 ✓）：按定义还没有操作数 ✓。
+  if (unit.Data.length === 0) {
+    return true;
+  }
+  const last = unit.Last();
+  if (last instanceof SymbolToken) {
+    // **赋值 / 声明那几档** ✓（原来就有的 ✓）——
+    // `let x = <T>…` ✓、`type X = <T>() => T` ✓、`f(a, <T>b)` ✓。
+    if (last.Is("=") || last.Is("=>") || last.Is(":") || last.Is(";") || last.Is(",")) {
+      return true;
+    }
+    // **运算符那一档** ✗（第 379 轮 ✓）：`a + <T>b` ✓、`a ? <T>b : c` ✓、`!<T>x` ✓。
+    // 只列**会带一个右操作数**的那些 ✓——`<` / `>` / `)` / `]` / `}` 都不列 ✓。
+    const symbolText = last.TempToString();
+    if (
+      symbolText === "+" || symbolText === "-" || symbolText === "*" || symbolText === "/"
+      || symbolText === "%" || symbolText === "**"
+      || symbolText === "<<" || symbolText === ">>" || symbolText === ">>>"
+      || symbolText === "&" || symbolText === "|" || symbolText === "^"
+      || symbolText === "&&" || symbolText === "||" || symbolText === "??"
+      || symbolText === "==" || symbolText === "!=" || symbolText === "===" || symbolText === "!=="
+      || symbolText === "<=" || symbolText === ">="
+      || symbolText === "~" || symbolText === "!" || symbolText === "?"
+    ) {
+      return true;
+    }
+  }
+  // **括号 / 软换行** ✓（原来就有的 ✓）：`(<T>x)` ✓、折行之后的 `<T>x` ✓。
+  if (last instanceof Bracket || last instanceof LineWrap) {
+    return true;
+  }
+  // **关键词那一档** ✓：`typeof` / `void` / `delete` / `await` / `in` / `instanceof` /
+  // `return` / `case` / `do` / `else` 之后都是一个操作数 ✓。
+  if (last instanceof Keyword) {
+    const word = last.Value;
+    return word === "typeof" || word === "void" || word === "delete" || word === "await"
+      || word === "in" || word === "instanceof" || word === "return" || word === "case"
+      || word === "do" || word === "else" || word === "new";
+  }
+  return false;
+```
+
 ## private method IsAllowedFollower:(unit:Token, source:Source, closeIndex:int)=>bool
 
 配对 `>` 之后跟着什么，决定这次试读算不算数。
@@ -707,7 +765,22 @@ if (item === "/" && index + 1 < document.GetCount() && (document.GetValue(index 
   return isTypePosition;
 }
 if (!isTypePosition) {
-  return item === "(";
+  // **表达式位里那个「只许 `(`」的例外：尖括号断言** ✗（第 379 轮 ✓）。
+  //
+  // 那个「只许 `(`」的口径是给**比较式**用的 ✓（`a < b > (c)` 里 `<…>` 后面必须紧跟 `(` ✓，
+  // 这是 TS 在表达式位唯一敢认的泛型形状 ✓）。
+  // 可**操作数位置上**的 `<` 是另一回事 ✓：它前面**没有左操作数** ✓
+  // ⇒ 只可能是**尖括号断言** `<T>x` ✓（TS 自己就是这么读的 ✓，
+  // `print-ast-common.xl.md` 第 1833 / 1855 行那两条投影规则等的正是它 ✓）。
+  //
+  // **少了这一条例外会怎样** ✗：`a + <number>b` 里那个 `<` 走不进泛型这一支 ✓
+  //（名字闸先把它挡了 ✓，见下面 `IsOperandStartUnit` 那一段 ✓），
+  // 于是它退回**比较运算符** ✓、`number` 变成一个**值** ✗ ⇒ 降级层报
+  // `name is not a local or a capture: number` ✓（判据 `c371-ex-type-assertions-in-operands` ✓）。
+  //
+  // **`<` 前面有左操作数时这一条不成立** ✓（`IsOperandStartUnit` 为假 ✓）——
+  // 所以 `a < b > c` 那种比较式一位都没动 ✓。
+  return item === "(" || (this.IsOperandStartUnit(unit) && unit.Template.SymbolTemplate.IsLetter(item));
 }
 if (unit.Template.SymbolTemplate.IsLetter(item) || item === "_") {
   return true;

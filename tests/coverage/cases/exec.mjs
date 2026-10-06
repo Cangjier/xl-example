@@ -4374,5 +4374,23 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "nodeArgs": [
       "--experimental-transform-types"
     ]
+  },
+
+  // ===== 第 379 轮：给修好的形状补的判据 + 一条新量到的（2 条）=====
+  {
+    "id": "c379-ex-angle-assertion-operand-positions",
+    "title": "尖括号断言 `<T>x` 出现在各种操作数位置上",
+    "src": "// TS 里 `<T>x` 是**前缀**那一档（与 `!x` 同一档），所以它前面的位置上\n// 一个左操作数都没有——那些位置**全是**操作数位置，断言都成立。\nconst a: unknown = 1;\nconst b: unknown = 2;\nconsole.log(\"A\", <number>a + <number>b, <number>a - <number>b, <number>a * <number>b);\nconsole.log(\"B\", a ? <number>b : <number>a);\nconsole.log(\"C\", (<number>a), ((<number>a) + 1) * <number>b);\nconst c = <number>a + <number>b + <number>a;\nconsole.log(\"D\", c, <number>a < <number>b);\nlet d: unknown = 5;\nd = <number>d + 1;\nconsole.log(\"E\", d, <string>\"x\" + \"y\");\nfunction pick(v: unknown): number {\n  return <number>v * 2;\n}\nconsole.log(\"F\", pick(a), pick(3));\nconst arr = [<number>a, <number>b];\nconsole.log(\"G\", arr.join(\",\"));\nconsole.log(\"H\", <number>a === 1, <number>a !== 2);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
+  },
+  {
+    "id": "c379-ex-angle-assertion-after-prefix-operator",
+    "title": "打头一元运算符**后面**的尖括号断言（`!<T>x` / `~<T>x`）——**还没修**",
+    "src": "// 打头的一元运算符后面跟尖括号断言：Node 给 false / -1，本仓整段投成一个裸的符号节点\n// （**感叹号**报 ExclamationToken、**波浪号**报 TildeToken）⇒ 降级期 unimplemented: expression …。\n// **边界量清了**：!a / !!a / !(a < 2) 都是好的（c379-ex-angle-assertion-operand-positions\n// 那条语料守着）——**打头的一元运算符后面紧跟 <T>** 这一格全都不行 ✗，\n// 而两个符号各自报自己那一个 ⇒ 同一个根子：整段被投成了一个裸的符号节点。\nconst b: unknown = 0;\nconsole.log(!<boolean>b);\nconst c: unknown = 1;\nconsole.log(!<boolean>c, ~<number>c, !b);",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
   }
 ];

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1704,
+  "matrix": 1706,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.93,
+  "progressPercent": 96.94,
   "layers": [
     {
       "layer": "runtime",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 404,
-      "pass": 392,
+      "total": 406,
+      "pass": 394,
       "blocked": 7,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 97.03
+      "coverage": 97.04
     },
     {
       "layer": "stdlib",
@@ -107,12 +107,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BindingElement"
     },
     {
-      "id": "c371-ex-type-assertions-in-operands",
-      "layer": "exec",
-      "title": "断言出现在运算符的操作数位上",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: number"
-    },
-    {
       "id": "c371-ex-unicode-identifiers",
       "layer": "exec",
       "title": "Unicode 标识符与字符串里的转义",
@@ -129,6 +123,12 @@
       "layer": "exec",
       "title": "回调里**再进一次**原生回调并且抛出：异常要一路穿回最外层（**还没修**）",
       "detail": "tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "c379-ex-angle-assertion-after-prefix-operator",
+      "layer": "exec",
+      "title": "打头一元运算符**后面**的尖括号断言（`!<T>x` / `~<T>x`）——**还没修**",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExclamationToken"
     },
     {
       "id": "c371-e2e-observer-with-priority",

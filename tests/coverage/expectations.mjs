@@ -1037,7 +1037,6 @@ export const EXPECTATIONS = {
   "c371-rt-class-static-and-instance-isolation": { expect: "differ", why: "从 `blocked` 走进了 `differ` ✓（第 375 轮把类型位那两处修掉之后 ✓，它现在跑得出来了 ✓）。**剩下的这一半** ✗：`Object.keys(Config)` 多出了 `prototype` ✓（Node 给 `defaults,instances` ✓、本仓多一格 ✓）——**类对象上合成出来的 `prototype` 是可枚举的** ✗，而 JS 里它**不可枚举** ✓（与第 276 轮实测的那三套描述符标志同一族 ✓）。" },
 
   // ---- **尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。
-  "c371-ex-type-assertions-in-operands": { expect: "blocked", why: "**`as` / `satisfies` / `<T>x` 三种断言第 163 / 342 轮就擦掉了** ✓（`(a as number) + 1` ✓、`<number>a` 单独用 ✓、`(s as string).length` ✓、`({n:1} as {n:number}).n` ✓ 都是好的 ✓）。**剩下的只有一处** ✗：**尖括号断言出现在「左操作数」位置上** ✓——`<number>a + <number>b` 被投影成 `(a < number) > b` ✓（两个比较 ✓）外加第二个 `<number>` 挂到了**调用**的 `typeArguments` 上 ✓ ✗。根子在**投影**：`<` 在**操作数位置**（表达式开头 ✓）才是断言 ✓，在**操作数之后**是比较 ✓（TS 的规矩 ✓）——两条判据（`c371-ex-type-assertions-in-operands` ✓ / `c371-ex-angle-bracket-assertion-forms` ✓）等这一格 ✓。" },
 
   // ---- **转义写法的标识符** `\u0061bc` 没有被解成 `abc` ⇒ 名字对不上。
   "c371-ex-unicode-identifiers": { expect: "blocked", why: "**转义写法的标识符** `\\u0061bc` 没有被解成 `abc` ⇒ 名字对不上。" },
@@ -1173,4 +1172,5 @@ export const EXPECTATIONS = {
 
   "c373-ex-compound-assign-logical-rhs": { expect: "differ", why: "复合赋值的右侧是 `||` 时**还是错的** ✗（`k += 0 || 5` 给 `-2` ✓，JS 给 `4` ✓）。**根子是既有的一条** ✓：`&&` / `||` 那一条规则（`LogicalOperator`）的位次**排在四则之前** ✓（`binary-operator.xl.md` 的 `IsOperand` 那一段自己记着这件事 ✓：`a && b + c` 也按 `(a && b) + c` 折 ✓）。第 373 轮把三元、`*=` / `-=` / `**=` 那些修好了 ✓（右操作数先折成一个单元 ✓），但 `||` 在那一刻**已经被逻辑规则折走了** ✓ ⇒ 标记运算符看到的左边是 `0` 而不是 `k + 0` ✓。**要修得把 `LogicalOperator` 挪到四则之后** ✓——那是另一次改动 ✓（会动到 `a && b + c` 这一族的形状 ✓）。" },
   "c374-ex-throw-in-reentrant-callback": { expect: "blocked", why: "**异常从「重入的原生回调」那一层出来之后没有穿回最外层** ✗：最小反例 `function walk(n){ if (n === 0) throw new Error(\"bottom\"); return [n].map((x) => walk(n - 1))[0]; }` + `try { walk(3) } catch (e) { … }` ✓——Node 给 `A caught bottom` ✓，本仓报 `cannot read properties of undefined` ✓（**连 `try` 都没接住** ✓）。**边界**：回调里**只**抛错（不递归）是好的 ✓（`[1].map(() => { throw new Error(\"x\") })` 四条都接住了 ✓）；纯递归抛错也是好的 ✓——**只有「脚本 → 原生 → 脚本 → 原生」这条链** ✗。根子还没量（下一轮从这里查 ✓：异常从 `CallNative` 重入那一层出来时的收口 ✓）。" },
+  "c379-ex-angle-assertion-after-prefix-operator": { expect: "blocked", why: "**修好之后新量到的一格** ✓（第 379 轮 ✓）：打头的一元运算符**后面**紧跟尖括号断言 ✗——`!<boolean>b` / `~<number>c` 整段被投成一个**裸的符号节点** ✓（`!` 报 ExclamationToken ✓、`~` 报 TildeToken ✓）⇒ 降级期 `unimplemented: expression …` ✓，而 Node 给 `false` / `-1` ✓。**边界量清了** ✓：`!a` / `!!a` / `!(a < 2)` 都是好的 ✓（同一条语料的另一半分守着 ✓）；`<T>x` 在 `+` / `-` / `*` / `===` / 三元 / 括号 / 赋值 / 实参 / 数组字面量里**全都是好的** ✓。**根子** ✗：尖括号断言现在能成形了 ✓，可**前缀运算符那一支**没把紧跟其后的断言接上 ✓（它只当成了操作数之外的东西 ✓）。**下一轮从这一格起** ✓。" },
 };

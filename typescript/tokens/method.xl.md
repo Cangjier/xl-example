@@ -369,14 +369,36 @@ return groups.filter((group) => group.length > 0);
   // ——按「不是第一格」放过去会凭空多出一个 `ParenthesizedExpression(空)` 实参 ✓
   //（实测 `expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts` 各一处 ✓）。
   // 所以「被调用者是 `NotNull`」这一支里，空括号照旧滤掉 ✓。
+  // **「第一个 `GenericType` 就是类型实参」这条要加一道判据** ✗（第 379 轮 ✓）。
+  //
+  // 真泛型调用里那个 `<T>` 坐在**被调用者与 `(` 之间** ✓（第 95 轮那条口径 ✓，
+  // 与第 23 / 160 行那两句一致 ✓）。可**实参自己**也可能是尖括号断言 `<T>x` ✓——
+  // token 层同样把它收成一个 `GenericType` ✓（表达式开头那个 `<` 本来就在
+  // `IsTypePosition` 的白名单里 ✓，见 `print-ast-common.xl.md` 第 1833 行那一段 ✓）。
+  // 两者在产物里**长得一模一样** ✗，位置才是判据 ✓：
+  // `calleeEnd` 与 `StartOf(generic)` 之间**有没有 `(`** ✓——
+  // 有 ⇒ 这个 `<T>` 已经在**实参表里面**了 ✓（它是第一个实参的开头 ✓）；
+  // 没有 ⇒ 它是调用自己的类型实参段 ✓。
+  //
+  // **少了这一条会怎样** ✗：`console.log(<number>a + <number>b)` 里**第一个** `<number>`
+  // 被当成调用的类型实参 ✓、从实参里**滤掉** ✗（下面那个 `filter` ✓）——
+  // 于是投影出来的是 `CallExpression{ typeArguments: [number], arguments: [a + <number>b] }` ✗，
+  // 而剩下那个 `<number>` 已经没机会成形了 ✓ ⇒ 它被读成**两个比较** `(a < number) > b` ✓
+  //（判据 `c371-ex-type-assertions-in-operands` ✓：Node 给 `3` ✓、本仓降级期就报
+  //  `name is not a local or a capture: number` ✓）。
+  const generic = kids.find((k: any) => k.get("type") === "GenericType");
+  const parenAfterCallee = ctx.source.indexOf("(", calleeEnd);
+  const typeArgumentGeneric =
+    generic !== undefined && (parenAfterCallee < 0 || parenAfterCallee > ctx.StartOf(generic))
+      ? generic
+      : undefined;
   const args = kids.filter(
     (k: any) =>
       k !== anonymousCallee &&
-      k.get("type") !== "GenericType" &&
+      k !== typeArgumentGeneric &&
       (k.get("type") !== "Bracket" ||
         (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (kids[0] !== k && anonymousCallee === undefined)))),
   );
-  const generic = kids.find((k: any) => k.get("type") === "GenericType");
   const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
   // **这一支只认「被调用者自己带着可选链」那一形状** ✓（第 147 轮修）：
   // 判据是**第一个子单元就是被调用者自己** ✓——`x?.y?.(1)` 的 `Identifier(x)` 与
@@ -424,9 +446,9 @@ return groups.filter((group) => group.length > 0);
     pos: v.start,
     end: ctx.StmtEndOf(v),
   };
-  if (generic !== undefined) {
+  if (typeArgumentGeneric !== undefined) {
     const typeArguments = [];
-    for (const group of ctx.Split(ctx.Kids(generic), ",")) {
+    for (const group of ctx.Split(ctx.Kids(typeArgumentGeneric), ",")) {
       const one = ctx.TypeExpression(group);
       if (one !== undefined) typeArguments.push(one);
     }
