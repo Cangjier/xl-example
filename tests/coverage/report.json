@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.01,
+  "progressPercent": 99.06,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 523,
-      "pass": 518,
+      "pass": 519,
       "blocked": 0,
-      "differ": 5,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 99.04
+      "coverage": 99.24
     },
     {
       "layer": "e2e",
@@ -156,12 +156,6 @@
       "layer": "stdlib",
       "title": "函数自带的三格与 prototype 的形状",
       "detail": "stdout 不同：第 2 行：node «1 function» vs tsrun «undefined function»"
-    },
-    {
-      "id": "c304-std-symbol-iterator-manual",
-      "layer": "stdlib",
-      "title": "手动拿数组的 Symbol.iterator 再 next",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c305-std-thenable-adoption",

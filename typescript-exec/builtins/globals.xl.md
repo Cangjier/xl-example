@@ -6,7 +6,7 @@ import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberO
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
 import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
-import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf, ArrayValues } from "./array.xl.md"
+import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayOf, ArrayValues, AttachArrayIterator } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
 import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, BoxKey, UnwrapBox } from "./text.xl.md"
 import { InspectText, DateMarker } from "./inspect.xl.md"
@@ -619,6 +619,24 @@ for (let i = 0; i < sourceProps.length; i++) {
 table.Recount(handle);
 return Value.FromObject(handle);
 ```
+
+# const StringIteratorSelf:int = 349
+
+**`"ab"[Symbol.iterator]()`** ✓（第 345 轮 ✓）——**字符串那一族的迭代器** ✓。
+
+**它为什么必须存在** ✗（**实测撞到的** ✓）：`for (const c of "abc")` 与 `[...s]` 一直是对的 ✓
+（那两条走的是**引擎**那条 `iter_next` ✓，字符串它自己认 ✓），
+而**手写那句** `"ab"[Symbol.iterator]()` 报「cannot call a non-closure value」✗——
+`String.prototype` 上那一格**从来没挂过** ✗（数组那一格第 308 轮挂过 ✓）。
+判据 `c304-std-symbol-iterator-manual` 量的正是这一格 ✓：
+**同一个口径两条路，只接了一条** ✗。
+
+**实现借的是现成的两步** ✓，**一行码点规则都不新写** ✗：
+`IterDrain`（`GetIterator` + `drain` ✓）对**字符串**给的就是**逐码点的数组** ✓
+（`install.xl.md` 那一处写着 ✓：`const [c1, c2] = "hi"` 给 `"h"` / `"i"` ✓）——
+然后 `AttachArrayIterator` 把那两格（`__i` / `next` ✓）挂上去 ✓，
+`next()` 于是给 `{ value, done }` ✓（`ArrayIteratorNext` ✓）。
+**码点那条规则仍然只有一处** ✓（引擎的 `DoIterNext` ✓）。
 
 # const GeneratorNextId:int = 709
 
@@ -2828,6 +2846,28 @@ if (id === PowId) {
   // 号不同（`PowId` 是降级层发的内部调用 ✓）、语义同一个 ✓。
   // **不是全局名** ✓：脚本里写 `PowId` 找不到它 ✓。
   return MathResult(Math.pow(NumericOf(args[0]), NumericOf(args[1])));
+}
+if (id === StringIteratorSelf) {
+  // **`"ab"[Symbol.iterator]()`** ✓（第 345 轮 ✓）：见号那一段的账 ✓。
+  // **借 `Array.from` 那一条能力** ✓（`ArrayFrom = 17` ✓）：它对**字符串**给的就是
+  // **逐码点的数组** ✓——`install.xl.md` 的 `ArrayFromValues` 那一支里写着
+  // 「先 `GetIterator` 再 `drain`」✓，而字符串两处都现成 ✓。
+  // **码点那条规则于是仍然只有一处** ✓（引擎的 `DoIterNext` ✓）——
+  // 这里**一行码点规则都不新写** ✗。
+  // **为什么走能力号而不是直接 import** ✗：`ArrayFromValues` 住在 `install.xl.md` ✓，
+  // 而那一份**要 import 这一份**（`InvokeGlobal` ✓）——直接调就成环 ✗。
+  // 能力号这条路是**反的** ✓（宿主那一头把它接回来 ✓），与内建之间互调同一形状 ✓。
+  if (call === null) {
+    throw new Error("unimplemented: a string iterator needs the call channel");
+  }
+  const fromFn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFrom, 0));
+  const fromArgs: Value[] = [self];
+  const drained = call(fromFn, Value.Undefined(), fromArgs);
+  if (drained.Tag !== ValueTag.Array) {
+    throw new Error("unimplemented: draining a string did not give an array");
+  }
+  AttachArrayIterator(room, table, drained.Ref);
+  return drained;
 }
 if (id === ErrorIsError) {
   // **`Error.isError(v)`** ✓（第 343 轮 ✓）：判据与 `instanceof Error` **同一个** ✓
@@ -6139,6 +6179,14 @@ const arrayIteratorKey = GetProperty(room, NeverCall, protos, table, wellKnownTa
 if (arrayIteratorKey.Tag === ValueTag.Symbol) {
   SetProperty(room, NeverCall, table, Value.FromObject(protos.Array), arrayIteratorKey,
     Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayValues, 0)));
+  // **字符串那一族也要挂** ✓（第 345 轮 ✓，**实测撞到的** ✓）：`for..of` / `[...s]`
+  // 走的是**引擎**那条 `iter_next` ✓（字符串它自己认 ✓），而**手写那一句**
+  // `"ab"[Symbol.iterator]()` 走的是**这一格** ✗ ⇒ 不挂就报
+  // 「cannot call a non-closure value」✓（判据 `c304-std-symbol-iterator-manual` ✓）。
+  // **同一个键** ✓（知名符号只造一次 ✓，从同一张小表里取 ✓），挂的是**另一个号** ✓
+  // （字符串那个迭代器要把码点收成数组 ✓，见 `StringIteratorSelf` ✓）。
+  SetProperty(room, NeverCall, table, Value.FromObject(protos.String), arrayIteratorKey,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringIteratorSelf, 0)));
 }
 // **异步生成器那一格：`Symbol.asyncIterator`** ✓（第 320 轮 ✓）——与上面那一条
 // **同一个形状** ✓（同一个知名符号表取键 ✓、挂一格宿主引用 ✓），差的是**挂在别的原型上** ✓。

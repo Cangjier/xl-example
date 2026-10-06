@@ -735,7 +735,7 @@ export const EXPECTATIONS = {
   // 根子与第 323 轮记的那一句**不一样** ✗：**不是**「那一格没造」✓，
   // 而是**「有就复用」只看了本层的槽** ✓、**没看本帧环境里的那一格** ✗
   // （见下一条那一段账 ✓）。
-  "c304-std-symbol-iterator-manual": { expect: "differ", why: "**这一条第 308 轮走了一半** ✓：数组那一半（`[10, 20][Symbol.iterator]()` ✓）**已经修好** ✓——`Protos.Array` 上原来**没有那一格** ✗，挂上去之后 `it.next()` 与 `[...it]` 都对 ✓。剩下的**是字符串那一半** ✗：`\"ab\"[Symbol.iterator]()` 报 `cannot call a non-closure value` ✓——`Protos.String` 上同样缺那一格 ✓，而字符串的迭代要**按码点** ✓（代理对合起来 ✓，与引擎的 `iter_next` 第 297 轮改的那一条**同一条规矩** ✓）——语言层今天没有那个判据 ✗（`drain` 是引擎递给语言层的服务 ✓，而 `InvokeString` 的签名里没有它 ✓），所以这一格要先把「码点」那条规矩收成**一处**再做 ✓" },
+  // **第 345 轮过了** ✓（这一行撤了 ✓）：`String.prototype[Symbol.iterator]` 挂上了 ✓（借 `Array.from` 那条能力收成码点数组 ✓，再挂数组迭代器那两格 ✓）。
   // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
