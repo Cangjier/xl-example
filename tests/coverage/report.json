@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.18,
+  "progressPercent": 97.22,
   "layers": [
     {
       "layer": "runtime",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 618,
+      "pass": 619,
       "blocked": 0,
-      "differ": 16,
+      "differ": 15,
       "nodefail": 0,
-      "coverage": 97.48
+      "coverage": 97.63
     },
     {
       "layer": "e2e",
@@ -325,12 +325,6 @@
       "detail": "stdout 不同：第 4 行：node «true [null,null,null]» vs tsrun «false [null,null,null]»"
     },
     {
-      "id": "c371-stdlib-array-tostring-forms",
-      "layer": "stdlib",
-      "title": "数组的 toString / join 在嵌套与稀疏上的读数",
-      "detail": "stdout 不同：第 4 行：node « ,» vs tsrun « »"
-    },
-    {
       "id": "c371-e2e-quick-and-merge-sort",
       "layer": "e2e",
       "title": "快排 / 归并 / 插入排序三种实现与稳定性对比",
@@ -357,6 +351,11 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "c371-stdlib-array-tostring-forms",
+      "layer": "stdlib"
+    }
+  ],
   "regressions": []
 }

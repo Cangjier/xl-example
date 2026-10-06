@@ -5586,6 +5586,37 @@ for (let i = 0; i < elements.length; i++) {
   this.Release(window);
   this.Release(at);
 }
+// **只有洞的数组字面量要把长度补上** ✗（第 388 轮 ✓）。
+//
+// **为什么** ✗：上面那条静态下标的路靠「**后面还有元素**」把洞**撑出来** ✓
+//（`[1, , 3]` 里 3 落在下标 2 ✓ ⇒ `SetIndex` 顺手补齐 0..1 ✓，正是上面那段注释的意思 ✓）。
+// 可**末尾**的洞后面**没有**元素了 ✗ ⇒ 谁也没把它撑出来 ✓：
+//   · `[, ,]` ⇒ 两个洞 ✓、一次写都没发生 ✗ ⇒ 长度 **0** ✗（Node 给 **2** ✓）；
+//   · `[1, ,]` ⇒ 长度 **1** ✗（Node 给 **2** ✓）；
+//   · `[, 1]` ⇒ 长度 2 ✓（**下面**那个 1 把它撑出来了 ✓——所以这一格一直是对的 ✓）。
+// 实测的症状：`[, ,].join(",")` 给 `""` ✗（Node 给 `","` ✓）、`String([])` 与 `String([, ,])`
+// 分不出来 ✗——判据 `c371-stdlib-array-tostring-forms` ✓（第 4 行 ✓）。
+//
+// **为什么只做「没有展开」那一档** ✓：有展开时长度是**运行期**的东西 ✓
+//（`[...xs]` 之后的下标由 `xs.length` 决定 ✓，元素一个一个接在末尾 ✓）⇒
+// 「字面量的元素个数」不再是答案 ✗。而这一档的洞本来就**响亮地抛** ✓（见上面 ✓）。
+//
+// **写 `length` 走 `SetIndex`** ✓：`props.xl.md` 的 `IsLengthKey` 认这个键 ✓，
+// 而且第 376 轮已经把「长度越界 ⇒ `RangeError`」那一档做在那一处 ✓ ⇒ 不需要新算子 ✓。
+if (!sawSpread && elements.length > 0) {
+  const keySlot = this.Reserve(1);
+  this.Emit(Op.Const, keySlot, this.Program().AddConst(Constant.OfString(UnitsOf("length"))), -1, -1);
+  const lengthSlot = this.Reserve(1);
+  this.Emit(Op.Const, lengthSlot, this.IntConst(elements.length), -1, -1);
+  const setWindow = this.Reserve(3);
+  this.Emit(Op.Move, setWindow, array, -1, -1);
+  this.Emit(Op.Move, setWindow + 1, keySlot, -1, -1);
+  this.Emit(Op.Move, setWindow + 2, lengthSlot, -1, -1);
+  this.EmitRt(RtOp.SetIndex, setWindow, setWindow, 3);
+  this.Release(setWindow);
+  this.Release(keySlot);
+  this.Release(lengthSlot);
+}
 this.Release(array + 1);
 return array;
 ```

@@ -1079,7 +1079,7 @@ export const EXPECTATIONS = {
   // ---- `splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。
 
   // ---- `xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。
-  "c371-stdlib-array-iterator-aliases": { expect: "differ", why: "`xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。" },
+  "c371-stdlib-array-iterator-aliases": { expect: "differ", why: "**第 388 轮量到极小的复现**：`xs.values === xs[Symbol.iterator]` 在 Node 里是 **true**、本仓是 **false**——而 `xs.values === xs.values` 是 **true**，`typeof xs.values` 两边都是 `function`。⇒ **两次读到的不是同一个函数对象**。**查到的现场**：`globals.xl.md` 第 6489 行把 `Array.prototype[Symbol.iterator]`挂成 **`ArrayValues` 那一格宿主引用**——与 `values` **同一个能力号**、做法是对的；所以问题在**读**那一侧（符号键取到的是另一个东西）或 `===` 对宿主引用的比较。**第 388 轮没往下修**（先把上面那条数组洞的账做完）。" },
 
   // ---- `xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。
 
@@ -1114,7 +1114,7 @@ export const EXPECTATIONS = {
   // ---- `EvalError` 这个全局名不在那儿。
 
   // ---- `Object.prototype.propertyIsEnumerable` 不在那儿。
-  "c371-stdlib-error-print-and-types": { expect: "differ", why: "错误对象上的 `name` 在本仓是**自有、不可枚举**的一格 ✗（Node 把它放在 `Error.prototype` 上 ✓）⇒ `e.name = \"Custom\"` 之后 `e.propertyIsEnumerable(\"name\")` 答**假** ✓（Node 答真 ✓，因为那一写建出的是一个新的自有可枚举属性 ✓）。`propertyIsEnumerable` 本身已经装上了 ✓（上半条对 ✓），差的是**错误对象的形状** ✓。" },
+  "c371-stdlib-error-print-and-types": { expect: "differ", why: "**第 388 轮量到极小的复现**：`const e = new Error(\"boom\"); e.name = \"Custom\";` 之后`e.propertyIsEnumerable(\"name\")` 在 Node 里是 **true**、本仓是 **false**；`Object.keys(e)` Node 给 `name`、本仓给**空**；而 `Object.getOwnPropertyNames(e)`**两边都列出 `name`** ⇒ **自有属性是建出来了**，只是**可枚举那一格**读出来是假。**定位到的两处**：`props.xl.md` 的 `SetProperty` 在「命中在原型上」之后会落到`Props.push(new Property(...))`，而 `Property` 的 `Flags` 默认是 **7**（三个标志全开）；所以嫌疑落在 `globals.xl.md` 的 `propertyIsEnumerable`（它走`getOwnPropertyDescriptor` 再读 `enumerable` 那一格）。**第 388 轮没往下修**。" },
 
   // ---- 绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。
   "c371-stdlib-function-bind-forms": { expect: "differ", why: "绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。" },

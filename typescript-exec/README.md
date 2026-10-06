@@ -6,6 +6,77 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 388 轮的账（**换成小目标：数组字面量的末尾洞** —— 97.2%，`pass` 1668 → **1669**）
+
+用户口径不变 ✓。第 387 轮结尾说过要**换打法** ✓——回到判据面上更小的那些 ✓。
+这一轮从标准库那 16 条 `differ` 里挑了三格 ✓，**修成一格** ✓、另外两格量到了极小复现 ✓。
+
+### 一、修成的：末尾的洞没人撑
+
+```ts
+[, ,].length      // Node 给 2；本仓给 0
+[1, ,].length     // Node 给 2；本仓给 1
+[, 1].length      // 两边都给 2（这一格一直是对的）
+```
+
+**根子** ✓：`LowerArrayLiteral` 的**静态下标**那条路 ✓（没有展开时 ✓）靠
+「**后面还有元素**」把洞撑出来 ✓——`[1, , 3]` 里 `3` 落在下标 2 ✓，
+`SetIndex` 顺手补齐 0..1 ✓（文件里那段注释说的就是这个 ✓）。
+可**末尾**的洞后面**没有**元素了 ✗ ⇒ **一次写都没发生** ✗ ⇒ 长度是 0 ✗。
+`[, 1]` 一直对 ✓，正是因为下面那个 `1` 把它撑出来了 ✓。
+
+**投影那一侧是对的** ✓（`cjcli --ts-ast` 实测：`[, ,]` 给**两个** `OmittedExpression` ✓、
+`[1, ,]` 给「一个元素 + 一个 `OmittedExpression`」✓）⇒ 只在**降级层**补一句就够 ✓：
+**没有展开时，按元素个数写一次 `length`** ✓（走 `SetIndex` ✓——
+`props.xl.md` 的 `IsLengthKey` 认这个键 ✓，而且第 376 轮已经把「长度越界 ⇒ `RangeError`」
+做在那一处 ✓ ⇒ 一个新算子都不加 ✓）。
+**只做「没有展开」那一档** ✓：有展开时长度是**运行期**的东西 ✓（`[...xs]` 后面接在末尾 ✓），
+而那一档的洞本来就**响亮地抛** ✓。
+
+**症状**：`[, ,].join(",")` 给 `""` ✗（Node 给 `","` ✓）、
+`String([])` 与 `String([, ,])` **分不出来** ✗——判据 `c371-stdlib-array-tostring-forms` ✓
+**转绿** ✓（`differ` 33 → **32** ✓）。
+
+### 二、顺带量到的两格（都写了极小复现，这一轮没往下修）
+
+**① 两次读到的不是同一个函数对象** ✗（判据 `c371-stdlib-array-iterator-aliases` ✓）：
+
+```ts
+xs.values === xs.values              // 真 ✓
+xs.values === xs[Symbol.iterator]    // Node 真 ✓；本仓 假 ✗
+```
+
+`typeof` 两边都是 `function` ✓。**查到的现场** ✓：`globals.xl.md` 第 6489 行把
+`Array.prototype[Symbol.iterator]` 挂成 **`ArrayValues` 那一格宿主引用** ✓
+——与字符串键 `values` **同一个能力号** ✓、做法是对的 ✓ ⇒
+嫌疑落在**读**那一侧（符号键取到的是别的东西 ✓）或 `===` 对宿主引用的比较 ✓。
+
+**② 自有属性建出来了，可枚举那一格读出来是假** ✗（判据 `c371-stdlib-error-print-and-types` ✓）：
+
+```ts
+const e = new Error("boom");
+e.name = "Custom";
+e.propertyIsEnumerable("name")   // Node 真 ✓；本仓 假 ✗
+Object.keys(e)                   // Node ["name"] ✓；本仓 [] ✗
+Object.getOwnPropertyNames(e)    // 两边都列出 name ✓
+```
+
+**「建出来了」这一步是好的** ✓（`getOwnPropertyNames` 看得出来 ✓），
+所以嫌疑在**可枚举那一格**：`props.xl.md` 的 `SetProperty` 命中在原型上之后会落到
+`Props.push(new Property(...))` ✓，而 `Property` 的 `Flags` 默认是 **7**（三个标志全开 ✓）
+⇒ 于是去看 `globals.xl.md` 的 `propertyIsEnumerable` ✓（它走 `getOwnPropertyDescriptor`
+再读 `enumerable` 那一格 ✓）。
+
+### 三、读数与下一轮
+
+`pass` **1668 → 1669** ✓、`differ` **33 → 32** ✓、`blocked` **12 → 12** ✓、
+**红的一栏 0** ✓、六道门 **37.5s 全绿** ✓、整体 **97.2%** ✓。
+
+**下一轮** ✓：上面那两条小复现都不大 ✓——
+① 与 `c371-stdlib-array-iterator-aliases` ✓ 一格；
+② 与 `c371-stdlib-error-print-and-types` ✓ 一格（很可能顺手把 `Object.keys` 那一族一起收 ✓）。
+**「换小目标」这个打法是对的** ✓：这一轮的定位与修复都比前几轮短 ✓。
+
 ## 第 387 轮的账（**换了个目标：`assertion-forms` 的 `expression Block`** —— 量到新根子，也没修成 ✗）
 
 用户口径不变 ✓。第 386 轮结尾那张单子上的那条（`!` 链）**太难** ✗，
