@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.43,
+  "progressPercent": 99.48,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 523,
-      "pass": 520,
+      "pass": 521,
       "blocked": 0,
-      "differ": 3,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 99.43
+      "coverage": 99.62
     },
     {
       "layer": "e2e",
@@ -119,13 +119,7 @@
       "id": "console-log-special",
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13652/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
-    },
-    {
-      "id": "c305-std-thenable-adoption",
-      "layer": "stdlib",
-      "title": "`async` 返回一个 thenable：该被采纳",
-      "detail": "stdout 不同：第 2 行：node «v 42» vs tsrun «v { then: [Function: then] }»"
+      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13480/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
     },
     {
       "id": "c323-std-array-fromasync",

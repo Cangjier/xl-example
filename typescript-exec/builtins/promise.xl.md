@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, PropertyCharge, PromiseState } from "../../runtime/heap.xl.md"
-import { RoomChecker } from "../../runtime/rt.xl.md"
+import { RoomChecker, IsCallableValue } from "../../runtime/rt.xl.md"
 import { Protos, SetProperty, SetHiddenProperty, GetProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Units, NeverCall } from "./array.xl.md"
@@ -180,6 +180,66 @@ import { NameValue } from "./map.xl.md"
 两条候选各自的错处写在 `InvokePromise` 那一支的说明里 ✓。**一件新东西都没有** ✓：
 承诺 ✓、调用通道 ✓、取走那一抛 ✓、结清 ✓，四样都是现成的 ✓。
 
+# const PromiseThenableAdopt:int = 257
+
+**「这个值是可采纳对象（thenable）吗」** ✓（第 359 轮 ✓）——引擎在**兑现**一个承诺之前
+回调进来问一句 ✓（`vm.xl.md` 的 `ResolvePromise` ✓）。
+
+**号为什么落在 257（家族外面）** ✗（**实测撞过一次** ✓）：这一族是 **230..249** ✓，
+而**二十格一个不剩** ✗——第一版随手写了 **249** ✓，正好是 **`PromiseTry`** ✓ ✗
+⇒ `Promise.try` 被分派到**这一格** ✓ ⇒ 它返回一个**布尔假** ✓ ⇒ 调用方拿到的
+「承诺」其实是 `false` ✓ ⇒ 下一步 `p.then(...)` 报 **`cannot call a non-closure value`** ✗
+（**一句话里没有一个字提到 `Promise.try`** ✗，而它把 `c330-std-promise-try-value` ✓、
+`…-throw` ✓、`c331-std-promise-try-forms` ✓、`c331-e2e-promise-reject-paths` ✓
+**四格一起打红** ✗）。
+**这一族里挑号必须先把 230..249 数一遍** ✓——而**静态检查那一门当时没拦住** ✗
+（它认的是**指令表**那一张 ✓，语言层新加的常量**不在里面** ✗），
+所以第 359 轮把这条**补进了 `runtime:check`** ✓（`typescript-exec/builtins/` 里的
+`# const …:int = N` **必须两两不同** ✓）——**下一次撞号会在门前就红** ✓。
+
+**为什么要有它** ✗：JS 的解决过程**不止认承诺** ✓——`{ then(res) { res(42); } }` 也一样
+被采纳 ✓（Node 给 `v 42` ✓、本仓原来给 `v { then: [Function: then] }` ✗，
+判据 `c305-std-thenable-adoption` 量的就是它 ✓）。而那一格 `then` 要**读属性、还要调它** ✓
+——**引擎不认识那个名字** ✓，所以判据在这一层 ✓（与 `Symbol.hasInstance` 同一条分界 ✓）。
+
+**返回真 =「我认领了」** ✓（引擎于是不再把值原样灌进去 ✓）；返回假 =「不是 thenable」✓
+（引擎照旧按普通值兑现 ✓）。
+
+**两个回调借的是现成的** ✓：`MakeSettleCallback` 造的就是执行器手里那两格 ✓
+（第 285 轮 ✓、与 `new Promise(...)` 里那个 `resolve` **一字不差** ✓），
+所以「采纳」这条路**不需要任何新的回调机关** ✓。
+
+**`then` 抛了怎么办** ✗：按 JS 的解决过程，那要把**外层承诺拒绝掉** ✓
+（`takeThrown` 就是那一格 ✓）——**不接住**的话异常会冒到调用者 ✓，
+而调用者是**引擎** ✓（症状是「整段微任务处理被打断」✓，离现场很远 ✗）。
+
+# method PromiseThenableStep:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, invoke:InvokeCallback | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
+
+**判据与调用**（第 359 轮 ✓）——与上面那个号一对 ✓。
+
+**只认三种值** ✓（对象 / 数组 / 闭包 ✓）：原始值不可能有 `then` ✓（去问它是白跑一趟 ✓）。
+
+```ts
+if (invoke === null) return Value.FromBool(false);
+const promise = args.length > 0 ? args[0] : Value.Undefined();
+const candidate = args.length > 1 ? args[1] : Value.Undefined();
+if (candidate.Tag !== ValueTag.Object && candidate.Tag !== ValueTag.Array
+  && candidate.Tag !== ValueTag.Closure && candidate.Tag !== ValueTag.Function) {
+  return Value.FromBool(false);
+}
+const thenMethod = GetProperty(room, invoke, protos, table, candidate, NameValue(table, "then"));
+if (!IsCallableValue(table, thenMethod)) return Value.FromBool(false);
+const onOk = MakeSettleCallback(table, promise, false);
+const onErr = MakeSettleCallback(table, promise, true);
+const thenArgs: Value[] = [onOk, onErr];
+invoke(thenMethod, candidate, thenArgs);
+const thrown = takeThrown === null ? Value.Undefined() : takeThrown();
+if (thrown.Tag !== ValueTag.Undefined && settle !== null) {
+  settle(promise, thrown, true);
+}
+return Value.FromBool(true);
+```
+
 # method MakeSettleCallback:(table:HeapTable, promise:Value, rejected:bool)=>Value
 
 **造一个「结清这个承诺」的宿主回调** ✓（第 285 轮 ✓）——执行器的两个形参就是它 ✓。
@@ -298,6 +358,10 @@ return GetProperty(room, NeverCall, protos, table, object,
 // **漏了这两支的症状是 `unimplemented: promise builtin id 238`** ✗
 // ——那句话听起来像「有个静态方法没实现」✗，其实是「回调没人接」✓。
 if (id === PromiseAllStepId) return PromiseAllStep(room, table, protos, self, args, settle);
+if (id === PromiseThenableAdopt) {
+  // **引擎问的这一句** ✓（第 359 轮 ✓）：见那个号与 `PromiseThenableStep` 的账 ✓。
+  return PromiseThenableStep(room, table, protos, args, invoke, settle, takeThrown);
+}
 if (id === PromiseRaceStepId) return PromiseRaceStep(room, table, protos, self, args, settle);
 // **第 295 轮那四步** ✓（`allSettled` 两档 ✓、`any` 两档 ✓）：同一处收口 ✓——
 // 它们的形状与上面两步一字不差 ✓（引擎回调到这儿 ✓），差的只是**收到值之后干什么** ✓。

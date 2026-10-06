@@ -669,6 +669,16 @@ return result;
 **「`bind` 造出来的那个对象」那格载荷的能力号** ✓（第 343 轮 ✓）——由语言层在
 `RegisterBoundCall` 里告诉引擎 ✓，与 `GeneratorNextId` **同一条形状** ✓。
 
+## field ThenableHookId:int = 0
+
+**「问一句：这个值是可采纳对象吗」那个能力号** ✓（第 359 轮 ✓）——由语言层在
+`RegisterThenableHook` 里告诉引擎 ✓，与 `BoundCallId` **同一条形状** ✓。
+
+**为什么这件事要问语言层** ✗：判据是「有没有一格**可调的** `then`」✓——
+那要**读属性、还可能要调它** ✓，而引擎**不认识那个名字** ✓（`Symbol.hasInstance` /
+`Symbol.toPrimitive` 那两处也是把名字交给语言层的小表 ✓，同一条分界 ✓）。
+**给 `0` 表示语言层没登记过** ✓：那时这一档整段跳过 ✓、**行为一字不改** ✓。
+
 **为什么引擎要记这一格** ✗：`this` 从哪来这件事**两条路要的东西相反** ✓——
 `bind` 的对象要**自己** ✓、其余可调用对象要**调用方给的接收者** ✓（见 `IsBoundCall` 的账 ✓）。
 **给 `0` 表示语言层没登记过** ✓：那时这条判据恒为假 ✓、
@@ -3687,6 +3697,22 @@ return (iterator: Value, sent: Value, keep: RootKeeper | null = null): Value =>
   this.NextStepOf(iterator, sent, false, keep);
 ```
 
+## method RegisterThenableHook:(id:int)=>bool
+
+**把「问一句：这个值是可采纳对象吗」那个能力号登记进能力表** ✓（第 359 轮 ✓）——
+由语言层在 `InstallBuiltins` 里调 ✓（与 `RegisterGeneratorMethods` / `RegisterBoundCall`
+**同一条理由** ✓：那一趟本来就在登记「哪些内部号存在」✓）。
+
+**为什么引擎要提供一个登记入口、而不是自己定号** ✗：号是**语言层**的 ✓——
+引擎只认「回调的时候那个载荷号是不是这一格」✓（`ThenableHookId` ✓）。
+
+**返回假表示「号不在这一次装载的 id 表里」** ✓（与 `RegisterCapability` 的纪律一字不差 ✓）。
+
+```ts
+this.ThenableHookId = id;
+return this.RegisterCapability(id, Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(id, 0)));
+```
+
 ## method RegisterGeneratorMethods:(nextId:int, returnId:int, throwId:int)=>bool
 
 **把生成器那三格方法的能力号登记进能力表**（第 229 轮开的头 ✓、第 313 轮扩成三个 ✓）——
@@ -4146,6 +4172,24 @@ if (promise2.State !== PromiseState.Pending) return;
 if (this.IsPromiseValue(settled)) {
   this.AdoptInto(promise, settled);
   return;
+}
+// **兑现值是个「可采纳对象」（thenable）时也要采纳** ✓（第 359 轮 ✓，**实测撞到的** ✓）：
+// JS 的解决过程那一条**不止认承诺** ✓——`{ then(res) { res(42); } }` 也一样被采纳 ✓
+// （判据 `c305-std-thenable-adoption` ✓：Node 给 `v 42` ✓、
+//  本仓原来给 `v { then: [Function: then] }` ✗——**把 thenable 当普通值灌进去了** ✗）。
+//
+// **判据落在语言层** ✗：要读一格叫 `then` 的属性 ✓、还可能要调它 ✓，
+// 而引擎**不认识那个名字** ✓（与 `BoundCallId` / `Symbol.hasInstance` 同一条分界 ✓）——
+// 语言层登记一个**能力号** ✓，引擎只负责「看到对象就问一句」✓。
+// **钩子说「我认领了」才停** ✓（返回真 ✓）：不是 thenable 就照旧按普通值兑现 ✓
+//（**没登记钩子时这一档整段跳过** ✓，行为一字不改 ✓）。
+if (settled.IsObject() && this.ThenableHookId > 0) {
+  const hookValue = Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(this.ThenableHookId, 0));
+  const hookArgs: Value[] = [promise, settled];
+  const taken = this.CallHostValue(hookValue, Value.Undefined(), hookArgs);
+  if (taken !== null && taken.Tag === ValueTag.Bool && taken.Int !== 0) {
+    return;
+  }
 }
 promise2.State = PromiseState.Fulfilled;
 promise2.Value = settled;

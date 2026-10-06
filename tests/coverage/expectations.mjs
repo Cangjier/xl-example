@@ -756,7 +756,7 @@ export const EXPECTATIONS = {
   //   所以 `Map.prototype` 也要挂 ✓（`Date` 那一行同一个形状 ✓）；
   // · `Promise.withResolvers` ✓：号 `248` ✓，号段的**上界跟着挪一格** ✗
   //   （`id >= 230 && id < 248` → `< 249` ✓，第 295 轮踩过一模一样的 ✓）。
-  "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
+  // **第 359 轮过了** ✓（这一行撤了 ✓）：`ResolvePromise` 里加了「可采纳对象」那一档 ✓（引擎回调语言层问一句 ✓，能力号 257 ✓——230..249 已被占满，第一版撞上 `PromiseTry` ✓）。
   // （`c305-std-then-returns-promise-adoption` 也在第 317 轮转 pass ✓、那一行同样撤了 ✓。）
   // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。

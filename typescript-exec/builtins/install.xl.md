@@ -8,7 +8,7 @@ import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallba
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
-import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask } from "./promise.xl.md"
+import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt } from "./promise.xl.md"
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
@@ -120,6 +120,10 @@ if (id >= 230 && id < 250) return InvokePromise(room, table, protos, id, self, a
 // **一句都没提号** ✗。**号撞车是静默的** ✓（第 150 轮 `ArrayAt` / 第 280 轮 `Date` 各踩过一次 ✓）。
 // **修法两条一起** ✓：挪到一个空号（`255` ✓——`254` 之后第一格 ✓）**并且**给一条单号路由 ✓，
 // 于是 `250..254` 那五个号回到 `InvokeGlobal` ✓（下面那一句 `id >= 200` ✓）。
+// **第 359 轮：可采纳对象那一格** ✓——它与那一族**同一个实现**（`InvokePromise` ✓），
+// 只是号落在家族外面 ✓（230..249 已经**一个不剩** ✗，见 `PromiseThenableAdopt` 那一段的账 ✓），
+// 所以这里要**单独一句** ✓（上面那条范围 `id < 250` 收不到它 ✓）。
+if (id === PromiseThenableAdopt) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 if (id === PromiseQueueMicrotask) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
@@ -1113,6 +1117,11 @@ for (let i = 0; i < helpers.length; i++) {
 // 听起来像「谁忘了登记」✗，其实上面那一趟**已经登记过了** ✓（真相是「这三格该由引擎答」✓）。
 host.Machine.RegisterGeneratorMethods(GeneratorNextId, GeneratorReturnId, GeneratorThrowId);
 host.Machine.RegisterBoundCall(BoundCall);
+// **第 359 轮：把「这个值是可采纳对象吗」那一格也登记上** ✓——
+// 引擎在**兑现**一个承诺之前会回调进来问一句 ✓（见 `promise.xl.md` 的
+// `PromiseThenableAdopt` ✓ 与 `vm.xl.md` 的 `ResolvePromise` ✓）。
+// **不登记就等于没有这一档** ✓（引擎那一段整段跳过 ✓）——那正是这一轮之前的行为 ✓。
+host.Machine.RegisterThenableHook(PromiseThenableAdopt);
 // **`bind` 那一格也要额外告诉引擎一声** ✓（第 343 轮 ✓）：与上面那一句**同一个形状** ✓——
 // 上面登记的是「这三格该由引擎答」✓，这一句登记的是「**这一格的 `this` 给对象自己**」✓
 // （那三样载荷藏在它自己的隐藏属性里 ✓）。**不登记会怎样** ✗：`bound.call(x)` 那一档

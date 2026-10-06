@@ -8988,6 +8988,45 @@ check("三样 abrupt completion 走同一条改写：先把在册的 `finally` �
   eq(out[11], "stillThrows caught:e", "再把异常交给 `catch`（回归）");
 });
 
+// **能力号不许两两相同** ✓（第 359 轮 ✓，**实测撞过一次** ✗）：
+// `typescript-exec/builtins/*.xl.md` 里那些 `# const X:int = N` 就是**能力号** ✓，
+// 而它们全落在**同一张分派表**上 ✓（`InvokeGlobal` / `InvokePromise` / … 按号分支 ✓）
+// ⇒ 两个名字共用一个号 = **一个能力被另一个顶掉** ✗。
+// **实测**：`PromiseThenableAdopt` 第一版随手写 249 ✓，正好与 `PromiseTry` 同号 ✗
+// ⇒ `Promise.try` 被分派到新那一格 ✓、返回布尔假 ✓ ⇒ 调用方拿到的「承诺」是 `false` ✓
+// ⇒ 下一步 `p.then(...)` 报 **`cannot call a non-closure value`** ✗
+// （**一句话里没有一个字提到 `Promise.try`** ✗，一次打红**四格** ✗）。
+// **为什么以前没人拦** ✗：这一门里那条「编号只追加」的检查认的是**指令表** ✓
+// （`Op` 那一张 ✓），而语言层新加的常量**不在里面** ✗——**表外的号没人看着** ✗。
+// **判据是「同一个文件里不许重复」** ✓（**第 359 轮实测两次才定下来** ✗）：
+// 一开始写成「builtins 全局不许重复」✓，一跑就报了**四处误报** ✗——
+// `inspect.xl.md` 的 `InspectDepth = 2` ✓ 与 `ArrayPop = 2` ✓ 是**两码事** ✓
+//（前者是排版参数 ✓、后者是能力号 ✓），`MaxJsonDepth` / `TextMaxDepth` 同理 ✓。
+// 而**真正那次事故**（`PromiseThenableAdopt` 与 `PromiseTry` 都用 249 ✓）
+// **就发生在同一个文件里** ✓ ⇒ 判据收到「同一文件内不许重复」✓：
+// **既能拦住那一次** ✓、又**没有一处误报** ✓（实测 0 处 ✓）。
+// 这一格没有名字（本文件是按块写的），说明写在上面那一段注释里。
+{
+  const dir = path.join(root, "typescript-exec", "builtins");
+  const clashes = [];
+  for (const name of fs.readdirSync(dir).sort()) {
+    if (!name.endsWith(".xl.md")) continue;
+    const seen = new Map();
+    const lines = fs.readFileSync(path.join(dir, name), "utf8").split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^# const (\w+):int = (\d+)/);
+      if (m === null) continue;
+      const key = m[2];
+      if (seen.has(key)) {
+        clashes.push(name + "：" + key + " 给了 " + seen.get(key) + " 与 " + m[1] + "(@" + (i + 1) + ")");
+      } else {
+        seen.set(key, m[1]);
+      }
+    }
+  }
+  eq(clashes.length, 0, clashes.length === 0 ? "能力号两两不同" : "撞号：" + clashes.join("；"));
+}
+
 console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;
