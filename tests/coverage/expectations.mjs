@@ -1162,7 +1162,6 @@ export const EXPECTATIONS = {
   // ---- 闭包里引用了**在它后面声明**的 `const`（`name used before its declaration: c`）——TDZ 与提升的口径。
 
   // ---- **交叉类型被当成表达式**（`unimplemented: expression IntersectionType`）。
-  "c371-e2e-binary-encoding": { expect: "blocked", why: "**交叉类型被当成表达式**（`unimplemented: expression IntersectionType`）。" },
 
   // ---- `Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。
   "c371-e2e-string-search-index": { expect: "differ", why: "`Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。" },

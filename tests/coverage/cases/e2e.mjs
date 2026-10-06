@@ -2459,5 +2459,15 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     "nodeArgs": [
       "--experimental-transform-types"
     ]
+  },
+
+  // ===== 第 384 轮：`|` / `&` 的值位与类型位（1 条）=====
+  {
+    "id": "c384-e2e-union-and-intersection-shapes",
+    "title": "`A | (B & C)` 的两副面孔：值位是位运算、类型位是联合/交叉",
+    "src": "// 同一个形状、两种意思 —— 判据只能看**左边那一格**（第 384 轮）。\n// 值位：位运算\nconst a = 1;\nconst b = 2;\nconst c = 3;\nconsole.log(\"A\", a | (b & c), 1 | (2 & 3), a & (b | c));\nlet v = 0;\nv = 1 | (2 & 3);\nconsole.log(\"B\", v);\nfunction f(): number {\n  return 1 | (2 & 3);\n}\nconsole.log(\"C\", f());\nconsole.log(\"D\", ((a + b) & 0xff) | 16);\n// 类型位：联合 / 交叉（同样的括号形状）\ntype Wide = string | number;\ntype Both = { x: number } & { y: string };\ntype Mixed = Wide | (Both & { z: boolean });\ntype Leading =\n  | (Both & { w: number })\n  | Wide;\nconst wide: Wide = \"s\";\nconst both: Both = { x: 1, y: \"y\" };\nconst mixed: Mixed = both;\nconst leading: Leading = both;\nconsole.log(\"E\", typeof wide, both.x, both.y, mixed.y, leading.x);\ninterface HasOpts { mode?: Mixed | undefined; flag?: Leading | null; }\nconst opts: HasOpts = { mode: both, flag: both };\nconsole.log(\"F\", opts.mode !== undefined, opts.flag !== undefined);\nconsole.log(\"G\", a | (b & c) | (a & b), (a | b) & (b | c));",
+    "nodeArgs": [
+      "--experimental-transform-types"
+    ]
   }
 ];

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1711,
+  "matrix": 1712,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.12,
+  "progressPercent": 97.25,
   "layers": [
     {
       "layer": "runtime",
@@ -73,12 +73,12 @@
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 165,
-      "pass": 158,
-      "blocked": 3,
+      "total": 166,
+      "pass": 160,
+      "blocked": 2,
       "differ": 4,
       "nodefail": 0,
-      "coverage": 95.76
+      "coverage": 96.39
     }
   ],
   "blocked": [
@@ -141,12 +141,6 @@
       "layer": "e2e",
       "title": "观察者模式：优先级、退订、一次性监听",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member ExpressionStatement"
-    },
-    {
-      "id": "c371-e2e-binary-encoding",
-      "layer": "e2e",
-      "title": "二进制编码：位打包、位读取、校验和",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression IntersectionType"
     },
     {
       "id": "c371-e2e-multi-source-merge",

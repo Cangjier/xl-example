@@ -6,6 +6,76 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 384 轮的账（**`A | (B & C)` 的两副面孔** —— 97.1% → **97.2%**，端到端 95.8% → **96.4%**）
+
+用户口径不变 ✓。这一轮接第 383 轮结尾那张单子 ✓：端到端的 `binary-encoding` 报
+`unimplemented: expression IntersectionType` ✓——**与上一轮同一个家族** ✓
+（类型位该消失的东西漏到了值位 ✓）。
+
+### 一、根子：两个形状**一模一样**
+
+```ts
+const x = 1 | (2 & 3);          // 值位：位运算 + 括号
+type X = A | (B & C);           // 类型位：联合 + 交叉
+```
+
+`IsTypeBracketPosition`（`text-common-util.xl.md` ✓）原来那一句是**按形状**判的 ✗：
+
+```ts
+if (text === ":" || text === "?:" || text === "|" || text === "&" || …) return true;
+```
+
+⇒ 值位那些写法里，`(2 & 3)` 的括号前面也是 `|` ✓ ⇒ 判成**类型位** ✗ ⇒
+`2 & 3` 被收成一个**交叉类型** ✓ ⇒ 降级层报 `unimplemented: expression IntersectionType` ✓
+⇒ **整份文件进不来** ✗（判据 `c371-e2e-binary-encoding` 里
+`(this.current << 1) | ((value >> i) & 1)` ✓、`(sum + b) & 0xff` ✓ 都是它 ✓）。
+
+### 二、修法：**只在拿到证据时才改口**
+
+新判据**往左走** ✓，跨过**操作数**与**同族的 `|` / `&`** ✓
+（名字两处都能站 ✓，所以不能停在它身上 ✗），一路找到**证据**为止：
+
+| 撞上 | 结论 |
+| --- | --- |
+| `=` | 交给链子那条老判据：`type` 别名右值 ⇒ 类型位 ✓ / `let`·`const`·`var` 右值 ⇒ **值位** ✓ |
+| `TypeAssign` / `TypeDefine` 这类**装类型的容器** | 类型位 ✓ |
+| **实参表**（`Method` ✓ 或 `IsCallArgumentsBracket` ✓） | **值位** ✓ |
+| `return` / `throw` / `case` / `typeof` / `void` / `delete` / `await` / `in` / `instanceof` / `new` | **值位** ✓ |
+| `,` / `(`（在实参表里 ✓） | **值位** ✓ |
+| **其余一切** | **维持类型位** ✓（没有证据就不动 ✓） |
+
+**最后那一行是这一版与前两版的全部区别** ✗：第一版直接把「`|` / `&` ⇒ 类型位」这个默认答案
+**翻掉** ✓ ⇒ `cases:tsast` **连报两次漂移** ✗✗：
+
+- `typescript.d.ts` 的 `type CompilerOptionsValue = string | number | boolean | (string | number)[] | …`
+  ⇒ 递归到 `boolean` 时撞上「`Identifier` / `Keyword` 后面不是那四个词 ⇒ 值位」那一支 ✓
+  ⇒ 外面那个 `TypeReference` **漂移 1 处** ✗（区间少了 `<string[]>` ✓）；
+- `fs.d.ts` 的 `export type WriteFileOptions = | ( & ObjectEncodingOptions … )`
+  ⇒ **前导 `|`** ✓（运算符左边没有操作数 ✓）没被认出来 ✓ ⇒
+  **缺 1 个 `TypeReference` + 多 1 个 `AmpersandToken`** ✗。
+
+第二版把判据塞进**公用**的链子 ✓（`IsTypeContainerUnit` 那一格 ✓）⇒ **还是漂** ✗——
+那句话说明链子上还有别的形状靠「不是符号 ⇒ 值位」活着 ✓，所以判据只能收在**本支** ✓
+（与第 162 轮 `IsCallArgumentsBracket` 那一处**同一个做法** ✓）。
+
+### 三、同族的先例
+
+第 162 轮在**实参表**那一档加过一条同类判据 ✓：
+`f("x", (a & b))` 里那个括号前面也是 `,` ✓，当时报的**正是同一句** `IntersectionType` ✓。
+**同一个症状、同一个形状、不同的位置** ✓——这一轮补的是那一格漏掉的另一半 ✓
+（实参表 / `return` / 前置运算符那几种「引出值」的位置 ✓）。
+
+### 四、读数与下一轮
+
+`pass` **1666 → 1668** ✓（分母同时 1711 → **1712** ✓：补了 1 条语料 ✓）、
+`blocked` **12 → 11** ✓、`differ` **33 → 33** ✓、**红的一栏 0** ✓、
+整体 **97.1% → 97.2%** ✓、**端到端 95.8% → 96.4%** ✓、六道门 **30.2s 全绿** ✓。
+
+**下一轮** ✓：端到端只剩 **2 条 `blocked`** ✓——
+`observer-with-priority`（`unimplemented: class member ExpressionStatement` ✓）与
+`multi-source-merge`（`name is not a local or a capture: priority` ✓，**很可能又是上下文关键字** ✓：
+与第 383 轮那条同族 ✓，先看它 ✓）。
+
 ## 第 383 轮的账（**`override` 的两副面孔** —— 96.9% → **97.1%**，端到端 94.5% → **95.8%**）
 
 用户口径不变 ✓。这一轮换到**端到端**那几条 `blocked` 上找 ✓——

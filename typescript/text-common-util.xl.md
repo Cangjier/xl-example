@@ -1037,11 +1037,111 @@ if (text === "=>") {
   }
   return false;
 }
+if (text === "|" || text === "&") {
+  // **`1 | (2 & 3)` 与 `type X = A | (B & C)` 同形** ✗（第 384 轮 ✓）——
+  // 只看「这个括号前面是 `|` / `&`」判不出高下 ✗：两边一模一样 ✓。
+  // **判据要问那个运算符左边** ✓：把它的**左操作数那一格**当成一次新的询问 ✓（递归 ✓）——
+  //   · `type X = A | (B & C)` ⇒ 左操作数 `A` 前面是 `TypeAssign` ⇒ **类型位** ✓
+  //   · `const x = 1 | (2 & 3)` ⇒ 左操作数 `1` 前面是 `Let` ⇒ **值位** ✓
+  //（`IsTypeContainerUnit` 那张名单里**有** `TypeAssign` ✓、**没有** `Let` ✓，
+  //  所以两种情形各自走到该走的那一支 ✓。）
+  //
+  // **为什么不能维持原来那句「`|` / `&` 一律类型位」** ✗：它是按**形状**判的 ✓，
+  // 而这一族的两个形状**完全一样** ✓。实测的现场 ✗：`const x = 1 | (2 & 3)` 报
+  // `unimplemented: expression IntersectionType` ✓（**整份文件进不来** ✗，
+  // 判据 `c371-e2e-binary-encoding` 拖的就是它 ✓——那里面 `(this.current << 1) | ((value >> i) & 1)`
+  // 与 `(sum + b) & 0xff` 都是这个形状 ✓）。
+  // **递归一定收敛** ✓：每一层都往前挪一个操作数 ✓，而左边到头时上面 `at <= 0` 那一句直接给值位 ✓。
+  //
+  // **同族的先例** ✓：第 162 轮在实参表那一档加过一条同类判据 ✓
+  //（`f("x", (a & b))` 里那个 `(` 前面是 `,` ✓），当时也是报 `IntersectionType` ✓——
+  // **同一句话、同一个形状、不同的位置** ✓，所以这里补的是那一格漏掉的另一半 ✓。
+  // **往左走，只在拿到「这是值位」的证据时才改口** ✓（第 384 轮 ✓）。
+  //
+  // 原来的答案是一句「`|` / `&` ⇒ 类型位」✓——它对**类型位**那些写法是对的 ✓，
+  // 而对 `const x = 1 | (2 & 3)` 是错的 ✗（两边形状**一模一样** ✗）。
+  // **怎么改才安全** ✗：不能把「类型位」这个默认答案整个翻掉 ✗（第一版就是这么写的 ✓，
+  // 结果 `cases:tsast` 连报两次漂移 ✗✗）——只能**在找到证据时**改口 ✓：
+  //   · 一路往左跨过**操作数**与**同族的 `|` / `&`** ✓（名字两处都能站 ✓，所以不能停在它身上 ✗）；
+  //   · 撞上 `=` ✓ ⇒ 由链子那条老判据回答「这是类型别名右值（型 ✓）还是 `let`/`const`/`var` 右值（值 ✓）」✓；
+  //   · 撞上 `TypeAssign` / `TypeDefine` 这类**装类型的容器** ✓ ⇒ 类型位 ✓；
+  //   · 撞上 `:` / `?:` / `<` / `,` / `(` ✓ ⇒ 类型位 ✓；
+  //   · **其它一律维持「类型位」** ✓（没有证据就不动 ✓）——这一条是这一版与第一版的**全部区别** ✓。
+  //
+  // 实测的现场 ✗：`const x = 1 | (2 & 3)`（判据 `c371-e2e-binary-encoding` 里
+  // `(this.current << 1) | ((value >> i) & 1)` 与 `(sum + b) & 0xff` 都是它 ✓）
+  // 报 `unimplemented: expression IntersectionType` ✓——**整份文件进不来** ✗。
+  // **同族的先例** ✓：第 162 轮在实参表那一档加过一条同类判据 ✓
+  //（`f("x", (a & b))` 里那个 `(` 前面是 `,` ✓），当时同样是这句 `IntersectionType` ✓——
+  // 同一个症状、不同的位置 ✓，这里补的是那一格漏掉的另一半 ✓。
+  const walkLimit = 64;
+  // **宿主是不是「一串实参」** ✓（实参是值 ✓）：调用在产物里是 `Method`（实参是它的**直接子单元** ✓），
+  // 也可能是一对 `(` 且 `IsCallArgumentsBracket` 说是调用实参 ✓。两种都算 ✓。
+  const argsOwner =
+    owner.constructor.name === "Method" ||
+    (owner instanceof Bracket && owner.startBracket === "(" && IsCallArgumentsBracket(owner));
+  let walkAt = at;
+  for (let hop = 0; hop < walkLimit; hop++) {
+    walkAt = SkipPreviousWrapSymbol(owner.Data, walkAt);
+    const item = Get(owner.Data, walkAt);
+    if (item === null) {
+      // **到头了要看容器** ✗：调用实参表里的到头 ⇒ **值位** ✓（实参是值 ✓）；
+      // 别的容器（类型别名右值、语句体…）⇒ 维持类型位 ✓。
+      // 实测的现场 ✗：`console.log(a | (b & c))` 里内层那个 `(` 的宿主是**外层的实参表** ✓
+      //（实参是 `Method` 的直接子单元 ✓），往左走到头就是它 ✓——
+      // 不认这一格的话 `a | (b & c)` 判成型 ✓、那个 `&` 被收成交叉 ✗。
+      return argsOwner === false;
+    }
+    if (IsTypeContainerUnit(item)) {
+      return true;
+    }
+    if (item instanceof SymbolToken) {
+      const itemText = item.TempToString();
+      if (itemText === "|" || itemText === "&") {
+        continue;
+      }
+      if (itemText === "=") {
+        // **证据就在这一格** ✓：`IsTypeAliasAssignment` 的约定是「传 `=` 左边那一格」✓
+        //（链子末尾那一支传的是 `at - 2` ✓，正是在 `=` 左边 ✓）。
+        return IsTypeAliasAssignment(owner.Data, walkAt - 1);
+      }
+      if (itemText === "," || itemText === "(") {
+        // **实参表里的 `,` / `(` ⇒ 值位** ✓（与第 162 轮 `IsCallArgumentsBracket` 那条同一个依据 ✓）。
+        // 实测的现场 ✗：`console.log(v, a | (b & c))`——第二格实参的左边是一个 `,` ✓，
+        // 不认它就会一路判成型 ✓ ⇒ 又是那句 `IntersectionType` ✓。
+        return argsOwner === false;
+      }
+      return true;
+    }
+    // **引出值的那些词** ✗（第 384 轮 ✓）：走到它们说明左边是一条**值**语句 ✓——
+    // `return 1 | (2 & 3)` ✓（函数体里那个 ✓）、`case x | (y & z):` ✓ 等等 ✓。
+    // **少了这一格** ✗：`function f() { return 1 | (2 & 3); }` 一路走到函数体开头 ✓、
+    // 到头时容器不是实参表 ✓ ⇒ 判成型 ✗ ⇒ 又是那句 `IntersectionType` ✓。
+    if (item instanceof Identifier || item.constructor.name === "Keyword") {
+      const word = WordText(item);
+      if (
+        word === "return" ||
+        word === "throw" ||
+        word === "case" ||
+        word === "typeof" ||
+        word === "void" ||
+        word === "delete" ||
+        word === "await" ||
+        word === "in" ||
+        word === "instanceof" ||
+        word === "new"
+      ) {
+        return false;
+      }
+      continue;
+    }
+    // **别的操作数**：两处都能站 ✓ ⇒ 再往左一格 ✓。
+  }
+  return true;
+}
 if (
   text === ":" ||
   text === "?:" ||
-  text === "|" ||
-  text === "&" ||
   text === "<" ||
   text === "," ||
   text === "("
