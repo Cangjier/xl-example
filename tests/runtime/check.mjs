@@ -687,13 +687,17 @@ console.log("=== IR：算子表与编号（跨目标的握手）===");
 check("编号只追加：成员顺序就是跨目标的约定", () => {
   // **第 133 轮从 22 变成 23** ✓：`call_array` 加在**最后**（`caught` 之后 ✓）——
   // 「只追加、不改序」这条规矩的代价就是这一行要跟着挪 ✓，而它挪错会当场红 ✓。
-  eq(enumMembers(Op), 23, "指令条数");
+  // **第 315 轮从 23 变成 24** ✓：`env_leave` 加在**最后**（`call_array` 之后 ✓）——
+  // 这一轮**当场红过一次** ✗：`EnvLeave` 第一版插在 `env_set` 后面 ✓，
+  // 于是**后面每一个算子的号都挪了一格** ✗，就是这一条拦下来的 ✓（**这正是它存在的意义** ✓）。
+  eq(enumMembers(Op), 24, "指令条数");
   eq(Op.Halt, 0, "第一条");
   eq(Op.Const, 1, "第二条");
   eq(Op.Resume, 18, "生成器用的那两条之前");
   eq(Op.LoadThis, 19, "读 this 的那条");
   eq(Op.Caught, 21, "catch 绑定那条（第 133 轮之前是最后一条）");
   eq(Op.CallArray, 22, "按数组铺开参数那条（第 133 轮追加的）");
+  eq(Op.EnvLeave, 23, "退出环境那条（第 315 轮追加的，**必须在最后**）");
   eq(Op.Await, 20, "承诺那条");
   eq(Op.Caught, 21, "这一轮追加的那条");
   eq(enumMembers(RtOp), RtOpCount, "通用算子条数与规范里那个常量一致");
@@ -975,7 +979,12 @@ check("空程序 / 空函数表", () => {
 
 check("指令码不在表内", () => {
   const program = validProgram();
-  program.Instrs[0] = new Instruction(Op.Resume + 5, 0, 0, -1, -1);
+  // **这里的号要跟着表尾走** ✗：原来写的是 `Op.Resume + 5`（= 23 ✓），
+  // 而第 315 轮把 `env_leave` 追加在第 23 位之后 ✓ ⇒ 那个号**恰好成了合法指令** ✓
+  // ⇒ 这一条当场红 ✓（**正是「只追加」那条规矩的第二种代价** ✓：
+  //   不只是上界要挪 ✓，「拿号算出来的假指令」也会过期 ✓）。
+  // 现在写成「表尾再往后一个」✓，加新算子时它**自动**还是未知的 ✓。
+  program.Instrs[0] = new Instruction(Op.EnvLeave + 1, 0, 0, -1, -1);
   const issue = issueOf(program);
   ok(issue !== null && issue.Code === IssueUnknownOp && issue.Pc === 0, "未知指令码带 PC");
 });

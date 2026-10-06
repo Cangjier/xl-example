@@ -1,6 +1,6 @@
 {
-  "round": "314",
-  "matrix": 1107,
+  "round": "315",
+  "matrix": 1108,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 93.72,
+  "progressPercent": 93.87,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 359,
-      "pass": 330,
+      "total": 360,
+      "pass": 333,
       "blocked": 15,
-      "differ": 14,
+      "differ": 12,
       "nodefail": 0,
-      "coverage": 91.92
+      "coverage": 92.5
     },
     {
       "layer": "exec",
@@ -290,12 +290,6 @@
   ],
   "differ": [
     {
-      "id": "rt-loop-capture-let-vs-var",
-      "layer": "runtime",
-      "title": "循环变量捕获：let 每个迭代一个、var 共用一个",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：environment index out of range: 1"
-    },
-    {
       "id": "rt-instanceof-custom",
       "layer": "runtime",
       "title": "instanceof 认 Symbol.hasInstance（静态方法优先）",
@@ -353,7 +347,7 @@
       "id": "c305-rt-let-loop-inner-const-capture",
       "layer": "runtime",
       "title": "经典 `for` 的每一次迭代里再取一个 const 给闭包",
-      "detail": "stdout 不同：第 1 行：node «0,10,20» vs tsrun «,0,1»"
+      "detail": "stdout 不同：第 1 行：node «0,10,20» vs tsrun «,,»"
     },
     {
       "id": "c305-rt-async-generator-await-inside",
@@ -366,12 +360,6 @@
       "layer": "runtime",
       "title": "`for await..of` 一个「承诺数组」：每一项都先兑现",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «[object Object],2,[object Object]»"
-    },
-    {
-      "id": "c314-rt-top-level-env-after-let-loop",
-      "layer": "runtime",
-      "title": "顶层 `for (let …)` 造过闭包之后，循环后面的代码读环境格会读错链",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：environment index out of range: 1"
     },
     {
       "id": "ex-getter-setter-class",

@@ -4273,4 +4273,12 @@ console.log(o.x, o.y);
     title: "顶层 `for (let …)` 造过闭包之后，循环后面的代码读环境格会读错链",
     src: "\nconst fns: Array<() => number> = [];\nfor (let i = 0; i < 3; i++) fns.push(() => i);\nconsole.log(\"A\", fns.map((f) => f()).join(\",\"));\nfunction mk(): () => number { let n = 5; return () => n; }\nconsole.log(\"H\", mk()());\n",
   },
+
+  // ===== 第 315 轮：`EnvLeave` 那条纪律（续跳点也在内） =====
+
+  {
+    id: "c315-rt-env-leave-on-continue",
+    title: "`continue` 那一跳也要重建环境：两种循环的每轮一格都经得起 `continue`",
+    src: "\nconst fns: (() => number)[] = [];\nfor (let i = 0; i < 4; i++) { if (i === 1) continue; fns.push(() => i); }\nconsole.log(fns.map((f) => f()).join(\",\"));\nconst gns: (() => string)[] = [];\nfor (const ch of [\"a\", \"b\", \"c\"]) { if (ch === \"b\") continue; gns.push(() => ch); }\nconsole.log(gns.map((f) => f()).join(\",\"));\n",
+  },
 ];

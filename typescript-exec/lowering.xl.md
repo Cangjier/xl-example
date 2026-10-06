@@ -3368,9 +3368,9 @@ const perIteration = initializer !== null
   && !IsVarList(initializer)
   && HasNestedFunction(Child(node, "statement"), 0);
 let envSlot = -1;
-let scratch = -1;
 let cells = 0;
 let names: string[] = [];
+let scratch = -1;
 if (perIteration) {
   const declarations = ListOf(initializer as AstNode, "declarations");
   for (let i = 0; i < declarations.length; i++) {
@@ -3382,7 +3382,9 @@ if (perIteration) {
   }
   cells = names.length;
   envSlot = this.Reserve(1);
-  scratch = this.Reserve(1);
+  // **每一个格一个暂存槽** ✓（第 315 轮 ✓）：值要从**上一轮那个环境**里先收出来 ✓，
+  // 再退出去、建新环境、写回去 ✓——见下面续跳点那一段为什么非这样不可 ✓。
+  scratch = this.Reserve(cells);
   this.Emit(Op.EnvNew, envSlot, cells, -1, -1);
   const scope = new EnvScope(envSlot);
   for (let i = 0; i < names.length; i++) scope.Declare(names[i], i);
@@ -3409,10 +3411,25 @@ this.LowerStatement(Child(node, "statement"));
 // `continue` 在这里落点：每轮的新环境也要建（否则 `continue` 就绕过了它）。
 context.ContinueTarget = this.Here();
 if (perIteration) {
+  // **每轮一个新环境：先把值收进暂存槽、退出上一层、再用「外层」当父亲建新的** ✓
+  //（第 315 轮改的 ✗）。**为什么要退出那一层** ✗：JS 的
+  // `CreatePerIterationEnvironment` 规定新环境的**外层**是**循环外面那一层** ✓，
+  // 不是上一轮那个环境 ✓——原来是「`EnvNew` 直接建、父亲自动取当前」✓，于是
+  // **环境链每轮长一层** ✗：跑一千轮就是一千层 ✓（读一次深处的变量要走一千步 ✓），
+  // 而且**循环出口**停在最后那一层上 ✓ ⇒ 循环**之后**的代码按词法深度读环境时
+  // 读到的链**少了一层** ✓（症状两种：报 `environment index out of range` ✓，
+  // 或者**一声不响地把后面的语句丢掉** ✗——判据 `c314-rt-top-level-env-after-let-loop` ✓）。
+  // **值要拷、但不从「深一层」读了** ✗：拷发生在**退出之前** ✓，
+  // 所以那几格就在**当前**这一层（深度 `0` ✓）——原来写的是深度 `1` ✓（父亲那一层 ✓），
+  // 那是「新环境已经建好」时的坐标 ✓，现在顺序反了 ✓，坐标跟着反 ✓
+  //（**同一件事两个坐标**，写错一个是静默错值 ✗）。
+  for (let i = 0; i < cells; i++) {
+    this.Emit(Op.EnvGet, scratch + i, 0, i, -1);
+  }
+  this.Emit(Op.EnvLeave, -1, -1, -1, -1);
   this.Emit(Op.EnvNew, envSlot, cells, -1, -1);
   for (let i = 0; i < cells; i++) {
-    this.Emit(Op.EnvGet, scratch, 1, i, -1);
-    this.Emit(Op.EnvSet, scratch, 0, i, -1);
+    this.Emit(Op.EnvSet, scratch + i, 0, i, -1);
   }
 }
 const incrementor = OptionalChild(node, "incrementor");
@@ -3422,6 +3439,12 @@ if (incrementor !== null) {
 this.Emit(Op.Jump, -1, start, -1, -1);
 if (exitIndex >= 0) {
   this.PatchTarget(exitIndex, this.Here());
+}
+// **出口也要退回去** ✓（第 315 轮 ✓）：`break` 与「条件为假」都落在这里 ✓，
+// 而此刻当前环境是**这一轮那个** ✓（父亲正是外层 ✓）——退一层就回到了循环外面 ✓
+// （**这一步不做，「循环之后」就永远是错的** ✗，见上面那一段 ✓）。
+if (perIteration) {
+  this.Emit(Op.EnvLeave, -1, -1, -1, -1);
 }
 this.LeaveLoop(context);
 if (perIteration) this.Env.Pop();
@@ -3519,10 +3542,21 @@ this.LowerStatement(Child(node, "statement"));
 // `continue` 在这里落点：**下一轮的新环境也要建** ✓（否则 `continue` 就绕过了它 ✓）。
 context.ContinueTarget = this.Here();
 if (perIteration) {
+  // **先退出这一轮、再建下一轮** ✓（第 315 轮 ✓）——与 `LowerFor` 那一段同一条改动 ✓
+  // 与同一个理由 ✓：每轮那层的**外层是循环外面那一层** ✓（不是上一轮 ✓），
+  // 否则环境链每轮长一层 ✓、而且**循环出口**会停在最后那一层上 ✓ ⇒
+  // 循环之后的代码按词法深度读环境就少了一层 ✓
+  //（判据 `c314-rt-top-level-env-after-let-loop` ✓）。
+  // **`for..of` 没有「拷贝」那一步** ✓（值下一句就新赋 ✓），所以这里只有两条指令 ✓。
+  this.Emit(Op.EnvLeave, -1, -1, -1, -1);
   this.Emit(Op.EnvNew, envSlot, 1, -1, -1);
 }
 this.Emit(Op.Jump, -1, start, -1, -1);
 this.PatchTarget(exitIndex, this.Here());
+// **出口也要退回去** ✓（第 315 轮 ✓）：`break` 与「迭代到头」都落在这里 ✓。
+if (perIteration) {
+  this.Emit(Op.EnvLeave, -1, -1, -1, -1);
+}
 this.LeaveLoop(context);
 if (perIteration) this.Env.Pop();
 this.PopScope();

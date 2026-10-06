@@ -557,9 +557,11 @@ return program;
 （判据会当场报 `unknown opcode`，不会静默放过去）。
 
 ```ts
-// **上界跟着最后一个成员挪**（第 133 轮挪到了 `call_array` ✓）：这条规矩的代价写在上面 ✓
-// ——忘了挪的症状是「新指令被判成未知指令码」✓，判据会当场报出来 ✓（不会静默放过去 ✓）。
-return op >= 0 && op <= Op.CallArray;
+// **上界跟着最后一个成员挪**（第 133 轮挪到了 `call_array` ✓、**第 315 轮挪到了 `env_leave`** ✓）：
+// 这条规矩的代价写在上面 ✓——忘了挪的症状是「新指令被判成未知指令码」✓，
+// 判据会当场报出来 ✓（**第 315 轮实测拦到了** ✗：`for (let …)` 那一条判据报
+// `unknown opcode: 23` ✓，位置在**验证层**而不在跑出来的结果里 ✓——正是「不会静默放过去」✓）。
+return op >= 0 && op <= Op.EnvLeave;
 ```
 
 # method SlotOk:(slot:int, slotCount:int, allowNone:bool)=>bool

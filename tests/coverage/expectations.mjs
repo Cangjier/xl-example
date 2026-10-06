@@ -510,7 +510,9 @@ export const EXPECTATIONS = {
   "rt-accessor-override": { expect: "blocked", why: "`unimplemented: assigning a property on a primitive receiver`：报在子类 `set value(next) { super.value = next }` 那一句上——`super.value = x` 该写进**接收者**（实例），却被当成了写在一个原始值上" },
 
   // ---- 组 C：环境格与闭包（2 条）----
-  "rt-loop-capture-let-vs-var": { expect: "differ", why: "`for (var j = 0; …) fns.push(() => j)` 报 `environment index out of range: 1`——`var` 那一格**不按迭代复制** ✓（对的那一半 ✓），差的是闭包读它时算出的槽位越界" },
+  // **`var` 那一半第 315 轮修好了** ✓（`EnvLeave` ✓，判据转 pass ✓、这一行撤了 ✓）——
+  // 留一句在这里：它当初报的是 `environment index out of range: 1` ✓，
+  // 根子是「循环出口没把环境退回去」✓（见文件末尾那一段 ✓）。
   "rt-ternary-nesting-and-assign": { expect: "blocked", why: "`flag ? (flag = false) : (flag = true)` 报 `name is not a local or a capture: return`——**三元的分支位**上放一个赋值表达式时，作用域收集把 `return` 当成了要绑的名字" },
 
   // ---- 组 D：生成器对象上那两格（2 条）----
@@ -662,7 +664,7 @@ export const EXPECTATIONS = {
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
-  "c305-rt-let-loop-inner-const-capture": { expect: "differ", why: "**循环体里的 `const` 不是每一轮一格**：`for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包该给 `0,10,20`，本仓给空/0/1（**静默错值**）。与 `c304-rt-closure-capture-in-forof`、`rt-loop-capture-let-vs-var` **同一个根**：降级层还没有「每个迭代开一格环境」" },
+  "c305-rt-let-loop-inner-const-capture": { expect: "differ", why: "**循环体里的 `const` 每一轮要一个新格**（与循环变量那一条是**两个面**，第 315 轮量清 ✓）：`for (let i …) { const j = i * 10; fns.push(() => j) }` 三个闭包该给 `0,10,20`，本仓给 `,,`——**三个都是 `undefined`** ✓（第 314 轮修 `for..of` 之前给的是 `,0,1` ✓，两个症状都不对 ✓）。根子与循环变量那一条**不是同一条** ✗：循环变量那一层环境第 314 / 315 轮已经修好 ✓（`c304-rt-closure-capture-in-forof` 与 `rt-loop-capture-let-vs-var` 都转了 pass ✓），而**块**今天**根本不建环境** ✗——降级期只有函数入口与那两个循环会发 `EnvNew` ✓（`lowering.xl.md` 里那四处 ✓），所以体内的 `const` 落在**外层同一格**里 ✓：写的那一句与读的那一句一旦不在同一层上 ✓，读到的就是 `undefined` ✓（**静默错值** ✗）。**修法**：给「块里声明了被捕获的 `let`/`const`」也发一对 `env_new` / `env_leave` ✓（`EnvLeave` 第 315 轮已经有了 ✓，缺的是**块那一侧**的调用点 ✓），另起一轮 ✓" },
   "c305-rt-async-generator-await-inside": { expect: "differ", why: "**异步生成器里 `await` 之后再 `yield` 什么都不出**：`for await (const v of g())` 一行都不打印（Node 给 `10,20`）。同步生成器与 `yield await` 之外的异步生成器是好的 ⇒ 挂起点与微任务队列在异步生成器那一帧上的交界没接上" },
   "c305-rt-for-await-of-promises": { expect: "differ", why: "**`for await..of` 一个「承诺数组」**没有逐项兑现：本仓给 `[object Object],2,[object Object]`（Node 给 `1,2,3`）——`for await` 的异步迭代路径对**同步迭代器**那一支少了每项一次 `await`（**静默错值**）" },
   "c305-rt-class-expression-named-self-reference": { expect: "blocked", why: "具名类表达式的名字在**类体里**读不到：`class Named { get tag() { return Named.id } }` 报 `name is not a local or a capture: Named`。与缺口清单 #10 同一条（名字只在函数体 / 类体内可见）" },
@@ -715,17 +717,13 @@ export const EXPECTATIONS = {
   // 都只往后吃**一个**单元 ✓（`SkipNextWrapSymbol` ✓），而**调用括号是又一个单元** ✓
   // ——`o["m"]()` 这种形状能对 ✓，是因为 `MethodReorganization` 先把它折成了一个 `Method` ✓；
   // 而键本身是**成员链**（`Symbol.iterator` / `obj.key` ✓）时那一折没赶上 ✓ ⇒ 括号剩在外面 ✗。
-  // **第 314 轮量到、当天没修** ✗：`for (let i…)` 那个「每轮一个新环境」在**循环出口**
-  // 把 `frame.Env` 留在**最后那个多出来的环境**上 ✓——而 IR 里**没有「退回上一层环境」那条指令** ✗
-  // （`ir.xl.md` 只有 `env_new` / `env_get` / `env_set` ✓），于是循环**之后**的代码
-  // 按词法深度读环境时读到的链少了一层 ✓ ⇒ 报 `environment index out of range: 1` ✓，
-  // 或者**一声不响地把后面的语句丢掉** ✗（实测两种都出现过 ✓：上一条是这个形状的下半个面 ✓）。
-  // **判据 `c314-rt-top-level-env-after-let-loop` 钉的就是它** ✓（最小复现：一个顶层
-  // `for (let i…)` 里造闭包 ✓，后面再出现**任何**读环境格的代码 ✓）。
-  // **修法**：要么给引擎加一条「退回上一层环境」的算子 ✓（`EnvLeave` ✓，与 `EnvNew` 对称 ✓），
-  // 要么让每轮环境的建立点落在**别处** ✓——两条都要动引擎与降级期两处 ✓，另起一轮 ✓。
-  "c314-rt-top-level-env-after-let-loop": {
-    expect: "differ",
-    why: "顶层 `for (let i…)` 造过闭包之后，**循环后面的代码读环境格会读错链**：本仓只印 `A 0,1,2`（后面那行 `H 5` **丢了**，一句异常都没有），Node 印两行。根子是那个「每轮一个新环境」在**循环出口**把 `frame.Env` 留在最后多出来的那个环境上，而 IR 里没有「退回上一层环境」的指令（只有 env_new / env_get / env_set）⇒ 循环之后按词法深度读环境就少了一层。同一条根的另一副面孔是 `environment index out of range: 1`（把两段前后调换顺序就能看到）。修法：给引擎加一条与 `env_new` 对称的「退回上一层」算子，或改每轮环境的建立点——两处都要动，另起一轮",
-  },
+  // **第 314 轮量到、第 315 轮修掉** ✓：`for (let i…)` 那个「每轮一个新环境」原来在**循环出口**
+  // 把 `frame.Env` 留在**最后那个多出来的环境**上 ✓——而 IR 里当时**没有「退回上一层环境」那条指令** ✗
+  // （只有 `env_new` / `env_get` / `env_set` ✓），于是循环**之后**的代码按词法深度读环境时
+  // 读到的链少了一层 ✓ ⇒ 报 `environment index out of range: 1` ✓，
+  // 或者**一声不响地把后面的语句丢掉** ✗（实测两种都出现过 ✓）。
+  // **这一轮补上了 `env_leave`** ✓（`ir.xl.md` 追加在**表尾** ✓——「只追加、不改序」那条硬规矩 ✓），
+  // 每轮的新环境也改成**以外层为父** ✓（JS 的 `CreatePerIterationEnvironment` 就是这条 ✓）。
+  // 判据 `c314-rt-top-level-env-after-let-loop` 与 `rt-loop-capture-let-vs-var` 都已转 pass ✓，
+  // **两行都撤了** ✓——留这一段在这里，是为了让「为什么 IR 里要多一条与 `env_new` 对称的算子」有出处 ✓。
 };

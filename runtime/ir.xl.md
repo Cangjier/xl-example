@@ -107,6 +107,22 @@ import { HeapTable } from "./heap.xl.md"
 
 **它是「只追加」的第 22 个算子** ✓：加在 `caught` 之后 ✓，
 `IsKnownOp` 的上界跟着挪（`ir-verify.xl.md` 那一条写着为什么要挪 ✓）。
+- case EnvLeave
+把当前帧的 `Env` 换成它的 `Parent`（**退出一层**）——`EnvNew` 的反面（第 315 轮 ✓）。
+
+**它追加在 `call_array` 之后** ✓（**这是硬规矩** ✗：各目标按**位置**编号 ✓，
+所以新算子只能接在**最后一个**后面 ✓——插在中间会把**后面每一个**算子的号都挪一格 ✗；
+`tests/runtime/check.mjs` 里那条「编号只追加」的检查当场会拦下来 ✓，第 315 轮实测拦到过 ✓）。
+
+**为什么必须有它** ✗：`EnvNew` 会**改当前帧的 `Env`** ✓，而「进入一个块」
+与「离开那个块」是一对 ✓——原来只有前一半 ✗ ⇒ 一个 `for (let i = …)` 跑完之后
+`frame.Env` 停在**最后那一轮多出来的环境**上 ✓，于是循环**之后**的代码按**词法深度**
+读环境时读到的链**少了一层** ✓（症状有两种：报 `environment index out of range` ✓，
+或者**一声不响地把后面的语句丢掉** ✗——判据 `c314-rt-top-level-env-after-let-loop` ✓）。
+
+**`A` / `B` / `C` 都不看** ✓：退几层由**降级期**决定（它连发几条 ✓），
+因为「退到哪一层」是词法信息 ✓（与 `EnvGet` 的层数是同一个道理 ✓）。
+**没有 `Parent` 就响亮地抛** ✗（那是降级期多发了一条 ✓，不是脚本的错 ✓）。
 
 # enum RtOp
 
@@ -607,6 +623,7 @@ if (this.Op === Op.Throw) return "throw";
 if (this.Op === Op.TryPush) return "try_push";
 if (this.Op === Op.TryPop) return "try_pop";
 if (this.Op === Op.EnvNew) return "env_new";
+if (this.Op === Op.EnvLeave) return "env_leave";
 if (this.Op === Op.EnvGet) return "env_get";
 if (this.Op === Op.EnvSet) return "env_set";
 if (this.Op === Op.Call) return "call";

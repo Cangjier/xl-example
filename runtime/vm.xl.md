@@ -1036,6 +1036,15 @@ if (instr.Op === Op.EnvNew) {
   frame.Slots[instr.A] = Value.FromObject(handle);
   return;
 }
+if (instr.Op === Op.EnvLeave) {
+  // **退出一层环境** ✓（第 315 轮 ✓）——`EnvNew` 的反面（见 `ir.xl.md` 那一段 ✓）。
+  // **没有父亲就响亮地抛** ✗：那是**降级期多发了一条** ✓，不是脚本的错 ✓
+  //（静默不动就是「环境链悄悄短了一层」✗，而症状会出现在很远的地方 ✓）。
+  const parent = this.Table.Get(frame.Env).AsEnv().Parent;
+  if (parent <= 0) throw new Error("env_leave with no parent environment");
+  frame.Env = parent;
+  return;
+}
 if (instr.Op === Op.EnvGet) {
   const env = this.WalkEnv(frame.Env, instr.B);
   const slots = this.Table.Get(env).AsEnv().Slots;
