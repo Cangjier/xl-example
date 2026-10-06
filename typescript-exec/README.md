@@ -6,6 +6,65 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 346 轮的账（**`new.target`** —— 99.1%，收掉 1 格；含**投影层的一处修正**）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮**三层都动了** ✓。
+
+### 一、那一格判据
+
+```ts
+function F() { console.log("called", new.target === F); }
+F(); new F();
+class B { constructor() { console.log("name", new.target && new.target.name); } }
+new B();
+```
+
+**Node 给 `called false` / `called true` / `name B`** ✓、本仓原来报
+`unimplemented: expression MetaProperty` ✗。
+
+### 二、按上一轮写全的清单逐项做（七处）
+
+- **`heap.xl.md`**：帧上多一格 **`NewTarget:Value`** ✓（**被调的那个构造函数本身** ✓，
+  与 `ConstructTarget` 那一格**是两件事** ✓：那一格是**实例句柄** ✓、`DoReturn` 要用 ✓）；
+- **`gc.xl.md`**：帧扫描里**一起标** ✓（它是一个 `Value` ✓，与 `This` 同一形状 ✓——
+  漏了它**只在回收之后现形** ✗）；
+- **`vm.xl.md`**：写新帧值时一起写 ✓（构造调用给 `callee` ✓、其余给 `undefined` ✓），
+  **另一条 async 帧的路也照写** ✓，`DoCallValue` 里加一条**读它**的指令分支 ✓；
+- **`ir.xl.md`**：追加 **`- case LoadNewTarget`** ✓（**只追加、编号在表尾** ✓）+ `OpName` 一格 ✓；
+- **`ir-verify.xl.md`**：`IsKnownOp` 上界跟着挪 ✓ + 操作数检查（**与 `load_this` 一字不差** ✓）；
+- **`lowering.xl.md`**：`MetaProperty` 落成 `LoadNewTarget` ✓；
+- **`tests/runtime/check.mjs`**：指令条数 **25 → 26** ✓ + 「**必须在最后**」那条断言跟着挪 ✓、
+  「未知指令码」那条从 `CheckGeneratorReturn + 1` 改成 **`LoadNewTarget + 1`** ✓。
+
+**清单是上一轮摸过一遍写下来的** ✓，所以这一轮**一次做完** ✓。
+
+### 三、实测踩到的三处（**都值得记** ✓）
+
+- **(a) 名字那一格是子节点、不是字符串** ✗：投影层把 `name` 投成 `Identifier(target)` ✓，
+  而第一版写 `String(node["name"])` 拿到 `"[object Object]"` ✓
+  （**加一句 `probe=JSON.stringify` 才看清** ✓）⇒ 改成 `TextOf(子节点)` ✓；
+- **(b) `new.target.name` 报「name is not a local or a capture: name」** ✗——
+  **根子在投影层** ✗：`MetaProperty` 那一支把后面的 `kids.slice(3)` 直接丢给 `foldBinaryFrom` ✓，
+  而**点号在那一支里会被当成二元运算符** ✗ ⇒ 投出来是一个**光秃秃的 `Identifier(name)`** ✗；
+  修法是**先把点号链走完**再交给二元那一支 ✓（**token 层** ✓）；
+- **(c) 我的改帧脚本把 `asyncFrame.ConstructTarget` / `created.ConstructTarget` 两行替换掉了** ✗
+  （新文本里**没带它们** ✓）⇒ 门当场量到 **160 条 blocked、81.6%** ✓——
+  「cannot call a non-closure value」之类的话**一个字都没提到 `ConstructTarget`** ✗；
+  补回来就全绿 ✓。**这正是「六道门 + 覆盖度」两层保险的价值** ✓。
+
+**读数** ✓：`pass` **1328 → 1329** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **38.9s 全绿** ✓；**引擎 98.4%** ✓、降级层 99.1% ✓、标准库 99.2% ✓、端到端 100% ✓。
+**剩下 14 格** ✓。
+
+**下一轮的入口** ✓：
+**① 那张 `IdTable` 的容量口径** ✓（第 340 轮量到 ✓：`IsValid` 与 `BuiltinSlots` 要对齐 ✓，
+会牵到**线形态指纹** ✓）；**② `Map` / `Set` / `Date` 的 `size` 该是原型上的 getter** ✓
+（第 341 轮 ✓）；**③ 错误对象的内部槽标记** ✓（第 343 轮 ✓）；
+**④ `thenable` 采纳 / `Array.fromAsync`** ✓（2 条 ✓）；**⑤ 零散** ✓
+（`console.log(Error)` 要栈 ✗、`delete` 非可配置 ✓、`super` 在对象字面量里 ✓、
+三元与箭头 ✓、`for..in` 的次序 ✓、宿主函数的 `length` ✓ 等 ✓）。
+
 ## 第 345 轮的账（**`String.prototype[Symbol.iterator]`** —— 99.0% → **99.1%**，收掉 1 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**」✓，
