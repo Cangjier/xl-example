@@ -12,6 +12,7 @@
     "check": "xl check",
     "build": "xl build && tsc",
     "compile": "tsc",
+    "gates": "node ./tests/gates/run.mjs",
     "samples": "node ./samples/check.mjs",
     "cjcli": "node ./build/ts/cjcli.js",
     "tsrun": "node ./build/ts/tsrun.js",
@@ -22,7 +23,8 @@
     "cases:tsast:cli": "node ./tests/parse/ts-ast.mjs --cli",
     "coverage": "node ./tests/coverage/run.mjs",
     "coverage:sweep": "node ./tests/coverage/sweep.mjs",
-    "cpp:check": "node tests/cpp/check.mjs"
+    "cpp:check": "node tests/cpp/check.mjs",
+    "gates:verbose": "node ./tests/gates/run.mjs --verbose"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

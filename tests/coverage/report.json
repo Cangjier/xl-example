@@ -1,6 +1,6 @@
 {
-  "round": "317",
-  "matrix": 1110,
+  "round": "",
+  "matrix": 1111,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.07,
+  "progressPercent": 94.19,
   "layers": [
     {
       "layer": "runtime",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 452,
-      "pass": 427,
-      "blocked": 13,
-      "differ": 12,
+      "total": 453,
+      "pass": 430,
+      "blocked": 12,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 94.47
+      "coverage": 94.92
     },
     {
       "layer": "e2e",
@@ -246,12 +246,6 @@
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
     },
     {
-      "id": "c304-std-promise-race-forms",
-      "layer": "stdlib",
-      "title": "Promise.race / allSettled / any 的三种结清",
-      "detail": "tsrun: 第 0 份模块求值：the script is waiting for a promise the host has not settled"
-    },
-    {
       "id": "c304-std-string-normalize-ascii-forms",
       "layer": "stdlib",
       "title": "normalize 在已规范化的串上是恒等",
@@ -390,12 +384,6 @@
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
       "detail": "stdout 不同：第 3 行：node «Error: boom» vs tsrun «{ message: 'boom', name: 'Error' }»"
-    },
-    {
-      "id": "promise-constructor",
-      "layer": "stdlib",
-      "title": "`new Promise(executor)`：同步跑执行器、resolve / reject",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：the script is waiting for a promise the host has not settled"
     },
     {
       "id": "function-prototype-tostring",

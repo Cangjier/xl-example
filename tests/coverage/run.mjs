@@ -29,7 +29,8 @@
 //
 // 判据读的是 `build/**/*.js`——**跳过 `xl build` 的话，它量的是上一版的产物**。
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -127,6 +128,39 @@ function run(argv, elapsedOut) {
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
+/**
+ * **异步**跑一个进程（第 318 轮 ✓）——并发池真正并行起来靠的就是它 ✗。
+ *
+ * **为什么非改不可** ✗：原来那一个是 `spawnSync` ✓，而它是**同步**的 ✓——
+ * 它一进去就把整个事件循环**堵住** ✓ ⇒ 那 8 个「并发」worker 一个接一个地跑 ✓
+ * ⇒ **`--jobs` 形同虚设** ✗（用户实测：CPU 只有 12% ✓、`--jobs 8` 与 `--jobs 16`
+ * 只差 6 秒 ✓——两件事都是这一条造成的 ✓）。
+ * 换成 `spawn` + Promise 之后，同一时刻真的有 8 个 `node` 在跑 ✓。
+ */
+function runAsync(argv) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, argv, {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const out = [];
+    const err = [];
+    const timer = setTimeout(() => {
+      child.kill();
+    }, 30000);
+    child.stdout.on("data", (chunk) => out.push(chunk));
+    child.stderr.on("data", (chunk) => err.push(chunk));
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", (status) => {
+      clearTimeout(timer);
+      resolve({ status, stdout: Buffer.concat(out), stderr: Buffer.concat(err) });
+    });
+  });
+}
+
 /** 第一条不同的行（对拍失败时给人看的那一眼）。 */
 function firstDifference(left, right) {
   const a = left.toString("utf8").split("\n");
@@ -140,10 +174,10 @@ function firstDifference(left, right) {
 }
 
 /** 跑一条用例，给出 `{ actual, detail, stderr }`；`actual` 是 `pass|differ|blocked|nodefail`。 */
-function judge(entry) {
+async function judge(entry) {
   const file = path.join(workDir, `${entry.id}.ts`);
   fs.writeFileSync(file, entry.src.trimEnd() + "\n", "utf8");
-  const oracle = run([...(entry.nodeArgs || []), file]);
+  const oracle = await judgeOnce(entry, file);
   // `nodeMayFail`：这一条**本来就是**「两边都非零退出」那一档（`exc-uncaught-exit-code`）——
   // 裁判非零退出不算用例坏，只是**退出码也要对得上**。
   if (oracle.status !== 0 && !entry.nodeMayFail) {
@@ -153,7 +187,7 @@ function judge(entry) {
   if (oracle.stdout.length === 0) {
     return { actual: "nodefail", detail: "node 一行都没打印（用例不合格：不打印的通过等于没验）", elapsed: 0 };
   }
-  const ours = run([tsrun, file]);
+  const ours = await runAsync([tsrun, file]);
   const mine = ours.stderr.toString("utf8").split("\n").find((line) => line.trim() !== "") || "";
   const elapsed = 0;
   if (ours.stdout.length === 0 && ours.status !== 0) {
@@ -172,6 +206,76 @@ function judge(entry) {
   return { actual: "pass", detail: "", elapsed };
 }
 
+// ---------------------------------------------------------------------------
+// **裁判那一半的缓存**（第 318 轮加，用户口径：「coverage 每次十分钟太慢」）。
+//
+// **先量出来的事实** ✗：一条用例要起**两个** `node` 进程 ✓（裁判 `node file.ts` ✓、
+// 被测 `tsrun file.ts` ✓）——实测裁判 ~204ms ✓、被测 ~265ms ✓、裸 `node -e 0` 130ms ✓
+// ——**时间几乎全在进程启动上** ✓（1110 条 × ~0.47s ≈ 520s ✓，与实测 600s 对得上 ✓）。
+// 所以「加并行」没用 ✗（实测 `--jobs 16` 与 `--jobs 8` 只差 6s ✓：瓶颈是 Windows 的
+// 进程创建 ✓，不是 CPU ✓）；**能省的是「把裁判那一趟去掉」** ✓——它是**同一份源码
+// 交给 node 的确定结果** ✓，与 `tsrun` 那一侧无关 ✓。
+//
+// **不许省的情形** ✓（保守到「宁可多跑」✗）：源码里出现**非确定**来源时一律不缓存 ✓
+//（`Date.now` / `new Date()` 无参 / `Math.random` / `performance.now` / `process.hrtime` ✓）
+// ——那些用例每次的 stdout 本来就该不同 ✓，缓存下来就是**拿旧答案判今天的题** ✗。
+// 键里还带上**裁判的 node 版本** ✓（换 node 就是换裁判 ✓）与 `nodeArgs` ✓。
+//
+// **它不改变任何判定** ✓：命中时用的就是**同一趟跑出来的** stdout / 退出码 ✓，
+// 只是那一趟是**上一次**跑的 ✓。要关掉它：`--no-judge-cache` ✓（或删掉那个文件 ✓）。
+const judgeCachePath = path.join(here, ".judge-cache.json");
+const noJudgeCache = flag("--no-judge-cache");
+const JUDGE_CACHE_VERSION = 1;
+let judgeCache = { version: JUDGE_CACHE_VERSION, node: process.version, entries: {} };
+let judgeCacheHits = 0;
+let judgeCacheMisses = 0;
+if (!noJudgeCache && fs.existsSync(judgeCachePath)) {
+  try {
+    const loaded = JSON.parse(fs.readFileSync(judgeCachePath, "utf8"));
+    if (loaded && loaded.version === JUDGE_CACHE_VERSION && loaded.node === process.version) {
+      judgeCache = loaded;
+    }
+  } catch {
+    // 坏掉的缓存**不是错误** ✓：重新攒一份 ✓（它只是加速用的 ✓）。
+  }
+}
+/** 这一份源码可不可以缓存（非确定来源就不行）。 */
+function cacheable(entry) {
+  if (noJudgeCache) return false;
+  return !/(Date\.now|new Date\(\s*\)|Math\.random|performance\.now|process\.hrtime)/.test(entry.src);
+}
+/** 缓存键：源码 + 裁判参数（node 版本在文件的头上 ✓）。 */
+function judgeKey(entry) {
+  const hash = createHash("sha256").update(entry.src.trimEnd()).digest("hex").slice(0, 32);
+  return `${hash}|${(entry.nodeArgs || []).join(" ")}`;
+}
+/** 裁判那一趟：有缓存就用缓存 ✓，没有就真跑一趟 ✓并且记下来 ✓。 */
+async function judgeOnce(entry, file) {
+  const usable = cacheable(entry);
+  const key = usable ? judgeKey(entry) : "";
+  if (usable) {
+    const hit = judgeCache.entries[key];
+    if (hit !== undefined) {
+      judgeCacheHits += 1;
+      return {
+        status: hit.status,
+        stdout: Buffer.from(hit.stdout, "base64"),
+        stderr: Buffer.from(hit.stderr, "base64"),
+      };
+    }
+    judgeCacheMisses += 1;
+  }
+  const oracle = await runAsync([...(entry.nodeArgs || []), file]);
+  if (usable) {
+    judgeCache.entries[key] = {
+      status: oracle.status,
+      stdout: oracle.stdout.toString("base64"),
+      stderr: oracle.stderr.toString("base64"),
+    };
+  }
+  return oracle;
+}
+
 // 一个很小的并发池：用例是**两个真进程**，串行跑一条要几百毫秒。
 const results = new Array(selected.length);
 let cursor = 0;
@@ -183,7 +287,7 @@ const workers = Array.from({ length: Math.min(jobs, selected.length) }, async ()
     const started = process.hrtime.bigint();
     let outcome;
     try {
-      outcome = judge(entry);
+      outcome = await judge(entry);
     } catch (error) {
       outcome = { actual: "nodefail", detail: `跑不起来：${error.message}`, elapsed: 0 };
     }
@@ -306,6 +410,19 @@ if (verbose) {
 console.log(`覆盖度：${results.filter((r) => r.actual === "pass").length} / ${results.length} 条通过；`
   + `blocked ${blocked.length}、differ ${differ.length}、bad ${bad.length}；`
   + `整体加权 ${(progress * 100).toFixed(1)}%`);
+// **裁判缓存这一趟省了多少** ✓（第 318 轮 ✓）：命中数就是「少起了几个 node」✓。
+// **非确定来源那几条永远计在未命中里** ✓（它们不许缓存 ✓）——所以未命中数**不等于**
+// 「新增了多少条用例」✗，这一行只是让人看得见加速有没有生效 ✓。
+if (!noJudgeCache && (judgeCacheHits > 0 || judgeCacheMisses > 0)) {
+  const saved = ((judgeCacheHits * 0.2)).toFixed(0);
+  console.log(`裁判缓存：命中 ${judgeCacheHits} 条、实跑 ${judgeCacheMisses} 条`
+    + `（省下约 ${saved}s 的进程启动；关掉它：--no-judge-cache）`);
+  try {
+    fs.writeFileSync(judgeCachePath, JSON.stringify(judgeCache), "utf8");
+  } catch {
+    // 写不进去也**不是错误** ✓（下一次照旧实跑 ✓）。
+  }
+}
 
 // `--emit-expectations`：把**现状**打成一份台账骨架（给人改，然后贴进 expectations.mjs）。
 // 它只生成 `expect` 与 `why` 两栏——`why` 是从失败信息里抄的，**必须再读一遍**：

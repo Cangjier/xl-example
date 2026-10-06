@@ -10,3 +10,6 @@ node_modules
 # 临时排查脚本与它们的输出（历史上在仓库根目录堆积过 47 个：
 # 探针脚本 tmp-*.mjs / 输出 tmp-*.txt / 旧 build 快照 tmp-build/）
 tmp-*
+
+# coverage 的裁判缓存（第 318 轮：加速用，随时可删；内容只与用例源码有关）
+tests/coverage/.judge-cache.json

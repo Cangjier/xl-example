@@ -219,7 +219,6 @@ export const EXPECTATIONS = {
   //（**看起来像运行器卡住** ✗）。**两条候选都写在 `promise.xl.md` 的 `MakeSettleCallback`**
   // （本轮引擎那半边加了 `InvokeCallback` 的接收者格 ✓，可它传不到 `resolve` 身上 ✗；
   // 下一轮最短的一步是让那个值**绑定过** ✓——把承诺写进实参表第一格 ✓，宿主读 `args[0]` ✓）。
-  "promise-constructor": { expect: "differ", why: "`new Promise(执行器)`：执行器**同步跑**对了 ✓，差的是**执行器递出来的那两格**（`resolve` / `reject`）——脚本是**当普通函数**调它们的（`(res) => res(1)`，**没有接收者**）⇒ 走宿主那条路时语言层拿不到「它管的是哪个承诺」⇒ 那个承诺**永远不结清**（症状是宿主那句 `the script is waiting for a promise the host has not settled`，听起来像运行器卡住）。**第 317 轮试过并撤回了那条修法**：按生成器那三格的办法（引擎按载荷号认出这两格、承诺句柄就在 `HostRef.Opaque` 里），把判据插进那**两处**宿主调用点（`DoCallValue` / `CallNative` 的 `IsHostCallable` 分支）——**实测那两处都没被这一步经过**（把判据改成无条件抛，抛的是**别的**可调用值，说明 `res(1)` 走的是**第三条路**）。所以这一格今天的结论是：**先找出「对一个 HostRef 形参的裸调用」走的是哪条路**（诊断手法写在 `typescript-exec/README.md` 第 317 轮那一段），再照生成器那条先例做——撤回是对的：留着就是一段**从不执行**的判据" },
   // **第 286 轮删掉了 `promise-chaining-errors` 那一行** ✓（它过了 ✓）：
   // `.then` 回调里抛的错现在**变成结果承诺的拒绝** ✓——
   // 修在 `RunNativeTask` 那一处 ✓（回调跑完看 `Status === Threw` ✓ ⇒ 拒绝 ✓、
@@ -662,7 +661,6 @@ export const EXPECTATIONS = {
   "c304-ex-nonnull-in-optional-chain": { expect: "differ", why: "`arr![0]![0]` 投影出来是 `NonNullExpression(arr)`——**两个方括号与第二个 `!` 全丢了**（本轮实测：TS 那边是 `ElementAccess(NonNull(ElementAccess(NonNull(arr), 0)), 0)`）。这是第 303 轮那条链的**下一个形状**（`x![1]![0]`），入口在 `print-ast-common.xl.md` 的链分支" },
   "c304-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`namespace make { … }` 该挂在**函数值自己**那一格上（静态格），降级层只造了函数、没造那一格 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`" },
   "c304-std-symbol-iterator-manual": { expect: "differ", why: "**这一条第 308 轮走了一半** ✓：数组那一半（`[10, 20][Symbol.iterator]()` ✓）**已经修好** ✓——`Protos.Array` 上原来**没有那一格** ✗，挂上去之后 `it.next()` 与 `[...it]` 都对 ✓。剩下的**是字符串那一半** ✗：`\"ab\"[Symbol.iterator]()` 报 `cannot call a non-closure value` ✓——`Protos.String` 上同样缺那一格 ✓，而字符串的迭代要**按码点** ✓（代理对合起来 ✓，与引擎的 `iter_next` 第 297 轮改的那一条**同一条规矩** ✓）——语言层今天没有那个判据 ✗（`drain` 是引擎递给语言层的服务 ✓，而 `InvokeString` 的签名里没有它 ✓），所以这一格要先把「码点」那条规矩收成**一处**再做 ✓" },
-  "c304-std-promise-race-forms": { expect: "blocked", why: "`new Promise(执行器)` 那一格（缺口清单 #15）：执行器要**同步跑**、`resolve` / `reject` 要绑定过 ⇒ 报 `the script is waiting for a promise the host has not settled`。同一条里 `race` / `allSettled` / `any` 三格本身是好的" },
   "c304-std-string-normalize-ascii-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（`string-normalize` 从第 293 轮起拖着同一个根）——要一张 NFC/NFD 的组合表；本条里 `\"e\\u0301\".normalize(\"NFC\").length` 是 `1`，所以「只做 ASCII」不够" },
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====

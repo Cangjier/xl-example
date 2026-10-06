@@ -4344,4 +4344,12 @@ console.log(xs.toSpliced(1, 1, 9).join(","), xs.with(0, 7).join(","), xs.join(",
     title: "百分号编解码的边界：代理对 · 保留字符 · 非 ASCII 空白",
     src: "\nconsole.log(encodeURIComponent(\"😀\"), decodeURIComponent(\"%F0%9F%98%80\"));\nconsole.log(decodeURI(\"%2F\"), decodeURIComponent(\"%2F\"));\nconsole.log(encodeURI(\"http://x/y z\"), encodeURIComponent(\"\\u00a0|\\u3000\"));\nconsole.log(JSON.stringify(\"\\u00a0x\\u00a0\".trim()), JSON.stringify(\"\\u3000y\".trim()), JSON.stringify(\"\\ufeffz\".trim()));\n",
   },
+
+  // ===== 第 318 轮：执行器那两格 =====
+
+  {
+    id: "c318-std-promise-executor-settle",
+    title: "执行器递出来的 `resolve` / `reject`：直接调、当值传出去、以及兑现值是承诺",
+    src: "\nfunction handOff(cb: (v: number) => void): void { cb(7); }\nnew Promise<number>((res) => { res(1); })\n  .then((v) => { console.log(\"resolve\", v); return v; })\n  .then(() => new Promise<number>((_res, rej) => { rej(new Error(\"no\")); }))\n  .catch((e: any) => { console.log(\"reject\", e.message); return 0; })\n  .then(() => new Promise<number>((res) => { res(Promise.resolve(4) as any); }))\n  .then((v) => { console.log(\"resolve-promise\", v); return v; })\n  .then(() => new Promise<number>((res) => { handOff(res); }))\n  .then((v) => console.log(\"passed-as-value\", v));\n",
+  },
 ];

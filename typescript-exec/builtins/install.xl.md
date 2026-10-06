@@ -894,6 +894,10 @@ if (GeneratorNextId > highest) highest = GeneratorNextId;
 // 会让 `it.throw(...)` 报一个与生成器毫无关系的号 ✓）。
 if (GeneratorReturnId > highest) highest = GeneratorReturnId;
 if (GeneratorThrowId > highest) highest = GeneratorThrowId;
+// **执行器那两格**（第 318 轮 ✓）：同一条纪律 ✓——漏了它们的症状是
+// `capability id is out of range: 240` ✓（听起来像「承诺那一族还没做」✗，其实只是这一句没跟上 ✓）。
+if (PromiseResolveCallbackId > highest) highest = PromiseResolveCallbackId;
+if (PromiseRejectCallbackId > highest) highest = PromiseRejectCallbackId;
 return highest + 1 - BuiltinBase;
 ```
 
@@ -1043,7 +1047,8 @@ for (const slot of promiseSlots) {
 // 第 197 轮实测踩过一次 ✓：号改了、名单忘改 ✓）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
-  ObjectAssign, PowId, SetHiddenId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, ArrayIteratorNext];
+  ObjectAssign, PowId, SetHiddenId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
+  PromiseResolveCallbackId, PromiseRejectCallbackId, ArrayIteratorNext];
 for (let i = 0; i < helpers.length; i++) {
   host.Register(helpers[i],
     Value.FromRef(ValueTag.HostRef, host.Machine.Table.CreateHostRef(helpers[i], 0)));
@@ -1055,6 +1060,13 @@ for (let i = 0; i < helpers.length; i++) {
 // **少了这一句的症状** ✗：`it.next()` 报 `capability is not registered: 709` ✓——
 // 听起来像「谁忘了登记」✗，其实上面那一趟**已经登记过了** ✓（真相是「这三格该由引擎答」✓）。
 host.Machine.RegisterGeneratorMethods(GeneratorNextId, GeneratorReturnId, GeneratorThrowId);
+// **执行器那两格（`resolve` / `reject`）也要额外告诉引擎一声** ✓（第 318 轮 ✓）：
+// 与上面那一句**同一个形状、同一条理由** ✓——脚本是把它们**当普通函数**调的 ✓
+//（`(resolve) => resolve(1)` ✓，**没有接收者** ✗），走宿主那条路语言层就找不到
+// 「它管的是哪个承诺」✓ ⇒ 那个承诺**永远不结清** ✓
+//（宿主那句话是 `the script is waiting for a promise the host has not settled` ✗）。
+// 引擎按载荷号认出这两格 ✓、承诺句柄就在载荷的 `Opaque` 里 ✓ ⇒ **一处截住、两处受益** ✓。
+host.Machine.RegisterSettleCallbacks(PromiseResolveCallbackId, PromiseRejectCallbackId);
 ```
 
 # const DefineAccessorId:int = 701

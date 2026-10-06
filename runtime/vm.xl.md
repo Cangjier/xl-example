@@ -687,6 +687,15 @@ return result;
 
 **「生成器的 `throw`」那一格的能力号**（第 313 轮 ✓）——同上 ✓。
 
+## field SettleResolveId:int = 0
+
+**「执行器递出来的 `resolve`」那一格的能力号**（第 318 轮 ✓）——由语言层在
+`RegisterSettleCallbacks` 里告诉引擎 ✓。
+
+## field SettleRejectId:int = 0
+
+**「执行器递出来的 `reject`」那一格的能力号**（第 318 轮 ✓）——同上 ✓。
+
 ## field ResumeRaises:bool = false
 
 **这一次恢复生成器是「往挂起点抛一个值」还是「把一个值放进 `yield` 那一格」**（第 313 轮 ✓）。
@@ -1251,6 +1260,38 @@ if (this.GeneratorStepKind(callee) !== 0) {
   return;
 }
 if (this.IsHostCallable(callee)) {
+  // **执行器递出来的那两格（`resolve` / `reject`）也在这里截下来** ✓（第 318 轮 ✓）
+  // ——与生成器那三格**同一个形状** ✓、同一条理由 ✓：它们是**语言层造的宿主引用** ✓，
+  // 而脚本是**当普通函数**调它们的 ✓（`(resolve) => resolve(1)` ✓，**没有接收者** ✗）
+  // ⇒ 走宿主那条路时 `self` 是 `undefined` ✓ ⇒ 语言层读不到「它管的是哪个承诺」✗
+  // ⇒ 那个承诺**永远不结清** ✓（症状是宿主那句
+  // `the script is waiting for a promise the host has not settled` ✓——听起来像运行器卡住 ✗）。
+  //
+  // **「哪一个承诺」在载荷里** ✓（`MakeSettleCallback` 把它写进 `HostRef.Opaque` ✓）：
+  // 引擎按**载荷号**认出这两格 ✓（`SettleCallbackKind` ✓，号由语言层登记 ✓），
+  // 于是**不必**把承诺绑进实参表 ✗（那要 `bind` 那一套机器 ✓），
+  // 也不必要求调用方给接收者 ✗——**这正是生成器那三格已经走通的路** ✓。
+  const settleKind = this.SettleCallbackKind(callee);
+  if (settleKind !== 0) {
+    const payload = this.Table.Get(callee.Ref).Host;
+    if (payload === null) throw new Error("a settle callback without a payload");
+    const target = Value.FromObject(payload.Opaque);
+    const first = count > 0 ? this.CallArgAt(frame, argBase, argArray, 0) : Value.Undefined();
+    if (settleKind === 1) {
+      this.ResolvePromise(target, first);
+    } else {
+      this.RejectPromise(target, first);
+    }
+    // **返回值是 `undefined`** ✓（JS 的口径 ✓：`resolve(x)` 给 `undefined` ✓）。
+    if (returnSlot >= 0) {
+      frame.Slots[returnSlot] = Value.Undefined();
+    } else {
+      this.Result = Value.Undefined();
+      this.Finished = true;
+      this.Status = VmStatus.Halted;
+    }
+    return;
+  }
   const args: Value[] = [];
   for (let i = 0; i < count; i++) {
     args.push(this.CallArgAt(frame, argBase, argArray, i));
@@ -2666,6 +2707,23 @@ if (this.GeneratorStepKind(callee) !== 0) {
   return this.NextStepOf(thisValue, sentByCaller, stepKind === 3, null);
 }
 if (this.IsHostCallable(callee)) {
+  // **执行器那两格（`resolve` / `reject`）也要在这一条路上截下来** ✓（第 318 轮 ✓）——
+  // 与生成器那三格**共用同一条口径** ✓（`SettleCallbackKind` ✓）。这一条是**回调**那一侧 ✓
+  // （把 `resolve` 当值传出去的写法 ✓），两处各截一次 ✓
+  //（只截一处就是「直接调可以、传出去不行」✗，第 312 轮踩过同一个形状 ✗）。
+  const settleKind = this.SettleCallbackKind(callee);
+  if (settleKind !== 0) {
+    const payload = this.Table.Get(callee.Ref).Host;
+    if (payload === null) throw new Error("a settle callback without a payload");
+    const target = Value.FromObject(payload.Opaque);
+    const first = args.length > 0 ? args[0] : Value.Undefined();
+    if (settleKind === 1) {
+      this.ResolvePromise(target, first);
+    } else {
+      this.RejectPromise(target, first);
+    }
+    return Value.Undefined();
+  }
   const hostThis = callee.Tag === ValueTag.Object ? callee : thisValue;
   const produced = this.CallHostValue(callee, hostThis, args);
   if (produced === null) return Value.Undefined();
@@ -3300,6 +3358,55 @@ if (promise.State === PromiseState.Fulfilled) {
 // **还是 `Pending`**：这一刻也可能它「其实是一个承诺链」✓——
 // 那种承诺一直是 `Pending` ✓、反应表是**内层**那个承诺在管 ✓。
 if (!this.IsAwaitedBy(promise, handle)) promise.Reactions.push(handle);
+```
+
+## method SettleCallbackKind:(callee:Value)=>int
+
+**这一次调用是不是「执行器递出来的 `resolve` / `reject`」** ✓（第 318 轮 ✓）：
+`0` = 不是 ✓、`1` = `resolve` ✓、`2` = `reject` ✓。
+
+**为什么引擎要认识这两格** ✗：它们由**语言层**造 ✓（`MakeSettleCallback` ✓）、
+而脚本是**当普通函数**调的 ✓（`(resolve) => resolve(1)` ✓，**没有接收者** ✗）
+⇒ 走宿主那条路时语言层拿不到「它管的是哪个承诺」✗ ⇒ 那个承诺**永远不结清** ✓
+（症状是宿主那句话 `the script is waiting for a promise the host has not settled` ✗）。
+**引擎认得出来** ✓：那两格的载荷号是语言层登记进来的 ✓，而承诺的句柄就在载荷的 `Opaque` 里 ✓
+——**与生成器那三格同一个手法** ✓（第 229 / 313 轮 ✓：引擎不认识「`then` 是什么」✓，
+只认识**自己提供的那个服务** ✓）。
+
+**判据的形状必须照 `IsHostCallable` 抄** ✗（**第 317 轮就是在这里翻的车** ✓）：
+原来是 `if (callee.Tag !== ValueTag.Object) return 0;` ✗——而这两格是 **`HostRef`** ✓、
+**不是 `Object`** ✗ ⇒ 这一句**当场把它们排掉了** ✓ ⇒ 整条路**从不执行** ✓，
+而症状是「判据明明写对了却什么都没发生」✗（第 317 轮为此把整套机关**撤回**了一次 ✓，
+这一轮靠「把判据改成无条件抛、看抛出来的是谁」才定位到 ✓）。
+**两种壳都要认** ✓（`HostRef` 与带载荷的对象 ✓，与 `IsHostCallable` 一字不差 ✓）。
+
+**`0` 必须显式排掉** ✗（与 `GeneratorNextId` 那一段同一条）：`HostRef.CapabilityId`
+的默认值就是 `0` ✓，不排掉的话任何没登记过的宿主引用都会撞上这条判据 ✓。
+
+```ts
+if (this.SettleResolveId <= 0) return 0;
+if (callee.Tag !== ValueTag.HostRef && callee.Tag !== ValueTag.Object) return 0;
+const item = this.Table.Get(callee.Ref);
+if (item.Host === null) return 0;
+const id = item.Host.CapabilityId;
+if (id === this.SettleResolveId) return 1;
+if (this.SettleRejectId > 0 && id === this.SettleRejectId) return 2;
+return 0;
+```
+
+## method RegisterSettleCallbacks:(resolveId:int, rejectId:int)=>bool
+
+**把执行器那两格的能力号登记进能力表** ✓（第 318 轮 ✓）——与 `RegisterGeneratorMethods`
+**同一套分界** ✓（号是语言层的 ✓，引擎只认「调用时那个载荷号是不是这两格」✓）。
+
+```ts
+this.SettleResolveId = resolveId;
+this.SettleRejectId = rejectId;
+const resolveHandle = this.Table.CreateHostRef(resolveId, 0);
+const rejectHandle = this.Table.CreateHostRef(rejectId, 0);
+const registeredResolve = this.RegisterCapability(resolveId, Value.FromRef(ValueTag.HostRef, resolveHandle));
+const registeredReject = this.RegisterCapability(rejectId, Value.FromRef(ValueTag.HostRef, rejectHandle));
+return registeredResolve && registeredReject;
 ```
 
 ## method IsAwaitedBy:(promise:HeapPromise, handle:int)=>bool
