@@ -6,6 +6,59 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 368 轮的账（**`Array.fromAsync`：设计量清楚，只剩一个未知点** —— 99.9%，未收格 ✗）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮**没有改代码** ✗（`blocked` 已经为 0 ✓，
+剩下 2 格都是 `differ` ✓），但**把一个新功能的设计量到了只剩一个未知点** ✓。
+
+### 一、缺口的边界量准了
+
+| 探针 | 内容 | node | 本仓 |
+| --- | --- | --- | --- |
+| `a1` | `async function*` + `await it.next()` | `1 false` | **一致** ✓ |
+| `a2` | `Symbol.asyncIterator` | `symbol function` | **一致** ✓ |
+| `a5` | `await Promise.resolve(5)` | `5` | **一致** ✓ |
+| `a4` | `typeof Array.fromAsync` | `function` | **`undefined`** ✗ |
+
+⇒ **这一个案子只差 `Array.fromAsync` 这个内建** ✓——异步生成器、异步迭代器协议、`await`
+**全都是好的** ✓。
+
+### 二、一件决定设计的事，实测了
+
+**本仓的微任务语义与 Node 完全一致** ✓：
+
+```ts
+let saw = 0;
+Promise.resolve(1).then(() => { saw = 1; });
+console.log("A", saw);            // 两边都给 A 0
+Promise.resolve().then(() => { console.log("B", saw); });
+console.log("C", saw);            // 两边都给 C 0，之后才 B 1
+```
+
+⇒ **「读一项 → 等它 → 再读下一项」这条链可以靠承诺回调接起来** ✓——
+这正是 `Array.fromAsync` 缺的那件事 ✓。
+
+### 三、零件与模板都找到了（**一个新机关都不用发明** ✓）
+
+- **`Promise.all` 本身就是一台现成的异步状态机** ✓：堆上的状态对象 ✓（`SetNumberProp` /
+  `ReadProp` ✓）+ 宿主步进 ✓（`table.CreateHostRef(号, 不透明值)` ✓）+ `settle` 结清 ✓；
+- **「等一等」那一步照 `PromiseThenableStep`** ✓（读 `then` ✓ + `invoke` ✓，第 359 轮跑通的 ✓）；
+- **号也选好了** ✓：`ArrayFromAsync = 258` ✓、迭代器步 = **259** ✓、映射步 = **261** ✓
+  （257 已给 thenable ✓、260 已给 `ClockNow` ✗）；
+- **判据也定了** ✓：**「有没有 `then` 能调」**就是「异步 / 同步」的分界 ✓——
+  异步迭代器的 `next()` 给承诺 ✓、同步的给 `{value, done}` ✓，**一句判据分开两条路** ✓。
+
+### 四、只剩一个未知点 ✗
+
+`PromiseAllStep` 是从 **`args[0]`** 拿到状态的 ✓（**不是**从不透明值 ✗）⇒
+**`Promise.all` 是怎么把那个状态塞进回调实参的** ✓（看着像 `BoundCall` ✓，第 350 轮那个机关 ✓）。
+**下一轮的第一步就是这一个 grep** ✓，然后照抄 ✓。
+
+**读数** ✓：`pass` **1341 / 1343 = 99.9%** ✓（与上一轮持平 ✓）、**红的一栏 0** ✓、
+六道门全绿 ✓；**工作区干净** ✓（这一轮只写了 `tmp/` 下的探针与草稿 ✓，**没有动过产品代码** ✓）。
+**剩下 2 格**：`c323-std-array-fromasync`（设计已定 ✓）与 `console-log-special`（要 `stack` ✗）。
+
 ## 第 367 轮的账（**嵌套命名空间：把第 292 轮退回来的那一半补上** —— 99.8% → **99.9%**，`blocked` 归零）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
