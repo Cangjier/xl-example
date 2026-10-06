@@ -488,6 +488,24 @@ while (cursor > 0 && depth < MaxProtoDepth) {
 return false;
 ```
 
+# method RtGetProto:(table:HeapTable, receiver:Value)=>Value
+
+**取一个对象的原型**（`get_proto`）✓ 第 361 轮 ✓。
+
+**接收者必须是对象** ✓：不是就抛 ✓（与 `RtSetProto` 那一条**同一个口径** ✓——
+静默给 `null` 会让「原型链断了一格」看起来像「这个对象没有原型」✗）。
+
+**值带的是堆上那一格自己的标签** ✓（第 357 轮那条纪律 ✓）：`class B extends A {}` 的 `B`
+原型是 **`A` 那个闭包** ✓ ⇒ 一律 `Value.FromObject` 会让 `Object.getPrototypeOf(B) === A` 永远为假 ✗。
+
+```ts
+if (!receiver.IsObject()) {
+  throw new Error("get_proto needs an object receiver");
+}
+const proto = table.Get(receiver.Ref).Proto;
+if (proto === 0) return Value.Null();
+return Value.FromRef(table.Get(proto).Tag, proto);
+```
 # method RtSetProto:(table:HeapTable, receiver:Value, proto:Value)=>Value
 
 **改一个对象的原型**（`set_proto`）。

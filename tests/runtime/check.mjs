@@ -716,7 +716,8 @@ check("编号只追加：成员顺序就是跨目标的约定", () => {
   // 它是 `super.x = v` 那一格 ✓（与第 243 轮那格读的**对称** ✓）。
   // **这一条与上面 `Op.EnvLeave` 那一条同一个用处** ✗：谁想把它插在 `set_prop` 旁边，当场红 ✓。
   eq(RtOp.GetPropFrom, 40, "从指定原型起读那一格（第 243 轮追加的）");
-  eq(RtOp.SetPropFrom, 41, "从指定原型起写那一格（第 326 轮追加的，**必须在最后**）");
+  eq(RtOp.SetPropFrom, 41, "从指定原型起写那一格（第 326 轮追加的）");
+  eq(RtOp.GetProto, 42, "取原型那条（第 361 轮追加的，**必须在最后**）");
   ok(enumMembers(RtOp) <= BuiltinBase, "内建段必须留在通用算子之后");
 });
 

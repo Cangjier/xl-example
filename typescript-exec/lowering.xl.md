@@ -4657,8 +4657,49 @@ if (NodeKind(Child(callee, "expression")) === "SuperKeyword") {
   // **父类怎么找到**：`super` 的父类名由 `InSuperName` 指认（类降级时写进排队函数，
   // 见 `LowerClass` 里盖章那一行），然后**照常 `ResolveAccess`**——它在环境里还是在槽里，
   // 这里一行都不用管。`super(...)` 那条分支就是这么做的。
-  if (this.InSuperName === "") {
-    throw new Error("unimplemented: super.m(...) outside a derived class method");
+  // **对象字面量方法里的 `super.m()`** ✓（第 361 轮 ✓，**实测撞到的** ✓）：
+  // 这一支原来**一律抛** ✗（`super.m(...) outside a derived class method` ✓），
+  // 而 JS 里 `const o = { __proto__: p, greet() { return super.greet(); } }` 是合法的 ✓
+  //（判据 `c323-rt-super-in-object-literal` ✓：Node 给 `hi!` ✓、本仓整份文件进不来 ✗）。
+  //
+  // **差的只是「起点从哪来」** ✓：类方法那一路要从 `<父类>.prototype` 取 ✓，
+  // 而对象字面量方法的**家对象就是 `this`** ✓（`o.greet()` 里 `this` 是 `o` ✓）
+  // ⇒ 起点是 **`get_proto(this)`** ✓。**名字查找 / `this` / 实参 / 展开那几段一个字都不用改** ✓
+  //（下面那几段本来就只认「`proto` 这一格」✓）。
+  //
+  // **已知差别写在明处** ✗：JS 用**真的家对象** ✓（方法被摘下来单独调用时 `super` 照样工作 ✓），
+  // 而这里用 `this` ✓ ⇒ `const f = o.greet; f()` 会去取**空值的原型** ✗（NDoe 给 `hi!` ✓）。
+  // 要真对齐得把家对象当**隐藏形参**传进闭包 ✓（与命名空间体那一帧同一手法 ✓）——**那是另一件事** ✓。
+  const superInObjectLiteral = this.InSuperName === "";
+  if (superInObjectLiteral) {
+    const selfForProto = this.Reserve(1);
+    this.Emit(Op.LoadThis, selfForProto, -1, -1, -1);
+    const prototypeKeyForObject = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
+    // `RtCall1` 给的是**一格**结果 ✓；先落到自己的格里再往下走 ✓（下面那几段只读 `proto` ✓）。
+    const objectProto = this.RtCall1(RtOp.GetProto, selfForProto);
+    this.Release(selfForProto + 1);
+    this.Release(objectProto + 1);
+    const nameForObject = Child(callee, "name");
+    if (NodeKind(nameForObject) !== "Identifier") {
+      throw new Error("unimplemented: super call with a computed name");
+    }
+    const fnKeyForObject = this.Reserve(1);
+    this.Emit(Op.Const, fnKeyForObject, this.Program().AddConst(Constant.OfString(UnitsOf(TextOf(nameForObject)))), -1, -1);
+    const fnForObject = this.RtCallValues(RtOp.GetProp, objectProto, fnKeyForObject);
+    const selfForCall = this.Reserve(1);
+    this.Emit(Op.LoadThis, selfForCall, -1, -1, -1);
+    const objectArgs = ListOf(call, "arguments");
+    if (this.HasSpread(objectArgs)) {
+      const spreadArrayForObject = this.BuildArgsArray(objectArgs);
+      return this.EmitCallArray(fnForObject, spreadArrayForObject, selfForCall);
+    }
+    const objectBase = this.Reserve(objectArgs.length > 0 ? objectArgs.length : 1);
+    for (let i = 0; i < objectArgs.length; i++) {
+      this.LowerInto(objectBase + i, objectArgs[i]);
+    }
+    this.Emit(Op.Call, fnForObject, objectBase, objectArgs.length, selfForCall);
+    this.Release(objectBase + 1);
+    return objectBase;
   }
   const parentAccess = this.ResolveAccess(this.InSuperName);
   const parent = this.Reserve(1);
@@ -5589,6 +5630,21 @@ for (let i = 0; i < properties.length; i++) {
     //（见 `UnitsText` 那一段 ✓）。**计算键不在此列** ✗（上面那一支已经 `continue` 了 ✓，
     // 而 JS 里 `{ ["g"]: () => 1 }.g.name` 正是**空串** ✓）。
     const keyUnits = this.KeyUnitsOf(name);
+    // **`__proto__: p` 设的是原型，不是普通属性** ✓（第 361 轮 ✓，**实测撞到的** ✓）：
+    // JS 在对象字面量里对**非计算**的 `__proto__` 键有一条特例 ✓——
+    // `{ __proto__: p, m() { return super.m(); } }` 里 `super` 找的就是 `p` ✓
+    //（判据 `c323-rt-super-in-object-literal` ✓：Node 给 `hi!` ✓）。
+    // 本仓原来**根本没有这一档** ✗（全仓搜不到 `__proto__` ✓）⇒ 那个键被当成普通属性 ✓
+    // ⇒ 对象自己的原型还是 `Object.prototype` ✗ ⇒ `super.m` 读成 `undefined` ✓
+    // ⇒ 报 **`cannot call a non-closure value`** ✓（**一句话里没有一个字提到 `__proto__`** ✗）。
+    // **只认非计算的那一档** ✓：`{ ["__proto__"]: p }` 在 JS 里是**普通属性** ✓（规范如此 ✓），
+    // 而计算键那一支在上面已经 `continue` 了 ✓——这里天然碰不到它 ✓。
+    if (UnitsText(keyUnits) === "__proto__") {
+      const protoValue = this.LowerExpression(Child(property, "initializer"));
+      this.RtCallValues(RtOp.SetProto, object, protoValue);
+      this.Release(protoValue + 1);
+      continue;
+    }
     const savedHint = this.FunctionNameHint;
     this.FunctionNameHint = this.NamesFunctionValue(Child(property, "initializer"))
       ? UnitsText(keyUnits) : "";

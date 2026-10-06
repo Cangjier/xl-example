@@ -8,7 +8,7 @@ import { IdTable, LoadedProgram, Load } from "./ir-verify.xl.md"
 import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtBitXor, RtBitNot, RtShl, RtShr, RtUShr } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
-import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
+import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtGetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
 import { GetProperty, SetProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
 import { GetPropertyFrom, SetPropertyFrom } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
@@ -2647,6 +2647,12 @@ if (id === RtOp.SetPropFrom) {
 if (id === RtOp.SetProto) {
   RequireArgc(argc, 2, "set_proto");
   return RtSetProto(this.Table, slots[base], slots[base + 1]);
+}
+if (id === RtOp.GetProto) {
+  // **取原型** ✓（第 361 轮 ✓）：对象字面量方法里的 `super.m()` 靠它拿到「家对象的原型」✓
+  // （家对象就是 `this` ✓）。与 `SetProto` **同一个形状** ✓、只有一格实参 ✓。
+  RequireArgc(argc, 1, "get_proto");
+  return RtGetProto(this.Table, slots[base]);
 }
 if (id === RtOp.Instanceof) {
   RequireArgc(argc, 2, "instanceof");

@@ -861,7 +861,7 @@ export const EXPECTATIONS = {
   // 所以它没被误算成捕获 ✓、一直住在槽里 ✓——差别只在**名字住哪儿** ✓。
   // **修法**：复用判据加一格 ✓（`CellOf` ✓，读的时候按**本帧第 0 层** ✓，
   // 与 `DeclareLocal` 写它的那一句对称 ✓）。
-  "c323-rt-super-in-object-literal": { expect: "blocked", why: "对象字面量里的方法用 `super.greet()`：JS 的 `super` 在方法简写里指向 `[[HomeObject]]` 的原型（`{ __proto__: proto, greet() { return super.greet() } }` 是合法的）；降级层只认**派生类方法**里那一格（`InSuperName` 由类降级时写进排队函数）⇒ 报 `unimplemented: super.m(...) outside a derived class method`" },
+  // **第 361 轮过了** ✓（这一行撤了 ✓）：对象字面量里的 `super.m()` ✓ + `__proto__: p` 那一档 ✓（新增 `RtOp.GetProto`（表尾 42）✓，那一路原来一律抛 ✓）。
   // B —— 标准库成员不在那儿（6 条，都是「挂一格」那一族）
   // **`c323-std-object-getownpropertydescriptors` 与 `c323-std-set-union-intersection`
   // 第 324 轮都过了** ✓（两行撤了 ✓）——修法与号写在各自的规范那一段里 ✓：

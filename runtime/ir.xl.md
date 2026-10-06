@@ -306,11 +306,25 @@ generator return() needs the finally chain」写的就是这件事 ✓）。
 而这张表是「编译出来的程序」与「跑它的引擎」之间的握手 ✓
 （`tests/runtime/check.mjs` 的「编号只追加」那一条当场会红 ✓，第 315 轮已经拦过一次 ✓）。
 
+- case GetProto
+**取一个对象的原型** ✓（第 361 轮 ✓）——`A` ← 原型的值 ✓（没有原型就给 `null` ✓）。
+
+**为什么要有它** ✗：对象字面量方法里的 `super.m()` ✓（判据 `c323-rt-super-in-object-literal` ✓）
+要找的是「**家对象的原型**」✓——而家对象就是 `this` ✓（`o.greet()` 里 `this` 是 `o` ✓）
+⇒ 起点是 `get_proto(this)` ✓。类方法那一路早就有起点 ✓（`<父类>.prototype` ✓），
+**差的只是这一格从哪来** ✓——名字查找 / `this` / 实参 / 展开那几段**一个字都不用改** ✓。
+
+**值带的是堆上那一格自己的标签** ✓（与 `Object.getPrototypeOf` 第 357 轮的修法**同一条纪律** ✓）：
+`class B extends A {}` 里 `B` 的原型是 **`A` 那个闭包** ✓，一律按 `Object` 造值会让 `=== A` 永远为假 ✗。
+
+**它追加在 `SetPropFrom` 之后** ✓（**同一条硬规矩** ✗：各目标按**位置**编号 ✓，
+新算子只能接在**最后一个**后面 ✓——`tests/runtime/check.mjs` 里那条断言会拦 ✓）。
+
 # const BuiltinBase:int = 64
 语言内建 id 的起点。通用算子表留出前 64 个号——**留空比「以后插队」便宜**：
 真正要在中间插一个通用算子时，插队会改掉所有已编译程序的号，而扩到 64 只是浪费几个号。
 
-# const RtOpCount:int = 42
+# const RtOpCount:int = 43
 
 **通用算子表有几条**（= `RtOp` 的成员数）。
 
@@ -372,6 +386,7 @@ if (id === RtOp.BitNot) return "bit_not";
 if (id === RtOp.UShr) return "ushr";
 // **第 326 轮追加的** ✓（`super.x = v` 那一格 ✓，号也在**表尾** ✓）。
 if (id === RtOp.SetPropFrom) return "set_prop_from";
+if (id === RtOp.GetProto) return "get_proto";
 return "unknown";
 ```
 

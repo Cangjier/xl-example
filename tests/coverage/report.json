@@ -33,17 +33,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.54,
+  "progressPercent": 99.6,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 427,
-      "pass": 424,
-      "blocked": 3,
+      "pass": 425,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.3
+      "coverage": 99.53
     },
     {
       "layer": "exec",
@@ -84,12 +84,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c323-rt-super-in-object-literal",
-      "layer": "runtime",
-      "title": "对象字面量里的方法用 `super` 取原型上的同名方法",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: super.m(...) outside a derived class method"
-    },
-    {
       "id": "c330-ex-ternary-arrow-branches",
       "layer": "runtime",
       "title": "三元的两支是箭头函数：不套括号的写法",
@@ -113,7 +107,7 @@
       "id": "console-log-special",
       "layer": "stdlib",
       "title": "console.log 遇上 Map / Set / Error / 函数 / 符号",
-      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-11364/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
+      "detail": "stdout 不同：第 4 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-13360/console-log-special.ts:4:13)» vs tsrun «Symbol(s)»"
     },
     {
       "id": "c323-std-array-fromasync",
