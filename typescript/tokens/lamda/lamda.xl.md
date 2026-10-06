@@ -636,6 +636,44 @@ if (next instanceof Bracket && next.startBracket === "{") {
   } else {
     endIndex = Statement.SearchStatementEnd(units, index);
   }
+  // **三元的那个 `:` 不属于箭头的体** ✓（第 351 轮 ✓，**实测撞到的** ✓）：
+  // `flag ? () => "yes" : () => "no"` 里体原来一路吃到**行尾** ✓
+  //（`Statement.SearchStatementEnd` ✓），把 `: () => "no"` 整段吞进了 `<LamdaBody>` ✗——
+  // 于是 `TernaryOperatorReorganization` **再也看不到那个 `:`** ✓：实测 token 流里只有
+  // `SymbolToken("?")` + **一个 `Lamda`** ✓、**没有 `TernaryOperator`** ✗，
+  // 降级层拿到一个光秃秃的 `?` ✓ ⇒ 运行时报「binary operator ?」✓
+  //（**一句话里没有一个字提到箭头** ✗）。
+  //
+  // **判据与三元那一条同源** ✓：这一层（`units` ✓）里、箭头**左边**最近的那个平级标点是 `?`
+  // ⇒ 这个箭头就落在三元的**真值段**上 ✓ ⇒ 体必须在**下一个平级 `:`** 之前收住 ✓
+  //（扫描时先遇到 `:` 就说明左边那个 `?` 已经被配掉了 ✓，与三元重组里
+  // `questionSinceColon` 那条纪律**同一个形状** ✓）。
+  // **只看平级** ✓：形参括号 / 花括号 / 方括号里的 `?:` 是**另一个单元** ✓（到不了这一层 ✓）——
+  // 这与三元重组里「逗号与冒号都必须是边界」是同一条纪律 ✓。
+  let arrowInTernary = false;
+  for (let i = rangeStart - 1; i >= 0; i--) {
+    const prev = Get(units, i);
+    // **空位要跳过、不能停** ✗（**实测踩到过** ✓）：`units` 里被摘掉的软换行留下的是**空位** ✓，
+    // `Get` 在那些位置返回 `null` ✓——第一版写成 `break` ✓，于是扫描**第一步就停** ✓，
+    // 判据永远为假 ✓、`TernaryOperator` 照样成形可体还是把 `:` 吞了 ✗
+    //（实测 token 流：`TernaryOperator` 有了 ✓、可 `Lamda` 的体里仍旧带着 `FunctionType` ✗）。
+    if (prev === null) continue;
+    if (!(prev instanceof SymbolToken)) continue;
+    if (prev.Is(":")) break;
+    if (prev.Is("?")) {
+      arrowInTernary = true;
+      break;
+    }
+  }
+  if (arrowInTernary) {
+    for (let i = index + 1; i <= endIndex; i++) {
+      const item = Get(units, i);
+      if (item instanceof SymbolToken && item.Is(":")) {
+        endIndex = i - 1;
+        break;
+      }
+    }
+  }
   if (endIndex === -1) {
     endIndex = units.length - 1;
   }

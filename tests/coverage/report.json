@@ -111,7 +111,7 @@
       "id": "c330-ex-ternary-arrow-branches",
       "layer": "runtime",
       "title": "三元的两支是箭头函数：不套括号的写法",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionType"
     },
     {
       "id": "c291-ex-nested-namespace-with-values",
