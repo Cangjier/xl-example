@@ -6,6 +6,65 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 337 轮的账（**IteratorClose 的 `return` 那一档 + 非严格 `this`** —— 98.2% → **98.3%**，收掉 3 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
+这一轮**先接上一轮量到的那一处、再收 `this` 那一簇** ✓（补了 1 条守着 ✓——它**当场又量到一处** ✓，
+见第二节 ✓）。
+
+### 一、`return` 出 `for..of` 也要 IteratorClose（上一轮刚量到的那一处）
+
+上一轮把 IteratorClose 接上了 ✓，可**只接了 `break`** 那一档 ✗（`break` 走 `LoopContext.Breaks` ✓），
+而 `return` 走的是**另一条路** ✓（`EmitPendingFinalies` ✓，那条路只认 `finally` ✓）。
+
+这一轮给 `LoopContext` 加一格 **`IteratorSlot`** ✓（`for..of` / `for..in` 都设它 ✓，普通循环 `-1` ✓），
+`ReturnStatement` 那一支**先 `EmitPendingIteratorCloses`（从里到外）再跑 `finally`** ✓。
+
+**一处已知的次序差写在明处** ✗：这里**先 close、后 `finally`** ✓，而 JS 的规矩是
+「**按进入的次序倒着退**」✓——两者**嵌套交错**时（`for { try { return } finally {} }` ✓）
+次序应当相反 ✗。本仓**没有**把这两摞按进入次序合并 ✗，而**没有判据量着那一种** ✓
+（判据里 `return` 出循环都是「循环在外、没有 `finally`」✓，或者「`finally` 在内、没有循环」✓）。
+**记在这里** ✓（下一轮要合并时从这里改 ✓）。
+
+### 二、非严格 `this`：普通函数调用（含摘下来的方法）收全局对象（2 格）
+
+JS 的规矩是「函数被**当作函数**调用时，**非严格**那一档 `this` 是**全局对象**」✓
+（严格才是 `undefined` ✗），而本仓原来**一律给 `undefined`** ✗
+（`ir.xl.md` 的 `LoadThis` 那段注释写着「严格模式语义」✓——**那是一个选择** ✓）。
+这一轮按实测改成**非严格** ✓，与第 333 轮写屏障那条「本仓选定非严格」是**同一个决定** ✓：
+
+- **`Protos` 多一格 `Global`** ✓（与 `WellKnownSymbols` **同一条机制** ✓：
+  **结构由引擎提供、内容由语言层给** ✓）——`BuildGlobals` 里一句赋值 ✓，
+  `Protos.Roots` 里**挂根** ✓（不收根就是「某个函数里的 `this` 突然是个野对象」✓）；
+- **`DoCallValue` 与 `CallNative` 两处各兜一次** ✓（**两条路各写一遍就会漂** ✗——
+  第 307 / 312 / 320 轮各踩过一次「同一个语义长在两条路上」✓），
+  并且两处**互相留了一行注释指向对方** ✓。
+
+**三处细节是实测定的** ✗：
+
+- **只对闭包兜** ✓：宿主那一档（内建方法 ✓）的 `this` 由调用点决定 ✓，**不能动** ✗；
+- **箭头不受影响** ✓：它的 `this` 是从**捕获的环境格**里读的 ✓
+  （`lowering.xl.md` 的 `ThisKeyword` ✓），**根本不看这一帧** ✓；
+- **`null` 与 `undefined` 是同一档** ✓（**第一版只写了 `undefined`** ✗ ⇒
+  `who.call(null)` 给的是 `null` 本身 ✓——**新加的语料第 2 行当场红** ✓）。
+
+**一处诚实的差别写在明处** ✗：JS 里**类体里那些函数是严格的** ✓
+（`class A { m() {} }` 摘下来的 `m` 单独调 ⇒ `this` 是 `undefined` ✓），
+而本仓**一个函数一个口径** ✗（一律按非严格办 ✓）——**没有判据量着那一档** ✓，
+写在 `Protos.Global` 那一段 ✓。
+
+**读数** ✓：`pass` **1287 → 1290** ✓（3 格转绿 + 补 1 条 ✓）、**端到端保持 100%** ✓、
+**红的一栏 0** ✓、六道门 **39.2s 全绿** ✓、矩阵 **1317 → 1318** ✓。
+
+**下一轮的入口** ✓（按「普通 `.ts` 里有多常见」排）：
+**① `structuredClone` / `Error.isError` / `Symbol.hasInstance`** ✓（5 条 ✓——
+后两条**卡在壳上** ✓，与第 324 轮 `Map.groupBy` 是同一个坎 ✓）；
+**② `thenable` 采纳 / `for await` 承诺数组 / `Array.fromAsync`** ✓（3 条 ✓，都在承诺那一族 ✓）；
+**③ 数组 `toString` 走元素的 `toString`** ✓（2 条 ✓——`[obj] + ""` 该调元素的 `toString` ✓）；
+**④ 零散** ✓（`new.target` ✓、尖括号断言 ✓、`console.log(Error)` ✓、手写 `Symbol.iterator` ✓、
+`rt-instanceof-custom` ✓、`rt-forin-order-and-inherited` ✓、`rt-ternary-nesting-and-assign` ✓、
+`gc-churn` 的步数预算 ✓、`c291-rt-class-shapes` ✓ / `c291-rt-closure-and-method-this` ✓）。
+
 ## 第 336 轮的账（**生成器的 `return()` 与 `for..of` 的收尾** —— 98.0% → **98.1%**，收掉 3 格）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
