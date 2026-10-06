@@ -6,6 +6,59 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 357 轮的账（**`Object.getPrototypeOf` 认闭包 + 标签跟着那一格自己** —— 99.3% → **99.4%**，收掉 1 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
+（**含引擎、降级层、token 层的重构**）」✓——这一轮**连收两处** ✓，**一次收格** ✓。
+
+### 一、那一格（`c291-rt-class-shapes`）
+
+```ts
+class A { x = 1; static s = 2; get y() { return this.x + 1; } set y(v) { this.x = v; } }
+class B extends A { constructor() { super(); this.z = 3; } }
+const b = new B();
+console.log(b.x, b.y, b.z, A.s, b instanceof A, Object.getPrototypeOf(B) === A);
+```
+
+**Node 给 `1 2 3 2 true true`** ✓；本仓原来在最后那句上**直接抛**
+`unimplemented: Object.getPrototypeOf over this kind of value` ✗。
+
+### 二、两处小改动
+
+**(a) 那一格原来只认 `Object` / `Array`** ✓，函数那一档**一律抛** ✗——
+而**函数也是对象** ✓（`HeapClosure` 同样住堆上 ✓、同样有 `Proto` 那一格 ✓），
+所以放行 `Closure` / `Function` 两档 ✓（**只是放行** ✓，下面那句读法一个字都不用改 ✓）。
+
+**(b) 放行之后它给的是 `false`** ✗，**根子在取回来时的标签** ✗：
+`class B extends A` 的 `set_proto`（`LowerClass` 里那句 `SetProto(ctor, staticBaseSlot)` ✓）
+**早就做了** ✓，但读回来时一律 `Value.FromObject` ✗ ⇒ 拿到 **Object 标签**的值 ✓，
+而 `A` 是 **Closure 标签**的值 ✓，两者用 `===` 一比**永远是假** ✗。
+改成 `Value.FromRef(table.Get(protoHandle).Tag, protoHandle)` ✓——
+**堆上每一项都记着自己是什么** ✓（`HeapObject.Tag` ✓），**不再猜** ✓、
+**也不再维护第二份「哪些 tag 算对象」的名单** ✗。
+
+### 三、这一格的教训（**值得记** ✓）
+
+它**两次都栽在「同一个对象有两种表示」**上 ✓：第一次是「**函数算不算对象**」✗、
+第二次是「**同一次查找造出来的值标签跟谁走**」✗——而**堆上本来就存着那个 `tag`** ✓。
+**能用堆上的事实，就别在调用点再判一遍** ✓。
+
+**读数** ✓：`pass` **1332 → 1333** ✓、`blocked` **8 → 7** ✓、矩阵 **1343** ✓、**红的一栏 0** ✓、
+六道门 **38.9s 全绿** ✓；**引擎 98.8%** ✓、降级层 99.4% ✓、标准库 99.4% ✓、端到端 100% ✓。
+**剩下 10 格** ✓。
+
+### 四、下一轮的入口
+
+**① 嵌套命名空间** ✓（`c291-ex-nested-namespace-with-values` ✓）：报错里已经带着
+「`left is ModuleDeclaration at 19..65`」✓——根在**投影层的语句切分** ✓
+（判据：`ModuleDeclaration` 这类**自带括号的声明**应当是**独立语句的结尾** ✓；
+`export` 那几格在它前面 ✓、切在它后面不会把修饰词切走 ✓）。
+**② `thenable` 采纳** ✓（`Promise.resolve` / 异步返回值那一格要给引擎一条注册钩子 ✓，
+与 `RegisterBoundCall` 同形 ✓）；**③ 错误要有 `stack`** ✓（IR 要带源码位置 ✓，大特性 ✓）；
+**④ 其余**（`IdTable` 容量口径 ✓、`Map`/`Set`/`Date` 的 `size` 该是原型 getter ✓、
+错误对象的内部槽标记 ✓、`Array.fromAsync` ✓、`super` 在对象字面量里 ✓、
+三元与链式调用两处已知缺口 ✓）。
+
 ## 第 356 轮的账（**让「缺口自己说出形状与位置」** —— 99.3%，未收格 ✗）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 / 端到端语料，再按根子收掉缺口**
