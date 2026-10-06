@@ -96,6 +96,59 @@ if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) 
   if (this.EnclosingObjectLiteral(current)) {
     return true;
   }
+  // **值三元的冒号也不是类型标注** ✓（第 364/365 轮 ✓，**实测撞到的** ✓）：
+  // `flag ? (a: number) => a + 1 : (a: number) => a - 1` 里那个 `(` 往前看紧挨着**三元的 `:`** ✓，
+  // 照上面那条一律判「类型标注 ⇒ 不是形参表」✗ ⇒ `FindParameters` 给 `-1` ✗ ⇒ 紧邻的
+  // `FunctionTypeReorganization`（它排在 `Lamda` **之前** ✓）把**假值段那个箭头**收成**函数类型** ✗
+  // ⇒ 降级层报 `unimplemented: expression FunctionType` ✓。
+  // **判据与本文件下面那条同源** ✓（`?` 那一支用的就是 `HasExtendsMarker` ✓）：
+  // 「左边有平级的 `?` 而且**没有** `extends`」是值三元 ✓、有 `extends` 才是条件类型 ✓
+  //（`T extends U ? () => A : B` 里那个 `() => A` **确实是**函数类型 ✓，所以不能一刀切 ✗）。
+  // **"没有 extends" 要看整张列表** ✓（第 365 轮 ✓，**收窄到第四次才对** ✗）：
+  // 第一版借的是 \`HasExtendsMarker\` ✓（它只看一段窗口 ✓）——而条件类型的 \`extends\`
+  // 可能落在窗口外面 ✗ ⇒ 那个**类型箭头**被当成了值箭头 ✗ ⇒ 语料里少 3 个、多 1 个 ✗
+  //（实测 \`real\` 那一趟复现 ✓、\`cases\` 那一趟干净 ✓ —— 所以只有真语料才露 ✗）。
+  let sawExtendsAnywhere = false;
+  for (let k = 0; k < previousIndex; k++) {
+    const u = Get(units, k);
+    if (u instanceof Identifier && u.Is("extends")) {
+      sawExtendsAnywhere = true;
+      break;
+    }
+  }
+  if (previous.Is(":") && sawExtendsAnywhere === false) {
+    let scan = SkipPreviousWrapSymbol(units, previousIndex);
+    while (scan >= 0) {
+      const item = Get(units, scan);
+      if (item instanceof SymbolToken && item.Is("?")) {
+        return true;
+      }
+      // **真值段那个箭头横在中间** ✓：`? (a) => a + 1 : …` 的 `=>` 与它的形参括号
+      // 正好夹在 `?` 与 `:` 之间 ✓ ⇒ 这两个都**不算停靠** ✓（探针现场：`previousIndex=13` ✓、
+      // `ext=false` ✓、可回溯在索引 9 的 `=>` 上停住 ✓ ⇒ 判据恒为假 ✗）。
+      // **括号只在「紧跟 `?`」时才跨** ✓：那正是「它是真值段的形参表」✓。
+      if (item instanceof Bracket) {
+        // **三个条件一起才算「真值段的形参表」** ✓（第 365 轮 ✓，**收窄到第三次才对** ✗）：
+        // ① 括号左边紧挨着 `?` ✓、② 括号右边紧跟着 `=>` ✓（那才是箭头 ✓）、
+        // ③ 中间没有别的边界 ✓。少了②，别的形状也会被放开 ✗（实测 `real` 那一趟语料里
+        // 仍旧「缺 3 / 多 1」✗）。
+        const beforeBracket = SkipPreviousWrapSymbol(units, scan);
+        const beforeUnit = Get(units, beforeBracket);
+        const afterBracket = SkipNextWrapSymbol(units, scan);
+        const afterUnit = Get(units, afterBracket);
+        if (beforeUnit instanceof SymbolToken && beforeUnit.Is("?")
+          && afterUnit instanceof SymbolToken && afterUnit.Is("=>")) {
+          scan = beforeBracket;
+          continue;
+        }
+        break;
+      }
+      if (item instanceof SymbolToken && (item.Is("=") || item.Is(",") || item.Is(";") || item.Is(":"))) {
+        break;
+      }
+      scan = SkipPreviousWrapSymbol(units, scan);
+    }
+  }
   return false;
 }
 if (previous instanceof Identifier && previous.Is("new")) {

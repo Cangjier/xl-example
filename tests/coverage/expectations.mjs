@@ -953,7 +953,7 @@ export const EXPECTATIONS = {
   //（`ternary-operator.xl.md` 的 `IsTypePosition` ✓）——括号关闭那一刻外层还没成形 ✓，
   // 所以要么给括号那一侧补一条「上一格是值位的 `?` ⇒ 这里不是类型位」✓，
   // 要么让箭头形的括号自己再收一次 ✓。两条都要连同 `cases:tsast` 的 1444 条一起验 ✓，单独立一轮 ✓。
-  "c330-ex-ternary-arrow-branches": { expect: "blocked", why: "三元的两支是**不套括号的箭头函数**时整份文件进不来（`unimplemented: binary operator ?`）——`?` 后面那个 `(` 被判成**函数类型**的开头（条件类型里 `? () => C : D` 是合法类型），于是箭头成了 `FunctionType`、`?` 配不成三元。**边界量清楚了**：函数表达式那一支是好的、套了括号的箭头也是好的，只有「真值段直接写箭头」塌（六条探针见台账）" },
+  // **第 365 轮过了** ✓（这一行撤了 ✓）：值三元的那个 `:` 不是类型标注 ✓——回溯要跨过真值段的 `=>` 与它的形参括号 ✓，而「没有 extends」必须看**整张列表** ✓（`HasExtendsMarker` 只看一段窗口 ✗，条件类型的 `extends` 落在窗口外就漏 ✗）。
   //
   // ---- 组 C：数组方法是通用的（1 条）----
   // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
