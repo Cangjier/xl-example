@@ -4621,4 +4621,344 @@ console.log(JSON.stringify(it.return(9)));
 console.log(JSON.stringify(it.next()));
 `,
   },
+  // ===== 第 330 轮收编（22 条）=====
+  {
+    id: "c330-rt-array-like-from",
+    title: "类数组对象：`length` + 下标 + `Array.from`",
+    src: `
+const like = { 0: "a", 1: "b", length: 2 };
+console.log(like[0], like.length, Array.from(like as any).join(","));
+`,
+  },
+  {
+    id: "c330-rt-array-like-slice-call",
+    title: "`[].slice.call(类数组)`：数组方法是通用的",
+    src: `
+const like = { 0: "a", 1: "b", length: 2 };
+console.log([].slice.call(like as any).join("-"));
+`,
+  },
+  {
+    id: "c330-rt-forof-string-codepoints",
+    title: "`for..of` 一个字符串：按码点、含代理对",
+    src: `
+let count = 0;
+const seen: string[] = [];
+for (const ch of "a\\uD83D\\uDE00b") {
+  count = count + 1;
+  seen.push(ch.length + ":" + ch);
+}
+console.log(count, seen.join(" "));
+console.log("a\\uD83D\\uDE00b".length, [..."\\uD83D\\uDE00"].length);
+`,
+  },
+  {
+    id: "c330-rt-object-key-order-mixed",
+    title: "对象键序：整数键升序在前、其余按写入序",
+    src: `
+const o: { [k: string]: number } = {};
+o["b"] = 1;
+o["2"] = 2;
+o["a"] = 3;
+o["1"] = 4;
+console.log(Object.keys(o).join(","));
+console.log(JSON.stringify(o));
+`,
+  },
+  {
+    id: "c330-rt-generator-send-and-return",
+    title: "生成器：`next(v)` 送值 + 返回值随 `done`",
+    src: `
+function* counter(): Generator<number, string, number> {
+  let total = 0;
+  for (let i = 0; i < 3; i++) {
+    const sent: number = yield total;
+    total = total + (sent ?? 1);
+  }
+  return "sum=" + total;
+}
+const it = counter();
+console.log(JSON.stringify(it.next()));
+console.log(JSON.stringify(it.next(10)));
+console.log(JSON.stringify(it.next(20)));
+console.log(JSON.stringify(it.next(30)));
+`,
+  },
+  {
+    id: "c330-rt-async-await-try-finally",
+    title: "`await` 与 `try` / `finally` 的次序",
+    src: `
+async function run(): Promise<void> {
+  const log: string[] = [];
+  try {
+    log.push("try");
+    await null;
+    throw new Error("x");
+  } catch (e) {
+    log.push("catch");
+  } finally {
+    log.push("finally");
+  }
+  log.push("after");
+  console.log(log.join(","));
+}
+run();
+`,
+  },
+  {
+    id: "c330-rt-nested-map-of-arrays",
+    title: "`Map` 装数组：就地追加与嵌套遍历",
+    src: `
+const groups = new Map<string, number[]>();
+for (const n of [1, 2, 3, 4, 5]) {
+  const key = n % 2 === 0 ? "even" : "odd";
+  const bucket = groups.get(key);
+  if (bucket === undefined) groups.set(key, [n]);
+  else bucket.push(n);
+}
+for (const [key, list] of groups) console.log(key, list.join("+"));
+console.log(groups.size, groups.get("even")!.length);
+`,
+  },
+  {
+    id: "c330-rt-class-field-arrow-this",
+    title: "类字段箭头函数：`this` 钉在实例上",
+    src: `
+class Counter {
+  count = 0;
+  bump = (): number => {
+    this.count = this.count + 1;
+    return this.count;
+  };
+  twice(): number {
+    return this.bump() + this.bump();
+  }
+}
+const c = new Counter();
+const detached = c.bump;
+console.log(detached(), c.twice(), c.count);
+`,
+  },
+  {
+    id: "c330-rt-destructure-swap-deep",
+    title: "解构交换与嵌套默认值",
+    src: `
+let a = 1;
+let b = 2;
+[a, b] = [b, a];
+console.log(a, b);
+const { x: { y = 5 } = {}, z = 9 } = { z: 1 } as any;
+console.log(y, z);
+const [, second = "s", ...rest] = ["f", undefined, "t1", "t2"];
+console.log(second, rest.join(","));
+`,
+  },
+  {
+    id: "c330-rt-function-method-forms",
+    title: "函数的三种写法与 `this` 的取法",
+    src: `
+const obj = {
+  value: 7,
+  plain(): number {
+    return this.value;
+  },
+  arrow: () => 0,
+  shorthand() {
+    return this.value * 2;
+  },
+};
+console.log(obj.plain(), obj.shorthand(), typeof obj.arrow);
+const f = obj.plain;
+console.log(f.call(obj), f.call({ value: 3 }));
+`,
+  },
+  {
+    id: "c330-rt-error-cause-chain",
+    title: "错误链：`cause` 与嵌套包裹",
+    src: `
+function inner(): never {
+  throw new Error("root");
+}
+function outer(): never {
+  try {
+    inner();
+  } catch (e) {
+    throw new Error("wrap", { cause: e });
+  }
+}
+try {
+  outer();
+} catch (e) {
+  const err = e as Error & { cause?: Error };
+  console.log(err.message, err.cause?.message);
+}
+`,
+  },
+  {
+    id: "c330-rt-try-finally-in-generator",
+    title: "生成器里的 `try` / `finally` 与提前结束",
+    src: `
+function* g(): Generator<number> {
+  try {
+    yield 1;
+    yield 2;
+  } finally {
+    console.log("cleanup in generator");
+  }
+}
+const it = g();
+console.log(it.next().value);
+for (const v of it) console.log("loop", v);
+`,
+  },
+  {
+    id: "c330-rt-recursive-object-walk",
+    title: "递归遍历任意嵌套结构并汇总",
+    src: `
+function sum(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (Array.isArray(value)) {
+    let total = 0;
+    for (const item of value) total = total + sum(item);
+    return total;
+  }
+  if (value !== null && typeof value === "object") {
+    let total = 0;
+    for (const key of Object.keys(value)) total = total + sum((value as any)[key]);
+    return total;
+  }
+  return 0;
+}
+console.log(sum({ a: 1, b: [2, { c: 3 }], d: null }));
+console.log(sum([[1, 2], [3, [4]]]));
+`,
+  },
+  {
+    id: "c330-rt-symbol-iterator-manual",
+    title: "自定义迭代器：显式取出 `Symbol.iterator` 再推进",
+    src: `
+const iterable = {
+  [Symbol.iterator](): { next(): { value: number; done: boolean } } {
+    let at = 0;
+    return {
+      next(): { value: number; done: boolean } {
+        at = at + 1;
+        if (at > 3) return { value: 0, done: true };
+        return { value: at * 10, done: false };
+      },
+    };
+  },
+};
+const it = (iterable as any)[Symbol.iterator]();
+console.log(it.next().value, it.next().value, it.next().value, it.next().done);
+const spread: number[] = [...(iterable as any)];
+console.log(spread.join(","));
+`,
+  },
+  {
+    id: "c330-ex-as-inside-spread",
+    title: "`as` 落在展开位里：`[...(o as any)]`",
+    src: `
+const iterable = {
+  [Symbol.iterator](): { next(): { value: number; done: boolean } } {
+    let at = 0;
+    return {
+      next(): { value: number; done: boolean } {
+        at = at + 1;
+        if (at > 3) return { value: 0, done: true };
+        return { value: at * 10, done: false };
+      },
+    };
+  },
+};
+console.log([...(iterable as any)].join(","));
+`,
+  },
+  {
+    id: "c330-rt-ternary-parenthesized-branch",
+    title: "三元的两支带括号：值位不是类型位",
+    src: `
+const flag = true;
+const n = flag ? (1 + 2) : 3;
+const s = flag ? (() => "a")() : "b";
+console.log(n, s);
+`,
+  },
+  {
+    id: "c330-ex-ternary-arrow-branches",
+    title: "三元的两支是箭头函数：不套括号的写法",
+    src: `
+const flag = true;
+const add = flag ? (a: number) => a + 1 : (a: number) => a - 1;
+console.log(add(5));
+const pick = flag ? () => "yes" : () => "no";
+console.log(pick());
+`,
+  },
+  {
+    id: "c330-ex-object-literal-fn-name",
+    title: "对象字面量里的函数值从属性名取名",
+    src: `
+const o = { f: () => 1, g: function () {}, "a-b": () => 2, ["c"]: () => 3 };
+console.log(o.f.name, o.g.name, o["a-b"].name, o.c.name);
+console.log({ n: null, f: () => 1 });
+`,
+  },
+  {
+    id: "c330-ex-class-field-fn-name",
+    title: "类字段里的箭头从字段名取名",
+    src: `
+class K {
+  f = () => 1;
+  #n = () => 2;
+  nName(): string {
+    return this.#n.name;
+  }
+}
+const k = new K();
+console.log(k.f.name, k.nName());
+`,
+  },
+  {
+    id: "c330-rt-async-await-reject-in-try",
+    title: "被拒绝的承诺：`await` 之后才拒绝的那一档",
+    src: `
+async function f(n: number): Promise<number> {
+  await null;
+  if (n === 2) throw new Error("boom");
+  return n * 10;
+}
+async function run(): Promise<void> {
+  const out: number[] = [];
+  for (const n of [1, 2, 3]) {
+    try {
+      out.push(await f(n));
+    } catch (e) {
+      out.push(-1);
+    }
+  }
+  console.log(out.join(","));
+  const caught = await f(2).catch((e) => "caught:" + (e as Error).message);
+  console.log(caught);
+}
+run();
+`,
+  },
+  {
+    id: "c330-std-number-parse-negzero",
+    title: "`parseInt(\"-0\")` 保住负零",
+    src: `
+console.log(parseInt("-0"), 1 / parseInt("-0"));
+console.log(parseInt("-5"), parseInt("+7"), parseFloat("-0"));
+`,
+  },
+  {
+    id: "c330-rt-number-precision-forms",
+    title: "数值精度：安全整数边界与舍入",
+    src: `
+console.log(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 1 === Number.MAX_SAFE_INTEGER + 2);
+console.log(0.1 + 0.2 === 0.3, (0.1 + 0.2).toFixed(2));
+console.log(9007199254740993, Number.isSafeInteger(9007199254740993));
+`,
+  },
 ];

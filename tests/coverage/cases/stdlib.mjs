@@ -4610,4 +4610,239 @@ console.log("s", 1, true, null, undefined);
 console.log({ f: () => 1 }.f.name, [1, 2, 3].join());
 `,
   },
+  // ===== 第 330 轮收编（22 条）=====
+  {
+    id: "c330-std-string-wellformed",
+    title: "`isWellFormed`：落单代理给假、正常串给真",
+    src: `
+console.log("abc".isWellFormed(), "\\uD800".isWellFormed(), "\\uD83D\\uDE00".isWellFormed());
+console.log("a\\uDFFFb".isWellFormed());
+`,
+  },
+  {
+    id: "c330-std-string-towellformed",
+    title: "`toWellFormed`：落单代理换成 U+FFFD、其余原样",
+    src: `
+const fixed = "a\\uD800b".toWellFormed();
+console.log(fixed.length, fixed.charCodeAt(1).toString(16));
+console.log("\\uD83D\\uDE00".toWellFormed() === "\\uD83D\\uDE00");
+console.log("ok".toWellFormed());
+`,
+  },
+  {
+    id: "c330-std-promise-try-value",
+    title: "`Promise.try`：同步返回值兑现",
+    src: `
+const p = Promise.try(() => 41 + 1);
+p.then((v) => console.log("value", v));
+console.log(typeof p.then);
+`,
+  },
+  {
+    id: "c330-std-promise-try-throw",
+    title: "`Promise.try`：同步抛出的错变成拒绝",
+    src: `
+function boom(): number {
+  throw new Error("nope");
+}
+Promise.try(boom).catch((e) => console.log("caught", (e as Error).message));
+Promise.try(() => "ok").then((v) => console.log("then", v));
+`,
+  },
+  {
+    id: "c330-std-structuredclone-basic",
+    title: "`structuredClone`：对象与数组是深拷贝",
+    src: `
+const source = { a: 1, b: { c: [1, 2, 3] } };
+const copy = structuredClone(source);
+copy.b.c.push(4);
+copy.a = 9;
+console.log(source.a, source.b.c.length, copy.a, copy.b.c.join(","));
+`,
+  },
+  {
+    id: "c330-std-structuredclone-containers",
+    title: "`structuredClone`：Map / Set / Date 与循环引用",
+    src: `
+const map = new Map<string, number>([["a", 1]]);
+const set = new Set<number>([1, 2]);
+const date = new Date(0);
+const cloned = structuredClone({ map, set, date });
+console.log(cloned.map.get("a"), cloned.set.has(2), cloned.date.getTime());
+const cyclic: any = { name: "root" };
+cyclic.self = cyclic;
+const copy = structuredClone(cyclic);
+console.log(copy.name, copy.self === copy, copy.self.name);
+`,
+  },
+  {
+    id: "c330-std-error-iserror",
+    title: "`Error.isError`：只有错误对象给真",
+    src: `
+console.log(Error.isError(new Error("x")), Error.isError(new TypeError("y")));
+console.log(Error.isError({}), Error.isError("Error"), Error.isError(null));
+`,
+  },
+  {
+    id: "c330-std-number-tostring-edges",
+    title: "数值 → 文本的几处边界写法",
+    src: `
+console.log((1e21).toString(), (1e-7).toString(), (0.000001).toString());
+console.log((-0).toString(), (123456789012345680000).toString());
+console.log((255).toString(16), (8).toString(2), (1.5).toString());
+`,
+  },
+  {
+    id: "c330-std-number-parse-edges",
+    title: "`parseInt` / `parseFloat` 的前缀与失败形态",
+    src: `
+console.log(parseInt("  42px"), parseInt("0x1f"), parseInt("08"), parseInt("1e3"));
+console.log(parseInt("z", 36), parseInt("-0"), Number.isNaN(parseInt("x")));
+console.log(parseFloat("3.14abc"), parseFloat(".5"), parseFloat("1e2"));
+`,
+  },
+  {
+    id: "c330-std-json-stringify-control",
+    title: "`JSON.stringify` 的控制字符与非 ASCII",
+    src: `
+console.log(JSON.stringify("a\\nb\\tc"));
+console.log(JSON.stringify("\\u0001"));
+console.log(JSON.stringify("中文😀"));
+console.log(JSON.stringify({ k: "a\\"b" }));
+`,
+  },
+  {
+    id: "c330-std-json-parse-forms",
+    title: "`JSON.parse` 的空白、指数与嵌套",
+    src: `
+console.log(JSON.parse('  { "a" : [ 1 , 2 ] }  ').a.join(","));
+console.log(JSON.parse("1e3"), JSON.parse("-0.5"), JSON.parse("true"));
+console.log(JSON.parse('{"n":{"m":[{"x":1}]}}').n.m[0].x);
+`,
+  },
+  {
+    id: "c330-std-array-sort-forms",
+    title: "`sort` 的默认序与比较器形态",
+    src: `
+console.log([10, 9, 100, 1].sort().join(","));
+console.log([10, 9, 100, 1].sort((a, b) => a - b).join(","));
+console.log(["b", "a", "C"].sort().join(","));
+console.log([3, 1, 2].sort(() => 0).join(","));
+`,
+  },
+  {
+    id: "c330-std-array-slice-splice-negative",
+    title: "`slice` / `splice` 的负下标与返回值",
+    src: `
+const xs = [0, 1, 2, 3, 4];
+console.log(xs.slice(-2).join(","), xs.slice(1, -1).join(","), xs.slice(3, 1).join(","));
+const removed = xs.splice(-2, 1, 99);
+console.log(removed.join(","), xs.join(","), xs.length);
+`,
+  },
+  {
+    id: "c330-std-string-split-forms",
+    title: "`split` 的空分隔符、上限与连续分隔符",
+    src: `
+console.log("abc".split("").join("-"));
+console.log("a,b,,c".split(",").length, "a,b,,c".split(",")[2]);
+console.log("a-b-c".split("-", 2).join("|"));
+console.log("".split(",").length, "abc".split("").length);
+`,
+  },
+  {
+    id: "c330-std-map-construct-forms",
+    title: "`Map` 的构造、覆盖与迭代次序",
+    src: `
+const m = new Map<string, number>([["b", 2], ["a", 1], ["b", 3]]);
+console.log(m.size, m.get("b"));
+m.set("c", 4);
+m.delete("a");
+console.log([...m.keys()].join(","), [...m.values()].join(","));
+console.log([...m.entries()].map(([k, v]) => k + v).join("|"));
+`,
+  },
+  {
+    id: "c330-std-set-iterables",
+    title: "`Set` 从各种可迭代对象构造",
+    src: `
+console.log([...new Set([1, 1, 2, 3, 3])].join(","));
+console.log([...new Set("aabbc")].join(""));
+console.log([...new Set(new Map([["x", 1], ["y", 2]]).keys())].join(","));
+console.log(new Set([NaN, NaN]).size, new Set([0, -0]).size);
+`,
+  },
+  {
+    id: "c330-std-date-arithmetic",
+    title: "`Date` 的算术、比较与 UTC 往返",
+    src: `
+const a = new Date(0);
+const b = new Date(86400000);
+console.log(b.getTime() - a.getTime(), b > a, a < b);
+const iso = new Date(1700000000000).toISOString();
+console.log(iso, Date.parse(iso));
+console.log(Date.UTC(1970, 0, 2) / 86400000);
+`,
+  },
+  {
+    id: "c330-std-console-arrays-objects",
+    title: "`console.log` 的数组与对象混排形状",
+    src: `
+console.log([], {}, [[]], [{}]);
+console.log([1, "a", null, undefined, true]);
+console.log({ a: [], b: {}, c: [[]] });
+console.log([[1, 2], [3, 4]]);
+`,
+  },
+  {
+    id: "c330-std-function-call-forms",
+    title: "`call` / `apply` / `bind` 的三种形态",
+    src: `
+function add(this: any, a: number, b: number): number {
+  return this.base + a + b;
+}
+const ctx = { base: 10 };
+console.log(add.call(ctx, 1, 2), add.apply(ctx, [3, 4]));
+const bound = add.bind(ctx, 5);
+console.log(bound(6), bound.length, bound.name);
+`,
+  },
+  {
+    id: "c330-std-error-subclass-forms",
+    title: "自定义错误类：名字、消息与 `instanceof`",
+    src: `
+class ValidationError extends Error {
+  field: string;
+  constructor(message: string, field: string) {
+    super(message);
+    this.name = "ValidationError";
+    this.field = field;
+  }
+}
+const e = new ValidationError("bad", "email");
+console.log(e.name, e.message, e.field);
+console.log(e instanceof ValidationError, e instanceof Error, e.constructor === ValidationError);
+`,
+  },
+  {
+    id: "c330-std-object-freeze-deep",
+    title: "`Object.freeze` 的浅层语义与查询",
+    src: `
+const inner = { n: 1 };
+const outer = { inner, list: [1] };
+Object.freeze(outer);
+outer.inner.n = 2;
+console.log(outer.inner.n, Object.isFrozen(outer), Object.isFrozen(outer.inner));
+console.log(Object.keys(outer).join(","));
+`,
+  },
+  {
+    id: "c330-std-math-round-ties",
+    title: "`Math.round` / `Math.trunc` 在 .5 与负数上的口径",
+    src: `
+console.log(Math.round(0.5), Math.round(1.5), Math.round(-0.5), Math.round(-1.5));
+console.log(Math.trunc(-1.7), Math.floor(-1.2), Math.ceil(-1.2));
+console.log(Math.sign(-0), 1 / Math.sign(-0));
+`,
+  },
 ];

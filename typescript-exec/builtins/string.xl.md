@@ -183,6 +183,27 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 报 `cannot call a non-closure value` ✓——即**那一格根本没装** ✗
 （`slice` / `substring` 一直是好的 ✓）。
 
+# const StringIsWellFormed:int = 130
+
+**`s.isWellFormed()`**（第 330 轮 ✓，ES2024 ✓）——这张码元表里**有没有落单的代理** ✓。
+
+**它与 `toWellFormed` 是同一件事的两面** ✓，所以共用一条扫描 ✓（见 `SurrogateStep` ✓）：
+规范里写死的正是「`isWellFormed()` 为真 ⟺ `toWellFormed()` 原样返回」✓——
+分成两份实现，就会有一天一条说真、另一条却改了东西 ✗。
+
+**为什么它是「标准里定死」的那一档** ✓（而不是「各目标可能不同」✗）：
+代理对的合法性是 UTF-16 自己的规矩 ✓，与区域设置 / 宿主都无关 ✓
+（与第 311 轮那两张表同一档 ✓）。
+
+# const StringToWellFormed:int = 131
+
+**`s.toWellFormed()`**（第 330 轮 ✓）——把每个**落单的代理**换成一个 `U+FFFD` ✓，
+**成对的代理一个都不动** ✗（它是一对合法的 ✓）。
+
+**替换是逐码元的、不是逐码点的** ✗：`"\uD800\uD800"` 给**两个** `U+FFFD` ✓
+（JS 的口径 ✓，两个各自落单 ✓）——写成「先按码点拆再替换」会先把它们凑成一对 ✓，
+**静默错值** ✗。
+
 # const StringFromCodePoint:int = 126
 
 **`String.fromCodePoint(码位…)`**（第 275 轮 ✓）——**静态方法** ✓
@@ -216,8 +237,6 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 
 # method RequireString:(table:HeapTable, self:Value)=>void
 
-`self` 必须是字符串；不是就抛。
-
 **原始值接收者这条路上，`self` 是原样的字符串**（没有包装对象）——
 「装箱」这件事没有发生，引擎只是**借它的原型**去找方法。
 
@@ -225,6 +244,39 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 if (self.Tag !== ValueTag.String) {
   throw new Error("this method needs a string receiver");
 }
+```
+
+# method SurrogateStep:(units:Array<int>, at:int)=>int
+
+**良构那条扫描在 `at` 这一格要跨几步**（第 330 轮 ✓）——
+`2` = 一对**配对**的代理 ✓、`1` = 一个普通码元 ✓、`-1` = **落单的代理** ✓。
+
+**为什么让扫描「跨步」而不是逐格判** ✗：逐格判要把「我是不是某一对的后半」也带上 ✓，
+而那正是最容易写漏的一格 ✗——实测第一版就是逐格判的 ✓，
+`"a\uD83D\uDE00b"` 在第 2 格（**后随代理**）被判成落单 ✓，
+于是 `"😀".isWellFormed()` 给**假** ✗（JS 给真 ✓）。**跨步之后这一格根本不会单独被访问** ✓。
+
+| 这一格 | 下一格 | 给什么 |
+| --- | --- | --- |
+| 前导代理 `D800..DBFF` ✓ | 后随代理 `DC00..DFFF` ✓ | `2`（一对 ✓） |
+| 前导代理 ✓ | 别的 / **没有下一格** ✓ | `-1`（落单 ✓） |
+| 后随代理 `DC00..DFFF` ✓ | —— | `-1`（后随代理**永远**不该单独出现 ✓） |
+| 其余 | —— | `1` ✓ |
+
+**它与迭代那一支**不是一回事 ✗（第 297 轮的 `DoIterNext` ✓）：那一支也要按码点走 ✓，
+可它的口径是「**孤立的照样给出去**」✓（`[..."\uD800"]` 在 JS 里长度是 1 ✓）——
+它**不判良构** ✗。两处问的是不同的问题 ✓，所以合并就是把两件事混成一件 ✗。
+
+```ts
+const unit = units[at];
+if (unit >= 55296 && unit <= 56319) {
+  if (at + 1 >= units.length) return -1;
+  const follower = units[at + 1];
+  if (follower >= 56320 && follower <= 57343) return 2;
+  return -1;
+}
+if (unit >= 56320 && unit <= 57343) return -1;
+return 1;
 ```
 
 # method InvokeString:(room:RoomChecker, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>)=>Value
@@ -297,6 +349,45 @@ if (id === StringFromCodePoint) {
 self = UnwrapBox(table, self);
 RequireString(table, self);
 const units = JsTextUnits(table, self);
+// **`isWellFormed` / `toWellFormed`**（第 330 轮 ✓）——两条**共用同一条扫描** ✓
+//（`SurrogateStep` ✓，理由见那两个号那一段 ✓）。
+if (id === StringIsWellFormed) {
+  let at = 0;
+  while (at < units.length) {
+    const step = SurrogateStep(units, at);
+    if (step < 0) return Value.FromBool(false);
+    at = at + step;
+  }
+  return Value.FromBool(true);
+}
+if (id === StringToWellFormed) {
+  // **先扫一遍判「要不要动」** ✗：良构时**原样把接收者交回去** ✓
+  //（`"a".toWellFormed() === "a"` 在 JS 里为真 ✓，与 `toString` / `valueOf` 那一族同一条口径 ✓），
+  // 而「边扫边造、最后一个字符都没换也造一个新串」会让上面那条判等给假 ✓。
+  let at = 0;
+  let clean = true;
+  while (at < units.length) {
+    const step = SurrogateStep(units, at);
+    if (step < 0) { clean = false; break; }
+    at = at + step;
+  }
+  if (clean) return self;
+  const fixed: number[] = [];
+  at = 0;
+  while (at < units.length) {
+    const step = SurrogateStep(units, at);
+    if (step < 0) {
+      // **落单的那一格换成一个 `U+FFFD`** ✓（`65533` ✓），其余原样 ✓。
+      fixed.push(65533);
+      at = at + 1;
+      continue;
+    }
+    for (let k = 0; k < step; k++) fixed.push(units[at + k]);
+    at = at + step;
+  }
+  if (!room(ObjectCharge + CodeUnitCharge * fixed.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(fixed));
+}
 if (id === StringCharAt) {
   const at = ArgOr(args, 0, 0);
   if (at < 0 || at >= units.length) {
@@ -906,14 +997,18 @@ const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "substr",
   // **第 304 轮补的两格** ✓（`toString` / `valueOf` ✓）——号**照旧追加在表尾** ✓
   //（`128` / `129` ✓），已有的一个都没动 ✓。**两格共用一个实现** ✓（见号那一段 ✓）。
-  "toString", "valueOf"];
+  "toString", "valueOf",
+  // **第 330 轮补的两格** ✓（`isWellFormed` / `toWellFormed` ✓，ES2024 ✓）——
+  // 号**照旧追加在表尾** ✓（`130` / `131` ✓），已有的一个都没动 ✓。
+  "isWellFormed", "toWellFormed"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
   StringReplace, StringReplaceAll,
   StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare,
   StringTrimStart, StringTrimEnd, StringSubstr,
-  StringToString, StringValueOf];
+  StringToString, StringValueOf,
+  StringIsWellFormed, StringToWellFormed];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

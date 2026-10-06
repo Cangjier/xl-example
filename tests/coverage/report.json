@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1202,
+  "matrix": 1266,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,47 +33,47 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 95.81,
+  "progressPercent": 95.73,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 390,
-      "pass": 368,
-      "blocked": 14,
+      "total": 412,
+      "pass": 388,
+      "blocked": 16,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 94.36
+      "coverage": 94.17
     },
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 298,
-      "pass": 288,
-      "blocked": 6,
+      "total": 308,
+      "pass": 297,
+      "blocked": 7,
       "differ": 4,
       "nodefail": 0,
-      "coverage": 96.64
+      "coverage": 96.43
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 479,
-      "pass": 456,
-      "blocked": 10,
-      "differ": 13,
+      "total": 501,
+      "pass": 475,
+      "blocked": 15,
+      "differ": 11,
       "nodefail": 0,
-      "coverage": 95.2
+      "coverage": 94.81
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 35,
-      "pass": 34,
+      "total": 45,
+      "pass": 44,
       "blocked": 0,
       "differ": 1,
       "nodefail": 0,
-      "coverage": 97.14
+      "coverage": 97.78
     }
   ],
   "blocked": [
@@ -162,6 +162,18 @@
       "detail": "tsrun: 脚本抛出：this method needs an array receiver"
     },
     {
+      "id": "c330-rt-array-like-slice-call",
+      "layer": "runtime",
+      "title": "`[].slice.call(类数组)`：数组方法是通用的",
+      "detail": "tsrun: 脚本抛出：this method needs an array receiver"
+    },
+    {
+      "id": "c330-ex-ternary-arrow-branches",
+      "layer": "runtime",
+      "title": "三元的两支是箭头函数：不套括号的写法",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
+    },
+    {
       "id": "ex-angle-bracket-assertion",
       "layer": "exec",
       "title": "尖括号断言 `<T>expr`（与 `as` 同一个意思）",
@@ -196,6 +208,12 @@
       "layer": "exec",
       "title": "具名函数表达式的名字在函数体内可见（可递归）",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: self"
+    },
+    {
+      "id": "c330-ex-nonnull-assertion-forms",
+      "layer": "exec",
+      "title": "非空断言在三种位置上的取值",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: id"
     },
     {
       "id": "object-freeze",
@@ -255,6 +273,36 @@
       "id": "c323-std-string-raw",
       "layer": "stdlib",
       "title": "String.raw：标签模板的 raw 那一栏原样取出",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c330-std-promise-try-value",
+      "layer": "stdlib",
+      "title": "`Promise.try`：同步返回值兑现",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c330-std-promise-try-throw",
+      "layer": "stdlib",
+      "title": "`Promise.try`：同步抛出的错变成拒绝",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "c330-std-structuredclone-basic",
+      "layer": "stdlib",
+      "title": "`structuredClone`：对象与数组是深拷贝",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: structuredClone"
+    },
+    {
+      "id": "c330-std-structuredclone-containers",
+      "layer": "stdlib",
+      "title": "`structuredClone`：Map / Set / Date 与循环引用",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: structuredClone"
+    },
+    {
+      "id": "c330-std-error-iserror",
+      "layer": "stdlib",
+      "title": "`Error.isError`：只有错误对象给真",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
@@ -368,12 +416,6 @@
       "detail": "stdout 不同：第 2 行：node «1 function» vs tsrun «undefined function»"
     },
     {
-      "id": "c291-console-log-nested-shapes",
-      "layer": "stdlib",
-      "title": "console.log 的嵌套容器形状",
-      "detail": "stdout 不同：第 3 行：node «{ n: null, u: undefined, f: [Function: f] }» vs tsrun «{ n: null, u: undefined, f: [Function (anonymous)] }»"
-    },
-    {
       "id": "c304-std-symbol-iterator-manual",
       "layer": "stdlib",
       "title": "手动拿数组的 Symbol.iterator 再 next",
@@ -402,12 +444,6 @@
       "layer": "stdlib",
       "title": "Array.fromAsync：异步可迭代对象收成数组",
       "detail": "stdout 不同：第 1 行：node «1,2,3» vs tsrun «»"
-    },
-    {
-      "id": "c323-std-console-shapes",
-      "layer": "stdlib",
-      "title": "console.log 的形状：容器、嵌套、函数与多实参",
-      "detail": "stdout 不同：第 3 行：node «f 1,2,3» vs tsrun « 1,2,3»"
     },
     {
       "id": "c305-e2e-lru-cache",

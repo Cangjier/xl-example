@@ -800,6 +800,28 @@ return 0;
 
 **它不是根** ✓（一个布尔 ✓，不指向堆 ✓）；初值 `false` ✓。
 
+## field ResumeRaises:bool = false
+
+**这一次恢复，是「往挂起点抛一个值」还是「把一个值放进 `yield` / `await` 那一格」** ✓。
+
+**第 313 轮它长在 `Vm` 上** ✗（见那一轮的说明 ✓）——那一版是对的 ✓，因为那时**只有一个**恢复者
+（`DoIterNext` ✓），而且它设完**立刻**在同一个调用里把帧压回栈上 ✓、被恢复的那一帧的
+第一条指令正是 `resume` ✓，中间插不进别的东西 ✓。
+
+**第 330 轮它必须落到帧上** ✗：多出来**第二个**恢复者 ✓——`RejectPromise` ✓。
+一个被拒绝的承诺可能**同时**排着**好几个**等着它的帧 ✓（`Promise.all` 那一族天生如此 ✓），
+而它们不是当场恢复的 ✗：`RejectPromise` 只是把句柄推进微任务队列 ✓，
+真正恢复要等 `DrainMicrotasks` 一条一条地跑 ✓。
+**一个机器级的瞬时格装不下「排着队的每一条各自的答案」** ✗
+（写成一格的话，第二个排队者的答案会把第一个盖掉 ✓ ⇒ 一半的 `await` 拿到的是**值**而不是**抛** ✓，
+**静默错值** ✓）。所以它搬到**帧**上 ✓——与同族的 `SuspendedInAwait` ✓、`ResumeValue` ✓、
+`AsyncPromise` ✓ 住在一起 ✓（「谁收尾谁要知道它是谁」是同一条理由 ✓）。
+
+**谁写谁清** ✓：`DoIterNext`（生成器那一路的 `throw` ✓）与 `RejectPromise`（被拒绝的承诺 ✓）
+写 ✓，`Op.Resume` 读走并清掉 ✓——**只写不清就是下一次凭空抛一次** ✗（第 313 轮就是这么写的 ✓）。
+
+**它不是根** ✓（一个布尔 ✓）；初值 `false` ✓。
+
 ## constructor:(code:int, slotCount:int, prev:int, returnSlot:int)=>void
 
 按槽数开一帧，槽先全部填成 `undefined`（**不留空槽**：未初始化的槽若带着上一轮的垃圾值，
@@ -818,6 +840,7 @@ this.Generator = 0;
 this.AsyncPromise = 0;
 this.Awaiting = new Value();
 this.SuspendedInAwait = false;
+this.ResumeRaises = false;
 this.ResumeValue = new Value();
 this.Slots = [];
 for (let i = 0; i < slotCount; i++) {

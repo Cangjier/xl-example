@@ -877,4 +877,346 @@ const key = memo((s: string) => s.toUpperCase() + "!");
 console.log(key("a"), key("a"), key("b"));
 `,
   },
+  // ===== 第 330 轮收编（10 条）=====
+  {
+    id: "c330-e2e-priority-queue",
+    title: "优先队列：二叉堆 + 比较器 + 泛型",
+    src: `
+class PriorityQueue<T> {
+  private heap: T[] = [];
+  private better: (a: T, b: T) => boolean;
+  constructor(better: (a: T, b: T) => boolean) {
+    this.better = better;
+  }
+  get size(): number {
+    return this.heap.length;
+  }
+  push(value: T): void {
+    this.heap.push(value);
+    let i = this.heap.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (!this.better(this.heap[i], this.heap[parent])) break;
+      const tmp = this.heap[i];
+      this.heap[i] = this.heap[parent];
+      this.heap[parent] = tmp;
+      i = parent;
+    }
+  }
+  pop(): T | undefined {
+    if (this.heap.length === 0) return undefined;
+    const top = this.heap[0];
+    const last = this.heap.pop() as T;
+    if (this.heap.length > 0) {
+      this.heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const left = i * 2 + 1;
+        const right = left + 1;
+        let best = i;
+        if (left < this.heap.length && this.better(this.heap[left], this.heap[best])) best = left;
+        if (right < this.heap.length && this.better(this.heap[right], this.heap[best])) best = right;
+        if (best === i) break;
+        const tmp = this.heap[i];
+        this.heap[i] = this.heap[best];
+        this.heap[best] = tmp;
+        i = best;
+      }
+    }
+    return top;
+  }
+}
+
+const pq = new PriorityQueue<number>((a, b) => a < b);
+for (const n of [5, 1, 9, 3, 7, 2]) pq.push(n);
+const out: number[] = [];
+while (pq.size > 0) out.push(pq.pop() as number);
+console.log(out.join(","));
+`,
+  },
+  {
+    id: "c330-e2e-graph-bfs",
+    title: "图的最短路径：邻接表 + 队列 + 距离表",
+    src: `
+const graph: { [k: string]: string[] } = {
+  a: ["b", "c"],
+  b: ["d"],
+  c: ["d", "e"],
+  d: ["e"],
+  e: [],
+};
+function distances(from: string): { [k: string]: number } {
+  const dist: { [k: string]: number } = { [from]: 0 };
+  const queue: string[] = [from];
+  while (queue.length > 0) {
+    const node = queue.shift() as string;
+    for (const next of graph[node]) {
+      if (Object.prototype.hasOwnProperty.call(dist, next)) continue;
+      dist[next] = dist[node] + 1;
+      queue.push(next);
+    }
+  }
+  return dist;
+}
+const d = distances("a");
+for (const key of Object.keys(d).sort()) console.log(key, d[key]);
+`,
+  },
+  {
+    id: "c330-e2e-trie-prefix",
+    title: "前缀树：插入 / 查询 / 前缀收集",
+    src: `
+class TrieNode {
+  children = new Map<string, TrieNode>();
+  isWord = false;
+}
+class Trie {
+  root = new TrieNode();
+  insert(word: string): void {
+    let node = this.root;
+    for (const ch of word) {
+      let next = node.children.get(ch);
+      if (next === undefined) {
+        next = new TrieNode();
+        node.children.set(ch, next);
+      }
+      node = next;
+    }
+    node.isWord = true;
+  }
+  has(word: string): boolean {
+    let node = this.root;
+    for (const ch of word) {
+      const next = node.children.get(ch);
+      if (next === undefined) return false;
+      node = next;
+    }
+    return node.isWord;
+  }
+  withPrefix(prefix: string): string[] {
+    let node = this.root;
+    for (const ch of prefix) {
+      const next = node.children.get(ch);
+      if (next === undefined) return [];
+      node = next;
+    }
+    const found: string[] = [];
+    const walk = (at: TrieNode, sofar: string): void => {
+      if (at.isWord) found.push(sofar);
+      for (const [ch, child] of at.children) walk(child, sofar + ch);
+    };
+    walk(node, prefix);
+    return found.sort();
+  }
+}
+const trie = new Trie();
+for (const w of ["cat", "car", "card", "dog", "do"]) trie.insert(w);
+console.log(trie.has("car"), trie.has("ca"), trie.has("dog"));
+console.log(trie.withPrefix("ca").join(","));
+console.log(trie.withPrefix("z").length);
+`,
+  },
+  {
+    id: "c330-e2e-rpn-calculator",
+    title: "逆波兰计算器：栈 + 运算符表 + 报错",
+    src: `
+function evaluate(expr: string): number {
+  const ops: { [k: string]: (a: number, b: number) => number } = {
+    "+": (a, b) => a + b,
+    "-": (a, b) => a - b,
+    "*": (a, b) => a * b,
+    "/": (a, b) => a / b,
+  };
+  const stack: number[] = [];
+  for (const token of expr.split(" ")) {
+    const op = ops[token];
+    if (op !== undefined) {
+      const b = stack.pop() as number;
+      const a = stack.pop() as number;
+      stack.push(op(a, b));
+      continue;
+    }
+    stack.push(Number(token));
+  }
+  if (stack.length !== 1) throw new Error("bad expression: " + expr);
+  return stack[0];
+}
+console.log(evaluate("3 4 + 2 *"));
+console.log(evaluate("10 2 / 3 -"));
+try {
+  evaluate("1 2");
+} catch (e) {
+  console.log((e as Error).message);
+}
+`,
+  },
+  {
+    id: "c330-e2e-text-table",
+    title: "文本表格：列宽 + 对齐 + 数字右对齐",
+    src: `
+type Row = { name: string; qty: number; price: number };
+const rows: Row[] = [
+  { name: "apple", qty: 3, price: 1.5 },
+  { name: "kiwi", qty: 12, price: 0.75 },
+  { name: "watermelon", qty: 1, price: 6 },
+];
+function pad(text: string, width: number, right: boolean): string {
+  let out = text;
+  while (out.length < width) out = right ? " " + out : out + " ";
+  return out;
+}
+const widths = [
+  Math.max(...rows.map((r) => r.name.length), 4),
+  Math.max(...rows.map((r) => String(r.qty).length), 3),
+  Math.max(...rows.map((r) => r.price.toFixed(2).length), 5),
+];
+console.log(pad("name", widths[0], false) + " | " + pad("qty", widths[1], true) + " | " + pad("price", widths[2], true));
+console.log("-".repeat(widths[0] + widths[1] + widths[2] + 6));
+let total = 0;
+for (const row of rows) {
+  total = total + row.qty * row.price;
+  console.log(pad(row.name, widths[0], false) + " | " + pad(String(row.qty), widths[1], true)
+    + " | " + pad(row.price.toFixed(2), widths[2], true));
+}
+console.log("total =", total.toFixed(2));
+`,
+  },
+  {
+    id: "c330-e2e-json-path",
+    title: "按路径取值：点号路径 + 缺省 + 数组下标",
+    src: `
+const data = {
+  user: { name: "ada", tags: ["math", "code"], address: { city: "london" } },
+  items: [{ id: 1 }, { id: 2 }],
+};
+function pick(root: unknown, path: string, fallback: unknown): unknown {
+  let current: any = root;
+  for (const step of path.split(".")) {
+    if (current === null || current === undefined) return fallback;
+    current = current[step];
+  }
+  return current === undefined ? fallback : current;
+}
+console.log(pick(data, "user.name", "-"));
+console.log(pick(data, "user.address.city", "-"));
+console.log(pick(data, "user.missing.deep", "none"));
+console.log(pick(data, "items.1.id", -1));
+console.log(pick(data, "user.tags.0", "-"));
+`,
+  },
+  {
+    id: "c330-e2e-inventory-grouping",
+    title: "库存报表：Map 分组 + 排序 + 汇总",
+    src: `
+type Item = { sku: string; category: string; qty: number; unit: number };
+const items: Item[] = [
+  { sku: "a1", category: "tool", qty: 2, unit: 10 },
+  { sku: "b1", category: "food", qty: 5, unit: 3 },
+  { sku: "a2", category: "tool", qty: 1, unit: 25 },
+  { sku: "b2", category: "food", qty: 4, unit: 2 },
+  { sku: "c1", category: "toy", qty: 7, unit: 1 },
+];
+const byCategory = new Map<string, Item[]>();
+for (const item of items) {
+  const bucket = byCategory.get(item.category);
+  if (bucket === undefined) byCategory.set(item.category, [item]);
+  else bucket.push(item);
+}
+const report: { category: string; count: number; value: number }[] = [];
+for (const [category, list] of byCategory) {
+  let value = 0;
+  for (const item of list) value = value + item.qty * item.unit;
+  report.push({ category, count: list.length, value });
+}
+report.sort((a, b) => b.value - a.value);
+for (const row of report) console.log(row.category, row.count, row.value);
+`,
+  },
+  {
+    id: "c330-e2e-async-batch",
+    title: "异步分批处理：串行 + 结果汇总 + 错误兜底",
+    src: `
+async function fetchOne(id: number): Promise<string> {
+  await null;
+  if (id === 3) throw new Error("boom " + id);
+  return "item-" + id;
+}
+async function run(): Promise<void> {
+  const ok: string[] = [];
+  const failed: string[] = [];
+  for (const id of [1, 2, 3, 4]) {
+    try {
+      ok.push(await fetchOne(id));
+    } catch (e) {
+      failed.push((e as Error).message);
+    }
+  }
+  console.log(ok.join("|"));
+  console.log(failed.join("|"));
+  const all = await Promise.all([fetchOne(1), fetchOne(2)]);
+  console.log(all.length, all[1]);
+}
+run();
+`,
+  },
+  {
+    id: "c330-e2e-word-wrap",
+    title: "文本折行：宽度 + 长单词 + 段落",
+    src: `
+function wrap(text: string, width: number): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    if (line.length === 0) {
+      line = word;
+      continue;
+    }
+    if (line.length + 1 + word.length <= width) {
+      line = line + " " + word;
+      continue;
+    }
+    lines.push(line);
+    line = word;
+  }
+  if (line.length > 0) lines.push(line);
+  return lines;
+}
+const text = "the quick brown fox jumps over the lazy dog near the river bank";
+const lines = wrap(text, 20);
+for (const line of lines) console.log("[" + line + "]");
+console.log(lines.length);
+`,
+  },
+  {
+    id: "c330-e2e-custom-iterable-collection",
+    title: "自定义可迭代集合：Symbol.iterator + for..of + 展开",
+    src: `
+class Range {
+  from: number;
+  to: number;
+  constructor(from: number, to: number) {
+    this.from = from;
+    this.to = to;
+  }
+  [Symbol.iterator](): { next(): { value: number; done: boolean } } {
+    let at = this.from;
+    const stop = this.to;
+    return {
+      next(): { value: number; done: boolean } {
+        if (at >= stop) return { value: 0, done: true };
+        const value = at;
+        at = at + 1;
+        return { value, done: false };
+      },
+    };
+  }
+}
+const range = new Range(1, 5);
+const collected: number[] = [];
+for (const n of range) collected.push(n * n);
+console.log(collected.join(","));
+console.log([...range].length);
+console.log(Array.from(range).join("-"));
+`,
+  },
 ];

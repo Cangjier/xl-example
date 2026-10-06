@@ -696,16 +696,6 @@ return result;
 
 **「执行器递出来的 `reject`」那一格的能力号**（第 318 轮 ✓）——同上 ✓。
 
-## field ResumeRaises:bool = false
-
-**这一次恢复生成器是「往挂起点抛一个值」还是「把一个值放进 `yield` 那一格」**（第 313 轮 ✓）。
-
-**为什么是引擎级的一个瞬时格、而不是帧上的一格** ✗：它只在**恢复的那一瞬**有效 ✓——
-`DoIterNext` 设它、被恢复的那一帧的**第一条指令**（就是 `Resume` ✓）读它并清掉 ✓，
-中间不可能插进别的东西 ✓（`suspend` 之后 `Pc` 已经前进过 ✓，所以下一条正是 `Resume` ✓）。
-**嵌套恢复也安全** ✓：内层那一次一定在**外层那一条 `Resume` 执行完之前**不会发生 ✓
-（外层那一条是它被压回栈上之后**立刻**执行的 ✓）。
-
 ## constructor:(table:HeapTable, heapLimit:int, stepBudget:int)=>void
 
 造一台机器。上限与预算都在这里定死。
@@ -1107,10 +1097,12 @@ if (instr.Op === Op.Resume) {
   // **两种恢复** ✓（第 313 轮 ✓）：`next(v)` 是把 `v` 放进 `yield` 那一格 ✓；
   // 而 `it.throw(e)` 是**在挂起点抛 `e`** ✗——那正是生成器体里 `try { yield } catch { }`
   // 能接住它的原因 ✓（JS 的 `GeneratorResumeAbrupt` ✓）。
-  // **判据走引擎级那一格** ✓（`ResumeRaises` ✓，见它的说明 ✓），读完就清 ✓——
+  // **判据走帧上那一格** ✓（`ResumeRaises` ✓，见它的说明 ✓），读完就清 ✓——
   // 不清的话下一次 `yield` 会**凭空抛一次** ✗（**静默错值** ✓）。
-  if (this.ResumeRaises) {
-    this.ResumeRaises = false;
+  // **第 330 轮它从机器搬到帧上** ✗：`RejectPromise` 成了第二个写它的人 ✓，
+  // 而一个被拒绝的承诺可能同时排着好几个等着它的帧 ✓ ⇒ 一格的机器装不下 ✓。
+  if (frame.ResumeRaises) {
+    frame.ResumeRaises = false;
     this.DoThrow(frame.ResumeValue);
     return;
   }
@@ -1939,20 +1931,35 @@ return value;
 ```ts
 this.Throws = this.Throws + 1;
 this.Pending = value;
+// **挂着的帧那几条要留住** ✓（第 330 轮 ✓，见 `IsSuspendedFrame` ✓）：
+// 「帧不在栈上」这一条**答不了「它死了没有」** ✗——`await` 摘下去的帧一会儿还要回来 ✓，
+// 它那一层 `try` **仍然在册** ✓。这一趟展开会**顺手走过**它的条目 ✓，
+// 照原来的写法就**丢掉了** ✗ ⇒ 回来那一抛**一个处理点都找不到** ✓
+//（症状：`try { await f() } catch { … }` 里 `catch` 不跑 ✓，**一句异常都没有** ✓）。
+const kept: HandlerEntry[] = [];
+let landed = false;
 while (this.Handlers.length > 0) {
   const entry = this.Handlers[this.Handlers.length - 1];
   this.Handlers.pop();
   const depth = this.DepthOfFrame(entry.Frame);
-  if (depth < 0) continue;
+  if (depth < 0) {
+    if (this.IsSuspendedFrame(entry.Frame)) kept.push(entry);
+    continue;
+  }
   while (this.Frames.Depth() > depth + 1) {
     this.Frames.Pop();
   }
   // **跨过重入那一段的边界了吗** ✓：处理点在外层（层深 ≤ 边界）⇒ 这一段整个被展开了 ✓。
   if (depth <= this.NativeBoundary) this.NativeEscaped = true;
   this.Frames.Current().Pc = entry.Pc;
-  return;
+  landed = true;
+  break;
 }
-// **一个处理点都不剩：异常要冒到宿主，帧栈必须清空。**
+// **留住的那些按原来的相对次序放回去** ✓：`Handlers` 是一个栈 ✓，
+// 所以倒着压 ✓——正着压会把它们的次序翻过来 ✓，而「哪一条更靠里」正是展开要问的第一个问题 ✗。
+for (let i = kept.length - 1; i >= 0; i--) this.Handlers.push(kept[i]);
+if (landed) return;
+// **一个活着的处理点都不剩：异常要冒到宿主，帧栈必须清空。**
 //
 // **清之前先把在册的 async 帧各自拒绝掉** ✓（第 285 轮 ✓）：JS 里
 // `async function f() { throw new Error("x") }` 的那一抛**不是**宿主错误 ✓——
@@ -2054,6 +2061,39 @@ for (let i = 0; i < handles.length; i++) {
   if (handles[i] === handle) return i;
 }
 return -1;
+```
+
+## method IsSuspendedFrame:(handle:int)=>bool
+
+**这一帧是不是「不在栈上、但还活着」** ✓（第 330 轮 ✓）。
+
+**为什么单开一条判据** ✗：`DepthOfFrame` 给 `-1` 只说「不在栈上」✓，
+而**不在栈上**有**两种**死法活法 ✓：
+
+| 怎么离开栈的 | 还活得成吗 | 谁负责 |
+| --- | --- | --- |
+| `return` / 抛出去了（`DoReturn` ✓、展开 ✓） | **死了** ✗ | 那一帧的事**到此为止** ✓ |
+| `await` 摘下去（`DoAwait` ✓） | **活着** ✓ | 承诺结清时 `ResolvePromise` / `RejectPromise` 把它排回队列 ✓ |
+| `yield` 摘下去（`DoSuspend` ✓） | **活着** ✓ | 生成器对象攥着它 ✓（`it.next()` 那条路 ✓） |
+
+**判据是「上一次为什么离开栈」** ✓——`SuspendedInAwait` ✓ 答 `await` 那一档 ✓
+（它由 `resume` 清掉 ✓，所以「真」⟺「现在正挂着」✓）；
+生成器那一档问 `Generator.State` ✓（`Suspended` 就是还攥着 ✓，`Done` 就是跑完了 ✓）。
+
+**`Awaiting.IsRef()` 答不了这个** ✗：它**恢复之后还留着** ✓（见那一格的说明 ✓），
+所以「有它」只说明**曾经**等过 ✓。
+
+**它只在展开那一条路上用** ✓（`DoThrow` ✓）——那里的问题是
+「这一条处理点还算不算数」✓，而不是「这一帧在不在跑」✓。
+
+```ts
+if (!this.Table.IsValid(handle)) return false;
+const frame = this.Table.Get(handle).AsFrame();
+if (frame.SuspendedInAwait) return true;
+if (frame.Generator > 0 && this.Table.IsValid(frame.Generator)) {
+  return this.Table.Get(frame.Generator).AsGenerator().State === GeneratorState.Suspended;
+}
+return false;
 ```
 
 ## method RunRtOp:(frame:HeapFrame, instr:Instruction)=>Value
@@ -3011,10 +3051,13 @@ if (generator.State === GeneratorState.Done) return this.MakeIterResult(Value.Un
 if (this.NativeDepth >= MaxNativeDepth) {
   throw new Error("native re-entry is too deep: " + this.NativeDepth);
 }
-this.Table.Get(generator.Frame).AsFrame().ResumeValue = sent;
+const generatorFrame = this.Table.Get(generator.Frame).AsFrame();
+generatorFrame.ResumeValue = sent;
 // **「恢复时抛」这一格要一起交给那一帧** ✓（第 313 轮 ✓）：它由 `Op.Resume` 读走并清掉 ✓
 //（见 `ResumeRaises` 那一段 ✓）。**只有 `throw` 那一路会给真** ✓。
-this.ResumeRaises = raises;
+// **第 330 轮它写在帧上** ✗（原来是 `this.ResumeRaises` ✓）：`RejectPromise` 是第二个写它的人 ✓，
+// 而那里一次可能给**好几个**帧留下不同的答案 ✓ ⇒ 只能一帧一格 ✓。
+generatorFrame.ResumeRaises = raises;
 generator.State = GeneratorState.Running;
 const depth = this.Frames.Depth();
 this.NativeDepth = this.NativeDepth + 1;
@@ -3721,13 +3764,29 @@ this.ForgetNativeHost(promise.Ref);
 
 ## method RejectPromise:(promise:Value, reason:Value)=>void
 
-**拒绝一个承诺**（第 185 轮 ✓）：记下那一格，把等着它的**原生任务**全部排进微任务队列 ✓。
-
-**帧那一档不动** ✗：`await` 一个被拒绝的承诺要**抛** ✓，而「抛」需要错误对象那一层 ✓
-（`DoAwait` 那条已经在明处报了 ✓）。所以这里只把**语言层挂的回调**排开 ✓
-——那是 `.catch` / `.finally` / `Promise.all` 的失败传播 ✓。
+**拒绝一个承诺**（第 185 轮 ✓）：记下那一格，把等着它的**帧**与**原生任务**全部排进微任务队列 ✓。
 
 **幂等**：已经结清的承诺再拒绝一次是静默的 ✓（与 `ResolvePromise` 同一条口径 ✓）。
+
+**第 330 轮之前这里写着「帧那一档不动」** ✗，理由是「`await` 一个被拒绝的承诺要抛 ✓，
+而那一层在 `DoAwait` 里 ✓」——**那一句只说对了一半** ✗：`DoAwait` 只处理
+「`await` 的那一刻**已经**被拒绝」✓，而**还挂着的**承诺是**后来**才被拒绝的 ✓
+（本仓绝大多数 async 都是这一档 ✓：体里跑过 `await` 才抛的地方 ✓）。
+⇒ 那一帧**再也不会被恢复** ✗：`await` 后面的整段代码**一句都不跑** ✓，
+`try { await f() } catch { … }` 里那个 `catch` **也不跑** ✓，
+而**退出码还是 0** ✗（**静默错值**，本仓最坏的那一档 ✓）。
+
+**实测**（第 330 轮）✓：`async function f() { await null; throw new Error("x") }` 之后
+`try { await f() } catch { console.log("caught") } console.log("done")` ——
+Node 给 `caught` + `done` ✓，本仓**一行都不出** ✓；
+而「不 await 就直接抛」✓ / `await Promise.reject(…)` ✓（拒绝那一瞬已经结清 ✓）/
+`await` 一个普通函数返回的 `Promise.reject(…)` ✓ **三条都是对的** ✓
+——**同一个形状三种时序，只错最日常的那一种** ✓。
+
+**做法与 `ResolvePromise` 那条对称** ✓：等的那个是**帧**就写 `ResumeValue` ✓ 并
+把 `ResumeRaises` 置真 ✓（`Op.Resume` 于是走 `DoThrow` ✓，`try` 里接得住 ✓、
+接不住就落到 `DoThrow` 的 async 那一支去拒绝**这一帧自己的**承诺 ✓）；
+等的那个是**被采纳的承诺**就跟着拒绝 ✓。两条都不新加机关 ✓。
 
 ```ts
 if (!promise.IsObject()) throw new Error("not a promise object");
@@ -3742,11 +3801,20 @@ for (let i = 0; i < promise2.Reactions.length; i++) {
   if (!this.Table.IsValid(handle)) continue;
   const waiting = this.Table.Get(handle);
   // **被采纳的那个承诺也要跟着被拒绝** ✓（第 317 轮 ✓，与 `ResolvePromise` 那条对称 ✓）：
-  // 内层失败时外层**跟随**它失败 ✓（JS 的解决过程 ✓）。**帧那一档仍然不动** ✗
-  // （上面那条写着理由 ✓：`await` 一个被拒绝的承诺要**抛**，那一层在别处 ✓）。
+  // 内层失败时外层**跟随**它失败 ✓（JS 的解决过程 ✓）。
   if (waiting.Promise !== null) {
     this.RejectPromise(Value.FromObject(handle), reason);
+    continue;
   }
+  // **等着这一格的是一个挂起的帧** ✓（`await` 那一支 ✓）：它要的**不是一个值** ✗，
+  // 而是**在挂起点抛一个值** ✓（JS 的 `AwaitExpression` 语义 ✓）——
+  // 所以除了 `ResumeValue`，还要把 `ResumeRaises` 一起置真 ✓。
+  // **顺序也要紧** ✗：两格都必须在**推进队列之前**写好 ✓——
+  // `DrainMicrotasks` 可能在这一次调用返回之后**立刻**跑它 ✓。
+  const resumed = waiting.AsFrame();
+  resumed.ResumeValue = reason;
+  resumed.ResumeRaises = true;
+  this.Microtasks.push(handle);
 }
 promise2.Reactions = [];
 for (let i = 0; i < promise2.NativeReactions.length; i++) {

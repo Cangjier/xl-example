@@ -1029,7 +1029,14 @@ while (at < units.length) {
   at = at + 1;
 }
 if (digits === 0) return MathResult(NaN);
-return MathResult(negative ? 0 - value : value);
+// **负号要乘、不要减** ✗（第 330 轮 ✓）：规范写的是 `sign × number` ✓，
+// 而 `0 - value` 在 `value === 0` 那一格给的是 **`+0`** ✗——`0 - 0` 是正的 ✓。
+// 于是 `parseInt("-0")` 印 `0` ✓（Node 印 **`-0`** ✓，**静默错值** ✓，
+// 判据 `c330-std-number-parse-edges` 量的就是它 ✓）。
+// **`-1 * 0` 才是 `-0`** ✓——乘法保住了符号位 ✓，而减法把它抹平了 ✗。
+// **这一格不能靠 `MathResult` 兜** ✗：它收的是**算完的数** ✓，
+// `0 - 0` 到它手上时符号已经没了 ✓（`MathResult(-0)` 自己是对的 ✓，见那一格 ✓）。
+return MathResult(negative ? -1 * value : value);
 ```
 
 # method ParseFloatText:(units:Array<int>)=>Value

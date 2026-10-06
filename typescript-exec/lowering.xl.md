@@ -203,6 +203,26 @@ for (let i = 0; i < text.length; i++) {
 return units;
 ```
 
+# method UnitsText:(units:Array<int>)=>string
+
+**码元数组 → 宿主字符串**（`UnitsOf` 的逆 ✓，第 330 轮 ✓）。
+
+**为什么要有它** ✗：属性名在树上有**两种形态** ✓——标识符（`text` 就是名字 ✓）
+与字符串字面量（`text` 是**带引号**的原文 ✗，见 `KeyUnitsOf` 那一段 ✓）。
+而 JS 的 NamedEvaluation 用的是**那个键本身** ✓：`{ "a-b": () => 1 }["a-b"].name` 是 `"a-b"` ✓，
+不是 `'"a-b"'` ✗——所以「属性名 → 一个名字」这件事只能从 `KeyUnitsOf` 走 ✓
+（那一条已经把两种形态收成一处了 ✓），而它给的是**码元** ✓ ⇒ 要转回来 ✓。
+
+**宿主 API 在这一层是应该的** ✓，与 `UnitsOf` 一字不差的理由 ✓（读的是宿主解析出来的字符串 ✓）。
+
+```ts
+let text = "";
+for (let i = 0; i < units.length; i++) {
+  text = text + String.fromCharCode(units[i]);
+}
+return text;
+```
+
 # method NumberFromText:(text:string)=>float
 
 把数字字面量的**原文**变成数值（第 129 轮重写）。
@@ -2313,7 +2333,8 @@ const initializer = OptionalChild(field, "initializer");
 // 而键与值都是**这一轮用完就死**的 ✓，不退只是多占几格 ✓（与上面 `fieldValue` 同一条口径 ✓）。
 if (nameKind === "ComputedPropertyName") {
   const computedKey = this.LowerExpression(Child(nameNode, "expression"));
-  const computedValue = this.FieldInitialValue(initializer);
+  const computedValue = this.FieldInitialValue(initializer,
+    this.StaticKeyText(Child(nameNode, "expression")));
   if (target < 0) {
     const window = this.Reserve(3);
     this.Emit(Op.LoadThis, window, -1, -1, -1);
@@ -2338,7 +2359,7 @@ const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(nameNode))
 // **值先算出来** ✓（两种落点、两种挂法共用 ✓）：没有初始化式就写 `undefined` ✓——
 // JS 里 `class C { x }` 之后 `"x" in new C()` 是**真** ✓，不写的话属性根本不存在 ✓
 //（那是**能被脚本看见**的差别 ✓）。
-const fieldValue = this.FieldInitialValue(initializer);
+const fieldValue = this.FieldInitialValue(initializer, UnitsText(this.KeyUnitsOf(nameNode)));
 // **私有字段落成 `set_hidden`** ✓（第 210 轮 ✓）：`set_hidden(接收者, 键, 值)` ——
 // 接收者是 `this`（实例字段 ✓）或构造函数那一格（静态字段 ✓），与下面那两条 SetProp 同源 ✓。
 if (isPrivateField) {
@@ -2364,7 +2385,7 @@ if (target < 0) {
 this.SetPropertyConst(target, key, fieldValue);
 ```
 
-## method FieldInitialValue:(initializer:AstNode | null)=>int
+## method FieldInitialValue:(initializer:AstNode | null, nameHint:string)=>int
 
 **一条字段初始化式的值占哪一格** ✓（第 323 轮抽出来 ✓）——**没有初始化式就给 `undefined`** ✓。
 
@@ -2373,13 +2394,24 @@ this.SetPropertyConst(target, key, fieldValue);
 将来改一处（比如换成建属性而不是赋值 ✓）就只改到一半 ✓
 （`nodeProps` 那条教训：同一个形状写两遍，漂的那一遍隔一百轮才被量到 ✓）。
 
+**`nameHint` 是第 330 轮加的第二个参数** ✓（JS 的 NamedEvaluation ✓）：
+`class K { f = () => 1 }` 里那个箭头叫 **`"f"`** ✓（`new K().f.name` ✓）、
+私有字段那一档叫 **`"#n"`** ✓——而本仓给**空串** ✗（**静默错值** ✓）。
+**名字由调用方给** ✗（它才知道这个字段叫什么 ✓），这一层只负责
+「**值在不在命名位置上**」这一句判据 ✓——与变量那一处**共用**
+`NamesFunctionValue` ✓（第 291 轮 ✓：`f = cond ? () => 1 : () => 2` 两个箭头**都是匿名的** ✓）。
+
 ```ts
 if (initializer === null) {
   const slot = this.Reserve(1);
   this.Emit(Op.Const, slot, this.Program().AddConst(Constant.OfUndefined()), -1, -1);
   return slot;
 }
-return this.LowerExpression(initializer);
+const savedHint = this.FunctionNameHint;
+this.FunctionNameHint = this.NamesFunctionValue(initializer) ? nameHint : "";
+const value = this.LowerExpression(initializer);
+this.FunctionNameHint = savedHint;
+return value;
 ```
 
 ## method EmitHiddenSet:(target:int, key:int, value:int)=>void
@@ -5125,12 +5157,35 @@ for (let i = 0; i < properties.length; i++) {
       // `SetPropertyValue` 的三格是「对象 / 键 / 值」✓，所以键那一格先占 ✓、
       // 值那一格后占 ✓，**两个格子都活着** ✓（`Reserve` 只抬水位 ✓，不搬东西 ✓）。
       const computedKey = this.LowerExpression(Child(name, "expression"));
+      // **计算键也是命名位置** ✓（第 330 轮 ✓）：见 `StaticKeyText` ✓——
+      // 它与下面非计算那一支共用同一句判据 ✓（只有「名字从哪来」不同 ✓）。
+      // **次序照旧是键在前、值在后** ✓，提示只在**算值**那一句前后有效 ✓。
+      const savedComputedHint = this.FunctionNameHint;
+      this.FunctionNameHint = this.NamesFunctionValue(Child(property, "initializer"))
+        ? this.StaticKeyText(Child(name, "expression")) : "";
       const computedValue = this.LowerExpression(Child(property, "initializer"));
+      this.FunctionNameHint = savedComputedHint;
       this.SetPropertyValue(object, computedKey, computedValue);
       continue;
     }
+    // **属性名也是「命名位置」** ✓（第 330 轮 ✓，JS 的 NamedEvaluation ✓）：
+    // `{ f: () => 1 }.f.name` 是 **`"f"`** ✓、`console.log({ f: () => 1 })` 印
+    // `{ f: [Function: f] }` ✓——而本仓给 `[Function (anonymous)]` ✓
+    //（判据 `c291-console-log-nested-shapes` / `c323-std-console-shapes` 量的就是它 ✓）。
+    //
+    // **判据与变量那一处是同一个 `NamesFunctionValue`** ✓（第 291 轮 ✓）——
+    // `{ f: cond ? () => 1 : () => 2 }` 在 JS 里两个箭头**都是匿名的** ✓，
+    // 所以这里**不能**写成「值里含一个函数就取名」✗。
+    // **名字从 `KeyUnitsOf` 来、不从 `TextOf` 来** ✗：字符串键的 `TextOf` 是**带引号**的原文 ✓
+    //（见 `UnitsText` 那一段 ✓）。**计算键不在此列** ✗（上面那一支已经 `continue` 了 ✓，
+    // 而 JS 里 `{ ["g"]: () => 1 }.g.name` 正是**空串** ✓）。
+    const keyUnits = this.KeyUnitsOf(name);
+    const savedHint = this.FunctionNameHint;
+    this.FunctionNameHint = this.NamesFunctionValue(Child(property, "initializer"))
+      ? UnitsText(keyUnits) : "";
     value = this.LowerExpression(Child(property, "initializer"));
-    keyConst = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name)));
+    this.FunctionNameHint = savedHint;
+    keyConst = this.Program().AddConst(Constant.OfString(keyUnits));
   } else if (kind === "ShorthandPropertyAssignment") {
     const name = Child(property, "name");
     value = this.LowerExpression(name);
@@ -5231,6 +5286,34 @@ return object;
 ```ts
 if (NodeKind(name) === "StringLiteral") return this.StringUnits(name);
 return UnitsOf(TextOf(name));
+```
+
+## method StaticKeyText:(node:AstNode)=>string
+
+**计算键里「当场就能算出来」的那几格的名字**（第 330 轮 ✓）——
+字符串字面量 ✓、数字字面量 ✓；**其余给空串** ✓。
+
+**为什么计算键也要取名** ✗（我第一版以为它不要 ✓，**是错的** ✗）：
+JS 的 `NamedEvaluation` 那一条**对计算键同样成立** ✓——
+`({ ["c"]: () => 1 }).c.name` 在 Node 里就是 **`"c"`** ✓（实测过 ✓）。
+规范里要的确实是**键那个值** ✓（运行期才算得出来 ✓），
+所以本仓今天只收「**不看运行期就知道**」的那两格 ✓：
+`{ ["c"]: () => 1 }` ✓、`{ [5]: () => 1 }` ✓（名字是 `"5"` ✓）。
+
+**已知差写在明处** ✗：`{ [k]: () => 1 }`（`k` 是一个变量 / 表达式 ✓）本仓给**空串** ✓，
+Node 给 `String(k)` ✓——要补得上「运行期把键变成文本再给闭包取名」那一步 ✓，
+而闭包的名字是 **`new_closure` 那一刻**写死的 ✗（`EmitClosure` ✓），
+所以这不是一句话的事 ✓，记在台账里 ✓。
+
+**它必须是本类的方法** ✗：文件顶部那几个 `# method` 是**自由函数** ✓
+（生成出来是模块级 `export function` ✓）——第一版就写在那里 ✓，
+编译期当场报 `this.UnitsText` 不存在 ✓，位置正好点在这一行 ✓。
+
+```ts
+const kind = NodeKind(node);
+if (kind === "StringLiteral") return UnitsText(this.StringUnits(node));
+if (kind === "NumericLiteral") return TextOf(node);
+return "";
 ```
 
 ## method SetPropertyConst:(object:int, keyConst:int, value:int)=>void

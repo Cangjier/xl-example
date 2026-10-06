@@ -674,7 +674,11 @@ export const EXPECTATIONS = {
   // **组 T：`ReferenceError`（1 条）** ✓
   //
   // **组 U：函数显示名的推断（1 条）** ✓
-  "c291-console-log-nested-shapes": { expect: "differ", why: "`console.log({ f: () => 1 })` 印 `[Function (anonymous)]`（Node 印 `[Function: f]`）——匿名函数要**从属性名反推显示名**（与 `function-name-inference` 同一族）" },
+  // **`c291-console-log-nested-shapes` 第 330 轮过了** ✓（那一行撤了 ✓）：
+  // 根子是「对象字面量的属性名也是命名位置」✓（JS 的 NamedEvaluation ✓）——
+  // `{ f: () => 1 }` 里那个箭头叫 `"f"` ✓，本仓原来给空串 ✗。
+  // 修法与变量那一处**共用 `NamesFunctionValue`** ✓（第 291 轮 ✓），
+  // 名字从 `KeyUnitsOf` 来 ✓（字符串键的 `TextOf` 是带引号的原文 ✗，见 `UnitsText` ✓）。
 
   // ===== 第 304 轮：加宽矩阵时量到的缺口（15 条）=====
 
@@ -860,5 +864,61 @@ export const EXPECTATIONS = {
   // **`f?.()`** ✓）——前面三种本来就对 ✓，补上的正是**第三格** ✓
   // （空值在**被调的那个值自己**身上 ✓，见组 E 那一段 ✓）。
   "c323-rt-generator-early-return-cleanup": { expect: "differ", why: "提前结束生成器：`it.return(9)` 要**在挂起点送一次「完成」进去**（于是体里的 `finally` 照跑、`cleanup` 要印出来），本仓报 `unimplemented: generator return() needs the finally chain (a lowering-level construct)`——那条 `finally` 链是**降级期**的构造，引擎手里没有「这个帧欠哪些 `finally`」那张表（缺口清单 #5，与 `c304-rt-generator-early-break-finally` 同一个根）" },
-  "c323-std-console-shapes": { expect: "differ", why: "`console.log({ f: () => 1 }.f.name)` 给**空串**（Node 给 `\"f\"`）——**从属性名反推显示名**那一格没有（缺口清单 #10 那一族：`HeapClosure.Name` 的四个来源里少了「对象字面量的属性名」这一条）；同一条里的容器形状（`[1, 2]` / `{ a: 1 }` / 嵌套数组）与多实参那两行都是对的 ✓" },
+  // **`c323-std-console-shapes` 第 330 轮过了** ✓（那一行撤了 ✓）：
+  // 同一处修 ✓——`{ f: () => 1 }.f.name` 现在给 `"f"` ✓；
+  // 同一条里的容器形状与多实参那两行本来就是对 ✓。
+  // **一处改动、两族一起转绿** ✓：对象字面量 ✓（这条）与类字段 ✓（`f = () => 1` ✓，
+  // 同一轮补的第二处 ✓——`FieldInitialValue` 多收一格 `nameHint` ✓）。
+
+  // ===== 第 330 轮：新铺的 64 条里没过的那 8 条 =====
+  //
+  // **这一轮先量出「哪些已经对了」** ✓：64 条候选里 **56 条当场通过** ✓、
+  // **8 条是新量到的缺口** ✗、`nodefail` **0** ✓、`differ` **0** ✓
+  //（第 323 轮那两条「用例写法不合法」的教训在这里用上了 ✓——
+  //  **参数属性**（`constructor(private x: number)` ✓）与 **`enum`** 都要
+  //  `--experimental-transform-types` ✓，前者干脆改写成「字段 + 赋值」✓）。
+  //
+  // **八条按根子分四组** ✓（下面一条一行 ✓）。
+  //
+  // ---- 组 A：标准库的新面孔（4 条）----
+  // **它不是「修 bug」那一类** ✗：这四格是**标准里写着、本仓没做** ✓
+  //（与第 323 / 327 轮收的 `Array.fromAsync` / `Map.groupBy` / `Promise.withResolvers`
+  //  是同一条口径 ✓：**标准里有的、普通 `.ts` 里会写的，就该在分母里** ✓）。
+  "c330-std-promise-try-value": { expect: "blocked", why: "`Promise.try` 不在那儿（`cannot call a non-closure value`）——`Promise` 是**普通对象** ✓（第 285 轮那一批静态方法就是挂上去的 ✓），所以卡点不在壳 ✗，而在**那一格实现**：它要把「同步返回 / 同步抛」都收成一个承诺 ✓（`try { return fn() } catch (e) { return Promise.reject(e) }` 的语义 ✓，而且**同步返回也要推迟** ✓）。零件全是现成的（`MakePromise` / `ResolvePromise` / `RejectPromise` ✓），差的是一次分派" },
+  "c330-std-promise-try-throw": { expect: "blocked", why: "同上——这一条考的是**同步抛**那一半（`Promise.try(boom).catch(...)` 要接得住），以及「同步返回的也要走微任务」那一条次序" },
+  "c330-std-structuredclone-basic": { expect: "blocked", why: "`structuredClone` 连**全局名**都没有（`name is not a local or a capture`）——它是一个**宿主级的深拷贝**：普通对象 / 数组按结构走 ✓、`Map` / `Set` / `Date` 各按自己的内部格走 ✓、**循环引用**要有一张「已访问」表 ✓（`JSON.parse(JSON.stringify(x))` 那条路在环上会抛 ✓，不能拿它顶 ✓）。落在 `globals.xl.md` 那一张表上（与 `Object.assign` / `Array.from` 同一处 ✓）" },
+  "c330-std-structuredclone-containers": { expect: "blocked", why: "同上——这一条把 `Map` / `Set` / `Date` 与**循环引用**一起考（`copy.self === copy` 那一条是「已访问」表存在的唯一证据）" },
+  // `Error.isError` 这一条**卡在壳上** ✗（与第 324 轮 `Map.groupBy` 量到的是同一个坎 ✓）：
+  // `Error` 是**宿主引用值** ✓、**没有属性表** ✗ ⇒ 静态方法挂不上去 ✓——
+  // 要照第 183 轮 `Symbol` / 第 327 轮 `Map` 那一条先把它改成**带可调用载荷的对象** ✓
+  //（`AttachCallable` ✓、`IsHostCallable` 两种壳都认 ✓），那是**结构性改动** ✓，
+  // 要连同 `new Error()` / `instanceof Error` / `Error.prototype.constructor` 三处一起验 ✓。
+  "c330-std-error-iserror": { expect: "blocked", why: "`Error.isError` 不在那儿（`cannot call a non-closure value`）——**卡点不在判据上** ✗（判据就是「是不是一个错误对象」✓，与 `instanceof Error` 同源 ✓），而在**壳**上：`Error` 是宿主引用值、没有属性表，静态方法挂不上去。与第 324 轮 `Map.groupBy` 量到的**是同一个坎** ✓，修法也一样（`AttachCallable`），而这一处要一起验的面更大（三个错误族 + `AggregateError` 全是宿主引用值）" },
+  //
+  // ---- 组 B：三元的两支是箭头函数（1 条）----
+  // **这一组是这一轮最值钱的发现** ✗：`const f = flag ? () => 1 : () => 2` 是**日常写法** ✓，
+  // 而本仓**整份文件进不来** ✗（`unimplemented: binary operator ?` ✓）。
+  // **量清楚了边界** ✓（六条探针 ✓）：三元的两支是**函数表达式**是好的 ✓、
+  // **套一层括号的箭头**也是好的 ✓（`? (() => 1) : 2` ✓）、
+  // **真值段写一个不套括号的箭头**才塌 ✗（`? () => 1 : 2` ✓、`? () => 1 : () => 2` ✓ 都塌 ✓）。
+  // **根子在「类型位」那一句判据上** ✓：`?` 后面跟 `(` 被读成**函数类型**的开头 ✓
+  //（`() => T` ✓——条件类型 `A extends B ? () => C : D` 是合法类型 ✓），
+  // 于是 `() => 1` 成了 `FunctionType` ✓ ⇒ 那个 `?` 再也配不成三元 ✓ ⇒
+  // 通用那一趟把它当**二元运算符** ✓（报的话离现场很远 ✓）。
+  // **它不是「顺手改一处」** ✗：要判「这个 `?` 处在值位还是类型位」✓，
+  // 而那正是三元重组那一层今天**只在括号 / 类型容器的父单元上**回答得了的问题 ✓
+  //（`ternary-operator.xl.md` 的 `IsTypePosition` ✓）——括号关闭那一刻外层还没成形 ✓，
+  // 所以要么给括号那一侧补一条「上一格是值位的 `?` ⇒ 这里不是类型位」✓，
+  // 要么让箭头形的括号自己再收一次 ✓。两条都要连同 `cases:tsast` 的 1444 条一起验 ✓，单独立一轮 ✓。
+  "c330-ex-ternary-arrow-branches": { expect: "blocked", why: "三元的两支是**不套括号的箭头函数**时整份文件进不来（`unimplemented: binary operator ?`）——`?` 后面那个 `(` 被判成**函数类型**的开头（条件类型里 `? () => C : D` 是合法类型），于是箭头成了 `FunctionType`、`?` 配不成三元。**边界量清楚了**：函数表达式那一支是好的、套了括号的箭头也是好的，只有「真值段直接写箭头」塌（六条探针见台账）" },
+  //
+  // ---- 组 C：数组方法是通用的（1 条）----
+  "c330-rt-array-like-slice-call": { expect: "blocked", why: "`[].slice.call({0:\"a\",1:\"b\",length:2})` 报 `this method needs an array receiver`——JS 里 `Array.prototype` 上的方法**不要求接收者是真数组** ✓（`slice` / `map` / `indexOf` 那一族都按 `length` + 下标读「类数组」✓），而本仓的 `RequireArray` 只认真数组 ✗。修法是给这一族补一条**按 `length` 读**的接收者（`ArrayLike` 那一档 ✓），要连同「数组快路不许慢下来」一起看 ✓" },
+  //
+  // ---- 组 D：非空断言链上的名字（1 条）----
+  // **与 `c323-ex-nonnull-in-chains` 是同一族** ✓（旧账换写法 ✓，不加新账 ✓）：
+  // 非空断言串在成员链上时**后面那一截被丢掉** ✓——
+  // 这一条的症状换成了 `name is not a local or a capture: id` ✓
+  //（`data.items![0]!.id` 里那个 `id` 掉成了一枚**裸标识符** ✓，于是被当成要绑的名字 ✓）。
+  "c330-ex-nonnull-assertion-forms": { expect: "blocked", why: "非空断言串在成员链上时**后面那一截被丢掉**：`data.items![0]!.id` 里那个 `id` 掉成一枚裸标识符（报 `name is not a local or a capture: id`）。与 `c323-ex-nonnull-in-chains` / `c305-ex-optional-chain-nonnull-mix` **同一个根**（`print-ast-common.xl.md` 的链分支），只是这一条把「`!` 在下标之前、之后又跟一个 `.`」那种排布写全了" },
 };

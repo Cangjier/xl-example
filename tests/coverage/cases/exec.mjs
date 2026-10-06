@@ -3613,4 +3613,136 @@ const v = new Vault();
 console.log(v.total, Vault.shared, Object.keys(v).length);
 `,
   },
+  // ===== 第 330 轮收编（10 条）=====
+  {
+    id: "c330-ex-type-import-erased",
+    title: "只带类型的 import 一行都不产生运行期东西",
+    src: `
+type Shape = { area(): number };
+interface Named { name: string }
+const s: Shape = { area: () => 4 };
+const n: Named = { name: "box" };
+console.log(s.area(), n.name);
+`,
+  },
+  {
+    id: "c330-ex-declare-const-erased",
+    title: "`declare const` 与 `declare function` 整条擦掉",
+    src: `
+declare const INJECTED: number;
+declare function injected(): string;
+console.log(typeof INJECTED, typeof injected);
+`,
+  },
+  {
+    id: "c330-ex-generic-class-statics",
+    title: "泛型类的静态成员与实例字段",
+    src: `
+class Box<T> {
+  static count = 0;
+  value: T;
+  constructor(value: T) {
+    this.value = value;
+    Box.count = Box.count + 1;
+  }
+  map<U>(fn: (value: T) => U): Box<U> {
+    return new Box<U>(fn(this.value));
+  }
+}
+const one = new Box<number>(2);
+const two = one.map((n) => String(n * 3));
+console.log(one.value, two.value, Box.count);
+`,
+  },
+  {
+    id: "c330-ex-abstract-instantiation",
+    title: "抽象类：子类能造、抽象方法被子类实现",
+    src: `
+abstract class Shape {
+  abstract area(): number;
+  describe(): string {
+    return this.constructor.name + ":" + this.area();
+  }
+}
+class Square extends Shape {
+  side: number;
+  constructor(side: number) {
+    super();
+    this.side = side;
+  }
+  area(): number {
+    return this.side * this.side;
+  }
+}
+console.log(new Square(3).describe());
+`,
+  },
+  {
+    id: "c330-ex-enum-const-and-object",
+    title: "`const enum` 的成员在运行期就是一个数",
+    nodeArgs: ["--experimental-transform-types"],
+    src: `
+const enum Level { Low = 1, Mid = 5, High = 10 }
+function score(level: Level): number {
+  return level * 2;
+}
+console.log(score(Level.Mid), Level.High);
+`,
+  },
+  {
+    id: "c330-ex-overload-implementation",
+    title: "重载签名 + 实现体：运行期只留实现那一份",
+    src: `
+function size(value: string): number;
+function size(value: number[]): number;
+function size(value: string | number[]): number {
+  return value.length;
+}
+console.log(size("abcd"), size([1, 2, 3]));
+`,
+  },
+  {
+    id: "c330-ex-type-predicate-fn",
+    title: "类型谓词函数：运行期就是一个返回布尔的函数",
+    src: `
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+const items: unknown[] = ["a", 1, "b", null];
+console.log(items.filter(isString).join(","));
+console.log(isString("x"), isString(1));
+`,
+  },
+  {
+    id: "c330-ex-nonnull-assertion-forms",
+    title: "非空断言在三种位置上的取值",
+    src: `
+const data: { items?: { id: number }[] } = { items: [{ id: 7 }] };
+console.log(data.items![0]!.id);
+const maybe: string | null = "hi";
+console.log(maybe!.length);
+`,
+  },
+  {
+    id: "c330-ex-satisfies-forms",
+    title: "`satisfies` 不改值：对象、数组与函数",
+    src: `
+const config = { port: 8080, host: "local" } satisfies { port: number; host: string };
+console.log(config.port, config.host);
+const list = [1, 2, 3] satisfies number[];
+console.log(list.length, list[1]);
+`,
+  },
+  {
+    id: "c330-ex-optional-chain-loops",
+    title: "可选链在循环与调用实参位上",
+    src: `
+const rows: { name?: string; tags?: string[] }[] = [{ name: "a", tags: ["x"] }, {}, { name: "c" }];
+for (const row of rows) {
+  console.log(row.name ?? "-", row.tags?.length ?? 0);
+}
+const box: { get?(): number } = {};
+console.log(box.get?.() ?? -1, box.get?.());
+`,
+  },
 ];
