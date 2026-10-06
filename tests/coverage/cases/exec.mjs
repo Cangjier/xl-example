@@ -4392,5 +4392,12 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     "nodeArgs": [
       "--experimental-transform-types"
     ]
+  },
+
+  // ===== 第 380 轮：标签那两个子形状（1 条）=====
+  {
+    "id": "c380-ex-label-colon-versus-type-annotation",
+    "title": "标签的冒号 vs 类型标注的冒号（两个子形状，**还没修**）",
+    "src": "// **同一个冒号、两种意思**：`outer: { … }` 是标签，`x: { … }` 是类型标注。\n// 词法阶段是平列表，分不出这两者——靠的是 `LabelReorganization` 抢在\n// `TypeDefineReorganization` 前面把标签收走。它**只在一种位置上抢不到**：\n// 标签前面还有别的语句时（那一刻前一条语句还没成形，前一个单元是它那个 `}` 括号，\n// `IsStatementStart` 给假）。\n//\n// 子形状 ①：标签块前面还有一条语句\nconst out: string[] = [];\nfor (let i = 0; i < 1; i++) { out.push(\"f\" + i); }\nblock: { out.push(\"b\"); break block; out.push(\"never\"); }\nconsole.log(\"A\", out.join(\",\"));\n// 子形状 ②：标签块里再嵌一个裸块，裸块里 `break` 那个标签\nconst other: string[] = [];\nlbl: { other.push(\"a\"); { break lbl; } other.push(\"never\"); }\nconsole.log(\"B\", other.join(\",\"));"
   }
 ];

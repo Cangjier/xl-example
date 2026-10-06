@@ -6,6 +6,87 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 380 轮的账（**标签那一族：根子量到底了，但这一轮没修成** —— 96.9%）
+
+用户口径不变 ✓。这一轮照第 379 轮结尾那张单子做 ✓，挑了**标签那一组** ✓。
+**结果是「查清了、没修成」** ✗——按这一层的规矩，把**三条试过的路与它们各自的下场**写在这里 ✓，
+下一个人不必再走一遍 ✓。
+
+### 一、根子：标签的冒号 vs 类型标注的冒号
+
+```ts
+const out: string[] = [];
+for (let i = 0; i < 1; i++) { out.push("f" + i); }
+block: { out.push("b"); break block; }          // 报 name is not a local or a capture: block
+```
+
+**同一个冒号、两种意思** ✓：`outer: { … }` 是标签 ✓、`x: { … }` 是类型标注 ✓。
+词法阶段是**平列表** ✗，分不出这两者 ✓——靠的是 `LabelReorganization`
+**抢在** `TypeDefineReorganization` 前面把标签收走 ✓
+（`type-literal.xl.md` 的 `IsTypePosition` 那一节把这句写在明处 ✓）。
+
+**它在一种位置上抢不到** ✗：标签**前面还有别的语句**时 ✓——
+那一刻前一条语句**还没成形** ✓（`LabelReorganization` 排在 `For` / `While` / `IfSet` 之前 ✓），
+于是 `block` 前面那个实义单元是**它那个 `}` 括号** ✓
+⇒ `IsStatementStart` 给**假** ✓ ⇒ 标签认不出来 ✓
+⇒ 冒号被 `TypeDefineReorganization` 当成**类型标注**收走 ✓
+⇒ `{ … }` 收成 **`TypeLiteral`** ✓。**XML 实测**：
+
+```xml
+<Statement>
+  <Identifier>block</Identifier>
+  <TypeDefine>
+    <TypeLiteral><TypeLiteralBody>…
+```
+
+⇒ 投影给出 `ExpressionStatement(Identifier("block"))` ✓（那个块被吞进同一条语句 ✓）
+⇒ 降级层报 `name is not a local or a capture: block` ✓。
+
+**为什么只有这一种位置现形** ✓：标签在语句列表**开头**时走的是
+`IsStatementStart` 的「前面没有实义单元」那一支 ✓（判据 `ex-labeled-block` 一直是绿的 ✓）。
+
+### 二、三条试过的路（都退回来了，附下场）
+
+| # | 改法 | `cases:tsast` |
+| --- | --- | --- |
+| ① | `IsStatementStart`：把「闭合的 `{` 括号」也算语句边界 | **1444 → 1443** ✗（缺 2 个节点 ✓、多出 3 个 ✓） |
+| ② | 再加上「那个 `{` 的父亲要在语句列表白名单里」 | **1444 → 1443** ✗（同一个文件） |
+| ③ | 只放宽 `LabelReorganization.Previous`（不碰公用的 `IsStatementStart`） | **1444 → 1441** ✗（**反而更糟** ✓） |
+
+**③ 为什么更糟** ✗：它排得**更早** ✓——`For` / `While` 还没成形的地方更多 ✓，
+于是「前面是一个裸 `}`」的位置也更多 ✓，放宽的那些**全都会误判** ✓。
+**①② 为什么只掉一个文件** ✓：`.d.ts` 里成片的**类型字面量**被当成了块 ✓
+（`{}` 的父亲是 `TypeAssign` / 接口成员那一类 ✗）；②加的那条判据没能把它们摘干净 ✓。
+
+**所以下一轮的方向** ✓：判据不能落在「**这里是不是语句开头**」这个位置上 ✗
+（那个位置上「块」与「类型字面量」长得一样 ✓），要落在
+「**前一个 `}` 属于哪一条语句**」上 ✓——`}` 自己是一个成形的单元 ✓，
+还是**别人（循环体 / 函数体 / 类型字面量）的收尾** ✓，这两件事是可以分开问的 ✓。
+
+### 三、顺带量到的第二个子形状
+
+**标签块里再嵌一个裸块、裸块里 `break` 那个标签** ✗：
+
+```ts
+lbl: { other.push("a"); { break lbl; } other.push("never"); }
+```
+
+⇒ `unimplemented: expression Block` ✓（那个裸块被投成了 `ExpressionStatement.expression` ✓）。
+**边界** ✓：不带 `break` 的裸块嵌套是好的 ✓（`{ { console.log("a"); } }` ✓、
+`block: { { console.log("a"); } }` ✓ 都实测过 ✓）——**只有裸块里带标签 `break`** ✗。
+**它单独收了一条语料** ✓（`c380-ex-label-colon-versus-type-annotation` ✓）：
+第 371 轮那条 `c371-ex-labels-and-control` 是**整段**混在一起的 ✓，红的时候看不出是哪一半 ✓。
+
+### 四、读数与下一轮
+
+`pass` **1660 → 1660** ✗（这一轮**没有**推进覆盖度 ✓——三条路都退了 ✓）、
+`blocked` **13 → 14** ✓（补的语料把新量到的子形状钉住 ✓）、`differ` **33 → 33** ✓、
+**红的一栏 0** ✓、六道门 **36.5s 全绿** ✓、整体 **96.9%** ✓。
+
+**下一轮** ✓：按上面那条方向试「前一个 `}` 属于谁」✓；
+`exec` 那 7 条 `blocked` 里还有**标识符转义**（`const \u0061bc = 1` ✓）
+与**前缀运算符 + 断言**（`!<T>x` ✓，第 379 轮量到 ✓）两条独立的根子 ✓。
+
 ## 第 379 轮的账（**尖括号断言 `<T>x` 落在操作数位置上** —— 分层升、整体 96.9%）
 
 用户口径不变 ✓。这一轮接着第 378 轮那条「投影那一组」做 ✓——

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1706,
+  "matrix": 1707,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.94,
+  "progressPercent": 96.87,
   "layers": [
     {
       "layer": "runtime",
@@ -53,12 +53,12 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 406,
+      "total": 407,
       "pass": 394,
-      "blocked": 7,
+      "blocked": 8,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 97.04
+      "coverage": 96.81
     },
     {
       "layer": "stdlib",
@@ -129,6 +129,12 @@
       "layer": "exec",
       "title": "打头一元运算符**后面**的尖括号断言（`!<T>x` / `~<T>x`）——**还没修**",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExclamationToken"
+    },
+    {
+      "id": "c380-ex-label-colon-versus-type-annotation",
+      "layer": "exec",
+      "title": "标签的冒号 vs 类型标注的冒号（两个子形状，**还没修**）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
     },
     {
       "id": "c371-e2e-observer-with-priority",
