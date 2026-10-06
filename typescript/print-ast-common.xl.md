@@ -4113,7 +4113,15 @@ return false;
     k.get("type") === "ArrayLiteral" ||
     k.get("type") === "ObjectLiteral" ||
     (k.get("type") === "Bracket" && (k.get("startBracket") === "[" || k.get("startBracket") === "{"));
-  const patternKid = kids.find(isPatternLike);
+  // **默认值那一侧的括号不算绑定名** ✗（第 355 轮 ✓，**实测撞到的** ✓）：
+  // `{ tags = [] as string[] }` 里 `=` **右边**那个 `[]` 是**默认值**（值位 ✓），
+  // 而照「第一个像模式的单元」找会把它当成**绑定名** ✗ ⇒ 投出一个**没有 text** 的
+  // `ArrayBindingPattern` ✓ ⇒ 降级期报 `ast node ArrayBindingPattern has no text` ✓
+  //（**那条消息原来不带区间** ✗，第 355 轮才补上 ✓——补上之后一眼看出是哪个 `[]`
+  // （`at 46..48` ✓），**这一步省掉了一整轮插桩** ✓）。
+  // 判据与上面 `colonIndex` 那一支同一条纪律 ✓：**切分点左边才是名字** ✓。
+  const beforeEq = eqIndex >= 0 ? kids.slice(0, eqIndex) : kids;
+  const patternKid = beforeEq.find(isPatternLike);
   const props = {};
   if (dots !== undefined) {
     props.dotDotDotToken = { kind: "DotDotDotToken", text: "...", pos: startOf(dots), end: startOf(dots) + 3 };

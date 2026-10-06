@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.22,
+  "progressPercent": 99.32,
   "layers": [
     {
       "layer": "runtime",
@@ -49,11 +49,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 318,
-      "pass": 315,
-      "blocked": 3,
+      "pass": 316,
+      "blocked": 2,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 99.06
+      "coverage": 99.37
     },
     {
       "layer": "stdlib",
@@ -124,12 +124,6 @@
       "layer": "exec",
       "title": "`enum` 与 `namespace` 合并（运行期两个都在）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: name is not a local (captures need env records): Level"
-    },
-    {
-      "id": "c331-ex-destructure-params-and-defaults",
-      "layer": "exec",
-      "title": "解构形参 + 默认值 + 重命名",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ArrayBindingPattern has no text"
     }
   ],
   "differ": [

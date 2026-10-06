@@ -979,7 +979,7 @@ export const EXPECTATIONS = {
   //（`tags = []` ✓）走的是 `BindingElement` 的取值路 ✓，而它按 `TextOf` 取名字 ✗。
   // 与 `ex-destructuring-params` / `c291-ex-destructure-params-and-defaults`
   // （那两条是**扁平**的 ✓、都过 ✓）不是同一个形状 ✓：这一条考的是**嵌了一层对象模式** ✓。
-  "c331-ex-destructure-params-and-defaults": { expect: "blocked", why: "解构形参里**默认值是数组字面量**（`{ tags = [] as string[] }`）时报 `ast node ArrayBindingPattern has no text`——`BindingElement` 那一支按 `TextOf` 取名字，而左边是一个**模式**（数组 / 对象）时它没有 `text`。扁平的那两条（`ex-destructuring-params` / `c291-ex-destructure-params-and-defaults`）一直是好的，这一条把**嵌了一层对象模式 + 两处默认值**一起写全了" },
+  // **第 355 轮过了** ✓（这一行撤了 ✓）：`{ tags = [] as string[] }` 里 `=` 右边那个 `[]`（默认值）被当成了绑定名 ✓——`patternKid` 现在只在 `=` 左边找 ✓。
   //
   // ---- 组 B：`enum` 与 `namespace` 的**同名合并**，且体内函数回头用那个枚举（1 条）----
   // `enum Level { … }` 之后 `namespace Level { export function label(v: Level) { … Level.Low … } }` ✓——

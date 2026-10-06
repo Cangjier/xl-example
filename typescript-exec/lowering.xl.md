@@ -181,9 +181,19 @@ return value as AstNode[];
 
 节点的 `text`（标识符名、字面量原文、token 原文都走它）。
 
+**抛的时候要带上区间** ✓（第 355 轮 ✓，用户口径「举一反三」✓）：
+这条消息原来只说「谁**没有** text」✗（`ast node ArrayBindingPattern has no text` ✓）——
+**不说「在哪儿」** ✗，于是每一次都要重新插一遍探针才能找到那一格 ✓
+（第 354 轮那两条就是这样各花掉半轮 ✓）。
+`pos` / `end` 是投影层**每个节点都带**的 ✓（`cases:tsast` 那一门量着它们 ✓），
+所以把区间打出来**几乎是免费的** ✓：拿这两个数去源文件上一对，
+就知道是**哪一行、哪一个节点**在要文本 ✓——比再插一次探针便宜得多 ✓。
+
 ```ts
 const text = node["text"];
-if (typeof text !== "string") throw new Error("ast node " + NodeKind(node) + " has no text");
+if (typeof text !== "string") {
+  throw new Error("ast node " + NodeKind(node) + " has no text (at " + String(node["pos"]) + ".." + String(node["end"]) + ")");
+}
 return text;
 ```
 
