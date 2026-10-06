@@ -13,3 +13,9 @@ tmp-*
 
 # coverage 的工作目录：**每个实例一份**（第 320 轮：按 pid 分开，互不干扰）
 tests/coverage/.work-*/
+
+# **普查（sweep）的工作目录**：同样按 pid 分开（第 324 轮）——它是**用完就删**的 ✓，
+# 但崩在半路时那一份会留下来 ✓ ⇒ 不挡的话它会被 `git add -A` 收进仓 ✗
+#（第 325 轮实测踩过一次 ✓：6 个手写的探针 `.ts` 进了一次提交 ✓）。
+tests/coverage/.sweep-*/
+tests/coverage/.sweep/
