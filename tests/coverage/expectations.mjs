@@ -578,7 +578,12 @@ export const EXPECTATIONS = {
   // `Promise.any` / `allSettled` ✓、`WeakMap` ✓、`AggregateError` ✓、
   // `Object.getOwnPropertyDescriptors` / `Object.groupBy` ✓、`Array.prototype.toLocaleString` ✓、
   // `String.normalize` ✗（要 Unicode 归一化表 ✓，与 `localeCompare` 同一条纪律 ✓）。
-  "object-getownpropertydescriptors": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors`（复数）没装——单数那格（412）第 276 轮就有了，缺的是「一趟扫自有键、每格复用同一次读描述符」" },
+  // **`object-getownpropertydescriptors` 第 324 轮过了** ✓（那一行撤了 ✓）：
+  // 修法与号都写在 `globals.xl.md` 的 `ObjectGetOwnPropertyDescriptors` 那一段 ✓——
+  // **逐格复用单数那一支** ✓（`InvokeGlobal` 递归调自己 ✓），键那一趟复用
+  // `getOwnPropertyNames` / `getOwnPropertySymbols` ✓ ⇒ 「描述符长什么样」**只有一处答案** ✓
+  // （数据属性四格 ✓ / 访问器两格 ✓ / 数组元素与字符串下标的标志不一样 ✓ / `length` 第三种 ✓，
+  // 第 276 / 304 轮全是实测出来的 ✓）。**再抄一遍就是第二处会漂的答案** ✗。
   "string-normalize": { expect: "blocked", why: "`String.normalize` 没装——NFC / NFD 要一张 Unicode 归一化表，本仓没有（与 `toUpperCase` / `localeCompare` 同一条纪律：不编一个看起来对的答案）" },
   //
   // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
@@ -688,7 +693,9 @@ export const EXPECTATIONS = {
   // （`c305-std-then-returns-promise-adoption` 也在第 317 轮转 pass ✓、那一行同样撤了 ✓。）
   "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
   "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
-  "c305-std-object-getownpropertydescriptors-all": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors` 那一格没有（`getOwnPropertyDescriptor` 第 276 轮就装上了）——一次拿全表，是同一个扫描的镜像" },
+  // **`c305-std-object-getownpropertydescriptors-all` 第 324 轮也过了** ✓（同一处修 ✓）：
+  // 这一条比第 323 轮新收的那一条**更宽** ✓——它考的是「**复数拿全表、且与单数逐格一致**」✓
+  // （`enumerable` / `configurable` / 访问器那一格都在里面 ✓）。
   "c305-std-array-length-nonwritable": { expect: "differ", why: "**不可写的数组 `length` 拦不住 `push`**：`Object.defineProperty(xs, \"length\", { writable: false })` 之后 `push` 静默成功（Node 抛 `TypeError`）——数组写路径没有看 `length` 那一格的写标志，与 `object-freeze-array-element` 同源（引擎的写屏障）" },
   "c305-e2e-lru-cache": { expect: "differ", why: "`this.#map.keys().next().value` 报 `cannot call a non-closure value`——数组迭代器那条 `next()` 是挂上去的**隐藏属性**（第 279 轮），私有字段里取出来的那个数组上没有它" },
   // **第 306 轮把上面那两处都修好了** ✓（token 层的次序判据 + 名字收两遍 ✓），
@@ -769,11 +776,21 @@ export const EXPECTATIONS = {
   "c323-ex-namespace-merged-function": { expect: "blocked", why: "函数与命名空间合并：`function make(n) {…}` + `namespace make { export const version = … }` 该把导出挂在**函数值自己**那一格上（静态格），降级层只造了函数、那一格没造 ⇒ `make.version` 是 `undefined`、`make.help()` 报 `cannot call a non-closure value`（与 `c304-ex-namespace-merged-function` 同一个根，这一条把「常量 + 函数 + 互相引用」三格一起考）" },
   "c323-rt-super-in-object-literal": { expect: "blocked", why: "对象字面量里的方法用 `super.greet()`：JS 的 `super` 在方法简写里指向 `[[HomeObject]]` 的原型（`{ __proto__: proto, greet() { return super.greet() } }` 是合法的）；降级层只认**派生类方法**里那一格（`InSuperName` 由类降级时写进排队函数）⇒ 报 `unimplemented: super.m(...) outside a derived class method`" },
   // B —— 标准库成员不在那儿（6 条，都是「挂一格」那一族）
-  "c323-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮就装上了）——同一个分组实现，只是**返回 `Map` 而不是对象**（分组键是任意值 ⇒ 不能用对象那一条路）。与 `c305-std-map-groupby` 同一个根，这一条多考了「键是同一个值时合成一组」那一格" },
+  // **`c323-std-object-getownpropertydescriptors` 与 `c323-std-set-union-intersection`
+  // 第 324 轮都过了** ✓（两行撤了 ✓）——修法与号写在各自的规范那一段里 ✓：
+  // · 复数那一格**逐格复用单数** ✓（`globals.xl.md` 的 `ObjectGetOwnPropertyDescriptors` ✓，号 `428` ✓）；
+  // · 集合运算六个**与那八个用同一个循环挂** ✓（`set.xl.md` 的 `InstallSetMethods` ✓，号 `620..625` ✓），
+  //   实参物化那一趟照 `new Set(生成器)` 的老路 ✓（`install.xl.md` ✓）——
+  //   **少了那一趟就是「把 Set 当数组读」** ✗（静默给一个空集 ✓）。
+  // **`Map.groupBy` 为什么还留着** ✗（顺手量清的 ✓）：`Map` 是**宿主引用值** ✗——
+  // 它**没有属性表** ✓，所以「往 `Map` 这个对象上挂一格静态方法」今天挂不了 ✓
+  //（`Object.groupBy` 能挂是因为 `Object` 本来就是普通对象 ✓）。
+  // 要做得先照第 183 轮 `Symbol` 那一条办 ✓：把 `Map` 改成**带可调用载荷的对象** ✓
+  //（`AttachCallable` ✓，`IsHostCallable` 两种壳都认 ✓）——那是一次**结构性改动** ✓，
+  // 要连同 `instanceof` 与 `new Map()` 两条判据一起验 ✓，单独一轮做 ✓。
+  "c323-std-map-groupby": { expect: "blocked", why: "`Map.groupBy` 没有（`Object.groupBy` 第 295 轮就装上了）——同一个分组实现，只是**返回 `Map` 而不是对象**（分组键是任意值 ⇒ 不能用对象那一条路）。**卡点不在分组本身** ✗：`Map` 是**宿主引用值**（没有属性表 ✓），静态方法挂不上去 ✓——要先把 `Map` 改成「带可调用载荷的对象」（第 183 轮 `Symbol` 那一条 ✓），那是一次结构性改动 ✓。与 `c305-std-map-groupby` 同一个根，这一条多考了「键是同一个值时合成一组」那一格" },
   "c323-std-promise-withresolvers": { expect: "blocked", why: "`Promise.withResolvers()` 没有——它要**造一个承诺 + 一对结清回调**并交成一个对象（`MakeSettleCallback` 那一族现成 ✓，缺的是「把三样装进一个对象再返回」这一步）" },
   "c323-std-queue-microtask": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进**与 `Promise.then` 同一条**微任务队列（队列本身第 248 轮就有；缺的是「宿主把「排一个纯回调」这件事借给语言层」那条服务，与第 199 轮的 `IteratorDrainer` 同一形状）" },
-  "c323-std-object-getownpropertydescriptors": { expect: "blocked", why: "`Object.getOwnPropertyDescriptors`（复数）没装——单数那一格第 276 轮就有（`getOwnPropertyDescriptor` ✓），缺的是「一趟扫自有键、每格复用同一次读描述符」；与 `c305-std-object-getownpropertydescriptors-all` 同一个根，这一条多考了「不可枚举那一格也要在里面」" },
-  "c323-std-set-union-intersection": { expect: "blocked", why: "`Set` 的集合运算族（ES2025）：`union` / `intersection` / `difference` / `symmetricDifference` / `isSubsetOf` / `isDisjointFrom` 六个都没装（`add` / `has` / `delete` / `values` / `keys` / `entries` / `clear` / `forEach` 八格第 130 / 288 轮就有了）——做法与那八格同一套（号段 611..659 里还有空号 ✓，实现都是「造一个新 Set 或答一个是非」✓）" },
   "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗（`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓）" },
   "c323-std-array-fromasync": { expect: "differ", why: "`Array.fromAsync` 没有（本仓**一行都不打**，Node 给 `1,2,3`）——两个来源都要：**异步可迭代对象**（`async function*` ✓，本仓的 `for await` 已经能收 ✓）与**带映射函数的同步数组**（每一项 `await` 一次 ✓）。它是 `Array.from` 的异步姊妹，落在同一张表上" },
   // C —— 写那一半没有对应的入口（2 条）

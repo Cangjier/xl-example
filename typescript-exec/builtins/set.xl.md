@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
-import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
+import { HeapTable, HeapArray, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
 import { NeverCall, Units } from "./array.xl.md"
@@ -54,6 +54,31 @@ import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 `forEach(回调)` 的号——与 `Map` 同一条路（靠 `NativeCall` 重入分派循环 ✓）。
 **回调收 `(值, 值, 集合)` 三格** ✓（第 288 轮补齐 ✓——前两格是同一个值 ✓，第三格是接收者 ✓）。
 
+# const SetUnion:int = 620
+
+**`union(另一个集合)`**（第 324 轮 ✓）——号**追加在集合段里** ✓（`611..659` ✓，
+第 130 轮开这一段时就留着空号 ✓）。
+
+# const SetIntersection:int = 621
+
+**`intersection(另一个集合)`**（第 324 轮 ✓）。
+
+# const SetDifference:int = 622
+
+**`difference(另一个集合)`**（第 324 轮 ✓）。
+
+# const SetSymmetricDifference:int = 623
+
+**`symmetricDifference(另一个集合)`**（第 324 轮 ✓）。
+
+# const SetSubsetOf:int = 624
+
+**`isSubsetOf(另一个集合)`**（第 324 轮 ✓）。
+
+# const SetDisjointFrom:int = 625
+
+**`isDisjointFrom(另一个集合)`**（第 324 轮 ✓）。
+
 # method SetMethodNameOf:(id:int)=>string
 
 号 → 方法名（**这张表只此一处**）。
@@ -67,6 +92,15 @@ if (id === SetKeys) return "keys";
 if (id === SetEntries) return "entries";
 if (id === SetClear) return "clear";
 if (id === SetForEach) return "forEach";
+// **第 324 轮那六个** ✓（ES2025 的集合运算 ✓）——它们是**另一件事** ✓：
+// 前八个改的是**接收者自己** ✓，这六个**不改接收者** ✗（造一个新的 ✓、或答一个是非 ✓）——
+// 但它们的**号与名字**照旧挂在这一张表上 ✓（`install.xl.md` 与这一层共用它 ✓）。
+if (id === SetUnion) return "union";
+if (id === SetIntersection) return "intersection";
+if (id === SetDifference) return "difference";
+if (id === SetSymmetricDifference) return "symmetricDifference";
+if (id === SetSubsetOf) return "isSubsetOf";
+if (id === SetDisjointFrom) return "isDisjointFrom";
 throw new Error("unimplemented: set method id " + id);
 ```
 
@@ -75,7 +109,11 @@ throw new Error("unimplemented: set method id " + id);
 把方法挂到实例上（每个值都是带本模块号的宿主引用）。
 
 ```ts
-const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear, SetForEach];
+const ids = [SetAdd, SetHas, SetDelete, SetValues, SetKeys, SetEntries, SetClear, SetForEach,
+  // **第 324 轮那六个也要挂** ✓：与上面八个**同一个循环** ✓——少挂一格就是
+  // `cannot call a non-closure value` ✓（**那句话听起来像「集合运算还没做」** ✗，
+  // 其实只是**没人往那一格挂东西** ✓，与第 308 轮 `Array.prototype[Symbol.iterator]` 同一副面孔 ✓）。
+  SetUnion, SetIntersection, SetDifference, SetSymmetricDifference, SetSubsetOf, SetDisjointFrom];
 for (let i = 0; i < ids.length; i++) {
   const fn = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
   WriteOwn(room, NeverCall, table, target, SetMethodNameOf(ids[i]), fn);
@@ -195,7 +233,77 @@ if (id === SetClear) {
   WriteOwn(room, NeverCall, table, self, "size", Value.FromInt(0));
   return Value.Undefined();
 }
+// ---- 第 324 轮：ES2025 的集合运算六个 ----
+//
+// **它们与上面八个是两件事** ✓：上面那些改的是**接收者自己** ✓（`add` / `delete` / `clear` ✓），
+// 这六个**一个都不改** ✗——造一个**新的 `Set`** ✓（四个）或答**一个是非** ✓（两个）。
+//
+// **另一个集合到这一层已经是数组** ✓（`install.xl.md` 那一趟 `IterDrain` ✓，
+// 与 `new Set(生成器)` 同一条路 ✓）——所以这里只需要**线性找** ✓
+// （`SameValueZero` ✓，与 `has` / `delete` 同一个表 ✓，`NaN` 于是也对 ✓）。
+// **`null` / `undefined` 按空集算** ✓（与 `new Set(undefined)` 同一条口径 ✓）。
+if (id === SetUnion || id === SetIntersection || id === SetDifference
+  || id === SetSymmetricDifference || id === SetSubsetOf || id === SetDisjointFrom) {
+  let other: HeapArray | null = null;
+  if (args.length > 0 && args[0].Tag === ValueTag.Array) other = table.Get(args[0].Ref).AsArray();
+  const mine = table.Get(values.Ref).AsArray();
+  if (id === SetSubsetOf || id === SetDisjointFrom) {
+    // **两格是一对反过来的问法** ✓：`isSubsetOf` 问「我每一个都在不在它里面」✓、
+    // `isDisjointFrom` 问「有没有一个在它里面」✓——**共用一个循环** ✓，
+    // 分开写就是两处会漂的答案 ✓（`!shared` 与 `missing` 是同一件事的两种说法 ✓）。
+    let shared = false;
+    let missing = false;
+    for (let i = 0; i < mine.GetLength(); i++) {
+      if (mine.IsHole(i)) continue;
+      if (SetArrayHas(table, other, mine.GetAt(i))) shared = true;
+      else missing = true;
+    }
+    return Value.FromBool(id === SetSubsetOf ? !missing : !shared);
+  }
+  const created = InvokeSet(room, protos, table, null, SetCtor, Value.Undefined(), []);
+  // **一趟走自己那一侧** ✓：`union` 全要 ✓、`intersection` 要两边都有的 ✓、
+  // `difference` 要**只有自己有**的 ✓、`symmetricDifference` 先要「只有自己有」的 ✓
+  //（另一半在下面那一趟补 ✓）。
+  for (let i = 0; i < mine.GetLength(); i++) {
+    if (mine.IsHole(i)) continue;
+    const value = mine.GetAt(i);
+    const inOther = SetArrayHas(table, other, value);
+    let keep = true;
+    if (id === SetIntersection) keep = inOther;
+    if (id === SetDifference || id === SetSymmetricDifference) keep = !inOther;
+    if (!keep) continue;
+    InvokeSet(room, protos, table, null, SetAdd, created, [value]);
+  }
+  // **`union` / `symmetricDifference` 的另一半** ✓（只在它俩身上 ✓）：
+  // 把「只有另一边有」的那些补进来 ✓——`add` 自己会去重 ✓（`union` 里两边都有的那些
+  // 于是不会进两次 ✓），所以这里**不必自己判重** ✓。
+  if ((id === SetUnion || id === SetSymmetricDifference) && other !== null) {
+    for (let i = 0; i < other.GetLength(); i++) {
+      if (other.IsHole(i)) continue;
+      const value = other.GetAt(i);
+      if (id === SetSymmetricDifference && SetArrayHas(table, mine, value)) continue;
+      InvokeSet(room, protos, table, null, SetAdd, created, [value]);
+    }
+  }
+  return created;
+}
 throw new Error("unimplemented: set id " + id);
+```
+
+# method SetArrayHas:(table:HeapTable, source:HeapArray | null, value:Value)=>bool
+
+**在「另一个集合」那个数组里找一格**（第 324 轮 ✓）——集合运算六个共用它 ✓。
+
+**为什么要有它** ✗：四个运算与两个是非各写一遍「线性找」就是**六处会漂的判据** ✓，
+而它们要的**是同一个问题** ✓（`SameValueZero` ✓，`NaN` 也算在里面 ✓）。
+
+```ts
+if (source === null) return false;
+for (let i = 0; i < source.GetLength(); i++) {
+  if (source.IsHole(i)) continue;
+  if (SameValueZero(table, source.GetAt(i), value)) return true;
+}
+return false;
 ```
 
 # method IndexOfSetValue:(table:HeapTable, values:Value, value:Value)=>int

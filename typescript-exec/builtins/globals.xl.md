@@ -239,11 +239,26 @@ import { BuildPromise } from "./promise.xl.md"
 
 # const ObjectGetOwnPropertyDescriptor:int = 412
 
-**`Object.getOwnPropertyDescriptor(对象, 键)`**（第 276 轮 ✓）——把那一格读成
-`{ value, writable, enumerable, configurable }` ✓，**没有那一格给 `undefined`** ✓。
+**`Object.getOwnPropertyDescriptor(对象, 键)`**（第 276 轮 ✓）——把那一格读成`{ value, writable, enumerable, configurable }` ✓，**没有那一格给 `undefined`** ✓。
+
+# const ObjectGetOwnPropertyDescriptors:int = 428
+
+**`Object.getOwnPropertyDescriptors(对象)`**（第 324 轮 ✓）——**一次拿全表** ✓，
+号**追加在全局段那个 `Object` 段之后的第一格空号** ✓（`421` 之后空了一段 ✓，
+`426` / `427` 是生成器自己那两格 ✓——**号只追加、不复用** ✓）。
+
+**它一个字的判断都不重写** ✓：逐格**复用单数那一支** ✓（`InvokeGlobal` 递归调同一张分派 ✓，
+`ObjectGetOwnPropertyDescriptor` ✓）——**描述符的形状只有那一处答案** ✓
+（数据属性四格 ✓ / 访问器两格 ✓ / 数组元素与字符串下标的标志不一样 ✓ / `length` 第三种 ✓，
+第 276 / 304 轮全是**实测**出来的 ✓）。**再抄一遍就是第二处会漂的答案** ✗，
+而漂的表现是「单数对、复数错」✓（第 284 轮那个计算键写三遍就是这种账 ✓）。
+
+**键那一趟也复用** ✓：自有**字符串键**与自有**符号键**各走现成的那两支 ✓
+（`getOwnPropertyNames` ✓ / `getOwnPropertySymbols` ✓，第 214 / 288 轮 ✓）——
+于是「整数键在前 ✓、`length` 在不在里面 ✓、`__sealed` 那个内部标记不算 ✓」
+这些**已经定过的口径**不必再想一遍 ✓。
 
 # const ObjectDefineProperties:int = 413
-
 **`Object.defineProperties(对象, 描述符表)`**（第 276 轮 ✓）——一趟写多格 ✓。
 **它与 `defineProperty` 共用同一个方法** ✓（`DefineOwnFromDescriptor` ✓）：
 「怎么把描述符写进去」那段里有两处**不能抄**的判断 ✓（默认三个标志全是假 ✓、
@@ -3040,8 +3055,42 @@ if (id === ObjectGetOwnPropertyDescriptor) {
     Value.FromBool((ownFlags & PropertyFlagConfigurable) !== 0));
   return ownDescriptor;
 }
-if (id === ObjectSeal) {
-  // **`Object.seal(对象)`**（第 276 轮 ✓）——**不可配置、但仍然可写** ✓。
+if (id === ObjectGetOwnPropertyDescriptors) {
+  // **`Object.getOwnPropertyDescriptors(对象)`**（第 324 轮 ✓）——**一趟拿全表** ✓。
+  //
+  // **递归调自己** ✓（`InvokeGlobal` 就在这个函数里 ✓）：键那一趟走
+  // `getOwnPropertyNames` / `getOwnPropertySymbols` ✓，每一格走**单数**那一条 ✓——
+  // 于是「描述符长什么样」只有**一处**答案 ✓（第 276 / 304 轮那些实测出来的差别
+  // ——数组元素三个真 ✓、字符串下标不可写 ✓、`length` 不可枚举不可配置 ✓、
+  // 访问器没有 `value` ✓——**一条都不必在这里再写一遍** ✓）。
+  // **抄一遍的代价是「两边会漂」** ✗，而漂出来的是「单数对、复数错」✓。
+  if (args.length < 1 || (!args[0].IsObject() && args[0].Tag !== ValueTag.String)) {
+    throw new Error("unimplemented: Object.getOwnPropertyDescriptors needs (object or string)");
+  }
+  const descriptorOwner = args[0];
+  const out = NewPlainObject(room, table, protos);
+  // **两趟键：先字符串、后符号** ✓（JS 的 `[[OwnPropertyKeys]]` 次序 ✓）——
+  // 两支各自的口径（整数键在前 ✓、内部标记不算 ✓）已经定过了 ✓，这里不再想第二遍 ✓。
+  const keyLists: Value[] = [
+    InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertyNames, descriptorOwner, [descriptorOwner], sink, failed, false),
+    InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertySymbols, descriptorOwner, [descriptorOwner], sink, failed, false),
+  ];
+  for (let k = 0; k < keyLists.length; k++) {
+    const keys = table.Get(keyLists[k].Ref).AsArray();
+    for (let i = 0; i < keys.GetLength(); i++) {
+      if (keys.IsHole(i)) continue;
+      const key = keys.GetAt(i);
+      const descriptor = InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertyDescriptor,
+        descriptorOwner, [descriptorOwner, key], sink, failed, false);
+      // **`undefined` 不写进去** ✗：单数那一支对「洞 / 越界 / 内部标记」给 `undefined` ✓，
+      // 而那几格**本来就不该出现在这张表里** ✓（它们正是「不是自有属性」那几档 ✓）。
+      if (descriptor.IsNullish()) continue;
+      SetProperty(room, NeverCall, table, out, key, descriptor);
+    }
+  }
+  return out;
+}
+if (id === ObjectSeal) {  // **`Object.seal(对象)`**（第 276 轮 ✓）——**不可配置、但仍然可写** ✓。
   // **这正是它与 `freeze` 的分界** ✓：`freeze` 两样都清 ✓、`seal` 只清 `configurable` ✓——
   // 两条判据（`object-freeze` 与这一条）量的就是这两样的**差** ✓。
   // **访问器跳过** ✗（与 `freeze` 同一条 ✓）：它的「可配置」挂在访问器那一格上 ✓，
@@ -5110,10 +5159,15 @@ const objectExtraNames: string[] = ["getOwnPropertyDescriptor", "definePropertie
   // 号在 `419` / `420` ✓，名字与号**按下标配** ✓（错一格就是**静默**换语义 ✗）。
   // 它们是第 304 轮加宽矩阵时**当场量到的** ✗（两条判据都在报
   // `cannot call a non-closure value` ✓——那一族**有问的人、没有做的人** ✓）。
-  "setPrototypeOf", "preventExtensions"];
+  "setPrototypeOf", "preventExtensions",
+  // **第 324 轮补的一格** ✓（`getOwnPropertyDescriptors` ✓，号 `428` ✓）——
+  // 它排在**最后** ✓：这两张表**按下标配** ✓（错一格就是**静默**换语义 ✗），
+  // 而插在中间会把后面每一格都挪一位 ✓（第 280 轮那次号撞车就是这么来的 ✓）。
+  "getOwnPropertyDescriptors"];
 const objectExtraIds: number[] = [ObjectGetOwnPropertyDescriptor, ObjectDefineProperties, ObjectSeal,
   ObjectIsSealed, ObjectIsFrozen, ObjectIsExtensible,
-  ObjectSetPrototypeOf, ObjectPreventExtensions];
+  ObjectSetPrototypeOf, ObjectPreventExtensions,
+  ObjectGetOwnPropertyDescriptors];
 for (let i = 0; i < objectExtraNames.length; i++) {
   const extraKey = Value.FromString(table.CreateString(Units(objectExtraNames[i])));
   const extraTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(objectExtraIds[i], 0));

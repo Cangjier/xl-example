@@ -105,7 +105,12 @@ if (id >= 230 && id < 248) return InvokePromise(room, table, protos, id, self, a
 // 那两块**不能** import 这一层 ✓（依赖方向是「这一层认识它们」✓，反过来成环 ✗），
 // 所以两块拿到手的仍旧是**数组** ✓——它们各自动一个字都不用改 ✓
 //（改动只在号段翻译这一处 ✓，与「哪个号属于哪一块只有这一处知道」同一条理由 ✓）。
-if (id === MapCtor || id === SetCtor) {
+if (id === MapCtor || id === SetCtor
+  // **第 324 轮那六个集合运算也要这一趟** ✓（`union` 那一族 ✓）：它们的另一个实参
+  // 是**任意可迭代物** ✓（`a.union(new Set([3]))` ✓、`a.union([3])` ✓、`a.union(生成器)` ✓），
+  // 而 `set.xl.md` 那一层**只认数组** ✓（它不能 import 这一层 ✗，依赖方向是反的 ✓）——
+  // 与 `new Set(生成器)` **一字不差**的理由 ✓（第 199 轮 ✓）。
+  || (id >= 620 && id <= 625)) {
   // **`null` / `undefined` 是空集合** ✓（JS 的口径 ✓），**不是**「没有迭代器」✗——
   // 而其余非可迭代物（`new Set(42)` ✓）由 `IterDrain` **响亮地抛** ✓（JS 也是 `TypeError` ✓）。
   if (args.length > 0 && !args[0].IsNullish() && args[0].Tag !== ValueTag.Array) {

@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.67,
+  "progressPercent": 94.88,
   "layers": [
     {
       "layer": "runtime",
@@ -59,11 +59,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 479,
-      "pass": 448,
-      "blocked": 18,
+      "pass": 452,
+      "blocked": 14,
       "differ": 13,
       "nodefail": 0,
-      "coverage": 93.53
+      "coverage": 94.36
     },
     {
       "layer": "e2e",
@@ -258,12 +258,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "object-getownpropertydescriptors",
-      "layer": "stdlib",
-      "title": "Object.getOwnPropertyDescriptors（复数）",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c291-string-normalize-ascii",
       "layer": "stdlib",
       "title": "normalize：ASCII 上原样、组合字符上合一",
@@ -306,12 +300,6 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c305-std-object-getownpropertydescriptors-all",
-      "layer": "stdlib",
-      "title": "`Object.getOwnPropertyDescriptors` 一次拿全部描述符",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c323-std-map-groupby",
       "layer": "stdlib",
       "title": "Map.groupBy：按键分组成 Map",
@@ -328,18 +316,6 @@
       "layer": "stdlib",
       "title": "queueMicrotask：与 Promise.then 同一个队列、按序",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: queueMicrotask"
-    },
-    {
-      "id": "c323-std-object-getownpropertydescriptors",
-      "layer": "stdlib",
-      "title": "Object.getOwnPropertyDescriptors：一次拿全表的描述符",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c323-std-set-union-intersection",
-      "layer": "stdlib",
-      "title": "Set 的集合运算：union / intersection / difference / symmetricDifference",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c323-std-string-raw",
