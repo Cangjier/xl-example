@@ -1707,9 +1707,49 @@ if (count <= fixed) return 0;
 return count - fixed;
 ```
 
+## method ReentryArgumentsCharge:(info:FunctionInfo, args:Array<Value>)=>int
+
+**重入那条路上 `arguments` 要问多少房间** ✓（第 332 轮 ✓）——不用就返回 `0` ✓。
+
+**为什么重入要单独一份** ✗：`DoCallValue` 那一条走的是 `FillParameters` ✓
+（它手上有调用者的帧与实参窗口 ✓）；而**重入**（`CallNative` ✓：内建回调 ✓、
+访问器 ✓、微任务里的回调 ✓）手上是**一个宿主数组** ✓——两条路的实参来源不同 ✓，
+所以「要不要收」这一句判据要**共用** ✓（`ReentryArgumentsCharge` 与
+`FillReentryArguments` 都只看 `info.NeedsArguments` ✓），别的一处不写第二遍 ✓。
+
+```ts
+if (!info.NeedsArguments) return 0;
+if (info.ParamCount < 0 || info.ParamCount >= info.SlotCount) return 0;
+return ObjectCharge + ValueCharge * args.length;
+```
+
+## method FillReentryArguments:(created:HeapFrame, info:FunctionInfo, args:Array<Value>)=>void
+
+**重入那条路上把 `arguments` 收进那一格** ✓（第 332 轮 ✓）。
+
+**它补的是一个实测到的洞** ✗：`queueMicrotask(function () { arguments.length })` 里那个
+`arguments` 是 `undefined` ✓——**回调里抛出来的那一抛又正好被承诺吞掉** ✗
+（`queueMicrotask` 的回调抛了会变成「没人看的承诺被拒绝」✓，一句异常都不打印 ✓），
+所以症状是**那一行根本不印** ✓。**同一个洞早就在那儿** ✓：`xs.forEach(function (x) { … })`
+里的 `arguments` 一直是空的 ✓（第 133 轮那条注释里写着「这一条路不收剩余参数」✓，
+只是那时没人量到 `arguments` 也是同一格 ✓）。
+**判据、位置、格子与 `FillParameters` 那条一字不差** ✓（都是 `info.ParamCount` ✓）。
+
+```ts
+if (!info.NeedsArguments) return;
+if (info.ParamCount < 0 || info.ParamCount >= info.SlotCount) return;
+const handle = this.Table.CreateArray();
+if (this.Protos !== null) this.Table.Get(handle).Proto = this.Protos.Array;
+for (let i = 0; i < args.length; i++) {
+  // **每一趟现取视图** ✓（`heap.xl.md` 那条 ✓）。
+  this.Table.Get(handle).AsArray().Push(args[i]);
+}
+created.Slots[info.ParamCount] = Value.FromArray(handle);
+```
+
 ## method ArgumentsCountOf:(info:FunctionInfo, count:int)=>int
 
-**这个 `arguments` 要装几项**（第 332 轮 ✓）——**全部实参** ✓（不是「多出来的」✗）。
+**这个 `arguments` 要装几项** ✓（第 332 轮 ✓）——**全部实参** ✓（不是「多出来的」✗）。
 
 **与 `RestCountOf` 是同一个形状、同一个用法** ✓（`NeedRoom` 那一问与 `FillParameters` 那一铺 ✓）：
 两处都用它 ⇒ **同一个数只算一处** ✓。
@@ -2956,7 +2996,8 @@ if (info === null) {
 // 而重入没有调用者的帧 ✓）——`*[Symbol.iterator](...xs)` 这种写法今天仍是丢的 ✓；
 // 普通函数经重入调时**也一样丢** ✓（同一个缺口 ✓），不是这一轮带出来的 ✗。
 if (info.IsGenerator) {
-  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge)) return Value.Undefined();
+  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge
+      + this.ReentryArgumentsCharge(info, args))) return Value.Undefined();
   const createdHandle = this.Table.CreateFrame(closure.Code, info.SlotCount, 0, -1);
   const created = this.Table.Get(createdHandle).AsFrame();
   created.Pc = closure.Code;
@@ -2965,6 +3006,7 @@ if (info.IsGenerator) {
   for (let i = 0; i < args.length && i < info.SlotCount; i++) {
     created.Slots[i] = args[i];
   }
+  this.FillReentryArguments(created, info, args);
   const generatorHandle = this.Table.CreateGenerator(createdHandle);
   created.Generator = generatorHandle;
   this.AttachGeneratorProto(generatorHandle, info.IsAsync);
@@ -2987,7 +3029,8 @@ if (this.NativeDepth >= MaxNativeDepth) {
 // **先问房间、再造承诺** ✗（第 286 轮那条教训 ✓）：反过来的话 `NeedRoom` 会在
 // 分配中途才说不 ✓，而那时承诺已经造出来了 ✗（没人拿得到它 ✓ = 泄漏 ✓）。
 if (info.IsAsync) {
-  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge + ValueCharge)) {
+  if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge + ValueCharge
+      + this.ReentryArgumentsCharge(info, args))) {
     return Value.Undefined();
   }
   const asyncPromise = this.MakeAsyncPromise(PromiseState.Pending, Value.Undefined());
@@ -3000,6 +3043,7 @@ if (info.IsAsync) {
   for (let i = 0; i < args.length && i < info.SlotCount; i++) {
     asyncFrame.Slots[i] = args[i];
   }
+  this.FillReentryArguments(asyncFrame, info, args);
   // **承诺挂在帧上** ✓：`DoReturn` / `DoThrow` 收尾时按它结清 ✓
   //（那两条路本来就是这么认人的 ✓，与 `DoCallValue` 那一支**同一处机关** ✓）。
   asyncFrame.AsyncPromise = asyncPromise.Ref;
@@ -3009,7 +3053,8 @@ if (info.IsAsync) {
   this.RunToDepth(asyncDepth);
   return asyncPromise;
 }
-if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge)) return Value.Undefined();
+if (!this.NeedRoom(ObjectCharge + info.SlotCount * ValueCharge
+    + this.ReentryArgumentsCharge(info, args))) return Value.Undefined();
 const depth = this.Frames.Depth();
 // **记下「这一趟开始之前」的两样** ✓（第 228 轮 ✓）：
 //   · `thrownBefore`——一共抛过几次 ✓（回来一比就知道**这一次**重入里出过事没有 ✓）；
@@ -3030,6 +3075,7 @@ frame.This = thisValue;
 for (let i = 0; i < args.length && i < info.SlotCount; i++) {
   frame.Slots[i] = args[i];
 }
+this.FillReentryArguments(frame, info, args);
 this.RunToDepth(depth);
 // **外面那一摞帧要放回来** ✗（第 331 轮 ✓）——**这一条是实测逼出来的** ✓。
 //

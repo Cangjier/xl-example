@@ -8,7 +8,7 @@ import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallba
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
-import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId } from "./promise.xl.md"
+import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask } from "./promise.xl.md"
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
@@ -101,9 +101,18 @@ throw new Error("unimplemented: builtin id " + id);
 // **248 是第 327 轮加的** ✓（`withResolvers` ✓）——同一条账又走了一遍 ✓：
 // 上界从 `< 248` 挪到 `< 249` ✓（**号段的上界跟着新号走** ✗，这不是「顺手多挪一格」✓）。
 // **249 是第 331 轮加的** ✓（`try` ✓）——**第三次** ✓：上界 `< 249` → **`< 250`** ✓。
-// 这一条账值得单写一句 ✗：**三个轮次（295 / 327 / 331）踩的是同一处** ✓，
-// 而症状每次都长得像「有个全局号没实现」✓——它不是 ✓，是**上界与号数不同步** ✓。
 if (id >= 230 && id < 250) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
+// **`queueMicrotask` 走单号路由** ✗（第 332 轮 ✓）——**上界那一招这次不能用** ✗。
+//
+// **为什么** ✗：它的号（`PromiseQueueMicrotask = 255` ✓）**不在 230..249 这一段里** ✓，
+// 因为 **250 已经被 `SymbolCtor` 占了** ✓（251..254 是 `Symbol` 那一族 ✓）。
+// **第一版就是 250** ✗：与 `SymbolCtor` **撞号** ✓ ⇒ 那个号被这一段截走 ✗ ⇒
+// `Symbol("x")` 给 `undefined` ✓——**21 条判据当场红** ✓，而报的话分布在
+// 「`typeof` 给了 `undefined`」✓「`Symbol.keyFor needs a symbol`」✓「`invalid handle: 0`」✓ 三种 ✓，
+// **一句都没提号** ✗。**号撞车是静默的** ✓（第 150 轮 `ArrayAt` / 第 280 轮 `Date` 各踩过一次 ✓）。
+// **修法两条一起** ✓：挪到一个空号（`255` ✓——`254` 之后第一格 ✓）**并且**给一条单号路由 ✓，
+// 于是 `250..254` 那五个号回到 `InvokeGlobal` ✓（下面那一句 `id >= 200` ✓）。
+if (id === PromiseQueueMicrotask) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
 // **「一个可迭代物 → 一个数组」这件家务事留在这一层** ✓（不放进 `map.xl.md` / `set.xl.md` ✗）：

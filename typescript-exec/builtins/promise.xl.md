@@ -69,6 +69,38 @@ import { NameValue } from "./map.xl.md"
 **它与 `race` 只差一条** ✓：**只认兑现** ✓（第一个兑现的定胜负 ✓）；
 **全部被拒绝**时抛一个 **`AggregateError`** ✓（里面按输入顺序装着每一个拒绝原因 ✓）。
 
+# const PromiseQueueMicrotask:int = 255
+
+**`queueMicrotask(回调)`** ✓（第 332 轮 ✓，ES2020 ✓）——**一个全局函数** ✓，
+可它的号落在**承诺这一段的尾巴上** ✗。
+
+**为什么号在这里** ✓：它要的东西与 `.then` **一模一样** ✓——「把一次调用排进微任务队列」✓，
+而那条通道（`schedule` ✓）只有这一段的 `InvokePromise` 手上有 ✓。
+**名字与号不是一个东西** ✓：号只是**路由的键** ✓（`install.xl.md` 那张窄段表 ✓），
+挂在哪儿是 `BuildGlobals` 的事 ✓——它是全局名 ✓、不是 `Promise` 的静态方法 ✓。
+**不许为了「好看」把它挪到全局段的尾巴** ✗：那样 `schedule` 拿不到 ✓，
+而症状是「排不进队列」✓——离现场很远 ✓。
+
+**它落成什么** ✓：`schedule(undefined, 回调, [], 一个没人看的承诺, 0, false, undefined)` ✓。
+
+**号取 `255`、而且走一条单号路由** ✗（第 332 轮 ✓）——**这一格踩过一次号撞车** ✓：
+第一版取的是 `250` ✓，而 **`250` 是 `SymbolCtor`** ✗（`globals.xl.md` 的 `Symbol` 那一族
+占着 `250..254` ✓）⇒ `install.xl.md` 那条窄段（`id >= 230 && id < 250` ✓）一挪上界，
+**`Symbol` 那五个号就被这一段截走** ✗ ⇒ `Symbol("x")` 给 `undefined` ✓。
+**21 条判据当场红** ✓，而报的话分布在三种（`typeof` 给 `undefined` ✓ /
+`Symbol.keyFor needs a symbol` ✓ / `invalid handle: 0` ✓）——**一句都没提号** ✗。
+**号撞车是静默的** ✓（第 150 轮 `ArrayAt` / 第 280 轮 `Date` 各踩过一次 ✓）。
+**修法两条一起** ✓：挪到一个空号（`255` ✓——`254` 之后第一格 ✓）**并且**在
+`install.xl.md` 里给一条单号路由 ✓（上界那一招这次不能用 ✗：255 与 230..249 不连续 ✓）。
+
+**源给 `undefined` 是关键** ✗（不是「一个已兑现的承诺」✗）：引擎那一支对
+「源根本不是承诺」的处理是**直接排队、不接任何值** ✓ ⇒ 回调收到**零个实参** ✓
+（JS 就是这么调的 ✓）。给一个**已兑现的承诺**会让引擎把兑现值**接在实参后面** ✓
+⇒ 回调里 `arguments.length` 变成 1 ✗（**静默错值** ✓，而两处看起来都能跑 ✓）。
+
+**次序天然就是对的** ✓：`queueMicrotask(a); Promise.resolve().then(b)` 两条都排进
+**同一条队列** ✓、按挂上的先后走 ✓（判据 `c305-std-queue-microtask-order` 量的正是它 ✓）。
+
 # const PromiseSettledStepId:int = 244
 
 **`allSettled` 的「兑现」那一步** ✓（第 295 轮 ✓）。
@@ -292,6 +324,21 @@ if (id === PromiseRejectCallbackId) {
   }
   const reason = args.length > 0 ? args[0] : Value.Undefined();
   settle(SettleOfCallback(table, self), reason, true);
+  return Value.Undefined();
+}
+if (id === PromiseQueueMicrotask) {
+  // **`queueMicrotask(回调)`** ✓（第 332 轮 ✓）：源那一格给 `undefined` ✓——
+  // 引擎对「源根本不是承诺」的处理是**直接排队、不接任何值** ✓ ⇒ 回调收到零个实参 ✓
+  //（给一个已兑现的承诺会把兑现值接在实参后面 ✗——见号那一段 ✓）。
+  if (schedule === null) {
+    throw new Error("unimplemented: queueMicrotask needs the task channel (the host did not provide it)");
+  }
+  const callback = args.length > 0 ? args[0] : Value.Undefined();
+  // **结果承诺没人看** ✗，但它必须在 ✓：回调里抛出来的那一抛要有个去处 ✓
+  //（引擎把那一抛变成这个承诺的拒绝 ✓）——**这正是 JS 里 `queueMicrotask` 抛了会变成
+  // 一个未处理的错误** ✓，本仓于是也不会把它冒成宿主异常 ✓。
+  const anchor = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  schedule(Value.Undefined(), callback, [], anchor, 0, false, Value.Undefined());
   return Value.Undefined();
 }
 if (id === PromiseResolve) {

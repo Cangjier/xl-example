@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 1305,
+  "matrix": 1309,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -33,7 +33,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.5,
+  "progressPercent": 96.8,
   "layers": [
     {
       "layer": "runtime",
@@ -58,12 +58,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 514,
-      "pass": 490,
-      "blocked": 13,
+      "total": 518,
+      "pass": 500,
+      "blocked": 7,
       "differ": 11,
       "nodefail": 0,
-      "coverage": 95.33
+      "coverage": 96.53
     },
     {
       "layer": "e2e",
@@ -204,46 +204,10 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "string-normalize",
-      "layer": "stdlib",
-      "title": "String.normalize：NFC 把组合字符合成一个",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c291-string-normalize-ascii",
-      "layer": "stdlib",
-      "title": "normalize：ASCII 上原样、组合字符上合一",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
       "id": "c291-function-tostring-forms",
       "layer": "stdlib",
       "title": "函数的源码文本：三种写法的 toString",
       "detail": "tsrun: 脚本抛出：unimplemented: ToPrimitive of a function (JS renders source text)"
-    },
-    {
-      "id": "c304-std-string-normalize-ascii-forms",
-      "layer": "stdlib",
-      "title": "normalize 在已规范化的串上是恒等",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c305-std-queue-microtask-order",
-      "layer": "stdlib",
-      "title": "`queueMicrotask` 排在 `Promise.then` 同一队里",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: queueMicrotask"
-    },
-    {
-      "id": "c305-std-string-normalize-forms",
-      "layer": "stdlib",
-      "title": "`normalize` 的四种形式在纯 ASCII 上是恒等",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c323-std-queue-microtask",
-      "layer": "stdlib",
-      "title": "queueMicrotask：与 Promise.then 同一个队列、按序",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: queueMicrotask"
     },
     {
       "id": "c323-std-string-raw",

@@ -84,6 +84,24 @@ for (let i = 0; i < units.length; i++) {
 return text;
 ```
 
+# method HostNormalize:(text:string, form:string)=>string
+
+**借宿主的 Unicode 规范化** ✓（第 332 轮 ✓）——`String.prototype.normalize(form)` ✓。
+
+**为什么这一处可以借** ✓：与 `NumberToHostText` / `NumberFromHostText` 是**同一条规矩** ✓——
+「借的必须是**结果被标准定死**的东西」✓。NFC / NFD / NFKC / NFKD 四个形态由 Unicode 标准
+**逐码位定死** ✓（`UAX #15` ✓），任何一份实现给的都是同一串 ✓；**认不出来的形态抛**
+也是标准定的 ✓（`RangeError` ✓）。而**这张表有多大** ✗：Unicode 的规范分解 / 组合表
+是几万行 ✓——手写一遍（Grisu / Ryu 那一类）是另一个量级的工程 ✗，与浮点那条**一字不差** ✓。
+
+**形态的合法性由调用方先判** ✓（`string.xl.md` 那一支 ✓）：它要按 JS 的口径抛
+**脚本的 `RangeError`** ✓，而这里抛出的是**宿主异常** ✗——两条路在这一层的分工与
+`NumberFromHostText` 那一处相同 ✓。
+
+```ts
+return text.normalize(form as "NFC");
+```
+
 # method NumberToHostText:(value:double)=>string
 
 双精度 → 十进制文本。**四个符号名自己判**，其余交给宿主。

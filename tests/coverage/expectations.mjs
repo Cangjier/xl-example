@@ -601,7 +601,7 @@ export const EXPECTATIONS = {
   // `getOwnPropertyNames` / `getOwnPropertySymbols` ✓ ⇒ 「描述符长什么样」**只有一处答案** ✓
   // （数据属性四格 ✓ / 访问器两格 ✓ / 数组元素与字符串下标的标志不一样 ✓ / `length` 第三种 ✓，
   // 第 276 / 304 轮全是实测出来的 ✓）。**再抄一遍就是第二处会漂的答案** ✗。
-  "string-normalize": { expect: "blocked", why: "`String.normalize` 没装——NFC / NFD 要一张 Unicode 归一化表，本仓没有（与 `toUpperCase` / `localeCompare` 同一条纪律：不编一个看起来对的答案）" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   //
   // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
   "array-tostring-custom-values": { expect: "differ", why: "**静默错值**：`[new C(), 1].toString()` 给 `[object Object],1`（Node 给 `C!,1`）——`ValueUnits` 对普通对象**写死了 `[object Object]`**，没走 `ToPrimitive(el, \"string\")` ⇒ 元素自己那个 `toString` 根本不被调。根子与 `json-stringify-tojson-and-specials` 同一处：**取文本这条路上没有回调通道**" },
@@ -649,7 +649,7 @@ export const EXPECTATIONS = {
   // **组 G：显式取出来的迭代器（1 条）** ✓
   //
   // **组 H / I / J：标准库「成员不在那儿」最日常的三格（3 条）** ✓
-  "c291-string-normalize-ascii": { expect: "blocked", why: "`String.prototype.normalize` 还没挂表（与 `string-normalize` 同一格）。ASCII 上该原样返回；组合字符上要合一（那一档要 Unicode 归一化表，是单独的活）" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   //
   // **组 K：包装对象（2 条）** ✓
   //
@@ -705,7 +705,7 @@ export const EXPECTATIONS = {
   // 而是**「有就复用」只看了本层的槽** ✓、**没看本帧环境里的那一格** ✗
   // （见下一条那一段账 ✓）。
   "c304-std-symbol-iterator-manual": { expect: "differ", why: "**这一条第 308 轮走了一半** ✓：数组那一半（`[10, 20][Symbol.iterator]()` ✓）**已经修好** ✓——`Protos.Array` 上原来**没有那一格** ✗，挂上去之后 `it.next()` 与 `[...it]` 都对 ✓。剩下的**是字符串那一半** ✗：`\"ab\"[Symbol.iterator]()` 报 `cannot call a non-closure value` ✓——`Protos.String` 上同样缺那一格 ✓，而字符串的迭代要**按码点** ✓（代理对合起来 ✓，与引擎的 `iter_next` 第 297 轮改的那一条**同一条规矩** ✓）——语言层今天没有那个判据 ✗（`drain` 是引擎递给语言层的服务 ✓，而 `InvokeString` 的签名里没有它 ✓），所以这一格要先把「码点」那条规矩收成**一处**再做 ✓" },
-  "c304-std-string-normalize-ascii-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（`string-normalize` 从第 293 轮起拖着同一个根）——要一张 NFC/NFD 的组合表；本条里 `\"e\\u0301\".normalize(\"NFC\").length` 是 `1`，所以「只做 ASCII」不够" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
@@ -716,7 +716,7 @@ export const EXPECTATIONS = {
   // 静态字段本来就在**类声明那一处**求值 ✓，所以它只需要①（认下计算名 ✓），
   // 不需要②（捕获那一条是给实例字段的 ✓）。
   "c305-ex-optional-chain-nonnull-mix": { expect: "differ", why: "可选链与非空断言混在同一条链上时**后面那一截丢掉**：`o?.a!.b` 给 `{ b: 1 }`（Node 给 `1`）。与第 303 / 304 轮的链式缺口同一条（`print-ast-common.xl.md` 的链分支），这一条是「`?.` 在前、`!` 在后」那一种排布" },
-  "c305-std-queue-microtask-order": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进与 `Promise.then` 同一个微任务队列（队列本身第 248 轮就有了）" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   // **`c305-std-map-groupby` 与 `c305-std-promise-withresolvers` 第 327 轮都过了** ✓
   // （两行撤了 ✓）——修法与号写在各自的规范那一段里 ✓：
   // · `Map.groupBy` ✓：`Map` 从**宿主引用**改成**带可调用载荷的对象** ✓（第 183 轮 `Symbol` 那条 ✓），
@@ -727,7 +727,7 @@ export const EXPECTATIONS = {
   //   （`id >= 230 && id < 248` → `< 249` ✓，第 295 轮踩过一模一样的 ✓）。
   "c305-std-thenable-adoption": { expect: "differ", why: "**thenable 没有被采纳**：`async` 返回 `{ then(res) { res(42) } }` 时后面拿到的是那个对象本身（Node 给 `42`）——与下面 `then` 返回承诺那一格**同一条采纳通道**（缺口清单 #15）" },
   // （`c305-std-then-returns-promise-adoption` 也在第 317 轮转 pass ✓、那一行同样撤了 ✓。）
-  "c305-std-string-normalize-forms": { expect: "blocked", why: "`String.prototype.normalize` 那一格没有（与 `string-normalize` / `c291-string-normalize-ascii` 同一个根）——ASCII 上它是恒等，但判据里有非 ASCII，所以要真正那张组合表" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   "c305-std-array-tostring-custom-element": { expect: "differ", why: "`[new C(), 1].toString()` 没走元素的 `toString`（给 `[object Object],1`，Node 给 `C!,1`）——与 `array-tostring-custom-values` 同一个根：取文本这条路上没有回调通道" },
   // **`c305-std-object-getownpropertydescriptors-all` 第 324 轮也过了** ✓（同一处修 ✓）：
   // 这一条比第 323 轮新收的那一条**更宽** ✓——它考的是「**复数拿全表、且与单数逐格一致**」✓
@@ -850,7 +850,7 @@ export const EXPECTATIONS = {
   // **改名那一刀的风险也量清了** ✗：`new Map()`（`IsHostCallable` 两种壳都认 ✓）与
   // `instanceof Map`（改成读 `prototype` 属性 ✓、并且**顺手补上那一格** ✓）两条都验过 ✓，
   // 六道门 + 1202 条覆盖一起绿的 ✓。
-  "c323-std-queue-microtask": { expect: "blocked", why: "`queueMicrotask` 这个全局名没有（报 `name is not a local or a capture`）——它要进 `GlobalNames`，并且排进**与 `Promise.then` 同一条**微任务队列（队列本身第 248 轮就有；缺的是「宿主把「排一个纯回调」这件事借给语言层」那条服务，与第 199 轮的 `IteratorDrainer` 同一形状）" },
+  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   "c323-std-string-raw": { expect: "blocked", why: "`String.raw` 不在那儿（`typeof String.raw` 给 `undefined`）——它同时缺**两半**：宿主对象上要挂一格 ✓，而标签模板的 `raw` 那一栏**投影里也没有** ✗（`String.raw({ raw: [\"p\", \"q\"] }, \"-\")` 那一半只要有那一格就能跑 ✓，两个反斜杠的那一半要投影先给出 raw 串 ✓）" },
   "c323-std-array-fromasync": { expect: "differ", why: "`Array.fromAsync` 没有（本仓**一行都不打**，Node 给 `1,2,3`）——两个来源都要：**异步可迭代对象**（`async function*` ✓，本仓的 `for await` 已经能收 ✓）与**带映射函数的同步数组**（每一项 `await` 一次 ✓）。它是 `Array.from` 的异步姊妹，落在同一张表上" },
   // C —— 写那一半没有对应的入口（2 条）

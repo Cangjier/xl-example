@@ -4991,4 +4991,69 @@ nested.inner.n = 5;
 console.log(nested.inner.n, Object.isFrozen(nested.inner));
 `,
   },
+  // ===== 第 332 轮收编（4 条）=====
+  {
+    id: "c332-std-arguments-in-callbacks",
+    title: "回调里的 `arguments`：重入那条路也要收",
+    src: `
+[1, 2, 3].forEach(function (x) {
+  console.log(x, arguments.length, arguments[0]);
+});
+const mapped = [1, 2].map(function (x) {
+  return arguments.length;
+});
+console.log(mapped.join(","));
+queueMicrotask(function () {
+  console.log("micro argc", arguments.length);
+});
+console.log("sync");
+`,
+  },
+  {
+    id: "c332-std-normalize-forms",
+    title: "`normalize` 的四个形态与非法形态",
+    src: `
+const composed = "\\u00e9";
+const decomposed = "e\\u0301";
+console.log(composed.length, decomposed.length);
+console.log(decomposed.normalize("NFC").length, decomposed.normalize("NFC") === composed);
+console.log(composed.normalize("NFD").length, composed.normalize("NFD") === decomposed);
+console.log("abc".normalize("NFKC"), "\\uFB01".normalize("NFKC"), "\\uFB01".length);
+try {
+  "abc".normalize("NFX");
+} catch (e) {
+  console.log((e as Error).name);
+}
+`,
+  },
+  {
+    id: "c332-std-queue-microtask-forms",
+    title: "`queueMicrotask` 的次序与嵌套",
+    src: `
+queueMicrotask(() => {
+  console.log("a");
+  queueMicrotask(() => console.log("a2"));
+});
+Promise.resolve().then(() => console.log("p"));
+queueMicrotask(() => console.log("b"));
+console.log("sync");
+`,
+  },
+  {
+    id: "c332-rt-arguments-and-named-expression",
+    title: "`arguments` 与具名函数表达式写在同一个函数里",
+    src: `
+const f = function self(a: number, b: number) {
+  return self.name + ":" + arguments.length + ":" + a;
+};
+console.log(f(1, 2, 3));
+console.log(typeof self);
+function g(x: number) {
+  const inner = () => arguments.length + self2();
+  function self2() { return 1; }
+  return inner();
+}
+console.log(g(9));
+`,
+  },
 ];

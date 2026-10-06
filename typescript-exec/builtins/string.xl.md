@@ -7,6 +7,7 @@ import { SetProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/pr
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, NormalizeRangeIndex } from "./array.xl.md"
 import { JsTextUnits, ValueUnits, UnwrapBox } from "./text.xl.md"
+import { HostUnitsText, HostTextUnits, HostNormalize } from "../../runtime/host-text.xl.md"
 ```
 
 # namespace cangjie
@@ -204,6 +205,22 @@ ASCII 填充串两边一致 ✓，**代理对**那一类会差一个 ✓（记�
 （JS 的口径 ✓，两个各自落单 ✓）——写成「先按码点拆再替换」会先把它们凑成一对 ✓，
 **静默错值** ✗。
 
+# const StringNormalize:int = 132
+
+**`s.normalize(形态?)`** ✓（第 332 轮 ✓，ES2015 ✓）——Unicode 规范化的四个形态 ✓。
+
+**它借宿主的表** ✓（`host-text.xl.md` 的 `HostNormalize` ✓）：NFC / NFD / NFKC / NFKD
+由 Unicode 标准**逐码位定死** ✓，任何一份实现给的都是同一串 ✓——**与浮点那两处同一条规矩** ✓
+（`NumberToHostText` / `NumberFromHostText` ✓）。而那张表是几万行 ✗：手写一遍是另一个量级 ✓。
+
+**形态要在这一层先判** ✗：JS 对认不出来的形态抛 **`RangeError`** ✓，而宿主抛的是
+**宿主异常** ✗（两条路在这一层的分工与 `NumberFromHostText` 那一处相同 ✓）。
+**默认 `"NFC"`** ✓（`s.normalize()` 与 `s.normalize(undefined)` 都是它 ✓）。
+
+**一处诚实的差别写在明处** ✗：JS 里那张表是**运行期**查的 ✓，本仓借的是**宿主那一份** ✓——
+两者逐码位相同 ✓，但**未来 Unicode 版本更新时两边会一起变** ✓（这正是「借被标准定死的东西」
+的含义 ✓，与浮点那条**一字不差** ✓）。
+
 # const StringFromCodePoint:int = 126
 
 **`String.fromCodePoint(码位…)`**（第 275 轮 ✓）——**静态方法** ✓
@@ -387,6 +404,21 @@ if (id === StringToWellFormed) {
   }
   if (!room(ObjectCharge + CodeUnitCharge * fixed.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(fixed));
+}
+if (id === StringNormalize) {
+  // **形态先判、再交给宿主** ✗（第 332 轮 ✓，理由见号那一段 ✓）：JS 对认不出来的形态
+  // 抛 `RangeError` ✓，而宿主抛的是宿主异常 ✗。**缺省 `"NFC"`** ✓（`undefined` 也走它 ✓）。
+  let form = "NFC";
+  if (args.length > 0 && args[0].Tag !== ValueTag.Undefined) {
+    form = HostUnitsText(JsTextUnits(table, args[0]));
+  }
+  if (form !== "NFC" && form !== "NFD" && form !== "NFKC" && form !== "NFKD") {
+    throw new RangeError("invalid normalization form: " + form);
+  }
+  const normalized = HostNormalize(HostUnitsText(units), form);
+  const out = HostTextUnits(normalized);
+  if (!room(ObjectCharge + CodeUnitCharge * out.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(out));
 }
 if (id === StringCharAt) {
   const at = ArgOr(args, 0, 0);
@@ -1000,7 +1032,9 @@ const entries: string[] = ["charAt", "charCodeAt", "indexOf", "slice", "split",
   "toString", "valueOf",
   // **第 330 轮补的两格** ✓（`isWellFormed` / `toWellFormed` ✓，ES2024 ✓）——
   // 号**照旧追加在表尾** ✓（`130` / `131` ✓），已有的一个都没动 ✓。
-  "isWellFormed", "toWellFormed"];
+  "isWellFormed", "toWellFormed",
+  // **第 332 轮补的一格** ✓（`normalize` ✓）——号**照旧追加在表尾** ✓（`132` ✓）。
+  "normalize"];
 const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlice, StringSplit,
   StringToUpperCase, StringToLowerCase, StringTrim, StringIncludes,
   StringStartsWith, StringEndsWith, StringSubstring, StringRepeat, StringPadStart, StringPadEnd,
@@ -1008,7 +1042,8 @@ const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlic
   StringAt, StringCodePointAt, StringConcatMethod, StringLastIndexOf, StringLocaleCompare,
   StringTrimStart, StringTrimEnd, StringSubstr,
   StringToString, StringValueOf,
-  StringIsWellFormed, StringToWellFormed];
+  StringIsWellFormed, StringToWellFormed,
+  StringNormalize];
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));

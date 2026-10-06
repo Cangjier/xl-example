@@ -6,6 +6,109 @@
 
 契约：[docs/runtime-architecture.md](../docs/runtime-architecture.md)（IR、槽、帧、GC 安全点都在那边）。
 
+## 第 332 轮的账（**名字那一层：具名函数 / 类表达式 + `arguments` + `normalize` / `queueMicrotask`** —— 96.1% → **96.8%**，收掉 12 格）
+
+用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，
+这一轮**先铺语料、再按根子收账** ✓（补了 4 条守着这一轮修好的那几格 ✓）。
+
+### 一、具名函数 / 类表达式的名字（4 格）
+
+`const f = function self() { … self … }` 与 `const K = class Named { … Named … }` 里，
+那个名字**只在它自己那一层里可见** ✓（外面 `typeof self` 是 `undefined` ✓）。
+
+**落法：给这个闭包单开一层环境** ✓——
+
+    env_new(1) → new_closure（捕获它）→ env_set(第 0 格, 闭包自己) → env_leave
+
+于是**体内读那个名字走的是普通的捕获那条路** ✓（`ResolveAccess` 沿环境链找 ✓），
+`Locals` / `Scope` / 槽号那几套**一个字都没改** ✓。`item.Envs = Clone()` 在推之后、
+退之前取 ✓，那一份链就是体内看得见的那一份 ✓。
+
+**三处次序是语义** ✗：`env_new` 必须在 `new_closure` **之前** ✓（闭包要捕获的是这一层 ✓）、
+`env_set` 必须在 `env_leave` **之前** ✓（它按深度 0 写 ✓）、
+**降级侧那条链必须在 `Clone()` 之前推、之后立刻退** ✓——不退的话外面那些语句
+也会把 `self` 解析到这一格上 ✓（**静默错值** ✓，而两条判据只查了
+`typeof (f as any).self` ✓——那是**属性**查找 ✗，两种做法都过 ✓ ⇒
+**判据看不出来，也不能就这么写** ✗）。
+
+**外面那一帧必须先有一层环境** ✗（`env_leave` 要求有父亲 ✓）：
+新增 `HasNamedExpression` ✓（`scope.xl.md` ✓）——**它不往内层函数体里走** ✓
+（那里面自己会问一遍 ✓），于是代价是**这一层的子树一次** ✓，不是整棵树 ✓。
+
+**两条判据没覆盖的面也实测了** ✓：外面 `typeof self` 仍是 `undefined` ✓（不泄漏 ✓）、
+`inner === h` 为真 ✓（自引用就是那个闭包自己 ✓）。
+
+### 二、`arguments`（2 格）
+
+它是**隐含绑定** ✓、树上**一个声明都没有** ✗ ⇒ 三样东西各一处 ✓：
+
+- **一格**：形参之后那一格（`ParamCount` ✓）；
+- **一个来源**：**开帧的人收** ✓（`FunctionInfo.NeedsArguments` ✓，第 4 个 flags 位 ✓）
+  ——与剩余参数**同一个位置、同一条理由** ✓（多出来的实参在被调方自己的帧里没有格子 ✓）；
+- **一张名单**：`ExtraDeclared` 里加一个 `arguments` ✓（算捕获用 ✓——**箭头用的是外层那一份** ✓，
+  那正是捕获的定义 ✓）。
+
+**两处教训都是实测撞出来的** ✗：
+
+- **第一版把收值那一段放在「有没有剩余参数」那一支里面** ✓，而那一支铺完就 `return` ✗
+  ⇒ 它**只对带 `...rest` 的函数生效** ✓：`function f(a, b) { arguments.length }` 读 `undefined` ✓，
+  而 `function f(a, ...r)` 反而是对的 ✓——**同一句话两种结局** ✓；
+- **函数声明那条路自己建 `PendingFunction`、自己调 `EmitClosure`** ✓，
+  第一版只写在 `LowerFunctionValue` 里 ✗ ⇒ 同一个函数写成**表达式**是好的 ✓、
+  写成**声明**就报 `name is not a local or a capture: arguments` ✓（**整份文件进不来** ✗）。
+  **教训**：「某一格要跟着树走」这种东西，**每一条建 `PendingFunction` 的路都要问一遍** ✓。
+
+**顺带补了重入那条路** ✗：`CallNative` 不走 `FillParameters` ✓ ⇒
+`queueMicrotask(function () { arguments.length })` 里的 `arguments` 是 `undefined` ✓，
+而回调里那一抛**正好被承诺吞掉** ✓（没人看的承诺被拒绝 ✓）⇒ 症状是**那一行根本不印** ✓。
+**同一个洞早就有了** ✓：`xs.forEach(function (x) { … })` 里的 `arguments` 一直是空的 ✓
+（第 133 轮那条注释只提了「不收剩余参数」✓，没人想到 `arguments` 也是同一格 ✓）。
+修法是 `ReentryArgumentsCharge` + `FillReentryArguments` ✓（判据、位置、格子与
+`FillParameters` 那条**一字不差** ✓），三条开帧的路各调一次 ✓。
+
+### 三、`normalize`（4 格）
+
+**借宿主的表** ✓（`host-text.xl.md` 的 `HostNormalize` ✓）：NFC / NFD / NFKC / NFKD
+由 Unicode 标准**逐码位定死** ✓——**与 `NumberToHostText` / `NumberFromHostText` 同一条规矩** ✓
+（「借的必须是**结果被标准定死**的东西」✓）。那张表是**几万行** ✗，手写一遍是另一个量级 ✓。
+**形态在这一层先判** ✗：JS 抛 `RangeError` ✓，而宿主抛的是**宿主异常** ✗
+（分工与 `NumberFromHostText` 那一处相同 ✓）。
+
+### 四、`queueMicrotask`（2 格）
+
+落成 `schedule(undefined, 回调, [], 一个没人看的承诺, 0, false, undefined)` ✓。
+
+**源那一格给 `undefined` 是关键** ✗（不是「一个已兑现的承诺」✗）：引擎对
+「源根本不是承诺」的处理是**直接排队、不接任何值** ✓ ⇒ 回调收到**零个实参** ✓
+（给一个已兑现的承诺会把兑现值**接在实参后面** ✓ ⇒ `arguments.length` 变成 1 ✗，
+**静默错值** ✓，而两处看起来都能跑 ✓）。**次序天然就是对的** ✓（两条排进同一条队列 ✓）。
+
+### 五、这一轮最贵的一课：**号撞车是静默的**
+
+`queueMicrotask` 的号第一版取 **250** ✓——而 **`250` 是 `SymbolCtor`** ✓
+（`Symbol` 那一族占着 `250..254` ✓）。窄段的上界一挪（`< 250` → `< 251` ✓），
+**那五个号就被承诺段截走** ✗ ⇒ `Symbol("x")` 给 `undefined` ✓。
+
+**21 条判据当场红** ✓，而报的话分布在**三种**（`typeof` 给 `undefined` ✓ /
+`Symbol.keyFor needs a symbol` ✓ / `invalid handle: 0` ✓）——**一句都没提号** ✗。
+**号撞车是静默的** ✓：第 150 轮 `ArrayAt` ✓、第 280 轮 `Date` 那一族 ✓ 各踩过一次 ✓。
+
+**修法是两条一起** ✓：挪到一个**空号**（`255` ✓——`254` 之后第一格 ✓）
+**并且**在 `install.xl.md` 里给一条**单号路由** ✓（上界那一招这次不能用 ✗：
+255 与 230..249 不连续 ✓）。**顺带把「上界与号数同步」那条账写成了第四次** ✓
+（295 / 327 / 331 三次是「忘了挪上界」✓，这一次是「挪了却撞上别人」✓——**两种踩法** ✓）。
+
+**读数** ✓：`pass` **1243 → 1259** ✓（**12 格转绿** ✓）、**端到端保持 100%** ✓、
+**红的一栏 0** ✓、六道门 **29.4s 全绿** ✓、矩阵 **1305 → 1309** ✓（补 4 条守着这一轮 ✓）。
+
+**下一轮的入口** ✓（按「普通 `.ts` 里有多常见」排）：
+**① 非空断言那条链**（**4 条** ✓，是现在最大的单簇 ✓——`print-ast-common.xl.md` 的链分支 ✓）；
+**② 数组方法收类数组接收者** ✓（3 条 ✓：`[].slice.call(…)` ✓、`class X extends Array` ✓）；
+**③ `Function.prototype.toString` / `String(fn)` / 标签模板的 `raw`** ✓（5 条 ✓，**同一个根** ✓：
+源码文本要由降级层按区间抄下来 ✓）；**④ 生成器的 `return()` 与 `finally` 链** ✓（3 条 ✓）；
+**⑤ `structuredClone` / `Error.isError` / `Symbol.hasInstance`** ✓（5 条 ✓——
+最后两条**卡在壳上** ✓，与第 324 轮 `Map.groupBy` 是同一个坎 ✓）。
+
 ## 第 331 轮的账（**加宽 39 条 + 收掉 4 格 + 三处引擎级静默错值** —— 96.2% → **96.1%**，**端到端 100%**）
 
 用户口径还是那一句「**先增加 exec / runtime / 标准库 cases，尽量覆盖所有场景**」✓，

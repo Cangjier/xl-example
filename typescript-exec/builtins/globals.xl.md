@@ -12,7 +12,7 @@ import { JsTextUnits, NumberToJsText, ValueUnits, ValueText, ToStringOfObject, B
 import { InspectText, DateMarker } from "./inspect.xl.md"
 import { MapCtor, MapGroupBy, NameValue, ReadOwn } from "./map.xl.md"
 import { SetCtor } from "./set.xl.md"
-import { BuildPromise } from "./promise.xl.md"
+import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 ```
 
 # namespace cangjie
@@ -1639,7 +1639,13 @@ return ["undefined", "Math", "console", "Object", "JSON", "Map", "Set", "Symbol"
   // **第 295 轮补的四个名字** ✓（`ReferenceError` ✓ / `AggregateError` ✓ /
   // `WeakMap` ✓ / `WeakSet` ✓）——**名单与 `BuildGlobals` 是同一份约定** ✓，
   // 四条都**两边一起**加了 ✓（少一边就是「声明了却没提供」✗，判据里量着这一条 ✓）。
-  "ReferenceError", "AggregateError", "WeakMap", "WeakSet"];
+  "ReferenceError", "AggregateError", "WeakMap", "WeakSet",
+  // **第 332 轮补的一个名字** ✓（`queueMicrotask` ✓）——**名单与 `BuildGlobals` 是同一份约定** ✓，
+  // 两边一起加 ✓（少一边就是「声明了却没提供」✗）。
+  // **它的号落在承诺那一段的尾巴上** ✗（`promise.xl.md` 的 `PromiseQueueMicrotask = 250` ✓）——
+  // 理由写在那一段 ✓：它要的那条通道（`schedule` ✓）只有那里有 ✓。
+  // **名字与号不是一个东西** ✓：号只是路由的键 ✓，挂在哪儿是这一层的事 ✓。
+  "queueMicrotask"];
 ```
 
 **`Function` 是第 228 轮加进来的** ✓（与 `Boolean` / `Promise` 那两条同一个理由 ✓）：
@@ -5597,6 +5603,12 @@ const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
 SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);
 const parseFloatKey = Value.FromString(table.CreateString(Units("parseFloat")));
 SetProperty(vm.Room(), NeverCall, table, globals, parseFloatKey, parseFloatTarget);
+// **`queueMicrotask` 也是全局函数** ✓（第 332 轮 ✓）——与上面两个同一形状 ✓。
+// **它的能力号在承诺那一段** ✗（`PromiseQueueMicrotask = 250` ✓）：那一支手上才有
+// 「把一次调用排进微任务队列」那条通道 ✓（`schedule` ✓）——理由写在 `promise.xl.md` 那一段 ✓。
+const queueMicrotaskKey = Value.FromString(table.CreateString(Units("queueMicrotask")));
+SetProperty(vm.Room(), NeverCall, table, globals, queueMicrotaskKey,
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseQueueMicrotask, 0)));
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));
 const consoleKey = Value.FromString(table.CreateString(Units("console")));
