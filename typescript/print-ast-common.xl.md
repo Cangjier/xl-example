@@ -4118,6 +4118,62 @@ return false;
   return 7;
 ```
 
+# private method projectHeadDeclare:(kids:Array<any>, ctx:any, container:any)=>any
+
+**没有 `Let` 的声明段**：`for (const v of xs)` / `for (const k in o)` 的头部（第 545 轮）。
+
+TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接就是
+`VariableDeclarationList`**（不套 `VariableStatement`）。可产物在这一档里**没有 `Let`**：
+解析期的 `LetBranch` 只在 `=` / `:` / `;` / `,` / 换行那几格进门，`of` / `in` 不在其中，
+所以声明段一直是 `[Keyword(const), Identifier(v)]` **两格平铺**——投影那一支
+（`foreach.xl.md` 的 `PrintAst` ✓）只认「第一个子单元是 `Let`」⇒ 整段被当表达式投
+⇒ `initializer` 成了 `Identifier("const")`（实测 6 份：`st-for-of` / `stmt-for-of-call` /
+`stmt-for-of-no-block` / `st-for-await` / `stmt-for-await` / `fn-async-generator`）。
+
+名字那一格是**唯一**一个 `Identifier` / 模式括号（`for (const [a, b] of xs)`），
+按形态分派给 `projectNode` / `projectBindingPattern`；列表的标志位从头顶那个词读
+（`flagsOf` 读的是 `modifiers` 属性，这一档没有那个属性）。
+
+```ts
+  const inner = kids.filter((k) => !INVISIBLE.has(k.get("type")));
+  if (inner.length === 0) return undefined;
+  // **名字那一格从后往前找** ✓：`const` / `let` / `var` / `using` 与 `await` 都可能还是
+  // `Identifier`（关键字升级在本单元的那一趟里跑 ✓，投影这一趟是**之后**的事 ✓）——
+  // 从前往后找会把那个词当成名字 ✗。
+  const isPatternKid = (k: any) =>
+    k.get("type") === "ArrayLiteral" ||
+    k.get("type") === "ObjectLiteral" ||
+    (k.get("type") === "Bracket" && (k.get("startBracket") === "[" || k.get("startBracket") === "{"));
+  let nameKid = undefined;
+  for (let at = inner.length - 1; at >= 0; at--) {
+    const one = inner[at];
+    if (one.get("type") === "Identifier" || isPatternKid(one)) {
+      nameKid = one;
+      break;
+    }
+  }
+  if (nameKid === undefined) return undefined;
+  const declared = nameKid.get("type") === "Identifier" ? projectNode(nameKid, ctx) : projectBindingPattern(nameKid, ctx);
+  // **列表的起点是那个声明词** ✗、不是段里的第一格 ✓：`for await (const v of xs)` 的段里
+  // `await` 排在 `const` 前面 ✓（TS 那边它是 `ForOfStatement.awaitModifier` ✓、
+  // 不是列表的一部分 ✓）。
+  const isDeclareWord = (k: any) => {
+    const text = textOfNode(k, ctx);
+    return text === "const" || text === "let" || text === "var" || text === "using";
+  };
+  const declareKid = inner.find((k) => isDeclareWord(k));
+  const head = declareKid === undefined ? inner[0] : declareKid;
+  const headText = textOfNode(head, ctx);
+  const flags = headText === "const" ? "Const" : headText === "var" ? "None" : "Let";
+  return {
+    kind: "VariableDeclarationList",
+    declarations: [{ kind: "VariableDeclaration", name: declared, pos: startOf(nameKid), end: endOf(nameKid) }],
+    flags,
+    pos: startOf(head),
+    end: endOf(inner[inner.length - 1]),
+  };
+```
+
 # private method isIndexBracket:(node:any)=>bool
 
 **值位下标访问的那对方括号**：`a[i]` 的 `[` 括号单元。
@@ -6398,6 +6454,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     IndexBracketOf: (view) => indexBracketOf(view, ctx),
     ParenthesizedOf: (unit) => parenthesizedOf(unit, ctx),
     LetFrom: (list, view) => projectLetFrom(list, ctx, view),
+    HeadDeclare: (list, view) => projectHeadDeclare(list, ctx, view),
     IsNameNode: (node) => isNameNode(node),
     QualifiedNameFrom: (list) => qualifiedNameFrom(list, ctx),
     DottedExpression: (list) => dottedExpression(list, ctx),

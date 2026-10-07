@@ -182,8 +182,17 @@ return index;
   const props: any = {};
   const define = ctx.KidsOf(v, "define").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (define.length > 0) {
-    props.initializer =
-      define[0].get("type") === "Let" ? ctx.LetFrom(define, v).list : ctx.Expression(define);
+    // **没有 `Let` 的那一档**（第 545 轮 ✓）：`for (const v of xs)` 的声明段在产物里是
+    // `[Keyword(const), Identifier(v)]` 两格平铺 ✗ —— 解析期的 `LetBranch` 只在
+    // `=` / `:` / `;` / `,` / 换行那几格进门 ✓，`of` / `in` 不在其中 ✗。
+    // TS 那边 `initializer` 同样是 `VariableDeclarationList` ✓（不套 `VariableStatement` ✓），
+    // 所以现造一个 ✓（见 `print-ast-common.xl.md` 的 `projectHeadDeclare` ✓）。
+    if (define[0].get("type") === "Let") {
+      props.initializer = ctx.LetFrom(define, v).list;
+    } else {
+      const head = ctx.HeadDeclare(define, v);
+      if (head !== undefined) props.initializer = head;
+    }
   }
   const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (enumable.length > 0) props.expression = ctx.Expression(enumable);

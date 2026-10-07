@@ -4026,3 +4026,92 @@ XML 那一侧看得很清楚 ✓：`for (;;) { x++` 换行 `continue }` 的产�
 同一族的还有 `st-label-block.ts` / `stmt-label-block.ts` / `stmt-label-statement.ts` ✓
 （尺子报的都是「缺 `LabeledStatement` + 多一个 `ExpressionStatement`」✓）——
 **下一轮从 `label.xl.md` 的体那一格入手** ✓。
+## 一百四十八、`for (const v of xs)` 的声明段**从来没有 `Let`**（第 545 轮）：909 → **913 / 1037**
+
+起点 **909 / 1037** ✓（缺 815 / 漂 68 / 多 229 / 字段名 44 ✓）。签名表里 `3/0/1/0` 与 `2/0/1/0`
+两档合起来 **6 份** ✓，形状一模一样 ✓：
+
+```
+MISS  VariableDeclarationList  TS[52,59)  "const v"
+MISS  VariableDeclaration           TS[58,59)  "v"
+EXTRA Identifier                    [52,57)  "const"
+```
+
+六份是 `st-for-of` / `stmt-for-of-call` / `stmt-for-of-no-block` ✓（`3/0/1/0` ✓）与
+`st-for-await` / `stmt-for-await` / `fn-async-generator` ✓（`2/0/1/0` ✓）。
+
+### 一、现场
+
+```
+<Foreach>
+  <ForeachDefine>
+    <Keyword>const</Keyword>
+    <Identifier>v</Identifier>
+```
+
+TS 那边 `ForOfStatement.initializer` **直接就是 `VariableDeclarationList`** ✓
+（不套 `VariableStatement` ✓，与 `for (let i = 0; …)` 的头部完全同款 ✓ —— 那一档一直是绿的 ✓）。
+
+### 二、真因：解析期这一支**从来不在 `of` / `in` 上进门**
+
+`let.xl.md` 的 `LetBranch.Condition` 的进门字只有 `=` / `:` / `;` / `,` / 换行 ✗ ——
+`for (const v of xs)` 里名字后面跟的是 `of` 这个词 ✓、`for (const k in o)` 是 `in` ✓，
+两个都不在表里 ✗ ⇒ **这一档从来不造 `Let`** ✗ ⇒ `ForeachDefine` 里只有两格平铺 ✓。
+
+投影那一支（`foreach.xl.md` 的 `PrintAst` ✓）写的是
+`define[0].get("type") === "Let" ? ctx.LetFrom(define, v).list : ctx.Expression(define)` ✓
+⇒ 没有 `Let` 就落到 `Expression` ✗ ⇒ `initializer` 成了 `Identifier("const")` ✗
+（投影出来的 JSON 里一眼可见 ✓）。
+
+### 三、走错的一步（记下来，别再试）
+
+先在 `LetBranch.Condition` 里加「接下来两个字符是 `of` / `in` 就进门」✗ ——
+那是**在词的第一个字母上进的门** ✓，而这一支的替换会把当前那一格吃掉 ✓ ⇒
+`of` 当场被切成 `<SymbolToken>o</SymbolToken><Identifier>f</Identifier>` ✗，
+`Foreach` **整个不成形** ✓（读数当场掉到 `ForOfStatement` 一份都没有 ✗）。
+⇒ **解析期这一支的触发字符只能是终结符** ✓（`=` / `;` / 换行那种 ✓），
+不能是「一个词的开头」✗ —— 回滚 ✓（`git checkout HEAD -- let.xl.md` ✓ + 重建 ✓）。
+
+### 四、真正的修法（投影侧一处）
+
+`print-ast-common.xl.md` 新增 `projectHeadDeclare` ✓（ctx 上暴露成 `ctx.HeadDeclare` ✓），
+`Foreach.PrintAst` 里没有 `Let` 时改用它 ✓：
+
+- **名字那一格从后往前找** ✓：`const` / `let` / `var` / `using` / `await` 在这一趟里
+  可能还是 `Identifier` ✓，从前往后找会把那个词当成名字 ✗；
+- 名字按形态分派 ✓（具名 → `projectNode` ✓、`[` / `{` 模式 → `projectBindingPattern` ✓）；
+- **列表起点取那个声明词** ✗、不是段里的第一格 ✓ —— `for await (const v of xs)` 的段里
+  `await` 排在前面 ✓（TS 那边它是 `ForOfStatement.awaitModifier` ✓、不属于列表 ✓）。
+
+### 五、读数
+
+| 项 | 第 544 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 909 | **913 / 1037** ✓（+4 ✓） |
+| 缺节点 | 815（91 类） | **782**（90 类）✓（−33 ✓） |
+| 多出来的节点 | 241（44 类） | **229**（43 类）✓（−12 ✓） |
+| 区间漂移 | 68（18 类） | **68** ✓（持平 ✓） |
+| 字段名不符 | 44 | **48** ✗（+4 ✗，见下面第六节 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24415 | **24415** ✓ |
+
+逐文件前后名单做差 ✓：**变绿 4 份、变红 0 份** ✓（`st-for-of` / `stmt-for-of-call` /
+`stmt-for-of-no-block` / `stmt-for-of-kinds` ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`samples` 仍红 ✗（两处差分与 HEAD **逐字相同** ✓）；
+**两道运行时门这一轮涨得最多** ✓：`runtime:check` **194 → 207 / 242** ✓（+13 ✓，HEAD 基线 188 ✓）、
+`runtime:cli` **30 → 38 / 79** ✓（+8 ✓，HEAD 基线 24 ✓）—— `for…of` 的声明段在运行时那一侧
+同样要按 `VariableDeclarationList` 读 ✓，原来那一格是 `Identifier("const")` ✗。
+
+### 六、这一轮**没**收干净的三处（下一块的入口）
+
+1. **`for await` 那一档还差一格** ✗（`st-for-await` / `stmt-for-await` / `fn-async-generator`
+   都是 `1/0/1/0` ✓）：那一刻 `define` 段里**只有 `await` 与名字** ✓ —— `const` 那一格
+   **不在段里** ✓（实测插桩：`ctx.Kids(v)` 是 `[await, v, xs, await]` ✓，`const` 一个都不在 ✗）
+   ⇒ 列表起点只能落到 `await` 上（[82,96) vs TS [89,96) ✗）。**下一轮先查那个 `const` 去哪了** ✓
+   （段分组是按位置切的 ✓，多出来的那个 `await` 与丢掉的那个 `const` 大概是同一处 ✓）；
+2. **`for (const { x, y } of items)`**（`stmt-for-of-object-destructure.ts` ✓）：
+   模式那一格没被认出来 ⇒ `initializer` 整个还是不投 ✗；
+3. **`for (const [a, b] of xs)`**（`stmt-for-of-array-destructure.ts` ✓）：`ArrayBindingPattern`
+   的区间对了 ✓，可 `elements` 是空的 ✗（`BindingElement` 与里面的 `Identifier` 都没投 ✗）
+   —— 第三处与第二处是同一族 ✓，**字段名那一栏 +4 就是从这两份来的** ✗。
