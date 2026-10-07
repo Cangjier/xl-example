@@ -156,6 +156,27 @@ if (value !== null) {
 }
 ```
 
+## property Body:IfStatement | IfBody | null
+
+本段的**体**：花括号体（`IfBody`）或单语句体（`IfStatement`）里先出现的那个。
+
+`IfBody` 是本轮加的 ✓（花括号体由它自己吃 `{ … }` ✓）——所以在它出现之后，
+「这一段的体是哪一个」不能只问 `IfStatement` ✗：`if (a) { … }` 的体是一个 `IfBody` ✓，
+只问 `IfStatement` 会给 `null` ✗ ⇒ 那一段的体**根本不进 `ToDictionary`** ✗
+⇒ 投影侧收到的是一个**没有** `statement` 段的段 ✓ ⇒ `Block.statements` 是空的 ✗
+（实测：整个 `ReturnStatement` 子树凭空消失 ✓，全语料 7.6 万个节点挂在这一条上 ✓）。
+
+### get
+
+```ts
+for (const item of this.Data) {
+  if (item instanceof IfBody || item instanceof IfStatement) {
+    return item;
+  }
+}
+return null;
+```
+
 ## method CreateStatement:()=>IfStatement
 
 造一个语句体子单元并挂到自己下面，返回它。
@@ -201,8 +222,10 @@ result.set("key", this.key);
 if (this.Condition !== null) {
   result.set("condition", this.Condition.ToList());
 }
-if (this.Statement !== null) {
-  result.set("statement", this.Statement.ToList());
+// **体那一格问 `Body`** ✓（`IfBody` / `IfStatement` 都认 ✓），不能只问 `IfStatement` ✗——
+// 只问它的话花括号体整段不进字典 ✓，投影侧那个 `Block` 就是空的 ✗。
+if (this.Body !== null) {
+  result.set("statement", this.Body.ToList());
 }
 return result;
 ```

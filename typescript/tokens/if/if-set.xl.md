@@ -160,7 +160,20 @@ ifSet.MountCondition(source);
   };
   const bodyOf = (seg: any) => {
     const cond = new Set(ctx.KidsOf(seg, "condition"));
-    return ctx.AllKids(seg).filter((k: any) => !ctx.Invisible.has(k.get("type")) && !cond.has(k));
+    const kept: any[] = [];
+    for (const k of ctx.AllKids(seg)) {
+      if (ctx.Invisible.has(k.get("type")) || cond.has(k)) continue;
+      // **花括号体那一层壳要摊平** ✓：TS 那边 `thenStatement` 直接就是那个 `Block` ✓，
+      // 中间没有 `IfBody` 这一层 ✗。不摊平的话 `BlockOfBody` 收到的「语句表」是**一个 `IfBody`** ✓
+      // ⇒ 它一个语句都投不出来 ✓ ⇒ `Block.statements` 是**空的** ✗，整棵子树从产物里消失 ✓
+      // （实测 `if (a) { return x; }` 缺 `ReturnStatement` + 它的子树 ✓，全语料 7.6 万个节点 ✓）。
+      if (k.get("type") === "IfBody") {
+        for (const inner of ctx.Kids(k)) kept.push(inner);
+        continue;
+      }
+      kept.push(k);
+    }
+    return kept;
   };
   const bodyFrom = (seg: any) => {
     const cond = ctx.KidsOf(seg, "condition");
