@@ -839,7 +839,15 @@ JsonObjectReorganization.Instance.ApplyTo(unit);
 // 的平铺列表上答「是」✗ ⇒ 于是 	ype: 1 被收成 LabeledStatement ✗（实测 m-prop-named-keywords.ts：
 // 对照态**完全一致** ✓、这一版缺 PropertyAssignment ✗）。把 JsonObject 提到它前面 ✓，
 // Label 那时看到的就是一个已经成形的 ObjectLiteral ✓（对拍：那条用例四个方向全零 ✓）。
-LabelReorganization.Instance.ApplyTo(unit);
+// **`{` 括号自己那一趟不跑 `Label`** ✓（第 507 轮 ✓，探针量出来的 ✓）：标签只能挂在**语句**上 ✓，
+// 而这一层还没定那个 `{` 是**块**还是**对象字面量** ✓ —— 子单元先关 ✓，括号自己那一趟就把
+// `{ type: 1 }` 里的 `type:` 收成了 `Label` ✗；等父那一趟 `JsonObjectReorganization` 收成
+// `ObjectLiteral` 时 ✓，`Label` 已经在里面了 ✗（实测 `am-prop-named-keywords.ts`：那一版缺 3 / 多 1 ✗，
+// 而对照态**完全一致** ✓）。块里的标签不受影响 ✓：块那一趟由**语句队列**负责 ✓
+//（`JsonObjectReorganization` 造块/对象时会给它补队列 ✓）。
+if (unit.constructor.name !== "Bracket" || (unit as Bracket).startBracket !== "{") {
+  LabelReorganization.Instance.ApplyTo(unit);
+}
 TypeBracketReorganization.Instance.ApplyTo(unit);
 ImportTypeReorganization.Instance.ApplyTo(unit);
 TypePrefixReorganization.Instance.ApplyTo(unit);

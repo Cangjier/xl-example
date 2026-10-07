@@ -2415,3 +2415,30 @@ am-prop-named-keywords.ts: Label 命中 1 次
 **下一块**：`{` 括号那一趟到底该不该收标签 ? —— 判据要落在「这个 `{` 是块还是对象字面量」上 ?，
 而那正是 `JsonObjectReorganization.Previous` 手里那句 `IsStatementStart` ?
 （块 ? 标签合法 ?、对象字面量 ? 键不是标签 ?）。
+
+## 一百二十三、`{` 括号自己那一趟不跑 `Label`（第 507 轮）：676 → **705 / 1037**
+
+第 506 轮的探针量出「容器就是那个 `{` 括号」?，这一轮把探针脚本里的反引号坑修掉 ?
+（`tmp/recon/r507-brace.cjs` ?）再量 ? —— 结论坐实 ?，于是把闸下在**括号那一层** ?：
+`unit.constructor.name === "Bracket" && (unit as Bracket).startBracket === "{"` 时**不跑 `Label`** ?
+（`typescript/parse-pipeline.xl.md` ?）。块里的标签不受影响 ?：块那一趟由**语句队列**负责 ?
+（`JsonObjectReorganization` 造块/对象时会给它补队列 ?）。
+
+| 项 | 第 506 轮 | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 676 | **705 / 1037** ?（+29 ?） |
+| 缺 | 1929 | **1778** ?（?151 ?） |
+| 多出来 | 1163 | **1052** ?（?111 ?） |
+| 漂移 / 字段名 | 209 / 77 | 209 / 77 ?（持平 ?） |
+
+那条用例（`am-prop-named-keywords.ts`）**四个方向全零** ?（对照态本来就是全零 ?，两档终于对齐 ?）。
+
+**门**：`runtime:check` 158 → **168 / 242** ?、`runtime:cli` 10 → **16 / 79** ?、
+`coverage` 726 → **897 / 1713**（37.5% → **46.8%** ?）、`samples` 的 `hello.ts` 仍绿 ?、
+`cases:check` 1050 全过 ?；`cases:tsast` 0 片 ?。
+
+**一处编译坑记下** ?：`unit.startBracket` 在 `Token` 上没有这个属性 ?（`tsc` 报 TS2339 ?），
+要写成 `(unit as Bracket).startBracket` ? —— 这一轮先跑出来的是 JS 实验版读数 ?、源码版当场挂在类型检查上 ?。
+
+**下一块**：`多出来` 还剩 1052 ?；`缺` 1778 ? —— 按第 506/507 这一路（探针 → 找容器 → 下闸 ?）继续，
+下一个候选是 `FunctionType`（多 105 ?）与 `BindingElement`（缺 74 ?）。
