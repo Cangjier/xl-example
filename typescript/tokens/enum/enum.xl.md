@@ -1,14 +1,19 @@
 # dependencies
 ```xl
-import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { Branch } from "../../../core/syntax/branch.xl.md"
+import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { Get } from "../../../core/extensions/list-extension.xl.md"
+import { DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
+import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { Decorator } from "../decorator.xl.md"
 import { Identifier } from "../identifier.xl.md"
+import { SymbolToken } from "../symbol-token.xl.md"
 import { EnumBody } from "./enum-body.xl.md"
 ```
 
@@ -16,7 +21,7 @@ import { EnumBody } from "./enum-body.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`enum` 声明：把 `enum Color { ... }` 整段收成一个 `Enum`，体交给 `EnumBody`。
+`enum` 声明：**读的时候**就收成 `<Enum>…</Enum>`，体交给 `EnumBody`。
 
 形状只收两种写法：
 
@@ -28,100 +33,206 @@ const enum Name { ... }
 前面的 `export` / `declare` / `default` / `const` 按修饰词收进 `modifiers` 属性（见 `../declaration-common.xl.md`），
 所以 `export const enum E {}` 与 `export enum E {}` 都能命中，区别只落在属性文本上。
 
-`EnumReorganization` 写在 `Enum` **之前**。
+**入口落在 `{` 上**（与 `IfSetBranch` 落在 `(`、`ClassBranch` 落在 `{` 同一条铁律）：
+那一刻整个枚举头都已经读出来了——`enum` 那个词与名字就在宿主自己的平列表里——
+判据一个字符都不向前看。**它排在 `Bracket.JumpIn` 之前**：`{` 正是后者认的字符。
 
-# class EnumReorganization extends Reorganization
+`EnumBranch` 写在 `Enum` **之前**。
 
-## static readonly field Instance:EnumReorganization = new EnumReorganization()
+# class EnumBranch extends Branch
 
-唯一的实例，注册进通用重组队列时用。
+## static readonly field JumpIn:EnumBranch = new EnumBranch()
 
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
+唯一的实例，注册进通用跳转队列时用。
 
-`index` 处是不是一个枚举声明的开头：一个内容为 `enum` 的 `Identifier`，
-后面（跨过软换行）是一个 `Identifier` 名字，再后面（跨过软换行）是一个 `{` 开头的 `Bracket`。
+## private method FindEnumWord:(units:Array<Token>)=>int
 
-三条判定缺一不可，所以 `enum` 出现在别的位置（例如 `x = enum`，或枚举名后面不是花括号）时不会命中。
+往回扫宿主自己的平列表，返回那个内容为 `enum` 的 `Identifier` 的下标；找不到给 `-1`。
 
-```ts
-const current = Get(units, index);
-if (!(current instanceof Identifier) || !current.Is("enum")) {
-  return false;
-}
-const nameIndex = SkipNextWrapSymbol(units, index);
-if (!(Get(units, nameIndex) instanceof Identifier)) {
-  return false;
-}
-const bodyIndex = SkipNextWrapSymbol(units, nameIndex);
-const body = Get(units, bodyIndex);
-return body instanceof Bracket && body.startBracket === "{";
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-把整个枚举声明收成一个 `Enum`，**返回新的下标**。
-
-要点：
-
-- 起点由 `DeclarationStart` 往前吃掉一串修饰词与装饰器；修饰词折进 `modifiers`（`join(",")`），
-  装饰器作为子单元搬进 `Enum`（`TakeDeclarationDecorators`）——两种东西的归宿不同，见 `../declaration-common.xl.md`。
-- 名字取 `enum` 后面第一个实义 `Identifier`。
-- 体括号的**内容**整体搬给 `EnumBody`，括号本身不再留在树里（`EnumBody` 的范围直接沿用它）。
-- `EnumBody` 有自己的重组队列（构造器里装的语句队列），所以搬完要 `TryToClose()` 一次，让成员成形。
-- 范围终点取体括号的终点（含 `}`）。**尾随软换行不进范围**——
-  它留在父单元里充当语句边界（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
+扫描的边界与 `ClassBranch.FindClassWord` **同一套**：`;` 停、另一个**花括号**停
+（换了一张表）、撞上 `class` / `interface` 停（那两个词的声明不归本类）、
+其余（名字 / `.` / 修饰词 / 装饰器 / 圆括号 / 方括号）继续往前。
 
 ```ts
-const current = Get(units, index);
-if (current === null) {
-  throw new Error("current 为空");
+for (let i = units.length - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null || IsTriviaUnit(item)) {
+    continue;
+  }
+  if (item instanceof Bracket) {
+    if (item.startBracket === "{") {
+      return -1;
+    }
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    if (item.TempToString() === ";") {
+      return -1;
+    }
+    continue;
+  }
+  if (item instanceof Identifier) {
+    if (item.Is("enum")) {
+      return i;
+    }
+    if (item.Is("class") || item.Is("interface")) {
+      return -1;
+    }
+  }
 }
-const startIndex = DeclarationStart(units, index);
-const nameIndex = SkipNextWrapSymbol(units, index);
-const bodyIndex = SkipNextWrapSymbol(units, nameIndex);
-const endIndex = bodyIndex;
-const result = new Enum(template);
-result.Parent = current.Parent;
-result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
-result.SignOut(Get(units, endIndex)!.SourceRange.End!);
-const enumNameUnit = Get(units, nameIndex) as Identifier;
-result.name = enumNameUnit.TempToString();
-result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
-for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
-  result.AddAndCloseLast(item);
-}
-const body = Get(units, bodyIndex) as Bracket;
-const enumBody = result.CreateBody();
-body.MoveDataTo(enumBody);
-enumBody.Sign(body);
-enumBody.TryToClose();
-result.TryToClose();
-// **名字单元在这时放进树**（与 `interface.xl.md` / `function.xl.md` 同一套做法）：
-// `TryToClose()` 之后本单元的重组已经跑完，`Data` 不会再被自己扫描一遍。
-// 位置在最前面，与 TS 的 `EnumDeclaration.name` 一致。
-enumNameUnit.Parent = result;
-result.Data.unshift(enumNameUnit);
-return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
+return -1;
 ```
 
-# class Enum extends IndependentToken
+## private method PreviousWord:(units:Array<Token>, index:int)=>Token | null
+
+取 `index` 前面第一个**实义单元**（软换行与注释都跳过）。位置闸用它。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    return null;
+  }
+  if (IsTriviaUnit(item)) {
+    continue;
+  }
+  return item;
+}
+return null;
+```
+
+## private method ScanHead:(units:Array<Token>, index:int, instance:Enum | null)=>bool
+
+从 `enum` 那个词出发验证枚举头，**并假定体就是当前这个 `{`**（它还没进 `units`）。
+
+两条：跟一个 `Identifier` 名字；头**恰好用完**（扫完之后下一格必须是空）。
+
+```ts
+const nameIndex = SkipNextWrapSymbol(units, index);
+const name = Get(units, nameIndex);
+if (!(name instanceof Identifier)) {
+  return false;
+}
+if (Get(units, SkipNextWrapSymbol(units, nameIndex)) !== null) {
+  return false;
+}
+if (instance !== null) {
+  instance.name = name.TempToString();
+}
+return true;
+```
+
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+
+只看两样：当前字符 `{`、以及**已经读到的**那一串枚举头。
+
+```ts
+const result = new BranchConditionResult();
+result.Success = false;
+if (source.Value !== "{") {
+  return result;
+}
+const units = unit.Data;
+const enumIndex = this.FindEnumWord(units);
+if (enumIndex < 0) {
+  return result;
+}
+// **位置闸**：`a.enum { }` 里那个 `enum` 是成员访问的名字，不是声明。
+const previous = this.PreviousWord(units, enumIndex);
+if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
+  return result;
+}
+if (previous !== null && previous.constructor.name === "NullConditionalOperator") {
+  return result;
+}
+result.Success = this.ScanHead(units, enumIndex, null);
+return result;
+```
+
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+建 `Enum`、把整个枚举头搬进它自己名下、再挂 `EnumBody` 并把字符路由过去。
+
+四步与 `ClassBranch.Success` **逐条对齐**（同一套形状：先把装饰器收成单元、
+再把头整段搬进去、最后把开口交给体）：
+
+1. **装饰器先成形**：`ReorganizeDeclarationDecorators`（在 `declaration-common` 上，
+   `ClassBranch` 用的是同一个）——它必须排在 `DeclarationStart` 之前，否则 `DeclarationStart`
+   往回走时会停在散着的实参括号上，装饰器被留在 `Enum` 外面；
+2. **整段搬进 `Enum`，修饰词不进树**：`export` / `declare` / `default` / `const` 折进 `modifiers` 属性，
+   `enum` 那个词也不进树（TS 的 `EnumDeclaration` 里没有它）；
+3. **`unit.AddToMounted(enumUnit)`**：`Enum` 从此是这个宿主的挂载单元；
+4. **`{` 由本类消费**：建 `EnumBody`、`SignIn(source)`、把 `Enum` 的路由指过去。
+
+```ts
+const units = unit.Data;
+let enumIndex = this.FindEnumWord(units);
+if (enumIndex < 0) {
+  throw new Error("EnumBranch: 进门时找不到 enum 那个词");
+}
+enumIndex = ReorganizeDeclarationDecorators(unit.Template, units, enumIndex);
+const start = DeclarationStart(units, enumIndex);
+const enumUnit = new Enum(unit.Template);
+if (this.ScanHead(units, enumIndex, enumUnit) === false) {
+  throw new Error("EnumBranch: 进门之后枚举头又不成立了");
+}
+enumUnit.modifiers = DeclarationModifiers(units, start, enumIndex).join(",");
+const head = units.slice(start);
+units.length = start;
+const local = enumIndex - start;
+enumUnit.SignIn(head[0].SourceRange.Start!);
+for (let i = 0; i < head.length; i++) {
+  const item = head[i];
+  if (i === local) {
+    continue;
+  }
+  if (i < local && !(item instanceof Decorator)) {
+    continue;
+  }
+  enumUnit.AddAndCloseLast(item);
+}
+const last = enumUnit.Last();
+if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
+  last.TryToClose();
+}
+unit.AddToMounted(enumUnit);
+const body = new EnumBody(unit.Template);
+enumUnit.Add(body);
+body.SignIn(source);
+enumUnit.MountedUnit = body;
+```
+
+# class Enum extends GuideToken
 
 枚举声明。
 
-它由重组造出来、自己不消费字符，所以只继承 `IndependentToken` 的空 `Process`。
+**它是引导单元**：`Enum` **自己一个字符都不吃**——枚举头是 `EnumBranch` 在 `{` 那一刻整段搬进来的，
+之后每一个字符都由 `MountedUnit`（`EnumBody`）接手，它只负责**把字符引过去**。
+这正是 `guide-token.xl.md` 的定义（`IfSet` / `Class` 也是这么用的）。
+
+**它里面也没有重组**：头在 `{` 那一刻就已经全部成形——装饰器由
+`ReorganizeDeclarationDecorators` 在搬进来之前收好、名字是搬进来的成品、体是挂上去的成品。
 
 类名必须与产物里的标签名一致：`this.constructor.name` 就是 `<Enum>` 的标签。
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来（模板里没有专门给 `Enum` 注册就用通用队列）。
-
-枚举头比 `Class` 简单（只有名字与体），但仍然要有自己的队列：
-`EnumBody` 是搬进来的，`Enum` 自己那一层得能跑一遍软换行之类的基础重组。
+只有转调：本类**不挂重组队列**（理由见类注释）。
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+```
+
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+
+**它不该被调用**——所以这里**响亮地抛**，而不是留一个空实现把字符悄悄吞掉。
+
+为什么不该被调用：`EnumBranch.Success` 里是「先 `AddToMounted(enumUnit)`、紧接着就
+`enumUnit.MountedUnit = body`」，两件事之间没有字符；而体收尾时**同一趟**就把 `Enum` 也退了
+（`EnumBody.QuitOuter`）⇒ 字符到达本单元时 `MountedUnit` 一定不是空的。
+
+```ts
+throw new Error("Enum.Navigate: 不该被调用——枚举头在 { 那一刻就搬完了，之后每个字符都由 EnumBody 接手");
 ```
 
 ## field name:string = ""
@@ -134,14 +245,6 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 
 `Interface` 用的是一个 `export` 布尔字段，这里换成文本，
 是因为枚举的修饰词不止一种（`export` / `declare` / `default` / `const`），一个布尔装不下。
-
-## method CreateBody:()=>EnumBody
-
-新建枚举体段并挂到自己名下，返回新单元。
-
-```ts
-return this.Add(new EnumBody(this.Template));
-```
 
 ## property Body:EnumBody
 
@@ -162,7 +265,7 @@ throw new Error("找不到匹配的子单元");
 
 产出 XML：`<Enum name="名字" modifiers="修饰词">子单元的 XML 串接</Enum>`。
 
-子单元的顺序是「装饰器（若有）→ `EnumBody`」。
+子单元的顺序是「装饰器（若有）→ 名字 → `EnumBody`」。
 
 ```ts
 const name = this.constructor.name;

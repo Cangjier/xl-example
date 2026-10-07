@@ -34,7 +34,7 @@ import { Identifier } from "./tokens/identifier.xl.md"
 import { CompoundAssignmentOperatorReorganization } from "./tokens/compound-assignment-operator.xl.md"
 import { Decorator, DecoratorReorganization } from "./tokens/decorator.xl.md"
 import { DoWhileReorganization } from "./tokens/do-while/do-while.xl.md"
-import { EnumReorganization } from "./tokens/enum/enum.xl.md"
+import { EnumBranch } from "./tokens/enum/enum.xl.md"
 import { FieldReorganization } from "./tokens/field.xl.md"
 import { ForReorganization } from "./tokens/for/for.xl.md"
 import { ForeachReorganization } from "./tokens/foreach/foreach.xl.md"
@@ -134,6 +134,7 @@ return new Sequence<Branch>([
   IfSetBranch.JumpIn,
   ClassBranch.JumpIn,
   StaticBlockBranch.JumpIn,
+  EnumBranch.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
   LineWrap.AppendIn,
@@ -293,15 +294,12 @@ for (let i = bodyIndex - 1; i >= 0; i--) {
     if (item.Is("interface")) {
       return InterfaceReorganization.Instance.Previous(template, units, i);
     }
-    if (item.Is("enum")) {
-      return EnumReorganization.Instance.Previous(template, units, i);
-    }
   }
 }
 return false;
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
+## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, FunctionReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
 
 通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。
@@ -350,6 +348,13 @@ return false;
 判据一个字符都不向前看 ✓。它原来那位（`Field` 之后 ✓）从此空着 ✓。
 **这一条是「成员层」的第一格** ✓：`Class` 在 `{` 那一刻把整个类头收下 ✓，
 `ClassBody` 自己吃 `{ … }` ✓，它下面的成员再一个一个搬 ✓（下一格是 `Field` / `MethodDeclaration` ✓）。
+
+**`EnumReorganization` 也不在队里了** ✗（本轮删掉 ✓）：枚举声明现在由**解析期分支**
+（`tokens/enum/enum.xl.md` 的 `EnumBranch` ✓）在 **`{`** 那一刻造 ✓（入口落在 `{` 上、
+那一刻 `enum` 那个词与名字都已经读到 ✓），`Enum` / `EnumBody` 与 `Class` / `ClassBody` 逐条对齐 ✓。
+`IsMemberListHead` 里的 `enum` 一支同时删掉 ✓——那个问题从此只剩接口一个答案 ✓。
+**类与枚举的「头」共用一份准备机件** ✓：`declaration-common` 的 `ReorganizeDeclarationDecorators` ✓
+（装饰器必须在算 `DeclarationStart` **之前**成形 ✓，这条次序两处都要 ✓）。
 
 ## static method KeyWords:()=>Array<string>
 

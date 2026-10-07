@@ -2,14 +2,13 @@
 ```xl
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
-import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifiers, DeclarationStart } from "../declaration-common.xl.md"
+import { DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
 import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "./class-body.xl.md"
@@ -17,7 +16,7 @@ import { HeritageClause } from "../heritage-clause.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
-import { Decorator, DecoratorReorganization } from "../decorator.xl.md"
+import { Decorator } from "../decorator.xl.md"
 ```
 
 # namespace cangjie
@@ -312,39 +311,16 @@ let classIndex = this.FindClassWord(units);
 if (classIndex < 0) {
   throw new Error("ClassBranch: 进门时找不到 class 那个词");
 }
-// **第一步：装饰器先成形** ✓。`Process` 会把 `@ 名字 ( 实参 )` 整段换成一个 `Decorator` ✓，
-// 于是下标要跟着缩 ✓（少掉几个单元，`classIndex` 就往左挪几格 ✓）。
+// **第一步：装饰器先成形** ✓——这一件事抽在 `declaration-common` 上 ✓
+// （`ReorganizeDeclarationDecorators` ✓，`EnumBranch` 用的是**同一个** ✓）。
+// 它把 `@ 名字 ( 实参 )` 整段换成一个 `Decorator`，于是关键字下标要跟着往左挪 ✓。
 //
 // **必须排在 `DeclarationStart` 之前** ✗：装饰器在这一刻还是散的 ✓（`@` / 名字 / 实参括号 ✓），
 // 而 `DeclarationStart` 往回走时会**停在实参括号上** ✗ ⇒ 那条声明头被算短了 ✓、
 // 装饰器被留在 `Class` 外面 ✗（实测 `@Dec() export class A {}` 的 `<Decorator>` 掉到 `Class` 的兄弟位上 ✓）。
 // 老写法没有这个问题 ✓，因为这条规则当时跑在通用重组队列里 ✓、
 // `DecoratorReorganization` 就排在它前一位 ✓——搬进解析期之后，这个次序要自己补回来 ✓。
-//
-// 扫描的起点取「上一句 / 上一张表」之后 ✓——再往前不可能是这条声明的头 ✓
-// （与 `FindClassWord` 同一套边界 ✓），所以这一步只看这一条声明那一段 ✓。
-let bound = 0;
-for (let i = classIndex - 1; i >= 0; i--) {
-  const item = Get(units, i);
-  if (item instanceof SymbolToken && item.TempToString() === ";") {
-    bound = i + 1;
-    break;
-  }
-  if (item instanceof Bracket && item.startBracket === "{") {
-    bound = i + 1;
-    break;
-  }
-}
-let scan = bound;
-while (scan < classIndex) {
-  if (DecoratorReorganization.Instance.Previous(unit.Template, units, scan)) {
-    const before = units.length;
-    scan = DecoratorReorganization.Instance.Process(unit.Template, units, scan);
-    classIndex = classIndex - (before - units.length);
-    continue;
-  }
-  scan = scan + 1;
-}
+classIndex = ReorganizeDeclarationDecorators(unit.Template, units, classIndex);
 const start = DeclarationStart(units, classIndex);
 const cls = new Class(unit.Template);
 if (this.ScanHead(units, classIndex, cls) === false) {
@@ -384,43 +360,63 @@ body.SignIn(source);
 cls.MountedUnit = body;
 ```
 
-# class Class extends UnitToken
+# class Class extends GuideToken
 
 类声明。
 
-它**自己吃字符** ✓（不再是「重组造出来、自己不消费字符」的 `IndependentToken` ✗）——
-先吃掉宿主交过来的那个 `{`（由 `ClassBranch` 挂上来的 `ClassBody` 接着吃 ✓），
-到配对的 `}` 上由 `ClassBody` 连着自己一起收尾 ✓。
+**它是引导单元** ✓（用户口径 ✓）：`Class` **自己一个字符都不吃** ✗——
+类头是 `ClassBranch` 在 `{` 那一刻整段搬进来的 ✓，之后每一个字符都由 `MountedUnit`（`ClassBody` ✓）
+接手 ✓，它只负责**把字符引过去** ✓。这正是 `guide-token.xl.md` 的定义 ✓
+（`IfSet` 也是这么用的 ✓）。
+
+**它里面也没有重组** ✓（用户口径：直接在 guide 时就处理好 ✓）——见构造器那一节 ✓。
+
+换成 `GuideToken` 之后**三处死代码一起消失** ✗：
+
+- `ExitOrPre`（恒 `Undo` ✓）——`GuideToken.Process` 根本不问它 ✓；
+- `Default`（空实现 ✓）——`GuideToken` 已经给了一个空实现 ✓；
+- 那条「兜底处理」的分支 ✓——`GuideToken.Process` 只有两句：有挂载就转过去 ✓、否则 `Navigate` ✓。
+
+**它什么时候收尾** ✗：不由自己决定 ✓——`ClassBody` 在配对的 `}` 上连退两级 ✓
+（`ClassBody.QuitOuter` ✓），所以「还有没有字符进来」这个问题在它这里**永远是否** ✓。
 
 类名必须与产物里的标签名一致：`this.constructor.name` 就是 `<Class>` 的标签。
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来（模板里没有专门给 `Class` 注册就用通用队列）。
+**本类不挂重组队列** ✓——**头在 `{` 那一刻就已经全部成形** ✓，不需要事后那一趟 ✗：
 
-这一句是必要的，不是装饰：类头里那几个单元
-（`extends` / `implements` / 基类的泛型实参段）是在 `Success` 里被搬进来的，搬进来时
-**它们所在的那一轮重组已经过去了**——不给 `Class` 自己的队列，`extends` 就永远等不到
-`KeywordReorganization`，`class A extends B` 的产物里会多出两个 `<Identifier>`。
+- 装饰器：`ReorganizeDeclarationDecorators` 在**搬进来之前**就收成 `Decorator` 单元 ✓；
+- `extends` / `implements`：`OrganizeHeritage` 在**同一个 `{`** 里收成 `HeritageClause` ✓，
+  子句自己那一趟（把 `extends` 升成 `<Keyword>` ✓、给类型实参段成形 ✓）在 `HeritageClause.Take`
+  里当场跑完 ✓；
+- 类型参数段（`<T>`）：它**自己关的时候**就跑过自己那一趟 ✓（`GenericType` 是 `UnitToken` ✓），
+  搬进来时已经是成形的 ✓；
+- 名字与体：都是搬进来/挂上去的**成品** ✓。
+
+**所以这里只有一句 `super`** ✓。留着一条「兜底」队列反而有害 ✗：它会让「头到底是什么时候成形的」
+有两个答案 ✓——一个是 `{` 那一刻 ✓，一个是「`Class` 关闭时说不定还会再扫一遍」✗。
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
-**恒 `Undo`** ✓——本单元没有「见到某个字符就收尾」这回事 ✗：
-它什么时候完事，由 `ClassBody` 在配对的 `}` 上回答 ✓（`UnitToken` 的 `ExitOrPre` 是抽象钩子 ✓，
-不写就会当场炸 ✓，不会静默不收尾 ✗）。
+**它不该被调用** ✗——所以这里**响亮地抛** ✓，而不是留一个空实现把字符悄悄吞掉 ✗。
+
+为什么不该被调用：`ClassBranch.Success` 里是「先 `AddToMounted(cls)`、紧接着就
+`cls.MountedUnit = body`」✓，两件事之间没有字符 ✓；而体收尾时**同一趟**就把 `Class` 也退了 ✓
+（`ClassBody.QuitOuter` ✓）⇒ 字符到达本单元时，`MountedUnit` **一定不是空的** ✓
+⇒ `GuideToken.Process` 永远走「转给挂载单元」那一支 ✓。
+
+写成一个显式的抛错（而不是不覆写、去用基类那句「abstract member: Navigate」✓）：
+基类那句话说的是「你没实现」✗，而这里的真相是「这一格按设计到不了」✓——
+两者坏掉时的现场完全不同 ✓（前者会让人去找忘了写的实现 ✓）。
 
 ```ts
-return BranchStates.Undo;
+throw new Error("Class.Navigate: 不该被调用——类头在 { 那一刻就搬完了，之后每个字符都由 ClassBody 接手");
 ```
-
-## protected method Default:(context:SyntaxContext, source:Source)=>void
-
-兜底处理：空实现 ✓（头部与体都由子单元吃字符 ✓）。
 
 ## field name:string = ""
 

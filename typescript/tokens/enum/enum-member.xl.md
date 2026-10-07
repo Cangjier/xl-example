@@ -51,15 +51,23 @@ if (current === null || current.Parent === null) {
   return null;
 }
 const parent = current.Parent;
-// **只认 `EnumBody` 里的那个 `Statement`**（实测产物形状：
-// `<EnumBody><Statement>成员…</Statement></EnumBody>`）。
+// **只认 `Statement` 这一个容器**（实测产物形状：`<EnumBody><Statement>成员…</Statement></EnumBody>`）。
 //
 // 一开始还认了「成员直接挂 `EnumBody`」这一种，**实测会把整张表包两层**：
 // 枚举体那一趟先把成员表整段收成一个 `EnumMember`，那个成员自己的队列再跑一遍，
 // 于是变成 `<EnumMember><EnumMember>A = 1</EnumMember></EnumMember>`。
-// 不认 `EnumBody` 自己就没有这一趟 ✓。
+// 不认 `EnumBody` 自己就没有这一趟。
+//
+// **光判「祖父是 `EnumBody`」不够**（本轮实测踩到）：枚举体现在是**活的**单元 ✓
+//（`EnumBranch` 在读的时候建 ✓），成员在成形之前就住在它名下 ✓ ⇒
+// **成员里任何一个「父单元也挂在 `EnumBody` 下」的单元**都满足「祖父是 `EnumBody`」✗ ——
+// 字符串字面量就是最现成的一个 ✓（`String.Parent` = `EnumBody` ✓，
+// 它的 `ConstString` 于是被当成一张成员表切了一遍 ✗ ⇒
+// 产物成 `<String><EnumMember><ConstString>blue</ConstString></EnumMember></String>` ✗，
+// `samples/declarations.ts` 里 `Blue = "blue"` 的字符串值当场读成空串 ✗）。
+// 所以 `parent` 这一格**必须自己就是 `Statement`** ✓——这正是上面那句注释说的意思 ✓。
 const grand = parent.Parent;
-if (grand !== null && grand.constructor.name === "EnumBody") {
+if (parent.constructor.name === "Statement" && grand !== null && grand.constructor.name === "EnumBody") {
   return parent;
 }
 return null;

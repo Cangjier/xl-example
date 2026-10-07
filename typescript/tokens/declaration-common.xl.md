@@ -5,6 +5,7 @@ import { Get } from "../../core/extensions/list-extension.xl.md"
 import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, HasTypeColonBefore, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
+import { DecoratorReorganization } from "./decorator.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Decorator } from "./decorator.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -21,6 +22,7 @@ import { Statement } from "./statement.xl.md"
 import { String } from "./string/string.xl.md"
 import { Switch } from "./switch/switch.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
+import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Try } from "./try/try.xl.md"
 import { While } from "./while/while.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
@@ -113,6 +115,49 @@ return item.IsAny([
   "set",
   "const",
 ]);
+```
+
+# method ReorganizeDeclarationDecorators:(template:Template, units:Array<Token>, keywordIndex:int)=>int
+
+把一条声明**头**里的装饰器先收成 `Decorator` 单元，返回**修正过的**关键字下标。
+
+**为什么要先收**：`Decorator` 是**重组造出来的**，而解析期的分支（`ClassBranch` / `EnumBranch`——
+入口都落在 `{` 上）要在那一刻把整个头搬进新单元。不收的话 `@` / 名字 / 实参括号会散在头里，
+搬进去的就是三四个散单元而不是一个 `<Decorator>`。
+
+**为什么只跑这一条规则**（不是整条通用队列）：头部剩下的单元（修饰词 / 类型参数 / `extends` 段）
+要留给新单元自己那一趟——那才是它们该成形的地方。
+
+**关键字下标会缩**：`Process` 把 `@ 名字 ( 实参 )` 整段换成一个 `Decorator`，所以下标要跟着往左挪。
+
+扫描的起点取「上一句 / 上一张表」之后：再往前不可能是这条声明的头，
+所以这一步只看这一条声明那一段。
+
+```ts
+let bound = 0;
+for (let i = keywordIndex - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item instanceof SymbolToken && item.TempToString() === ";") {
+    bound = i + 1;
+    break;
+  }
+  if (item instanceof Bracket && item.startBracket === "{") {
+    bound = i + 1;
+    break;
+  }
+}
+let adjusted = keywordIndex;
+let scan = bound;
+while (scan < adjusted) {
+  if (DecoratorReorganization.Instance.Previous(template, units, scan)) {
+    const before = units.length;
+    scan = DecoratorReorganization.Instance.Process(template, units, scan);
+    adjusted = adjusted - (before - units.length);
+    continue;
+  }
+  scan = scan + 1;
+}
+return adjusted;
 ```
 
 # method DeclarationStart:(units:Array<Token>, index:int)=>int
