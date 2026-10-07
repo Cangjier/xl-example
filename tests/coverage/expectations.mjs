@@ -1038,8 +1038,9 @@ export const EXPECTATIONS = {
 
   // ---- `encodeURI` 族在某一条上**挂住不返回**（退出码 `null` ⇒ 被 30s 超时杀掉）。
 
-  // ---- `String(new Date(0))` 要渲染**本地时间**（本仓明确不做）。
-  "c371-stdlib-object-tostring-on-builtins": { expect: "differ", why: "`String(new Date(0))` 要渲染**本地时间**（本仓明确不做）。" },
+  // ---- `String(合法日期)`：第 616 轮起按 **UTC** 渲染（本仓的本地口径就是 UTC）——
+  // 与 Node 的本地时区串**逐字节不同**，但 Node 在 `TZ=UTC` 下与本仓相同。
+  // 那条用例量的是 `String(new Date(0)).length > 0`，所以它转正了。
 
   // ---- `Array.isArray(Array.prototype)` 要给 `true`（数组原型自己也是数组）。
 

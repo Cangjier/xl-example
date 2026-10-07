@@ -8632,7 +8632,10 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
     // `Error`（第 213 轮 ✓）**同一条路** ✓：一旦给得出真答案，就从这张表里搬走 ✓，
     // 并在下面另起一条「必须给对」✓。**留着它就是钉住旧口径** ✗
     // （这一轮实测：它红了 ✓，而红的话是「必须响亮地抛」✓——**读起来像新东西坏了** ✗）。
-    ["Date 的 default", "console.log(new Date(0) + 1);"],
+    // **`Date` 那一档第 616 轮划掉了** ✓：`Date.prototype.toString` 补上了合法日期那一档，
+    // 于是 `new Date(0) + 1` 有**真答案**了 ✓——与 `Map` / `Set` / `Error` / 函数
+    // **同一条路** ✓：一旦给得出真答案，就从这张表里搬走 ✓，并在下面另起一条「必须给对」✓
+    // （留着它就是钉住旧口径 ✗——红的话读起来像新东西坏了 ✗）。
     // **`Error` 从这一档里划掉了**（第 213 轮）：那一轮把 `Error.prototype.toString` 装上之后，
     // `new Error("x") + 1` 有**真答案**（`"Error: x1"`，与 Node 逐字相同）——它已经不在
     // 「不能给近似值」那一档里。判据跟着改：下面另有一条「必须给对」。
@@ -8666,6 +8669,25 @@ check("不能给近似值的那几格：**响亮地抛、并点名缺什么**（
     eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
     eq(lines[0], "Error: x Error: y1",
       "`Error.prototype.toString` 装上之后，`String(e)` 与 `e + 1` 都给 `\"Error: …\"`（与 Node 一致）");
+  }
+  // **`Date` 那一档现在也给真答案**（第 616 轮）：`Date.prototype.toString` 补上了合法日期那一档，
+  // 于是 `new Date(0) + 1` 走的是 **`toString`**（`default` 对 `Date` 是 `ToPrimitive` 的特例）✓。
+  //
+  // **不与 Node 逐字节比** ✗：Node 印的是**本地时区**（`GMT+0800 (中国标准时间)` ✓，随机器变 ✗），
+  // 本仓**没有时区库** ✓、本地那一族 getter 本来就当 UTC 用 ✓ ⇒ 这里按 UTC 渲染 ✓
+  //（**Node 在 `TZ=UTC` 下与本仓逐字节相同** ✓，差别只有那一段时区名与偏移 ✓）。
+  // 这一条要钉住的正是**老闸门**那一件事 ✓：`default` 必须走 `toString` ✓，
+  // 绝不能被 `valueOf` 悄悄变成数字 `1` ✗（**静默错值** ✗）。
+  {
+    const request = new RunRequest();
+    request.Sources = ['console.log(String(new Date(0)));\nconsole.log(new Date(0) + 1);'];
+    request.Entry = "";
+    const lines = [];
+    const res = RunSources(request, (text) => lines.push(text), () => null);
+    eq(res.Outcome, HostOutcome.Ok, "运行器：" + res.Message);
+    const dateText = "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)";
+    eq(lines[0], dateText, "`String(date)` 按 UTC 渲染（与 `TZ=UTC` 下的 Node 相同）");
+    eq(lines[1], dateText + "1", "`new Date(0) + 1` 走 `toString`（hint `default` 的特例），不是 `1`");
   }
   // **函数那一档现在也给真答案**（第 334 轮）：`f + 1` = 源码 + `"1"` ✓。
   //

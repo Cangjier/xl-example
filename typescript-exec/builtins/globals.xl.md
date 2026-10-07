@@ -1722,12 +1722,11 @@ JS 的口径就是**返回它自己** ✓，所以这一支也只做「把 `self
 
 **`Date.prototype.toString`**（第 293 轮 ✓）——号**追加在表尾** ✓。
 
-**只做「非法日期」那一档** ✓：JS 的 `String(new Date(NaN))` 是 **`"Invalid Date"`** ✓，
-而它**与时区无关** ✓（所以这一档能逐字节对上 ✓）。
-**合法日期那一条仍旧响亮地抛** ✓：JS 给的是**本地时区**的一串
-（`Thu Jan 01 1970 08:00:00 GMT+0800 (China Standard Time)` ✓），
-它**随机器变** ✗——编一个出来只会让「本机对、别处错」✓（判据 `date-invalid-values`
-只量了 `NaN` 那一档 ✓，所以**只做那一档** ✓）。
+**第 293 轮只做「非法日期」那一档** ✓（JS 的 `String(new Date(NaN))` 是 **`"Invalid Date"`** ✓，
+**与时区无关** ✓ ⇒ 逐字节对得上 ✓）；**合法日期按 UTC 渲染**是第 616 轮补的 ✓
+（见 `DateTextOf` ✓：本仓没有时区库 ✓，本地那一族 getter 本来就当 UTC 用 ✓，
+`String(d)` 与 `d.getHours()` 必须自洽 ✓——**与 Node 的差距只剩时区那一截** ✓，
+Node 在 `TZ=UTC` 下与本仓逐字节相同 ✓）。
 
 # const DateGetUTCMilliseconds:int = 370
 
@@ -4349,17 +4348,25 @@ if (id === DateParse) {
   return Value.FromDouble(DateParseUnits(JsTextUnits(table, args[0])));
 }
 if (id === DateToString) {
-  // **`Date.prototype.toString`** ✓（第 293 轮 ✓）——**只做非法日期那一档** ✓。
+  // **`Date.prototype.toString`**（第 293 轮 ✓，第 616 轮补上合法日期那一档 ✓）。
+  //
+  // **非法日期给 `"Invalid Date"`** ✓（JS 的口径 ✓）。
+  // **合法日期按 UTC 渲染** ✓（`DateTextOf` ✓）——本仓没有时区库 ✓，
+  // 本地那一族 getter 本来就当 UTC 用 ✓（见 `InstallDateMethods` 那一段 ✓），
+  // 两者必须同一个口径 ✓：`String(d)` 与 `d.getHours()` 不自洽的话，
+  // 同一份日期在同一个程序里会有两套读法 ✗。
   const textStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
   if (textStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
   const textMs = NumericOf(table.Get(textStored.Owner).Props[textStored.Index].Value);
-  if (textMs === textMs) {
-    // **合法日期响亮地抛** ✓（JS 给的是本地时区那一串 ✓，随机器变 ✗——见号那一段 ✓）。
-    throw new Error("unimplemented: Date.prototype.toString for a valid date (JS renders local time)");
+  // **非法日期那一档**：`"Invalid Date"` 恰好 12 个码元。
+  if (textMs !== textMs) {
+    if (!room(ObjectCharge + CodeUnitCharge * 12)) throw new Error("out of room");
+    return Value.FromString(table.CreateString(Units("Invalid Date")));
   }
-  if (!room(ObjectCharge + CodeUnitCharge * 12)) throw new Error("out of room");
-  return Value.FromString(table.CreateString(Units("Invalid Date")));
+  const dateText = DateTextOf(textMs);
+  if (!room(ObjectCharge + CodeUnitCharge * dateText.length)) throw new Error("out of room");
+  return Value.FromString(table.CreateString(Units(dateText)));
 }
 if (id === DateToISOString || id === DateToJSON) {
   // **`toISOString` 与 `toJSON` 共用这一支** ✓（第 280 轮 ✓，两支的差别只有非法日期那一格 ✓）。
@@ -4980,6 +4987,34 @@ let text = PadNumber(parts[0], 4) + "-" + PadNumber(parts[1] + 1, 2) + "-" + Pad
 text = text + "T" + PadNumber(clock[0], 2) + ":" + PadNumber(clock[1], 2) + ":" + PadNumber(clock[2], 2);
 // **毫秒是三位** ✓（`+ "." + 4` 该给 `004` ✓，不是 `4` ✗）。
 return text + "." + PadNumber(clock[3], 3) + "Z";
+```
+
+# method DateTextOf:(ms:float)=>string
+
+**毫秒 → `Date.prototype.toString` 的文本**（第 616 轮 ✓）——本仓**按 UTC 渲染** ✓。
+
+**为什么按 UTC** ✗：JS 这条印的是**本地时区** ✓（`Thu Jan 01 1970 08:00:00 GMT+0800 (… Time)` ✓，
+随机器变 ✗），而本仓**没有时区库** ✓、本地那一族 getter 本来就当 UTC 用 ✓
+（`getFullYear` = `getUTCFullYear` ✓）——**同一件事只能有一个口径** ✓：
+`String(d)` 与 `d.getHours()` 必须自洽 ✓，否则同一份日期在同一个程序里有两套读法 ✗。
+**已知差异写在明处** ✗：与 Node 的字符串**逐字节不同** ✓（差在时区那一截 ✓，Node 在 UTC 下与这里一致 ✓）。
+
+年份只做 `0000..9999` ✗，其余响亮地抛 ✓（与 `DateIsoText` 同一条）。
+
+```ts
+const parts = DateParts(ms);
+const clock = DateClockParts(ms);
+if (parts[0] < 0 || parts[0] > 9999) {
+  throw new Error("unimplemented: toString outside 0000..9999 needs the expanded year form");
+}
+const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// **星期几与 `getUTCDay` 同一份判据** ✓（从纪元起的天数对 7 取模 ✓，1970-01-01 是周四 ✓）。
+const dayNumber = Math.floor(ms / 86400000);
+const weekday = weekdays[(((dayNumber + 4) % 7) + 7) % 7];
+let text = weekday + " " + months[parts[1]] + " " + PadNumber(parts[2], 2) + " " + PadNumber(parts[0], 4);
+text = text + " " + PadNumber(clock[0], 2) + ":" + PadNumber(clock[1], 2) + ":" + PadNumber(clock[2], 2);
+return text + " GMT+0000 (Coordinated Universal Time)";
 ```
 
 # method QuoteJson:(table:HeapTable, value:Value)=>string

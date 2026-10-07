@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.57,
+  "progressPercent": 99.61,
   "layers": [
     {
       "layer": "runtime",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 630,
+      "pass": 631,
       "blocked": 0,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 99.37
+      "coverage": 99.53
     },
     {
       "layer": "e2e",
@@ -118,12 +118,6 @@
       "layer": "stdlib",
       "title": "Function.prototype.bind：偏实参、this、new、length/name",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：a bound function must be an object (the engine passes the receiver as this)"
-    },
-    {
-      "id": "c371-stdlib-object-tostring-on-builtins",
-      "layer": "stdlib",
-      "title": "内建对象的 toString 与 valueOf 的组合",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Date.prototype.toString for a valid date (JS renders local time"
     },
     {
       "id": "c371-e2e-async-pool-with-errors",

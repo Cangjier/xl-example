@@ -156,22 +156,19 @@ if (protos.WellKnownSymbols > 0) {
 // **② / ③ 普通那一支**：`string` 反过来，其余 `valueOf` 先 ✓。
 // **`Date` 那条路障** ✓（第 198 轮 ✓）：JS 的 `OrdinaryToPrimitive` 里**唯一一条特例** ✓——
 // `default` 对 `Date` 要当 `string` 用 ✓（`new Date(0) + 1` 在 JS 里是**日期串接 `1`** ✓，
-// 不是 `1` ✗）。而本仓的 `Date.prototype` 上**没有 `toString`** ✗
-// （那一格要本地时区与格式 ✓，是另一轮的事 ✓）——所以这里**响亮地抛** ✓。
-// 少了这条路障，`valueOf` 会把答案悄悄变成数字 ✗（`new Date(0) + 1` 给 `1` ✗）——
-// **静默错值** ✗，而这是这一层最不该犯的错 ✓。
+// 不是 `1` ✗）。少了这条路障，`valueOf` 会把答案悄悄变成数字 ✗
+//（`new Date(0) + 1` 给 `1` ✗）——**静默错值** ✗，而这是这一层最不该犯的错 ✓。
 // **`+new Date()` 不受影响** ✓：一元 `+` 走的是 hint `number` ✓（`valueOf` 先 ✓、给毫秒数 ✓）。
 // **放在 `Symbol.toPrimitive` 之后** ✓：脚本自己定义了那一格的话，它照旧优先 ✓（JS 的口径 ✓）。
 if (hint !== ToPrimitiveNumber && RtChainHas(table, value, protos.Date)) {
-  // **第 293 轮把这条路障收窄成「没装 `toString` 时」** ✓：那一格从第 293 轮起**装上了** ✓
-  //（`Date.prototype.toString` ✓，只做 `Invalid Date` 那一档 ✓），于是
-  // `String(new Date(NaN))` 该**走那条正常路** ✓（JS 给 `"Invalid Date"` ✓）。
+  // **判据是「这一格可不可调」** ✓，不是「是不是 `Date`」✗：
+  // `Date.prototype.toString` 从第 293 轮起**装上了** ✓（第 616 轮起**合法日期也给答案** ✓——
+  // 按 UTC 渲染 ✓，见 `globals.xl.md` 的 `DateTextOf` ✓），
+  // 所以正常那一档在这里**不该抛** ✓、要接着走下面那条正常路 ✓。
   //
-  // **不能把整条路障删掉** ✗：合法日期那一档本仓**仍旧没有** `toString` 的答案 ✓
-  //（JS 给的是**本地时区**那一串 ✓，随机器变 ✗）——所以判据是
-  // 「**这一格可不可调**」✓，不是「是不是 `Date`」✗。
-  // 少了这一问，`new Date(0) + 1` 会走 `valueOf` 把答案悄悄变成数字 ✗（**静默错值** ✗）；
-  // 留着它而 `toString` 又在（非法日期那一档）时**不该抛** ✓——两件事分开判 ✓。
+  // **守着的仍是「被摘掉/改坏了」那一档** ✗：链条上认得出是 `Date` ✓、
+  // 可 `toString` 那一格不见了或不是可调的 ✓ ⇒ 这里**响亮地抛** ✓，
+  // 绝不落回 `valueOf` 把答案悄悄变成数字 ✗（**静默错值** ✗）。
   const dateText = GetProperty(room, call, protos, table, value,
     Value.FromString(table.CreateString(HostTextUnits("toString"))));
   if (!IsCallableValue(table, dateText)) {

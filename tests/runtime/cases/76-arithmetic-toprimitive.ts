@@ -17,8 +17,10 @@
 // **两条留在明处的缺口**（都**响亮地抛**，绝不落回一个看起来合理的默认值）：
 // ① 函数的 `ToPrimitive`——JS 给**源码文本**（`f + 1` 是 `"function f() {}1"`），
 //    那一份引擎拿不到；
-// ② `Date` 的 hint `default`——JS 对 `Date` 是**特例**（按 `string` 走、给日期串），
-//    而本仓没有 `Date.prototype.toString`。**`+new Date(ms)` 不受影响**（hint 是 `number`）。
+// ② `Date` 的 hint `default`——第 616 轮起**有答案了** ✓：`Date.prototype.toString`
+//    补上了合法日期那一档（按 UTC 渲染，本仓的本地口径就是 UTC ⇒ `String(d)` 与
+//    `d.getHours()` 自洽；与 Node 的差别只剩时区那一截）。
+//    **`+new Date(ms)` 不受影响**（hint 是 `number`，走 `valueOf`）。
 
 console.log(undefined + 1, undefined - 1, undefined * 2);
 console.log(null + 1, null - 1, true + 1, false - 1);
