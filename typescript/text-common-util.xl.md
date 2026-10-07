@@ -161,6 +161,39 @@ const next = document.GetValue(index + 1);
 return next >= "0" && next <= "9";
 ```
 
+# method HasQuestionBefore:(units:Array<Token>, index:number)=>bool
+
+从 `index`（一个 `:`）往回找**同一层**的 `?`：找到给真，先撞上边界给假。
+
+边界是「说明这个 `:` 不是三元的」那些：`;` / `,` / 另一个 `:` / 扫到列表开头。
+**括号不是边界**：三元的分支里出现括号（`flag ? (0) : kids[i++]`）是日常写法，
+而括号是一个**完整的单元**（它内部的东西不在这一层）⇒ 跨过它继续往左扫是对的。
+
+**为什么需要它**（第 596 轮）：原来判「三元」只问「紧挨着 `:` 的前一格是不是 `?`」——
+那只在真值段才成立。`flag ? 0 : kids[i++]` 里冒号前面是 `0` ⇒ 判成类型标注 ⇒
+`kids[…]` 那个 `[` 的 `Context` 是 `"type"` ⇒ `UnaryOperatorCloseRule` 的
+「下标在类型位不折」那道闸把 `i++` 挡掉（**静默错值**：同一个 `kids[i++]` 落在真值段
+`flag ? kids[i++] : 0` 时判得对——往回扫先撞上 `?`）。
+
+```ts
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item instanceof LineWrap) {
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    const text = item.TempToString();
+    if (text === "?") {
+      return true;
+    }
+    if (text === ";" || text === "," || text === ":") {
+      return false;
+    }
+  }
+}
+return false;
+```
+
 # method DecideBracketContext:(host:Token, openChar:string)=>string
 
 `host` 这个单元里正在打开一个 `{` 或 `[`（`openChar`），它在**类型位**还是**值位**上？返回 `"type"` / `"value"` / `""`。
@@ -237,7 +270,9 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
       const text = item.TempToString();
       if (text === ":" || text === "?:") {
         const beforeColon = GetSkipPrevious(units, i, (x) => x instanceof LineWrap);
-        const isTernary = beforeColon instanceof SymbolToken && beforeColon.Is("?");
+        // **这个冒号是不是三元的**（第 596 轮）：判据是「层层往回找同层的 `?`」，
+        // 不是「紧挨着的前一格是不是 `?`」——理由见 `HasQuestionBefore`。
+        const isTernary = HasQuestionBefore(units, i);
         if (isTernary) {
           return "value";
         }

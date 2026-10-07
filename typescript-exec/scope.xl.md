@@ -357,6 +357,20 @@ if (IsFunctionNode(body)) return;
 // 而那不是「收体里的名字」那一档 ✗：这一趟的**第一条判据**（`kind === "ModuleDeclaration"`
 // 那一条别处没有 ✓）要单独收**它的名字** ✓，见下面那一句 ✓。
 if (kind === "ModuleDeclaration") {
+  // **只有类型的 `namespace` 连名字都不产生**（第 596 轮）：`namespace T { export type A = number }`
+  // 之后运行期**没有 `T`** —— `lowering.xl.md` 的 `LowerNamespace` 遇到这种体直接返回、
+  // 一个字节都不生成。名字若照收进这份名单，`typeof (T as any)` 那里会报
+  // `name used before its declaration`（**指错方向**：它不在「声明之前」，它根本没有）；
+  // 不收才落进 `typeof` 那条「找不到的名字给 `"undefined"`」的路，与 Node 一致。
+  //
+  // **判据在这里重写一份**（与 `LowerNamespace` 的 `NamespaceIsTypeOnly` 是同一件事）：
+  // 这一趟跑在**降级之前**，手上没有 `Lowering` 实例（那一条是实例方法），
+  // 而这条判据只有几行——造一条能跨过去的路比再写一遍贵。
+  const moduleBody = body["body"];
+  if (moduleBody !== undefined && moduleBody !== null && typeof moduleBody === "object"
+    && IsTypeOnlyNamespaceBody(moduleBody as AstNode)) {
+    return;
+  }
   const name = body["name"];
   if (name !== undefined && name !== null && typeof name === "object") {
     CollectPatternNames(name as AstNode, out);
@@ -366,6 +380,34 @@ if (kind === "ModuleDeclaration") {
 WalkChildren(body, (child) => {
   CollectDeclaredNames(child, out);
 });
+```
+
+# method IsTypeOnlyNamespaceBody:(body:AstNode)=>bool
+
+**这个 `namespace` 体一个运行期语句都没有吗**（第 596 轮）。
+
+与 `lowering.xl.md` 的 `NamespaceIsTypeOnly` 是**同一条判据的两份实现**——理由见
+`CollectDeclaredNames` 里 `ModuleDeclaration` 那一支的说明（这一趟跑在降级之前，
+手上没有 `Lowering` 实例）。
+
+```ts
+const statements = ListOf(body, "statements");
+for (const statement of statements) {
+  const kind = NodeKind(statement);
+  if (kind === "InterfaceDeclaration" || kind === "TypeAliasDeclaration") {
+    continue;
+  }
+  if (kind === "ModuleDeclaration") {
+    const inner = statement["body"];
+    if (inner !== undefined && inner !== null && typeof inner === "object"
+      && IsTypeOnlyNamespaceBody(inner as AstNode)) {
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+return true;
 ```
 
 # method HasDeclareModifier:(node:AstNode)=>bool

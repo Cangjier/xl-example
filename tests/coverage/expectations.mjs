@@ -1012,10 +1012,8 @@ export const EXPECTATIONS = {
   // ---- `const enum` 成员表达式与同类引用（与 `enumMemberRef` 同源）。
 
   // ---- 只有类型的 `namespace` 体在运行期应当是 `undefined`（本仓给了一个对象）。
-  "c371-ex-namespace-type-only-body": { expect: "differ", why: "只有类型的 `namespace` 体在运行期应当是 `undefined`（本仓给了一个对象）。" },
 
   // ---- 接口名出现在**值位**（`typeof (Shape as any)`）⇒ 应当擦成 `undefined`，现在报 `name is not a local`。
-  "c371-ex-class-implements-and-interface": { expect: "blocked", why: "接口名出现在**值位**（`typeof (Shape as any)`）⇒ 应当擦成 `undefined`，现在报 `name is not a local`。" },
 
   // ---- 尖括号断言的对象字面量那一格 ⇒ `unimplemented: expression Block`。
 
@@ -1075,7 +1073,6 @@ export const EXPECTATIONS = {
   // ---- `splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。
 
   // ---- `xs[Symbol.iterator] === xs.values` 要是**同一个函数对象**。
-  "c371-stdlib-array-iterator-aliases": { expect: "differ", why: "**第 389 轮把根子定到了 `CreateHostRef`**。极小复现：`Array.prototype[Symbol.iterator] === Array.prototype.values` 在 Node 里是 **true**、本仓是 **false**；而 `xs.values === Array.prototype.values` 与 `xs[Symbol.iterator] === Array.prototype[Symbol.iterator]`**两边都是 true** ⇒ 同一侧的两次读是一致的，**差在「两处安装」**。**根子**：`runtime/heap.xl.md` 的 `CreateHostRef(capabilityId, opaque)` **每次都 `AllocateRaw` 一个新句柄**⇒ 同一个能力号装两次（`globals.xl.md` 第 6489 行挂 `Symbol.iterator`、`array.xl.md` 的装库循环挂字符串键 `values`）拿到的是**两个句柄** ⇒ `===` 对宿主引用**比句柄** ⇒ 假。**同一族的第二个现场**：`Array.prototype.toString === Array.prototype.join`（JS 真——`toString` 就是 `join(\",\")`；本仓装了两格 `ArrayJoin` ⇒ 也是假）。**修法（下一轮）**：在 `CreateHostRef` 里按 **(capabilityId, opaque)** **驻留**（同一个对只造一次句柄）。**为什么没在这一轮做**：全仓 **110 处调用**（`globals` 72 / `promise` 17 / `vm` 12 …），`vm` 与 `promise` 那两处可能在热路径上 ⇒ 改动面太大，按本仓「不在一轮末尾动全局」的规矩留到下一轮。" },
 
   // ---- `xs.length = -1` 抛的应当是 `RangeError`，本仓抛裸 `Error`。
 
@@ -1129,7 +1126,6 @@ export const EXPECTATIONS = {
   // ---- 稀疏数组的 `toString` / `join` 在**全洞**时（`[, ,]`）Node 给 `,`。
 
   // ---- **步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。
-  "c371-e2e-quick-and-merge-sort": { expect: "differ", why: "**假值段里下标位上的后缀自增不生效** ✗ ⇒ 归并的 `left[i++]` 永不前进 ✓ ⇒ 死循环 ✓（1M 步数上限时报 `step budget exhausted` ✓，第 372 轮上限抬到 10M 之后改报 `out of room` ✓——**同一个根、两个症状**）。最小反例：`const r = false ? 0 : a[i++];`（Node 给 `a[0]` 且 `i=1`、本仓给 `a[0]` 而 `i=0`）；真值段是好的 ✓、`if/else` 里也是好的 ✓。" },
 
   // ---- 字符串数组里逐字符找 `E` 失败（`charAt` 那一圈没找到，根子待量）。
 

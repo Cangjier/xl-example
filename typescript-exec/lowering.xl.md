@@ -2351,6 +2351,16 @@ if (NodeKind(body) !== "ModuleBlock") {
   throw new Error("unimplemented: a namespace body that is not a block");
 }
 const name = TextOf(nameNode);
+// **只有类型的体：什么都不产生** ✓（第 596 轮 ✓）。
+//
+// `namespace Types { export interface A { x: number } export type B = string }` 之后
+// Node 那边 `typeof Types` 是 `"undefined"` ✓（**对象根本没造** ✓，整段一个字节都不生成 ✓），
+// 而本仓照造一个对象 ✗（判据 `c371-ex-namespace-type-only-body` ✓）。
+// 判据就是 TS 自己那条「体里有没有会生成的语句」✓：只有 `interface` / `type` 的体，
+// 以及**嵌套 namespace 同样只有类型**的那些 ✓，都不生成 ✓。
+if (this.NamespaceIsTypeOnly(body)) {
+  return;
+}
 // **① 那个对象** ✓
 //
 // **「有就复用」要看两个地方** ✗（第 325 轮修的 ✓）：**本层的槽** ✓ 与
@@ -2405,6 +2415,33 @@ this.Release(closure);
 // **复用那一档可以把对象格也放掉** ✓（它是这一处自己 `Reserve` 的临时格 ✓）；
 // **新造那一档不行** ✗（它下面还压着 `BindName` 留的变量格 ✓，见上面那一段 ✓）。
 if (existing >= 0 || existingCell >= 0) this.Release(object);
+```
+
+## method NamespaceIsTypeOnly:(body:AstNode)=>bool
+
+**这个 `namespace` 体一个运行期语句都没有吗** ✓（第 596 轮 ✓，见 `LowerNamespace` 里的说明 ✓）。
+
+只有 `interface` / `type` 的体不生成任何东西 ✓；**嵌套 namespace 要递归** ✓
+（`namespace A { namespace B { export interface X {} } }` 同样是空的 ✓）。
+其余（变量 / 函数 / 类 / 枚举 / 表达式 / `export {}` …）一律算运行期 ✓。
+
+```ts
+const statements = ListOf(body, "statements");
+for (const statement of statements) {
+  const kind = NodeKind(statement);
+  if (kind === "InterfaceDeclaration" || kind === "TypeAliasDeclaration") {
+    continue;
+  }
+  if (kind === "ModuleDeclaration") {
+    const inner = OptionalChild(statement, "body");
+    if (inner !== null && NodeKind(inner) === "ModuleBlock" && this.NamespaceIsTypeOnly(inner)) {
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+return true;
 ```
 
 ## method LowerNamespaceBody:(body:AstNode, namespaceName:string)=>void
@@ -7115,7 +7152,7 @@ if (kind === "AwaitExpression") {
   return this.LowerAwait(node);
 }
 if (kind === "TypeOfExpression") {
-  const subject = Child(node, "expression");
+  let subject = Child(node, "expression");
   // **`typeof` 一个没声明的名字**（第 149 轮）：JS 里这是**唯一不抛**的未声明读法 ✓——
   // `typeof window !== "undefined"` 这种特性检测遍地都是 ✓，而且 Node 跑得动它 ✓
   //（实测：`console.log(typeof window)` 给 `undefined` ✓），本仓原来在**降级期**就抛 ✗
@@ -7128,6 +7165,27 @@ if (kind === "TypeOfExpression") {
   //
   // **判据是「这个名字在不在作用域链上」** ✓（本地槽 ✓ + 捕获环境 ✓）：
   // 全局名是**局部槽**（`DeclareGlobals` 声明过 ✓），所以 `typeof console` 照旧走真路 ✓。
+  //
+  // **先剥掉纯类型的那几层** ✓（第 596 轮 ✓）：`as` / `satisfies` / `<T>x` 是**类型位语法** ✓、
+  // 运行期不存在 ✓ ⇒ `typeof (missing as any)` 与 `typeof missing` 是同一件事 ✓
+  //（判据在这一层只认 `Identifier` ✗ ⇒ 剥之前它走真路 ⇒ `ResolveAccess` 抛
+  // `name is not a local or a capture` ✓ ⇒ **整份文件进不来** ✗，而
+  // `typeof (globalThis as any).x` 这种写法到处都是 ✓）。
+  while (true) {
+    const wrapper = NodeKind(subject);
+    if (wrapper === "ParenthesizedExpression") {
+      // **括号也是透明的** ✓：`typeof (x as any)` 外面那层括号在投影里是一个
+      // `ParenthesizedExpression` 单元 ✓（不是值位括号那种 `Bracket` ✓）——
+      // 它是**分组**，不改变求的是哪一个名字 ✓。
+      subject = Child(subject, "expression");
+      continue;
+    }
+    if (wrapper === "AsExpression" || wrapper === "SatisfiesExpression" || wrapper === "TypeAssertionExpression") {
+      subject = Child(subject, "expression");
+      continue;
+    }
+    break;
+  }
   if (NodeKind(subject) === "Identifier" && this.NameIsUnreachable(TextOf(subject))) {
     const missing = this.Reserve(1);
     this.Emit(Op.Const, missing,

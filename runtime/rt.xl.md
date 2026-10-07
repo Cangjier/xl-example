@@ -1022,7 +1022,21 @@ return Value.FromBool(order === 1 || order === 0);
 - `undefined` / `null` → 同档即相等；
 - 字符串 → **按内容比**（字符串是原始值）；
 - 符号 → **按 `Id` 比**（身份，不看描述）；
-- 其余（对象 / 数组 / 函数 / 闭包 / 宿主句柄）→ **按句柄比**（引用相等）。
+- **宿主句柄** → **按「能力号 + 载荷」比**（见下）；
+- 其余（对象 / 数组 / 函数 / 闭包）→ **按句柄比**（引用相等）。
+
+**宿主句柄那一格是第 596 轮补的** ✓（原来它落在「按句柄比」里 ✗）：
+JS 里 `[][Symbol.iterator] === [].values` 是**真** ✓（`Array.prototype.toString === Array.prototype.join`
+同理 ✓）——**同一个能力装在两处就是同一个函数** ✓。而 `CreateHostRef` **每次都 `AllocateRaw`**
+一个新句柄 ✗ ⇒ 「两处装同一个能力号」拿到的是两个句柄 ⇒ `===` 给假 ✗
+（判据 `c371-stdlib-array-iterator-aliases` 现场红的 ✓）。
+
+**为什么不改成「在 `CreateHostRef` 里按对驻留」** ✗：那要让句柄**跨回收**存活 ✓——
+驻留表要么成为一根 GC 根 ✓（宿主句柄于是永不回收 ✗），要么在 `Clear` 里维护一张反向表 ✗。
+而这一格问的是**身份** ✓ ⇒ 把它落在判等这一处 ✓：一处、无状态、一个字节都不动回收器 ✓。
+
+**能力号 `0` 不参与** ✗：那是「语言层还没登记」的默认值 ✓（`vm.xl.md` 的两处都显式排掉它 ✓），
+`0` 与 `0` 之间没有身份关系 ✓——两个**不同**的未登记能力落在这一格上必须是假 ✓。
 
 **数值那一支必须排在「档位不同 → 假」前面**（第 129 轮修的一处**潜伏 bug** ✓）：
 `Int32` 与 `Float64` 是**同一个 JS 类型的两种表示** ✓（`MakeNumber` 的话：
@@ -1055,6 +1069,13 @@ if (left.IsString()) {
 }
 if (left.IsSymbol()) {
   return Value.FromBool(table.Get(left.Ref).AsSymbol().Id === table.Get(right.Ref).AsSymbol().Id);
+}
+if (left.Tag === ValueTag.HostRef && right.Tag === ValueTag.HostRef) {
+  const a = table.Get(left.Ref).AsHost();
+  const b = table.Get(right.Ref).AsHost();
+  if (a.CapabilityId !== 0 && a.CapabilityId === b.CapabilityId && a.Opaque === b.Opaque) {
+    return Value.FromBool(true);
+  }
 }
 return Value.FromBool(left.Ref === right.Ref);
 ```

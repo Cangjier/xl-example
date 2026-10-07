@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.93,
+  "progressPercent": 98.23,
   "layers": [
     {
       "layer": "runtime",
@@ -54,31 +54,31 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 405,
-      "blocked": 3,
-      "differ": 3,
+      "pass": 407,
+      "blocked": 2,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 98.54
+      "coverage": 99.03
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 621,
+      "pass": 622,
       "blocked": 0,
-      "differ": 13,
+      "differ": 12,
       "nodefail": 0,
-      "coverage": 97.95
+      "coverage": 98.11
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 160,
+      "pass": 161,
       "blocked": 3,
-      "differ": 3,
+      "differ": 2,
       "nodefail": 0,
-      "coverage": 96.39
+      "coverage": 96.99
     }
   ],
   "blocked": [
@@ -87,12 +87,6 @@
       "layer": "runtime",
       "title": "bind / call / apply 的 this 与实参形态",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c371-ex-class-implements-and-interface",
-      "layer": "exec",
-      "title": "implements 是擦除的；接口不产生运行期值",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Shape"
     },
     {
       "id": "c374-ex-throw-in-reentrant-callback",
@@ -169,12 +163,6 @@
       "detail": "stdout 不同：第 9 行：node «promise [object Promise]» vs tsrun «promise [object Object]»"
     },
     {
-      "id": "c371-ex-namespace-type-only-body",
-      "layer": "exec",
-      "title": "只有类型的 namespace 体是空操作",
-      "detail": "stdout 不同：第 1 行：node «1 s 7 undefined value» vs tsrun «1 s 7 object value»"
-    },
-    {
       "id": "c371-ex-spread-forms",
       "layer": "exec",
       "title": "展开：调用、new、数组、对象、rest 参数",
@@ -191,12 +179,6 @@
       "layer": "stdlib",
       "title": "toUpperCase / toLowerCase / toLocale* 的边界",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: case conversion outside ASCII (there is no mapping table here)"
-    },
-    {
-      "id": "c371-stdlib-array-iterator-aliases",
-      "layer": "stdlib",
-      "title": "values / keys / entries 与 Symbol.iterator 是同一件东西",
-      "detail": "stdout 不同：第 2 行：node «true» vs tsrun «false»"
     },
     {
       "id": "c371-stdlib-object-assign-getters-and-order",
@@ -263,12 +245,6 @@
       "layer": "stdlib",
       "title": "内建对象的 toString 与 valueOf 的组合",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Date.prototype.toString for a valid date (JS renders local time"
-    },
-    {
-      "id": "c371-e2e-quick-and-merge-sort",
-      "layer": "e2e",
-      "title": "快排 / 归并 / 插入排序三种实现与稳定性对比",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：out of room"
     },
     {
       "id": "c371-e2e-plugin-registry",
