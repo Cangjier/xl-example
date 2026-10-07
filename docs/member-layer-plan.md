@@ -1355,7 +1355,49 @@ if (isTail) {
 `cases` **1037 / 1037** ✓、全语料 **0** ✓（本轮没有留在树上的改动 ✓；
 上一轮的最佳状态仍是 `tmp/recon/r70/`：全语料 **4** ✓、占比 40.58% ✓）。
 
-## 八十九、每步都要钉住的三件事
+## 九十、战略转向（第 468 轮，按用户的判断）：**关掉 reorg，按预期一个一个建**
+
+前几轮一直是「在有 reorg 的树上打补丁」✗ —— 代价是反复被互相作用带偏 ✗
+（第 461–467 轮几乎都花在「是谁把这一格造坏了」上 ✗），而且换来的占比降幅很小 ✗
+（成员层只压 0.48 个百分点 ✗）。用户提的方向更对 ✓：**把 reorg 整体关掉**，
+让尺子把「还没搬到解析期的东西」直接列成清单 ✓，然后**按预期一个一个建** ✓。
+
+**开关**（`core/syntax/token.xl.md` ✓，一处 ✓）：
+
+```ts
+if (process.env.DSH_XL_NO_REORG === "1") {
+  return;
+}
+```
+
+⇒ 随时能在「有 reorg / 无 reorg」之间对照 ✓；开关本身对默认路径**零影响** ✓
+（复跑 `cases` 仍是 1037 / 1037 ✓）。
+
+**两种状态的读数**（`cases` 语料 ✓）：
+
+| 状态 | 完全一致 | 缺 | 漂移 | 多出来 | 字段名 |
+| --- | --- | --- | --- | --- | --- |
+| 有 reorg（主线，绿 ✓） | **1037 / 1037** | 0 | 0 | 0 | 0 |
+| **关掉 reorg** | **31 / 1037** | **8119（155 类）** | 52 | **7787（35 类）** | 76 |
+
+**清单**（脚本 `tmp/recon/no-reorg-inventory.cjs` ✓：关掉 reorg 跑尺子、按缺的种类聚合 ✓；
+`declarations` 目录 40 个文件 ✓）：
+
+```
+缺：Parameter=34  VariableDeclaration=28  VariableDeclarationList=26  VariableStatement=25
+    BindingElement=21  FunctionDeclaration=20  NumberKeyword=17  TypeReference=17
+    ReturnStatement=11  VoidKeyword=9  CallExpression=8  ArrowFunction=7  TypeParameter=7
+    ExpressionStatement=7  StringKeyword=7  ObjectBindingPattern=6  ArrayBindingPattern=5
+    AsyncKeyword=4  ObjectLiteralExpression=4  BinaryExpression=3
+多：Identifier=125  Bracket=57  ColonToken=56  EqualsToken=35  Block=10 …
+```
+
+⇒ **重建顺序**（自顶而下 ✓，与最初那条「从 class 开始」一致 ✓）：
+**`VariableStatement` / `VariableDeclaration(List)` → `FunctionDeclaration` →
+`Parameter` / `BindingElement` → 表达式层（`CallExpression` / `ArrowFunction` / `ReturnStatement`）**，
+每建一块就用这把尺子量 ✓（同时看 `reorg-share` 占比 ✓）。
+
+## 九十一、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；

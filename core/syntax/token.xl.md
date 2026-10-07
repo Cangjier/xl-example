@@ -167,6 +167,12 @@ this.Reorganize();
    CPU 多花一点、内存不会无限长。
 
 ```ts
+// **总开关**（第 468 轮）：`DSH_XL_NO_REORG=1` 时一趟重组都不跑 ✓。
+// 关掉之后产物就是「解析期长出来的样子」✗ ⇒ 尺子报的每一条「缺」都是还没搬过来的东西 ✓，
+// 清单式的重建就靠它 ✓（有 reorg 的树上打补丁容易被互相作用带偏 ✗）。
+if (process.env.DSH_XL_NO_REORG === "1") {
+  return;
+}
 if (this.ReorganizationQueue === null) {
   return;
 }
