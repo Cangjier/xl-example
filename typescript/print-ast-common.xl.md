@@ -2312,14 +2312,31 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       after += 2;
     }
     const rest = kids.slice(after);
-    if (rest.length === 0) return meta;
-    // **`new.target === A`：运算符那一截还没接回来** ✗（第 539 轮把区间修对、这一条留给下一轮 ✓）：
+    // **`new.target === A`：运算符那一截要接回来** ✓（第 580 轮 ✓，第 539 轮把区间修对时
+    // 把这一条留给了后面的轮次 ✓）：
+    //
     // 名字那一格被折成 `BinaryOperator(target === A)` 之后 ✓，`kids.slice(after)` 里
-    // **只剩运算符本身**（`===` 与 `A` 在它的 `Data` 里 ✓）✗ ⇒ 这里 `return meta` ✗
-    // ⇒ 缺 `BinaryExpression` / `EqualsEqualsEqualsToken` / `Identifier(A)` 三个 ✓。
-    // **修法方向** ✓：把那个 `BinaryOperator` 的操作数表接在 `meta` 后面一起交给 `foldBinaryFrom` ✓
-    //（与下面 `.名字` 那一支同源 ✓），先量再接 ✓。
-    return foldBinaryFrom(meta, rest, ctx);
+    // **只剩运算符本身** ✗（`===` 与 `A` 在那一格的 `Data` 里 ✓）⇒ 照「`rest` 为空就
+    // `return meta`」收尾就是**把整个右半截丢掉** ✗。实测（第 580 轮 ✓，
+    // `decl-class-new-target.ts`）：投影只投出一个 `MetaProperty [112,122)` ✓，
+    // 缺 `BinaryExpression` / `EqualsEqualsEqualsToken` / `Identifier(A)` 三个 ✓
+    // ——TS 那边是 `BinaryExpression [112,128) > [MetaProperty, «===», Identifier(A)]` ✓。
+    //
+    // 取法：从那一格二元单元**最左边那条脊**（一直往左的第一格 ✓）递归收它的**其余兄弟** ✓，
+    // 收出来的正是 `foldBinaryFrom` 要的 `[运算符, 操作数, …]` ✓（与下面 `.名字` 那一支同源 ✓）。
+    // **必须递归** ✗：这条脊是左嵌套的（`a === b === c` 折成 `(a === b) === c` ✓）——
+    // 逐层往下 `push` 会把两层的顺序搞反 ✓（`[===, c, ===, b]` ✗），而
+    // `[…内层, 本层运算符, 本层右操作数]` 这个顺序正好就是它 ✓。
+    const binaryTail = (unit: any, depth: int): any[] => {
+      if (depth > 32 || unit instanceof Map === false) return [];
+      if (unit.get("type") !== "BinaryOperator") return [];
+      const down = projectableKids(view(unit));
+      if (down.length === 0) return [];
+      return [...binaryTail(down[0], depth + 1), ...down.slice(1)];
+    };
+    const tail = headIsBinary ? [...binaryTail(named, 0), ...rest] : rest;
+    if (tail.length === 0) return meta;
+    return foldBinaryFrom(meta, tail, ctx);
   }
 
   // ---- 0a. 可选链 / 可选调用（第 107 轮）----
