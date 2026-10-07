@@ -144,11 +144,21 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     // `SearchStatementEnd` 给不出结尾——那是语句写完了，不是语法错误（第 63 轮补）。
     endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
   }
+  // **空体：`for (…);`**（第 589 轮 ✓）：这条规则由 `;` 触发，而触发那一刻
+  // **`;` 还没进 `units`**——`for (;;);` 走到这里时列表只有 `for` 与那对括号两格
+  // ⇒ `SearchStatementEnd` 与 `LastMeaningfulIndex` 都给 `-1`。
+  // 从前这里抛错（`dist/ts/typescript/print-ast-common.ts` 那份 `for (…);` 就是它挡下的）。
+  // 体为空、`endIndex` 退到 `)` 那一格：区间借宿主的右端（下面那一支），
+  // 而 `;` 由投影侧按原文补成 `EmptyStatement`（见 `For.PrintAst`）。
   if (endIndex === -1) {
-    throw new Error("`for(...)` 后需要跟语句，如` for(...){...}` 或 `for(...)...;` ");
+    endIndex = currentIndex - 1;
   }
-  forBody.AddRange(TakeRange(units, currentIndex, endIndex - currentIndex + 1));
-  forBody.SignIn(Get(units, currentIndex)!.SourceRange.Start!);
+  if (endIndex >= currentIndex) {
+    forBody.AddRange(TakeRange(units, currentIndex, endIndex - currentIndex + 1));
+    forBody.SignIn(Get(units, currentIndex)!.SourceRange.Start!);
+  } else {
+    forBody.SignIn(Get(units, endIndex)!.SourceRange.End!);
+  }
   // **体那一格单语句时，尾分号要算进来** ✓（第 572 轮 ✓，与第 569 轮 `do-while` 那一处同一条口径 ✓）：
   // `;` 是语句终结符 ✓ —— `Statement.FormFrom` 把它**切进壳体的区间**却不放进 `Data` ✗
   // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格 ✓

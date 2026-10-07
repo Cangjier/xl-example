@@ -192,9 +192,25 @@ ifSet.MountCondition(source);
     const expr = conditionOf(segments[index]);
     if (expr !== undefined) props.expression = expr;
     const thenBody = ctx.BlockOfBody(bodyOf(segments[index]), bodyFrom(segments[index]));
+    // **空语句体的右端**：`seg.end` 含尾部换行，而 TS 的 `IfStatement` 到那个 `;` 为止。
+    let emptyBodyEnd = -1;
     if (thenBody !== undefined) props.thenStatement = thenBody.node;
+    else {
+      // **空语句体 `if (a);`**（第 589 轮）：体那一格是一个**没有内容**的 `Statement`，
+      // 而 `projectStatement` 对它的口径是「`;` 必须写在**行首**」（那一处按排版分辨
+      // 「防御性分号」与「成员声明后面那个 `;`」）⇒ 跟在 `if (a)` 后面的那个 `;` 被判掉 ✗
+      // ⇒ `thenStatement` 整格缺（实测 `if (a);` 缺 1 + 字段名 1）。
+      // **与 `for` / `while` 的兜底同一招**：按原文从条件的 `)` 往后找那个 `;`。
+      const close = ctx.MatchingParen(ctx.source, seg.start);
+      let at = close >= 0 ? close + 1 : -1;
+      while (at >= 0 && at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+      if (at >= 0 && ctx.source[at] === ";") {
+        props.thenStatement = { kind: "EmptyStatement", pos: at, end: at + 1 };
+        emptyBodyEnd = at + 1;
+      }
+    }
     let pos = seg.start;
-    let end = thenBody === undefined ? seg.end : thenBody.end;
+    let end = thenBody === undefined ? (emptyBodyEnd >= 0 ? emptyBodyEnd : seg.end) : thenBody.end;
     if (index + 1 < segments.length) {
       // **`else` 在本段的 `if` 与下一段之间**，所以从下一段的起点往回找：
       // 段的起点在 `else if` 时是那个 `if`（不是 `else`），从本段起点往后找会把它自己

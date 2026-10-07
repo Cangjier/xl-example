@@ -789,6 +789,7 @@ return word === "as" || word === "satisfies" || word === "in" || word === "of" |
 | `\|` / `&` / `.` | 直接答「续接」✓（第 568 轮 ✓，三个都**起不了一条语句** ✓） |
 | `(` / `[` | 还要过两道护栏 ✓（第 582 轮 ✓）——见下 |
 | `?` / `:` | 直接答「续接」✓（第 585 轮 ✓，两个都**起不了一条语句、也起不了一个成员** ✓） |
+| `+` / `-` / `*` / `%` / `^` | 直接答「续接」✓（第 589 轮 ✓，见下 ✓） |
 
 **`(` / `[` 为什么当初被排除、后来又补上** ✓：
 
@@ -908,6 +909,29 @@ if (head === "(" || head === "[") {
 // `: "Symbol(" + …` 那截里的字符串被当成**类型字面量** ✗ ⇒ 多出 `LiteralType` /
 // `ParenthesizedType` ✓）。实测一份 12 行的最小复现：缺 21 / 漂 6 / 多 12 ✓。
 if (head === "?" || head === ":") {
+  return true;
+}
+// **双目运算符开头**（第 589 轮）：`return a * 86400000` 换行 `+ b * 3600000` 是**一条**表达式
+// （ASI 不在它前面断句——`+` 能接着上一条表达式写），实测 `dist/ts/typescript-exec/builtins/globals.ts`
+// 与 `inspect.ts` 两份：上一行被收成一个 `ReturnStatement` / `ExpressionStatement`，
+// 下一行另外起一条 `ExpressionStatement`，`+` 成了 `PrefixUnaryExpression`。
+//
+// **只收「起不了一条语句」的那几个** ✗：`*` `%` `^` 都是纯双目，
+// 一行以它们开头**只可能**是上一行的续写；`+` / `-` 两可作为一元前缀，
+// 可 ASI 的判据是「下一个词能不能续接」——`+ x` 接在一条表达式后面**永远是**二元，
+// 所以换行处也不该收壳（真的另起一条语句时，上一格已经是 `;` / `}` / 语句级单元，
+// `IsStatementBoundary` 那一句早就早退了，走不到这里）。
+//
+// **`/` 不在此列** ✗：一行以 `/` 开头可能是正则或注释，`(` / `[` 同理（第 568 轮的账）。
+// `&` / `|` / `.` 在下面那一句里，`&&` / `||` / `??` 与比较、相等运算符留给以后按需加。
+if (head === "+" || head === "-" || head === "*" || head === "%" || head === "^") {
+  // **`++` / `--` 是前缀式**：`a` 换行 `++b` 在 TS 里是两条语句（ASI 的受限产生式）
+  // ⇒ 两个字符连着写时不是续接（实测 `stmt-asi-prefix-increment.ts` 与
+  // `stmt-asi-prefix-increment-after-statement.ts` 两份，各缺 2 / 漂 2 / 多 1）。
+  const after = at + 1 < count ? document.GetValue(at + 1) : "";
+  if ((head === "+" && after === "+") || (head === "-" && after === "-")) {
+    return false;
+  }
   return true;
 }
 // **下一行以 `catch` / `finally` 开头** ✓：`try { … }` 换行 `catch (e) { … }` 换行
@@ -1126,7 +1150,7 @@ return false;
    `type X<T extends U> = { … }` 换行（那个 `extends` 在**泛型形参表**里 ✓、
    而花括号里的 `a: string` 是 `Bracket` 单元里的内容 ✗ ⇒ 顶层一个 `:` 都没有 ✓）
    ⇒ 判成「没写完」⇒ 下一条语句被并进同一个壳 ✓；
-3. 那个 `?` 之后**顶层没有 `:`** ✓ —— 有就说明假分支已经写了 ✓。
+3. 那个 `?` 之后**顶层没有 `:`，或者那个 `:` 就是这一段的最后一格** ✓ —— 有 `:` 且它后面还有实义单元才说明假分支已经写了 ✓。
    括号里的 `:`（`? { a: 1 }` / `? [1, 2]` ✓）不算 ✗：它们是单元内部的内容 ✓，
    而这一问要的正是「**这个条件类型自己那个 `:`** 到了没有」✓。
 
@@ -1163,11 +1187,16 @@ for (let i = extendsAt + 1; i < index; i++) {
 if (questionAt < 0) {
   return false;
 }
+let colonAt = -1;
 for (let i = questionAt + 1; i < index; i++) {
   const item = Get(units, i);
   if (item instanceof SymbolToken && item.Is(":")) {
-    return false;
+    colonAt = i;
   }
+}
+// **`:` 收尾 ⇒ 假分支还在下一行**（第 589 轮）：`:` 后面还有实义单元才算写完。
+if (colonAt >= 0 && SkipNextTrivia(units, colonAt) < index) {
+  return false;
 }
 return true;
 ```
@@ -1600,7 +1629,14 @@ if (head === "do") {
 //   实测 `mod-import-equals-deep.ts` 等四份从绿变红 ✓）。
 const modifiers = ["export", "declare", "abstract", "default", "async", "const"];
 const declarationWords = ["class", "interface", "enum", "namespace", "module"];
-let wordIndex = frontIndex + 1;
+// **段首的 trivia 要跳过**（第 589 轮）：`frontIndex + 1` 那一格常常是**上一条语句留下的软换行**——
+// `interface A { … }` 换行 `interface B` 换行 `extends …` 的排版里，段是
+// `[Interface(A), LineWrap, interface, B]`，而 `WordOf(LineWrap)` 给空串 ⇒ 两张词表都问不到
+// ⇒ 照常收壳 ⇒ 整条声明被关进 `Statement`（实测 `@types/node/vm.d.ts` / `fs.d.ts` /
+// `querystring.d.ts` 三份，都是「上一条声明之后紧跟一条头跨行的声明」）。
+// **不跳过那一格就等于「只有文件第一条声明认得出来」**：`interface B2` 换行 `extends …`
+// 单独写在文件开头时是对的，跟在任何一条语句后面就错。
+let wordIndex = SkipNextTrivia(data, frontIndex);
 let word = Statement.WordOf(Get(data, wordIndex));
 while (word !== "" && modifiers.indexOf(word) >= 0) {
   wordIndex = wordIndex + 1;

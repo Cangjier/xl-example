@@ -95,11 +95,18 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     // `SearchStatementEnd` 找不到结束符号——那是语句写完了，不是语法错误。
     endIndex = Statement.LastMeaningfulIndex(units, statementStart);
   }
+  // **空体：`while (…);`**（第 589 轮 ✓，与 `for.xl.md` 那一处一字不差 ✓）：
+  // 规则由 `;` 触发，而那一刻 `;` 还没进 `units` ⇒ 两个找尾的都给 `-1`。
+  // 体为空、`endIndex` 退到 `)` 那一格；`;` 由投影侧按原文补成 `EmptyStatement`。
   if (endIndex === -1) {
-    throw new Error("`while(...)` 后需要跟语句，如` while(...){...}` 或 `while(...)...;` ");
+    endIndex = statementStart - 1;
   }
-  forStatement.AddRange(TakeRange(units, statementStart, endIndex - statementStart + 1));
-  forStatement.SignIn(Get(units, statementStart)!.SourceRange.Start!);
+  if (endIndex >= statementStart) {
+    forStatement.AddRange(TakeRange(units, statementStart, endIndex - statementStart + 1));
+    forStatement.SignIn(Get(units, statementStart)!.SourceRange.Start!);
+  } else {
+    forStatement.SignIn(Get(units, endIndex)!.SourceRange.End!);
+  }
   // **体是单语句时，尾分号要算进来** ✓（与 `for` 第 572 轮那一处同一条口径 ✓）：
   // `;` 被 `Statement.FormFrom` **切进壳体的区间**、却不放进 `Data` ✗
   // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格 ✓。
