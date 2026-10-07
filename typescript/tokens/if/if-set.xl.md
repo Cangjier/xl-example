@@ -1,18 +1,8 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
-import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
-import { GetSkipNextTrivia } from "../../text-common-util.xl.md"
-import { SkipNextTrivia } from "../../text-common-util.xl.md"
-import { Bracket } from "../bracket.xl.md"
-import { Identifier } from "../identifier.xl.md"
-import { Statement } from "../statement.xl.md"
 import { IfSegment } from "./if-segment.xl.md"
 ```
 
@@ -20,160 +10,22 @@ import { IfSegment } from "./if-segment.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`if` 语句：把 `if (...) {...} else if (...) {...} else {...}` 这一长串单元重组成一个 `IfSet`，里面按段装 `IfSegment`。
+`if` 语句的**容器**：`<IfSet>` 里按段装 `IfSegment`。
 
-重组规则类 `IfSetReorganization` **不进 `Data`、不进 XML**，所以它的类名随便取。反过来，`IfSet` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。`Root` 构造时会把 `IfSetReorganization.Instance` 注册进通用重组队列。
+**它以前是靠重组造出来的** ✗（`IfSetReorganization` ✓，第 394 轮整条删掉了 ✓）：
+那条规则在一张**已经被别的规则动过的**兄弟列表上回扫、跳过 trivia、算下标、`slice` 出一段、
+最后 `ReplaceCountAt` 把整段换掉 ✓。它的难点全在「事后」这两个字上 ✓
+（第 288 轮「体与 `else` 之间夹一条注释就断链」就是这一类 ✓）。
 
-# class IfSetReorganization extends Reorganization
+**现在由 `./if-guide.xl.md` 在读的时候造** ✓：向导从 `if` 那个词起把字符收进一个暂存单元 ✓，
+每收一个字符拿那张平列表跑一遍**只看不写**的规划 ✓，规划说「可以了」就地建出本类 ✓。
+判据一字不差地搬了过去 ✓（见那个文件里的 `Plan` ✓），所以产物是同一棵树 ✓。
 
-重组规则：`if` 加一个 `(` 开头的 `Bracket`，就整段换成一个 `IfSet`。
+**为什么它自己不消费字符** ✗：`GuideToken` 那一族把字符都交给了子单元 ✓，
+本类只是**造出来的结果** ✓（`IndependentToken` 的 `Process` 是空的 ✓），
+所以它的 `Data` 只在建它的那一刻被填一次 ✓。
 
-它是 token 层最长的一条重组：从 `if` 开始，逐段吃掉「关键字 + 条件括号 + 语句体」，遇到 `else` 就回头看它后面跟的是 `if`（继续当 `else if`）还是别的（当 `else`，循环到此结束），每一段都做成一个 `IfSegment`。
-
-## static readonly field Instance:IfSetReorganization = new IfSetReorganization()
-
-唯一的实例。
-
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
-
-`index` 处是不是本次重组的起点：一个内容为 `if` 的 `Identifier`，紧跟（跳过 `LineWrap` 软换行）一个 `(` 开头的 `Bracket`。
-
-```ts
-const unit = Get(units, index);
-if (!(unit instanceof Identifier) || !unit.Is("if")) {
-  return false;
-}
-const next = GetSkipNextWrapSymbol(units, index);
-return next instanceof Bracket && next.startBracket === "(";
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-执行重组：把整条 `if / else if / else` 链收进一个 `IfSet`，**返回新的下标**。
-
-重组把这一整段换成一个 `IfSet`，下标必须跟着走。这里的方法体**从不给 `index` 赋值**，所以原样 `return index;`——替换后位置 `index` 上是新插入的 `IfSet`，外层 `for` 自增一步正好落在它后面。
-
-`ReplaceCountAt(units, index, count, result)` 把从 `index` 起的 `count` 个单元换成一个 `IfSet`。
-
-两处抛错都用 `new Error("…")`（不进规范类型位），消息原样保留。
-
-几点说明：
-
-1. **签入 / 签出取的是 `Source` 本身**。`Start` 是 `Source | null`，所以一律写成 `Get(units, i)!.SourceRange.Start!`——取出来的是**位置**，不是字符。
-2. **`ifKey` 的取法**：关键字所在单元按 `Identifier` 取文本（`if` / `else`）。
-3. **第一段与后续段的签入点不同**：第一段（`Data.Count == 1`）从关键字自身签入；`else if` 从关键字**前一个**单元签入（带上 `else`），`else` 从关键字自身签入。
-4. **条件括号**：`if` 后面必须跟一个 `Bracket`，把括号里的子单元整体 `MoveDataTo` 给新建的 `IfCondition`，再按括号的起止签入签出。
-5. **语句体**：括号后面若是 `{` 开头的 `Bracket`，整块搬给 `IfStatement`；否则当成单条语句，用 `Statement.SearchStatementEnd` 找回语句结尾（`-1` 即失败），取 `[currentIndex, endIndex]` 这一段用数组原生的 `slice(currentIndex, endIndex + 1)` 取出，按 `AddRange` 交给 `IfStatement`。
-6. **续段判定**：语句体之后再跳掉 **trivia**（软换行**与注释**），若遇到内容为 `else` 的
-   `Identifier`，就再看它后面（同样跳 trivia）是不是 `if`：是则把 `lastKeyIndex` /
-   `currentIndex` 都推到那个 `if`（`else if`），否则把 `lastKeyIndex` 设到 `else`（最后一段）；
-   不是 `else` 就把 `endIndex = currentIndex - 1` 并收尾。
-
-   **第 288 轮把这两处从 `SkipNextWrapSymbol` 换成 `SkipNextTrivia`** ✗——
-   原来只跳过软换行 ✓，于是**两者之间夹一条注释就断链** ✗
-   （`if (value > best) best = value;` 换行、一条 `//` 注释、再换行、
-   然后才是 `else if (value === 0 && best === 0) best = value;`）。
-
-   实测：产物把这一条 `if / else if` 拆成了**两个各自独立的 `IfSet`** ✗
-   （`IfStatement` 的区间只到第一条语句为止 ✓），而 TS 那边**是一个 `IfStatement`** ✓
-   （`else` 是词法记号、注释只是 trivia ✓——`ts.forEachChild` 连看都不看它 ✓）。
-   判据当场指着两处 ✗：**区间漂移**（外层 `IfStatement` 短了 ✓）与**多出来的节点**（第二条
-   `IfStatement` 本该是 `elseStatement` ✓）。
-
-   **为什么原来没被量到** ✗：这是**同一个形状在两种 trivia 上只做了一半** ✓——
-   `SkipNextWrapSymbol` 那一族管的是「**软换行**」✓，而注释从一开始就是另一档 ✓
-   （`IsTriviaUnit` / `SkipNextTrivia` 那一对**早就有了** ✓，`conditional-type.xl.md` 也在用 ✓）。
-   语料里此前**没有一条**「`if` 体与 `else` 之间夹注释」的写法 ✗，
-   所以它一直没红 ✓——**第 288 轮改一处 `Math.min` / `Math.max` 的判据时顺手写了这种排版** ✓，
-   于是 `cases:tsast` 当场报了出来 ✓（`完全一致的文件 1441 / 1442` ✓）。
-
-   **为什么要顺手加语料** ✗：这一条**已经被修好了** ✓，而「修好的形状要有判据守着」是
-   第 273 轮立下的规矩 ✓——所以 `tests/parse/cases/statements/` 里补了一条
-   `if-else-with-comment.ts` ✓（同时盖住 `else if` 与最后的 `else` 两种续段 ✓）。
-
-```ts
-const result = new IfSet(template);
-result.Parent = Get(units, index)!.Parent;
-result.SignIn(Get(units, index)!.SourceRange.Start!);
-const startIndex = index;
-let endIndex = index;
-let currentIndex = index;
-let lastKeyIndex = index;
-while (true) {
-  const ifSeg = result.Add(new IfSegment(template));
-  const ifKey = (Get(units, lastKeyIndex) as Identifier).TempToString();
-  if (result.Data.length === 1) {
-    ifSeg.SignIn(Get(units, lastKeyIndex)!.SourceRange.Start!);
-  } else {
-    if (ifKey === "if") {
-      ifSeg.SignIn(Get(units, lastKeyIndex - 1)!.SourceRange.Start!);
-    } else if (ifKey === "else") {
-      ifSeg.SignIn(Get(units, lastKeyIndex)!.SourceRange.Start!);
-    }
-  }
-  ifSeg.key = ifKey;
-  if (ifKey === "if") {
-    currentIndex = SkipNextWrapSymbol(units, lastKeyIndex);
-    const condition = Get(units, currentIndex);
-    if (!(condition instanceof Bracket)) {
-      throw new Error("if/else if 后需要跟条件，如if(...)");
-    }
-    const ifCondition = ifSeg.CreateCondition();
-    condition.MoveDataTo(ifCondition);
-    ifCondition.SignIn(condition.SourceRange.Start!);
-    ifCondition.SignOut(condition.SourceRange.End!);
-    ifCondition.TryToClose();
-  }
-  currentIndex = SkipNextWrapSymbol(units, currentIndex);
-  const statement = Get(units, currentIndex);
-  if (statement instanceof Bracket && statement.startBracket === "{") {
-    const ifStatement = ifSeg.CreateStatement();
-    statement.MoveDataTo(ifStatement);
-    ifStatement.SignIn(statement.SourceRange.Start!);
-    ifStatement.SignOut(statement.SourceRange.End!);
-    ifStatement.TryToClose();
-    endIndex = currentIndex;
-  } else {
-    endIndex = Statement.SearchStatementEnd(units, currentIndex - 1);
-    if (endIndex === -1) {
-      // **体一直写到输入末尾**（第 63 轮补）：`if (x) print(1)` 这样没有 `;`、文件又正好在
-      // 这里结束（没有结尾换行）时，`SearchStatementEnd` 找不到结束符号。
-      // 那是 TypeScript 的语句写到输入末尾就结束，**不是语法错误**——
-      // 原来这里直接抛异常，等于崩在合法 TS 上（实测 `if (x) print(1)` 无结尾换行时抛
-      // 「`if/else if(...)` 后需要跟语句」）。
-      endIndex = Statement.LastMeaningfulIndex(units, currentIndex);
-    }
-    if (endIndex === -1) {
-      throw new Error("`if/else if(...)` 后需要跟语句，如` if(...){...}` 或 `if(...)...;` ");
-    }
-    const ifStatement = ifSeg.CreateStatement();
-    ifStatement.AddRange(units.slice(currentIndex, endIndex + 1));
-    ifStatement.SignIn(Get(units, currentIndex)!.SourceRange.Start!);
-    ifStatement.SignOut(Get(units, endIndex)!.SourceRange.End!);
-    ifStatement.TryToClose();
-    currentIndex = endIndex;
-  }
-  currentIndex = SkipNextTrivia(units, currentIndex);
-  const nextCommon = Get(units, currentIndex);
-  if (nextCommon instanceof Identifier && nextCommon.Is("else")) {
-    const nextKeyworkdIndex = SkipNextTrivia(units, currentIndex);
-    const ifCommon = Get(units, nextKeyworkdIndex);
-    if (ifCommon instanceof Identifier && ifCommon.Is("if")) {
-      lastKeyIndex = nextKeyworkdIndex;
-      currentIndex = nextKeyworkdIndex;
-    } else {
-      lastKeyIndex = currentIndex;
-    }
-  } else {
-    endIndex = currentIndex - 1;
-    break;
-  }
-}
-result.SignOut(Get(units, endIndex)!.SourceRange.End!);
-result.TryToClose();
-ReplaceCountAt(units, index, endIndex - startIndex + 1, result);
-return index;
-```
+本类的类名**就是** XML 标签名（取自 `this.constructor.name`）✓，不能改 ✓。
 
 # class IfSet extends IndependentToken
 

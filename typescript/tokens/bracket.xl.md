@@ -50,15 +50,17 @@ return result;
 const bracket = new Bracket(unit.Template);
 bracket.Context = DecideBracketContext(unit, source.Value);
 unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
-// **类型位的花括号是一张成员列表** ✓（第 393 轮）：`type X = { if(a): void }` 里的 `if` 是成员名 ✓，
-// 不是 if 语句 ✓。这一格**复用已有的 `Context` 答案** ✓（它在开括号那一刻就算好了 ✓，
-// 见下面那个字段的说明），不是新推断 ✓——只是把答案用在**队列**上 ✓，
-// 于是「成员列表里不认 if 语句」由队列本身保证 ✓（见 `../parse-pipeline.xl.md` 的 `CreateMemberListQueue` ✓）。
+// **成员列表的体：换一条队列** ✓（第 393 轮立、第 394 轮改成现在这个形状）。
 //
-// 放在 `Use` **之后**：`Use("{")` 不动队列（`{` 括号一律不带重组队列 ✓），
-// 所以这里赋值不会跟它打架 ✓；`(` / `[` 的 `Context` 不会是 `"type"` 以外的值被误伤 ✓
-// （`DecideBracketContext` 对 `(` 恒返回空串 ✓）。
-if (source.Value === "{" && bracket.Context === "type") {
+// 判据**不是**在这里自己猜「这是不是类体」✗，而是问 `ParsePipeline.IsMemberListHead` ✓——
+// 它往回扫**宿主自己的平列表**（`class` 那个词早就被 `Identifier` 照常吃掉了 ✓，此刻就躺在表里 ✓），
+// 撞上那三个词就交给对应那条规则**自己的** `Previous` ✓。
+//
+// **位置是关键** ✗：这一句必须在 `AddToMounted` **之后** ✓——四条规则的 `Previous` 要的形状是
+// 「头 + 体括号都在」✓，而这一刻体括号刚刚进表 ✓。放在前面的话它们一律判否 ✗。
+//
+// 于是「成员列表里不认 if 语句」由**队列本身**保证 ✓，`IfGuideBranch` 一个闸都不用加 ✓。
+if (source.Value === "{" && ParsePipeline.IsMemberListHead(unit.Template, unit.Data)) {
   bracket.ProcessQueue = ParsePipeline.CreateMemberListQueue();
 }
 ```

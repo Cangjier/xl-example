@@ -84,6 +84,20 @@ import { IfSet } from "./if-set.xl.md"
 
 体是不是一个花括号块。
 
+## field SetStart:bool = false
+
+这一段是不是**一个 `IfSet` 的第一段**。
+
+一趟规划可以收下**多条连续的链** ✓（`if (a) f(); if (b) g();` ✓），每一条链各是一个 `IfSet` ✓，
+所以「第几段」这件事要按**组**算、不能按整趟算 ✓——原来那句 `plan.Segments.length === 0`
+只能认出整趟的第一段 ✓，多条链时会从第二条起把签入位置算错 ✗。
+
+## field SetEnd:int = -1
+
+**本段所在那一组**（那一个 `IfSet`）的最后一个单元下标：`IfSet` 的终点取它的终点。
+
+同一组里每一段都是同一个值 ✓（回填时一起写 ✓），调用方按「最后见到的那一个」用就够了 ✓。
+
 # class IfPlan
 
 一次规划的结论。
@@ -144,8 +158,9 @@ import { IfSet } from "./if-set.xl.md"
    成员列表（类体 / 接口体 / 枚举体 / 类型字面量 / 映射类型 ✓）里的字符由
    `ParsePipeline.CreateMemberListQueue()` 处理 ✓，**那条队列里根本没有本分支** ✓
    ⇒ 这个位置**轮不到**向导 ✓，不需要在这里再判一次 ✓。
-   原来那两条是「这个 `{` 是不是成员列表」的**第二份答案** ✓（第一份在三条规则自己手里 ✓），
-   换成队列之后就没有第二份了 ✓——这也正是 `MemberListGuide` 存在的理由 ✓。
+   原来那两条是「这个 `{` 是不是成员列表」的**第二份答案** ✓（第一份在四条规则自己手里 ✓），
+   换成队列之后就没有第二份了 ✓——那个判断现在只发生在**一处** ✓：
+   `tokens/bracket.xl.md` 在 `{` 开出来之后问一次 `ParsePipeline.IsMemberListHead` ✓。
 
 ```ts
 const result = new BranchConditionResult();
@@ -384,11 +399,21 @@ if (parent === null) {
 }
 const units = this.Collector!.Data;
 const tail = units.slice(plan.TailStart);
-const ifSet = new IfSet(this.Template);
-ifSet.SignIn(Get(units, 0)!.SourceRange.Start!);
-parent.Add(ifSet);
+// **按组收尾** ✗（多条链那一档）：`SetStart` 换一个 `IfSet` ✓、换的时候把上一组签出关掉 ✓。
+// 一组的终点用「最后见到的那个 `SetEnd`」✓——同一组里每一段都是同一个值 ✓（回填时一起写 ✓）。
+let ifSet:IfSet | null = null;
+let setEnd = 0;
 for (const segment of plan.Segments) {
-  const ifSeg = ifSet.Add(new IfSegment(this.Template));
+  if (segment.SetStart) {
+    if (ifSet !== null) {
+      ifSet.SignOut(Get(units, setEnd)!.SourceRange.End!);
+      ifSet.TryToClose();
+    }
+    ifSet = new IfSet(this.Template);
+    ifSet.SignIn(Get(units, segment.SignIndex)!.SourceRange.Start!);
+    parent.Add(ifSet);
+  }
+  const ifSeg = ifSet!.Add(new IfSegment(this.Template));
   ifSeg.key = segment.Key;
   ifSeg.SignIn(Get(units, segment.SignIndex)!.SourceRange.Start!);
   if (segment.ConditionIndex >= 0) {
@@ -411,9 +436,12 @@ for (const segment of plan.Segments) {
     ifStatement.SignOut(Get(units, segment.BodyEnd)!.SourceRange.End!);
   }
   ifStatement.TryToClose();
+  setEnd = segment.SetEnd;
 }
-ifSet.SignOut(Get(units, plan.EndIndex)!.SourceRange.End!);
-ifSet.TryToClose();
+if (ifSet !== null) {
+  ifSet.SignOut(Get(units, setEnd)!.SourceRange.End!);
+  ifSet.TryToClose();
+}
 parent.AddRange(tail);
 this.HandOverOpenUnit(parent);
 units.length = 0;
@@ -482,6 +510,12 @@ if (head.Is("if") === false) {
 let currentIndex = 0;
 let lastKeyIndex = 0;
 let endIndex = 0;
+// **按组记**「是不是本组第一段」与「本组从哪一段开始」✗（多条链那一档要用）：
+// 原来判的是 `plan.Segments.length === 0` ✓（整趟的第一段 ✓），
+// 多条链时第二条链的第一段会被算成「不是第一段」✗ ⇒ 签入位置取成 `lastKeyIndex - 1`
+// （那已经是**上一条链的尾巴**了 ✗）⇒ 区间与层数全漂 ✗。
+let setFirst = true;
+let setStartIndex = 0;
 while (true) {
   const segment = new IfSegmentPlan();
   const keyUnit = Get(units, lastKeyIndex);
@@ -494,7 +528,7 @@ while (true) {
   }
   const key = keyUnit.TempToString();
   segment.Key = key;
-  if (plan.Segments.length === 0) {
+  if (setFirst) {
     segment.SignIndex = lastKeyIndex;
   } else if (key === "if") {
     segment.SignIndex = lastKeyIndex - 1;
@@ -504,6 +538,8 @@ while (true) {
     plan.Reject = true;
     return plan;
   }
+  segment.SetStart = setFirst;
+  setFirst = false;
   if (key === "if") {
     currentIndex = SkipNextWrapSymbol(units, lastKeyIndex);
     const condition = Get(units, currentIndex);
@@ -563,6 +599,9 @@ while (true) {
       return plan;
     }
     endIndex = currentIndex - 1;
+    for (let k = setStartIndex; k < plan.Segments.length; k++) {
+      plan.Segments[k].SetEnd = endIndex;
+    }
     plan.EndIndex = endIndex;
     plan.TailStart = currentIndex;
     plan.Complete = true;
@@ -599,6 +638,30 @@ while (true) {
     }
   } else {
     endIndex = currentIndex - 1;
+    for (let k = setStartIndex; k < plan.Segments.length; k++) {
+      plan.Segments[k].SetEnd = endIndex;
+    }
+    // **紧接着又是一条链就接着收** ✗（第 394 轮）：原来这一趟到此为止 ✓，
+    // 于是「一条链收完之后**紧跟**的第二条 `if`」落到 `IfSetReorganization` 手里 ✗
+    // （1228 份文件里命中 2 次 ✓）。这一条不断链，`IfSetReorganization` 才能真的删掉 ✓。
+    //
+    // 判据是「那个词是 `if`、而且它后面（跨过软换行）是一个 `(` 括号」✓——
+    // 与 `IfSetReorganization.Previous` 一字不差 ✓。括号还没来时**等** ✓（`atEnd` 时不接 ✓，
+    // 那时它只可能是尾巴 ✓）。
+    if (next instanceof Identifier && next.Is("if")) {
+      const conditionIndex = SkipNextWrapSymbol(units, currentIndex);
+      const condition = Get(units, conditionIndex);
+      if (condition === null) {
+        if (atEnd === false) {
+          return plan;
+        }
+      } else if (condition instanceof Bracket && condition.startBracket === "(") {
+        lastKeyIndex = currentIndex;
+        setFirst = true;
+        setStartIndex = plan.Segments.length;
+        continue;
+      }
+    }
     plan.EndIndex = endIndex;
     plan.TailStart = currentIndex;
     plan.Complete = true;

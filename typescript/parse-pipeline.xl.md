@@ -5,6 +5,8 @@ import { Reorganization } from "../core/syntax/reorganization.xl.md"
 import { Sequence } from "../core/syntax/templates/sequence.xl.md"
 import { Token } from "../core/syntax/token.xl.md"
 import { Template } from "../core/syntax/templates/template.xl.md"
+import { Get } from "../core/extensions/list-extension.xl.md"
+import { IsTriviaUnit } from "./text-common-util.xl.md"
 import { AreaAnnotation } from "./tokens/area-annotation.xl.md"
 import { AsReorganization } from "./tokens/as.xl.md"
 import { FunctionTypeReorganization } from "./tokens/function-type.xl.md"
@@ -39,8 +41,6 @@ import { ForeachReorganization } from "./tokens/foreach/foreach.xl.md"
 import { FunctionReorganization } from "./tokens/function/function.xl.md"
 import { GenericType } from "./tokens/generic-type.xl.md"
 import { IfGuide } from "./tokens/if/if-guide.xl.md"
-import { IfSetReorganization } from "./tokens/if/if-set.xl.md"
-import { MemberListGuide } from "./tokens/member-list-guide.xl.md"
 import { ImportReorganization } from "./tokens/import.xl.md"
 import { ExportReorganization } from "./tokens/export.xl.md"
 import { InterfaceReorganization } from "./tokens/interface/interface.xl.md"
@@ -135,7 +135,6 @@ return new Sequence<Branch>([
   GenericType.JumpIn,
   LineWrap.AppendIn,
   SymbolToken.AppendIn,
-  MemberListGuide.JumpIn,
   IfGuide.JumpIn,
   Identifier.AppendIn,
 ]);
@@ -153,14 +152,21 @@ return new Sequence<Branch>([
 这一条把答案换成**结构** ✓：成员列表里的字符由这条队列处理 ✓，它里面**没有** `IfGuide.JumpIn` ✓
 ⇒ 「成员列表里不认 if 语句」由**队列本身**保证 ✓，`if` 那一侧一个闸都不用加 ✓。
 
-**`MemberListGuide.JumpIn` 要留着** ✓：成员列表套成员列表（类里再写一个类 ✓）时，
-里面那个体的括号也要换成这一条队列 ✓。
+**这一条队列里不需要摘掉任何东西** ✓：成员位由**队列**保证 ✓，而不是靠某个分支自己让路 ✓。
+嵌套的成员列表（类里再写一个类 ✓）也走同一条路 ✓——里面那个体的括号同样由
+`tokens/bracket.xl.md` 问一次 `IsMemberListHead` 再换 ✓。
 
-**谁用它**（三处）：
-- `tokens/member-list-guide.xl.md`：认出类头之后，把**体括号的**队列换成它 ✓；
-- `tokens/bracket.xl.md`：`{` 的 `Context` 是 `"type"` 时（类型字面量 / 映射类型的体 ✓）直接用它 ✓
-  ——那一格复用的是**已有的** `Context` 答案 ✓，不是新推断 ✓；
+**谁用它**（两处）：
+- `tokens/bracket.xl.md`：`{` 开出来之后，问 `IsMemberListHead` ✓，是成员列表就换这条队列 ✓；
 - `tokens/if/if-guide.xl.md`：`if` 的收集器用它 ✓（暂存期间嵌套的 `if` 不该另起向导 ✓）。
+
+**第 393–394 轮之间它还多一个用户**（`tokens/member-list-guide.xl.md` ✓）：那一版是「向导收下整个类头、
+认出体括号、把队列换掉、再交还」✗。第 394 轮按用户的口径把它删了 ✓——
+`class` 本来就由 `Identifier` 照常吃掉 ✓，向导用不着去抢首字母 ✓，
+`{` 那一刻**回头看已经读到的单元**就够了 ✓（见 `IsMemberListHead` 那一节 ✓）。
+那一版还留着一笔账：`if` 与 `interface` **首字母都是 `i`** ✓，两个向导抢同一个字符，
+只能靠**向前看**区分 ✗——而向前看在不完整的输入上会**静默判错** ✓（`Document.GetValue` 越界给 `undefined` ✓，
+判据于是悄悄成假 ✓）。现在的形状根本没有这个入口 ✓。
 
 与 `CreateGeneralQueue` **同一条语义** ✓：每次访问都新建一份 ✓，模板之间不串味 ✓
 （所以三处各拿一份、互不影响 ✓；`Removed` 本身也是产出副本 ✓）。
@@ -169,7 +175,91 @@ return new Sequence<Branch>([
 return ParsePipeline.CreateGeneralQueue().Removed([IfGuide.JumpIn]);
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, StaticBlockReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
+## static method IsMemberListHead:(template:Template, units:Array<Token>)=>bool
+
+`units` 的**最后一个单元**是不是一张刚刚打开的成员列表的体。
+
+**它回答的是「这个 `{` 是不是成员列表」这个问题，而答案是「问那四条规则自己」** ✗——
+`ClassReorganization` / `InterfaceReorganization` / `EnumReorganization` / `TypeLiteralReorganization`
+各自都有一份**自己的**头判据（`Previous` ✓），这里是唯一的调用点 ✓。
+**不另写一份「这是不是类头」** ✗：第 391 轮那版就是这么走偏的（`Bracket.IsMemberList` 用一句词法推断
+去猜同一件事 ✓，等于同一个问题两份答案 ✓），第 393 轮把它换成了「向导收头 + 问那三条规则」✓，
+这一轮再简化一步：**连头都不用收** ✗。
+
+**为什么可以只看已经读到的单元** ✓（用户口径 ✓）：`class` 那个词早就由 `Identifier` 照常吃掉了 ✓，
+它此刻就躺在**宿主自己的平列表**里 ✓；而这个 `{` 是**刚刚**由 `BracketBranch.Success` 挂上去的 ✓
+（调用点就在 `AddToMounted` 之后 ✓），所以那一刻**体括号已经在表里** ✓——
+四条规则的 `Previous` 要的正是「头 + 体括号都在」这个形状 ✓。
+⇒ 不向前看一个字符 ✓、不开暂存单元 ✓、不交还 ✓、也不用抢首字母（`interface` 与 `if` 不再撞车 ✓）。
+
+往回扫的边界（只看已经读到的 ✓）：
+
+- `;` ⇒ 停（上一句已经完了 ✓）；
+- 另一个**花括号** ⇒ 停（换了一张表 ✓——`class A { }` 换行 `if (x) { }` 里那个 `{`
+  往回扫会撞上前一个类体 ✓，不该认成成员列表 ✓）；
+- **圆括号 / 方括号透明** ✓（类型参数段、继承表达式 ✓，与 `DecideMemberList` 当初那条实测同款 ✓）；
+- 名字 / `.` / `extends` / `implements` / 修饰词 / 装饰器 ⇒ 继续往前 ✓；
+- 撞上 `class` / `interface` / `enum` ⇒ 就是它，交给对应那条规则 ✓；
+- 扫到头 ⇒ 不是成员列表 ✓。
+
+**类型字面量那一支用 `Context`，不要用 `TypeLiteralReorganization.Previous`** ✗——
+这一条是量出来的 ✓，第一版就是复用了它、当场判宽 ✓：
+
+- `TypeLiteralReorganization.IsTypePosition` 是**事后**判据 ✓，它自己文件里写着
+  「老走法能对，是因为它跑的时候 `LabelReorganization` 已经把冒号收走了」✓
+  ——拿到**开括号那一刻**来问，宿主那张表还是词法阶段的平列表 ✓，
+  `outer: { … }` 那种标签冒号与类型标注的冒号还分不开 ✓（那正是 `DecideBracketContext` 记过的三次失败 ✓）；
+- 后果是**整块**的 ✓：普通 `{` 块被判成成员列表 ⇒ 块里的 `if` 拿不到向导 ⇒ 而兜底规则已经删了 ✗
+  ⇒ 整条 `if` 子树连同它的条件与体一起从产物里消失 ✓
+  （实测**缺 118599 个节点** ✓，而「多出来」只有 5660 ✓——比例正好是「一条 if 换一个 ExpressionStatement」✓）。
+
+`Context` 那一支是**开括号那一刻**算好的 ✓，与重组时序无关 ✓；
+它原先有一处判宽（`): A | B {` 被判成类型位 ✓），第 394 轮已经在
+`../text-common-util.xl.md` 的 `DecideBracketContext` 里修掉了 ✓（`|` / `&` 在 `{` 上继续往前扫 ✓）。
+修完之后全语料 **1451 / 1451** ✓——所以这一格是有判据守着的 ✓，不是「顺手换个写法」✓。
+
+```ts
+const bodyIndex = units.length - 1;
+const body = Get(units, bodyIndex);
+if (!(body instanceof Bracket) || body.startBracket !== "{") {
+  return false;
+}
+if (body.Context === "type") {
+  return true;
+}
+for (let i = bodyIndex - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null || IsTriviaUnit(item)) {
+    continue;
+  }
+  if (item instanceof Bracket) {
+    if (item.startBracket === "{") {
+      return false;
+    }
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    if (item.TempToString() === ";") {
+      return false;
+    }
+    continue;
+  }
+  if (item instanceof Identifier) {
+    if (item.Is("class")) {
+      return ClassReorganization.Instance.Previous(template, units, i);
+    }
+    if (item.Is("interface")) {
+      return InterfaceReorganization.Instance.Previous(template, units, i);
+    }
+    if (item.Is("enum")) {
+      return EnumReorganization.Instance.Previous(template, units, i);
+    }
+  }
+}
+return false;
+```
+
+## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, StaticBlockReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
 
 通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。
@@ -193,15 +283,20 @@ return ParsePipeline.CreateGeneralQueue().Removed([IfGuide.JumpIn]);
 | 7 | `Field` | 字段没有关键字，只能在**成员位置**靠父单元认出（`ClassBody` / `InterfaceBody`）；排在 `Let` 之后（`let x` 仍旧归 `Let`）、`TypeDefine` 之前（要先把整条成员圈起来，否则 `TypeDefine` 会跨过换行吞掉后面几个字段） |
 | 8 | `Lamda` | 带返回类型标注的箭头函数（`(a): T => body`）也要在 `TypeDefine` 之前认领那个 `:`，否则 `TypeDefine` 会连函数体一起吞掉 |
 | 8.5 | `FunctionType` | 类型的 `(a: A) => B` 必须**排在 `Lamda` 前面**：两者判的都是 `=>`，`FunctionType` 认的是「左边不是形参表」那一半（`FindParameters` 给 `-1`），留给 `Lamda` 的才是真箭头函数 |
-| … | 其余按既有顺序 | `TypeDefine` / `Ternary` / … / `NotNull`，`Switch` 插在 `Try` 与 `IfSet` 之间 |
+| … | 其余按既有顺序 | `TypeDefine` / `Ternary` / … / `NotNull`，`Switch` 插在 `Try` 与 `For` 之间 |
 | 末 | `Keyword` | 它是「在任意上下文都是关键字」的**兜底身份**；语句级结构先各自认领，剩下的散词才升级 |
 
-`Keyword` 排在最后是必须的：它是「在任意上下文都成立」的兜底身份，而 `if` / `for` / `while` / `try` /
+`Keyword` 排在最后是必须的：它是「在任意上下文都成立」的兜底身份，而 `for` / `while` / `try` /
 `class` / `extends` 这些词全靠**上下文**成形。排在前面时它们会先被升级成 `Keyword`，
 各自的语句规则（判的是 `Identifier` 的文本）就再也没机会认领了。
 
 **顺序即语义**：语句级结构（`Let` / `Keyword` / …）先依次尝试，
-控制流（`IfSet` / `For` / `Foreach` / `While` / `Try`）最后兜底。改顺序会直接改变 XML。
+控制流（`For` / `Foreach` / `While` / `Try`）最后兜底。改顺序会直接改变 XML。
+
+**`IfSetReorganization` 已经不在队里了** ✗（第 394 轮删掉 ✓）：`if` 现在由**解析期向导**
+（`tokens/if/if-guide.xl.md` ✓）在读的时候造 ✓，它压根到不了这一趟 ✓。
+`if` 原来的位次（`Switch` 与 `For` 之间 ✓）从此空着 ✓——这正是这一轮在走的那条路：
+**一条一条把控制流从这张表里搬出去** ✗（下一批是 `While` / `For` / `Foreach` / `Try` / `Switch` ✓）。
 
 ## static method KeyWords:()=>Array<string>
 
