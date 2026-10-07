@@ -320,9 +320,27 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         }
         return "type";
       }
+      // **`{` 上，只有在「开头就是类型」的那两个词上判死** ✗（第 397 轮）：
+      // `as` / `satisfies` 是**引出一个类型**的词 ✓（`y as { a: 1 }` 里那个 `{` 就是类型字面量 ✓），
+      // 所以它们照旧判 `"type"` ✓。
+      if (text === "as" || text === "satisfies") {
+        return "type";
+      }
+      // **其余那几个词在 `{` 上要继续往前扫** ✗——它们**都可能出现在返回类型里** ✓：
+      //   `): A extends B ? C : D {`   （条件类型当返回类型 ✓）
+      //   `): asserts x is string {`   （类型谓词 ✓）
+      //   `): keyof T {` / `): typeof x {` / `): readonly string[] {` ✓
+      // 而真正决定「这个 `{` 是不是类型字面量」的那一句，是**撞上 `:` 之后的函数体例外** ✓
+      // （`:` 在这些词的**更外面** ✓）。
+      //
+      // 原来这里一句话判死 ✗ ⇒ 带这类返回类型的**函数 / 方法体**被判成类型位 ✗
+      // ⇒ 体里的 `if` 拿不到向导 ✗（而兜底规则已经删了 ✗）⇒ 产物里是一个**裸的
+      // `<Keyword>if</Keyword>`** ✓ ⇒ 降级层报 `name is not a local or a capture: if` ✓
+      // （实测 `ex-assertion-function` ✓；与第 394 轮 `|` / `&` 那一格是同一个坑 ✓）。
+      //
+      // **`declare class A {` 因此变成 `"value"`** ✓——那本来就更对 ✓（类体不是类型字面量 ✓），
+      // 而类体走的是 `ParsePipeline.IsMemberListHead` 里那三条规则自己的 `Previous` ✓，不靠这一格 ✓。
       if (
-        text === "as" ||
-        text === "satisfies" ||
         text === "extends" ||
         text === "implements" ||
         text === "readonly" ||
@@ -333,6 +351,10 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         text === "asserts" ||
         text === "is"
       ) {
+        if (openChar === "{") {
+          i = i - 1;
+          continue;
+        }
         return "type";
       }
       // **`new` 要分两种** ✗（第 375 轮 ✓）——它原来就在上面那张类型位名单里 ✓，
