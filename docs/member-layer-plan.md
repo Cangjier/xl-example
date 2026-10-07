@@ -1008,7 +1008,29 @@ WebIDL 那一族（`undici-types/webidl.d.ts` 等 ✓）遍地是 `['unsigned sh
 **这一轮净值**：定位到「差一层 `FunctionType`」并把顺序推断写清楚 ✓，试错一次并回滚 ✓，
 主线仍绿 ✓，最佳状态仍是 `tmp/recon/r56/`（`cases 1036` / 全语料 21 ✓）。
 
-## 六十四、每步都要钉住的三件事
+## 六十五、函数类型先收成形（第 455 轮）：webidl 的缺 261 → 222
+
+按第六十三节的方向做了两件事 ✓（都在 `tmp/recon/r58/` 这一版里 ✓，`cases` 稳定在 **1036** ✓）：
+
+1. **在收 `TypeDefine` 之前，先把 `(…) => T` 那一段显式收成 `FunctionType`** ✓
+   （照 `function-type.xl.md` 的构造：`new FunctionType(template)` + `Parent = 成员` +
+   `SignIn/SignOut` + 逐个 `AddAndCloseLast` + `TryToClose()` ✓）。
+   **父亲先设成成员、不是类型容器** ✓ —— 这样谓词规则不会抢在函数类型规则前面 ✓，
+   函数类型成立之后，里面的 `arg is I` 再由它自己那一趟收 ✓。
+2. **`[` 计算名的闸门按形态分** ✓：`['long long']`（字符串字面量名 ✓）解析期接住 ✓；
+   `[Symbol.iterator]`（点号链 ✗，此刻拼不出名字 ✗）留给重组 ✓。
+
+**读数**：`undici-types/webidl.d.ts` 的「缺」261 → **222** ✓，全语料仍是 **21** 个文件 ✗
+（构成变了：`typescript.d.ts` 成为最大的一个 177/16/69 ✗，webidl 退到第二 ✓）。
+
+**一条反复踩的流程坑**（这轮又踩了一次 ✗）：管线重建会改**六个** `.xl.md` ✓，
+只 force 构建其中一个 ⇒ `dist` 是混合的 ✗ ⇒ tsc 报 `ClassMember.MemberNameText` 不存在 ✗、
+而且尺子量的是「一半新一半旧」的产物 ✗。⇒ **重建之后一律六个一起 force 构建** ✓。
+
+**下一轮头号目标**：`node_modules/typescript/lib/typescript.d.ts` 的 `缺 177 / 漂移 16 / 多 69` ✗
+（先看它的头几条是什么形状 ✓，那是真实语料里最像「复杂声明」的一份 ✓）。
+
+## 六十六、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
