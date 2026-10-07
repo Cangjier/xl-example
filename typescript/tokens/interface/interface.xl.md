@@ -396,6 +396,14 @@ result.set("type", this.constructor.name);
 result.set("name", this.name.Value);
 result.set("extends", this.extends.Text());
 result.set("export", this.export.Value);
+// **接口名的位置**：区间本来就装在 `name` 那个字段里（见它自己的说明），这里搬成投影读得懂的
+// 两个下标（闭区间）——投影合名字节点时就**不再回原文 `indexOf(name)` 猜**（见
+// `print-ast-common.xl.md` 的 `synthName`）。
+const nameRange = this.name.Range;
+if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+  result.set("nameStart", nameRange.Start.Index);
+  result.set("nameEnd", nameRange.End.Index);
+}
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {

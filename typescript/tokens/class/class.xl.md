@@ -609,6 +609,14 @@ result.set("name", this.name.Value);
 result.set("extends", this.extends.Value);
 result.set("implements", this.implements.Text());
 result.set("modifiers", this.modifiers.Value);
+// **类名的位置**：名字与它的区间装在一个字段里（见 `name` 那一格），这里只是把区间搬成投影读得懂的
+// 两个下标（闭区间）——投影合名字节点时就**不再回原文 `indexOf(name)` 猜**（见 `print-ast-common.xl.md`
+// 的 `synthName`）。匿名类没有名字，两个键就不写。
+const nameRange = this.name.Range;
+if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+  result.set("nameStart", nameRange.Start.Index);
+  result.set("nameEnd", nameRange.End.Index);
+}
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {

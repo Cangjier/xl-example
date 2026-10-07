@@ -677,6 +677,17 @@ if (computedName) {
 } else {
   result.name = "#" + this.MethodNameOf(nameUnit);
 }
+// **名字的位置当场记进字段**（见 `NameStart`）：只认普通标识符——
+// 字符串名与计算名的分派留给投影（它读的是 `name` 的**文本**位置）；
+// 私有名的区间从 `#` 那一格算起（`name` 记的是 `#x` 整个名字）。
+if (!computedName && nameUnit instanceof Identifier) {
+  const nameStart = privateMark === null ? nameUnit.SourceRange.Start : privateMark.SourceRange.Start;
+  const nameEnd = nameUnit.SourceRange.End;
+  if (nameStart !== null && nameEnd !== null) {
+    result.NameStart = nameStart.Index;
+    result.NameEnd = nameEnd.Index;
+  }
+}
 result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
 for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
   result.AddAndCloseLast(item);
@@ -778,6 +789,17 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 方法名。
 
+## field NameStart:int = -1
+
+名字在源码里的起点（闭区间下标）；名字不是普通标识符（字符串名 / 计算名）时是 `-1`。
+
+**私有名 `#x` 从 `#` 算起**——`name` 记的是 `#x` 整个名字，投影合出来的是一个
+`PrivateIdentifier`，区间要盖住那个 `#`（见 `../field.xl.md` 的 `NameStart`，同一个来由）。
+
+## field NameEnd:int = -1
+
+名字的终点（闭区间下标），与 `NameStart` 同进退。
+
 ## field modifiers:string = ""
 
 声明前面的修饰词（`public` / `private` / `protected` / `static` / `readonly` / `abstract` / `override` /
@@ -862,6 +884,9 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.name);
 result.set("modifiers", this.modifiers);
+// **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
+result.set("nameStart", this.NameStart);
+result.set("nameEnd", this.NameEnd);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
@@ -882,6 +907,8 @@ return result;
 const result = new MethodDeclaration(this.Template);
 result.Sign(this);
 result.name = this.name;
+result.NameStart = this.NameStart;
+result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

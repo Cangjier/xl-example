@@ -98,18 +98,18 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `GenericType` | `type` `startBracket` `endBracket` + `children` | |
 | `BinaryOperator` / `UnaryOperator` | `type` `op` + `children` | |
 | `LogicalOperator` | `type` `op` + `children` | `op` 的值与 XML 同一处表达式：`this.op === "\|\|" ? "Or" : "And"` |
-| `Class` | `type` `name` `extends` `implements` `modifiers` + `children` | `implements` 用 `","` 拼 |
-| `Enum` / `Function` / `MethodDeclaration` | `type` `name` `modifiers` + `children` | |
-| `Interface` | `type` `name` `extends` `export` + `children` | `export` 是真布尔 |
+| `Class` | `type` `name` `extends` `implements` `modifiers` + 可选 `nameStart` `nameEnd` + `children` | `implements` 用 `","` 拼；名字有区间时才写那对下标 |
+| `Enum` / `Function` / `MethodDeclaration` | `type` `name` `modifiers` + 可选 `nameStart` `nameEnd` + `children` | `Enum` / `MethodDeclaration` 写那对下标（`Function` 还没记，见下） |
+| `Interface` | `type` `name` `extends` `export` + 可选 `nameStart` `nameEnd` + `children` | `export` 是真布尔 |
 | `Namespace` | `type` `namespace` `modifiers` + `children` | |
-| `Field` | `type` `name` `modifiers` + `children` | |
+| `Field` | `type` `name` `modifiers` `nameStart` `nameEnd` + `children` | 名字不是普通标识符时那对下标是 `-1` |
 | `Method` | `type` `name` + `children` | 名字为空时**照样写 `name`**：与 `<Method name="">` 一致 |
 | `Decorator` | `type` `name` + `children` | |
 | `Signature` | `type` `kind` + `children` | |
-| `TypeAssign` | `type` `alias` `modifiers` + `children` | |
+| `TypeAssign` | `type` `alias` `modifiers` `nameStart` `nameEnd` + `children` | |
 | `Export` | `type` `From` `typeOnly` `namespace` `exported` + `children` | `From` 的兜底与 XML 同一处：`null` ⇒ `""` |
 | `Import` | `type` `From` `typeOnly` `defaultImport` `namespace` `imported` + `children` | 同上 |
-| `Let` | `type` + 三选一（`fieldName` / `arrayPattern` / `objectPattern`）+ `modifiers` + `children` | 分支判据与 XML 同一处 `LetType` 链；两个出口共用同一套形态，最后那个 `throw new Error("形态不成立")` 也各有一份 |
+| `Let` | `type` + 三选一（`fieldName` / `arrayPattern` / `objectPattern`）+ `modifiers` `nameStart` `nameEnd` + `children` | 分支判据与 XML 同一处 `LetType` 链；两个出口共用同一套形态，最后那个 `throw new Error("形态不成立")` 也各有一份 |
 | `Label` | `type` `label` | 自闭合标签，无子单元 |
 | `NamespaceExport` | `type` `name` | 同上 |
 | `While` / `DoWhile` | `type` `compare` `body` | 两个键都是 `ToList()` 的数组；`DoWhile` 的键序是 `body` → `compare` |
@@ -125,6 +125,17 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `SwitchSegment` | `type` `key` + `children` | 与 `IfSegment` 同款的分段节点 |
 | `SwitchSegment` / `IfCondition` / `ForBody`…（各分段类） | `type` + `children` | 分段类本身是普通容器 |
 
+### `nameStart` / `nameEnd`：声明名的位置
+
+投影要合一个声明名节点（`class A` 的 `A`、`const f` 的 `f`、`type T = …` 的 `T`），而产物只把名字
+记成**属性**（`name` / `fieldName` / `alias`）——位置是另一件事，属性里没有。这对下标就是位置的答案：
+
+- **闭区间**，token 在认下名字那一刻写下（`SourceRange` 本来就在手上），所以它是**一份答案**，
+  不是投影按文本猜的第二份；
+- `-1` 表示这一档还没记（字符串名 / 计算名那一档，以及 `Function` / `Namespace` / `Decorator`）；
+- 私有名 `#x` 的区间**从 `#` 算起**（名字就是 `#x` 一个 `PrivateIdentifier`）；
+- 投影**优先读它**，没有才回原文 `indexOf` 猜（见 [`print-ast-common.xl.md`](../typescript/print-ast-common.xl.md) 的 `synthName`）。
+
 ---
 
 ## 4. 与上游 Cangjie 的差异
@@ -139,7 +150,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验（钉它的 `cases:astjson` 已于第 200 轮随测试集收窄删除） |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **不多写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源 |
-| 例外 | —— | 只有一处 JSON 比 XML 多键：`Lamda.async` | 不收它就分不出 `async x => x` 与 `x => x`；它逐条登记在尺子的 `JSON_ONLY_ATTRS` 里，**没登记的「多一个键」照样会红** |
+| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` 的 `emptyBodyAt`、`For` 的 `bodyBraceAt`、`IfSegment` 的 `ifWordAt`，以及声明名的 `nameStart` / `nameEnd`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
 | 结构 bug | `TernaryOperator.ToDictionary()` 漏掉了 `type`（它没调基类也没自己写），于是 JSON 里出现没有类型名的节点 | **保留 `type`** | 那是缺陷，不是口径 |
 
 **一句话**：形状、方法名、`range` 的层级与上游一致；**字段名以本工程自己的 XML 出口为准**——

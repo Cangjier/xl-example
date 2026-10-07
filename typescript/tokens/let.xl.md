@@ -94,6 +94,20 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 `Field` 形态下被声明的字段名。
 
+## field NameStart:int = -1
+
+`Field` 形态下名字在源码里的起点（闭区间下标）；解构形态、或者名字那一格不是普通标识符时是 `-1`。
+
+**为什么让 token 记着**（「token 出字段、投影直读」）：投影合名字节点时只知道 `fieldName` 这个字符串，
+位置要回原文 `indexOf(fieldName)` 猜——`const f = 1` 里那个 `f` 是**唯一**的同名字母还好，
+`function f` 这种名字的首字母正好也是修饰词里的字母时就得靠「推过修饰词」兜。
+而 `LetBranch.Success` 那一刻手里就是名字那一格（`nameUnit.SourceRange`），
+记成一对字段之后投影只做一次读取（见 `print-ast-common.xl.md` 的 `synthName`）。
+
+## field NameEnd:int = -1
+
+名字的终点（闭区间下标），与 `NameStart` 同进退。
+
 ## field arrayPattern:Array<string> = []
 
 `Array` 形态下解构出来的字段名。
@@ -153,6 +167,10 @@ throw new Error("形态不成立");
 ```ts
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
+// **名字的位置**（见 `NameStart` / `NameEnd`）：投影合名字节点时直读，
+// 不再回原文 `indexOf(fieldName)` 猜。三种形态都写——解构形态给的是 `-1`。
+result.set("nameStart", this.NameStart);
+result.set("nameEnd", this.NameEnd);
 if (this.LetType === LetType.Field) {
   result.set("fieldName", this.fieldName);
   result.set("modifiers", this.modifiers);
@@ -181,12 +199,14 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 抄 `fieldName` 与 `modifiers` → `TryToClose()`。注意它**只抄 `fieldName` 与 `modifiers`**：`LetType` 与两组解构名都不抄（`LetType` 回到默认的 `Field`）——这是既定行为，保持一致。
+顺序是 `Sign(this)` → 抄 `fieldName` / `NameStart` / `NameEnd` / `modifiers` → `TryToClose()`。注意它**不抄 `LetType` 与两组解构名**（`LetType` 回到默认的 `Field`）——这是既定行为，保持一致。
 
 ```ts
 const result = new Let(this.Template);
 result.Sign(this);
 result.fieldName = this.fieldName;
+result.NameStart = this.NameStart;
+result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
 result.TryToClose();
 return result;
@@ -381,6 +401,14 @@ const letUnit = new Let(unit.Template);
 // **`Let` 自己那一趟**里把元素收成 `BindingElement` ✓（它的宿主判据正是「父亲是 `Let`」✓）。
 if (nameUnit instanceof Identifier) {
   letUnit.fieldName = nameUnit.TempToString();
+  // **名字的位置当场记进字段**（见 `NameStart`）：这一刻 `nameUnit` 自己的 `SourceRange` 就是它，
+  // 投影那边不必再回原文猜（那正是「同一件事的第二份近似」）。
+  const nameStart = nameUnit.SourceRange.Start;
+  const nameEnd = nameUnit.SourceRange.End;
+  if (nameStart !== null && nameEnd !== null) {
+    letUnit.NameStart = nameStart.Index;
+    letUnit.NameEnd = nameEnd.Index;
+  }
 } else {
   letUnit.LetType = (nameUnit.Is("{", "}") ? 2 : 1) as any;
   letUnit.AddAndCloseLast(nameUnit);

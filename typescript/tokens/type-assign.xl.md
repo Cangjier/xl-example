@@ -158,6 +158,13 @@ const dataEnd = tail instanceof SymbolToken && tail.Is(";") && endIndex > startI
 const result = new TypeAssign(template);
 result.Parent = current.Parent;
 result.alias = name.TempToString();
+// **别名的位置当场记进字段**（见 `NameStart`）：这一刻 `name` 自己的 `SourceRange` 就是答案。
+const nameStart = name.SourceRange.Start;
+const nameEnd = name.SourceRange.End;
+if (nameStart !== null && nameEnd !== null) {
+  result.NameStart = nameStart.Index;
+  result.NameEnd = nameEnd.Index;
+}
 result.modifiers = modifiers.join(",");
 for (let i = index; i <= dataEnd; i++) {
   const item = Get(units, i);
@@ -249,6 +256,20 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 
 别名（`type` 后面那个名字）。
 
+## field NameStart:int = -1
+
+别名在源码里的起点（闭区间下标）。
+
+**为什么让 token 记着**（「token 出字段、投影直读」）：别名本身**不进 `Data`**，
+投影手里只有 `alias` 这个字符串，位置要回原文 `indexOf` 猜——而 `type` 那个词、
+修饰词、乃至右值里都可能先出现同样的字母。
+`TypeAssignCloseRule.Process` 那一刻手里就是名字那一格（`name.SourceRange`），记下来给投影直读
+（见 `print-ast-common.xl.md` 的 `synthName`）。
+
+## field NameEnd:int = -1
+
+别名的终点（闭区间下标），与 `NameStart` 同进退。
+
 ## field modifiers:string = ""
 
 别名前面的修饰词（`export` / `declare`），按源码顺序用 `,` 连接；没有时是空串。
@@ -282,6 +303,9 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("alias", this.alias);
 result.set("modifiers", this.modifiers);
+// **别名的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
+result.set("nameStart", this.NameStart);
+result.set("nameEnd", this.NameEnd);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
@@ -302,6 +326,8 @@ return result;
 const result = new TypeAssign(this.Template);
 result.Sign(this);
 result.alias = this.alias;
+result.NameStart = this.NameStart;
+result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

@@ -503,16 +503,20 @@ new Map([
 
 合一个**声明名**的节点（`class A` / `function f` / `x: T` 的 `x`…）。
 
-位置不能拿声明自己的 `start` 充数（踩过两次，症状不同）：
+**位置的首选来源是 token 记的字段**：`Class` / `Interface` / `Enum` / `Let` / `TypeAssign` /
+`Field` / `MethodDeclaration` 都在认下名字那一刻把它的下标记成 `nameStart` / `nameEnd`
+（闭区间，见各自的 `NameStart`）——有这对字段就**不做任何猜测**，下面那套补偿一步都不跑。
 
-1. `export class A` 的声明从 `export` 起，而名字 `A` 在更后面——用声明开头会让
-   **整类名字的区间都错位**（尺子上表现为「TS 有 82 个 `Identifier` 产物没有」）；
-2. 光用 `source.indexOf(name, start)` 还不够：`const f` 里 `f` 会在 **`const`** 里
-   先被找到（同为 `f`）——所以搜索起点要**推过修饰词**（`modifiers="const"`）。
+没有这对字段时（字符串名 / 计算名那一档，以及还没记字段的 token）退回按原文量：
 
-这是投影层能做到的最好程度：产物只把名字记成属性，**没记它的位置**。
-想彻底准，就得在 token 层给「名字」一个真节点（带自己的 `SourceRange`）——
-那是下一步的事，这里先把「推过修饰词」这条补偿做到位。
+1. 位置不能拿声明自己的 `start` 充数（踩过两次，症状不同）：`export class A` 的声明从 `export` 起，
+   而名字 `A` 在更后面——用声明开头会让**整类名字的区间都错位**（尺子上表现为「TS 有 82 个
+   `Identifier` 产物没有」）；
+2. 光用 `source.indexOf(name, start)` 还不够：`function f` 里那个 `f` 会在 **`function`** 里
+   先被找到——所以搜索起点要**推过修饰词**（`modifiers="const"`）与装饰器。
+
+这套补偿是**第二份近似**：它按文本猜位置，猜不中时（名字的首字母落在修饰词里、注释里有同样的词）
+给出的区间与 token 自己记的那个不一致。字段那条路就是为了**把这份近似从投影里删掉**。
 
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
@@ -526,9 +530,9 @@ new Map([
   const nameText = Translate.DecodeIdentifierEscapes(name);
   const nameKind = nameText.length > 1 && nameText[0] === "#" ? "PrivateIdentifier" : "Identifier";
   if (name === "") return undefined;
-  // **首选产物自己记的位置**：token 层在扫描那一刻就知道名字单元在哪，
-  // 于是把它记成 `nameStart` / `nameEnd` 两个字段（见 `class.xl.md` 的 `NameStart`）。
-  // 有它就**不做任何猜测**——下面的 `indexOf` 补偿只是给还没有这对字段的 token 兜底。
+  // **首选 token 记的位置**：认下名字那一刻它就在手上（`SourceRange`），于是被记成
+  // `nameStart` / `nameEnd` 两个下标（闭区间；见各 token 的 `NameStart`）。
+  // 有它就**不做任何猜测**——下面的 `indexOf` 补偿只是给没有这对字段的那几档兜底。
   const start = v.attrs.get("nameStart");
   const end = v.attrs.get("nameEnd");
   if (typeof start === "number" && typeof end === "number" && start >= 0 && end >= start) {

@@ -311,6 +311,13 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.name.Value);
 result.set("modifiers", this.modifiers.Value);
+// **枚举名的位置**：区间本来就装在 `name` 那个字段里，这里搬成投影读得懂的两个下标（闭区间）——
+// 投影合名字节点时就**不再回原文 `indexOf(name)` 猜**（见 `print-ast-common.xl.md` 的 `synthName`）。
+const nameRange = this.name.Range;
+if (nameRange !== null && nameRange.Start !== null && nameRange.End !== null) {
+  result.set("nameStart", nameRange.Start.Index);
+  result.set("nameEnd", nameRange.End.Index);
+}
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {

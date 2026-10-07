@@ -412,6 +412,16 @@ result.Parent = current.Parent;
 if (result instanceof Field) {
   result.fieldName = isPrivateName ? "#" + this.NameText(name) : this.NameText(name);
   result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
+  // **名字的位置当场记进字段**（见 `NameStart`）：只认普通标识符——
+  // 字符串名与计算名的区间要留给投影那边按引号 / 方括号自己分派（它读的是 `fieldName` 的**文本**位置）。
+  // 私有名的区间从 `#` 那一格算起（`fieldName` 记的是 `#x` 整个名字）。
+  const plainName = name instanceof Identifier;
+  const nameStart = !plainName ? null : isPrivateName ? current.SourceRange.Start : name.SourceRange.Start;
+  const nameEnd = plainName ? name.SourceRange.End : null;
+  if (nameStart !== null && nameEnd !== null) {
+    result.NameStart = nameStart.Index;
+    result.NameEnd = nameEnd.Index;
+  }
 }
 result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
@@ -568,6 +578,22 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 字段名。
 
+## field NameStart:int = -1
+
+名字在源码里的起点（闭区间下标）；名字那一格不是普通标识符（字符串名 / 计算名 / 索引签名）时是 `-1`。
+
+**私有名 `#x` 从 `#` 算起**——`fieldName` 记的是 `#x` 整个名字，投影合出来的也是
+一个 `PrivateIdentifier`，所以区间必须盖住那个 `#`。
+
+**为什么让 token 记着**（「token 出字段、投影直读」）：投影手里只有 `fieldName` 这个字符串，
+位置要回原文 `indexOf` 猜，而猜错的方式不止一种（同名字母在修饰词里、在名字前面的类型里）。
+`FieldCloseRule.Process` 那一刻手里就是名字那一格（`name.SourceRange`），记下来给投影直读
+（见 `print-ast-common.xl.md` 的 `synthName`）。
+
+## field NameEnd:int = -1
+
+名字的终点（闭区间下标），与 `NameStart` 同进退。私有名同样是 `x` 的末尾。
+
 ## field modifiers:string = ""
 
 声明前面的修饰词（`public` / `private` / `protected` / `static` / `readonly` / `abstract` / `override` /
@@ -599,6 +625,9 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.fieldName);
 result.set("modifiers", this.modifiers);
+// **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
+result.set("nameStart", this.NameStart);
+result.set("nameEnd", this.NameEnd);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
@@ -619,6 +648,8 @@ return result;
 const result = new Field(this.Template);
 result.Sign(this);
 result.fieldName = this.fieldName;
+result.NameStart = this.NameStart;
+result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
