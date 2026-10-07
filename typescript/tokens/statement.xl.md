@@ -713,22 +713,46 @@ return word === "as" || word === "satisfies" || word === "in" || word === "of" |
 `type-union-leading-bar.ts` 三份 `2 缺 5 漂 7 多` ✓）。
 
 **判据只看原始字符** ✓（`source.Document` ✓）：跳过空白与注释之后，
-下一个实义字符是 `|` / `&` / `.` 里的一个 ⇒ 答「续接」✓；其余一律答否 ✓。
+下一个实义字符落在下表里就答「续接」✓，其余一律答否 ✓。
 
-**为什么只有这三个** ✗（这一条是量出来的 ✓）：`IsLineBreakBoundary` 的续接表宽得多 ✓
-（`(` / `[` / `+` / `-` / `/` / 模板串 / `as` 那一族词 ✓），可那些字符**大多能起一条语句** ✗
-（括号表达式、数组字面量、一元 `+` / `-`、正则、模板串 ✓）—— 解析期把它们也判成续行，
-实测 **13 份用例当场抛异常** ✗（`stmt-paren-start.ts` / `expr-iife-*.ts` 那一族 ✓，
-1013 → **1006** ✗、`am-block-lambda-array-compound.ts` 那份本该变绿的也一起炸 ✓）。
-只留这三个「**起不了一条语句**」的符号：语料 **1017 / 1037** ✓、**零抛异常** ✓、
-`coverage` **1608 → 1629** ✓、`runtime:cli` **76 → 78** ✓。
-⇒ 解析期敢不敢下结论的那条线是「**能不能起一条语句**」✓，不是「能不能续接」✗ ——
-三个符号正落在两条线的差集里 ✓。
+| 下一行的第一个实义字符 | 判据 |
+| --- | --- |
+| `\|` / `&` / `.` | 直接答「续接」✓（第 568 轮 ✓，三个都**起不了一条语句** ✓） |
+| `(` / `[` | 还要过两道护栏 ✓（第 582 轮 ✓）——见下 |
+
+**`(` / `[` 为什么当初被排除、后来又补上** ✓：
+
+`IsLineBreakBoundary` 的续接表宽得多 ✓（`(` / `[` / `+` / `-` / `/` / 模板串 / `as` 那一族词 ✓），
+可那些字符**大多能起一条语句** ✗（括号表达式、数组字面量、一元 `+` / `-`、正则、模板串 ✓）——
+第 568 轮把**整张表**搬进解析期，实测 **13 份用例当场抛异常** ✗
+（`stmt-paren-start.ts` / `expr-iife-*.ts` 那一族 ✓，1013 → **1006** ✗），
+于是那一条只留了 `|` / `&` / `.` 三个 ✓，`(` / `[` **一起被扔掉** ✗ ——
+这就是 `stmt-asi-paren-call.ts`（`0 4 5` ✓）与 `am-block-lambda-array-compound.ts`（`5 2 4` ✓）
+一直红着的原因 ✓（TS 那边它们是 `y(…)()` 与 `x[1, 2, 3]`，一条表达式 ✓）。
+
+第 582 轮把这两个**单独**拿回来 ✓，并配上两道护栏（缺了它们就是第 568 轮那个结果 ✗）：
+
+1. **`HasTypeColonBefore(data, data.length) === false`** ✓ —— 与 `IsLineBreakBoundary`
+   那一支（第 158 轮 ✓）**问同一个问题** ✓：上一行是**类型标注**时 `[` 起的是下一条成员
+   （`interface I { ['a']: T` 换行 `['b']: U }` ✓）；这是**投影侧早就写过的那条护栏** ✓，
+   第 568 轮那一版**没有它** ✗；
+2. **左端是一格收好的花括号组时一律不收** ✗：`function f(): any { … }` 换行 `[a, b] = c`
+   里那个 `[` 起的是**下一条语句** ✓，而 `HasTypeColonBefore` 撞上那个 `{` 就答「表达式」✗
+   （它的口径是「花括号 = 上一行到此为止、**按表达式处理**」✓，见那一处说明 ✓）
+   ⇒ 少了这一句，函数声明被并进下一条解构赋值 ✗（实测 `38-destructuring-assignment.ts`
+   报 `unimplemented: assignment to a non-identifier (left is FunctionDeclaration)` ✓，
+   `tests/runtime/check.mjs` 的「求值顺序与赋值表达式的值」一条一起红 ✗ —— 见第四节 ✓）。
+
+**语料把两道护栏的必要性分得很清** ✓：只加符号、两道护栏都不加 ⇒ `tests/parse/cases` 那一栏
+**看不出来** ✗（1035 / 1037、**零抛异常** ✓，与加满护栏时**一模一样** ✓），
+红的是 `runtime:*` 两道门 ✓ —— 这是本仓第一次出现「四方向尺子全绿、而门是红的」✗，
+所以第 582 轮起，**动这一类判据必须两道门一起看** ✓（见第五节 ✓）。
 
 **三条更早的判定仍然优先** ✓（与 `IsLineBreakBoundary` 一字不差 ✓）：左边没有实义单元 ✓、
 左边是**受限产生式**（`return` / `throw` / `break` / `continue` / `yield` ✓）、
 左边是**后缀**的 `++` / `--` ✓ —— 这三种**换行就是边界** ✓ ⇒ 一律答否 ✓（照旧收壳 ✓，
 `stmt-asi-return-newline.ts` / `lex-regex-after-return-next-line.ts` 两份实测就是这么咬回来的 ✓）。
+`(` / `[` 那两道护栏排在它们**之后** ✓（先判「换行就是边界」✓，再判续接 ✓）。
 
 **注释也当 trivia** ✓：`x as` 换行 `// 注` 换行 `| A` 里那个 `|` 才是下一行的第一个实义字符 ✓
 （与 `IsLineBreakBoundary` 的跳过口径对齐 ✓）。
@@ -776,6 +800,24 @@ if (at >= count) {
   return false;
 }
 const head = document.GetValue(at);
+// **`(` / `[` 开头** ✓（第 582 轮 ✓）：`x = y` 换行 `(function () { … })()` 与
+// `x => x` 换行 `[1, 2, 3]` 都是**接着写** ✓（TS 那边是一条 `CallExpression` / `ElementAccessExpression` ✓），
+// 而解析期只认 `|` / `&` / `.` 三个符号时它们一律断句 ✗ ⇒ 后半截落进另一个壳 ✓
+//（实测 `stmt-asi-paren-call.ts` `0 4 5` ✓、`am-block-lambda-array-compound.ts` `5 2 4` ✓）。
+//
+// **左端是一格收好的花括号组 ⇒ 一律不收** ✗：`function f(): any { … }` 换行 `[a, b] = c`
+// 里那个 `[` 起的是**下一条语句** ✓（TS 那边两条平级 ✓），而 `HasTypeColonBefore` 撞上
+// 那个 `{` 就答「表达式」✗（它的口径是「花括号 = 上一行到此为止、按表达式处理」✓，
+// 见那一处说明 ✓）⇒ 少了这一句，函数声明会被并进下一条解构赋值 ✗
+//（实测 `38-destructuring-assignment.ts` 报 `assignment to a non-identifier
+// (left is FunctionDeclaration)` ✓、`tests/runtime/check.mjs` 的「求值顺序」一条一起红 ✗）。
+if (head === "(" || head === "[") {
+  const last = Get(data, SkipPreviousTrivia(data, data.length));
+  if (last instanceof Bracket && last.startBracket === "{") {
+    return false;
+  }
+  return HasTypeColonBefore(data, data.length) === false;
+}
 return head === "|" || head === "&" || head === ".";
 ```
 
