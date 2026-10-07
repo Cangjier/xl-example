@@ -198,6 +198,19 @@ return current instanceof SymbolToken && (current.Is("-") || current.Is("+"));
 return current instanceof SymbolToken && (current.Is("++") || current.Is("--"));
 ```
 
+## private method HasChainLinkAfter:(units:Array<Token>, index:int)=>bool
+
+`index` 这一格后面**还接着 `.` 成员**吗（链环的另一种——`[` 下标——见 `Process` 那一处：它收工之后已经是 `ArrayLiteral`）。
+
+```ts
+const nextIndex = SkipNextWrapSymbol(units, index);
+const next = Get(units, nextIndex);
+if (!(next instanceof SymbolToken) || !next.Is(".")) {
+  return false;
+}
+return Get(units, SkipNextWrapSymbol(units, nextIndex)) !== null;
+```
+
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个一元运算符的起点。
@@ -257,6 +270,29 @@ if ((this.OperatorText(current) === "-" || this.OperatorText(current) === "+") &
 }
 const afterIndex = SkipNextWrapSymbol(units, index);
 const after = Get(units, afterIndex);
+// **半截的链要等链成形**（第 614 轮 ✓）：操作数那一格是 `NotNull` ✓、而它后面**还接着链环**
+// （`.` 成员 / `[` 下标）✓ ⇒ 这一趟让路 ✗。
+//
+// **为什么** ✗：`typeof o!.get` 的正确形状是 `TypeOfExpression > PropertyAccessExpression` ✓——
+// 一元运算的作用范围是**整条链** ✓（等于 `typeof (o!.get)` ✓）。可跑到这一格时 `o!` 已经
+// 被 `NotNullCloseRule` 收成了一个 `NotNull` ✓（队列次序：`NotNull` 在**本规则之前** ✓），
+// 于是这一趟当场把 `typeof` 与那个 `NotNull` 收成一个单元 ✗ ⇒ `IsChainBase` 在那一格
+// 只看得见 `UnaryOperator` ✗ ⇒ 链从 `.get` 另起 ✓（实测产物三格平级：
+// `UnaryOperator[Keyword(typeof), NotNull]` + `SymbolToken(.)` + `Keyword(get)` ✓，
+//  TS 侧缺 `PropertyAccessExpression` / `CallExpression` ✓）。
+//
+// **让路之后** ✓：链规则**下一趟**把 `[NotNull, ., get]` 收成链 ✓，再下一趟一元那一趟
+// 看到的是**一个完整的链** ✓ —— 与 TS 逐格相同 ✓。
+//
+// **为什么放在三个分支之前** ✓：这一格对**每一种**一元运算符都成立 ✓（`typeof` / `void` /
+// `delete` / `!` / `~` / `-` / `+` / `++` ✓）——`-o!.n` 与 `typeof o!.n` 是同一个形状问题 ✓，
+// 挡在分支里就要抄四份 ✗。
+//
+// **只认 `.` 与 `[`** ✗：调用括号 `(` 由 `Process` 那一支自己吃 ✓（`typeof o!()` 的 `()` ✓），
+// 收进来只会多一个 `Method` 层 ✓。
+if (after instanceof NotNull && this.HasChainLinkAfter(units, afterIndex)) {
+  return false;
+}
 if (this.IsPrefixSymbol(current)) {
   // **类型查询里的 `typeof` 不是值位一元运算** ✓（第 543 轮 ✓）——**父单元是 `TypeQuery` 时一律不折** ✗。
   //
@@ -447,6 +483,19 @@ if (this.IsOperand(after) || assertedOperand) {
     const nextIndex = SkipNextWrapSymbol(units, operandEnd);
     const nextUnit = Get(units, nextIndex);
     if (nextUnit instanceof Bracket && nextUnit.startBracket === "(") {
+      operandEnd = nextIndex;
+      continue;
+    }
+    // **紧跟其后的下标也是这一元运算的操作数**（第 614 轮 ✓）：`typeof o![0]` 里那个 `[0]`
+    // 这一趟已经**不是括号**了 ✗ —— `JsonArrayCloseRule` 排在前面 ✓，它把「前面有操作数的 `[`」
+    // 收成了 **`ArrayLiteral`** ✓（`json/array-literal.xl.md` 的 `IsArrayAt` ✓，
+    // 同一个形状在 `data.c![0]` 里就是投影侧的 `ElementAccessExpression` ✓）。
+    // 不收它的后果与上面那条「调用括号」**一模一样** ✗：`typeof` 只拿到 `o!` ✓
+    //（实测缺 `ElementAccessExpression` + `NumericLiteral`、`TypeOfExpression` 短一截 ✓）。
+    //
+    // **只吃 `ArrayLiteral` 这一档** ✗：它就是「值位、前面有操作数的 `[`」的唯一形态 ✓
+    //（真正的数组字面量前面不会有操作数 ✓，它只会落进 `after` 那一格 ✓）。
+    if (nextUnit instanceof ArrayLiteral) {
       operandEnd = nextIndex;
       continue;
     }

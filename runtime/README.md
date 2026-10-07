@@ -11,13 +11,13 @@
 > **状态：进行中。** 引擎骨架已落地：内存三件套（`value` / `heap` / `gc`）、程序表示（`ir`）、
 > 线形态 + 装载验证（`ir-verify`）、执行器（`frame` / `rt` / `vm`）、属性原型层（`props`）、
 > `this` / `call_method` / `new`、访问器重入、生成器、承诺 + 微任务队列与**宿主 ABI**（`host-abi`）。
-> 判据 `npm run runtime:check` **242 条全绿**：真循环、一万层递归（中途发生过回收）、
+> 判据 `npm run runtime:check` **243 条全绿**：真循环、一万层递归（中途发生过回收）、
 > 跨帧异常展开、闭包捕获、原型链遮蔽、方法调用的 `this`、`new` 的收尾规矩、
 > getter / setter 重入、生成器挂起活过回收、`await` 全链路、
 > 宿主的四类结局（成功 / 脚本抛出 / 挂起 / 限额）与能力白名单，
 > 以及宿主函数失败时那条「抬成脚本站内异常」的通道。
 > 场景覆盖面另有 `npm run coverage`（[tests/coverage/](../tests/coverage/README.md)）——
-> 这一层现在是 **496 / 502（98.8%）**：机制快满了，覆盖面还差一截，差在哪那份清单里写着。
+> 这一层现在是 **499 / 502（99.4%）**：机制快满了，覆盖面还差一截，差在哪那份清单里写着。
 >
 > 降级层与标准库在 [typescript-exec/](../typescript-exec/README.md)：`.ts` 已经能直接执行 ——
 > 运行器 `tsrun`（仓库根的 [tsrun.xl.md](../tsrun.xl.md)）装上

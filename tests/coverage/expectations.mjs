@@ -1006,8 +1006,7 @@ export const EXPECTATIONS = {
 
   // ---- `Math.asinh` / `Math.acosh` / `Math.atanh` 不在那儿（`sinh`/`cosh`/`tanh` 是好的）。
 
-  // ---- `Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, "size")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。
-  "c371-stdlib-map-set-size-and-keys": { expect: "differ", why: "`Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, \"size\")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。" },
+  // ---- `Map.prototype` / `Set.prototype` 的 `size` 取不到（第 613 轮修好：原型上的访问器）。
 
   // ---- `Promise.resolve(p) === p` 要是 `true`（同一个承诺原样返回）。
 

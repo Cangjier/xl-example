@@ -440,8 +440,7 @@ new Map([
   //
   // **注意同一个 kind 在这张表里只能出现一次**：写两遍时**后一条会静默覆盖前一条**
   // （`Map` 的键唯一），症状是「某个字段名整类不对」而看不出原因。这个坑在第 9 轮
-  // （`ClassDeclaration`）与第 33 轮（`MethodDeclaration`）各踩过一次——
-  // 所以 `cases:shapelint` 现在会**扫源码**把重复键揪出来。
+  // （`ClassDeclaration`）与第 33 轮（`MethodDeclaration`）各踩过一次——改这张表时**自己盯住重复键**。
   ["MethodDeclaration", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   ["MethodSignature", new Map([["GenericType", "typeParameters"], ["children", "parameters"]])],
   // **取值器 / 设值器**（第 93 轮加）：与函数一样，形参表叫 `parameters`——
@@ -5535,67 +5534,6 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
 
 # private const PARAMETER_MODIFIERS:Set<string> = new Set(["public", "private", "protected", "readonly", "override"])
 
-# private method punctBetween:(v:any, fromKey:string, toKey:string, ch:string, ctx:any)=>any
-
-在两段之间**量**出那个标点（`?` / `:`）：从上一段的末尾往后扫，扫到下一段的起点为止。
-
-产物树里 `TernaryOperator` 只有三段、标点没有单元，所以只能这么做；**不能按「上一段末尾 + 1」
-合成**——中间一般有空白（`error ? a : b`），而且 `endOf` 是闭区间，两个坑叠起来正好差一格。
-
-```ts
-  const from = firstNodeOf(v, fromKey);
-  if (from === null) return undefined;
-  const to = firstNodeOf(v, toKey);
-  const startAt = endOf(from) + 1;
-  const stop = to === null ? v.end : startOf(to);
-  for (let i = startAt; i < stop && i < ctx.source.length; i++) {
-    // **注释里那个标点不算**（第 143 轮）：两段之间常夹着整行注释——
-    //
-    //     ? b
-    //     // 说明：这里…
-    //     : c
-    //
-    // 注释文本里出现 `:` 时会被量成那个 `ColonToken`（实测 `dist/ts/typescript/ts-ast.ts`
-    // 缺 1 + 多出 1，位置正好落在注释里）。
-    if (ctx.source[i] === "/" && ctx.source[i + 1] === "/") {
-      while (i < stop && ctx.source[i] !== "\n") i++;
-      continue;
-    }
-    if (ctx.source[i] === "/" && ctx.source[i + 1] === "*") {
-      for (i += 2; i < stop && !(ctx.source[i] === "*" && ctx.source[i + 1] === "/"); i++);
-      i++;
-      continue;
-    }
-    if (ctx.source[i] === ch) {
-      return {
-        kind: ch === "?" ? "QuestionToken" : "ColonToken",
-        text: ch,
-        pos: i,
-        end: i + 1,
-      };
-    }
-  }
-  return undefined;
-```
-
-# private method firstNodeOf:(v:any, key:string)=>any
-
-```ts
-  const kids = kidsOf(v, key);
-  if (kids.length > 0) return kids[0];
-  // 分段里可能只有一层包装（`TernaryOperatorCondition`），要往里再走一层。
-  for (const raw of v.segments.values()) {
-    if (!Array.isArray(raw)) continue;
-    for (const wrapper of raw) {
-      if (!(wrapper instanceof Map)) continue;
-      for (const inner of kidsOf(view(wrapper), "children")) {
-        if (inner.get("type") !== "SymbolToken") return inner;
-      }
-    }
-  }
-  return null;
-```
-
 # private method projectSegment:(v:any, key:string, ctx:any)=>any
 
 ```ts
@@ -5612,8 +5550,8 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   //
   // 判据是「这个 tag 在 `KIND_BY_TAG` 里查不到**且**名字以 `Condition` / `Statement` / `Segment`
   // 结尾」——那才是分段壳（`TernaryOperatorCondition` 这种）。
-  // **不能只看「查不到映射」**：`PropertyAccess` 也不在 `KIND_BY_TAG` 里（它由 `projectNode`
-  // 的 `case` 处理），只看映射会把 `y.z` 摊成两个裸名字。
+  // **不能只看「查不到映射」**：`PropertyAccess` 也不在 `KIND_BY_TAG` 里（它自己覆写了
+  // `PrintAst`），只看映射会把 `y.z` 摊成两个裸名字。
   const leaf = first.get("type") === "Identifier" || first.get("type") === "Keyword" || first.get("type") === "SymbolToken";
   const wrapper =
     !leaf &&
@@ -6746,7 +6684,6 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     TypeArguments: (generic) => projectTypeArguments(generic, ctx),
     ConditionalNode: (list, from, to) => conditionalNode(list, from, to, ctx),
     Segment: (view, key) => projectSegment(view, key, ctx),
-    PunctBetween: (view, fromKey, toKey, punct) => punctBetween(view, fromKey, toKey, punct, ctx),
     UnwrapNodes: (unit) => unwrapNodes(unit),
     TypeOf: (list) => typeOf(list, ctx),
     BlockOfBody: (list, from) => blockOfBody(list, ctx, from),

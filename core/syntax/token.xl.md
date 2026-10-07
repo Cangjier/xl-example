@@ -564,7 +564,7 @@ node.set("range", [start, end]);
 // 这一处配对本来就做完了（上面的 `taken[i] = token`），所以只是把它记下来，不多算一步。
 //
 // **记成普通属性、不是 Map 的条目**：`entries()` / `JSON.stringify` / `Token.ToPlain`
-// 都看不见它，所以 XML 出口、AST JSON 出口与 `cases:astjson` 那把尺子一个字节都不受影响。
+// 都看不见它，所以 XML 出口与 AST JSON 出口一个字节都不受影响。
 (node as any).__token = this;
 // 一个子单元在字典里的区间（`[起, 止]`），配「区间也相同」那一趟用。
 const spanOf = (one: Token): Array<number> => {

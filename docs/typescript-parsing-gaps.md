@@ -5838,57 +5838,22 @@ xl check                174 文件 0 error 0 warning
 浮点与大字面量仍装不进线形态 ✓（P2）、`Array.from` / `Object.assign` 那一类静态方法 ✓、
 解构的默认值与剩余 ✓、`static` 与字段初始化 ✓、正则 ✓。
 
-## 前缀运算符的操作数里带「非空断言 + 链」（第 613 轮发现）
+## 前缀运算符的操作数里带「非空断言 + 链」（第 613 轮发现，第 614 轮修好）
 
-**形状**：`typeof o!.get` / `void o!.get` / `typeof o!.get()`——
-即**前缀一元运算符**（`typeof` / `void` / `delete` / `!` / `~`）的操作数里有
-**非空断言 `!`**，而那个 `!` 后面**还接着链**（`.名字` 或 `[下标]`）。
+**形状**：`typeof o!.get` / `void o!.get` / `typeof o!.get()`——**前缀一元运算符**的操作数里有
+**非空断言 `!`**，而那个 `!` 后面**还接着链**（`.名字` / `[下标]`）。
 
-**量到的差**（`tests/parse/ts-ast.mjs --file <反例>`，反例三行写在下面）：
+**根子在规则次序，不在投影**：队列次序是 `PropertyAccess` → `NotNull` → `UnaryOperator`，
+所以一元那一趟看到的操作数**已经是一个 `NotNull`**；它当场把 `typeof` 与那半截收成一个单元，
+`IsChainBase` 于是在那一格只看得见 `UnaryOperator`（不在名单里）⇒ 链从 `.get` 另起。
+**把 `NotNull` 提到最前面**是那条走不通的路：`NotNull.Process` 记的 `Parent` 会退化成语句壳，
+`IsChainBase` 里「NCO 里面的 `NotNull` 不折链」那条判据（第 592 轮）当场失效。
 
-| 方向 | 差 |
-| --- | --- |
-| 缺 | 4（`PropertyAccessExpression` ×3 + `CallExpression` ×1） |
-| 漂移 | 3（`TypeOfExpression` / `TypeOfExpression` / `VoidExpression` 各短一截） |
-| 多出来 | 7（`PropertyAccessExpression` / `TypeOfExpression` ×2 / `CallExpression` / `VoidExpression` …） |
+**改法**（`typescript/tokens/unary-operator.xl.md`）：`Previous` 里加一道**让路**——
+操作数是 `NotNull`、而它后面还接着 `.` 时这一趟不折，链规则下一趟把 `[NotNull, ., get]`
+收成链、再下一趟一元那一趟看到的就是一个完整的链。`Process` 那边同时补上
+「紧跟其后的下标也是这一趟的操作数」（`typeof o![0]` 里那个 `[0]` 早被 `JsonArrayCloseRule`
+收成了 `ArrayLiteral`，不是括号）。
 
-**产物现场**（`console.log("T2", typeof o!.get)`）：
-
-```
-<Method> [30,54]
-  <UnaryOperator> [40,49] "typeof o!"     ← 操作数只收到 `o!`
-    <Keyword> [40,46] "typeof"
-    <NotNull> [47,49]
-  <SymbolToken> [49,50] "."
-  <Keyword> [50,53] "get"                 ← 点号与成员名掉成了平级兄弟
-```
-
-TS 那边是 `TypeOfExpression[40,53] > PropertyAccessExpression[47,53] > NonNullExpression[47,49] + Identifier`。
-
-**根子在规则次序，不在投影**：`NotNullCloseRule` 比 `PropertyAccessCloseRule` **晚**跑
-（`not-null.xl.md` 写着「`!` 比链晚一步成形，收敛环会再跑一整趟」）——
-而**一元那一趟比它们都早**：它看到 `[Keyword(typeof), Identifier(o), SymbolToken(!), . , get]` 时，
-`after` 跳过软换行拿到的是 `SymbolToken(!)`（`IsPrefixSymbol` 那一支，第 169 轮），
-于是**当场**把 `typeof` 与前面那格 `o` 收成一个 `UnaryOperator`。
-`o` 与 `!` 一旦进了 `UnaryOperator` 的 `Data`，`PropertyAccessCloseRule` 的 `IsChainBase`
-看到的就只剩一个 `UnaryOperator`——它**不在那份名单里**，链于是从 `.get` 那里另起，
-投影再也拼不回 `TypeOfExpression > PropertyAccess`。
-
-**为什么难**：要让一元那一趟把操作数收到 `.get` 为止，就得让它在 `after` 是 `!` 时
-**先往后看一格**（`!` 后面还有没有链环），而那时 `NotNull` **还没成形**——
-要么把 `NotNullCloseRule` 提到一元之前（会动到 592 轮那条「NCO 里的 `!` 不折链」的判据），
-要么让一元那一趟自己把 `!链` 这一段先折出来。两条都要在 `tests/parse/cases/expressions/`
-的 `expr-nonnull-*` 那一族上逐个复验。
-
-**反例**（三行，逐条都在 `cases:tsast` 的语料形状之外）：
-
-```ts
-const o: any = { get: 1 };
-const a = typeof o!.get;
-const b = typeof o!.get();
-const c = void o!.get;
-```
-
-**没有收成语料** ✗：`cases:tsast` 的红线是「逐文件完全一致」，
-把一份过不去的文件放进去就是**把门变红** ✓——所以这一条先记在这里 ✓，
-修好之后再补一份 `expr-nonnull-*.ts` ✓（与 `expr-nonnull-chain-links.ts` 同一个目录 ✓）。
+**反例收成了语料**：`tests/parse/cases/expressions/expr-nonnull-unary-operand.ts`
+（第 614 轮，`cases:tsast` 逐文件一致）。

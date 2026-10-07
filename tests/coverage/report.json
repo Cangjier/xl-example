@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.49,
+  "progressPercent": 99.53,
   "layers": [
     {
       "layer": "runtime",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 628,
+      "pass": 629,
       "blocked": 0,
-      "differ": 6,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 99.05
+      "coverage": 99.21
     },
     {
       "layer": "e2e",
@@ -106,12 +106,6 @@
       "layer": "stdlib",
       "title": "toUpperCase / toLowerCase / toLocale* 的边界",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: case conversion outside ASCII (there is no mapping table here)"
-    },
-    {
-      "id": "c371-stdlib-map-set-size-and-keys",
-      "layer": "stdlib",
-      "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
-      "detail": "stdout 不同：第 2 行：node «function true false» vs tsrun «undefined true false»"
     },
     {
       "id": "c371-stdlib-promise-finally-passthrough",

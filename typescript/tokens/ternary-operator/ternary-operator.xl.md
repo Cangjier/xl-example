@@ -415,6 +415,16 @@ if (innerQuestion !== -1 && innerQuestion < endIndex) {
 }
 const ternaryOperator = new TernaryOperator(template);
 ternaryOperator.Parent = current.Parent;
+// **两个标点的位置当场记进字段**（`QuestionPos` / `ColonPos`）：这一刻它们就是 `units` 里
+// 那两格 `SymbolToken`，区间已经签好；不记的话投影只能回原文再扫一遍。
+const questionUnit = Get(units, questionIndex);
+const colonUnit = Get(units, elseIndex);
+const questionStart = questionUnit === null ? null : questionUnit.SourceRange.Start;
+const colonStart = colonUnit === null ? null : colonUnit.SourceRange.Start;
+if (questionStart !== null && colonStart !== null) {
+  ternaryOperator.QuestionPos = questionStart.Index;
+  ternaryOperator.ColonPos = colonStart.Index;
+}
 const condition = ternaryOperator.CreateCondition();
 const trueStatement = ternaryOperator.CreateTrueStatement();
 const falseStatement = ternaryOperator.CreateFalseStatement();
@@ -481,10 +491,11 @@ TS 那边两个标点都不进子节点。两者形状极像、口径相反，�
 分段名（`trueStatement` / `falseStatement`）是上游 Cangjie 的叫法，
 TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
 
-标点**在产物树里没有单元**（`TernaryOperator` 只收三段），只能从**源码里量**：
-在两段的区间之间找那个标点（中间可能有空白与注释）。早先这里是「按上一段末尾合成」的，
-位置差一格（第 88 轮修）：`endOf` 是**闭区间**，于是两个 token 都落在标点前一格上
-——实测 `DRIFT: ColonToken` 158 + `DRIFT: QuestionToken` 127 全是它。
+标点的位置**由 token 自己记**（`QuestionPos` / `ColonPos`，第 614 轮 ✓）：
+`Process` 收三段那一刻两个 `SymbolToken` 就在手上、区间已经签好 ✓，
+所以这里直读字段 ✓。**从前是回原文量的** ✗——在两段区间之间扫那个标点 ✓（还要跳过注释 ✓），
+那是**第二份近似** ✓：同一件事（标点在哪）源码里只有一处，投影却要再推一遍 ✓。
+两个字段都由 `ToDictionary` 带到视图上 ✓。
 
 ```ts
   const props: any = {
@@ -492,12 +503,29 @@ TS 现在叫 `whenTrue` / `whenFalse`，改名在 `FIELD_BY_KIND` 里做。
     whenTrue: ctx.Segment(v, "trueStatement"),
     whenFalse: ctx.Segment(v, "falseStatement"),
   };
-  const question = ctx.PunctBetween(v, "condition", "trueStatement", "?");
-  const colon = ctx.PunctBetween(v, "trueStatement", "falseStatement", ":");
-  if (question !== undefined) props.questionToken = question;
-  if (colon !== undefined) props.colonToken = colon;
+  const questionPos = v.attrs.get("questionPos");
+  const colonPos = v.attrs.get("colonPos");
+  if (typeof questionPos === "number" && questionPos >= 0) {
+    props.questionToken = { kind: "QuestionToken", text: "?", pos: questionPos, end: questionPos + 1 };
+  }
+  if (typeof colonPos === "number" && colonPos >= 0) {
+    props.colonToken = { kind: "ColonToken", text: ":", pos: colonPos, end: colonPos + 1 };
+  }
   return ctx.NodeHead("ConditionalExpression", props, v);
 ```
+
+## field QuestionPos:int = -1
+
+条件那个 `?` 在源码里的下标；还没记下来时是 `-1`。
+
+**为什么记下来** ✗：`?` 不进 `Data` ✓（`TernaryOperator` 只收三段 ✓），
+而 TS 的 `ConditionalExpression.questionToken` **是节点** ✓——
+不记的话投影只能回原文在「条件段末尾与真值段开头之间」扫 ✓，
+那既要知道 `endOf` 是闭区间 ✓、又要跳过注释与空白 ✓（第 88 / 143 轮各踩过一次 ✓）。
+
+## field ColonPos:int = -1
+
+真值段与假值段之间那个 `:` 的下标，口径与 `QuestionPos` 同。
 
 ## constructor:(template:Template)=>void
 
@@ -582,6 +610,9 @@ result.set("type", this.constructor.name);
 result.set("condition", this.Condtion.ToList());
 result.set("trueStatement", this.TrueStatement.ToList());
 result.set("falseStatement", this.FalseStatement.ToList());
+// **两个标点的位置**（见 `QuestionPos` / `ColonPos`）：投影直读，不再回原文扫那个标点。
+result.set("questionPos", this.QuestionPos);
+result.set("colonPos", this.ColonPos);
 return result;
 ```
 
@@ -591,9 +622,13 @@ return result;
 
 顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
 
+`QuestionPos` / `ColonPos` 照抄——它们是投影要直读的事实，漏了克隆体就没有标点节点。
+
 ```ts
 const result = new TernaryOperator(this.Template);
 result.Sign(this);
+result.QuestionPos = this.QuestionPos;
+result.ColonPos = this.ColonPos;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

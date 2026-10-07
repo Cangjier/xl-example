@@ -18,13 +18,13 @@
 
 产物是 `dist/ts/typescript-exec/**`，与 `runtime/**` 一起被 `tsrun` 装起来跑。
 
-## 判据与当前读数（第 605 轮实测）
+## 判据与当前读数（第 614 轮实测）
 
 | 判据 | 命令 | 结果 |
 | --- | --- | --- |
-| 执行侧自测 | `npm run runtime:check` | **242 / 242**（值模型 / 堆 / GC / IR / 装载验证 / 执行器 / 属性 / 访问器 / 生成器 / 承诺 / 宿主） |
+| 执行侧自测 | `npm run runtime:check` | **243 / 243**（值模型 / 堆 / GC / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主） |
 | 直接执行 `.ts` | `npm run runtime:cli` | **79 / 79** 份与 `node <文件.ts>` 逐字节相同 |
-| 场景覆盖度 | `npm run coverage` | **1700 / 1713（99.4%）**：引擎 99.0% · 降级层 100% · 标准库 98.9% · 端到端 99.4% |
+| 场景覆盖度 | `npm run coverage` | **1704 / 1713（99.5%）**：引擎 99.4% · 降级层 100% · 标准库 99.2% · 端到端 99.4% |
 | 六道门一次跑完 | `npm run gates` | 全绿（墙钟 ~22s） |
 
 覆盖度的每一条都是**一份普通的、没为本运行器改过的 `.ts`**，分别交给 `node`（裁判）与
@@ -35,21 +35,17 @@
 
 **进不了门：0 条**（第 601 轮把最后一条 `c382-ex-braced-escape` 收掉了——词法层认 `\u{…}` 的花括号）。
 
-**跑得出来但结果不同（13 条）**——按根子归类：
+**跑得出来但结果不同（9 条）**——按根子归类：
 
-- **原型与 `this`**：`super` / 箭头 / 解构 / 回调里的绑定；方法与 `constructor` 的可枚举性。
-  （`instanceof` 与原型替换那一条第 605 轮收掉了：类的 `prototype` 现在**不可写**，
-  与 JS 一样 `C.prototype = {}` 静默无效。）
-- **内建构造器的 `name`**：`Error.name` / `AggregateError.name` 这一类内建构造函数还是
-  **宿主引用**（没有属性表），所以 `e.constructor.name` 给 `undefined`。
-- **迭代协议**：手写可迭代对象的 `return()` 收尾（`GetIterator` 先把自定义可迭代物收成数组）。
-- **异步**：`Promise` 的排空次序（`finally` 的值透传、`async` 里的抛错）；
-  异步任务池那一条端到端也挂在这上面。
-- **函数内省**：计算键方法的 `name`；`bind` 当构造器；`console.log(class C {})` 的 `[class C]`
-  （值模型里没有「这是类」这一位）。
-- **内建细节**：`Map` / `Set` 的 `size` 是原型上的访问器（本仓挂在实例上，
-  且 `Object.getOwnPropertyDescriptor` 还不给访问器那一档）；
-  `Date` 的 `now` / `parse` / `toString`；字符串的非 ASCII 大小写。
+- **原型与 `this`**：`super` 与脱离接收者的方法调用（类体是严格模式，`this` 该是 `undefined`）；
+  方法与 `constructor` 的可枚举性。
+- **迭代协议**：`for..of` 提前退出要调迭代器的 `return()`（本仓的 `GetIterator` 先把自定义
+  可迭代物排成数组，既丢惰性、也没有 `return()` 可调）。
+- **异步**：`Promise` 的排空次序（`finally` 的值透传 / 回调抛错后少一跳）；
+  端到端的异步任务池挂的是同一处（多帧并发挂起 / 恢复）。
+- **函数内省**：计算键方法的 `name`（运行期算出来的键要写进闭包的 `Name`）；
+  `bind` 当构造器。
+- **内建细节**：`Date` 的多实参构造 / 字符串解析 / 本地时间渲染；字符串的非 ASCII 大小写。
 
 **下一轮的入口**：`tests/coverage/report.json` 里每一条都带一句症状与最小复现，
 `npm run coverage -- --filter <id>` 可以单跑一条。
