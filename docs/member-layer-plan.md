@@ -3439,3 +3439,88 @@ EXTRA  Block        [155,195)  "continue loop"      ← 把下一行的 `if` 也
 也就是说**下一行的 `if` 被并进了这一段的体里** ✗（TS 那边 `IfStatement` 到 `continue loop` 为止 ✓）。
 根子在解析期 `if` 向导给「单语句体」定界那一处 ✓（`if-statement.xl.md` / `if-segment.xl.md` ✓），
 不是投影侧 ✓ —— 下一轮从那里查 ✓。
+## 一百四十、`if` 单语句体的定界：一次**没有效果的尝试**（第 537 轮，负面，已回滚）
+
+起点 **879 / 1037** ✓。上一轮把「`if (skip()) continue loop` 把下一行的 `if` 也吞了」记成下一块的入口 ✓
+（`decl-label-break-continue.ts`：`IfStatement` 产物 `[155,195)` vs TS `[155,168)` ✓）。这一轮去查它 ✓。
+
+### 一、查到的现场（比上一轮更细）
+
+`if-statement.xl.md` 的 `Process` 里那条定界判据是 ✓：
+
+```ts
+if (before.constructor.name === "LineWrap") {
+  if (Statement.IsLineBreakBoundary(data, last - 1)) { … 体到此为止 … }
+  return;
+}
+```
+
+探针（`tmp/recon/probe-ifbranch.cjs` ✓，打在 `Process` 进门处 ✓、并把每个 `this.BodyEnded = true` 也打一行 ✓）：
+
+```
+IFB1DBG ch="\n" last=1 prev=Identifier nonWrap=Identifier:loop
+```
+
+⇒ 换行那一格，`data` 的末尾是 `[Identifier(continue) Identifier(loop)]` ✓ ——
+**`before` 不是 `LineWrap`** ✗（`data[last]` 已经是新一行的第一个单元 ✓）。
+于是那条判据**一次都不成立** ✗，体一路吃到下一个 `}` ✓。
+
+**我这一轮加的补丁**（照抄 ASI 的第一条 ✓：受限产生式的词之后一换行就断句 ✓）：
+
+```ts
+const previousWord = data[last - 1];
+if (
+  source.Value === "\n" &&
+  (previousWord instanceof Identifier || previousWord instanceof Keyword) &&
+  Statement.IsRestrictedKeyword(previousWord)
+) {
+  this.BodyEnded = true;
+  this.BodyEndIndex = last;
+}
+```
+
+### 二、结果：**一个数字都没动** ✗
+
+```
+完全一致 879 → 879 ✗（缺 874 / 漂 71 / 多 299 / 字段名 58 逐项相同 ✗）
+```
+
+**并且补丁里那一支一次都没命中** ✗ —— 同一个探针（`probe-ifguard.cjs` ✓）把 `previousWord` 的
+实际值打出来 ✓，整场里 `ch="\n"` 那一行**根本不出现** ✓：
+
+```
+IF2DBG ch="l" prevType=Identifier isIdent=true isKw=false restricted=true
+IF2DBG ch="o" prevType=Identifier isIdent=true isKw=false restricted=true
+IF2DBG ch="p" prevType=Identifier isIdent=true isKw=false restricted=true
+IF2DBG ch="i" prevType=Statement isIdent=false isKw=false restricted=false   ← 已经是下一行的 `if`
+```
+
+⇒ 换行那一格在 `const previousWord = …` **之前**就 `return` 了 ✓（正是上面那句
+`if (before.constructor.name === "LineWrap") { … return; }` ✓）——
+也就是说**那一刻 `before` 确实是一个 `LineWrap`** ✓，只是 `IsLineBreakBoundary` 判了假 ✓
+（而 `EndSet` 那一行一次都没打 ✓）。**我上一轮的推断（「软换行不在 `Data` 里」）是错的** ✗ ——
+`before` 是 `LineWrap` ✓、`data[last]` 是下一行的第一个单元 ✓，**软换行在 `data` 里但不在末尾** ✓。
+
+⇒ 按纪律**回滚** ✓（源码 `git checkout` ✓、带 `force` 重建 ✓，读数确认回到 879 ✓）。
+**下一轮的正确入口** ✓：不是「补一条换行判据」✗，而是查
+**`IsLineBreakBoundary(data, last - 1)` 为什么在这个体里答假** ✗ ——
+它的第一条（换行前是受限产生式的词 ⇒ 是边界 ✓）在 `statement.xl.md` 里明明写着 ✓，
+可 `data[last-1]` 是 `Identifier(continue)` ✓、`data[last]` 是 `Identifier(loop)` ✗ ⇒
+**它看到的「换行前一格」不是 `continue` 而是 `loop`** ✗（序号差了一格 ✓）——
+从 `last - 1` 这个下标该不该减、以及 `LineWrap` 在 `data` 里到底落在哪一格查起 ✓。
+
+### 三、工具与口径
+
+本轮新增四支一次性探针 ✓（都在 `tmp/recon/` 下、不进仓 ✓）：
+`probe-ifbody.cjs` / `probe-ifdata.cjs` / `probe-ifbranch.cjs` / `probe-ifguard.cjs` ——
+打法从「进门打一行」升级到**「每个 `BodyEnded = true` 也打一行 + 把判据的每个操作数打出来」** ✓。
+这一轮的价值就在这儿 ✓：**负数也是数** ✓（把「软换行不在 `Data` 里」这条错判断证伪了 ✓，
+下一轮不用再花时间在它上面 ✓）。
+
+### 四、下一块（按清点）
+
+- **`if` 单语句体的定界** ✓：入口已收敛到 `IsLineBreakBoundary(data, last - 1)` 的**下标**上 ✓；
+- **`{ a: 1 }` 这个块 vs 对象的歧义** ✓：`am-object-vs-block.ts` 只差一个
+  `ExpressionStatement[33,34)` ✓（TS 那边抛掉最外层块、把 `a: 1` 当对象字面量 ✓），
+  但它牵动「`{` 到底是块还是对象」那条解析期判据 ✓，量与风险都要先摸 ✓；
+- 清点头两名未变：`Identifier` 118 份 ✓、`VariableDeclaration`/`List` 34+33 份 ✓。
