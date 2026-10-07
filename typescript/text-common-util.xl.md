@@ -479,10 +479,19 @@ return before instanceof Identifier && before.IsAny(["return", "typeof"]);
   `interface String { replace(searchValue: { [Symbol.replace](…): string }): string }`
   里那个**类型字面量**会被当成对象字面量，里面的 `(substring: string, …) => string` 会从
   函数类型变成箭头函数（实测 `lib.es2015.symbol.wellknown.d.ts` 1 处）。
+- **`ClassBody` 直接就是「声明体」** ✓（本轮补 ✓）：类体不再是那个 `{` 括号了 ✓
+  （`class` 由 `ClassBranch` 在 `{` 那一刻收成 `ClassBody` ✓），所以上面那条
+  「`startBracket === "{"`」永远撞不到它 ✓——不在这里显式截住的话，
+  上溯会**穿过类体**继续往外找 ✓，于是 `const o = { C: class { x: { a: 1 } } }` 里那个
+  类型字面量会被外层**对象字面量**的 `Context` 判成值位 ✗（对象的冒号与类型的冒号混在一起 ✓）。
+  类体里的冒号一律是**类型标注** ✓ ⇒ 这里给 `""` ✓，与接口体 / 枚举体 / 命名空间体同款 ✓。
 
 ```ts
 let node:Token | null = host;
 for (let hop = 0; hop < 8 && node !== null; hop++) {
+  if (node.constructor.name === "ClassBody") {
+    return "";
+  }
   if (node instanceof Bracket && node.startBracket === "{" && node.Context !== "") {
     return BraceInExpression(node) ? node.Context : "";
   }

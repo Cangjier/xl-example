@@ -10,7 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { GetSkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, IsTriviaUnit } from "../../text-common-util.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { IfBody } from "./if-body.xl.md"
@@ -219,16 +219,30 @@ ifSet.MountCondition(source);
 **手上没有单元在吃时，由本类定形状** ✓（用户口径：判定全靠 `Data` ✓；**`last` 不许是 `Bracket`** ✗
 ⇒ `(` / `{` 必须**在跑队列之前**判完 ✓）。
 
-三段，按顺序：
+四种局面，按顺序：
 
-1. **先判括号** ✓——`(` / `{` **不进队列** ✓，所以 `Data` 里永远不会出现 `Bracket` ✓，
-   也就不需要「造一个空括号再摘掉」那种绕路 ✗；
-2. **其余字符交给队列** ✓——`else` / `if` / 单语句的首单元都照常造成单元 ✓；
-3. **再按 `Data` 判局面** ✓（此时表里只有段 ✓、`else` / `if` 的 Identifier ✓、单语句的单元 ✓）。
+1. **空白直接忽略** ✓（空格 / 制表 / 回车 / 换行不属于任何单元 ✓）；
+2. **本段的体还没齐** ✓ ⇒ 这一格就是体的开头 ✓（`{` 挂 `IfBody` ✓、`if` 段的 `(` 挂 `IfCondition` ✓、
+   其余挂 `IfStatement` ✓）；
+3. **本段的体已经齐了** ✓ ⇒ 只剩「还接不接一个 `else`」这一件事 ✓（`else if (` / `else {` /
+   `else <单语句>` 三条 ✓）；
+4. **尾巴** ✓：交给队列照常词法化 ✓，再按 `Data` 判局面 ✓——不是 `else` 就把尾巴交回宿主 ✓。
+
+**第 4 步是这一族唯一难的地方** ✓，两处实测：
+
+- **队列那一段不能一命中就 `return`** ✗（原来的写法就是那样 ✓）：那样一来「按 `Data` 判局面」永远轮不到 ✗
+  ⇒ `else` 续段与「尾巴交还」两件事**一次都没执行过** ✗ ⇒ 体后面的字符全落在向导名下 ✓
+  （实测 `if (x) { f(); }` 在方法体里会把**外层的 `}` 也吃掉** ✓，整个类体于是收不到自己的收尾符 ✗）。
+- **不归自己的字符要交回去** ✓：交还时把「最后一个 `IfSegment` 之后」的单元逐个交出去 ✓——
+  词与 trivia **搬家** ✓（它们本来就是宿主的 ✓）；符号 / 括号则**摘掉、把每一个字发回宿主** ✓
+  （宿主必须**自己处理**那些字 ✓：`}` 要走到外层括号的 `ExitOrPre` 才收得住 ✓，
+  留着当子单元就只是一块死文本 ✗）。
+
+第 3 步里 `else` 后面那一格要在**读之前**判完 `{` / `(` ✓，读之后只用 `Data` 判「是不是 `if`」✓——
+`else iff` 这种写法因此也分得开（`if` 不是前缀了就当场按普通 `else` 落 ✓）。
 
 ```ts
-// **空白直接忽略** ✓：空格 / 制表 / 回车 / 换行不属于任何单元 ✓，
-// 既不进队列（免得造成多余单元 ✗）、也不还给宿主（那是链内部的位置 ✓）。
+// **① 空白直接忽略** ✓：既不进队列（免得造成多余单元 ✗）、也不还给宿主（那是链内部的位置 ✓）。
 if (
   source.Value === " " ||
   source.Value === "\t" ||
@@ -246,126 +260,217 @@ if (
   return;
 }
 const data = this.Data;
-const tail = data[data.length - 1];
 const scope = this.Segment;
-const fresh = scope !== null && scope.Data.length === 0;
-
-// **链到头了吗** ✓：本段的体已经齐了 ✓、而尾巴上那个 Identifier 不是 `else` 的前缀 ✓
-// ⇒ 剩下的字符不属于这条链 ✗ ⇒ 立刻还给宿主 ✓（宿主的队列里 `IfSetBranch` 会命中 ⇒ 新开一组 ✓）。
-// 判据只看树 ✓：别的词（`i` `if` ✓）不是 `else` 的前缀 ✓ ⇒ 当场放行 ✓；
-// 而 `e` `el` `els` `else` 都是前缀 ✓ ⇒ 继续走下面的队列 ✓。
-const bodyDone =
-  scope !== null && scope.Data.some((item) => item instanceof IfBody || item instanceof IfStatement);
-const atElse =
-  tail instanceof Identifier && "else".startsWith(tail.TempToString());
-const prev = data[data.length - 2];
-const prevIsElse = prev instanceof Identifier && prev.Is("else");
-if (bodyDone && prevIsElse && tail instanceof Identifier) {
-  const start = prev.SourceRange.Start!;
-  prev.RemoveSelf();
-  this.NextSegment("else", start);
-  const statement = new IfStatement(this.Template);
-  this.Segment!.Add(statement);
-  statement.SignIn(tail.SourceRange.Start!);
-  tail.RemoveSelf();
-  statement.Add(tail);
-  this.Segment!.MountedUnit = statement;
+if (scope === null) {
   return;
 }
-if (bodyDone && prevIsElse === false && tail instanceof Identifier && atElse === false) {
-  const host = this.Parent;
-  if (host !== null) {
-    const tailUnit = this.Data[this.Data.length - 1];
-    if (tailUnit !== undefined && tailUnit instanceof Identifier) {
-      tailUnit.RemoveSelf();
-      host.Add(tailUnit);
-    }
-    if (this.SourceRange.End === null) {
-      const segs = this.Data.filter((item) => item instanceof IfSegment);
-      const lastSeg = segs[segs.length - 1];
-      if (lastSeg !== undefined && lastSeg.SourceRange.End !== null) {
-        this.SignOut(lastSeg.SourceRange.End);
+const hasCondition = scope.Data.some((item) => item instanceof IfCondition);
+const bodyDone = scope.Data.some((item) => item instanceof IfBody || item instanceof IfStatement);
+const tail = data[data.length - 1];
+const before = data[data.length - 2];
+const beforeIsElse = before instanceof Identifier && before.Is("else");
+const tailIsElse = tail instanceof Identifier && tail.Is("else");
+
+// **② 本段的体还没齐 ⇒ 这一格就是体的开头** ✓。
+if (bodyDone === false) {
+  if (source.Value === "{") {
+    if (tailIsElse) {
+      const start = tail!.SourceRange.Start!;
+      if (tail!.Closed === false) {
+        tail!.TryToClose();
       }
+      tail!.RemoveSelf();
+      this.NextSegment("else", start);
     }
-    this.Quit(); // 先摘挂载指针（否则死循环），之后再还字符
-    context.Messages.push(new ReloadMessage(host, this, source));
+    this.MountBody(source);
+    return;
   }
-  return;
-}
-
-if (source.Value === "(") {
-  if (fresh) {
+  if (source.Value === "(" && scope.key === "if" && hasCondition === false) {
     this.MountCondition(source);
     return;
   }
   this.MountStatement(context, source);
   return;
 }
-if (source.Value === "{") {
-  if (tail instanceof Identifier && tail.Is("else")) {
-    const start = tail.SourceRange.Start!;
+
+// **③ 体已经齐了 ⇒ 只剩 `else` 这一件事** ✓。
+// `else` 刚读完：这一格是它后面的一格 ✓。
+if (tailIsElse) {
+  if (tail!.Closed === false) {
+    tail!.TryToClose();
+  }
+  const elseStart = tail!.SourceRange.Start!;
+  if (source.Value === "{") {
+    tail!.RemoveSelf();
+    this.NextSegment("else", elseStart);
+    this.MountBody(source);
+    return;
+  }
+  if (source.Value === "(") {
+    tail!.RemoveSelf();
+    this.NextSegment("else", elseStart);
+    this.MountStatement(context, source);
+    return;
+  }
+  this.Lex(context, source);
+  const word = data[data.length - 1];
+  if (word instanceof Identifier && (word.Is("if") || "if".startsWith(word.TempToString()))) {
+    return;
+  }
+  if (word instanceof Identifier) {
+    const bodyStart = word.SourceRange.Start!;
+    word.RemoveSelf();
+    tail!.RemoveSelf();
+    this.NextSegment("else", elseStart);
+    this.MountStatement(context, bodyStart);
+    return;
+  }
+  tail!.RemoveSelf();
+  this.NextSegment("else", elseStart);
+  this.MountStatement(context, source);
+  return;
+}
+// `else` 后面那一格还在读（`i` 可能是 `if` 的开头 ✓）：
+if (beforeIsElse && tail instanceof Identifier) {
+  if (source.Value === "(" && tail.Is("if")) {
+    const start = before!.SourceRange.Start!;
     if (tail.Closed === false) {
       tail.TryToClose();
     }
     tail.RemoveSelf();
-    this.NextSegment("else", start);
-    this.MountBody(source);
-    return;
-  }
-  this.MountBody(source);
-  return;
-}
-if (this.ProcessQueue !== null) {
-  for (const item of this.ProcessQueue.Data) {
-    if (item.Transit(context, this, source) === BranchStates.Done) {
-      this.LastSource = source;
-      return;
-    }
-  }
-}
-const last = data[data.length - 1];
-if (last === undefined || last instanceof IfSegment) {
-  return;
-}
-if (last instanceof Identifier && last.Closed === false) {
-  return;
-}
-if (last instanceof Identifier && last.Is("else")) {
-  return;
-}
-const before = data[data.length - 2];
-if (before instanceof Identifier && before.Is("else")) {
-  const start = before.SourceRange.Start!;
-  if (last instanceof Identifier && last.Is("if")) {
-    last.RemoveSelf();
-    before.RemoveSelf();
+    before!.RemoveSelf();
     this.NextSegment("if", start);
+    this.MountCondition(source);
     return;
   }
-  const bodyStart = last.SourceRange.Start!;
-  before.RemoveSelf();
+  if (tail.Closed === false && "if".startsWith(tail.TempToString())) {
+    this.Lex(context, source);
+    return;
+  }
+  const start = before!.SourceRange.Start!;
+  const bodyStart = tail.SourceRange.Start!;
+  tail.RemoveSelf();
+  before!.RemoveSelf();
   this.NextSegment("else", start);
   this.MountStatement(context, bodyStart);
   return;
 }
-const host = this.Parent;
-if (host !== null) {
-  const tailUnit = this.Data[this.Data.length - 1];
-  if (tailUnit !== undefined && tailUnit instanceof Identifier) {
-    tailUnit.RemoveSelf();
-    host.Add(tailUnit);
+// **尾巴上的 `(` / `{` 不属于这条链** ✗ ⇒ 一个字都不落进来，原样交给宿主 ✓。
+if (source.Value === "(" || source.Value === "{") {
+  this.GiveBack(context, source, false);
+  return;
+}
+
+// **④ 交给队列** ✓（可能长成一个 `else` ✓、也可能只是尾巴上的 trivia ✓）。
+this.Lex(context, source);
+
+// **⑤ 按 `Data` 判局面** ✓（此时表里只有段 ✓、`else` / `if` 的 Identifier ✓、单语句的单元 ✓）。
+const last = data[data.length - 1];
+if (last === undefined || last instanceof IfSegment || IsTriviaUnit(last)) {
+  return;
+}
+// **只有可能是 `else` 开头的那个词才留在尾巴里** ✓（`e` / `el` / `els` / `else` ✓）。
+// **不能写成「凡是不闭合的 Identifier 都等」** ✗：`throw` 这样的词会一直等下去 ✓，
+// 而中间那个空白被本单元忽略掉了 ✗ ⇒ 下一个词直接**接在它后面** ✓
+// （实测 `throw SourceException...` 被读成一个 `Identifier` ✓，整条语句的区间跟着全错 ✗）。
+if (last instanceof Identifier && "else".startsWith(last.TempToString())) {
+  return;
+}
+const beforeLast = data[data.length - 2];
+if (beforeLast instanceof Identifier && beforeLast.Is("else") && last instanceof Identifier && last.Is("if")) {
+  const start = beforeLast.SourceRange.Start!;
+  if (last.Closed === false) {
+    last.TryToClose();
   }
-  if (this.SourceRange.End === null) {
-    const segs = this.Data.filter((item) => item instanceof IfSegment);
-    const lastSeg = segs[segs.length - 1];
-    if (lastSeg !== undefined && lastSeg.SourceRange.End !== null) {
-      this.SignOut(lastSeg.SourceRange.End);
+  last.RemoveSelf();
+  beforeLast.RemoveSelf();
+  this.NextSegment("if", start);
+  return;
+}
+// **`/` 可能是注释或正则的开头** ✓：那两条判据都要看**下一个**字符 ✗ ⇒ 这一格先在尾巴里等一等 ✓
+// （`AreaAnnotationBranch` / `LineAnnotationBranch` / `RegexTokenBranch` 认的都是第二格 ✓，
+//   而它们靠 `unit.IsUndo(pre)` 把那个 `/` 收回去 ✓——先交还宿主的话就再也收不回来了 ✗）。
+if (last instanceof SymbolToken && last.Is("/")) {
+  return;
+}
+// 不是 `else` ⇒ 尾巴上那些单元本来就该属于宿主 ✓ ⇒ 交还之后立刻退出 ✓。
+this.GiveBack(context, source, true);
+```
+
+## private method Lex:(context:SyntaxContext, source:Source)=>void
+
+把当前字符交给本单元的跳转队列，问到谁接手就停。
+
+**它不把控制流带出 `Navigate`** ✓：`Navigate` 在它之后还要按 `Data` 判局面 ✓
+（这正是原来那版丢掉的一步 ✗）。
+
+```ts
+if (this.ProcessQueue === null) {
+  return;
+}
+for (const item of this.ProcessQueue.Data) {
+  if (item.Transit(context, this, source) === BranchStates.Done) {
+    this.LastSource = source;
+    return;
+  }
+}
+```
+
+## private method GiveBack:(context:SyntaxContext, source:Source, consumed:bool)=>void
+
+把**最后一个 `IfSegment` 之后**的子单元交回宿主，然后退掉自己。
+
+- **词与 trivia 搬家** ✓：它们本来就是宿主的东西 ✓（`else` 之外的那个词 ✓、体与 `else` 之间的注释 ✓）；
+- **符号 / 括号摘掉、逐字发回** ✓：宿主必须**自己处理**那些字 ✓——
+  `}` 要走到外层括号的 `ExitOrPre` 才收得住 ✓，留着当子单元只是一块死文本 ✗；
+- `consumed` 说**当前这一格有没有已经被吃进某个单元** ✓：
+  吃了（词 / 注释）就不用再发一次 ✓；没吃（`(` / `{`）就要把它自己也发回去 ✓。
+
+```ts
+const host = this.Parent;
+if (host === null) {
+  return;
+}
+const segments = this.Data.filter((item) => item instanceof IfSegment);
+const lastSegment = segments[segments.length - 1];
+const from = lastSegment === undefined ? 0 : this.Data.indexOf(lastSegment) + 1;
+const tailUnits = this.Data.slice(from);
+for (const item of tailUnits) {
+  if (item instanceof Identifier) {
+    // **词要**原样**搬走，不许顺手关掉** ✗：它可能是**半个词** ✓——
+    // `if (a) {} if (b) {}` 里尾巴上先是那个 `i` ✓，它只是后一条 `if` 的前半截 ✓。
+    // 关掉它的话宿主下一个字符只能另起一个 `Identifier` ✗ ⇒ `i` 与 `f` 分开 ✓、
+    // 后一条 `if` 再也认不出来 ✗（实测：`i` + `MethodDeclaration f(...)` ✓）。
+    item.RemoveSelf();
+    host.Add(item);
+    continue;
+  }
+  if (IsTriviaUnit(item)) {
+    if (item.Closed === false && item.SourceRange.Start !== null && item.SourceRange.End !== null) {
+      item.TryToClose();
+    }
+    item.RemoveSelf();
+    host.Add(item);
+    continue;
+  }
+  const start = item.SourceRange.Start;
+  const end = item.SourceRange.End;
+  item.RemoveSelf();
+  if (start !== null && end !== null) {
+    for (let i = start.Index; i <= end.Index; i++) {
+      context.Messages.push(new ReloadMessage(host, this, start.Document.At(i)));
     }
   }
-  this.Quit(); // 先摘挂载指针（否则死循环），之后再还字符
+}
+if (this.SourceRange.End === null && lastSegment !== undefined && lastSegment.SourceRange.End !== null) {
+  this.SignOut(lastSegment.SourceRange.End);
+}
+this.Quit();
+if (consumed === false) {
   context.Messages.push(new ReloadMessage(host, this, source));
 }
 ```
+
 ## method Begin:(keyword:Token)=>void
 
 建第一段 ✓（`key = "if"` ✓，起点取那个关键字 ✓），并把挂载链接起来 ✓。
@@ -413,7 +518,6 @@ this.Segment!.MountedUnit = body;
 
 ```ts
 const statement = new IfStatement(this.Template);
-statement.Mode = 2;
 this.Segment!.Add(statement);
 statement.SignIn(source);
 this.Segment!.MountedUnit = statement;

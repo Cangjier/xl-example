@@ -1,24 +1,29 @@
 # dependencies
 ```xl
-import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { Branch } from "../../../core/syntax/branch.xl.md"
+import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
+import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifiers, DeclarationStart, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol, WordText } from "../../text-common-util.xl.md"
+import { Get } from "../../../core/extensions/list-extension.xl.md"
+import { DeclarationModifiers, DeclarationStart } from "../declaration-common.xl.md"
+import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "./class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
+import { Decorator, DecoratorReorganization } from "../decorator.xl.md"
 ```
 
 # namespace cangjie
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`class` 声明：把 `class Name ... { ... }` 整段收成一个 `Class`，类体交给 `ClassBody`。
+`class` 声明：**读的时候**就收成 `<Class>…</Class>`。
 
 能收的形状（前导修饰词与装饰器见 `../declaration-common.xl.md`）：
 
@@ -27,20 +32,75 @@ import { SymbolToken } from "../symbol-token.xl.md"
     [extends 基类] [implements 接口, …] { 类体 }
 ```
 
-类头里除名字以外的单元（类型参数、`extends` 段、`implements` 段）**原样作为子单元搬进 `Class`**，
-所以它们的内容不丢；`extends` / `implements` 只额外抄一份名字出来给人读。
+**入口落在 `{` 上，不落在 `c` 上** ✓（与 `if` 一族同一条铁律 ✓，见 `docs/parse-guide-design.md` 第一节）：
+要判「这个 `c` 是 `class` 的开头」只能看后面几个字符 ✗，而输入可能一段一段送来 ✓；
+落在 `{` 上则**整个类头都已经读出来了** ✓——`class` / 名字 / 类型参数 / `extends` / `implements`
+此刻就躺在宿主自己的平列表里 ✓ ⇒ 判据只读**已经读到的单元** ✓，一个字都不向前看 ✓。
 
-`extends` / `implements` 两段的扫描是「跳到 `;` 或 `{` 为止」的宽口径：真正的类声明**一定有** `{ }` 类体，
-所以只要类头合法，这个扫描一定在类体上停住；停不到 `{` 就判定形状不成立（`ScanHead` 给 `-1`），
-`Process` 不接手，那个散着的 `class` 词最后由 `Keyword` 兜底。
+而且「往回扫到 `class` 且整个头成立」⇒ **进门即定形、不撤回** ✓：
+没有「走到一半发现认错了」这条路 ✓，所以没有 `GiveBack` 那一类入口 ✓。
 
-`ClassReorganization` 写在 `Class` **之前**。
+**锚点就是 `{`** ✓：类声明一定有一个花括号体 ✓，所以这个字符是**唯一**既在允许范围内、
+又能把「这是不是类头」问清楚的位置 ✓——`ParsePipeline.IsMemberListHead` 一直在问的正是这件事 ✓。
 
-# class ClassReorganization extends Reorganization
+# class ClassBranch extends Branch
 
-## static readonly field Instance:ClassReorganization = new ClassReorganization()
+`class` 的进门：**入口落在 `{` 上**。
 
-唯一的实例，注册进通用重组队列时用。
+**为什么它必须排在 `Bracket.JumpIn` 之前** ✗：`{` 正是 `Bracket.JumpIn` 认的字符 ✓——
+排在它后面就永远轮不到 ✓（同 `IfSetBranch` 与 `(` 的关系 ✓）。
+
+**它只认 `class`** ✓：`interface` / `enum` 的体由 `Bracket.JumpIn` 照旧处理 ✓
+（那两个词一撞见就判否放行 ✓），所以「这是不是成员列表」这个问题**不再有两个答案** ✓。
+
+**位置闸**：`a.class` 里那个 `class` 是**成员访问的名字** ✓，它前面隔着一个 `.` / `?.` ⇒ 要挡掉 ✓。
+
+## static readonly field JumpIn:ClassBranch = new ClassBranch()
+
+注册进通用跳转队列用的实例 ✓。
+
+## private method FindClassWord:(units:Array<Token>)=>int
+
+往回扫宿主自己的平列表（`units` ✓），返回那个内容为 `class` 的 `Identifier` 的下标；找不到给 `-1`。
+
+扫描的边界与 `ParsePipeline.IsMemberListHead` **同一套** ✓（同一个问题的同一份答案 ✗）：
+
+- `;` ⇒ 停（上一句已经完了 ✓）；
+- 另一个**花括号** ⇒ 停（换了一张表 ✓——`class A { }` 换行 `{ }` 里第二个 `{` 会撞上前一个类体 ✓）；
+- 撞上 `interface` / `enum` ⇒ 停（那两个词的体不归本类 ✓）；
+- 圆括号 / 方括号透明 ✓（类型参数段、继承表达式 ✓）；
+- 名字 / `.` / `extends` / `implements` / 修饰词 / 装饰器 ⇒ 继续往前 ✓；
+- 扫到头 ⇒ `-1` ✓。
+
+```ts
+for (let i = units.length - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null || IsTriviaUnit(item)) {
+    continue;
+  }
+  if (item instanceof Bracket) {
+    if (item.startBracket === "{") {
+      return -1;
+    }
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    if (item.TempToString() === ";") {
+      return -1;
+    }
+    continue;
+  }
+  if (item instanceof Identifier) {
+    if (item.Is("class")) {
+      return i;
+    }
+    if (item.Is("interface") || item.Is("enum")) {
+      return -1;
+    }
+  }
+}
+return -1;
+```
 
 ## private method TakeDottedName:(units:Array<Token>, index:int)=>string
 
@@ -73,42 +133,38 @@ while (i < units.length) {
 return name;
 ```
 
-## private method ScanHead:(units:Array<Token>, index:int, classInstance:Class | null)=>int
+## private method ScanHead:(units:Array<Token>, index:int, instance:Class | null)=>bool
 
-从 `class` 那个 `Identifier` 出发验证整个类头，返回**类体括号**的下标；形状不成立时返回 `-1`。
+从 `class` 那个 `Identifier` 出发验证整个类头，**并假定类体就是当前这个 `{`**（它还没进 `units`）。
 
-`index` 指向 `class`，所以名字、类型参数、`extends`、`implements` 依次往后走。
-`classInstance` 非空时顺手把 `name` / `extends` / `implements` 写进去；
-`Previous` 只探路，传 `null`——探路失败不留半截状态，这一点与 `InterfaceReorganization` 的写法一致。
+成立的条件因此多了一条、也少了一条：
+
+- **少的一条** ✗：老写法要求「扫到的那个 `{` 就在 `units` 里」✓；
+- **多的一条** ✓：整个头必须**恰好用完** `units` ✓（扫完之后下一格必须是空 ✓）——
+  这正是「`{` 紧随其后」的等价说法 ✓，而且只用已经读到的单元表达 ✓。
+
+`instance` 非空时顺手把 `name` / `extends` / `implements` 写进去；
+`Condition` 只探路，传 `null`——探路失败不留半截状态 ✓。
 
 类型参数段（`<T>` / `<T = {}>` / `<T extends X = Y>`）已经在 `GenericType` 里收成了一个单元，
-这里跨过它就行——那些单元的文本由 `Process` 原样搬进 `Class`，不丢。
+这里跨过它就行——那些单元的文本由 `Success` 原样搬进 `Class`，不丢 ✓。
 
 两条防御性早退：`;` 不可能出现在类头里（命中就说明这不是一个类头），
-`extends` 后面必须紧跟一个名字、一个括号（调用 / 括号表达式），或干脆直接是类体。
+`extends` 后面必须紧跟一个名字或一个括号（调用 / 括号表达式）✓。
 
-**三种放宽都是真实写法需要的**：
+**三种放宽都是真实写法需要的** ✓（与老写法逐条对齐 ✓）：
 
-- **匿名类** `export default class { … }`：名字可以没有，`class` 后面直接就是 `{`（或 `extends`）；
-  **`extends` 那一支必须一起认**：`const C = class extends B {}` 是合法的类表达式，
-  `class` 与 `extends` 之间**没有名字**。只认 `{` 时这一支判否，整条类散架——
-  实测产物是 `<Keyword>class</Keyword><Keyword>extends</Keyword><Identifier>B</Identifier>` 加一个
-  从 `{}` 收来的 `<TypeLiteral>`（类体被当成类型字面量），一个 `Class` 节点都没有。
+- **匿名类** `export default class { … }`：名字可以没有 ✓；
+- **匿名类表达式** `const C = class extends B {}`：`class` 与 `extends` 之间没有名字 ✓；
 - **继承表达式** `class A extends mixin(B) {}` / `class D extends (Base) {}`：
-  `extends` 后面不一定是一个类型名，也可以是一次调用或一个括号表达式。
-  放宽之前这两种形状整条类都认不出来——后面那个 `mixin(B) { … }` 反而被
-  `MethodDeclarationReorganization` 当成「方法名 + 参数表 + 方法体」收走，
-  产物里出现 `MethodDeclaration name="mixin"`（类体成了它的方法体）；
-- **跳过继承表达式里的括号**：向后找类体时，`(` / `[` 括号属于继承表达式，只有 `{` 才是类体。
+  `extends` 后面不一定是一个类型名 ✓。
 
 ```ts
 const nameIndex = SkipNextWrapSymbol(units, index);
 const name = Get(units, nameIndex);
-const isAnonymous =
-  (name instanceof Bracket && name.startBracket === "{") ||
-  (name instanceof Identifier && name.Is("extends"));
+const isAnonymous = name === null || (name instanceof Identifier && name.Is("extends"));
 if (isAnonymous === false && !(name instanceof Identifier)) {
-  return -1;
+  return false;
 }
 let i = nameIndex;
 if (isAnonymous === false) {
@@ -118,7 +174,7 @@ if (isAnonymous === false) {
   }
 }
 let extendsName = "";
-let implementsNames: string[] = [];
+const implementsNames: string[] = [];
 const extendsUnit = Get(units, i);
 if (extendsUnit instanceof Identifier && extendsUnit.Is("extends")) {
   i = SkipNextWrapSymbol(units, i);
@@ -126,19 +182,19 @@ if (extendsUnit instanceof Identifier && extendsUnit.Is("extends")) {
   if (baseName instanceof Identifier) {
     extendsName = this.TakeDottedName(units, i);
   } else if (!(baseName instanceof Bracket)) {
-    return -1;
+    return false;
   }
   while (i < units.length) {
     const item = Get(units, i);
     if (item instanceof Bracket) {
       if (item.startBracket === "{") {
-        break;
+        return false;
       }
       i = SkipNextWrapSymbol(units, i);
       continue;
     }
     if (item instanceof SymbolToken && item.Is(";")) {
-      return -1;
+      return false;
     }
     if (item instanceof Identifier && item.Is("implements")) {
       break;
@@ -153,13 +209,13 @@ if (implementsUnit instanceof Identifier && implementsUnit.Is("implements")) {
     const item = Get(units, i);
     if (item instanceof Bracket) {
       if (item.startBracket === "{") {
-        break;
+        return false;
       }
       i = SkipNextWrapSymbol(units, i);
       continue;
     }
     if (item instanceof SymbolToken && item.Is(";")) {
-      return -1;
+      return false;
     }
     if (item instanceof Identifier) {
       implementsNames.push(item.TempToString());
@@ -167,160 +223,168 @@ if (implementsUnit instanceof Identifier && implementsUnit.Is("implements")) {
     i = SkipNextWrapSymbol(units, i);
   }
 }
-const body = Get(units, i);
-if (!(body instanceof Bracket) || body.startBracket !== "{") {
-  return -1;
+// **头必须恰好用完** ✓：下一格不是空 ⇒ `{` 前面还有不属于类头的东西 ⇒ 这不是类头 ✗。
+if (Get(units, i) !== null) {
+  return false;
 }
-if (classInstance !== null) {
+if (instance !== null) {
   if (isAnonymous === false && name instanceof Identifier) {
-    classInstance.name = name.TempToString();
+    instance.name = name.TempToString();
   }
-  classInstance.extends = extendsName;
-  classInstance.implements = implementsNames;
+  instance.extends = extendsName;
+  instance.implements = implementsNames;
 }
-return i;
+return true;
 ```
 
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
+## private method PreviousWord:(units:Array<Token>, index:int)=>Token | null
 
-`index` 处是不是一个类声明的开头：内容是 `class` 的 `Identifier`，且整个类头成立（`ScanHead` 给得出类体）。
+取 `index` 前面第一个**实义单元**（软换行与注释都跳过）。位置闸用它。
 
 ```ts
-const current = Get(units, index);
-if (!(current instanceof Identifier) || !current.Is("class")) {
-  return false;
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    return null;
+  }
+  if (IsTriviaUnit(item)) {
+    continue;
+  }
+  return item;
 }
-return this.ScanHead(units, index, null) >= 0;
+return null;
 ```
 
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
-把整个类声明收成一个 `Class`，**返回新的下标**。
-
-要点：
-
-- `ScanHead` 这一次带上 `result`，一遍就把类名、基类名、接口名读出来。
-- 起点由 `DeclarationStart` 往前吃掉一串修饰词与装饰器；修饰词折进 `modifiers`（`join(",")`），
-  装饰器作为子单元搬进 `Class`。
-- 名字之后到类体之前的单元（类型参数、`extends` 段、`implements` 段）逐个搬进 `Class`——
-  顺序即文档顺序，软换行不进树。
-- 类体括号的**内容**整体搬给 `ClassBody`，括号本身不再留在树里（`ClassBody` 的范围直接沿用它）。
-- `ClassBody` 有自己的重组队列（构造器里装的语句队列），所以搬完要 `TryToClose()` 一次。
-- 范围终点取类体括号的终点（含 `}`）。**尾随软换行不进范围**——
-  它留在父单元里充当语句边界（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
+只看两样：当前字符 `{`、以及**已经读到的**那一串类头。
 
 ```ts
-const current = Get(units, index);
-if (current === null) {
-  throw new Error("current 为空");
+const result = new BranchConditionResult();
+result.Success = false;
+if (source.Value !== "{") {
+  return result;
 }
-const result = new Class(template);
-result.Parent = current.Parent;
-const bodyIndex = this.ScanHead(units, index, result);
-if (bodyIndex < 0) {
-  throw new Error("class 语句不满足格式要求：class Name{...}");
+const units = unit.Data;
+const classIndex = this.FindClassWord(units);
+if (classIndex < 0) {
+  return result;
 }
-const startIndex = DeclarationStart(units, index);
-const endIndex = bodyIndex;
-const nameIndex = SkipNextWrapSymbol(units, index);
-result.SignIn(Get(units, startIndex)!.SourceRange.Start!);
-result.SignOut(Get(units, endIndex)!.SourceRange.End!);
-result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
-for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
-  result.AddAndCloseLast(item);
+// **位置闸** ✓：`a.class { }` 里那个 `class` 是成员访问的名字，不是声明 ✓。
+const previous = this.PreviousWord(units, classIndex);
+if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
+  return result;
 }
-let i = SkipNextWrapSymbol(units, nameIndex);
-// **匿名类表达式的 `extends` 不能跳过**（第 66 轮第七批）：`const C = class extends B {}` 里
-// `class` 后面直接就是 `extends`，`nameIndex` 指的就是那个词、`i` 从它**之后**开始——
-// 于是那个词从来没进过产物（实测 `<Class name="" extends="B">` 里只有 `Identifier B`）。
-// `heritage-clause.xl.md` 锚在子句词上，起点没了就收不出 `<HeritageClause>`
-// （实测 7 处：`cls-expression` / `decl-class-expression-anonymous-extends` /
-// `stmt-asi-class-expression-then-statement` 三类用例）。名字字段不受影响（它本来就没名字 ✓）。
-const nameUnit = Get(units, nameIndex);
-// **名字单元留在树里**（本段与下面那个 `while` 是配套的，改动要成对）。
-//
-// 原来这里把名字记成 `name` 字符串之后就把那个 `Identifier` 丢掉了——位置也就跟着没了。
-// 那是个信息损失：`Identifier` 是**带 `SourceRange` 的真单元**（`SignIn` / `SignOut` 早就填好了），
-// 丢的是「它还在树里」这件事本身。下游要把它还原成一个带区间的节点时，就只能拿类自己的区间去凑
-// （实测：`export class A` 的 `A` 会被算到 `export` 那个位置）。
-//
-// 所以把它**收进 `Data`**，而且放在**第一个**——TS 那边 `ClassDeclaration.name` 就是一个
-// 排在最前的 `Identifier` 子节点。匿名类（`class {}`）与 `class extends B {}` 的
-// `nameUnit` 不是名字（是 `{` 或 `extends`），那两种情况**不收**，留给下面那个 `while`。
-// 收与不收的判据只用**这一个单元自己**（`isAnonymous` 是 `ScanHead` 的局部量，这里取不到）：
-// 它是 `Identifier`、而且不是 `extends` 那个词 ⇒ 它就是类名。
-// 反例都自动排除：`class {}` ⇒ 是 `Bracket`；`class extends B {}` ⇒ 文本是 `extends`。
-if (nameUnit !== null && nameUnit instanceof Identifier && !nameUnit.Is("extends")) {
-  result.AddAndCloseLast(nameUnit);
+if (previous !== null && previous.constructor.name === "NullConditionalOperator") {
+  return result;
 }
-if (nameUnit !== null && WordText(nameUnit) === "extends") {
-  i = nameIndex;
-}
-while (i < bodyIndex) {
-  result.AddAndCloseLast(Get(units, i)!);
-  i = SkipNextWrapSymbol(units, i);
-}
-const body = Get(units, bodyIndex) as Bracket;
-// **类体里出现 `let` 是非法 TS**（第 181 轮）：`ts.createSourceFile` 在这里走的是**错误恢复**——
-// `ClassDeclaration` 到那个 `{` 就结束，后面的内容被当成**顶层语句**重新解析
-// （实测 `samples/generic.ts`：TS 的 `ClassDeclaration` 是 [32,46)、`let value: T` 成了顶层
-// `FirstStatement`、那个游离的 `}` 直接被跳过）。本工程原来把 `let` 当类成员收下，
-// 于是类盖住了整个 `{ … }`（[32,65)）。
-// 判据只看「体里有没有 `Let` 单元」（第 79 轮的注释里记着本工程样本里就有这种写法）。
-// 命中时：类只到 `{` 为止，**体内容摊回父单元**让它照常成句。
-const containsLet = (list: Array<any>): boolean => {
-  for (const item of list) {
-    if (item === null || item === undefined) {
-      continue;
-    }
-    if (item.constructor.name === "Let") {
-      return true;
-    }
-    // **这一趟 `let` 可能还只是个词**：类体括号的内容在没有自己的队列跑过之前是**生单元**，
-    // 语句队列要等 `ClassBody.TryToClose()` 之后才把 `let value: T` 折成 `Let`。
-    if (item instanceof Identifier && item.Is("let")) {
-      return true;
-    }
-    // **只往 `Statement` 壳里再看一层**：类体那一层可能已经被语句队列包过；
-    // **绝不能递归进 `Bracket`**——那会把**方法体里的** `let` 也算进来，
-    // 于是一个正常的类（方法体里有 `let x = 1`）会被判成「非法类体」，
-    // 类在 `{` 处就被截断（实测：`dist/ts` 自己 99 个 `ClassDeclaration` 全漂）。
-    if (item.constructor.name === "Statement") {
-      const inner = (item as any).Data;
-      if (Array.isArray(inner) && inner.length > 0 && containsLet(inner)) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-if (containsLet(body.Data)) {
-  const innerUnits = [...body.Data];
-  // **直接改写而不是再签一次**：上面那句 `result.SignOut(Get(units, endIndex)!…)` 已经把终点
-  // 签在 `{ … }` 的末尾了，`SignOut` 只能签一次（再签抛 `SourceRange.End has been setted`）。
-  // 与 `namespace.xl.md` 里点号拆嵌套那一处同款：范围字段直接写。
-  result.SourceRange.End = body.SourceRange.Start!;
-  result.TryToClose();
-  const nextIndex = ReplaceCountAt(units, startIndex, bodyIndex - startIndex + 1, result);
-  for (const one of innerUnits) {
-    one.Parent = result.Parent;
-  }
-  units.splice(nextIndex + 1, 0, ...innerUnits);
-  return nextIndex;
-}
-const classBody = result.CreateBody();
-body.MoveDataTo(classBody);
-classBody.Sign(body);
-classBody.TryToClose();
-result.TryToClose();
-return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
+result.Success = this.ScanHead(units, classIndex, null);
+return result;
 ```
 
-# class Class extends IndependentToken
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+建 `Class`、把整个类头**搬进它自己名下**、再挂 `ClassBody` 并把字符路由过去。
+
+四步的顺序都是必须的 ✓：
+
+1. **先把装饰器收成单元** ✓：`Decorator` 是**重组造出来的** ✓（`DecoratorReorganization` ✓），
+   而这一步发生在任何重组之前 ✓——不收的话 `@` / 名字 / 实参括号会散在头里 ✓，
+   搬进去的就是三四个散单元而不是一个 `<Decorator>` ✗。
+   这里**只跑这一条规则**（不是整条通用队列）✓：头部剩下的单元（`extends` / `implements` /
+   类型参数）要留给 `Class` 自己那一趟 ✓——那才是它们该成形的地方 ✓。
+   **它必须排在「算声明头起点」之前** ✗：`DeclarationStart` 往回走时会在散着的实参括号上停住 ✗
+   （见下面代码里那一段说明 ✓）。
+2. **点头到尾整段搬进 `Class`，修饰词不进树** ✓：`export` / `abstract` 这些词折进 `modifiers` 属性 ✓
+   （老写法就是这么做的 ✓，它们**不是**子单元 ✓）；
+   `class` 那个词也**不进树** ✓（TS 的 `ClassDeclaration` 里没有它 ✓）。
+3. **`unit.AddToMounted(cls)`** ✓：`Class` 从此是这个宿主的挂载单元 ✓，
+   而它同时**已经在最终那一格上了** ✓（先挂载、再喂字符 ✓——`if` 那一族量出来的次序 ✓）。
+4. **`{` 由本类消费** ✓（它是体的**开口** ✓，与 `BracketBranch.Success` 对 `Bracket` 的做法一模一样 ✓）：
+   建 `ClassBody`、`SignIn(source)`、把 `Class` 的路由指过去 ✓。喂进去的话产物里会多一个 `{` ✗。
+
+```ts
+const units = unit.Data;
+let classIndex = this.FindClassWord(units);
+if (classIndex < 0) {
+  throw new Error("ClassBranch: 进门时找不到 class 那个词");
+}
+// **第一步：装饰器先成形** ✓。`Process` 会把 `@ 名字 ( 实参 )` 整段换成一个 `Decorator` ✓，
+// 于是下标要跟着缩 ✓（少掉几个单元，`classIndex` 就往左挪几格 ✓）。
+//
+// **必须排在 `DeclarationStart` 之前** ✗：装饰器在这一刻还是散的 ✓（`@` / 名字 / 实参括号 ✓），
+// 而 `DeclarationStart` 往回走时会**停在实参括号上** ✗ ⇒ 那条声明头被算短了 ✓、
+// 装饰器被留在 `Class` 外面 ✗（实测 `@Dec() export class A {}` 的 `<Decorator>` 掉到 `Class` 的兄弟位上 ✓）。
+// 老写法没有这个问题 ✓，因为这条规则当时跑在通用重组队列里 ✓、
+// `DecoratorReorganization` 就排在它前一位 ✓——搬进解析期之后，这个次序要自己补回来 ✓。
+//
+// 扫描的起点取「上一句 / 上一张表」之后 ✓——再往前不可能是这条声明的头 ✓
+// （与 `FindClassWord` 同一套边界 ✓），所以这一步只看这一条声明那一段 ✓。
+let bound = 0;
+for (let i = classIndex - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item instanceof SymbolToken && item.TempToString() === ";") {
+    bound = i + 1;
+    break;
+  }
+  if (item instanceof Bracket && item.startBracket === "{") {
+    bound = i + 1;
+    break;
+  }
+}
+let scan = bound;
+while (scan < classIndex) {
+  if (DecoratorReorganization.Instance.Previous(unit.Template, units, scan)) {
+    const before = units.length;
+    scan = DecoratorReorganization.Instance.Process(unit.Template, units, scan);
+    classIndex = classIndex - (before - units.length);
+    continue;
+  }
+  scan = scan + 1;
+}
+const start = DeclarationStart(units, classIndex);
+const cls = new Class(unit.Template);
+if (this.ScanHead(units, classIndex, cls) === false) {
+  throw new Error("ClassBranch: 进门之后类头又不成立了");
+}
+cls.modifiers = DeclarationModifiers(units, start, classIndex).join(",");
+// **第二步：整段搬进去** ✓。先切片、再把宿主截短——`AddAndCloseLast` 只改 `Parent`，
+// 不会把单元从宿主里摘掉 ✗，所以「摘」要自己做 ✓。
+const head = units.slice(start);
+units.length = start;
+const local = classIndex - start;
+cls.SignIn(head[0].SourceRange.Start!);
+for (let i = 0; i < head.length; i++) {
+  const item = head[i];
+  if (i === local) {
+    continue;
+  }
+  if (i < local && !(item instanceof Decorator)) {
+    continue;
+  }
+  cls.AddAndCloseLast(item);
+}
+// **最后一个头单元也要关上** ✓：老写法是宿主 `AddToMounted` 那个 `{` 括号时顺手关的 ✓
+// （`AddAndCloseLast` ✓）；现在那个 `{` 不建括号了 ✓，所以要在这里补一次 ✓。
+const last = cls.Last();
+if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
+  last.TryToClose();
+}
+// **第三步、第四步** ✓。
+unit.AddToMounted(cls);
+const body = new ClassBody(unit.Template);
+cls.Add(body);
+body.SignIn(source);
+cls.MountedUnit = body;
+```
+
+# class Class extends UnitToken
 
 类声明。
 
-它由重组造出来、自己不消费字符，所以只继承 `IndependentToken` 的空 `Process`。
+它**自己吃字符** ✓（不再是「重组造出来、自己不消费字符」的 `IndependentToken` ✗）——
+先吃掉宿主交过来的那个 `{`（由 `ClassBranch` 挂上来的 `ClassBody` 接着吃 ✓），
+到配对的 `}` 上由 `ClassBody` 连着自己一起收尾 ✓。
 
 类名必须与产物里的标签名一致：`this.constructor.name` 就是 `<Class>` 的标签。
 
@@ -329,7 +393,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 创建时把本类型的重组规则挂上来（模板里没有专门给 `Class` 注册就用通用队列）。
 
 这一句是必要的，不是装饰：类头里那几个单元
-（`extends` / `implements` / 基类的泛型实参段）是在 `Process` 里被搬进来的，搬进来时
+（`extends` / `implements` / 基类的泛型实参段）是在 `Success` 里被搬进来的，搬进来时
 **它们所在的那一轮重组已经过去了**——不给 `Class` 自己的队列，`extends` 就永远等不到
 `KeywordReorganization`，`class A extends B` 的产物里会多出两个 `<Identifier>`。
 
@@ -338,13 +402,27 @@ super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+
+**恒 `Undo`** ✓——本单元没有「见到某个字符就收尾」这回事 ✗：
+它什么时候完事，由 `ClassBody` 在配对的 `}` 上回答 ✓（`UnitToken` 的 `ExitOrPre` 是抽象钩子 ✓，
+不写就会当场炸 ✓，不会静默不收尾 ✗）。
+
+```ts
+return BranchStates.Undo;
+```
+
+## protected method Default:(context:SyntaxContext, source:Source)=>void
+
+兜底处理：空实现 ✓（头部与体都由子单元吃字符 ✓）。
+
 ## field name:string = ""
 
 类名。
 
-**名字单元本身也在 `Data` 里**（`Data` 的第一个子单元就是那个 `Identifier`）——
-它带自己的 `SourceRange`，所以位置不用另记（见 `Process` 里那一段说明）。
-这个字段只是同一件事的**给人读的副本**（XML 属性 `name="A"`），不是唯一来源。
+**名字单元本身也在 `Data` 里**（`Data` 的第一个实义子单元就是那个 `Identifier`）——
+它带自己的 `SourceRange`，所以位置不用另记。这个字段只是同一件事的**给人读的副本**（XML 属性 `name="A"`），
+不是唯一来源。
 
 ## field extends:string = ""
 
@@ -356,15 +434,7 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 
 ## field modifiers:string = ""
 
-声明前面的修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
-
-## method CreateBody:()=>ClassBody
-
-新建类体段并挂到自己名下，返回新单元。
-
-```ts
-return this.Add(new ClassBody(this.Template));
-```
+`ClassBranch` 认下的声明修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
 
 ## property Body:ClassBody
 
@@ -386,9 +456,7 @@ throw new Error("找不到匹配的子单元");
 产出 XML：开标签上带 `name` / `extends` / `implements` / `modifiers` 四个属性。
 
 **类名的位置不在这四个属性里**——它是 `Data` 里那个 `Identifier` 自带的 `SourceRange`
-（投影直接读子单元的坐标，见 `typescript/tokens/class/class.xl.md` 的 `Process` 那一段）。
-以前这里写过一对 `nameStart` / `nameEnd` 属性，那是「同一件事记两遍」，
-补子单元之后已经删掉——**位置只留一个事实来源**。
+（投影直接读子单元的坐标）。
 
 `implements` 用 `join(",")` 拼——与 `Let` 的两组解构名同一种写法。
 

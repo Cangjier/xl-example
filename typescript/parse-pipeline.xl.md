@@ -29,7 +29,7 @@ import { ParameterReorganization } from "./tokens/parameter.xl.md"
 import { HeritageClauseReorganization } from "./tokens/heritage-clause.xl.md"
 import { BindingElementReorganization } from "./tokens/binding-element.xl.md"
 import { Bracket } from "./tokens/bracket.xl.md"
-import { ClassReorganization } from "./tokens/class/class.xl.md"
+import { ClassBranch } from "./tokens/class/class.xl.md"
 import { Identifier } from "./tokens/identifier.xl.md"
 import { CompoundAssignmentOperatorReorganization } from "./tokens/compound-assignment-operator.xl.md"
 import { Decorator, DecoratorReorganization } from "./tokens/decorator.xl.md"
@@ -110,7 +110,7 @@ import { LineWrap, WrapSymbolReorganization } from "./tokens/line-wrap.xl.md"
 `new Sequence<...>(...)` 的参数要写成**一个数组**：`Sequence` 的构造器收 `Array<T>`，
 所以 `new Sequence<Branch>([a, b, …])`。
 
-顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → 括号 → 泛型 → 软换行 → 符号 → **`if` 向导** → 通用字符。
+顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → **`if` 向导** → **`class` 向导** → 括号 → 泛型 → 软换行 → 符号 → 通用字符。
 
 **泛型必须排在符号之前**：`<` / `>` 同时是符号，`SymbolToken.AppendIn` 排在前面的话，`<…>` 永远轮不到 `GenericTypeBranch` 判断。排在 `Bracket.JumpIn` 之后则是形状上的就近——两者都是「认下一个字符、挂一个子单元」的单元，且 `( [ {` 与 `<` 不重叠。
 
@@ -132,6 +132,7 @@ return new Sequence<Branch>([
   RegexToken.JumpIn,
   StringGuide.JumpIn,
   IfSetBranch.JumpIn,
+  ClassBranch.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
   LineWrap.AppendIn,
@@ -146,9 +147,14 @@ return new Sequence<Branch>([
 `(` 照样会被开成一个括号 ✓，只是**晚一步** ✓：由向导的暂存单元照**宿主那条队列**开 ✓
 （那条队列里 `Bracket.JumpIn` 好好地在 ✓）。
 
-**`class` / `interface` / `enum` 没有对应的分支** ✓（第 394 轮起 ✓）：它们**照常被 `Identifier` 吃掉** ✓，
-到 `{` 那一刻由 `Bracket.JumpIn` 自己回头看已读单元 ✓（`ParsePipeline.IsMemberListHead` ✓）。
-所以这张表里只有**一个**语句级的向导 ✓——`interface` 与 `if` **首字母相同**那个冲突根本不存在 ✓。
+**`class` 也有自己的分支了** ✓（本轮）：`ClassBranch.JumpIn` 的入口在 **`{`** 那一格 ✓，
+与 `IfSetBranch` 同一条铁律 ✓——那时**整个类头都已经读到了** ✓，判据一个字符都不向前看 ✓。
+它排在 `Bracket.JumpIn` 之前，原因与 `IfSetBranch` 和 `(` 的关系**一模一样** ✓：
+`{` 正是 `Bracket.JumpIn` 认的字符 ✓，排在后面就永远轮不到 ✓。
+
+**`interface` / `enum` 仍然没有分支** ✓：它们照常被 `Identifier` 吃掉 ✓，
+到 `{` 那一刻由 `Bracket.JumpIn` 回头看已读单元 ✓（`ParsePipeline.IsMemberListHead` ✓）。
+`if` 与 `interface` **首字母相同**那个冲突依然不存在 ✓：两个向导认的是 `(` 与 `{` ✓，不重叠 ✓。
 
 ## static method CreateMemberListQueue:()=>Sequence<Branch>
 
@@ -189,27 +195,31 @@ return ParsePipeline.CreateGeneralQueue().Removed([IfSetBranch.JumpIn]);
 
 `units` 的**最后一个单元**是不是一张刚刚打开的成员列表的体。
 
-**它回答的是「这个 `{` 是不是成员列表」这个问题，而答案是「问那四条规则自己」** ✗——
-`ClassReorganization` / `InterfaceReorganization` / `EnumReorganization` / `TypeLiteralReorganization`
-各自都有一份**自己的**头判据（`Previous` ✓），这里是唯一的调用点 ✓。
-**不另写一份「这是不是类头」** ✗：第 391 轮那版就是这么走偏的（`Bracket.IsMemberList` 用一句词法推断
+**它回答的是「这个 `{` 是不是成员列表」这个问题，而答案是「问那几条规则自己」** ✗——
+`InterfaceReorganization` / `EnumReorganization` 各自都有一份**自己的**头判据（`Previous` ✓），
+这里是唯一的调用点 ✓。
+**不另写一份「这是不是接口头」** ✗：第 391 轮那版就是这么走偏的（`Bracket.IsMemberList` 用一句词法推断
 去猜同一件事 ✓，等于同一个问题两份答案 ✓），第 393 轮把它换成了「向导收头 + 问那三条规则」✓，
 这一轮再简化一步：**连头都不用收** ✗。
 
-**为什么可以只看已经读到的单元** ✓（用户口径 ✓）：`class` 那个词早就由 `Identifier` 照常吃掉了 ✓，
+**`class` 已经不在这一问里了** ✓（本轮 ✓）：类体现在由 `ClassBranch` 在 `{` 那一刻**自己认领** ✓，
+那个括号根本走不到 `Bracket.JumpIn` ✓ ⇒ 这里再留一份「这是不是类头」就是**第二份答案** ✗。
+于是「是不是成员列表」这个问题只剩两个答案：接口 / 枚举各一条自己的 `Previous` ✓。
+
+**为什么可以只看已经读到的单元** ✓（用户口径 ✓）：`interface` 那个词早就由 `Identifier` 照常吃掉了 ✓，
 它此刻就躺在**宿主自己的平列表**里 ✓；而这个 `{` 是**刚刚**由 `BracketBranch.Success` 挂上去的 ✓
 （调用点就在 `AddToMounted` 之后 ✓），所以那一刻**体括号已经在表里** ✓——
-四条规则的 `Previous` 要的正是「头 + 体括号都在」这个形状 ✓。
+那两条规则的 `Previous` 要的正是「头 + 体括号都在」这个形状 ✓。
 ⇒ 不向前看一个字符 ✓、不开暂存单元 ✓、不交还 ✓、也不用抢首字母（`interface` 与 `if` 不再撞车 ✓）。
 
 往回扫的边界（只看已经读到的 ✓）：
 
 - `;` ⇒ 停（上一句已经完了 ✓）；
-- 另一个**花括号** ⇒ 停（换了一张表 ✓——`class A { }` 换行 `if (x) { }` 里那个 `{`
-  往回扫会撞上前一个类体 ✓，不该认成成员列表 ✓）；
+- 另一个**花括号** ⇒ 停（换了一张表 ✓——`interface I { }` 换行 `if (x) { }` 里那个 `{`
+  往回扫会撞上前一个接口体 ✓，不该认成成员列表 ✓）；
 - **圆括号 / 方括号透明** ✓（类型参数段、继承表达式 ✓，与 `DecideMemberList` 当初那条实测同款 ✓）；
-- 名字 / `.` / `extends` / `implements` / 修饰词 / 装饰器 ⇒ 继续往前 ✓；
-- 撞上 `class` / `interface` / `enum` ⇒ 就是它，交给对应那条规则 ✓；
+- 名字 / `.` / `extends` / 修饰词 / 装饰器 ⇒ 继续往前 ✓；
+- 撞上 `interface` / `enum` ⇒ 就是它，交给对应那条规则 ✓；
 - 扫到头 ⇒ 不是成员列表 ✓。
 
 **类型字面量那一支用 `Context`，不要用 `TypeLiteralReorganization.Previous`** ✗——
@@ -279,9 +289,6 @@ for (let i = bodyIndex - 1; i >= 0; i--) {
     continue;
   }
   if (item instanceof Identifier) {
-    if (item.Is("class")) {
-      return ClassReorganization.Instance.Previous(template, units, i);
-    }
     if (item.Is("interface")) {
       return InterfaceReorganization.Instance.Previous(template, units, i);
     }
@@ -293,7 +300,7 @@ for (let i = bodyIndex - 1; i >= 0; i--) {
 return false;
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, StaticBlockReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
+## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, StaticBlockReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
 
 通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。
@@ -309,14 +316,13 @@ return false;
 | 位置 | 规则 | 为什么必须在这里 |
 | --- | --- | --- |
 | 1 | `Decorator` | `@Component({...})` 里的 `Component({...})` 长着调用形状，`Method` 先跑就再也凑不出「`@` + 名字」 |
-| 2 | `Class` | 类头（名字 / 类型参数 / `extends` / `implements`）必须还没被 `Method` 拆开 |
-| 3 | `Function` | 同上：`function f(x) {}` 的 `f(x)` 一旦先变成 `Method`，`function` 就配不上名字了 |
-| 4 | `Enum` | 枚举体那对 `{ }` 要在被当成 Json 对象之前先认领 |
-| 5 | `MethodDeclaration` | 与 `Function` 同理：`name(...) { }` 要在 `Method` 之前认出「后面跟花括号」 |
-| 6 | `Label` | `name:` 要在 `TypeDefine` 之前认领冒号，否则 `outer: while (...) {...}` 会被当成一个类型标注 |
-| 7 | `Field` | 字段没有关键字，只能在**成员位置**靠父单元认出（`ClassBody` / `InterfaceBody`）；排在 `Let` 之后（`let x` 仍旧归 `Let`）、`TypeDefine` 之前（要先把整条成员圈起来，否则 `TypeDefine` 会跨过换行吞掉后面几个字段） |
-| 8 | `Lamda` | 带返回类型标注的箭头函数（`(a): T => body`）也要在 `TypeDefine` 之前认领那个 `:`，否则 `TypeDefine` 会连函数体一起吞掉 |
-| 8.5 | `FunctionType` | 类型的 `(a: A) => B` 必须**排在 `Lamda` 前面**：两者判的都是 `=>`，`FunctionType` 认的是「左边不是形参表」那一半（`FindParameters` 给 `-1`），留给 `Lamda` 的才是真箭头函数 |
+| 2 | `Function` | `function f(x) {}` 的 `f(x)` 一旦先变成 `Method`，`function` 就配不上名字了 |
+| 3 | `Enum` | 枚举体那对 `{ }` 要在被当成 Json 对象之前先认领 |
+| 4 | `MethodDeclaration` | 与 `Function` 同理：`name(...) { }` 要在 `Method` 之前认出「后面跟花括号」 |
+| 5 | `Label` | `name:` 要在 `TypeDefine` 之前认领冒号，否则 `outer: while (...) {...}` 会被当成一个类型标注 |
+| 6 | `Field` | 字段没有关键字，只能在**成员位置**靠父单元认出（`ClassBody` / `InterfaceBody`）；排在 `Let` 之后（`let x` 仍旧归 `Let`）、`TypeDefine` 之前（要先把整条成员圈起来，否则 `TypeDefine` 会跨过换行吞掉后面几个字段） |
+| 7 | `Lamda` | 带返回类型标注的箭头函数（`(a): T => body`）也要在 `TypeDefine` 之前认领那个 `:`，否则 `TypeDefine` 会连函数体一起吞掉 |
+| 7.5 | `FunctionType` | 类型的 `(a: A) => B` 必须**排在 `Lamda` 前面**：两者判的都是 `=>`，`FunctionType` 认的是「左边不是形参表」那一半（`FindParameters` 给 `-1`），留给 `Lamda` 的才是真箭头函数 |
 | … | 其余按既有顺序 | `TypeDefine` / `Ternary` / … / `NotNull`，`Switch` 插在 `Try` 与 `For` 之间 |
 | 末 | `Keyword` | 它是「在任意上下文都是关键字」的**兜底身份**；语句级结构先各自认领，剩下的散词才升级 |
 
@@ -328,9 +334,14 @@ return false;
 控制流（`For` / `Foreach` / `While` / `Try`）最后兜底。改顺序会直接改变 XML。
 
 **`IfSetReorganization` 已经不在队里了** ✗（第 394 轮删掉 ✓）：`if` 现在由**解析期向导**
-（`tokens/if/if-guide.xl.md` ✓）在读的时候造 ✓，它压根到不了这一趟 ✓。
-`if` 原来的位次（`Switch` 与 `For` 之间 ✓）从此空着 ✓——这正是这一轮在走的那条路：
-**一条一条把控制流从这张表里搬出去** ✗（下一批是 `While` / `For` / `Foreach` / `Try` / `Switch` ✓）。
+（`tokens/if/if-set.xl.md` ✓）在读的时候造 ✓，它压根到不了这一趟 ✓。
+`if` 原来的位次（`Switch` 与 `For` 之间 ✓）从此空着 ✓。
+
+**`ClassReorganization` 也不在队里了** ✗（本轮删掉 ✓）：`class` 现在由**解析期分支**
+（`tokens/class/class.xl.md` 的 `ClassBranch` ✓）在 `{` 那一刻造 ✓。
+它原来的位次（队首第 2 位、`Decorator` 之后 ✓）从此空着 ✓——
+**一条一条把语句级结构从这张表里搬出去** ✓，这就是这条路在走的方向 ✓
+（下一批是 `Function` / `Enum` / `MethodDeclaration` ✓）。
 
 ## static method KeyWords:()=>Array<string>
 
