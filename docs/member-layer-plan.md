@@ -2633,3 +2633,28 @@ Statement [523,550)
 要么它的体是**造完之后**才被截断的 ?。
 **下一块**：在 `new Lamda(template)` 那一行上打**调用栈** ?（只看那一个文件 ?）——
 把「是谁、在什么时机造的这一个 `Lamda`」钉死 ?，再决定闸下在哪一层 ?。
+
+### 补记（第 517 轮）：栈打出来了 —— **整份文件只造 1 个 `Lamda`，而且是在解析途中造的**
+
+`tmp/recon/r517-lamda-stack.cjs` ?（在 `new Lamda(template)` 那一行 `throw/catch` 打栈 ?；
+第一版探针写崩过一次 ?：我在那一行引了**尚未声明**的 `endIndex` ? ? 触发 TDZ ? ?
+整个文件报 `SourceException` ?、`new Lamda` 显示 0 次 ? —— 这一点本身也是个教训 ?：探针里**不要引用后面才声明的局部变量** ?）：
+
+```
+am-block-lambda-array-compound.ts: new Lamda 1 次
+    index=1
+    at LamdaReorganization.Process (build/ts/typescript/tokens/lamda/lamda.js:362:21)
+    at LamdaReorganization.ApplyTo (build/ts/core/syntax/reorganization.js:21:26)
+    at TokenFormerImpl.RunCloseRules (build/ts/typescript/parse-pipeline.js:380:46)
+    at TokenFormerImpl.ApplyCloseRules (…)
+```
+
+配上第 514 轮那一笔（同一次调用 `endIndex = -1` ?、`units` 三项区间全是 `undefined` ?）? **结论**：
+
+> `x => x[1, 2, 3]` 里那个 `Lamda` **是在解析途中**（体的后一半还没读进来 ?）被这一趟收掉的 ? ——
+> 那一刻它看到的只有 `[x, =>, x]` ?（所以体只剩 `x` ?），`[1, 2, 3]` 是**之后**才进树的 ?。
+
+? 也就是说：**子单元关闭时触发的那一趟，跑在了「父容器还没读完」的时刻** ?。
+**下一块**：给这一趟加一道「**只看已经关完的单元**」的闸 ? ——
+判据现成 ?（单元都有 `SourceRange` ?，未关完的 `start/end` 是 `undefined` ?，第 514 轮的探针已经量到过 ?）：
+`unit.Data` 里只要还有没签出范围的单元 ?，就**跳过这一趟** ?（等父容器真正关闭时再收 ?）。
