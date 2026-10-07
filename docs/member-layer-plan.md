@@ -1264,7 +1264,55 @@ dist/ts/typescript/tokens/function/method-declaration.ts(523,9): error TS2304: C
 **本轮读数**（每轮要报的两个数）：**剩余 reorg 占比 41.06%**（绿树 ✓）、
 `cases` **1037 / 1037** ✓、全语料 **0** ✓（本轮没有留在树上的改动 ✓）。
 
-## 八十二、每步都要钉住的三件事
+## 八十三、「谁造的」这个诊断口径（第 464 轮）：一眼看出凶手
+
+按用户的提醒做了 ✓，**它是这一轮破案的关键** ✓：
+
+- `Token.CreatedByRule:string` ✓ —— 空串 = 解析期吃字符长出来的 ✓（「谁造的」就是类名本身 ✓）；
+  非空 = **那条重组规则的类名** ✓（在 `Reorganize` 的派发处记 ✓，只记第一条碰它的规则 ✓）；
+- **`DSH_XL_TRACE=1`** 时，XML 标签上多一个 `xl:born="…"` 属性 ✓（默认关闭 ✓，
+  尺子与交付物完全不受影响 ✓ —— 加完之后复跑 `cases` 仍是 1037/1037 ✓）。
+
+**它一眼给出的结论**（`node build/ts/cjcli.js tmp/recon/i27.ts` ✓）：
+
+```xml
+<Statement xl:born="StatementReorganization2">      ← 调用签名被语句规则包了（Signature 规则没接）
+  …
+  <MethodDeclaration name="PromiseLike">           ← 凶手：我的分支把返回类型里的 PromiseLike 当成了方法
+```
+
+## 八十四、破案与修复（第 465 轮）：分支在**类型段内部**又被触发
+
+**真因**：`(controller: C): void | PromiseLike<void>;` 里那个 **`;`** 到达时 ✗，
+我的方法分支照 `;` 那一格判断「这是一条新成员」✗，把类型里的 `PromiseLike` 当成了方法名 ✗
+⇒ 整条调用签名被拆散 ✗、最后由 `StatementReorganization2` 包成 `<Statement>` ✗。
+
+**修复**（一处判据 ✓）：`:` / `;` 那两格上，**成员里已经出现过顶层 `:` 就不再接** ✗ ——
+那说明我们正在一条成员的**类型段里** ✓：
+
+```ts
+if (isTail) {
+  for (const item of unit.Data) {
+    if (item instanceof SymbolToken && item.Is(":")) {
+      return result;
+    }
+  }
+}
+```
+
+**读数**（这一版存 **`tmp/recon/r67/`** ✓）：
+
+| 状态 | `cases` | 全语料 | `lib.dom.d.ts` | 占比 |
+| --- | --- | --- | --- | --- |
+| 上一层（`r65/`） | 1037 / 1037 ✓ | 14 | 76 / 5 / 68 ✗ | 40.58% |
+| ＋ 类型段守卫 | **1037 / 1037** ✓ | **6** ✓ | **0 / 0 / 29** ✓ | **40.58%** |
+
+⇒ 全语料 **14 → 6** ✓（`lib.dom.d.ts` 的「缺」从 76 归零 ✓、webidl 43 → 28 ✓）。
+
+**下一轮入口**：剩下 6 个文件里最小的是 `@types/node/test.d.ts`（2 缺 / 0 漂移 / 0 多 / **4 字段名** ✗）
+与 `samples/declarations.ts`（8/1/1 ✗）——从它们入手 ✓。
+
+## 八十五、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
