@@ -2351,3 +2351,28 @@ dump 原树看得清楚 ?：`private static readonly b: number` 被包成一个 **`Statement
 
 **下一块**：`多出来` 还剩 1163 ? —— 按上一轮那条线索继续找「同一个容器里自我触发」的形状 ?
 （`BinaryExpression` / `ExpressionStatement` 仍是头两个候选 ?）；另一条线是 `samples` 剩下的那几个样本 ?。
+
+## 一百二十一、`Label` 挪到 `JsonObject` 之后（第 504 轮）：676 持平，缺 ?14、漂移 ?4
+
+**先查的两处来路** ?（都在 `--file` 上量的 ?）：
+
+| 用例 | 禁用 reorg | 对照态 | 结论 |
+| --- | --- | --- | --- |
+| `am-declare-module-css.ts`（`export default c` ?） | 缺 2 / 多 2 ? | **逐项相同** ? | 重组层老缺口 ?（`ExportAssignment` 两档都没人收 ?） |
+| `am-prop-named-keywords.ts`（`{ type: 1 }` ?） | 缺 3 / 多 1 ?（`type: 1` 成了 `LabeledStatement` ?） | **完全一致** ? | ?? **这一处是我这版特有的** ? |
+
+**做的那一处** ?：把 `LabelReorganization` 从队列第 5 位挪到 `JsonObjectReorganization`（第 14）**之后** ?
+（`typescript/parse-pipeline.xl.md` ?）—— `LabelReorganization.Previous` 的 `IsStatementStart`
+在「还没收成 `ObjectLiteral`」的平铺列表上会把对象字面量的 `type:` 判成标签 ?。
+
+**读数**：完全一致 676（持平 ?）、缺 1943 → **1929** ?、漂移 213 → **209** ?、
+多出来 1163（持平 ?）、字段名 77（持平 ?）、解析 / 抛异常 1037 / 0 ?。
+
+**但那条用例没有被它救回来** ?：`am-prop-named-keywords.ts` 仍是缺 3 / 多 1 ?
+（`type: 1` 还是 `LabeledStatement` ?）? 说明**对象字面量在那一格还没成形** ?，
+`Label` 看到的分明是平铺的 `[Identifier(type), Symbol(:), Identifier(1)]` ? ——
+下一块要查的是「`{ type: 1 }` 这个括号**为什么没有先被 `JsonObjectReorganization` 收掉**」?
+（对照态里它是收掉的 ? ? 差别在**括号那一趟的时机或队列** ?）。
+
+**下一块**：① `{ type: 1 }` 那一处（对象字面量与 `Label` 的次序/时机 ?）；
+② `export default <表达式>`（`ExportAssignment` ?，两档都缺 ?，属重组层老缺口 ?）。

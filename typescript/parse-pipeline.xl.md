@@ -826,7 +826,6 @@ DecoratorReorganization.Instance.ApplyTo(unit);
 FunctionReorganization.Instance.ApplyTo(unit);
 SignatureReorganization.Instance.ApplyTo(unit);
 MethodDeclarationReorganization.Instance.ApplyTo(unit);
-LabelReorganization.Instance.ApplyTo(unit);
 FieldReorganization.Instance.ApplyTo(unit);
 NewReorganization.Instance.ApplyTo(unit);
 MethodReorganization.Instance.ApplyTo(unit);
@@ -835,6 +834,12 @@ NamespaceReorganization.Instance.ApplyTo(unit);
 TypeLiteralReorganization.Instance.ApplyTo(unit);
 BlockReorganization.Instance.ApplyTo(unit);
 JsonObjectReorganization.Instance.ApplyTo(unit);
+// **Label 要排在 JsonObject 之后** ✓（第 504 轮 ✓）：对象字面量里 { type: 1 } 的 	ype:
+// 也是「名字 + 冒号」✓，而 LabelReorganization.Previous 的 IsStatementStart 在**还没收成 ObjectLiteral**
+// 的平铺列表上答「是」✗ ⇒ 于是 	ype: 1 被收成 LabeledStatement ✗（实测 m-prop-named-keywords.ts：
+// 对照态**完全一致** ✓、这一版缺 PropertyAssignment ✗）。把 JsonObject 提到它前面 ✓，
+// Label 那时看到的就是一个已经成形的 ObjectLiteral ✓（对拍：那条用例四个方向全零 ✓）。
+LabelReorganization.Instance.ApplyTo(unit);
 TypeBracketReorganization.Instance.ApplyTo(unit);
 ImportTypeReorganization.Instance.ApplyTo(unit);
 TypePrefixReorganization.Instance.ApplyTo(unit);
