@@ -2004,5 +2004,55 @@ cases:check 1050 全过 ✓）。对照态 **859** 不动 ✓。
 自己也只到 **859 / 1037** ⇒ **再往上必须靠投影侧** ✓（绿树自己也差的那 178 份 ✓）——
 这条界线要在接完之前想清楚 ✓，别把「把队列搬完」当成终点 ✓。
 
+## 一百一十一、后半段**接不进去**（第 494 轮）：实测的负面结果，树不动（464 / 1037）
+
+按上一节的计划把 `As`(32) 之后的规则往这一趟里接 ✓ —— **打炸了** ✗，按纪律整轮回滚 ✓（源码一个字没改 ✓）。
+
+**实测账（`cases` 语料，接完之后跑尺子 ✓）**：
+
+| 接上的 | 解析成功 | 抛异常 |
+| --- | --- | --- |
+| 基线（第 493 轮） | 1037 | 0 ✓ |
+| ＋`FunctionType`/`ConditionalType`/`Lamda`/`Ternary`/`Try`/`Switch`/`For`/`Foreach`/`DoWhile`/`While` | 968 | **69** ✗ |
+| ＋再叠 `WrapSymbol`/`PropertyAccess`/…/`Comma` 那 19 条 | 709 | **328** ✗ |
+
+**逐条二分（`tmp/recon/r494-bisect.cjs` ✓：每条都从干净 `build` 出发 ✓，先 tsc 重建再单独打一条 ✓）**，
+口径是「**相对干净基线的抛异常增量**」✓（干净基线自己是 33 ✓ —— 那 33 条不在尺子的 1037 份语料里 ✓）：
+
+| 规则 | 增量 | 规则 | 增量 |
+| --- | --- | --- | --- |
+| `ConditionalType` / `Ternary` / `Try` / `Switch` / `For` / `Foreach` / `DoWhile` / `WrapSymbol` / `CompoundAssignment` / `OptionalCall` / `Spread` / `Comma` | **0** ✓ | `FunctionType` | +37 ✗ |
+| | | `While` | +5 ✗ |
+| | | `LogicalOperator` 那一族 | +9 ✗ |
+| | | `NotNull` | +16 ✗ |
+| | | `BinaryOperator` 那一族 | +63 ✗ |
+| | | `UnaryOperator` | +75 ✗ |
+| | | `PropertyAccess` | **+147** ✗ |
+
+**抛的两种东西**（`tmp/recon/r494-errors.cjs` ✓ 按消息聚合 ✓）：
+
+1. **`Maximum call stack size exceeded`** ✓（99 处 ✓）：栈里看得见
+   `PropertyAccessReorganization.ChainEndIndex` → `SkipNextWrapSymbol` ✓、
+   以及 `ExportReorganization.Process` → `new Export` → `InitialKeywordReorganizationQueue` ✓
+   —— 都是**规则造出来的单元又走 `TryToClose`、而 `TryToClose` 又进这一趟** ✓ ⇒ **递归没有上界** ✗。
+   全局那一趟不一样 ✗：`Token.Reorganize` 是「**扫到列表不再变化为止、且硬上界 16 趟**」✓（第 127 轮的护栏 ✓），
+   而这一趟现在是「每条规则各扫一遍、单元创建再递归」✗ —— **缺的正是那个上界** ✗。
+2. **`[object Object]`** ✓（229 处 ✓）：抛出来的是个对象（`SourceException` 那一族 ✓），
+   现场里第一条是 `am-block-lambda-array-compound.ts` ✓ —— 还没细查 ✓，与上面那条大概是同一个根因的两副面孔 ✓。
+
+**另一笔要记的观测** ✗：**同一个 `build` 两次跑，抛异常数会变** ✓（第 493 轮那次是 1037 / 0 ✓，
+这一轮同样是干净基线却报 1004 / 33 ✓，而**四方向与产物节点数逐项相同** ✓：21306 / 16573 / 464 / 3276 ✓）
+⇒ 那 33 条是**深度贴着栈上限**的那种 ✓（V8 内联与否就翻面 ✓）——
+**四方向是稳的 ✓，异常计数不是** ✓，后面别拿它当唯一判据 ✓。
+
+**下一轮的口径**（这轮量出来的）✓：
+
+1. 给这一趟补上**与 `Reorganize` 同款的上界** ✓（「扫到不再变化为止 + 硬上界」✓），
+   或者把「单元创建 ⇒ `TryToClose` ⇒ 再进这一趟」那条递归**改成队列式** ✓（不递归 ✓）；
+2. 再按上面那张增量表**逐条**（从 `ConditionalType` 那批 0 增量的开始 ✓）接回来 ✓；
+3. `PropertyAccess` / `UnaryOperator` / `BinaryOperator` 那三条量最大 ✗，要单独查它们为什么在关闭期炸 ✓
+   （它们在全局那一趟里是**排在很后面**的 ✓ —— 前面那几十条规则先把形状收拢了 ✓，
+   而这一趟还没接那么多 ✓ ⇒ 它们是「**半成品输入**」下炸的 ✓，这条假设下一轮先验证 ✓）。
+
 
 
