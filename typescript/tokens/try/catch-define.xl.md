@@ -15,7 +15,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 `catch` 的形参定义。
 
-注意它与 `TryBody` / `CatchBody` / `FinallyBody` 的差别：它构造时挂的**不是**语句规则队列，而是从 `CloseRuleTemplate` 里按自己的运行时类型取队列——圆括号里是「类型 + 变量名」，走的是另一套收尾规则。
+注意它与 `TryBody` / `CatchBody` / `FinallyBody` 的差别：它构造时挂的**不是**收尾规则队列，而是从 `CloseRuleTemplate` 里按自己的运行时类型取队列——圆括号里是「类型 + 变量名」，走的是另一套收尾规则。
 
 ## constructor:(template:Template)=>void
 

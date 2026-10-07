@@ -20,13 +20,13 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建时先把语句规则队列挂上。
+创建时先把收尾规则队列挂上。
 
-`InitialStatementCloseRuleQueue` 读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+`InitialCloseRuleQueue` 读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

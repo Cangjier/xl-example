@@ -38,7 +38,7 @@ import { EnumMember } from "./enum-member.xl.md"
 成员列表队列 + `EnumMemberBranch.JumpIn`（插在 `StringGuide.JumpIn` 之前）。
 注释那几条本来就在更前面，所以 `/** doc */` 的第二格由注释分支先认下。
 
-**不再挂语句规则队列**（第 419 轮）：成员由 **`EnumMemberBranch` 在读的时候**一个一个开出来，
+**不再挂收尾规则队列**（第 419 轮）：成员由 **`EnumMemberBranch` 在读的时候**一个一个开出来，
 体关闭时 `Data` 里已经是成形的东西——再挂一条语句队列等于让「成员什么时候成形」有**两个答案**。
 
 **也不再覆写 `Process`**（第 421 轮，用户口径）：形状判定住在**队列里的分支**上，
@@ -63,7 +63,7 @@ return source.Value === "}";
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-遇到配对的 `}` 就退出：签出到该字符、尝试关闭（关自己并跑那一趟语句重组）、从父单元卸载自己。
+遇到配对的 `}` 就退出：签出到该字符、尝试关闭（关自己并跑那一趟收尾规则）、从父单元卸载自己。
 
 **与 `Bracket.ExitOrPre` 一字不差**（那边比的是 `endBracket`，这里写死 `}`）。
 

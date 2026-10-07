@@ -12,7 +12,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 C 风格 `for` 语句的循环体段：`for(...)` 后面那对 `{ }` 的内容（或那条单语句）搬进来之后，这一段自己再跑一遍语句重组，把里面啃成语句树。
 
-语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+收尾规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 # class ForBody extends IndependentToken
 
@@ -26,7 +26,7 @@ C 风格 `for` 语句的循环体段：`for(...)` 后面那对 `{ }` 的内容�
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

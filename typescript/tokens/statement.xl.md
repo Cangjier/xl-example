@@ -56,7 +56,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 构造时就把自己的规则队列从模板上取出来（`template.CloseRuleTemplate.Get(this.constructor)` ✓）——
 `Statement` 自己这一类没有专门注册 ✓ ⇒ 拿到的是通用队列 ✓。
-容器那一侧走 `ParsePipeline.InitialStatementCloseRuleQueue` ✓，第 564 轮起它做的也是同一句 ✓。
+容器那一侧走 `ParsePipeline.InitialCloseRuleQueue` ✓，第 564 轮起它做的也是同一句 ✓。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -203,7 +203,7 @@ statement.TryToClose();
 2. **只有语句列表容器才收** ✓（白名单 ✓）：这条跑在每个单元的关闭前那一趟里 ✓，
    不设白名单的话 `Statement` 自己、类型单元、对象字面量都会收出**嵌套壳** ✗
    （`Statement` 里再套一个 `Statement` ✓ —— 那是收敛环里的自激 ✗）。
-   白名单就是「构造器里装了语句队列的那些容器」✓（`InitialStatementCloseRuleQueue`
+   白名单就是「构造器里装了语句队列的那些容器」✓（`InitialCloseRuleQueue`
    的调用点 ✓，见 `parse-pipeline.xl.md` ✓）。
 
 **单格早退**：末尾那一格**本身**已经是语句级单元时什么都不做 ✓（`IsStatementUnit` ✓，
@@ -230,7 +230,7 @@ const isStatementList =
   owner === "FinallyBody" ||
   owner === "NamespaceBody" ||
   // **`SwitchStatement` 也在名单里**（第 553 轮）：它的构造器同样装了语句队列
-  // （`switch-statement.xl.md` 的 `InitialStatementCloseRuleQueue`）✓，
+  // （`switch-statement.xl.md` 的 `InitialCloseRuleQueue`）✓，
   // 白名单就是照这一条列的 ✓，第 544 轮加这条时**漏了它** ✗ —— 那时 `switch` 的段
   // 一个都造不出来（第 552 轮才修好 ✓），看不出症状 ✓。
   // 症状是「`case 1: s += "a";` 写在同一行」这一类：标签与体在**同一个 `Statement` 壳**里 ✓，

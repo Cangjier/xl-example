@@ -12,7 +12,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `foreach` / `for...in` 的循环体段：`ForeachCloseRule.Process` 把 `{ ... }` 那对括号的内容搬进来，或直接把单条语句收进来，之后这一段自己再跑一遍语句重组把里面啃成语句树。
 
-语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+收尾规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 # class ForeachBody extends IndependentToken
 
@@ -26,7 +26,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

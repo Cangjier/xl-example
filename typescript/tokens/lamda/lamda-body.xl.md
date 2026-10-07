@@ -22,11 +22,11 @@ Lambda 的体。
 
 转调基类构造器，然后把「语句体」那一组默认收尾规则装进自己的规则队列。
 
-`InitialStatementCloseRuleQueue` 读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，写成 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+`InitialCloseRuleQueue` 读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，写成 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 ```ts
 super(Template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## field IsStatement:bool = false

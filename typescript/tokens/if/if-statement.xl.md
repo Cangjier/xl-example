@@ -32,12 +32,12 @@ import { Statement } from "../statement.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建体单元，并挂上语句规则队列 ✓。
+创建体单元，并挂上收尾规则队列 ✓。
 
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## protected method Close:()=>void

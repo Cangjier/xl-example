@@ -158,7 +158,7 @@ const colonIndex = SkipNextWrapSymbol(units, index);
 const statementIndex = SkipNextWrapSymbol(units, colonIndex);
 const statement = Get(units, statementIndex);
 if (statement instanceof Bracket && statement.startBracket === "{") {
-  ParsePipeline.InitialStatementCloseRuleQueue(statement);
+  ParsePipeline.InitialCloseRuleQueue(statement);
   statement.ApplyCloseRules();
 }
 const result = new Label(template);

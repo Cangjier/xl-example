@@ -127,12 +127,12 @@ unit.AddToMounted(block);
 
 转调基类构造器，取跳转队列，再把**语句队列**装进自己的规则队列——静态块里是一串语句。
 
-与 `ClassBody` / `FunctionBody` 同一做法：体里的单元在关闭时要再跑一遍语句重组。
+与 `ClassBody` / `FunctionBody` 同一做法：体里的单元在关闭时要再跑一遍**收尾规则**。
 
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Owns:(source:Source)=>bool
@@ -151,7 +151,7 @@ return source.Value === "}";
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-遇到配对的 `}` 就退出：签出到该字符 ✓、尝试关闭（关自己并跑那一趟语句重组 ✓）、
+遇到配对的 `}` 就退出：签出到该字符 ✓、尝试关闭（关自己并跑那一趟收尾规则 ✓）、
 从父单元卸载自己 ✓。
 
 **与 `Bracket.ExitOrPre` 一字不差**（那边比的是 `endBracket`，这里写死 `}`）。

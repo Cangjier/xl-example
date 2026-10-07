@@ -14,7 +14,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 它自己再跑一遍**语句**重组，把这一串啃成语句树——与 `IfStatement` / `ForBody` 是同一族。
 
-语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+收尾规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 # class SwitchStatement extends IndependentToken
 
@@ -28,7 +28,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

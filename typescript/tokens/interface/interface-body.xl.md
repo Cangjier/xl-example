@@ -39,7 +39,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```ts
 super(template);
 this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Owns:(source:Source)=>bool
@@ -56,7 +56,7 @@ return source.Value === "}";
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-遇到配对的 `}` 就退出：签出到该字符、尝试关闭（关自己并跑那一趟语句重组）、
+遇到配对的 `}` 就退出：签出到该字符、尝试关闭（关自己并跑那一趟收尾规则）、
 再连续 quit 把 `Interface` 也收掉。
 
 **与 `Bracket.ExitOrPre` 一字不差**（那边比的是 `endBracket`，这里写死 `}`），

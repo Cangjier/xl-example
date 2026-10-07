@@ -30,7 +30,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 **要的是通用队列，不是语句队列**（实测踩过）：
 
 - `InitialKeywordCloseRuleQueue` 不行——它只有 `Keyword` + `LineWrap` 两条，不含算符折算；
-- `InitialStatementCloseRuleQueue` **当年**也不行——它额外插了 `StatementCloseRule2/3`，
+- `InitialCloseRuleQueue` **当年**也不行——它额外插了 `StatementCloseRule2/3`，
   会把这一段表达式**包进一个 `<Statement>`**（实测 `const y = c ? index + 1 : 0` 的真值段里
   多出一层 `<Statement>`）。三元的分支是表达式，不是语句列表。
   **第 564 轮起这一条不再成立** ✓：插入那两条规则的做法已经删掉 ✓

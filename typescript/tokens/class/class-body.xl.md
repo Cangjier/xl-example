@@ -40,14 +40,14 @@ import { Identifier } from "../identifier.xl.md"
 - **成员列表队列** ✓（`ParsePipeline.CreateMemberListQueue` ✓，即通用队列**去掉 `IfSetBranch.JumpIn`** ✓）：
   成员位上的 `if(a) { }` 是一个**名叫 `if` 的成员** ✓——与 `if` 语句形状一模一样 ✗，
   分它们的只有上下文 ✓，而这件事由**队列本身**保证 ✓（`if` 那一侧一个闸都不用加 ✓）。
-- **语句规则队列** ✓：`{ }` 括号没有规则队列 ✓（见 `../bracket.xl.md` 的 `Use` ✓），
+- **收尾规则队列** ✓：`{ }` 括号没有规则队列 ✓（见 `../bracket.xl.md` 的 `Use` ✓），
   所以类体在括号关闭时是散着的 `Identifier` / `SymbolToken` / `LineWrap` ✓；
   把语句队列挂在这一段上，成员（方法声明、字段、静态块）才有成形的时机 ✓。
 
 ```ts
 super(template);
 this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates

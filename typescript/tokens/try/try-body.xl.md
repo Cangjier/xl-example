@@ -20,13 +20,13 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建时先把语句规则队列挂上——花括号里的内容是一串语句。
+创建时先把收尾规则队列挂上——花括号里的内容是一串语句。
 
-`InitialStatementCloseRuleQueue` 负责把「语句级重组」那一串 `CloseRule` 取出来赋给 `CloseRuleQueue`；它读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+`InitialCloseRuleQueue` 负责把「语句级重组」那一串 `CloseRule` 取出来赋给 `CloseRuleQueue`；它读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

@@ -16,7 +16,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 与 `ClassBody` / `ForBody` / `TryBody` 是同一族：`{ }` 括号没有规则队列（见 `../bracket.xl.md` 的 `Use`），
 语句队列必须挂在搬完内容的那一段上。
 
-语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+收尾规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 # class FunctionBody extends IndependentToken
 
@@ -30,7 +30,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

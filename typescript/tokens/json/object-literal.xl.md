@@ -156,7 +156,7 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("BlockCloseRule.Process: current is null");
 }
-ParsePipeline.InitialStatementCloseRuleQueue(current);
+ParsePipeline.InitialCloseRuleQueue(current);
 current.ApplyCloseRules();
 return index + 1;
 ```

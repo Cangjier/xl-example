@@ -22,7 +22,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 所以类型字面量体在括号关闭时是散着的 `Identifier` / `SymbolToken`；把语句队列挂在这一段上，成员才有成形的时机——
 这正是 `InterfaceBody` / `ClassBody` / `NamespaceBody` 走的那条路。
 
-语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+收尾规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 # class TypeLiteralBody extends IndependentToken
 
@@ -36,7 +36,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

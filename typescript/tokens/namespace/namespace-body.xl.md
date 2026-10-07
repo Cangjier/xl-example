@@ -21,7 +21,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 `declare namespace NodeJS { … }` 里，体不跑重组，体内所有 interface / class / function 就都不成节点
 （审计：真实语料 4538 个 interface 声明只产出 2856 个节点，其中 1456 个正是被这一条连累的）。
 
-语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+收尾规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 # class NamespaceBody extends IndependentToken
 
@@ -35,7 +35,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

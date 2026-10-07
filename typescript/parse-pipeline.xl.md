@@ -569,7 +569,7 @@ return [
 **模板是调用方的，谁造模板谁装配**：`Install` 只负责往模板上写东西，根单元只从装配好的模板上读。
 `TextContext` 的调用方因此只需要 `new Template().Initialize(ParsePipeline.Install)`。
 
-`InitialStatementCloseRuleQueue` 的调用点不在这里，而在根单元的构造器里（它作用于**单元**而不是模板，
+`InitialCloseRuleQueue` 的调用点不在这里，而在根单元的构造器里（它作用于**单元**而不是模板，
 所以留在那个时机）——它读的正是这里设下的 `CloseRuleTemplate.DefaultValue`，顺序天然成立。
 
 关键字表与禁用方法名表一并在这一步装上：它们和两张队列一样，是「这套语言怎么解析」的一部分。
@@ -596,7 +596,7 @@ template.Initialize((self: Template) => {
 
 给一个**装类型文本**的单元装上报废类型用的规则队列：`KeywordCloseRule` 与 `WrapSymbolCloseRule` 两条。
 
-与 `InitialStatementCloseRuleQueue` 是同一个思路的两半：那一条装「语句队列」，
+与 `InitialCloseRuleQueue` 是同一个思路的两半：那一条装「语句队列」，
 这一条装「类型队列」。
 
 **为什么不是通用队列**：`TypeDefine` / `TypeAssign` 的内容是类型，通用队列里的
@@ -680,7 +680,7 @@ branch.AddStringChar("'");
 branch.AddStringChar("`");
 ```
 
-## static method InitialStatementCloseRuleQueue:(unit:Token)=>void
+## static method InitialCloseRuleQueue:(unit:Token)=>void
 
 给一个单元装上它的收尾规则队列：取**该单元类型**那一份（模板上没有专门注册就是通用规则队列 ✓）。
 
@@ -689,9 +689,16 @@ branch.AddStringChar("`");
 而那两条规则在 `RunCloseRules` 里是**显式跳过**的 ✗ ⇒ 插进去从来没被跑到过 ✓
 （第 564 轮量的账：全语料 `Previous` 调用 **0** 次 ✓）⇒ 插入连同那两条规则一起删掉 ✓。
 
-**名字是这一族里最后一件过时的东西** ✗：它现在装的**不是**「语句规则」✓，就是普通那一份 ✓。
-改名的代价是 22 处调用点（`class-body` / `interface-body` / `function-body` / `root` … ✓），
-留给下一轮和「这条装配线本身要不要留」一起定 ✓（见 `docs/member-layer-plan.md` 的迁移账 ✓）。
+**名字**（第 565 轮 ✓）：它从前叫 `InitialStatementCloseRuleQueue` ——
+名字里那半截指的是**插进去的两条语句规则** ✗，而那两条规则已经删掉 ✓（见上 ✓）⇒
+它现在装的**不是**「语句规则」✓，就是**这一族**通用的那一份 ✓ ⇒ 改名为 `InitialCloseRuleQueue` ✓
+（与基类 `CloseRule` ✓、字段 `CloseRuleQueue` ✓、模板 `CloseRuleTemplate` ✓ 同一族命名 ✓，
+**48 处**替换 ✓、27 个文件 ✓）。
+
+**这条装配线本身留着** ✓：它现在与各单元构造器里那句
+`template.CloseRuleTemplate.Get(this.constructor)` **完全等价** ✓，本可以整体并掉 ✓ ——
+但那样会有 **22 份**「队列从哪来」的解释散到 22 个构造器里 ✗，而这里一份就说明白 ✓。
+它是**装配**（`ParsePipeline` 的口径 ✓：装默认队列、关键字表、两种队列 ✓），不是「重组」的残骸 ✓。
 
 **`Get` 用一个实参** ✓：单参用法取的就是 `CloseRuleTemplate.DefaultValue` ✓（`Install` 装的是
 `GeneralCloseRule` ✓），与从前那个「两个实参 + 原样返回默认值」的回调**内容完全一致** ✓ ——

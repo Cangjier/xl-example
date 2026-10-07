@@ -23,7 +23,7 @@ import { LineWrap } from "./tokens/line-wrap.xl.md"
 这一组函数全是「跳过 `LineWrap`」的变体——软换行在语法结构里不该挡住相邻单元的判断，
 所以「上一个 / 下一个**实义**单元」的查找必须跨过它们。
 
-原先这里还有一个 `InitialStatementCloseRuleQueue`（给单元装报废语句用的规则队列）。
+原先这里还有一个 `InitialCloseRuleQueue`（给单元装报废语句用的规则队列）。
 它读的是 `CloseRuleTemplate.DefaultValue`，也就是**通用规则队列**，属于解析优先级契约的一部分，
 已经搬到 `./parse-pipeline.xl.md`，与 `GeneralCloseRule` 放在一起。
 

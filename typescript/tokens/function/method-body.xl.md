@@ -19,7 +19,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 （名字 + 实参括号），它的内容就是实参；方法声明的 `{ ... }` 是**语句块**，两者不是一回事。
 `MethodDeclaration` 因此把参数括号与方法体分成两个子单元。
 
-语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
+收尾规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialCloseRuleQueue(this)`。
 
 # class MethodBody extends IndependentToken
 
@@ -33,7 +33,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

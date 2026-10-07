@@ -161,7 +161,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

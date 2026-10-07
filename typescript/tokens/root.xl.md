@@ -59,7 +59,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 以模板创建；模板必须已经装配过通用队列。
 
-装配（装默认队列、装语句规则队列）都归 `ParsePipeline`（`Install` / `InitialStatementCloseRuleQueue`），
+装配（装默认队列、装收尾规则队列）都归 `ParsePipeline`（`Install` / `InitialCloseRuleQueue`），
 这里只剩取 `ProcessQueue` 与那条契约检查。
 
 ```ts
@@ -71,7 +71,7 @@ if (processQueue === null) {
   );
 }
 this.ProcessQueue = processQueue;
-ParsePipeline.InitialStatementCloseRuleQueue(this);
+ParsePipeline.InitialCloseRuleQueue(this);
 ```
 
 ## protected method Close:()=>void

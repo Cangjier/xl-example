@@ -57,19 +57,6 @@ JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
 
 `null` = 这个类没有收尾规则 ✓ —— 收敛环对它就一条规则都不跑 ✓（`FormStatement` 那条钩子照旧跑 ✓）。
 
-## field CreatedByRule:string = ""
-
-**这个单元是「哪条规则」造出来的**（第 464 轮加的诊断口径；字段名里的 `Rule` 与那一族规则同名 ✓）：
-
-空串 = 解析期由 guide / unit 吃字符长出来的 ✓（它的「谁造的」就是类名本身 ✓，
-XML 里直接用 `this.constructor.name` ✓）；非空 = 那条规则的类名 ✓。
-
-**为什么要它**：产物里出现一个形状不对的节点时（例如一个多余的 `ExpressionStatement` ✓），
-「它是谁造的」比「它长什么样」更能直接指出凶手 ✓。
-
-**目前没有写点** ✗（第 561 轮删掉那趟全局重组时一并消失了 ✓）：它当年的唯一写点是
-`Token.Reorganize` 里那句「只记第一条碰它的规则」✓ ⇒ 这个字段现在是**空着**的诊断位 ✓。
-
 ## field Parent:Token | null = null
 
 父单元。
@@ -197,17 +184,6 @@ item.Parent = this;
 this.Data.push(item);
 return item;
 ```
-
-## field BornByCloseRule:bool = false
-
-**这个单元是「重组的产出」吗**（第 460 轮加的度量口径）：
-
-解析期由 guide / unit 吃字符长出来的单元是 `false` ✓；
-由 `CloseRule` 那一趟在平表上收出来的容器是 `true` ✓。
-统计「剩余 reorg 占比」就是数产物树里 `true` 的占比 ✓ ——
-它随迁移推进单调下降 ✓，比「还剩几条规则」更能说明进度 ✓。
-
-标记只在一处点亮：`ReplaceCountAt`（**每个真正生效的重组都会走它** ✓）。
 
 ## method AddRange:<Item extends Token>(items:Array<Item>)=>Token
 
@@ -460,16 +436,17 @@ this.Parent.Data.splice(index, 1);
 
 标签名取 `this.constructor.name`，所以类名就是它产出的 XML 标签名。
 
+**标签名就是全部** ✓：从前这里还有一个 `DSH_XL_TRACE=1` 的诊断档 ✓ ——
+它把「这个单元是谁造的」打进标签（`xl:born="…"` ✓），而那个口径的两端**都已经不在了** ✗：
+写点随第 561 轮删掉全局重组那一趟一起消失 ✓（`Token.CreatedByRule` 从此恒为空串 ✓），
+读点也就只能打出一个**与标签名一模一样**的值 ✓ —— 一个什么都换不来的环境开关 ✓
+⇒ 第 565 轮连同那两个字段一起摘掉 ✓（与本仓删 `DSH_XL_REORG` / `DSH_XL_NO_REORG` 同一条口径 ✓）。
+
 ```ts
 const name = this.constructor.name;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
-}
-// 诊断模式：把「谁造的」打进标签（默认关闭 ✓，尺子与交付物不受影响 ✓）。
-if (process.env.DSH_XL_TRACE === "1") {
-  const born = this.CreatedByRule === "" ? this.constructor.name : this.CreatedByRule;
-  return `<${name} xl:born="${born}">${temp.join("")}</${name}>`;
 }
 return `<${name}>${temp.join("")}</${name}>`;
 ```
