@@ -3659,3 +3659,72 @@ EXTRA  MetaProperty  [103,119)   ← 整条 `new.target === A` 被投成了一�
 
 两半合计：**879 → 884 / 1037** ✓，缺 874 → **860** ✓、多出来 299 → **277** ✓、
 漂移 71 → **75** ✗（+4 就是上面那条 `new.target === A` ✓）、字段名 58 持平 ✓、异常 0 ✓。
+## 一百四十三、`new.target` 那两格区间（第 539 轮）：漂移 75 → **71**、多出来 277 → **273**
+
+上一轮把 `new` 加进 `IsChainBase` 的排除名单 ✓（884 / 1037 ✓），但同一个文件里留了一对难看的读数 ✓：
+
+```
+DRIFT  MetaProperty  TS[103,113) vs 产物[103,119)
+DRIFT  Identifier    TS[107,113) vs 产物[107,119)
+MISS   BinaryExpression / EqualsEqualsEqualsToken / Identifier(A)
+```
+
+### 一、真因：名字那一格是**嵌套**的二元运算符
+
+上一轮试过「名字是 `BinaryOperator` 时只取第一个操作数」，**读数逐项不变** ✗ ——
+本轮把 `MetaProperty` 那一支的内部值打出来（`tmp/recon/probe-meta2.cjs` ✓）才看清 ✗：
+
+```
+MP2DBG namedKids=BinaryOperator firstName=BinaryOperator inner=BinaryOperator[[107,118]]
+```
+
+⇒ **那个 `BinaryOperator` 是嵌套的** ✗（`target === A` 折了好几层 ✓），
+**只剥一层不够** ✓ —— `projectableKids(那一格)[0]` 拿到的还是 `BinaryOperator` ✗。
+
+### 二、修法
+
+`print-ast-common.xl.md` 的 `MetaProperty` 那一支 ✓：把「取第一个操作数」改成
+**一直往左走到不是二元运算符为止** ✓（带 `guard < 32` 硬上界 ✓，与仓里其它收敛环同款 ✓）：
+
+```ts
+let firstName = namedKids.length > 0 ? namedKids[0] : undefined;
+let guard = 0;
+while (firstName instanceof Map && firstName.get("type") === "BinaryOperator" && guard < 32) {
+  const down = projectableKids(view(firstName));
+  if (down.length === 0) break;
+  firstName = down[0];
+  guard = guard + 1;
+}
+const inner = firstName !== undefined && !(firstName instanceof Map && firstName.get("type") === "BinaryOperator")
+  ? [firstName]
+  : namedKids;
+```
+
+### 三、读数
+
+| 项 | 第 538 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 884 | **884 / 1037** ✓（持平 ✓） |
+| 缺节点 | 860（94 类） | **860**（94 类）✓（持平 ✓） |
+| 多出来的节点 | 277（45 类） | **273**（45 类）✓（−4 ✓） |
+| 区间漂移 | 75（18 类） | **71**（18 类）✓（−4 ✓） |
+| 字段名不符 | 58 | **58** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+
+`cls-super-newtarget.ts` 里那两处 `DRIFT` 与两处 `EXTRA` 都消了 ✓
+（剩下的是同一行里 `=== A` 那一截 ✓：`MISS BinaryExpression` / `EqualsEqualsEqualsToken` /
+`Identifier(A)` ✓）—— **完全一致那一栏没涨** ✓ 正因为同一份文件还差这三格 ✓。
+
+### 四、下一轮入口（已经写在源码注释里）
+
+名字那一格被折成 `BinaryOperator(target === A)` 之后 ✓，`kids.slice(after)` 里**只剩运算符本身** ✗
+⇒ 那一支 `return meta` ✗ ⇒ 缺 `BinaryExpression` / `EqualsEqualsEqualsToken` / `Identifier(A)` ✓。
+**修法方向** ✓：把那个 `BinaryOperator` 的操作数表接在 `meta` 后面一起交给 `foldBinaryFrom` ✓
+（与「后面那些 `.名字` 也要继续接上」那一支**同源** ✓），先量再接 ✓。
+
+### 五、工具（本轮又踩到一次同一个坑）
+
+`xl_build` 会按指纹跳过重建 ✓，而探针是**直接写进 `build/`** 的 ✗ ⇒
+**重建一次就把探针冲掉** ✓，第二次跑 `probe-meta.cjs` 打的是 `already instrumented` ✓
+而 `build/` 里那个探针早没了 ✗。**口径**：探针用完立刻跑、跑完再重建 ✓；
+要连着跑两轮探针就在每轮之前**重新打** ✓（本轮就是这么确认 `firstName` 的 ✓）。

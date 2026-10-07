@@ -2093,7 +2093,31 @@ new Set([
   ) {
     const named = kids[2];
     // `import.meta.url` 的 `meta.url` 被收成了一个 `PropertyAccess`；`new.target` 只是名字。
-    const inner = named.get("type") === "PropertyAccess" ? projectableKids(view(named)) : [named];
+    //
+    // **名字那一格也可能是一个 `BinaryOperator`**（第 539 轮实测 ✓）：关掉 reorg 之后
+    // `new.target === A` 里 `target === A` 被折成了一个 `BinaryOperator` ✓
+    //（`new` 不再当链底之后 ✓，二元那条规则把 `target` 与它右边整段收在一起 ✓）。
+    // 照整格投影会把 `=== A` 一起卷进 `MetaProperty` ✗ ⇒ **只取它的第一个操作数** ✓
+    //（运算符左边那一格就是名字 ✓）。探针现场（`tmp/recon/probe-meta.cjs` ✓）：
+    //
+    //     MP1DBG kids=Keyword(new),SymbolToken(.),BinaryOperator()
+    const namedKids = named.get("type") === "PropertyAccess" ? projectableKids(view(named)) : [named];
+    // **一直往左走到不是二元运算符为止** ✗（第 539 轮实测 ✓）：那个 `BinaryOperator` 是**嵌套**的 ✓
+    //（`target === A` 折了好几层 ✓，探针打出来 `first` 仍然是 `BinaryOperator` ✗）——
+    // 只剥一层不够 ✓，要剥到最左边那个真正的名字 ✓。
+    let firstName = namedKids.length > 0 ? namedKids[0] : undefined;
+    let guard = 0;
+    while (
+      firstName instanceof Map &&
+      firstName.get("type") === "BinaryOperator" &&
+      guard < 32
+    ) {
+      const down = projectableKids(view(firstName));
+      if (down.length === 0) break;
+      firstName = down[0];
+      guard = guard + 1;
+    }
+    const inner = firstName !== undefined && !(firstName instanceof Map && firstName.get("type") === "BinaryOperator") ? [firstName] : namedKids;
     let meta: any = {
       kind: "MetaProperty",
       name: nameOf(inner[0], ctx),
@@ -2133,6 +2157,12 @@ new Set([
     }
     const rest = kids.slice(after);
     if (rest.length === 0) return meta;
+    // **`new.target === A`：运算符那一截还没接回来** ✗（第 539 轮把区间修对、这一条留给下一轮 ✓）：
+    // 名字那一格被折成 `BinaryOperator(target === A)` 之后 ✓，`kids.slice(after)` 里
+    // **只剩运算符本身**（`===` 与 `A` 在它的 `Data` 里 ✓）✗ ⇒ 这里 `return meta` ✗
+    // ⇒ 缺 `BinaryExpression` / `EqualsEqualsEqualsToken` / `Identifier(A)` 三个 ✓。
+    // **修法方向** ✓：把那个 `BinaryOperator` 的操作数表接在 `meta` 后面一起交给 `foldBinaryFrom` ✓
+    //（与下面 `.名字` 那一支同源 ✓），先量再接 ✓。
     return foldBinaryFrom(meta, rest, ctx);
   }
 
