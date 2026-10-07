@@ -71,6 +71,7 @@ return Keyword.UpgradeAt(units, index);
 
 **装饰器名字位同样不算关键字**：`@readonly` / `@override` 是「拿一个名字当表达式」，
 TS 那边那个词就是 `Identifier`。这一档与 `as const` 同一个形状——同一个词换个位置就不是关键字。
+**枚举成员**同理：`enum E { readonly = 1 }` 那两格是成员名与初始化式里的引用，都是普通标识符。
 
 ```ts
 const unit = Get(units, index);
@@ -83,6 +84,12 @@ if (unit instanceof Identifier && unit.Parent !== null && unit.Parent.constructo
 // 判据看**直接父亲**：装饰器的子单元都是值表达式（名字链 / 实参括号 / 括号表达式），
 // 而括号表达式里那一层已经换了父亲（括号或运算符）⇒ 照旧升级。
 if (unit instanceof Identifier && unit.Parent !== null && unit.Parent.constructor.name === "Decorator") {
+  return false;
+}
+// **枚举成员里也不升级**：`enum E { readonly = 1, async = 2 }` 的名字与初始化式里的引用都是
+// **普通标识符**（TS 那边是 `Identifier`），而这两个词都在关键字表里——升了之后投影整类报
+// 「缺 `Identifier` 2 + 多出 `ReadonlyKeyword` / `AsyncKeyword` 2」（实测）。
+if (unit instanceof Identifier && unit.Parent !== null && unit.Parent.constructor.name === "EnumMember") {
   return false;
 }
 // **`override` 是「上下文关键字」** ✗（第 383 轮 ✓）——与上面 `as const` 那一格**同一个形状** ✗

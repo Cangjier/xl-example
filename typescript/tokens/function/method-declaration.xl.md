@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
@@ -502,13 +502,20 @@ return false;
 「`if (x)` 被误当成调用」的风险（那个风险只属于表达式位）。所以名字的父单元是成员体时不再查
 `MethodNameTemplate`，只查语句位的那一支。
 
-**但类型运算符在成员位也绝不是方法名**（第 66 轮补）：`readonly` 后面跟一个括号是
+**但类型运算符在成员位也绝不是方法名**（第 66 轮补，第 609 轮收窄）：`readonly` 后面跟一个括号是
 **类型位**的写法（`readonly (A | B)[]`），不是「名叫 `readonly` 的方法」。
-放开禁用表的那一支必须单独挡这一次，否则实测
+放任不管时实测
 `interface ResolvedProjectReference { references?: readonly (ResolvedProjectReference | undefined)[] }`
 整条成员被收成一个 `<MethodDeclaration name="readonly">`，那个 `[]` 还被当成返回类型
 （产物里多出一个 `<ArrayLiteral>` 挂在 `ReturnType` 下）——成员名 `references`、
 数组类型、括号类型、联合四种结构全塌（真实语料 `typescript.d.ts` 4 处）。
+
+**「类型运算符」与「成员名」的分界是名字前面那一格**：类型位前面一定是符号（`:` / `?` / `|` / `&` / `=`…）
+或一个类型关键字（`extends` / `keyof` / `typeof` / `in` / `new`），而成员名前面是成员起始
+（`{` / `;` / `,` / `}`）或者一个修饰词（`static` / `get` / `async` …）。
+第 66 轮只做了「一律拒收」那半边，于是
+`readonly() {}` / `static readonly() {}` / `async readonly() {}` / `get readonly(): T {…}`
+这四种**合法写法**整条成员散架（实测 `readonly() {}` 缺 2 多 2、`get readonly()` 缺 7 多 5）。
 
 **只挡这五个词**：`readonly` / `keyof` / `unique` / `asserts` / `infer`。
 `IsTypeModifier` 里的 `new` / `abstract` / `typeof` **不能**照抄着一起挡——
@@ -550,7 +557,18 @@ if (isComputedName === false && inMemberBody) {
     word = (name as any).Value;
   }
   if (word === "readonly" || word === "keyof" || word === "unique" || word === "asserts" || word === "infer") {
-    return false;
+    // **「类型运算符」还是「成员名」，看名字前面那一格**（第 609 轮）：
+    // `references?: readonly (A | B)[]` 里它是类型运算符（前面是 `?` / `:`），
+    // 而 `readonly() {}` / `get readonly(): T {…}` / `static readonly() {}` 里它是**成员名**——
+    // 前面要么是成员起始（`{` `;` `,` `}`），要么是一个修饰词（`static` / `get` / `async` …）。
+    // 原来不看前面、一律拒收，于是这三种写法整条成员散架（实测 `readonly() {}` 缺 2 多 2）。
+    const before = Get(units, SkipPreviousWrapSymbol(units, nameIndex));
+    const atMemberStart =
+      before === null ||
+      (before instanceof SymbolToken && (before.Is("{") || before.Is(";") || before.Is(",") || before.Is("}")));
+    if (atMemberStart === false && IsDeclarationModifier(before) === false) {
+      return false;
+    }
   }
 }
 if (name instanceof Identifier && name.Is("import")) {
