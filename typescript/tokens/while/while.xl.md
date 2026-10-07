@@ -94,6 +94,12 @@ let tailEnd = unit.SourceRange.End!;
 const statementCandidate = Get(units, endIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
+  // **体那个 `{` 当场记进 `BodyBraceAt`** ✓（第 618 轮 ✓，与 `For` 第 598 轮那一处同一条口径 ✓）：
+  // `while (c) {}` 的空块在 `ToList` 里**整个摊掉**了 ✓（体段一个可见子单元都没有 ✓），
+  // 而 TS 那边 `WhileStatement.statement` 仍有一个**空 `Block`** ✓——
+  // 投影原来靠「配对头部 `)` + `indexOf("{")` + `MatchingBrace`」**回原文重扫一遍** ✗，
+  // 那是同一条判据的**第二份近似** ✓（块里的字符串与注释里同样有括号 ✓）。
+  result.BodyBraceAt = statementBracket.SourceRange.Start!.Index;
   statementBracket.MoveDataTo(forStatement);
   forStatement.SignIn(statementBracket.SourceRange.Start!);
   forStatement.SignOut(statementBracket.SourceRange.End!);
@@ -157,6 +163,18 @@ return index;
 与 `For.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起（那个 `;` 触发规则时还没进列表），
 记成字段之后投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` 重扫原文。
 
+## field BodyBraceAt:int = -1
+
+**体那个 `{` 的下标** ✓；体不是花括号块时就是 `-1` ✓。
+
+与 `For.BodyBraceAt` **同一个来由、同一条纪律** ✓：`while (c) {}` 的空块在 `ToList` 时
+**整个摊掉**了 ✓（体段一个可见子单元都没有 ✓），而 TS 那边 `WhileStatement.statement`
+仍有一个空 `Block` ✓——投影原来靠 `MatchingParen` + `indexOf("{")` + `MatchingBrace`
+**回原文里找** ✗，那是同一条判据的第二份近似 ✓。
+**有字段就直读** ✓：空 `Block` 的起点就是这一格 ✓、终点是**本单元的终点** ✓
+（`WhileCloseRule.Process` 的块那一支把 `tailEnd` 签在那个 `}` 的后一位 ✓）；
+**没字段的**（体是单语句 / 空语句 ✓）照旧走原来的判据 ✓。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `while (c) { … }` → `WhileStatement`（`expression` + `statement`；
@@ -177,6 +195,19 @@ return index;
   const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
   if (emptyAt >= 0) {
     props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+    return ctx.NodeHead("WhileStatement", props, v);
+  }
+  // **空块那一格也直读字段** ✓（第 618 轮 ✓，与 `For.PrintAst` 那一处一字不差 ✓）：
+  // 体段一个可见子单元都没有、而字段说「那个 `{` 在这一格」⇒ 这就是空 `Block` ✓。
+  // **终点取本单元的终点** ✓：`WhileCloseRule.Process` 把 `tailEnd` 签在 `}` 的后一位 ✓。
+  // **这一支要排在 `BodyBlockOf` 之前** ✗：那一位在没有子单元时只能回原文猜 ✓，
+  // 而字段是**打包那一刻的事实** ✓（「token 出字段、投影直读」✓）。
+  const rawBrace = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("bodyBraceAt")
+    : undefined;
+  const braceAt = typeof rawBrace === "number" ? rawBrace : -1;
+  if (braceAt >= 0 && body.length === 0) {
+    props.statement = { kind: "Block", statements: [], pos: braceAt, end: ctx.EndOf(v) };
     return ctx.NodeHead("WhileStatement", props, v);
   }
   const header = ctx.MatchingParen(ctx.source, v.start);
@@ -248,6 +279,9 @@ result.set("type", this.constructor.name);
 result.set("compare", this.Compare.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
+// **体那个 `{` 的位置也写出去** ✓（第 618 轮 ✓，与 `For.ToDictionary` 那一处同一条 ✓）：
+// 投影空 `Block` 时直读 ✓，不再回原文重扫 ✓。
+result.set("bodyBraceAt", this.BodyBraceAt);
 return result;
 ```
 
@@ -260,6 +294,8 @@ return result;
 ```ts
 const result = new While(this.Template);
 result.Sign(this);
+result.EmptyBodyAt = this.EmptyBodyAt;
+result.BodyBraceAt = this.BodyBraceAt;
 result.AddRange(this.Data.map((x) => x.Clone()));
 result.TryToClose();
 return result;
