@@ -882,12 +882,30 @@ ImportReorganization.Instance.ApplyTo(unit);
 //（`cases:tsast` 的 118 份里 `expr-as-then-value-operator.ts` 一份就缺 38 ✓）。
 // **导出列表里不可能再出现一条导出语句** ✓（里面是名字 / `as` / `from "m"` ✓），
 // 所以这一趟跳过它是纯赚 ✓ —— 与上面 `Label` 那一处同一个做法 ✓。
-if (unit.constructor.name !== "Export") {
+//
+// **`Export` 那一格上不跑表达式规则** ✓（第 549 轮 ✓）：`export * as ns from "m"` 里的 `*` 是
+// **转发记号** ✓、`as ns` 是**命名空间子句那两个词** ✓，两样都不是表达式 ✗ ——
+// 可原来它们照跑 ✗：`AsReorganization` 先把 `as ns from "m"` 折成一个 `As` ✓、
+// `BinaryOperatorReorganization.MultiplicativeInstance` 再把 `export * As` 折成一个乘法 ✗
+// ⇒ 单元的 `Data` 由**平铺六格**变成一个 `BinaryOperator` ✗；而那个 `BinaryOperator`
+// **关的时候又跑一遍这一串规则** ✓ —— 它 `Data` 里那个 `export` 此刻还是 `Identifier` ✗
+//（`KeywordReorganization` 排在最后 ✓）⇒ `ExportReorganization` 在它里面**再套一层** ✓
+// ⇒ 一层套一层、直到深度界 ✗（实测 `ex-reexport.ts` 套了 4 层 ✓；第 548 轮那一处是同一族 ✓，
+// 只是它挡在**单元自己那一趟**上 ✓，管不住规则造出来的子单元 ✓）。
+// 投影侧因此只看得见最里面那一格 ✗ ⇒ 三条一起缺 ✗：`NamespaceExport` + 它的 `Identifier` +
+// `moduleSpecifier` 那个 `StringLiteral` ✓（三份用例各缺 3 ✓：`ex-reexport.ts` /
+// `mod-export-star-as-namespace.ts` / `mod-adversarial-shapes.ts` ✓）。
+// **跳过是纯赚** ✓：导出子句里不可能出现表达式 ✗ —— `export default …` / `export = …` 只把
+// **前缀两个词**收进单元 ✓，那段表达式留在外面 ✓（见 `tokens/export.xl.md` ✓）。
+const isExportUnit = unit.constructor.name === "Export";
+if (!isExportUnit) {
   ExportReorganization.Instance.ApplyTo(unit);
 }
 NamespaceExportReorganization.Instance.ApplyTo(unit);
 TypeUnionReorganization.Instance.ApplyTo(unit);
-AsReorganization.Instance.ApplyTo(unit);
+if (!isExportUnit) {
+  AsReorganization.Instance.ApplyTo(unit);
+}
 FunctionTypeReorganization.Instance.ApplyTo(unit);
 ConditionalTypeReorganization.Instance.ApplyTo(unit);
 TypeAssignReorganization.Instance.ApplyTo(unit);
@@ -906,19 +924,23 @@ CompoundAssignmentOperatorReorganization.Instance.ApplyTo(unit);
 NotNullReorganization.Instance.ApplyTo(unit);
 OptionalCallReorganization.Instance.ApplyTo(unit);
 UnaryOperatorReorganization.Instance.ApplyTo(unit);
-BinaryOperatorReorganization.PowerInstance.ApplyTo(unit);
-BinaryOperatorReorganization.MultiplicativeInstance.ApplyTo(unit);
-BinaryOperatorReorganization.AdditiveInstance.ApplyTo(unit);
-BinaryOperatorReorganization.InInstance.ApplyTo(unit);
-BinaryOperatorReorganization.InstanceofInstance.ApplyTo(unit);
-BinaryOperatorReorganization.EqualityInstance.ApplyTo(unit);
-BinaryOperatorReorganization.LogicalAssignmentInstance.ApplyTo(unit);
-BinaryOperatorReorganization.BitwiseInstance.ApplyTo(unit);
-BinaryOperatorReorganization.NullishInstance.ApplyTo(unit);
-LogicalOperatorReorganization.AndInstance.ApplyTo(unit);
-LogicalOperatorReorganization.OrInstance.ApplyTo(unit);
-SpreadReorganization.Instance.ApplyTo(unit);
-BinaryOperatorReorganization.CommaInstance.ApplyTo(unit);
+// **二元 / 逻辑那一族也不在 `Export` 那一格上跑** ✓（第 549 轮 ✓，理由见上 ✓）：
+// 导出子句里那唯一一个运算符形态就是转发记号 `*` ✓，它被乘法那一趟折走正是自激的起点 ✗。
+if (!isExportUnit) {
+  BinaryOperatorReorganization.PowerInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.MultiplicativeInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.AdditiveInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.InInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.InstanceofInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.EqualityInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.LogicalAssignmentInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.BitwiseInstance.ApplyTo(unit);
+  BinaryOperatorReorganization.NullishInstance.ApplyTo(unit);
+  LogicalOperatorReorganization.AndInstance.ApplyTo(unit);
+  LogicalOperatorReorganization.OrInstance.ApplyTo(unit);
+  SpreadReorganization.Instance.ApplyTo(unit);
+  BinaryOperatorReorganization.CommaInstance.ApplyTo(unit);
+}
 KeywordReorganization.Instance.ApplyTo(unit);
 // **容器末尾那一条语句**（第 544 轮 ✓）：`\n` 与 `;` 两档都不响时（内容直接顶到 `}` / EOF ✓）
 // 由这一句补壳 ✓ —— 判据、白名单、切片都在 `Statement.FormTail` 那一份实现里 ✓

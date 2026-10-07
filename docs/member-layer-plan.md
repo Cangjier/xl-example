@@ -4408,3 +4408,82 @@ differ 304 ✓、bad 0 ✓、整体加权 **72.9%** ✓，落盘 `tests/coverage
 2. **`ex-object-literal.ts`**（37 缺 ✓）—— 当前单文件最大的一处 ✓，整族都在对象字面量那一趟 ✓；
 3. **`decl-interface-export-default.ts`**（本轮 3/0/11/0 → **1/0/2/0** ✓）：还剩 1 缺 2 多 ✓，
    入口仍是 `export default interface` 那一格 ✓。
+## 一百五十二、`export * as ns from "m"`：单元自己那一层上的表达式规则（第 549 轮）：933 → **936 / 1037**
+
+起点 **933 / 1037** ✓（缺 658 / 漂 54 / 多 203 / 字段名 39 ✓）。接上一节第八节留的第 1 条入口 ✓。
+
+### 一、现场：四层 `Export > BinaryOperator` 套同一段
+
+```
+Statement [44,67) "export * as ns from \"x\""
+  Export From="x" namespace="ns"
+    BinaryOperator op="*"
+      Export From=""              ← 里面又一层，四层为止（卡在深度界 ✓）
+        …
+          BinaryOperator op="*"
+            Identifier(export)  SymbolToken(*)  As(as ns from "x")
+```
+
+投影只看得见**最外层**那一格 ✓（`projectExport` 的 `kids` 里只有一个 `BinaryOperator` ✗）⇒
+三份用例各缺 3 ✓：`NamespaceExport` + 它的 `Identifier` + `moduleSpecifier` 的 `StringLiteral` ✓
+（`ex-reexport.ts` ✓ / `mod-export-star-as-namespace.ts` ✓ / `mod-adversarial-shapes.ts` ✓）。
+
+### 二、真因：`Export` 单元自己那一趟把「导出子句」当表达式收
+
+插桩（`tmp/recon/probe-549.mjs` ✓：给 `Reorganization.prototype.ApplyTo` 套一层 ✓，
+只报 `Export` / `BinaryOperator` 且 `Data` 变了的调用 ✓）四行就指出来了 ✓：
+
+```
+RULE(Export)        AsReorganization: Identifier(export),SymbolToken(*),Identifier(as),Identifier(ns),…
+                                 -> Identifier(export),SymbolToken(*),As(as ns from "x")
+RULE(Export)        BinaryOperatorReorganization: Identifier(export),SymbolToken(*),As(…)
+                                 -> BinaryOperator(export * as ns from "x")
+RULE(BinaryOperator) ExportReorganization: …
+RULE(Export)        BinaryOperatorReorganization: …          ← 又一轮，直到深度界
+```
+
+第 548 轮那道护栏（`unit.constructor.name !== "Export"` ✓）只挡了 `ExportReorganization`
+**在单元自己那一趟上** ✗ —— 管不住 `As` 与乘法这两趟 ✗，也管不住**规则造出来的子单元**
+（那个 `BinaryOperator` 关的时候又跑同一串规则 ✓，而它 `Data` 里那个 `export` 此刻还是
+`Identifier` ✗，`KeywordReorganization` 排在最后 ✓）⇒ 一条自激 ✓。
+
+### 三、修法：`Export` 那一格上不跑表达式规则（`typescript/parse-pipeline.xl.md`）
+
+`RunCloseRules` 里把 `AsReorganization` 与整个**二元 / 逻辑运算符家族**（`Power` … `Comma` ✓）
+套进 `if (!isExportUnit)` ✓。**跳过是纯赚** ✓：导出子句里不可能出现表达式 ✗ ——
+`export default …` / `export = …` 只把**前缀两个词**收进单元 ✓，那段表达式留在外面 ✓
+（见 `tokens/export.xl.md` ✓）。
+
+`NamespaceExport`（`export as namespace Foo` ✓）与 `TypeUnion` 那两条**不跳** ✓
+（前者是同一族但判据四个词连排 ✓、后者是 `.d.ts` 里的 `export type A = B | C` ✓，都不受影响 ✓）。
+
+### 四、读数
+
+| 项 | 第 548 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 933 | **936 / 1037** ✓（+3 ✓） |
+| 缺节点 | 658（84 类） | **649**（83 类）✓（−9 ✓） |
+| 多出来的节点 | 203（43 类） | **203** ✓（持平 ✓） |
+| 区间漂移 | 54（17 类） | **54** ✓（持平 ✓） |
+| 字段名不符 | 39 | **36** ✓（−3 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24166 | **24142** ✓（−24：四层壳收掉 ✓） |
+
+逐文件前后名单做差 ✓（`tmp/recon/perfile-548b.txt` ↔ `tmp/recon/r549-perfile-a.txt` ✓）：
+**变绿 3 份、变红 0 份** ✓ —— `ex-reexport` / `mod-export-star-as-namespace` / `mod-adversarial-shapes` ✓
+（`ex-reexport.ts` 那一份当场四个方向全零 ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **208 / 242** ✓（与第 548 轮末持平 ✓）；
+`runtime:cli` **39 / 79** ✓（持平 ✓）；`coverage` **1269 / 1713** ✓（blocked 140 / differ 304 / bad 0 ✓、
+整体加权 **72.9%** ✓，落盘 `tests/coverage/report.json` ✓）；`samples` 仍红 ✗（还是那两处 ✓：
+`declarations.ts` 的装饰器 ✓、`generic.ts` 的类型实参 ✓，与本轮无关 ✓）；**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **`ex-object-literal.ts`**（37 缺 ✓）—— 当前单文件最大的一处 ✓：对象字面量的成员在产物里
+   是**包在 `<Statement>` 里**的散单元 ✓（`a,` / `Label(b)` + `1` / `ArrayLiteral[k]` + `TypeDefine` ✓），
+   投影侧 `MEMBER_LIST_KINDS` 里**没有 `ObjectLiteralExpression`** ✗ ⇒ 整片投成 `ExpressionStatement` ✗；
+2. **`a instanceof b` / `"a" in obj` 那一族**（`expr-in-array-literal.ts` 38 缺 ✓）：
+   同样的**深层自激** ✓ —— 最里面那一层的运算符停在 `Identifier` ✗，投影侧只认 `Keyword` ✗；
+3. **`ty-mapped-as-remap.ts`**（15 缺 / 20 多 ✓）与 `export default interface` 那一格 ✓（见上一节 ✓）。
+
