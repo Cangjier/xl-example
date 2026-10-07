@@ -2841,3 +2841,33 @@ cls-hash-in-operator.ts: 缺 5　多 5   MISS ReturnStatement[73,87) "return #x in 
 正解是 `ReturnStatement > BinaryExpression(#x in o)` ?）；
 顺带核对 `print-ast-common` 里查表用的是 `textOfNode`（读的是**投影后节点**的 `value`/`range` ?，
 不是 `WordOf` ?）——**这一处也该换成按词取文本** ?（`WordOf` 的口径 ?，第 500 轮那条纪律 ?）。
+
+### 补记（第 526 轮）：把原树 dump 出来，真相与猜测**不一样** ?
+
+`cls-hash-in-operator.ts` 那一段的原树（`tmp/recon/tree.cjs` ?）：
+
+```
+Statement [73,87)
+  Identifier [73,79) t=["r","e","t","u","r","n"]     ← `return` 还是 Identifier（没升级 ?）
+  SymbolToken [80,81) t=["#"]                        ← `#` 与名字**没有合成一个单元** ?
+  Identifier [81,82) t=["x"]
+  Identifier [83,85) t=["i","n"]                     ← `in` 也没有被升级 ?
+  Identifier [86,87) t=["o"]
+```
+
+? **整段是平的** ?：`return` 没升级 ?、`#x` 没合成 ?、`in` 没折 ? ——
+也就是说「`head` 被折进去了」那个猜测**不成立** ?；真正缺的是**两件事** ?：
+
+1. **私有名 `#x` 没有合成成一个单元** ? —— 投影那一侧是**自己合成**的 ?
+   （`print-ast-common.xl.md:1972` / `:1991` ?，那边还专门写了「合一个 `PrivateIdentifier` 之后，
+   后面的运算符与操作数照常折 ?」「不拆的话整个 `x in o` 会被当成名字 ?」?），
+   可**产物那一侧从来没有合成过** ? ? 二元那一趟看到的是 `#` 与 `x` 两个单元 ? ? 折不起来 ?；
+2. **`in` 是二元运算符** ?，但它在产物里还是 `Identifier` ?、且因为左边不是操作数而没折 ?
+   —— 与 `in` / `of` 当年「**故意不升级**」那条纪律有关 ?（`parse-pipeline` 的 `KeyWords` ?），
+   所以折它必须靠**按词找**（`IsWordUnit` ?），而这一趟显然没找到 ?。
+
+**下一块**：先查「解析期谁负责把 `#` 与名字合成私有名」?（全仓搜下来 ?
+`PrivateIdentifier` 只出现在**投影**里 ? ? **规则侧压根没有这一条** ?）——
+这解释了 `PrivateIdentifier` / `PropertyAccessExpression` 两栏的缺口 ?；
+做法照老规矩 ?：在 `RunCloseRules` 里加一条「`#` + 名字 ? 合成私有名单元」的规则 ?
+（位置放在 `PropertyAccess` 之前 ?），量尺子 ?。
