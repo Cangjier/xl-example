@@ -30,7 +30,17 @@ import { String } from "./string.xl.md"
 return (this.Parent as String)!;
 ```
 
-## private field Items:Array<Source> = []
+## private property Items:Array<Source>
+
+**换成继承来的位置缓冲** ✓（第 404 轮）：本字段原先自己攒一份 `Array<Source>` ✗，
+可 `PendingSources` 本来就是从这一族抽出来的 ✓（见它的文件头 ✓）⇒ 现在只是**读那一个缓冲** ✓，
+不再各自维护一份 ✗（用户口径：`PendingSources` 应该是 `GuideToken` 的字段 ✓）。
+
+### get
+
+```ts
+return this.Pending.Data;
+```
 
 已经数过的左花括号位置（每个 `{` 一个），按遇到顺序排列。因为两个分支都会提前 `return`，方法末尾那句 `push` 实际上只在「当前字符就是 `{`」时执行，所以这里只装 `{`。
 
@@ -78,19 +88,19 @@ if (Value !== "{") {
     this.RemoveSelf();
     const Next = this.BracketCount - this.ParentString.interpolationCount;
     for (let i = 0; i < Next; i++) {
-      const Item = this.Items[i];
+      const Item = this.Pending.Data[i];
       const Const = this.ParentString.AppendToLastConstString(Item.Value, Item);
       if (i === 0) {
         Const.TrySignIn(Item);
       }
     }
-    this.ParentString.AddToMounted(new InterpolationString(this.Template)).SignIn(this.Items[0]);
+    this.ParentString.AddToMounted(new InterpolationString(this.Template)).SignIn(this.Pending.First!);
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     return;
   } else {
     //不满足情况
     this.RemoveSelf();
-    for (const i of this.Items) {
+    for (const i of this.Pending.Data) {
       this.ParentString.AppendToLastConstString(i.Value, i).TrySignIn(i);
     }
     context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
@@ -99,7 +109,7 @@ if (Value !== "{") {
   this.BracketCount++;
 }
 
-this.Items.push(source);
+this.Pending.Append(source);
 ```
 
 ## method Clone:()=>Token
