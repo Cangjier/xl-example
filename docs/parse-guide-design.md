@@ -96,6 +96,14 @@ IfGuide.Stage:
 
 ## 四、三个单元的基类与终止判据（**终止由谁持有**是关键）
 
+> **第 399 轮更新**：这一节原先的结论是「`PendingUnit` 保留，只把委托换成 `IsEnd`」✗。
+> 用户追问「**为什么会有 `PendingUnit`？**」之后量了一遍，答案是**它不该存在** ✓：
+> `Bracket.ExitOrPre` 与 `PendingUnit.ExitOrPre` 是**同一段机件**（前者写死了 `EndInclusive` 那一档 ✓），
+> 而 `UnitToken` 的 9 个子类各自手写一份 `ExitOrPre`，绝大多数是同一件事——**拿当前字符跟一个标记比** ✓。
+> ⇒ 机件收进 **`UnitToken`** ✓（`ExitOrPre` 一份 ✓ + `Close` 一份 ✓ + `ReloadOwner` ✓），
+> 子类只回答 **`EndState`** 一句话 ✓，`PendingUnit` **整个删除** ✓。
+> 下文表格里的 `PendingUnit` 一律读作 `UnitToken` ✓。
+
 用户先把这一格纠正过两次，两次指向同一件事：
 
 > 「`ifcondition` 不应该是 unit token 吗？类似 `bracket`？」

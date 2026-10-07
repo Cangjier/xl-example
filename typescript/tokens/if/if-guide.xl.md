@@ -4,7 +4,7 @@ import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { PendingStates } from "../../../core/syntax/pending-states.xl.md"
-import { PendingUnit } from "../../../core/syntax/pending-unit.xl.md"
+import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -36,7 +36,7 @@ import { IfSet } from "./if-set.xl.md"
 
 | 步 | 做什么 |
 | --- | --- |
-| 收 | 从 `i` 起把所有字符喂进一个 `PendingUnit`（**暂存单元**），子单元照通用队列照常造出来 |
+| 收 | 从那个 `if` 起把所有字符喂进一个 `IfCollector`（**暂存单元**），子单元照通用队列照常造出来 |
 | 判 | 每收一个字符，拿暂存出来的那张平列表跑一遍**只看不写**的规划 |
 | 定 | 规划说「可以了」就地建 `IfSet`；说「根本不是」就把暂存的东西**原样还回**父单元 |
 
@@ -214,32 +214,42 @@ guide.Adopt(keyword);
 context.Messages.push(new ReloadMessage(guide, guide, source));
 ```
 
-# class IfCollector extends PendingUnit
+# class IfCollector extends UnitToken
 
 `IfGuide` 的暂存单元：终止判据**恒为 `Continue`** ✓——什么时候结束由向导说了算 ✗，不由字符说了算 ✗。
 
-第 398 轮之前它是用「**外部终止委托**」写的 ✓（`new PendingUnit(template, () => Continue)` ✓）；
-口径改成「**终止判据归单元自己**」之后 ✓，它就是一个只覆写 `IsEnd` 的小子类 ✓——
-这正是那次口径改动的第一个受益者 ✓（用户口径：如何终止不应该是 self token 最清楚的吗 ✓）。
+它的来历正好记着这条口径的两次修正 ✓：
+第 390 轮它是「**外部终止委托**」✗（`new PendingUnit(template, () => Continue)` ✓）；
+第 398 轮口径改成「**终止判据归单元自己**」✓，它就成了只回答 `IsEnd` 的小子类 ✓
+（用户口径：如何终止不应该是 self token 最清楚的吗 ✓）；
+第 399 轮发现那句「**回答**」根本不该由子类各自持有 ✗——它是**每个单元都要回答的一句话** ✓，
+机件只有一份、在 `UnitToken` 上 ✓，`PendingUnit` 整个并入 `UnitToken` ✓ ⇒ 这里只剩 `EndState` 一行 ✓。
 
 它是一次性的暂存壳 ✓（收尾之后调用方把子单元搬走、再把它摘掉 ✓），
 所以不实现 `Clone` ✓，基类那句抛错正好 ✓。
 
 ## constructor:(template:Template)=>void
 
-以模板创建。跳转队列由基类取成通用队列 ✓，队列替换由向导在挂上它之后做 ✓。
+以模板创建。跳转队列取**一个实参**的 `Get`（拿到的是模板的默认值，也就是通用跳转队列 ✓）——
+与 `Bracket` 的取法一字不差 ✓。队列替换（摘掉本向导）由向导在挂上它之后做 ✓。
 
 ```ts
 super(template);
+this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 ```
 
-## method IsEnd:(context:SyntaxContext, source:Source)=>PendingStates
+## protected method EndState:(context:SyntaxContext, source:Source)=>PendingStates
 
 恒 `Continue`。
 
 ```ts
 return PendingStates.Continue;
 ```
+
+## protected method Default:(context:SyntaxContext, source:Source)=>void
+
+兜底处理：**空实现** ✓——字符全交给跳转队列里的各个 `Branch` 去造子单元 ✓，与 `Bracket.Default` 同款 ✓。
+不写方法体，打印器产出空方法。
 
 # class IfGuide extends GuideToken
 
@@ -257,7 +267,7 @@ return PendingStates.Continue;
 
 把 `IfGuideBranch` 注册进通用跳转队列用的实例。
 
-## private field Collector:PendingUnit | null = null
+## private field Collector:UnitToken | null = null
 
 暂存单元：从那个 `if` 起把所有字符收成一张平列表。
 
@@ -337,7 +347,7 @@ if (this.Collector !== null) {
 }
 this.LastSource = source;
 // **终点自己钉上**：`TryToClose` 的守卫要求两头都签过，而 `Close()` 会在输入末尾被调到。
-// 与 `Root.Process` / `PendingUnit.Process` 同一手法——直接改字段，不走只能设一次的 `SignIn`。
+// 与 `Root.Process` 同一手法——直接改字段，不走只能设一次的 `SignIn`。
 this.SourceRange.End = source;
 this.Settle(false);
 ```

@@ -1,4 +1,4 @@
-// token 层**机制**的判据：`PendingSources`（位置缓冲）与 `PendingUnit`（暂存单元 + 外部终止委托）。
+// token 层**机制**的判据：`PendingSources`（位置缓冲）与 `UnitToken`（单元收尾机件 + `EndState` 判定）。
 //
 //   node tests/parse/mechanism.mjs
 //
@@ -9,7 +9,7 @@
 //
 //   1. `PendingSources.GiveBackTo` **保持原始次序**（往队首插就得倒着插 ✓）——
 //      写错了不报错，只会把一段源码的顺序倒过来 ✓，属于本仓最忌讳的静默错值 ✓；
-//   2. `PendingUnit` 的 `EndInclusive` / `EndExclusive` 两档**收尾位置不同** ✓
+//   2. `UnitToken.ExitOrPre` 的 `EndInclusive` / `EndExclusive` 两档**收尾位置不同** ✓
 //      （`;` 算进体里 ✓、`else` 不算 ✓），而两者都要留下一个**两头都签过的范围** ✗
 //      （`TryToClose` 只认这个 ✓）；
 //   3. `EndExclusive` 那一个字符**只被重新处理一次** ✓——插一条 `ReloadMessage` 却不
@@ -35,7 +35,7 @@ const { TextDocument } = load("typescript/text-document.js");
 const { TextContext } = load("typescript/text-context.js");
 const { PendingSources } = load("core/syntax/pending-sources.js");
 const { PendingStates } = load("core/syntax/pending-states.js");
-const { PendingUnit } = load("core/syntax/pending-unit.js");
+const { UnitToken } = load("core/syntax/unit-token.js");
 
 let passed = 0;
 let failed = 0;
@@ -115,31 +115,42 @@ console.log("PendingSources —— 位置缓冲");
   eq(second.Count, 0, "CommitTo 自己清空");
 }
 
-console.log("PendingUnit —— 暂存单元");
+console.log("UnitToken —— 单元收尾机件");
 
 // **终止判据归单元自己**（第 398 轮改口径）：基类不再接受「外部终止委托」，
 // 所以判据也照**真实用法**写成子类——这一版与产品代码同一个形状。
-class SemicolonUnit extends PendingUnit {
+class SemicolonUnit extends UnitToken {
   constructor(template, state) {
     super(template);
+    this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
     this.state = state;
   }
 
-  IsEnd(_context, source) {
+  EndState(_context, source) {
     return source.Value === ";" ? this.state : PendingStates.Continue;
   }
+
+  Default(_context, _source) {}
 }
 
-class ForeverUnit extends PendingUnit {
-  IsEnd(_context, _source) {
+class ForeverUnit extends UnitToken {
+  constructor(template) {
+    super(template);
+    this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
+  }
+
+  EndState(_context, _source) {
     return PendingStates.Continue;
   }
+
+  Default(_context, _source) {}
 }
 
 {
   // `EndInclusive`：`;` **算进**体里
   const { document, context, root } = scene("abc;zzz");
   const pending = new SemicolonUnit(root.Template, PendingStates.EndInclusive);
+  pending.SignIn(document.At(0));
   root.AddToMounted(pending);
   feed(context, document, 4);
   eq(pending.Closed, true, "EndInclusive：暂存单元已经关闭");
@@ -161,6 +172,7 @@ class ForeverUnit extends PendingUnit {
   // `EndExclusive`：`;` **不算**体的一部分，要交回去重新处理一次
   const { document, context, root } = scene("abc;zzz");
   const pending = new SemicolonUnit(root.Template, PendingStates.EndExclusive);
+  pending.SignIn(document.At(0));
   root.AddToMounted(pending);
   feed(context, document, 4);
   eq(pending.Closed, true, "EndExclusive：暂存单元已经关闭");
@@ -187,6 +199,7 @@ class ForeverUnit extends PendingUnit {
   };
   const pending = new SemicolonUnit(root.Template, PendingStates.EndExclusive);
   pending.ReloadOwner = sink;
+  pending.SignIn(document.At(0));
   root.AddToMounted(pending);
   feed(context, document, 4);
   eq(pending.Closed, true, "ReloadOwner：暂存单元已经关闭");
@@ -202,6 +215,7 @@ class ForeverUnit extends PendingUnit {
   // 空体 + `EndExclusive`：**一个字符都没吃过时不许不含地结束**
   const { document, context, root } = scene(";zzz");
   const pending = new SemicolonUnit(root.Template, PendingStates.EndExclusive);
+  pending.SignIn(document.At(0));
   root.AddToMounted(pending);
   feed(context, document, 1);
   eq(pending.Closed, true, "空体：暂存单元已经关闭（没有抛 SourceRangeContainsNull）");
@@ -214,11 +228,12 @@ class ForeverUnit extends PendingUnit {
   // 判定恒 `Continue`：一个字符都不吃地挂着
   const { document, context, root } = scene("abc");
   const pending = new ForeverUnit(root.Template);
+  pending.SignIn(document.At(0));
   root.AddToMounted(pending);
   feed(context, document, 3);
   eq(pending.Closed, false, "恒 Continue：暂存单元一直没关");
   eq(root.MountedUnit, pending, "恒 Continue：父单元的 MountedUnit 还是它");
-  eq(pending.SourceRange.Start.Index, 0, "恒 Continue：起点已经在第一个字符上钉住了");
+  eq(pending.SourceRange.Start.Index, 0, "恒 Continue：起点是调用方签入的那个字符（基类不再替它钉）");
 }
 
 {
@@ -227,17 +242,18 @@ class ForeverUnit extends PendingUnit {
   // 这里**直接问**、不走 `feed`：`SyntaxContext.ProcessSingle` 会把异常收成消息（那是它的职责），
   // 而这条判据要问的正是「基类到底有没有兜底」。
   const { document, context, root } = scene("abc");
-  const bare = new PendingUnit(root.Template);
+  const bare = new UnitToken(root.Template);
+  bare.SignIn(document.At(0));
   let raised = "";
   try {
-    bare.IsEnd(context, document.At(0));
+    bare.EndState(context, document.At(0));
   } catch (error) {
     raised = error && error.message ? error.message : String(error);
   }
   eq(
-    raised.includes("abstract member: IsEnd"),
+    raised.includes("abstract member: EndState"),
     true,
-    "基类 IsEnd 是抽象钩子：忘了覆写会当场抛，不会静默不收尾",
+    "基类 EndState 是抽象钩子：忘了覆写会当场抛，不会静默不收尾",
   );
 }
 

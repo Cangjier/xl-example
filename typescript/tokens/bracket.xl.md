@@ -3,6 +3,7 @@
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../core/syntax/branch-states.xl.md"
+import { PendingStates } from "../../core/syntax/pending-states.xl.md"
 import { Source } from "../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
@@ -166,20 +167,19 @@ this.Closed = true;
 
 **空实现**——括号既不吞字符也不跑跳转，字符全交给挂载的子单元。不写方法体，打印器产出空方法。
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method EndState:(context:SyntaxContext, source:Source)=>PendingStates
 
-遇到配对的结束括号就退出：先签出到该字符，再尝试关闭（关自己并跑重组），然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
+遇到配对的结束括号就收尾 ✓——**含地**（`EndInclusive` ✓：这个括号属于本括号的范围 ✓）；否则放行 ✓。
 
-注意顺序是 `SignOut` → `TryToClose` → `Quit`。
+**第 399 轮之前这里是一份手写的 `ExitOrPre`** ✓：它与当时 `PendingUnit` 里的机件是**同一段代码** ✓
+（只是把「收尾」写死成含地那一档 ✓）——同一件事两份答案 ✗。
+现在收尾机件只有 `UnitToken.ExitOrPre` 一份 ✓，本类只回答「到此为止了吗」这一句 ✓。
 
 ```ts
 if (source.Value === this.endBracket) {
-  this.SignOut(source);
-  this.TryToClose();
-  this.Quit();
-  return BranchStates.Done;
+  return PendingStates.EndInclusive;
 }
-return BranchStates.Undo;
+return PendingStates.Continue;
 ```
 
 ## method Owns:(source:Source)=>bool
