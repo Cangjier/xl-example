@@ -38,27 +38,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 96.94,
+  "progressPercent": 97.33,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 490,
-      "blocked": 4,
+      "pass": 492,
+      "blocked": 2,
       "differ": 8,
       "nodefail": 0,
-      "coverage": 97.61
+      "coverage": 98.01
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 398,
-      "blocked": 8,
+      "pass": 402,
+      "blocked": 4,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 96.84
+      "coverage": 97.81
     },
     {
       "layer": "stdlib",
@@ -83,18 +83,6 @@
   ],
   "blocked": [
     {
-      "id": "c291-rt-iteration-protocol-forms",
-      "layer": "runtime",
-      "title": "手写可迭代对象 + for..of",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
-      "id": "c304-rt-new-target-in-ctor",
-      "layer": "runtime",
-      "title": "new.target：直接构造认得出、普通调用是 undefined",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
-    },
-    {
       "id": "c330-ex-ternary-arrow-branches",
       "layer": "runtime",
       "title": "三元的两支是箭头函数：不套括号的写法",
@@ -107,28 +95,10 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c304-ex-type-annotation-in-catch-and-loop",
-      "layer": "exec",
-      "title": "catch 形参与 for 头部里的类型标注",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
       "id": "c371-ex-class-implements-and-interface",
       "layer": "exec",
       "title": "implements 是擦除的；接口不产生运行期值",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Shape"
-    },
-    {
-      "id": "c371-ex-assertion-forms",
-      "layer": "exec",
-      "title": "as / 尖括号 / ! / satisfies / as const 四种断言的优先级",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
-    },
-    {
-      "id": "c371-ex-destructuring-everywhere",
-      "layer": "exec",
-      "title": "解构：参数、默认、重命名、嵌套、rest、for-of、catch",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BindingElement"
     },
     {
       "id": "c374-ex-throw-in-reentrant-callback",
@@ -147,12 +117,6 @@
       "layer": "exec",
       "title": "`\\u{…}` 花括号写法 —— **还没修**",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: const"
-    },
-    {
-      "id": "c387-ex-angle-assertion-with-type-literal",
-      "layer": "exec",
-      "title": "尖括号断言的类型是**类型字面量**（`<{ n: number }>{ n: 1 }`）——**还没修**",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
     },
     {
       "id": "c305-e2e-event-emitter-generic",

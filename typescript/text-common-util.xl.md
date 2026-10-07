@@ -320,6 +320,17 @@ for (let hop = 0; hop < 4 && node !== null; hop++) {
         }
         return "type";
       }
+      // **`of` / `in` 右边是值** ✓（第 589 轮 ✓）：`for (const v of { … })` 往回扫会
+      // 依次跨过 `of`、`v`，撞上 `const` ✓ ⇒ 按下面那句判成**类型位** ✗
+      // ⇒ 那个对象字面量被投成 `TypeLiteral` ✓ ⇒ 降级层报
+      // `unimplemented: expression TypeLiteral` ✓（**整份文件进不来** ✗，实测
+      // `c291-rt-iteration-protocol-forms` / `c304-ex-type-annotation-in-catch-and-loop` 两条 ✓）。
+      // 迭代头右边（`of` / `in` 的右操作数）**按定义就是一个值** ✓——与 `in` 运算符
+      // （`"a" in { … }` ✓）同一条 ✓；而 `in` 在类型位只出现在映射类型的**键那一侧**
+      // （`{ [K in keyof T]: … }` ✓），那时 `{` 往回先撞上的是 `=` / `:` ✓，走不到这里 ✓。
+      if (text === "of" || text === "in") {
+        return "value";
+      }
       // **`{` 上，只有在「开头就是类型」的那两个词上判死** ✗（第 397 轮）：
       // `as` / `satisfies` 是**引出一个类型**的词 ✓（`y as { a: 1 }` 里那个 `{` 就是类型字面量 ✓），
       // 所以它们照旧判 `"type"` ✓。
@@ -760,6 +771,43 @@ if (previous instanceof Identifier || previous instanceof String) {
 if (previous instanceof Keyword && WordText(previous) === "typeof") {
   return false;
 }
+// **尖括号断言右操作数位置上的 `{`**（第 589 轮）：`const a = <{ n: number }>{ n: 1 }` 里
+// 第二个花括号的前一个实义单元是那个 `GenericType` ✓ ⇒ 照下面那句判成「语句开头」✗
+// ⇒ `BlockCloseRule` 抢在 `JsonObjectCloseRule` 前面给它补上语句队列 ✓
+// ⇒ 投影出来是一个 `Block` + `LabeledStatement` ✓，降级层报
+// `unimplemented: expression Block` ✓（**整份文件进不来** ✓）。
+//
+// **判据要分开「泛型实参」与「尖括号断言」** ✗：`class A<T> {` / `interface I<T> {`
+// 里 `GenericType` 后面那个 `{` **真的是体** ✓，而 `<T>{ … }` 里的才是被断言的操作数 ✓。
+// 分开它们的是**那个 `<` 前面有没有左操作数** ✓（与 `generic-type.xl.md` 的
+// `IsOperandStartUnit`、以及 `IsObjectLiteralBrace` 里那一支**同一条判据** ✓）：
+// 前面是名字 ⇒ 泛型实参 ✓；前面是运算符 / `(` / 列表开头 / 引出一个值的词 ⇒ 断言 ✓。
+if (previous !== null && previous.constructor.name === "GenericType") {
+  const genericAt = units.indexOf(previous);
+  const beforeGeneric = genericAt >= 0 ? GetSkipPrevious(units, genericAt, IsTriviaUnit) : null;
+  if (beforeGeneric === null || beforeGeneric instanceof SymbolToken || beforeGeneric instanceof Bracket) {
+    return false;
+  }
+  if (beforeGeneric instanceof Keyword) {
+    const word = WordText(beforeGeneric);
+    if (
+      word === "return" ||
+      word === "throw" ||
+      word === "case" ||
+      word === "typeof" ||
+      word === "void" ||
+      word === "delete" ||
+      word === "await" ||
+      word === "in" ||
+      word === "instanceof" ||
+      word === "new" ||
+      word === "do" ||
+      word === "else"
+    ) {
+      return false;
+    }
+  }
+}
 if (previous instanceof Bracket) {
   // **`with (obj) { … }` 的体也是块**（第 137 轮）：`with` 在本工程里没有自己的 token 规则
   // （它就是一个 `Keyword`），所以那个 `{` 只能在这里被认成块——否则里面的语句不成形。
@@ -901,6 +949,40 @@ if (current instanceof Bracket && current.startBracket === "{") {
   } else if (previous instanceof Bracket) {
     return false;
   } else if (previous !== null && previous.constructor.name === "GenericType") {
+    // **泛型实参后面是体，尖括号断言后面是值位的对象字面量**（第 589 轮）：
+    // `class A<T> {` / `interface I<T> {` / `enum E` 那几处前面是那个 `GenericType` ✓
+    // ⇒ 花括号是**体** ✓（返回 `false` ✓，原来就是这一条 ✓）；
+    // 而 `const a = <{ n: number }>{ n: 1 }` 里那个 `{` 是**被断言的操作数** ✓ ⇒ 值位 ✓。
+    // **分开它们的是「那个 `<` 前面有没有左操作数」** ✓（与 `generic-type.xl.md` 的
+    // `IsOperandStartUnit` 同一条判据 ✓）：前面是名字 ⇒ 泛型实参 ✓；
+    // 前面是运算符 / `(` / 列表开头 / 引出一个值的词 ⇒ 断言 ✓。
+    // 少了这一条：`<T>{ … }` 的 `{` 被当成**块** ✓ ⇒ 投影出 `Block` + `LabeledStatement` ✓
+    // ⇒ 降级层报 `unimplemented: expression Block` ✓（实测 `c387-ex-angle-assertion-with-type-literal`
+    // 与 `c371-ex-assertion-forms` 两条 ✓）。
+    const genericAt = SkipPreviousWrapSymbol(units, index);
+    const beforeGeneric = genericAt > 0 ? GetSkipPrevious(units, genericAt, IsTriviaUnit) : null;
+    if (beforeGeneric === null || beforeGeneric instanceof SymbolToken || beforeGeneric instanceof Bracket) {
+      return true;
+    }
+    if (beforeGeneric instanceof Keyword) {
+      const word = WordText(beforeGeneric);
+      if (
+        word === "return" ||
+        word === "throw" ||
+        word === "case" ||
+        word === "typeof" ||
+        word === "void" ||
+        word === "delete" ||
+        word === "await" ||
+        word === "in" ||
+        word === "instanceof" ||
+        word === "new" ||
+        word === "do" ||
+        word === "else"
+      ) {
+        return true;
+      }
+    }
     return false;
   } else if (previous instanceof SymbolToken) {
     // **`=>` 有两种** ✓（第 567 轮 ✓）：**函数类型**的 `=>`（`type A3 = (opts: X) => { … }` ✓）

@@ -102,6 +102,21 @@ if (ownerName === "Parameter") {
     return false;
   }
 }
+// **`=` 之后的括号是初始化式，不是模式**（第 589 轮）：`{ a: { b } = { c: 0 } }` 里
+// 那个 `{ c: 0 }` 的宿主**也是** `BindingElement` ✗ —— 少了这一条，它会被切成
+// `BindingElement «c : 0»` ✓ ⇒ 投影出来的对象字面量里是一个
+// `ShorthandPropertyAssignment > BindingElement`（值位的字面量整片投错 ✓），
+// 而降到 IR 那一步报 `unimplemented: expression BindingElement` ✓（实测
+// `c371-ex-destructuring-everywhere`：解构形参里带默认值的嵌套模式）。
+// 判据与 `Parameter` 那一档同形：**只看位置**——`=` 之前的那一个才是嵌套模式。
+if (ownerName === "BindingElement") {
+  for (let i = 0; i < index; i++) {
+    const before = Get(units, i);
+    if (before instanceof SymbolToken && before.Is("=")) {
+      return false;
+    }
+  }
+}
 const name = current.constructor.name;
 const isPatternBracket =
   current instanceof Bracket &&

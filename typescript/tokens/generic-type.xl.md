@@ -780,7 +780,39 @@ if (!isTypePosition) {
   //
   // **`<` 前面有左操作数时这一条不成立** ✓（`IsOperandStartUnit` 为假 ✓）——
   // 所以 `a < b > c` 那种比较式一位都没动 ✓。
-  return item === "(" || (this.IsOperandStartUnit(unit) && unit.Template.SymbolTemplate.IsLetter(item));
+  if (item === "(") {
+    return true;
+  }
+  if (this.IsOperandStartUnit(unit)) {
+    // **`last` 是一个已关闭的括号时，左边其实有操作数** ✗（第 589 轮实测）：
+    // `IsOperandStartUnit` 那一支（`last instanceof Bracket ⇒ true`）本意是给
+    // 「`(<T>x)`」与「折行之后的 `<T>x`」用的 ✓，可它把**元素访问**也算进去了 ✗——
+    // `digits[d] < 48` 的 `<` 因此被当成操作数位上的断言 ✓ ⇒ 放行数字之后整条比较式
+    // 退化成断言 ✓（实测 `dist/ts/typescript-exec/builtins/array.ts` 缺 11）。
+    // 所以这里再问一句：`last` 是**已经关上的**括号 ⇒ 按「有左操作数」处理 ✓。
+    const last = unit.Last();
+    if (last instanceof Bracket && last.Closed) {
+      return false;
+    }
+    // **操作数位上的 `<T>` 后面跟什么都是被断言的那个操作数** ✓（第 589 轮 ✓）：
+    // `<T>x` / `<T>{ … }` / `<T>[ … ]` / `<T>( … )` / `<T>1` / `<T>"s"` 都是断言 ✓——
+    // 前面**没有左操作数** ✓ ⇒ 后面那一格只可能是操作数 ✓，不可能是比较式的右边 ✓。
+    //
+    // **原来只放行「字母」** ✗：`<{ n: number }>{ n: 1 }` 的 `<` 于是退回比较运算符 ✓
+    // ⇒ 那个 `{` 按值位收成 `ObjectLiteral` ✓ ⇒ 投影出来的断言**类型**是一个
+    // `ObjectLiteralExpression` ✗（TS 那边是 `TypeLiteral` + `PropertySignature`）✓。
+    return (
+      unit.Template.SymbolTemplate.IsLetter(item) ||
+      item === "_" ||
+      (item >= "0" && item <= "9") ||
+      item === "{" ||
+      item === "[" ||
+      item === '"' ||
+      item === "'" ||
+      item === "`"
+    );
+  }
+  return false;
 }
 if (unit.Template.SymbolTemplate.IsLetter(item) || item === "_") {
   return true;

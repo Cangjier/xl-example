@@ -392,6 +392,13 @@ for (let i = index - 1; i >= 0; i--) {
         return false;
       }
     }
+    // **`of` / `in` 右边是值**（第 589 轮）：`for (const v of { … })` 往回扫会跨过
+    // `of`、`v` 撞上 `const` ⇒ 这个对象字面量被收成 `TypeLiteral` ⇒ 降级层报
+    // `unimplemented: expression TypeLiteral`（整份文件进不来）。
+    // **两处扫描各写一份**（见上面 `crossedUnit` 那一段写的理由），所以这条要补两处。
+    if (text === "of" || text === "in") {
+      return false;
+    }
     if (
       text === "type" ||
       text === "as" ||

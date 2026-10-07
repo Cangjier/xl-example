@@ -1018,14 +1018,14 @@ export const EXPECTATIONS = {
   "c371-ex-class-implements-and-interface": { expect: "blocked", why: "接口名出现在**值位**（`typeof (Shape as any)`）⇒ 应当擦成 `undefined`，现在报 `name is not a local`。" },
 
   // ---- 尖括号断言的对象字面量那一格 ⇒ `unimplemented: expression Block`。
-  "c371-ex-assertion-forms": { expect: "blocked", why: "尖括号断言的对象字面量那一格 ⇒ `unimplemented: expression Block`。" },
+
 
   // ---- 非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。
   "c371-ex-nonnull-in-chains": { expect: "differ", why: "**第 385 轮量到根子、第 386 轮试了三条路都没成**（三条都退回来了）。**根子**：`!` 后面那一格（`.p` / `.k` / `()`）被 `BinaryOperator` 的**右操作数跨度**吃进自己的 Data ——XML 实测：`source.priority >= xs.find(…)!.p` 里 `>=` 的 `BinaryOperator` 在 `NotNull` 之后还跟着 `SymbolToken(.)` 与 `Identifier(p)`。落到降级层那个 `p` 走**赋值目标**那条路（插桩：`DBG unresolved-TARGET id=p pos=931`）⇒ 报 `name is not a local or a capture: priority`，**点错名字**。**为什么难修**：运算符吃它的时候 `x!` 还不存在（`Identifier` + `!` 两格）⇒链那一趟（排在前面）认不出起点、`NotNull` 那一趟（排在后面）**已经太晚**。**试过的三条路**：① 把 `NotNull` 加进 `PropertyAccessReorganization.IsChainBase` ——**一点效果都没有**（链那一趟跑在前面，那时还没有 `NotNull`）；② 在 `NotNull.Process` 里当场把 `.成员` 吸进 `PropertyAccess`（判据与形状照抄链那一份）——**形状一点没变**（说明 `.p` 那时已经在运算符的 Data 里了）；③ 把 `NotNullReorganization` 挪到 `PropertyAccessReorganization` **前面** —— **更糟**：`data.a!.b!.c![0]` 当场给整个数组、还多报一个 `not a local or a capture: find`⇒ 链那一趟的位次是**吃重的**，动不得。**下一轮的方向**：判据落在 `binary-operator.xl.md` 的**右操作数跨度**上（不许跨过一个「结束操作数的 `!`」去吃后面的 `.` 与名字），或者让运算符那一趟**排在链与 `NotNull` 之后**。**两条同一个根子**（`c371-ex-nonnull-in-chains` 与 `c371-e2e-multi-source-merge`），一起修能一次收两格。" },
   "c371-e2e-multi-source-merge": { expect: "blocked", why: "**第 385 轮量到根子、第 386 轮试了三条路都没成**（三条都退回来了）。**根子**：`!` 后面那一格（`.p` / `.k` / `()`）被 `BinaryOperator` 的**右操作数跨度**吃进自己的 Data ——XML 实测：`source.priority >= xs.find(…)!.p` 里 `>=` 的 `BinaryOperator` 在 `NotNull` 之后还跟着 `SymbolToken(.)` 与 `Identifier(p)`。落到降级层那个 `p` 走**赋值目标**那条路（插桩：`DBG unresolved-TARGET id=p pos=931`）⇒ 报 `name is not a local or a capture: priority`，**点错名字**。**为什么难修**：运算符吃它的时候 `x!` 还不存在（`Identifier` + `!` 两格）⇒链那一趟（排在前面）认不出起点、`NotNull` 那一趟（排在后面）**已经太晚**。**试过的三条路**：① 把 `NotNull` 加进 `PropertyAccessReorganization.IsChainBase` ——**一点效果都没有**（链那一趟跑在前面，那时还没有 `NotNull`）；② 在 `NotNull.Process` 里当场把 `.成员` 吸进 `PropertyAccess`（判据与形状照抄链那一份）——**形状一点没变**（说明 `.p` 那时已经在运算符的 Data 里了）；③ 把 `NotNullReorganization` 挪到 `PropertyAccessReorganization` **前面** —— **更糟**：`data.a!.b!.c![0]` 当场给整个数组、还多报一个 `not a local or a capture: find`⇒ 链那一趟的位次是**吃重的**，动不得。**下一轮的方向**：判据落在 `binary-operator.xl.md` 的**右操作数跨度**上（不许跨过一个「结束操作数的 `!`」去吃后面的 `.` 与名字），或者让运算符那一趟**排在链与 `NotNull` 之后**。**两条同一个根子**（`c371-ex-nonnull-in-chains` 与 `c371-e2e-multi-source-merge`），一起修能一次收两格。" },
 
   // ---- 解构里的 `BindingElement`（对象模式 + 默认值 + 类型标注的组合）⇒ `unimplemented: expression BindingElement`。
-  "c371-ex-destructuring-everywhere": { expect: "blocked", why: "解构里的 `BindingElement`（对象模式 + 默认值 + 类型标注的组合）⇒ `unimplemented: expression BindingElement`。" },
+
 
   // ---- 展开数组（`{...xs}`）应当带上下标键（Node 给 `{"0":1,…}`，本仓给 `{}`）。
   "c371-ex-spread-forms": { expect: "differ", why: "展开数组（`{...xs}`）应当带上下标键（Node 给 `{\"0\":1,…}`，本仓给 `{}`）。" },
@@ -1167,7 +1167,7 @@ export const EXPECTATIONS = {
   "c374-ex-throw-in-reentrant-callback": { expect: "blocked", why: "**异常从「重入的原生回调」那一层出来之后没有穿回最外层** ✗：最小反例 `function walk(n){ if (n === 0) throw new Error(\"bottom\"); return [n].map((x) => walk(n - 1))[0]; }` + `try { walk(3) } catch (e) { … }` ✓——Node 给 `A caught bottom` ✓，本仓报 `cannot read properties of undefined` ✓（**连 `try` 都没接住** ✓）。**边界**：回调里**只**抛错（不递归）是好的 ✓（`[1].map(() => { throw new Error(\"x\") })` 四条都接住了 ✓）；纯递归抛错也是好的 ✓——**只有「脚本 → 原生 → 脚本 → 原生」这条链** ✗。根子还没量（下一轮从这里查 ✓：异常从 `CallNative` 重入那一层出来时的收口 ✓）。" },
   "c379-ex-angle-assertion-after-prefix-operator": { expect: "blocked", why: "**修好之后新量到的一格** ✓（第 379 轮 ✓）：打头的一元运算符**后面**紧跟尖括号断言 ✗——`!<boolean>b` / `~<number>c` 整段被投成一个**裸的符号节点** ✓（`!` 报 ExclamationToken ✓、`~` 报 TildeToken ✓）⇒ 降级期 `unimplemented: expression …` ✓，而 Node 给 `false` / `-1` ✓。**边界量清了** ✓：`!a` / `!!a` / `!(a < 2)` 都是好的 ✓（同一条语料的另一半分守着 ✓）；`<T>x` 在 `+` / `-` / `*` / `===` / 三元 / 括号 / 赋值 / 实参 / 数组字面量里**全都是好的** ✓。**根子** ✗：尖括号断言现在能成形了 ✓，可**前缀运算符那一支**没把紧跟其后的断言接上 ✓（它只当成了操作数之外的东西 ✓）。**下一轮从这一格起** ✓。" },
   "c382-ex-braced-escape": { expect: "blocked", why: "**第 382 轮试过、没生效** ✗（两条路都试了）：词法层把 `\\u{65}scaped` 劈成三格 ——`Let fieldName=\"\\u\"` + `Bracket{65}` + `Identifier(scaped)`（XML 实测）。两条路：① `Identifier.IsAppend` 放行 `{` 与十六进制 / `}`（`IsBracedEscapePart`）；② `SymbolBranch` 给那几格让路、`CommonBranch` 在「已关闭」那一支也认它。**两条都没生效** ✗：`{` 那一刻 `unit.Last()` 已经不是那个 `Identifier` 了（它已经被 `Let` 收走成名字属性），所以两处的判据都问不到它。**下一轮的方向**：判据要落在「上一个 `Let` / `Field` 的 `fieldName` 刚写完一个没闭合的 `\\u{`」上，而不是「上一个单元是不是 `Identifier`」。**四位的那种一直是好的**（第 381 轮修的，`c381-ex-escaped-property-key` 守着）。" },
-  "c387-ex-angle-assertion-with-type-literal": { expect: "blocked", why: "**第 387 轮量到的新形状**（与 `c371-ex-assertion-forms` 同一条判据的另一半）。**token 层是对的**（XML 实测）：外层 `GenericType`、里面 `TypeLiteral`、紧跟着一格**裸的 `Bracket`**——那一格**没有变成 `ObjectLiteral`**。**根子**：`JsonObjectReorganization` 对那一格让了路（它按「语句开头的块」处理），投影于是投出一个 `Block` ⇒ 降级层报 `unimplemented: expression Block`。**已试过、没生效**：在 `IsStatementStart` 里把「前一格是 `GenericType`」判成「不是语句开头」——**形状一点没变**（说明那一格的让路不经过它）。**边界**：`<number>x` 好、断言里那个类型字面量本身好——只有「断言的类型是类型字面量、后面紧跟一个对象字面量」这一格。" },
+
 
   // ===== 第 586 轮：第 552–585 轮那次语句壳搬迁带出来的、**还没修**的六条 =====
   //
@@ -1180,11 +1180,11 @@ export const EXPECTATIONS = {
   // ---- 簇 A：类型字面量被当成了值（`unimplemented: expression TypeLiteral`）。
   // 与第 586 轮修掉的「裸块」是同一条路 ✗：`{ … }` 在**值位**收成 `TypeLiteral` ✓ 是对的，
   // 而它在**语句位**应当是块 ✓（判据 `IsStatementStart` ✓）。
-  "c291-rt-iteration-protocol-forms": { expect: "blocked", why: "**手写可迭代对象 + `for..of`** ✓：报 `unimplemented: expression TypeLiteral` ✓——与 `c304-ex-type-annotation-in-catch-and-loop` 同一个根 ✓（簇 A ✓）。" },
-  "c304-ex-type-annotation-in-catch-and-loop": { expect: "blocked", why: "**簇 A**：`catch (e: unknown)` / `for` 头部里的类型标注让语句位那个花括号被读成类型字面量 ✓ ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓。**下一轮从这里起** ✓。" },
+
+
 
   // ---- 簇 B：降级层还没接的两格。
-  "c304-rt-new-target-in-ctor": { expect: "blocked", why: "**簇 B**：`new.target` 的 `new` 被当成一个名字收 ✓ ⇒ `name is not a local or a capture: new` ✓。" },
+
   "c330-ex-ternary-arrow-branches": { expect: "blocked", why: "**簇 B**：三元的两支是箭头函数、且不套括号 ✓ ⇒ `unimplemented: binary operator ?` ✓（三元规则凑不齐那一对 `?` / `:` ✓）。" },
 
   // ---- 簇 C：两个各自独立的现场。

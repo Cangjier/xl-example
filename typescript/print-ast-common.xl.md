@@ -2233,7 +2233,7 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
   // （实测 `ex-meta-props.ts`：缺 2 + 多出 4）。
   if (
     kids[0] !== undefined &&
-    kids[0].get("type") === "Keyword" &&
+    (kids[0].get("type") === "Keyword" || kids[0].get("type") === "Identifier") &&
     (textOfNode(kids[0], ctx) === "new" || textOfNode(kids[0], ctx) === "import") &&
     isSymbol(kids[1], ".") &&
     kids.length >= 3
