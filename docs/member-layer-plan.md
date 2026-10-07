@@ -7648,5 +7648,131 @@ TS 那边是**两个** `TypeParameter` ✓（`[252,263)` 与 `[267,278)` ✓，
 4. **一条留给下一个对话的账** ✗：`generic-type.xl.md` 那句错的注释从第 499 轮一直挂到第 583 轮 ✓
    —— **挪动一条队列注册时要回头搜「谁在注释里断言它不在这条队列里」** ✓。
 
+## 一百八十六、同一行写的 `else` 也收得住体（第 584 轮）**1037 / 1037** —— `cases` 四方向**全部归零**
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第三轮**（预算用完 ✓）。改的是
+`typescript/tokens/if/if-statement.xl.md` **一个文件** ✓（外加一条 `Identifier` 依赖 ✓）。
+
+### 一、靶子：`cases` 里最后一份红的
+
+`stmt-adversarial-shapes.ts`（`2 0 3` + `1 FIELD` ✓），第 11 行：
+
+    label1: for (const a of b) { if (a) continue label1; else break label1 }
+
+TS：`IfStatement [615,656)` 的 `thenStatement` 是 `ContinueStatement [622,638)` ✓、
+`elseStatement` 是 `BreakStatement [644,656)` ✓。起点产物 ✓：
+
+    FIELD  IfStatement [615,656)  产物[expression,thenStatement] vs TS[elseStatement,expression,thenStatement]
+    MISS   BreakStatement [644,656) / Identifier [650,656)
+    EXTRA  Block [622,656) "continue label1; else break label1"
+    EXTRA  ExpressionStatement [639,656) / Identifier "else" [639,643)
+
+XML 里一眼看得出体没结束 ✓ —— `else break label1` 被当成体里的**第二条语句** ✓。
+
+### 二、机制：与**跨行**那一档形状一模一样，差的只有换行
+
+`IfStatement.Process` 里那条 ASI 分支（第 571 轮 ✓）问的是：
+
+    Statement.IsStatementUnit(before) && Statement.HasLineBreakBefore(data, last, source)
+
+而 `;` 那一刻 `SymbolToken.Success` 先 append ✓、紧接着 `FormStatement` 就把整条收成壳 ✓
+（第 486 轮的硬约束 ✓、第 573 轮逐字符探针量穿的 ✓）⇒ 到这里 `before` 是**那条带 `;` 的壳** ✓、
+`newest` 是紧接着读到的那个词 ✓ —— 与跨行那一档（`if (a) f();` 换行 `else` ✓）
+**数据结构一模一样** ✗，**差的只有换行** ✗ ⇒ 那一支一次都不响 ✓ ⇒ 体一直开着 ✓。
+
+**第 573 轮在这里止步，是止在另一件事上** ✓：那一轮量出「不能在 `;` 那一刻立 `BodyEnded`」✗
+——**对** ✓（那时 `else` 还没到 ✓，体一收，`else` 就没处落 ✓）。可这一轮要的**不是那个时机** ✗：
+要的是「**已经读到 `else` 那个词之后**再收」✓。
+
+### 三、改法：把「下一格就是 `else`」加进那一支，别的一字不动
+
+```ts
+if (Statement.IsStatementUnit(before)) {
+  const newestIsElse = newest instanceof Identifier && newest.Is("else");
+  if (newestIsElse || Statement.HasLineBreakBefore(data, last, source)) {
+    this.BodyEnded = true;
+    this.BodyEndIndex = last;
+    return;
+  }
+}
+```
+
+**为什么这是安全的** ✓：收在**读到 `else` 之后** ✓，一收就把这些字**还给宿主** ✓
+（`CloseBody` 每个字走 `ReloadMessage` ✓）⇒ `IfSet.Navigate` 按 `Data` 把 `else` 认成续段 ✓
+—— 与跨行那条路（`if-else-with-comment.ts` ✓，早就是绿的 ✓）**走的是同一条** ✓，不是新开一条 ✗。
+`BodyEndIndex = last` 也正是那一支的语义 ✓（存「**体后面那一格**」✓ ⇒ `ExitOrPre` 的
+`BodyEndIndex - 1` 正好落在**那条壳**上 ✓，一个字没改 ✓）。
+
+### 四、读数：`cases` **四方向全部归零**
+
+| 项 | 第 583 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1036 | **1037 / 1037** ✓（**+1** ✓） |
+| 缺节点 | 2（2 类） | **0（0 类）** ✓ |
+| 区间漂移 | 0（0 类） | **0（0 类）** ✓ |
+| 多出来的节点 | 3（3 类） | **0（0 类）** ✓ |
+| 字段名不符 | 1 | **0** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21726 | **21726** ✓（持平 ✓） |
+
+**逐文件**（`r584-cases.txt` ✓）：**「0 个文件不为零」** ✓ —— 这是本工程第一次 ✓
+（四方向与三个地基栏全零 ✓：未映射 0 / 缺 range 0 / 区间越界 0 ✓，只剩约定的 1 处 trivia 越界 ✓）。
+
+**真实语料**（`r584-real.txt` ✓，`real --jobs 1 --per-file` ✓）——**还掉了一笔** ✓：
+
+| | 完全一致 | 缺 | 漂 | 多 | 字段名 | 红文件 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 第 583 轮末 | 375 / 414 | 768（48 类） | 184（10 类） | 411（27 类） | 3 | 38 |
+| 本轮 | **375 / 414** ✓ | **742（47 类）** ✓ | **184（10 类）** ✓ | **402（27 类）** ✓ | **0** ✓ | 38 ✓ |
+
+**字段名那一栏从 3 掉到 0** ✓（三处全是同一个形状：跨行的 `if` 体后面那句被当成体的第二条 ✓）；
+缺 −26 ✓、多 −9 ✓。`完全一致` 那一栏**没动** ✓ —— 红文件里没有一份是只差这一处的 ✗
+（那 38 份各自还欠着别的形状 ✓）。
+
+### 五、六道门（与第 583 轮逐项相同 ✓）
+
+`runtime:check` **240 / 242** ✓、`runtime:cli` **79 / 79** ✓、`cases:check` **1050 条 0 不合格** ✓、
+`coverage` **1630 / 1713（94.4%）** ✓、`samples` **三份全绿** ✓、
+`cases:tsast` **16 片 5 片通过** ✓（**没动** ✓ —— 那一道门跑的是 `all`（`cases` + `real` = 1451 份 ✓），
+`cases` 那一半全绿了 ✓、`real` 那一半还欠着 38 份 ✓ ⇒ 片数由后者定 ✓，这是**对的** ✓）。
+`xl build`（本文件）**0 error 0 warning** ✓、`xl check` **0 error 0 warning** ✓、`tsc` **0 错** ✓。
+
+### 六、三轮到这里的账（第 582–584 轮，三份提交）
+
+| 轮 | 改了什么 | `cases` 完全一致 | 缺 / 漂 / 多 / 字段名 | `real` 完全一致 | 缺 / 漂 / 多 / 字段名 | 红文件 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 起点（581 末） | — | 1033 | 14 / 7 / 13 / 1 | 370 / 414 | 1283 / 184 / 467 / 3 | 43 |
+| **582**（`cc2f2ee`） | 下一行以 `(` / `[` 开头时解析期不再收壳（两道护栏） | 1035 | 9 / 1 / 4 / 1 | 370 / 414 | 1283 / 184 / 467 / 3 | 43 |
+| **583**（`9667632`） | 泛型实参段里不收语句壳 | 1036 | 2 / 0 / 3 / 1 | **375 / 414** | **768** / 184 / **411** / 3 | **38** |
+| **584**（本条） | 同一行 `else` 之前也收得住体 | **1037** | **0 / 0 / 0 / 0** | 375 / 414 | **742** / 184 / **402** / **0** | 38 |
+
+**门**：三轮里 `runtime:check` 240 / 242 ✓、`runtime:cli` 79 / 79 ✓、`cases:check` 1050 / 0 ✓、
+`coverage` 1630 / 1713 ✓、`samples` 三份全绿 ✓ **一字未动** ✓；
+`cases:tsast` 那一道**只涨过两次** ✓（`3 → 5` 片，都在第 583 轮 ✓）。
+
+**`cases` 那条线到这里走完了** ✓（1033 → 1037 ✓，四方向归零 ✓）；
+**`real` 那条线还剩 742 / 184 / 402 / 38 份红** ✗ —— 那才是 `ast100%` 的大头 ✓。
+
+### 七、下一块（给下一个对话）
+
+1. **`real` 那 38 份红的第一名** ✓：`dist/ts/typescript-exec/builtins/globals.ts` `83 36 57` ✓、
+   `dist/ts/typescript-exec/lowering.ts` `90 16 30` ✓、
+   `dist/ts/typescript/tokens/json/object-literal.ts` `98 6 26` ✓ ——
+   三份都是**自己的产物**（`dist/ts/**` ✓）⇒ 判据、探针、语料**同一棵树** ✓，
+   改一处能立刻在**同一份文件**上看回来 ✓，比 `node_modules` 那几份好做 ✓；
+2. **缺的那 742 处集中在几类** ✓：`Identifier` / `TypeReference` / `PropertyAccessExpression` /
+   `PropertySignature` ✓（`assert.d.ts` 的 `asserts value` 一族 ✓、
+   `[Symbol.toPrimitive](...)` 那种**计算成员名** ✓）—— 先按「一份文件里的**同一处**反复记几笔」
+   排序 ✓，别按类目排 ✗；
+3. **漂移那 184 处三轮没动过** ✓ —— 它们是**另一条线** ✗（`lib.es5.d.ts` 的 `Awaited`
+   条件类型 `73064` ✓、`tuple-member.ts` 的 `props.name =` ✓），
+   第 581 轮那种「换行处提前收壳」的形状在这里还有 ✓；
+4. **三条留给后面的纪律** ✓（第 582–584 轮各一条 ✓）：
+   ① `tsc` 的退出码是读数有效的先决条件 ✓（它报错照样输出 ✓，第 582 轮差点读出假账 ✓）；
+   ② 动 ASI 这一类判据要**两道门一起看** ✓（四方向尺子会全绿而门是红的 ✓，第 582 轮 ✓）；
+   ③ 挪动一条队列注册时要回头搜「谁在注释里断言它不在那条队列里」✓（第 583 轮 ✓）。
+
+
 
 

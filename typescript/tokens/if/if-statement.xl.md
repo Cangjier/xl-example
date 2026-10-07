@@ -10,6 +10,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Statement } from "../statement.xl.md"
+import { Identifier } from "../identifier.xl.md"
 ```
 
 # namespace cangjie
@@ -235,10 +236,28 @@ if (before instanceof SymbolToken && before.Is(";")) {
 // **`BodyEndIndex` 在这一档存的是「体后面那一格」** ✓：`ExitOrPre` 里那一句
 // `boundary` 不是 `;` 就取 `BodyEndIndex - 1` ✓ ⇒ 正好落在体最后一格上 ✓
 //（`;` 那一档存的是分号自己 ✓、含它 ✓；两档语义不同，`ExitOrPre` 的注释里写着 ✓）。
-if (Statement.IsStatementUnit(before) && Statement.HasLineBreakBefore(data, last, source)) {
-  this.BodyEnded = true;
-  this.BodyEndIndex = last;
-  return;
+// **`else` 那一档** ✓（第 584 轮 ✓）：`if (a) continue label1; else break label1` ——
+// 形状与上一支**一模一样** ✗（`Data` 是 `Statement | Identifier` 两格 ✓、
+// `before` 是那条**带 `;` 的壳** ✓），差的只有**换行** ✗ —— 而同一行写的 `else` 没有换行 ✓
+// ⇒ 上一支一次都不响 ✓ ⇒ 体一直开着 ✓ ⇒ `else break label1` 被吃进体里 ✗
+//（实测产物 `<IfStatement><Statement>continue label1</Statement><Statement>else break label1</Statement></IfStatement>` ✗，
+// 投影出来体是一个包着两条语句的**假 `Block`** ✓ ＋ `else` 变成 `EXTRA Identifier` ✓，
+// 字段名那一栏报 `IfStatement[expression,thenStatement] vs TS[elseStatement,expression,thenStatement]` ✓）。
+//
+// **为什么敢在这里收尾** ✗：上一支担心的「收尾比 `else` 早 ⇒ `else` 落进体里」✗
+//（第 573 轮实测 ✓）说的不是**在这里**收 ✓ —— 这里正是**已经读到 `else` 那个词之后**才收 ✓
+//（`newest` 就是它 ✓），一收就把这些字**还给宿主** ✓（`CloseBody` ✓，
+// 每个字走 `ReloadMessage` ✓，`IfSet` 的 `Navigate` 再按 `Data` 把 `else` 认成续段 ✓，
+// 与跨行的 `if (a) f();` 换行 `else` 那条路**同一条** ✓ —— 那条路早就是绿的 ✓，
+// `if-else-with-comment.ts` ✓）。
+if (Statement.IsStatementUnit(before)) {
+  const newestIsElse =
+    newest instanceof Identifier && newest.Is("else");
+  if (newestIsElse || Statement.HasLineBreakBefore(data, last, source)) {
+    this.BodyEnded = true;
+    this.BodyEndIndex = last;
+    return;
+  }
 }
 ```
 
