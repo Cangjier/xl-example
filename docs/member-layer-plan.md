@@ -3291,3 +3291,85 @@ SF2DBG EXIT#59                                                    ← 这里本�
 （`BreakStatement` 22 + `CallExpression` 23 + `Block` 20 + `LabeledStatement` 19 ✓）。
 按「先除路障」的口径，下一轮先查那个**空 `Statement`** ✓，它既能解释标签族的一半，
 也可能是 `Identifier` 缺 118 份里的一片 ✓。
+## 一百三十八、类型别名差的那个尾分号（第 535 轮）：850 → **871 / 1037**
+
+起点 **850 / 1037** ✓（第 534 轮 ✓）。按清点，`TypeAliasDeclaration` 是「同一形状影响 34 份文件」
+的一类 ✓，先拿它下手 ✓。
+
+### 一、现场
+
+`expr-arrow-body-nested-ternary.ts` 只差**一处、一对** ✓：
+
+```
+DRIFT  TypeAliasDeclaration  TS[239,281) vs 产物[239,280)  "type F = (a: number, b: number) => number;"
+EXTRA  TypeAliasDeclaration                [239,280)  "type F = (a: number, b: number) => number"
+```
+
+⇒ TS 把**尾分号**算在 `TypeAliasDeclaration` 里 ✓（`Node.end` 就在 `;` 之后 ✓），
+而产物这边 `TypeAssign` 自己的区间只到最后一个词 ✓ ⇒ 差一格 ✓。
+
+### 二、修法
+
+`typescript/print-ast-common.xl.md` 的 `projectStatement` ✓，在「单个子单元本身就是语句」那一支里 ✓：
+**只对 `TypeAliasDeclaration`** 把终点按 `semicolonEndOf` 吃掉尾分号 ✓。
+
+```ts
+if (STATEMENT_KINDS.has(kind)) {
+  if (kind === "TypeAliasDeclaration") {
+    projected.end = semicolonEndOf(
+      Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),
+      ctx,
+    );
+  }
+  return projected;
+}
+```
+
+**为什么只开这一档** ✓：别的语句族的尾分号 TS 那边**不算在自己身上** ✗
+（`class A {};` 的 `ClassDeclaration` 到 `}` 为止 ✓），一刀切会给它们多算一格 ✓。
+
+### 三、读数
+
+| 项 | 第 534 轮（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 850 | **871 / 1037** ✓（+21 ✓） |
+| 缺节点 | 1037（102 类） | **1037**（102 类）✓（持平 ✓） |
+| 多出来的节点 | 400（44 类） | **324**（44 类）✓（−76 ✓） |
+| 区间漂移 | 159（18 类） | **83**（18 类）✓（−76 ✓） |
+| 字段名不符 | 56 | **56** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+
+「多出来」与「漂移」两边各减 76 ✓ —— 就是那 21 份文件里成对出现的那两栏 ✓。
+
+### 四、同一轮里试过、**回滚了**的一处（负面）
+
+「具名导出」那一族本来是下一个候选 ✓（`expr-as-then-value-operator.ts`：缺 `NamedExports` +
+缺一片 `ExportSpecifier` / `Identifier` ✓、`ExportDeclaration` 少一格尾分号 ✓，13 份文件 ✓）。
+想法是：`projectExport` 里那句
+
+```ts
+const rest = kids.filter((k) => !(k.get("type") === "Keyword" && textOfNode(k, ctx) === "export"));
+```
+
+用的是「整格文本**等于** `export`」✗ —— 而 `Export` 单元的文本是**它区间里的原文** ✓
+（具名导出那一档是 `"export { plus, minus }"` ✓，见 `textOfNode` 的回落 ✓），
+所以那一格既滤不掉 ✓、`isAssignment` 也会被它的尾词骗到 ✓。
+换成「按**词头**判」之后 ✓：
+
+```
+完全一致 871 → 856 ✗（缺 1037 → 1076 ✗、多出来 324 → 340 ✗）
+```
+
+⇒ **回滚** ✓（源码 `git checkout` ✓、**带 `force` 重建** ✓，读数确认回到 871 ✓）。
+**教训**：那句 `=== "export"` 不是笔误 ✗ —— 它恰好只匹配「整格里只有 `export` 一个词」那一档 ✓，
+而这正是**赋值式导出**那一档 ✓；具名导出的 `Export` **根本不该**走 `projectExport` 那条路 ✓
+（它的括号与列表是**另一格** ✓），下一轮要从「谁把具名导出交给 `projectExport`」那一头查 ✓。
+
+### 五、下一块
+
+清点头两名没变：`Identifier` 118 份 ✓（`am-object-vs-block.ts` / `cls-hash-in-operator.ts` ✓）、
+`VariableDeclaration` 34 份 + `List` 33 份 ✓（`decl-await-using-basic` / `decl-label-break-continue` ✓ ——
+**`using` / `await using` 与标签族** ✓）。标签那一族仍然是「一鱼多吃」：
+`BreakStatement` 22 + `Block` 20 + `CallExpression` 23 + `LabeledStatement` 19 份 ✓
+（`decl-label-break-continue` / `decl-label-block` / `stmt-nested-loops-label` ✓），
+下一轮先 dump 它 ✓。

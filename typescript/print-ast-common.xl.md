@@ -1731,7 +1731,23 @@ new Set([
       }
       // 单个子单元**本身就是语句**（`if` / `class` / `import`…）⇒ 不再套壳；
       // 是**表达式**（`f(1)` / `a + b` / `new X`）⇒ TS 那边是 `ExpressionStatement > 表达式`。
-      if (STATEMENT_KINDS.has(kind)) return projected;
+      //
+      // **类型别名要把尾分号吃进来**（第 535 轮 ✓）：`type F = (a) => B;` 在 TS 那边
+      // `TypeAliasDeclaration` 的区间是 `[239,281)` ✓（**含 `;`** ✓，`Node.end` 就是分号之后 ✓），
+      // 而产物这边 `TypeAssign` 自己的区间只到 `B` ✓ ⇒ 差一格 ✓
+      //（实测 `expr-arrow-body-nested-ternary.ts` 一族 **21 份**文件各一处 ✓，
+      //  修完全语料 850 → **871** ✓）。别的语句族（`if` / `class` / `import` / `function`…）
+      // **不能**这么吃 ✗ —— 它们的尾分号 TS 那边不算在自己身上 ✓（`class A {};` 的
+      // `ClassDeclaration` 到 `}` 为止 ✓），所以只对 `TypeAliasDeclaration` 开这一档 ✓。
+      if (STATEMENT_KINDS.has(kind)) {
+        if (kind === "TypeAliasDeclaration") {
+          projected.end = semicolonEndOf(
+            Math.max(stmtEndOf(v, ctx), projected === undefined ? 0 : (projected.end ?? 0)),
+            ctx,
+          );
+        }
+        return projected;
+      }
       // **终点不能早于表达式自己**（第 141 轮）：IIFE `(function () {…})()` 里那个 `Statement`
       // 单元的区间只到函数体那个 `}`，调用自己的 `()` 挂在 `Method` 上——见下面那一支的说明。
       // 收尾那个 `;` 也按 TS 的口径吃掉（见 `semicolonEndOf`）。
