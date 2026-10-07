@@ -1,13 +1,6 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Branch } from "../../core/syntax/branch.xl.md"
-import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
-import { Source } from "../../core/syntax/source.xl.md"
-import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
-import { IsTriviaUnit, WordText } from "../text-common-util.xl.md"
-import { ClassMember } from "./class-member.xl.md"
-import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
@@ -483,13 +476,11 @@ result.TryToClose();
 return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 ```
 
-# class Field extends ClassMember
+# class Field extends IndependentToken
 
 成员字段。
 
-**它是吃字符的单元**：由判别符分支在 `:` 那一刻开出来（`InterfaceMemberBranch`），
-自己收尾（顶层 `;` / 体 `}` / 成员之间的换行），那一套在 `class-member.xl.md` 的 `ClassMember` 上。
-**内容仍旧走自己的重组队列**：这一步搬的是「成员边界」，不是「字段里一个规则都不跑」。
+它由重组造出来、自己不消费字符，所以只继承 `IndependentToken` 的空 `Process`。
 
 类名必须与产物里的标签名一致：`this.constructor.name` 就是 `<Field>` 的标签。
 
@@ -570,7 +561,6 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 ```ts
 super(template);
-this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
@@ -633,127 +623,4 @@ result.modifiers = this.modifiers;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
-```
-
-
-# class InterfaceMemberBranch extends Branch
-
-## method MemberNameText:(unit:Token)=>string
-
-取成员名的文本——**与 `Field.NameText` 同一份口径**（那边是私有的，这里照抄一遍；
-等字段那一条重组整个搬完，两处应当合成一处）。
-
-`Identifier` 取 `TempToString()`；`String` 取它第一个 `ConstString` 子单元的文本
-（引号与转义都在那一层解掉了）。
-
-**漏了这一处会怎样**（第 434 轮实测）：`"abort": Event` 那种字符串名成员的 `name` 属性为空
-⇒ 投影里整个 `name` 字段丢掉（`lib.dom.d.ts` 569 处「字段名不符」）。
-**名字单元本身不进 `Data`**（绿形状如此），所以名字只能靠这个属性传下去。
-
-```ts
-if (unit instanceof Identifier) {
-  return unit.TempToString();
-}
-if (unit instanceof String) {
-  for (const item of unit.Data) {
-    if (item instanceof ConstString) {
-      return item.TempToString();
-    }
-  }
-}
-return "";
-```
-
-**接口成员的进门**：判别符是 **`:`**（字段 / 属性签名）。
-
-成员以名字开头，那一刻分不出字段与方法（跟着 `(` 是方法签名、跟着 `:` 是字段）；
-而 `:` 那一刻整个成员头都在宿主表里——名字、可选的 `?`、前面的修饰词，判据一个字符都不向前看。
-
-**它住在本文件里、不住在 `class-member.xl.md` 里**：`Field` 继承 `ClassMember`，
-基类再引 `Field` 就是循环依赖，模块初始化期会 `Class extends value undefined` 当场炸（第 428 轮实测）。
-
-## static readonly field JumpIn:InterfaceMemberBranch = new InterfaceMemberBranch()
-
-唯一的实例，注册进**接口体**的跳转队列时用。
-
-## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
-
-只看两样：当前是 `:`、宿主是**接口体**；再看头里那一格是不是名字。
-
-```ts
-const result = new BranchConditionResult();
-result.Success = false;
-if (source.Value !== ":") {
-  return result;
-}
-if (unit.constructor.name !== "InterfaceBody") {
-  return result;
-}
-// **先算名字那一格，再算头起点** ✗（第 434 轮改）：`HeadStart` 是「从名字往前只吃修饰词」，
-// 所以它必须先知道名字在哪一格。
-let i = unit.Data.length - 1;
-const maybeQuestion = Get(unit.Data, i);
-if (maybeQuestion instanceof SymbolToken && maybeQuestion.Is("?")) {
-  i = i - 1;
-}
-if (i < 0) {
-  return result;
-}
-const nameUnit = Get(unit.Data, i);
-if (nameUnit === null) {
-  return result;
-}
-if (!(nameUnit instanceof Identifier) && nameUnit.constructor.name !== "String") {
-  return result;
-}
-result.Success = true;
-return result;
-```
-
-## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
-
-建 `Field`、把头整段搬进去、把这一格（`:`）喂给它、再挂上。
-
-`ReloadOwner` 指成宿主：成员收尾时把 `;` / `}` / 换行那些格还回来，
-还错了地方会落进成员自己手里（`IfSet.MountStatement` 记过同一条坑）。
-
-```ts
-const data = unit.Data;
-// **先算名字那一格，再算头起点**（`HeadStart` 是从名字往前只吃修饰词）。
-let nameIndex = data.length - 1;
-const maybeQuestion = Get(data, nameIndex);
-if (maybeQuestion instanceof SymbolToken && maybeQuestion.Is("?")) {
-  nameIndex = nameIndex - 1;
-}
-const nameUnit = Get(data, nameIndex);
-if (nameUnit === null) {
-  throw new Error("InterfaceMemberBranch: 进门之后名字那一格又不成立了");
-}
-const start = ClassMember.HeadStart(unit, nameIndex);
-const field = new Field(unit.Template);
-field.fieldName = this.MemberNameText(nameUnit);
-field.modifiers = DeclarationModifiers(data, start, nameIndex).join(",");
-const head = data.slice(start);
-data.length = start;
-// **坐标锚在第一个实义单元上**（第 434 轮实测）：反向走法为了跨过空格会把**前导软换行**
-// 也算进头里（`{\n  a: number\n}` 那种没有修饰词的成员），拿 `head[0]` 签入就会
-// 让区间从换行起算（实测 `PropertySignature` 给 `[85,97)` 而 TS 是 `[88,97)`）。
-let anchor = head[0];
-for (const item of head) {
-  if (!IsTriviaUnit(item)) {
-    anchor = item;
-    break;
-  }
-}
-field.SignIn(anchor.SourceRange.Start!);
-for (let k = 0; k < head.length; k++) {
-  if (start + k <= nameIndex) {
-    continue;
-  }
-  field.AddAndCloseLast(head[k]);
-}
-unit.Add(field);
-field.ReloadOwner = unit;
-unit.MountedUnit = field;
-field.Process(context, source);
 ```

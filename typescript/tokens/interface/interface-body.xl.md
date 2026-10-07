@@ -7,8 +7,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
-import { InterfaceMemberBranch } from "../field.xl.md"
-import { StringGuide } from "../string/string-guide.xl.md"
 ```
 
 # namespace cangjie
@@ -36,16 +34,11 @@ import { StringGuide } from "../string/string-guide.xl.md"
 
 ## constructor:(template:Template)=>void
 
-挂**成员列表**的跳转队列（在其上插 `InterfaceMemberBranch`：判别符 `:` 的字段由解析期开），
-**并且仍旧挂语句重组队列**——方法签名、调用 / 构造 / 下标签名、取值器那几种**还没搬**，
-它们仍由重组成形；`;` 也由那条队列里的 `WrapSymbolReorganization` 摘掉。
-
-**一步一步来**：这一轮只搬字段（`PropertySignature`，语料 14378 处，最大的一格）；
-等其余几种也搬完，再摘这条语句队列（第 430 轮实测：摘早了 `cases` 从 1004 掉回 963）。
+创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**重组队列。
 
 ```ts
 super(template);
-this.ProcessQueue = ParsePipeline.CreateMemberListQueue().InsertedBefore(StringGuide.JumpIn, [InterfaceMemberBranch.JumpIn]);
+this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
 ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
