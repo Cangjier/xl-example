@@ -120,7 +120,8 @@ return index;
 `{ a: 1 }` 里的标签语句都退化成散着的 `Identifier`。
 补的时机也只能在这里：`LabelReorganization` 能照顾「标签后面的块」，
 但**裸块**（没有标签的那些）只有本规则认得出来，而此刻它早已关闭、
-`Reorganize()` 只能由我们显式叫一次（`TryToClose` 那次跑在没有队列的时候）。
+收尾规则那一趟（第 561 轮之前叫 `Reorganize()` ✓）只能由我们显式叫一次
+（`TryToClose` 那次跑在没有队列的时候）。
 
 `Process` **不消费任何单元**（块括号原样留着，只是多了队列），所以返回 `index + 1` 往下走。
 
@@ -156,7 +157,7 @@ if (current === null) {
   throw new Error("BlockReorganization.Process: current is null");
 }
 ParsePipeline.InitialStatementReorganizationQueue(current);
-current.Reorganize();
+current.ApplyCloseRules();
 return index + 1;
 ```
 

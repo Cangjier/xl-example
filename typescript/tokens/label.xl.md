@@ -142,9 +142,9 @@ return this.IsLabeledStatement(units, statementIndex);
 `Identifier`，块里一个节点都收不到。补队列的时机在这里是安全的：块括号早就关闭了，
 但它此刻还没有跑过任何重组（没有队列就不会跑），`TryToClose` 之后这一条队列才生效。
 
-**`Reorganize()` 那次显式调用不能省**（与 `BlockReorganization` 同款）：
+**收尾规则那次显式调用不能省**（与 `BlockReorganization` 同款，第 561 轮从 `Reorganize()` 换成 `ApplyCloseRules()` ✓）：
 装队列只是装，「谁来跑」得自己叫——原来少了这一句，
-块里的内容全靠后面某趟重组的**顺带**（那时块还是个 `ObjectLiteral`）才成形，
+块里的内容全靠后面某趟的**顺带**（那时块还是个 `ObjectLiteral`）才成形，
 一旦块正确地保持成 `Bracket`（见 `text-common-util.xl.md` 的 `IsStatementList` 那一节），
 里面的 `let` / `break` 就全成了散单元 ✗。实测三条标签块的用例（`decl-label-block` /
 `st-label-block` / `stmt-label-block`）正是这样报出来的。
@@ -159,7 +159,7 @@ const statementIndex = SkipNextWrapSymbol(units, colonIndex);
 const statement = Get(units, statementIndex);
 if (statement instanceof Bracket && statement.startBracket === "{") {
   ParsePipeline.InitialStatementReorganizationQueue(statement);
-  statement.Reorganize();
+  statement.ApplyCloseRules();
 }
 const result = new Label(template);
 result.Parent = current.Parent;

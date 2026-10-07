@@ -8,7 +8,6 @@ import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Template } from "./templates/template.xl.md"
-import { Get } from "../extensions/list-extension.xl.md"
 import { Sequence } from "./templates/sequence.xl.md"
 ```
 
@@ -16,7 +15,7 @@ import { Sequence } from "./templates/sequence.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-`Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转与重组。
+`Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转与收尾规则。
 
 # class Token
 
@@ -51,7 +50,11 @@ JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
 
 ## field ReorganizationQueue:Sequence<Reorganization> | null = null
 
-本单元关闭时要跑的重组队列。
+本单元关闭之后 `ApplyCloseRules` 要跑的规则队列。
+
+**名字还叫「重组队列」** ✗：它原来确实是全局重组那一趟的输入 ✓，第 561 轮那一趟删掉之后
+只剩这一处用法 ✓（改名连同规则本体一起搬，见 `docs/member-layer-plan.md` 的迁移账 ✓）。
+`null` = 这个类没有收尾规则 ✓ ——`ApplyCloseRules` 的收敛环对它就只跑成形器那两条钩子 ✓。
 
 ## field CreatedByRule:string = ""
 
@@ -129,15 +132,21 @@ throw new Error("abstract member: Close");
 
 ## method TryToClose:()=>void
 
-尝试关闭：范围必须已签入签出，然后**先补解析期那一手**、再关闭并跑一遍重组。
+尝试关闭：范围必须已签入签出，然后**先补解析期那一手**、再关闭。
 
 约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
 
-**`ApplyCloseRules` 的位置**（第 487–488 轮 ✓）：夹在 `Close` 与 `Reorganize` 之间 ✓ ——
+**`ApplyCloseRules` 的位置**（第 487–488 轮 ✓）：夹在 `Close` 的**后面** ✓ ——
 那几条规则在全局那一趟里跑的就是「每个单元关闭时、在它自己的 `Data` 上」✓，
-放这里与对照态**同一时机** ✓；而解析期那些端口（`LetBranch` 那一族）跑在关闭**之前** ✓，
+放这里与当初**同一时机** ✓；而解析期那些端口（`LetBranch` 那一族）跑在关闭**之前** ✓，
 所以它们照旧看得见升级前的形状（`Identifier` 形态的 `let` / `const` ✓）。
 **放进 `Close` 之前会当场踩到那一片** ✗。
+
+**这里曾经还有一句 `this.Reorganize()`** ✗（第 561 轮删掉 ✓，按用户指示逐步移除 reorg ✓）：
+那是「全局重组那一趟」的**唯一入口** ✓ —— 单元关闭之后、在自己的子单元列表上把
+相邻的若干单元合并成更高层的结构 ✓。它默认就关着（`DSH_XL_REORG=1` 才恢复 ✓，第 471 轮 ✓），
+第 561 轮把入口本身与那两个环境开关一起摘掉 ✓ ⇒ 现在**没有第二条成形路径** ✓：
+产物就是 `ApplyCloseRules` 这一趟长出来的样子 ✓。
 
 ```ts
 if (this.SourceRange.Start === null || this.SourceRange.End === null) {
@@ -145,90 +154,23 @@ if (this.SourceRange.Start === null || this.SourceRange.End === null) {
 }
 this.Close();
 this.ApplyCloseRules();
-this.Reorganize();
 ```
 
 ## method ApplyCloseRules:()=>void
 
-**关闭之前**的一次机会：把已经搬进解析期的那几条重组规则在这一层上跑一遍（第 487–488 轮）。
+**关闭之后**的一次机会：把规则的收敛环在这一层上跑一遍（第 487–488 轮）。
 
 **只转发给成形器** ✓：`core` 这一层不认识 `Keyword` / `Function` / `TypeDefine` 那些 ✗
 （见 `token-former.xl.md` ✓）。
 
-**对照态里这一支关着** ✓（`DSH_XL_REORG=1` ✓）：那一档这些规则由**重组那一趟按队列次序**跑 ✓，
-这里再提前跑一遍会改掉别的规则的输入 ✗ —— 实测不关的对照态从 855 / 1037 掉到 **401** ✗
-（关键字那一趟）,而关掉之后禁用 reorg 那一档照旧在涨 ✓（`FormStatement` 那条钩子**不关** ✗：
-实测对照态里让它照跑反而更好，855 对 692 ✓，见 `typescript/tokens/statement.xl.md` ✓）。
+**第 561 轮起它就是唯一那一趟** ✓：从前这里有一道 `DSH_XL_REORG === "1"` 的早退 ✓
+（对照态里由全局重组那一趟跑同一批规则 ✓，两趟都跑会改掉彼此的输入 ✗ ——
+实测不关的对照态从 855 / 1037 掉到 **401** ✗）；全局那一趟随 `Reorganize` 一起删掉之后 ✓，
+「对照态」这个档位不再存在 ✓，那道早退也就没有了对象 ✓（`FormStatement` 那条钩子照旧不关 ✓：
+实测让它照跑反而更好，855 对 692 ✓，见 `typescript/tokens/statement.xl.md` ✓）。
 
 ```ts
-if (process.env.DSH_XL_REORG === "1") {
-  return;
-}
 Token.Former.ApplyCloseRules(this);
-```
-
-## method Reorganize:()=>void
-
-跑一遍重组队列：对每个重组规则、对每个下标，先问 `Previous`，命中就 `Process`。
-
-`Process` 用返回值推进下标，所以这里写 `i = item.Process(..., i)`——重组会把多个子单元换成一个，下标必须跟着走。
-
-**为什么不做「扫到没有改动为止」**（试过、退回了）：重复扫确实能让「`Process` 的推进跳过了同规则该处理的形状」
-那一类收敛得更彻底（嵌套三元的第二层就是这种），但它是**对所有规则生效**的——包含那些
-「每次都报告改动」的规则时，一趟套一趟会把内存吃光。实测：改成重复扫之后
-`node tests/parse/run.mjs`（883 条用例，同一进程）直接 `FATAL ERROR: heap out of memory`，
-而单条用例都正常。
-
-**第 127 轮改成「扫到列表不再变化为止，且有硬上界」**。原来固定两趟，判据是
-「右结合嵌套的层数对应『一个 `:` 让位一次』，两趟够用」——那个结论只对**两层**成立：
-每多一层嵌套就要多一趟（`a ? b : c ? d : e` 的内层在第一趟成形、中层在第二趟、
-外层要到第三趟）。实测 `dist/ts/typescript/ts-ast.ts` 里三层嵌套的三元
-（`A ? undefined : B ? f(x) : C ? {…} : D`）在第二趟结束时**最外层还没成形**，
-投影侧于是把它读成一个横跨整段的 `BinaryExpression`。
-
-两条护栏让它有上界、且不会像当初那样发散：
-
-1. **每趟开头拍一份列表快照**，一趟跑完如果「长度相同且每个单元还是同一个对象」就**提前退出**——
-   规则都收敛时只多跑一趟；
-2. **硬上界 `this.Data.length + 2`（再取 16 的较小值）**：某条规则每趟都换个新对象也走不出上界，
-   CPU 多花一点、内存不会无限长。
-
-```ts
-// **总开关**（第 468 轮）：`DSH_XL_NO_REORG=1` 时一趟重组都不跑 ✓。
-// 关掉之后产物就是「解析期长出来的样子」✗ ⇒ 尺子报的每一条「缺」都是还没搬过来的东西 ✓，
-// 清单式的重建就靠它 ✓（有 reorg 的树上打补丁容易被互相作用带偏 ✗）。
-// **默认关闭**（第 471 轮，按用户指示）：`DSH_XL_REORG=1` 时恢复「有 reorg」的对照态 ✓。
-// 关掉之后整个 token 层就是「解析期长出来的样子」✗ ⇒ 尺子报的每一条「缺」都是待建的一块 ✓，
-// 一个一个建、一个一个量 ✓（简单粗暴，但进度是单调的 ✓）。
-if (process.env.DSH_XL_REORG !== "1") {
-  return;
-}
-if (this.ReorganizationQueue === null) {
-  return;
-}
-const maxPasses = Math.min(16, this.Data.length + 2);
-for (let pass = 0; pass < maxPasses; pass++) {
-  const snapshot = this.Data.slice();
-  for (const item of this.ReorganizationQueue.Data) {
-    for (let i = 0; i < this.Data.length; i++) {
-      if (item.Previous(this.Template, this.Data, i)) {
-        const ruleName = item.constructor.name;
-        const next = item.Process(this.Template, this.Data, i);
-        // **记下「这一格现在是谁造的」**（第 464 轮）：只记第一条碰它的规则 ✓
-        //（后面的规则都在收它造出来的东西 ✓，再记只会把出处冲掉 ✗）。
-        const produced = Get(this.Data, next);
-        if (produced !== null && produced.CreatedByRule === "") {
-          produced.CreatedByRule = ruleName;
-        }
-        i = next;
-      }
-    }
-  }
-  // 列表一个单元都没换过 ⇒ 再扫也不会有新形状，收工。
-  if (this.Data.length === snapshot.length && this.Data.every((unit, at) => unit === snapshot[at])) {
-    break;
-  }
-}
 ```
 
 ## method MoveDataTo:(target:Token)=>void

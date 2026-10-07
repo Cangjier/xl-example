@@ -5459,4 +5459,80 @@ const inner = headIsBinary && firstName !== undefined ? [firstName] : namedKids;
 4. **函数头换行 `{`** ✓（第 558 节第 3 条 ✓）：与重载签名同形 ✗；
 5. `stmt-adversarial-shapes.ts` 的一个壳里两个段头 ✓（同上 ✓）。
 
+## 一百六十四、**逐步移除 reorg** 第一块（第 561 轮）：把「那一趟」的入口与开关一起摘掉
+
+**用户指示**（本轮）：**禁用并逐步移除 reorg，预算 3 轮**（`ast100%` 是方向 ✓：
+让「无 reorg 的 AST」朝 100% 走 ✓）。所以这一轮**不建新形状** ✗，专门拆机器 ✓。
+
+### 一、这一轮拆掉的是什么
+
+reorg（重组）这台机器有三层 ✓，第 561 轮只动**第一层：那一趟本身** ✓：
+
+| 层 | 是什么 | 第 561 轮 |
+| --- | --- | --- |
+| **① 那一趟** | `Token.Reorganize`：关闭后在平表上按队列合并相邻单元 | **删掉** ✓（连同 `TryToClose` 里那一句调用 ✓） |
+| ② 规则本体 | 60 多个 `XxxReorganization` 类 | 留着 ✗（第 562–563 轮 ✓） |
+| ③ 队列与装配 | `ReorganizationQueue` / `ReorganizationTemplate` / `InitialKeywordReorganizationQueue` | 留着 ✗（`ApplyCloseRules` 还在用它 ✓） |
+
+**三处改动**：
+
+1. `core/syntax/token.xl.md`：`TryToClose` 里 `this.Close(); this.ApplyCloseRules(); this.Reorganize();`
+   ⇒ 删掉 `this.Reorganize()` ✓；`Reorganize` 方法本体（含两个总开关
+   `DSH_XL_NO_REORG=1` / `DSH_XL_REORG=1` ✓ 与收敛环 ✓）整段删掉 ✓；
+   顺带把只给它用的 `Get` import 摘掉 ✓。
+2. `typescript/tokens/label.xl.md` / `typescript/tokens/json/object-literal.xl.md`：
+   两处**显式** `statement.Reorganize()` ✓（给块补了语句队列之后当场跑一遍 ✓）
+   ⇒ 换成 `ApplyCloseRules()` ✓ —— 同一件事的解析期那一份 ✓
+   （`BlockReorganization` 本来就在队列里 ✓、`ApplyCloseRules` 也会跑到它 ✓）。
+3. `typescript/parse-pipeline.xl.md`：`ApplyCloseRules` 里那道
+   `if (process.env.DSH_XL_REORG === "1") return;` 早退**删掉** ✓ ——
+   全局那一趟没了 ✓，「对照态」这个档位就不存在了 ✓，早退没有对象 ✓。
+
+**为什么可以整段删而不是留着当空壳** ✓：那一趟的入口**只有 `TryToClose` 一处** ✓
+（另外两处是显式调用 ✓，都在本轮改成了解析期那一份 ✓）⇒ 删掉入口就没有第二条成形路径 ✓
+⇒ 不留死代码 ✓，也不会有「开关还在、行为随环境变量漂」那种陷阱 ✗。
+
+### 二、读数
+
+| 项 | 第 560 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1007 | **1007 / 1037** ✓（持平 ✓） |
+| 缺节点 | 57（21 类） | **57**（21 类）✓ |
+| 多出来的节点 | 71（30 类） | **71**（30 类）✓ |
+| 区间漂移 | 30（17 类） | **30**（17 类）✓ |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21737 | **21736** ✓（−1 ✓，见下 ✓） |
+
+**持平是预期内的** ✓：那一趟**默认就关着** ✓（第 471 轮按用户指示关的 ✓，
+`DSH_XL_REORG=1` 才开 ✓）⇒ 尺子这一档读的就是「没有 reorg 的树」✓
+⇒ 删掉入口一个数字都不该动 ✓。这一轮买到的是**后面两轮的前提** ✓：
+从现在起「解析期那一趟」是**唯一**一趟 ✓，规则本体可以一块一块地删 ✓，
+删错了不会有第二趟兜底把它盖住 ✓（也就不会有「删了却看不出来」那种假绿 ✗）。
+
+**产物节点为什么少 1** ✓：`-1` 不是形状变化 ✓ —— 删掉的 `Reorganize` 里那句
+`Get(this.Data, next)` 是**唯一的 `Get` 用法** ✓，于是 `core/syntax/token.xl.md` 的
+`import { Get }` 也摘掉了 ✓ ⇒ 这一处是**源码节点**（`xl:born` 那条诊断链）少了一个 ✓，
+四个方向与逐文件名单**一字未动** ✓。
+
+**逐文件做差** ✓（`tmp/recon/r561-base.txt` ↔ `tmp/recon/r561-a.txt` ✓）：
+四栏聚合**逐项相同** ✓（缺 57 / 漂 30 / 多 71 / 字段名 2 ✓，连每类的条数与逐条区间也一样 ✓）。
+
+### 三、下一块的入口（第 562–563 轮）
+
+1. **第 562 轮：把队列从「重组」名下摘出来** ✓ ——
+   `Token.ReorganizationQueue` 现在的唯一用途是 `ApplyCloseRules` 的收敛环 ✓
+   ⇒ 改名 `CloseRuleQueue`（或等价 ✓）、`ReorganizationTemplate` 跟着改 ✓，
+   `TokenFormer.ApplyCloseRules` / `TokenFormerImpl.RunCloseRules` 的注释与文档同步 ✓
+   （60 多处 `this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)` ✓
+   一次机械替换 ✓，读数应当一字不动 ✓）；
+2. **第 563 轮：删规则本体** ✓ —— 从队列里**没有**用到的那一批开始删 ✓
+   （`XxxReorganization` 类 + 各自的 import ✓，每删一批先跑尺子 ✓）；
+   **先量一遍「队列里哪些规则真的还在命中」** ✓：`RunCloseRules` 里那几条 `instanceof` 跳过的
+   （`Let` / 两条语句 / `Label` / `Export` 那一族 ✓）是已知的 ✓，其余的要用
+   「临时把某条规则从队列里摘掉、看读数掉不掉」来判定 ✓。
+3. **读数方向** ✓：这两轮大概率**也是持平** ✓（它们拆的是机器、不是形状 ✓）；
+   真正把数字往上推的是「按清单一块一块建解析期形状」✓（第 469 轮起那条线 ✓），
+   reorg 拆完之后那条线就没有退路、也没有第二趟可赖 ✓。
+
 
