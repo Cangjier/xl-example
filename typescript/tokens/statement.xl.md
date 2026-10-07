@@ -605,6 +605,86 @@ const word = Statement.WordOf(item);
 return word === "as" || word === "satisfies" || word === "in" || word === "of" || word === "instanceof" || word === "is";
 ```
 
+## static method NextLineContinuesExpression:(data:Array<Token>, source:Source)=>bool
+
+`source` 处那个软换行**后面**那一行会不会接着写下去——**ASI 右半截的解析期版本**（第 568 轮）。
+
+**为什么右半截要另写一份** ✗：`ContinuesExpression` 问的是**下一个单元** ✓，
+而解析期在换行那一刻**下一个单元还没读进来** ✗（`StatementBranch` 排在 `LineWrap.AppendIn` 之前 ✓）
+⇒ 那一刻只问得出**左边**那一半（`LineCannotEnd` / `IsLineBreakIncompleteOnLeft` ✓）。
+可 ASI 判据是**两半合起来**的 ✓（`IsLineBreakBoundary` ✓）：`const v = x as` 换行 `| A` 换行 `| B` 里
+**第二个**换行左边是 `A` ✓（写完了 ✓）、右边是 `|` ✓（还要接着写 ✓）⇒ **不是边界** ✓ ——
+只有左边那一半时它就成了边界 ✗ ⇒ 壳在 `| A` 后面关掉 ✓ ⇒ `| B` 落进**另一个** `Statement` ✓
+（实测 `expr-as-leading-pipe-union.ts` / `type-union-in-as-expression.ts` /
+`type-union-leading-bar.ts` 三份 `2 缺 5 漂 7 多` ✓）。
+
+**判据只看原始字符** ✓（`source.Document` ✓）：跳过空白与注释之后，
+下一个实义字符是 `|` / `&` / `.` 里的一个 ⇒ 答「续接」✓；其余一律答否 ✓。
+
+**为什么只有这三个** ✗（这一条是量出来的 ✓）：`IsLineBreakBoundary` 的续接表宽得多 ✓
+（`(` / `[` / `+` / `-` / `/` / 模板串 / `as` 那一族词 ✓），可那些字符**大多能起一条语句** ✗
+（括号表达式、数组字面量、一元 `+` / `-`、正则、模板串 ✓）—— 解析期把它们也判成续行，
+实测 **13 份用例当场抛异常** ✗（`stmt-paren-start.ts` / `expr-iife-*.ts` 那一族 ✓，
+1013 → **1006** ✗、`am-block-lambda-array-compound.ts` 那份本该变绿的也一起炸 ✓）。
+只留这三个「**起不了一条语句**」的符号：语料 **1017 / 1037** ✓、**零抛异常** ✓、
+`coverage` **1608 → 1629** ✓、`runtime:cli` **76 → 78** ✓。
+⇒ 解析期敢不敢下结论的那条线是「**能不能起一条语句**」✓，不是「能不能续接」✗ ——
+三个符号正落在两条线的差集里 ✓。
+
+**三条更早的判定仍然优先** ✓（与 `IsLineBreakBoundary` 一字不差 ✓）：左边没有实义单元 ✓、
+左边是**受限产生式**（`return` / `throw` / `break` / `continue` / `yield` ✓）、
+左边是**后缀**的 `++` / `--` ✓ —— 这三种**换行就是边界** ✓ ⇒ 一律答否 ✓（照旧收壳 ✓，
+`stmt-asi-return-newline.ts` / `lex-regex-after-return-next-line.ts` 两份实测就是这么咬回来的 ✓）。
+
+**注释也当 trivia** ✓：`x as` 换行 `// 注` 换行 `| A` 里那个 `|` 才是下一行的第一个实义字符 ✓
+（与 `IsLineBreakBoundary` 的跳过口径对齐 ✓）。
+
+```ts
+const previous = Get(data, SkipPreviousTrivia(data, data.length));
+if (previous === null) {
+  return false;
+}
+if (Statement.IsRestrictedKeyword(previous)) {
+  return false;
+}
+if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--"))) {
+  return false;
+}
+const document = source.Document;
+const count = document.GetCount();
+let at = source.Index + 1;
+for (;;) {
+  if (at >= count) {
+    return false;
+  }
+  const one = document.GetValue(at);
+  if (one === " " || one === "\t" || one === "\r" || one === "\n" || one === "\f" || one === "\v") {
+    at = at + 1;
+    continue;
+  }
+  if (one === "/" && at + 1 < count && document.GetValue(at + 1) === "/") {
+    while (at < count && document.GetValue(at) !== "\n") {
+      at = at + 1;
+    }
+    continue;
+  }
+  if (one === "/" && at + 1 < count && document.GetValue(at + 1) === "*") {
+    at = at + 2;
+    while (at + 1 < count && (document.GetValue(at) !== "*" || document.GetValue(at + 1) !== "/")) {
+      at = at + 1;
+    }
+    at = at + 2;
+    continue;
+  }
+  break;
+}
+if (at >= count) {
+  return false;
+}
+const head = document.GetValue(at);
+return head === "|" || head === "&" || head === ".";
+```
+
 ## static method EndsOperand:(item:Token | null)=>bool
 
 `item` 能不能**结束一个操作数**——也就是「它左边已经凑出一个完整的表达式了」。
@@ -1122,6 +1202,14 @@ if (declarationWords.indexOf(word) >= 0) {
 // **`index` 传 `data.length`** ✓：那个软换行**此刻还没进 `Data`** ✓（这一支排在
 // `LineWrap.AppendIn` 之前 ✓）——判据只往前看 ✓，虚拟下标正好 ✓。
 if (Statement.LineCannotEnd(data, data.length)) {
+  return result;
+}
+// **右半截**（第 568 轮 ✓）：左边写完了不等于这一行就结束了 ✗ ——
+// 下一行以 `|` / `&` / `.` 开头时它是在**接着写** ✓（`x as` 换行 `| A` 换行 `| B` ✓、
+// `[1, 2]` 换行 `.forEach(f)` ✓）。那一刻下一个单元还没读进来 ✗ ⇒ 判据落在**原始字符**上 ✓
+//（`Statement.NextLineContinuesExpression` ✓）。少了这一句：第二个换行处收壳 ✓
+// ⇒ 联合类型的后半截落进另一个 `Statement` ✓（实测四份用例 ✓，见那个方法的注释 ✓）。
+if (Statement.NextLineContinuesExpression(data, source)) {
   return result;
 }
 result.Success = true;

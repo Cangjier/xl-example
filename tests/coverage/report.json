@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 92.97,
+  "progressPercent": 94.36,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 463,
-      "blocked": 23,
+      "pass": 471,
+      "blocked": 15,
       "differ": 16,
       "nodefail": 0,
-      "coverage": 92.23
+      "coverage": 93.82
     },
     {
       "layer": "exec",
@@ -64,21 +64,21 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 611,
-      "blocked": 11,
-      "differ": 12,
+      "pass": 618,
+      "blocked": 2,
+      "differ": 14,
       "nodefail": 0,
-      "coverage": 96.37
+      "coverage": 97.48
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 144,
-      "blocked": 17,
+      "pass": 150,
+      "blocked": 11,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 86.75
+      "coverage": 90.36
     }
   ],
   "blocked": [
@@ -105,18 +105,6 @@
       "layer": "runtime",
       "title": "catch 里 throw，finally 照跑，外层接住",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "prm-then-chain",
-      "layer": "runtime",
-      "title": "Promise：resolve → then → then，值是逐级传的",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "prm-catch",
-      "layer": "runtime",
-      "title": "Promise：reject → catch 接住 → 之后回到兑现那条路",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
       "id": "exc-throw-in-callback-map-filter",
@@ -149,52 +137,16 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
     },
     {
-      "id": "c304-rt-promise-then-returns-promise",
-      "layer": "runtime",
-      "title": "then 里返回一个承诺：会被展开",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c317-rt-promise-adoption-chain",
-      "layer": "runtime",
-      "title": "兑现值本身是承诺时的「采纳」：内层已结清 / 内层还挂着 / 内层被拒绝",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c323-rt-array-methods-chain",
-      "layer": "runtime",
-      "title": "数组方法链：map/filter/reduce/sort 一起用",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "c330-ex-ternary-arrow-branches",
       "layer": "runtime",
       "title": "三元的两支是箭头函数：不套括号的写法",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
     },
     {
-      "id": "c331-rt-array-methods-on-derived",
-      "layer": "runtime",
-      "title": "数组方法链：`map` / `filter` / `reduce` 一起用",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "c371-rt-try-catch-finally-matrix",
       "layer": "runtime",
       "title": "try / catch / finally 的六种收口方式",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
-    },
-    {
-      "id": "c371-rt-promise-chaining-values",
-      "layer": "runtime",
-      "title": "承诺链：值的透传、返回承诺、链上抛错",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-rt-array-methods-chain-deep",
-      "layer": "runtime",
-      "title": "长数组方法链上的中间值与惰性",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
       "id": "c371-rt-deep-object-graph",
@@ -317,70 +269,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "promise-chaining-errors",
-      "layer": "stdlib",
-      "title": "链上的错误：抛出来的会被下一段 catch 接住",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "promise-then-value-and-throw",
-      "layer": "stdlib",
-      "title": "then 回调的返回值 / 抛错两条路",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "promise-then-return-forms",
-      "layer": "stdlib",
-      "title": "then 的返回值：值 / 承诺 / 抛出 三条路各自的下一环",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c304-std-promise-finally-order",
-      "layer": "stdlib",
-      "title": "finally 的返回值不改结论、次序在中间",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c305-std-then-returns-promise-adoption",
-      "layer": "stdlib",
-      "title": "`then` 回调返回承诺：结果承诺采纳它",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c318-std-promise-executor-settle",
-      "layer": "stdlib",
-      "title": "执行器递出来的 `resolve` / `reject`：直接调、当值传出去、以及兑现值是承诺",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-stdlib-promise-all-mixed",
-      "layer": "stdlib",
-      "title": "Promise.all：非承诺项、空数组、一项拒绝",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-stdlib-promise-allsettled-any-race",
-      "layer": "stdlib",
-      "title": "allSettled / any / race 的形状",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-stdlib-promise-finally-passthrough",
-      "layer": "stdlib",
-      "title": "finally：值透传、异常替换、返回承诺要等",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "e2e-linked-list",
       "layer": "e2e",
       "title": "链表 + 自定义迭代协议 + 与数组互转",
       "detail": "tsrun: 脚本抛出：unimplemented: an iterator's next() must return an object"
-    },
-    {
-      "id": "c305-e2e-inventory-report",
-      "layer": "e2e",
-      "title": "库存报表：接口 + 类 + Map + 排序 + JSON + 模板串",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
       "id": "c305-e2e-event-emitter-generic",
@@ -399,18 +291,6 @@
       "layer": "e2e",
       "title": "端到端：异步重试与错误分类（不用定时器）",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c331-e2e-deep-clone-and-compare",
-      "layer": "e2e",
-      "title": "深拷贝与结构比较（不用 structuredClone）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
-      "id": "c331-e2e-promise-reject-paths",
-      "layer": "e2e",
-      "title": "拒绝的四条路：执行器抛、then 抛、reject 调、throw 抛",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
       "id": "c371-e2e-rational-and-complex",
@@ -437,22 +317,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
     },
     {
-      "id": "c371-e2e-priority-scheduler",
-      "layer": "e2e",
-      "title": "任务调度器：优先级队列 + 依赖等待",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "c371-e2e-error-hierarchy-service",
       "layer": "e2e",
       "title": "服务层错误体系：分类、重试判定、用户消息",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c371-e2e-ast-walker",
-      "layer": "e2e",
-      "title": "表达式 AST：求值、打印、变量收集",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
     },
     {
       "id": "c371-e2e-multi-source-merge",
@@ -465,12 +333,6 @@
       "layer": "e2e",
       "title": "迭代器工具箱：map / filter / take / zip / cycle",
       "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
-    },
-    {
-      "id": "c384-e2e-union-and-intersection-shapes",
-      "layer": "e2e",
-      "title": "`A | (B & C)` 的两副面孔：值位是位运算、类型位是联合/交叉",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
     }
   ],
   "differ": [
@@ -643,6 +505,18 @@
       "detail": "stdout 不同：第 3 行：node «plain 2» vs tsrun «thenable { then: [Function: then] }»"
     },
     {
+      "id": "c371-stdlib-promise-allsettled-any-race",
+      "layer": "stdlib",
+      "title": "allSettled / any / race 的形状",
+      "detail": "stdout 不同：第 3 行：node «agg AggregateError 2» vs tsrun «agg undefined 2»"
+    },
+    {
+      "id": "c371-stdlib-promise-finally-passthrough",
+      "layer": "stdlib",
+      "title": "finally：值透传、异常替换、返回承诺要等",
+      "detail": "stdout 不同：第 3 行：node «c3 replaced» vs tsrun «v 1»"
+    },
+    {
       "id": "c371-stdlib-date-now-and-construction",
       "layer": "stdlib",
       "title": "Date.now / new Date(ms) / new Date(string) 的读数",
@@ -768,16 +642,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "prm-then-chain",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "prm-catch",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "exc-throw-in-callback",
       "layer": "runtime",
       "detail": "stdout 不同：第 1 行：node «1|caught:cb2|fin» vs tsrun «|caught:cb2|fin»"
@@ -818,11 +682,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
     },
     {
-      "id": "c304-rt-promise-then-returns-promise",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "c304-rt-getter-throws-and-finally",
       "layer": "runtime",
       "detail": "stdout 不同：第 2 行：node «5» vs tsrun «undefined»"
@@ -833,39 +692,14 @@
       "detail": "stdout 不同：第 1 行：node «0,2,3» vs tsrun «»"
     },
     {
-      "id": "c317-rt-promise-adoption-chain",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c323-rt-array-methods-chain",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "c330-ex-ternary-arrow-branches",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
     },
     {
-      "id": "c331-rt-array-methods-on-derived",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "c371-rt-try-catch-finally-matrix",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
-    },
-    {
-      "id": "c371-rt-promise-chaining-values",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-rt-array-methods-chain-deep",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
       "id": "c371-rt-deep-object-graph",
@@ -933,51 +767,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "promise-chaining-errors",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "promise-then-value-and-throw",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "promise-then-return-forms",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c304-std-promise-finally-order",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c305-std-then-returns-promise-adoption",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c318-std-promise-executor-settle",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-stdlib-promise-all-mixed",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-stdlib-promise-allsettled-any-race",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c371-stdlib-promise-finally-passthrough",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "e2e-generator-pipeline",
       "layer": "e2e",
       "detail": "stdout 不同：第 1 行：node «0,9,36,81,144,225,324» vs tsrun «»"
@@ -986,11 +775,6 @@
       "id": "e2e-linked-list",
       "layer": "e2e",
       "detail": "tsrun: 脚本抛出：unimplemented: an iterator's next() must return an object"
-    },
-    {
-      "id": "c305-e2e-inventory-report",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
       "id": "c305-e2e-event-emitter-generic",
@@ -1006,16 +790,6 @@
       "id": "c323-e2e-async-retry-with-backoff",
       "layer": "e2e",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c331-e2e-deep-clone-and-compare",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
-      "id": "c331-e2e-promise-reject-paths",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
       "id": "c371-e2e-bst",
@@ -1038,29 +812,14 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
     },
     {
-      "id": "c371-e2e-priority-scheduler",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
       "id": "c371-e2e-error-hierarchy-service",
       "layer": "e2e",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "c371-e2e-ast-walker",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
-    },
-    {
       "id": "c371-e2e-iterator-toolkit",
       "layer": "e2e",
       "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
-    },
-    {
-      "id": "c384-e2e-union-and-intersection-shapes",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
     }
   ]
 }
