@@ -2871,3 +2871,22 @@ Statement [73,87)
 这解释了 `PrivateIdentifier` / `PropertyAccessExpression` 两栏的缺口 ?；
 做法照老规矩 ?：在 `RunCloseRules` 里加一条「`#` + 名字 ? 合成私有名单元」的规则 ?
 （位置放在 `PropertyAccess` 之前 ?），量尺子 ?。
+
+### 补记（第 527 轮）：先把这一笔账**量了个大小** ? —— 私有名只有 11 份文件
+
+```
+语料 1046 份，含私有名 `#name` 的 11 份
+cls-hash-in-operator.ts / cls-method-not-call.ts / cls-private-fields.ts /
+decl-class-private-field-in-operator.ts / decl-class-private-field.ts / decl-class-private-method.ts …
+```
+
+? 「补一条私有名合并规则」这一笔账**是小的** ?（≤ 11 份文件 ?，占 1037 的 1% ?）——
+它值得做 ?（局部、清晰 ?），但**不该当成主战场** ?。
+同一份报告里真正的大头仍在同一片区域 ?：`PropertyAccessExpression` 缺 199 ?、
+`ReturnStatement` 缺 101 ＋ 漂 71 ? —— 私有名只解释其中一部分 ?。
+
+**下一块（按大小排序）** ?：
+① `ReturnStatement` 那一族（101 + 71 ?）—— 但注意：第 526 轮已经证明**不是**「取词认不出」?，
+而是**产物侧根本没成形** ?（`return` 没升级 ?、整段是平的 ?）? 要查的是
+「**语句壳有没有把 `return` 这一段交出去**」?（`Statement` 的归类那一步 ?）；
+② 私有名合并（≤ 11 份 ?，清晰、局部 ?，等有余量就做 ?）。
