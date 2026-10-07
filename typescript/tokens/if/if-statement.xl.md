@@ -40,6 +40,31 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 ParsePipeline.InitialStatementReorganizationQueue(this);
 ```
 
+## protected method Close:()=>void
+
+关闭：先标记自己，再把**最后一个子单元**也关掉。
+
+**为什么需要它**（本轮量出来的）：本体的收尾本来就靠**下一个字符** ✓ ——
+`ExitOrPre` 要等下一个字符到了才「回头问」`IsLineBreakBoundary` ✓（ASI 只能这么问 ✓，
+在换行那一格问不出结论 ✓）。可**输入到头**时后面没有字符了 ✗ ⇒ 体一直是开着的 ✗
+⇒ 它那一趟语句重组从来没跑过 ✗。
+
+实测（`tests/parse/cases/statements/stmt-if-no-block.ts`：`if (a) f()` 后面什么都没有 ✓）：
+`<IfStatement>` 里是散的 `Identifier(f)` + `Bracket(())` ✓ ⇒ 投影出来的 `thenStatement`
+是一个**包着 `f()` 的假 `Block`** ✗（缺 `ExpressionStatement` + 缺 `CallExpression` ✓）。
+
+根单元收尾时会一路往下 `TryToClose` ✓（`Root.Close` 起头 ✓），所以这里只要**往下传一格** ✓。
+**两个端点都要有才敢关** ✗：`TryToClose` 在区间不全时当场抛 ✓，
+而「输入到头」那一趟 `SignOut` 已经把整条链的两个端点都递归签好了 ✓。
+
+```ts
+this.Closed = true;
+const last = this.Last();
+if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
+  last.TryToClose();
+}
+```
+
 ## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 兜底处理：空实现 ✓（字符全交给跳转队列造子单元 ✓）。
@@ -63,23 +88,47 @@ if (this.BodyEnded) {
     this.Quit();
     return BranchStates.Done;
   }
-  const over = this.Data.slice(this.BodyEndIndex + 1);
-  for (const item of over) {
+  const data = this.Data;
+  // **体真正写到哪一格**：`BodyEndIndex` 那两处语义**不一样** ——
+  // 分号那一支（`if (a) f();`）里 `;` **是体的终结符** ⇒ 含它；
+  // 软换行那一支（ASI）里那个换行**是边界、不属于体** ⇒ 止于它**前面**那一格。
+  // 原来一律 `slice(BodyEndIndex + 1)`、再「签出到当前字符的前一格」✗ ⇒
+  // 体的终点被**多签**一格、而**当前这一个字符被吃掉**✗
+  //（实测 `if (a) f()` 换行 `if (b) g()`：第二条 `if` 的 `i` 与 `f` 被吞进第一条的体里，
+  //  第二条整个消失 ✗）。
+  const boundary = this.BodyEndIndex >= 0 && this.BodyEndIndex < data.length ? data[this.BodyEndIndex] : null;
+  const bodyLast = boundary instanceof SymbolToken && boundary.Is(";") ? this.BodyEndIndex : this.BodyEndIndex - 1;
+  const owner = this.ReloadOwner ?? this.Parent;
+  // **要还回去的每一个位置按正序攒下来**：`bodyLast` 之后多吃的那些单元，
+  // **加上当前这一格**（它也不属于体，原来被直接吞掉了 ✗）。
+  const returning: Source[] = [];
+  for (const item of data.slice(bodyLast + 1)) {
     const start = item.SourceRange.Start;
     const end = item.SourceRange.End;
     item.RemoveSelf();
     if (start === null || end === null) {
       continue;
     }
-    const owner = this.ReloadOwner ?? this.Parent;
-    if (owner === null) {
-      continue;
-    }
     for (let i = start.Index; i <= end.Index; i++) {
-      context.Messages.push(new ReloadMessage(owner, this, start.Document.At(i)));
+      returning.push(start.Document.At(i));
     }
   }
-  this.SignOut(previous);
+  returning.push(source);
+  // **入队要倒着来** ✗：`SyntaxContext.DrainMessages` 把每条 `ReloadMessage` 都**插在队首**，
+  // 所以「先 push 的」反而「后处理」—— 正序 push 会把字符次序颠倒 ✗。
+  if (owner !== null) {
+    for (let i = returning.length - 1; i >= 0; i--) {
+      context.Messages.push(new ReloadMessage(owner, this, returning[i]));
+    }
+  }
+  const lastBody = bodyLast >= 0 && bodyLast < data.length ? data[bodyLast] : null;
+  if (this.SourceRange.End === null) {
+    if (lastBody !== null && lastBody.SourceRange.End !== null) {
+      this.SignOut(lastBody.SourceRange.End);
+    } else {
+      this.SignOut(previous);
+    }
+  }
   this.TryToClose();
   this.Quit();
   this.QuitOuter();

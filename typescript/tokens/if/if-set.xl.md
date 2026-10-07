@@ -491,6 +491,27 @@ if (consumed === false) {
 }
 ```
 
+## protected method Close:()=>void
+
+关闭：先标记自己，再把**最后一个子单元**（当前那一段 ✓）也关掉。
+
+**为什么需要它**（本轮量出来的）：这一族的收尾靠**下一个字符** ✓（ASI 要「回头问」✓），
+而**输入到头**时后面没有字符了 ✗ ⇒ 体一直开着 ✗ ⇒ 那一趟语句重组从来没跑过 ✗
+（实测 `if (a) f()` 在文件末尾：投影出来的 `thenStatement` 是一个**包着 `f()` 的假 `Block`** ✗）。
+根单元收尾时一路 `TryToClose` 下来 ✓（`Root.Close` 起头 ✓），所以每一级只要**往下传一格** ✓
+（`IfSet` → `IfSegment` → `IfStatement` ✓）。
+
+**两个端点都要有才敢关** ✗：`TryToClose` 在区间不全时当场抛 ✓，
+而「输入到头」那一趟 `SignOut` 已经把整条链的两个端点都递归签好了 ✓。
+
+```ts
+this.Closed = true;
+const last = this.Last();
+if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
+  last.TryToClose();
+}
+```
+
 ## method Begin:(keyword:Token)=>void
 
 建第一段 ✓（`key = "if"` ✓，起点取那个关键字 ✓），并把挂载链接起来 ✓。
@@ -536,10 +557,18 @@ this.Segment!.MountedUnit = body;
 挂**单语句体** ✓：建 `IfStatement`、挂进当前段 ✓、签入 ✓、**把这个字符喂给它** ✓
 （它就是体的第一个单元 ✓）。
 
+**要把 `ReloadOwner` 指成本向导** ✗（设计文档第四节那一条 ✓）：单语句体的收尾是
+**不含地**的 ✓——ASI 判出边界之后，**下一个字符**要按 `EndExclusive` 交回 ✓，
+而 `IfStatement.Parent` 是**那一段** ✗（字符是经向导送过去的 ✓，`Parent` 与 `MountedUnit` 是两件事 ✓）
+⇒ 不指的话那个字符落回**段**里 ✓，向导的尾巴逻辑再也接不到它 ✗
+⇒ 后面那条 `if (b) g()` 的 `if` 被劈成「`i` / `f` 两半」或被当成散单元 ✓
+（实测 `if (a) f()` 换行 `if (b) g()`：第二个 `if` 整条消失 ✓，只剩 `(b) g()` 一个 `Statement` ✗）。
+
 ```ts
 const statement = new IfStatement(this.Template);
 this.Segment!.Add(statement);
 statement.SignIn(source);
+statement.ReloadOwner = this;
 this.Segment!.MountedUnit = statement;
 statement.Process(context, source);
 ```

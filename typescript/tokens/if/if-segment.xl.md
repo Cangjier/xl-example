@@ -54,6 +54,25 @@ if (value !== null) {
 }
 ```
 
+## protected method Close:()=>void
+
+关闭：先标记自己，再把**最后一个子单元**（体 ✓）也关掉。
+
+**为什么需要它**（本轮量出来的）：这一族的收尾靠**下一个字符** ✓（ASI 要「回头问」✓），
+而**输入到头**时后面没有字符了 ✗ ⇒ 体一直开着 ✗ ⇒ 那一趟语句重组从来没跑过 ✗。
+根单元收尾时一路 `TryToClose` 下来 ✓（`Root.Close` → `IfSet.Close` → 这里 ✓），
+所以每一级只要**往下传一格** ✓。
+
+**两个端点都要有才敢关** ✗：`TryToClose` 在区间不全时当场抛 ✓。
+
+```ts
+this.Closed = true;
+const last = this.Last();
+if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
+  last.TryToClose();
+}
+```
+
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
 **恒 `Undo`** ✓——本段没有「见到某个字符就收尾」这回事 ✗：
