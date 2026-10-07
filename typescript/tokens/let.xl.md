@@ -123,6 +123,12 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 同样是因为本单元是**收尾规则建出来的**：它把整段声明折成一个节点之后，
 外层那一趟不会再回来收这些词，不在这里记下就彻底丢了。
 
+## field ModifierSpans:string = ""
+
+每个修饰词自己的区间，`"起:止"` 用 `,` 连接（闭区间），与 `modifiers` **同序同长**；没有修饰词时空串。
+这一支的修饰词是 `LetBranch.Success` 逐个 `unshift` 攒起来的（不是一段连续区间），所以位置也在
+同几处顺手记下——来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有那一刻知道。
+
 ## method ToXmlString:()=>string
 
 产出 XML：自闭合标签，属性名由 `LetType` 决定，另带 `modifiers`。
@@ -171,6 +177,10 @@ result.set("type", this.constructor.name);
 // 不再回原文 `indexOf(fieldName)` 猜。三种形态都写——解构形态给的是 `-1`。
 result.set("nameStart", this.NameStart);
 result.set("nameEnd", this.NameEnd);
+// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。三种形态都写。
+if (this.ModifierSpans !== "") {
+  result.set("modifierSpans", this.ModifierSpans);
+}
 if (this.LetType === LetType.Field) {
   result.set("fieldName", this.fieldName);
   result.set("modifiers", this.modifiers);
@@ -199,7 +209,7 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 抄 `fieldName` / `NameStart` / `NameEnd` / `modifiers` → `TryToClose()`。注意它**不抄 `LetType` 与两组解构名**（`LetType` 回到默认的 `Field`）——这是既定行为，保持一致。
+顺序是 `Sign(this)` → 抄 `fieldName` / `NameStart` / `NameEnd` / `modifiers` / `ModifierSpans` → `TryToClose()`。注意它**不抄 `LetType` 与两组解构名**（`LetType` 回到默认的 `Field`）——这是既定行为，保持一致。
 
 ```ts
 const result = new Let(this.Template);
@@ -208,6 +218,7 @@ result.fieldName = this.fieldName;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
+result.ModifierSpans = this.ModifierSpans;
 result.TryToClose();
 return result;
 ```
@@ -362,12 +373,20 @@ if (!(nameUnit instanceof Identifier) && isPatternUnit === false) {
 }
 // 往前收修饰词与关键词（跨过软换行，但**不跨过语句边界**——与 let.xl.md 同一份口径）。
 const modifiers: string[] = [];
+// **每格的位置**（见 `ModifierSpans`）：与 `modifiers` 同序同长，在同一个 `unshift` 处一起记。
+const modifierSpans: string[] = [];
+const spanOf = (one: any): string => {
+  const begin = one.SourceRange.Start;
+  const end = one.SourceRange.End;
+  return begin === null || end === null ? "" : `${begin.Index}:${end.Index}`;
+};
 let start = nameIndex - 1;
 // **文本走 `WordOf`** ✓（第 531 轮起关键词那一格可能已经是 `Keyword` ✓，
 // 它的文本在 `Value` 上而不在 `Temp` 上 ✗ —— 见那个方法自己的说明 ✓）。
 const keywordUnit = Get(data, start);
 if (keywordUnit instanceof Identifier || keywordUnit instanceof Keyword) {
   modifiers.unshift(this.WordOf(keywordUnit));
+  modifierSpans.unshift(spanOf(keywordUnit));
 }
 while (start > 0) {
   const previous = Get(data, start - 1);
@@ -382,6 +401,7 @@ while (start > 0) {
   // **两种身份都要认** ✓（`await` 这时通常已经是 `Keyword` ✓，见 `Success` 开头那一句 ✓）。
   if ((previous instanceof Keyword || previous instanceof Identifier) && this.WordOf(previous) === "await") {
     modifiers.unshift("await");
+    modifierSpans.unshift(spanOf(previous));
     start = start - 1;
     continue;
   }
@@ -389,6 +409,7 @@ while (start > 0) {
     const text = previous.TempToString();
     if (text === "export" || text === "declare" || text === "default") {
       modifiers.unshift(text);
+      modifierSpans.unshift(spanOf(previous));
       start = start - 1;
       continue;
     }
@@ -414,6 +435,7 @@ if (nameUnit instanceof Identifier) {
   letUnit.AddAndCloseLast(nameUnit);
 }
 letUnit.modifiers = modifiers.join(",");
+letUnit.ModifierSpans = modifierSpans.join(",");
 // **签名用的锚点要跳过前导 trivia** ✓（第 486 轮）：`start` 往回跨过 `LineWrap` 之后，
 // `data[start]` 可能正好是**上一行留下的那个软换行** ✗ ⇒ `Let` 从换行起签 ✗，
 // 投影出来的 `VariableStatement` / `List` 整个左移一位 ✗（实测

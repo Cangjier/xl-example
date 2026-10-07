@@ -540,7 +540,12 @@ new Map([
   }
   const modifiers = v.attrs.get("modifiers");
   let from = v.start;
-  if (typeof modifiers === "string" && modifiers !== "") {
+  // **修饰词的位置首选 token 记的字段**（见 `modifierSpansOf`）：搜名字要从最后一个修饰词之后起，
+  // 而那只差一格的位置 token 早就知道；没有字段时才回原文 `indexOf` 猜。
+  const spans = modifierSpansOf(v);
+  if (spans.length > 0) {
+    from = spans[spans.length - 1].end;
+  } else if (typeof modifiers === "string" && modifiers !== "") {
     const last = modifiers.split(",").filter((w) => w !== "").pop();
     if (last !== undefined) {
       const at = ctx.source.indexOf(last, v.start);
@@ -4725,6 +4730,11 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 实测 `decl-await-using-basic.ts` / `vars-await-using.ts`：列表起点差 6 格，
   // 语句上还多出 `AwaitKeyword` / `UsingKeyword` 两个节点。
   const from = words[0] === "await" ? words[0] : words[words.length - 1];
+  // **位置首选 token 记的字段**（见 `modifierSpansOf`）：有它就不回原文猜。
+  const spans = modifierSpansOf(v);
+  if (spans.length === words.length) {
+    return words[0] === "await" ? spans[0].pos : spans[spans.length - 1].pos;
+  }
   const at = ctx.source.indexOf(from, v.start);
   return at >= 0 ? at : v.start;
 ```
@@ -5423,6 +5433,29 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   return { name: at, computed: null, unit: direct === undefined ? null : direct };
 ```
 
+# private method modifierSpansOf:(v:any)=>Array<any>
+
+token 记下的**每个修饰词各自的区间**（产物字典里的 `modifierSpans`，`"起:止"` 用 `,` 连接、闭区间）。
+
+解析期认下声明那一刻位置就在手上，所以这一格是**事实**；没有这一格的 token（还没记的那几档）
+返回空数组，调用方退回「回原文 `indexOf` 猜」那条路。
+
+```ts
+  const raw = v.attrs.get("modifierSpans");
+  if (typeof raw !== "string" || raw === "") return [];
+  const out = [];
+  for (const piece of raw.split(",")) {
+    const parts = piece.split(":");
+    if (parts.length !== 2) return [];
+    const start = Number(parts[0]);
+    const end = Number(parts[1]);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) return [];
+    // 产物记的是**闭区间**（与 `nameStart` / `nameEnd` 同一口径），节点要的是右开区间。
+    out.push({ pos: start, end: end + 1 });
+  }
+  return out;
+```
+
 # private method addModifiers:(v:any, props:any, ctx:any, baseStart:int)=>void
 
 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
@@ -5432,9 +5465,13 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 `pos = v.start, end = v.start`（零宽），于是尺子上整类报「同 kind 同起点、终点差 6~9」——
 实测 `declare` 是 `TS[26,33)` 而我给 `[26,26)`，一份语料里几百处。
 
-能这样量是因为**带修饰词的节点，自己的起点就是第一个修饰词的起点**
+**位置首选 token 记的字段**（各 token 的 `ModifierSpans`）：修饰词在源码里各自占哪一格，
+认下声明那一刻就在手上，有它就不做任何猜测。
+
+没有字段时才退回**从原文里量**：带修饰词的节点自己的起点就是第一个修饰词的起点
 （实测 `Field[12,34]` 的 `modifiers="private,readonly"`：12 正是 `private` 的开头），
-所以从 `v.start` 起**按顺序**找每个词即可。
+所以从 `v.start` 起按顺序找每个词。这条近似会被**前面装饰器里的同名文本**骗到——
+`@exported export class C {}` 里量出来的是 `exported` 里那一段（实测缺 `ExportKeyword` 1 + 多出 1）。
 
 ```ts
   let words = [];
@@ -5450,6 +5487,17 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     }
   }
   if (words.length === 0) return;
+  // **字段是主路**：个数对不上（还没记这一格的 token）才退回下面的猜法。
+  const spans = modifierSpansOf(v);
+  if (spans.length === words.length) {
+    const out = [];
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      out.push({ kind: `${word.charAt(0).toUpperCase()}${word.slice(1)}Keyword`, text: word, pos: spans[i].pos, end: spans[i].end });
+    }
+    props.modifiers = out;
+    return;
+  }
   const out = [];
   let at = baseStart === undefined ? v.start : baseStart;
   for (const word of words) {

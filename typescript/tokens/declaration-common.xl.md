@@ -189,6 +189,29 @@ for (let i = start; i < index; i++) {
 return result;
 ```
 
+# method DeclarationModifierSpans:(units:Array<Token>, start:int, index:int)=>Array<string>
+
+与 `DeclarationModifiers` **同一个判据、同一个顺序**，只是每格多带一个位置：返回一串 `"起:止"`
+（闭区间，与产物字典上的 `nameStart` / `nameEnd` 同一口径），调用方 `join(",")` 之后存进 token 的字段。
+
+为什么要多这一份：修饰词**不进 `Data`**（折进 `modifiers` 属性），单元丢了位置也跟着丢——
+投影那边就只剩「回原文 `indexOf(word, at)` 猜」，而猜法会被前面装饰器里的同名文本骗到
+（`@exported export class C {}` 里猜出来的是 `exported` 里那一段）。认下声明的这一刻位置就在手上，
+记下来投影直读，不必再猜。
+
+```ts
+const result: string[] = [];
+for (let i = start; i < index; i++) {
+  const item = Get(units, i);
+  if (item !== null && IsDeclarationModifier(item)) {
+    const begin = item.SourceRange.Start;
+    const end = item.SourceRange.End;
+    result.push(begin === null || end === null ? "" : `${begin.Index}:${end.Index}`);
+  }
+}
+return result;
+```
+
 # method TakeDeclarationDecorators:(units:Array<Token>, start:int, index:int)=>Array<Decorator>
 
 取 `[start, index)` 之间的 `Decorator` 单元，按源码顺序排列。

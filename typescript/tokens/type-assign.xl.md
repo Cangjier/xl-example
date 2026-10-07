@@ -7,7 +7,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Get, ReplaceCountAt, SearchBack, TakeRange } from "../../core/extensions/list-extension.xl.md"
-import { IsDeclarationBoundary, IsDeclarationModifier, IsStatementKeyword } from "./declaration-common.xl.md"
+import { DeclarationModifierSpans, IsDeclarationBoundary, IsDeclarationModifier, IsStatementKeyword } from "./declaration-common.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { GenericType } from "./generic-type.xl.md"
@@ -166,6 +166,8 @@ if (nameStart !== null && nameEnd !== null) {
   result.NameEnd = nameEnd.Index;
 }
 result.modifiers = modifiers.join(",");
+// **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
+result.ModifierSpans = DeclarationModifierSpans(units, startIndex, index).join(",");
 for (let i = index; i <= dataEnd; i++) {
   const item = Get(units, i);
   if (i === index || i === nameIndex) {
@@ -274,6 +276,11 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 
 别名前面的修饰词（`export` / `declare`），按源码顺序用 `,` 连接；没有时是空串。
 
+## field ModifierSpans:string = ""
+
+每个修饰词自己的区间，`"起:止"` 用 `,` 连接（闭区间），与 `modifiers` **同序同长**；没有修饰词时空串。
+来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有认下声明那一刻知道。
+
 ## method ToXmlString:()=>string
 
 产出 XML：开标签上带 `alias` 与 `modifiers` 两个属性，内容是类型参数、`=` 与右端的 XML。
@@ -306,6 +313,10 @@ result.set("modifiers", this.modifiers);
 // **别名的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
 result.set("nameStart", this.NameStart);
 result.set("nameEnd", this.NameEnd);
+// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
+if (this.ModifierSpans !== "") {
+  result.set("modifierSpans", this.ModifierSpans);
+}
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
@@ -320,7 +331,7 @@ return result;
 
 克隆自身。
 
-三个声明字段都要抄。
+四个声明字段都要抄。
 
 ```ts
 const result = new TypeAssign(this.Template);
@@ -329,6 +340,7 @@ result.alias = this.alias;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
+result.ModifierSpans = this.ModifierSpans;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

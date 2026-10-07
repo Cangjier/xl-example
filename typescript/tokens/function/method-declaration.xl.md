@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationTailStop, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
 import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, WordText, GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { BracketNameText } from "../field.xl.md"
@@ -689,6 +689,8 @@ if (!computedName && nameUnit instanceof Identifier) {
   }
 }
 result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
+// **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
+result.ModifierSpans = DeclarationModifierSpans(units, startIndex, index).join(",");
 for (const item of TakeDeclarationDecorators(units, startIndex, index)) {
   result.AddAndCloseLast(item);
 }
@@ -805,6 +807,12 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 声明前面的修饰词（`public` / `private` / `protected` / `static` / `readonly` / `abstract` / `override` /
 `declare` / `accessor` / `async` / `get` / `set`），按源码顺序用 `,` 连接；没有修饰词时是空串。
 
+## field ModifierSpans:string = ""
+
+每个修饰词自己的区间，`"起:止"` 用 `,` 连接（闭区间），与 `modifiers` **同序同长**；没有修饰词时空串。
+来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有认下声明那一刻知道——
+而成员的装饰器名里正带着同一个词（`@exported private d = 1`）。
+
 ## method CreateBody:()=>MethodBody
 
 新建方法体段并挂到自己名下，返回新单元。
@@ -884,6 +892,10 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.name);
 result.set("modifiers", this.modifiers);
+// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
+if (this.ModifierSpans !== "") {
+  result.set("modifierSpans", this.ModifierSpans);
+}
 // **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
 result.set("nameStart", this.NameStart);
 result.set("nameEnd", this.NameEnd);
@@ -901,7 +913,7 @@ return result;
 
 克隆自身。
 
-两个声明字段都要抄。
+三个声明字段都要抄。
 
 ```ts
 const result = new MethodDeclaration(this.Template);
@@ -910,6 +922,7 @@ result.name = this.name;
 result.NameStart = this.NameStart;
 result.NameEnd = this.NameEnd;
 result.modifiers = this.modifiers;
+result.ModifierSpans = this.ModifierSpans;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

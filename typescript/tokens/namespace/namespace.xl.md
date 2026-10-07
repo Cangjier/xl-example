@@ -175,6 +175,12 @@ const previous = Get(units, previousIndex);
 if (previous instanceof Identifier && (previous.Is("export") || previous.Is("declare"))) {
   startIndex = previousIndex;
   namespaceInstance.modifiers = previous.TempToString();
+  // **修饰词的位置**（见 `ModifierSpans`）：它不进 `Data`，位置要在这一趟记下来——
+  // 投影回原文 `indexOf("export", …)` 猜时，点号拆出来的里层是从自己那一段起找的，往前找不到。
+  const modifierStart = previous.SourceRange.Start;
+  const modifierEnd = previous.SourceRange.End;
+  namespaceInstance.ModifierSpans =
+    modifierStart === null || modifierEnd === null ? "" : `${modifierStart.Index}:${modifierEnd.Index}`;
   namespaceInstance.SignInToken(previous);
 } else {
   namespaceInstance.SignInToken(current);
@@ -243,6 +249,7 @@ if (isStringName === false && nameParts.length > 1) {
     const inner = new Namespace(template);
     inner.namespace = nameParts[partIndex];
     inner.modifiers = namespaceInstance.modifiers;
+    inner.ModifierSpans = namespaceInstance.ModifierSpans;
     // 起止都要在 `AddAndCloseLast` 之前设好：那个方法会 `Close()`，
     // 而 `TryToClose` 要求范围完整（实测缺 End 时抛 `SourceRange.End is null`）。
     // 也不能改用 `SignOut` —— 它会递归签出「最后一个子单元」，同一层会被签两次
@@ -352,6 +359,11 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 `export` / `declare` 修饰词，没有就是空串。
 
+## field ModifierSpans:string = ""
+
+修饰词自己的区间，`"起:止"`（闭区间）；没有修饰词时空串。
+来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有认下声明那一刻知道。
+
 ## method ToXmlString:()=>string
 
 产出 XML：开标签上带 `namespace` / `modifiers`，内容是子单元（主要是 `NamespaceBody`）的 XML。
@@ -381,6 +393,10 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("namespace", this.namespace);
 result.set("modifiers", this.modifiers);
+// **修饰词的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
+if (this.ModifierSpans !== "") {
+  result.set("modifierSpans", this.ModifierSpans);
+}
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
@@ -401,7 +417,7 @@ return this.Add(new NamespaceBody(this.Template));
 
 ## method Clone:()=>Token
 
-克隆自身。**注意 `Clone` 不复制** `namespace` / `modifiers`——克隆体两个字段都是初值，
+克隆自身。**注意 `Clone` 不复制** `namespace` / `modifiers` / `ModifierSpans`——克隆体三个字段都是初值，
 与 `Interface.Clone` 的既有口径一致。
 
 ```ts

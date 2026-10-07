@@ -10,7 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
 import { IsTriviaUnit, SkipNextTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "./class-body.xl.md"
@@ -469,6 +469,10 @@ super(template);
 // **先读、再截**：`DeclarationModifiers` 与下面那个区间循环都要看宿主那张表，
 // 而 `units.length = start` 会把它们截掉。
 const modifierText = DeclarationModifiers(units, start, keywordIndex).join(",");
+// **修饰词的位置**：它们**不进 `Data`**，所以「哪个词在哪儿」要在这一趟抄成字段——
+// 投影那边拿 `modifiers` 的文本回原文 `indexOf` 猜是第二份近似，装饰器名里有同一个词时会猜歪
+// （`@exported export class C {}`，见 `ModifierSpans`）。
+const modifierSpans = DeclarationModifierSpans(units, start, keywordIndex).join(",");
 // **修饰词的区间**：它们在声明头最前面那一段（装饰器不算），而它们**不进 `Data`**，
 // 所以区间要在这里抄进 `modifiers` 字段——同一个道理：能被字段表达的那几样，
 // 单元丢了就得把区间留下。
@@ -493,6 +497,7 @@ if (modStart !== null && modEnd !== null) {
   modRange.End = modEnd.End;
 }
 this.modifiers.Set(modifierText, modRange);
+this.ModifierSpans = modifierSpans;
 const local = keywordIndex - start;
 const nameLocal = nameIndex >= start ? nameIndex - start : -1;
 this.SignIn(head[0].SourceRange.Start!);
@@ -560,6 +565,12 @@ XML 属性渲染时用 `Text()`——`Array` 的默认串接就是逗号串。
 `ClassBranch` 认下的声明修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
 区间取声明头的起止（修饰词是声明头最前面那一段，与装饰器同为「头」的一部分）。
 
+## field ModifierSpans:string = ""
+
+每个修饰词自己的区间，`"起:止"` 用 `,` 连接（闭区间），与 `modifiers` **同序同长**；没有修饰词时空串。
+修饰词不进 `Data`、位置又只有它自己知道，所以认下声明那一刻就记在这里（见
+`declaration-common.xl.md` 的 `DeclarationModifierSpans`），投影直读、不再回原文猜。
+
 ## property Body:ClassBody
 
 类体段：子单元列表里**第一个** `ClassBody`。
@@ -609,6 +620,10 @@ result.set("name", this.name.Value);
 result.set("extends", this.extends.Value);
 result.set("implements", this.implements.Text());
 result.set("modifiers", this.modifiers.Value);
+// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
+if (this.ModifierSpans !== "") {
+  result.set("modifierSpans", this.ModifierSpans);
+}
 // **类名的位置**：名字与它的区间装在一个字段里（见 `name` 那一格），这里只是把区间搬成投影读得懂的
 // 两个下标（闭区间）——投影合名字节点时就**不再回原文 `indexOf(name)` 猜**（见 `print-ast-common.xl.md`
 // 的 `synthName`）。匿名类没有名字，两个键就不写。
@@ -631,7 +646,7 @@ return result;
 
 克隆自身。
 
-四个声明字段都要抄——漏了克隆体就丢掉声明信息。
+五个声明字段都要抄——漏了克隆体就丢掉声明信息。
 
 ```ts
 const result = new Class(this.Template);
@@ -640,6 +655,7 @@ result.name = this.name;
 result.extends = this.extends;
 result.implements = this.implements;
 result.modifiers = this.modifiers;
+result.ModifierSpans = this.ModifierSpans;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

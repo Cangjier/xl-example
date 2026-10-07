@@ -9,7 +9,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
 import { IsTriviaUnit, SkipNextTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Decorator } from "../decorator.xl.md"
@@ -193,6 +193,8 @@ if (this.ScanHead(units, enumIndex, enumUnit) === false) {
 const local = enumIndex - start;
 const nameLocal = this.NameIndex >= start ? this.NameIndex - start : -1;
 enumUnit.modifiers.Set(DeclarationModifiers(units, start, enumIndex).join(","), null);
+// **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
+enumUnit.ModifierSpans = DeclarationModifierSpans(units, start, enumIndex).join(",");
 const head = units.slice(start);
 units.length = start;
 enumUnit.SignIn(head[0].SourceRange.Start!);
@@ -268,6 +270,11 @@ throw new Error("Enum.Navigate: 不该被调用——枚举头在 { 那一刻就
 `Interface` 用的是一个 `export` 布尔字段，这里换成文本，
 是因为枚举的修饰词不止一种（`export` / `declare` / `default` / `const`），一个布尔装不下。
 
+## field ModifierSpans:string = ""
+
+每个修饰词自己的区间，`"起:止"` 用 `,` 连接（闭区间），与 `modifiers` **同序同长**；没有修饰词时空串。
+来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有认下声明那一刻知道。
+
 ## property Body:EnumBody
 
 枚举体段：子单元列表里**第一个** `EnumBody`。
@@ -311,6 +318,10 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.name.Value);
 result.set("modifiers", this.modifiers.Value);
+// **修饰词各自的位置**（见 `ModifierSpans`）：投影直读，不再回原文 `indexOf` 猜。
+if (this.ModifierSpans !== "") {
+  result.set("modifierSpans", this.ModifierSpans);
+}
 // **枚举名的位置**：区间本来就装在 `name` 那个字段里，这里搬成投影读得懂的两个下标（闭区间）——
 // 投影合名字节点时就**不再回原文 `indexOf(name)` 猜**（见 `print-ast-common.xl.md` 的 `synthName`）。
 const nameRange = this.name.Range;
@@ -332,13 +343,14 @@ return result;
 
 克隆自身。
 
-`name` / `modifiers` 都要抄——漏了克隆体就丢掉声明信息。
+`name` / `modifiers` / `ModifierSpans` 都要抄——漏了克隆体就丢掉声明信息。
 
 ```ts
 const result = new Enum(this.Template);
 result.Sign(this);
 result.name = this.name;
 result.modifiers = this.modifiers;
+result.ModifierSpans = this.ModifierSpans;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
