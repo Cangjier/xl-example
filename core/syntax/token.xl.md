@@ -197,6 +197,17 @@ this.Data.push(item);
 return item;
 ```
 
+## field BornByReorganization:bool = false
+
+**这个单元是「重组的产出」吗**（第 460 轮加的度量口径）：
+
+解析期由 guide / unit 吃字符长出来的单元是 `false` ✓；
+由 `Reorganization` 那一趟在平表上收出来的容器是 `true` ✓。
+统计「剩余 reorg 占比」就是数产物树里 `true` 的占比 ✓ ——
+它随迁移推进单调下降 ✓，比「还剩几条规则」更能说明进度 ✓。
+
+标记只在一处点亮：`ReplaceCountAt`（**每个真正生效的重组都会走它** ✓）。
+
 ## method AddRange:<Item extends Token>(items:Array<Item>)=>Token
 
 加一批子单元，返回自身。

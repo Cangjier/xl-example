@@ -1141,7 +1141,36 @@ if (!(afterName instanceof Bracket && afterName.startBracket === "(")) {
 `typescript.d.ts`（158/5/34 ✗）、`lib.dom.d.ts`（76/5/68 ✗）、`stream/web.d.ts`（73/0/20 ✗）——
 先看 `stream/web.d.ts`（最小 ✓、73 缺 ✗ 集中在一处的话最容易收 ✓）。
 
-## 七十四、每步都要钉住的三件事
+## 七十五、「剩余 reorg 占比」这个指标（第 460 轮）：基线 **41.06%**
+
+以后**每轮都报这个数** ✓。口径与实现：
+
+**口径**：数产物树里「**由重组成形**」的单元占全部单元的比例 ✓。
+解析期由 guide / unit 吃字符长出来的单元不算 ✓；由 `Reorganization` 那一趟在平表上
+收出来的容器算 ✓。它随迁移推进**单调下降** ✓，比「还剩几条规则」更能说明进度 ✓。
+
+**实现**（一次性 ✓，改动很小 ✓）：
+
+- `core/syntax/token.xl.md`：`Token` 上加一个字段 `BornByReorganization:bool = false` ✓；
+- `core/extensions/list-extension.xl.md`：在 **`ReplaceCountAt`** 里点亮这个标记 ✓ ——
+  它是「每个真正生效的重组都会走」的那一处 ✓（解析期的 guide / unit 不走它 ✓，
+  所以这个标记就是「重组产出」的定义 ✓）；
+- 度量脚本 `tmp/recon/reorg-share.cjs` ✓：
+  `node tmp/recon/reorg-share.cjs tests/parse/cases 300` ✓
+  —— **从 `Root.Data` 递归走** ✗（`Root.ToList()` 给的是投影后的字典、元素是 `Map` ✗，这条踩过 ✓）。
+
+**基线读数（当前主线、全绿状态）**：
+
+```
+剩余 reorg 占比（由重组成形的单元 / 产物单元）
+  文件 300 个（解析失败 0）
+  产物单元 6880 个，其中由重组成形 2825 个
+  剩余 reorg 占比 = 41.06%
+```
+
+加了标记之后尺子复跑：**16 片全过、exit 0、全语料 0 个文件不为零** ✓（标记无副作用 ✓）。
+
+## 七十六、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
