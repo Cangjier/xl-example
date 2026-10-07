@@ -187,6 +187,24 @@ if (source.Value === this.endBracket) {
 return BranchStates.Undo;
 ```
 
+## method Owns:(source:Source)=>bool
+
+当前字符是不是本括号**配对的结束括号**。
+
+覆写基类（那里恒为 `false`）：这是一个真的「归我」的字符 ✓。
+
+**它是给挂在括号下面的解析期单元用的** ✗：那些单元（`PendingUnit` / 向导 ✓）一旦挂成括号的 `MountedUnit`，
+括号自己就**再也看不到字符**了 ✓，连 `ExitOrPre` 都不会跑 ✓（`UnitToken.Process` 第一句就转给挂载单元 ✓）
+⇒ 结束括号会被它们吞掉 ✓、这个括号永远关不上 ✗。所以它们每收一个字符都要往上问一遍 ✓
+（见 `core/syntax/token.xl.md` 的 `Owns` ✓）。
+
+判据与 `ExitOrPre` 那一句**一字不差** ✓——两处说的是同一件事，写成两份只是为了不必让子单元去调
+`ExitOrPre`（那是「处理」不是「询问」✓）。
+
+```ts
+return source.Value === this.endBracket;
+```
+
 ## method ToXmlString:()=>string
 
 产出 XML：标签名是运行时类型名，**开标签上带 `startBracket` / `endBracket` 两个属性**，内容是子单元的 XML 串接（子单元已经是 XML 串，这里只做拼接，不做转义）。

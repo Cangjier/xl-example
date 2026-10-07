@@ -38,6 +38,7 @@ import { ForReorganization } from "./tokens/for/for.xl.md"
 import { ForeachReorganization } from "./tokens/foreach/foreach.xl.md"
 import { FunctionReorganization } from "./tokens/function/function.xl.md"
 import { GenericType } from "./tokens/generic-type.xl.md"
+import { IfGuide } from "./tokens/if/if-guide.xl.md"
 import { IfSetReorganization } from "./tokens/if/if-set.xl.md"
 import { ImportReorganization } from "./tokens/import.xl.md"
 import { ExportReorganization } from "./tokens/export.xl.md"
@@ -108,9 +109,19 @@ import { LineWrap, WrapSymbolReorganization } from "./tokens/line-wrap.xl.md"
 `new Sequence<...>(...)` 的参数要写成**一个数组**：`Sequence` 的构造器收 `Array<T>`，
 所以 `new Sequence<Branch>([a, b, …])`。
 
-顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → 括号 → 泛型 → 软换行 → 符号 → 通用字符。
+顺序（决定解析优先级，不能改）：注释 → 预处理指令 → 正则 → 字符串 → 括号 → 泛型 → 软换行 → 符号 → **`if` 向导** → 通用字符。
 
 **泛型必须排在符号之前**：`<` / `>` 同时是符号，`SymbolToken.AppendIn` 排在前面的话，`<…>` 永远轮不到 `GenericTypeBranch` 判断。排在 `Bracket.JumpIn` 之后则是形状上的就近——两者都是「认下一个字符、挂一个子单元」的单元，且 `( [ {` 与 `<` 不重叠。
+
+**`IfGuide.JumpIn` 只能紧挨在 `Identifier.AppendIn` 前面**（第 392 轮加）：
+
+- 它认的字符是 `i` ✓，而排在它前面的那些分支**没有一个会接手 `i`** ✓（正则 / 字符串 / 括号 / 泛型 / 软换行 / 符号 ✓），
+  所以插在这儿与插在队尾**只差一件事**：它必须在 `Identifier.AppendIn` **之前** ✓——
+  否则那个 `Identifier` 先被造出来 ✓、这个分支再也轮不到 ✓（`Identifier.AppendIn` 返回 `Done` ✓）。
+- 它自己带三条**位置闸**（前一个实义单元不是 `.` / `?.`、宿主不是类型位、宿主不是成员列表 ✓，
+  见 `tokens/if/if-guide.xl.md` ✓），所以放在这么靠前的位置**不会抢走别人认的词** ✓：
+  `a.if(x)` 的 `if` 仍然落到 `Identifier` 上 ✓，由 `MethodReorganization` 收成调用 ✓
+  （它排在重组队列第 11 位 ✓，与这一条无关 ✓——**那是重组的位次，这里是跳转的位次** ✗，两张表各管各的 ✓）。
 
 ```ts
 return new Sequence<Branch>([
@@ -123,6 +134,7 @@ return new Sequence<Branch>([
   GenericType.JumpIn,
   LineWrap.AppendIn,
   SymbolToken.AppendIn,
+  IfGuide.JumpIn,
   Identifier.AppendIn,
 ]);
 ```

@@ -46,8 +46,11 @@ import { SymbolToken } from "./symbol-token.xl.md"
 三种都算：
 
 - **循环 / 分支关键字**：`for` / `foreach` / `while` / `do` / `switch` / `try` / `if`。
-  不必也不该去认已经成形的语句单元——本规则排在 `Try` / `IfSet` / `For` / `Foreach` / `While`
-  **之前**（见 `../parse-pipeline.xl.md`），轮到它时后面那条语句一定还是散着的 `Identifier`。
+  **第 392 轮起，其中 `if` 那一支要改成「认已经成形的语句单元」** ✗：`if` 现在是**解析期向导**
+  （`tokens/if/if-guide.xl.md`）造出来的 ✓，它比本规则**更早**成形 ✓
+  ⇒ `outer: if (...) {...}` 走到这里时，冒号后面已经是一个 `IfSet` ✓，不再是散着的 `Identifier` ✗
+  （实测漏了这一格时 `decl-label-if` 报「缺 8 个节点、多出 `TypeDefine`」✓——
+  冒号被更晚的 `TypeDefineReorganization` 当成类型标注收走了 ✓）。
 - **一个 `{` 括号**（块语句）：`outer: { … }` / `block: { … }`。
 - **任意 `Identifier`**（表达式语句，或又一个标签）：`done: f()` / `a: b: for(;;) { … }`。
 
@@ -68,6 +71,23 @@ if (item instanceof SymbolToken && item.Is("{")) {
 }
 if (item instanceof Bracket) {
   return item.startBracket === "{";
+}
+// **已经成形的语句单元也要认** ✗（第 392 轮）——名单与上面那串关键字**一一对应** ✓，
+// 所以往后每把一条控制流规则改成向导，这里一个字都不用动 ✓。
+//
+// 按**类名**判而不是 `instanceof` ✗：`statement.xl.md` 自己 import 本文件 ✓，
+// 反过来 import 会绕出环 ✓（与 `statement.xl.md` 用类名认 `StaticBlock` / `Namespace` 同一条理由 ✓）。
+const formed = item.constructor.name;
+if (
+  formed === "IfSet" ||
+  formed === "For" ||
+  formed === "Foreach" ||
+  formed === "While" ||
+  formed === "DoWhile" ||
+  formed === "Switch" ||
+  formed === "Try"
+) {
+  return true;
 }
 if (!(item instanceof Identifier)) {
   return false;

@@ -243,6 +243,23 @@ if (this.Parent !== null) {
 return this.Parent;
 ```
 
+## method Owns:(source:Source)=>bool
+
+当前字符是不是**本单元的收尾符**——也就是「这个字符归我，挂在我下面的子单元不许吃掉它」。
+
+默认 `false`：绝大多数单元没有这样的字符（`Root` 永不结束、`Statement` 那一族由重组收尾）。
+
+**为什么要有这一条** ✗：一个单元一旦成了父单元的 `MountedUnit`，父单元就**再也看不到任何字符**了 ✓
+（`UnitToken.Process` 第一句就是「有挂载单元就转给它」✓）。所以挂在别人下面的**解析期单元**
+（`PendingUnit` / 各种向导 ✓）必须能问出「外层还有没有人在等这个字符」✓，否则外层的 `}` 会被它吞掉 ✓、
+父括号永远等不到自己的结束符 ✓，整棵树**停在那里** ✗——不抛错、也不出节点 ✓，是那种最难查的静默故障 ✓。
+
+问法是**往上走一遍**（见 `IfGuide.OwnedByAncestor` ✓），不在这一层做聚合 ✓。
+
+```ts
+return false;
+```
+
 ## method Process:(context:SyntaxContext, source:Source)=>void
 
 处理一个字符。
