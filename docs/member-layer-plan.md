@@ -2526,3 +2526,23 @@ am-conditional-in-type-arg.ts: TypeAssign 成形 1 次
 所以「多出来 `TypeAliasDeclaration` 78」出在**投影那一侧** ?（`typescript/print-ast-common.xl.md` 那一份 ?，
 大概率是「`Statement` 与 `TypeAssign` 各投一次」?）—— 下一块要去那边看 ?，
 **这一块与「搬规则」不是同一条线** ?（记在这里，免得下一轮又往规则上找 ?）。
+
+## 一百二十七、箭头体的范围到 `[` 就断了（第 512 轮）：**两档同样** ? 又是规则侧的老缺口
+
+看 `多出来 ExpressionStatement` 190 的头一个样本 ?（`am-block-lambda-array-compound.ts` ?，`x => x[1, 2, 3]` ?）：
+
+```
+禁用 reorg :  缺 5　漂 2　多 4    DRIFT ExpressionStatement TS[525,541) vs 产物[525,531)  "x => x"
+对照态     :  缺 6　漂 2　多 4    DRIFT ExpressionStatement TS[525,541) vs 产物[525,531)  "x => x"
+```
+
+? **两档同样** ? ? 不是这一版特有的 ?，是**规则侧**的老缺口 ?：
+箭头体的范围在 `[` 那里就断了 ?（`x[1, 2, 3]` 里的下标与逗号表达式整段没收进去 ?，
+于是 TS 的 `ElementAccessExpression` / `BinaryExpression` / `CommaToken` 全缺 ?、产物多出一个截断的 `ExpressionStatement` ?）。
+
+**下一块**（两条线都记着 ?）：
+① 规则侧：`LamdaReorganization` 的体范围要认「体后面还挂着 `[` 下标」?
+（与 `#x in o` / `this.#x` 那两笔 `BinaryExpression` 多出来 ? 是同一族的后续 ?）；
+② 投影侧：`Statement` 与 `TypeAssign` 各投一次 `TypeAliasDeclaration` 那一处 ?（第 511 轮定位 ?）。
+
+**这一轮的读数**：746 / 1037 不变 ?（只做定位 ?，未动树 ?）。
