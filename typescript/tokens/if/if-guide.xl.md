@@ -214,6 +214,33 @@ guide.Adopt(keyword);
 context.Messages.push(new ReloadMessage(guide, guide, source));
 ```
 
+# class IfCollector extends PendingUnit
+
+`IfGuide` 的暂存单元：终止判据**恒为 `Continue`** ✓——什么时候结束由向导说了算 ✗，不由字符说了算 ✗。
+
+第 398 轮之前它是用「**外部终止委托**」写的 ✓（`new PendingUnit(template, () => Continue)` ✓）；
+口径改成「**终止判据归单元自己**」之后 ✓，它就是一个只覆写 `IsEnd` 的小子类 ✓——
+这正是那次口径改动的第一个受益者 ✓（用户口径：如何终止不应该是 self token 最清楚的吗 ✓）。
+
+它是一次性的暂存壳 ✓（收尾之后调用方把子单元搬走、再把它摘掉 ✓），
+所以不实现 `Clone` ✓，基类那句抛错正好 ✓。
+
+## constructor:(template:Template)=>void
+
+以模板创建。跳转队列由基类取成通用队列 ✓，队列替换由向导在挂上它之后做 ✓。
+
+```ts
+super(template);
+```
+
+## method IsEnd:(context:SyntaxContext, source:Source)=>PendingStates
+
+恒 `Continue`。
+
+```ts
+return PendingStates.Continue;
+```
+
 # class IfGuide extends GuideToken
 
 `if` 的解析期向导。
@@ -258,7 +285,7 @@ context.Messages.push(new ReloadMessage(guide, guide, source));
 
 ```ts
 super(template);
-const collector = new PendingUnit(template, () => PendingStates.Continue);
+const collector = new IfCollector(template);
 if (hostQueue !== null) {
   collector.ProcessQueue = hostQueue.Removed([IfGuide.JumpIn]);
 }

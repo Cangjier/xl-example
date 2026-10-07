@@ -12,7 +12,14 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 位置缓冲：一段**还不知道形状**的源码位置，先攒着，等形状定了再决定交给谁。
 
-它是这一族向导里那三个手写 `Items:Array<Source>` 的公共形态（`InterpolationGuide` / `InterpolationExitGuide` / `RawQuoteExitGuide` 各写了一份）：**攒着 → 定了就提交、没定就交还**。攒本身没有价值，两个出口才是——`CommitTo` 把手里的位置按序喂给一个单元，`GiveBackTo` 把它们按序插回位置队列交给另一个处理者。
+**它的归属是 `GuideToken.Pending`** ✓（用户口径：`PendingSources` 应该是 `GuideToken` 的字段，
+用于当形状不明朗时先缓存）✓——所以任何向导要缓存时都用**继承来的那一个** ✓，
+不要各自再手写一份 `Items:Array<Source>` ✗。
+
+它原先就是从这一族向导里那三个手写数组抽出来的（`InterpolationGuide` / `InterpolationExitGuide` /
+`RawQuoteExitGuide` 各写了一份）：**攒着 → 定了就提交、没定就交还**。
+攒本身没有价值，两个出口才是——`CommitTo` 把手里的位置按序喂给一个单元，
+`GiveBackTo` 把它们按序插回位置队列交给另一个处理者。
 
 **两条路都保持原始次序**，而 `GiveBackTo` 是唯一容易写错的地方：往队首插，就得**倒着插**才排得回原序（见那一处的说明）。次序错了不会报错，只会让同一段源码被两个单元各读一半——属于本仓最忌讳的静默错值。
 

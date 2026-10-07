@@ -117,12 +117,29 @@ console.log("PendingSources —— 位置缓冲");
 
 console.log("PendingUnit —— 暂存单元");
 
+// **终止判据归单元自己**（第 398 轮改口径）：基类不再接受「外部终止委托」，
+// 所以判据也照**真实用法**写成子类——这一版与产品代码同一个形状。
+class SemicolonUnit extends PendingUnit {
+  constructor(template, state) {
+    super(template);
+    this.state = state;
+  }
+
+  IsEnd(_context, source) {
+    return source.Value === ";" ? this.state : PendingStates.Continue;
+  }
+}
+
+class ForeverUnit extends PendingUnit {
+  IsEnd(_context, _source) {
+    return PendingStates.Continue;
+  }
+}
+
 {
   // `EndInclusive`：`;` **算进**体里
   const { document, context, root } = scene("abc;zzz");
-  const pending = new PendingUnit(root.Template, (_ctx, source) =>
-    source.Value === ";" ? PendingStates.EndInclusive : PendingStates.Continue,
-  );
+  const pending = new SemicolonUnit(root.Template, PendingStates.EndInclusive);
   root.AddToMounted(pending);
   feed(context, document, 4);
   eq(pending.Closed, true, "EndInclusive：暂存单元已经关闭");
@@ -143,9 +160,7 @@ console.log("PendingUnit —— 暂存单元");
 {
   // `EndExclusive`：`;` **不算**体的一部分，要交回去重新处理一次
   const { document, context, root } = scene("abc;zzz");
-  const pending = new PendingUnit(root.Template, (_ctx, source) =>
-    source.Value === ";" ? PendingStates.EndExclusive : PendingStates.Continue,
-  );
+  const pending = new SemicolonUnit(root.Template, PendingStates.EndExclusive);
   root.AddToMounted(pending);
   feed(context, document, 4);
   eq(pending.Closed, true, "EndExclusive：暂存单元已经关闭");
@@ -161,11 +176,32 @@ console.log("PendingUnit —— 暂存单元");
 }
 
 {
+  // `ReloadOwner`：交回的对象**可以不是父单元**——因为字符经 `MountedUnit` 送来、
+  // 而 `Parent` 是树上那一格，两者可以不是同一个（第 398 轮新增的口径）。
+  const { document, context, root } = scene("abc;zzz");
+  const seen = [];
+  const sink = {
+    Process(_ctx, source) {
+      seen.push(source.Value);
+    },
+  };
+  const pending = new SemicolonUnit(root.Template, PendingStates.EndExclusive);
+  pending.ReloadOwner = sink;
+  root.AddToMounted(pending);
+  feed(context, document, 4);
+  eq(pending.Closed, true, "ReloadOwner：暂存单元已经关闭");
+  eq(seen.join(""), ";", "ReloadOwner：交回的那个字符落到了指定的 owner 手里");
+  eq(
+    root.Data.some((item) => item.constructor.name === "SymbolToken"),
+    false,
+    "ReloadOwner：父单元没有再接一次（没有被处理两遍）",
+  );
+}
+
+{
   // 空体 + `EndExclusive`：**一个字符都没吃过时不许不含地结束**
   const { document, context, root } = scene(";zzz");
-  const pending = new PendingUnit(root.Template, (_ctx, source) =>
-    source.Value === ";" ? PendingStates.EndExclusive : PendingStates.Continue,
-  );
+  const pending = new SemicolonUnit(root.Template, PendingStates.EndExclusive);
   root.AddToMounted(pending);
   feed(context, document, 1);
   eq(pending.Closed, true, "空体：暂存单元已经关闭（没有抛 SourceRangeContainsNull）");
@@ -175,14 +211,34 @@ console.log("PendingUnit —— 暂存单元");
 }
 
 {
-  // 没装判定器：恒 `Continue`，一个字符都不吃地挂着
+  // 判定恒 `Continue`：一个字符都不吃地挂着
   const { document, context, root } = scene("abc");
-  const pending = new PendingUnit(root.Template, () => PendingStates.Continue);
+  const pending = new ForeverUnit(root.Template);
   root.AddToMounted(pending);
   feed(context, document, 3);
   eq(pending.Closed, false, "恒 Continue：暂存单元一直没关");
   eq(root.MountedUnit, pending, "恒 Continue：父单元的 MountedUnit 还是它");
   eq(pending.SourceRange.Start.Index, 0, "恒 Continue：起点已经在第一个字符上钉住了");
+}
+
+{
+  // **基类的 `IsEnd` 是抽象钩子**：直接问它就抛，
+  // 不会悄悄「恒 Continue」——那会让一个忘了覆写的子类永远不收尾（静默错值）。
+  // 这里**直接问**、不走 `feed`：`SyntaxContext.ProcessSingle` 会把异常收成消息（那是它的职责），
+  // 而这条判据要问的正是「基类到底有没有兜底」。
+  const { document, context, root } = scene("abc");
+  const bare = new PendingUnit(root.Template);
+  let raised = "";
+  try {
+    bare.IsEnd(context, document.At(0));
+  } catch (error) {
+    raised = error && error.message ? error.message : String(error);
+  }
+  eq(
+    raised.includes("abstract member: IsEnd"),
+    true,
+    "基类 IsEnd 是抽象钩子：忘了覆写会当场抛，不会静默不收尾",
+  );
 }
 
 console.log("");
