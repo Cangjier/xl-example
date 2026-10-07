@@ -753,7 +753,10 @@ Statement.FormFrom(unit, terminator);
 - **类型下半段接在 `TypeBracket` 之后** ✓（第 492 轮 ✓）：`ImportType`(16) → `TypePrefix`(17) →
   `LiteralType`(18) → `JsonArray`(19) → `InferType`(20) → `TypeParameter`(21) → `TypePredicate`(22) →
   `TupleMember`(23) → `ParenthesizedType`(24) ✓ —— 两次量的账：前四条值 349 → **381** ✓，
-  九条全上值 → **426 / 1037** ✓（**字段名那一栏从 115 掉回 26** ✓）。
+  九条全上值 → **424 / 1037** ✓（**字段名那一栏从 115 掉回 26** ✓）。
+- **后半段接在 `ParenthesizedType` 之后** ✓（第 493 轮 ✓）：`HeritageClause`(26) → `BindingElement`(27)
+  → `Import`(28) → `Export`(29) → `NamespaceExport`(30) → `TypeUnion`(31) → `As`(32) ✓
+  —— 值 424 → **464 / 1037** ✓。
 
 **每条规则还是它自己那一份实现** ✓：`XxxReorganization.Instance.ApplyTo(unit)` ✓
 （那个循环只有一份 ✓，见 `core/syntax/reorganization.xl.md` ✓）——
@@ -783,6 +786,13 @@ TypeParameterReorganization.Instance.ApplyTo(unit);
 TypePredicateReorganization.Instance.ApplyTo(unit);
 TupleMemberReorganization.Instance.ApplyTo(unit);
 ParenthesizedTypeReorganization.Instance.ApplyTo(unit);
+HeritageClauseReorganization.Instance.ApplyTo(unit);
+BindingElementReorganization.Instance.ApplyTo(unit);
+ImportReorganization.Instance.ApplyTo(unit);
+ExportReorganization.Instance.ApplyTo(unit);
+NamespaceExportReorganization.Instance.ApplyTo(unit);
+TypeUnionReorganization.Instance.ApplyTo(unit);
+AsReorganization.Instance.ApplyTo(unit);
 ParameterReorganization.Instance.ApplyTo(unit);
 TypeAssignReorganization.Instance.ApplyTo(unit);
 TypeDefineReorganization.Instance.ApplyTo(unit);

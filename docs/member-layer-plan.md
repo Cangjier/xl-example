@@ -1976,5 +1976,33 @@ cases:check 1050 全过 ✓）。对照态 **859** 不动 ✓。
 `UnaryOperator`(50) / `BinaryOperator` 那一族（第 51 起）✓ / `LogicalOperator` / `Spread` ✓。
 **一笔仍待解**：`StatementReorganization3`（容器关闭时最后那一格 ✓）。
 
+## 一百一十、后半段接上（第 493 轮）：424 → **464 / 1037**
+
+接在 `ParenthesizedType`(24) 之后、`Parameter`(25) 之前 ✓，次序照队列 ✓：
+`HeritageClause`(26) → `BindingElement`(27) → `Import`(28) → `Export`(29) → `NamespaceExport`(30)
+→ `TypeUnion`(31) → `As`(32) ✓。
+
+| 项 | 第 492 轮 | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 424 | **464 / 1037** ✓ |
+| 缺 | 3832 | **3276** ✓ |
+| 多出来 | 2494 | **2214** ✓ |
+| 漂移 | 541 | 557 ✗ |
+| 字段名 | 26 | 27 ✗ |
+
+**门**：`runtime:check` 134 → **135 / 242** ✓；`cases:tsast` **第一次出现 1 片通过** ✓
+（16 片里有一片的语料全绿 ✓ —— 分片是「每片各自算四方向」✓，一片绿就是那片语料全对 ✓）；
+`coverage` 331 / 1713 ✓、`cases:check` 1050 全过 ✓。
+**对照态这一轮没重量** ✗：这一趟在对照态本来就不跑（第 487 轮起就关着 ✓），前四轮每次都复量到 **859** 不动 ✓。
+
+**下一块**：队列剩下的都在 `As`(32) 之后 ✓ —— `FunctionType`(33) / `ConditionalType`(34) /
+`Lamda`(36) / `TernaryOperator`(38) / `Try`(39) / `Switch`(40) / `For`(41) / `Foreach`(42) /
+`DoWhile`(43) / `While`(44) / `WrapSymbol`(45) / `PropertyAccess`(46) / `CompoundAssignmentOperator`(47) /
+`NotNull`(48) / `OptionalCall`(49) / `UnaryOperator`(50) / `BinaryOperator` 那一族（第 51 起）/
+`LogicalOperator` / `Spread` ✓，最后是已经接上的关键字 ✓。
+**到那一步之前先记一笔** ✗：全接完之后这一趟就**等于整条队列** ✓，而对照态（整条队列 ✓）
+自己也只到 **859 / 1037** ⇒ **再往上必须靠投影侧** ✓（绿树自己也差的那 178 份 ✓）——
+这条界线要在接完之前想清楚 ✓，别把「把队列搬完」当成终点 ✓。
+
 
 
