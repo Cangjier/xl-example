@@ -830,118 +830,49 @@ for (let pass = 0; pass < maxPasses; pass++) {
   前面那几十条规则先把形状收拢 ✓。
 
 ```ts
-DecoratorReorganization.Instance.ApplyTo(unit);
-FunctionReorganization.Instance.ApplyTo(unit);
-SignatureReorganization.Instance.ApplyTo(unit);
-MethodDeclarationReorganization.Instance.ApplyTo(unit);
-FieldReorganization.Instance.ApplyTo(unit);
-NewReorganization.Instance.ApplyTo(unit);
-MethodReorganization.Instance.ApplyTo(unit);
-NullConditionalOperatorReorganization.Instance.ApplyTo(unit);
-NamespaceReorganization.Instance.ApplyTo(unit);
-TypeLiteralReorganization.Instance.ApplyTo(unit);
-BlockReorganization.Instance.ApplyTo(unit);
-JsonObjectReorganization.Instance.ApplyTo(unit);
-// **Label 要排在 JsonObject 之后** ✓（第 504 轮 ✓）：对象字面量里 { type: 1 } 的 	ype:
-// 也是「名字 + 冒号」✓，而 LabelReorganization.Previous 的 IsStatementStart 在**还没收成 ObjectLiteral**
-// 的平铺列表上答「是」✗ ⇒ 于是 	ype: 1 被收成 LabeledStatement ✗（实测 m-prop-named-keywords.ts：
-// 对照态**完全一致** ✓、这一版缺 PropertyAssignment ✗）。把 JsonObject 提到它前面 ✓，
-// Label 那时看到的就是一个已经成形的 ObjectLiteral ✓（对拍：那条用例四个方向全零 ✓）。
-// **`{` 括号自己那一趟不跑 `Label`** ✓（第 507 轮 ✓，探针量出来的 ✓）：标签只能挂在**语句**上 ✓，
-// 而这一层还没定那个 `{` 是**块**还是**对象字面量** ✓ —— 子单元先关 ✓，括号自己那一趟就把
-// `{ type: 1 }` 里的 `type:` 收成了 `Label` ✗；等父那一趟 `JsonObjectReorganization` 收成
-// `ObjectLiteral` 时 ✓，`Label` 已经在里面了 ✗（实测 `am-prop-named-keywords.ts`：那一版缺 3 / 多 1 ✗，
-// 而对照态**完全一致** ✓）。块里的标签不受影响 ✓：块那一趟由**语句队列**负责 ✓
-//（`JsonObjectReorganization` 造块/对象时会给它补队列 ✓）。
-if (unit.constructor.name !== "Bracket" || (unit as Bracket).startBracket !== "{") {
-  LabelReorganization.Instance.ApplyTo(unit);
-}
-TypeBracketReorganization.Instance.ApplyTo(unit);
-ImportTypeReorganization.Instance.ApplyTo(unit);
-TypePrefixReorganization.Instance.ApplyTo(unit);
-LiteralTypeReorganization.Instance.ApplyTo(unit);
-JsonArrayReorganization.Instance.ApplyTo(unit);
-InferTypeReorganization.Instance.ApplyTo(unit);
-TypeParameterReorganization.Instance.ApplyTo(unit);
-TypePredicateReorganization.Instance.ApplyTo(unit);
-TupleMemberReorganization.Instance.ApplyTo(unit);
-ParenthesizedTypeReorganization.Instance.ApplyTo(unit);
-ParameterReorganization.Instance.ApplyTo(unit);
-HeritageClauseReorganization.Instance.ApplyTo(unit);
-BindingElementReorganization.Instance.ApplyTo(unit);
-ImportReorganization.Instance.ApplyTo(unit);
-// **`Export` 自己那一趟不收自己** ✗（第 548 轮 ✓）：`export { a, b }` 收成一个 `Export` 之后 ✓，
-// 它自己的 `Data` 里**还留着那个 `export` 词** ✓（`Process` 把它当第一格收进去 ✓）——
-// 而此刻它仍是 `Identifier` ✗（`KeywordReorganization` 排在最后 ✓，还没轮到 ✓），
-// 于是这一条规则在 `Export` 的 `Data` 上**又匹配一次** ✓ ⇒ 一层套一层 ✗：
-// 实测 `ex-named.ts` 的 `export { c }` 是**八层 `Export`** ✓，正好卡在深度界上 ✓
-//（`TokenFormerImpl.Depth >= 8` ✓ 见 `ApplyCloseRules` ✓ —— 界那一层不再跑规则 ✓，
-// 所以最里面那一层才留着 `Identifier(export)` + `Bracket` ✓）。
-// 投影侧只看得见**最外层那一格** ✗（`projectExport` 拿到的 `kids` 里只有一个 `Export` ✗，
-// 括号一个也找不到 ✗）⇒ 缺 `NamedExports` + 每一格 `ExportSpecifier` / 里面的 `Identifier` ✗
-//（`cases:tsast` 的 118 份里 `expr-as-then-value-operator.ts` 一份就缺 38 ✓）。
-// **导出列表里不可能再出现一条导出语句** ✓（里面是名字 / `as` / `from "m"` ✓），
-// 所以这一趟跳过它是纯赚 ✓ —— 与上面 `Label` 那一处同一个做法 ✓。
+// **照着单元自己的队列跑** ✓（第 555 轮 ✓）：次序由队列给 ✓（那里本来就是
+// 「顺序即语义」的唯一定义 ✓），这一趟不再手抄第二份名单 ✗。
 //
-// **`Export` 那一格上不跑表达式规则** ✓（第 549 轮 ✓）：`export * as ns from "m"` 里的 `*` 是
-// **转发记号** ✓、`as ns` 是**命名空间子句那两个词** ✓，两样都不是表达式 ✗ ——
-// 可原来它们照跑 ✗：`AsReorganization` 先把 `as ns from "m"` 折成一个 `As` ✓、
-// `BinaryOperatorReorganization.MultiplicativeInstance` 再把 `export * As` 折成一个乘法 ✗
-// ⇒ 单元的 `Data` 由**平铺六格**变成一个 `BinaryOperator` ✗；而那个 `BinaryOperator`
-// **关的时候又跑一遍这一串规则** ✓ —— 它 `Data` 里那个 `export` 此刻还是 `Identifier` ✗
-//（`KeywordReorganization` 排在最后 ✓）⇒ `ExportReorganization` 在它里面**再套一层** ✓
-// ⇒ 一层套一层、直到深度界 ✗（实测 `ex-reexport.ts` 套了 4 层 ✓；第 548 轮那一处是同一族 ✓，
-// 只是它挡在**单元自己那一趟**上 ✓，管不住规则造出来的子单元 ✓）。
-// 投影侧因此只看得见最里面那一格 ✗ ⇒ 三条一起缺 ✗：`NamespaceExport` + 它的 `Identifier` +
-// `moduleSpecifier` 那个 `StringLiteral` ✓（三份用例各缺 3 ✓：`ex-reexport.ts` /
-// `mod-export-star-as-namespace.ts` / `mod-adversarial-shapes.ts` ✓）。
-// **跳过是纯赚** ✓：导出子句里不可能出现表达式 ✗ —— `export default …` / `export = …` 只把
-// **前缀两个词**收进单元 ✓，那段表达式留在外面 ✓（见 `tokens/export.xl.md` ✓）。
+// **为什么必须照队列** ✗：单元的队列**不一定是**通用那一份 ✓ ——
+// `PropertyAccess` / `TypeDefine` / `BinaryOperator` 那一族装的是**类型队列**
+//（`InitialKeywordReorganizationQueue` ✓），对照态里它们**只跑那 15 条** ✓。
+// 手抄名单对谁都跑整串 ✗ ⇒ `PropertyAccessReorganization` 在 `PropertyAccess` **自己**的
+// `Data` 上又匹配一次 ✗ ⇒ 一层套一层、直到深度界 ✓
+//（实测 `a.b.c` 在产物里是**八层同区间**的 `PropertyAccess` ✓，投影只看得见最里面那一格 ✗）。
+//
+// 解析期独有的三处偏差留在这里 ✓（原来散在名单里 ✓）：
+// · `Let` 跳过 ✗（第 490 轮 ✓：解析期已经有 `LetBranch` ✓，再跑一次就是**两次成形** ✗）；
+// · 两条语句规则跳过 ✗（解析期的 `FormStatement` 那一族接管 ✓）；
+// · `Export` 那一格上不跑导出 / `as` / 二元那一族 ✗（第 549 轮 ✓）、
+//   `{` 括号那一格上不跑 `Label` ✗（第 507 轮 ✓）。
+const queue = unit.ReorganizationQueue;
+if (queue === null) {
+  return;
+}
 const isExportUnit = unit.constructor.name === "Export";
-if (!isExportUnit) {
-  ExportReorganization.Instance.ApplyTo(unit);
+const isBraceBracket = unit.constructor.name === "Bracket" && (unit as Bracket).startBracket === "{";
+for (const rule of queue.Data) {
+  if (rule instanceof LetReorganization) {
+    continue;
+  }
+  if (rule instanceof StatementReorganization2 || rule instanceof StatementReorganization3) {
+    continue;
+  }
+  if (isBraceBracket && rule instanceof LabelReorganization) {
+    continue;
+  }
+  if (
+    isExportUnit &&
+    (rule instanceof ExportReorganization ||
+      rule instanceof AsReorganization ||
+      rule instanceof BinaryOperatorReorganization ||
+      rule instanceof LogicalOperatorReorganization ||
+      rule instanceof SpreadReorganization)
+  ) {
+    continue;
+  }
+  rule.ApplyTo(unit);
 }
-NamespaceExportReorganization.Instance.ApplyTo(unit);
-TypeUnionReorganization.Instance.ApplyTo(unit);
-if (!isExportUnit) {
-  AsReorganization.Instance.ApplyTo(unit);
-}
-FunctionTypeReorganization.Instance.ApplyTo(unit);
-ConditionalTypeReorganization.Instance.ApplyTo(unit);
-TypeAssignReorganization.Instance.ApplyTo(unit);
-LamdaReorganization.Instance.ApplyTo(unit);
-TypeDefineReorganization.Instance.ApplyTo(unit);
-TernaryOperatorReorganization.Instance.ApplyTo(unit);
-TryReorganization.Instance.ApplyTo(unit);
-SwitchReorganization.Instance.ApplyTo(unit);
-ForReorganization.Instance.ApplyTo(unit);
-ForeachReorganization.Instance.ApplyTo(unit);
-DoWhileReorganization.Instance.ApplyTo(unit);
-WhileReorganization.Instance.ApplyTo(unit);
-WrapSymbolReorganization.Instance.ApplyTo(unit);
-PropertyAccessReorganization.Instance.ApplyTo(unit);
-CompoundAssignmentOperatorReorganization.Instance.ApplyTo(unit);
-NotNullReorganization.Instance.ApplyTo(unit);
-OptionalCallReorganization.Instance.ApplyTo(unit);
-UnaryOperatorReorganization.Instance.ApplyTo(unit);
-// **二元 / 逻辑那一族也不在 `Export` 那一格上跑** ✓（第 549 轮 ✓，理由见上 ✓）：
-// 导出子句里那唯一一个运算符形态就是转发记号 `*` ✓，它被乘法那一趟折走正是自激的起点 ✗。
-if (!isExportUnit) {
-  BinaryOperatorReorganization.PowerInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.MultiplicativeInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.AdditiveInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.InInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.InstanceofInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.EqualityInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.LogicalAssignmentInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.BitwiseInstance.ApplyTo(unit);
-  BinaryOperatorReorganization.NullishInstance.ApplyTo(unit);
-  LogicalOperatorReorganization.AndInstance.ApplyTo(unit);
-  LogicalOperatorReorganization.OrInstance.ApplyTo(unit);
-  SpreadReorganization.Instance.ApplyTo(unit);
-  BinaryOperatorReorganization.CommaInstance.ApplyTo(unit);
-}
-KeywordReorganization.Instance.ApplyTo(unit);
 // **容器末尾那一条语句**（第 544 轮 ✓）：`\n` 与 `;` 两档都不响时（内容直接顶到 `}` / EOF ✓）
 // 由这一句补壳 ✓ —— 判据、白名单、切片都在 `Statement.FormTail` 那一份实现里 ✓
 //（排在最后 ✓：前面那几十条规则先把表达式收拢 ✓，壳里装的就是收拢后的形状 ✓）。

@@ -4939,6 +4939,102 @@ ImportType [97,112)
 3. **一个 `Statement` 壳里两个段头** ✓（`stmt-adversarial-shapes.ts` 的 `[7,2,7,1]` ✓，
    见上一节第五节第 1 条 ✓）与**泛型约束 / 映射类型**那两族 ✓（同上 ✓）。
 
+## 一百五十八、关闭前那一趟手抄的规则名单：`PropertyAccess` 在自己身上又折一次（第 555 轮）：967 → **984 / 1037**
+
+起点 **967 / 1037** ✓（缺 364 / 漂 51 / 多 197 / 字段名 6 ✓、解析 1037 / 抛异常 0 ✓）。
+上一节第五节列的第 1 条入口（`?.` 那一族 ✓）量下去，根子**不在 `?.`** ✗ —— 在**关闭前那一趟** ✗。
+
+### 一、现场：`a.b.c` 在产物里是**八层同区间**的 `PropertyAccess`
+
+`tmp/recon/tree.cjs` 打出来是这样 ✓（`tmp/r555-c.ts` ✓）：
+
+```
+PropertyAccess [0,5)
+  PropertyAccess [0,5)
+    …（共八层，同一个区间）…
+        Identifier [0,1) "a"
+        SymbolToken [1,2) "."
+        Identifier [2,3) "b"
+        SymbolToken [3,4) "."
+        Identifier [4,5) "c"
+```
+
+**八层正好是深度界** ✓（`TokenFormerImpl.Depth >= 8` ✓）⇒ 这是「自己套自己」那一族 ✓
+（与第 548 轮 `export { … }` 八层 ✓、第 549 轮 `ex-reexport` 四层 ✓ 同一个味道 ✓）。
+投影只看得见**最外面那一格的外壳** ✓ —— `a?.b.c?.d?.()` 于是投成
+`PropertyAccessExpression{name: Identifier("b.c")}` ✗（把 `b.c` 当成一个名字 ✓，
+`?.` 也挂错了层 ✓），三份 `?.` 用例各是 0 缺 / 3 漂 / 1 多 / 1 字段名 ✓。
+
+### 二、真因：那一趟**对谁都跑整串**，不看单元自己的队列
+
+`RunCloseRules` 原来是一份**手抄的规则名单** ✗（一行一条 `XxxReorganization.Instance.ApplyTo(unit)` ✓），
+而每个单元的 `ReorganizationQueue` **不一定是通用那一份** ✗：
+`PropertyAccess` / `TypeDefine` / `BinaryOperator` / `UnaryOperator` 那一族装的是
+**类型队列** ✓（`InitialKeywordReorganizationQueue` ✓，15 条 ✓），
+对照态里它们**只跑那 15 条** ✓ —— 手抄名单却对谁都跑整串 ✗
+⇒ `PropertyAccess` 关闭时跑的规则里**有 `PropertyAccessReorganization`** ✗
+⇒ 它在自己刚收好的 `Data`（`[a, ., b, ., c]` ✓）上又匹配一次 ✓
+⇒ 一层套一层、直到深度界 ✓。
+
+**这也说明第 508 轮那一句不够** ✗：那里加的是「没有队列的单元不进这一趟」✓
+（`ReorganizationQueue === null` ✓）——而 `PropertyAccess` **有**队列 ✓，只是**不是那一份** ✗。
+
+### 三、修法：照**单元自己的队列**跑（`typescript/parse-pipeline.xl.md`）
+
+`RunCloseRules` 整段换成 `for (const rule of queue.Data) { … rule.ApplyTo(unit); }` ✓ ——
+**次序由队列给** ✓（那里本来就是「顺序即语义」的唯一定义 ✓），解析期独有的三处偏差写在同一处 ✓：
+
+| 偏差 | 理由 |
+| --- | --- |
+| 跳过 `LetReorganization` | 解析期已经有 `LetBranch` ✓，再跑一次是**两次成形** ✗（第 490 轮 ✓） |
+| 跳过 `StatementReorganization2` / `3` | 解析期的 `FormStatement` 那一族接管 ✓ |
+| `Export` 那格不跑 导出 / `as` / 二元那一族 ✗、`{` 括号那格不跑 `Label` ✗ | 第 549 / 507 轮那两段账 ✓ |
+
+**顺带的变化**（队列里有、手抄名单里漏了的）：`ShiftInstance` / `RelationalInstance`
+两条二元规则**从此也跑** ✓（`a << b` / `a < b` 那一族 ✓）。
+
+### 四、读数
+
+| 项 | 第 554 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 967 | **984 / 1037** ✓（+17 ✓） |
+| 缺节点 | 364（77 类） | **242**（61 类）✓（−122 ✓） |
+| 多出来的节点 | 197（44 类） | **164**（39 类）✓（−33 ✓） |
+| 区间漂移 | 51（18 类） | **35**（14 类）✓（−16 ✓） |
+| 字段名不符 | 6 | **2** ✓（−4 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24301 | **21761** ✓（−2540 ✓：phantom 层整片消失 ✓） |
+
+逐文件前后名单做差 ✓（`tmp/recon/r555-base-perfile.txt` ↔ `tmp/recon/r555-perfile.txt` ✓，
+工具 `tmp/recon/r552-cmp2.cjs` ✓）：**变绿 17 份、变差 0 份** ✓ ——
+`?.` 那三份 ✓（`ex-optional-chain` / `expr-optional-call-nodes` / `expr-optional-member-then-member` ✓）、
+`expr-template-tagged-suffix` ✓、`expr-template-tagged-in-operator` ✓、`expr-computed-call` ✓、
+`decl-computed-field-after-generic` ✓、`decl-label-block` ✓、`st-label-block` ✓、`stmt-label-block` ✓、
+`expr-optional-nullish` ✓、`cls-hash-in-operator` ✓、`decl-class-private-field-in-operator` ✓、
+`lex-private-in` ✓、`decl-enum-computed-member` ✓、`enum-heterogeneous` ✓、
+`type-new-nodes-adversarial` ✓。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **237 / 242** ✓（**+12** ✓，
+第 554 轮末是 225 ✓）；`runtime:cli` **70 / 79** ✓（**+17** ✓，第 554 轮末是 53 ✓）；
+`samples` 仍红 ✗（还是那两处 ✓：`declarations.ts` 的装饰器 ✓、`generic.ts` 的类型实参 ✓）；
+`coverage` **1559 / 1713** ✓（**+160** ✓：blocked 126 → **116** ✓、differ 188 → **38** ✓、bad 0 ✓、
+整体加权 80.4% → **89.0%** ✓，落盘 `tests/coverage/report.json` ✓）；
+**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **对象字面量的成员那一族** ✓（现在最大的一处 ✓）：`ex-object-literal.ts`（37 缺 ✓）与
+   `ty-object-literal.ts`（12 缺 / 6 多 ✓）—— 多行对象字面量里，成员被 `Statement` 壳包住 ✗
+   （`Statement.FormFrom` / `StatementBranch` 的排除名单里有 `ClassBody` / `InterfaceBody` /
+   `TypeLiteralBody` / `EnumBody` / `[` / `(` ✓，**没有对象字面量** ✗），
+   于是 `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`** ✗
+   ⇒ 整片投成 `ExpressionStatement` ✗（`coverage` 的 blocked 里
+   `unimplemented: object literal member ExpressionStatement` / `LabeledStatement` 一大片 ✓）；
+2. 泛型约束 / 映射类型那两族 ✓（`lex-generic-union-constraint` 23 缺 / 7 多 ✓、
+   `lex-generic-multiline-constraints` 17 缺 / 7 多 ✓、`ty-mapped-as-remap` 15 缺 / 13 多 ✓、
+   `ty-mapped` 13 缺 / 6 多 ✓）—— 与第 551 轮列的第 2 / 3 条相同 ✓；
+3. 一个 `Statement` 壳里两个段头 ✓（`stmt-adversarial-shapes.ts` 的 `[7,2,7,1]` ✓，同上 ✓）。
+
 
 
 
