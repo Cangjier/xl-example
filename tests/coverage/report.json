@@ -38,27 +38,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.81,
+  "progressPercent": 97.93,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 493,
-      "blocked": 2,
+      "pass": 494,
+      "blocked": 1,
       "differ": 7,
       "nodefail": 0,
-      "coverage": 98.21
+      "coverage": 98.41
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 404,
+      "pass": 405,
       "blocked": 3,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 98.3
+      "coverage": 98.54
     },
     {
       "layer": "stdlib",
@@ -82,12 +82,6 @@
     }
   ],
   "blocked": [
-    {
-      "id": "c330-ex-ternary-arrow-branches",
-      "layer": "runtime",
-      "title": "三元的两支是箭头函数：不套括号的写法",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
-    },
     {
       "id": "c371-rt-bind-call-apply-forms",
       "layer": "runtime",
@@ -185,12 +179,6 @@
       "layer": "exec",
       "title": "展开：调用、new、数组、对象、rest 参数",
       "detail": "stdout 不同：第 3 行：node «{\"a\":9,\"b\":2,\"c\":3} {\"0\":1,\"1\":2,\"2\":3}» vs tsrun «{\"a\":9,\"b\":2,\"c\":3} {}»"
-    },
-    {
-      "id": "c371-ex-class-expression-forms",
-      "layer": "exec",
-      "title": "类表达式：匿名、具名自引用、extends 表达式",
-      "detail": "stdout 不同：第 1 行：node «1 2 Named bc true» vs tsrun «1 2 Named bc false»"
     },
     {
       "id": "c373-ex-compound-assign-logical-rhs",

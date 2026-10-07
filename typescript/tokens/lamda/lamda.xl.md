@@ -718,6 +718,18 @@ if (next instanceof Bracket && next.startBracket === "{") {
       break;
     }
   }
+  // **「没找到语句尾」那一档要先兜底，再扫三元的 `:`** ✗（第 593 轮 ✓，**实测撞到的** ✓）：
+  // `const add = flag ? (a: number) => a + 1 : (a: number) => a - 1;` 走到这里时**那个 `;` 还没到** ✓
+  //（它正是触发本规则那一格 ✓）⇒ `Statement.SearchStatementEnd` 给 `-1` ✗ ⇒ 下面那个
+  // `for (i = index + 1; i <= endIndex; …)` **一次都不转** ✓ ⇒ `:` 没被剪掉 ✓
+  // ⇒ 体一路吃到**第二个箭头** ✓（实测产物：`LamdaBody` 里除了 `a + 1` 还有一个
+  // `TypeDefine > FunctionType` ✓，而 TS 那边是 `ConditionalExpression` 两支各一个
+  // `ArrowFunction` ✓）⇒ 降级层报 `unimplemented: binary operator ?` ✓（`c330-ex-ternary-arrow-branches` ✓）。
+  // **次序反过来就好** ✓：`endIndex` 的兜底（「没找到 ⇒ 到列表末尾」✓）与后面的用途无关 ✓，
+  // 先做它，那个 `:` 扫描才有界 ✓。
+  if (endIndex === -1) {
+    endIndex = units.length - 1;
+  }
   if (arrowInTernary) {
     for (let i = index + 1; i <= endIndex; i++) {
       const item = Get(units, i);
@@ -726,9 +738,6 @@ if (next instanceof Bracket && next.startBracket === "{") {
         break;
       }
     }
-  }
-  if (endIndex === -1) {
-    endIndex = units.length - 1;
   }
   while (endIndex > index + 1) {
     const endUnit = Get(units, endIndex);

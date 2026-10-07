@@ -1030,7 +1030,6 @@ export const EXPECTATIONS = {
   "c371-ex-spread-forms": { expect: "differ", why: "展开数组（`{...xs}`）应当带上下标键（Node 给 `{\"0\":1,…}`，本仓给 `{}`）。" },
 
   // ---- 类表达式在体内 `Named.name` 可见（本仓给 `false` 那一格）。
-  "c371-ex-class-expression-forms": { expect: "differ", why: "类表达式在体内 `Named.name` 可见（本仓给 `false` 那一格）。" },
 
   // ---- **类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。
 
@@ -1180,7 +1179,6 @@ export const EXPECTATIONS = {
 
   // ---- 簇 B：降级层还没接的两格。
 
-  "c330-ex-ternary-arrow-branches": { expect: "blocked", why: "**簇 B**：三元的两支是箭头函数、且不套括号 ✓ ⇒ `unimplemented: binary operator ?` ✓（三元规则凑不齐那一对 `?` / `:` ✓）。" },
 
   // ---- 簇 C：两个各自独立的现场。
   "c305-e2e-event-emitter-generic": { expect: "blocked", why: "**簇 C**：泛型事件总线 ✓ ⇒ `ast node ForOfStatement has no child initializer` ✓（`for..of` 头部的声明段没成形 ✓，与 `foreach.xl.md` 第 545 轮记的那一格同源 ✓）。" },

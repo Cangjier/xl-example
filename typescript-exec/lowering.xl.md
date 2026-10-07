@@ -1094,10 +1094,32 @@ for (let i = 0; i < clauses.length; i++) {
 return "";
 ```
 
+## method ExtendsExpressionOf:(node:AstNode)=>AstNode | null
+
+`extends` 后面那个**表达式**节点；没有 `extends` 子句（或它的 `types` 是空的）时给 `null`。
+
+**与 `SuperClassNameOf` 的分工**：那一支只认简单名（给字符串），这一支给节点——
+名字那一档走 `ResolveAccess`（取现成那一格），表达式那一档走 `LowerExpression`（真的求值）。
+两条路挑子句的判据一字不差（`token === "extends"`、取 `types[j].expression`）。
+
+```ts
+const clauses = ListOf(node, "heritageClauses");
+for (let i = 0; i < clauses.length; i++) {
+  if (clauses[i]["token"] !== "extends") continue;
+  const types = ListOf(clauses[i], "types");
+  for (let j = 0; j < types.length; j++) {
+    const base = Child(types[j], "expression");
+    if (base !== null) {
+      return base;
+    }
+  }
+}
+return null;
+```
+
 ## field Scope:Array<LocalScope> = []
 
 作用域栈，栈顶是当前这一层。
-
 ## field NextFree:int = 0
 
 **下一条空槽**。槽的分配是一条水道：进作用域时记住水位，退出去时**把水位退回去**
@@ -6422,8 +6444,9 @@ return false;
 **类名要先占一格**：方法体里可以引用类名（`class C { m() { return C; } }`），
 而闭包的环境是**造它那一刻**抄下来的——名字必须在那之前就在作用域里。
 
-**先做不做**（都抛，写进文首那张表）：生成器方法与 async 方法、计算键成员、
-`extends` 一个表达式（只认简单名字）。
+**先做不做**（都抛，写进文首那张表）：生成器方法与 async 方法、计算键成员。
+（`extends` 一个表达式从第 593 轮起**已收**——名字那一档走 `ResolveAccess`，
+其余走 `LowerExpression` + 取 `prototype`。）
 
 **第 128 轮起已收**：**实例字段初始化**（`x = 1` / 光写名字的也落一格 `undefined` ✓，
 写的是 `this.<名字>` ✓）、**`static` 字段 / 方法 / 访问器**（落在构造函数自己身上 ✓）、
@@ -6433,7 +6456,8 @@ return false;
 
 **两处写在明处的差异**：① 字段写入走的是**赋值**（`set_prop`），JS 的类字段走
 `[[DefineOwnProperty]]`——原型上有同名 setter 时行为不同（JS 不调它，这里会调）；
-② `extends` 一个表达式（`class B extends mixin(A) {}`）仍抛。
+② `extends` 一个**表达式**时它被求值**两次**（名字那一档靠 `ResolveAccess` 重查，
+不重求值），见下面 `heritageAgain` 那一支。
 
 ```ts
 // **`extends` 这一轮仍然抛**（引擎那半 `set_proto` 已经就位、也验证过：空类的
@@ -6451,14 +6475,29 @@ let superProto = -1;
 // 所以这里现在只剩一处 ✓，但「取法只有一份」这条纪律照旧 ✓。
 const baseName = this.SuperClassNameOf(node);
 {
+  let baseSlot = -1;
   if (baseName !== "") {
     const access = this.ResolveAccess(baseName);
-    const baseSlot = this.Reserve(1);
+    baseSlot = this.Reserve(1);
     if (access.InEnv) {
       this.Emit(Op.EnvGet, baseSlot, access.Depth, access.Cell, -1);
     } else {
       this.Emit(Op.Move, baseSlot, access.Slot, -1, -1);
     }
+  } else {
+    // **`extends` 一个表达式**（第 593 轮 ✓）：`class D extends (pick ? Base : class {}) {}` 里
+    // 那个名字不是简单名 ✓ ⇒ `SuperClassNameOf` 给空串 ✓。原来这一支**什么都不做** ✗
+    // ⇒ `superProto` 停在 `-1` ✓ ⇒ 原型链不接 ✓ ⇒ `new D() instanceof Base` 给 **`false`** ✗
+    //（Node 给 `true` ✓）——**静默错值** ✓，本仓排最前的一档 ✗
+    //（判据 `c371-ex-class-expression-forms` ✓）。**父类求值本来就是一条普通表达式** ✓：
+    // 拿 `types[0].expression` 交给 `LowerExpression` ✓，再取它的 `prototype` ✓——
+    // 与上面那条名字路**同一个收尾** ✓（`GetProp "prototype"` 一处实现 ✓）。
+    const heritageExpression = this.ExtendsExpressionOf(node);
+    if (heritageExpression !== null) {
+      baseSlot = this.LowerExpression(heritageExpression);
+    }
+  }
+  if (baseSlot >= 0) {
     const baseKey = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
     superProto = this.RtCall2(RtOp.GetProp, baseSlot, baseKey);
   }
@@ -6658,14 +6697,30 @@ if (superProto >= 0) {
   // **`ResolveAccess` 本来就要调第二次** ✓：第一次的结果是一个**槽号** ✓，
   // 而槽号是会过期的 ✗（`ResolveAccess` 查的是名字到位置的映射 ✓，名字没变 ✓，
   // 所以重查一次得到的是**同一个位置** ✓——过期的是「那个位置当时装着谁」✗，不是映射 ✓）。
-  const staticAccess = this.ResolveAccess(baseName);
-  const staticBaseSlot = this.Reserve(1);
-  if (staticAccess.InEnv) {
-    this.Emit(Op.EnvGet, staticBaseSlot, staticAccess.Depth, staticAccess.Cell, -1);
+  let staticBaseSlot = -1;
+  if (baseName !== "") {
+    const staticAccess = this.ResolveAccess(baseName);
+    staticBaseSlot = this.Reserve(1);
+    if (staticAccess.InEnv) {
+      this.Emit(Op.EnvGet, staticBaseSlot, staticAccess.Depth, staticAccess.Cell, -1);
+    } else {
+      this.Emit(Op.Move, staticBaseSlot, staticAccess.Slot, -1, -1);
+    }
   } else {
-    this.Emit(Op.Move, staticBaseSlot, staticAccess.Slot, -1, -1);
+    // **表达式那一档只能再求值一次** ✗（第 593 轮 ✓）：名字那一档能靠 `ResolveAccess` 重查 ✓，
+    // 而「求值出来的那个值」**没有地方存**——临时槽会被后面那几趟函数体降级**重置水位** ✗
+    //（`BeginFunction` 把 `NextFree` 打回 `paramCount` ✓，见那一节的注释 ✓）。
+    // **一笔写在明处的偏差** ✗：JS 里 `extends` 那个表达式**只求值一次** ✓，这里求了两次 ✓——
+    // 表达式是纯的（名字 / 三元 / 条件）时结果一样 ✓，带副作用的写法会跑两遍 ✓。
+    // 换来的是「静态继承不再静默丢」✓（`D.make` 沿 `D.__proto__` 找得到 ✓）。
+    const heritageAgain = this.ExtendsExpressionOf(node);
+    if (heritageAgain !== null) {
+      staticBaseSlot = this.LowerExpression(heritageAgain);
+    }
   }
-  this.RtCallValues(RtOp.SetProto, ctor, staticBaseSlot);
+  if (staticBaseSlot >= 0) {
+    this.RtCallValues(RtOp.SetProto, ctor, staticBaseSlot);
+  }
 }
 for (let i = 0; i < members.length; i++) {
   const member = members[i];
