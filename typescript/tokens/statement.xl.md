@@ -1064,6 +1064,17 @@ if (data.length === 0) {
 if (Statement.IsStatementBoundary(data, data.length - 1)) {
   return result;
 }
+// **`do … while` 不许被行尾的软换行切断** ✓（第 501 轮 ✓）：
+// `do x++` 换行 `while (x < 10)` 是**一条**语句 ✓（TypeScript 的 ASI 在这里不插分号 ✓），
+// 可壳一收就把 `do` 关进壳里 ✓ ⇒ `DoWhileReorganization.Previous` 再也认不出它 ✗
+// ⇒ 落到 `WhileReorganization` 手里 ✓、再因为「`while` 后面没有语句」抛错 ✗
+//（`tests/parse/cases/statements/stmt-do-while-no-block.ts` ✓；对照态同样炸 ✗ —— 这是重组层的老缺口 ✓）。
+// 判据只看**这一段**的第一个实义单元是不是 `do` 这个词 ✓（`Statement.WordOf` 两种形态都认 ✓）。
+const frontIndex = SearchFrontIndexed(data, data.length - 1, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
+const head = Statement.WordOf(Statement.FirstMeaningful(data.slice(frontIndex + 1)));
+if (head === "do") {
+  return result;
+}
 result.Success = true;
 return result;
 ```

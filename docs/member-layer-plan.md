@@ -2265,5 +2265,31 @@ cases:check 1050 全过 ✓）。对照态 **859** 不动 ✓。
 （对照态和禁用 reorg 两档都缺 ✓）—— 两条路：给它加一句「体那一格是语句级单元也算」✓，
 或者按第 499 轮那条线索先修「`LetBranch` 也排在 `LineWrap.AppendIn` 之后、它的换行那一档同样是死的」✓。
 
+## 一百一十八、`do … while` 不许被行尾换行切断（第 501 轮）：语料**全解析**，读数持平
+
+**先量的那条**（第 499 轮的线索 ✓）：把 `LetBranch` 也挪到 `LineWrap.AppendIn` 之前 ✓
+（`tmp/recon/r501-queue2.cjs` ✓）—— **读数一个数字都没动** ✓（552 / 缺 2845 / 漂 216 / 多 2075 / 字段名 74 ✓）
+⇒ 它的「换行那一档」在这个语料里**没有实例** ✓，所以**没有留树** ✗（改动没进源码 ✓，只留工具与这笔账 ✓）。
+
+**真正修掉的那一处** ✓：`do x++` 换行 `while (x < 10)` 是**一条**语句 ✓（ASI 在这里不插分号 ✓），
+可语句壳一收就把 `do` 关进壳里 ✓ ⇒ `DoWhileReorganization.Previous` 再也认不出它 ✗
+⇒ 落到 `WhileReorganization` 手里 ✓、再因为「`while` 后面没有语句」抛错 ✗。
+修法在**壳那一侧** ✓（`typescript/tokens/statement.xl.md` 的 `StatementBranch.Condition` ✓）：
+这一段（上一个语句边界往后 ✓）的第一个实义单元是 `do` 这个词时**不收壳** ✓
+（`Statement.WordOf` 两种形态都认 ✓，与第 500 轮那处加固同一口径 ✓）。
+
+| 项 | 第 500 轮 | 本轮 |
+| --- | --- | --- |
+| 解析成功 / 抛异常 | 1036 / **1** ✗ | **1037 / 0** ✓ |
+| 完全一致 | 552 | 552（持平 ✓） |
+| 缺 / 漂移 / 多出来 / 字段名 | 2845 / 216 / 2075 / 74 | 2846 / 216 / 2081 / 74 ✓ |
+
+**门**（与第 499 轮逐道相同 ✓）：`runtime:check` 154 / 242 ✓、`runtime:cli` 7 / 79 ✓、
+`coverage` 596 / 1713（28.9% ✓）、`cases:check` 1050 全过 ✓；
+`cases:tsast` 0 片 ✗、`samples` 仍差在 `for` 的 incrementor 那一处（两层 `PrefixUnaryExpression` ✗）。
+
+**下一块**：`samples` 那处 `PrefixUnaryExpression` 两层 ✓（`for` 的 incrementor ✓，
+`UnaryOperatorReorganization` 在收敛环里被反复套 ✓ —— 十有八九与「同一容器自我触发」那一族同源 ✓）。
+
 
 
