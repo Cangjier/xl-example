@@ -1030,7 +1030,36 @@ WebIDL 那一族（`undici-types/webidl.d.ts` 等 ✓）遍地是 `['unsigned sh
 **下一轮头号目标**：`node_modules/typescript/lib/typescript.d.ts` 的 `缺 177 / 漂移 16 / 多 69` ✗
 （先看它的头几条是什么形状 ✓，那是真实语料里最像「复杂声明」的一份 ✓）。
 
-## 六十六、每步都要钉住的三件事
+## 六十七、返回类型的两条收口（第 456 轮）：全语料 21 → **15**
+
+照第六十五节那条「先把零件收成形再进容器」的路子，同一轮里又收了两处 ✓
+（都在 `tmp/recon/r61/` 这一版里 ✓，`cases` 稳定在 **1036** ✓）：
+
+1. **类型字面量也先收成形** ✓：`getRelationCacheSizes(): { assignable: number; … }` 那种返回类型，
+   那个 `{` 括号直接搬进 `TypeDefine` 就只是**裸括号** ✗（产物里成员全是散的 ✗，
+   TS 那边是 `TypeLiteral` + `PropertySignature` ✗）。构造照 `type-literal.xl.md` 的 `Process`：
+   `new TypeLiteral` + `CreateBody()` + `brace.MoveDataTo(body)` + `body.Sign(brace)` +
+   `body.TryToClose()` + `literal.TryToClose()` ✓。
+2. **返回类型那段不含尾部的顶层 `;`** ✓：`this is UnionType;` 那种谓词的区间产物宽了一格 ✗
+   （TS 不含 `;` ✓，但**成员**区间含它 ✓ —— 两条口径不同 ✗）。收尾时把顶层 `;` 排除在
+   `typeItems` 之外 ✓（成员自己的 `SignOut` 仍到 `;` 的终点 ✓）。
+
+**读数**：
+
+| 状态 | 全语料 | `typescript.d.ts` |
+| --- | --- | --- |
+| 上一层（`r58/`） | 21 | 177 / 16 / 69 |
+| ＋ 类型字面量先成形 | 17 | 158 / 15 / 44 |
+| ＋ 尾部 `;` 不计入返回类型 | **15** | 158 / **5** / 34 |
+
+整条线：**120 → 65 → 36 → 34 → 21 → 17 → 15** ✓。
+
+**往下看**（下一轮）：剩下 15 个文件里三个大头是
+`webidl.d.ts`（222/3/6 ✗）、`typescript.d.ts`（158/5/34 ✗）、`lib.dom.d.ts`（76/5/68 ✗）——
+`webidl` 的头几条仍是计算名方法 ✓（`['long long'] (V: unknown): number` ✗，
+这一族现在拼不出名字就留给重组 ✓，而重组也接不住 ✗ ⇒ 两边都不收 ✗，是下一轮的入口 ✓）。
+
+## 六十八、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
