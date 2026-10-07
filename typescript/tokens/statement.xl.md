@@ -1,5 +1,9 @@
 # dependencies
 ```xl
+import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
+import { Source } from "../../core/syntax/source.xl.md"
+import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
+import { Branch } from "../../core/syntax/branch.xl.md"
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
@@ -935,4 +939,83 @@ result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
+```
+
+# class StatementBranch extends Branch
+
+**解析期造语句壳**（第 477 轮，reorg 关掉之后按清单重建）。
+
+时机与 `StatementReorganization.Process` 一致 ✓：当前字符是 `;` 或软换行 ✓、而且**已经**进了
+`Data` ✓（所以这个分支要排在 `LineWrap.AppendIn` / `SymbolToken.AppendIn` **之后** ✓）。
+
+判据与收束全部复用那份现成的静态方法 ✓（`Statement.IsStatementBoundary` /
+`Statement.FirstMeaningful` / `ReplaceCountAt` ✓），所以壳的范围、孤独分号的口径
+都与重组那条**逐字一致** ✓。
+
+## static readonly field JumpIn:StatementBranch = new StatementBranch()
+
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+
+```ts
+const result = new BranchConditionResult();
+result.Success = false;
+if (unit === null || unit === undefined) {
+  return result;
+}
+if (Array.isArray(unit.Data) === false) {
+  return result;
+}
+const value = source.Value;
+if (value !== ";" && value !== "\\n") {
+  return result;
+}
+const data = unit.Data;
+if (data.length === 0) {
+  return result;
+}
+// 不在这里做「已包过」的全容器扫描 ✗：一个容器里可以有好几条语句 ✓，
+// 全容器扫一遍会把第二条之后全挡掉 ✗（实测第一条没包上、第二条才包上 ✓）。
+// 只在语句内部收（与重组那条同一份判据）。
+const lastIndex = data.length - 1;
+if (Statement.IsInStatement(data, lastIndex) === false) {
+  return result;
+}
+result.Success = true;
+return result;
+```
+
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+```ts
+const data = unit.Data;
+const index = data.length - 1;
+const frontIndex = SearchFrontIndexed(data, index, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
+let children = data.slice(frontIndex + 1, index + 1);
+// 去掉前导 trivia（前一条语句留下的软换行 ✓）—— 否则语句起点差一位 ✗
+//（实测 let a = 1; 后面那条：产物 [10,30) vs 期望 [11,31) ✗）。
+let head = 0;
+while (head < children.length && (children[head] instanceof LineWrap)) {
+  head = head + 1;
+}
+children = children.slice(head);
+if (children.length === 0) {
+  return;
+}
+const statement = new Statement(unit.Template);
+statement.Parent = unit;
+// 当前这个 `;` **还没进 Data** ✓（分支排在 append 之前 ✓），所以子单元里没有它 ✓
+// —— 与重组那条「
+// children 除最后一个全部装进去」等价 ✓；右边界用 `Source.Index + 1` 自己算 ✓。
+statement.AddRange(children);
+const first = Statement.FirstMeaningful(children);
+const lastUnit = children[children.length - 1];
+if (first.SourceRange.Start !== null && lastUnit.SourceRange.End !== null) {
+  statement.SourceRange.Start = first.SourceRange.Start;
+  // 右边界取**最后一个内容单元的末尾** ✓：这个时机 `source.Index` 拿到的是 `undefined` ✗
+  // （实测产物里出现 `[10,NaN)` ✗），而 `;` 自己那一格由投影侧的补壳逻辑负责 ✓。
+  statement.SourceRange.End = lastUnit.SourceRange.End;
+} else {
+  throw new Error("StatementBranch source range is not complete.");
+}
+ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
 ```
