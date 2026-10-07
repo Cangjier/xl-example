@@ -2392,3 +2392,26 @@ dump 原树看得清楚 ?：`private static readonly b: number` 被包成一个 **`Statement
 **下一块**：给 `LabelReorganization.Previous` 打一次点 ?（`tmp/recon/` 的探针套路 ?），
 把「造它的那一刻 `unit.constructor.name` 是谁」量出来 ? —— 这一笔量清之后，
 要么把闸下在正确的那一层 ?，要么确认「对象字面量的键在平铺阶段就不该被 `Label` 认」?。
+
+### 补记（第 506 轮）：探针量出来了 —— **造 `Label` 那一刻容器是 `{` 括号**
+
+上一节猜的「在语句那一层先造好 ?」**不对** ?。给 `LabelReorganization.Previous` 打点
+（`tmp/recon/r506-label-probe.cjs` ?：命中 `type` / `as` / `is` 这几个词时把**容器类名**与整张单元表打出来 ?）：
+
+```
+tmp/recon/i51.ts（`const o = { type: 1 };`）: Label 命中 1 次
+    container=Bracket units=Identifier,SymbolToken,Identifier word=type
+am-prop-named-keywords.ts: Label 命中 1 次
+    container=Bracket units=Identifier,SymbolToken,Identifier,SymbolToken,… word=type
+```
+
+? **容器是那个 `{` 括号**（还没成 `ObjectLiteral` ?）—— 子单元先关 ?，括号自己那一趟就把 `type:`
+收成了 `Label` ?；等父那一趟跑 `JsonObjectReorganization` 时 ?，`Label` 已经在里面了 ?。
+这也解释了第 505 轮那道闸为什么没拦住 ?：`ObjectLiteral` 那时**还不存在** ?。
+
+**试的那一处**（`tmp/recon/r506b-brace.cjs` ?）：在 `{` 括号自己那一趟里不跑 `Label` ? ——
+脚本本身写崩了 ?（模板串里的反引号 ?），这一轮**没量到** ?，下一轮先修脚本再量 ?。
+
+**下一块**：`{` 括号那一趟到底该不该收标签 ? —— 判据要落在「这个 `{` 是块还是对象字面量」上 ?，
+而那正是 `JsonObjectReorganization.Previous` 手里那句 `IsStatementStart` ?
+（块 ? 标签合法 ?、对象字面量 ? 键不是标签 ?）。
