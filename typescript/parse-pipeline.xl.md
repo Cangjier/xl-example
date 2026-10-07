@@ -40,7 +40,7 @@ import { ForReorganization } from "./tokens/for/for.xl.md"
 import { ForeachReorganization } from "./tokens/foreach/foreach.xl.md"
 import { FunctionReorganization } from "./tokens/function/function.xl.md"
 import { GenericType } from "./tokens/generic-type.xl.md"
-import { IfGuide } from "./tokens/if/if-guide.xl.md"
+import { IfSetBranch } from "./tokens/if/if-set.xl.md"
 import { ImportReorganization } from "./tokens/import.xl.md"
 import { ExportReorganization } from "./tokens/export.xl.md"
 import { InterfaceReorganization } from "./tokens/interface/interface.xl.md"
@@ -114,7 +114,7 @@ import { LineWrap, WrapSymbolReorganization } from "./tokens/line-wrap.xl.md"
 
 **泛型必须排在符号之前**：`<` / `>` 同时是符号，`SymbolToken.AppendIn` 排在前面的话，`<…>` 永远轮不到 `GenericTypeBranch` 判断。排在 `Bracket.JumpIn` 之后则是形状上的就近——两者都是「认下一个字符、挂一个子单元」的单元，且 `( [ {` 与 `<` 不重叠。
 
-**`IfGuide.JumpIn` 只能紧挨在 `Identifier.AppendIn` 前面**（第 392 轮加）：
+**`IfSetBranch.JumpIn` 只能紧挨在 `Identifier.AppendIn` 前面**（第 392 轮加）：
 
 - 它认的字符是 `i` ✓，而排在它前面的那些分支**没有一个会接手 `i`** ✓（正则 / 字符串 / 括号 / 泛型 / 软换行 / 符号 ✓），
   所以插在这儿与插在队尾**只差一件事**：它必须在 `Identifier.AppendIn` **之前** ✓——
@@ -131,7 +131,7 @@ return new Sequence<Branch>([
   PreprocessorDirectives.JumpIn,
   RegexToken.JumpIn,
   StringGuide.JumpIn,
-  IfGuide.JumpIn,
+  IfSetBranch.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
   LineWrap.AppendIn,
@@ -140,7 +140,7 @@ return new Sequence<Branch>([
 ]);
 ```
 
-**`IfGuide.JumpIn` 排在 `Bracket.JumpIn` 之前** ✗（第 395 轮改，用户口径 ✓）：
+**`IfSetBranch.JumpIn` 排在 `Bracket.JumpIn` 之前** ✗（第 395 轮改，用户口径 ✓）：
 它的入口挪到了 **`(`** 那一格 ✓（那时 `if` 已经在宿主的平列表里 ✓，一个向前看的字符都不用读 ✓），
 而 `(` 正是 `Bracket.JumpIn` 认的字符 ✓——排在它后面就永远轮不到 ✓。
 `(` 照样会被开成一个括号 ✓，只是**晚一步** ✓：由向导的暂存单元照**宿主那条队列**开 ✓
@@ -152,14 +152,14 @@ return new Sequence<Branch>([
 
 ## static method CreateMemberListQueue:()=>Sequence<Branch>
 
-**成员列表的跳转队列**：通用队列**去掉 `IfGuide.JumpIn`**（第 393 轮加）。
+**成员列表的跳转队列**：通用队列**去掉 `IfSetBranch.JumpIn`**（第 393 轮加）。
 
 **为什么需要第二条队列** ✗：`class` / `interface` / `enum` 的体是一张成员列表 ✓，
 而成员位上的 `if(a) { }` 是一个**名叫 `if` 的成员** ✓——与 if 语句**形状一模一样** ✗，
 分它们的只有上下文 ✓。第 391 轮用一句词法推断（`Bracket.IsMemberList`）回答了它 ✓，
 而那是「这个 `{` 是不是成员列表」的**第二份答案** ✗（第一份在三条规则自己手里 ✓）。
 
-这一条把答案换成**结构** ✓：成员列表里的字符由这条队列处理 ✓，它里面**没有** `IfGuide.JumpIn` ✓
+这一条把答案换成**结构** ✓：成员列表里的字符由这条队列处理 ✓，它里面**没有** `IfSetBranch.JumpIn` ✓
 ⇒ 「成员列表里不认 if 语句」由**队列本身**保证 ✓，`if` 那一侧一个闸都不用加 ✓。
 
 **这一条队列里不需要摘掉任何东西** ✓：成员位由**队列**保证 ✓，而不是靠某个分支自己让路 ✓。
@@ -182,7 +182,7 @@ return new Sequence<Branch>([
 （所以三处各拿一份、互不影响 ✓；`Removed` 本身也是产出副本 ✓）。
 
 ```ts
-return ParsePipeline.CreateGeneralQueue().Removed([IfGuide.JumpIn]);
+return ParsePipeline.CreateGeneralQueue().Removed([IfSetBranch.JumpIn]);
 ```
 
 ## static method IsMemberListHead:(template:Template, units:Array<Token>)=>bool

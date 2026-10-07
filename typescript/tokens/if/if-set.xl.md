@@ -1,35 +1,120 @@
 # dependencies
 ```xl
-import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
+import { Branch } from "../../../core/syntax/branch.xl.md"
+import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
+import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { Bracket } from "../bracket.xl.md"
+import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { GetSkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { Identifier } from "../identifier.xl.md"
+import { SymbolToken } from "../symbol-token.xl.md"
+import { IfBody } from "./if-body.xl.md"
+import { IfCondition } from "./if-condition.xl.md"
 import { IfSegment } from "./if-segment.xl.md"
+import { IfStatement } from "./if-statement.xl.md"
 ```
 
 # namespace cangjie
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`if` 语句的**容器**：`<IfSet>` 里按段装 `IfSegment`。
+`if` 语句的**容器**：`<IfSet>` 里按段装 `IfSegment`；它**自己就是协调者** ✓。
 
-**它以前是靠重组造出来的** ✗（`IfSetReorganization` ✓，第 394 轮整条删掉了 ✓）：
 那条规则在一张**已经被别的规则动过的**兄弟列表上回扫、跳过 trivia、算下标、`slice` 出一段、
 最后 `ReplaceCountAt` 把整段换掉 ✓。它的难点全在「事后」这两个字上 ✓
 （第 288 轮「体与 `else` 之间夹一条注释就断链」就是这一类 ✓）。
 
-**现在由 `./if-guide.xl.md` 在读的时候造** ✓：向导从 `if` 那个词起把字符收进一个暂存单元 ✓，
-每收一个字符拿那张平列表跑一遍**只看不写**的规划 ✓，规划说「可以了」就地建出本类 ✓。
-判据一字不差地搬了过去 ✓（见那个文件里的 `Plan` ✓），所以产物是同一棵树 ✓。
+**`if` 这一族一律不许再是 `IndependentToken`** ✗、
+**`IfGuide` 的活交给 `IfSet` 的分支条件，`IfSet` 立马挂 `IfCondition`** ✓）。
 
-**为什么它自己不消费字符** ✗：`GuideToken` 那一族把字符都交给了子单元 ✓，
-本类只是**造出来的结果** ✓（`IndependentToken` 的 `Process` 是空的 ✓），
-所以它的 `Data` 只在建它的那一刻被填一次 ✓。
+于是这里**没有向导** ✗、**没有 `Plan` / `Commit` 那一套下标机件** ✗：
+
+```
+IfSetBranch.Condition  在 `(` 处认下（那一刻 `if` 已经读到了 ✓）
+IfSetBranch.Success    建 IfSet、挂到宿主、建第一段、**立马挂 IfCondition**
+之后：字符由挂载链送 —— host → IfSet → IfSegment → IfCondition / IfStatement
+```
+
+**挂载链就是树的链** ✓：每一级的 `MountedUnit` 都指在自己的 `Parent` 上 ✓
+⇒ 子单元 `Quit()` 清的就是正确那一格 ✓，控制权**逐级往上传** ✓。
+所以**没有 `Stage`、没有 `Current`** ✗——「下一步是什么」由**哪一级正在被调用**决定 ✓，
+或者由**那一级自己的 `Data`** 答出来 ✓（段里有条件了 ⇒ 下一个是体 ✓）。
+
+**尾巴走通用队列** ✓：体吃完之后进来的字符由本类的跳转队列**照常词法化** ✓
+（落在本类名下 ✓），于是 `else` 就是一个**关上的 `Identifier`** ✓——
+按它判、不手写词法器 ✗。不是 `else` 就把这些单元**移交宿主** ✓。
+
 
 本类的类名**就是** XML 标签名（取自 `this.constructor.name`）✓，不能改 ✓。
 
-# class IfSet extends IndependentToken
+# class IfSetBranch extends Branch
 
-`if` / `else if` / `else` 整条语句链的容器单元。
+`if` 的进门：**入口落在 `(` 上**，不落在 `i` 上 ✓。
+
+**为什么不落在 `i` 上** ✗：要判「这个 `i` 是 `if` 的开头」只能看下一个字符 ✗，
+而向下看是禁止的 ✓（输入可能一段一段送来 ✓，拿不到时判据会**静默成假** ✗）。
+落在 `(` 上则两样都在允许范围里 ✓：`i` 是 `(` ✓、那个 `if` 已经读到了 ✓。
+而且「`i` 后面紧跟 `(` 的 `i` 只可能是 `if`」⇒ **进门即定形、不撤回** ✓。
+
+位置闸：`a.if(x)` 里那个 `if` 是**方法调用** ✓，它前面隔着一个 `.` ✓ ⇒ 要挡掉 ✓。
+
+**它必须排在 `Bracket.JumpIn` 之前** ✗：`(` 正是 `Bracket.JumpIn` 认的字符 ✓。
+
+## static readonly field JumpIn:IfSetBranch = new IfSetBranch()
+
+注册进通用跳转队列用的实例 ✓。
+
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+
+只看两样：当前字符 `(`、以及**已经读到的**那个 `if` ✓。
+
+```ts
+const result = new BranchConditionResult();
+result.Success = false;
+if (source.Value !== "(") {
+  return result;
+}
+const keyword = unit.Last();
+if (!(keyword instanceof Identifier) || keyword.Is("if") === false) {
+  return result;
+}
+const previous = GetSkipPreviousTrivia(unit.Data, unit.Data.length - 1);
+if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
+  return result;
+}
+if (previous !== null && previous.constructor.name === "NullConditionalOperator") {
+  return result;
+}
+result.Success = true;
+return result;
+```
+
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+建 `IfSet`、把 `if` 那个词摘掉（它不是 XML 节点 ✓）、**立马挂 `IfCondition`** ✓。
+
+（`keyword` 刚 `RemoveSelf` ✓），而且 `ifSet` 从此是这个宿主的 `MountedUnit` ✓
+
+```ts
+const keyword = unit.Last();
+if (keyword === null) {
+  throw new Error("IfSet: 进门时找不到那个 if");
+}
+keyword.TryToClose();
+keyword.RemoveSelf();
+const ifSet = new IfSet(unit.Template);
+unit.AddToMounted(ifSet).SignIn(source);
+ifSet.Begin(keyword);
+ifSet.MountCondition(source);
+```
+
+# class IfSet extends GuideToken
+
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<IfSet>` 里依次是各个 `IfSegment` 的 XML。
 
@@ -124,12 +209,248 @@ import { IfSegment } from "./if-segment.xl.md"
   return build(0).node;
 ```
 
+## private field Segment:IfSegment | null = null
+
+当前那一段 ✓（`if` / `else if` / `else` 各一段 ✓）。**段自己也不吃字符** ✓——
+它只是「条件 + 体」的那一格 ✓，`MountedUnit` 指在它身上，字符再由它转给里面的单元 ✓。
+
+## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+
+**手上没有单元在吃时，由本类定形状** ✓（用户口径：判定全靠 `Data` ✓；**`last` 不许是 `Bracket`** ✗
+⇒ `(` / `{` 必须**在跑队列之前**判完 ✓）。
+
+三段，按顺序：
+
+1. **先判括号** ✓——`(` / `{` **不进队列** ✓，所以 `Data` 里永远不会出现 `Bracket` ✓，
+   也就不需要「造一个空括号再摘掉」那种绕路 ✗；
+2. **其余字符交给队列** ✓——`else` / `if` / 单语句的首单元都照常造成单元 ✓；
+3. **再按 `Data` 判局面** ✓（此时表里只有段 ✓、`else` / `if` 的 Identifier ✓、单语句的单元 ✓）。
+
+```ts
+// **空白直接忽略** ✓：空格 / 制表 / 回车 / 换行不属于任何单元 ✓，
+// 既不进队列（免得造成多余单元 ✗）、也不还给宿主（那是链内部的位置 ✓）。
+if (
+  source.Value === " " ||
+  source.Value === "\t" ||
+  source.Value === "\r" ||
+  source.Value === "\n"
+) {
+  const blankTail = this.Data[this.Data.length - 1];
+  if (
+    blankTail instanceof Identifier &&
+    blankTail.Closed === false &&
+    "else".startsWith(blankTail.TempToString())
+  ) {
+    blankTail.TryToClose();
+  }
+  return;
+}
+const data = this.Data;
+const tail = data[data.length - 1];
+const scope = this.Segment;
+const fresh = scope !== null && scope.Data.length === 0;
+
+// **链到头了吗** ✓：本段的体已经齐了 ✓、而尾巴上那个 Identifier 不是 `else` 的前缀 ✓
+// ⇒ 剩下的字符不属于这条链 ✗ ⇒ 立刻还给宿主 ✓（宿主的队列里 `IfSetBranch` 会命中 ⇒ 新开一组 ✓）。
+// 判据只看树 ✓：别的词（`i` `if` ✓）不是 `else` 的前缀 ✓ ⇒ 当场放行 ✓；
+// 而 `e` `el` `els` `else` 都是前缀 ✓ ⇒ 继续走下面的队列 ✓。
+const bodyDone =
+  scope !== null && scope.Data.some((item) => item instanceof IfBody || item instanceof IfStatement);
+const atElse =
+  tail instanceof Identifier && "else".startsWith(tail.TempToString());
+const prev = data[data.length - 2];
+const prevIsElse = prev instanceof Identifier && prev.Is("else");
+if (bodyDone && prevIsElse && tail instanceof Identifier) {
+  const start = prev.SourceRange.Start!;
+  prev.RemoveSelf();
+  this.NextSegment("else", start);
+  const statement = new IfStatement(this.Template);
+  this.Segment!.Add(statement);
+  statement.SignIn(tail.SourceRange.Start!);
+  tail.RemoveSelf();
+  statement.Add(tail);
+  this.Segment!.MountedUnit = statement;
+  return;
+}
+if (bodyDone && prevIsElse === false && tail instanceof Identifier && atElse === false) {
+  const host = this.Parent;
+  if (host !== null) {
+    const tailUnit = this.Data[this.Data.length - 1];
+    if (tailUnit !== undefined && tailUnit instanceof Identifier) {
+      tailUnit.RemoveSelf();
+      host.Add(tailUnit);
+    }
+    if (this.SourceRange.End === null) {
+      const segs = this.Data.filter((item) => item instanceof IfSegment);
+      const lastSeg = segs[segs.length - 1];
+      if (lastSeg !== undefined && lastSeg.SourceRange.End !== null) {
+        this.SignOut(lastSeg.SourceRange.End);
+      }
+    }
+    this.Quit(); // 先摘挂载指针（否则死循环），之后再还字符
+    context.Messages.push(new ReloadMessage(host, this, source));
+  }
+  return;
+}
+
+if (source.Value === "(") {
+  if (fresh) {
+    this.MountCondition(source);
+    return;
+  }
+  this.MountStatement(context, source);
+  return;
+}
+if (source.Value === "{") {
+  if (tail instanceof Identifier && tail.Is("else")) {
+    const start = tail.SourceRange.Start!;
+    if (tail.Closed === false) {
+      tail.TryToClose();
+    }
+    tail.RemoveSelf();
+    this.NextSegment("else", start);
+    this.MountBody(source);
+    return;
+  }
+  this.MountBody(source);
+  return;
+}
+if (this.ProcessQueue !== null) {
+  for (const item of this.ProcessQueue.Data) {
+    if (item.Transit(context, this, source) === BranchStates.Done) {
+      this.LastSource = source;
+      return;
+    }
+  }
+}
+const last = data[data.length - 1];
+if (last === undefined || last instanceof IfSegment) {
+  return;
+}
+if (last instanceof Identifier && last.Closed === false) {
+  return;
+}
+if (last instanceof Identifier && last.Is("else")) {
+  return;
+}
+const before = data[data.length - 2];
+if (before instanceof Identifier && before.Is("else")) {
+  const start = before.SourceRange.Start!;
+  if (last instanceof Identifier && last.Is("if")) {
+    last.RemoveSelf();
+    before.RemoveSelf();
+    this.NextSegment("if", start);
+    return;
+  }
+  const bodyStart = last.SourceRange.Start!;
+  before.RemoveSelf();
+  this.NextSegment("else", start);
+  this.MountStatement(context, bodyStart);
+  return;
+}
+const host = this.Parent;
+if (host !== null) {
+  const tailUnit = this.Data[this.Data.length - 1];
+  if (tailUnit !== undefined && tailUnit instanceof Identifier) {
+    tailUnit.RemoveSelf();
+    host.Add(tailUnit);
+  }
+  if (this.SourceRange.End === null) {
+    const segs = this.Data.filter((item) => item instanceof IfSegment);
+    const lastSeg = segs[segs.length - 1];
+    if (lastSeg !== undefined && lastSeg.SourceRange.End !== null) {
+      this.SignOut(lastSeg.SourceRange.End);
+    }
+  }
+  this.Quit(); // 先摘挂载指针（否则死循环），之后再还字符
+  context.Messages.push(new ReloadMessage(host, this, source));
+}
+```
+## method Begin:(keyword:Token)=>void
+
+建第一段 ✓（`key = "if"` ✓，起点取那个关键字 ✓），并把挂载链接起来 ✓。
+
+```ts
+const segment = this.Add(new IfSegment(this.Template));
+segment.key = "if";
+segment.SignIn(keyword.SourceRange.Start!);
+this.Segment = segment;
+this.MountedUnit = segment;
+```
+
+## method MountCondition:(source:Source)=>void
+
+**立马挂 `IfCondition`** ✓（用户口径 ✓）：建它、挂进当前段 ✓、签入 ✓、把路由指过去 ✓。
+
+**为什么不把 `(` 喂给它** ✗：`(` 是它的**开口** ✓——开口由**创建它的那一方**消费 ✓
+（`BracketBranch.Success` 对 `Bracket` 就是这么做的 ✓）。喂进去的话产物里会多一个 `(` ✗。
+
+```ts
+const condition = new IfCondition(this.Template);
+this.Segment!.Add(condition);
+condition.SignIn(source);
+this.Segment!.MountedUnit = condition;
+```
+
+## method MountBody:(source:Source)=>void
+
+挂**花括号体** ✓：建 `IfBody`、挂进当前段 ✓、签入 ✓、把路由指过去 ✓。
+
+**`{` 由本类消费** ✓（它是体的**开口** ✓）——与 `BracketBranch.Success` 对 `Bracket` 的做法一模一样 ✓。
+喂进去的话产物里会多一个 `{` ✗。
+
+```ts
+const body = new IfBody(this.Template);
+this.Segment!.Add(body);
+body.SignIn(source);
+this.Segment!.MountedUnit = body;
+```
+
+## method MountStatement:(context:SyntaxContext, source:Source)=>void
+
+挂**单语句体** ✓：建 `IfStatement`、挂进当前段 ✓、签入 ✓、**把这个字符喂给它** ✓
+（它就是体的第一个单元 ✓）。
+
+```ts
+const statement = new IfStatement(this.Template);
+statement.Mode = 2;
+this.Segment!.Add(statement);
+statement.SignIn(source);
+this.Segment!.MountedUnit = statement;
+statement.Process(context, source);
+```
+## method NextSegment:(key:string, start:Source)=>void
+
+新起一段 ✓（起点取那个 `else` ✓），并把挂载链接上 ✓。
+
+```ts
+const segment = this.Add(new IfSegment(this.Template));
+segment.key = key;
+segment.SignIn(start);
+this.Segment = segment;
+this.MountedUnit = segment;
+```
+
+## method MountBodyOrStatement:(context:SyntaxContext, source:Source)=>void
+
+**体的形状只在这一处判** ✓：`{` ⇒ `IfBody`（开口由本类消费 ✓）；其余 ⇒ `IfStatement`（字符喂给它 ✓）。
+段与 `Navigate` 都走这里 ✓，所以不会出现「同一件事两处判」✗。
+
+```ts
+if (source.Value === "{") {
+  this.MountBody(source);
+  return;
+}
+this.MountStatement(context, source);
+```
+
 ## constructor:(template:Template)=>void
 
 转调基类构造器（体是空的）。
 
 ```ts
 super(template);
+this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token
