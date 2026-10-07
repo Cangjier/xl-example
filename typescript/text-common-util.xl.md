@@ -823,8 +823,11 @@ return true;
 判定链条（任一条命中就**不是**值位的花括号）：**处在语句开头**（那是块语句 / `case` 段 ✓）；
 `export` 后面那个（导出列表 ✓）；前面是**字符串**（模块体 ✓）；`return` / `throw` **换行**之后那个
 （受限产生式 ⇒ 只能是块 ✓，同一行才是值位 ✓）；**标签冒号**后面那个（块 ✓）；
-上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `throw` / `typeof`；是 `Bracket`（那是它的体 ✓）；
-是 `GenericType`（泛型实参段后面的 `{` 是块 ✓）；是 `=>` 符号（箭头体 ✓）。
+上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `throw` / `typeof`，**也不属于类型位那五个词**
+（第 567 轮 ✓：`extends` / `keyof` / `as` / `satisfies` / `is` ✓ —— 它们后面那个 `{` 装的是成员 ✓）；
+是 `Bracket`（那是它的体 ✓）；是 `GenericType`（泛型实参段后面的 `{` 是块 ✓）；
+是 `=>` 符号**且那个 `=>` 是箭头函数的**（第 567 轮 ✓：函数类型的 `=>` 后面那个 `{` 是类型字面量的体 ✓
+⇒ 装的是成员 ✓，判据 `IsFunctionTypeArrow` ✓）。
 
 **`GenericType` 按类名认** ✗（本文件不能 import 它 ✓ —— 与 `IsStatementList` 用类名白名单同一条理由 ✓）。
 
@@ -878,18 +881,115 @@ if (current instanceof Bracket && current.startBracket === "{") {
     }
     return true;
   }
+  // **类型位那几个词后面不是块** ✓（第 567 轮 ✓）：这一支原来把**任何**标识符都判成块 ✓
+  // ——`class A {` / `interface I {` / `else {` / `do {` 那些靠的正是「前面是一个名字」✗，
+  // 可**类型位**也有一串词可以直接顶着一个花括号 ✓：`T extends { … }`（条件类型 / 泛型约束 ✓）、
+  // `x as { … }` / `x satisfies { … }`（类型运算 ✓）、`x is { … }`（类型谓词 ✓）、
+  // `keyof { … }`（类型运算符 ✓）—— 它们后面那个 `{` 装的是**成员** ✓，不是语句 ✓。
+  // 少了这一条实测两处 ✗：`T extends { a: infer A; b: () => infer B } ? …` 里
+  // `a: infer A;` 被收成 `LabeledStatement` + `ExpressionStatement` ✓
+  // （`PropertySignature` / `InferType` 整片缺 ✓，`type-combination-adversarial.ts` ✓）。
+  // **为什么不能直接用 `IsTypeIntroducerWord`** ✗：它里面还有 `class` / `interface` /
+  // `const` / `import` / `export` / `return` … ✓ —— 那些词后面跟的是**块**或**值** ✗
+  // （`import type { A } from "m"` 的导出列表更是绝不能当对象收 ✓）。
+  // **为什么默认仍必须是「标识符 ⇒ 块」** ✓：`class Foo {` / `interface Foo {` / `enum E {`
+  // 那几处前面是**任意名字** ✓，一张关键字表认不出来 ✓。
   if (previous instanceof Identifier && previous.IsAny(["return", "throw", "typeof"]) === false) {
-    return false;
+    if (previous.IsAny(["extends", "keyof", "as", "satisfies", "is"]) === false) {
+      return false;
+    }
   } else if (previous instanceof Bracket) {
     return false;
   } else if (previous !== null && previous.constructor.name === "GenericType") {
     return false;
   } else if (previous instanceof SymbolToken) {
-    if (previous.Is("=>")) {
+    // **`=>` 有两种** ✓（第 567 轮 ✓）：**函数类型**的 `=>`（`type A3 = (opts: X) => { … }` ✓）
+    // 后面那个 `{` 是**类型字面量的体** ✓ ⇒ 装的是成员 ✓；**箭头函数**的 `=>`（`(a) => { return a }` ✓）
+    // 后面那个是**块** ✓ ⇒ 装的是语句 ✓。原来一见 `=>` 就答「块」✗ ⇒
+    // 函数类型的返回类型字面量里，分号结尾的成员被包进语句壳 ✓
+    // （`type-fn-return-typeliteral.ts` 的 `{ a: number; b: string }` ✓）。
+    // 判据见 `IsFunctionTypeArrow` ✓（与 `type-literal.xl.md` 的 `IsTypePosition` 同源 ✓）。
+    if (previous.Is("=>") && IsFunctionTypeArrow(units, SkipPreviousWrapSymbol(units, index)) === false) {
       return false;
     }
   }
   return true;
+}
+return false;
+```
+
+# method IsFunctionTypeArrow:(units:Array<Token>, arrowIndex:number)=>bool
+
+`arrowIndex` 处那个 `=>` 是**函数类型**的箭头（类型位 ✓），还是**箭头函数**的箭头（值位 ✓）。
+
+**为什么必须有这一问** ✗（第 567 轮 ✓）：`=>` 右边那个 `{` 属于谁，全看这一点 ✓ ——
+函数类型的 `(opts: X) => { a: number; b: string }` 里它是**类型字面量的体** ✓（装成员 ✓），
+箭头函数的 `(a) => { return a }` 里它是**块** ✓（装语句 ✓）。原来两边都按「块」办 ✗ ⇒
+函数类型里用分号结尾的成员被 `Statement.FormFrom` 包成语句壳 ✓ ⇒ 成员永远成形不了 ✓
+（`type-fn-return-typeliteral.ts` 的 `a: number;` 变成「标签 + 裸类型」✗；
+`type-combination-adversarial.ts` 的 `T extends { a: infer A; … }` 同一形状 ✓）。
+
+**判据与 `type-literal/type-literal.xl.md` 的 `IsTypePosition` 同源** ✓（它那一节把这条
+「跨过 `=>` 再跨过形参表、按形参表左边是什么下结论」的理由写全了 ✓）：这里只取其中
+**解析期问得出来**的那一半 ✓ —— 判据全在本单元自己的 `Data` 上往左看 ✓，
+不需要等规则跑完 ✓（这正是 `FormFrom` / `StatementBranch` 那一刻的处境 ✓）。
+
+三条：
+
+1. `=>` 左边跳过软换行必须是一个 `( … )` 括号（形参表 ✓）——不是就答否 ✓（保守 ✓）；
+2. 形参表左边是 `:` ⇒ **函数类型** ✓（`let f: (a: A) => { … }` ✓、
+   接口成员 `m(cb: () => { … }): void` ✓）—— **但只在箭头不长在花括号里时才下这个结论** ✗：
+   `{ next: () => { i++ } }` 里那个冒号是**成员键** ✓，与类型标注**词法同形** ✗，
+   分开它们要靠「外层花括号是不是成员括号」✓（那正是本方法回答不了的那一问 ✓）⇒ 这一档答否 ✓；
+3. 形参表左边是 `=` ⇒ 跨过赋值继续往左找**声明词** ✓：撞到 `type` ⇒ 函数类型 ✓
+   （`type A3 = (opts: X) => { … }` ✓）；撞到 `let` / `var` / `const` / `function` / `return`
+   或者列表头 ⇒ **箭头函数** ✓（`const f = (a) => { … }` ✓）。
+
+**答否的那些照样是原来的行为** ✓：`arr.map((a) => { … })` 形参表左边是调用括号 ✓ ⇒ 块 ✓。
+**没覆盖到的形状一律答否** ✓（上面那条花括号里的冒号 ✓、泛型实参里的 `A<(x) => { … }>` ✓）：
+宁可保持今天的行为 ✗，也不要把箭头函数的体误判成类型字面量 ✗ ——
+实测两种误判都咬过 ✓：放开 `=>` 那一档会让 1010 → **1005** ✓；
+放开冒号那一档会让 `const o = { next: () => { … } }` 报
+`unimplemented: object literal member BinaryExpression` ✓（`tests/runtime/check.mjs` 第 199 轮那一条 ✓，
+`runtime:check` 239 → **238** ✗）。
+
+```ts
+const paramIndex = SkipPreviousWrapSymbol(units, arrowIndex);
+const param = Get(units, paramIndex);
+if (!(param instanceof Bracket) || param.startBracket !== "(") {
+  return false;
+}
+let index = SkipPreviousWrapSymbol(units, paramIndex);
+let item = Get(units, index);
+if (item instanceof SymbolToken && item.Is(":")) {
+  const self = Get(units, arrowIndex);
+  const parent = self === null ? null : self.Parent;
+  if (
+    parent !== null &&
+    ((parent instanceof Bracket && parent.startBracket === "{") ||
+      parent.constructor.name === "ObjectLiteral" ||
+      parent.constructor.name === "TypeLiteralBody")
+  ) {
+    return false;
+  }
+  return true;
+}
+if (item instanceof SymbolToken && item.Is("=")) {
+  for (let guard = 0; guard < 64; guard++) {
+    index = SkipPreviousWrapSymbol(units, index);
+    item = Get(units, index);
+    if (item === null) {
+      return false;
+    }
+    const word = WordText(item);
+    if (word === "type") {
+      return true;
+    }
+    if (word === "" || word === "let" || word === "var" || word === "const" || word === "function" || word === "return") {
+      return false;
+    }
+  }
+  return false;
 }
 return false;
 ```

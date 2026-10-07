@@ -5897,4 +5897,119 @@ unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
 4. `lex-generic-multiline-constraints.ts` ✓（`7 1 1` ✓：折行的类型参数表 ✓）、
    `am-block-lambda-array-compound.ts` ✓（`5 2 4` ✓）、`lex-regex-after-assign.ts` ✓（`2 1 2` + 字段名 1 ✓）。
 
+## 一百六十九、类型体成员不收语句壳（第 567 轮）：**判据在「那个花括号装的是不是成员」**，1010 → **1013**
+
+**用户指示**（本轮同一句 ✓）：**禁用并逐步移除 reorg，预算 3 轮**（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是那条指示**在这个新对话里的第一轮** ✓
+（第 564–566 轮是上一个对话的三轮 ✓）。第 566 轮把「类型体成员被包进语句壳」定位在
+**造壳那一侧** ✓，这一轮按那条线切进去 ✓ —— 切口与那一轮的猜测**不一样** ✗，下面第二节写清了 ✓。
+
+### 一、先纠正第 566 轮的一处猜测：那个壳是 `;` 那一档造的
+
+第 566 轮写的是「`a: number;` 会触发 **`\n` 那一档**的造壳（`StatementBranch`）」✗。
+**实测否掉了这一条** ✓：把 `build/ts/typescript/tokens/statement.js` 里 `FormFrom` 那道
+「`{` 括号不收壳」的闸**临时改成一律早退** ✓，`type-fn-return-typeliteral.ts` 里那个
+`<Statement><Label label="a" /><Identifier>number</Identifier></Statement>` **当场消失** ✓
+（两个成员都成了 `Field` ✓）；而那一趟里 `StatementBranch.Success` **一次都没被调用** ✓
+（在三处 `new Statement(...)` 前面各插一行 `console.error` ✓，打出来的全是 `Root` 与一处
+`Bracket {` ✓）。⇒ 那一格是 **`Statement.FormFrom`（`;` 那一档）** 造的 ✓，
+`\n` 那一档从头到尾没参与 ✓。
+
+**为什么那一道闸没拦住** ✓：它问的是 `IsObjectLiteralBrace` ✓ ——
+`type A3 = (opts: X) => { a: number; b: string }` 里那个 `{` 的**上一个实义单元是 `=>`** ✓，
+而那一支写的是「一见 `=>` 就答**块**」✗ ⇒ 判成「不是成员括号」✓ ⇒ 壳照收 ✓。
+**闸本身没问题** ✓，是**判据那一格答错了** ✓ —— 所以这一轮改的是判据 ✓，不是成形器 ✓。
+
+### 二、改了什么（`typescript/text-common-util.xl.md` 两处 + 一个新的共用方法）
+
+`IsObjectLiteralBrace` 的语义是「这一格花括号装的是**成员**吗」（对象字面量 ✓、
+也含类型字面量那种装成员的花括号 ✓），默认答「是」✓，只有拿到「这是块」的证据才答否 ✓。
+这一轮补的是**两类被误判成块**的类型位 ✓：
+
+| # | 现场 | 原来怎么错的 ✗ | 现在 |
+| --- | --- | --- | --- |
+| 1 | `T extends { a: infer A; b: () => infer B } ? …` | 「上一个单元是 `Identifier` ⇒ 块」这条**一刀切**把 `extends` 也算了进去 ✓ | `extends` / `keyof` / `as` / `satisfies` / `is` **五个类型位的词**不再算「块引子」✓ |
+| 2 | `type A3 = (opts: X) => { a: number; b: string }` | 「上一个单元是 `=>` ⇒ 块」把**函数类型**的箭头也算成了箭头函数 ✓ | 新增 `IsFunctionTypeArrow` ✓：`=>` 有两种，函数类型那种后面那个 `{` 装成员 ✓ |
+
+**为什么不能直接用现成的 `IsTypeIntroducerWord`** ✗：它里面还有 `class` / `interface` /
+`const` / `import` / `export` / `return` … ✓ —— 那些词后面跟的是**块**或**值** ✗
+（`import type { A } from "m"` 的导入列表更是绝不能当成员括号收 ✓）。
+**为什么默认仍必须是「标识符 ⇒ 块」** ✓：`class Foo {` / `interface Foo {` / `enum E {`
+那几处前面是**任意名字** ✓，一张关键字表认不出来 ✓。
+
+**`IsFunctionTypeArrow` 与 `type-literal.xl.md` 的 `IsTypePosition` 同源** ✓
+（那一节把「跨过 `=>`、再跨过形参表、按形参表左边是什么下结论」写全了 ✓），
+这里只取**解析期问得出来**的那一半 ✓ —— 判据全在本单元自己的 `Data` 上往左看 ✓：
+形参表左边是 `:` ⇒ 函数类型 ✓；是 `=` ⇒ 跨过赋值找声明词（`type` ⇒ 类型 ✓、
+`let` / `var` / `const` / `function` / `return` / 列表头 ⇒ 箭头函数 ✓）。
+
+### 三、两次**实测咬回来**的误判（都写进那一节的注释了 ✓）
+
+| 版本 | 改动 | 读数 | 证据 |
+| --- | --- | --- | --- |
+| 粗放版 ✗ | 一见 `=>` 就答「成员括号」 | 1010 → **1005** ✗ | 箭头函数的**块体**被收成对象字面量 ✓ |
+| 冒号那一档没有护栏 ✗ | `:` ⇒ 一律函数类型 | 用例读数 **1013** ✓ 但 `runtime:check` **239 → 238** ✗、`coverage` **1608 → 1605** ✗ | `const o = { next: () => { i++ } }` 里那个冒号是**成员键** ✗ ⇒ 报 `unimplemented: object literal member BinaryExpression` ✓（`tests/runtime/check.mjs` 第 199 轮那条 ✓） |
+
+⇒ 冒号那一档补了护栏 ✓：**箭头自己就长在花括号里时不给结论** ✓
+（`{ next: () => … }` 那个冒号是成员键 ✓，与类型标注**词法同形** ✗，
+分开它们要靠「外层花括号是不是成员括号」✓ —— 那正是这一问回答不了的 ✓）。
+
+### 四、读数
+
+| 项 | 第 566 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1010 | **1013 / 1037** ✓（**+3** ✓） |
+| 缺节点 | 54（21 类） | **45**（17 类）✓（−9 ✓） |
+| 区间漂移 | 30（17 类） | **30**（17 类）✓（不动 ✓） |
+| 多出来的节点 | 73（30 类） | **66**（28 类）✓（−7 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21736 | **21737** ✓ |
+
+**逐文件**（`tmp/recon/r567-a.txt` ↔ `r567-b.txt` ✓）：红的从 **27 份降到 24 份** ✓，
+**变绿的三份正是预期的三份** ✓，且**没有第四份被带动** ✓：
+
+| 文件 | 起点 | 本轮 | 靠哪一条 |
+| --- | --- | --- | --- |
+| `types/type-fn-return-typeliteral.ts` | `2 0 3 0` | **四栏全零** ✓ | `=>` 那一档 ✓ |
+| `types/type-combination-adversarial.ts` | `4 0 3 0` | **四栏全零** ✓ | `extends` 那一档 ✓ |
+| `declarations/decl-obj-destructure-defaults.ts` | `3 0 1 0` | **四栏全零** ✓ | 同一条（`as` ✓） |
+
+**真实语料也没退** ✓：`node ./tests/parse/ts-ast.mjs real` 十六片逐片比过 ✓ ——
+**没有一片变差** ✗，四片变好 ✓（`@types/node` 那一族 `23/30 → 24/30` ✓、
+缺 656 → **648** ✓、多 240 → **228** ✓；另一片 `23/32 → 24/32` ✓、缺 231 → **189** ✓）。
+
+**六道门**（`npm run gates` ✓）：
+
+| 门 | 第 566 轮末 | 本轮 |
+| --- | --- | --- |
+| `runtime:check` | 239 / 242 | **239 / 242** ✓（持平 ✓） |
+| `runtime:cli` | 76 / 79 | **76 / 79** ✓ |
+| `cases:check` | 1050 条 0 不合格 | **1050 条 0 不合格** ✓ |
+| `coverage` | 1608 / 1713（93.0%） | **1608 / 1713（93.0%）** ✓ |
+| `samples` | 红（`declarations.ts` ✓） | **同一处** ✓（逐字相同 ✓） |
+| `cases:tsast` | 就是上表 ✓ | **上表** ✓（它是**唯一**动了一道 ✓） |
+
+`xl build`（`core` + `typescript` + 两个入口 ✓）**0 error、仍是那 6 条 W3102** ✓、`xl check` **0 error 0 warning** ✓、`tsc` **0 错** ✓。
+**这一轮只动了 1 个文件** ✓（`typescript/text-common-util.xl.md` ✓），`build/` 与 `dist/` 都是再生的 ✓。
+
+### 五、下一块（第 568–569 轮）
+
+1. **第 568 轮：ASI 的右半截** ✓（第 164 节第 1 条 ✓，仍是最大的一块 ✓）：
+   `expr-as-leading-pipe-union` ✓、`type-union-in-as-expression` ✓、`type-union-leading-bar` ✓
+   （三份都是 `2 缺 5 漂 7 多` ✓）、`stmt-asi-array-then-dot` ✓（`4 1 3` ✓）、
+   `stmt-asi-paren-call` ✓（`0 4 5` ✓）—— 判据在 `Statement.ContinuesExpression` ✓，
+   缺的是「换行那一刻还没有下一个单元」✗。
+   **注意**：`Statement.LineCannotEnd`（第 558 轮 ✓）已经拿走了左半截 ✓，
+   右半截的入口在**下一行第一个单元到达时** ✓ —— 与 `StatementBranch` 的位置**不同** ✗，先定位再改 ✓。
+2. **第 569 轮：`stmt-adversarial-shapes.ts`** ✓（`7 2 7 1` ✓，最重的一份 ✓）——
+   一壳两段头 + do-while 尾分号 ✓，其中 do-while 那一处与 `stmt-do-while-semicolon.ts`
+   （`0 1 1` ✓）**同一个形状** ✓：`DoWhileCloseRule` 里那句「结尾多收一个可选的 `;`」✓
+   在这一版拿不到那个 `;` ✗（`FormFrom` 把它从 `Data` 里切掉了 ✓，只留在壳体的区间里 ✓）⇒ 两份一起修 ✓。
+3. **留给之后**：`TokenFormerImpl.Depth` 那道深度界 ✓（第 496 轮的临时护栏 ✓，撤之前先量 ✓）、
+   `IsObjectLiteralBrace` 的冒号那一档那道护栏 ✓（第 567 轮留的 ✓：
+   要真正分开「成员键」与「类型标注」得把 `IsTypePosition` 整体搬到共用层 ✓，
+   那是单独一轮的事 ✓）、以及类型体里 `\n` 那一档的造壳 ✓（本轮的切口证明了它**不参与**这个形状 ✓，
+   但它要不要也问一遍成员闸 ✓ 值得单独量一次 ✓）。
+
 
