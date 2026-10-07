@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
-import { IsStatementStart, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { IsStatementStart, SkipPreviousWrapSymbol, WordText } from "../../text-common-util.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -55,6 +55,20 @@ if (current instanceof Bracket && current.startBracket === "{") {
     return false;
   }
   const previous = GetSkipPrevious(units, index, (item) => item instanceof LineWrap);
+  // **`export` 后面那个花括号是导出列表，不是对象字面量** ✗（第 548 轮 ✓）：
+  // `export { a as b }` 与 `export type { A } from "m"` 里那个 `{` 都不是对象 ✓ ——
+  // 而下面那条链**只认 `Identifier`** ✗：`export` 一旦被 `KeywordReorganization` 升成
+  // `Keyword` ✓（关闭 reorg 那一档里，`Export` 的关闭前那一趟会跑它 ✓ 见
+  // `../../parse-pipeline.xl.md` 的 `RunCloseRules` ✓），它就整个漏下去 ✓ ⇒
+  // 这一格答「是对象」✗。**同一个词两种形态都要挡** ✓，所以按文本认词 ✓
+  //（`WordText` ✓：两种单元的文本入口不一样 ✓）。
+  // 少了这一条实测怎样 ✗：`Export` 单元的内容成了 `[Keyword(export), ObjectLiteral]` ✗ ⇒
+  // 投影侧那个括号找不到 ✗（`namedExportClause` 只认 `Bracket` ✓）⇒ 缺 `NamedExports` +
+  // 每一格 `ExportSpecifier` / 里面的 `Identifier` ✗（`ex-named.ts` 缺 3 + 字段名 1 ✓，
+  // `expr-as-then-value-operator.ts` 一份就缺 38 ✓）。
+  if (previous !== null && WordText(previous) === "export") {
+    return false;
+  }
   // **`return` 换行 `{` 是块语句**（第 149 轮）：`return` 是**受限产生式**——
   // 换行之后那个 `{` 不可能属于 `return`，只能是一条块语句（块里 `a: 1` 还是标签）。
   // 同一行的 `return { a: 1 }` 才是对象字面量，所以判据要落在**中间有没有软换行**上

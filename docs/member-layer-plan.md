@@ -4306,3 +4306,105 @@ TL7DBG idx=1 line=312 expr=true     ← 走的是 `const` 那一支（`return cr
 `export.xl.md` 里那条规则的 `Previous` ✓ —— 第一趟收出来的 `Export` **自己又满足了判据** ✗
 （新一轮扫到它就再套一层 ✓，于是层数正好等于名单长度 ✓ 实测九层对九个名字 ✓）。
 
+## 一百五十一、`export { … }` 那一格：八层自激、被当成对象字面量、尾分号（第 548 轮）：919 → **933 / 1037**
+
+起点 **919 / 1037** ✓（缺 759 / 漂 68 / 多 226 / 字段名 44 ✓）。接上一节第五节留的第 1 条入口 ✓。
+
+### 一、现场：八层 `Export` 套同一段
+
+```
+Statement [107,119) "export { c }"
+  Export [107,119)
+    Export [107,119)
+      …                        ← 八层，同一段、同一份 exported 名单
+        Bracket [114,119) "{ c }"
+```
+
+`Process` 收出来之后 ✓，`Export` 单元自己的 `Data` 里**还留着那个 `export` 词** ✓（此刻仍是 `Identifier` ✗——
+`KeywordReorganization` 排在 `RunCloseRules` 的最后 ✓），于是 `ExportReorganization` 在**自己的 `Data` 上又匹配一次** ✓
+⇒ 一层套一层 ✓，直到 `TokenFormerImpl.Depth >= 8` 那道硬界为止 ✗（界那一层不再跑规则 ✓，所以最里面那一层才留着
+`Identifier(export)` + `Bracket` ✓）。投影侧只看得见**最外层那一格** ✗（`projectExport` 拿到的 `kids` 里只有一个 `Export` ✗）
+⇒ 缺 `NamedExports` + 每一格 `ExportSpecifier` / 里面的 `Identifier` ✗（`expr-as-then-value-operator.ts` 一份就缺 38 ✓）。
+
+### 二、修法一：自己那一趟不收自己（`typescript/parse-pipeline.xl.md`）
+
+`RunCloseRules` 里给 `ExportReorganization` 加一道构造器名护栏 ✓（与上面 `Label` / `{` 那一处同一做法 ✓）：
+
+```ts
+if (unit.constructor.name !== "Export") {
+  ExportReorganization.Instance.ApplyTo(unit);
+}
+```
+
+导出列表里不可能再出现一条导出语句 ✓（里面是名字 / `as` / `from "m"` ✓），所以跳过它是纯赚 ✓。
+
+### 三、现场二：收出来的那对括号成了 `ObjectLiteral`
+
+护栏一上，`Export` 的 `Data` 就成 `[Keyword(export), Bracket{ c }]` ✓ —— 可它当场又被 `JsonObjectReorganization`
+收成了 `ObjectLiteral` ✗。插桩（`tmp/recon/probe-export2.mjs` ✓：给 `Reorganization.prototype.ApplyTo` 套一层 ✓，
+只报「unit 是 `Export` 且 `Data` 变了」的调用 ✓）两行就把次序指出来了 ✓：
+
+```
+RULE KeywordReorganization: Identifier[107,112]"export", Bracket[114,118]"{ c }"
+  -> Keyword[107,112]"export", Bracket[114,118]"{ c }"
+RULE JsonObjectReorganization: Keyword[107,112]"export", Bracket[114,118]"{ c }"
+  -> Keyword[107,112]"export", ObjectLiteral[114,118]"{ c }"
+```
+
+真因在 `IsObjectAt` 那条链的**第一道闸**上 ✓：它只认 `Identifier` ✓
+（`previous instanceof Identifier && IsAny(["return","throw","typeof"]) === false ⇒ 不是对象` ✓）——
+`export` 一旦升成 `Keyword` ✗，后面几条 `instanceof` 全不中 ✓ ⇒ 最后一句 `return true` ✗（答「是对象」✓）。
+
+### 四、修法二：按文本认词（`typescript/tokens/json/object-literal.xl.md`）
+
+`IsObjectAt` 里取到 `previous` 之后加一句 ✓：`WordText(previous) === "export"` ⇒ **不是对象** ✓。
+走 `WordText` 而不是 `instanceof Identifier` ✓：同一个词可能是两种形态 ✓
+（`text-common-util.xl.md` 的 `WordText` 正是为这件事留的入口 ✓：「凡是按文本认词的地方都要走这一个入口」✓）。
+
+### 五、现场三：尾分号不在 `Export` 单元的区间里
+
+括号修好之后 ✓，`export { a };` 一族还剩**一漂一多** ✓（`mod-export-named-list.ts`：产物 `[71,83)` 对 TS `[71,84)` ✓）
+—— 差的正是那个 `;` ✓：`Export.Process` 遇到 `;` 就停 ✓，那一个字符留给了**语句** ✓（`Statement` 的区间才含它 ✓），
+而 `projectExport` 的 `ExportDeclaration` 照抄的是**单元自己的终点** ✗。
+
+### 六、修法三：终点取语句那一格（`typescript/print-ast-common.xl.md`）
+
+`projectStatement` 把 `stmtEndOf(v, ctx)` 一起递进 `projectExport` ✓，`ExportDeclaration` 的 `end` 用它 ✓。
+`export = X` / `export default X` 那一支**不动** ✓：它的终点本来就从表达式算 ✓（`isAssignment` 那一支 ✓）。
+
+### 七、读数
+
+| 项 | 第 547 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 919 | **933 / 1037** ✓（+14 ✓） |
+| 缺节点 | 759（88 类） | **658**（84 类）✓（−101 ✓） |
+| 多出来的节点 | 226（43 类） | **203**（43 类）✓（−23 ✓） |
+| 区间漂移 | 68（18 类） | **54**（17 类）✓（−14 ✓） |
+| 字段名不符 | 44 | **39** ✓（−5 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24421 | **24166** ✓（−255 ✓） |
+
+逐文件前后名单做差 ✓：**变绿 14 份、变红 0 份** ✓ —— `ex-named` / `mod-export-named-list` /
+`mod-export-star` / `mod-export-named-alias` / `mod-export-named-as-default` / `mod-export-named-comment` /
+`mod-export-named-from` / `mod-export-empty` / `mod-export-type-from` / `ex-type-from` / `ty-export-type` /
+`type-export-type` / `expr-as-then-value-operator` / `if-else-with-comment` ✓；另有 4 份仍在红但读数变了 ✓
+（`ex-reexport` 9/0/0/3 → 3/0/0/1 ✓、`mod-adversarial-shapes` 7/2/2/0 → 3/0/0/1 ✓、
+`mod-export-star-as-namespace` 3/1/1/0 → 3/0/0/1 ✓、`decl-interface-export-default` 3/0/11/0 → **1/0/2/0** ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **208 / 242** ✓（与第 547 轮末持平 ✓）；
+`runtime:cli` **39 / 79** ✓（持平 ✓）；`coverage` **1269 / 1713** ✓（+1 ✓：blocked 141 → **140** ✓、
+differ 304 ✓、bad 0 ✓、整体加权 **72.9%** ✓，落盘 `tests/coverage/report.json` ✓）；
+`samples` 仍红 ✗（还是那两处 ✓：`declarations.ts` 的**装饰器**那一格 ✓、`generic.ts` 的**类型实参**那一格 ✓
+—— 都在投影的装饰器 / 类型实参那两条支上 ✓，与本轮改的导出那一格无关 ✓）；**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 八、下一块的入口
+
+1. **`export * as ns from "x"`**（`ex-reexport.ts` ✓ 3 缺 / `mod-export-star-as-namespace.ts` ✓ 3 缺 /
+   `mod-adversarial-shapes.ts` ✓ 3 缺）：产物是 `Export > BinaryOperator > Export > BinaryOperator …`
+   又是一条**自激**✗（同样卡在深度界 ✓）—— 那个 `*` 被**乘法那一趟**收进了 `BinaryOperator` ✗
+   （`export * from "x"` 好 ✓、`export * as ns from "x"` 坏 ✗，两者的差别就在 `as` 上 ✓）；
+   缺的是 `NamespaceExport` + 它的 `Identifier` + `moduleSpecifier` 那个 `StringLiteral` ✓
+   （投影侧 `namedExportClause` 的 `*` 那一支只认**平级**的 `SymbolToken` ✗）；
+2. **`ex-object-literal.ts`**（37 缺 ✓）—— 当前单文件最大的一处 ✓，整族都在对象字面量那一趟 ✓；
+3. **`decl-interface-export-default.ts`**（本轮 3/0/11/0 → **1/0/2/0** ✓）：还剩 1 缺 2 多 ✓，
+   入口仍是 `export default interface` 那一格 ✓。

@@ -1672,7 +1672,9 @@ new Set([
   // 于是括号里每个单元（含 `as` / `type` 两个词）都成了平级子节点，
   // 而 `ExportSpecifier` 一个也没投出来。
   if (headType === "Export" && kids.length >= 1) {
-    return projectExport(head, ctx, kids.slice(1));
+    // **语句那一格的终点**要一起递进去（第 548 轮 ✓）：具名导出的尾分号不在
+    // `Export` 单元自己的区间里 ✗（见 `projectExport` ✓）。
+    return projectExport(head, ctx, kids.slice(1), stmtEndOf(v, ctx));
   }
   if (headType === "Let") {
     // `Let` 不只是一个节点：`=` 与初始化式是它的**平级兄弟**，所以整串交给列表版
@@ -5587,7 +5589,7 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   };
 ```
 
-# private method projectExport:(v:any, ctx:any, following:Array<any>)=>any
+# private method projectExport:(v:any, ctx:any, following:Array<any>, stmtEnd:int)=>any
 
 `export = X` / `export default X` → `ExportAssignment`（`expression`）。
 
@@ -5599,6 +5601,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
 
 判据：那个 `Export` 单元后面还有子单元（`export { a }` / `import` 那一族没有）——
 有就跟上来的整段收成 `expression`，区间从 `export` 到表达式末尾。
+
+`stmtEnd` 是**外头那一格 `Statement` 的终点**（`projectStatement` 递进来的 ✓）：
+具名导出的尾分号算在 `ExportDeclaration` 里 ✓，可它**不在 `Export` 单元的区间里** ✗ ——
+解析期 `Export.Process` 一遇到 `;` 就停 ✓，把那一个字符留给了语句 ✓（见 `tokens/export.xl.md` ✓）。
 
 ```ts
   const view_ = v.attrs === undefined ? view(v) : v;
@@ -5682,6 +5688,12 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   }
   // 具名导出（`export { a as b, c, type D }`）与模块名走 `namedExportClause`（第 87 轮）：
   // 尾分号算在 `ExportDeclaration` 里（TS 的 `export { a };` 是 [0,14)，含 `;`）。
+  //
+  // **终点取的是语句那一格** ✓（第 548 轮 ✓）：那个 `;` 不在 `Export` 单元自己的区间里 ✗
+  // （`Export.Process` 遇到 `;` 就停 ✓，字符留给语句 ✓）——照抄单元自己的终点会**差一格** ✗。
+  // 少了这一条实测怎样 ✗：`export { a };` 一族 **九份**文件各得一处**漂移** + 一处**多出来** ✓
+  //（`mod-export-named-list.ts` / `mod-export-star.ts` / `mod-export-named-alias.ts` … ✓，
+  // 全是同一个形状：产物 `[71,83)` 对 TS `[71,84)` ✓）。
   return {
     kind: "ExportDeclaration",
     pos: view_.start,
@@ -5689,7 +5701,8 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     // 而 `stmtEndOf` 读的是 `v.start` / `v.end` —— 原始 Map 上这两个属性都是 `undefined`
     // （它们在 `range` 里），于是终点变成 `undefined`、投影出来的 `ExportDeclaration`
     // 成了零宽区间：实测 108 处漂移 + 108 处「多出来」（同一个节点两边各记一次）。
-    end: stmtEndOf(view_, ctx),
+    // **起点仍从视图取** ✓（`stmtEnd` 已经是算好的整数 ✓，不再经过原始 Map ✓）。
+    end: stmtEnd,
     ...namedExportClause(view_, ctx),
   };
 ```

@@ -870,7 +870,21 @@ ParameterReorganization.Instance.ApplyTo(unit);
 HeritageClauseReorganization.Instance.ApplyTo(unit);
 BindingElementReorganization.Instance.ApplyTo(unit);
 ImportReorganization.Instance.ApplyTo(unit);
-ExportReorganization.Instance.ApplyTo(unit);
+// **`Export` 自己那一趟不收自己** ✗（第 548 轮 ✓）：`export { a, b }` 收成一个 `Export` 之后 ✓，
+// 它自己的 `Data` 里**还留着那个 `export` 词** ✓（`Process` 把它当第一格收进去 ✓）——
+// 而此刻它仍是 `Identifier` ✗（`KeywordReorganization` 排在最后 ✓，还没轮到 ✓），
+// 于是这一条规则在 `Export` 的 `Data` 上**又匹配一次** ✓ ⇒ 一层套一层 ✗：
+// 实测 `ex-named.ts` 的 `export { c }` 是**八层 `Export`** ✓，正好卡在深度界上 ✓
+//（`TokenFormerImpl.Depth >= 8` ✓ 见 `ApplyCloseRules` ✓ —— 界那一层不再跑规则 ✓，
+// 所以最里面那一层才留着 `Identifier(export)` + `Bracket` ✓）。
+// 投影侧只看得见**最外层那一格** ✗（`projectExport` 拿到的 `kids` 里只有一个 `Export` ✗，
+// 括号一个也找不到 ✗）⇒ 缺 `NamedExports` + 每一格 `ExportSpecifier` / 里面的 `Identifier` ✗
+//（`cases:tsast` 的 118 份里 `expr-as-then-value-operator.ts` 一份就缺 38 ✓）。
+// **导出列表里不可能再出现一条导出语句** ✓（里面是名字 / `as` / `from "m"` ✓），
+// 所以这一趟跳过它是纯赚 ✓ —— 与上面 `Label` 那一处同一个做法 ✓。
+if (unit.constructor.name !== "Export") {
+  ExportReorganization.Instance.ApplyTo(unit);
+}
 NamespaceExportReorganization.Instance.ApplyTo(unit);
 TypeUnionReorganization.Instance.ApplyTo(unit);
 AsReorganization.Instance.ApplyTo(unit);
