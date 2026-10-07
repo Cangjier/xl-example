@@ -12,6 +12,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { GetSkipPreviousTrivia, SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Statement } from "../statement.xl.md"
@@ -40,8 +41,10 @@ import { IfSet } from "./if-set.xl.md"
 | 定 | 规划说「可以了」就地建 `IfSet`；说「根本不是」就把暂存的东西**原样还回**父单元 |
 
 三条闸决定向导**能不能**在一个位置上挂起来（`IfGuideBranch.Condition`）：前一个实义单元不是 `.` / `?.`、
-宿主不是类型位（`Bracket.Context === "type"`）、宿主不是成员列表（`Bracket.IsMemberList`）。
-三条都是**开括号那一刻就定死**的标记或平铺前文，与重组时序无关。
+当前这个 `i` 是一个词的开头（上一格不是还开着的 `Identifier`）。
+**成员位不在这里判** ✗（第 393 轮删掉了 `Bracket.IsMemberList` 与 `Context === "type"` 两条 ✓）：
+成员列表里的字符走的是 `ParsePipeline.CreateMemberListQueue()` ✓，**那条队列里没有本分支** ✓
+⇒ 轮不到向导 ✓（见 `tokens/member-list-guide.xl.md` ✓）。
 
 **暂存单元的跳转队列要摘掉本向导** ✗（`TakeQueue`）：不摘的话，`if` 体里的**嵌套** `if` 会在暂存期间
 自己又挂一个向导 ✗，于是外层的规划看到的是一张**已经被内层改过**的列表 ✓——
@@ -134,13 +137,15 @@ import { IfSet } from "./if-set.xl.md"
 1. **前一个实义单元不是 `.` / `?.`** ✓：`a.if(x)` 今天是一个名叫 `if` 的**方法调用** ✓（实测 ✓），
    而这一刻列表里躺着的正是 `Identifier(a)` / `SymbolToken(.)` ✓。
    `?.` 有两种形态（`SymbolToken("?.")` 与 `NullConditionalOperator`）✓，两种都挡 ✓。
-2. **宿主不是类型位** ✓：`type X = { if(a): void }` 里的 `if` 是成员名 ✓（实测 ✓），
-   而那个 `{` 的 `Context` 在开括号那一刻就判成 `"type"` 了 ✓。
-3. **宿主不是成员列表** ✓：`class A { if(a) {} }` 里的 `if` 是一个名叫 `if` 的**方法声明** ✓（实测 ✓），
-   而分它与 `if` 语句的今天**只有重组顺序** ✗——字符流走到这里时 `ClassBody` 还不存在 ✗，
-   所以靠 `Bracket.IsMemberList` 这个**开括号时就定死**的标记 ✓。
-
-**对象字面量故意不挡** ✗：`const o = { if(a) {} }` 今天产物就是 `IfSet` ✓（实测 ✓）——那是既成行为 ✓。
+2. **这个 `i` 得是一个词的开头** ✓：`shifted` / `gift` 里都有 `if` 两个字母连着 ✓，
+   而那一刻 `unit.Last()` 是一个**还开着**的 `Identifier` ✓ ⇒ 这个 `i` 会被并进它 ✓。
+   判据就是「上一格开着没有」✓（与 `Identifier.Condition` 分「新增 / 追加」用的是同一件事 ✓）。
+3. **不在这里判成员位** ✗（第 393 轮删掉了 `Context === "type"` 与 `Bracket.IsMemberList` 两条）：
+   成员列表（类体 / 接口体 / 枚举体 / 类型字面量 / 映射类型 ✓）里的字符由
+   `ParsePipeline.CreateMemberListQueue()` 处理 ✓，**那条队列里根本没有本分支** ✓
+   ⇒ 这个位置**轮不到**向导 ✓，不需要在这里再判一次 ✓。
+   原来那两条是「这个 `{` 是不是成员列表」的**第二份答案** ✓（第一份在三条规则自己手里 ✓），
+   换成队列之后就没有第二份了 ✓——这也正是 `MemberListGuide` 存在的理由 ✓。
 
 ```ts
 const result = new BranchConditionResult();
@@ -151,25 +156,9 @@ if (source.Value !== "i") {
 if (source.Document.GetValue(source.Index + 1) !== "f") {
   return result;
 }
-// **这个 `i` 得是一个词的开头** ✗：`shifted` / `gift` / `uniform` 里都有 `if` 两个字母连着 ✓，
-// 而那一刻 `unit.Last()` 正是一个**还开着**的 `Identifier` ✓——这个 `i` 会被并进它 ✓，
-// 不可能是 `if` 的开头 ✓。
-//
-// **判据就是「上一个是不是开着」** ✓（与 `Identifier.Condition` 分「新增 / 追加」用的是同一件事 ✓）：
-// 开着就得追加（`Message = 1`）✓、关着才是新词的开头（`Message = 0`）✓。
-// 第一版漏了这一条 ✓，`const shifted = bits << 2;` 当场被切成 `sh` 加 `ifted` 两个标识符 ✓
-// （判据 `expressions/expr-binary-operator.ts` 报「多出 Identifier」✓，区间 `[244,246)` 对 `[244,251)` ✓）。
 const last = unit.Last();
 if (last instanceof Identifier && last.Closed === false) {
   return result;
-}
-if (unit instanceof Bracket) {
-  if (unit.Context === "type") {
-    return result;
-  }
-  if (unit.IsMemberList) {
-    return result;
-  }
 }
 const previous = GetSkipPreviousTrivia(unit.Data, unit.Data.length);
 if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
@@ -228,10 +217,7 @@ context.Messages.push(new ReloadMessage(guide, guide, source));
 ```ts
 super(template);
 const collector = new PendingUnit(template, () => PendingStates.Continue);
-const queue = template.BranchTemplate.Get(this.constructor);
-if (queue !== null) {
-  collector.ProcessQueue = queue.Removed([IfGuide.JumpIn]);
-}
+collector.ProcessQueue = ParsePipeline.CreateMemberListQueue();
 this.Collector = collector;
 this.AddToMounted(collector);
 ```

@@ -8,7 +8,8 @@ import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../core/syntax/unit-token.xl.md"
-import { DecideBracketContext, DecideMemberList } from "../text-common-util.xl.md"
+import { DecideBracketContext } from "../text-common-util.xl.md"
+import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
@@ -48,8 +49,18 @@ return result;
 ```ts
 const bracket = new Bracket(unit.Template);
 bracket.Context = DecideBracketContext(unit, source.Value);
-bracket.IsMemberList = source.Value === "{" && DecideMemberList(unit);
 unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
+// **类型位的花括号是一张成员列表** ✓（第 393 轮）：`type X = { if(a): void }` 里的 `if` 是成员名 ✓，
+// 不是 if 语句 ✓。这一格**复用已有的 `Context` 答案** ✓（它在开括号那一刻就算好了 ✓，
+// 见下面那个字段的说明），不是新推断 ✓——只是把答案用在**队列**上 ✓，
+// 于是「成员列表里不认 if 语句」由队列本身保证 ✓（见 `../parse-pipeline.xl.md` 的 `CreateMemberListQueue` ✓）。
+//
+// 放在 `Use` **之后**：`Use("{")` 不动队列（`{` 括号一律不带重组队列 ✓），
+// 所以这里赋值不会跟它打架 ✓；`(` / `[` 的 `Context` 不会是 `"type"` 以外的值被误伤 ✓
+// （`DecideBracketContext` 对 `(` 恒返回空串 ✓）。
+if (source.Value === "{" && bracket.Context === "type") {
+  bracket.ProcessQueue = ParsePipeline.CreateMemberListQueue();
+}
 ```
 
 **`Context` 在**开括号这一刻**就算好（方案 A）**：那时 `unit.Data` 里躺着的是**词法阶段的平列表** ——
@@ -101,24 +112,6 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 「往上找祖先」——那条路走不通，因为规则被询问时树还不是最终的树（`Parent` 可能还没更新）。
 
 判定逻辑在 `../text-common-util.xl.md` 的 `DecideBracketContext`。
-
-## field IsMemberList:bool = false
-
-这个 `{` 是不是一张**成员列表**（类体 / 接口体 / 枚举体）：`true` 表示里面的 `name(...) { }` 是**成员**，
-不是语句。
-
-**在创建时刻算好**（见 `Success`），与 `Context` 同一时机、同一条安全理由：
-那时前文还是词法阶段的平列表，判定与重组时序无关。判定逻辑在 `../text-common-util.xl.md` 的 `DecideMemberList`。
-
-**它为什么必须存在** ✗：`if (a) { }` 与类里面的 `if(a) { }` 形状一模一样 ✓，
-而今天分它们的是**重组顺序**（`ClassReorganization` 排第 2、`MethodDeclarationReorganization` 排第 5、
-`IfSetReorganization` 在末段）✗——轮到 `MethodDeclaration` 时父单元已经是 `ClassBody` 了 ✓。
-可**字符流走到 `if` 那一刻**，`ClassBody` 这个东西还不存在 ✗，所以那时想问「我在不在成员位」
-只能问一个**开括号时就定死的**标记 ✓。
-
-只对 `{` 赋值（`(` / `[` 上恒为 `false`）——`DecideMemberList` 认的三个词都只会引出花括号体 ✓。
-
-与 `Context` 一样**不进 XML、也不进 JSON**：它是解析期的判定结果，不是这个节点在树里的形状。
 
 ## method Is:(start:string, end:string)=>bool
 

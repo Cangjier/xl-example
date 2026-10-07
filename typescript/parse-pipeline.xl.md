@@ -40,6 +40,7 @@ import { FunctionReorganization } from "./tokens/function/function.xl.md"
 import { GenericType } from "./tokens/generic-type.xl.md"
 import { IfGuide } from "./tokens/if/if-guide.xl.md"
 import { IfSetReorganization } from "./tokens/if/if-set.xl.md"
+import { MemberListGuide } from "./tokens/member-list-guide.xl.md"
 import { ImportReorganization } from "./tokens/import.xl.md"
 import { ExportReorganization } from "./tokens/export.xl.md"
 import { InterfaceReorganization } from "./tokens/interface/interface.xl.md"
@@ -134,9 +135,38 @@ return new Sequence<Branch>([
   GenericType.JumpIn,
   LineWrap.AppendIn,
   SymbolToken.AppendIn,
+  MemberListGuide.JumpIn,
   IfGuide.JumpIn,
   Identifier.AppendIn,
 ]);
+```
+
+## static method CreateMemberListQueue:()=>Sequence<Branch>
+
+**成员列表的跳转队列**：通用队列**去掉 `IfGuide.JumpIn`**（第 393 轮加）。
+
+**为什么需要第二条队列** ✗：`class` / `interface` / `enum` 的体是一张成员列表 ✓，
+而成员位上的 `if(a) { }` 是一个**名叫 `if` 的成员** ✓——与 if 语句**形状一模一样** ✗，
+分它们的只有上下文 ✓。第 391 轮用一句词法推断（`Bracket.IsMemberList`）回答了它 ✓，
+而那是「这个 `{` 是不是成员列表」的**第二份答案** ✗（第一份在三条规则自己手里 ✓）。
+
+这一条把答案换成**结构** ✓：成员列表里的字符由这条队列处理 ✓，它里面**没有** `IfGuide.JumpIn` ✓
+⇒ 「成员列表里不认 if 语句」由**队列本身**保证 ✓，`if` 那一侧一个闸都不用加 ✓。
+
+**`MemberListGuide.JumpIn` 要留着** ✓：成员列表套成员列表（类里再写一个类 ✓）时，
+里面那个体的括号也要换成这一条队列 ✓。
+
+**谁用它**（三处）：
+- `tokens/member-list-guide.xl.md`：认出类头之后，把**体括号的**队列换成它 ✓；
+- `tokens/bracket.xl.md`：`{` 的 `Context` 是 `"type"` 时（类型字面量 / 映射类型的体 ✓）直接用它 ✓
+  ——那一格复用的是**已有的** `Context` 答案 ✓，不是新推断 ✓；
+- `tokens/if/if-guide.xl.md`：`if` 的收集器用它 ✓（暂存期间嵌套的 `if` 不该另起向导 ✓）。
+
+与 `CreateGeneralQueue` **同一条语义** ✓：每次访问都新建一份 ✓，模板之间不串味 ✓
+（所以三处各拿一份、互不影响 ✓；`Removed` 本身也是产出副本 ✓）。
+
+```ts
+return ParsePipeline.CreateGeneralQueue().Removed([IfGuide.JumpIn]);
 ```
 
 ## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, ClassReorganization.Instance, FunctionReorganization.Instance, EnumReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, StaticBlockReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, IfSetReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
