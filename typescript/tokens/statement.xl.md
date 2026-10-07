@@ -38,15 +38,10 @@ import { LineWrap } from "./line-wrap.xl.md"
 语句：把一串「不是语句边界」的单元收进一个 `Statement`。这是夹具里最常见的结构——
 `abc` 的 XML 就是 `<Root><Statement><Identifier>abc</Identifier></Statement></Root>`。
 
-语句壳**由解析期的成形器收**（第 564 轮起这是唯一一条路 ✓）：终结符刚 append 完那一刻
-`Token.FormStatement` → `Statement.FormFrom` ✓（第 486 轮 ✓），容器关闭时 `Statement.FormTail`
-补末尾那一条 ✓（第 544 轮 ✓）——两处都在下面各自的节里 ✓。
-
-**从前还有三个收尾规则类** ✗（`StatementCloseRule` / `StatementCloseRule2` / `StatementCloseRule3` ✓，
-本文件第 564 轮之前的那三节 ✓）：它们排在 `GeneralCloseRule` 队列上 ✓，可 `RunCloseRules` 把
-`2` / `3` **显式跳过** ✗、`1` 又不在任何一张活着的队列里 ✗ ⇒ 整套语料里**一次都没被调用过** ✓
-（第 564 轮量的账：1460 份语料、三条规则的 `Previous` 调用 **0** 次 ✓，
-量具 `tmp/recon/r564-hits.cjs` ✓）⇒ 三族整段删掉 ✓，只留 `FormFrom` / `FormTail` 这一份实现 ✓。
+语句壳**由解析期的成形器收**：终结符刚 append 完那一刻 `Token.FormStatement` →
+`Statement.FormFrom` ✓，容器关闭时 `Statement.FormTail` 补末尾那一条 ✓
+——两处都在下面各自的节里 ✓（第 564 轮之前还有三个排在 `GeneralCloseRule` 队列上的
+收尾规则类 ✓，实测**一次都没被调用过** ✗ ⇒ 整段删掉、只留这一份实现 ✓）。
 
 # class Statement extends IndependentToken
 
@@ -463,10 +458,9 @@ rest.TryToClose();
 还会把 `abstract` 与后面的 `Field` 一起卷进同一个 `Statement`。
 
 `Label` 也在表里：标签与它标的那条语句是**两个平级单元**（见 `./label.xl.md` 的说明），
-不把 `Label` 当边界，`StatementCloseRule3` 会把两者一起收进一个 `Statement`。
+不把 `Label` 当边界，收壳时会把两者一起收进一个 `Statement`。
 
-这个判定是「语句从这里断开」的**四个**调用点共用的（`StatementCloseRule` / `2` 的两条分支 / `3` 里的
-`SearchFrontIndexed`，判定器统一转调 `IsStatementBoundary`），
+这个判定是「语句从这里断开」的四个调用点共用的（判定器统一转调 `IsStatementBoundary` ✓），
 所以它决定了声明能不能作为独立节点站在 `Root` / `ClassBody` / 函数体里。
 
 ```ts
@@ -493,30 +487,12 @@ return item instanceof IfSet
   // 再 import 它们会绕出更深的环（与上面 `Let` 那条同一个理由）。
   || item.constructor.name === "StaticBlock"
   || item.constructor.name === "NamespaceExport"
-  // **`Namespace` 现在在表里了** ✓（第 367 轮 ✓，**把第 292 轮退回来的那一半补上** ✓）：
-  // 它在的第 292 轮账还在下面 ✓——当时加进去修好了「命名空间后面**同一行**再跟一句」✓，
-  // 可**嵌套那一档从「报错」变成「静默错值」** ✗（外层 `ModuleBlock` 的产物从
-  // `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration` ✗ ⇒ 降级层
-  // 读 `ListOf(block, "statements")` 一个语句都取不到 ✗ ⇒ 内层命名空间根本没建 ✓）。
-  // **那一半在这一轮一起补上了** ✓（`print-ast-common.xl.md` 的 `BODY_FIELDS` 那一处
-  // 改成「`Namespace` 的 `body` 只在父亲也是 `Namespace` 时成立」✓）——
-  // 这正是那句「**要动就得一起动**」✓。
+  // **`Namespace` 在表里** ✓：`namespace O { … } console.log(O.a);`（同一行再跟一句 ✓）
+  // 靠这一条才分得开 ✓；而它**与 `print-ast-common.xl.md` 的 `BODY_FIELDS` 是一对** ✗——
+  // 那边写着「`Namespace` 的 `body` 只在**父亲也是 `Namespace`** 时成立」✓，
+  // 少了那一半，嵌套那一档会**静默**变错 ✓（内层命名空间根本没建 ✓，
+  // 脚本报的是 `cannot read properties of undefined` ✓ —— 离现场很远 ✗）。
   || item.constructor.name === "Namespace";
-  // **`Namespace` 故意不在表里** ✗（第 292 轮试过、量了、退回来了 ✓）：
-  // 加进去确实修好一处 ✓——「一条命名空间后面**同一行**再跟一句」
-  //（`namespace O { … } console.log(O.a);` ✓ 原来是
-  // `unimplemented: expression ModuleDeclaration` ✓），
-  // 因为那个 `Namespace` 单元从此自己就是语句边界 ✓。
-  //
-  // **但它同时改掉了嵌套那一档的形状** ✗，而且是**静默**改 ✓：
-  // `namespace O { export namespace I { … } }` 里外层 `ModuleBlock` 的产物
-  // 从 `statements:[ModuleDeclaration]` 变成 `body: ModuleDeclaration` ✓
-  //（实测 `--ts-ast` 的投影 ✓）——降级层读的是 `ListOf(block, "statements")` ✓，
-  // 于是一个语句都取不到 ✓ ⇒ 内层命名空间**根本没建** ✓，
-  // 脚本报的是 `cannot read properties of undefined` ✓（离现场很远 ✗）。
-  // 两处一比：**收益 1 条、代价是嵌套那一档从「报错」变成「静默错值」** ✗ ——
-  // 所以退回来 ✓，把那一处**记成台账里的缺口** ✓（根子在语句边界与 `ModuleBlock`
-  // 的收法这两件事的耦合上 ✓，要动就得一起动 ✓）。
 ```
 
 ## static method FirstMeaningful:(children:Array<Token>)=>Token
@@ -1506,9 +1482,8 @@ if (Array.isArray(unit.Data) === false) {
   return result;
 }
 const value = source.Value;
-// **只认软换行** ✓：`;` 那一档已经交给钩子 ✓（`Token.FormStatement` → `Statement.FormFrom` ✓）。
-// 两支都留着会**两次成形** ✗ —— 而且**不分对照态** ✓：实测 `DSH_XL_REORG=1` 那一档
-// 让钩子也跑反而更好（613 → 855 ✓），所以这里不设开关 ✓（一处实现、一个路径 ✓）。
+// **只认软换行** ✓：`;` 那一档已经交给钩子 ✓（`Token.FormStatement` → `Statement.FormFrom` ✓）——
+// 两支都留着会**两次成形** ✗（一处实现、一个路径 ✓，没有开关 ✓）。
 if (value !== "\n") {
   return result;
 }
