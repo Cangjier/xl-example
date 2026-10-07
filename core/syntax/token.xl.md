@@ -3,6 +3,7 @@
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { Branch } from "./branch.xl.md"
 import { Reorganization } from "./reorganization.xl.md"
+import { StatementFormer } from "./statement-former.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -297,6 +298,28 @@ return this.Parent;
 
 ```ts
 return false;
+```
+
+## static field Former:StatementFormer = new StatementFormer()
+
+**语句成形器**（第 486 轮）：`FormStatement` 的落地实现。
+
+默认就是抽象那一份（调用即抛 ✗）——`ParsePipeline.Install` 会把 `StatementFormerImpl.Instance` 装进来 ✓。
+「装配是调用方的责任」这句与模板那一套是同一条口径 ✓：解析不可能早于 `Install` ✓
+（`typescript/tokens/root.xl.md` 的构造器里那条契约检查管着 ✓）。
+
+## method FormStatement:(terminator:Token)=>void
+
+终结符（`;` / 软换行）**已经进 `Data` 之后**的一次机会：宿主可以据此把刚才那一段收成一条语句壳。
+
+**它是空钩子，但转发给成形器** ✓：`core` 这一层不认识 `typescript` 的语句类 ✗（见
+`statement-former.xl.md` 那一处说明 ✓），所以这里只问 `Token.Former` ✓。
+两个调用点在 `typescript/tokens/symbol-token.xl.md` 与 `line-wrap.xl.md` 的 appender 里，
+**紧跟 append 之后** ✓ —— 那是唯一同时满足「轮得到」「终结符已在列」「切片口径正确」三条的位置 ✓
+（第 481–486 轮逐条量出来的 ✓）。
+
+```ts
+Token.Former.Form(this, terminator);
 ```
 
 ## method Process:(context:SyntaxContext, source:Source)=>void

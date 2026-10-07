@@ -6,6 +6,7 @@ import { BranchConditionResult } from "../../core/syntax/branch-condition-result
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { StatementFormer } from "../../core/syntax/statement-former.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
@@ -346,6 +347,65 @@ return nextIndex;
 ```ts
 super(template);
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+```
+
+## static method FormFrom:(unit:Token, terminator:Token)=>void
+
+**在终结符已经进 `Data` 之后**收一条语句壳（第 486 轮）——`StatementReorganization` / `StatementReorganization2`
+那两条重组规则的**逐字移植**，只是时机从「单元关闭时扫平表」换成「终结符刚 append 完」。
+
+**为什么必须在这个时机** ✗：壳体要把终结符**算进自己的区间** ✓（TS 的 `VariableStatement` 是 `[0,10)`
+而不是 `[0,9)` ✓，实测漂移 1032 → 493 ✓），可终结符**在 appender 之前根本不在 `Data` 里** ✓
+（第 481–485 轮逐字符 dispatch 量穿的三条硬约束：派发循环遇到第一个 `Done` 就 `return` ✗ ⇒ 排在 appender
+之后的格子一次都不会被问到 ✗；而排在 appender 之前虽然轮得到 ✓，那一刻 `data[data.length - 1]` 是终结符
+左边那一格 ⇒ 切不出含终结符的区间 ✗）。唯一同时满足的位置是**两个 appender 里、紧跟 append 之后** ✓。
+
+**切片与重组一字不差** ✓：`children` 含终结符 ✓，装进语句的是 `children.slice(0, children.length - 1)` ✓，
+区间取 `FirstMeaningful(children).Start .. children[last].End` ✓ —— 所以 `End` 就是终结符的末尾 ✓。
+
+**`;` 在小括号里不算语句边界** ✓：那是 `for` 的三段式分隔符（照 `StatementReorganization.Previous` 的判定 ✓）。
+
+```ts
+if (unit === null || unit === undefined) {
+  return;
+}
+const data = unit.Data;
+if (Array.isArray(data) === false || data.length === 0) {
+  return;
+}
+const index = data.length - 1;
+if (data[index] !== terminator) {
+  return;
+}
+const template = unit.Template;
+if (terminator instanceof SymbolToken) {
+  const parent = terminator.Parent;
+  if (parent instanceof Bracket && parent.startBracket === "(") {
+    return;
+  }
+  if (template.SymbolTemplate.IsStatementSymbol(terminator.TempToString()) === false) {
+    return;
+  }
+}
+const frontIndex = SearchFrontIndexed(data, index, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
+const children = data.slice(frontIndex + 1, index + 1);
+const lonelySemicolon = children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
+if (children.length === 1 && !lonelySemicolon) {
+  data.splice(index, 1);
+  return;
+}
+const statement = new Statement(template);
+statement.Parent = terminator.Parent;
+statement.AddRange(children.slice(0, children.length - 1));
+const first = Statement.FirstMeaningful(children);
+const last = children[children.length - 1];
+if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
+  statement.SourceRange.Start = first.SourceRange.Start;
+  statement.SourceRange.End = last.SourceRange.End;
+} else {
+  throw new Error("Statement.FormFrom source range is not complete.");
+}
+ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
 ```
 
 ## static method IsStatementUnit:(item:Token)=>bool
@@ -943,14 +1003,19 @@ return result;
 
 # class StatementBranch extends Branch
 
-**解析期造语句壳**（第 477 轮，reorg 关掉之后按清单重建）。
+**解析期造语句壳——只剩软换行那一档**（第 477 轮建、第 486 轮收窄）。
 
-时机与 `StatementReorganization.Process` 一致 ✓：当前字符是 `;` 或软换行 ✓、而且**已经**进了
-`Data` ✓（所以这个分支要排在 `LineWrap.AppendIn` / `SymbolToken.AppendIn` **之后** ✓）。
+**`;` 那一档已经交给 `FormFrom`** ✓（第 486 轮）：它必须在终结符**进 `Data` 之后**才收 ✓，
+而这一支排在 appender **之前** ✓ ⇒ 它收出来的壳**不含分号** ✗（实测 `let a = 1;` 的
+`VariableStatement` 是 `[0,9)`，TS 要 `[0,10)` ✗，全语料 1032 处漂移里它占 493 ✗）。
+两支都留着会**两次成形** ✗，所以这里只认 `\n` ✓。
+
+**软换行为什么仍留在这里** ✓：换行**不进语句的区间** ✓（TS 的 `a = 1\n` 到 `1` 为止 ✓），
+所以在 append 之前收反而正好 ✓；而这个 `LineWrap` 单元随后照旧留在 `Data` 里 ✓
+（它不参与签入签出、投影当 trivia ✓），别的解析期分支要拿它当分隔符的照旧拿得到 ✓。
 
 判据与收束全部复用那份现成的静态方法 ✓（`Statement.IsStatementBoundary` /
-`Statement.FirstMeaningful` / `ReplaceCountAt` ✓），所以壳的范围、孤独分号的口径
-都与重组那条**逐字一致** ✓。
+`Statement.FirstMeaningful` / `ReplaceCountAt` ✓）。
 
 ## static readonly field JumpIn:StatementBranch = new StatementBranch()
 
@@ -966,7 +1031,10 @@ if (Array.isArray(unit.Data) === false) {
   return result;
 }
 const value = source.Value;
-if (value !== ";" && value !== "\n") {
+// **只认软换行** ✓：`;` 那一档已经交给钩子 ✓（`Token.FormStatement` → `Statement.FormFrom` ✓）。
+// 两支都留着会**两次成形** ✗ —— 而且**不分对照态** ✓：实测 `DSH_XL_REORG=1` 那一档
+// 让钩子也跑反而更好（613 → 855 ✓），所以这里不设开关 ✓（一处实现、一个路径 ✓）。
+if (value !== "\n") {
   return result;
 }
 const data = unit.Data;
@@ -980,15 +1048,15 @@ if (data.length === 0) {
 // 之前 ✓，见 `parse-pipeline.xl.md` 那张表的位置说明 ✓）⇒ 要收的就是**已经在列表里**
 // 的那一段 ✓，而它的**最后一个单元**就是这条语句的最后内容 ✓。
 //
-// 三版判据的实测账 ✓（前两版都不成立 ✗）：
+// 判据的实测账 ✓（前两版都不成立 ✗）：
 // ① `IsInStatement(data, data.length)` ✗——越界那一格 `Get` 给 `null` ✓，
 //    `IsInStatement` 的第一条早退直接给 `false` ✓；
 // ② `IsInStatement(data, data.length - 1)` ✗——`Data` 里**根本不含软换行** ✓
 //    （`LineWrap` 是透明单元、不进列表 ✓），所以最后一个单元**永远**是内容单元 ✓，
 //    而那一支问的是「左右邻居是不是非语句符号」✓ ⇒ 对 `const b = f(2)` 的 `)` 给 `false` ✗
 //    （它右边已经没有东西了 ✓，可语句明明开着 ✓）；
-// ③ 正面判据 ✓：**最后一个单元本身就是语句边界** ⇒ 上一条已经收完 ✓ ⇒ 这个 `;` 是
-//    防御性分号（`;;` 的第二个 ✓）✓，不收 ✓；否则库里正开着一条语句 ✓，收 ✓。
+// ③ 正面判据 ✓：**最后一个单元本身就是语句边界** ⇒ 上一条已经收完 ✓ ⇒ 这个换行是
+//    上一条的尾巴（`let a = 1;` 换行 ✓）✓，不收 ✓；否则库里正开着一条语句 ✓，收 ✓。
 if (Statement.IsStatementBoundary(data, data.length - 1)) {
   return result;
 }
@@ -1019,7 +1087,7 @@ if (children.length === 0) {
 }
 const statement = new Statement(unit.Template);
 statement.Parent = unit;
-// **当前这个 `;` / 软换行还没进 `Data`** ✓（见 `Condition` 那一处说明 ✓）⇒
+// **当前这个软换行还没进 `Data`** ✓（见 `Condition` 那一处说明 ✓）⇒
 // `children` 里**每一格都是语句的内容** ✓，没有终结符要排除 ✓
 //（重组那条跑在 append 之后 ✓，所以它要「除最后一个」✗——这一支不要 ✗，
 //  实测照抄重组那一句会把最后的内容单元丢掉 ✓：`let a = 1;` 于是只剩 `Let, =` ✓）。
@@ -1028,11 +1096,30 @@ const first = Statement.FirstMeaningful(children);
 const lastUnit = children[children.length - 1];
 if (first.SourceRange.Start !== null && lastUnit.SourceRange.End !== null) {
   statement.SourceRange.Start = first.SourceRange.Start;
-  // 右边界取**最后一个内容单元的末尾** ✓：这个时机 `source.Index` 拿到的是 `undefined` ✗
-  // （实测产物里出现 `[10,NaN)` ✗），而 `;` 自己那一格由投影侧的补壳逻辑负责 ✓。
+  // 右边界取**最后一个内容单元的末尾** ✓：软换行不进语句的区间 ✓，所以这里就是 TS 的右边界 ✓
+  //（`;` 那一档已经搬到 `FormFrom` ✓：那时终结符在 `Data` 里 ✓，右边界由它给 ✓，见那一处 ✓）。
   statement.SourceRange.End = lastUnit.SourceRange.End;
 } else {
   throw new Error("StatementBranch source range is not complete.");
 }
 ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
+```
+
+# class StatementFormerImpl extends StatementFormer
+
+把 `Token.FormStatement` 落到 `Statement.FormFrom` 上的那一份实现（第 486 轮）。
+
+`Token` 那一层不认识 `Statement` ✗（见 `core/syntax/statement-former.xl.md` 那一处说明 ✓），
+所以装配时把这一份装进 `Token.Former` ✓（`parse-pipeline.xl.md` 的 `Install` ✓）。
+
+## static readonly field Instance:StatementFormerImpl = new StatementFormerImpl()
+
+唯一实例，供 `ParsePipeline.Install` 装进 `Token.Former`。
+
+## method Form:(unit:Token, terminator:Token)=>void
+
+转发给 `Statement.FormFrom`——判据、切片、区间只有那一份实现。
+
+```ts
+Statement.FormFrom(unit, terminator);
 ```

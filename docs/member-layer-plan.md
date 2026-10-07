@@ -1627,3 +1627,115 @@ appender **之前** ✓，它按旧口径「除最后一个」切片 ✗ ⇒ 内
    而 `=` 与初始值作为顶层兄弟各投一个节点 ✗（实测 `vars-basic.ts` ✓）。
    修法是 `Let.PrintAst` 里一句：**没有子单元 ⇒ 返回 `ctx.Nothing`** ✓（解构形态有模式括号 ✓，
    本来就不走语句壳那一趟 ✓）。这一条与语句壳无关 ✓，独立生效 ✓。
+
+## 一百〇三、语句壳搬到「终结符进 `Data` 之后」（第 486 轮）：77 → **156 / 1037**
+
+上一轮（481–485）量穿了三条互相挤压的硬约束 ✓，结论是**唯一可行的位置在两个 appender 里、
+紧跟 append 之后** ✓；那一轮把钩子接上去读数从 77 → 22 ✗、根因没定位、按纪律回滚了 ✓。
+这一轮把这条落下来 ✓，并且**把两档拆开**——`;` 那一档搬到 appender 之后 ✓，软换行那一档
+留在原来的 `StatementBranch`（append 之前）✓。
+
+**为什么软换行不跟着搬** ✓（这一轮量出来的）：换行**不进语句区间** ✓（TS 的 `a = 1` 换行到 `1` 为止 ✓），
+留在 append 之前收反而正好 ✓；而它一旦也搬进钩子，就会顺手把「孤零零的软换行」删掉 ✓
+（重组那条规则就是这么干的 ✓）——**而解析期那一批端口（成员层、`Let`、括号那一族）都还拿软换行当分隔符** ✗。
+
+**变体账（都是整份 `cases` 语料的实测 ✓）**：
+
+| 变体 | 完全一致 | 缺 | 漂移 | 多出来 | 字段名 |
+| --- | --- | --- | --- | --- | --- |
+| 基线（只有 `StatementBranch`，`;` / 换行都在 append 之前收） | 77 | 7126 | 1032 | 7290 | 51 |
+| **A**：`;` 与软换行都搬进钩子（软换行照删） | **207** | 8205 ✗ | 102 | 6122 | 73 ✗ |
+| **B**：只搬 `;`（软换行照旧） | 81 | 7156 | 1033 | 7312 | 51 |
+| **B2**：B ＋ `Let` 签名锚点跳过前导 trivia | **156** | **7122** | **493** | **6738** | 51 |
+
+⇒ 落在树上的是 **B2** ✓：四个方向里三个明确变好 ✓、缺节点比基线还少 4 个 ✓、字段名不变 ✓。
+
+**两档读数（整份 `cases` 语料，force 重建后实测 ✓）**：
+
+| 状态 | HEAD（本轮之前） | 本轮（B2） |
+| --- | --- | --- |
+| **禁用 reorg（默认，主指标）** | 77 / 1037 | **156 / 1037** ✓ |
+| `DSH_XL_REORG=1`（对照态） | **613 / 1037** ✗ | **855 / 1037** ✓ |
+
+⚠️ **对照态早就不绿了** ✗：文档里那句「有 reorg = 1037 / 1037」是**第 468 轮**的读数 ✓，
+而第 469–485 轮往解析期搬端口（`LetBranch` / `StatementBranch` / 成员层那些 ✓）时
+**把对照态一起带下来了** ✗。这一轮先 `git stash -u` ＋ force 重建、量了 HEAD 的真实读数 ✓
+（禁用 reorg 77 ✓、对照态 **613** ✗）⇒ 从此「对照态」只能当**趋势指标** ✓，
+不能再当「不许动的绿线」✗。好消息是本轮两档都在涨 ✓（+79 / +242 ✓）。
+
+**没有为对照态加开关** ✓：一开始试过「`DSH_XL_REORG=1` 时钩子不跑、`;` 仍由 `StatementBranch`
+在 append 之前收」✗（想让对照态逐字回到 HEAD ✓）——实测 **692** ✓，比不加开关的 **855** 更差 ✗。
+⇒ 一处实现、一个路径 ✓（`;` 只在钩子里收 ✓），不设第二条分支 ✓。
+
+**A 的那 207 是「借来的」** ✗：它多出来的 51 个文件来自**提前删软换行** ✓（等于替所有端口顺手修了左边界 ✓），
+代价是成员层被弄坏 ✓ —— 实测 `type-combination-adversarial.ts`
+（`@dec2 method<U>(x: T): Record<string, U> { return x }` 那一簇）
+钩子版**丢** `Identifier(dec2)` / `Identifier(method)` / `Block { return x }` ✗，
+而只处理 `;` 的 B 版与基线逐条相同 ✓。⇒ 想拿回那 51 个文件，正确做法不是删软换行 ✗，
+而是**给每个解析期端口修签名/切片口径** ✓（见下一节）。
+
+**B2 的关键一笔：漂移的大头在左边界，不在右边界** ✓。B 版把 `;` 算进壳体之后，
+`let a = 1;` 那一类**右边界**已经对齐 ✓，可 493 处漂移里最大的一笔（`VariableStatement` 212 /
+`VariableDeclarationList` 222）形状是**整体左移一位** ✓：`const a = 1;` 换行 `const b = 2;`
+的第二条是产物 `[12,25)` vs TS `[13,25)` ✗。真因在 `LetBranch.Success` ✓：
+`start` 往回跨过 `LineWrap` 之后 `data[start]` **正好落在上一行那个软换行上** ✗ ⇒ `Let` 从换行起签 ✗。
+修法一处 ✓：签名用的锚点跳过 `[start, nameIndex]` 里的 trivia ✓（替换范围照旧，软换行跟着并进 `Let` ✓）。
+读数 81 → **156** ✓，漂移 1033 → **493** ✓（实测 `const a = 1;` 换行 `const b = 2;` 从
+`DRIFT [12,25)` 变成**四个方向全零** ✓，`expr-in-array-literal.ts` 的 11 处漂移全消 ✓）。
+
+**接线（源，六处 ✓）**：
+
+| 文件 | 改动 |
+| --- | --- |
+| `core/syntax/statement-former.xl.md`（新） | 抽象表 `StatementFormer`：`Form(unit, terminator)`，抛错桩 ✓ |
+| `core/syntax/token.xl.md` | 静态字段 `Former:StatementFormer` ＋ 钩子 `FormStatement`（转发给 `Former.Form` ✓） |
+| `typescript/tokens/statement.xl.md` | `Statement.FormFrom`（重组那两条的逐字移植 ✓）＋ `StatementFormerImpl` ＋ `StatementBranch.Condition` 收窄成只认 `\n` ✓ |
+| `typescript/tokens/symbol-token.xl.md` | appender 末尾 `unit.FormStatement(unit.Last() as SymbolToken)` ✓ |
+| `typescript/tokens/let.xl.md` | 签名锚点跳过前导 trivia ✓ |
+| `typescript/parse-pipeline.xl.md` | `Install` 里 `Token.Former = StatementFormerImpl.Instance` ✓ |
+
+**为什么多一层 `StatementFormer`** ✗：appender 在 `typescript` 层，可它**不能 import `statement.xl.md`** ✗
+（`statement` 向上 import 了 `bracket` 等一串，会绕出环 ✓ —— `symbol-token.xl.md` 里记着这一笔 ✓）。
+所以 `core` 只留空钩子 ＋ 一张抽象表 ✓，实现在装配时装上 ✓（与「模板是调用方的，谁造模板谁装配」同一句话 ✓）。
+
+**六道门：与 HEAD 逐道相同** ✓（同一台机器上先 `git stash -u` ＋ force 重建量 HEAD ✓，再量本轮 ✓）：
+
+| 门 | HEAD | 本轮 |
+| --- | --- | --- |
+| `runtime:check` | FAIL 116 / 242 | FAIL 116 / 242 |
+| `runtime:cli` | FAIL 1 / 79 一致 | FAIL 1 / 79 一致 |
+| `cases:tsast` | FAIL（16 片全红） | FAIL（16 片全红） |
+| `samples` | FAIL（`VariableDeclarationList.declarations` 空 ✗） | FAIL（同一处 ✗） |
+| `cases:check` | **ok** 1050 / 1050 | **ok** 1050 / 1050 |
+| `coverage` | FAIL 142 / 1713（blocked 1566、differ 5、bad 0、加权 6.4%） | FAIL 142 / 1713（逐项相同） |
+
+⇒ **这一轮没有把任何一道门弄坏** ✓；六道门在**默认（无 reorg）**这一档本来就多数是红的 ✓
+（它们是第 468 轮之前、reorg 还开着时调绿的那一套口径 ✓）——**迁移期看的是上面那张四方向表** ✓，
+门只在「打算收工」之前当回归网用 ✓。
+
+**工具（都在 `tmp/recon/` ✓，可复用 ✓）**：
+
+| 脚本 | 作用 |
+| --- | --- |
+| `r486-hook.cjs` | 可回滚地往 `build/ts` 打这套接线（`--variant=b` 只搬 `;` ✓）；备份在 `r486-backup/` ✓ |
+| `r486-letanchor.cjs` | 单独那处 `Let` 锚点补丁 ✓（可与上面的变体叠加 ✓） |
+| `r486-rollback.cjs` | 从备份还原四个 JS ✓ |
+| `r486-filecmp.cjs` | 对若干文件做「钩子版 vs 基线」的逐节点对拍 ✓（**先确认当前树是钩子版** ✓） |
+| `tree.cjs` | 直接打**原树**（类名 ＋ 区间 ＋ 子单元数）✓ —— 这一轮定位 `Let` 左边界就是靠它 ✓ |
+
+**两笔要记住的账**：
+
+1. **`BornByReorganization` 这个口径已经被解析期端口污染** ✗：它只在 `ReplaceCountAt` 里点亮 ✓，
+   而解析期的 `LetBranch` / `FormFrom` 也走 `ReplaceCountAt` ✓ ⇒ 占比指标只在
+   `DSH_XL_REORG=1` 的对照态里才有意义 ✓（当前主线默认关 reorg ✓，尺子报的是四个方向 ✓）。
+2. **`StatementBranch` 这一支还留着** ✓（只认 `\n` ✓）：它和钩子**不能同时认同一个终结符** ✗
+   （会两次成形 ✓）——这一轮把 `;` 整档交给钩子时就是按这条切的 ✓。
+
+**下一块（按清单）** ✓：
+
+1. 把「签名锚点跳过前导 trivia」这一条**扫到其余解析期端口** ✓（`ClassBranch` / `InterfaceBranch` /
+   `EnumBranch` / `Field` / `IfSetBranch` / `StaticBlockBranch` … ✓）——A 版那多出来的 51 个文件就在这里 ✓；
+2. 其余漂移（`TypeReference` 38 / `Identifier` 17 / `BinaryExpression` 2 …）逐条查 ✓；
+3. 回到缺节点清单：`VariableDeclaration(List)` 625/605 → `VariableStatement` 571 →
+   `FunctionDeclaration` 134 → `Parameter` 303 → 表达式层 ✓。
+

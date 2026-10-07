@@ -494,7 +494,16 @@ while (start > 0) {
 const letUnit = new Let(unit.Template);
 letUnit.fieldName = nameUnit.TempToString();
 letUnit.modifiers = modifiers.join(",");
-const anchor = data[start];
+// **签名用的锚点要跳过前导 trivia** ✓（第 486 轮）：`start` 往回跨过 `LineWrap` 之后，
+// `data[start]` 可能正好是**上一行留下的那个软换行** ✗ ⇒ `Let` 从换行起签 ✗，
+// 投影出来的 `VariableStatement` / `List` 整个左移一位 ✗（实测
+// `const a = 1;` 换行 `const b = 2;`：产物 `[12,25)` vs TS `[13,25)` ✗，全语料这种漂移 493 处 ✓）。
+// 替换范围照旧从 `start` 起算 ✓（那个软换行跟着并进 `Let`，与重组那条的切法一致 ✓）。
+let anchorIndex = start;
+while (anchorIndex <= nameIndex && data[anchorIndex] instanceof LineWrap) {
+  anchorIndex = anchorIndex + 1;
+}
+const anchor = data[anchorIndex];
 if (anchor !== undefined && anchor.SourceRange.Start !== null) {
   letUnit.SignIn(anchor.SourceRange.Start);
 }
