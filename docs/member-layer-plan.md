@@ -3838,3 +3838,104 @@ cls-super-newtarget.ts 仍是 MISS BinaryExpression / EqualsEqualsEqualsToken / 
 `cases:check` 1050 条用例 0 条不合格 ✓。台账 **10 轮**（6 正 4 负 ✓）——
 负面的四处各留一条「哪条路走不通」✓，其中这一处（`new.target`）已经**把投影侧整条路排除干净** ✓，
 下一轮直接打解析侧 ✓。
+## 一百四十六、类型查询里的 `typeof` 被值位那一趟**又折了一层**（第 543 轮）：884 → **896 / 1037**
+
+> 第 542 轮（`new.target` 的解析侧第一次试装 ✓，净值 0、三处约束留在
+> `tmp/recon/r542-note.md` ✓）没有进这一本台账 ✗ —— 那一轮**一个数字都没动** ✓、
+> 工作区回到干净 ✓。台账这一节直接接第 543 轮 ✓。
+
+起点 **884 / 1037** ✓（缺 860 / 漂 71 / 多 273 / 字段名 58 ✓）。这一轮换一个轴找入口 ✓：
+把 153 份不绿的文件**按「四个方向的签名」归组** ✓（`tmp/recon/r543-ruler.txt` ✓），
+同一签名里**份数最多、面最窄**的是 `1/0/0/1` ✓ —— 8 份文件，**都缺一个 `Identifier`
+而且都只在 `TypeQuery` 上差一个字段名** ✓。
+
+### 一、现场（8 份文件一个形状）
+
+```
+FIELD  TypeQuery  [122,130)  产物[] vs TS[exprName]  "typeof x"
+MISS   Identifier TS[129,130)  "x"
+```
+
+八份是 `type-op-typeof.ts` / `type-op-keyof-typeof.ts` / `type-op-unique-symbol-property.ts` /
+`type-paren-content-nodes.ts` / `type-query-in-generic.ts` / `type-query-in-index-access.ts` /
+`type-query-in-paren-type.ts` / `type-unique-symbol.ts` ✓。`TypeQuery` 自己**区间是对的** ✓、
+`exprName` **一个字段都没有** ✗ ⇒ 名字那一格没有投出来 ✗。
+
+原树（`cjcli` 的 XML ✓）：
+
+```
+<TypeQuery>
+  <UnaryOperator op="typeof">
+    <UnaryOperator op="typeof">   × 6 层
+      <Identifier>typeof</Identifier>
+      <Identifier>x</Identifier>
+```
+
+⇒ 类型位那一趟已经把它收成 `TypeQuery` 了 ✓，可里面**还套着值位的一元运算** ✗ ——
+`TypeQuery.PrintAst` 的 `ctx.Kids` 只看得到那个 `UnaryOperator` ✗ ⇒ 名字节点一个都找不到 ✗。
+
+### 二、真因（插桩一次就钉死）
+
+`tmp/recon/probe-unary-parent.cjs` ✓（打 `UnaryOperatorReorganization.Previous` 进门那一格 ✓）
+在 `type X = typeof x` 上报的是：
+
+```
+UP1DBG typeof parent=TypeQuery       idx=0 n=2     ← 坏的那一趟
+UP1DBG typeof parent=UnaryOperator   idx=0 n=2
+UP1DBG typeof parent=UnaryOperator   idx=0 n=2
+```
+
+⇒ **时序**是全部理由 ✓：类型位那一趟（`TypePrefixReorganization` ✓）**先**把 `typeof x`
+收成 `TypeQuery` ✓，而新单元**自己也会关一次** ✓ ⇒ 它自己的 `Data`（`[Keyword(typeof),
+Identifier(x)]` ✓）上**又跑了一遍通用队列** ✓ —— 那一刻这一格词的 `Parent` **正是
+`TypeQuery`** ✓，值位那一趟照折不误 ✗。
+
+**同一份插桩还量出第二件事** ✓（`let v = typeof x` 那一列 ✓）：折出来的 `UnaryOperator`
+自己的 `Data` 上**再跑一趟** ✓、运算符还是那一格词、操作数还是那个操作数 ✓ ⇒
+**每跑一趟多套一层壳** ✗ —— 实测 XML 里是 **8 层** ✓
+（对照态只有一层 ✓；`++` 那一格第 502 轮已经用同一个判据挡过了 ✓，前缀这一族当时漏了 ✗）。
+这一层壳在尺子上看不出来 ✓（`kind@start-end` 相同 ⇒ 被 `Set` 去重 ✗），
+可它是真的 ✗：`let v = typeof x` 的产物节点数 24806 → **24331** ✓ 就是它。
+
+### 三、修法（`unary-operator.xl.md`，两处守卫，都在 `Previous` 的前缀那一支）
+
+1. **`Parent` 是 `TypeQuery` ⇒ 一律不折** ✓（`current.Parent.constructor.name === "TypeQuery"` ✓）。
+   与上面那两条同族 ✓（`GenericType` / `Parent === null` ✓）：都是「这一段在类型位、
+   只是折的这一趟来晚了」✓。**只挡 `TypeQuery`** ✗、不写成 `IsTypeContainerUnit`：
+   `As` / `Satisfies` 容器里**也有值表达式** ✓（`typeof x as number` ✓），一刀切会挡坏 ✗。
+2. **父单元已经是同一个运算符的一元运算 ⇒ 不再折** ✓
+   （`Parent.constructor.name === "UnaryOperator"` 且 `Parent.op === OperatorText(current)` ✓）——
+   与第 502 轮 `++` 那一格**同一条判据** ✓。`!!x` / `typeof typeof x` 不受影响 ✓
+   （内层先折成**单元** ✓，折外层时那一格词的 `Parent` 还不是一元运算 ✓）。
+
+### 四、读数
+
+| 项 | 第 542 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 884 | **896 / 1037** ✓（+12 ✓） |
+| 缺节点 | 860（94 类） | **845**（94 类）✓（−15 ✓） |
+| 多出来的节点 | 273（45 类） | **265**（44 类）✓（−8 ✓） |
+| 区间漂移 | 71（18 类） | **71** ✓（持平 ✓） |
+| 字段名不符 | 58 | **44** ✓（−14 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24806 | **24331** ✓（−475：那一堆壳 ✓） |
+
+**逐文件对拍**（`--per-file` 的前后两份名单逐名做差 ✓）：**变绿 12 份、变红 0 份** ✓ ——
+除了上面那八份 ✓，还有 `expr-optional-delete.ts` ✓ / `expr-nested-unary.ts` ✓ /
+`ty-indexed-keyof.ts` ✓ / `type-operator-nodes.ts` ✓（那四份是「壳」那一半消掉之后
+跟着一起对齐的 ✓）。
+
+**门**：`cases:check` **1050 条用例 0 条不合格** ✓；`samples` 仍红 ✗（与 HEAD **逐字相同** ✓）；
+**两道运行时门都涨了** ✓ —— 这一轮那「8 层壳」不只是形状问题 ✗：
+`runtime:check` **188 → 191 / 242** ✓（+3 ✓）、`runtime:cli` **24 → 28 / 79** ✓（+4 ✓），
+两道的 HEAD 基线都是**在同一个工作区里换回 HEAD 源码重跑**量出来的 ✓
+（`samples` 也照同样办法对过一遍 ✓）。读数落在 `tmp/recon/r543-ruler.txt` ✓、
+`r543-after-perfile.txt` ✓（前后两份逐文件名单 ✓）。
+
+### 五、下一块
+
+签名表里紧跟着的是 **`2/0/1/0`（7 份）** ✓ 与 **`1/0/0/0`（6 份）** ✓：
+后者**只缺一个 `ExpressionStatement`** ✓，六份的形状都是「某个容器里最后一条语句
+没有自己的壳」✓（`stmt-while-no-block.ts` / `stmt-do-while-no-block.ts` /
+`stmt-object-vs-block.ts` / `am-object-vs-block.ts` / `stmt-asi-return-newline.ts` /
+`stmt-eof-no-trailing-newline-call.ts` ✓）—— 面比这一轮更窄 ✓，下一轮从它入手 ✓。

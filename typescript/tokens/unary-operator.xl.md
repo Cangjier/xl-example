@@ -258,6 +258,43 @@ if ((this.OperatorText(current) === "-" || this.OperatorText(current) === "+") &
 const afterIndex = SkipNextWrapSymbol(units, index);
 const after = Get(units, afterIndex);
 if (this.IsPrefixSymbol(current)) {
+  // **类型查询里的 `typeof` 不是值位一元运算** ✓（第 543 轮 ✓）——**父单元是 `TypeQuery` 时一律不折** ✗。
+  //
+  // 时序是这一条的全部理由 ✓（实测插桩，`tmp/recon/probe-unary-parent.cjs` ✓）：
+  // 类型位那一趟（`type-operator.xl.md` 的 `TypePrefixReorganization` ✓）**先把
+  // `typeof x` 收成 `TypeQuery`** ✓，之后**这个新单元自己也会关一次** ✓ ⇒ 它自己的 `Data`
+  // 上又跑这一趟通用队列 ✓ —— 此刻那一格词的 `Parent` **正是 `TypeQuery`** ✓
+  //（实测三份文件都是 `UP1DBG typeof parent=TypeQuery idx=0 n=2` ✓）。
+  // 这里若照折 ✗，产物就成了 `TypeQuery > UnaryOperator > [Keyword(typeof), Identifier(x)]` ✗
+  // ⇒ `TypeQuery.PrintAst` 的 `ctx.Kids` **只看得到 `UnaryOperator`** ✗ ⇒ 名字节点一个都找不到 ✗
+  // ⇒ `exprName` 空 ✗、`Identifier` 也不投 ✗（实测 8 份文件：`type-op-typeof.ts` /
+  // `type-op-keyof-typeof.ts` / `type-op-unique-symbol-property.ts` / `type-paren-content-nodes.ts` /
+  // `type-query-in-generic.ts` / `type-query-in-index-access.ts` / `type-query-in-paren-type.ts` /
+  // `type-unique-symbol.ts` ✓，尺子报的都是「`FIELD TypeQuery 产物[] vs TS[exprName]` + `MISS Identifier`」✓）。
+  //
+  // **与上面那两条（`GenericType` / `Parent === null`）同一族** ✓：都是「这一段文本在类型位、
+  // 只是折的这一趟来晚了」✓。**只挡 `TypeQuery`** ✗、不写成 `IsTypeContainerUnit`：
+  // `As` / `Satisfies` 的容器里**也有值表达式** ✓（`typeof x as number` 左边那一格是值 ✓），
+  // 一刀切会把那些真一元运算挡掉 ✗。
+  if (current.Parent !== null && current.Parent.constructor.name === "TypeQuery") {
+    return false;
+  }
+  // **同一个运算符不能再往外套一层** ✓（第 543 轮 ✓）。
+  //
+  // 折出来的 `UnaryOperator` 自己也会关一次 ✓ ⇒ 它的 `Data` 上**又跑这一趟** ✓：
+  // 那时运算符还是**那一格词** ✓、后面还是**那个操作数** ✓ ⇒ 上一版当场**再折一层** ✗
+  // —— 每跑一趟多一层 ✓（实测 `let v = typeof x` 的 XML 里是 **8 层** ✓）。
+  // 判据与 `++` 那一格同源 ✓（见下面 `IsPlusPlus` 那一支的 `Parent` 守卫 ✓，第 502 轮 ✓）：
+  // **父单元已经是同一个运算符的一元运算 ⇒ 这一格词就是它已经收下的那个运算符** ✓。
+  // **`!!x` / `typeof typeof x` 不受影响** ✓：内层先折成**一个单元** ✓，
+  // 折外层时那一格词的 `Parent` 还不是一元运算 ✓ —— 被挡住的只有「同一格词又折一次」✗。
+  if (
+    current.Parent !== null &&
+    current.Parent.constructor.name === "UnaryOperator" &&
+    (current.Parent as any).op === this.OperatorText(current)
+  ) {
+    return false;
+  }
   // **后面那一格是「另一个前缀运算符」时也要接** ✓（第 169 轮）——
   // `Process` 会**先把里面那一处折完** ✓（就地递归 ✓），再把折好的单元当自己的操作数 ✓。
   //
