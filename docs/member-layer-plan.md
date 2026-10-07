@@ -2499,3 +2499,14 @@ tmp/recon/i52.ts（`type Ctor = abstract new () => A;`）: FunctionType 成形 8 次
 
 **下一块**：同一个套路（打点 → 找容器 → 下闸 ?）接着收「自己套自己」那一族 ? ——
 `多出来` 还剩 815 ?（`ExpressionStatement` / `BinaryExpression` 仍是候选 ?）、`缺` 1600 ?。
+
+## 一百二十六、`TypeAssign` 不是自己套自己（第 510 轮）：**负面**，读数一个数字都没动
+
+按第 509 轮那一族的下一格试的 ?：`多出来` 里 `TypeAliasDeclaration` 78 ?（样本 `type C = abstract new () => A` ?），
+猜它和 `FunctionType` 一样在**自己里面再折一层** ? ? 给 `TypeAssignReorganization.Previous` 加一句
+「容器已经是 `TypeAssign` 就不再折」?（`tmp/recon/r510-typeassign.cjs` ?）。
+
+**读数一个数字都没动** ?（746 / 缺 1600 / 漂 163 / 多 815 / 字段名 58 ?，123 份抽查 0 抛异常 ?）
+? **撤掉** ?（源码不动 ?，build 已用 `tsc` 还原 ?）。
+结论：那一笔 `TypeAliasDeclaration` **不是**自己套自己来的 ?，得另找来路 ?
+（下一轮按第 506/509 那套探针直接量「`TypeAssign` 成形几次、容器是谁」?）。
