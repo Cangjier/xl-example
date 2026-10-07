@@ -377,6 +377,15 @@ const owner = unit.constructor.name;
 if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteralBody" || owner === "EnumBody") {
   return;
 }
+// **`[` / `(` 括号里也不收语句壳** ✓（第 515 轮 ✓）：语句只活在块里 ✓ ——
+// 而 `x => x[1, 2, 3]` 的下标括号里，逗号那一格会把 `1, 2, 3` 收成一条**语句** ✗
+//（实测 `am-block-lambda-array-compound.ts`：产物是 `Lamda[525,531)`（体只剩 `x` ✗）
+// ＋ 另一个 `Statement[532,541) > ArrayLiteral` ✗，而正解是**一个** `ElementAccessExpression` ✓）。
+// **只排 `[` 与 `(`** ✓：`{` 既可能是对象字面量（无语句 ✓）也可能是块（有语句 ✓），
+// 要按 `Context` 分辨 ✓，那是另一笔账 ✓。
+if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as Bracket).startBracket === "(")) {
+  return;
+}
 const data = unit.Data;
 if (Array.isArray(data) === false || data.length === 0) {
   return;
@@ -1054,6 +1063,10 @@ if (value !== "\n") {
 // `ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody` 的子单元是**成员** ✓。
 const owner = unit.constructor.name;
 if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteralBody" || owner === "EnumBody") {
+  return result;
+}
+// **`[` / `(` 括号里也不收语句壳** ✓（第 515 轮 ✓，与 `FormFrom` 那一处同一口径 ✓）。
+if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as Bracket).startBracket === "(")) {
   return result;
 }
 const data = unit.Data;
