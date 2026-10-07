@@ -7,6 +7,7 @@ import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Template } from "./templates/template.xl.md"
+import { Get } from "../extensions/list-extension.xl.md"
 import { Sequence } from "./templates/sequence.xl.md"
 ```
 
@@ -50,6 +51,16 @@ JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
 ## field ReorganizationQueue:Sequence<Reorganization> | null = null
 
 本单元关闭时要跑的重组队列。
+
+## field CreatedByRule:string = ""
+
+**这个单元是「哪条重组规则」造出来的**（第 464 轮加的诊断口径）：
+
+空串 = 解析期由 guide / unit 吃字符长出来的 ✓（它的「谁造的」就是类名本身 ✓，
+XML 里直接用 `this.constructor.name` ✓）；非空 = 那条规则的类名 ✓。
+
+**为什么要它**：产物里出现一个形状不对的节点时（例如一个多余的 `ExpressionStatement` ✓），
+「它是谁造的」比「它长什么样」更能直接指出凶手 ✓。
 
 ## field Parent:Token | null = null
 
@@ -165,7 +176,15 @@ for (let pass = 0; pass < maxPasses; pass++) {
   for (const item of this.ReorganizationQueue.Data) {
     for (let i = 0; i < this.Data.length; i++) {
       if (item.Previous(this.Template, this.Data, i)) {
-        i = item.Process(this.Template, this.Data, i);
+        const ruleName = item.constructor.name;
+        const next = item.Process(this.Template, this.Data, i);
+        // **记下「这一格现在是谁造的」**（第 464 轮）：只记第一条碰它的规则 ✓
+        //（后面的规则都在收它造出来的东西 ✓，再记只会把出处冲掉 ✗）。
+        const produced = Get(this.Data, next);
+        if (produced !== null && produced.CreatedByRule === "") {
+          produced.CreatedByRule = ruleName;
+        }
+        i = next;
       }
     }
   }
@@ -442,6 +461,11 @@ const name = this.constructor.name;
 const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
+}
+// 诊断模式：把「谁造的」打进标签（默认关闭 ✓，尺子与交付物不受影响 ✓）。
+if (process.env.DSH_XL_TRACE === "1") {
+  const born = this.CreatedByRule === "" ? this.constructor.name : this.CreatedByRule;
+  return `<${name} xl:born="${born}">${temp.join("")}</${name}>`;
 }
 return `<${name}>${temp.join("")}</${name}>`;
 ```
