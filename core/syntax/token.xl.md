@@ -170,7 +170,10 @@ this.Reorganize();
 // **总开关**（第 468 轮）：`DSH_XL_NO_REORG=1` 时一趟重组都不跑 ✓。
 // 关掉之后产物就是「解析期长出来的样子」✗ ⇒ 尺子报的每一条「缺」都是还没搬过来的东西 ✓，
 // 清单式的重建就靠它 ✓（有 reorg 的树上打补丁容易被互相作用带偏 ✗）。
-if (process.env.DSH_XL_NO_REORG === "1") {
+// **默认关闭**（第 471 轮，按用户指示）：`DSH_XL_REORG=1` 时恢复「有 reorg」的对照态 ✓。
+// 关掉之后整个 token 层就是「解析期长出来的样子」✗ ⇒ 尺子报的每一条「缺」都是待建的一块 ✓，
+// 一个一个建、一个一个量 ✓（简单粗暴，但进度是单调的 ✓）。
+if (process.env.DSH_XL_REORG !== "1") {
   return;
 }
 if (this.ReorganizationQueue === null) {
