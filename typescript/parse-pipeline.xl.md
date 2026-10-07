@@ -140,14 +140,16 @@ return new Sequence<Branch>([
   InterfaceBranch.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
-  // **语句壳在解析期成形**：必须排在两个 AppendIn **之前** ✗ —— 排在后面时当前字符
-  // 已经被它们消费掉、派发就在那里结束了 ✓，分支永远轮不到 ✗（实测数字一点没动 ✓）。
-  // 右边界改用 `Source.Index + 1` 自己算（那个 `;` 还没进 `Data` ✓）。
-  StatementBranch.JumpIn,
   LineWrap.AppendIn,
   // **`Let` 在解析期成形**：认的是 `=` / `:` / `;` / `,` / 换行 这几格 ✓，
   // 所以只要排在 `SymbolToken.AppendIn` 之前就行 ✓（与 `IfSetBranch` 当初的加法同一处表 ✓）。
   LetBranch.JumpIn,
+  // **语句壳在解析期成形** ✓（第 481 轮）：位置只有一格可行 ✓ —— **`SymbolToken.AppendIn` 之前** ✓。
+  // 派发循环遇到第一个 `Done` 就 `return` ✓（逐下标实测：`;` 在 `i=14 SymbolBranch` 那一格
+  // 被接手并返回 `Done` ✓ ⇒ 排在它之后的任何一格**一次都没被问到** ✓——第 478 / 480 两轮
+  // 都撞在这上面 ✓），所以壳必须排在 appender **之前** ✓；而那时 `;` 还没进 `Data` ✓，
+  // 于是判据与切片都按「终结符尚未入列」写 ✓（见 `tokens/statement.xl.md` 的 `Condition` / `Success` ✓）。
+  StatementBranch.JumpIn,
   SymbolToken.AppendIn,
   Identifier.AppendIn,
 ]);

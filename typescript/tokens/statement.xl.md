@@ -290,7 +290,7 @@ if (children.length === 1 && Statement.IsStatementUnit(children[0])) {
 const anchor = Get(units, index)!;
 const statement = new Statement(template);
 statement.Parent = anchor.Parent;
-statement.AddRange(children);
+statement.AddRange(children.slice(0, children.length - 1));
 const first = Statement.FirstMeaningful(children);
 const last = children[children.length - 1];
 if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
@@ -966,7 +966,7 @@ if (Array.isArray(unit.Data) === false) {
   return result;
 }
 const value = source.Value;
-if (value !== ";" && value !== "\\n") {
+if (value !== ";" && value !== "\n") {
   return result;
 }
 const data = unit.Data;
@@ -976,8 +976,20 @@ if (data.length === 0) {
 // 不在这里做「已包过」的全容器扫描 ✗：一个容器里可以有好几条语句 ✓，
 // 全容器扫一遍会把第二条之后全挡掉 ✗（实测第一条没包上、第二条才包上 ✓）。
 // 只在语句内部收（与重组那条同一份判据）。
-const lastIndex = data.length - 1;
-if (Statement.IsInStatement(data, lastIndex) === false) {
+// **终结符此刻还没进 `Data`** ✓（这一支排在 `SymbolToken.AppendIn` / `LineWrap.AppendIn`
+// 之前 ✓，见 `parse-pipeline.xl.md` 那张表的位置说明 ✓）⇒ 要收的就是**已经在列表里**
+// 的那一段 ✓，而它的**最后一个单元**就是这条语句的最后内容 ✓。
+//
+// 三版判据的实测账 ✓（前两版都不成立 ✗）：
+// ① `IsInStatement(data, data.length)` ✗——越界那一格 `Get` 给 `null` ✓，
+//    `IsInStatement` 的第一条早退直接给 `false` ✓；
+// ② `IsInStatement(data, data.length - 1)` ✗——`Data` 里**根本不含软换行** ✓
+//    （`LineWrap` 是透明单元、不进列表 ✓），所以最后一个单元**永远**是内容单元 ✓，
+//    而那一支问的是「左右邻居是不是非语句符号」✓ ⇒ 对 `const b = f(2)` 的 `)` 给 `false` ✗
+//    （它右边已经没有东西了 ✓，可语句明明开着 ✓）；
+// ③ 正面判据 ✓：**最后一个单元本身就是语句边界** ⇒ 上一条已经收完 ✓ ⇒ 这个 `;` 是
+//    防御性分号（`;;` 的第二个 ✓）✓，不收 ✓；否则库里正开着一条语句 ✓，收 ✓。
+if (Statement.IsStatementBoundary(data, data.length - 1)) {
   return result;
 }
 result.Success = true;
@@ -987,6 +999,10 @@ return result;
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
 ```ts
+// **当前这个 `;` / 软换行还没进 `Data`** ✓（见 `Condition` 那一处说明 ✓）⇒
+// `index` 取到的是分号**左边**那一格 ✓，而「语句的最后内容单元」就是它 ✓。
+// 形状于是与重组那条**一字不差** ✓：重组跑在 append 之后 ✓，`children` 除最后一个
+// （也就是 `;` 自己）全部装进语句 ✓；这里 `;` 本就不在 `data` 里 ✓ ⇒ 同一个切片 ✓。
 const data = unit.Data;
 const index = data.length - 1;
 const frontIndex = SearchFrontIndexed(data, index, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
@@ -1003,9 +1019,10 @@ if (children.length === 0) {
 }
 const statement = new Statement(unit.Template);
 statement.Parent = unit;
-// 当前这个 `;` **还没进 Data** ✓（分支排在 append 之前 ✓），所以子单元里没有它 ✓
-// —— 与重组那条「
-// children 除最后一个全部装进去」等价 ✓；右边界用 `Source.Index + 1` 自己算 ✓。
+// **当前这个 `;` / 软换行还没进 `Data`** ✓（见 `Condition` 那一处说明 ✓）⇒
+// `children` 里**每一格都是语句的内容** ✓，没有终结符要排除 ✓
+//（重组那条跑在 append 之后 ✓，所以它要「除最后一个」✗——这一支不要 ✗，
+//  实测照抄重组那一句会把最后的内容单元丢掉 ✓：`let a = 1;` 于是只剩 `Let, =` ✓）。
 statement.AddRange(children);
 const first = Statement.FirstMeaningful(children);
 const lastUnit = children[children.length - 1];

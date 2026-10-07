@@ -18,6 +18,7 @@ import { GenericType } from "./generic-type.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ObjectLiteral } from "./json/object-literal.xl.md"
 import { Statement } from "./statement.xl.md"
+import { SymbolToken } from "./symbol-token.xl.md"
 ```
 
 # namespace cangjie
@@ -507,5 +508,15 @@ if (tailUnit !== undefined && tailUnit.SourceRange.End !== null) {
 // **原位替换**：截断 `Data` 会让外层派发的下标失效 ✗（实测抛「自身不在父单元的子单元里」✗），
 // 对同一批单元再调 `RemoveSelf` 也一样 ✗ —— 用重组同款的 `ReplaceCountAt` ✓，
 // 它把这一段换成一个 `Let` 并返回新下标 ✓，外层派发不受影响 ✓。
-ReplaceCountAt(data, start, nameIndex + 1 - start, letUnit);
+const nextIndex = ReplaceCountAt(data, start, nameIndex + 1 - start, letUnit);
+// **把当前这一格原样补回 `Let` 的右边** ✓（第 482 轮）：进门用的那一格
+// （`=` / `:` / `;` / `,`）在重组那棵树里是 `Let` 的**平级兄弟** ✓
+// （`Statement > [Let, =, 1, ;]` ✓），投影侧 `projectLetFrom` 正是靠它切
+// 「名字 / 初始化式 / 类型标注」✓ —— 少了它整条声明只剩一个 `Let` ✗
+//（实测产物 `<Statement><Let fieldName="a"/></Statement>` ✗）。
+// 建法照 `SymbolBranch.Success` ✓：新符号单元 + `AppendAndSignOut` + `SignIn` ✓。
+const tailSymbol = new SymbolToken(unit.Template);
+tailSymbol.AppendAndSignOut(source).SignIn(source);
+data.splice(nextIndex + 1, 0, tailSymbol);
+tailSymbol.Parent = unit;
 ```
