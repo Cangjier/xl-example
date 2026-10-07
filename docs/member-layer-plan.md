@@ -710,7 +710,37 @@ DBG wrap=2 len=5 boundary=true  units=…|Identifier@97|SymbolToken@98      ← 
 看它对**已经是成员单元**的 `Data` 还跑不跑 ✗），加上 `Signature` 那一族（call / construct / index）✗，
 这条线就能收口 ✓。
 
-## 四十四、每步都要钉住的三件事
+## 四十五、第六次动手（第 445 轮）：`cases` 1030 / 1037，但全语料 120 ✗
+
+这一轮把第 444 轮那四处修正**脚本化成一条管线**（`tmp/recon/round45.cjs` ✓，
+从 r27 那版字段状态一路重建到方法可用 ✓），然后在同一棵树上又推进了三步：
+
+| 步骤 | `cases` | 说明 |
+| --- | --- | --- |
+| 管线重建（入口认 `(`/`:`/`;`、名字跨括号与类型参数段、头锚实义单元、两条判据跨类型参数段） | 1012 ✗ | 与第 444 轮一致 ✓（可复现） |
+| **`MethodDeclaration.TryToClose` 自己把返回类型包成 `ReturnType`** ✓ | **1030** ✓ | 见下 |
+| 同上 + 尾 `;` 不进取 `ReturnType` | 1030 ✗ | 字段名 1 ✗（没帮上） |
+
+**两条硬经验**（都实测到根）：
+
+1. **`ReturnType` 那一层必须解析期自己包** ✗：它在绿形状里是**重组规则在平表上**包出来的 ✓，
+   而解析期成形的成员那条规则**不会再碰** ✓ ⇒ 只有 `<TypeDefine>`、投影里缺 `type`
+   （实测 `MethodSignature 产物[name,parameters] vs TS[name,parameters,type,…]` ✗）。
+   自己在 `TryToClose` 里把顶层**最后一个 `:`** 到末尾整段搬进 `new ReturnType(...)` ✓ 就对了 ✓
+   ——**`cases` 从 1012 涨到 1030** ✓（`i16.ts` 当场 0 缺 0 漂移 0 多 0 字段名 ✓）。
+2. **搬单元时不要先 `RemoveSelf()`** ✗：照重组的写法（只 `AddAndCloseLast`、不摘 ✗）来 ✓；
+   先摘会让 **25 个文件直接抛异常** ✗（`抛异常 25` ✗，报在 `get x(): number` 那一格 ✗）。
+
+**但全语料反而是 120 个文件不为零** ✗（`lib.dom.d.ts` 缺 523 / **多 3304** ✗）——
+症状是**空的 `<ReturnType></ReturnType>`** ✗（实测 `cache.d.ts`：`<MethodDeclaration name="match"><ReturnType></ReturnType>` ✗）：
+包装建出来了、内容却没进去 ✗，于是本该在里面的类型节点全丢了 ✗、别处又多出来 ✗。
+⇒ **下一次先解决「空的 ReturnType」这一条** ✓（在 `TryToClose` 里检查
+`returnType.Data.length` 与 `tail` 的对应关系 ✗ ——很可能是 `Data.slice` 之后
+那些单元仍以 `this` 为父亲 ✗、`AddAndCloseLast` 把它们当成「已属于别人」而拒收 ✗），
+再谈 `Signature` 那一族（call / construct / index ✗，其中索引签名现在会吞下一条成员 ✗：
+实测 `itf-index.ts` 的 `[key: string]: any` 把 `readonly [k: number]: string` 吞了 ✗）。
+
+## 四十六、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
