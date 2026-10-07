@@ -740,7 +740,36 @@ DBG wrap=2 len=5 boundary=true  units=…|Identifier@97|SymbolToken@98      ← 
 再谈 `Signature` 那一族（call / construct / index ✗，其中索引签名现在会吞下一条成员 ✗：
 实测 `itf-index.ts` 的 `[key: string]: any` 把 `readonly [k: number]: string` 吞了 ✗）。
 
-## 四十六、每步都要钉住的三件事
+## 四十七、第七次动手（第 446 轮）：状态可一键重建，空 `ReturnType` 的现场钉住了
+
+**一条命令重建到 `cases 1030`**：`node tmp/recon/build-member-state.cjs` ✓
+（内部依次跑 `round45` / `round45b` / `round45c` / `round46` / `round46b` + 那条 no-RemoveSelf ✓，
+全部带断言 ✓），三份产物快照在 **`tmp/recon/r35/`** ✓。以后不必再靠一串脚本临时拼 ✗。
+
+这一轮新增的两条修正（都实测过）：
+
+1. **跨格循环要跳过 trivia** ✗：`match (request: RequestInfo, options?: …): Promise<…>` 这种
+   「名字与 `(` 之间一个空格」的写法（`undici-types` 一族遍地都是 ✗），名字后面紧跟的是**软换行**
+   ✗ ⇒ 不跳 trivia 的话「最后一格是名字」不成立 ⇒ 入口从不接它 ✗；
+2. **`FollowedByParen` 必须先跨过一个名字** ✗：同一个空格的形状里，那道换行**就是**
+   名字与 `(` 之间的空格 ✗ ⇒ 不要求「先跨过名字」时，探测从换行后第一格就看见括号 ⇒ 给「是」✗
+   ⇒ 成员在**名字后面**就收尾 ✗、返回类型整段被还回体里 ✗。
+
+**空 `ReturnType` 的症状与现场**（下一轮的第一件事 ✗）：
+
+```
+<MethodDeclaration name="match" modifiers="">
+  <ReturnType></ReturnType>          ← 空壳；类型节点全丢，别处又多出来 ✗
+</MethodDeclaration>
+```
+
+`cache.d.ts` 的形状是**逗号分隔**的成员表（`match (…): T,` / `has (…): T,` ✗）——
+怀疑链路：成员在 `,` 那一格前就收了尾 ✗（`ClassMember.Process` 只认 `;` / 换行 ✗，不认 `,` ✗）
+⇒ `ExitOrPre` 把 `:` 与类型整段还回体里 ✗ ⇒ 自己包出来的 `ReturnType` 是空壳 ✗。
+**下一轮第一步**：给 `ClassMember.Process` 的收尾判据加上 `,`（成员表里它是分隔符 ✗），
+再看 `cache.d.ts` 的空壳是否消失 ✓；然后才是全语料 ✓ → 再谈 `Signature` 那一族 ✗。
+
+## 四十八、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
