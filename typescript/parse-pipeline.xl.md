@@ -850,6 +850,7 @@ AsReorganization.Instance.ApplyTo(unit);
 FunctionTypeReorganization.Instance.ApplyTo(unit);
 ConditionalTypeReorganization.Instance.ApplyTo(unit);
 TypeAssignReorganization.Instance.ApplyTo(unit);
+LamdaReorganization.Instance.ApplyTo(unit);
 TypeDefineReorganization.Instance.ApplyTo(unit);
 TernaryOperatorReorganization.Instance.ApplyTo(unit);
 TryReorganization.Instance.ApplyTo(unit);
