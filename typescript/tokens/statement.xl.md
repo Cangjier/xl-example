@@ -368,6 +368,15 @@ this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor)
 if (unit === null || unit === undefined) {
   return;
 }
+// **成员列表里不收语句壳** ✓（第 503 轮 ✓）：`ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody`
+// 的子单元是**成员** ✓，不是语句 ✓ —— 收了壳之后 `FieldReorganization` / `MethodDeclarationReorganization`
+// 看到的是「一个 Statement」✗，成员就永远成形不了 ✓（实测 `am-class-modifier-order.ts`：
+// `private static readonly b: number` 被包成一个 `Statement` ✓，TS 那边是 `PropertyDeclaration` ✗；
+// **对照态同样如此** ✗ ⇒ 这是重组层自己的老缺口 ✓）。
+const owner = unit.constructor.name;
+if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteralBody" || owner === "EnumBody") {
+  return;
+}
 const data = unit.Data;
 if (Array.isArray(data) === false || data.length === 0) {
   return;
@@ -1039,6 +1048,12 @@ const value = source.Value;
 // 两支都留着会**两次成形** ✗ —— 而且**不分对照态** ✓：实测 `DSH_XL_REORG=1` 那一档
 // 让钩子也跑反而更好（613 → 855 ✓），所以这里不设开关 ✓（一处实现、一个路径 ✓）。
 if (value !== "\n") {
+  return result;
+}
+// **成员列表里不收语句壳** ✓（第 503 轮 ✓，与 `FormFrom` 那一处同一口径 ✓）：
+// `ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody` 的子单元是**成员** ✓。
+const owner = unit.constructor.name;
+if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteralBody" || owner === "EnumBody") {
   return result;
 }
 const data = unit.Data;
