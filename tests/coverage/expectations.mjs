@@ -1015,8 +1015,12 @@ export const EXPECTATIONS = {
   // ---- `Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。
   "c371-stdlib-promise-allsettled-any-race": { expect: "differ", why: "`Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。" },
 
-  // ---- `finally` 里抛错要**替换**原来那个拒绝（Node 给 `c3 replaced`，本仓给 `v 1`）。
-  "c371-stdlib-promise-finally-passthrough": { expect: "differ", why: "`finally` 里抛错要**替换**原来那个拒绝（Node 给 `c3 replaced`，本仓给 `v 1`）。" },
+  // ---- `finally` 的回调抛时**少一跳**（第 611 轮定根）：Node 的 `finally` 是 `then` 拼出来的，
+  // 回调那一抛落在 `then` 的回调里 ⇒ 派生承诺在**同一 tick** 里被拒绝 ⇒ `.catch` 早一跳跑
+  // （`fin1 fin2 c3 replaced v 1 c orig wait 4`）；本仓两档都走同一个任务 ⇒ 晚一跳
+  // （`fin1 fin2 v 1 c orig c3 replaced wait 4`）。**只有「回调抛」那一档差**：值透传与
+  // 「等回调返回的承诺」两档的 tick 数与 Node 相同。
+  "c371-stdlib-promise-finally-passthrough": { expect: "differ", why: "`finally` 的回调抛时 Node 在**同一 tick** 里拒绝派生承诺（少一跳），本仓晚一跳 ⇒ `.catch` 的行序不同。" },
 
   // ---- `new Date(2020, 0, 2)`（多实参构造）与 `new Date("…")`（字符串解析）还没接上 ⇒ `unimplemented: global builtin 260`。
   "c371-stdlib-date-now-and-construction": { expect: "differ", why: "`new Date(2020, 0, 2)`（多实参构造）与 `new Date(\"…\")`（字符串解析）还没接上 ⇒ `unimplemented: global builtin 260`。" },
@@ -1059,8 +1063,12 @@ export const EXPECTATIONS = {
 
   // ---- **类成员位置的表达式语句**（字段上的对象类型标注里带方法签名那一格）⇒ `unimplemented: class member ExpressionStatement`。
 
-  // ---- 异步池的结果次序（并发回调里 `await` 的排空时机）——根子待量。
-  "c371-e2e-async-pool-with-errors": { expect: "differ", why: "异步池的结果次序（并发回调里 `await` 的排空时机）——根子待量。" },
+  // ---- 异步任务池：`await Promise.all(workers)` **一个都不结清**（本仓**一行都不印**、退出码 0）。
+  // 第 611 轮缩到最小复现：**三个并发 async 工作器 + `for(;;)` 里反复 `await`** 才复现——
+  // 1 个或 2 个工作器都对（`[1,2,3,4],2` 通过 ✓）、3 个就一个都不结清（`[1,2,3,4],3` 失败 ✗）；
+  // 用例条数无关（4 条与 8 条一样失败），而「3 个工作器各 await 一次就 return」是对的
+  // （`p-v3` ✓）⇒ 根子在**同一段 `for(;;)` 里多帧并发挂起/恢复**那一带，不在 `Promise.all`。
+  "c371-e2e-async-pool-with-errors": { expect: "differ", why: "`await Promise.all(workers)` 一个都不结清（三个并发 async 工作器 + `for(;;)` 里反复 `await` 才复现；1~2 个工作器都对）——根子在同一段循环里多帧并发挂起/恢复。" },
 
   // ---- **以 `override` 开头的标识符**（`overrides` / 形参名 `override`）被当成 `override` 关键字切开 ⇒ `expression OverrideKeyword` / `parameter without a name`。
 

@@ -31,8 +31,7 @@ import { NameValue } from "./map.xl.md"
 「**源承诺、回调、实参、结果承诺、认哪一档**」五样 ✓，
 由执行器（`vm.xl.md` 的 `ScheduleTask` ✓）去排、去调 ✓。
 
-**写在明处的两条缺口** ✗：`Promise.then(f, g)` 两个实参的形式 ✗（一步只有一个回调 ✓）、
-`Promise.finally` ✗（要「调完再把原来那一档传下去」✓，而引擎现在只会拿返回值灌结果 ✗）。
+**写在明处的一条缺口** ✗：`Promise.then(f, g)` 两个实参的形式 ✗（一步只有一个回调 ✓）。
 
 # const PromiseCtor:int = 230
 
@@ -133,7 +132,12 @@ import { NameValue } from "./map.xl.md"
 
 # const PromiseFinally:int = 237
 
-**`承诺.finally(回调)`** ✓——**还没做** ✗（见文首那三条缺口 ✓）。
+**`承诺.finally(回调)`** ✓（第 187 轮 ✓）：两档都调 ✓、回调的返回值不算数 ✓
+（`wants = 4` ✓，引擎那一支管着 ✓），源那一档原样传下去 ✓——见下面 `PromiseFinally` 那一支 ✓。
+**已知与 Node 的时序差** ✗：回调**抛**时，Node 在**同一 tick** 里就把派生承诺拒绝掉 ✓
+（它的 `finally` 就是 `then` 拼出来的 ✓，那一抛落在 `then` 的回调里 ✓）⇒ 少一跳 ✓；
+本仓两条都走同一个任务 ⇒ 派生承诺晚一跳被拒绝 ⇒ `.catch` 的**行序**与 Node 不同 ✓
+（判据 `c371-stdlib-promise-finally-passthrough` 量的就是它 ✓）。
 
 # const PromiseAllStepId:int = 238
 
