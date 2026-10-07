@@ -656,7 +656,28 @@ DBG wrap=2 len=5 boundary=true  units=…|Identifier@97|SymbolToken@98      ← 
 `Field` / `MethodDeclaration` / `Signature` 都是**按成员顺序**直接挂在 `InterfaceBody` 下 ✓，
 没有 `Statement` 那层 ✓（与枚举那一支一致 ✓）。
 
-## 四十、每步都要钉住的三件事
+## 四十一、决定性二分（第 443 轮）：伤害来自**入口**，不是单元改基类
+
+方法分支那一版（`cases` 1017 ✗）到底是哪儿坏的，这一轮**用一次二分问清楚了**：
+
+| 状态 | `cases` |
+| --- | --- |
+| 字段那一支（基线） | 1037 / 1037 ✓ |
+| 字段 + 方法分支（完整） | 1017 ✗ |
+| 字段 + 方法分支，但把 **`Condition` 短路**（入口永不进门，`MethodDeclaration` 仍旧 `extends ClassMember` ✓、`ProcessQueue` 照挂 ✓） | **1037 / 1037** ✓ |
+
+⇒ **伤害全部来自那个入口** ✗ ——「让 `MethodDeclaration` 变成解析期可用的成员」这件事本身
+**没有**副作用 ✓（这一点很重要：下次可以放心地把单元层先改好 ✗）。
+
+**所以下一次只需要解决「入口」这一件事** ✓：`InterfaceMethodBranch.Condition` 在
+**不该命中的地方命中了** ✗。已知它当时的四条闸是：当前是 `(`、宿主是 `InterfaceBody`、
+最后一格（跨过类型参数段后）是 `Identifier`/`String`、再往前那一格不是 `:` ✗。
+**下一个动作**：把每次命中打一行（`process.stderr.write`，`--jobs 1` ✔ 通道已验证可用 ✓），
+在 `itf-methods.ts` 这种小文件上看它把哪些 `(` 认成了成员开头 ✗（本轮调试脚本
+`tmp/recon/debug-branch.cjs` 已写好，只是那一行引用了尚未声明的 `start` ✗ ——
+下次把 `start` 挪到日志之前，或日志里不打它 ✓）。
+
+## 四十二、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
