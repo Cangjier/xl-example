@@ -192,7 +192,29 @@ TS 那边只有**两个**子字段：
 那个规则轮不到，形状是 `ImportType > [Keyword(import), Bracket((String)), ., Name]`。
 
 ```ts
-  const kids = ctx.Kids(v);
+  const rawKids = ctx.Kids(v);
+  // **点号链与 `typeof` 那一层都要先摊平**（第 554 轮）：实测 `type X = import("./m").A` 的
+  // `ImportType` 里**只有一个（多层嵌套的）`PropertyAccess`** ✓ —— `import(...)` 那个 `Method`
+  // 与后面那串名字全在链**里面** ✗ ⇒ 下面那三处 `find` / `filter` 一个都命中不了 ✗
+  // ⇒ `argument` / `qualifier` **整类丢** ✓（实测 `ty-import-type.ts` 8 缺 / 字段名 3 ✓、
+  // `type-import-type.ts` 8 缺 / 字段名 2 ✓ —— 一族九份文件同一个形状 ✓）。
+  // `typeof import("m")` 那一档更外面还套着一层 `UnaryOperator` ✓（`Keyword(typeof)` 是它的第一格 ✓），
+  // 一并摊平 ✓；摊平是**按 `Data` 次序**递归的 ✓，所以限定名的先后不会乱 ✓。
+  const flat: Array<any> = [];
+  const flatten = (unit: any): void => {
+    const name = unit.get("type");
+    if (name === "PropertyAccess" || name === "UnaryOperator") {
+      for (const kid of ctx.Kids(unit)) {
+        flatten(kid);
+      }
+      return;
+    }
+    flat.push(unit);
+  };
+  for (const kid of rawKids) {
+    flatten(kid);
+  }
+  const kids = flat;
   let stringUnit = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
   if (stringUnit === undefined) {
     const call = kids.find((k: any) => k.get("type") === "Method" || k.get("type") === "Bracket");

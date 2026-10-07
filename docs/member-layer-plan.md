@@ -4848,6 +4848,97 @@ differ 203 → **188** ✓、bad 0 ✓、整体加权 79.5% → **80.4%** ✓，
 3. **泛型约束里带联合的那一族**（`lex-generic-union-constraint.ts` 23 缺 / 7 多 ✓）与
    **映射类型 / 模板字面量类型那一族**（`ty-mapped-as-remap.ts` 15 缺 / 20 多 ✓）—— 与第 551 轮列的第 2 / 3 条相同 ✓。
 
+## 一百五十七、`ImportType` 里的 `import(...)` 被折进了点号链（第 554 轮）：958 → **967 / 1037**
+
+起点 **958 / 1037** ✓（缺 409 / 漂 52 / 多 197 / 字段名 22 ✓、解析 1037 / 抛异常 0 ✓）。
+
+### 一、现场：九份文件的 `ImportType` **一个字段都没有**
+
+`ty-import-type.ts` / `type-import-type.ts` / `type-import-basic.ts` 三份的读数形状一模一样 ✓：
+`ImportType` 的 **kind 与区间都对** ✓（`OK ImportType TS[97,112)` ✓），可**字段名整类不符** ✗ ——
+
+```
+FIELD  ImportType  [97,112)  产物[] vs TS[argument,qualifier]   "import(\"./m\").A"
+MISS   LiteralType / StringLiteral（`"./m"`）
+MISS   Identifier（`A`）
+```
+
+`ImportType.PrintAst`（`tokens/import-type.xl.md` ✓，第 190 轮从 `ts-ast.xl.md` 搬来的 ✓）本来是**有**这两格的 ✓
+（`argument` 是一层 `LiteralType` 包着 `StringLiteral` ✓、`qualifier` 是 `QualifiedName` ✓），
+可它假设自己看到的 `kids` 是 `[Keyword(typeof)?, Method(name="import")[String], SymbolToken(.), Identifier*]` ✗。
+
+### 二、真因：`import(...)` 那个 `Method` 与后面的名字**全在点号链里面**
+
+产物树（`tmp/recon/tree.cjs` ✓）一眼就看出来 ✓ —— `ImportType` 的**唯一**孩子是一串
+**多层嵌套的 `PropertyAccess`** ✓，最里面那一层才是 `[Method(import)[String], ., A]` ✓：
+
+```
+ImportType [97,112)
+  PropertyAccess [97,112)
+    …（八层，同一个区间）…
+        Method [97,110)
+          String [104,109)
+        SymbolToken [110,111) "."
+        Identifier [111,112) "A"
+```
+
+`typeof import("m")` 那一档更外面还套着一层 `UnaryOperator > [Keyword(typeof), …]` ✓
+（`type-import-type.ts` 的 `typeof import("./m").WebSocket` ✓）。
+
+⇒ 三处 `find` / `filter`（找 `String` ✓、找 `Method` / `Bracket` ✓、收名字 ✓）在**顶层**一个都命中不了 ✗
+⇒ `argument` / `qualifier` 整类丢 ✓。`typeArguments` 那一格之所以还在 ✓，是因为它在
+`print-ast-common.xl.md` 的另一支里由**平级兄弟 `GenericType`** 补上 ✓（第 109 / 114 轮 ✓），与这里无关 ✓。
+
+### 三、修法：摊平点号链与 `typeof` 那一层（`typescript/tokens/import-type.xl.md`）
+
+在 `const kids = ctx.Kids(v);` 之后加一个**递归摊平** ✓：`PropertyAccess` 与 `UnaryOperator`
+两种容器**下钻**、其余叶子按 `Data` 次序压进一张平表 ✓，后面三处判定照旧对这张平表做 ✓
+（判据、`LiteralType` 的包法、`QualifiedName` 的收法**一个字都没动** ✓）。
+
+**为什么按这两种类名下钻** ✗：链子是**投影之前**就折好的产物形状 ✓（`PropertyAccessReorganization` ✓），
+而 `UnaryOperator` 是 `typeof` 那一格 ✓ —— 两者都不是「限定名的一部分」✗，摊掉之后
+`Keyword(typeof)` 照旧落在平表里 ✓，`names` 那一句本来就按**词**把它滤掉 ✓（第 123 轮 ✓）。
+
+### 四、读数
+
+| 项 | 第 553 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 958 | **967 / 1037** ✓（+9 ✓） |
+| 缺节点 | 409（77 类） | **364**（77 类）✓（−45 ✓） |
+| 多出来的节点 | 197（44 类） | **197**（44 类）✓（持平 ✓） |
+| 区间漂移 | 52（18 类） | **51**（18 类）✓（−1 ✓） |
+| 字段名不符 | 22 | **6** ✓（−16 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24301 | **24301** ✓（持平：只补了字段 ✓） |
+
+逐文件前后名单做差 ✓（`tmp/recon/r553b-perfile.txt` ↔ `tmp/recon/r554-perfile.txt` ✓）：
+**变绿 9 份、变差 0 份** ✓ —— `ty-import-type` ✓、`type-import-type` ✓、`type-import-basic` ✓、
+`type-import-default` ✓、`type-import-generic` ✓、`type-import-typeof` ✓、`type-import-typeof-member` ✓、
+`type-return-import-query` ✓、`mod-import-dynamic-type-position` ✓（**九份全部四个方向归零** ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **225 / 242** ✓（与第 553 轮末持平 ✓）；
+`runtime:cli` **53 / 79** ✓（持平 ✓）；`samples` 仍红 ✗（还是那两处 ✓）；`coverage` **1399 / 1713** ✓
+（与第 553 轮末持平 ✓：blocked 126 ✓、differ 188 ✓、bad 0 ✓、整体加权 **80.4%** ✓
+—— 这一格是**投影侧**的字段补齐 ✓，降级层本来就照 `import(...)` 走 ✓，没有回声 ✓）；
+**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **`?.` 那一族**（`ex-optional-chain.ts` / `expr-optional-call-nodes.ts` /
+   `expr-optional-member-then-member.ts` ✓，三份都是 `0 缺 / 3 漂 / 1 多 / 1 字段名` ✓）：
+   实测 `a?.b.c?.d?.()` 里 `?.` 被折进了**内层**那个 `PropertyAccessExpression` ✓
+   （产物 `[81,87)` 带 `questionDotToken` ✗，而 TS 那个 `[81,85)` 的 `a?.b` **没有**这一格 ✓，
+   `?.` 属于**外层**链节点 ✓）—— 三份同一个形状 ✓，把「`?.` 挂在哪一层」对齐就能一起收 ✓
+   （这一族是**字段名只剩 6 份**里的一大块 ✓：三份 ✓，另三份是 `type-combination-adversarial` ✓、
+   `stmt-adversarial-shapes` ✓、`lex-regex-after-assign` ✓）；
+2. **对象字面量成员那一族**（`ex-object-literal.ts` 37 缺 ✓、`ty-object-literal.ts` 12 缺 / 6 多 ✓）：
+   `ObjectLiteral` 的孩子现在是**一个个 `Statement` 壳**（成员 + 尾逗号 ✓），
+   `MEMBER_LIST_KINDS` 里没有 `ObjectLiteralExpression` ✗ ⇒ 成员整片投成 `ExpressionStatement` ✗；
+   dev 侧回声最大的一族 ✓（`coverage` 的 blocked 里
+   `unimplemented: object literal member ExpressionStatement` / `LabeledStatement` 一大片 ✓）；
+3. **一个 `Statement` 壳里两个段头** ✓（`stmt-adversarial-shapes.ts` 的 `[7,2,7,1]` ✓，
+   见上一节第五节第 1 条 ✓）与**泛型约束 / 映射类型**那两族 ✓（同上 ✓）。
+
 
 
 
