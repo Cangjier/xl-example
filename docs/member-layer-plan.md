@@ -6188,4 +6188,138 @@ ASI 判据（`Statement.IsLineBreakBoundary` ✓）一直是**两半合起来**�
 3. **`TokenFormerImpl.Depth`** 那道深度界 ✓（第 496 轮的临时护栏 ✓，撤之前先量 ✓）、
    **`IsObjectLiteralBrace` 冒号那一档的护栏** ✓（第 567 轮留的 ✓：把 `IsTypePosition` 整体搬到共用层 ✓）。
 
+## 一百七十二、装饰器单独占一行时换行不收壳（第 570 轮）：1018 → **1022 / 1037**，`samples` 转绿
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第一轮** ✓（第 567–569 轮是上一个对话的三轮 ✓）。
+改的是 `typescript/tokens/statement.xl.md` **一个文件** ✓。
+
+### 一、怎么挑的：四份红文件是**同一个形状**
+
+`node ./tests/parse/ts-ast.mjs cases --per-file` ✓ 那 19 份红里，前四份的四栏长得像一对 ✓ ——
+清一色「缺一个 `ClassDeclaration` ✓ + 多两个起点更早的节点」✓，而且**缺的那个左端**正是
+装饰器的起点 ✓：
+
+| 文件 | 起点四栏 | 缺 | 多 |
+| --- | --- | --- | --- |
+| `declarations/decl-class-decorator-class.ts` | `1 0 2 0` | `ClassDeclaration TS[65,83)` ✓ | `ExpressionStatement [65,72)` ✓ + `ClassDeclaration [73,83)` ✓ |
+| `declarations/cls-decorators.ts` | `1 0 2 0` | 同上（`[55,158)` ✓） | 同上（`[55,86)` / `[87,158)` ✓） |
+| `declarations/cls-decorator-calls.ts` | `1 0 3 0` | 同上（`[132,221)` ✓） | **两个** `ExpressionStatement` ✓ + `ClassDeclaration [173,221)` ✓ |
+| `expressions/ex-decorator-expression.ts` | `2 0 5 0` | **两个**（`[49,67)` / `[68,91)` ✓） | **三个** `ExpressionStatement` ✓ + 两个 `ClassDeclaration` ✓ |
+
+**产物的 XML 直接看得出病根** ✓（`node tmp/recon/dump.cjs <文件>` ✓）：
+
+    <Root>
+      <Statement><Decorator name="sealed"><SymbolToken>@</SymbolToken><Identifier>sealed</Identifier></Decorator></Statement>   ← 装饰器自己成了一个语句壳 ✗
+      <Class name="C" extends="" implements="" modifiers=""><ClassBody></ClassBody></Class>                                        ← 类从 `class` 那个词起 ✗
+    </Root>
+
+同一份文件写成**一行**（`@sealed class C {}` ✓）时产物是对的 ✓
+（`<Class><Decorator>…</Decorator><ClassBody/></Class>` ✓）⇒ 差别只在那个换行 ✓。
+
+### 二、病根：换行在「声明词还没读到」时收壳
+
+`ClassBranch` / `EnumBranch` 是**在 `{` 那一刻**进门 ✓，它们进门第一件事是
+`ReorganizeDeclarationDecorators` ✓（`declaration-common.xl.md` ✓）—— 把一个一个散单元
+（`@` / 名字 / 实参括号 ✓）收成一个 `Decorator` ✓，再交给 `DeclarationStart` 把声明的起点
+往左吃到装饰器上 ✓。**这两个动作都发生在 `{` 那一刻** ✗ ⇒ 装饰器在那之前一直是散着的 ✓。
+
+而 `@sealed` 换行 `class C {}` 里，换行那一刻 `class` **还没读进来** ✗ ⇒ 解析期只看得见
+`@ sealed` 两个单元 ✓ —— `StatementBranch` 的两条早退都不认它 ✗：
+
+- 「声明头里的换行」那一条（第 557 轮 ✓）问的是**段首那个词是不是声明词** ✗
+  （段首是 `@` ✓，`Statement.WordOf(@)` 是空串 ✓）；
+- 「上一行还没写完」那一条（`LineCannotEnd` ✓，第 558 轮 ✓）问的是**左边** ✓ ——
+  而 `sealed` 是一个写完了的标识符 ✓。
+
+⇒ 照常收壳 ✓ ⇒ 装饰器被关进 `<Statement>` ✗ ⇒ `class` 那一刻往回扫只看见一个**壳** ✗
+⇒ `DeclarationStart` 停在 `class` 上 ✓、装饰器掉到 `Class` 的**兄弟位** ✓ —— TS 那边它却是
+`ClassDeclaration` 的**第一个子节点** ✓、连区间也从装饰器起 ✓ ⇒ 一对「缺 + 多」✓。
+
+### 三、改了什么：一条新判据 + 一处早退
+
+1. **新方法 `Statement.IsPendingDecoratorHead(data, start)`** ✓：`start` 到列表末尾这一段
+   **只装了装饰器**吗 ✓。判据两条 ✓：
+   - **段首必须是 `@`** ✓ —— `@` 在词法层只有两种命运 ✓：逐字字符串前缀（`@'a'` 那一刻
+     已经并进 `String` ✓，到不了这里 ✓）或者一个独立 `SymbolToken` ✓，后者只出现在装饰器里 ✓
+     ⇒ 这一问**碰不到**普通表达式 ✓（下一条口径与它配套 ✓）；
+   - **其余单元只能是名字 / 点号 / 括号 / 软换行** ✓ —— 装饰器只有 `@Name` / `@ns.Name` /
+     `@Name(实参)` / `@(表达式)` 四种写法 ✓（见 `decorator.xl.md` ✓），合起来正是这四类 ✓；
+     出现别的（运算符 / 分号 / 花括号 ✓）就说明这一段已经不是装饰器了 ✓ ⇒ 答否 ✓。
+2. **`StatementBranch.Condition` 里加一处早退** ✓（`frontIndex + 1` 起问 ✓，与「声明头里的
+   换行」那一条并排 ✓）：命中 ⇒ 这个换行**不是语句边界** ✓ ⇒ 不收壳 ✓。
+   口径与第 557 轮那条一字不差 ✓：**装饰器是声明头的一部分** ✓，头没写完时换行只是排版 ✓。
+
+**效果**（`dump.cjs` 逐份看过 ✓）：`@sealed` 换行 `class C {}` ✓、`@(expr)` 换行 `class A {}` ✓、
+`@dec()` 换行 `@dec2` 换行 `class B {}` ✓ 三种排版现在都收成
+「`Class` 带一到两个 `Decorator` 子节点」✓；`@Component(…)` / `@Input()` 换行
+`export class Widget {` 那份还顺手把 `export` 也吃回了 `modifiers="export"` ✓。
+
+### 四、**刻意没做**的那一档（下一轮/以后）
+
+`export` 单独占一行的排版（`export` 换行 `class A {}` ✓）**仍然是坏的** ✗ ——
+实测产物是 `<Statement><Keyword>export</Keyword></Statement>` 加一个 `modifiers=""` 的 `Class` ✗
+（那一份不在用例语料里 ✓，所以四栏上看不见 ✓）。**不能照抄 `IsDeclarationModifier` 那张表** ✗：
+它里面有 `async` / `get` / `set` / `static` / `readonly` 那一族 ✓，而那些词**可以单独成句** ✓
+（`get` 换行 `foo()` 是两条语句 ✓）⇒ 要收它得先定「哪些词不能单独成句」那份名单 ✓，单独一轮 ✓。
+
+### 五、读数
+
+| 项 | 第 569 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1018 | **1022 / 1037** ✓（**+4** ✓） |
+| 缺节点 | 35（16 类） | **30**（15 类）✓（−5 ✓） |
+| 区间漂移 | 15（12 类） | **15**（12 类）✓（不动 ✓） |
+| 多出来的节点 | 43（21 类） | **31**（20 类）✓（−12 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21734 | **21727** ✓（−7 ✓：三个装饰器壳没了 ✓、`Class` 各少一层 ✓） |
+
+**逐文件**（`tmp/recon/r570-baseline-perfile.txt` ↔ `r570-a-perfile.txt` ✓）：红的 **19 → 15** ✓，
+**变绿的四份正是那四份** ✓、**没有第五份被带动** ✓（两份逐文件表做差：只在基线里出现的行
+正好是那四行 ✓，新表里没有多出来的行 ✓）。
+**真实语料（`real`，十六片合计）** ✓：缺 **1356 → 1355** ✓、多 **883 → 881** ✓、
+漂 **477 → 477** ✓（不动 ✓）、字段名 8 → 8 ✓（净改善 ✓，无一片变差 ✓）。
+
+### 六、六道门：`samples` 转绿
+
+| 门 | 第 569 轮末 | 本轮 |
+| --- | --- | --- |
+| `runtime:check` | 239 / 242 | **239 / 242** ✓ |
+| `runtime:cli` | 78 / 79 | **78 / 79** ✓ |
+| `cases:check` | 1050 条 0 不合格 | **1050 条 0 不合格** ✓ |
+| `coverage` | 1629 / 1713（94.4%） | **1629 / 1713（94.4%）** ✓ |
+| `samples` | **红**（`declarations.ts` ✗） | **三份全绿** ✓（+1 门 ✓） |
+| `cases:tsast` | 3 片通过 | **3 片通过** ✓（十六片那一档仍是上表 ✓） |
+
+**`samples` 这一道是实打实换来的** ✓（不是门本身变了 ✓）：
+`tests/parse/cases` 之外，`samples/declarations.ts` 第 5 行正好就是
+`@Component({ selector: "app-root" })` 单独占一行 ✓ —— 把源码那一处**临时退回**再量一遍 ✓，
+它当场复现同一个形状 ✓（`DIFF declarations.ts … expected: ClassDeclaration / actual:
+ExpressionStatement{Decorator}` ✓，退出码 1 ✓）⇒ 改回来就绿 ✓（退出码 0 ✓）。
+`xl build`（本文件）**0 error、仍是那 3 条既有 W3102** ✓、`xl check` **0 error 3 warning** ✓、
+`tsc` **0 错** ✓。
+
+### 七、顺手量出来的一处**死代码**（下一轮的入口）
+
+第 571 轮的靶子是「`if (k) continue outer` 换行 `j--` 那一族」✓（`decl-label-break-continue.ts` ✓、
+`stmt-nested-loops-label.ts` ✓、`stmt-adversarial-shapes.ts` 的一部分 ✓，三份都是
+「漂移一条 `IfStatement` ✓ + 多一个 `Block` ✓」），本轮为了它已经量到了根 ✓：
+
+- **`IfStatement` 的单语句体在 ASI 换行处不会收** ✗ —— 实测
+  `while (x) {` 换行 `if (k) f()` 换行 `g()` 换行 `}` 的产物是
+  `<IfStatement><Statement>f()</Statement><Statement>g()</Statement></IfStatement>` ✗
+  （`g()` 落在体的**里面** ✓；TS 那边体只到 `f()` ✓）。**带 `;` 就不犯** ✓（`if (k) f();` ✓ 正常 ✓）。
+- **根在 `IfStatement.Process` 里那一支** ✓：它判「ASI 边界」时问的是
+  `before.constructor.name === "LineWrap"` ✗ —— 可 `Data` 里**根本没有** `LineWrap` ✓
+  （透明单元 ✓；给 `build/` 临时插一行日志实测 ✓：`f()` 之后来 `g` 时 `Data` 是
+  `Statement|Identifier` 两格 ✓，从来没有 `LineWrap` ✓）⇒ **那一支永远为假** ✗ ⇒ `BodyEnded`
+  永远立不起来 ✓ ⇒ 一直拖到外层 `}` 才被 `OwnedByAncestor` 收掉 ✓。
+- **修法方向** ✓：`IfStatement.Process` 也要走第 568 轮那条新路 ✓ ——
+  在**当前字符就是软换行**（或「本行第一个实义字符」✓）时，用
+  `Statement.LineCannotEnd` + `Statement.NextLineContinuesExpression` 两半合起来问 ✓
+  （后者正是第 568 轮为「右半截」写的 ✓，`IfStatement` 那处注释里写的「在换行那一格问不出结论」
+  从第 568 轮起**已经不成立**了 ✓）⇒ 立起 `BodyEnded` ✓、把字符还给宿主 ✓，
+  与 `;` 那一档走同一条 `CloseBody` ✓。
+
 

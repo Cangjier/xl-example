@@ -685,6 +685,61 @@ const head = document.GetValue(at);
 return head === "|" || head === "&" || head === ".";
 ```
 
+## static method IsPendingDecoratorHead:(data:Array<Token>, start:int)=>bool
+
+`start` 起到列表末尾这一段**只装了装饰器**吗——也就是「装饰器还没等到它修饰的那条声明」。
+
+**为什么要问这一句** ✓（第 570 轮 ✓）：`@sealed` 换行 `class C {}` 里，换行那一刻
+`class` 那个词**还没读进来** ✗ ⇒ 解析期只看得见 `@ sealed` 两个单元 ✓；
+`Decorator` 单元此刻也**还没成形** ✗（它是 `ClassBranch` / `EnumBranch` 进门时
+`ReorganizeDeclarationDecorators` 收的 ✓）⇒ 这个换行若照常收壳 ✓，
+装饰器就被关进一个 `<Statement>` ✗ ⇒ `class` 那一步往回扫只看见一个**壳** ✗
+⇒ 整条装饰器掉到 `Class` 的**兄弟位**上 ✓，而 TS 那边它是 `ClassDeclaration` 的
+**第一个子节点**、连区间也从装饰器起 ✓ ⇒ 每份用例各记「缺一个 `ClassDeclaration`
++ 多两个起点更早的节点」✗（实测四份 ✓：`decl-class-decorator-class.ts` ✓、
+`cls-decorators.ts` ✓、`cls-decorator-calls.ts` ✓、`ex-decorator-expression.ts` ✓）。
+
+**为什么段首必须是 `@`** ✓：这就是「装饰器那一行」的定义 ✓ ——
+`@` 在词法层只有两种命运 ✓：逐字字符串前缀（`@'a'` 那一刻就并进 `String` ✓，到不了这里 ✓）
+或者一个独立的 `SymbolToken` ✓，而后者只出现在装饰器里 ✓。
+段首不是 `@` 的一律答否 ✗ ⇒ 这句话**碰不到**普通表达式 ✓（`export` 单独占一行的情形
+是另一笔账 ✓，见台账里「声明词还没到」那一条 ✓）。
+
+**其余单元为什么只能是名字 / 点号 / 括号** ✓：装饰器只有四种写法 ✓ ——
+`@Name` ✓、`@ns.Name` ✓、`@Name(实参)` ✓、`@(表达式)` ✓（见 `decorator.xl.md` ✓），
+合起来就是「`@` + 名字 + 点号 + 括号」✓；出现别的单元（运算符 / 分号 / 花括号 ✓）
+说明这一段已经不是装饰器了 ✓ ⇒ 答否 ✓。
+
+```ts
+const first = Statement.FirstMeaningful(data.slice(start));
+if (first === null || first === undefined) {
+  return false;
+}
+if ((first instanceof SymbolToken && first.Is("@")) === false) {
+  return false;
+}
+for (let i = start; i < data.length; i++) {
+  const item = Get(data, i);
+  if (item === null) {
+    continue;
+  }
+  if (item instanceof LineWrap) {
+    continue;
+  }
+  if (item instanceof SymbolToken && (item.Is("@") || item.Is("."))) {
+    continue;
+  }
+  if (item instanceof Identifier) {
+    continue;
+  }
+  if (item instanceof Bracket) {
+    continue;
+  }
+  return false;
+}
+return true;
+```
+
 ## static method EndsOperand:(item:Token | null)=>bool
 
 `item` 能不能**结束一个操作数**——也就是「它左边已经凑出一个完整的表达式了」。
@@ -1181,6 +1236,22 @@ if (declarationWords.indexOf(word) >= 0) {
   if (hasBody === false) {
     return result;
   }
+}
+// **装饰器单独占一行时，换行也不是语句边界** ✓（第 570 轮 ✓）：
+// `@sealed` 换行 `class C {}` / `@dec()` 换行 `@dec2` 换行 `class B {}` /
+// `@Input()` 换行 `export class Widget {` 都是合法排法 ✓，
+// 而这一段此刻**只装着装饰器** ✓ —— 装饰器是**声明头的一部分** ✓
+//（与上面那条「声明头里的换行」同一个道理 ✓），它要等到 `{` 那一刻由
+// `ClassBranch` / `EnumBranch` 的 `ReorganizeDeclarationDecorators` 才收成单元 ✓。
+//
+// **少了它会怎样** ✗（实测四份 ✓）：换行处收壳 ✓ ⇒ `<Decorator>` 关进 `<Statement>` ✗
+// ⇒ `class` 那一刻往回扫**看不到装饰器** ✗（只看到壳 ✓）⇒ 装饰器掉到 `Class` 的**兄弟位** ✓、
+// `Class` 的区间也从 `class` 那个词起 ✗ —— 四份用例各记「缺一个 `ClassDeclaration`
+// + 多两个起点更早的节点」✓（`decl-class-decorator-class.ts` ✓、`cls-decorators.ts` ✓、
+// `cls-decorator-calls.ts` ✓、`ex-decorator-expression.ts` ✓）；
+// 判据本体见 `Statement.IsPendingDecoratorHead` ✓（段首是 `@` 且段内只有装饰器那几类单元 ✓）。
+if (Statement.IsPendingDecoratorHead(data, frontIndex + 1)) {
+  return result;
 }
 // **上一行还没写完时，换行不收壳** ✓（第 558 轮 ✓）：把 ASI 判据的**左半截**搬进解析期 ✓
 // （`IsLineBreakIncompleteOnLeft` ✓，与 `IsLineBreakBoundary` 共用那一份 ✓）——
