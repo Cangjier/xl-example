@@ -21,8 +21,9 @@ import { NameValue } from "./map.xl.md"
 
 1. **`Promise` 这个名字**（`resolve` / `reject` / `all` / `race` ✓）——挂在一个
    **既是对象又能被 `new`** 的值上 ✓（与 `Date` 同一个形状 ✓：`AttachCallable` ✓）；
-2. **承诺上的 `then` / `catch`** ✓——**逐个实例挂** ✓
+2. **承诺上的 `then` / `catch` / `finally`** ✓——**逐个实例挂** ✓
    （与 `Map` / `Set` 同一条路 ✓：那两族的原型**不挂方法** ✓，方法挂在实例上 ✓）。
+   原型那一格只做两件事 ✓（第 601 轮 ✓）：`instanceof Promise` ✓ 与 `[object Promise]` ✓。
 
 **推迟那一半由引擎做** ✗（不是这一层 ✓）：`.then(f)` 的 `f` 必须在**微任务**里跑 ✓
 （`Promise.resolve(1).then(f); console.log("x")` 在 Node 里先印 `x` ✓）。
@@ -30,8 +31,7 @@ import { NameValue } from "./map.xl.md"
 「**源承诺、回调、实参、结果承诺、认哪一档**」五样 ✓，
 由执行器（`vm.xl.md` 的 `ScheduleTask` ✓）去排、去调 ✓。
 
-**三条写在明处的缺口** ✗：`x instanceof Promise`（方法挂在实例上 ✓、原型表里没有那一格 ✗）、
-`Promise.then(f, g)` 两个实参的形式 ✗（一步只有一个回调 ✓）、
+**写在明处的两条缺口** ✗：`Promise.then(f, g)` 两个实参的形式 ✗（一步只有一个回调 ✓）、
 `Promise.finally` ✗（要「调完再把原来那一档传下去」✓，而引擎现在只会拿返回值灌结果 ✗）。
 
 # const PromiseCtor:int = 230
@@ -251,7 +251,7 @@ if (invoke === null || schedule === null || settle === null) {
 const source = args.length > 0 ? args[0] : Value.Undefined();
 const mapper = args.length > 1 ? args[1] : Value.Undefined();
 const out = NewPlainArray(room, table, protos);
-const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+const result = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
 const state = NewPlainObject(room, table, protos);
 SetNumberProp(room, table, state, "out", out);
 SetNumberProp(room, table, state, "result", result);
@@ -319,7 +319,7 @@ if (thrown.Tag !== ValueTag.Undefined) {
   settle(ReadProp(room, table, protos, state, "result"), thrown, true);
   return;
 }
-const one = IsPromise(table, raw) ? raw : MakePromise(room, table, PromiseState.Fulfilled, raw);
+const one = IsPromise(table, raw) ? raw : MakePromise(room, table, protos, PromiseState.Fulfilled, raw);
 const stepValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseArrayFromStepId, 0));
 const result = ReadProp(room, table, protos, state, "result");
 schedule(one, stepValue, [state], result, 0, false, Value.Undefined());
@@ -353,7 +353,7 @@ if (IsCallableValue(table, mapper)) {
     settle(result, thrownMap, true);
     return;
   }
-  const oneMapped = IsPromise(table, mapped) ? mapped : MakePromise(room, table, PromiseState.Fulfilled, mapped);
+  const oneMapped = IsPromise(table, mapped) ? mapped : MakePromise(room, table, protos, PromiseState.Fulfilled, mapped);
   const mapStep = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseArrayFromMapStepId, 0));
   schedule(oneMapped, mapStep, [state], result, 0, false, Value.Undefined());
   return;
@@ -399,22 +399,42 @@ ArrayFromAsyncPump(room, table, protos, state.Ref, invoke, schedule, settle, tak
 return Value.Undefined();
 ```
 
+# method ThenMethodOf:(room:RoomChecker, table:HeapTable, protos:Protos, candidate:Value, call:InvokeCallback | null)=>Value
+
+**可采纳对象的那一格 `then`** ✓——不是就给 `undefined` ✓。
+
+**只认四种值** ✓（对象 / 数组 / 闭包 / 内建函数 ✓）：原始值不可能有 `then` ✓（去问它是白跑一趟 ✓）。
+
+**为什么单独一个方法** ✗（第 601 轮 ✓）：两处要问同一句话 ✓——
+① 引擎结清一个承诺之前问的那一句 ✓（`PromiseThenableStep` ✓：问到就地采纳 ✓）；
+② `Promise.resolve(值)` ✓（问到就把采纳**排进一个微任务** ✓，见 `PromiseResolve` 那一支 ✓）。
+**两处各写一遍判据迟早会漂** ✗，而漂的症状是「`Promise.resolve(x)` 采纳了、`resolve(x)` 没有」✓
+——正是最难查的那一种 ✓。
+
+```ts
+if (call === null) return Value.Undefined();
+if (candidate.Tag !== ValueTag.Object && candidate.Tag !== ValueTag.Array
+  && candidate.Tag !== ValueTag.Closure && candidate.Tag !== ValueTag.Function) {
+  return Value.Undefined();
+}
+const thenMethod = GetProperty(room, call, protos, table, candidate, NameValue(table, "then"));
+if (!IsCallableValue(table, thenMethod)) return Value.Undefined();
+return thenMethod;
+```
+
 # method PromiseThenableStep:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, invoke:InvokeCallback | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
 
 **判据与调用**（第 359 轮 ✓）——与上面那个号一对 ✓。
 
-**只认三种值** ✓（对象 / 数组 / 闭包 ✓）：原始值不可能有 `then` ✓（去问它是白跑一趟 ✓）。
+**判据借的是 `ThenMethodOf`** ✓（第 601 轮 ✓）：同一句话只写一处 ✓。
+**它也是「采纳」那一步** ✓：`then` 一调，结清与拒绝就都落到这个承诺上 ✓。
 
 ```ts
 if (invoke === null) return Value.FromBool(false);
 const promise = args.length > 0 ? args[0] : Value.Undefined();
 const candidate = args.length > 1 ? args[1] : Value.Undefined();
-if (candidate.Tag !== ValueTag.Object && candidate.Tag !== ValueTag.Array
-  && candidate.Tag !== ValueTag.Closure && candidate.Tag !== ValueTag.Function) {
-  return Value.FromBool(false);
-}
-const thenMethod = GetProperty(room, invoke, protos, table, candidate, NameValue(table, "then"));
-if (!IsCallableValue(table, thenMethod)) return Value.FromBool(false);
+const thenMethod = ThenMethodOf(room, table, protos, candidate, invoke);
+if (thenMethod.Tag === ValueTag.Undefined) return Value.FromBool(false);
 const onOk = MakeSettleCallback(table, promise, false);
 const onErr = MakeSettleCallback(table, promise, true);
 const thenArgs: Value[] = [onOk, onErr];
@@ -478,21 +498,25 @@ if (payload === null) throw new Error("unimplemented: a promise settle callback 
 return Value.FromObject(payload.Opaque);
 ```
 
-# method MakePromise:(room:RoomChecker, table:HeapTable, state:int, settled:Value)=>Value
+# method MakePromise:(room:RoomChecker, table:HeapTable, protos:Protos, state:int, settled:Value)=>Value
 
-**造一个承诺，并把两个方法挂在它自己身上** ✓。
+**造一个承诺，并把三个方法挂在它自己身上** ✓。
 
-**为什么挂在实例上** ✗：与 `Map` / `Set` 同一条口径 ✓（那两族的原型**不挂方法** ✓）。
-**这条路今天最省** ✓：不必给引擎的原型表再加一格 ✓（`protos.Promise` ✗），
-代价是 `x instanceof Promise` **还不成立** ✗（记在文首 ✓）。
+**为什么方法挂在实例上** ✗：与 `Map` / `Set` 同一条口径 ✓（那两族的原型**不挂方法** ✓）。
+**原型那一格还是要有** ✓（第 601 轮 ✓）：`x instanceof Promise` 要看它 ✓，
+`Symbol.toStringTag`（`"[object Promise]"` ✓）也挂在它上面 ✓——
+一个空对象，方法一个都不放 ✓（与 `Generator` 那一格同一条分界 ✓）。
 
-**两个方法都是宿主引用** ✓——所以它们是**同一份**实现 ✓，
-每造一个承诺只花两次属性写的钱 ✓。
+**三个方法都是宿主引用** ✓——所以它们是**同一份**实现 ✓，
+每造一个承诺只花三次属性写的钱 ✓。
 
 ```ts
 if (!room(ObjectCharge + ValueCharge * 3)) throw new Error("out of room");
 const handle = table.CreatePromise(state, settled);
 const promise = Value.FromObject(handle);
+if (protos.Promise > 0) {
+  table.Get(promise.Ref).Proto = protos.Promise;
+}
 SetProperty(room, NeverCall, table, promise, NameValue(table, "then"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseThen, 0)));
 SetProperty(room, NeverCall, table, promise, NameValue(table, "catch"),
@@ -591,7 +615,7 @@ if (id === PromiseQueueMicrotask) {
   // **结果承诺没人看** ✗，但它必须在 ✓：回调里抛出来的那一抛要有个去处 ✓
   //（引擎把那一抛变成这个承诺的拒绝 ✓）——**这正是 JS 里 `queueMicrotask` 抛了会变成
   // 一个未处理的错误** ✓，本仓于是也不会把它冒成宿主异常 ✓。
-  const anchor = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  const anchor = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
   schedule(Value.Undefined(), callback, [], anchor, 0, false, Value.Undefined());
   return Value.Undefined();
 }
@@ -607,11 +631,33 @@ if (id === PromiseResolve) {
   if (IsPromise(table, value)) {
     return value;
   }
-  return MakePromise(room, table, PromiseState.Fulfilled, value);
+  // **可采纳对象要排进一个微任务再审** ✓（第 601 轮 ✓）：JS 的解决过程里
+  // `Promise.resolve(thenable)` 不是当场调那个 `then` ✓，而是排一个
+  // **PromiseResolveThenableJob** ✓。次序看得出来 ✓：`Promise.resolve(t);
+  // Promise.resolve(2).then(…)` 在 Node 里先印那个普通值 ✓——
+  // 当场采纳的话 thenable 那一格会**抢在前面** ✗（判据 `c371-stdlib-promise-resolve-identity` 量的正是这一格 ✓）。
+  //
+  // **排进微任务的机关是现成的** ✓：`schedule` 那一格（`PromiseQueueMicrotask` 用的就是它 ✓）
+  // 加 `PromiseThenableAdopt` 那个号 ✓（引擎结清时问的那一句、做的事与这里要的**一字不差** ✓
+  // ——它就是「把 `then` 接上这个承诺」✓）。**不另写一份采纳** ✗。
+  // **结果承诺给一个占位的锚** ✓：任务跑完的返回值会灌进它 ✓（`RunNativeTask` 的规矩 ✓），
+  // 而真正的结果在 `produced` 上 ✓——不隔开的话那句 `true` 会把 `produced` 结清成 `true` ✗。
+  if (ThenMethodOf(room, table, protos, value, invoke).Tag !== ValueTag.Undefined) {
+    if (schedule === null) {
+      throw new Error("unimplemented: Promise.resolve of a thenable needs the task channel");
+    }
+    const produced = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
+    const anchor = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
+    const job = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseThenableAdopt, 0));
+    const jobArgs: Value[] = [produced, value];
+    schedule(Value.Undefined(), job, jobArgs, anchor, 0, false, Value.Undefined());
+    return produced;
+  }
+  return MakePromise(room, table, protos, PromiseState.Fulfilled, value);
 }
 if (id === PromiseReject) {
   const value = args.length > 0 ? args[0] : Value.Undefined();
-  return MakePromise(room, table, PromiseState.Rejected, value);
+  return MakePromise(room, table, protos, PromiseState.Rejected, value);
 }
 if (id === PromiseWithResolvers) {
   // **`Promise.withResolvers()`** ✓（第 327 轮 ✓）——三样一起交出去 ✓：
@@ -622,7 +668,7 @@ if (id === PromiseWithResolvers) {
   // 一个普通对象 ✓ + 三格值 ✓——**问到一半才失败**的话，前面造出来的东西
   // 已经挂在那儿了 ✓（这一层没有「回滚」✗）。
   if (!room(ObjectCharge * 2 + ValueCharge * 3)) throw new Error("out of room");
-  const pendingPromise = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  const pendingPromise = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
   const resolvers = NewPlainObject(room, table, protos);
   SetNumberProp(room, table, resolvers, "promise", pendingPromise);
   SetNumberProp(room, table, resolvers, "resolve", MakeSettleCallback(table, pendingPromise, false));
@@ -658,7 +704,7 @@ if (id === PromiseTry) {
   // 从第 1 格起切 ✓（第 0 格是回调自己 ✓）。
   const rest: Value[] = [];
   for (let i = 1; i < args.length; i++) rest.push(args[i]);
-  const produced = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  const produced = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
   // **接收者给 `undefined`** ✓：JS 里 `Promise.try(f)` 的 `f` 是**普通调用** ✓
   //（松散模式下 `this` 是全局对象 ✓，本仓一律给 `undefined` ✓——与整仓同一条口径 ✓）。
   // **同步返回也要走 `settle`** ✓（不是「已经兑现的承诺」那一条捷径 ✗）：
@@ -689,7 +735,7 @@ if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id ==
   if (settle === null) {
     throw new Error("unimplemented: Promise.all/race needs the settle channel (the host did not provide it)");
   }
-  const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  const result = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
   // **状态住在堆里** ✓（不是建库层的局部量 ✗）：每一步回调是**另一次调用** ✓，
   // 建库层没有「上一次」可记 ✓——所以「还差几个」与「已经收到哪些值」都得进堆 ✓。
   const state = NewPlainObject(room, table, protos);
@@ -757,7 +803,7 @@ if (id === PromiseAll || id === PromiseRace || id === PromiseAllSettled || id ==
     // **包一个已兑现的承诺**是最短的一条 ✓——形状与 `PromiseResolve` 那一支**一字不差** ✓。
     const one = IsPromise(table, item)
       ? item
-      : MakePromise(room, table, PromiseState.Fulfilled, item);
+      : MakePromise(room, table, protos, PromiseState.Fulfilled, item);
     // **`all` 只认兑现那一档** ✓（某一步被拒绝时**回调不跑** ✓、
     // 拒绝顺着「结果承诺」自动传下去 ✓——那正是 JS 的语义 ✓）；
     // **`race` 两档都认** ✓（谁先结清谁定 ✓）；
@@ -776,7 +822,7 @@ if (id === PromiseThen || id === PromiseCatch) {
     throw new Error("unimplemented: .then/.catch needs a promise receiver");
   }
   const callback = args.length > 0 ? args[0] : Value.Undefined();
-  const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  const result = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
   // **认哪一档** ✓：`then(f)` 只认兑现 ✓、`catch(g)` 只认拒绝 ✓、
   // `then(f, g)` **两档各一个** ✓（第 187 轮 ✓——`wants = 3` ✓，引擎按结清的那一档挑 ✓）。
   const wants = id === PromiseCatch ? 1 : (args.length > 1 ? 3 : 0);
@@ -794,7 +840,7 @@ if (id === PromiseFinally) {
     throw new Error("unimplemented: .finally needs a promise receiver");
   }
   const callback = args.length > 0 ? args[0] : Value.Undefined();
-  const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  const result = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
   schedule(self, callback, [], result, 4, false, Value.Undefined());
   return result;
 }
@@ -824,7 +870,7 @@ if (id === PromiseCtor) {
     if (takeThrown === null) {
       throw new Error("unimplemented: new Promise(executor) needs the thrown channel");
     }
-    const result = MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+    const result = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
     const onFulfilled = MakeSettleCallback(table, result, false);
     const onRejected = MakeSettleCallback(table, result, true);
     const executor = args[0];
@@ -846,7 +892,7 @@ if (id === PromiseCtor) {
     }
     return result;
   }
-  return MakePromise(room, table, PromiseState.Pending, Value.Undefined());
+  return MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
 }
 throw new Error("unimplemented: promise builtin id " + id);
 ```

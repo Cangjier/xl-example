@@ -26,6 +26,8 @@ import { IsLeadingDotNumber, IsUnicodeEscapeStart } from "../text-common-util.xl
 1. 当前字符不是符号 → 失败。
    **例外**：`\` 后面跟着 `u` 加十六进制时**也让路**（那是标识符里的 Unicode 转义，
    由 `CommonBranch` 接手；判据是 `../text-common-util.xl.md` 的 `IsUnicodeEscapeStart`）。
+   **花括号写法还要多让一格**：`\u{65}` 里的 `{` / `}` 也是符号，判据是本块自己的
+   `Identifier.IsBracedEscapePart`（那两格只看 `Temp`，见 `identifier.xl.md`）。
 2. 当前字符是 `.`、且它是**小数点开头的小数**（`.5` / `.5e3`）→ 失败，让给 `CommonBranch`
    （判据 `IsLeadingDotNumber`）。这一条要排在下面「上一个单元也是 SymbolToken」之前：
    `= .5` 里 `=` 是个已关闭的 `SymbolToken`，不先让路的话这个点会被当成新符号收走。
@@ -60,6 +62,11 @@ if (value === "\\" && IsUnicodeEscapeStart(source.Document, source.Index)) {
   return result;
 }
 const last = unit.Last();
+if (last instanceof Identifier && last.IsBracedEscapePart(source)) {
+  const result = new BranchConditionResult();
+  result.Success = false;
+  return result;
+}
 if (value === "." && IsLeadingDotNumber(source.Document, source.Index)) {
   const continuesSymbol = last instanceof SymbolToken && last.Closed === false && last.IsAppend(source);
   if (continuesSymbol === false) {

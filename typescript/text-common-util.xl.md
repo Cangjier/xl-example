@@ -136,6 +136,44 @@ for (let k = index + 2; k < index + 6; k++) {
 return true;
 ```
 
+# method IsUnclosedBracedEscape:(text:string)=>bool
+
+`text` 的**最后一个反斜杠**起，是不是一个还没闭合的 `\u{…`：`\u`（花括号还没来）、
+或 `\u{` 后面只跟十六进制位（`}` 还没来）。
+
+**为什么需要它**（第 601 轮）：花括号写法 `\u{65}` 的 `{` / `}` 本身是符号，
+于是 `\` 那一刻两边让路（`IsUnicodeEscapeStart` 认它）之后，`{` 立刻被 `BracketBranch`
+抢走（那一支排在 `SymbolBranch` / `CommonBranch` 之前，实测）——
+`const \u{65}scaped = 3` 被切成 `Identifier(\u)` + `{65}` 括号组 + `Identifier(scaped)`。
+
+判据只能落在**已经吃进 `Temp` 的那半截**上：`{` 那一刻问「上一个单元是不是 `Identifier`」
+是问得到的，但「它是不是正卡在 `\u{` 里」只有它自己的 `Temp` 知道——
+所以这是一个**纯文本**判据，放在这里给 `BracketBranch`（问 `last.TempToString()`）与
+`Identifier.IsBracedEscapePart`（问自己的 `Temp`）共用。
+
+`\u` 后面不是 `{`、或 `\u{` 后面出现非十六进制位，都判否——那种形态本来就不是合法转义。
+
+```ts
+const at = text.lastIndexOf("\\");
+if (at < 0 || at + 1 >= text.length || text[at + 1] !== "u") {
+  return false;
+}
+if (at + 2 >= text.length) {
+  return true;
+}
+if (text[at + 2] !== "{") {
+  return false;
+}
+for (let i = at + 3; i < text.length; i++) {
+  const item = text[i];
+  const isHex = (item >= "0" && item <= "9") || (item >= "a" && item <= "f") || (item >= "A" && item <= "F");
+  if (isHex === false) {
+    return false;
+  }
+}
+return true;
+```
+
 # method IsLeadingDotNumber:(document:Document, index:number)=>bool
 
 `index` 处的 `.` 是不是**小数点开头的小数**（`.5` / `.5e3`）：当前字符是 `.`，且后一个字符是数字。

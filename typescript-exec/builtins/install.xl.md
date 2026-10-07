@@ -12,7 +12,7 @@ import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
-import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, InstallDatePrototype, BoundCall } from "./globals.xl.md"
+import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall } from "./globals.xl.md"
 import { InvokeMap, MapCtor, MapGroupBy, NameValue, ReadOwn, InstallMapPrototype } from "./map.xl.md"
 import { InvokeSet, SetCtor, InstallSetPrototype } from "./set.xl.md"
 ```
@@ -965,6 +965,8 @@ if (GeneratorThrowId > highest) highest = GeneratorThrowId;
 // `capability id is out of range: 240` ✓（听起来像「承诺那一族还没做」✗，其实只是这一句没跟上 ✓）。
 if (PromiseResolveCallbackId > highest) highest = PromiseResolveCallbackId;
 if (PromiseRejectCallbackId > highest) highest = PromiseRejectCallbackId;
+// **第 601 轮：`SpeciesGetterId`** ✓——同一条纪律 ✓（漏了它是 `capability id is out of range: 712` ✓）。
+if (SpeciesGetterId > highest) highest = SpeciesGetterId;
 return highest + 1 - BuiltinBase;
 ```
 
@@ -1133,7 +1135,7 @@ for (const slot of promiseSlots) {
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
   ObjectAssign, PowId, SetHiddenId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
-  PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext];
+  PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext, SpeciesGetterId];
 for (let i = 0; i < helpers.length; i++) {
   // **登记失败要响亮** ✗——**试过，又改回来了** ✓（第 340 轮 ✓，账写在下面 ✓）。
   // 这一句原来不看返回值 ✓（规范原话是「不是静默忽略」✗）。这一轮把它改成
@@ -1190,10 +1192,12 @@ host.Machine.RegisterSettleCallbacks(PromiseResolveCallbackId, PromiseRejectCall
 
 **号段 700..799 的分派**（语言内部辅助）。
 
-这一段今天有两条：`DefineAccessorId` ✓ 与 `SetHiddenId` ✓（第 210 轮加的 ✓）。
-**其余号照旧抛**——没装的东西被调到就是配置错了。
+这一段今天有三条：`DefineAccessorId` ✓、`SetHiddenId` ✓（第 210 轮加的 ✓）与 `SpeciesGetterId` ✓。
 
 ```ts
+if (id === SpeciesGetterId) {
+  return self;
+}
 if (id === DefineAccessorId) {
   if (args.length < 4) {
     throw new Error("unimplemented: define_accessor needs (object, key, getter, setter)");

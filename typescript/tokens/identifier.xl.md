@@ -8,7 +8,7 @@ import { Source } from "../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
-import { IsLeadingDotNumber, IsUnicodeEscapeStart } from "../text-common-util.xl.md"
+import { IsLeadingDotNumber, IsUnclosedBracedEscape, IsUnicodeEscapeStart } from "../text-common-util.xl.md"
 import { Translate } from "./string/translate.xl.md"
 ```
 
@@ -74,7 +74,7 @@ if (last instanceof Identifier) {
     return result;
   }
   const result = new BranchConditionResult();
-  result.Success = escapeStart || last.IsExponentSign(source.Document, source.Index) || last.IsAppend(source);
+  result.Success = escapeStart || last.IsExponentSign(source.Document, source.Index) || last.IsAppend(source) || last.IsBracedEscapePart(source);
   result.Message = 1;
   return result;
 }
@@ -89,6 +89,7 @@ return result;
 判据是 `../text-common-util.xl.md` 的 `IsUnicodeEscapeStart`，
 它要求 `\` 后面跟 `u` 加十六进制数字，所以普通的反斜杠不受影响。
 （`SymbolBranch` 那边同时让了路，两边配合才成立。）
+它只管**反斜杠那一刻**：花括号写法的 `{` / `}` 由 `IsBracedEscapePart` 接手。
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
@@ -141,6 +142,33 @@ super(Template);
 
 ```ts
 return !(this.Template.SymbolTemplate.IsSymbol(Src.Value) || this.Template.SymbolTemplate.IsWhiteSpace(Src.Value));
+```
+
+## method IsBracedEscapePart:(Src:Source)=>bool
+
+本块正停在**没闭合的 `\u{…`** 里，而 `Src` 是花括号形态的两个符号字符之一（`{` / `}`）——
+这一个字符该并进标识符，不该归 `SymbolToken`。
+
+**为什么需要它**（第 601 轮）：`IsUnicodeEscapeStart` 认花括号写法（`\u{65}`），
+所以 `\` 那一格两边都让路了；可它只在**反斜杠那一刻**回答，
+`\u` 收进 `Temp` 之后就到了 `{`——`{` 是符号，`CommonBranch` 的 `IsAppend` 判否、
+`SymbolBranch` 又当仁不让 ⇒ 一个标识符被切成 `Identifier(\u)` + `TypeLiteral{65}` + `Identifier(scaped)`
+（实测：声明的是 `\u`，用的是 `scaped`）。
+
+判据落在**本块的 `Temp`** 上，而不是「上一个单元是不是 `Identifier`」：
+`{` 那一刻 `unit.Last()` 问得到的是别人，只有 `Temp` 记录着「`\u{` 还差一个 `}`」。
+文本那半截是 `../text-common-util.xl.md` 的 `IsUnclosedBracedEscape`（`BracketBranch` 也问它）。
+十六进制位不用在这里放行（它们不是符号，`IsAppend` 本来就收）；
+闭合之后的 `}` 也不放行（那时 `Temp` 里已经有 `}`，`IsUnclosedBracedEscape` 判否）。
+
+```ts
+if (this.Closed) {
+  return false;
+}
+if (Src.Value !== "{" && Src.Value !== "}") {
+  return false;
+}
+return IsUnclosedBracedEscape(this.TempToString());
 ```
 
 ## protected method Close:()=>void

@@ -38,37 +38,37 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.99,
+  "progressPercent": 99.19,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 495,
+      "pass": 496,
       "blocked": 0,
-      "differ": 7,
+      "differ": 6,
       "nodefail": 0,
-      "coverage": 98.61
+      "coverage": 98.8
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 409,
-      "blocked": 1,
+      "pass": 410,
+      "blocked": 0,
       "differ": 1,
       "nodefail": 0,
-      "coverage": 99.51
+      "coverage": 99.76
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 624,
+      "pass": 626,
       "blocked": 0,
-      "differ": 10,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 98.42
+      "coverage": 98.74
     },
     {
       "layer": "e2e",
@@ -81,14 +81,7 @@
       "coverage": 99.4
     }
   ],
-  "blocked": [
-    {
-      "id": "c382-ex-braced-escape",
-      "layer": "exec",
-      "title": "`\\u{…}` 花括号写法 —— **还没修**",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: const"
-    }
-  ],
+  "blocked": [],
   "differ": [
     {
       "id": "c371-rt-super-and-this-binding",
@@ -127,12 +120,6 @@
       "detail": "stdout 不同：第 4 行：node «k1 k1» vs tsrun «k1 »"
     },
     {
-      "id": "c371-rt-tostring-tags-and-inspect",
-      "layer": "runtime",
-      "title": "Symbol.toStringTag 与内建对象的标签",
-      "detail": "stdout 不同：第 9 行：node «promise [object Promise]» vs tsrun «promise [object Object]»"
-    },
-    {
       "id": "c373-ex-compound-assign-logical-rhs",
       "layer": "exec",
       "title": "复合赋值的右侧是 `||`：逻辑规则位次造成的优先级（**还没修**）",
@@ -149,12 +136,6 @@
       "layer": "stdlib",
       "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
-    },
-    {
-      "id": "c371-stdlib-promise-resolve-identity",
-      "layer": "stdlib",
-      "title": "Promise.resolve 的身份与 thenable 采纳",
-      "detail": "stdout 不同：第 3 行：node «plain 2» vs tsrun «thenable { then: [Function: then] }»"
     },
     {
       "id": "c371-stdlib-promise-allsettled-any-race",
@@ -179,12 +160,6 @@
       "layer": "stdlib",
       "title": "Date.parse 与 toJSON；无效日期的字符串形态",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Invalid time value"
-    },
-    {
-      "id": "c371-stdlib-symbol-species-and-hasinstance",
-      "layer": "stdlib",
-      "title": "Symbol.hasInstance 与 Symbol.species 的缺省语义",
-      "detail": "stdout 不同：第 2 行：node «true true true» vs tsrun «true true false»"
     },
     {
       "id": "c371-stdlib-function-bind-forms",

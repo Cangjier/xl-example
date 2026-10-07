@@ -33,26 +33,21 @@
 
 ## 当前的缺口
 
-**进不了门（1 条）**——降级期或语言层直接报错：
+**进不了门：0 条**（第 601 轮把最后一条 `c382-ex-braced-escape` 收掉了——词法层认 `\u{…}` 的花括号）。
 
-| 层 | 用例 | 症状 |
-| --- | --- | --- |
-| exec | `c382-ex-braced-escape` | `\u{…}` 花括号写法 |
-
-**跑得出来但结果不同（23 条）**——按根子归类：
+**跑得出来但结果不同（17 条）**——按根子归类：
 
 - **原型与 `this`**：`super` / 箭头 / 解构 / 回调里的绑定；`instanceof` 与原型替换；
-  方法与 `constructor` 的可枚举性；`Symbol.toStringTag` 与内建标签。
-- **迭代协议**：手写可迭代对象的 `return()` 收尾；`Map.entries()` 展开后的取格顺序。
-- **异步**：`async` 里的抛错 / 拒绝 / `try-catch` / `finally`；`Promise` 的 `resolve` 身份与
-  thenable 采纳、`allSettled` / `any` / `race`、`finally` 的值透传。
-- **函数内省**：`name` / `length` / `toString` / `bind` 的偏实参与 `new`。
-- **内建细节**：`Map` / `Set` 的 `size` 是访问器；`Object.assign` 读 getter / 写 setter / 键顺序；
-  `Date` 的 `now` / `parse` / `toJSON`；`Array.of` / `isArray` / 三种 `new Array`；
-  `Object.prototype.toString` 在内建上的组合；字符串大小写族；`Symbol.hasInstance` / `species`；
-  `console.log` 对复杂值的渲染。
+  方法与 `constructor` 的可枚举性。
+- **迭代协议**：手写可迭代对象的 `return()` 收尾。
+- **异步**：`Promise` 的 `resolve` 身份与 thenable 采纳、`allSettled` / `any` / `race`、
+  `finally` 的值透传（三条是**排空次序**）；`async` 里的抛错 / 拒绝。
+- **函数内省**：计算键方法的 `name`；`bind` 当构造器；`console.log(class C {})` 的标签。
+- **内建细节**：`Map` / `Set` 的 `size` 是原型上的访问器（本仓挂在实例上）；
+  `Date` 的 `now` / `parse` / `toJSON` / `toString`；字符串的非 ASCII 大小写；
+  `Object.prototype.toString` 在内建上的组合。
 - **降级层**：复合赋值右侧是 `||` 时的逻辑规则位次（`LogicalOperator` 排在四则之前）。
-- **端到端**：异步任务池的排空时机（并发回调里 `await` 的排空次序）。
+- **端到端**：异步任务池（并发回调里 `await` 的排空次序）。
 
 **下一轮的入口**：`tests/coverage/report.json` 里每一条都带一句症状与最小复现，
 `npm run coverage -- --only <id>` 可以单跑一条。

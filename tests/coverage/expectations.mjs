@@ -995,7 +995,6 @@ export const EXPECTATIONS = {
   // ---- 带**剩余参数**的函数经 `.call(...)` 调用 ⇒ `cannot call a non-closure value`；最小反例 `function f(...r){}; f.call({}, 1)`。
 
   // ---- `Object.prototype.toString.call(promise)` 应当是 `[object Promise]`。
-  "c371-rt-tostring-tags-and-inspect": { expect: "differ", why: "`Object.prototype.toString.call(promise)` 应当是 `[object Promise]`。" },
 
   // ---- 非 ASCII 的大小写转换要一张映射表（本仓只有 ASCII ⇒ 直接报 `unimplemented`）。
   "c371-stdlib-string-case-forms": { expect: "differ", why: "非 ASCII 的大小写转换要一张映射表（本仓只有 ASCII ⇒ 直接报 `unimplemented`）。" },
@@ -1016,7 +1015,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-map-set-size-and-keys": { expect: "differ", why: "`Map.prototype` / `Set.prototype` 取不到（`Object.getOwnPropertyDescriptor(Map.prototype, \"size\")` 读的是 `undefined`）⇒ 内建原型对象上没有暴露 `prototype` 那一格。" },
 
   // ---- `Promise.resolve(p) === p` 要是 `true`（同一个承诺原样返回）。
-  "c371-stdlib-promise-resolve-identity": { expect: "differ", why: "**身份那一半第 377 轮修好了** ✓（`Promise.resolve(p) === p` ✓——原来一律包一层 ✗）。**剩下的是 thenable 那一半** ✗：`Promise.resolve({ then(resolve) { resolve(2) } })` 在 JS 里会**叫一次那个 `then`** ✓、用它结清的值兑现 ✓（Node 印 `2` ✓），而本仓把**那个对象本身**当成值收下 ✓（印出 `{ then: [Function] }` ✓）——**静默错值** ✓。根子在 `promise.xl.md` 的 `PromiseResolve`：它只看「是不是本族的承诺」✓（`IsPromise` ✓），**不看 `then`** ✗。" },
 
   // ---- `Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。
   "c371-stdlib-promise-allsettled-any-race": { expect: "differ", why: "`Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。" },
@@ -1031,7 +1029,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-date-parse-and-json": { expect: "differ", why: "`JSON.stringify(new Date(NaN))`：Node 给 `null`，本仓在 `toJSON` 里先抛了 `Invalid time value`。" },
 
   // ---- `MyArray[Symbol.species] === MyArray`（物种那一格的缺省值）。
-  "c371-stdlib-symbol-species-and-hasinstance": { expect: "differ", why: "`MyArray[Symbol.species] === MyArray`（物种那一格的缺省值）。" },
 
   // ---- `EvalError` 这个全局名不在那儿。
 
@@ -1081,7 +1078,6 @@ export const EXPECTATIONS = {
   // ---- `Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。
 
   "c373-ex-compound-assign-logical-rhs": { expect: "differ", why: "复合赋值的右侧是 `||` 时**还是错的** ✗（`k += 0 || 5` 给 `-2` ✓，JS 给 `4` ✓）。**根子是既有的一条** ✓：`&&` / `||` 那一条规则（`LogicalOperator`）的位次**排在四则之前** ✓（`binary-operator.xl.md` 的 `IsOperand` 那一段自己记着这件事 ✓：`a && b + c` 也按 `(a && b) + c` 折 ✓）。第 373 轮把三元、`*=` / `-=` / `**=` 那些修好了 ✓（右操作数先折成一个单元 ✓），但 `||` 在那一刻**已经被逻辑规则折走了** ✓ ⇒ 标记运算符看到的左边是 `0` 而不是 `k + 0` ✓。**要修得把 `LogicalOperator` 挪到四则之后** ✓——那是另一次改动 ✓（会动到 `a && b + c` 这一族的形状 ✓）。" },
-  "c382-ex-braced-escape": { expect: "blocked", why: "**第 382 轮试过、没生效** ✗（两条路都试了）：词法层把 `\\u{65}scaped` 劈成三格 ——`Let fieldName=\"\\u\"` + `Bracket{65}` + `Identifier(scaped)`（XML 实测）。两条路：① `Identifier.IsAppend` 放行 `{` 与十六进制 / `}`（`IsBracedEscapePart`）；② `SymbolBranch` 给那几格让路、`CommonBranch` 在「已关闭」那一支也认它。**两条都没生效** ✗：`{` 那一刻 `unit.Last()` 已经不是那个 `Identifier` 了（它已经被 `Let` 收走成名字属性），所以两处的判据都问不到它。**下一轮的方向**：判据要落在「上一个 `Let` / `Field` 的 `fieldName` 刚写完一个没闭合的 `\\u{`」上，而不是「上一个单元是不是 `Identifier`」。**四位的那种一直是好的**（第 381 轮修的，`c381-ex-escaped-property-key` 守着）。" },
 
 
   // ===== 第 586 轮：第 552–585 轮那次语句壳搬迁带出来的、**还没修**的六条 =====

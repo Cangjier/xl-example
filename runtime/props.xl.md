@@ -4,7 +4,7 @@ import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, Property, PropertyKind, ObjectCharge, PropertyCharge } from "./heap.xl.md"
 import { PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagEnumerable } from "./heap.xl.md"
 import { RootSet } from "./gc.xl.md"
-import { RoomChecker } from "./rt.xl.md"
+import { RoomChecker, IsCallableValue } from "./rt.xl.md"
 ```
 
 # namespace cangjie
@@ -255,6 +255,14 @@ this.Index = index;
 （`GeneratorNextId` ✓，见 `vm.xl.md` 的 `NextStepOf` ✓）——**引擎用能力号认它自己的方法** ✓，
 与「语言层的内建靠能力号分派」是**同一条机制** ✓，只是号的用途不同 ✓。
 
+## field Promise:int = 0
+
+**`Promise` 的原型**（第 601 轮 ✓）——与 `Map` / `Set` / `Date` 那三格同款 ✓：
+`x instanceof Promise` 要在这条链上找到它 ✓，`Symbol.toStringTag` 也挂在它上面 ✓
+（`Object.prototype.toString.call(Promise.resolve(1))` 给 `[object Promise]` ✓）。
+**方法不在这里挂** ✗：`then` / `catch` / `finally` 仍逐个实例挂 ✓（`promise.xl.md` ✓），
+所以承诺的属性表与 JS 仍有结构差 ✓——写在明处 ✓。
+
 ## field WellKnownSymbols:int = 0
 
 **知名符号那张表**（第 184 轮）——一个**普通对象的句柄** ✓：语言层在装库时
@@ -326,6 +334,7 @@ if (this.EvalError > 0) roots.AddHandle(this.EvalError);
 if (this.Map > 0) roots.AddHandle(this.Map);
 if (this.Set > 0) roots.AddHandle(this.Set);
 if (this.Date > 0) roots.AddHandle(this.Date);
+if (this.Promise > 0) roots.AddHandle(this.Promise);
 // **生成器的原型也是根** ✓（第 229 轮 ✓）：与上面那几族同一条理由 ✓——
 // 被收掉的话 `it.next()` 会在某一次回收之后突然变成 `undefined` ✗
 //（症状是「调用一个非闭包」✓，离现场很远 ✗）。
@@ -427,6 +436,9 @@ table.Get(protos.Generator).Proto = protos.Object;
 // 「同一个实现、两处挂载」比「继承过来、再想办法遮掉一格」干净 ✓。
 protos.AsyncGenerator = table.CreateObject();
 table.Get(protos.AsyncGenerator).Proto = protos.Object;
+// **`Promise` 那一格** ✓（第 601 轮 ✓）：与上面那几格一字不差 ✓。
+protos.Promise = table.CreateObject();
+table.Get(protos.Promise).Proto = protos.Object;
 return protos;
 ```
 
@@ -712,10 +724,15 @@ return ReadProperty(call, table, from, receiver);
 **抽出来是因为有两条路会命中**（对象沿原型链、原始值沿它的原型）——
 **「命中之后怎么读」是同一件事**，写两遍就会漂。
 
+**判据是 `IsCallableValue`、不是 `Value.IsCallable`** ✗（第 601 轮 ✓，**实测撞到的** ✓）：
+后者看不到**宿主引用** ✓，而语言层往内建身上挂的 getter 正是宿主引用 ✓
+（`Array[Symbol.species]` 那一格 ✓）⇒ 拿后者判会在**读**的时候报
+「accessor without a getter」✗——那一格明明装着 getter ✓。
+
 ```ts
 const property = table.Get(found.Owner).Props[found.Index];
 if (property.Kind === PropertyKind.Accessor) {
-  if (!property.Getter.IsCallable()) {
+  if (!IsCallableValue(table, property.Getter)) {
     throw new Error("unimplemented: this should throw a TypeError (accessor without a getter)");
   }
   return call(property.Getter, receiver, []);

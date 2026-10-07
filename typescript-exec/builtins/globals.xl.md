@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, GetProperty, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
@@ -711,6 +711,19 @@ return Value.FromObject(handle);
 然后 `AttachArrayIterator` 把那两格（`__i` / `next` ✓）挂上去 ✓，
 `next()` 于是给 `{ value, done }` ✓（`ArrayIteratorNext` ✓）。
 **码点那条规则仍然只有一处** ✓（引擎的 `DoIterNext` ✓）。
+
+# const SpeciesGetterId:int = 712
+
+**`Array[Symbol.species]` 那个访问器的 getter**（第 601 轮 ✓）——**把接收者原样给回去** ✓。
+
+JS 的口径就是这一句 ✓：`Array[Symbol.species]` 的 getter 返回 `this` ✓，
+于是子类（`class MyArray extends Array {}` ✓）读到的是**子类自己** ✓。
+访问器调 getter 时 `this` 是**接收者** ✓（`props.xl.md` 的 `ReadProperty` ✓），
+所以这一格只回 `self` ✓。分派在 `install.xl.md` 的 `InvokeObjectHelper` ✓（号段 700..799 ✓），
+挂它的是 `BuildGlobals` ✓（挂到 `Array` 那个普通对象上 ✓）。
+
+**它住在这里而不是 `install.xl.md`** ✓：`install.xl.md` 已经 import 本文件 ✓
+（`GeneratorNextId` 那几格同款 ✓），反过来的话就是环 ✗。
 
 # const GeneratorNextId:int = 709
 
@@ -6481,7 +6494,7 @@ for (let i = 0; i < symbolStaticNames.length; i++) {
 // 所以那种写法会让尺子当场变红 ✓（实测 ✓：`Room` 被投成一个**零宽**的 `Identifier` ✓）。
 // 那一格与第 179 轮 `xs[0]()` 是同一族 ✓（「调用调用结果」✓），记在台账里 ✓。
 const room = vm.Room();
-for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag"]) {
+for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag", "species"]) {
   const fullName = "Symbol." + wellKnown;
   if (!room(ObjectCharge + ValueCharge + CodeUnitCharge * fullName.length)) {
     throw new Error("out of room");
@@ -6495,7 +6508,7 @@ for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstanc
 // （`install.xl.md` 的 `GetIterator` ✓）只拿得到 `protos` ✓，所以给它一个
 // **按名字取符号**的落点 ✓——引擎不必认识 `Symbol` 这六个字 ✓。
 const wellKnownTable = NewPlainObject(room, table, protos);
-for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag"]) {
+for (const wellKnown of ["iterator", "asyncIterator", "toPrimitive", "hasInstance", "toStringTag", "species"]) {
   const symbolKey = Value.FromString(table.CreateString(Units(wellKnown)));
   SetProperty(room, NeverCall, table, wellKnownTable, symbolKey,
     GetProperty(room, NeverCall, protos, table, symbolObject, symbolKey));
@@ -6506,23 +6519,28 @@ protos.WellKnownSymbols = wellKnownTable.Ref;
 //（`props.xl.md` 的 `Protos.Global` ✓：**结构由引擎提供、内容由语言层给** ✓）。
 // **`globals` 就在手上** ✓（这一段的开头就是它 ✓），所以只是一句赋值 ✓。
 protos.Global = globals.Ref;
-// **`Symbol.toStringTag` 要挂到那三族的原型上** ✓（第 229 轮 ✓）：
+// **`Symbol.toStringTag` 要挂到那几族的原型上** ✓（第 229 轮 ✓，第 601 轮补了 `Promise` ✓）：
 // `Object.prototype.toString.call(new Map())` 在 JS 里是 `"[object Map]"` ✓，
-// 而那一格**正是** `Map.prototype[Symbol.toStringTag] = "Map"` 供的 ✓
-// （`Date` / `Set` 同理 ✓）。**不挂就是「响亮地抛」** ✓（`ObjectTagOf` 那条 ✓）——
-// 那一抛是对的 ✓（不知道就不猜 ✓），可这一格是**有确定答案**的 ✓，所以做出来 ✓。
-//
-// **挂成普通属性** ✓（JS 里 `Map.prototype[Symbol.toStringTag]` 是**不可写但可枚举为假** ✓；
-// 本仓没有「不可枚举的符号键」那一档的判据能证 ✓，而且枚举那几条路
-// **本来就跳过符号键** ✓——见 `Object.keys` / `JSON` / `for..in` 那几处 ✓，
-// 所以 `Object.keys(new Map())` 不会因为这一挂而变 ✗）。
+// 那一格**正是** `Map.prototype[Symbol.toStringTag] = "Map"` 供的 ✓（`Date` / `Set` / `Promise` 同理 ✓）。
+// 挂成普通属性 ✓（符号键不进 `Object.keys` / `JSON` / `for..in` ✓，所以内建那几条读数不受影响 ✓）。
 const toStringTagKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
   Value.FromString(table.CreateString(Units("toStringTag"))));
-const tagTargets = [protos.Map, protos.Set, protos.Date];
-const tagNames = ["Map", "Set", "Date"];
+const tagTargets = [protos.Map, protos.Set, protos.Date, protos.Promise];
+const tagNames = ["Map", "Set", "Date", "Promise"];
 for (let i = 0; i < tagTargets.length; i++) {
   SetProperty(room, NeverCall, table, Value.FromObject(tagTargets[i]), toStringTagKey,
     Value.FromString(table.CreateString(Units(tagNames[i]))));
+}
+// **`Array[Symbol.species]`** ✓（第 601 轮 ✓）：JS 里它是一个只读访问器 ✓，
+// getter 返回**接收者** ✓——所以 `class MyArray extends Array {}` 之后
+// `MyArray[Symbol.species] === MyArray` ✓（静态成员本来就走构造函数那条原型链 ✓，静态 getter 实测也能继承 ✓）。
+// getter 是语言层的一个宿主引用 ✓（`SpeciesGetterId` ✓：把接收者原样给回去 ✓）；
+// `Array` 是个普通对象 ✓，所以直接往它身上挂 ✓。不可枚举 ✓（与 `prototype` 同一条口径 ✓）。
+const speciesKey = GetProperty(room, NeverCall, protos, table, wellKnownTable,
+  Value.FromString(table.CreateString(Units("species"))));
+if (speciesKey.Tag === ValueTag.Symbol) {
+  DefineAccessor(room, table, arrayObject, speciesKey,
+    Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SpeciesGetterId, 0)), Value.Undefined(), false);
 }
 // **`Array.prototype[Symbol.iterator]`** ✓（第 308 轮 ✓）——JS 里它就是 `values` ✓
 //（**同一个函数对象** ✓：`[][Symbol.iterator] === [].values` ✓），所以**指到同一格能力号** ✓

@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { BlockToken } from "../../core/syntax/block-token.xl.md"
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../core/syntax/branch-states.xl.md"
@@ -8,7 +9,7 @@ import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { UnitToken } from "../../core/syntax/unit-token.xl.md"
-import { DecideBracketContext } from "../text-common-util.xl.md"
+import { DecideBracketContext, IsUnclosedBracedEscape } from "../text-common-util.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 ```
 
@@ -28,11 +29,21 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 只有三种开括号字符才成立。
 
+**例外**：上一个单元正卡在没闭合的 `\u{…` 里时，`{` 是那个转义的花括号、不是括号组
+（`const \u{65}scaped = 3`）。判据是 `../text-common-util.xl.md` 的 `IsUnclosedBracedEscape`
+加上「上一个单元是文本块（`BlockToken`）且还没关闭」——只会问 `TempToString()`，
+所以不必认识 `Identifier`（本文件到 `Identifier` 之间隔着 `parse-pipeline.xl.md`，特意不引）。
+
 判定结果是 `BranchConditionResult` 而不是 `bool`，所以展开成「建结果、赋 `Success`」两步，`Message` 保持 `0`（与 `BranchConditionResult.FromBool` 工厂等价）。
 
 ```ts
 const value = source.Value;
 const result = new BranchConditionResult();
+const last = unit.Last();
+if (value === "{" && last instanceof BlockToken && last.Closed === false && IsUnclosedBracedEscape(last.TempToString())) {
+  result.Success = false;
+  return result;
+}
 result.Success = value === "(" || value === "{" || value === "[";
 return result;
 ```
