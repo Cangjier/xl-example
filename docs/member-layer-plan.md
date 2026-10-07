@@ -65,19 +65,48 @@
 `Statement` 那一层是语句层的产物，在成员表这里本来就不该有；投影侧它是透明的，
 所以这一步在四方向上**应当**是 0 变化（要实测确认，不能假定）。
 
-## 四、落地顺序（自小而大，每步都跑全语料）
+## 四、成员种类不能在入口定下来 —— 所以入口落在**判别符**上
 
-1. **`EnumBody`**（最小）：`EnumMember` 改成吃字符的 `UnitToken`（构造器里挂成员列表队列 +
-   通用队列给初始化式）；`EnumBody` 在第一个实义字符上开成员、在 `,` / `}` 上收；
-   注释与逗号作为体自己的子单元；`EnumMemberReorganization` 删除。
-   验收：`cases` 2.2s 快循环 → 全语料 `--per-file` → `samples` / `cases:check`；
-   探针：`enum E { A, B = 2 }` / 上面那条带注释的 / `enum E { A = "x" }` / `enum E {}`（空体）。
-2. **`InterfaceBody`**：成员以 `;` / `}` 收尾，没有方法体；
-   `SignatureReorganization` / `FieldReorganization` 的接口分支跟着搬。
-3. **`ClassBody`**：最复杂——成员可能是方法（自己带一对 `{}`）、字段（`;` / 换行收）、
-   静态块（已搬完，`StaticBlockBranch` 在体的队列里认 `{`）。
-   方法那一支要注意：`{}` 一挂载，`;` / `}` 就都到不了方法这一层了（嵌套靠挂载链）。
-4. **`StaticBlock`**：它自己就是体，只需要确认成员级收尾与 1–3 一致。
+`EnumBody` 那一步之所以能用「体在第一个实义字符上开成员」，是因为枚举成员只有一种形状
+（`EnumMember`）。class / interface 不是：成员以**名字**开头，而它是字段还是方法，
+要等名字后面那一格才知道（跟着 `(` 是方法、跟着 `:` / `?` / `=` 是字段）。
+
+照「进门即定形」那条铁律，入口就不能落在名字上，而要落在**判别符**上——
+那一刻整个成员头（修饰词 / 名字 / `?` / `<T>`）都已经读到，判据只读已读单元。
+**这与 `ClassBranch` 在 `{` 上往回扫「这是不是一个类头」是同一套做法**（`FindClassWord` + `ScanHead`）。
+
+语料实测（367 个文件；脚本见 `tmp/recon/probe-members.cjs`）：
+
+| TS 种类 | 数量 | 判别符（入口那一格） |
+| --- | --- | --- |
+| `interface:PropertySignature` | 14378 | 名字之后的 `:` / `?` / `;` / 换行 |
+| `interface:MethodSignature` | 8432 | 名字之后的 `(` |
+| `class:MethodDeclaration` | 3202 | 名字之后的 `(` |
+| `class:PropertyDeclaration` | 1333 | 名字之后的 `:` / `?` / `=` / `;` / 换行 |
+| `class:Constructor` | 280 | 名字是 `constructor`，入口也是 `(` |
+| `interface:ConstructSignature` | 171 | `new` + `(` |
+| `interface:CallSignature` | 156 | 成员**开头就是** `(`（没有名字） |
+| `interface:IndexSignature` | 85 | `[` 之后到 `]`，**判别在 `]` 的下一格** |
+| `class:GetAccessor` / `interface:GetAccessor` | 50 / 36 | 头是 `get` + 名字，入口 `(` |
+| `class:SetAccessor` / `interface:SetAccessor` | 3 / 29 | 头是 `set` + 名字，入口 `(` |
+
+另外：**计算名 216 处**（`[expr]`，与下标签名形状相同 ⇒ 判别只能落在 `]` 之后那一格）、
+可选标记 `?` 4391 处、带类型参数 877 处、**没有名字的成员 692 处**（调用签名 / 构造签名 / 下标签名）。
+
+⇒ 分支集合是**有限而小**的（判别符只有 `(`、`:`、`]`、`;`/换行 这几种），
+而且每一支的形状与 `ClassBranch` 同款：**判别符 → 往回扫头 → 验完 → 整段收进成员 → 由成员自己收尾**。
+成员收尾仍旧是「顶层 `;` / 体 `}` / ASI 换行」；`ClassMember` 作为**共用基类**承载这一套
+（不引入新标签：TS 的 `ClassElement` 是联合类型，不是一个节点种类）。
+
+## 五、落地顺序（自小而大，每步都跑全语料）
+
+1. ✅ **`EnumBody`**（第 419–421 轮完成）：`EnumMemberBranch` 在枚举体的队列里认「这一格起一个新成员」，
+   `EnumMemberReorganization` 与体那条语句队列一起摘掉；注释留在原位、成员与逗号平铺。
+2. **`InterfaceBody`**：先做数量最大的两支（`PropertySignature` / `MethodSignature`，合计 22810 处），
+   再补 `CallSignature`（156）/ `ConstructSignature`（171）/ `IndexSignature`（85）三支。
+3. **`ClassBody`**：方法 / 字段 / 构造器 / 取值器 / 设值器；方法成员自带一对 `{}`
+   （挂载之后 `;` 与 `}` 都到不了成员这一层——嵌套靠挂载链）。
+4. **`StaticBlock`**：已搬完，只需复核成员级收尾与 1–3 一致。
 
 ## 五、每步都要钉住的三件事
 
