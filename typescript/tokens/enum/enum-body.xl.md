@@ -7,6 +7,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
+import { EnumMember } from "./enum-member.xl.md"
 ```
 
 # namespace cangjie
@@ -33,17 +34,91 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**重组队列。
+只挂**成员列表**的跳转队列（`ParsePipeline.CreateMemberListQueue`，即通用队列去掉
+`IfSetBranch.JumpIn`）：枚举成员位上不该认 `if` 语句，而注释这类 trivia 仍由它照常收。
 
-- **成员列表队列**（`ParsePipeline.CreateMemberListQueue`，即通用队列去掉 `IfSetBranch.JumpIn`）：
-  枚举成员位上不该认 `if` 语句；
-- **语句重组队列**：`{ }` 括号没有重组队列，所以枚举体在括号关闭时是散着的
-  `Identifier` / `SymbolToken` / `LineWrap`；把语句队列挂在这一段上，成员才有成形的时机。
+**不再挂语句重组队列**（第 419 轮）：成员由本单元**读的时候**一个一个开出来
+（见 `Process`），体关闭时 `Data` 里已经是成形的东西——再挂一条语句队列等于让
+「成员什么时候成形」有**两个答案**。
 
 ```ts
 super(template);
 this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
-ParsePipeline.InitialStatementReorganizationQueue(this);
+```
+
+## method Process:(context:SyntaxContext, source:Source)=>void
+
+**本单元是成员表的支配者**（第 419 轮起）：成员以名字开头，没有「一个开括号」那样的入口，
+所以边界在这里认。
+
+四支，全部只看**当前这一格**与**已经读到**的东西：
+
+1. **有成员在吃** ⇒ 转给它（`MountedUnit` 的常规调度）；
+2. **`}`** ⇒ 收尾（签出、关自己、连 `Enum` 一起退）；
+3. **`,`** ⇒ 交给跳转队列收成一个逗号单元——**它属于枚举声明这一级**，
+   留在成员外面（与 TS 的分工一致）；
+4. **`/`** ⇒ 交给跳转队列（成员与逗号都在时，体这一层见到的 `/` 只可能是**注释**的开头），
+   注释单元照旧进树、留在原位（用户口径：注释保留、不消除）；
+5. 其余空白 ⇒ 丢掉（软换行不进产物，与改动前的形状一致）；
+6. 剩下的 ⇒ **开一个新成员**。
+
+**为什么空白丢掉、注释留下**：注释是**节点**（`LineAnnotation` / `AreaAnnotation`），
+空白不是；改动前的产物里枚举体下也没有软换行单元。
+
+```ts
+if (this.MountedUnit !== null) {
+  this.MountedUnit.Process(context, source);
+  this.LastSource = source;
+  return;
+}
+if (source.Value === "}") {
+  this.SignOut(source);
+  this.TryToClose();
+  this.Quit();
+  this.QuitOuter(source);
+  return;
+}
+if (source.Value === "," || source.Value === "/") {
+  super.Process(context, source);
+  return;
+}
+// **注释认的是第二格** ✗（第 419 轮实测踩到）：`AreaAnnotationBranch` / `LineAnnotationBranch`
+// 判的都是「前一个字符是 `/`、它还能被回退、当前这一格是 `*` 或 `/`」——
+// 前一格那个 `/` 先由跳转队列照常收成一个 `SymbolToken` ✓，
+// 紧接着的这一格必须**再交给队列** ✓，否则会被当成**成员的开头** ✗
+//（实测：`/** doc */` 被读成 `<SymbolToken>/</SymbolToken>` + 一个以 `**` 开头的成员 ✗）。
+if (source.Value === "*") {
+  const pre = source.Pre();
+  if (pre !== null && pre.Value === "/" && this.IsUndo(pre)) {
+    super.Process(context, source);
+    return;
+  }
+}
+if (source.Value === " " || source.Value === "\t" || source.Value === "\r" || source.Value === "\n") {
+  this.LastSource = source;
+  return;
+}
+this.StartMember(context, source);
+```
+
+## private method StartMember:(context:SyntaxContext, source:Source)=>void
+
+开一个新成员，并把这个字符喂给它（它就是成员的第一个单元）。
+
+**成员直接挂在本单元下**（`Data` 里与逗号平级），**不再套一层 `Statement`**——
+那是语句层的产物：实测（第 419 轮）带注释的枚举体里，注释会把成员表**切成两个
+`<Statement>`**，而 TS 的 `EnumDeclaration.members` 是**一张平表**。
+
+**`ReloadOwner` 指成本单元**：成员收尾时要把 `,` / `}` 那一格**还回来**，
+还错了地方就会落进成员自己手里（`IfSet.MountStatement` 记过同一条坑）。
+
+```ts
+const member = new EnumMember(this.Template);
+this.Add(member);
+member.SignIn(source);
+member.ReloadOwner = this;
+this.MountedUnit = member;
+member.Process(context, source);
 ```
 
 ## method Owns:(source:Source)=>bool

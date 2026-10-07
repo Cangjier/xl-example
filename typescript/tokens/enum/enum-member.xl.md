@@ -1,205 +1,42 @@
 # dependencies
 ```xl
-import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { Identifier } from "../identifier.xl.md"
-import { LineWrap } from "../line-wrap.xl.md"
-import { SymbolToken } from "../symbol-token.xl.md"
+import { ParsePipeline } from "../../parse-pipeline.xl.md"
 ```
 
 # namespace cangjie
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-**枚举成员**：`enum E { A = 1, B }` 里的 `A = 1` / `B` 各收成一个 `EnumMember`。
+**一条枚举成员**（`A` / `A = 1` / `"k" = "v"`）：`<EnumMember>` 一段，**吃字符**。
 
-TypeScript 那边枚举成员是**独立节点**（`EnumMember > Identifier A (+ 初始化式)`，
-逗号**不属于**成员、属于 `EnumDeclaration`）。本工程原来把整个成员表摊平在
-`<EnumBody><Statement>` 里（`A` / `=` / `1` / `,` / `B` …… 一串散单元），
-**「这是一条枚举成员」这件事没有节点**——`cases:align` 里 `EnumMember` 1292 处全是缺的。
+**它由体开、由自己收**（第 419 轮起）：成员以**名字**开头，没有「一个开括号」这样的入口
+（那一刻还分不出字段与方法），所以边界由**体**认：`EnumBody` 在第一个实义字符上开一个成员，
+成员的**结束由它自己判**——顶层的 `,`（枚举成员之间的分隔符）或者体的 `}`。
 
-**逗号留在外面**：与 TS 的分工一致（它属于枚举声明），也保住 `cases:lossless` 的逐字对应。
+**判据只用到已经读到的东西**，不违反「不看未来」那条铁律；
+而且与 `IfStatement` 判顶层逗号是**同一套口径**：嵌套里的 `,` 根本到不了这里
+（`f(a, b)` 的那个逗号被更里层的括号挂走了）⇒ 本单元见到的 `,` 必定是自己这一层的
+——**不数深度**。
 
-规则挂在**通用队列**上（`EnumBody` 用的是默认队列），锚在成员表的**第一个实义单元**上，
-一次把整张表按顶层逗号切完——与 `type-parameter.xl.md` 收参数表同一套做法。
+收尾一律「**不含地退出**」：把那一格**还给上一级**（`ReloadMessage` 走 `ReloadOwner`，即那个体），
+再签出到前一格、关自己、从父单元卸载 ✓——与 `IfStatement.ExitOrPre` 同一套
+（含「入队要倒着来」那一条，见 `if-statement.xl.md`）。
 
-# class EnumMemberReorganization extends Reorganization
+**`EnumMemberReorganization` 已经删除**（第 419 轮）：它做的事（按顶层逗号切成员表）
+现在由「体开成员 + 成员自己收」在**读的时候**完成，不再等体关闭时扫一遍平列表。
 
-它永远不进 `Data`、不进 XML。
+# class EnumMember extends UnitToken
 
-## static readonly field Instance:EnumMemberReorganization = new EnumMemberReorganization()
+一条枚举成员。类名必须与产物的标签名一致。
 
-唯一的实例。
-
-## private method BoxOf:(units:Array<Token>, index:int)=>Token | null
-
-`index` 处这一格该由**哪个容器**来切；不是枚举成员表就给 `null`。
-
-成员表可能落在两种容器里（都实测过）：
-
-- `EnumBody` **自己**（有些写法里成员直接挂它）；
-- `EnumBody` 里的那个 `Statement`（本工程把成员表先收进一个语句单元里）。
-
-所以父单元是前者、或者父单元的父单元是前者，都算 ✓。
-
-```ts
-const current = Get(units, index);
-if (current === null || current.Parent === null) {
-  return null;
-}
-const parent = current.Parent;
-// **只认 `Statement` 这一个容器**（实测产物形状：`<EnumBody><Statement>成员…</Statement></EnumBody>`）。
-//
-// 一开始还认了「成员直接挂 `EnumBody`」这一种，**实测会把整张表包两层**：
-// 枚举体那一趟先把成员表整段收成一个 `EnumMember`，那个成员自己的队列再跑一遍，
-// 于是变成 `<EnumMember><EnumMember>A = 1</EnumMember></EnumMember>`。
-// 不认 `EnumBody` 自己就没有这一趟。
-//
-// **光判「祖父是 `EnumBody`」不够**（本轮实测踩到）：枚举体现在是**活的**单元 ✓
-//（`EnumBranch` 在读的时候建 ✓），成员在成形之前就住在它名下 ✓ ⇒
-// **成员里任何一个「父单元也挂在 `EnumBody` 下」的单元**都满足「祖父是 `EnumBody`」✗ ——
-// 字符串字面量就是最现成的一个 ✓（`String.Parent` = `EnumBody` ✓，
-// 它的 `ConstString` 于是被当成一张成员表切了一遍 ✗ ⇒
-// 产物成 `<String><EnumMember><ConstString>blue</ConstString></EnumMember></String>` ✗，
-// `samples/declarations.ts` 里 `Blue = "blue"` 的字符串值当场读成空串 ✗）。
-// 所以 `parent` 这一格**必须自己就是 `Statement`** ✓——这正是上面那句注释说的意思 ✓。
-const grand = parent.Parent;
-if (parent.constructor.name === "Statement" && grand !== null && grand.constructor.name === "EnumBody") {
-  return parent;
-}
-return null;
-```
-
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
-
-`index` 处是不是一张枚举成员表的**起点**。
-
-三条：`BoxOf` 认得出容器；当前单元是容器里的第一个实义单元（整张表一次切完）；
-表里还没有 `EnumMember`（第二趟守卫）。
-
-```ts
-const box = this.BoxOf(units, index);
-if (box === null) {
-  return false;
-}
-const current = Get(units, index);
-if (current === null) {
-  return false;
-}
-// **已经成形的单元不再包**：`Statement`（成员表本身）与 `EnumMember`（成员）都在这儿挡住——
-// 少这一条实测会套成 `<EnumMember><EnumMember>A = 1</EnumMember></EnumMember>`
-// （外层是第二轮在同一张表上又包了一遍）。
-if (current.constructor.name === "Statement" || current.constructor.name === "EnumMember") {
-  return false;
-}
-for (let i = 0; i < index; i++) {
-  if (!(Get(units, i) instanceof LineWrap)) {
-    return false;
-  }
-}
-for (const item of box.Data) {
-  if (item.constructor.name === "EnumMember") {
-    return false;
-  }
-}
-return true;
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-按**顶层逗号**把成员表切成若干段，每段收成一个 `EnumMember`，**返回原来的下标**。
-
-**直接重建容器的 `Data`**（不替换外层单元）：逗号要留在原地，
-所以返回值就是 `index` —— 外层列表没被改过，下一趟再看到这张表时 `Previous` 的第二条守卫会挡住 ✓。
-
-**`Replace` 之前不许先 `Add`**（`type-bracket.xl.md` 记过这个坑）：`Token.Replace` 读的是
-`this.Parent.Data`，而这里改的正是容器的 `Data`，所以先把整张表拷出来、再逐段装回去 ✓。
-
-```ts
-const box = this.BoxOf(units, index);
-if (box === null) {
-  throw new Error("EnumMemberReorganization.Process: box is null");
-}
-// **Process 层的最后一道守卫**：容器里已经有成员了就什么都不做。
-// `Previous` 那两道是按「当前单元」判的，而重组是**按规则轮询**的——
-// 同一张表可能在别的趟里被再次问到（实测套成两层），这里按**容器内容**兜底 ✓。
-for (const item of box.Data) {
-  if (item.constructor.name === "EnumMember") {
-    return index;
-  }
-}
-const original: Token[] = [];
-for (const item of box.Data) {
-  original.push(item);
-}
-const rebuilt: Token[] = [];
-let segment: Token[] = [];
-for (const item of original) {
-  if (item instanceof SymbolToken && item.Is(",")) {
-    this.AppendSegment(rebuilt, segment, box);
-    segment = [];
-    rebuilt.push(item);
-    continue;
-  }
-  // **注释不进成员**（第 66 轮第五批修）：枚举成员前面常带 JSDoc，
-  // 那些注释在词法阶段是 `AreaAnnotation` / `LineAnnotation`——它们是 TS 的
-  // **trivia**（不属于任何节点）。原来一并包进成员，`cases:align` 于是报
-  // `EnumMember in Statement` 66 处（成员区间里全是注释文字，与 TS 的成员对不上）。
-  // 处理办法：先把当前段收掉、把注释原样留在容器里，再接着攒下一个成员 ✓。
-  if (item.constructor.name === "AreaAnnotation" || item.constructor.name === "LineAnnotation") {
-    this.AppendSegment(rebuilt, segment, box);
-    segment = [];
-    rebuilt.push(item);
-    continue;
-  }
-  segment.push(item);
-}
-this.AppendSegment(rebuilt, segment, box);
-box.Data.splice(0, box.Data.length, ...rebuilt);
-return index;
-```
-
-## private method AppendSegment:(rebuilt:Array<Token>, segment:Array<Token>, box:Token)=>void
-
-把一段（一个成员的单元）收成 `EnumMember`；空段（软换行 / 尾随逗号）跳过。
-
-软换行不装进成员里——成员表可以折行排版，那些换行是版面而不是内容
-（与类型队列里 `WrapSymbolReorganization` 的口径一致）。
-
-```ts
-const content: Token[] = [];
-for (const item of segment) {
-  if (!(item instanceof LineWrap)) {
-    content.push(item);
-  }
-}
-if (content.length === 0) {
-  return;
-}
-// 单元素段本身就是 `EnumMember` ⇒ 已经收过了，原样推回去（防套娃的第二道）。
-if (content.length === 1 && content[0].constructor.name === "EnumMember") {
-  rebuilt.push(content[0]);
-  return;
-}
-const member = new EnumMember(box.Template);
-member.Parent = box;
-member.SignIn(content[0].SourceRange.Start!);
-member.SignOut(content[content.length - 1].SourceRange.End!);
-for (const item of content) {
-  member.AddAndCloseLast(item);
-}
-member.TryToClose();
-rebuilt.push(member);
-```
-
-# class EnumMember extends IndependentToken
-
-一条枚举成员（`A` / `A = 1` / `"k" = "v"`）。类名必须与产物的标签名一致。
-
-内容直接装在自己身上，逗号留在外面。
+内容直接装在自己身上，**逗号留在外面**（它属于枚举声明那一级，与 TS 的分工一致）。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -219,15 +56,64 @@ rebuilt.push(member);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，并挂**通用队列**——初始化式是**表达式**
-（`All = -1` 的 `-1` 要收成 `UnaryOperator`、`A = f()` 要收成调用……，
-TS 那边它们是 `EnumMember` 的子节点）。不挂队列时那些算子会退回散单元
+两件事：挂**成员列表**的跳转队列（名字 / `=` / 初始化式里的括号都由它照常开）、
+挂**通用队列**（初始化式是**表达式**）。
+
+**初始化式那一趟不能省**：`All = -1` 的 `-1` 要收成 `UnaryOperator`、`A = f()` 要收成调用
+（TS 那边它们是 `EnumMember` 的子节点）。不挂队列时那些算子会退回散单元
 （实测：`All = -1` 在 `typescript.d.ts` 里 2 处、`= -2147483648` 1 处）。
 
 ```ts
 super(template);
+this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
 this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
+
+## method Owns:(source:Source)=>bool
+
+当前字符是不是本单元**配对的收尾符**。
+
+**本单元一对括号都不配对** ✗——成员的名字与初始化式里出现的括号各自有单元管，
+到得了这一层的收尾符只有两种：顶层的 `,` 与体的 `}`。所以这里恒 `false`
+（问「体的 `}` 归不归我」由体的 `Owns` 回答，本单元收尾时正是这么问的）。
+
+```ts
+return false;
+```
+
+## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+
+**不含地退出**：见到顶层 `,` 或体的 `}` 就把它**还回去**，然后收自己。
+
+- **`}` 那一支要先问祖先** ✗：本单元的初始化式里可以有对象字面量 `{ … }`，
+  但那个 `}` 由它自己的括号单元挂走 ⇒ **能到这一层的 `}` 必是体那一层的** ✓
+  （与 `IfBody` / `ClassBody` 的 `Owns` 同一个契约 ✓）。所以这里直接判 `}` 即可，
+  不必再往上走一遍——多走一遍也不会有别的答案 ✗。
+- **还回去的是「这一格」** ✓（发的是**位置**不是单元）：上一级要重新词法化它 ✓——
+  `,` 在体那一层由 `SymbolToken` 收成一个逗号单元 ✓、`}` 由体自己收尾 ✓。
+
+```ts
+if (source.Value === "," || source.Value === "}") {
+  const owner = this.ReloadOwner ?? this.Parent;
+  if (owner !== null) {
+    context.Messages.push(new ReloadMessage(owner, this, source));
+  }
+  if (this.SourceRange.End === null) {
+    const previous = source.Pre();
+    if (previous !== null) {
+      this.SignOut(previous);
+    }
+  }
+  this.TryToClose();
+  this.Quit();
+  return BranchStates.Done;
+}
+return BranchStates.Undo;
+```
+
+## protected method Default:(context:SyntaxContext, source:Source)=>void
+
+兜底处理：**空实现**（字符全交给跳转队列与挂载的子单元）。
 
 ## method Clone:()=>Token
 
