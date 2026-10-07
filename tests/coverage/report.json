@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.61,
+  "progressPercent": 99.69,
   "layers": [
     {
       "layer": "runtime",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 631,
+      "pass": 633,
       "blocked": 0,
-      "differ": 3,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 99.53
+      "coverage": 99.84
     },
     {
       "layer": "e2e",
@@ -102,22 +102,10 @@
       "detail": "stdout 不同：第 4 行：node «k1 k1» vs tsrun «k1 »"
     },
     {
-      "id": "c371-stdlib-string-case-forms",
-      "layer": "stdlib",
-      "title": "toUpperCase / toLowerCase / toLocale* 的边界",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: case conversion outside ASCII (there is no mapping table here)"
-    },
-    {
       "id": "c371-stdlib-promise-finally-passthrough",
       "layer": "stdlib",
       "title": "finally：值透传、异常替换、返回承诺要等",
       "detail": "stdout 不同：第 3 行：node «c3 replaced» vs tsrun «v 1»"
-    },
-    {
-      "id": "c371-stdlib-function-bind-forms",
-      "layer": "stdlib",
-      "title": "Function.prototype.bind：偏实参、this、new、length/name",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：a bound function must be an object (the engine passes the receiver as this)"
     },
     {
       "id": "c371-e2e-async-pool-with-errors",

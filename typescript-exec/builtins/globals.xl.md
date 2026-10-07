@@ -2251,7 +2251,7 @@ return MakeNumber(value);
 return MakeNumber(ToNumberOf(room, call, protos, table, value));
 ```
 
-# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null, constructing:bool = false)=>Value
+# method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null, constructing:bool = false, constructThis:Value = new Value())=>Value
 
 **全局内建的分派与实现**。
 
@@ -2988,6 +2988,20 @@ if (id === BoundCall) {
     throw new Error("a bound function lost its target");
   }
   const boundSelf = GetProperty(room, NeverCall, protos, table, self, BoundThisName(table));
+  // **`new` 底下目标要的是实例，不是 `boundThis`** ✓（第 617 轮 ✓）：
+  // `new (fn.bind(null))(5)` 是**构造调用** ✓——JS 里绑定函数被 `new` 时
+  // **绑定过的 `this` 不算数** ✓（`[[Construct]]` 把新对象交下去 ✓），
+  // 而 `fn.bind(null)(5)` 才用 `null` ✓（严格模式下 `this` 就是 `null` ✓）。
+  // 引擎那一边一个 `this` 位表达不了两件事 ✗（`self` 必须留给对象自己 ✓），
+  // 所以实例走 `constructThis` 单独递进来 ✓（`vm.xl.md` 的 `HostConstructThis` ✓）。
+  // **`boundSelf` 照旧先取** ✓：它在这条路上不用 ✓，但取它这一步**不能省** ✗——
+  // 少一个 `GetProperty` 会让「隐藏属性丢了」这件事在构造那条路上**静默**过去 ✓，
+  // 而下面那句「按值取」的检查也就少了一半 ✓。
+  //
+  // **判据是 `IsObject()`** ✓（不是「非 `undefined`」✗）：引擎只在**构造**那一趟
+  // 递实例 ✓，其余时候递的是 `Value.Undefined()` ✓——而 `null` / 其它值都可能是
+  // 调用方给的 `this` ✓，照 `IsObject` 认就不会把它们错当成实例 ✗。
+  const effectiveSelf = constructThis.IsObject() ? constructThis : boundSelf;
   const storedArgs = GetProperty(room, NeverCall, protos, table, self, BoundArgsName(table));
   if (call === null) {
     throw new Error("a bound function needs a call channel (the host must pass one)");
@@ -3000,7 +3014,7 @@ if (id === BoundCall) {
     for (let i = 0; i < stored.GetLength(); i++) merged.push(stored.GetAt(i));
   }
   for (let i = 0; i < args.length; i++) merged.push(args[i]);
-  return call(boundTarget, boundSelf, merged);
+  return call(boundTarget, effectiveSelf, merged);
 }
 if (id === StructuredCloneId) {
   // **`structuredClone(v)`** ✓（第 338 轮 ✓）：见 `StructuredCloneId` 那一段的账 ✓。

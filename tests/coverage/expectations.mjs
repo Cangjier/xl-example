@@ -991,8 +991,11 @@ export const EXPECTATIONS = {
 
   // ---- `Object.prototype.toString.call(promise)` 应当是 `[object Promise]`。
 
-  // ---- 非 ASCII 的大小写转换要一张映射表（本仓只有 ASCII ⇒ 直接报 `unimplemented`）。
-  "c371-stdlib-string-case-forms": { expect: "differ", why: "非 ASCII 的大小写转换要一张映射表（本仓只有 ASCII ⇒ 直接报 `unimplemented`）。" },
+  // ---- 非 ASCII 的大小写转换（第 617 轮补上了 BMP 全段的映射表，台账那一行随之删掉）：
+  // 表建在 `typescript-exec/builtins/string.xl.md` 的 `CaseUnits` 里 ✓——
+  // 逐码元量出来的 676 + 665 段 1:1 映射 ✓ 与 103 条展开映射 ✓（`ß` → `SS` ✓）。
+  // **还没做的是「语言特例」** ✗：`toLocaleUpperCase("tr")` 在 Node 里是 `"İ"` ✓、
+  // 这里是 `"I"` ✓——那要一张按 locale 分的表 ✓，记在 `StringToLocaleUpperCase` 那一段 ✓。
 
   // ---- `splice()` **不带实参**时 Node 返回 `[]` 且数组不动；本仓删空并返回全部 ⇒ 实参个数的口径。
 
@@ -1029,8 +1032,11 @@ export const EXPECTATIONS = {
 
   // ---- `Object.prototype.propertyIsEnumerable` 不在那儿。
 
-  // ---- 绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。
-  "c371-stdlib-function-bind-forms": { expect: "differ", why: "绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。" },
+  // ---- 绑定函数当构造器（第 617 轮修好，台账那一行随之删掉）：
+  // `new (fn.bind(null))(5)` 原来报 `a bound function must be an object` ✓——
+  // 根子是 `DoCallValue` 里那句 `hostThis` 把 `HostConstructing` 也当成了排除条件 ✗，
+  // 而 `bind` 那一格要的正是**对象自己** ✓；实例另走 `HostConstructThis` 一格 ✓
+  // （见 `runtime/vm.xl.md` 的 `DoNew` 与 `HostConstructThis` ✓）。
 
   // ---- `Function.prototype.apply` 只吃真数组（类数组实参报 `needs an array`）。
 

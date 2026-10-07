@@ -66,7 +66,7 @@ JS 那边这一类全是 **`TypeError`** ✓，而**「叫这个名字」是语�
 这一格补的是**引擎自己**那条路 ✓——两处各管各的一半 ✓，
 判据 `array-reduce` / `symbol-concat-throws` 量的正是**后者**那一条 ✓。
 
-# type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker)=>Value
+# type HostInvoker = (target:Value, self:Value, args:Array<Value>, room:RoomChecker, constructThis:Value)=>Value
 
 # type TaskScheduler = (promise:Value, callback:Value, args:Array<Value>, result:Value, wants:number, carry:boolean, onRejected:Value)=>void
 
@@ -494,6 +494,32 @@ this.Depth = 0;
 宿主函数的调用通道；`null` 表示这台机器**不带宿主**（纯脚本）。
 这时候遇到 `host_call` 就直接报错——**不许静默返回 `undefined`**。
 
+## field HostConstructThis:Value = new Value()
+
+**`new` 底下新造的那个实例**（第 617 轮 ✓）——**只在「宿主可调用值当构造函数」
+那两条路上为真** ✓（与 `HostConstructing` 同一对窗口 ✓）。
+
+**为什么单开一格** ✗：`bind` 造出来的那个对象**只有拿到自己**才读得到
+`__boundTarget` / `__boundThis` / `__boundArgs` 三样载荷 ✓（`IsBoundCall` 那一段的账 ✓），
+所以 `HostInvoker` 的 `self` 必须是**它** ✓；而 `new` 底下**目标函数**要的 `this`
+是**新造的那个实例** ✓——**一个 `this` 位表达不了两件事** ✗
+⇒ 实例单独占一格 ✓（`BoundCall` 从第五格取它 ✓）。
+**它不是给普通构造函数用的** ✓：那一条路的实例本来就是 `thisValue` ✓
+（`DoCallValue` 的 `thisValue` 参数 ✓），这一格只补「`self` 被 `bind` 占掉」那一档 ✓。
+
+**为什么不给 ABI 加参数** ✗：`HostInvoker` 是**公开契约** ✓
+（`host-abi.xl.md` ✓、客户要照着实现 ✓），加一位就是一次破坏性改动 ✓——
+所以照 `HostConstructing` 的老办法，**一格机器状态 + 一层门面** ✓
+（`HostInvoker` 自己的签名**一位都没动** ✓，多出来的第五格是**驱动**在
+`InstallHost` 里现取现传的 ✓，见 `tsrun.xl.md` ✓）。
+
+**窗口与 `HostConstructing` 逐字相同** ✓：`DoNew` 置上 ✓、调完立刻还原 ✓，
+嵌套的 `new` 靠**后进先出**自然成立 ✓（`DoCallValue` 那一段存的是**上一个值** ✓，
+所以内层还回来的是外层那一个 ✓，不是无条件清零 ✓）。
+
+**它必须是根**（`SnapshotRoots` 加进去 ✓）——它是**实例** ✓，
+而 `HostConstructThis` 活着的那一段正是宿主在跑脚本 ✓、随时可能回收 ✓。
+
 ## field HostConstructing:bool = false
 
 **这一次宿主调用是不是从 `new` 来的**（第 232 轮 ✓）——**只在「宿主可调用值当构造函数」
@@ -506,9 +532,8 @@ this.Depth = 0;
 **分不出这两件事** ✗——于是语言层只能二选一 ✓，而**两边都是错的** ✓
 （判据 `global-array-object-ctors` 现场红的 ✓）。
 
-**为什么用「一台机器一位」而不是给 ABI 加参数** ✗：
-`HostInvoker` 是**公开契约** ✓（`host-abi.xl.md` ✓、客户要照着实现 ✓），
-加一位就是一次破坏性改动 ✓；而这一位是**瞬时的** ✓——
+**为什么用「一台机器一位」而不是给 ABI 加参数** ✗：与 `HostConstructThis` 同一条理由 ✓
+（`HostInvoker` 是公开契约 ✓，加一位是破坏性改动 ✓）。这一位同样是**瞬时的** ✓——
 `DoNew` 在调 `DoCallValue` **之前**置上 ✓、调完**立刻**清掉 ✓
 （见 `DoNew` 那两条分支 ✓），窗口里只有这一次调用 ✓。
 嵌套的 `new` 也没问题 ✓：内层清掉的是**它自己**置的那一位 ✓，
@@ -809,6 +834,12 @@ if (this.Pending.IsRef()) this.Roots.AddValue(this.Pending);
 if (this.RaiseRequest !== null && this.RaiseRequest.IsRef()) this.Roots.AddValue(this.RaiseRequest);
 if (this.Result.IsRef()) this.Roots.AddValue(this.Result);
 if (this.NativeResult.IsRef()) this.Roots.AddValue(this.NativeResult);
+// **`new` 底下那个实例也是根** ✓（第 617 轮 ✓）：它在 `HostConstructThis` 那一格上 ✓，
+// 而那一格活着的那一段**正是宿主在跑脚本** ✗（`BoundCall` 会把目标函数调起来 ✓，
+// 目标函数体里随时可能分配 ✓、随时可能触发回收 ✓）——
+// 漏了它的症状与 `Retained` 那一族一字不差 ✓：**实例某天被收走** ✓，
+// 而目标往里写属性时读到一个死句柄 ✓（报的是 `invalid handle` ✓，离现场很远 ✗）。
+if (this.HostConstructThis.IsRef()) this.Roots.AddValue(this.HostConstructThis);
 for (let i = 0; i < this.Microtasks.length; i++) {
   const entry = this.Microtasks[i];
   if (entry >= 0) {
@@ -1420,8 +1451,23 @@ if (this.IsHostCallable(callee)) {
   // 「error-call-new without new」那一格 ✓——**一句话里没有一个字提到 `Error` 对象** ✓）。
   // **其余可调用对象一律照调用方给的** ✓：它们**一个字节都不看 `this`** ✓
   //（第 228 轮的注释里就是这么写的 ✓），所以给 `undefined` 与给对象自己是同一件事 ✓。
-  const hostThis = !this.HostConstructing && this.IsBoundCall(callee) ? callee : thisValue;
+  // **`bind` 那一格在 `new` 底下也要拿到自己** ✓（第 617 轮 ✓）：
+  // `IsBoundCall` 决定 `this` 从哪来 ✓ —— `bind` 造出来的那个对象**只有拿到自己**
+  // 才读得到那三样载荷 ✓（第 228 轮的账 ✓），而 `super(m)` 的接收者是**在造的那个实例** ✓、
+  // 给「对象自己」就把它顶掉了 ✓ ⇒ **判据必须窄到「就是 `bind` 那一格」** ✓。
+  // **`HostConstructing` 那一半是反的** ✗：它把「`new` 一个绑定函数」也挡掉了 ✓
+  //（那一格同样要**对象自己** ✓），而 `super` 那一档**本来就不是 `bind` 对象** ✓
+  // ⇒ 两条判据叠在一起，只误伤了前者 ✓（第 343 轮修 `super` 时漏的 ✓）。
+  //
+  // **实例另走一格** ✓（`HostConstructThis` ✓）：`self` 留给对象自己 ✓，
+  // 而 `new` 底下**目标**要的是**新造的那个实例** ✓——一个 `this` 位表达不了两件事 ✗。
+  const boundCall = this.IsBoundCall(callee);
+  const hostThis = boundCall ? callee : thisValue;
+  const savedConstructThis = this.HostConstructThis;
+  // **只在构造那一趟挂上** ✓（构造之外它必须是「无」✗——与那一格同一条窗口 ✓）。
+  this.HostConstructThis = boundCall && this.HostConstructing ? thisValue : Value.Undefined();
   const produced = this.CallHostValue(callee, hostThis, args);
+  this.HostConstructThis = savedConstructThis;
   // **`null` 表示展开已经发生** ✓（宿主请求了一次脚本站内异常 ✓）：**连结果都不许写** ✗——
   // 写下去会盖掉处理点正要用的那一格 ✓（原来那版在这里 `return`，正是为了这一条 ✓）。
   if (produced === null) return;
@@ -1698,7 +1744,11 @@ return false;
 ```ts
 const invoker = this.Host;
 if (invoker === null) throw new Error("calling a host function with no host installed");
-const produced = invoker(callee, thisValue, args, this.Room());
+// **第五格是「`new` 底下新造的那个实例」** ✓（第 617 轮 ✓）：`bind` 那一格要
+// **对象自己**才读得到三样载荷 ✓（`self` ✓），而 `new` 底下**目标**要的是实例 ✓——
+// 一个参数表达不了两件事 ✗，所以实例单独走一格 ✓（见 `HostConstructThis` ✓）。
+// **非构造那一趟它是 `undefined`** ✓（与 `HostConstructing` 同一条口径 ✓）。
+const produced = invoker(callee, thisValue, args, this.Room(), this.HostConstructThis);
 // **取走是必须的**：留着它，下一次宿主调用会莫名其妙地抛上一次的错。
 const raised = this.TakeRaise();
 if (raised !== null) {
@@ -2062,9 +2112,51 @@ const callee = frame.Slots[instr.A];
 // 选②之后 `Date` 不必再靠降级层那条特例 ✓（`new Date(ms)` 与 `Date.now()` 同时成立 ✓），
 // 这一支也不再需要那句「说清原因」的抛 ✗。
 if (this.IsHostCallable(callee)) {
+  // **先造实例** ✓（第 617 轮 ✓）：`bind` 那一格的目标**要的是实例** ✓，
+  // 而实例以前是**调完之后**才造的 ✗ ⇒ `new (fn.bind(null))(5)` 报
+  // 「a bound function must be an object」✓（`self` 收到的是 `undefined` ✓）。
+  // **先造不影响宿主那一档** ✗：`new Map()` / `new Date(ms)` 这一类**不需要**引擎的实例 ✓，
+  // 宿主自己造好交回来 ✓——所以下面那条「宿主返回了对象就用它」照旧成立 ✓
+  //（多造的那个实例没人引用 ✓，回收器收走 ✓）。
+  // **`prototype` 那一格照旧** ✓：`CreateInstance` 读的是 `PrototypeKey` ✓，
+  // 于是 `new (Point.bind(null))(5) instanceof Point` 仍然成立 ✓
+  //（`BoundPoint.prototype` 在 JS 里是 `undefined` ✓——本引擎读不到就退回 `Protos.Object` ✓，
+  //  与「点那一档」同形 ✓；`Point.prototype` 那一层**本引擎不另做** ✓，记在台账里 ✓）。
+  // **实例只在「对象那一档」现造** ✓（第 617 轮 ✓）：`bind` 造出来的东西
+  // 是一个**带可调用载荷的对象** ✓（`IsBoundCall` ✓），它要的正是这个实例 ✓；
+  // 而 `Map` / `Date` 这一类**宿主引用**（`IsBoundCall` 为假 ✓）根本用不着它 ✓——
+  // 宿主自己造对象 ✓，引擎这一格一个字节都不读 ✓。
+  // **不现造的理由不只是省一次分配** ✗（**实测撞到的** ✓）：照「凡是宿主可调用值就造」
+  // 写，`new Set()` 每轮多造一个对象 ✓ ⇒ 回收的**时机**整体提前 ✓ ⇒
+  // `c371-rt-large-collections` / `c371-rt-gc-churn-forms` 两条当场报
+  // `invalid handle: 74` ✗（那两条量的是**大集合 + 回收换手** ✓，本来就在阈值边上 ✓）。
+  // **多造的东西本身没错** ✓（它没人引用 ✓、会被收走 ✓），错的是**没量过的时机变化** ✗。
+  const constructed = this.IsBoundCall(callee)
+    ? this.Guard(() => this.CreateInstance(callee)) : Value.Undefined();
+  const savedConstructThis = this.HostConstructThis;
   this.HostConstructing = true;
-  this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, Value.Undefined(), 0);
+  this.HostConstructThis = constructed;
+  // **返回槽照旧交 `instr.B`** ✓（第 617 轮 ✓）：宿主把它的返回值写在那里 ✓
+  //（「展开已经发生」那一档**不写** ✓，见 `CallHostValue` ✓），下面就地读它 ✓。
+  // **`-1` 是错的** ✗（第一版写的就是它 ✓）：那一格的含义是「没有调用者」✓
+  // ⇒ `DoCallValue` 把结果写进 `this.Result` 并把机器置成 `Halted` ✗
+  // ⇒ **整份脚本在这一句上停下来** ✓、一声不响 ✓（实测：只印到第二行就退出了 ✗）。
+  this.DoCallValue(frame, callee, instr.B, instr.C, instr.B, constructed, 0);
   this.HostConstructing = false;
+  this.HostConstructThis = savedConstructThis;
+  // **JS 的 `[[Construct]]` 收尾就地做完** ✓（第 617 轮 ✓）：目标**返回了对象就用它** ✓
+  //（`function C() { return {a: 1} }` ✓ 与 `new Map()` / `new Date(0)` 都属于这一档 ✓），
+  // 否则用**当初造出来的那个** ✓（`Point.bind(null)` 那一趟目标返回 `undefined` ✓
+  // ⇒ 交出去的是实例 ✓，于是 `new (Point.bind(null))(5).x` 是 `5` ✓）。
+  // **这一句必须在这里** ✗：`DoReturn` 那条收尾只服务**闭包** ✓
+  //（`ConstructTarget` 是帧上的字段 ✓），而宿主那一趟**根本没有帧** ✗。
+  // **为什么直接读返回槽、不另记一格** ✓：宿主那条路本来就把它交回在 `returnSlot` 上 ✓
+  //（`DoCallValue` 那一支 ✓），再抄一份就是「同一个事实两处存」✗——
+  // 而两处会漂的那一天，症状正是 `new Map()` 给回一个空对象 ✓。
+  // **`null` 那一档不必特判** ✓：`CallHostValue` 在「展开已经发生」时**不写这一格** ✓
+  // ⇒ 读到的是**上一次**留下的东西 ✓，可控制流已经交给处理点 ✓、这一句根本到不了 ✓。
+  const answered = frame.Slots[instr.B];
+  frame.Slots[instr.B] = answered.IsObject() ? answered : constructed;
   return;
 }
 // **普通对象当构造函数：给一句说清原因的话** ✓（不是「calling a non-closure value」✗——
@@ -2932,7 +3024,10 @@ if (id === RtOp.HostCall) {
   const thrownBefore = this.Throws;
   this.NativeEscaped = false;
   this.NativeFailed = false;
-  const produced = invoker(target, Value.Undefined(), args, this.Room());
+  // **第五格：`host_call` 那条路上没有实例** ✓（第 617 轮 ✓）——
+  // 它不是从 `DoNew` 进来的 ✓（`HostConstructing` 在这里恒为假 ✓），
+  // 所以照「没有实例」交 `undefined` ✓（与 `HostConstructThis` 的默认值一致 ✓）。
+  const produced = invoker(target, Value.Undefined(), args, this.Room(), Value.Undefined());
   this.NativeFailed = this.NativeFailed || this.Throws !== thrownBefore || this.NativeEscaped;
   this.NativeEscaped = this.NativeEscaped || escapedBefore;
   this.NativeFailed = this.NativeFailed || failedBefore;
@@ -3204,8 +3299,14 @@ if (this.IsHostCallable(callee)) {
   // 「error-call-new without new」那一格 ✓——**一句话里没有一个字提到 `Error` 对象** ✓）。
   // **其余可调用对象一律照调用方给的** ✓：它们**一个字节都不看 `this`** ✓
   //（第 228 轮的注释里就是这么写的 ✓），所以给 `undefined` 与给对象自己是同一件事 ✓。
-  const hostThis = !this.HostConstructing && this.IsBoundCall(callee) ? callee : thisValue;
+  // **与 `DoCallValue` 那一处一字不差** ✓（第 617 轮 ✓）：见那一处的账 ✓——
+  // `HostConstructing` 那一半是反的 ✗，`IsBoundCall` 已经排掉了 `super` 那一档 ✓。
+  const boundCall = this.IsBoundCall(callee);
+  const hostThis = boundCall ? callee : thisValue;
+  const savedConstructThis = this.HostConstructThis;
+  this.HostConstructThis = boundCall && this.HostConstructing ? thisValue : Value.Undefined();
   const produced = this.CallHostValue(callee, hostThis, args);
+  this.HostConstructThis = savedConstructThis;
   if (produced === null) return Value.Undefined();
   return produced;
 }
