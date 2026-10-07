@@ -411,6 +411,52 @@ return result;
 
 ## static readonly field JumpIn:LetBranch = new LetBranch()
 
+## private method NameIndex:(data:Array<Token>)=>int
+
+**声明名字那一格的下标** ✓：跳过尾部的软换行 ✓，再跳过一个**明确赋值断言** `!` ✓。
+
+两处（`Condition` 与 `Success`）问的是同一个下标 ✗ ⇒ **只写一份** ✓ —— 各写一份就会漂 ✗
+（`WordOf` 那一处就是为同一件事抽出来的 ✓，第 531 轮）。
+
+**为什么允许那个 `!`** ✓（第 559 轮 ✓）：`let a!: number` 是 TS 的**明确赋值断言** ✓
+（`VariableDeclaration` 上的 `exclamationToken` ✓），而 `LetBranch` 进门那一刻
+（尾巴字符 `:` / `=` / `;` / `,` / 换行 ✓）`data` 的最后一格**正是那个 `!`** ✗
+⇒ 名字那一问看到的是 `!`、不是 `a` ✓ ⇒ 整条声明不成形 ✓
+（实测 `vars-definite.ts` / `decl-var-definite-assignment.ts` 各缺 4 / 多 3 ✓
+——产物是 `<Statement><Keyword>let</Keyword><Identifier>a</Identifier>…` 加一条假的
+`BinaryExpression` ✗）。
+
+**只跳一格、只跳 `!`** ✓（不是「跳过所有符号」✗）：与重组那棵树**同形** ✓ ——
+对照态（`DSH_XL_REORG=1`）的产物是 `Let(fieldName=a)` ＋ `!` **平级兄弟** ＋ `TypeDefine` ✓，
+所以那个 `!` **留在 `Let` 右边** ✓（`Success` 的替换区间到名字那一格为止 ✓）。
+
+```ts
+let index = data.length - 1;
+while (index >= 0) {
+  const probe = Get(data, index);
+  if (probe instanceof LineWrap) {
+    index = index - 1;
+    continue;
+  }
+  break;
+}
+if (index >= 1) {
+  const probe = Get(data, index);
+  if (probe instanceof SymbolToken && probe.Is("!")) {
+    index = index - 1;
+    while (index >= 0) {
+      const inner = Get(data, index);
+      if (inner instanceof LineWrap) {
+        index = index - 1;
+        continue;
+      }
+      break;
+    }
+  }
+}
+return index;
+```
+
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
 ```ts
@@ -422,16 +468,8 @@ if (isTail === false) {
   return result;
 }
 const data = unit.Data;
-// 名字是最后一个实义单元。
-let nameIndex = data.length - 1;
-while (nameIndex >= 0) {
-  const probe = Get(data, nameIndex);
-  if (probe instanceof LineWrap) {
-    nameIndex = nameIndex - 1;
-    continue;
-  }
-  break;
-}
+// 名字是最后一个实义单元——**它右边还可能有一个明确赋值断言的 `!`** ✓（见 `NameIndex` ✓）。
+const nameIndex = this.NameIndex(data);
 if (nameIndex < 1) {
   return result;
 }
@@ -496,15 +534,10 @@ return String(view.TempToString === undefined ? "" : view.TempToString());
 
 ```ts
 const data = unit.Data;
-let nameIndex = data.length - 1;
-while (nameIndex >= 0) {
-  const probe = Get(data, nameIndex);
-  if (probe instanceof LineWrap) {
-    nameIndex = nameIndex - 1;
-    continue;
-  }
-  break;
-}
+// **与 `Condition` 同一份答案** ✓（`NameIndex` ✓，第 559 轮）——它跳过尾部软换行 ✓
+// 与那个明确赋值断言的 `!` ✓，所以下面 `ReplaceCountAt` 的右端就是**名字那一格** ✓，
+// 那个 `!` 留在 `Let` 右边当平级兄弟 ✓（与对照态同形 ✓）。
+const nameIndex = this.NameIndex(data);
 const nameUnit = Get(data, nameIndex);
 // **名字那一格可以是一对解构括号**（第 533 轮 ✓）：解构那个 `[` / `{` 在这一刻还是 `Bracket` ✓
 //（理由见 `Condition` 那一处 ✓）。它与 `Identifier` 那一路的区别只在**怎么填 `Let`** ✓：
@@ -592,7 +625,29 @@ const nextIndex = ReplaceCountAt(data, start, nameIndex + 1 - start, letUnit);
 // 建法照 `SymbolBranch.Success` ✓：新符号单元 + `AppendAndSignOut` + `SignIn` ✓。
 const tailSymbol = new SymbolToken(unit.Template);
 tailSymbol.AppendAndSignOut(source).SignIn(source);
-data.splice(nextIndex + 1, 0, tailSymbol);
+// **尾巴那一格要插在明确赋值断言 `!` 的右边** ✗（第 559 轮 ✓）：`let a!: number` 里那个
+// `!` 在 `Let` 与类型标注**中间** ✓ —— 插在它前面（也就是 `Let` 的紧右边 ✓）之后，
+// 收尾那一趟的 `TypeDefine` 会从这个 `:` 开始、把**左边那一格 `!` 也一起收进自己** ✗
+// ⇒ 产物是 `<Let/><TypeDefine>! number</TypeDefine>` ✗，而对照态是
+// `<Let/><!/><TypeDefine>number</TypeDefine>` ✓（三种形状差一个字段 ✓）。
+// 症状：`VariableDeclaration` 少一个 `exclamationToken` ✓、类型里的 `number` 也投不出来 ✗
+//（实测 `vars-definite.ts` / `decl-var-definite-assignment.ts` / `stmt-asi-type-annotation-then-class.ts`
+//  三份都是「缺 1 + 字段名 1」✓）。
+// 往后走的时候**连软换行一起跳过** ✓（`let a` 换行 `!:` 这种排法也照插 ✓）。
+let insertAt = nextIndex + 1;
+while (true) {
+  const probe = Get(data, insertAt);
+  if (probe instanceof LineWrap) {
+    insertAt = insertAt + 1;
+    continue;
+  }
+  if (probe instanceof SymbolToken && probe.Is("!")) {
+    insertAt = insertAt + 1;
+    continue;
+  }
+  break;
+}
+data.splice(insertAt, 0, tailSymbol);
 tailSymbol.Parent = unit;
 // **让模式括号在 `Let` 自带的那一趟里再收一次**（第 533 轮 ✓）：把 `[a = 1, b = a]` 的元素
 // 收成 `BindingElement` 的是 `binding-element.xl.md` ✓，它的宿主判据是
