@@ -166,12 +166,27 @@ if (this.HasTopLevelMarker(unit)) {
 const parent = unit.Parent;
 if (parent !== null) {
   const name = parent.constructor.name;
-  // 成员 / 函数 / 函数类型 / 箭头函数的**自己的**参数表：
+  // **成员体里的那一格：`m<T>()` 的 `<T>`** —— 判据是**后面紧跟形参表 `(`** ✓。
+  //
+  // **不能只看「父亲是 `ClassBody` / `InterfaceBody`」** ✗（本轮量出来的 ✓）：
+  // 类体现在是**活的**单元 ✓（`ClassBranch` 在读的时候就把成员收在自己名下 ✓），
+  // 于是成员在成形之前，**它的类型标注里的实参段**也直接住在 `ClassBody` 名下 ✗ ——
+  // `class C { a: Record<string, string> }` 里那个 `<string, string>` 的父亲就是 `ClassBody` ✓
+  // ⇒ 被误包成参数表 ✓（实测：两个 `string` 各投出一个 `TypeParameter` + `Identifier` ✗，
+  // 全语料 478 处「缺」里有很大一部分是这一条 ✓）。
+  // 接口不受影响 ✓：它的体还是那个 `{` 括号 ✗，实参段的父亲是 `Bracket` ✓。
+  //
+  // 「紧跟 `(`」正是这条判据自己写的理由 ✓（成员上的 `m<T>()` ✓）——
+  // 实参段后面绝不会紧跟形参表 ✓（`a: X<T>` 后面是 `;` / 换行 / `}` ✓）。
+  if (name === "ClassBody" || name === "InterfaceBody") {
+    const at = parent.Data.indexOf(unit);
+    const next = Get(parent.Data, SkipNextWrapSymbol(parent.Data, at));
+    return next instanceof Bracket && next.startBracket === "(";
+  }
+  // 函数 / 函数类型 / 箭头函数 / 方法声明的**自己的**参数表：
   // `interface I { m<K>(a: K): T }` 到这一趟时 `m<K>()` 已经被收成 `MethodDeclaration`，
   // 那个 `<K>` 的父单元就是它（不再是 `InterfaceBody`）。
   if (
-    name === "ClassBody" ||
-    name === "InterfaceBody" ||
     name === "MethodDeclaration" ||
     name === "Function" ||
     name === "Signature" ||

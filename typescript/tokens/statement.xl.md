@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -112,7 +112,7 @@ if (children.length === 1 && !lonelySemicolon) {
 const statement = new Statement(template);
 statement.Parent = Get(units, index)!.Parent;
 statement.AddRange(children.slice(0, children.length - 1));
-const first = children[0];
+const first = Statement.FirstMeaningful(children);
 const last = children[children.length - 1];
 if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
   statement.SourceRange.Start = first.SourceRange.Start;
@@ -190,7 +190,7 @@ if (currentIsInEnd) {
   const statement = new Statement(template);
   statement.Parent = Get(units, index)!.Parent;
   statement.AddRange(children.slice(0, children.length - 1));
-  const first = children[0];
+  const first = Statement.FirstMeaningful(children);
   const last = children[children.length - 1];
   if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
     statement.SourceRange.Start = first.SourceRange.Start;
@@ -226,7 +226,7 @@ if (children.length === 1 && !lonelySemicolon) {
 const statement = new Statement(template);
 statement.Parent = Get(units, index)!.Parent;
 statement.AddRange(children.slice(0, children.length - 1));
-const first = children[0];
+const first = Statement.FirstMeaningful(children);
 const last = children[children.length - 1];
 if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
   statement.SourceRange.Start = first.SourceRange.Start;
@@ -287,7 +287,7 @@ const anchor = Get(units, index)!;
 const statement = new Statement(template);
 statement.Parent = anchor.Parent;
 statement.AddRange(children);
-const first = children[0];
+const first = Statement.FirstMeaningful(children);
 const last = children[children.length - 1];
 if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
   statement.SourceRange.Start = first.SourceRange.Start;
@@ -418,6 +418,34 @@ return item instanceof IfSet
   // 两处一比：**收益 1 条、代价是嵌套那一档从「报错」变成「静默错值」** ✗ ——
   // 所以退回来 ✓，把那一处**记成台账里的缺口** ✓（根子在语句边界与 `ModuleBlock`
   // 的收法这两件事的耦合上 ✓，要动就得一起动 ✓）。
+```
+
+## static method FirstMeaningful:(children:Array<Token>)=>Token
+
+`children` 里第一个**不是 trivia** 的单元；全是 trivia 时给第一个。
+
+**为什么语句的区间要跳过前导 trivia**（本轮量出来的）：
+注释（`LineAnnotation` / `AreaAnnotation`）与软换行是**被扫进来的**透明单元 ✓，
+它们不参与签入签出 ✓；而 `SearchFrontIndexed` 用的边界判据（`IsStatementBoundary`）
+**不认识它们** ✗ ⇒ 一条语句前面那条注释会被算进语句的**区间**里 ✓。
+
+实测（一步就复现）：`function f() { 1 + 2; /* c */ 3 + 4; }`
+——第二个 `Statement` 的区间从 `/* c */` 起 ✗ ⇒ 投影出来的 `ExpressionStatement`
+也跟着从注释起 ✓ ⇒ 「缺 `ExpressionStatement` + 多一个起点更早的 `ExpressionStatement`」成对出现 ✓，
+全语料约 60 处、是现在剩下那一小撮里最大的一类 ✓。
+
+注释**仍然是它的子单元** ✓（产物里那份 XML 一个字节都不变 ✓）——**只把区间收正** ✓。
+trivia 落在父单元区间之外是**约定的形态** ✓（ruler 为它单列一栏「trivia 越界」✓，不计进越界 ✗）。
+
+```ts
+let first = children[0];
+for (const item of children) {
+  if (IsTriviaUnit(item) === false) {
+    first = item;
+    break;
+  }
+}
+return first;
 ```
 
 ## static method IsStatementBoundary:(units:Array<Token>, index:int)=>bool
