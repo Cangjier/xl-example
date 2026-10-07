@@ -28,7 +28,6 @@ import { EnumMemberBranch } from "./tokens/enum/enum-member.xl.md"
 import { TupleMemberCloseRule } from "./tokens/tuple-member.xl.md"
 import { ParenthesizedTypeCloseRule } from "./tokens/parenthesized-type.xl.md"
 import { ParameterCloseRule } from "./tokens/parameter.xl.md"
-import { HeritageClauseCloseRule } from "./tokens/heritage-clause.xl.md"
 import { BindingElementCloseRule } from "./tokens/binding-element.xl.md"
 import { Bracket } from "./tokens/bracket.xl.md"
 import { ClassBranch } from "./tokens/class/class.xl.md"
@@ -52,7 +51,6 @@ import { BlockCloseRule, JsonObjectCloseRule } from "./tokens/json/object-litera
 import { KeywordCloseRule } from "./tokens/keyword.xl.md"
 import { LabelCloseRule } from "./tokens/label.xl.md"
 import { LamdaCloseRule } from "./tokens/lamda/lamda.xl.md"
-import { LetCloseRule } from "./tokens/let.xl.md"
 import { LineAnnotation } from "./tokens/line-annotation.xl.md"
 import { LogicalOperatorCloseRule } from "./tokens/logical-operator.xl.md"
 import { MethodCloseRule } from "./tokens/method.xl.md"
@@ -67,7 +65,7 @@ import { PreprocessorDirectives } from "./tokens/preprocessor-directives.xl.md"
 import { PropertyAccessCloseRule } from "./tokens/property-access.xl.md"
 import { RegexToken } from "./tokens/regex-token.xl.md"
 import { SignatureCloseRule } from "./tokens/signature/signature.xl.md"
-import { StatementCloseRule2, StatementCloseRule3, Statement } from "./tokens/statement.xl.md"
+import { Statement } from "./tokens/statement.xl.md"
 import { TokenFormer } from "../core/syntax/token-former.xl.md"
 import { StringGuide, StringGuideBranch } from "./tokens/string/string-guide.xl.md"
 import { SwitchCloseRule } from "./tokens/switch/switch.xl.md"
@@ -341,7 +339,7 @@ return false;
 return ParsePipeline.CreateMemberListQueue().InsertedBefore(StringGuide.JumpIn, [EnumMemberBranch.JumpIn]);
 ```
 
-## static readonly field GeneralCloseRule:Sequence<CloseRule> = new Sequence<CloseRule>([DecoratorCloseRule.Instance, FunctionCloseRule.Instance, SignatureCloseRule.Instance, MethodDeclarationCloseRule.Instance, LabelCloseRule.Instance, LetCloseRule.Instance, FieldCloseRule.Instance, NewCloseRule.Instance, MethodCloseRule.Instance, NullConditionalOperatorCloseRule.Instance, NamespaceCloseRule.Instance, TypeLiteralCloseRule.Instance, BlockCloseRule.Instance, JsonObjectCloseRule.Instance, TypeBracketCloseRule.Instance, ImportTypeCloseRule.Instance, TypePrefixCloseRule.Instance, LiteralTypeCloseRule.Instance, JsonArrayCloseRule.Instance, InferTypeCloseRule.Instance, TypeParameterCloseRule.Instance, TypePredicateCloseRule.Instance, TupleMemberCloseRule.Instance, ParenthesizedTypeCloseRule.Instance, ParameterCloseRule.Instance, HeritageClauseCloseRule.Instance, BindingElementCloseRule.Instance, ImportCloseRule.Instance, ExportCloseRule.Instance, NamespaceExportCloseRule.Instance, TypeUnionCloseRule.Instance, AsCloseRule.Instance, FunctionTypeCloseRule.Instance, ConditionalTypeCloseRule.Instance, TypeAssignCloseRule.Instance, LamdaCloseRule.Instance, TypeDefineCloseRule.Instance, TernaryOperatorCloseRule.Instance, TryCloseRule.Instance, SwitchCloseRule.Instance, ForCloseRule.Instance, ForeachCloseRule.Instance, DoWhileCloseRule.Instance, WhileCloseRule.Instance, WrapSymbolCloseRule.Instance, PropertyAccessCloseRule.Instance, CompoundAssignmentOperatorCloseRule.Instance, NotNullCloseRule.Instance, OptionalCallCloseRule.Instance, UnaryOperatorCloseRule.Instance, BinaryOperatorCloseRule.PowerInstance, BinaryOperatorCloseRule.MultiplicativeInstance, BinaryOperatorCloseRule.AdditiveInstance, BinaryOperatorCloseRule.ShiftInstance, BinaryOperatorCloseRule.RelationalInstance, BinaryOperatorCloseRule.InInstance, BinaryOperatorCloseRule.InstanceofInstance, BinaryOperatorCloseRule.EqualityInstance, BinaryOperatorCloseRule.LogicalAssignmentInstance, BinaryOperatorCloseRule.BitwiseInstance, BinaryOperatorCloseRule.NullishInstance, LogicalOperatorCloseRule.AndInstance, LogicalOperatorCloseRule.OrInstance, SpreadCloseRule.Instance, BinaryOperatorCloseRule.CommaInstance, KeywordCloseRule.Instance])
+## static readonly field GeneralCloseRule:Sequence<CloseRule> = new Sequence<CloseRule>([DecoratorCloseRule.Instance, FunctionCloseRule.Instance, SignatureCloseRule.Instance, MethodDeclarationCloseRule.Instance, LabelCloseRule.Instance, FieldCloseRule.Instance, NewCloseRule.Instance, MethodCloseRule.Instance, NullConditionalOperatorCloseRule.Instance, NamespaceCloseRule.Instance, TypeLiteralCloseRule.Instance, BlockCloseRule.Instance, JsonObjectCloseRule.Instance, TypeBracketCloseRule.Instance, ImportTypeCloseRule.Instance, TypePrefixCloseRule.Instance, LiteralTypeCloseRule.Instance, JsonArrayCloseRule.Instance, InferTypeCloseRule.Instance, TypeParameterCloseRule.Instance, TypePredicateCloseRule.Instance, TupleMemberCloseRule.Instance, ParenthesizedTypeCloseRule.Instance, ParameterCloseRule.Instance, BindingElementCloseRule.Instance, ImportCloseRule.Instance, ExportCloseRule.Instance, NamespaceExportCloseRule.Instance, TypeUnionCloseRule.Instance, AsCloseRule.Instance, FunctionTypeCloseRule.Instance, ConditionalTypeCloseRule.Instance, TypeAssignCloseRule.Instance, LamdaCloseRule.Instance, TypeDefineCloseRule.Instance, TernaryOperatorCloseRule.Instance, TryCloseRule.Instance, SwitchCloseRule.Instance, ForCloseRule.Instance, ForeachCloseRule.Instance, DoWhileCloseRule.Instance, WhileCloseRule.Instance, WrapSymbolCloseRule.Instance, PropertyAccessCloseRule.Instance, CompoundAssignmentOperatorCloseRule.Instance, NotNullCloseRule.Instance, OptionalCallCloseRule.Instance, UnaryOperatorCloseRule.Instance, BinaryOperatorCloseRule.PowerInstance, BinaryOperatorCloseRule.MultiplicativeInstance, BinaryOperatorCloseRule.AdditiveInstance, BinaryOperatorCloseRule.ShiftInstance, BinaryOperatorCloseRule.RelationalInstance, BinaryOperatorCloseRule.InInstance, BinaryOperatorCloseRule.InstanceofInstance, BinaryOperatorCloseRule.EqualityInstance, BinaryOperatorCloseRule.LogicalAssignmentInstance, BinaryOperatorCloseRule.BitwiseInstance, BinaryOperatorCloseRule.NullishInstance, LogicalOperatorCloseRule.AndInstance, LogicalOperatorCloseRule.OrInstance, SpreadCloseRule.Instance, BinaryOperatorCloseRule.CommaInstance, KeywordCloseRule.Instance])
 
 通用规则队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。
@@ -609,7 +607,7 @@ template.Initialize((self: Template) => {
 所以就装这一条。
 
 ```ts
-unit.CloseRuleQueue = new Sequence<CloseRule>([ImportTypeCloseRule.Instance, TypeBracketCloseRule.Instance, TypePrefixCloseRule.Instance, LiteralTypeCloseRule.Instance, InferTypeCloseRule.Instance, TypePredicateCloseRule.Instance, TupleMemberCloseRule.Instance, ParenthesizedTypeCloseRule.Instance, ParameterCloseRule.Instance, HeritageClauseCloseRule.Instance, BindingElementCloseRule.Instance, TypeUnionCloseRule.Instance, ConditionalTypeCloseRule.Instance, KeywordCloseRule.Instance, WrapSymbolCloseRule.Instance]);
+unit.CloseRuleQueue = new Sequence<CloseRule>([ImportTypeCloseRule.Instance, TypeBracketCloseRule.Instance, TypePrefixCloseRule.Instance, LiteralTypeCloseRule.Instance, InferTypeCloseRule.Instance, TypePredicateCloseRule.Instance, TupleMemberCloseRule.Instance, ParenthesizedTypeCloseRule.Instance, ParameterCloseRule.Instance, BindingElementCloseRule.Instance, TypeUnionCloseRule.Instance, ConditionalTypeCloseRule.Instance, KeywordCloseRule.Instance, WrapSymbolCloseRule.Instance]);
 ```
 
 **七条规则、不是一条**：`ImportTypeCloseRule` 把 `[typeof] import("m")[.A.B]` 收成
@@ -684,50 +682,23 @@ branch.AddStringChar("`");
 
 ## static method InitialStatementCloseRuleQueue:(unit:Token)=>void
 
-给一个单元装上报废语句用的规则队列。
+给一个单元装上它的收尾规则队列：取**该单元类型**那一份（模板上没有专门注册就是通用规则队列 ✓）。
 
-做法：取该单元类型的规则队列（模板上没有专门注册就是通用规则队列），在里面**插入**两个语句重组类：
+**第 564 轮起这里只有这一句** ✓：从前它还要往队列里**插**两条语句规则
+（`StatementCloseRule2` / `StatementCloseRule3` ✓，插在 `WrapSymbolCloseRule` 之前 ✓），
+而那两条规则在 `RunCloseRules` 里是**显式跳过**的 ✗ ⇒ 插进去从来没被跑到过 ✓
+（第 564 轮量的账：全语料 `Previous` 调用 **0** 次 ✓）⇒ 插入连同那两条规则一起删掉 ✓。
 
-- `StatementCloseRule2` 与 `StatementCloseRule3` 插在 `WrapSymbolCloseRule` **之前**——
-  语句要在软换行被摘掉之前成形（判定要靠软换行找边界）。
+**名字是这一族里最后一件过时的东西** ✗：它现在装的**不是**「语句规则」✓，就是普通那一份 ✓。
+改名的代价是 22 处调用点（`class-body` / `interface-body` / `function-body` / `root` … ✓），
+留给下一轮和「这条装配线本身要不要留」一起定 ✓（见 `docs/member-layer-plan.md` 的迁移账 ✓）。
 
-插入点用**判定器**而不是类型参数来找（`InsertedBeforeWhere(items, predicate)`）：要插入的位置由
-「哪个元素是 `WrapSymbolCloseRule`」决定，直接给一个判定器比给一个类型更直白。
-参数顺序是**先元素、后判定器**——函数类型参数排在最后。
-
-**为什么这个加工放在这里**：它是对「通用规则队列」的第二次加工，与 `GeneralCloseRule` 是同一份契约的两半。
-放在同一个文件里，读代码时一眼能看出「语句类是在通用规则队列里插进去的」。
-
-**插入必须发生在 `Get` 之后，不能只写在回调里**（第 123 轮修）：`SequenceTemplate.Get`
-把结果**按构造器缓存**（`CompletedData`），回调只在**第一次**取值时跑一次。而 `Bracket`
-是三种括号**共用一个类**的——`Use("(")` / `Use("[")` 会先做一次**单参**取值
-（拿到的是没插过语句规则的通用队列），那一趟就把 `CompletedData[Bracket]` 填上了。
-于是 `{` 块括号再走 `InitialStatementCloseRuleQueue` 时，回调**根本不会被调用**，
-块里永远没有语句规则：
-
-    { let y = 2; f(y); }   →  <Bracket> 里是散的 <Let> / <SymbolToken>，
-                             一个 <Statement> 都没有（实测：投影出来缺整个 `Block`，
-                             `VariableDeclaration` / `ExpressionStatement` 全丢）
-
-所以这里先取基队列，再**自己**插一次；已经插过（同一个基队列被复用）就不重复插。
-判据是「基队列里有没有 `StatementCloseRule2`」——插两次不会出错（两条规则都是幂等的），
-但会让每一趟多扫两遍，而且会掩盖「谁插的」这个问题。
+**`Get` 用一个实参** ✓：单参用法取的就是 `CloseRuleTemplate.DefaultValue` ✓（`Install` 装的是
+`GeneralCloseRule` ✓），与从前那个「两个实参 + 原样返回默认值」的回调**内容完全一致** ✓ ——
+队列里的内容没变，只是少了一次插入 ✓。
 
 ```ts
-const base = unit.Template.CloseRuleTemplate.Get(unit.constructor, (defaultValue: any) => defaultValue);
-if (base === null) {
-  unit.CloseRuleQueue = null;
-  return;
-}
-const already = base.Data.some(
-  (item: CloseRule) => item instanceof StatementCloseRule2 || item instanceof StatementCloseRule3,
-);
-unit.CloseRuleQueue = already
-  ? base
-  : base.InsertedBeforeWhere(
-      [StatementCloseRule2.Instance, StatementCloseRule3.Instance],
-      (item: any) => item instanceof WrapSymbolCloseRule,
-    );
+unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
 ```
 
 # class TokenFormerImpl extends TokenFormer
@@ -870,11 +841,12 @@ for (let pass = 0; pass < maxPasses; pass++) {
 // `Data` 上又匹配一次 ✗ ⇒ 一层套一层、直到深度界 ✓
 //（实测 `a.b.c` 在产物里是**八层同区间**的 `PropertyAccess` ✓，投影只看得见最里面那一格 ✗）。
 //
-// 解析期独有的三处偏差留在这里 ✓（原来散在名单里 ✓）：
-// · `Let` 跳过 ✗（第 490 轮 ✓：解析期已经有 `LetBranch` ✓，再跑一次就是**两次成形** ✗）；
-// · 两条语句规则跳过 ✗（解析期的 `FormStatement` 那一族接管 ✓）；
+// 解析期独有的两处偏差留在这里 ✓（原来散在名单里 ✓，第 564 轮从三处变两处 ✓）：
 // · `Export` 那一格上不跑导出 / `as` / 二元那一族 ✗（第 549 轮 ✓）、
 //   `{` 括号那一格上不跑 `Label` ✗（第 507 轮 ✓）。
+//
+// **从前还有两处「跳过」** ✗（第 564 轮删掉 ✓）：`Let`（第 490 轮 ✓）与两条语句规则 ✓ ——
+// 它们跳过的对象**已经在队列里不存在了** ✓（三个规则类随本轮一起删掉 ✓）⇒ 判断本身也没有对象 ✓。
 const queue = unit.CloseRuleQueue;
 if (queue === null) {
   return;
@@ -882,12 +854,6 @@ if (queue === null) {
 const isExportUnit = unit.constructor.name === "Export";
 const isBraceBracket = unit.constructor.name === "Bracket" && (unit as Bracket).startBracket === "{";
 for (const rule of queue.Data) {
-  if (rule instanceof LetCloseRule) {
-    continue;
-  }
-  if (rule instanceof StatementCloseRule2 || rule instanceof StatementCloseRule3) {
-    continue;
-  }
   if (isBraceBracket && rule instanceof LabelCloseRule) {
     continue;
   }

@@ -5683,4 +5683,118 @@ reorg（重组）这台机器有三层 ✓，第 561 轮只动**第一层：那�
 4. **然后才是 `ast100%` 那条主线** ✓：`docs/member-layer-plan.md` 第 164 节（第 560 轮 ✓）
    列的五个入口仍然有效 ✓ —— 最大的一块是 **ASI 的右半截** ✓。
 
+## 一百六十七、「逐步移除 reorg」第四块（第 564 轮）：五条**一次都没跑过**的规则
+
+**用户指示**（与本轮同一句 ✓）：**禁用并逐步移除 reorg，预算 3 轮**（`ast100%` 是方向 ✓）；
+**每一轮一次提交** ✓。第 561–563 轮拆掉的是**那一趟机器** ✓（入口、开关、队列名、规则名 ✓），
+这一轮拆的是**留在队列里、却一次都没跑过的规则本体** ✓ —— 也就是第 166 节第三节
+第 1 条点名要做的那件事 ✓（这一轮是那条指示**在新对话里的第一轮** ✓）。
+
+### 一、先把「哪条规则真的跑过」量出来
+
+**不靠「一条一条从队列里摘掉再跑尺子」** ✗（61 条 × 一次尺子 ≈ 一小时 ✗）✓，
+改成**一次量全部** ✓：量具 `tmp/recon/r564-hits.cjs` ✓ ——
+
+1. 遍历 `build/ts/**/*.js` ✓，把每个 `CloseRule` 子类的 `Previous` / `Process` 包一层计数器 ✓
+   （`Previous` 的返回值原样透传 ✓，`Process` 另外比一次前后列表 ✓）；
+2. 在**与尺子同一套语料**上跑一遍解析 ✓（真实 414 + 用例 1037 ✓，去重后 **1460 份** ✓）；
+3. 判据：**`Previous` 命中 0 次 ⇒ 这条规则在解析期那一趟里是死代码** ✓
+   （`Previous` 是这条规则唯一的前置判据 ✓，`ApplyTo` 只在它返回真时才调 `Process` ✓）。
+
+**踩到的两个坑**（都实际被咬 ✓，都写进量具注释了 ✓）：
+
+| 坑 | 症状 | 改法 |
+| --- | --- | --- |
+| **`require` 了命令行入口** ✗ | `build/ts/cjcli.js` / `tsrun.js` 一被 require 就跑 `main()` ✓，它拿 `process.argv` 当输入文件 ✓ ⇒ 量具的参数被它当成文件名报「找不到输入文件：inventory」✓，报表开头还多出一段 `<Root></Root>` ✗ | 跳过这两个文件 ✓ |
+| **「没包上」与「包上了但从没被调用」在报表里长得一样** ✗ | 只在被调用时建格的话 ✓，**漏包会被误读成死代码** ✗（这一轮正是要拿这张表去删代码 ✓） | **先给每个包过的类建一格** ✓，并让 `inventory` 打出包住的类数 ✓ |
+
+**包住的一共 57 个类** ✓（与源码里 `extends CloseRule` 的数目逐个对上 ✓）——
+第 2 个坑因此有一个**可核对的锚** ✓：源码少一个类 / 量具少包一个 ✓，两边一比就知道 ✓。
+
+### 二、量出来的结果：五条
+
+| 规则 | `Previous` 命中 | `Previous` 调用次数 | 为什么 |
+| --- | --- | --- | --- |
+| `HeritageClauseCloseRule` | **0** | 1,580,480 | 类头 / 接口头在**成形那一刻**就由 `HeritageClause.OrganizeAll` 收好了 ✓；它最后那道「祖先里没有 `HeritageClause`」的守卫因此永远拦住它 ✓ |
+| `LetCloseRule` | 0 | **0** | `RunCloseRules` 里被显式跳过 ✓（第 490 轮 ✓：解析期已有 `LetBranch` ✓） |
+| `StatementCloseRule` | 0 | **0** | 不在任何一张活着的队列里 ✓ |
+| `StatementCloseRule2` | 0 | **0** | `RunCloseRules` 里被显式跳过 ✓ |
+| `StatementCloseRule3` | 0 | **0** | 同上 ✓ |
+
+**其余 52 条全部命中过** ✓（最高的 `WrapSymbolCloseRule` 89,522 次 ✓、`TypeDefineCloseRule` 74,935 次 ✓）。
+顺带量到三条「命中很多次、可列表身份从没变过」的 ✓（`ParameterCloseRule` 17,169 ✓、`BlockCloseRule` 22 ✓、
+`BindingElementCloseRule` 62 ✓）—— 它们是**就地改子单元** ✓（改的是子单元自己的字段 ✓，不是列表 ✓），
+**不是死代码** ✓，一律留着 ✓（留个记号 ✓：真要判定它们得比「子单元内部的差异」✓，这一轮不比 ✓）。
+
+⇒ **删掉的只有这五条** ✓；「跳过」这个机制本身也随之少掉两处判据 ✓。
+
+### 三、改了什么
+
+| 文件 | 改动 |
+| --- | --- |
+| `typescript/tokens/statement.xl.md` | 三个类（`StatementCloseRule` / `…2` / `…3`）**整段删** ✓；只给它们用的 `CloseRule` import 摘掉 ✓；开头那张「三个重组类各管一段时机」的表换成「语句壳由 `FormFrom` / `FormTail` 收」✓ |
+| `typescript/tokens/let.xl.md` | `LetCloseRule` **整段删** ✓；`CloseRule` / `GetSkipNext` / `SkipNext` / `SkipPreviousWrapSymbol` / `GenericType` **五条 import** 摘掉 ✓ |
+| `typescript/tokens/heritage-clause.xl.md` | `HeritageClauseCloseRule` **整段删** ✓；`CloseRule` import 摘掉 ✓；`Take` 的「两个调用方」改成「两处」（那条规则那一处写成历史 ✓） |
+| `typescript/parse-pipeline.xl.md` | **4 条 import** ✓、两张队列里的 **3 格** ✓（`LetCloseRule` ✓、`HeritageClauseCloseRule` ×2 ✓）、`RunCloseRules` 里的**两处跳过** ✓ 全删；`InitialStatementCloseRuleQueue` 只剩一句 ✓ |
+| `typescript/tokens/if/if-body.xl.md` ✓、`typescript/tokens/ternary-operator/ternary-operator-condition.xl.md` ✓ | 那两处「**不能**用 `InitialStatementCloseRuleQueue`，因为它多插了两条语句规则」的判据**作废** ✓ ⇒ 改成「第 564 轮起两种写法等价 ✓」✓ |
+
+**`InitialStatementCloseRuleQueue` 现在只有一句** ✓：
+
+```ts
+unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
+```
+
+单参用法取的就是 `CloseRuleTemplate.DefaultValue` ✓（`Install` 装的是 `GeneralCloseRule` ✓），
+与从前那个「两个实参 + 原样返回默认值」的回调**内容完全一致** ✓ ——
+第 123 轮那个「插入必须发生在 `Get` 之后、不能只写在回调里」的坑 ✓，随插入一起消失 ✓。
+
+**它的名字成了这一族里最后一件过时的东西** ✗：它装的**不是**「语句规则」了 ✓。
+改名的代价是 **22 处调用点** ✓（`class-body` / `interface-body` / `function-body` / `root` … ✓）
+⇒ 留给下一轮与「**这条装配线本身要不要留**」一起定 ✓ ——
+它现在与各单元构造器里那句 `template.CloseRuleTemplate.Get(this.constructor)` 完全等价 ✓，
+可以整体并掉 ✓。
+
+**刻意留下的历史散文** ✓（不动 ✓，与第 563 轮同一条口径 ✓）：`text-common-util` ✓、
+`declaration-common` ✓、`import` ✓、`object-literal` ✓、`binary-operator` ✓、`binding-element` ✓、
+`generic-type` ✓、`type-assign` ✓、`let` ✓、`statement` 里那几处**在代码注释里**提到这五条规则的地方 ✓ ——
+它们说的是「那条规则当年为什么这么写」✓，删掉反而看不出这一段判据的来历 ✓。
+
+### 四、读数
+
+| 项 | 第 563 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1007 | **1007 / 1037** ✓（持平 ✓） |
+| 缺节点 | 57（21 类） | **57**（21 类）✓ |
+| 多出来的节点 | 71（30 类） | **71**（30 类）✓ |
+| 区间漂移 | 30（17 类） | **30**（17 类）✓ |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21736 | **21736** ✓ |
+
+**持平是这一轮的验收判据** ✓：删死代码不该动一个形状 ✓ ⇒
+`tmp/recon/r564-a.txt` ↔ `r564-b.txt` **273 行逐行完全相同** ✓（尺子把逐文件名单也打在输出里 ✓）。
+
+**六道门（`npm run gates` ✓，与第 563 轮逐项相同 ✓）**：
+`runtime:check` **239 / 242** ✓（3 条仍是既有的 ✓）、`runtime:cli` **76 / 79** ✓、
+`cases:check` **1050 条 0 不合格** ✓、`coverage` **1608 / 1713（93.0%）** ✓、
+`samples` 仍红 ✗（还是那两处 ✓）；`cases:tsast` 就是上表 ✓。
+`xl build` **6 文件重写、0 error、仍是那 6 条 W3102** ✓、`tsc` **0 错** ✓。
+
+**收益** ✓：`core/syntax/close-rule.xl.md` 这一族从 **57 条规则降到 52 条** ✓；
+两张通用队列短了 3 格 ✓；`RunCloseRules` 少了 2 个 `instanceof` ✓；
+「语句壳怎么成形」这条路从**两套实现**（规则那一套 + `FormFrom` / `FormTail` 那一套）变成**一套** ✓。
+
+### 五、下一块（第 565–566 轮）
+
+1. **第 565 轮：两处「没有读点」的诊断字段** ✓（第 166 节第三节第 2 条 ✓）：
+   `Token.CreatedByRule` ✓（写点随第 561 轮一起没了 ✓）、
+   `Token.BornByCloseRule` ✓（`ReplaceCountAt` 里打标 ✓、没有任何读点 ✓）——按「逐步移除」删掉 ✓；
+   顺带把 `InitialStatementCloseRuleQueue` 这条装配线收掉 ✓（22 处调用点 ✓，与单元构造器里那句合并 ✓）。
+2. **第 566 轮：回到 `ast100%` 那条主线** ✓（第 164 节列的五个入口 ✓，最大的一块仍是
+   **ASI 的右半截** ✓：`x as` 换行 `| A` ✓、`[1, 2]` 换行 `.forEach(f)` ✓、`a` 换行 `&& b` ✓，
+   判据在 `Statement.ContinuesExpression` ✓，缺的是「换行那一刻还没有下一个单元」✗）。
+3. **`TokenFormerImpl.Depth` 那道深度界** ✓（第 496 轮的临时护栏 ✓）留到这两轮之后单独一轮 ✓：
+   第 561 轮起只剩这一趟 ✓、第 555 轮又改成「照单元自己的队列跑」✓ ——
+   「每个单元只在自己那一趟里收」那一条可以补 ✓，撤深度界的旧账见第 497 轮 ✓（撤之前先量 ✓）。
+
 

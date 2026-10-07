@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -34,104 +33,19 @@ TypeScript 那边的形状（实测 AST）：
 接口更彻底——`entities` 那一段的名字与逗号被规则**消费掉**，只留一个类型实参段
 （第 66 轮第七批已经让接口把名字与逗号也搬进来 ✓）。两边都缺「这是一条继承子句」的节点。
 
-**规则锚在 `extends` / `implements` 那个词上**：宿主必须是 `Class` 或 `Interface`
-（它俩的队列都是通用队列 ✓），段的范围到**下一个 `implements`** 或**类的体括号**
+**子句在解析期收**（第 564 轮起这是唯一一条路 ✓）：类头与接口头都走
+`HeritageClause.OrganizeAll` ✓（`ClassBranch` / `InterfaceBranch` 在「头刚成形、体还没进来」
+那一刻各调一次 ✓，见那一节 ✓）。段的范围到**下一个 `implements`** 或**体节点 / 体括号**
 （`ClassBody` / `InterfaceBody`）为止 ✓。
+
+**从前还有一条规则锚在 `extends` / `implements` 那个词上** ✗（`HeritageClauseCloseRule` ✓）：
+`OrganizeAll` 一接手它就没有机会了 ✓ —— 它最后那道守卫是「这个单元还没有祖先叫
+`HeritageClause`」✓，而头成形那一刻子句已经收好了 ✓ ⇒ 全语料 **0 次命中** ✓
+（第 564 轮量的账：1,580,480 次 `Previous` 调用、命中 0 次 ✓）⇒ 连同队列里的那一格一起删掉 ✓。
 
 `ExpressionWithTypeArguments` 里装**名字与它的类型实参**（`L<M>` 整个 ✓）——
 与 TS 一致：`ExpressionWithTypeArguments` 的 `expression` 是名字、`typeArguments` 是那段实参，
 区间覆盖两者 ✓。
-
-# class HeritageClauseCloseRule extends CloseRule
-
-它永远不进 `Data`、不进 XML。
-
-## static readonly field Instance:HeritageClauseCloseRule = new HeritageClauseCloseRule()
-
-唯一的实例。
-
-## private method OwnerOf:(item:Token | null)=>Token | null
-
-`item` 的宿主是不是 `Class` / `Interface`；是就给宿主，否则 `null`。
-
-```ts
-if (item === null || item.Parent === null) {
-  return null;
-}
-const name = item.Parent.constructor.name;
-if (name === "Class" || name === "Interface") {
-  return item.Parent;
-}
-return null;
-```
-
-## private method ClauseEnd:(units:Array<Token>, index:int)=>int
-
-这条子句的终点（含）：走到**下一个 `implements`** 之前、或者**体节点 / 体括号**之前。
-
-**它与 `HeritageClause.Take` 一样，已经搬到 `HeritageClause` 上**（那里是**一份**答案 ✓，
-类头在 `{` 那一刻也要用同一个扫描 ✓）。这里只留一句转调 ✓。
-
-```ts
-return HeritageClause.ClauseEnd(units, index);
-```
-
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
-
-`index` 处是不是一条还没收过的继承子句的开头。
-
-三条：是 `extends` / `implements` 那个词；宿主是 `Class` / `Interface`；
-**这个单元还没被收进 `HeritageClause`**（第二趟守卫——看它是不是已经有一个祖先叫 `HeritageClause`）。
-
-```ts
-const current = Get(units, index);
-if (HeritageClause.IsClauseWord(current) === false) {
-  return false;
-}
-if (this.OwnerOf(current) === null) {
-  return false;
-}
-if (current === null) {
-  return false;
-}
-let node: Token | null = current.Parent;
-while (node !== null) {
-  if (node.constructor.name === "HeritageClause") {
-    return false;
-  }
-  node = node.Parent;
-}
-return true;
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-把这条子句收成一个 `HeritageClause`（里面的实体名各套一个 `ExpressionWithTypeArguments`），
-**返回新的下标**。
-
-**分组这一件事只有一份答案** ✓：算法在 `HeritageClause.Take` 上 ✓——
-类头那边（`Class` 在 `{` 那一刻 ✓）用的是**同一个** ✓，这里只负责「在平列表上圈出范围、换掉」✓。
-
-**`Replace` 之前不许先 `Add`**（`type-bracket.xl.md` 记过这个坑）：`Token.Replace` 读的是
-`this.Parent.Data`，先 `AddAndCloseLast` 会把 `Parent` 改成新节点。
-这里要搬走一整段，所以统一用 `ReplaceCountAt`（只做 `splice`、不看 `Parent`）。
-
-```ts
-const current = Get(units, index);
-if (current === null) {
-  throw new Error("HeritageClauseCloseRule.Process: current is null");
-}
-const endIndex = this.ClauseEnd(units, index);
-const items: Array<Token> = [];
-for (let i = index; i <= endIndex; i++) {
-  const one = Get(units, i);
-  if (one !== null) {
-    items.push(one);
-  }
-}
-const clause = HeritageClause.Take(template, current.Parent, items);
-return ReplaceCountAt(units, index, endIndex - index + 1, clause);
-```
 
 # class HeritageClause extends IndependentToken
 
@@ -144,7 +58,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, clause);
 这个单元是不是 `extends` / `implements` 这两个词之一（两种形态都认：没升级的 `Identifier`
 与已升级的 `Keyword` ✓）。
 
-**这一条原来在 `HeritageClauseCloseRule` 上** ✓，现在搬到这里 ✓：
+**这一条原来在 `HeritageClauseCloseRule` 上** ✓，现在搬到这里 ✓（那条规则第 564 轮已删 ✓）：
 类头在 `{` 那一刻也要用同一个判据 ✓（同一个问题一份答案 ✓）。
 
 ```ts
@@ -159,9 +73,9 @@ return word === "extends" || word === "implements";
 
 这条子句的终点（含）：走到**下一个 `implements`** 之前、或者**体节点 / 体括号**之前。
 
-**这一条原来也在 `HeritageClauseCloseRule` 上** ✓，同样搬过来共用 ✓——
-两处的差别只有一处：类头那边此刻**类体还没进 `Data`** ✓（`ClassBody` 是下一步才 `Add` 的 ✓），
-所以它自然止于列表末尾 ✓；接口那边走的是规则队列，体节点已经在表里 ✓，靠下面那两句停住 ✓。
+**这一条原来在一条收尾规则上** ✓，搬过来共用 ✓ ——
+两处的时机只差一点：类头那边此刻**类体还没进 `Data`** ✓（`ClassBody` 是下一步才 `Add` 的 ✓），
+所以它自然止于列表末尾 ✓；接口那边头搬进来时**体节点已经在表里** ✓，靠下面那两句停住 ✓。
 
 ```ts
 let end = index;
@@ -198,11 +112,14 @@ return end;
 把**一整段平列表**（`items` = 子句词 + 后面到终点为止的每一个单元）收成一个 `HeritageClause`，
 返回它——**这是「一条继承子句长什么样」的唯一一份答案** ✓。
 
-两个调用方共用它 ✓：
+两个调用方共用它 ✓（第 564 轮起只剩这两处 ✓）：
 
-- `HeritageClauseCloseRule.Process` ✓（接口那边仍走规则队列 ✓）；
+- `HeritageClause.OrganizeAll` ✓（**接口头**那一路 ✓，就地扫 `Data` ✓、一处一处换 ✓）；
 - `Class.OrganizeHeritage` ✓（**类头在 `{` 那一刻就收** ✓，整个头刚刚搬进 `Class` ✓、
   每一格都已经闭合 ✓ ⇒ 这里做完就能直接 `TryToClose` ✓）。
+
+（从前还有第三条调用方 `HeritageClauseCloseRule.Process` ✗，第 564 轮随那条规则一起删掉 ✓ ——
+它一次都没命中过 ✓，接口那边早就是 `OrganizeAll` 在做同一件事 ✓。）
 
 **`items` 的第一格必须是子句词** ✓（调用方已经判过 ✓）。子句词自己作为一个子单元进节点 ✓
 （TS 的 `HeritageClause` 区间含 `extends` ✓）；**逗号分段的实体名每段套一个

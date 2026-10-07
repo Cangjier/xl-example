@@ -5,7 +5,6 @@ import { Source } from "../../core/syntax/source.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
@@ -39,276 +38,15 @@ import { LineWrap } from "./line-wrap.xl.md"
 语句：把一串「不是语句边界」的单元收进一个 `Statement`。这是夹具里最常见的结构——
 `abc` 的 XML 就是 `<Root><Statement><Identifier>abc</Identifier></Statement></Root>`。
 
-三个重组类各管一段时机：
+语句壳**由解析期的成形器收**（第 564 轮起这是唯一一条路 ✓）：终结符刚 append 完那一刻
+`Token.FormStatement` → `Statement.FormFrom` ✓（第 486 轮 ✓），容器关闭时 `Statement.FormTail`
+补末尾那一条 ✓（第 544 轮 ✓）——两处都在下面各自的节里 ✓。
 
-| 重组类 | 时机 |
-| --- | --- |
-| `StatementCloseRule` | 遇到 `;` 这类语句符号 |
-| `StatementCloseRule2` | 最常见的收束：遇到换行或末尾 |
-| `StatementCloseRule3` | 只在列表末尾 |
-
-这三个类都写在 `Statement` **之前**——它们的 `Instance` 静态字段会在类定义时立即求值，
-而且 `TextCommonUtil` 与 `Root` 也会直接引用它们。
-
-三个类的 `Process` 里都重复了同一段「往前找语句边界」的判定，这里各自内联，不做提取。
-
-# class StatementCloseRule extends CloseRule
-
-`Previous` 命中的条件是：`index` 处是一个**语句符号**（`;`），并且它的父单元不是小括号 `(`——
-小括号里的 `;` 属于 for 语句的三段式，不是语句边界。
-
-## static readonly field Instance:StatementCloseRule = new StatementCloseRule()
-
-唯一的实例。
-
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
-
-`index` 处是不是语句边界。
-
-三段判定（是 `SymbolToken`、是语句符号、父单元不是小括号 `(`）压成一个表达式；这里拆成早返回，语义相同。
-
-```ts
-const item = Get(units, index);
-if (!(item instanceof SymbolToken)) {
-  return false;
-}
-if (!item.Template.SymbolTemplate.IsStatementSymbol(item.TempToString())) {
-  return false;
-}
-const parent = item.Parent;
-if (parent instanceof Bracket && parent.startBracket === "(") {
-  return false;
-}
-return true;
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-把 `frontIndex + 1` 到 `index` 之间的单元收成一个 `Statement`，**返回新的下标**。
-
-做法：
-
-- `children` 只有 1 个时直接把这个符号删掉（不成语句）。
-- 否则新建 `Statement`，把 `children` **除最后一个**全部装进去（最后一个是语句符号本身，它留在外面）。
-- 语句的范围取 `children` 首尾单元的起止范围；任何一头缺失就抛异常。
-- 最后用带 `count` 的 `ReplaceCountAt` 批量替换，返回的 `frontIndex + 1` 成为新下标。
-
-`units` 直到最后的替换才被改写，所以用 `slice` 取快照是安全的。
-
-```ts
-const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
-const children = units.slice(frontIndex + 1, index + 1);
-// **孤零零一个 `;` 收成 `Statement`**（第 141 轮）：它就是 TS 的 `EmptyStatement` 的**候选**
-// （`;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句）。原来这一支把它**直接 splice 掉**，
-// 整个节点凭空消失。
-//
-// **但 `.d.ts` 里遍地都是「成员声明后面那个 `;`」**（`interface I { a: string; b: number }`），
-// 那些在 TS 那边**不是**节点——一刀切地收下来会让整个语料多出 3439 个 `EmptyStatement`。
-// 收不收得准要看**原文排版**（成员终结符在行尾、防御性分号在行首），所以这里**照收不误**，
-// 由投影侧按「这个 `;` 是不是它那一行的第一个非空白字符」筛掉（见 `ts-ast.xl.md` 的
-// `projectStatement` 里那一支）。
-const lonelySemicolon =
-  children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
-if (children.length === 1 && !lonelySemicolon) {
-  units.splice(index, 1);
-  return index - 1;
-}
-const statement = new Statement(template);
-statement.Parent = Get(units, index)!.Parent;
-statement.AddRange(children.slice(0, children.length - 1));
-const first = Statement.FirstMeaningful(children);
-const last = children[children.length - 1];
-if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
-  statement.SourceRange.Start = first.SourceRange.Start;
-  statement.SourceRange.End = last.SourceRange.End;
-} else {
-  throw new Error("Statement source range is not complete.");
-}
-return ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
-```
-
-# class StatementCloseRule2 extends CloseRule
-
-`Previous` 命中的条件是：`index` 处是 `LineWrap` **或** 语句符号。
-
-`Process` 分两种时机：
-
-- **不是最后一个单元**：当前不是语句符号、且落在语句内部（`IsInStatement`）时，直接把当前单元删掉；
-  否则与 `StatementCloseRule` 同款收束——但**多一次 `TryToClose`**。
-- **是最后一个单元**：边界判定改用宽口径的 `IsStatementUnit`，且 `children` 允许为空长度（照常收束）。
-
-**「是最后一个单元」这条分支多一个 `children.length === 1` 的早退。**
-不加这个早退时，那个孤零零的单元会被收成一个 `Statement`，而它恰好是软换行时——
-`AddRange(children.slice(0, 0))` 装进一个空列表，`TryToClose` 再把那个 `LineWrap` 摘掉——
-产物里就留下一个**空的** `<Statement></Statement>`。实测到的形状：`import …` 结尾的文件、
-`while (...) {...}` 结尾的文件、`try { … } catch { … } finally { … }`（`Try` 不吸收结尾软换行）。
-
-下面那条「不是最后一个单元」的分支本来就有同样的早退（`children.length === 1` 时直接删掉），
-两条分支在这里**本来就该一致**，所以这个早退是让它们对齐，不是新语义。
-空 `Statement` 不携带任何信息，去掉它只让 XML 更干净（README 的差异清单里记了这一条）。
-
-## static readonly field Instance:StatementCloseRule2 = new StatementCloseRule2()
-
-唯一的实例。
-
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
-
-`index` 处是软换行或语句符号。
-
-**块语句后面的那一格没有单独列出来**（第 63 轮试过、退回来了）：`{ A }a += 1` 里 TypeScript
-读成**两条**语句（块 + 表达式语句），可给这条规则加上「前一个实义单元是 `}` 收尾的 `Bracket`
-就算边界」之后，复合赋值的展开**还没跑完**就被这条边界切断——
-产物里第二段只剩一个 `1`，`a` / `=` / 展开出来的 `BinaryOperator` **全丢了** ✗
-（内容丢失比边界不合严重得多）。所以这里维持原判据：那一条形状记在
-`tests/parse/recon2.mjs` 的片段表里，靠探针盯着，不再进用例语料。
-
-```ts
-const current = Get(units, index);
-if (current === null) {
-  return false;
-}
-const isWrap = current instanceof LineWrap;
-const isStatementSymbol = current instanceof SymbolToken && template.SymbolTemplate.IsStatementSymbol(current.TempToString());
-return isWrap || isStatementSymbol;
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-按上面那两种时机收束语句，**返回新的下标**。
-
-```ts
-const currentIsInEnd = units.length - 1 === index;
-const current = Get(units, index);
-const currentIsStatementSymbol = current instanceof SymbolToken && template.SymbolTemplate.IsStatementSymbol(current.TempToString());
-if (currentIsInEnd) {
-  const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
-  const children = units.slice(frontIndex + 1, index + 1);
-  // **孤零零一个 `;` 收成 `Statement`**（第 141 轮）：与下面那一支同款——收不收得准由
-  // 投影侧按原文排版筛（成员终结符在行尾、防御性分号在行首）。
-  const lonelySemicolon =
-    children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
-  if (children.length === 1 && !lonelySemicolon) {
-    units.splice(index, 1);
-    return index - 1;
-  }
-  const statement = new Statement(template);
-  statement.Parent = Get(units, index)!.Parent;
-  statement.AddRange(children.slice(0, children.length - 1));
-  const first = Statement.FirstMeaningful(children);
-  const last = children[children.length - 1];
-  if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
-    statement.SourceRange.Start = first.SourceRange.Start;
-    statement.SourceRange.End = last.SourceRange.End;
-  } else {
-    throw new Error("Statement source range is not complete.");
-  }
-  const nextIndex = ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
-  statement.TryToClose();
-  return nextIndex;
-}
-if (!currentIsStatementSymbol && Statement.IsInStatement(units, index)) {
-  units.splice(index, 1);
-  return index - 1;
-}
-const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
-const children = units.slice(frontIndex + 1, index + 1);
-// **孤零零一个 `;` 收成 `Statement`**（第 141 轮）：它就是 TS 的 `EmptyStatement` 的**候选**
-// （`;` 顶一条语句、`if (a) ;` 的体、函数体里的空语句）。原来这一支把它**直接 splice 掉**，
-// 整个节点凭空消失。
-//
-// **但 `.d.ts` 里遍地都是「成员声明后面那个 `;`」**（`interface I { a: string; b: number }`），
-// 那些在 TS 那边**不是**节点——一刀切地收下来会让整个语料多出 3439 个 `EmptyStatement`。
-// 收不收得准要看**原文排版**（成员终结符在行尾、防御性分号在行首），所以这里**照收不误**，
-// 由投影侧按「这个 `;` 是不是它那一行的第一个非空白字符」筛掉（见 `ts-ast.xl.md` 的
-// `projectStatement` 里那一支）。
-const lonelySemicolon =
-  children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
-if (children.length === 1 && !lonelySemicolon) {
-  units.splice(index, 1);
-  return index - 1;
-}
-const statement = new Statement(template);
-statement.Parent = Get(units, index)!.Parent;
-statement.AddRange(children.slice(0, children.length - 1));
-const first = Statement.FirstMeaningful(children);
-const last = children[children.length - 1];
-if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
-  statement.SourceRange.Start = first.SourceRange.Start;
-  statement.SourceRange.End = last.SourceRange.End;
-} else {
-  throw new Error("Statement source range is not complete.");
-}
-const nextIndex = ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
-statement.TryToClose();
-return nextIndex;
-```
-
-# class StatementCloseRule3 extends CloseRule
-
-`Previous` 只在 `index` 是列表最后一个单元时命中。`Process` 与前者同款收束，
-但多一个「`children` 长度为 1 且那个单元本身就是语句单元」的早退——那种情况什么都不做。
-
-## static readonly field Instance:StatementCloseRule3 = new StatementCloseRule3()
-
-唯一的实例。
-
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
-
-`index` 是不是最后一个单元。
-
-```ts
-return units.length - 1 === index;
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-注意「什么都不做」的那条早退不动下标，所以返回原 `index`。
-
-两处额外的判定都是为了同一个中间状态：**重组会把列表改短，而下标还是旧扫描留下的**。
-
-- `WrapStartIndex`：段内已经有成形的语句级单元时，要收的只是它右边那条尾巴。
-- 收尾的兜底：新 `Statement` 拿不到父单元时**不把它放进列表**，并把已经改过的子单元 `Parent` 恢复回去。
-
-兜底那一支是**必须的**（实测：`{ A }a += 1` 这种「块紧跟着表达式、中间既没有 `;` 也没有换行」的写法）：
-`Statement.AddRange` 会把子单元的 `Parent` 改成挂在那个新 `Statement` 名下，而那个新单元
-**不可能进树**（它的锚点单元自己也已经是别人的子单元，`Parent` 为 `null`）。
-不恢复的话，后面任何一条规则想 `Replace` 这些子单元都会抛「没有父单元」——
-`JsonObjectCloseRule.Process` 里那句 `current.Replace(result)` 就是第一条撞上的。
-（这一支只保证**不抛异常**；那种形状的产物里 `{ A }` 仍可能出现两次——
-见 README「已知缺口」里记的那一条。）
-
-```ts
-const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
-const groupStart = Statement.WrapStartIndex(units, frontIndex, index);
-if (groupStart > index) {
-  return index;
-}
-const children = units.slice(groupStart, index + 1);
-if (children.length === 1 && Statement.IsStatementUnit(children[0])) {
-  return index;
-}
-const anchor = Get(units, index)!;
-const statement = new Statement(template);
-statement.Parent = anchor.Parent;
-statement.AddRange(children.slice(0, children.length - 1));
-const first = Statement.FirstMeaningful(children);
-const last = children[children.length - 1];
-if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
-  statement.SourceRange.Start = first.SourceRange.Start;
-  statement.SourceRange.End = last.SourceRange.End;
-} else {
-  throw new Error("Statement source range is not complete.");
-}
-if (statement.Parent === null) {
-  for (const item of children) {
-    item.Parent = anchor.Parent;
-  }
-  return index;
-}
-const nextIndex = ReplaceCountAt(units, groupStart, index - groupStart + 1, statement);
-statement.TryToClose();
-return nextIndex;
-```
+**从前还有三个收尾规则类** ✗（`StatementCloseRule` / `StatementCloseRule2` / `StatementCloseRule3` ✓，
+本文件第 564 轮之前的那三节 ✓）：它们排在 `GeneralCloseRule` 队列上 ✓，可 `RunCloseRules` 把
+`2` / `3` **显式跳过** ✗、`1` 又不在任何一张活着的队列里 ✗ ⇒ 整套语料里**一次都没被调用过** ✓
+（第 564 轮量的账：1460 份语料、三条规则的 `Previous` 调用 **0** 次 ✓，
+量具 `tmp/recon/r564-hits.cjs` ✓）⇒ 三族整段删掉 ✓，只留 `FormFrom` / `FormTail` 这一份实现 ✓。
 
 # class Statement extends IndependentToken
 
@@ -316,8 +54,9 @@ return nextIndex;
 
 单元值类型是单字符的 `string`。
 
-构造时就把自己的规则队列从模板上取出来——`InitialStatementCloseRuleQueue` 会把
-两个语句重组类插到默认队列的前面。
+构造时就把自己的规则队列从模板上取出来（`template.CloseRuleTemplate.Get(this.constructor)` ✓）——
+`Statement` 自己这一类没有专门注册 ✓ ⇒ 拿到的是通用队列 ✓。
+容器那一侧走 `ParsePipeline.InitialStatementCloseRuleQueue` ✓，第 564 轮起它做的也是同一句 ✓。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 

@@ -36,13 +36,13 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 创建体单元，并挂上**语句重组**队列 ✓——体里那些单元要收成一条条 `Statement` ✓
 （与 `IfStatement` 的单语句体同款 ✓）。
 
-**语句队列要走 `ParsePipeline.InitialStatementCloseRuleQueue`** ✗，不能写
-`template.CloseRuleTemplate.Get(this.constructor)` ✗——那一条给的是**通用**规则队列 ✓，
-而 `StatementCloseRule2` / `StatementCloseRule3` 是**插**进去的两条 ✓
-（`InitialStatementCloseRuleQueue` 干的就是这件事 ✓）。
+**两种写法现在等价** ✓（第 564 轮 ✓）：`ParsePipeline.InitialStatementCloseRuleQueue(this)` ✓ 与
+`template.CloseRuleTemplate.Get(this.constructor)` ✓ 拿到的是**同一份**通用队列 ✓ ——
+从前前者会额外插两条语句规则 ✗，那两条规则随后被证明**一次都没跑到** ✓（第 564 轮量的账 ✓）
+⇒ 插入连同规则一起删掉 ✓，这里保留 `InitialStatementCloseRuleQueue` 只是与其它体单元写法一致 ✓。
 
-实测症状（本轮量到的 ✓）：`if (a) { return x; }` 的 `<IfBody>` 里是一串**散的**
-`Keyword` / `Identifier` / `SymbolToken` ✓ ⇒ 投影侧 `Block.statements` 是**空的** ✗
+实测症状（当年量到的 ✓，那时两种写法**不等价** ✓）：`if (a) { return x; }` 的 `<IfBody>`
+里是一串**散的** `Keyword` / `Identifier` / `SymbolToken` ✓ ⇒ 投影侧 `Block.statements` 是**空的** ✗
 ⇒ 整个 `ReturnStatement` 连同它的子树一起从产物里消失 ✓
 （全语料 7.6 万个节点挂在这一条上 ✓）。
 

@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
@@ -9,12 +8,9 @@ import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Source } from "../../core/syntax/source.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
-import { Get, GetSkipNext, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { SkipNext } from "../list-extensions.xl.md"
-import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
-import { GenericType } from "./generic-type.xl.md"
 import { Keyword } from "./keyword.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ObjectLiteral } from "./json/object-literal.xl.md"
@@ -30,7 +26,9 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 三种形态由同文件的枚举 `LetType` 区分；它只是数据标签，不参与 XML 的标签名。
 
-`LetCloseRule` 写在 `Let` **之前**，与同目录其它 token 一致。
+**声明头在解析期就收**（`LetBranch` ✓，见本文件最后一节 ✓）——
+从前还有一个 `LetCloseRule`，它排在 `GeneralCloseRule` 队列第 6 位、又被 `RunCloseRules` 显式跳过 ✗
+⇒ 一次都没跑过 ✓（第 564 轮量的账：语料里 `Previous` 调用 **0** 次 ✓）⇒ 整段删掉 ✓。
 
 # enum LetType
 
@@ -42,211 +40,6 @@ import { SymbolToken } from "./symbol-token.xl.md"
 数组解构：`let [a, b] = arr`。
 - case Object
 对象解构：`let {a, b} = obj`。
-
-# class LetCloseRule extends CloseRule
-
-`Previous` 认的是「一个内容是 `let` / `const` / `var` 的 `Identifier`，且它后面（跨过软换行）跟着一个 `Identifier`，或者跟着一对 `[]` / `{}` 括号」。
-
-`Process` 把从 `let`（含它前面的 `export`）到目标单元的这一整段收成一个 `Let`，按目标单元的形态填 `fieldName`，或者填数组 / 对象两组解构名。
-
-## static readonly field Instance:LetCloseRule = new LetCloseRule()
-
-唯一的实例。
-
-## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
-
-`index` 处是不是一条 `let` 声明的开头。
-
-判定是：`index` 处是内容为 `let` / `const` / `var` / **`using`** 的 `Identifier`，并且跳过软换行后的下一个单元要么是 `Identifier`，要么是 `Is("[", "]")` / `Is("{", "}")` 的 `Bracket`。这里把两个小括号判定合成一句 `||`，其余拆成早返回，语义相同。
-
-**`using` 是显式资源管理声明**（`using res = open()`）：形态与 `const` 完全一样，
-TypeScript 的 AST 里它同样是 `VariableDeclaration`（`VariableDeclarationList` 上带 `Using` 标志），
-所以它该有自己的 `Let` 节点。少了这一条，`using res = open()` 整条退化成
-`<Identifier>using</Identifier><Identifier>res</Identifier><SymbolToken>=</SymbolToken><Method>…`——名字与声明结构一起丢。
-`await using res = open()` 里的 `await` 由 `Process` 往前收进 `modifiers`。
-
-**父单元是 `GenericType` 时一律不成立**：类型参数列表里的 `const` 是**类型参数修饰符**
-（`type X<const T> = T`），不是变量声明。少了这一条，`const T` 会被收成一个 `Let`
-（`const` 被吸收、`T` 成了字段名），关键词升级也就轮不到它。
-
-**前一个实义单元是 `as` / `satisfies` 时也不成立**：`x as const` 里的 `const` 是一个**字面量类型**
-（`as const` 是惯用法），不是声明头。少了这一条，`const a = [1, 2] as const` 会在这里被切错——
-`SkipNext` 找到的下一个单元是**下一行** `const o` 的 `const`，
-于是 `[const(as const), 换行, const(o)]` 三个单元一起被替换成一个 `Let fieldName="const"`：
-换行没了、`const o` 的头也没了，两条语句合成一条（实测 `tests/parse/cases/declarations/vars-as-const.ts`）。
-
-```ts
-const unit = Get(units, index);
-if (!(unit instanceof Identifier)) {
-  return false;
-}
-if (unit.Parent instanceof GenericType) {
-  return false;
-}
-// **参数表收成 `TypeParameter` 之后父单元换了人**（第 66 轮）：`type X<const T> = T` 里的
-// `const` 仍是**类型参数修饰符**（TS 那边是 `TypeParameter` 的修饰位），不是变量声明。
-// 只挡 `GenericType` 时它照样被收成 `Let`（实测 3 处：`decl-func-generic-const-modifier` /
-// `fn-const-typeparam` / `type-param-const` 三个用例当场报出来）。
-if (unit.Parent !== null && unit.Parent.constructor.name === "TypeParameter") {
-  return false;
-}
-if (!(unit.Is("let") || unit.Is("const") || unit.Is("var") || unit.Is("using"))) {
-  return false;
-}
-const previous = Get(units, SkipPreviousWrapSymbol(units, index));
-if (previous instanceof Identifier && (previous.Is("as") || previous.Is("satisfies"))) {
-  return false;
-}
-const next = GetSkipNext(units, index, (item) => item instanceof LineWrap);
-if (next instanceof Identifier) {
-  return true;
-}
-return next instanceof Bracket && (next.Is("[", "]") || next.Is("{", "}"));
-```
-
-## private method CollectFieldNames:(unit:Token)=>Array<string>
-
-把一个解构括号里的**所有**名字收集出来——**递归**进嵌套括号。
-
-`let` 记的是「解构出来的字段名」，而解构是可以嵌套的：
-`const [[a, b], [, c = 0]] = m` 的 `a` / `b` / `c` 都在**内层**括号里。
-只看直系子单元的话，整个模式匹配不出一个 `Identifier`，
-`arrayPattern` 是空串——**嵌套解构的绑定名整体丢失**（实测）。
-递归之后内层的名字照旧进同一张表，与顶层同名同形。
-
-只收集 `Identifier`：符号、嵌套括号本身不进表（括号靠递归展开）。
-
-**三种容器都要认**：`Bracket`、`ArrayLiteral`、`ObjectLiteral`。
-内层数组在值位被 `JsonArrayCloseRule` 收成了 `ArrayLiteral`（它不是 `Bracket` 的子类），
-内层对象同理是 `ObjectLiteral`——只认 `Bracket` 的话 `const [[a, b], [, c = 0]] = m`
-递归一层就断了，名字还是空串（实测）。
-
-```ts
-const result: string[] = [];
-for (const item of unit.Data) {
-  if (item instanceof Identifier) {
-    result.push(item.TempToString());
-  } else if (item instanceof Bracket || item instanceof ArrayLiteral || item instanceof ObjectLiteral) {
-    result.push(...this.CollectFieldNames(item));
-  }
-}
-return result;
-```
-
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
-
-把整段声明收成一个 `Let`，**返回新的下标**。
-
-要点：
-
-- `startIndex` 先取 `index`，再**往前把修饰词一路收进来**：
-  跨过软换行的上一个单元是内容为 `export` / `declare` / `default` 的 `Identifier` 就前移，
-  收完为止（`export declare const x` 的两个词都要收到）。
-  **`const` / `let` / `var` 自己也算修饰词**（放进 `modifiers` 的第一位之后）——
-  不记的话 `export const a = 1` 与 `const a = 1` 的产物完全一样，修饰信息整体丢失。
-- `endIndex` 由 `SkipNext(units, index)` 得到——这是 `../list-extensions.xl.md` 里跳过「软换行与注释」的那个版本。
-- 终点单元的形态决定 `LetType`：`Identifier` → `Field`（记 `fieldName`）；`[]` → `Array`（记 `arrayPattern`）；`{}` → `Object`（记 `objectPattern`）；三者都不是就抛错。
-- 两组解构名都是「括号子单元里所有 `Identifier` 的文本」，**递归**进嵌套括号（见 `CollectFieldNames`）。
-- 最后批量替换用四参数的 `ReplaceCountAt`（三个参数的版本才叫 `ReplaceAt`），返回的 `startIndex` 就是新下标；被替换掉的两个单元不再显式释放，交给 GC。
-- **`Parent` 要自己抄**（第 66 轮补）：`ReplaceCountAt` 只做 `splice`、不设 `Parent`（`Token.Add` 才设），
-  不抄的话这个 `Let` 的 `Parent` 永远是 `null`。它与 `keyword.xl.md` 里那处是同一类漏抄：
-  平时没人读、看不出来，等新规则开始问「我的父亲是哪一类容器」时才会咬人
-  （`Keyword` 那处就是这么把 `keyof typeof h` 的外层 `keyof` 挡掉的）。抄的是被替换单元的 `Parent`，
-  所以「还没挂上去」这个信号原样保留。
-
-新单元的局部变量叫 `letUnit`：`let` 在 ts 里是关键字，不能当变量名。
-
-```ts
-let startIndex = index;
-const current = Get(units, index);
-if (!(current instanceof Identifier)) {
-  throw new Error("current 为空");
-}
-const modifiers: string[] = [];
-let cursor = index;
-while (true) {
-  const previousIndex = SkipPreviousWrapSymbol(units, cursor);
-  const previousUnit = Get(units, previousIndex);
-  // **修饰词不许跨过语句边界**（第 124 轮）：`SkipPreviousWrapSymbol` 一路跳过软换行，
-  // 于是**上一行末尾的那个词**会被当成本行的修饰词。实测（`undici-types/index.d.ts`）：
-  //
-  //     const Dispatcher: typeof import('./dispatcher').default
-  //     const Pool: typeof import('./pool').default
-  //
-  // 第二行的 `const` 往前看，跨过换行看到的是 `default`——它被收进 `modifiers`
-  // （`<Let fieldName="Pool" modifiers="default,const" />`），而那个 `default` 原本是
-  // **导入类型的限定名**。后果不止是修饰词错：那个 `default` 被从类型里挖走之后，
-  // `TypeDefine` 收集时再也撞不到那一处换行边界，于是**整个模块体被收进一条类型标注**
-  // （实测一个文件里 140 处缺口全是这一族）。
-  //
-  // 判据与 `TypeDefine` / `Statement` 用的是同一份结论：`Statement.IsLineBreakBoundary`。
-  if (previousIndex >= 0 && previousIndex < cursor - 1) {
-    let crossesBoundary = false;
-    for (let i = previousIndex + 1; i < cursor; i++) {
-      const gap = Get(units, i);
-      if (gap instanceof LineWrap && Statement.IsLineBreakBoundary(units, i)) {
-        crossesBoundary = true;
-        break;
-      }
-    }
-    if (crossesBoundary) {
-      break;
-    }
-  }
-  if (
-    previousUnit instanceof Identifier &&
-    (previousUnit.Is("export") || previousUnit.Is("declare") || previousUnit.Is("default"))
-  ) {
-    modifiers.unshift(previousUnit.TempToString());
-    startIndex = previousIndex;
-    cursor = previousIndex;
-    continue;
-  }
-  // `await using res = open()`：`await` 是显式资源管理声明的一部分，
-  // 收进 modifiers 才不会留成一个悬空的关键词。
-  if (previousUnit instanceof Identifier && previousUnit.Is("await") && current.Is("using")) {
-    modifiers.unshift(previousUnit.TempToString());
-    startIndex = previousIndex;
-    cursor = previousIndex;
-    continue;
-  }
-  break;
-}
-modifiers.push(current.TempToString());
-const endIndex = SkipNext(units, index);
-const next = Get(units, endIndex);
-if (next === null) {
-  throw new Error("next 为空");
-}
-const letUnit = new Let(template);
-letUnit.Parent = Get(units, startIndex)!.Parent;
-letUnit.SignIn(Get(units, startIndex)!.SourceRange.Start!);
-letUnit.SignOut(next.SourceRange.End!);
-letUnit.modifiers = modifiers.join(",");
-if (next instanceof Identifier) {
-  letUnit.fieldName = next.TempToString();
-  letUnit.LetType = LetType.Field;
-} else if (next instanceof Bracket) {
-  if (next.Is("[", "]")) {
-    letUnit.arrayPattern = this.CollectFieldNames(next);
-    letUnit.LetType = LetType.Array;
-  } else if (next.Is("{", "}")) {
-    letUnit.objectPattern = this.CollectFieldNames(next);
-    letUnit.LetType = LetType.Object;
-  }
-  // **模式搬进节点**（第 66 轮第八批）：属性的两组名字只是给**人**读的补全，
-  // 原来模式括号整段留在替换区间里、随 `ReplaceCountAt` 消失——产物里
-  // `const { a, b: c, d = 1 } = obj` 只剩一个自闭合的 `<Let objectPattern="a,b,c,d,1" />`，
-  // 花括号、冒号、`=`、以及「这是三个绑定元素」这件事全都没了（TS 那边是
-  // `ObjectBindingPattern` 里三个 `BindingElement`）。
-  // 现在把括号搬进来，`binding-element.xl.md` 在它自己的队列里把元素收成节点 ✓。
-  letUnit.AddAndCloseLast(next);
-} else {
-  throw new Error("形态不成立");
-}
-letUnit.TryToClose();
-return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, letUnit);
-```
 
 # class Let extends IndependentToken
 一条 `let` / `const` / `var` 声明。
