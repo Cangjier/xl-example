@@ -8,99 +8,27 @@
 - [docs/runtime-architecture.md](../docs/runtime-architecture.md) —— 怎么写
 - [docs/runtime-design-notes.md](../docs/runtime-design-notes.md) —— 为什么只能这么写（含被证伪的方案）
 
-> **状态：进行中。** 内存三件套（`value` / `heap` / `gc`）、程序表示（`ir`）、
+> **状态：进行中。** 引擎骨架已落地：内存三件套（`value` / `heap` / `gc`）、程序表示（`ir`）、
 > 线形态 + 装载验证（`ir-verify`）、执行器（`frame` / `rt` / `vm`）、属性原型层（`props`）、
-> `this` / `call_method` / `new`、访问器重入、生成器、承诺 + 微任务队列与 **宿主 ABI**
-> （`host-abi`）已落地：判据 `npm run runtime:check` **241 条全绿**——真循环、一万层递归
-> （中途发生过回收）、跨帧异常展开、闭包捕获、原型链遮蔽、方法调用的 `this`、
-> `new` 的收尾规矩、getter / setter 重入、生成器挂起活过回收、`await` 全链路、
+> `this` / `call_method` / `new`、访问器重入、生成器、承诺 + 微任务队列与**宿主 ABI**（`host-abi`）。
+> 判据 `npm run runtime:check` **242 条全绿**：真循环、一万层递归（中途发生过回收）、
+> 跨帧异常展开、闭包捕获、原型链遮蔽、方法调用的 `this`、`new` 的收尾规矩、
+> getter / setter 重入、生成器挂起活过回收、`await` 全链路、
 > 宿主的四类结局（成功 / 脚本抛出 / 挂起 / 限额）与能力白名单，
-> 以及**宿主函数失败时的「抬成脚本站内异常」通道**（`RaiseRequest` / `Raise`，
-> 第 121 轮——没有它，内建的失败**接不住**），
-> 和 **rt 层那条同名的路**（`Guard` + `SetErrorFactory` + `MakeError`，第 127 轮——
-> `try { a + b } catch` 靠它 ✓；引擎只递**话**，「`Error` 长什么样」由语言层的工厂给 ✓）。
-> **线形态从第 129 轮起承载 `Float64` 常量**（升级到 v2 ✓，载荷是**十进制文本** ✓）——
-> 于是「浮点字面量」这个「一份普通 `.ts` 直接跑」的第一个拦路虎关掉了 ✓；
-> 同一轮把**引擎里唯一的宿主借用**收进了一个可查的文件（`host-text.xl.md` ✓，
-> 判据 grep 产物量着这一条 ✓）。
-> **第 144 轮把「真假」收成一个定义**（`rt.xl.md` 的 `TruthyOf` ✓）：`""` 是**假** ✓，
-> 而 `Value.AsBool` 看不到码元长度 ✗——于是 `if ("")` 走了真那一支 ✓（**静默错值** ✗）。
-> 五个调用点（`jmp_if_false` / `!` / `Boolean(x)` / `filter` / 谓词族）现在都走那一个 ✓。
-> **第 145 轮补上「既是对象又可调用」那一档**（`heap.xl.md` 的 `AttachCallable` ✓）：
-> 对象照旧是对象 ✓，只是**多了一格「能被调」** ✓——于是 `String(1)` / `Number("7")` /
-> `new Date(ms)` / `new Array(3)` 一起通了 ✓，判定那一句收成 `IsHostCallable` ✓
-> （调用 / 构造 / 重入三条路共用 ✓）。
-> **第 147 轮补上七条位运算**（`& | ^ ~ << >> >>>` ✓，`rt.xl.md` 的 `ToInt32Of` 那一段 ✓）：
-> 算子表里那七格**大半是设计期就留好的号** ✓（声明了、没实现 ✗），
-> `BitNot` / `UShr` 追加在**表尾** ✓（`RtOpCount` 38 → 40 ✓，只追加、不改号 ✓）。
-> **第 198 轮补上 `ToPrimitive` / `ToNumber`**（`rt.xl.md` 的 `ToPrimitiveOf` /
-> `ToNumberPrimitive` / `ToNumberOf` ✓）：`+` **不是**「两边都是数就加」✗——
-> 三步是「两边 `ToPrimitive` → 有一边是字符串就拼接 → 否则 `ToNumber` 相加」✓，
-> 而 `- * / %`、一元 `-`、**一元 `+`**（`RtOp.ToNumber` ✓）、`==`（那张表要走两轮 ✓）、
-> 四条关系（`date1 < date2` 靠它 ✓）**问的都是同一张表** ✓。
-> 一并收掉的**两份重复**：`NumericForCompare` 并入 `ToNumberPrimitive` ✓、
-> 语言层的 `NumberFromValue` 转调 `ToNumberOf` ✓——同一件事不再有两个答案 ✓。
-> **不能证的那几格一律点名抛** ✓（函数 / `Map` / `Set` / `Date` 的 `default` / `Error` /
-> 可调用对象 ✓）：落回一个「看起来合理」的默认值就是**静默错值** ✗。
-> **第 199 轮把「走完一个迭代器」变成引擎递给语言层的一张服务**
-> （`DrainIterator` / `IteratorDrainer()` ✓——与 `Scheduler()` / `Settler()` 同一个形状 ✓）：
-> 生成器从此进得了每一个**急切**的入口（解构 / 展开 / `Array.from` / `new Set` / `new Map` ✓），
-> 而 `for..of` 那条**惰性**路一个字都不改 ✓。
-> 同一轮**实测抓到一处潜伏 bug** ✗：语言层「造一个数组 → 循环里调脚本 → 往数组里收」
-> 有一个**真实的窗口** ✓——那数组不在 `SnapshotRoots` 的名单里 ✗，
-> 循环里任何一次分配前的那道闸门都可能把它收走 ✓（6 万项的 `[...o]` 报过 `invalid handle` ✓，
-> **四万格以内看不出来** ✗）。于是引擎多了一格**临时根**（`Temps` ✓，与 `Retained`
-> 同一条理由 ✓）与那个开关（`RootKeeper()` ✓），
-> 而 `SnapshotRoots` 里那道 `IsValid` 闸门挡住「配对断了」留下的死句柄 ✓。
-> **第 200 轮把那条纪律在语言层**逐处过了一遍 ✓：`map` / `filter` 的结果数组 ✓、
-> `reduce` 的累加器 ✓、`new` 出来的实例 ✓ 都挂上了根 ✓，
-> 而**收口的判据是「这个值还挂在别处吗」** ✓——挂在调用方的槽里 ✓、
-> 挂在那个数组身上 ✓ 的那些**不必挂** ✗（`sort` 的比较器 ✓、谓词族读出来的那一项 ✓）。
-> **两档要分清** ✓：`map` / `filter` 那两处是**量出来的** ✓（把 keep 关掉当场报
-> `invalid handle: 318/322` ✓），`reduce` / `new` 那两处是**判出来的** ✓
-> （窗口在 ✓，但量不出稳定复现 ✗）——**挂根是保守的那一侧** ✓，而漏挂是**静默错值** ✗，
-> 所以判出来的一样挂 ✓。
-> 降级层与标准库也在长：[typescript-exec/](../typescript-exec/README.md) 收下了
-> P0 的形状 + 类 / 继承 / 集合 / 生成器 / 默认参数 + **类字段与 `static`**（第 128 轮）
-> + **数字字面量的全形态**（第 129 轮），
-> 并且**`.ts` 已经能直接执行**——
-> 运行器 `tsrun`（仓库根的 [tsrun.xl.md](../tsrun.xl.md)）装上「解析 → 降级 → 链接 → 装载 → 求值」，
-> 命令行 `node build/ts/tsrun.js <文件.ts>` 的 **stdout 与 `node <文件.ts>` 逐字节相同**
-> （判据 `npm run runtime:cli`，**79** 份语料、裁判是真 Node）。
-> 还差 `typescript-exec/` 的其余部分与标准库——按
-> [§14 落地顺序](../docs/runtime-architecture.md) 逐个补。
+> 以及宿主函数失败时那条「抬成脚本站内异常」的通道。
+> 场景覆盖面另有 `npm run coverage`（[tests/coverage/](../tests/coverage/README.md)）——
+> 这一层现在是 **496 / 502（98.8%）**：机制快满了，覆盖面还差一截，差在哪那份清单里写着。
+>
+> 降级层与标准库在 [typescript-exec/](../typescript-exec/README.md)：`.ts` 已经能直接执行 ——
+> 运行器 `tsrun`（仓库根的 [tsrun.xl.md](../tsrun.xl.md)）装上
+> 「解析 → 降级 → 链接 → 装载 → 求值」，`node build/ts/tsrun.js <文件.ts>` 的 stdout
+> 与 `node <文件.ts>` **逐字节相同**（判据 `npm run runtime:cli`，**79** 份语料、裁判是真 Node）。
 
 > **改规范之后的顺序：`xl build --force`（插件工具）→ `tsc` → `runtime:check`。**
 > 判据读的是 `build/**/*.js`；**跳过 `xl build` 的话，它量的是上一版的产物**。
 > 这个坑连着栽过四次，所以现在**由判据自己拦**：规范比产物新、或者 `dist` 比 `build` 新，
 > 都直接退出码 1 并指名要跑哪一步（`--force` 是为了绕开「指纹没变就跳过」那种情况——
 > 那时候产物其实是对的，但判据**不猜**）。
->
-> **第 202 轮起另有一把尺子**：`npm run coverage`（[tests/coverage/](../tests/coverage/README.md)）——
-> 它量的是**场景覆盖面**（一格一条真跑的 `.ts`，与真 Node 比 stdout 逐字节），
-> 不是**机制**。本目录这一层的读数是 **89.9%（320/356）**（第 307 轮收账之后 ✓，
-> 第 305 轮加宽之后是 89.8%（318/354）✓、第 290 轮之后是 90.91%（210/231）✓、
-> 再往前是 92.65%（189/204）✓）；
-> 两个数不冲突：**机制快满了，覆盖面还差一截**——差在哪，那张清单里写着。
->
-> **第 307 轮这一层动了一处、而且是这一轮的全部** ✓：`CallNative` 补上「**生成器**」那一支 ✓
-> ——**两条调用路少了一支** ✗：脚本自己发起的（`DoCallValue` ✓）**有** ✓（第 229 轮 ✓），
-> 而**重入**那条（访问器 ✓、内建回调 ✓、**迭代协议** ✓）**没有** ✗ ⇒
-> 生成器函数经重入被调时按普通函数压帧跑 ✓、体里第一条 `suspend` 报
-> `suspend outside a generator` ✗。**症状很会骗人** ✗：`a[Symbol.iterator]()` 直接调**全对** ✓、
-> 而 `[...a]` / `Array.from(a)` / `for..of` **全抛** ✗（`DoSuspend` 那一句 ✓）。
-> 修法与 `DoCallValue` 那一支**一字不差** ✓（开一帧但**不上栈** ✓、实参铺进去 ✓、
-> 包成生成器对象 ✓、把**对象**交回去 ✓），并且排在那几件重入记账**之前** ✓
-> ——这一趟根本不进分派循环 ✓。**一处已知差写在明处** ✗（与这一支的非生成器那一半同一条 ✓）：
-> 重入那条路只按格数铺实参 ✓、**不收剩余参数** ✗（`FillParameters` 要调用者的帧 ✓）。
->
-> **第 305 轮这一层动了一处** ✓：`RtOp.SetIndex` 的键统一成「**字符串化 + 判下标**」✓
-> （与 `RtOp.GetIndex` **一字不差** ✓）——原来数组那一支把键原样递给 `props.SetIndex` ✗，
-> 而它只认数字键 ✓ ⇒ `a["1"] = 20` **整份文件进不来** ✗，而同一个键**读**是好的 ✓。
-> 两档都认之后 ✓：下标走元素 ✓、非下标落回属性 ✓（`arr[1.5] = v` ✓ / `arr["length"] = 2` ✓）。
-> 同一天**语言层**也改了同一件事的另一半 ✓（`SetPropertyValue` 改发 `set_index` ✓——
-> 见 [typescript-exec 的账](../typescript-exec/README.md) ✓）：**读 / 写 / 取出来调**三处
-> 现在问的是同一张 `ToPropertyKey` 表 ✓。
 
 ## 本目录放引擎，不放标准库
 
@@ -113,17 +41,14 @@ runtime/              与语言无关的引擎
   frame.xl.md           帧栈：句柄栈、开帧 / 弹帧、根快照                    ✔ 已落地
   rt.xl.md              通用算子表的第一段实现（语义）                      ✔ 已落地
   props.xl.md           属性与原型：查找、遮蔽、delete、下标、内建原型表      ✔ 已落地
-  host-abi.xl.md        宿主契约：借用规矩、四类结局、能力白名单、限额、
-                        按导出闭包调用（`Evaluate` / `CallExport`）                ✔ 已落地
-
-
   vm.xl.md              分派循环、异常展开、步数预算、分配前的闸门           ✔ 已落地
   ir.xl.md              指令集、RtOp 表、常量池、函数表、异常表、dump 形态  ✔ 已落地
   ir-verify.xl.md       线形态（定宽小端 v2）+ 装载验证（唯一的安全入口）    ✔ 已落地
+  link.xl.md            链接：把若干模块的函数表 / 常量池接成一个程序        ✔ 已落地
+  host-abi.xl.md        宿主契约：借用规矩、四类结局、能力白名单、限额、
+                        按导出闭包调用（`Evaluate` / `CallExport`）                ✔ 已落地
   host-text.xl.md       ★ 宿主文本与数字的转换——**引擎里唯一的一处宿主借用**  ✔ 已落地
                         （码元 ↔ 字符串、双精度 ↔ 十进制文本；判据 grep 产物量它）
-  host-abi.xl.md        宿主能力表、Ts_Retain/Ts_Release、限额
-  wasm-exec.xl.md       wasm 封闭子集的执行器（P3）
 ```
 
 **`runtime/` 里出现宿主 API 的地方只有 `host-text.xl.md` 一处**（第 129 轮）：那四件事

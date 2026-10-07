@@ -139,10 +139,8 @@ npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成�
 | 字节稳定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | 用例体检 | `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
 
-原来的另外十七把尺子与探针（`diff` / `matrix` / `lossless` / `astjson` / `sweep` / `recon*` / `fuzz*` /
-`align` …）**已删除**——它们量的是 XML 出口与 token 树的质量，不属于「PrintAst 与 TS 的 AST
-完全一致」这条判据；逐轮的读数留在 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)
-与 git 历史里。
+量 XML 出口与 token 树质量的那些尺子（`diff` / `matrix` / `lossless` / `astjson` / `sweep` / `recon*` /
+`fuzz*` / `align` …）都不在判据里。
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
 `build/ts/cjcli.js`——产物路径里的 `ts/` 来自**目标语言目录**，不是 `rootDir` 多出来的一层。
@@ -276,16 +274,15 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 三个「字面量块」原先叫 `Common` / `Symbol` / `WrapSymbol`——名字说的是**实现**（通用字符块、符号块、包装符号），
 不是**语义**。现在按它到底是什么命名，下游（差分脚本、多语言目标）读产物时不必先查表：
 
-| 旧标签 | 新标签 | 是什么 |
-| --- | --- | --- |
-| `<Common>` | `<Identifier>` | 标识符与数字、布尔字面量的文本块（`<Identifier>0</Identifier>` 就是数字 `0`） |
-| `<Symbol>` | `<SymbolToken>` | 符号块：运算符、标点、括号字符 |
-| `<WrapSymbol>` | `<LineWrap>` | 软换行，**不是符号**：它不吐文本，只是相邻判定的透明单元 |
-| `<JsonObject>` | `<ObjectLiteral>` | 值位的对象字面量 `{ … }` |
-| `<JsonArray>` | `<ArrayLiteral>` | 值位的数组字面量 `[ … ]` |
-| `<Temp>` | **删除** | 这个类没有任何 `new Temp(` 被创建过，是死代码 |
+| 标签 | 是什么 |
+| --- | --- |
+| `<Identifier>` | 标识符与数字、布尔字面量的文本块（`<Identifier>0</Identifier>` 就是数字 `0`） |
+| `<SymbolToken>` | 符号块：运算符、标点、括号字符 |
+| `<LineWrap>` | 软换行，**不是符号**：它不吐文本，只是相邻判定的透明单元 |
+| `<ObjectLiteral>` | 值位的对象字面量 `{ … }` |
+| `<ArrayLiteral>` | 值位的数组字面量 `[ … ]` |
 
-`Bracket`（`( )` / `{ }` / `[ ]` 三种括号共用）与 `Keyword`（关键字兜底身份）保留原名：它们说的就是自己的语义。
+`Bracket`（`( )` / `{ }` / `[ ]` 三种括号共用）与 `Keyword`（关键字兜底身份）的名字就是自己的语义。
 
 [samples/declarations.ts](samples/declarations.ts) 把上表逐项走了一遍，产物是
 [samples/declarations.expected.xml](samples/declarations.expected.xml)。
@@ -327,17 +324,17 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `npm run samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 
 产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后**按
-**逐文件完全一致**算：**全语料 1472 / 1472**（四方向 + 未映射 + 缺 range + 区间越界**七项全 0**）。
+**逐文件完全一致**算（见下面「当前状态」那一表）。
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
-（`VariableDeclarationList` / `VariableStatement` / `ExpressionStatement` / `Block`）、
-类型引用（`TypeReference` 在 TS 那边是**同一区间两层节点**）、
-以及叶子按值分名（`NumericLiteral` / `StringLiteral`）——投影从 `typescript/print-ast-common.xl.md`
-逐块搬进各 token 的 `PrintAst` 之后收干净了。
+它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：
+语句 / 声明壳（`VariableDeclarationList` / `VariableStatement` / `ExpressionStatement` / `Block`）
+与叶子按值分名（`NumericLiteral` / `StringLiteral`）各差一层。修法是把投影从
+`typescript/print-ast-common.xl.md` 逐块搬进各 token 的 `PrintAst`——
+token 自己出的那一格最懂自己的形状。
 
-### 当前状态（第 600 轮实测）
+### 当前状态（第 601 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -347,7 +344,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:check` | **1071** 条用例，0 条不合格 |
 | `runtime:check` | **242 / 242** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1693 / 1713**（99.0%）：引擎 98.6% / 降级 99.5% / 标准库 98.4% / 端到端 99.4% |
+| `coverage` | **1697 / 1713**（99.2%）：引擎 98.8% / 降级 99.8% / 标准库 98.7% / 端到端 99.4% |
 | `npm run gates` | 上面六道一次跑完（实测墙钟 **~20s**） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
@@ -493,9 +490,8 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   动了**投影的键序或坐标**时，`samples` 是唯一看得见的那把尺子（`cases:tsast` 只比
   kind / 区间 / 字段名）；动了 token 层时反过来，`cases:tsast` 会告诉你形状还对不对。
 
-- **一轮一提交，提交完就推**：一轮的改动跑完尺子之后
-  `git commit` + `git push origin main`，提交信息按轮次写
-  （`feat(ts-shape): …（第 N 轮）—— 量化`，正文写根因 / 修法 / 数字）。
+- **一轮一提交**：一轮的改动跑完尺子之后 `git commit`，提交信息按轮次写
+  （`第 N 轮：…（coverage X -> **Y / Z**）`，正文写根因 / 修法 / 数字）。
   攒着不提交的话，「哪一轮把哪个数字动了」在 `git log` 里就查不到了。
 
 - **临时脚本与它们的输出不进仓库**：排查用的一次性脚本、`tmp-*` 输出、
