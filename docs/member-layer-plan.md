@@ -769,7 +769,37 @@ DBG wrap=2 len=5 boundary=true  units=…|Identifier@97|SymbolToken@98      ← 
 **下一轮第一步**：给 `ClassMember.Process` 的收尾判据加上 `,`（成员表里它是分隔符 ✗），
 再看 `cache.d.ts` 的空壳是否消失 ✓；然后才是全语料 ✓ → 再谈 `Signature` 那一族 ✗。
 
-## 四十八、每步都要钉住的三件事
+## 四十九、空 `ReturnType` 的真因缩小到一处（第 447 轮）
+
+这一轮把上一轮的怀疑链路一条条排掉，现场证据都拿到了：
+
+| 假设 | 结论 |
+| --- | --- |
+| 成员没被入口接住（`match (…)` 这种名字与 `(` 之间有空格的写法） | **错** ✗ —— 入口日志显示 `char="("` 时尾是 `LineWrap|Identifier` ✓，成员**接住了** ✓（`cache.d.ts` 的 `match` 名字与参数表都正确 ✓） |
+| 逗号分隔的成员表让成员提前收尾 | **错** ✗ —— 给收尾判据加了 `,` 分支（照绿形状：`,` 不属于成员、作为裸符号留在体里 ✓），读数不变 ✗ |
+| 前导缩进那道换行被 `FollowedByParen` 当成边界 | **错** ✗ —— 加了 `ClassMember.IsLeadingWrap` 守卫（换行前面全是 trivia 就不算边界 ✓），读数不变 ✗ |
+
+**真正钉住的是这一条**（`TAIL` 现场，在 `MethodDeclaration.TryToClose` 里打）：
+
+```
+TAIL name=match len=5 units=Bracket|SymbolToken|Identifier|GenericType|SymbolToken
+                                        ↑ (        ↑ :      ↑ Promise     ↑ <…>        ↑ ,
+```
+
+⇒ 成员收尾时 `Data` **确实**是 `[Bracket, :, Promise, <…>, ,]` ✓，顶层那个 `:` 就在里面 ✓
+⇒ `tailStart = 1` ✓ ⇒ 我造的 `ReturnType` **不该**是空的 ✗ —— 可产物里它就是空的 ✗
+（`<MethodDeclaration name="match"><Bracket>…参数都在…</Bracket><ReturnType></ReturnType>` ✗）。
+
+⇒ **下一轮的第一件事**：看 `ReturnType` **自己那一趟收尾** ✗ —— 它有自己的 `ReorganizationQueue` ✓，
+很可能是它把这几个单元又搬出去/清掉了 ✗（于是类型节点既不在 `ReturnType` 里、
+也没能留在成员里 ✗ —— 全语料那 3304 个「多出来」多半就是这么来的 ✗）。
+具体做法：临时把 `returnType.TryToClose()` 前也打一行现场（`returnType.Data` 的长度与单元 ✗），
+以及看 `return-type.xl.md` 的重组规则对「已经被搬进来一次」的单元做了什么 ✗。
+
+**这一轮净值**：三处怀疑被证伪 ✓、真因缩到一处 ✗、主脚本又多了两条修正（`,` 分支 / `IsLeadingWrap` ✓，
+都在 `tmp/recon/build-member-state.cjs` 里可一键重建 ✓）。
+
+## 五十、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
