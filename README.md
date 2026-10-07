@@ -186,7 +186,7 @@ npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成�
   换来的是两个出口**同源**——`ToDictionary` 就是「这个节点在 XML 里的标签名与属性，加上子单元」，
   而 `Map` → 普通对象那一步由 `Token.ToJsonString` 收在一处（`JSON.stringify` 对 `Map` 静默给 `{}`，
   这是必须显式处理的一步，不是风格问题）。
-- **token 树的第三个出口是 TS 形状**（`typescript/ts-ast.xl.md` 的 `projectRoot` / `ToJsonText`，
+- **token 树的第三个出口是 TS 形状**（`typescript/print-ast-common.xl.md` 的 `projectRoot` / `ToJsonText`，
   见 [docs/ts-ast.md](docs/ts-ast.md)）。这一条**改掉了原先「除此之外的运行时代码里不再有别的投影」**
   这句口径：投影原来只活在测试侧（`tests/parse/ts-shape.mjs` 那 2464 行 JS），
   于是「投影的账」与「运行时的账」可以各算各的；现在投影搬进规范、只有一份实现，
@@ -334,10 +334,10 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 它原来是红的，红的不是解析出错，而是**产物的节点集合与 TypeScript 不是同一套**：语句 / 声明壳
 （`VariableDeclarationList` / `VariableStatement` / `ExpressionStatement` / `Block`）、
 类型引用（`TypeReference` 在 TS 那边是**同一区间两层节点**）、
-以及叶子按值分名（`NumericLiteral` / `StringLiteral`）——投影从 `typescript/ts-ast.xl.md`
+以及叶子按值分名（`NumericLiteral` / `StringLiteral`）——投影从 `typescript/print-ast-common.xl.md`
 逐块搬进各 token 的 `PrintAst` 之后收干净了。
 
-### 当前状态（第 599 轮实测）
+### 当前状态（第 600 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -347,7 +347,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:check` | **1071** 条用例，0 条不合格 |
 | `runtime:check` | **242 / 242** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1691 / 1713**（98.9%）：引擎 98.6% / 降级 99.5% / 标准库 98.1% / 端到端 99.4% |
+| `coverage` | **1693 / 1713**（99.0%）：引擎 98.6% / 降级 99.5% / 标准库 98.4% / 端到端 99.4% |
 | `npm run gates` | 上面六道一次跑完（实测墙钟 **~20s**） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：

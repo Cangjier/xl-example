@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.91,
+  "progressPercent": 98.99,
   "layers": [
     {
       "layer": "runtime",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 622,
+      "pass": 624,
       "blocked": 0,
-      "differ": 12,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 98.11
+      "coverage": 98.42
     },
     {
       "layer": "e2e",
@@ -145,12 +145,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: case conversion outside ASCII (there is no mapping table here)"
     },
     {
-      "id": "c371-stdlib-object-assign-getters-and-order",
-      "layer": "stdlib",
-      "title": "Object.assign：读源上的 getter、写目标上的 setter、键的顺序",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unreachable: installing a builtin never calls a function"
-    },
-    {
       "id": "c371-stdlib-map-set-size-and-keys",
       "layer": "stdlib",
       "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
@@ -197,12 +191,6 @@
       "layer": "stdlib",
       "title": "Function.prototype.bind：偏实参、this、new、length/name",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：a bound function must be an object (the engine passes the receiver as this)"
-    },
-    {
-      "id": "c371-stdlib-function-tostring-and-name",
-      "layer": "stdlib",
-      "title": "函数对象的 toString / name / length 三个内省口",
-      "detail": "stdout 不同：第 3 行：node «m get g» vs tsrun «m »"
     },
     {
       "id": "c371-stdlib-object-tostring-on-builtins",

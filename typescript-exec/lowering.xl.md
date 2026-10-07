@@ -4449,9 +4449,18 @@ this.LowerStatement(block);
 
 **只收「迭代循环」** ✓（`IteratorSlot >= 0` ✓）：普通 `for` / `while` 没有迭代器 ✓。
 
-**`throw` / `break` 那两档还没有接** ✗（**写在明处** ✓）：`throw` 出循环在 JS 里也要 close ✓
-（由那张「重抛」的网管 ✓，本仓还没有 ✓）；**带标签的 `break` 跳到外层循环** ✓
-中间夹着的迭代循环也要 close ✓，而 `LowerBreak` 现在只回填**最近那一层** ✓。
+**谁走这一条** ✓（第 598 轮把这句话写准 ✗）：`return` ✓ 与**不带标签的 `break`** ✓ 两档已经接了 ✓
+（后者见 `LowerIterationLoop` 的两条出口 ✓：`LeaveLoop` 把这一层的 `break` 回填到 close **之前** ✓，
+所以「迭代到头」跳过 close ✓、`break` 落在 close 上 ✓，判据
+`c304-rt-generator-early-break-finally` ✓）。**还差的是一张更小的清单** ✓：
+① `throw` 出循环 ✓（由那张「重抛」的网管 ✓，本仓还没有 ✓）；
+② **带标签的 `break` 跳到外层循环** ✓（中间夹着的那几层迭代循环也要 close ✓，
+而 `LowerBreak` 现在只回填**最近那一层** ✓）；
+③ **自己写了 `Symbol.iterator` 的对象** ✗——那一档由 `GetIterator` **先收集成数组** ✓
+（见 `builtins/install.xl.md` 那张表 ✓：引擎的 `iter_next` 只认数组 / 生成器 ✓），
+于是这里 close 的是**那个数组的游标** ✓（它的 `return` 是 `undefined` ⇒ 上面那一跳跳过 ✓），
+而用户写的那个 `return()` **一次都不被调** ✗（判据 `c371-rt-iteration-protocol-forms` ✓：
+Node 打 `closed` ✓，本仓不打 ✗——要修得先让引擎认识「自带 `next` 的迭代器对象」✓）。
 
 ```ts
 for (let i = this.Loops.length - 1; i >= 0; i--) {
@@ -5875,7 +5884,14 @@ for (let i = 0; i < properties.length; i++) {
     }
     const key = this.Reserve(1);
     this.Emit(Op.Const, key, this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(name))), -1, -1);
-    const half = this.LowerFunctionValue(property, kind === "GetAccessor" ? "<getter>" : "<setter>");
+    // **访问器那一半的显示名带 `get ` / `set ` 前缀**（第 599 轮）：JS 的
+    // `Object.getOwnPropertyDescriptor({ get g() {} }, "g").get.name` 是 **`"get g"`** ✓
+    //（`set` 同理 ✓，`HeapClosure.Name` 那一格同时是 `fn.name` 与 `console.log` 的显示名 ✓）。
+    // 原来传的是 `"<getter>"` / `"<setter>"`（以 `<` 开头的占位符 ⇒ 匿名 ⇒ 名字是空串 ✗），
+    // 判据 `c371-stdlib-function-tostring-and-name` 量到的就是它 ✓。
+    // **计算键那一档照旧匿名** ✗：它的名字要运行期才知道（那一支还在上面 ✓）。
+    const accessorWord = kind === "GetAccessor" ? "get " : "set ";
+    const half = this.LowerFunctionValue(property, accessorWord + UnitsText(this.KeyUnitsOf(name)));
     this.EmitDefineAccessor(object, key, half, kind === "GetAccessor");
     continue;
   } else if (kind === "SpreadAssignment") {
@@ -6816,7 +6832,18 @@ for (let i = 0; i < members.length; i++) {
   // 判据 `c305-std-function-method-length-and-name` 量到的就是它 ✓）。
   // **类名那一格没有别处指望它** ✓：`super` 的起点走的是 `SuperName` ✓（下面几行 ✓），
   // 与这一格无关 ✓。
-  const closure = this.LowerFunctionValue(member, computedName ? "<computed>" : TextOf(memberName));
+  // **访问器那一格要带 `get ` / `set ` 前缀** ✓（第 599 轮 ✓，与对象字面量那一处同一条 ✓）：
+  // `Object.getOwnPropertyDescriptor(C.prototype, "x").get.name` 在 JS 里是 **`"get x"`** ✓。
+  // **字符串名的后缀去引号** ✗（`TextOf` 给的是原文 ✓，带引号 ✓）——
+  // 对象那一处走 `KeyUnitsOf` ✓、这里只有字符串名要它 ✓（标识符与 `#私有名` 照旧 `TextOf` ✓）。
+  let memberDisplay = computedName ? "<computed>" : TextOf(memberName);
+  if (computedName === false && (kind === "GetAccessor" || kind === "SetAccessor")) {
+    const suffix = NodeKind(memberName) === "StringLiteral"
+      ? UnitsText(this.KeyUnitsOf(memberName))
+      : TextOf(memberName);
+    memberDisplay = (kind === "GetAccessor" ? "get " : "set ") + suffix;
+  }
+  const closure = this.LowerFunctionValue(member, memberDisplay);
   // **给刚排队的方法也盖上父类名**（第 104 轮）：构造函数在它自己那一处盖，
   // 而方法**以前没盖** ✗——于是方法体里的 `super.m(...)` 一降级就报
   // 「outside a derived class method」（`InSuperName` 挂在排队函数上，空串就是不认识 `super`）。

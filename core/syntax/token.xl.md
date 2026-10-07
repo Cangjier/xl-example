@@ -680,14 +680,14 @@ return JSON.stringify(Token.ToPlain(this.ToList()));
 ## method PrintAst:(ctx:any, v:any)=>any
 
 **第三个出口**：这个节点按**目标语言的形状**输出自己（本工程的目标是 `ts.createSourceFile`
-同形的 AST，见 `typescript/ts-ast.xl.md`）。
+同形的 AST，见 `typescript/print-ast-common.xl.md`）。
 
 前两个出口（`ToXmlString` / `ToDictionary`）说的是「这棵树长什么样」；这一个说的是
 「把这棵树投成**另一个形状**时，**我**该长成什么」。
 
 **基类不出形状**（`core/` 与语言无关，只有 `Token` 这一层模型）：默认返回 `undefined`，
 意思就是「我不自己出，交给语言层的通用支」——通用支做的事是**换名 + 提层 + 字段名**
-（三张表，见 `typescript/ts-ast.xl.md` 的 `KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND`）。
+（三张表，见 `typescript/print-ast-common.xl.md` 的 `KIND_BY_TAG` / `WRAPPER_FIELDS` / `FIELD_BY_KIND`）。
 
 **覆写它就是「这个 token 自己出这一格」**：与 `ToXmlString` / `ToDictionary` 完全同一种组织方式
 （基类给默认行为、各 token 覆写自己那一格），区别只在于这一个出口的目标形状是**语言层**定的。
@@ -702,7 +702,7 @@ return JSON.stringify(Token.ToPlain(this.ToList()));
   （`WithRangeOf` 在补坐标时把「这一格是哪个 token」记在字典格上，投影器据此分派）。
 
 **出的是「这一格」（对象），不是文本**：整棵树的文本由出口那一步统一串一次
-（`typescript/ts-ast.xl.md` 的 `ToJsonText`）——与 `ToXmlString` 的差别只是「拼对象」对「拼串」，
+（`typescript/print-ast-common.xl.md` 的 `ToJsonText`）——与 `ToXmlString` 的差别只是「拼对象」对「拼串」，
 而 XML 那边拼串是因为它的目标形状本来就是文本。
 
 ```ts

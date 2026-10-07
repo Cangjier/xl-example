@@ -221,7 +221,8 @@ return WordText(before) === "new" || WordText(before) === "abstract";
 把接口里成片的多行重载（`lib.dom.d.ts` 的 `addEventListener<…>(…)`）、
 `get x(): number` / `set x(v: number)` 这类一行一条的签名一起打掉，
 全语料「成员·方法类」真缺从 18 涨到 37 / 41（用例集因为是绿的所以看不出来，
-是 `tests/parse/gap-dashboard.mjs` 的逐节点对账抓出来的）。已回退。
+是当时那把逐节点对账的尺子抓出来的——它与其余十几把尺子已经随测试集收窄删除，
+见 [docs/typescript-parsing-gaps.md](../../../docs/typescript-parsing-gaps.md)）。已回退。
 
 要修得先能**区分「体在下一行」与「下一条成员」**——只往前看是分不出来的
 （`m(): T` 换行 `{ }` 与 `m(): T` 换行 `m2(): T` 在扫描到那里时长得一样）。
@@ -360,8 +361,8 @@ return tailEnd;
 **这里不能要求「参数表后面紧跟 `:`」**（试过、退回了）：`get length(): number` /
 `set length(v: number)` 这类**无参**签名的参数表是空括号，紧跟其后的确实是 `:`，
 但 `get x() { … }` 这种**带体**的访问器后面是 `{`——写成「必须见到 `:`」会把它们一起判否，
-全语料「成员·方法类」真缺从 18 涨到 41（用例集是绿的，靠
-`tests/parse/gap-dashboard.mjs` 的逐节点对账才抓出来）。判据只能看**尾部之后是什么**。
+全语料「成员·方法类」真缺从 18 涨到 41（用例集是绿的，靠当时那把逐节点对账的尺子
+才抓出来，它已经删了）。判据只能看**尾部之后是什么**。
 
 ```ts
 const current = Get(units, index);

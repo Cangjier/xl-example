@@ -3343,6 +3343,15 @@ if (id === ObjectAssign) {
       + "(boxing a primitive is not supported)");
   }
   const target = args[0];
+  // **往目标写的那条通道要给真的 `call`** ✗（第 599 轮 ✓）：JS 的 `Object.assign` 走
+  // **`[[Set]]`** ✓ ⇒ 目标上那个同名的**访问器 setter 会被调用** ✓
+  //（`Object.assign({ set s(v) { … } }, { s: 9 })` ✓）。原来几处都传 `NeverCall` ✗
+  //（那一格是给「装内建的时候」用的 ✓）⇒ 报
+  // `unreachable: installing a builtin never calls a function` ✓（**整份文件进不来** ✗，
+  // 判据 `c371-stdlib-object-assign-getters-and-order` ✓）。
+  // **没有通道时照旧 `NeverCall`** ✓：与「读来源的 getter 那一支」同一条可选服务的纪律 ✓
+  //（宿主都没接那一格 ✓，能做的只是别把一句假话当成结果 ✓）。
+  const targetWriter = call === null ? NeverCall : call;
   for (let s = 1; s < args.length; s++) {
     const source = args[s];
     // **字符串来源要按下标展开** ✓（第 304 轮修的 ✗）：JS 的 `Object.assign({}, "ab")`
@@ -3356,7 +3365,7 @@ if (id === ObjectAssign) {
       const sourceUnits = table.Get(source.Ref).AsString().Units;
       if (!room(PropertyCharge * sourceUnits.length)) throw new Error("out of room");
       for (let i = 0; i < sourceUnits.length; i++) {
-        SetProperty(room, NeverCall, table, target,
+        SetProperty(room, targetWriter, table, target,
           Value.FromString(table.CreateString(Units(String(i)))), Value.FromString(table.CreateString([sourceUnits[i]])));
       }
       continue;
@@ -3378,7 +3387,7 @@ if (id === ObjectAssign) {
       if (!room(PropertyCharge * items.GetLength())) throw new Error("out of room");
       for (let i = 0; i < items.GetLength(); i++) {
         if (items.IsHole(i)) continue;
-        SetProperty(room, NeverCall, table, target,
+        SetProperty(room, targetWriter, table, target,
           Value.FromString(table.CreateString(Units(String(i)))), items.GetAt(i));
       }
       continue;
@@ -3431,7 +3440,7 @@ if (id === ObjectAssign) {
         if (!room(PropertyCharge)) throw new Error("out of room");
         value = GetProperty(room, call, protos, table, source, keys[i]);
       }
-      SetProperty(room, NeverCall, table, target, keys[i], value);
+      SetProperty(room, targetWriter, table, target, keys[i], value);
     }
   }
   // **返回的是目标本身** ✓（JS 的口径 ✓，不是一份拷贝 ✓）。

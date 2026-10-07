@@ -188,7 +188,8 @@ if (bracketIndex < 0) {
 // 点号是模块路径的一部分、不是命名空间的层级。不区分就会把 `"./m"` 拆成 `["", "/m"]`、
 // 把 `"*.css"` 拆成 `["*", "css"]`，凭空多出一个同名内层命名空间
 // （实测产物 `<Namespace namespace="./m"><Namespace namespace="/m">…`，
-//  `gap-dashboard` 里那 4 个 `ModuleDeclaration 真多` 就是它）。
+//  `gap-dashboard`（当时那把逐节点对账的尺子，已随测试集收窄删除）里那 4 个
+//  `ModuleDeclaration 真多` 就是它）。
 const isStringName = current.Is("global") === false && Get(units, SkipNextTrivia(units, index)) instanceof String;
 if (current.Is("global")) {
   namespaceInstance.namespace = "global";

@@ -65,7 +65,8 @@ import { LineWrap } from "./line-wrap.xl.md"
   （它在表达式位，`IsDeclarationPosition` 判否），于是搜索一路退到列表开头；
 - 两条语句就被收进**同一个** `Statement`。
 
-实测（`tests/parse/boundaries.mjs`，对着 TypeScript 自己的 AST 数「相邻两条语句之间的边界有没有被横跨」）：
+实测（当时那把边界尺子——它对着 TypeScript 自己的 AST 数「相邻两条语句之间的边界有没有
+被横跨」，已随测试集收窄删除；读数留在下面这张表里）：
 
 | 口径 | 真实语料（`@types` / `typescript/lib` / `undici-types` / 产物 / 样本） | 用例语料 |
 | --- | --- | --- |

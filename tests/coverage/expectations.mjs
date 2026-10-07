@@ -1009,7 +1009,6 @@ export const EXPECTATIONS = {
   // ---- `Object.keys / values / entries` 落在**字符串**上（本仓报 `needs an object`）。
 
   // ---- `Object.assign` 往目标上的**访问器 setter** 写 ⇒ `unreachable: installing a builtin never calls a function`。
-  "c371-stdlib-object-assign-getters-and-order": { expect: "differ", why: "`Object.assign` 往目标上的**访问器 setter** 写 ⇒ `unreachable: installing a builtin never calls a function`。" },
 
   // ---- `Math.asinh` / `Math.acosh` / `Math.atanh` 不在那儿（`sinh`/`cosh`/`tanh` 是好的）。
 
@@ -1044,7 +1043,6 @@ export const EXPECTATIONS = {
   // ---- `Function.prototype.apply` 只吃真数组（类数组实参报 `needs an array`）。
 
   // ---- 访问器函数的 `name`：`getOwnPropertyDescriptor(o, "g").get.name` 应当是 `get g`。
-  "c371-stdlib-function-tostring-and-name": { expect: "differ", why: "访问器函数的 `name`：`getOwnPropertyDescriptor(o, \"g\").get.name` 应当是 `get g`。" },
 
   // ---- `encodeURI` 族在某一条上**挂住不返回**（退出码 `null` ⇒ 被 30s 超时杀掉）。
 

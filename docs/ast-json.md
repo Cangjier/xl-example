@@ -6,7 +6,7 @@
 >
 > **树现在有三个出口**：XML（默认）、AST JSON（本文）、**TS 形状**
 > （`cjcli --ts-ast`，规格见 [ts-ast.md](ts-ast.md)）。第三个出口挂在
-> [`typescript/ts-ast.xl.md`](../typescript/ts-ast.xl.md) 的 `projectRoot` 上——
+> [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md) 的 `projectRoot` 上——
 > 它读的是同一棵树的 `ToList()`，不是本文这份 JSON 的再加工。
 
 ---
@@ -14,7 +14,7 @@
 ## 1. 三个出口里的第二个
 
 同一棵 token 树有三个出口：XML 与 AST JSON 挂在 `core/syntax/token.xl.md` 的 `Token` 上，
-TS 形状挂在 `typescript/ts-ast.xl.md` 的 `projectRoot` 上（core 不依赖 typescript，
+TS 形状挂在 `typescript/print-ast-common.xl.md` 的 `projectRoot` 上（core 不依赖 typescript，
 所以第三个不在 `Token` 上）。
 
 | 出口 | 入口 | 形态 | 给谁 |
