@@ -6431,4 +6431,106 @@ ExpressionStatement{Decorator}` ✓，退出码 1 ✓）⇒ 改回来就绿 ✓�
    `decl-interface-export-default.ts`（`1 0 2` ✓）、`type-cond-multiline.ts`（`0 2 3` ✓）、
    `lex-regex-after-assign.ts`（`2 1 2` + 字段名 1 ✓）、`stmt-asi-return-newline-object.ts`（`2 0 1` ✓）。
 
+## 一百七十四、两份右端 + `IfCondition` 不收壳（第 572 轮）：1024 → **1027 / 1037**，真实语料漂移 −81
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第三轮** ✓（预算用完 ✓）。
+改的是**三个文件** ✓：`typescript/tokens/namespace-export.xl.md` ✓、
+`typescript/tokens/for/for.xl.md` ✓、`typescript/tokens/statement.xl.md` ✓（各一处 ✓）。
+
+### 一、三处现场（三份用例，各只差一两笔）
+
+| 文件 | 起点四栏 | 差在哪 |
+| --- | --- | --- |
+| `modules/mod-export-as-namespace.ts` | `0 1 1 0` | `export as namespace N;` 的 `NamespaceExportDeclaration` 右端少一格（`;` ✓），`[76,97)` vs TS `[76,98)` ✓ |
+| `expressions/expr-comma-operator.ts` | `0 1 1 0` | `for (…; …; …) s++;` 的 `ForStatement` 右端少一格（体那条语句的 `;` ✓），`[130,173)` vs TS `[130,174)` ✓ |
+| `statements/stmt-if-multiline-condition.ts` | `0 0 1 0` | 跨行写的条件被收成一个 `Statement` ✓ ⇒ 投影多一个 `ExpressionStatement`（`[93,101)`「`a &&` 换行 `  b`」✓） |
+
+### 二、前两处是**同一笔账**：`;` 只活在壳体的区间里
+
+两条规则的右端都取「最后一格的 `SourceRange.End`」✗，可那个 `;` **根本不在列表里** ✓ ——
+`Statement.FormFrom` 把语句终结符**切进壳体的区间**（`children.slice(0, length - 1)` ✓）
+却不放进 `Data` ✗（第 101 行写明的既有契约 ✓）。**修法与第 569 轮 `do-while` 一字不差** ✓：
+宿主是 `Statement` 时，它的右端比最后一格**多出来的那一格就是那个 `;`** ✓ ⇒ 借宿主的右端 ✓。
+
+两条**护栏**也照抄 ✓（都是实测踩出来的口径 ✓）：
+
+- **只认 `Statement`** ✗：别的宿主（`Root` / 各种体 ✓）的右端是**整个容器**的末尾 ✓，
+  照借会把单元一路拉到文件尾 ✓；
+- **只在被收的那一格是列表最后一格时才借** ✓（`NamespaceExport` 是名字那一格 ✓、
+  `For` 是体那一格 ✓）：后面还有单元说明列表里不止这一条 ✓，宿主的右端就不再是它的 `;` 了 ✓。
+
+`For` 那一处还要多一句 ✗：**只有「体是单语句」那一支才借** ✓ ——
+体是 `{ … }` 那一支的右端是 `}` ✓，TS 那边后面再跟一个 `;` 是**另一条空语句** ✓，
+借宿主的右端就把它吞进来了 ✓。
+
+### 三、第三处：只有 `if` 的条件是**自己吃括号**的
+
+`StatementBranch.Condition` 里早就有一条「`(` / `[` 括号里不收语句壳」✓（第 515 轮 ✓），
+可它问的是 `unit` **自己是不是 `Bracket`** ✗ —— `while` / `for` / `switch` / `do-while`
+四处的条件**先造一个 `Bracket`** ✓（再由各自的规则把内容搬进 `WhileCompare` / `ForCompare` /
+`SwitchCompare` / … ✓），所以那一条替它们挡住了 ✓（实测四种排版都不收壳 ✓）；
+**只有 `if` 这一处是 `IfCondition` 自己吃 `(` `)`** ✓（见 `if-condition.xl.md` ✓）
+⇒ 跨行条件被收成壳 ✓ ⇒ 多一个 `ExpressionStatement` ✗。补一条同名早退 ✓
+（条件里装的是**表达式** ✓，不是语句 ✓）。
+
+### 四、读数
+
+| 项 | 第 571 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1024 | **1027 / 1037** ✓（**+3** ✓） |
+| 缺节点 | 30（15 类） | **30**（15 类）✓（不动 ✓） |
+| 区间漂移 | 13（11 类） | **11**（9 类）✓（−2 ✓） |
+| 多出来的节点 | 27（19 类） | **24**（17 类）✓（−3 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21727 | **21726** ✓ |
+
+**逐文件**（`r571-a-perfile.txt` ↔ `r572-a-perfile.txt` ✓）：红的 **13 → 10** ✓，
+**变绿的三份正是那三份** ✓、**没有第四份变动** ✓。
+**真实语料（十六片合计）** ✓ —— 这一轮的大头在 `For` 那一笔上 ✓：
+
+| | 缺 | 漂 | 多 |
+| --- | --- | --- | --- |
+| 第 571 轮末 | 1355 | 477 | 881 |
+| 本轮 | **1355** ✓ | **396** ✓（−81 ✓） | **751** ✓（−130 ✓） |
+
+（`trivia 越界` 60 → 65 ✓，不计进四栏 ✓；**没有一片变差** ✓。）
+
+### 五、六道门（与第 570 / 571 轮逐项相同 ✓）
+
+`runtime:check` **239 / 242** ✓、`runtime:cli` **78 / 79** ✓、`cases:check` **1050 条 0 不合格** ✓、
+`coverage` **1629 / 1713（94.4%）** ✓、`samples` **三份全绿** ✓、`cases:tsast` **3 片通过** ✓。
+`xl build` 三个文件 **0 error、仍是那 3 条既有 W3102** ✓、`xl check` **0 error 3 warning** ✓、
+`tsc` **0 错** ✓。
+
+### 六、三轮到这里的账（第 570–572 轮，三份提交）
+
+| 轮 | 改了什么 | 完全一致 | 缺 / 漂 / 多 / 字段名 | 红文件 | 真实语料 缺 / 漂 / 多 |
+| --- | --- | --- | --- | --- | --- |
+| 起点（569 末） | — | 1018 | 35 / 15 / 43 / 2 | 19 | 1356 / 477 / 883 |
+| **570**（`fd4ab81`） | 装饰器单独占一行时换行不收壳 | 1022 | 30 / 15 / 31 / 2 | 15 | 1355 / 477 / 881 |
+| **571**（`01c2b50`） | 单语句体的 ASI 收尾（`Data` 里没有 `LineWrap` ✓） | 1024 | 30 / 13 / 27 / 2 | 13 | 1355 / 477 / 881 |
+| **572**（本条） | 两处右端借宿主的 `;` ✓ + `IfCondition` 不收壳 | **1027** | **30 / 11 / 24 / 2** | **10** | **1355 / 396 / 751** |
+
+**`samples` 三道在这一轮里由红转绿** ✓（第 570 轮那一笔 ✓，前后各量过一遍 ✓）；
+`coverage` **1629 / 1713** ✓ 与 `runtime:check` **239 / 242** ✓ 三轮一字未动 ✓
+（这三轮改的都是**形状的区间与容器归属** ✓，不动语言层 ✓）。
+
+### 七、下一块（给下一个对话）
+
+1. **`(` / `[` 那一档** ✓（最大的三块 ✓）：`am-block-lambda-array-compound.ts`（`5 2 4` ✓）、
+   `lex-generic-multiline-constraints.ts`（`7 1 1` ✓）、`stmt-asi-paren-call.ts`（`0 4 5` ✓）——
+   **机器层面**的一件事 ✓（收壳要发生在「下一个单元到了以后」✓，或让壳能**拆回**平列表 ✓），单独一轮 ✓；
+2. **`stmt-adversarial-shapes.ts`** ✓（`7 1 6 1` ✓，最重的一份 ✓）两笔：
+   `switch (x) { case 1: case 2: … }` 里**第一个 `case` 该自己收尾** ✗（实测两个 `case` 被并进
+   同一个 `CaseClause` ✓：`DRIFT CaseClause [740,747) vs [740,767)` ✓），
+   以及 `if (a) continue label1; else break label1` 那一处 ✓（`else` 掉进体里 ✓，见 `Field` 那一栏 ✓）；
+3. **`new.target`** ✓（`cls-super-newtarget.ts` / `decl-class-new-target.ts` 各缺 3 ✓）：
+   第 540 / 541 两轮试过两次、读数一个数字都没动 ✗ ⇒ 第三次先量「那个 `BinaryOperator` 里还剩什么」✓；
+4. **四份小账** ✓：`decl-interface-export-default.ts`（`1 0 2` ✓，`export default interface I {}` ✓）、
+   `type-cond-multiline.ts`（`0 2 3` ✓）、`lex-regex-after-assign.ts`（`2 1 2` + 字段名 1 ✓）、
+   `stmt-asi-return-newline-object.ts`（`2 0 1` ✓：`return` 换行后的 `{ a: 1 }` 该按**块**解析 ✓
+   —— 现在被当成「`a: 1` 的类型标注」✓ ⇒ 缺 `LabeledStatement` + 多一个 `LiteralType` ✓）。
+
 

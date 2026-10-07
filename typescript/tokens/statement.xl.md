@@ -1168,6 +1168,17 @@ if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteral
 if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as Bracket).startBracket === "(")) {
   return result;
 }
+// **`IfCondition` 里也不收** ✓（第 572 轮 ✓）：它就是**条件那一对括号** ✓ ——
+// `while` / `for` / `switch` / `do-while` 四处的条件**先造一个 `Bracket`** ✓，再由各自的规则
+// 把内容搬进 `WhileCompare` / `ForCompare` / … ✓ ⇒ 上面那一条「`(` 括号」早退替它们挡住了 ✗；
+// 只有 `if` 这一处是 `IfCondition` **自己吃 `(` `)`** ✓（见 `if-condition.xl.md` ✓）。
+//
+// **少了它会怎样** ✗（实测 ✓）：跨行写的条件被收成一个 `Statement` ✓
+// ⇒ 投影多一个 `ExpressionStatement` ✓（`stmt-if-multiline-condition.ts`：
+// `a &&` 换行 `b` 被包进壳里 ✓，四栏 `0 0 1 0` ✓）；而条件里装的是**表达式** ✗，不是语句 ✓。
+if (owner === "IfCondition") {
+  return result;
+}
 // **`{` 括号：值位的花括号里也不收语句壳** ✓（第 556 轮 ✓）：对象字面量 / 类型字面量里装的是
 // **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectCloseRule` 问的是**同一句** ✓
 //（`IsObjectLiteralBrace` ✓，见 `../text-common-util.xl.md` ✓）。

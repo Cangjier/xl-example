@@ -82,7 +82,21 @@ const result = new NamespaceExport(template);
 result.Parent = current.Parent;
 result.name = nameUnit.TempToString();
 result.SignIn(current.SourceRange.Start!);
-result.SignOut(nameUnit.SourceRange.End!);
+// **右端要把尾分号算上** ✓（第 572 轮 ✓，与第 569 轮 `do-while` 那一处同一条口径 ✓）：
+// `;` 是语句终结符 ✓ —— `Statement.FormFrom` 把它**切进壳体的区间**却不放进 `Data` ✗
+// ⇒ 这里只看得到名字那一格 ✓ ⇒ 右端比 TS 少一格 ✓
+//（实测 `export as namespace N;`：产物 `NamespaceExportDeclaration [76,97)`
+//  vs TS `[76,98)` ✓ —— 单看就是「漂移 1 + 多出 1」✓）。
+// **只在名字是列表最后一格时才借宿主的右端** ✓：宿主是 `Statement` 时它比名字多出来的那一格
+// 就是那个 `;` ✓；列表后面还有东西时不能借 ✗（那说明 `;` 之外还有内容 ✓），
+// 别的宿主（`Root` / 各种体 ✓）的右端是**整个容器**的末尾 ✗，照借会一路拉到文件尾 ✓。
+let end = nameUnit.SourceRange.End!;
+const owner = current.Parent;
+const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
+if (ownerEnd !== null && nameIndex === units.length - 1 && ownerEnd.Index > end.Index) {
+  end = ownerEnd;
+}
+result.SignOut(end);
 result.TryToClose();
 return ReplaceCountAt(units, index, nameIndex - index + 1, result);
 ```

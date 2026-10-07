@@ -126,12 +126,16 @@ const startIndex = index;
 let endIndex = currentIndex;
 currentIndex = SkipNextWrapSymbol(units, currentIndex);
 const forBody = result.CreateBody();
+// **体的右端**（第 572 轮 ✓）：两个分支各自赋值 ✓，兜底值只是让类型定下来 ✓
+//（`for` 那个词自己一定是闭着的 ✓）。见下面「体那一格单语句时」那一段说明 ✓。
+let tailEnd = unit.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
   forBody.SignOut(statementBracket.SourceRange.End!);
+  tailEnd = statementBracket.SourceRange.End!;
   endIndex = currentIndex;
 } else {
   endIndex = Statement.SearchStatementEnd(units, currentIndex - 1);
@@ -145,10 +149,24 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   }
   forBody.AddRange(TakeRange(units, currentIndex, endIndex - currentIndex + 1));
   forBody.SignIn(Get(units, currentIndex)!.SourceRange.Start!);
-  forBody.SignOut(Get(units, endIndex)!.SourceRange.End!);
+  // **体那一格单语句时，尾分号要算进来** ✓（第 572 轮 ✓，与第 569 轮 `do-while` 那一处同一条口径 ✓）：
+  // `;` 是语句终结符 ✓ —— `Statement.FormFrom` 把它**切进壳体的区间**却不放进 `Data` ✗
+  // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格 ✓
+  //（实测 `for (let i = 0, j = 3; i < j; i++, j--) s++;`：产物 `ForStatement [130,173)`
+  //  vs TS `[130,174)` ✓ —— 单看就是「漂移 1 + 多出 1」✓）。
+  // **只借宿主的右端** ✓：宿主是 `Statement` 时它比体多出来的那一格正是那个 `;` ✓；
+  // **只在体是列表最后一格时才借** ✗（后面还有单元说明壳里不止这一条 ✓）；
+  // 别的宿主（`Root` / 各种体 ✓）的右端是**整个容器**的末尾 ✗，照借会一路拉到文件尾 ✓。
+  tailEnd = Get(units, endIndex)!.SourceRange.End!;
+  const owner = unit.Parent;
+  const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
+  if (ownerEnd !== null && endIndex === units.length - 1 && ownerEnd.Index > tailEnd.Index) {
+    tailEnd = ownerEnd;
+  }
+  forBody.SignOut(tailEnd);
 }
 forBody.TryToClose();
-result.SignOut(Get(units, endIndex)!.SourceRange.End!);
+result.SignOut(tailEnd);
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - startIndex + 1, result);
 return index;
