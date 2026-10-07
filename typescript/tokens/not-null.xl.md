@@ -173,7 +173,14 @@ const current = Get(units, index);
 if (previous === null || current === null) {
   throw new Error("非空断言两侧缺单元");
 }
+// **新节点要继承被断言者的父亲**（第 592 轮 ✓）：`ReplaceCountAt` 只做 `splice` ✓，
+// 它**不设 `Parent`** ✗——不在这里补一句，新造的 `NotNull` 父亲是 `null` ✓。
+// `PropertyAccessCloseRule.Process` 一直都在设 ✓（`result.Parent = current.Parent` ✓），
+// 本条少了这一句 ⇒ 谁想问「这个 `NotNull` 住在哪」都问不到 ✓
+//（第 592 轮的链规则正是靠它分辨「在 `NullConditionalOperator` 里面」✓）。
+const holder = previous.Parent;
 const notNull = new NotNull(template);
+notNull.Parent = holder;
 notNull.SignIn(previous.SourceRange.Start!);
 notNull.SignOut(current.SourceRange.End!);
 notNull.AddAndCloseLast(previous);

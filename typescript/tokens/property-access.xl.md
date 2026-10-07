@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { IsTypeBracketPosition, IsTypeContainerUnit, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { IsTypeBracketPosition, IsTypeContainerUnit, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -125,6 +125,16 @@ if (unit instanceof Method) {
 if (unit instanceof Bracket) {
   return unit.endBracket === ")" || unit.endBracket === "]";
 }
+// **`NotNull` 也是链底，但在 `NullConditionalOperator` 里面不折**（第 592 轮 ✓）：
+// `o?.a!.b` 的 `?.a!.b` 整段是 NCO 的 `Data` ✓，里面的 `a ! . b` 折成
+// `PropertyAccess[NotNull(a), ., b]` 之后 ✗，投影侧那条 NCO 支要的形状是
+// 「`NotNull` 里面装着**名字**」✓（`print-ast-common.xl.md` 的 `a?.b!` 那一支 ✓）——
+// 折成链会把它读成「一个成员名」✓ ⇒ `o?.a!.b` 静默给 `undefined` ✗
+//（实测 `c305-ex-optional-chain-nonnull-mix`：node 给 `1` ✓）。NCO 里面的那一格照旧平级 ✓。
+if (unit.constructor.name === "NotNull") {
+  const holder:Token | null = unit.Parent;
+  return !(holder !== null && holder.constructor.name === "NullConditionalOperator");
+}
 const name = unit.constructor.name;
 return (
   name === "PropertyAccess" ||
@@ -135,6 +145,13 @@ return (
   name === "RegexToken"
 );
 ```
+
+**`NotNull` 也是链底**（第 592 轮 ✓）：`!` 比链**晚**一步成形 ✓（`NotNullCloseRule` 排在后面 ✓），
+收敛环会**再跑一整趟** ✓——第二趟时 `[NotNull, ., b]` 已就位 ✓，整条收成一个 `PropertyAccess` ✓。
+链的内容与原来平级那三格**逐字节相同** ✗（`ctx.Expression` 走的还是同一段折法 ✓），
+变的是**产物形状** ✓（`<PropertyAccess>` 里装着 `<NotNull>` ✓）——投影侧那几条
+「`NotNull` 接在链中间」的特判从此少了触发面 ✓。
+**唯一的例外是 `NullConditionalOperator` 里面** ✓（理由见上面那一格注释 ✓）。
 
 ## private method IsMemberUnit:(unit:Token | null)=>bool
 
@@ -221,6 +238,38 @@ while (true) {
     current = nextIndex;
     continue;
   }
+  // **`fn!()` 的调用括号**（第 592 轮 ✓）：`MethodCloseRule` 只认 `Identifier` 当被调用者 ✗，
+  // 所以紧跟在一个 `NotNull` 之后的 `()` 从来没被折进 `Method` ✓，一直是一格裸括号 ✓。
+  // 不吞它的后果是**链从这里断** ✗ ⇒ `fn!().k` 在产物里是
+  // `[NotNull(fn), PropertyAccess(Bracket(), ., k)]` ✓ ⇒ 投影把 `()` 当成链底 ✓
+  // ⇒ TS 侧那三格（`CallExpression` / `PropertyAccessExpression` / `Identifier(k)`）整片消失 ✗
+  //（`tests/parse/cases/expressions/zz-probe-nonnull-chain.ts` 实测缺 3 ✓）。
+  // **只吞「紧跟在 `NotNull` 之后」的那一格** ✗：`o["m"]()` 那一族的既有形状是
+  // `[o, Bracket([m]), Bracket(())]` ✓（三格平级、靠投影折 ✓），放开会换掉它 ✓。
+  //
+  // **还得看它后面接不接得上** ✗：调用括号是**链的最后一格**时不能吞 ✓——
+  // `b!()` 的既有形状是 `<Method name="">[NotNull(b, !), Bracket(空)]</Method>` ✓
+  // （`MethodCloseRule` 认那个 `NotNull` 当被调用者 ✓，投影里有一条**专门**处理它的支 ✓）。
+  // 吞成 `PropertyAccess[NotNull, Bracket()]` 之后 ✓：`Method` 认不出被调用者 ✗
+  // ⇒ 投影多出一个 `Identifier("")` ✓（实测 `expr-nonnull-callee.ts` / `expr-optional-call-nodes.ts`
+  // 各一处 ✓）。所以只有**后面还有链环**（`.` 成员或 `[` 下标）时才吞 ✓。
+  const here = Get(units, current);
+  const nextUnit = Get(units, nextIndex);
+  if (
+    nextUnit instanceof Bracket &&
+    nextUnit.startBracket === "(" &&
+    here !== null &&
+    here.constructor.name === "NotNull"
+  ) {
+    const tail = Get(units, SkipNextWrapSymbol(units, nextIndex));
+    const tailLinks =
+      this.IsIndexUnit(tail) || (tail instanceof SymbolToken && tail.Is("."));
+    if (tailLinks) {
+      current = nextIndex;
+      continue;
+    }
+    return current;
+  }
   const dot = Get(units, nextIndex);
   if (!(dot instanceof SymbolToken) || !dot.Is(".")) {
     return current;
@@ -270,6 +319,27 @@ while (true) {
 const base = Get(units, index);
 if (this.IsChainBase(base) === false) {
   return false;
+}
+// **`fn!()` 那一格要等下一趟** ✗（第 592 轮 ✓）：链底若是 `(` 括号、而它**前面紧挨着 `!`** ✓，
+// 那个 `!` 这一趟还没收成 `NotNull` ✓（`NotNullCloseRule` 排在本规则之后 ✓）。
+// 这一趟就把 `()` 折成链底 ⇒ 产物定型成 `[NotNull(fn), PropertyAccess(Bracket(), ., k)]` ✗
+// ⇒ 断言与调用分成两截 ✓、投影侧那三格整片消失 ✗（`fn!().k` 实测缺 3 ✓）。
+// 让路之后下一趟 `NotNull` 自己当链底 ✓、`ChainEndIndex` 把那个 `(` 吞进来 ✓。
+//
+// **但那个 `!` 必须是「非空断言」那一个** ✗：前缀取反后面也常跟一对括号 ✓
+// （`!(current as SymbolToken).Is("!")` ✓）。判据用 `IsChainBase` 问**断言者**那一格 ✓——
+// 它与 `NotNullCloseRule.Previous` 认的是同一族操作数 ✓（并且顺带排掉 `return` 这类语句关键字 ✓）。
+// 少了这一问，前缀取反那一格会让路 ✓ ⇒ 一元运算符先把 `!` 与括号折成一个单元 ✓
+// ⇒ 后面的 `.Is(…)` 再也接不上 ✓（实测 `dist/ts/typescript/tokens/not-null.ts`：漂 3 + 多 3 ✓）。
+if (base instanceof Bracket && base.startBracket === "(") {
+  const bangIndex = SkipPreviousWrapSymbol(units, index);
+  const before = Get(units, bangIndex);
+  if (before instanceof SymbolToken && before.Is("!")) {
+    const asserted = Get(units, SkipPreviousWrapSymbol(units, bangIndex));
+    if (this.IsChainBase(asserted)) {
+      return false;
+    }
+  }
 }
 const endIndex = this.ChainEndIndex(units, index);
 if (endIndex === index) {

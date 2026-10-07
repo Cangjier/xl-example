@@ -413,10 +413,33 @@ if (beforeIsElse && tail instanceof Identifier) {
   }
   const start = before!.SourceRange.Start!;
   const bodyStart = tail.SourceRange.Start!;
+  const bodyEnd = tail.SourceRange.End;
   tail.RemoveSelf();
   before!.RemoveSelf();
   this.NextSegment("else", start);
   this.MountStatement(context, bodyStart);
+  // **已经读进 `tail` 的那几个字、与手上这一格，都要补回给体** ✗（第 592 轮 ✓）。
+  //
+  // `else inQuotes = false;` 是读到 `a` 那一刻才判定「不是 `else if`」的 ✓，
+  // 于是 `tail` 是**两个字的 `ia`** ✓（`i` 是上一格读数进来的 ✓）——
+  // 只把 `bodyStart`（那个 `i`）喂给体、再把 `tail` 整个摘掉 ✗ ⇒ `a` 丢掉 ✓；
+  // 而当前这一格 `=` 由本向导消费掉、又**没有转给体** ✗ ⇒ 一起丢 ✓。
+  // 症状是**静默错值** ✗：体成了 `i` + `false` 两格 ✓（实测 `else ia = false;` 的产物是
+  // `<Identifier>i</Identifier><Identifier>false</Identifier>` ✓）⇒ 降级层报
+  // `name is not a local or a capture: iuotes` ✓（`c371-e2e-csv-full` 那一格 ✓）。
+  // 补法照 `IfStatement.CloseBody` 那一套 ✓：**按原序攒、倒序入队** ✓
+  //（`DrainMessages` 把每条 `ReloadMessage` 插在队首 ✓）——`owner` 取本向导 ✓，
+  // 那时挂载链已经指向新的体 ✓，字会由 `GuideToken` 转给它 ✓。
+  const returning: Source[] = [];
+  if (bodyEnd !== null) {
+    for (let i = bodyStart.Index + 1; i <= bodyEnd.Index; i++) {
+      returning.push(bodyStart.Document.At(i));
+    }
+  }
+  returning.push(source);
+  for (let i = returning.length - 1; i >= 0; i--) {
+    context.Messages.push(new ReloadMessage(this, this, returning[i]));
+  }
   return;
 }
 // **尾巴上的 `(` / `{` 不属于这条链** ✗ ⇒ 一个字都不落进来，原样交给宿主 ✓。

@@ -307,6 +307,16 @@ if (this.IsPrefixSymbol(current)) {
     && (this.IsPrefixSymbol(after) || this.IsPlusPlus(after) || this.IsPlusMinus(after))) {
     return true;
   }
+  // **尖括号断言当操作数** ✓（第 592 轮 ✓）：`!<boolean>b` 的 `after` 是那个类型段
+  // （`GenericType`）✓——它不在 `IsOperand` 的白名单里 ✗，于是整段三格
+  // （`SymbolToken(!)` + `GenericType` + `Identifier(b)`）平级留在产物里 ✓
+  // ⇒ 降级层报 `unimplemented: expression …` ✗（`c379-ex-angle-assertion-after-prefix-operator` ✓，
+  // node 给 `false` / `-1` ✓）。判据落在那**两格一起**是不是一个操作数上 ✓——
+  // 只有「类型段后面紧跟一个操作数」才算 ✓，`<T>` 别处的形态（泛型实参 / 泛型箭头）
+  // 后面跟的不是操作数 ✓，撞不到这一条 ✓。
+  if (after instanceof GenericType) {
+    return this.IsOperand(Get(units, SkipNextWrapSymbol(units, afterIndex)));
+  }
   return this.IsOperand(after);
 }
 if (this.IsPlusPlus(current)) {
@@ -401,7 +411,11 @@ if (after !== null
   this.Process(template, units, afterIndex);
   after = Get(units, SkipNextWrapSymbol(units, index));
 }
-if (this.IsOperand(after)) {
+// **尖括号断言那一支的入口** ✓（第 592 轮 ✓）：`IsOperand(GenericType)` 是假 ✗，
+// 所以判据要问「类型段**加上**后面那一格」是不是一个操作数 ✓——与 `Previous` 同一句 ✓。
+const assertedOperand =
+  after instanceof GenericType && this.IsOperand(Get(units, SkipNextWrapSymbol(units, afterIndex)));
+if (this.IsOperand(after) || assertedOperand) {
   // **被操作者后面还跟着调用括号时，那个括号属于这一元运算** ✓（第 309 轮 ✓）——
   // JS 里 `typeof o["m"]()` 是 **`typeof (o["m"]())`** ✓（一元运算的作用范围是整个调用 ✓），
   // 而这一支只往后吃**一个**单元 ✗ ⇒ 那对 `()` 留在外面**平级** ✓
@@ -419,6 +433,16 @@ if (this.IsOperand(after)) {
   // **它也是 JS 本来的口径** ✓：`typeof x` 换行再写 `(function(){})()`
   // 在 JS 里同样是「`x` 被调用」✓（ASI 在这里不插分号 ✓）。
   let operandEnd = afterIndex;
+  // **尖括号断言 `!<T>x`** ✓（第 592 轮 ✓）：操作数是**两格**——类型段 + 被断言的表达式 ✓
+  //（`Previous` 那一支已经问过「后面那一格是不是操作数」✓）。少了这一句，
+  // `Previous` 认得下而 `Process` 只吃一格 ⇒ 产物是 `[UnaryOperator(!, GenericType), Identifier(x)]` ✗。
+  const assertion = Get(units, operandEnd);
+  if (assertion instanceof GenericType) {
+    const assertedIndex = SkipNextWrapSymbol(units, operandEnd);
+    if (this.IsOperand(Get(units, assertedIndex))) {
+      operandEnd = assertedIndex;
+    }
+  }
   while (true) {
     const nextIndex = SkipNextWrapSymbol(units, operandEnd);
     const nextUnit = Get(units, nextIndex);

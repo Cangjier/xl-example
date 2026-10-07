@@ -18,14 +18,14 @@
 
 产物是 `dist/ts/typescript-exec/**`，与 `runtime/**` 一起被 `tsrun` 装起来跑。
 
-## 判据与当前读数（第 589 轮实测）
+## 判据与当前读数（第 592 轮实测）
 
 | 判据 | 命令 | 结果 |
 | --- | --- | --- |
 | 执行侧自测 | `npm run runtime:check` | **242 / 242**（值模型 / 堆 / GC / IR / 装载验证 / 执行器 / 属性 / 访问器 / 生成器 / 承诺 / 宿主） |
 | 直接执行 `.ts` | `npm run runtime:cli` | **79 / 79** 份与 `node <文件.ts>` 逐字节相同 |
-| 场景覆盖度 | `npm run coverage` | **1672 / 1713（97.3%）**：引擎 97.6% · 降级层 97.6% · 标准库 97.8% · 端到端 95.2% |
-| 六道门一次跑完 | `npm run gates` | 全绿（墙钟 ~20s） |
+| 场景覆盖度 | `npm run coverage` | **1676 / 1713（97.7%）**：引擎 98.0% · 降级层 98.3% · 标准库 97.8% · 端到端 96.4% |
+| 六道门一次跑完 | `npm run gates` | 全绿（墙钟 ~23s） |
 
 覆盖度的每一条都是**一份普通的、没为本运行器改过的 `.ts`**，分别交给 `node`（裁判）与
 `tsrun`（被测），比 stdout 逐字节 + 退出码。口径与矩阵见
@@ -33,7 +33,7 @@
 
 ## 当前的缺口
 
-**进不了门（10 条）**——降级期或语言层直接报错：
+**进不了门（8 条）**——降级期或语言层直接报错：
 
 | 层 | 用例 | 症状 |
 | --- | --- | --- |
@@ -41,14 +41,12 @@
 | runtime | `c371-rt-bind-call-apply-forms` | 调用了一个非闭包值 |
 | exec | `c371-ex-class-implements-and-interface` | `name is not a local or a capture: Shape`（接口不产生运行期值） |
 | exec | `c374-ex-throw-in-reentrant-callback` | 回调里再进一次原生回调并抛出，异常没穿回最外层 |
-| exec | `c379-ex-angle-assertion-after-prefix-operator` | `!<T>x` / `~<T>x`：`unimplemented: expression ExclamationToken` |
 | exec | `c382-ex-braced-escape` | `\u{…}` 花括号写法 |
 | e2e | `c305-e2e-event-emitter-generic` | `ast node ForOfStatement has no child initializer` |
 | e2e | `c371-e2e-observer-with-priority` | `unimplemented: class member CallExpression` |
-| e2e | `c371-e2e-csv-full` | `name is not a local or a capture` |
 | e2e | `c371-e2e-multi-source-merge` | `name is not a local or a capture` |
 
-**跑得出来但结果不同（31 条）**——按根子归类：
+**跑得出来但结果不同（29 条）**——按根子归类：
 
 - **原型与 `this`**：`super` / 箭头 / 解构 / 回调里的绑定；`instanceof` 与原型替换；
   方法与 `constructor` 的可枚举性；`Symbol.toStringTag` 与内建标签。

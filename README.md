@@ -104,13 +104,12 @@ node build/ts/tsrun.js tests/runtime/cases/01-values-and-operators.ts   # **直�
 **第三个出口是 TS 形状**（`cjcli <文件> --ts-ast`）：把同一棵树投成 **`ts.createSourceFile` 的形状**——
 `kind` 用**名字**（`"VariableStatement"` / `"Block"`…）、每个节点带 `pos` / `end`、字段名按 TS 的叫法
 （`statements` / `members` / `parameters`…），顶层就是那个 `SourceFile` 节点，可以直接和
-`ts.createSourceFile` 的转储对拍 / `diff`。投影写在
-[typescript/ts-ast.xl.md](typescript/ts-ast.xl.md)（模块级 `# const` / `# method`，逐个函数可读），
+`ts.createSourceFile` 的转储对拍 / `diff`。规格见 [docs/ts-ast.md](docs/ts-ast.md)；
 `unmapped`（投影没覆盖、原样透传的产物标签）走 **stderr**，所以 stdout 里只有形状本身。
-规格见 [docs/ts-ast.md](docs/ts-ast.md)。
-**第 77 轮起这个出口是逐节点的**（与另外两个出口同构）：`Token.PrintAst(ctx, v)` 是基类挂钩，
+
+出口是**逐节点的**（与另外两个出口同构）：`Token.PrintAst(ctx, v)` 是基类挂钩，
 各 token 覆写自己那一格（`ToXmlString` / `ToDictionary` 是同一个组织方式），没覆写的走语言层的
-通用支（换名 + 提层 + 字段名三张表）——**两条路的产物逐字节相同**，见 README 的「第 77 轮」。
+通用支（`typescript/print-ast-common.xl.md` 的三张表）——两条路的产物逐字节相同。
 
 **三个出口同源**：`CjcliParse` 造出根单元之后才分叉，XML / AST JSON / TS 形状看的是同一棵树，
 结构上没有第二条解析路径。
@@ -140,12 +139,10 @@ npm run cpp:check          # C++ 目标的产物自检（指纹 / include / 成�
 | 字节稳定性 | `npm run samples` | `samples/*.expected.tsast.json` 逐字节比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 | 用例体检 | `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） |
 
-原来的另外十七把尺子与探针（`diff` / `dashboard` / `matrix` / `lossless` / `structure` /
-`boundaries` / `noise` / `astjson` / `shapelint` / `sweep` / `recon` / `recon2` / `fuzz` / `fuzz3` /
-`align` 与 `tests/parse/` 下的调试脚本）**已删除**——它们量的是 XML 出口与 token 树的质量，
-不属于「PrintAst 与 TS 的 AST 完全一致」这条判据。逐轮的读数与它们的口径留在
-[docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)（本 README 的轮次只记到第 82 轮）
-与 git 历史里；那些**本轮之前**的章节引用到它们时，指的就是这些已删的脚本。
+原来的另外十七把尺子与探针（`diff` / `matrix` / `lossless` / `astjson` / `sweep` / `recon*` / `fuzz*` /
+`align` …）**已删除**——它们量的是 XML 出口与 token 树的质量，不属于「PrintAst 与 TS 的 AST
+完全一致」这条判据；逐轮的读数留在 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)
+与 git 历史里。
 
 `tsconfig.json` 的 `include` 是 `dist/**/*.ts`、`rootDir` 是 `dist`，所以 `dist/ts/cjcli.ts` 落在
 `build/ts/cjcli.js`——产物路径里的 `ts/` 来自**目标语言目录**，不是 `rootDir` 多出来的一层。
@@ -318,11 +315,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 ## 已知缺口
 
 > 判据只有**六道门**（`runtime:check` / `runtime:cli` / `cases:tsast` / `samples` / `cases:check` /
-> `coverage` ✓，一次跑完是 `npm run gates` ✓）。更早那十七把尺子 / 探针
-> （`diff` / `matrix` / `lossless` / `structure` / `boundaries` / `astjson` / `sweep` / `recon*` / `fuzz*` /
-> `align` …）**已随测试集收窄删除** ✓，逐轮的读数留在
-> [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md) 与 git 历史里 ✓。
-> 这一节写**当前**的判据与状态 ✓。
+> `coverage`，一次跑完是 `npm run gates`）；更早那些尺子与探针已随测试集收窄删除。
+> 这一节写**当前**的判据与状态。
 
 **主判据：与 `ts.createSourceFile` 逐节点对拍**：
 
@@ -333,7 +327,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `npm run samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 
 产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后**按
-**逐文件完全一致**算：**全语料 1461 / 1461**（四方向 + 未映射 + 缺 range + 区间越界**七项全 0**）。
+**逐文件完全一致**算：**全语料 1462 / 1462**（四方向 + 未映射 + 缺 range + 区间越界**七项全 0**）。
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
@@ -343,18 +337,18 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 以及叶子按值分名（`NumericLiteral` / `StringLiteral`）——投影从 `typescript/ts-ast.xl.md`
 逐块搬进各 token 的 `PrintAst` 之后收干净了。
 
-### 当前状态（第 590 轮实测）
+### 当前状态（第 592 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1461 / 1461 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1462 / 1462 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1060** 条用例，0 条不合格 |
+| `cases:check` | **1061** 条用例，0 条不合格 |
 | `runtime:check` | **242 / 242** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1672 / 1713**（97.3%）：引擎 97.6% / 降级 97.6% / 标准库 97.8% / 端到端 95.2% |
-| `npm run gates` | 上面六道一次跑完（实测墙钟 **~20s**） |
+| `coverage` | **1676 / 1713**（97.7%）：引擎 98.0% / 降级 98.3% / 标准库 97.8% / 端到端 96.4% |
+| `npm run gates` | 上面六道一次跑完（实测墙钟 **~23s**） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 
