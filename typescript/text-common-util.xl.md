@@ -161,6 +161,77 @@ const next = document.GetValue(index + 1);
 return next >= "0" && next <= "9";
 ```
 
+# method DecideMemberList:(host:Token)=>bool
+
+`host` 里正在打开一个 `{`，它是不是一张**成员列表**（类体 / 接口体 / 枚举体）？
+
+**为什么要有这一条** ✗：`if (a) { }` 与类里面的 `if(a) { }` **形状一模一样** ✓
+（后者是一个名叫 `if` 的方法 ✓——保留字当成员名在 TS 里合法 ✓，实测 `class A { if(a) {} }`
+产物是 `<MethodDeclaration name="if">` ✓，而 `const o = { if(a) {} }` 产物是 `<IfSet>` ✓）。
+
+今天分它们的是**重组顺序** ✗：`ClassReorganization` 排第 2 ✓、`MethodDeclarationReorganization` 排第 5 ✓，
+而 `IfSetReorganization` 在末段 ✓——所以轮到 `MethodDeclaration` 时父单元**已经**是 `ClassBody` 了 ✓。
+可是**字符流走到 `if` 那一刻，这三条路的信息一条都还不存在** ✗
+（`tokens/not-null.xl.md` 那一节记着同一条实测：位次靠前的规则问「父亲是不是 `ClassBody`」，一次都没命中 ✓）。
+
+所以这一条**只读平铺的前文词** ✓——与 `DecideBracketContext` 同一个手法、同一条安全理由 ✓
+（词法阶段单元是**自上而下**挂上去的 ✓，前文全都就位 ✓；这里不做任何「这是不是类型节点」的分类 ✓，
+那一种才是随时序变化的 ✗）。结论在**开括号那一刻**算一次就定下 ✓，之后不随时间变 ✓。
+
+判据：从 `{` 的位置**往回**扫 `host.Data` ✓——
+
+- 撞上 `;` ⇒ 不是 ✓；
+- 撞上**一个花括号**（上一段的 `}` / 类体 / 对象字面量）⇒ 不是 ✓
+  （`class A { } \n if (a) { }` 里那个 `if` 的 `{` 往回扫会撞上前一个类体 ✓，不该认成成员列表 ✓）；
+- 撞上 `class` / `interface` / `enum` 这三个词 ⇒ **是** ✓；
+- 其余（名字、`.`、`extends` / `implements` 那一段、`<T>` 那一段、`export` / `declare` / `abstract` / `const`，
+  **以及圆括号 / 方括号**）⇒ 继续往前 ✓；
+- 扫到头 ⇒ 不是 ✓（保守：与今天的默认一致 ✓）。
+
+**圆括号 / 方括号是透明的，这一条是探针量出来的** ✗：第一版把它们也当成截断 ✗，
+于是 `class A extends f() { }` / `class A extends (B) { }` 那一族**五例假阴性** ✓
+（`cls-extends-expression` / `decl-class-extends-call` / `decl-class-extends-parenthesized` /
+`type-heritage-clause` / `type-new-nodes-adversarial` ✓，1228 份文件、4884 个成员体里就这 5 例 ✓）。
+继承段里的括号是**表达式**的一部分 ✓，它截不断「这一段还是类头」这件事 ✓；
+而 `function f() {` 那一侧跨过圆括号之后撞到的是 `function` ✓（不在名单里 ✓）⇒ 仍然不是成员列表 ✓。
+
+**`namespace` 故意不在名单里** ✗：命名空间体是**语句列表** ✓，
+`namespace N { if (a) {} }` 今天就是一个 `IfSet` ✓（实测 ✓）。
+**类型字面量也不靠这一条** ✗：`type X = { if(a): void }` 那个 `{` 的 `Context` 已经是 `"type"` 了 ✓，
+由调用方拿 `Context` 挡 ✓。**对象字面量同样不挡** ✗：`const o = { if(a) {} }` 今天产物就是 `IfSet` ✓
+（实测 ✓）——那是既成行为 ✓，这一条不改它 ✓。
+
+```ts
+let i = host.Data.length - 1;
+while (i >= 0) {
+  const item = Get(host.Data, i);
+  if (item === null || item instanceof LineWrap) {
+    i = i - 1;
+    continue;
+  }
+  if (item instanceof Bracket) {
+    if (item.startBracket === "{") {
+      return false;
+    }
+    i = i - 1;
+    continue;
+  }
+  if (item instanceof SymbolToken) {
+    if (item.TempToString() === ";") {
+      return false;
+    }
+    i = i - 1;
+    continue;
+  }
+  const word = item instanceof Identifier ? item.TempToString() : item instanceof Keyword ? item.Value : "";
+  if (word === "class" || word === "interface" || word === "enum") {
+    return true;
+  }
+  i = i - 1;
+}
+return false;
+```
+
 # method DecideBracketContext:(host:Token, openChar:string)=>string
 
 `host` 这个单元里正在打开一个 `{` 或 `[`（`openChar`），它在**类型位**还是**值位**上？返回 `"type"` / `"value"` / `""`。
