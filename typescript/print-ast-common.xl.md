@@ -1343,7 +1343,9 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
       }
       const statement = j < items.length ? projectNode(items[j], ctx, parentKind) : undefined;
       if (statement !== undefined) {
-        let wrapped = statement;
+        // **体必须是「语句」** ✓（第 566 轮 ✓，与 `projectStatement` 那一支同一句 ✓）：
+        // 这一路是根列表 / 段 ✓，手里没有语句壳 ✓ ⇒ 终点就取体自己的 ✓。
+        let wrapped = asStatement(statement, statement.end ?? 0);
         for (let k = labels.length - 1; k >= 0; k--) {
           wrapped = labeled(labels[k], wrapped, ctx);
         }
@@ -1423,6 +1425,44 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
     i++;
   }
   return out;
+```
+
+# private method asStatement:(body:any, end:int)=>any
+
+**标签右边那一格必须是「语句」** ✓（第 566 轮 ✓）：TS 的 `LabeledStatement.statement` 是
+`Statement` ✓ —— 体是**表达式**时（`done: f()` ✓、`{ a: 1 }` 里的 `a: 1` ✓）那边是
+`ExpressionStatement > 表达式` ✓，而产物给的是「`Label` 平级兄弟 + 裸表达式」✗
+⇒ 少一整层壳 ✓（实测三份用例各缺一个 `ExpressionStatement` ✓：
+`stmt-label-statement` ✓、`am-object-vs-block` ✓、`stmt-object-vs-block` ✓）。
+
+**判据是 kind 的后缀** ✓ 而不是那张表 ✓：`STATEMENT_KINDS` 是「**单个子单元**是它时不再套壳」的
+名单 ✓，它漏了 `ExpressionStatement` 自己 ✓、`ForInStatement` ✓、`WithStatement` ✓ 这些
+（`projectStatement` 那一支只在「`kids.length === 1`」时才用它 ✓，这里的体是**投影结果** ✓，
+范围大得多 ✓）。TS 那边「本来就是语句」的 kind 只有三类 ✓：`*Statement` ✓、`*Declaration` ✓、
+以及 `Block` / `ModuleBlock` ✓ —— 表达式 kind 一个都不沾这三类 ✓，所以后缀判据不会误判 ✓。
+
+**`end` 由调用方给** ✓：壳体那一路（`projectStatement` ✓）给的是
+`max(壳的投影终点, 体的终点)` 再吃一个尾分号 ✓ —— `done: f();` 的
+`ExpressionStatement` 在 TS 那边**含那个 `;`** ✓；根列表那一路（`projectEach` ✓）没有壳 ✓，
+就从体自己的终点算 ✓。
+
+```ts
+  if (body === undefined || body === null) {
+    return body;
+  }
+  const kind = body.kind;
+  if (typeof kind !== "string") {
+    return body;
+  }
+  if (
+    kind === "Block" ||
+    kind === "ModuleBlock" ||
+    kind.endsWith("Statement") ||
+    kind.endsWith("Declaration")
+  ) {
+    return body;
+  }
+  return { kind: "ExpressionStatement", expression: body, pos: body.pos, end };
 ```
 
 # private method labeled:(labelUnit:any, statement:any, ctx:any)=>any
@@ -1657,7 +1697,13 @@ new Set([
     }
     const body = at < kids.length ? projectNode(kids[at], ctx) : undefined;
     if (body !== undefined) {
-      let wrapped = body;
+      // **体必须是「语句」** ✓（第 566 轮 ✓）：表达式要套一层 `ExpressionStatement` ✓
+      //（`done: f()` / `a: 1` ✓）；终点取壳体与体里更远的那个 ✓、再吃一个尾分号 ✓
+      //（`done: f();` 的那层壳在 TS 那边含 `;` ✓，见 `asStatement` ✓）。
+      let wrapped = asStatement(
+        body,
+        semicolonEndOf(Math.max(stmtEndOf(v, ctx), body.end ?? 0), ctx),
+      );
       for (let k = labels.length - 1; k >= 0; k--) {
         wrapped = labeled(labels[k], wrapped, ctx);
       }

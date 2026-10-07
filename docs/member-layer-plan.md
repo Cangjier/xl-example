@@ -5797,4 +5797,104 @@ unit.CloseRuleQueue = unit.Template.CloseRuleTemplate.Get(unit.constructor);
    第 561 轮起只剩这一趟 ✓、第 555 轮又改成「照单元自己的队列跑」✓ ——
    「每个单元只在自己那一趟里收」那一条可以补 ✓，撤深度界的旧账见第 497 轮 ✓（撤之前先量 ✓）。
 
+## 一百六十八、`ast100%` 主线一轮（第 566 轮）：标签右边那一格必须是「语句」（1007 → 1010）
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（第 561–563 轮拆机器 ✓、
+第 564 轮删死规则 ✓、第 565 轮删死诊断位 ✓）、**每一轮一次提交** ✓，`ast100%` 是**方向** ✓ ——
+第 564 / 565 两轮读数一字未动 ✓（它们拆的是机器 ✓），所以这一轮回到**数字**上 ✓。
+
+### 一、怎么挑的：把「只差一个节点」的文件先列出来
+
+`node ./tests/parse/ts-ast.mjs cases --per-file` ✓ 把 30 个不绿的文件按四个方向列出来 ✓，
+挑其中「缺 1 / 漂 0 / 多 0」的四份 ✓ —— 一份文件只差一个节点时，修法最容易被读数验证 ✓：
+
+| 文件 | 缺 | 漂 | 多 | 差的那一个 |
+| --- | --- | --- | --- | --- |
+| `statements/stmt-label-statement.ts` | 1 | 0 | 0 | `ExpressionStatement [66,69) "f()"` |
+| `ambiguous/am-object-vs-block.ts` | 1 | 0 | 0 | `ExpressionStatement [33,34) "1"` |
+| `statements/stmt-object-vs-block.ts` | 1 | 0 | 0 | `ExpressionStatement [253,254) "1"` |
+| `statements/stmt-if-multiline-condition.ts` | 0 | 0 | 1 | `EXTRA ExpressionStatement [93,101) "a &&"` |
+
+**前三份是同一个形状** ✓：`done: f()` / `{ a: 1 }` ✓ —— 产物那边标签是
+「`Label` 平级兄弟 + 裸表达式」✓（`<Statement><Label label="done" /><Method name="f" /></Statement>` ✓），
+而 TS 的 `LabeledStatement.statement` 是**语句** ✓ ⇒ 体是表达式时那边还有一层
+`ExpressionStatement` ✓ ⇒ 前三份各缺的就是它 ✓。
+
+### 二、改了什么（`typescript/print-ast-common.xl.md` 一处）
+
+1. **新增 `asStatement(body, end)`** ✓：kind 是「本来就是语句」的三类就原样返回 ✓
+   —— `*Statement` ✓（含 `ExpressionStatement` 自己 ✓、`ForInStatement` ✓、`WithStatement` ✓）、
+   `*Declaration` ✓、`Block` / `ModuleBlock` ✓；其余（表达式）套一层
+   `{ kind: "ExpressionStatement", expression: body, pos: body.pos, end }` ✓。
+   **判据用后缀而不是 `STATEMENT_KINDS`** ✗：那张表是「**单个子单元**是它时不再套壳」的名单 ✓，
+   只在 `projectStatement` 的 `kids.length === 1` 那一支里用 ✓，它漏了上面那三种 ✓；
+   而这里手里拿的是**投影结果** ✓，范围大得多 ✓。表达式 kind 一个都不沾那三类后缀 ✓。
+2. **标签那两条路都接上** ✓：`projectStatement` 里那条（壳体 ✓，终点取
+   `max(壳的投影终点, 体的终点)` 再吃一个尾分号 ✓ —— `done: f();` 的那层壳 TS 那边含 `;` ✓）、
+   `projectEach` 里那条（根列表 / 段 ✓，没有壳 ✓，终点取体自己的 ✓）。
+
+### 三、读数
+
+| 项 | 第 565 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1007 | **1010 / 1037** ✓（**+3** ✓） |
+| 缺节点 | 57（21 类） | **54**（21 类）✓（−3 ✓） |
+| 区间漂移 | 30（17 类） | **30**（17 类）✓（不动 ✓） |
+| 多出来的节点 | 71（30 类） | **73**（30 类）✗（**+2** ✗，见下 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21736 | **21736** ✓ |
+
+**逐文件**（`tmp/recon/r566-c.txt` ↔ `r565-b.txt` 的逐文件表 ✓）：**三份变绿** ✓
+（正是上表前三份 ✓，`1/0/0/0 → 四栏全零` ✓）、**27 份仍红** ✓（原来 30 份 ✓）。
+**六道门逐项与第 565 轮相同** ✓（`runtime:check` 239 / 242 ✓、`runtime:cli` 76 / 79 ✓、
+`cases:check` 1050 条 0 不合格 ✓、`coverage` 1608 / 1713（93.0%）✓、`samples` 仍是那两处 ✗）、
+`xl build` 1 文件 ✓、`tsc` 0 错 ✓。**只有 `cases:tsast` 这一道变了** ✓（它就是上表 ✓）。
+
+### 四、那 **+2** 是什么（已定位 ✓，留给下一轮 ✓）
+
+代价落在两份**本来就不绿**的类型用例上 ✓（`types/type-fn-return-typeliteral.ts` ✓、
+`types/type-combination-adversarial.ts` ✓，各多一个 `ExpressionStatement` ✓）。
+**根因不在本轮改的那一处** ✓，是另一笔旧账 ✓，XML 直接看得见 ✓：
+
+    <TypeLiteralBody>
+      <Statement>                        ← 成员被包进了一个语句壳 ✗
+        <Label label="a" />              ← 于是它被当成标签 ✗
+        <Identifier>number</Identifier>
+      </Statement>
+      <Field name="b" modifiers="">…</Field>
+    </TypeLiteralBody>
+
+**它为什么会长成这样** ✓：类型体里带分号的成员（`a: number;` ✓）会触发 `\n` 那一档的造壳
+（`StatementBranch` ✓）—— `Statement.FormFrom` 里那道「成员位置不收壳」的闸 ✓
+（`ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody` ✓，第 503 轮 ✓）只管 `;` 那一档 ✓，
+**管不住 `\n` 那一档** ✗ ⇒ 壳里的 `a` `:` `number` 三条正好全中 `LabelCloseRule.Previous` 的判据 ✗
+⇒ 成员变成「标签 + 裸类型」✗ ⇒ `Field` / `PropertySignature` 成形不了 ✓
+（缺 `PropertySignature` + 缺它子树里的 `infer` ✓）。**这一轮把那层壳照语句投了** ✓
+⇒ 多出来的那个 `ExpressionStatement` 是本轮**忠实投影**的结果 ✓，病根还在造壳那一侧 ✓。
+
+**试过一个守卫、按读数删掉了** ✗：在 `LabelCloseRule.Previous` 里加「壳的父单元是
+`TypeLiteralBody` / `InterfaceBody` / `ClassBody` / `EnumBody` 就拒」✓ ——
+`xl build` + `tsc` 都过 ✓，可**读数一个数字都没动** ✗（1007→1010 那三个数与 +2 全部照旧 ✓）
+⇒ 说明标签成形那一刻 `Parent` 链上还不是那个单位 ✓（`MoveDataTo` 把它搬进 `TypeLiteralBody`
+之前壳就关过了 ✓）⇒ 无效代码不留 ✓（与本仓「拆不动的就回滚」同一条口径 ✓）。
+
+**下一轮从那一侧切** ✓：让 `\n` 那一档的造壳也问一遍「这个容器装的是成员还是语句」✓
+（`FormFrom` 那道闸已经在 ✓，缺的是 `StatementBranch` 也问 ✓）——
+判据是现成的 ✓（`IsStatementList` / `IsObjectLiteralBrace` 那一族 ✓，见 `text-common-util.xl.md` ✓）。
+
+### 五、下一块（给下一个对话 ✓）
+
+1. **类型体成员不收语句壳** ✓（上面第四节 ✓）：预计把那两份各清一处 ✓（缺 → 少 ✓、多 → 少 ✓）；
+2. **ASI 的右半截** ✓（第 164 节第 1 条 ✓，仍是最大的一块 ✓）：`expr-as-leading-pipe-union` ✓、
+   `type-union-in-as-expression` ✓、`type-union-leading-bar` ✓（三份都是 `2 缺 5 漂 7 多` ✓）、
+   `stmt-asi-array-then-dot` ✓、`stmt-asi-paren-call` ✓ —— 判据在 `Statement.ContinuesExpression` ✓，
+   缺的是「换行那一刻还没有下一个单元」✗；
+3. **`stmt-adversarial-shapes.ts`** ✓（`7 2 7 1` ✓，最重的一份 ✓）：一壳两段头 + do-while 尾分号 ✓，
+   其中 do-while 那一处与 `stmt-do-while-semicolon.ts`（`0 1 1` ✓）**同一个形状** ✓ ——
+   `DoWhileCloseRule` 里那句「结尾多收一个可选的 `;`」✓ 在这一版拿不到那个 `;` ✗
+   （`FormFrom` 把它从 `Data` 里切掉了 ✓，只留在壳体的区间里 ✓）⇒ 两份可以一起修 ✓；
+4. `lex-generic-multiline-constraints.ts` ✓（`7 1 1` ✓：折行的类型参数表 ✓）、
+   `am-block-lambda-array-compound.ts` ✓（`5 2 4` ✓）、`lex-regex-after-assign.ts` ✓（`2 1 2` + 字段名 1 ✓）。
+
 
