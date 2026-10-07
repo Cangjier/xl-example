@@ -69,6 +69,23 @@ if (source.Value === "}") {
 return BranchStates.Undo;
 ```
 
+## method Owns:(source:Source)=>bool
+
+当前字符是不是本单元**配对的 `}`**。
+
+判据与 `ExitOrPre` 那一句**一字不差** —— 两处说的是同一件事，写成两份只是为了不必让子单元去调
+`ExitOrPre`（那是「处理」不是「询问」）。**这是给挂在本单元下面的解析期单元用的**：
+`IfBody` 一旦有了挂载单元，它自己就**再也看不到字符**了，连 `ExitOrPre` 都不会跑
+（`UnitToken.Process` 第一句就转给挂载单元）⇒ `if (a) { if (b) f() }` 里那个内层单语句体
+必须能问出「外层这个 `}` 归不归它」——不然它会把 `}` 当成体里的一个符号吃掉。
+
+**以上**（`Bracket`）**与以下**（`IfBody`）**是同一个契约的两份实现**：`Bracket` 比的是它自己的
+`endBracket`，这里写死 `}`。
+
+```ts
+return source.Value === "}";
+```
+
 ## protected method Default:(context:SyntaxContext, source:Source)=>void
 
 兜底处理：**空实现** ✓（与 `Bracket.Default` 同款 ✓）。不写方法体，打印器产出空方法。

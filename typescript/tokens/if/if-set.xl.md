@@ -234,6 +234,34 @@ ifSet.MountCondition(source);
 当前那一段 ✓（`if` / `else if` / `else` 各一段 ✓）。**段自己也不吃字符** ✓——
 它只是「条件 + 体」的那一格 ✓，`MountedUnit` 指在它身上，字符再由它转给里面的单元 ✓。
 
+## field Returned:bool = false
+
+本向导**已经把尾巴交还给宿主、退场了** ✓。
+
+**为什么要有这个标记** ✗（本轮量出来的）：`GiveBack` 只把自己从挂载链上摘掉 ✓
+（`Quit()` 清的是 `Parent.MountedUnit` ✓），而**已经排进位置队列的那些位置还带着
+「处理者 = 本向导」** ✗（`ReloadMessage` 的 `ProcessOwner` 在入队那一刻就定死了 ✓）——
+它们是 `IfStatement.ExitOrPre` 交回来的那一串字 ✓。于是向导退场之后，
+**同一个词的剩下几个字仍然投到本向导手里** ✓ ⇒ 被一个一个重新词法化 ✓
+⇒ 半个词 `i` 与剩下那半 `f` 分成两个 `Identifier` ✓
+（实测 `if (a) f()` 换行 `if (b) g()`：第二条 `if` 变成 `<Identifier>i</Identifier>` + `<Method name="f">` ✗）。
+
+**所以退场之后一律转投宿主** ✓（`Parent` 就是宿主 ✓；那时宿主自己的 `MountedUnit` 已经是空的 ✓，
+它的队列会照常接手 ✓）。**它是终止的** ✓：只有「尾巴不是 `else`」那一支才会置它 ✓，
+置了之后这一条 `if` 链就结束了 ✓，不会再有本链的字符 ✓。
+
+## method Process:(context:SyntaxContext, source:Source)=>void
+
+处理一个字符：**已经交还并退场了就转投宿主** ✓，否则走 `GuideToken` 那一套调度 ✓。
+
+```ts
+if (this.Returned && this.Parent !== null) {
+  this.Parent.Process(context, source);
+  return;
+}
+super.Process(context, source);
+```
+
 ## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
 **手上没有单元在吃时，由本类定形状** ✓（用户口径：判定全靠 `Data` ✓；**`last` 不许是 `Bracket`** ✗
@@ -486,6 +514,7 @@ if (this.SourceRange.End === null && lastSegment !== undefined && lastSegment.So
   this.SignOut(lastSegment.SourceRange.End);
 }
 this.Quit();
+this.Returned = true;
 if (consumed === false) {
   context.Messages.push(new ReloadMessage(host, this, source));
 }

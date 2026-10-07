@@ -80,14 +80,18 @@ if (last !== null && last.Closed === false && last.SourceRange.Start !== null &&
 - 发的是**字**（逐个位置 ✓），不是把单元搬走 ✗——外层要重新词法化它们 ✓。
 
 ```ts
+// **外层块的收尾符也要认**（本轮量出来的）：`if` 的单语句体可以一直写到**外层那个 `}`** 为止
+//（`else break label1 }` —— JS 里 `}` 就把这条语句收住了，根本不需要分号 / 换行）。
+// 本工程本来就有这条契约：`Token.Owns` 问的就是「这个字符归不归你」，
+// `Bracket` 覆写了它（`source.Value === this.endBracket`）—— 只是**没人问过**。
+// 不问的后果：那个 `}` 被当成体里的一个 `SymbolToken` 吃掉 ✗
+// ⇒ 整条 `for` / 标签语句一直拖到下一个 `}` ✓
+//（实测 `stmt-adversarial-shapes.ts`：`LabeledStatement` 从 `[586,658)` 变成 `[586,1105)` ✗）。
+if (this.OwnedByAncestor(source)) {
+  this.CloseBody(context, source, this.Data.length - 1);
+  return BranchStates.Done;
+}
 if (this.BodyEnded) {
-  const previous = source.Pre();
-  if (previous === null) {
-    this.SignOut(source);
-    this.TryToClose();
-    this.Quit();
-    return BranchStates.Done;
-  }
   const data = this.Data;
   // **体真正写到哪一格**：`BodyEndIndex` 那两处语义**不一样** ——
   // 分号那一支（`if (a) f();`）里 `;` **是体的终结符** ⇒ 含它；
@@ -98,43 +102,81 @@ if (this.BodyEnded) {
   //  第二条整个消失 ✗）。
   const boundary = this.BodyEndIndex >= 0 && this.BodyEndIndex < data.length ? data[this.BodyEndIndex] : null;
   const bodyLast = boundary instanceof SymbolToken && boundary.Is(";") ? this.BodyEndIndex : this.BodyEndIndex - 1;
-  const owner = this.ReloadOwner ?? this.Parent;
-  // **要还回去的每一个位置按正序攒下来**：`bodyLast` 之后多吃的那些单元，
-  // **加上当前这一格**（它也不属于体，原来被直接吞掉了 ✗）。
-  const returning: Source[] = [];
-  for (const item of data.slice(bodyLast + 1)) {
-    const start = item.SourceRange.Start;
-    const end = item.SourceRange.End;
-    item.RemoveSelf();
-    if (start === null || end === null) {
-      continue;
-    }
-    for (let i = start.Index; i <= end.Index; i++) {
-      returning.push(start.Document.At(i));
-    }
-  }
-  returning.push(source);
-  // **入队要倒着来** ✗：`SyntaxContext.DrainMessages` 把每条 `ReloadMessage` 都**插在队首**，
-  // 所以「先 push 的」反而「后处理」—— 正序 push 会把字符次序颠倒 ✗。
-  if (owner !== null) {
-    for (let i = returning.length - 1; i >= 0; i--) {
-      context.Messages.push(new ReloadMessage(owner, this, returning[i]));
-    }
-  }
-  const lastBody = bodyLast >= 0 && bodyLast < data.length ? data[bodyLast] : null;
-  if (this.SourceRange.End === null) {
-    if (lastBody !== null && lastBody.SourceRange.End !== null) {
-      this.SignOut(lastBody.SourceRange.End);
-    } else {
-      this.SignOut(previous);
-    }
-  }
-  this.TryToClose();
-  this.Quit();
-  this.QuitOuter();
+  this.CloseBody(context, source, bodyLast);
   return BranchStates.Done;
 }
 return BranchStates.Undo;
+```
+
+## private method OwnedByAncestor:(source:Source)=>bool
+
+当前字符是不是**某个祖先单元的收尾符**（`}` 之类）。
+
+往上走一遍，问每一级的 `Owns` ✓——`Bracket` 覆写了它 ✓，`IfBody` 也覆写 ✓
+（`if (a) { if (b) f() }` 里内层那条单语句体，就是被外层 `IfBody` 的 `}` 收住的 ✓）。
+
+**为什么不在这一层做聚合** ✗：`Owns` 的语义是「**你自己**的收尾符」✓，
+聚合到这一层就变成「祖先里有没有人在等这个字符」的**第二份答案** ✗
+（`core/syntax/token.xl.md` 的 `Owns` 那一节写着这条口径 ✓）。
+
+```ts
+let node: Token | null = this.Parent;
+while (node !== null) {
+  if (node.Owns(source)) {
+    return true;
+  }
+  node = node.Parent;
+}
+return false;
+```
+
+## private method CloseBody:(context:SyntaxContext, source:Source, bodyLast:int)=>void
+
+体收在 `bodyLast` 那一格：把**多吃的字**（`bodyLast` 之后每一个单元、**外加当前这一格**）
+按原序还给宿主 ✓，签出到体的最后一格 ✓，关自己 ✓、再连退两级 ✓。
+
+- 次序是**先发消息、再摘单元、最后退** ✓（反过来会把字送回自己手里 ⇒ 死循环 ✓）；
+- 发的是**字**（逐个位置 ✓），不是把单元搬走 ✗——外层要重新词法化它们 ✓；
+- **入队要倒着来** ✗：`SyntaxContext.DrainMessages` 把每条 `ReloadMessage` 都**插在队首** ✓，
+  所以「先 push 的」反而「后处理」✓ —— 正序 push 会把字符次序颠倒 ✓。
+
+```ts
+const data = this.Data;
+const owner = this.ReloadOwner ?? this.Parent;
+const returning: Source[] = [];
+for (const item of data.slice(bodyLast + 1)) {
+  const start = item.SourceRange.Start;
+  const end = item.SourceRange.End;
+  item.RemoveSelf();
+  if (start === null || end === null) {
+    continue;
+  }
+  for (let i = start.Index; i <= end.Index; i++) {
+    returning.push(start.Document.At(i));
+  }
+}
+returning.push(source);
+if (owner !== null) {
+  for (let i = returning.length - 1; i >= 0; i--) {
+    context.Messages.push(new ReloadMessage(owner, this, returning[i]));
+  }
+}
+const lastBody = bodyLast >= 0 && bodyLast < data.length ? data[bodyLast] : null;
+if (this.SourceRange.End === null) {
+  if (lastBody !== null && lastBody.SourceRange.End !== null) {
+    this.SignOut(lastBody.SourceRange.End);
+  } else {
+    const previous = source.Pre();
+    if (previous !== null) {
+      this.SignOut(previous);
+    } else {
+      this.SignOut(source);
+    }
+  }
+}
+this.TryToClose();
+this.Quit();
+this.QuitOuter();
 ```
 
 ## method Process:(context:SyntaxContext, source:Source)=>void
