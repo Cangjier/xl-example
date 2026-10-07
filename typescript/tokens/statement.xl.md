@@ -685,6 +685,40 @@ const head = document.GetValue(at);
 return head === "|" || head === "&" || head === ".";
 ```
 
+## static method HasLineBreakBefore:(units:Array<Token>, index:int, source:Source)=>bool
+
+`units[index - 1]` 与 `source` 处这个字符之间**跨过了一个软换行**吗——**按原始字符判**（第 571 轮）。
+
+**为什么不能在单元列表上问** ✗：这一问本来是「上一格是不是 `LineWrap`」✓，可
+**`Data` 里根本没有 `LineWrap`** ✗ —— 它是透明单元 ✓（给 `build/` 临时插一行日志实测：
+`if (k) f()` 换行 `g()` 里来 `g` 那一刻 `Data` 是 `Statement|Identifier` 两格 ✓，
+从来没有第三格 ✓）⇒ 那个问法**永远为假** ✗（`if/if-statement.xl.md` 的 `Process` 上原来那一支 ✓）。
+
+**改成看字符** ✓：上一格的终点与当前字符之间那片**空隙**里有没有 `\n` / `\r` ✓ ——
+空隙里只可能是空白 / 注释 / 换行 ✓（两侧都是已经定下来的单元 ✓），
+所以这一问等价于「当前这个字符是**新的一行**上的」✓，而且**不用等下一个单元** ✓。
+
+```ts
+const previous = Get(units, index - 1);
+if (previous === null) {
+  return false;
+}
+const end = previous.SourceRange.End;
+if (end === null) {
+  return false;
+}
+const document = source.Document;
+let at = end.Index + 1;
+while (at < source.Index) {
+  const one = document.GetValue(at);
+  if (one === "\n" || one === "\r") {
+    return true;
+  }
+  at = at + 1;
+}
+return false;
+```
+
 ## static method IsPendingDecoratorHead:(data:Array<Token>, start:int)=>bool
 
 `start` 起到列表末尾这一段**只装了装饰器**吗——也就是「装饰器还没等到它修饰的那条声明」。

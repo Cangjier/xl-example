@@ -96,6 +96,9 @@ if (this.BodyEnded) {
   // **体真正写到哪一格**：`BodyEndIndex` 那两处语义**不一样** ——
   // 分号那一支（`if (a) f();`）里 `;` **是体的终结符** ⇒ 含它；
   // 软换行那一支（ASI）里那个换行**是边界、不属于体** ⇒ 止于它**前面**那一格。
+  //（第 571 轮起 ASI 那一支存的是「**体后面那一格**」✓ —— `Data` 里没有 `LineWrap` ✗，
+  //  于是没有「换行那一格」可存 ✓；`BodyEndIndex - 1` 照样正好落在体的最后一格上 ✓，
+  //  这里的算术**一个字不用改** ✓，见 `Process` 那一支的说明 ✓。）
   // 原来一律 `slice(BodyEndIndex + 1)`、再「签出到当前字符的前一格」✗ ⇒
   // 体的终点被**多签**一格、而**当前这一个字符被吃掉**✗
   //（实测 `if (a) f()` 换行 `if (b) g()`：第二条 `if` 的 `i` 与 `f` 被吞进第一条的体里，
@@ -212,11 +215,30 @@ if (before instanceof SymbolToken && before.Is(";")) {
   this.BodyEndIndex = last - 1;
   return;
 }
-if (before.constructor.name === "LineWrap") {
-  if (Statement.IsLineBreakBoundary(data, last - 1)) {
-    this.BodyEnded = true;
-    this.BodyEndIndex = last - 1;
-  }
+// **ASI 那一档** ✓（第 571 轮修 ✓）：`if (k) f()` 换行 `g()` 里体只到 `f()` 为止 ✓
+//（TS 那边 `thenStatement` 就是一个 `ExpressionStatement` ✓），可原来这一支**从来没命中过** ✗ ——
+// 它问的是「倒数第二格是不是 `LineWrap`」✗，而 `Data` 里**没有** `LineWrap` ✓
+//（透明单元 ✓；给 `build/` 插一行日志实测：来 `g` 那一刻 `Data` 是 `Statement|Identifier` ✓，
+// 从来没有第三格 ✓）⇒ `BodyEnded` 立不起来 ✓ ⇒ 体一直开着 ✗ ⇒ 后面每一行都落进**体里面** ✗
+//（实测 `while (x) { if (k) f()` 换行 `g()` 换行 `}` 的产物是
+// `<IfStatement><Statement>f()</Statement><Statement>g()</Statement></IfStatement>` ✗，
+// 投影出来体是一个包着两条语句的**假 `Block`** ✗ ⇒ 三份用例各记「漂移一条 `IfStatement`
+// + 多一个 `Block`」✓：`decl-label-break-continue.ts` ✓、`stmt-nested-loops-label.ts` ✓、
+// `stmt-adversarial-shapes.ts` ✓）。
+//
+// **判据只读别人的结论** ✓：上一格若是一条**已经收好的语句级单元** ✓，那就是
+// `StatementBranch` 在换行处用**完整 ASI 判据**（`LineCannotEnd` + `NextLineContinuesExpression` ✓）
+// 收出来的壳 ✓ —— 这里不重写 ASI ✗（两处各写一份必然会漂 ✓，第 558 轮的口径 ✓），
+// 只加一句「当前字符与它之间**跨过了换行**」✓（`Statement.HasLineBreakBefore` ✓，
+// 那一问只能落在原始字符上 ✓，因为 `Data` 里没有 `LineWrap` ✗）。
+//
+// **`BodyEndIndex` 在这一档存的是「体后面那一格」** ✓：`ExitOrPre` 里那一句
+// `boundary` 不是 `;` 就取 `BodyEndIndex - 1` ✓ ⇒ 正好落在体最后一格上 ✓
+//（`;` 那一档存的是分号自己 ✓、含它 ✓；两档语义不同，`ExitOrPre` 的注释里写着 ✓）。
+if (Statement.IsStatementUnit(before) && Statement.HasLineBreakBefore(data, last, source)) {
+  this.BodyEnded = true;
+  this.BodyEndIndex = last;
+  return;
 }
 ```
 

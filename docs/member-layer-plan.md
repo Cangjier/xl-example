@@ -6322,4 +6322,113 @@ ExpressionStatement{Decorator}` ✓，退出码 1 ✓）⇒ 改回来就绿 ✓�
   从第 568 轮起**已经不成立**了 ✓）⇒ 立起 `BodyEnded` ✓、把字符还给宿主 ✓，
   与 `;` 那一档走同一条 `CloseBody` ✓。
 
+## 一百七十三、单语句体的 ASI 收尾（第 571 轮）：`Data` 里没有 `LineWrap`，1022 → **1024 / 1037**
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第二轮** ✓。靶子是第 570 轮第七节量到的那一处 ✓，
+改的是 `typescript/tokens/statement.xl.md` 与 `typescript/tokens/if/if-statement.xl.md` **两个文件** ✓。
+
+### 一、现场：三份用例是**同一个形状**
+
+`decl-label-break-continue.ts`（`0 1 2 0` ✓）、`stmt-nested-loops-label.ts`（`0 1 2 0` ✓）、
+`stmt-adversarial-shapes.ts` 里那一处（`7 1 6 1` 里的一笔 ✓）四栏长得一样 ✓ ——
+**漂移一条 `IfStatement` + 多一个 `Block`** ✓：
+
+    DRIFT  IfStatement  TS[143,168) vs 产物[143,195)  "if (skip()) continue loop"
+    EXTRA  Block        [155,195)  "continue loop"
+
+**产物的 XML 直接看得出** ✓：体里装着**两条**语句 ✓ ——
+
+    <IfStatement><Statement><Keyword>continue</Keyword><Identifier>loop</Identifier></Statement>
+                 <Statement><Keyword>break</Keyword><Identifier>loop</Identifier></Statement></IfStatement>
+
+而 TS 那边体只有**一条** ✓（`thenStatement` 是一个 `ExpressionStatement` ✓）⇒
+投影把「两条语句的体」投成一个**假 `Block`** ✓ ⇒ 一对「漂移 + 多」✓。
+
+**最小的复现** ✓（三行 ✓，`tmp/recon/p6.ts` ✓）：`while (x) {` 换行 `if (k) f()` 换行 `g()` 换行 `}` ✓
+—— `g()` 落在 **`IfStatement` 里面** ✗。带分号就不犯 ✓（`if (k) f();` ✓ 正常 ✓）。
+
+### 二、根：那一支**永远为假**
+
+`IfStatement.Process` 判「ASI 边界」时问的是 `data[last - 1].constructor.name === "LineWrap"` ✗。
+给 `build/` 临时插一行日志实测 ✓（`tmp/recon/r570-if-patch.cjs` ✓）：
+
+    IF-PROC "(" last=1 Identifier|Bracket
+    IF-PROC ")" last=1 Identifier|Bracket
+    IF-PROC "g" last=1 Statement|Identifier      ← 来 `g` 那一刻，`Data` 是两格
+    IF-PROC "(" last=2 Statement|Identifier|Bracket
+    IF-PROC "\n" last=1 Statement|Statement
+
+两件事一次看清 ✓：
+
+1. **`Data` 里从来没有 `LineWrap`** ✗（透明单元不进列表 ✓）⇒ 那一支**永远为假** ✗
+   ⇒ `BodyEnded` 立不起来 ✓ ⇒ 体一直开着 ✓、后面每一行都落进**体里面** ✓，
+   一直拖到外层 `}` 才被 `OwnedByAncestor` 收掉 ✓；
+2. **换行那一格 `Process` 根本不被调用** ✗（那一趟是 `StatementBranch` 的 ✓ ——
+   它当场把 `f()` 收成壳 ✓）⇒ 「在换行那一刻问」这条路本来就不通 ✓，
+   只能在**下一个字符到达时**问 ✓（与第 63 轮那句「ASI 只能回头问」同一条 ✓）。
+
+### 三、改法：读**别人的结论**，不重写 ASI
+
+两处 ✓：
+
+1. **`Statement.HasLineBreakBefore(units, index, source)`** ✓（新 ✓）：`units[index - 1]`
+   与当前字符之间**跨过换行了吗** ✓ —— 按**原始字符**判 ✓（上一格的终点与当前字符之间那片
+   空隙里找 `\n` / `\r` ✓；空隙里只可能是空白 / 注释 / 换行 ✓）。这一问**不用等下一个单元** ✓，
+   而列表上那一问（「上一格是不是 `LineWrap`」✗）在 `Data` 上**永远问不出真话** ✓。
+2. **`IfStatement.Process` 那一支换成** ✓：`data[last - 1]` 是一条**已经收好的语句级单元** ✓
+   （`Statement.IsStatementUnit` ✓）**且**当前字符与它之间跨了换行 ✓ ⇒ `BodyEnded` ✓。
+
+**为什么这样不算「第二份 ASI 实现」** ✓：那个语句级单元**正是** `StatementBranch` 在换行处
+用完整判据（`LineCannotEnd` + `NextLineContinuesExpression` ✓）收出来的壳 ✓ ——
+这里只读它的**结论** ✓，一个判据都没重写 ✓（第 558 轮「左半截只留一份实现」那条口径 ✓）。
+
+**`BodyEndIndex` 这一档存「体后面那一格」** ✓（`;` 那一档存的是分号自己 ✓）：
+`ExitOrPre` 里 `boundary` 不是 `;` 就取 `BodyEndIndex - 1` ✓ ⇒ 正好落在体最后一格上 ✓
+⇒ 那片算术**一个字没改** ✓（注释里写清了 ✓）。
+
+**实测三种排版** ✓（`dump.cjs` ✓）：`if (k) f()` 换行 `g()` ✓、`if (k) continue outer` 换行 `j--` ✓、
+`if (k) break outer` 换行 `g()` ✓ 现在体都只到第一行 ✓、第二行回到宿主那一级 ✓；
+带分号那一档（`if (k) continue outer;` ✓）**纹丝不动** ✓。
+
+### 四、读数
+
+| 项 | 第 570 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1022 | **1024 / 1037** ✓（**+2** ✓） |
+| 缺节点 | 30（15 类） | **30**（15 类）✓（不动 ✓） |
+| 区间漂移 | 15（12 类） | **13**（11 类）✓（−2 ✓） |
+| 多出来的节点 | 31（20 类） | **27**（19 类）✓（−4 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21727 | **21727** ✓（不动 ✓） |
+
+**逐文件**（`r570-a-perfile.txt` ↔ `r571-a-perfile.txt` ✓）：红的 **15 → 13** ✓，
+**变绿的两份正是那两份** ✓、**没有第三份变动** ✓（只在基线里出现的行就是那两行 ✓，
+新表里没有多出来的行 ✓）。真实语料十六片合计 **1355 / 477 / 881 / 8 逐项持平** ✓
+（没有一片变差 ✓；`trivia 越界` 那一栏 **68 → 60** ✓，不计进四栏 ✓）。
+
+### 五、六道门（与第 570 轮逐项相同 ✓）
+
+`runtime:check` **239 / 242** ✓、`runtime:cli` **78 / 79** ✓、`cases:check` **1050 条 0 不合格** ✓、
+`coverage` **1629 / 1713（94.4%）** ✓、`samples` **三份全绿** ✓、`cases:tsast` **3 片通过** ✓。
+`xl build` 两个文件 **0 error、仍是那 3 条既有 W3102** ✓、`xl check` **0 error 3 warning** ✓、
+`tsc` **0 错** ✓。
+
+### 六、下一块（第 572 轮，预算最后一段）
+
+1. **`stmt-if-multiline-condition.ts`** ✓（`0 0 1 0` ✓）与 **`expr-comma-operator.ts`** ✓
+   （`0 1 1 0` ✓）、**`mod-export-as-namespace.ts`** ✓（`0 1 1 0` ✓）—— 三份都**只差一两笔** ✓，
+   是本轮之后最便宜的三块 ✓（先各自量一遍现场 ✓）；
+2. **`(` / `[` 那一档** ✓（第 568 轮量出来的 ✓，仍是最大的一块 ✓）：`am-block-lambda-array-compound.ts`
+   （`5 2 4` ✓）、`lex-generic-multiline-constraints.ts`（`7 1 1` ✓）、`stmt-asi-paren-call.ts`
+   （`0 4 5` ✓）三份都挂在这一条上 ✓ —— 它是**机器层面**的一件事 ✓（要让收壳发生在
+   「下一个单元到了以后」✓，或者让壳能被**拆回**平列表 ✓），单独一轮 ✓；
+3. **`new.target`** ✓（`cls-super-newtarget.ts` / `decl-class-new-target.ts` 各缺 3 ✓）：
+   第 540 / 541 两轮试过两次、读数一个数字都没动 ✗（都回滚了 ✓）⇒ 第三次先量
+   「那个 `BinaryOperator` 里到底还剩什么」✓；
+4. **`export` 单独占一行** ✓（第 570 轮第四节点名的那一笔 ✓）、
+   `decl-interface-export-default.ts`（`1 0 2` ✓）、`type-cond-multiline.ts`（`0 2 3` ✓）、
+   `lex-regex-after-assign.ts`（`2 1 2` + 字段名 1 ✓）、`stmt-asi-return-newline-object.ts`（`2 0 1` ✓）。
+
 
