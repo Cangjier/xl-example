@@ -952,7 +952,32 @@ MPROC char="}" len=2 mounted=- units=Bracket|ReturnType  ← 收尾时已是两�
 **剩下的头号目标**（下一轮）：`undici-types/webidl.d.ts` 的 `缺 240` ✗ ——
 头几条是 `MISS FunctionType "(arg: any) => arg is I"` ✗（**类型谓词**形式的函数类型 ✓）。
 
-## 六十、每步都要钉住的三件事
+## 六十一、计算名成员（第 453 轮）：三条闸门与最终读数
+
+WebIDL 那一族（`undici-types/webidl.d.ts` 等 ✓）遍地是 `['unsigned short'] (V: unknown, flags?: number): number`
+这种**计算名方法** ✗，而方法分支当时只认 `Identifier` / `String` 名字 ✗ ⇒ 整族不接 ✓。
+
+补这一支时连着踩了三下 ✓，每一下都是**判据放宽过头** ✗：
+
+| 放宽 | 后果 | 收口 |
+| --- | --- | --- |
+| `MemberNameText` 认 `[` 括号（与 `Field.NameText` 同口径） | `itf-index.ts` 的**索引签名** `[key: string]: any` 被方法分支抢成 `MethodSignature` ✗（`cases` 掉 7 个文件 ✗） | **`[` 计算名只有在判别符是 `(` 时才是方法名** ✓（`:` / `;` 那两格归字段与签名 ✓） |
+| 跨格循环「什么都跨」 | 计算名那段被跨过去、没有名字了 ✗ | 循环**只跨形参括号 `(`** ✓（`[` 要留着当名字 ✓） |
+| 不检查名字拼不拼得出来 | `[Symbol.iterator]()` 那种此刻已成形为别的单元、`BracketNameText` 给空串 ✗ ⇒ 接过来是**没有 name 的成员** ✗（`lib.dom.d.ts` 多出 50 处「字段名不符」✗） | **拼不出名字的 `[` 不接** ✓，交回重组 ✓ |
+
+**最终读数（本轮，`tmp/recon/r56/` 存的就是这一版 ✓）**：
+
+| 状态 | `cases` | 全语料 |
+| --- | --- | --- |
+| 上一层（`r52/`：`IsParameterList` 守卫 + 逗号区间） | 1033 | 34 |
+| ＋ 计算名三条闸门 | **1036 / 1037**（缺 1 / 漂移 0 / 多 0 / 字段名 0 ✓） | **21** |
+
+**剩下的头号目标**：`undici-types/webidl.d.ts` 的 `缺 261` ✗ —— 头几条仍然是
+`MISS FunctionType "(arg: any) => arg is I"` + `MISS TypePredicate "arg is I"` ✗，
+即**类型谓词**（`arg is I` ✓ / `asserts x is T` ✓）那一族 ✓。它是**独立的解析层**问题 ✗
+（与成员表无关 ✓），下一轮从那里入手 ✓。
+
+## 六十二、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
