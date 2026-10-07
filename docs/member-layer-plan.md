@@ -380,7 +380,37 @@ return i;
 **跳过名字那一格与修饰词那几格**（它们只写进 `fieldName` / `modifiers`），
 其余（类型段 / 初始化式）照旧搬进 `Data`。这与 `Class.TakeHead` 的做法**逐字对齐**。
 
-## 二十二、每步都要钉住的三件事
+## 二十三、第三次动手（第 434 轮）：机制全通了，只剩一处投影侧的口径
+
+这一轮真的把成员层推到「几乎成形」——`cases` 从 963 一路到 **1033 / 1037**，
+而且**每一处失都是在最小文件上定位、改一行修掉的**。读数轨迹（都是 `cases`）：
+
+| 改动 | 全一致文件 | 缺 / 漂移 / 多 / 字段名 |
+| --- | --- | --- |
+| 落地基类 + 分支（第 428 轮的代码，把名字与修饰词**移出** `Data`） | 963 | 323 / 7 / 275 / 0 |
+| 补回体那条**语句队列**（与成员分支并存） | 1004 | 118 / 0 / 36 / 0 |
+| `;` **就地摘掉**（还给体会被包成空 `<Statement>`） | 1003 | 118 / 1 / 37 / 0 |
+| `HeadStart` 反向走法（前向版把 `MethodDeclaration` 当成「没成形」⇒ `data.length = start` 把它删了，**丢 5399 个 `MethodSignature`**） | 1033 | 14 / 1 / 5 / 4 |
+| 名字文本用 `MemberNameText`（`String` 名要取 `ConstString`；否则 `"abort"` 那种丢 `name`，569 处） | 1033 | 14 / 1 / 5 / 4 → 4 处字段名 |
+| 反向走法**跨过空格**（`readonly c` 中间那个软换行打断了它 ⇒ `modifiers` 为空 ⇒ 投影丢 `ReadonlyKeyword`） | 1004 | 64 / 0 / 54 / **0** |
+| 补「坐标锚在第一个实义单元上」 | 1033 | 14 / 1 / 5 / **4** |
+
+**最后那 4 处（`readonly` 成员的 `modifiers`）是投影侧口径，不是解析侧**：
+产物的 XML 已经正确（`<Field name="c" modifiers="readonly">`），
+`Field.ToDictionary` 也写了 `modifiers` 键，可尺子仍报
+`产物[name,type] vs TS[modifiers,name,type]` ⇒ 要看 `print-ast-common` 的 `addModifiers`
+在**这条路径**上为什么没生效（它靠 `v.attrs.get("modifiers")` 取字符串、
+再从 `v.start` 起按顺序量每个词——而 `v.start` 现在是**名字**还是**修饰词**是关键）。
+
+**因为全语料没跑通，这一轮结束时按纪律回滚**（树回到 `84cfbc8`，绿）；
+推到 1033 的那个状态整个存在 **`tmp/recon/r24/`**（三个文件：
+`class-member.xl.md` / `field.xl.md` / `interface-body.xl.md`），下次直接复制回原位即可。
+
+**六个坑都已经修在存下来的那份里**，下一次只剩两件事：
+① 把 `tmp/recon/r24/` 的三个文件复制回去；② 解决那 4 处 `modifiers` 的投影口径
+（从 `addModifiers` 的 `v.start` 着手），然后跑 `cases` → **全语料 `--per-file`** → `samples`。
+
+## 二十四、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
