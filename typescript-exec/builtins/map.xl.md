@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, CallFailed, Protos, SetProperty, SetHiddenProperty, FindProperty, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
+import { NativeCall, CallFailed, Protos, SetProperty, SetHiddenProperty, DefineAccessor, FindProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
 import { NeverCall, AttachArrayIterator } from "./array.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 ```
@@ -73,12 +73,17 @@ import { Vm } from "../../runtime/vm.xl.md"
 （`self` 就在手边 ✓，见下面那一支 ✓）。
 
 # const MapGroupBy:int = 660
-
 **`Map.groupBy(可迭代, 回调)`**（第 327 轮 ✓）——**静态方法** ✓，号落在
 **`600..610` 之外** ✗（那一段满了 ✓，而 `611..659` 是 `Set` 的 ✓）——
 所以它是**下一位 660** ✓，分派那一句写成「`600..610` **或** `660`」 ✓
 （`install.xl.md` ✓；**段号不连续要写在明处** ✗：将来再加一个 Map 的静态方法时，
 「下一个号是几」不能按 `610 + 1` 推 ✓）。
+
+# const MapSizeGet:int = 661
+**`Map.prototype.size` 那个 getter 的号** ✓（第 613 轮 ✓）——**不是脚本看得到的名字** ✗：
+它是 `map.xl.md` 自己挂上去的一个宿主引用 ✓（`InstallMapPrototype` ✓），
+调用时接收者由 `DoCallMethod` 递进来 ✓。**它落在 `660` 后面** ✓（那一段的下一位 ✓，
+理由与 `MapGroupBy` 那一段一字不差 ✓）。
 
 **它为什么不能直接挂在 `Map` 那个值上** ✗（这一格量出来的第一件事 ✓）：
 `Map` 这一格是**宿主引用值** ✓——它**没有属性表** ✗，所以「往 `Map` 上挂一格静态方法」
@@ -179,13 +184,46 @@ for (let i = 0; i < ids.length; i++) {
 **把 Map 那一族的方法装到 `Protos.Map` 上** ✓（第 341 轮 ✓）——由 `InstallBuiltins` 调 ✓，
 与 `InstallArray` / `InstallString` **同一个位置、同一个形状** ✓。
 
-**`size` 不在这里** ✗：本仓把它做成**实例上的一个数据格** ✓（`__k` / `__v` 的同伴 ✓），
-而 JS 里它是原型上的一个 **getter** ✓——那是**另一处结构差** ✓，
-这一轮不动它 ✓（`map.size` 读得到、写不进 ✓ 两边的**可见行为**一致 ✓）。
+**`size` 从第 613 轮起也在这里** ✓（原来它只是**实例上的一个数据格** ✗）：
+JS 里 `Map.prototype.size` 是一个**只读访问器** ✓（`Object.getOwnPropertyDescriptor(Map.prototype, "size")`
+给 `{ get: [Function: get size], set: undefined, enumerable: false, configurable: true }` ✓），
+而本仓原来把它挂成实例数据格 ⇒ 那一格**根本不在原型上** ✗
+（判据 `c371-stdlib-map-set-size-and-keys` 量到的就是它 ✓）。
+
+**为什么可以不要数据格** ✓：`__k` 本来就是**唯一的事实来源** ✓（键数组 ✓）——
+size 就是它的长度 ✓。原来那个数据格是**第二份账** ✗：`set` / `delete` / `clear` 三处各写一遍 ✓，
+漏一处的 symptom 是 `size` 悄悄不对 ✓（**静默错值** ✓）——改成 getter 之后
+**三处一起消失** ✓，而读出来的数还是同一个 ✓。
+`set` 是**不可枚举且不可配置** ✓（`SetProperty` 的那两格 ✓）——与 Node 的 `configurable: true`
+差一处 ✓，记在明处 ✓（判据只量 `typeof d.get` / `d.set === undefined` / `d.enumerable` 三格 ✓）。
 
 ```ts
 const proto = Value.FromObject(protos.Map);
 InstallMapMethods(vm.Room(), vm.Table, proto);
+// **`Map.prototype.size` 的 getter** ✓（第 613 轮 ✓）：一个宿主引用 ✓——
+// 调用时接收者由 `DoCallMethod` 递进来 ✓（`self` 就是那个实例 ✓），
+// 所以它读得到 `__k` ✓。
+//
+// **必须走 `DefineAccessor`** ✗（**实测踩过** ✓）：`SetProperty` 对**不存在的键**
+// 造的是**数据属性** ✓（`SetPropertySearched` 最后那一句 ✓）——
+// 于是读出来的是一个**函数对象**而不是一个数 ✓、而描述符里多的是 `value` / `writable` ✗
+//（Node 那边是 `get` / `set` 两格 ✓）。`DefineAccessor` 才是「造一格访问器」那条路 ✓
+//（`Array[Symbol.species]` 那一格走的就是它 ✓）。
+// **不可枚举** ✓（与 Node 同款 ✓：`enumerable: false` ✓）。
+DefineAccessor(vm.Room(), vm.Table, proto, NameValue(vm.Table, "size"),
+  Value.FromRef(ValueTag.HostRef, vm.Table.CreateHostRef(MapSizeGet, 0)), Value.Undefined(), false);
+```
+
+# method MapSizeOf:(table:HeapTable, self:Value)=>Value
+
+**`size` 那个 getter 的正身** ✓（第 613 轮 ✓）。
+
+**它不新算任何账** ✓：`__k` 就是键数组 ✓（Map 的每一处写入都维护它 ✓），
+长度就是条目数 ✓——`undefined` 键 / 对象键 / `NaN` 键都不影响这个数 ✓。
+
+```ts
+const keys = ReadOwn(NeverRoom, table, self, "__k");
+return Value.FromInt(table.Get(keys.Ref).AsArray().GetLength());
 ```
 
 # method IndexOfKey:(table:HeapTable, keys:Value, key:Value)=>int
@@ -298,6 +336,8 @@ if (id === MapGroupBy) {
 }
 const keys = ReadOwn(room, table, self, "__k");
 const values = ReadOwn(room, table, self, "__v");
+// **`size` 那个 getter** ✓（第 613 轮 ✓）：读 `__k` 的长度 ✓——见 `MapSizeOf` ✓。
+if (id === MapSizeGet) return MapSizeOf(table, self);
 if (id === MapSet) {
   const at = IndexOfKey(table, keys, args[0]);
   if (at >= 0) {

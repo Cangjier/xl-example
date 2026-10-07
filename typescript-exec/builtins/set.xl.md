@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, HeapArray, ObjectCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtCmpEqStrict, SameValueZero, IsCallableValue } from "../../runtime/rt.xl.md"
-import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray } from "../../runtime/props.xl.md"
+import { NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, SetProperty, DefineAccessor, NeverRoom } from "../../runtime/props.xl.md"
 import { NeverCall, Units, AttachArrayIterator } from "./array.xl.md"
 import { NameValue, ReadOwn, WriteOwn } from "./map.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
@@ -18,10 +18,10 @@ import { Vm } from "../../runtime/vm.xl.md"
 | 属性 | 是什么 |
 | --- | --- |
 | `__v` | 一个**数组**，按插入顺序放值（**可以是任何值**） |
-| `size` | 一个**普通数字属性**，每次增删都更新 |
+| `size` | 原型上的**只读访问器**（第 613 轮 ✓）——getter 返回 `__v` 的长度 ✓，**不是**实例上的数据格 ✗ |
 
 **它和 `Map` 共用三件小工具**（`NameValue` / `ReadOwn` / `WriteOwn`，从 `map.xl.md` import）——
-那不是「谁属于谁」，而是这两个集合的**内部表示是同一件事**（一个对象 + 一个数组 + 一个数字）。
+那不是「谁属于谁」，而是这两个集合的**内部表示是同一件事**（一个对象 + 一个数组）。
 **将来若要给它们换表示（比如真的哈希表），就一起换。**
 
 **键相等用 `SameValueZero`** ✓（第 207 轮改 ✓，与 `Map` 同一个表 ✓，`rt.xl.md` 那张具名的 ✓）——
@@ -77,8 +77,12 @@ import { Vm } from "../../runtime/vm.xl.md"
 **`isSubsetOf(另一个集合)`**（第 324 轮 ✓）。
 
 # const SetDisjointFrom:int = 625
-
 **`isDisjointFrom(另一个集合)`**（第 324 轮 ✓）。
+
+# const SetSizeGet:int = 662
+**`Set.prototype.size` 那个 getter 的号** ✓（第 613 轮 ✓）——**不是脚本看得到的名字** ✗：
+它是 `InstallSetPrototype` 自己挂上去的一个宿主引用 ✓。号落在 `661`（`MapSizeGet`）后面 ✓，
+理由与 `Map.groupBy` 那一段一字不差 ✓（`611..659` 那一段满了 ✓）。
 
 # method SetMethodNameOf:(id:int)=>string
 
@@ -129,11 +133,29 @@ for (let i = 0; i < ids.length; i++) {
 # method InstallSetPrototype:(vm:Vm, protos:Protos)=>void
 
 **把 Set 那一族的方法装到 `Protos.Set` 上** ✓（第 341 轮 ✓）——与 `InstallMapPrototype`
-同一个位置、同一个形状 ✓。**`size` 不在这里** ✗（本仓把它做成实例上的数据格 ✓，
-见 `map.xl.md` 那一处写的同一笔账 ✓）。
+同一个位置、同一个形状 ✓。
+
+**`size` 从第 613 轮起也挂在这里** ✓（原来只是**实例上的一个数据格** ✗）——
+理由与 `map.xl.md` 的 `InstallMapPrototype` 那一段**一字不差** ✓（JS 里它是原型上的只读访问器 ✓，
+而本仓那一格根本不在原型上 ✗）。
 
 ```ts
 InstallSetMethods(vm.Room(), vm.Table, Value.FromObject(protos.Set));
+// **`Set.prototype.size` 的 getter** ✓（第 613 轮 ✓）：与 `Map` 那一格同形 ✓——
+// **也必须走 `DefineAccessor`** ✗（`SetProperty` 造的是数据属性 ✓，
+// 理由写在 `map.xl.md` 那一处 ✓）。
+DefineAccessor(vm.Room(), vm.Table, Value.FromObject(protos.Set), NameValue(vm.Table, "size"),
+  Value.FromRef(ValueTag.HostRef, vm.Table.CreateHostRef(SetSizeGet, 0)), Value.Undefined(), false);
+```
+
+# method SetSizeOf:(table:HeapTable, self:Value)=>Value
+
+**`size` 那个 getter 的正身** ✓（第 613 轮 ✓）——读 `__v` 的长度 ✓，
+与 `Map` 那一格**同一个形状** ✓（那边读的是 `__k` ✓）。
+
+```ts
+const values = ReadOwn(NeverRoom, table, self, "__v");
+return Value.FromInt(table.Get(values.Ref).AsArray().GetLength());
 ```
 
 # method InvokeSet:(room:RoomChecker, protos:Protos, table:HeapTable, call:NativeCall | null, id:int, self:Value, args:Array<Value>, failed:CallFailed | null = null)=>Value
@@ -171,6 +193,8 @@ if (id === SetCtor) {
   return created;
 }
 const values = ReadOwn(room, table, self, "__v");
+// **`size` 那个 getter** ✓（第 613 轮 ✓）：读 `__v` 的长度 ✓——见 `SetSizeOf` ✓。
+if (id === SetSizeGet) return SetSizeOf(table, self);
 // **查找要用到才做**：`values()` 没有参数，若把 `IndexOfSetValue(..., args[0])` 提到
 // 分支之前，这里就会拿 `undefined` 去比相等——报出来的是
 // 「Cannot read properties of undefined (reading 'Tag')」，离现场很远（第 60 轮踩的）。

@@ -111,7 +111,7 @@
       "id": "c371-stdlib-map-set-size-and-keys",
       "layer": "stdlib",
       "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
+      "detail": "stdout 不同：第 2 行：node «function true false» vs tsrun «undefined true false»"
     },
     {
       "id": "c371-stdlib-promise-finally-passthrough",
