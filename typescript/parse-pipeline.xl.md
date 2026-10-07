@@ -721,16 +721,15 @@ unit.ReorganizationQueue = already
 
 ## static field Depth:int = 0
 
-**这一趟当前的递归深度**（第 496 轮 ✓）。
+**这一趟当前的递归深度**（第 496 轮 ✓，第 497 轮**留着** ✗）。
 
-规则造出来的单元又走 `TryToClose` ⇒ 又进这一趟 ✓，而这一趟**还没有** `Reorganize` 那两道护栏 ✗
-（「扫到不再变化为止 + 硬上界」✓ 与「每个单元只在自己那一趟里收」✓）——
-第 494/495 轮实测：不加界就是**栈溢出** ✗（99 处 ✓），改成队列式则是**堆爆** ✗（4 GB、91 秒 ✓）。
-所以先钉一个**深度硬上界** ✓：到顶就跳过这一层 ✓（不再往下钻 ✓），
-实测接上那六组「会炸」的规则之后**抛异常 0** ✓（305 份语料不再炸 ✓）。
+第 497 轮补上收敛环之后**试过撤掉它** ✗：实测**撤不掉** ✓ —— 撤掉之后 294 份语料当场炸 ✓
+（78 处栈溢出 ✓ + 216 处 `SourceException` 那一族 ✓，见 `tmp/recon/r497-final-off.txt` ✓）。
+⇒ 收敛环管的是「**一个单元内部**跑到不动为止」✓，管不住「单元造出来又往下钻」那条链 ✗ ——
+后者要的是「每个单元只在自己那一趟里收」那一道 ✓（第 495 轮记的第二条护栏 ✗，还没补 ✓）。
 
-**这是一道临时的界** ✗：到顶时深层的那几条规则**不会跑** ✓，形状因此与对照态不同 ✓ ——
-正解是补上 `Reorganize` 那两道 ✓（下一轮的口径 ✓），补完就该把这个 `Depth` 撤掉 ✓。
+所以这道深度界**暂时留着** ✓：`Depth >= 8` 就跳过这一层 ✓（深层那几条规则不跑 ✓，
+形状与对照态因此不同 ✗ —— 这笔账还挂着 ✓）。
 
 ## method FormStatement:(unit:Token, terminator:Token)=>void
 
@@ -776,16 +775,47 @@ Statement.FormFrom(unit, terminator);
 这一轮搬的是**调用时机** ✓，规则本体的逐条内联留到后面一块一块做 ✓。
 
 ```ts
-// **深度硬上界**（第 496 轮 ✓）：规则造出来的单元又走 `TryToClose` ⇒ 又进这一趟 ✓，
-// 而这一趟还没有 `Reorganize` 那两道护栏 ✗ ⇒ 不加界就是**栈溢出** ✗（第 494 轮实测 99 处 ✓）、
-// 改成队列式则是**堆爆** ✗（第 495 轮实测 4 GB / 91 秒 ✓）。
-// 到顶就跳过这一层 ✓（深层那几条规则不跑 ✓，形状与对照态因此不同 ✗ —— 这是临时的界 ✓，
-// 正解是补上那两道护栏 ✓，补完把这个 `Depth` 撤掉 ✓）。
+// **收敛环**（第 497 轮 ✓）：与 `Token.Reorganize` 那一道**同款** ✓ ——
+// 「扫到列表不再变化为止，硬上界 16 趟」✓（第 127 轮的护栏 ✓）。
+// 少了它会怎样 ✗（第 494/495 轮实测）：这一趟只是「每条规则各扫一遍」✓，
+// 半成形的东西直接往下一层钻 ✓ ⇒ 两副面孔一起出现：**栈溢出**（99 处 ✓）与**堆爆**（4 GB / 91 秒 ✓）。
+// 有了它，一个单元内部就不会再自我触发 ✓；但**单元造出来又往下钻那条链它管不住** ✗ ——
+// 第 497 轮实测撤掉深度界：294 份语料当场炸 ✓（78 处栈溢出 + 216 处 `SourceException` ✓），
+// 所以第 496 轮那道临时的深度硬上界**暂时留着** ✗（要补的是「每个单元只在自己那一趟里收」那一道 ✓）。
 if (TokenFormerImpl.Depth >= 8) {
   return;
 }
 TokenFormerImpl.Depth = TokenFormerImpl.Depth + 1;
 try {
+const maxPasses = Math.min(16, unit.Data.length + 2);
+for (let pass = 0; pass < maxPasses; pass++) {
+  const snapshot = unit.Data.slice();
+  this.RunCloseRules(unit);
+  if (unit.Data.length === snapshot.length && unit.Data.every((item, at) => item === snapshot[at])) {
+    break;
+  }
+}
+} finally {
+  TokenFormerImpl.Depth = TokenFormerImpl.Depth - 1;
+}
+```
+
+## method RunCloseRules:(unit:Token)=>void
+
+**那一串规则**（次序照重组队列 ✓，一条不多一条不少 ✓）——由收敛环反复调用 ✓。
+
+次序是硬的 ✗（三条都是实测出来的）：
+
+- **关键字升级必须最后** ✗：`function` 那个词一旦升成 `Keyword` ✓，
+  `FunctionReorganization.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
+  （重组队列里 `KeywordReorganization` 也确实排在 `TypeDefineReorganization` 之后 ✓）；
+- **`TypeDefine` 必须在 `Function` 之后** ✗：返回类型那个 `:` 少了 `Function` 先成形 ✓，
+  会一路吞到函数体里去 ✗ —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
+  当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓；
+- **`BinaryOperator` 那一族必须排在 `WrapSymbol` 之后** ✗（第 496 轮 ✓）：它们在对照态的队列里排得很靠后 ✓，
+  前面那几十条规则先把形状收拢 ✓。
+
+```ts
 DecoratorReorganization.Instance.ApplyTo(unit);
 FunctionReorganization.Instance.ApplyTo(unit);
 SignatureReorganization.Instance.ApplyTo(unit);
@@ -848,7 +878,4 @@ LogicalOperatorReorganization.OrInstance.ApplyTo(unit);
 SpreadReorganization.Instance.ApplyTo(unit);
 BinaryOperatorReorganization.CommaInstance.ApplyTo(unit);
 KeywordReorganization.Instance.ApplyTo(unit);
-} finally {
-  TokenFormerImpl.Depth = TokenFormerImpl.Depth - 1;
-}
 ```
