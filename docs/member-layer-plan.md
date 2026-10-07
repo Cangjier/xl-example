@@ -4287,3 +4287,22 @@ TL7DBG idx=1 line=312 expr=true     ← 走的是 `const` 那一支（`return cr
    本轮的 `ForeachDefine` 宿主与类型字面量两处都已落地 ✓，下一块看的是**嵌套**那一层 ✓
    （`BindingElement` 里再套 `{` / `[` ✓）。
 
+### 六、下一轮的现成线索（第 547 轮顺手查到的一处自激）
+
+`export { a, b, … }` 的产物是一条**自己套自己**的链 ✗（`cjcli <文件>` 直接看得见 ✓）：
+**九层 `Export` 套着同一段内容** ✓，最里面才是 `<Identifier>export</Identifier>` 与那几个名字 ✓
+（`exported="plus,minus,…"` 这一串在**每一层**都写着同一份名单 ✓）：
+
+```
+<Export From="" typeOnly="false" namespace="" exported="plus,minus,…">
+  <Export From="" typeOnly="false" namespace="" exported="plus,minus,…">
+    …                        ← 九层，同一份属性、同一段内容
+      <Identifier>export</Identifier>
+      <Bracket startBracket="{" endBracket="}"> plus , minus … </Bracket>
+```
+
+⇒ 投影侧拿到的是一个**永不收敛**的形状 ✗（`NamedExports` / 每一格 `ExportSpecifier` /
+里面的 `Identifier` 全缺 ✗，`ExportDeclaration` 的右端还少一格 ✗）。该查的是
+`export.xl.md` 里那条规则的 `Previous` ✓ —— 第一趟收出来的 `Export` **自己又满足了判据** ✗
+（新一轮扫到它就再套一层 ✓，于是层数正好等于名单长度 ✓ 实测九层对九个名字 ✓）。
+
