@@ -124,6 +124,8 @@ if (compareEnd + 1 < conditionBracket.Data.length) {
 }
 const startIndex = index;
 let endIndex = currentIndex;
+// **体是那条空语句（`for (…);`）**（第 590 轮）：判出来之后记在单元上（见 `EmptyBodyAt`）。
+let emptyBody = false;
 currentIndex = SkipNextWrapSymbol(units, currentIndex);
 const forBody = result.CreateBody();
 // **体的右端**（第 572 轮 ✓）：两个分支各自赋值 ✓，兜底值只是让类型定下来 ✓
@@ -152,6 +154,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   // 而 `;` 由投影侧按原文补成 `EmptyStatement`（见 `For.PrintAst`）。
   if (endIndex === -1) {
     endIndex = currentIndex - 1;
+    emptyBody = true;
   }
   if (endIndex >= currentIndex) {
     forBody.AddRange(TakeRange(units, currentIndex, endIndex - currentIndex + 1));
@@ -174,6 +177,11 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     tailEnd = ownerEnd;
   }
   forBody.SignOut(tailEnd);
+  // **空体那一格：把那个 `;` 的位置记在单元上**（第 590 轮）：`tailEnd` 此刻正是它
+  //（宿主 `Statement` 的右端，见上面「只借宿主的右端」那一支），投影直接读这个字段。
+  if (emptyBody) {
+    result.EmptyBodyAt = tailEnd.Index;
+  }
 }
 forBody.TryToClose();
 result.SignOut(tailEnd);
@@ -187,6 +195,16 @@ return index;
 C 风格 `for` 语句单元。
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<For>` 里依次是 Initial、Compare、Next、Body 四段的 XML。
+
+## field EmptyBodyAt:int = -1
+
+**体是那条空语句（`for (…);`）时，那个 `;` 的下标**；不是这一档就是 `-1`。
+
+**为什么让 token 记着**（「token 出字段、投影直读」）：判「体是不是空的」只有
+`ForCloseRule.Process` 那一处拿得到全部信息——那个 `;` 触发规则时**还没进单元列表**，
+所以那边算的是「借宿主 `Statement` 的右端」。投影若再判一次，就得拿
+`MatchingParen` + 跳空白**重扫一遍原文**，那是同一条判据的第二份近似。
+记成字段之后，投影只做一次字段读取（见 `PrintAst`）。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -230,11 +248,25 @@ C 风格 `for` 语句单元。
     }
   }
   if (props.statement === undefined) {
-    const close = ctx.MatchingParen(ctx.source, v.start);
-    let at = close >= 0 ? close + 1 : v.start;
-    while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
-    if (ctx.source[at] === ";") {
-      props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
+    // **空体语句的 `;` 位置由 token 直接给出**（第 590 轮）：`ForCloseRule` 造这个单元时
+    // 就知道体是空的 ✓（`;` 触发规则那一刻它还没进列表 ✓，所以那边退到「借宿主右端」✓）——
+    // 把这个事实记成 `emptyBodyAt` ✓，投影**不必再拿 `MatchingParen` 重扫一遍原文** ✓
+    //（「token 出字段、投影直读」：判据只算一次，投影那一侧不做第二次近似 ✓）。
+    // **字段从 `attrs` 上读** ✗（与 `UnaryOperator.PrintAst` 的 `op` 同一个入口 ✓）：
+    // 投影收到的 `v` 是节点包装，`ToDictionary` 的键挂在 `v.attrs` 上 ✓（`v.get` 不存在 ✓）。
+    const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
+      ? v.attrs.get("emptyBodyAt")
+      : undefined;
+    const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
+    if (emptyAt >= 0) {
+      props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+    } else {
+      const close = ctx.MatchingParen(ctx.source, v.start);
+      let at = close >= 0 ? close + 1 : v.start;
+      while (at < ctx.source.length && /\s/.test(ctx.source[at])) at++;
+      if (ctx.source[at] === ";") {
+        props.statement = { kind: "EmptyStatement", pos: at, end: at + 1 };
+      }
     }
   }
   return ctx.NodeHead("ForStatement", props, v);
@@ -341,6 +373,7 @@ result.set("initial", this.Initial.ToList());
 result.set("compare", this.Compare.ToList());
 result.set("next", this.Next.ToList());
 result.set("body", this.Body.ToList());
+result.set("emptyBodyAt", this.EmptyBodyAt);
 return result;
 ```
 

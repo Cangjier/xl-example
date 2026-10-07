@@ -77,6 +77,8 @@ compare.TryToClose();
 const startIndex = index;
 endIndex = SkipNextWrapSymbol(units, endIndex);
 const forStatement = result.CreateBody();
+// **体是那条空语句（`while (…);`）**（第 590 轮）：判出来之后记在单元上（见 `EmptyBodyAt`）。
+let emptyBody = false;
 // **体那一格的右端**（与 `for` / `foreach` 同一处口径 ✓）：两个分支各自赋值 ✓，
 // 兜底值只是让类型定下来 ✓（`while` 那个词自己一定是闭着的 ✓）。
 let tailEnd = unit.SourceRange.End!;
@@ -100,6 +102,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   // 体为空、`endIndex` 退到 `)` 那一格；`;` 由投影侧按原文补成 `EmptyStatement`。
   if (endIndex === -1) {
     endIndex = statementStart - 1;
+    emptyBody = true;
   }
   if (endIndex >= statementStart) {
     forStatement.AddRange(TakeRange(units, statementStart, endIndex - statementStart + 1));
@@ -120,6 +123,10 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     tailEnd = ownerEnd;
   }
   forStatement.SignOut(tailEnd);
+  // **空体那一格：把那个 `;` 的位置记在单元上**（第 590 轮，与 `for.xl.md` 同一条）。
+  if (emptyBody) {
+    result.EmptyBodyAt = tailEnd.Index;
+  }
 }
 forStatement.TryToClose();
 result.SignOut(tailEnd);
@@ -134,6 +141,13 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<While>` 里依次是 Compare、Body 两段的 XML。
 
+## field EmptyBodyAt:int = -1
+
+**体是那条空语句（`while (…);`）时，那个 `;` 的下标**；不是这一档就是 `-1`。
+
+与 `For.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起（那个 `;` 触发规则时还没进列表），
+记成字段之后投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` 重扫原文。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `while (c) { … }` → `WhileStatement`（`expression` + `statement`；
@@ -147,6 +161,15 @@ return index;
   const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (compare.length > 0) props.expression = ctx.Expression(compare);
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
+  // **空体那一格先读 token 上的字段**（第 590 轮）：有它就不必配对括号 + 扫原文。
+  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("emptyBodyAt")
+    : undefined;
+  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
+  if (emptyAt >= 0) {
+    props.statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+    return ctx.NodeHead("WhileStatement", props, v);
+  }
   const header = ctx.MatchingParen(ctx.source, v.start);
   const statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
   if (statement !== undefined) props.statement = statement;
@@ -215,6 +238,7 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("compare", this.Compare.ToList());
 result.set("body", this.Body.ToList());
+result.set("emptyBodyAt", this.EmptyBodyAt);
 return result;
 ```
 

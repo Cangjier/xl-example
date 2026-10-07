@@ -24,7 +24,7 @@
 | --- | --- | --- |
 | 执行侧自测 | `npm run runtime:check` | **242 / 242**（值模型 / 堆 / GC / IR / 装载验证 / 执行器 / 属性 / 访问器 / 生成器 / 承诺 / 宿主） |
 | 直接执行 `.ts` | `npm run runtime:cli` | **79 / 79** 份与 `node <文件.ts>` 逐字节相同 |
-| 场景覆盖度 | `npm run coverage` | **1666 / 1713（96.9%）**：引擎 97.6% · 降级层 96.8% · 标准库 97.8% · 端到端 95.2% |
+| 场景覆盖度 | `npm run coverage` | **1672 / 1713（97.3%）**：引擎 97.6% · 降级层 97.6% · 标准库 97.8% · 端到端 95.2% |
 | 六道门一次跑完 | `npm run gates` | 全绿（墙钟 ~20s） |
 
 覆盖度的每一条都是**一份普通的、没为本运行器改过的 `.ts`**，分别交给 `node`（裁判）与
@@ -33,22 +33,16 @@
 
 ## 当前的缺口
 
-**进不了门（16 条）**——降级期或语言层直接报错：
+**进不了门（10 条）**——降级期或语言层直接报错：
 
 | 层 | 用例 | 症状 |
 | --- | --- | --- |
-| runtime | `c291-rt-iteration-protocol-forms` | `unimplemented: expression TypeLiteral` |
-| runtime | `c304-rt-new-target-in-ctor` | `name is not a local or a capture: new` |
 | runtime | `c330-ex-ternary-arrow-branches` | `unimplemented: binary operator ?` |
 | runtime | `c371-rt-bind-call-apply-forms` | 调用了一个非闭包值 |
-| exec | `c304-ex-type-annotation-in-catch-and-loop` | `unimplemented: expression TypeLiteral` |
 | exec | `c371-ex-class-implements-and-interface` | `name is not a local or a capture: Shape`（接口不产生运行期值） |
-| exec | `c371-ex-assertion-forms` | `unimplemented: expression Block`（断言四种形态的优先级） |
-| exec | `c371-ex-destructuring-everywhere` | `unimplemented: expression BindingElement` |
 | exec | `c374-ex-throw-in-reentrant-callback` | 回调里再进一次原生回调并抛出，异常没穿回最外层 |
 | exec | `c379-ex-angle-assertion-after-prefix-operator` | `!<T>x` / `~<T>x`：`unimplemented: expression ExclamationToken` |
 | exec | `c382-ex-braced-escape` | `\u{…}` 花括号写法 |
-| exec | `c387-ex-angle-assertion-with-type-literal` | 尖括号断言的类型是类型字面量 |
 | e2e | `c305-e2e-event-emitter-generic` | `ast node ForOfStatement has no child initializer` |
 | e2e | `c371-e2e-observer-with-priority` | `unimplemented: class member CallExpression` |
 | e2e | `c371-e2e-csv-full` | `name is not a local or a capture` |

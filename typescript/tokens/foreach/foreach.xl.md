@@ -129,6 +129,8 @@ if (defineEnd + 1 < conditionBracket.Data.length) {
 enumable.TryToClose();
 const startIndex = index;
 let endIndex = currentIndex;
+// **体是那条空语句（`foreach/for (…);`）**（第 590 轮）：判出来之后记在单元上（见 `EmptyBodyAt`）。
+let emptyBody = false;
 currentIndex = SkipNextWrapSymbol(units, currentIndex);
 const forBody = result.CreateBody();
 // **体那一格的右端**（与 `for` / `while` 同一处口径 ✓）：两个分支各自赋值 ✓。
@@ -153,6 +155,7 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   // 体为空、`endIndex` 退到 `)` 那一格；`;` 由投影侧按原文补成 `EmptyStatement`。
   if (endIndex === -1) {
     endIndex = currentIndex - 1;
+    emptyBody = true;
   }
   if (endIndex >= currentIndex) {
     forBody.AddRange(units.slice(currentIndex, endIndex + 1));
@@ -170,6 +173,10 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
     tailEnd = ownerEnd;
   }
   forBody.SignOut(tailEnd);
+  // **空体那一格：把那个 `;` 的位置记在单元上**（第 590 轮，与 `for.xl.md` 同一条）。
+  if (emptyBody) {
+    result.EmptyBodyAt = tailEnd.Index;
+  }
 }
 forBody.TryToClose();
 result.SignOut(tailEnd);
@@ -183,6 +190,13 @@ return index;
 `foreach` / `for...in` 语句单元。
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<Foreach>` 里依次是 Define、Enumable、Body 三段的 XML。
+
+## field EmptyBodyAt:int = -1
+
+**体是那条空语句（`foreach/for (…);`）时，那个 `;` 的下标**；不是这一档就是 `-1`。
+
+与 `For.EmptyBodyAt` / `While.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起，
+投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` + `BodyBlockOf` 重扫原文。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -219,8 +233,19 @@ return index;
   const to = enumable.length > 0 ? ctx.StartOf(enumable[0]) : v.end;
   const kind = /\bin\b/.test(ctx.source.slice(from, to)) ? "ForInStatement" : "ForOfStatement";
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  const header = ctx.MatchingParen(ctx.source, v.start);
-  const statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
+  // **空体那一格先读 token 上的字段**（第 590 轮，与 `for` / `while` 同一条）：
+  // 有它就不必配对括号 + 扫原文。
+  const rawEmpty = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("emptyBodyAt")
+    : undefined;
+  const emptyAt = typeof rawEmpty === "number" ? rawEmpty : -1;
+  let statement;
+  if (emptyAt >= 0) {
+    statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
+  } else {
+    const header = ctx.MatchingParen(ctx.source, v.start);
+    statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
+  }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(
     (k: any) => k.get("type") === "Keyword" && ctx.TextOf(k) === "await",
@@ -326,6 +351,7 @@ result.set("type", this.constructor.name);
 result.set("define", this.Define.ToList());
 result.set("enumable", this.Enumable.ToList());
 result.set("body", this.Body.ToList());
+result.set("emptyBodyAt", this.EmptyBodyAt);
 const children: Array<any> = [];
 for (const item of this.Data) {
   if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
