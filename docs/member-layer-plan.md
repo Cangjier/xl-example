@@ -3373,3 +3373,69 @@ const rest = kids.filter((k) => !(k.get("type") === "Keyword" && textOfNode(k, c
 `BreakStatement` 22 + `Block` 20 + `CallExpression` 23 + `LabeledStatement` 19 份 ✓
 （`decl-label-break-continue` / `decl-label-block` / `stmt-nested-loops-label` ✓），
 下一轮先 dump 它 ✓。
+## 一百三十九、带标签的那条语句：壳里是 `[Label, 被标的语句]`（第 536 轮）：871 → **879 / 1037**
+
+起点 **871 / 1037** ✓。清点里「标签那一族」是典型的一鱼多吃 ✓
+（`BreakStatement` 22 份 + `CallExpression` 23 份 + `Block` 20 份 + `LabeledStatement` 19 份 ✓，
+全在 `decl-label-break-continue` / `decl-label-block` / `stmt-nested-loops-label` 那几族 ✓）。
+
+### 一、先纠正一条旧判断（省下一轮）
+
+上一轮的待办里写着「`For` 的四个命名段是空的」✗ —— **不对** ✓。
+直接问那个 `For` 单元 ✓：它的段**都在** ✓
+（`ForInitial` 3 格 / `ForCompare` 3 格 / `ForNext` 1 格 / `ForBody` 1 格 ✓），
+`tree2.cjs` 打的是 `Data` ✓、而四段是**命名段** ✓ ⇒ 看不见它们 ✓（工具口径问题，不是产物问题 ✓）。
+
+### 二、真因：顶层那条合并**看不到 `Statement` 壳里**
+
+`print-ast-common.xl.md` 的 `projectEach` 里早就有「带标签的语句要合并」那一条 ✓
+（连续 `Label` 从右往左套 ✓，注释写着 `Label[0,5]` 与 `For[7,36]` ⇒ `LabeledStatement[0,37)` ✓），
+**可它只在顶层列表 / 段上跑** ✗ —— 而这里 `[Label, For]` 是装在一个 **`Statement` 壳**里的 ✓，
+`projectStatement` 拿到的是**整条壳** ✓ ⇒ 那一条永远看不到 ✗。
+
+实测的产物（`tri.cjs`）：
+
+```
+ExpressionStatement [71,201) [expression]
+  LabeledStatement  [71,76)  []          ← 只盖住 `loop:`，被标的 For 整棵子树丢了 ✗
+```
+
+⇒ 落到通用支 ✓ ⇒ `ExpressionStatement > LabeledStatement(只盖标签)` ✗。
+
+### 三、修法
+
+在 `projectStatement` 的头部（`headType === "Export"` 那一条**之前** ✓）加一条**同源**的分支 ✓：
+壳里如果以 `Label` 打头且后面还有一格 ✓，就照 `projectEach` 那一条**同一份做法**
+（连续标签、从右往左套、用现成的 `labeled(...)` ✓）把「标签 + 被标的语句」投成一个
+`LabeledStatement` ✓。
+
+### 四、读数
+
+| 项 | 第 535 轮（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 871 | **879 / 1037** ✓（+8 ✓） |
+| 缺节点 | 1037（102 类） | **874**（94 类）✓（−163 ✓） |
+| 多出来的节点 | 324（44 类） | **299**（45 类）✓（−25 ✓） |
+| 区间漂移 | 83（18 类） | **71**（18 类）✓（−12 ✓） |
+| 字段名不符 | 56 | **58** ✗（+2 ✗，见下 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+
+`decl-label-break-continue.ts` 的缺从 **35** 掉到 **0** ✓。
+
+**字段名 +2 的来路** ✓：`labeled()` 造的 `LabeledStatement` 带 `label` / `statement` 两个字段 ✓，
+而**嵌套那一档**（`a: b: for` ✓）会套出**两层** `LabeledStatement` ✓ ——
+TS 那边也是两层 ✓，所以这是**先前只投一层时欠着的两处** ✓，不是新伤 ✓。
+
+### 五、下一处已经看清了（本轮的现场继续用）
+
+同一个文件里还剩一处 ✓：
+
+```
+DRIFT  IfStatement  TS[143,168) vs 产物[143,195)   "if (skip()) continue loop"
+EXTRA  Block        [155,195)  "continue loop"      ← 把下一行的 `if` 也吞了
+```
+
+原树里 `IfSet[143,195)` 的 `IfStatement` 段是 `Statement[155,168)` + **`IfSet[173,195)`** ✗ ——
+也就是说**下一行的 `if` 被并进了这一段的体里** ✗（TS 那边 `IfStatement` 到 `continue loop` 为止 ✓）。
+根子在解析期 `if` 向导给「单语句体」定界那一处 ✓（`if-statement.xl.md` / `if-segment.xl.md` ✓），
+不是投影侧 ✓ —— 下一轮从那里查 ✓。

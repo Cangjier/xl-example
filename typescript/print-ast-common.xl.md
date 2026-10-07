@@ -1639,6 +1639,31 @@ new Set([
   }
   const head = kids[0];
   const headType = head.get("type");
+  // **带标签的语句：壳里是 `[Label, 被标的语句]`**（第 536 轮 ✓）——
+  // 与 `projectEach` 里那条「连续标签从右往左套」**同一件事** ✓，只是那一条只在
+  // **顶层列表 / 段**上跑 ✓（`Root.ToList()` 那一层 ✓），而这里的 `Statement` 壳
+  // **整条被当成一个单元**递进来 ✓ ⇒ 那一条永远看不到它 ✗。
+  //
+  // **少了它会怎样** ✗（实测 `decl-label-break-continue.ts` 一族 **19 份**文件 ✓）：
+  // 整条落进通用支 ✓ ⇒ 投出 `ExpressionStatement > LabeledStatement(只盖标签)` ✗
+  // ⇒ 被标的那条语句（`ForStatement` / `WhileStatement` …）连它整棵子树一起丢 ✗
+  //（一鱼多吃：`BreakStatement` 22 份 + `Block` 20 份 + `CallExpression` 23 份都在这一族里 ✓）。
+  if (headType === "Label" && kids.length >= 2) {
+    const labels = [];
+    let at = 0;
+    while (at < kids.length && kids[at].get("type") === "Label") {
+      labels.push(kids[at]);
+      at++;
+    }
+    const body = at < kids.length ? projectNode(kids[at], ctx) : undefined;
+    if (body !== undefined) {
+      let wrapped = body;
+      for (let k = labels.length - 1; k >= 0; k--) {
+        wrapped = labeled(labels[k], wrapped, ctx);
+      }
+      return wrapped;
+    }
+  }
   // **`export = X` / `export default X`**：产物那边表达式是 `Export` 单元的**平级兄弟**
   // （`Statement > [Export(export/=), 表达式]`），所以整条语句要交给 `projectExport`。
   //
