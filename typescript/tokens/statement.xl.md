@@ -943,6 +943,65 @@ if (previousIsMember === false && Statement.ExpectsOperand(previous)) {
 return false;
 ```
 
+## static method IsUnfinishedConditionalType:(units:Array<Token>, index:int)=>bool
+
+`index` 处（将要）是一个软换行时，**左边那一行正停在一个条件类型的假分支之前**吗。
+
+判据三条（都只看**已经读到的单元** ✓，所以换行那一刻问得出来 ✓）：
+
+1. 这一段里有一个**顶层的 `extends` 词**（`A extends B ? C : D` 的那个 ✓）——
+   `extends` 只可能出现在声明头与条件类型里 ✓，而声明头（`class` / `interface` 那几族）
+   在 `StatementBranch` 里**排在这一问之前**就早退了 ✓（`declarationWords` 那一支 ✓）；
+2. 它后面有一个**顶层的 `?`** ✓ —— 少了这一条就会误伤**最常见的一族**：
+   `type X<T extends U> = { … }` 换行（那个 `extends` 在**泛型形参表**里 ✓、
+   而花括号里的 `a: string` 是 `Bracket` 单元里的内容 ✗ ⇒ 顶层一个 `:` 都没有 ✓）
+   ⇒ 判成「没写完」⇒ 下一条语句被并进同一个壳 ✓；
+3. 那个 `?` 之后**顶层没有 `:`** ✓ —— 有就说明假分支已经写了 ✓。
+   括号里的 `:`（`? { a: 1 }` / `? [1, 2]` ✓）不算 ✗：它们是单元内部的内容 ✓，
+   而这一问要的正是「**这个条件类型自己那个 `:`** 到了没有」✓。
+
+**为什么是「最后一个 ` extends`」** ✗：嵌套条件类型里
+（`A extends B ? C : D extends E ? F : G` ✓）前一个 `extends` 后面**有** `:`
+⇒ 照第一个判会答「写完了」✗；取最后一个才不会漏 ✓。
+
+**为什么落在 `LineCannotEnd` 上而不是 `IsLineBreakIncompleteOnLeft`** ✗：口径的松紧不同 ✓
+（见那两个方法的说明 ✓）——`IsLineBreakBoundary` 问的是「ASI 该不该断句」✓，
+那里一个判错就是两条语句合一 ✓；而这一问只在**一定没写完**时收手 ✓。
+`IsLineBreakBoundary` 那一侧由 `ConditionalTypeCloseRule.Process` 自己那三条
+「换行后面紧跟 `:`」的放行兜着 ✓（`conditional-type.xl.md` 第 100 轮 ✓），
+两处合起来正好：**解析期不收壳** ✓ + **成形期跨过那个换行** ✓。
+
+```ts
+const frontIndex = SearchFrontIndexed(units, index, (itemIndex, item) => Statement.IsStatementBoundary(units, itemIndex));
+let extendsAt = -1;
+for (let i = frontIndex + 1; i < index; i++) {
+  const item = Get(units, i);
+  if (item !== null && Statement.WordOf(item) === "extends") {
+    extendsAt = i;
+  }
+}
+if (extendsAt < 0) {
+  return false;
+}
+let questionAt = -1;
+for (let i = extendsAt + 1; i < index; i++) {
+  const item = Get(units, i);
+  if (item instanceof SymbolToken && item.Is("?")) {
+    questionAt = i;
+  }
+}
+if (questionAt < 0) {
+  return false;
+}
+for (let i = questionAt + 1; i < index; i++) {
+  const item = Get(units, i);
+  if (item instanceof SymbolToken && item.Is(":")) {
+    return false;
+  }
+}
+return true;
+```
+
 ## static method LineCannotEnd:(units:Array<Token>, index:int)=>bool
 
 `index` 处那个换行**不可能是这一行的终点**吗——**解析期那一问**（`StatementBranch` 用它 ✓）。
@@ -961,6 +1020,13 @@ return false;
 而解析期这一问只敢在**一定没写完**时收手 ✓ —— 两个问题不同 ✓，所以两个方法 ✓。
 
 ```ts
+// **条件类型的假分支还没写** ✓（第 581 轮 ✓）：`A extends B ? C` 换行 `: D` 那一档 ——
+// 判据、为什么要有它、为什么落在这一问上，见 `IsUnfinishedConditionalType` ✓。
+// 排在下面那三条之前 ✓：那三条判的是「上一格是不是期待操作数」（`ExpectsOperand` ✓），
+// 而 `TReturn` 这种名字**不期待操作数** ✗ ⇒ 它们在这一档上一次都不响 ✓。
+if (Statement.IsUnfinishedConditionalType(units, index)) {
+  return true;
+}
 if (Statement.IsLineBreakIncompleteOnLeft(units, index) === false) {
   return false;
 }
