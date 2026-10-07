@@ -2890,3 +2890,23 @@ decl-class-private-field-in-operator.ts / decl-class-private-field.ts / decl-cla
 而是**产物侧根本没成形** ?（`return` 没升级 ?、整段是平的 ?）? 要查的是
 「**语句壳有没有把 `return` 这一段交出去**」?（`Statement` 的归类那一步 ?）；
 ② 私有名合并（≤ 11 份 ?，清晰、局部 ?，等有余量就做 ?）。
+
+## 一百三十二、`textOf` 换 `textOfNode` 也亏（第 528 轮）：748 → 725，已回滚
+
+顺着「按词取文本要两种口径都试」的想法 ?，把查表那一句从 `textOfNode(head, ctx)` ?
+换成 `textOf(head, ctx)` ?（后者在 `value` 缺失时**回落到源码切片** ?，看起来更稳 ?）：
+
+**结果**：完全一致 748 → **725** ?、缺 1570 → **1671** ?、多 813 → **888** ?
+? **回滚** ?（源码回去 ? **并重跑 `xl build` + `tsc`** ?，读数已确认回到 **748** ?）。
+
+? 说明 `textOfNode` 那一份**本来就是对的** ?（`KEYWORD_STATEMENT_KINDS` 也确实在正常命中 ? ——
+`ReturnStatement` 那一栏 101 缺里有相当一部分是**别的形状** ?）；
+`return #x in o` 那两例的真正障碍**仍是**第 526 轮 dump 出来的那条 ?：
+**私有名在产物侧从没合成过** ?（`#` 与名字两个单元 ? ? 折不起来 ? ? 那一整段退化成平铺 ?）。
+
+**这也把「私有名」那笔账的重要性抬回来了** ?：它虽然只涉及 **11 份文件** ?，
+但每份都会连带 `ReturnStatement` / `PropertyAccessExpression` / `BinaryExpression` /
+`PrivateIdentifier` 四五栏一起缺 ? —— 是**一鱼多吃**的那一类 ?。
+**下一块**（就做它 ?）：在 `RunCloseRules` 里加一条私有名合并规则 ?
+（`SymbolToken("#")` + 名字 ? 一个文本为 `#name` 的单元 ?，位置在 `PropertyAccess` 之前 ?），
+拿那 11 份当靶子量 ? —— 做法与第 490–497 轮搬规则时一模一样 ?。
