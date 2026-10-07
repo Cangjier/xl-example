@@ -312,7 +312,26 @@ return i;
 「按成员边界收集类型文本」的相互作用——`IsMemberBoundary` 那条判据正是给后者写的，
 我的成员边界与它必须**一致**，否则类型收集会在错的地方停）。
 
-## 十八、每步都要钉住的三件事
+## 十八、已经写好并编译通过的代码放在哪（第 431 轮）
+
+第 430 轮那次尝试虽然回滚了，但**那份代码是编译通过、且在最小用例上正确的**
+（`interface I { a: number; b: string }` 的产物完全对）。为免下次重写，把它存在：
+
+- `tmp/recon/class-member.xl.md` —— 基类 `ClassMember`（含修好的 `HeadStart`、
+  回头问、不含地退出、`Owns`、`Default`）。落地时把它复制成
+  `typescript/tokens/class-member.xl.md` 即可；
+- `tmp/recon/patch-member.cjs` —— 一次性改 `field.xl.md` 与 `interface-body.xl.md`
+  的补丁脚本（带断言、会报 MISS）。它里面有 `InterfaceMemberBranch` 的完整代码。
+
+**下一次要做的只有一件事**：把这两份东西落地（基类 + 补丁），然后**直接在
+`node_modules/typescript/lib/lib.dom.d.ts` 上用 `--file`** 看第一条差异，
+把那 11900 / 6558 的成因找出来——`cases` 那 1004 已经不再是判据（它掩盖了这一层破损）。
+
+**预判的四个可疑点**（按可能性排）：跨行类型的收集边界（`TypeDefineReorganization` 用的
+`IsMemberBoundary` 与我的成员边界**必须一致**，否则类型收集会在错的地方停）、
+可选标记 `?`、修饰词 `readonly`、以及与 `FieldReorganization`（仍挂在语句队列里）在同一张表上的相互作用。
+
+## 十九、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
