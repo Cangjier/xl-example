@@ -7773,6 +7773,178 @@ if (Statement.IsStatementUnit(before)) {
    ② 动 ASI 这一类判据要**两道门一起看** ✓（四方向尺子会全绿而门是红的 ✓，第 582 轮 ✓）；
    ③ 挪动一条队列注册时要回头搜「谁在注释里断言它不在那条队列里」✓（第 583 轮 ✓）。
 
+## 一百八十七、下一行以 `?` / `:` 开头时解析期不收壳（第 585 轮）真实语料 375 → **390 / 414**，缺 742 → **126**、漂 184 → **57**、多 402 → **122**
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第一轮** ✓，用户随后把它收窄成
+「**一轮处理完就结束**」✓ ⇒ 本轮做完即交接（见第七节 ✓）。改的是
+`typescript/tokens/statement.xl.md` **一个文件** ✓（只加一支判据 + 那一处的散文 ✓）。
+
+### 一、靶子：`real` 第一名那一份（`83 36 57`）
+
+上一轮文末那张「下一块」表把三份**自己的产物**排在前面 ✓，第一名是
+`dist/ts/typescript-exec/builtins/globals.ts`（`83 缺 36 漂 57 多` ✓）。逐条看它的账 ✓，
+**最大的一簇形状只有一个** ✓：`MISS ConditionalExpression` 后面跟着十几个同级节点 ✓
+（`StringLiteral` / `ColonToken` / `BinaryExpression` / `CallExpression` / `Identifier` …
+一整条假分支 ✓），而外面那两条 `DRIFT VariableStatement / VariableDeclarationList /
+VariableDeclaration` 的右端**都停在同一个字符上** ✓ —— 那不像是投影缺映射 ✗，
+倒像是**整条表达式被从中间劈开了** ✓。
+
+### 二、最小复现（12 行 ⇒ 缺 21 / 漂 6 / 多 12）
+
+把那一份里两处排版抄成一份最小件 ✓（`tmp/recon/r585-cond.ts` ✓）：
+
+```ts
+const rendered = toStringRecord.Description === 0
+      ? "Symbol()"
+      : "Symbol(" + TextFrom(table, Value.FromString(toStringRecord.Description)) + ")";
+
+const digits = args.length > 0 ? NumericOf(args[0])
+        : (id === NumberToExponential ? -1 : 0);
+```
+
+起点产物 ✓：
+
+    DRIFT  VariableStatement [0,157) vs 产物[0,49)
+    MISS   ConditionalExpression [17,156)
+    EXTRA  ExpressionStatement [56,68)  "? \"Symbol()\""
+    EXTRA  ExpressionStatement [75,157)  ": \"Symbol(\" + …"
+    EXTRA  LiteralType [77,86)  "\"Symbol(\""
+    EXTRA  BinaryExpression [174,210)  "args.length > 0 ? NumericOf(args[0])"
+    EXTRA  ParenthesizedType [221,258)  "(id === NumberToExponential ? -1 : 0)"
+
+一句话：**`? … : …` 被劈进了两个 `Statement`** ✓ —— 两截各自被别的规则认领 ✓
+（`? "Symbol()"` 成了一条 `ExpressionStatement` ✓、`:` 开头那一截里的字符串被当成
+**类型字面量** ✗ ⇒ 多出 `LiteralType` / `ParenthesizedType` ✓，那一截的 `?` 还被折成
+`BinaryExpression` ✓）。两处排版不同 ✓：第一处换行在 **`?` 之前** ✓，第二处换行在 **`:` 之前** ✓。
+
+### 三、机制：解析期那一份「下一个字符」的续接表里没有 `?` / `:`
+
+语句壳是**解析期**关的 ✓（`StatementBranch` ✓，见 `statement.xl.md` 第 1521–1550 行那一族 ✓）。
+那一刻**下一个单元还没读进来** ✗ ⇒ 右半截只能看**原始字符** ✓
+（`Statement.NextLineContinuesExpression` ✓，第 568 轮 ✓）。那张表当时只有
+`|` / `&` / `.` ✓ 与 `(` / `[`（第 582 轮 ✓）——**`?` 与 `:` 不在里面** ✗。
+
+而左边那一半也答不出「没写完」✗：`LineCannotEnd` 问的是「上一格是不是期待操作数」✓
+（`IsLineBreakIncompleteOnLeft` ✓），`… === 0` 与 `NumericOf(args[0])` 都不期待 ✓
+⇒ 换行处判「这一行可以结束」✗ ⇒ **壳在换行处关掉** ✓ ⇒ 三元规则
+（`ternary-operator.xl.md` 的 `Previous` ✓）在任何一个壳里都**凑不齐一个 `?` 加一个 `:`** ✓
+⇒ `ConditionalExpression` 整条缺 ✓。
+
+**投影侧早就是对的** ✓：`Statement.ContinuesExpression`（`statement.xl.md` 第 690 行 ✓）
+那张表里 `?` 与 `:` **一直在** ✓（第 88 轮起 ✓）——**只有解析期这一份没有它们** ✗
+⇒ 两半口径不一致 ✓。这与第 568 轮那次「把整张表搬进解析期」**不是同一件事** ✗：
+那一次翻车是因为 `(` / `[` / `+` / 模板串**都能起一条语句** ✓（第 582 轮的注释里记着那 13 份用例 ✗）；
+而 `?` 与 `:` **起不了任何一条语句，也起不了任何一个成员** ✓
+（语句的开头只有那几族词 / `{` / 表达式起始符 / `@` ✓，成员的开头是名字 / 计算名 / 修饰符 ✓）
+⇒ 它们出现在一行的第一个实义字符上，只可能是**上一行的续接** ✓ ⇒ **不需要护栏** ✓，也**不该有** ✗。
+
+### 四、改法：那一支末尾加一行
+
+```ts
+if (head === "?" || head === ":") {
+  return true;
+}
+return head === "|" || head === "&" || head === ".";
+```
+
+**一个字都没动别的** ✓：`LineCannotEnd` / `IsLineBreakIncompleteOnLeft` /
+`ContinuesExpression` / `IsUnfinishedConditionalType`（第 581 轮 ✓）全都照旧 ✓
+—— 第 581 轮那一支管的是**左边**（`A extends B ? C` 换行 `: D` ✓），
+这一支管的是**右边**（下一行第一个字符是 `?` 或 `:` ✓），两半互补 ✓、不重叠 ✓。
+
+**最小件当场全绿** ✓：`缺 0　漂 0　多 0　字段名 0`（61 / 61 ✓）。
+
+### 五、读数
+
+| 项 | 第 584 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| `cases` 完全一致 | 1037 / 1037 | **1037 / 1037** ✓（四方向与三个地基栏**一字未动** ✓） |
+| `real` 完全一致 | 375 / 414 | **390 / 414** ✓（**+15** ✓） |
+| 缺节点 | 742（47 类） | **126（27 类）** ✓（**−616** ✓） |
+| 区间漂移 | 184（10 类） | **57（7 类）** ✓（**−127** ✓） |
+| 多出来的节点 | 402（27 类） | **122（16 类）** ✓（**−280** ✓） |
+| 字段名不符 | 0 | **0** ✓ |
+| 红文件 | 38 | **23** ✓（**−15** ✓） |
+
+**逐文件**（`r585-real.txt` ✓）——**转绿的 15 份** ✓：`lowering.ts`（`90 16 30` ✓）、
+`tokens/json/object-literal.ts`（`98 6 26` ✓）、`builtins/promise.ts`（`47 18 33` ✓）、
+`@types/node/stream/web.d.ts`（`36 9 18` ✓）、`tokens/binary-operator.ts` / `logical-operator.ts`
+（各 `28 3 14` ✓）、`builtins/array.ts`（`19 9 15` ✓）、`tokens/tuple-member.ts`（`27 2 5` ✓）、
+`@types/node/util.d.ts`（`26 1 4` ✓）、`tokens/import.ts`（`21 3 6` ✓）、`tokens/try/try.ts`
+（`14 3 9` ✓）、`tokens/type-parameter.ts`（`9 3 6` ✓）、`function/method-declaration.ts`
+（`8 3 5` ✓）、`runtime/rt.ts`（`3 3 6` ✓）、`builtins/install.ts`（`2 3 5` ✓）——
+**前四名整族归零** ✓（三份 `dist/ts/**` 与一份 `.d.ts` ✓）。
+
+**留下那 23 份的头几名** ✓：`vm.d.ts` `61 0 14` ✓、`fs.d.ts` `30 0 18` ✓、
+`globals.ts` `83 36 57` → **`3 18 21`** ✓（**第一名掉到第三名** ✓）、
+`inspect.ts` `4 16 20` ✓、`querystring.d.ts` `21 0 3` ✓、`lib.es5.d.ts` `6 3 11` ✓、
+`utility.d.ts` `1 4 8` ✓。
+
+**四方向的分族**（投影后 ✓，`r585-real.txt` ✓）：
+缺 **126** 处 / 27 类，头几名是 `Identifier` 29 ✓、`TypeReference` 14 ✓、`UnionType` 8 ✓、
+`ExpressionWithTypeArguments` 7 ✓、`PlusToken` 7 ✓、`PropertySignature` 6 ✓、`LiteralType` 6 ✓；
+漂 **57** 处 / 7 类 —— `BinaryExpression` 24 ✓、`WhileStatement` 12 ✓、`ForOfStatement` 8 ✓、
+`ConditionalType` 5 ✓、`ReturnStatement` 4 ✓、`TypeAliasDeclaration` 2 ✓、`ExpressionStatement` 2 ✓；
+多 **122** 处 / 16 类 —— `ExpressionStatement` 41 ✓、`BinaryExpression` 21 ✓、
+`WhileStatement` 12 ✓、`ForOfStatement` 8 ✓、`PrefixUnaryExpression` 7 ✓。
+
+**留下那几族一眼看得出是三条不同的根** ✓（都写在第七节 ✓）：
+`vm.d.ts` / `fs.d.ts` / `querystring.d.ts` 那三份**一份漂移都没有** ✗
+（全是缺 + 多 ✓，形状与 `@types/node/assert.d.ts` 的 `asserts value` 那一族同源 ✓）；
+`WhileStatement` / `ForOfStatement` 的漂移**右端差一格** ✓（`产物[…,57734)` vs `TS[…,57735)` ✓）；
+`BinaryExpression` 那 24 处是**左结合链**在换行处收窄 ✓（`globals.ts` 的
+`return DateDaysFromCivil(…) * 86400000 + …` ✓）。
+
+### 六、六道门（coverage **还掉一条** ✓）
+
+`runtime:check` **240 / 242** ✓（与第 579–584 轮**逐项相同** ✓，两条老账：`while + break` 的累加
+与 `unimplemented: expression ForOfStatement` ✓）、`runtime:cli` **79 / 79** ✓、
+`cases:check` **1050 条 0 不合格** ✓、`samples` **三份全绿** ✓、
+`cases:tsast` **16 片 5 片通过** ✓（与第 584 轮相同 ✓ —— `real` 那 23 份还红着 ✓，片数由它定 ✓）、
+`coverage` **1630 → 1631 / 1713** ✓（**blocked 41 → 40** ✓、整体加权 94.4% → **94.5%** ✓）。
+`xl build`（`statement.xl.md`）**0 error 0 warning** ✓、`xl check`（`statement.xl.md`）**0 error 3 warning** ✓
+（那三条 `W3102` 是**老账** ✓，与第 583 轮逐条相同 ✓）、`tsc` **0 错** ✓。
+
+**coverage 那一条是「用撤回法量出来的」** ✓（第 585 轮的做法 ✓，记下来 ✓）：
+`report.json` 里 `newlyPassing` 是**对台账**算的（`run.mjs` 第 547 行 ✓），不是对上一次运行 ✗
+⇒ 只看它分不出「这一轮还掉了哪一条」✗。做法是**把源码撤回 HEAD 那一版** ✓
+（`git checkout -- typescript/tokens/statement.xl.md` ✓）、**重新 `xl build --force` + `tsc`** ✓、
+再跑一遍 `coverage` ✓ ⇒ 起点读数 **1630 / 1713（blocked 41）** ✓、与第 584 轮文末那句一致 ✓；
+然后**恢复这一版** ✓、再量一次 ✓ ⇒ 两次的 `blocked` 名单**只差一条** ✓：
+**`c305-e2e-config-merge`** ✓ —— 那份用例第 9 / 10 行正是
+`? merge(a, b)` / `: b;` ✓（**同一条根** ✓，不是巧合 ✓），
+它原来在台账里的理由就是 **`unimplemented: expression QuestionToken`** ✓
+（`report.json` 的那一行 diff 把这句话留在了原地 ✓）；e2e 那一层
+`pass 150 → 151` ✓、`blocked 11 → 10` ✓。
+**顺带一条纪律** ✓：`coverage` 有**新鲜度闸** ✓（源码比产物新就拒绝跑 ✓，
+报的是「跑 `xl_build --force` 与 `npm run compile`」✓）⇒ 撤回法必须**重新构建**两趟 ✓。
+
+### 七、下一块（给下一个对话）
+
+1. **`WhileStatement` / `ForOfStatement` 的漂移差一格** ✓（12 + 8 处 ✓，三份自己的产物 ✓：
+   `runtime/vm.ts`、`tokens/for/for.ts`、`tokens/lamda/lamda.ts` ✓）——
+   形状是 `while (…) at = at + 1;` / `for (const x of xs) f(x);` ✓，
+   **右端差的那一格正是尾分号** ✓（第 572 轮修过「两处右端借宿主的尾分号」✓，
+   这里是**单语句体**那条路 ✓ —— 与 `if` 那一档（第 584 轮 ✓）同一个家族 ✓），
+   一处判据能同时看回来 ✓；
+2. **`@types/node` 那三份（`vm.d.ts` `61 0 14` / `fs.d.ts` `30 0 18` /
+   `querystring.d.ts` `21 0 3`）** ✓ —— 缺的是 `Identifier` / `TypeReference` /
+   `UnionType` / `ExpressionWithTypeArguments` ✓，多的是 `ExpressionStatement` ✓；
+   `fs.d.ts` 那 30 处的现场是 `export interface ReadFileOptionsWithBuffer<T extends
+   NodeJS.ArrayBufferView>` 换行 `| ((size: number) => T);` ✓ ——
+   **泛型形参表里的软换行 + 续行 `|`** ✓，与第 581 / 583 轮那两处**同一片田** ✓；
+3. **`globals.ts` 剩下的 `3 18 21`** ✓ —— 漂移 18 处集中在 `BinaryExpression` 那 24 处的
+   左结合链 ✓（`return a * b + c` ✓）与 `ExpressionStatement` 的赋值链 ✓
+   （`whiteText = whiteText + (…)` ✓）：两处都是**换行处少了后半截** ✓，
+   与这一轮修的是**同一个入口的另一半** ✓（这一轮管 `?` / `:` ✓，
+   那一族管的是「运算符在下一行开头」✓ —— `+` / `-` 起得了语句 ✗ ⇒ 要护栏 ✓，
+   与第 582 轮 `(` / `[` 那两道护栏同形 ✓）；
+4. **三条留给后面的纪律** ✓：① `coverage` 的新鲜度闸 ⇒ 撤回法要重建两趟 ✓（本轮 ✓）；
+   ② `report.json` 的 `newlyPassing` 是**对台账**算的 ✗ ⇒ 要「这一轮还掉了哪一条」只能撤回后对拍 ✓（本轮 ✓）；
+   ③ **动这一支（`NextLineContinuesExpression`）要连 `LineCannotEnd` 一起想** ✓：
+   两半合起来才是 ASI 判据 ✓，只补右半截会在「左边写完了、右边也是新语句」的排版上多并一句 ✓。
+
 
 
 

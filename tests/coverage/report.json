@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.41,
+  "progressPercent": 94.53,
   "layers": [
     {
       "layer": "runtime",
@@ -74,11 +74,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 150,
-      "blocked": 11,
+      "pass": 151,
+      "blocked": 10,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 90.36
+      "coverage": 90.96
     }
   ],
   "blocked": [
@@ -273,12 +273,6 @@
       "layer": "e2e",
       "title": "泛型事件总线：`Map` + `Set` + 回调 + `Array.from`",
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
-    },
-    {
-      "id": "c305-e2e-config-merge",
-      "layer": "e2e",
-      "title": "配置深合并：递归 + 展开 + `JSON` 往返",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression QuestionToken"
     },
     {
       "id": "c323-e2e-async-retry-with-backoff",
@@ -769,11 +763,6 @@
       "id": "c305-e2e-event-emitter-generic",
       "layer": "e2e",
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
-    },
-    {
-      "id": "c305-e2e-config-merge",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression QuestionToken"
     },
     {
       "id": "c323-e2e-async-retry-with-backoff",
