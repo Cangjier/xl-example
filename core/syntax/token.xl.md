@@ -599,6 +599,14 @@ return this.WithRangeOf(this.ToDictionary(), this.Data);
   第 70 轮实测 255 个节点缺坐标，全是这一类）。
 - 同一个字典项集合里可能有**同名的多个节点**（`Statement` 里两条 `Identifier`），
   所以配对要**边配边销**（`used` 数组）——不然同一个子单元会被配到两次、把坐标抄错。
+- **光看类型名还不够**（第 546 轮 ✓）：段数组里的节点可能**与 `Data` 不在同一层** ✗，
+  这时 `Data` 里排在前面的那个同名单元会**顶替**段里的那一格 ✗。实测
+  `for await (const v of xs)`：`Foreach.children` 里是 `await`（`Data[0]` ✓），
+  而 `ForeachDefine` 里是 `const`（**不是** `Foreach.Data` 的直接成员 ✗）——
+  两者类型名都是 `Keyword` ✓ ⇒ `await` 那格抢在 `const` 前面配上了 ✓
+  ⇒ `segments.define[0]` 拿到的坐标是 82–86 而**值是 const** ✗（`TextOf` 于是答 `"await"` ✗）。
+  所以配对时**先要求区间也相同** ✓，配不上再退回「只按类型名」✓ ——
+  既有的那些段（`Data` 与段同一层）本来就区间相同 ✓，行为一个字节都不变 ✓。
 
 配不上的字典项**原样留着**（它拿不到坐标，但不至于把别的节点也连累），
 这是「宁可少补一个，也不要补错一个」的取舍：补错的坐标会让 `cases:tsast` 报出**假**分歧。
@@ -635,6 +643,12 @@ node.set("range", [start, end]);
 // **记成普通属性、不是 Map 的条目**：`entries()` / `JSON.stringify` / `Token.ToPlain`
 // 都看不见它，所以 XML 出口、AST JSON 出口与 `cases:astjson` 那把尺子一个字节都不受影响。
 (node as any).__token = this;
+// 一个子单元在字典里的区间（`[起, 止]`），配「区间也相同」那一趟用。
+const spanOf = (one: Token): Array<number> => {
+  const oneStart = one.SourceRange.Start === null ? 0 : one.SourceRange.Start.Index;
+  const oneEnd = one.SourceRange.End === null ? 0 : one.SourceRange.End.Index;
+  return [oneStart, oneEnd];
+};
 for (const [key, value] of node.entries()) {
   if (!Array.isArray(value)) {
     continue;
@@ -649,20 +663,40 @@ for (const [key, value] of node.entries()) {
     taken.push(null);
     used.push(false);
   }
-  // 按**子单元的顺序**配对，配上的记在 `items` 里它自己那一格上——这样输出顺序
-  // 与 `ToDictionary` 造的完全一致，`cases:astjson` 的逐节点比对才不会因为换序而红。
+  // **两趟配对**（第 546 轮）：第一趟要求「类型名 + 区间」都对上 ✓，
+  // 第二趟只放宽「字典格还没有区间」的那一种 ✓（还没签入签出的格子只能这样配 ✓）。
+  // **第二趟不要再放宽到「区间不同也能配」** ✗：段数组里的节点与 `Data` 不在同一层时
+  // （`ForeachDefine` 里的 `const` 对 `Foreach` 自己的 `await` ✗），两个都是 `Keyword` ✓、
+  // 区间却不同 ✓ —— 只按类型名配就会**张冠李戴** ✗，段里的那一格于是顶着 `await` 的坐标 ✗
+  // （`st-for-await` / `stmt-for-await` / `fn-async-generator` 三份实测都是这样 ✓）。
   for (const token of children) {
-    for (let i = 0; i < items.length; i++) {
-      if (used[i]) {
-        continue;
+    const tokenSpan = spanOf(token);
+    for (let round = 0; round < 2; round++) {
+      let hit = -1;
+      for (let i = 0; i < items.length; i++) {
+        if (used[i]) {
+          continue;
+        }
+        const item = items[i];
+        if (!(item instanceof Map) || item.get("type") !== token.constructor.name) {
+          continue;
+        }
+        const span = item.get("range");
+        const hasSpan = Array.isArray(span) && span.length >= 2;
+        if (hasSpan && (span[0] !== tokenSpan[0] || span[1] !== tokenSpan[1])) {
+          continue;
+        }
+        if (round === 0 && !hasSpan) {
+          continue;
+        }
+        hit = i;
+        break;
       }
-      const item = items[i];
-      if (!(item instanceof Map) || item.get("type") !== token.constructor.name) {
-        continue;
+      if (hit >= 0) {
+        used[hit] = true;
+        taken[hit] = token;
+        break;
       }
-      used[i] = true;
-      taken[i] = token;
-      break;
     }
   }
   let matchedAny = false;

@@ -4115,3 +4115,97 @@ TS 那边 `ForOfStatement.initializer` **直接就是 `VariableDeclarationList`*
 3. **`for (const [a, b] of xs)`**（`stmt-for-of-array-destructure.ts` ✓）：`ArrayBindingPattern`
    的区间对了 ✓，可 `elements` 是空的 ✗（`BindingElement` 与里面的 `Identifier` 都没投 ✗）
    —— 第三处与第二处是同一族 ✓，**字段名那一栏 +4 就是从这两份来的** ✗。
+## 一百四十九、段里的那一格被 `await` 顶替（第 546 轮）：913 → **917 / 1037**
+
+起点 **913 / 1037** ✓（缺 782 / 漂 68 / 多 229 / 字段名 48 ✓）。接上一节第六节留的第 1 条入口 ✓：
+`for await (const v of xs)` 的 `define` 段里**没有 `const`** ✓。
+
+### 一、现场：`const` 没有丢，是**坐标被 `await` 顶替了**
+
+XML 那一侧一直是好的 ✓：
+
+```
+<Foreach>
+  <Keyword>await</Keyword>          ← 第 82～86 字节
+  <ForeachDefine>
+    <Keyword>const</Keyword>        ← 第 89～93 字节
+    <Identifier>v</Identifier>
+```
+
+可**视图**（`ctx.KidsOf(v, "define")` ✓）里那一格是 `Keyword[82,86] = "await"` ✗ ——
+`const` 那一格**还在段里** ✓，只是它拿到的坐标是 `await` 的 ✗（`TextOf` 于是答 `"await"` ✗）。
+上一节那句「`const` 一个都不在 ✗」是**读错了症状** ✗（插桩只打了 `type + range` ✓，
+没打 `value` ✓，两格都是 `Keyword` 就分不出来了 ✗）。
+
+### 二、真因：`WithRangeOf` 的配对**只看类型名**（`core/syntax/token.xl.md`）
+
+`Token.WithRangeOf(node, list)` 按「字典项 vs 子单元」配对 ✓ —— 判据只有
+`item.get("type") === token.constructor.name` ✓。段数组里的节点**与 `Data` 不在同一层**时这就撞车 ✗：
+
+| | `Foreach.Data` | `ForeachDefine.Data` |
+| --- | --- | --- |
+| 第 0 格 | `Keyword`(await) 82–86 | `Keyword`(const) 89–93 |
+| 第 1 格 | `ForeachDefine` 89–98 | `Identifier`(v) 95–95 |
+
+`Foreach.ToDictionary()` 把 `define` 装成 `this.Define.ToList()` ✓（**嵌套那一层**的节点 ✓），
+而 `WithRangeOf` 拿 `this.Data`（**外层**四个单元 ✓）去配 ✓ ⇒ `await` 那一格**先**配上了
+`define[0]` 那个 `Keyword` 坑位 ✗ ⇒ `define[0]` 成了 `await` 的坐标 ✓（值还是 `const` ✗）。
+三个身份（名字 / 声明词 / `await`）里，`await` 是唯一「在 `Data` 里、却属于别的段」的那一格 ✓。
+
+**修法**：配对时**先要求区间也相同** ✓，第二趟只放宽「字典格还没有区间」的那一种 ✓
+（还没签入签出的格子只能这样配 ✓）；**不再放宽到「区间不同也能配」** ✗ ——
+两趟都要求区间相容 ✓，冲突的那一格于是留给**真正属于它的那个单元** ✓。
+
+### 三、投影侧那一处也顺手补上（`typescript/print-ast-common.xl.md`）
+
+`projectHeadDeclare` 找声明词用的是 `inner.find(isDeclareWord)` ✗ ——
+`await` 自己也是 `Identifier` ✓、也答 `"await"` ✓，但 `find` 只看「是不是声明词」✗ ⇒
+第一格被当成列表起点 ✗（列表区间从 `await` 起 ✗）。改成**从后往前找** ✓：
+声明词在名字前面、`await` 更靠前 ✓ ⇒ 从后往前拿到的是**离名字最近**那个 ✓。
+（这一处是**症状的第二层** ✓：配对修好之后它才真正生效 ✓。）
+
+### 四、顺带：`ForeachDefine` 也该是绑定模式的宿主（`typescript/tokens/binding-element.xl.md`）
+
+`BindingElementReorganization` 的宿主白名单原来是 `Let` / `BindingElement` / `Parameter` /
+`CatchDefine` ✗ —— `for (const [a, b] of xs)` 的声明段在产物里是 `ForeachDefine` ✓，
+而这一档**永远不会变成 `Let`** ✓（名字后面跟的是 `of` / `in` ✓，`LetBranch` 不在那里进门 ✗）
+⇒ 括号里的散单元一个 `BindingElement` 都收不到 ✗。白名单加一格 `ForeachDefine` ✓ ⇒
+`stmt-for-of-array-destructure` 当场全绿 ✓、`st-for-of-destructure` 缺节点 9 → 5 ✓。
+
+### 五、读数
+
+| 项 | 第 545 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 913 | **917 / 1037** ✓（+4 ✓） |
+| 缺节点 | 782（90 类） | **771**（90 类）✓（−11 ✓） |
+| 多出来的节点 | 229（43 类） | **226**（43 类）✓（−3 ✓） |
+| 区间漂移 | 68（18 类） | **68** ✓（持平 ✓） |
+| 字段名不符 | 48 | **46** ✓（−2 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24415 | **24419** ✓（+4：新收的 `BindingElement` ✓） |
+
+逐文件前后名单做差 ✓（`--per-file` 两份名单做差 ✓）：**变绿 4 份、变红 0 份** ✓ ——
+`st-for-await` / `stmt-for-await` / `fn-async-generator`（配对那一处 ✓）与
+`stmt-for-of-array-destructure`（宿主白名单那一处 ✓）；`st-for-of-destructure` 缺 9 → 5 ✓
+（还没全绿 ✓，对象那一半见下 ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`coverage` **1268 / 1713**（blocked 141 /
+differ 304 / bad 0 ✓、整体加权 **72.8%** ✓，落盘 `tests/coverage/report.json` ✓）；
+`runtime:check` **207 / 242** ✓ —— **与第 545 轮末逐字相同** ✓（第 545 轮那一节写的也是 207 ✓）；
+`runtime:cli` **39 / 79** ✓（+1 ✓：`for…of` 的数组解构在运行时那一侧也要按
+`ArrayBindingPattern` 读 ✓）。`samples` 仍红 ✗（两处差分与 HEAD **逐字相同** ✓）；
+**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 六、下一块的入口
+
+1. **`for (const { x, y } of items)`**（`stmt-for-of-object-destructure.ts` ✓）：
+   花括号那一趟被 `TypeLiteralReorganization` 抢走 ✗ —— 产物是
+   `<TypeLiteral><TypeLiteralBody><Field name="x">…` ✗（应当是 `ObjectLiteral` + `BindingElement` ✓）
+   ⇒ `projectHeadDeclare` 的 `isPatternKid` 认不出它 ✗ ⇒ `initializer` 整个不投 ✗。
+   该查的是 `type-literal.xl.md` 的 `IsTypePosition`：`for (const { … } of …)` 里
+   **回扫撞到的第一个实义词是 `const`** ✓，而它那一支是 `return crossedAssignment === false` ✓
+   ⇒ 应当答「值位」✓ —— 实测答了「类型位」✗，所以先看**那一刻 `units` 里到底有什么** ✓
+   （大概与本节第二处同源：段里的单元与外层 `Data` 不是同一层 ✓）；
+2. **`for (const [a, b] of pairs)` 的 `st-for-of-destructure.ts`** ✓：本轮已从 9 缺降到 5 缺 ✓，
+   剩下的是同一族（`initializer` 那一格的字段名 ✓ 见 `--file` 输出 ✓）。
+

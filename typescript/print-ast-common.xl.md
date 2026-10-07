@@ -4156,12 +4156,23 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   const declared = nameKid.get("type") === "Identifier" ? projectNode(nameKid, ctx) : projectBindingPattern(nameKid, ctx);
   // **列表的起点是那个声明词** ✗、不是段里的第一格 ✓：`for await (const v of xs)` 的段里
   // `await` 排在 `const` 前面 ✓（TS 那边它是 `ForOfStatement.awaitModifier` ✓、
-  // 不是列表的一部分 ✓）。
+  // 不是列表的一部分 ✓）——**所以这个声明词要从后往前找** ✓（第 546 轮 ✓）：
+  // 从前往后找时 `await` 自己就是 `Identifier`、`textOfNode` 也答 `"await"` ✗，
+  // 可 `inner.find` 只认「是不是声明词」✗ ⇒ 第一格 `await` 被当成起点 ✗
+  // ⇒ 列表区间从 `await` 起 ✗（实测 `st-for-await` / `stmt-for-await` / `fn-async-generator`
+  // 三份都是 `[82,96)` 对 TS 的 `[89,96)` ✗）。声明词在名字前面、`await` 更靠前 ✓，
+  // 从后往前找拿到的就是**离名字最近**的那个声明词 ✓。
   const isDeclareWord = (k: any) => {
     const text = textOfNode(k, ctx);
     return text === "const" || text === "let" || text === "var" || text === "using";
   };
-  const declareKid = inner.find((k) => isDeclareWord(k));
+  let declareKid = undefined;
+  for (let at = inner.length - 1; at >= 0; at--) {
+    if (isDeclareWord(inner[at])) {
+      declareKid = inner[at];
+      break;
+    }
+  }
   const head = declareKid === undefined ? inner[0] : declareKid;
   const headText = textOfNode(head, ctx);
   const flags = headText === "const" ? "Const" : headText === "var" ? "None" : "Let";

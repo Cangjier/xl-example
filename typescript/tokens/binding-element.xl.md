@@ -38,7 +38,12 @@ TypeScript 那边的形状（实测 AST）：
 
 - `Let`（`const { … } = x`：模式在 `Let` 里，初始化式在它**外面** ✓）；
 - `BindingElement`（嵌套解构 `{ a: { b } }` ✓）；
-- `Parameter`（`function f({ p, q }: T)` ✓）。
+- `Parameter`（`function f({ p, q }: T)` ✓）；
+- `ForeachDefine`（**第 546 轮加的** ✓）：`for (const [a, b] of xs)` / `for (const { x, y } of xs)`
+  的声明段在产物里是一个 `ForeachDefine` ✓ —— 这一档的名字后面跟的是 `of` / `in` ✗、
+  `LetReorganization` 从来不在那里进门 ✗ ⇒ 没有 `Let` 让它当宿主 ✗ ⇒ 括号里的散单元
+  一个 `BindingElement` 都收不到 ✗（实测 `st-for-of-destructure` /
+  `stmt-for-of-array-destructure` / `stmt-for-of-object-destructure` 三份 ✓）。
 
 **值位的对象 / 数组字面量不受影响**：`const y = { a }` 的 `{}` 宿主是语句（不是上面三种）✗
 一次都不会被收 ✓。
@@ -55,7 +60,8 @@ TypeScript 那边的形状（实测 AST）：
 
 `index` 处是不是一张还没收过的解构模式。
 
-判据：这个单元的**宿主**是那三种之一（`Let` / `BindingElement` / `Parameter`）；
+判据：这个单元的**宿主**是那几种之一（`Let` / `BindingElement` / `Parameter` / `CatchDefine` /
+`ForeachDefine`）；
 它本身是**已关闭的 `{` / `[` 括号**，或者已经先一步被 `JsonObject` / `JsonArray` 换成的
 `ObjectLiteral` / `ArrayLiteral`（第二趟再进来时是后者 ✓）；里面还没有 `BindingElement`；
 里面至少有一个实义单元。
@@ -70,7 +76,8 @@ if (
   ownerName !== "Let" &&
   ownerName !== "BindingElement" &&
   ownerName !== "Parameter" &&
-  ownerName !== "CatchDefine"
+  ownerName !== "CatchDefine" &&
+  ownerName !== "ForeachDefine"
 ) {
   return false;
 }
