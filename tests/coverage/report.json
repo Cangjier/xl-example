@@ -38,55 +38,307 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.08,
+  "progressPercent": 79.5,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 492,
-      "blocked": 2,
-      "differ": 8,
+      "pass": 392,
+      "blocked": 47,
+      "differ": 63,
       "nodefail": 0,
-      "coverage": 98.01
+      "coverage": 78.09
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 397,
-      "blocked": 9,
-      "differ": 5,
+      "pass": 356,
+      "blocked": 23,
+      "differ": 32,
       "nodefail": 0,
-      "coverage": 96.59
+      "coverage": 86.62
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 620,
-      "blocked": 0,
-      "differ": 14,
+      "pass": 526,
+      "blocked": 17,
+      "differ": 91,
       "nodefail": 0,
-      "coverage": 97.79
+      "coverage": 82.97
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 159,
-      "blocked": 3,
-      "differ": 4,
+      "pass": 110,
+      "blocked": 39,
+      "differ": 17,
       "nodefail": 0,
-      "coverage": 95.78
+      "coverage": 66.27
     }
   ],
   "blocked": [
     {
+      "id": "ctl-forof-custom-iterable",
+      "layer": "runtime",
+      "title": "`for..of` 走自定义可迭代物（Symbol.iterator）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "fn-method-this",
+      "layer": "runtime",
+      "title": "方法调用里的 this 就是接收者（含转手调用）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "obj-getter-setter",
+      "layer": "runtime",
+      "title": "访问器：读走 getter、写走 setter、内部用另一个字段",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "exc-finally-order",
+      "layer": "runtime",
+      "title": "try / catch / finally 的执行顺序（含没抛的那条路）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "exc-nested-and-rethrow",
+      "layer": "runtime",
+      "title": "嵌套 try + 重抛 + catch 里再抛",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "exc-catch-rethrow-finally",
+      "layer": "runtime",
+      "title": "catch 里 throw，finally 照跑，外层接住",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "prm-then-chain",
+      "layer": "runtime",
+      "title": "Promise：resolve → then → then，值是逐级传的",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "prm-catch",
+      "layer": "runtime",
+      "title": "Promise：reject → catch 接住 → 之后回到兑现那条路",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "exc-throw-in-callback-map-filter",
+      "layer": "runtime",
+      "title": "回调里抛：`forEach` / `map` / `sort` / `Map.forEach` 都**立刻**中断，外层 `catch` 接得住",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "rt-recursive-data-walk",
+      "layer": "runtime",
+      "title": "递归走一棵树，用 reduce + concat 收集路径",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "rt-label-break-out-of-block",
+      "layer": "runtime",
+      "title": "带标签的块：break 标签直接跳出整块",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
+    },
+    {
+      "id": "rt-object-method-shorthand",
+      "layer": "runtime",
+      "title": "对象字面量：简写方法、简写属性、计算键",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "rt-getter-setter-side-effects",
+      "layer": "runtime",
+      "title": "访问器：读一次跑一次、写一次跑一次",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "rt-custom-iterable-object",
+      "layer": "runtime",
+      "title": "自定义可迭代对象：Symbol.iterator 返回带 next 的对象",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "rt-deep-recursion-return",
+      "layer": "runtime",
+      "title": "深递归：回程顺序与累加",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "rt-error-in-getter-caught",
+      "layer": "runtime",
+      "title": "getter 里抛：try 接得住、类别还在",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c291-rt-iteration-protocol-forms",
+      "layer": "runtime",
+      "title": "手写可迭代对象 + for..of",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c291-rt-switch-and-fallthrough-forms",
+      "layer": "runtime",
+      "title": "switch 的穿透与 default",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
+    },
+    {
+      "id": "c304-rt-new-target-in-ctor",
+      "layer": "runtime",
+      "title": "new.target：直接构造认得出、普通调用是 undefined",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
+    },
+    {
+      "id": "c304-rt-getter-setter-on-prototype-object",
+      "layer": "runtime",
+      "title": "对象字面量里的访问器（get / set 一对）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
       "id": "c304-rt-do-while-label-continue",
       "layer": "runtime",
       "title": "带标号的 do/while 与 continue",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: if"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c304-rt-iife-arrow-this",
+      "layer": "runtime",
+      "title": "箭头 IIFE 里的 this 与外部一致",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c304-rt-promise-then-returns-promise",
+      "layer": "runtime",
+      "title": "then 里返回一个承诺：会被展开",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c304-rt-getter-throws-and-finally",
+      "layer": "runtime",
+      "title": "getter 里抛：try/finally 收尾，属性没变",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c305-rt-arrow-in-method-captures-this",
+      "layer": "runtime",
+      "title": "方法里的箭头回调捕获 `this`",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c317-rt-promise-adoption-chain",
+      "layer": "runtime",
+      "title": "兑现值本身是承诺时的「采纳」：内层已结清 / 内层还挂着 / 内层被拒绝",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c323-rt-array-methods-chain",
+      "layer": "runtime",
+      "title": "数组方法链：map/filter/reduce/sort 一起用",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c323-rt-iife-and-arrow-this",
+      "layer": "runtime",
+      "title": "箭头抓外层的 this；方法里的 this 指向接收者",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c330-rt-function-method-forms",
+      "layer": "runtime",
+      "title": "函数的三种写法与 `this` 的取法",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c330-rt-symbol-iterator-manual",
+      "layer": "runtime",
+      "title": "自定义迭代器：显式取出 `Symbol.iterator` 再推进",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c330-ex-as-inside-spread",
+      "layer": "runtime",
+      "title": "`as` 落在展开位里：`[...(o as any)]`",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c330-ex-ternary-arrow-branches",
+      "layer": "runtime",
+      "title": "三元的两支是箭头函数：不套括号的写法",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
+    },
+    {
+      "id": "c331-rt-getter-setter-with-validation",
+      "layer": "runtime",
+      "title": "访问器里的校验与副作用",
+      "detail": "tsrun: 脚本抛出：below absolute zero"
+    },
+    {
+      "id": "c331-rt-array-methods-on-derived",
+      "layer": "runtime",
+      "title": "数组方法链：`map` / `filter` / `reduce` 一起用",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-rt-private-fields-brand",
+      "layer": "runtime",
+      "title": "私有字段：品牌检查、继承里的可见性、跨实例访问",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
+    },
+    {
+      "id": "c371-rt-try-catch-finally-matrix",
+      "layer": "runtime",
+      "title": "try / catch / finally 的六种收口方式",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
+    },
+    {
+      "id": "c371-rt-iteration-protocol-forms",
+      "layer": "runtime",
+      "title": "迭代协议：手动 next、提前退出、return() 收尾",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-promise-chaining-values",
+      "layer": "runtime",
+      "title": "承诺链：值的透传、返回承诺、链上抛错",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-rt-array-methods-chain-deep",
+      "layer": "runtime",
+      "title": "长数组方法链上的中间值与惰性",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-rt-deep-object-graph",
+      "layer": "runtime",
+      "title": "深对象图：建立、遍历、序列化",
+      "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "c371-rt-getter-on-prototype-chain",
+      "layer": "runtime",
+      "title": "访问器沿原型链的查找与 this",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c371-rt-object-to-primitive-hints",
+      "layer": "runtime",
+      "title": "ToPrimitive 的三种 hint 与顺序",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-error-catch-and-rethrow",
+      "layer": "runtime",
+      "title": "错误的捕获、分类、重抛与 finally 的清理",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
       "id": "c371-rt-bind-call-apply-forms",
@@ -95,10 +347,106 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
+      "id": "c371-rt-array-and-object-nesting-json",
+      "layer": "runtime",
+      "title": "嵌套结构的 JSON 往返与逐层校验",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-getter-throws-and-cleanup",
+      "layer": "runtime",
+      "title": "访问器里抛错时的展开与清理",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-exception-across-frames",
+      "layer": "runtime",
+      "title": "异常跨多层函数帧展开并回到调用者",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "ex-labeled-block-nested",
+      "layer": "exec",
+      "title": "标签的另外两面：带标签的循环、嵌套的标签块",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: two"
+    },
+    {
+      "id": "ex-private-in-operator",
+      "layer": "exec",
+      "title": "私有成员：#m() / #n / static #s / #x in o",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
+    },
+    {
+      "id": "ex-labeled-block",
+      "layer": "exec",
+      "title": "带标签的块：`outer: { … break outer; … }`",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: outer"
+    },
+    {
+      "id": "ex-object-literal-accessors",
+      "layer": "exec",
+      "title": "对象字面量里的 get / set（含计算键）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "ex-function-decl-in-block",
+      "layer": "exec",
+      "title": "块里的函数声明：块内可见、块外不泄漏",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
+    },
+    {
+      "id": "ex-switch-no-default",
+      "layer": "exec",
+      "title": "switch 没有 default / 只有 default / 空体",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
+    },
+    {
+      "id": "ex-object-literal-accessors-computed",
+      "layer": "exec",
+      "title": "对象字面量里的访问器与计算键访问器",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "ex-private-methods-and-static-private",
+      "layer": "exec",
+      "title": "私有方法 / 静态私有成员 / 私有名访问",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
+    },
+    {
+      "id": "ex-function-decl-in-block-scope",
+      "layer": "exec",
+      "title": "块里的函数声明：块内可见、块外是另一格",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
+    },
+    {
+      "id": "ex-try-catch-finally-typed-and-optional",
+      "layer": "exec",
+      "title": "try / catch 带类型标注 / finally 三件套齐活",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c291-ex-nested-namespace-with-values",
+      "layer": "exec",
+      "title": "嵌套一层的 namespace",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is ModuleDeclaration at 19..65)"
+    },
+    {
+      "id": "c304-ex-type-annotation-in-catch-and-loop",
+      "layer": "exec",
+      "title": "catch 形参与 for 头部里的类型标注",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
       "id": "c371-ex-class-implements-and-interface",
       "layer": "exec",
       "title": "implements 是擦除的；接口不产生运行期值",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: Shape"
+    },
+    {
+      "id": "c371-ex-class-private-and-static-block",
+      "layer": "exec",
+      "title": "私有字段 / 私有方法 / 静态块 / 计算键一起上",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
     },
     {
       "id": "c371-ex-assertion-forms",
@@ -117,6 +465,12 @@
       "layer": "exec",
       "title": "标签 + break / continue 在嵌套循环与块上",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
+    },
+    {
+      "id": "c371-ex-satisfies-and-as-const-combo",
+      "layer": "exec",
+      "title": "satisfies + as const：值不变、类型收窄",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c374-ex-throw-in-reentrant-callback",
@@ -140,7 +494,7 @@
       "id": "c382-ex-braced-escape",
       "layer": "exec",
       "title": "`\\u{…}` 花括号写法 —— **还没修**",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: escaped"
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: const"
     },
     {
       "id": "c387-ex-angle-assertion-with-type-literal",
@@ -149,25 +503,643 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
     },
     {
+      "id": "json-parse-error",
+      "layer": "stdlib",
+      "title": "JSON.parse 坏输入要抛（且是可接住的那种）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "symbol-iterator",
+      "layer": "stdlib",
+      "title": "Symbol.iterator：自定义可迭代物进展开 / for..of",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "error-custom-subclass",
+      "layer": "stdlib",
+      "title": "自定义错误类：继承 Error、带额外字段、能接住",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "promise-chaining-errors",
+      "layer": "stdlib",
+      "title": "链上的错误：抛出来的会被下一段 catch 接住",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "promise-then-value-and-throw",
+      "layer": "stdlib",
+      "title": "then 回调的返回值 / 抛错两条路",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "promise-then-return-forms",
+      "layer": "stdlib",
+      "title": "then 的返回值：值 / 承诺 / 抛出 三条路各自的下一环",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c291-symbol-toprimitive-custom",
+      "layer": "stdlib",
+      "title": "Symbol.toPrimitive 决定三种 hint",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c304-std-object-defineproperties-forms",
+      "layer": "stdlib",
+      "title": "defineProperties 一次装好几格",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c304-std-promise-finally-order",
+      "layer": "stdlib",
+      "title": "finally 的返回值不改结论、次序在中间",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c305-std-json-stringify-nested-tojson",
+      "layer": "stdlib",
+      "title": "嵌套的 `toJSON` 一层层都问",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c305-std-then-returns-promise-adoption",
+      "layer": "stdlib",
+      "title": "`then` 回调返回承诺：结果承诺采纳它",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c305-std-custom-iterable-symbol-iterator",
+      "layer": "stdlib",
+      "title": "对象自定义 `Symbol.iterator` 之后能进 `for..of` 与展开",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c305-std-object-defineproperty-getter-setter",
+      "layer": "stdlib",
+      "title": "`defineProperty` 的 get/set 描述符能用",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c318-std-promise-executor-settle",
+      "layer": "stdlib",
+      "title": "执行器递出来的 `resolve` / `reject`：直接调、当值传出去、以及兑现值是承诺",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-stdlib-promise-all-mixed",
+      "layer": "stdlib",
+      "title": "Promise.all：非承诺项、空数组、一项拒绝",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-stdlib-promise-allsettled-any-race",
+      "layer": "stdlib",
+      "title": "allSettled / any / race 的形状",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-stdlib-promise-finally-passthrough",
+      "layer": "stdlib",
+      "title": "finally：值透传、异常替换、返回承诺要等",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "e2e-state-machine",
+      "layer": "e2e",
+      "title": "状态机：对象表 + switch + 方法分发",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is StringLiteral at 152..158)"
+    },
+    {
+      "id": "e2e-linked-list",
+      "layer": "e2e",
+      "title": "链表 + 自定义迭代协议 + 与数组互转",
+      "detail": "tsrun: 脚本抛出：unimplemented: an iterator's next() must return an object"
+    },
+    {
+      "id": "c305-e2e-inventory-report",
+      "layer": "e2e",
+      "title": "库存报表：接口 + 类 + Map + 排序 + JSON + 模板串",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c305-e2e-order-state-machine",
+      "layer": "e2e",
+      "title": "订单状态机：闭包 + `switch` + 抛错收尾",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c305-e2e-event-emitter-generic",
+      "layer": "e2e",
+      "title": "泛型事件总线：`Map` + `Set` + 回调 + `Array.from`",
+      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
+    },
+    {
+      "id": "c305-e2e-config-merge",
+      "layer": "e2e",
+      "title": "配置深合并：递归 + 展开 + `JSON` 往返",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression QuestionToken"
+    },
+    {
+      "id": "c323-e2e-async-retry-with-backoff",
+      "layer": "e2e",
+      "title": "端到端：异步重试与错误分类（不用定时器）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c323-e2e-word-index-and-search",
+      "layer": "e2e",
+      "title": "端到端：建一个倒排索引并做查询（只用字符串方法）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c323-e2e-state-machine-with-map",
+      "layer": "e2e",
+      "title": "端到端：用 Map 写的状态机驱动一段输入",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-graph-bfs",
+      "layer": "e2e",
+      "title": "图的最短路径：邻接表 + 队列 + 距离表",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-rpn-calculator",
+      "layer": "e2e",
+      "title": "逆波兰计算器：栈 + 运算符表 + 报错",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-json-path",
+      "layer": "e2e",
+      "title": "按路径取值：点号路径 + 缺省 + 数组下标",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-custom-iterable-collection",
+      "layer": "e2e",
+      "title": "自定义可迭代集合：Symbol.iterator + for..of + 展开",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c331-e2e-deep-clone-and-compare",
+      "layer": "e2e",
+      "title": "深拷贝与结构比较（不用 structuredClone）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c331-e2e-promise-reject-paths",
+      "layer": "e2e",
+      "title": "拒绝的四条路：执行器抛、then 抛、reject 调、throw 抛",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c338-e2e-this-binding-forms",
+      "layer": "e2e",
+      "title": "`this` 的几种绑法：方法、摘下来、call/apply/bind、箭头",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c338-e2e-accessors-and-freeze",
+      "layer": "e2e",
+      "title": "访问器、`defineProperty` 与冻结",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-dijkstra",
+      "layer": "e2e",
+      "title": "Dijkstra 最短路：邻接表 + 朴素选点",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-topological-sort",
+      "layer": "e2e",
+      "title": "拓扑排序 + 环检测",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-mustache-template",
+      "layer": "e2e",
+      "title": "极简模板引擎：变量、点路径、循环、条件",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-log-aggregation",
+      "layer": "e2e",
+      "title": "日志解析与聚合：级别、耗时、热点",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c371-e2e-validation-library",
+      "layer": "e2e",
+      "title": "校验库：错误累积与路径报告",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-rational-and-complex",
+      "layer": "e2e",
+      "title": "有理数与复数两个小值类型（相等、运算、字符串）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression WhileStatement"
+    },
+    {
       "id": "c371-e2e-observer-with-priority",
       "layer": "e2e",
       "title": "观察者模式：优先级、退订、一次性监听",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member ExpressionStatement"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member CallExpression"
+    },
+    {
+      "id": "c371-e2e-async-pool-with-errors",
+      "layer": "e2e",
+      "title": "异步任务池：并发上限、错误隔离、结果汇总",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c371-e2e-async-generator-paging",
+      "layer": "e2e",
+      "title": "异步生成器分页拉取与聚合",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-event-sourced-orders",
+      "layer": "e2e",
+      "title": "订单状态机：事件驱动的状态流转与校验",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-csv-full",
+      "layer": "e2e",
+      "title": "CSV 解析（带引号与转义）与写回",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
+    },
+    {
+      "id": "c371-e2e-stack-machine",
+      "layer": "e2e",
+      "title": "栈式虚拟机：字节码解释器",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-priority-scheduler",
+      "layer": "e2e",
+      "title": "任务调度器：优先级队列 + 依赖等待",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-e2e-error-hierarchy-service",
+      "layer": "e2e",
+      "title": "服务层错误体系：分类、重试判定、用户消息",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c371-e2e-json-schema-lite",
+      "layer": "e2e",
+      "title": "极简 JSON Schema 校验：类型、必需、数组项、枚举",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-e2e-ast-walker",
       "layer": "e2e",
       "title": "表达式 AST：求值、打印、变量收集",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: if"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
+    },
+    {
+      "id": "c371-e2e-journal-and-undo",
+      "layer": "e2e",
+      "title": "编辑器模型：命令、撤销栈、重做",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-e2e-multi-source-merge",
       "layer": "e2e",
       "title": "多来源合并：去重、优先级、冲突报告",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: priority"
+    },
+    {
+      "id": "c371-e2e-iterator-toolkit",
+      "layer": "e2e",
+      "title": "迭代器工具箱：map / filter / take / zip / cycle",
+      "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
+    },
+    {
+      "id": "c371-e2e-serialization-roundtrip",
+      "layer": "e2e",
+      "title": "自定义序列化：类型标签、循环引用、还原",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c371-e2e-permissions-matrix",
+      "layer": "e2e",
+      "title": "权限矩阵：角色 × 资源 × 动作 + 审计",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c384-e2e-union-and-intersection-shapes",
+      "layer": "e2e",
+      "title": "`A | (B & C)` 的两副面孔：值位是位运算、类型位是联合/交叉",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
     }
   ],
   "differ": [
+    {
+      "id": "num-int-arith",
+      "layer": "runtime",
+      "title": "整数四则：截断、负数、余数",
+      "detail": "stdout 不同：第 2 行：node «-3.5 -1 1 10 14» vs tsrun «3.5 1 1 10 14»"
+    },
+    {
+      "id": "num-float-bits",
+      "layer": "runtime",
+      "title": "浮点：0.1+0.2、大数、小数、特殊值",
+      "detail": "stdout 不同：第 3 行：node «Infinity -Infinity NaN» vs tsrun «Infinity Infinity NaN»"
+    },
+    {
+      "id": "num-negative-zero",
+      "layer": "runtime",
+      "title": "-0 与 0：判等、显示、1/x",
+      "detail": "stdout 不同：第 1 行：node «-0 -Infinity true 1» vs tsrun «0 Infinity true 1»"
+    },
+    {
+      "id": "op-unary",
+      "layer": "runtime",
+      "title": "一元：`!` `-` `+` `~` `void`",
+      "detail": "stdout 不同：第 1 行：node «true true true -3 3 1 -1 -6» vs tsrun «true true true 3 3 1 -1 -6»"
+    },
+    {
+      "id": "op-bitwise",
+      "layer": "runtime",
+      "title": "位运算七条：`& | ^ ~ << >> >>>`",
+      "detail": "stdout 不同：第 1 行：node «2 7 5 -7 16 16 15» vs tsrun «2 7 5 -7 16 16 0»"
+    },
+    {
+      "id": "op-exponent",
+      "layer": "runtime",
+      "title": "`**` 右结合，且一元 `-` 要用括号才进得去",
+      "detail": "stdout 不同：第 1 行：node «1024 512 -4 4» vs tsrun «1024 512 4 4»"
+    },
+    {
+      "id": "op-optional-chain",
+      "layer": "runtime",
+      "title": "`?.` 家族：属性、下标、调用、连成一串",
+      "detail": "stdout 不同：第 2 行：node «1 d» vs tsrun «{ b: 1 } undefined»"
+    },
+    {
+      "id": "ctl-if-else",
+      "layer": "runtime",
+      "title": "if / else if / else 与嵌套",
+      "detail": "stdout 不同：第 1 行：node «A B C D F» vs tsrun «A B C undefined F»"
+    },
+    {
+      "id": "ctl-while-do",
+      "layer": "runtime",
+      "title": "while / do-while：至少跑一次那一条",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "ctl-switch",
+      "layer": "runtime",
+      "title": "switch：贯穿、default 在中间、块级声明",
+      "detail": "stdout 不同：第 1 行：node «ab b c d» vs tsrun «   »"
+    },
+    {
+      "id": "ctl-switch-fallthrough-count",
+      "layer": "runtime",
+      "title": "经典的 switch 计数（不带 break 的累加）",
+      "detail": "stdout 不同：第 1 行：node «31 28 30 31» vs tsrun «undefined undefined undefined undefined»"
+    },
+    {
+      "id": "ctl-forof-array",
+      "layer": "runtime",
+      "title": "`for..of`：数组、字符串、以及中途 break",
+      "detail": "stdout 不同：第 2 行：node «40» vs tsrun «0»"
+    },
+    {
+      "id": "fn-arrow-bodies",
+      "layer": "runtime",
+      "title": "箭头函数的几种体：表达式、对象字面量、块",
+      "detail": "stdout 不同：第 2 行：node «-1 1 0» vs tsrun «1 1 0»"
+    },
+    {
+      "id": "arr-nested-and-index",
+      "layer": "runtime",
+      "title": "嵌套数组、负/越界下标、length 的写",
+      "detail": "stdout 不同：第 2 行：node «undefined 3 undefined» vs tsrun «2 3 undefined»"
+    },
+    {
+      "id": "cls-private",
+      "layer": "runtime",
+      "title": "私有成员：`#n` / `#m()` / `static #s`",
+      "detail": "stdout 不同：第 1 行：node «7 1 0» vs tsrun «13 1 0»"
+    },
+    {
+      "id": "exc-throw-in-callback",
+      "layer": "runtime",
+      "title": "回调里抛：外层 `try` 接得住，且 `finally` 照跑",
+      "detail": "stdout 不同：第 1 行：node «1|caught:cb2|fin» vs tsrun «|caught:cb2|fin»"
+    },
+    {
+      "id": "array-sort-comparator-argument-order",
+      "layer": "runtime",
+      "title": "`sort` 的比较器按 JS 的次序收到两个实参（顺序错了带副作用的那一族就跟着错）",
+      "detail": "stdout 不同：第 1 行：node «1,2,3 1:3» vs tsrun «1,3,2 1:3»"
+    },
+    {
+      "id": "rt-string-building",
+      "layer": "runtime",
+      "title": "循环里拼字符串：长度与首尾切片",
+      "detail": "stdout 不同：第 1 行：node «200 0123456789 789 9» vs tsrun «200 0123456789 34567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 9»"
+    },
+    {
+      "id": "rt-switch-string-fallthrough",
+      "layer": "runtime",
+      "title": "switch 落在字符串上：贯穿与 default 在中间",
+      "detail": "stdout 不同：第 1 行：node «ab ab c+d +d» vs tsrun «   »"
+    },
+    {
+      "id": "rt-multi-return-object",
+      "layer": "runtime",
+      "title": "用一个对象返回多个值（含解构那一半）",
+      "detail": "stdout 不同：第 1 行：node «3 2 2 -3 -1» vs tsrun «3 2 2 2 1»"
+    },
+    {
+      "id": "rt-while-continue-progress",
+      "layer": "runtime",
+      "title": "while 里的 continue 要走到步进那一句（否则死循环）",
+      "detail": "stdout 不同：第 1 行：node «1,3,5 6» vs tsrun « 6»"
+    },
+    {
+      "id": "rt-switch-default-first",
+      "layer": "runtime",
+      "title": "default 写在最前面：仍然从匹配的 case 进、顺序走到底",
+      "detail": "stdout 不同：第 1 行：node «one two d» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "rt-switch-strict-compare",
+      "layer": "runtime",
+      "title": "switch 用的是 ===（字符串与数字不相等）",
+      "detail": "stdout 不同：第 1 行：node «num str other» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "rt-switch-scoped-declaration",
+      "layer": "runtime",
+      "title": "switch 体里花括号声明与 break 的配合",
+      "detail": "stdout 不同：第 1 行：node «one two many» vs tsrun «two two many»"
+    },
+    {
+      "id": "rt-unary-conversions",
+      "layer": "runtime",
+      "title": "一元运算：+ - ! void typeof 在一批值上的结果",
+      "detail": "stdout 不同：第 1 行：node «0 NaN -3 -1 true true false false false» vs tsrun «0 NaN 3 1 true true false false false»"
+    },
+    {
+      "id": "rt-bitwise-negative-and-shift",
+      "layer": "runtime",
+      "title": "位运算在负数上：& | ^ << >> >>>",
+      "detail": "stdout 不同：第 1 行：node «255 -4 15 -2147483648 true» vs tsrun «1 4 0 -2147483648 false»"
+    },
+    {
+      "id": "rt-modulo-and-sign",
+      "layer": "runtime",
+      "title": "取模与除法的符号纪律：% 跟被除数、/ 给 ±Infinity",
+      "detail": "stdout 不同：第 1 行：node «1 -1 1 -1» vs tsrun «1 1 1 1»"
+    },
+    {
+      "id": "rt-json-nested-roundtrip",
+      "layer": "runtime",
+      "title": "JSON 往返：嵌套结构、特殊字符、数字形状",
+      "detail": "stdout 不同：第 2 行：node «true true false true» vs tsrun «true true true true»"
+    },
+    {
+      "id": "rt-switch-scoped-case-block",
+      "layer": "runtime",
+      "title": "switch 的 case 里开一个块：作用域不串",
+      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «other other other»"
+    },
+    {
+      "id": "rt-nested-ternary-chain",
+      "layer": "runtime",
+      "title": "三元串成链：每个分支都带副作用",
+      "detail": "stdout 不同：第 1 行：node «neg zero pos abc» vs tsrun «pos zero pos cbc»"
+    },
+    {
+      "id": "c291-rt-number-to-string-forms",
+      "layer": "runtime",
+      "title": "数字取文本的几种量级",
+      "detail": "stdout 不同：第 2 行：node «0.000001 1e-7 -1e+21» vs tsrun «0.000001 1e-7 1e+21»"
+    },
+    {
+      "id": "c291-rt-optional-and-nullish-forms",
+      "layer": "runtime",
+      "title": "可选链与空值合并的几种位置",
+      "detail": "stdout 不同：第 1 行：node «d d2 d3» vs tsrun «d d2 { b: null }»"
+    },
+    {
+      "id": "c291-rt-numeric-edge-forms",
+      "layer": "runtime",
+      "title": "浮点与安全整数边界",
+      "detail": "stdout 不同：第 3 行：node «0.3333333333333333 9007199254740992 -9007199254740992» vs tsrun «0.3333333333333333 9007199254740992 9007199254740992»"
+    },
+    {
+      "id": "c304-rt-shift-and-mask",
+      "layer": "runtime",
+      "title": "移位与掩码：负数、超宽位移、无符号右移",
+      "detail": "stdout 不同：第 1 行：node «-2 1073741822 -2147483648 1 2» vs tsrun «2 2 -2147483648 1 2»"
+    },
+    {
+      "id": "c304-rt-exponent-assign-forms",
+      "layer": "runtime",
+      "title": "`**` 与 `**=`：右结合、与一元负号的关系",
+      "detail": "stdout 不同：第 1 行：node «8 512 4 0.5» vs tsrun «8 512 4 2»"
+    },
+    {
+      "id": "c304-rt-switch-true-pattern",
+      "layer": "runtime",
+      "title": "`switch (true)` 的分支写法",
+      "detail": "stdout 不同：第 1 行：node «A B C F» vs tsrun «undefined undefined undefined undefined»"
+    },
+    {
+      "id": "c304-rt-call-apply-bind-forms",
+      "layer": "runtime",
+      "title": "call / apply / bind 三种调用形态",
+      "detail": "stdout 不同：第 1 行：node «13 17» vs tsrun «3[object Object] 7[object Object]»"
+    },
+    {
+      "id": "c305-rt-switch-case-block-scope",
+      "layer": "runtime",
+      "title": "`switch` 每个 case 各自一对花括号（同名 const 不冲突）",
+      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "c305-rt-exponent-right-assoc",
+      "layer": "runtime",
+      "title": "`**` 右结合，且一元负号有它自己的优先级",
+      "detail": "stdout 不同：第 1 行：node «512 64 0.5» vs tsrun «512 64 2»"
+    },
+    {
+      "id": "c315-rt-env-leave-on-continue",
+      "layer": "runtime",
+      "title": "`continue` 那一跳也要重建环境：两种循环的每轮一格都经得起 `continue`",
+      "detail": "stdout 不同：第 1 行：node «0,2,3» vs tsrun «»"
+    },
+    {
+      "id": "c323-rt-string-methods-on-primitives",
+      "layer": "runtime",
+      "title": "原始值上的字符串方法：链式调用与只读性",
+      "detail": "stdout 不同：第 2 行：node «ABC b bc 2» vs tsrun «ABC b c 2»"
+    },
+    {
+      "id": "c323-rt-optional-chain-all-slots",
+      "layer": "runtime",
+      "title": "可选链的每一种位置：属性、下标、调用、以及整条链短路",
+      "detail": "stdout 不同：第 1 行：node «5 undefined 5» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "c330-rt-async-await-reject-in-try",
+      "layer": "runtime",
+      "title": "被拒绝的承诺：`await` 之后才拒绝的那一档",
+      "detail": "stdout 不同：第 1 行：node «10,-1,30» vs tsrun «10,1,30»"
+    },
+    {
+      "id": "c331-rt-try-catch-in-loops-and-functions",
+      "layer": "runtime",
+      "title": "`try` 在循环里、在函数里、套着 `finally`",
+      "detail": "stdout 不同：第 1 行：node «-1,4,-1,8» vs tsrun «1,4,1,8»"
+    },
+    {
+      "id": "c331-rt-string-methods-chain",
+      "layer": "runtime",
+      "title": "字符串方法的链式写法与边界实参",
+      "detail": "stdout 不同：第 4 行：node «repeatrepeat x 120» vs tsrun «repeatrepeat undefined 120»"
+    },
+    {
+      "id": "c335-rt-array-like-slice-forms",
+      "layer": "runtime",
+      "title": "类数组接收者：`slice` 的通用那一档",
+      "detail": "stdout 不同：第 3 行：node «b-c» vs tsrun «c»"
+    },
+    {
+      "id": "c371-rt-number-edge-values",
+      "layer": "runtime",
+      "title": "数值边界：-0 / NaN / Infinity / 精度 / 溢出",
+      "detail": "stdout 不同：第 1 行：node «-Infinity false 0 true» vs tsrun «Infinity true 0 true»"
+    },
+    {
+      "id": "c371-rt-bitwise-32bit",
+      "layer": "runtime",
+      "title": "位运算的 32 位口径与移位计数",
+      "detail": "stdout 不同：第 2 行：node «-2147483648 2147483648 4294967295 -1» vs tsrun «-2147483648 2147483648 1 0»"
+    },
+    {
+      "id": "c371-rt-equality-tables",
+      "layer": "runtime",
+      "title": "相等三张表的差别：== / === / Object.is / SameValueZero",
+      "detail": "stdout 不同：第 5 行：node «true true false» vs tsrun «true true true»"
+    },
+    {
+      "id": "c371-rt-array-vs-object-keys",
+      "layer": "runtime",
+      "title": "数组下标键与普通字符串键在枚举上的分工",
+      "detail": "stdout 不同：第 1 行：node «3 0,1,2,extra,-1,1.5 [1,2,3]» vs tsrun «3 0,1,2,extra,1.5 [1,\"neg\",3]»"
+    },
     {
       "id": "c371-rt-super-and-this-binding",
       "layer": "runtime",
@@ -175,16 +1147,22 @@
       "detail": "stdout 不同：第 2 行：node «detached needs this» vs tsrun «Dundefined»"
     },
     {
-      "id": "c371-rt-iteration-protocol-forms",
-      "layer": "runtime",
-      "title": "迭代协议：手动 next、提前退出、return() 收尾",
-      "detail": "stdout 不同：第 3 行：node «closed» vs tsrun «{\"value\":1,\"done\":false} {\"value\":2,\"done\":false}»"
-    },
-    {
       "id": "c371-rt-async-error-paths",
       "layer": "runtime",
       "title": "async 里的抛错 / 拒绝 / try-catch / finally",
       "detail": "stdout 不同：第 1 行：node «1 boom» vs tsrun «fin»"
+    },
+    {
+      "id": "c371-rt-string-builder-stress",
+      "layer": "runtime",
+      "title": "字符串拼接的压力：一万次追加与连接",
+      "detail": "stdout 不同：第 1 行：node «10000 01234 56789» vs tsrun «10000 01234 56789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789»"
+    },
+    {
+      "id": "c371-rt-number-to-string-table",
+      "layer": "runtime",
+      "title": "数字转文本的完整口径",
+      "detail": "stdout 不同：第 4 行：node «-1» vs tsrun «1»"
     },
     {
       "id": "c371-rt-instanceof-and-prototype",
@@ -196,13 +1174,37 @@
       "id": "c371-rt-console-inspect-shapes",
       "layer": "runtime",
       "title": "console.log 对复杂值的渲染",
-      "detail": "stdout 不同：第 6 行：node «{ fn: [Function: named], arrow: [Function: arrow], cls: [class C] }» vs tsrun «{ fn: [Function: named], arrow: [Function: arrow], cls: [Function: C] }»"
+      "detail": "stdout 不同：第 5 行：node «[ undefined, null, NaN, -0, Infinity ]» vs tsrun «[ undefined, null, NaN, 0, Infinity ]»"
+    },
+    {
+      "id": "c371-rt-array-method-numeric-args",
+      "layer": "runtime",
+      "title": "数组方法收到小数 / 负数 / 越界实参",
+      "detail": "stdout 不同：第 1 行：node «[2,3] [4,5]» vs tsrun «[2,3] [3,4,5]»"
+    },
+    {
+      "id": "c371-rt-logical-and-nullish-forms",
+      "layer": "runtime",
+      "title": "逻辑运算与空值合并：短路、返回值、赋值的结合",
+      "detail": "stdout 不同：第 5 行：node «1 no2 1» vs tsrun «1 undefined 1»"
+    },
+    {
+      "id": "c371-rt-switch-and-jump-forms",
+      "layer": "runtime",
+      "title": "switch 的严格相等、贯穿、与表达式求值次数",
+      "detail": "stdout 不同：第 1 行：node «string-1 number-1 true null undefined other» vs tsrun «undefined undefined undefined undefined undefined undefined»"
     },
     {
       "id": "c371-rt-class-static-and-instance-isolation",
       "layer": "runtime",
       "title": "静态与实例成员的隔离，静态块里的 this",
       "detail": "stdout 不同：第 2 行：node «data defaults,instances» vs tsrun «data prototype,defaults,instances»"
+    },
+    {
+      "id": "c371-rt-value-vs-reference-arguments",
+      "layer": "runtime",
+      "title": "实参传递：原始值拷贝、对象引用共享、重新赋值",
+      "detail": "stdout 不同：第 3 行：node «2 true true» vs tsrun «2 true undefined»"
     },
     {
       "id": "c371-rt-function-name-and-length",
@@ -217,6 +1219,126 @@
       "detail": "stdout 不同：第 9 行：node «promise [object Promise]» vs tsrun «promise [object Object]»"
     },
     {
+      "id": "ex-tagged-template-suffix",
+      "layer": "exec",
+      "title": "标签模板后面接成员 / 运算符 / 实参",
+      "detail": "stdout 不同：第 1 行：node «3 3 A1» vs tsrun «[Function: t] 1(s: any, ...v: any[]) => s[0] + v.join(\"\") [Function: t]»"
+    },
+    {
+      "id": "ex-ternary-nesting",
+      "layer": "exec",
+      "title": "嵌套三元 / 三元当实参 / 三元里的赋值",
+      "detail": "stdout 不同：第 1 行：node «zero small big neg» vs tsrun «zero small big small»"
+    },
+    {
+      "id": "ex-label-on-switch",
+      "layer": "exec",
+      "title": "标签挂在 switch / 循环上",
+      "detail": "stdout 不同：第 1 行：node «0-» vs tsrun «---»"
+    },
+    {
+      "id": "ex-try-finally-return",
+      "layer": "exec",
+      "title": "`finally` 里的 return / break / continue",
+      "detail": "stdout 不同：第 4 行：node «body 1» vs tsrun «f 1»"
+    },
+    {
+      "id": "ex-enum-in-switch",
+      "layer": "exec",
+      "title": "enum 当 switch 的分派键（**函数体里**用枚举名）",
+      "detail": "stdout 不同：第 1 行：node «1 2 3 b» vs tsrun «undefined undefined undefined b»"
+    },
+    {
+      "id": "ex-string-raw-and-tagged",
+      "layer": "exec",
+      "title": "`String.raw` 与标签模板的 `raw` 那一栏",
+      "detail": "stdout 不同：第 1 行：node «4 3» vs tsrun «[Function (anonymous)] 3»"
+    },
+    {
+      "id": "ex-for-of-string-labels",
+      "layer": "exec",
+      "title": "for..of 走字符串（按码点）与带标签的循环退出",
+      "detail": "stdout 不同：第 2 行：node «1 3» vs tsrun «»"
+    },
+    {
+      "id": "ex-switch-with-union-types",
+      "layer": "exec",
+      "title": "switch 上判别联合类型的几个成员：类型位不影响运行",
+      "detail": "stdout 不同：第 1 行：node «12 9» vs tsrun «undefined undefined»"
+    },
+    {
+      "id": "c291-ex-parameter-properties-variants",
+      "layer": "exec",
+      "title": "构造函数参数属性的三种修饰",
+      "detail": "stdout 不同：第 1 行：node «3 8» vs tsrun «NaN 6ab»"
+    },
+    {
+      "id": "c291-ex-as-and-index-precedence",
+      "layer": "exec",
+      "title": "as / 非空断言与下标、成员访问的优先级",
+      "detail": "stdout 不同：第 1 行：node «3 1 2» vs tsrun «3 undefined 2»"
+    },
+    {
+      "id": "c304-ex-arrow-return-type",
+      "layer": "exec",
+      "title": "箭头函数的返回类型标注（带对象与联合）",
+      "detail": "stdout 不同：第 1 行：node «4 1 neg» vs tsrun «4 1 1»"
+    },
+    {
+      "id": "c305-ex-optional-chain-nonnull-mix",
+      "layer": "exec",
+      "title": "可选链与非空断言混在同一条链上",
+      "detail": "stdout 不同：第 1 行：node «1 1 1 2» vs tsrun «1 1 1 { a: { b: 1 } }»"
+    },
+    {
+      "id": "c320-ex-generator-interface-shapes",
+      "layer": "exec",
+      "title": "生成器的两条接口：同步那族有 `Symbol.iterator`、异步那族两个都有",
+      "detail": "stdout 不同：第 3 行：node «true true» vs tsrun «[Function (anonymous)] [Function (anonymous)]»"
+    },
+    {
+      "id": "c321-ex-tagged-template-as-operand",
+      "layer": "exec",
+      "title": "标签模板出现在二元 / 实参位时，标签与模板不能被拆开",
+      "detail": "stdout 不同：第 1 行：node «3 3 A1» vs tsrun «[Function: t] 1(s: any, ...v: any[]) => s[0] + v.join(\"\") [Function: t]»"
+    },
+    {
+      "id": "c323-ex-nonnull-in-chains",
+      "layer": "exec",
+      "title": "非空断言与下标 / 成员混在同一条链上",
+      "detail": "stdout 不同：第 2 行：node «7 7» vs tsrun «7 undefined»"
+    },
+    {
+      "id": "c330-ex-optional-chain-loops",
+      "layer": "exec",
+      "title": "可选链在循环与调用实参位上",
+      "detail": "stdout 不同：第 1 行：node «a 1» vs tsrun «a [ 'x' ]»"
+    },
+    {
+      "id": "c331-ex-nonnull-and-optional-mix",
+      "layer": "exec",
+      "title": "非空断言与可选链写在同一条取值里",
+      "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[ { id: 1, tags: [ 'x' ] } ] 1»"
+    },
+    {
+      "id": "c333-ex-tagged-template-raw",
+      "layer": "exec",
+      "title": "标签模板的 `raw` 与熟串各是各的",
+      "detail": "stdout 不同：第 5 行：node «4 3» vs tsrun «[Function (anonymous)] 3»"
+    },
+    {
+      "id": "c371-ex-enum-numeric-forms",
+      "layer": "exec",
+      "title": "数值枚举：自动编号、显式值、反向映射",
+      "detail": "stdout 不同：第 2 行：node «1 2 3 B 0,5,6,Red,Green,Blue» vs tsrun «1 1 1 undefined 0,5,6,Red,Green,Blue»"
+    },
+    {
+      "id": "c371-ex-enum-const-and-computed",
+      "layer": "exec",
+      "title": "const enum 与带常量表达式的成员",
+      "detail": "stdout 不同：第 1 行：node «2 4 1 5 16 B» vs tsrun «2 4 1 5 1 B»"
+    },
+    {
       "id": "c371-ex-namespace-type-only-body",
       "layer": "exec",
       "title": "只有类型的 namespace 体是空操作",
@@ -226,7 +1348,13 @@
       "id": "c371-ex-nonnull-in-chains",
       "layer": "exec",
       "title": "非空断言落在链的每一段上",
-      "detail": "stdout 不同：第 4 行：node «7 7» vs tsrun «[Function: fn] 7»"
+      "detail": "stdout 不同：第 3 行：node «2» vs tsrun «undefined»"
+    },
+    {
+      "id": "c371-ex-optional-chain-forms",
+      "layer": "exec",
+      "title": "可选链：成员、下标、调用、与 ?? 混用",
+      "detail": "stdout 不同：第 1 行：node «1 undefined undefined undefined» vs tsrun «undefined undefined undefined undefined»"
     },
     {
       "id": "c371-ex-spread-forms",
@@ -235,16 +1363,418 @@
       "detail": "stdout 不同：第 3 行：node «{\"a\":9,\"b\":2,\"c\":3} {\"0\":1,\"1\":2,\"2\":3}» vs tsrun «{\"a\":9,\"b\":2,\"c\":3} {}»"
     },
     {
+      "id": "c371-ex-tagged-template-forms",
+      "layer": "exec",
+      "title": "标签模板：cooked / raw / 前后缀、返回值参与运算",
+      "detail": "stdout 不同：第 3 行：node «true» vs tsrun «false»"
+    },
+    {
       "id": "c371-ex-class-expression-forms",
       "layer": "exec",
       "title": "类表达式：匿名、具名自引用、extends 表达式",
       "detail": "stdout 不同：第 1 行：node «1 2 Named bc true» vs tsrun «1 2 Named bc false»"
     },
     {
+      "id": "c371-ex-switch-with-types-and-blocks",
+      "layer": "exec",
+      "title": "switch 里的类型标注、块作用域与贯穿",
+      "detail": "stdout 不同：第 1 行：node «5 95 100» vs tsrun «95 95 100»"
+    },
+    {
+      "id": "c371-ex-as-precedence-with-operators",
+      "layer": "exec",
+      "title": "as 与算术 / 一元 / 成员运算的优先级",
+      "detail": "stdout 不同：第 2 行：node «-3 false number» vs tsrun «3 false number»"
+    },
+    {
+      "id": "c371-ex-exhaustive-switch-never-default",
+      "layer": "exec",
+      "title": "穷尽性检查（default 里给 never）与运行期无关",
+      "detail": "stdout 不同：第 1 行：node «A B c» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "c373-ex-compound-assign-precedence",
+      "layer": "exec",
+      "title": "复合赋值的右操作数取整个赋值右侧（比自己松的那一段也算）",
+      "detail": "stdout 不同：第 14 行：node «P unary -1» vs tsrun «P unary 3»"
+    },
+    {
       "id": "c373-ex-compound-assign-logical-rhs",
       "layer": "exec",
       "title": "复合赋值的右侧是 `||`：逻辑规则位次造成的优先级（**还没修**）",
-      "detail": "stdout 不同：第 1 行：node «A 4» vs tsrun «A -2»"
+      "detail": "stdout 不同：第 1 行：node «A 4» vs tsrun «A 2»"
+    },
+    {
+      "id": "c378-ex-enum-member-references",
+      "layer": "exec",
+      "title": "枚举的初始化式引用前面的成员（含遮蔽外层同名变量）",
+      "detail": "stdout 不同：第 2 行：node «B 1 2 3 3 All A» vs tsrun «B 1 1 1 1 undefined All»"
+    },
+    {
+      "id": "array-slice-splice",
+      "layer": "stdlib",
+      "title": "Array.slice（不改原数组）/ splice（改）",
+      "detail": "stdout 不同：第 1 行：node «1,2 3,4 0,1,2,3,4 0,1,2,3,4» vs tsrun «1,2 2,3,4 0,1,2,3,4 0,1,2,3,4»"
+    },
+    {
+      "id": "array-at-flat-fill",
+      "layer": "stdlib",
+      "title": "Array.at / flat / fill（含负下标与深度）",
+      "detail": "stdout 不同：第 1 行：node «1 3 undefined» vs tsrun «1 2 undefined»"
+    },
+    {
+      "id": "string-length-index",
+      "layer": "stdlib",
+      "title": "String.length / 下标读 / at",
+      "detail": "stdout 不同：第 1 行：node «3 a c undefined undefined» vs tsrun «3 a c undefined b»"
+    },
+    {
+      "id": "string-slice-substring",
+      "layer": "stdlib",
+      "title": "String.slice / substring（负下标那一档不一样）",
+      "detail": "stdout 不同：第 1 行：node «bc ef def  » vs tsrun «bc cdef def  »"
+    },
+    {
+      "id": "math-rounding",
+      "layer": "stdlib",
+      "title": "Math.floor / ceil / round / trunc / sign",
+      "detail": "stdout 不同：第 1 行：node «1 -2 2 -1» vs tsrun «1 1 2 2»"
+    },
+    {
+      "id": "math-abs-min-max",
+      "layer": "stdlib",
+      "title": "Math.abs / min / max（多实参、空实参）",
+      "detail": "stdout 不同：第 2 行：node «Infinity -Infinity -0» vs tsrun «Infinity -Infinity 0»"
+    },
+    {
+      "id": "number-tofixed",
+      "layer": "stdlib",
+      "title": "Number.toFixed（含进位与补零）",
+      "detail": "stdout 不同：第 2 行：node «1234.6 -2» vs tsrun «1234.6 2»"
+    },
+    {
+      "id": "console-log-numbers",
+      "layer": "stdlib",
+      "title": "console.log 的数值形态：整数 / 浮点 / -0 / NaN / Infinity",
+      "detail": "stdout 不同：第 1 行：node «1 1.5 -0 NaN Infinity -Infinity» vs tsrun «1 1.5 0 NaN Infinity Infinity»"
+    },
+    {
+      "id": "global-nan-infinity",
+      "layer": "stdlib",
+      "title": "NaN / Infinity / undefined 是全局上的只读属性",
+      "detail": "stdout 不同：第 1 行：node «false true true undefined» vs tsrun «false true false undefined»"
+    },
+    {
+      "id": "array-copyWithin",
+      "layer": "stdlib",
+      "title": "copyWithin 的三格实参与负下标",
+      "detail": "stdout 不同：第 3 行：node «1,2,3,1,2 5» vs tsrun «1,2,1,2,3 5»"
+    },
+    {
+      "id": "string-at-and-codepoints",
+      "layer": "stdlib",
+      "title": "at / codePointAt / fromCodePoint 与代理对",
+      "detail": "stdout 不同：第 1 行：node «a b undefined 1» vs tsrun «a � undefined 1»"
+    },
+    {
+      "id": "number-tofixed-rounding",
+      "layer": "stdlib",
+      "title": "toFixed 的舍入与补零",
+      "detail": "stdout 不同：第 2 行：node «-1.5 1234.568 1e+21» vs tsrun «1.5 1234.568 1e+21»"
+    },
+    {
+      "id": "number-tostring-radix-forms",
+      "layer": "stdlib",
+      "title": "toString 的进制（2 / 8 / 16 / 36）与负数",
+      "detail": "stdout 不同：第 2 行：node «-ff 0 true» vs tsrun «ff 0 true»"
+    },
+    {
+      "id": "math-trunc-sign",
+      "layer": "stdlib",
+      "title": "Math.trunc / sign / ceil / floor 的负数",
+      "detail": "stdout 不同：第 1 行：node «4 -4 -5 -4» vs tsrun «4 4 4 5»"
+    },
+    {
+      "id": "math-hypot-and-roots",
+      "layer": "stdlib",
+      "title": "Math.hypot / cbrt / exp / log 一支",
+      "detail": "stdout 不同：第 1 行：node «5 3 -2» vs tsrun «5 3 2»"
+    },
+    {
+      "id": "math-imul-clz32",
+      "layer": "stdlib",
+      "title": "Math.imul / clz32 / fround 这三个 32 位工具",
+      "detail": "stdout 不同：第 1 行：node «12 -60 -5» vs tsrun «12 60 -5»"
+    },
+    {
+      "id": "math-min-max-edge",
+      "layer": "stdlib",
+      "title": "Math.min / max 的边界：空参 / Infinity / NaN，与 Math.abs(-0)",
+      "detail": "stdout 不同：第 2 行：node «NaN Infinity -Infinity» vs tsrun «NaN Infinity 1»"
+    },
+    {
+      "id": "object-is",
+      "layer": "stdlib",
+      "title": "Object.is 与 `===` 的两处不同",
+      "detail": "stdout 不同：第 2 行：node «false true» vs tsrun «true true»"
+    },
+    {
+      "id": "array-fill-and-copywithin-negative",
+      "layer": "stdlib",
+      "title": "fill / copyWithin 的负下标与越界",
+      "detail": "stdout 不同：第 2 行：node «1,9,9,4» vs tsrun «1,2,3,4»"
+    },
+    {
+      "id": "array-with-and-tosorted-forms",
+      "layer": "stdlib",
+      "title": "with / toSorted / toReversed / toSpliced 形态（不改原数组）",
+      "detail": "stdout 不同：第 2 行：node «1,2,8» vs tsrun «1,8,3»"
+    },
+    {
+      "id": "array-splice-forms",
+      "layer": "stdlib",
+      "title": "splice：只删 / 只插 / 替换 / 负起点 / 越界",
+      "detail": "stdout 不同：第 3 行：node «2,3 1» vs tsrun «3 1,2»"
+    },
+    {
+      "id": "string-slice-substring-substr-family",
+      "layer": "stdlib",
+      "title": "slice / substring / at 在负下标与越界上的三种口径",
+      "detail": "stdout 不同：第 1 行：node «ef bcde  » vs tsrun «cdef   »"
+    },
+    {
+      "id": "string-pad-and-repeat-edge-forms",
+      "layer": "stdlib",
+      "title": "padStart / padEnd / repeat 的截断、负数与零次",
+      "detail": "stdout 不同：第 4 行：node «RangeError» vs tsrun «»"
+    },
+    {
+      "id": "string-raw-and-tagged",
+      "layer": "stdlib",
+      "title": "String.raw 作为标签 + 普通调用两种形态",
+      "detail": "stdout 不同：第 3 行：node «4» vs tsrun «[Function (anonymous)]»"
+    },
+    {
+      "id": "math-rounding-boundaries",
+      "layer": "stdlib",
+      "title": "Math.round / floor / ceil / trunc 在 .5 与负数上的口径",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2» vs tsrun «1 1 3 3»"
+    },
+    {
+      "id": "math-sign-and-negzero",
+      "layer": "stdlib",
+      "title": "Math.sign / abs / min / max 在 ±0 与 NaN 上",
+      "detail": "stdout 不同：第 1 行：node «-0 -Infinity 0 -1 NaN» vs tsrun «0 Infinity 0 1 NaN»"
+    },
+    {
+      "id": "math-pow-and-roots-edge",
+      "layer": "stdlib",
+      "title": "Math.pow / sqrt / cbrt / hypot 的边界",
+      "detail": "stdout 不同：第 1 行：node «1024 1.4142135623730951 NaN 1» vs tsrun «1024 1.4142135623730951 2 1»"
+    },
+    {
+      "id": "math-logs-and-exp",
+      "layer": "stdlib",
+      "title": "Math.log / log2 / log10 / exp / log1p / expm1 的读数",
+      "detail": "stdout 不同：第 1 行：node «0 -Infinity true» vs tsrun «0 -Infinity false»"
+    },
+    {
+      "id": "math-imul-clz32-fround",
+      "layer": "stdlib",
+      "title": "Math.imul / clz32 / fround 的整数口径",
+      "detail": "stdout 不同：第 1 行：node «12 -60 -5» vs tsrun «12 60 -5»"
+    },
+    {
+      "id": "number-tofixed-and-toprecision-forms",
+      "layer": "stdlib",
+      "title": "toFixed / toPrecision 在进位、负数、很大很小上的读数",
+      "detail": "stdout 不同：第 1 行：node «1.00 3 -3 0.00» vs tsrun «1.00 3 3 0.00»"
+    },
+    {
+      "id": "number-tostring-radix-edge-forms",
+      "layer": "stdlib",
+      "title": "toString(radix) 在 2 / 8 / 16 / 36 与负数、小数上",
+      "detail": "stdout 不同：第 2 行：node «-ff 0 0.1» vs tsrun «ff 0 0.1»"
+    },
+    {
+      "id": "console-log-string-forms",
+      "layer": "stdlib",
+      "title": "console.log 字符串与数字的形状：引号、转义、负数、指数",
+      "detail": "stdout 不同：第 4 行：node «1 -1 0 -0 1.5 1e+21 1e-7 NaN Infinity» vs tsrun «1 1 0 0 1.5 1e+21 1e-7 NaN Infinity»"
+    },
+    {
+      "id": "string-at-negative-and-beyond",
+      "layer": "stdlib",
+      "title": "String.at：负下标与越界",
+      "detail": "stdout 不同：第 1 行：node «c a undefined undefined» vs tsrun «b a undefined undefined»"
+    },
+    {
+      "id": "math-cbrt-trunc-sign",
+      "layer": "stdlib",
+      "title": "Math.cbrt / trunc / sign / log2 的组合",
+      "detail": "stdout 不同：第 1 行：node «3 -2 -1 -1 3 3» vs tsrun «3 2 1 1 3 3»"
+    },
+    {
+      "id": "c291-array-fill-and-copywithin-negative",
+      "layer": "stdlib",
+      "title": "fill / copyWithin 的负下标",
+      "detail": "stdout 不同：第 4 行：node «1,4,5,4,5» vs tsrun «1,3,4,5,5»"
+    },
+    {
+      "id": "c291-string-at-codepoint-forms",
+      "layer": "stdlib",
+      "title": "码元与码点：at / codePointAt / fromCodePoint",
+      "detail": "stdout 不同：第 2 行：node «a b undefined» vs tsrun «a � undefined»"
+    },
+    {
+      "id": "c291-string-slice-substring-substr",
+      "layer": "stdlib",
+      "title": "slice / substring / substr 三种切法",
+      "detail": "stdout 不同：第 1 行：node «bc ef » vs tsrun «bc cdef »"
+    },
+    {
+      "id": "c291-number-wrapper-and-negative-zero",
+      "layer": "stdlib",
+      "title": "Number 包装对象与 -0 的两条路",
+      "detail": "stdout 不同：第 2 行：node «true false -Infinity 0» vs tsrun «true true Infinity 0»"
+    },
+    {
+      "id": "c291-math-more-members",
+      "layer": "stdlib",
+      "title": "Math 的 fround / clz32 / cbrt / trunc / sign / 对数族",
+      "detail": "stdout 不同：第 1 行：node «1.5 31 3 -1 -0» vs tsrun «1.5 31 3 1 0»"
+    },
+    {
+      "id": "c291-math-round-and-minmax-edges",
+      "layer": "stdlib",
+      "title": "Math.round 的 .5 与 min / max 的空实参、字符串、±0",
+      "detail": "stdout 不同：第 1 行：node «3 -2 1» vs tsrun «3 3 1»"
+    },
+    {
+      "id": "c291-math-constants-and-pow",
+      "layer": "stdlib",
+      "title": "Math 的常量与 pow / sqrt / abs 的边界",
+      "detail": "stdout 不同：第 2 行：node «1024 1024 true 3» vs tsrun «1024 1024 false 3»"
+    },
+    {
+      "id": "c291-object-freeze-and-is",
+      "layer": "stdlib",
+      "title": "Object.freeze / isFrozen / isSealed / isExtensible",
+      "detail": "stdout 不同：第 2 行：node «true false true» vs tsrun «true true true»"
+    },
+    {
+      "id": "c291-array-splice-return-and-negative",
+      "layer": "stdlib",
+      "title": "splice 的返回值与负起点",
+      "detail": "stdout 不同：第 2 行：node «3» vs tsrun «2»"
+    },
+    {
+      "id": "c304-std-array-fill-and-copywithin-forms",
+      "layer": "stdlib",
+      "title": "fill / copyWithin 的负下标与越界",
+      "detail": "stdout 不同：第 1 行：node «1,2,3,0,0» vs tsrun «1,2,0,0,0»"
+    },
+    {
+      "id": "c304-std-function-apply-forms",
+      "layer": "stdlib",
+      "title": "apply 的实参数组与 this",
+      "detail": "stdout 不同：第 1 行：node «103 7» vs tsrun «3[object Object] 7[object Object]»"
+    },
+    {
+      "id": "c304-std-string-charcodeat-forms",
+      "layer": "stdlib",
+      "title": "charCodeAt / codePointAt 在代理对上的两种答案",
+      "detail": "stdout 不同：第 2 行：node «NaN undefined» vs tsrun «NaN 128512»"
+    },
+    {
+      "id": "c304-std-math-cbrt-expm1-log1p",
+      "layer": "stdlib",
+      "title": "Math.cbrt / expm1 / log1p 的取值",
+      "detail": "stdout 不同：第 1 行：node «3 -2 0 0» vs tsrun «3 2 0 0»"
+    },
+    {
+      "id": "c304-std-math-atan2-forms",
+      "layer": "stdlib",
+      "title": "Math.atan2 的四个象限与零",
+      "detail": "stdout 不同：第 1 行：node «0.785398 2.356194» vs tsrun «0.785398 0.785398»"
+    },
+    {
+      "id": "c304-std-math-sign-and-trunc-forms",
+      "layer": "stdlib",
+      "title": "Math.sign / trunc 在 ±0 与小数上",
+      "detail": "stdout 不同：第 1 行：node «-1 0 true NaN» vs tsrun «1 0 true NaN»"
+    },
+    {
+      "id": "c304-std-math-clz32-forms",
+      "layer": "stdlib",
+      "title": "Math.clz32 / imul / fround 的组合",
+      "detail": "stdout 不同：第 2 行：node «12 -60 0.1000000015» vs tsrun «12 60 0.1000000015»"
+    },
+    {
+      "id": "c304-std-array-at-and-slice-negative",
+      "layer": "stdlib",
+      "title": "at / slice 的负下标组合",
+      "detail": "stdout 不同：第 1 行：node «5 1 undefined undefined» vs tsrun «2 1 undefined undefined»"
+    },
+    {
+      "id": "c305-std-math-round-half-and-float",
+      "layer": "stdlib",
+      "title": "`Math.round` 的平局方向与浮点尾巴",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2 1» vs tsrun «1 1 3 3 1»"
+    },
+    {
+      "id": "c305-std-math-sign-negzero-and-trunc",
+      "layer": "stdlib",
+      "title": "`Math.sign(-0)` / `Math.trunc` 的边角",
+      "detail": "stdout 不同：第 1 行：node «-0 -Infinity -0 0 -2» vs tsrun «0 Infinity 0 0 2»"
+    },
+    {
+      "id": "c323-std-array-at-and-negative-index",
+      "layer": "stdlib",
+      "title": "Array.at 的负数下标与边界；字符串也有一份",
+      "detail": "stdout 不同：第 1 行：node «10 30 undefined undefined» vs tsrun «10 20 undefined undefined»"
+    },
+    {
+      "id": "c323-std-math-rounding-table",
+      "layer": "stdlib",
+      "title": "Math 取整那一族的边界：负数、半值、-0",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2» vs tsrun «1 1 3 3»"
+    },
+    {
+      "id": "c323-std-console-shapes",
+      "layer": "stdlib",
+      "title": "console.log 的形状：容器、嵌套、函数与多实参",
+      "detail": "stdout 不同：第 3 行：node «f 1,2,3» vs tsrun «undefined 1,2,3»"
+    },
+    {
+      "id": "c330-std-array-slice-splice-negative",
+      "layer": "stdlib",
+      "title": "`slice` / `splice` 的负下标与返回值",
+      "detail": "stdout 不同：第 1 行：node «3,4 1,2,3 » vs tsrun «2,3,4  »"
+    },
+    {
+      "id": "c330-std-math-round-ties",
+      "layer": "stdlib",
+      "title": "`Math.round` / `Math.trunc` 在 .5 与负数上的口径",
+      "detail": "stdout 不同：第 1 行：node «1 2 -0 -1» vs tsrun «1 2 1 2»"
+    },
+    {
+      "id": "c371-stdlib-string-at-forms",
+      "layer": "stdlib",
+      "title": "String.prototype.at：负数 / 越界 / 与 charAt 的分工",
+      "detail": "stdout 不同：第 1 行：node «h o h undefined undefined» vs tsrun «h e undefined undefined undefined»"
+    },
+    {
+      "id": "c371-stdlib-string-slice-family-negatives",
+      "layer": "stdlib",
+      "title": "slice / substring / substr 三种负下标口径",
+      "detail": "stdout 不同：第 1 行：node «def bcde e » vs tsrun «def   »"
+    },
+    {
+      "id": "c371-stdlib-string-repeat-edge",
+      "layer": "stdlib",
+      "title": "repeat：0 次、小数、负数抛错",
+      "detail": "stdout 不同：第 3 行：node «RangeError» vs tsrun «0»"
     },
     {
       "id": "c371-stdlib-string-case-forms",
@@ -253,16 +1783,100 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: case conversion outside ASCII (there is no mapping table here)"
     },
     {
+      "id": "c371-stdlib-string-codepoint-forms",
+      "layer": "stdlib",
+      "title": "codePointAt / fromCodePoint / 代理对",
+      "detail": "stdout 不同：第 5 行：node «RangeError» vs tsrun «»"
+    },
+    {
+      "id": "c371-stdlib-array-at-and-negative",
+      "layer": "stdlib",
+      "title": "Array.prototype.at：负下标与越界",
+      "detail": "stdout 不同：第 1 行：node «1 3 1 undefined undefined» vs tsrun «1 2 undefined undefined undefined»"
+    },
+    {
+      "id": "c371-stdlib-array-fill-and-copywithin-negative",
+      "layer": "stdlib",
+      "title": "fill / copyWithin 的负下标与越界夹取",
+      "detail": "stdout 不同：第 4 行：node «[1,4,3,4,5]» vs tsrun «[1,2,3,4,5]»"
+    },
+    {
+      "id": "c371-stdlib-array-splice-return-and-argc",
+      "layer": "stdlib",
+      "title": "splice 的返回值与实参个数口径",
+      "detail": "stdout 不同：第 3 行：node «[3] [1,2]» vs tsrun «[2,3] [1]»"
+    },
+    {
       "id": "c371-stdlib-array-iterator-aliases",
       "layer": "stdlib",
       "title": "values / keys / entries 与 Symbol.iterator 是同一件东西",
       "detail": "stdout 不同：第 2 行：node «true» vs tsrun «false»"
     },
     {
+      "id": "c371-stdlib-array-length-write-forms",
+      "layer": "stdlib",
+      "title": "length 的写：截断、放大成洞、非法值抛错",
+      "detail": "stdout 不同：第 4 行：node «RangeError» vs tsrun «»"
+    },
+    {
       "id": "c371-stdlib-object-assign-getters-and-order",
       "layer": "stdlib",
       "title": "Object.assign：读源上的 getter、写目标上的 setter、键的顺序",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unreachable: installing a builtin never calls a function"
+    },
+    {
+      "id": "c371-stdlib-object-is-and-samevalue",
+      "layer": "stdlib",
+      "title": "Object.is：NaN / ±0 / 引用",
+      "detail": "stdout 不同：第 1 行：node «true false true true false» vs tsrun «true true true true false»"
+    },
+    {
+      "id": "c371-stdlib-number-tostring-radix-edge",
+      "layer": "stdlib",
+      "title": "toString(radix)：2 / 8 / 16 / 36 / 越界",
+      "detail": "stdout 不同：第 2 行：node «-ff 0.1» vs tsrun «ff 0.1»"
+    },
+    {
+      "id": "c371-stdlib-number-tofixed-toprecision",
+      "layer": "stdlib",
+      "title": "toFixed / toPrecision / toExponential 的取舍与边界",
+      "detail": "stdout 不同：第 1 行：node «1.00 3 -2 0.000» vs tsrun «1.00 3 2 0.000»"
+    },
+    {
+      "id": "c371-stdlib-math-rounding-boundaries",
+      "layer": "stdlib",
+      "title": "Math.round / floor / ceil / trunc 对 ±0.5 与负零",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2» vs tsrun «1 1 3 3»"
+    },
+    {
+      "id": "c371-stdlib-math-min-max-edge",
+      "layer": "stdlib",
+      "title": "min / max：空实参、NaN、±0",
+      "detail": "stdout 不同：第 3 行：node «-Infinity Infinity» vs tsrun «Infinity Infinity»"
+    },
+    {
+      "id": "c371-stdlib-math-pow-and-roots-edge",
+      "layer": "stdlib",
+      "title": "pow / sqrt / cbrt / hypot 的边界",
+      "detail": "stdout 不同：第 1 行：node «1024 0.5 NaN NaN» vs tsrun «1024 2 2 NaN»"
+    },
+    {
+      "id": "c371-stdlib-math-logs-and-exp",
+      "layer": "stdlib",
+      "title": "log / log2 / log10 / log1p / exp / expm1",
+      "detail": "stdout 不同：第 1 行：node «0 -Infinity NaN» vs tsrun «0 -Infinity 0»"
+    },
+    {
+      "id": "c371-stdlib-math-trig-hyperbolic",
+      "layer": "stdlib",
+      "title": "三角函数与双曲函数在 0 / π / 大值上的读数",
+      "detail": "stdout 不同：第 3 行：node «0 0 0 true» vs tsrun «0 0 0 false»"
+    },
+    {
+      "id": "c371-stdlib-math-imul-clz32-fround",
+      "layer": "stdlib",
+      "title": "imul / clz32 / fround / sign / trunc 的 32 位口径",
+      "detail": "stdout 不同：第 1 行：node «12 -60 -2» vs tsrun «12 60 -2»"
     },
     {
       "id": "c371-stdlib-map-set-size-and-keys",
@@ -275,18 +1889,6 @@
       "layer": "stdlib",
       "title": "Promise.resolve 的身份与 thenable 采纳",
       "detail": "stdout 不同：第 3 行：node «plain 2» vs tsrun «thenable { then: [Function: then] }»"
-    },
-    {
-      "id": "c371-stdlib-promise-allsettled-any-race",
-      "layer": "stdlib",
-      "title": "allSettled / any / race 的形状",
-      "detail": "stdout 不同：第 3 行：node «agg AggregateError 2» vs tsrun «agg undefined 2»"
-    },
-    {
-      "id": "c371-stdlib-promise-finally-passthrough",
-      "layer": "stdlib",
-      "title": "finally：值透传、异常替换、返回承诺要等",
-      "detail": "stdout 不同：第 3 行：node «c3 replaced» vs tsrun «v 1»"
     },
     {
       "id": "c371-stdlib-date-now-and-construction",
@@ -305,6 +1907,12 @@
       "layer": "stdlib",
       "title": "Symbol.hasInstance 与 Symbol.species 的缺省语义",
       "detail": "stdout 不同：第 2 行：node «true true true» vs tsrun «true true false»"
+    },
+    {
+      "id": "c371-stdlib-console-log-numbers",
+      "layer": "stdlib",
+      "title": "console.log 的数字打印口径",
+      "detail": "stdout 不同：第 1 行：node «1 1.5 -0 0.3333333333333333 1e+21 1e-7 NaN Infinity -Infinity» vs tsrun «1 1.5 0 0.3333333333333333 1e+21 1e-7 NaN Infinity Infinity»"
     },
     {
       "id": "c371-stdlib-function-bind-forms",
@@ -331,10 +1939,88 @@
       "detail": "stdout 不同：第 4 行：node «true [null,null,null]» vs tsrun «false [null,null,null]»"
     },
     {
+      "id": "c371-stdlib-number-format-via-string",
+      "layer": "stdlib",
+      "title": "不靠 Intl 的数字格式化：toFixed + 千分位",
+      "detail": "stdout 不同：第 1 行：node «1,234,567.89 -12.50 0.00 1,000.00» vs tsrun «1,234,567.89 12.50 0.00 1,000.00»"
+    },
+    {
+      "id": "c376-stdlib-splice-argument-forms",
+      "layer": "stdlib",
+      "title": "`splice` 的实参个数口径：不给 / 给一个 / 给 undefined",
+      "detail": "stdout 不同：第 5 行：node «E [2,3] [1]» vs tsrun «E [3] [1,2]»"
+    },
+    {
+      "id": "c376-stdlib-array-length-range",
+      "layer": "stdlib",
+      "title": "`length` 的写：截断 / 放大成洞 / 非法值抛 RangeError",
+      "detail": "stdout 不同：第 3 行：node «C RangeError» vs tsrun «D RangeError»"
+    },
+    {
+      "id": "e2e-generator-pipeline",
+      "layer": "e2e",
+      "title": "生成器管道：惰性的 take / map / filter",
+      "detail": "stdout 不同：第 1 行：node «0,9,36,81,144,225,324» vs tsrun «»"
+    },
+    {
+      "id": "e2e-algorithms",
+      "layer": "e2e",
+      "title": "算法：插入排序 + 二分查找 + 字符串处理",
+      "detail": "stdout 不同：第 1 行：node «1,3,5,7,9 3 -1» vs tsrun «1,3,5,7,9 3 1»"
+    },
+    {
+      "id": "c338-e2e-sort-comparators",
+      "layer": "e2e",
+      "title": "`sort` 的比较器与稳定性",
+      "detail": "stdout 不同：第 2 行：node «abcd» vs tsrun «bacd»"
+    },
+    {
+      "id": "c338-e2e-number-and-math",
+      "layer": "e2e",
+      "title": "数字、`Math` 与解析",
+      "detail": "stdout 不同：第 4 行：node «3 -2 -1 -1» vs tsrun «3 1 1 1»"
+    },
+    {
+      "id": "c371-e2e-expression-parser",
+      "layer": "e2e",
+      "title": "递归下降的四则运算求值器（含括号与一元负号）",
+      "detail": "stdout 不同：第 3 行：node «-4 + 10 = 6» vs tsrun «-4 + 10 = 14»"
+    },
+    {
+      "id": "c371-e2e-bst",
+      "layer": "e2e",
+      "title": "二叉搜索树：插入、遍历、查找、最小最大",
+      "detail": "stdout 不同：第 1 行：node «20,30,30,40,50,60,70,80» vs tsrun «»"
+    },
+    {
       "id": "c371-e2e-quick-and-merge-sort",
       "layer": "e2e",
       "title": "快排 / 归并 / 插入排序三种实现与稳定性对比",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 还没实现的构造或语言层错误：out of room"
+    },
+    {
+      "id": "c371-e2e-game-of-life",
+      "layer": "e2e",
+      "title": "生命游戏：三代演化与统计",
+      "detail": "stdout 不同：第 2 行：node «....../....../.#.#../..##../..#.../......» vs tsrun «....../....../....../....../....../......»"
+    },
+    {
+      "id": "c371-e2e-maze-bfs",
+      "layer": "e2e",
+      "title": "迷宫寻路：BFS 最短路与路径还原",
+      "detail": "stdout 不同：第 1 行：node «19» vs tsrun «none»"
+    },
+    {
+      "id": "c371-e2e-range-and-slices",
+      "layer": "e2e",
+      "title": "区间与切片工具：range / chunk / window / zip",
+      "detail": "stdout 不同：第 1 行：node «0,1,2,3,4 5,3,1 0,2,4» vs tsrun «0,1,2,3,4  0,2,4»"
+    },
+    {
+      "id": "c371-e2e-base-conversion-hexdump",
+      "layer": "e2e",
+      "title": "进制转换与十六进制转储",
+      "detail": "stdout 不同：第 4 行：node «-100 36 -2s -100» vs tsrun «100 36 2s 100»"
     },
     {
       "id": "c371-e2e-plugin-registry",
@@ -343,16 +2029,34 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c371-e2e-async-pool-with-errors",
+      "id": "c371-e2e-number-formatting",
       "layer": "e2e",
-      "title": "异步任务池：并发上限、错误隔离、结果汇总",
-      "detail": "stdout 不同：第 1 行：node «10,20,40,50,70,80» vs tsrun «»"
+      "title": "自定义数字格式化：千分位、百分比、字节单位",
+      "detail": "stdout 不同：第 1 行：node «0 999 1,000 1,234,567 -9,876,543» vs tsrun «0 999 1,000 1,234,567 9,876,543»"
+    },
+    {
+      "id": "c371-e2e-ini-config-parser",
+      "layer": "e2e",
+      "title": "INI 风格配置解析与类型强制",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "c371-e2e-coordinate-geometry",
+      "layer": "e2e",
+      "title": "二维几何：距离、点在多边形内、凸包",
+      "detail": "stdout 不同：第 3 行：node «0,0 2,0 2,2 1,3 0,2» vs tsrun «0,0 2,2»"
     },
     {
       "id": "c371-e2e-string-search-index",
       "layer": "e2e",
       "title": "倒排索引：建索引、查询、打分排序",
       "detail": "stdout 不同：第 1 行：node «11 1:1,3:1,4:1» vs tsrun «11 1,1:3,1»"
+    },
+    {
+      "id": "c383-e2e-override-as-value-and-modifier",
+      "layer": "e2e",
+      "title": "`override` 的两副面孔：类成员修饰词 vs 普通变量名",
+      "detail": "stdout 不同：第 5 行：node «E 3 -1» vs tsrun «E 3 1»"
     }
   ],
   "bad": [],
@@ -369,14 +2073,1454 @@
   ],
   "regressions": [
     {
+      "id": "num-int-arith",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «-3.5 -1 1 10 14» vs tsrun «3.5 1 1 10 14»"
+    },
+    {
+      "id": "num-float-bits",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 3 行：node «Infinity -Infinity NaN» vs tsrun «Infinity Infinity NaN»"
+    },
+    {
+      "id": "num-negative-zero",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «-0 -Infinity true 1» vs tsrun «0 Infinity true 1»"
+    },
+    {
+      "id": "op-unary",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «true true true -3 3 1 -1 -6» vs tsrun «true true true 3 3 1 -1 -6»"
+    },
+    {
+      "id": "op-bitwise",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «2 7 5 -7 16 16 15» vs tsrun «2 7 5 -7 16 16 0»"
+    },
+    {
+      "id": "op-exponent",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «1024 512 -4 4» vs tsrun «1024 512 4 4»"
+    },
+    {
+      "id": "op-optional-chain",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «1 d» vs tsrun «{ b: 1 } undefined»"
+    },
+    {
+      "id": "ctl-if-else",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «A B C D F» vs tsrun «A B C undefined F»"
+    },
+    {
+      "id": "ctl-while-do",
+      "layer": "runtime",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "ctl-switch",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «ab b c d» vs tsrun «   »"
+    },
+    {
+      "id": "ctl-switch-fallthrough-count",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «31 28 30 31» vs tsrun «undefined undefined undefined undefined»"
+    },
+    {
+      "id": "ctl-forof-array",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «40» vs tsrun «0»"
+    },
+    {
+      "id": "ctl-forof-custom-iterable",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "fn-method-this",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "fn-arrow-bodies",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «-1 1 0» vs tsrun «1 1 0»"
+    },
+    {
+      "id": "obj-getter-setter",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "arr-nested-and-index",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «undefined 3 undefined» vs tsrun «2 3 undefined»"
+    },
+    {
+      "id": "exc-finally-order",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "exc-nested-and-rethrow",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "exc-catch-rethrow-finally",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "cls-private",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «7 1 0» vs tsrun «13 1 0»"
+    },
+    {
+      "id": "prm-then-chain",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "prm-catch",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "exc-throw-in-callback",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «1|caught:cb2|fin» vs tsrun «|caught:cb2|fin»"
+    },
+    {
+      "id": "exc-throw-in-callback-map-filter",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "array-sort-comparator-argument-order",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «1,2,3 1:3» vs tsrun «1,3,2 1:3»"
+    },
+    {
+      "id": "rt-string-building",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «200 0123456789 789 9» vs tsrun «200 0123456789 34567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 9»"
+    },
+    {
+      "id": "rt-switch-string-fallthrough",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «ab ab c+d +d» vs tsrun «   »"
+    },
+    {
+      "id": "rt-recursive-data-walk",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "rt-multi-return-object",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «3 2 2 -3 -1» vs tsrun «3 2 2 2 1»"
+    },
+    {
+      "id": "rt-while-continue-progress",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «1,3,5 6» vs tsrun « 6»"
+    },
+    {
+      "id": "rt-label-break-out-of-block",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
+    },
+    {
+      "id": "rt-switch-default-first",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «one two d» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "rt-switch-strict-compare",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «num str other» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "rt-switch-scoped-declaration",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «one two many» vs tsrun «two two many»"
+    },
+    {
+      "id": "rt-object-method-shorthand",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "rt-getter-setter-side-effects",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "rt-unary-conversions",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «0 NaN -3 -1 true true false false false» vs tsrun «0 NaN 3 1 true true false false false»"
+    },
+    {
+      "id": "rt-bitwise-negative-and-shift",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «255 -4 15 -2147483648 true» vs tsrun «1 4 0 -2147483648 false»"
+    },
+    {
+      "id": "rt-modulo-and-sign",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «1 -1 1 -1» vs tsrun «1 1 1 1»"
+    },
+    {
+      "id": "rt-custom-iterable-object",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "rt-json-nested-roundtrip",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «true true false true» vs tsrun «true true true true»"
+    },
+    {
+      "id": "rt-deep-recursion-return",
+      "layer": "runtime",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "rt-error-in-getter-caught",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "rt-switch-scoped-case-block",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «other other other»"
+    },
+    {
+      "id": "rt-nested-ternary-chain",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «neg zero pos abc» vs tsrun «pos zero pos cbc»"
+    },
+    {
+      "id": "c291-rt-number-to-string-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «0.000001 1e-7 -1e+21» vs tsrun «0.000001 1e-7 1e+21»"
+    },
+    {
+      "id": "c291-rt-iteration-protocol-forms",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c291-rt-switch-and-fallthrough-forms",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
+    },
+    {
+      "id": "c291-rt-optional-and-nullish-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «d d2 d3» vs tsrun «d d2 { b: null }»"
+    },
+    {
+      "id": "c291-rt-numeric-edge-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 3 行：node «0.3333333333333333 9007199254740992 -9007199254740992» vs tsrun «0.3333333333333333 9007199254740992 9007199254740992»"
+    },
+    {
+      "id": "c304-rt-new-target-in-ctor",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
+    },
+    {
+      "id": "c304-rt-getter-setter-on-prototype-object",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c304-rt-shift-and-mask",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «-2 1073741822 -2147483648 1 2» vs tsrun «2 2 -2147483648 1 2»"
+    },
+    {
+      "id": "c304-rt-exponent-assign-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «8 512 4 0.5» vs tsrun «8 512 4 2»"
+    },
+    {
+      "id": "c304-rt-switch-true-pattern",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «A B C F» vs tsrun «undefined undefined undefined undefined»"
+    },
+    {
       "id": "c304-rt-do-while-label-continue",
       "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: if"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c304-rt-iife-arrow-this",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c304-rt-call-apply-bind-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «13 17» vs tsrun «3[object Object] 7[object Object]»"
+    },
+    {
+      "id": "c304-rt-promise-then-returns-promise",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c304-rt-getter-throws-and-finally",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c305-rt-switch-case-block-scope",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "c305-rt-exponent-right-assoc",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «512 64 0.5» vs tsrun «512 64 2»"
+    },
+    {
+      "id": "c305-rt-arrow-in-method-captures-this",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c315-rt-env-leave-on-continue",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «0,2,3» vs tsrun «»"
+    },
+    {
+      "id": "c317-rt-promise-adoption-chain",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c323-rt-string-methods-on-primitives",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «ABC b bc 2» vs tsrun «ABC b c 2»"
+    },
+    {
+      "id": "c323-rt-array-methods-chain",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c323-rt-iife-and-arrow-this",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c323-rt-optional-chain-all-slots",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «5 undefined 5» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "c330-rt-function-method-forms",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c330-rt-symbol-iterator-manual",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c330-ex-as-inside-spread",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c330-ex-ternary-arrow-branches",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
+    },
+    {
+      "id": "c330-rt-async-await-reject-in-try",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «10,-1,30» vs tsrun «10,1,30»"
+    },
+    {
+      "id": "c331-rt-try-catch-in-loops-and-functions",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «-1,4,-1,8» vs tsrun «1,4,1,8»"
+    },
+    {
+      "id": "c331-rt-getter-setter-with-validation",
+      "layer": "runtime",
+      "detail": "tsrun: 脚本抛出：below absolute zero"
+    },
+    {
+      "id": "c331-rt-array-methods-on-derived",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c331-rt-string-methods-chain",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 4 行：node «repeatrepeat x 120» vs tsrun «repeatrepeat undefined 120»"
+    },
+    {
+      "id": "c335-rt-array-like-slice-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 3 行：node «b-c» vs tsrun «c»"
+    },
+    {
+      "id": "c371-rt-number-edge-values",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «-Infinity false 0 true» vs tsrun «Infinity true 0 true»"
+    },
+    {
+      "id": "c371-rt-bitwise-32bit",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 2 行：node «-2147483648 2147483648 4294967295 -1» vs tsrun «-2147483648 2147483648 1 0»"
+    },
+    {
+      "id": "c371-rt-equality-tables",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 5 行：node «true true false» vs tsrun «true true true»"
+    },
+    {
+      "id": "c371-rt-array-vs-object-keys",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «3 0,1,2,extra,-1,1.5 [1,2,3]» vs tsrun «3 0,1,2,extra,1.5 [1,\"neg\",3]»"
+    },
+    {
+      "id": "c371-rt-private-fields-brand",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
+    },
+    {
+      "id": "c371-rt-try-catch-finally-matrix",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
+    },
+    {
+      "id": "c371-rt-iteration-protocol-forms",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-promise-chaining-values",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-rt-array-methods-chain-deep",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-rt-string-builder-stress",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «10000 01234 56789» vs tsrun «10000 01234 56789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789»"
+    },
+    {
+      "id": "c371-rt-deep-object-graph",
+      "layer": "runtime",
+      "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
+    },
+    {
+      "id": "c371-rt-number-to-string-table",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 4 行：node «-1» vs tsrun «1»"
+    },
+    {
+      "id": "c371-rt-getter-on-prototype-chain",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c371-rt-object-to-primitive-hints",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-array-method-numeric-args",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «[2,3] [4,5]» vs tsrun «[2,3] [3,4,5]»"
+    },
+    {
+      "id": "c371-rt-logical-and-nullish-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 5 行：node «1 no2 1» vs tsrun «1 undefined 1»"
+    },
+    {
+      "id": "c371-rt-switch-and-jump-forms",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 1 行：node «string-1 number-1 true null undefined other» vs tsrun «undefined undefined undefined undefined undefined undefined»"
+    },
+    {
+      "id": "c371-rt-error-catch-and-rethrow",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c371-rt-value-vs-reference-arguments",
+      "layer": "runtime",
+      "detail": "stdout 不同：第 3 行：node «2 true true» vs tsrun «2 true undefined»"
+    },
+    {
+      "id": "c371-rt-array-and-object-nesting-json",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-getter-throws-and-cleanup",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-rt-exception-across-frames",
+      "layer": "runtime",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "ex-tagged-template-suffix",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «3 3 A1» vs tsrun «[Function: t] 1(s: any, ...v: any[]) => s[0] + v.join(\"\") [Function: t]»"
+    },
+    {
+      "id": "ex-labeled-block-nested",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: two"
+    },
+    {
+      "id": "ex-ternary-nesting",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «zero small big neg» vs tsrun «zero small big small»"
+    },
+    {
+      "id": "ex-private-in-operator",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
+    },
+    {
+      "id": "ex-labeled-block",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: outer"
+    },
+    {
+      "id": "ex-label-on-switch",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «0-» vs tsrun «---»"
+    },
+    {
+      "id": "ex-try-finally-return",
+      "layer": "exec",
+      "detail": "stdout 不同：第 4 行：node «body 1» vs tsrun «f 1»"
+    },
+    {
+      "id": "ex-enum-in-switch",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «1 2 3 b» vs tsrun «undefined undefined undefined b»"
+    },
+    {
+      "id": "ex-object-literal-accessors",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "ex-function-decl-in-block",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
+    },
+    {
+      "id": "ex-switch-no-default",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
+    },
+    {
+      "id": "ex-string-raw-and-tagged",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «4 3» vs tsrun «[Function (anonymous)] 3»"
+    },
+    {
+      "id": "ex-for-of-string-labels",
+      "layer": "exec",
+      "detail": "stdout 不同：第 2 行：node «1 3» vs tsrun «»"
+    },
+    {
+      "id": "ex-object-literal-accessors-computed",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "ex-private-methods-and-static-private",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
+    },
+    {
+      "id": "ex-function-decl-in-block-scope",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
+    },
+    {
+      "id": "ex-try-catch-finally-typed-and-optional",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "ex-switch-with-union-types",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «12 9» vs tsrun «undefined undefined»"
+    },
+    {
+      "id": "c291-ex-parameter-properties-variants",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «3 8» vs tsrun «NaN 6ab»"
+    },
+    {
+      "id": "c291-ex-as-and-index-precedence",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «3 1 2» vs tsrun «3 undefined 2»"
+    },
+    {
+      "id": "c291-ex-nested-namespace-with-values",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is ModuleDeclaration at 19..65)"
+    },
+    {
+      "id": "c304-ex-arrow-return-type",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «4 1 neg» vs tsrun «4 1 1»"
+    },
+    {
+      "id": "c304-ex-type-annotation-in-catch-and-loop",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
+    },
+    {
+      "id": "c305-ex-optional-chain-nonnull-mix",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «1 1 1 2» vs tsrun «1 1 1 { a: { b: 1 } }»"
+    },
+    {
+      "id": "c320-ex-generator-interface-shapes",
+      "layer": "exec",
+      "detail": "stdout 不同：第 3 行：node «true true» vs tsrun «[Function (anonymous)] [Function (anonymous)]»"
+    },
+    {
+      "id": "c321-ex-tagged-template-as-operand",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «3 3 A1» vs tsrun «[Function: t] 1(s: any, ...v: any[]) => s[0] + v.join(\"\") [Function: t]»"
+    },
+    {
+      "id": "c323-ex-nonnull-in-chains",
+      "layer": "exec",
+      "detail": "stdout 不同：第 2 行：node «7 7» vs tsrun «7 undefined»"
+    },
+    {
+      "id": "c330-ex-optional-chain-loops",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «a 1» vs tsrun «a [ 'x' ]»"
+    },
+    {
+      "id": "c331-ex-nonnull-and-optional-mix",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «1 1» vs tsrun «[ { id: 1, tags: [ 'x' ] } ] 1»"
+    },
+    {
+      "id": "c333-ex-tagged-template-raw",
+      "layer": "exec",
+      "detail": "stdout 不同：第 5 行：node «4 3» vs tsrun «[Function (anonymous)] 3»"
+    },
+    {
+      "id": "c371-ex-enum-numeric-forms",
+      "layer": "exec",
+      "detail": "stdout 不同：第 2 行：node «1 2 3 B 0,5,6,Red,Green,Blue» vs tsrun «1 1 1 undefined 0,5,6,Red,Green,Blue»"
+    },
+    {
+      "id": "c371-ex-enum-const-and-computed",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «2 4 1 5 16 B» vs tsrun «2 4 1 5 1 B»"
+    },
+    {
+      "id": "c371-ex-class-private-and-static-block",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression #"
+    },
+    {
+      "id": "c371-ex-optional-chain-forms",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «1 undefined undefined undefined» vs tsrun «undefined undefined undefined undefined»"
+    },
+    {
+      "id": "c371-ex-tagged-template-forms",
+      "layer": "exec",
+      "detail": "stdout 不同：第 3 行：node «true» vs tsrun «false»"
+    },
+    {
+      "id": "c371-ex-switch-with-types-and-blocks",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «5 95 100» vs tsrun «95 95 100»"
+    },
+    {
+      "id": "c371-ex-as-precedence-with-operators",
+      "layer": "exec",
+      "detail": "stdout 不同：第 2 行：node «-3 false number» vs tsrun «3 false number»"
+    },
+    {
+      "id": "c371-ex-satisfies-and-as-const-combo",
+      "layer": "exec",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-ex-exhaustive-switch-never-default",
+      "layer": "exec",
+      "detail": "stdout 不同：第 1 行：node «A B c» vs tsrun «undefined undefined undefined»"
+    },
+    {
+      "id": "c373-ex-compound-assign-precedence",
+      "layer": "exec",
+      "detail": "stdout 不同：第 14 行：node «P unary -1» vs tsrun «P unary 3»"
+    },
+    {
+      "id": "c378-ex-enum-member-references",
+      "layer": "exec",
+      "detail": "stdout 不同：第 2 行：node «B 1 2 3 3 All A» vs tsrun «B 1 1 1 1 undefined All»"
+    },
+    {
+      "id": "array-slice-splice",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1,2 3,4 0,1,2,3,4 0,1,2,3,4» vs tsrun «1,2 2,3,4 0,1,2,3,4 0,1,2,3,4»"
+    },
+    {
+      "id": "array-at-flat-fill",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 3 undefined» vs tsrun «1 2 undefined»"
+    },
+    {
+      "id": "string-length-index",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «3 a c undefined undefined» vs tsrun «3 a c undefined b»"
+    },
+    {
+      "id": "string-slice-substring",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «bc ef def  » vs tsrun «bc cdef def  »"
+    },
+    {
+      "id": "math-rounding",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 -2 2 -1» vs tsrun «1 1 2 2»"
+    },
+    {
+      "id": "math-abs-min-max",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «Infinity -Infinity -0» vs tsrun «Infinity -Infinity 0»"
+    },
+    {
+      "id": "number-tofixed",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «1234.6 -2» vs tsrun «1234.6 2»"
+    },
+    {
+      "id": "json-parse-error",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "symbol-iterator",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "console-log-numbers",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 1.5 -0 NaN Infinity -Infinity» vs tsrun «1 1.5 0 NaN Infinity Infinity»"
+    },
+    {
+      "id": "error-custom-subclass",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "promise-chaining-errors",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "global-nan-infinity",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «false true true undefined» vs tsrun «false true false undefined»"
+    },
+    {
+      "id": "array-copyWithin",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «1,2,3,1,2 5» vs tsrun «1,2,1,2,3 5»"
+    },
+    {
+      "id": "string-at-and-codepoints",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «a b undefined 1» vs tsrun «a � undefined 1»"
+    },
+    {
+      "id": "number-tofixed-rounding",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «-1.5 1234.568 1e+21» vs tsrun «1.5 1234.568 1e+21»"
+    },
+    {
+      "id": "number-tostring-radix-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «-ff 0 true» vs tsrun «ff 0 true»"
+    },
+    {
+      "id": "math-trunc-sign",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «4 -4 -5 -4» vs tsrun «4 4 4 5»"
+    },
+    {
+      "id": "math-hypot-and-roots",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «5 3 -2» vs tsrun «5 3 2»"
+    },
+    {
+      "id": "math-imul-clz32",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «12 -60 -5» vs tsrun «12 60 -5»"
+    },
+    {
+      "id": "math-min-max-edge",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «NaN Infinity -Infinity» vs tsrun «NaN Infinity 1»"
+    },
+    {
+      "id": "object-is",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «false true» vs tsrun «true true»"
+    },
+    {
+      "id": "promise-then-value-and-throw",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "array-fill-and-copywithin-negative",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «1,9,9,4» vs tsrun «1,2,3,4»"
+    },
+    {
+      "id": "array-with-and-tosorted-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «1,2,8» vs tsrun «1,8,3»"
+    },
+    {
+      "id": "array-splice-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «2,3 1» vs tsrun «3 1,2»"
+    },
+    {
+      "id": "string-slice-substring-substr-family",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «ef bcde  » vs tsrun «cdef   »"
+    },
+    {
+      "id": "string-pad-and-repeat-edge-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 4 行：node «RangeError» vs tsrun «»"
+    },
+    {
+      "id": "string-raw-and-tagged",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «4» vs tsrun «[Function (anonymous)]»"
+    },
+    {
+      "id": "math-rounding-boundaries",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2» vs tsrun «1 1 3 3»"
+    },
+    {
+      "id": "math-sign-and-negzero",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «-0 -Infinity 0 -1 NaN» vs tsrun «0 Infinity 0 1 NaN»"
+    },
+    {
+      "id": "math-pow-and-roots-edge",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1024 1.4142135623730951 NaN 1» vs tsrun «1024 1.4142135623730951 2 1»"
+    },
+    {
+      "id": "math-logs-and-exp",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «0 -Infinity true» vs tsrun «0 -Infinity false»"
+    },
+    {
+      "id": "math-imul-clz32-fround",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «12 -60 -5» vs tsrun «12 60 -5»"
+    },
+    {
+      "id": "number-tofixed-and-toprecision-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1.00 3 -3 0.00» vs tsrun «1.00 3 3 0.00»"
+    },
+    {
+      "id": "number-tostring-radix-edge-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «-ff 0 0.1» vs tsrun «ff 0 0.1»"
+    },
+    {
+      "id": "promise-then-return-forms",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "console-log-string-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 4 行：node «1 -1 0 -0 1.5 1e+21 1e-7 NaN Infinity» vs tsrun «1 1 0 0 1.5 1e+21 1e-7 NaN Infinity»"
+    },
+    {
+      "id": "string-at-negative-and-beyond",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «c a undefined undefined» vs tsrun «b a undefined undefined»"
+    },
+    {
+      "id": "math-cbrt-trunc-sign",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «3 -2 -1 -1 3 3» vs tsrun «3 2 1 1 3 3»"
+    },
+    {
+      "id": "c291-array-fill-and-copywithin-negative",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 4 行：node «1,4,5,4,5» vs tsrun «1,3,4,5,5»"
+    },
+    {
+      "id": "c291-string-at-codepoint-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «a b undefined» vs tsrun «a � undefined»"
+    },
+    {
+      "id": "c291-string-slice-substring-substr",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «bc ef » vs tsrun «bc cdef »"
+    },
+    {
+      "id": "c291-number-wrapper-and-negative-zero",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «true false -Infinity 0» vs tsrun «true true Infinity 0»"
+    },
+    {
+      "id": "c291-math-more-members",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1.5 31 3 -1 -0» vs tsrun «1.5 31 3 1 0»"
+    },
+    {
+      "id": "c291-math-round-and-minmax-edges",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «3 -2 1» vs tsrun «3 3 1»"
+    },
+    {
+      "id": "c291-math-constants-and-pow",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «1024 1024 true 3» vs tsrun «1024 1024 false 3»"
+    },
+    {
+      "id": "c291-object-freeze-and-is",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «true false true» vs tsrun «true true true»"
+    },
+    {
+      "id": "c291-symbol-toprimitive-custom",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c291-array-splice-return-and-negative",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «3» vs tsrun «2»"
+    },
+    {
+      "id": "c304-std-array-fill-and-copywithin-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1,2,3,0,0» vs tsrun «1,2,0,0,0»"
+    },
+    {
+      "id": "c304-std-object-defineproperties-forms",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c304-std-function-apply-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «103 7» vs tsrun «3[object Object] 7[object Object]»"
+    },
+    {
+      "id": "c304-std-string-charcodeat-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «NaN undefined» vs tsrun «NaN 128512»"
+    },
+    {
+      "id": "c304-std-math-cbrt-expm1-log1p",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «3 -2 0 0» vs tsrun «3 2 0 0»"
+    },
+    {
+      "id": "c304-std-math-atan2-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «0.785398 2.356194» vs tsrun «0.785398 0.785398»"
+    },
+    {
+      "id": "c304-std-math-sign-and-trunc-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «-1 0 true NaN» vs tsrun «1 0 true NaN»"
+    },
+    {
+      "id": "c304-std-math-clz32-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «12 -60 0.1000000015» vs tsrun «12 60 0.1000000015»"
+    },
+    {
+      "id": "c304-std-promise-finally-order",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c304-std-array-at-and-slice-negative",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «5 1 undefined undefined» vs tsrun «2 1 undefined undefined»"
+    },
+    {
+      "id": "c305-std-json-stringify-nested-tojson",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c305-std-math-round-half-and-float",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2 1» vs tsrun «1 1 3 3 1»"
+    },
+    {
+      "id": "c305-std-then-returns-promise-adoption",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c305-std-custom-iterable-symbol-iterator",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c305-std-object-defineproperty-getter-setter",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c305-std-math-sign-negzero-and-trunc",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «-0 -Infinity -0 0 -2» vs tsrun «0 Infinity 0 0 2»"
+    },
+    {
+      "id": "c318-std-promise-executor-settle",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c323-std-array-at-and-negative-index",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «10 30 undefined undefined» vs tsrun «10 20 undefined undefined»"
+    },
+    {
+      "id": "c323-std-math-rounding-table",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2» vs tsrun «1 1 3 3»"
+    },
+    {
+      "id": "c323-std-console-shapes",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «f 1,2,3» vs tsrun «undefined 1,2,3»"
+    },
+    {
+      "id": "c330-std-array-slice-splice-negative",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «3,4 1,2,3 » vs tsrun «2,3,4  »"
+    },
+    {
+      "id": "c330-std-math-round-ties",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 2 -0 -1» vs tsrun «1 2 1 2»"
+    },
+    {
+      "id": "c371-stdlib-string-at-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «h o h undefined undefined» vs tsrun «h e undefined undefined undefined»"
+    },
+    {
+      "id": "c371-stdlib-string-slice-family-negatives",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «def bcde e » vs tsrun «def   »"
+    },
+    {
+      "id": "c371-stdlib-string-repeat-edge",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «RangeError» vs tsrun «0»"
+    },
+    {
+      "id": "c371-stdlib-string-codepoint-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 5 行：node «RangeError» vs tsrun «»"
+    },
+    {
+      "id": "c371-stdlib-array-at-and-negative",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 3 1 undefined undefined» vs tsrun «1 2 undefined undefined undefined»"
+    },
+    {
+      "id": "c371-stdlib-array-fill-and-copywithin-negative",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 4 行：node «[1,4,3,4,5]» vs tsrun «[1,2,3,4,5]»"
+    },
+    {
+      "id": "c371-stdlib-array-splice-return-and-argc",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «[3] [1,2]» vs tsrun «[2,3] [1]»"
+    },
+    {
+      "id": "c371-stdlib-array-length-write-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 4 行：node «RangeError» vs tsrun «»"
+    },
+    {
+      "id": "c371-stdlib-object-is-and-samevalue",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «true false true true false» vs tsrun «true true true true false»"
+    },
+    {
+      "id": "c371-stdlib-number-tostring-radix-edge",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 2 行：node «-ff 0.1» vs tsrun «ff 0.1»"
+    },
+    {
+      "id": "c371-stdlib-number-tofixed-toprecision",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1.00 3 -2 0.000» vs tsrun «1.00 3 2 0.000»"
+    },
+    {
+      "id": "c371-stdlib-math-rounding-boundaries",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 -0 3 -2» vs tsrun «1 1 3 3»"
+    },
+    {
+      "id": "c371-stdlib-math-min-max-edge",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «-Infinity Infinity» vs tsrun «Infinity Infinity»"
+    },
+    {
+      "id": "c371-stdlib-math-pow-and-roots-edge",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1024 0.5 NaN NaN» vs tsrun «1024 2 2 NaN»"
+    },
+    {
+      "id": "c371-stdlib-math-logs-and-exp",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «0 -Infinity NaN» vs tsrun «0 -Infinity 0»"
+    },
+    {
+      "id": "c371-stdlib-math-trig-hyperbolic",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «0 0 0 true» vs tsrun «0 0 0 false»"
+    },
+    {
+      "id": "c371-stdlib-math-imul-clz32-fround",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «12 -60 -2» vs tsrun «12 60 -2»"
+    },
+    {
+      "id": "c371-stdlib-promise-all-mixed",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-stdlib-promise-allsettled-any-race",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-stdlib-promise-finally-passthrough",
+      "layer": "stdlib",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-stdlib-console-log-numbers",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1 1.5 -0 0.3333333333333333 1e+21 1e-7 NaN Infinity -Infinity» vs tsrun «1 1.5 0 0.3333333333333333 1e+21 1e-7 NaN Infinity Infinity»"
+    },
+    {
+      "id": "c371-stdlib-number-format-via-string",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 1 行：node «1,234,567.89 -12.50 0.00 1,000.00» vs tsrun «1,234,567.89 12.50 0.00 1,000.00»"
+    },
+    {
+      "id": "c376-stdlib-splice-argument-forms",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 5 行：node «E [2,3] [1]» vs tsrun «E [3] [1,2]»"
+    },
+    {
+      "id": "c376-stdlib-array-length-range",
+      "layer": "stdlib",
+      "detail": "stdout 不同：第 3 行：node «C RangeError» vs tsrun «D RangeError»"
+    },
+    {
+      "id": "e2e-state-machine",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is StringLiteral at 152..158)"
+    },
+    {
+      "id": "e2e-generator-pipeline",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 1 行：node «0,9,36,81,144,225,324» vs tsrun «»"
+    },
+    {
+      "id": "e2e-linked-list",
+      "layer": "e2e",
+      "detail": "tsrun: 脚本抛出：unimplemented: an iterator's next() must return an object"
+    },
+    {
+      "id": "e2e-algorithms",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 1 行：node «1,3,5,7,9 3 -1» vs tsrun «1,3,5,7,9 3 1»"
+    },
+    {
+      "id": "c305-e2e-inventory-report",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c305-e2e-order-state-machine",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c305-e2e-event-emitter-generic",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
+    },
+    {
+      "id": "c305-e2e-config-merge",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression QuestionToken"
+    },
+    {
+      "id": "c323-e2e-async-retry-with-backoff",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c323-e2e-word-index-and-search",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c323-e2e-state-machine-with-map",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-graph-bfs",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-rpn-calculator",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-json-path",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c330-e2e-custom-iterable-collection",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c331-e2e-deep-clone-and-compare",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
+    },
+    {
+      "id": "c331-e2e-promise-reject-paths",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c338-e2e-this-binding-forms",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c338-e2e-sort-comparators",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 2 行：node «abcd» vs tsrun «bacd»"
+    },
+    {
+      "id": "c338-e2e-accessors-and-freeze",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c338-e2e-number-and-math",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 4 行：node «3 -2 -1 -1» vs tsrun «3 1 1 1»"
+    },
+    {
+      "id": "c371-e2e-expression-parser",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 3 行：node «-4 + 10 = 6» vs tsrun «-4 + 10 = 14»"
+    },
+    {
+      "id": "c371-e2e-dijkstra",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-topological-sort",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-bst",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 1 行：node «20,30,30,40,50,60,70,80» vs tsrun «»"
+    },
+    {
+      "id": "c371-e2e-game-of-life",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 2 行：node «....../....../.#.#../..##../..#.../......» vs tsrun «....../....../....../....../....../......»"
+    },
+    {
+      "id": "c371-e2e-maze-bfs",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 1 行：node «19» vs tsrun «none»"
+    },
+    {
+      "id": "c371-e2e-mustache-template",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-range-and-slices",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 1 行：node «0,1,2,3,4 5,3,1 0,2,4» vs tsrun «0,1,2,3,4  0,2,4»"
+    },
+    {
+      "id": "c371-e2e-base-conversion-hexdump",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 4 行：node «-100 36 -2s -100» vs tsrun «100 36 2s 100»"
+    },
+    {
+      "id": "c371-e2e-log-aggregation",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c371-e2e-validation-library",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-rational-and-complex",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression WhileStatement"
+    },
+    {
+      "id": "c371-e2e-async-pool-with-errors",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c371-e2e-async-generator-paging",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-event-sourced-orders",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-csv-full",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
+    },
+    {
+      "id": "c371-e2e-number-formatting",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 1 行：node «0 999 1,000 1,234,567 -9,876,543» vs tsrun «0 999 1,000 1,234,567 9,876,543»"
+    },
+    {
+      "id": "c371-e2e-stack-machine",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-ini-config-parser",
+      "layer": "e2e",
+      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
+    },
+    {
+      "id": "c371-e2e-priority-scheduler",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
+    },
+    {
+      "id": "c371-e2e-error-hierarchy-service",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
+    },
+    {
+      "id": "c371-e2e-json-schema-lite",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-coordinate-geometry",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 3 行：node «0,0 2,0 2,2 1,3 0,2» vs tsrun «0,0 2,2»"
     },
     {
       "id": "c371-e2e-ast-walker",
       "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: if"
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
+    },
+    {
+      "id": "c371-e2e-journal-and-undo",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c371-e2e-iterator-toolkit",
+      "layer": "e2e",
+      "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
+    },
+    {
+      "id": "c371-e2e-serialization-roundtrip",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+    },
+    {
+      "id": "c371-e2e-permissions-matrix",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
+    },
+    {
+      "id": "c383-e2e-override-as-value-and-modifier",
+      "layer": "e2e",
+      "detail": "stdout 不同：第 5 行：node «E 3 -1» vs tsrun «E 3 1»"
+    },
+    {
+      "id": "c384-e2e-union-and-intersection-shapes",
+      "layer": "e2e",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
     }
   ]
 }

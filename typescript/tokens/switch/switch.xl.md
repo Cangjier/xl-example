@@ -8,6 +8,7 @@ import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
+import { Keyword } from "../keyword.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { SwitchCompare } from "./switch-compare.xl.md"
 import { SwitchSegment } from "./switch-segment.xl.md"
@@ -36,6 +37,57 @@ import { SwitchSegment } from "./switch-segment.xl.md"
 ## static readonly field Instance:SwitchReorganization = new SwitchReorganization()
 
 唯一的实例，注册进通用重组队列时用。
+
+## private static method WordOf:(item:Token | null)=>string
+
+取一个「词」单元的文本：`Identifier` 用 `TempToString()`，`Keyword` 用它的 `Value`，其余给空串。
+
+与 `statement.xl.md` 的 `Statement.WordOf` 同一口径（第 552 轮补）：`KeywordReorganization`
+会把 `case` / `default` 从 `Identifier` **升级成 `Keyword`**，而两条分支没有继承关系，
+所以「找一个词」必须两种都认 —— 实测体括号里那五格**全都是 `Keyword`**，
+按 `Identifier` 找**一格都找不到**（这就是本条规则一直没能分段的原因）。
+
+```ts
+if (item instanceof Identifier) {
+  return item.TempToString();
+}
+if (item instanceof Keyword) {
+  return item.Value;
+}
+return "";
+```
+
+## private static method SegmentWordOf:(unit:Token)=>string
+
+一个**顶层单元**是不是段头（`case` / `default`）：是就给那个词，不是给空串。
+
+两种形态都要认（第 552 轮实测，见 `docs/member-layer-plan.md`）：
+
+- **裸词**：`reorg` 开着（`DSH_XL_REORG=1`）时体括号里还是散着的 `Identifier` / `Keyword`；
+- **`Statement` 壳**：默认（`reorg` 关）时**语句层已经把每一行收成一个 `<Statement>`**，
+  `case` / `default` 在**壳里**（实测 `Statement > [Keyword(case), Identifier(1), SymbolToken(:)]`）。
+
+壳按**类名**判定 —— `statement.xl.md` 反过来 import 本文件，这里不能 `instanceof Statement`
+（`statement.xl.md` 的 `IsStatementHead` 为同一条环用了同样的写法）。
+只看**第一个实义单元**：注释 / 软换行那一族跳过，其余第一格不是这两个词就整格不算段头
+（不然 `f(case)` 这种壳会被当成段头）。
+
+```ts
+let head: Token | null = unit;
+if (unit.constructor.name === "Statement" && Array.isArray(unit.Data)) {
+  head = null;
+  for (const item of unit.Data) {
+    const name = item.constructor.name;
+    if (name === "LineWrap" || name === "AreaAnnotation" || name === "LineAnnotation") {
+      continue;
+    }
+    head = item;
+    break;
+  }
+}
+const word = SwitchReorganization.WordOf(head);
+return word === "case" || word === "default" ? word : "";
+```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
@@ -69,6 +121,9 @@ return body instanceof Bracket && body.startBracket === "{";
 - `switch` 体的内容**逐个单元**分配：`case` / `default` 之前的匹配表达式给 `SwitchCase`，
   冒号之后的单元给 `SwitchStatement`。这里不能像 `Try` 那样整体 `MoveDataTo`——
   一个括号的内容要分给多个段，每个单元只能有一个父单元。
+- **段头那一格可能是 `Statement` 壳**（第 552 轮）：默认（`reorg` 关）下语句层已经先跑过，
+  体括号里是五条 `<Statement>`，`case` / `default` 在壳里。于是找 `:` 要在**壳的内容**里找，
+  壳里冒号之后那些（`case 1: f()` 写在一行）+ 壳后面那些平级单元都算这一段的体。
 - 每一段、每一个子段都各自 `SignIn` / `SignOut` / `TryToClose()`：`SwitchCase` 与 `SwitchStatement`
   有自己的队列（前者通用、后者语句），关闭时才会跑。
 - 范围终点取 `switch` 体的终点（含 `}`）。**尾随软换行不进范围**——
@@ -95,41 +150,58 @@ compare.TryToClose();
 const data = body.Data.slice();
 const markers: number[] = [];
 for (let i = 0; i < data.length; i++) {
-  const item = data[i];
-  if (item instanceof Identifier && (item.Is("case") || item.Is("default"))) {
+  if (SwitchReorganization.SegmentWordOf(data[i]) !== "") {
     markers.push(i);
   }
 }
 for (let m = 0; m < markers.length; m++) {
   const from = markers[m];
   const to = m + 1 < markers.length ? markers[m + 1] : data.length;
-  const key = (data[from] as Identifier).TempToString();
+  const key = SwitchReorganization.SegmentWordOf(data[from]);
   const segment = result.CreateSegment();
   segment.key = key;
-  let colonIndex = to;
-  for (let i = from + 1; i < to; i++) {
-    const item = data[i];
+  const head = data[from];
+  const inner = head.constructor.name === "Statement" && Array.isArray(head.Data) ? head.Data : null;
+  const list: Array<Token> = inner !== null ? inner : data;
+  const begin = inner !== null ? 0 : from;
+  const limit = inner !== null ? inner.length : to;
+  let colonIndex = limit;
+  for (let i = begin + 1; i < limit; i++) {
+    const item = list[i];
     if (item instanceof SymbolToken && item.Is(":")) {
       colonIndex = i;
       break;
     }
   }
-  if (key === "case" && colonIndex > from + 1) {
+  if (key === "case" && colonIndex > begin + 1) {
     const caseUnit = segment.CreateCase();
-    for (let i = from + 1; i < colonIndex; i++) {
-      caseUnit.Add(data[i]);
+    for (let i = begin + 1; i < colonIndex; i++) {
+      caseUnit.Add(list[i]);
     }
-    caseUnit.SignIn(data[from + 1].SourceRange.Start!);
-    caseUnit.SignOut(data[colonIndex - 1].SourceRange.End!);
+    caseUnit.SignIn(list[begin + 1].SourceRange.Start!);
+    caseUnit.SignOut(list[colonIndex - 1].SourceRange.End!);
     caseUnit.TryToClose();
   }
-  if (colonIndex + 1 < to) {
-    const statement = segment.CreateStatement();
-    for (let i = colonIndex + 1; i < to; i++) {
-      statement.Add(data[i]);
+  const bodyUnits: Array<Token> = [];
+  if (inner !== null) {
+    for (let i = colonIndex + 1; i < limit; i++) {
+      bodyUnits.push(list[i]);
     }
-    statement.SignIn(data[colonIndex + 1].SourceRange.Start!);
-    statement.SignOut(data[to - 1].SourceRange.End!);
+    for (let i = from + 1; i < to; i++) {
+      bodyUnits.push(data[i]);
+    }
+  } else {
+    for (let i = colonIndex + 1; i < to; i++) {
+      bodyUnits.push(data[i]);
+    }
+  }
+  if (bodyUnits.length > 0) {
+    const statement = segment.CreateStatement();
+    for (const item of bodyUnits) {
+      statement.Add(item);
+    }
+    statement.SignIn(bodyUnits[0].SourceRange.Start!);
+    statement.SignOut(bodyUnits[bodyUnits.length - 1].SourceRange.End!);
     statement.TryToClose();
   }
   segment.SignIn(data[from].SourceRange.Start!);

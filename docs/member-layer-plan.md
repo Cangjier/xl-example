@@ -4635,5 +4635,120 @@ blocked 140 → **137** ✓、differ 304 → **205** ✓、bad 0 ✓、整体加
 3. **映射类型 / 模板字面量类型那一族**（`ty-mapped-as-remap.ts` 15 缺 / 20 多 ✓）：
    缺的是 `MappedType` 与 `TemplateLiteralType` 整族 ✓ —— 那是**还没建过的一块** ✓。
 
+## 一百五十五、`switch` 体里的 `case` / `default` 已经住在 `Statement` 壳里、而且是 `Keyword`（第 552 轮）：944 → **956 / 1037**
+
+起点 **944 / 1037** ✓（缺 552 / 漂 51 / 多 194 / 字段名 36 ✓、解析 1037 / 抛异常 0 ✓）。
+
+### 一、现场：`switch` **整个体**被丢掉了（十二份用例同一形状）
+
+`stmt-switch-basic.ts` 那一档的读数一眼就看得出：`SwitchStatement` / `SwitchCompare` 都 **OK** ✓，
+可 `CaseBlock` 记一笔**字段名不符**（产物里一个 `clauses` 都没有 ✗），
+下面 `CaseClause` / `DefaultClause` / 分支里的语句**全缺** ✗（一份就缺 10 ~ 17 个节点 ✓）。
+
+产物树（`tmp/recon/tree.cjs` ✓）更直接 —— `Switch` 底下**只有 `SwitchCompare`**：
+
+```
+Switch [121,182)
+  SwitchCompare [128,131)
+    Identifier [129,130) t=["x"]
+```
+
+而体括号的内容根本不在树里 ✗：`ReplaceCountAt` 把括号整格换成了 `Switch` ✓，
+可括号里那些单元**一格都没有被搬走** ✗（既没进段、也没进别处）⇒ **整段凭空消失** ✓。
+
+### 二、真因：段头扫描找的是 `Identifier`，而体里那五格**全是 `Statement` 壳里的 `Keyword`**
+
+`Process` 原来是这样找段头的（`data` = 体括号的 `Data`）：
+
+```ts
+if (item instanceof Identifier && (item.Is("case") || item.Is("default"))) { markers.push(i); }
+```
+
+两处都不成立 ✗，插桩（`tmp/recon/r552-probe2.cjs` ✓）把体括号打出来就看清了：
+
+```
+Bracket [132,182)
+  Statement [136,143)            ← 语句层已经把「case 1:」这一行收成了壳 ✓
+    Keyword  [136,140) "case"    ← 而且**已经升级成 `Keyword`** ✗（不是 `Identifier` ✗）
+    Identifier [141,142) "1"
+    SymbolToken [142,143) ":"
+  Statement [148,151)  … f()
+  Statement [156,161)  … break
+  Statement [164,172)  … default:
+  Statement [177,180)  … g()
+```
+
+- **形态变了** ✗：`reorg` 默认关掉（第 471 轮 ✓）之后，体括号里不再是「散着的词 + 符号」，
+  而是**每一行一个 `Statement` 壳** —— 段头在壳**里**；
+- **词形也变了** ✗：`case` / `default` 被 `KeywordReorganization` 升成了 `Keyword`，
+  而它和 `Identifier` **没有继承关系** —— 这正是第 500 轮记下的那条纪律
+  （找词一律走 `IsWordUnit` / `WordOf`，两态都认 ✓，`in` / `of` / `do` / `while` 都栽过同一处 ✓）。
+
+⇒ `markers` 是空的 ✓ ⇒ 一个段都不造 ✓ ⇒ 体的内容全丢 ✓。
+
+### 三、修法：两个私有静态助手 + `Process` 两形态都认（`typescript/tokens/switch/switch.xl.md`）
+
+1. **`WordOf(item)`** ✓：`Identifier` 取 `TempToString()`、`Keyword` 取 `Value`、其余空串 ✓
+   —— 与 `statement.xl.md` 的 `Statement.WordOf` 同一口径 ✓（本文件不能 import `statement.xl.md` ✗：
+   它反过来 import 本文件 ✓，所以照 `IsStatementHead` 的老办法**只复制这一条口径** ✓）。
+2. **`SegmentWordOf(unit)`** ✓：一个顶层单元是不是段头 —— **壳按类名判定**
+   （`unit.constructor.name === "Statement"` ✓，同一条环 ✓），只看**第一个实义单元** ✓
+   （`LineWrap` / `AreaAnnotation` / `LineAnnotation` 跳过 ✓），是第一格不是这两个词就整格不算 ✓。
+3. **`Process` 里找 `:` 改成在「壳的内容」里找** ✓：`inner !== null` 时用 `inner` 当那张表 ✓，
+   壳里冒号之后那些（`case 1: f()` 写在一行 ✓）与壳后面那些平级单元**一起**算这一段的体 ✓；
+   裸词那一形态（`DSH_XL_REORG=1` 的对照态 ✓）走原来那条路 ✓ —— 两形态都留 ✓。
+
+**为什么不改语句层** ✗：让语句层「见到 `case` 就不收壳」动的是**每一行都要跑**的那条规则 ✗
+（面比 `switch` 大得多 ✗），而这里要的只是**按词认段头** ✓ —— 局部、且与第 550 / 551 轮同一族 ✓。
+
+### 四、读数
+
+| 项 | 第 551 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 944 | **956 / 1037** ✓（+12 ✓） |
+| 缺节点 | 552（80 类） | **428**（77 类）✓（−124 ✓） |
+| 多出来的节点 | 194（43 类） | **197**（44 类）✗（+3 ✗） |
+| 区间漂移 | 51（17 类） | **54**（18 类）✗（+3 ✗） |
+| 字段名不符 | 36 | **22** ✓（−14 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24097 | **24302** ✓（+205：段与语句体都回来了 ✓） |
+
+逐文件前后名单做差 ✓（`tmp/recon/r551-perfile.txt` ↔ `tmp/recon/r552-perfile.txt` ✓，
+工具 `tmp/recon/r552-cmp2.cjs` ✓）：**变绿 12 份** ✓、**没有一份变红** ✓ ——
+`stmt-switch-basic` ✓、`stmt-switch-complex-case` ✓、`stmt-switch-default-first` / `-middle` / `-only` ✓、
+`stmt-switch-nested` ✓、`stmt-switch-no-braces-body` ✓、`stmt-switch-fallthrough` ✓、
+`stmt-switch-empty-cases` ✓、`st-switch` ✓、`stmt-break` ✓、`decl-label-switch` ✓
+（**这十二份全都是四个方向归零** ✓）。
+
+「多 3 / 漂 3」那三份是**同一族剩下的尾巴** ✗，三份的**总数都降了** ✓
+（都是「`case 1: {` 那个 `{` 被类型层吃成 `TypeDefine`」那一处 ✓，见下一节 ✓）：
+
+| 文件 | 起点 | 本轮 |
+| --- | --- | --- |
+| `stmt-adversarial-shapes.ts` | 11 / 1 / 4 / 1 | **8 / 2 / 5 / 1** ✓ |
+| `stmt-switch-block-scoped-case.ts` | 13 / 0 / 0 / 1 | **11 / 1 / 1 / 0** ✓ |
+| `st-switch-block-case.ts` | 9 / 0 / 0 / 1 | **7 / 1 / 1 / 0** ✓ |
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **222 / 242** ✓（与第 551 轮末持平 ✓）；
+`runtime:cli` **53 / 79** ✓（+1 ✓，第 551 轮末是 52 ✓）；`samples` 仍红 ✗（还是那两处 ✓：
+`declarations.ts` 的装饰器 ✓、`generic.ts` 的类型实参 ✓，与本轮无关 ✓）；
+`coverage` **1384 / 1713** ✓（**+2** ✓：blocked 126 ✓ 持平、differ 205 → **203** ✓、bad 0 ✓、
+整体加权 79.3% → **79.5%** ✓，落盘 `tests/coverage/report.json` ✓）；
+`gates` **6 道门 1 通过 5 失败** ✓（与第 551 轮末同一档 ✓）；**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **`case 1: {` 那个 `{` 被类型层吃成 `TypeDefine` / `TypeLiteral`** ✓（第 552 轮量出来的 ✓）：
+   `st-switch-block-case.ts`（7 缺 / 1 漂 / 1 多 ✓）与 `stmt-switch-block-scoped-case.ts`
+   （11 缺 ✓）同一形状 ✓ —— 冒号后面本该是一个 `Block`，产物把它当成了**类型标注的类型字面量** ✗，
+   于是 `case` 段里只剩一个冒号、体整段丢掉 ✓。切口很局部 ✓：
+   类型那一趟在「前面是 `case` / `default` 段头」时不该触发 ✓（第 552 轮的 `SegmentWordOf` 已经能把段头认出来 ✓）；
+2. **`ex-object-literal.ts`**（37 缺 ✓）—— 仍是单文件最大的一处 ✓：对象字面量的成员包在 `<Statement>` 里 ✓，
+   `MEMBER_LIST_KINDS` 里**没有 `ObjectLiteralExpression`** ✗（dev 侧也有回声 ✓：
+   `coverage` 里 `unimplemented: object literal member ExpressionStatement` 一大片 ✓）；
+3. **泛型约束里带联合的那一族**（`lex-generic-union-constraint.ts` 23 缺 / 7 多 ✓）与
+   **映射类型 / 模板字面量类型那一族**（`ty-mapped-as-remap.ts` 15 缺 / 20 多 ✓）—— 与第 551 轮列的第 2 / 3 条相同 ✓。
+
+
 
 
