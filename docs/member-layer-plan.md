@@ -2546,3 +2546,16 @@ am-conditional-in-type-arg.ts: TypeAssign 成形 1 次
 ② 投影侧：`Statement` 与 `TypeAssign` 各投一次 `TypeAliasDeclaration` 那一处 ?（第 511 轮定位 ?）。
 
 **这一轮的读数**：746 / 1037 不变 ?（只做定位 ?，未动树 ?）。
+
+### 补记（第 513 轮）：在 `SearchStatementEnd` 之后接 `[` **没有效果** —— 切口不在那里
+
+按上面①试的 ?（`tmp/recon/r513-lamda-body.cjs` ?：算完 `endIndex` 之后，只要紧接着还是 `[` 括号就并进体里 ?）：
+
+**读数一个数字都没动** ?（746 / 缺 1600 / 漂 163 / 多 815 / 字段名 58 ?，
+`am-block-lambda-array-compound.ts` 仍是 `DRIFT … TS[525,541) vs 产物[525,531)` ?），123 份抽查 0 抛异常 ?
+? **撤掉** ?（源码不动 ?，build 已还原 ?）。
+
+? 说明切口**不在**「`SearchStatementEnd` 之后的收尾」这一格 ? —— 要么 `endIndex` 拿到的位置本来就不是我以为的那一个 ?，
+要么体是在**更早**的一步就定死了 ?。**下一块**：给 `LamdaReorganization.Process` 打点 ?
+（把 `units` 逐项类名、`index`、算出来的 `endIndex` 全打出来 ?，只看那一个文件 ?），
+量清「它当时看到的下一格到底是什么」?。
