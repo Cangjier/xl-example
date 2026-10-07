@@ -22,6 +22,7 @@ import { TypeParameterReorganization } from "./tokens/type-parameter.xl.md"
 import { InferTypeReorganization } from "./tokens/infer-type.xl.md"
 import { OptionalCallReorganization } from "./tokens/optional-call.xl.md"
 import { TypePredicateReorganization } from "./tokens/type-predicate.xl.md"
+import { EnumMemberBranch } from "./tokens/enum/enum-member.xl.md"
 import { TupleMemberReorganization } from "./tokens/tuple-member.xl.md"
 import { ParenthesizedTypeReorganization } from "./tokens/parenthesized-type.xl.md"
 import { ParameterReorganization } from "./tokens/parameter.xl.md"
@@ -282,6 +283,25 @@ if (body.Context === "type") {
 // 剩下这一支与上面那个 `Context === "type"` 才是这一问真正还要答的东西 ✓：
 // 类型字面量与标签块的 `{` 仍然由 `Bracket` 开 ✓，它们才需要成员列表队列 ✓。
 return false;
+```
+
+## static method CreateEnumMemberQueue:()=>Sequence<Branch>
+
+**枚举体专属的跳转队列**（第 421 轮）：成员列表队列 + `EnumMemberBranch.JumpIn`。
+
+**插在哪儿就是全部的理由**：
+
+- **`StringGuide.JumpIn` 之前** —— 枚举成员的名字可以是字符串（`"k" = "v"`），
+  排在字符串向导后面的话那一格先被字符串吃掉，成员就没了开头；
+- 而注释那几条（`AreaAnnotation` / `LineAnnotation` / `PreprocessorDirectives` / `RegexToken`）
+  **本来就在更前面** ⇒ `/** doc */` 的第二格由注释分支先认下，
+  成员分支不必也不能去问「前一格那个 `/` 还在不在」；
+- **`LineWrap` / `SymbolToken` / `Identifier` 之后**（它们是队列里的通配那几条）：
+  `,` 必须落到 `SymbolToken.AppendIn` 上（逗号属于枚举声明那一级，留在成员外面），
+  空白则由成员分支**吞掉**（枚举体下不放软换行单元，与改动前后的形状一致）。
+
+```ts
+return ParsePipeline.CreateMemberListQueue().InsertedBefore(StringGuide.JumpIn, [EnumMemberBranch.JumpIn]);
 ```
 
 ## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, FunctionReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])

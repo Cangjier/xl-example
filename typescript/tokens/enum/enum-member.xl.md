@@ -1,5 +1,7 @@
 # dependencies
 ```xl
+import { Branch } from "../../../core/syntax/branch.xl.md"
+import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { ReloadMessage } from "../../../core/syntax/messages/reload-message.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
@@ -31,6 +33,76 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 **`EnumMemberReorganization` 已经删除**（第 419 轮）：它做的事（按顶层逗号切成员表）
 现在由「体开成员 + 成员自己收」在**读的时候**完成，不再等体关闭时扫一遍平列表。
+
+# class EnumMemberBranch extends Branch
+
+**成员表的进门**：它排在枚举体那条队列里，认的是「**这一格该起一个新成员**」。
+
+**为什么做成分支、而不是体的 `Process` 覆盖**（用户口径，第 421 轮改）：形状判定本来就该住在
+**队列里的分支**上 —— 分支只管「认形状 + 交棒」，体只管「有挂载就转过去」，
+两边各一句，一个问题的答案只有一处。做成 `Process` 覆盖等于给同一个问题**第二份答案**。
+
+**顺序就是正确性**（这一条是这次改动的全部理由）：
+
+- 它插在 **`StringGuide.JumpIn` 之前** —— 成员的**名字可以是字符串**（`"k" = "v"`），
+  排在字符串向导后面的话那一格先被字符串吃掉，成员就没了开头；
+- 而注释那三条（`AreaAnnotation` / `LineAnnotation` / `PreprocessorDirectives` / `RegexToken`）
+  **本来就排在更前面** —— 于是 `/** doc */` 的第二格由注释分支先认下，
+  **再也不用在体里问那句 `IsUndo(pre)`** 了（`Process` 覆盖那一版正是靠它兜的，现在结构性消失）；
+- `,` 与空白**不由它认**：`,` 落到队列后面的 `SymbolToken.AppendIn`（与 TS 的分工一致：
+  逗号属于枚举声明那一级，留在成员外面）；空白由它**吞掉**（见 `Success`）。
+
+## static readonly field JumpIn:EnumMemberBranch = new EnumMemberBranch()
+
+唯一的实例，注册进**枚举体**的跳转队列时用（`ParsePipeline.CreateEnumMemberQueue`）。
+
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+
+四道闸，全部只看**已经读到**的东西：
+
+1. **宿主必须是枚举体**（按类名问，不 `import EnumBody` —— 那会绕成循环依赖，且静态字段初始化期有 TDZ）；
+2. **没有成员正在吃**（有的话字符早被转走，轮不到队列；这一条是防御性的）；
+3. **不是 `,` / `}` / `/`**：`,` 与 `}` 各有归宿，`/` 是注释的第一格
+   （注释认第二格，所以第一格必须放它过去，见类注释）；
+4. 剩下的都认 —— 包括空白（它要被吞掉，不能让 `LineWrap.AppendIn` 在体里造出软换行单元：
+   改动前后枚举体下都没有软换行）。
+
+```ts
+const result = new BranchConditionResult();
+result.Success = false;
+if (unit.constructor.name !== "EnumBody") {
+  return result;
+}
+if (source.Value === "," || source.Value === "}" || source.Value === "/") {
+  return result;
+}
+result.Success = true;
+return result;
+```
+
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+**空白：吞掉、什么都不做**（枚举体下不放软换行单元，与改动前后的形状一致）。
+
+**其余：开一个新成员并把这一格喂给它**（它就是成员的第一个单元）。
+
+- **成员直接挂在体下**（`Data` 里与逗号、注释平级），**不套 `Statement`** ——
+  实测（第 419 轮）带注释的枚举体里，注释会把成员表切成两个 `<Statement>`，
+  而 TS 的 `EnumDeclaration.members` 是**一张平表**；
+- **`ReloadOwner` 指成体**：成员收尾时要把 `,` / `}` 那一格**还回来**，
+  还错了地方就会落进成员自己手里（`IfSet.MountStatement` 记过同一条坑）。
+
+```ts
+if (source.Value === " " || source.Value === "\t" || source.Value === "\r" || source.Value === "\n") {
+  return;
+}
+const member = new EnumMember(unit.Template);
+unit.Add(member);
+member.SignIn(source);
+member.ReloadOwner = unit;
+unit.MountedUnit = member;
+member.Process(context, source);
+```
 
 # class EnumMember extends UnitToken
 
