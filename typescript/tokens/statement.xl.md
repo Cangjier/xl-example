@@ -125,6 +125,19 @@ if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteral
 if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as Bracket).startBracket === "(")) {
   return;
 }
+// **泛型实参段里也不收语句壳** ✓（第 583 轮 ✓）：`<` 与 `>` 之间装的是**类型** ✓，
+// 软换行在那里只是**排版** ✓（`interface Folded<` 换行 `T extends B,` 换行 `U extends C` 换行 `>` ✓）
+// —— 一条语句都不可能有 ✓。
+//
+// **少了它会怎样** ✗（实测 `lex-generic-multiline-constraints.ts` ✓）：那一折把
+// `T extends B,` 换行 `U extends C` 整段收成一个 `Statement` ✓，接着**壳里面**那条
+// 逗号运算符规则把 `B , U` 折成一个 `BinaryOperator op=","` ✗ ⇒
+// `TypeParameterCloseRule` 按**顶层逗号**切时一个都找不到 ✗ ⇒ 两个形参被包成**一个**
+// `TypeParameter` [252,278) ✗（TS 那边是两个 ✓，第二个连名字带约束整格不见 ✓：
+// 缺 `Identifier`×3 / `TypeReference`×2 / `TypeParameter`×1 ✓）。
+if (owner === "GenericType") {
+  return;
+}
 // **`{` 括号：值位的花括号里也不收语句壳** ✓（第 556 轮 ✓）：对象字面量 / 类型字面量里装的是
 // **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectCloseRule` 问的是**同一句** ✓
 //（`IsObjectLiteralBrace` ✓，见 `../text-common-util.xl.md` ✓）。
@@ -1368,6 +1381,11 @@ if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteral
 }
 // **`[` / `(` 括号里也不收语句壳** ✓（第 515 轮 ✓，与 `FormFrom` 那一处同一口径 ✓）。
 if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as Bracket).startBracket === "(")) {
+  return result;
+}
+// **泛型实参段里也不收语句壳** ✓（第 583 轮 ✓，与 `FormFrom` 那一处同一口径 ✓）：
+// `<` 与 `>` 之间装的是**类型** ✓，软换行在那里只是排版 ✓ —— 见那一处的说明 ✓。
+if (owner === "GenericType") {
   return result;
 }
 // **`IfCondition` 里也不收** ✓（第 572 轮 ✓）：它就是**条件那一对括号** ✓ ——

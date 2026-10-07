@@ -7508,4 +7508,145 @@ trivia 越界十六片合计 1046 ✓ 持平 ✓，**没有一片变差** ✓）
 3. **两处都做完就是 1037 / 1037** ✓ —— 但**四方向全零只是第一步** ✗：
    真实语料那 1283 / 184 / 467 才是大头 ✓。
 
+## 一百八十五、泛型实参段里的软换行**不是**语句边界（第 583 轮）1035 → **1036 / 1037**，真实语料 370 → **375 / 414**、缺 1283 → **768**
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第二轮**（预算剩**一轮** ✓）。改的是
+`typescript/tokens/statement.xl.md` **两处**（`FormFrom` + `StatementBranch.Condition` ✓）
+与 `typescript/tokens/generic-type.xl.md` **一句订正** ✓。
+
+### 一、靶子：上一节第七小节第 1 条点名的「泛型形参表折行」
+
+`lex-generic-multiline-constraints.ts`（起点 `7 1 1` ✓）：
+
+    interface Folded<
+      T extends B,
+      U extends C
+    >
+      extends D
+    { a: T; b: U }
+
+TS 那边是**两个** `TypeParameter` ✓（`[252,263)` 与 `[267,278)` ✓，
+**尾逗号不属于任何一个** ✓）；起点产物把它们包成**一个** `TypeParameter [252,278)` ✗
+（连尾逗号一起吞 ✓、第二个形参连名字带约束整格不见 ✓）。
+
+上一节量的那一句「`(` / `[` 那一档三份是同一件事」**只对了两份** ✗ ——
+这一份是**另一条根** ✓，量开之后完全不搭界 ✓（见下 ✓）。
+
+### 二、机制：泛型段里长出**一条 `Statement`**，逗号在壳里被折成逗号运算符
+
+`cjcli <文件>` 的 XML 一次就看清了 ✓：
+
+    <GenericType startBracket="<" endBracket=">">
+      <TypeParameter>
+        <Statement>
+          <Identifier>T</Identifier>
+          <Keyword>extends</Keyword>
+          <BinaryOperator op=",">
+            <Identifier>B</Identifier><SymbolToken>,</SymbolToken><Identifier>U</Identifier>
+          </BinaryOperator>
+          <Keyword>extends</Keyword>
+          <Identifier>C</Identifier>
+        </Statement>
+      </TypeParameter>
+    </GenericType>
+
+三段链子 ✓：
+
+1. **`StatementBranch.JumpIn` 在通用跳转队列里** ✓（`parse-pipeline.xl.md` 第 167 行 ✓，
+   第 499 轮为了抢在 `LineWrap.AppendIn` 之前插进去的 ✓），而 `GenericType` 用的**正是**那条队列 ✓
+   （`generic-type.xl.md`：「跳转队列取默认值就是**通用跳转队列**」✓）
+   ⇒ 换行那一刻把 `T extends B,` 换行 `U extends C` 整段收成一个 `Statement` ✗；
+2. 壳**里面**那条语句队列接着跑 ✓ ⇒ 逗号运算符规则把 `B , U` 折成一个 `BinaryOperator op=","` ✗；
+3. `TypeParameterCloseRule` 的切点是**顶层 `SymbolToken ,`** ✓（`type-parameter.xl.md` 的 `Process` ✓）
+   ⇒ 一个都找不到 ✗ ⇒ 整段包成**一个** `TypeParameter` ✓。
+
+⇒ **`generic-type.xl.md` 里那句「`Statement` 那两条只挂在 `Root` 上，所以泛型内部不会长出语句节点」
+是错的** ✗ —— 它写在第 499 轮之前 ✓，那一轮把 `StatementBranch.JumpIn` 挪进通用跳转队列时
+**没有回头改它** ✗。这一轮把那一句订正 ✓（改成「真正的护栏在 `statement.xl.md`」✓）。
+
+**这一条与第 582 轮那条是同一个形状** ✓：都是「**软换行在某个容器里被当成了语句边界**」✗ ——
+第 582 轮是 `(` / `[` 那一档右半截缺判据 ✓，这一轮是**容器那一侧**缺一条早退 ✓。
+
+### 三、改法：与「成员列表 / `[` `(` 括号 / `IfCondition`」**同一处、同一口径**
+
+`statement.xl.md` 里已经有三条「这个容器里装的是 X ✓、不是语句 ✗ ⇒ 不收壳」的早退 ✓
+（`ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody` 一条 ✓、
+`[` `(` 括号一条 ✓（第 515 轮 ✓）、`IfCondition` 一条 ✓（第 572 轮 ✓）；
+`FormFrom` 与 `StatementBranch.Condition` **各一份** ✓ —— 两处必须同口径 ✓）。
+这一轮按同一个形状加第四条 `owner === "GenericType"` ✓：
+
+- `<` 与 `>` 之间装的是**类型** ✓，软换行在那里只是**排版** ✓ —— 一条语句都不可能有 ✓；
+- **与第 582 轮那两道护栏的区别** ✓：那两道是「**什么时候敢判续行**」✗，
+  这一条是「**这个容器里根本不该有语句**」✓ —— 后者更硬 ✓（不依赖向前看 ✓）。
+
+### 四、读数
+
+| 项 | 第 582 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1035 | **1036 / 1037** ✓（**+1** ✓） |
+| 缺节点 | 9（4 类） | **2（2 类）** ✓（−7 ✓） |
+| 区间漂移 | 1（1 类） | **0（0 类）** ✓（−1 ✓） |
+| 多出来的节点 | 4（4 类） | **3（3 类）** ✓（−1 ✓） |
+| 字段名不符 | 1 | **1** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21727 | **21726** ✓（−1 ✓） |
+
+**逐文件**（`r583-cases.txt` ✓）：红的 **2 → 1** ✓，**变绿的那一份正是它** ✓
+（四栏全零 ✓），剩下的 `stmt-adversarial-shapes.ts` **逐项一字不差** ✓（`2 0 3 1` ✓）。
+
+**真实语料**（`r583-final-real.txt` ✓，`real --jobs 1 --per-file` ✓）——**大头在这一轮** ✓：
+
+| | 完全一致 | 缺 | 漂 | 多 | 字段名 | 红文件 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 第 582 轮末 | 370 / 414 | 1283（52 类） | 184（10 类） | 467（30 类） | 3 | 43 |
+| 本轮 | **375 / 414** ✓ | **768（48 类）** ✓ | **184（10 类）** ✓ | **411（27 类）** ✓ | 3 ✓ | **38** ✓ |
+
+**缺一次掉 515 处** ✓（1283 → 768 ✓）—— 这是**第 581 轮（−62 ✓）以来最大的一次** ✓。
+最大的两份 ✓：`undici-types/header.d.ts` `278 0 4` ⇒ **全绿** ✓（原来是**最红**的一份 ✓）、
+`@types/node/util.d.ts` `191 1 27` ⇒ **`26 1 4`** ✓；
+`lib.es5.d.ts` 那一族只剩 `Awaited` 的条件类型漂移 ✓（`6 3 11` ✓）。
+
+**为什么这一档这么重** ✓：`<` 后面的形参表在 `.d.ts` 里**几乎总是折行** ✓
+（`interface X<` 换行 `A extends B,` 换行 `C` 换行 `>` ✓），
+而这条链子一旦断在「一个 `TypeParameter`」上 ✓，TS 那边**整张表的每一个形参**
+（名字 + 约束 + 约束里的 `TypeReference` ✓）都跟着缺 ✓ —— 一处排版错，账上是一整片 ✓。
+
+### 五、六道门（`cases:tsast` **涨了两片** ✓）
+
+`runtime:check` **240 / 242** ✓、`runtime:cli` **79 / 79** ✓、`cases:check` **1050 条 0 不合格** ✓、
+`coverage` **1630 / 1713（94.4%）** ✓、`samples` **三份全绿** ✓、
+`cases:tsast` **16 片 5 片通过** ✓（第 581 / 582 轮是 **3 片** ✓ —— 这一轮**涨了两片** ✓）。
+`xl build`（`statement.xl.md`）**0 error、仍是那 3 条既有 W3102** ✓、
+`xl check` **0 error 3 warning** ✓、`xl build`（`generic-type.xl.md`）**0 error 0 warning** ✓、
+`tsc` **0 错** ✓。
+
+**`coverage` 一格没动** ✓（1630 ✓）—— 与第 582 轮同 ✓；`cases:tsast` 那一片数才是这一轮动过的门 ✓
+（**分片成员会变** ✗，见第 581 轮第五节那条纪律 ✓：这里只比「几片通过」这个**计数** ✓，
+不比某一片的四个数 ✓）。
+
+### 六、下一块（预算剩**一轮**）
+
+1. **`stmt-adversarial-shapes.ts`**（`2 0 3` + `1 FIELD` ✓）——**`cases` 里最后一份红的** ✓，
+   做完就是 **1037 / 1037** ✓。实测三条 ✓：
+
+       FIELD  IfStatement  [615,656)  产物[expression,thenStatement] vs TS[elseStatement,expression,thenStatement]
+       MISS   BreakStatement [644,656)  "break label1"
+       MISS   Identifier    [650,656)  "label1"
+       EXTRA  Block          [622,656)  "continue label1; else break label1"
+       EXTRA  ExpressionStatement [639,656)  "else break label1"
+       EXTRA  Identifier     [639,643)  "else"
+
+   `if (a) continue label1; else break label1` —— 体收尾**必须晚于 `else` 到达** ✓
+   （第 573 轮量清、没敢动的那一处 ✓，第 175 / 176 节 ✓）；
+2. **同一条根的另一半** ✓：`switch` 的两个 `case` 并壳 ✓（第 574 / 576 轮 ✓）——
+   两处都是「**收尾比 `else` / `case` 早**」✓，可照抄第 582 轮的形状 ✓
+   （**一条**判据加进 `LineCannotEnd` 那一档 ✓）；
+3. **四方向全零之后**：真实语料那 **768 / 184 / 411** 才是主线 ✓ ——
+   这一轮那条「**容器那一侧缺一条早退**」的路子还有得走 ✓
+   （`IsObjectLiteralBrace` 那一支就是同一个形状 ✓，第 556 轮 ✓）；
+4. **一条留给下一个对话的账** ✗：`generic-type.xl.md` 那句错的注释从第 499 轮一直挂到第 583 轮 ✓
+   —— **挪动一条队列注册时要回头搜「谁在注释里断言它不在这条队列里」** ✓。
+
+
 

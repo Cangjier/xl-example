@@ -829,8 +829,18 @@ switch (item) {
 规则队列取默认值（通用规则队列）——与 `Bracket.Use("(")` 那一支同款：
 泛型实参段里能出现**各种类型形状**（类型字面量 `Array<{ a: 1 }>`、元组、嵌套泛型），
 通用队列里那几条类型规则都要在；好处还有表内的软换行会被正常摘掉
-（注释则不再被摘掉，见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule`）；
-`Statement` 那两条只挂在 `Root` 上，所以泛型内部不会长出语句节点。
+（注释则不再被摘掉，见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule`）。
+
+**「泛型内部不会长出语句节点」这一句原来是错的** ✗（第 583 轮实测订正 ✓）：
+跳转队列取的是**通用跳转队列** ✓，而 `StatementBranch.JumpIn` 第 499 轮起**就在那条队列里** ✓
+（`../parse-pipeline.xl.md` 第 167 行 ✓，为的是让语句壳抢在 `LineWrap.AppendIn` 之前 ✓）
+⇒ 泛型实参段里的软换行**照样会收壳** ✗ ——
+`interface Folded<` 换行 `T extends B,` 换行 `U extends C` 换行 `>` 那一折被收成一个 `Statement` ✓，
+壳里那条逗号运算符规则再把 `B , U` 折成 `BinaryOperator op=","` ✗ ⇒
+`TypeParameterCloseRule` 按**顶层逗号**切时一个都找不到 ✗ ⇒ 两个形参被包成**一个** `TypeParameter` ✓。
+真正的护栏现在写在 `../tokens/statement.xl.md` 里 ✓（`FormFrom` 与 `StatementBranch.Condition`
+各一句「`owner === "GenericType"` ⇒ 不收壳」✓，与成员列表 / `[` `(` 括号 / `IfCondition`
+三条早退同一处、同一口径 ✓），不在这一层 ✓。
 
 **两条表达式规则要单独挡在泛型实参段外面**（就地拒，而不是换队列）：
 `LetCloseRule`（`<const T>` 的 `const T` 会被当成变量声明）与
