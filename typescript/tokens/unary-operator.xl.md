@@ -273,6 +273,17 @@ if (this.IsPrefixSymbol(current)) {
   return this.IsOperand(after);
 }
 if (this.IsPlusPlus(current)) {
+  // **已经在 `UnaryOperator` 里面了就不再折** ✓（第 502 轮 ✓）：
+  // `i++` 折成 `UnaryOperator(Identifier i, SymbolToken ++)` 之后 ✓，这个新单元**自己也会关一次** ✓
+  // ⇒ 它自己的 `Data` 上又跑这一趟 ✓ ⇒ `++` 前面是 `i`（操作数 ✓）⇒ **又折一层** ✗ ——
+  // 实测 `for (let i = 0; i < 3; i++) {}` 的 incrementor 被套了 **8 层** `UnaryOperator` ✓
+  //（`tmp/recon/i50.ts` ✓），而对照态只有**一层** ✓。
+  // `++` / `--` 不会「前缀套前缀」（`++x` 里那个 `++` 已经是整个前缀了 ✓）⇒
+  // 容器已经是 `UnaryOperator` 时一律不再折 ✓（`!` / `~` / `typeof` 不受这条影响 ✓：
+  // 它们的前缀链 `!!x` / `typeof typeof x` 仍然要一层层折 ✓）。
+  if (current.Parent !== null && current.Parent.constructor.name === "UnaryOperator") {
+    return false;
+  }
   if (this.IsOperand(after)) {
     return true;
   }
