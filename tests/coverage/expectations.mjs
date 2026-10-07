@@ -957,7 +957,6 @@ export const EXPECTATIONS = {
 
 
   // ---- 展开数组（`{...xs}`）应当带上下标键（Node 给 `{"0":1,…}`，本仓给 `{}`）。
-  "c371-ex-spread-forms": { expect: "differ", why: "展开数组（`{...xs}`）应当带上下标键（Node 给 `{\"0\":1,…}`，本仓给 `{}`）。" },
 
   // ---- 类表达式在体内 `Named.name` 可见（本仓给 `false` 那一格）。
 
@@ -994,7 +993,6 @@ export const EXPECTATIONS = {
   "c371-rt-function-name-and-length": { expect: "differ", why: "计算键方法的名字（`{ [\"k\"+1]() {} }.k1.name` 给空串）。" },
 
   // ---- 带**剩余参数**的函数经 `.call(...)` 调用 ⇒ `cannot call a non-closure value`；最小反例 `function f(...r){}; f.call({}, 1)`。
-  "c371-rt-bind-call-apply-forms": { expect: "blocked", why: "带**剩余参数**的函数经 `.call(...)` 调用 ⇒ `cannot call a non-closure value`；最小反例 `function f(...r){}; f.call({}, 1)`。" },
 
   // ---- `Object.prototype.toString.call(promise)` 应当是 `[object Promise]`。
   "c371-rt-tostring-tags-and-inspect": { expect: "differ", why: "`Object.prototype.toString.call(promise)` 应当是 `[object Promise]`。" },
@@ -1064,7 +1062,6 @@ export const EXPECTATIONS = {
   // ---- `render` 里对象当上下文时字段读不到（`{{user.name}}` 给 `false`）。
 
   // ---- **回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set(["build"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。
-  "c371-e2e-plugin-registry": { expect: "differ", why: "**回调里的回调引用 `this`** ⇒ 内层闭包不是函数：最小反例 `class V { done = new Set([\"build\"]); ready(){ return this.list().filter((j) => j.deps.every((d) => this.done.has(d))) } }`（外层回调引用 `this` 是对的、再套一层就丢）。" },
 
   // ---- `encode` 里 `String(run)` 与 `charAt` 的分支被走成了布尔串（`truefalse…`）。
 
@@ -1086,7 +1083,6 @@ export const EXPECTATIONS = {
   // ---- `Map` 的 `entries()` 展开成数组之后 `for (const [id, tf] of …)` 的取格顺序。
 
   "c373-ex-compound-assign-logical-rhs": { expect: "differ", why: "复合赋值的右侧是 `||` 时**还是错的** ✗（`k += 0 || 5` 给 `-2` ✓，JS 给 `4` ✓）。**根子是既有的一条** ✓：`&&` / `||` 那一条规则（`LogicalOperator`）的位次**排在四则之前** ✓（`binary-operator.xl.md` 的 `IsOperand` 那一段自己记着这件事 ✓：`a && b + c` 也按 `(a && b) + c` 折 ✓）。第 373 轮把三元、`*=` / `-=` / `**=` 那些修好了 ✓（右操作数先折成一个单元 ✓），但 `||` 在那一刻**已经被逻辑规则折走了** ✓ ⇒ 标记运算符看到的左边是 `0` 而不是 `k + 0` ✓。**要修得把 `LogicalOperator` 挪到四则之后** ✓——那是另一次改动 ✓（会动到 `a && b + c` 这一族的形状 ✓）。" },
-  "c374-ex-throw-in-reentrant-callback": { expect: "blocked", why: "**异常从「重入的原生回调」那一层出来之后没有穿回最外层** ✗：最小反例 `function walk(n){ if (n === 0) throw new Error(\"bottom\"); return [n].map((x) => walk(n - 1))[0]; }` + `try { walk(3) } catch (e) { … }` ✓——Node 给 `A caught bottom` ✓，本仓报 `cannot read properties of undefined` ✓（**连 `try` 都没接住** ✓）。**边界**：回调里**只**抛错（不递归）是好的 ✓（`[1].map(() => { throw new Error(\"x\") })` 四条都接住了 ✓）；纯递归抛错也是好的 ✓——**只有「脚本 → 原生 → 脚本 → 原生」这条链** ✗。根子还没量（下一轮从这里查 ✓：异常从 `CallNative` 重入那一层出来时的收口 ✓）。" },
   "c382-ex-braced-escape": { expect: "blocked", why: "**第 382 轮试过、没生效** ✗（两条路都试了）：词法层把 `\\u{65}scaped` 劈成三格 ——`Let fieldName=\"\\u\"` + `Bracket{65}` + `Identifier(scaped)`（XML 实测）。两条路：① `Identifier.IsAppend` 放行 `{` 与十六进制 / `}`（`IsBracedEscapePart`）；② `SymbolBranch` 给那几格让路、`CommonBranch` 在「已关闭」那一支也认它。**两条都没生效** ✗：`{` 那一刻 `unit.Last()` 已经不是那个 `Identifier` 了（它已经被 `Let` 收走成名字属性），所以两处的判据都问不到它。**下一轮的方向**：判据要落在「上一个 `Let` / `Field` 的 `fieldName` 刚写完一个没闭合的 `\\u{`」上，而不是「上一个单元是不是 `Identifier`」。**四位的那种一直是好的**（第 381 轮修的，`c381-ex-escaped-property-key` 守着）。" },
 
 

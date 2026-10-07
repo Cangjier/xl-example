@@ -113,7 +113,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `Label` | `type` `label` | 自闭合标签，无子单元 |
 | `NamespaceExport` | `type` `name` | 同上 |
 | `While` / `DoWhile` | `type` `compare` `body` | 两个键都是 `ToList()` 的数组；`DoWhile` 的键序是 `body` → `compare` |
-| `For` | `type` `initial` `compare` `next` `body` `emptyBodyAt` | `emptyBodyAt` 是**体为那条空语句（`for (…);`）时那个 `;` 的下标**，否则 `-1`；投影侧直接读它，不再按原文重扫 |
+| `For` | `type` `initial` `compare` `next` `body` `emptyBodyAt` `bodyBraceAt` | `emptyBodyAt` 是**体为那条空语句（`for (…);`）时那个 `;` 的下标**，否则 `-1`；`bodyBraceAt` 是**体那个 `{` 的下标**（体不是花括号块时 `-1`）——两个字段都让投影**直接读**，不再按原文重扫（空块的终点就是本单元的终点） |
 | `Foreach` | `type` `define` `enumable` `body` `emptyBodyAt` | 同上 |
 | `While` 的 `emptyBodyAt` | 同上 | `While` 行的补充：那个字段与 `For` / `Foreach` 同一个来由 |
 | `Try` | `type` `body` + 可选 `catches` `finally` | `catches` 非空才写；`finally` 非 null 才写 |

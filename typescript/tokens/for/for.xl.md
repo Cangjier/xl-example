@@ -143,6 +143,11 @@ let tailEnd = unit.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
+  // **体那个 `{` 当场记进 `BodyBraceAt`**（第 598 轮）：空块（`for (;;) {}`）的体段
+  // 一个可见子单元都没有，投影那边要造一个空 `Block` 就只能回原文里
+  // `indexOf(")")` + `indexOf("{")` + `MatchingBrace` 重扫一遍（那是同一条判据的第二份近似）。
+  // 记成字段之后投影直读（见 `PrintAst`）。
+  result.BodyBraceAt = statementBracket.SourceRange.Start!.Index;
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
   forBody.SignOut(statementBracket.SourceRange.End!);
@@ -215,6 +220,16 @@ C 风格 `for` 语句单元。
 `MatchingParen` + 跳空白**重扫一遍原文**，那是同一条判据的第二份近似。
 记成字段之后，投影只做一次字段读取（见 `PrintAst`）。
 
+## field BodyBraceAt:int = -1
+
+**体那个 `{` 的下标**；体不是花括号块时就是 `-1`。
+
+与 `EmptyBodyAt` 同一个来由、同一条纪律：`for (;;) {}` 的空块在 `ToList` 时**整个摊掉**了
+（体段一个可见子单元都没有），而 TS 那边 `ForStatement.statement` 仍有一个空 `Block`——
+投影原来靠 `indexOf(")")` + `indexOf("{")` + `MatchingBrace` **回原文里找**，
+那是同一条判据的第二份近似（块里的字符串与注释里同样有括号）。
+记成字段之后，空 `Block` 的起点直读这一格、终点就是**本单元的终点**（`}` 正好在末尾）。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `for (let i = 0, j = 1; i < j; i++, j--) {}` → `ForStatement`
@@ -248,12 +263,15 @@ C 风格 `for` 语句单元。
   const built = ctx.BlockOfBody(body);
   if (built !== undefined) {
     props.statement = built.node;
-  } else if (ctx.source[ctx.StmtEndOf(v) - 1] === "}") {
-    const header = ctx.source.indexOf(")", v.start);
-    const brace = header >= 0 ? ctx.source.indexOf("{", header) : -1;
-    const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
-    if (brace >= 0 && close >= brace) {
-      props.statement = { kind: "Block", statements: [], pos: brace, end: close + 1 };
+  } else {
+    // **空块的起点读 token 的字段**（第 598 轮）：`for (;;) {}` 的体段一个可见子单元都没有，
+    // 而 TS 那边仍有一个空 `Block`——原来靠 `indexOf(")")` + `indexOf("{")` + `MatchingBrace`
+    // **回原文里找**（块里的字符串与注释里同样有括号），那正是同一条判据的第二份近似。
+    // **终点就是本单元的终点**：`ForCloseRule.Process` 的块那一支把 `tailEnd` 签在
+    // 那个 `}` 的**后一位**，所以 `ctx.EndOf(v)` 就是 `Block.end`。
+    const braceAt = ctx.Attr(v, "bodyBraceAt");
+    if (typeof braceAt === "number" && braceAt >= 0) {
+      props.statement = { kind: "Block", statements: [], pos: braceAt, end: ctx.EndOf(v) };
     }
   }
   if (props.statement === undefined) {
@@ -383,6 +401,7 @@ result.set("compare", this.Compare.ToList());
 result.set("next", this.Next.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
+result.set("bodyBraceAt", this.BodyBraceAt);
 return result;
 ```
 
@@ -390,12 +409,15 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`——**两个位置字段也要一起带走**
+（漏了 `EmptyBodyAt` 的克隆体认不出 `for (…);`、漏了 `BodyBraceAt` 的认不出空块）。
 
 ```ts
 const result = new For(this.Template);
 result.Sign(this);
 result.AddRange(this.Data.map((x) => x.Clone()));
+result.EmptyBodyAt = this.EmptyBodyAt;
+result.BodyBraceAt = this.BodyBraceAt;
 result.TryToClose();
 return result;
 ```

@@ -845,12 +845,32 @@ JS 的对象剩余与对象展开走的都是 `CopyDataProperties` ✓）：
 **原始值来源跳过** ✗（JS 的 `{...'ab'}` 给 `{0:'a',1:'b'}` ✓——本仓没有装箱那一层 ✓，
 与 `Object.assign` 那条同一个口径 ✓）。
 
+**数组的下标键在载荷里、不在 `Props` 里** ✗（第 598 轮 ✓）：`{ ...xs }` 在 JS 里给
+`{"0":1,"1":2,…}` ✓（`CopyDataProperties` 走的是 `OwnPropertyKeys` ✓，而数组的下标正是
+**自有可枚举的字符串键** ✓）——只看 `Props` 时那一整片键**静默丢掉** ✗
+（判据 `c371-ex-spread-forms` ✓：`JSON.stringify({ ...xs })` 给 `{}` ✓，Node 给三个键 ✓）。
+**次序照 JS** ✓：整数下标排在**字符串键之前** ✓（`OwnPropertyKeys` 的口径 ✓）⇒ 这一支在
+`Props` 那一趟**前面** ✓。**洞不是自有属性** ⇒ 跳过 ✓（与 `map` 那族同一条口径 ✓）。
+**键串在这里现造** ✓（`Units("" + i)` ✓，与 `Array.from` 那条一字不差 ✓）——
+数组元素**没有现成的键句柄**可用 ✗（`Props` 那条路才有 ✓）。
+
 ```ts
 const out = NewPlainObject(room, table, protos);
 if (!source.IsObject()) return out;
 const own = table.Get(source.Ref);
 const keys: Value[] = [];
 const values: Value[] = [];
+if (source.Tag === ValueTag.Array) {
+  const items = own.AsArray();
+  if (!room(ObjectCharge * items.GetLength() + CodeUnitCharge * items.GetLength())) {
+    throw new Error("out of room");
+  }
+  for (let i = 0; i < items.GetLength(); i++) {
+    if (items.IsHole(i)) continue;
+    keys.push(Value.FromString(table.CreateString(Units("" + i))));
+    values.push(items.GetAt(i));
+  }
+}
 for (let i = 0; i < own.Props.length; i++) {
   const keyHandle = own.Props[i].Key;
   const keyTag = table.Get(keyHandle).Tag;

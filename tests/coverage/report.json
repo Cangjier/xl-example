@@ -38,27 +38,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.6,
+  "progressPercent": 98.91,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 494,
-      "blocked": 1,
+      "pass": 495,
+      "blocked": 0,
       "differ": 7,
       "nodefail": 0,
-      "coverage": 98.41
+      "coverage": 98.61
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 407,
-      "blocked": 2,
-      "differ": 2,
+      "pass": 409,
+      "blocked": 1,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 99.03
+      "coverage": 99.51
     },
     {
       "layer": "stdlib",
@@ -74,26 +74,14 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 164,
+      "pass": 165,
       "blocked": 0,
-      "differ": 2,
+      "differ": 1,
       "nodefail": 0,
-      "coverage": 98.8
+      "coverage": 99.4
     }
   ],
   "blocked": [
-    {
-      "id": "c371-rt-bind-call-apply-forms",
-      "layer": "runtime",
-      "title": "bind / call / apply 的 this 与实参形态",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c374-ex-throw-in-reentrant-callback",
-      "layer": "exec",
-      "title": "回调里**再进一次**原生回调并且抛出：异常要一路穿回最外层（**还没修**）",
-      "detail": "tsrun: 脚本抛出：cannot read properties of undefined"
-    },
     {
       "id": "c382-ex-braced-escape",
       "layer": "exec",
@@ -143,12 +131,6 @@
       "layer": "runtime",
       "title": "Symbol.toStringTag 与内建对象的标签",
       "detail": "stdout 不同：第 9 行：node «promise [object Promise]» vs tsrun «promise [object Object]»"
-    },
-    {
-      "id": "c371-ex-spread-forms",
-      "layer": "exec",
-      "title": "展开：调用、new、数组、对象、rest 参数",
-      "detail": "stdout 不同：第 3 行：node «{\"a\":9,\"b\":2,\"c\":3} {\"0\":1,\"1\":2,\"2\":3}» vs tsrun «{\"a\":9,\"b\":2,\"c\":3} {}»"
     },
     {
       "id": "c373-ex-compound-assign-logical-rhs",
@@ -227,12 +209,6 @@
       "layer": "stdlib",
       "title": "内建对象的 toString 与 valueOf 的组合",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Date.prototype.toString for a valid date (JS renders local time"
-    },
-    {
-      "id": "c371-e2e-plugin-registry",
-      "layer": "e2e",
-      "title": "插件注册表：惰性工厂、依赖顺序、失败隔离",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
       "id": "c371-e2e-async-pool-with-errors",

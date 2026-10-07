@@ -1841,23 +1841,34 @@ return count - fixed;
 
 ## method ReentryArgumentsCharge:(info:FunctionInfo, args:Array<Value>)=>int
 
-**重入那条路上 `arguments` 要问多少房间** ✓（第 332 轮 ✓）——不用就返回 `0` ✓。
+**重入那条路上 `arguments` 与剩余参数要问多少房间** ✓（第 332 / 598 轮 ✓）——不用就返回 `0` ✓。
 
 **为什么重入要单独一份** ✗：`DoCallValue` 那一条走的是 `FillParameters` ✓
 （它手上有调用者的帧与实参窗口 ✓）；而**重入**（`CallNative` ✓：内建回调 ✓、
 访问器 ✓、微任务里的回调 ✓）手上是**一个宿主数组** ✓——两条路的实参来源不同 ✓，
-所以「要不要收」这一句判据要**共用** ✓（`ReentryArgumentsCharge` 与
-`FillReentryArguments` 都只看 `info.NeedsArguments` ✓），别的一处不写第二遍 ✓。
+所以「要不要收」这一句判据要**共用** ✓（本方法与 `FillReentryArguments` 都只看
+`info.NeedsArguments` / `info.HasRest` ✓），别的一处不写第二遍 ✓。
+
+**剩余参数那一格也要算** ✗（第 598 轮 ✓）：`f.call(o, 1, 2)` 走的正是重入 ✓，
+而 `function f(...rest)` 那个数组**也是这一层造的** ✓——漏算就是「分配刚好越界」✓
+（与 `bind` 那一处估少了五个属性同一条纪律 ✓）。
 
 ```ts
-if (!info.NeedsArguments) return 0;
-if (info.ParamCount < 0 || info.ParamCount >= info.SlotCount) return 0;
-return ObjectCharge + ValueCharge * args.length;
+let charge = 0;
+if (info.NeedsArguments && info.ParamCount >= 0 && info.ParamCount < info.SlotCount) {
+  charge = charge + ObjectCharge + ValueCharge * args.length;
+}
+if (info.HasRest && info.ParamCount > 0 && info.ParamCount - 1 < info.SlotCount) {
+  const fixedRest = info.ParamCount - 1;
+  const restCount = args.length > fixedRest ? args.length - fixedRest : 0;
+  charge = charge + ObjectCharge + ValueCharge * restCount;
+}
+return charge;
 ```
 
 ## method FillReentryArguments:(created:HeapFrame, info:FunctionInfo, args:Array<Value>)=>void
 
-**重入那条路上把 `arguments` 收进那一格** ✓（第 332 轮 ✓）。
+**重入那条路上把 `arguments` 与剩余参数收进各自那一格** ✓（第 332 / 598 轮 ✓）。
 
 **它补的是一个实测到的洞** ✗：`queueMicrotask(function () { arguments.length })` 里那个
 `arguments` 是 `undefined` ✓——**回调里抛出来的那一抛又正好被承诺吞掉** ✗
@@ -1867,7 +1878,28 @@ return ObjectCharge + ValueCharge * args.length;
 只是那时没人量到 `arguments` 也是同一格 ✓）。
 **判据、位置、格子与 `FillParameters` 那条一字不差** ✓（都是 `info.ParamCount` ✓）。
 
+**剩余参数那一格原来被「按格数铺」写坏了** ✗（第 598 轮 ✓）：`CallNative` 有一句
+`for (i < args.length && i < SlotCount) frame.Slots[i] = args[i]` ✓（`FillParameters`
+没有这一句 ✓，它按 `fixed` 分两趟铺 ✓）⇒ `function f(...rest)` 从重入被调时
+**第 `fixed` 格装的是第一个实参**（一个数字 ✓），而不是那个数组 ✗——
+症状离现场很远 ✓：`f.call(o, 1, 2)` 报 `cannot call a non-closure value` ✗
+（`rest.join` 是在一个数字上读 `.join` ✓），判据 `c371-rt-bind-call-apply-forms` ✓。
+所以这里要把那一格**按数组重写一遍** ✓（次序与 `FillParameters` 一致 ✓：
+剩余参数在前 ✓、`arguments` 在后 ✓——后者的位置 `ParamCount` 更大 ✓）。
+
 ```ts
+if (info.HasRest) {
+  const fixed = info.ParamCount - 1;
+  if (fixed >= 0 && fixed < info.SlotCount) {
+    const restHandle = this.Table.CreateArray();
+    if (this.Protos !== null) this.Table.Get(restHandle).Proto = this.Protos.Array;
+    for (let i = fixed; i < args.length; i++) {
+      // **每一趟现取视图** ✓（`heap.xl.md` 那条 ✓）。
+      this.Table.Get(restHandle).AsArray().Push(args[i]);
+    }
+    created.Slots[fixed] = Value.FromArray(restHandle);
+  }
+}
 if (!info.NeedsArguments) return;
 if (info.ParamCount < 0 || info.ParamCount >= info.SlotCount) return;
 const handle = this.Table.CreateArray();
@@ -3199,9 +3231,9 @@ if (info === null) {
 // 排在后面会把一次「只是造个对象」的调用记成一次重入 ✗。
 //
 // **一处已知差写在明处** ✗（与这一支的**非生成器**那一半同一条 ✓）：
-// 这一条路只按格数铺实参 ✓、**不收剩余参数** ✗（`FillParameters` 要调用者的帧 ✓，
-// 而重入没有调用者的帧 ✓）——`*[Symbol.iterator](...xs)` 这种写法今天仍是丢的 ✓；
-// 普通函数经重入调时**也一样丢** ✓（同一个缺口 ✓），不是这一轮带出来的 ✗。
+// 这一条路铺实参**只按格数**铺 ✓——多传的那些落进「形参之后的格」✓，
+// 而 `arguments` 与剩余参数两格由 `FillReentryArguments` 单独收 ✓
+//（第 598 轮补上剩余参数那一半 ✓，见它那一处 ✓）。
 if (info.IsGenerator) {
   if (!this.NeedRoom(ObjectCharge * 2 + info.SlotCount * ValueCharge
       + this.ReentryArgumentsCharge(info, args))) return Value.Undefined();
@@ -3299,13 +3331,25 @@ this.RunToDepth(depth);
 // 看起来像运行器卡住 ✗，真相是**模块那一帧被一起清掉了** ✓
 // ⇒ 内建回来之后 `settle` 照做 ✓、可**没有帧接着跑** ✓（`console.log("after")` 永远不会执行 ✓）。
 //
-// **判据为什么是「比 `depth` 浅」** ✓：展开到外层处理点那一档是**合法的收窄** ✓
-//（`DoThrow` 把 `Pc` 指到处理点 ✓、`Frames.Depth()` 正好落在 `depth` ✓），
-// 所以只有**比 `depth` 还浅**才说明「整摞被清了」✓。
-// **一条判据两件事** ✗：`Frames.Clear()` 那一支与「重入里被接住的那一抛」是**同一个症状的两个来源** ✓，
-// 而这里只补后者 ✓——前者（真的没人接）仍旧让 `Status` 停在 `Threw` ✓，
-// 外面那台循环一看到它就停 ✓，宿主照旧报错 ✓（**净效果一个字都没变** ✓）。
-if (this.Frames.Depth() < depth) this.Frames.Handles = outerFrames;
+// **判据是「整摞真的被清了」** ✓（第 598 轮改 ✗）——**只有那一档才该放回来** ✓：
+// `DoThrow` 的两条出口对帧栈做的是**相反**的两件事 ✓——
+//   · 「展开到外层处理点」✓：**故意**把这一段弹掉 ✓（控制流已经交给外面那个 `catch` ✓），
+//     放回来就是**把已经死掉的帧又压回栈上** ✗；
+//   · 「一个处理点都不剩」✓：`Frames.Clear()` ✓，而那一抛由语言层的内建自己接 ✓
+//     （上面那个承诺执行器 ✓），帧**必须**放回来 ✓。
+// 原来只看「比 `depth` 浅」✗，于是前者也被当成后者 ✓——**只要重入不是从最外层发起的**
+// （回调是被一个脚本函数调的 ✓）就必然踩到 ✓：处理点在模块那一层（层深 0 ✓）⇒
+// `Frames.Depth()` 落在 1 ✓、`depth` 是 2 ✓ ⇒ 判据成立 ✗ ⇒ `walk` 那一帧被放回来 ✓
+// ⇒ 它接着去读那个「已经作废的 `map` 结果」✓ ⇒ 外层的 `catch` **已经被那次展开用掉** ✗
+// ⇒ 真正冒到宿主的是**第二个**异常 ✓：`cannot read properties of undefined` ✗
+//（判据 `c374-ex-throw-in-reentrant-callback` ✓ / `c371-e2e-plugin-registry` ✓
+// ——后者报的 `cannot call a non-closure value` 是同一个根在另一处的长相 ✓）。
+//
+// **判据就是 `Status`** ✓：那两条出口一个把状态**留着**（展开到处理点不着 `Threw` ✓）、
+// 一个**置成 `Threw`** ✓——而这句话正好写在 `Frames.Clear()` 的下一行 ✓，
+// 所以「`Status` 是 `Threw`」与「整摞被清了」在这里是**同一件事** ✓（不必再开一格字段 ✓）。
+// 外面那台循环一看到 `Threw` 就停 ✓，宿主照旧报错 ✓（**净效果一个字都没变** ✓）。
+if (this.Frames.Depth() < depth && this.Status === VmStatus.Threw) this.Frames.Handles = outerFrames;
 this.NativeDepth = this.NativeDepth - 1;
 // **「这一趟里出过事」有两个来源，缺一不可** ✓（第 228 轮 ✓）：
 //   · **计数变了** ✓ —— 重入里抛过（不管最后有没有被接住 ✓）；

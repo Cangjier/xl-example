@@ -337,7 +337,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 以及叶子按值分名（`NumericLiteral` / `StringLiteral`）——投影从 `typescript/ts-ast.xl.md`
 逐块搬进各 token 的 `PrintAst` 之后收干净了。
 
-### 当前状态（第 598 轮实测）
+### 当前状态（第 599 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -347,8 +347,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `cases:check` | **1071** 条用例，0 条不合格 |
 | `runtime:check` | **242 / 242** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1687 / 1713**（98.6%）：引擎 98.4% / 降级 99.0% / 标准库 98.1% / 端到端 98.8% |
-| `npm run gates` | 上面六道一次跑完（实测墙钟 **~23s**） |
+| `coverage` | **1691 / 1713**（98.9%）：引擎 98.6% / 降级 99.5% / 标准库 98.1% / 端到端 99.4% |
+| `npm run gates` | 上面六道一次跑完（实测墙钟 **~20s**） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 

@@ -3364,6 +3364,25 @@ if (id === ObjectAssign) {
     // **不是对象的来源跳过** ✓（JS 的口径 ✓：`Object.assign({}, null)` 合法 ✓、`(…, 1)` 也算合法 ✓——
     // 一个数没有自有可枚举属性 ✓）。
     if (!source.IsObject()) continue;
+    // **数组来源要按下标展开** ✓（第 598 轮 ✓）：`{ ...xs }` 在 JS 里给
+    // `{"0":1,"1":2,…}` ✓（`CopyDataProperties` 走的是 `OwnPropertyKeys` ✓，
+    // 而数组的下标正是**自有可枚举的字符串键** ✓）——可它们住在**载荷**里 ✗、
+    // 不在下面那一趟看的 `Props` 里 ✗ ⇒ 整片下标**静默丢掉** ✓
+    //（判据 `c371-ex-spread-forms` ✓：`JSON.stringify({ ...xs })` 给 `{}` ✓，Node 给三个键 ✓）。
+    // **它与上面字符串那一支是同一条理由、同一个位置** ✓：整数下标排在字符串键**之前** ✓
+    //（`OwnPropertyKeys` 的口径 ✓）。**洞不是自有属性** ⇒ 跳过 ✓（与 `map` 那族同一条 ✓）。
+    // **下标键现造** ✓（`Units(String(i))` ✓，与字符串那一支一字不差 ✓）——
+    // 数组元素**没有现成的键句柄**可用 ✗（`Props` 那条路才有 ✓）。
+    if (source.Tag === ValueTag.Array) {
+      const items = table.Get(source.Ref).AsArray();
+      if (!room(PropertyCharge * items.GetLength())) throw new Error("out of room");
+      for (let i = 0; i < items.GetLength(); i++) {
+        if (items.IsHole(i)) continue;
+        SetProperty(room, NeverCall, table, target,
+          Value.FromString(table.CreateString(Units(String(i)))), items.GetAt(i));
+      }
+      continue;
+    }
     // **先抄键与值、再写** ✓（与 `values` / `entries` 同一条纪律 ✓）：
     // `Object.assign(o, o)` 是合法的 ✓，而边读边写会让**属性表在遍历中变长** ✗。
     // 抄进来的是 `Value`（引用）✓，而它们住在源对象的属性表里 ✓——
