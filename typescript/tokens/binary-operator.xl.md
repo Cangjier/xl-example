@@ -974,7 +974,10 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
   }
   const opNode =
     opIndex >= 0
-      ? ctx.Project(kids[opIndex])
+      // **运算符那一格按文本定 kind** ✓（第 550 轮 ✓）：`in` / `instanceof` 在深度界那一层
+      // 还是 `Identifier` ✗，`ctx.Project` 会把它投成 `Identifier("in")` ✗
+      //（同一个节点同时记「缺 `InKeyword`」与「多出 `Identifier`」✓，见 `operatorTokenOf` ✓）。
+      ? ctx.OperatorNode(kids[opIndex])
       : {
           kind: ctx.TokenKind(typeof declaredOp === "string" ? declaredOp : "?"),
           pos: v.start,

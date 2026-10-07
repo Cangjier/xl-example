@@ -4486,4 +4486,82 @@ RULE(Export)        BinaryOperatorReorganization: …          ← 又一轮，�
 2. **`a instanceof b` / `"a" in obj` 那一族**（`expr-in-array-literal.ts` 38 缺 ✓）：
    同样的**深层自激** ✓ —— 最里面那一层的运算符停在 `Identifier` ✗，投影侧只认 `Keyword` ✗；
 3. **`ty-mapped-as-remap.ts`**（15 缺 / 20 多 ✓）与 `export default interface` 那一格 ✓（见上一节 ✓）。
+## 一百五十三、`in` / `instanceof`：最里面那一层的运算符停在 `Identifier`（第 550 轮）：936 → **941 / 1037**
+
+起点 **936 / 1037** ✓（缺 649 / 漂 54 / 多 203 / 字段名 36 ✓）。接上一节第五节留的第 2 条入口 ✓。
+
+### 一、现场：`a instanceof b` 只投出 `a`
+
+`cjcli --ts-ast` 给的是 `{"kind":"Identifier","text":"a",…}` ✓ —— 运算符与右操作数**整片丢** ✗；
+`expr-in-array-literal.ts` 一份缺 38 ✓（`BinaryExpression` + `InKeyword` + 两侧操作数 ✓）。
+XML 那一侧看得更清楚 ✓：八层 `BinaryOperator op="in"` 套着同一段 ✓（第 496 轮那道深度硬界 ✓），
+**最里面那一层**的运算符是 `<Identifier>in</Identifier>` ✗（不是 `Keyword` ✗）。
+
+### 二、真因：两处都只认 `Keyword` 那一态
+
+| 处 | 判据 | 结果 |
+| --- | --- | --- |
+| `isOperatorUnit`（`print-ast-common.xl.md` ✓） | `SymbolToken` ✓ 或 text ∈ {`in`,`instanceof`} 的 `Keyword` ✗ | `Identifier(in)` ⇒ **答否** ✗ ⇒ 整段不折 ✓ |
+| `BinaryOperator.PrintAst` 的 `opNode` ✓（`binary-operator.xl.md` ✓） | `ctx.Project(kids[opIndex])` ✗ | `Identifier` ⇒ 投成 `Identifier("in")` ✗ |
+
+**运算符停在哪一态是可变的** ✗：`in` / `instanceof` 是**由 `KeywordReorganization` 在关前那一趟升上去的** ✓，
+而那一趟排在 `RunCloseRules` **最后** ✓ —— 二元折叠造出来的单元**自己又往下钻了一层** ✓，
+钻到 `Depth >= 8` 那一层**不再跑规则** ✗ ⇒ 最里面那一层的运算符**永远升不上来** ✓。
+
+⇒ 这一格与第 548 轮（`export { … }` 那八层 ✓）、第 549 轮（`export * as ns` 那四层 ✓）**同一条链** ✓：
+**规则在自己造出来的单元上又跑一遍** ✗，而深度界把这件事**切在半路** ✓。
+账记在第五节 ✓。
+
+### 三、修法：按文本认词（两处各一格）
+
+1. **`isOperatorUnit` 也认 `Identifier`** ✓（`print-ast-common.xl.md` ✓）：
+   与 `WordText` 那条口径同一条 ✓ —— 同一个词两态都要认 ✓（`SymbolToken` 那一支不动 ✓）；
+2. **新增 `operatorTokenOf`** ✓ 并**经 `ctx` 暴露成 `OperatorNode`** ✓：
+   `Keyword` 那一态照旧走通用投影 ✓（`KEYWORD_KIND` 把 `in` 映成 `InKeyword` ✓）；
+   `Identifier` 那一态**按文本自己定 kind** ✗ —— 照通用投影会投成 `Identifier("in")` ✗，
+   同一个节点于是在账上**同时**记一笔「缺 `InKeyword`」与一笔「多出 `Identifier`」✓。
+   **两个调用点都换成它** ✓：`foldBinaryFrom` 的折链那一格 ✓（`#x in o` 那条路也走它 ✓）
+   与 `BinaryOperator.PrintAst` 的 `opNode` ✓。
+
+**为什么不改 token 层** ✗：把深度界那一层的运算符升上来，动的就是那道**临时硬界** ✓ ——
+那是另一块账（第 497 轮记的「每个单元只在自己那一趟里收」✓），投影侧按文本认词**先把症状收干净** ✓。
+
+### 四、读数
+
+| 项 | 第 549 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 936 | **941 / 1037** ✓（+5 ✓） |
+| 缺节点 | 649（83 类） | **590**（81 类）✓（−59 ✓） |
+| 多出来的节点 | 203（43 类） | **202**（43 类）✓（−1 ✓） |
+| 区间漂移 | 54（17 类） | **51**（17 类）✓（−3 ✓） |
+| 字段名不符 | 36 | **36** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24142 | **24142** ✓（持平：只换了层里的 kind ✓） |
+
+逐文件前后名单做差 ✓（`tmp/recon/r549-perfile-a.txt` ↔ `tmp/recon/r550-perfile.txt` ✓）：
+**变绿 5 份、计数变差 0 份** ✓ —— `expr-in-array-literal` ✓（38 缺 → **四个方向全零** ✓）、
+`ex-unary-ops` ✓、`expr-unary-not-paren` ✓、`expr-relational-in` ✓、`expr-relational-instanceof` ✓；
+另有 3 份**读数变了但还没全绿** ✓：`lex-keyword-in-of` 15/0/2 → **12/0/2** ✓、
+`cls-hash-in-operator` ✓ 与 `decl-class-private-field-in-operator` ✓（`#x in o` 那一族 ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **220 / 242** ✓（+12 ✓，
+第 549 轮末是 208 ✓）；`runtime:cli` **52 / 79** ✓（+13 ✓，第 549 轮末是 39 ✓）——
+两处都是「降级层不再撞见只投出左操作数的二元节点」✓；`coverage` **1371 / 1713** ✓（**+102** ✓：
+blocked 140 → **137** ✓、differ 304 → **205** ✓、bad 0 ✓、整体加权 72.9% → **78.7%** ✓，
+落盘 `tests/coverage/report.json` ✓）——`in` / `instanceof` 在真实语料里到处都是 ✓，
+这一格一修，降级层那一族整片转绿 ✓；`samples` 仍红 ✗（还是那两处 ✓，
+与本轮改的运算符那一格无关 ✓）；**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **`ex-object-literal.ts`**（37 缺 ✓）—— 当前单文件最大的一处 ✓，也是**同一族之外唯一的大块** ✓：
+   对象字面量的成员在产物里包在 `<Statement>` 里 ✓（`a,` / `Label(b)` + `1` /
+   `ArrayLiteral[k]` + `TypeDefine` / `MethodDeclaration` …），而 `MEMBER_LIST_KINDS`
+   （`print-ast-common.xl.md` ✓）里**没有 `ObjectLiteralExpression`** ✗；
+   同一族的 `expr-computed-call.ts`（11 缺 ✓）与 `ty-object-literal.ts`（12 缺 / 6 多 ✓）一起看 ✓；
+2. **`ty-mapped-as-remap.ts`**（15 缺 / **20 多** ✓）与 `lex-generic-union-constraint.ts`（23 缺 / 7 多 ✓）：
+   两处都是「多出来」比「缺」还显眼的一族 ✓，入口在映射类型 / 泛型约束那一趟 ✓；
+3. **深度界那一笔账**（第 548 / 549 / 550 三轮都从这里来的 ✓）：把「规则不在自己造出来的单元上再跑一遍」
+   那道护栏补上 ✓（第 497 轮记的 ✓），上面那种「最里层停在 `Identifier` / 半成形」的形状会整族消失 ✓。
+
 

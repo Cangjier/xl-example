@@ -1850,10 +1850,43 @@ new Set([
 只认 `SymbolToken` 时会整类丢两侧操作数（实测 `x in o` 只剩一个 `operatorToken`，
 真实语料 1118 处「产物只有 operatorToken、TS 有 left/right」都是这一条）。
 
+**`Identifier` 那一态也要认** ✗（第 550 轮 ✓）：关掉 reorg 之后，
+`in` / `instanceof` 是**由 `KeywordReorganization` 在关前那一趟升上去的** ✓ ——
+可那一趟**排在最后** ✓，而二元折叠造出来的那个单元是**自己又往下钻了一层** ✗
+（`ApplyCloseRules` 里 `Depth >= 8` 那道临时硬界 ✓，第 496 轮 ✓）——
+界那一层**不再跑规则** ✗ ⇒ 最里面那一层的运算符**永远停在 `Identifier`** ✗。
+于是投影侧按 `Keyword` 判就**一格也认不出来** ✓：整个 `x in o` 只剩下第一个操作数 ✗
+（实测 `expr-in-array-literal.ts` 一份缺 38 ✓——`BinaryExpression` + `InKeyword` +
+两侧操作数整族 ✓；`a instanceof b` 同样只投出 `a` ✓）。
+**按文本认词** ✓ 与 `WordText` 那条口径同一条 ✓（同一个词两态都要认 ✓）。
+
 ```ts
   const type = node.get("type");
   if (type === "SymbolToken") return true;
-  return type === "Keyword" && ["in", "instanceof"].includes(textOfNode(node, ctx));
+  if (type !== "Keyword" && type !== "Identifier") return false;
+  return ["in", "instanceof"].includes(textOfNode(node, ctx));
+```
+
+# private method operatorTokenOf:(op:any, ctx:any)=>any
+
+运算符那一格的**叶子节点**（第 550 轮 ✓）。
+
+`Keyword` 那一态走现成的通用投影 ✓（`KEYWORD_KIND` 把它们映射成 `InKeyword` /
+`InstanceOfKeyword` ✓）；`Identifier` 那一态**必须按文本自己定 kind** ✗ ——
+照通用投影会投成 `Identifier("in")` ✗，于是同一个节点在账上**同时**记一笔「缺 `InKeyword`」
+与一笔「多出 `Identifier`」✓。
+
+```ts
+  const text = textOfNode(op, ctx);
+  if (op.get("type") !== "Identifier" || (text !== "in" && text !== "instanceof")) {
+    return projectNode(op, ctx);
+  }
+  return {
+    kind: text === "in" ? "InKeyword" : "InstanceOfKeyword",
+    text,
+    pos: startOf(op),
+    end: startOf(op) + text.length,
+  };
 ```
 
 # private method projectExpression:(kids:Array<any>, ctx:any)=>any
@@ -4014,7 +4047,9 @@ return false;
     node = {
       kind: "BinaryExpression",
       left: node,
-      operatorToken: projectNode(op, ctx),
+      // **运算符那一格按文本定 kind** ✓（第 550 轮 ✓）：`in` / `instanceof` 在深度界那一层
+      // 还是 `Identifier` ✗，见 `operatorTokenOf` ✓。
+      operatorToken: operatorTokenOf(op, ctx),
       right,
       pos: node.pos,
       end: right ? right.end : endOf(op),
@@ -6497,6 +6532,10 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     IsTypeParameterModifier: (node) => isTypeParameterModifier(node, ctx),
     MemberInObject: MEMBER_IN_OBJECT,
     NumericLiteral: NUMERIC_LITERAL,
+    // **运算符那一格的叶子节点** ✓（第 550 轮 ✓）：`in` / `instanceof` 在深度界那一层
+    // 还是 `Identifier` ✗，照 `Project` 投会投成 `Identifier("in")` ✗ ——
+    // `BinaryOperator.PrintAst` 那一支正需要它 ✓（见 `operatorTokenOf` ✓）。
+    OperatorNode: (unit) => operatorTokenOf(unit, ctx),
   };
   const statements = projectEach(exported, ctx);
 
