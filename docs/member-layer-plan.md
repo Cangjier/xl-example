@@ -4563,5 +4563,77 @@ blocked 140 → **137** ✓、differ 304 → **205** ✓、bad 0 ✓、整体加
    两处都是「多出来」比「缺」还显眼的一族 ✓，入口在映射类型 / 泛型约束那一趟 ✓；
 3. **深度界那一笔账**（第 548 / 549 / 550 三轮都从这里来的 ✓）：把「规则不在自己造出来的单元上再跑一遍」
    那道护栏补上 ✓（第 497 轮记的 ✓），上面那种「最里层停在 `Identifier` / 半成形」的形状会整族消失 ✓。
+## 一百五十四、`for (const k in obj)` 头里那个 `in` 被当成了运算符（第 551 轮）：941 → **944 / 1037**
+
+起点 **941 / 1037** ✓（缺 590 / 漂 51 / 多 202 / 字段名 36 ✓）。
+
+### 一、现场：整条 `for…in` 不成形
+
+三份用例同一形状 ✓ —— `ForInStatement` **整条丢** ✗，产物把它投成一个
+`ExpressionStatement` ✓（`st-for-in.ts` 6 缺 ✓ / `stmt-for-in-kinds.ts` 20 缺 ✓ /
+`lex-keyword-in-of.ts` 12 缺 ✓）。XML 那一侧看得很直接 ✓：
+
+```
+<Statement>
+  <Keyword>for</Keyword>
+  <Bracket startBracket="(" endBracket=")">
+    <Keyword>const</Keyword>
+    <BinaryOperator op="in">          ← 八层，套着 `k in obj`
+```
+
+### 二、真因：括号自己那一趟先把 `in` 折走了
+
+`ForeachReorganization.Previous` 认的正是「括号里有一个内容为 `in` / `of` 的 `Identifier`」✓
+（`foreach.xl.md` ✓，那一条与 `ForReorganization` 是**互补**的两半 ✓）。可括号**先关** ✗：
+`ApplyCloseRules` 在**括号自己那一层**上也会跑一遍 `RunCloseRules` ✓，
+`InInstance` 于是先把 `k in obj` 折成一个 `BinaryOperator` ✗ ⇒ 轮到 `Foreach` 时
+括号里**已经没有那个词**了 ✗（只剩一个 `BinaryOperator` ✓）⇒ 整条 `for…in` 认不出来 ✓。
+
+`for…of` 不受影响 ✓：`of` 不是任何二元运算符 ✓（`IsOperator` 那一栏里没有它 ✓）。
+
+### 三、修法：把「`for` 头里的 `in`」挡在运算符之外（`typescript/tokens/binary-operator.xl.md`）
+
+`Previous` 里加一道判据（与上面 `?.` 那一条**同一个做法** ✓：只看父单元与紧挨着的前一格 ✓，
+与重组时序无关 ✓）：
+
+1. 当前这一格是 `in` ✓（`IsWordUnit` ✓，`Identifier` / `Keyword` 两态都认 ✓）；
+2. 父单元是 `(` 括号 ✓，且括号**所属那一格的前面**是 `for` / `foreach` ✓；
+3. 括号里**一个 `;` 都没有** ✗ —— C 风格的头一定有分号 ✓，
+   那种头里的 `in` 是**真运算符** ✓（`for (x = "a" in obj; c; d)` ✓），不挡 ✗。
+
+### 四、读数
+
+| 项 | 第 550 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 941 | **944 / 1037** ✓（+3 ✓） |
+| 缺节点 | 590（81 类） | **552**（80 类）✓（−38 ✓） |
+| 多出来的节点 | 202（43 类） | **194**（43 类）✓（−8 ✓） |
+| 区间漂移 | 51（17 类） | **51** ✓（持平 ✓） |
+| 字段名不符 | 36 | **36** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24142 | **24097** ✓（−45：八层壳收成一条 `Foreach` ✓） |
+
+逐文件前后名单做差 ✓（`tmp/recon/r550-perfile.txt` ↔ `tmp/recon/r551-perfile.txt` ✓）：
+**变绿 3 份、计数变差 0 份** ✓ —— `st-for-in` ✓、`stmt-for-in-kinds` ✓ 与
+`lex-keyword-in-of` ✓ **三份全部四个方向归零** ✓（第三份从 12/0/2 直接全绿 ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **222 / 242** ✓（+2 ✓，
+第 550 轮末是 220 ✓）；`runtime:cli` **52 / 79** ✓（与第 550 轮末持平 ✓）；
+`samples` 仍红 ✗（还是那两处 ✓，与本轮改的 `for…in` 头无关 ✓）；
+`coverage` **1382 / 1713** ✓（**+11** ✓：blocked 137 → **126** ✓、differ 205 ✓、bad 0 ✓、
+整体加权 78.7% → **79.3%** ✓，落盘 `tests/coverage/report.json` ✓）；**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **`ex-object-literal.ts`**（37 缺 ✓）—— 当前单文件最大的一处 ✓：对象字面量的成员在产物里
+   包在 `<Statement>` 里 ✓，而 `MEMBER_LIST_KINDS` 里**没有 `ObjectLiteralExpression`** ✗
+   （见上一节 ✓）；
+2. **泛型约束里带联合的那一族**（`lex-generic-union-constraint.ts` 23 缺 / 7 多 ✓）：
+   `interface ByStdio<I extends null | Writable, …>` **换行写 `extends`** 时，
+   语句在 `>` 那一格就断了 ✗ —— 头、继承段、体成了**三条 Statement** ✓
+   （`lex-generic-multiline-constraints.ts` 17 缺 / 7 多 ✓ 同一族 ✓）；
+3. **映射类型 / 模板字面量类型那一族**（`ty-mapped-as-remap.ts` 15 缺 / 20 多 ✓）：
+   缺的是 `MappedType` 与 `TemplateLiteralType` 整族 ✓ —— 那是**还没建过的一块** ✓。
+
 
 

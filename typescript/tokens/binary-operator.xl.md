@@ -410,6 +410,35 @@ if (current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
     }
   }
 }
+// **`for (const k in obj)` 头里那个 `in` 不是运算符** ✗（第 551 轮 ✓）。
+//
+// 它是 `for…in` 的**分隔词** ✓ —— `ForeachReorganization.Previous` 认的就是它 ✓
+// （见 `foreach.xl.md` ✓，那一条与 `ForReorganization` 是**互补**的两半 ✓）。
+// 可括号**先关** ✗：括号自己那一趟里 `InInstance` 先把 `k in obj` 折成了一个
+// `BinaryOperator` ✗ ⇒ 轮到 `Foreach` 时括号里**已经没有那个词**了 ✗
+// ⇒ 整条 `for…in` 不成形 ✓（实测三份：`st-for-in.ts` 6 缺 ✓ /
+// `stmt-for-in-kinds.ts` 20 缺 ✓ / `lex-keyword-in-of.ts` 12 缺 ✓，
+// 缺的都是 `ForInStatement` 那一整条 ✓）。
+//
+// **判据**：父单元是 `(` 括号 ✓、括号**所属那一格的前面**就是 `for` / `foreach` ✓、
+// 而且括号里**一个 `;` 都没有** ✗ —— C 风格的头一定有分号 ✓，那种头里的 `in`
+// 是**真运算符** ✓（`for (x = "a" in obj; c; d)` ✓），不挡 ✗。
+// 与上面 `?.` 那一条同一个做法 ✓：问的都是「紧挨着的前一格 / 父单元」✓，
+// 与重组时序无关 ✓。
+if (IsWordUnit(current, "in") && current.Parent instanceof Bracket) {
+  const owner = current.Parent.Parent;
+  if (owner !== null && current.Parent.startBracket === "(") {
+    const list = owner.Data;
+    const at = list.indexOf(current.Parent);
+    const hasSemicolon = units.some((item) => item instanceof SymbolToken && item.Is(";"));
+    if (at > 0 && hasSemicolon === false) {
+      const before = Get(list, SkipPreviousWrapSymbol(list, at));
+      if (IsWordUnit(before, "for") || IsWordUnit(before, "foreach")) {
+        return false;
+      }
+    }
+  }
+}
 if (this.IsValuePositionBitwise(current) === false) {
   return false;
 }
