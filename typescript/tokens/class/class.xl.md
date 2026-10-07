@@ -7,7 +7,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
+import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
 import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
@@ -326,33 +326,12 @@ const cls = new Class(unit.Template);
 if (this.ScanHead(units, classIndex, cls) === false) {
   throw new Error("ClassBranch: 进门之后类头又不成立了");
 }
-cls.modifiers = DeclarationModifiers(units, start, classIndex).join(",");
-// **第二步：整段搬进去** ✓。先切片、再把宿主截短——`AddAndCloseLast` 只改 `Parent`，
-// 不会把单元从宿主里摘掉 ✗，所以「摘」要自己做 ✓。
-const head = units.slice(start);
-units.length = start;
-const local = classIndex - start;
-cls.SignIn(head[0].SourceRange.Start!);
-for (let i = 0; i < head.length; i++) {
-  const item = head[i];
-  if (i === local) {
-    continue;
-  }
-  if (i < local && !(item instanceof Decorator)) {
-    continue;
-  }
-  cls.AddAndCloseLast(item);
-}
-// **最后一个头单元也要关上** ✓：老写法是宿主 `AddToMounted` 那个 `{` 括号时顺手关的 ✓
-// （`AddAndCloseLast` ✓）；现在那个 `{` 不建括号了 ✓，所以要在这里补一次 ✓。
-const last = cls.Last();
-if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
-  last.TryToClose();
-}
-// **第四步：类头当场收成形**（本轮加）：`extends` / `implements` 两段在这里就收成
-// `HeritageClause` ✓，不再等 `Class` 关闭时由重组队列扫一遍平列表 ✓。
-cls.OrganizeHeritage();
-// **第五步、第六步** ✓。
+// **第二步、第三步：整段类头交给 `Class` 自己收** ✓（本轮改）
+// ——包括 `extends` / `implements` / 类型参数段 / 名字 / 装饰器的归宿 ✓。
+// 分支只管「认形状 + 交棒」✗：它找到 `class` 那个词、验完头、建出 `Class`，
+// 剩下「头怎么成形」是**引导单元自己的事** ✓（见 `Class.TakeHead` ✓）。
+cls.TakeHead(units, start, classIndex);
+// **第四步：挂载** ✓。
 unit.AddToMounted(cls);
 const body = new ClassBody(unit.Template);
 cls.Add(body);
@@ -401,6 +380,59 @@ cls.MountedUnit = body;
 super(template);
 ```
 
+## method TakeHead:(units:Array<Token>, start:int, keywordIndex:int)=>void
+
+**把整个类头收进本单元** —— `extends` / `implements` 就是在这里处理的 ✓。
+
+**这是引导单元自己的职责** ✓（用户口径 ✓）：`ClassBranch` 只管**认形状**（当前字符是不是 `{` ✓、
+往回能不能扫到 `class` 那个词 ✓、从那个词往前读到列表末尾是不是恰好一个类头 ✓），
+认下来之后**建出 `Class`、把头交给它** ✗——「头怎么成形」不在分支里 ✓。
+
+**为什么 `extends` 能在这里被处理** ✗（这是最容易看错的一处）：它**不是**「往后取」来的 ✓。
+`class A extends B {` 里的 `class` / `A` / `extends` / `B` 四个词，在 `{` 这个字符到达之前，
+**已经由宿主自己一个一个吃进来、躺在宿主的平列表里了** ✓——它们谁也没开单元，
+所以宿主只是照常给每个词建了一个 `Identifier` ✓。
+于是这里做的是**在一张已经读完的平列表上整理** ✓，不是向未来要数据 ✓。
+`start` / `keywordIndex` 两个下标就是宿主那张表上的位置 ✓。
+
+三步：
+
+1. **修饰词折进属性**（`export` / `abstract` / `declare` … ⇒ `modifiers="export,abstract"`）；
+2. **整段搬进来，关键字与修饰词不进树**：`class` 那个词不是 XML 节点 ✓（TS 的
+   `ClassDeclaration` 里也没有它 ✓），修饰词已经折进属性了 ✓，装饰器与其它头单元原样搬 ✓；
+   先切片、再把宿主截短——`AddAndCloseLast` 只改 `Parent` ✓，**不会**把单元从宿主里摘掉 ✗，
+   所以「摘」要自己做 ✓；
+3. **`extends` / `implements` 当场收成 `HeritageClause`** ✓——用的是 `HeritageClause.OrganizeAll`
+   （**一份答案**，`InterfaceBranch` 调的是同一个 ✓）。这一刻整个头刚刚搬齐、
+   里面每一格都已经闭合 ✓，所以子句收完就能直接 `TryToClose` ✓，
+   它自己那一趟重组当场跑 ✓（`extends` 升成 `<Keyword>` 就是那一趟做的 ✓）。
+
+**最后一个头单元也要关上** ✓：老写法是宿主 `AddToMounted` 那个 `{` 括号时顺手关的 ✓
+（`AddAndCloseLast` ✓）；现在那个 `{` 不建括号了 ✓，所以要在这里补一次 ✓。
+
+```ts
+this.modifiers = DeclarationModifiers(units, start, keywordIndex).join(",");
+const head = units.slice(start);
+units.length = start;
+const local = keywordIndex - start;
+this.SignIn(head[0].SourceRange.Start!);
+for (let i = 0; i < head.length; i++) {
+  const item = head[i];
+  if (i === local) {
+    continue;
+  }
+  if (i < local && !(item instanceof Decorator)) {
+    continue;
+  }
+  this.AddAndCloseLast(item);
+}
+const last = this.Last();
+if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
+  last.TryToClose();
+}
+HeritageClause.OrganizeAll(this.Template, this, this.Data);
+```
+
 ## protected method Navigate:(context:SyntaxContext, source:Source)=>void
 
 **它不该被调用** ✗——所以这里**响亮地抛** ✓，而不是留一个空实现把字符悄悄吞掉 ✗。
@@ -437,43 +469,6 @@ throw new Error("Class.Navigate: 不该被调用——类头在 { 那一刻就�
 ## field modifiers:string = ""
 
 `ClassBranch` 认下的声明修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
-
-## method OrganizeHeritage:()=>void
-
-把类头里 `extends` / `implements` 那两段收成 `HeritageClause` —— **在 `{` 那一刻就做** ✓。
-
-**为什么这一刻能做** ✓：整个类头刚刚搬进来 ✓、里面每一格都已经闭合 ✓
-（类型实参段在 `>` 上就关了 ✓、继承表达式里的括号也在 `)` 上关了 ✓）⇒ 收完就能直接 `TryToClose` ✓，
-子句自己的那一趟重组当场跑 ✓（`extends` 升级成 `<Keyword>` 就是那一趟做的 ✓）。
-**不需要**再等 `Class` 关闭时扫一遍平列表 ✗。
-
-**判据、扫描、分组三件事都是与接口那边共用的一份** ✓：
-`HeritageClause.IsClauseWord` / `HeritageClause.ClauseEnd` / `HeritageClause.Take` ✓
-——接口仍走 `HeritageClauseReorganization` ✓，两条路一份答案 ✓。
-
-**类体此刻还没进 `Data`** ✓（`ClassBody` 是下一步才 `Add` 的 ✓）⇒ 子句自然止于列表末尾 ✓
-（`ClauseEnd` 里那两句「遇到体节点 / 体括号就停」是给接口那一趟用的 ✓，这里用不上 ✓）。
-
-```ts
-let index = 0;
-while (index < this.Data.length) {
-  const item = Get(this.Data, index);
-  if (item === null || HeritageClause.IsClauseWord(item) === false) {
-    index = index + 1;
-    continue;
-  }
-  const end = HeritageClause.ClauseEnd(this.Data, index);
-  const items: Array<Token> = [];
-  for (let i = index; i <= end; i++) {
-    const one = Get(this.Data, i);
-    if (one !== null) {
-      items.push(one);
-    }
-  }
-  const clause = HeritageClause.Take(this.Template, this, items);
-  index = ReplaceCountAt(this.Data, index, end - index + 1, clause) + 1;
-}
-```
 
 ## property Body:ClassBody
 

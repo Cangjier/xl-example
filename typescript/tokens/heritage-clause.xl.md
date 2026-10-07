@@ -5,7 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { WordText, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { IsTriviaUnit, WordText, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
@@ -221,10 +221,31 @@ for (let i = 1; i <= items.length; i++) {
   const item = i < items.length ? items[i] : null;
   if (item === null || (item instanceof SymbolToken && item.Is(","))) {
     if (segment.length > 0) {
+      // **范围要跳过段首 / 段尾的透明单元**（本轮量出来的）：解析期这一条路把整个头原样搬进来 ✓，
+      // 所以段里会留着软换行与注释 ✓（`interface I extends` 换行 `NodeJS.Dict<…>` ✓）——
+      // 拿「段里第一个单元」当起点就会落在**换行**上 ✗
+      //（实测 `@types/node/querystring.d.ts`：TS 的 `ExpressionWithTypeArguments` 从 `NodeJS` 的
+      //  `[1382,1572)` 起，产物给成 `[1373,1572)`——那 9 格正是 `extends` 之后的换行与缩进 ✓）。
+      // **只收区间、不动单元** ✓：透明单元仍然是这一段的子单元 ✓（与 `Statement.FirstMeaningful` 同一条口径 ✓），
+      // 于是它们照样进 XML，只是不再把父单元的区间撑出去 ✓。
+      let firstReal = segment[0];
+      for (const unit of segment) {
+        if (!IsTriviaUnit(unit)) {
+          firstReal = unit;
+          break;
+        }
+      }
+      let lastReal = segment[segment.length - 1];
+      for (let k = segment.length - 1; k >= 0; k--) {
+        if (!IsTriviaUnit(segment[k])) {
+          lastReal = segment[k];
+          break;
+        }
+      }
       const target = new ExpressionWithTypeArguments(template);
       target.Parent = clause;
-      target.SignIn(segment[0].SourceRange.Start!);
-      target.SignOut(segment[segment.length - 1].SourceRange.End!);
+      target.SignIn(firstReal.SourceRange.Start!);
+      target.SignOut(lastReal.SourceRange.End!);
       for (const unit of segment) {
         target.AddAndCloseLast(unit);
       }
@@ -241,6 +262,39 @@ for (let i = 1; i <= items.length; i++) {
 }
 clause.TryToClose();
 return clause;
+```
+
+## static method OrganizeAll:(template:Template, owner:Token, data:Array<Token>)=>void
+
+把 `data` 里 `extends` / `implements` 那几段**就地**收成 `HeritageClause`——**一份答案**：
+类头（`ClassBranch`）与接口头（`InterfaceBranch`）都调它。
+
+**只在「头刚成形、体还没进来」的那一刻调**：那时每一段都已经闭合（类型实参段在 `>` 上关了、
+继承表达式里的括号也在 `)` 上关了），所以子句收完就能直接 `TryToClose`，
+它自己那一趟重组当场跑（`extends` 升成 `<Keyword>` 就是那一趟做的）。
+
+**为什么要就地改**：调用方拿到的是**刚搬好的那个单元自己的 `Data`**，
+它此刻还没被别人读走；`ReplaceCountAt` 返回的就是插入位置，接着从下一格继续扫即可。
+
+```ts
+let index = 0;
+while (index < data.length) {
+  const item = Get(data, index);
+  if (item === null || HeritageClause.IsClauseWord(item) === false) {
+    index = index + 1;
+    continue;
+  }
+  const end = HeritageClause.ClauseEnd(data, index);
+  const items: Array<Token> = [];
+  for (let i = index; i <= end; i++) {
+    const one = Get(data, i);
+    if (one !== null) {
+      items.push(one);
+    }
+  }
+  const clause = HeritageClause.Take(template, owner, items);
+  index = ReplaceCountAt(data, index, end - index + 1, clause) + 1;
+}
 ```
 
 ## method PrintAst:(ctx:any, v:any)=>any

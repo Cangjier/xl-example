@@ -43,7 +43,7 @@ import { GenericType } from "./tokens/generic-type.xl.md"
 import { IfSetBranch } from "./tokens/if/if-set.xl.md"
 import { ImportReorganization } from "./tokens/import.xl.md"
 import { ExportReorganization } from "./tokens/export.xl.md"
-import { InterfaceReorganization } from "./tokens/interface/interface.xl.md"
+import { InterfaceBranch } from "./tokens/interface/interface.xl.md"
 import { NamespaceReorganization } from "./tokens/namespace/namespace.xl.md"
 import { JsonArrayReorganization } from "./tokens/json/array-literal.xl.md"
 import { BlockReorganization, JsonObjectReorganization } from "./tokens/json/object-literal.xl.md"
@@ -135,6 +135,7 @@ return new Sequence<Branch>([
   ClassBranch.JumpIn,
   StaticBlockBranch.JumpIn,
   EnumBranch.JumpIn,
+  InterfaceBranch.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
   LineWrap.AppendIn,
@@ -154,9 +155,11 @@ return new Sequence<Branch>([
 它排在 `Bracket.JumpIn` 之前，原因与 `IfSetBranch` 和 `(` 的关系**一模一样** ✓：
 `{` 正是 `Bracket.JumpIn` 认的字符 ✓，排在后面就永远轮不到 ✓。
 
-**`interface` / `enum` 仍然没有分支** ✓：它们照常被 `Identifier` 吃掉 ✓，
-到 `{` 那一刻由 `Bracket.JumpIn` 回头看已读单元 ✓（`ParsePipeline.IsMemberListHead` ✓）。
-`if` 与 `interface` **首字母相同**那个冲突依然不存在 ✓：两个向导认的是 `(` 与 `{` ✓，不重叠 ✓。
+**`interface` / `enum` 也各有一支了** ✓（第 414 / 415 轮）：`EnumBranch.JumpIn` 与
+`InterfaceBranch.JumpIn`，入口同样落在 **`{`** 上 ✓，同样排在 `Bracket.JumpIn` 之前 ✓。
+`if` 与 `interface` **首字母相同**那个冲突从来不存在 ✓：两个向导认的是 `(` 与 `{` ✓，不重叠 ✓
+——现在的形状下更无从谈起：`interface` 那个词由 `Identifier` 照常吃掉 ✓，
+分支在 `{` 那一刻**往回扫已经读到的单元** ✓（`FindInterfaceWord` ✓），根本不抢首字母 ✓。
 
 ## static method CreateMemberListQueue:()=>Sequence<Branch>
 
@@ -273,33 +276,16 @@ if (colon instanceof SymbolToken && colon.Is(":")) {
 if (body.Context === "type") {
   return true;
 }
-for (let i = bodyIndex - 1; i >= 0; i--) {
-  const item = Get(units, i);
-  if (item === null || IsTriviaUnit(item)) {
-    continue;
-  }
-  if (item instanceof Bracket) {
-    if (item.startBracket === "{") {
-      return false;
-    }
-    continue;
-  }
-  if (item instanceof SymbolToken) {
-    if (item.TempToString() === ";") {
-      return false;
-    }
-    continue;
-  }
-  if (item instanceof Identifier) {
-    if (item.Is("interface")) {
-      return InterfaceReorganization.Instance.Previous(template, units, i);
-    }
-  }
-}
+// **这里原来还有一支「撞上 `interface` 就问它的 `Previous`」** ✗（第 415 轮删掉）：
+// `class` / `enum` / `interface` 三族的体现在都由各自的解析期分支在 `{` 那一刻认领 ✓
+// ⇒ 那三个体的括号**根本走不到 `Bracket.JumpIn`** ✓ ⇒ 再留一份「这是不是接口头」就是**第二份答案** ✗
+// （同一个问题两份答案，正是这一节开头在讲的毛病 ✓）。
+// 剩下这一支与上面那个 `Context === "type"` 才是这一问真正还要答的东西 ✓：
+// 类型字面量与标签块的 `{` 仍然由 `Bracket` 开 ✓，它们才需要成员列表队列 ✓。
 return false;
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, FunctionReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, InterfaceReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
+## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, FunctionReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, EnumMemberReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
 
 通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。

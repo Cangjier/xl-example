@@ -50,20 +50,17 @@ return result;
 const bracket = new Bracket(unit.Template);
 bracket.Context = DecideBracketContext(unit, source.Value);
 unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
-// **成员列表的体：换一条队列** ✓（第 393 轮立、第 394 轮改成现在这个形状）。
-//
-// 判据**不是**在这里自己猜「这是不是类体」✗，而是问 `ParsePipeline.IsMemberListHead` ✓——
-// 它往回扫**宿主自己的平列表**（`class` 那个词早就被 `Identifier` 照常吃掉了 ✓，此刻就躺在表里 ✓），
-// 撞上那三个词就交给对应那条规则**自己的** `Previous` ✓。
-//
-// **位置是关键** ✗：这一句必须在 `AddToMounted` **之后** ✓——四条规则的 `Previous` 要的形状是
-// 「头 + 体括号都在」✓，而这一刻体括号刚刚进表 ✓。放在前面的话它们一律判否 ✗。
-//
-// 于是「成员列表里不认 if 语句」由**队列本身**保证 ✓，`IfGuideBranch` 一个闸都不用加 ✓。
-if (source.Value === "{" && ParsePipeline.IsMemberListHead(unit.Template, unit.Data)) {
-  bracket.ProcessQueue = ParsePipeline.CreateMemberListQueue();
-}
 ```
+
+**这里原来还有一句「是成员列表就换队列」** ✗（第 393 轮立、第 394 轮改过一次形状，
+第 415 轮删掉）：那时判据是回过头问 `ParsePipeline.IsMemberListHead`「这个 `{` 是不是
+`class` / `enum` / `interface` 的体」✓，是就把队列换成**成员列表队列**（通用队列去掉 `IfSetBranch` ✓）。
+
+**现在不需要了** ✓：那三族的体**都不再走 `Bracket`** ✗——`class` / `enum` / `interface`
+各自由自己的解析期分支在 `{` 那一刻认下 ✓（`ClassBranch` / `EnumBranch` / `InterfaceBranch` ✓，
+都排在 `Bracket.JumpIn` 之前 ✓），体是它们各自建的 `ClassBody` / `EnumBody` / `InterfaceBody` ✓，
+而这三个单元的构造器里就挂好了成员列表队列 ✓。
+于是 `IsMemberListHead` 变成**永远为假** ✓——同一个问题不再有两处答案 ✓。
 
 **`Context` 在**开括号这一刻**就算好（方案 A）**：那时 `unit.Data` 里躺着的是**词法阶段的平列表** ——
 前文的 `Identifier` / `SymbolToken` 全都就位，没有任何「后来才建出来的节点」，所以这个判定
