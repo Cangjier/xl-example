@@ -2510,3 +2510,19 @@ tmp/recon/i52.ts（`type Ctor = abstract new () => A;`）: FunctionType 成形 8 次
 ? **撤掉** ?（源码不动 ?，build 已用 `tsc` 还原 ?）。
 结论：那一笔 `TypeAliasDeclaration` **不是**自己套自己来的 ?，得另找来路 ?
 （下一轮按第 506/509 那套探针直接量「`TypeAssign` 成形几次、容器是谁」?）。
+
+### 补记（第 511 轮）：`TypeAssign` **只成形 1 次** —— 那笔多出来的 `TypeAliasDeclaration` 在**投影那一侧**
+
+接着上一节量 ?（`tmp/recon/r511-typeassign-probe.cjs` ?，在 `TypeAssignReorganization.Process` 上记容器 ?）：
+
+```
+tmp/recon/i52.ts（`type Ctor = abstract new () => A;`）: TypeAssign 成形 1 次
+    x1  container=Statement units=Identifier,Identifier,SymbolToken,FunctionType
+am-conditional-in-type-arg.ts: TypeAssign 成形 1 次
+    x1  container=Statement units=Identifier,Identifier,GenericType,SymbolToken,Identifier,GenericType
+```
+
+? **规则那一侧是干净的** ?（每条 `type X = …` 恰好一个 `TypeAssign` ?，容器是 `Statement` ?）。
+所以「多出来 `TypeAliasDeclaration` 78」出在**投影那一侧** ?（`typescript/print-ast-common.xl.md` 那一份 ?，
+大概率是「`Statement` 与 `TypeAssign` 各投一次」?）—— 下一块要去那边看 ?，
+**这一块与「搬规则」不是同一条线** ?（记在这里，免得下一轮又往规则上找 ?）。
