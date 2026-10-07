@@ -279,6 +279,61 @@ IfGuide.Stage:
 
 ---
 
+## 十一、施工单（第 402 轮，机械执行）
+
+按新口径改 `if`，**六步**，每步做完都能验（尺子就是第三节那三条探针 ✓：
+`if (a && b) {}` 要出 `<LogicalOperator op="And">` ✓、`if (f(a)) {}` 要出 `<Method name="f">` ✓、
+`if ((a)) {}` 与 `if (a) {}` 不能变 ✓）。
+
+**第 1 步：进门就把 `IfSet` + 第一段 `IfSegment` 建出来**（`IfGuideBranch.Success` ✓）
+- 现在这两样是 `Commit` 末尾才建的 ✗。改成：`Success` 里 `new IfSet` + `SignIn(keyword.SourceRange.Start)`
+  + `unit.Parent` 之外**加到宿主**（`parent.Add(ifSet)` ✓，位置就是向导那一格 ✓）；
+  再 `ifSet.Add(new IfSegment)` + `key = "if"` + `SignIn(同一个起点)` ✓。
+- `Commit` 里对应地**不再新建**第一组 ✓（`SetStart` 且是第一组 ⇒ 复用已经建好的那个 ✓）。
+- 验收：XML 一字不变 ✓（这一步只挪了「什么时候建」✓）。
+
+**第 2 步：`IfCondition` 改成自己吃 `( … )`**（`extends UnitToken` ✓）
+- `EndState`：`source.Value === ")"` ⇒ `EndInclusive` ✓；`ProcessQueue` 取通用队列 ✓（一个实参的 `Get` ✓）；
+  `ReorganizationQueue` 照旧 ✓。`Clone` 照旧 ✓。**不数深度** ✗（挂载链管嵌套 ✓）。
+- 第 401 轮已经写过一遍 ✓，代码照抄即可 ✓（那次失败**不是**这一步的问题 ✗）。
+
+**第 3 步：向导把条件建在段里、再重放**（关键的一步 ✓，`IfGuide` ✓）
+- 新增 `Pending:PendingSources` 与 `Current:UnitToken | null` 两个字段 ✓。
+- `Process`：`Current` 在吃就转给它 ✓、`Closed` 了收回 ✓；不在吃就 `Pending.Append(source)` ✓。
+- 定形（形状就是「`(`」✓）：① `this.Segment!.Add(condition)` ✓ **先挂到最终那一格**；
+  ② **把该归它的那些位置逐条包成 `ReloadMessage`（处理者 = `condition`）推进消息队列** ✓；
+  ③ `this.Current = condition` ✓。
+- **「重载」是指走 message 重载** ✓（用户口径）：不是直接 `condition.Process(...)` ✗——
+  走消息才会经过 `SyntaxContext.Messages` → `DrainMessages` → `ProcessSource` 这条**正常通路** ✓，
+  次序与记账（`LastSource` ✓、队列头 ✓）才对得上 ✓。
+  ⇒ `PendingSources` 要开**第三个出口** `ReloadTo(context, owner)` ✓：
+  把缓冲逐个包成 `new ReloadMessage(owner, owner, item)` 推进 `Messages` ✓，然后清空 ✓。
+  与现有两个出口的分工：`CommitTo` 直接调 `Process` ✓（喂一个**已经挂好**的目标 ✓）、
+  `GiveBackTo` 直接插 `SourceQueue` ✓（整段交还、不绕消息 ✓）、`ReloadTo` **走消息** ✓（重放 ✓）。
+  **第 5 步「体之后不是 `else`」那一档同样走 `ReloadTo(context, parent)`** ✓，不要用 `GiveBackTo` ✗。
+- **`Success` 里不再需要 `MountCondition`** ✗：那个字符进 `Pending` 就够了 ✓。
+- 验收：三条探针全绿 ✓（这一步就是 `a && b` 那个坑的解药 ✓）。
+
+**第 4 步：`IfStatement` 改成自己吃体**（`extends UnitToken` ✓）
+- 两种形态：花括号体（向导消费 `{` 作开口 ✓，`EndState` 比 `}` ⇒ `EndInclusive` ✓）；
+  单语句体（`BodyEnded` 标记 ⇒ `EndExclusive` ✓，判据用 `Statement.IsStatementEnd(this.Data, ...)` ✓）。
+- `Mode` / `BodyEnded` 作为字段 ✓（**判据要看自己的状态** ✓——这正是 `PendingUnit` 那层委托被推翻的理由 ✓）。
+- `InitialStatementReorganizationQueue(this)` 照旧 ✓。
+
+**第 5 步：尾巴交给 `Pending` + `GiveBackTo`** ✓
+- 体收完之后，向导回到「`Current` 不在吃」那一档 ✓ ⇒ 后续位置进 `Pending` ✓；
+- 看到关上的 `else`（`Identifier` ✓）⇒ 把它从缓冲里摘掉 ✓（它不是 XML 节点 ✓）、
+  记下起点、**新建下一段** ✓（`else if` 时 `key = "if"` ✓ 且起点取那个 `else` ✓）；
+- 不是 `else` ⇒ `this.Pending.GiveBackTo(context, parent)` ✓ 交还外层 ✓——**没有「还」这一步** ✗，
+  它本来就该是外层的东西 ✓。
+
+**第 6 步：删掉 `Commit` 那一族** ✓
+- `Plan` / `IfPlan` / `IfSegmentPlan` / `Commit` / `HandOverOpenUnit` / `Adopt` / `IfCollector` 整块删 ✓
+  （`Collector` 字段也删 ✓）；`parse-pipeline` 里的注册照旧 ✓（入口分支不变 ✓）。
+
+**每一步都要**：`xl check` ✓ → `xl_build` ✓ → `npm run compile` ✓ → 三条探针 ✓ →（改完再跑语料 ✓）。
+**替换文本时先数匹配次数** ✗——第 400 轮那次静默没落地就是这么来的 ✓，本轮起一律带断言 ✓。
+
 ## 十、第 401 轮口径：**删掉 `Commit`，改成「挂载单元后整体 reload」**
 
 > 用户口径：「**移除 `Commit` 机制，应该是挂载单元后，进行整体 reload**。」
