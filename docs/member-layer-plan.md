@@ -3040,3 +3040,93 @@ statement.TryToClose();
 是现在最大的一块 ✓。先 dump 一份 `decl-arr-destructure-defaults.ts` 的三方对照 ✓
 （新工具 `tmp/recon/tri.cjs` ✓：产物原始树 / 投影后的 AST / `ts.createSourceFile` ✓，
 按区间排序 ✓），看解构那一段在产物里到底长成什么形状 ✓，再决定闸下在解析期还是投影侧 ✓。
+## 一百三十五、解构那一族：两处都试了、都没动读数（第 532 轮，负面，已回滚）
+
+起点 **819 / 1037** ✓（第 531 轮 ✓）。按第 531 轮的清点，挑了**声明层那一簇** ✓：
+`VariableDeclaration` 53 份 ✓、`VariableDeclarationList` 52 份 ✓、`VariableStatement` 39 份 ✓、
+`BindingElement` 23 份 ✓ —— 全集中在 `decl-arr-destructure-*` / `decl-binding-*` /
+`vars-destructure-*` 那几族 ✓。
+
+### 现场（`decl-arr-destructure-defaults.ts`，`const [a = 1, b = a] = [] as number[]`）
+
+`tmp/recon/tree2.cjs` 打出来是这样 ✓：
+
+```
+Statement [42,79)
+  Identifier [42,47) t="const"        ← 还是 Identifier ✗（第 531 轮之前）
+  Bracket    [48,62)                  ← 解构模式，还是一对光括号 ✗
+    Identifier[a] SymbolToken[=] Identifier[1] SymbolToken[,] Identifier[b] SymbolToken[=] Identifier[a]
+  SymbolToken [63,64) t="="           ← 与 `const` 平级 ✓
+  ArrayLiteral [65,67)                ← 右边那个 `[]` 才是数组字面量 ✓
+  As [68,79)
+```
+
+⇒ 投影侧**早就认识**这个形状 ✓（`print-ast-common.xl.md:4100` 那一段注释写着
+「解构声明的名字用产物自己的那个 `ArrayLiteral` / `ObjectLiteral`」✓，
+`projectLetFrom` 会在 `=` 左边找模式单元 ✓），**缺的只有那个 `Let` 单元本身** ✗ ——
+`const` 与 `[a = 1, b = a]` 现在是两条平级的东西 ✓，整条声明落进通用语句支 ✓。
+
+### 试了一：`PropertyAccess` 的链底不许是 `let` / `const` / `var`
+
+`property-access.xl.md` 的 `IsChainBase` 那串排除名单里加三个词 ✓
+（`let.x` / `const[0]` 在 JS 里本来就是语法错 ✓，所以这一条**没有副作用** ✓）。
+
+**效果：方向对、读数不动** ✗ —— 产物结构确实变好了 ✓：
+
+| 项 | 起点 | 这一版 |
+| --- | --- | --- |
+| **完全一致** | 819 | **819** ✗（没动 ✗） |
+| 缺节点 | 1335 | **1374** ✗（反而多了 39 ✗） |
+| 多出来的节点 | 602 | **526** ✓（少了 76 ✓） |
+| 产物节点 | 24909 | 24793 ✓ |
+
+`const` 那一格从此是 `Keyword` ✓（第 531 轮那次 `TryToClose` 生效 ✓）、
+`[a = 1, b = a]` 也不再被链吞掉 ✓ —— 但 `Let` 还是没成形 ✗。
+
+### 试了二：让 `LetBranch` 收解构模式（两处分支都放宽）
+
+`let.xl.md`：`Condition` / `Success` 的名字那一格接受 `ArrayLiteral` / `ObjectLiteral` ✓，
+关键词那一格接受 `Keyword` ✓（新增 `WordOf` 一处答案 ✓：`Identifier` 的文本在 `Temp` 上、
+`Keyword` 的在 `Value` 上 ✓）。**读数一个数字都没动** ✗（819 / 1374 / 526 / 56 ✓，与试一逐项相同 ✓）。
+
+⇒ 按纪律**两处都回滚** ✓（源码 `git checkout` ✓ **并重跑 `xl build` + `tsc`** ✓，
+读数已确认回到 819 / 1335 / 161 / 602 / 56 ✓）。
+
+### 查到的真因（下一轮的入口）
+
+在 `LetBranch.Condition` 里打点（`tmp/recon/probe-letbranch.cjs` ✓）看到：
+`=` 那一格**确实进来了** ✓，而且那时列表末尾就是「`Identifier(const)` + `Bracket`」✓
+（**不是** `ArrayLiteral` ✗ —— 解构那个方括号在解析期**根本没被 `JsonArrayReorganization` 收** ✗，
+因为它的前一个单元是 `Identifier(const)` ✓，而 `IsArrayAt` 的判据写着
+「上一个实义单元是 `Identifier` 且**不属于** `return` / `typeof` / `of` / `in` ⇒ 不是数组」✓
+⇒ 下标访问的判据把声明位也一并挡住了 ✓）。
+
+于是 `Condition` 走到「名字那一格既不是 `Identifier`、也不是 `ArrayLiteral`」那一句 ✓ ⇒ 判否 ✓
+⇒ `Success` 一次都没跑 ✓（同一个探针里 `SUCCESS-ENTER` 一行都没有 ✓）。
+**下一轮的开场**：先把 `LetBranch.Condition` 的**每一条早退**分别打点 ✓
+（`tmp/recon/probe-letbranch.cjs` 那种做法 ✓），确认 `Bracket` 那一支到底走的是哪一句 ✓ ——
+两处放宽既然没生效 ✓，说明问题在**更前面**（进没进 `Condition` 的那一支、
+或者 `result.Success` 被谁改回去了 ✗）。
+
+### 工具：本轮补齐的五件（都在 `tmp/`，不进仓）
+
+台账这一层的规矩是「临时脚本不进仓」✓（`.gitignore` 里的 `tmp/` ✓），
+所以这里只记**名字与用途** ✓ —— 下轮直接用 ✓：
+
+| 工具 | 用途 |
+| --- | --- |
+| `tmp/recon/cls.cjs` | **清点**：与尺子同一口径 ✓，按「影响多少份文件」排缺口 ✓（重建次序就照它 ✓） |
+| `tmp/recon/tri.cjs` | **三方对照**：产物原始树 / 投影后的 AST / `ts.createSourceFile` ✓，按区间排序 ✓ |
+| `tmp/recon/tree2.cjs` | 产物原始树（带 `visited` 去重 ✓、把 `Value` / `Temp` 一起打出来 ✓） |
+| `tmp/recon/pair.cjs` | 一份文件的**逐节点**对拍（MISS / EXTRA 两栏 ✓、投影全量列表 ✓） |
+| `tmp/recon/kind-aliases.cjs` | TS 枚举别名表的抄本 ✓（**以 `tests/parse/ts-ast.mjs` 为准** ✓） |
+
+**两条工具坑**（第 531 轮踩的，这里再记一句）✓：
+`xl build` 只能走 `xl_build` 插件入口 ✓（仓库里那个 `cli.js` 退出码 0 却不做事 ✗）；
+改完 `.xl.md` 一定要**重跑 `xl build` + `tsc`** ✓，只改源码不重建 ⇒ 读数骗人 ✗。
+
+### 另记一笔（仓库状态）
+
+第 531 轮开始时工作区有一处**没提交的删除** ✓：`dawn/text/tokens/function/method-declaration.xl.md`
+（第 503 轮那阵子留下的 ✓，HEAD 里已经没有这个文件 ✓，磁盘上那一份是残留 ✗）。
+已经在第 531 轮的收尾里清掉 ✓（`git rm --cached` + 删文件 ✓），工作区从此干净 ✓。
