@@ -157,7 +157,32 @@ if (terminator instanceof SymbolToken) {
   }
 }
 const frontIndex = SearchFrontIndexed(data, index, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
-const children = data.slice(frontIndex + 1, index + 1);
+// **`switch` 体里，第二个及以后的段头要自己起一条壳** ✓（第 576 轮 ✓）：
+// `switch (x) { case 1: case 2: y(); }` 写在一行时，`case 1:` 里那个 `:` **不是终结符** ✗
+// ⇒ 这一问一次都不响 ✗ ⇒ 壳从 `case 1:` 一路收到 `y();` 的那个 `;` ✗
+// ⇒ **两个 `case` 进了同一条壳** ✗。而 `SwitchCloseRule` 的分段只看**顶层单元** ✓
+//（`SegmentWordOf` ✓）⇒ 第二个 `case` 住在壳里 ✓、它根本看不见 ✗
+// ⇒ 两个 `case` 并进同一个 `CaseClause` ✓（第 574 轮逐字符探针量清的机制 ✓，
+// 账在 `docs/member-layer-plan.md` 第 177 节 ✓）。
+//
+// 切点取**最后一个**「前面紧挨着 `:` 的那个 `case` / `default` 词」✓（不是第一个 ✗）：
+// `case 1: case 2: case 3: y();` 这种三连**一刀全分开** ✓ —— 切完留在壳外的那几格是**裸词** ✓，
+// 而顶层扫描本来就认裸词 ✓（`SegmentWordOf` 的「裸词」那一档 ✓）⇒ 三段各归各 ✓。
+// 切在**第一个**上不行 ✗：壳里还剩两个段头 ✓，而终结符只来一次 ✗ ⇒ 等不到第二刀 ✓。
+//
+// **宿主判据不能省** ✗：第 574 轮实测「不分宿主地找 `default`」会把 `a.default;` 与
+// `export default c;` 一起切开 ✓（1027 → 1025 ✗）；改成问「宿主是不是 `SwitchStatement`」
+// 又**一次都不会响** ✗（那个单元是 `SwitchCloseRule` **后面**才造出来的 ✓）。
+// 正解是问**那个 `{` 自己是不是 `switch` 的体** ✓（`IsSwitchBodyBracket` ✓）——
+// 这个判据在解析期问得出来 ✓，因为 `switch` 那个词与 `(` `{` 两个括号都在**宿主自己的列表**里 ✓。
+let startIndex = frontIndex;
+if (Statement.IsSwitchBodyBracket(unit)) {
+  const clauseIndex = Statement.LastClauseHeadIndex(data, frontIndex, index);
+  if (clauseIndex > 0) {
+    startIndex = clauseIndex - 1;
+  }
+}
+const children = data.slice(startIndex + 1, index + 1);
 const lonelySemicolon = children.length === 1 && children[0] instanceof SymbolToken && children[0].Is(";");
 if (children.length === 1 && !lonelySemicolon) {
   data.splice(index, 1);
@@ -174,12 +199,81 @@ if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
 } else {
   throw new Error("Statement.FormFrom source range is not complete.");
 }
-ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
+ReplaceCountAt(data, startIndex + 1, index - startIndex, statement);
 // **造完就关一次**（第 487 轮 ✓）：`TryToClose` 会跑 `ApplyCloseRules` ✓ —— 壳里的
 // `return` / `throw` / `const` 那类词要升成 `Keyword` ✓，投影侧「关键字开头的语句」那一支才认得 ✓
 //（实测 i42：`return;` 从 `ExpressionStatement` 变成 `ReturnStatement` ✓）。
 // 重组那条当年也是这么写的（`StatementCloseRule2.Process` 末尾一句 `statement.TryToClose()` ✓）。
 statement.TryToClose();
+```
+
+## static method IsSwitchBodyBracket:(unit:Token)=>bool
+
+`unit` 是不是一个 `switch` 语句的**体括号**（那个 `{`）。
+
+判据与 `switch/switch.xl.md` 里 `SwitchCloseRule.Previous` 问的**同一件事** ✓
+（那边问「`switch` 那个词后面是不是 `(` 再 `{`」✓），只是这里**站在那个 `{` 自己身上往回看** ✓。
+
+**为什么必须往回看** ✗：`{` 自己分不出自己是「块」还是「对象字面量」还是「`switch` 的体」✗，
+而这条判据要在**解析期**（终结符刚 append 完那一刻 ✓）就问出来 ✓ ——
+那一刻 `SwitchStatement` / `Switch` 都**还不存在** ✗（它们是 `SwitchCloseRule` 后面才造的 ✓，
+第 574 轮实测：拿 `SwitchStatement` 当判据**一次都不会响** ✗）。
+
+两处细节：
+
+- **跨过软换行** ✓（`SkipPreviousWrapSymbol` ✓）：`switch (x)` 换行 `{` 是合法排法 ✓；
+- **词那一格用 `Statement.WordOf`** ✓：`switch` 可能已经被升级成 `Keyword` ✓
+  （`KeywordCloseRule` ✓），两种形态都要认 ✓（与 `SwitchCloseRule.WordOf` 同一口径 ✓）。
+
+```ts
+if ((unit instanceof Bracket) === false || (unit as Bracket).startBracket !== "{") {
+  return false;
+}
+const holder = unit.Parent;
+if (holder === null || Array.isArray(holder.Data) === false) {
+  return false;
+}
+const at = holder.Data.indexOf(unit);
+if (at < 0) {
+  return false;
+}
+const compareIndex = SkipPreviousWrapSymbol(holder.Data, at);
+const compare = Get(holder.Data, compareIndex);
+if ((compare instanceof Bracket) === false || (compare as Bracket).startBracket !== "(") {
+  return false;
+}
+const wordIndex = SkipPreviousWrapSymbol(holder.Data, compareIndex);
+return Statement.WordOf(Get(holder.Data, wordIndex)) === "switch";
+```
+
+## static method LastClauseHeadIndex:(data:Array<Token>, frontIndex:int, index:int)=>int
+
+`(frontIndex, index)` 这一段里**最后一个**「前面紧挨着一个 `:` 的 `case` / `default` 词」的下标；
+没有给 `-1`。只给 `FormFrom` 在 `switch` 体里切壳用 ✓（为什么取最后一个、为什么只认这两种词，
+见 `FormFrom` 那一处 ✓）。
+
+三条判据各挡一档 ✓：
+
+1. **从 `frontIndex + 2` 起** ✓：`frontIndex + 1` 是这一段的**段首** ✓ ——
+   `case 1: f();` 的壳里就一个段头 ✓，从它起切会切出一条**空壳** ✗；
+2. **只认顶层单元** ✓：`f(case)` 里的那个词住在括号里面 ✓，不住在这一层 ✓，够不到 ✓；
+3. **前面紧挨着的实义单元是 `:`** ✓：少了它，`case 1: obj.default = 1;` 的 `default`
+   （前面是 `.` ✓）会被当成段头切开 ✗。判据用 `SkipPreviousTrivia` ✓
+   （注释也算 trivia ✓，`case 1: /* c */ case 2:` 这种排法也算 ✓）。
+
+```ts
+let found = -1;
+for (let i = frontIndex + 2; i < index; i++) {
+  const word = Statement.WordOf(Get(data, i));
+  if (word !== "case" && word !== "default") {
+    continue;
+  }
+  const before = Get(data, SkipPreviousTrivia(data, i));
+  if (before instanceof SymbolToken && before.Is(":")) {
+    found = i;
+  }
+}
+return found;
 ```
 
 ## static method FormTail:(unit:Token)=>void

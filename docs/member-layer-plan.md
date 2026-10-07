@@ -6658,4 +6658,118 @@ git ls-files "*.xl.md"        # 181 份（受版本控制的就是「这一版�
 并且**只在「这个 `{` 是 `switch` 的体」时**切 ✓（`Bracket` 自己认不出 ✓，
 要么由 `Switch` 那一段在**关闭前那一趟**做 ✓，要么给那个括号打个「这是 switch 体」的记号 ✓）。
 
+## 一百七十八、一行的两个 `case` 并进同一条壳（第 576 轮）：切点挂在那个 `{` 上，缺 30 → 25、多 24 → 21
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第一轮** ✓。改的是 `typescript/tokens/statement.xl.md` **一个文件** ✓
+（**第 575 轮没有留下账** ✗：那一轮动手「`else` 之前不许收尾」✓，被实测挡了回来 ✓ ——
+源码零改动、没有提交 ✓，它留下的入口原样带到这里：**收尾必须晚于 `else` 那一格** ✗）。
+
+### 一、靶子就是上一节末尾那一句
+
+第 574 轮把 `switch (x) { case 1: case 2: y(); break; default: z() }` 的**入口**量清了 ✓
+（第 177 节 ✓）：切点必须挂在 **`Bracket`（那个 `{`）** 那一路 ✓，挂 `SwitchStatement` 上**一次都不会响** ✗。
+这一轮照那条做 ✓。账仍是 `stmt-adversarial-shapes.ts` 第 14 行那一格 ✓（起点四栏 `7 1 6 1` ✓）：
+
+    DRIFT  CaseClause      TS[740,747) vs 产物[740,767)  "case 1:"
+    MISS   CaseClause      TS[748,767)  "case 2: y(); break;"
+    MISS   NumericLiteral / ExpressionStatement / CallExpression / Identifier（`2` / `y();` / `y()` / `y` ✓）
+    EXTRA  ExpressionStatement [748,760) "case 2: y();" + Identifier [748,752) "case"
+
+### 二、机制：`SwitchCloseRule` 进场那一刻，两个 `case` 已经住进**同一条壳**
+
+本轮写了 `tmp/recon/r576-switch-probe.cjs` ✓（挂 `SwitchCloseRule.prototype.Process` ✓，
+**先把 `parse-pipeline.js` require 进来** ✗ —— `switch-statement.js` → `parse-pipeline.js` 是一条环 ✓，
+反过来先拿 `switch.js` 会当场报 `Cannot read properties of undefined (reading 'Instance')` ✓），
+进场那一刻体括号的 `Data` 是：
+
+    [0] Statement [740,759]  内装 case 1 : case 2 : y ( )      ← **两个段头同一条壳** ✗
+    [1] Statement [761,766]  内装 break
+    [2] Identifier "default" [768,774]
+    [3] SymbolToken ":" [775]   [4] Identifier "z" [777]   [5] Bracket "()" [778,779]
+
+`SegmentWordOf` 只看**顶层单元** ✓ ⇒ 这一趟只看得见**一个** `case` 段头 ✓ ⇒
+第二个 `case` 从头到尾没人认 ✓ ⇒ 它连同 `2 : y ( )` 一起被搬进**第一个**段的 `SwitchStatement` ✓
+—— 这就是那对「漂移 + 缺 + 多」的来源 ✓。
+
+### 三、改法：`FormFrom` 里切一刀，宿主判据就是那个 `{`
+
+切点在 `Statement.FormFrom` ✓（壳是**这里**造错的 ✓：`;` 到达那一刻 ✓），三条判据缺一不可 ✓：
+
+1. **宿主是 `switch` 的体括号** ✓（新 `Statement.IsSwitchBodyBracket` ✓）：站在那个 `{` 自己身上往回看 ✓，
+   跨过软换行依次是 `(` 括号与 `switch` 那个词 ✓ —— 与 `SwitchCloseRule.Previous` 问的**同一件事** ✓，
+   只是那边站在 `switch` 词上往前看 ✓。**这一条不能省** ✗：第 574 轮实测不分宿主地找
+   `default` 会把 `a.default;` / `export default c;` 一起切开 ✓（1027 → 1025 ✗）；
+   而「宿主是不是 `SwitchStatement`」在解析期**一次都不会响** ✗（那个单元是后面才造的 ✓）。
+   `Bracket` 自己分不出「块 / 对象字面量 / `switch` 的体」✗ ⇒ 只能靠**宿主列表里的邻居**认 ✓，
+   而那一刻 `switch` 与两个括号**都还在宿主自己的列表里** ✓（探针实测 `units = 3` ✓）。
+2. **候选是顶层的 `case` / `default` 词** ✓（`Statement.WordOf` ✓，两种形态都认 ✓）——
+   住在括号里的（`f(case)` ✓）够不到 ✓。
+3. **它前面紧挨着的实义单元是 `:`** ✓（`SkipPreviousTrivia` ✓，注释也算 trivia ✓）——
+   少了这条，`case 1: obj.default = 1;` 的 `default`（前面是 `.` ✓）会被当成段头切开 ✗。
+
+**切在最后一个、不是第一个** ✓（新 `Statement.LastClauseHeadIndex` ✓）：
+`case 1: case 2: case 3: y();` 这种三连**一刀全分开** ✓ —— 切完留在壳外的那几格是**裸词** ✓，
+顶层扫描本来就认裸词 ✓ ⇒ 三段各归各 ✓。切在第一个上不行 ✗：壳里还剩两个段头 ✓，
+而终结符只来一次 ✗ ⇒ 等不到第二刀 ✓。
+**段头自己那一格不参与** ✓（从 `frontIndex + 2` 起 ✓）：`case 1: f();` 的壳里只有一个段头 ✓，
+从它起切会切出一条**空壳** ✗。
+
+**切完的形状**（`tmp/recon/r576-tree.cjs` ✓，区间是 token 自己的闭区间 ✓）：
+
+    SwitchSegment [740,746] "case 1:"            ← 裸词起段 ✓ 体为空 ✓
+    SwitchSegment [748,766] "case 2: y(); break;" ← 壳还带着那个 `;` ✓
+      SwitchStatement [756,766] > Statement[756,758] "y()" + Statement[761,766] "break;"
+    SwitchSegment [768,779] "default: z()"       ← 纹丝不动 ✓
+
+### 四、读数
+
+| 项 | 第 574 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1027 | **1027 / 1037** ✓（持平 ✓：那一份文件另外还差 `else` 那一笔 ✗） |
+| 缺节点 | 30（15 类） | **25（12 类）** ✓（−5 ✓） |
+| 区间漂移 | 11（9 类） | **10（8 类）** ✓（−1 ✓） |
+| 多出来的节点 | 24（17 类） | **21（16 类）** ✓（−3 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21726 | **21726** ✓（持平 ✓：单元一个没多没少 ✓，变的是**归谁** ✓） |
+| 投影节点 | 17300 | **17303** ✓（+3 ✓） |
+
+**逐文件**（`r576-a-perfile.txt` ✓）：红的仍是**那 10 份** ✓，**只有一份动了** ✓ ——
+`stmt-adversarial-shapes.ts` 从 `7 1 6 1` 变成 **`2 0 3 1`** ✓（剩下的正是 `else` 那三笔 ✓）；
+其余九份**逐项一字不差** ✓。**真实语料（`real`，十六片合计）** ✓：
+缺 **1355** / 漂 **396** / 多 **751** / 字段名 **8** —— 与第 572 轮那份 `r572-a-real.txt`
+**逐片对拍、逐项持平** ✓（没有一片变差 ✓）。
+
+### 五、六道门：`coverage` 白捡一条
+
+| 门 | 第 574 轮末 | 本轮 |
+| --- | --- | --- |
+| `runtime:check` | 239 / 242 | **239 / 242** ✓ |
+| `runtime:cli` | 78 / 79 | **78 / 79** ✓ |
+| `cases:check` | 1050 条 0 不合格 | **1050 条 0 不合格** ✓ |
+| `coverage` | 1629 / 1713（94.4%） | **1630 / 1713（94.4%）** ✓（**+1** ✓） |
+| `samples` | 三份全绿 | **三份全绿** ✓ |
+| `cases:tsast` | 16 片：3 片通过 | **16 片：3 片通过** ✓（十份红文件就是上表 ✓） |
+
+`coverage` 那一条是**这一轮修的那一格在运行时那一侧的账** ✓：`ctl-switch-fallthrough-count`
+（「经典的 switch 计数（不带 break 的累加）」✓）从 `blocked` 转 `pass` ✓（runtime 层 471 → 472 ✓、
+blocked 15 → 14 ✓），`tests/coverage/report.json` 随本轮一起提交 ✓。
+`xl build`（本文件）**0 error、仍是那 3 条既有 W3102** ✓、`xl check` **0 error 3 warning** ✓、
+`tsc` **0 错** ✓。
+
+### 六、下一块
+
+第 174 节第七小节那张单子去掉这一条之后还剩 ✓：
+
+1. **`(` / `[` 那一档** ✓（仍是最大的一块 ✓）：`am-block-lambda-array-compound.ts`（`5 2 4` ✓）、
+   `lex-generic-multiline-constraints.ts`（`7 1 1` ✓）、`stmt-asi-paren-call.ts`（`0 4 5` ✓）——
+   **机器层面**的一件事 ✓（收壳要发生在「下一个单元到了以后」✓，或让壳能**拆回**平列表 ✓）；
+2. **`else` 那一格** ✓（第 175 / 176 节留下的入口 ✓）：收尾必须**晚于** `else` 到达 ✓
+   —— 它就是 `stmt-adversarial-shapes.ts` 剩下的那三笔 ✓（外加 `FIELD` 那一栏 ✓）；
+3. **`new.target`** ✓（两份各缺 3 ✓）：第 540 / 541 两轮试过两次都没动 ✗ ⇒ 第三次先量
+   「那个 `BinaryOperator` 里还剩什么」✓；
+4. **四份小账** ✓：`decl-interface-export-default.ts`（`1 0 2` ✓）、`type-cond-multiline.ts`（`0 2 3` ✓）、
+   `lex-regex-after-assign.ts`（`2 1 2` + 字段名 1 ✓）、`stmt-asi-return-newline-object.ts`（`2 0 1` ✓）。
+
 

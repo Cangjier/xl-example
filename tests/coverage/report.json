@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.36,
+  "progressPercent": 94.41,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 471,
-      "blocked": 15,
+      "pass": 472,
+      "blocked": 14,
       "differ": 16,
       "nodefail": 0,
-      "coverage": 93.82
+      "coverage": 94.02
     },
     {
       "layer": "exec",
@@ -82,12 +82,6 @@
     }
   ],
   "blocked": [
-    {
-      "id": "ctl-switch-fallthrough-count",
-      "layer": "runtime",
-      "title": "经典的 switch 计数（不带 break 的累加）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: case"
-    },
     {
       "id": "exc-finally-order",
       "layer": "runtime",
@@ -615,11 +609,6 @@
       "id": "ctl-while-do",
       "layer": "runtime",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "ctl-switch-fallthrough-count",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: case"
     },
     {
       "id": "ctl-forof-array",
