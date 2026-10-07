@@ -53,7 +53,23 @@ if (current instanceof Bracket && current.startBracket === "[") {
     return false;
   }
   const previous = GetSkipPrevious(units, index, (item) => item instanceof LineWrap);
-  if (previous instanceof Identifier && previous.IsAny(["return", "typeof", "of", "in"]) === false) {
+  // **声明词后面那个 `[` 是解构模式，不是下标访问**（第 533 轮 ✓）：
+  // `const [a = 1, b = a] = …` 的方括号要照旧收成 `ArrayLiteral` ✓ ——
+  // 投影侧的 `projectLetFrom` 正是拿它当绑定模式用的 ✓
+  //（`print-ast-common.xl.md` 那一段注释写着「解构声明的名字用产物自己的那个
+  // `ArrayLiteral` / `ObjectLiteral`」✓，`projectBindingPattern` 会把 kind 换成
+  // `ArrayBindingPattern` ✓）。
+  //
+  // 判据与下面那一句**同源** ✓：那一句说的是「上一个实义单元是 `Identifier` 且**不属于**
+  // `return` / `typeof` / `of` / `in` ⇒ 这是下标访问」✓ —— 这里把**声明词**也加进豁免名单 ✓。
+  // 豁免名单里的词都不是操作数 ✓（`return [1]` / `typeof [1]` / `const [a]` 里那个 `[`
+  // 只能是别的东西 ✓），所以没有副作用 ✓。
+  const declarationWords = ["let", "const", "var", "using"];
+  if (
+    previous instanceof Identifier &&
+    previous.IsAny(["return", "typeof", "of", "in"]) === false &&
+    previous.IsAny(declarationWords) === false
+  ) {
     return false;
   } else if (previous instanceof Bracket) {
     return false;

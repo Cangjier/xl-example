@@ -15,6 +15,7 @@ import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { GenericType } from "./generic-type.xl.md"
+import { Keyword } from "./keyword.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ObjectLiteral } from "./json/object-literal.xl.md"
 import { Statement } from "./statement.xl.md"
@@ -435,20 +436,50 @@ if (nameIndex < 1) {
   return result;
 }
 const nameUnit = Get(data, nameIndex);
-if (!(nameUnit instanceof Identifier)) {
+// **名字那一格可以是一对解构括号**（第 533 轮 ✓）：解构那个 `[` / `{` 在这一刻**还是 `Bracket`**
+// ✓ —— `JsonArrayReorganization` / `JsonObjectReorganization` 会把它收成 `ArrayLiteral` /
+// `ObjectLiteral` ✓，但那一趟是在**括号自己的 `TryToClose` 里**跑的 ✓，而 `LetBranch` 问这一格时
+// 括号刚关完、命名还没换 ✓。判据与同文件 `LetReorganization.Previous` 那一句
+//「`Identifier`，或者 `Is("[", "]")` / `Is("{", "}")` 的 `Bracket`」**一字不差** ✓
+//（第 532 轮错在**照搬了重组那一趟看到的名字** ✗ —— 那一趟看到的是 `ArrayLiteral` ✓，
+//  于是 `instanceof ArrayLiteral` 永远为假 ✗，白试一轮 ✓）。
+const isPatternUnit = nameUnit instanceof Bracket && (nameUnit.Is("[", "]") || nameUnit.Is("{", "}"));
+if (!(nameUnit instanceof Identifier) && isPatternUnit === false) {
   return result;
 }
-// 关键词那一格必须是 let / const / var。
+// 关键词那一格必须是 let / const / var —— 第 531 轮起它可能**已经升成 `Keyword`** ✓
+// （`StatementBranch.Success` 末尾那次 `TryToClose` ✓），所以两种身份都要认 ✓。
 const keywordUnit = Get(data, nameIndex - 1);
-if (!(keywordUnit instanceof Identifier)) {
+if (!(keywordUnit instanceof Identifier) && !(keywordUnit instanceof Keyword)) {
   return result;
 }
-const word = keywordUnit.TempToString();
+const word = this.WordOf(keywordUnit);
 if (word !== "let" && word !== "const" && word !== "var") {
   return result;
 }
 result.Success = true;
 return result;
+```
+
+## method WordOf:(unit:Token)=>string
+
+`Identifier` / `Keyword` 两种身份取文本——**一处答案** ✓（`Condition` 与 `Success` 都要用 ✓）。
+
+两种身份的文本在**不同的字段**上 ✗：`Identifier` 是 `BlockToken` 的子类、文本在 `Temp` 数组里 ✓
+（`TempToString()` ✓）；`Keyword` 是 `IndependentToken` 的子类、文本在 `Value` 上 ✓
+（`keyword.xl.md` 的 `FromIdentifier` ✓），而它的 `TempToString()` 是空串 ✗ ——
+第 533 轮实测：只认 `Identifier` 那一支时，**已经升成 `Keyword` 的 `const`**
+会让整条 `Condition` 判否 ✓（`const [a] = …` 于是永远不成形 ✗）。
+
+`constructor.name` 就是 XML 标签名 ✓，判它等价于判类型 ✓（与 `property-access.xl.md`
+的 `IsChainBase` 同一做法 ✓）。
+
+```ts
+const view = unit as any;
+if (unit.constructor.name === "Keyword") {
+  return String(view.Value ?? "");
+}
+return String(view.TempToString === undefined ? "" : view.TempToString());
 ```
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
@@ -465,15 +496,22 @@ while (nameIndex >= 0) {
   break;
 }
 const nameUnit = Get(data, nameIndex);
-if (!(nameUnit instanceof Identifier)) {
+// **名字那一格可以是一对解构括号**（第 533 轮 ✓）：解构那个 `[` / `{` 在这一刻还是 `Bracket` ✓
+//（理由见 `Condition` 那一处 ✓）。它与 `Identifier` 那一路的区别只在**怎么填 `Let`** ✓：
+// 具名只记 `fieldName` ✓；解构把模式括号搬进 `Let` ✓（与重组那条
+// `letUnit.AddAndCloseLast(next)` 同一做法 ✓）。
+const isPatternUnit = nameUnit instanceof Bracket && (nameUnit.Is("[", "]") || nameUnit.Is("{", "}"));
+if (!(nameUnit instanceof Identifier) && isPatternUnit === false) {
   throw new Error("LetBranch: 进门之后名字那一格又不成立了");
 }
 // 往前收修饰词与关键词（跨过软换行，但**不跨过语句边界**——与 let.xl.md 同一份口径）。
 const modifiers: string[] = [];
 let start = nameIndex - 1;
+// **文本走 `WordOf`** ✓（第 531 轮起关键词那一格可能已经是 `Keyword` ✓，
+// 它的文本在 `Value` 上而不在 `Temp` 上 ✗ —— 见那个方法自己的说明 ✓）。
 const keywordUnit = Get(data, start);
-if (keywordUnit instanceof Identifier) {
-  modifiers.unshift(keywordUnit.TempToString());
+if (keywordUnit instanceof Identifier || keywordUnit instanceof Keyword) {
+  modifiers.unshift(this.WordOf(keywordUnit));
 }
 while (start > 0) {
   const previous = Get(data, start - 1);
@@ -492,7 +530,15 @@ while (start > 0) {
   break;
 }
 const letUnit = new Let(unit.Template);
-letUnit.fieldName = nameUnit.TempToString();
+// **两种形态两套填法**（第 533 轮 ✓）：具名只记 `fieldName` ✓；
+// 解构把模式括号搬进来 ✓ —— 搬进来之后 `binding-element.xl.md` 才有机会在
+// **`Let` 自己那一趟**里把元素收成 `BindingElement` ✓（它的宿主判据正是「父亲是 `Let`」✓）。
+if (nameUnit instanceof Identifier) {
+  letUnit.fieldName = nameUnit.TempToString();
+} else {
+  letUnit.LetType = (nameUnit.Is("{", "}") ? 2 : 1) as any;
+  letUnit.AddAndCloseLast(nameUnit);
+}
 letUnit.modifiers = modifiers.join(",");
 // **签名用的锚点要跳过前导 trivia** ✓（第 486 轮）：`start` 往回跨过 `LineWrap` 之后，
 // `data[start]` 可能正好是**上一行留下的那个软换行** ✗ ⇒ `Let` 从换行起签 ✗，
@@ -528,4 +574,13 @@ const tailSymbol = new SymbolToken(unit.Template);
 tailSymbol.AppendAndSignOut(source).SignIn(source);
 data.splice(nextIndex + 1, 0, tailSymbol);
 tailSymbol.Parent = unit;
+// **让模式括号在 `Let` 自带的那一趟里再收一次**（第 533 轮 ✓）：把 `[a = 1, b = a]` 的元素
+// 收成 `BindingElement` 的是 `binding-element.xl.md` ✓，它的宿主判据是
+// 「父亲是 `Let` / `BindingElement` / `Parameter` / `CatchDefine`」✓ ——
+// 括号这时已经是 `Let` 的子单元 ✓（上面 `AddAndCloseLast` 那一支 ✓），
+// 所以要在 **`Let` 自己**这一层跑一遍 ✓（`TryToClose` 已经在上面调过 ✗，
+// 那一次跑的时候括号还没挂进来 ✓；`Let` 的队列在构造器里挂着 ✓，见 `let.xl.md` 那一处 ✓）。
+if (isPatternUnit) {
+  Token.Former.ApplyCloseRules(letUnit);
+}
 ```

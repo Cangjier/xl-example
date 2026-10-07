@@ -3130,3 +3130,81 @@ Statement [42,79)
 第 531 轮开始时工作区有一处**没提交的删除** ✓：`dawn/text/tokens/function/method-declaration.xl.md`
 （第 503 轮那阵子留下的 ✓，HEAD 里已经没有这个文件 ✓，磁盘上那一份是残留 ✗）。
 已经在第 531 轮的收尾里清掉 ✓（`git rm --cached` + 删文件 ✓），工作区从此干净 ✓。
+## 一百三十六、解构那一段的模式在**括号刚关完时还是 `Bracket`**（第 533 轮）：819 → **835 / 1037**
+
+起点 **819 / 1037** ✓（第 531 轮 ✓）。第 532 轮试过两处都白试 ✓，这一轮把那两处**一起**装上 ✓，
+并在同一个回合里把最后一道闸找出来了 ✓。
+
+### 一、真因：模式括号的**身份**与「谁收里面的元素」
+
+调查用的是入口探针（`tmp/recon/probe-letbranch5.cjs` / `probe-letbranch6.cjs` ✓
+—— 在 `LetBranch.Condition` 进门处打「`source.Value` / 宿主 / 末尾几格」✓，
+再在 `nameUnit` 判定那一格把 `constructor.name` 打出来 ✓）：
+
+```
+LB7DBG v="," ni=2 name=Identifier  kw=SymbolToken:=      ← 括号内那两个 `=` 不是进门条件
+LB7DBG v="=" ni=4 name=Identifier  kw=SymbolToken:,
+LB7DBG v="=" ni=2 name=Bracket     kw=Identifier:const   ← 声明位上这个 `=` 才是
+```
+
+⇒ **`LetBranch` 问这一格时，解构括号还是 `Bracket`** ✗（不是 `ArrayLiteral` ✗）——
+第 532 轮照搬了**重组那一趟**看到的名字 ✓（那一趟看到的是 `ArrayLiteral` ✓），
+所以 `instanceof ArrayLiteral` 永远为假 ✗。**这一刻的判据要照 `LetReorganization.Previous`
+写**：`Identifier`，或者 `Is("[", "]")` / `Is("{", "}")` 的 `Bracket` ✓。
+
+**三处一起才成立** ✓（缺一处都不动读数 ✓）：
+
+| # | 文件 | 改什么 | 为什么必须有 |
+| --- | --- | --- | --- |
+| 1 | `typescript/tokens/property-access.xl.md` | `IsChainBase` 的排除名单加 `let` / `const` / `var` | 不加的话 `const [a = 1, b = a]` 被折成一个 `PropertyAccess` ✗，声明形状全变 ✗ |
+| 2 | `typescript/tokens/json/array-literal.xl.md` | `IsArrayAt` 的豁免名单加 `let` / `const` / `var` / `using` | 不加的话那个 `[` 被当成**下标访问** ✓ ⇒ 永远成不了 `ArrayLiteral` ✗（第 532 轮就是卡在这 ✗） |
+| 3 | `typescript/tokens/let.xl.md` | `Condition` / `Success` 收 `Bracket` 形态的模式 ✓、新增 `WordOf` ✓、模式搬进 `Let` ✓、末尾在 `Let` 上再跑一遍 `ApplyCloseRules` ✓ | 见下 |
+
+### 二、第三步里那两处「非它不可」的细节
+
+- **`WordOf`**（`Condition` 与 `Success` 共用一份 ✓）：`Identifier` 的文本在 `Temp` 上 ✓、
+  `Keyword` 的在 `Value` 上 ✓ —— 第 531 轮之后 `const` **已经升成 `Keyword`** ✓，
+  只认 `Identifier` 会让整条 `Condition` 判否 ✗（这是第 532 轮「试二」白试的第二个原因 ✗）。
+- **末尾再跑一遍 `Token.Former.ApplyCloseRules(letUnit)`** ✓：把 `[a = 1, b = a]` 的元素收成
+  `BindingElement` 的是 `binding-element.xl.md` ✓，它的**宿主判据是「父亲是 `Let`」** ✓ ——
+  括号搬进 `Let` **之后**要在 `Let` 自己那一层再跑一遍 ✓（`TryToClose` 在上面已经调过 ✗，
+  那一次跑的时候括号还没挂进来 ✓）。**少了这一句的读数**：完全一致仍然 819 ✗、
+  而 `ArrayBindingPattern` 的字段名差从 56 涨到 **84** ✗ —— 就是这一句把它压回去 ✓。
+
+### 三、读数
+
+| 项 | 第 531 轮（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 819 | **835 / 1037** ✓（+16 ✓） |
+| 缺节点 | 1335（108 类） | **1076**（104 类）✓（−259 ✓） |
+| 多出来的节点 | 602（46 类） | **416**（44 类）✓（−186 ✓） |
+| 区间漂移 | 161（19 类） | **159**（18 类）✓ |
+| 字段名不符 | 56 | **56** ✓（持平 ✓） |
+| 未映射 / 缺 range / 越界 | 1 类 3 处 / 0 / 0 | 1 类 3 处 / 0 / 0 ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+
+`decl-arr-destructure-defaults.ts` 从「缺 7 / 多 1」变成**四个方向全零** ✓
+（`ArrayBindingPattern` + 两个 `BindingElement` + 里面四个名字全对上了 ✓）。
+
+**声明层那一簇整体退潮** ✓（清点：`VariableDeclaration` 53 → **34** 份 ✓、
+`List` 52 → **33** ✓、`Statement` 39 → **19** ✓、`BindingElement` 23 → **掉出前 14** ✓）。
+新的头几名是：`Identifier` 131 份 ✓、`TypeAliasDeclaration` 34 份 ✓、
+`VariableDeclaration` 34 份（换成了 `decl-await-using-basic` / `decl-label-break-continue` 那一族 ✓）、
+`BreakStatement` 22 份 ✓、`LabeledStatement` 19 份 ✓。
+
+### 四、工具坑（这个回合踩得最深的一个）
+
+**`xl_build` 会按指纹跳过重建，而 `git checkout` 回去的 `.xl.md` 看起来「没变」** ✗ ——
+本轮实测：回滚 `let.xl.md` 之后 `dist/ts/typescript/tokens/let.ts` 的 mtime
+**停在回滚之前那一刻** ✓（`19:47:56` ✓，而源码是 `19:48:34` ✓），
+于是尺子一直在量**旧读数** ✗（1256 / 416 / 84 ✓ 那一组 ✓），白折腾两轮 ✓。
+**正解**：改过源码之后**带 `force: true` 重建那几个文件** ✓，重建完再核一下
+`dist` 里那句新注释在不在 ✓（本轮就是这么确认的 ✓）。
+
+### 五、下一块
+
+按清点，下一个大头是 **`Identifier` 131 份** ✓（散在 `am-declare-module-css` /
+`am-export-equals-namespace` 那一族 ✓），以及**标签那一族** ✓
+（`BreakStatement` 22 份 + `LabeledStatement` 19 份 + `Block` 20 份 + `CallExpression` 23 份 ✓，
+集中在 `decl-label-break-continue` / `decl-label-block` / `stmt-nested-loops-label` ✓）——
+后者是**一鱼多吃**（同一个标签形状连着四五栏一起缺 ✓），下轮先 dump 它 ✓。

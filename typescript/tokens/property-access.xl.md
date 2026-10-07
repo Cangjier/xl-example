@@ -92,7 +92,20 @@ if (unit instanceof Identifier) {
     text === "break" ||
     text === "continue" ||
     text === "yield" ||
-    text === "import"
+    text === "import" ||
+    // **声明词也不是链底**（第 533 轮 ✓，第 532 轮试出来的方向 ✓）：
+    // `let` / `const` / `var` 开头的是一段**声明** ✓，后面那对方括号是**解构模式**（`const [a] = …` ✓），
+    // 不是下标访问 ✗。**这三个词永远不是合法的链底** ✓（`let.x` / `const[0]` / `var[0]` 在 JS 里
+    // 本来就是语法错 ✓），所以这一条没有副作用 ✓。
+    //
+    // **少了它会怎样** ✗（第 532 轮实测 ✓）：`const` 这时还是 `Identifier` ✓ ⇒ 链在这里起头 ✓
+    // ⇒ `const [a = 1, b = a]` 被收成一个 `PropertyAccess` ✗ ⇒ 那段声明的形状全变 ✗
+    //（`LetBranch` 再也认不出 ✓、`JsonArrayReorganization` 也再也看不到那个 `[` ✓ ——
+    //  它的上一个实义单元成了 `PropertyAccess` ✗，正是 `IsArrayAt` 里「已经是操作数 ⇒ 只能是下标」
+    //  那一条 ✓）。**这两件事是连锁的** ✗：链一起头，解构括号就同时失去两种身份 ✓。
+    text === "let" ||
+    text === "const" ||
+    text === "var"
   ) {
     return false;
   }
