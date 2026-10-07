@@ -1,6 +1,6 @@
 # namespace cangjie
 
-模板层：每个单元（token）的跳转与重组规则都从 `Template` 上取。
+模板层：每个单元（token）的跳转与收尾规则都从 `Template` 上取。
 
 # class Sequence<T>
 

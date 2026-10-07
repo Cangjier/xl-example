@@ -25,7 +25,7 @@ import { String } from "./string.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建时按自己的运行时类型取跳转队列与重组队列：用 `this.constructor` 去模板上查（`SequenceTemplate` 以**构造器对象**为键做派发）。
+创建时按自己的运行时类型取跳转队列与规则队列：用 `this.constructor` 去模板上查（`SequenceTemplate` 以**构造器对象**为键做派发）。
 
 ```ts
 super(template);

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
@@ -26,18 +26,18 @@ import { LineWrap } from "../line-wrap.xl.md"
 
 类型字面量：把**类型位**的 `{ … }` 收成一个 `TypeLiteral`（里面是一段 `TypeLiteralBody`）。
 
-**它必须排在 `JsonObjectReorganization` 之前**：重组是**按规则轮询**的（每条规则扫一遍所有下标），
+**它必须排在 `JsonObjectCloseRule` 之前**：重组是**按规则轮询**的（每条规则扫一遍所有下标），
 `ObjectLiteral` 排在前面时会把类型位的 `{ … }` 先收成对象字面量，成员从此只能平铺成 `Identifier` / `SymbolToken`。
 类型位的判定没用「看括号前面是不是 `:` / `=`」这一条就完事——那样会把三元表达式的分支
 （`cond ? {} : {}` 的第二个括号）也判成类型位，所以 `:` 还要再确认「同一层没有 `?`」。
 
-`TypeLiteralReorganization` 写在 `TypeLiteral` **之前**。
+`TypeLiteralCloseRule` 写在 `TypeLiteral` **之前**。
 
-# class TypeLiteralReorganization extends Reorganization
+# class TypeLiteralCloseRule extends CloseRule
 
-## static readonly field Instance:TypeLiteralReorganization = new TypeLiteralReorganization()
+## static readonly field Instance:TypeLiteralCloseRule = new TypeLiteralCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## private method HasTernaryQuestion:(units:Array<Token>, index:int)=>bool
 
@@ -144,7 +144,7 @@ return false;
 测试立刻报出 5 条用例失败 + **2 个语料文件解析失败** ✗ —— 根因是：
 
 > 词法阶段是**平列表**，它分不出「`outer: { … }` 这种**标签的冒号**」与「`x: { … }` 这种**类型标注的冒号**」
-> —— 那正是**后来的规则**（`LabelReorganization` 在 `TypeLiteralReorganization` 之前跑）才带来的区分，
+> —— 那正是**后来的规则**（`LabelCloseRule` 在 `TypeLiteralCloseRule` 之前跑）才带来的区分，
 > 老走法能对，是因为它跑的时候冒号已经被 `Label` 收走了。
 
 所以启用它之前，`DecideBracketContext` 还得把这个区分补上（判据在**宿主**的形态上：
@@ -166,7 +166,7 @@ return false;
    - **已经跨过 `=` 之后再遇到 `:` 就是值位**：`const options: CliOptions = { Input: "" }` 里
      那个 `{` 往前扫会先跨过 `=`、再撞上变量标注的 `:`——题面看它像「冒号后面的类型」，
      其实 `=` 之后的那个花括号是**值**（对象字面量）✗。
-     不加这一条，对象字面量会被收成 `TypeLiteral`，它的成员接着被 `FieldReorganization`
+     不加这一条，对象字面量会被收成 `TypeLiteral`，它的成员接着被 `FieldCloseRule`
      当成字段收走（实测 `dist/ts/cjcli.ts`：一个 `CliOptions` 类型别名 5 个成员，
      外加一处 `const options: CliOptions = { … }` 的 4 个成员，产物里 **9 个 `Field`** ✗，
      差分账上 `Field` 多出的 20 个正是这种形状）；
@@ -224,7 +224,7 @@ if (current.Parent instanceof GenericType) {
   return true;
 }
 // **父单元已经是 ObjectLiteral 时一定是对象字面量**（实测补的）：
-// `JsonObjectReorganization` 排在 `TypeLiteralReorganization` 之前，外层对象先成形，
+// `JsonObjectCloseRule` 排在 `TypeLiteralCloseRule` 之前，外层对象先成形，
 // 内层那个 `{` 于是已经是 `ObjectLiteral` 的子单元——`const o = { a: { b: 1 } }` 里
 // 内层往前扫会撞上 `a:` 的冒号，按类型位判就变成 `TypeLiteral`（实测产物确实如此，
 // 内层 `b` 还成了一个 `Field`）。对象字面量的冒号是**键分隔符**，不是类型标注。
@@ -268,7 +268,7 @@ for (let i = index - 1; i >= 0; i--) {
   if (item instanceof LineWrap) {
     // **语句边界就是终点**（第 67 轮修）：`type H = number` 换行 `try { } catch { }` 里，
     // `try` 后面那个 `{` 往回扫时会**跨过换行、跨过 `try`**，一路撞上 `type` ⇒ 被判成类型位，
-    // 于是 `try` 的语句体被收成一个 `TypeLiteral`；`TryReorganization` 拿到它当场抛
+    // 于是 `try` 的语句体被收成一个 `TypeLiteral`；`TryCloseRule` 拿到它当场抛
     // 「next is not Bracket」，**整份文件解析失败**（三片段组合探针抓到的形状）。
     //
     // 判据复用 ASI 那一条（`Statement.IsLineBreakBoundary`），不另写近似：
@@ -641,7 +641,7 @@ return false;
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把本类型的重组规则挂上来（模板里没有专门给 `TypeLiteral` 注册就用通用队列）。
+以模板创建，并把本类型的收尾规则挂上来（模板里没有专门给 `TypeLiteral` 注册就用通用队列）。
 
 ```ts
 super(template);

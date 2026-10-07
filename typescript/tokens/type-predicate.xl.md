@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -29,18 +29,18 @@ TypeScript 那边它是一个**独立的类型节点**（`TypePredicate`：`para
 **容器必须是类型容器，而且内容整段都是谓词**：参数标注 `x: unknown` 的内容只有一个词 ✗、
 返回类型 `: Promise<void>` 也没有 `is` ✗——两者都不成形，不会误伤。
 
-# class TypePredicateReorganization extends Reorganization
+# class TypePredicateCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:TypePredicateReorganization = new TypePredicateReorganization()
+## static readonly field Instance:TypePredicateCloseRule = new TypePredicateCloseRule()
 
 唯一的实例。
 
 ## private method IsPredicateWord:(item:Token | null, text:string)=>bool
 
 这个单元是不是那个词（`is` / `asserts`）。两种形态都认：还没升级的 `Identifier`
-与已经升级的 `Keyword`（类型队列里 `KeywordReorganization` 排在最后，通用队列里可能已经跑过）。
+与已经升级的 `Keyword`（类型队列里 `KeywordCloseRule` 排在最后，通用队列里可能已经跑过）。
 
 ```ts
 if (item === null) {
@@ -156,7 +156,7 @@ return this.IsPredicateAt(units, index);
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("TypePredicateReorganization.Process: current is null");
+  throw new Error("TypePredicateCloseRule.Process: current is null");
 }
 const result = new TypePredicate(current.Template);
 result.SignIn(current.SourceRange.Start!);

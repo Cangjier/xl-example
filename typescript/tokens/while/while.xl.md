@@ -4,7 +4,7 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { TakeRange } from "../../../core/extensions/list-extension.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
@@ -22,15 +22,15 @@ import { WhileCompare } from "./while-compare.xl.md"
 
 `while` 语句：把 `while` `(` … `)` `{` … `}` 这一串单元重组成一个 `While`，里面分成 Compare（条件括号整段）与 Body（后面那对 `{ }` 或单条语句）两段。
 
-重组规则类 `WhileReorganization` **不进 `Data`、不进 XML**，所以它的类名随便取。它必须写在 `While` **之前**：`Instance` 这个静态字段在类定义时就会 `new WhileReorganization()`，写反了会命中暂时性死区（TDZ）。
+收尾规则类 `WhileCloseRule` **不进 `Data`、不进 XML**，所以它的类名随便取。它必须写在 `While` **之前**：`Instance` 这个静态字段在类定义时就会 `new WhileCloseRule()`，写反了会命中暂时性死区（TDZ）。
 
 反过来，`While` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。
 
-# class WhileReorganization extends Reorganization
+# class WhileCloseRule extends CloseRule
 
-重组规则：`while` 加一个 `(` 开头的括号，就整段换成一个 `While`。
+收尾规则：`while` 加一个 `(` 开头的括号，就整段换成一个 `While`。
 
-## static readonly field Instance:WhileReorganization = new WhileReorganization()
+## static readonly field Instance:WhileCloseRule = new WhileCloseRule()
 
 唯一的实例。
 

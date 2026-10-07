@@ -9,7 +9,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`foreach` / `for...in` 的可枚举段：`in` / `of` 右边那截（`xs`、`GetItems()` 之类），`ForeachReorganization.Process` 把括号内该位置之后的内容搬进来。
+`foreach` / `for...in` 的可枚举段：`in` / `of` 右边那截（`xs`、`GetItems()` 之类），`ForeachCloseRule.Process` 把括号内该位置之后的内容搬进来。
 
 # class ForeachEnumable extends IndependentToken
 
@@ -19,7 +19,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来。
+创建时把本类型的收尾规则挂上来。
 
 ```ts
 super(template);

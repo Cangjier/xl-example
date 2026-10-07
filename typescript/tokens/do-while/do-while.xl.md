@@ -4,7 +4,7 @@ import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { TakeRange } from "../../../core/extensions/list-extension.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
@@ -26,7 +26,7 @@ import { WhileCompare } from "../while/while-compare.xl.md"
 里面分成 Body（`do` 后面那条语句）与 Compare（`while` 那个条件括号整段）两段。
 
 **为什么单开一条规则**：`do` 在关键字表里，没有它时 `do` 只是一个 `<Keyword>`，
-后面的 `while(...)` 会被 `WhileReorganization` 抢走当成一个**独立的 while 语句**——
+后面的 `while(...)` 会被 `WhileCloseRule` 抢走当成一个**独立的 while 语句**——
 `do { x++ } while (x < 10)` 于是变成「`do` 关键字 + 空 while」，而不带分号的写法更糟：
 `while` 会去找自己的循环体，找不到就抛 `Error`。
 
@@ -34,16 +34,16 @@ import { WhileCompare } from "../while/while-compare.xl.md"
 两段复用 `While` 的类型（`WhileBody` / `WhileCompare`）——形状完全一样，
 消费者可以按同一套标签处理两种循环。
 
-`DoWhileReorganization` **不进 `Data`、不进 XML**，所以它的类名随便取。它必须写在 `DoWhile` **之前**：
-`Instance` 这个静态字段在类定义时就会 `new DoWhileReorganization()`，写反了会命中暂时性死区（TDZ）。
+`DoWhileCloseRule` **不进 `Data`、不进 XML**，所以它的类名随便取。它必须写在 `DoWhile` **之前**：
+`Instance` 这个静态字段在类定义时就会 `new DoWhileCloseRule()`，写反了会命中暂时性死区（TDZ）。
 
 反过来，`DoWhile` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。
 
-# class DoWhileReorganization extends Reorganization
+# class DoWhileCloseRule extends CloseRule
 
-重组规则：`do` + 一条语句 + `while` + `(` 开头的括号，整段换成一个 `DoWhile`。
+收尾规则：`do` + 一条语句 + `while` + `(` 开头的括号，整段换成一个 `DoWhile`。
 
-## static readonly field Instance:DoWhileReorganization = new DoWhileReorganization()
+## static readonly field Instance:DoWhileCloseRule = new DoWhileCloseRule()
 
 唯一的实例。
 
@@ -58,7 +58,7 @@ import { WhileCompare } from "../while/while-compare.xl.md"
 
 第二种为什么不用 `Statement.SearchStatementEnd`：`do … while` 的体经常写作两行——
 `do x++` 换行 `while (x < 10)`；体与 `while` 之间只有一个软换行（TypeScript 的 ASI 在这里断句），
-`SearchStatementEnd` 对这种没有 `;` 的形状给不出结尾，于是整条 `do` 落回 `WhileReorganization` 手里，
+`SearchStatementEnd` 对这种没有 `;` 的形状给不出结尾，于是整条 `do` 落回 `WhileCloseRule` 手里，
 然后因为「`while` 后面没有语句」抛错——正是这条规则要修的那个报错。
 
 按定义，`do` 的体后面**必然**紧跟 `while`，所以直接找那个词最稳。代价是「体里嵌套了另一个 `do…while`」这种
@@ -110,7 +110,7 @@ return condition instanceof Bracket && condition.startBracket === "(";
 
 执行重组：把 `do` 头、循环体、`while` 条件收进一个 `DoWhile`，**返回新的下标**。
 
-顺序与 `WhileReorganization.Process` 一致：签入签出 → `MoveDataTo` 搬内容 → `TryToClose`。
+顺序与 `WhileCloseRule.Process` 一致：签入签出 → `MoveDataTo` 搬内容 → `TryToClose`。
 两点不同：
 
 1. 体的内容在前、条件在后（源顺序）；

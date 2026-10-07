@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -27,11 +27,11 @@ TypeScript 那边它是**两层**：`InferType > TypeParameter > Identifier X (+
 也常见于**函数类型的形参**（`T extends (a: infer U) => any ? U : never`）——
 那里它的父单元是 `TypeDefine`，只有类型队列才跑得到（实测少了这一条这一族不成形）。
 
-# class InferTypeReorganization extends Reorganization
+# class InferTypeCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:InferTypeReorganization = new InferTypeReorganization()
+## static readonly field Instance:InferTypeCloseRule = new InferTypeCloseRule()
 
 唯一的实例。
 
@@ -39,7 +39,7 @@ TypeScript 那边它是**两层**：`InferType > TypeParameter > Identifier X (+
 
 这个单元是不是 `infer` 那个词。
 
-**两种形态都要认**：类型队列里 `KeywordReorganization` 排在最后，所以此刻它可能是
+**两种形态都要认**：类型队列里 `KeywordCloseRule` 排在最后，所以此刻它可能是
 还没升级的 `Identifier`；通用队列里它可能已经被升级成 `Keyword`（那一趟跑过）。
 `WordText` 对两种都给文本 ✓。
 
@@ -116,12 +116,12 @@ return Get(units, SkipNextWrapSymbol(units, index)) instanceof Identifier;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("InferTypeReorganization.Process: current is null");
+  throw new Error("InferTypeCloseRule.Process: current is null");
 }
 const nameIndex = SkipNextWrapSymbol(units, index);
 const name = Get(units, nameIndex);
 if (name === null) {
-  throw new Error("InferTypeReorganization.Process: name is null");
+  throw new Error("InferTypeCloseRule.Process: name is null");
 }
 // 约束段：`extends` 之后一路吃到边界（没有 `extends` 时就只有名字）
 const parts: Token[] = [name];

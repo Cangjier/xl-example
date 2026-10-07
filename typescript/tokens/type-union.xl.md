@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -14,7 +14,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Statement } from "./statement.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
-import { LamdaReorganization } from "./lamda/lamda.xl.md"
+import { LamdaCloseRule } from "./lamda/lamda.xl.md"
 ```
 
 # namespace cangjie
@@ -34,18 +34,18 @@ import { LamdaReorganization } from "./lamda/lamda.xl.md"
 - 收集 `&` 时**遇到 `|` 就停**（`A & B | C` 先收成 `IntersectionType(A & B)`，
   外层再收成 `UnionType(A & B | C)` ✓ 得到 `(A & B) | C`）。
 
-两个节点都挂**类型队列**（`ParsePipeline.InitialKeywordReorganizationQueue`）：收进去的那一段
-会再跑一趟这条规则（内层的紧运算符就是这样成形的），队列里的 `KeywordReorganization`
+两个节点都挂**类型队列**（`ParsePipeline.InitialKeywordCloseRuleQueue`）：收进去的那一段
+会再跑一趟这条规则（内层的紧运算符就是这样成形的），队列里的 `KeywordCloseRule`
 顺带把 `keyof` / `typeof` / `readonly` 升级成 `Keyword`。
 
 规则本身**同时注册进通用队列与类型队列**：类型文本有的装在 `TypeDefine` / `TypeAssign` 里
 （它们是类型队列），有的直接挂在 `GenericType` / `ReturnType` 的列表上（那是通用队列）。
 
-`TypeUnionReorganization` 写在 `UnionType` / `IntersectionType` **之前**，与同目录其它 token 一致。
+`TypeUnionCloseRule` 写在 `UnionType` / `IntersectionType` **之前**，与同目录其它 token 一致。
 
-# class TypeUnionReorganization extends Reorganization
+# class TypeUnionCloseRule extends CloseRule
 
-## static readonly field Instance:TypeUnionReorganization = new TypeUnionReorganization()
+## static readonly field Instance:TypeUnionCloseRule = new TypeUnionCloseRule()
 
 唯一的实例，注册进两张队列时用。
 
@@ -155,7 +155,7 @@ return false;
 **块体也一样** ✗：`(n) => { return (n & 2) === 2; }` 里那个 `{` 的判据也是这一条 ✓
 （插桩实测：`owner=Root at=5 before=SymbolToken/=>` ✓），所以块里的位运算一起遭殃 ✓。
 
-**问谁**：形参表是不是**箭头函数的**形参表 ✓——那件事 `LamdaReorganization.IsLambdaParameters`
+**问谁**：形参表是不是**箭头函数的**形参表 ✓——那件事 `LamdaCloseRule.IsLambdaParameters`
 已经答过 ✓（它自己那一串判据：前面是 `:` / `?:` / `new` / `extends` / 类型别名赋值 ⇒ 函数类型 ✓，
 否则是箭头 ✓）。**这里问它，不自己写一份近似** ✗：这一格写歪的症状是
 「函数类型的返回段被判成值位」✗（`type F = (a) => (B | C)` 丢掉联合节点 ✓）——
@@ -199,7 +199,7 @@ if (param === null) {
   return false;
 }
 if (param instanceof Bracket && param.startBracket === "(") {
-  return LamdaReorganization.Instance.IsLambdaParameters(owner.Data, paramIndex);
+  return LamdaCloseRule.Instance.IsLambdaParameters(owner.Data, paramIndex);
 }
 // **裸形参**（`n => (…)` ✓）：函数类型的形参表**必须带括号** ✓，所以这一格只可能是箭头函数 ✓
 //（`type F = n => B` 不是合法的 TS ✓）。
@@ -447,7 +447,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method PrintAst:(ctx:any, v:any)=>any
@@ -482,7 +482,7 @@ return result;
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method PrintAst:(ctx:any, v:any)=>any

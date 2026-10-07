@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -18,17 +18,17 @@ import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 
 方法调用单元：由重组把「方法名 + `(...)` 括号单元」合成一个 `Method`，括号里的内容原样搬进来当自己的子单元。它的 XML 是 `<Method name="名字">…</Method>`。
 
-方法名 + 括号能合并，靠的是 `MethodReorganization`：它只在「前一个单元是个能当方法名的 `Identifier`」且「当前单元是 `(` 开头的 `Bracket`」时成立。
+方法名 + 括号能合并，靠的是 `MethodCloseRule`：它只在「前一个单元是个能当方法名的 `Identifier`」且「当前单元是 `(` 开头的 `Bracket`」时成立。
 
 **泛型方法（`func f<T>(x: T)`）**：方法名和 `(` 之间会多出一个 `GenericType`（`<T>`）。判定与执行都靠 `NameIndex` —— 它在跳软换行之外**再跳一个** `GenericType` 去找名字，所以「名字 + 可选泛型实参段 + `(`」仍然合成一个 `Method`；那段泛型实参会被搬进 `Method` 的 `Data`（**必须搬**，否则 `<T>` 的字符会从 XML 里消失）。不涉及泛型时 `NameIndex` 就等于 `SkipPreviousWrapSymbol`，`Process` 里那个循环一次都不转。
 
-`MethodReorganization` 写在 `Method` 之前。
+`MethodCloseRule` 写在 `Method` 之前。
 
-# class MethodReorganization extends Reorganization
+# class MethodCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:MethodReorganization = new MethodReorganization()
+## static readonly field Instance:MethodCloseRule = new MethodCloseRule()
 
 唯一的实例。
 
@@ -65,7 +65,7 @@ if (current.Parent instanceof GenericType) {
   return false;
 }
 // **方法声明里残留的「名字 + 括号」不许再收一次**（第 66 轮补）：
-// `MethodDeclarationReorganization` 会把参数表括号与（私有名的）名字留在自己的 `Data` 里，
+// `MethodDeclarationCloseRule` 会把参数表括号与（私有名的）名字留在自己的 `Data` 里，
 // 而它挂的是通用队列——本规则那一趟于是把 `#m()` 里的 `m()` 又收成一个调用节点，
 // 产物变成 `<MethodDeclaration name="#m"><SymbolToken>#</SymbolToken><Method name="m"/>…`，
 // TS 那边一个 `CallExpression` 都没有（`cases:align` 实测 12 处，全是私有方法 / 计算名方法）。
@@ -103,7 +103,7 @@ if (nameUnit instanceof Bracket && nameUnit.startBracket === "(") {
 // **为什么原来漏了** ✗：这一条只认「前一单元是 `Identifier`」与「前一单元是 `(` 括号」✓，
 // 而 `f()` 收成 `Method` 之后**两者都不是** ✗——于是第二个 `(` 谁也不认 ✓，
 // 投影里**少了一整个调用** ✓（实测：`console.log(f()())` 只投出一个 `f()` ✓，
-// 而 `const a = f()();` 却是对的 ✓——那条路走的是另一个重组规则 ✓，
+// 而 `const a = f()();` 却是对的 ✓——那条路走的是另一个收尾规则 ✓，
 // 所以这个缺口只在**实参位**露出来 ✓，`cases:tsast` 的语料里恰好没有这个形状 ✗）。
 // **带括号的 `(f())()` 一直是对的** ✓（前一单元是括号 ✓）——差别只在括号在不在 ✓。
 if (nameUnit instanceof Method) {
@@ -219,7 +219,7 @@ return false;
 2. **一个「逗号算子单元」** ✗——即 `BinaryOperator` 类型、里面那枚符号是 `,` ✓。
 
 **为什么第 2 种非有不可** ✗：逗号什么时候已经被折成**算子单元** ✓ 取决于**队列时序** ✗——
-`h(1, 2)` 里那对括号被 `MethodReorganization` 收走时 ✓ 逗号还是**独立的符号** ✓；
+`h(1, 2)` 里那对括号被 `MethodCloseRule` 收走时 ✓ 逗号还是**独立的符号** ✓；
 而 `(h)(1, 2)` / `arr[0](1, 2)` / `((a, b) => a + b)(1, 2)` 这些**括号或成员链当被调用者**的形状，
 `Previous` 要等**前一个括号先闭合**才成立 ✓ ⇒ 那对实参括号里的逗号**先被折成了算子** ✓。
 
@@ -480,7 +480,7 @@ return groups.filter((group) => group.length > 0);
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把本类型的重组队列取出来。
+以模板创建，并把本类型的规则队列取出来。
 
 取运行时类型用 `this.constructor`。
 

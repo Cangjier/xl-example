@@ -1,6 +1,6 @@
 # namespace cangjie
 
-模板层：每个单元（token）的跳转与重组规则都从 `Template` 上取。
+模板层：每个单元（token）的跳转与收尾规则都从 `Template` 上取。
 
 # class MethodNameTemplate
 
@@ -17,7 +17,7 @@
 于是「类型运算词 + 一对括号」被读成了**一次调用** ✓：
 `(() => 1) satisfies (() => number)` 的产物是
 `<Bracket>…</Bracket><Method name="satisfies">…</Method>` ✓——
-`AsReorganization` 轮不到它 ✓，投影里少了一个 `SatisfiesExpression` ✓，
+`AsCloseRule` 轮不到它 ✓，投影里少了一个 `SatisfiesExpression` ✓，
 降级层拿到一个**裸 `Bracket`** 报 `unimplemented: expression Bracket` ✓（整份文件进不来 ✗）。
 实测三种写法都红 ✓：`(() => 1) satisfies (() => number)` ✓、
 `((x: number) => x) satisfies (x: number) => number` ✓、`f satisfies ((n: number) => number) === f` ✓；

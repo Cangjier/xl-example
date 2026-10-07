@@ -1,6 +1,6 @@
 # dependencies
 ```xl
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -32,15 +32,15 @@ import { SymbolToken } from "./symbol-token.xl.md"
 「名字 + `(` 括号」上，此刻括号在 NCO 里面，它根本看不到），或者被调者是个 `NotNull`
 （判据只认 `Identifier` / 括号）。两者都不成形，`cases:align` 因此缺 `CallExpression` 6 处。
 
-规则排在**通用队列里、`NotNullReorganization` 之后**：那时 NCO（第 13 位）与
+规则排在**通用队列里、`NotNullCloseRule` 之后**：那时 NCO（第 13 位）与
 `NotNull`（第 40 位附近）都已经成形 ✓。两条支路都靠**第二趟**兜住——
 重组的队列固定跑两趟，第一趟造出被调者、第二趟才能把它收进调用 ✓。
 
-# class OptionalCallReorganization extends Reorganization
+# class OptionalCallCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:OptionalCallReorganization = new OptionalCallReorganization()
+## static readonly field Instance:OptionalCallCloseRule = new OptionalCallCloseRule()
 
 唯一的实例。
 
@@ -212,7 +212,7 @@ return before !== null && before.constructor.name === "NotNull";
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("OptionalCallReorganization.Process: current is null");
+  throw new Error("OptionalCallCloseRule.Process: current is null");
 }
 let startIndex = index;
 // **实参括号之后的东西不是这次调用的** ✓（第 153 轮试过这条，**没成** ✗）：
@@ -230,7 +230,7 @@ if (current.constructor.name === "NullConditionalOperator") {
 }
 const first = Get(units, startIndex);
 if (first === null) {
-  throw new Error("OptionalCallReorganization.Process: first is null");
+  throw new Error("OptionalCallCloseRule.Process: first is null");
 }
 const result = new Method(current.Template);
 result.Parent = current.Parent;

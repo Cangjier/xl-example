@@ -16,7 +16,7 @@ import { Root } from "./tokens/root.xl.md"
 它只做两件事：构造时把根单元换成 `Root`、把 `HandleMessage` 压成空实现。
 **它也是整个解析的入口**——调用方拿到的 `textContext.Root.ToString()` 就是验收用的 XML。
 
-**它同时是装配点**：装配职责已经从 `Root` 里摘出来，所以「把通用跳转队列与通用重组队列装进模板」
+**它同时是装配点**：装配职责已经从 `Root` 里摘出来，所以「把通用跳转队列与通用规则队列装进模板」
 落在造根单元之前的那一步——见 `./parse-pipeline.xl.md`。
 
 语法层把 `ValueType` 定死为 `string`，所以 `SyntaxContext` 不再带类型参数。

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
@@ -20,15 +20,15 @@ import { LineWrap } from "../line-wrap.xl.md"
 
 Json 数组：把 `[...]` 这种字面量从「一个方括号 + 里面的内容」重组成单个 `ArrayLiteral` 单元。
 
-`JsonArrayReorganization` 写在 `ArrayLiteral` **之前**（与同目录其它 token 一致）。
+`JsonArrayCloseRule` 写在 `ArrayLiteral` **之前**（与同目录其它 token 一致）。
 
-# class JsonArrayReorganization extends Reorganization
+# class JsonArrayCloseRule extends CloseRule
 
 它只做两件事：判断 `[` 是不是「Json 数组的开头」，是就把它连同内容收成一个 `ArrayLiteral`。
 
-## static readonly field Instance:JsonArrayReorganization = new JsonArrayReorganization()
+## static readonly field Instance:JsonArrayCloseRule = new JsonArrayCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method IsArrayAt:(units:Array<Token>, index:int)=>bool
 
@@ -149,7 +149,7 @@ return this.IsArrayAt(units, index);
 `Parent` 在造出单元之后单独赋值。
 
 **拿不到父单元时早退**（`current.Parent === null`，第 67 轮补）：与
-`object-literal.xl.md` 里 `JsonObjectReorganization.Process` 那一条**同一个形状、同一个理由**——
+`object-literal.xl.md` 里 `JsonObjectCloseRule.Process` 那一条**同一个形状、同一个理由**——
 `Replace` 要求「自己还在父单元的子单元里」，没有父单元就抛「没有父单元」，
 **整份文件解析失败**。这条路只在「重组改短了列表、而下标还是旧扫描留下的」时才走到
 （那个 `[` 已经被别的规则挪成了孤儿），属于输入本来就很怪的兜底：**先保住内容再让步**，
@@ -163,7 +163,7 @@ return this.IsArrayAt(units, index);
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("ArrayLiteral.Reorganization.Process: current is null");
+  throw new Error("ArrayLiteral.CloseRule.Process: current is null");
 }
 if (current.Parent === null) {
   return index;
@@ -173,7 +173,7 @@ result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(current.SourceRange.End!);
 // `Context` 必须**在 `TryToClose()` 之前**抄过来：本单元自己那一趟重组
-// 就发生在 `TryToClose` 里面，而 `BinaryOperatorReorganization` 要靠这个字段判断
+// 就发生在 `TryToClose` 里面，而 `BinaryOperatorCloseRule` 要靠这个字段判断
 // 「这个 `[` 是映射类型还是元素访问」。原来不抄，映射类型 `{ [K in T]: V }` 的
 // `in` 会被折成 `<BinaryOperator op="in">`（全语料 9 处误折）。
 if (current instanceof Bracket) {
@@ -245,15 +245,15 @@ Json 数组。
 （`"type"` / `"value"` / `""`）——直接抄自 `Bracket.Context`（见 `../bracket.xl.md`）。
 
 **为什么 ArrayLiteral 也要带这个字段**：映射类型 `{ [K in keyof T]: T[K] }` 的那个 `[`
-会在 `JsonArrayReorganization` 里被换成 `ArrayLiteral`，于是**括号单元本身没了**。
-`BinaryOperatorReorganization` 的守卫要判断「这个 `[` 是映射类型还是元素访问」，
+会在 `JsonArrayCloseRule` 里被换成 `ArrayLiteral`，于是**括号单元本身没了**。
+`BinaryOperatorCloseRule` 的守卫要判断「这个 `[` 是映射类型还是元素访问」，
 没有这个字段就只能退回「父单元是不是 `[` 括号」，而那条判据挡不住已经变成 `ArrayLiteral` 的映射类型
 （实测 `type X = { [K in "a" | "b"]: number }` 会误产出一个
 `<BinaryOperator op="in">`，全语料 9 处）。
 
 ## constructor:(Template:Template)=>void
 
-转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
+转调基类构造器，然后从规则模板里取出「本类」对应的一组收尾规则。
 
 `CloseRuleQueue` 从模板里取：键是 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
 

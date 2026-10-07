@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -20,24 +20,24 @@ import { SymbolToken } from "./symbol-token.xl.md"
 标签：把 `outer:` 这个「名字 + 冒号」的前缀收成一个 `Label` 单元，名字记进 `label`。
 
 **为什么只收前缀、不收它标的语句。** TypeScript 的 `name:` 与类型标注共用同一个冒号，
-而 `TypeDefineReorganization` 在通用队列里排得很前——它会把 `name: while (...) {...}` 里的
+而 `TypeDefineCloseRule` 在通用队列里排得很前——它会把 `name: while (...) {...}` 里的
 `: while (...) {...}` 整段当成一个类型标注收走。所以标签必须在**它之前**跑，那时后面那条语句
-（`while` + 条件括号 + 循环体）还散着，认不出边界。等 `WhileReorganization` 把语句收好时，
+（`while` + 条件括号 + 循环体）还散着，认不出边界。等 `WhileCloseRule` 把语句收好时，
 这一轮重组已经过去了。
 
 于是这里的产物是「标签 + 语句」两个平级单元：`<Label label="outer" /><While>…</While>`。
 `Statement.IsStatementUnit` 把 `Label` 也算作语句级结构，所以两者不会被折进同一个 `Statement`。
 
 形状限制：只认**循环/分支类**的标签（冒号后面是 `for` / `foreach` / `while` / `do` / `switch` / `try` / `if`）。
-放宽到「任意语句」会把对象字面量里的 `default:` 之类也当成标签，而那里没有重组队列兜底。
+放宽到「任意语句」会把对象字面量里的 `default:` 之类也当成标签，而那里没有规则队列兜底。
 
-`LabelReorganization` 写在 `Label` **之前**。
+`LabelCloseRule` 写在 `Label` **之前**。
 
-# class LabelReorganization extends Reorganization
+# class LabelCloseRule extends CloseRule
 
-## static readonly field Instance:LabelReorganization = new LabelReorganization()
+## static readonly field Instance:LabelCloseRule = new LabelCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## private method IsLabeledStatement:(units:Array<Token>, index:int)=>bool
 
@@ -50,12 +50,12 @@ import { SymbolToken } from "./symbol-token.xl.md"
   （`tokens/if/if-guide.xl.md`）造出来的 ✓，它比本规则**更早**成形 ✓
   ⇒ `outer: if (...) {...}` 走到这里时，冒号后面已经是一个 `IfSet` ✓，不再是散着的 `Identifier` ✗
   （实测漏了这一格时 `decl-label-if` 报「缺 8 个节点、多出 `TypeDefine`」✓——
-  冒号被更晚的 `TypeDefineReorganization` 当成类型标注收走了 ✓）。
+  冒号被更晚的 `TypeDefineCloseRule` 当成类型标注收走了 ✓）。
 - **一个 `{` 括号**（块语句）：`outer: { … }` / `block: { … }`。
 - **任意 `Identifier`**（表达式语句，或又一个标签）：`done: f()` / `a: b: for(;;) { … }`。
 
 第 2、3 条是后加的：只认关键字时，块语句上的标签与「标签 + 表达式语句」都认不出来，
-`outer:` 会被更晚的 `TypeDefineReorganization` 当成类型标注收走
+`outer:` 会被更晚的 `TypeDefineCloseRule` 当成类型标注收走
 （产物里出现 `TypeDefine` 里面套 `TypeLiteral`——一个标签加一个块，被读成了「变量名 + 对象类型」）。
 
 放宽不会误伤类型标注：`Previous` 里的「语句开头」那一关（`IsStatementStart`）已经把
@@ -142,7 +142,7 @@ return this.IsLabeledStatement(units, statementIndex);
 `Identifier`，块里一个节点都收不到。补队列的时机在这里是安全的：块括号早就关闭了，
 但它此刻还没有跑过任何重组（没有队列就不会跑），`TryToClose` 之后这一条队列才生效。
 
-**收尾规则那次显式调用不能省**（与 `BlockReorganization` 同款，第 561 轮从 `Reorganize()` 换成 `ApplyCloseRules()` ✓）：
+**收尾规则那次显式调用不能省**（与 `BlockCloseRule` 同款，第 561 轮从 `Reorganize()` 换成 `ApplyCloseRules()` ✓）：
 装队列只是装，「谁来跑」得自己叫——原来少了这一句，
 块里的内容全靠后面某趟的**顺带**（那时块还是个 `ObjectLiteral`）才成形，
 一旦块正确地保持成 `Bracket`（见 `text-common-util.xl.md` 的 `IsStatementList` 那一节），
@@ -158,7 +158,7 @@ const colonIndex = SkipNextWrapSymbol(units, index);
 const statementIndex = SkipNextWrapSymbol(units, colonIndex);
 const statement = Get(units, statementIndex);
 if (statement instanceof Bracket && statement.startBracket === "{") {
-  ParsePipeline.InitialStatementReorganizationQueue(statement);
+  ParsePipeline.InitialStatementCloseRuleQueue(statement);
   statement.ApplyCloseRules();
 }
 const result = new Label(template);

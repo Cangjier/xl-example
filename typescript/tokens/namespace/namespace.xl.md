@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CommonUtil } from "../../../core/common-util.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -23,7 +23,7 @@ import { String } from "../string/string.xl.md"
 命名空间声明单元：把 `namespace` / 可选的 `export` `declare` / 名字（可带点号）/ `{...}` 合成为一个 `Namespace`。
 
 **为什么要单独做一个 token**：`namespace` 与 `module` 都在关键字表里，没有这条规则时它们只是
-`<Keyword>`，后面的 `{}` 是一个**没有重组队列**的裸括号（`../bracket.xl.md` 的 `Use`），
+`<Keyword>`，后面的 `{}` 是一个**没有规则队列**的裸括号（`../bracket.xl.md` 的 `Use`），
 于是 `namespace N { interface I {} }` 里的 `interface` 永远不成形。要修的不是关键字，而是「给这个花括号挂上语句队列」。
 
 四种形状都收：
@@ -38,17 +38,17 @@ import { String } from "../string/string.xl.md"
 
 `declare module "x" { … }` **名字走字符串那一支**，而且**不按点号拆嵌套**：
 字符串名字是模块路径的整体（`"./m"` / `"*.css"` / `"node:fs/promises"`），
-`NamespaceReorganization` 只产出**一个** `Namespace`；点号拆嵌套只对标识符形式的名字（`namespace A.B.C`）成立。
+`NamespaceCloseRule` 只产出**一个** `Namespace`；点号拆嵌套只对标识符形式的名字（`namespace A.B.C`）成立。
 
-`NamespaceReorganization` 写在 `Namespace` 之前。
+`NamespaceCloseRule` 写在 `Namespace` 之前。
 
-# class NamespaceReorganization extends Reorganization
+# class NamespaceCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML，所以类名与产物的标签名不一致也无害。
 
-## static readonly field Instance:NamespaceReorganization = new NamespaceReorganization()
+## static readonly field Instance:NamespaceCloseRule = new NamespaceCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## private method SkipDottedName:(units:Array<Token>, index:int)=>int
 
@@ -336,7 +336,7 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把本类型的重组规则挂上来（模板里没有专门给 `Namespace` 注册就用通用队列）。
+以模板创建，并把本类型的收尾规则挂上来（模板里没有专门给 `Namespace` 注册就用通用队列）。
 
 ```ts
 super(template);

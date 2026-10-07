@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { SyntaxException } from "../../../core/exceptions/syntax-exception.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -22,13 +22,13 @@ import { NewType } from "./new-type.xl.md"
 
 `new` 表达式：把 `new Foo(a, b)` 这一串单元重组成一个 `New`，里面分成 Type（`Foo`）与 Arguments（`(a, b)` 的内容）两段。
 
-重组规则类 `NewReorganization` **不进 `Data`、不进 XML**，所以它的类名随便取。反过来，`New` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。
+收尾规则类 `NewCloseRule` **不进 `Data`、不进 XML**，所以它的类名随便取。反过来，`New` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。
 
-# class NewReorganization extends Reorganization
+# class NewCloseRule extends CloseRule
 
-重组规则：一个内容为 `new` 的 `Identifier`，连同它后面第一个 `Bracket` 之前的所有类型信息、以及那个括号，整段换成一个 `New`。
+收尾规则：一个内容为 `new` 的 `Identifier`，连同它后面第一个 `Bracket` 之前的所有类型信息、以及那个括号，整段换成一个 `New`。
 
-## static readonly field Instance:NewReorganization = new NewReorganization()
+## static readonly field Instance:NewCloseRule = new NewCloseRule()
 
 唯一的实例。
 

@@ -23,7 +23,7 @@ import { EnumMember } from "./enum-member.xl.md"
 - **嵌套靠挂载链**：体里再出现 `{` 时由通用队列另挂一个 `Bracket`，期间本单元根本没被调用
   ⇒ 见到的 `}` 必定是自己那一层的——**不数深度**。
 
-成员列表的跳转队列挂在本单元上（见构造器）：这一步原先在 `EnumReorganization` 里靠
+成员列表的跳转队列挂在本单元上（见构造器）：这一步原先在 `EnumCloseRule` 里靠
 「括号的内容整体搬过来」凑出来，现在 `{` 由本单元自己吃，队列就跟着本单元走。
 
 # class EnumBody extends UnitToken
@@ -38,7 +38,7 @@ import { EnumMember } from "./enum-member.xl.md"
 成员列表队列 + `EnumMemberBranch.JumpIn`（插在 `StringGuide.JumpIn` 之前）。
 注释那几条本来就在更前面，所以 `/** doc */` 的第二格由注释分支先认下。
 
-**不再挂语句重组队列**（第 419 轮）：成员由 **`EnumMemberBranch` 在读的时候**一个一个开出来，
+**不再挂语句规则队列**（第 419 轮）：成员由 **`EnumMemberBranch` 在读的时候**一个一个开出来，
 体关闭时 `Data` 里已经是成形的东西——再挂一条语句队列等于让「成员什么时候成形」有**两个答案**。
 
 **也不再覆写 `Process`**（第 421 轮，用户口径）：形状判定住在**队列里的分支**上，

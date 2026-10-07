@@ -5,7 +5,7 @@ import { Sequence } from "./sequence.xl.md"
 
 # namespace cangjie
 
-模板层：每个单元（token）的跳转与重组规则都从 `Template` 上取。
+模板层：每个单元（token）的跳转与收尾规则都从 `Template` 上取。
 
 按单元类型给出规则序列，并把「算过一遍」的结果缓存起来。
 

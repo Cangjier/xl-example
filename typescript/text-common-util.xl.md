@@ -23,9 +23,9 @@ import { LineWrap } from "./tokens/line-wrap.xl.md"
 这一组函数全是「跳过 `LineWrap`」的变体——软换行在语法结构里不该挡住相邻单元的判断，
 所以「上一个 / 下一个**实义**单元」的查找必须跨过它们。
 
-原先这里还有一个 `InitialStatementReorganizationQueue`（给单元装报废语句用的重组队列）。
-它读的是 `CloseRuleTemplate.DefaultValue`，也就是**通用重组队列**，属于解析优先级契约的一部分，
-已经搬到 `./parse-pipeline.xl.md`，与 `GeneralReorganize` 放在一起。
+原先这里还有一个 `InitialStatementCloseRuleQueue`（给单元装报废语句用的规则队列）。
+它读的是 `CloseRuleTemplate.DefaultValue`，也就是**通用规则队列**，属于解析优先级契约的一部分，
+已经搬到 `./parse-pipeline.xl.md`，与 `GeneralCloseRule` 放在一起。
 
 # method StartsWithTemplate:(unit:Token | null)=>bool
 
@@ -173,8 +173,8 @@ return next >= "0" && next <= "9";
 所以括号类型里的 `typeof`（`(WindowProxy & typeof globalThis)`，全语料 1 处）
 仍按一元运算收，登记在 `tests/parse/align.mjs` 的口径里。
 
-**为什么要它（方案 A）**：原来这件事是**事后**做的 —— `TypeLiteralReorganization` / `BinaryOperatorReorganization` /
-`SpreadReorganization` 各自在自己的位次上「往上找祖先」或「往前扫同层单元」来猜。
+**为什么要它（方案 A）**：原来这件事是**事后**做的 —— `TypeLiteralCloseRule` / `BinaryOperatorCloseRule` /
+`SpreadCloseRule` 各自在自己的位次上「往上找祖先」或「往前扫同层单元」来猜。
 可是**规则被询问的时刻，树还不是最终的树**：实测同一个 `[` 在早期询问时 `Parent` 还指着 `Root`
 （`ArrayLiteral < Root`），而最终树里是 `TypeAssign < Statement < Root` —— 祖先判据因此天然时序相关
 （第 32、34 轮连试三版都失败）。
@@ -416,7 +416,7 @@ return "value";
 
 与 `EnclosingBraceContext` 是同一趟上溯的两个视图：一个要「它处在类型位还是值位」，
 一个要「**它是不是对象字面量**」——后者要把括号交给对象字面量规则自己的判据
-（`JsonObjectReorganization.IsObject`），所以得拿到括号本身。
+（`JsonObjectCloseRule.IsObject`），所以得拿到括号本身。
 
 从 `host` **自己**开始往上找（调用方传进来的 host 常常就是外层那个单元：
 `bracket.xl.md` 的 `Success` 是在 `AddToMounted` **之前**调 `DecideBracketContext` 的，
@@ -699,7 +699,7 @@ return false;
 
 **它区分的是「标签」与「类型标注」这对同形写法**：`outer: { … }`（标签 + 块）
 与 `let x: T`（声明 + 类型标注）在词法上都是「名字 + 冒号」，区别只在前者处在语句开头。
-`LabelReorganization` 与 `JsonObjectReorganization` 都靠它：
+`LabelCloseRule` 与 `JsonObjectCloseRule` 都靠它：
 前者只认语句开头的「名字 + 冒号」，后者靠它把语句位置的 `{` 判成**块**而不是对象字面量。
 
 **三条件**：父单元必须是**语句列表**（根、各种语句体、块括号），处在一对非 `{` 的括号里或泛型实参段里一律不是；
@@ -731,7 +731,7 @@ if (previousIndex < 0) {
 // **注释也是 trivia**（第 125 轮）：`const props = {` 前面常常是一整行 `// …` 注释，
 // 那些单元是 `LineAnnotation` / `AreaAnnotation`，原来只跳 `LineWrap`——
 // 于是 `previous` 落到注释上，三个 `instanceof` 分支一个都不命中、直接 `return true`，
-// 这个对象字面量被判成**语句开头的块**（`JsonObjectReorganization` 就此让路，
+// 这个对象字面量被判成**语句开头的块**（`JsonObjectCloseRule` 就此让路，
 // 产物里出现一个 `Block` 包着对象体，实测 `dist/ts/typescript/ts-ast.ts` 成片）。
 const previous = GetSkipPrevious(units, index, IsTriviaUnit);
 if (previous === null) {
@@ -745,14 +745,14 @@ if (previous instanceof Identifier || previous instanceof String) {
 // **为什么只认 `typeof` 一个词** ✗（而不是「凡是 `Keyword` 都不算语句开头」✓）：
 // 有些关键词**后面真的跟一个块** ✓——`else { … }` ✓、`try { … }` ✓、`finally { … }` ✓、
 // `do { … }` ✓。把整类 `Keyword` 一律算成「不是语句开头」✗，那些块的 `{` 就会被
-// `JsonObjectReorganization` 收成**对象字面量** ✗（**静默错值** ✓：
+// `JsonObjectCloseRule` 收成**对象字面量** ✗（**静默错值** ✓：
 // `if (a) { … } else { … }` 的 else 分支当场换成别的形状 ✓）。所以只列**后面跟值的**那几个 ✓。
 //
 // **为什么必须在这里、而不在 `IsObjectAt` 那一支** ✗：那一支里**已经**有一个 `typeof` ✓
 //（`previous.IsAny(["return", "throw", "typeof"])` ✓），但那个判据**只在
 // `previous instanceof Identifier` 时成立** ✗——而 `typeof` 在树里是 **`Keyword`** ✓
 //（实测 `console.log(typeof {a: 1})` 的产物：`<Keyword>typeof</Keyword>` ✓）。
-// `return` / `throw` 在**语句开头**会被 `KeywordReorganization` 收成 `Identifier` ✓，
+// `return` / `throw` 在**语句开头**会被 `KeywordCloseRule` 收成 `Identifier` ✓，
 // 所以那一支对它们有效 ✓、对 `typeof` 一直无效 ✗。
 //
 // **没量到的那两个词这一轮不改** ✗：`void { … }` 与 `delete` 后面的对象字面量
@@ -779,7 +779,7 @@ if (previous instanceof SymbolToken) {
   }
   // **`case X:` / `default:` 的冒号后面是一条（块）语句**（第 123 轮）：
   // `switch (v) { case "a": { const t = 1; } }` 里那个 `{` 是**块**，
-  // 可它的前一个实义单元是 `:`——只认 `;` 的话它掉进 `JsonObjectReorganization`，
+  // 可它的前一个实义单元是 `:`——只认 `;` 的话它掉进 `JsonObjectCloseRule`，
   // 整个 case 体被读成**对象字面量**（实测产物里出现
   // `ExpressionStatement > ObjectLiteralExpression`，case 体里的
   // `Block` / `VariableStatement` / `ReturnStatement` 一个都不剩）。
@@ -802,8 +802,8 @@ return true;
 
 `index` 处那个 `{` 是不是**值位的花括号**——对象字面量（也含类型字面量那种「装成员」的花括号）。
 
-**它是从 `JsonObjectReorganization.IsObjectAt` 搬下来的** ✓（第 556 轮 ✓）：这一句**有两个用户** ✗ ——
-那条重组规则问它「是不是对象」✓、两个**语句成形器**问它「要不要在里面收语句壳」✗，
+**它是从 `JsonObjectCloseRule.IsObjectAt` 搬下来的** ✓（第 556 轮 ✓）：这一句**有两个用户** ✗ ——
+那条收尾规则问它「是不是对象」✓、两个**语句成形器**问它「要不要在里面收语句壳」✗，
 两边各写一份就会漂 ✓（一个说「是」、另一个说「不是」✓）。
 放在这一层是因为 `statement.xl.md` **不能** import `json/object-literal.xl.md` ✗
 （后者 import `parse-pipeline.xl.md` ✓，而那一份反过来 import `statement.xl.md` ✓，绕出环 ✓）——
@@ -833,7 +833,7 @@ const current = Get(units, index);
 if (current instanceof Bracket && current.startBracket === "{") {
   // **「处在语句开头」是块与对象字面量的分界线**：`{ a: 1 }` 单独成句时读成**块语句**
   // （里面 `a:` 是标签 ✓），只有出现在表达式里（`= { … }` / `f({ … })` / `return { … }` ✓）
-  // 才是对象字面量 ✓。判据由 `IsStatementStart` 给出（`LabelReorganization` 用的是同一个 ✓）——
+  // 才是对象字面量 ✓。判据由 `IsStatementStart` 给出（`LabelCloseRule` 用的是同一个 ✓）——
   // `case 1: { … }` 也在这里被挡掉 ✓（`IsStatementStart` 自己认 `case` 段冒号 ✓）。
   if (IsStatementStart(units, index)) {
     return false;
@@ -844,7 +844,7 @@ if (current instanceof Bracket && current.startBracket === "{") {
   // 从绿变红 ✓）。`IsStatementStart` 用的是同一个跳过口径 ✓，这里与它对齐 ✓。
   const previous = GetSkipPrevious(units, index, IsTriviaUnit);
   // **`export` 后面那个花括号是导出列表，不是对象字面量** ✗（第 548 轮 ✓）：
-  // 下面那条链**只认 `Identifier`** ✗：`export` 一旦被 `KeywordReorganization` 升成
+  // 下面那条链**只认 `Identifier`** ✗：`export` 一旦被 `KeywordCloseRule` 升成
   // `Keyword` ✓ 就整个漏下去 ✓ ⇒ 这一格答「是对象」✗。所以按文本认词 ✓（`WordText` ✓）。
   if (previous !== null && WordText(previous) === "export") {
     return false;
@@ -936,7 +936,7 @@ return IsObjectLiteralBrace(up.Data, at);
 **只扫到分段边界为止**：`{ case "a": f(); }` 里 `f()` 后面的东西不该影响这一问，
 `?` / `:` 都要停（那说明这个冒号是三元的或另起一段的），`{` / `}` 也要停（跨出了本层）。
 
-名字的**词法身份不固定**：`case` 在那一刻还是 `Identifier`，而 `SwitchReorganization`
+名字的**词法身份不固定**：`case` 在那一刻还是 `Identifier`，而 `SwitchCloseRule`
 之后它可能已经被升级成 `Keyword`——两种都认（`ternary-operator.xl.md` 记过同一个坑：
 `Identifier` 与 `Keyword` 没有共同的取文本方法，必须分两支写）。
 
@@ -1000,10 +1000,10 @@ return (
   name === "WhileBody" ||
   name === "DoWhileBody" ||
   name === "SwitchCase" ||
-  // **`SwitchStatement` 是「开关分支的体」**（第 123 轮）：`SwitchReorganization` 把
+  // **`SwitchStatement` 是「开关分支的体」**（第 123 轮）：`SwitchCloseRule` 把
   // 冒号之后的单元整段搬进它，而它是一段**语句列表**。少了这一条，`case "a": { … }`
   // 里那个 `{` 的父单元不在白名单里，`IsStatementStart` 给 `false`、
-  // 于是被 `JsonObjectReorganization` 收成对象字面量（实测产物里是
+  // 于是被 `JsonObjectCloseRule` 收成对象字面量（实测产物里是
   // `SwitchStatement > Statement > ObjectLiteralExpression`，case 体全毁）。
   name === "SwitchStatement" ||
   name === "TryBody" ||
@@ -1015,10 +1015,10 @@ return (
 
 **`Statement` 必须在白名单里**——这一条是**实测抓出来的**：`{ let y = 2; }` 这条块语句，
 第一趟问 `IsObjectAt` 时括号的父亲还是 `Root`、`IsStatementStart` 给 `true`（判断正确 ✓），
-可 `StatementReorganization` 排在很后面，它把这对方括号收进一个 `Statement` 之后，
+可 `StatementCloseRule` 排在很后面，它把这对方括号收进一个 `Statement` 之后，
 **同一个问题会被再问一次**（重组是「每条规则扫一遍所有下标」，后面的规则造出新单元又会引起来回扫），
 这一回父亲成了 `Statement`；它不在白名单里，`IsStatementStart` 于是给 `false`，
-那个 `{` 就被 `JsonObjectReorganization` 抢走收成了对象 ✗（调试输出：
+那个 `{` 就被 `JsonObjectCloseRule` 抢走收成了对象 ✗（调试输出：
 `index=0 IsStatementStart=true parent=Root` 紧跟着 `index=0 IsStatementStart=false parent=Statement`）。
 
 加上 `Statement` 之后两条都对：块保持 `Bracket` ✓，
@@ -1034,7 +1034,7 @@ return (
 
 **`Keyword` 也要认**（第 66 轮补）：`readonly` / `keyof` / `typeof` / `infer` / `unique` / `asserts` / `new` / `abstract`
 全都在 `parse-pipeline.xl.md` 的关键字表里，所以同一个词在不同时刻可能是 `Identifier`、也可能已经被
-`KeywordReorganization` 升级成 `Keyword`。只认 `Identifier` 的那一版实测漏判：
+`KeywordCloseRule` 升级成 `Keyword`。只认 `Identifier` 的那一版实测漏判：
 `type A = readonly (B | undefined)[]` 里的括号类型问到时 `readonly` 已经是 `Keyword`，
 判定当场给否，括号里的联合于是不成形（`IsTypeBracketPosition` 与 `DecideBracketContext` 两条路都受影响）。
 
@@ -1392,7 +1392,7 @@ return IsTypeAliasAssignment(owner.Data, at - 2);
 取一个**词**单元的文本：`Identifier` 走 `TempToString()`，`Keyword` 走它自己的 `Value`。
 
 两种单元的文本入口不一样（`Keyword` 是 `IndependentToken` 的子类、没有 `TempToString`），
-而「同一个词在不同时刻可能是这两种之一」——`KeywordReorganization` 什么时候跑过它，
+而「同一个词在不同时刻可能是这两种之一」——`KeywordCloseRule` 什么时候跑过它，
 取决于它在哪张队列里。所以凡是按文本认词的地方都要走这一个入口。
 
 ```ts
@@ -1491,7 +1491,7 @@ return true;
 同一族（映射类型的键**一定**写成 `[K in T]`）。三种形态都要认：`in` 还是 `Identifier`、
 已经升成 `Keyword`、已经被折成 `BinaryOperator(op="in")`（`[K in keyof T]` 就是最后一种）。
 
-**为什么需要它**（第 66 轮）：映射类型的键括号会被 `JsonArrayReorganization` 收成 `ArrayLiteral`，
+**为什么需要它**（第 66 轮）：映射类型的键括号会被 `JsonArrayCloseRule` 收成 `ArrayLiteral`，
 于是**键里嵌套的类型**（`[K in keyof any[]]` 里的 `any[]`、`[L in keyof T["options"]]` 里的
 `T["options"]`）的父亲就是这个 `ArrayLiteral`。要让那些嵌套类型成形，就得让 `ArrayLiteral`
 被认成类型容器——可值位的数组字面量绝不能认（`new Foo(["**"])` 的 `"**"` 会被包成字面量类型）。
@@ -1569,7 +1569,7 @@ return false;
 把值表达式判成类型会把它们当场拆坏——差分账上表现为整片 `真多`。
 
 `TypeDefine` 是覆盖面最广的那个：每个类型标注、形参类型、字段类型、返回类型都会先被
-`TypeDefineReorganization` 收成一个 `TypeDefine`（它挂的是类型队列，两条规则都在队列里）。
+`TypeDefineCloseRule` 收成一个 `TypeDefine`（它挂的是类型队列，两条规则都在队列里）。
 
 用**类名**判定而非 `instanceof`：`text-common-util` 属于底层，import 那些 token 会绕出环
 （与 `IsStatementList` 同一个理由）。
@@ -1585,7 +1585,7 @@ return false;
 
     { [K in keyof any[]]?: boolean }            // 外层 [ ] 是映射类型的键，内核是 any[]
 
-外层那个 `[` 先被 `JsonArrayReorganization` 收成 `ArrayLiteral`，于是内核 `any[]` 的父亲是它。
+外层那个 `[` 先被 `JsonArrayCloseRule` 收成 `ArrayLiteral`，于是内核 `any[]` 的父亲是它。
 不加这一条，`keyof any[]` 里的数组类型永远不成形（真实语料 `lib.es2015.symbol.wellknown.d.ts` 2 处）。
 **值位的 `ArrayLiteral` 不算**：`const a = [b[0]]` / `new Foo(["**"])` 里那些内容是值，
 放进来会把下标访问折成 `IndexedAccessType`、把字符串包成 `LiteralType`
@@ -1598,9 +1598,9 @@ return false;
 
 根因是**时序**：括号的内容在**括号关闭那一刻**就重组完了，那一刻它的父单元还是语句列表
 （实测插桩：`type D<T> = T extends (infer U)[] ? …` 里 `infer` 被问到时是 `parent=Bracket grand=Root`），
-而括号**被认成类型**这件事发生在**之后**（`ParenthesizedTypeReorganization` 在它前面那一格
+而括号**被认成类型**这件事发生在**之后**（`ParenthesizedTypeCloseRule` 在它前面那一格
 看到 `:` / `=` → `type` 时才接手）。所以判据只能是**事后信号**：括号的父单元变成了
-`ParenthesizedType`，就说明它是括号类型。`ParenthesizedTypeReorganization.Process` 因此在换父之后
+`ParenthesizedType`，就说明它是括号类型。`ParenthesizedTypeCloseRule.Process` 因此在换父之后
 **重跑一遍括号自己的队列**，这一条负责放行那一趟；括号**关闭时那一趟**照旧判否（那一趟本来也判不出来）。
 
 **为什么不用 `IsTypeBracketPosition`（试过，退回来了）**：那个判据把 `,` 与 `(`
@@ -1622,7 +1622,7 @@ if (name === "Bracket") {
   // `parent=Bracket grand=Root`），所以「括号自己那一格是不是类型位」这一刻问不出来。
   // 真正可靠的信号是**事后**：括号被 `parenthesized-type.xl.md` 收成 `ParenthesizedType`
   // 之后，它的父亲就是 `ParenthesizedType`——那是「这个括号是括号类型」的确定结论。
-  // `ParenthesizedTypeReorganization.Process` 因此会在换父之后**重跑一遍括号自己的队列**，
+  // `ParenthesizedTypeCloseRule.Process` 因此会在换父之后**重跑一遍括号自己的队列**，
   // 这一条就是那一趟的入口。
   //
   // **不能写成「括号自己那一格按前文判」**（`IsTypeBracketPosition`）：那个判据把 `,` 与

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -47,12 +47,12 @@ import { Class } from "./class/class.xl.md"
 `.b` 留在外面（与「二元表达式还没有节点」是同一个层次的问题，等二元那一步一起解决）。
 `op` 属性把运算符文本记下来，所以下游不必再回到子单元里找。
 
-`UnaryOperatorReorganization` 写在 `UnaryOperator` 之前；
-`Root` 会在自己的重组队列里持有 `UnaryOperatorReorganization.Instance`，所以顺序不能反。
+`UnaryOperatorCloseRule` 写在 `UnaryOperator` 之前；
+`Root` 会在自己的规则队列里持有 `UnaryOperatorCloseRule.Instance`，所以顺序不能反。
 
-# class UnaryOperatorReorganization extends Reorganization
+# class UnaryOperatorCloseRule extends CloseRule
 
-## static readonly field Instance:UnaryOperatorReorganization = new UnaryOperatorReorganization()
+## static readonly field Instance:UnaryOperatorCloseRule = new UnaryOperatorCloseRule()
 
 唯一的实例。
 
@@ -92,7 +92,7 @@ if (unit instanceof Identifier) {
     text === "break" ||
     text === "continue" ||
     // **前缀运算符那几个词也不算操作数**（第 167 轮）✗：问这个判据的时候
-    // `KeywordReorganization` 还没跑 ✓，所以 `typeof` / `void` / `delete` 此刻
+    // `KeywordCloseRule` 还没跑 ✓，所以 `typeof` / `void` / `delete` 此刻
     // **还是 `Identifier`** ✓——不排掉的话 `typeof -x` 里那个 `-` 会被读成**二元减** ✗
     //（「前面是操作数」✗），一元那一趟接着折出那个畸形的单元 ✗，
     // 降级层报 `unimplemented: expression TypeOfKeyword` ✓。
@@ -160,7 +160,7 @@ return (
 ```
 
 **`Identifier` 那一支同样要排掉「语句关键字」**（与 `binary-operator.xl.md` 的 `IsOperand` 同一条）：
-本规则跑在 `KeywordReorganization`（队列最后）**之前**，`return` 那时还是 `Identifier` ✓。
+本规则跑在 `KeywordCloseRule`（队列最后）**之前**，`return` 那时还是 `Identifier` ✓。
 不排的话 `return -1;` 里 `-` 前面「看起来是操作数」→ 被当成二元减号而放走 ✗，
 一元那一支永远收不到它（实测：`UnaryOperator` 差 38 个里 29 个是「方法体里 `return -1`」这种形状）。
 
@@ -172,7 +172,7 @@ return (
 
 `-` / `+` 不在其列（它们既是一元也是二元，要再看前面），`++` / `--` 也不在（前缀后缀都行）。
 
-`typeof` / `void` / `delete` 走 `IsWordUnit`：位次上 `KeywordReorganization` 可能已经把
+`typeof` / `void` / `delete` 走 `IsWordUnit`：位次上 `KeywordCloseRule` 可能已经把
 它们升级成 `Keyword` 了，「找一个词」必须 `Identifier` 与 `Keyword` 都认（见 `declaration-common.xl.md`）。
 
 ```ts
@@ -208,13 +208,13 @@ return current instanceof SymbolToken && (current.Is("++") || current.Is("--"));
 - `-` / `+`：后面是操作数，**而且前面不是操作数**（否则那是二元加减）；
 - `++` / `--`：前面或后面是操作数即可。
 
-`!x` 与「非空断言 `x!`」的分别由 `NotNullReorganization` 负责（它只认后面那种），
+`!x` 与「非空断言 `x!`」的分别由 `NotNullCloseRule` 负责（它只认后面那种），
 两边不会抢：`!` 做前缀时它那边不成立，本规则才接手。
 
 **类型参数列表里的 `typeof` 不是一元运算**：`<Request extends typeof IncomingMessage = typeof IncomingMessage>`
 里的 `typeof X` 在 TypeScript 的 AST 里是 `TypeQueryNode`（类型查询），**不**产生 `PrefixUnaryExpression`。
 父单元是 `GenericType` 时一律不成立——实测 `@types/node/http.d.ts` 20 处、`http2.d.ts` 82 处
-全是这个形状（与 `MethodReorganization` 挡「类型实参段里的调用」是同一个道理）。
+全是这个形状（与 `MethodCloseRule` 挡「类型实参段里的调用」是同一个道理）。
 
 **`Parent === null` 时的 `typeof` 也要挡**（第 57 轮补）：词法阶段收编类型实参段的那一趟，
 这段文本**还没挂到任何父单元上**（`Parent` 是 `null`，见 `../generic-type.xl.md`），
@@ -261,7 +261,7 @@ if (this.IsPrefixSymbol(current)) {
   // **类型查询里的 `typeof` 不是值位一元运算** ✓（第 543 轮 ✓）——**父单元是 `TypeQuery` 时一律不折** ✗。
   //
   // 时序是这一条的全部理由 ✓（实测插桩，`tmp/recon/probe-unary-parent.cjs` ✓）：
-  // 类型位那一趟（`type-operator.xl.md` 的 `TypePrefixReorganization` ✓）**先把
+  // 类型位那一趟（`type-operator.xl.md` 的 `TypePrefixCloseRule` ✓）**先把
   // `typeof x` 收成 `TypeQuery`** ✓，之后**这个新单元自己也会关一次** ✓ ⇒ 它自己的 `Data`
   // 上又跑这一趟通用队列 ✓ —— 此刻那一格词的 `Parent` **正是 `TypeQuery`** ✓
   //（实测三份文件都是 `UP1DBG typeof parent=TypeQuery idx=0 n=2` ✓）。
@@ -382,7 +382,7 @@ return "";
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("UnaryOperatorReorganization.Process: current is null");
+  throw new Error("UnaryOperatorCloseRule.Process: current is null");
 }
 const afterIndex = SkipNextWrapSymbol(units, index);
 let after = Get(units, afterIndex);
@@ -550,7 +550,7 @@ return index + 1;
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## field op:string = ""

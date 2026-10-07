@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { SyntaxException } from "../../../core/exceptions/syntax-exception.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -29,15 +29,15 @@ import { ForeachEnumable } from "./foreach-enumable.xl.md"
 
 `foreach` / `for...in` 语句：把 `foreach (x in xs) { ... }` 这一串单元重组成一个 `Foreach`，里面分成 Define（`x`）、Enumable（`xs`）、Body（`{ ... }` 或单条语句）三段。
 
-重组规则类 `ForeachReorganization` **不进 `Data`、不进 XML**，所以它的类名随便取。反过来，`Foreach` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。
+收尾规则类 `ForeachCloseRule` **不进 `Data`、不进 XML**，所以它的类名随便取。反过来，`Foreach` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。
 
-# class ForeachReorganization extends Reorganization
+# class ForeachCloseRule extends CloseRule
 
-重组规则：`foreach` / `for` 加一对括号，括号里带 `in` 或 `of`，就整段换成一个 `Foreach`。
+收尾规则：`foreach` / `for` 加一对括号，括号里带 `in` 或 `of`，就整段换成一个 `Foreach`。
 
-它是 `for` 的重组规则的**补集**：`ForReorganization` 只在括号里**没有** `in` / `of` 时命中，这里只在**有** `in` / `of` 时命中——两者靠这一点区分「C 风格 for」与「for-in / foreach」。
+它是 `for` 的收尾规则的**补集**：`ForCloseRule` 只在括号里**没有** `in` / `of` 时命中，这里只在**有** `in` / `of` 时命中——两者靠这一点区分「C 风格 for」与「for-in / foreach」。
 
-## static readonly field Instance:ForeachReorganization = new ForeachReorganization()
+## static readonly field Instance:ForeachCloseRule = new ForeachCloseRule()
 
 唯一的实例。
 
@@ -219,16 +219,16 @@ return index;
 转调基类构造器，**并且把它自己的队列装上**。
 
 `for await (… of …)` 里的 `await` 是作为子单元留在 `Foreach` 里的（见 `Process`），
-而本单元是重组造出来的——关闭时通用队列早跑完了（`KeywordReorganization` 排在**最后**），
+而本单元是重组造出来的——关闭时通用队列早跑完了（`KeywordCloseRule` 排在**最后**），
 不补这一趟那个 `await` 就停在 `Identifier` 上（`st-for-await` 那条用例要的 `Keyword` 就是它）。
 
-装的是一条精简队列（`KeywordReorganization` + `WrapSymbolReorganization`，
-见 `../parse-pipeline.xl.md` 的 `InitialKeywordReorganizationQueue`）——本单元的内容都是
+装的是一条精简队列（`KeywordCloseRule` + `WrapSymbolCloseRule`，
+见 `../parse-pipeline.xl.md` 的 `InitialKeywordCloseRuleQueue`）——本单元的内容都是
 已经收好的语句段，不该再跑一遍表达式 / 语句规则。
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method CreateDefine:()=>ForeachDefine

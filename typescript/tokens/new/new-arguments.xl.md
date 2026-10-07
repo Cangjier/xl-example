@@ -9,7 +9,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`new` 表达式的实参段：`NewReorganization.Process` 把 `new Foo(a, b)` 里那对括号的内容整体搬进来；括号本身随后被换掉，只剩内容留在这里。
+`new` 表达式的实参段：`NewCloseRule.Process` 把 `new Foo(a, b)` 里那对括号的内容整体搬进来；括号本身随后被换掉，只剩内容留在这里。
 
 # class NewArguments extends IndependentToken
 
@@ -19,7 +19,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来——实参之间靠逗号切分成表达式。
+创建时把本类型的收尾规则挂上来——实参之间靠逗号切分成表达式。
 
 ```ts
 super(template);

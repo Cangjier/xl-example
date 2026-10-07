@@ -41,7 +41,7 @@ return result;
 
 认下这个开括号：新建一个 `Bracket`、用当前字符配成对应的括号对、挂到 `unit` 上并签入。
 
-**语句位置的 `{`（块）由 `LabelReorganization` 补语句队列**，这里不补：
+**语句位置的 `{`（块）由 `LabelCloseRule` 补语句队列**，这里不补：
 `{` 括号一律不设队列是既定设计（对象字面量的内容要保持平铺，函数体 / 分支体的队列由各自的规则
 从括号内容另建单元时装），在词法阶段判断「这个 `{` 是不是裸块」既不可靠（那时树还是平的）、
 也会让函数体 / `switch` 体被**重复重组**一遍。
@@ -66,8 +66,8 @@ unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
 前文的 `Identifier` / `SymbolToken` 全都就位，没有任何「后来才建出来的节点」，所以这个判定
 **不随重组时序变化** ✓。
 
-原来这件事是**事后**做的（`TypeLiteralReorganization` / `BinaryOperatorReorganization` /
-`SpreadReorganization` 各自往上找祖先），而规则被询问时树还不是最终的树 ——
+原来这件事是**事后**做的（`TypeLiteralCloseRule` / `BinaryOperatorCloseRule` /
+`SpreadCloseRule` 各自往上找祖先），而规则被询问时树还不是最终的树 ——
 实测同一个 `[` 在早期询问时 `Parent` 还指着 `Root`（`ArrayLiteral < Root`），
 最终树里却是 `TypeAssign < Statement < Root` ✗。祖先判据因此天然时序相关（第 32、34 轮三版皆败）。
 
@@ -107,7 +107,7 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 这个括号是在**类型位**还是**值位**上打开的：`"type"` / `"value"` / `""`（`{` / `[` 之外一律为空）。
 
 **在创建时刻算好**（见 `Success`）：那时前文还是词法阶段的平列表，判定结果与重组时序无关。
-`TypeLiteralReorganization` / `BinaryOperatorReorganization` / `SpreadReorganization` 用它的值代替
+`TypeLiteralCloseRule` / `BinaryOperatorCloseRule` / `SpreadCloseRule` 用它的值代替
 「往上找祖先」——那条路走不通，因为规则被询问时树还不是最终的树（`Parent` 可能还没更新）。
 
 判定逻辑在 `../text-common-util.xl.md` 的 `DecideBracketContext`。

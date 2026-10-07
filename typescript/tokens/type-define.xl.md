@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsMemberBoundary } from "./declaration-common.xl.md"
@@ -10,7 +10,7 @@ import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Get, ReplaceCountAt, SearchFront } from "../../core/extensions/list-extension.xl.md"
-import { JsonObjectReorganization } from "./json/object-literal.xl.md"
+import { JsonObjectCloseRule } from "./json/object-literal.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
 
@@ -20,15 +20,15 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 类型标注：把 `name: Type` 里的 `: Type` 那一段收成一个 `TypeDefine` 单元。它只在「类型位置」成立——三元表达式的 `?`、以及 Json 对象里的键值对都要排除。
 
-`TypeDefineReorganization` 写在 `TypeDefine` **之前**，与同目录其它 token 一致。
+`TypeDefineCloseRule` 写在 `TypeDefine` **之前**，与同目录其它 token 一致。
 
-# class TypeDefineReorganization extends Reorganization
+# class TypeDefineCloseRule extends CloseRule
 
 `Previous` 认的是「内容是 `:` 或 `?:` 的 `SymbolToken`，且**它前面没有** `?`，且它的父单元不是 Json 对象」。最后那条排除很关键：Json 对象里的 `{a: 1}` 也是冒号，但不是类型标注。
 
 `Process` 从冒号**之后**开始收集，直到 `;` / `,` / 赋值符号为止，整段装进 `TypeDefine`。
 
-## static readonly field Instance:TypeDefineReorganization = new TypeDefineReorganization()
+## static readonly field Instance:TypeDefineCloseRule = new TypeDefineCloseRule()
 
 唯一的实例。
 
@@ -38,7 +38,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 判定是一句合取：`index` 处是 `Is(":")` 或 `Is("?:")` 的 `SymbolToken`，并且往前**没有**问号（`SearchFront` 给 `-1`）。命中后再排除父单元是 Json 对象的情况。
 
-判定要调 `JsonObjectReorganization.Instance.IsObject(...)`（`json-object.xl.md` 里那个方法落成了实例方法）。
+判定要调 `JsonObjectCloseRule.Instance.IsObject(...)`（`json-object.xl.md` 里那个方法落成了实例方法）。
 
 ```ts
 const current = Get(units, index);
@@ -51,7 +51,7 @@ if (!(current.Is(":") || current.Is("?:"))) {
 if (SearchFront(units, index, (item) => item instanceof SymbolToken && item.Is("?")) !== -1) {
   return false;
 }
-if (current.Parent !== null && JsonObjectReorganization.Instance.IsObject(current.Parent)) {
+if (current.Parent !== null && JsonObjectCloseRule.Instance.IsObject(current.Parent)) {
   return false;
 }
 // **解构绑定里的 `:` 是重命名，不是类型标注**（第 66 轮第八批）：`const { b: c } = x` 的
@@ -172,22 +172,22 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，**并且把自己的重组队列装上**。
+转调基类构造器，**并且把自己的规则队列装上**。
 
-本单元是重组规则建出来的，它的内容（`:` 之后的类型文本）**没有**再被外层扫过一遍：
-外层那一趟里 `KeywordReorganization` 排在**最后**（这是必须的，结构规则要先看到 `Identifier`），
+本单元是收尾规则建出来的，它的内容（`:` 之后的类型文本）**没有**再被外层扫过一遍：
+外层那一趟里 `KeywordCloseRule` 排在**最后**（这是必须的，结构规则要先看到 `Identifier`），
 而 `TypeDefine` 在它之前就把类型文本收走了——类型位的关键词于是永远停在 `Identifier` 上
 （`function f(): void {}` 的 `void`、`let x: readonly string[]` 的 `readonly` 都这样）。
-给本单元挂上**类型队列**（只有 `KeywordReorganization` 一条，见
-`../../parse-pipeline.xl.md` 的 `InitialKeywordReorganizationQueue`）之后，它关闭时会再跑一趟，
-`KeywordReorganization` 这一趟就能看见里面的词。
+给本单元挂上**类型队列**（只有 `KeywordCloseRule` 一条，见
+`../../parse-pipeline.xl.md` 的 `InitialKeywordCloseRuleQueue`）之后，它关闭时会再跑一趟，
+`KeywordCloseRule` 这一趟就能看见里面的词。
 
-用类型队列而不是通用队列：通用队列里的 `TernaryOperatorReorganization` 会把**条件类型**
+用类型队列而不是通用队列：通用队列里的 `TernaryOperatorCloseRule` 会把**条件类型**
 `T extends U ? A : B` 收成表达式三元——类型位的 `? :` 不是三元表达式。
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

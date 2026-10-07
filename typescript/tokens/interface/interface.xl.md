@@ -35,7 +35,7 @@ import { SymbolToken } from "../symbol-token.xl.md"
 全都躺在宿主自己的平列表里——判据一个字符都不向前看。
 **它排在 `Bracket.JumpIn` 之前**：`{` 正是后者认的字符。
 
-**老写法（`InterfaceReorganization`）整条是「往后看」的**：它从 `interface` 那个词出发，
+**老写法（`InterfaceCloseRule`）整条是「往后看」的**：它从 `interface` 那个词出发，
 用 `NextIsCommonFlowerBracket` / `NextIsCommonExtendsCommonFlowerBracket` 一串帮助方法
 往后摸到 `{` 才敢认。搬进解析期之后那些帮助方法**全部不需要**了：
 判据从「往后看到体括号」换成「**头恰好用完**」——扫到列表末尾为止，
@@ -246,8 +246,8 @@ return result;
 ——多吃不写进属性就等于把它从 XML 里抹掉。
 
 **名字直接搬进去**（不像老写法那样「`TryToClose` 之后再 `unshift`」）：
-那条绕法是躲「名字后面紧跟 `(` 被 `MethodReorganization` 吃成调用表达式」——
-接口名后面只可能是 `<` / `extends` / `{`，而且本类**没有重组队列**，所以没有那一趟要躲。
+那条绕法是躲「名字后面紧跟 `(` 被 `MethodCloseRule` 吃成调用表达式」——
+接口名后面只可能是 `<` / `extends` / `{`，而且本类**没有规则队列**，所以没有那一趟要躲。
 
 ```ts
 const units = unit.Data;
@@ -312,7 +312,7 @@ interfaceUnit.MountedUnit = body;
 
 ## constructor:(template:Template)=>void
 
-只有转调：本类**不挂重组队列**（理由见类注释）。
+只有转调：本类**不挂规则队列**（理由见类注释）。
 
 ```ts
 super(template);

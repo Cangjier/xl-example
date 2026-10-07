@@ -2,7 +2,7 @@
 ```xl
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { BranchStates } from "../../core/syntax/branch-states.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Source } from "../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
@@ -19,7 +19,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 它只做顶点该做的事：关闭子单元、给出兜底与不退出行为、产出 XML、克隆。
 **装配职责已经摘走**（见 `../parse-pipeline.xl.md`）——它不再 import 任何具体 token，
-也不再持有 `GeneralQueue` / `GeneralReorganize`。原先它俩是 `Root` 的静态成员，
+也不再持有 `GeneralQueue` / `GeneralCloseRule`。原先它俩是 `Root` 的静态成员，
 逼着 `Root` 认识整个 token 层，而 token 层又反过来依赖 `Root`（循环依赖）。
 
 **JSON 出口的入口也在这里**：`Root.ToList()`（继承自基类）返回子单元的 AST JSON 数组，
@@ -59,7 +59,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 以模板创建；模板必须已经装配过通用队列。
 
-装配（装默认队列、装语句重组队列）都归 `ParsePipeline`（`Install` / `InitialStatementReorganizationQueue`），
+装配（装默认队列、装语句规则队列）都归 `ParsePipeline`（`Install` / `InitialStatementCloseRuleQueue`），
 这里只剩取 `ProcessQueue` 与那条契约检查。
 
 ```ts
@@ -71,7 +71,7 @@ if (processQueue === null) {
   );
 }
 this.ProcessQueue = processQueue;
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## protected method Close:()=>void

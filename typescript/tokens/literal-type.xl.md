@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -29,11 +29,11 @@ import { SymbolToken } from "./symbol-token.xl.md"
 先把 `T[]` / `keyof T` 成形，再把剩下的字面量包起来，最后才让联合 / 交叉去收
 （`A | "b"` 里那个 `"b"` 因此是 `UnionType` 的一个成员，而不是让它先去当操作数）。
 
-# class LiteralTypeReorganization extends Reorganization
+# class LiteralTypeCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:LiteralTypeReorganization = new LiteralTypeReorganization()
+## static readonly field Instance:LiteralTypeCloseRule = new LiteralTypeCloseRule()
 
 唯一的实例。
 
@@ -260,7 +260,7 @@ return true;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("LiteralTypeReorganization.Process: current is null");
+  throw new Error("LiteralTypeCloseRule.Process: current is null");
 }
 if (this.IsSignedNumberStart(units, index)) {
   const nextIndex = SkipNextWrapSymbol(units, index);

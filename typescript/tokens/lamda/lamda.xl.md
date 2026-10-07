@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack } from "../../../core/extensions/list-extension.xl.md"
@@ -10,8 +10,8 @@ import { Bracket } from "../bracket.xl.md"
 import { BinaryOperator } from "../binary-operator.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { Identifier } from "../identifier.xl.md"
-import { JsonObjectReorganization, ObjectLiteral } from "../json/object-literal.xl.md"
-import { JsonArrayReorganization } from "../json/array-literal.xl.md"
+import { JsonObjectCloseRule, ObjectLiteral } from "../json/object-literal.xl.md"
+import { JsonArrayCloseRule } from "../json/array-literal.xl.md"
 import { Method } from "../method.xl.md"
 import { ReturnType } from "../function/return-type.xl.md"
 import { Statement } from "../statement.xl.md"
@@ -28,13 +28,13 @@ import { LamdaParameters } from "./lamda-parameters.xl.md"
 
 Lambda 表达式：把 `()=>{}` / `p1=>statement` / `():xxx=>{}` 这三种形态从「参数 + `=>` + 体」重组成单个 `Lamda` 单元，参数收进 `LamdaParameters`，体收进 `LamdaBody`。
 
-重组规则类 `LamdaReorganization` 写在 `Lamda` **之前**（与同目录其它 token 一致）。
+收尾规则类 `LamdaCloseRule` 写在 `Lamda` **之前**（与同目录其它 token 一致）。
 
-# class LamdaReorganization extends Reorganization
+# class LamdaCloseRule extends CloseRule
 
 `Process` 是整个文件里最重的一段：它要把 `=>` 左边的东西收成 `LamdaParameters`（括号形参表拆成一个个 `Parameter`，或单个裸形参），把右边的东西收成 `LamdaBody`（花括号体直接搬家，语句体按表达式/语句两种终止规则截断）。
 
-## static readonly field Instance:LamdaReorganization = new LamdaReorganization()
+## static readonly field Instance:LamdaCloseRule = new LamdaCloseRule()
 
 唯一的实例。
 
@@ -52,7 +52,7 @@ Lambda 表达式：把 `()=>{}` / `p1=>statement` / `():xxx=>{}` 这三种形态
 **另外两类必须是函数类型**（第 54 轮补，实测各抓到一处误判）：
 
 - 父单元是 `GenericType`——类型实参段里没有箭头函数（`Array<(a: A) => B>` 的
-  `(a: A) => B` 是函数类型）。与 `MethodReorganization.Previous` / `BinaryOperatorReorganization.Previous`
+  `(a: A) => B` 是函数类型）。与 `MethodCloseRule.Previous` / `BinaryOperatorCloseRule.Previous`
   的同一句判据同型。
 - **括号套括号**，而且外层那个括号在类型位：`x: ((a: A) => B)`、`| ((host, cb) => void) | undefined`
   （`@types/node/stream.d.ts` / `dgram.d.ts` 里成片）。形参括号这时是外层括号内容列表的**第一项**，
@@ -81,7 +81,7 @@ if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) 
   //
   // **但冒号在对象字面量里是属性分隔符，不是类型标注**（第 77 轮）：
   // `const o = { a: (x, y) => x }` 里那个 `(` 往前看只有 `a:`，照上面这条会判成函数类型——
-  // `FunctionTypeReorganization` 排在 `Lamda` 之前，于是整条箭头被收成 `FunctionType`，
+  // `FunctionTypeCloseRule` 排在 `Lamda` 之前，于是整条箭头被收成 `FunctionType`，
   // 连形参表里的 `,` 都折成了逗号运算符。实测（`cases:align`）：缺 `ArrowFunction` 10 处 +
   // `FunctionType in ObjectLiteral` 10 处 + `BinaryOperator in Parameter` 4 处。
   //
@@ -99,7 +99,7 @@ if (previous instanceof SymbolToken && (previous.Is(":") || previous.Is("?:"))) 
   // **值三元的冒号也不是类型标注** ✓（第 364/365 轮 ✓，**实测撞到的** ✓）：
   // `flag ? (a: number) => a + 1 : (a: number) => a - 1` 里那个 `(` 往前看紧挨着**三元的 `:`** ✓，
   // 照上面那条一律判「类型标注 ⇒ 不是形参表」✗ ⇒ `FindParameters` 给 `-1` ✗ ⇒ 紧邻的
-  // `FunctionTypeReorganization`（它排在 `Lamda` **之前** ✓）把**假值段那个箭头**收成**函数类型** ✗
+  // `FunctionTypeCloseRule`（它排在 `Lamda` **之前** ✓）把**假值段那个箭头**收成**函数类型** ✗
   // ⇒ 降级层报 `unimplemented: expression FunctionType` ✓。
   // **判据与本文件下面那条同源** ✓（`?` 那一支用的就是 `HasExtendsMarker` ✓）：
   // 「左边有平级的 `?` 而且**没有** `extends`」是值三元 ✓、有 `extends` 才是条件类型 ✓
@@ -185,7 +185,7 @@ if (previous instanceof SymbolToken && previous.Is("?")) {
 if (previous instanceof SymbolToken && previous.Is("=")) {
   // `type F = (a: A) => B`（类型别名右值）与 `const f = (a) => b` 长得一样，
   // 差别只在等号左边是 `type X` 还是 `const x`。少了这一条，类型别名里的函数类型会被
-  // `FunctionTypeReorganization`（它排在 `TypeAssign` 之前）问出「是形参表」，
+  // `FunctionTypeCloseRule`（它排在 `TypeAssign` 之前）问出「是形参表」，
   // 于是既不产 `FunctionType` 也不产 `Lamda`（实测 `@types/node/fs.d.ts` 的
   // `export type NoParamCallback = (err: …) => void` 一片）。
   return this.IsTypeAliasAssignment(units, previousIndex) === false;
@@ -210,7 +210,7 @@ return true;
 - 上溯遇到还是括号的 **`{`** ⇒ 三条一起看：
   ① `Context !== "type"`——类型字面量 `type T = { … }` 的 `{` 在 `IsObject` 眼里是
   「对象开头」（前面是 `=`），只有 `Context` 分得开它；
-  ② 对象字面量规则自己认得它（`JsonObjectReorganization.IsObject`）；
+  ② 对象字面量规则自己认得它（`JsonObjectCloseRule.IsObject`）；
   ③ **它前面那一格是表达式位置**（符号，或 `return` / `typeof` 两个词）——这一条是实测补的：
   `IsObject` 只回答「对象字面量规则会不会接手」，而**命名空间体**
   （`declare module "x" { … }` 的 `{`，前面是模块名字符串）在那一刻也判「是」
@@ -227,7 +227,7 @@ for (let hop = 0; hop < 8 && node !== null; hop++) {
     return true;
   }
   if (node instanceof Bracket && node.startBracket === "{") {
-    if (node.Context === "type" || JsonObjectReorganization.Instance.IsObject(node) === false) {
+    if (node.Context === "type" || JsonObjectCloseRule.Instance.IsObject(node) === false) {
       return false;
     }
     if (node.Parent === null) {
@@ -503,7 +503,7 @@ return false;
 把形参表里的**逗号二元运算拆平**，按原文档顺序追加到 `out`。
 
 `(a, b) => x` 的形参括号在 `=>` **之前**就关闭了，它自己那一趟重组先把 `a, b` 收成了一个
-`BinaryOperator op=","`（三个以上形参还会左嵌套：`((a, b), c)`）。轮到 `LamdaReorganization` 时，
+`BinaryOperator op=","`（三个以上形参还会左嵌套：`((a, b), c)`）。轮到 `LamdaCloseRule` 时，
 形参表里已经没有逗号 `SymbolToken` 了——按旧写法往下切分，`(a, b, c) => x` 会得到**一个**
 `Parameter`，里面装着那个逗号二元运算（`ComputeParametersCount` 也跟着报 1 个形参）。
 
@@ -542,7 +542,7 @@ out.push(item);
   于是 `() => 1;` 的体会连 `;` 一起吞掉。整体上看不出问题（`LamdaBody` 关的时候那个孤零零的 `;`
   被语句重组的早退删掉了），可它把**外层的分号也一起吃了**——
   `for (; () => 1; ) {}` 的条件括号里本来就只有两个 `;`，少一个之后
-  `ForReorganization.Process` 找不到第二段，直接抛「`(...)`中语句不满足格式要求」。
+  `ForCloseRule.Process` 找不到第二段，直接抛「`(...)`中语句不满足格式要求」。
   所以收尾统一把末尾的 `;` 一路退掉，把它们留在外面（**循环退**：`for (() => 1; ; )` 的实参列表
   那条分支会退到最后一个单元，那里连着两个 `;`）。
   **这一步必须在两条分支合流之后做**：实参列表那条分支（`IsObject` / `IsMethod`）
@@ -554,7 +554,7 @@ out.push(item);
   换行若被收进 `LamdaBody`，后面语句重组就再也看不到那个边界了——
   `x => x` 与下一行于是收进同一个 `Statement`（`cases:boundaries` 报「被 `<Statement>` 横跨」）。
   所以收尾处再退掉一层 `LineWrap`，把换行留在外面。
-  软的换行本来就不进产物（`WrapSymbolReorganization` 会摘掉它），留它在外面只是让它继续当边界。
+  软的换行本来就不进产物（`WrapSymbolCloseRule` 会摘掉它），留它在外面只是让它继续当边界。
   这一条与上一条同型：**边界字符不属于左侧表达式**。
   **不能无条件改用 `SearchStatementEnd` 兜底**：实参列表里 `1` 换行再 `+ 2` 时，
   它会在那个软换行上判出语句结尾，`+ 2` 就被漏在箭头函数外面了。
@@ -567,7 +567,7 @@ out.push(item);
   于是一旦有人克隆这个 lambda，就会抛 `SourceException: SourceRange.Start == null`。
   实际触发路径很短：`x => x` 换行 `a.b += 1`——复合赋值规则要把等号左边那一段逐个克隆，
   而它的起点搜索会把前面那个 `Lamda` 一起圈进来。起点取 `rangeStart`（含 `async`）。
-- `JsonObjectReorganization.IsObject` 是单参数版（`IsObjectAt` 才是列表版）。
+- `JsonObjectCloseRule.IsObject` 是单参数版（`IsObjectAt` 才是列表版）。
 - `current?.Parent` 可能是 `undefined`，而 `IsObject` / `IsMethod` 的形参只接受 `null`，所以补 `?? null`。
 
 ```ts
@@ -671,9 +671,9 @@ if (next instanceof Bracket && next.startBracket === "{") {
   // 结果是 `xs.length` 给 `1`、`xs[1]` 给 `undefined` ✗（**静默错值** ✗，Node 给两个函数 ✓）。
   // 对象字面量与实参表早就有这一支 ✓（`IsObject` / `IsMethod` ✓），数组字面量是**同一件事**
   //（逗号分隔的元素表 ✓），所以并进这一条判据 ✓——`IsArray` 与 `IsObject` 同源 ✓。
-  if (JsonObjectReorganization.Instance.IsObject(current?.Parent ?? null)
-    || JsonArrayReorganization.Instance.IsArray(current?.Parent ?? null)
-    || LamdaReorganization.IsMethod(current?.Parent ?? null)) {
+  if (JsonObjectCloseRule.Instance.IsObject(current?.Parent ?? null)
+    || JsonArrayCloseRule.Instance.IsArray(current?.Parent ?? null)
+    || LamdaCloseRule.IsMethod(current?.Parent ?? null)) {
     endIndex = SearchBack(units, index + 1, (x) => x instanceof SymbolToken && x.Is(","));
     if (endIndex !== -1) {
       endIndex--;
@@ -692,7 +692,7 @@ if (next instanceof Bracket && next.startBracket === "{") {
   // **三元的那个 `:` 不属于箭头的体** ✓（第 351 轮 ✓，**实测撞到的** ✓）：
   // `flag ? () => "yes" : () => "no"` 里体原来一路吃到**行尾** ✓
   //（`Statement.SearchStatementEnd` ✓），把 `: () => "no"` 整段吞进了 `<LamdaBody>` ✗——
-  // 于是 `TernaryOperatorReorganization` **再也看不到那个 `:`** ✓：实测 token 流里只有
+  // 于是 `TernaryOperatorCloseRule` **再也看不到那个 `:`** ✓：实测 token 流里只有
   // `SymbolToken("?")` + **一个 `Lamda`** ✓、**没有 `TernaryOperator`** ✗，
   // 降级层拿到一个光秃秃的 `?` ✓ ⇒ 运行时报「binary operator ?」✓
   //（**一句话里没有一个字提到箭头** ✗）。

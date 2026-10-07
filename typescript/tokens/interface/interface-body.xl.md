@@ -22,7 +22,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 - **嵌套靠挂载链**：体里再出现 `{` 时由通用队列另挂一个 `Bracket`，期间本单元根本没被调用
   ⇒ 见到的 `}` 必定是自己那一层的——**不数深度**。
 
-成员列表的跳转队列挂在本单元上（见构造器）：`{ }` 括号本身**没有**重组队列
+成员列表的跳转队列挂在本单元上（见构造器）：`{ }` 括号本身**没有**规则队列
 （见 `../bracket.xl.md` 的 `Use`），所以体在括号关闭时是散着的 `Identifier` / `SymbolToken`；
 把语句队列挂在这一段上，成员（字段声明、方法签名）才有成形的时机。
 
@@ -34,12 +34,12 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**重组队列。
+创建后立刻做两件事：挂**成员列表**的跳转队列、挂**语句**规则队列。
 
 ```ts
 super(template);
 this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Owns:(source:Source)=>bool

@@ -9,13 +9,13 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-`new` 表达式的类型段：`NewReorganization.Process` 把 `new` 关键字之后、实参括号之前的所有单元（命名空间限定名、泛型实参、可能的嵌套括号）都收进来。
+`new` 表达式的类型段：`NewCloseRule.Process` 把 `new` 关键字之后、实参括号之前的所有单元（命名空间限定名、泛型实参、可能的嵌套括号）都收进来。
 
 # class NewType extends IndependentToken
 
 `new` 表达式里被构造的类型。
 
-与 `NewArguments` / `ForeachDefine` 不同，它**没有**在构造器里挂重组队列——类型段的内部结构由搬进来的单元自己做。
+与 `NewArguments` / `ForeachDefine` 不同，它**没有**在构造器里挂规则队列——类型段的内部结构由搬进来的单元自己做。
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<NewType>` 里是类型名各部分的 XML。
 
@@ -28,7 +28,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
     new(str: string): Buffer  →  <New><NewType><Bracket>(str: string)</Bracket></NewType>…
 
 值位 `new Foo(1, 2)` 的 `NewType` 装的是被调者名字（`Foo`），构造签名装的是**形参括号**。
-`ParameterReorganization` 锚在那个括号上、改的是它自己的内容，所以必须有人来扫描
+`ParameterCloseRule` 锚在那个括号上、改的是它自己的内容，所以必须有人来扫描
 `NewType` 的内容——没有队列时那一趟根本不存在，构造签名的形参永远收不出来
 （实测 `cases:align` 的 `Parameter` 缺 934 处全是它）。
 

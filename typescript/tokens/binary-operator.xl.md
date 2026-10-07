@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -54,16 +54,16 @@ import { Class } from "./class/class.xl.md"
 已经被类型规则（联合/交叉、`GenericType`）收走；把它们也当二元运算符会直接打坏类型解析。
 `&&` / `||` 也不在内——它们早就有 `LogicalOperator` 了。
 
-`BinaryOperatorReorganization` 写在 `BinaryOperator` 之前；
-`Root` 会在自己的重组队列里持有这些实例，所以顺序不能反。
+`BinaryOperatorCloseRule` 写在 `BinaryOperator` 之前；
+`Root` 会在自己的规则队列里持有这些实例，所以顺序不能反。
 
-# class BinaryOperatorReorganization extends Reorganization
+# class BinaryOperatorCloseRule extends CloseRule
 
 ## constructor:(operators:Array<string>)=>void
 
 一个实例负责**一个优先级层**的一组运算符（`["*", "/", "%"]` 这样）。
 
-列表存进 `Operators` 字段；`Instance` 之外的实例都由 `ParsePipeline.GeneralReorganize` 直接 `new` 出来。
+列表存进 `Operators` 字段；`Instance` 之外的实例都由 `ParsePipeline.GeneralCloseRule` 直接 `new` 出来。
 
 ```ts
 super();
@@ -74,44 +74,44 @@ this.Operators = operators;
 
 本实例负责的运算符文本。
 
-## static readonly field PowerInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["**"])
+## static readonly field PowerInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["**"])
 
 乘方（最高优先级）。
 
-## static readonly field MultiplicativeInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["*", "/", "%"])
+## static readonly field MultiplicativeInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["*", "/", "%"])
 
 乘除取余。
 
-## static readonly field AdditiveInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["+", "-"])
+## static readonly field AdditiveInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["+", "-"])
 
 加减。
 
-## static readonly field ShiftInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["<<", ">>", ">>>"])
+## static readonly field ShiftInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["<<", ">>", ">>>"])
 
 移位。
 
-## static readonly field RelationalInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["<=", ">="])
+## static readonly field RelationalInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["<=", ">="])
 
 大小比较。**只收 `<=` / `>=`**：单独的 `<` / `>` 与泛型实参同形，
 `GenericTypeBranch` 在词法阶段就要靠它们配对，语法层再动它们会互相打坏。
 
-## static readonly field EqualityInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["==", "!=", "===", "!=="])
+## static readonly field EqualityInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["==", "!=", "===", "!=="])
 
 相等比较。
 
-## static readonly field InInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["in"])
+## static readonly field InInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["in"])
 
 `k in obj`（`in` 是关键字，见 `../parse-pipeline.xl.md` 的 `KeyWords`）。
 
-## static readonly field InstanceofInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["instanceof"])
+## static readonly field InstanceofInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["instanceof"])
 
 `x instanceof C`。
 
-## static readonly field LogicalAssignmentInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["&&", "||"])
+## static readonly field LogicalAssignmentInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["&&", "||"])
 
 `&&=` / `||=` 展开出来的那一步。
 
-`CompoundAssignmentOperatorReorganization` 把 `a &&= b` 展开成 `a = a && b` 时，
+`CompoundAssignmentOperatorCloseRule` 把 `a &&= b` 展开成 `a = a && b` 时，
 中间那个 `&&` 是本规则（`BinaryOperator`）收的——但普通的 `a && b` 走的是 `LogicalOperator`，
 于是**同一族运算符在两种来源下落到不同节点**（实测：`a &&= b` 的产物是
 `<LogicalOperator op="And">`，而 TypeScript 把它记成 `BinaryExpression` +
@@ -120,7 +120,7 @@ this.Operators = operators;
 `SymbolToken.FromCompoundAssignment` 标记正好是判据：只有**复合赋值切开后插回来的**那份运算符
 带这个标记，所以 `IsOperator` 认它、而普通的 `a && b` 仍然照旧走 `LogicalOperator`。
 
-## static readonly field CommaInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization([","])
+## static readonly field CommaInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule([","])
 
 逗号（序列）表达式 `(a, b)`，优先级最低。
 
@@ -129,7 +129,7 @@ this.Operators = operators;
 变量声明的多声明符、`for` 子句——它们的分隔符都是 `,`。
 判据只认一种形状：**`(` 括号内部的顶层 `,`**（参数表 / 实参表同样是 `(`，靠调用方排除）。
 
-## static readonly field BitwiseInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["|", "&", "^"])
+## static readonly field BitwiseInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["|", "&", "^"])
 
 位运算 `a | b` / `a & b` / `a ^ b`（值位）。
 
@@ -141,7 +141,7 @@ this.Operators = operators;
 优先级放在相等比较与 `in` 之间（与 TypeScript 的 `&` > `^` > `|` 简化成一层：
 真实代码里混写这三种且不写括号的情况极少，拆成三层收益不成比例）。
 
-## static readonly field NullishInstance:BinaryOperatorReorganization = new BinaryOperatorReorganization(["??"])
+## static readonly field NullishInstance:BinaryOperatorCloseRule = new BinaryOperatorCloseRule(["??"])
 
 空值合并 `a ?? b`。
 
@@ -320,7 +320,7 @@ return false;
 这是差分账上最后 34 个 `BinaryOperator` 的主要形状（取样里 `?.` 与 `.` 链各占一半，
 而**普通 `.` 链本来就能折**，差别正在这里）。
 
-**`Identifier` 那一支要排掉「语句关键字」**（这一条是实测补的）：本规则跑在 `KeywordReorganization`
+**`Identifier` 那一支要排掉「语句关键字」**（这一条是实测补的）：本规则跑在 `KeywordCloseRule`
 （队列最后）**之前**，所以那时 `return` / `throw` 这些词**还是 `Identifier`** ✓ ——
 按「是个 `Identifier` 就能当操作数」判，`return -1;` 会被折成
 `<BinaryOperator op="-"><Keyword>return</Keyword>…` ✗（实测产物就是这个），
@@ -346,7 +346,7 @@ return false;
 `index` 处是不是**本层的一个二元运算符**，而且左右两边都是操作数。
 
 父单元是 `GenericType` 时一律不成立（类型实参段里的东西不是表达式，
-与 `MethodReorganization` / `UnaryOperatorReorganization` 同一条判据）。
+与 `MethodCloseRule` / `UnaryOperatorCloseRule` 同一条判据）。
 
 父单元是 `[` 括号时也一律不成立：那是**映射类型**（`{ [K in keyof T]: T[K] }`）
 与索引签名（`[key: string]: T`）的地盘，`in` 是类型语法的一部分、不是运算符。
@@ -390,7 +390,7 @@ if (current.Parent !== null && current.Parent.constructor.name === "TypeParamete
 // 而 `(` 的 `Context` 因此永远不是我们要的那一档 ✓。插桩也确认了这一点 ✓：
 // 那一刻的 `Parent`/祖父都是 `Bracket` ✓——**NCO 还没成形** ✓。
 // 但 `?.` 这个记号**已经在列表里了** ✓（它是一个 `SymbolToken` ✓，
-// `NullConditionalOperatorReorganization.Previous` 就是靠 `item.Is("?.")` 认它的 ✓），
+// `NullConditionalOperatorCloseRule.Previous` 就是靠 `item.Is("?.")` 认它的 ✓），
 // 所以问「括号前面那一个单元是不是 `?.`」在**任何时刻**都问得准 ✓。
 //
 // **为什么这条判据是准的** ✓：`?.(` 后面**只可能是实参表** ✓——
@@ -412,8 +412,8 @@ if (current.Parent instanceof Bracket && current.Parent.startBracket === "(") {
 }
 // **`for (const k in obj)` 头里那个 `in` 不是运算符** ✗（第 551 轮 ✓）。
 //
-// 它是 `for…in` 的**分隔词** ✓ —— `ForeachReorganization.Previous` 认的就是它 ✓
-// （见 `foreach.xl.md` ✓，那一条与 `ForReorganization` 是**互补**的两半 ✓）。
+// 它是 `for…in` 的**分隔词** ✓ —— `ForeachCloseRule.Previous` 认的就是它 ✓
+// （见 `foreach.xl.md` ✓，那一条与 `ForCloseRule` 是**互补**的两半 ✓）。
 // 可括号**先关** ✗：括号自己那一趟里 `InInstance` 先把 `k in obj` 折成了一个
 // `BinaryOperator` ✗ ⇒ 轮到 `Foreach` 时括号里**已经没有那个词**了 ✗
 // ⇒ 整条 `for…in` 不成形 ✓（实测三份：`st-for-in.ts` 6 缺 ✓ /
@@ -543,7 +543,7 @@ return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
 `unit` 是不是「**还能把右边继续吃下去**」的那个东西（第 373 轮 ✓）——
 用来回答「这一格运算符的右操作数**长完了没有**」✓。
 
-**为什么需要这一问** ✗：`a += b` 会被 `CompoundAssignmentOperatorReorganization` 展开成单元序列
+**为什么需要这一问** ✗：`a += b` 会被 `CompoundAssignmentOperatorCloseRule` 展开成单元序列
 `a` `=` `a` `+` `b` ✓（见 `compound-assignment-operator.xl.md` ✓）——
 **插进来的那个 `+` 不是用户写的** ✓，它要表达的是「`op=` 这个符号」✓，
 所以它的**右操作数是整个赋值右侧** ✓（JS 里赋值右侧是一个完整的 AssignmentExpression ✓），
@@ -585,7 +585,7 @@ if (text === "?") {
 if (unit.Template.SymbolTemplate.IsCompareSymbol(text)) {
   return true;
 }
-return BinaryOperatorReorganization.AllOperatorTexts.indexOf(text) !== -1;
+return BinaryOperatorCloseRule.AllOperatorTexts.indexOf(text) !== -1;
 ```
 
 ## static readonly field AllOperatorTexts:Array<string> = ["**", "*", "/", "%", "+", "-", "<<", ">>", ">>>", "&", "|", "^", "&&", "||", "??", "in", "instanceof"]
@@ -795,7 +795,7 @@ return true;
 `index` 之前的**同一个列表**里有没有一个已经成形的声明头 `Let`。
 
 `let a = 1, b = 2` 里那个 `,` 是**声明符之间的分隔符**，不是逗号表达式。
-本规则跑在 `LetReorganization` 之后，那个 `Let` 就摆在同一个语句列表里，
+本规则跑在 `LetCloseRule` 之后，那个 `Let` 就摆在同一个语句列表里，
 产物于是成了 `<Statement><Let fieldName="a" /> = <BinaryOperator op=",">1, b</BinaryOperator> = 2</Statement>`
 ——第二个声明符的名字 `b` 被卷进了一个**逗号表达式**（TS 那边是两个 `VariableDeclaration`，
 没有任何 `BinaryExpression`），而且 `= 2` 还落在了那个假表达式外面。
@@ -861,14 +861,14 @@ return parent.constructor.name === "Statement";
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("BinaryOperatorReorganization.Process: current is null");
+  throw new Error("BinaryOperatorCloseRule.Process: current is null");
 }
 const beforeIndex = SkipPreviousWrapSymbol(units, index);
 const afterIndex = SkipNextWrapSymbol(units, index);
 let before = Get(units, beforeIndex);
 const after = Get(units, afterIndex);
 if (before === null || after === null) {
-  throw new Error("BinaryOperatorReorganization.Process: 两侧缺操作数");
+  throw new Error("BinaryOperatorCloseRule.Process: 两侧缺操作数");
 }
 // **`?.` 链是一条链，不是一格**（第 156 轮）✗：`o?.b?.c ?? 0` 到这一步时，
 // 待处理的是 `Identifier(o)` / `NCO(b)` / `NCO(c)` / `??` / `0` ✓——
@@ -907,7 +907,7 @@ if (before instanceof NullConditionalOperator && beforeBefore instanceof NullCon
   startIndex = cursor;
   before = Get(units, startIndex);
   if (before === null) {
-    throw new Error("BinaryOperatorReorganization.Process: 链的起点没了");
+    throw new Error("BinaryOperatorCloseRule.Process: 链的起点没了");
   }
 }
 // **左操作数是 `As` / `Satisfies` 时要连它的基名一起收进来** ✓（第 288 轮 ✗）——
@@ -937,7 +937,7 @@ if (asCursor !== startIndex) {
   startIndex = asCursor;
   before = Get(units, startIndex);
   if (before === null) {
-    throw new Error("BinaryOperatorReorganization.Process: `as` 的基名没了");
+    throw new Error("BinaryOperatorCloseRule.Process: `as` 的基名没了");
   }
 }
 const result = new BinaryOperator(template);
@@ -1024,17 +1024,17 @@ return ReplaceCountAt(units, startIndex, afterIndex - startIndex + 1, result);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，**并且把自己的重组队列装上**。
+转调基类构造器，**并且把自己的规则队列装上**。
 
-本单元是重组规则建出来的，它的内容（左右操作数与运算符）**没有**再被外层扫过一遍，
-`KeywordReorganization` 排在通用队列最后、轮不到它里面的词——
+本单元是收尾规则建出来的，它的内容（左右操作数与运算符）**没有**再被外层扫过一遍，
+`KeywordCloseRule` 排在通用队列最后、轮不到它里面的词——
 `k in obj` 的 `in`、`x instanceof Y` 的 `instanceof` 于是停在 `Identifier` 上。
-挂上类型队列（`../parse-pipeline.xl.md` 的 `InitialKeywordReorganizationQueue`）之后，
-它关闭时会再跑一趟，`KeywordReorganization` 这一趟就能看见里面的词。
+挂上类型队列（`../parse-pipeline.xl.md` 的 `InitialKeywordCloseRuleQueue`）之后，
+它关闭时会再跑一趟，`KeywordCloseRule` 这一趟就能看见里面的词。
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## field op:string = ""
@@ -1050,8 +1050,8 @@ ParsePipeline.InitialKeywordReorganizationQueue(this);
 `Bracket` 的 `(` / `)` 没有这个问题，所以那边没这一步。
 
 `op` 里装的运算符（`in` / `instanceof`）也**要能升级成关键字**：
-本单元是重组规则建出来的，它的内容不会再被外层扫一遍，所以构造器里挂了
-`InitialKeywordReorganizationQueue`（与 `TypeDefine` / `Export` / `Let` 同一做法）。
+本单元是收尾规则建出来的，它的内容不会再被外层扫一遍，所以构造器里挂了
+`InitialKeywordCloseRuleQueue`（与 `TypeDefine` / `Export` / `Let` 同一做法）。
 
 ```ts
 const name = this.constructor.name;

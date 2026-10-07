@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -19,7 +19,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 `T[K]` 收成 `IndexedAccessType`。
 
 第 66 轮之前这三种**都没有节点**：`T[]` 与 `[A, B]` 都落成一对裸 `Bracket`
-（`[A, B]` 有时被 `JsonArrayReorganization` 收成值位的 `ArrayLiteral`，**同一个类型两种产物**），
+（`[A, B]` 有时被 `JsonArrayCloseRule` 收成值位的 `ArrayLiteral`，**同一个类型两种产物**），
 `T[K]` 也一样是裸括号。内容一个都没丢，可「这是数组类型 / 元组类型 / 下标访问类型」这件事
 在树里看不出来——`typescript/lib/*.d.ts` 里这种写法遍地都是。
 
@@ -32,11 +32,11 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 （与 `ObjectLiteral` / `ArrayLiteral` 同一口径：括号是语法、标签已经把它说清楚了），
 所以 `T[]` 无论前面是 `GenericType` 还是 `)`，产物都是同一个形状。
 
-# class TypeBracketReorganization extends Reorganization
+# class TypeBracketCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:TypeBracketReorganization = new TypeBracketReorganization()
+## static readonly field Instance:TypeBracketCloseRule = new TypeBracketCloseRule()
 
 唯一的实例。
 
@@ -60,7 +60,7 @@ return IsOwnContentRange(units, startIndex, endIndex);
 
 `index` 处是不是本次重组的起点。
 
-三条：单元是 `[` 开头的 `Bracket`、**或**已经被 `JsonArrayReorganization` 收成 `ArrayLiteral`
+三条：单元是 `[` 开头的 `Bracket`、**或**已经被 `JsonArrayCloseRule` 收成 `ArrayLiteral`
 的类型位方括号（`[A, B]` 与 `Dirent<X>[]` 都会走这一支）；
 **容器**是纯类型容器（`IsTypeContainerUnit`）；不是成员开头（`IsTypeMemberStart`）。
 
@@ -105,7 +105,7 @@ return true;
 
 **方括号本身不进产物**（与 `ObjectLiteral` / `ArrayLiteral` 同一口径）。两种来路因此**产物同形**：
 
-- `Dirent<X>[]` 的空括号被 `JsonArrayReorganization` 先收成了 `ArrayLiteral`（内容为空），
+- `Dirent<X>[]` 的空括号被 `JsonArrayCloseRule` 先收成了 `ArrayLiteral`（内容为空），
 - `(A | B)[]` 的括号前面是另一个括号，`IsArrayAt` 判否、留成 `Bracket`（内容也是空），
 
 两条路都走 `MoveDataTo` 把**括号里的内容**搬进新节点，所以 `T[]` 的产物一律是
@@ -125,7 +125,7 @@ return true;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("TypeBracketReorganization.Process: current is null");
+  throw new Error("TypeBracketCloseRule.Process: current is null");
 }
 const previousIndex = SkipPreviousWrapSymbol(units, index);
 const previous = Get(units, previousIndex);
@@ -199,7 +199,7 @@ return index;
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method PrintAst:(ctx:any, v:any)=>any
@@ -233,7 +233,7 @@ return result;
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method PrintAst:(ctx:any, v:any)=>any
@@ -297,7 +297,7 @@ return result;
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
@@ -33,17 +33,17 @@ import { LineWrap } from "../line-wrap.xl.md"
 （`foo(a);`）只差一个 `{`，所以判定的重心全在 `ScanDeclarationTail` 上：它跨得过分行写的返回类型，
 但要被下一条语句的关键字拦住（`let` / `class` / `type` …），详见 `../declaration-common.xl.md`。
 
-它必须排在 `MethodReorganization` **之前**（见 `../parse-pipeline.xl.md` 的队列顺序）：
+它必须排在 `MethodCloseRule` **之前**（见 `../parse-pipeline.xl.md` 的队列顺序）：
 `function (x) { }`（函数表达式）里的 `function (x)` 本身长着「名字 + 括号」的样子，
-`MethodReorganization` 先跑就会把它吃掉，`function` 这个关键字就再也配不上名字了。
+`MethodCloseRule` 先跑就会把它吃掉，`function` 这个关键字就再也配不上名字了。
 
-`FunctionReorganization` 写在 `Function` **之前**。
+`FunctionCloseRule` 写在 `Function` **之前**。
 
-# class FunctionReorganization extends Reorganization
+# class FunctionCloseRule extends CloseRule
 
-## static readonly field Instance:FunctionReorganization = new FunctionReorganization()
+## static readonly field Instance:FunctionCloseRule = new FunctionCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## private method ParameterIndex:(units:Array<Token>, index:int)=>int
 
@@ -203,12 +203,12 @@ if (bodyIndex >= 0) {
 result.TryToClose();
 // **名字单元留在树里**——但必须**等本单元的重组跑完**再放进去（这一条是踩出来的）：
 //
-// 名字（`f`）后面紧跟参数表那个 `(`，而重组队列里有一条「`Identifier` + `Bracket(paren)` ⇒
+// 名字（`f`）后面紧跟参数表那个 `(`，而规则队列里有一条「`Identifier` + `Bracket(paren)` ⇒
 // `Method`（调用表达式）」的规则。用 `AddAndCloseLast` 那套加名字，重组会把它当成一次**调用**：
 // 实测 `function f() {}` 变成 `<Method name="f">`、`function* g() {}` 变成 `<BinaryOperator op="*">`。
 // `Class` 那边没有这个问题，纯属运气好——类名后面跟的是 `<` / `extends` / `{`。
 //
-// 所以这里**绕过重组队列**：`TryToClose()` 之后本单元的 `Data` 已经不会再被自己扫描，
+// 所以这里**绕过规则队列**：`TryToClose()` 之后本单元的 `Data` 已经不会再被自己扫描，
 // 直接 `unshift` 到最前面即可（位置也与 TS 的 `FunctionDeclaration.name` 一致）。
 // 匿名函数（`function ()` / `function* ()`）在这里 `nameUnit` 不是 `Identifier`，自然不收。
 if (nameUnit instanceof Identifier) {
@@ -229,7 +229,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来（模板里没有专门给 `Function` 注册就用通用队列）。
+创建时把本类型的收尾规则挂上来（模板里没有专门给 `Function` 注册就用通用队列）。
 
 理由与 `Class` 的构造器相同：返回类型那几个单元是在 `Process`
 里被搬进来的，不给 `Function` 自己的队列，`:` 那一段就凑不成 `TypeDefine`、关键字也升不了级。
@@ -259,7 +259,7 @@ return this.Add(new FunctionBody(this.Template));
 
 新建返回类型段并挂到自己名下，返回新单元。
 
-返回类型单独成段是必须的：`TypeDefineReorganization` 从 `:` 起贪婪地收，直到 `;` / `,` / 赋值符号为止——
+返回类型单独成段是必须的：`TypeDefineCloseRule` 从 `:` 起贪婪地收，直到 `;` / `,` / 赋值符号为止——
 函数体不是终止符，返回类型一旦与方法体同级，`TypeDefine` 就会把函数体整个吞进去
 （见 `./return-type.xl.md`）。
 

@@ -10,10 +10,10 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-命名空间体：`NamespaceReorganization.Process` 把 `namespace N { ... }` 那对花括号的内容搬进来，
+命名空间体：`NamespaceCloseRule.Process` 把 `namespace N { ... }` 那对花括号的内容搬进来，
 之后这一段自己再跑一遍**通用 + 语句**重组，把体内的声明（`interface` / `class` / `function` / `const` / `enum` / 嵌套 `namespace`）逐个收成节点。
 
-`{ }` 括号本身**没有**重组队列（见 `../bracket.xl.md` 的 `Use`：`Use("{")` 不设 `CloseRuleQueue`），
+`{ }` 括号本身**没有**规则队列（见 `../bracket.xl.md` 的 `Use`：`Use("{")` 不设 `CloseRuleQueue`），
 所以命名空间体在括号关闭时是散着的 `Identifier` / `SymbolToken`。把语句队列挂在这一段上，体内的声明才有成形的时机——
 这正是 `InterfaceBody` / `ClassBody` 走的那条路。
 
@@ -21,7 +21,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 `declare namespace NodeJS { … }` 里，体不跑重组，体内所有 interface / class / function 就都不成节点
 （审计：真实语料 4538 个 interface 声明只产出 2856 个节点，其中 1456 个正是被这一条连累的）。
 
-语句重组队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
 
 # class NamespaceBody extends IndependentToken
 
@@ -31,11 +31,11 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建后立刻把语句重组规则挂上自己的重组队列——命名空间体里是一串声明。
+创建后立刻把语句收尾规则挂上自己的规则队列——命名空间体里是一串声明。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

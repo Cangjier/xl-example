@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -42,11 +42,11 @@ TypeScript 那边的形状（实测 AST）：
 与 TS 一致：`ExpressionWithTypeArguments` 的 `expression` 是名字、`typeArguments` 是那段实参，
 区间覆盖两者 ✓。
 
-# class HeritageClauseReorganization extends Reorganization
+# class HeritageClauseCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:HeritageClauseReorganization = new HeritageClauseReorganization()
+## static readonly field Instance:HeritageClauseCloseRule = new HeritageClauseCloseRule()
 
 唯一的实例。
 
@@ -119,7 +119,7 @@ return true;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("HeritageClauseReorganization.Process: current is null");
+  throw new Error("HeritageClauseCloseRule.Process: current is null");
 }
 const endIndex = this.ClauseEnd(units, index);
 const items: Array<Token> = [];
@@ -144,7 +144,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, clause);
 这个单元是不是 `extends` / `implements` 这两个词之一（两种形态都认：没升级的 `Identifier`
 与已升级的 `Keyword` ✓）。
 
-**这一条原来在 `HeritageClauseReorganization` 上** ✓，现在搬到这里 ✓：
+**这一条原来在 `HeritageClauseCloseRule` 上** ✓，现在搬到这里 ✓：
 类头在 `{` 那一刻也要用同一个判据 ✓（同一个问题一份答案 ✓）。
 
 ```ts
@@ -159,9 +159,9 @@ return word === "extends" || word === "implements";
 
 这条子句的终点（含）：走到**下一个 `implements`** 之前、或者**体节点 / 体括号**之前。
 
-**这一条原来也在 `HeritageClauseReorganization` 上** ✓，同样搬过来共用 ✓——
+**这一条原来也在 `HeritageClauseCloseRule` 上** ✓，同样搬过来共用 ✓——
 两处的差别只有一处：类头那边此刻**类体还没进 `Data`** ✓（`ClassBody` 是下一步才 `Add` 的 ✓），
-所以它自然止于列表末尾 ✓；接口那边走的是重组队列，体节点已经在表里 ✓，靠下面那两句停住 ✓。
+所以它自然止于列表末尾 ✓；接口那边走的是规则队列，体节点已经在表里 ✓，靠下面那两句停住 ✓。
 
 ```ts
 let end = index;
@@ -200,7 +200,7 @@ return end;
 
 两个调用方共用它 ✓：
 
-- `HeritageClauseReorganization.Process` ✓（接口那边仍走重组队列 ✓）；
+- `HeritageClauseCloseRule.Process` ✓（接口那边仍走规则队列 ✓）；
 - `Class.OrganizeHeritage` ✓（**类头在 `{` 那一刻就收** ✓，整个头刚刚搬进 `Class` ✓、
   每一格都已经闭合 ✓ ⇒ 这里做完就能直接 `TryToClose` ✓）。
 
@@ -217,7 +217,7 @@ clause.Parent = owner;
 clause.SignIn(word.SourceRange.Start!);
 clause.SignOut(last.SourceRange.End!);
 // **子句词当场升成 `<Keyword>`**（一份答案：`Keyword.FromIdentifier` ✓，
-// `KeywordReorganization.Process` 调的是同一个 ✓）——不再等本单元关闭时由重组队列去升 ✗
+// `KeywordCloseRule.Process` 调的是同一个 ✓）——不再等本单元关闭时由规则队列去升 ✗
 //（实测把本类的队列摘掉而不补这一句：`<Keyword>extends</Keyword>` 当场退回
 // `<Identifier>extends</Identifier>` ✗，而那正是 `Keyword` 这个单元存在的理由 ✓）。
 clause.AddAndCloseLast(Keyword.FromIdentifier(clause, word as Identifier));
@@ -353,7 +353,7 @@ TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` 
 
 ## constructor:(template:Template)=>void
 
-**本类不挂重组队列**——子句在 `Take` 里就已经成形（见那一节）：
+**本类不挂规则队列**——子句在 `Take` 里就已经成形（见那一节）：
 子句词由 `Keyword.FromIdentifier` 当场升成 `<Keyword>` ✓，
 实体名与类型实参段在搬进来之前各自就已经是成品 ✓。
 挂一条队列等于让「这一格什么时候成形」有**两个答案** ✗，
@@ -423,7 +423,7 @@ return result;
 转调基类构造器，并挂**通用队列**——这一格**仍然依赖重组**，是类头里**最后一处**：
 
 继承表达式 `extends mixin(B)` / `extends (Base)` 里的实体名不是「一个名字」而是一个
-**表达式** ✓，那一段由 `MethodReorganization` 之类的规则在**本单元关闭时**成形 ✓
+**表达式** ✓，那一段由 `MethodCloseRule` 之类的规则在**本单元关闭时**成形 ✓
 （实测把这条队列摘掉，`decl-class-extends-call.ts` / `cls-extends-expression.ts`
 两条当场掉 `CallExpression` 与 `Identifier` ✓）。
 它要等的是「调用表达式 / 成员访问」那一层也搬成解析期 ✓——那一层现在还在通用队列里 ✓。

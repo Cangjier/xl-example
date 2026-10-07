@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -33,16 +33,16 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 `Reorganize` 固定跑两趟正是为这类「内层先成形」的形状准备的（见 `core/syntax/token.xl.md`）。
 
 **但它依赖「词的 `Parent` 是正确的」**：本规则的每一处判据都要读 `current.Parent`
-（`IsTypeContainerUnit` / `IsTypeMemberStart`）。`KeywordReorganization` 早先没抄 `Parent`
+（`IsTypeContainerUnit` / `IsTypeMemberStart`）。`KeywordCloseRule` 早先没抄 `Parent`
 （`ReplaceCountAt` 只做 `splice`、不设 `Parent`），于是第二趟里那个已经没有 `Parent` 的 `keyof`
 被问到时判据给否，`keyof typeof h` **只成形一层**（实测产物是 `<Keyword>keyof</Keyword><TypeQuery>…`）。
 第 66 轮把它一起修了（见 `keyword.xl.md` 的同名小节；`let.xl.md` 的同类漏抄一并补上）。
 
-# class TypePrefixReorganization extends Reorganization
+# class TypePrefixCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:TypePrefixReorganization = new TypePrefixReorganization()
+## static readonly field Instance:TypePrefixCloseRule = new TypePrefixCloseRule()
 
 唯一的实例。
 
@@ -50,7 +50,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 `item` 是这四个词之一时返回它，否则返回空串。
 
-`Identifier` 与 `Keyword` 都要认（`KeywordReorganization` 什么时候跑过它，取决于它在哪张队列里），
+`Identifier` 与 `Keyword` 都要认（`KeywordCloseRule` 什么时候跑过它，取决于它在哪张队列里），
 所以文本走 `../text-common-util.xl.md` 的 `WordText`。
 
 ```ts
@@ -73,7 +73,7 @@ return "";
 
 **为什么会有这种单元**：类型位那一段内容在**它的括号关闭那一刻**就先跑过一趟通用队列
 （`typescript/lib/lib.es5.d.ts` 的 `ReturnType<any[][typeof Symbol.iterator]>` 就是这一形状），
-那时 `UnaryOperatorReorganization` 看到「`typeof` + 操作数」就折了一元运算；
+那时 `UnaryOperatorCloseRule` 看到「`typeof` + 操作数」就折了一元运算；
 等到类型队列跑起来，裸词已经没有了。所以这里要把那层壳**换掉**——
 类型位的 `typeof` 在 TypeScript 里是 `TypeQuery`，与值位的一元运算不是一个构造
 （第 57 轮修的同族问题：类型实参段里的 `typeof` 落成 `UnaryOperator`，81 处）。
@@ -155,7 +155,7 @@ return true;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("TypePrefixReorganization.Process: current is null");
+  throw new Error("TypePrefixCloseRule.Process: current is null");
 }
 if (this.IsFoldedTypeof(current)) {
   const folded = new TypeQuery(current.Template);
@@ -168,7 +168,7 @@ if (this.IsFoldedTypeof(current)) {
 const nextIndex = SkipNextWrapSymbol(units, index);
 const operand = Get(units, nextIndex);
 if (operand === null) {
-  throw new Error("TypePrefixReorganization.Process: operand is null");
+  throw new Error("TypePrefixCloseRule.Process: operand is null");
 }
 const word = WordText(current);
 if (word === "typeof") {
@@ -231,7 +231,7 @@ TS 那边那个词（`keyof` / `readonly` / `unique`）是节点的**属性**（
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token
@@ -302,7 +302,7 @@ TS 那边 `typeof` 是节点的**属性**（不是子节点），`exprName` 就�
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

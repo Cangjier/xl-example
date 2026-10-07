@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -23,16 +23,16 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 **`satisfies` 走同一条规则**（见 `satisfies.xl.md`）：两者在 TypeScript 里同优先级、同结合性，
 触发、收集与终止完全一样，只有产出的标签不同——规则按触发词分派 `As` / `Satisfies`。
 
-`AsReorganization` 写在 `As` 之前：它的 `Instance` 静态字段在类定义时立即求值，
-而 `Root` 的重组队列会直接引用 `AsReorganization.Instance`。
+`AsCloseRule` 写在 `As` 之前：它的 `Instance` 静态字段在类定义时立即求值，
+而 `Root` 的规则队列会直接引用 `AsCloseRule.Instance`。
 
-# class AsReorganization extends Reorganization
+# class AsCloseRule extends CloseRule
 
 它比其他重组类简单：`Previous` 只认「内容为 `as` / `satisfies` 的 `Identifier`」；
 `Process` 从那个词之后一路收到**语句边界 / `,` / 下一个 `as` / `satisfies`**，
 把收到的单元装进新的 `As`（或 `Satisfies`），再把原来那一段整体换掉。
 
-## static readonly field Instance:AsReorganization = new AsReorganization()
+## static readonly field Instance:AsCloseRule = new AsCloseRule()
 
 唯一的实例。
 
@@ -141,7 +141,7 @@ return (
   于是 `items` 为空、`items[items.length - 1]` 取到 `undefined`，下一句读 `.SourceRange` 抛**裸 `TypeError`**。
   实测 `const v = x as\n  A;` 就是这个形状（真实代码里 `as` 换行很常见）。
 - **软换行不进 `items`**：它们只是排版。原来换行会被塞进 `As` 的 `Data`，
-  而 `As` 是独立单元、**没有自己的重组队列**（`IndependentToken` 不装队列），
+  而 `As` 是独立单元、**没有自己的规则队列**（`IndependentToken` 不装队列），
   那个换行于是以 `<LineWrap />` 的形式漏进产物（实测 `const v = x as A |\n B;`）。
 - 换行处要不要收工，沿用 `Statement.IsStatementEnd`，但**类型续接符之后一律不算**。
 - 终止符是 `;` / `,` / 赋值符号；`?` 与 `:` **也终止**——`x as A ? b : c` 在 TypeScript 里
@@ -241,7 +241,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -27,18 +27,18 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 它是类型层第二常见的构造（真实语料 183 处），第 55 轮之前**一处节点都没有**：
 `T extends U ? A : B` 在产物里只是一串散单元，个别位置还被
-`TernaryOperatorReorganization` 收成 `<TernaryOperator>`——**值位三元**的标签，
+`TernaryOperatorCloseRule` 收成 `<TernaryOperator>`——**值位三元**的标签，
 戴上它之后类型与值就分不出来了（与第 54 轮修掉的「函数类型戴 `Lamda`」是同一类错误）。
 
-`ConditionalTypeReorganization` 排在 `TernaryOperator` **之前**、`FunctionType` 之后：
+`ConditionalTypeCloseRule` 排在 `TernaryOperator` **之前**、`FunctionType` 之后：
 函数类型先在自己的约束里成形（`T extends (a: A) => B ? C : D` 的约束就是一个函数类型），
 条件类型再把整段收走；`TernaryOperator` 轮到时，类型位这一份已经被认领了。
 
-# class ConditionalTypeReorganization extends Reorganization
+# class ConditionalTypeCloseRule extends CloseRule
 
-## static readonly field Instance:ConditionalTypeReorganization = new ConditionalTypeReorganization()
+## static readonly field Instance:ConditionalTypeCloseRule = new ConditionalTypeCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
@@ -136,7 +136,7 @@ for (let i = index - 1; i >= 0; i--) {
     }
     continue;
   }
-  // **`extends` 也可能是 `Keyword`**（第 123 轮）：`KeywordReorganization` 会把类型位的
+  // **`extends` 也可能是 `Keyword`**（第 123 轮）：`KeywordCloseRule` 会把类型位的
   // `extends` 升级（本文件按类型队列排在它前面，但**通用队列那一趟**里本规则也可能被问到
   // 第二趟——那时词已经升级完了）。只认 `Identifier` 会让第二趟整类失灵，
   // 与 `ternary-operator.xl.md` 的 `IsTypePosition` 记的是同一个坑。
@@ -271,7 +271,7 @@ for (let i = index + 1; i < units.length; i++) {
       break;
     }
     // **判据要落在原文那个字符上，不能只看「下一格是不是 `:` 符号」**：跑到这里时
-    // `TypeDefineReorganization` 往往已经把 `: never` 收成一个 `TypeDefine` 单元了
+    // `TypeDefineCloseRule` 往往已经把 `: never` 收成一个 `TypeDefine` 单元了
     // （`next instanceof SymbolToken` 于是为假，第一版就是这么漏的）。
     // `Source.Value` 就是那一格上的字符，它不受「收成哪个单元」影响。
     const nextStart = next.SourceRange.Start;
@@ -376,13 +376,13 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 转调基类构造器，**并且把类型队列装上**。
 
-理由与 `type-define.xl.md` / `function-type.xl.md` 的同名构造器相同：本单元是重组规则建出来的，
+理由与 `type-define.xl.md` / `function-type.xl.md` 的同名构造器相同：本单元是收尾规则建出来的，
 里面的 `keyof` / `typeof` / `infer` / `readonly` / `void` 不会被外层再扫一遍，
-`KeywordReorganization` 排在通用队列最后、轮不到它们。
+`KeywordCloseRule` 排在通用队列最后、轮不到它们。
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

@@ -17,8 +17,8 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 `cases:align` 一直把它当口径登记着）。两者的成员语法完全不同：前者是**一个映射**，
 后者是一串成员声明。
 
-判定放在 `TypeLiteralReorganization.Process` 里（**不新增规则**）：
-那对花括号已经在类型位、也已经由 `TypeLiteralReorganization.Previous` 认领，
+判定放在 `TypeLiteralCloseRule.Process` 里（**不新增规则**）：
+那对花括号已经在类型位、也已经由 `TypeLiteralCloseRule.Previous` 认领，
 区别只在这对括号的内容——**第一个实义单元是 `[` 括号、而那个括号里有顶层的 `in`** ⇒ 映射类型。
 `{ [key: string]: number }` 那种**索引签名**没有 `in`，仍然收成 `TypeLiteral` ✓。
 
@@ -153,7 +153,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，然后把**语句队列**装进自己的重组队列——映射类型的内容是散单元
+转调基类构造器，然后把**语句队列**装进自己的规则队列——映射类型的内容是散单元
 （`{ }` 括号没有队列，见 `../bracket.xl.md` 的 `Use`），要在这里再跑一遍才会收成成员
 （`Field` 里的 `[K in T]` 与值类型）。
 
@@ -161,7 +161,7 @@ TS 那边的子字段（实测 `{ [P in keyof T]-?: T[P] }`）：
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

@@ -27,10 +27,12 @@ return self;
 
 ```ts
 self.splice(index, count, newValue);
-// 每个**真正生效**的重组都会走这里 ⇒ 在这里给产出打标（第 460 轮）。
-// 解析期那些 guide / unit 不走这条路 ✓，所以这个标记就是「重组产出」的定义 ✓。
-const marked = newValue as unknown as { BornByReorganization: boolean };
-marked.BornByReorganization = true;
+// 每个**真正生效**的规则都会走这里 ⇒ 在这里给产出打标（第 460 轮）。
+// 解析期那些 guide / unit 不走这条路 ✓，所以这个标记就是「规则产出」的定义 ✓
+//（它从前叫 `BornByReorganization` ✓，第 563 轮随那一族改名 ✓；目前**没有任何读点** ✗，
+//  是留给「形状不对时先问谁造的」那条诊断链的 ✓）。
+const marked = newValue as unknown as { BornByCloseRule: boolean };
+marked.BornByCloseRule = true;
 return index;
 ```
 

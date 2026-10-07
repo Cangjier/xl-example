@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, TakeRange } from "../../core/extensions/list-extension.xl.md"
@@ -18,15 +18,15 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 空条件运算符 `?.`：把「`?.` 之后到下一个运算符为止」的一段收成一个单元。
 
-构造时从模板取自己的重组队列。
+构造时从模板取自己的规则队列。
 
-`NullConditionalOperatorReorganization` 写在 `NullConditionalOperator` 之前。
+`NullConditionalOperatorCloseRule` 写在 `NullConditionalOperator` 之前。
 
-# class NullConditionalOperatorReorganization extends Reorganization
+# class NullConditionalOperatorCloseRule extends CloseRule
 
 `Previous` 只认内容恰好是 `?.` 的 `SymbolToken`。
 
-## static readonly field Instance:NullConditionalOperatorReorganization = new NullConditionalOperatorReorganization()
+## static readonly field Instance:NullConditionalOperatorCloseRule = new NullConditionalOperatorCloseRule()
 
 唯一的实例。
 
@@ -34,12 +34,12 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 `index` 处是不是 `?.`，而且它**后面那个实义单元不是 `import`**。
 
-**为什么要排掉 `import`**（实测：`a?.import`）：`import` 在关键字表里，而 `ImportReorganization`
-排在 `NullConditionalOperatorReorganization` **之前**——那个成员名会先被收成一个 `Import` 单元，
+**为什么要排掉 `import`**（实测：`a?.import`）：`import` 在关键字表里，而 `ImportCloseRule`
+排在 `NullConditionalOperatorCloseRule` **之前**——那个成员名会先被收成一个 `Import` 单元，
 本规则接着就会从这个 `Import` **里面**往下扫（它的 `Data` 是另一张列表），扫完在**外层列表**上做替换，
 下标与元素全对不上，最后抛的是 `TypeError`（不是 `SyntaxException`）。
 成员位置的 `import` 就是一个普通名字，这里直接放过它、让它留在外面当 `Keyword`。
-判据用的是「跨过软换行的下一个实心单元」，与 `ImportReorganization.Previous` 里那一格同型。
+判据用的是「跨过软换行的下一个实心单元」，与 `ImportCloseRule.Previous` 里那一格同型。
 
 ```ts
 const current = Get(units, index);
@@ -81,7 +81,7 @@ const endIndex = SearchBackIndexed(units, index + 1, (itemIndex, item) => {
   }
   if (item instanceof SymbolToken) {
     // **链上只允许两种符号**（第 155 轮）✓：`.`（成员访问 ✓）与 `!`（非空断言 ✓，
-    // 它被 `NotNullReorganization` 折进 NCO **里面** ✓，见 `print-ast-common` 里那一支 ✓）。
+    // 它被 `NotNullCloseRule` 折进 NCO **里面** ✓，见 `print-ast-common` 里那一支 ✓）。
     // **其余任何符号都是断点** ✓——原来只列了 `?? && || ; ,` 与比较符号 ✗，
     // 于是**算术运算符不在断点里** ✗：`a?.b` 后面跟一个 `+` 时，
     // `+` 连同右边一起被收进 NCO ✓，接着二元运算符重组在**里面**折成一个 `BinaryOperator` ✓，
@@ -122,7 +122,7 @@ return nextIndex;
 
 ## constructor:(template:Template)=>void
 
-构造器里取本类型的重组队列；运行时类型用 `this.constructor`。
+构造器里取本类型的规则队列；运行时类型用 `this.constructor`。
 
 ```ts
 super(template);

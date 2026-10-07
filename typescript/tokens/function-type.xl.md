@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchFront } from "../../core/extensions/list-extension.xl.md"
@@ -9,7 +9,7 @@ import { GetSkipPreviousWrapSymbol, IsTypeContainerUnit, SkipNextWrapSymbol, Ski
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { IsDeclarationBoundary, IsStatementKeyword } from "./declaration-common.xl.md"
-import { LamdaReorganization } from "./lamda/lamda.xl.md"
+import { LamdaCloseRule } from "./lamda/lamda.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Statement } from "./statement.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -23,22 +23,22 @@ import { LineWrap } from "./line-wrap.xl.md"
 **函数类型**：把类型位的 `(a: A) => B` 收成一个 `FunctionType` 单元。
 
 它是**类型层**里最常见的一种构造（真实语料 4226 处，`: ` 后面的回调签名几乎全是它），
-但一直只有两种下场：要么散成裸单元（没有节点），要么被 `LamdaReorganization` 误收成 `Lamda`
+但一直只有两种下场：要么散成裸单元（没有节点），要么被 `LamdaCloseRule` 误收成 `Lamda`
 ——**值位标签**（实测 17 处：`Array<(a: A) => B>` 的类型实参、`x: ((a: A) => B)` 这种括号套括号）。
 `<Lamda>` 的语义是「箭头函数」，函数类型戴上它就分不出「值」与「类型」了。
 
 判据只有一句：**`=>` 左边那个 `(` 括号不是形参表**——也就是
-`LamdaReorganization.FindParameters` 给 `-1`。两边共用同一份判断（见 `lamda.xl.md` 的
+`LamdaCloseRule.FindParameters` 给 `-1`。两边共用同一份判断（见 `lamda.xl.md` 的
 `IsLambdaParameters`），不会出现「一边当形参表、另一边当函数类型」的错位。
 
-`FunctionTypeReorganization` 排在 `Lamda` **之前**：先由它把类型位的箭头认领走，
+`FunctionTypeCloseRule` 排在 `Lamda` **之前**：先由它把类型位的箭头认领走，
 剩下的才是真正的箭头函数。
 
-# class FunctionTypeReorganization extends Reorganization
+# class FunctionTypeCloseRule extends CloseRule
 
-## static readonly field Instance:FunctionTypeReorganization = new FunctionTypeReorganization()
+## static readonly field Instance:FunctionTypeCloseRule = new FunctionTypeCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
@@ -48,9 +48,9 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 1. `index` 处是内容为 `=>` 的 `SymbolToken`；
 2. 它左边（跳软换行）是一个 `(` 括号——裸形参的 `p => B` 只可能是箭头函数；
-3. `LamdaReorganization.FindParameters(units, index)` 给 `-1`（左边那段不是形参表）。
+3. `LamdaCloseRule.FindParameters(units, index)` 给 `-1`（左边那段不是形参表）。
 
-`FindParameters` 是 `LamdaReorganization` 的实例方法，所以这里用 `Instance` 去问它。
+`FindParameters` 是 `LamdaCloseRule` 的实例方法，所以这里用 `Instance` 去问它。
 
 ```ts
 const current = Get(units, index);
@@ -80,7 +80,7 @@ if (!(first instanceof Bracket) || first.startBracket !== "(") {
 // 于是「左边不是形参表」这条判据把它挡在门外、谁都不收（实测 `FunctionType` 缺 3 处）。
 // 类型位里不可能有箭头函数（`lamda.xl.md` 已按同一判据让路），所以这里直接成立；
 // **类字段初始化式除外**：`f = (a: number): void => {}` 也是「类型容器（`Field`）里的 `=>`」，
-// 那里是**值**、该由 `LamdaReorganization` 收。例外只给 `Field` + 同一层有 `=`：
+// 那里是**值**、该由 `LamdaCloseRule` 收。例外只给 `Field` + 同一层有 `=`：
 // 参数表的**默认值**（`<F = (a) => b>`）里也有 `=`，但它的父单元是 `TypeParameter`，
 // 不是 `Field`——按「有 `=` 就放行」判会把它误让给箭头函数（实测 `Lamda in TypeParameter` 3 处）。
 const fieldInitializer =
@@ -90,7 +90,7 @@ const fieldInitializer =
 if (fieldInitializer === false && IsTypeContainerUnit(current.Parent)) {
   return true;
 }
-return LamdaReorganization.Instance.FindParameters(units, index) < 0;
+return LamdaCloseRule.Instance.FindParameters(units, index) < 0;
 ```
 
 ## private method HasAssignmentBefore:(units:Array<Token>, index:int)=>bool
@@ -275,18 +275,18 @@ return ReplaceCountAt(units, firstIndex, endIndex - firstIndex + 1, result);
 
 转调基类构造器，**并且把类型队列装上**。
 
-理由与 `type-define.xl.md` 的同名构造器完全相同：本单元是重组规则建出来的，
-它的内容（形参括号与返回类型）**没有**被外层再扫一遍，`KeywordReorganization` 排在通用队列最后，
+理由与 `type-define.xl.md` 的同名构造器完全相同：本单元是收尾规则建出来的，
+它的内容（形参括号与返回类型）**没有**被外层再扫一遍，`KeywordCloseRule` 排在通用队列最后，
 轮不到里面的词——`(a: A) => void` 的 `void`、`(this: T) => typeof x` 的 `this` / `typeof`
 于是停在 `Identifier` 上（用例 `type-fn-generic-arg` / `type-fn-union-member` / `type-ref-fn-arg`
 钉住的就是这三处）。
 
-装的是**类型队列**而不是通用队列：通用队列里的 `TernaryOperatorReorganization` 会把条件类型
+装的是**类型队列**而不是通用队列：通用队列里的 `TernaryOperatorCloseRule` 会把条件类型
 `T extends U ? A : B` 收成表达式三元。
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

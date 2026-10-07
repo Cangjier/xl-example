@@ -141,7 +141,7 @@ if (last instanceof SymbolToken) {
 
 ## field FromCompoundAssignment:bool = false
 
-这个符号是**复合赋值切开后插回来的运算符副本**（`CompoundAssignmentOperatorReorganization.Process`
+这个符号是**复合赋值切开后插回来的运算符副本**（`CompoundAssignmentOperatorCloseRule.Process`
 把 `&&=` 切成 `=` 与一份 `&&`）。
 
 **为什么需要它**：那份副本本身也在 `CompoundAssignmentSymbols` 的判据范围内，

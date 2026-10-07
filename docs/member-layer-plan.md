@@ -5595,4 +5595,92 @@ reorg（重组）这台机器有三层 ✓，第 561 轮只动**第一层：那�
 3. **`Install` 那一处** ✓：`self.CloseRuleTemplate.DefaultValue = ParsePipeline.GeneralReorganize;` ✓
    —— 那个字段名 `GeneralReorganize` 也要跟着改 ✓。
 
+## 一百六十六、**逐步移除 reorg** 第三块（第 563 轮）：规则本体那一侧改名，全仓不再有 `Reorganization`
+
+**这一轮把第 562 轮留下的那一半做完** ✓：容器改了名 ✓、规则本体还叫 `Reorganization` ✗ ——
+它从前指的就是「**全局重组那一趟**」（第 561 轮已删 ✓），那个名字已经不指向任何还活着的东西 ✗
+⇒ 一次改齐 ✓。
+
+### 一、改了什么
+
+| 旧名 | 新名 |
+| --- | --- |
+| 文件 `core/syntax/reorganization.xl.md` | **`core/syntax/close-rule.xl.md`**（`git mv` ✓） |
+| 基类 `Reorganization` | **`CloseRule`** |
+| 55 个 `XxxReorganization` 类 | **`XxxCloseRule`**（`StatementCloseRule2` / `3` 也在内 ✓） |
+| `ParsePipeline.GeneralReorganize` | **`ParsePipeline.GeneralCloseRule`** |
+| `InitialStatementReorganizationQueue` | **`InitialStatementCloseRuleQueue`** |
+| `InitialKeywordReorganizationQueue` | **`InitialKeywordCloseRuleQueue`** |
+| `Token.BornByReorganization` | **`Token.BornByCloseRule`**（`ReplaceCountAt` 里打的那个标 ✓） |
+
+**范围与做法**：非 `tmp/` 的全部 `.xl.md` ✓ —— 先 `git mv` 改文件名 ✓，
+再一遍 `Reorganization` → `CloseRule` 的全词替换 ✓（**112 个文件** ✓），
+最后把依赖里被连带的 `close-Rule.xl.md` 拼写修回小写 ✓（**58 处** ✓）。
+
+**踩到的一个坑**（记下来 ✓）：全词替换会把**依赖路径**里的 `reorganization.xl.md`
+一起换成 `CloseRule.xl.md` ✗ ⇒ `xl build` 当场报 **115 个 E1006**（文件读不到 ✓）
++ 55 个 `E1104`（`extends` 目标找不到 ✓）⇒ 一次替换修回 ✓、`xl build` 0 error ✓。
+**教训**：改一类标识符时，**文件名与标识符同名**的情形要单独走一遍 ✓；
+尺子在这一步是 `xl build` 的报错行数 ✓（不是 `tsc` ✓ —— 路径读不到时产物根本没生成 ✓）。
+
+**散文与生僻名一起换掉**（96 个文件 ✓）：`重组队列` → **`规则队列`** ✓、
+`重组模板` → **`规则模板`** ✓、`重组规则` → **`收尾规则`** ✓
+（`CloseRule` = 单元**关闭**时跑的规则 ✓，与「收尾/收束」是同一件事 ✓）。
+**刻意留下的那些「重组」** ✗：写历史的那几句 ✓（「从前叫 `Reorganization`」✓、
+「全局重组那一趟已经删掉」✓、「重组时序无关」✓）—— 它们描述的是**已经不在**的东西 ✓，
+留着才是可读的 ✓。
+
+### 二、读数
+
+| 项 | 第 562 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1007 | **1007 / 1037** ✓（持平 ✓） |
+| 缺节点 | 57（21 类） | **57**（21 类）✓ |
+| 多出来的节点 | 71（30 类） | **71**（30 类）✓ |
+| 区间漂移 | 30（17 类） | **30**（17 类）✓ |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21736 | **21736** ✓ |
+
+**持平是这一轮的验收判据** ✓：改名不动语义 ✓ ⇒ 四栏与产物节点**必须逐项相同** ✓
+（`tmp/recon/r563-a.txt` ↔ `r563-b.txt` ✓）。`xl build` 112 文件 ✓、`tsc` 0 错 ✓、
+`xl check` 181 文件 **0 error**（仍是那 6 条既有 W3102 ✓）、`cases:check` 1050 条 0 不合格 ✓。
+
+**三轮到这里的账** ✓（第 561 → 563 ✓）：
+
+| 轮 | 拆掉/改掉什么 | 完全一致 | 缺 / 漂 / 多 / 字段名 | 产物节点 |
+| --- | --- | --- | --- | --- |
+| 起点（560 末） | — | 1007 | 57 / 30 / 71 / 2 | 21737 |
+| **561** | 那一趟 `Reorganize` + 两个环境开关 | 1007 | 57 / 30 / 71 / 2 | 21736 |
+| **562** | `CloseRuleQueue` / `CloseRuleTemplate` | 1007 | 57 / 30 / 71 / 2 | 21736 |
+| **563** | 规则本体 `CloseRule` 一族 + 全仓去词 | 1007 | 57 / 30 / 71 / 2 | 21736 |
+
+⇒ **reorg 这台机器在本仓已经不存在** ✓：没有那一趟 ✓、没有环境开关 ✓、
+没有 `Reorganization` 这个词（除了三处写历史的散文 ✓）✓。
+**但形状的读数一个都没动** ✓ —— 这三轮拆的是**机器** ✓，不是形状 ✓；
+`ast100%` 那条线仍然要靠「按清单一块一块建解析期形状」✓（第 469 轮起那条线 ✓）。
+
+### 三、交接：下一块做什么（给下一个对话）
+
+1. **先删「已经没人跑」的规则** ✓ —— 这是这一族剩下的最后一块 ✓。
+   判定方法（`typescript/parse-pipeline.xl.md` 的 `GeneralCloseRule` 与 `RunCloseRules` ✓）：
+   把某条 `XxxCloseRule` 从队列里**临时摘掉**跑一次 `node ./tests/parse/ts-ast.mjs cases` ✓，
+   读数**一字不动** ⇒ 它在这套语料上没命中过 ✓ ⇒ 连同它的类、import、
+   `Initial*CloseRuleQueue` 里的条目一起删 ✓（一次一条 ✓，每批一次提交 ✓）。
+   已知**一定还在用**的（别删 ✓）：`Keyword` / `WrapSymbol` / `Statement2` / `Statement3` /
+   `BinaryOperator` 那一族 / `TypeBracket` / `TypeUnion` / `ConditionalType` /
+   `ImportType` / `TypePrefix` / `LiteralType` / `ArrayLiteral` / `ObjectLiteral` ✓
+   （第 492–497 轮的账 ✓）；
+   `RunCloseRules` 里被 `instanceof` 跳过的那些（`Let` / `Label` / `Export` / `As` /
+   `LogicalOperator` / `Spread` ✓）**要单独判** ✗ —— 在默认路径上它们一次都不跑 ✓，
+   但 `InitialKeywordCloseRuleQueue` 装的类型队列里没有它们 ✓ ⇒ 大概率可删 ✓（先量 ✓）。
+2. **两处「没有读点」的诊断字段** ✓：`Token.CreatedByRule` ✓（写点随第 561 轮一起没了 ✓）、
+   `Token.BornByCloseRule` ✓（`ReplaceCountAt` 里打标 ✓，没有任何读点 ✓）——
+   要么补回一个读点（例如 `--trace` 出口 ✓），要么删掉 ✓（删更符合「逐步移除」✓）。
+3. **`TokenFormerImpl.Depth` 那道深度界** ✓（第 496 轮的临时护栏 ✓）
+   与 `ApplyCloseRules` 的收敛环 ✓ —— 第 561 轮之后只剩这一趟 ✓，
+   「每个单元只在自己那一趟里收」那一条可以补 ✓（撤掉深度界的实测账见第 497 轮 ✓）。
+4. **然后才是 `ast100%` 那条主线** ✓：`docs/member-layer-plan.md` 第 164 节（第 560 轮 ✓）
+   列的五个入口仍然有效 ✓ —— 最大的一块是 **ASI 的右半截** ✓。
+
 

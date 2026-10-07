@@ -11,7 +11,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 C 风格 `for` 语句的三段头之一：`for(initial; compare; next)` 里第一个 `;` **之前**的那一截。
 
-`ForReorganization.Process` 把括号里切好的内容搬进这一段；搬完这一段自己再跑一遍模板里给它准备的重组队列，把内容继续啃小。
+`ForCloseRule.Process` 把括号里切好的内容搬进这一段；搬完这一段自己再跑一遍模板里给它准备的规则队列，把内容继续啃小。
 
 # class ForInitial extends IndependentToken
 
@@ -21,7 +21,7 @@ C 风格 `for` 语句的三段头之一：`for(initial; compare; next)` 里第�
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把模板里按本单元类型准备的重组队列挂上。
+以模板创建，并把模板里按本单元类型准备的规则队列挂上。
 
 ```ts
 super(template);

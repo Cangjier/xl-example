@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -28,14 +28,14 @@ import { LineWrap } from "./line-wrap.xl.md"
 是「导出 + 一条声明」，那条声明自己有节点（`Let` / `Function` / `Class` …），
 再包一层 `Export` 只会把它们重复计一遍。所以判定里要求 `export` 之后紧跟的是 `*` 或 `{`。
 
-`ExportReorganization` 写在 `Export` **之前**：后者的静态字段 `Instance` 在类定义时就
-`new ExportReorganization()`，写反了会命中暂时性死区（TDZ）。
+`ExportCloseRule` 写在 `Export` **之前**：后者的静态字段 `Instance` 在类定义时就
+`new ExportCloseRule()`，写反了会命中暂时性死区（TDZ）。
 
-# class ExportReorganization extends Reorganization
+# class ExportCloseRule extends CloseRule
 
-## static readonly field Instance:ExportReorganization = new ExportReorganization()
+## static readonly field Instance:ExportCloseRule = new ExportCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
@@ -85,11 +85,11 @@ return next !== null && next instanceof Bracket && next.startBracket === "{";
 后面那段表达式留在外面由父单元照常解析——理由见 `Process` 里的说明。
 
 `export default class C {}` / `export default function f() {}` 走的**不是**这一支：
-`ClassReorganization` / `FunctionReorganization` 排在 `Export` **之前**，
+`ClassCloseRule` / `FunctionCloseRule` 排在 `Export` **之前**，
 轮到 `Export` 时它们已经把 `export,default` 折进自己的 `modifiers` 了。
 
-`TypeLiteral` 那一支是必须的：规则是**按规则轮询**的，`TypeLiteralReorganization` 排在
-`ExportReorganization` **之前**——轮到 `Export` 时，`export type { A } from "m"` 里那对花括号
+`TypeLiteral` 那一支是必须的：规则是**按规则轮询**的，`TypeLiteralCloseRule` 排在
+`ExportCloseRule` **之前**——轮到 `Export` 时，`export type { A } from "m"` 里那对花括号
 **已经**被收成 `TypeLiteral` 了，只认 `Bracket` 的话这条语句永远匹配不上。
 
 `type` 那一跳是给 `export type { A } from "m"`（只导出类型）的。
@@ -232,14 +232,14 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，**并且把自己的重组队列装上**。
+转调基类构造器，**并且把自己的规则队列装上**。
 
-理由与 `type-define.xl.md` 的同名构造器相同：本单元是重组规则建出来的，
-`KeywordReorganization` 排在通用队列**最后**、轮不到它里面的词——
+理由与 `type-define.xl.md` 的同名构造器相同：本单元是收尾规则建出来的，
+`KeywordCloseRule` 排在通用队列**最后**、轮不到它里面的词——
 `export` / `type` / `from` 这些词于是停在 `Identifier` 上（`Import` 那边也一样，属于既有行为）。
 
-装的是**精简队列**（只有 `KeywordReorganization` + `WrapSymbolReorganization`，
-见 `../parse-pipeline.xl.md` 的 `InitialKeywordReorganizationQueue`）。
+装的是**精简队列**（只有 `KeywordCloseRule` + `WrapSymbolCloseRule`，
+见 `../parse-pipeline.xl.md` 的 `InitialKeywordCloseRuleQueue`）。
 
 **试过换成通用队列、退回来了**：通用队列能顺带把 `export default (a: number) => a` 里的箭头
 收成 `Lamda`，但同时弄坏了十来条既有用例（`ex-named` / `ex-default-class` / `ex-reexport` /
@@ -249,7 +249,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## field From:string | null = null

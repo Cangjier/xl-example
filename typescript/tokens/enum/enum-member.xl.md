@@ -31,7 +31,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 再签出到前一格、关自己、从父单元卸载 ✓——与 `IfStatement.ExitOrPre` 同一套
 （含「入队要倒着来」那一条，见 `if-statement.xl.md`）。
 
-**`EnumMemberReorganization` 已经删除**（第 419 轮）：它做的事（按顶层逗号切成员表）
+**`EnumMemberCloseRule` 已经删除**（第 419 轮）：它做的事（按顶层逗号切成员表）
 现在由「体开成员 + 成员自己收」在**读的时候**完成，不再等体关闭时扫一遍平列表。
 
 # class EnumMemberBranch extends Branch

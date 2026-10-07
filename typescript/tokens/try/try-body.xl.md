@@ -16,17 +16,17 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `try` 的语句体。
 
-它自己**不消费任何字符**（独立单元，`Process` 由基类留空），构造时把语句层级的重组队列挂上，之后靠 `TryReorganization` 把整个 `try` 结构打包成一个 `Try`。
+它自己**不消费任何字符**（独立单元，`Process` 由基类留空），构造时把语句层级的规则队列挂上，之后靠 `TryCloseRule` 把整个 `try` 结构打包成一个 `Try`。
 
 ## constructor:(template:Template)=>void
 
-创建时先把语句重组队列挂上——花括号里的内容是一串语句。
+创建时先把语句规则队列挂上——花括号里的内容是一串语句。
 
-`InitialStatementReorganizationQueue` 负责把「语句级重组」那一串 `Reorganization` 取出来赋给 `CloseRuleQueue`；它读的是通用重组队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+`InitialStatementCloseRuleQueue` 负责把「语句级重组」那一串 `CloseRule` 取出来赋给 `CloseRuleQueue`；它读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

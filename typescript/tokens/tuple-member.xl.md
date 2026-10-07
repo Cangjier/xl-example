@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
@@ -32,11 +32,11 @@ TypeScript 那边的形状（实测 AST）：
 规则排在**通用队列**（`TupleType` 用默认队列），锚在元组内容的第一个实义单元上，
 一次按顶层逗号切完整张表——与 `type-parameter.xl.md` / `enum-member.xl.md` 同一套做法。
 
-# class TupleMemberReorganization extends Reorganization
+# class TupleMemberCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:TupleMemberReorganization = new TupleMemberReorganization()
+## static readonly field Instance:TupleMemberCloseRule = new TupleMemberCloseRule()
 
 唯一的实例。
 
@@ -96,7 +96,7 @@ return true;
 ```ts
 const owner = this.TupleOf(units, index);
 if (owner === null) {
-  throw new Error("TupleMemberReorganization.Process: owner is null");
+  throw new Error("TupleMemberCloseRule.Process: owner is null");
 }
 const original: Token[] = [];
 for (const item of owner.Data) {
@@ -150,7 +150,7 @@ if (content.length === 0) {
 }
 const first = content[0];
 const last = content[content.length - 1];
-// **`...` 可能已经被 `SpreadReorganization` 收成一个 `Spread` 节点**（它排在通用队列更前面），
+// **`...` 可能已经被 `SpreadCloseRule` 收成一个 `Spread` 节点**（它排在通用队列更前面），
 // 所以两种形态都要认：裸的 `...` 符号、或者已经成形的 `Spread` ✓。
 const isRest =
   (first instanceof SymbolToken && first.Is("...")) || first.constructor.name === "Spread";

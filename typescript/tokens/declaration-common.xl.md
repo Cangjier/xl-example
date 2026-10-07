@@ -5,7 +5,7 @@ import { Get } from "../../core/extensions/list-extension.xl.md"
 import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, HasTypeColonBefore, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
-import { DecoratorReorganization } from "./decorator.xl.md"
+import { DecoratorCloseRule } from "./decorator.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { Decorator } from "./decorator.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -32,13 +32,13 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-声明层公用工具：`class` / `function` / `enum` / 方法声明这四条重组规则，**起点都在关键字之前的同一段东西上**——
+声明层公用工具：`class` / `function` / `enum` / 方法声明这四条收尾规则，**起点都在关键字之前的同一段东西上**——
 `@Decorator`、`export` / `declare` / `default` / `abstract` / `async` / `public` / `private` / `protected` / `static` /
 `readonly` / `override` / `get` / `set` / `const` 这些修饰词。这些工具放在 token 层，
 落成模块级 `# method`——与 `../text-common-util.xl.md` 同一种形态。
 
 修饰词只按**词形**判定，不看上下文：`export` 这个词出现在声明头之前就是修饰词。
-真正的形状约束（后面必须跟名字、括号、花括号）由各条重组规则自己的 `Previous` 负责，
+真正的形状约束（后面必须跟名字、括号、花括号）由各条收尾规则自己的 `Previous` 负责，
 所以这里放宽一点是安全的——多认一个修饰词只会让 `Process` 的起点前移一格，不会造出不该有的节点。
 
 类型参数段（`<T>` / `<T = unknown>` / `<T extends X = Y>`）由 `generic-type.xl.md` 收成 `GenericType`，
@@ -49,11 +49,11 @@ import { LineWrap } from "./line-wrap.xl.md"
 返回这段声明的末尾。声明层的 `Class` / `Function` / `Enum` / `Interface` / `Namespace` /
 `MethodDeclaration` / `Signature` / `Field` 与 `Switch` / `DoWhile` 都走它，
 把声明（或语句）后面那个换行并进自己的替换范围。当时的理由是：不这么做，声明末尾那个裸 `LineWrap`
-会留在父单元里，被 `StatementReorganization2` 收成一个**空的** `<Statement></Statement>`。
+会留在父单元里，被 `StatementCloseRule2` 收成一个**空的** `<Statement></Statement>`。
 
 **那个理由今天不成立了**：语句重组的两条规则后来各补了一个早退——
-`StatementReorganization2` 在「当前是最后一个单元」的分支里遇到 `children.length === 1` 直接 `splice` 掉，
-`StatementReorganization3` 遇到 `children.length === 1 && IsStatementUnit(children[0])` 就什么都不做。
+`StatementCloseRule2` 在「当前是最后一个单元」的分支里遇到 `children.length === 1` 直接 `splice` 掉，
+`StatementCloseRule3` 遇到 `children.length === 1 && IsStatementUnit(children[0])` 就什么都不做。
 于是单独一个 `LineWrap` 不会再变成空 `Statement`（`tests/parse/noise.mjs` 把这条钉住：
 空 `Statement` 必须是 0）。
 
@@ -149,9 +149,9 @@ for (let i = keywordIndex - 1; i >= 0; i--) {
 let adjusted = keywordIndex;
 let scan = bound;
 while (scan < adjusted) {
-  if (DecoratorReorganization.Instance.Previous(template, units, scan)) {
+  if (DecoratorCloseRule.Instance.Previous(template, units, scan)) {
     const before = units.length;
-    scan = DecoratorReorganization.Instance.Process(template, units, scan);
+    scan = DecoratorCloseRule.Instance.Process(template, units, scan);
     adjusted = adjusted - (before - units.length);
     continue;
   }
@@ -169,7 +169,7 @@ return adjusted;
 所以 `export\nclass A {}` 与 `export class A {}` 得到同一个起点。
 
 循环在每个位置上只做一次「前一个实义单元是不是修饰词或 `Decorator`」的判定，
-命中就前移一位继续，不命中就停——与 `Interface.Reorganization` 里那条「只看前一位是不是 `export`」的写法同源，
+命中就前移一位继续，不命中就停——与 `Interface.CloseRule` 里那条「只看前一位是不是 `export`」的写法同源，
 只是把一位扩成一段。
 
 ```ts
@@ -424,7 +424,7 @@ return true;
 
 `unit` 是不是**文本等于 `word` 的词**——`Identifier` 与 `Keyword` 都算。
 
-**为什么需要它**：`KeywordReorganization` 会把命中的词从 `Identifier` 升级成 `Keyword`，
+**为什么需要它**：`KeywordCloseRule` 会把命中的词从 `Identifier` 升级成 `Keyword`，
 而 `Keyword` 与 `Identifier` **没有继承关系**（两条分支各造各的单元）。于是「找一个词」的判定
 必须两种都认，否则某处一旦先跑过升级，后面按 `Identifier` 找词的规则就再也找不到它
 （`in` / `of` 正是这么被坑过：见 `../parse-pipeline.xl.md` 的 `KeyWords`）。
@@ -447,7 +447,7 @@ return false;
 
 扫描到这一步时，列表里可能已经没有裸 `Identifier` 了：**排在声明规则之前的规则已经把一部分结构收走了**。
 实测到的坑：`declare function f(): string | undefined` 后面紧跟一条 `class Worker { … }`，
-`ClassReorganization` 排在 `FunctionReorganization`（以及本文件的所有调用点）**之前**，
+`ClassCloseRule` 排在 `FunctionCloseRule`（以及本文件的所有调用点）**之前**，
 所以扫描跑到那里时看到的是一个 `Class` 单元、不是 `Identifier`——只按词表判定的话它会一路吞下去，
 把整个类装进返回类型里。
 
@@ -475,7 +475,7 @@ return (
   item instanceof Import ||
   item instanceof Statement ||
   // **`export { … }` / `export type { … }` 也是声明边界**（第 136 轮）。
-  // `ExportReorganization` 排在本文件的调用点**之前**，所以轮到别名右端 / 返回类型扫描时，
+  // `ExportCloseRule` 排在本文件的调用点**之前**，所以轮到别名右端 / 返回类型扫描时，
   // 下一行那条 `export …` 已经是一个 `Export` **单元**、不是裸词——
   // `IsStatementKeyword` 抓不到它，于是 `type B = number` 换行 `export type { B }` 里的
   // 两条导出被一起吞进 `TypeAliasDeclaration` 的右端（实测 `ty-export-type.ts`：

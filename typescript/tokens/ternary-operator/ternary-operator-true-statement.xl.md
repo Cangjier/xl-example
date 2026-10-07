@@ -15,11 +15,11 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 三元运算符的真值表达式。
 
-它不消费字符：整段内容由 `TernaryOperatorReorganization.Process` 用 `TakeRange` 切出来后塞进 `Data`。
+它不消费字符：整段内容由 `TernaryOperatorCloseRule.Process` 用 `TakeRange` 切出来后塞进 `Data`。
 
 ## constructor:(template:Template)=>void
 
-创建后立刻挂上**通用重组队列**，理由与 `TernaryOperatorCondition` 完全相同：
+创建后立刻挂上**通用规则队列**，理由与 `TernaryOperatorCondition` 完全相同：
 内容是从外层搬进来的，那时外层那一趟重组已经过去，不装队列的话内部一趟重组都不跑
 （`(a ? b + c : d)` 里的 `+` 就留在 `Data` 里）。
 要用通用队列而非语句队列——后者会把这段表达式包进一层 `<Statement>`。

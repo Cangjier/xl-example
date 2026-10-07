@@ -976,7 +976,7 @@ new Map([
     return astNode(kind, props, v, ctx);
   };
   // **裸块语句 `{ … }` 就是一个 `Block`**（第 123 轮）：产物那边它是一对花括号
-  // （`BlockReorganization` 在语句位给它补了语句队列，里面的东西已经是 `Statement`），
+  // （`BlockCloseRule` 在语句位给它补了语句队列，里面的东西已经是 `Statement`），
   // 而 TS 那边它是一个 `Block` 节点、有自己的 `statements`。照通用支投会**原样透传**
   // 一个未映射的 `<Bracket>`，外层还多套一个 `ExpressionStatement`
   // （实测 `{ let y = 2; f(y); }` / `case "a": { … }` / `switch` 分支体三族全中）。
@@ -1851,7 +1851,7 @@ new Set([
 真实语料 1118 处「产物只有 operatorToken、TS 有 left/right」都是这一条）。
 
 **`Identifier` 那一态也要认** ✗（第 550 轮 ✓）：关掉 reorg 之后，
-`in` / `instanceof` 是**由 `KeywordReorganization` 在关前那一趟升上去的** ✓ ——
+`in` / `instanceof` 是**由 `KeywordCloseRule` 在关前那一趟升上去的** ✓ ——
 可那一趟**排在最后** ✓，而二元折叠造出来的那个单元是**自己又往下钻了一层** ✗
 （`ApplyCloseRules` 里 `Depth >= 8` 那道临时硬界 ✓，第 496 轮 ✓）——
 界那一层**不再跑规则** ✗ ⇒ 最里面那一层的运算符**永远停在 `Identifier`** ✗。
@@ -3125,7 +3125,7 @@ new Set([
         continue;
       }
       // 成员名**永远是 `Identifier`**（TS 那边 `a.import` 的 `name` 就是一个文本为那个词的
-      // `Identifier`，不是 `ImportKeyword`）：产物那边它可能已经被 `KeywordReorganization`
+      // `Identifier`，不是 `ImportKeyword`）：产物那边它可能已经被 `KeywordCloseRule`
       // 升级成 `<Keyword>`，所以这里按**名字宽度**切一段，而不是把那个词按词法身份投出来。
       left = {
         kind: "PropertyAccessExpression",
@@ -4397,7 +4397,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 ```ts
   const v = view(unit);
   // **括号形态也要认**（第 137 轮）：绑定位里 `{ a }` / `[a]` 有时还没被
-  // `JsonObjectReorganization` / `JsonArrayReorganization` 收成 `ObjectLiteral` /
+  // `JsonObjectCloseRule` / `JsonArrayCloseRule` 收成 `ObjectLiteral` /
   // `ArrayLiteral`（`[k2]: { a }` 里右边那一格就是一对裸花括号）——只认那两种标签时
   // 整层 `ObjectBindingPattern` 连里面的 `BindingElement` 一起丢。
   const braceKind =
@@ -4950,7 +4950,7 @@ TypeReference[7,25)            ← `Map<string, number>`（**整个**）
   }
   // **平铺的构造类型**（第 111 轮）：`type C = new <T>(x: T) => T` 的产物把 `new` / `<T>` /
   // 形参括号 / `=>` / 返回类型**平铺**在类型别名里（**没有** `FunctionType` 单元——
-  // 带 `new` 的那个形状 `FunctionTypeReorganization` 认不出来），而 TS 是 `ConstructorType`。
+  // 带 `new` 的那个形状 `FunctionTypeCloseRule` 认不出来），而 TS 是 `ConstructorType`。
   // 照通用支会投出一个盖住 `new <T>` 的 `TypeReference` + 一个 `Identifier(new)`
   //（实测多出 `NewKeyword` / `TypeReference` / `Identifier`，同时缺整个 `ConstructorType`
   // 与它的形参、返回类型）。

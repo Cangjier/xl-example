@@ -12,7 +12,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `while` 语句的循环体段：`while(...)` 后面那对 `{ }` 的内容（或那条单语句）搬进来之后，这一段自己再跑一遍语句重组，把里面啃成语句树。
 
-语句重组队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
 
 # class WhileBody extends IndependentToken
 
@@ -22,11 +22,11 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建后立刻把语句重组规则挂上自己的重组队列——循环体里是一串语句。
+创建后立刻把语句收尾规则挂上自己的规则队列——循环体里是一串语句。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -38,11 +38,11 @@ TypeScript 那边括号类型是**独立节点**（`ParenthesizedType > 括号�
 那时它的父单元还是语句列表（`TypeAssign` 还没成形）——真正能判位置的是
 **外层容器自己的那一趟**（见 `../parse-pipeline.xl.md` 里「为什么这几条能安全地装在这张共享队列里」）。
 
-# class ParenthesizedTypeReorganization extends Reorganization
+# class ParenthesizedTypeCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:ParenthesizedTypeReorganization = new ParenthesizedTypeReorganization()
+## static readonly field Instance:ParenthesizedTypeCloseRule = new ParenthesizedTypeCloseRule()
 
 唯一的实例。
 
@@ -125,7 +125,7 @@ return true;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("ParenthesizedTypeReorganization.Process: current is null");
+  throw new Error("ParenthesizedTypeCloseRule.Process: current is null");
 }
 const result = new ParenthesizedType(current.Template);
 result.Parent = current.Parent;

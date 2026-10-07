@@ -16,17 +16,17 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `catch` 的语句体。
 
-与 `TryBody` 同构：不消费字符，只作为 `TryReorganization` 打包出来的一个子单元，挂在 `Try` 下（可以有多个，`Try.Catches` 按源码顺序取）。
+与 `TryBody` 同构：不消费字符，只作为 `TryCloseRule` 打包出来的一个子单元，挂在 `Try` 下（可以有多个，`Try.Catches` 按源码顺序取）。
 
 ## constructor:(template:Template)=>void
 
-创建时先把语句重组队列挂上。
+创建时先把语句规则队列挂上。
 
-`InitialStatementReorganizationQueue` 读的是通用重组队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+`InitialStatementCloseRuleQueue` 读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

@@ -1,6 +1,6 @@
 # namespace cangjie
 
-模板层：每个单元（token）的跳转与重组规则都从 `Template` 上取。
+模板层：每个单元（token）的跳转与收尾规则都从 `Template` 上取。
 
 符号模板是整套解析器里**最基础的一张表**：它决定一个字符算不算「符号」、算不算「空白」、算不算「数字」。`Identifier` token 就是靠 `IsSymbol` / `IsWhiteSpace` 决定要不要把字符吞进自己肚子里的。
 
@@ -31,7 +31,7 @@
 复合赋值符号。
 
 **TypeScript 的复合赋值一共 15 个，一次列齐**，且必须与 `IsCombinedSymbol` 的那张 switch 同步：
-两边不同步时词法会把 `&=` 断成 `&` 与 `=`，`CompoundAssignmentOperatorReorganization.Process`
+两边不同步时词法会把 `&=` 断成 `&` 与 `=`，`CompoundAssignmentOperatorCloseRule.Process`
 于是从错误的起点克隆左值（实测产物 `Identifier(a) SymbolToken(=) Identifier(a) SymbolToken(&) Identifier(b)`，
 `&` 掉到了 `=` 右边）。
 
@@ -143,13 +143,13 @@ switch (item) {
 **移位、幂必须在这张表里**（实测补的）：词法阶段靠 `IsCombinedSymbol(已有文本 + 当前字符)`
 决定要不要把下一个字符吞进同一个 `SymbolToken`（见 `typescript/tokens/symbol-token.xl.md` 的 `IsAppend`）。
 `<<` / `>>` / `>>>` / `**` 不在表里时它们会被拆成**两个 / 三个单字符符号**，
-而 `BinaryOperatorReorganization` 的 `IsOperator` 比的是**一个**单元的文本——
+而 `BinaryOperatorCloseRule` 的 `IsOperator` 比的是**一个**单元的文本——
 于是 `PowerInstance`（`**`）与 `ShiftInstance`（`<< >> >>>`）这两条实例**永远命不中**，
 是死规则：`a << b` 的产物是 `<Identifier>a</Identifier><SymbolToken>&lt;</SymbolToken><SymbolToken>&lt;</SymbolToken><Identifier>b</Identifier>`。
 
 **复合赋值的 15 个也在这张表里**（与 `CompoundAssignmentSymbols` 字段同步）：
 不在表里时 `a &= b` 会被断成 `Identifier(a)` `SymbolToken(&)` `SymbolToken(=)` `Identifier(b)`，
-`CompoundAssignmentOperatorReorganization.Process` 从错误的起点克隆左值，
+`CompoundAssignmentOperatorCloseRule.Process` 从错误的起点克隆左值，
 产物里 `&` 掉到 `=` 右边；`a ??= b` 更会断成 `?=` 与 `?=`。
 
 **光补这张表不够**：`Process` 的切分也必须按 `Temp.length` 保留最后一个字符

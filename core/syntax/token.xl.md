@@ -2,7 +2,7 @@
 ```xl
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { Branch } from "./branch.xl.md"
-import { Reorganization } from "./reorganization.xl.md"
+import { CloseRule } from "./close-rule.xl.md"
 import { TokenFormer } from "./token-former.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
@@ -48,9 +48,9 @@ JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
 
 从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
 
-## field CloseRuleQueue:Sequence<Reorganization> | null = null
+## field CloseRuleQueue:Sequence<CloseRule> | null = null
 
-本单元关闭之后 `ApplyCloseRules` 要跑的规则队列（第 562 轮从 `ReorganizationQueue` 改名 ✓）。
+本单元关闭之后 `ApplyCloseRules` 要跑的规则队列（第 562 轮从 `CloseRuleQueue` 改名 ✓）。
 
 它从前是**全局重组那一趟**的输入 ✓，第 561 轮把那一趟删掉之后只剩 `ApplyCloseRules` 这一个读点 ✓
 ⇒ 名字里那个「重组」不再指向任何还活着的东西 ✗，所以改掉 ✓。
@@ -59,13 +59,16 @@ JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
 
 ## field CreatedByRule:string = ""
 
-**这个单元是「哪条重组规则」造出来的**（第 464 轮加的诊断口径）：
+**这个单元是「哪条规则」造出来的**（第 464 轮加的诊断口径；字段名里的 `Rule` 与那一族规则同名 ✓）：
 
 空串 = 解析期由 guide / unit 吃字符长出来的 ✓（它的「谁造的」就是类名本身 ✓，
 XML 里直接用 `this.constructor.name` ✓）；非空 = 那条规则的类名 ✓。
 
 **为什么要它**：产物里出现一个形状不对的节点时（例如一个多余的 `ExpressionStatement` ✓），
 「它是谁造的」比「它长什么样」更能直接指出凶手 ✓。
+
+**目前没有写点** ✗（第 561 轮删掉那趟全局重组时一并消失了 ✓）：它当年的唯一写点是
+`Token.Reorganize` 里那句「只记第一条碰它的规则」✓ ⇒ 这个字段现在是**空着**的诊断位 ✓。
 
 ## field Parent:Token | null = null
 
@@ -195,12 +198,12 @@ this.Data.push(item);
 return item;
 ```
 
-## field BornByReorganization:bool = false
+## field BornByCloseRule:bool = false
 
 **这个单元是「重组的产出」吗**（第 460 轮加的度量口径）：
 
 解析期由 guide / unit 吃字符长出来的单元是 `false` ✓；
-由 `Reorganization` 那一趟在平表上收出来的容器是 `true` ✓。
+由 `CloseRule` 那一趟在平表上收出来的容器是 `true` ✓。
 统计「剩余 reorg 占比」就是数产物树里 `true` 的占比 ✓ ——
 它随迁移推进单调下降 ✓，比「还剩几条规则」更能说明进度 ✓。
 

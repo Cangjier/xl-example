@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -34,12 +34,12 @@ Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)  Identifier(z)
 `PropertyAccessExpression` 缺 4071、`CallExpression` 缺 1263）。
 折链之后运算符看到的是**一个完整的操作数**，`x.y` 与 `!== z` 各归各位 ✓。
 
-**它与 `MethodReorganization` / `NullConditionalOperatorReorganization` 的分工**：
+**它与 `MethodCloseRule` / `NullConditionalOperatorCloseRule` 的分工**：
 
-- `a.b(1)` 的 `b(1)` 先被 `MethodReorganization` 收成 `Method`（本规则排在它之后），
+- `a.b(1)` 的 `b(1)` 先被 `MethodCloseRule` 收成 `Method`（本规则排在它之后），
   本规则再把 `[a, ., Method]` 收成一个 `PropertyAccess`——链尾是一次调用时**照收**，
   因为 `CjcliHost.Fs().readFileSync(p)` 这种「调用结果再取成员」的链必须整体成为一个操作数；
-- `a?.b` 归 `NullConditionalOperatorReorganization`。本规则**见到链尾紧跟着 `?.` 就让路**
+- `a?.b` 归 `NullConditionalOperatorCloseRule`。本规则**见到链尾紧跟着 `?.` 就让路**
   （`Previous` 里那一条）：那一支已经把它收成了 `NullConditionalOperator`，
   再折一次会把那个节点挤到外面去（投影层能拼回 `PropertyAccessExpression` 的区间，
   但 `NullConditionalOperator` 自己会掉出产物）。
@@ -51,11 +51,11 @@ Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)  Identifier(z)
 括号的内容是在**括号关闭那一刻**重组的，那一刻它的父单元还是语句列表，
 `IsTypeContainerUnit` 看不出它是类型，只有「这个括号自己那一格是不是类型位」问得出来。
 
-`PropertyAccessReorganization` 写在 `PropertyAccess` 之前。
+`PropertyAccessCloseRule` 写在 `PropertyAccess` 之前。
 
-# class PropertyAccessReorganization extends Reorganization
+# class PropertyAccessCloseRule extends CloseRule
 
-## static readonly field Instance:PropertyAccessReorganization = new PropertyAccessReorganization()
+## static readonly field Instance:PropertyAccessCloseRule = new PropertyAccessCloseRule()
 
 唯一的实例。
 
@@ -67,7 +67,7 @@ Identifier(x)  SymbolToken(.)  Identifier(y)  SymbolToken(!==)  Identifier(z)
 直接 import 会绕出循环依赖；`constructor.name` 就是 XML 标签名，判它等价于判类型）：
 
 - `Identifier`：最普通的那一种。**要排掉语句关键字**（`return` / `throw` / … 在本规则跑的时候
-  还是 `Identifier`）与 `import`——`import.meta` 归 `ImportReorganization`，
+  还是 `Identifier`）与 `import`——`import.meta` 归 `ImportCloseRule`，
   折成链会把那个 `Import` 节点挤没；
 - `PropertyAccess`：折过一段的链继续往外折（`a.b(1).c` 的第二次）；
 - `Method` / `New` / `ArrayLiteral` / `String` / `ConstString` / `RegexToken`：
@@ -108,7 +108,7 @@ if (unit instanceof Identifier) {
     //
     // **少了它会怎样** ✗（第 532 轮实测 ✓）：`const` 这时还是 `Identifier` ✓ ⇒ 链在这里起头 ✓
     // ⇒ `const [a = 1, b = a]` 被收成一个 `PropertyAccess` ✗ ⇒ 那段声明的形状全变 ✗
-    //（`LetBranch` 再也认不出 ✓、`JsonArrayReorganization` 也再也看不到那个 `[` ✓ ——
+    //（`LetBranch` 再也认不出 ✓、`JsonArrayCloseRule` 也再也看不到那个 `[` ✓ ——
     //  它的上一个实义单元成了 `PropertyAccess` ✗，正是 `IsArrayAt` 里「已经是操作数 ⇒ 只能是下标」
     //  那一条 ✓）。**这两件事是连锁的** ✗：链一起头，解构括号就同时失去两种身份 ✓。
     text === "let" ||
@@ -141,7 +141,7 @@ return (
 `.` 后面那个单元能不能当**成员名**。
 
 `Identifier` 是常态（`a.b`），`Method` 是「成员位置的一次调用」（`a.b(1)` 里那个 `Method` 盖住
-`b(1)`）。`Keyword` 也要认：`KeywordReorganization` 排在队列最后，
+`b(1)`）。`Keyword` 也要认：`KeywordCloseRule` 排在队列最后，
 **第二趟**扫到这里时成员名可能已经被升级成 `Keyword` 了（`a.new` / `obj.class` 这类写法
 在 TypeScript 里是合法的属性名）。
 
@@ -178,9 +178,9 @@ return unit instanceof SymbolToken && unit.Is("#");
 
 `unit` 是不是**下标访问的那对方括号**（`a[i]` 里的 `[i]`）。
 
-判据只有 `startBracket === "["` 一条：**类型位**的 `[` 早被 `TypeBracketReorganization`
+判据只有 `startBracket === "["` 一条：**类型位**的 `[` 早被 `TypeBracketCloseRule`
 收成 `ArrayType` / `TupleType` / `IndexedAccessType`（它排在队列很前面），
-**值位里没有操作数**的 `[` 被 `JsonArrayReorganization` 收成 `ArrayLiteral`——
+**值位里没有操作数**的 `[` 被 `JsonArrayCloseRule` 收成 `ArrayLiteral`——
 轮到这个规则时，还留着的光秃秃 `[` 括号只可能是「前面有操作数的那个」。
 
 **第 80 轮补**：链要能吞下标。这一条与 `IsChainBase` 里那句「`Bracket` 只认收尾括号是
@@ -259,7 +259,7 @@ while (true) {
 2. **括号类型的内容让路**——父亲是括号、而这个括号自己那一格处在类型位
    （`IsTypeBracketPosition`）时不让。括号的内容在关闭那一刻就重组完了，
    那时它的祖父还不是 `ParenthesizedType`，第 1 条盖不住它（`(A.B)[]` 就是这个形状）；
-3. **链尾之后紧跟 `?.` 时让路**——那一支归 `NullConditionalOperatorReorganization`。
+3. **链尾之后紧跟 `?.` 时让路**——那一支归 `NullConditionalOperatorCloseRule`。
 
 `NewType` / `HeritageClause` / `ExpressionWithTypeArguments` / `Decorator` 里也让路：
 那几处的点号名各有自己的规则与投影路径（`new ns.Cls()` 的名字段、`extends A.B` 的
@@ -300,7 +300,7 @@ if (next !== null && next.constructor.name === "NullConditionalOperator") {
 // **下标链接只在值位成立**（第 80 轮补）：类型位的 `[]` 与值位的 `[i]` 形状一模一样，
 // 这里多认了一种后缀，就得自己把类型位挡掉。两处实测逼出来的细节：
 //
-//   · `type E2 = A[]` 这时候**已经没有括号了**（`TypeBracketReorganization` 排在前面，
+//   · `type E2 = A[]` 这时候**已经没有括号了**（`TypeBracketCloseRule` 排在前面，
 //     它先收成 `ArrayType`）——所以这条守卫管的是**它还没接手**的那几个形状；
 //   · `type E3 = [...A[]]` / `type T = [..., ...rest: E[]]` 里的那个 `[]` 跑链规则时
 //     还是光秃秃的括号，而 **`Context` 在这里帮不上忙**（`...` 是个符号，
@@ -363,17 +363,17 @@ return true;
 `PropertyAccessExpression` / `CallExpression` 逐字符相同（投影层直接抄这个区间）。
 
 软换行**不进节点**：`a` 换行 `.b` 里那个换行是版面而不是内容，留在里面会让投影多出节点
-（与 `BinaryOperatorReorganization.Process` 同一条做法）。
+（与 `BinaryOperatorCloseRule.Process` 同一条做法）。
 
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("PropertyAccessReorganization.Process: current is null");
+  throw new Error("PropertyAccessCloseRule.Process: current is null");
 }
 const endIndex = this.ChainEndIndex(units, index);
 const last = Get(units, endIndex);
 if (last === null) {
-  throw new Error("PropertyAccessReorganization.Process: 链尾为空");
+  throw new Error("PropertyAccessCloseRule.Process: 链尾为空");
 }
 const result = new PropertyAccess(template);
 result.Parent = current.Parent;
@@ -415,21 +415,21 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，并且给它装**只含关键字升级的那条队列**（`InitialKeywordReorganizationQueue`）。
+转调基类构造器，并且给它装**只含关键字升级的那条队列**（`InitialKeywordCloseRuleQueue`）。
 
 **为什么不能装通用队列**：这个单元的 `Data` 里第一个单元就是链底，
-`PropertyAccessReorganization.Previous` 对它照样成立——通用队列里的本规则会**自己折自己**，
+`PropertyAccessCloseRule.Previous` 对它照样成立——通用队列里的本规则会**自己折自己**，
 一路套到爆栈。
 
 **为什么还要装一条**（不能像 `regex-token.xl.md` 那样干脆不装）：成员名可能是一个**关键字**
-（`a.import` / `a.new`），它在链路外面时会由语句那一趟的 `KeywordReorganization` 升级成
+（`a.import` / `a.new`），它在链路外面时会由语句那一趟的 `KeywordCloseRule` 升级成
 `Keyword`，进了链就再也轮不到——产物里它停在 `Identifier` 上，
 两条既有用例（`expr-member-named-import` / `expr-member-named-import-qualified`）
 断言的正是 `<Keyword>import</Keyword>`。
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

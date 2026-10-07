@@ -5,7 +5,7 @@ import { Source } from "../../core/syntax/source.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
@@ -43,21 +43,21 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 | 重组类 | 时机 |
 | --- | --- |
-| `StatementReorganization` | 遇到 `;` 这类语句符号 |
-| `StatementReorganization2` | 最常见的收束：遇到换行或末尾 |
-| `StatementReorganization3` | 只在列表末尾 |
+| `StatementCloseRule` | 遇到 `;` 这类语句符号 |
+| `StatementCloseRule2` | 最常见的收束：遇到换行或末尾 |
+| `StatementCloseRule3` | 只在列表末尾 |
 
 这三个类都写在 `Statement` **之前**——它们的 `Instance` 静态字段会在类定义时立即求值，
 而且 `TextCommonUtil` 与 `Root` 也会直接引用它们。
 
 三个类的 `Process` 里都重复了同一段「往前找语句边界」的判定，这里各自内联，不做提取。
 
-# class StatementReorganization extends Reorganization
+# class StatementCloseRule extends CloseRule
 
 `Previous` 命中的条件是：`index` 处是一个**语句符号**（`;`），并且它的父单元不是小括号 `(`——
 小括号里的 `;` 属于 for 语句的三段式，不是语句边界。
 
-## static readonly field Instance:StatementReorganization = new StatementReorganization()
+## static readonly field Instance:StatementCloseRule = new StatementCloseRule()
 
 唯一的实例。
 
@@ -127,14 +127,14 @@ if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
 return ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
 ```
 
-# class StatementReorganization2 extends Reorganization
+# class StatementCloseRule2 extends CloseRule
 
 `Previous` 命中的条件是：`index` 处是 `LineWrap` **或** 语句符号。
 
 `Process` 分两种时机：
 
 - **不是最后一个单元**：当前不是语句符号、且落在语句内部（`IsInStatement`）时，直接把当前单元删掉；
-  否则与 `StatementReorganization` 同款收束——但**多一次 `TryToClose`**。
+  否则与 `StatementCloseRule` 同款收束——但**多一次 `TryToClose`**。
 - **是最后一个单元**：边界判定改用宽口径的 `IsStatementUnit`，且 `children` 允许为空长度（照常收束）。
 
 **「是最后一个单元」这条分支多一个 `children.length === 1` 的早退。**
@@ -147,7 +147,7 @@ return ReplaceCountAt(units, frontIndex + 1, index - frontIndex, statement);
 两条分支在这里**本来就该一致**，所以这个早退是让它们对齐，不是新语义。
 空 `Statement` 不携带任何信息，去掉它只让 XML 更干净（README 的差异清单里记了这一条）。
 
-## static readonly field Instance:StatementReorganization2 = new StatementReorganization2()
+## static readonly field Instance:StatementCloseRule2 = new StatementCloseRule2()
 
 唯一的实例。
 
@@ -243,12 +243,12 @@ statement.TryToClose();
 return nextIndex;
 ```
 
-# class StatementReorganization3 extends Reorganization
+# class StatementCloseRule3 extends CloseRule
 
 `Previous` 只在 `index` 是列表最后一个单元时命中。`Process` 与前者同款收束，
 但多一个「`children` 长度为 1 且那个单元本身就是语句单元」的早退——那种情况什么都不做。
 
-## static readonly field Instance:StatementReorganization3 = new StatementReorganization3()
+## static readonly field Instance:StatementCloseRule3 = new StatementCloseRule3()
 
 唯一的实例。
 
@@ -273,7 +273,7 @@ return units.length - 1 === index;
 `Statement.AddRange` 会把子单元的 `Parent` 改成挂在那个新 `Statement` 名下，而那个新单元
 **不可能进树**（它的锚点单元自己也已经是别人的子单元，`Parent` 为 `null`）。
 不恢复的话，后面任何一条规则想 `Replace` 这些子单元都会抛「没有父单元」——
-`JsonObjectReorganization.Process` 里那句 `current.Replace(result)` 就是第一条撞上的。
+`JsonObjectCloseRule.Process` 里那句 `current.Replace(result)` 就是第一条撞上的。
 （这一支只保证**不抛异常**；那种形状的产物里 `{ A }` 仍可能出现两次——
 见 README「已知缺口」里记的那一条。）
 
@@ -316,7 +316,7 @@ return nextIndex;
 
 单元值类型是单字符的 `string`。
 
-构造时就把自己的重组队列从模板上取出来——`InitialStatementReorganizationQueue` 会把
+构造时就把自己的规则队列从模板上取出来——`InitialStatementCloseRuleQueue` 会把
 两个语句重组类插到默认队列的前面。
 
 ## method PrintAst:(ctx:any, v:any)=>any
@@ -341,7 +341,7 @@ return nextIndex;
 
 ## constructor:(template:Template)=>void
 
-构造器里取本类型的重组队列；运行时类型用 `this.constructor`。
+构造器里取本类型的规则队列；运行时类型用 `this.constructor`。
 
 ```ts
 super(template);
@@ -350,8 +350,8 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## static method FormFrom:(unit:Token, terminator:Token)=>void
 
-**在终结符已经进 `Data` 之后**收一条语句壳（第 486 轮）——`StatementReorganization` / `StatementReorganization2`
-那两条重组规则的**逐字移植**，只是时机从「单元关闭时扫平表」换成「终结符刚 append 完」。
+**在终结符已经进 `Data` 之后**收一条语句壳（第 486 轮）——`StatementCloseRule` / `StatementCloseRule2`
+那两条收尾规则的**逐字移植**，只是时机从「单元关闭时扫平表」换成「终结符刚 append 完」。
 
 **为什么必须在这个时机** ✗：壳体要把终结符**算进自己的区间** ✓（TS 的 `VariableStatement` 是 `[0,10)`
 而不是 `[0,9)` ✓，实测漂移 1032 → 493 ✓），可终结符**在 appender 之前根本不在 `Data` 里** ✓
@@ -362,14 +362,14 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 **切片与重组一字不差** ✓：`children` 含终结符 ✓，装进语句的是 `children.slice(0, children.length - 1)` ✓，
 区间取 `FirstMeaningful(children).Start .. children[last].End` ✓ —— 所以 `End` 就是终结符的末尾 ✓。
 
-**`;` 在小括号里不算语句边界** ✓：那是 `for` 的三段式分隔符（照 `StatementReorganization.Previous` 的判定 ✓）。
+**`;` 在小括号里不算语句边界** ✓：那是 `for` 的三段式分隔符（照 `StatementCloseRule.Previous` 的判定 ✓）。
 
 ```ts
 if (unit === null || unit === undefined) {
   return;
 }
 // **成员列表里不收语句壳** ✓（第 503 轮 ✓）：`ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody`
-// 的子单元是**成员** ✓，不是语句 ✓ —— 收了壳之后 `FieldReorganization` / `MethodDeclarationReorganization`
+// 的子单元是**成员** ✓，不是语句 ✓ —— 收了壳之后 `FieldCloseRule` / `MethodDeclarationCloseRule`
 // 看到的是「一个 Statement」✗，成员就永远成形不了 ✓（实测 `am-class-modifier-order.ts`：
 // `private static readonly b: number` 被包成一个 `Statement` ✓，TS 那边是 `PropertyDeclaration` ✗；
 // **对照态同样如此** ✗ ⇒ 这是重组层自己的老缺口 ✓）。
@@ -387,7 +387,7 @@ if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as
   return;
 }
 // **`{` 括号：值位的花括号里也不收语句壳** ✓（第 556 轮 ✓）：对象字面量 / 类型字面量里装的是
-// **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectReorganization` 问的是**同一句** ✓
+// **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectCloseRule` 问的是**同一句** ✓
 //（`IsObjectLiteralBrace` ✓，见 `../text-common-util.xl.md` ✓）。
 // 少了它会怎样 ✗：多行对象字面量里每个成员被包成一个 `Statement` ✗ ⇒
 // `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`** ✗
@@ -439,7 +439,7 @@ ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
 // **造完就关一次**（第 487 轮 ✓）：`TryToClose` 会跑 `ApplyCloseRules` ✓ —— 壳里的
 // `return` / `throw` / `const` 那类词要升成 `Keyword` ✓，投影侧「关键字开头的语句」那一支才认得 ✓
 //（实测 i42：`return;` 从 `ExpressionStatement` 变成 `ReturnStatement` ✓）。
-// 重组那条当年也是这么写的（`StatementReorganization2.Process` 末尾一句 `statement.TryToClose()` ✓）。
+// 重组那条当年也是这么写的（`StatementCloseRule2.Process` 末尾一句 `statement.TryToClose()` ✓）。
 statement.TryToClose();
 ```
 
@@ -464,11 +464,11 @@ statement.TryToClose();
 2. **只有语句列表容器才收** ✓（白名单 ✓）：这条跑在每个单元的关闭前那一趟里 ✓，
    不设白名单的话 `Statement` 自己、类型单元、对象字面量都会收出**嵌套壳** ✗
    （`Statement` 里再套一个 `Statement` ✓ —— 那是收敛环里的自激 ✗）。
-   白名单就是「构造器里装了语句队列的那些容器」✓（`InitialStatementReorganizationQueue`
+   白名单就是「构造器里装了语句队列的那些容器」✓（`InitialStatementCloseRuleQueue`
    的调用点 ✓，见 `parse-pipeline.xl.md` ✓）。
 
 **单格早退**：末尾那一格**本身**已经是语句级单元时什么都不做 ✓（`IsStatementUnit` ✓，
-与 `StatementReorganization3` 里那一格同款 ✓）——函数 / 类**表达式**也在这条里被挡住 ✓
+与 `StatementCloseRule3` 里那一格同款 ✓）——函数 / 类**表达式**也在这条里被挡住 ✓
 （它们在非声明位置不是语句边界 ✓，但也不是「要包进壳里的尾巴」✗）。
 
 ```ts
@@ -491,7 +491,7 @@ const isStatementList =
   owner === "FinallyBody" ||
   owner === "NamespaceBody" ||
   // **`SwitchStatement` 也在名单里**（第 553 轮）：它的构造器同样装了语句队列
-  // （`switch-statement.xl.md` 的 `InitialStatementReorganizationQueue`）✓，
+  // （`switch-statement.xl.md` 的 `InitialStatementCloseRuleQueue`）✓，
   // 白名单就是照这一条列的 ✓，第 544 轮加这条时**漏了它** ✗ —— 那时 `switch` 的段
   // 一个都造不出来（第 552 轮才修好 ✓），看不出症状 ✓。
   // 症状是「`case 1: s += "a";` 写在同一行」这一类：标签与体在**同一个 `Statement` 壳**里 ✓，
@@ -556,9 +556,9 @@ statement.TryToClose();
 还会把 `abstract` 与后面的 `Field` 一起卷进同一个 `Statement`。
 
 `Label` 也在表里：标签与它标的那条语句是**两个平级单元**（见 `./label.xl.md` 的说明），
-不把 `Label` 当边界，`StatementReorganization3` 会把两者一起收进一个 `Statement`。
+不把 `Label` 当边界，`StatementCloseRule3` 会把两者一起收进一个 `Statement`。
 
-这个判定是「语句从这里断开」的**四个**调用点共用的（`StatementReorganization` / `2` 的两条分支 / `3` 里的
+这个判定是「语句从这里断开」的**四个**调用点共用的（`StatementCloseRule` / `2` 的两条分支 / `3` 里的
 `SearchFrontIndexed`，判定器统一转调 `IsStatementBoundary`），
 所以它决定了声明能不能作为独立节点站在 `Root` / `ClassBody` / 函数体里。
 
@@ -649,7 +649,7 @@ return first;
 不加这条会出真 bug（实测）：`const v = function () {} && y;` 里那个函数是**表达式**，
 可 `Function` 在 `IsStatementUnit` 里是无条件边界，于是往后找语句头时**停在了它身上**，
 `&& y` 被单独收成一个 `Statement`；那个 `Statement` 的 `Data` 以 `&&` 打头，
-`LogicalOperatorReorganization` 攒不到左操作数，直接抛「LogicalOperator 为空」。
+`LogicalOperatorCloseRule` 攒不到左操作数，直接抛「LogicalOperator 为空」。
 `class` 同理（`const v = class {} && y;`）。
 
 ```ts
@@ -755,8 +755,8 @@ return Statement.IsStatementUnit(item);
 取一个「词」单元的文本：`Identifier` 用 `TempToString()`，`Keyword` 用它的 `Value`，其余返回空串。
 
 与 `declaration-common.xl.md` 的 `IsWordUnit` 同一口径，只是这里要的是**文本**而不是「等于某个词」。
-两种都要认：`KeywordReorganization` 会把命中的词从 `Identifier` 升级成 `Keyword`
-（两条分支没有继承关系），而本文件的重组规则在**同一趟里跑两遍**，
+两种都要认：`KeywordCloseRule` 会把命中的词从 `Identifier` 升级成 `Keyword`
+（两条分支没有继承关系），而本文件的收尾规则在**同一趟里跑两遍**，
 第二遍看到的词可能已经升级过了。
 
 ```ts
@@ -1095,7 +1095,7 @@ return -1;
 `index` 是否落在一条语句**内部**。
 
 **`index` 处是软换行时，直接取 `IsLineBreakBoundary` 的反**——那一条就是 ASI 判据。
-这是 `StatementReorganization2` 唯一的传法（它只在 `Previous` 命中 `LineWrap` 时问这一句，
+这是 `StatementCloseRule2` 唯一的传法（它只在 `Previous` 命中 `LineWrap` 时问这一句，
 命中 `;` 时走的是 `currentIsStatementSymbol` 那条短路）。
 
 **`index` 处本身就是一条新语句的开头时，答案是「不在语句内」**（第二条早退）。
@@ -1261,7 +1261,7 @@ if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as
   return result;
 }
 // **`{` 括号：值位的花括号里也不收语句壳** ✓（第 556 轮 ✓）：对象字面量 / 类型字面量里装的是
-// **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectReorganization` 问的是**同一句** ✓
+// **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectCloseRule` 问的是**同一句** ✓
 //（`IsObjectLiteralBrace` ✓，见 `../text-common-util.xl.md` ✓）。
 // 少了它会怎样 ✗：多行对象字面量里每个成员被包成一个 `Statement` ✗ ⇒
 // `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`** ✗
@@ -1298,8 +1298,8 @@ if (Statement.IsStatementBoundary(data, data.length - 1)) {
 }
 // **`do … while` 不许被行尾的软换行切断** ✓（第 501 轮 ✓）：
 // `do x++` 换行 `while (x < 10)` 是**一条**语句 ✓（TypeScript 的 ASI 在这里不插分号 ✓），
-// 可壳一收就把 `do` 关进壳里 ✓ ⇒ `DoWhileReorganization.Previous` 再也认不出它 ✗
-// ⇒ 落到 `WhileReorganization` 手里 ✓、再因为「`while` 后面没有语句」抛错 ✗
+// 可壳一收就把 `do` 关进壳里 ✓ ⇒ `DoWhileCloseRule.Previous` 再也认不出它 ✗
+// ⇒ 落到 `WhileCloseRule` 手里 ✓、再因为「`while` 后面没有语句」抛错 ✗
 //（`tests/parse/cases/statements/stmt-do-while-no-block.ts` ✓；对照态同样炸 ✗ —— 这是重组层的老缺口 ✓）。
 // 判据只看**这一段**的第一个实义单元是不是 `do` 这个词 ✓（`Statement.WordOf` 两种形态都认 ✓）。
 const frontIndex = SearchFrontIndexed(data, data.length - 1, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));

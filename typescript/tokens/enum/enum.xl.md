@@ -234,7 +234,7 @@ enumUnit.MountedUnit = body;
 
 ## constructor:(template:Template)=>void
 
-只有转调：本类**不挂重组队列**（理由见类注释）。
+只有转调：本类**不挂规则队列**（理由见类注释）。
 
 ```ts
 super(template);

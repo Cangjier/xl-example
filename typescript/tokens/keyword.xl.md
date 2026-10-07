@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -17,9 +17,9 @@ import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
 
 关键字单元：把「在任意上下文都是关键字」的 `Identifier` 提升成一个 `Keyword`。它用得很少——关键字一般要结合具体上下文才算数，只有全上下文成立的关键字才值得单独成 unit。
 
-`KeywordReorganization` 写在 `Keyword` **之前**，与同目录其它 token 一致。
+`KeywordCloseRule` 写在 `Keyword` **之前**，与同目录其它 token 一致。
 
-# class KeywordReorganization extends Reorganization
+# class KeywordCloseRule extends CloseRule
 
 `Previous` 认的是「内容被 `KeywordTemplate` 判定为关键字的 `Identifier`」。判定发生在字符块上，所以这一步只是**换个身份**：不产生新内容，只把普通字符块升级成关键字单元。
 
@@ -27,7 +27,7 @@ import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
 （`Token.TryToClose` → `TokenFormer.ApplyCloseRules` → 本规则 `ApplyTo` ✓）与这条规则走**同一份实现** ✓，
 所以「哪些词升级」「`as const` / `override` 两个例外」只有一处答案 ✓。
 
-## static readonly field Instance:KeywordReorganization = new KeywordReorganization()
+## static readonly field Instance:KeywordCloseRule = new KeywordCloseRule()
 
 唯一的实例。
 
@@ -148,7 +148,7 @@ return ReplaceCountAt(units, index, 1, keyword);
 
 - `Keyword.UpgradeAt`（**替换那一格**）：重组那条规则与解析期那一趟都走它 ✓；
 - `HeritageClause.Take`（**解析期**那一趟）：类头 / 接口头在 `{` 那一刻整理时，
-  子句词当场升成 `<Keyword>`，所以 `HeritageClause` 自己**不用挂重组队列**。
+  子句词当场升成 `<Keyword>`，所以 `HeritageClause` 自己**不用挂规则队列**。
 
 范围沿用那个 `Identifier` 的起止；新单元用**被替换单元自己的** `Template`；
 `Parent` 由调用方给（`ReplaceCountAt` 只做 `splice`、**不设** `Parent`，

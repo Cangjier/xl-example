@@ -2,7 +2,7 @@
 ```xl
 import { SyntaxException } from "../../../core/exceptions/syntax-exception.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SkipNext } from "../../../core/extensions/list-extension.xl.md"
@@ -21,13 +21,13 @@ import { TryBody } from "./try-body.xl.md"
 
 `try` 语句：把 `try` / `catch` / `finally` 三段扫描出来，打包成一个 `Try` 单元。
 
-# class TryReorganization extends Reorganization
+# class TryCloseRule extends CloseRule
 
 它做的事是**把整个 `try` 结构收成一个 `Try`**：从 `try` 关键字起，啃掉紧跟的 `Bracket`（语句体），再循环啃掉任意多个 `catch`（可选的 `(形参)` + 语句体），最后啃掉可选的 `finally` 语句体，然后用 `ReplaceCountAt` 把这一整段换成一个 `Try`。
 
-`TryReorganization` 写在 `Try` **之前**。
+`TryCloseRule` 写在 `Try` **之前**。
 
-## static readonly field Instance:TryReorganization = new TryReorganization()
+## static readonly field Instance:TryCloseRule = new TryCloseRule()
 
 唯一的实例。
 
@@ -176,7 +176,7 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 `try` 语句。
 
-它**没有覆写 `ToXmlString`**，所以 XML 由基类 `Token` 产出：标签名是运行时类名 `Try`，内容是全部子单元的 XML 串接。子单元的顺序是 `TryBody`、若干 `CatchDefine` / `CatchBody`、可选的 `FinallyBody`——这个顺序由 `TryReorganization.Process` 的扫描顺序决定。
+它**没有覆写 `ToXmlString`**，所以 XML 由基类 `Token` 产出：标签名是运行时类名 `Try`，内容是全部子单元的 XML 串接。子单元的顺序是 `TryBody`、若干 `CatchDefine` / `CatchBody`、可选的 `FinallyBody`——这个顺序由 `TryCloseRule.Process` 的扫描顺序决定。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -192,7 +192,7 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
   `CatchDefine` 在 TS 里**不是节点**，它的内容进 `CatchClause.variableDeclaration`。
 
 **解构捕获 `catch ({ message })`**（第 160 轮）：那个 `{ message }` 在产物里已经被
-`JsonObjectReorganization` 收成 `ObjectLiteral`，而 TS 那边 `name` 是 `ObjectBindingPattern`
+`JsonObjectCloseRule` 收成 `ObjectLiteral`，而 TS 那边 `name` 是 `ObjectBindingPattern`
 ——所以要走 `ctx.BindingPattern`（数组解构同理）。
 
 **空的 `finally { }` 也要造块**（第 177 轮）：按语句数判会把它整个跳过，而 TS 那边照样有一个空
@@ -378,7 +378,7 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。注意 `Try.Clone` **没有**拷贝静态注册信息，`TryReorganization` 也不参与克隆。
+顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。注意 `Try.Clone` **没有**拷贝静态注册信息，`TryCloseRule` 也不参与克隆。
 
 ```ts
 const result = new Try(this.Template);

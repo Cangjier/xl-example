@@ -327,7 +327,7 @@ return result;
 
 四步的顺序都是必须的 ✓：
 
-1. **先把装饰器收成单元** ✓：`Decorator` 是**重组造出来的** ✓（`DecoratorReorganization` ✓），
+1. **先把装饰器收成单元** ✓：`Decorator` 是**重组造出来的** ✓（`DecoratorCloseRule` ✓），
    而这一步发生在任何重组之前 ✓——不收的话 `@` / 名字 / 实参括号会散在头里 ✓，
    搬进去的就是三四个散单元而不是一个 `<Decorator>` ✗。
    这里**只跑这一条规则**（不是整条通用队列）✓：头部剩下的单元（`extends` / `implements` /
@@ -357,8 +357,8 @@ if (classIndex < 0) {
 // **必须排在 `DeclarationStart` 之前** ✗：装饰器在这一刻还是散的 ✓（`@` / 名字 / 实参括号 ✓），
 // 而 `DeclarationStart` 往回走时会**停在实参括号上** ✗ ⇒ 那条声明头被算短了 ✓、
 // 装饰器被留在 `Class` 外面 ✗（实测 `@Dec() export class A {}` 的 `<Decorator>` 掉到 `Class` 的兄弟位上 ✓）。
-// 老写法没有这个问题 ✓，因为这条规则当时跑在通用重组队列里 ✓、
-// `DecoratorReorganization` 就排在它前一位 ✓——搬进解析期之后，这个次序要自己补回来 ✓。
+// 老写法没有这个问题 ✓，因为这条规则当时跑在通用规则队列里 ✓、
+// `DecoratorCloseRule` 就排在它前一位 ✓——搬进解析期之后，这个次序要自己补回来 ✓。
 classIndex = ReorganizeDeclarationDecorators(unit.Template, units, classIndex);
 const start = DeclarationStart(units, classIndex);
 const cls = new Class(unit.Template);
@@ -402,7 +402,7 @@ cls.MountedUnit = body;
 
 ## constructor:(template:Template)=>void
 
-**本类不挂重组队列** ✓——**头在 `{` 那一刻就已经全部成形** ✓，不需要事后那一趟 ✗：
+**本类不挂规则队列** ✓——**头在 `{` 那一刻就已经全部成形** ✓，不需要事后那一趟 ✗：
 
 - 装饰器：`ReorganizeDeclarationDecorators` 在**搬进来之前**就收成 `Decorator` 单元 ✓；
 - `extends` / `implements`：`OrganizeHeritage` 在**同一个 `{`** 里收成 `HeritageClause` ✓，

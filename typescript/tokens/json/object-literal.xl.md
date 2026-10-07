@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
@@ -19,15 +19,15 @@ import { LineWrap } from "../line-wrap.xl.md"
 
 Json 对象：把 `{...}` 这种字面量从「一个花括号 + 里面的内容」重组成单个 `ObjectLiteral` 单元。
 
-`JsonObjectReorganization` 写在 `ObjectLiteral` **之前**（与同目录其它 token 一致）。
+`JsonObjectCloseRule` 写在 `ObjectLiteral` **之前**（与同目录其它 token 一致）。
 
-# class JsonObjectReorganization extends Reorganization
+# class JsonObjectCloseRule extends CloseRule
 
 它只做两件事：判断 `{` 是不是「Json 对象的开头」，是就把它连同内容收成一个 `ObjectLiteral`。
 
-## static readonly field Instance:JsonObjectReorganization = new JsonObjectReorganization()
+## static readonly field Instance:JsonObjectCloseRule = new JsonObjectCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method IsObjectAt:(units:Array<Token>, index:int)=>bool
 
@@ -82,7 +82,7 @@ return this.IsObjectAt(units, index);
 **拿不到父单元时早退**（`current.Parent === null`）：`Replace` 要求「自己还在父单元的子单元里」，
 没有父单元就抛「没有父单元」。这个形状确实会出现——**重组改短了列表、而下标还是旧扫描留下的**
 （实测：`{ A }a += 1` 这种「块紧跟着表达式、中间既没有 `;` 也没有换行」的写法，
-`StatementReorganization3` 在旧下标上收出一个不可能进树的 `Statement`，
+`StatementCloseRule3` 在旧下标上收出一个不可能进树的 `Statement`，
 把这个括号的父单元挪成了那个孤儿）。
 
 早退**保住内容**：括号还在 `units` 里、内容也还在括号的 `Data` 里（`MoveDataTo` 已经搬了一次，
@@ -93,7 +93,7 @@ return this.IsObjectAt(units, index);
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("ObjectLiteral.Reorganization.Process: current is null");
+  throw new Error("ObjectLiteral.CloseRule.Process: current is null");
 }
 if (current.Parent === null) {
   return index;
@@ -108,26 +108,26 @@ current.Replace(result);
 return index;
 ```
 
-# class BlockReorganization extends Reorganization
+# class BlockCloseRule extends CloseRule
 
 同一对花括号的**另一种读法：块语句**。
 
-`JsonObjectReorganization.Previous` 已经把「处在语句开头」的 `{` 排除掉了（见那里的说明），
+`JsonObjectCloseRule.Previous` 已经把「处在语句开头」的 `{` 排除掉了（见那里的说明），
 本规则就接手那一支：给块括号补一条**语句队列**并当场跑一遍。
 
 **为什么必须在这里补**：`{` 括号一律不带队列（见 `../bracket.xl.md` 的 `Use`），
 而块里装的是语句——不补队列，`{ function g() { … } g() }` 里的函数声明、
 `{ a: 1 }` 里的标签语句都退化成散着的 `Identifier`。
-补的时机也只能在这里：`LabelReorganization` 能照顾「标签后面的块」，
+补的时机也只能在这里：`LabelCloseRule` 能照顾「标签后面的块」，
 但**裸块**（没有标签的那些）只有本规则认得出来，而此刻它早已关闭、
 收尾规则那一趟（第 561 轮之前叫 `Reorganize()` ✓）只能由我们显式叫一次
 （`TryToClose` 那次跑在没有队列的时候）。
 
 `Process` **不消费任何单元**（块括号原样留着，只是多了队列），所以返回 `index + 1` 往下走。
 
-## static readonly field Instance:BlockReorganization = new BlockReorganization()
+## static readonly field Instance:BlockCloseRule = new BlockCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
@@ -154,9 +154,9 @@ return IsStatementStart(units, index);
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("BlockReorganization.Process: current is null");
+  throw new Error("BlockCloseRule.Process: current is null");
 }
-ParsePipeline.InitialStatementReorganizationQueue(current);
+ParsePipeline.InitialStatementCloseRuleQueue(current);
 current.ApplyCloseRules();
 return index + 1;
 ```
@@ -275,7 +275,7 @@ TS 那边的 `properties` 是**成员数组**：
 
 ## constructor:(Template:Template)=>void
 
-转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
+转调基类构造器，然后从规则模板里取出「本类」对应的一组收尾规则。
 
 `CloseRuleQueue` 从模板里取：键是 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
 

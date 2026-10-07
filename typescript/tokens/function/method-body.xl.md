@@ -10,7 +10,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-方法声明的**函数体**段：`MethodDeclarationReorganization.Process` 把 `{ ... }` 那对括号的内容搬进来，
+方法声明的**函数体**段：`MethodDeclarationCloseRule.Process` 把 `{ ... }` 那对括号的内容搬进来，
 之后这一段自己再跑一遍**语句**重组，把方法体啃成语句树。
 
 与 `ClassBody` / `FunctionBody` / `ForBody` / `IfStatement` 是同一族。
@@ -19,7 +19,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 （名字 + 实参括号），它的内容就是实参；方法声明的 `{ ... }` 是**语句块**，两者不是一回事。
 `MethodDeclaration` 因此把参数括号与方法体分成两个子单元。
 
-语句重组队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+语句规则队列的装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
 
 # class MethodBody extends IndependentToken
 
@@ -29,11 +29,11 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 ## constructor:(template:Template)=>void
 
-创建后立刻把语句重组规则挂上自己的重组队列——方法体里是一串语句。
+创建后立刻把语句收尾规则挂上自己的规则队列——方法体里是一串语句。
 
 ```ts
 super(template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

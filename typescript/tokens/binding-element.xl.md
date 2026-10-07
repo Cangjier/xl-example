@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
@@ -41,18 +41,18 @@ TypeScript 那边的形状（实测 AST）：
 - `Parameter`（`function f({ p, q }: T)` ✓）；
 - `ForeachDefine`（**第 546 轮加的** ✓）：`for (const [a, b] of xs)` / `for (const { x, y } of xs)`
   的声明段在产物里是一个 `ForeachDefine` ✓ —— 这一档的名字后面跟的是 `of` / `in` ✗、
-  `LetReorganization` 从来不在那里进门 ✗ ⇒ 没有 `Let` 让它当宿主 ✗ ⇒ 括号里的散单元
+  `LetCloseRule` 从来不在那里进门 ✗ ⇒ 没有 `Let` 让它当宿主 ✗ ⇒ 括号里的散单元
   一个 `BindingElement` 都收不到 ✗（实测 `st-for-of-destructure` /
   `stmt-for-of-array-destructure` / `stmt-for-of-object-destructure` 三份 ✓）。
 
 **值位的对象 / 数组字面量不受影响**：`const y = { a }` 的 `{}` 宿主是语句（不是上面三种）✗
 一次都不会被收 ✓。
 
-# class BindingElementReorganization extends Reorganization
+# class BindingElementCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:BindingElementReorganization = new BindingElementReorganization()
+## static readonly field Instance:BindingElementCloseRule = new BindingElementCloseRule()
 
 唯一的实例。
 
@@ -144,7 +144,7 @@ return true;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("BindingElementReorganization.Process: current is null");
+  throw new Error("BindingElementCloseRule.Process: current is null");
 }
 const original: Token[] = [];
 for (const item of current.Data) {
@@ -185,7 +185,7 @@ for (const item of segment) {
 if (hasReal === false) {
   return;
 }
-// **`...` 可能已经被 `SpreadReorganization` 收成一个 `Spread` 节点**（与元组的
+// **`...` 可能已经被 `SpreadCloseRule` 收成一个 `Spread` 节点**（与元组的
 // `RestType` 同一情形）：TS 那边 `BindingElement` 的子节点是 `DotDotDotToken` + 名字，
 // 不是一个 `SpreadElement`——留着它会报 `Spread in BindingElement`（实测 5 处）。
 // 这里把 `Spread` 的内容摊出来再装进元素 ✓。

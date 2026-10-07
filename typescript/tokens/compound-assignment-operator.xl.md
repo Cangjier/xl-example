@@ -1,6 +1,6 @@
 # dependencies
 ```xl
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceRangeAt, SearchFront } from "../../core/extensions/list-extension.xl.md"
@@ -28,12 +28,12 @@ import { SymbolToken } from "./symbol-token.xl.md"
 于是 `a += b` 的单元序列变成 `a` `=` `a` `+` `b`，下游的二元规则再把 `a + b` 折成一个节点；
 `a <<= b` 同样得到 `a` `=` `a` `<<` `b`（**三字符运算符靠第 1 步按长度切**，见 `Process` 的说明）。
 
-`CompoundAssignmentOperatorReorganization` 写在 `CompoundAssignmentOperator` 之前——
-它的 `Instance` 静态字段在类定义时立即求值，而 `Root` 的重组队列会直接引用 `CompoundAssignmentOperatorReorganization.Instance`。
+`CompoundAssignmentOperatorCloseRule` 写在 `CompoundAssignmentOperator` 之前——
+它的 `Instance` 静态字段在类定义时立即求值，而 `Root` 的规则队列会直接引用 `CompoundAssignmentOperatorCloseRule.Instance`。
 
-# class CompoundAssignmentOperatorReorganization extends Reorganization
+# class CompoundAssignmentOperatorCloseRule extends CloseRule
 
-## static readonly field Instance:CompoundAssignmentOperatorReorganization = new CompoundAssignmentOperatorReorganization()
+## static readonly field Instance:CompoundAssignmentOperatorCloseRule = new CompoundAssignmentOperatorCloseRule()
 
 唯一的实例。
 
@@ -149,7 +149,7 @@ return (
 - `current = Get(units, index) as SymbolToken`——把 `+=` 这个符号取出来。
 - `operatorSymbol = current.Clone() as SymbolToken`，然后 `operatorSymbol.Temp.splice(1, 1)`、`current.Temp.splice(0, 1)`：
   副本去掉第二个字符（留 `+`），原件去掉第一个字符（留 `=`）。
-- `startIndex = SearchFront(units, index, CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart)`——从 `index - 1` 往前找赋值表达式起点；
+- `startIndex = SearchFront(units, index, CompoundAssignmentOperatorCloseRule.IsCompoundAssignmentOperatorStart)`——从 `index - 1` 往前找赋值表达式起点；
   找不到给 `-1`，此时 `units.slice(0, index)` 正好取出从头到 `index` 的全部单元。
 - `front = units.slice(startIndex + 1, index)`——赋值号左侧的那一段（**取副本，不动原列表**）。
 - 逐个克隆：`front.map((item) => item.Clone())`。
@@ -168,7 +168,7 @@ operatorSymbol.FromCompoundAssignment = true;
 const lastIndex = operatorSymbol.Temp.length - 1;
 operatorSymbol.Temp.splice(lastIndex, 1);
 current.Temp.splice(0, lastIndex);
-const startIndex = SearchFront(units, index, CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart);
+const startIndex = SearchFront(units, index, CompoundAssignmentOperatorCloseRule.IsCompoundAssignmentOperatorStart);
 const front = units.slice(startIndex + 1, index);
 const frontClones = front.map((item) => item.Clone());
 const insertUnits: Token[] = [...frontClones, operatorSymbol];
@@ -193,8 +193,8 @@ return index;
 
 复合赋值运算符的**容器类**，本身没有任何成员。
 
-它不继承 `Token`，只是 `CompoundAssignmentOperatorReorganization` 的宿主。
-`Root` 引用的是 `CompoundAssignmentOperatorReorganization.Instance`，所以这个空壳类不参与解析流程，也不会进 `Data` / XML。
+它不继承 `Token`，只是 `CompoundAssignmentOperatorCloseRule` 的宿主。
+`Root` 引用的是 `CompoundAssignmentOperatorCloseRule.Instance`，所以这个空壳类不参与解析流程，也不会进 `Data` / XML。
 
 **切分必须按 `Temp.length`**：`Process` 要把**一个**复合赋值符号拆成「运算符」与「`=`」两份，
 而 TypeScript 的复合赋值有三字符的（`<<=` `>>=` `>>>=` `**=` `&&=` `||=` `??=`）。

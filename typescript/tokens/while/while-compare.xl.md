@@ -11,7 +11,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 `while` 语句的条件段：`while(...)` 那对括号连同里面的内容。
 
-`WhileReorganization.Process` 把整个条件括号的内容搬进这一段；搬完这一段自己再跑一遍模板里给它准备的重组队列，把条件继续啃小。
+`WhileCloseRule.Process` 把整个条件括号的内容搬进这一段；搬完这一段自己再跑一遍模板里给它准备的规则队列，把条件继续啃小。
 
 # class WhileCompare extends IndependentToken
 
@@ -21,7 +21,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把模板里按本单元类型准备的重组队列挂上。
+以模板创建，并把模板里按本单元类型准备的规则队列挂上。
 
 ```ts
 super(template);

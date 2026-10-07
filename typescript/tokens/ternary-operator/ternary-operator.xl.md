@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBack, SearchFront, TakeRange } from "../../../core/extensions/list-extension.xl.md"
@@ -24,13 +24,13 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 
 三元运算符 `条件 ? 真值 : 假值`：把一段包含 `?` 与 `:` 的子单元序列收成一个 `TernaryOperator`。
 
-# class TernaryOperatorReorganization extends Reorganization
+# class TernaryOperatorCloseRule extends CloseRule
 
 它做的事是**把 `? … : …` 收成一个 `TernaryOperator`**：从 `:` 往前找 `?`，再从 `?` 往前找「表达式的起点」，从 `:` 往后找到语句边界，然后把三段分别切进条件 / 真值 / 假值三个子单元。
 
-`TernaryOperatorReorganization` 写在 `TernaryOperator` **之前**。
+`TernaryOperatorCloseRule` 写在 `TernaryOperator` **之前**。
 
-## static readonly field Instance:TernaryOperatorReorganization = new TernaryOperatorReorganization()
+## static readonly field Instance:TernaryOperatorCloseRule = new TernaryOperatorCloseRule()
 
 唯一的实例。
 
@@ -212,7 +212,7 @@ return -1;
 `let x: A = (cond ? a : b)` 的括号里没有 `extends`，三元照旧成立 ✓。
 
 **必须按文本判、不能只认 `Identifier`**（实测补的）：`extends` 在**第一趟**还是 `Identifier`，
-第一趟结束时已经被 `KeywordReorganization` 收成 `Keyword`。只写
+第一趟结束时已经被 `KeywordCloseRule` 收成 `Keyword`。只写
 `item instanceof Identifier && item.Is("extends")` 时，**第二趟**这个判据全部失灵——
 括号里的条件类型会长出 `TernaryOperator`（`type-cond-nested` /
 `type-cond-union-member` 两条用例在加两趟之后当场报「不该有 TernaryOperator」）。
@@ -285,7 +285,7 @@ if (current instanceof SymbolToken) {
     || current.Is("?")
     // **复合赋值展开出来的那一份运算符也是起点** ✓（第 373 轮 ✓）。
     //
-    // 理由与 `CompoundAssignmentOperatorReorganization.IsCompoundAssignmentOperatorStart`
+    // 理由与 `CompoundAssignmentOperatorCloseRule.IsCompoundAssignmentOperatorStart`
     // 那一条**同源** ✓：`a += b` 会先被展开成单元序列 `a` `=` `a` `+` `b` ✓
     //（见 `compound-assignment-operator.xl.md` ✓），而**插进来的那个 `+` 不是用户写的** ✓——
     // 它表达的是「`op=` 这个符号」✓ ⇒ 它的**右操作数是整个赋值右侧** ✓
@@ -349,7 +349,7 @@ return false;
 真正的逗号运算符在括号里（`(a ? 1 : 0, b)`），那是另一个单元，到不了这一层。
 `;` 仍旧是边界（`const t = a ? 1 : 0;`）。
 
-`JsonObjectReorganization` 的 import 随之不再需要——原来它只为这一处判定存在。
+`JsonObjectCloseRule` 的 import 随之不再需要——原来它只为这一处判定存在。
 
 三段都是用 `TakeRange` 切出来的**一批**单元（取出不移除），用 `AddRange` 塞进子单元。
 
@@ -362,7 +362,7 @@ return false;
 const current = Get(units, index)!;
 const elseIndex = index;
 const questionIndex = this.QuestionIndexBefore(units, index);
-const startIndex = SearchFront(units, questionIndex, TernaryOperatorReorganization.IsTernaryOperatorStart);
+const startIndex = SearchFront(units, questionIndex, TernaryOperatorCloseRule.IsTernaryOperatorStart);
 // **假值段的终点**：`Previous` 里那个 `segmentEnd` 的同一条判据（第 123 / 127 轮）。
 //
 // 三种终止符：

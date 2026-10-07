@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -21,9 +21,9 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 类型赋值：把 `type X = …;` 这一整段收成一个 `TypeAssign` 单元，段内的单元原样装进它的 `Data`（它自己不再产出 XML 属性，`ToXmlString` 走基类）。
 
-`TypeAssignReorganization` 写在 `TypeAssign` **之前**，与同目录其它 token 一致。
+`TypeAssignCloseRule` 写在 `TypeAssign` **之前**，与同目录其它 token 一致。
 
-# class TypeAssignReorganization extends Reorganization
+# class TypeAssignCloseRule extends CloseRule
 
 `Previous` 认的是「`type` + 名字 + `=` 三个实义单元依次相邻（跨过软换行）」这一串。
 
@@ -31,7 +31,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 **那个 `;` 只进范围、不进子单元**（第 290 轮 ✓）：它是语句终结符，留在列表里给语句切分用 ✓
 （见 `Process` 里 `dataEnd` 那一段的说明 ✓）。
 
-## static readonly field Instance:TypeAssignReorganization = new TypeAssignReorganization()
+## static readonly field Instance:TypeAssignCloseRule = new TypeAssignCloseRule()
 
 唯一的实例。
 
@@ -141,7 +141,7 @@ if (previousIndex !== -1 && IsDeclarationModifier(previous)) {
 }
 const endIndex = this.AliasEnd(units, index);
 // **结尾那个 `;` 不装进本单元**（第 290 轮 ✓）：它是**语句终结符** ✓，
-// 而语句切分那一趟（`statement.xl.md` 的 `StatementReorganization`）**只看列表里的单元** ✗
+// 而语句切分那一趟（`statement.xl.md` 的 `StatementCloseRule`）**只看列表里的单元** ✗
 // ——`;` 一旦被装进 `TypeAssign` ✓，`type A = number; let x: A = 1;` 这一行就**再也断不开** ✗：
 // 实测产物是 `<Statement><TypeAssign …/><Let …/><TypeDefine>…</TypeDefine><SymbolToken>=</SymbolToken>
 // <Identifier>1</Identifier></Statement>` ✓，投影于是给出
@@ -231,18 +231,18 @@ TS 那边 `TypeAliasDeclaration` 没有 `typeParameters` 这一格。
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，**并且把自己的重组队列装上**。
+转调基类构造器，**并且把自己的规则队列装上**。
 
-理由与 `type-define.xl.md` 的同名构造器相同：本单元是重组规则建出来的，
-`KeywordReorganization` 排在通用队列最后、轮不到它里面的词——
+理由与 `type-define.xl.md` 的同名构造器相同：本单元是收尾规则建出来的，
+`KeywordCloseRule` 排在通用队列最后、轮不到它里面的词——
 `type X = keyof T` 的 `keyof`、`type X = typeof y` 的 `typeof` 于是停在 `Identifier` 上。
-装的是**类型队列**（只有 `KeywordReorganization` 一条，见 `../parse-pipeline.xl.md` 的
-`InitialKeywordReorganizationQueue`），不是通用队列：通用队列里的 `TernaryOperatorReorganization`
+装的是**类型队列**（只有 `KeywordCloseRule` 一条，见 `../parse-pipeline.xl.md` 的
+`InitialKeywordCloseRuleQueue`），不是通用队列：通用队列里的 `TernaryOperatorCloseRule`
 会把条件类型 `T extends U ? A : B` 收成表达式三元。
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## field alias:string = ""

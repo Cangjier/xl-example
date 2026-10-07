@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
@@ -21,7 +21,7 @@ import { SwitchSegment } from "./switch-segment.xl.md"
 `switch` 语句：把 `switch (判别) { case …: … default: … }` 整段收成一个 `Switch`，
 里面依次是判别段与若干 `SwitchSegment`。
 
-**分段在括号的 `Data` 上做，不靠重组。** `{ }` 括号没有重组队列（见 `../bracket.xl.md` 的 `Use`），
+**分段在括号的 `Data` 上做，不靠重组。** `{ }` 括号没有规则队列（见 `../bracket.xl.md` 的 `Use`），
 所以 `switch` 体里的 `case` / `default` 到这一段重组跑起来时**还是散着的** `Identifier` ——
 正好可以从头扫一遍切段。这也是为什么 `switch` 不需要像 `if` 那样在 `Root` 的队列里兜圈子：
 它一次就把所有段都切完。
@@ -30,19 +30,19 @@ import { SwitchSegment } from "./switch-segment.xl.md"
 段的终点是下一个 `case` / `default` 或列表末尾；段内第一个 `:` 符号之前是匹配表达式（`default` 没有），
 之后是语句体。段内找不到 `:` 时整段都当语句体（形状不完整时不硬拆）。
 
-`SwitchReorganization` 写在 `Switch` **之前**。
+`SwitchCloseRule` 写在 `Switch` **之前**。
 
-# class SwitchReorganization extends Reorganization
+# class SwitchCloseRule extends CloseRule
 
-## static readonly field Instance:SwitchReorganization = new SwitchReorganization()
+## static readonly field Instance:SwitchCloseRule = new SwitchCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## private static method WordOf:(item:Token | null)=>string
 
 取一个「词」单元的文本：`Identifier` 用 `TempToString()`，`Keyword` 用它的 `Value`，其余给空串。
 
-与 `statement.xl.md` 的 `Statement.WordOf` 同一口径（第 552 轮补）：`KeywordReorganization`
+与 `statement.xl.md` 的 `Statement.WordOf` 同一口径（第 552 轮补）：`KeywordCloseRule`
 会把 `case` / `default` 从 `Identifier` **升级成 `Keyword`**，而两条分支没有继承关系，
 所以「找一个词」必须两种都认 —— 实测体括号里那五格**全都是 `Keyword`**，
 按 `Identifier` 找**一格都找不到**（这就是本条规则一直没能分段的原因）。
@@ -85,7 +85,7 @@ if (unit.constructor.name === "Statement" && Array.isArray(unit.Data)) {
     break;
   }
 }
-const word = SwitchReorganization.WordOf(head);
+const word = SwitchCloseRule.WordOf(head);
 return word === "case" || word === "default" ? word : "";
 ```
 
@@ -150,14 +150,14 @@ compare.TryToClose();
 const data = body.Data.slice();
 const markers: number[] = [];
 for (let i = 0; i < data.length; i++) {
-  if (SwitchReorganization.SegmentWordOf(data[i]) !== "") {
+  if (SwitchCloseRule.SegmentWordOf(data[i]) !== "") {
     markers.push(i);
   }
 }
 for (let m = 0; m < markers.length; m++) {
   const from = markers[m];
   const to = m + 1 < markers.length ? markers[m + 1] : data.length;
-  const key = SwitchReorganization.SegmentWordOf(data[from]);
+  const key = SwitchCloseRule.SegmentWordOf(data[from]);
   const segment = result.CreateSegment();
   segment.key = key;
   const head = data[from];

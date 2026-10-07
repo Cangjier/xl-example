@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -27,15 +27,15 @@ import { LineWrap } from "./line-wrap.xl.md"
 TypeScript 自己的 AST 里它就是 `NonNullExpression`，差分引擎能直接对上，
 下游也终于分得清「取了值」与「断言过非空」。
 
-`NotNullReorganization` 写在 `NotNull` 之前；
-`Root` 会在自己的重组队列里持有 `NotNullReorganization.Instance`，所以顺序不能反。
+`NotNullCloseRule` 写在 `NotNull` 之前；
+`Root` 会在自己的规则队列里持有 `NotNullCloseRule.Instance`，所以顺序不能反。
 
-# class NotNullReorganization extends Reorganization
+# class NotNullCloseRule extends CloseRule
 
 它的 `Previous` 是**四路判定**：`index` 处必须是内容为 `!` 的 `SymbolToken`，且它前一个单元必须是 `Identifier` / `Bracket` / `Method` / `NotNull` 之一。
 换句话说：只有「标识符!」「(...)!」「方法(...)!」以及**连着再断言一次**（`b!!`）这几种形状才当非空断言，别的 `!`（如 `!=`、`!==`、前缀 `!x`）不动。
 
-## static readonly field Instance:NotNullReorganization = new NotNullReorganization()
+## static readonly field Instance:NotNullCloseRule = new NotNullCloseRule()
 
 唯一的实例。
 
@@ -67,7 +67,7 @@ if (this.IsStatementKeyword(previous)) {
 // **`ArrayLiteral` 也是「可以被断言的东西」** ✗（第 303 轮 ✓）——它在这里代表的是
 // **一次下标访问** ✓（`arr[0]!` 的产物把那个 `[0]` 收成 `<ArrayLiteral>` ✓，
 // 理由与投影那边那一段一字不差 ✓）。**不认它的后果** ✗：`x[1]![0]` 里第二个 `!`
-// 会**留在原地** ✓、被 `UnaryOperatorReorganization` 收成**前缀取反** ✗
+// 会**留在原地** ✓、被 `UnaryOperatorCloseRule` 收成**前缀取反** ✗
 //（实测产物：`<UnaryOperator op="!"><SymbolToken>!</SymbolToken><ArrayLiteral(0)></UnaryOperator>` ✓），
 // 后面那个 `[0]` 于是既不是下标、也不是数组字面量 ✓ ⇒ **整段丢掉** ✓
 // （判据 `c303-nonnull-then-index` 第三版量到的就是它 ✓：`deep!.a!.b![1]![0]` 给 `[3,4]` ✓，
@@ -86,7 +86,7 @@ return (
 
 `unit` 是不是**语句关键字**（`return` / `throw` / `case` / `default` / `else` / `do` / `break` / `continue`）。
 
-**为什么非空断言要排掉它们**（实测补的）：本规则跑在 `KeywordReorganization`（队列最后）**之前**，
+**为什么非空断言要排掉它们**（实测补的）：本规则跑在 `KeywordCloseRule`（队列最后）**之前**，
 那时 `return` **还是一个 `Identifier`**——按「前一个单元是 `Identifier` 就当被断言者」判，
 `return !(q instanceof R)` 里的 `!` 会和 `return` 一起被收成一个
 `<NotNull><Identifier>return</Identifier><SymbolToken>!</SymbolToken></NotNull>`（实测产物就是这个），
@@ -122,7 +122,7 @@ return (
 两条同时成立才算：
 
 - `!` **后面**（跳过软换行）跟着类型标注：一个已经成形的 `TypeDefine` 节点，
-  或者 `:` / `?:` / `!:` 符号（位次上 `TypeDefineReorganization` 可能已经先跑过，
+  或者 `:` / `?:` / `!:` 符号（位次上 `TypeDefineCloseRule` 可能已经先跑过，
   那时看到的就是节点；词法层也会把 `!:` 拼成一个符号，所以四种写法都要认）；
 - 名字**前面**是成员起点：`{` 括号 / `;` / 软换行 / 什么都没有。
 

@@ -75,7 +75,7 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 ## constructor:(template:Template, stringChar:string)=>void
 
-以模板与引号字符创建，并顺手把本单元的跳转/重组队列从模板上取下来：记下 `StringChar`，`ProcessQueue = template.BranchTemplate.Get(this.constructor, null)`，`CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor)`（`SequenceTemplate` 以**构造器对象**为键做派发）。
+以模板与引号字符创建，并顺手把本单元的跳转/规则队列从模板上取下来：记下 `StringChar`，`ProcessQueue = template.BranchTemplate.Get(this.constructor, null)`，`CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor)`（`SequenceTemplate` 以**构造器对象**为键做派发）。
 
 ```ts
 super(template);

@@ -20,13 +20,13 @@ Lambda 的体。
 
 ## constructor:(Template:Template)=>void
 
-转调基类构造器，然后把「语句体」那一组默认重组规则装进自己的重组队列。
+转调基类构造器，然后把「语句体」那一组默认收尾规则装进自己的规则队列。
 
-`InitialStatementReorganizationQueue` 读的是通用重组队列，所以装配在 `../../parse-pipeline.xl.md`，写成 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+`InitialStatementCloseRuleQueue` 读的是通用规则队列，所以装配在 `../../parse-pipeline.xl.md`，写成 `ParsePipeline.InitialStatementCloseRuleQueue(this)`。
 
 ```ts
 super(Template);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## field IsStatement:bool = false

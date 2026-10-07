@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -51,14 +51,14 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 白名单是**父单元的类名**（`Method` / `ArrayLiteral` / `ObjectLiteral` / `NewArguments`）——
 注意尾随的 `}` 一定是**已经成形的容器**，所以本规则必须排在
-`MethodReorganization` / `JsonArrayReorganization` / `JsonObjectReorganization` / `NewReorganization`
-**之后**，注册在 `KeywordReorganization` 之前。
+`MethodCloseRule` / `JsonArrayCloseRule` / `JsonObjectCloseRule` / `NewCloseRule`
+**之后**，注册在 `KeywordCloseRule` 之前。
 
-`SpreadReorganization` 写在 `Spread` 之前；`Root` 会在自己的重组队列里持有它的 `Instance`，所以顺序不能反。
+`SpreadCloseRule` 写在 `Spread` 之前；`Root` 会在自己的规则队列里持有它的 `Instance`，所以顺序不能反。
 
-# class SpreadReorganization extends Reorganization
+# class SpreadCloseRule extends CloseRule
 
-## static readonly field Instance:SpreadReorganization = new SpreadReorganization()
+## static readonly field Instance:SpreadCloseRule = new SpreadCloseRule()
 
 唯一的实例。
 
@@ -220,7 +220,7 @@ return text === ":" || text === "?:" || text === "!:";
 ```
 
 **`TypeDefine` 那一支是必须的**（与 `not-null.xl.md` 的 `IsDefiniteAssignment` 同一个坑）：
-本规则的位次在 `TypeDefineReorganization` **之后**，那时 `: A[]` 已经收成一个 `TypeDefine` 节点，
+本规则的位次在 `TypeDefineCloseRule` **之后**，那时 `: A[]` 已经收成一个 `TypeDefine` 节点，
 看到的不再是 `:` 符号。少了这一支，`call<T, A>(this: T, ...args: A): R` 这种
 「同一个参数表里既有函数类型的 rest、又有真 rest」的写法仍然会多出一个 `Spread` ✗。
 
@@ -257,12 +257,12 @@ return false;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("SpreadReorganization.Process: current is null");
+  throw new Error("SpreadCloseRule.Process: current is null");
 }
 const afterIndex = SkipNextWrapSymbol(units, index);
 const after = Get(units, afterIndex);
 if (after === null) {
-  throw new Error("SpreadReorganization.Process: 展开运算符后面缺表达式");
+  throw new Error("SpreadCloseRule.Process: 展开运算符后面缺表达式");
 }
 const result = new Spread(template);
 result.Parent = current.Parent;

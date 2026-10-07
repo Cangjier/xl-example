@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Branch } from "../branch.xl.md"
-import { Reorganization } from "../reorganization.xl.md"
+import { CloseRule } from "../close-rule.xl.md"
 import { KeywordTemplate } from "./keyword-template.xl.md"
 import { MethodNameTemplate } from "./method-name-template.xl.md"
 import { SequenceTemplate } from "./sequence-template.xl.md"
@@ -10,7 +10,7 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 # namespace cangjie
 
-模板层：每个单元（token）的跳转与重组规则都从 `Template` 上取。
+模板层：每个单元（token）的跳转与收尾规则都从 `Template` 上取。
 
 一个 `Template` 实例就是一套语言配置，`TextContext` 构造时把它交给 `Root`。
 
@@ -30,9 +30,9 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 跳转模板：按单元类型给出该单元要跑哪些 `Branch`。
 
-## field CloseRuleTemplate:SequenceTemplate<Reorganization> = new SequenceTemplate<Reorganization>()
+## field CloseRuleTemplate:SequenceTemplate<CloseRule> = new SequenceTemplate<CloseRule>()
 
-收尾规则模板：按单元类型给出该单元关闭之后要跑哪些规则（`Reorganization` 那一族）。
+收尾规则模板：按单元类型给出该单元关闭之后要跑哪些规则（`CloseRule` 那一族）。
 
 **名字里的「重组」已经摘掉** ✓（第 562 轮 ✓）：它从前是「全局重组那一趟」的输入表 ✓，
 那一趟在第 561 轮删掉之后 ✓，这张表只剩 `Token.ApplyCloseRules` 这一个读点 ✓

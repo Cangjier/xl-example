@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -17,18 +17,18 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 装饰器：把 `@Name` / `@ns.Name` / `@Name(实参)` 这一串单元收成一个 `Decorator`。
 
-它必须排在通用重组队列的**最前面**（见 `../parse-pipeline.xl.md`）：`@Component({...})` 里的 `Component({...})`
-本身是一个合法的方法调用形状，只要 `MethodReorganization` 先跑一步，它就会先变成 `Method`，
+它必须排在通用规则队列的**最前面**（见 `../parse-pipeline.xl.md`）：`@Component({...})` 里的 `Component({...})`
+本身是一个合法的方法调用形状，只要 `MethodCloseRule` 先跑一步，它就会先变成 `Method`，
 `@` 后面就再也凑不出「`@` + 名字」了。装饰器先跑，`Method` 那条规则在装饰器内部就再也轮不到——
 括号里的内容此刻已经归 `Decorator` 所有。
 
-`DecoratorReorganization` 写在 `Decorator` **之前**。
+`DecoratorCloseRule` 写在 `Decorator` **之前**。
 
-# class DecoratorReorganization extends Reorganization
+# class DecoratorCloseRule extends CloseRule
 
-## static readonly field Instance:DecoratorReorganization = new DecoratorReorganization()
+## static readonly field Instance:DecoratorCloseRule = new DecoratorCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
@@ -80,7 +80,7 @@ return next instanceof Bracket && next.startBracket === "(";
 不挡的话装饰器名会拼成 `sealed.class.C`，**整条类声明被吞进装饰器**（产物里只剩
 `<Decorator name="sealed.class.C">` 加一个空对象）。
 关键字表就在这个 `Identifier` 自己的模板上（`item.Template.KeywordTemplate`），直接查即可——
-不必等 `KeywordReorganization`（它排在通用队列最后，此刻还没跑）。
+不必等 `KeywordCloseRule`（它排在通用队列最后，此刻还没跑）。
 
 **名字段之间必须有一个 `.`**：`@dec x = 1` 是一个装饰器加一个**字段**，
 但 `dec` 与 `x` 都是 `Identifier`、`x` 也不在关键字表里，于是原来会把名字拼成 `dec.x`——
@@ -193,13 +193,13 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，并把**通用重组队列**挂上来。
+转调基类构造器，并把**通用规则队列**挂上来。
 
 **为什么装饰器里要跑重组**（第 66 轮补）：装饰器的表达式在 TypeScript 那边就是**普通表达式**——
 `@Component({ size: 1 })` 是 `Decorator > CallExpression`，`@(a || b)` 是 `Decorator > ParenthesizedExpression > BinaryExpression`。
 原来这个节点没有任何队列，`Data` 收进来就不再动，于是 `Component(...)` 停在
 「`Identifier` + `Bracket`」两个散单元上、**没有调用节点**（`cases:align` 的
-`CallExpression` 缺 13 处全是装饰器）。挂上通用队列之后，`MethodReorganization` 会把
+`CallExpression` 缺 13 处全是装饰器）。挂上通用队列之后，`MethodCloseRule` 会把
 「名字 + 括号」收成 `<Method>` ✓，与 TS 的 `CallExpression` 一对一。
 
 挂的是**通用队列**（`CloseRuleTemplate.Get(this.constructor)` 的默认值），不是类型队列：

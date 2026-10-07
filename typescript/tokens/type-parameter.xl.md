@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -32,7 +32,7 @@ TypeScript 那边这两处**都是** `TypeParameter`（映射类型的键也是�
 （`cases:align` 当时缺 11 处）；TS 那边这里根本没有二元表达式，
 那条 `BinaryOperator in ArrayLiteral` 口径（17 处）本来是**替身**。
 
-规则排在**通用队列里、`JsonArrayReorganization` 之后**（映射键的括号到那时已经是 `ArrayLiteral`），
+规则排在**通用队列里、`JsonArrayCloseRule` 之后**（映射键的括号到那时已经是 `ArrayLiteral`），
 但**必须排在那批二元运算规则之前**——`in` 一旦被折成 `BinaryOperator`，键的边界就没了。
 
 **怎么区分「参数表」与「实参段」**（`<T extends X = Y>` vs `Array<T>`）——三条件任一成立即算参数表：
@@ -48,11 +48,11 @@ TypeScript 那边这两处**都是** `TypeParameter`（映射类型的键也是�
 `TypeParameter` 自己挂**类型队列**：约束与默认值要照常成形（`keyof T` → `TypeOperator`、
 联合 / 交叉、字面量……）。
 
-# class TypeParameterReorganization extends Reorganization
+# class TypeParameterCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:TypeParameterReorganization = new TypeParameterReorganization()
+## static readonly field Instance:TypeParameterCloseRule = new TypeParameterCloseRule()
 
 唯一的实例。
 
@@ -343,7 +343,7 @@ TS 那边方括号与尖括号属于外层构造的形状，本工程的这两�
 ```ts
 const owner = this.OwnerOf(units, index);
 if (owner === null) {
-  throw new Error("TypeParameterReorganization.Process: owner is null");
+  throw new Error("TypeParameterCloseRule.Process: owner is null");
 }
 const mapped = IsMappedKeyBracket(owner);
 const original: Token[] = [];
@@ -390,7 +390,7 @@ return index;
 把一段（一个参数的单元）收成 `TypeParameter` 追加到 `rebuilt`；这一段是空的（软换行 / 空格）就跳过。
 
 软换行不装进参数里（类型可以折行排版，那些换行是版面而不是内容——与类型队列里
-`WrapSymbolReorganization` 的口径一致）。范围两头按第一个 / 最后一个实义单元给。
+`WrapSymbolCloseRule` 的口径一致）。范围两头按第一个 / 最后一个实义单元给。
 
 ```ts
 const content: Token[] = [];

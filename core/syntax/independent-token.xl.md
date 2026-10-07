@@ -10,7 +10,7 @@ import { Template } from "./templates/template.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-独立单元：关闭之后就不再参与字符处理。它靠重组（`Reorganization`）被造出来，本身不消费字符。
+独立单元：关闭之后就不再参与字符处理。它靠重组（`CloseRule`）被造出来，本身不消费字符。
 
 # class IndependentToken extends Token
 

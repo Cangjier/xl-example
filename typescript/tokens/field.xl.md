@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -32,13 +32,13 @@ import { LineWrap } from "./line-wrap.xl.md"
 **为什么需要它**：字段没有自己的关键字，`name: T` 与 `name = v` 在语句层看起来就像普通表达式，
 所以只能在**确定处于成员位置**时收——判定读的是父单元：只有 `ClassBody` / `InterfaceBody` 里的
 `Identifier` 才会被这条规则接手（`ObjectLiteral` 那种对象字面量里的 `a: 1` 不归它管）。
-读父单元的做法与 `JsonObjectReorganization.IsObject(current.Parent)` 同源。
+读父单元的做法与 `JsonObjectCloseRule.IsObject(current.Parent)` 同源。
 
 **为什么排在前面**：它必须赶在 `TypeDefine` **之前**——`TypeDefine` 从 `:` 起一路收到 `;` / `,` / 赋值符号，
 而「一行一个字段」的写法（`a: A` 换行 `b: B`）里没有这些终止符，`TypeDefine` 会把后面几个字段全吞进来。
-把整条成员圈进 `Field`（自己带通用重组队列）之后，`TypeDefine` 最多收完这一段。
+把整条成员圈进 `Field`（自己带通用规则队列）之后，`TypeDefine` 最多收完这一段。
 
-`FieldReorganization` 写在 `Field` **之前**：后者的静态字段 `Instance` 在类定义时就 `new FieldReorganization()`，
+`FieldCloseRule` 写在 `Field` **之前**：后者的静态字段 `Instance` 在类定义时就 `new FieldCloseRule()`，
 写反了会命中暂时性死区（TDZ）。
 
 # method BracketNameText:(unit:Token)=>string
@@ -46,7 +46,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 把 `[ … ]` 里的成员名拼成文本：`Identifier` 取文本、点号补 `.`、`:` 之前的都算名字。
 
 参数取 `Token` 而不是 `Bracket`：同一段内容在**不同时机**可能已经是 `ArrayLiteral`
-（`JsonArrayReorganization` 排在成员规则之后，但类体的队列会跑不止一遍——
+（`JsonArrayCloseRule` 排在成员规则之后，但类体的队列会跑不止一遍——
 `[`m`]()` 这种计算成员名在 `Process` 里常常已经变成 `ArrayLiteral` 了），
 这里只用 `Data`，两种单元都合适。
 
@@ -57,7 +57,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 它们的成员名不是 `Identifier` / `String`，而是一个 `[` 括号。`Field` 的判定因此多了「括号当名字」这一支：
 括号在成员位置上、后面紧跟 `:` / `?:` 就算一条成员。
-不认这一支时，`[` 那段会被更晚的 `JsonArrayReorganization` 接手，产物变成 `ArrayLiteral` + `TypeDefine`，
+不认这一支时，`[` 那段会被更晚的 `JsonArrayCloseRule` 接手，产物变成 `ArrayLiteral` + `TypeDefine`，
 成员整个丢掉（实测真实语料 102 处索引签名 + 计算属性名）。
 
 这里只取到第一个 `:` 之前的部分（`key: string` 取 `key`）；
@@ -91,11 +91,11 @@ for (let i = 0; i < limit; i++) {
 return text;
 ```
 
-# class FieldReorganization extends Reorganization
+# class FieldCloseRule extends CloseRule
 
-## static readonly field Instance:FieldReorganization = new FieldReorganization()
+## static readonly field Instance:FieldCloseRule = new FieldCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## private method MemberEnd:(units:Array<Token>, index:int)=>int
 
@@ -153,7 +153,7 @@ return units.length - 1;
 而 `next` 又像是**下一个成员的起点**——这时当前字段到此为止。
 
 **为什么需要这一条**（实测抓出来的）：`public static readonly A: T = new R(1);` 里
-`R(1)` 会被 `MethodDeclarationReorganization` 收成方法声明，而它按约定
+`R(1)` 会被 `MethodDeclarationCloseRule` 收成方法声明，而它按约定
 **连同结尾的 `;` 一起收走**。于是字段 A 的 `MemberEnd` 往后扫时：
 
 - 看不到 `;`（已经进了方法声明）；
@@ -342,7 +342,7 @@ return false;
 - 计算成员名里的条件表达式 `[cond ? a : b]: T` ⇒ 头两个是 `cond` 与 `?` ✗
   （只看「里面有没有 `:`」会把它误判成索引签名）。
 
-**两种来路都要认**：`FieldReorganization` 排在 `JsonArrayReorganization` **前面**，
+**两种来路都要认**：`FieldCloseRule` 排在 `JsonArrayCloseRule` **前面**，
 第一趟看到的是 `[` 括号；第二趟再看时它可能已经被收成 `ArrayLiteral` 了
 （实测索引签名走的正是第二趟）。只看 `Bracket` 时判据给否、整条仍被收成字段。
 
@@ -385,7 +385,7 @@ return second !== null && second.constructor.name === "TypeDefine";
 - 名字进 `fieldName` 属性，不再作为子单元（与 `MethodDeclaration` 一致）；私有名 `#x` 的 `#` 留在名字里
   （`fieldName="#x"`），同时作为子单元留在节点里。
 - 名字之后到成员终点之间的单元**原样**搬进 `Field`：`: T`、`?: T`、`= 初始值` 都不丢，
-  它们在 `Field` 自己的重组队列里继续成形（`TypeDefine` / `Lamda` / `Method` 都会跑）。
+  它们在 `Field` 自己的规则队列里继续成形（`TypeDefine` / `Lamda` / `Method` 都会跑）。
 - 终点取成员的最后一个单元（初始化式末位，或那个 `;`）。
   **尾随软换行不进范围**——它留在父单元里充当成员边界
   （见 `./declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
@@ -554,7 +554,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来（模板里没有专门给 `Field` 注册就用通用队列）。
+创建时把本类型的收尾规则挂上来（模板里没有专门给 `Field` 注册就用通用队列）。
 
 这一句是必要的：`: T` 要在它自己的队列里凑成 `TypeDefine`，`= (a) => b` 要在它自己的队列里凑成 `Lamda`——
 搬进来的单元所在的那一轮重组已经过去了（见 `./declaration-common.xl.md` 的说明）。

@@ -12,7 +12,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 类型约束 `satisfies`：把 `expr satisfies Type` 整段收成一个 `Satisfies` 单元。
 
-**它复用 `AsReorganization` 这条规则**：`satisfies` 与 `as` 在 TypeScript 里是同一优先级、
+**它复用 `AsCloseRule` 这条规则**：`satisfies` 与 `as` 在 TypeScript 里是同一优先级、
 同样左结合的两个类型运算（`a as B satisfies C` 是 `(a as B) satisfies C`，
 `a satisfies B as C` 是 `(a satisfies B) as C`），差别只在产物标签。
 所以触发、收集与终止全都是 `as.xl.md` 里那一套，规则按词分派节点类型：
@@ -50,7 +50,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

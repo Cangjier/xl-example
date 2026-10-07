@@ -3,7 +3,7 @@
 import { BlockToken } from "../../core/syntax/block-token.xl.md"
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Source } from "../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
@@ -17,7 +17,7 @@ import { Get } from "../../core/extensions/list-extension.xl.md"
 
 软换行符号：源码里每一个 `\n` 都先变成一个独立的 `LineWrap`，随后在重组阶段被**整个摘掉**。它的 XML 是自闭合的 `<LineWrap />`，不带任何文本。
 
-`WrapSymbolBranch` 与 `WrapSymbolReorganization` 写在 `LineWrap` **之前**：后者的静态字段 `AppendIn` 会在类定义时立即 `new WrapSymbolBranch()`，写反了会命中 ts 的暂时性死区。
+`WrapSymbolBranch` 与 `WrapSymbolCloseRule` 写在 `LineWrap` **之前**：后者的静态字段 `AppendIn` 会在类定义时立即 `new WrapSymbolBranch()`，写反了会命中 ts 的暂时性死区。
 
 # class WrapSymbolBranch extends Branch
 
@@ -43,11 +43,11 @@ return result;
 unit.AddAndCloseLast(new LineWrap(unit.Template)).AppendAndSignOut(source).SignIn(source).TryToClose();
 ```
 
-# class WrapSymbolReorganization extends Reorganization
+# class WrapSymbolCloseRule extends CloseRule
 
 它做的事就是**把 `LineWrap` 从单元列表里删掉**——软换行不参与语法结构。
 
-## static readonly field Instance:WrapSymbolReorganization = new WrapSymbolReorganization()
+## static readonly field Instance:WrapSymbolCloseRule = new WrapSymbolCloseRule()
 
 唯一的实例。
 

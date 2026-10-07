@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -25,14 +25,14 @@ import { LineWrap } from "./line-wrap.xl.md"
 判据是**四个词连排**：`export` / `as` / `namespace` / 名字——四条都要对得上才接手，
 所以不会误伤 `export { a as b }`（那个 `as` 前面不是 `export`）与类型转换 `x as namespace`。
 
-`NamespaceExportReorganization` 排在 `AsReorganization` **之前**：不先认领的话，
+`NamespaceExportCloseRule` 排在 `AsCloseRule` **之前**：不先认领的话，
 `as` 那一条会先把 `namespace Foo` 收成 `As`。
 
-# class NamespaceExportReorganization extends Reorganization
+# class NamespaceExportCloseRule extends CloseRule
 
-## static readonly field Instance:NamespaceExportReorganization = new NamespaceExportReorganization()
+## static readonly field Instance:NamespaceExportCloseRule = new NamespaceExportCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 

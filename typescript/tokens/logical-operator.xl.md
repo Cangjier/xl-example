@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceRangeAt, SearchBack, SearchFront } from "../../core/extensions/list-extension.xl.md"
@@ -21,9 +21,9 @@ import { SymbolToken } from "./symbol-token.xl.md"
 `BinaryExpression` 缺 668 + 漂移 1220，全是这一条）。现在 `a || b` 收成一个单元
 `LogicalOperator > [Identifier(a), SymbolToken(||), Identifier(b)]`，投影层按符号左结合折叠即可。
 
-源文件里同时有两个静态实例（`OrInstance` / `AndInstance`），靠 Reorganization 自己的 `op` 字段区分口径；`LogicalOperatorReorganization` 写在 `LogicalOperator` **之前**。
+源文件里同时有两个静态实例（`OrInstance` / `AndInstance`），靠 CloseRule 自己的 `op` 字段区分口径；`LogicalOperatorCloseRule` 写在 `LogicalOperator` **之前**。
 
-# class LogicalOperatorReorganization extends Reorganization
+# class LogicalOperatorCloseRule extends CloseRule
 
 与其它 token 的重组类不同，它**是带状态的**：构造时就固定一个运算符，`Previous` / `Process` 都按这个运算符工作。因此这里给了两个静态实例，而不是一个 `Instance`。
 
@@ -42,11 +42,11 @@ this.op = operator;
 
 本规则认的运算符，`"||"` 或 `"&&"`。
 
-## static readonly field OrInstance:LogicalOperatorReorganization = new LogicalOperatorReorganization("||")
+## static readonly field OrInstance:LogicalOperatorCloseRule = new LogicalOperatorCloseRule("||")
 
 `||` 口径的实例。
 
-## static readonly field AndInstance:LogicalOperatorReorganization = new LogicalOperatorReorganization("&&")
+## static readonly field AndInstance:LogicalOperatorCloseRule = new LogicalOperatorCloseRule("&&")
 
 `&&` 口径的实例。
 
@@ -218,8 +218,8 @@ return ReplaceRangeAt(units, startIndex + 1, endIndex - startIndex - 1, [result]
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器。**不装重组队列**——运算符符号进 `Data` 之后，本单元自己的子单元里就有那个符号；
-再挂上 `LogicalOperatorReorganization` 会让 `Reorganize` 反复认出自己（实测栈溢出：
+转调基类构造器。**不装规则队列**——运算符符号进 `Data` 之后，本单元自己的子单元里就有那个符号；
+再挂上 `LogicalOperatorCloseRule` 会让 `Reorganize` 反复认出自己（实测栈溢出：
 `LogicalOperator → Reorganize → Process → TryToClose → Reorganize → …`）。
 段内的操作数本来就已经在**外层**那一趟里成形了，不需要本单元再跑一遍。
 

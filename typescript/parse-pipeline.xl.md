@@ -3,90 +3,109 @@
 import { StatementBranch } from "./tokens/statement.xl.md"
 import { LetBranch } from "./tokens/let.xl.md"
 import { Branch } from "../core/syntax/branch.xl.md"
-import { Reorganization } from "../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../core/syntax/close-rule.xl.md"
 import { Sequence } from "../core/syntax/templates/sequence.xl.md"
 import { Token } from "../core/syntax/token.xl.md"
 import { Template } from "../core/syntax/templates/template.xl.md"
 import { Get } from "../core/extensions/list-extension.xl.md"
 import { IsTriviaUnit, SkipPreviousTrivia } from "./text-common-util.xl.md"
 import { AreaAnnotation } from "./tokens/area-annotation.xl.md"
-import { AsReorganization } from "./tokens/as.xl.md"
-import { FunctionTypeReorganization } from "./tokens/function-type.xl.md"
-import { ConditionalTypeReorganization } from "./tokens/conditional-type.xl.md"
+import { AsCloseRule } from "./tokens/as.xl.md"
+import { FunctionTypeCloseRule } from "./tokens/function-type.xl.md"
+import { ConditionalTypeCloseRule } from "./tokens/conditional-type.xl.md"
 import { StaticBlockBranch } from "./tokens/class/static-block.xl.md"
-import { NamespaceExportReorganization } from "./tokens/namespace-export.xl.md"
-import { TypeUnionReorganization } from "./tokens/type-union.xl.md"
-import { TypeBracketReorganization } from "./tokens/type-bracket.xl.md"
-import { TypePrefixReorganization } from "./tokens/type-operator.xl.md"
-import { LiteralTypeReorganization } from "./tokens/literal-type.xl.md"
-import { ImportTypeReorganization } from "./tokens/import-type.xl.md"
-import { TypeParameterReorganization } from "./tokens/type-parameter.xl.md"
-import { InferTypeReorganization } from "./tokens/infer-type.xl.md"
-import { OptionalCallReorganization } from "./tokens/optional-call.xl.md"
-import { TypePredicateReorganization } from "./tokens/type-predicate.xl.md"
+import { NamespaceExportCloseRule } from "./tokens/namespace-export.xl.md"
+import { TypeUnionCloseRule } from "./tokens/type-union.xl.md"
+import { TypeBracketCloseRule } from "./tokens/type-bracket.xl.md"
+import { TypePrefixCloseRule } from "./tokens/type-operator.xl.md"
+import { LiteralTypeCloseRule } from "./tokens/literal-type.xl.md"
+import { ImportTypeCloseRule } from "./tokens/import-type.xl.md"
+import { TypeParameterCloseRule } from "./tokens/type-parameter.xl.md"
+import { InferTypeCloseRule } from "./tokens/infer-type.xl.md"
+import { OptionalCallCloseRule } from "./tokens/optional-call.xl.md"
+import { TypePredicateCloseRule } from "./tokens/type-predicate.xl.md"
 import { EnumMemberBranch } from "./tokens/enum/enum-member.xl.md"
-import { TupleMemberReorganization } from "./tokens/tuple-member.xl.md"
-import { ParenthesizedTypeReorganization } from "./tokens/parenthesized-type.xl.md"
-import { ParameterReorganization } from "./tokens/parameter.xl.md"
-import { HeritageClauseReorganization } from "./tokens/heritage-clause.xl.md"
-import { BindingElementReorganization } from "./tokens/binding-element.xl.md"
+import { TupleMemberCloseRule } from "./tokens/tuple-member.xl.md"
+import { ParenthesizedTypeCloseRule } from "./tokens/parenthesized-type.xl.md"
+import { ParameterCloseRule } from "./tokens/parameter.xl.md"
+import { HeritageClauseCloseRule } from "./tokens/heritage-clause.xl.md"
+import { BindingElementCloseRule } from "./tokens/binding-element.xl.md"
 import { Bracket } from "./tokens/bracket.xl.md"
 import { ClassBranch } from "./tokens/class/class.xl.md"
 import { Identifier } from "./tokens/identifier.xl.md"
-import { CompoundAssignmentOperatorReorganization } from "./tokens/compound-assignment-operator.xl.md"
-import { Decorator, DecoratorReorganization } from "./tokens/decorator.xl.md"
-import { DoWhileReorganization } from "./tokens/do-while/do-while.xl.md"
+import { CompoundAssignmentOperatorCloseRule } from "./tokens/compound-assignment-operator.xl.md"
+import { Decorator, DecoratorCloseRule } from "./tokens/decorator.xl.md"
+import { DoWhileCloseRule } from "./tokens/do-while/do-while.xl.md"
 import { EnumBranch } from "./tokens/enum/enum.xl.md"
-import { FieldReorganization } from "./tokens/field.xl.md"
-import { ForReorganization } from "./tokens/for/for.xl.md"
-import { ForeachReorganization } from "./tokens/foreach/foreach.xl.md"
-import { FunctionReorganization } from "./tokens/function/function.xl.md"
+import { FieldCloseRule } from "./tokens/field.xl.md"
+import { ForCloseRule } from "./tokens/for/for.xl.md"
+import { ForeachCloseRule } from "./tokens/foreach/foreach.xl.md"
+import { FunctionCloseRule } from "./tokens/function/function.xl.md"
 import { GenericType } from "./tokens/generic-type.xl.md"
 import { IfSetBranch } from "./tokens/if/if-set.xl.md"
-import { ImportReorganization } from "./tokens/import.xl.md"
-import { ExportReorganization } from "./tokens/export.xl.md"
+import { ImportCloseRule } from "./tokens/import.xl.md"
+import { ExportCloseRule } from "./tokens/export.xl.md"
 import { InterfaceBranch } from "./tokens/interface/interface.xl.md"
-import { NamespaceReorganization } from "./tokens/namespace/namespace.xl.md"
-import { JsonArrayReorganization } from "./tokens/json/array-literal.xl.md"
-import { BlockReorganization, JsonObjectReorganization } from "./tokens/json/object-literal.xl.md"
-import { KeywordReorganization } from "./tokens/keyword.xl.md"
-import { LabelReorganization } from "./tokens/label.xl.md"
-import { LamdaReorganization } from "./tokens/lamda/lamda.xl.md"
-import { LetReorganization } from "./tokens/let.xl.md"
+import { NamespaceCloseRule } from "./tokens/namespace/namespace.xl.md"
+import { JsonArrayCloseRule } from "./tokens/json/array-literal.xl.md"
+import { BlockCloseRule, JsonObjectCloseRule } from "./tokens/json/object-literal.xl.md"
+import { KeywordCloseRule } from "./tokens/keyword.xl.md"
+import { LabelCloseRule } from "./tokens/label.xl.md"
+import { LamdaCloseRule } from "./tokens/lamda/lamda.xl.md"
+import { LetCloseRule } from "./tokens/let.xl.md"
 import { LineAnnotation } from "./tokens/line-annotation.xl.md"
-import { LogicalOperatorReorganization } from "./tokens/logical-operator.xl.md"
-import { MethodReorganization } from "./tokens/method.xl.md"
-import { MethodDeclarationReorganization } from "./tokens/function/method-declaration.xl.md"
-import { NotNullReorganization } from "./tokens/not-null.xl.md"
-import { UnaryOperatorReorganization } from "./tokens/unary-operator.xl.md"
-import { BinaryOperatorReorganization } from "./tokens/binary-operator.xl.md"
-import { SpreadReorganization } from "./tokens/spread.xl.md"
-import { NullConditionalOperatorReorganization } from "./tokens/null-conditional-operator.xl.md"
-import { NewReorganization } from "./tokens/new/new.xl.md"
+import { LogicalOperatorCloseRule } from "./tokens/logical-operator.xl.md"
+import { MethodCloseRule } from "./tokens/method.xl.md"
+import { MethodDeclarationCloseRule } from "./tokens/function/method-declaration.xl.md"
+import { NotNullCloseRule } from "./tokens/not-null.xl.md"
+import { UnaryOperatorCloseRule } from "./tokens/unary-operator.xl.md"
+import { BinaryOperatorCloseRule } from "./tokens/binary-operator.xl.md"
+import { SpreadCloseRule } from "./tokens/spread.xl.md"
+import { NullConditionalOperatorCloseRule } from "./tokens/null-conditional-operator.xl.md"
+import { NewCloseRule } from "./tokens/new/new.xl.md"
 import { PreprocessorDirectives } from "./tokens/preprocessor-directives.xl.md"
-import { PropertyAccessReorganization } from "./tokens/property-access.xl.md"
+import { PropertyAccessCloseRule } from "./tokens/property-access.xl.md"
 import { RegexToken } from "./tokens/regex-token.xl.md"
-import { SignatureReorganization } from "./tokens/signature/signature.xl.md"
-import { StatementReorganization2, StatementReorganization3, Statement } from "./tokens/statement.xl.md"
+import { SignatureCloseRule } from "./tokens/signature/signature.xl.md"
+import { StatementCloseRule2, StatementCloseRule3, Statement } from "./tokens/statement.xl.md"
 import { TokenFormer } from "../core/syntax/token-former.xl.md"
 import { StringGuide, StringGuideBranch } from "./tokens/string/string-guide.xl.md"
-import { SwitchReorganization } from "./tokens/switch/switch.xl.md"
+import { SwitchCloseRule } from "./tokens/switch/switch.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
-import { TernaryOperatorReorganization } from "./tokens/ternary-operator/ternary-operator.xl.md"
-import { TryReorganization } from "./tokens/try/try.xl.md"
-import { TypeLiteralReorganization } from "./tokens/type-literal/type-literal.xl.md"
-import { TypeAssignReorganization } from "./tokens/type-assign.xl.md"
-import { TypeDefineReorganization } from "./tokens/type-define.xl.md"
-import { WhileReorganization } from "./tokens/while/while.xl.md"
-import { LineWrap, WrapSymbolReorganization } from "./tokens/line-wrap.xl.md"
+import { TernaryOperatorCloseRule } from "./tokens/ternary-operator/ternary-operator.xl.md"
+import { TryCloseRule } from "./tokens/try/try.xl.md"
+import { TypeLiteralCloseRule } from "./tokens/type-literal/type-literal.xl.md"
+import { TypeAssignCloseRule } from "./tokens/type-assign.xl.md"
+import { TypeDefineCloseRule } from "./tokens/type-define.xl.md"
+import { WhileCloseRule } from "./tokens/while/while.xl.md"
+import { LineWrap, WrapSymbolCloseRule } from "./tokens/line-wrap.xl.md"
 ```
 
 # namespace cangjie
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-**解析流水线装配**：整棵 token 树的公共契约——跳转优先级与重组优先级——都在这一个文件里，
+**解析流水线装配**：整棵 token 树的公共契约——跳转优先级与**收尾规则优先级**——都在这一个文件里，
 `TextContext` 在造根单元之前调一次 `ParsePipeline.Install`。
+
+**改名对照**（第 561–563 轮，按用户指示逐步移除 reorg ✓）：这一族从前叫**重组**（reorg），
+因为那是「**全局重组那一趟**」的规则——单元关闭之后，在一张平表上按队列把相邻单元合并成高层结构 ✓。
+那一趟在第 561 轮整段删掉 ✓（它从第 471 轮起就默认关着 ✓），于是这一族只剩
+`Token.ApplyCloseRules` 这一个调用点 ✓ ⇒ 名字一起改掉 ✓：
+
+| 旧名 | 现名 | 时机 |
+| --- | --- | --- |
+| `Reorganization`（`reorganization.xl.md`） | `CloseRule`（`close-rule.xl.md`） | 规则基类 |
+| `Token.ReorganizationQueue` | `Token.CloseRuleQueue` | 某个单元关闭后要跑的那张表 |
+| `Template.ReorganizationTemplate` | `Template.CloseRuleTemplate` | 按单元类型给表 |
+| `XxxReorganization` | `XxxCloseRule` | 各条规则 |
+| `ParsePipeline.GeneralReorganize` | `ParsePipeline.GeneralCloseRule` | 通用那张表 |
+| `InitialStatement/KeywordReorganizationQueue` | `InitialStatement/KeywordCloseRuleQueue` | 两张专用表的装配 |
+
+⇒ 于是全仓 `.xl.md` 里**不再有 `Reorganization` 这个词** ✓（只剩说明历史的散文 ✓）。
+规则本体一条都没删 ✗ —— `CloseRule` 的 `Previous` / `Process` 与从前逐字相同 ✓，
+读数因此一字未动 ✓（见 `docs/member-layer-plan.md` 第 561–563 轮 ✓）；
+「**哪几条其实已经没人用**」的清单与逐条删除是下一块 ✓。
 
 把这两张表放在这里而不是摊在各 token 里，有三个好处：
 
@@ -124,8 +143,8 @@ import { LineWrap, WrapSymbolReorganization } from "./tokens/line-wrap.xl.md"
   否则那个 `Identifier` 先被造出来 ✓、这个分支再也轮不到 ✓（`Identifier.AppendIn` 返回 `Done` ✓）。
 - 它自己带三条**位置闸**（前一个实义单元不是 `.` / `?.`、宿主不是类型位、宿主不是成员列表 ✓，
   见 `tokens/if/if-guide.xl.md` ✓），所以放在这么靠前的位置**不会抢走别人认的词** ✓：
-  `a.if(x)` 的 `if` 仍然落到 `Identifier` 上 ✓，由 `MethodReorganization` 收成调用 ✓
-  （它排在重组队列第 11 位 ✓，与这一条无关 ✓——**那是重组的位次，这里是跳转的位次** ✗，两张表各管各的 ✓）。
+  `a.if(x)` 的 `if` 仍然落到 `Identifier` 上 ✓，由 `MethodCloseRule` 收成调用 ✓
+  （它排在规则队列第 11 位 ✓，与这一条无关 ✓——**那是重组的位次，这里是跳转的位次** ✗，两张表各管各的 ✓）。
 
 ```ts
 return new Sequence<Branch>([
@@ -219,7 +238,7 @@ return ParsePipeline.CreateGeneralQueue().Removed([IfSetBranch.JumpIn]);
 `units` 的**最后一个单元**是不是一张刚刚打开的成员列表的体。
 
 **它回答的是「这个 `{` 是不是成员列表」这个问题，而答案是「问那几条规则自己」** ✗——
-`InterfaceReorganization` / `EnumReorganization` 各自都有一份**自己的**头判据（`Previous` ✓），
+`InterfaceCloseRule` / `EnumCloseRule` 各自都有一份**自己的**头判据（`Previous` ✓），
 这里是唯一的调用点 ✓。
 **不另写一份「这是不是接口头」** ✗：第 391 轮那版就是这么走偏的（`Bracket.IsMemberList` 用一句词法推断
 去猜同一件事 ✓，等于同一个问题两份答案 ✓），第 393 轮把它换成了「向导收头 + 问那三条规则」✓，
@@ -245,11 +264,11 @@ return ParsePipeline.CreateGeneralQueue().Removed([IfSetBranch.JumpIn]);
 - 撞上 `interface` / `enum` ⇒ 就是它，交给对应那条规则 ✓；
 - 扫到头 ⇒ 不是成员列表 ✓。
 
-**类型字面量那一支用 `Context`，不要用 `TypeLiteralReorganization.Previous`** ✗——
+**类型字面量那一支用 `Context`，不要用 `TypeLiteralCloseRule.Previous`** ✗——
 这一条是量出来的 ✓，第一版就是复用了它、当场判宽 ✓：
 
-- `TypeLiteralReorganization.IsTypePosition` 是**事后**判据 ✓，它自己文件里写着
-  「老走法能对，是因为它跑的时候 `LabelReorganization` 已经把冒号收走了」✓
+- `TypeLiteralCloseRule.IsTypePosition` 是**事后**判据 ✓，它自己文件里写着
+  「老走法能对，是因为它跑的时候 `LabelCloseRule` 已经把冒号收走了」✓
   ——拿到**开括号那一刻**来问，宿主那张表还是词法阶段的平列表 ✓，
   `outer: { … }` 那种标签冒号与类型标注的冒号还分不开 ✓（那正是 `DecideBracketContext` 记过的三次失败 ✓）；
 - 后果是**整块**的 ✓：普通 `{` 块被判成成员列表 ⇒ 块里的 `if` 拿不到向导 ⇒ 而兜底规则已经删了 ✗
@@ -270,7 +289,7 @@ if (!(body instanceof Bracket) || body.startBracket !== "{") {
 // **标签的块不是成员列表** ✗（第 396 轮，从 XML 查出来的 ✓）：`outer: { … }` 里那个 `{`
 // 的 `Context` 也会是 `"type"` ✓——`DecideBracketContext` 自己在文件里写着，
 // 词法阶段「分不出 `outer: { … }` 这种**标签的冒号**与 `x: { … }` 这种**类型标注的冒号**」✓；
-// 那个区分正是 `LabelReorganization` 带来的 ✓，所以这里问它一句 ✓。
+// 那个区分正是 `LabelCloseRule` 带来的 ✓，所以这里问它一句 ✓。
 //
 // **必须问在 `Context` 之前** ✗：第一版把它塞在下面那个循环里 ✓，
 // 可 `Context` 那一句**在循环之前就返回了** ✗ ⇒ 永远到不了 ✗（改了等于没改 ✓，XML 一打就现形 ✓）。
@@ -287,7 +306,7 @@ const colon = Get(units, colonIndex);
 if (colon instanceof SymbolToken && colon.Is(":")) {
   const nameIndex = SkipPreviousTrivia(units, colonIndex);
   const labelName = Get(units, nameIndex);
-  if (labelName instanceof Identifier && LabelReorganization.Instance.Previous(template, units, nameIndex)) {
+  if (labelName instanceof Identifier && LabelCloseRule.Instance.Previous(template, units, nameIndex)) {
     return false;
   }
 }
@@ -322,16 +341,16 @@ return false;
 return ParsePipeline.CreateMemberListQueue().InsertedBefore(StringGuide.JumpIn, [EnumMemberBranch.JumpIn]);
 ```
 
-## static readonly field GeneralReorganize:Sequence<Reorganization> = new Sequence<Reorganization>([DecoratorReorganization.Instance, FunctionReorganization.Instance, SignatureReorganization.Instance, MethodDeclarationReorganization.Instance, LabelReorganization.Instance, LetReorganization.Instance, FieldReorganization.Instance, NewReorganization.Instance, MethodReorganization.Instance, NullConditionalOperatorReorganization.Instance, NamespaceReorganization.Instance, TypeLiteralReorganization.Instance, BlockReorganization.Instance, JsonObjectReorganization.Instance, TypeBracketReorganization.Instance, ImportTypeReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, JsonArrayReorganization.Instance, InferTypeReorganization.Instance, TypeParameterReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, ImportReorganization.Instance, ExportReorganization.Instance, NamespaceExportReorganization.Instance, TypeUnionReorganization.Instance, AsReorganization.Instance, FunctionTypeReorganization.Instance, ConditionalTypeReorganization.Instance, TypeAssignReorganization.Instance, LamdaReorganization.Instance, TypeDefineReorganization.Instance, TernaryOperatorReorganization.Instance, TryReorganization.Instance, SwitchReorganization.Instance, ForReorganization.Instance, ForeachReorganization.Instance, DoWhileReorganization.Instance, WhileReorganization.Instance, WrapSymbolReorganization.Instance, PropertyAccessReorganization.Instance, CompoundAssignmentOperatorReorganization.Instance, NotNullReorganization.Instance, OptionalCallReorganization.Instance, UnaryOperatorReorganization.Instance, BinaryOperatorReorganization.PowerInstance, BinaryOperatorReorganization.MultiplicativeInstance, BinaryOperatorReorganization.AdditiveInstance, BinaryOperatorReorganization.ShiftInstance, BinaryOperatorReorganization.RelationalInstance, BinaryOperatorReorganization.InInstance, BinaryOperatorReorganization.InstanceofInstance, BinaryOperatorReorganization.EqualityInstance, BinaryOperatorReorganization.LogicalAssignmentInstance, BinaryOperatorReorganization.BitwiseInstance, BinaryOperatorReorganization.NullishInstance, LogicalOperatorReorganization.AndInstance, LogicalOperatorReorganization.OrInstance, SpreadReorganization.Instance, BinaryOperatorReorganization.CommaInstance, KeywordReorganization.Instance])
+## static readonly field GeneralCloseRule:Sequence<CloseRule> = new Sequence<CloseRule>([DecoratorCloseRule.Instance, FunctionCloseRule.Instance, SignatureCloseRule.Instance, MethodDeclarationCloseRule.Instance, LabelCloseRule.Instance, LetCloseRule.Instance, FieldCloseRule.Instance, NewCloseRule.Instance, MethodCloseRule.Instance, NullConditionalOperatorCloseRule.Instance, NamespaceCloseRule.Instance, TypeLiteralCloseRule.Instance, BlockCloseRule.Instance, JsonObjectCloseRule.Instance, TypeBracketCloseRule.Instance, ImportTypeCloseRule.Instance, TypePrefixCloseRule.Instance, LiteralTypeCloseRule.Instance, JsonArrayCloseRule.Instance, InferTypeCloseRule.Instance, TypeParameterCloseRule.Instance, TypePredicateCloseRule.Instance, TupleMemberCloseRule.Instance, ParenthesizedTypeCloseRule.Instance, ParameterCloseRule.Instance, HeritageClauseCloseRule.Instance, BindingElementCloseRule.Instance, ImportCloseRule.Instance, ExportCloseRule.Instance, NamespaceExportCloseRule.Instance, TypeUnionCloseRule.Instance, AsCloseRule.Instance, FunctionTypeCloseRule.Instance, ConditionalTypeCloseRule.Instance, TypeAssignCloseRule.Instance, LamdaCloseRule.Instance, TypeDefineCloseRule.Instance, TernaryOperatorCloseRule.Instance, TryCloseRule.Instance, SwitchCloseRule.Instance, ForCloseRule.Instance, ForeachCloseRule.Instance, DoWhileCloseRule.Instance, WhileCloseRule.Instance, WrapSymbolCloseRule.Instance, PropertyAccessCloseRule.Instance, CompoundAssignmentOperatorCloseRule.Instance, NotNullCloseRule.Instance, OptionalCallCloseRule.Instance, UnaryOperatorCloseRule.Instance, BinaryOperatorCloseRule.PowerInstance, BinaryOperatorCloseRule.MultiplicativeInstance, BinaryOperatorCloseRule.AdditiveInstance, BinaryOperatorCloseRule.ShiftInstance, BinaryOperatorCloseRule.RelationalInstance, BinaryOperatorCloseRule.InInstance, BinaryOperatorCloseRule.InstanceofInstance, BinaryOperatorCloseRule.EqualityInstance, BinaryOperatorCloseRule.LogicalAssignmentInstance, BinaryOperatorCloseRule.BitwiseInstance, BinaryOperatorCloseRule.NullishInstance, LogicalOperatorCloseRule.AndInstance, LogicalOperatorCloseRule.OrInstance, SpreadCloseRule.Instance, BinaryOperatorCloseRule.CommaInstance, KeywordCloseRule.Instance])
 
-通用重组队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
+通用规则队列：单元关闭时按这个顺序把子单元合并成更高层的结构。
 静态只读字段，只求值一次，全体共享。
 
 **注释不在这里被摘掉**：跳转队列把行注释与区域注释解析成独立单元（见 `CreateGeneralQueue`），
-而重组队列里没有摘除它们的规则，所以它们会以 `<LineAnnotation>…</LineAnnotation>` /
+而规则队列里没有摘除它们的规则，所以它们会以 `<LineAnnotation>…</LineAnnotation>` /
 `<AreaAnnotation>…</AreaAnnotation>` 的形式出现在 XML 里。要让注释不进产物，就在这张表的前面加两条
 「把注释从父单元 `Data` 里删掉」的规则（`tokens/line-annotation.xl.md` / `tokens/area-annotation.xl.md`
-各写一个 `Reorganization` 子类即可）。
+各写一个 `CloseRule` 子类即可）。
 
 **队首这段的顺序本身就是语义**（每一条各自的理由见对应文件）：
 
@@ -355,24 +374,24 @@ return ParsePipeline.CreateMemberListQueue().InsertedBefore(StringGuide.JumpIn, 
 **顺序即语义**：语句级结构（`Let` / `Keyword` / …）先依次尝试，
 控制流（`For` / `Foreach` / `While` / `Try`）最后兜底。改顺序会直接改变 XML。
 
-**`IfSetReorganization` 已经不在队里了** ✗（第 394 轮删掉 ✓）：`if` 现在由**解析期向导**
+**`IfSetCloseRule` 已经不在队里了** ✗（第 394 轮删掉 ✓）：`if` 现在由**解析期向导**
 （`tokens/if/if-set.xl.md` ✓）在读的时候造 ✓，它压根到不了这一趟 ✓。
 `if` 原来的位次（`Switch` 与 `For` 之间 ✓）从此空着 ✓。
 
-**`ClassReorganization` 也不在队里了** ✗（本轮删掉 ✓）：`class` 现在由**解析期分支**
+**`ClassCloseRule` 也不在队里了** ✗（本轮删掉 ✓）：`class` 现在由**解析期分支**
 （`tokens/class/class.xl.md` 的 `ClassBranch` ✓）在 `{` 那一刻造 ✓。
 它原来的位次（队首第 2 位、`Decorator` 之后 ✓）从此空着 ✓——
 **一条一条把语句级结构从这张表里搬出去** ✓，这就是这条路在走的方向 ✓
 （下一批是 `Function` / `Enum` / `MethodDeclaration` ✓）。
 
-**`StaticBlockReorganization` 也不在队里了** ✗（本轮删掉 ✓）：类静态块现在由**解析期分支**
+**`StaticBlockCloseRule` 也不在队里了** ✗（本轮删掉 ✓）：类静态块现在由**解析期分支**
 （`tokens/class/static-block.xl.md` 的 `StaticBlockBranch` ✓）在 **`{`** 那一刻造 ✓
 ——入口落在 `{` 上 ✓、那一刻 `static` 那个词与「宿主是 `ClassBody`」两样都已经读到 ✓，
 判据一个字符都不向前看 ✓。它原来那位（`Field` 之后 ✓）从此空着 ✓。
 **这一条是「成员层」的第一格** ✓：`Class` 在 `{` 那一刻把整个类头收下 ✓，
 `ClassBody` 自己吃 `{ … }` ✓，它下面的成员再一个一个搬 ✓（下一格是 `Field` / `MethodDeclaration` ✓）。
 
-**`EnumReorganization` 也不在队里了** ✗（本轮删掉 ✓）：枚举声明现在由**解析期分支**
+**`EnumCloseRule` 也不在队里了** ✗（本轮删掉 ✓）：枚举声明现在由**解析期分支**
 （`tokens/enum/enum.xl.md` 的 `EnumBranch` ✓）在 **`{`** 那一刻造 ✓（入口落在 `{` 上、
 那一刻 `enum` 那个词与名字都已经读到 ✓），`Enum` / `EnumBody` 与 `Class` / `ClassBody` 逐条对齐 ✓。
 `IsMemberListHead` 里的 `enum` 一支同时删掉 ✓——那个问题从此只剩接口一个答案 ✓。
@@ -411,10 +430,10 @@ return ParsePipeline.CreateMemberListQueue().InsertedBefore(StringGuide.JumpIn, 
 
 - `of` 在 TypeScript 里不是保留字，但它是**上下文关键字**，`for (x of y)` 里的它就是关键字；
 - `in` 是保留字，三种用法（`for (x in y)`、`k in o`、映射类型的 `[K in keyof T]`）都该有 `Keyword` 标签；
-- **代价是两条既有规则要跟着改**：`ForReorganization` / `ForeachReorganization` 判定「括号里有没有 `in` / `of`」
-  原来靠 `item instanceof Identifier && item.Is("in")`，而那个括号（`(` 开的括号）**有自己的重组队列**，
+- **代价是两条既有规则要跟着改**：`ForCloseRule` / `ForeachCloseRule` 判定「括号里有没有 `in` / `of`」
+  原来靠 `item instanceof Identifier && item.Is("in")`，而那个括号（`(` 开的括号）**有自己的规则队列**，
   里面的 `in` / `of` 在括号关闭时就跑过一次升级了——升级成 `Keyword` 之后两条规则都认不出它，
-  `for (var name in all)` 会被 `ForReorganization` 接走并抛「`(...)`中语句不满足格式要求」
+  `for (var name in all)` 会被 `ForCloseRule` 接走并抛「`(...)`中语句不满足格式要求」
   （这是真出现过的回归，`typescript.js` 就是在这儿炸的）。
 
   所以本轮把四个调用点一起换成 `declaration-common.xl.md` 的 **`IsWordUnit`**（`Identifier` 或 `Keyword` 都认）：
@@ -526,7 +545,7 @@ return [
 
 **`readonly` / `unique` 是第 66 轮补的**：它们是**只出现在类型位的修饰词**（`IsTypeModifier` 里有它们，
 `keyof` / `infer` / `new` / `typeof` 早就在这张表里）。漏掉 `readonly` 的代价实测很重：
-`type A = readonly (B | undefined)[]` 里 `readonly` 后面紧跟一个括号，`MethodReorganization`
+`type A = readonly (B | undefined)[]` 里 `readonly` 后面紧跟一个括号，`MethodCloseRule`
 把它当成一次**调用**，产物是 `<Method name="readonly">B | undefined</Method>`——真正的结构
 （修饰词 + 数组类型 + 括号类型 + 联合）整段塌掉，`TypeAssign` 里只剩这一层假调用
 （真实语料 `typescript.d.ts` 4 处：`readonly (ResolvedProjectReference | undefined)[]` 等）。
@@ -542,8 +561,8 @@ return [
 `typeof import("assert")` 被收成 `MethodDeclaration name="import"`，
 但**连带**挡住了动态 `import("m")` 的 `Method`（调用）节点——那张表是「能不能当方法名」的**唯一**判据，
 调用规则与声明规则共用它。所以两处改成各自精确地拒一次：
-`MethodDeclarationReorganization.Previous` 拒 `import`（见 `tokens/function/method-declaration.xl.md`），
-`ImportReorganization.Previous` 拒 `import` 后面紧跟 `(` 的情形（动态 `import` 是调用、不是导入声明）。
+`MethodDeclarationCloseRule.Previous` 拒 `import`（见 `tokens/function/method-declaration.xl.md`），
+`ImportCloseRule.Previous` 拒 `import` 后面紧跟 `(` 的情形（动态 `import` 是调用、不是导入声明）。
 
 ## static method Install:(template:Template)=>void
 
@@ -552,7 +571,7 @@ return [
 **模板是调用方的，谁造模板谁装配**：`Install` 只负责往模板上写东西，根单元只从装配好的模板上读。
 `TextContext` 的调用方因此只需要 `new Template().Initialize(ParsePipeline.Install)`。
 
-`InitialStatementReorganizationQueue` 的调用点不在这里，而在根单元的构造器里（它作用于**单元**而不是模板，
+`InitialStatementCloseRuleQueue` 的调用点不在这里，而在根单元的构造器里（它作用于**单元**而不是模板，
 所以留在那个时机）——它读的正是这里设下的 `CloseRuleTemplate.DefaultValue`，顺序天然成立。
 
 关键字表与禁用方法名表一并在这一步装上：它们和两张队列一样，是「这套语言怎么解析」的一部分。
@@ -568,42 +587,42 @@ template.Initialize((self: Template) => {
   // 「装配是调用方的责任」这条口径只有这一个入口 ✓。
   Token.Former = TokenFormerImpl.Instance;
   self.BranchTemplate.DefaultValue = ParsePipeline.CreateGeneralQueue();
-  self.CloseRuleTemplate.DefaultValue = ParsePipeline.GeneralReorganize;
+  self.CloseRuleTemplate.DefaultValue = ParsePipeline.GeneralCloseRule;
   self.KeywordTemplate.Allow(ParsePipeline.KeyWords());
   self.MethodNameTemplate.Ban(ParsePipeline.BanedMethodNames());
   self.BranchTemplate.AddModifyItem(StringGuideBranch, ParsePipeline.ExtendStringStarts);
 });
 ```
 
-## static method InitialKeywordReorganizationQueue:(unit:Token)=>void
+## static method InitialKeywordCloseRuleQueue:(unit:Token)=>void
 
-给一个**装类型文本**的单元装上报废类型用的重组队列：`KeywordReorganization` 与 `WrapSymbolReorganization` 两条。
+给一个**装类型文本**的单元装上报废类型用的规则队列：`KeywordCloseRule` 与 `WrapSymbolCloseRule` 两条。
 
-与 `InitialStatementReorganizationQueue` 是同一个思路的两半：那一条装「语句队列」，
+与 `InitialStatementCloseRuleQueue` 是同一个思路的两半：那一条装「语句队列」，
 这一条装「类型队列」。
 
 **为什么不是通用队列**：`TypeDefine` / `TypeAssign` 的内容是类型，通用队列里的
-`TernaryOperatorReorganization` 会把**条件类型** `T extends U ? A : B` 收成表达式三元
+`TernaryOperatorCloseRule` 会把**条件类型** `T extends U ? A : B` 收成表达式三元
 （`type X = T extends Array<infer U> ? U : never` 于是长出一个 `TernaryOperator` 节点），
 那是错的——类型位的 `? :` 是条件类型，不是三元表达式。
 类型位要的只是「把 `keyof` / `typeof` / `readonly` / `is` / `asserts` / `interface` 这些词升级成 `Keyword`」，
 所以就装这一条。
 
 ```ts
-unit.CloseRuleQueue = new Sequence<Reorganization>([ImportTypeReorganization.Instance, TypeBracketReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, InferTypeReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, TypeUnionReorganization.Instance, ConditionalTypeReorganization.Instance, KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
+unit.CloseRuleQueue = new Sequence<CloseRule>([ImportTypeCloseRule.Instance, TypeBracketCloseRule.Instance, TypePrefixCloseRule.Instance, LiteralTypeCloseRule.Instance, InferTypeCloseRule.Instance, TypePredicateCloseRule.Instance, TupleMemberCloseRule.Instance, ParenthesizedTypeCloseRule.Instance, ParameterCloseRule.Instance, HeritageClauseCloseRule.Instance, BindingElementCloseRule.Instance, TypeUnionCloseRule.Instance, ConditionalTypeCloseRule.Instance, KeywordCloseRule.Instance, WrapSymbolCloseRule.Instance]);
 ```
 
-**七条规则、不是一条**：`ImportTypeReorganization` 把 `[typeof] import("m")[.A.B]` 收成
-`ImportType`；`TypeBracketReorganization` 把类型位的方括号收成
-`ArrayType` / `TupleType` / `IndexedAccessType`；`TypePrefixReorganization` 把
+**七条规则、不是一条**：`ImportTypeCloseRule` 把 `[typeof] import("m")[.A.B]` 收成
+`ImportType`；`TypeBracketCloseRule` 把类型位的方括号收成
+`ArrayType` / `TupleType` / `IndexedAccessType`；`TypePrefixCloseRule` 把
 `keyof` / `typeof` / `readonly` / `unique` 连同它们的操作数收成 `TypeOperator` / `TypeQuery`；
-`LiteralTypeReorganization` 把类型位的字面量包成 `LiteralType`；
-`InferTypeReorganization` 把条件类型里的 `infer X` 收成 `InferType`（里面配一个 `TypeParameter`）；
-`TypeUnionReorganization` 收联合 / 交叉；`ConditionalTypeReorganization` 收条件类型
+`LiteralTypeCloseRule` 把类型位的字面量包成 `LiteralType`；
+`InferTypeCloseRule` 把条件类型里的 `infer X` 收成 `InferType`（里面配一个 `TypeParameter`）；
+`TypeUnionCloseRule` 收联合 / 交叉；`ConditionalTypeCloseRule` 收条件类型
 `T extends U ? A : B`（**排在联合之后**：回扫那个 `extends` 时，`|` / `&` 会先被联合收成一个
 单元，否则回扫在第一个 `|` 上就停下了——见下面「条件类型必须跟在联合后面」）；
-`KeywordReorganization` 把类型位的关键词升级成 `Keyword`；
-`WrapSymbolReorganization` 把类型文本里的**软换行**摘掉——类型可以折行排版，
+`KeywordCloseRule` 把类型位的关键词升级成 `Keyword`；
+`WrapSymbolCloseRule` 把类型文本里的**软换行**摘掉——类型可以折行排版，
 那些换行是版面而不是内容（`Array<String,` 换行 `Int64>` 里那个换行不该留在产物里）。
 其余的一律不要（见上）。
 
@@ -663,27 +682,27 @@ branch.AddStringChar("'");
 branch.AddStringChar("`");
 ```
 
-## static method InitialStatementReorganizationQueue:(unit:Token)=>void
+## static method InitialStatementCloseRuleQueue:(unit:Token)=>void
 
-给一个单元装上报废语句用的重组队列。
+给一个单元装上报废语句用的规则队列。
 
-做法：取该单元类型的重组队列（模板上没有专门注册就是通用重组队列），在里面**插入**两个语句重组类：
+做法：取该单元类型的规则队列（模板上没有专门注册就是通用规则队列），在里面**插入**两个语句重组类：
 
-- `StatementReorganization2` 与 `StatementReorganization3` 插在 `WrapSymbolReorganization` **之前**——
+- `StatementCloseRule2` 与 `StatementCloseRule3` 插在 `WrapSymbolCloseRule` **之前**——
   语句要在软换行被摘掉之前成形（判定要靠软换行找边界）。
 
 插入点用**判定器**而不是类型参数来找（`InsertedBeforeWhere(items, predicate)`）：要插入的位置由
-「哪个元素是 `WrapSymbolReorganization`」决定，直接给一个判定器比给一个类型更直白。
+「哪个元素是 `WrapSymbolCloseRule`」决定，直接给一个判定器比给一个类型更直白。
 参数顺序是**先元素、后判定器**——函数类型参数排在最后。
 
-**为什么这个加工放在这里**：它是对「通用重组队列」的第二次加工，与 `GeneralReorganize` 是同一份契约的两半。
-放在同一个文件里，读代码时一眼能看出「语句类是在通用重组队列里插进去的」。
+**为什么这个加工放在这里**：它是对「通用规则队列」的第二次加工，与 `GeneralCloseRule` 是同一份契约的两半。
+放在同一个文件里，读代码时一眼能看出「语句类是在通用规则队列里插进去的」。
 
 **插入必须发生在 `Get` 之后，不能只写在回调里**（第 123 轮修）：`SequenceTemplate.Get`
 把结果**按构造器缓存**（`CompletedData`），回调只在**第一次**取值时跑一次。而 `Bracket`
 是三种括号**共用一个类**的——`Use("(")` / `Use("[")` 会先做一次**单参**取值
 （拿到的是没插过语句规则的通用队列），那一趟就把 `CompletedData[Bracket]` 填上了。
-于是 `{` 块括号再走 `InitialStatementReorganizationQueue` 时，回调**根本不会被调用**，
+于是 `{` 块括号再走 `InitialStatementCloseRuleQueue` 时，回调**根本不会被调用**，
 块里永远没有语句规则：
 
     { let y = 2; f(y); }   →  <Bracket> 里是散的 <Let> / <SymbolToken>，
@@ -691,7 +710,7 @@ branch.AddStringChar("`");
                              `VariableDeclaration` / `ExpressionStatement` 全丢）
 
 所以这里先取基队列，再**自己**插一次；已经插过（同一个基队列被复用）就不重复插。
-判据是「基队列里有没有 `StatementReorganization2`」——插两次不会出错（两条规则都是幂等的），
+判据是「基队列里有没有 `StatementCloseRule2`」——插两次不会出错（两条规则都是幂等的），
 但会让每一趟多扫两遍，而且会掩盖「谁插的」这个问题。
 
 ```ts
@@ -701,13 +720,13 @@ if (base === null) {
   return;
 }
 const already = base.Data.some(
-  (item: Reorganization) => item instanceof StatementReorganization2 || item instanceof StatementReorganization3,
+  (item: CloseRule) => item instanceof StatementCloseRule2 || item instanceof StatementCloseRule3,
 );
 unit.CloseRuleQueue = already
   ? base
   : base.InsertedBeforeWhere(
-      [StatementReorganization2.Instance, StatementReorganization3.Instance],
-      (item: any) => item instanceof WrapSymbolReorganization,
+      [StatementCloseRule2.Instance, StatementCloseRule3.Instance],
+      (item: any) => item instanceof WrapSymbolCloseRule,
     );
 ```
 
@@ -755,8 +774,8 @@ Statement.FormFrom(unit, terminator);
 
 **名字的现状** ✓（第 562 轮 ✓）：容器那一侧已经摘掉「重组」✓ ——
 `Token.CloseRuleQueue` ✓、`Template.CloseRuleTemplate` ✓；
-**规则本体那一侧还叫 `Reorganization`** ✗（基类 `core/syntax/reorganization.xl.md` ✓、
-`Sequence<Reorganization>` 那个类型名 ✓、各条 `XxxReorganization` 类 ✓），
+**规则本体那一侧还叫 `CloseRule`** ✗（基类 `core/syntax/close-rule.xl.md` ✓、
+`Sequence<CloseRule>` 那个类型名 ✓、各条 `XxxCloseRule` 类 ✓），
 按用户指示逐步搬 ✓，最后一块见 `docs/member-layer-plan.md` 的迁移账 ✓。
 所以下面这些注释、以及本文件里「队列」两个字，说的都是**这一趟**的规则表 ✓，
 与那条已经删掉的全局重组那一趟无关 ✓。
@@ -764,15 +783,15 @@ Statement.FormFrom(unit, terminator);
 次序是硬的 ✗（两条都是实测出来的）：
 
 - **关键字升级必须最后** ✗：`function` 那个词一旦升成 `Keyword` ✓，
-  `FunctionReorganization.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
-  （重组队列里 `KeywordReorganization` 也确实排在 `TypeDefineReorganization` 之后 ✓）；
+  `FunctionCloseRule.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
+  （规则队列里 `KeywordCloseRule` 也确实排在 `TypeDefineCloseRule` 之后 ✓）；
 - **`TypeDefine` 必须在 `Function` 之后** ✗：返回类型那个 `:` 少了 `Function` 先成形 ✓，
   会一路吞到函数体里去 ✗ —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
   当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓。
 - **`TypeAssign`（第 35）排在 `TypeDefine`（第 37）之前** ✓（第 489 轮接上的 ✓）：
   `type X = …` 的整段先收成别名 ✓，那条声明里的类型标注才轮到 `TypeDefine` ✓。
 - **`Let`（队列第 6）跳过** ✗（第 490 轮 ✓）：解析期已经有 `LetBranch` ✓，
-  再跑 `LetReorganization` 会**两次成形** ✗ —— 那一格从此由解析期独占 ✓。
+  再跑 `LetCloseRule` 会**两次成形** ✗ —— 那一格从此由解析期独占 ✓。
 - **成员那一簇照队列次序接上** ✓（第 490 轮 ✓）：`Decorator`(1) → `Function`(2) → `Signature`(3)
   → `MethodDeclaration`(4) → `Label`(5) → `Field`(7) ✓；实测这一簇（连 `Decorator` ✓）
   把读数从 221 推到 **290 / 1037** ✓。
@@ -788,8 +807,8 @@ Statement.FormFrom(unit, terminator);
   → `Import`(28) → `Export`(29) → `NamespaceExport`(30) → `TypeUnion`(31) → `As`(32) ✓
   —— 值 424 → **464 / 1037** ✓。
 
-**每条规则还是它自己那一份实现** ✓：`XxxReorganization.Instance.ApplyTo(unit)` ✓
-（那个循环只有一份 ✓，见 `core/syntax/reorganization.xl.md` ✓）——
+**每条规则还是它自己那一份实现** ✓：`XxxCloseRule.Instance.ApplyTo(unit)` ✓
+（那个循环只有一份 ✓，见 `core/syntax/close-rule.xl.md` ✓）——
 这一轮搬的是**调用时机** ✓，规则本体的逐条内联留到后面一块一块做 ✓。
 
 ```ts
@@ -827,13 +846,13 @@ for (let pass = 0; pass < maxPasses; pass++) {
 
 ## method RunCloseRules:(unit:Token)=>void
 
-**那一串规则**（次序照重组队列 ✓，一条不多一条不少 ✓）——由收敛环反复调用 ✓。
+**那一串规则**（次序照规则队列 ✓，一条不多一条不少 ✓）——由收敛环反复调用 ✓。
 
 次序是硬的 ✗（三条都是实测出来的）：
 
 - **关键字升级必须最后** ✗：`function` 那个词一旦升成 `Keyword` ✓，
-  `FunctionReorganization.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
-  （重组队列里 `KeywordReorganization` 也确实排在 `TypeDefineReorganization` 之后 ✓）；
+  `FunctionCloseRule.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
+  （规则队列里 `KeywordCloseRule` 也确实排在 `TypeDefineCloseRule` 之后 ✓）；
 - **`TypeDefine` 必须在 `Function` 之后** ✗：返回类型那个 `:` 少了 `Function` 先成形 ✓，
   会一路吞到函数体里去 ✗ —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
   当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓；
@@ -846,8 +865,8 @@ for (let pass = 0; pass < maxPasses; pass++) {
 //
 // **为什么必须照队列** ✗：单元的队列**不一定是**通用那一份 ✓ ——
 // `PropertyAccess` / `TypeDefine` / `BinaryOperator` 那一族装的是**类型队列**
-//（`InitialKeywordReorganizationQueue` ✓），对照态里它们**只跑那 15 条** ✓。
-// 手抄名单对谁都跑整串 ✗ ⇒ `PropertyAccessReorganization` 在 `PropertyAccess` **自己**的
+//（`InitialKeywordCloseRuleQueue` ✓），对照态里它们**只跑那 15 条** ✓。
+// 手抄名单对谁都跑整串 ✗ ⇒ `PropertyAccessCloseRule` 在 `PropertyAccess` **自己**的
 // `Data` 上又匹配一次 ✗ ⇒ 一层套一层、直到深度界 ✓
 //（实测 `a.b.c` 在产物里是**八层同区间**的 `PropertyAccess` ✓，投影只看得见最里面那一格 ✗）。
 //
@@ -863,22 +882,22 @@ if (queue === null) {
 const isExportUnit = unit.constructor.name === "Export";
 const isBraceBracket = unit.constructor.name === "Bracket" && (unit as Bracket).startBracket === "{";
 for (const rule of queue.Data) {
-  if (rule instanceof LetReorganization) {
+  if (rule instanceof LetCloseRule) {
     continue;
   }
-  if (rule instanceof StatementReorganization2 || rule instanceof StatementReorganization3) {
+  if (rule instanceof StatementCloseRule2 || rule instanceof StatementCloseRule3) {
     continue;
   }
-  if (isBraceBracket && rule instanceof LabelReorganization) {
+  if (isBraceBracket && rule instanceof LabelCloseRule) {
     continue;
   }
   if (
     isExportUnit &&
-    (rule instanceof ExportReorganization ||
-      rule instanceof AsReorganization ||
-      rule instanceof BinaryOperatorReorganization ||
-      rule instanceof LogicalOperatorReorganization ||
-      rule instanceof SpreadReorganization)
+    (rule instanceof ExportCloseRule ||
+      rule instanceof AsCloseRule ||
+      rule instanceof BinaryOperatorCloseRule ||
+      rule instanceof LogicalOperatorCloseRule ||
+      rule instanceof SpreadCloseRule)
   ) {
     continue;
   }

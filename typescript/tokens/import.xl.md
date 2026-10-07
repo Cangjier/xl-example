@@ -2,7 +2,7 @@
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { CommonUtil } from "../../core/common-util.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceAt } from "../../core/extensions/list-extension.xl.md"
@@ -24,13 +24,13 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 `Import` 与 `String.String` 的 `From` 是加载依赖文件的入口：调用方从 `textContext.Root.Data` 里筛出 `Import` 单元即可。
 
-`ImportReorganization` 写在 `Import` 之前。
+`ImportCloseRule` 写在 `Import` 之前。
 
-# class ImportReorganization extends Reorganization
+# class ImportCloseRule extends CloseRule
 
 `Previous` 认的是「一个内容恰好等于 `import` 的 `Identifier`」——不是一个关键字 token，而是普通字符块。
 
-## static readonly field Instance:ImportReorganization = new ImportReorganization()
+## static readonly field Instance:ImportCloseRule = new ImportCloseRule()
 
 唯一的实例。
 
@@ -76,7 +76,7 @@ return true;
 在一批单元里找第一个字符串**单元**，找不到给 `null`。
 
 **必须往子单元里递归找**（第 67 轮修）：`import fs = require("fs")` 走到这里时，
-`require("fs")` 已经被 `MethodReorganization` 收成一个 `Method` 单元，
+`require("fs")` 已经被 `MethodCloseRule` 收成一个 `Method` 单元，
 那个 `String` 是它的**子单元**——只看 `items` 的直接成员会漏掉，
 `From` 于是留着空串（真实语料 `@types/node` 里这类 import-equals 很多）。
 
@@ -110,7 +110,7 @@ return null;
 「`index` 起连续 `count` 个格子都还是那些旧单元」，而这里 `items` 是**按内容**收集的
 （`import { A } \n from "m"` 里的软换行会被跳过），收集范围与「连续下标区间」不是一回事。
 留下没摘掉的旧单元时，它们与 `Import` 的子单元是**同一批对象**，产物里就会各渲染一次；
-更糟的是它们会让末尾那条语句重组规则（`StatementReorganization3`）在旧下标上再收一个 `Statement` 出来，
+更糟的是它们会让末尾那条语句收尾规则（`StatementCloseRule3`）在旧下标上再收一个 `Statement` 出来，
 `<Import>` 旁边于是多出一个内容一模一样的 `<Statement>`——实测在「文件以 `import …` 结尾、
 尾随既没有 `;` 也没有换行」时必现。按身份逐个摘干净之后这条路径不再存在。
 

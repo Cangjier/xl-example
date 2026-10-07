@@ -1,6 +1,6 @@
 # dependencies
 ```xl
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
@@ -49,11 +49,11 @@ TypeScript 那边形参一律是 `Parameter` 节点（名字 + 可选的 `?` + �
 （宿主是 `LamdaParameters`，不在上面几个里 ✓ 不会重复收）。
 **值位 `new` 的实参表也不在这里收**（它在 `NewArguments` 里 ✗ 不在名单里 ✓）。
 
-# class ParameterReorganization extends Reorganization
+# class ParameterCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:ParameterReorganization = new ParameterReorganization()
+## static readonly field Instance:ParameterCloseRule = new ParameterCloseRule()
 
 唯一的实例。
 
@@ -145,7 +145,7 @@ return hasContent;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("ParameterReorganization.Process: current is null");
+  throw new Error("ParameterCloseRule.Process: current is null");
 }
 const original: Token[] = [];
 for (const item of current.Data) {

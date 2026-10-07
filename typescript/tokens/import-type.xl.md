@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
@@ -19,7 +19,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 **导入类型**：类型位的 `import("./m")` / `import("./m").A.B` / `typeof import("./m")` 收成一个 `ImportType`。
 
-第 66 轮之前它是**借调用节点**的：`MethodReorganization` 把 `import("m")` 按「名字 + 括号」收成
+第 66 轮之前它是**借调用节点**的：`MethodCloseRule` 把 `import("m")` 按「名字 + 括号」收成
 `<Method name="import">`，外层再被类型运算符那条规则套一个 `<TypeQuery>`。**TypeScript 那边不是这样**：
 
 ```
@@ -39,11 +39,11 @@ TS 6 把整段收成**一个** `ImportType` 节点（`typeof` 是它身上的 `i
 规则排在类型队列的**最前面**：`typeof` 要先被它吸收，否则类型运算符那一趟会先把
 `typeof X` 收成 `TypeQuery`，导入类型就只能拿到半截。
 
-# class ImportTypeReorganization extends Reorganization
+# class ImportTypeCloseRule extends CloseRule
 
 它永远不进 `Data`、不进 XML。
 
-## static readonly field Instance:ImportTypeReorganization = new ImportTypeReorganization()
+## static readonly field Instance:ImportTypeCloseRule = new ImportTypeCloseRule()
 
 唯一的实例。
 
@@ -51,9 +51,9 @@ TS 6 把整段收成**一个** `ImportType` 节点（`typeof` 是它身上的 `i
 
 `index` 处是不是导入类型的开头。**两种来路都要认**：
 
-1. 已经收成调用的 `<Method name="import">`（类型位上 `MethodReorganization` 会先把它收掉）；
+1. 已经收成调用的 `<Method name="import">`（类型位上 `MethodCloseRule` 会先把它收掉）；
 2. **还是裸的** `import` 标识符 + `(` 括号——**类型实参段里没有调用规则**
-   （`MethodReorganization` 明确挡掉 `GenericType` 父单元，那是为了防止
+   （`MethodCloseRule` 明确挡掉 `GenericType` 父单元，那是为了防止
    `<T extends (a: any) => any>` 被当成调用），于是
    `Pick<typeof import("assert"), AssertMethodNames>` 里的 `import("assert")`
    到不了第 1 种形态（实测 `@types/node/test.d.ts:1437` 1 处）。
@@ -130,7 +130,7 @@ return Get(units, SkipNextWrapSymbol(units, index)) instanceof Identifier;
 ```ts
 const current = Get(units, index);
 if (current === null) {
-  throw new Error("ImportTypeReorganization.Process: current is null");
+  throw new Error("ImportTypeCloseRule.Process: current is null");
 }
 let startIndex = index;
 const previousIndex = SkipPreviousWrapSymbol(units, index);
@@ -273,7 +273,7 @@ TS 那边只有**两个**子字段：
 
 ```ts
 super(template);
-ParsePipeline.InitialKeywordReorganizationQueue(this);
+ParsePipeline.InitialKeywordCloseRuleQueue(this);
 ```
 
 ## method Clone:()=>Token

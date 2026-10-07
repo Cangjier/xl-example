@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
@@ -30,7 +30,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 三种形态由同文件的枚举 `LetType` 区分；它只是数据标签，不参与 XML 的标签名。
 
-`LetReorganization` 写在 `Let` **之前**，与同目录其它 token 一致。
+`LetCloseRule` 写在 `Let` **之前**，与同目录其它 token 一致。
 
 # enum LetType
 
@@ -43,13 +43,13 @@ import { SymbolToken } from "./symbol-token.xl.md"
 - case Object
 对象解构：`let {a, b} = obj`。
 
-# class LetReorganization extends Reorganization
+# class LetCloseRule extends CloseRule
 
 `Previous` 认的是「一个内容是 `let` / `const` / `var` 的 `Identifier`，且它后面（跨过软换行）跟着一个 `Identifier`，或者跟着一对 `[]` / `{}` 括号」。
 
 `Process` 把从 `let`（含它前面的 `export`）到目标单元的这一整段收成一个 `Let`，按目标单元的形态填 `fieldName`，或者填数组 / 对象两组解构名。
 
-## static readonly field Instance:LetReorganization = new LetReorganization()
+## static readonly field Instance:LetCloseRule = new LetCloseRule()
 
 唯一的实例。
 
@@ -117,7 +117,7 @@ return next instanceof Bracket && (next.Is("[", "]") || next.Is("{", "}"));
 只收集 `Identifier`：符号、嵌套括号本身不进表（括号靠递归展开）。
 
 **三种容器都要认**：`Bracket`、`ArrayLiteral`、`ObjectLiteral`。
-内层数组在值位被 `JsonArrayReorganization` 收成了 `ArrayLiteral`（它不是 `Bracket` 的子类），
+内层数组在值位被 `JsonArrayCloseRule` 收成了 `ArrayLiteral`（它不是 `Bracket` 的子类），
 内层对象同理是 `ObjectLiteral`——只认 `Bracket` 的话 `const [[a, b], [, c = 0]] = m`
 递归一层就断了，名字还是空串（实测）。
 
@@ -313,7 +313,7 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 修饰词串，逗号分隔、按源码顺序（`export` / `declare` / `default` 之外还包括 `const` / `let` / `var` 自己）。
 
-同样是因为本单元是**重组规则建出来的**：它把整段声明折成一个节点之后，
+同样是因为本单元是**收尾规则建出来的**：它把整段声明折成一个节点之后，
 外层那一趟不会再回来收这些词，不在这里记下就彻底丢了。
 
 ## method ToXmlString:()=>string
@@ -475,9 +475,9 @@ if (nameIndex < 1) {
 }
 const nameUnit = Get(data, nameIndex);
 // **名字那一格可以是一对解构括号**（第 533 轮 ✓）：解构那个 `[` / `{` 在这一刻**还是 `Bracket`**
-// ✓ —— `JsonArrayReorganization` / `JsonObjectReorganization` 会把它收成 `ArrayLiteral` /
+// ✓ —— `JsonArrayCloseRule` / `JsonObjectCloseRule` 会把它收成 `ArrayLiteral` /
 // `ObjectLiteral` ✓，但那一趟是在**括号自己的 `TryToClose` 里**跑的 ✓，而 `LetBranch` 问这一格时
-// 括号刚关完、命名还没换 ✓。判据与同文件 `LetReorganization.Previous` 那一句
+// 括号刚关完、命名还没换 ✓。判据与同文件 `LetCloseRule.Previous` 那一句
 //「`Identifier`，或者 `Is("[", "]")` / `Is("{", "}")` 的 `Bracket`」**一字不差** ✓
 //（第 532 轮错在**照搬了重组那一趟看到的名字** ✗ —— 那一趟看到的是 `ArrayLiteral` ✓，
 //  于是 `instanceof ArrayLiteral` 永远为假 ✗，白试一轮 ✓）。
@@ -495,7 +495,7 @@ const word = this.WordOf(keywordUnit);
 // **`using` 也算声明词**（第 538 轮 ✓）：显式资源管理声明 `using res = open()` 与
 // `await using res = openAsync()` 在 TS 那边同样是 `VariableDeclaration` ✓
 //（`VariableDeclarationList` 上带 `Using` 标志 ✓），形态与 `const` 一模一样 ✓。
-// 重组那条（`LetReorganization.Previous`）**早就认 `using`** ✓
+// 重组那条（`LetCloseRule.Previous`）**早就认 `using`** ✓
 //（`let.xl.md` 那一处写着「`using` 是显式资源管理声明……所以它该有自己的 `Let` 节点」✓），
 // 解析期这一支漏了它 ✗ ⇒ `await using res = openAsync()` 整条退化成
 // `Keyword(await) + Keyword(using) + Identifier(res) + = + Method` ✗
@@ -563,7 +563,7 @@ while (start > 0) {
     continue;
   }
   // **`await using` 的 `await` 也是修饰词**（第 538 轮 ✓）：重组那条
-  // （`LetReorganization.Process`）写着「`await using res = open()`：`await` 是显式资源管理
+  // （`LetCloseRule.Process`）写着「`await using res = open()`：`await` 是显式资源管理
   // 声明的一部分，收进 modifiers 才不会留成一个悬空的关键词」✓ —— 解析期这一支漏了它 ✗
   // ⇒ `await` 留在 `Let` 外面 ✗ ⇒ 投影把它连同后面整段投成 `AwaitExpression` ✗。
   // **两种身份都要认** ✓（`await` 这时通常已经是 `Keyword` ✓，见 `Success` 开头那一句 ✓）。

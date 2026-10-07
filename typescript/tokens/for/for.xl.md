@@ -5,7 +5,7 @@ import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { SearchBack } from "../../../core/extensions/list-extension.xl.md"
 import { TakeRange } from "../../../core/extensions/list-extension.xl.md"
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
@@ -27,17 +27,17 @@ import { ForNext } from "./for-next.xl.md"
 
 C 风格 `for` 语句：把 `for` `(` … `)` `{` … `}` 这一串单元重组成一个 `For`，里面分成 Initial（第一个 `;` 之前）、Compare（两个 `;` 之间）、Next（第二个 `;` 之后到右括号）、Body（后面那对 `{ }` 或单条语句）四段。
 
-它和 `Foreach` 的重组规则互为补集：这里只在括号里**没有** `in` / `of` 时命中，`foreach` / `for...in` 那边只在**有**时命中——两者靠这一点区分「C 风格 for」与「for-in」。
+它和 `Foreach` 的收尾规则互为补集：这里只在括号里**没有** `in` / `of` 时命中，`foreach` / `for...in` 那边只在**有**时命中——两者靠这一点区分「C 风格 for」与「for-in」。
 
-重组规则类 `ForReorganization` **不进 `Data`、不进 XML**，所以它的类名随便取。它必须写在 `For` **之前**：`Instance` 这个静态字段在类定义时就会 `new ForReorganization()`，写反了会命中暂时性死区（TDZ）。
+收尾规则类 `ForCloseRule` **不进 `Data`、不进 XML**，所以它的类名随便取。它必须写在 `For` **之前**：`Instance` 这个静态字段在类定义时就会 `new ForCloseRule()`，写反了会命中暂时性死区（TDZ）。
 
 反过来，`For` 本体的类名**就是** XML 标签名（取自 `this.constructor.name`），不能改。
 
-# class ForReorganization extends Reorganization
+# class ForCloseRule extends CloseRule
 
-重组规则：`for` 加一个 `(` 开头、且里面**没有** `in` / `of` 的括号，就把这整段换成一个 `For`。
+收尾规则：`for` 加一个 `(` 开头、且里面**没有** `in` / `of` 的括号，就把这整段换成一个 `For`。
 
-## static readonly field Instance:ForReorganization = new ForReorganization()
+## static readonly field Instance:ForCloseRule = new ForCloseRule()
 
 唯一的实例。
 

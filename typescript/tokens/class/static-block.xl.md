@@ -53,7 +53,7 @@ import { Identifier } from "../identifier.xl.md"
 `static m() {}` / `static x = 1` 排除掉 ✓）：这里判的是**紧挨着 `{` 的那一个实义单元**
 是不是 `static` ✓——`static m() {}` 的 `{` 前面是形参表 `)` ✓、
 `static x = 1` 的 `{`（如果有）前面是 `=` ✓，两条都进不来 ✓。
-**判据从「谁先跑」挪到「谁紧挨着」** ✓，于是它与重组队列的位次彻底脱钩 ✓。
+**判据从「谁先跑」挪到「谁紧挨着」** ✓，于是它与规则队列的位次彻底脱钩 ✓。
 
 ```ts
 const result = new BranchConditionResult();
@@ -125,14 +125,14 @@ unit.AddToMounted(block);
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，取跳转队列，再把**语句队列**装进自己的重组队列——静态块里是一串语句。
+转调基类构造器，取跳转队列，再把**语句队列**装进自己的规则队列——静态块里是一串语句。
 
 与 `ClassBody` / `FunctionBody` 同一做法：体里的单元在关闭时要再跑一遍语句重组。
 
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
-ParsePipeline.InitialStatementReorganizationQueue(this);
+ParsePipeline.InitialStatementCloseRuleQueue(this);
 ```
 
 ## method Owns:(source:Source)=>bool

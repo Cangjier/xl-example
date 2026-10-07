@@ -37,7 +37,7 @@ import { Identifier } from "./identifier.xl.md"
 - **本行没有配对的 `/`**：JSX 闭合标签 `</div>` 的 `/` 就是这一形状（见下）。
 
 **`Identifier` 那一支要放关键字进来**：`return /re/.test(s)` / `typeof /re/` 里的前一个实义单元
-是 `return` / `typeof`——它们在**词法阶段还是 `Identifier`**（`KeywordReorganization` 排在通用队列最后，
+是 `return` / `typeof`——它们在**词法阶段还是 `Identifier`**（`KeywordCloseRule` 排在通用队列最后，
 那时早得很），但它显然是关键字、后面正好该跟一个表达式。
 判据直接查那个 `Identifier` 自己的模板（`last.Template.KeywordTemplate`）。
 不放行的话 `return /x/` 里的第一个 `/` 退化成除号，整条正则碎成 `SymbolToken` + `Identifier`
@@ -189,11 +189,11 @@ if (source.Value === "[") {
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把本类型的跳转队列与重组队列都取出来。
+以模板创建，并把本类型的跳转队列与规则队列都取出来。
 
 取运行时类型用 `this.constructor`。
 
-注意 `CloseRuleTemplate` 取出来的是**默认队列**：本类没有嵌套的 `Reorganization`，把正则从单元列表里摘掉是执行层 `RegexStep.Parser` 干的事（本层不做）。
+注意 `CloseRuleTemplate` 取出来的是**默认队列**：本类没有嵌套的 `CloseRule`，把正则从单元列表里摘掉是执行层 `RegexStep.Parser` 干的事（本层不做）。
 
 ```ts
 super(template);

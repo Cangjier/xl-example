@@ -13,7 +13,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 `default:` 没有这一截，那一段就不造这个单元。
 
-它取通用重组队列：`case` 后面的表达式在 `{ }` 里是散着的（`{` 括号没有队列），
+它取通用规则队列：`case` 后面的表达式在 `{ }` 里是散着的（`{` 括号没有队列），
 搬进来之后要靠这一段的队列把它啃成形（方法调用、类型标注之类）。
 
 # class SwitchCase extends IndependentToken
@@ -24,7 +24,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把模板里按本单元类型准备的重组队列挂上。
+以模板创建，并把模板里按本单元类型准备的规则队列挂上。
 
 ```ts
 super(template);

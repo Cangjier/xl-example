@@ -108,7 +108,7 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
 
 ## constructor:(Template:Template)=>void
 
-转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
+转调基类构造器，然后从规则模板里取出「本类」对应的一组收尾规则。
 
 `CloseRuleTemplate` 以类的构造器对象为键，所以这里写 `this.constructor`。
 

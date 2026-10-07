@@ -133,7 +133,7 @@ if (newest instanceof SymbolToken && newest.Is(";")) {
   // 所以：就地签出到它的终点、把它从 `Data` 里摘掉，`EndIndex` 推到末尾（没有多吃的要还）。
   // **`;` 不进产物，但要留在 `Data` 里让规则去摘**（第 437 轮实测改正）：
   // 第一版在解析期就把它 `RemoveSelf` 掉 ✗——可是绿树上它是**留在成员里**、
-  // 由成员自己那一趟重组里的 `WrapSymbolReorganization` 摘掉的 ✓
+  // 由成员自己那一趟重组里的 `WrapSymbolCloseRule` 摘掉的 ✓
   //（所以绿形状里看不到它 ✓）。提前摘掉有两个后果：体的语句层会把它包成一个空
   // `<Statement>` ✗（还给体那一版），以及**重组里那些成员规则再也看不到它** ✗ ——
   // 实测 `undici-types/eventsource.d.ts`：`close(): void` 那个方法签名（仍旧由重构造）

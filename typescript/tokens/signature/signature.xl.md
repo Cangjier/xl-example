@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
@@ -40,19 +40,19 @@ import { LineWrap } from "../line-wrap.xl.md"
 **边界（本文件不做的部分）**：
 
 - **索引签名** `[key: string]: number`：它同时是 Json 数组的形状（`[` 开头的括号），
-  而 `JsonArrayReorganization` 排在成员规则之后；要在它成形前后各抢一次，属于另一条改动。
+  而 `JsonArrayCloseRule` 排在成员规则之后；要在它成形前后各抢一次，属于另一条改动。
   这一轮只做 call / construct（占 1355 处里的 1355 处中的绝大多数：1190 处是 construct）。
 - **类型字面量里的签名**（`type F = { (): void }`）：那里的父单元是 `ObjectLiteral` 而不是
   `InterfaceBody` / `ClassBody`，本轮的成员位置判据不含它（类型字面量的成员是另一条已知缺口）。
 
-`SignatureReorganization` 写在 `Signature` **之前**：后者的静态字段 `Instance` 在类定义时就
-`new SignatureReorganization()`，写反了会命中暂时性死区（TDZ）。
+`SignatureCloseRule` 写在 `Signature` **之前**：后者的静态字段 `Instance` 在类定义时就
+`new SignatureCloseRule()`，写反了会命中暂时性死区（TDZ）。
 
-# class SignatureReorganization extends Reorganization
+# class SignatureCloseRule extends CloseRule
 
-## static readonly field Instance:SignatureReorganization = new SignatureReorganization()
+## static readonly field Instance:SignatureCloseRule = new SignatureCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## private method SignatureTailEnd:(units:Array<Token>, parametersIndex:int)=>int
 
@@ -134,12 +134,12 @@ return parent instanceof InterfaceBody || parent instanceof ClassBody || parent 
 
 这个单元是不是**计算成员名**的 `[` 括号（`[Symbol.iterator]` / `["m"]` / `[KEY]`）。
 
-**为什么必须在这里拒一次**：通用重组队列里 `SignatureReorganization` 排在
-`MethodDeclarationReorganization` **之前**（见 `../../parse-pipeline.xl.md` 的 `GeneralReorganize`），
+**为什么必须在这里拒一次**：通用规则队列里 `SignatureCloseRule` 排在
+`MethodDeclarationCloseRule` **之前**（见 `../../parse-pipeline.xl.md` 的 `GeneralCloseRule`），
 而 `(` 那一支原来只挡 `Identifier` / `GenericType`。`[Symbol.iterator]` 在这个时机是一个
 `Bracket`（`[`）或已经成形的 `ArrayLiteral`，两种都不在挡的范围里，于是
 `(): ArrayIterator<number>;` 被收成一个**无名签名**，那个 `[` 单元被签名规则消费掉；
-等轮到 `MethodDeclarationReorganization`，`ParameterIndex` 再也找不到「名字 + `(`」，
+等轮到 `MethodDeclarationCloseRule`，`ParameterIndex` 再也找不到「名字 + `(`」，
 整条方法签名**永远拿不到 `MethodDeclaration`**。
 
 实测（`interface I { [Symbol.iterator](): ArrayIterator<number>; }`，修前）：
@@ -199,7 +199,7 @@ if (current instanceof Bracket && current.startBracket === "(") {
     return false;
   }
   // **`=` 后面不是签名**（第 66 轮）：类字段 `f = (a: number): void => {}` 是一条**值**字段，
-  // 括号前面是赋值号。本规则排在 `FieldReorganization` 之前，此刻那个 `(` 的父单元还是
+  // 括号前面是赋值号。本规则排在 `FieldCloseRule` 之前，此刻那个 `(` 的父单元还是
   // `ClassBody`（`IsMemberPosition` 成立），不挡的话整条字段被收成一个
   // `<Signature kind="call">`、箭头函数永远不成形（实测 `ArrowFunction` 缺 1 处）。
   // 签名语法里 `(` 前面不会有 `=`（带 `=` 的成员只有字段初始化式）。
@@ -254,7 +254,7 @@ TypeScript 允许成员签名自己带类型参数段：`interface I { <TIn exte
 
 **但 `<` 前面有名字时要让给方法声明**（实测踩过）：
 `interface I { m<T>(x: T): T }` 里的 `m` 是**方法名**、`<T>` 只是它的类型参数段，
-那是 `MethodDeclaration` 的形状。少了这条守卫，本规则（位次在 `MethodDeclarationReorganization`
+那是 `MethodDeclaration` 的形状。少了这条守卫，本规则（位次在 `MethodDeclarationCloseRule`
 **之前**）会把 `m<T>(…)` 收成一个 `Signature`，丢掉 `MethodDeclaration`
 （`decl-interface-method-generics` / `type-object-method-generic` 两条用例当场报缺）。
 
@@ -414,7 +414,7 @@ TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来（模板里没有专门给 `Signature` 注册就用通用队列）。
+创建时把本类型的收尾规则挂上来（模板里没有专门给 `Signature` 注册就用通用队列）。
 
 理由与 `MethodDeclaration` 的构造器相同：返回类型那一段是 `Process` 搬进来的，
 不给它自己的队列，它就凑不成 `TypeDefine`。

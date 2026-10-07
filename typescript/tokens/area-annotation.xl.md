@@ -15,7 +15,7 @@ import { UnitToken } from "../../core/syntax/unit-token.xl.md"
 
 `typescript`：把一段源码字符串包成语法层能读的文档，并驱动 token 树把它啃成 XML。
 
-区域注释 `/* … */`：从 `/*` 吃到 `*/`，正文攒进 `Tmp`。注释单元**留在树里、会进 XML**：原本负责把它从父单元 `Data` 里删掉的 `AreaAnnotation.Reorganization` 已经随 `../parse-pipeline.xl.md` 的 `GeneralReorganize` 一起移除，所以产出里能看到 `<AreaAnnotation>正文</AreaAnnotation>`。
+区域注释 `/* … */`：从 `/*` 吃到 `*/`，正文攒进 `Tmp`。注释单元**留在树里、会进 XML**：原本负责把它从父单元 `Data` 里删掉的 `AreaAnnotation.CloseRule` 已经随 `../parse-pipeline.xl.md` 的 `GeneralCloseRule` 一起移除，所以产出里能看到 `<AreaAnnotation>正文</AreaAnnotation>`。
 
 `AreaAnnotationBranch` 写在 `AreaAnnotation` **之前**：后者的静态字段 `JumpIn` 会在类定义时立即 `new AreaAnnotationBranch()`，写反了会命中 ts 的暂时性死区（TDZ）。
 
@@ -61,7 +61,7 @@ unit.AddToMounted(new AreaAnnotation(unit.Template)).SignIn(source.Pre()!);
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把本类型的跳转队列取出来；本类不设重组队列——原先靠通用重组队列把注释从 `Data` 里摘掉，那个重组已经移除，所以注释单元就这样留在父单元里。
+以模板创建，并把本类型的跳转队列取出来；本类不设规则队列——原先靠通用规则队列把注释从 `Data` 里摘掉，那个重组已经移除，所以注释单元就这样留在父单元里。
 
 取运行时类型用 `this.constructor`。
 

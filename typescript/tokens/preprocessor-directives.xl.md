@@ -126,7 +126,7 @@ unit.AddToMounted(new PreprocessorDirectives(unit.Template)).SignIn(source);
 
 ## constructor:(template:Template)=>void
 
-以模板创建，并把本类型的跳转队列取出来；本类没有重组队列。
+以模板创建，并把本类型的跳转队列取出来；本类没有规则队列。
 
 取运行时类型用 `this.constructor`。
 

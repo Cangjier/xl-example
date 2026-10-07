@@ -21,7 +21,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 于是 `core` 只留空钩子与这张抽象表 ✓，真正的实现（`TokenFormerImpl.Instance` ✓）由
 `ParsePipeline.Install` 装上 ✓ —— 与「模板是调用方的，谁造模板谁装配」同一句话 ✓。
 
-抽象方法写成抛错桩，与 `Reorganization` 那一族一致。
+抽象方法写成抛错桩，与 `CloseRule` 那一族一致。
 
 ## method FormStatement:(unit:Token, terminator:Token)=>void
 
@@ -36,14 +36,14 @@ throw new Error("abstract member: FormStatement");
 
 ## method ApplyCloseRules:(unit:Token)=>void
 
-在 `unit` 关闭之前调用：把**已经搬进解析期的那几条重组规则**在这一层上跑一遍。
+在 `unit` 关闭之前调用：把**已经搬进解析期的那几条收尾规则**在这一层上跑一遍。
 
 **为什么是「关闭之前」这个时机** ✓：这些规则在全局那一趟里跑的就是「每个单元关闭时、在它自己的
 `Data` 上」✓（`Token.Reorganize` ✓）⇒ 放在 `Token.TryToClose` 里与对照态**同一时机** ✓。
 **而解析期那些端口（`LetBranch` / `FormStatement` 那一族）跑在关闭之前** ✓ ⇒
 它们照旧看得见升级前的形状 ✓（时机一变就互相踩，第 486 轮记过这条 ✓）。
 
-**跑的次序 = 重组队列的次序** ✓（硬约束 ✗，见实现那一处的两条实测账 ✓）。
+**跑的次序 = 规则队列的次序** ✓（硬约束 ✗，见实现那一处的两条实测账 ✓）。
 
 ```ts
 throw new Error("abstract member: ApplyCloseRules");

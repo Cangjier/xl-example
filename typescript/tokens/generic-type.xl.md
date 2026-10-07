@@ -86,9 +86,9 @@ unit.AddToMounted(new GenericType(unit.Template)).SignIn(source);
 **可选成员签名的名字可以是计算成员名**（第 66 轮补）：
 `[EventEmitter.captureRejectionSymbol]?<K>(error: Error, event: Key<K, T>, ...args: Args<K, T>): void`
 与 `m?<T>()` 是同一个形状（`?` 在类型参数**之前**），只是名字写在 `[ ]` 里。
-那个 `[ ]` 到这一刻可能已经是 `ArrayLiteral`（`JsonArrayReorganization` 先收走了）、
+那个 `[ ]` 到这一刻可能已经是 `ArrayLiteral`（`JsonArrayCloseRule` 先收走了）、
 也可能还是 `[` 括号，两种都要认。只认 `Identifier` 时这次试读被判否：`<K>` 退回裸符号，
-接着 `MethodDeclarationReorganization.ParameterIndex` 在 `<` 处拿不到括号 →
+接着 `MethodDeclarationCloseRule.ParameterIndex` 在 `<` 处拿不到括号 →
 整条成员降级成 `Field` + `Signature`（实测 `@types/node/events.d.ts` 两处，
 `cases:align` 的 `MethodSignature` 缺 2 / `MethodDeclaration` 缺 1 全是它）。
 
@@ -560,7 +560,7 @@ for (let i = unit.Data.length - 1; i >= 0; i--) {
   if (item instanceof Identifier) {
     const text = item.TempToString();
     // **映射类型的键 `[K in X<U>]`**（第 133 轮）：`in` 左边的 `K` 与右边的约束都是**类型**，
-    // 而回扫到这里时 `in` 还是一个普通 `Identifier`（`KeywordReorganization` 排在最后）。
+    // 而回扫到这里时 `in` 还是一个普通 `Identifier`（`KeywordCloseRule` 排在最后）。
     // 不认它，`Lowercase<HeaderNames>` 里那个 `<` 被判成表达式位、泛型退回比较运算符——
     // 于是约束里的实参整段丢（实测 `undici-types/header.d.ts` 与
     // `lib.esnext.temporal.d.ts` 两族：缺 `Identifier` 110 / `TypeReference` 32）。
@@ -822,19 +822,19 @@ switch (item) {
 
 ## constructor:(template:Template)=>void
 
-取本类型的跳转队列与重组队列。
+取本类型的跳转队列与规则队列。
 
 跳转队列取默认值就是**通用跳转队列**：泛型实参表里要能长出 `Identifier` / `SymbolToken` / 嵌套 `GenericType`，靠的正是它。
 
-重组队列取默认值（通用重组队列）——与 `Bracket.Use("(")` 那一支同款：
+规则队列取默认值（通用规则队列）——与 `Bracket.Use("(")` 那一支同款：
 泛型实参段里能出现**各种类型形状**（类型字面量 `Array<{ a: 1 }>`、元组、嵌套泛型），
 通用队列里那几条类型规则都要在；好处还有表内的软换行会被正常摘掉
-（注释则不再被摘掉，见 `../parse-pipeline.xl.md` 的 `GeneralReorganize`）；
+（注释则不再被摘掉，见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule`）；
 `Statement` 那两条只挂在 `Root` 上，所以泛型内部不会长出语句节点。
 
 **两条表达式规则要单独挡在泛型实参段外面**（就地拒，而不是换队列）：
-`LetReorganization`（`<const T>` 的 `const T` 会被当成变量声明）与
-`TernaryOperatorReorganization`（`Wrap<T extends U ? A : B>` 的 `? :` 是**条件类型**，不是三元表达式）。
+`LetCloseRule`（`<const T>` 的 `const T` 会被当成变量声明）与
+`TernaryOperatorCloseRule`（`Wrap<T extends U ? A : B>` 的 `? :` 是**条件类型**，不是三元表达式）。
 换队列的做法试过、退回来了：通用队列里同时带着类型字面量等**类型**规则，
 一刀切掉会伤到 `Array<{ a: 1 }>` / `<T extends X = {}>` 这些完全正常的写法。
 

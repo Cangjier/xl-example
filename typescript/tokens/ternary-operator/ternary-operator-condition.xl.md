@@ -15,11 +15,11 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 三元运算符的条件。
 
-它不消费字符：`TernaryOperatorReorganization.Process` 用 `TakeRange` 从单元列表里切出条件段，再整段塞进它的 `Data`，然后签入签出并关闭。
+它不消费字符：`TernaryOperatorCloseRule.Process` 用 `TakeRange` 从单元列表里切出条件段，再整段塞进它的 `Data`，然后签入签出并关闭。
 
 ## constructor:(template:Template)=>void
 
-创建后立刻挂上**通用重组队列**。
+创建后立刻挂上**通用规则队列**。
 
 **为什么必须挂**：这一段的单元是从外面 `TakeRange` 搬进来的，搬进来时外层那一趟收尾**已经过去了**；
 不给自己装队列的话 `RunCloseRules` 第一句 `if (this.CloseRuleQueue === null) return;`
@@ -29,8 +29,8 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 **要的是通用队列，不是语句队列**（实测踩过）：
 
-- `InitialKeywordReorganizationQueue` 不行——它只有 `Keyword` + `LineWrap` 两条，不含算符折算；
-- `InitialStatementReorganizationQueue` 也不行——它额外插了 `StatementReorganization2/3`，
+- `InitialKeywordCloseRuleQueue` 不行——它只有 `Keyword` + `LineWrap` 两条，不含算符折算；
+- `InitialStatementCloseRuleQueue` 也不行——它额外插了 `StatementCloseRule2/3`，
   会把这一段表达式**包进一个 `<Statement>`**（实测 `const y = c ? index + 1 : 0` 的真值段里
   多出一层 `<Statement>`）。三元的分支是表达式，不是语句列表。
 

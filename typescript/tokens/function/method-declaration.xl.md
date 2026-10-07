@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
-import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
+import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
@@ -36,9 +36,9 @@ import { LineWrap } from "../line-wrap.xl.md"
 **与 `Method` 的分工靠「括号后面跟不跟 `{`」**：
 
 - 括号后面是 `{` → 声明（本文件接手）；
-- 其余 → 调用（`MethodReorganization` 接手）。
+- 其余 → 调用（`MethodCloseRule` 接手）。
 
-这也是本规则必须排在 `MethodReorganization` **之前**的原因（见 `../parse-pipeline.xl.md`）：
+这也是本规则必须排在 `MethodCloseRule` **之前**的原因（见 `../parse-pipeline.xl.md`）：
 `Method` 一旦先成形，名字与参数就都被它装走了，这里再也看不到「名字 + `(`」。
 
 **没有方法体的成员签名也收**：`abstract f(): void;` / 接口里的 `m(): void` / 重载签名
@@ -52,13 +52,13 @@ import { LineWrap } from "../line-wrap.xl.md"
 所以判据是**父单元**：只有 `ClassBody` / `InterfaceBody` 的直接成员才允许无体形状，
 其余位置仍然要 `{` 才收——`foo(a);` 这类语句不会因此变成假的方法声明。
 
-`MethodDeclarationReorganization` 写在 `MethodDeclaration` **之前**。
+`MethodDeclarationCloseRule` 写在 `MethodDeclaration` **之前**。
 
-# class MethodDeclarationReorganization extends Reorganization
+# class MethodDeclarationCloseRule extends CloseRule
 
-## static readonly field Instance:MethodDeclarationReorganization = new MethodDeclarationReorganization()
+## static readonly field Instance:MethodDeclarationCloseRule = new MethodDeclarationCloseRule()
 
-唯一的实例，注册进通用重组队列时用。
+唯一的实例，注册进通用规则队列时用。
 
 ## static readonly field ValueOperators:Array<string> = ["=>", "===", "==", "!==", "!=", "<=", ">=", "<", ">", "&&", "||", "??", "?", ".", "!", "+", "-", "*", "/", "%", "**", "&", "|", "^", "<<", ">>", ">>>", "="]
 
@@ -80,7 +80,7 @@ import { LineWrap } from "../line-wrap.xl.md"
 
 **值位关键字**：与 `ValueOperators` 同一族——它们只能出现在**表达式**里，
 不可能紧跟在方法声明的形参表后面。按文本认词要**走 `WordText`**：在这一刻
-`in` 可能还是 `Identifier`（`KeywordReorganization` 排在队列尾部，还没跑过它），
+`in` 可能还是 `Identifier`（`KeywordCloseRule` 排在队列尾部，还没跑过它），
 只认 `Keyword` 会漏（第 75 轮实测）。
 
 实测（同一条根因）：`{ name: e(z) in o ? { k: 1 } : g }` 里 `e(z)` 会被收成
@@ -339,7 +339,7 @@ return afterTail instanceof SymbolToken && (afterTail.Is(";") || afterTail.Is(",
 
 **为什么必须有这一条**：`IsMemberSignature` 只问「名字的父单元是不是成员体」，而字段初始化式里的名字
 **也在**成员体里。于是 `class C { A = new C("x"); }` 里那个 `C("x")` 会被本规则认成一条
-`name(...)` 形式的方法签名，**并且因为它排在 `NewReorganization` 之前，构造器名被抢走之后
+`name(...)` 形式的方法签名，**并且因为它排在 `NewCloseRule` 之前，构造器名被抢走之后
 `new` 就再也凑不成 `New` 节点**（实测：类里 `A = new C("x")` 产出
 `<SymbolToken>=</SymbolToken><Keyword>new</Keyword><MethodDeclaration name="C">…`，类外同样写法却是
 `<New><NewType>C</NewType><NewArguments>x</NewArguments></New>`）。
@@ -466,7 +466,7 @@ return false;
 `IsTypeModifier` 里的 `new` / `abstract` / `typeof` **不能**照抄着一起挡——
 `class A { new() {} }` 里的 `new` 是**合法的方法名**（`lex-keyword-method-name.ts` 钉住这一条），
 挡掉之后那个 `{}` 会退化成 `<ObjectLiteral>`（`cases:dashboard` 当场多一处）。
-成员位的构造签名 `new (): A` 由排在本规则之前的 `SignatureReorganization` 认领，不靠这里。
+成员位的构造签名 `new (): A` 由排在本规则之前的 `SignatureCloseRule` 认领，不靠这里。
 
 **计算成员名 `[`m`]()` / `[x]()` 也算名字**：它是一个 `[` 括号，
 名字由 `field.xl.md` 的 `BracketNameText` 拼出来（与 `[key: string]` 索引签名同一套）。
@@ -526,7 +526,7 @@ if (this.AfterAssignment(template, units, nameIndex)) {
 // 「方法体」就是后面那个对象字面量（实测 `{ name: e(z) ? { k: 1 } : g }`：
 // 三元 0 个、方法声明 1 个；`f(x)[0] ? …` 与 `f(x) in o ? …` 同理）。
 const afterParameters = Get(units, SkipNextWrapSymbol(units, parametersIndex));
-if (afterParameters instanceof SymbolToken && afterParameters.IsAny(MethodDeclarationReorganization.ValueOperators)) {
+if (afterParameters instanceof SymbolToken && afterParameters.IsAny(MethodDeclarationCloseRule.ValueOperators)) {
   return false;
 }
 if (afterParameters instanceof Bracket && afterParameters.startBracket === "[") {
@@ -559,7 +559,7 @@ if (afterParameters instanceof SymbolToken && afterParameters.Is(",")) {
 if (afterParameters instanceof SymbolToken && afterParameters.Is(":") && this.StartsWithTernaryQuestion(units, nameIndex)) {
   return false;
 }
-if (afterParameters !== null && (afterParameters instanceof Identifier || afterParameters.constructor.name === "Keyword") && MethodDeclarationReorganization.ValueKeywordTexts.includes(WordText(afterParameters))) {
+if (afterParameters !== null && (afterParameters instanceof Identifier || afterParameters.constructor.name === "Keyword") && MethodDeclarationCloseRule.ValueKeywordTexts.includes(WordText(afterParameters))) {
   return false;
 }
 return this.BodyIndex(units, parametersIndex) >= 0 || this.IsMemberSignature(units, nameIndex, parametersIndex);
@@ -574,13 +574,13 @@ return this.BodyIndex(units, parametersIndex) >= 0 || this.IsMemberSignature(uni
 - 起点由 `DeclarationStart` 往前吃掉一串修饰词（`public` / `static` / `async` / `get` / `set` …）与装饰器；
   修饰词折进 `modifiers`（`join(",")`），装饰器作为子单元搬进 `MethodDeclaration`。
 - 名字与参数表之间允许一个 `GenericType`（`find<U>(key: U)`）。
-- 参数表括号作为子单元留着；参数括号的内容已经由它自己的重组队列啃过
+- 参数表括号作为子单元留着；参数括号的内容已经由它自己的规则队列啃过
   （`(` 括号有队列，见 `../bracket.xl.md` 的 `Use`），不重复处理。
 - 返回类型段（`:` 与类型单元）单独搬给 `ReturnType` 并 `TryToClose()`——**必须自成一段**，
   否则 `TypeDefine` 会从 `:` 一路吞到方法体里去（见 `./return-type.xl.md`）。
   它的边界由 `ScanDeclarationBody` / `ScanDeclarationTailEnd` 给出（见 `../declaration-common.xl.md`）。
 - 名字与方法体之间搬进去的子单元里，软换行**不进树**（与 `Class` / `Function` 一致：
-  它们本来就会被 `WrapSymbolReorganization` 摘掉，这里先一步跳过，免得落进一个不跑重组的单元里）。
+  它们本来就会被 `WrapSymbolCloseRule` 摘掉，这里先一步跳过，免得落进一个不跑重组的单元里）。
 - 范围终点取自己的最后一个单元（有体时是 `}`，无体时是返回类型末位或那个 `;`）。
   **尾随软换行不进范围**——它留在父单元里充当语句/成员边界
   （见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
@@ -716,7 +716,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 ## constructor:(template:Template)=>void
 
-创建时把本类型的重组规则挂上来（模板里没有专门给 `MethodDeclaration` 注册就用通用队列）。
+创建时把本类型的收尾规则挂上来（模板里没有专门给 `MethodDeclaration` 注册就用通用队列）。
 
 理由与 `Class` / `Function` 的构造器相同：返回类型那一段
 （`:` 与类型单元）是 `Process` 搬进来的，不给自己的队列，它就凑不成 `TypeDefine`。
@@ -747,7 +747,7 @@ return this.Add(new MethodBody(this.Template));
 
 新建返回类型段并挂到自己名下，返回新单元。
 
-返回类型单独成段是必须的：`TypeDefineReorganization` 从 `:` 起贪婪地收，直到 `;` / `,` / 赋值符号为止——
+返回类型单独成段是必须的：`TypeDefineCloseRule` 从 `:` 起贪婪地收，直到 `;` / `,` / 赋值符号为止——
 方法体不是终止符，返回类型一旦与方法体同级，`TypeDefine` 就会把方法体整个吞进去
 （见 `./return-type.xl.md`）。
 
