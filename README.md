@@ -284,8 +284,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 `Bracket`（`( )` / `{ }` / `[ ]` 三种括号共用）与 `Keyword`（关键字兜底身份）的名字就是自己的语义。
 
-[samples/declarations.ts](samples/declarations.ts) 把上表逐项走了一遍，产物是
-[samples/declarations.expected.xml](samples/declarations.expected.xml)。
+[samples/declarations.ts](samples/declarations.ts) 把上表逐项走了一遍，TS 形状的夹具是
+[samples/declarations.expected.tsast.json](samples/declarations.expected.tsast.json)。
 
 ## 设计约定
 
@@ -427,34 +427,22 @@ node build/ts/cjcli.js samples/hello.ts --ts-ast | node -e "..."   # 直接喂�
 
 ## 样本验收
 
-[samples/check.mjs](samples/check.mjs)：`samples/*.ts` 与同名 `*.expected.xml` / `*.expected.ast.json`
-/ `*.expected.tsast.json` 对照（三个出口各一份夹具）。
+[samples/check.mjs](samples/check.mjs)：`samples/*.ts` 与同名 `*.expected.tsast.json` **逐字节**对照
+（只留 TS 形状这一个出口；XML 与 AST JSON 两份夹具随测试集收窄删除）。
 
 ```bash
 npm run samples                 # 比对，全部一致时退出码 0
 node samples/check.mjs --update # 用当前产物重写夹具
 ```
 
-XML 夹具是**紧凑单行**（`--update` 写的是归一化之后的那一份，不是 `cjcli` 打出来的缩进形态）。
-`normalize()` 在比对前把标签之间的空白全部去掉，所以判据是「标签、属性、文本内容是否逐字节相同」，
-**缩进怎么排不参与判定**；
-属性值里的空白不受影响（`CommonUtil.XmlDecode` 把换行 / 制表符都写成了 `\n` / `\t` 转义）。
+**逐字节比、不做归一化**：夹具是紧凑单行，键序由规范里的 `result.set(...)` 顺序决定、
+`pos` / `end` 由源码下标决定，都是确定性的——归一化只会把「键序变了」这类漂移盖掉。
 两端都在文件层读写、不经过控制台编码，中文注释不会在比对里被搅坏。
 
-两个 JSON 夹具（AST JSON 与 TS 形状）都**逐字节比、不做归一化**：它们本来就是紧凑单行，
-键序由规范里的 `result.set(...)` 顺序（或字段赋值的顺序）决定、`range` / `pos` 由源码下标决定，
-都是确定性的——归一化只会把「键序变了」这类漂移盖掉。
-
 **同一份比对还顺带钉住了「入口」**：脚本除了跑 `cjcli` 进程，也用库 API 解析同一份源码
-（`new TextContext(...).Process(...)` → `Root.ToXmlString()` / `Root.ToJsonString()` /
-`ToJsonText(projectRoot(...))`），断言两条路**逐字节相同**
-（`[XML]` / `[AST JSON]` / `[TS 形状]` 那三行之外，`ENTRY` 一行就是这条断言）。
-少了它，「库对了、命令行打歪了」没有任何尺子看得见——`cases:astjson` 只走库 API。
-TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本**共用**的同一个函数，
-两边不是各写一遍对齐的。
-
-[samples/diag.mjs](samples/diag.mjs) 打印完整的诊断链：`cjcli` 只打最外层 `SyntaxException` 的位置，
-真正的原因在内层异常里（`Token.Process` 会把任何异常包一层，可能包好几层）。
+（`new TextContext(...).Process(...)` → `ToJsonText(projectRoot(...))`），断言两条路**逐字节相同**
+（`ENTRY` 那一行就是这条断言）。少了它，「库对了、命令行打歪了」没有任何尺子看得见。
+TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本**共用**的同一个函数。
 
 ## 为什么留了一个 `bin/cjcli.js`
 

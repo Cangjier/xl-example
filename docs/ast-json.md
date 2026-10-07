@@ -19,7 +19,7 @@ TS 形状挂在 `typescript/print-ast-common.xl.md` 的 `projectRoot` 上（core
 
 | 出口 | 入口 | 形态 | 给谁 |
 | --- | --- | --- | --- |
-| XML（默认） | `Token.ToXmlString()` / `Root.ToString()` | 元素树；`cjcli` 打印时按嵌套缩进 | 给人读；测试夹具（`samples/*.expected.xml`） |
+| XML（默认） | `Token.ToXmlString()` / `Root.ToString()` | 元素树；`cjcli` 打印时按嵌套缩进 | 给人读 |
 | AST JSON | `Token.ToDictionary()` / `ToList()` / `ToJsonString()` | 紧凑单行 JSON | 给下游程序读 |
 | TS 形状 | `projectRoot()` / `ToJsonText()` | `ts.createSourceFile` 同形（`kind` 用名字 + `pos` / `end`） | 与 TS 原生 AST 对拍 / diff |
 
@@ -147,7 +147,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | 方法名 | `ToDictionary()` / `ToList()` | 同名同签名 | 同一个契约 |
 | 根 | `code.analyse` 取 `Root.ToList()` | `Root.ToJsonString()` 内取 `Root.ToList()` | |
 | 坐标 | `ToList` 给每个节点补 `range` | 同（只是本工程**递归铺满**：每个节点都有坐标，而不仅仅是 `ToList` 直接收的那一层——TS 的每个节点都带 `pos` / `end`，投影要用） | |
-| 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验（钉它的 `cases:astjson` 已于第 200 轮随测试集收窄删除） |
+| 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **不多写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源 |
 | 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` 的 `emptyBodyAt`、`For` 的 `bodyBraceAt`、`IfSegment` 的 `ifWordAt`，以及声明名的 `nameStart` / `nameEnd`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
@@ -162,20 +162,12 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 
 ## 5. 验收
 
-> **第 200 轮起测试集只留 AST 相关的判据**（`cases:tsast` / `cases:tsast:cli` / `samples` / `cases:check`）：
-> 下面这一节里的 `cases:astjson` 与 `cases:run` **已经随测试集收窄删除**（脚本在 git 历史里）。
-> **这个出口本身仍然在**（`cjcli --ast-json`、`Token.ToDictionary` / `ToJsonString` 照旧），
-> 只是当下没有一把「两个出口同源」的尺子在跑了——要重新钉它，把
-> `tests/parse/ast-json.mjs`（第 200 轮之前的 HEAD）取回来即可。
-
-| 判据 | 命令 | 口径 |
-| --- | --- | --- |
-| 两个出口同源（**已删**） | `npm run cases:astjson` | 逐文件取 `ToXmlString()` 与 `ToJsonString()`，折算成同一种形状后**逐节点**比对：节点名、属性、文本、子单元个数。不一致即退出码 1 |
-| 尺子有牙（**已删**） | `npm run cases:astjson -- --self-test` | 故意改坏 JSON（节点名错位 / 内容被改 / 属性键被删）与 XML（标签名被改），四种都必须被抓到 |
-| 回归用例（**已删**） | `npm run cases:run` | 用例期望值仍以 XML 为准；JSON 由 `cases:astjson` 全语料巡检 |
-
-折算用的类型表（哪些键是布尔、哪些是数字）原先写在 `tests/parse/ast-json.mjs` 顶部，
-它是**两边的契约**：表里写错一个字段，那把尺子立刻红，而不是悄悄放过。
+**这个出口今天没有专属的尺子**：从第 200 轮起测试集只留 AST 相关的判据
+（`cases:tsast` / `cases:tsast:cli` / `samples` / `cases:check`），四把都量**TS 形状**那一支
+（`projectRoot` 读的是同一棵树的 `ToList()`，见第 1 节）。
+`cjcli --ast-json` 与 `Token.ToDictionary` / `ToJsonString` 本身照旧在，
+只是「两个出口同源」这条断言当下没有尺子在跑——改动这个出口时要**自己拿两个出口对一眼**
+（见第 6 节第 4 条）。
 
 ---
 
@@ -184,5 +176,5 @@ JSON 跟着上游的键名只会让**同一棵树的两个出口在本工程内�
 1. 给某个 token 加/改 XML 属性 → **同一个文件里**的 `ToDictionary` 必须一起改（两处同名同值）。
 2. 加一个全新的 token 类 → 如果它有 XML 属性，就补 `ToDictionary`；没有属性就不必覆写（基类形状已经对）。
 3. 加一个分段结构 → 在 `ToDictionary` 里按段名写 `ToList()`，不要摊成 `children`。
-4. 改完**自己拿两个出口对一眼**（那一把尺子已删）：`cjcli <文件>` 与 `cjcli <文件> --ast-json`
-   说的必须是同一棵树；`npm run samples` 现在只覆盖 TS 形状出口。
+4. 改完**自己拿两个出口对一眼**：`cjcli <文件>` 与 `cjcli <文件> --ast-json` 说的必须是同一棵树
+   （没有尺子代劳，见第 5 节）；`npm run samples` 只覆盖 TS 形状出口。

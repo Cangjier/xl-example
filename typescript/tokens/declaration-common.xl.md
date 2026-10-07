@@ -46,35 +46,16 @@ import { LineWrap } from "./line-wrap.xl.md"
 
 **一个已经删掉的收尾口径：`DeclarationEnd`（别再把它加回来）。**
 这里原先有一个 `DeclarationEnd(units, index)`：从 `index` 起把后面**连续的软换行**一起算进来，
-返回这段声明的末尾。声明层的 `Class` / `Function` / `Enum` / `Interface` / `Namespace` /
-`MethodDeclaration` / `Signature` / `Field` 与 `Switch` / `DoWhile` 都走它，
-把声明（或语句）后面那个换行并进自己的替换范围。当时的理由是：不这么做，声明末尾那个裸 `LineWrap`
-会留在父单元里，被 `StatementCloseRule2` 收成一个**空的** `<Statement></Statement>`。
+声明层八处（`Class` / `Function` / `Enum` / `Interface` / `Namespace` / `MethodDeclaration` /
+`Signature` / `Field`）与 `Switch` / `DoWhile` 都走它，把声明后面那个换行并进自己的替换范围——
+当时的理由是「不这么做，末尾那个裸 `LineWrap` 会变成空的 `<Statement></Statement>`」。
 
-**那个理由今天不成立了**：语句重组的两条规则后来各补了一个早退——
-`StatementCloseRule2` 在「当前是最后一个单元」的分支里遇到 `children.length === 1` 直接 `splice` 掉，
-`StatementCloseRule3` 遇到 `children.length === 1 && IsStatementUnit(children[0])` 就什么都不做。
-于是单独一个 `LineWrap` 不会再变成空 `Statement`（`tests/parse/noise.mjs` 把这条钉住：
-空 `Statement` 必须是 0）。
-
-**而吃掉那个换行的代价是丢掉了语句边界**：`LineWrap` 在本工程里不只是排版，
-它还是 `SearchFrontIndexed` 往回找语句头时的那道**墙**。墙被声明规则吃进自己的范围之后：
-
-- 引擎要等到后面某个换行、或列表末尾，才收束这条语句；
-- 那时往回找语句头，`const A = class {}` 里的 `Class` **不是**边界
-  （它在表达式位，`IsDeclarationPosition` 判否），于是搜索一路退到列表开头；
-- 两条语句就被收进**同一个** `Statement`。
-
-实测（当时那把边界尺子——它对着 TypeScript 自己的 AST 数「相邻两条语句之间的边界有没有
-被横跨」，已随测试集收窄删除；读数留在下面这张表里）：
-
-| 口径 | 真实语料（`@types` / `typescript/lib` / `undici-types` / 产物 / 样本） | 用例语料 |
-| --- | --- | --- |
-| 收掉尾随换行 | 217 个文件里 **30 个**文件有边界被横跨（共 48 处） | 852 个文件里 **17 个** |
-| 不收（现口径） | **0 处** | **0 处**（ASI 判据补齐之后，见 早期的缺口台账的 `_notes.asi-not-implemented`） |
-
-典型受害者是 `@types/node` 里成片的 `declare module "x" { … }` 换行 `declare module "node:x" { … }`：
-两条环境模块声明被收进一个 `Statement`。
+**那个理由今天不成立了**（两条语句重组规则各补了一个早退：只剩一个子单元时直接丢掉或什么都不做），
+而**吃掉那个换行的代价是丢掉语句边界**：`LineWrap` 在本工程里不只是排版，
+它还是 `SearchFrontIndexed` 往回找语句头时的那道**墙**。墙被声明规则吃进自己的范围之后，
+`const A = class {}` 换行 `const B = 1` 会被收进**同一个** `Statement`
+（实测：收掉尾随换行时 217 个真实语料文件里 30 个有边界被横跨，不收是 0；
+用例语料 17 -> 0）。
 
 所以现在的口径是：**声明/语句的范围就到它自己的最后一个单元为止，尾随软换行留在父单元里**，
 由语句重组去消费它。各规则的 `endIndex` 直接取自己那个体括号（或返回类型末位、或那个 `;`）的下标。

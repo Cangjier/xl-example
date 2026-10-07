@@ -61,7 +61,7 @@ runtime/              ★ 与语言无关的**引擎**（多语言共用）     
   frame.xl.md           堆帧、环境记录、槽布局、native 重入
   vm.xl.md              分派循环、调用/返回、异常展开、挂起/恢复
   host-abi.xl.md        宿主能力表、Ts_Retain/Ts_Release、限额
-  wasm-exec.xl.md       wasm 封闭子集的执行器（P3）
+  wasm-exec.xl.md       wasm 封闭子集的执行器（P3，**尚未开工**，文件还不存在）
 
 typescript-exec/      ★ TypeScript 的降级层 + 标准库（本语言专有） ← 本层
   lowering.xl.md        AST → IR 的总规则（顺序即语义）
@@ -71,7 +71,8 @@ typescript-exec/      ★ TypeScript 的降级层 + 标准库（本语言专有�
 
 **引擎与标准库的界线**（这条界线决定复用的成色）：
 
-> `runtime/` 放**引擎**：值 / 堆 / GC / 帧 / IR / VM / 装载验证 / 宿主 ABI / wasm 执行器。
+> `runtime/` 放**引擎**：值 / 堆 / GC / 帧 / IR / VM / 装载验证 / 宿主 ABI
+> （wasm 执行器是 P3 的计划，见上面的文件表）。
 > **标准库属于语言层**：`Object` / `Array` / `String` / 原型链 / 迭代协议这一整套是
 > **JS 家族的语义**，换一门语言一套都用不上，所以它落在 `typescript-exec/builtins/`。
 > 将来若还要加 JS 家族的第二门语言，再把这一层提成顶层的 `js-builtins/` 共享。
@@ -347,7 +348,7 @@ void    Ts_Collect(TsVm*);               // 给判据用
 4. `runtime/host-abi.xl.md`（能力表与 retain/release）
 5. `typescript-exec/lowering.xl.md`（先做语句/表达式/作用域，够 P0 的最小闭环）
 6. `typescript-exec/builtins/**` → `for..of`/生成器/async → 模块与 `.d.ts` 绑定
-7. `runtime/wasm-exec.xl.md`（P3）
+7. `runtime/wasm-exec.xl.md`（P3，**尚未开工**）
 
 ---
 
