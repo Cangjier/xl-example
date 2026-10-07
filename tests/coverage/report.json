@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 98.23,
+  "progressPercent": 98.6,
   "layers": [
     {
       "layer": "runtime",
@@ -74,11 +74,11 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 161,
-      "blocked": 3,
+      "pass": 164,
+      "blocked": 0,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 96.99
+      "coverage": 98.8
     }
   ],
   "blocked": [
@@ -99,24 +99,6 @@
       "layer": "exec",
       "title": "`\\u{…}` 花括号写法 —— **还没修**",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: const"
-    },
-    {
-      "id": "c305-e2e-event-emitter-generic",
-      "layer": "e2e",
-      "title": "泛型事件总线：`Map` + `Set` + 回调 + `Array.from`",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
-    },
-    {
-      "id": "c371-e2e-observer-with-priority",
-      "layer": "e2e",
-      "title": "观察者模式：优先级、退订、一次性监听",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member CallExpression"
-    },
-    {
-      "id": "c371-e2e-multi-source-merge",
-      "layer": "e2e",
-      "title": "多来源合并：去重、优先级、冲突报告",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: priority"
     }
   ],
   "differ": [

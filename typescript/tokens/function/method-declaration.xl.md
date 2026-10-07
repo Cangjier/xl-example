@@ -123,11 +123,20 @@ return text;
 
 判据是**参数表原文必须一致**：
 
-> 那条体括号（`{`）**前面紧邻的括号**必须与**当前签名的参数表**原文相同。
+> 往回走到**这一条签名自己的形参表**那一格时，它的原文必须与**当前签名的参数表**原文相同。
 
 理由：`f(a: string): void` 与 `f(a: number): void` 的参数表原文不同，
-所以第一条签名看到「`{` 前面的参数表是 `(a: any)`」就知道那个体不是自己的（返回 `-1`）；
+所以第一条签名看到「往回撞上的是 `(a: any)`」就知道那个体不是自己的（返回 `-1`）；
 而真正的实现体（同名同参）前面就是同一个参数表原文，照常成立。
+
+**「自己的形参表」不是「紧邻体的那个括号」**（第 598 轮）：返回类型自己就带括号时
+（函数类型 `m(): () => void { … }`、括号类型、构造签名 `m(): new (a: A) => B { … }`），
+紧邻体的那个括号**是返回类型的一部分**，拿它跟形参表比原文一定不等 ⇒ `BodyIndex` 给 `-1`
+⇒ 整条成员退化成一次调用加一个裸 `<TypeDefine>`（实测 `<Method name="m">` +
+`<FunctionType>` 抢走了方法体、把它读成 `TypeLiteral`）⇒ 降级层报
+`unimplemented: class member CallExpression`（判据 `c371-e2e-observer-with-priority`）。
+所以往回走时**跳过「前面是类型续接符」的括号**（见 `IsTypeContinuationBefore`），
+只在撞上形参表那种括号时才比原文。
 
 **这一条试过三种写法，只有它没有净回归**：
 - 「见过 `:` 后一跨换行就否决」→ 打掉接口里成片的多行重载与一行一条的 `get x(): number`
@@ -150,7 +159,16 @@ let before = body - 1;
 while (before >= 0) {
   const item = Get(units, before);
   if (item instanceof Bracket) {
-    if (item.startBracket === "(" && this.ParameterText(item) !== this.ParameterText(parameters)) {
+    if (item.startBracket !== "(") {
+      break;
+    }
+    if (this.IsTypeContinuationBefore(units, before)) {
+      // **返回类型里的括号**（函数类型 / 括号类型 / 构造签名的形参表）：它不是这一条
+      // 签名的形参表，继续往回找——`m(): (a: A) => B { … }` 的两个 `(` 在这里分开。
+      before = before - 1;
+      continue;
+    }
+    if (this.ParameterText(item) !== this.ParameterText(parameters)) {
       return -1;
     }
     break;
@@ -161,6 +179,35 @@ while (before >= 0) {
   before = before - 1;
 }
 return body;
+```
+
+## private method IsTypeContinuationBefore:(units:Array<Token>, index:int)=>bool
+
+`index` 处的单元前面那一个实义单元，是不是一个**类型还没写完**的续接符。
+
+用来在 `BodyIndex` 里把「返回类型里的括号」与「形参表」分开：前者前面一定是
+`: ` / `|` / `&` / `=>` / `(` / `,` / `<`（类型续接）或构造签名的 `new` / `abstract`，
+后者前面一定是**成员名**。
+
+```ts
+const previous = SkipPreviousWrapSymbol(units, index);
+const before = Get(units, previous);
+if (before === null) {
+  return false;
+}
+if (before instanceof SymbolToken) {
+  return (
+    before.Is(":") ||
+    before.Is("?:") ||
+    before.Is("|") ||
+    before.Is("&") ||
+    before.Is("(") ||
+    before.Is(",") ||
+    before.Is("<") ||
+    before.Is("=>")
+  );
+}
+return WordText(before) === "new" || WordText(before) === "abstract";
 ```
 
 **已知缺口：类里「无体的重载签名」后面跟着带体的实现时，前几条会被并掉。**

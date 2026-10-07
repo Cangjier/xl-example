@@ -466,11 +466,10 @@ if (this.IsOperator(current) === false) {
 //（这是源码顺序决定的 ✓，与优先级、结合性都无关 ✓）。所以它只挡「本来就排错了的那一次折」✓。
 // **范围任一格没签**（`null` ✓）就照旧放行 ✓——不拿一个猜出来的位置当判据 ✓。
 //
-// **`!` 一个都不要写** ✗（实测踩过 ✓）：这一段**自己也是 `cases:tsast` 的语料** ✓，
-// 而「非空断言串在成员链上」那一族**还没修完** ✓（第 303 / 304 轮的账 ✓）——
-// 写成 `x.End!.Index > y.Start!.Index` 会让**本文件**当场多出一个假 `BinaryExpression` ✓、
-// 一个假 `DotToken` ✓ 与一处区间漂移 ✓（`cases:tsast` 报的就是这三格 ✓）。
-// 收成两个本地量、一层一层判空 ✓，既不写 `!` ✓，读起来也更直白 ✓。
+// **写成一片本地量、一层一层判空** ✓：这一段**自己也是 `cases:tsast` 的语料** ✓，
+// 一行里串三个 `x.End!.Index` 读起来远不如三句直白 ✓（第 303 / 304 轮那一族
+// 「非空断言串在成员链上」已经在第 598 轮的右操作数护栏里收掉了 ✓——
+// 现在写成 `x.End!.Index > y.Start!.Index` 也是对的 ✓，所以这里留着的理由只剩可读性 ✓）。
 const opStart = current.SourceRange.Start;
 const leftUnit = Get(units, SkipPreviousWrapSymbol(units, index));
 if (leftUnit !== null && opStart !== null) {
@@ -526,6 +525,27 @@ const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
 //（投影 0c 那一段写着这个形状 ✓）。所以判据是「**这个单元以模板开头**」✓：
 // 它自己就是 `String` ✓，或者它是一个 `PropertyAccess` 、**第一个可投影子单元是 `String`** ✓。
 if (StartsWithTemplate(afterOperand)) {
+  return false;
+}
+// **右操作数后面还跟着一个 `.` ⇒ 这一格先放过** ✓（第 598 轮 ✓）——
+// 成员访问比**任何**二元运算符都紧 ✗，所以那个 `.` 与成员名属于**右边这一格** ✓
+// （`0 >= f()!.p` 里是 `0 >= (f()!.p)` ✓），要等 `PropertyAccessCloseRule` 先把
+// `f()! . p` 折成一个单元 ✓，这一格下一趟再折 ✓。
+//
+// **不挡会怎样** ✗：`NotNull` 那一格比 `PropertyAccess` **晚**成形 ✓
+//（队列次序：`PropertyAccess` ✓ → … → `NotNull` ✓ → … → `BinaryOperator` ✓，
+// 见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule` ✓）⇒ 同一趟里 `NotNullCloseRule`
+// 先折出 `f()!` ✓、紧接着本规则把它当成**完整的右操作数**吃掉 ✗ ⇒ `.p` 留在外面
+// 成了平级兄弟 ✓——树是 `(0 >= f()!).p` ✗，而 JS 是 `0 >= (f()!.p)` ✓。
+// 症状是降级层报 `name is not a local or a capture: p` ✓（**整份文件进不来** ✗，
+// 判据 `c371-e2e-multi-source-merge` ✓）；`0 + f()!.p` / `0 >= o!.p` 同一形状 ✓。
+//
+// **为什么只问「`. ` 后面还有东西」** ✓：一个 `.` 后面**不可能**跟运算符 ✓，
+// 所以「右操作数 + `.` + 一个实义单元」这个相邻关系**只可能是**成员访问 ✓
+// ——与上面那条模板标签是同一条推理 ✓，也就不必在这里再抄一份
+// `property-access.xl.md` 的成员名判据 ✗。
+const afterMember = Get(units, SkipNextWrapSymbol(units, SkipNextWrapSymbol(units, rightOperandIndex)));
+if (afterOperand instanceof SymbolToken && afterOperand.Is(".") && afterMember !== null) {
   return false;
 }
 // **复合赋值展开出来的那一份运算符：要等右操作数先折成一个单元** ✓（第 373 轮 ✓）。

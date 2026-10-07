@@ -952,7 +952,6 @@ export const EXPECTATIONS = {
 
 
   // ---- 非空断言串在成员链上（`fn!().k`）——本仓给的是函数自己。
-  "c371-e2e-multi-source-merge": { expect: "blocked", why: "**第 385 轮量到根子、第 386 轮试了三条路都没成**（三条都退回来了）。**根子**：`!` 后面那一格（`.p` / `.k` / `()`）被 `BinaryOperator` 的**右操作数跨度**吃进自己的 Data ——XML 实测：`source.priority >= xs.find(…)!.p` 里 `>=` 的 `BinaryOperator` 在 `NotNull` 之后还跟着 `SymbolToken(.)` 与 `Identifier(p)`。落到降级层那个 `p` 走**赋值目标**那条路（插桩：`DBG unresolved-TARGET id=p pos=931`）⇒ 报 `name is not a local or a capture: priority`，**点错名字**。**为什么难修**：运算符吃它的时候 `x!` 还不存在（`Identifier` + `!` 两格）⇒链那一趟（排在前面）认不出起点、`NotNull` 那一趟（排在后面）**已经太晚**。**试过的三条路**：① 把 `NotNull` 加进 `PropertyAccessReorganization.IsChainBase` ——**一点效果都没有**（链那一趟跑在前面，那时还没有 `NotNull`）；② 在 `NotNull.Process` 里当场把 `.成员` 吸进 `PropertyAccess`（判据与形状照抄链那一份）——**形状一点没变**（说明 `.p` 那时已经在运算符的 Data 里了）；③ 把 `NotNullReorganization` 挪到 `PropertyAccessReorganization` **前面** —— **更糟**：`data.a!.b!.c![0]` 当场给整个数组、还多报一个 `not a local or a capture: find`⇒ 链那一趟的位次是**吃重的**，动不得。**下一轮的方向**：判据落在 `binary-operator.xl.md` 的**右操作数跨度**上（不许跨过一个「结束操作数的 `!`」去吃后面的 `.` 与名字），或者让运算符那一趟**排在链与 `NotNull` 之后**。**两条同一个根子**（`c371-ex-nonnull-in-chains` 与 `c371-e2e-multi-source-merge`），一起修能一次收两格。" },
 
   // ---- 解构里的 `BindingElement`（对象模式 + 默认值 + 类型标注的组合）⇒ `unimplemented: expression BindingElement`。
 
@@ -1072,7 +1071,6 @@ export const EXPECTATIONS = {
   // ---- 泛型类 + 参数属性 + **函数类型形参** ⇒ 实参错位：最小反例 `class G<K,V>{ private now: () => number; constructor(private cap: number, now: () => number){ this.now = now } tick(){ return this.now() } }` 里 `cap` 收到那个箭头、`now` 是 `undefined` ⇒ 调它报 non-closure（非泛型那一版是对的）。
 
   // ---- **类成员位置的表达式语句**（字段上的对象类型标注里带方法签名那一格）⇒ `unimplemented: class member ExpressionStatement`。
-  "c371-e2e-observer-with-priority": { expect: "blocked", why: "**类成员位置的表达式语句**（字段上的对象类型标注里带方法签名那一格）⇒ `unimplemented: class member ExpressionStatement`。" },
 
   // ---- 异步池的结果次序（并发回调里 `await` 的排空时机）——根子待量。
   "c371-e2e-async-pool-with-errors": { expect: "differ", why: "异步池的结果次序（并发回调里 `await` 的排空时机）——根子待量。" },
@@ -1110,5 +1108,4 @@ export const EXPECTATIONS = {
 
 
   // ---- 簇 C：两个各自独立的现场。
-  "c305-e2e-event-emitter-generic": { expect: "blocked", why: "**簇 C**：泛型事件总线 ✓ ⇒ `ast node ForOfStatement has no child initializer` ✓（`for..of` 头部的声明段没成形 ✓，与 `foreach.xl.md` 第 545 轮记的那一格同源 ✓）。" },
 };

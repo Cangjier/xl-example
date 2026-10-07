@@ -4314,9 +4314,17 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
 ⇒ `initializer` 成了 `Identifier("const")`（实测 6 份：`st-for-of` / `stmt-for-of-call` /
 `stmt-for-of-no-block` / `st-for-await` / `stmt-for-await` / `fn-async-generator`）。
 
-名字那一格是**唯一**一个 `Identifier` / 模式括号（`for (const [a, b] of xs)`），
-按形态分派给 `projectNode` / `projectBindingPattern`；列表的标志位从头顶那个词读
+名字那一格是**唯一**一个名字单元 / 模式括号（`for (const [a, b] of xs)`），
+按形态分派给 `nameOf` / `projectBindingPattern`；列表的标志位从头顶那个词读
 （`flagsOf` 读的是 `modifiers` 属性，这一档没有那个属性）。
+
+**名字那一格的判据与 `isNameNode` 同一条**（第 598 轮）：`Keyword` 也算名字 ✗ 不是风格问题 ✗——
+`for (const set of xs)` 里那个 `set` 会被 `KeywordCloseRule` 升成 `<Keyword>set</Keyword>`
+（`keyword.xl.md` 的 `IsUpgradable`），只认 `Identifier` 就**整段找不到名字** ⇒ 本方法给
+`undefined` ⇒ `initializer` 整格消失 ⇒ 降级层报
+`ast node ForOfStatement has no child initializer`（**整份文件进不来**，判据
+`c305-e2e-event-emitter-generic`；`get` / `override` 当绑定名同理）。
+名字那一格**一律投 `Identifier`**：绑定名按定义就是一个标识符，不看那个词在别处是不是关键字。
 
 ```ts
   const inner = kids.filter((k) => !INVISIBLE.has(k.get("type")));
@@ -4328,16 +4336,20 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
     k.get("type") === "ArrayLiteral" ||
     k.get("type") === "ObjectLiteral" ||
     (k.get("type") === "Bracket" && (k.get("startBracket") === "[" || k.get("startBracket") === "{"));
+  const isDeclareWord = (k: any) => {
+    const text = textOfNode(k, ctx);
+    return text === "const" || text === "let" || text === "var" || text === "using";
+  };
   let nameKid = undefined;
   for (let at = inner.length - 1; at >= 0; at--) {
     const one = inner[at];
-    if (one.get("type") === "Identifier" || isPatternKid(one)) {
+    if ((isNameNode(one) || isPatternKid(one)) && !isDeclareWord(one)) {
       nameKid = one;
       break;
     }
   }
   if (nameKid === undefined) return undefined;
-  const declared = nameKid.get("type") === "Identifier" ? projectNode(nameKid, ctx) : projectBindingPattern(nameKid, ctx);
+  const declared = isPatternKid(nameKid) ? projectBindingPattern(nameKid, ctx) : nameOf(nameKid, ctx);
   // **列表的起点是那个声明词** ✗、不是段里的第一格 ✓：`for await (const v of xs)` 的段里
   // `await` 排在 `const` 前面 ✓（TS 那边它是 `ForOfStatement.awaitModifier` ✓、
   // 不是列表的一部分 ✓）——**所以这个声明词要从后往前找** ✓（第 546 轮 ✓）：
@@ -4345,11 +4357,7 @@ TS 那边 `ForOfStatement.initializer` 与 `for (let i = 0; …)` 一样**直接
   // 可 `inner.find` 只认「是不是声明词」✗ ⇒ 第一格 `await` 被当成起点 ✗
   // ⇒ 列表区间从 `await` 起 ✗（实测 `st-for-await` / `stmt-for-await` / `fn-async-generator`
   // 三份都是 `[82,96)` 对 TS 的 `[89,96)` ✗）。声明词在名字前面、`await` 更靠前 ✓，
-  // 从后往前找拿到的就是**离名字最近**的那个声明词 ✓。
-  const isDeclareWord = (k: any) => {
-    const text = textOfNode(k, ctx);
-    return text === "const" || text === "let" || text === "var" || text === "using";
-  };
+  // 从后往前找拿到的就是**离名字最近**的那个声明词 ✓（判据 `isDeclareWord` 与上面共用 ✓）。
   let declareKid = undefined;
   for (let at = inner.length - 1; at >= 0; at--) {
     if (isDeclareWord(inner[at])) {

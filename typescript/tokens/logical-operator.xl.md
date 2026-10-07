@@ -5,6 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceRangeAt, SearchBack, SearchFront } from "../../core/extensions/list-extension.xl.md"
+import { SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
@@ -52,11 +53,55 @@ this.op = operator;
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
-`index` 处是不是本规则认的那个运算符符号。
+`index` 处是不是本规则认的那个运算符符号，**而且这一段里没有还没折完的成员访问**。
+
+**为什么要看那一眼**（第 598 轮）：本规则把**一整段**收成一个单元，而本单元**不装规则队列**
+（见 `LogicalOperator` 的构造器）⇒ 段里还是平铺的东西就**再也没人折它**。
+
+`NotNull` 恰好比 `PropertyAccess` **晚**成形（队列次序：`PropertyAccess` → … → `NotNull` → …
+→ 本规则），所以 `a || f()!.p` 到这一刻段里是 `[a, ||, NotNull, ., p]` ——
+本规则一收，`.p` 就永远挂在 `NotNull` 旁边当兄弟了 ⇒ 树是 `a || (f()!.p)` 里那半截，
+投影把 `p` 当成一个**自由名字** ⇒ 降级层报 `name is not a local or a capture: p`
+（**整份文件进不来**，判据 `c371-e2e-multi-source-merge`）。
+
+放过这一趟之后：下一趟 `PropertyAccessCloseRule` 先把 `NotNull . p` 折成一个单元，
+本规则再收这一段就是对的。判据只看「`.` 前面那一个实义单元是不是 `NotNull`」——
+那正是 `property-access.xl.md` 的 `IsChainBase` 会认、且保证下一趟一定折掉的那一格。
 
 ```ts
 const current = Get(units, index);
-return current instanceof SymbolToken && current.Is(this.op);
+if (!(current instanceof SymbolToken) || current.Is(this.op) === false) {
+  return false;
+}
+const range = this.SegmentRange(units, index);
+for (let i = range[0] + 1; i < range[1]; i++) {
+  const item = Get(units, i);
+  if (!(item instanceof SymbolToken) || item.Is(".") === false) {
+    continue;
+  }
+  const before = Get(units, SkipPreviousWrapSymbol(units, i));
+  if (before !== null && before.constructor.name === "NotNull") {
+    return false;
+  }
+}
+return true;
+```
+
+## private method SegmentRange:(units:Array<Token>, index:int)=>Array<int>
+
+`index` 处那个运算符所在的整段 `[startIndex, endIndex)`：往前找到「段起点」的后一格、
+往后找到「段终点」（找不到终点就是列表末尾）。
+
+`Previous` 要拿它看段里有没有没折完的成员访问、`Process` 要拿它切段——
+**两处必须是同一段**，所以只有这一份算法。
+
+```ts
+const startIndex = SearchFront(units, index, (item) => this.IsLogicalOperatorStart(item, this.op));
+let endIndex = SearchBack(units, index, (item) => this.IsLogicalOperatorEnd(item, this.op));
+if (endIndex === -1) {
+  endIndex = units.length;
+}
+return [startIndex, endIndex];
 ```
 
 ## method IsLogicalOperatorStart:(current:Token, logicalOperatorSymbol:string)=>bool
@@ -128,11 +173,9 @@ TS 的 `BinaryExpression(left, operatorToken, right)`；切成多个单元时运
 
 ```ts
 const current = Get(units, index) as SymbolToken;
-const startIndex = SearchFront(units, index, (item) => this.IsLogicalOperatorStart(item, this.op));
-let endIndex = SearchBack(units, index, (item) => this.IsLogicalOperatorEnd(item, this.op));
-if (endIndex === -1) {
-  endIndex = units.length;
-}
+const range = this.SegmentRange(units, index);
+const startIndex = range[0];
+const endIndex = range[1];
 const result = new LogicalOperator(template);
 result.Parent = current.Parent;
 result.op = this.op;

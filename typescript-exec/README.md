@@ -18,14 +18,14 @@
 
 产物是 `dist/ts/typescript-exec/**`，与 `runtime/**` 一起被 `tsrun` 装起来跑。
 
-## 判据与当前读数（第 596 轮实测）
+## 判据与当前读数（第 598 轮实测）
 
 | 判据 | 命令 | 结果 |
 | --- | --- | --- |
 | 执行侧自测 | `npm run runtime:check` | **242 / 242**（值模型 / 堆 / GC / IR / 装载验证 / 执行器 / 属性 / 访问器 / 生成器 / 承诺 / 宿主） |
 | 直接执行 `.ts` | `npm run runtime:cli` | **79 / 79** 份与 `node <文件.ts>` 逐字节相同 |
-| 场景覆盖度 | `npm run coverage` | **1684 / 1713（98.2%）**：引擎 98.4% · 降级层 99.0% · 标准库 98.1% · 端到端 97.0% |
-| 六道门一次跑完 | `npm run gates` | 全绿（墙钟 ~20s） |
+| 场景覆盖度 | `npm run coverage` | **1687 / 1713（98.6%）**：引擎 98.4% · 降级层 99.0% · 标准库 98.1% · 端到端 98.8% |
+| 六道门一次跑完 | `npm run gates` | 全绿（墙钟 ~23s） |
 
 覆盖度的每一条都是**一份普通的、没为本运行器改过的 `.ts`**，分别交给 `node`（裁判）与
 `tsrun`（被测），比 stdout 逐字节 + 退出码。口径与矩阵见
@@ -33,16 +33,13 @@
 
 ## 当前的缺口
 
-**进不了门（6 条）**——降级期或语言层直接报错：
+**进不了门（3 条）**——降级期或语言层直接报错：
 
 | 层 | 用例 | 症状 |
 | --- | --- | --- |
 | runtime | `c371-rt-bind-call-apply-forms` | 调用了一个非闭包值 |
 | exec | `c374-ex-throw-in-reentrant-callback` | 回调里再进一次原生回调并抛出，异常没穿回最外层 |
 | exec | `c382-ex-braced-escape` | `\u{…}` 花括号写法 |
-| e2e | `c305-e2e-event-emitter-generic` | `ast node ForOfStatement has no child initializer` |
-| e2e | `c371-e2e-observer-with-priority` | `unimplemented: class member CallExpression` |
-| e2e | `c371-e2e-multi-source-merge` | `name is not a local or a capture` |
 
 **跑得出来但结果不同（23 条）**——按根子归类：
 
@@ -56,10 +53,9 @@
   `Date` 的 `now` / `parse` / `toJSON`；`Array.of` / `isArray` / 三种 `new Array`；
   `Object.prototype.toString` 在内建上的组合；字符串大小写族；`Symbol.hasInstance` / `species`；
   `console.log` 对复杂值的渲染。
-- **降级层**：只有类型的 `namespace` 体；非空断言落在链的每一段；展开的五种位置；
-  类表达式的三种形态；复合赋值右侧是 `||` 时的逻辑规则位次。
+- **降级层**：展开的五种位置；复合赋值右侧是 `||` 时的逻辑规则位次。
 - **端到端**：排序三种实现与稳定性；插件注册表（回调里再套一层闭包引用 `this`）；
-  异步任务池的排空时机；倒排索引里 `Map` 展开的取格顺序。
+  异步任务池的排空时机。
 
 **下一轮的入口**：`tests/coverage/report.json` 里每一条都带一句症状与最小复现，
 `npm run coverage -- --only <id>` 可以单跑一条。
