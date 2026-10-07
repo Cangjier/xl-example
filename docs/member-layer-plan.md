@@ -410,7 +410,30 @@ return i;
 ① 把 `tmp/recon/r24/` 的三个文件复制回去；② 解决那 4 处 `modifiers` 的投影口径
 （从 `addModifiers` 的 `v.start` 着手），然后跑 `cases` → **全语料 `--per-file`** → `samples`。
 
-## 二十四、每步都要钉住的三件事
+## 二十五、第四次动手（第 435 轮）：`cases` 1034 / 1037，只剩 ASI 一处
+
+接着第 434 轮那份（`tmp/recon/r24/`）往下推，又修掉三处，**`cases` 到 1034 / 1037、
+字段名不符归零**（`tmp/recon/r25/` 存的是这一版）：
+
+| 改动 | `cases` |
+| --- | --- |
+| 承第 434 轮（1033、4 处字段名） | 1033 |
+| **回滚时把「还字符」改成「词搬家」**——`Identifier.AppendIn` 会跳过软换行往前接，重新词法化把 `readonly c` 并成一个词 `readonlyc` ✗ | 1034，**字段名 0** |
+| `}` 那一支**不覆盖**已立起来的 ASI 边界 | 1034（中性，但方向正确） |
+
+**剩下 3 个文件、全是同一形状**：成员**没有在换行处收住**，于是把下一个成员吞进自己的
+`TypeDefine` 里（`itf-basic.ts`：`b?: string` 的 `PropertySignature` 给 `[97,129)` 而 TS 是 `[97,107)`；
+`lex-ident-underscore-positions.ts` 同形）。三成员的探针能稳定复现：
+`interface I { a: number` 换行 `b?: string` 换行 `c: boolean }` ⇒ **`c` 被建在 `b` 的 `TypeDefine` 里** ✗。
+
+**顺着字符流推过一遍，`IsMemberBoundary` 在这两处都应当给「是」**（换行后第一个实义单元是
+`c`，紧跟 `:` ✓；换行前是 `string` ✓ 不是续行符号 ✓），可它显然给了否 ✗。
+⇒ **下一轮第一步：把 `IsMemberBoundary` 的入参在那个时刻打出来**（临时在 `ClassMember.Process`
+里 `console.log` 一句），看是 `PendingWrap` 指错了换行、还是谓词本身在这个上下文下不成立。
+这一条一旦解决，成员层的字段那一支就全绿；之后是：全语料 `--per-file` → `samples` → 再搬
+`MethodDeclaration`（判别符 `(`）。
+
+## 二十六、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
