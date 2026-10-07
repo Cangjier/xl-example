@@ -1146,4 +1146,14 @@ if (first.SourceRange.Start !== null && lastUnit.SourceRange.End !== null) {
   throw new Error("StatementBranch source range is not complete.");
 }
 ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
+// **造完就关一次**（第 531 轮 ✓）：与 `FormFrom` 末尾那一句**同一个理由** ✓ ——
+// 壳里的 `return` / `throw` / `break` / `continue` / `debugger` 那类词要升成 `Keyword` ✓，
+// 投影侧「关键字开头的语句」那一支才认得 ✓。
+//
+// **少了它会怎样** ✗（第 531 轮实测 ✓）：软换行归档的语句壳**只由这一支造** ✓
+// （`;` 那一档走 `FormFrom` ✓、`}` 那一档 `IsStatementSymbol` 答否 ✓ ⇒ 从来不走 ✓），
+// 于是「块里最后一条语句」是**唯一**没跑过关闭前那一趟的语句壳 ✓ ——
+// `cls-hash-in-operator.ts` 的 `return #x in o` 正是这一档 ✓：`return` 留在 `Identifier` 上 ✓
+// ⇒ 投影投出 `ExpressionStatement > BinaryExpression` ✓（缺 `ReturnStatement` 一栏 63 份 ✓）。
+statement.TryToClose();
 ```

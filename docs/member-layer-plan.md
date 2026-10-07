@@ -2934,3 +2934,109 @@ decl-class-private-field-in-operator.ts / decl-class-private-field.ts / decl-cla
 加一个「**归一化私有名**」的小步骤 ?（扫一遍 `kids` ?，把 `#` + 名字对替换成合成的 `PrivateIdentifier` 节点 ?），
 然后拿那 11 份当靶子 ?（`cls-hash-in-operator.ts` / `cls-private-fields.ts` / … ?），
 再跑整份尺子 ?；坏了连同 `xl build` 一起回滚 ?。
+## 一百三十四、软换行那一支造的语句壳**从来没跑过关闭前那一趟**（第 531 轮）：748 → **819 / 1037**
+
+**起点**：第 528 轮回滚之后读数停在 **748 / 1037** ✓（缺 1570 / 漂 161 / 多 813 / 字段名 58 ✓、
+解析 1037 / 抛异常 0 ✓）。第 529 轮定稿了「私有名在投影侧归一化」那条路 ✓，本轮先做**清点** ✓。
+
+### 一、先把「哪一类缺口影响多少份文件」量出来（新工具）
+
+尺子报的是「每一类缺多少个」✓，可**重建的次序**要的是另一个数 ✓：**补上这一类能让几份文件变绿** ✗。
+新写 `tmp/recon/cls.cjs` ✓（走 `build/ts` 的同一份投影、同一张归一表 ✓），
+第一次就撞出**两把尺子的口径差** ✗ —— 它当时报「清点 1046 份、完全一致 **0** 份」✗，
+而尺子报的是「1037 份、748 份」✓。三处原因，一处一个坑 ✓：
+
+| 坑 | 症状 | 修法 |
+| --- | --- | --- |
+| **语料口径** | 1046 份 vs 尺子的 1037 份 ✗ | 尺子走 `listCases()` ✓，剔掉 `// xl:ts-invalid` 那 9 份与 `.tsx` ✓ —— 清点也要剔 ✓ |
+| **TS 枚举别名** | `VariableStatement` 被拆成 `FirstStatement` + `VariableStatement` 两栏 ✗（`NumericLiteral` / `FirstLiteralToken` 同理 ✗） | 抄尺子的 `TS_KIND_ALIASES` ✓（`tmp/recon/kind-aliases.cjs` ✓）——**这张表两份必然漂** ✗，已在文件头写明「以 `ts-ast.mjs` 为准」✓ |
+| **标点算成「多出来」** | 每个 `#` / `,` 都记一笔 ✗ | 与尺子的 `if (node.kind === null) continue;` 对齐 ✓：只认首字符是字母 / `_` / `$` 的 kind ✓ |
+
+修完两边都是 **748 / 1037** ✓ —— 清点的数从此可当准绳 ✓。
+
+### 二、清点结果：头一号是 `Identifier` 141 份，第二名是**声明层**
+
+```
+缺（按影响份数）：Identifier 141  VariableDeclaration 53  VariableDeclarationList 52
+                  VariableStatement 39  TypeAliasDeclaration 34  NumericLiteral 34
+                  ExpressionStatement 32  BindingElement 23  BinaryExpression 23  CallExpression 23
+                  BreakStatement 22  StringLiteral 20  Block 20  LabeledStatement 19 …
+多出来（按影响份数）：ExpressionStatement 79  Identifier 62  TypeAliasDeclaration 34
+                  BinaryExpression 34  ExportDeclaration 28  EqualsToken 26  LabeledStatement 22 …
+```
+
+**声明层那一簇（`VariableDeclaration` / `List` / `Statement` / `BindingElement` 四栏，
+53 / 52 / 39 / 23 份 ✓）指向同一族文件** ✓：`decl-arr-destructure-*` / `decl-binding-*` /
+`vars-destructure-*` ✓ —— 解构那一族 ✓。**下一块候选就是它** ✓。
+
+### 三、顺手挖到的一处：语句壳有一条支路没跑关闭前那一趟
+
+按清点去 dump `cls-hash-in-operator.ts` 的现场 ✓（新写 `tmp/recon/tree2.cjs` ✓：
+带 `visited` 去重、按区间排序、把每个单元的 `Value` / `Temp` 一起打出来 ✓），看到的是：
+
+```
+Statement [73,87)
+  Identifier [73,79) t="return"      ← 关键字没升上来 ✗
+  SymbolToken [80,81) t="#"
+  Identifier [81,82) t="x"
+  Identifier [83,85) t="in"
+  Identifier [86,87) t="o"
+```
+
+第 526 轮把这一处记成「私有名没合成」✓，本轮把**上半截**挖通了 ✓：
+`return` 压根不该还是 `Identifier` ✗ —— 它早该在语句壳关闭时升成 `Keyword` ✓。
+
+**为什么没升** ✗：语句壳有**两条**造法 ✓ ——
+
+| 造法 | 时机 | 关一次？ |
+| --- | --- | --- |
+| `Statement.FormFrom`（`;` 那一档 ✓，由 `Token.FormStatement` 钩子调 ✓） | 终结符**进 `Data` 之后** ✓ | **有** ✓（第 487 轮就写了 `statement.TryToClose()` ✓） |
+| `StatementBranch.Success`（**软换行**那一档 ✓） | 换行**进 `Data` 之前** ✓ | **没有** ✗ |
+
+而 `}` **不是**语句符号 ✓（`SymbolTemplate.IsStatementSymbol("}")` 答 `false` ✓，
+实测 ✓）⇒ **块里最后一条语句**只会走软换行那一支 ✓ ⇒ 它是**唯一**没跑过 `ApplyCloseRules` 的语句壳 ✓。
+`return #x in o` 正是这一档 ✓（`MethodBody` 里唯一一条语句 ✓、后面没有 `;` ✓）。
+
+**修法一处**（`typescript/tokens/statement.xl.md` 的 `StatementBranch.Success` 末尾 ✓）：
+
+```ts
+ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
+statement.TryToClose();
+```
+
+### 四、读数
+
+| 项 | 第 528 轮（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 748 | **819 / 1037** ✓（+71 ✓） |
+| 缺节点 | 1570（115 类） | **1335**（108 类）✓ |
+| 区间漂移 | 161 | **161** ✓（持平 ✓） |
+| 多出来的节点 | 813（46 类） | **602**（46 类）✓ |
+| 字段名不符 | 58 | **56** ✓ |
+| 未映射 / 缺 range / 越界 | 1 类 5 处 / 0 / 0 | **1 类 3 处 / 0 / 0** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 / TS 语义节点 | 24784 / 17317 | **24909 / 17317** ✓ |
+
+**缺那一栏的降幅（1570 → 1335 ✓）里，`ReturnStatement` 那一类从 63 份掉到……** ✓
+—— 清点里 `ReturnStatement` 已经**掉出前 20** ✓（`BreakStatement` 22 份是同一族的下一档 ✓，
+`throw` / `break` / `continue` / `debugger` 都在同一支里 ✓，下一轮顺手量 ✓）。
+
+### 五、一条工具坑（这次踩到的）
+
+**改 `.xl.md` 之后 `xl build` 必须走插件入口** ✗：仓库里没有 `xl` 可执行文件 ✓，
+`node <xl-clone>/cli.js build` **退出码 0 但什么都不做** ✗（它只是插件入口的再导出 ✓）——
+本轮实测：改了源码、跑了两遍那个命令、`dist/ts/typescript/tokens/statement.ts` 的 mtime
+**一直是提交时的 19:20:34** ✗，尺子读数也一直是 748 ✗，白折腾了十几分钟 ✓。
+**正解**：`xl_build` 工具（`cwd: C:\Users\Admin\Documents\GitHub\xl-example` ✓）→ 再 `tsc` ✓。
+
+**另一条**：`read` 工具要求严格 UTF-8 ✓，而 `docs/member-layer-plan.md` 是**两段编码拼起来的** ✗
+（头部 UTF-8 ✓、第 503 轮之后那段是 GBK ✗，`invalidBytes` 11044 ✓）——
+本轮一并修好了 ✓（见上一个提交 ✓），从此每轮都能直接读它 ✓。
+
+### 六、下一块
+
+按清点，**声明层那一簇**（`VariableDeclaration` 53 / `List` 52 / `Statement` 39 /
+`BindingElement` 23 ✓，集中在 `decl-arr-destructure-*` / `decl-binding-*` / `vars-destructure-*` ✓）
+是现在最大的一块 ✓。先 dump 一份 `decl-arr-destructure-defaults.ts` 的三方对照 ✓
+（新工具 `tmp/recon/tri.cjs` ✓：产物原始树 / 投影后的 AST / `ts.createSourceFile` ✓，
+按区间排序 ✓），看解构那一段在产物里到底长成什么形状 ✓，再决定闸下在解析期还是投影侧 ✓。
