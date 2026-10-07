@@ -1222,6 +1222,62 @@ const head = Statement.WordOf(Statement.FirstMeaningful(data.slice(frontIndex + 
 if (head === "do") {
   return result;
 }
+// **声明头里的换行不是语句边界** ✓（第 557 轮 ✓）：
+// `class A` 换行 `{` / `interface I<T>` 换行 `{` / `enum E` 换行 `{` 都是合法排法 ✓，
+// 而这一支会在换行处把**整个头**收成一个 `Statement` ✗ ⇒ 那几个词从此**不住在宿主自己的平列表里** ✗
+// ⇒ `{` 到达时 `ClassBranch` / `InterfaceBranch` / `EnumBranch` 往回扫**找不到自己的词** ✗
+// ⇒ 整条声明连成员一起消失 ✓（实测 `lex-generic-union-constraint.ts`：接口头换行之后
+// 缺 23 / 多 7 ✓；`lex-generic-multiline-constraints.ts` 是同一形状 ✓ ——
+// 两份用例的注释里都写着「真实声明里几乎总是这么排」✓）。
+//
+// **判据只看这一段自己** ✓（`i` 与已经读到的那些 ✓）：跳过前导修饰词之后，段首是**声明词**
+// 就说明这不是一条语句的开头 ✓ —— `class` / `enum` 是保留字 ✓（值位语句不可能以它们开头 ✓）；
+// `interface` / `namespace` / `module` 在**语句开头**也只有声明这一种读法 ✓。
+// `const enum` 那种前缀由修饰词表吃掉 ✓（`const x = 1` 会走到 `x` ✓，不在表里 ✓ ⇒ 照旧收壳 ✓）。
+//
+// **`function` 故意不在表里** ✗（实测退回来的 ✓）：重载签名（`function f(a: number): void;` ✓）
+// 是「有头、没有体」的形状 ✓，与 `function f()` 换行 `{` 长得一样 ✗ ——
+// 加进去会让 `decl-func-overloads.ts` / `fn-overloads.ts` / `type-generic-call-args.ts` 三份变红 ✓
+//（分别缺 15 / 13 / 8 ✓）。所以「函数头换行 `{`」这一档**留在缺口里** ✓（见台账 ✓）。
+//
+// **收完的那一档够不到这里** ✓：体已经收完时最后那一格是**语句级单元** ✓
+// ⇒ 上面 `IsStatementBoundary` 那一句早就早退了 ✓。
+//
+// **段里已经有「体」时也不收** ✗（两条判据各挡一档 ✓）：
+// · 段内出现**花括号** ⇒ 头已经带体了 ✓（`function pick(…): number { … }` 的 `Function`
+//   单元**还没成形** ✗ —— 它要等到外层那一趟 ✓ —— 少了这一条会把这个头也压住 ✓，
+//   实测 `if-else-with-comment.ts` 整条函数丢 29 个节点 ✗）；
+// · 段内已经有一个**语句级单元** ⇒ 那是上一条语句 ✓（`declare namespace B { … }` 后面的换行 ✓
+//   —— 少了这一条会把它与下一条 `import` 吞进**同一个** `Statement` ✗，
+//   实测 `mod-import-equals-deep.ts` 等四份从绿变红 ✓）。
+const modifiers = ["export", "declare", "abstract", "default", "async", "const"];
+const declarationWords = ["class", "interface", "enum", "namespace", "module"];
+let wordIndex = frontIndex + 1;
+let word = Statement.WordOf(Get(data, wordIndex));
+while (word !== "" && modifiers.indexOf(word) >= 0) {
+  wordIndex = wordIndex + 1;
+  word = Statement.WordOf(Get(data, wordIndex));
+}
+if (declarationWords.indexOf(word) >= 0) {
+  let hasBody = false;
+  for (let i = frontIndex + 1; i < data.length; i++) {
+    const item = Get(data, i);
+    if (item === null) {
+      continue;
+    }
+    if (item instanceof Bracket && item.startBracket === "{") {
+      hasBody = true;
+      break;
+    }
+    if (Statement.IsStatementUnit(item)) {
+      hasBody = true;
+      break;
+    }
+  }
+  if (hasBody === false) {
+    return result;
+  }
+}
 result.Success = true;
 return result;
 ```

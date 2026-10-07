@@ -5112,3 +5112,92 @@ differ 38 → **40** ✓、bad 0 ✓、整体加权 89.0% → **93.0%** ✓，�
 3. `as` + 联合那一族 ✓（`expr-as-leading-pipe-union` 6 缺 / 3 漂 / 7 多 ✓、
    `type-union-in-as-expression` 同形 ✓、`expr-as-union-multiline` ✓、`type-union-leading-bar` ✓）。
 
+## 一百六十、声明头换行之后的 `{`：语句壳把头吞了（第 557 轮）：997 → **998 / 1037**
+
+起点 **997 / 1037** ✓（缺 132 / 漂 35 / 多 122 / 字段名 2 ✓）。上一节第五节列的第 1 条入口 ✓。
+
+### 一、现场：接口头只要换行，整条声明连成员一起消失
+
+`lex-generic-union-constraint.ts` 的形状是**真实声明里最常见的排法** ✓：
+
+```
+interface ByStdio<I extends null | Writable, O extends null | Readable>
+  extends ChildProcess
+{
+  stdin: I
+  stdout: O
+}
+```
+
+产物里它成了一条 `ExpressionStatement`（`Identifier(interface)` 打头 ✓）＋ 一个 `Block`（里面两个
+`LabeledStatement` ✓）—— 缺 23 / 多 7 ✓。**缩到最小之后与联合、与泛型都无关** ✗：
+`interface I<T>` 换行 `{` ✓、`interface I extends Base` 换行 `{` ✓、`class A` 换行 `{` ✓、
+`function f()` 换行 `{` ✓ **全都一样** ✗；只要 `{` 与头在**同一行**就都对 ✓。
+
+### 二、真因：换行处那一支把**整个头**收成了一个 `Statement`
+
+`StatementBranch` 在 `\n` 上收壳的判据是「最后一个单元不是语句边界 ⇒ 库里正开着一条语句」✗ ——
+头只写了一半（`interface I<T>` ✓）当然不是边界 ✓ ⇒ 头被收进壳里 ✓
+⇒ 那一刻头上那几个词**从此不住在宿主自己的平列表里** ✗
+⇒ `{` 到达时 `ClassBranch` / `InterfaceBranch` / `EnumBranch` 往回扫**找不到自己的词** ✗
+（它们各自都有一条「往回扫到 `;` / `{` / 另一个声明词就停」的扫描 ✓）⇒ 声明整个不成形 ✓。
+
+### 三、修法：段首是**声明词**、且段内**还没有体**时，换行不收壳（`statement.xl.md`）
+
+判据只看这一段自己 ✓（`i` 与已经读到的那些 ✓）：跳过前导修饰词（`export` / `declare` / `abstract` /
+`default` / `async` / `const` ✓）之后，段首是 `class` / `interface` / `enum` / `namespace` / `module`
+⇒ 这不是一条语句的开头 ✓。
+
+**两条「还没有体」的护栏是实测逼出来的** ✗（少了它们各砸一片 ✓）：
+
+| 护栏 | 少了它会怎样 |
+| --- | --- |
+| 段内出现**花括号** ⇒ 头已经带体了 | `function pick(…): number { … }` 的 `Function` 单元**还没成形**（要等外层那一趟）⇒ 整个函数头被压住，`if-else-with-comment.ts` 丢 29 个节点 ✗ |
+| 段内已有**语句级单元** ⇒ 那是上一条语句 | `declare namespace B { … }` 换行 `import A = B.C.D;` 被吞进**同一个** `Statement`，`mod-import-equals-deep.ts` 等四份从绿变红 ✗ |
+
+**`function` 故意不在表里** ✗：重载签名（`function f(a: number): void;` ✓）与
+`function f()` 换行 `{` 词法同形 ✓ —— 加进去会让 `decl-func-overloads.ts` / `fn-overloads.ts` /
+`type-generic-call-args.ts` 三份变红 ✓（缺 15 / 13 / 8 ✓）。所以「**函数头换行 `{`**」这一档
+**留在缺口里** ✓（与「一个壳里两个段头」同族 ✓，都写在这一节末 ✓）。
+
+### 四、读数
+
+| 项 | 第 556 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 997 | **998 / 1037** ✓（+1 ✓） |
+| 缺节点 | 132（32 类） | **99**（28 类）✓（−33 ✓） |
+| 多出来的节点 | 122（33 类） | **109**（33 类）✓（−13 ✓） |
+| 区间漂移 | 35（14 类） | **36**（15 类）✗（+1 ✗） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21740 | **21740** ✓ |
+
+逐文件前后名单做差 ✓（`tmp/recon/r556-perfile.txt` ↔ `tmp/recon/r557-perfile.txt` ✓）：
+**变绿 1 份、变差 1 份** ✓。
+
+- 变绿 ✓：`lex-generic-union-constraint.ts`（23 缺 / 7 多 → **四个方向全零** ✓）；
+- **变差的那一份是「计数变差、差距大减」** ✗：`lex-generic-multiline-constraints.ts`
+  `[17,0,7,0] → [7,1,1,0]` ✓（缺 −10 ✓、多 −6 ✓，可**漂移 +1** ✗ ⇒ 它没能归零 ✓）。
+  根因已定位 ✓：那份文件的类型参数表**自己也是折行的** ✓（`interface Folded<` 换行 `T extends B,`
+  换行 `U extends C` 换行 `>` ✓），两个 `TypeParameter` 被并成了一个 ✗
+  （产物 `TypeParameter [252,278) "T extends B,"` ✓，TS 是两个 ✓）。这是**独立的一格** ✗ ——
+  与本节这条换行判据不是同一个根 ✓，留给下一块 ✓。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **239 / 242** ✓（持平 ✓）；
+`runtime:cli` **76 / 79** ✓（持平 ✓）；`samples` 仍红 ✗（还是那两处 ✓）；
+`coverage` **1608 / 1713（93.0%）** ✓（与第 556 轮末持平 ✓：blocked 65 ✓、differ 40 ✓、bad 0 ✓）；
+**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **折行的类型参数表** ✓：`interface Folded<` 换行 `T extends B,` 换行 `U extends C` 换行 `>` ✓ ——
+   两个参数被并成一个 `TypeParameter` ✗（`lex-generic-multiline-constraints.ts` 的 `[7,1,1,0]` ✓）。
+   判据在 `type-parameter.xl.md` 的分段那一趟 ✓（`GenericType` 收参数的扫描要跨软换行 ✓）；
+2. **函数头换行 `{`** ✓（本节第三节把它留在缺口里了 ✓）：`function f()` 换行 `{` ✓ ——
+   与重载签名同形 ✓，要分开得先量出「有体 / 没有体」的**读时**判据 ✓；
+3. `stmt-adversarial-shapes.ts` 的一个壳里两个段头 ✓（同上 ✓）与 `as` + 联合那一族 ✓（同上 ✓）。
+
+
+
+
+
