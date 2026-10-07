@@ -117,6 +117,9 @@ return condition instanceof Bracket && condition.startBracket === "(";
 2. 结尾多收一个可选的 `;`（`do { … } while (x);`）——不这么做，那个 `;` 会留在父单元里，
    被语句重组收成一个空的 `Statement`。**尾随软换行不收**：它留在父单元里充当语句边界
    （见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
+   **那个 `;` 有两条来路** ✓（第 569 轮 ✓）：解析期**先**收壳时（`;` 那一档 ✓），
+   它被 `Statement.FormFrom` 切进**壳体的区间**、不进 `Data` ✗ ⇒ 这时右端只能从**宿主**取 ✓；
+   规则先跑时它还在列表里 ✓ ⇒ 照旧按列表取 ✓。两条路在 `Process` 末尾分开写 ✓。
 
 ```ts
 const unit = Get(units, index)!;
@@ -152,8 +155,26 @@ compare.TryToClose();
 const semicolon = Get(units, endIndex + 1);
 if (semicolon instanceof SymbolToken && semicolon.Is(";")) {
   endIndex = endIndex + 1;
+  result.SignOut(semicolon.SourceRange.End!);
+} else {
+  // **尾分号可能根本不在列表里** ✓（第 569 轮 ✓）：`;` 是语句终结符 ✓ ——
+  // `Statement.FormFrom` 把它**切进壳体的区间**（`children.slice(0, length - 1)` ✓）却不放进 `Data` ✗
+  // ⇒ 上面那一问永远拿不到它 ✓ ⇒ `DoWhile` 的右端比 TS 少一格 ✓
+  //（实测 `do { f() } while (x < 10);`：产物 `DoStatement [49,76)` vs TS `[49,77)` ✓ ——
+  //  单看就是「漂移 1 + 多出 1」✓）。
+  // 壳体右端比条件括号**多出来的那一格就是它** ✓ ⇒ 宿主是 `Statement` 时取宿主的右端 ✓。
+  // **只认 `Statement`** ✗：别的宿主（`Root` / 各种体 ✓）的右端是**整个容器**的末尾 ✓，
+  // 照取会把 `DoWhile` 一路拉到文件尾 ✓。
+  const last = Get(units, endIndex);
+  const owner = unit.Parent;
+  const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
+  const lastEnd = last === null ? null : last.SourceRange.End;
+  if (ownerEnd !== null && lastEnd !== null && ownerEnd.Index > lastEnd.Index) {
+    result.SignOut(ownerEnd);
+  } else {
+    result.SignOut(lastEnd!);
+  }
 }
-result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - index + 1, result);
 return index;
