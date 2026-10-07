@@ -1312,7 +1312,33 @@ if (isTail) {
 **下一轮入口**：剩下 6 个文件里最小的是 `@types/node/test.d.ts`（2 缺 / 0 漂移 / 0 多 / **4 字段名** ✗）
 与 `samples/declarations.ts`（8/1/1 ✗）——从它们入手 ✓。
 
-## 八十五、每步都要钉住的三件事
+## 八十六、第九次动手（第 466 轮）：全语料 6 → **4**
+
+三处修正 ✓（这一版存 **`tmp/recon/r70/`** ✓，`cases` 全程 1037 / 1037 ✓）：
+
+1. **两条成员边界探测都要跨过可选标记 `?`** ✗：`rename?(next: string): void` 这种**可选方法**
+   的名字后面紧跟 `?` ✗，停在它上面就判不出边界 ✗ ⇒ 上一条成员把它吞掉 ✗
+   （实测 `samples/declarations.ts`：`readonly name: string` 吞到 899 ✗）。
+   `IsMemberBoundary` 与 `ClassMember.FollowedByParen` 两处都补了 ✓。
+2. **返回类型的起点取第一个顶层 `:`** ✗（不是最后一个 ✗）：条件类型
+   `A extends B ? C : D` 里还有别的顶层 `:` ✗，取最后一个会把它们卷进返回类型 ✗
+   ⇒ 整段塌掉 ✗（实测 `@types/node/test.d.ts`：`ConditionalType` 少 `falseType`、
+   `MethodSignature` 少 `type` ✗、`never` 关键字缺 ✗）。
+3. **映射类型要单独收** ✗：`{ [P in keyof T]: X }` 的第一个实义单元是 `[` 且里面有顶层 `in` ✓
+   ⇒ 照 `type-literal.xl.md` 的 `Process` 收成 `MappedType` ✓（第 456 轮那版无条件收成
+   `TypeLiteral` ✗，实测 `lib.es2017.object.d.ts`：缺 `MappedType`、多 `TypeLiteral` + `PropertySignature` ✗）。
+
+**读数**：
+
+| 状态 | `cases` | 全语料 | 占比 |
+| --- | --- | --- | --- |
+| `r67/` | 1037 / 1037 ✓ | 6 | 40.58% |
+| ＋ 可选标记 / 第一个冒号 / 映射类型 | **1037 / 1037** ✓ | **4** ✓ | **40.58%** |
+
+**剩下 4 个**：`undici-types/webidl.d.ts`（28/3/5 ✗）、`typescript/lib/lib.dom.d.ts`（**0/0/29** ✗，
+只有「多出来」）、`lib.es2017.object.d.ts`（1/0/3 ✗）、`lib.es5.d.ts`（1/0/0/1 ✗）。
+
+## 八十七、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
