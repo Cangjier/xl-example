@@ -34,6 +34,8 @@
 // 两段都带样本，样本按 `--samples` 限制条数。
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
+import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { listCases } from "./validate.mjs";
@@ -471,11 +473,26 @@ function corpus(mode) {
       return { file, size };
     });
     sized.sort((a, b) => b.size - a.size);
-    const kept = [];
-    for (let at = 0; at < sized.length; at++) {
-      if (at % count === index) kept.push(sized[at].file);
+    // **真正的 LPT（largest-first，放进当前最轻的那一片）**。
+    //
+    // 原先是 `at % count` 的**轮转**，注释里写着「经典的 LPT 近似」——它不是：
+    // 轮转把第 1 大给片 0、第 2 大给片 1 …… 第 16 大给片 15，可**第 17 大又回到片 0**
+    // （片 0 本来就是最重的那一片）。实测（16 片、1447 份）：
+    // **片 0 单独跑就要 19.6s**，而片 1 只要 7.7s ⇒ 墙钟被片 0 钉死（28.9s）。
+    // 贪心 LPT 每件都放进当前最轻的一片，代价是 n×count 次比较（1447×16 ≈ 2.3 万次，可忽略）。
+    const bins = Array.from({ length: count }, () => ({ load: 0, files: [] }));
+    for (const item of sized) {
+      let least = 0;
+      for (let at = 1; at < count; at++) {
+        if (bins[at].load < bins[least].load) least = at;
+      }
+      bins[least].files.push(item.file);
+      bins[least].load += item.size;
     }
-    console.log(`（分片 ${index}/${count}：${kept.length} / ${sized.length} 份文件）`);
+    const kept = bins[index].files.slice();
+    console.log(
+      `（分片 ${index}/${count}：${kept.length} / ${sized.length} 份文件，${(bins[index].load / 1048576).toFixed(2)} MB）`,
+    );
     return kept;
   }
   return unique;
@@ -715,6 +732,63 @@ function cliParity(mode, top, sampleLimit) {
       : 1;
 }
 
+/**
+ * **batch：不管怎么运行都要几秒**（用户口径）。
+ *
+ * 这一门原先**自己不起子进程**（第 321 轮的口径：「它本来就是同一进程内一份一份」），
+ * 扇出交给 `tests/gates/run.mjs` —— 于是**直接跑它**就是 60 秒量级。
+ * 现在反过来：**默认就是 batch**。父进程按**字节**切成 n 组（判据在 `corpus` 里，
+ * 是 LPT 轮转 —— 大文件一份顶几百份小文件，按份数分会把大文件堆到一片里），
+ * 每组一个子进程，父进程只汇总退出码与输出。
+ *
+ * **下界不是核数，是最大的那一份语料**：实测 `typescript/lib/lib.dom.d.ts`（2.3 MB）
+ * 单份就要 8.07s，而分片切不开一个文件 ⇒ 墙钟下界就是它。
+ *
+ * **每一片各自算那七项**（`每片都 0` ⟺ `整体都 0`），所以父进程不需要把计数合起来
+ * ——那正是分片最容易出错的地方。
+ *
+ * `--jobs 1` 退回单进程（要一份**合并**的逐文件账时用它）；
+ * `--shard i/n` 是子进程那一侧，父进程见到它就**不再扇出**（否则无限套娃）。
+ */
+function runBatch(mode, jobs, passthrough) {
+  const self = fileURLToPath(import.meta.url);
+  const started = Date.now();
+  console.log(`batch：${jobs} 片并行（${os.cpus().length} 核；--jobs 1 可退回单进程）`);
+  const runs = [];
+  for (let index = 0; index < jobs; index++) {
+    runs.push(
+      new Promise((resolve) => {
+        const startedAt = Date.now();
+        const child = spawn(
+          process.execPath,
+          [self, mode, ...passthrough, "--shard", `${index}/${jobs}`, "--jobs", "1"],
+          { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"] },
+        );
+        let out = "";
+        let err = "";
+        child.stdout.on("data", (chunk) => (out += chunk));
+        child.stderr.on("data", (chunk) => (err += chunk));
+        child.on("close", (code) => resolve({ index, code, out, err, ms: Date.now() - startedAt }));
+      }),
+    );
+  }
+  Promise.all(runs).then((all) => {
+    let failed = 0;
+    for (const one of all) {
+      if (one.code !== 0) failed++;
+      console.log(`--- 片 ${one.index + 1}/${jobs}（${(one.ms / 1000).toFixed(1)}s）`);
+      for (const line of (one.out + one.err).split(/\r?\n/)) {
+        if (line.trim() === "") continue;
+        console.log(`    ${line}`);
+      }
+    }
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
+    console.log("");
+    console.log(`${jobs} 片：${jobs - failed} 片通过、${failed} 片失败；墙钟 ${seconds}s`);
+    process.exitCode = failed === 0 ? 0 : 1;
+  });
+}
+
 function main() {
   const args = process.argv.slice(2);
   const mode = args.find((a) => ["real", "cases", "all"].includes(a)) || "all";
@@ -735,7 +809,40 @@ function main() {
     return;
   }
 
-  const files = corpus(mode);
+  // **batch（默认）**：切组、开子进程、汇总退出码。`--jobs 1` 退回单进程。
+  //
+  // **组数按逻辑处理器数量**（`os.cpus().length`，不 hard code）：机器几核就切几组。
+  //
+  // **小语料不扇出**：`cases` 只有 189 KB（1037 份），而起 16 个进程的固定开销比省下的还多
+  //（实测 2.2s → 3.1s）。判据按**字节**而不是份数——大文件一份顶几百份小文件。
+  const jobsArg = args.includes("--jobs") ? Number(args[args.indexOf("--jobs") + 1]) : 0;
+  const jobs = Number.isFinite(jobsArg) && jobsArg > 0 ? jobsArg : Math.max(1, os.cpus().length);
+  const listed = corpus(mode);
+  if (args.includes("--shard") === false && jobs > 1) {
+    let bytes = 0;
+    for (const file of listed) {
+      try {
+        bytes += fs.statSync(file).size;
+      } catch {
+        bytes = bytes;
+      }
+    }
+    if (bytes >= 2 * 1048576) {
+      const passthrough = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === "--jobs") {
+          i++;
+          continue;
+        }
+        if (["real", "cases", "all"].includes(args[i])) continue;
+        passthrough.push(args[i]);
+      }
+      runBatch(mode, jobs, passthrough);
+      return;
+    }
+  }
+
+  const files = listed;
   const missing = new Map();      // TS 有、产物没有（按 TS kind 聚合）
   const extra = new Map();        // 产物有、TS 没有（按产物标签聚合）
   const drift = new Map();        // 同 kind 但区间不同
@@ -772,10 +879,20 @@ function main() {
   let exactFiles = 0;
   const perFile = args.includes("--per-file");
   const perFileRows = [];
+  // **`--time`：把逐文件那四步的累计时间打出来**。
+  // 这一门「几秒预算」的瓶颈一直在**一份最重的语料**上（`lib.dom.d.ts`：2.3 MB / 11 万个 TS 节点），
+  // 而它慢在哪一步不能靠猜 —— `--file` 那条路（6.1s）与主循环（25.8s）差着三步，
+  // 有这四个数就一眼看得出该动哪一处。
+  const wantTime = args.includes("--time");
+  const phase = { read: 0, parse: 0, product: 0, tsParse: 0, tsWalk: 0, match: 0, project: 0 };
 
   for (const file of files) {
+    const clock = () => Date.now();
+    let at = clock();
     let source = fs.readFileSync(file, "utf8");
     if (source.charCodeAt(0) === 0xfeff) source = source.substring(1);
+    phase.read += clock() - at;
+    at = clock();
     let rootNode;
     try {
       rootNode = parseWith(source, file);
@@ -783,28 +900,65 @@ function main() {
       failed++;
       continue;
     }
+    phase.parse += clock() - at;
     parsed++;
+    at = clock();
     const ours = flattenProduct(rootNode.ToList(), stats, source);
+    phase.product += clock() - at;
+    at = clock();
     const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    phase.tsParse += clock() - at;
+    at = clock();
     const theirs = flattenTs(sf);
+    phase.tsWalk += clock() - at;
+    at = clock();
     ourTotal += ours.length;
     tsTotal += theirs.length;
 
     // 以「TS 的语义节点」为基准，逐个在产物侧找**同 kind（归一后）同区间**的节点：
     // 找不到 → 缺节点（这是要重构 token 层去补的）；找得到但区间不同 → 位置漂移。
+    //
+    // **同 kind 同区间那一支要走哈希**：原来每个 TS 节点都在同 kind 的数组里 `find` 一遍 ——
+    // 那是 O(n²)，而 `lib.dom.d.ts` 一份就有十几万个 `Identifier`。实测同一份语料：
+    // `--file`（不走这一步）6.1s，而尺子的主循环要 **25.8s** —— 差的就是这 20 秒。
+    // 哈希之后命中是 O(1)（`kindSameTotal` 28 万 ≫ 缺 884 + 漂移 244，命中是绝对多数的路径），
+    // 只有真缺席的节点才回退到那一趟线性扫描（全语料不到 1200 次）。
+    //
+    // **重复键只留第一个**：与原来 `find` 的语义一致（返回数组里第一个命中的）。
+    //
+    // **漂移那一支也要哈希**：命中失败时原来会在同 kind 的**整张表**上再线性扫一遍 ——
+    // 一份 `lib.dom.d.ts` 有 12 万个 `Identifier`，粗指标那一趟命中率只有 45%，
+    // 于是六万个节点各扫一遍十几万条 ⇒ 这一趟实测 **4858ms**，是本片最大的一头。
+    // 换成「按起点索引 + 只看 ±2 这五个起点」之后是 O(1)。
+    // 取哪个节点：原来取**同 kind 数组里第一个落进窗口的**，这里取**起点最近的** ——
+    // 两者只影响 DRIFT 样本里印出来的那一对区间，**不影响计数**（仍是「漂移」而不是「缺」）。
     const ourByKind = new Map();
+    const ourExact = new Map();
+    const ourByStart = new Map();
     for (const node of ours) {
       if (!ourByKind.has(node.kind)) ourByKind.set(node.kind, []);
       ourByKind.get(node.kind).push(node);
+      const key = `${node.kind}@${node.start}-${node.end}`;
+      if (!ourExact.has(key)) ourExact.set(key, node);
+      const startKey = `${node.kind}@${node.start}`;
+      if (!ourByStart.has(startKey)) ourByStart.set(startKey, node);
     }
     for (const their of theirs) {
-      const candidates = ourByKind.get(their.kind) || [];
-      const hit = candidates.find((o) => o.start === their.start && o.end === their.end);
-      if (hit) {
+      if (ourExact.has(`${their.kind}@${their.start}-${their.end}`)) {
         kindSameTotal++;
         continue;
       }
-      const near = candidates.find((o) => Math.abs((o.start ?? -1) - their.start) <= 2);
+      let near;
+      for (let span = 0; span <= 2 && near === undefined; span++) {
+        const probes = span === 0 ? [their.start] : [their.start - span, their.start + span];
+        for (const probe of probes) {
+          const found = ourByStart.get(`${their.kind}@${probe}`);
+          if (found !== undefined) {
+            near = found;
+            break;
+          }
+        }
+      }
       if (near) {
         const key = `DRIFT: ${their.kind}`;
         drift.set(key, (drift.get(key) || 0) + 1);
@@ -829,11 +983,14 @@ function main() {
       extra.set(key, (extra.get(key) || 0) + 1);
     }
     if (theirs.length === ours.length && theirs.every((t, i) => t.kind === ours[i]?.kind)) alignedFiles++;
+    phase.match += clock() - at;
 
     // ---- 投影后的对拍：把产物树投成 TS 形状，再与 `ts.createSourceFile` 比 ----
+    at = clock();
     const projected = projectRoot(rootNode.ToList(), source);
     for (const tag of projected.unmapped) unmappedTags.set(tag, (unmappedTags.get(tag) || 0) + 1);
     const proj = flattenProjected(projected.ast);
+    phase.project += clock() - at;
     projectedTotal += proj.length;
     // **字段名对拍**：kind 与区间都对上的那些节点，两边的「有子节点的字段名」也该一致。
     const projKeys = new Set(proj.map((p) => `${p.kind}@${p.start}-${p.end}`));
@@ -921,6 +1078,14 @@ function main() {
         fields: fileFieldDiff,
       });
     }
+  }
+
+  if (wantTime) {
+    console.log("=== 各步累计（ms，本片）===");
+    for (const [name, ms] of Object.entries(phase).sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${String(ms).padStart(8)}  ${name}`);
+    }
+    console.log("");
   }
 
   if (perFile) {

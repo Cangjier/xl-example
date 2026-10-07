@@ -100,6 +100,12 @@ return result;
 
 （`keyword` 刚 `RemoveSelf` ✓），而且 `ifSet` 从此是这个宿主的 `MountedUnit` ✓
 
+**`IfSet` 要签在 `if` 那个词上，不是签在这个 `(` 上** ✗（本轮量出来的 ✓）：
+`Begin` 把**第一段**签在那个词上 ✓，而这一段是 `IfSet` 的子单元 ✓——父单元签在 `(` 上、
+子单元签在 `if` 上，就是**子单元起点比父单元还早** ✗ ⇒ 坐标越界 ✓
+（实测：全语料 **5766 处**越界，**全部**是 `<IfSegment>` ✓，全是这一条 ✓）。
+它不影响投影（`projectIfSet` 自己从体与条件算两头 ✓），但它让「坐标」这把地基白报一片红 ✗。
+
 ```ts
 const keyword = unit.Last();
 if (keyword === null) {
@@ -108,7 +114,8 @@ if (keyword === null) {
 keyword.TryToClose();
 keyword.RemoveSelf();
 const ifSet = new IfSet(unit.Template);
-unit.AddToMounted(ifSet).SignIn(source);
+unit.AddToMounted(ifSet);
+ifSet.SignIn(keyword.SourceRange.Start!);
 ifSet.Begin(keyword);
 ifSet.MountCondition(source);
 ```

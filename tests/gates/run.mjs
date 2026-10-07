@@ -25,29 +25,28 @@ const root = path.resolve(here, "..", "..");
 /**
  * 六道门：名字 → 脚本路径（与 `package.json` 一一对应）。
  *
- * **`shards`** ✓（第 321 轮 ✓，用户口径：「n 个进程，每个进程跑一组任务」✓）：
- * 这一门**自己不起子进程** ✓（1444 份语料在同一个进程里一份一份解析 + 投影 + 对拍 ✓），
- * 所以「一个进程跑一批」这条对它不适用 ✗——它要的是**反过来**：
- * **把那一批切成 n 组、每组一个进程** ✓（分片的判据在 `ts-ast.mjs` 里写着 ✓：
- * 按**字节**轮转分配 ✓，因为 `typescript/lib` 那几份大 `.d.ts` 一份顶几百份小文件 ✓）。
+ * **`shards`**（第 321 轮加的机制）：把一门切成 n 组、每组一个子进程。
+ * **本轮它已经没有用户了**：`cases:tsast`（唯一用过它的那一道）自己**默认就是 batch** ——
+ * 按 `os.cpus().length` 切组、每组一个子进程，组数不 hard code。机制留着给以后需要它的门。
  *
- * **改语料时的快循环** ✓（第 351 轮 ✓，用户口径：「ts-ast 不是 batch 模式吗」✓）：
- * 这一门默认会把**全部** 1444 份都过一遍 ✓（实测 **62.4s** ✓，大头是
- * `typescript/lib` / `@types` 那几份大 `.d.ts` ✓——**80 万个节点** ✓），
- * 而**只想让一条新加的语料说话**时 ✓，`npm run cases:tsast:cases` 就够 ✓：
- * **只过 1050 份用例** ✓（**2.8s** ✓、2.2 万个节点 ✓）——**差 22 倍** ✓。
- * **这一门本来就是「同一进程内一份一份」** ✓ ⇒ 快循环**不需要新的批处理机制** ✓，
- * 只需要**把语料面收窄** ✓（`ts-ast.mjs` 的 mode 参数本来就支持 ✓）。
+ * **改语料时的快循环**（第 351 轮 / 本轮）：
+ * 这一门默认把**全部** 1447 份过一遍。本轮之前是**单进程 60s 量级**
+ *（大头是 `typescript/lib` / `@types` 那几份大 `.d.ts`，82 万个产物节点）；
+ * 本轮把它改成**默认 batch**（按逻辑处理器数量切组、贪心 LPT 分片）之后：**墙钟 ~10s**，
+ * 下界就是**最重的那一份语料**（`typescript/lib/lib.dom.d.ts`，2.3 MB，单份约 6.3s 真工 ——
+ * 分片切不开一个文件）。只想让一条新用例说话时，`npm run cases:tsast:cases` 更快（2s 量级）。
  * **`--batch`（`tsrun --batch` / `judge-batch.mjs`）是另一件事** ✗：那是给
- * **每个用例必须起子进程**的门用的 ✓（`runtime:cli` 要对每个 `.ts` 跑 `node` 与 `tsrun` 各一次 ✓），
- * 这一门**没有那个开销** ✓。
+ * **每个用例必须起子进程**的门用的 ✓（`runtime:cli` 要对每个 `.ts` 跑 `node` 与 `tsrun` 各一次 ✓）。
  * **每片各自算那七项** ✓，「每片都 0」⟺「整体都 0」✓——**不需要把计数合起来** ✓
  *（那正是分片最容易出错的地方 ✓）。
  */
 const GATES = [
   { name: "runtime:check", script: "tests/runtime/check.mjs" },
   { name: "runtime:cli", script: "tests/runtime/run-cli.mjs" },
-  { name: "cases:tsast", script: "tests/parse/ts-ast.mjs", shards: 4 },
+  // **`cases:tsast` 不再由这里分片**（本轮改）：它自己**默认就是 batch**，
+  // 按 `os.cpus().length` 切组、每组一个子进程（组数不 hard code）。
+  // 这里再写一个固定片数就是**第二份答案**，而且会把外层 6 道门 × 16 片叠成过载。
+  { name: "cases:tsast", script: "tests/parse/ts-ast.mjs" },
   { name: "samples", script: "samples/check.mjs" },
   { name: "cases:check", script: "tests/parse/validate.mjs" },
   { name: "coverage", script: "tests/coverage/run.mjs" },
