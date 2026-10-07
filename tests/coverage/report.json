@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.53,
+  "progressPercent": 99.57,
   "layers": [
     {
       "layer": "runtime",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 629,
+      "pass": 630,
       "blocked": 0,
-      "differ": 5,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 99.21
+      "coverage": 99.37
     },
     {
       "layer": "e2e",
@@ -112,12 +112,6 @@
       "layer": "stdlib",
       "title": "finally：值透传、异常替换、返回承诺要等",
       "detail": "stdout 不同：第 3 行：node «c3 replaced» vs tsrun «v 1»"
-    },
-    {
-      "id": "c371-stdlib-date-now-and-construction",
-      "layer": "stdlib",
-      "title": "Date.now / new Date(ms) / new Date(string) 的读数",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: global builtin 260"
     },
     {
       "id": "c371-stdlib-function-bind-forms",

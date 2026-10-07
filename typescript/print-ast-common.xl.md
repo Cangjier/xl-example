@@ -3551,18 +3551,19 @@ return false;
 而 TS 那边它是**前一个表达式链上的一格**：`PropertyAccessExpression` / `ElementAccessExpression`
 各带一个 `questionDotToken`（那个 `?.` 记号是子节点）。
 
-`?.` 的坐标从**原文**量：成员名的起点往前就是那个 `?`（产物树里没有把它留成单元）。
+`?.` 的坐标**由那一格 `NullConditionalOperator` 自己给**（第 615 轮）：它的 `Process`
+签入用的正是那个 `?.` `SymbolToken`（`SignInToken(current)`），所以 `startOf(unit)`
+直接就是那个 `?`。**从前是回原文量的**（成员名的起点往前 `lastIndexOf("?")`），
+那是第二份近似：还要自己挡住「抓到更早的那个 `?`」（上一条三元、上一个可选链，第 124 轮踩过）。
 
 ```ts
   const kids = projectableKids(view(unit));
   const first = kids.length > 0 ? kids[0] : undefined;
-  const at = first === undefined ? startOf(unit) : startOf(first);
-  const dot = ctx.source.lastIndexOf("?", at);
-  // **`?` 必须就在基名的后面**（第 124 轮）：`lastIndexOf` 一路往前找会抓到**更早**的那个 `?`
-  // （上一条三元、上一个可选链），于是 `questionDotToken` 的区间整个错位。
-  // 基名与这一格之间只有 `?.` 两个字符，所以判据是「在 `left.end` 之后、`at` 之前」。
+  // **`?.` 就在这一格的起点上** ✓：调用方递进来的 `unit` **一定是** `NullConditionalOperator` ✓
+  //（`Process` 里 `SignInToken(那个 ?. 符号)` ✓），所以不用回原文找 ✗。
+  const dot = startOf(unit);
   const questionDot =
-    dot >= (left.end ?? 0) && dot < at && ctx.source[dot + 1] === "."
+    typeof dot === "number" && dot >= 0
       ? { kind: "QuestionDotToken", text: "?.", pos: dot, end: dot + 2 }
       : undefined;
   // **`?.name(args)`**（第 107 轮）：那一格是一个 `Method`（调用）——先折出带 `?.` 的
@@ -5781,9 +5782,11 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   // **没有语句的分支（贯穿到下一条 `case`）**：区间到那个 `:` 为止（第 97 轮）。
   // `SwitchSegment` 自己的尾巴比 TS 多一个字符——实测 `case ",":` 产物 [1129,1139)
   // vs TS [1129,1138)：108 处漂移 + 108 处「多出来」是同一个节点两边各记一次。
+  // **位置由 token 自己记**（`SwitchSegment.ColonPos`，第 615 轮 ✓）：认下这一段那一刻
+  // 那个 `SymbolToken` 就在手上 ✓ ⇒ 这里直读字段 ✓，不再回原文 `lastIndexOf(":")` 猜 ✗。
   if (last === undefined) {
-    const colon = ctx.source.lastIndexOf(":", sv.end - 1);
-    if (colon >= sv.start) end = colon + 1;
+    const colonPos = sv.attrs.get("colonPos");
+    if (typeof colonPos === "number" && colonPos >= sv.start) end = colonPos + 1;
   }
   return {
     kind: kindWord === "default" ? "DefaultClause" : "CaseClause",

@@ -1019,8 +1019,7 @@ export const EXPECTATIONS = {
   // 「等回调返回的承诺」两档的 tick 数与 Node 相同。
   "c371-stdlib-promise-finally-passthrough": { expect: "differ", why: "`finally` 的回调抛时 Node 在**同一 tick** 里拒绝派生承诺（少一跳），本仓晚一跳 ⇒ `.catch` 的行序不同。" },
 
-  // ---- `new Date(2020, 0, 2)`（多实参构造）与 `new Date("…")`（字符串解析）还没接上 ⇒ `unimplemented: global builtin 260`。
-  "c371-stdlib-date-now-and-construction": { expect: "differ", why: "`new Date(2020, 0, 2)`（多实参构造）与 `new Date(\"…\")`（字符串解析）还没接上 ⇒ `unimplemented: global builtin 260`。" },
+  // ---- `Date.now()` —— 第 614 轮接上（命令行宿主回答 `ClockNow`）。
 
   // ---- `JSON.stringify(new Date(NaN))`：Node 给 `null`，本仓在 `toJSON` 里先抛了 `Invalid time value`。
 

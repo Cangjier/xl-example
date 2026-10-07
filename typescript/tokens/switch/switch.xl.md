@@ -189,6 +189,11 @@ for (let m = 0; m < markers.length; m++) {
       break;
     }
   }
+  // **那个 `:` 的位置当场记进字段**（见 `SwitchSegment.ColonPos`）：这一刻它就在手上、区间已经签好。
+  // 不记的话投影要回原文从段尾往前 `lastIndexOf(":")` 猜一遍（第 97 轮那条区间修正就是靠猜的）。
+  if (colonIndex < limit && list[colonIndex].SourceRange.Start !== null) {
+    segment.ColonPos = list[colonIndex].SourceRange.Start!.Index;
+  }
   if (key === "case" && colonIndex > begin + 1) {
     const caseUnit = segment.CreateCase();
     for (let i = begin + 1; i < colonIndex; i++) {

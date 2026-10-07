@@ -6,7 +6,7 @@ import { TextContext } from "./typescript/text-context.xl.md"
 import { projectRoot, ToJsonText } from "./typescript/print-ast-common.xl.md"
 import { Lowering, LoweredModule, CapabilityLookup } from "./typescript-exec/lowering.xl.md"
 import { Bindings, LookupOf } from "./typescript-exec/bindings.xl.md"
-import { GlobalNames, BuildGlobals, TextFrom, LogSink, NewError, NewErrorLike, SymbolToString } from "./typescript-exec/builtins/globals.xl.md"
+import { GlobalNames, BuildGlobals, ClockNow, TextFrom, LogSink, NewError, NewErrorLike, SymbolToString } from "./typescript-exec/builtins/globals.xl.md"
 import { ValueText } from "./typescript-exec/builtins/text.xl.md"
 import { InstallBuiltins, InvokeWithSink, BuiltinSlots, RaiseFromHost, HostErrorText } from "./typescript-exec/builtins/install.xl.md"
 import { NeverCall } from "./typescript-exec/builtins/array.xl.md"
@@ -621,6 +621,27 @@ if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure
 return ValueText(table, value);
 ```
 
+# method RunAnswer:(room:RoomChecker, id:number, self:Value, args:Array<Value>)=>Value | null
+
+**命令行宿主的回答**：只接 `ClockNow`（`Date.now()`）这一号，别的能力一律给 `null`
+（＝「本宿主没有这一号」⇒ 建库层响亮地报 `unimplemented: global builtin <id>`）。
+
+**为什么只接它**：这个命令行**不接客户能力**（`.d.ts` 那些名字在源码里没有声明，
+降级期自己就会报「未知名字」，见 `RunMain` 那一段）——而**时钟不是客户能力**：
+`Date.now()` 是标准库的一格，按设计**只能由宿主回答**（`globals.xl.md` 的 `ClockNow`：
+建库层刻意不实现它，否则「时间从哪来」就不由宿主说了算）。
+
+**这里取真钟**：`Date.now()` 的语义就是「现在」。判据那边给固定值是为了可复现，
+命令行要的是正常用法——覆盖度矩阵里用到它的那一条只打 `Date.now() > 0`（不打印读数），
+所以真钟不会让读数不可复现。
+
+```ts
+if (id === ClockNow) {
+  return Value.FromDouble(Date.now());
+}
+return null;
+```
+
 # method RunMain:(args:Array<string>)=>void
 
 **命令行入口**：读文件 → 装起来跑一遍 → 按结局定退出码。
@@ -684,7 +705,7 @@ let result = new RunResult();
 try {
   result = RunSources(request, (line) => {
     RunWrite(line + "\n");
-  }, () => null);
+  }, RunAnswer);
 } catch (error) {
   // **解析与降级是语言层的报错，不是宿主结局**（见 `RunSources` 文首那张分层表：
   // 语言层不认识语法、引擎不认识语言）——所以它们**抛**出来，由调用方接住。
@@ -765,7 +786,7 @@ for (let index = 0; index < items.length; index++) {
     try {
       result = RunSources(request, (line) => {
         lines.push(line);
-      }, () => null);
+      }, RunAnswer);
     } catch (error) {
       // **与单条那一路说同一句话** ✓（第 121 轮那条口径 ✓）：父进程拿到的 stderr
       // 与「一条一条跑」时**逐字相同** ✓——不然台账里那些「为什么没过」会换一套说法 ✗。

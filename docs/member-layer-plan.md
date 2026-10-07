@@ -8039,19 +8039,13 @@ return head === "|" || head === "&" || head === ".";
 
 ### 四、下一块
 
-1. **`@types/node` 那三份的 `InterfaceDeclaration` 整个缺** ✓（`vm.d.ts` `61 0 14` ✓ /
-   `fs.d.ts` `30 0 18` ✓ / `querystring.d.ts` `21 0 3` ✓）：现场都是**声明头折行**
-   （`interface X<T extends …>` 换行 `extends Y` 换行 `{` ✓、
-   `interface P extends` 换行 `NodeJS.Dict<` 换行 `| string` … `>` 换行 `{}` ✓）——
-   而这三份**最小复现都过** ✓（第 587 轮试过三份 ✓）⇒ 差异在**更大的上下文**里
-   （候选：`declare module "x" { }` 体里的折行 ✓、或同一个名字的**声明合并** ✓），
-   下一轮从「把那一份语料从 `interface` 起逐段删到最小」查 ✓；
-2. **`globals.ts` / `inspect.ts` 的左结合链漂移** ✓（16 + 14 处 ✓）：
-   `whiteText = whiteText + (…)` 换行处少了后半截 ✓（与第 585 轮 `?` / `:` 那一条同族 ✓——
-   `+` / `-` **起得了语句** ✗ ⇒ 要护栏 ✓，与第 582 轮 `(` / `[` 那两道同形 ✓）；
-3. **coverage 那 47 条** ✓（16 blocked + 31 diff ✓）按簇收 ✓：第 586 轮补的台账里
-   写着三簇（类型字面量当值 ✓ / `new.target` 与三元 ✓ / 两个独立现场 ✓），
-   加上 `c371-` 那一批标准库深水区 ✓。
+> **这份台账停在第一九〇节（第 587 轮）** ✓。那之后每一轮的现场都在别处 ✓：
+> 现状读数在 [README.md](../README.md) 的「当前状态」✓、
+> 覆盖度的逐条缺口在 [tests/coverage/report.json](../tests/coverage/report.json) ✓、
+> 逐条规则的来由在各 token 的注释里 ✓。
+> 这一节原来列的六条（`@types/node` 那三份的接口声明 / `globals.ts` 与 `inspect.ts` 的
+> 左结合链漂移 / coverage 那 47 条 …）**都已收掉** ✗（`cases:tsast` 如今 1481 份逐文件一致 ✓、
+> coverage blocked 0 ✓），留着只是一份过期的待办 ✗。
 
 ## 一百九十、文档提纯（第 587 轮同一轮内）
 

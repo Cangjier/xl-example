@@ -25,6 +25,15 @@ import { SwitchStatement } from "./switch-statement.xl.md"
 
 这一段的原始关键字：`case` 或 `default`。
 
+## field ColonPos:int = -1
+
+这一段的 `:` 在源码里的下标；还没记下来时是 `-1`。
+
+**为什么记下来** ✗：`:` 留在段的子单元里 ✓，可**投影要的是「段到哪为止」** ✓——
+没有语句体的分支（`case 2:` 后面直接跟下一条 `case` ✓）在 TS 那边的区间**到那个 `:` 为止** ✓，
+而 `SwitchSegment` 自己的尾巴比它多一个字符 ✓（第 97 轮实测 108 处漂移 ✓）。
+那一刻 `Switch` 规则手里就攥着那个 `SymbolToken` ✓，记下来投影就不用回原文再找一遍 ✓。
+
 ## method CreateCase:()=>SwitchCase
 
 造一个匹配表达式子单元并挂到自己下面，返回它。
@@ -98,6 +107,8 @@ return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("key", this.key);
+// **`:` 的位置**（见 `ColonPos`）：投影直读，不再回原文 `lastIndexOf` 猜。
+result.set("colonPos", this.ColonPos);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
@@ -112,12 +123,13 @@ return result;
 
 克隆自身。
 
-先把 `key` 复制过去（漏了它克隆体就丢掉关键字）再搬子单元，
+先把 `key` 与 `ColonPos` 复制过去（漏了它们克隆体就丢掉关键字与标点位置）再搬子单元，
 与 `IfSegment.Clone` 同款。
 
 ```ts
 const result = new SwitchSegment(this.Template);
 result.key = this.key;
+result.ColonPos = this.ColonPos;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
