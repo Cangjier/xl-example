@@ -750,6 +750,10 @@ Statement.FormFrom(unit, terminator);
   `NullConditionalOperator`(10) → `Namespace`(11) → `TypeLiteral`(12) → `Block`(13) →
   `JsonObject`(14) → `TypeBracket`(15) ✓ —— 两次量的账：`New`/`Method`/`NullConditional`/`Namespace`
   值 290 → **327** ✓，再加字面量与类型括号那四条值 → **349 / 1037** ✓。
+- **类型下半段接在 `TypeBracket` 之后** ✓（第 492 轮 ✓）：`ImportType`(16) → `TypePrefix`(17) →
+  `LiteralType`(18) → `JsonArray`(19) → `InferType`(20) → `TypeParameter`(21) → `TypePredicate`(22) →
+  `TupleMember`(23) → `ParenthesizedType`(24) ✓ —— 两次量的账：前四条值 349 → **381** ✓，
+  九条全上值 → **426 / 1037** ✓（**字段名那一栏从 115 掉回 26** ✓）。
 
 **每条规则还是它自己那一份实现** ✓：`XxxReorganization.Instance.ApplyTo(unit)` ✓
 （那个循环只有一份 ✓，见 `core/syntax/reorganization.xl.md` ✓）——
@@ -770,6 +774,15 @@ TypeLiteralReorganization.Instance.ApplyTo(unit);
 BlockReorganization.Instance.ApplyTo(unit);
 JsonObjectReorganization.Instance.ApplyTo(unit);
 TypeBracketReorganization.Instance.ApplyTo(unit);
+ImportTypeReorganization.Instance.ApplyTo(unit);
+TypePrefixReorganization.Instance.ApplyTo(unit);
+LiteralTypeReorganization.Instance.ApplyTo(unit);
+JsonArrayReorganization.Instance.ApplyTo(unit);
+InferTypeReorganization.Instance.ApplyTo(unit);
+TypeParameterReorganization.Instance.ApplyTo(unit);
+TypePredicateReorganization.Instance.ApplyTo(unit);
+TupleMemberReorganization.Instance.ApplyTo(unit);
+ParenthesizedTypeReorganization.Instance.ApplyTo(unit);
 ParameterReorganization.Instance.ApplyTo(unit);
 TypeAssignReorganization.Instance.ApplyTo(unit);
 TypeDefineReorganization.Instance.ApplyTo(unit);

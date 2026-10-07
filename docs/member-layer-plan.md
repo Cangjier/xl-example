@@ -1945,5 +1945,36 @@ cases:check 1050 全过 ✓）。对照态 **859** 不动 ✓。
 而 `--only` 里多出来的四条根本没生效 ✓）。**修法**：跑变体之前先 `npx tsc` 从 `dist` 重建 ✓、
 再删掉旧备份让脚本重新抓一份 ✓。
 
+## 一百〇九、类型下半段接上（第 492 轮）：349 → **424 / 1037**
+
+接在 `TypeBracket`(15) 之后、`Parameter`(25) 之前 ✓，次序照队列 ✓：
+`ImportType`(16) → `TypePrefix`(17) → `LiteralType`(18) → `JsonArray`(19) → `InferType`(20) →
+`TypeParameter`(21) → `TypePredicate`(22) → `TupleMember`(23) → `ParenthesizedType`(24) ✓。
+
+| 接上的 | 完全一致 | 缺 | 漂移 | 多出来 | 字段名 |
+| --- | --- | --- | --- | --- | --- |
+| 基线（第 491 轮） | 349 | 4607 | 553 | 2903 | 115 |
+| ＋`ImportType` / `TypePrefix` / `LiteralType` / `JsonArray` | 381 | 4302 | 575 ✗ | 2793 | 93 |
+| ＋其余五条（`InferType` … `ParenthesizedType`） | **424** | **3832** | **541** | **2494** | **26** ✓ |
+
+⇒ 九条全上之后**四栏全部下降** ✓，最漂亮的是**字段名那一栏：115 → 26** ✓
+（上一轮它涨到 115 的那笔账，这一轮被类型那几条收掉了 ✓）。
+
+**一笔 2 个文件的悬差** ✗（照实记下）：JS 实验那一版读数是 **426** ✓，落到源码后是 **424** ✓
+（缺 3820 vs 3832、多 2486 vs 2494 也各差一点 ✓）。两次插的都是同一串、同一个位置 ✓，
+差的只有「实验版把 `require` 写在方法体里、源码版是顶层 import」这一处 ✓ ——
+2 个文件的量级，先记账 ✓，后面按 `--per-file` 找那两份文件对一下 ✓。
+
+**门**：`runtime:check` 128 → **134 / 242** ✓、`coverage` 223 → **331 / 1713**（加权 10.3% → **15.3%** ✓）；
+`runtime:cli` 2 / 79 ✓、`cases:check` 1050 全过 ✓，其余两道与上一轮相同 ✓。对照态 **859** 不动 ✓。
+
+**下一块**：队列从 `HeritageClause`(26) 往下到队尾 ✓ ——
+`BindingElement`(27) / `Import`(28) / `Export`(29) / `NamespaceExport`(30) / `TypeUnion`(31) / `As`(32) /
+`FunctionType`(33) / `ConditionalType`(34) / **`Lamda`(36)** / `TernaryOperator`(38) / `Try`(39) /
+`Switch`(40) / `For`(41) / `Foreach`(42) / `DoWhile`(43) / `While`(44) / `WrapSymbol`(45) /
+`PropertyAccess`(46) / `CompoundAssignmentOperator`(47) / `NotNull`(48) / `OptionalCall`(49) /
+`UnaryOperator`(50) / `BinaryOperator` 那一族（第 51 起）✓ / `LogicalOperator` / `Spread` ✓。
+**一笔仍待解**：`StatementReorganization3`（容器关闭时最后那一格 ✓）。
+
 
 
