@@ -2828,3 +2828,16 @@ cls-hash-in-operator.ts: 缺 5　多 5   MISS ReturnStatement[73,87) "return #x in 
 而查这张表的那一步只认 `Identifier` ?（`do` / `while` / `in` / `of` 都栽过同一处 ?，
 台账里第 500 轮那次加固写的就是这条纪律 ?：找词一律走 `WordOf` / `IsWordUnit` ?，
 两种形态都认 ?）。**下一块直接去那一处取词的地方改** ? —— 面大、局部、两档都有益 ?。
+
+**再补一句（同一轮的第二次定位）** ?：那张表**用得上**的前提是 `head` 就是那个 `Keyword` ? ——
+而这两例的 `EXTRA` 是 **`ExpressionStatement` + `BinaryExpression` 盖住整段** ?
+? 说明 `head` 已经不是 `return` 了 ?，而是**被折进去的表达式** ?
+（`return #x in o` 里 `#x` 是**私有标识符** ?，`return this.#x` 里是 `this.#x` ? ——
+两例都带 `#` ?，十有八九是「`#x` 这种单元在 `IsOperand` 眼里不算操作数 / 或反过来算得太宽」?
+? `return` 与后面的东西被折成了同一个二元单元 ? ? 查表那一步连门都进不去 ?）。
+
+**下一块**：量 `binary-operator.xl.md` 的 `IsOperand` 对 **`#x`（私有标识符）** 的态度 ?
+（`return #x in o` 里 `return` 是**受限关键字** ?、`#x` 是操作数 ?、`in` 是二元运算符 ? ——
+正解是 `ReturnStatement > BinaryExpression(#x in o)` ?）；
+顺带核对 `print-ast-common` 里查表用的是 `textOfNode`（读的是**投影后节点**的 `value`/`range` ?，
+不是 `WordOf` ?）——**这一处也该换成按词取文本** ?（`WordOf` 的口径 ?，第 500 轮那条纪律 ?）。
