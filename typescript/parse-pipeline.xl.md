@@ -746,6 +746,10 @@ Statement.FormFrom(unit, terminator);
 - **成员那一簇照队列次序接上** ✓（第 490 轮 ✓）：`Decorator`(1) → `Function`(2) → `Signature`(3)
   → `MethodDeclaration`(4) → `Label`(5) → `Field`(7) ✓；实测这一簇（连 `Decorator` ✓）
   把读数从 221 推到 **290 / 1037** ✓。
+- **下游那一簇接在 `Field` 之后** ✓（第 491 轮 ✓）：`New`(8) → `Method`(9) →
+  `NullConditionalOperator`(10) → `Namespace`(11) → `TypeLiteral`(12) → `Block`(13) →
+  `JsonObject`(14) → `TypeBracket`(15) ✓ —— 两次量的账：`New`/`Method`/`NullConditional`/`Namespace`
+  值 290 → **327** ✓，再加字面量与类型括号那四条值 → **349 / 1037** ✓。
 
 **每条规则还是它自己那一份实现** ✓：`XxxReorganization.Instance.ApplyTo(unit)` ✓
 （那个循环只有一份 ✓，见 `core/syntax/reorganization.xl.md` ✓）——
@@ -758,6 +762,14 @@ SignatureReorganization.Instance.ApplyTo(unit);
 MethodDeclarationReorganization.Instance.ApplyTo(unit);
 LabelReorganization.Instance.ApplyTo(unit);
 FieldReorganization.Instance.ApplyTo(unit);
+NewReorganization.Instance.ApplyTo(unit);
+MethodReorganization.Instance.ApplyTo(unit);
+NullConditionalOperatorReorganization.Instance.ApplyTo(unit);
+NamespaceReorganization.Instance.ApplyTo(unit);
+TypeLiteralReorganization.Instance.ApplyTo(unit);
+BlockReorganization.Instance.ApplyTo(unit);
+JsonObjectReorganization.Instance.ApplyTo(unit);
+TypeBracketReorganization.Instance.ApplyTo(unit);
 ParameterReorganization.Instance.ApplyTo(unit);
 TypeAssignReorganization.Instance.ApplyTo(unit);
 TypeDefineReorganization.Instance.ApplyTo(unit);
