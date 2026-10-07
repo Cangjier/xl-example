@@ -3939,3 +3939,90 @@ Identifier(x)]` ✓）上**又跑了一遍通用队列** ✓ —— 那一刻这
 没有自己的壳」✓（`stmt-while-no-block.ts` / `stmt-do-while-no-block.ts` /
 `stmt-object-vs-block.ts` / `am-object-vs-block.ts` / `stmt-asi-return-newline.ts` /
 `stmt-eof-no-trailing-newline-call.ts` ✓）—— 面比这一轮更窄 ✓，下一轮从它入手 ✓。
+## 一百四十七、容器**末尾那一条语句从来没有壳**（第 544 轮）：896 → **909 / 1037**
+
+起点 **896 / 1037** ✓（缺 845 / 漂 71 / 多 265 / 字段名 44 ✓）。按上一节留的入口打 `1/0/0/0` ✓，
+先写了一把**只按 TS 那一侧算**的量尺 ✓（`tmp/recon/r544-scan.cjs` ✓）：
+「语句的右端跳过空白之后**不是 `;`、不是软换行**，而是 `}` 或文件结尾」✓ ——
+语料 **26 份**带这个形状 ✓，其中**不绿的是 15 份** ✓（比签名表里那六份大得多 ✓，
+`1/0/1/0` 那一档五份**全在**这 15 份里 ✓）。
+
+### 一、现场（一个形状，两种表现）
+
+```
+expr-iife-function.ts   MISS ReturnStatement  TS[102,110)  "return 1"
+                        EXTRA Identifier       [102,108)  "return"
+type-predicate.ts       MISS ReturnStatement  TS[161,172)  "return true"
+                        EXTRA Identifier       [161,167)  "return"
+stmt-asi-postfix-then-continue.ts
+                        MISS ContinueStatement TS[114,122)  "continue"
+                        EXTRA Identifier        [114,122)  "continue"
+```
+
+XML 那一侧看得很清楚 ✓：`for (;;) { x++` 换行 `continue }` 的产物是
+`ForBody > [Statement(x++), Keyword(continue)]` ✓ —— **`continue` 已经是 `Keyword`** ✓、
+可它**没有壳** ✗；`function f() { return 1 }` 的产物是 `FunctionBody > [Keyword(return), Identifier(1)]` ✓
+同款 ✗。壳一缺 ✓，投影那条「关键字开头的语句」就认不出来 ✗ ⇒ 关键字按普通单元投 ✗
+⇒ 「缺一条 `ReturnStatement` / `ContinueStatement`、多一个同名 `Identifier`」成对出现 ✓。
+
+### 二、真因：解析期造壳**只有两档**
+
+- `\n` 那一档：`StatementBranch` ✓（`Condition` 里 `value !== "\n"` 直接返回 ✓）；
+- `;` 那一档：`Token.FormStatement` → `Statement.FormFrom` ✓（判据里 `IsStatementSymbol` ✓）。
+
+**语句内容直接顶到容器的末尾**时两档都不响 ✗ —— 这一形状**既没有换行、也没有分号** ✓
+（`{ return 1 }`、`f()\ng()` 的末行、`for (;;) { x++` 换行 `continue }` ✓）。
+`statement.xl.md` 里那句老账写的就是这件事 ✓：「`}` 那一档 `IsStatementSymbol` 答否 ✓ ⇒ 从来不走 ✓」——
+第 531 轮补的是「壳造完**要关一次**」✓，可**壳本身**在这一档从来没被造出来 ✗，这一轮补的是它 ✓。
+
+### 三、修法
+
+1. **新增 `Statement.FormTail(unit)`** ✓（`statement.xl.md` ✓）：判据与切片复用 `FormFrom` 那一套 ✓
+   （`IsStatementBoundary` / `FirstMeaningful` / `ReplaceCountAt` ✓），两点不同 ✗：
+   - **没有终结符** ✓：`children` 是「最后一个语句边界之后到列表末尾」的全部单元 ✓、
+     一个都不切 ✗；区间右端取**最后一格内容**的末尾 ✓；
+   - **只有语句列表容器才收** ✓（白名单 ✓：`Root` / `FunctionBody` / `MethodBody` / `LamdaBody` /
+     `ForBody` / `ForeachBody` / `WhileBody` / `IfStatement` / `IfBody` / `TryBody` / `CatchBody` /
+     `FinallyBody` / `NamespaceBody` / `StaticBlock` ✓ —— 就是 `InitialStatementReorganizationQueue`
+     的调用点那一份名单 ✓）。**不设白名单会自激** ✗：`Statement` 自己也有队列 ✓ ⇒
+     `Statement` 里再套一个 `Statement` ✓（收敛环里一层层套下去 ✗）。
+   - **单格早退** ✓（末尾那一格本身是语句级单元 ⇒ 什么都不做 ✓，与 `StatementReorganization3`
+     里那一格同款 ✓）—— 函数 / 类**表达式**也在这条里被挡住 ✓。
+   - 造完照 `FormFrom` 那样 `TryToClose()` ✓（**这一句才是把 `return` 升成 `Keyword` 的那一步** ✓）。
+2. **`RunCloseRules` 末尾加一句** ✓（`parse-pipeline.xl.md` ✓）：排在最后 ✓ ——
+   前面那几十条规则先把表达式收拢 ✓，壳里装的就是收拢后的形状 ✓。
+
+**为什么直接复用 `StatementReorganization3` 不行** ✗：它的 `Process` 是「把 `children` 除最后一格
+全部装进壳」✓（那一格的触发者是 `;` / 软换行本身 ✓，本该留在壳外 ✓）；
+放到关闭前那一趟上，最后一格是**真内容** ✓ ⇒ 会被丢掉 ✗。
+
+### 四、读数
+
+| 项 | 第 543 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 896 | **909 / 1037** ✓（+13 ✓） |
+| 缺节点 | 845（94 类） | **815**（91 类）✓（−30 ✓） |
+| 多出来的节点 | 265（44 类） | **241**（44 类）✓（−24 ✓） |
+| 区间漂移 | 71（18 类） | **68**（18 类）✓（−3 ✓） |
+| 字段名不符 | 44 | **44** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24331 | **24415** ✓（+84：新造的壳 ✓） |
+
+逐文件前后名单做差 ✓：**变绿 13 份、变红 0 份** ✓ —— 除上面那三种形状 ✓，
+还有 `expr-func-expr-generator.ts` / `expr-object-generator-method.ts` /
+`expr-object-accessors.ts` / `mod-declare-module-pair.ts` /
+`stmt-eof-no-trailing-newline-let.ts` / `stmt-asi-return-newline.ts` ✓。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`samples` 仍红 ✗（两处差分与 HEAD **逐字相同** ✓）；
+**两道运行时门又涨了** ✓：`runtime:check` **191 → 194 / 242** ✓（+3 ✓，HEAD 基线 188 ✓）、
+`runtime:cli` **28 → 30 / 79** ✓（+2 ✓，HEAD 基线 24 ✓）—— 与上一轮同一个道理 ✓：
+「没有壳」在运行时那一侧同样是错的 ✓。
+
+### 五、下一块：**标签那一族**
+
+`1/0/0/0` 剩下的两份（`stmt-object-vs-block.ts` / `am-object-vs-block.ts` ✓）是
+「`a: 1` 里的 `1` 没有壳」✓ —— 它的容器是**已经成形的 `Statement`** ✓，
+不在这一轮的白名单里 ✓（白名单里收了它就会自激 ✗）。
+同一族的还有 `st-label-block.ts` / `stmt-label-block.ts` / `stmt-label-statement.ts` ✓
+（尺子报的都是「缺 `LabeledStatement` + 多一个 `ExpressionStatement`」✓）——
+**下一轮从 `label.xl.md` 的体那一格入手** ✓。

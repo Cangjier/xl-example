@@ -906,4 +906,8 @@ LogicalOperatorReorganization.OrInstance.ApplyTo(unit);
 SpreadReorganization.Instance.ApplyTo(unit);
 BinaryOperatorReorganization.CommaInstance.ApplyTo(unit);
 KeywordReorganization.Instance.ApplyTo(unit);
+// **容器末尾那一条语句**（第 544 轮 ✓）：`\n` 与 `;` 两档都不响时（内容直接顶到 `}` / EOF ✓）
+// 由这一句补壳 ✓ —— 判据、白名单、切片都在 `Statement.FormTail` 那一份实现里 ✓
+//（排在最后 ✓：前面那几十条规则先把表达式收拢 ✓，壳里装的就是收拢后的形状 ✓）。
+Statement.FormTail(unit);
 ```

@@ -430,6 +430,90 @@ ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
 statement.TryToClose();
 ```
 
+## static method FormTail:(unit:Token)=>void
+
+**容器关闭时**把末尾那段还没成壳的内容收成一条语句（第 544 轮）。
+
+**为什么需要它** ✗：解析期造语句壳的入口只有两个 ✓ —— `\n` 那一档（`StatementBranch` ✓）
+与 `;` 那一档（`FormFrom` ✓）。**语句的内容直接顶到容器的末尾**（`}` 或 EOF ✓）时两档都不响 ✗
+⇒ 那条语句**从来没有壳** ✗ ⇒ 它也就**从来没跑过关闭前那一趟** ✗ ⇒
+里面的 `return` / `continue` 留在 `Identifier` 上 ✓ ⇒ 投影投出「`EXTRA Identifier(return)`
++ `MISS ReturnStatement`」✓（实测 15 份不绿的文件带这个形状 ✓，其中
+`expr-iife-function.ts` / `expr-func-expr-named.ts` / `expr-object-accessors.ts` /
+`stmt-asi-postfix-then-continue.ts` / `type-predicate.ts` 五份都是「缺一个
+`ReturnStatement` / `ContinueStatement`，多一个同名 `Identifier`」✓）。
+
+**与 `FormFrom` 的两点不同**：
+
+1. **没有终结符** ✓：`children` 是「最后一个语句边界之后一直到列表末尾」的**全部**单元 ✓、
+   一个都不切掉 ✗（`FormFrom` 要切掉末尾那个 `;` ✓）；区间右端就取**最后一格内容**的末尾 ✓
+   （`;} ` 那一档的右端由 `;` 给 ✓，这里由内容自己给 ✓）；
+2. **只有语句列表容器才收** ✓（白名单 ✓）：这条跑在每个单元的关闭前那一趟里 ✓，
+   不设白名单的话 `Statement` 自己、类型单元、对象字面量都会收出**嵌套壳** ✗
+   （`Statement` 里再套一个 `Statement` ✓ —— 那是收敛环里的自激 ✗）。
+   白名单就是「构造器里装了语句队列的那些容器」✓（`InitialStatementReorganizationQueue`
+   的调用点 ✓，见 `parse-pipeline.xl.md` ✓）。
+
+**单格早退**：末尾那一格**本身**已经是语句级单元时什么都不做 ✓（`IsStatementUnit` ✓，
+与 `StatementReorganization3` 里那一格同款 ✓）——函数 / 类**表达式**也在这条里被挡住 ✓
+（它们在非声明位置不是语句边界 ✓，但也不是「要包进壳里的尾巴」✗）。
+
+```ts
+if (unit === null || unit === undefined) {
+  return;
+}
+const owner = unit.constructor.name;
+const isStatementList =
+  owner === "Root" ||
+  owner === "FunctionBody" ||
+  owner === "MethodBody" ||
+  owner === "LamdaBody" ||
+  owner === "ForBody" ||
+  owner === "ForeachBody" ||
+  owner === "WhileBody" ||
+  owner === "IfStatement" ||
+  owner === "IfBody" ||
+  owner === "TryBody" ||
+  owner === "CatchBody" ||
+  owner === "FinallyBody" ||
+  owner === "NamespaceBody" ||
+  owner === "StaticBlock";
+if (isStatementList === false) {
+  return;
+}
+const data = unit.Data;
+if (Array.isArray(data) === false || data.length === 0) {
+  return;
+}
+const index = data.length - 1;
+if (Statement.IsStatementBoundary(data, index)) {
+  return;
+}
+const frontIndex = SearchFrontIndexed(data, index, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
+const children = data.slice(frontIndex + 1);
+if (children.length === 0) {
+  return;
+}
+if (children.length === 1 && Statement.IsStatementUnit(children[0])) {
+  return;
+}
+const first = Statement.FirstMeaningful(children);
+const last = children[children.length - 1];
+if (first.SourceRange.Start === null || last.SourceRange.End === null) {
+  return;
+}
+const statement = new Statement(unit.Template);
+statement.Parent = unit;
+statement.AddRange(children);
+statement.SourceRange.Start = first.SourceRange.Start;
+statement.SourceRange.End = last.SourceRange.End;
+ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
+// **造完就关一次** ✓：与 `FormFrom` 末尾那一句同一个理由 ✓ ——
+// 壳里的 `return` / `continue` / `throw` 那些词要升成 `Keyword` ✓，
+// 投影侧「关键字开头的语句」那一支才认得 ✓（这一句正是这一轮要修的那半 ✗）。
+statement.TryToClose();
+```
+
 ## static method IsStatementUnit:(item:Token)=>bool
 
 这个单元本身是不是一个「语句级」结构。
