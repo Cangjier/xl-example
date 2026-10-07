@@ -608,7 +608,55 @@ DBG wrap=2 len=5 boundary=true  units=…|Identifier@97|SymbolToken@98      ← 
 所以要么让「成员」是一个**容器类**（标签由子单元决定 ✗ 会多一层节点 ✗），
 要么把「谁开成员」交给体、把「什么种类」交给**判别符**（也就是本文档一直在走的路 ✗）。
 
-## 三十八、每步都要钉住的三件事
+## 三十九、整张成员表的**参考形状**（第 442 轮量出来的，做的时候照这个产出）
+
+`interface I { a: number; m(): void; m2<T>(x: T): T; get g(): number; set g(v: number);
+(x: number): string; new (): I; [k: string]: any }` 在当前（全绿）产物里的形状：
+
+```xml
+<Field name="a" modifiers=""><TypeDefine>…</TypeDefine></Field>
+
+<MethodDeclaration name="m" modifiers="">
+  <Bracket startBracket="(" endBracket=")"></Bracket>
+  <ReturnType><TypeDefine><Keyword>void</Keyword></TypeDefine></ReturnType>
+</MethodDeclaration>
+
+<MethodDeclaration name="m2" modifiers="">
+  <GenericType …><TypeParameter>…</TypeParameter></GenericType>     ← 类型参数段**是**子单元
+  <Bracket …><Parameter>…</Parameter></Bracket>
+  <ReturnType>…</ReturnType>
+</MethodDeclaration>
+
+<MethodDeclaration name="g" modifiers="get">…</MethodDeclaration>   ← 取值器：`get` 折进 modifiers
+<MethodDeclaration name="g" modifiers="set">…</MethodDeclaration>   ← 设值器同理
+
+<Signature kind="call">
+  <Bracket …><Parameter>…</Parameter></Bracket>
+  <ReturnType>…</ReturnType>
+</Signature>
+
+<Signature kind="construct">
+  <New>
+    <NewType><Bracket …></Bracket><ReturnType>…</ReturnType></NewType>   ← 注意这个形状很怪
+    <NewArguments></NewArguments>
+  </New>
+</Signature>
+```
+
+**三条要照着做的口径**：
+
+1. **名字不进 `Data`**（四种都一样 ✓：`name="m"` 是属性 ✓，产物里没有 `<Identifier>m</Identifier>` 子单元 ✓）；
+2. **类型参数段要留成子单元**（`m2<T>` 的 `<GenericType>` 在成员里 ✓）——名字与 `(` 之间有它时，
+   「名字在最后一格」这个判据要先跨过它 ✓（第 438 轮踩过 ✗）；
+3. **构造签名的形状是 `<Signature kind="construct">` 里套 `<New>` / `<NewType>` / `<NewArguments>`** ✗
+   ——它不是「`Signature` 里直接一个括号」✗，做的时候必须照抄这个形状，
+   否则那 171 处会整类漂移 ✗（`New` / `NewType` / `NewArguments` 三个单元都得造出来 ✗）。
+
+**下标的顺序也要照抄**（这是重组当前的产出顺序 ✓，改了会整类漂移 ✗）：
+`Field` / `MethodDeclaration` / `Signature` 都是**按成员顺序**直接挂在 `InterfaceBody` 下 ✓，
+没有 `Statement` 那层 ✓（与枚举那一支一致 ✓）。
+
+## 四十、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
