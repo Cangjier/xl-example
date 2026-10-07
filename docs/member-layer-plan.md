@@ -178,7 +178,22 @@
 或 `MethodDeclaration`（`(`，接口 8432 + 类 3202 处）。两者都要改大文件（29KB / 41KB），
 所以这一步就是「机制 + 第一个成员种类」一起落地的那一格，**不能只立机制**（会成死代码）。
 
-## 十一、每步都要钉住的三件事
+## 十二、`Field` 那一格的落点（第 426 轮取出来的，下一轮照着改即可）
+
+`typescript/tokens/field.xl.md` 需要动的只有三处（已定位到行）：
+
+| 位置 | 现在 | 改成 |
+| --- | --- | --- |
+| 第 479 行 | `# class Field extends IndependentToken` | `# class Field extends ClassMember`（导入换成 `class-member.xl.md`） |
+| 第 555 行 `## constructor` | `super(template); this.ReorganizationQueue = …Get(this.constructor);` | 保留这一句（**内容仍走自己的队列**：`: T` 要凑成 `TypeDefine`、`= (a) => b` 要凑成 `Lamda`），再加成员列表跳转队列 |
+| 第 612 行 `## method Clone` | 抄 `fieldName` / `modifiers` | 不变（那两个字段这一轮不动） |
+
+`Field` 现有的两个声明字段 `fieldName` / `modifiers` 是**裸字符串**——按用户口径（meta 用
+`TokenField<T>` 表达、不進 `Data`）它们该换成 `TokenField<string>`，但**这一步不在本轮**：
+它们现在由 `FieldReorganization` 写入，换成 `TokenField` 会连带改那条规则（机械、但会摊开改动面）。
+先把成员边界搬过来，字段的形状另开一轮。
+
+## 十三、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
