@@ -1555,3 +1555,75 @@ reorg 已按用户指示**默认关掉**（`DSH_XL_REORG=1` 才恢复对照态 �
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
 - **`Data` 与字段的分工**（用户口径）：能被字段完整表达的进字段、带子树的留 `Data`；
   成员这一层暂时没有 meta 字段，先不动这条。
+
+## 一百〇二、语句壳的三条硬约束（第 481–485 轮）：位置、时机、切片
+
+`StatementBranch` 从第 477 轮起就在树上，可它是**一支永远轮不到的分支** ✗ ——
+这一轮用「逐字符 dispatch 追踪」把它量穿了 ✓。**三个约束互相挤压**，
+只有一个位置同时满足 ✓；而那个位置的**切片口径**与它原本抄的重组那条**正好相反** ✗。
+
+**工具**（都在 `tmp/recon/` ✓，下一次直接用 ✓）：
+
+| 脚本 | 作用 |
+| --- | --- |
+| `dbg-idx.cjs` | 给 `UnitToken.Process` 的派发循环装显式下标 ✓，打出「哪个字符问到了第几支」✓ |
+| `dbg-loop.cjs` / `dbg-iter.cjs` | 循环进出 / 每支一次 ✓ |
+| `dbg-sb*.cjs` | `StatementBranch` 的 `Condition` 各出口 + `Success` 进门 ✓ |
+| `dbg-rf.cjs` / `dbg-ff*.cjs` | `Root.FormStatement` / `Statement.FormFrom` 的进门与各早退 ✓ |
+| `cap.cjs` / `proj.cjs` / `dump.cjs` / `keys.cjs` | 落盘 stderr（**PowerShell 会把 stderr 包成错误对象 ✗**）、打印投影树、XML、两边 key 对拍 ✓ |
+
+**约束一：派发循环遇到第一个 `Done` 就 `return`** ✗（`unit-token.xl.md` 的 `Process` ✓）。
+于是排在 `SymbolBranch` / `WrapSymbolBranch` 之后的任何一格**一次都不会被问到** ✗ ——
+实测 `;` 与软换行**各有一个 appender** ✓（`IDX val=[;] i=15/17 br=SymbolBranch` 紧跟
+`DONE i=15` ✓；软换行在 `i=12 br=WrapSymbolBranch` ✓），两支都把下标截在那里 ✓。
+⇒ 「排在 appender 之后」这条路**根本不通** ✗（第 478 / 480 / 481c 三次都撞在这上面 ✓）。
+
+**约束二：`;` 进 `Data` 的时机在 appender 里** ✓。排在 appender 之前虽然轮得到 ✓，
+可那一刻 `data[data.length - 1]` 是**分号左边那一格** ✓ ⇒「`;` 进来了吗」这类判据
+**永远问不出答案** ✗（实测 `SBX#6 v=";" len=3 types=Let,SymbolToken,Identifier` ✓）。
+软换行更极端：它**不进 `Data`** ✗（透明单元 ✓），所以那一档只能靠「它左边那一格」问 ✓。
+
+**约束三：切片口径与重组那条相反** ✗。重组（`StatementReorganization`）跑在 append
+**之后** ✓，所以它写「children **除最后一个**装进语句」✓（最后那个就是 `;` ✓）；
+而在 appender **之前**收壳时 `;` 本就不在 `data` 里 ✓ ⇒ 切片**不能**再除最后一个 ✗
+（实测照抄重组那一句，`let a = 1;` 只剩 `Let, =` ✓ —— 最后一个内容单元被丢掉 ✓）。
+
+**⇒ 唯一同时满足三条的位置** ✓：**在 `;` / 软换行各自的 appender 里、紧跟 append 之后** ✓。
+于是收壳那一趟必须由 appender 发起 ✓，而它**不能 import `Statement`** ✗
+（`symbol-token.xl.md` / `line-wrap.xl.md` 都不能 ✓，会绕出循环依赖 ✓）——
+做法是在基类 `Token` 上加一个空钩子 `FormStatement(terminator)` ✓，
+由 `Root` 覆写成 `Statement.FormFrom(this, terminator)` ✓。
+**一处实现、两个调用点** ✓，判据 / 切片 / 区间 / 替换四处只有一份 ✓。
+
+**进门判据（四条，全部实测）** ✓：`;` 进 `Data` 之后，「最后一个内容单元」是
+`data[index - 1]` ✓；软换行不进 `Data` ✓ ⇒ 它自己就是最后那个内容单元 ✓。
+两边统一成一句：**正面问「终结符落进来之后算不算语句内部」** ✓ ——
+`Statement.IsInStatement(data, index - 1)` ✓。这一句同时管住「上一条刚收完」与
+「防御性分号」✓。**三版判据被实测逐个打回** ✗：
+`data.length - 2` 那一次问到了 `SymbolToken(:=)` ✓（它在 `IsInStatement` 眼里是
+「非语句符号」✓ ⇒ 永远答 `false` ✗）；「最后一个单元是 `;` 就不收」那一次把**正常收尾**
+也挡了 ✗；「倒数第二个单元是 `;`」那一次拿内容单元去比 `;` ✓，永远比不中 ✗。
+
+**这一轮的结果（诚实记一笔）** ✗：钩子接上之后，**读数从 77 → 22** ✗，
+所以**没有留在树上** ✓（源已回到 77 那一版 ✓）。根因**还没定位到** ✓ ——
+下一个动作是给 `Statement.FormFrom` 的四条判据逐条打点 ✓（`tmp/recon/dbg-ff*.cjs` 已备好 ✓），
+看它为什么把 55 个文件弄坏 ✓。**注意**：关掉钩子、只留 `StatementBranch` 那条路时读数是
+29 ✗（不是 77 ✗）⇒ 说明**壳的两次形成互不覆盖**：`StatementBranch` 那一趟在
+appender **之前** ✓，它按旧口径「除最后一个」切片 ✗ ⇒ 内容单元被丢 ✓。
+⇒ 正确的落地顺序是**先换切片口径、再接钩子** ✓（两步各自量一次 ✓），
+不要一次改两处 ✓（这一轮就是把两件事一起改了，定位成本翻倍 ✗）。
+
+**另外两笔账（都在这一轮量清）** ✓：
+
+1. **`xl build` 按指纹跳过重建** ✗（`docs/member-layer-plan.md` 第二十七节早记过 ✓）：
+   手改 `.xl.md` 之后必须 `force: true` 重建 ✓，并且**核对 `dist/ts/...` 里那一行确实变了** ✓。
+   这一轮前 80 分钟的全部读数都来自**陈旧的 `dist`** ✗，包括那个 65/1037 ✓。
+   另外：**`xl build` 不带 `paths` 会把 `tmp/` 下几百个旧实验 `.xl.md` 一起扫进去** ✗
+   （1485 个 error ✓）⇒ 一律显式给 `paths` ✓（`core` / `typescript` / `runtime` /
+   `typescript-exec` / `cjcli.xl.md` / `tsrun.xl.md` ✓）。
+2. **`Let` 的投影只能有一条路** ✗：`Let` 既被语句壳那一趟投 ✓、又被 `projectNode` 问自己
+   （`WithRangeOf` 记下的产主 ✓）⇒ 同一格投两遍 ✗，第二遍手里**只有 `Kids`** ✓，
+   字段形态下它是**空的** ✗ ⇒ 投出一个空的 `VariableDeclarationList` ✓，
+   而 `=` 与初始值作为顶层兄弟各投一个节点 ✗（实测 `vars-basic.ts` ✓）。
+   修法是 `Let.PrintAst` 里一句：**没有子单元 ⇒ 返回 `ctx.Nothing`** ✓（解构形态有模式括号 ✓，
+   本来就不走语句壳那一趟 ✓）。这一条与语句壳无关 ✓，独立生效 ✓。
