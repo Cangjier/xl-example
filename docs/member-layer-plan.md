@@ -677,7 +677,40 @@ DBG wrap=2 len=5 boundary=true  units=…|Identifier@97|SymbolToken@98      ← 
 `tmp/recon/debug-branch.cjs` 已写好，只是那一行引用了尚未声明的 `start` ✗ ——
 下次把 `start` 挪到日志之前，或日志里不打它 ✓）。
 
-## 四十二、每步都要钉住的三件事
+## 四十三、入口为什么认错（第 444 轮）：`(` 往往**已经不是字符了**
+
+这一轮把入口日志打出来，终于看清了「`Condition` 命中率低」的真正原因 ✗：
+
+**给 `m(): void` 那类方法，解析期根本等不到 `(` 这个字符** ✗ ——
+那个 `(` 早被**体**的 `Bracket.JumpIn` 吃成了一个**括号单元** ✓，
+于是「以 `(` 字符为判别符」的入口**一次也不会被叫到** ✗（实测日志：`COND` 第一次被叫到时，
+`m` 的东西已经是裸单元 `Identifier|Bracket|SymbolToken|Identifier` ✗，
+整条方法最后被重组收成了 `<Statement><Method name="m">` ✗）。
+
+**修正**：入口同时认 **`(` 字符** 与 **`:` / `;`** ✓ —— 后两者到达时括号已经**关好**，
+可以连它一起整块搬进成员 ✓（与字段那一支认 `:` 是同一个道理 ✓）。
+名字那一格的判据也要**反复跨过**「括号单元」与「类型参数段」✓。
+
+**顺着这条线一次改到底的四处**（都在本轮实测过）：
+
+1. 入口字符：`(` 或 `:` 或 `;` ✓；
+2. 名字那一格：`while` 跨过 `Bracket` / `GenericType`（各最多 3 跳）✓；
+3. 成员头的坐标：锚在**第一个实义单元**上 ✓（照字段那一支；不锚的话产物里
+   `MethodSignature` 给 `[25,54)`、文本为空 ✗）；
+4. `IsMemberBoundary` 与 `ClassMember.FollowedByParen` 的探测循环都要**跨过类型参数段** ✓，
+   `IsMemberBoundary` 的跟随判据还要认「`(` 已经是**括号单元**」这一支 ✓
+   （它是按符号写的 ✗，实测 `m(): void` 换行 `m2<T>(x: T): T` 时 `m` 永不收尾 ✗）。
+
+**读数**（每一处都实测）：`1012 / 1037`（缺 25 / 漂移 5 / 多 18 / 字段名 27）✗ ——
+**仍低于字段版的 1037** ✗，故按规则回滚。**剩下的是 `ReturnType` 的成形** ✗：
+产物里 `m()` 有 `<TypeDefine>` 但没有 `<ReturnType>` 包着 ✓ ⇒ 投影报
+`MethodSignature 产物[name,parameters,typeParameters] vs TS[name,parameters,type,typeParameters]` ✗
+（`get x()` 同理：`GetAccessor` 缺 `type` ✗）。
+⇒ **下一次从「`ReturnType` 由谁成形」入手**（`MethodDeclarationReorganization.Process` 里那条，
+看它对**已经是成员单元**的 `Data` 还跑不跑 ✗），加上 `Signature` 那一族（call / construct / index）✗，
+这条线就能收口 ✓。
+
+## 四十四、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
