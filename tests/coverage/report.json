@@ -38,27 +38,27 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 79.5,
+  "progressPercent": 80.44,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 392,
-      "blocked": 47,
-      "differ": 63,
+      "pass": 401,
+      "blocked": 48,
+      "differ": 53,
       "nodefail": 0,
-      "coverage": 78.09
+      "coverage": 79.88
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 356,
+      "pass": 361,
       "blocked": 23,
-      "differ": 32,
+      "differ": 27,
       "nodefail": 0,
-      "coverage": 86.62
+      "coverage": 87.83
     },
     {
       "layer": "stdlib",
@@ -74,14 +74,20 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 110,
-      "blocked": 39,
+      "pass": 111,
+      "blocked": 38,
       "differ": 17,
       "nodefail": 0,
-      "coverage": 66.27
+      "coverage": 66.87
     }
   ],
   "blocked": [
+    {
+      "id": "ctl-switch-fallthrough-count",
+      "layer": "runtime",
+      "title": "经典的 switch 计数（不带 break 的累加）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: case"
+    },
     {
       "id": "ctl-forof-custom-iterable",
       "layer": "runtime",
@@ -605,12 +611,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "e2e-state-machine",
-      "layer": "e2e",
-      "title": "状态机：对象表 + switch + 方法分发",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is StringLiteral at 152..158)"
-    },
-    {
       "id": "e2e-linked-list",
       "layer": "e2e",
       "title": "链表 + 自定义迭代协议 + 与数组互转",
@@ -895,18 +895,6 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
     },
     {
-      "id": "ctl-switch",
-      "layer": "runtime",
-      "title": "switch：贯穿、default 在中间、块级声明",
-      "detail": "stdout 不同：第 1 行：node «ab b c d» vs tsrun «   »"
-    },
-    {
-      "id": "ctl-switch-fallthrough-count",
-      "layer": "runtime",
-      "title": "经典的 switch 计数（不带 break 的累加）",
-      "detail": "stdout 不同：第 1 行：node «31 28 30 31» vs tsrun «undefined undefined undefined undefined»"
-    },
-    {
       "id": "ctl-forof-array",
       "layer": "runtime",
       "title": "`for..of`：数组、字符串、以及中途 break",
@@ -949,12 +937,6 @@
       "detail": "stdout 不同：第 1 行：node «200 0123456789 789 9» vs tsrun «200 0123456789 34567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 9»"
     },
     {
-      "id": "rt-switch-string-fallthrough",
-      "layer": "runtime",
-      "title": "switch 落在字符串上：贯穿与 default 在中间",
-      "detail": "stdout 不同：第 1 行：node «ab ab c+d +d» vs tsrun «   »"
-    },
-    {
       "id": "rt-multi-return-object",
       "layer": "runtime",
       "title": "用一个对象返回多个值（含解构那一半）",
@@ -965,24 +947,6 @@
       "layer": "runtime",
       "title": "while 里的 continue 要走到步进那一句（否则死循环）",
       "detail": "stdout 不同：第 1 行：node «1,3,5 6» vs tsrun « 6»"
-    },
-    {
-      "id": "rt-switch-default-first",
-      "layer": "runtime",
-      "title": "default 写在最前面：仍然从匹配的 case 进、顺序走到底",
-      "detail": "stdout 不同：第 1 行：node «one two d» vs tsrun «undefined undefined undefined»"
-    },
-    {
-      "id": "rt-switch-strict-compare",
-      "layer": "runtime",
-      "title": "switch 用的是 ===（字符串与数字不相等）",
-      "detail": "stdout 不同：第 1 行：node «num str other» vs tsrun «undefined undefined undefined»"
-    },
-    {
-      "id": "rt-switch-scoped-declaration",
-      "layer": "runtime",
-      "title": "switch 体里花括号声明与 break 的配合",
-      "detail": "stdout 不同：第 1 行：node «one two many» vs tsrun «two two many»"
     },
     {
       "id": "rt-unary-conversions",
@@ -1007,12 +971,6 @@
       "layer": "runtime",
       "title": "JSON 往返：嵌套结构、特殊字符、数字形状",
       "detail": "stdout 不同：第 2 行：node «true true false true» vs tsrun «true true true true»"
-    },
-    {
-      "id": "rt-switch-scoped-case-block",
-      "layer": "runtime",
-      "title": "switch 的 case 里开一个块：作用域不串",
-      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «other other other»"
     },
     {
       "id": "rt-nested-ternary-chain",
@@ -1051,22 +1009,10 @@
       "detail": "stdout 不同：第 1 行：node «8 512 4 0.5» vs tsrun «8 512 4 2»"
     },
     {
-      "id": "c304-rt-switch-true-pattern",
-      "layer": "runtime",
-      "title": "`switch (true)` 的分支写法",
-      "detail": "stdout 不同：第 1 行：node «A B C F» vs tsrun «undefined undefined undefined undefined»"
-    },
-    {
       "id": "c304-rt-call-apply-bind-forms",
       "layer": "runtime",
       "title": "call / apply / bind 三种调用形态",
       "detail": "stdout 不同：第 1 行：node «13 17» vs tsrun «3[object Object] 7[object Object]»"
-    },
-    {
-      "id": "c305-rt-switch-case-block-scope",
-      "layer": "runtime",
-      "title": "`switch` 每个 case 各自一对花括号（同名 const 不冲突）",
-      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «undefined undefined undefined»"
     },
     {
       "id": "c305-rt-exponent-right-assoc",
@@ -1189,12 +1135,6 @@
       "detail": "stdout 不同：第 5 行：node «1 no2 1» vs tsrun «1 undefined 1»"
     },
     {
-      "id": "c371-rt-switch-and-jump-forms",
-      "layer": "runtime",
-      "title": "switch 的严格相等、贯穿、与表达式求值次数",
-      "detail": "stdout 不同：第 1 行：node «string-1 number-1 true null undefined other» vs tsrun «undefined undefined undefined undefined undefined undefined»"
-    },
-    {
       "id": "c371-rt-class-static-and-instance-isolation",
       "layer": "runtime",
       "title": "静态与实例成员的隔离，静态块里的 this",
@@ -1231,22 +1171,10 @@
       "detail": "stdout 不同：第 1 行：node «zero small big neg» vs tsrun «zero small big small»"
     },
     {
-      "id": "ex-label-on-switch",
-      "layer": "exec",
-      "title": "标签挂在 switch / 循环上",
-      "detail": "stdout 不同：第 1 行：node «0-» vs tsrun «---»"
-    },
-    {
       "id": "ex-try-finally-return",
       "layer": "exec",
       "title": "`finally` 里的 return / break / continue",
       "detail": "stdout 不同：第 4 行：node «body 1» vs tsrun «f 1»"
-    },
-    {
-      "id": "ex-enum-in-switch",
-      "layer": "exec",
-      "title": "enum 当 switch 的分派键（**函数体里**用枚举名）",
-      "detail": "stdout 不同：第 1 行：node «1 2 3 b» vs tsrun «undefined undefined undefined b»"
     },
     {
       "id": "ex-string-raw-and-tagged",
@@ -1259,12 +1187,6 @@
       "layer": "exec",
       "title": "for..of 走字符串（按码点）与带标签的循环退出",
       "detail": "stdout 不同：第 2 行：node «1 3» vs tsrun «»"
-    },
-    {
-      "id": "ex-switch-with-union-types",
-      "layer": "exec",
-      "title": "switch 上判别联合类型的几个成员：类型位不影响运行",
-      "detail": "stdout 不同：第 1 行：node «12 9» vs tsrun «undefined undefined»"
     },
     {
       "id": "c291-ex-parameter-properties-variants",
@@ -1375,22 +1297,10 @@
       "detail": "stdout 不同：第 1 行：node «1 2 Named bc true» vs tsrun «1 2 Named bc false»"
     },
     {
-      "id": "c371-ex-switch-with-types-and-blocks",
-      "layer": "exec",
-      "title": "switch 里的类型标注、块作用域与贯穿",
-      "detail": "stdout 不同：第 1 行：node «5 95 100» vs tsrun «95 95 100»"
-    },
-    {
       "id": "c371-ex-as-precedence-with-operators",
       "layer": "exec",
       "title": "as 与算术 / 一元 / 成员运算的优先级",
       "detail": "stdout 不同：第 2 行：node «-3 false number» vs tsrun «3 false number»"
-    },
-    {
-      "id": "c371-ex-exhaustive-switch-never-default",
-      "layer": "exec",
-      "title": "穷尽性检查（default 里给 never）与运行期无关",
-      "detail": "stdout 不同：第 1 行：node «A B c» vs tsrun «undefined undefined undefined»"
     },
     {
       "id": "c373-ex-compound-assign-precedence",
@@ -2118,14 +2028,9 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
     },
     {
-      "id": "ctl-switch",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «ab b c d» vs tsrun «   »"
-    },
-    {
       "id": "ctl-switch-fallthrough-count",
       "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «31 28 30 31» vs tsrun «undefined undefined undefined undefined»"
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: case"
     },
     {
       "id": "ctl-forof-array",
@@ -2208,11 +2113,6 @@
       "detail": "stdout 不同：第 1 行：node «200 0123456789 789 9» vs tsrun «200 0123456789 34567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 9»"
     },
     {
-      "id": "rt-switch-string-fallthrough",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «ab ab c+d +d» vs tsrun «   »"
-    },
-    {
       "id": "rt-recursive-data-walk",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
@@ -2231,21 +2131,6 @@
       "id": "rt-label-break-out-of-block",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: block"
-    },
-    {
-      "id": "rt-switch-default-first",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «one two d» vs tsrun «undefined undefined undefined»"
-    },
-    {
-      "id": "rt-switch-strict-compare",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «num str other» vs tsrun «undefined undefined undefined»"
-    },
-    {
-      "id": "rt-switch-scoped-declaration",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «one two many» vs tsrun «two two many»"
     },
     {
       "id": "rt-object-method-shorthand",
@@ -2291,11 +2176,6 @@
       "id": "rt-error-in-getter-caught",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
-      "id": "rt-switch-scoped-case-block",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «other other other»"
     },
     {
       "id": "rt-nested-ternary-chain",
@@ -2348,11 +2228,6 @@
       "detail": "stdout 不同：第 1 行：node «8 512 4 0.5» vs tsrun «8 512 4 2»"
     },
     {
-      "id": "c304-rt-switch-true-pattern",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «A B C F» vs tsrun «undefined undefined undefined undefined»"
-    },
-    {
       "id": "c304-rt-do-while-label-continue",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
@@ -2376,11 +2251,6 @@
       "id": "c304-rt-getter-throws-and-finally",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c305-rt-switch-case-block-scope",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «one two other» vs tsrun «undefined undefined undefined»"
     },
     {
       "id": "c305-rt-exponent-right-assoc",
@@ -2553,11 +2423,6 @@
       "detail": "stdout 不同：第 5 行：node «1 no2 1» vs tsrun «1 undefined 1»"
     },
     {
-      "id": "c371-rt-switch-and-jump-forms",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «string-1 number-1 true null undefined other» vs tsrun «undefined undefined undefined undefined undefined undefined»"
-    },
-    {
       "id": "c371-rt-error-catch-and-rethrow",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
@@ -2608,19 +2473,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: outer"
     },
     {
-      "id": "ex-label-on-switch",
-      "layer": "exec",
-      "detail": "stdout 不同：第 1 行：node «0-» vs tsrun «---»"
-    },
-    {
       "id": "ex-try-finally-return",
       "layer": "exec",
       "detail": "stdout 不同：第 4 行：node «body 1» vs tsrun «f 1»"
-    },
-    {
-      "id": "ex-enum-in-switch",
-      "layer": "exec",
-      "detail": "stdout 不同：第 1 行：node «1 2 3 b» vs tsrun «undefined undefined undefined b»"
     },
     {
       "id": "ex-object-literal-accessors",
@@ -2666,11 +2521,6 @@
       "id": "ex-try-catch-finally-typed-and-optional",
       "layer": "exec",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "ex-switch-with-union-types",
-      "layer": "exec",
-      "detail": "stdout 不同：第 1 行：node «12 9» vs tsrun «undefined undefined»"
     },
     {
       "id": "c291-ex-parameter-properties-variants",
@@ -2758,11 +2608,6 @@
       "detail": "stdout 不同：第 3 行：node «true» vs tsrun «false»"
     },
     {
-      "id": "c371-ex-switch-with-types-and-blocks",
-      "layer": "exec",
-      "detail": "stdout 不同：第 1 行：node «5 95 100» vs tsrun «95 95 100»"
-    },
-    {
       "id": "c371-ex-as-precedence-with-operators",
       "layer": "exec",
       "detail": "stdout 不同：第 2 行：node «-3 false number» vs tsrun «3 false number»"
@@ -2771,11 +2616,6 @@
       "id": "c371-ex-satisfies-and-as-const-combo",
       "layer": "exec",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-ex-exhaustive-switch-never-default",
-      "layer": "exec",
-      "detail": "stdout 不同：第 1 行：node «A B c» vs tsrun «undefined undefined undefined»"
     },
     {
       "id": "c373-ex-compound-assign-precedence",
@@ -3266,11 +3106,6 @@
       "id": "c376-stdlib-array-length-range",
       "layer": "stdlib",
       "detail": "stdout 不同：第 3 行：node «C RangeError» vs tsrun «D RangeError»"
-    },
-    {
-      "id": "e2e-state-machine",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is StringLiteral at 152..158)"
     },
     {
       "id": "e2e-generator-pipeline",

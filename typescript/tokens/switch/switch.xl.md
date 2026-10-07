@@ -182,26 +182,50 @@ for (let m = 0; m < markers.length; m++) {
     caseUnit.SignOut(list[colonIndex - 1].SourceRange.End!);
     caseUnit.TryToClose();
   }
-  const bodyUnits: Array<Token> = [];
+  const inlineUnits: Array<Token> = [];
+  const followingUnits: Array<Token> = [];
   if (inner !== null) {
     for (let i = colonIndex + 1; i < limit; i++) {
-      bodyUnits.push(list[i]);
+      inlineUnits.push(list[i]);
     }
     for (let i = from + 1; i < to; i++) {
-      bodyUnits.push(data[i]);
+      followingUnits.push(data[i]);
     }
   } else {
     for (let i = colonIndex + 1; i < to; i++) {
-      bodyUnits.push(data[i]);
+      followingUnits.push(data[i]);
     }
   }
-  if (bodyUnits.length > 0) {
+  if (inlineUnits.length > 0 || followingUnits.length > 0) {
+    const firstBody = inlineUnits.length > 0 ? inlineUnits[0] : followingUnits[0];
+    const lastBody = followingUnits.length > 0 ? followingUnits[followingUnits.length - 1] : inlineUnits[inlineUnits.length - 1];
     const statement = segment.CreateStatement();
-    for (const item of bodyUnits) {
+    statement.SignIn(firstBody.SourceRange.Start!);
+    statement.SignOut(lastBody.SourceRange.End!);
+    // **`;` 那一档要重新问一次宿主** ✓（第 553 轮 ✓）：`case 2: s += "b"; break;` 里
+    // 标签与体住在**同一个 `Statement` 壳**里 ✓ ⇒ 那个 `;` 是**壳自己**的终结符 ✓，
+    // 拆出来的这一截搬进 `SwitchStatement` 时**没有任何人再问一次** ✗ ⇒ 里面还是散单元 ✗
+    // ⇒ 投影逐个投出来 ✓（`statements` 里是 `Identifier` / `EqualsToken` / `BinaryExpression` ✗，
+    // 降级层报的是 `unimplemented: statement Identifier` ✓）。
+    // 动作与 `symbol-token.xl.md` 的 appender **一字不差** ✓（`FormFrom` 自己会判终不终结符 ✓）。
+    for (const item of inlineUnits) {
+      statement.Add(item);
+      if (item instanceof SymbolToken) {
+        statement.FormStatement(item);
+      }
+    }
+    // **后面那些平级单元已经是壳**（`break;` ✓）⇒ 不能与上面那一截一起交给关闭前那一趟 ✗：
+    // `FormTail` 一看到**末尾已经是语句单元**就收工 ✓，前面那截散单元于是永远收不成壳 ✗
+    //（实测 `case 2: s += "b"; break;` 的 `statements` 就是「散单元 + `BreakStatement`」✓）。
+    // 所以先把**只有散单元**的这一截单独问一次（`ApplyCloseRules` 就是 `TryToClose` 中间那一手 ✓，
+    // 末尾是散单元 ⇒ `FormTail` 认账 ✓），按原序补上后面的壳之后再正常关闭 ✓
+    //（`TryToClose` 里那一趟再问一次是无害的：末尾已经是壳 ⇒ 它照旧收工 ✓）。
+    if (inlineUnits.length > 0 && followingUnits.length > 0) {
+      statement.ApplyCloseRules();
+    }
+    for (const item of followingUnits) {
       statement.Add(item);
     }
-    statement.SignIn(bodyUnits[0].SourceRange.Start!);
-    statement.SignOut(bodyUnits[bodyUnits.length - 1].SourceRange.End!);
     statement.TryToClose();
   }
   segment.SignIn(data[from].SourceRange.Start!);

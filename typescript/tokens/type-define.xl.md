@@ -5,6 +5,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { IsMemberBoundary } from "./declaration-common.xl.md"
+import { IsSwitchLabelColon } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
@@ -58,6 +59,15 @@ if (current.Parent !== null && JsonObjectReorganization.Instance.IsObject(curren
 // 少了这一条，产物会把它读成 `<BindingElement><TypeDefine>b: c</TypeDefine></BindingElement>`
 // （实测那批 `LiteralType in TypeDefine` 的误包就是从这儿冒出来的）。
 if (current.Parent !== null && current.Parent.constructor.name === "BindingElement") {
+  return false;
+}
+// **`case` / `default` 那个标签冒号不是类型标注**（第 553 轮）：`case 1: { … }` 里冒号后面
+// 本该是一个 `Block`，可这一趟会把整对花括号收成 `TypeLiteral` ⇒ 段的体整段丢 ✗
+// （实测 `st-switch-block-case.ts`：`SwitchSegment > SwitchCase > [Identifier(1), TypeDefine > TypeLiteral > …]`，
+// `Block` / `VariableStatement` / `BreakStatement` 一个都没有 ✓）。
+// 判据在 `text-common-util.xl.md` 的 `IsSwitchLabelColon` ✓——`type-literal.xl.md` 的
+// `IsTypePosition` 与 `label.xl.md` 的 `Previous` 问的是**同一句** ✓（三处都要挡 ✓）。
+if (IsSwitchLabelColon(units, index)) {
   return false;
 }
 return true;

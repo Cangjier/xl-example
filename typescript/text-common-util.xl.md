@@ -632,6 +632,59 @@ return (
 );
 ```
 
+# method IsSwitchLabelColon:(units:Array<Token>, index:number)=>bool
+
+`index` 处的冒号是不是 `switch` 体里 `case` / `default` 的**标签冒号**（`case 1: …` / `default: …`）。
+
+它**既不是类型标注、不是类型位、也不是标签**（第 553 轮）——`case 1: { … }` 里冒号后面
+本该是一个 `Block`，可三处规则各自都会把它抢走，于是段的体整段丢 ✗：
+
+| 处 | 抢成什么 |
+| --- | --- |
+| `tokens/type-define.xl.md` | `TypeDefine`（把整对花括号当类型收走） |
+| `tokens/type-literal/type-literal.xl.md` | `TypeLiteral`（标签冒号被当类型位） |
+| `tokens/label.xl.md` | `<Label label="1" />`（`名字 + 冒号 + {` 三条全中） |
+
+实测 `st-switch-block-case.ts`：`SwitchSegment > SwitchCase > [Identifier(1), TypeDefine > TypeLiteral > …]`，
+段里 `Block` / `VariableStatement` / `BreakStatement` 一个都没有 ✓。
+
+**放在这一层**（而不是 `statement.xl.md`）：三处都要问这一句，而 `label.xl.md` 不能 import
+`statement.xl.md`（它反过来 import `label.xl.md`，绕出环）；本文件是三者共同的下层，且不 import 它们。
+
+判据只看**同一层里已经读到的东西**：往前找 `case` / `default` 那个词
+（`Identifier` / `Keyword` 两种词形都认 —— 升级过的词不能再按 `Identifier` 找 ✓），
+中间**没有第二个冒号、也没有分号**就算命中 —— 有第二个冒号的话那个才是标签冒号
+（`case 1:` 换行 `const y: number` 里 `y` 那个冒号往前第一个冒号就是标签冒号，于是不挡 ✓）。
+
+外层必须是**语句那一层**（`Statement` 壳）：`interface I { default: string }` 这种成员名
+是**合法的类型标注**，它的父单元是 `Field`（不是 `Statement`），一并挡掉就把成员的类型丢了 ✗。
+
+```ts
+const current = Get(units, index);
+if (current === null || current.Parent === null) {
+  return false;
+}
+if (current.Parent.constructor.name !== "Statement") {
+  return false;
+}
+for (let i = index - 1; i >= 0; i--) {
+  const item = Get(units, i);
+  if (item === null) {
+    break;
+  }
+  if (item instanceof SymbolToken && (item.Is(";") || item.Is(":"))) {
+    break;
+  }
+  if (item instanceof Identifier && (item.TempToString() === "case" || item.TempToString() === "default")) {
+    return true;
+  }
+  if (item instanceof Keyword && (item.Value === "case" || item.Value === "default")) {
+    return true;
+  }
+}
+return false;
+```
+
 # method IsStatementStart:(units:Array<Token>, index:number)=>bool
 
 `index` 处的单元是不是**一条语句的第一个实义单元**。

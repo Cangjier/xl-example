@@ -5,7 +5,7 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, IsSwitchLabelColon } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -295,6 +295,14 @@ for (let i = index - 1; i >= 0; i--) {
         continue;
       }
       if (crossedAssignment) {
+        return false;
+      }
+      // **`case` / `default` 的标签冒号是值位**（第 553 轮）：`case 1: { … }` 里那个 `{`
+      // 往前扫先撞上标签冒号，按类型位判就把整段语句体收成 `TypeLiteral` ✗
+      // （实测 `st-switch-block-case.ts`：段里只剩一个冒号，`Block` 与里面的语句全丢 ✓）。
+      // 判据与 `type-define.xl.md` / `label.xl.md` 那两处是**同一句**
+      // （`text-common-util.xl.md` 的 `IsSwitchLabelColon` ✓）。
+      if (IsSwitchLabelColon(units, i)) {
         return false;
       }
       return this.HasTernaryQuestion(units, i) === false;

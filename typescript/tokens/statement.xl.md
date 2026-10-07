@@ -477,6 +477,15 @@ const isStatementList =
   owner === "CatchBody" ||
   owner === "FinallyBody" ||
   owner === "NamespaceBody" ||
+  // **`SwitchStatement` 也在名单里**（第 553 轮）：它的构造器同样装了语句队列
+  // （`switch-statement.xl.md` 的 `InitialStatementReorganizationQueue`）✓，
+  // 白名单就是照这一条列的 ✓，第 544 轮加这条时**漏了它** ✗ —— 那时 `switch` 的段
+  // 一个都造不出来（第 552 轮才修好 ✓），看不出症状 ✓。
+  // 症状是「`case 1: s += "a";` 写在同一行」这一类：标签与体在**同一个 `Statement` 壳**里 ✓，
+  // 段头规则只把壳里冒号之后那几格搬进 `SwitchStatement` ✓ ⇒ 搬进去的是散单元 ✗
+  // ⇒ 没有壳 ⇒ 投影逐个投出来 ✓ ⇒ `statements` 里是 `Identifier` / `EqualsToken` / `BinaryExpression` ✗
+  // （实测 `ctl-switch` 一族 11 条覆盖度用例退成 `unimplemented: statement Identifier` ✓）。
+  owner === "SwitchStatement" ||
   owner === "StaticBlock";
 if (isStatementList === false) {
   return;

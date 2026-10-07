@@ -6,7 +6,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { IsDeclarationModifier } from "./declaration-common.xl.md"
-import { IsStatementStart, SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { IsStatementStart, IsSwitchLabelColon, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -117,6 +117,13 @@ if (IsStatementStart(units, index) === false) {
 const colonIndex = SkipNextWrapSymbol(units, index);
 const colon = Get(units, colonIndex);
 if (!(colon instanceof SymbolToken) || !colon.Is(":")) {
+  return false;
+}
+// **`switch` 段头里的冒号不是标签冒号**（第 553 轮）：`case 1: { … }` 里
+// 「`1` + `:` + `{`」三条全中 ⇒ 被收成 `<Label label="1" />` + 块 ✗ ——
+// `case` 段的体于是整段丢掉（实测 `st-switch-block-case.ts` 从 7 缺变成 8 缺 ✓）。
+// 判据在 `text-common-util.xl.md`（`type-define.xl.md` / `type-literal.xl.md` 问的是同一句 ✓）。
+if (IsSwitchLabelColon(units, colonIndex)) {
   return false;
 }
 const statementIndex = SkipNextWrapSymbol(units, colonIndex);

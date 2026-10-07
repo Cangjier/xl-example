@@ -4749,6 +4749,106 @@ Bracket [132,182)
 3. **泛型约束里带联合的那一族**（`lex-generic-union-constraint.ts` 23 缺 / 7 多 ✓）与
    **映射类型 / 模板字面量类型那一族**（`ty-mapped-as-remap.ts` 15 缺 / 20 多 ✓）—— 与第 551 轮列的第 2 / 3 条相同 ✓。
 
+## 一百五十六、`case …:` 那个标签冒号：三处规则各抢一次、搬进段里又没人再问一次（第 553 轮）：956 → **958 / 1037**；coverage 1384 → **1399**
+
+起点 **956 / 1037** ✓（缺 428 / 漂 54 / 多 197 / 字段名 22 ✓、解析 1037 / 抛异常 0 ✓）。
+上一节第五节列的第 1 条入口（`case 1: {`）✓，量下去发现是**两件事** ✓ —— 两件都在同一个冒号后面 ✓。
+
+### 一、两处现场
+
+| 形状 | 用例 | 起点读数 |
+| --- | --- | --- |
+| **`case 1: { … }`**（冒号后是块） | `st-switch-block-case.ts` / `stmt-switch-block-scoped-case.ts` | 7 缺 / 1 漂 / 1 多、11 缺 / 1 漂 / 1 多 |
+| **`case 1: s += "a";`**（标签与体**同一行**） | 覆盖度那一侧的 11 条 `*-switch*` 用例 | 从 `differ` 退成 **`blocked`** ✓（`unimplemented: statement Identifier` ✓） |
+
+两处都是第 552 轮把段造出来**之后**才露出来的 ✓（在那之前段一个都没有 ✓，症状被「整段丢」盖住了 ✓）。
+
+### 二、真因 A：那个标签冒号被**三处**规则各抢一次
+
+`case 1: { … }` 里冒号后面本该是一个 `Block` ✓，可三处规则依次会把它抢走 ✗ ——
+**挡住一处、下一处立刻顶上** ✓（实测把 `TypeDefine` 挡掉之后 `Label` 马上接手 ✓，
+读数从 7 缺变成 **8 缺** ✓，比不动还差 ✓）：
+
+| 处 | 抢成什么 |
+| --- | --- |
+| `tokens/type-define.xl.md` | `TypeDefine`（整对花括号收成 `TypeLiteral`） |
+| `tokens/type-literal/type-literal.xl.md` 的 `IsTypePosition` | 冒号按**类型位**判 ⇒ `TypeLiteral` |
+| `tokens/label.xl.md` | `名字 + 冒号 + {` 三条全中 ⇒ `<Label label="1" />` + 块 |
+
+**修法**：新增 `text-common-util.xl.md` 的 `IsSwitchLabelColon(units, index)` ✓，三处各问同一句 ✓。
+
+- 判据只看**同一层里已经读到的东西** ✓：往前找 `case` / `default` 那个词
+  （`Identifier` / `Keyword` 两种词形都认 ✓ —— 升级过的词不能再按 `Identifier` 找 ✓），
+  中间**没有第二个冒号、也没有分号**就算命中 ✓（`case 1:` 换行 `const y: number` 里
+  `y` 那个冒号往前第一个冒号就是标签冒号 ✓ 于是不挡 ✓）；
+- 外层必须是**语句那一层**（`Statement` 壳 ✓）：`interface I { default: string }` 这种成员名
+  是合法类型标注 ✓，它的父单元是 `Field`（不是 `Statement` ✓）；
+- **放在 `text-common-util.xl.md`** ✗（不是 `statement.xl.md` ✗）：`label.xl.md` 不能 import
+  `statement.xl.md` ✓（它反过来 import `label.xl.md` ✓，绕出环 ✓），而本文件是三者共同的下层 ✓。
+
+### 三、真因 B：搬进 `SwitchStatement` 的那一截，**没有人再问一次**
+
+`case 1: s += "a";` 里标签与体住在**同一个 `Statement` 壳**里 ✓ —— 那个 `;` 是**标签壳自己**的终结符 ✓，
+它那一趟（`Token.FormStatement` ✓）**早就过去了** ✗。段头规则把壳里冒号之后那几格搬进
+`SwitchStatement` 时没人再问 ✗ ⇒ 里面还是散单元 ✗ ⇒ 投影逐个投出来 ✓
+⇒ `statements` 里是 `Identifier` / `EqualsToken` / `BinaryExpression` ✗（11 条用例因此退成 `blocked` ✓）。
+
+**修法两条**（`tokens/switch/switch.xl.md` + `tokens/statement.xl.md`）：
+
+1. **逐格 `Add` 时补问一句** ✓：搬 `SymbolToken` 那一格时调 `statement.FormStatement(item)` ✓ ——
+   与 `symbol-token.xl.md` 的 appender **一字不差** ✓（`FormFrom` 自己会判它终不终结符 ✓）；
+2. **`FormTail` 的白名单补上 `SwitchStatement`** ✓（`tokens/statement.xl.md`）：
+   白名单的口径就是「构造器里装了语句队列的那些容器」✓，`switch-statement.xl.md` 的构造器
+   第 31 行装的正是它 ✓ —— 第 544 轮列这份名单时**漏了它** ✗（那时 `switch` 的段一个都造不出来 ✓，看不出症状 ✓）。
+   补上之后**末尾是散单元**的那一档（`default: s += "d";` ✓）当场成形 ✓；
+3. **末尾已经是壳时要先把前面那一截收掉** ✓：`case 2: s += "b"; break;` 的体是
+   「散单元 + 已经成形的 `Statement(break;)`」✓ ⇒ 一起交给 `ApplyCloseRules` 时
+   **`FormTail` 一看到末尾已经是语句单元就收工** ✗ ⇒ 前面那截永远是散单元 ✗。
+   于是先只放散单元那一截、单独问一次 `ApplyCloseRules` ✓（末尾是散单元 ⇒ `FormTail` 认账 ✓），
+   再按原序补上后面的壳、正常 `TryToClose` ✓（第二趟无害 ✓：末尾已经是壳 ⇒ 它照旧收工 ✓）。
+
+### 四、读数
+
+| 项 | 第 552 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 956 | **958 / 1037** ✓（+2 ✓） |
+| 缺节点 | 428（77 类） | **409**（77 类）✓（−19 ✓） |
+| 多出来的节点 | 197（44 类） | **197**（44 类）✓（持平 ✓） |
+| 区间漂移 | 54（18 类） | **52**（18 类）✓（−2 ✓） |
+| 字段名不符 | 22 | **22** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24302 | **24301** ✓（−1 ✓） |
+
+逐文件前后名单做差 ✓（`tmp/recon/r552-perfile.txt` ↔ `tmp/recon/r553b-perfile.txt` ✓，
+工具 `tmp/recon/r552-cmp2.cjs` ✓）：**变绿 2 份** ✓ —— `st-switch-block-case.ts` ✓（7 缺 → **四个方向全零** ✓）
+与 `stmt-switch-block-scoped-case.ts` ✓（11 缺 → **四个方向全零** ✓）；**没有一份变红** ✓。
+
+一份计数变差 ✗：`stmt-adversarial-shapes.ts` ✓ `[8,2,5,1] → [7,2,7,1]` ✓
+（缺 −1 ✓、多 +2 ✗）—— 根因已定位 ✓：**一个 `Statement` 壳里写着两个段头** ✓
+（`case 1: case 2: y(); break;` 整行 ✓），第一段把第二个 `case` 整段吃进了自己的体里 ✓
+（产物是 `CaseClause[740,767) "case 1: case 2: y(); break;"` ✗）。这是**下一块** ✓（见下 ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **225 / 242** ✓（**+3** ✓，
+第 552 轮末是 222 ✓）；`runtime:cli` **53 / 79** ✓（与第 552 轮末持平 ✓）；`samples` 仍红 ✗
+（还是那两处 ✓：`declarations.ts` 的装饰器 ✓、`generic.ts` 的类型实参 ✓，与本轮无关 ✓）；
+`coverage` **1399 / 1713** ✓（**+15** ✓：blocked **126** ✓ 与第 552 轮末持平 ✓、
+differ 203 → **188** ✓、bad 0 ✓、整体加权 79.5% → **80.4%** ✓，落盘 `tests/coverage/report.json` ✓）
+—— 那 11 条 switch 用例**全部**从 `blocked` 走出来 ✓；**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **一个 `Statement` 壳里两个段头** ✓（`case 1: case 2: y(); break;` 写在一行 ✓）：
+   `stmt-adversarial-shapes.ts` 那一份的 `[7,2,7,1]` 就是它 ✓ —— 段头那一趟按**顶层单元**找段头 ✓，
+   壳里的第二个 `case` 看不见 ✗；口径要扩成「壳里**同级**的 `case` / `default` 也算段头」✓
+   （第 552 轮已经按类名进壳找过第一格 ✓，这一格是它的自然延伸 ✓）；
+2. **`ex-object-literal.ts`**（37 缺 ✓）**与 `ty-object-literal.ts`**（12 缺 / 6 多 ✓）——
+   当前最大的一族 ✓：对象字面量的成员包在 `<Statement>` 里 ✓，`MEMBER_LIST_KINDS` 里
+   **没有 `ObjectLiteralExpression`** ✗；dev 侧回声很大 ✓（`coverage` 的 blocked 里
+   `unimplemented: object literal member ExpressionStatement` / `LabeledStatement` 一大片 ✓）；
+3. **泛型约束里带联合的那一族**（`lex-generic-union-constraint.ts` 23 缺 / 7 多 ✓）与
+   **映射类型 / 模板字面量类型那一族**（`ty-mapped-as-remap.ts` 15 缺 / 20 多 ✓）—— 与第 551 轮列的第 2 / 3 条相同 ✓。
+
+
 
 
 
