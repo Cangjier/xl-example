@@ -8,7 +8,7 @@ import { Sequence } from "../core/syntax/templates/sequence.xl.md"
 import { Token } from "../core/syntax/token.xl.md"
 import { Template } from "../core/syntax/templates/template.xl.md"
 import { Get } from "../core/extensions/list-extension.xl.md"
-import { IsTriviaUnit, SkipPreviousTrivia } from "./text-common-util.xl.md"
+import { IsObjectLiteralBrace, IsTriviaUnit, SkipPreviousTrivia } from "./text-common-util.xl.md"
 import { AreaAnnotation } from "./tokens/area-annotation.xl.md"
 import { AsCloseRule } from "./tokens/as.xl.md"
 import { FunctionTypeCloseRule } from "./tokens/function-type.xl.md"
@@ -859,9 +859,28 @@ if (queue === null) {
   return;
 }
 const isExportUnit = unit.constructor.name === "Export";
+// **只有「值位的花括号」才不跑 `Label`** ✓（第 577 轮 ✓）：第 507 轮下这道闸时问的是
+// 「是不是 `{` 括号」✗ ⇒ **语句位的块**（`{ a: 1 }` ✓）也被一并挡住 ✗ ⇒
+// 块里的 `a:` 落在更晚的 `TypeDefineCloseRule` 手里 ✓ ⇒ 被收成「名字 + 类型标注」✗
+//（实测 `stmt-asi-return-newline-object.ts`：产物是 `Bracket > [Identifier(a), TypeDefine > LiteralType]` ✗，
+// TS 那边是 `Block > LabeledStatement(a: 1)` ✓）。第 507 轮那句注释里写的「块里的标签不受影响 ✓ ——
+// 块那一趟由语句队列负责 ✓」当时**没有兑现** ✗：块拿到的是**同一张通用队列** ✓，
+// 而这道闸是按**单元类型**下的 ✗、不看队列是谁 ✓。
+//
+// 判据换成 `IsObjectLiteralBrace` ✓：与 `JsonObjectCloseRule` 问的是**同一句** ✓ ——
+// 它正是第 556 轮从那条规则里搬出来的 ✓（「两个用户问同一句，各写一份会漂」✓），
+// 块 / 标签块 / 对象字面量 / 类型字面量四档在这一句上分得开 ✓。
 const isBraceBracket = unit.constructor.name === "Bracket" && (unit as Bracket).startBracket === "{";
+let isValueBrace = false;
+if (isBraceBracket) {
+  const holder = unit.Parent;
+  if (holder !== null) {
+    const at = holder.Data.indexOf(unit);
+    isValueBrace = at >= 0 && IsObjectLiteralBrace(holder.Data, at);
+  }
+}
 for (const rule of queue.Data) {
-  if (isBraceBracket && rule instanceof LabelCloseRule) {
+  if (isValueBrace && rule instanceof LabelCloseRule) {
     continue;
   }
   if (

@@ -6772,4 +6772,93 @@ blocked 15 → 14 ✓），`tests/coverage/report.json` 随本轮一起提交 �
 4. **四份小账** ✓：`decl-interface-export-default.ts`（`1 0 2` ✓）、`type-cond-multiline.ts`（`0 2 3` ✓）、
    `lex-regex-after-assign.ts`（`2 1 2` + 字段名 1 ✓）、`stmt-asi-return-newline-object.ts`（`2 0 1` ✓）。
 
+## 一百七十九、语句位的块里那个 `a:` 被收成了类型标注（第 577 轮）：1027 → **1028 / 1037**
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第二轮** ✓。改的是 `typescript/parse-pipeline.xl.md` **一个文件** ✓。
+
+### 一、靶子：四份小账里最便宜的一份
+
+`stmt-asi-return-newline-object.ts`（起点四栏 `2 0 1` ✓）：`return` 换行 `{ a: 1 }` 那一格 ✓ ——
+ASI 之后 `{ a: 1 }` 是**块** ✓，块里是一条**标签语句** ✓：
+
+    MISS   LabeledStatement  TS[133,137)  "a: 1"
+    MISS   ExpressionStatement TS[136,137)  "1"
+    EXTRA  LiteralType       [136,137)  "1"     ← `:` 被当成类型标注 ✗
+
+产物的 XML 一眼看得出 ✓：`<Bracket>{ a: 1 }</Bracket>` 里是
+`<Identifier>a</Identifier><TypeDefine><LiteralType><Identifier>1</Identifier></LiteralType></TypeDefine>` ✗。
+
+### 二、机制：闸在 `RunCloseRules` 里，按**单元类型**下的
+
+本轮写了 `tmp/recon/r577-block-probe.cjs` ✓（挂 `BlockCloseRule.Previous` 与 `LabelCloseRule.Previous` 各打一行 ✓），
+量到两件事 ✓：
+
+1. **块拿到队列了** ✓：`BLOCK#5 idx=0/1 cur=Bracket{ queue=null parent=Statement start=true` ✓ ——
+   `BlockCloseRule` 认出了它是语句位的块 ✓、`Process` 给它补了语句队列并当场跑一遍 ✓
+   （紧接着 `BLOCK#6 idx=0/3 cur=Identifier parent=Bracket` 就是那一趟在括号自己的 `Data` 上扫 ✓）；
+2. **可那一趟里 `Label` 一次都没被问到** ✗（探针里 `LABEL#…` 的每一条都不是那个三格列表 ✓）——
+   `RunCloseRules` 里有一道闸 ✓：`unit` 是 `{` 括号 ⇒ **跳过 `LabelCloseRule`** ✗
+   ⇒ `a:` 落到更晚的 `TypeDefineCloseRule` 手里 ✓ ⇒ 收成「名字 + 类型标注」✗。
+
+### 三、第 507 轮那道闸的原意，与它没兑现的那半句
+
+第 507 轮加它是因为**对象字面量** ✓（`docs/member-layer-plan.md` 第 123 节 ✓）：
+`const o = { type: 1 }` 的容器**就是那个 `{` 括号** ✓（`JsonObjectCloseRule` 还没跑 ✓）⇒
+`type:` 被收成 `Label` ✗。那道闸的账里写着「块里的标签不受影响 ✓：块那一趟由**语句队列**负责 ✓」——
+**没有兑现** ✗：块拿到的是**同一张通用队列** ✓（`InitialCloseRuleQueue` 装的就是通用那一份 ✓），
+而闸是按**单元类型**下的 ✗、**不看队列是谁** ✓ ⇒ 语句位的块与对象字面量被一视同仁 ✗。
+
+### 四、改法：判据从「`{` 括号」换成「**值位**的花括号」
+
+`IsObjectLiteralBrace(holder.Data, at)` ✓ —— 就是 `JsonObjectCloseRule` 问的那**同一句** ✓
+（第 556 轮从那条规则里搬出来 ✓，为的正是「两个用户问同一句，各写一份会漂」✓）。
+括号自己的 `Parent` 与下标此刻都在 ✓（`holder.Data.indexOf(unit)` ✓），问得出来 ✓。
+
+- **值位**（对象字面量 / 类型字面量 ✓）⇒ 照旧跳过 `Label` ✓；
+- **语句位**（块 / 标签块 ✓）⇒ 跑 ✓ ⇒ `Label` 成形 ✓。
+
+**四档都实测过** ✓（`dump` ✓）：`{ a: 1 }`（语句位）⇒ `Label` + `1` ✓、
+`const o = { type: 1 }` ⇒ 仍是 `ObjectLiteral`（**没有** `Label` ✓，第 507 轮那一档纹丝不动 ✓）、
+`const o = { default: 1 }` 同理 ✓。
+
+**没有改 `FormTail` 的白名单** ✗：块里那条末尾语句**没有**壳 ✓，而投影本来就认这一格 ✓
+（`projectStatement` 的 `Label` 那一支会把体套成 `ExpressionStatement` ✓，第 566 轮 ✓）——
+实测那一份文件**四个方向全零** ✓，所以不动 ✓。
+
+### 五、读数
+
+| 项 | 第 576 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1027 | **1028 / 1037** ✓（**+1** ✓） |
+| 缺节点 | 25（12 类） | **23（10 类）** ✓（−2 ✓） |
+| 区间漂移 | 10（8 类） | **10** ✓（持平 ✓） |
+| 多出来的节点 | 21（16 类） | **20（15 类）** ✓（−1 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21726 | **21724** ✓（−2 ✓：`TypeDefine` 那一层没了 ✓） |
+
+**逐文件**（`r577-a-perfile.txt` ✓）：红的 **10 → 9** ✓，**变绿的那一份正是它** ✓
+（`stmt-asi-return-newline-object.ts` `2 0 1` → 四栏全零 ✓），其余八份**逐项一字不差** ✓。
+**真实语料（十六片合计）** ✓：缺 **1355** / 漂 **396** / 多 **751** / 字段名 **8** —— 逐项持平 ✓
+（没有一片变差 ✓；这道闸动的只是「语句位的块」那一档 ✓，真实语料里那种排版本来就少 ✓）。
+
+### 六、六道门（与第 576 轮逐项相同 ✓）
+
+`runtime:check` **239 / 242** ✓、`runtime:cli` **78 / 79** ✓、`cases:check` **1050 条 0 不合格** ✓、
+`coverage` **1630 / 1713（94.4%）** ✓、`samples` **三份全绿** ✓、`cases:tsast` **16 片 3 片通过** ✓
+（十份红文件就是上表 ✓）。`xl build`（本文件）**0 error 0 warning** ✓、`xl check` **0 error 0 warning** ✓、
+`tsc` **0 错** ✓。
+
+### 七、下一块（预算剩一轮）
+
+1. **`else` 那一格** ✓（第 175 / 176 节留下的入口 ✓）：收尾必须**晚于** `else` 到达 ✓ ——
+   它就是 `stmt-adversarial-shapes.ts` 剩下的那三笔 ✓（外加 `FIELD` 那一栏 ✓）；
+2. **`(` / `[` 那一档** ✓（`am-block-lambda-array-compound.ts` `5 2 4` ✓、
+   `lex-generic-multiline-constraints.ts` `7 1 1` ✓、`stmt-asi-paren-call.ts` `0 4 5` ✓）——
+   **机器层面**的一件事 ✓；
+3. **`new.target`** ✓（两份各缺 3 ✓）；
+4. **三份小账** ✓：`decl-interface-export-default.ts`（`1 0 2` ✓）、`type-cond-multiline.ts`（`0 2 3` ✓）、
+   `lex-regex-after-assign.ts`（`2 1 2` + 字段名 1 ✓）。
+
 
