@@ -5405,11 +5405,17 @@ this.Release(current);
 **`prototype.constructor` 的回指今天不挂**：那个回指是为 `instanceof` 服务的，
 要和它一起做；现在挂上去，反而会让人以为 `instanceof` 已经能用。
 
+**`prototype` 那一格也必须是「不可枚举」**（第 592 轮 ✓）：JS 里函数的 `prototype`
+是 `{ writable: true, enumerable: false, configurable: false }` ✓，而本仓原来用
+`SetPropertyConst` 挂 ✓ ⇒ `Object.keys(Config)` 里多出一格 `prototype` ✓
+（实测 `c371-rt-class-static-and-instance-isolation`：Node 给 `defaults,instances` ✓、
+本仓给 `prototype,defaults,instances` ✓）。与下面 `constructor` 那一格**同一条理由** ✓。
+
 ```ts
 const proto = this.Reserve(1);
 this.EmitRt(RtOp.NewObject, proto, proto, 0);
 const key = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-this.SetPropertyConst(closure, key, proto);
+this.EmitHiddenSet(closure, key, proto);
 // **`prototype.constructor` 回指**：JS 里每个函数的原型都指回函数自己
 // （`x.constructor` 那种写法靠它，`instanceof` 的语义也要求这个形状）。
 //

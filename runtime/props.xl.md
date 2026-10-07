@@ -363,7 +363,12 @@ if (this.Global > 0) roots.AddHandle(this.Global);
 if (!room(ObjectCharge * 18)) {
   throw new Error("out of room");
 }
-const protos = new Protos(table.CreateObject(), table.CreateObject(), table.CreateObject(), table.CreateObject());
+// **`Array.prototype` 自己就是一个数组**（第 592 轮 ✓）：JS 里 `Array.isArray(Array.prototype)`
+// 是 **`true`** ✓（规范里它就是 Array 异种对象、`length` 为 0 ✓），而本仓原来四个原型一律
+// `CreateObject` ✓ ⇒ `ArrayIsArray` 看的是 `Tag` ✓ ⇒ 给 `false` ✗
+//（判据 `c371-stdlib-array-of-and-isarray` ✓）。`length` 是结构属性、不在 `Props` 里 ✓，
+// 所以 `Object.keys(Array.prototype)` 仍是 `[]` ✓（JS 一致 ✓）。
+const protos = new Protos(table.CreateObject(), table.CreateArray(), table.CreateObject(), table.CreateObject());
 // **数组 / 函数 / 字符串的原型也接在 `Object.prototype` 上** ✓（第 137 轮）：
 // JS 里 `Object.getPrototypeOf(Array.prototype) === Object.prototype` ✓——
 // 不接的话 `[1] instanceof Object` 给 **`false`** ✗（Node 给 `true` ✓，

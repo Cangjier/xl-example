@@ -1033,7 +1033,6 @@ export const EXPECTATIONS = {
   "c371-ex-class-expression-forms": { expect: "differ", why: "类表达式在体内 `Named.name` 可见（本仓给 `false` 那一格）。" },
 
   // ---- **类型字面量被当成表达式**（`unimplemented: expression TypeLiteral`）：类字段 / 形参上的对象类型标注。
-  "c371-rt-class-static-and-instance-isolation": { expect: "differ", why: "从 `blocked` 走进了 `differ` ✓（第 375 轮把类型位那两处修掉之后 ✓，它现在跑得出来了 ✓）。**剩下的这一半** ✗：`Object.keys(Config)` 多出了 `prototype` ✓（Node 给 `defaults,instances` ✓、本仓多一格 ✓）——**类对象上合成出来的 `prototype` 是可枚举的** ✗，而 JS 里它**不可枚举** ✓（与第 276 轮实测的那三套描述符标志同一族 ✓）。" },
 
   // ---- **尖括号断言** `<T>expr` 的降级（与 `as` 是同一个意思，两种写法）。
 
@@ -1127,7 +1126,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-object-tostring-on-builtins": { expect: "differ", why: "`String(new Date(0))` 要渲染**本地时间**（本仓明确不做）。" },
 
   // ---- `Array.isArray(Array.prototype)` 要给 `true`（数组原型自己也是数组）。
-  "c371-stdlib-array-of-and-isarray": { expect: "differ", why: "`Array.isArray(Array.prototype)` 要给 `true`（数组原型自己也是数组）。" },
 
   // ---- 稀疏数组的 `toString` / `join` 在**全洞**时（`[, ,]`）Node 给 `,`。
 

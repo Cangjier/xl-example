@@ -27,6 +27,18 @@ import { IfStatement } from "./if-statement.xl.md"
 
 这一段的原始关键字：`if` / `else`（`else if` 记的是 `if`）。
 
+## field IfWordAt:int = -1
+
+`else if` 里那个 `if` 的绝对偏移；不是 `else if` 这一档就是 `-1`。
+
+**为什么让 token 记着**（用户口径：token 出字段、投影直读）：投影原来用
+`ctx.source.indexOf("if", at + 4)` **回原文里找**——那是**第二份位置答案**，
+`else /* if */ if (b)` 这种写法会命中注释里的那个 `if`。而 `IfSet` 造这一段时
+**那个 `if` 就在手上**（`last` / `tail` 那个 `Identifier`）⇒ 当场记下来，投影只读这一格。
+
+段的 `SourceRange.Start` 是 **`else` 的位置**（`NextSegment("if", start)` 签的是 `else` 的起点，
+`else if` 里 `if` 的位置只有这一格说得出来）。
+
 ## property Condition:IfCondition | null
 
 条件子单元：子单元列表里**第一个** `IfCondition`。
@@ -238,6 +250,10 @@ return `<${name} key="${this.key}">${temp.join("")}</${name}>`;
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("key", this.key);
+// **`else if` 那个 `if` 的位置**：只有这一档才写这一格（其余段是 `-1`，写进去只是噪声）。
+if (this.IfWordAt >= 0) {
+  result.set("ifWordAt", this.IfWordAt);
+}
 if (this.Condition !== null) {
   result.set("condition", this.Condition.ToList());
 }
@@ -253,11 +269,12 @@ return result;
 
 克隆自身。
 
-新建一个、**先把 `key` 复制过去**（漏了它克隆体就丢掉关键字）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
+新建一个、**先把 `key` 与 `IfWordAt` 复制过去**（漏了它克隆体就丢掉关键字 / `else if` 的位置）、`Sign(this)`、把子单元逐个克隆后 `AddRange`、最后 `TryToClose()`。
 
 ```ts
 const result = new IfSegment(this.Template);
 result.key = this.key;
+result.IfWordAt = this.IfWordAt;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

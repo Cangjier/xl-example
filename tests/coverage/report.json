@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 97.72,
+  "progressPercent": 97.81,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 492,
+      "pass": 493,
       "blocked": 2,
-      "differ": 8,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 98.01
+      "coverage": 98.21
     },
     {
       "layer": "exec",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 620,
+      "pass": 621,
       "blocked": 0,
-      "differ": 14,
+      "differ": 13,
       "nodefail": 0,
-      "coverage": 97.79
+      "coverage": 97.95
     },
     {
       "layer": "e2e",
@@ -161,12 +161,6 @@
       "layer": "runtime",
       "title": "console.log 对复杂值的渲染",
       "detail": "stdout 不同：第 6 行：node «{ fn: [Function: named], arrow: [Function: arrow], cls: [class C] }» vs tsrun «{ fn: [Function: named], arrow: [Function: arrow], cls: [Function: C] }»"
-    },
-    {
-      "id": "c371-rt-class-static-and-instance-isolation",
-      "layer": "runtime",
-      "title": "静态与实例成员的隔离，静态块里的 this",
-      "detail": "stdout 不同：第 2 行：node «data defaults,instances» vs tsrun «data prototype,defaults,instances»"
     },
     {
       "id": "c371-rt-function-name-and-length",
@@ -281,12 +275,6 @@
       "layer": "stdlib",
       "title": "内建对象的 toString 与 valueOf 的组合",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: Date.prototype.toString for a valid date (JS renders local time"
-    },
-    {
-      "id": "c371-stdlib-array-of-and-isarray",
-      "layer": "stdlib",
-      "title": "Array.of / Array.isArray / new Array 的三种构造",
-      "detail": "stdout 不同：第 4 行：node «true [null,null,null]» vs tsrun «false [null,null,null]»"
     },
     {
       "id": "c371-e2e-quick-and-merge-sort",

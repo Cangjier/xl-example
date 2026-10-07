@@ -327,7 +327,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 | `npm run samples` | 三份样本的 `*.expected.tsast.json` **逐字节**比（键序 / 坐标 / 序列化），并断言「命令行 = 库 API」 |
 
 产物标签名直接比只有 **44.6%**——本工程的标签本来就不是 TS 那一套；**投影成 TS 形状之后**按
-**逐文件完全一致**算：**全语料 1462 / 1462**（四方向 + 未映射 + 缺 range + 区间越界**七项全 0**）。
+**逐文件完全一致**算：**全语料 1463 / 1463**（四方向 + 未映射 + 缺 range + 区间越界**七项全 0**）。
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
@@ -337,18 +337,18 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 以及叶子按值分名（`NumericLiteral` / `StringLiteral`）——投影从 `typescript/ts-ast.xl.md`
 逐块搬进各 token 的 `PrintAst` 之后收干净了。
 
-### 当前状态（第 592 轮实测）
+### 当前状态（第 593 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1462 / 1462 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1463 / 1463 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1061** 条用例，0 条不合格 |
+| `cases:check` | **1062** 条用例，0 条不合格 |
 | `runtime:check` | **242 / 242** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1676 / 1713**（97.7%）：引擎 98.0% / 降级 98.3% / 标准库 97.8% / 端到端 96.4% |
-| `npm run gates` | 上面六道一次跑完（实测墙钟 **~23s**） |
+| `coverage` | **1678 / 1713**（97.8%）：引擎 98.2% / 降级 98.3% / 标准库 98.0% / 端到端 96.4% |
+| `npm run gates` | 上面六道一次跑完（实测墙钟 **~20s**） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：
 

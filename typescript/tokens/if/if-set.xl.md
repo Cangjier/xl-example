@@ -212,17 +212,18 @@ ifSet.MountCondition(source);
     let pos = seg.start;
     let end = thenBody === undefined ? (emptyBodyEnd >= 0 ? emptyBodyEnd : seg.end) : thenBody.end;
     if (index + 1 < segments.length) {
-      // **`else` 在本段的 `if` 与下一段之间**，所以从下一段的起点往回找：
-      // 段的起点在 `else if` 时是那个 `if`（不是 `else`），从本段起点往后找会把它自己
-      // 那个 `else` 认成这一层的。
-      const at = ctx.source.lastIndexOf("else", ctx.StartOf(segments[index + 1]));
+      // **`else` 就在下一段的起点上**（`NextSegment("else"/"if", 那个 else 的起点)` 签的就是它）——
+      // 原来这里用 `ctx.source.lastIndexOf("else", …)` **回原文里找**，是同一件事的第二份答案。
+      const at = ctx.StartOf(segments[index + 1]);
       const key = ctx.Attr(segments[index + 1], "key");
       if (key === "if") {
         const inner = build(index + 1);
         props.elseStatement = inner.node;
-        // `else if` 时**内层那一层的起点**要改成 `else` 后面那个 `if`——
-        // 它自己的 `seg.start` 也在那个 `if` 上，所以两层各修各的，外层不动 `pos`。
-        inner.node.pos = ctx.source.indexOf("if", at + 4);
+        // `else if` 时**内层那一层的起点**是那个 `if`（本段的 `pos` 不动）。
+        // **位置读字段**：`IfWordAt` 是造段时当场记下来的（`ctx.source.indexOf("if", at + 4)`
+        // 会命中 `else /* if */ if (…)` 里注释的那个 `if`）。
+        const rawIfAt = ctx.Attr(segments[index + 1], "ifWordAt");
+        inner.node.pos = typeof rawIfAt === "number" && rawIfAt >= 0 ? rawIfAt : ctx.source.indexOf("if", at + 4);
         end = inner.end;
       } else {
         const elseBody = ctx.BlockOfBody(bodyOf(segments[index + 1]), bodyFrom(segments[index + 1]));
@@ -398,12 +399,18 @@ if (tailIsElse) {
 if (beforeIsElse && tail instanceof Identifier) {
   if (source.Value === "(" && tail.Is("if")) {
     const start = before!.SourceRange.Start!;
+    // **`else if` 那个 `if` 的位置**（用户口径：token 出字段、投影直读）：那一刻它就在手上，
+    // 当场记进新段的 `IfWordAt`，投影不必再回原文 `indexOf("if", …)`（见 `IfSegment.IfWordAt`）。
+    const ifWordAt = tail.SourceRange.Start!.Index;
     if (tail.Closed === false) {
       tail.TryToClose();
     }
     tail.RemoveSelf();
     before!.RemoveSelf();
     this.NextSegment("if", start);
+    if (this.Segment !== null) {
+      this.Segment.IfWordAt = ifWordAt;
+    }
     this.MountCondition(source);
     return;
   }
@@ -466,12 +473,17 @@ if (last instanceof Identifier && "else".startsWith(last.TempToString())) {
 const beforeLast = data[data.length - 2];
 if (beforeLast instanceof Identifier && beforeLast.Is("else") && last instanceof Identifier && last.Is("if")) {
   const start = beforeLast.SourceRange.Start!;
+  // **`else if` 那个 `if` 的位置**：与上面那一支同一条——当场记进新段的 `IfWordAt`。
+  const ifWordAt = last.SourceRange.Start!.Index;
   if (last.Closed === false) {
     last.TryToClose();
   }
   last.RemoveSelf();
   beforeLast.RemoveSelf();
   this.NextSegment("if", start);
+  if (this.Segment !== null) {
+    this.Segment.IfWordAt = ifWordAt;
+  }
   return;
 }
 // **`/` 可能是注释或正则的开头** ✓：那两条判据都要看**下一个**字符 ✗ ⇒ 这一格先在尾巴里等一等 ✓

@@ -118,7 +118,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `While` 的 `emptyBodyAt` | 同上 | `While` 行的补充：那个字段与 `For` / `Foreach` 同一个来由 |
 | `Try` | `type` `body` + 可选 `catches` `finally` | `catches` 非空才写；`finally` 非 null 才写 |
 | `Switch` | `type` `compare` `segments` | `segments` 是 `SwitchSegment` 数组 |
-| `IfSegment` | `type` `key` + 可选 `condition` `statement` | 两个可选段各自非 null 才写 |
+| `IfSegment` | `type` `key` + 可选 `condition` `statement` `ifWordAt` | 两个可选段各自非 null 才写；`ifWordAt` 只在 `else if` 这一档写，是那个 `if` 的下标（投影直接读它，不再 `indexOf` 回原文找） |
 | `TernaryOperator` | `type` `condition` `trueStatement` `falseStatement` | 键名沿用上游（`condition` / `trueStatement` / `falseStatement`），比 XML 的 `condtion` 那个拼写更好认 |
 | `Lamda` | `type` `async` + `parameters` `body` + 可选 `returnType` | `async` 是真布尔，而且**只在 JSON 里有**（`<Lamda>` 不写这个属性，不收它就分不出 `async x => x` 与 `x => x`）；`body` 取 `ToList()`，与其它段一致 |
 | `New` | `type` `name` `arguments` | `name` 装 `this.Type` 段——`type` 这个键已经被类型名占了，沿用上游的写法 |

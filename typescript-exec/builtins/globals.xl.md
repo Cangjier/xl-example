@@ -6023,8 +6023,12 @@ SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
 // `[] instanceof Array` 于是走「读右边那个 `prototype` 属性」那条老路 ✓（不需要登记表 ✓）。
 // **这一格必须是 `protos.Array`** ✗（数组造出来时挂的就是它 ✓）：挂一个**新对象**，
 // `instanceof` 会一路走到底给 `false` ✗——那是最难查的一种「看起来都做了」✓。
+// **这一格的值是「数组型」**（第 592 轮 ✓）：`protos.Array` 现在是一个**数组句柄** ✓
+//（`props.xl.md` 的 `InitProtos` ✓），所以这里要用 `FromArray` 而不是 `FromObject` ✗ ——
+// 用错的话读出来那个值的 `Tag` 是 `Object` ✓ ⇒ `Array.isArray(Array.prototype)` 还是 `false` ✗
+//（`ArrayIsArray` 判的正是 `Tag` ✓）。
 SetProperty(vm.Room(), NeverCall, table, arrayObject, NameValue(table, "prototype"),
-  Value.FromObject(protos.Array));
+  Value.FromArray(protos.Array));
 // **`Array.prototype.constructor === Array`** ✓（第 137 轮顺手补的 ✓）：
 // 与 `Error.prototype.constructor` 那三格同一条规矩 ✓——少了它，
 // `[].constructor === Array` 给 **`false`** ✗（判据现场就是这么红的 ✓）。
