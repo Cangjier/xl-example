@@ -739,6 +739,8 @@ Statement.FormFrom(unit, terminator);
 - **`TypeDefine` 必须在 `Function` 之后** ✗：返回类型那个 `:` 少了 `Function` 先成形 ✓，
   会一路吞到函数体里去 ✗ —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
   当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓。
+- **`TypeAssign`（第 35）排在 `TypeDefine`（第 37）之前** ✓（第 489 轮接上的 ✓）：
+  `type X = …` 的整段先收成别名 ✓，那条声明里的类型标注才轮到 `TypeDefine` ✓。
 
 **每条规则还是它自己那一份实现** ✓：`XxxReorganization.Instance.ApplyTo(unit)` ✓
 （那个循环只有一份 ✓，见 `core/syntax/reorganization.xl.md` ✓）——
@@ -747,6 +749,7 @@ Statement.FormFrom(unit, terminator);
 ```ts
 FunctionReorganization.Instance.ApplyTo(unit);
 ParameterReorganization.Instance.ApplyTo(unit);
+TypeAssignReorganization.Instance.ApplyTo(unit);
 TypeDefineReorganization.Instance.ApplyTo(unit);
 KeywordReorganization.Instance.ApplyTo(unit);
 ```
