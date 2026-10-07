@@ -5499,14 +5499,31 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
     }
   }
   const rest = kids.filter((k) => !(k.get("type") === "Keyword" && textOfNode(k, ctx) === "export"));
+  // **`export = X` / `export default X` 的 `Export` 单元自己就是一格**（第 534 轮实测 ✓）：
+  // 关掉 reorg 之后这一支走的是「解析期只把**前缀两个词**收进 `Export`」那条路 ✓
+  //（`export.xl.md` 的构造函数那一段写着这条路 ✓），所以 `rest` 里那一格的文本是
+  // **`"export default"` / `"export ="`** ✓，而不是两格 `Keyword` ✗ ——
+  // 原来那句「`rest` 里有 `Keyword(default)`」于是永远为假 ✗ ⇒ 整条落到最后的
+  // `ExportDeclaration` ✗（实测 `am-declare-module-css.ts`：缺 `ExportAssignment` +
+  // 缺它的 `Identifier(c)` ✓、多出 `ExportDeclaration` ✓）。
+  // **判据改成「那一格的文本里有没有 `default` / `=` 这个尾词」** ✓：
+  // 两种形状（`Export` 一格 / 两格 `Keyword`）都认 ✓，判的仍是「这是不是赋值式导出」✓。
+  const wordTail = (k: any) => {
+    const parts = textOfNode(k, ctx).trim().split(/\s+/);
+    return parts[parts.length - 1];
+  };
+  const isWord = (k: any, text: string) =>
+    (k.get("type") === "Keyword" || k.get("type") === "Identifier" || k.get("type") === "Export") &&
+    (textOfNode(k, ctx) === text || wordTail(k) === text);
   const isAssignment =
     rest.some((k) => k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=") ||
-    rest.some((k) => k.get("type") === "Keyword" && textOfNode(k, ctx) === "default");
+    rest.some((k) => isWord(k, "default") || wordTail(k) === "=");
   // 等号 / `default` 之后的表达式：`Export` 单元里剩下的 + 语句里跟在它后面的兄弟。
   const inUnit = rest.filter(
     (k) =>
       !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === "=") &&
-      !(k.get("type") === "Keyword" && textOfNode(k, ctx) === "default"),
+      !isWord(k, "default") &&
+      wordTail(k) !== "=",
   );
   const expr = [...inUnit, ...(following ?? [])].filter(
     (k) => k instanceof Map && !(k.get("type") === "SymbolToken" && textOfNode(k, ctx) === ";"),

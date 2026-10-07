@@ -3208,3 +3208,86 @@ LB7DBG v="=" ni=2 name=Bracket     kw=Identifier:const   ← 声明位上这个 
 （`BreakStatement` 22 份 + `LabeledStatement` 19 份 + `Block` 20 份 + `CallExpression` 23 份 ✓，
 集中在 `decl-label-break-continue` / `decl-label-block` / `stmt-nested-loops-label` ✓）——
 后者是**一鱼多吃**（同一个标签形状连着四五栏一起缺 ✓），下轮先 dump 它 ✓。
+## 一百三十七、`export = X` / `export default X`：`Export` 单元**自己就是一格**（第 534 轮）：835 → **850 / 1037**
+
+起点 **835 / 1037** ✓（第 533 轮 ✓）。本轮从清点里掉出来的 `ExportAssignment` / `NamedExports` /
+`ExportSpecifier` 那一族入手 ✓（`am-declare-module-css.ts` / `am-export-equals-namespace.ts` ✓），
+顺手把「去查 `export default c` 为什么投成 `ExportDeclaration`」这一路上碰到的东西记下来 ✓。
+
+### 一、现场与坑
+
+`am-declare-module-css.ts` 的差是**一对**：
+
+```
+MISS   ExportAssignment  TS[71,87)  "export default c"
+MISS   Identifier        TS[86,87)  "c"
+EXTRA  ExportDeclaration         [71,85)  "export default"
+```
+
+投影侧的 `projectExport`（`print-ast-common.xl.md`）本来就有「`export = X` / `export default X`
+⇒ `ExportAssignment` + `expression`」那一条 ✓，可它没命中 ✗。运行时探针
+（`tmp/recon/probe-projectexport.cjs` ✓，在 `projectExport` 进门与 `isAssignment` 之后各打一行 ✓）：
+
+```
+PE1DBG enter following=1
+PE1DBG isAssignment=false rest=Export:export default
+```
+
+⇒ **`rest` 里那一格是 `Export`，文本是 `"export default"`** ✓，不是「一个 `Keyword(default)`」✗ ——
+原来那句判据（`rest.some(k => k.get("type") === "Keyword" && textOfNode(k) === "default")`）
+于是**永远为假** ✗ ⇒ 整条落到最后的 `ExportDeclaration` ✗。
+
+**为什么是「一整格」** ✓：关掉 reorg 之后这一支走的是解析期那条路 ✓ ——
+`export.xl.md` 的构造函数那一段自己写着「`export =` / `export default` 改成**只收前缀两个词**，
+表达式留在外面照常成形」✓，所以 `Export` 的文本就是 `"export default"` / `"export ="` ✓
+（`export { a }` 那一族的 `Export` 本来就是这样 ✓）。
+
+**修法**（`typescript/print-ast-common.xl.md` 的 `projectExport` ✓）：判据从「这一格是不是
+`Keyword`」换成「**这一格的文本尾部是不是 `default` / `=`**」✓ —— 两种形状（一整格 `Export` ✓、
+两个 `Keyword` ✓）都认 ✓，而判的仍是「这是不是赋值式导出」这件事 ✓。
+
+### 二、读数
+
+| 项 | 第 533 轮（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 835 | **850 / 1037** ✓（+15 ✓） |
+| 缺节点 | 1076（104 类） | **1037**（102 类）✓（−39 ✓） |
+| 多出来的节点 | 416（44 类） | **400**（44 类）✓（−16 ✓） |
+| 区间漂移 | 159 | **159** ✓（持平 ✓） |
+| 字段名不符 | 56 | **56** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+
+`am-declare-module-css.ts` 从「缺 2 / 多 1」变成**四个方向全零** ✓。
+
+### 三、另记一笔：一个**空 `Statement`** 挡着 `export default c` 的壳
+
+同一个文件里还有一处值钱的现场 ✓（`tmp/recon/probe-stmtform2.cjs` ✓：在
+`StatementBranch.Condition` 的软换行那一格把 `Data` 逐格打出来 ✓）：
+
+```
+SF2DBG IN#22 owner=Bracket []                                     ← 体括号刚开
+SF2DBG IN#40 owner=Bracket [Let(const) SymbolToken(:) Identifier(string)]   ← `const c: string` 成形
+SF2DBG EXIT#40                                                    ← 它这一格正确地不收
+SF2DBG IN#59 owner=Bracket [Statement() Identifier(export) Identifier(default) Identifier(c)]
+SF2DBG EXIT#59                                                    ← 这里本该收 `export default c`，却收了手
+```
+
+⇒ 那一刻 `Bracket` 的 `Data` 是 `[Statement(**空**), export, default, c]` ✓ ——
+**头一格是一个空的 `Statement`** ✗（打印出来 `Statement()` ✓，既没有 `Value` 也没有 `Temp` ✓）。
+后面三条 `Identifier` 才是 `export default c` ✓。下一轮的第一件事就是查那个空 `Statement`
+是谁造的 ✓（`ReplaceCountAt` 造壳之后被别处掏空 ✓？还是 `Success` 里 `children` 取空之后仍建了壳 ✓？）
+—— 它一天不除，「上一句是 `const c: string`」这一类的壳就都得看它脸色 ✓。
+
+**一条工具教训** ✓：这一轮的探针里有用 `lastIndexOf("Condition(...)")` / `lastIndexOf("letUnit.TryToClose()")`
+定位的 ✓，而 `statement.js` 与 `let.js` 里各有**好几处**同名成员 ✗ ⇒ 探针插错过两回
+（一回插进 `LetReorganization.Process` ✓、一回插进错误的类 ✓）⇒ 一律改成
+「先列出全部匹配、再取**最后一个**」✓，并且**探针插完要回读一行**确认落点 ✓。
+
+### 四、下一块
+
+清点里 `Identifier` 仍是头一名 ✓（118 份 ✓，`am-object-vs-block.ts` / `cls-hash-in-operator.ts` ✓），
+紧跟的是 `TypeAliasDeclaration` 34 份 ✓（`expr-arrow-body-nested-ternary` 那一族 ✓，
+是「多出来 34 份」那一条的另一半 ✓）与**标签那一族** ✓
+（`BreakStatement` 22 + `CallExpression` 23 + `Block` 20 + `LabeledStatement` 19 ✓）。
+按「先除路障」的口径，下一轮先查那个**空 `Statement`** ✓，它既能解释标签族的一半，
+也可能是 `Identifier` 缺 118 份里的一片 ✓。
