@@ -133,36 +133,38 @@ throw new Error("abstract member: Close");
 
 约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
 
-**`UpgradeWords` 的位置**（第 487 轮 ✓）：夹在 `Close` 与 `Reorganize` 之间 ✓ ——
-重组那一趟里关键字升级跑的就是「每个单元关闭时、在它自己的 `Data` 上」✓，
+**`ApplyCloseRules` 的位置**（第 487–488 轮 ✓）：夹在 `Close` 与 `Reorganize` 之间 ✓ ——
+那几条规则在全局那一趟里跑的就是「每个单元关闭时、在它自己的 `Data` 上」✓，
 放这里与对照态**同一时机** ✓；而解析期那些端口（`LetBranch` 那一族）跑在关闭**之前** ✓，
-所以它们照旧看得见 `Identifier` 形态的 `let` / `const` ✓。**放进 `Close` 之前会当场踩到那一片** ✗。
+所以它们照旧看得见升级前的形状（`Identifier` 形态的 `let` / `const` ✓）。
+**放进 `Close` 之前会当场踩到那一片** ✗。
 
 ```ts
 if (this.SourceRange.Start === null || this.SourceRange.End === null) {
   throw SourceException.SourceRangeContainsNull;
 }
 this.Close();
-this.UpgradeWords();
+this.ApplyCloseRules();
 this.Reorganize();
 ```
 
-## method UpgradeWords:()=>void
+## method ApplyCloseRules:()=>void
 
-**关闭之前**的一次机会：把这一层里该升级成关键字的标识符换成 `Keyword` 单元（第 487 轮）。
+**关闭之前**的一次机会：把已经搬进解析期的那几条重组规则在这一层上跑一遍（第 487–488 轮）。
 
-**只转发给成形器** ✓：`core` 这一层不认识 `Keyword` 与关键字表 ✗（见 `token-former.xl.md` ✓）。
+**只转发给成形器** ✓：`core` 这一层不认识 `Keyword` / `Function` / `TypeDefine` 那些 ✗
+（见 `token-former.xl.md` ✓）。
 
-**对照态里这一支关着** ✓（`DSH_XL_REORG=1` ✓）：那一档的关键字升级是**重组那一趟按队列次序**做的 ✓，
-这里再提前做一遍会改掉别的规则的输入 ✗ —— 实测不关的对照态从 855 / 1037 掉到 **401** ✗，
-而关掉之后禁用 reorg 那一档照旧是 164 ✓（`FormStatement` 那条钩子**不关** ✗：
+**对照态里这一支关着** ✓（`DSH_XL_REORG=1` ✓）：那一档这些规则由**重组那一趟按队列次序**跑 ✓，
+这里再提前跑一遍会改掉别的规则的输入 ✗ —— 实测不关的对照态从 855 / 1037 掉到 **401** ✗
+（关键字那一趟）,而关掉之后禁用 reorg 那一档照旧在涨 ✓（`FormStatement` 那条钩子**不关** ✗：
 实测对照态里让它照跑反而更好，855 对 692 ✓，见 `typescript/tokens/statement.xl.md` ✓）。
 
 ```ts
 if (process.env.DSH_XL_REORG === "1") {
   return;
 }
-Token.Former.UpgradeWords(this);
+Token.Former.ApplyCloseRules(this);
 ```
 
 ## method Reorganize:()=>void
@@ -326,7 +328,7 @@ return false;
 
 ## static field Former:TokenFormer = new TokenFormer()
 
-**成形器**（第 486 轮）：`FormStatement` 与 `UpgradeWords` 的落地实现。
+**成形器**（第 486–488 轮）：`FormStatement` 与 `ApplyCloseRules` 的落地实现。
 
 默认就是抽象那一份（调用即抛 ✗）——`ParsePipeline.Install` 会把 `TokenFormerImpl.Instance` 装进来 ✓。
 「装配是调用方的责任」这句与模板那一套是同一条口径 ✓：解析不可能早于 `Install` ✓

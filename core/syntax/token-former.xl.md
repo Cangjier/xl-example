@@ -11,7 +11,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 # class TokenFormer
 
-两条时机、两个方法：一个终结符刚落进 `Data` 之后（`FormStatement` ✓），一个单元关闭之前（`UpgradeWords` ✓）。
+两条时机、两个方法：一个终结符刚落进 `Data` 之后（`FormStatement` ✓），一个单元关闭之前（`ApplyCloseRules` ✓）。
 
 **为什么要有这一层** ✗：这两件事都必须在 `typescript` 层做（要认识 `Statement` / `Keyword` ✓），
 而两个触发点都在 `core` ✗ —— `TryToClose` 在 `core/syntax/token.xl.md` ✓，
@@ -34,15 +34,17 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 throw new Error("abstract member: FormStatement");
 ```
 
-## method UpgradeWords:(unit:Token)=>void
+## method ApplyCloseRules:(unit:Token)=>void
 
-在 `unit` 关闭之前调用：把这一层里**该升级成关键字**的标识符换成 `Keyword` 单元。
+在 `unit` 关闭之前调用：把**已经搬进解析期的那几条重组规则**在这一层上跑一遍。
 
-**为什么是「关闭之前」这个时机** ✓：重组那一趟里关键字升级跑的就是「每个单元关闭时、在它自己的
-`Data` 上」✓（通用队列与类型队列都带那条规则 ✓）⇒ 放在 `Token.TryToClose` 里与对照态**同一时机** ✓。
-**而解析期那些端口（`LetBranch` 那一族）跑在关闭之前** ✓ ⇒ 它们照旧看得见 `Identifier` 形态的
-`let` / `const` / `var` ✓（时机一变就互相踩，第 486 轮记过这条 ✓）。
+**为什么是「关闭之前」这个时机** ✓：这些规则在全局那一趟里跑的就是「每个单元关闭时、在它自己的
+`Data` 上」✓（`Token.Reorganize` ✓）⇒ 放在 `Token.TryToClose` 里与对照态**同一时机** ✓。
+**而解析期那些端口（`LetBranch` / `FormStatement` 那一族）跑在关闭之前** ✓ ⇒
+它们照旧看得见升级前的形状 ✓（时机一变就互相踩，第 486 轮记过这条 ✓）。
+
+**跑的次序 = 重组队列的次序** ✓（硬约束 ✗，见实现那一处的两条实测账 ✓）。
 
 ```ts
-throw new Error("abstract member: UpgradeWords");
+throw new Error("abstract member: ApplyCloseRules");
 ```

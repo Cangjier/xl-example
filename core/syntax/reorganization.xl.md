@@ -35,3 +35,25 @@ throw new Error("abstract member: Previous");
 ```ts
 throw new Error("abstract member: Process");
 ```
+
+## method ApplyTo:(unit:Token)=>void
+
+在 `unit` **自己的子单元列表上**跑一遍这条规则（第 488 轮 ✓）。
+
+写给「解析期那一趟」用 ✓（`Token.TryToClose` → `TokenFormer.ApplyCloseRules` ✓）：
+那时整个单元的子单元都已经在列表里 ✓，所以这条规则的判据与收集照旧成立 ✓。
+
+**这个循环只有一份** ✓：全局那一趟（`Token.Reorganize`）与解析期这一趟都按同一句推进下标 ✓ ——
+`Process` 会把多个子单元换成一个 ✓，下标必须跟着走 ✓。
+
+```ts
+const units = unit.Data;
+if (Array.isArray(units) === false || units.length === 0) {
+  return;
+}
+for (let i = 0; i < units.length; i++) {
+  if (this.Previous(unit.Template, units, i)) {
+    i = this.Process(unit.Template, units, i);
+  }
+}
+```

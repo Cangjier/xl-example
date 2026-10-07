@@ -1812,4 +1812,54 @@ coverage 142/1713（blocked 1566、differ 5、bad 0、加权 6.4%）⇒ 没弄�
 「形参表 → `Parameter` → `TypeDefine` → 返回类型」是一条链 ✓，投影侧那几张表（`PRIMITIVE_TYPE_KIND` ✓）
 就是照这条链写的 ✓），然后 `TypeAssign`（`type X = …` ✓）与 `Function` ✓。
 
+## 一百〇五、声明链搬进解析期（第 488 轮）：164 → **193 / 1037**
+
+上一节的判断对了一半 ✗：`TypeDefine` / `Parameter` **不能单独搬** ✗ —— 它们与 `Function` 是一条链 ✓，
+而且**次序就是重组队列的次序** ✓：`Function`（队列第 2）→ `Parameter`（第 25）→ `TypeDefine`（第 37）
+→ `Keyword`（队尾 ✓，实测队列最后一项就是它 ✓）。
+
+| 只搬 | `tmp/recon/i42.ts` 的读数 |
+| --- | --- |
+| `TypeDefine` 单独 | `Block` / `ReturnStatement` 从 OK 变 **MISS** ✗（返回类型那个 `:` 少了 `Function` 先成形，一路吞到函数体里 ✗） |
+| `Function` ＋ `Parameter` ＋ `TypeDefine`（关键字最后） | **四个方向全零** ✓ |
+
+关键字必须最后那一笔是硬的 ✗：`function` 那个词一旦升成 `Keyword` ✓，
+`FunctionReorganization.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
+（队列里 `KeywordReorganization` 也确实排在 `TypeDefineReorganization` 之后 ✓）。
+
+**新机制（三处，往后每加一条规则只多一行 ✓）**：
+
+| 位置 | 内容 |
+| --- | --- |
+| `core/syntax/reorganization.xl.md` | 新增 `ApplyTo(unit)` ✓：在单元自己的 `Data` 上跑一遍这条规则 ✓ —— **推进下标那个循环只有一份** ✓，全局那趟与解析期这趟共用 ✓ |
+| `core/syntax/token-former.xl.md` ＋ `token.xl.md` | 第 487 轮的 `UpgradeWords` 泛化成 `ApplyCloseRules` ✓（`TryToClose` 里那个位置一个字没动 ✓），第 487 轮那个 `Keyword.UpgradeIn` 撤掉 ✓（规则自己的 `ApplyTo` 就是入口 ✓） |
+| `typescript/parse-pipeline.xl.md` | `TokenFormerImpl` 落到这里 ✓ —— 它要同时用 `Statement` 与四条规则 ✓，而 `type-define.xl.md` **反过来 import `parse-pipeline`** ✗，实现放在那条链上任何一份文件里都会绕出环 ✗ |
+
+**这一轮搬的是「调用时机」，规则本体还是它自己那一份** ✓：
+`FunctionReorganization.Instance.ApplyTo(unit)` ✓、`ParameterReorganization` ✓、`TypeDefineReorganization` ✓、
+`KeywordReorganization` ✓ —— 逐条内联留到后面一块一块做 ✓。纪律上仍然是一块一量 ✓。
+
+**读数（整份 `cases` 语料，force 重建 ✓）**：
+
+| 状态 | 第 487 轮 | 本轮 |
+| --- | --- | --- |
+| **禁用 reorg（默认，主指标）** | 164 | **193 / 1037** ✓ |
+| —— 缺 / 漂移 / 多出来 / 字段名 | 6726 / 497 / 6365 / 51 | **6159 / 477 / 4852 / 53** ✓ |
+| `DSH_XL_REORG=1`（对照态） | 859 | **859**（不动 ✓：这一趟在对照态本来就不跑 ✓） |
+
+**六道门**：`runtime:check` 从 116 / 242 涨到 **124 / 242** ✓（这一块让 `tsrun` 多跑通 8 条 ✓），
+其余四道与 HEAD 逐道相同 ✓（runtime:cli 1/78、cases:tsast 红、samples 红、
+cases:check 1050 全过、coverage 142/1713 ✓）—— 没有弄坏东西 ✓。
+
+**下一块**：把 `ApplyCloseRules` 里那一串**按队列次序**往下接 ✓ —— 队列里排在 `Function`（2）之后、
+`Parameter`（25）之前的是 `Signature`(3) / `MethodDeclaration`(4) / `Label`(5) / `Let`(6) / `Field`(7) /
+`New`(8) / `Method`(9) / … / `JsonObject`(14) / … ；队伍最前面的 `Decorator`(1) 要**插到最前** ✓。
+权重最大且还没搬的仍是 `TypeAssignReorganization`（2901，队列第 35，排在 `TypeDefine`(37) 之前 ✓）、
+`MethodDeclarationReorganization`（1187，第 4）、`BinaryOperatorReorganization`（1119，第 51 起 ✓ 排在关键字之前 ✓）。
+
+**一处必须先解的账** ✗：`StatementReorganization3`（774 / 154 / 101）是「**列表末尾那一格**」——
+它的时机是「容器关闭时最后那个单元」✓，与这一趟的时机**天然重合** ✓，但它现在**不在**这一趟里 ✓；
+下一块或下下块要把它接上（它管的是「没有终结符的收尾语句」✓）。
+
+
 

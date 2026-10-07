@@ -67,8 +67,8 @@ import { PreprocessorDirectives } from "./tokens/preprocessor-directives.xl.md"
 import { PropertyAccessReorganization } from "./tokens/property-access.xl.md"
 import { RegexToken } from "./tokens/regex-token.xl.md"
 import { SignatureReorganization } from "./tokens/signature/signature.xl.md"
-import { StatementReorganization2, StatementReorganization3 } from "./tokens/statement.xl.md"
-import { TokenFormerImpl } from "./tokens/statement.xl.md"
+import { StatementReorganization2, StatementReorganization3, Statement } from "./tokens/statement.xl.md"
+import { TokenFormer } from "../core/syntax/token-former.xl.md"
 import { StringGuide, StringGuideBranch } from "./tokens/string/string-guide.xl.md"
 import { SwitchReorganization } from "./tokens/switch/switch.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
@@ -556,10 +556,10 @@ return [
 
 ```ts
 template.Initialize((self: Template) => {
-  // **成形器**（第 486 / 487 轮）：把 `Token.FormStatement` 落到 `Statement.FormFrom`、
-  // 把 `Token.UpgradeWords` 落到 `Keyword.UpgradeIn` 上。
+  // **成形器**（第 486–488 轮）：把 `Token.FormStatement` / `Token.ApplyCloseRules` 落到
+  // `typescript` 层那一份实现上（`token-former-impl.xl.md` ✓）。
   // 它是**进程级的一份**（`Token` 上的静态字段 ✓），装一次就够 ✓——装在这里是因为
-  // 「装配是调用方的责任」这条口径只有这一个入口 ✓（`Statement` 与 `Token` 这里都 import 得到 ✓）。
+  // 「装配是调用方的责任」这条口径只有这一个入口 ✓。
   Token.Former = TokenFormerImpl.Instance;
   self.BranchTemplate.DefaultValue = ParsePipeline.CreateGeneralQueue();
   self.ReorganizationTemplate.DefaultValue = ParsePipeline.GeneralReorganize;
@@ -703,4 +703,50 @@ unit.ReorganizationQueue = already
       [StatementReorganization2.Instance, StatementReorganization3.Instance],
       (item: any) => item instanceof WrapSymbolReorganization,
     );
+```
+
+# class TokenFormerImpl extends TokenFormer
+
+`Token` 那两条钩子的落地实现（第 486–488 轮 ✓）：装配时被装进 `Token.Former` ✓（见本文件 `Install` ✓）。
+
+**为什么放在这一份文件里** ✗：它要同时用到 `Statement` 与四条规则（`Function` / `Parameter` /
+`TypeDefine` / 关键字 ✓），而 `type-define.xl.md` **反过来 import 本文件** ✗ ⇒
+把实现放进 `type-define` 那条链上的任何一份都会绕出环 ✗。
+放在这里刚合适 ✓：这四条规则本来就在这里 import ✓（`Install` 也在这里 ✓ ——
+「谁装配谁就有那一份实现」✓）。
+
+## static readonly field Instance:TokenFormerImpl = new TokenFormerImpl()
+
+唯一实例。
+
+## method FormStatement:(unit:Token, terminator:Token)=>void
+
+转发给 `Statement.FormFrom`——判据、切片、区间只有那一份实现 ✓。
+
+```ts
+Statement.FormFrom(unit, terminator);
+```
+
+## method ApplyCloseRules:(unit:Token)=>void
+
+**关闭前那一趟**：按**重组队列的次序**跑**已经搬进解析期的那些规则** ✓。
+
+次序是硬的 ✗（两条都是实测出来的）：
+
+- **关键字升级必须最后** ✗：`function` 那个词一旦升成 `Keyword` ✓，
+  `FunctionReorganization.Previous` 的 `current instanceof Identifier && current.Is("function")` 就再也认不出它 ✗
+  （重组队列里 `KeywordReorganization` 也确实排在 `TypeDefineReorganization` 之后 ✓）；
+- **`TypeDefine` 必须在 `Function` 之后** ✗：返回类型那个 `:` 少了 `Function` 先成形 ✓，
+  会一路吞到函数体里去 ✗ —— 实测 `tmp/recon/i42.ts`：只搬 `TypeDefine` 时 `Block` 与 `ReturnStatement`
+  当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓。
+
+**每条规则还是它自己那一份实现** ✓：`XxxReorganization.Instance.ApplyTo(unit)` ✓
+（那个循环只有一份 ✓，见 `core/syntax/reorganization.xl.md` ✓）——
+这一轮搬的是**调用时机** ✓，规则本体的逐条内联留到后面一块一块做 ✓。
+
+```ts
+FunctionReorganization.Instance.ApplyTo(unit);
+ParameterReorganization.Instance.ApplyTo(unit);
+TypeDefineReorganization.Instance.ApplyTo(unit);
+KeywordReorganization.Instance.ApplyTo(unit);
 ```
