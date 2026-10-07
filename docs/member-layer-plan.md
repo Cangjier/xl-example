@@ -2559,3 +2559,25 @@ am-conditional-in-type-arg.ts: TypeAssign ���� 1 ��
 Ҫô������**����**��һ���Ͷ����� ?��**��һ��**���� `LamdaReorganization.Process` ��� ?
 ���� `units` ����������`index`��������� `endIndex` ȫ����� ?��ֻ����һ���ļ� ?����
 ���塸����ʱ��������һ�񵽵���ʲô��?��
+## 一百二十八、`LamdaReorganization.Process` 只被叫到**一次**（第 514 轮）：那个截断的 `Lamda` 不是它造的
+
+接着上一节的「下一块」打点 ✓（`tmp/recon/r514-lamda-probe.cjs` ✓：在 `endIndex = SearchStatementEnd(...)`
+那一行后面把 `index` / `endIndex` / `units` 逐项类名与区间全打出来 ✓）：
+
+```
+am-block-lambda-array-compound.ts: 打点 1 次
+    index=1 endIndex=-1 | 0:Identifier[undefined,undefined) 1:SymbolToken[undefined,undefined) 2:Identifier[undefined,undefined)
+```
+
+两条信息都很硬 ✓：
+
+1. **整份文件只被叫到一次** ✗ —— 而投影里那份产物有**好几个** `Lamda` ✓ ⇒
+   那些 `Lamda` **不是** `LamdaReorganization` 造的 ✓（解析期另有一条路在造 ✓，
+   与第 486 轮把 `Let` / 语句壳搬进解析期是同一类情况 ✓）；
+2. 那一次还给了 `endIndex = -1` ✓、而且 `units` 的区间全是 `undefined` ✓
+   ⇒ 那一刻的单元**还没挂上位置** ✓（是解析中途的一批 ✓），本来就不是我们要找的那一格 ✓。
+
+⇒ 上一节那两处「接 `[`」的失败 ✗ 到这里就说得通了 ✓：**切口不在这条规则的这一支里** ✓。
+**下一块**：去找「解析期是谁在造 `Lamda`」✓（从 `tokens/lamda/*.xl.md` 的 `LamdaParameters` / `LamdaBody`
+以及 `Lamda` 构造器的调用点往回查 ✓），量出 `x => x[1, 2, 3]` 那一个 `Lamda` 的体是在哪一步截断的 ✓。
+
