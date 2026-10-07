@@ -719,6 +719,19 @@ unit.ReorganizationQueue = already
 
 唯一实例。
 
+## static field Depth:int = 0
+
+**这一趟当前的递归深度**（第 496 轮 ✓）。
+
+规则造出来的单元又走 `TryToClose` ⇒ 又进这一趟 ✓，而这一趟**还没有** `Reorganize` 那两道护栏 ✗
+（「扫到不再变化为止 + 硬上界」✓ 与「每个单元只在自己那一趟里收」✓）——
+第 494/495 轮实测：不加界就是**栈溢出** ✗（99 处 ✓），改成队列式则是**堆爆** ✗（4 GB、91 秒 ✓）。
+所以先钉一个**深度硬上界** ✓：到顶就跳过这一层 ✓（不再往下钻 ✓），
+实测接上那六组「会炸」的规则之后**抛异常 0** ✓（305 份语料不再炸 ✓）。
+
+**这是一道临时的界** ✗：到顶时深层的那几条规则**不会跑** ✓，形状因此与对照态不同 ✓ ——
+正解是补上 `Reorganize` 那两道 ✓（下一轮的口径 ✓），补完就该把这个 `Depth` 撤掉 ✓。
+
 ## method FormStatement:(unit:Token, terminator:Token)=>void
 
 转发给 `Statement.FormFrom`——判据、切片、区间只有那一份实现 ✓。
@@ -763,6 +776,16 @@ Statement.FormFrom(unit, terminator);
 这一轮搬的是**调用时机** ✓，规则本体的逐条内联留到后面一块一块做 ✓。
 
 ```ts
+// **深度硬上界**（第 496 轮 ✓）：规则造出来的单元又走 `TryToClose` ⇒ 又进这一趟 ✓，
+// 而这一趟还没有 `Reorganize` 那两道护栏 ✗ ⇒ 不加界就是**栈溢出** ✗（第 494 轮实测 99 处 ✓）、
+// 改成队列式则是**堆爆** ✗（第 495 轮实测 4 GB / 91 秒 ✓）。
+// 到顶就跳过这一层 ✓（深层那几条规则不跑 ✓，形状与对照态因此不同 ✗ —— 这是临时的界 ✓，
+// 正解是补上那两道护栏 ✓，补完把这个 `Depth` 撤掉 ✓）。
+if (TokenFormerImpl.Depth >= 8) {
+  return;
+}
+TokenFormerImpl.Depth = TokenFormerImpl.Depth + 1;
+try {
 DecoratorReorganization.Instance.ApplyTo(unit);
 FunctionReorganization.Instance.ApplyTo(unit);
 SignatureReorganization.Instance.ApplyTo(unit);
@@ -794,6 +817,7 @@ ExportReorganization.Instance.ApplyTo(unit);
 NamespaceExportReorganization.Instance.ApplyTo(unit);
 TypeUnionReorganization.Instance.ApplyTo(unit);
 AsReorganization.Instance.ApplyTo(unit);
+FunctionTypeReorganization.Instance.ApplyTo(unit);
 ConditionalTypeReorganization.Instance.ApplyTo(unit);
 TypeAssignReorganization.Instance.ApplyTo(unit);
 TypeDefineReorganization.Instance.ApplyTo(unit);
@@ -805,9 +829,26 @@ ForeachReorganization.Instance.ApplyTo(unit);
 DoWhileReorganization.Instance.ApplyTo(unit);
 WhileReorganization.Instance.ApplyTo(unit);
 WrapSymbolReorganization.Instance.ApplyTo(unit);
+PropertyAccessReorganization.Instance.ApplyTo(unit);
 CompoundAssignmentOperatorReorganization.Instance.ApplyTo(unit);
+NotNullReorganization.Instance.ApplyTo(unit);
 OptionalCallReorganization.Instance.ApplyTo(unit);
+UnaryOperatorReorganization.Instance.ApplyTo(unit);
+BinaryOperatorReorganization.PowerInstance.ApplyTo(unit);
+BinaryOperatorReorganization.MultiplicativeInstance.ApplyTo(unit);
+BinaryOperatorReorganization.AdditiveInstance.ApplyTo(unit);
+BinaryOperatorReorganization.InInstance.ApplyTo(unit);
+BinaryOperatorReorganization.InstanceofInstance.ApplyTo(unit);
+BinaryOperatorReorganization.EqualityInstance.ApplyTo(unit);
+BinaryOperatorReorganization.LogicalAssignmentInstance.ApplyTo(unit);
+BinaryOperatorReorganization.BitwiseInstance.ApplyTo(unit);
+BinaryOperatorReorganization.NullishInstance.ApplyTo(unit);
+LogicalOperatorReorganization.AndInstance.ApplyTo(unit);
+LogicalOperatorReorganization.OrInstance.ApplyTo(unit);
 SpreadReorganization.Instance.ApplyTo(unit);
 BinaryOperatorReorganization.CommaInstance.ApplyTo(unit);
 KeywordReorganization.Instance.ApplyTo(unit);
+} finally {
+  TokenFormerImpl.Depth = TokenFormerImpl.Depth - 1;
+}
 ```
