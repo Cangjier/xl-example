@@ -5535,4 +5535,64 @@ reorg（重组）这台机器有三层 ✓，第 561 轮只动**第一层：那�
    真正把数字往上推的是「按清单一块一块建解析期形状」✓（第 469 轮起那条线 ✓），
    reorg 拆完之后那条线就没有退路、也没有第二趟可赖 ✓。
 
+## 一百六十五、**逐步移除 reorg** 第二块（第 562 轮）：容器那一侧摘掉「重组」这个名字
+
+**这一轮做的是机械改名** ✓：第 561 轮删掉那一趟之后 ✓，容器那两个名字
+（`Token.ReorganizationQueue` ✓、`Template.ReorganizationTemplate` ✓）已经**不指向任何还活着的东西** ✗ ——
+它们现在唯一的读点是 `ApplyCloseRules` ✓ ⇒ 名字改成它实际的身份 ✓。
+
+### 一、改了什么
+
+| 旧名 | 新名 | 处数 |
+| --- | --- | --- |
+| `Token.ReorganizationQueue` | **`Token.CloseRuleQueue`** | 51 个文件（字段声明 1 ✓、赋值 46 ✓、判空 4 ✓） |
+| `Template.ReorganizationTemplate` | **`Template.CloseRuleTemplate`** | 同上（含 `DefaultValue` 那一处装配 ✓） |
+
+**做法**：一遍 `\bReorganizationQueue\b` / `\bReorganizationTemplate\b` 的词边界替换 ✓
+（51 个 `.xl.md` ✓，`tmp/` 不动 ✓）⇒ **两个方法名刻意没动** ✗：
+`InitialStatementReorganizationQueue` / `InitialKeywordReorganizationQueue` 里的那截
+不是词边界 ✓（`Statement` 与 `Reorganization` 之间没有边界 ✓），
+它们连同规则本体的改名一起留给第 563 轮 ✓。
+
+**文档同步**（三处 ✓）：
+
+1. `core/syntax/token.xl.md` 的字段说明 ✓：写清它是 `ApplyCloseRules` 的输入 ✓、
+   `null` 的含义 ✓、以及「名字里的重组为什么被摘掉」✓；
+2. `core/syntax/templates/template.xl.md` ✓：顺带纠正一句过时的话 ✗ ——
+   原文写「注释被移出语法树就是这一步做的」✗，可 `AreaAnnotation` / `LineAnnotation` 的摘除规则
+   早就不在队里了 ✓（注释留在树里 ✓）；
+3. `typescript/parse-pipeline.xl.md` 的 `ApplyCloseRules` ✓：加一段**名字现状** ✓ ——
+   容器那一侧摘干净了 ✓、规则本体那一侧还叫 `Reorganization` ✓（下一步 ✓），
+   并修掉一处失效引用 ✗（`ternary-operator-condition.xl.md` 里还写着 `Reorganize` 第一句 ✓ ⇒
+   改成 `RunCloseRules` ✓）。
+
+### 二、读数
+
+| 项 | 第 561 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1007 | **1007 / 1037** ✓（持平 ✓） |
+| 缺节点 | 57（21 类） | **57**（21 类）✓ |
+| 多出来的节点 | 71（30 类） | **71**（30 类）✓ |
+| 区间漂移 | 30（17 类） | **30**（17 类）✓ |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21736 | **21736** ✓ |
+
+**持平正是判据** ✓：这一轮一个形状都没碰 ✓ ⇒ 读数与逐项聚合**必须一字不动** ✓
+（`tmp/recon/r562-a.txt` ↔ `tmp/recon/r562-b.txt` ✓，四栏与逐条区间逐项相同 ✓）。
+`xl build` 51 个文件重写 ✓、`tsc` 0 错 ✓ ⇒ 改名没有漏处 ✓
+（`tsc` 是这一轮的尺子 ✓：改错一个名字就是编译错 ✓）。
+
+### 三、下一块的入口（第 563 轮）
+
+1. **把「谁造的」那条诊断链一起改名** ✓：`CreatedByRule` / `BornByReorganization` ✓
+   （`core/syntax/token.xl.md` ✓、`core/extensions/list-extension.xl.md` 的 `ReplaceCountAt` ✓
+   —— 后者**不能删** ✗，解析期的规则也走它 ✓，只能改名或改口径 ✓）；
+2. **规则本体那一侧** ✓：基类 `Reorganization`（`core/syntax/reorganization.xl.md` ✓）
+   + 55 个 `XxxReorganization` 类 ✓ + 两个 `Initial*ReorganizationQueue` 方法 ✓
+   —— 先定名（`CloseRule` / `CloseRuleQueue` 那一族 ✓），再一遍机械替换 ✓，
+   最后把**队列里没用到的**规则类整段删掉 ✓（每批跑一次尺子 ✓）；
+3. **`Install` 那一处** ✓：`self.CloseRuleTemplate.DefaultValue = ParsePipeline.GeneralReorganize;` ✓
+   —— 那个字段名 `GeneralReorganize` 也要跟着改 ✓。
+
 

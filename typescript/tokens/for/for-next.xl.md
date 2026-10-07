@@ -25,7 +25,7 @@ C 风格 `for` 语句的三段头之一：`for(initial; compare; next)` 里第�
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

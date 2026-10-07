@@ -77,7 +77,7 @@ unit.AddToMounted(bracket).Use(source.Value).SignIn(source);
 
 单元值类型是单字符的 `string`。
 
-有一处刻意保留的不对称：`Use("{")` **不设** `ReorganizationQueue`，而 `Use("(")` / `Use("[")` 会设——也就是说 `{}` 里的子单元不跑重组，`()` / `[]` 里的才跑。看起来像漏写，但这是既定行为。
+有一处刻意保留的不对称：`Use("{")` **不设** `CloseRuleQueue`，而 `Use("(")` / `Use("[")` 会设——也就是说 `{}` 里的子单元不跑重组，`()` / `[]` 里的才跑。看起来像漏写，但这是既定行为。
 
 ## static readonly field JumpIn:BracketBranch = new BracketBranch()
 
@@ -128,19 +128,19 @@ return this.startBracket === start[0] && this.endBracket === end[0];
 
 未知字符抛 `Exception("未知括号")`。
 
-注意 `{` 分支里没有 `ReorganizationQueue = ...`（见类正文），这是刻意的，不要「顺手」补上——
+注意 `{` 分支里没有 `CloseRuleQueue = ...`（见类正文），这是刻意的，不要「顺手」补上——
 **唯一的例外**是语句位置的块（标签后面的那个），那一支由 `label.xl.md` 的 `Process` 事后补一条语句队列。
 
 ```ts
 if (value === "(") {
-  this.ReorganizationQueue = this.Template.ReorganizationTemplate.Get(this.constructor);
+  this.CloseRuleQueue = this.Template.CloseRuleTemplate.Get(this.constructor);
   this.startBracket = "(";
   this.endBracket = ")";
 } else if (value === "{") {
   this.startBracket = "{";
   this.endBracket = "}";
 } else if (value === "[") {
-  this.ReorganizationQueue = this.Template.ReorganizationTemplate.Get(this.constructor);
+  this.CloseRuleQueue = this.Template.CloseRuleTemplate.Get(this.constructor);
   this.startBracket = "[";
   this.endBracket = "]";
 } else {
@@ -243,7 +243,7 @@ return result;
 
 克隆自身。
 
-顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `ReorganizationQueue` 赋值；批量加入用 `AddRange`。
+顺序是：`Sign(this)` → 抄两个括号字符 → 把 `Data` 里每个子单元克隆后整批加入 → `TryToClose()`。注意 `Sign` 之后才抄字符，且抄的是**字段**而不是 `Use`，所以克隆体不会重跑 `Use` 里的 `CloseRuleQueue` 赋值；批量加入用 `AddRange`。
 
 ```ts
 const result = new Bracket(this.Template);

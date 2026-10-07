@@ -37,7 +37,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 （与 `IfStatement` 的单语句体同款 ✓）。
 
 **语句队列要走 `ParsePipeline.InitialStatementReorganizationQueue`** ✗，不能写
-`template.ReorganizationTemplate.Get(this.constructor)` ✗——那一条给的是**通用**重组队列 ✓，
+`template.CloseRuleTemplate.Get(this.constructor)` ✗——那一条给的是**通用**重组队列 ✓，
 而 `StatementReorganization2` / `StatementReorganization3` 是**插**进去的两条 ✓
 （`InitialStatementReorganizationQueue` 干的就是这件事 ✓）。
 

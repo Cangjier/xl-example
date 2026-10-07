@@ -421,7 +421,7 @@ TS 的解析器于是把它读成「名叫 `new` 的方法签名」——
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## field kind:string = "call"

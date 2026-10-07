@@ -13,7 +13,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 命名空间体：`NamespaceReorganization.Process` 把 `namespace N { ... }` 那对花括号的内容搬进来，
 之后这一段自己再跑一遍**通用 + 语句**重组，把体内的声明（`interface` / `class` / `function` / `const` / `enum` / 嵌套 `namespace`）逐个收成节点。
 
-`{ }` 括号本身**没有**重组队列（见 `../bracket.xl.md` 的 `Use`：`Use("{")` 不设 `ReorganizationQueue`），
+`{ }` 括号本身**没有**重组队列（见 `../bracket.xl.md` 的 `Use`：`Use("{")` 不设 `CloseRuleQueue`），
 所以命名空间体在括号关闭时是散着的 `Identifier` / `SymbolToken`。把语句队列挂在这一段上，体内的声明才有成形的时机——
 这正是 `InterfaceBody` / `ClassBody` 走的那条路。
 

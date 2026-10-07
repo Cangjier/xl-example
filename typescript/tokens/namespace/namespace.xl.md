@@ -340,7 +340,7 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## field namespace:string = ""

@@ -193,12 +193,12 @@ if (source.Value === "[") {
 
 取运行时类型用 `this.constructor`。
 
-注意 `ReorganizationTemplate` 取出来的是**默认队列**：本类没有嵌套的 `Reorganization`，把正则从单元列表里摘掉是执行层 `RegexStep.Parser` 干的事（本层不做）。
+注意 `CloseRuleTemplate` 取出来的是**默认队列**：本类没有嵌套的 `Reorganization`，把正则从单元列表里摘掉是执行层 `RegexStep.Parser` 干的事（本层不做）。
 
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor, null);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor, null);
 ```
 
 ## protected method Close:()=>void

@@ -324,7 +324,7 @@ return node;
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token
@@ -366,7 +366,7 @@ return result;
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token
@@ -442,7 +442,7 @@ TS 的字段是 `name` + 可选 `questionToken` / `dotDotDotToken` + `type`；�
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

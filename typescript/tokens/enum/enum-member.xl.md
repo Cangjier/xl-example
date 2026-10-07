@@ -138,7 +138,7 @@ member.Process(context, source);
 ```ts
 super(template);
 this.ProcessQueue = ParsePipeline.CreateMemberListQueue();
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Owns:(source:Source)=>bool

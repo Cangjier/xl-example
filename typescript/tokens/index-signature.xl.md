@@ -83,7 +83,7 @@ TS 那边它有三个具名字段：`parameters`（`[k: string]` 那个 `k: stri
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

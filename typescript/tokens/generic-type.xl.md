@@ -841,7 +841,7 @@ switch (item) {
 ```ts
 super(template);
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## field startBracket:string = "<"

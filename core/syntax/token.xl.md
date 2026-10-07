@@ -48,13 +48,14 @@ JSON 的形状照抄上游 Cangjie 的 `Token.ToDictionary` / `Token.ToList`：
 
 从当前单元跳到下一个单元的跳转队列。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
 
-## field ReorganizationQueue:Sequence<Reorganization> | null = null
+## field CloseRuleQueue:Sequence<Reorganization> | null = null
 
-本单元关闭之后 `ApplyCloseRules` 要跑的规则队列。
+本单元关闭之后 `ApplyCloseRules` 要跑的规则队列（第 562 轮从 `ReorganizationQueue` 改名 ✓）。
 
-**名字还叫「重组队列」** ✗：它原来确实是全局重组那一趟的输入 ✓，第 561 轮那一趟删掉之后
-只剩这一处用法 ✓（改名连同规则本体一起搬，见 `docs/member-layer-plan.md` 的迁移账 ✓）。
-`null` = 这个类没有收尾规则 ✓ ——`ApplyCloseRules` 的收敛环对它就只跑成形器那两条钩子 ✓。
+它从前是**全局重组那一趟**的输入 ✓，第 561 轮把那一趟删掉之后只剩 `ApplyCloseRules` 这一个读点 ✓
+⇒ 名字里那个「重组」不再指向任何还活着的东西 ✗，所以改掉 ✓。
+
+`null` = 这个类没有收尾规则 ✓ —— 收敛环对它就一条规则都不跑 ✓（`FormStatement` 那条钩子照旧跑 ✓）。
 
 ## field CreatedByRule:string = ""
 

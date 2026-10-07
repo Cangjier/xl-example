@@ -133,7 +133,7 @@ return index;
 
 `index` 处是不是一个**还没有队列的语句位块**。
 
-`ReorganizationQueue === null` 那一句是幂等保护：跑过一次之后本规则就不再命中，
+`CloseRuleQueue === null` 那一句是幂等保护：跑过一次之后本规则就不再命中，
 否则队列会在每一趟扫描里被重跑（重组是「每条规则扫一遍所有下标」，同一位置会被问很多次）。
 
 ```ts
@@ -141,7 +141,7 @@ const current = Get(units, index);
 if (!(current instanceof Bracket) || current.startBracket !== "{") {
   return false;
 }
-if (current.ReorganizationQueue !== null) {
+if (current.CloseRuleQueue !== null) {
   return false;
 }
 return IsStatementStart(units, index);
@@ -277,11 +277,11 @@ TS 那边的 `properties` 是**成员数组**：
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
-`ReorganizationQueue` 从模板里取：键是 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
+`CloseRuleQueue` 从模板里取：键是 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
 
 ```ts
 super(Template);
-this.ReorganizationQueue = Template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = Template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

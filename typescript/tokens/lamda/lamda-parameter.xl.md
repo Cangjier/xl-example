@@ -110,11 +110,11 @@ TS 那边是一个文本就是那个词的 `Identifier`（真实语料 `Paramete
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
-`ReorganizationTemplate` 以类的构造器对象为键，所以这里写 `this.constructor`。
+`CloseRuleTemplate` 以类的构造器对象为键，所以这里写 `this.constructor`。
 
 ```ts
 super(Template);
-this.ReorganizationQueue = Template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = Template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## property IsOptional:bool

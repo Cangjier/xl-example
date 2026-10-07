@@ -25,7 +25,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

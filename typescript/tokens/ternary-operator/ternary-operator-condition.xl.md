@@ -21,9 +21,9 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 创建后立刻挂上**通用重组队列**。
 
-**为什么必须挂**：这一段的单元是从外面 `TakeRange` 搬进来的，搬进来时外层那一趟重组**已经过去了**；
-不给自己装队列的话 `Reorganize` 第一句 `if (this.ReorganizationQueue === null) return;`
-（见 `core/syntax/token.xl.md`）就让内部**一趟重组都不跑**——于是
+**为什么必须挂**：这一段的单元是从外面 `TakeRange` 搬进来的，搬进来时外层那一趟收尾**已经过去了**；
+不给自己装队列的话 `RunCloseRules` 第一句 `if (this.CloseRuleQueue === null) return;`
+（见 `core/syntax/token.xl.md`）就让内部**一趟规则都不跑**——于是
 `const x = a === b ? c : d;` 里的 `===`、`(a ? b + c : d)` 里的 `+`
 全都留在这一段的 `Data` 里拿不到节点。实测量化：这一类占二元缺口的 29 个节点 / 17 个文件。
 
@@ -35,11 +35,11 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
   多出一层 `<Statement>`）。三元的分支是表达式，不是语句列表。
 
 取法与 `BinaryOperator` / `UnaryOperator` / `Class` / `MethodDeclaration` 的构造器相同
-（`template.ReorganizationTemplate.Get(this.constructor)`，模板没专门注册就是通用队列）。
+（`template.CloseRuleTemplate.Get(this.constructor)`，模板没专门注册就是通用队列）。
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

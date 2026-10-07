@@ -15,17 +15,17 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 `catch` 的形参定义。
 
-注意它与 `TryBody` / `CatchBody` / `FinallyBody` 的差别：它构造时挂的**不是**语句重组队列，而是从 `ReorganizationTemplate` 里按自己的运行时类型取队列——圆括号里是「类型 + 变量名」，走的是另一套重组规则。
+注意它与 `TryBody` / `CatchBody` / `FinallyBody` 的差别：它构造时挂的**不是**语句重组队列，而是从 `CloseRuleTemplate` 里按自己的运行时类型取队列——圆括号里是「类型 + 变量名」，走的是另一套重组规则。
 
 ## constructor:(template:Template)=>void
 
 创建时按自己的运行时类型取重组队列。
 
-`ReorganizationTemplate` 以类的构造器对象为键派发，所以这里写 `this.constructor`。
+`CloseRuleTemplate` 以类的构造器对象为键派发，所以这里写 `this.constructor`。
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

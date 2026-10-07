@@ -22,7 +22,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 创建时先把语句重组队列挂上——花括号里的内容是一串语句。
 
-`InitialStatementReorganizationQueue` 负责把「语句级重组」那一串 `Reorganization` 取出来赋给 `ReorganizationQueue`；它读的是通用重组队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
+`InitialStatementReorganizationQueue` 负责把「语句级重组」那一串 `Reorganization` 取出来赋给 `CloseRuleQueue`；它读的是通用重组队列，所以装配在 `../../parse-pipeline.xl.md`，调用形态是 `ParsePipeline.InitialStatementReorganizationQueue(this)`。
 
 ```ts
 super(template);

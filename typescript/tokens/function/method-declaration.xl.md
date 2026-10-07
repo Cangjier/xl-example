@@ -723,7 +723,7 @@ return ReplaceCountAt(units, startIndex, endIndex - startIndex + 1, result);
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## field name:string = ""

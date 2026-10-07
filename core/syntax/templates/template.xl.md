@@ -30,9 +30,15 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 跳转模板：按单元类型给出该单元要跑哪些 `Branch`。
 
-## field ReorganizationTemplate:SequenceTemplate<Reorganization> = new SequenceTemplate<Reorganization>()
+## field CloseRuleTemplate:SequenceTemplate<Reorganization> = new SequenceTemplate<Reorganization>()
 
-重组模板：按单元类型给出该单元要跑哪些 `Reorganization`。注释被移出语法树就是这一步做的。
+收尾规则模板：按单元类型给出该单元关闭之后要跑哪些规则（`Reorganization` 那一族）。
+
+**名字里的「重组」已经摘掉** ✓（第 562 轮 ✓）：它从前是「全局重组那一趟」的输入表 ✓，
+那一趟在第 561 轮删掉之后 ✓，这张表只剩 `Token.ApplyCloseRules` 这一个读点 ✓
+（`DefaultValue` 装的是通用那一份 ✓，见 `../token.xl.md` ✓）。
+装在这里的规则**会进产物**：注释单元留在树里（`AreaAnnotation` / `LineAnnotation` 的
+摘除规则早就不在队里了 ✓，见 `typescript/parse-pipeline.xl.md` ✓）。
 
 ## field SymbolTemplate:SymbolTemplate = new SymbolTemplate()
 

@@ -255,11 +255,11 @@ Json 数组。
 
 转调基类构造器，然后从重组模板里取出「本类」对应的一组重组规则。
 
-`ReorganizationQueue` 从模板里取：键是 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
+`CloseRuleQueue` 从模板里取：键是 `this.constructor`（`SequenceTemplate` 以类的构造器对象为键）。
 
 ```ts
 super(Template);
-this.ReorganizationQueue = Template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = Template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token

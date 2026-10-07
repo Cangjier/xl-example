@@ -24,7 +24,7 @@ import { LineWrap } from "./tokens/line-wrap.xl.md"
 所以「上一个 / 下一个**实义**单元」的查找必须跨过它们。
 
 原先这里还有一个 `InitialStatementReorganizationQueue`（给单元装报废语句用的重组队列）。
-它读的是 `ReorganizationTemplate.DefaultValue`，也就是**通用重组队列**，属于解析优先级契约的一部分，
+它读的是 `CloseRuleTemplate.DefaultValue`，也就是**通用重组队列**，属于解析优先级契约的一部分，
 已经搬到 `./parse-pipeline.xl.md`，与 `GeneralReorganize` 放在一起。
 
 # method StartsWithTemplate:(unit:Token | null)=>bool

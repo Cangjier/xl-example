@@ -553,7 +553,7 @@ return [
 `TextContext` 的调用方因此只需要 `new Template().Initialize(ParsePipeline.Install)`。
 
 `InitialStatementReorganizationQueue` 的调用点不在这里，而在根单元的构造器里（它作用于**单元**而不是模板，
-所以留在那个时机）——它读的正是这里设下的 `ReorganizationTemplate.DefaultValue`，顺序天然成立。
+所以留在那个时机）——它读的正是这里设下的 `CloseRuleTemplate.DefaultValue`，顺序天然成立。
 
 关键字表与禁用方法名表一并在这一步装上：它们和两张队列一样，是「这套语言怎么解析」的一部分。
 三样东西装完之后，模板上「这套语言怎么解析」就没有别的地方要配了（见 `tokens/root.xl.md` 的契约检查）。
@@ -568,7 +568,7 @@ template.Initialize((self: Template) => {
   // 「装配是调用方的责任」这条口径只有这一个入口 ✓。
   Token.Former = TokenFormerImpl.Instance;
   self.BranchTemplate.DefaultValue = ParsePipeline.CreateGeneralQueue();
-  self.ReorganizationTemplate.DefaultValue = ParsePipeline.GeneralReorganize;
+  self.CloseRuleTemplate.DefaultValue = ParsePipeline.GeneralReorganize;
   self.KeywordTemplate.Allow(ParsePipeline.KeyWords());
   self.MethodNameTemplate.Ban(ParsePipeline.BanedMethodNames());
   self.BranchTemplate.AddModifyItem(StringGuideBranch, ParsePipeline.ExtendStringStarts);
@@ -590,7 +590,7 @@ template.Initialize((self: Template) => {
 所以就装这一条。
 
 ```ts
-unit.ReorganizationQueue = new Sequence<Reorganization>([ImportTypeReorganization.Instance, TypeBracketReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, InferTypeReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, TypeUnionReorganization.Instance, ConditionalTypeReorganization.Instance, KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
+unit.CloseRuleQueue = new Sequence<Reorganization>([ImportTypeReorganization.Instance, TypeBracketReorganization.Instance, TypePrefixReorganization.Instance, LiteralTypeReorganization.Instance, InferTypeReorganization.Instance, TypePredicateReorganization.Instance, TupleMemberReorganization.Instance, ParenthesizedTypeReorganization.Instance, ParameterReorganization.Instance, HeritageClauseReorganization.Instance, BindingElementReorganization.Instance, TypeUnionReorganization.Instance, ConditionalTypeReorganization.Instance, KeywordReorganization.Instance, WrapSymbolReorganization.Instance]);
 ```
 
 **七条规则、不是一条**：`ImportTypeReorganization` 把 `[typeof] import("m")[.A.B]` 收成
@@ -695,15 +695,15 @@ branch.AddStringChar("`");
 但会让每一趟多扫两遍，而且会掩盖「谁插的」这个问题。
 
 ```ts
-const base = unit.Template.ReorganizationTemplate.Get(unit.constructor, (defaultValue: any) => defaultValue);
+const base = unit.Template.CloseRuleTemplate.Get(unit.constructor, (defaultValue: any) => defaultValue);
 if (base === null) {
-  unit.ReorganizationQueue = null;
+  unit.CloseRuleQueue = null;
   return;
 }
 const already = base.Data.some(
   (item: Reorganization) => item instanceof StatementReorganization2 || item instanceof StatementReorganization3,
 );
-unit.ReorganizationQueue = already
+unit.CloseRuleQueue = already
   ? base
   : base.InsertedBeforeWhere(
       [StatementReorganization2.Instance, StatementReorganization3.Instance],
@@ -750,8 +750,16 @@ Statement.FormFrom(unit, terminator);
 **关闭之后那一趟**：按**规则队列的次序**跑**已经搬进解析期的那些规则** ✓。
 
 **第 561 轮起它是唯一那一趟** ✓：全局重组那一趟已经删掉 ✓（见 `core/syntax/token.xl.md` 的
-`TryToClose` ✓），所以这里不再有「对照态里别跑」那一道 ✓ ——`unit.ReorganizationQueue === null`
+`TryToClose` ✓），所以这里不再有「对照态里别跑」那一道 ✓ ——`unit.CloseRuleQueue === null`
 仍是它的第一句 ✓（有些类**本来就没有队列** ✗，例如 `FunctionType` 那一族 ✓）。
+
+**名字的现状** ✓（第 562 轮 ✓）：容器那一侧已经摘掉「重组」✓ ——
+`Token.CloseRuleQueue` ✓、`Template.CloseRuleTemplate` ✓；
+**规则本体那一侧还叫 `Reorganization`** ✗（基类 `core/syntax/reorganization.xl.md` ✓、
+`Sequence<Reorganization>` 那个类型名 ✓、各条 `XxxReorganization` 类 ✓），
+按用户指示逐步搬 ✓，最后一块见 `docs/member-layer-plan.md` 的迁移账 ✓。
+所以下面这些注释、以及本文件里「队列」两个字，说的都是**这一趟**的规则表 ✓，
+与那条已经删掉的全局重组那一趟无关 ✓。
 
 次序是硬的 ✗（两条都是实测出来的）：
 
@@ -796,7 +804,7 @@ Statement.FormFrom(unit, terminator);
 // （`FunctionType` 那一族 ✓），它们的内容不该被再收一遍 ✓。
 // 少了这一句，规则造出来的单元**自己也会关一次** ✓ ⇒ 又跑整串规则 ✗ ⇒
 // 「自己套自己」那一族就是这么来的 ✓（第 502 / 507 轮各修了一处 ✓，这一句一次收掉其余 ✓）。
-if (unit.ReorganizationQueue === null) {
+if (unit.CloseRuleQueue === null) {
   return;
 }
 if (TokenFormerImpl.Depth >= 8) {
@@ -848,7 +856,7 @@ for (let pass = 0; pass < maxPasses; pass++) {
 // · 两条语句规则跳过 ✗（解析期的 `FormStatement` 那一族接管 ✓）；
 // · `Export` 那一格上不跑导出 / `as` / 二元那一族 ✗（第 549 轮 ✓）、
 //   `{` 括号那一格上不跑 `Label` ✗（第 507 轮 ✓）。
-const queue = unit.ReorganizationQueue;
+const queue = unit.CloseRuleQueue;
 if (queue === null) {
   return;
 }

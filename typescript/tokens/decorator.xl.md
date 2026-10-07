@@ -202,12 +202,12 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
 `CallExpression` 缺 13 处全是装饰器）。挂上通用队列之后，`MethodReorganization` 会把
 「名字 + 括号」收成 `<Method>` ✓，与 TS 的 `CallExpression` 一对一。
 
-挂的是**通用队列**（`ReorganizationTemplate.Get(this.constructor)` 的默认值），不是类型队列：
+挂的是**通用队列**（`CloseRuleTemplate.Get(this.constructor)` 的默认值），不是类型队列：
 装饰器里是值表达式，类型队列那几条（方括号 / 运算符 / 字面量）都不该在这里跑。
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method ToXmlString:()=>string

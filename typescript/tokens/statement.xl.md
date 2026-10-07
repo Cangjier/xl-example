@@ -345,7 +345,7 @@ return nextIndex;
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## static method FormFrom:(unit:Token, terminator:Token)=>void

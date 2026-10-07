@@ -192,7 +192,7 @@ return index;
 
 方法调用。
 
-构造器里把 `ReorganizationTemplate` 的规则取出来当自己的 `ReorganizationQueue`；单元值类型是单字符的 `string`。
+构造器里把 `CloseRuleTemplate` 的规则取出来当自己的 `CloseRuleQueue`；单元值类型是单字符的 `string`。
 
 它由重组造出来、自己不消费字符，因此 `Process` 沿用 `IndependentToken` 的空实现。
 
@@ -486,7 +486,7 @@ return groups.filter((group) => group.length > 0);
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
+this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 ```
 
 ## method ComputeArgumentsCount:()=>int
