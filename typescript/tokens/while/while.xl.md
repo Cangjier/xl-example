@@ -77,12 +77,16 @@ compare.TryToClose();
 const startIndex = index;
 endIndex = SkipNextWrapSymbol(units, endIndex);
 const forStatement = result.CreateBody();
+// **体那一格的右端**（与 `for` / `foreach` 同一处口径 ✓）：两个分支各自赋值 ✓，
+// 兜底值只是让类型定下来 ✓（`while` 那个词自己一定是闭着的 ✓）。
+let tailEnd = unit.SourceRange.End!;
 const statementCandidate = Get(units, endIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
   statementBracket.MoveDataTo(forStatement);
   forStatement.SignIn(statementBracket.SourceRange.Start!);
   forStatement.SignOut(statementBracket.SourceRange.End!);
+  tailEnd = statementBracket.SourceRange.End!;
 } else {
   const statementStart = endIndex;
   endIndex = Statement.SearchStatementEnd(units, endIndex - 1);
@@ -96,10 +100,22 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   }
   forStatement.AddRange(TakeRange(units, statementStart, endIndex - statementStart + 1));
   forStatement.SignIn(Get(units, statementStart)!.SourceRange.Start!);
-  forStatement.SignOut(Get(units, endIndex)!.SourceRange.End!);
+  // **体是单语句时，尾分号要算进来** ✓（与 `for` 第 572 轮那一处同一条口径 ✓）：
+  // `;` 被 `Statement.FormFrom` **切进壳体的区间**、却不放进 `Data` ✗
+  // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格 ✓。
+  // **只借宿主的右端** ✗：宿主是 `Statement` 时它多出来的那一格正是那个 `;` ✓；
+  // 别的宿主（`Root` / 各种体 ✓）的右端是**整个容器**的末尾 ✗，照借会一路拉到文件尾 ✓；
+  // **只在体是列表最后一格时才借** ✗（后面还有单元说明壳里不止这一条 ✓）。
+  tailEnd = Get(units, endIndex)!.SourceRange.End!;
+  const owner = unit.Parent;
+  const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
+  if (ownerEnd !== null && endIndex === units.length - 1 && ownerEnd.Index > tailEnd.Index) {
+    tailEnd = ownerEnd;
+  }
+  forStatement.SignOut(tailEnd);
 }
 forStatement.TryToClose();
-result.SignOut(Get(units, endIndex)!.SourceRange.End!);
+result.SignOut(tailEnd);
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - startIndex + 1, result);
 return index;

@@ -250,6 +250,19 @@ if (before instanceof SymbolToken && before.Is(";")) {
 // 每个字走 `ReloadMessage` ✓，`IfSet` 的 `Navigate` 再按 `Data` 把 `else` 认成续段 ✓，
 // 与跨行的 `if (a) f();` 换行 `else` 那条路**同一条** ✓ —— 那条路早就是绿的 ✓，
 // `if-else-with-comment.ts` ✓）。
+// **上一格已经是一条收好的语句壳 ⇒ 体到此为止** ✓：`if` 的单语句体里**只能有一条语句** ✓，
+// 所以「前一格是一个完整的 `Statement`」本身就是终局 ✓ —— 不必再等换行，也不必等 `else` ✓。
+//
+// **为什么那两支等不到** ✗：解析期的语句壳由 `Statement.FormFrom` 收 ✓（终结符进 `Data` 之后 ✓），
+// 于是 `if (x === 2) continue; total += x;` 里那个 `;` **已经并进壳里** ✗ ——
+// 上面那两支找的是**裸 `;`** ✓ ⇒ 一支都不响 ✗ ⇒ 体一直开着 ✓ ⇒
+// 后面每一条语句都被吃进 `IfStatement`（实测 `ctl-forof-array` / `rt-while-continue-progress`
+// 那一族：体里多出一条语句，投影出来是个包着两条语句的假 `Block` ✓）。
+if (before instanceof Statement) {
+  this.BodyEnded = true;
+  this.BodyEndIndex = last;
+  return;
+}
 if (Statement.IsStatementUnit(before)) {
   const newestIsElse =
     newest instanceof Identifier && newest.Is("else");

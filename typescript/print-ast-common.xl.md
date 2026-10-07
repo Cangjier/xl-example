@@ -816,6 +816,15 @@ new Map([
 
 ```ts
   const type = node.get("type");
+  // **裸块的花括号是节点，不是包装** ✗：`(` / `[` 只是分组 ✓，内容提上去正好 ✓；
+  // 而语句位那个 `{ … }` 在 TS 里是一个 `Block` ✓（`projectNode` 里为它写了一支 ✓）。
+  // 当包装提上去会把块里的语句**并到父节点语句表的末尾** ✗ —— 顺序于是与源码相反 ✓，
+  // 而块里的语句是**按顺序执行**的 ✗（**静默错值** ✓：实测
+  // `function f() { { console.log("in") } console.log("out") }` 印出 `out / in` ✓）。
+  // 值位的花括号到不了这里 ✓：对象字面量是 `ObjectLiteral` ✓、类型字面量是 `TypeLiteral` ✓。
+  if (type === "Bracket" && String(node.get("startBracket") ?? "") === "{") {
+    return undefined;
+  }
   if (type === "GenericType") {
     const hasParameter = allKids(view(node)).some((k) => k.get("type") === "TypeParameter");
     return hasParameter ? "typeParameters" : undefined;

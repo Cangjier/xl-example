@@ -7945,6 +7945,62 @@ return head === "|" || head === "&" || head === ".";
    ③ **动这一支（`NextLineContinuesExpression`）要连 `LineCannotEnd` 一起想** ✓：
    两半合起来才是 ASI 判据 ✓，只补右半截会在「左边写完了、右边也是新语句」的排版上多并一句 ✓。
 
+## 一百八十八、语句壳的四条收口（第 586 轮）coverage 1631 → **1666 / 1713**（94.5% → **96.9%**）、`real` 390 → **398 / 414**
+
+第 552–585 轮把语句壳从「关闭前那一趟」搬到**解析期**（`Statement.FormFrom` / `StatementBranch` ✓）。
+那一趟搬完之后，**解析期看得见的东西比关闭前少** ✗——这一轮补的就是那四道缺口 ✓。
+改动只在 5 个文件（`statement` / `if-statement` / `while` / `foreach` / `print-ast-common` ✓、外加一处调用点 ✓）。
+
+### 一、四条根子
+
+| # | 形状 | 根子 | 改法 |
+| --- | --- | --- | --- |
+| 1 | `if (x === 2) continue; total += x;` 里**第二条语句被吃进 `if` 的体** | `IfStatement.Process` 找的是**裸 `;`** ✓，而 `;` 已经被 `FormFrom` **并进壳里** ✗ ⇒ 一支都不响 | 多一条判据：**前一格是收好的 `Statement` ⇒ 体到此为止** ✓（单语句体里只能有一条语句 ✓） |
+| 2 | `try { … }` 换行 `catch (e) { … }` 报 `name is not a local or a capture: catch` | 换行处照常收壳 ✓ ⇒ `TryCloseRule` 再也看不到**平列表上的 `try`** ✗ | `NextLineContinuesExpression` 补一档：**下一行以 `catch` / `finally` 开头 ⇒ 续行** ✓（两个词都**起不了一条语句** ✓，与 `?` / `:` 同一条理由 ✓、不要护栏 ✓） |
+| 3 | `{ a(); } b();` 报 `unimplemented: expression Block` | 裸块**不是**语句边界 ✗ ⇒ 块与后面那条调用进**同一个**壳 | `IsStatementBoundary` 认「语句位上的 `{`」✓（`IsStatementStart` + `IsDeclarationPosition` 两道 ✓——少了后者，`while (c) {` / `with (o) {` 的**体**也会被当成新语句 ✗） |
+| 4 | `while (c) s++;` / `for (… of …) f(x);` 的**右端差一格** | 尾分号被 `FormFrom` 切进壳的区间、**不进 `Data`** ✗ | `while` / `foreach` 照 `for` 第 572 轮那一处**借宿主右端** ✓ |
+
+### 二、第五处：壳里冒出一条语句级单元（同一轮）
+
+语句级单元（`Function` / `While` / `Try` / `Switch` …）是**关闭前那一趟**才成形的 ✓，
+而壳是**解析期**收的 ✗ ⇒ 一行里写完的「声明 + 后面那条语句」挤在**同一个**壳里 ✓
+⇒ 投影按「壳的第一个孩子」投 ✓ ⇒ 后者被当成**表达式**丢掉 ✓。
+新增 `Statement.SplitShell`（在 `RunCloseRules` 末尾、`FormTail` 之后叫一次 ✓）：
+**第一个孩子已经是语句级单元**时，把壳拆成「那一格 + 尾巴那一壳」✓（`Label` 不拆 ✗——
+标签与它标的语句合起来才是**一条** `LabeledStatement` ✓）。
+这一处收掉的读数：`unimplemented: expression {FunctionDeclaration, WhileStatement, ForOfStatement, TryStatement, SwitchStatement}` ✓
+（`runtime:check` 的两条老账也一起清了 ✓：**242 / 242** ✓）。
+
+### 三、投影侧一处顺序错（`print-ast-common`）
+
+`wrapperTarget` 把 `(` / `[` 之外**花括号**也当包装提上去 ✓ ⇒ 块里的语句被**并到父节点语句表的末尾** ✗
+⇒ 执行顺序与源码相反 ✓（**静默错值** ✓：`function f() { { console.log("in") } console.log("out") }` 印出 `out / in` ✓）。
+判据只留「`(` / `[` 是包装」✓——值位的花括号到不了这一层 ✓（对象字面量是 `ObjectLiteral` ✓、类型字面量是 `TypeLiteral` ✓）。
+
+### 四、读数
+
+| 项 | 第 585 轮末 | 本轮 |
+| --- | --- | --- |
+| `coverage` | 1631 / 1713（94.5%） | **1666 / 1713（96.9%）** ✓（blocked 40 → **16** ✓、differ 42 → **31** ✓） |
+| `cases:tsast` `cases` | 1037 / 1037 | **1037 / 1037** ✓（四方向与三个地基栏一字未动 ✓） |
+| `cases:tsast` `real` | 390 / 414 | **398 / 414** ✓（漂移 57 → **37** ✓、多出 122 → **102** ✓；`WhileStatement` 12 → 0 ✓、`ForOfStatement` 8 → 0 ✓） |
+| `runtime:check` | 240 / 242 | **242 / 242** ✓ |
+| `runtime:cli` / `samples` / `cases:check` | 全绿 | **全绿** ✓（79 / 79 ✓、三份 ✓、1050 条 0 不合格 ✓） |
+
+### 五、下一块（给下一个对话）
+
+1. **`real` 那 11 份红** ✓ —— 头两名还是 `@types/node` 的 `vm.d.ts` / `fs.d.ts` ✓
+   （缺 `Identifier` / `TypeReference` / `UnionType` / `ExpressionWithTypeArguments` ✓、
+   多 `ExpressionStatement` ✓），现场是「泛型形参表里的软换行 + 续行 `|`」✓；
+2. **枚举最后一名成员** ✗（第 586 轮量到、**没修** ✓）：`export enum E {` 换行 `A,` 换行 `B` 换行 `}` 里
+   `B` 被 `StatementBranch` 包成 **`EnumMember > Statement`** ✓（换行那一刻的容器是 `EnumMember` ✓，
+   而那一支的黑名单里只有 `EnumBody` ✗）⇒ 投影多一个 `ExpressionStatement` ✓
+   （`dist/ts/runtime/heap.ts` 一处就 3 个 ✓）。**修法**：`StatementBranch` 的黑名单改成
+   共用 `IsStatementList` ✓（与 `FormTail` 的白名单**同一句** ✓）。
+3. **coverage 剩下的 47 条** ✓ 分两簇：`c371-` 那一批**标准库 / 引擎的深水区** ✓
+   （`Date` 一族 ✓、承诺组合子 ✓、`Map` / `Set` 的原型格 ✓）与
+   `c37x-ex-` 那一批**降级层没接的形状** ✓（`new.target` ✓、尖括号断言 ✓、`\u{…}` ✓）。
+
 
 
 

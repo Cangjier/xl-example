@@ -38,91 +38,55 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 94.53,
+  "progressPercent": 96.94,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 472,
-      "blocked": 14,
-      "differ": 16,
+      "pass": 490,
+      "blocked": 4,
+      "differ": 8,
       "nodefail": 0,
-      "coverage": 94.02
+      "coverage": 97.61
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 390,
-      "blocked": 14,
-      "differ": 7,
+      "pass": 398,
+      "blocked": 8,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 94.89
+      "coverage": 96.84
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 618,
-      "blocked": 2,
+      "pass": 620,
+      "blocked": 0,
       "differ": 14,
       "nodefail": 0,
-      "coverage": 97.48
+      "coverage": 97.79
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 151,
-      "blocked": 10,
-      "differ": 5,
+      "pass": 158,
+      "blocked": 4,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 90.96
+      "coverage": 95.18
     }
   ],
   "blocked": [
-    {
-      "id": "exc-finally-order",
-      "layer": "runtime",
-      "title": "try / catch / finally 的执行顺序（含没抛的那条路）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "exc-nested-and-rethrow",
-      "layer": "runtime",
-      "title": "嵌套 try + 重抛 + catch 里再抛",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "exc-catch-rethrow-finally",
-      "layer": "runtime",
-      "title": "catch 里 throw，finally 照跑，外层接住",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "exc-throw-in-callback-map-filter",
-      "layer": "runtime",
-      "title": "回调里抛：`forEach` / `map` / `sort` / `Map.forEach` 都**立刻**中断，外层 `catch` 接得住",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "rt-deep-recursion-return",
-      "layer": "runtime",
-      "title": "深递归：回程顺序与累加",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
     {
       "id": "c291-rt-iteration-protocol-forms",
       "layer": "runtime",
       "title": "手写可迭代对象 + for..of",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
-      "id": "c291-rt-switch-and-fallthrough-forms",
-      "layer": "runtime",
-      "title": "switch 的穿透与 default",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
     },
     {
       "id": "c304-rt-new-target-in-ctor",
@@ -137,64 +101,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
     },
     {
-      "id": "c371-rt-try-catch-finally-matrix",
-      "layer": "runtime",
-      "title": "try / catch / finally 的六种收口方式",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
-    },
-    {
-      "id": "c371-rt-deep-object-graph",
-      "layer": "runtime",
-      "title": "深对象图：建立、遍历、序列化",
-      "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "c371-rt-error-catch-and-rethrow",
-      "layer": "runtime",
-      "title": "错误的捕获、分类、重抛与 finally 的清理",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
       "id": "c371-rt-bind-call-apply-forms",
       "layer": "runtime",
       "title": "bind / call / apply 的 this 与实参形态",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c371-rt-exception-across-frames",
-      "layer": "runtime",
-      "title": "异常跨多层函数帧展开并回到调用者",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "ex-function-decl-in-block",
-      "layer": "exec",
-      "title": "块里的函数声明：块内可见、块外不泄漏",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
-    },
-    {
-      "id": "ex-switch-no-default",
-      "layer": "exec",
-      "title": "switch 没有 default / 只有 default / 空体",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
-    },
-    {
-      "id": "ex-function-decl-in-block-scope",
-      "layer": "exec",
-      "title": "块里的函数声明：块内可见、块外是另一格",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
-    },
-    {
-      "id": "ex-try-catch-finally-typed-and-optional",
-      "layer": "exec",
-      "title": "try / catch 带类型标注 / finally 三件套齐活",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c291-ex-nested-namespace-with-values",
-      "layer": "exec",
-      "title": "嵌套一层的 namespace",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is ModuleDeclaration at 19..65)"
     },
     {
       "id": "c304-ex-type-annotation-in-catch-and-loop",
@@ -233,12 +143,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExclamationToken"
     },
     {
-      "id": "c380-ex-label-colon-versus-type-annotation",
-      "layer": "exec",
-      "title": "标签的冒号 vs 类型标注的冒号（两个子形状，**还没修**）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
-    },
-    {
       "id": "c382-ex-braced-escape",
       "layer": "exec",
       "title": "`\\u{…}` 花括号写法 —— **还没修**",
@@ -251,40 +155,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression Block"
     },
     {
-      "id": "json-parse-error",
-      "layer": "stdlib",
-      "title": "JSON.parse 坏输入要抛（且是可接住的那种）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "error-custom-subclass",
-      "layer": "stdlib",
-      "title": "自定义错误类：继承 Error、带额外字段、能接住",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "e2e-linked-list",
-      "layer": "e2e",
-      "title": "链表 + 自定义迭代协议 + 与数组互转",
-      "detail": "tsrun: 脚本抛出：unimplemented: an iterator's next() must return an object"
-    },
-    {
       "id": "c305-e2e-event-emitter-generic",
       "layer": "e2e",
       "title": "泛型事件总线：`Map` + `Set` + 回调 + `Array.from`",
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
-    },
-    {
-      "id": "c323-e2e-async-retry-with-backoff",
-      "layer": "e2e",
-      "title": "端到端：异步重试与错误分类（不用定时器）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c371-e2e-rational-and-complex",
-      "layer": "e2e",
-      "title": "有理数与复数两个小值类型（相等、运算、字符串）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression WhileStatement"
     },
     {
       "id": "c371-e2e-observer-with-priority",
@@ -293,85 +167,19 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: class member CallExpression"
     },
     {
-      "id": "c371-e2e-async-pool-with-errors",
-      "layer": "e2e",
-      "title": "异步任务池：并发上限、错误隔离、结果汇总",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
       "id": "c371-e2e-csv-full",
       "layer": "e2e",
       "title": "CSV 解析（带引号与转义）与写回",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
     },
     {
-      "id": "c371-e2e-error-hierarchy-service",
-      "layer": "e2e",
-      "title": "服务层错误体系：分类、重试判定、用户消息",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
       "id": "c371-e2e-multi-source-merge",
       "layer": "e2e",
       "title": "多来源合并：去重、优先级、冲突报告",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: priority"
-    },
-    {
-      "id": "c371-e2e-iterator-toolkit",
-      "layer": "e2e",
-      "title": "迭代器工具箱：map / filter / take / zip / cycle",
-      "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
     }
   ],
   "differ": [
-    {
-      "id": "ctl-if-else",
-      "layer": "runtime",
-      "title": "if / else if / else 与嵌套",
-      "detail": "stdout 不同：第 1 行：node «A B C D F» vs tsrun «A B C undefined F»"
-    },
-    {
-      "id": "ctl-while-do",
-      "layer": "runtime",
-      "title": "while / do-while：至少跑一次那一条",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "ctl-forof-array",
-      "layer": "runtime",
-      "title": "`for..of`：数组、字符串、以及中途 break",
-      "detail": "stdout 不同：第 2 行：node «40» vs tsrun «0»"
-    },
-    {
-      "id": "exc-throw-in-callback",
-      "layer": "runtime",
-      "title": "回调里抛：外层 `try` 接得住，且 `finally` 照跑",
-      "detail": "stdout 不同：第 1 行：node «1|caught:cb2|fin» vs tsrun «|caught:cb2|fin»"
-    },
-    {
-      "id": "array-sort-comparator-argument-order",
-      "layer": "runtime",
-      "title": "`sort` 的比较器按 JS 的次序收到两个实参（顺序错了带副作用的那一族就跟着错）",
-      "detail": "stdout 不同：第 1 行：node «1,2,3 1:3» vs tsrun «1,3,2 1:3»"
-    },
-    {
-      "id": "rt-while-continue-progress",
-      "layer": "runtime",
-      "title": "while 里的 continue 要走到步进那一句（否则死循环）",
-      "detail": "stdout 不同：第 1 行：node «1,3,5 6» vs tsrun « 6»"
-    },
-    {
-      "id": "c304-rt-getter-throws-and-finally",
-      "layer": "runtime",
-      "title": "getter 里抛：try/finally 收尾，属性没变",
-      "detail": "stdout 不同：第 2 行：node «5» vs tsrun «undefined»"
-    },
-    {
-      "id": "c315-rt-env-leave-on-continue",
-      "layer": "runtime",
-      "title": "`continue` 那一跳也要重建环境：两种循环的每轮一格都经得起 `continue`",
-      "detail": "stdout 不同：第 1 行：node «0,2,3» vs tsrun «»"
-    },
     {
       "id": "c371-rt-super-and-this-binding",
       "layer": "runtime",
@@ -382,7 +190,7 @@
       "id": "c371-rt-iteration-protocol-forms",
       "layer": "runtime",
       "title": "迭代协议：手动 next、提前退出、return() 收尾",
-      "detail": "stdout 不同：第 2 行：node «got 1» vs tsrun «{\"value\":1,\"done\":false} {\"value\":2,\"done\":false}»"
+      "detail": "stdout 不同：第 3 行：node «closed» vs tsrun «{\"value\":1,\"done\":false} {\"value\":2,\"done\":false}»"
     },
     {
       "id": "c371-rt-async-error-paths",
@@ -419,18 +227,6 @@
       "layer": "runtime",
       "title": "Symbol.toStringTag 与内建对象的标签",
       "detail": "stdout 不同：第 9 行：node «promise [object Promise]» vs tsrun «promise [object Object]»"
-    },
-    {
-      "id": "ex-try-finally-return",
-      "layer": "exec",
-      "title": "`finally` 里的 return / break / continue",
-      "detail": "stdout 不同：第 4 行：node «body 1» vs tsrun «f 1»"
-    },
-    {
-      "id": "ex-for-of-string-labels",
-      "layer": "exec",
-      "title": "for..of 走字符串（按码点）与带标签的循环退出",
-      "detail": "stdout 不同：第 2 行：node «1 3» vs tsrun «»"
     },
     {
       "id": "c371-ex-namespace-type-only-body",
@@ -547,18 +343,6 @@
       "detail": "stdout 不同：第 4 行：node «true [null,null,null]» vs tsrun «false [null,null,null]»"
     },
     {
-      "id": "e2e-generator-pipeline",
-      "layer": "e2e",
-      "title": "生成器管道：惰性的 take / map / filter",
-      "detail": "stdout 不同：第 1 行：node «0,9,36,81,144,225,324» vs tsrun «»"
-    },
-    {
-      "id": "c371-e2e-bst",
-      "layer": "e2e",
-      "title": "二叉搜索树：插入、遍历、查找、最小最大",
-      "detail": "stdout 不同：第 1 行：node «20,30,30,40,50,60,70,80» vs tsrun «»"
-    },
-    {
       "id": "c371-e2e-quick-and-merge-sort",
       "layer": "e2e",
       "title": "快排 / 归并 / 插入排序三种实现与稳定性对比",
@@ -571,6 +355,12 @@
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
+      "id": "c371-e2e-async-pool-with-errors",
+      "layer": "e2e",
+      "title": "异步任务池：并发上限、错误隔离、结果汇总",
+      "detail": "stdout 不同：第 1 行：node «10,20,40,50,70,80» vs tsrun «»"
+    },
+    {
       "id": "c371-e2e-string-search-index",
       "layer": "e2e",
       "title": "倒排索引：建索引、查询、打分排序",
@@ -579,225 +369,6 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [
-    {
-      "id": "c371-ex-labels-and-control",
-      "layer": "exec"
-    },
-    {
-      "id": "c371-stdlib-error-print-and-types",
-      "layer": "stdlib"
-    },
-    {
-      "id": "c371-stdlib-array-tostring-forms",
-      "layer": "stdlib"
-    }
-  ],
-  "regressions": [
-    {
-      "id": "ctl-if-else",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «A B C D F» vs tsrun «A B C undefined F»"
-    },
-    {
-      "id": "ctl-while-do",
-      "layer": "runtime",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "ctl-forof-array",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 2 行：node «40» vs tsrun «0»"
-    },
-    {
-      "id": "exc-finally-order",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "exc-nested-and-rethrow",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "exc-catch-rethrow-finally",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "exc-throw-in-callback",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «1|caught:cb2|fin» vs tsrun «|caught:cb2|fin»"
-    },
-    {
-      "id": "exc-throw-in-callback-map-filter",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "array-sort-comparator-argument-order",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «1,2,3 1:3» vs tsrun «1,3,2 1:3»"
-    },
-    {
-      "id": "rt-while-continue-progress",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «1,3,5 6» vs tsrun « 6»"
-    },
-    {
-      "id": "rt-deep-recursion-return",
-      "layer": "runtime",
-      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "c291-rt-iteration-protocol-forms",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
-      "id": "c291-rt-switch-and-fallthrough-forms",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
-    },
-    {
-      "id": "c304-rt-new-target-in-ctor",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
-    },
-    {
-      "id": "c304-rt-getter-throws-and-finally",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 2 行：node «5» vs tsrun «undefined»"
-    },
-    {
-      "id": "c315-rt-env-leave-on-continue",
-      "layer": "runtime",
-      "detail": "stdout 不同：第 1 行：node «0,2,3» vs tsrun «»"
-    },
-    {
-      "id": "c330-ex-ternary-arrow-branches",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
-    },
-    {
-      "id": "c371-rt-try-catch-finally-matrix",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
-    },
-    {
-      "id": "c371-rt-deep-object-graph",
-      "layer": "runtime",
-      "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
-    },
-    {
-      "id": "c371-rt-error-catch-and-rethrow",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c371-rt-exception-across-frames",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "ex-try-finally-return",
-      "layer": "exec",
-      "detail": "stdout 不同：第 4 行：node «body 1» vs tsrun «f 1»"
-    },
-    {
-      "id": "ex-function-decl-in-block",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
-    },
-    {
-      "id": "ex-switch-no-default",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
-    },
-    {
-      "id": "ex-for-of-string-labels",
-      "layer": "exec",
-      "detail": "stdout 不同：第 2 行：node «1 3» vs tsrun «»"
-    },
-    {
-      "id": "ex-function-decl-in-block-scope",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression FunctionDeclaration"
-    },
-    {
-      "id": "ex-try-catch-finally-typed-and-optional",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c291-ex-nested-namespace-with-values",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: assignment to a non-identifier (left is ModuleDeclaration at 19..65)"
-    },
-    {
-      "id": "c304-ex-type-annotation-in-catch-and-loop",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
-    },
-    {
-      "id": "json-parse-error",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "error-custom-subclass",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "e2e-generator-pipeline",
-      "layer": "e2e",
-      "detail": "stdout 不同：第 1 行：node «0,9,36,81,144,225,324» vs tsrun «»"
-    },
-    {
-      "id": "e2e-linked-list",
-      "layer": "e2e",
-      "detail": "tsrun: 脚本抛出：unimplemented: an iterator's next() must return an object"
-    },
-    {
-      "id": "c305-e2e-event-emitter-generic",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
-    },
-    {
-      "id": "c323-e2e-async-retry-with-backoff",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c371-e2e-bst",
-      "layer": "e2e",
-      "detail": "stdout 不同：第 1 行：node «20,30,30,40,50,60,70,80» vs tsrun «»"
-    },
-    {
-      "id": "c371-e2e-rational-and-complex",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression WhileStatement"
-    },
-    {
-      "id": "c371-e2e-async-pool-with-errors",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c371-e2e-csv-full",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
-    },
-    {
-      "id": "c371-e2e-error-hierarchy-service",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c371-e2e-iterator-toolkit",
-      "layer": "e2e",
-      "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
-    }
-  ]
+  "newlyPassing": [],
+  "regressions": []
 }

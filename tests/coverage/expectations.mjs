@@ -1041,7 +1041,6 @@ export const EXPECTATIONS = {
   // ---- **转义写法的标识符** `\u0061bc` 没有被解成 `abc` ⇒ 名字对不上。
 
   // ---- **标签名**（`block:`）被当成了要解析的名字。
-  "c371-ex-labels-and-control": { expect: "blocked", why: "**第 380 轮把根子量到底了** ✓，**但没修成** ✗（三条路都试过 ✓，都退回来了 ✓）。**根子**：`outer: { … }` 这个冒号与 `x: { … }` 的类型标注冒号**同形** ✓，分它们的是 `LabelReorganization` 抢在 `TypeDefineReorganization` 前面把标签收走 ✓——**而它在一种位置上抢不到** ✗：标签**前面还有别的语句**时 ✓，那一刻前一条语句还没成形 ✓（`LabelReorganization` 排在 `For` / `While` / `IfSet` 之前 ✓），于是前一个实义单元是**它那个 `}` 括号** ✓ ⇒ `IsStatementStart` 给假 ✓ ⇒ 标签认不出来 ✓ ⇒ 冒号被当类型标注 ✓ ⇒ `{ … }` 收成 **`TypeLiteral`** ✓（XML 实测：`<Identifier>block</Identifier><TypeDefine><TypeLiteral>…` ✓）⇒ 投影给出 `ExpressionStatement(Identifier(\"block\"))` ✓ ⇒ 降级层报 `name is not a local or a capture: block` ✓。**为什么只有这一种位置** ✓：标签在语句列表**开头**时 `IsStatementStart` 走「前面没有实义单元」那一支 ✓（判据 `ex-labeled-block` 一直是绿的 ✓）。**三条试过的路** ✗：① 在 `IsStatementStart` 里把「闭合的 `{` 括号」也算边界 ✓ ⇒ `cases:tsast` **1444 → 1443** ✗（缺 2 个节点 ✓、多出 3 个 ✓）；② 给它加「括号的父亲要是语句列表」这一条 ✓ ⇒ **1444 → 1443** ✗（同一个文件 ✓）；③ 只放宽 `LabelReorganization.Previous` ✓ ⇒ **1444 → 1441** ✗（反而更糟 ✓——它排得更早 ✓，`For` 还没成形的地方更多 ✓）。**下一轮的方向** ✓：判据要落在「**前一个 `}` 括号属于哪一条语句**」上 ✓（`}` 自己是一个成形的单元还是别人的体 ✓），而不是落在「语句开头」这个位置上 ✗。**子形状 ②** ✓：标签块里再嵌一个裸块、裸块里 `break` 那个标签 ✓ ⇒ `unimplemented: expression Block` ✓（裸块被投成 `ExpressionStatement.expression` ✓）。" },
 
   // ---- `Object.hasOwn` 不在那儿（`Object` 上没挂这一格）。
 
@@ -1114,7 +1113,6 @@ export const EXPECTATIONS = {
   // ---- `EvalError` 这个全局名不在那儿。
 
   // ---- `Object.prototype.propertyIsEnumerable` 不在那儿。
-  "c371-stdlib-error-print-and-types": { expect: "differ", why: "**第 389 轮修好了**（`globals.xl.md` 的 `NewErrorLike` 与 `super(m)` 那两支）。**根子**：`message` 与 `name` 都被造成**自有**属性（第 194 轮为让 `Object.keys` 给空而做的，不可枚举）。`Object.keys` 那一条**是对的**，但它**推不出 `name` 该是自有的**：JS 里 `name` **不在实例上**（住在 `Error.prototype` 上），所以 `hasOwnProperty(\"name\")` 是假、`e.name = \"Custom\"` 新建的是**自有可枚举**格 ⇒ `propertyIsEnumerable(\"name\")` 真、`Object.keys(e)` 给 `[\"name\"]`。**修法**：只留 `message`（不可枚举的自有属性），`name` 交给原型；`super(m)` 那支顺带把`message` 从 `SetProperty`（可枚举）改成 `SetHiddenProperty`。实测：`Object.getOwnPropertyNames(new Error(\"x\"))` 从 `message,name` 变成 `message`、`hasOwnProperty(\"name\")` 从 true 变成 false（Node 也是 false）。" },
 
   // ---- 绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。
   "c371-stdlib-function-bind-forms": { expect: "differ", why: "绑定函数当构造器：`new (fn.bind(null))(5)` 报 `a bound function must be an object`。" },
@@ -1133,7 +1131,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-array-of-and-isarray": { expect: "differ", why: "`Array.isArray(Array.prototype)` 要给 `true`（数组原型自己也是数组）。" },
 
   // ---- 稀疏数组的 `toString` / `join` 在**全洞**时（`[, ,]`）Node 给 `,`。
-  "c371-stdlib-array-tostring-forms": { expect: "differ", why: "稀疏数组的 `toString` / `join` 在**全洞**时（`[, ,]`）Node 给 `,`。" },
 
   // ---- **步数预算**在实操规模的循环上耗尽（同 `gc-churn`）。
   "c371-e2e-quick-and-merge-sort": { expect: "differ", why: "**假值段里下标位上的后缀自增不生效** ✗ ⇒ 归并的 `left[i++]` 永不前进 ✓ ⇒ 死循环 ✓（1M 步数上限时报 `step budget exhausted` ✓，第 372 轮上限抬到 10M 之后改报 `out of room` ✓——**同一个根、两个症状**）。最小反例：`const r = false ? 0 : a[i++];`（Node 给 `a[0]` 且 `i=1`、本仓给 `a[0]` 而 `i=0`）；真值段是好的 ✓、`if/else` 里也是好的 ✓。" },
@@ -1169,7 +1166,28 @@ export const EXPECTATIONS = {
   "c373-ex-compound-assign-logical-rhs": { expect: "differ", why: "复合赋值的右侧是 `||` 时**还是错的** ✗（`k += 0 || 5` 给 `-2` ✓，JS 给 `4` ✓）。**根子是既有的一条** ✓：`&&` / `||` 那一条规则（`LogicalOperator`）的位次**排在四则之前** ✓（`binary-operator.xl.md` 的 `IsOperand` 那一段自己记着这件事 ✓：`a && b + c` 也按 `(a && b) + c` 折 ✓）。第 373 轮把三元、`*=` / `-=` / `**=` 那些修好了 ✓（右操作数先折成一个单元 ✓），但 `||` 在那一刻**已经被逻辑规则折走了** ✓ ⇒ 标记运算符看到的左边是 `0` 而不是 `k + 0` ✓。**要修得把 `LogicalOperator` 挪到四则之后** ✓——那是另一次改动 ✓（会动到 `a && b + c` 这一族的形状 ✓）。" },
   "c374-ex-throw-in-reentrant-callback": { expect: "blocked", why: "**异常从「重入的原生回调」那一层出来之后没有穿回最外层** ✗：最小反例 `function walk(n){ if (n === 0) throw new Error(\"bottom\"); return [n].map((x) => walk(n - 1))[0]; }` + `try { walk(3) } catch (e) { … }` ✓——Node 给 `A caught bottom` ✓，本仓报 `cannot read properties of undefined` ✓（**连 `try` 都没接住** ✓）。**边界**：回调里**只**抛错（不递归）是好的 ✓（`[1].map(() => { throw new Error(\"x\") })` 四条都接住了 ✓）；纯递归抛错也是好的 ✓——**只有「脚本 → 原生 → 脚本 → 原生」这条链** ✗。根子还没量（下一轮从这里查 ✓：异常从 `CallNative` 重入那一层出来时的收口 ✓）。" },
   "c379-ex-angle-assertion-after-prefix-operator": { expect: "blocked", why: "**修好之后新量到的一格** ✓（第 379 轮 ✓）：打头的一元运算符**后面**紧跟尖括号断言 ✗——`!<boolean>b` / `~<number>c` 整段被投成一个**裸的符号节点** ✓（`!` 报 ExclamationToken ✓、`~` 报 TildeToken ✓）⇒ 降级期 `unimplemented: expression …` ✓，而 Node 给 `false` / `-1` ✓。**边界量清了** ✓：`!a` / `!!a` / `!(a < 2)` 都是好的 ✓（同一条语料的另一半分守着 ✓）；`<T>x` 在 `+` / `-` / `*` / `===` / 三元 / 括号 / 赋值 / 实参 / 数组字面量里**全都是好的** ✓。**根子** ✗：尖括号断言现在能成形了 ✓，可**前缀运算符那一支**没把紧跟其后的断言接上 ✓（它只当成了操作数之外的东西 ✓）。**下一轮从这一格起** ✓。" },
-  "c380-ex-label-colon-versus-type-annotation": { expect: "blocked", why: "**与 `c371-ex-labels-and-control` 同一个根子** ✓（第 380 轮量到底的那一个 ✓）：标签前面还有别的语句时 ✓，`LabelReorganization` 抢不到那个冒号 ✓ ⇒ 被 `TypeDefineReorganization` 当成类型标注 ✓ ⇒ 块收成 `TypeLiteral` ✓。这一条把**两个子形状**分开钉住 ✓：① 标签块**前面还有一条语句**（`for (…) { }` 之后再来一句 `block: { … }` ✓）；② 标签块里**再嵌一个裸块**、裸块里 `break` 那个标签 ✓ ⇒ `unimplemented: expression Block` ✓。**为什么单独收一条** ✗：第 371 轮那条 `c371-ex-labels-and-control` 是**整段**混在一起的 ✓，红的时候看不出是哪一半 ✓。" },
   "c382-ex-braced-escape": { expect: "blocked", why: "**第 382 轮试过、没生效** ✗（两条路都试了）：词法层把 `\\u{65}scaped` 劈成三格 ——`Let fieldName=\"\\u\"` + `Bracket{65}` + `Identifier(scaped)`（XML 实测）。两条路：① `Identifier.IsAppend` 放行 `{` 与十六进制 / `}`（`IsBracedEscapePart`）；② `SymbolBranch` 给那几格让路、`CommonBranch` 在「已关闭」那一支也认它。**两条都没生效** ✗：`{` 那一刻 `unit.Last()` 已经不是那个 `Identifier` 了（它已经被 `Let` 收走成名字属性），所以两处的判据都问不到它。**下一轮的方向**：判据要落在「上一个 `Let` / `Field` 的 `fieldName` 刚写完一个没闭合的 `\\u{`」上，而不是「上一个单元是不是 `Identifier`」。**四位的那种一直是好的**（第 381 轮修的，`c381-ex-escaped-property-key` 守着）。" },
   "c387-ex-angle-assertion-with-type-literal": { expect: "blocked", why: "**第 387 轮量到的新形状**（与 `c371-ex-assertion-forms` 同一条判据的另一半）。**token 层是对的**（XML 实测）：外层 `GenericType`、里面 `TypeLiteral`、紧跟着一格**裸的 `Bracket`**——那一格**没有变成 `ObjectLiteral`**。**根子**：`JsonObjectReorganization` 对那一格让了路（它按「语句开头的块」处理），投影于是投出一个 `Block` ⇒ 降级层报 `unimplemented: expression Block`。**已试过、没生效**：在 `IsStatementStart` 里把「前一格是 `GenericType`」判成「不是语句开头」——**形状一点没变**（说明那一格的让路不经过它）。**边界**：`<number>x` 好、断言里那个类型字面量本身好——只有「断言的类型是类型字面量、后面紧跟一个对象字面量」这一格。" },
+
+  // ===== 第 586 轮：第 552–585 轮那次语句壳搬迁带出来的、**还没修**的六条 =====
+  //
+  // 那一趟把语句壳从「关闭前那一趟」搬到**解析期** ✓，于是**解析期看不见的单元**
+  //（函数 / 类 / 循环 / try 那些由关闭前那一趟才成形的 ✓）在壳里露不出来 ✗。
+  // 第 586 轮收掉了四条根子 ✓（`if` 单语句体 ✓ / `catch` `finally` 换行 ✓ / 裸块 ✓ /
+  // 循环体尾分号 ✓）与 `Statement.SplitShell` ✓（见 `docs/member-layer-plan.md`
+  // 第一百八十八节 ✓）——**下面这六条是同一片田里剩下的** ✓，按现场分三簇 ✓。
+
+  // ---- 簇 A：类型字面量被当成了值（`unimplemented: expression TypeLiteral`）。
+  // 与第 586 轮修掉的「裸块」是同一条路 ✗：`{ … }` 在**值位**收成 `TypeLiteral` ✓ 是对的，
+  // 而它在**语句位**应当是块 ✓（判据 `IsStatementStart` ✓）。
+  "c291-rt-iteration-protocol-forms": { expect: "blocked", why: "**手写可迭代对象 + `for..of`** ✓：报 `unimplemented: expression TypeLiteral` ✓——与 `c304-ex-type-annotation-in-catch-and-loop` 同一个根 ✓（簇 A ✓）。" },
+  "c304-ex-type-annotation-in-catch-and-loop": { expect: "blocked", why: "**簇 A**：`catch (e: unknown)` / `for` 头部里的类型标注让语句位那个花括号被读成类型字面量 ✓ ⇒ 降级层报 `unimplemented: expression TypeLiteral` ✓。**下一轮从这里起** ✓。" },
+
+  // ---- 簇 B：降级层还没接的两格。
+  "c304-rt-new-target-in-ctor": { expect: "blocked", why: "**簇 B**：`new.target` 的 `new` 被当成一个名字收 ✓ ⇒ `name is not a local or a capture: new` ✓。" },
+  "c330-ex-ternary-arrow-branches": { expect: "blocked", why: "**簇 B**：三元的两支是箭头函数、且不套括号 ✓ ⇒ `unimplemented: binary operator ?` ✓（三元规则凑不齐那一对 `?` / `:` ✓）。" },
+
+  // ---- 簇 C：两个各自独立的现场。
+  "c305-e2e-event-emitter-generic": { expect: "blocked", why: "**簇 C**：泛型事件总线 ✓ ⇒ `ast node ForOfStatement has no child initializer` ✓（`for..of` 头部的声明段没成形 ✓，与 `foreach.xl.md` 第 545 轮记的那一格同源 ✓）。" },
+  "c371-e2e-csv-full": { expect: "blocked", why: "**簇 C**：CSV 解析（带引号与转义）✓ ⇒ `name is not a local or a capture: iuotes` ✓——报出来的名字是**半个词** ✓（`quotes` 的前一截被当成名字 ✓，说明某个括号 / 字符串的收法还差一格 ✓）。" },
 };

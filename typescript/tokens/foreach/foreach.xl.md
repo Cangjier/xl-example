@@ -131,12 +131,15 @@ const startIndex = index;
 let endIndex = currentIndex;
 currentIndex = SkipNextWrapSymbol(units, currentIndex);
 const forBody = result.CreateBody();
+// **体那一格的右端**（与 `for` / `while` 同一处口径 ✓）：两个分支各自赋值 ✓。
+let tailEnd = current.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
   forBody.SignOut(statementBracket.SourceRange.End!);
+  tailEnd = statementBracket.SourceRange.End!;
   endIndex = currentIndex;
 } else {
   endIndex = Statement.SearchStatementEnd(units, currentIndex - 1);
@@ -150,10 +153,19 @@ if (statementCandidate instanceof Bracket && statementCandidate.startBracket ===
   }
   forBody.AddRange(units.slice(currentIndex, endIndex + 1));
   forBody.SignIn(Get(units, currentIndex)!.SourceRange.Start!);
-  forBody.SignOut(Get(units, endIndex)!.SourceRange.End!);
+  // **体是单语句时，尾分号要算进来** ✓（与 `for` 第 572 轮那一处同一条口径 ✓）：
+  // `;` 被 `Statement.FormFrom` **切进壳体的区间**、却不放进 `Data` ✗
+  // ⇒ `Get(units, endIndex).SourceRange.End` 比 TS 少一格 ✓。
+  tailEnd = Get(units, endIndex)!.SourceRange.End!;
+  const owner = current.Parent;
+  const ownerEnd = owner !== null && owner.constructor.name === "Statement" ? owner.SourceRange.End : null;
+  if (ownerEnd !== null && endIndex === units.length - 1 && ownerEnd.Index > tailEnd.Index) {
+    tailEnd = ownerEnd;
+  }
+  forBody.SignOut(tailEnd);
 }
 forBody.TryToClose();
-result.SignOut(Get(units, endIndex)!.SourceRange.End!);
+result.SignOut(tailEnd);
 result.TryToClose();
 ReplaceCountAt(units, index, endIndex - startIndex + 1, result);
 return index;

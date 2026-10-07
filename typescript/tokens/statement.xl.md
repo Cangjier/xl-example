@@ -8,7 +8,7 @@ import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsObjectLiteralBrace, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsObjectLiteralBrace, IsStatementStart, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -382,6 +382,67 @@ ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
 statement.TryToClose();
 ```
 
+## static method SplitShell:(unit:Token)=>void
+
+**壳里冒出一条完整的语句级单元时，把壳拆开**——那一格自己留下，它右边那截另收一条壳。
+
+**为什么需要它** ✗：壳是**解析期**收的 ✓（`FormFrom` / `StatementBranch` ✓，那一刻只有**字符级**的单元 ✓），
+而 `Function` / `Class` / `While` / `Try` / `Switch` 这些语句级单元是**关闭前那一趟**才成形的 ✓
+（各自的 `XxxCloseRule` ✓）⇒ `function f() { … } console.log(f());` 这样写在一行里时 ✓：
+`;` 一响就把**整段**（函数声明 + 后面那条调用）收进**同一个**壳 ✗ ⇒
+函数规则随后只认得壳里那一截 ✓ ⇒ 壳里成了「一格 `Function` + 一截尾巴」✗ ⇒
+投影按「壳的第一个孩子是什么」投 ✓ ⇒ 尾巴被当成**表达式**丢掉 ✓
+（实测四条：`unimplemented: expression FunctionDeclaration` ✓ / `WhileStatement` ✓ /
+`ForOfStatement` ✓ / `TryStatement` ✓ —— 降级层报的那句话离现场很远 ✗）。
+
+**只在「第一个孩子就是语句级单元」时拆** ✗：那一格一定是**自己成句**的 ✓，
+它后面的东西不可能属于它 ✓（`Label` 是唯一的例外 ✓ —— 标签与它标的那条语句合起来是
+**一条** `LabeledStatement` ✓，拆开就劈成两条 ✗，所以那一格不拆 ✓）。
+
+**尾巴的右端借壳自己那一格** ✗：壳的区间**含终结符** ✓（`FormFrom` 的签出 ✓），
+而终结符不在 `Data` 里 ✓ ⇒ 只看尾巴最后一格会少一格 ✓。
+
+```ts
+if (unit.constructor.name !== "Statement") {
+  return;
+}
+const data = unit.Data;
+if (Array.isArray(data) === false || data.length < 2) {
+  return;
+}
+const head = Get(data, 0);
+if (head === null || Statement.IsStatementUnit(head) === false) {
+  return;
+}
+if (head.constructor.name === "Label") {
+  return;
+}
+const parent = unit.Parent;
+if (parent === null || Array.isArray(parent.Data) === false) {
+  return;
+}
+const at = parent.Data.indexOf(unit);
+if (at < 0) {
+  return;
+}
+const tail = data.slice(1);
+const first = Statement.FirstMeaningful(tail);
+const last = tail[tail.length - 1];
+if (first.SourceRange.Start === null || last.SourceRange.End === null) {
+  return;
+}
+const rest = new Statement(unit.Template);
+rest.Parent = parent;
+rest.AddRange(tail);
+rest.SourceRange.Start = first.SourceRange.Start;
+const shellEnd = unit.SourceRange.End;
+rest.SourceRange.End = shellEnd !== null && shellEnd.Index > last.SourceRange.End.Index ? shellEnd : last.SourceRange.End;
+data.splice(0, 1);
+parent.Data.splice(at, 1, head, rest);
+head.Parent = parent;
+rest.TryToClose();
+```
+
 ## static method IsStatementUnit:(item:Token)=>bool
 
 这个单元本身是不是一个「语句级」结构。
@@ -505,6 +566,25 @@ if (item === null) {
 }
 if (item instanceof SymbolToken) {
   return item.Template.SymbolTemplate.IsStatementSymbol(item.TempToString());
+}
+// **语句位上的花括号组本身是一条语句** ✓：裸块 `{ … }` 在 TS 里就是 `Block`
+//（`BlockCloseRule` 认的也是它 ✓）。
+// 少了这一条：`{ a(); } b();` 里那个块与后面那条调用被收进**同一个** `Statement` ✗
+// ⇒ 投影出来是 `ExpressionStatement > Block` ✗（降级层报 `unimplemented: expression Block` ✓）。
+//
+// **两道判据缺一不可** ✗：
+// · `IsDeclarationPosition` 问的是「**语句从这里开始**」✓（前一格是列表开头 / `;` / `}` /
+//   另一条语句 ✓）—— 少了它，`while (c) { … }` / `with (o) { … }` / `function f() { … }`
+//   里那个「头 + 体」的括号也会被当成新语句的开头 ✗（实测 `stmt-with.ts` 因此掉出语料 ✓）；
+// · `IsStatementStart` 问的是「这个花括号是**块**不是对象字面量」✓（与 `BlockCloseRule`
+//   / `JsonObjectCloseRule` 同一句 ✓）。
+if (
+  item instanceof Bracket &&
+  item.startBracket === "{" &&
+  IsStatementStart(units, index) &&
+  Statement.IsDeclarationPosition(units, index)
+) {
+  return true;
 }
 if (Statement.IsStatementUnit(item) === false) {
   return false;
@@ -853,6 +933,42 @@ if (head === "(" || head === "[") {
 // `ParenthesizedType` ✓）。实测一份 12 行的最小复现：缺 21 / 漂 6 / 多 12 ✓。
 if (head === "?" || head === ":") {
   return true;
+}
+// **下一行以 `catch` / `finally` 开头** ✓：`try { … }` 换行 `catch (e) { … }` 换行
+// `finally { … }` 是**同一件事**的日常排法 ✓ —— 这两个词**起不了一条语句**（保留字 ✓），
+// 所以它们出现在一行的第一个词上只可能是上面那条 `try` 的续写 ✓，与 `?` / `:` 同一条理由 ✓，
+// 也不需要护栏 ✓。
+//
+// **少了它会怎样** ✗：换行处照常收壳 ✓ ⇒ `try` 与它的体被关进一个 `Statement` ✗
+// ⇒ `TryCloseRule`（它只认**平列表上**的 `try` 词 ✓）再也看不到它们 ✗
+// ⇒ `catch` / `finally` 落成两条普通语句 ✓，`catch (e)` 里的 `e` 变成一个**没声明过的名字** ✓
+//（实测：整份文件报 `name is not a local or a capture: catch` ✓ ——
+// 覆盖率语料里 `exc-*` / `json-parse-error` / `error-custom-subclass` 那一族十几条一起红 ✓）。
+let wordEnd = at;
+for (;;) {
+  if (wordEnd >= count) {
+    break;
+  }
+  const one = document.GetValue(wordEnd);
+  const isWordChar =
+    (one >= "a" && one <= "z") ||
+    (one >= "A" && one <= "Z") ||
+    (one >= "0" && one <= "9") ||
+    one === "_" ||
+    one === "$";
+  if (isWordChar === false) {
+    break;
+  }
+  wordEnd = wordEnd + 1;
+}
+if (wordEnd > at) {
+  let word = "";
+  for (let i = at; i < wordEnd; i++) {
+    word = word + document.GetValue(i);
+  }
+  if (word === "catch" || word === "finally") {
+    return true;
+  }
 }
 return head === "|" || head === "&" || head === ".";
 ```
