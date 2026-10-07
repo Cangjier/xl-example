@@ -1425,7 +1425,34 @@ if (process.env.DSH_XL_NO_REORG === "1") {
 占比 **41.06%** ✓ ⇒ 主线其实是**纯净的绿树** ✓，成员层的全部成果都在 `tmp/recon/`（`r70/` 那一版 ✓）
 与各轮脚本里 ✓ —— 之前那句「主线含成员层」是当时**工作区没回滚**造成的误读 ✓。
 
-## 九十三、每步都要钉住的三件事
+## 九十四、顺序是硬的（第 470 轮）：形参表关闭时，声明还没成形
+
+接着上一轮那块继续 ✗，在 `Bracket.TryToClose` 里打了现场（宿主类名 + 是否命中 ✓）：
+
+```
+PAREN owner=Root           hit=false    ← 函数 / 箭头：括号关闭时父亲还是 Root
+PAREN owner=InterfaceBody  hit=false    ← 接口方法：父亲还是体
+```
+
+⇒ **关闭那一刻括号还没被移进声明里** ✗ —— `Function` / `MethodDeclaration` / `Lamda`
+都是**稍后**才成形的 ✓（它们在重组那一趟把括号搬进自己名下 ✗）。所以「宿主是不是形参表」
+这条判据在**解析期**根本拿不到 ✗（原始那条 `ParameterReorganization` 之所以能判，
+是因为它跑在**体关闭之后**的平表上 ✓，那时父亲已经就位 ✓）。
+
+⇒ **顺序是硬的** ✓：先把**声明层**长出来（`VariableDeclaration` / `FunctionDeclaration` /
+`MethodDeclaration` ✓，它们一成形就把形参括号收进自己名下 ✓），形参表才有归宿 ✓，
+`Parameter` 才谈得上在解析期切 ✓。这与清单的顺序一致 ✓（`Parameter` 排在
+`VariableDeclaration` / `FunctionDeclaration` **之后** ✓），也解释了上一轮「只 2 处生效」✗。
+
+⇒ **下一轮**：从清单里 `VariableStatement` / `VariableDeclaration(List)`（25 / 28 / 26 ✓）
+或 `FunctionDeclaration`（20 ✓）入手 ✓ —— 先把**声明**这一步在解析期做出来 ✓
+（`Let` 那条规则的修饰词回溯 + 边界判据 + 解构名收集都已在 `let.xl.md` 里写清楚 ✓，
+可以照着搬 ✓）。
+
+**本轮读数**（每轮要报的两个数）：**剩余 reorg 占比 41.06%** ✓、`cases` **1037 / 1037** ✓、
+全语料 **0** ✓（本轮没有留在树上的改动 ✓）。
+
+## 九十五、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
