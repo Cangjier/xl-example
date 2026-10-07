@@ -93,6 +93,14 @@ if (unit instanceof Identifier) {
     text === "continue" ||
     text === "yield" ||
     text === "import" ||
+    // **`new` 也不是链底**（第 538 轮 ✓）：`new.target` 不是「`new` 这个操作数的成员访问」✗，
+    // 它在 TS 那边是 **`MetaProperty`**（`print-ast-common.xl.md` 的「0。`import.meta` /
+    // `new.target`」那一支 ✓）——那一支要看到的是 `[Keyword(new), ., …]` 三格 ✓。
+    // 折成链之后 `new` 被包进 `PropertyAccess` ✗ ⇒ 投影只能投出 `PropertyAccessExpression`
+    // 并多一个 `Identifier(new)` ✗（实测 `cls-super-newtarget.ts` 一族：缺 `MetaProperty` +
+    // 多出 `PropertyAccessExpression` / `Identifier` ✓）。
+    // `import` 本来就在名单里 ✓，理由与它**同源** ✓（`import.meta` 归另一条规则 ✓）。
+    text === "new" ||
     // **声明词也不是链底**（第 533 轮 ✓，第 532 轮试出来的方向 ✓）：
     // `let` / `const` / `var` 开头的是一段**声明** ✓，后面那对方括号是**解构模式**（`const [a] = …` ✓），
     // 不是下标访问 ✗。**这三个词永远不是合法的链底** ✓（`let.x` / `const[0]` / `var[0]` 在 JS 里

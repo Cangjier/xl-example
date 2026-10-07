@@ -3597,3 +3597,65 @@ Statement [103,132)
 下一轮回到**上一轮那条死胡同** ✓：`if` 单语句体的 `IsLineBreakBoundary(data, last - 1)` ✓ ——
 现场已经缩到「它看到的换行前一格不是 `continue` 而是 `loop`（下标差一格）」✓，
 而这一轮又多了两支探针（`probe-ifall.cjs` / `probe-ifwrap.cjs` ✓）可以逐格看 `Data` 的下标 ✓。
+## 一百四十二、`new` 也不是链底（第 538 轮下半场）：883 → **884 / 1037**
+
+上半场是 `using` / `await using`（见上一节 ✓）。下半场换「多出来 48 份 `Identifier`」那一栏 ✓
+（`cls-super-newtarget.ts` / `decl-class-new-target.ts` 一族 ✓）。
+
+### 一、现场
+
+```
+MISS   MetaProperty  TS[103,113)  "new.target"
+EXTRA  PropertyAccessExpression  [103,113)  "new.target"
+EXTRA  Identifier                [103,106)  "new"
+```
+
+`print-ast-common.xl.md` 里**早就有**「`import.meta` / `new.target`」那一支 ✓
+（第 141 轮 ✓，注释写着「产物那边是 `[Keyword(new), ., Identifier(target)]` 两种形状，
+照链那一支走会投成 `PropertyAccessExpression` 并多出 `NewKeyword`」✓），
+可它的第一个条件是 **`kids[0].get("type") === "Keyword"` 且文本是 `new` / `import`** ✓。
+
+⇒ 关掉 reorg 之后 `new` 被 **`PropertyAccessReorganization` 先折进了链** ✗
+（`IsChainBase` 的排除名单里有 `import` ✗ **没有 `new`** ✗）⇒ 那一支永远看不到它 ✗。
+
+### 二、修法
+
+`property-access.xl.md` 的 `IsChainBase` 排除名单加 `new` ✓ ——
+理由与 `import` **同源** ✓（`import.meta` 归 `ImportReorganization` ✓、`new.target` 归
+`MetaProperty` 那一支 ✓），两个词都**不该被折进成员访问链** ✓。
+
+### 三、读数
+
+| 项 | 上半场后 | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 883 | **884 / 1037** ✓（+1 ✓） |
+| 缺节点 | 858 | **860** ✗（+2 ✗，见下 ✓） |
+| 多出来的节点 | 281 | **277** ✓（−4 ✓） |
+| 区间漂移 | 71 | **75** ✗（+4 ✗，见下 ✓） |
+| 字段名不符 | 58 | **58** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+
+**那一对 ±（缺 +2 / 漂 +4）的来路** ✓：`new.target` 本身修好了 ✓（`MetaProperty` 对上了 ✓），
+但**同一个文件里还剩一条更里层的问题** ✗：
+
+```
+DRIFT  MetaProperty  TS[103,113) vs 产物[103,119)
+DRIFT  Identifier    TS[107,113) vs 产物[107,119)
+MISS   BinaryExpression / EqualsEqualsEqualsToken / Identifier(A)
+EXTRA  MetaProperty  [103,119)   ← 整条 `new.target === A` 被投成了一个 MetaProperty ✗
+```
+
+⇒ `new.target === A` 里 `target === A` 被折成了一个 **`BinaryOperator`** ✓
+（`new` 不再当链底之后，二元那条规则把 `target` 与右边整段收在一起 ✓），
+投影那一支于是把整格当名字 ✗。
+
+**试过、回滚了** ✓：在 `print-ast-common` 的 `MetaProperty` 那一支里「名字是 `BinaryOperator`
+时只取它第一个操作数」✗ —— 读数**逐项不变** ✗（884 / 860 / 75 / 277 ✓），
+说明那一处不是这个形状的入口 ✓，已回滚 ✓（源码 `git checkout` + 带 `force` 重建 ✓）。
+**下一轮入口** ✓：`new.target` 该在**二元折之前**就被收成一个单元 ✓
+（与 `import.meta` 那条路同款 ✓），而不是让 `target === A` 先折 ✓。
+
+### 四、这一轮的净账
+
+两半合计：**879 → 884 / 1037** ✓，缺 874 → **860** ✓、多出来 299 → **277** ✓、
+漂移 71 → **75** ✗（+4 就是上面那条 `new.target === A` ✓）、字段名 58 持平 ✓、异常 0 ✓。
