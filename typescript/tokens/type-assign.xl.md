@@ -7,8 +7,9 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { Get, ReplaceCountAt, SearchBack, TakeRange } from "../../core/extensions/list-extension.xl.md"
-import { DeclarationModifierSpans, IsDeclarationBoundary, IsDeclarationModifier, IsStatementKeyword } from "./declaration-common.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationBoundary, IsStatementKeyword, ReorganizeDeclarationDecorators } from "./declaration-common.xl.md"
+import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
+import { Decorator } from "./decorator.xl.md"
 import { Identifier } from "./identifier.xl.md"
 import { GenericType } from "./generic-type.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
@@ -114,8 +115,9 @@ return units.length - 1;
 
 要点：
 
-- `startIndex` 先取 `index`，若**跨过软换行**的上一个单元是 `export` / `declare` 之类的修饰词，就前移到它；
-  修饰词折进 `modifiers` 属性。
+- `startIndex` 由 `DeclarationStart` 从 `type` 那个词往前吃**全部修饰词与装饰器**（`export` / `declare` /
+  `@dec`），它们折进 `modifiers` / `ModifierSpans` 两个字段；装饰器是**带子树的节点**，
+  与 `Class` 同一条口径：照旧搬进 `Data`，只有「能被字段完整表达」的修饰词不进。
 - 别名进 `alias` 属性；`type` 这个词与名字本身**不再作为子单元**（与 `Class` / `Interface` 的处理一致：
   关键字与名字都进属性，子单元里只剩类型参数、`=` 与右端）。
 - `endIndex` 由 `AliasEnd` 给出（`;` 或「换行 + 下一条声明」），不再一路收到列表末尾。
@@ -126,20 +128,21 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("current 为空");
 }
-const nameIndex = SkipNextWrapSymbol(units, index);
+// **装饰器先收成单元**（与 `ClassBranch.Success` / `InterfaceBranch.Success` 同一件工具）：
+// 走到这一刻它们可能还是散的 `@` / 名字 / 实参括号，而 `DeclarationStart` 往回走会停在实参括号上。
+const keywordIndex = ReorganizeDeclarationDecorators(template, units, index);
+const nameIndex = SkipNextWrapSymbol(units, keywordIndex);
 const name = Get(units, nameIndex);
 if (!(name instanceof Identifier)) {
   throw new Error("type 语句不满足格式要求：type Name = ...");
 }
-let startIndex = index;
-const previousIndex = SkipPreviousWrapSymbol(units, index);
-const previous = Get(units, previousIndex);
-const modifiers: string[] = [];
-if (previousIndex !== -1 && IsDeclarationModifier(previous)) {
-  startIndex = previousIndex;
-  modifiers.push((previous as Identifier).TempToString());
-}
-const endIndex = this.AliasEnd(units, index);
+// **头从第一个修饰词 / 装饰器起**：TS 那边 `@dec type T = number` 的 `TypeAliasDeclaration`
+// 从 `@` 起、`Decorator` 在 `modifiers` 里；早先这里只往回吃**一个**修饰词，
+// 装饰器留在外面成了平级兄弟——实测整条退化成 `ExpressionStatement`
+// （缺 `TypeAliasDeclaration` / `Identifier` / `NumberKeyword`，多出 `ExpressionStatement`）。
+const startIndex = DeclarationStart(units, keywordIndex);
+const modifiers = DeclarationModifiers(units, startIndex, keywordIndex);
+const endIndex = this.AliasEnd(units, keywordIndex);
 // **结尾那个 `;` 不装进本单元**（第 290 轮 ✓）：它是**语句终结符** ✓，
 // 而语句切分那一趟（`statement.xl.md` 的 `StatementCloseRule`）**只看列表里的单元** ✗
 // ——`;` 一旦被装进 `TypeAssign` ✓，`type A = number; let x: A = 1;` 这一行就**再也断不开** ✗：
@@ -167,10 +170,19 @@ if (nameStart !== null && nameEnd !== null) {
 }
 result.modifiers = modifiers.join(",");
 // **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来。
-result.ModifierSpans = DeclarationModifierSpans(units, startIndex, index).join(",");
-for (let i = index; i <= dataEnd; i++) {
+result.ModifierSpans = DeclarationModifierSpans(units, startIndex, keywordIndex).join(",");
+// **装饰器照旧进 `Data`**（第 610 轮）：它是带子树的节点，字段表达不了那个表达式子树；
+// 与 `Class` 的分工逐字相同——能被字段表达的不进、带子树的进。顺序在源码位置上，
+// 所以在 `type` 之后那一批之前先搬。
+for (let i = startIndex; i < keywordIndex; i++) {
   const item = Get(units, i);
-  if (i === index || i === nameIndex) {
+  if (item instanceof Decorator) {
+    result.AddAndCloseLast(item);
+  }
+}
+for (let i = keywordIndex; i <= dataEnd; i++) {
+  const item = Get(units, i);
+  if (i === keywordIndex || i === nameIndex) {
     continue;
   }
   if (item !== null) {
@@ -229,6 +241,10 @@ TS 那边 `TypeAliasDeclaration` 没有 `typeParameters` 这一格。
   }
   const baseStart = ctx.baseStart;
   ctx.AddModifiers(v, props, baseStart);
+  // **装饰器也进 `modifiers`**（第 610 轮）：它与关键字修饰词同住 TS 的 `modifiers` 一列，
+  // 而 `Decorator` 是带子树的**子单元**——`AddModifiers` 只看文本字段，看不见它。
+  // 与通用支共用同一份实现（`print-ast-common.xl.md` 的 `addDecorators`）。
+  ctx.Decorators(v, props);
   // **这一条不能走 `ctx.Node`**：`pos` 要用外层递进来的 `baseStart`（`ctx.Node` 只会用 `v.start`）。
   return {
     kind: "TypeAliasDeclaration",

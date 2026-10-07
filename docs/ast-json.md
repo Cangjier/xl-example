@@ -100,7 +100,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `LogicalOperator` | `type` `op` + `children` | `op` 的值与 XML 同一处表达式：`this.op === "\|\|" ? "Or" : "And"` |
 | `Class` | `type` `name` `extends` `implements` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `implements` 用 `","` 拼；名字有区间时才写那对下标 |
 | `Enum` / `Function` / `MethodDeclaration` | `type` `name` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `Enum` / `MethodDeclaration` 写名字那对下标（`Function` 还没记，见下）；有修饰词时才写 `modifierSpans` |
-| `Interface` | `type` `name` `extends` `export` + 可选 `nameStart` `nameEnd` + `children` | `export` 是真布尔 |
+| `Interface` | `type` `name` `extends` `export` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `export` 是真布尔（XML 出口的拼法）；`modifiers` 是投影要的那串文本，两者由**同一次**声明头扫描定出来 |
 | `Namespace` | `type` `namespace` `modifiers` + 可选 `modifierSpans` + `children` | |
 | `Field` | `type` `name` `modifiers` `nameStart` `nameEnd` + 可选 `modifierSpans` + `children` | 名字不是普通标识符时那对下标是 `-1` |
 | `Method` | `type` `name` + `children` | 名字为空时**照样写 `name`**：与 `<Method name="">` 一致 |
@@ -142,7 +142,15 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 `"起:止"` 用 `,` 连接、**闭区间**、与 `modifiers` **同序同长**；没有修饰词时不写这个键。
 
 - 认下声明那一刻由 token 写下（`DeclarationModifierSpans` 一次取全；`Let` / `Namespace` 的修饰词是逐个攒的，就在那几处顺手记）；
-- 投影读它合成 `ExportKeyword` / `ReadonlyKeyword` 这些节点；没有这一格的 token（`Interface` 的布尔 `export`）才回原文 `indexOf` 猜——那条猜法会被**前面装饰器里的同名文本**骗到（`@exported export class C {}`）。
+- **声明头整段归声明自己**：`Class` / `Interface` / `Namespace` / `TypeAssign` 都用 `DeclarationStart`
+  往前吃修饰词与装饰器——`@dec export interface I {}` 的 `InterfaceDeclaration` 从 `@` 起
+  （TS 口径），装饰器是带子树的节点所以照旧进 `Data`，修饰词则折进这一格；
+- 投影读它合成 `ExportKeyword` / `ReadonlyKeyword` 这些节点。**今天每个声明层 token 都写了这一格**，
+  `addModifiers` 里那条「回原文 `indexOf` 猜」只剩给布尔属性那一档（`Lamda.async`）兜底。
+
+**为什么 `Interface` 的 `modifiers` 与 `export` 并存**：两个出口要的是两种拼法——
+XML 的开标签上写 `export="true"`（读 XML 的人按布尔读），投影要的是一串关键字词。
+两样都由 `InterfaceBranch.Success` 那一次 `DeclarationModifiers` 走出来，不是两份近似。
 
 ---
 
@@ -158,7 +166,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | 属性键名 | 一部分与 XML 漂开了（`MethodName` → `methodName`、`StartBracketChar` → `startBracketChar`、`IsSupportInterpolation` → `isSupportInterpolation`） | **一律与 XML 属性同名** | 本工程的口径是「两个出口说同一棵树」，同名才可校验 |
 | 覆盖范围 | 只有 17 个类覆写 `ToDictionary`，其余走基类的 `{type, children}` | 同样只覆写「XML 里有属性」的类 | 与上游同一取舍 |
 | 额外字段 | `String` 的 JSON 比 XML 多 5 个字段（`stringChar` / `rawIndent` / `isRawIndentFormated` …） | **不多写**：JSON 的键以 XML 属性为准 | 多写的键等于第二个事实来源 |
-| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` 的 `emptyBodyAt`、`For` 的 `bodyBraceAt`、`IfSegment` 的 `ifWordAt`，以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
+| 例外 | —— | JSON 比 XML **多几个键**，全是投影要直读的事实：`Lamda.async`（不收它就分不出 `async x => x` 与 `x => x`）、`For` / `Foreach` / `While` 的 `emptyBodyAt`、`For` 的 `bodyBraceAt`、`IfSegment` 的 `ifWordAt`、`Interface` 的 `modifiers`（XML 那边只有布尔 `export`），以及声明名的 `nameStart` / `nameEnd` 与修饰词各格的 `modifierSpans`（见下一节） | 这些键都只有投影读；XML 读者要的坐标在子单元的 `SourceRange` 上 |
 | 结构 bug | `TernaryOperator.ToDictionary()` 漏掉了 `type`（它没调基类也没自己写），于是 JSON 里出现没有类型名的节点 | **保留 `type`** | 那是缺陷，不是口径 |
 
 **一句话**：形状、方法名、`range` 的层级与上游一致；**字段名以本工程自己的 XML 出口为准**——

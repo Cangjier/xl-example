@@ -5456,6 +5456,29 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   return out;
 ```
 
+# private method addDecorators:(v:any, props:any, ctx:any)=>void
+
+**装饰器并进 `modifiers`**：TS 那边装饰器与关键字修饰词**同住 `modifiers` 一列**，按源码位置先后排
+（`@dec export class C {}` 的 `modifiers` 是 `[Decorator, ExportKeyword]`）。
+
+与 `addModifiers` 的分工：那一支管**能被字段完整表达的**关键字词（`export` / `declare` / `readonly`…，
+产物那边是一串文本），这一支管**带子树的** `Decorator` 节点（产物那边是一个子单元）。
+两处都走这一份实现：通用支（`structuralProps`）与各 token 自己的 `PrintAst`（`Class` 走前者，
+`TypeAssign` / `Interface` / `Namespace` 走后者）——各写一份就会在「谁先谁后」上漂。
+
+判据只看子单元里有没有 `Decorator`：没有就一个字段都不动（连 `modifiers` 都不建）。
+
+```ts
+  const projected = allKids(v)
+    .filter((k) => k.get("type") === "Decorator")
+    .map((k) => projectNode(k, ctx))
+    .filter((node) => node !== undefined);
+  if (projected.length === 0) return;
+  const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
+  merged.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+  props.modifiers = merged;
+```
+
 # private method addModifiers:(v:any, props:any, ctx:any, baseStart:int)=>void
 
 修饰词：产物那边是 `modifiers="export,const"` 这样的**字符串**，
@@ -5479,9 +5502,10 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   if (typeof modifiers === "string" && modifiers !== "") {
     words = modifiers.split(",").filter((word) => word !== "");
   } else {
-    // **声明位的 `export` / `declare` 是布尔属性**（`Interface export="true"` / `Namespace declare="true"`），
-    // 而 `Class` 那边是 `modifiers="export"` 字符串——两种写法都要认（真实语料 606 处
-    // `ExportKeyword` 全挂在 `InterfaceDeclaration` 480 / `TypeAliasDeclaration` 126 上）。
+    // **有的单元把修饰词记成布尔属性、名字就是那个词**：`Lamda` 的 `async`
+    // （TS 那边 `async x => x` 的 `ArrowFunction.modifiers` 就是 `[AsyncKeyword]`）。
+    // 这一支不是给声明层留的兜底——声明层（`Class` / `Interface` / `Namespace` / `TypeAssign` …）
+    // 一律有 `modifiers` 文本走上面那一条。
     for (const [key, value] of v.attrs) {
       if (value === true || value === "true") words.push(key);
     }
@@ -6549,14 +6573,9 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
   }
   // 修饰词：产物那边是字符串，TS 那边是一串节点（见 `addModifiers` 的说明）。
   addModifiers(v, props, ctx);
-  // **装饰器并进 `modifiers` 并按源码位置排序**：TS 的 `modifiers` 是源码顺序
+  // **装饰器并进 `modifiers` 并按源码位置排序**（见 `addDecorators`）：TS 的 `modifiers` 是源码顺序
   // （`@dec export class` 也好、`export class` 也好，谁在前谁先）。
-  if (decorators.length > 0) {
-    const projected = decorators.map((d) => projectNode(d, ctx)).filter((d) => d !== undefined);
-    const merged = [...projected, ...(Array.isArray(props.modifiers) ? props.modifiers : [])];
-    merged.sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
-    props.modifiers = merged;
-  }
+  addDecorators(v, props, ctx);
   return props;
 ```
 
@@ -6707,6 +6726,7 @@ token 记下的**每个修饰词各自的区间**（产物字典里的 `modifier
     NamedImportSpecifiers: (text, open, close) => namedImportSpecifiers(text, open, close),
     MemberNameOf: (view) => memberNameOf(view, ctx),
     AddModifiers: (view, props, baseStart) => addModifiers(view, props, ctx, baseStart),
+    Decorators: (view, props) => addDecorators(view, props, ctx),
     OperatorRank: (text) => operatorRank(text),
     FoldBinaryFrom: (left, list) => foldBinaryFrom(left, list, ctx),
     ParameterModifiers: PARAMETER_MODIFIERS,

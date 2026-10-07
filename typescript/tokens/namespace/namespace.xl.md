@@ -8,10 +8,12 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { Bracket } from "../bracket.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
+import { Decorator } from "../decorator.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { NamespaceBody } from "./namespace-body.xl.md"
-import { SkipNextTrivia, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextTrivia } from "../../text-common-util.xl.md"
 import { ConstString } from "../string/const-string.xl.md"
 import { String } from "../string/string.xl.md"
 ```
@@ -156,36 +158,44 @@ return this.ScanBody(units, index) >= 0;
 
 把一个命名空间声明折成一个 `Namespace`，**返回新的下标**。
 
-修饰词只往回收**一个**（`export` 或 `declare`）：`export declare namespace` 这种双修饰词在实际代码里罕见，
-而多收一个就得处理「前前一个也是修饰词」的链式判定，收益不成比例——真遇到时它退化成普通 `Identifier`，不会解析失败。
+修饰词与装饰器**一起**从声明头收进来（`DeclarationStart`）：`export` / `declare` 折进 `modifiers` 文本 +
+`ModifierSpans` 两格，装饰器照旧进 `Data`（它带子树，字段表达不了）。
+
+早先这里只往回收**一个**词（`export` 或 `declare`），第二个与装饰器都留在外面——
+`export declare namespace` 靠投影层那条「前缀词并进声明」的近似补回来的，
+而**装饰器一出现那条近似就认不出声明**（实测 `@dec namespace N {}` 一族：
+`ModuleDeclaration` 缺 1 + 多出 1，`@dec export declare` 那几档还多丢一批节点）。
 
 替换范围到命名空间体的 `}` 为止，**尾随软换行留在父单元里**：理由与 `Interface.Process` 相同——
 那道换行就是语句边界，收进范围会让后面那条声明被并进同一个 `Statement`
 （见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
 
 ```ts
-let startIndex = index;
 const namespaceInstance = new Namespace(template);
-const current = Get(units, index);
+// **装饰器先在列表里收成单元**（与 `ClassBranch.Success` / `InterfaceBranch.Success` 同一件工具）：
+// 这一刻它们还是散的 `@` / 名字 / 实参括号，而 `DeclarationStart` 往回走会停在实参括号上。
+const keywordIndex = ReorganizeDeclarationDecorators(template, units, index);
+const current = Get(units, keywordIndex);
 if (!(current instanceof Identifier)) {
   throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
 }
-const previousIndex = SkipPreviousWrapSymbol(units, index);
-const previous = Get(units, previousIndex);
-if (previous instanceof Identifier && (previous.Is("export") || previous.Is("declare"))) {
-  startIndex = previousIndex;
-  namespaceInstance.modifiers = previous.TempToString();
-  // **修饰词的位置**（见 `ModifierSpans`）：它不进 `Data`，位置要在这一趟记下来——
-  // 投影回原文 `indexOf("export", …)` 猜时，点号拆出来的里层是从自己那一段起找的，往前找不到。
-  const modifierStart = previous.SourceRange.Start;
-  const modifierEnd = previous.SourceRange.End;
-  namespaceInstance.ModifierSpans =
-    modifierStart === null || modifierEnd === null ? "" : `${modifierStart.Index}:${modifierEnd.Index}`;
-  namespaceInstance.SignInToken(previous);
-} else {
-  namespaceInstance.SignInToken(current);
+// **头从第一个修饰词 / 装饰器起**：TS 那边 `@dec export namespace N {}` 的 `ModuleDeclaration`
+// 从 `@` 起，`Decorator` 与 `ExportKeyword` 同在 `modifiers` 里。
+const startIndex = DeclarationStart(units, keywordIndex);
+namespaceInstance.modifiers = DeclarationModifiers(units, startIndex, keywordIndex).join(",");
+// **修饰词各自的位置**（见 `ModifierSpans`）：它们不进 `Data`，位置要在这一趟记下来——
+// 投影回原文 `indexOf("export", …)` 猜时，点号拆出来的里层是从自己那一段起找的，往前找不到。
+namespaceInstance.ModifierSpans = DeclarationModifierSpans(units, startIndex, keywordIndex).join(",");
+namespaceInstance.SignInToken(Get(units, startIndex)!);
+// **装饰器照旧进 `Data`**：它是带子树的节点，字段表达不了那个表达式子树；
+// 与 `Class` 的分工逐字相同——能被字段表达的不进、带子树的进。顺序在源码位置上。
+for (let i = startIndex; i < keywordIndex; i++) {
+  const item = Get(units, i);
+  if (item instanceof Decorator) {
+    namespaceInstance.AddAndCloseLast(item);
+  }
 }
-const bracketIndex = this.ScanBody(units, index);
+const bracketIndex = this.ScanBody(units, keywordIndex);
 if (bracketIndex < 0) {
   throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
 }
@@ -196,11 +206,11 @@ if (bracketIndex < 0) {
 // （实测产物 `<Namespace namespace="./m"><Namespace namespace="/m">…`，
 //  `gap-dashboard`（当时那把逐节点对账的尺子，已随测试集收窄删除）里那 4 个
 //  `ModuleDeclaration 真多` 就是它）。
-const isStringName = current.Is("global") === false && Get(units, SkipNextTrivia(units, index)) instanceof String;
+const isStringName = current.Is("global") === false && Get(units, SkipNextTrivia(units, keywordIndex)) instanceof String;
 if (current.Is("global")) {
   namespaceInstance.namespace = "global";
 } else {
-  const nameStart = SkipNextTrivia(units, index);
+  const nameStart = SkipNextTrivia(units, keywordIndex);
   const nameUnit = Get(units, nameStart);
   if (nameUnit instanceof String) {
     let text = "";
@@ -226,7 +236,7 @@ let innermost: Namespace = namespaceInstance;
 // 所以这里存的是它本身。
 const nameStarts: Array<any> = [];
 {
-  let cursor = SkipNextTrivia(units, index);
+  let cursor = SkipNextTrivia(units, keywordIndex);
   for (;;) {
     const unit = Get(units, cursor);
     if (!(unit instanceof Identifier) || unit.SourceRange.Start === null) {
