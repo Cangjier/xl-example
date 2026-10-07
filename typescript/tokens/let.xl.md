@@ -3,6 +3,11 @@
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
+import { Branch } from "../../core/syntax/branch.xl.md"
+import { BranchConditionResult } from "../../core/syntax/branch-condition-result.xl.md"
+import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
+import { Source } from "../../core/syntax/source.xl.md"
+import { LineWrap } from "./line-wrap.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipNext, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { SkipNext } from "../list-extensions.xl.md"
@@ -13,7 +18,6 @@ import { GenericType } from "./generic-type.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { ObjectLiteral } from "./json/object-literal.xl.md"
 import { Statement } from "./statement.xl.md"
-import { LineWrap } from "./line-wrap.xl.md"
 ```
 
 # namespace cangjie
@@ -391,4 +395,117 @@ result.fieldName = this.fieldName;
 result.modifiers = this.modifiers;
 result.TryToClose();
 return result;
+```
+
+# class LetBranch extends Branch
+
+**解析期的 `let` / `const` / `var` 头部**（第 471 轮，reorg 关掉之后按清单重建的第一块）。
+
+进门条件：当前字符是头部结束的那几种之一（`=` / `:` / `;` / `,` / 软换行 ✓），
+而且往回走得到「修饰词 + `let`/`const`/`var` + 名字」这个形状 ✓。
+
+进门之后：把这一整段收成一个 `Let` ✓（`modifiers` 记 `export,declare,let` 这种 ✓，`fieldName` 记名字 ✓），
+再把这**当前这一格**喂给它 ✓（与字段那一支同一套做法 ✓）。
+
+## static readonly field JumpIn:LetBranch = new LetBranch()
+
+## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
+
+```ts
+const result = new BranchConditionResult();
+result.Success = false;
+const value = source.Value;
+const isTail = value === "=" || value === ":" || value === ";" || value === "," || value === "\n";
+if (isTail === false) {
+  return result;
+}
+const data = unit.Data;
+// 名字是最后一个实义单元。
+let nameIndex = data.length - 1;
+while (nameIndex >= 0) {
+  const probe = Get(data, nameIndex);
+  if (probe instanceof LineWrap) {
+    nameIndex = nameIndex - 1;
+    continue;
+  }
+  break;
+}
+if (nameIndex < 1) {
+  return result;
+}
+const nameUnit = Get(data, nameIndex);
+if (!(nameUnit instanceof Identifier)) {
+  return result;
+}
+// 关键词那一格必须是 let / const / var。
+const keywordUnit = Get(data, nameIndex - 1);
+if (!(keywordUnit instanceof Identifier)) {
+  return result;
+}
+const word = keywordUnit.TempToString();
+if (word !== "let" && word !== "const" && word !== "var") {
+  return result;
+}
+result.Success = true;
+return result;
+```
+
+## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
+
+```ts
+const data = unit.Data;
+let nameIndex = data.length - 1;
+while (nameIndex >= 0) {
+  const probe = Get(data, nameIndex);
+  if (probe instanceof LineWrap) {
+    nameIndex = nameIndex - 1;
+    continue;
+  }
+  break;
+}
+const nameUnit = Get(data, nameIndex);
+if (!(nameUnit instanceof Identifier)) {
+  throw new Error("LetBranch: 进门之后名字那一格又不成立了");
+}
+// 往前收修饰词与关键词（跨过软换行，但**不跨过语句边界**——与 let.xl.md 同一份口径）。
+const modifiers: string[] = [];
+let start = nameIndex - 1;
+const keywordUnit = Get(data, start);
+if (keywordUnit instanceof Identifier) {
+  modifiers.unshift(keywordUnit.TempToString());
+}
+while (start > 0) {
+  const previous = Get(data, start - 1);
+  if (previous instanceof LineWrap) {
+    start = start - 1;
+    continue;
+  }
+  if (previous instanceof Identifier) {
+    const text = previous.TempToString();
+    if (text === "export" || text === "declare" || text === "default") {
+      modifiers.unshift(text);
+      start = start - 1;
+      continue;
+    }
+  }
+  break;
+}
+const letUnit = new Let(unit.Template);
+letUnit.fieldName = nameUnit.TempToString();
+letUnit.modifiers = modifiers.join(",");
+const anchor = data[start];
+if (anchor !== undefined && anchor.SourceRange.Start !== null) {
+  letUnit.SignIn(anchor.SourceRange.Start);
+}
+// **两头都要签**（实测教训）：只签 `SignIn` 的话这个单元是个「半个坐标」✗，
+// 后面任何要读坐标的地方都会抛
+// `SourceRange.Start == null || SourceRange.End == null` ✗（实测 323 个文件全挂在这上面 ✗）。
+const tailUnit = data[nameIndex];
+if (tailUnit !== undefined && tailUnit.SourceRange.End !== null) {
+  letUnit.SignOut(tailUnit.SourceRange.End);
+}
+// **原位替换**：截断 `Data` 会让外层派发的下标失效 ✗（实测抛「自身不在父单元的子单元里」✗），
+// 对同一批单元再调 `RemoveSelf` 也一样 ✗ —— 用重组同款的 `ReplaceCountAt` ✓，
+// 它把这一段换成一个 `Let` 并返回新下标 ✓，外层派发不受影响 ✓。
+ReplaceCountAt(data, start, nameIndex + 1 - start, letUnit);
 ```

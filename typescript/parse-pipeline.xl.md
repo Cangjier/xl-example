@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { LetBranch } from "./tokens/let.xl.md"
 import { Branch } from "../core/syntax/branch.xl.md"
 import { Reorganization } from "../core/syntax/reorganization.xl.md"
 import { Sequence } from "../core/syntax/templates/sequence.xl.md"
@@ -139,6 +140,9 @@ return new Sequence<Branch>([
   Bracket.JumpIn,
   GenericType.JumpIn,
   LineWrap.AppendIn,
+  // **`Let` 在解析期成形**：认的是 `=` / `:` / `;` / `,` / 换行 这几格 ✓，
+  // 所以只要排在 `SymbolToken.AppendIn` 之前就行 ✓（与 `IfSetBranch` 当初的加法同一处表 ✓）。
+  LetBranch.JumpIn,
   SymbolToken.AppendIn,
   Identifier.AppendIn,
 ]);
