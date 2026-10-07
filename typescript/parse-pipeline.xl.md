@@ -6,7 +6,7 @@ import { Sequence } from "../core/syntax/templates/sequence.xl.md"
 import { Token } from "../core/syntax/token.xl.md"
 import { Template } from "../core/syntax/templates/template.xl.md"
 import { Get } from "../core/extensions/list-extension.xl.md"
-import { IsTriviaUnit } from "./text-common-util.xl.md"
+import { IsTriviaUnit, SkipPreviousTrivia } from "./text-common-util.xl.md"
 import { AreaAnnotation } from "./tokens/area-annotation.xl.md"
 import { AsReorganization } from "./tokens/as.xl.md"
 import { FunctionTypeReorganization } from "./tokens/function-type.xl.md"
@@ -233,6 +233,30 @@ const bodyIndex = units.length - 1;
 const body = Get(units, bodyIndex);
 if (!(body instanceof Bracket) || body.startBracket !== "{") {
   return false;
+}
+// **标签的块不是成员列表** ✗（第 396 轮，从 XML 查出来的 ✓）：`outer: { … }` 里那个 `{`
+// 的 `Context` 也会是 `"type"` ✓——`DecideBracketContext` 自己在文件里写着，
+// 词法阶段「分不出 `outer: { … }` 这种**标签的冒号**与 `x: { … }` 这种**类型标注的冒号**」✓；
+// 那个区分正是 `LabelReorganization` 带来的 ✓，所以这里问它一句 ✓。
+//
+// **必须问在 `Context` 之前** ✗：第一版把它塞在下面那个循环里 ✓，
+// 可 `Context` 那一句**在循环之前就返回了** ✗ ⇒ 永远到不了 ✗（改了等于没改 ✓，XML 一打就现形 ✓）。
+//
+// 症状（实测 `ex-labeled-block` / `rt-label-break-out-of-block` 等 8 条 ✓）：
+// 标签块的队列被换成了成员列表队列 ✓ ⇒ 块里的 `if` 拿不到向导 ✓
+// ⇒ 产物里是一个**裸的 `<Keyword>if</Keyword>`** ✓ ⇒ 降级层报
+// `name is not a local or a capture: if` ✓（它把 `if` 当成一个标识符去解析 ✓）。
+//
+// **`let x: { a: 1 }` 不会误伤** ✓：那种写法过不了 `Previous` 里的 `IsStatementStart` ✓
+// （它要求冒号前那个名字处在**语句开头** ✓）——这正是那条闸当初加的理由 ✓。
+const colonIndex = SkipPreviousTrivia(units, bodyIndex);
+const colon = Get(units, colonIndex);
+if (colon instanceof SymbolToken && colon.Is(":")) {
+  const nameIndex = SkipPreviousTrivia(units, colonIndex);
+  const labelName = Get(units, nameIndex);
+  if (labelName instanceof Identifier && LabelReorganization.Instance.Previous(template, units, nameIndex)) {
+    return false;
+  }
 }
 if (body.Context === "type") {
   return true;
