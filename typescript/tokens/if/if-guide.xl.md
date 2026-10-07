@@ -10,9 +10,9 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { Sequence } from "../../../core/syntax/templates/sequence.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { GetSkipPreviousTrivia, SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
-import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Statement } from "../statement.xl.md"
@@ -102,19 +102,19 @@ import { IfSet } from "./if-set.xl.md"
 
 一次规划的结论。
 
-三态由两个布尔承载：`Complete`（可以定形了）、`Reject`（**根本不是** if 语句）、两个都假（**还没到**，等着）。
+**只有两态** ✓（第 395 轮把 `Reject` 删掉了 ✓）：`Complete`（可以定形了）与「还没到，等着」✓。
 
-**「还没到」与「根本不是」必须分开** ✗：在字符流上，绝大多数时刻是前者 ✓（`if` 还没写完、
-条件括号还没关、体还没收完……），只有少数几处是后者 ✓。
-把前者当成后者就会**过早交还** ✓，而交还之后这一段就再也没有第二次机会了 ✓。
+**为什么不再有「根本不是 if 语句」那一态** ✗：入口挪到 `(` 之后，**进门那一刻形状就已经确定** ✓
+（`i` 后面紧跟 `(` 的 `i` 只可能是 `if` ✓）——所以规划里每一处「形态上确定不对」都**不可达** ✓，
+它们现在写成**当场抛错** ✓（不可达的状态要响亮地炸 ✗，不要悄悄兜底 ✓，
+兜底那条路本身也是被禁掉的 ✗——用户口径：一旦进入 guide 就不能撤回 ✓）。
+
+在字符流上绝大多数时刻是「还没到」✓（条件括号还没关、体还没收完……✓），
+所以这一档必须留着 ✓；而它**不是**「交还」✗——向导继续保持挂载 ✓，等下一个字符 ✓。
 
 ## field Complete:bool = false
 
 规划成功：`Segments` 齐了，`EndIndex` / `TailStart` 都算出来了。
-
-## field Reject:bool = false
-
-这一段根本不是 if 语句——交还，交给后面的规则。
 
 ## field EndIndex:int = -1
 
@@ -130,52 +130,51 @@ import { IfSet } from "./if-set.xl.md"
 
 # class IfGuideBranch extends Branch
 
-`if` 的进门：认下这个词、把向导挂上去，再把**当前这个字符**重新插回队首交给向导。
+`if` 的进门：**入口落在 `(` 上**，不落在 `i` 上。
 
-**为什么要插回去** ✗：`Branch.Success` 一返回，`UnitToken.Process` 就认为这个字符**已经被消费**了 ✓，
-而向导手里的暂存单元要**从 `i` 开始**才认得出 `if` ✓（它的第一个子单元必须是那个 `Identifier` ✓）。
-所以挂完向导插一条 `ReloadMessage`、处理者指成向导自己 ✓——`StringGuide` 那一族用惯的手法 ✓。
+**为什么不落在 `i` 上** ✗（第 395 轮改，用户口径 ✓）：要判「这个 `i` 是一个 `if` 的开头」，
+只能向前看下一个字符是不是 `f` ✓——而**向前看是被禁止的** ✗：
+一个 guide 只准访问 `i` 与 `i-1` ✓（再加上 `0..i-1` 已经读出来的单元 ✓），
+因为输入可能是一段一段送来的 ✓；`i+1` 拿不到时 `Document.GetValue` 给 `undefined` ⇒
+判据悄悄成假 ⇒ **产物错而不报** ✗——比抛错更坏 ✓。
+
+落到 `(` 上两件事一起解决 ✓：
+- 当前字符 `source.Value` 是 `(` ✓（只用了 `i` ✓）；
+- 那个 `if` **已经读完了** ✓，正躺在宿主自己的平列表末尾 ✓（`unit.Last()` ✓，属于 `0..i-1` ✓）。
+
+**而且它保证了「进门即定形」** ✓（用户口径：一旦进入 guide，必定是它那一类的形状，不能撤回 ✓）：
+`i` 后面紧跟 `(` 的 `i` **只可能是 `if`** ✓——再也没有「读到一半发现是 `iffy`、要交还」那种事 ✗，
+`GiveBack` 因此整个删掉 ✓（那个词在 `if` 语句里也不该存在 ✓）。
+
+**位置闸**：`a.if(x)` 里那个 `if` 是一个**方法调用** ✓（实测 ✓），它前面隔着一个 `.` ✓——
+所以要求「`if` 前面那一个**实义**单元不是 `.` / `?.` / `NullConditionalOperator`」✓。
+这一格发生在**进门之前** ✓，不是撤回 ✓。
+
+**这个分支必须排在 `Bracket.JumpIn` 之前** ✗：`(` 正是 `Bracket.JumpIn` 认的字符 ✓，
+排在它后面就永远轮不到 ✓。而 `(` 照样会被开成一个括号 ✓——由向导的暂存单元照
+**宿主那条队列**开 ✓（那条队列里 `Bracket.JumpIn` 好好地在 ✓），只是晚一步 ✓。
 
 它永远不进 `Data`、不进 XML，所以这个类名不出现在产物里。
 
 ## method Condition:(context:SyntaxContext, unit:Token, source:Source)=>BranchConditionResult
 
-三条闸，外加一条廉价的字符快闸。
-
-字符快闸先看 `i` 后面那一个字符是不是 `f` ✓（不是就直接放行给 `Identifier.AppendIn` ✓）。
-它**不是**判据、只是省一次扫描 ✗：真正认 `if` 的是暂存单元收完那个 `Identifier` 之后的规划 ✓
-（所以 `iff` 这种写法会走到「根本不是 if 语句」那条路 ✓，不会误判 ✓）。
-
-三条闸：
-
-1. **前一个实义单元不是 `.` / `?.`** ✓：`a.if(x)` 今天是一个名叫 `if` 的**方法调用** ✓（实测 ✓），
-   而这一刻列表里躺着的正是 `Identifier(a)` / `SymbolToken(.)` ✓。
-   `?.` 有两种形态（`SymbolToken("?.")` 与 `NullConditionalOperator`）✓，两种都挡 ✓。
-2. **这个 `i` 得是一个词的开头** ✓：`shifted` / `gift` 里都有 `if` 两个字母连着 ✓，
-   而那一刻 `unit.Last()` 是一个**还开着**的 `Identifier` ✓ ⇒ 这个 `i` 会被并进它 ✓。
-   判据就是「上一格开着没有」✓（与 `Identifier.Condition` 分「新增 / 追加」用的是同一件事 ✓）。
-3. **不在这里判成员位** ✗（第 393 轮删掉了 `Context === "type"` 与 `Bracket.IsMemberList` 两条）：
-   成员列表（类体 / 接口体 / 枚举体 / 类型字面量 / 映射类型 ✓）里的字符由
-   `ParsePipeline.CreateMemberListQueue()` 处理 ✓，**那条队列里根本没有本分支** ✓
-   ⇒ 这个位置**轮不到**向导 ✓，不需要在这里再判一次 ✓。
-   原来那两条是「这个 `{` 是不是成员列表」的**第二份答案** ✓（第一份在四条规则自己手里 ✓），
-   换成队列之后就没有第二份了 ✓——那个判断现在只发生在**一处** ✓：
-   `tokens/bracket.xl.md` 在 `{` 开出来之后问一次 `ParsePipeline.IsMemberListHead` ✓。
+只看两样东西：当前字符 `(`、以及**已经读到的**那个 `if`。
 
 ```ts
 const result = new BranchConditionResult();
 result.Success = false;
-if (source.Value !== "i") {
+if (source.Value !== "(") {
   return result;
 }
-if (source.Document.GetValue(source.Index + 1) !== "f") {
+const keyword = unit.Last();
+if (!(keyword instanceof Identifier) || keyword.Is("if") === false) {
   return result;
 }
-const last = unit.Last();
-if (last instanceof Identifier && last.Closed === false) {
-  return result;
-}
-const previous = GetSkipPreviousTrivia(unit.Data, unit.Data.length);
+// `if` 前面那一个**实义**单元：`a.if(x)` 要挡住 ✓。
+// 取法是 `unit.Data.length - 1`「当前格的前一格」✓——分支被问到时宿主就是最内层活动单元 ✓，
+// 新子单元正要追加到末尾 ✓。同一个手法仓里本来就有：`generic-type.xl.md` 的
+// `unit.Data[unit.Data.length - 2]` ✓。
+const previous = GetSkipPreviousTrivia(unit.Data, unit.Data.length - 1);
 if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
   return result;
 }
@@ -188,11 +187,30 @@ return result;
 
 ## method Success:(context:SyntaxContext, unit:Token, source:Source, result:BranchConditionResult)=>void
 
-把向导挂到 `unit` 上、用当前字符给它签入，再把这个字符重新插回队首交给它。
+把那个 `if` **收进**向导的暂存单元、把向导挂到 `unit` 上，再把当前这个 `(` 插回队首交给向导。
+
+**为什么要把 `if` 搬进暂存单元** ✗：规划器要的那张平列表是「从那个词开始」的 ✓
+（`Plan` 那一套判据都写死了 `Get(units, 0)` 是关键字 ✓）。搬过去之后它是收集器的**第一格** ✓，
+而 `parent.Data` 里那一格正好腾出来 ✓——向导摘掉之后 `IfSet` 落在**同一个位置** ✓。
+
+**搬之前必须把它关掉** ✗：`(` 这一格被本分支截下了 ✓，`Bracket.JumpIn` 的 `AddAndCloseLast`
+因此不会跑 ✓ ⇒ 那个 `Identifier` 会一直开着 ✗ ⇒ 而规划器有一句「第一个单元还没关上就等」✓
+⇒ **永远等下去** ✗。它的两头早就签全了 ✓（`Identifier.Success` 签入、每收一个字符 `AppendAndSignOut` 签出 ✓），
+所以这里直接 `TryToClose()` ✓。
+
+**把字符插回队首**是 `StringGuide` 那一族用惯的手法 ✓：`Branch.Success` 一返回，
+`UnitToken.Process` 就认为这个字符已经被消费了 ✓，所以得让它以向导为处理者重新走一遍 ✓。
 
 ```ts
-const guide = new IfGuide(unit.Template);
+const keyword = unit.Last();
+if (keyword === null) {
+  throw new Error("IfGuide: 进门时找不到那个 if");
+}
+keyword.TryToClose();
+keyword.RemoveSelf();
+const guide = new IfGuide(unit.Template, unit.ProcessQueue);
 unit.AddToMounted(guide).SignIn(source);
+guide.Adopt(keyword);
 context.Messages.push(new ReloadMessage(guide, guide, source));
 ```
 
@@ -214,27 +232,51 @@ context.Messages.push(new ReloadMessage(guide, guide, source));
 
 ## private field Collector:PendingUnit | null = null
 
-暂存单元：从 `i` 起把所有字符收成一张平列表。
+暂存单元：从那个 `if` 起把所有字符收成一张平列表。
 
 ## private field Done:bool = false
 
-已经定过形（建了 `IfSet` 或者交还了）。定形之后它就从父单元上摘掉了，不该再收到字符。
+已经定过形（建了 `IfSet`）。定形之后它就从父单元上摘掉了，不该再收到字符。
 
-## constructor:(template:Template)=>void
+**没有「交还」这一态** ✓（第 395 轮删掉 ✓）：进门那一刻形状就已经确定了 ✓
+（`i` 后面紧跟 `(` 的 `i` 只可能是 `if` ✓），所以不存在「走到一半发现认错了」✗。
 
-以模板创建，并造出暂存单元、挂上自己。
+## constructor:(template:Template, hostQueue:Sequence<Branch> | null)=>void
+
+以模板与**宿主那条队列**创建，并造出暂存单元、挂上自己。
 
 暂存单元的终止判定恒为 `Continue` ✓——**什么时候结束由向导说了算** ✗，不由字符说了算 ✗。
 
-跳转队列要**摘掉本向导**（见文件头那条说明）：`template.BranchTemplate` 单参取值拿到的就是通用队列，
-`Removed` 产出一份副本，所以模板上那一份一个字节都不动。
+**暂存单元的队列 = 宿主那条队列，摘掉本向导** ✓（与 `MemberListGuide` 当初那条实测同款 ✓）：
+不摘的话，`if` 体里的**嵌套** `if` 会在暂存期间自己又挂一个向导 ✗，
+于是外层规划看到的是一张**已经被内层改过**的列表 ✓——那就等于把「事后」那套毛病原样搬进来 ✗。
+摘掉之后嵌套的 `if` 保持**词法阶段的平列表** ✓，由它外面的语句容器照旧收掉 ✓。
+
+`hostQueue` 允许是 `null` ✓：`String` 那一族**刻意**把自己的跳转队列设成 `null` ✓
+（见 `templates/sequence-template.xl.md` 的 `Get` ✓），虽然那类宿主引不出 `if` ✓，
+但收集器不该假设它一定非空 ✓。
 
 ```ts
 super(template);
 const collector = new PendingUnit(template, () => PendingStates.Continue);
-collector.ProcessQueue = ParsePipeline.CreateMemberListQueue();
+if (hostQueue !== null) {
+  collector.ProcessQueue = hostQueue.Removed([IfGuide.JumpIn]);
+}
 this.Collector = collector;
 this.AddToMounted(collector);
+```
+
+## method Adopt:(keyword:Token)=>void
+
+把**已经读出来的**那个 `if` 收进暂存单元，当作第一格。
+
+`Plan` 那一套判据写死了 `Get(units, 0)` 是关键字 ✓，所以它必须进收集器 ✓；
+而 `parent.Data` 里那一格同时被腾出来 ✓ ⇒ 定形之后 `IfSet` 落在**同一个位置** ✓。
+
+```ts
+if (this.Collector !== null) {
+  this.Collector.Add(keyword);
+}
 ```
 
 ## method Process:(context:SyntaxContext, source:Source)=>void
@@ -306,8 +348,8 @@ return false;
 
 定形这一步是**必须**的 ✗：`Close()` 是向导唯一能知道「后面不会再有字符了」的时刻 ✓，
 而规划里有两处**只有到了末尾才敢下结论** ✓（`if (a) g()` 这种一直写到输入末尾的体 ✓、
-`else` 后面再没有实义单元那种尾巴 ✓）。少了它，这些形状会被当成「还没到」而**整段交还** ✓
-——那不会错 ✓（还有 `IfSetReorganization` 兜底 ✓），但这一轮就白做了 ✗。
+`else` 后面再没有实义单元那种尾巴 ✓）。少了它，这些形状会被当成「还没到」✓
+——而**交还那条路已经没有了** ✓（第 395 轮删掉 ✓），所以这里不定形就等于**永远不定形** ✗。
 
 ```ts
 this.Settle(true);
@@ -316,7 +358,7 @@ this.Closed = true;
 
 ## private method Settle:(atEnd:bool)=>void
 
-定形：跑一次规划，按结论建节点或者交还。
+定形：跑一次规划，可以了就建节点。
 
 `atEnd` 表示「这一张列表到此为止」——规划里几处 `SearchStatementEnd` 给 `-1` 的地方靠它区分
 「还没写完」与「写完了但没有终结符」✓。
@@ -334,6 +376,11 @@ this.Closed = true;
 所以等到它关上再定形 ✓（`if (a) f(g(x))` 那个 `(` 就是这么等的 ✓）。
 `atEnd` 时不作这个要求 ✓——输入都到头了，再等也没有下文 ✓。
 
+**`atEnd` 一律定形** ✓（第 395 轮）：规划器不再有「拒绝」那一态 ✓，
+末尾时它能给出什么就给什么 ✓（条件有了、体还没来 ⇒ 就建一个只有条件的段 ✓，
+`IfSegment.Statement` 本来就是可空的 ✓）。这是「不能撤回」那条铁律的直接后果 ✓：
+没有第二条路可走 ✓，所以末尾必须落地 ✓。
+
 ```ts
 if (this.Done || this.Collector === null) {
   return;
@@ -345,11 +392,6 @@ const plan = IfGuide.Plan(this.Collector.Data, atEnd);
 if (plan.Complete) {
   this.Done = true;
   this.Commit(plan);
-  return;
-}
-if (plan.Reject || atEnd) {
-  this.Done = true;
-  this.GiveBack();
 }
 ```
 
@@ -424,6 +466,13 @@ for (const segment of plan.Segments) {
     ifCondition.SignOut(condition.SourceRange.End!);
     ifCondition.TryToClose();
   }
+  // **体可以缺** ✓（第 395 轮）：末尾收到的形状可能是「条件有了、体还没来」✓
+  // （`if (a)` 就这么断了输入 ✓）。`IfSegment.Statement` 本来就是可空的 ✓
+  // （`if-segment.xl.md` 的 `ToDictionary` 只在非空时才写 `statement` ✓），
+  // 所以这里直接跳过 ✓——「不能撤回」那条铁律要求末尾必须落地 ✓。
+  if (segment.BodyStart < 0) {
+    continue;
+  }
   const ifStatement = ifSeg.CreateStatement();
   if (segment.IsBlock) {
     const body = Get(units, segment.BodyStart)! as Bracket;
@@ -449,25 +498,6 @@ this.Collector!.RemoveSelf();
 this.RemoveSelf();
 ```
 
-## private method GiveBack:()=>void
-
-交还：把暂存出来的东西**原样**搬回父单元，然后摘掉自己与暂存单元。
-
-**不重放、不重新词法** ✗——这些子单元是照**通用队列**造出来的 ✓，与直接读进父单元长得一样 ✓，
-所以搬回去就够了 ✓（`MoveDataTo` 会把 `Parent` 逐个改过去 ✓）。
-次序也对得上：搬进去时接在向导后面 ✓，摘掉向导之后正好落在它原来的位置上 ✓。
-
-```ts
-const parent = this.Parent;
-if (parent === null) {
-  throw new Error("IfGuide: 交还时已经没有父单元了");
-}
-this.Collector!.MoveDataTo(parent);
-this.HandOverOpenUnit(parent);
-this.Collector!.RemoveSelf();
-this.RemoveSelf();
-```
-
 ## static method Plan:(units:Array<Token>, atEnd:bool)=>IfPlan
 
 把 `IfSetReorganization.Process` 那趟算法**只看不写**地跑一遍。
@@ -478,17 +508,19 @@ this.RemoveSelf();
 
 **唯一新增的是「越界」这一档** ✗：原来那张列表是**完整**的 ✓，所以 `Get` 给 `null` 只可能是
 「写法不合法」✓（该抛就抛 ✓）；这里那张列表是**边读边长**的 ✓，`null` 绝大多数时候只说明
-「还没读到」✓。所以每一处 `null` 都返回 `plan`（「还没到」）✓，
-只有**形态上已经确定不对**的那几处才置 `Reject` ✓：
+「还没读到」✓。所以每一处 `null` 都返回 `plan`（「还没到」✓，向导继续挂着等 ✓）。
 
-- 表头不是 `Identifier`、或者它的文本不是 `if` ✓；
-- `if` 后面那个实义单元**存在**却不是 `(` 开头的 `Bracket` ✓（`obj.if` / `{ if: 1 }` / `class A { if(a) {} }`
-  落到这里——门闸没挡住的那几种 ✓）；
-- `atEnd` 且体一直找不到（`LastMeaningfulIndex` 也给 `-1`）✓。
+**「形态上确定不对」那几处现在是抛错** ✗（第 395 轮改）：入口挪到 `(` 之后它们都**不可达** ✓
+（表头一定是那个 `if` ✓、它后面一定是 `(` ✓、关键字只可能是 `if` / `else` ✓），
+所以写成当场抛错 ✓——不可达的状态要响亮地炸 ✗，不要悄悄兜底 ✓。
 
-**开着的单元要等** ✗：`Identifier` 还在长（`iff` / `elsex` ✓）、条件括号还没关 ✓、体括号还没关 ✓
-——这几处都返回「还没到」✓，等它关上或等到末尾 ✓。少了这一层，`iff` 会在读到第二个 `f` 时
-就被当成 `if` ✓（**静默错值** ✗）。
+**开着的单元要等** ✗：`Identifier` 还在长（`elsex` ✓）、条件括号还没关 ✓、体括号还没关 ✓
+——这几处都返回「还没到」✓，等它关上或等到末尾 ✓。
+
+**末尾一定给得出结论** ✓：`atEnd` 时每一处「还没读到」都退化成「就到这里」✓
+（体还没来 ⇒ `BodyStart` 留 `-1` ✓，`Commit` 建一个只有条件的段 ✓，
+`IfSegment.Statement` 本来就是可空的 ✓）。这一条是「不能撤回」那条铁律的直接后果 ✓：
+没有第二条路可走 ✓，末尾必须落地 ✓。
 
 ```ts
 const plan = new IfPlan();
@@ -497,15 +529,13 @@ if (units.length === 0) {
 }
 const head = Get(units, 0);
 if (!(head instanceof Identifier)) {
-  plan.Reject = true;
-  return plan;
+  throw new Error("IfGuide: 进门时已经保证的形状不成立——这一格不可达");
 }
 if (head.Closed === false && !atEnd) {
   return plan;
 }
 if (head.Is("if") === false) {
-  plan.Reject = true;
-  return plan;
+  throw new Error("IfGuide: 进门时已经保证的形状不成立——这一格不可达");
 }
 let currentIndex = 0;
 let lastKeyIndex = 0;
@@ -520,8 +550,7 @@ while (true) {
   const segment = new IfSegmentPlan();
   const keyUnit = Get(units, lastKeyIndex);
   if (!(keyUnit instanceof Identifier)) {
-    plan.Reject = true;
-    return plan;
+    throw new Error("IfGuide: 进门时已经保证的形状不成立——这一格不可达");
   }
   if (keyUnit.Closed === false && !atEnd) {
     return plan;
@@ -535,8 +564,7 @@ while (true) {
   } else if (key === "else") {
     segment.SignIndex = lastKeyIndex;
   } else {
-    plan.Reject = true;
-    return plan;
+    throw new Error("IfGuide: 进门时已经保证的形状不成立——这一格不可达");
   }
   segment.SetStart = setFirst;
   setFirst = false;
@@ -547,8 +575,7 @@ while (true) {
       return plan;
     }
     if (!(condition instanceof Bracket) || condition.startBracket !== "(") {
-      plan.Reject = true;
-      return plan;
+      throw new Error("IfGuide: 进门时已经保证的形状不成立——这一格不可达");
     }
     if (condition.Closed === false && !atEnd) {
       return plan;
@@ -577,8 +604,7 @@ while (true) {
       }
       bodyEnd = Statement.LastMeaningfulIndex(units, currentIndex);
       if (bodyEnd === -1) {
-        plan.Reject = true;
-        return plan;
+        throw new Error("IfGuide: 进门时已经保证的形状不成立——这一格不可达");
       }
     }
     segment.BodyStart = currentIndex;

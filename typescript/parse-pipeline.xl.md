@@ -131,14 +131,24 @@ return new Sequence<Branch>([
   PreprocessorDirectives.JumpIn,
   RegexToken.JumpIn,
   StringGuide.JumpIn,
+  IfGuide.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
   LineWrap.AppendIn,
   SymbolToken.AppendIn,
-  IfGuide.JumpIn,
   Identifier.AppendIn,
 ]);
 ```
+
+**`IfGuide.JumpIn` 排在 `Bracket.JumpIn` 之前** ✗（第 395 轮改，用户口径 ✓）：
+它的入口挪到了 **`(`** 那一格 ✓（那时 `if` 已经在宿主的平列表里 ✓，一个向前看的字符都不用读 ✓），
+而 `(` 正是 `Bracket.JumpIn` 认的字符 ✓——排在它后面就永远轮不到 ✓。
+`(` 照样会被开成一个括号 ✓，只是**晚一步** ✓：由向导的暂存单元照**宿主那条队列**开 ✓
+（那条队列里 `Bracket.JumpIn` 好好地在 ✓）。
+
+**`class` / `interface` / `enum` 没有对应的分支** ✓（第 394 轮起 ✓）：它们**照常被 `Identifier` 吃掉** ✓，
+到 `{` 那一刻由 `Bracket.JumpIn` 自己回头看已读单元 ✓（`ParsePipeline.IsMemberListHead` ✓）。
+所以这张表里只有**一个**语句级的向导 ✓——`interface` 与 `if` **首字母相同**那个冲突根本不存在 ✓。
 
 ## static method CreateMemberListQueue:()=>Sequence<Branch>
 
