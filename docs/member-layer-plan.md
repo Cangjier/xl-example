@@ -799,7 +799,35 @@ TAIL name=match len=5 units=Bracket|SymbolToken|Identifier|GenericType|SymbolTok
 **这一轮净值**：三处怀疑被证伪 ✓、真因缩到一处 ✗、主脚本又多了两条修正（`,` 分支 / `IsLeadingWrap` ✓，
 都在 `tmp/recon/build-member-state.cjs` 里可一键重建 ✓）。
 
-## 五十、每步都要钉住的三件事
+## 五十一、两条硬事实（第 448 轮）：`.xl.md` 必须 LF；`ReturnType` 里那层 `TypeDefine` 没人替你包
+
+**一、`*.xl.md` 必须是 LF 行尾** ✗（这一轮踩到并被构建器当场点名 ✓）：
+
+```
+error[E0005]: source file contains a carriage return; *.xl.md uses LF line endings
+```
+
+我为了「多行锚点匹配不上」去**归一化行尾再还原成 CRLF** ✗ —— 结果文件变成 CRLF 之后
+`xl build` 直接拒绝 ✗（连带三个依赖它的文件一起 E1006 ✗）。
+⇒ 脚本改文件时**写回一律 LF** ✓；而且真实情况是：仓库本来就是 LF ✓，
+之前「锚点匹配不上」的假象是我自己的比较器前导空格造成的 ✗（`tmp/recon/diff-anchor.cjs` ✓）——
+**多行锚点匹配不上时，先量一次再说** ✗，不要凭现象改行尾 ✓。
+（这一版改成「起点 + 终点」整块正则替换 ✓，最稳 ✓。）
+
+**二、`ReturnType` 是 `IndependentToken`、没有重组队列** ✗ ⇒ 绿形状里那层
+`<ReturnType><TypeDefine>…</TypeDefine></ReturnType>` 是**重组规则在平表上**包出来的 ✗，
+解析期成形的成员**永远不会**被它碰 ✓ ⇒ 自己搬单元进去时，只有裸单元、没有 `TypeDefine` ✗
+（产物就是空壳 ✗）。照着绿形状自己收两层时**又撞上同一个陷阱** ✗：
+
+- `item.RemoveSelf()` ✗ → 25 个文件抛异常 ✗（第 445 轮已实测）；
+- `typeDefine.AddRange(items)` ✗ → **同样** 25 个文件抛异常 ✗（这一轮实测 ✓）。
+
+⇒ 同一个坑的两种写法：**单元还挂在 `this.Data` 里时，别用那几个「会登记父亲」的 API** ✗。
+**下一轮的正确做法**：先用「不登记」的路子把它们从 `Data` 里拿掉 ✗（例如先 `Data.length = tailStart`
+让它们与成员脱钩 ✓，再 `AddRange` ✓ —— 这一轮是先 `AddRange` 后截断 ✗，顺序反了 ✓），
+再进 `TypeDefine` → `ReturnType` 两层 ✓。
+
+## 五十二、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
