@@ -2675,3 +2675,29 @@ am-block-lambda-array-compound.ts: new Lamda 1 次
 **下一块**：把第 517 轮那次调用**连同它当时的 `units` 原样照下来** ?
 （在 `new Lamda` 那一行同时打 `index`、`units` 逐项类名与区间、`endIndex` ?，且**只引用已声明的变量** ?），
 量清「那一次的 `units` 到底是哪一层的三个单元」? —— 再决定闸下在哪一层 ?。
+
+### 补记（第 519 轮）：查 `start` / `end` 那道闸**大崩**（748 → 207）—— 已回滚，另记一条工具坑
+
+按上一节「把那次调用连同 `units` 原样照下来」做的 ?（`tmp/recon/r517-lamda-stack.cjs` 加了 `units` 一栏 ?）：
+
+```
+am-block-lambda-array-compound.ts: new Lamda 1 次   index=1
+    units=0:Identifier[undefined,undefined) 1:SymbolToken[undefined,undefined) 2:Identifier[undefined,undefined)
+```
+
+? 那一刻容器里三个单元的 `start` / `end` 都是 **`undefined`** ?（第 518 轮那道闸查的是
+`SourceRange.Start === null` ? —— **查错了字段** ?）。
+
+于是把闸改成查 `unit.start === undefined || unit.end === undefined` ? —— **结果大崩** ?：
+
+```
+完全一致 748 → 207    缺 1570 → 7941    漂 161 → 96    多 813 → 5950
+```
+
+? **`start` / `end` 不是「签没签」的标志** ?（普通单元在关完之后也一直是 `undefined` ?，
+它们是**另一种**取位置的接口 ?）? 这道闸把几乎整趟都跳过了 ? **立即回滚** ?（读数已确认回到 748 ?）。
+
+**一条工具坑记下** ?：回滚时**只** `git checkout` 了 `.xl.md` ?、忘了重跑 `xl build` ? ?
+`dist` 里还是旧补丁 ? ? `tsc` 一直报 `TS2339` ?（`start` 不在 `Token` 上 ?）、
+读数也一直是 207 ? —— **顺序必须是**：改 `.xl.md` → `xl build`（force ?）→ `tsc` → 量 ?；
+回滚同理 ?（`.xl.md` 回去之后**必须再 force 构建一遍** ?）。
