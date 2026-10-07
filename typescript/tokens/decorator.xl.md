@@ -76,11 +76,18 @@ return next instanceof Bracket && next.startBracket === "(";
 可以接下去的形状只有四种——名字（`Identifier`）、点号（`.`，用于 `@ns.Name`）、泛型实参段（`GenericType`，防御性）、
 以及调用括号（`(`，收下它之后立刻收尾）。其余任何单元（包括 `LineWrap`）都表示装饰器到此结束。
 
-**`Identifier` 那一支还要挡关键字**：`@sealed class C {}` 里 `sealed`、`class`、`C` 是三个挨着的 `Identifier`，
-不挡的话装饰器名会拼成 `sealed.class.C`，**整条类声明被吞进装饰器**（产物里只剩
+**`Identifier` 那一支还要挡关键字——但只挡第二个名字起**：`@sealed class C {}` 里 `sealed`、`class`、`C`
+是三个挨着的 `Identifier`，不挡的话装饰器名会拼成 `sealed.class.C`，**整条类声明被吞进装饰器**（产物里只剩
 `<Decorator name="sealed.class.C">` 加一个空对象）。
 关键字表就在这个 `Identifier` 自己的模板上（`item.Template.KeywordTemplate`），直接查即可——
 不必等 `KeywordCloseRule`（它排在通用队列最后，此刻还没跑）。
+
+**第一个名字即使是关键字也要收**：`@readonly readonly x = 1` 里那个 `readonly` 在关键字表里
+（上下文关键字），可 `@` 后面这一格没有别的解释——`Previous` 认的就是「`@` + 任意 `Identifier`」。
+不收它就只剩一个空名字的装饰器，后面那个词被当成字段名：实测这一行被切成**两个 `Field`**
+（第一个叫 `readonly`），投影那边是「漂移 2 + 多出 3」。
+装饰器名是上下文关键字时**在装饰器里也不再升级成 `Keyword`**（见 `keyword.xl.md` 的 `IsUpgradable`），
+否则 `expression` 会投成 `ReadonlyKeyword`。
 
 **名字段之间必须有一个 `.`**：`@dec x = 1` 是一个装饰器加一个**字段**，
 但 `dec` 与 `x` 都是 `Identifier`、`x` 也不在关键字表里，于是原来会把名字拼成 `dec.x`——
@@ -111,7 +118,12 @@ let i = index + 1;
 while (i < units.length) {
   const item = Get(units, i);
   if (item instanceof Identifier) {
-    if (item.Template.KeywordTemplate.IsKeyword(item.TempToString())) {
+    // **第一个名字即使是关键字也收**：`@readonly readonly x = 1` 里那个 `readonly` 在关键字表里
+    // （上下文关键字），但 `@` 后面这一格没有别的解释——`Previous` 认的就是「`@` + 任意 `Identifier`」，
+    // 不收它就只剩一个空名字的装饰器 + 后面那个词被当成字段名（实测：`@readonly readonly x = 1`
+    // 被切成两个 `Field`，第一个叫 `readonly`）。
+    // 第二个名字起才挡：`@sealed class C {}` 里 `class` 不能拼进装饰器名（那会把整条类声明吞掉）。
+    if (names.length > 0 && item.Template.KeywordTemplate.IsKeyword(item.TempToString())) {
       break;
     }
     // 名字之间必须有 `.`：`@dec x = 1` 的 `x` 是字段名，不是装饰器名字的一部分。
