@@ -977,7 +977,38 @@ WebIDL 那一族（`undici-types/webidl.d.ts` 等 ✓）遍地是 `['unsigned sh
 即**类型谓词**（`arg is I` ✓ / `asserts x is T` ✓）那一族 ✓。它是**独立的解析层**问题 ✗
 （与成员表无关 ✓），下一轮从那里入手 ✓。
 
-## 六十二、每步都要钉住的三件事
+## 六十三、类型谓词那一簇（第 454 轮）：形状差一层 `FunctionType`，但搬法试错一次
+
+`undici-types/webidl.d.ts` 里 `MakeTypeAssertion <I>(I: I): (arg: any) => arg is I` 的产物**零件齐全** ✓
+（`Bracket` + `=>` + `TypePredicate(arg is I)` 都在 ✓）——**只差外面那层 `FunctionType`** ✗：
+
+```xml
+<ReturnType><TypeDefine>
+  <Bracket …><Identifier>arg</Identifier><TypeDefine><Identifier>any</Identifier></TypeDefine></Bracket>
+  <SymbolToken>=&gt;</SymbolToken>
+  <TypePredicate><Identifier>arg</Identifier><Keyword>is</Keyword><Identifier>I</Identifier></TypePredicate>
+</TypeDefine></ReturnType>
+```
+
+**推断**：通用队列里 `TypePredicateReorganization` 排在 `FunctionTypeReorganization` **之前** ✓
+（`parse-pipeline.xl.md` 第 307 行 ✓）。在我这条路里，那一段单元一搬进 `TypeDefine`
+（**类型容器** ✓）就先被谓词规则收走 ✗ ⇒ 函数类型规则再看时右边已经不是「一段类型」✗
+⇒ `FunctionType` 永不成立 ✓。绿树上同样的顺序却没事 ✓，差别在**什么时候、在谁名下**成形 ✗。
+
+**试过的搬法**（回滚 ✗）：把两层收尾挪到 `super.TryToClose()` **之后** ✗
+（先让成员自己那一趟收成形、父亲是成员而不是类型容器 ✓）——读数反而更差 ✗
+（`cases` 1036 → **1015** ✗、字段名不符 0 → **28** ✗）：成员关闭后再搬会把
+**参数表里的逗号**之类也卷进返回类型 ✓（这正是第 445 轮那条「尾 `;` 不进取 ReturnType」的同类问题 ✗）。
+
+⇒ **下一轮的方向**（未试 ✓）：不要动搬的**时机** ✗，而是让那一段在**搬进去之后、按类型队列的顺序重跑一遍** ✗ ——
+或者更简单：在 `TypeDefine` 成形前先把 `=>` 那一段**显式收成 `FunctionType`** ✗
+（与我在 `TryToClose` 里收 `TypeDefine` / `ReturnType` 是同一套路子 ✓，
+`FunctionType` 的构造方式照 `function-type.xl.md` 抄 ✓）。
+
+**这一轮净值**：定位到「差一层 `FunctionType`」并把顺序推断写清楚 ✓，试错一次并回滚 ✓，
+主线仍绿 ✓，最佳状态仍是 `tmp/recon/r56/`（`cases 1036` / 全语料 21 ✓）。
+
+## 六十四、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
