@@ -44,7 +44,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
     const z = a satisfies A | B
 
 第一条的 `number[]` 停在裸 `Bracket` 上（`UnionType` / 方括号 / 类型运算符三条规则
-一条都轮不到），第二条的联合也不成形。实测由 `cases:align` 的「缺 `ArrayType`」抓出来
+一条都轮不到），第二条的联合也不成形。实测由 当时那把对齐尺子的「缺 `ArrayType`」抓出来
 （`ty-satisfies.ts`）。同一个类型写在 `as` 右边是对的、写在 `satisfies` 右边是错的——
 两边共用的只有**判定与收集**，节点自己的队列必须各挂一次。
 

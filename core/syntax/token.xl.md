@@ -498,7 +498,7 @@ TS 的每个节点都带 `pos` / `end`，没有坐标就只能靠原文搜索猜
 **为什么不从 `Data` 重新拼一份**（试过、退回了）：`ToDictionary` 的每个 token 覆写里有一批
 **不在 `Data` 里的键**——叶子的 `value`（`Identifier` / `SymbolToken` / `Keyword` / 注释…）、
 `Import` 的 `imported` / `From`、`String` 的五个开关…从 `Data` 重拼等于把这些键全丢掉，
-`cases:astjson` 当场报出 1000 个文件「XML 有文本、JSON 是空串」。
+当时那把 AST JSON 尺子当场报出 1000 个文件「XML 有文本、JSON 是空串」。
 所以这份实现**以 `ToDictionary()` 的结果为底**，只做两件事：补 `range`、把
 `List<Map>` 形态的**子节点**递归地换成带坐标的那一份。
 

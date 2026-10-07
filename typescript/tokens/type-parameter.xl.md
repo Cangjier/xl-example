@@ -24,12 +24,12 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 TypeScript 那边这两处**都是** `TypeParameter`（映射类型的键也是它：
 `MappedType > TypeParameter > Identifier K / TypeOperator(keyof) …`）。本工程原来把泛型段整段
-留成 `<GenericType>` 里的散单元，于是 `cases:align` 的 `TypeParameter` **缺 2102 处**。
+留成 `<GenericType>` 里的散单元，于是 当时那把对齐尺子的 `TypeParameter` **缺 2102 处**。
 
 **映射键那一支**（原来把它留成 `[K in T]` 括号里的散单元 + 一个 `<BinaryOperator op="in">`）：
 `in` 被当**二元运算**收，约束里的 `keyof T` 会被它吞掉
 （`<BinaryOperator op="in">K in keyof</BinaryOperator>T`），`TypeOperator` 再也长不出来
-（`cases:align` 当时缺 11 处）；TS 那边这里根本没有二元表达式，
+（当时那把对齐尺子当时缺 11 处）；TS 那边这里根本没有二元表达式，
 那条 `BinaryOperator in ArrayLiteral` 口径（17 处）本来是**替身**。
 
 规则排在**通用队列里、`JsonArrayCloseRule` 之后**（映射键的括号到那时已经是 `ArrayLiteral`），
@@ -83,7 +83,7 @@ return true;
 **`extends` 必须配「没有顶层 `?`」**：条件类型**实参**里也有顶层的 `extends`——
 `IfDefaultsTrue<T["strict"], O["type"] extends "string" ? string : …, string | boolean>`
 （`@types/node/util.d.ts:1551`）那一整段就会被误判成参数表，
-把三个实参各包成一个 `TypeParameter` ✗（`cases:align` 实测「`TypeParameter in GenericType`」7 处误包）。
+把三个实参各包成一个 `TypeParameter` ✗（当时那把对齐尺子实测「`TypeParameter in GenericType`」7 处误包）。
 参数表的约束后面**永远不会**跟着 `?`（条件类型才会）✓。
 
 ```ts
@@ -571,7 +571,7 @@ rebuilt.push(parameter);
 **为什么是通用队列而不是类型队列**（实测）：约束与默认值里会出现**通用队列才有的**构造——
 `calls<Func extends (...args: any[]) => any>(fn: Func)` 的约束是**函数类型**，
 `type X<F> = F extends (...args: any) => infer T ? T : never` 的约束段里有**条件类型**。
-只挂类型队列时这两类都不成形（`cases:align` 实测 `FunctionType` 缺 15、`ConditionalType` 缺 10）。
+只挂类型队列时这两类都不成形（当时那把对齐尺子实测 `FunctionType` 缺 15、`ConditionalType` 缺 10）。
 通用队列**包含**类型队列的全部成员（方括号 / 导入类型 / 类型运算符 / 字面量 / 联合都在里面），
 所以挂它不会丢东西，只会多出该有的 ✓。
 

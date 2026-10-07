@@ -14,7 +14,7 @@ import { ParsePipeline } from "../../parse-pipeline.xl.md"
 
 第 60 轮之前它**没有专属标签**：产物是 `TypeLiteral` + `TypeLiteralBody` + `Field`——
 `{ [K in keyof T]: T[K] }` 与 `{ a: number }` 在树里长得一样（真实语料 36 处，
-`cases:align` 一直把它当口径登记着）。两者的成员语法完全不同：前者是**一个映射**，
+当时那把对齐尺子一直把它当口径登记着）。两者的成员语法完全不同：前者是**一个映射**，
 后者是一串成员声明。
 
 判定放在 `TypeLiteralCloseRule.Process` 里（**不新增规则**）：

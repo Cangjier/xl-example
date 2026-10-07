@@ -30,7 +30,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 
 也就是说**实参表被 `NullConditionalOperator` 吞了**（`method.xl.md` 的判据锚在
 「名字 + `(` 括号」上，此刻括号在 NCO 里面，它根本看不到），或者被调者是个 `NotNull`
-（判据只认 `Identifier` / 括号）。两者都不成形，`cases:align` 因此缺 `CallExpression` 6 处。
+（判据只认 `Identifier` / 括号）。两者都不成形，当时那把对齐尺子因此缺 `CallExpression` 6 处。
 
 规则排在**通用队列里、`NotNullCloseRule` 之后**：那时 NCO（第 13 位）与
 `NotNull`（第 40 位附近）都已经成形 ✓。两条支路都靠**第二趟**兜住——

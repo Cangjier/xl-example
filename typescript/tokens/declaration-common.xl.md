@@ -70,7 +70,7 @@ import { LineWrap } from "./line-wrap.xl.md"
 | 口径 | 真实语料（`@types` / `typescript/lib` / `undici-types` / 产物 / 样本） | 用例语料 |
 | --- | --- | --- |
 | 收掉尾随换行 | 217 个文件里 **30 个**文件有边界被横跨（共 48 处） | 852 个文件里 **17 个** |
-| 不收（现口径） | **0 处** | **0 处**（ASI 判据补齐之后，见 `tests/parse/known-gaps.json` 的 `_notes.asi-not-implemented`） |
+| 不收（现口径） | **0 处** | **0 处**（ASI 判据补齐之后，见 早期的缺口台账的 `_notes.asi-not-implemented`） |
 
 典型受害者是 `@types/node` 里成片的 `declare module "x" { … }` 换行 `declare module "node:x" { … }`：
 两条环境模块声明被收进一个 `Statement`。

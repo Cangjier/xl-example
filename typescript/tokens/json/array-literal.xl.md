@@ -199,7 +199,7 @@ Json 数组。
 判据、注释、形状一字未改，只把跨模块的东西换成 `ctx` 上那几个出口
 （`Kids` / `Expression` / `StartOf` / `EndOf` / `Node`）——那一层不能 import `ts-ast`，
 否则 token → ts-ast → token 成环。搬完 `ts-ast.xl.md` 里对应的 `case` 与 `projectArrayLiteral`
-一起删掉，产物逐字节不变（全量对拍 1407/1407 仍在）。
+一起删掉，产物逐字节不变（`cases:tsast` 全量对拍仍然是逐文件完全一致）。
 
 要点（原文照录）：
 

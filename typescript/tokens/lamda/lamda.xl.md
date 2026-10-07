@@ -442,7 +442,7 @@ return -1;
 
 **`=>` 在类型位不是箭头函数**（第 66 轮）：`<F extends (...args: any[]) => any>` 这种
 **参数表约束**里的 `=>` 与箭头函数同形，`FindParameters` 也会认出左边那段形参——
-于是它被收成一个 `Lamda`，而 TS 那边是 `FunctionType`（`cases:align` 实测
+于是它被收成一个 `Lamda`，而 TS 那边是 `FunctionType`（当时那把对齐尺子实测
 `Lamda in TypeParameter` 3 处、`FunctionType` 缺 3 处，`lib.decorators.d.ts` 与
 `@types/node/test.d.ts` 各一片）。类型位里不可能有箭头函数，所以父单元是类型容器时一律让给
 `function-type.xl.md`。
@@ -980,7 +980,7 @@ XML 里这些都写不成属性（`<Lamda>` 只有子单元的串接），而 JS
   不收它 `async x => x` 与 `x => x` 的 JSON 会一模一样；
 - `parameters` / `body` / `returnType` 都是**段**，一律取 `ToList()`——与 `While` / `For` /
   `IfSegment` 那些分段节点同一个写法。`<LamdaBody>` 与 `<LamdaParameters>` 是包装元素，
-  段数组装的是它们的**内容**，包装自己不出现（这条口径与 `cases:astjson` 的分段表一致）；
+  段数组装的是它们的**内容**，包装自己不出现（这条口径与 当时那把 AST JSON 尺子的分段表一致）；
 - `returnType` **只在 `ReturnType !== null` 时写**：没有返回类型标注的箭头函数不写这个键，
   与 XML 里「没有 `<ReturnType>` 子单元」同一件事。
 

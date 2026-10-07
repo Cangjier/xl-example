@@ -21,7 +21,7 @@ import { TypeParameter } from "./type-parameter.xl.md"
 TypeScript 那边它是**两层**：`InferType > TypeParameter > Identifier X (+ TypeOperator …)`——
 `infer` 后面的那个名字（以及可选的 `extends` 约束）就是**类型参数**，只是没有名字列表的括号。
 本工程原来把这段留成散单元（`<Keyword>infer</Keyword><Identifier>U</Identifier>`），
-于是 `cases:align` 的 `TypeParameter` 一直缺 **86 处**（全是 `infer` 里的那个）。
+于是 当时那把对齐尺子的 `TypeParameter` 一直缺 **86 处**（全是 `infer` 里的那个）。
 
 规则排在**类型队列与通用队列两个地方**：`infer` 常见于条件类型（通用队列的地盘），
 也常见于**函数类型的形参**（`T extends (a: infer U) => any ? U : never`）——

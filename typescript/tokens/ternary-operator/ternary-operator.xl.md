@@ -76,7 +76,7 @@ import { TernaryOperatorTrueStatement } from "./ternary-operator-true-statement.
 把后面两条语句整段吞进真值段、`number[]` 落进假值段——产物里只有一个 `<Statement>`、
 只有两个三元、`string[]` / `number[]` 再也长不出 `ArrayType`
 （自己的产物 `dist/ts/typescript/tokens/string/string.ts` 实测就是这样，
-`cases:align` 的「缺 `ArrayType`」把它抓出来）。
+当时那把对齐尺子的「缺 `ArrayType`」把它抓出来）。
 
 **已知限制：左结合嵌套 `a ? b ? c : d : e` 还不能完全成形。**
 TypeScript 的解是 `a ? (b ? c : d) : e`，现状是 `a` / `?` / `b` 平铺，后三层成节点。

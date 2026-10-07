@@ -203,7 +203,7 @@ TS 那边 `name: D?` 的形状是 `NamedTupleMember > [Identifier name, Optional
 - `?` 在成员里的 `TypeDefine` 里 ⇒ 把那个 `TypeDefine` 的**内容**包成 `OptionalType`
   （`TypeDefine` 是本工程自己的包装，装在里面同样与 TS 的区间对齐 ✓）。
 
-少了这一步，`cases:align` 会报 `OptionalType` 缺 1 处（实测 `[name: D?]`）。
+少了这一步，当时那把对齐尺子会报 `OptionalType` 缺 1 处（实测 `[name: D?]`）。
 
 ```ts
 const last = member.Data[member.Data.length - 1];
@@ -261,7 +261,7 @@ optional.TryToClose();
 （`...` 与类型各是一个单元），`RestType` 里因此是 `[..., B]`。
 
 TS 那边 `RestType` 的子节点就是 `DotDotDotToken` 与类型本身——留着 `Spread` 会让
-`cases:align` 报 `Spread in RestType`（实测 4 处）。`Spread` 是**表达式层**的构造，
+当时那把对齐尺子报 `Spread in RestType`（实测 4 处）。`Spread` 是**表达式层**的构造，
 类型位的它属于 `RestType` ✓。
 
 ```ts

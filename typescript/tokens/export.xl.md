@@ -277,7 +277,7 @@ ParsePipeline.InitialKeywordCloseRuleQueue(this);
 取法与 `Import.imported` 对称、但取的是**最后一个** `Identifier`：`a as b` 对外是 `b` ✓，
 `c` 对外是 `c` ✓，`type D` 对外是 `D` ✓。空列表表示这条语句没有花括号列表。
 
-**为什么这些属性值得加**：与 `Import` 那边是同一个问题（`known-gaps.json` 的
+**为什么这些属性值得加**：与 `Import` 那边是同一个问题（`早期的缺口台账` 的
 `_notes.exports-no-node` 里剩的就是这一块）——原来 `Export` 只带 `From`，
 而且 `From` **没有进 XML**（`Export` 没有覆写 `ToXmlString`）。`import { a as b }` 与
 `export { a as b }` 在产物里长得一样、下游分不出方向与别名。

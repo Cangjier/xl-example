@@ -201,10 +201,10 @@ return false;
 **`(` 不在判定范围内**（第 57 轮试过、退回来了）：把 `(` 也纳进来之后，
 `for (; i < n; i++)` 这类**循环头**的括号被判成了类型位（前文扫到了更远处的 `:` / `readonly`
 一类的类型位信号），`i++` / `-1` 这些真正的一元运算当场少了 17 个
-（`cases:dashboard` 报「一元/更新 真缺 17」）。根因是这里「往上爬 4 跳」的扫描对**括号**来说
+（当时的仪表尺子报「一元/更新 真缺 17」）。根因是这里「往上爬 4 跳」的扫描对**括号**来说
 前文太远、信号太杂；`{` / `[` 之所以能用，是因为它们的前文紧邻（`:` / `=` / `[`）。
 所以括号类型里的 `typeof`（`(WindowProxy & typeof globalThis)`，全语料 1 处）
-仍按一元运算收，登记在 `tests/parse/align.mjs` 的口径里。
+仍按一元运算收，登记在 当时那把对齐尺子的口径里。
 
 **为什么要它（方案 A）**：原来这件事是**事后**做的 —— `TypeLiteralCloseRule` / `BinaryOperatorCloseRule` /
 `SpreadCloseRule` 各自在自己的位次上「往上找祖先」或「往前扫同层单元」来猜。
@@ -1658,7 +1658,7 @@ return (item as any).Value ?? "";
 
 少了这一条实测会凭空多出节点：`T extends [infer A, infer B] ? [B, A] : never` 里
 `extends` 被当成被操作的类型，产物是 `<IndexedAccessType><Keyword>extends</Keyword>…`——
-`cases:align` 的「产物有标签、源码没构造」当场多出一类（第 66 轮）。
+当时那把对齐尺子的「产物有标签、源码没构造」当场多出一类（第 66 轮）。
 
 `readonly` / `keyof` / `typeof` / `infer` / `unique` / `asserts` / `new` / `abstract` 不在这个名单里，
 它们由 `IsTypeModifier` 挡；两处判据合起来才是「不能当操作数的词」。
@@ -1742,7 +1742,7 @@ return true;
 
 一开始用 `ArrayLiteral.Context === "type"` 区分，**实测不可靠**：`DecideBracketContext` 的
 「往左看」在值位也会被误答成类型位（字段初始化式 `public static readonly X: T = new Foo([…])`
-里，`[` 往前扫会跨过 `=` 撞上标注的 `:` —— 实测 `cases:align` 27 处误包）。
+里，`[` 往前扫会跨过 `=` 撞上标注的 `:` —— 实测 当时那把对齐尺子 27 处误包）。
 改成看**内容里有没有 `in`**：与「这个括号是不是映射类型的键」是同一件事，时序无关 ✓。
 
 ```ts
@@ -1822,7 +1822,7 @@ return false;
 （见 `tokens/type-parameter.xl.md`），键里的**约束**也在它里面——
 `{ [K in keyof any[]]: 1 }` 的 `keyof` 与 `any[]`、`{ [K in keyof T]: "a" }` 的字面量
 都靠这一条才成形。少了它，那几类节点整片消失（实测 `TypeOperator` +22、`ArrayType` +3、
-`IndexedAccessType` +3、`LiteralType` +6——`cases:align` 当场报出来）。
+`IndexedAccessType` +3、`LiteralType` +6——当时那把对齐尺子当场报出来）。
 
 **`ArrayLiteral` 是有条件的一个**：它必须是**映射类型的键括号**（`IsMappedKeyBracket`，
 内容里有 `in`）时，里面的内容才是类型文本：
@@ -2001,7 +2001,7 @@ return true;
 - `` const v = `${a | b}` ``：再往左是 `const` ⇒ **值位** ✓（值位的 `${a | b}` 不许变成联合，
   这是第 62 轮明确记下的取舍）。
 
-少了这一条，模板字面量类型里的联合 / 交叉永远不成形（`cases:align` 一直挂着
+少了这一条，模板字面量类型里的联合 / 交叉永远不成形（当时那把对齐尺子一直挂着
 `UnionType` 1 处 / `IntersectionType` 2 处）。
 
 ```ts

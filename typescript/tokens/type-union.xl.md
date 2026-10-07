@@ -25,7 +25,7 @@ import { LamdaCloseRule } from "./lamda/lamda.xl.md"
 `IntersectionType`（真实语料 8461 + 206 处）。
 
 第 58 轮之前它们**没有节点**：产物里就是散的 `Identifier` / `SymbolToken`，
-`A | B` 与「三个互不相干的单元」在树里长得一样（`cases:align` 一直把它当口径登记着）。
+`A | B` 与「三个互不相干的单元」在树里长得一样（当时那把对齐尺子一直把它当口径登记着）。
 
 **一条规则管两个运算符**，优先级靠**收进去的那一段再跑一趟**表达——`&` 比 `|` 紧：
 

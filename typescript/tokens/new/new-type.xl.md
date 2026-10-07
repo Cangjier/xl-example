@@ -30,7 +30,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 值位 `new Foo(1, 2)` 的 `NewType` 装的是被调者名字（`Foo`），构造签名装的是**形参括号**。
 `ParameterCloseRule` 锚在那个括号上、改的是它自己的内容，所以必须有人来扫描
 `NewType` 的内容——没有队列时那一趟根本不存在，构造签名的形参永远收不出来
-（实测 `cases:align` 的 `Parameter` 缺 934 处全是它）。
+（实测 当时那把对齐尺子的 `Parameter` 缺 934 处全是它）。
 
 ```ts
 super(template);

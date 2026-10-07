@@ -110,7 +110,7 @@ return true;
 
 两条路都走 `MoveDataTo` 把**括号里的内容**搬进新节点，所以 `T[]` 的产物一律是
 `<ArrayType>元素类型</ArrayType>`——只认 `Bracket`、或者把包装单元留在树里的版本，
-同一种写法会长出两种树（`cases:align` 实测各 7 / 3 处）。
+同一种写法会长出两种树（当时那把对齐尺子实测各 7 / 3 处）。
 
 `TupleType` 那一支直接 `Replace` 自己（位置不变）；`ArrayType` / `IndexedAccessType`
 要把左边那个类型一起收进来，所以用 `ReplaceCountAt` 替换从 `previousIndex` 到 `index` 的一整段。

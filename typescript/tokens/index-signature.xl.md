@@ -18,7 +18,7 @@ TypeScript 那边它是**独立节点**（`IndexSignature`，内容是一个 `Pa
       NumberKeyword «number»
 
 ）。本工程原来把它**借字段节点**收（`<Field name="k">` 里装一个 `ArrayLiteral` 与两个 `TypeDefine`），
-`cases:align` 里登记成共用标签的口径；`REVERSE` 里 `Field` 的构造集合因此也挂着 `IndexSignature`。
+当时那把对齐尺子里登记成共用标签的口径；`REVERSE` 里 `Field` 的构造集合因此也挂着 `IndexSignature`。
 
 **节点由 `field.xl.md` 分流出来**（索引签名与字段在成员表里同形，都在成员的起首）：
 名字是「`[` + 标识符 + `:`」这一形状时，`FieldCloseRule` 造的是本节点。

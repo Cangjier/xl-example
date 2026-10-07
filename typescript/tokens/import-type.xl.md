@@ -28,7 +28,7 @@ const WebSocket: typeof import("undici-types").WebSocket;
 
 TS 6 把整段收成**一个** `ImportType` 节点（`typeof` 是它身上的 `isTypeOf` 标志，限定名 `.WebSocket`
 也是它的一部分），**没有** `TypeQuery`。于是产物与 AST 两边对不上：
-`cases:align` 的 `TypeQuery in TypeDefine` 117 处 / `TypeQuery in ConditionalType` 17 处 /
+当时那把对齐尺子的 `TypeQuery in TypeDefine` 117 处 / `TypeQuery in ConditionalType` 17 处 /
 `TypeQuery in IntersectionType` 6 处 / `TypeQuery in As` 2 处 / `TypeQuery in TypeAssign` 2 处，
 全部是「我们多套了一层 TypeQuery、而 TS 那边只有一个 ImportType」。
 

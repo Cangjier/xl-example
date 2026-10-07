@@ -377,15 +377,8 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
   产物里块与后一条语句仍然**并进同一个 `<Statement>`**（与 TypeScript 的「两条语句」不一致）——
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，
   所以 `cases:tsast` 是绿的（形状那一层已经对了，token 树那一层没动）。
-  **第 63 轮修掉了其中更严重的一半**：复合赋值的展开原来会**再克隆一份那个块**
-  （`<Bracket>{ A }</Bracket> a = <Bracket>{ A }</Bracket> + 1`）——那是**凭空多出内容**，
-  根因是 `SearchFront` 的起点判据写成了 `startBracket === "}"`（块语句的起点是 `{`，
-  一个都匹配不上，于是 `front` 退化成整个前缀）。改成 `endBracket === "}"` 之后
-  克隆的只有目标那一段 ✓，剩下的只是「两条语句被并进一个 `<Statement>`」这一条边界口径。
-  **不再抛异常**（第 52 轮之前这里直接抛「没有父单元」整份文件解析失败）。
-  第 63 轮还试过把块当语句边界（`StatementReorganization2.Previous`），
-  结果复合赋值的展开被切断、**整段内容丢失** ✗——比边界不合严重，已退回；
-  两条形状已经收进用例语料（`tests/parse/cases/**`）。
+  **被否决的改法**：把块当语句边界（`StatementReorganization2.Previous`）——切断了复合赋值的
+  展开，**整段内容丢失**，比边界不合严重；不要再试。两条形状已经收进用例语料。
 
 ---
 
@@ -397,7 +390,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 ### 实测规模
 
 `node_modules` 下 226 个真实 `.d.ts` + 本项目产物 `dist/ts/**` + 用例语料
-——`cases:tsast` 的语料就是这一份，**1461 份逐文件完全一致**。
+——`cases:tsast` 的语料就是这一份，**1469 份逐文件完全一致**。
 TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
 JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
 

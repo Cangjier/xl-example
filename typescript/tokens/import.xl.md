@@ -376,7 +376,7 @@ super(template);
 取的是每一项的**最后一个 `Identifier`**：`A` 取 `A`、`B as C` 取 `C`、`type B` 取 `B` ✓。
 空列表表示这条导入没有具名子句（`import "m"` / 默认导入 / 命名空间导入）。
 
-**为什么这些属性值得加**（`known-gaps.json` 的 `_notes.imports-unstructured`）：
+**为什么这些属性值得加**（`早期的缺口台账` 的 `_notes.imports-unstructured`）：
 原来 `Import` 只带 `From`，两条形状完全不同的导入只能靠子单元去分辨；
 而且 `From` **根本没有进 XML**（`Import` 没有覆写 `ToXmlString`）——下游拿不到路径。
 现在这些信息都成了属性，`ToXmlString` 一并渲染。

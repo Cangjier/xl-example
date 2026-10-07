@@ -18,14 +18,12 @@ export const EXPECTATIONS = {
   // 这一轮加端到端语料时当场撞上 ✓：`Array.prototype.join.call(like, "/")` 报
   // 「this method needs an array receiver」✓。**修法与 `slice` 那一支一字不差** ✓
   //（`ArrayLikeLength` + `ArrayLikeAt` + `JsElementUnits` 三个都现成 ✓，抄一遍就有 ✓）。
-  // **第 338b 轮过了** ✓（这一行撤了 ✓）：`join` 也接了**类数组**那一档 ✓（三个助手都现成 ✓，与 `slice` 那一支一字不差 ✓）。
 
   // **异步那一族：微任务队列在「模块同步部分跑完之后」没有排空完** ✓。
   // 实测（最小反例）：一个 `async` 生成器 + `for await` 的 IIFE ✓ + 三个先排好的微任务 ✓——
   // 那一趟**跑了够多的微任务让 IIFE 完成** ✓，可 `queueMicrotask` / `after-await` / `then7`
   // **一个都没跑** ✗（Node 全跑了 ✓）。**下一步从这里查** ✓：驱动那一侧排空微任务的条件
   //（`DrainMicrotasks` ✓ 与宿主的事件循环那一圈 ✓），看它是不是**跑到「模块那一帧结束」就收手** ✓。
-  // **第 339 轮过了** ✓（这一行撤了 ✓）：`for await` 的每一轮真的让出微任务了 ✓——`awaitModifier` 以前被丢掉 ⇒ 走成了**同步**的 `for..of` ✓。
 
   // ===== 第 336 轮：加宽语料时**新量到**的缺口（1 条）=====
 
@@ -37,7 +35,6 @@ export const EXPECTATIONS = {
   // **修法已经看得见** ✓：`LowerReturn` 那一条也要把**在册的迭代循环**从里到外收一遍 ✓
   //（`this.Loops` 就在手上 ✓——只是那要区分「迭代循环」与「普通循环」 ✓，
   //  也就是给 `LoopContext` 再加一格 ✓）。**下一轮从这里接** ✓。
-  // **第 337 轮过了** ✓（这一行撤了 ✓）：`return` 出 `for..of` 也要 IteratorClose ✓——`LoopContext` 多一格 `IteratorSlot` ✓，`ReturnStatement` 那一支先收迭代器、再跑 `finally` ✓。
   // ===== runtime：引擎与语言层手里的那几张表 =====
   // **第 233 轮删掉了 `op-typeof-forms` 那一行** ✓（它过了 ✓）：
   // `typeof {a: 1}` / `typeof {}` 原来只给一个**孤零零的 `TypeOfKeyword`** ✗
@@ -62,7 +59,6 @@ export const EXPECTATIONS = {
   // 降级层在**父节点**上认出 `super.v` ✓（名字在那一层 ✓，与 `super.m(...)` 同一处形状 ✓）。
   // 实测：`get v() { return super.v + 1 }` 给 `2` ✓、`super.m() + super.v` 混合着用给 `11` ✓
   // ——与 Node 逐字节相同 ✓。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
   // **第 247 轮删掉了 `prm-combinators` 那一行** ✓（它过了 ✓）：差的是 `Promise.all` 里**不是承诺的那几项** ✓（`Promise.all([Promise.resolve(1), Promise.resolve(2), 3])` ✓——第三项是裸数字 ✓）。JS 对每一项先做一次 `Promise.resolve` ✓；而这里原来把它**直接交给调度器** ✗ ⇒ 那一格永远不会被触发 ✓ ⇒ `remaining` 减不到 0 ✓ ⇒ 结果承诺**永不结清** ✓（打出 `1,2,` ✓，Node 给 `1,2,3` ✓）。**静默错值** ✓。
   // **第 286 轮删掉了 `prm-async-await` 那一行** ✓（它过了 ✓）：`async` 的三条语义差
   // （`lowering.xl.md` 文首那张表 ✓）这一轮**一起**做掉了 ✓——
@@ -96,7 +92,6 @@ export const EXPECTATIONS = {
   // 这一条链**根本走不到「回调的返回值」那一步** ✓——
   // 它在**回调跑完之后、收尾之前**就出事了 ✓（`cannot read properties of undefined` ✓）。
   // **所以采纳要修，而它前面还有一个更要紧的缺口** ✗。
-  // **第 358 轮过了** ✓（这一行撤了 ✓）：`Limits.StepBudget` 从一百万抬到一千万 ✓（两万次迭代的 churn 撞的是它 ✓），语料规模改成**一万次** ✓（实测 1070ms ✓）。
 
   // ===== exec：TS 形状 → 运行期语义 =====
   // **第 230 轮删掉了 `ex-enum-numeric` / `ex-enum-string` / `ex-enum-const` 三行** ✓（它们过了 ✓）：
@@ -162,7 +157,6 @@ export const EXPECTATIONS = {
   //   要不要做严格 / 非严格模式是**一条设计决定** ✓（判据所在的 `.ts` 文件在 Node 那边
   //   是按 CommonJS 跑的 ✓、也就是**非严格** ✓），而本仓今天只有「响亮地抛」那一档 ✓。
   //   **所以它记成 `differ`** ✓（口径分歧 ✓），与 `object-freeze` 同一类 ✓。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
   // **第 234 轮删掉了 `ex-labeled-block` 那一行** ✓（它过了 ✓）：
   // 根子是「**标签只挂循环与 `switch`**」✗（`PendingLabel` 由 `EnterLoop` 消费 ✓），
   // 而 `outer: { … }` 里**没有任何东西会来消费那个标签** ✓——于是原来那句
@@ -188,8 +182,6 @@ export const EXPECTATIONS = {
   // **不经过这一句** ✓，所以剥掉它们的信息不丢 ✓。
   // **剥掉是对的** ✗：三元 / 二元 / 一元**操作数**位置上的 `...` 在 JS 里本来就是语法错误 ✓，
   // 它能出现在那里只是因为外面的数组字面量已经认过它了 ✓。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
   // **第 273 轮把这个 blocked 那一行删掉了** ✓（这两条一直是过的 ✓，判据每轮都提示
   // `NEWLY-PASSING` ✓）：`object-tostring-tag` 与 `symbol-tostringtag` 是第 229 轮修好的 ✓
   //（`Object.prototype.toString` 先问 `Symbol.toStringTag` ✓），台账那一行忘了删 ✗。
@@ -207,7 +199,6 @@ export const EXPECTATIONS = {
   // **`symbol-hasinstance` 从 blocked 变成 differ 了** ✓：`static [Symbol.hasInstance](v)`
   // 这种**计算成员名**现在降级得出来 ✓（第 229 轮 ✓），差的是 `instanceof` 那头
   // **还没问那一格** ✗（引擎的 `RtInstanceOf` 只沿原型链找 ✓）。
-  // **第 344 轮过了** ✓（这一行撤了 ✓）：`instanceof` 先问 `C[Symbol.hasInstance]` ✓（名字从那张小表里取 ✓，与 `ToPrimitive` 那一处一字不差 ✓）。
   // **第 273 轮把这个 blocked 那一行也删掉了** ✓（理由与 `object-tostring-tag` 同一处 ✓）。
   // **第 241 轮删掉了 `symbol-description` 那一行** ✓（它过了 ✓）：
   // 原来记的理由是「要挂在符号的**原型**上，而 `Protos` 表里没有符号那一格」✓——
@@ -413,13 +404,8 @@ export const EXPECTATIONS = {
   //   三条计算键的路原来都是**值在前、键在后** ✗（第 183 轮自己把它记成「已知差」✓），
   //   而 JS 的规范是**键在前** ✓——只有键 / 值里带副作用才看得出来 ✓，
   //   所以一直没被量到 ✓。**新加了一条判据守着它** ✓（`ex-object-literal-key-order` ✓）。
-  // **第 342 轮过了** ✓（这一行撤了 ✓）：尖括号断言 `<T>x` 与 `as` 一起擦掉 ✓；给原始值写一格下标 = 空操作 ✓（非严格 ✓）。
   // 这一条与组 10 的「成员不在那儿」是**同一类** ✓，只是它住在 `ex` 层 ✗
   //（`String.raw` 是 `String` 上的一格 ✓，而它挡住的是一条**标签模板**的用例 ✗）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：`String.raw` 与标签模板的 `raw` ——降级层给段落数组挂上 `raw` ✓（`SetPropertyConst` ✓），每一段按 `TemplateCookedText` 熟一遍 ✓（投影对带内插的段给的是**原文** ✓，没有内插的那一档反而给的是熟的 ✓——两条口径都在注释里 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：`String.raw` 与标签模板的 `raw` ——降级层给段落数组挂上 `raw` ✓（`SetPropertyConst` ✓），每一段按 `TemplateCookedText` 熟一遍 ✓（投影对带内插的段给的是**原文** ✓，没有内插的那一档反而给的是熟的 ✓——两条口径都在注释里 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：`String.raw` 与标签模板的 `raw` ——降级层给段落数组挂上 `raw` ✓（`SetPropertyConst` ✓），每一段按 `TemplateCookedText` 熟一遍 ✓（投影对带内插的段给的是**原文** ✓，没有内插的那一档反而给的是熟的 ✓——两条口径都在注释里 ✓）。
 
   // ---- 组 9：整块都是类型位的 `namespace` 该**整块擦掉**（1 条）----
   // 这一条不是「namespace 没做」那一条 ✗——它体内**一个运行期东西都没有** ✓
@@ -496,7 +482,6 @@ export const EXPECTATIONS = {
   // `unimplemented: ToPrimitive of a function (JS renders source text)` ✓——
   // 与 `ex-tagged-template-suffix` **同一个根** ✓（JS 里 `Function.prototype.toString`
   // 要给**源码文本** ✓，而源码文本得由降级层把区间抄下来 ✓）。
-  // **第 334 轮过了** ✓（这一行撤了 ✓）：`Function.prototype.toString` ——闭包上多一格 `Source`（降级层按节点区间从源码里切 ✓），三处读同一格 ✓（`f + 1` ✓ / `` `${f}` `` ✓ / `f.toString()` ✓）。
 
   // ---- 组 13：JSON 的那两格扩展（1 条，与组 10 的 reviver 同族）----
 
@@ -547,7 +532,6 @@ export const EXPECTATIONS = {
   // ---- 组 B：`delete` 与**原始值接收者**上的赋值（2 条）----
   // 两条都卡在同一族判据上 ✓：写操作先问「接收者是不是对象」✓，
   // 而 JS 在这一格上**不抛** ✗（松散模式静默无效 ✓）。
-  // **第 342 轮过了** ✓（这一行撤了 ✓）：尖括号断言 `<T>x` 与 `as` 一起擦掉 ✓；给原始值写一格下标 = 空操作 ✓（非严格 ✓）。
   // **`rt-accessor-override` 第 326 轮过了** ✓（那一行撤了 ✓）：根子就是写那一半的入口 ✓——
   // `super.value = x` 该写进**接收者**（实例 ✓），而查找起点是**父原型** ✓；
   // 原来降级层把 `super` 那一格当成了接收者 ✓ ⇒ 接收者是一个 `undefined` ✓ ⇒
@@ -558,12 +542,10 @@ export const EXPECTATIONS = {
   // **`var` 那一半第 315 轮修好了** ✓（`EnvLeave` ✓，判据转 pass ✓、这一行撤了 ✓）——
   // 留一句在这里：它当初报的是 `environment index out of range: 1` ✓，
   // 根子是「循环出口没把环境退回去」✓（见文件末尾那一段 ✓）。
-  // **第 360 轮过了** ✓（这一行撤了 ✓）：三元条件段的起点判据原来只认 `Identifier` 的 `return` ✓，而产物里那是一个 `Keyword` ✗ ⇒ 回扫冲过它、条件段把 `return` 收进去 ✓。改用 `Statement.IsRestrictedKeyword` ✓。
 
   // ---- 组 D：生成器对象上那两格（2 条）----
   // `it.return(v)` / `it.throw(e)` 是 `Generator.prototype` 上的两格 ✓，
   // 本仓的生成器对象只有 `next` ✗（`cannot call a non-closure value`）。
-  // **第 336 轮过了** ✓（这一行撤了 ✓）：`generator.return(v)` 跑 `finally` 链 ✓（引擎只把「叫停」+「值」带到挂起点 ✓，降级层在每个 `yield` 后面问一句 ✓）；`for..of` 提前退出调 `iterator.return()` ✓（IteratorClose ✓）。
 
   // ---- 组 E：可选调用那一条（1 条）---- **第 325 轮收了** ✓（那一行撤了 ✓）
   //
@@ -600,7 +582,6 @@ export const EXPECTATIONS = {
   // ② **`isSafeInteger` 与 `isInteger` 只差一个边界** ✓、**`getOwnPropertySymbols` 与
   //    `getOwnPropertyNames` 只差「键是不是符号」** ✓——两处都**复用**了兄弟那一支 ✓，
   //    没有另写一份 ✗（第 283 轮那条「第二份迟早与第一份走偏」✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
 
   // ---- 组 H：标准库**在、但语义不对**（第 287 轮 15 条，**第 288 轮收掉 5 条**）----
   // 与组 A 同样是**静默错值** ✓，只是这一组住在标准库里 ✓。
@@ -619,7 +600,6 @@ export const EXPECTATIONS = {
   // **第 304 轮删掉了 `object-assign-forms-and-order` 那一行** ✓（它过了 ✓）：
   // `Object.assign({}, "ab")` 从静默 `{}` 变成 `{"0":"a","1":"b"}` ✓——
   // 修的是字符串当源那一格（按**码元**展开成下标键 ✓，与 `Object.keys("ab")` 同一条口径 ✓）。
-  // **第 344 轮过了** ✓（这一行撤了 ✓）：`instanceof` 先问 `C[Symbol.hasInstance]` ✓（名字从那张小表里取 ✓，与 `ToPrimitive` 那一处一字不差 ✓）。
 
   // ===== 第 290 轮：矩阵加宽 95 条量到的那一批（29 条缺口，按根子分组）=====
   //
@@ -638,24 +618,18 @@ export const EXPECTATIONS = {
   // `getOwnPropertyNames` / `getOwnPropertySymbols` ✓ ⇒ 「描述符长什么样」**只有一处答案** ✓
   // （数据属性四格 ✓ / 访问器两格 ✓ / 数组元素与字符串下标的标志不一样 ✓ / `length` 第三种 ✓，
   // 第 276 / 304 轮全是实测出来的 ✓）。**再抄一遍就是第二处会漂的答案** ✗。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   //
   // **组 B：标准库「在、但语义不对」（4 条）** ✓——**全是静默错值** ✗，一句异常都没有 ✓。
-  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
   //
   // **组 C：降级层 / token 层（3 条）** ✓
   //
   // **组 D：`arguments`（2 条）** ✓——`arguments` 这个对象**这一层根本没有** ✗。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`arguments` 由**开帧的人**收（`FunctionInfo.NeedsArguments` ✓），落在**形参之后那一格**（`ParamCount` ✓）——与剩余参数同一个位置、同一条理由（多出来的实参在被调方自己的帧里没有格子 ✓）。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`arguments` 由**开帧的人**收（`FunctionInfo.NeedsArguments` ✓），落在**形参之后那一格**（`ParamCount` ✓）——与剩余参数同一个位置、同一条理由（多出来的实参在被调方自己的帧里没有格子 ✓）。
   //
   // **组 E：生成器少了「送进挂起点」那一格（2 条）** ✓——**静默错值** ✗。
   //
   // **组 F：`for..in` 只走自有键（1 条）** ✓——**静默错值** ✗。
-  // **第 340 轮过了** ✓（这一行撤了 ✓）：`for..in` 沿原型链走 ✓（`Object.forInKeys` 那一格 ✓，不可枚举 ✓）——`Object.keys` 的口径是**自有** ✓，借错了。
   //
   // **组 G：`class X extends Array`（1 条）** ✓
-  // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
   //
   // **组 H：`replace` 的那两格（2 条）** ✓——`String.replace` 只认两个字符串实参 ✗。
   //
@@ -669,24 +643,20 @@ export const EXPECTATIONS = {
   // `Object.isExtensible` / `WeakSet` / `ReferenceError` / `Promise.allSettled` ✓。
   //
   // **组 A：`namespace` 带值那一族（3 条）** ✓——与缺口清单 #4 同一根。
-  // **第 367 轮过了** ✓（这一行撤了 ✓）：把第 292 轮退回来的那一半补上 ✓——`Namespace` 进语句边界表 ✓ + `BODY_FIELDS` 的 `body` 只在父亲是 `ModuleDeclaration`（点号嵌套）时成立 ✓。
   //
   // **组 B：属性枚举的整数键优先序（2 条）** ✓——**静默错值** ✗。
   //
   // **组 C：生成器的 `next(v)` 送值（1 条）** ✓——与 `rt-generator-next-sends-value` 同一根。
   //
   // **组 D：构造函数上的原型读（1 条）** ✓
-  // **第 357 轮过了** ✓（这一行撤了 ✓）：`Object.getPrototypeOf` 放行闭包 ✓ + 取回来时**标签跟着那一格自己**（`HeapObject.Tag` ✓）——`class B extends A` 里 `B` 的原型是 `A` 那个闭包 ✓，以前一律 `Value.FromObject` ⇒ 与 Closure 标签的 `A` 比永远假 ✓。
   //
   // **组 E：计算键上的函数值 / 方法里的箭头（2 条）** ✓
-  // **第 366 轮过了** ✓（这一行撤了 ✓）：`x.get()()` 里外层那个 `Method` 的**名字是空的** ✓——投影层那条链支先把**内层**折成成员调用 ✓、再把「调用这个结果」套上去 ✓。
   //
   // **组 F：码元 vs 码点（1 条）** ✓——与 `rt-surrogate-iteration` 同一根。
   //
   // **组 G：显式取出来的迭代器（1 条）** ✓
   //
   // **组 H / I / J：标准库「成员不在那儿」最日常的三格（3 条）** ✓
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   //
   // **组 K：包装对象（2 条）** ✓
   //
@@ -703,10 +673,8 @@ export const EXPECTATIONS = {
   // **组 Q：承诺组合子少两格（2 条）** ✓
   //
   // **组 R：函数自己的 `name` / `length`（3 条）** ✓
-  // **第 350 轮过了** ✓（这一行撤了 ✓）：`Function.prototype` 那四格改成「对象 + 可调用载荷」✓（宿主引用没有属性表 ⇒ `call.length` 永远是 undefined ✓）。
   //
   // **组 S：函数当 `ToPrimitive` 要给源码文本（1 条）** ✓——缺口清单 #11。
-  // **第 334 轮过了** ✓（这一行撤了 ✓）：`Function.prototype.toString` ——闭包上多一格 `Source`（降级层按节点区间从源码里切 ✓），三处读同一格 ✓（`f + 1` ✓ / `` `${f}` `` ✓ / `f.toString()` ✓）。
   //
   // **组 T：`ReferenceError`（1 条）** ✓
   //
@@ -719,41 +687,29 @@ export const EXPECTATIONS = {
 
   // ===== 第 304 轮：加宽矩阵时量到的缺口（15 条）=====
 
-  // **第 346 轮过了** ✓（这一行撤了 ✓）：`new.target` 落地了 ✓（帧上多一格 NewTarget ✓ + 一条 LoadNewTarget ✓ + 投影层把 `new.target.name` 的点号链接上 ✓）。
-  // **第 347 轮过了** ✓（这一行撤了 ✓）：`delete` 一个不可配置的属性在非严格下给 `false` ✓（原来抛「this should throw a TypeError」——那句注释记的是**严格**模式 ✓，本仓口径是非严格 ✓）。
-  // **第 337 轮过了** ✓（这一行撤了 ✓）：非严格 `this` —— 普通函数调用（含摘下来的方法）收**全局对象** ✓（`Protos.Global` ✓，由语言层填 ✓），箭头不受影响（它从捕获的环境格读 `this` ✓）。
   // **`c304-rt-super-property-write` 第 326 轮过了** ✓（那一行撤了 ✓）：
   // 第 243 轮补的是读那一半（`super.v` ✓），这一轮补的是**写那一半** ✓——
   // 引擎侧是一条与 `get_prop_from` **对称**的 `set_prop_from` ✓（四格：起点 / 键 / 值 / 接收者 ✓），
   // 降级侧的起点走**同一个** `SuperStartSlot` ✓（静态那一半从父类构造函数起 ✓、
   // 实例那一半从 `父类.prototype` 起 ✓——两处各写一遍就会漂 ✓）。
-  // **第 337 轮过了** ✓（这一行撤了 ✓）：非严格 `this` —— 普通函数调用（含摘下来的方法）收**全局对象** ✓（`Protos.Global` ✓，由语言层填 ✓），箭头不受影响（它从捕获的环境格读 `this` ✓）。
   // **`c304-rt-optional-chain-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
   // 同一条里的 `o.n?.()` / `o.missing?.()` 两半本来就对 ✓，这一轮补的是
   // **第三格**（`f?.()`：空值在**被调的那个值自己**身上 ✓）——见上面组 E 那一段 ✓。
-  // **第 336 轮过了** ✓（这一行撤了 ✓）：`generator.return(v)` 跑 `finally` 链 ✓（引擎只把「叫停」+「值」带到挂起点 ✓，降级层在每个 `yield` 后面问一句 ✓）；`for..of` 提前退出调 `iterator.return()` ✓（IteratorClose ✓）。
   // **`c304-rt-promise-then-returns-promise` 与 `c305-std-then-returns-promise-adoption`
   // 第 317 轮修掉了** ✓（`ResolvePromise` 现在走「兑现值本身是承诺就采纳」那一支 ✓）——
   // 两行都撤了 ✓。留一句在这里：它们当初报的是「后面 `.then` 拿到的是**承诺对象**」✓，
   // 根子是**「兑现值是个承诺」这条语义只长在 async 那一条支路上** ✗。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
   // **`c304-ex-namespace-merged-function` 第 325 轮过了** ✓（那一行撤了 ✓）——
   // 根子与第 323 轮记的那一句**不一样** ✗：**不是**「那一格没造」✓，
   // 而是**「有就复用」只看了本层的槽** ✓、**没看本帧环境里的那一格** ✗
   // （见下一条那一段账 ✓）。
-  // **第 345 轮过了** ✓（这一行撤了 ✓）：`String.prototype[Symbol.iterator]` 挂上了 ✓（借 `Array.from` 那条能力收成码点数组 ✓，再挂数组迭代器那两格 ✓）。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
 
   // ===== 第 305 轮：加宽矩阵时量到的缺口（34 条）=====
 
-  // **第 339 轮过了** ✓（这一行撤了 ✓）：`for await` 的每一轮真的让出微任务了 ✓——`awaitModifier` 以前被丢掉 ⇒ 走成了**同步**的 `for..of` ✓。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
   // **`c305-ex-static-computed-key-and-method` 第 323 轮也过了** ✓（同一处修 ✓，
   // 那一行撤了 ✓）：`static [KEY] = "c"` 那一格与实例字段那一条**共用同一段** ✓——
   // 静态字段本来就在**类声明那一处**求值 ✓，所以它只需要①（认下计算名 ✓），
   // 不需要②（捕获那一条是给实例字段的 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
   // **`c305-std-map-groupby` 与 `c305-std-promise-withresolvers` 第 327 轮都过了** ✓
   // （两行撤了 ✓）——修法与号写在各自的规范那一段里 ✓：
   // · `Map.groupBy` ✓：`Map` 从**宿主引用**改成**带可调用载荷的对象** ✓（第 183 轮 `Symbol` 那条 ✓），
@@ -762,14 +718,10 @@ export const EXPECTATIONS = {
   //   所以 `Map.prototype` 也要挂 ✓（`Date` 那一行同一个形状 ✓）；
   // · `Promise.withResolvers` ✓：号 `248` ✓，号段的**上界跟着挪一格** ✗
   //   （`id >= 230 && id < 248` → `< 249` ✓，第 295 轮踩过一模一样的 ✓）。
-  // **第 359 轮过了** ✓（这一行撤了 ✓）：`ResolvePromise` 里加了「可采纳对象」那一档 ✓（引擎回调语言层问一句 ✓，能力号 257 ✓——230..249 已被占满，第一版撞上 `PromiseTry` ✓）。
   // （`c305-std-then-returns-promise-adoption` 也在第 317 轮转 pass ✓、那一行同样撤了 ✓。）
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
-  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
   // **`c305-std-object-getownpropertydescriptors-all` 第 324 轮也过了** ✓（同一处修 ✓）：
   // 这一条比第 323 轮新收的那一条**更宽** ✓——它考的是「**复数拿全表、且与单数逐格一致**」✓
   // （`enumerable` / `configurable` / 访问器那一格都在里面 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：写屏障分两档 —— 赋值（非严格）**静默** ✓（`SetProperty` 交回一个布尔 ✓）、内建方法（`push` / `unshift` / `splice`）**抛 `TypeError`** ✓（`RequireArrayGrowable` ✓）；「不可扩展」那一格从语言层的隐藏属性搬到了堆上 ✓。
   // **`c305-e2e-lru-cache` 第 331 轮过了** ✓（那一行撤了 ✓）：`map.keys().next()` ✓——
   // 根子**不是**「私有字段里取出来的数组没有它」✗（第 305 轮猜的那一句 ✓），
   // 而是**这一族根本没接线** ✓：`Array.prototype` 的 `keys` / `values` / `entries`
@@ -851,8 +803,6 @@ export const EXPECTATIONS = {
   // 显示名推断 ✓），它们**不加新账**、只是把旧账的覆盖面加宽 ✓。
 
   // A —— 名字只在该在的那一层里可见（4 条）
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：具名函数 / 类表达式的名字落在**只属于这个闭包的一层环境**里（env_new → new_closure → env_set → env_leave）
   // **`c323-ex-namespace-merged-function` 第 325 轮也过了** ✓（同一处修 ✓，那一行撤了 ✓）
   //
   // **量出来的根子与第 323 轮记的那一句不一样** ✗（那次是**猜**的 ✓，这次是**读出来**的 ✓）：
@@ -867,7 +817,6 @@ export const EXPECTATIONS = {
   // 所以它没被误算成捕获 ✓、一直住在槽里 ✓——差别只在**名字住哪儿** ✓。
   // **修法**：复用判据加一格 ✓（`CellOf` ✓，读的时候按**本帧第 0 层** ✓，
   // 与 `DeclareLocal` 写它的那一句对称 ✓）。
-  // **第 361 轮过了** ✓（这一行撤了 ✓）：对象字面量里的 `super.m()` ✓ + `__proto__: p` 那一档 ✓（新增 `RtOp.GetProto`（表尾 42）✓，那一路原来一律抛 ✓）。
   // B —— 标准库成员不在那儿（6 条，都是「挂一格」那一族）
   // **`c323-std-object-getownpropertydescriptors` 与 `c323-std-set-union-intersection`
   // 第 324 轮都过了** ✓（两行撤了 ✓）——修法与号写在各自的规范那一段里 ✓：
@@ -887,9 +836,6 @@ export const EXPECTATIONS = {
   // **改名那一刀的风险也量清了** ✗：`new Map()`（`IsHostCallable` 两种壳都认 ✓）与
   // `instanceof Map`（改成读 `prototype` 属性 ✓、并且**顺手补上那一格** ✓）两条都验过 ✓，
   // 六道门 + 1202 条覆盖一起绿的 ✓。
-  // **第 332 轮过了** ✓（这一行撤了 ✓）：`normalize` 借宿主的 Unicode 表（结果被标准定死 ✓，与浮点那两处同一条规矩）；`queueMicrotask` 走 `schedule`，源那一格给 `undefined`（引擎于是直接排队、不接任何值 ⇒ 回调收到零个实参 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
-  // **第 369 轮过了** ✓（这一行撤了 ✓）：`Array.fromAsync` 实现了 ✓——状态机照 `Promise.all`（堆上状态 + `schedule` 的实参表 + `settle`）✓，两个步进号 259/261 ✓（要各加一条分派 ✓，与第 359 轮同一个坑 ✓）。
   // C —— 写那一半没有对应的入口（2 条）
   // 写那一半没有对应的入口 **只剩下 1 条**（数组子类 ✓）
   //
@@ -898,16 +844,12 @@ export const EXPECTATIONS = {
   // 与 `rt-accessor-override`（父类是访问器 ✓）和 `c304-rt-super-property-write`
   // （父类是 setter ✓）**三种排布一起转绿** ✓，因为根子是**同一处** ✓：
   // 「查找起点」与「接收者」在写这一半上原来是**同一个东西** ✗。
-  // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
   // D —— 同一个形状只认了一半（2 条）
-  // **第 342 轮过了** ✓（这一行撤了 ✓）：尖括号断言 `<T>x` 与 `as` 一起擦掉 ✓；给原始值写一格下标 = 空操作 ✓（非严格 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
   // 旧账加宽（3 条：不加新账，只是同一个根换了写法）
   // **`c323-ex-optional-call-forms` 第 325 轮过了** ✓（那一行撤了 ✓）：
   // 这一条把**三种基名**放在一起考 ✓（`o.m?.()` ✓ / `o.n?.k?.()` ✓ / `o.missing?.()` ✓ /
   // **`f?.()`** ✓）——前面三种本来就对 ✓，补上的正是**第三格** ✓
   // （空值在**被调的那个值自己**身上 ✓，见组 E 那一段 ✓）。
-  // **第 336 轮过了** ✓（这一行撤了 ✓）：`generator.return(v)` 跑 `finally` 链 ✓（引擎只把「叫停」+「值」带到挂起点 ✓，降级层在每个 `yield` 后面问一句 ✓）；`for..of` 提前退出调 `iterator.return()` ✓（IteratorClose ✓）。
   // **`c323-std-console-shapes` 第 330 轮过了** ✓（那一行撤了 ✓）：
   // 同一处修 ✓——`{ f: () => 1 }.f.name` 现在给 `"f"` ✓；
   // 同一条里的容器形状与多实参那两行本来就是对 ✓。
@@ -935,14 +877,11 @@ export const EXPECTATIONS = {
   // 号取 `249` ✓、**号段的上界第三次跟着挪** ✗（`< 249` → `< 250` ✓——
   // 295 / 327 / 331 三个轮次踩的是同一处 ✓）。
   // **它还顺手带出一条引擎级的静默错值** ✓，见下面组 B 那一段 ✓。
-  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
-  // **第 338 轮过了** ✓（这一行撤了 ✓）：`join` 的每一格先走 `ToPrimitive(v, "string")` ✓（`JsElementUnits` ✓）；`structuredClone` 深拷贝 ✓（环要认 ✓、Map/Set/Date 顺手带上 ✓）。
   // `Error.isError` 这一条**卡在壳上** ✗（与第 324 轮 `Map.groupBy` 量到的是同一个坎 ✓）：
   // `Error` 是**宿主引用值** ✓、**没有属性表** ✗ ⇒ 静态方法挂不上去 ✓——
   // 要照第 183 轮 `Symbol` / 第 327 轮 `Map` 那一条先把它改成**带可调用载荷的对象** ✓
   //（`AttachCallable` ✓、`IsHostCallable` 两种壳都认 ✓），那是**结构性改动** ✓，
   // 要连同 `new Error()` / `instanceof Error` / `Error.prototype.constructor` 三处一起验 ✓。
-  // **第 343 轮过了** ✓（这一行撤了 ✓）：`Error.isError` 落地了 ✓——`Error` 改成「对象 + 可调用载荷」✓，先决条件是把 `this` 的两条相反规则按载荷号分开 ✓。
   //
   // ---- 组 B：三元的两支是箭头函数（1 条）----
   // **这一组是这一轮最值钱的发现** ✗：`const f = flag ? () => 1 : () => 2` 是**日常写法** ✓，
@@ -959,17 +898,14 @@ export const EXPECTATIONS = {
   //（`ternary-operator.xl.md` 的 `IsTypePosition` ✓）——括号关闭那一刻外层还没成形 ✓，
   // 所以要么给括号那一侧补一条「上一格是值位的 `?` ⇒ 这里不是类型位」✓，
   // 要么让箭头形的括号自己再收一次 ✓。两条都要连同 `cases:tsast` 的 1444 条一起验 ✓，单独立一轮 ✓。
-  // **第 365 轮过了** ✓（这一行撤了 ✓）：值三元的那个 `:` 不是类型标注 ✓——回溯要跨过真值段的 `=>` 与它的形参括号 ✓，而「没有 extends」必须看**整张列表** ✓（`HasExtendsMarker` 只看一段窗口 ✗，条件类型的 `extends` 落在窗口外就漏 ✗）。
   //
   // ---- 组 C：数组方法是通用的（1 条）----
-  // **第 335 轮过了** ✓（这一行撤了 ✓）：`class X extends Array` 的实例真的是数组 ✓（`CreateInstance` 看原型链 + `DoReturn` 不再用 `Value.FromObject` 重建实例 ✓——那一重建会把 `Tag` 丢掉 ✓）；`[].slice.call(类数组)` 走类数组那一档 ✓。
   //
   // ---- 组 D：非空断言链上的名字（1 条）----
   // **与 `c323-ex-nonnull-in-chains` 是同一族** ✓（旧账换写法 ✓，不加新账 ✓）：
   // 非空断言串在成员链上时**后面那一截被丢掉** ✓——
   // 这一条的症状换成了 `name is not a local or a capture: id` ✓
   //（`data.items![0]!.id` 里那个 `id` 掉成了一枚**裸标识符** ✓，于是被当成要绑的名字 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
 
   // ===== 第 331 轮：新铺的 39 条里没过的那 3 条 =====
   //
@@ -985,7 +921,6 @@ export const EXPECTATIONS = {
   //（`tags = []` ✓）走的是 `BindingElement` 的取值路 ✓，而它按 `TextOf` 取名字 ✗。
   // 与 `ex-destructuring-params` / `c291-ex-destructure-params-and-defaults`
   // （那两条是**扁平**的 ✓、都过 ✓）不是同一个形状 ✓：这一条考的是**嵌了一层对象模式** ✓。
-  // **第 355 轮过了** ✓（这一行撤了 ✓）：`{ tags = [] as string[] }` 里 `=` 右边那个 `[]`（默认值）被当成了绑定名 ✓——`patternKid` 现在只在 `=` 左边找 ✓。
   //
   // ---- 组 B：`enum` 与 `namespace` 的**同名合并**，且体内函数回头用那个枚举（1 条）----
   // `enum Level { … }` 之后 `namespace Level { export function label(v: Level) { … Level.Low … } }` ✓——
@@ -994,12 +929,10 @@ export const EXPECTATIONS = {
   // **与第 325 轮那条「有就复用只看了本层的槽」同一条链** ✓（名字住在环境格里 ✓），
   // 而这一格多一层：命名空间体是**开一帧跑**的 ✓，那一帧要能把外层那个已经存在的
   // `Level` 对象**按名字读回来** ✓——缺的是「合并时把老值的住址一起带进去」那一步 ✓。
-  // **第 363 轮过了** ✓（这一行撤了 ✓）：命名空间对象那一格原来用 `ResolveLocal`（**只认槽**）✓，而枚举名被内层函数引用时它住在**环境格** ✓ ⇒ 改成 `ResolveAccess` + `EnvGet`/`Move`（与读导出名同一套 ✓）。
   //
   // ---- 组 C：非空断言与可选链混写（1 条）----
   // **旧账换写法** ✓（与 `c304-ex-nonnull-in-optional-chain` / `c305-ex-optional-chain-nonnull-mix` /
   // `c323-ex-nonnull-in-chains` / `c330-ex-nonnull-assertion-forms` **同一个根** ✓，不加新账 ✓）。
-  // **第 333 轮过了** ✓（这一行撤了 ✓）：非空断言那条链 —— `!` 右边那一格由 `isIndexFirstUnit` 判「以不属于下标开头」，`NotNull` 那一档先下标再断言；`chainOnto` 收 `ArrayLiteral` 当下标、并拆开「名字 + `!`」那一格。
 
   // ===== 第 371 轮：矩阵加宽 345 条，新量到的缺口（76 条）=====
   //

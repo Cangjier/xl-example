@@ -198,7 +198,7 @@ TS 那边 `@Component({…})` 的 `expression` 是一个 `CallExpression`（被�
 **为什么装饰器里要跑重组**（第 66 轮补）：装饰器的表达式在 TypeScript 那边就是**普通表达式**——
 `@Component({ size: 1 })` 是 `Decorator > CallExpression`，`@(a || b)` 是 `Decorator > ParenthesizedExpression > BinaryExpression`。
 原来这个节点没有任何队列，`Data` 收进来就不再动，于是 `Component(...)` 停在
-「`Identifier` + `Bracket`」两个散单元上、**没有调用节点**（`cases:align` 的
+「`Identifier` + `Bracket`」两个散单元上、**没有调用节点**（当时那把对齐尺子的
 `CallExpression` 缺 13 处全是装饰器）。挂上通用队列之后，`MethodCloseRule` 会把
 「名字 + 括号」收成 `<Method>` ✓，与 TS 的 `CallExpression` 一对一。
 

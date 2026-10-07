@@ -39,7 +39,7 @@ import { Translate } from "./tokens/string/translate.xl.md"
 本文件是 `tests/parse/ts-shape.mjs`（原来那 2464 行 JS）的**逐字搬家**：
 表名、函数名、函数体、表体与那份实现逐字符相同，只补了 xl 需要的类型标注。
 口径是「**先证明等价，再谈改写**」——搬完用一把一次性尺子
-（`tests/parse/ts-shape-crossover.mjs`）在全语料上逐字节对拍两份实现的输出：
+（当时那份逐字节对拍脚本）在全语料上逐字节对拍两份实现的输出：
 **1399 个文件、0 处不一致**，结论记在 README 的台账里；那把尺子对拍完就删了，
 长期判据是 `cases:tsast`（对 `ts.createSourceFile` 的逐节点对拍）。
 所以搬家这一步不夹带任何改写：`stmtLike` 这类死代码、`matchBrace` / `matchingBrace`
@@ -104,7 +104,7 @@ kind 用**名字**（`"VariableStatement"`）而不是数字：名字是规范�
 为什么需要它：这份实现是 JS 的逐字搬家——函数体里那些 `const props = {}` 之后再挂字段、
 内层箭头函数不带参数类型之类的写法，在 `strict` 的 TS 里要报一百多处；
 **改掉它们就是改写**，不是搬家。所以类型判据放在**下一层**：一次性尺子
-`tests/parse/ts-shape-crossover.mjs` 在全语料上逐字节对拍两份实现的输出，
+当时那份逐字节对拍脚本在全语料上逐字节对拍两份实现的输出，
 那才是「搬完了还等价」的证据。类型标注仍然写全，它们是文档，也是将来真要开检查时的起点。
 
 # const INVISIBLE:Set<string> = new Set(["LineWrap", "AreaAnnotation", "LineAnnotation", "PreprocessorDirectives"])

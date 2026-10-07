@@ -465,7 +465,7 @@ return false;
 **只挡这五个词**：`readonly` / `keyof` / `unique` / `asserts` / `infer`。
 `IsTypeModifier` 里的 `new` / `abstract` / `typeof` **不能**照抄着一起挡——
 `class A { new() {} }` 里的 `new` 是**合法的方法名**（`lex-keyword-method-name.ts` 钉住这一条），
-挡掉之后那个 `{}` 会退化成 `<ObjectLiteral>`（`cases:dashboard` 当场多一处）。
+挡掉之后那个 `{}` 会退化成 `<ObjectLiteral>`（当时的仪表尺子当场多一处）。
 成员位的构造签名 `new (): A` 由排在本规则之前的 `SignatureCloseRule` 认领，不靠这里。
 
 **计算成员名 `[`m`]()` / `[x]()` 也算名字**：它是一个 `[` 括号，

@@ -44,7 +44,7 @@ import { SymbolToken } from "./symbol-token.xl.md"
 **不能直接用 `Identifier.IsNumber()`**：那个判据只认十进制（数字 + 至多一个 `.` + 可选的
 `d` / `f` 后缀），而真实的 `.d.ts` 里数字字面量类型大量写成**十六进制**
 （`type M = 0xFFFFFFFF`，`lib.dom.d.ts` 一处就有几百个），还有二进制 / 八进制 /
-指数 / 数字分隔符 / `BigInt`。实测只认十进制时，`cases:align` 的 `LiteralType`
+指数 / 数字分隔符 / `BigInt`。实测只认十进制时，当时那把对齐尺子的 `LiteralType`
 缺 **3097 处**全部来自这一族（样本清一色 `0x…`）。
 
 所以本方法先把**下划线分隔符**与**后缀**（`n` / `d` / `f`）摘掉，再按进制判：

@@ -90,7 +90,7 @@ unit.AddToMounted(new GenericType(unit.Template)).SignIn(source);
 也可能还是 `[` 括号，两种都要认。只认 `Identifier` 时这次试读被判否：`<K>` 退回裸符号，
 接着 `MethodDeclarationCloseRule.ParameterIndex` 在 `<` 处拿不到括号 →
 整条成员降级成 `Field` + `Signature`（实测 `@types/node/events.d.ts` 两处，
-`cases:align` 的 `MethodSignature` 缺 2 / `MethodDeclaration` 缺 1 全是它）。
+当时那把对齐尺子的 `MethodSignature` 缺 2 / `MethodDeclaration` 缺 1 全是它）。
 
 放宽的风险由「左侧必须有操作数」这条语义兜住：比较式 `a < b > (c)` 的 `<` 前面**是** `a`（走第一支），
 而第二支的位置上按定义还没有操作数，`<…>` 只可能是类型参数段。
@@ -433,7 +433,7 @@ return unit.Template.SymbolTemplate.IsLetterOrNumber(item);
   原来扫到 `?` 就判表达式位，于是那次试读只允许后继是 `(`，
   `F<A, B>` 后面跟着的 `:` 过不了闸门——**整个泛型实参段退回符号**，
   条件类型跟着在 `,` 处收尾（实测 `lib.es2019.array.d.ts` 的元组类型与
-  `@types/node/util.d.ts` 的 `T["options"]`，`cases:align` 的缺节点两处全是它）。
+  `@types/node/util.d.ts` 的 `T["options"]`，当时那把对齐尺子的缺节点两处全是它）。
   透明之后会继续往前找真正的边界：类型位的条件类型会撞上 `extends`（⇒ 类型位 ✓），
   值位三元里的比较式会撞上 `=` → `let` / `const`（⇒ 表达式位 ✓，
   那里后继闸只放行 `(`，`a ? b < c > d : e` 照旧读成比较）。
