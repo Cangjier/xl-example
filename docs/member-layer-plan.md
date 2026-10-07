@@ -108,7 +108,36 @@
    （挂载之后 `;` 与 `}` 都到不了成员这一层——嵌套靠挂载链）。
 4. **`StaticBlock`**：已搬完，只需复核成员级收尾与 1–3 一致。
 
-## 五、每步都要钉住的三件事
+## 六、② 与 ③ 是同一件工作（第 423 轮量出来的）
+
+实测接口成员的产物标签（`interface I { a: number; m(): void; (x: number): string; new (): I; [k: string]: any; get g(): number }`）：
+
+```xml
+<InterfaceBody>
+  <Field name="a" modifiers="">…</Field>
+  <MethodDeclaration name="m" modifiers="">…</MethodDeclaration>
+  <Signature kind="call">…</Signature>          ← 调用签名
+  …                                            ← 构造签名 / 下标签名 / 取值器同族
+</InterfaceBody>
+```
+
+⇒ **接口成员与类成员用的是同一批单元**（`Field` / `MethodDeclaration` / `Signature` / `StaticBlock`），
+差别只在**谁驱动它们**（`InterfaceBody` 还是 `ClassBody`）。所以：
+
+- 步骤 ② 与 ③ 应当**合并成一件事**：把 `Field` / `MethodDeclaration` 改成解析期可用的单元
+  （判别符入口 + 自己收尾），然后两个体各自把「成员起点」的分支挂进自己的队列；
+- 接口那一侧少掉的是「方法体」这一层（`MethodDeclaration` 在接口里没有 `{}`，
+  收尾就是 `;` / 体 `}` / ASI 换行）；类那一侧多的是方法体与取值器/设值器；
+- **体与成员的队列关系复用枚举那一套**：体挂 `CreateXxxMemberQueue()` =
+  成员列表队列 + 该体的成员分支（插在 `StringGuide.JumpIn` 之前，理由同 `EnumMemberBranch`）。
+
+**仍未解决的一处**（下一轮先量）：**光秃秃只有一个名字的成员**（`interface I { a }`）——
+它没有 `:` / `(` 这样的判别符，入口只能落在 `;` / `}` / 换行上，
+而换行又可能是**类型标注内部的换行**（`a:\n  string`）⇒ 不能在换行上开门。
+所以那一支要么落在 `;` / `}` 上（由体在收尾前回头扫一遍「还剩没成形的一段」），
+要么语料里根本没有这种写法（先量再定，别猜）。
+
+## 七、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
