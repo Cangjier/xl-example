@@ -2242,5 +2242,28 @@ cases:check 1050 全过 ✓）。对照态 **859** 不动 ✓。
 `samples` 换成另一处差（`for` 的 incrementor 被投成两层 `PrefixUnaryExpression` ✗）、
 `cases:tsast` 仍 0 片 ✗。
 
+## 一百一十七、那一份炸的**不是这一轮弄坏的**（第 500 轮）：对照态同样炸
+
+上一节点名的那份 `tests/parse/cases/statements/stmt-do-while-no-block.ts` ✓（`do x++` 换行 `while (x < 10)` ✓），
+这一轮先查它的来路 ✓ —— **对照态（`DSH_XL_REORG=1`）同样炸** ✓：
+栈是 `Root.Close` → `Statement.TryToClose` → `Statement.Reorganize` → `WhileReorganization.Process` ✓
+⇒ 这是**重组层自己的一处老缺口** ✓（`do` 的体被语句壳包住之后 ✓，
+`DoWhileReorganization.Previous` 认不出那个形状 ✓，于是落到 `WhileReorganization` 手里 ✓、
+再因为「`while` 后面没有语句」抛错 ✓ —— `do-while.xl.md` 的 `BodyEnd` 那一节写的正是这条报错 ✓），
+**不是第 499 轮引入的** ✗（那一节的口径要按这条更正 ✓）。
+
+**顺手做的一处加固** ✓（`typescript/tokens/do-while/do-while.xl.md` ✓）：
+三处「找词」从 `instanceof Identifier && Is("…")` 换成 `declaration-common.xl.md` 的 **`IsWordUnit`** ✓
+（`do` / `while` 各一处 + `BodyEnd` 里找 `while` 那一处 ✓）——
+与 `in` / `of` 当年那次同一个理由 ✓：这一趟现在会**反复跑**（收敛环 ✓），
+第二趟看到的词可能已经被升成 `Keyword` ✓，按 `Identifier` 找就再也找不到 ✓。
+
+**读数不动** ✓（552 / 1037 ✓，缺 2845 / 漂 216 / 多 2075 / 字段名 74 ✓，抛异常仍是那一份 ✓）——
+这一处加固是**为了后面**（等 `do` 那一族真接上时不至于踩同一个坑 ✓），不是为了这一轮的读数 ✓。
+
+**下一块**：`DoWhileReorganization` 的 `Previous`/`BodyEnd` 要认「体已经被语句壳包住」这个形状 ✓
+（对照态和禁用 reorg 两档都缺 ✓）—— 两条路：给它加一句「体那一格是语句级单元也算」✓，
+或者按第 499 轮那条线索先修「`LetBranch` 也排在 `LineWrap.AppendIn` 之后、它的换行那一档同样是死的」✓。
+
 
 

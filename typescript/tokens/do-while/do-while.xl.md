@@ -12,6 +12,7 @@ import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
+import { IsWordUnit } from "../declaration-common.xl.md"
 
 import { WhileBody } from "../while/while-body.xl.md"
 import { WhileCompare } from "../while/while-compare.xl.md"
@@ -71,7 +72,7 @@ if (candidate instanceof Bracket && candidate.startBracket === "{") {
 let i = index;
 while (i < units.length) {
   const item = Get(units, i);
-  if (item instanceof Identifier && item.Is("while")) {
+  if (IsWordUnit(item, "while")) {
     return i - 1;
   }
   i = i + 1;
@@ -88,7 +89,7 @@ return -1;
 
 ```ts
 const common = Get(units, index);
-if (!(common instanceof Identifier) || common.Is("do") === false) {
+if (IsWordUnit(common, "do") === false) {
   return false;
 }
 let i = SkipNextWrapSymbol(units, index);
@@ -98,7 +99,7 @@ if (bodyEnd < 0) {
 }
 i = SkipNextWrapSymbol(units, bodyEnd);
 const whileWord = Get(units, i);
-if (!(whileWord instanceof Identifier) || whileWord.Is("while") === false) {
+if (IsWordUnit(whileWord, "while") === false) {
   return false;
 }
 const condition = GetSkipNextWrapSymbol(units, i);
