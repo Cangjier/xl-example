@@ -135,6 +135,11 @@ if (bodyEnd < 0) {
 const bodySegment = result.CreateBody();
 const bodyCandidate = Get(units, bodyStart);
 if (bodyCandidate instanceof Bracket && bodyCandidate.startBracket === "{") {
+  // **体那个 `{` 当场记进 `BodyBraceAt`** ✓（第 619 轮 ✓，与 `While` / `For` 同一条口径 ✓）：
+  // `do {} while (c)` 的空块在 `ToList` 里**整个摊掉**了 ✓，
+  // 而 TS 那边 `DoStatement.statement` 仍有一个**空 `Block`** ✓——
+  // 投影原来靠 `indexOf("{")` + `MatchingBrace` **回原文重扫** ✗（同一条判据的第二份近似 ✓）。
+  result.BodyBraceAt = bodyCandidate.SourceRange.Start!.Index;
   bodyCandidate.MoveDataTo(bodySegment);
   bodySegment.SignIn(bodyCandidate.SourceRange.Start!);
   bodySegment.SignOut(bodyCandidate.SourceRange.End!);
@@ -186,6 +191,14 @@ return index;
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<DoWhile>` 里依次是 Body、Compare 两段的 XML。
 
+## field BodyBraceAt:int = -1
+
+**体那个 `{` 的下标** ✓；体不是花括号块时就是 `-1` ✓（第 619 轮 ✓）。
+
+与 `While.BodyBraceAt` / `For.BodyBraceAt` **同一个来由、同一条纪律** ✓：
+`do {} while (c)` 的空块在 `ToList` 时**整个摊掉**了 ✓，
+而 TS 那边 `DoStatement.statement` 仍有一个空 `Block` ✓。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `do { … } while (c);` → **`DoStatement`**（`statement` + `expression`；
@@ -197,8 +210,22 @@ kind 名是 `DoStatement`（不是 `DoWhileStatement`）——`ts.SyntaxKind` �
 ```ts
   const props: any = {};
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
-  const statement = ctx.BodyBlockOf(v.start + "do".length, body);
-  if (statement !== undefined) props.statement = statement;
+  // **空块直读字段** ✓（第 619 轮 ✓，与 `While.PrintAst` 那一处一字不差 ✓）：
+  // 体段没有可见子单元、而字段说「那个 `{` 在这一格」⇒ 这就是空 `Block` ✓。
+  // **终点取本单元的终点** ✗：`do {} while (c);` 的 `}` 后面还有 `while (c);` ✓——
+  // 所以这里**不能**照 `While` 那样用 `ctx.EndOf(v)` ✓，得从**配对的花括号**取右端 ✓
+  //（体段自己的区间仍然签在那对括号上 ✓：见 `DoWhileCloseRule.Process` ✓）。
+  const rawBrace = v.attrs !== undefined && typeof v.attrs.get === "function"
+    ? v.attrs.get("bodyBraceAt")
+    : undefined;
+  const braceAt = typeof rawBrace === "number" ? rawBrace : -1;
+  if (braceAt >= 0 && body.length === 0) {
+    const close = ctx.MatchingBrace(ctx.source, braceAt);
+    props.statement = { kind: "Block", statements: [], pos: braceAt, end: close + 1 };
+  } else {
+    const statement = ctx.BodyBlockOf(v.start + "do".length, body);
+    if (statement !== undefined) props.statement = statement;
+  }
   const compare = ctx.KidsOf(v, "compare").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (compare.length > 0) props.expression = ctx.Expression(compare);
   return ctx.NodeHead("DoStatement", props, v);
@@ -264,6 +291,9 @@ const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("body", this.Body.ToList());
 result.set("compare", this.Compare.ToList());
+// **体那个 `{` 的位置也写出去** ✓（第 619 轮 ✓，与 `While.ToDictionary` 同一条 ✓）：
+// 投影空 `Block` 时直读 ✓，不再回原文重扫 ✓。
+result.set("bodyBraceAt", this.BodyBraceAt);
 return result;
 ```
 
@@ -276,6 +306,7 @@ return result;
 ```ts
 const result = new DoWhile(this.Template);
 result.Sign(this);
+result.BodyBraceAt = this.BodyBraceAt;
 result.AddRange(this.Data.map((x) => x.Clone()));
 result.TryToClose();
 return result;

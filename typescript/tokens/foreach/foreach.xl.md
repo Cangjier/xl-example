@@ -147,6 +147,11 @@ let tailEnd = current.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
+  // **体那个 `{` 当场记进 `BodyBraceAt`** ✓（第 619 轮 ✓，与 `For` / `While` 同一条口径 ✓）：
+  // `for (const x of xs) {}` 的空块在 `ToList` 里**整个摊掉**了 ✓，
+  // 而 TS 那边 `ForOfStatement.statement` 仍有一个**空 `Block`** ✓——
+  // 投影原来靠「配对头部 `)` + `indexOf("{")` + `MatchingBrace`」**回原文重扫** ✗。
+  result.BodyBraceAt = statementBracket.SourceRange.Start!.Index;
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
   forBody.SignOut(statementBracket.SourceRange.End!);
@@ -207,6 +212,14 @@ return index;
 与 `For.EmptyBodyAt` / `While.EmptyBodyAt` 同一个来由：判据只在收尾规则那一处算得起，
 投影只读一次（见 `PrintAst`），不再拿 `MatchingParen` + `BodyBlockOf` 重扫原文。
 
+## field BodyBraceAt:int = -1
+
+**体那个 `{` 的下标** ✓；体不是花括号块时就是 `-1` ✓（第 619 轮 ✓）。
+
+与 `For.BodyBraceAt` / `While.BodyBraceAt` **同一个来由、同一条纪律** ✓：
+`for (const x of xs) {}` 的空块在 `ToList` 时**整个摊掉**了 ✓，
+而 TS 那边 `ForOfStatement.statement` 仍有一个空 `Block` ✓。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `for (const x of xs) { … }` / `for (const k in o) { … }` → `ForOfStatement` / `ForInStatement`
@@ -252,8 +265,19 @@ return index;
   if (emptyAt >= 0) {
     statement = { kind: "EmptyStatement", pos: emptyAt, end: emptyAt + 1 };
   } else {
-    const header = ctx.MatchingParen(ctx.source, v.start);
-    statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
+    // **空块直读字段** ✓（第 619 轮 ✓，与 `While` / `DoWhile` 同一条 ✓）：
+    // 体段没有可见子单元、而字段说「那个 `{` 在这一格」⇒ 这就是空 `Block` ✓，
+    // 终点是**本单元的终点** ✓（收尾规则把 `tailEnd` 签在那个 `}` 的后一位 ✓）。
+    const rawBrace = v.attrs !== undefined && typeof v.attrs.get === "function"
+      ? v.attrs.get("bodyBraceAt")
+      : undefined;
+    const braceAt = typeof rawBrace === "number" ? rawBrace : -1;
+    if (braceAt >= 0 && body.length === 0) {
+      statement = { kind: "Block", statements: [], pos: braceAt, end: ctx.EndOf(v) };
+    } else {
+      const header = ctx.MatchingParen(ctx.source, v.start);
+      statement = ctx.BodyBlockOf(header < 0 ? v.start : header + 1, body);
+    }
   }
   if (statement !== undefined) props.statement = statement;
   const awaitUnit = ctx.Kids(v).find(
@@ -361,6 +385,8 @@ result.set("define", this.Define.ToList());
 result.set("enumable", this.Enumable.ToList());
 result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
+// **体那个 `{` 的位置也写出去** ✓（第 619 轮 ✓，与 `While` / `DoWhile` 同一条 ✓）。
+result.set("bodyBraceAt", this.BodyBraceAt);
 const children: Array<any> = [];
 for (const item of this.Data) {
   if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
@@ -378,11 +404,13 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 抄 `EmptyBodyAt` / `BodyBraceAt` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new Foreach(this.Template);
 result.Sign(this);
+result.EmptyBodyAt = this.EmptyBodyAt;
+result.BodyBraceAt = this.BodyBraceAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;
