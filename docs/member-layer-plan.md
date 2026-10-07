@@ -352,7 +352,35 @@ return i;
 **这一条判据值得记住**：测形状**不要凭印象**，用 TS 自己的 AST 数一遍只要几秒
 （这个脚本就在 `tmp/recon/probe-intf.cjs`）。
 
-## 二十、每步都要钉住的三件事
+## 二十一、剩余成因找到了：名字与修饰词**不能进 `Field` 的 `Data`**（第 433 轮）
+
+上一轮把可疑点收到「成员头怎么收」。这一轮**在绿树上把正确答案打印出来**就行了
+（`interface I { readonly a: number; b?: string; readonly c?: () => void }`）：
+
+```xml
+<Field name="a" modifiers="readonly"><TypeDefine><Identifier>number</Identifier></TypeDefine></Field>
+<Field name="b" modifiers=""><TypeDefine><Identifier>string</Identifier></TypeDefine></Field>
+<Field name="c" modifiers="readonly"><TypeDefine><FunctionType>…</FunctionType></TypeDefine></Field>
+```
+
+**名字那一格、修饰词那一格、`?`、`;` 一个都不在产物里**——`Data` 里**只有类型子树**
+（`TypeDefine` 或初始化式）。也就是说 `Field` 与 `Class` 是同一条口径：
+**能被字段完整表达的（名字 / 修饰词）折进属性、不进 `Data`** ✓（用户口径）。
+
+⇒ 我第 428 / 430 轮那两版的错处因此**一目了然**，而且是同一个错：
+
+- 我把**名字单元**搬进了 `Field`（`field.AddAndCloseLast(item)` 对整段 `head` 都做了 ✗）
+  ⇒ 每个成员多一个 `<Identifier>` 子节点 ✗ ——`lib.dom.d.ts` 9574 个成员，
+  正是「多 6558」那一档的量级 ✓；
+- 修饰词同理（`<Identifier>readonly</Identifier>` 也进了 `Data` ✗）；
+- 而 `;` 那一格**交还给体**是对的 ✓（体那条语句队列里的 `WrapSymbolReorganization` 会把它摘掉，
+  所以正确产物里没有它；我第一版把它含进 `EndIndex` 才出现了多余的 `<SymbolToken>;</SymbolToken>` ✗）。
+
+**下一次只要改这一处**：`InterfaceMemberBranch.Success` 里搬头的时候，
+**跳过名字那一格与修饰词那几格**（它们只写进 `fieldName` / `modifiers`），
+其余（类型段 / 初始化式）照旧搬进 `Data`。这与 `Class.TakeHead` 的做法**逐字对齐**。
+
+## 二十二、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
