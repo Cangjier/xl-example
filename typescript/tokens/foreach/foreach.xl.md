@@ -7,8 +7,9 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { SearchBack } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipNextTrivia, IsTriviaUnit } from "../../text-common-util.xl.md"
 import { GetSkipNext } from "../../../core/extensions/list-extension.xl.md"
+import { SkipNextTrivia } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { TakeRange } from "../../../core/extensions/list-extension.xl.md"
@@ -44,12 +45,15 @@ import { ForeachEnumable } from "./foreach-enumable.xl.md"
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是本次重组的起点：一个内容为 `for` 或 `foreach` 的 `Identifier`，
-**可选的一个 `await`**，紧跟（跳过 `LineWrap` 软换行）一个 `(` 开头的 `Bracket`，
+**可选的一个 `await`**，紧跟（跳过 **trivia**：软换行**与注释**）一个 `(` 开头的 `Bracket`，
 且括号里至少有一个内容为 `in` 或 `of` 的 `Identifier`。
 
 `await` 那一跳是给 `for await (const v of xs)` 的：异步迭代的 `await` 夹在 `for` 与括号之间，
 不跳的话判定在这一步就断了、整条 `Foreach` 认不出来（`st-for-await` / `stmt-for-await` 两条用例）。
 注意 `for` 与 `(` 之间只有 `await` 需要跳——`for (…)` 本身不能多跳。
+
+**跨 trivia 而不是只跨软换行**（第 595 轮）：`for /* c */ (const x of xs) { }` 在 TypeScript 里
+是 `ForOfStatement` ✓，只跳软换行会撞上注释 ✗ ⇒ 整条语句退化成一个 `ExpressionStatement` ✓。
 
 ```ts
 const unit = Get(units, index);
@@ -59,9 +63,9 @@ if (!(unit instanceof Identifier)) {
 if (!(unit.Is("for") || unit.Is("foreach"))) {
   return false;
 }
-let next = GetSkipNextWrapSymbol(units, index);
+let next = GetSkipNextTrivia(units, index);
 if (next instanceof Identifier && next.Is("await")) {
-  next = GetSkipNext(units, index, (item) => item instanceof LineWrap || (item instanceof Identifier && item.Is("await")));
+  next = GetSkipNext(units, index, (item) => IsTriviaUnit(item) || (item instanceof Identifier && item.Is("await")));
 }
 if (!(next instanceof Bracket)) {
   return false;
@@ -97,12 +101,17 @@ const result = new Foreach(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 let currentIndex = index;
-currentIndex = SkipNextWrapSymbol(units, currentIndex);
+currentIndex = SkipNextTrivia(units, currentIndex);
+// **条件括号之前跨过的注释要收下**（第 595 轮）：它们落在被替换的那一段里，
+// 不收就等于删掉（软换行不收，见 `CommentsIn`）。
+result.AddRange(CommentsIn(units, index + 1, currentIndex));
 const headUnit = Get(units, currentIndex);
 let awaitUnit: Token | null = null;
 if (headUnit instanceof Identifier && headUnit.Is("await")) {
   awaitUnit = headUnit;
-  currentIndex = SkipNextWrapSymbol(units, currentIndex);
+  const beforeAwait = currentIndex;
+  currentIndex = SkipNextTrivia(units, currentIndex);
+  result.AddRange(CommentsIn(units, beforeAwait + 1, currentIndex));
 }
 if (awaitUnit !== null) {
   result.AddAndCloseLast(awaitUnit);

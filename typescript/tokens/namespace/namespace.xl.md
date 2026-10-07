@@ -11,7 +11,7 @@ import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { NamespaceBody } from "./namespace-body.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipNextTrivia, SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
 import { ConstString } from "../string/const-string.xl.md"
 import { String } from "../string/string.xl.md"
 ```
@@ -59,17 +59,17 @@ let nextIndex = index;
 if (!(Get(units, nextIndex) instanceof Identifier)) {
   return -1;
 }
-nextIndex = SkipNextWrapSymbol(units, nextIndex);
+nextIndex = SkipNextTrivia(units, nextIndex);
 while (true) {
   const dot = Get(units, nextIndex);
   if (!(dot instanceof SymbolToken) || dot.Is(".") === false) {
     return nextIndex;
   }
-  const nameIndex = SkipNextWrapSymbol(units, nextIndex);
+  const nameIndex = SkipNextTrivia(units, nextIndex);
   if (!(Get(units, nameIndex) instanceof Identifier)) {
     return nextIndex;
   }
-  nextIndex = SkipNextWrapSymbol(units, nameIndex);
+  nextIndex = SkipNextTrivia(units, nameIndex);
 }
 ```
 
@@ -99,13 +99,13 @@ return text;
 `global` 形状没有名字，所以分两路：名字形状要先跨过 `Identifier`（可带点号），`global` 形状直接看括号。
 
 ```ts
-let nextIndex = SkipNextWrapSymbol(units, index);
+let nextIndex = SkipNextTrivia(units, index);
 const current = Get(units, index);
 const isGlobal = current instanceof Identifier && current.Is("global");
 if (isGlobal === false) {
   const nameUnit = Get(units, nextIndex);
   if (nameUnit instanceof String) {
-    nextIndex = SkipNextWrapSymbol(units, nextIndex);
+    nextIndex = SkipNextTrivia(units, nextIndex);
   } else {
     nextIndex = this.SkipDottedName(units, nextIndex);
     if (nextIndex < 0) {
@@ -189,11 +189,11 @@ if (bracketIndex < 0) {
 // 把 `"*.css"` 拆成 `["*", "css"]`，凭空多出一个同名内层命名空间
 // （实测产物 `<Namespace namespace="./m"><Namespace namespace="/m">…`，
 //  `gap-dashboard` 里那 4 个 `ModuleDeclaration 真多` 就是它）。
-const isStringName = current.Is("global") === false && Get(units, SkipNextWrapSymbol(units, index)) instanceof String;
+const isStringName = current.Is("global") === false && Get(units, SkipNextTrivia(units, index)) instanceof String;
 if (current.Is("global")) {
   namespaceInstance.namespace = "global";
 } else {
-  const nameStart = SkipNextWrapSymbol(units, index);
+  const nameStart = SkipNextTrivia(units, index);
   const nameUnit = Get(units, nameStart);
   if (nameUnit instanceof String) {
     let text = "";
@@ -219,19 +219,19 @@ let innermost: Namespace = namespaceInstance;
 // 所以这里存的是它本身。
 const nameStarts: Array<any> = [];
 {
-  let cursor = SkipNextWrapSymbol(units, index);
+  let cursor = SkipNextTrivia(units, index);
   for (;;) {
     const unit = Get(units, cursor);
     if (!(unit instanceof Identifier) || unit.SourceRange.Start === null) {
       break;
     }
     nameStarts.push(unit.SourceRange.Start);
-    const dotIndex = SkipNextWrapSymbol(units, cursor);
+    const dotIndex = SkipNextTrivia(units, cursor);
     const dot = Get(units, dotIndex);
     if (!(dot instanceof SymbolToken) || dot.Is(".") === false) {
       break;
     }
-    cursor = SkipNextWrapSymbol(units, dotIndex);
+    cursor = SkipNextTrivia(units, dotIndex);
   }
 }
 if (isStringName === false && nameParts.length > 1) {

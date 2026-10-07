@@ -7,7 +7,8 @@ import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipNextTrivia } from "../../text-common-util.xl.md"
+import { SkipNextTrivia } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -38,11 +39,16 @@ import { WhileCompare } from "./while-compare.xl.md"
 
 `index` 处是不是本次重组的起点。
 
-判定：`Get(index)` 是内容为 `while` 的 `Identifier`，且 `GetSkipNextWrapSymbol(index)` 是 `startBracket` 为 `(` 的 `Bracket`。写成一句短路求值的合取。
+判定：`Get(index)` 是内容为 `while` 的 `Identifier`，且 `GetSkipNextTrivia(index)` 是 `startBracket` 为 `(` 的 `Bracket`。写成一句短路求值的合取。
+
+**为什么跨的是 trivia 而不是软换行**（第 595 轮）：`while /* c */ (a) { }` 在 TypeScript 里是
+`WhileStatement` ✓（注释是 trivia ✓），只跳软换行会撞上那条注释 ✗ ⇒ 整条语句退化成一个
+`ExpressionStatement` ✓（实测缺 `WhileStatement` 1 + `Identifier` 1 + `Block` 1，
+多出 `ExpressionStatement` 1 + `Identifier`(`while`) 1）。
 
 ```ts
 const common = Get(units, index);
-const bracket = GetSkipNextWrapSymbol(units, index);
+const bracket = GetSkipNextTrivia(units, index);
 return common instanceof Identifier && common.Is("while") && bracket instanceof Bracket && bracket.startBracket === "(";
 ```
 
@@ -67,7 +73,10 @@ const result = new While(template);
 result.Parent = unit.Parent;
 result.SignIn(unit.SourceRange.Start!);
 let endIndex = index;
-endIndex = SkipNextWrapSymbol(units, endIndex);
+endIndex = SkipNextTrivia(units, endIndex);
+// **条件括号之前跨过的注释要收下**（第 595 轮）：它们落在被替换的那一段里，
+// 不收就等于删掉（软换行不收，见 `CommentsIn`）。
+result.AddRange(CommentsIn(units, index + 1, endIndex));
 const conditionBracket = Get(units, endIndex) as Bracket;
 const compare = result.CreateCompare();
 compare.SignIn(conditionBracket.SourceRange.Start!);

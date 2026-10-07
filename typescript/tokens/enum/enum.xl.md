@@ -10,7 +10,7 @@ import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
-import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { IsTriviaUnit, SkipNextTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Decorator } from "../decorator.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -116,13 +116,17 @@ return null;
 
 两条：跟一个 `Identifier` 名字；头**恰好用完**（扫完之后下一格必须是空）。
 
+**每一跳都跨 trivia**（第 595 轮）：`enum E /* c */ { }` 在 TypeScript 里是 `EnumDeclaration` ✓
+（注释是 trivia ✓），只跳软换行会让「头恰好用完」永远不成立 ✗ ⇒ 整个枚举退化成一个
+`ExpressionStatement` ✓。跨过的注释仍在头那一段里 ✓，`TakeHead` 会一起搬走 ✓。
+
 ```ts
-const nameIndex = SkipNextWrapSymbol(units, index);
+const nameIndex = SkipNextTrivia(units, index);
 const name = Get(units, nameIndex);
 if (!(name instanceof Identifier)) {
   return false;
 }
-if (Get(units, SkipNextWrapSymbol(units, nameIndex)) !== null) {
+if (Get(units, SkipNextTrivia(units, nameIndex)) !== null) {
   return false;
 }
 if (instance !== null) {

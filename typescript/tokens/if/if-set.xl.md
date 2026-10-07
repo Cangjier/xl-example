@@ -10,7 +10,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { GetSkipPreviousTrivia, IsTriviaUnit } from "../../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, IsTriviaUnit, SkipPreviousTrivia } from "../../text-common-util.xl.md"
+import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { IfBody } from "./if-body.xl.md"
@@ -73,17 +74,25 @@ IfSetBranch.Success    建 IfSet、挂到宿主、建第一段、**立马挂 IfC
 
 只看两样：当前字符 `(`、以及**已经读到的**那个 `if` ✓。
 
+**那个 `if` 要跨过注释往回找** ✓（第 595 轮）：`if /* c */ (a) { }` 在 TypeScript 里是
+`IfStatement` ✓（注释是 trivia ✓），而 `unit.Last()` 拿到的是那条注释 ✗ ⇒ 进门失败 ✓
+⇒ 整条语句退化成一个 `ExpressionStatement` ✓（实测缺 `IfStatement` 1 + `Identifier` 1 + `Block` 1，
+多出 `ExpressionStatement` 1 + `Identifier`(`if`) 1）。
+`SkipPreviousTrivia(units, unit.Data.length)` 从最后一格往回跳 trivia ✓ ——
+没有注释时它落在的正是原来 `Last()` 那一格 ✓，行为一个字节都不变 ✓。
+
 ```ts
 const result = new BranchConditionResult();
 result.Success = false;
 if (source.Value !== "(") {
   return result;
 }
-const keyword = unit.Last();
+const keywordIndex = SkipPreviousTrivia(unit.Data, unit.Data.length);
+const keyword = Get(unit.Data, keywordIndex);
 if (!(keyword instanceof Identifier) || keyword.Is("if") === false) {
   return result;
 }
-const previous = GetSkipPreviousTrivia(unit.Data, unit.Data.length - 1);
+const previous = GetSkipPreviousTrivia(unit.Data, keywordIndex);
 if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
   return result;
 }
@@ -106,8 +115,13 @@ return result;
 （实测：全语料 **5766 处**越界，**全部**是 `<IfSegment>` ✓，全是这一条 ✓）。
 它不影响投影（`projectIfSet` 自己从体与条件算两头 ✓），但它让「坐标」这把地基白报一片红 ✗。
 
+**它摘掉的是同一个词** ✓：`Condition` 也是用 `SkipPreviousTrivia(unit.Data, unit.Data.length)`
+找的那个 `if` ✓ —— 两处必须是同一份答案，不然「判过了却摘错了」会静默删掉别的单元 ✓。
+夹在 `if` 与 `(` 之间的注释**留在宿主里** ✓（它本来就不属于 `IfSet` ✓）。
+
 ```ts
-const keyword = unit.Last();
+const keywordIndex = SkipPreviousTrivia(unit.Data, unit.Data.length);
+const keyword = Get(unit.Data, keywordIndex);
 if (keyword === null) {
   throw new Error("IfSet: 进门时找不到那个 if");
 }

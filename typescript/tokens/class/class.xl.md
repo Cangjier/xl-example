@@ -11,7 +11,7 @@ import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifiers, DeclarationStart, ReorganizeDeclarationDecorators } from "../declaration-common.xl.md"
-import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { IsTriviaUnit, SkipNextTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "./class-body.xl.md"
 import { HeritageClause } from "../heritage-clause.xl.md"
@@ -181,6 +181,12 @@ return name;
 - **多的一条** ✓：整个头必须**恰好用完** `units` ✓（扫完之后下一格必须是空 ✓）——
   这正是「`{` 紧随其后」的等价说法 ✓，而且只用已经读到的单元表达 ✓。
 
+**每一跳都跨 trivia**（第 595 轮）：`class A /* c */ { }` / `class /* c */ A { }` 在 TypeScript 里
+都是 `ClassDeclaration` ✓（注释是 trivia ✓），而只跳软换行会让「头恰好用完」这条判据
+**永远不成立** ✗ ⇒ 整个类退化成一个 `ExpressionStatement` ✓（实测两种写法各缺
+`ClassDeclaration` 1 + `Identifier` 1，多出 `ExpressionStatement` 1 + `Identifier`(`class`) 1）。
+跨过之后那些注释仍在头的那一段里 ✓ ⇒ `TakeHead` 把它们一起搬进 `Class` ✓，内容不丢 ✓。
+
 `instance` 非空时顺手把 `name` / `extends` / `implements` 写进去；
 `Condition` 只探路，传 `null`——探路失败不留半截状态 ✓。
 
@@ -198,7 +204,7 @@ return name;
   `extends` 后面不一定是一个类型名 ✓。
 
 ```ts
-const nameIndex = SkipNextWrapSymbol(units, index);
+const nameIndex = SkipNextTrivia(units, index);
 const name = Get(units, nameIndex);
 const isAnonymous = name === null || (name instanceof Identifier && name.Is("extends"));
 if (isAnonymous === false && !(name instanceof Identifier)) {
@@ -207,16 +213,16 @@ if (isAnonymous === false && !(name instanceof Identifier)) {
 this.NameIndex = isAnonymous ? -1 : nameIndex;
 let i = nameIndex;
 if (isAnonymous === false) {
-  i = SkipNextWrapSymbol(units, nameIndex);
+  i = SkipNextTrivia(units, nameIndex);
   if (Get(units, i) instanceof GenericType) {
-    i = SkipNextWrapSymbol(units, i);
+    i = SkipNextTrivia(units, i);
   }
 }
 let extendsName = "";
 const implementsNames: string[] = [];
 const extendsUnit = Get(units, i);
 if (extendsUnit instanceof Identifier && extendsUnit.Is("extends")) {
-  i = SkipNextWrapSymbol(units, i);
+  i = SkipNextTrivia(units, i);
   const baseName = Get(units, i);
   if (baseName instanceof Identifier) {
     extendsName = this.TakeDottedName(units, i);
@@ -229,7 +235,7 @@ if (extendsUnit instanceof Identifier && extendsUnit.Is("extends")) {
       if (item.startBracket === "{") {
         return false;
       }
-      i = SkipNextWrapSymbol(units, i);
+      i = SkipNextTrivia(units, i);
       continue;
     }
     if (item instanceof SymbolToken && item.Is(";")) {
@@ -238,19 +244,19 @@ if (extendsUnit instanceof Identifier && extendsUnit.Is("extends")) {
     if (item instanceof Identifier && item.Is("implements")) {
       break;
     }
-    i = SkipNextWrapSymbol(units, i);
+    i = SkipNextTrivia(units, i);
   }
 }
 const implementsUnit = Get(units, i);
 if (implementsUnit instanceof Identifier && implementsUnit.Is("implements")) {
-  i = SkipNextWrapSymbol(units, i);
+  i = SkipNextTrivia(units, i);
   while (i < units.length) {
     const item = Get(units, i);
     if (item instanceof Bracket) {
       if (item.startBracket === "{") {
         return false;
       }
-      i = SkipNextWrapSymbol(units, i);
+      i = SkipNextTrivia(units, i);
       continue;
     }
     if (item instanceof SymbolToken && item.Is(";")) {
@@ -259,7 +265,7 @@ if (implementsUnit instanceof Identifier && implementsUnit.Is("implements")) {
     if (item instanceof Identifier) {
       implementsNames.push(item.TempToString());
     }
-    i = SkipNextWrapSymbol(units, i);
+    i = SkipNextTrivia(units, i);
   }
 }
 // **头必须恰好用完** ✓：下一格不是空 ⇒ `{` 前面还有不属于类头的东西 ⇒ 这不是类头 ✗。

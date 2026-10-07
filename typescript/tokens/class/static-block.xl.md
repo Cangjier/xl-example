@@ -9,7 +9,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { SkipPreviousWrapSymbol } from "../../text-common-util.xl.md"
+import { SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { ClassBody } from "./class-body.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -44,7 +44,14 @@ import { Identifier } from "../identifier.xl.md"
 `index` 处是不是静态块的那个 `{`。
 
 三条判据，全部只看**已经读到的单元** ✓：当前字符是 `{` ✓；
-它前面（跳软换行 ✓）是内容为 `static` 的词 ✓；**宿主就是 `ClassBody`** ✓。
+它前面（跳过 trivia ✓）是内容为 `static` 的词 ✓；**宿主就是 `ClassBody`** ✓。
+
+**上一个实义单元要跨过注释** ✓（第 595 轮）：`static /* c */ { }` 在 TypeScript 里
+**就是一个静态块** ✓（注释是 trivia ✓），而 `SkipPreviousWrapSymbol` 只跳软换行 ✗
+⇒ 撞上注释就判不出来 ✓ ⇒ 整段退化成 `StaticKeyword` + 一个游离的对象字面量 ✗
+（实测 `class A { static /* c */ { } }`：缺 `ClassStaticBlockDeclaration` 1 + `Block` 1，
+多出 `ObjectLiteralExpression` 1）。`SkipPreviousTrivia` 与它只差「注释也算 trivia」 ✓，
+而这里问的正是「紧挨着 `{` 的那个**词**是不是 `static`」 ✓。
 
 **宿主必须是类体** ✓：对象字面量里的 `{ static: 1 }` 也长着「`static` + 括号」的样子 ✗，
 但它的宿主是 `ObjectLiteral` ✓。
@@ -64,7 +71,7 @@ if (source.Value !== "{") {
 if (!(unit instanceof ClassBody)) {
   return result;
 }
-const previous = Get(unit.Data, SkipPreviousWrapSymbol(unit.Data, unit.Data.length));
+const previous = Get(unit.Data, SkipPreviousTrivia(unit.Data, unit.Data.length));
 if (!(previous instanceof Identifier) || previous.Is("static") === false) {
   return result;
 }
@@ -80,8 +87,12 @@ return result;
 **范围起点取 `static` 那个词** ✓（不是那个 `{` ✓）——`static` 是这段构造的一部分 ✓，
 所以它要从宿主上摘掉、并由 `StaticBlock` 自己签入 ✓。
 
+**那个 `{` 当场记进 `BraceAt`** ✓（用户口径：token 出字段、投影直读 ✓）：`source` 就是它 ✓，
+而投影原来要 `ctx.source.indexOf("{", v.start)` **回原文里找** ✗——`static /* { */ { }`
+会命中**注释里**那个假括号 ✗ ⇒ 体的区间整个错位 ✓。
+
 ```ts
-const previous = Get(unit.Data, SkipPreviousWrapSymbol(unit.Data, unit.Data.length));
+const previous = Get(unit.Data, SkipPreviousTrivia(unit.Data, unit.Data.length));
 if (!(previous instanceof Identifier)) {
   throw new Error("StaticBlockBranch: 进门时找不到那个 static");
 }
@@ -90,6 +101,7 @@ previous.TryToClose();
 previous.RemoveSelf();
 const block = new StaticBlock(unit.Template);
 block.SignIn(start);
+block.BraceAt = source.Index;
 unit.AddToMounted(block);
 ```
 
@@ -106,20 +118,31 @@ unit.AddToMounted(block);
 配对的 `}` 由它自己认 ✓ ⇒ 两个花括号都**不是子单元** ✓，
 与 `Bracket` / `IfBody` / `ClassBody` 同款 ✓；嵌套靠挂载链 ✓，**不数深度** ✗。
 
+## field BraceAt:int = -1
+
+这个静态块的**开括号下标**（`static` 与 `{` 之间那一格的位置）；还没认出来时是 `-1`。
+
+**为什么让 token 记着**（用户口径：token 出字段、投影直读）：投影原来用
+`ctx.source.indexOf("{", v.start)` **回原文里找**——那是**第二份位置答案**，
+`static /* { */ { }` 这种写法会命中**注释里**那个假括号。而 `StaticBlockBranch.Success`
+那一刻 `{` 就在手上（`source.Index`）⇒ 当场记下来，投影只读这一格。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 类静态块 `class A { static { … } }` → `ClassStaticBlockDeclaration`（`body: Block`；
 **从 `ts-ast.xl.md` 的 `projectStaticBlock` 搬来**，第 184 轮）。
 
 产物那边体括号不在树里（`StaticBlock > Statement*`），所以 `Block` 要**自己造**：
-按 `static` 之后的那个 `{` 与配对的 `}` 量区间（与 `projectTry` 里两个块同一套做法）。
+开括号读 `BraceAt`，闭括号就是**本单元的终点**（`ExitOrPre` 在 `}` 上签出 ✓），
+不再回原文里找那一对括号（与 `projectTry` 里两个块同一套做法）。
 
 ```ts
   const statements = ctx.ProjectEach(ctx.Kids(v), "Block");
-  const brace = ctx.source.indexOf("{", v.start);
-  const close = brace >= 0 ? ctx.MatchingBrace(ctx.source, brace) : -1;
+  const rawBrace = ctx.Attr(v, "braceAt");
+  const brace = typeof rawBrace === "number" ? rawBrace : -1;
+  const close = ctx.EndOf(v);
   const body =
-    brace >= 0 && close >= brace ? { kind: "Block", statements, pos: brace, end: close + 1 } : undefined;
+    brace >= 0 && close > brace ? { kind: "Block", statements, pos: brace, end: close } : undefined;
   return ctx.NodeHead("ClassStaticBlockDeclaration", body === undefined ? {} : { body }, v);
 ```
 
@@ -170,14 +193,40 @@ return BranchStates.Undo;
 
 兜底处理：**空实现** ✓（字符全交给跳转队列与挂载的子单元）。
 
+## method ToDictionary:()=>Map<string, any>
+
+产出 JSON 对象：类型名 + `braceAt` + 子单元。
+
+形状与基类那一份**只差 `braceAt` 一格**（键序保持 `type` 在前）：`PrintAst` 的 `ctx.Attr`
+取的就是这里写进去的键，所以字段与投影之间只隔这一处。不是静态块（`-1`）时**不写这一格**，
+与 `LineWrap` 那种自闭合节点同一口径。
+
+```ts
+const result: Map<string, any> = new Map();
+result.set("type", this.constructor.name);
+if (this.BraceAt >= 0) {
+  result.set("braceAt", this.BraceAt);
+}
+if (this.Data.length !== 0) {
+  const children: Array<any> = [];
+  for (const item of this.Data) {
+    children.push(item.ToDictionary());
+  }
+  result.set("children", children);
+}
+return result;
+```
+
 ## method Clone:()=>Token
 
 克隆自身。
 
-顺序与 `FunctionBody.Clone` 一致：`Sign(this)` → 子单元逐个克隆后整批加入 → `TryToClose()`。
+顺序与 `FunctionBody.Clone` 一致：`Sign(this)` → 子单元逐个克隆后整批加入 → `TryToClose()`；
+**`BraceAt` 要一起带走**（漏了它克隆体的 `body` 就没有区间）。
 
 ```ts
 const result = new StaticBlock(this.Template);
+result.BraceAt = this.BraceAt;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

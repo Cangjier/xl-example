@@ -8,7 +8,8 @@ import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { GetSkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, GetSkipNextTrivia } from "../../text-common-util.xl.md"
+import { SkipNextTrivia } from "../../text-common-util.xl.md"
 import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
@@ -45,7 +46,12 @@ C 风格 `for` 语句：把 `for` `(` … `)` `{` … `}` 这一串单元重组�
 
 `index` 处是不是本次重组的起点。
 
-三段判定：`Get(index)` 是内容为 `for` 的 `Identifier`；`GetSkipNextWrapSymbol(index)` 是 `startBracket` 为 `(` 的 `Bracket`；且括号里**没有**任何内容为 `in` / `of` 的 `Identifier`。任一条不成立就返回 `false`。
+三段判定：`Get(index)` 是内容为 `for` 的 `Identifier`；`GetSkipNextTrivia(index)` 是 `startBracket` 为 `(` 的 `Bracket`；且括号里**没有**任何内容为 `in` / `of` 的 `Identifier`。任一条不成立就返回 `false`。
+
+**为什么跨的是 trivia 而不是软换行**（第 595 轮）：`for /* c */ (;;) { }` 在 TypeScript 里是
+`ForStatement` ✓（注释是 trivia ✓），只跳软换行会撞上那条注释 ✗ ⇒ 整条语句退化成一个
+`ExpressionStatement` ✓（实测缺 `ForStatement` 1 + `Block` 1，多出 `ExpressionStatement` 1 +
+`Identifier`(`for`) 1）。
 
 还要一条**结构性**判定：括号里得有 `;`——C 风格 `for` 头必然带分号（`for (;;)` 也带两个）。
 不加这条的话，`for` 作为**成员名**出现在接口体里（`interface SymbolConstructor { for(key: string): symbol; }`，
@@ -55,7 +61,7 @@ C 风格 `for` 语句：把 `for` `(` … `)` `{` … `}` 这一串单元重组�
 ```ts
 const common = Get(units, index);
 if (common instanceof Identifier && common.Is("for")) {
-  const bracket = GetSkipNextWrapSymbol(units, index);
+  const bracket = GetSkipNextTrivia(units, index);
   if (bracket instanceof Bracket && bracket.startBracket === "(") {
     const hasSeparator = bracket.Data.some((item) => item instanceof SymbolToken && item.Is(";"));
     if (hasSeparator === false) {
@@ -92,7 +98,10 @@ const result = new For(template);
 result.Parent = unit.Parent;
 result.SignIn(unit.SourceRange.Start!);
 let currentIndex = index;
-currentIndex = SkipNextWrapSymbol(units, currentIndex);
+currentIndex = SkipNextTrivia(units, currentIndex);
+// **条件括号之前跨过的注释要收下**（第 595 轮）：它们落在被替换的那一段里，
+// 不收就等于删掉（软换行不收，见 `CommentsIn`）。
+result.AddRange(CommentsIn(units, index + 1, currentIndex));
 const conditionBracket = Get(units, currentIndex) as Bracket;
 const initialEnd = SearchBack(conditionBracket.Data, -1, (x) => x instanceof SymbolToken && x.Is(";"));
 if (initialEnd === -1) {

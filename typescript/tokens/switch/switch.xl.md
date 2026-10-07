@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { CommentsIn, SkipNextTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -92,7 +92,13 @@ return word === "case" || word === "default" ? word : "";
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
 
 `index` 处是不是一个 `switch` 语句的开头：内容是 `switch` 的 `Identifier`，
-后面（跨过软换行）是一个 `(` 开的括号，再后面（跨过软换行）是一个 `{` 开的括号。
+后面（跨过 trivia）是一个 `(` 开的括号，再后面（跨过 trivia）是一个 `{` 开的括号。
+
+**为什么跨的是 trivia 而不是软换行**（第 595 轮）：`switch /* c */ (a) { }` 与
+`switch (a) /* c */ { }` 在 TypeScript 里都是 `switch` 语句 ✓（注释是 trivia ✓），
+而只跳软换行会撞上那个注释 ✗ ⇒ 整条语句退化成一个 `ExpressionStatement` ✓
+（实测两种写法各缺 `SwitchStatement` 1 + `Identifier`/`CaseBlock` 各 1，
+多出 `ExpressionStatement` 1 + `Identifier` 1）。
 
 `switch` 在 `../parse-pipeline.xl.md` 的 `BanedMethodNames` 里，所以 `switch (x)` 不会被 `Method` 先吃掉。
 
@@ -101,12 +107,12 @@ const current = Get(units, index);
 if (!(current instanceof Identifier) || !current.Is("switch")) {
   return false;
 }
-const compareIndex = SkipNextWrapSymbol(units, index);
+const compareIndex = SkipNextTrivia(units, index);
 const compare = Get(units, compareIndex);
 if (!(compare instanceof Bracket) || compare.startBracket !== "(") {
   return false;
 }
-const bodyIndex = SkipNextWrapSymbol(units, compareIndex);
+const bodyIndex = SkipNextTrivia(units, compareIndex);
 const body = Get(units, bodyIndex);
 return body instanceof Bracket && body.startBracket === "{";
 ```
@@ -128,25 +134,35 @@ return body instanceof Bracket && body.startBracket === "{";
   有自己的队列（前者通用、后者语句），关闭时才会跑。
 - 范围终点取 `switch` 体的终点（含 `}`）。**尾随软换行不进范围**——
   它留在父单元里充当语句边界（见 `../declaration-common.xl.md` 里「为什么这里不再有收尾口径」那一节）。
+- **两个结构括号之间也跨 trivia**（第 595 轮）：`Previous` 认下这条语句之后，
+  这里找 `(` / `{` 走的是同一口径 ✓，不然「认得出、收不下」会在 `SkipNextWrapSymbol`
+  那一句上抛 `undefined` 的下标 ✓。
+- **体那个 `{` 当场记进 `BodyAt`** ✓（token 出字段、投影直读 ✓）：投影原来
+  `indexOf("{", v.start)` 回原文里找 ✗，`switch (a) /* { */ { }` 会命中注释里的假括号 ✗。
 
 ```ts
 const current = Get(units, index);
 if (current === null) {
   throw new Error("current 为空");
 }
-const compareIndex = SkipNextWrapSymbol(units, index);
+const compareIndex = SkipNextTrivia(units, index);
 const compareBracket = Get(units, compareIndex) as Bracket;
-const bodyIndex = SkipNextWrapSymbol(units, compareIndex);
+const bodyIndex = SkipNextTrivia(units, compareIndex);
 const body = Get(units, bodyIndex) as Bracket;
 const endIndex = bodyIndex;
 const result = new Switch(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
+result.BodyAt = body.SourceRange.Start!.Index;
+// **跨过的注释要收下**（第 595 轮）：它们夹在 `switch` / `(` / `{` 之间 ✓、落在被替换的那一段里 ✓，
+// 不收就等于删掉 ✓。位置照源序放在对应的段之前 ✓（软换行不收，见 `CommentsIn`）。
+result.AddRange(CommentsIn(units, index + 1, compareIndex));
 const compare = result.CreateCompare();
 compareBracket.MoveDataTo(compare);
 compare.Sign(compareBracket);
 compare.TryToClose();
+result.AddRange(CommentsIn(units, compareIndex + 1, bodyIndex));
 const data = body.Data.slice();
 const markers: number[] = [];
 for (let i = 0; i < data.length; i++) {
@@ -242,6 +258,14 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 它没有覆写 `ToXmlString`，XML 由 `Token` 产出：`<Switch>` 里依次是 `SwitchCompare` 与各段的 XML。
 
+## field BodyAt:int = -1
+
+体那个 `{` 的下标；还没认出来时是 `-1`。
+
+**为什么让 token 记着**（用户口径：token 出字段、投影直读）：`CaseBlock` 的起点就是它 ✓，
+而 `SwitchCloseRule.Process` 那一刻括号就在手上 ✓ ⇒ 当场记下来 ✓。投影若回原文里找
+（`ctx.source.indexOf("{", v.start)` ✓），`switch (a) /* { */ { }` 会命中**注释里**那个假括号 ✗。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `switch (v) { … }` → `SwitchStatement`（`expression` + `caseBlock`；
@@ -249,19 +273,19 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 
 TS 在这两层之间还有一个 **`CaseBlock`**（就是那对花括号），产物那边没有这一层
 （`Switch` 只有 `compare` 与 `segments` 两个段）——所以这里**合成**它：
-区间从第一个 `{` 起、到 `switch` 自己的终点（那个 `}` 正好是最后一个字符）。
+区间从体的开括号起（读 `BodyAt` ✓）、到 `switch` 自己的终点（那个 `}` 正好是最后一个字符）。
 
 ```ts
-  const kids = ctx.Kids(v);
   const cond = ctx.KidsOf(v, "compare");
   const segments = ctx.KidsOf(v, "segments");
-  const brace = ctx.source.indexOf("{", v.start);
+  const rawBodyAt = ctx.Attr(v, "bodyAt");
+  const bodyAt = typeof rawBodyAt === "number" ? rawBodyAt : -1;
   const props: any = {};
   if (cond.length > 0) props.expression = ctx.Expression(cond);
   props.caseBlock = {
     kind: "CaseBlock",
     clauses: segments.map((seg: any) => ctx.SwitchClause(seg)),
-    pos: brace >= 0 ? brace : v.start,
+    pos: bodyAt >= 0 ? bodyAt : v.start,
     end: ctx.StmtEndOf(v),
   };
   return ctx.NodeHead("SwitchStatement", props, v);
@@ -318,9 +342,11 @@ return result;
 
 ## method ToDictionary:()=>Map<string, any>
 
-产出 JSON 对象：类型名 + `compare` 段与 `segments` 段列表。
+产出 JSON 对象：类型名 + `bodyAt` + `compare` 段与 `segments` 段列表。
 
 `compare` 是判别段（`switch (…)` 括号里那截），取 `ToList()`——它是一批子单元的容器。
+
+`bodyAt` 是体的开括号（`PrintAst` 的 `ctx.Attr` 读的就是这一格；不是 `switch` 时不写）。
 
 `segments` 是各 `SwitchSegment`：它们与 `Try.Catches` 一样是**按类型从 `Data` 里筛出来的一组引用**，
 不是某**一个**容器节点，所以没有现成的 `ToList()` 可调，只能逐个 `item.ToDictionary()`。
@@ -331,6 +357,9 @@ return result;
 ```ts
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
+if (this.BodyAt >= 0) {
+  result.set("bodyAt", this.BodyAt);
+}
 result.set("compare", this.Compare.ToList());
 const segments: Array<any> = [];
 for (const item of this.Segments) {
@@ -344,10 +373,11 @@ return result;
 
 克隆自身。
 
-顺序与 `Try.Clone` 一致。
+顺序与 `Try.Clone` 一致；**`BodyAt` 要一起带走**（漏了它克隆体的 `caseBlock` 就没有起点）。
 
 ```ts
 const result = new Switch(this.Template);
+result.BodyAt = this.BodyAt;
 result.Sign(this);
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();

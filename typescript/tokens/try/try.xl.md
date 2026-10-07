@@ -7,6 +7,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SkipNext } from "../../../core/extensions/list-extension.xl.md"
+import { CommentsIn, SkipNextTrivia, SkipPreviousTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
@@ -62,8 +63,10 @@ import { TryBody } from "./try-body.xl.md"
 const current = Get(units, index);
 if (current instanceof Identifier) {
   if (!current.Is("try")) return false;
-  // **后面必须真的跟一个 `{` 块** ✓（软换行要跳过去 ✓：`try` 与 `{` 分行是日常写法 ✓）。
-  const after = SkipNext(units, index, (item: Token) => item instanceof LineWrap);
+  // **后面必须真的跟一个 `{` 块** ✓（软换行**与注释**都要跳过去 ✓：
+  // `try` 与 `{` 之间夹一条注释是日常写法 ✓，而注释在 TypeScript 里是 trivia ✓
+  // ⇒ 只跳软换行会把 `try /* c */ { }` 判成「不是我的」✗，整条语句退化成一个 `ExpressionStatement` ✓）。
+  const after = SkipNextTrivia(units, index);
   const next = Get(units, after);
   if (next === null) return false;
   return next instanceof Bracket && next.startBracket === "{";
@@ -75,11 +78,20 @@ return false;
 
 执行重组：扫描并打包整个 `try` 结构，**返回新的下标**——`units` 在这里被就地改写，下标也变了。
 
-跳过 `LineWrap` 找下一个单元一律走 `SkipNext(units, endIndex, …)`；抛 `SyntaxException` 时第三个参数（内层异常）显式给 `null`。
+跳过 **trivia**（软换行与注释 ✓）找下一个单元一律走 `SkipNextTrivia(units, endIndex)`；
+抛 `SyntaxException` 时第三个参数（内层异常）显式给 `null`。
+
+**为什么跳的是 trivia**（第 595 轮）：`try /* c */ { }` / `catch /* c */ { }` 在 TypeScript 里
+都是 `TryStatement` ✓，而只跳软换行会撞上注释 ✗ ⇒ `next is not Bracket` ⇒ 整条语句
+退化成一个 `ExpressionStatement` ✓（实测 `try /* c */ { } catch { }`：
+缺 `TryStatement` 1 + 两个 `Block` + `CatchClause`，多出 `ExpressionStatement` 1）。
+**跨过的注释由 `CommentsIn` 收进 `result`** ✓——不收就等于删掉 ✓（它们落在被替换的那一段里 ✓）。
+**没有 `finally` 时那一步回退也走 trivia** ✓：`endIndex--` 会退到注释上 ✗，
+而注释的右端在体之后 ⇒ `Try` 的范围被拉长 ✓。
 
 ```ts
 const current = Get(units, index)!;
-let endIndex = SkipNext(units, index, (item: Token) => item instanceof LineWrap);
+let endIndex = SkipNextTrivia(units, index);
 const next = Get(units, endIndex);
 if (next === null) {
   throw new SyntaxException(current.SourceRange, "next is null", null);
@@ -91,6 +103,7 @@ const bracket = next;
 const result = new Try(template);
 result.Parent = current.Parent;
 result.SignIn(current.SourceRange.Start!);
+result.AddRange(CommentsIn(units, index + 1, endIndex));
 const tryBody = result.CreateTryBody();
 tryBody.SignIn(bracket.SourceRange.Start!);
 tryBody.SignOut(bracket.SourceRange.End!);
@@ -101,7 +114,8 @@ tryBody.TryToClose();
 result.TryBrace.Set(bracket.SourceRange.Start!.Index, bracket.SourceRange);
 // endIndex 就是 tryBody 的下标
 const tryBodyEndIndex = endIndex;
-endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
+let cursor = endIndex;
+endIndex = SkipNextTrivia(units, endIndex);
 let containsCatch = false;
 // endIndex 是 catch 或 finally 关键字的下标
 while (true) {
@@ -112,13 +126,17 @@ while (true) {
     }
     break;
   }
+  result.AddRange(CommentsIn(units, cursor + 1, endIndex));
   containsCatch = true;
   result.CatchWord.Set(catchFirst.SourceRange.Start!.Index, catchFirst.SourceRange);
-  endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
+  cursor = endIndex;
+  endIndex = SkipNextTrivia(units, endIndex);
   const catchSecond = Get(units, endIndex)!;
   if (!(catchSecond instanceof Bracket)) {
     throw new SyntaxException(catchSecond.SourceRange, "catchSecond is not Bracket", null);
   }
+  result.AddRange(CommentsIn(units, cursor + 1, endIndex));
+  cursor = endIndex;
   const catchSecondBracket = catchSecond;
   if (catchSecondBracket.startBracket === "(") {
     const catchDefine = result.CreateCatchDefine();
@@ -126,12 +144,14 @@ while (true) {
     catchDefine.Sign(catchSecondBracket);
     catchDefine.TryToClose();
     // endIndex 是 catchDefine 的下标
-    endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
+    endIndex = SkipNextTrivia(units, endIndex);
     // endIndex 是 catchBody 的下标
     const catchThird = Get(units, endIndex)!;
     if (!(catchThird instanceof Bracket)) {
       throw new SyntaxException(catchThird.SourceRange, "catchThird is not Bracket", null);
     }
+    result.AddRange(CommentsIn(units, cursor + 1, endIndex));
+    cursor = endIndex;
     const catchThirdBracket = catchThird;
     if (catchThirdBracket.startBracket === "{") {
       const catchBody = result.CreateCatchBody();
@@ -153,17 +173,20 @@ while (true) {
   }
 }
 // endIndex 是 catch body 的下标
-endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
+endIndex = SkipNextTrivia(units, endIndex);
 // endIndex 是 finally 关键字的下标
 const finiallyKeyword = Get(units, endIndex);
 if (finiallyKeyword instanceof Identifier && finiallyKeyword.Is("finally")) {
+  result.AddRange(CommentsIn(units, cursor + 1, endIndex));
   result.FinallyWord.Set(finiallyKeyword.SourceRange.Start!.Index, finiallyKeyword.SourceRange);
-  endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
+  cursor = endIndex;
+  endIndex = SkipNextTrivia(units, endIndex);
   // endIndex 是 finally body 的下标
   const finiallySecond = Get(units, endIndex)!;
   if (!(finiallySecond instanceof Bracket)) {
     throw new SyntaxException(finiallySecond.SourceRange, "finiallySecond is not Bracket", null);
   }
+  result.AddRange(CommentsIn(units, cursor + 1, endIndex));
   if (finiallySecond.startBracket === "{") {
     const finiallyBody = result.CreateFinallyBody();
     finiallySecond.MoveDataTo(finiallyBody);
@@ -174,7 +197,7 @@ if (finiallyKeyword instanceof Identifier && finiallyKeyword.Is("finally")) {
     throw new SyntaxException(finiallySecond.SourceRange, "finiallySecondBracket.startBracket is not '{'", null);
   }
 } else {
-  endIndex--;
+  endIndex = SkipPreviousTrivia(units, endIndex);
 }
 result.SignOut(Get(units, endIndex)!.SourceRange.End!);
 result.TryToClose();

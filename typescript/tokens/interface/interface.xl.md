@@ -9,7 +9,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
-import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { IsTriviaUnit, SkipNextTrivia } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { HeritageClause } from "../heritage-clause.xl.md"
@@ -133,19 +133,19 @@ if (!(Get(units, nextIndex) instanceof Identifier)) {
   return -1;
 }
 name = (Get(units, nextIndex) as Identifier).TempToString();
-nextIndex = SkipNextWrapSymbol(units, nextIndex);
+nextIndex = SkipNextTrivia(units, nextIndex);
 while (true) {
   const dot = Get(units, nextIndex);
   if (!(dot instanceof SymbolToken) || dot.Is(".") === false) {
     break;
   }
-  const nameIndex = SkipNextWrapSymbol(units, nextIndex);
+  const nameIndex = SkipNextTrivia(units, nextIndex);
   const part = Get(units, nameIndex);
   if (!(part instanceof Identifier)) {
     break;
   }
   name = name + "." + part.TempToString();
-  nextIndex = SkipNextWrapSymbol(units, nameIndex);
+  nextIndex = SkipNextTrivia(units, nameIndex);
 }
 if (text) {
   this.ScannedNames = this.ScannedNames.concat([name]);
@@ -170,7 +170,7 @@ return nextIndex;
 ——探路失败不留半截状态。
 
 ```ts
-let nextIndex = SkipNextWrapSymbol(units, index);
+let nextIndex = SkipNextTrivia(units, index);
 const name = Get(units, nextIndex);
 if (!(name instanceof Identifier)) {
   return false;
@@ -179,25 +179,25 @@ if (instance !== null) {
   instance.name.Set(name.TempToString(), name.SourceRange);
 }
 this.NameIndex = nextIndex;
-nextIndex = SkipNextWrapSymbol(units, nextIndex);
+nextIndex = SkipNextTrivia(units, nextIndex);
 if (Get(units, nextIndex) instanceof GenericType) {
-  nextIndex = SkipNextWrapSymbol(units, nextIndex);
+  nextIndex = SkipNextTrivia(units, nextIndex);
 }
 const extendsWord = Get(units, nextIndex);
 if (extendsWord instanceof Identifier && extendsWord.Is("extends")) {
   this.ScannedNames = [];
-  nextIndex = SkipNextWrapSymbol(units, nextIndex);
+  nextIndex = SkipNextTrivia(units, nextIndex);
   while (true) {
     nextIndex = this.TakeDottedName(units, nextIndex, instance !== null);
     if (nextIndex < 0) {
       return false;
     }
     if (Get(units, nextIndex) instanceof GenericType) {
-      nextIndex = SkipNextWrapSymbol(units, nextIndex);
+      nextIndex = SkipNextTrivia(units, nextIndex);
     }
     const comma = Get(units, nextIndex);
     if (comma instanceof SymbolToken && comma.Is(",")) {
-      nextIndex = SkipNextWrapSymbol(units, nextIndex);
+      nextIndex = SkipNextTrivia(units, nextIndex);
       continue;
     }
     break;

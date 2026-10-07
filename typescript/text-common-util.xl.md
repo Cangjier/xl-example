@@ -620,6 +620,33 @@ for (let i = index - 1; i >= 0; i--) {
 return sawReal === false;
 ```
 
+# method CommentsIn:(units:Array<Token>, from:number, to:number)=>Array<Token>
+
+`[from, to)` 这一段里的**注释**单元（`LineAnnotation` / `AreaAnnotation`），按原序。
+
+**为什么需要它**（第 595 轮）：结构打包（`switch` / `try` / `while` / `for` / `foreach` / `if`
+那一族收尾规则 ✓）现在跨 **trivia** 找相邻的结构括号 ✓ ⇒ 夹在中间的注释会落在
+**被 `ReplaceCountAt` 替换掉的那一段**里 ✗——不显式收下就整个消失 ✓
+（实测 `switch (a) /* c */ { }` 在跳 trivia 之后，XML 里那条 `AreaAnnotation` 不见了 ✓）。
+
+**软换行不在此列** ✗：它本来就是排版 ✓，打包时丢掉是既有口径 ✓
+（收下它会让 `<Switch>` 里凭空多出 `<LineWrap/>` ✓，XML 逐字节比对当场变红 ✓）。
+
+```ts
+const out: Array<Token> = [];
+for (let i = from; i < to; i++) {
+  const item = Get(units, i);
+  if (item === null) {
+    continue;
+  }
+  const name = item.constructor.name;
+  if (name === "LineAnnotation" || name === "AreaAnnotation") {
+    out.push(item);
+  }
+}
+return out;
+```
+
 # method IsTriviaUnit:(item:Token | null)=>bool
 `item` 是不是**不承载语义的单元**：软换行、行注释、区域注释、预处理指令。
 
