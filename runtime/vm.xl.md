@@ -2229,12 +2229,58 @@ this.Pending = value;
 //（症状：`try { await f() } catch { … }` 里 `catch` 不跑 ✓，**一句异常都没有** ✓）。
 const kept: HandlerEntry[] = [];
 let landed = false;
+// **展开不能跨过 async 帧** ✓（第 610 轮 ✓）：一个 async 帧就是**一道墙** ✓——
+// 它里面抛出来的东西**只把它的承诺拒绝掉** ✓，不许落到它**外面**那些 `try` 上 ✗。
+//
+// **实测**（最小判据 `a-v4` ✓）：
+//
+//     async function boom() { throw new Error("boom"); }
+//     async function g1() { try { boom(); } catch { console.log("g1-call-caught"); } }
+//
+// Node 打 `called` ✓（这一抛**一个字都不往外冒** ✓），本仓打 `g1-call-caught` ✗——
+// `boom()` 那一抛**顺着帧栈展开进了它调用者的 `catch`** ✓。可调用者手里拿到的是**承诺** ✗、
+// 不是「这一次调用抛了」✗，所以那个 `catch` 在 JS 里**永远不该被这一抛碰到** ✓
+//（它要碰的只有 `await` 那一抛 ✓，而那是**另一条路** ✓，第 610 轮在 `DoAwait` 里补的 ✓）。
+//
+// **墙在哪** ✓：这一摞帧里**最里面**那个「在本次重入里面」（`i >= NativeBoundary` ✓，
+// 与下面那一段**同一条判据** ✓）的 async 帧 ✓。处理点落在它**外面**（层深更小 ✓）一律跳过 ✓
+// ⇒ 一个活着的处理点都不剩 ✓ ⇒ 下面那一段把这一抛变成**拒绝** ✓
+//（第 285 / 299 / 331 轮写好的那条路 ✓，一个字都不用改 ✓）。
+//
+// **为什么不能只问「有没有 `AsyncPromise`」** ✗：那一条会把**外层**那些 async 调用者
+// 也认成墙 ✓——第 331 轮正是为此加了 `NativeBoundary` 那一夹 ✓（见下面那一段的账 ✓），
+// 这里照抄同一条 ✓：「是不是墙」与「要不要把这一抛变成拒绝」必须是**同一个判据** ✓。
+let asyncWall = -1;
+for (let i = this.Frames.Handles.length - 1; i >= 0; i--) {
+  const wallHandle = this.Frames.Handles[i];
+  const held = this.Table.Get(wallHandle);
+  if (held === null || held.Frame === null) continue;
+  if (this.DepthOfFrame(wallHandle) < 0) continue;
+  if (held.Frame.AsyncPromise > 0 && i >= this.NativeBoundary) {
+    asyncWall = i;
+    break;
+  }
+}
 while (this.Handlers.length > 0) {
   const entry = this.Handlers[this.Handlers.length - 1];
   this.Handlers.pop();
   const depth = this.DepthOfFrame(entry.Frame);
   if (depth < 0) {
     if (this.IsSuspendedFrame(entry.Frame)) kept.push(entry);
+    continue;
+  }
+  // **这道墙外面的处理点不算** ✓（见上面那一段 ✓）：跳过它 ✓，
+  // 让这一抛照「一个处理点都不剩」那条路走 ✓——那正是 JS 的语义 ✓。
+  //
+  // **但要留住它** ✗（**实测踩到的** ✓，与 `IsSuspendedFrame` 那一档**同一条理由** ✓）：
+  // 那道墙**下面的帧在转换之后还活着** ✓（转换只弹到墙为止 ✓），
+  // 而这一抛**一会儿还会回来** ✓——`await` 到这一帧时 `Op.Resume` 会再抛一次 ✓，
+  // 那次要找的正是**这一帧自己的**处理点 ✓。丢掉它 ⇒ `await` 那个 `catch` **接不住** ✓
+  // （症状：`try { await boom() } catch { … }` 里 `caught` 一个字都不印 ✓、
+  //  退出码还是 0 ✓——**静默错值** ✓）。所以按 `kept` 那条路放回去 ✓
+  //（倒着压 ✓，次序才不会翻 ✓）。
+  if (asyncWall >= 0 && depth < asyncWall) {
+    kept.push(entry);
     continue;
   }
   while (this.Frames.Depth() > depth + 1) {
@@ -3927,9 +3973,26 @@ this.DoThrow(value);
 
 **`await` 一个被拒绝的承诺要抛** ✓（第 285 轮 ✓）：抛的是**拒绝理由本身** ✓
 （`throw` 那一支，见 `ThrowValue` ✓）。**位置很要紧** ✗：
-那一抛必须在 `Frames.Pop()` **之前** ✓——`await` 写在 `try` 里时，
-处理点是**这一帧**在册的 ✓；先弹帧再抛，展开会跳过它 ✗
-（症状是 `try { await Promise.reject("x") } catch` 接不住 ✓）。
+那一抛必须在**这一帧还在栈上**时落地 ✓——`await` 写在 `try` 里时，处理点是**这一帧**在册的 ✓；
+先弹帧再抛，展开会跳过它 ✗（症状是 `try { await Promise.reject("x") } catch` 接不住 ✓）。
+
+**拒绝那一档也要让出一个 tick** ✓（第 610 轮 ✓）：它**原来是在 `DoAwait` 里当场抛** ✗
+（不摘帧 ✓、不进微任务队列 ✓）⇒ `await` 一个**已经拒绝**的承诺**一个 tick 都不让** ✗
+⇒ 后面那些排好的微任务**全被插到前面** ✓。实测（最小判据）：
+
+    async function boom() { throw new Error("boom"); }
+    async function guarded() { try { await boom(); } catch { console.log("caught"); } }
+    boom().catch(e => console.log("1", e.message));
+    guarded();
+
+Node 给 `1 boom` 在前 ✓（`boom()` 那一抛是**同步**结清的 ✓ ⇒ 它的 `.catch` 先入队 ✓），
+本仓给 `caught` 在前 ✗——`guarded` 整段体**同步跑完** ✓。而 `await` 一个**兑现**的承诺
+那一档本来就是对的 ✓（下面那条 `Microtasks.push` ✓）——同一个形状两种时序 ✗。
+
+**做法与 `RejectPromise` 那条一字不差** ✓（它管的是「**后来**才被拒绝」那一半 ✓）：
+摘帧 ✓ → 记 `ResumeValue` ✓ → 拒绝时把 `ResumeRaises` 也置真 ✓ → 排进微任务队列 ✓。
+`Op.Resume` 于是走 `DoThrow` ✓、**此刻这一帧已经在栈上** ✓ ⇒ `try` 里接得住 ✓
+（与原地抛**同一个落点** ✓，只是晚了一个 tick ✓）。两条路写同一件事，就不会再有「同一形状两种时序」✗。
 
 **承诺是「采纳」来的也要等**（`await` 一个「兑现值是承诺」的承诺 ✓）：
 这种「承诺链」挂在**内层**那个承诺的反应表上 ✓——见 `ResolvePromise` 的采纳那一支 ✓。
@@ -3954,11 +4017,6 @@ const awaited = this.IsPromiseValue(target) ? target : this.ResolveIntoPromise(t
 const item = this.Table.Get(awaited.Ref);
 if (item.Promise === null) throw new Error("awaited value is not a promise");
 const promise = item.Promise;
-// **拒绝那一档：带着理由抛** ✓（弹帧之前 ✓，理由见上）。
-if (promise.State === PromiseState.Rejected) {
-  this.ThrowValue(promise.Value);
-  return;
-}
 const handle = this.Frames.TopHandle();
 this.Frames.Pop();
 // **帧离开栈之前先记住「它在等谁」** ✓：恢复时 `DoReturn` / `DoThrow` 要用它 ✓，
@@ -3972,7 +4030,7 @@ frame.Awaiting = awaited;
 //  实测 `await it.next()` 给 `{"done":true}` ✓，Node 给 `{"value":2,"done":false}` ✗）。
 // **它由紧跟其后的 `resume` 清掉** ✓（两条恢复路都经过那一条指令 ✓）。
 frame.SuspendedInAwait = true;
-// **已经兑现的：当场就能排** ✓——**除非这一帧已经挂在同一个承诺上了** ✓。
+// **已经结清的（兑现或拒绝）：当场就能排** ✓——**除非这一帧已经挂在同一个承诺上了** ✓。
 //
 // **那一档是可能的** ✗（第 285 轮想到的 ✓）：`await p` 写在**嵌在 `p.then(…)`
 // 里的那个函数**里时 ✓，「等 `p`」与「被 `p` 恢复」是同一件事 ✓——
@@ -3980,8 +4038,11 @@ frame.SuspendedInAwait = true;
 // 一个看起来成立、其实早了的值 ✗，**静默错值** ✓）。
 // 与 `AdoptInto` 那一处**同一条判据**（`IsAwaitedBy` ✓）——
 // 「别把一个已经等着我的帧再排一次」只有一份实现 ✓。
-if (promise.State === PromiseState.Fulfilled) {
+if (promise.State !== PromiseState.Pending) {
   frame.ResumeValue = promise.Value;
+  if (promise.State === PromiseState.Rejected) {
+    frame.ResumeRaises = true;
+  }
   if (!this.IsAwaitedBy(promise, handle)) this.Microtasks.push(handle);
   return;
 }

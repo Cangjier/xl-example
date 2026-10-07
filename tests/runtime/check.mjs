@@ -9033,6 +9033,43 @@ check("三样 abrupt completion 走同一条改写：先把在册的 `finally` �
   eq(clashes.length, 0, clashes.length === 0 ? "能力号两两不同" : "撞号：" + clashes.join("；"));
 }
 
+check("async 帧是一道墙（它里面抛的不落到调用者的 catch）+ `await` 一律让出一个 tick", () => {
+  // 两件事都是**实测逼出来的**（第 610 轮 ✓）：
+  //
+  //   1. `async function boom() { throw … }` 那一抛**只拒绝它自己的承诺** ✓——
+  //      调用者手里拿到的是**承诺** ✗、不是「这一次调用抛了」✗，所以
+  //      `try { boom(); } catch {}` 在 JS 里**永远接不住**它 ✓（Node 打 `called` ✓）。
+  //      本仓原来把它**展开进了调用者的 `catch`** ✗（打 `call-caught` ✓）——
+  //      根子是「承诺被拒绝」与「这一次调用抛了」被认成了一件事 ✓。
+  //   2. `await` 一个**已经拒绝**的承诺**也要让出一个 tick** ✓——本仓原来在 `DoAwait` 里
+  //      当场抛 ✗，于是那个 async 函数**整段体同步跑完** ✓，把后面排好的微任务全插到前面 ✗。
+  //      同一条纪律在 `DoAwait` 的兑现那一支上一直是对的 ✓——同一个形状两种时序 ✗。
+  //
+  // 期望值是 **Node 24 的实测输出**（同一份源码喂 `node --experimental-transform-types`，
+  // 逐行见下 ✓）；它同时在覆盖度语料里被 `c371-rt-async-error-paths` 每次跑门对拍一遍 ✓。
+  const source = [
+    "async function boom() { throw new Error(\"boom\"); }",
+    "async function outerBoom() { try { boom(); console.log(\"called\"); } catch (e) { console.log(\"call-caught\"); } console.log(\"outer-end\"); }",
+    "async function awaited() { try { await boom(); } catch (e) { console.log(\"await-caught\"); } console.log(\"await-end\"); }",
+    "async function rejected() { try { await Promise.reject(\"r\"); } catch (e) { console.log(\"rej-caught\", e); } }",
+    "outerBoom();",
+    "awaited();",
+    "rejected();",
+    "console.log(\"sync\");",
+  ].join("\n");
+  const lines = [];
+  const request = new RunRequest();
+  request.Sources = [source];
+  request.Entry = "";
+  const res = RunSources(request, (text) => lines.push(text), () => null);
+  eq(res.Outcome, HostOutcome.Ok, "跑到底（这一抛不该冒成宿主异常）：" + res.Message);
+  eq(
+    lines.join("\n"),
+    ["called", "outer-end", "sync", "await-caught", "await-end", "rej-caught r"].join("\n"),
+    "与 Node 逐行一致：调用者的 catch 没接住那一抛、`await` 让出了一个 tick",
+  );
+});
+
 console.log("");
 console.log(`值模型 / 堆 / 回收器 / IR / 装载验证 / 执行器 / 属性 / this / 访问器 / 生成器 / 承诺 / 宿主 / P0雏形：${passed} 条通过，${failed} 条失败`);
 process.exitCode = failed === 0 ? 0 : 1;

@@ -334,7 +334,7 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 `typescript/print-ast-common.xl.md` 逐块搬进各 token 的 `PrintAst`——
 token 自己出的那一格最懂自己的形状。
 
-### 当前状态（第 610 轮实测）
+### 当前状态（第 611 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
@@ -342,9 +342,9 @@ token 自己出的那一格最懂自己的形状。
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1079** 条用例，0 条不合格 |
-| `runtime:check` | **242 / 242** |
+| `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1700 / 1713**（99.4%）：引擎 99.0% / 降级 **100%** / 标准库 98.9% / 端到端 99.4% |
+| `coverage` | **1701 / 1713**（99.4%）：引擎 99.2% / 降级 **100%** / 标准库 98.9% / 端到端 99.4% |
 | `npm run gates` | 上面六道一次跑完（实测墙钟 **~20s**） |
 
 结构性缺口（**只剩这些，且都是「标签表表达不了」或语言配置**）：

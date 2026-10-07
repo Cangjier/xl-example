@@ -976,9 +976,6 @@ export const EXPECTATIONS = {
   // ---- `for..of` 提前 `break` 时要调迭代器的 `return()`（本仓没调 ⇒ Node 打了 `closed`、本仓没打）。
   "c371-rt-iteration-protocol-forms": { expect: "differ", why: "`for..of` 提前 `break` 时要调迭代器的 `return()`（本仓没调 ⇒ Node 打了 `closed`、本仓没打）。" },
 
-  // ---- async 的错误路径与微任务次序（`fin` 早于 `1 boom`，与 Node 相反）。
-  "c371-rt-async-error-paths": { expect: "differ", why: "async 的错误路径与微任务次序（`fin` 早于 `1 boom`，与 Node 相反）。" },
-
   // ---- 换掉 `C.prototype` 之后 `instanceof` 的判定（Node 给 `true true true`）。
 
   // ---- `findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。

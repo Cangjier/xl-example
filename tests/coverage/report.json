@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.35,
+  "progressPercent": 99.4,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 497,
+      "pass": 498,
       "blocked": 0,
-      "differ": 5,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 99
+      "coverage": 99.2
     },
     {
       "layer": "exec",
@@ -94,12 +94,6 @@
       "layer": "runtime",
       "title": "迭代协议：手动 next、提前退出、return() 收尾",
       "detail": "stdout 不同：第 3 行：node «closed» vs tsrun «{\"value\":1,\"done\":false} {\"value\":2,\"done\":false}»"
-    },
-    {
-      "id": "c371-rt-async-error-paths",
-      "layer": "runtime",
-      "title": "async 里的抛错 / 拒绝 / try-catch / finally",
-      "detail": "stdout 不同：第 1 行：node «1 boom» vs tsrun «fin»"
     },
     {
       "id": "c371-rt-console-inspect-shapes",
