@@ -38,47 +38,47 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 89.04,
+  "progressPercent": 92.97,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 444,
-      "blocked": 44,
-      "differ": 14,
+      "pass": 463,
+      "blocked": 23,
+      "differ": 16,
       "nodefail": 0,
-      "coverage": 88.45
+      "coverage": 92.23
     },
     {
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 387,
-      "blocked": 17,
+      "pass": 390,
+      "blocked": 14,
       "differ": 7,
       "nodefail": 0,
-      "coverage": 94.16
+      "coverage": 94.89
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 605,
-      "blocked": 17,
+      "pass": 611,
+      "blocked": 11,
       "differ": 12,
       "nodefail": 0,
-      "coverage": 95.43
+      "coverage": 96.37
     },
     {
       "layer": "e2e",
       "weight": 0.2,
       "total": 166,
-      "pass": 123,
-      "blocked": 38,
+      "pass": 144,
+      "blocked": 17,
       "differ": 5,
       "nodefail": 0,
-      "coverage": 74.1
+      "coverage": 86.75
     }
   ],
   "blocked": [
@@ -87,24 +87,6 @@
       "layer": "runtime",
       "title": "经典的 switch 计数（不带 break 的累加）",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: case"
-    },
-    {
-      "id": "ctl-forof-custom-iterable",
-      "layer": "runtime",
-      "title": "`for..of` 走自定义可迭代物（Symbol.iterator）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "fn-method-this",
-      "layer": "runtime",
-      "title": "方法调用里的 this 就是接收者（含转手调用）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "obj-getter-setter",
-      "layer": "runtime",
-      "title": "访问器：读走 getter、写走 setter、内部用另一个字段",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
     },
     {
       "id": "exc-finally-order",
@@ -143,40 +125,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "rt-recursive-data-walk",
-      "layer": "runtime",
-      "title": "递归走一棵树，用 reduce + concat 收集路径",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "rt-object-method-shorthand",
-      "layer": "runtime",
-      "title": "对象字面量：简写方法、简写属性、计算键",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "rt-getter-setter-side-effects",
-      "layer": "runtime",
-      "title": "访问器：读一次跑一次、写一次跑一次",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "rt-custom-iterable-object",
-      "layer": "runtime",
-      "title": "自定义可迭代对象：Symbol.iterator 返回带 next 的对象",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "rt-deep-recursion-return",
       "layer": "runtime",
       "title": "深递归：回程顺序与累加",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "rt-error-in-getter-caught",
-      "layer": "runtime",
-      "title": "getter 里抛：try 接得住、类别还在",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
     },
     {
       "id": "c291-rt-iteration-protocol-forms",
@@ -197,34 +149,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
     },
     {
-      "id": "c304-rt-getter-setter-on-prototype-object",
-      "layer": "runtime",
-      "title": "对象字面量里的访问器（get / set 一对）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c304-rt-iife-arrow-this",
-      "layer": "runtime",
-      "title": "箭头 IIFE 里的 this 与外部一致",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c304-rt-promise-then-returns-promise",
       "layer": "runtime",
       "title": "then 里返回一个承诺：会被展开",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c304-rt-getter-throws-and-finally",
-      "layer": "runtime",
-      "title": "getter 里抛：try/finally 收尾，属性没变",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c305-rt-arrow-in-method-captures-this",
-      "layer": "runtime",
-      "title": "方法里的箭头回调捕获 `this`",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
     },
     {
       "id": "c317-rt-promise-adoption-chain",
@@ -237,30 +165,6 @@
       "layer": "runtime",
       "title": "数组方法链：map/filter/reduce/sort 一起用",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c323-rt-iife-and-arrow-this",
-      "layer": "runtime",
-      "title": "箭头抓外层的 this；方法里的 this 指向接收者",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-rt-function-method-forms",
-      "layer": "runtime",
-      "title": "函数的三种写法与 `this` 的取法",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-rt-symbol-iterator-manual",
-      "layer": "runtime",
-      "title": "自定义迭代器：显式取出 `Symbol.iterator` 再推进",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
-      "id": "c330-ex-as-inside-spread",
-      "layer": "runtime",
-      "title": "`as` 落在展开位里：`[...(o as any)]`",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
     },
     {
       "id": "c330-ex-ternary-arrow-branches",
@@ -281,12 +185,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
     },
     {
-      "id": "c371-rt-iteration-protocol-forms",
-      "layer": "runtime",
-      "title": "迭代协议：手动 next、提前退出、return() 收尾",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-rt-promise-chaining-values",
       "layer": "runtime",
       "title": "承诺链：值的透传、返回承诺、链上抛错",
@@ -305,18 +203,6 @@
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
     },
     {
-      "id": "c371-rt-getter-on-prototype-chain",
-      "layer": "runtime",
-      "title": "访问器沿原型链的查找与 this",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-rt-object-to-primitive-hints",
-      "layer": "runtime",
-      "title": "ToPrimitive 的三种 hint 与顺序",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-rt-error-catch-and-rethrow",
       "layer": "runtime",
       "title": "错误的捕获、分类、重抛与 finally 的清理",
@@ -329,28 +215,10 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "c371-rt-array-and-object-nesting-json",
-      "layer": "runtime",
-      "title": "嵌套结构的 JSON 往返与逐层校验",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-rt-getter-throws-and-cleanup",
-      "layer": "runtime",
-      "title": "访问器里抛错时的展开与清理",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-rt-exception-across-frames",
       "layer": "runtime",
       "title": "异常跨多层函数帧展开并回到调用者",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "ex-object-literal-accessors",
-      "layer": "exec",
-      "title": "对象字面量里的 get / set（含计算键）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "ex-function-decl-in-block",
@@ -363,12 +231,6 @@
       "layer": "exec",
       "title": "switch 没有 default / 只有 default / 空体",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression SwitchStatement"
-    },
-    {
-      "id": "ex-object-literal-accessors-computed",
-      "layer": "exec",
-      "title": "对象字面量里的访问器与计算键访问器",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "ex-function-decl-in-block-scope",
@@ -413,12 +275,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BindingElement"
     },
     {
-      "id": "c371-ex-satisfies-and-as-const-combo",
-      "layer": "exec",
-      "title": "satisfies + as const：值不变、类型收窄",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "c374-ex-throw-in-reentrant-callback",
       "layer": "exec",
       "title": "回调里**再进一次**原生回调并且抛出：异常要一路穿回最外层（**还没修**）",
@@ -455,12 +311,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "symbol-iterator",
-      "layer": "stdlib",
-      "title": "Symbol.iterator：自定义可迭代物进展开 / for..of",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
       "id": "error-custom-subclass",
       "layer": "stdlib",
       "title": "自定义错误类：继承 Error、带额外字段、能接住",
@@ -485,46 +335,16 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c291-symbol-toprimitive-custom",
-      "layer": "stdlib",
-      "title": "Symbol.toPrimitive 决定三种 hint",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
-      "id": "c304-std-object-defineproperties-forms",
-      "layer": "stdlib",
-      "title": "defineProperties 一次装好几格",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "c304-std-promise-finally-order",
       "layer": "stdlib",
       "title": "finally 的返回值不改结论、次序在中间",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c305-std-json-stringify-nested-tojson",
-      "layer": "stdlib",
-      "title": "嵌套的 `toJSON` 一层层都问",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "c305-std-then-returns-promise-adoption",
       "layer": "stdlib",
       "title": "`then` 回调返回承诺：结果承诺采纳它",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c305-std-custom-iterable-symbol-iterator",
-      "layer": "stdlib",
-      "title": "对象自定义 `Symbol.iterator` 之后能进 `for..of` 与展开",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c305-std-object-defineproperty-getter-setter",
-      "layer": "stdlib",
-      "title": "`defineProperty` 的 get/set 描述符能用",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c318-std-promise-executor-settle",
@@ -563,12 +383,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c305-e2e-order-state-machine",
-      "layer": "e2e",
-      "title": "订单状态机：闭包 + `switch` + 抛错收尾",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c305-e2e-event-emitter-generic",
       "layer": "e2e",
       "title": "泛型事件总线：`Map` + `Set` + 回调 + `Array.from`",
@@ -587,42 +401,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "c323-e2e-word-index-and-search",
-      "layer": "e2e",
-      "title": "端到端：建一个倒排索引并做查询（只用字符串方法）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c323-e2e-state-machine-with-map",
-      "layer": "e2e",
-      "title": "端到端：用 Map 写的状态机驱动一段输入",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-e2e-graph-bfs",
-      "layer": "e2e",
-      "title": "图的最短路径：邻接表 + 队列 + 距离表",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c330-e2e-rpn-calculator",
-      "layer": "e2e",
-      "title": "逆波兰计算器：栈 + 运算符表 + 报错",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c330-e2e-json-path",
-      "layer": "e2e",
-      "title": "按路径取值：点号路径 + 缺省 + 数组下标",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-e2e-custom-iterable-collection",
-      "layer": "e2e",
-      "title": "自定义可迭代集合：Symbol.iterator + for..of + 展开",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
       "id": "c331-e2e-deep-clone-and-compare",
       "layer": "e2e",
       "title": "深拷贝与结构比较（不用 structuredClone）",
@@ -633,48 +411,6 @@
       "layer": "e2e",
       "title": "拒绝的四条路：执行器抛、then 抛、reject 调、throw 抛",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c338-e2e-this-binding-forms",
-      "layer": "e2e",
-      "title": "`this` 的几种绑法：方法、摘下来、call/apply/bind、箭头",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c338-e2e-accessors-and-freeze",
-      "layer": "e2e",
-      "title": "访问器、`defineProperty` 与冻结",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-e2e-dijkstra",
-      "layer": "e2e",
-      "title": "Dijkstra 最短路：邻接表 + 朴素选点",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-e2e-topological-sort",
-      "layer": "e2e",
-      "title": "拓扑排序 + 环检测",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-e2e-mustache-template",
-      "layer": "e2e",
-      "title": "极简模板引擎：变量、点路径、循环、条件",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-log-aggregation",
-      "layer": "e2e",
-      "title": "日志解析与聚合：级别、耗时、热点",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-validation-library",
-      "layer": "e2e",
-      "title": "校验库：错误累积与路径报告",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-e2e-rational-and-complex",
@@ -695,28 +431,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "c371-e2e-async-generator-paging",
-      "layer": "e2e",
-      "title": "异步生成器分页拉取与聚合",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-event-sourced-orders",
-      "layer": "e2e",
-      "title": "订单状态机：事件驱动的状态流转与校验",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "c371-e2e-csv-full",
       "layer": "e2e",
       "title": "CSV 解析（带引号与转义）与写回",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
-    },
-    {
-      "id": "c371-e2e-stack-machine",
-      "layer": "e2e",
-      "title": "栈式虚拟机：字节码解释器",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-e2e-priority-scheduler",
@@ -731,22 +449,10 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "c371-e2e-json-schema-lite",
-      "layer": "e2e",
-      "title": "极简 JSON Schema 校验：类型、必需、数组项、枚举",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-e2e-ast-walker",
       "layer": "e2e",
       "title": "表达式 AST：求值、打印、变量收集",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
-    },
-    {
-      "id": "c371-e2e-journal-and-undo",
-      "layer": "e2e",
-      "title": "编辑器模型：命令、撤销栈、重做",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-e2e-multi-source-merge",
@@ -759,18 +465,6 @@
       "layer": "e2e",
       "title": "迭代器工具箱：map / filter / take / zip / cycle",
       "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
-    },
-    {
-      "id": "c371-e2e-serialization-roundtrip",
-      "layer": "e2e",
-      "title": "自定义序列化：类型标签、循环引用、还原",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-permissions-matrix",
-      "layer": "e2e",
-      "title": "权限矩阵：角色 × 资源 × 动作 + 审计",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
     },
     {
       "id": "c384-e2e-union-and-intersection-shapes",
@@ -817,6 +511,12 @@
       "detail": "stdout 不同：第 1 行：node «1,3,5 6» vs tsrun « 6»"
     },
     {
+      "id": "c304-rt-getter-throws-and-finally",
+      "layer": "runtime",
+      "title": "getter 里抛：try/finally 收尾，属性没变",
+      "detail": "stdout 不同：第 2 行：node «5» vs tsrun «undefined»"
+    },
+    {
       "id": "c315-rt-env-leave-on-continue",
       "layer": "runtime",
       "title": "`continue` 那一跳也要重建环境：两种循环的每轮一格都经得起 `continue`",
@@ -827,6 +527,12 @@
       "layer": "runtime",
       "title": "super 与 this：方法、箭头、解构、回调里的绑定",
       "detail": "stdout 不同：第 2 行：node «detached needs this» vs tsrun «Dundefined»"
+    },
+    {
+      "id": "c371-rt-iteration-protocol-forms",
+      "layer": "runtime",
+      "title": "迭代协议：手动 next、提前退出、return() 收尾",
+      "detail": "stdout 不同：第 2 行：node «got 1» vs tsrun «{\"value\":1,\"done\":false} {\"value\":2,\"done\":false}»"
     },
     {
       "id": "c371-rt-async-error-paths",
@@ -1047,21 +753,6 @@
       "detail": "stdout 不同：第 2 行：node «40» vs tsrun «0»"
     },
     {
-      "id": "ctl-forof-custom-iterable",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "fn-method-this",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "obj-getter-setter",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "exc-finally-order",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
@@ -1102,39 +793,14 @@
       "detail": "stdout 不同：第 1 行：node «1,2,3 1:3» vs tsrun «1,3,2 1:3»"
     },
     {
-      "id": "rt-recursive-data-walk",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "rt-while-continue-progress",
       "layer": "runtime",
       "detail": "stdout 不同：第 1 行：node «1,3,5 6» vs tsrun « 6»"
     },
     {
-      "id": "rt-object-method-shorthand",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "rt-getter-setter-side-effects",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "rt-custom-iterable-object",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "rt-deep-recursion-return",
       "layer": "runtime",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
-    },
-    {
-      "id": "rt-error-in-getter-caught",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
     },
     {
       "id": "c291-rt-iteration-protocol-forms",
@@ -1152,16 +818,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: new"
     },
     {
-      "id": "c304-rt-getter-setter-on-prototype-object",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c304-rt-iife-arrow-this",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c304-rt-promise-then-returns-promise",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
@@ -1169,12 +825,7 @@
     {
       "id": "c304-rt-getter-throws-and-finally",
       "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c305-rt-arrow-in-method-captures-this",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
+      "detail": "stdout 不同：第 2 行：node «5» vs tsrun «undefined»"
     },
     {
       "id": "c315-rt-env-leave-on-continue",
@@ -1192,26 +843,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c323-rt-iife-and-arrow-this",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-rt-function-method-forms",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-rt-symbol-iterator-manual",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
-      "id": "c330-ex-as-inside-spread",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
       "id": "c330-ex-ternary-arrow-branches",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: binary operator ?"
@@ -1225,11 +856,6 @@
       "id": "c371-rt-try-catch-finally-matrix",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TryStatement"
-    },
-    {
-      "id": "c371-rt-iteration-protocol-forms",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-rt-promise-chaining-values",
@@ -1247,29 +873,9 @@
       "detail": "tsrun: 第 0 份模块求值：step budget exhausted"
     },
     {
-      "id": "c371-rt-getter-on-prototype-chain",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-rt-object-to-primitive-hints",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-rt-error-catch-and-rethrow",
       "layer": "runtime",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "c371-rt-array-and-object-nesting-json",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-rt-getter-throws-and-cleanup",
-      "layer": "runtime",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-rt-exception-across-frames",
@@ -1280,11 +886,6 @@
       "id": "ex-try-finally-return",
       "layer": "exec",
       "detail": "stdout 不同：第 4 行：node «body 1» vs tsrun «f 1»"
-    },
-    {
-      "id": "ex-object-literal-accessors",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "ex-function-decl-in-block",
@@ -1300,11 +901,6 @@
       "id": "ex-for-of-string-labels",
       "layer": "exec",
       "detail": "stdout 不同：第 2 行：node «1 3» vs tsrun «»"
-    },
-    {
-      "id": "ex-object-literal-accessors-computed",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "ex-function-decl-in-block-scope",
@@ -1327,19 +923,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression TypeLiteral"
     },
     {
-      "id": "c371-ex-satisfies-and-as-const-combo",
-      "layer": "exec",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "json-parse-error",
       "layer": "stdlib",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
-    },
-    {
-      "id": "symbol-iterator",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
     },
     {
       "id": "error-custom-subclass",
@@ -1362,39 +948,14 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c291-symbol-toprimitive-custom",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
-      "id": "c304-std-object-defineproperties-forms",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "c304-std-promise-finally-order",
       "layer": "stdlib",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c305-std-json-stringify-nested-tojson",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "c305-std-then-returns-promise-adoption",
       "layer": "stdlib",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
-    },
-    {
-      "id": "c305-std-custom-iterable-symbol-iterator",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c305-std-object-defineproperty-getter-setter",
-      "layer": "stdlib",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c318-std-promise-executor-settle",
@@ -1432,11 +993,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c305-e2e-order-state-machine",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c305-e2e-event-emitter-generic",
       "layer": "e2e",
       "detail": "tsrun: 还没实现的构造或语言层错误：ast node ForOfStatement has no child initializer"
@@ -1452,36 +1008,6 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "c323-e2e-word-index-and-search",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c323-e2e-state-machine-with-map",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-e2e-graph-bfs",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c330-e2e-rpn-calculator",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c330-e2e-json-path",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c330-e2e-custom-iterable-collection",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
-    },
-    {
       "id": "c331-e2e-deep-clone-and-compare",
       "layer": "e2e",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression ExpressionStatement"
@@ -1492,44 +1018,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression DotToken"
     },
     {
-      "id": "c338-e2e-this-binding-forms",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c338-e2e-accessors-and-freeze",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-e2e-dijkstra",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
-      "id": "c371-e2e-topological-sort",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-e2e-bst",
       "layer": "e2e",
       "detail": "stdout 不同：第 1 行：node «20,30,30,40,50,60,70,80» vs tsrun «»"
-    },
-    {
-      "id": "c371-e2e-mustache-template",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-log-aggregation",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-validation-library",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-e2e-rational-and-complex",
@@ -1542,24 +1033,9 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "c371-e2e-async-generator-paging",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-event-sourced-orders",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
       "id": "c371-e2e-csv-full",
       "layer": "e2e",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: iuotes"
-    },
-    {
-      "id": "c371-e2e-stack-machine",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
     },
     {
       "id": "c371-e2e-priority-scheduler",
@@ -1572,34 +1048,14 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: catch"
     },
     {
-      "id": "c371-e2e-json-schema-lite",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-e2e-ast-walker",
       "layer": "e2e",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BarToken"
     },
     {
-      "id": "c371-e2e-journal-and-undo",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member ExpressionStatement"
-    },
-    {
       "id": "c371-e2e-iterator-toolkit",
       "layer": "e2e",
       "detail": "tsrun: 脚本抛出：the generator neither suspended nor finished (status 3)"
-    },
-    {
-      "id": "c371-e2e-serialization-roundtrip",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
-    },
-    {
-      "id": "c371-e2e-permissions-matrix",
-      "layer": "e2e",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: object literal member LabeledStatement"
     },
     {
       "id": "c384-e2e-union-and-intersection-shapes",

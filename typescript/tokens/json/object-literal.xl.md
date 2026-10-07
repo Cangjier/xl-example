@@ -5,11 +5,10 @@ import { Reorganization } from "../../../core/syntax/reorganization.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, GetSkipPrevious } from "../../../core/extensions/list-extension.xl.md"
-import { IsStatementStart, SkipPreviousWrapSymbol, WordText } from "../../text-common-util.xl.md"
+import { IsObjectLiteralBrace, IsStatementStart } from "../../text-common-util.xl.md"
 import { ParsePipeline } from "../../parse-pipeline.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
-import { GenericType } from "../generic-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
 import { LineWrap } from "../line-wrap.xl.md"
 ```
@@ -34,80 +33,15 @@ Json 对象：把 `{...}` 这种字面量从「一个花括号 + 里面的内容
 
 `index` 处的 `{` 是不是一个 Json 对象的开头。
 
-它与单参数版同名，所以多参数的这个叫 `IsObjectAt`（单参数版仍叫 `IsObject`，它被 `As` / `TypeDefine` / `TernaryOperator` / `Lamda` 四个文件调用）。
+**判据本体已经搬到 `../../text-common-util.xl.md` 的 `IsObjectLiteralBrace`** ✓（第 556 轮 ✓）：
+那一句现在有**两个用户** ✗（本规则 ✓ 与两个语句成形器 ✓），而 `statement.xl.md` 不能 import 本文件 ✓
+⇒ 判据必须住在两者都能 import 的那一层 ✓。这里只转调 ✓，判定链条、两处盲点与实测账都在那一处 ✓。
 
-与 `ArrayLiteral` 那套判定的差别：这里**没有** `NullConditionalOperator` 的 `?.[` 检查，也**没有** `ArrayLiteral` / `String` / `Method` 三个排除项。
-
-判定链条（任一条命中就**不是**对象）：**处在语句开头**（那是块语句，见下）；上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `typeof`；是 `Bracket`；是 `GenericType`；是 `=>` 符号。
-
-**「处在语句开头」是块与对象字面量的分界线**：`{ a: 1 }` 单独成句时，JavaScript / TypeScript 把它读成
-**块语句**（里面 `a:` 是标签、`1` 是表达式语句），只有出现在表达式里（`= { … }`、`f({ … })`、
-`return { … }`）才是对象字面量。少了这一条，`stmt-object-vs-block` 那条用例要的
-「块里的一个带标签语句」永远拿不到——`{` 会先被收成 `ObjectLiteral`。
-判据由 `../text-common-util.xl.md` 的 `IsStatementStart` 给出（`LabelReorganization` 用的是同一个）。
-
-**`GenericType` 那一支是必须的**：泛型实参段后面跟的 `{` 是块，不是对象字面量——`class Foo<T> {` 要与 `class Foo {` 同解，`func f<T>(): Array<U> {` 也要与不带泛型的写法同解，否则那个 `{` 会从 `Bracket` 变成 `ObjectLiteral`。
+它与单参数版同名，所以多参数的这个叫 `IsObjectAt`（单参数版仍叫 `IsObject`，它被 `As` /
+`TypeDefine` / `TernaryOperator` / `Lamda` 四个文件调用）。
 
 ```ts
-const current = Get(units, index);
-if (current instanceof Bracket && current.startBracket === "{") {
-  if (IsStatementStart(units, index)) {
-    return false;
-  }
-  const previous = GetSkipPrevious(units, index, (item) => item instanceof LineWrap);
-  // **`export` 后面那个花括号是导出列表，不是对象字面量** ✗（第 548 轮 ✓）：
-  // `export { a as b }` 与 `export type { A } from "m"` 里那个 `{` 都不是对象 ✓ ——
-  // 而下面那条链**只认 `Identifier`** ✗：`export` 一旦被 `KeywordReorganization` 升成
-  // `Keyword` ✓（关闭 reorg 那一档里，`Export` 的关闭前那一趟会跑它 ✓ 见
-  // `../../parse-pipeline.xl.md` 的 `RunCloseRules` ✓），它就整个漏下去 ✓ ⇒
-  // 这一格答「是对象」✗。**同一个词两种形态都要挡** ✓，所以按文本认词 ✓
-  //（`WordText` ✓：两种单元的文本入口不一样 ✓）。
-  // 少了这一条实测怎样 ✗：`Export` 单元的内容成了 `[Keyword(export), ObjectLiteral]` ✗ ⇒
-  // 投影侧那个括号找不到 ✗（`namedExportClause` 只认 `Bracket` ✓）⇒ 缺 `NamedExports` +
-  // 每一格 `ExportSpecifier` / 里面的 `Identifier` ✗（`ex-named.ts` 缺 3 + 字段名 1 ✓，
-  // `expr-as-then-value-operator.ts` 一份就缺 38 ✓）。
-  if (previous !== null && WordText(previous) === "export") {
-    return false;
-  }
-  // **`return` 换行 `{` 是块语句**（第 149 轮）：`return` 是**受限产生式**——
-  // 换行之后那个 `{` 不可能属于 `return`，只能是一条块语句（块里 `a: 1` 还是标签）。
-  // 同一行的 `return { a: 1 }` 才是对象字面量，所以判据要落在**中间有没有软换行**上
-  // （实测 `stmt-asi-return-newline-object.ts`：缺 `Block` / `LabeledStatement` /
-  // `ExpressionStatement` 各 1 + 多出 `ObjectLiteralExpression` / `PropertyAssignment`）。
-  if (
-    previous instanceof Identifier &&
-    previous.Is("return") &&
-    SkipPreviousWrapSymbol(units, index) !== index - 1
-  ) {
-    return false;
-  }
-  // **`throw { … }` 是对象字面量**（第 119 轮）：`throw` 要的是一个**表达式**，
-  // 而 `throw { message: "x" }` 是遍地都是的写法——原来它被判成**块语句**✗
-  // （`{` 走进 `BlockReorganization` 补队列，于是 `message` 成了标签、
-  // 投影给出 `ThrowStatement > Block`，降级层报的是 `unimplemented: expression Block`，
-  // 而报错那一行看上去完全正常）。
-  // 换行那一条与 `return` 同款：两者都是**受限产生式**，换行之后那个 `{` 不可能属于它。
-  if (
-    previous instanceof Identifier &&
-    previous.Is("throw") &&
-    SkipPreviousWrapSymbol(units, index) !== index - 1
-  ) {
-    return false;
-  }
-  if (previous instanceof Identifier && previous.IsAny(["return", "throw", "typeof"]) === false) {
-    return false;
-  } else if (previous instanceof Bracket) {
-    return false;
-  } else if (previous instanceof GenericType) {
-    return false;
-  } else if (previous instanceof SymbolToken) {
-    if (previous.Is("=>")) {
-      return false;
-    }
-  }
-  return true;
-}
-return false;
+return IsObjectLiteralBrace(units, index);
 ```
 
 ## method IsObject:(unit:Token | null)=>bool

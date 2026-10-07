@@ -9,7 +9,7 @@ import { Reorganization } from "../../core/syntax/reorganization.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipPreviousTrivia, HasTypeColonBefore, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipPreviousTrivia, HasTypeColonBefore, IsObjectLiteralBrace, IsTriviaUnit, SkipNextTrivia, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { Enum } from "./enum/enum.xl.md"
@@ -385,6 +385,19 @@ if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteral
 // 要按 `Context` 分辨 ✓，那是另一笔账 ✓。
 if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as Bracket).startBracket === "(")) {
   return;
+}
+// **`{` 括号：值位的花括号里也不收语句壳** ✓（第 556 轮 ✓）：对象字面量 / 类型字面量里装的是
+// **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectReorganization` 问的是**同一句** ✓
+//（`IsObjectLiteralBrace` ✓，见 `../text-common-util.xl.md` ✓）。
+// 少了它会怎样 ✗：多行对象字面量里每个成员被包成一个 `Statement` ✗ ⇒
+// `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`** ✗
+// ⇒ 整片投成 `ExpressionStatement` ✗（实测 `ex-object-literal.ts` 缺 37 ✓）；
+// 而且壳里那个 `b:` 还会被 `Label` 收走 ✓（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」✗）。
+if (owner === "Bracket" && (unit as Bracket).startBracket === "{") {
+  const holder = unit.Parent;
+  if (holder !== null && IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit))) {
+    return;
+  }
 }
 const data = unit.Data;
 if (Array.isArray(data) === false || data.length === 0) {
@@ -1161,6 +1174,19 @@ if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteral
 // **`[` / `(` 括号里也不收语句壳** ✓（第 515 轮 ✓，与 `FormFrom` 那一处同一口径 ✓）。
 if ((owner === "Bracket") && ((unit as Bracket).startBracket === "[" || (unit as Bracket).startBracket === "(")) {
   return result;
+}
+// **`{` 括号：值位的花括号里也不收语句壳** ✓（第 556 轮 ✓）：对象字面量 / 类型字面量里装的是
+// **成员** ✓，不是语句 ✓ —— 判据与 `JsonObjectReorganization` 问的是**同一句** ✓
+//（`IsObjectLiteralBrace` ✓，见 `../text-common-util.xl.md` ✓）。
+// 少了它会怎样 ✗：多行对象字面量里每个成员被包成一个 `Statement` ✗ ⇒
+// `ObjectLiteral.PrintAst` 按顶层逗号切出来的每一组都是**一格 `Statement`** ✗
+// ⇒ 整片投成 `ExpressionStatement` ✗（实测 `ex-object-literal.ts` 缺 37 ✓）；
+// 而且壳里那个 `b:` 还会被 `Label` 收走 ✓（壳的父亲是 `Statement` ⇒ `IsStatementStart` 答「是」✗）。
+if (owner === "Bracket" && (unit as Bracket).startBracket === "{") {
+  const holder = unit.Parent;
+  if (holder !== null && IsObjectLiteralBrace(holder.Data, holder.Data.indexOf(unit))) {
+    return result;
+  }
 }
 const data = unit.Data;
 if (data.length === 0) {

@@ -5035,7 +5035,80 @@ PropertyAccess [0,5)
    `ty-mapped` 13 缺 / 6 多 ✓）—— 与第 551 轮列的第 2 / 3 条相同 ✓；
 3. 一个 `Statement` 壳里两个段头 ✓（`stmt-adversarial-shapes.ts` 的 `[7,2,7,1]` ✓，同上 ✓）。
 
+## 一百五十九、值位花括号里的成员不是语句：判据搬到共用层、两个成形器问同一句（第 556 轮）：984 → **997 / 1037**
 
+起点 **984 / 1037** ✓（缺 242 / 漂 35 / 多 164 / 字段名 2 ✓、解析 1037 / 抛异常 0 ✓）。
+上一节第五节列的第 1 条入口（对象字面量成员那一族 ✓）。
 
+### 一、现场：多行对象字面量 / 类型字面量里，每个成员被包成一个 `Statement`
 
+`ex-object-literal.ts`（37 缺 ✓）的产物一眼就看出来 ✓：`ObjectLiteral` 的孩子是**一个个 `Statement` 壳** ✓
+（`Statement [40,42) > Identifier(a) + SymbolToken(,)` ✓），于是 `ObjectLiteral.PrintAst` 按顶层逗号
+切出来的每一组都是**一格 `Statement`** ✗ ⇒ 整片投成 `ExpressionStatement` ✗（缺 37 ✓）。
+`ty-object-literal.ts`（12 缺 / 6 多 ✓）更狠 ✓：`TypeLiteralBody` 里不但有壳 ✓，
+壳里那个 `a:` 还被 `Label` 收走了 ✓（`Statement > Label(a:) + Identifier(number)` ✗）——
+壳的父亲是 `Statement` ✓ ⇒ `IsStatementStart` 答「是」✓ ⇒ 标签规则照收 ✗。
+
+### 二、真因：两个语句成形器的排除名单里**没有值位花括号**
+
+`Statement.FormFrom` 与 `StatementBranch.Condition` 各有一张「不收语句壳」的名单 ✓
+（`ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody` ✓，`[` / `(` 括号 ✓），
+而 **`{` 括号**不在里面 ✗ —— `FormFrom` 那一处的注释自己写着：
+「`{` 既可能是对象字面量（无语句 ✓）也可能是块（有语句 ✓），要按 `Context` 分辨 ✓，**那是另一笔账** ✗」✓。
+这一轮就是那笔账 ✓。
+
+### 三、修法：判据搬到 `text-common-util.xl.md`，两个成形器问同一句
+
+**为什么不能直接用现成的那一句** ✗：判据本来住在 `json/object-literal.xl.md` 的
+`JsonObjectReorganization.IsObjectAt` ✓，可 `statement.xl.md` **不能** import 它 ✗
+（后者 import `parse-pipeline.xl.md` ✓，而那一份反过来 import `statement.xl.md` ✓，绕出环 ✓）——
+与第 553 轮 `IsSwitchLabelColon` 放在同一层是同一条理由 ✓。
+
+于是：判据本体搬成 `text-common-util.xl.md` 的 **`IsObjectLiteralBrace(units, index)`** ✓，
+`IsObjectAt` 只转调 ✓（**一个判据、两个用户** ✓）；两个成形器各加一句 ✓。
+
+搬家时顺带补了**两处盲点** ✗（都是这一轮的实测逼出来的 ✓，且都是**真的判错** ✓，不只是为成形器让路 ✓）：
+
+| 盲点 | 症状 | 修法 |
+| --- | --- | --- |
+| `declare module "x" { … }` 前面是**字符串** | 模块体被判成对象字面量 ⇒ 体里 `const a: number;` 收不出 `VariableStatement`（`mod-declare-module-const.ts` 从绿变红 ✓） | 链上补一条「上一个实义单元是 `String` ⇒ 不是对象」✓ |
+| `outer: { … }` 的冒号是**标签冒号** | 块被判成对象字面量 ⇒ 三个标签块用例从绿变红 ✓ | 冒号那一支递归问 `EnclosingBraceIsObject` ✓（`{ a: { b: 1 } }` 里那个内层花括号靠它才分得开 ✓） |
+
+**还有一处口径对齐** ✓：`previous` 的跳过原来是「只跳软换行」✗ ⇒
+`function f() /* between */ {` 会落到那格注释上 ✓ ⇒ 函数体被判成值位 ✗
+（`lex-comment-between-head-and-body.ts` 从绿变红 ✓）；改成与 `IsStatementStart` 一样跳 `IsTriviaUnit` ✓。
+
+### 四、读数
+
+| 项 | 第 555 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 984 | **997 / 1037** ✓（+13 ✓） |
+| 缺节点 | 242（61 类） | **132**（32 类）✓（−110 ✓） |
+| 多出来的节点 | 164（39 类） | **122**（33 类）✓（−42 ✓） |
+| 区间漂移 | 35（18 类） | **35**（14 类）✓（持平 ✓） |
+| 字段名不符 | 2 | **2** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21761 | **21740** ✓ |
+
+逐文件前后名单做差 ✓（`tmp/recon/r555-perfile.txt` ↔ `tmp/recon/r556-perfile.txt` ✓）：
+**变绿 13 份、变差 0 份** ✓ —— `ex-object-literal` ✓、`ty-mapped-as-remap` ✓、`ty-mapped` ✓、
+`ty-object-literal` ✓、`lx-member-keywords` ✓、`type-object-index` ✓、
+`type-object-call-construct-signature` ✓、`type-object-getter-setter` ✓、
+`decl-destructure-type-annotation` ✓、`decl-func-destructured-params-typed` ✓、
+`type-declare-const-object` ✓、`type-object-hybrid` ✓、`type-empty-tuple` ✓。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **239 / 242** ✓（**+2** ✓，
+第 555 轮末是 237 ✓）；`runtime:cli` **76 / 79** ✓（**+6** ✓，第 555 轮末是 70 ✓）；
+`samples` 仍红 ✗（还是那两处 ✓）；`coverage` **1608 / 1713** ✓（**+49** ✓：blocked 116 → **65** ✓、
+differ 38 → **40** ✓、bad 0 ✓、整体加权 89.0% → **93.0%** ✓，落盘 `tests/coverage/report.json` ✓）；
+**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **声明头换行之后的 `{`** ✓（下一轮做掉了 ✓）：`lex-generic-union-constraint.ts`（23 缺 / 7 多 ✓）
+   与 `lex-generic-multiline-constraints.ts`（17 缺 / 7 多 ✓）—— 接口头换行之后，
+   整个接口连成员一起消失 ✗；
+2. `stmt-adversarial-shapes.ts` 的一个壳里两个段头 ✓（同上 ✓）；
+3. `as` + 联合那一族 ✓（`expr-as-leading-pipe-union` 6 缺 / 3 漂 / 7 多 ✓、
+   `type-union-in-as-expression` 同形 ✓、`expr-as-union-multiline` ✓、`type-union-leading-bar` ✓）。
 

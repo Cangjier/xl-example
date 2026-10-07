@@ -798,6 +798,130 @@ return true;
 于是整个 `switch` / 函数体被**重复重组**一遍（实测 `switch` 的六个用例与样例夹具当场变形）。
 只有接在 `}` 之后才算新语句（`{ … } { … }`）。
 
+# method IsObjectLiteralBrace:(units:Array<Token>, index:number)=>bool
+
+`index` 处那个 `{` 是不是**值位的花括号**——对象字面量（也含类型字面量那种「装成员」的花括号）。
+
+**它是从 `JsonObjectReorganization.IsObjectAt` 搬下来的** ✓（第 556 轮 ✓）：这一句**有两个用户** ✗ ——
+那条重组规则问它「是不是对象」✓、两个**语句成形器**问它「要不要在里面收语句壳」✗，
+两边各写一份就会漂 ✓（一个说「是」、另一个说「不是」✓）。
+放在这一层是因为 `statement.xl.md` **不能** import `json/object-literal.xl.md` ✗
+（后者 import `parse-pipeline.xl.md` ✓，而那一份反过来 import `statement.xl.md` ✓，绕出环 ✓）——
+与 `IsSwitchLabelColon` 放在这里（第 553 轮 ✓）是同一条理由 ✓。
+
+第 556 轮补的两处盲点（都是**语句成形器**那一侧实测出来的 ✗）：
+
+- **`declare module "x" { … }` 前面是字符串** ✓ ⇒ 那是**模块体** ✓，不是对象字面量 ✗
+  （少了这一条：模块体里的 `const a: number;` 收不出 `VariableStatement` ✓，
+  实测 `mod-declare-module-const.ts` 从绿变红 ✓）；
+- **`outer: { … }` 的冒号是标签冒号** ✓ ⇒ 那一格是**块** ✗（里面装语句 ✓）。
+  它与 `{ a: { b: 1 } }` 里那个内层花括号词法同形 ✓（都是「名字 + 冒号 + `{`」✓），
+  分开它们的只有**外层花括号是不是值位** ✓ —— 于是递归问 `EnclosingBraceIsObject` ✓。
+  少了这一条：三个标签块的用例（`decl-label-block` / `st-label-block` / `stmt-label-block` ✓）
+  从绿变红 ✓。
+
+判定链条（任一条命中就**不是**值位的花括号）：**处在语句开头**（那是块语句 / `case` 段 ✓）；
+`export` 后面那个（导出列表 ✓）；前面是**字符串**（模块体 ✓）；`return` / `throw` **换行**之后那个
+（受限产生式 ⇒ 只能是块 ✓，同一行才是值位 ✓）；**标签冒号**后面那个（块 ✓）；
+上一个跳过软换行的单元是 `Identifier` 且不属于 `return` / `throw` / `typeof`；是 `Bracket`（那是它的体 ✓）；
+是 `GenericType`（泛型实参段后面的 `{` 是块 ✓）；是 `=>` 符号（箭头体 ✓）。
+
+**`GenericType` 按类名认** ✗（本文件不能 import 它 ✓ —— 与 `IsStatementList` 用类名白名单同一条理由 ✓）。
+
+```ts
+const current = Get(units, index);
+if (current instanceof Bracket && current.startBracket === "{") {
+  // **「处在语句开头」是块与对象字面量的分界线**：`{ a: 1 }` 单独成句时读成**块语句**
+  // （里面 `a:` 是标签 ✓），只有出现在表达式里（`= { … }` / `f({ … })` / `return { … }` ✓）
+  // 才是对象字面量 ✓。判据由 `IsStatementStart` 给出（`LabelReorganization` 用的是同一个 ✓）——
+  // `case 1: { … }` 也在这里被挡掉 ✓（`IsStatementStart` 自己认 `case` 段冒号 ✓）。
+  if (IsStatementStart(units, index)) {
+    return false;
+  }
+  // **注释也是 trivia** ✓（第 125 / 556 轮 ✓）：`function f() /* between */ {` 里
+  // 上一个实义单元是 `)` ✓，可**只跳软换行**的话它会落到那格注释上 ✗ ⇒ 下面那条链一个分支都不命中 ✗
+  // ⇒ 函数体被判成**值位**✗ ⇒ 体里那条语句收不出壳 ✓（实测 `lex-comment-between-head-and-body.ts`
+  // 从绿变红 ✓）。`IsStatementStart` 用的是同一个跳过口径 ✓，这里与它对齐 ✓。
+  const previous = GetSkipPrevious(units, index, IsTriviaUnit);
+  // **`export` 后面那个花括号是导出列表，不是对象字面量** ✗（第 548 轮 ✓）：
+  // 下面那条链**只认 `Identifier`** ✗：`export` 一旦被 `KeywordReorganization` 升成
+  // `Keyword` ✓ 就整个漏下去 ✓ ⇒ 这一格答「是对象」✗。所以按文本认词 ✓（`WordText` ✓）。
+  if (previous !== null && WordText(previous) === "export") {
+    return false;
+  }
+  // **声明头后面那个 `{` 不是对象字面量** ✓（第 556 轮 ✓）：`declare module "x" { … }` 前面是
+  // **字符串** ✓（类体 / 接口体 / 枚举体前面是标识符 ✓，下面那条链本来就排掉了 ✓）。
+  if (previous instanceof String) {
+    return false;
+  }
+  // **`return` / `throw` 换行 `{` 是块语句**（第 149 轮 / 第 119 轮）：两者都是**受限产生式** ✓ ——
+  // 换行之后那个 `{` 不可能属于它 ✓，只能是块 ✓；同一行的 `return { a: 1 }` 才是对象字面量 ✓。
+  if (
+    previous instanceof Identifier &&
+    (previous.Is("return") || previous.Is("throw")) &&
+    SkipPreviousWrapSymbol(units, index) !== index - 1
+  ) {
+    return false;
+  }
+  // **`:` 那一格要分开看** ✓（第 556 轮 ✓）：属性冒号 / 类型标注冒号 ⇒ 里面是**成员** ✓；
+  // 标签冒号 ⇒ 里面是**语句** ✓（块 ✓）。分界线是**外层花括号是不是值位** ✓。
+  if (previous instanceof SymbolToken && previous.Is(":")) {
+    const colonIndex = SkipPreviousWrapSymbol(units, index);
+    const nameIndex = SkipPreviousWrapSymbol(units, colonIndex);
+    const name = Get(units, nameIndex);
+    if (
+      name instanceof Identifier &&
+      IsStatementStart(units, nameIndex) &&
+      EnclosingBraceIsObject(units, index) === false
+    ) {
+      return false;
+    }
+    return true;
+  }
+  if (previous instanceof Identifier && previous.IsAny(["return", "throw", "typeof"]) === false) {
+    return false;
+  } else if (previous instanceof Bracket) {
+    return false;
+  } else if (previous !== null && previous.constructor.name === "GenericType") {
+    return false;
+  } else if (previous instanceof SymbolToken) {
+    if (previous.Is("=>")) {
+      return false;
+    }
+  }
+  return true;
+}
+return false;
+```
+
+# method EnclosingBraceIsObject:(units:Array<Token>, index:number)=>bool
+
+**包着 `units[index]` 的那个花括号自己是不是值位的**（对象字面量 / 类型字面量）；没有就 `false`。
+
+第 556 轮补：`outer: { … }`（标签 + 块 ✓）与 `{ a: { b: 1 } }`（对象里的对象 ✓）**词法同形** ✗ ——
+都是「名字 + 冒号 + `{`」✓，分开它们的只有**外面那一层花括号是什么** ✓，所以这一问递归回到
+`IsObjectLiteralBrace` ✓。每一层都往**祖先**走 ✓（`current.Parent` ✓），一定收敛 ✓。
+
+```ts
+const current = Get(units, index);
+if (current === null || current.Parent === null) {
+  return false;
+}
+const holder = current.Parent;
+if (!(holder instanceof Bracket) || holder.startBracket !== "{") {
+  return false;
+}
+const up = holder.Parent;
+if (up === null) {
+  return false;
+}
+const at = up.Data.indexOf(holder);
+if (at < 0) {
+  return false;
+}
+return IsObjectLiteralBrace(up.Data, at);
+```
+
 # method IsCaseClauseColon:(units:Array<Token>, index:number)=>bool
 
 `index` 处的单元前面那个实义单元是不是**开关分支的冒号**（`case X:` / `default:` 的那个 `:`）。
