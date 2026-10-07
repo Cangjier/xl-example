@@ -244,7 +244,47 @@
    还回 `;` 之后「体重新接手 → 下一个成员的头又被判别符分支认下」这条**续行路径**
    没有被验证过，下次要么先在一个两成员的最小文件上把这条路径跑通，再上语料。
 
-## 十六、每步都要钉住的三件事
+## 十六、续行路径那一支的成因与修法（第 429 轮推出来的）
+
+上一轮第 4 条「第一个成员成形之后，后面的成员没跟着成形」，成因可以**顺着字符流推出来**，
+不必再试一遍：
+
+`interface I { a: number; b: string }` 走到第二个成员时的 `InterfaceBody.Data` 是
+
+```
+[Field(a)  ← 已成形
+ ;         ← 第一个成员收尾时还回来的（兄弟）
+ LineWrap  ← 那个空格
+ Identifier(b)  ← 第二个成员的头，刚由 Identifier.AppendIn 造出来
+]
+```
+
+而判别符分支里 `HeadStart` 当时写的是**「最后一个 `ClassMember` 之后那一格」** ⇒ 它返回 **1**
+（`;` 那一格）。于是第二个 `Field` 的**头被算成了 `[; , LineWrap, b]`**——
+`;` 与软换行**被吞进第二个成员里**，`SignIn` 也签在 `;` 的起点上。
+产物因此是「一个成员吃掉了上一个成员的分隔符」，而后面每个成员都错位一格
+（缺 323 / 多 268 主要就是它）。
+
+**修法**（写 `HeadStart` 时要按「往前跳过尾随的分隔符与 trivia」来算，而不是「跳过成员」）：
+
+```ts
+let i = 0;
+for (let k = 0; k < unit.Data.length; k++) {
+  const item = Get(unit.Data, k);
+  if (item === null) continue;
+  if (item instanceof ClassMember) { i = k + 1; continue; }          // 已成形成员
+  if (item instanceof SymbolToken && (item.Is(";") || item.Is(","))) { i = k + 1; continue; }  // 它们的分隔符
+  if (IsTriviaUnit(item)) { continue; }                              // 软换行 / 注释：不推进头起点
+  break;                                                             // 头就从这一格开始
+}
+return i;
+```
+
+要点：**trivia 只跳过、不推进 `i`**（否则头会从 trivia 之后起算，
+而那一段 trivia 就留在体下了——是不是旧形状要由尺子判）；
+分隔符则**推进 `i`**（它属于上一个成员的收尾，不属于下一个成员的头）。
+
+## 十七、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
