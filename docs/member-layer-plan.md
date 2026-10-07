@@ -887,7 +887,31 @@ error[E0005]: source file contains a carriage return; *.xl.md uses LF line endin
 （顺手记一条：`Context` **不是** `TypeDefine`/`MethodDeclaration` 的属性 ✗ —— 想靠
 `typeDefine.Context = this.Context` 抄上下文编译不过 ✓，这条试过了 ✗。）
 
-## 五十六、每步都要钉住的三件事
+## 五十七、挂载那条路的第一次尝试（第 451 轮）：级联不下去，参数表整段塌
+
+按第五十五节的正解做了 `MethodDeclaration.Process` 里「看到顶层 `:` 就建两层并挂载」✗，
+两种挂法都失败 ✓，读数掉到 `cases 1012 / 缺 338` ✗（而上一版是 1032 / 缺 28 ✓）：
+
+| 挂法 | 结果 |
+| --- | --- |
+| `returnType.AddToMounted(typeDefine)` + `this.MountedUnit = returnType` | 字符**停在 `ReturnType` 上** ✗（它没有自己的 `Process` ⇒ 级联不下去 ✗）⇒ 类型与参数整段塌 ✗ |
+| `returnType.Add(typeDefine)` + `this.MountedUnit = typeDefine`（直接挂 `TypeDefine`） | **一样** ✗（缺 338 ✗）⇒ 说明塌的不是挂载目标 ✗，而是**更早**就出问题 ✓ |
+
+症状是第一个形参就坏 ✗（`MISS Parameter onfinally?: (() => void) | undefined | null` ✗）——
+即成员**在参数表阶段**就被打乱了 ✓，而那个 `:` 的判据看起来只在顶层成立 ✓。
+⇒ **下一轮要先量清楚**：给一个只有 `m(a: X): Y` 的最小文件，把
+`MethodDeclaration.Process` 每次被叫到时的 `Data` 与 `MountedUnit` 打出来 ✓，
+看它**在参数表期间**是否也被调用、以及那时的顶层单元是什么 ✗
+（很可能 `?` / `:` 的那一格在参数括号关闭前后**短暂地**出现在成员 `Data` 的顶层 ✓）。
+
+**另外两条流程事实**（这一轮踩到，值得记住）：
+
+- **改了 `.xl.md` 之后要连它的依赖一起 force 构建** ✗：这一轮只 force 构建了
+  `method-declaration`，而 `class-member` 的内容是重建过的 ⇒ `dist` 是旧的 ✗ ⇒
+  tsc 报 `ClassMember.MemberNameText` 不存在 ✗，看着像「重建坏了」其实是构建范围不对 ✓；
+- 访问修饰符要跟基类一致 ✗：`Process` 在基类是 `public` ✓ ⇒ 自己写 `protected` 会编译不过 ✓。
+
+## 五十八、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
