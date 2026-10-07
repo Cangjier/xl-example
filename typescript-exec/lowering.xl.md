@@ -892,6 +892,14 @@ return -1;
 只存名字的话这两处**分不开** ✗，于是静态那一半会去读 `A.prototype.kind` ✓
 ⇒ `undefined` ✓（判据 `rt-class-getter-static-and-inherit` 现场给的正是 `B+undefined` ✓）。
 
+## field IsStrict:bool = false
+
+**这个函数体是严格代码吗**（第 620 轮 ✓）——由 `LowerFunctionValue` 按 `InStrict` 记下来 ✓。
+
+**它唯一的用处**是「当普通函数调时的 `this`」✓：严格给 `undefined` ✓、松散给全局对象 ✓
+（引擎那一支在 `DoCallValue` / `CallNative` ✓）。**不是**「有没有 `"use strict"` 指令」✗——
+本仓只认**类体**这个严格源 ✓（`InStrict` 那一格 ✓）。
+
 ## constructor:(name:string, body:AstNode, params:Array<string>, patch:int, defaultAt:Array<int>, defaults:Array<AstNode>, patternAt:Array<int>, patterns:Array<AstNode>)=>void
 
 登记一个待降级的函数体。
@@ -997,6 +1005,15 @@ this.Label = label;
 **顺带一处已知的次序差** ✗：`return` 那一支**先 close、后 `finally`** ✓——
 而 JS 的规矩是「按进入的次序倒着退」✓（两者嵌套交错时次序应当相反 ✗）。
 **没有判据量着那一种** ✓，写在 `ReturnStatement` 那一段 ✓。
+
+## field IterableSlot:int = -1
+
+**这一层被迭代的那个东西在哪一格** ✓（第 620 轮 ✓）——与 `IteratorSlot` 成对进出 ✓。
+
+**为什么还要记它** ✗：`for..of` 的 `get_iterator` 会把**自带 `Symbol.iterator` 的对象**
+摊平成一个数组 ✓，用户写的 `return()` 就绑在那个数组上 ✓（键是 `__close` ✓，
+见 `install.xl.md` 的 `GetIterator` ✓）——而引擎手里的**游标**上没有它 ✗。
+两格都收一遍才收得到**两档各自的**那一份 ✓（生成器那一档只有游标那一格有 ✓）。
 
 ## constructor:(isLoop:bool, continueTarget:int)=>void
 
@@ -1339,6 +1356,18 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 
 **当前这一层是不是静态成员**（第 278 轮 ✓）——与 `InSuperName` **成对进出** ✓
 （同一处设、同一处恢复 ✓），决定 `super.x` 的起点是父类**自己**还是父类**原型** ✓。
+
+## field InStrict:bool = false
+
+**当前正在降级的这段代码是不是严格代码**（第 620 轮 ✓）——照 `InGenerator` / `InAsync`
+同一套用法进出，但**只增不减**：严格是**沿词法继承**的，一个函数定义在严格代码里就是严格，
+定义在松散代码里才是松散。
+
+**这一格里唯一的「严格源」是类体**（`LowerClass` 进门设、出门还原）——本仓没有
+`"use strict"` 指令那一档，`.ts` 按 CJS 跑是松散的（第 337 轮选定，`c304` / `c337` 两条钉着它）。
+
+**它只影响一件事**：函数被当普通函数调（没有接收者）时 `this` 是 `undefined` 还是全局对象
+（引擎那一支在 `DoCallValue` / `CallNative`）——降级期把它记进闭包（`IsStrict` 那一格）。
 
 **为什么它与 `InSuperName` 必须一起进出** ✗：两个字段描述的是**同一件事的两半** ✓
 （「有没有父类」✓ 与「从哪一半找」✓）——只恢复一个的话，
@@ -2076,11 +2105,15 @@ const outerSuperName = this.InSuperName;
 // 内层函数降级完之后**外层会带着内层的标记继续走** ✓（见 `InSuperStatic` 那一段 ✓）。
 const outerSuperStatic = this.InSuperStatic;
 const outerInArrow = this.InArrow;
+const outerInStrict = this.InStrict;
 this.InGenerator = item.IsGenerator;
 this.InAsync = item.IsAsync;
 this.InSuperName = item.SuperName;
 this.InSuperStatic = item.SuperStatic;
 this.InArrow = item.IsArrow;
+// **严格性只增不减** ✓（第 620 轮 ✓）：定义在严格代码里的函数，体也是严格的 ✓；
+// 反过来不成立 ✗（松散代码里的普通函数照旧松散 ✓——`item.IsStrict` 是「定义它的那段」✓）。
+this.InStrict = this.InStrict || item.IsStrict;
 // **解构形参里的名字也要进「这一层声明了什么」**（第 134 轮）✗：`CollectDeclaredNames`
 // 扫的是**函数体** ✓，而模式里的名字**只出现在形参表上** ✗——漏了它们，
 // 「本层变量」会被当成「未知名字」✓（症状与 `scope.xl.md` 那条注释写的一字不差 ✓），
@@ -2216,6 +2249,7 @@ this.InAsync = outerInAsync;
 this.InSuperName = outerSuperName;
 this.InSuperStatic = outerSuperStatic;
 this.InArrow = outerInArrow;
+this.InStrict = outerInStrict;
 ```
 
 ## method EmitClosure:(item:PendingFunction)=>int
@@ -2280,13 +2314,13 @@ item.Patch = this.Program().AddConst(Constant.OfInt(0));
 const nameConst = item.Name === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(item.Name)));
-// **第四格：形参个数，最低一位借给「这是一个类」** ✓（第 613 轮 ✓）——
-// `MakeClosure`（`vm.xl.md` ✓）把这一位摘掉之后再交给闭包那一格 ✓。
+// **第四格：形参个数，最低两位借给「这是一个类」与「这是严格代码」** ✓（第 613 / 620 轮 ✓）——
+// `MakeClosure`（`vm.xl.md` ✓）把这两位摘掉之后再交给闭包那一格 ✓。
 // **为什么借这一格** ✗：`new_closure` 的五个操作数已经排满了 ✓（环境 / code / 名字 /
-// 形参 / 源码 ✓），加第六格要同时改枚举、验证层与四个目标 ✓；而这两样东西的来处
+// 形参 / 源码 ✓），加第六格要同时改枚举、验证层与四个目标 ✓；而这三样东西的来处
 // **本来就是同一处** ✓（都在这里、都只在那一次求值时定死 ✓）。
 // **代价写在 `MakeClosure` 那一段** ✓：第四格从此不是形参个数本身 ✓。
-const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 2 + (item.IsClass ? 1 : 0)));
+const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 4 + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0)));
 const window = this.Reserve(5);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
@@ -4134,6 +4168,7 @@ const context = this.EnterLoop(true, start);
 // **这一层是迭代循环** ✓（第 337 轮 ✓）：`return` 出循环时要靠这一格找到迭代器 ✓
 //（`EmitPendingIteratorCloses` 扫的正是 `this.Loops` 上这一摞 ✓）。
 context.IteratorSlot = iteratorSlot;
+context.IterableSlot = iterableSlot;
 const pair = this.RtCall2(RtOp.IterNext, iteratorSlot, undefinedConst);
 // **`for await` 的每一轮至少让出一个微任务** ✓（第 339 轮 ✓）：
 // `await` 一条**不是承诺的值**也照样推迟一个微任务 ✓（`ir.xl.md` 的 `await` 那一段写着 ✓），
@@ -4201,6 +4236,15 @@ this.PatchTarget(exitIndex, normalExit);
 this.Emit(Op.Jump, -1, 0, -1, -1);
 this.LeaveLoop(context);
 this.EmitIteratorClose(iteratorSlot);
+// **自定义迭代器那一档：收的是「被迭代的那个东西」** ✓（第 620 轮 ✓）：
+// `get_iterator` 把用户自己写的迭代器**摊平成了数组** ✓（`install.xl.md` ✓），
+// 而引擎那边拿到的是**游标** ✓（`iter_new` 对数组 `CreateIterator` ✓）——
+// 游标上没有 `return` ✗，用户写的那个 `return()` **一次都不被调** ✓
+//（判据 `c371-rt-iteration-protocol-forms` ✓：Node 打 `closed` ✓，本仓不打 ✗）。
+// **语言层把那个 close 绑好、挂在数组的 `__close` 上** ✓（只有它会写这一格 ✓），
+// 所以这里再问一次**被迭代者**就够了 ✓——普通数组没有这一格 ✓、生成器也没有 ✓
+//（它是 `keyText` 那一档，不是 `return` ✓）。
+this.EmitIteratorClose(iterableSlot, "__close");
 this.PatchTarget(normalExit, this.Here());
 // **出口也要退回去** ✓（第 315 轮 ✓）：`break` 与「迭代到头」都落到这一处 ✓
 //（close 那一段**在**这一句之前 ✓——它在循环那一层环境里跑 ✓，而迭代器那一格
@@ -4212,7 +4256,7 @@ if (perIteration) this.Env.Pop();
 this.PopScope();
 ```
 
-## method EmitIteratorClose:(iteratorSlot:int)=>void
+## method EmitIteratorClose:(iteratorSlot:int, keyText:string = "return")=>void
 
 **`for..of` 提前退出时把迭代器收掉** ✓（第 336 轮 ✓）——JS 的 **IteratorClose** ✓：
 `break` / `return` / 抛出去这三档都要调一次 `iterator.return()` ✓（**迭代到头不调** ✗ ✓）。
@@ -4230,8 +4274,15 @@ this.PopScope();
 **代码形状与 `RtCall2` / `Op.Call` 那两处一字不差** ✓（`D` 操作数是 `this` ✓——
 `iterator.return()` 的 `this` 必须是**那个迭代器** ✓）。
 
+**`keyText` 是给「自定义迭代器」那一档留的口子** ✓（第 620 轮 ✓）：
+默认读 `return` ✓（生成器与游标都走这一格 ✓）；**被迭代的那个东西**上读的是
+**`__close`** ✓——那一格是语言层自己写的 ✓（`install.xl.md` 的 `GetIterator` ✓），
+脚本看不见它 ✓（不可枚举 ✓）。**两档分开是为了不误调** ✗：数组自己挂的 `return`
+在 JS 里**不会**被 `for..of` 调 ✓（数组迭代器没有 `return` ✓）——
+把 close 一律改成「问被迭代者」就会踩到它 ✗。
+
 ```ts
-const returnKey = this.Program().AddConst(Constant.OfString(UnitsOf("return")));
+const returnKey = this.Program().AddConst(Constant.OfString(UnitsOf(keyText)));
 const closeFn = this.RtCall2(RtOp.GetProp, iteratorSlot, returnKey);
 const undefinedConst = this.Program().AddConst(Constant.OfUndefined());
 const missing = this.RtCall2(RtOp.CmpEqStrict, closeFn, undefinedConst);
@@ -4499,18 +4550,19 @@ this.LowerStatement(block);
 `c304-rt-generator-early-break-finally` ✓）。**还差的是一张更小的清单** ✓：
 ① `throw` 出循环 ✓（由那张「重抛」的网管 ✓，本仓还没有 ✓）；
 ② **带标签的 `break` 跳到外层循环** ✓（中间夹着的那几层迭代循环也要 close ✓，
-而 `LowerBreak` 现在只回填**最近那一层** ✓）；
-③ **自己写了 `Symbol.iterator` 的对象** ✗——那一档由 `GetIterator` **先收集成数组** ✓
-（见 `builtins/install.xl.md` 那张表 ✓：引擎的 `iter_next` 只认数组 / 生成器 ✓），
-于是这里 close 的是**那个数组的游标** ✓（它的 `return` 是 `undefined` ⇒ 上面那一跳跳过 ✓），
-而用户写的那个 `return()` **一次都不被调** ✗（判据 `c371-rt-iteration-protocol-forms` ✓：
-Node 打 `closed` ✓，本仓不打 ✗——要修得先让引擎认识「自带 `next` 的迭代器对象」✓）。
+而 `LowerBreak` 现在只回填**最近那一层** ✓）。
+**③ 已经收了** ✓（第 620 轮 ✓）：自带 `Symbol.iterator` 的对象由 `GetIterator`
+**先收集成数组** ✓，那条路把**源迭代器的 `return()` 绑好**、挂在数组的 `__close` 上 ✓——
+所以这一处与 `LowerIterationLoop` 的出口**都要多收一次被迭代者** ✓
+（`EmitIteratorClose(…, "__close")` ✓），判据 `c371-rt-iteration-protocol-forms` ✓。
 
 ```ts
 for (let i = this.Loops.length - 1; i >= 0; i--) {
   const context = this.Loops[i];
   if (context.IteratorSlot < 0) continue;
   this.EmitIteratorClose(context.IteratorSlot);
+  // **被迭代者那一格也要收** ✓（第 620 轮 ✓，见 `IterableSlot` 那一格 ✓）。
+  if (context.IterableSlot >= 0) this.EmitIteratorClose(context.IterableSlot, "__close");
 }
 ```
 
@@ -5619,6 +5671,10 @@ item.IsAsync = this.NodeIsAsync(node);
 // **它必须在 `EmitClosure` 之前落进 `item`** ✗：`EmitClosure` 当场就把这一位拼进
 // `new_closure` 的第四格 ✓。
 item.IsClass = this.PendingClassNode !== null && this.PendingClassNode === node;
+// **严格性从外面继承** ✓（第 620 轮 ✓）：这一格记的是「定义它的那段代码严不严格」✓
+// ——`InStrict` 进类体时置真 ✓、之后**只增不减** ✓（见那一格 ✓）。
+// **它也要在 `EmitClosure` 之前落进 `item`** ✗：与 `IsClass` 同一处拼进第四格 ✓。
+item.IsStrict = this.InStrict;
 // **具名函数表达式的词法绑定** ✓（第 332 轮 ✓）：`function self() { … self … }` 里的
 // `self` 只在**它自己那个体**里可见 ✓——这一行把名字交给 `EmitClosure` ✓，
 // 由它单开一层环境装 ✓（那一段写着为什么不能绑在外层 ✓）。
@@ -5846,6 +5902,11 @@ for (let i = 0; i < properties.length; i++) {
         ? this.StaticKeyText(Child(name, "expression")) : "";
       const computedValue = this.LowerExpression(Child(property, "initializer"));
       this.FunctionNameHint = savedComputedHint;
+      // **降级期算不出来的键，名字由运行期补** ✓（第 620 轮 ✓，见 `EmitComputedFunctionName` ✓）——
+      // 判据与上面那条提示**同一条** ✓（值不是函数值就不取名 ✓）。
+      if (this.NamesFunctionValue(Child(property, "initializer"))) {
+        this.EmitComputedFunctionName(computedValue, computedKey, Child(name, "expression"));
+      }
       this.SetPropertyValue(object, computedKey, computedValue);
       continue;
     }
@@ -5901,6 +5962,9 @@ for (let i = 0; i < properties.length; i++) {
     if (NodeKind(name) === "ComputedPropertyName") {
       const computedKey = this.LowerExpression(Child(name, "expression"));
       const computedValue = this.LowerFunctionValue(property, "<computed>");
+      // **方法也是命名位置** ✓（第 620 轮 ✓）：`{ ["k" + 1]() {} }.k1.name` 是 `"k1"` ✓
+      //（它这一档**一定**匿名 ✓：`"<computed>"` 以 `<` 开头 ✓ ⇒ `LowerFunctionValue` 按匿名处理 ✓）。
+      this.EmitComputedFunctionName(computedValue, computedKey, Child(name, "expression"));
       this.SetPropertyValue(object, computedKey, computedValue);
       continue;
     }
@@ -6017,6 +6081,27 @@ const kind = NodeKind(node);
 if (kind === "StringLiteral") return UnitsText(this.StringUnits(node));
 if (kind === "NumericLiteral") return TextOf(node);
 return "";
+```
+
+## method EmitComputedFunctionName:(closure:int, key:int, keyNode:AstNode)=>void
+
+**计算键成员的名字，降级期算不出来时由运行期补写** ✓（第 620 轮 ✓）。
+
+**为什么需要它** ✗：JS 的 NamedEvaluation 用的是**运行期算出来的那个键** ✓——
+`{ ["k" + 1]() {} }.k1.name` 在 Node 里是 **`"k1"`** ✓，而 `StaticKeyText` 只认
+**字面量键** ✓（其余给空串 ✓）⇒ 本仓给 `""` ✓（判据 `c371-rt-function-name-and-length` ✓）。
+
+**做法**：`closure["name"] = key` ✓——写下去的是**闭包自己的结构属性** ✓
+（`props.xl.md` 的 `SetProperty` 那一支 ✓，只有它认得闭包那一格 ✓）。
+**键不是字符串就什么都不写** ✓（那要语言层的 `ToPropertyKey` ✓，见那一支的账 ✓）。
+
+**静态键那一档直接返回** ✗：`{ ["c"]: () => 1 }` 走的是 `FunctionNameHint` ✓
+（`StaticKeyText` 给 `"c"` ✓），再写一遍只是多三条指令 ✓。
+
+```ts
+if (this.StaticKeyText(keyNode) !== "") return;
+const nameKey = this.Program().AddConst(Constant.OfString(UnitsOf("name")));
+this.SetPropertyConst(closure, nameKey, key);
 ```
 
 ## method SetPropertyConst:(object:int, keyConst:int, value:int)=>void
@@ -6619,6 +6704,15 @@ const baseName = this.SuperClassNameOf(node);
     superProto = this.RtCall2(RtOp.GetProp, baseSlot, baseKey);
   }
 }
+// **类体是严格代码** ✓（第 620 轮 ✓）：构造函数 / 方法 / 访问器 / 字段初始化式 / 静态块
+// 里的代码**一律严格** ✓——所以「摘下来的方法」当普通函数调时 `this` 是 **`undefined`** ✓，
+// 而不是全局对象 ✓（判据 `c371-rt-super-and-this-binding` ✓：Node 那一句 `this.v` 抛 ✓）。
+// **`extends` 那一句在外面** ✓（上面已经算完了 ✓）：它按 JS 在**外层**求值 ✓，
+// 那里的函数照外层的严格性走 ✓。
+// **严格性是沿词法继承的** ✗：所以这一格进函数体时**只增不减** ✓（见 `LowerFunctionBody` ✓），
+// 而不是照 `item` 重新设一遍 ✗。
+const outerInStrict = this.InStrict;
+this.InStrict = true;
 const nameNode = OptionalChild(node, "name");
 let name = "<class>";
 if (nameNode !== null && NodeKind(nameNode) === "Identifier") name = TextOf(nameNode);
@@ -7004,6 +7098,7 @@ if (classSelfEnv >= 0) {
   this.Emit(Op.EnvSet, ctor, 0, 0, -1);
   this.Emit(Op.EnvLeave, -1, -1, -1, -1);
 }
+this.InStrict = outerInStrict;
 return ctor;
 ```
 

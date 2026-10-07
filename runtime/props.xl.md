@@ -760,6 +760,25 @@ return property.Value;
 两件事只差**一个参数** ✗，所以规矩只有一处 ✓（见 `SetPropertyFrom` ✓）。
 
 ```ts
+// **闭包的 `name` 是结构属性** ✓（第 291 轮读的那一格 ✓，第 620 轮补上写的那一半 ✓）：
+// `GetProperty` **先**答结构属性 ✓（上面那一段 ✓），所以只往属性表里写一格是**看不见的** ✗
+// ——`f.name` 读回来还是原来那个 ✓（**静默无效** ✓）。
+// **谁要写它** ✗：对象字面量与类里的**计算键成员** ✓——JS 的 NamedEvaluation 用的是
+// **运行期算出来的那个键** ✓（`{ ["k" + 1]() {} }.k1.name` 是 `"k1"` ✓，判据
+// `c371-rt-function-name-and-length` ✓），而降级期算不出那个键 ✓ ⇒ 只能由运行期补写 ✓。
+// **只收字符串值、且只有匿名闭包** ✗：JS 那边是 `ToPropertyKey(key)` 之后的文本 ✓
+//（数字给 `"5"` ✓、符号给 `"[Symbol.iterator]"` ✓）——那两步要语言层 ✓，这里只接
+// **已经算成文本**的那一档 ✓，其余照旧落进属性表 ✓（**不说谎，只是不特殊** ✓）。
+// **已经有名字的不动** ✗（**实测撞到的** ✓）：`class Named {}` 的 `name` 在 JS 里是
+// **不可写**的 ✓（`C.name = "Renamed"` **静默无效** ✓，判据 `rt-class-expr-and-static-this` ✓），
+// 而「写成结构属性」那条路**不看标志位** ✗ ⇒ 那一格会从 `Named` 变成 `Renamed` ✗。
+// **已经有一个名字就不再命名** 本来就是 NamedEvaluation 的判据 ✓
+//（`{ ["c"]: function named(){} }.c.name` 是 `named` ✓），所以这一夹不是补丁 ✓。
+if (receiver.Tag === ValueTag.Closure && IsNameKey(table, key) && value.IsString()
+  && table.Get(receiver.Ref).AsClosure().Name === 0) {
+  table.Get(receiver.Ref).AsClosure().Name = value.Ref;
+  return true;
+}
 return SetPropertySearched(room, call, table, receiver.Ref, key, value, receiver);
 ```
 

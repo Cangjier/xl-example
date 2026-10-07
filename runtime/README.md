@@ -17,7 +17,7 @@
 > 宿主的四类结局（成功 / 脚本抛出 / 挂起 / 限额）与能力白名单，
 > 以及宿主函数失败时那条「抬成脚本站内异常」的通道。
 > 场景覆盖面另有 `npm run coverage`（[tests/coverage/](../tests/coverage/README.md)）——
-> 这一层现在是 **499 / 502（99.4%）**：机制快满了，覆盖面还差一截，差在哪那份清单里写着。
+> 这一层现在是 **502 / 502（100%）**。
 >
 > 降级层与标准库在 [typescript-exec/](../typescript-exec/README.md)：`.ts` 已经能直接执行 ——
 > 运行器 `tsrun`（仓库根的 [tsrun.xl.md](../tsrun.xl.md)）装上

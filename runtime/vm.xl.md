@@ -1082,7 +1082,20 @@ if (instr.Op === Op.TryPush) {
   return;
 }
 if (instr.Op === Op.TryPop) {
-  this.Handlers.pop();
+  // **弹的是「这一帧自己的」那一格** ✓（第 620 轮 ✓）：`Handlers` 是**一条全局栈** ✓，
+  // 而挂起的帧**把手里的处理点留在里面** ✓（`DoThrow` 靠 `IsSuspendedFrame` 留住它们 ✓）。
+  // 于是「栈顶 == 我的」这条前提**不成立** ✗：`for (;;) { try { await f() } catch { } }`
+  // 里三个 async 帧同时挂在 try 里时 ✓，谁先恢复、谁就把**别人的**处理点弹掉了 ✓
+  // ⇒ 那个帧再抛时**一个处理点都不剩** ✓ ⇒ 异常冒出去、**它自己的承诺被拒绝** ✓
+  //（症状：`Promise.all(workers)` 整条不结清 ✓，一个字都不印 ✓）。
+  // **判据是帧句柄** ✓：`TryPush` 记的就是它 ✓（见那一支 ✓）。
+  const owner = this.Frames.TopHandle();
+  for (let i = this.Handlers.length - 1; i >= 0; i--) {
+    if (this.Handlers[i].Frame === owner) {
+      this.Handlers.splice(i, 1);
+      break;
+    }
+  }
   return;
 }
 if (instr.Op === Op.Caught) {
@@ -1337,7 +1350,12 @@ const count = this.CallArgCount(frame, argBase, argc, argArray);
 // 「`this` 是 `null` 或 `undefined`」**一起**换成全局对象 ✓（`f.call(null)` 与 `f()` 一样 ✓）——
 // 第一版只写了 `undefined` ✗ ⇒ `who.call(null)` 给的是 `null` 本身 ✓（判据
 // `c337-rt-sloppy-this-forms` 第 2 行当场红 ✓：Node 给 `global` ✓、本仓给 `other` ✓）。
-if ((thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) && callee.Tag === ValueTag.Closure) {
+// **严格闭包不兜这一格** ✓（第 620 轮 ✓）：类体是严格代码 ✓，
+// 所以「摘下来的方法」`const f = d.m; f()` 里 `this` 就是 `undefined` ✓
+// （判据 `c371-rt-super-and-this-binding` ✓：Node 那一句 `this.v` 抛 ✓、本仓原来给 `Dundefined` ✗）。
+// **本仓没有 `"use strict"` 指令那一档** ✗：严格源只有类体 ✓（降级层的 `InStrict` ✓）。
+if ((thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) && callee.Tag === ValueTag.Closure
+  && !this.Table.Get(callee.Ref).AsClosure().IsStrict) {
   const globalProtos = this.Protos;
   if (globalProtos !== null && globalProtos.Global > 0) {
     thisValue = Value.FromObject(globalProtos.Global);
@@ -3349,9 +3367,12 @@ const closure = this.Table.Get(callee.Ref).AsClosure();
 //（第 307 / 312 / 320 轮各踩过一次「同一个语义长在两条路上」✓），所以这里照抄那一句 ✓，
 // 并在两处都留一行注释指向对方 ✓。
 if (thisValue.IsUndefined() || thisValue.Tag === ValueTag.Null) {
-  const globalProtos = this.Protos;
-  if (globalProtos !== null && globalProtos.Global > 0) {
-    thisValue = Value.FromObject(globalProtos.Global);
+  // **严格闭包不兜** ✓（第 620 轮 ✓，与 `DoCallValue` 那一支一字不差 ✓）。
+  if (!closure.IsStrict) {
+    const globalProtos = this.Protos;
+    if (globalProtos !== null && globalProtos.Global > 0) {
+      thisValue = Value.FromObject(globalProtos.Global);
+    }
   }
 }
 const info = FunctionAtEntry(this.Code(), closure.Code);
@@ -4755,6 +4776,27 @@ if (this.Status === VmStatus.Threw) {
   return;
 }
 if (passThrough) {
+  // **传值那一档要多一跳** ✓（第 620 轮 ✓）：Node 的 `finally` 是
+  // `Promise.resolve(回调的返回值).then(() => 源那一档)` 拼出来的 ✓——
+  // 所以它**不在跑回调的同一跳里结清** ✓，`finally` 与并列那几条链的行序差就在这一跳上 ✓
+  //（判据 `c371-stdlib-promise-finally-passthrough` ✓：Node 给 `c3 replaced` 在 `v 1` 之前 ✓）。
+  // 回调**抛**的那一档在上面就结了 ✓、**不多跳** ✓（与 Node 同形 ✓）。
+  //
+  // **这一跳走「执行器那两格」** ✓（`MakeSettleCallback` 造的同一种宿主回调 ✓）：
+  // 它们是现成的 ✓——调 `resolve` / `reject` 就是「把值灌进结果承诺」✓，
+  // 与 `ResolvePromise` / `RejectPromise` 那两个分支**一字不差** ✓（`CallNative` 里那一支 ✓）。
+  // **`Result` 照旧写结果承诺** ✗：不是给这一格结清用的 ✓（`carry` 是假 ✓），
+  // 是给**回收器**用的 ✓——那两格的承诺住在载荷的 `Opaque` 里 ✓，而 `Trace` 不看它 ✓，
+  // 不写这一格的话「回调跑之前来一次回收」就能把结果承诺收走 ✓（症状离现场极远 ✓）。
+  // **没登记那两格就照旧当场传** ✓：少一跳是「不做」✓，不是「说谎」✓。
+  const settleId = reject ? this.SettleRejectId : this.SettleResolveId;
+  if (settleId > 0) {
+    const hop = Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(settleId, result.Ref));
+    const hopArgs: Value[] = [];
+    hopArgs.push(carried);
+    this.ScheduleTask(Value.Undefined(), hop, hopArgs, result, 2, false, Value.Undefined());
+    return;
+  }
   if (reject) {
     this.RejectPromise(result, carried);
   } else {
@@ -4976,9 +5018,10 @@ try {
 没接上时不说谎，只是不特殊 ✓）。
 
 ```ts
-// **第四格的最低位是「这是一个类」** ✓（第 613 轮 ✓，见上面那一段 ✓）。
+// **第四格的最低两位是「这是一个类」与「这是严格代码」** ✓（第 613 / 620 轮 ✓，见上面那一段 ✓）。
 const isClass = (arity & 1) !== 0;
-const paramCount = (arity - (arity & 1)) / 2;
+const isStrict = (arity & 2) !== 0;
+const paramCount = (arity - (arity & 3)) / 4;
 const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code,
   paramCount, 0));
 // **`Guard` 可能什么都没造出来** ✓（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined` ✓）——
@@ -4988,6 +5031,11 @@ if (isClass) {
   // **类那一位落进闭包自己那一格** ✓（第 613 轮 ✓）：`console.log(class C {})` 要印
   // `[class C]` ✓（`inspect.xl.md` 读的正是这一格 ✓）。
   this.Table.Get(created.Ref).AsClosure().IsClass = true;
+}
+if (isStrict) {
+  // **严格那一位落进闭包自己那一格** ✓（第 620 轮 ✓）：调用点要拿它决定
+  // 「没有接收者时 `this` 给谁」✓（见 `DoCallValue` 那一支 ✓）。
+  this.Table.Get(created.Ref).AsClosure().IsStrict = true;
 }
 const protos = this.Protos;
 if (protos !== null && protos.Function > 0) {

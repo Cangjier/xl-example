@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge, PropertyCharge, PropertyKind } from "../../runtime/heap.xl.md"
-import { RoomChecker, RtToBoolean } from "../../runtime/rt.xl.md"
+import { RoomChecker, RtToBoolean, IsCallableValue } from "../../runtime/rt.xl.md"
 import { NativeCall, CallFailed, Protos, DefineAccessor, FindProperty, GetProperty, NewPlainArray, NewPlainObject, SetProperty, NeverRoom, SetHiddenProperty } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Host } from "../../runtime/host-abi.xl.md"
@@ -414,6 +414,44 @@ if (mapMarker === null && setMarker === null) {
     table.Get(out.Ref).AsArray().Push(produced);
     if (keep !== null) keep(produced, false);
   }
+  // **把源迭代器的 `return` 也带上** ✓（第 620 轮 ✓）：引擎的 `iter_next` 只认数组 ✓，
+  // 所以用户自己写的迭代器**在这里被摊平了** ✓——连它的 `return()` 一起丢 ✗
+  // ⇒ `for (const v of it) break` 里用户那句 `return()` **一次都不被调** ✓
+  //（JS 的 `IteratorClose` ✓，判据 `c371-rt-iteration-protocol-forms` ✓：
+  // Node 打 `closed` ✓、本仓不打 ✗）。
+  //
+  // **做法：绑在源迭代器上，再挂成数组的「不可枚举」属性** ✓。
+  // 降级层那条 close 除了问 `迭代器["return"]` ✓（`EmitIteratorClose` ✓），
+  // 还会问被迭代的那个东西的 **`__close`** ✓——而**只有这里会写它** ✓。
+  //
+  // **为什么不是把 `return` 挂在数组上** ✗：那条 close 的接收者是**引擎造的游标** ✓
+  //（`iter_new` 对数组 `CreateIterator` ✓），游标**继承不到源数组的属性** ✗；
+  // 而把 close 改成「问被迭代者」之后，**普通数组自己挂的 `return`** 会被误调 ✓
+  //（JS 里 `for (const v of arrWithReturnProp) break` **不调**它 ✗——数组迭代器没有 `return` ✓）
+  // ⇒ 换一个**脚本看不见的名字** ✓、只认它 ✓（`Map` 的 `__k` / `__v` 是同一条口径 ✓）。
+  //
+  // **必须 `bind`** ✗：那条 close 递进去的接收者是**那个数组** ✓，而用户写的 `return`
+  // 多半要看 `this` ✓（`return: () => …` 那种不看 ✓，可那不是判据 ✓）——
+  // 绑一下就把「谁是自己」还回去了 ✓。
+  const closeKey = Value.FromString(table.CreateString(Units("__close")));
+  if (keep !== null) keep(closeKey, true);
+  const returnKey = Value.FromString(table.CreateString(Units("return")));
+  if (keep !== null) keep(returnKey, true);
+  const closeMethod = GetProperty(room, call, protos, table, iterator, returnKey);
+  if (IsCallableValue(table, closeMethod)) {
+    if (keep !== null) keep(closeMethod, true);
+    const bindFn = GetProperty(room, call, protos, table, Value.FromObject(protos.Function),
+      Value.FromString(table.CreateString(Units("bind"))));
+    if (keep !== null) keep(bindFn, true);
+    const bound = call(bindFn, closeMethod, [iterator]);
+    if (keep !== null) keep(bindFn, false);
+    if (keep !== null) keep(bound, true);
+    SetHiddenProperty(room, table, out, closeKey, bound);
+    if (keep !== null) keep(bound, false);
+    if (keep !== null) keep(closeMethod, false);
+  }
+  if (keep !== null) keep(returnKey, false);
+  if (keep !== null) keep(closeKey, false);
   // **摘根**：两头都在这一趟里 ✓（`Temps` 只在这一次调用期间有意义 ✓）。
   if (keep !== null) {
     keep(valueKey, false);

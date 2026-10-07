@@ -494,6 +494,16 @@ return total;
 只有**造它的那一方**知道 ✓（降级层手里正拿着那个类节点 ✓），
 与 `Arity` / `Name` / `Source` 三格**同一条分工** ✓。
 
+## field IsStrict:bool = false
+
+**这个闭包是不是严格代码** ✓（第 620 轮 ✓）——与 `IsClass` 同一处来、
+同一条纪律 ✓（只有造它的那一方知道 ✓）。
+
+**它只影响一件事** ✗：函数被当普通函数调（没有接收者）时 `this` 是 `undefined` 还是全局对象 ✓
+（`vm.xl.md` 的 `DoCallValue` / `CallNative` ✓）。类体是严格代码 ✓，
+所以「摘下来的方法」`const f = d.m; f()` 里那句 `this.v` **该抛** ✓
+（松散那一档给全局对象 ✓，第 337 轮选定 ✓、`c304` / `c337` 两条钉着它 ✓）。
+
 ## constructor:(code:int, env:int, arity:int, name:int, source:int)=>void
 
 造一个闭包。
@@ -505,6 +515,7 @@ this.Arity = arity;
 this.Name = name;
 this.Source = source;
 this.IsClass = false;
+this.IsStrict = false;
 ```
 
 ## method Charge:()=>int
