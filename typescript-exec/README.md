@@ -35,22 +35,23 @@
 
 **进不了门：0 条**（第 601 轮把最后一条 `c382-ex-braced-escape` 收掉了——词法层认 `\u{…}` 的花括号）。
 
-**跑得出来但结果不同（17 条）**——按根子归类：
+**跑得出来但结果不同（15 条）**——按根子归类：
 
-- **原型与 `this`**：`super` / 箭头 / 解构 / 回调里的绑定；`instanceof` 与原型替换；
-  方法与 `constructor` 的可枚举性。
-- **迭代协议**：手写可迭代对象的 `return()` 收尾。
-- **异步**：`Promise` 的 `resolve` 身份与 thenable 采纳、`allSettled` / `any` / `race`、
-  `finally` 的值透传（三条是**排空次序**）；`async` 里的抛错 / 拒绝。
-- **函数内省**：计算键方法的 `name`；`bind` 当构造器；`console.log(class C {})` 的标签。
-- **内建细节**：`Map` / `Set` 的 `size` 是原型上的访问器（本仓挂在实例上）；
-  `Date` 的 `now` / `parse` / `toJSON` / `toString`；字符串的非 ASCII 大小写；
-  `Object.prototype.toString` 在内建上的组合。
-- **降级层**：复合赋值右侧是 `||` 时的逻辑规则位次（`LogicalOperator` 排在四则之前）。
-- **端到端**：异步任务池（并发回调里 `await` 的排空次序）。
+- **原型与 `this`**：`super` / 箭头 / 解构 / 回调里的绑定；`instanceof` 与原型替换
+  （类 `prototype` 是**不可写**的，本仓可写）；方法与 `constructor` 的可枚举性。
+- **内建构造器的 `name`**：`Error.name` / `AggregateError.name` 这一类内建构造函数还是
+  **宿主引用**（没有属性表），所以 `e.constructor.name` 给 `undefined`。
+- **迭代协议**：手写可迭代对象的 `return()` 收尾（`GetIterator` 先把自定义可迭代物收成数组）。
+- **异步**：`Promise` 的排空次序（`finally` 的值透传、`async` 里的抛错）；
+  异步任务池那一条端到端也挂在这上面。
+- **函数内省**：计算键方法的 `name`；`bind` 当构造器；`console.log(class C {})` 的 `[class C]`
+  （值模型里没有「这是类」这一位）。
+- **内建细节**：`Map` / `Set` 的 `size` 是原型上的访问器（本仓挂在实例上，
+  且 `Object.getOwnPropertyDescriptor` 还不给访问器那一档）；
+  `Date` 的 `now` / `parse` / `toJSON` / `toString`；字符串的非 ASCII 大小写。
 
 **下一轮的入口**：`tests/coverage/report.json` 里每一条都带一句症状与最小复现，
-`npm run coverage -- --only <id>` 可以单跑一条。
+`npm run coverage -- --filter <id>` 可以单跑一条。
 
 ## 两条口径
 

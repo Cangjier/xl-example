@@ -38,7 +38,7 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.19,
+  "progressPercent": 99.27,
   "layers": [
     {
       "layer": "runtime",
@@ -54,11 +54,11 @@
       "layer": "exec",
       "weight": 0.3,
       "total": 411,
-      "pass": 410,
+      "pass": 411,
       "blocked": 0,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 99.76
+      "coverage": 100
     },
     {
       "layer": "stdlib",
@@ -118,12 +118,6 @@
       "layer": "runtime",
       "title": "函数的 name / length 在各种定义形态下",
       "detail": "stdout 不同：第 4 行：node «k1 k1» vs tsrun «k1 »"
-    },
-    {
-      "id": "c373-ex-compound-assign-logical-rhs",
-      "layer": "exec",
-      "title": "复合赋值的右侧是 `||`：逻辑规则位次造成的优先级（**还没修**）",
-      "detail": "stdout 不同：第 1 行：node «A 4» vs tsrun «A -2»"
     },
     {
       "id": "c371-stdlib-string-case-forms",

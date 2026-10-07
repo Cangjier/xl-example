@@ -108,11 +108,18 @@ return [startIndex, endIndex];
 
 `current` 是不是「逻辑运算符段的起点」。
 
-四种命中：
+五种命中：
 
 - 是 `SymbolToken`，且被 `SymbolTemplate.IsAssignmentSymbol` 认成赋值符号；
 - 是 `SymbolToken`，且内容是 `,` / `;` / `:` / `?` / `=>`；
 - 是 `SymbolToken`，内容是 `||`，且**本规则的**运算符是 `&&`（`&&` 段被 `||` 截断）；
+- **是 `SymbolToken` 且 `FromCompoundAssignment` 为真**（第 603 轮）——`a += b || c` 展开成
+  `a = a + b || c`，那个 `+` 是**插进来的副本**、不是用户写的运算符：它右边的 `b || c` 才是
+  整个赋值右侧（JS 里右侧是一个完整的 AssignmentExpression）。不回这里截断的话，
+  这段逻辑会一路扫回到 `=`，把副本**左边的克隆**也收进同一段
+  ⇒ 段里平铺着 `[a, +, b, ||, c]` ⇒ 逻辑先折一次、`+` 再也折不到
+  ⇒ `k += 0 || 5` 给 `-2`（判据 `c373-ex-compound-assign-logical-rhs`；JS 给 `4`）。
+  与 `compound-assignment-operator.xl.md` 的 `FromCompoundAssignment` 是**同一个标记**。
 - 是内容为 `return` 的 `Identifier`，或者是 `op` 等于 `logicalOperatorSymbol` 的 `LogicalOperator`。
 
 分支之间互斥，展开成连续的 `if`，语义相同。
@@ -120,6 +127,9 @@ return [startIndex, endIndex];
 ```ts
 if (current instanceof SymbolToken) {
   if (current.Template.SymbolTemplate.IsAssignmentSymbol(current.TempToString())) {
+    return true;
+  }
+  if (current.FromCompoundAssignment) {
     return true;
   }
   if (current.Is(",") || current.Is(";") || current.Is(":") || current.Is("?") || current.Is("=>")) {
