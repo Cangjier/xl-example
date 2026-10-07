@@ -6861,4 +6861,126 @@ ASI 之后 `{ a: 1 }` 是**块** ✓，块里是一条**标签语句** ✓：
 4. **三份小账** ✓：`decl-interface-export-default.ts`（`1 0 2` ✓）、`type-cond-multiline.ts`（`0 2 3` ✓）、
    `lex-regex-after-assign.ts`（`2 1 2` + 字段名 1 ✓）。
 
+## 一百八十、`let r;` 从来没有壳（第 578 轮）：那格尾巴符号没走「问一次宿主」那条钩子，1028 → **1029 / 1037**
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第三轮** ✓（预算用完 ✓）。改的是 `typescript/tokens/let.xl.md` **一个文件** ✓。
+
+### 一、靶子：`lex-regex-after-assign.ts`（`2 1 2` + 字段名 1）
+
+那一份的文件名说的是「赋值号后面直接跟正则」✓，可红的是**它的前一行** ✓：
+
+    DRIFT  VariableStatement  TS[96,102) vs 产物[96,101)  "let r;"
+    FIELD  VariableDeclarationList  [96,101)  产物[] vs TS[declarations]  "let r"
+    MISS   VariableDeclaration  TS[100,101)  "r"
+    MISS   Identifier           TS[100,101)  "r"
+    EXTRA  SemicolonToken       [101,102)  ";"
+
+产物的 XML 更好看 ✓：`<Let fieldName="r" modifiers="let" />` 加一个**平级的**
+`<SymbolToken>;</SymbolToken>` ✗ —— 那条声明**根本没有壳** ✗。
+
+### 二、机制：那一格 `;` 是 `LetBranch` **新建**的，它没走那条钩子
+
+探查了两种打法 ✓，最后钉在钩子上 ✓：
+
+- `tmp/recon/r578-form-probe.cjs` ✓（挂 `Statement.FormFrom` 进门打一行 ✓）：
+  整个文件里 `FormFrom` 只为 `=` / `/` / `;`（第二行那三个 ✓）被叫过 ✓，**`let r` 后面那个 `;` 一次都没被叫** ✗；
+- `tmp/recon/r578-hook-probe.cjs` ✓（挂 `Token.FormStatement` ✓，也就是「append 完立刻问一次宿主」
+  那条钩子本体 ✓，第 486 轮 ✓）——**同一条结论** ✓：那一格 `;` 在 `Data` 里 ✓（`HOOK#3` 的
+  `data=[… | Let[96,100] | SymbolToken[101,101] | …]` ✓），可钩子从来没为它响过 ✗。
+
+真因在 `LetBranch.Success` 的尾巴那一句 ✓（第 482 轮那一段 ✓）：
+`=` / `:` / `;` / `,` 这一格在 `Let` 建好之后是**重新造**的 ✓
+（`new SymbolToken(...).AppendAndSignOut(source).SignIn(source)` ✓，照 `SymbolBranch.Success` 的建法 ✓），
+**可是没有照它那一句 `unit.FormStatement(...)` 再问一次宿主** ✗ ⇒ 解析期造壳的那两个入口
+（`\n` 那一档 ✓、`;` 那一档 ✓）**一个都不响** ✗ ⇒ 「声明到 `;` 为止、没有初始化式」这一形状
+**从来没有壳** ✓ —— `let x;` / `let x, y;` / `function f() { let x; }` 三种排版都一样 ✗
+（`const a = 1;` 那一档看不出来 ✓：它的进门字是 `=` ✓，`;` 走的是正常的 `SymbolBranch` ✓）。
+
+### 三、改法：那一格造完也问一次宿主
+
+`LetBranch.Success` 里 `data.splice(insertAt, 0, tailSymbol)` 之后补一句 `unit.FormStatement(tailSymbol)` ✓。
+
+**判据不用重写一遍** ✓：`FormFrom` 自己会问 `IsStatementSymbol` ✓ ——
+`=` / `:` / `,` / `\n` 四档原样早退 ✓（原来怎么走还怎么走 ✓），只有 `;` 这一档真的收壳 ✓。
+**`for` 头里那一档也不会被误收** ✓：`FormFrom` 里那句「`;` 在小括号里不算语句边界」照旧管用 ✓
+（实测 `for (let i; i < 3; i++) {}`：`ForInitial` 里还是那个 `Let` ✓，没有多出一层壳 ✓）。
+
+**顺手把四档都量了一遍** ✓（`rootdump` ✓）：`let x;` ⇒ `Statement > Let` ✓、`let x, y;` ✓、
+`let x: number;` ✓（`TypeDefine` 照旧 ✓）、`let [a];` ✓（`Let > ArrayLiteral > BindingElement` ✓）、
+`for (const k in o) { let z; }` ✓。
+
+### 四、读数
+
+| 项 | 第 577 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1028 | **1029 / 1037** ✓（**+1** ✓） |
+| 缺节点 | 23（10 类） | **21（9 类）** ✓（−2 ✓） |
+| 区间漂移 | 10（8 类） | **9（7 类）** ✓（−1 ✓） |
+| 多出来的节点 | 20（15 类） | **18（13 类）** ✓（−2 ✓） |
+| 字段名不符 | 2 | **1** ✓（−1 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21724 | **21724** ✓（持平 ✓） |
+
+**逐文件**（`r578-a-perfile.txt` ✓）：红的 **9 → 8** ✓，**变绿的那一份正是它** ✓
+（四栏全零 ✓），其余八份**逐项一字不差** ✓。**真实语料（十六片合计）** ✓ ——
+这一轮是**大头** ✓：`let x;` 那种声明在真实代码里遍地都是 ✓。
+
+| | 缺 | 漂 | 多 | 字段名 |
+| --- | --- | --- | --- | --- |
+| 第 577 轮末 | 1355 | 396 | 751 | 8 |
+| 本轮 | **1345** ✓ | **391** ✓ | **741** ✓ | **3** ✓ |
+
+（`trivia 越界` 45 → 42 ✓，不计进四栏 ✓；**没有一片变差** ✓。）
+
+### 五、六道门：两条运行时门各涨一条，`runtime:cli` 转绿
+
+| 门 | 第 577 轮末 | 本轮 |
+| --- | --- | --- |
+| `runtime:check` | 239 / 242 | **240 / 242** ✓（+1 ✓） |
+| `runtime:cli` | 78 / 79 | **79 / 79** ✓（**全绿** ✓） |
+| `cases:check` | 1050 条 0 不合格 | **1050 条 0 不合格** ✓ |
+| `coverage` | 1630 / 1713（94.4%） | **1630 / 1713（94.4%）** ✓ |
+| `samples` | 三份全绿 | **三份全绿** ✓ |
+| `cases:tsast` | 16 片：3 片通过 | **16 片：3 片通过** ✓ |
+
+**6 道门：2 道通过 → 3 道通过** ✓。两条翻过来的用例都点了名 ✓（把 `build/ts/…/let.js` 里那一句临时注掉再量一遍 ✓，
+量完 `force` 重建回来 ✓ —— 复现手法本身也留在这里 ✓）：
+
+- `runtime:cli`：**`27-forof-destructuring-and-var.ts`** ✓（原来 `退出码 node=0 tsrun=1`、
+  `stdout 不同：node «of-pair 1=a,2=b» vs tsrun «»` ✓）—— 它的第 58 行正是
+  `if (true) { var inside; }` ✓；
+- `runtime:check`：**「`var` 提升的判据一直是死代码（`flags` 是 `"None"`，不是 `"Var"`）」** ✓
+  （原来 `FAIL: name is not a local or a capture: inside` ✓ —— 那个名字从来没被登记成局部变量 ✓）。
+
+`xl build`（本文件）**0 error、仍是那 3 条既有 W3102** ✓、`xl check` **0 error 3 warning** ✓、`tsc` **0 错** ✓。
+
+### 六、三轮到这里的账（第 576–578 轮，三份提交）
+
+| 轮 | 改了什么 | 完全一致 | 缺 / 漂 / 多 / 字段名 | 红文件 | 真实语料 缺 / 漂 / 多 / 字段名 |
+| --- | --- | --- | --- | --- | --- |
+| 起点（574 末） | — | 1027 | 30 / 11 / 24 / 2 | 10 | 1355 / 396 / 751 / 8 |
+| **576**（`39ee8db`） | `switch` 一行的两个 `case` 分开切（宿主是那个 `{` ✓） | 1027 | 25 / 10 / 21 / 2 | 10 | 1355 / 396 / 751 / 8 |
+| **577**（`1cd7af2`） | 语句位的块里跑 `Label`（判据换成「值位的花括号」✓） | 1028 | 23 / 10 / 20 / 2 | 9 | 1355 / 396 / 751 / 8 |
+| **578**（本条） | `LetBranch` 那一格尾巴符号造完也问一次宿主 ✓ | **1029** | **21 / 9 / 18 / 1** | **8** | **1345 / 391 / 741 / 3** |
+
+**门**：`coverage` 1629 → **1630** ✓（第 576 轮 `ctl-switch-fallthrough-count` 那一条 ✓）、
+`runtime:check` 239 → **240 / 242** ✓、`runtime:cli` 78 → **79 / 79** ✓（转绿 ✓）；
+`cases:check` 1050 条 0 不合格 ✓、`samples` 三份全绿 ✓、`cases:tsast` 3 片 ✓ 三轮一字未动 ✓。
+
+### 七、下一块（给下一个对话）
+
+1. **`else` 那一格** ✓（第 175 / 176 节留下的入口 ✓）：收尾必须**晚于** `else` 到达 ✓ ——
+   它就是 `stmt-adversarial-shapes.ts` 剩下的那三笔 ✓（外加 `FIELD` 那一栏 ✓）；
+2. **`(` / `[` 那一档** ✓（`am-block-lambda-array-compound.ts` `5 2 4` ✓、
+   `lex-generic-multiline-constraints.ts` `7 1 1` ✓、`stmt-asi-paren-call.ts` `0 4 5` ✓）——
+   **机器层面**的一件事 ✓（收壳要发生在「下一个单元到了以后」✓，或让壳能**拆回**平列表 ✓）；
+3. **`new.target`** ✓（`cls-super-newtarget.ts` / `decl-class-new-target.ts` 各缺 3 ✓）：
+   第 540 / 541 两轮各试一次都没动 ✗ ⇒ 第三次先量「那个 `BinaryOperator` 里还剩什么」✓；
+4. **两份小账** ✓：`decl-interface-export-default.ts`（`1 0 2` ✓ —— 投影侧
+   `projectExport` 那份「声明自己带修饰词」的合并 **已经有** ✓，缺的是**形状** ✗：
+   产物是 `[Export(export default), Interface]` 两格平级 ✓、
+   而那条合并只写在 `Statement` 那一支里 ✗）、`type-cond-multiline.ts`（`0 2 3` ✓ ——
+   跨行条件类型的 `: any` 那一截没被收进 `ConditionalType` ✓）。
+
 

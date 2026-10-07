@@ -442,6 +442,18 @@ while (true) {
 }
 data.splice(insertAt, 0, tailSymbol);
 tailSymbol.Parent = unit;
+// **这一格也要问一次宿主** ✓（第 578 轮 ✓）：`SymbolBranch.Success` 里那句
+// 「append 完立刻问一次宿主」（`unit.FormStatement` ✓，第 486 轮 ✓）是**解析期造语句壳**的两个入口之一 ✓，
+// 而这一格是**这里新建**的 ✗ ⇒ 它从来没走过那一句 ✗ ⇒ 进门那一格就是终结符时
+// **壳永远造不出来** ✓ —— 实测 `let r;`（没有初始化式 ✓）：产物是 `<Let/>` + 一个
+// **平级的** `<SymbolToken>;</SymbolToken>` ✗（`let x;` / `function f() { let x; }` 两种排版都一样 ✗），
+// TS 那边是 `VariableStatement > VariableDeclarationList > VariableDeclaration` ✓
+//（`lex-regex-after-assign.ts` 那一份账：漂 `VariableStatement` + 缺 `VariableDeclaration` / `Identifier`
+// + 字段名 `declarations` ✓，四条一次收齐 ✓）。
+//
+// **判据不用在这里重写一遍** ✓：`FormFrom` 自己会问 `IsStatementSymbol` ✓ ——
+// `=` / `:` / `,` 三档原样早退 ✓，只有 `;` 这一档真的收壳 ✓（`\n` 那一档同样早退 ✓）。
+unit.FormStatement(tailSymbol);
 // **让模式括号在 `Let` 自带的那一趟里再收一次**（第 533 轮 ✓）：把 `[a = 1, b = a]` 的元素
 // 收成 `BindingElement` 的是 `binding-element.xl.md` ✓，它的宿主判据是
 // 「父亲是 `Let` / `BindingElement` / `Parameter` / `CatchDefine`」✓ ——
