@@ -2819,3 +2819,12 @@ cls-hash-in-operator.ts: 缺 5　多 5   MISS ReturnStatement[73,87) "return #x in 
 **下一块**：先量 `Statement.AttachKind`（或投影里那处按首词分发的代码 ?）对 `return` 的处理 ? ——
 判据是**文本**（`WordOf` ?，`Identifier` / `Keyword` 都认 ?）还是 `instanceof Identifier` ?；
 后者就是那一族的老坑 ?，改完对**两档都有益** ?。
+
+**补记（同一轮，落点已找到）** ?：投影里其实**有**这张映射 ? ——
+`print-ast-common.xl.md:1524` 写着 `["return", "ReturnStatement"]` ?，
+`:1532` 还有 `KEYWORD_STATEMENT_EXPRESSION = new Set(["ReturnStatement", "ThrowStatement"])` ?。
+所以问题不是「没登记」?，而是**取词那一步没认出它** ? ——
+十有八九又是那一族老坑 ?：`return` 被 `KeywordReorganization` 升成了 `Keyword` ?，
+而查这张表的那一步只认 `Identifier` ?（`do` / `while` / `in` / `of` 都栽过同一处 ?，
+台账里第 500 轮那次加固写的就是这条纪律 ?：找词一律走 `WordOf` / `IsWordUnit` ?，
+两种形态都认 ?）。**下一块直接去那一处取词的地方改** ? —— 面大、局部、两档都有益 ?。
