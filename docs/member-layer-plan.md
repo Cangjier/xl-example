@@ -2796,3 +2796,26 @@ am-block-lambda-array-compound.ts: new Lamda 1 次   index=1
 **转口径** ?（下面第 524 轮起）：去打**面更大、更局部**的那些账 ?
 —— 第 511 轮已经定位过的「`Statement` 与 `TypeAssign` 各投一次 `TypeAliasDeclaration`」?、
 以及 `PropertyAccessExpression` 多出 199 ? 这一类**投影侧**的账 ?。
+
+## 一百三十一、`return …` 没有变成 `ReturnStatement`（第 524 轮）：一条面更大的账
+
+转口径之后先挑了两个「私有字段」用例看 ?（它们都出现在旧的样本行里 ?）：
+
+```
+cls-private-fields.ts :  缺 4　多 7   MISS ReturnStatement[93,107) "return this.#x"
+                                     MISS PropertyAccessExpression / ThisKeyword / PrivateIdentifier
+                                     EXTRA ExpressionStatement + BinaryExpression（同一段）
+cls-hash-in-operator.ts: 缺 5　多 5   MISS ReturnStatement[73,87) "return #x in o"
+                                     MISS BinaryExpression / PrivateIdentifier / InKeyword / Identifier
+                                     EXTRA ExpressionStatement（同一段）
+```
+
+? 两例是**同一族** ?：`return …` 整段被投成 `ExpressionStatement`（外加一层 `BinaryExpression`）?，
+而正解是一条 `ReturnStatement` ?。也就是说**语句壳认出了这一段、却没有按 `return` 归类** ? ——
+这比箭头那一族**面大得多** ?（`ReturnStatement` 在缺的 115 类里、在 `多出来的 813` 里都占一块 ?），
+而且切口**很局部** ?：要么在 `Statement` 的归类（`print-ast-common.xl.md` 里按首词分发的那处 ?），
+要么在 `return` 被 `KeywordReorganization` 升级之后**认不出**了 ?（与 `do` / `while` / `in` 那几次同一个坑 ?）。
+
+**下一块**：先量 `Statement.AttachKind`（或投影里那处按首词分发的代码 ?）对 `return` 的处理 ? ——
+判据是**文本**（`WordOf` ?，`Identifier` / `Keyword` 都认 ?）还是 `instanceof Identifier` ?；
+后者就是那一族的老坑 ?，改完对**两档都有益** ?。
