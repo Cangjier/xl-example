@@ -120,7 +120,7 @@ return [
 调用这一下由本文件末尾的 `# statement` 负责，它会被原样搬进产物，`dist/cjcli.ts` 因此是**自执行**的。
 
 `Template` 每次调用都新建：`Root` 构造时会往 `template.BranchTemplate.DefaultValue` /
-`ReorganizationTemplate.DefaultValue` 上装通用队列，模板是**有状态**的，跨次复用会把上一份上下文的解析痕迹带进来。
+`CloseRuleTemplate.DefaultValue` 上装通用队列，模板是**有状态**的，跨次复用会把上一份上下文的解析痕迹带进来。
 
 打印走 `CommonUtil.FormatXml`：**每个元素一行、两格缩进**，叶子（只有文本的元素）留在同一行。
 缩进只动空白、不动任何标签或属性值——`Root.ToString()` 的紧凑形态仍然是测试与差分用的那一份。
@@ -270,7 +270,7 @@ TS 形状出口要的是 `projectRoot(Root.ToList(), content)`，
 解析完也不需要显式释放，所以这里只剩 `try/catch` 一层，用来做异常收敛。
 
 `Template` 不能省：`TextContext` 的构造器要求一个模板，并会在造根单元之前**自动装上**通用跳转队列与
-重组队列（见 `typescript/parse-pipeline.xl.md`），所以这里只需 `new Template()`。
+规则队列（见 `typescript/parse-pipeline.xl.md`），所以这里只需 `new Template()`。
 
 异常收敛到 `null`：`SyntaxException` 的 `Message` 里已经带了出错位置那段带 `^` 下划线的文本（`TextDocument.GetRangeLines` 的产物），
 直接打出来比让调用栈回溯更有用。布局是「`cjcli: 解析失败`」一行 + 诊断正文——信息里本来就带换行，所以不再拼多余前缀。
