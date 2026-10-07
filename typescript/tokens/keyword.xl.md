@@ -105,12 +105,7 @@ return unit instanceof Identifier && unit.Template.KeywordTemplate.IsKeyword(uni
 
 ```ts
 const commonUnit = Get(units, index) as Identifier;
-const keyword = new Keyword(commonUnit.Template);
-keyword.Parent = commonUnit.Parent;
-keyword.SignIn(commonUnit.SourceRange.Start!);
-keyword.SignOut(commonUnit.SourceRange.End!);
-keyword.Value = commonUnit.TempToString();
-keyword.TryToClose();
+const keyword = Keyword.FromIdentifier(commonUnit.Parent, commonUnit);
 return ReplaceCountAt(units, index, 1, keyword);
 ```
 
@@ -120,6 +115,31 @@ return ReplaceCountAt(units, index, 1, keyword);
 单元值类型是单字符的 `string`。
 
 它覆写了 `ToXmlString`，且标签名是**写死的 `Keyword`**（不是运行时类名）——这一点与大多数 token 不同。
+
+## static method FromIdentifier:(owner:Token | null, item:Identifier)=>Keyword
+
+把一个内容为关键字的 `Identifier` 造成 `Keyword` 单元——**一份答案**。
+
+两个调用方：
+
+- `KeywordReorganization.Process`（**事后那一趟**，仍然服务着通用队列里的所有位置）；
+- `HeritageClause.Take`（**解析期**那一趟）：类头 / 接口头在 `{` 那一刻整理时，
+  子句词当场升成 `<Keyword>`，所以 `HeritageClause` 自己**不用挂重组队列**。
+
+范围沿用那个 `Identifier` 的起止；新单元用**被替换单元自己的** `Template`；
+`Parent` 由调用方给（`ReplaceCountAt` 只做 `splice`、**不设** `Parent`，
+所以「还没挂上去（`Parent === null`）」这个信号原样保留——
+`unary-operator.xl.md` 第 57 轮那条判据靠的正是它）。
+
+```ts
+const keyword = new Keyword(item.Template);
+keyword.Parent = owner;
+keyword.SignIn(item.SourceRange.Start!);
+keyword.SignOut(item.SourceRange.End!);
+keyword.Value = item.TempToString();
+keyword.TryToClose();
+return keyword;
+```
 
 ## constructor:(template:Template)=>void
 

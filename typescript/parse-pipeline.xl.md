@@ -342,6 +342,23 @@ return false;
 **类与枚举的「头」共用一份准备机件** ✓：`declaration-common` 的 `ReorganizeDeclarationDecorators` ✓
 （装饰器必须在算 `DeclarationStart` **之前**成形 ✓，这条次序两处都要 ✓）。
 
+**已搬走的那一支还欠哪些 reorg**（第 415 轮量出来的清单）：
+
+`class` / `enum` / `interface` 的**声明本身**已经一处 reorg 都不挂了 ✓，但它们下面**还欠**这些
+（逐个用「摘掉队列 → 跑全语料」量过 ✓，不是猜的 ✓）：
+
+| 还欠在哪 | 摘掉会怎样（实测） | 要等哪一层搬完 |
+| --- | --- | --- |
+| `ClassBody` / `EnumBody` / `InterfaceBody` / `StaticBlock` 的**语句队列** | 成员（`Field` / `MethodDeclaration` / `EnumMember` / `Statement`）全部不成形 | 成员层——**最大的一处**，四个体都靠它 |
+| `ExpressionWithTypeArguments` 的通用队列 | `extends mixin(B)` / `extends (Base)` 掉 `CallExpression` 与 `Identifier`（2 个文件） | 「调用表达式 / 成员访问」那一层 |
+| `Decorator` 的通用队列 | 装饰器的实参括号不成形 | 装饰器那一层（现在由 `ReorganizeDeclarationDecorators` **显式**调用 ✓） |
+| `GenericType` 的通用队列 | 类型参数段 / 类型实参段不成形 | 类型层 |
+
+**已经摘干净的两处**：`HeritageClause` 自己那一趟（子句词改由 `Keyword.FromIdentifier` 在
+`Take` 里当场升成 `<Keyword>` ✓，实测摘掉队列会让 `<Keyword>extends</Keyword>` 退回
+`<Identifier>extends</Identifier>`——补上这一句之后全语料一处不掉 ✓）；
+以及 `Class` / `Enum` / `Interface` 三个引导单元各自的兜底队列 ✓。
+
 ## static method KeyWords:()=>Array<string>
 
 这套语言配置里的关键字表：`Keyword` 单元只在文本命中这张表时才产生。

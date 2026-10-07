@@ -8,6 +8,7 @@ import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
 import { IsTriviaUnit, WordText, SkipNextWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { Keyword } from "./keyword.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
@@ -215,7 +216,11 @@ const clause = new HeritageClause(template);
 clause.Parent = owner;
 clause.SignIn(word.SourceRange.Start!);
 clause.SignOut(last.SourceRange.End!);
-clause.AddAndCloseLast(word);
+// **子句词当场升成 `<Keyword>`**（一份答案：`Keyword.FromIdentifier` ✓，
+// `KeywordReorganization.Process` 调的是同一个 ✓）——不再等本单元关闭时由重组队列去升 ✗
+//（实测把本类的队列摘掉而不补这一句：`<Keyword>extends</Keyword>` 当场退回
+// `<Identifier>extends</Identifier>` ✗，而那正是 `Keyword` 这个单元存在的理由 ✓）。
+clause.AddAndCloseLast(Keyword.FromIdentifier(clause, word as Identifier));
 let segment: Token[] = [];
 for (let i = 1; i <= items.length; i++) {
   const item = i < items.length ? items[i] : null;
@@ -348,11 +353,16 @@ TS 那边 `HeritageClause` 的 `forEachChild` **只访问 `types`**：`extends` 
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，并挂**通用队列**——子句里的类型实参段（`L<M>` 的 `<M>`）要照常成形 ✓。
+**本类不挂重组队列**——子句在 `Take` 里就已经成形（见那一节）：
+子句词由 `Keyword.FromIdentifier` 当场升成 `<Keyword>` ✓，
+实体名与类型实参段在搬进来之前各自就已经是成品 ✓。
+挂一条队列等于让「这一格什么时候成形」有**两个答案** ✗，
+而第二个答案（本类关闭时再扫一遍自己的 `Data`）什么也扫不出来 ✓——
+实测把它摘掉之后，全语料只掉两处，两处都落在 `ExpressionWithTypeArguments` 那一格上 ✓，
+与子句本身无关 ✓。
 
 ```ts
 super(template);
-this.ReorganizationQueue = template.ReorganizationTemplate.Get(this.constructor);
 ```
 
 ## method Clone:()=>Token
@@ -410,7 +420,13 @@ return result;
 
 ## constructor:(template:Template)=>void
 
-转调基类构造器，并挂**通用队列**——类型实参段要在里面成形 ✓。
+转调基类构造器，并挂**通用队列**——这一格**仍然依赖重组**，是类头里**最后一处**：
+
+继承表达式 `extends mixin(B)` / `extends (Base)` 里的实体名不是「一个名字」而是一个
+**表达式** ✓，那一段由 `MethodReorganization` 之类的规则在**本单元关闭时**成形 ✓
+（实测把这条队列摘掉，`decl-class-extends-call.ts` / `cls-extends-expression.ts`
+两条当场掉 `CallExpression` 与 `Identifier` ✓）。
+它要等的是「调用表达式 / 成员访问」那一层也搬成解析期 ✓——那一层现在还在通用队列里 ✓。
 
 ```ts
 super(template);
