@@ -3,6 +3,8 @@
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
@@ -81,6 +83,15 @@ interface I { class: string } // 接口成员的属性名
 （那两个词一撞见就判否放行 ✓），所以「这是不是成员列表」这个问题**不再有两个答案** ✓。
 
 **位置闸**：`a.class` 里那个 `class` 是**成员访问的名字** ✓，它前面隔着一个 `.` / `?.` ⇒ 要挡掉 ✓。
+
+## private field NameIndex:int = -1
+
+`ScanHead` 顺手记下的**名字那一格**在宿主平列表上的下标（匿名类是 `-1`）。
+
+**为什么要单独记它**：`TakeHead` 要把头整段搬进来，而**名字不进 `Data`**
+（用户口径：meta 信息只用字段表达 ✓——`name` 字段已经完整表达了它 ✓，
+再留一个 `<Identifier>` 子单元就是同一件事两份 ✗）。所以搬的时候要跳过这一格 ✓，
+而「哪一格是名字」只有 `ScanHead` 知道 ✓（它已经跨过类型参数段、`extends` 那些了 ✓）。
 
 ## static readonly field JumpIn:ClassBranch = new ClassBranch()
 
@@ -193,6 +204,7 @@ const isAnonymous = name === null || (name instanceof Identifier && name.Is("ext
 if (isAnonymous === false && !(name instanceof Identifier)) {
   return false;
 }
+this.NameIndex = isAnonymous ? -1 : nameIndex;
 let i = nameIndex;
 if (isAnonymous === false) {
   i = SkipNextWrapSymbol(units, nameIndex);
@@ -256,10 +268,10 @@ if (Get(units, i) !== null) {
 }
 if (instance !== null) {
   if (isAnonymous === false && name instanceof Identifier) {
-    instance.name = name.TempToString();
+    instance.name.Set(name.TempToString(), name.SourceRange);
   }
-  instance.extends = extendsName;
-  instance.implements = implementsNames;
+  instance.extends.Set(extendsName, null);
+  instance.implements.Set(implementsNames, null);
 }
 return true;
 ```
@@ -357,7 +369,7 @@ if (this.ScanHead(units, classIndex, cls) === false) {
 // ——包括 `extends` / `implements` / 类型参数段 / 名字 / 装饰器的归宿 ✓。
 // 分支只管「认形状 + 交棒」✗：它找到 `class` 那个词、验完头、建出 `Class`，
 // 剩下「头怎么成形」是**引导单元自己的事** ✓（见 `Class.TakeHead` ✓）。
-cls.TakeHead(units, start, classIndex);
+cls.TakeHead(units, start, classIndex, this.NameIndex);
 // **第四步：挂载** ✓。
 unit.AddToMounted(cls);
 const body = new ClassBody(unit.Template);
@@ -407,7 +419,7 @@ cls.MountedUnit = body;
 super(template);
 ```
 
-## method TakeHead:(units:Array<Token>, start:int, keywordIndex:int)=>void
+## method TakeHead:(units:Array<Token>, start:int, keywordIndex:int, nameIndex:int)=>void
 
 **把整个类头收进本单元** —— `extends` / `implements` 就是在这里处理的 ✓。
 
@@ -420,10 +432,14 @@ super(template);
 **已经由宿主自己一个一个吃进来、躺在宿主的平列表里了** ✓——它们谁也没开单元，
 所以宿主只是照常给每个词建了一个 `Identifier` ✓。
 于是这里做的是**在一张已经读完的平列表上整理** ✓，不是向未来要数据 ✓。
-`start` / `keywordIndex` 两个下标就是宿主那张表上的位置 ✓。
+`start` / `keywordIndex` / `nameIndex` 三个下标就是宿主那张表上的位置 ✓。
 
-三步：
+四步：
 
+0. **meta 信息只进字段、不进 `Data`** ✓（用户口径 ✓）：**名字那一格跳过** ✗——
+   `name` 字段已经完整表达了它 ✓，再留一个 `<Identifier>` 子单元就是同一件事两份 ✗
+   （同一个道理，`class` 那个词与修饰词也都不进 `Data` ✓，它们分别由「不是节点」与
+   `modifiers` 字段表达 ✓）；
 1. **修饰词折进属性**（`export` / `abstract` / `declare` … ⇒ `modifiers="export,abstract"`）；
 2. **整段搬进来，关键字与修饰词不进树**：`class` 那个词不是 XML 节点 ✓（TS 的
    `ClassDeclaration` 里也没有它 ✓），修饰词已经折进属性了 ✓，装饰器与其它头单元原样搬 ✓；
@@ -434,18 +450,52 @@ super(template);
    里面每一格都已经闭合 ✓，所以子句收完就能直接 `TryToClose` ✓，
    它自己那一趟重组当场跑 ✓（`extends` 升成 `<Keyword>` 就是那一趟做的 ✓）。
 
+**`HeritageClause` 留作子单元、不折进字段** ✓：`extends` / `implements` 两个字段是**文本** ✓，
+而子句里的 `ExpressionWithTypeArguments` 是 **TS 的节点** ✓（各自带类型实参子树 ✓）——
+那不是「用字段能表达完的 meta」✗，折进去就把子树丢了 ✓。于是口径是：
+**能被字段完整表达的一律不进 `Data`**（名字 / 修饰词 / 关键字）✓，
+**带子树的节点照旧留在 `Data`** ✓。
+
 **最后一个头单元也要关上** ✓：老写法是宿主 `AddToMounted` 那个 `{` 括号时顺手关的 ✓
 （`AddAndCloseLast` ✓）；现在那个 `{` 不建括号了 ✓，所以要在这里补一次 ✓。
 
 ```ts
-this.modifiers = DeclarationModifiers(units, start, keywordIndex).join(",");
+// **先读、再截**：`DeclarationModifiers` 与下面那个区间循环都要看宿主那张表，
+// 而 `units.length = start` 会把它们截掉。
+const modifierText = DeclarationModifiers(units, start, keywordIndex).join(",");
+// **修饰词的区间**：它们在声明头最前面那一段（装饰器不算），而它们**不进 `Data`**，
+// 所以区间要在这里抄进 `modifiers` 字段——同一个道理：能被字段表达的那几样，
+// 单元丢了就得把区间留下。
+let modStart: SourceRange | null = null;
+let modEnd: SourceRange | null = null;
+for (let i = start; i < keywordIndex; i++) {
+  const one = Get(units, i);
+  if (one === null || one instanceof Decorator) {
+    continue;
+  }
+  if (modStart === null) {
+    modStart = one.SourceRange;
+  }
+  modEnd = one.SourceRange;
+}
 const head = units.slice(start);
 units.length = start;
+let modRange: SourceRange | null = null;
+if (modStart !== null && modEnd !== null) {
+  modRange = new SourceRange();
+  modRange.Start = modStart.Start;
+  modRange.End = modEnd.End;
+}
+this.modifiers.Set(modifierText, modRange);
 const local = keywordIndex - start;
+const nameLocal = nameIndex >= start ? nameIndex - start : -1;
 this.SignIn(head[0].SourceRange.Start!);
 for (let i = 0; i < head.length; i++) {
   const item = head[i];
   if (i === local) {
+    continue;
+  }
+  if (i === nameLocal) {
     continue;
   }
   if (i < local && !(item instanceof Decorator)) {
@@ -477,25 +527,32 @@ HeritageClause.OrganizeAll(this.Template, this, this.Data);
 throw new Error("Class.Navigate: 不该被调用——类头在 { 那一刻就搬完了，之后每个字符都由 ClassBody 接手");
 ```
 
-## field name:string = ""
+## field name:TokenField<string> = new TokenField<string>("")
 
-类名。
+类名。**它是唯一的事实来源**：名字那一格**不进 `Data`**（用户口径：meta 信息只用字段表达 ✓），
+所以产物里看不到 `<Identifier>A</Identifier>` 这样一个子单元 ✓。
 
-**名字单元本身也在 `Data` 里**（`Data` 的第一个实义子单元就是那个 `Identifier`）——
-它带自己的 `SourceRange`，所以位置不用另记。这个字段只是同一件事的**给人读的副本**（XML 属性 `name="A"`），
-不是唯一来源。
+**值与区间装在一个字段里** ✓（用户口径 ✓，见 `core/syntax/token-field.xl.md`）：
+`name.Value` 说文本 ✓、`name.Range` 说它在源码里的位置 ✓——
+区间是**另一个事实** ✓，字符串表达不了它 ✗，所以不能只留文本 ✗。
+`ScanHead` 认出名字那一刻就把两样一起写进去 ✓（`instance.name.Set(...)` ✓）。
 
-## field extends:string = ""
+## field extends:TokenField<string> = new TokenField<string>("")
 
 `extends` 后面的基类名（点号名字按 `.` 连接，如 `A.B`）；没有 `extends` 时是空串。
+区间同样装在字段里。**注意子句本身仍留在 `Data`**：`extends` / `implements` 两个字段是**文本**，
+而 `HeritageClause` 里带的是 `ExpressionWithTypeArguments` **子树**——子树表达不进字段，
+所以留在 `Data` 里；能被字段完整表达的那几样（名字 / 修饰词 / 关键字）才不进。
 
-## field implements:Array<string> = []
+## field implements:TokenField<Array<string>> = new TokenField<Array<string>>([])
 
 `implements` 后面逐个列出的接口名；没有 `implements` 时是空数组。
+XML 属性渲染时用 `Text()`——`Array` 的默认串接就是逗号串。
 
-## field modifiers:string = ""
+## field modifiers:TokenField<string> = new TokenField<string>("")
 
 `ClassBranch` 认下的声明修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
+区间取声明头的起止（修饰词是声明头最前面那一段，与装饰器同为「头」的一部分）。
 
 ## property Body:ClassBody
 
@@ -527,7 +584,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} name="${this.name}" extends="${this.extends}" implements="${this.implements.join(",")}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
+return `<${name} name="${this.name.Text()}" extends="${this.extends.Text()}" implements="${this.implements.Text()}" modifiers="${this.modifiers.Text()}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
@@ -542,10 +599,10 @@ return `<${name} name="${this.name}" extends="${this.extends}" implements="${thi
 ```ts
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
-result.set("name", this.name);
-result.set("extends", this.extends);
-result.set("implements", this.implements.join(","));
-result.set("modifiers", this.modifiers);
+result.set("name", this.name.Value);
+result.set("extends", this.extends.Value);
+result.set("implements", this.implements.Text());
+result.set("modifiers", this.modifiers.Value);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {

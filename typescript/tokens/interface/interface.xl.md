@@ -3,6 +3,7 @@
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
@@ -104,6 +105,15 @@ for (let i = index - 1; i >= 0; i--) {
 return null;
 ```
 
+## private field NameIndex:int = -1
+
+`ScanHead` 顺手记下的**名字那一格**在宿主平列表上的下标。
+
+**为什么要单独记它**：`Success` 要把头整段搬进来，而**名字不进 `Data`**（用户口径：
+meta 信息只用字段表达）——`name` 字段已经完整表达了它（值与区间都在里面），
+再留一个 `<Identifier>` 子单元就是同一件事两份。所以搬的时候要跳过这一格，
+而「哪一格是名字」只有 `ScanHead` 知道。
+
 ## private method TakeDottedName:(units:Array<Token>, index:int, text:bool)=>int
 
 从 `index` 处的一个 `Identifier` 起吃掉**点号名字**（`A` / `A.B.C`），返回它之后的下标（跳过软换行）；
@@ -166,8 +176,9 @@ if (!(name instanceof Identifier)) {
   return false;
 }
 if (instance !== null) {
-  instance.name = name.TempToString();
+  instance.name.Set(name.TempToString(), name.SourceRange);
 }
+this.NameIndex = nextIndex;
 nextIndex = SkipNextWrapSymbol(units, nextIndex);
 if (Get(units, nextIndex) instanceof GenericType) {
   nextIndex = SkipNextWrapSymbol(units, nextIndex);
@@ -192,7 +203,7 @@ if (extendsWord instanceof Identifier && extendsWord.Is("extends")) {
     break;
   }
   if (instance !== null) {
-    instance.extends = this.ScannedNames;
+    instance.extends.Set(this.ScannedNames, null);
   }
 }
 return Get(units, nextIndex) === null;
@@ -250,13 +261,20 @@ const interfaceUnit = new Interface(unit.Template);
 if (this.ScanHead(units, interfaceIndex, interfaceUnit) === false) {
   throw new Error("InterfaceBranch: 进门之后接口头又不成立了");
 }
-interfaceUnit.export = exportIndex !== interfaceIndex;
+interfaceUnit.export.Set(exportIndex !== interfaceIndex, null);
 const head = units.slice(exportIndex);
 units.length = exportIndex;
 const local = interfaceIndex - exportIndex;
+const nameLocal = this.NameIndex >= exportIndex ? this.NameIndex - exportIndex : -1;
 interfaceUnit.SignIn(head[0].SourceRange.Start!);
 for (let i = 0; i < head.length; i++) {
   if (i === local) {
+    continue;
+  }
+  // **名字那一格不进 `Data`**（用户口径：meta 信息只用字段表达）——
+  // 值与区间在 `ScanHead` 认出名字那一刻就已经一起写进 `name` 字段了（`Set(...)`），
+  // 这里只是不再把它当子单元搬进来。
+  if (i === nameLocal) {
     continue;
   }
   // **`export` 那个词不进树**：它折进 `export` 属性（`<Interface name="I" extends="" export="true">`），
@@ -312,15 +330,16 @@ super(template);
 throw new Error("Interface.Navigate: 不该被调用——接口头在 { 那一刻就搬完了，之后每个字符都由 InterfaceBody 接手");
 ```
 
-## field export:bool = false
+## field export:TokenField<boolean> = new TokenField<boolean>(false)
 
-带不带 `export`。在 `Success` 里看到前一个实义单元是 `export` 时置为 `true`。
+带不带 `export`。在 `Success` 里看到前一个实义单元是 `export` 时写成 `true`。
 
-## field name:string = ""
+## field name:TokenField<string> = new TokenField<string>("")
 
-接口名。
+接口名。**它是唯一的事实来源**：名字那一格**不进 `Data`**（同名口径见 `Class.name`），
+`Value` 说文本、`Range` 说位置，两样一起装在字段里。
 
-## field extends:Array<string> = []
+## field extends:TokenField<Array<string>> = new TokenField<Array<string>>([])
 
 `extends` 后面的接口名列表（点号名字按源文本记，如 `a.b.Base`）。
 
@@ -359,7 +378,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} name="${this.name}" extends="${this.extends.join(",")}" export="${this.export}">${temp.join("")}</${name}>`;
+return `<${name} name="${this.name.Text()}" extends="${this.extends.Text()}" export="${this.export.Text()}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
@@ -374,9 +393,9 @@ JSON 里写真布尔 `true` / `false`——XML 属性是插值出来的文本，
 ```ts
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
-result.set("name", this.name);
-result.set("extends", this.extends.join(","));
-result.set("export", this.export);
+result.set("name", this.name.Value);
+result.set("extends", this.extends.Text());
+result.set("export", this.export.Value);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {

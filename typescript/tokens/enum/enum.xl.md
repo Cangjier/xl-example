@@ -3,6 +3,7 @@
 import { Branch } from "../../../core/syntax/branch.xl.md"
 import { BranchConditionResult } from "../../../core/syntax/branch-condition-result.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GuideToken } from "../../../core/syntax/guide-token.xl.md"
@@ -83,6 +84,14 @@ for (let i = units.length - 1; i >= 0; i--) {
 return -1;
 ```
 
+## private field NameIndex:int = -1
+
+`ScanHead` 顺手记下的**名字那一格**在宿主平列表上的下标。
+
+**为什么要单独记它**：`Success` 要把头整段搬进来，而**名字不进 `Data`**（用户口径：
+meta 信息只用字段表达）——`name` 字段已经完整表达了它，再留一个 `<Identifier>` 子单元就是
+同一件事两份。所以搬的时候要跳过这一格，而「哪一格是名字」只有 `ScanHead` 知道。
+
 ## private method PreviousWord:(units:Array<Token>, index:int)=>Token | null
 
 取 `index` 前面第一个**实义单元**（软换行与注释都跳过）。位置闸用它。
@@ -117,8 +126,9 @@ if (Get(units, SkipNextWrapSymbol(units, nameIndex)) !== null) {
   return false;
 }
 if (instance !== null) {
-  instance.name = name.TempToString();
+  instance.name.Set(name.TempToString(), name.SourceRange);
 }
+this.NameIndex = nameIndex;
 return true;
 ```
 
@@ -176,14 +186,21 @@ const enumUnit = new Enum(unit.Template);
 if (this.ScanHead(units, enumIndex, enumUnit) === false) {
   throw new Error("EnumBranch: 进门之后枚举头又不成立了");
 }
-enumUnit.modifiers = DeclarationModifiers(units, start, enumIndex).join(",");
+const local = enumIndex - start;
+const nameLocal = this.NameIndex >= start ? this.NameIndex - start : -1;
+enumUnit.modifiers.Set(DeclarationModifiers(units, start, enumIndex).join(","), null);
 const head = units.slice(start);
 units.length = start;
-const local = enumIndex - start;
 enumUnit.SignIn(head[0].SourceRange.Start!);
 for (let i = 0; i < head.length; i++) {
   const item = head[i];
   if (i === local) {
+    continue;
+  }
+  // **名字那一格不进 `Data`**（用户口径：meta 信息只用字段表达）——
+  // 值与区间在 `ScanHead` 认出名字那一刻就已经一起写进 `name` 字段了（`Set(...)`），
+  // 这里只是不再把它当子单元搬进来。
+  if (i === nameLocal) {
     continue;
   }
   if (i < local && !(item instanceof Decorator)) {
@@ -235,11 +252,12 @@ super(template);
 throw new Error("Enum.Navigate: 不该被调用——枚举头在 { 那一刻就搬完了，之后每个字符都由 EnumBody 接手");
 ```
 
-## field name:string = ""
+## field name:TokenField<string> = new TokenField<string>("")
 
-枚举名。
+枚举名。**它是唯一的事实来源**：名字那一格**不进 `Data`**（同名口径见 `Class.name`），
+`Value` 说文本、`Range` 说位置，两样一起装在字段里。
 
-## field modifiers:string = ""
+## field modifiers:TokenField<string> = new TokenField<string>("")
 
 声明前面的修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
 
@@ -273,7 +291,7 @@ const temp: string[] = [];
 for (const item of this.Data) {
   temp.push(item.ToXmlString());
 }
-return `<${name} name="${this.name}" modifiers="${this.modifiers}">${temp.join("")}</${name}>`;
+return `<${name} name="${this.name.Text()}" modifiers="${this.modifiers.Text()}">${temp.join("")}</${name}>`;
 ```
 
 ## method ToDictionary:()=>Map<string, any>
@@ -287,8 +305,8 @@ return `<${name} name="${this.name}" modifiers="${this.modifiers}">${temp.join("
 ```ts
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
-result.set("name", this.name);
-result.set("modifiers", this.modifiers);
+result.set("name", this.name.Value);
+result.set("modifiers", this.modifiers.Value);
 if (this.Data.length !== 0) {
   const children: Array<any> = [];
   for (const item of this.Data) {
