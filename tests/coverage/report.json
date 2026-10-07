@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.27,
+  "progressPercent": 99.35,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 496,
+      "pass": 497,
       "blocked": 0,
-      "differ": 6,
+      "differ": 5,
       "nodefail": 0,
-      "coverage": 98.8
+      "coverage": 99
     },
     {
       "layer": "exec",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 626,
+      "pass": 627,
       "blocked": 0,
-      "differ": 8,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 98.74
+      "coverage": 98.9
     },
     {
       "layer": "e2e",
@@ -100,12 +100,6 @@
       "layer": "runtime",
       "title": "async 里的抛错 / 拒绝 / try-catch / finally",
       "detail": "stdout 不同：第 1 行：node «1 boom» vs tsrun «fin»"
-    },
-    {
-      "id": "c371-rt-instanceof-and-prototype",
-      "layer": "runtime",
-      "title": "instanceof 与原型替换、跨类判定",
-      "detail": "stdout 不同：第 4 行：node «true true true» vs tsrun «false false false»"
     },
     {
       "id": "c371-rt-console-inspect-shapes",
@@ -148,12 +142,6 @@
       "layer": "stdlib",
       "title": "Date.now / new Date(ms) / new Date(string) 的读数",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：unimplemented: global builtin 260"
-    },
-    {
-      "id": "c371-stdlib-date-parse-and-json",
-      "layer": "stdlib",
-      "title": "Date.parse 与 toJSON；无效日期的字符串形态",
-      "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：Invalid time value"
     },
     {
       "id": "c371-stdlib-function-bind-forms",

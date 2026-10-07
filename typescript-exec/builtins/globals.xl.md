@@ -1668,8 +1668,17 @@ JS 的口径就是**返回它自己** ✓，所以这一支也只做「把 `self
 # const DateToISOString:int = 284
 
 **`Date.prototype.toISOString`**（第 280 轮 ✓）——`DateIsoText` 的正身 ✓。
-**`toJSON` 指到同一个号** ✓（JS 里 `Date.prototype.toJSON` 对合法日期给的就是那一串 ✓——
-同一件事不写第二份实现 ✓，与数组的 `toString` = `join` 同款 ✓）。
+
+# const DateToJSON:int = 503
+
+**`Date.prototype.toJSON`**（第 605 轮 ✓）——**与 `toISOString` 分开的第二个号** ✓，号**追加在表尾** ✓。
+
+**为什么不能合用一个号** ✗（第 280 轮起它们一直合用 ✓，直到这一轮）：JS 里两档对**非法日期**
+的回答**不一样** ✓——`toISOString` **抛 `RangeError`** ✓、`toJSON` 给 **`null`** ✓
+（规范 `Date.prototype.toJSON`：`tv` 不是有限数就返回 `null` ✓）。合用一个号时那一档只能挑一个 ✓，
+于是 `JSON.stringify(new Date(NaN))` 会**抛** ✗（Node 给 `null` ✓——判据
+`c371-stdlib-date-parse-and-json` 量的就是这一格 ✓）。**合法日期那一档仍是同一份实现** ✓
+（两处都取 `DateIsoText` ✓）。
 
 # const DateSetUTCFullYear:int = 285
 
@@ -4352,19 +4361,21 @@ if (id === DateToString) {
   if (!room(ObjectCharge + CodeUnitCharge * 12)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units("Invalid Date")));
 }
-if (id === DateToISOString) {
-  // **`toISOString` 与 `toJSON` 共用这一支** ✓（第 280 轮 ✓，同一个号 ✓）。
+if (id === DateToISOString || id === DateToJSON) {
+  // **`toISOString` 与 `toJSON` 共用这一支** ✓（第 280 轮 ✓，两支的差别只有非法日期那一格 ✓）。
   // **`toJSON` 多收一个键实参** ✗（`JSON.stringify` 调它时给 `(键, 值)` ✓）——
   // 那一格**用不上** ✓（日期串与键无关 ✓），所以两支合并**没有代价** ✓。
   const isoStored = FindProperty(room, table, self.Ref,
     Value.FromString(table.CreateString(Units("__t"))));
   if (isoStored === null) throw new Error("unimplemented: not a Date receiver (no __t)");
   const isoMs = NumericOf(table.Get(isoStored.Owner).Props[isoStored.Index].Value);
-  // **非法日期要抛 `RangeError`** ✓（JS 的口径 ✓）：本层的 `__t` 只可能是数 ✓，
-  // 而 `NaN` 那一档（`new Date("坏")` ✓）在 JS 里 `toISOString` 是**抛** ✓、
-  // `toJSON` 是给 **`null`** ✓——两处不一样 ✗，所以这里按**号相同**合并之后
-  // 用一个判据：`NaN` ⇒ 抛 ✓（`toJSON` 那一档的 `null` 记在台账里 ✓）。
-  if (isoMs !== isoMs) throw new RangeError("Invalid time value");
+  // **非法日期两档不一样** ✓（第 605 轮 ✓）：`toISOString` 抛 `RangeError` ✓、
+  // `toJSON` 给 **`null`** ✓（规范原话：`tv` 不是有限数就返回 `null` ✓）——
+  // 所以这两个号不能再合并 ✗，见 `DateToJSON` 那一段 ✓。
+  if (isoMs !== isoMs) {
+    if (id === DateToJSON) return Value.Null();
+    throw new RangeError("Invalid time value");
+  }
   const isoText = DateIsoText(isoMs);
   if (!room(ObjectCharge + CodeUnitCharge * isoText.length)) throw new Error("out of room");
   return Value.FromString(table.CreateString(Units(isoText)));
@@ -4456,15 +4467,16 @@ throw new Error("unimplemented: global builtin " + id);
 ```ts
 const methodIds = [DateGetTime, DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate,
   DateGetUTCHours, DateGetUTCMinutes, DateGetUTCSeconds, DateGetTime,
-  // **第 280 轮补的两格** ✓：`toISOString` ✓ 与 `toJSON` ✓（**同一个号** ✓，见号那一段 ✓）。
-  DateToISOString, DateToISOString,
+  // **第 280 轮补的两格** ✓：`toISOString` ✓ 与 `toJSON` ✓——**第 605 轮起两个号** ✓
+  //（非法日期那一格不一样 ✓，见 `DateToJSON` 那一段 ✓）。
+  DateToISOString, DateToJSON,
   // **七个 `setUTC*`** ✓（第 280 轮 ✓）——名字与号**一一对齐** ✓（按下标配 ✓）。
   DateSetUTCFullYear, DateSetUTCMonth, DateSetUTCDate, DateSetUTCHours,
   DateSetUTCMinutes, DateSetUTCSeconds, DateSetUTCMilliseconds,
   // **第 293 轮补的九个名字** ✓——**本地那一族与 UTC 共用同一个号** ✓
   //（`getFullYear` = `getUTCFullYear` ✓ …），理由是**本仓的本地口径就是 UTC** ✓
   //（见上面那一段 ✓）：写第二份实现就是第二份会漂的答案 ✗
-  //（与 `valueOf` = `getTime` ✓、`toJSON` = `toISOString` ✓ 同一条先例 ✓）。
+  //（与 `valueOf` = `getTime` ✓ 同一条先例 ✓）。
   DateGetUTCMilliseconds, DateGetUTCMilliseconds, DateGetUTCDay, DateGetUTCDay,
   DateGetUTCFullYear, DateGetUTCMonth, DateGetUTCDate, DateGetUTCHours,
   DateGetUTCMinutes, DateGetUTCSeconds,

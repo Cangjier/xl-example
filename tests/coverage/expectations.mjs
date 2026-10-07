@@ -980,7 +980,6 @@ export const EXPECTATIONS = {
   "c371-rt-async-error-paths": { expect: "differ", why: "async 的错误路径与微任务次序（`fin` 早于 `1 boom`，与 Node 相反）。" },
 
   // ---- 换掉 `C.prototype` 之后 `instanceof` 的判定（Node 给 `true true true`）。
-  "c371-rt-instanceof-and-prototype": { expect: "differ", why: "换掉 `C.prototype` 之后 `instanceof` 的判定（Node 给 `true true true`）。" },
 
   // ---- `findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。
 
@@ -1026,7 +1025,6 @@ export const EXPECTATIONS = {
   "c371-stdlib-date-now-and-construction": { expect: "differ", why: "`new Date(2020, 0, 2)`（多实参构造）与 `new Date(\"…\")`（字符串解析）还没接上 ⇒ `unimplemented: global builtin 260`。" },
 
   // ---- `JSON.stringify(new Date(NaN))`：Node 给 `null`，本仓在 `toJSON` 里先抛了 `Invalid time value`。
-  "c371-stdlib-date-parse-and-json": { expect: "differ", why: "`JSON.stringify(new Date(NaN))`：Node 给 `null`，本仓在 `toJSON` 里先抛了 `Invalid time value`。" },
 
   // ---- `MyArray[Symbol.species] === MyArray`（物种那一格的缺省值）。
 

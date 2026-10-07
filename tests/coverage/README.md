@@ -115,13 +115,13 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
-| runtime | 496 / 502 | 98.8% |
+| runtime | 497 / 502 | 99.0% |
 | exec | **411 / 411** | **100%** |
-| stdlib | 626 / 634 | 98.7% |
+| stdlib | 627 / 634 | 98.9% |
 | e2e | 165 / 166 | 99.4% |
-| **合计（加权）** | **1698 / 1713** | **99.3%** |
+| **合计（加权）** | **1700 / 1713** | **99.4%** |
 
-`report.json` 是**最后一次整跑**的完整清单：`blocked` **0** 条、`differ` 15 条
+`report.json` 是**最后一次整跑**的完整清单：`blocked` **0** 条、`differ` 13 条
 （跑得出来但结果不同），每一条带一句症状与最小复现；`bad` 是裁判自己都跑不动的用例，
 必须为 0。下一轮从哪儿下手就看这一份，**逐轮的账**在
 [typescript-exec/README.md](../../typescript-exec/README.md) 的「当前的缺口」那一节。
@@ -138,8 +138,8 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | --- | --- | --- |
 | `npm run runtime:check` | 引擎的**机制**（IR / 堆 / GC / 帧 / 宿主） | 242 条 |
 | `npm run runtime:cli` | **必须全过**的端到端语料（过不了的进不去） | 79 份 |
-| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍** | 1472 份逐文件一致 |
-| `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） | 1071 条 |
+| `npm run cases:tsast` | token 层与真 TS 的 **AST 对拍** | 1473 份逐文件一致 |
+| `npm run cases:check` | 用例文件本身合不合格（`xl:expect` 里的标签名有没有写错） | 1072 条 |
 | **`npm run coverage`** | **场景覆盖面**（含「现在过不了」的那些） | **1713 条** |
 
 前四条是**门**（过不了就红），这一条是**尺**——它把「还差多少」变成可复现的读数，

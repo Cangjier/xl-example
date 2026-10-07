@@ -1048,7 +1048,7 @@ if (receiver.Tag === ValueTag.Array) {
 throw new Error("unimplemented: indexed assignment on a non-array receiver");
 ```
 
-# method SetHiddenProperty:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value, value:Value)=>void
+# method SetHiddenProperty:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value, value:Value, flags:int = -1)=>void
 
 **写一格「不可枚举」的自有属性**（第 194 轮 ✓）——装库层的内部件与方法用它 ✓。
 
@@ -1062,24 +1062,35 @@ throw new Error("unimplemented: indexed assignment on a non-array receiver");
 没有就新开一格 ✓；**不看数组的 `length`、不调 setter** ✗
 （装库层写的都是数据属性 ✓，走那条通用路只会多绕一圈 ✓）。
 
+**`flags` 是给「不可写」那一档留的口子**（第 605 轮 ✓）：缺省 `-1` 表示老口径
+（**可写 + 可配置** ✓，第 194 轮起就是它 ✓），调用方给具体标志位时按给的来 ✓。
+今天只有一处给 ✓——类的 `prototype` 那一格（`AttachPrototype` ✓）：
+JS 里类的那一格是 `{ writable: false, enumerable: false, configurable: false }` ✓，
+而普通函数的 `prototype`（以及这里别的内部件）是**可写**的 ✓
+（规范里 `MakeConstructor` 那两个分支 ✓）。**不可写这一位要有意义** ✓，
+得 `SetProperty` 那一侧也照它拦住 ✓——那里确实拦（不可写的数据属性赋值**静默无效** ✓，
+判据 `object-freeze` 一直量着它 ✓）。
+
 ```ts
 if (!receiver.IsObject()) {
   throw new Error("unimplemented: hidden property on a primitive receiver");
 }
+// **缺省标志位**（见上面那一格 ✓）：不给 `flags` 就是第 194 轮起那条口径 ✓。
+const wanted = flags < 0 ? PropertyFlagWritable + PropertyFlagConfigurable : flags;
 const hiddenFound = FindProperty(room, table, receiver.Ref, key);
 if (hiddenFound !== null && hiddenFound.Owner === receiver.Ref) {
   const hiddenProperty = table.Get(hiddenFound.Owner).Props[hiddenFound.Index];
   if (hiddenProperty.Kind !== PropertyKind.Accessor) {
     hiddenProperty.Value = value;
-    // **不可枚举、但可写可配置** ✓：JS 里这些内部件不是属性 ✗——
-    // 这里用「自有 + 不可枚举」近似它 ✓，改值 / 删除照旧成立 ✓。
-    hiddenProperty.Flags = PropertyFlagWritable + PropertyFlagConfigurable;
+    // **不可枚举** ✓：JS 里这些内部件不是属性 ✗——
+    // 这里用「自有 + 不可枚举」近似它 ✓，改值 / 删除照旧成立 ✓（类那一格例外 ✓）。
+    hiddenProperty.Flags = wanted;
     return;
   }
 }
 if (!room(PropertyCharge)) throw new Error("out of room");
 const hiddenCreated = new Property(key.Ref, value);
-hiddenCreated.Flags = PropertyFlagWritable + PropertyFlagConfigurable;
+hiddenCreated.Flags = wanted;
 table.Get(receiver.Ref).Props.push(hiddenCreated);
 table.Recount(receiver.Ref);
 ```

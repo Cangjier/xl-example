@@ -2709,7 +2709,7 @@ this.FunctionNameHint = savedHint;
 return value;
 ```
 
-## method EmitHiddenSet:(target:int, key:int, value:int)=>void
+## method EmitHiddenSet:(target:int, key:int, value:int, flags:int = -1)=>void
 
 **一条 `set_hidden(对象, 键, 值)` 内部调用** ✓（第 210 轮 ✓）——窗口形状与
 `ConcatValues` / `PowValues` **同一个** ✓（`[号, 参数…]` + 一条 `host_call` ✓）。
@@ -2717,13 +2717,23 @@ return value;
 **窗口自己占、自己退** ✓（与那两条一样 ✓），差别是**结果不看** ✓：
 `set_hidden` 给的是 `undefined` ✓，调用方要的是「写完」这件事本身 ✓。
 
+**`flags` 是第 605 轮加的一格** ✓（缺省 `-1` = 不给这一格 ✓）：给了就在窗口尾巴多占一格 ✓
+（`[号, 目标, 键, 值, 标志位]` ✓，长度也报 5 ✓——那个长度就是宿主收到的实参个数 ✓）。
+**为什么不新开一个能力号** ✗：这一段发出去的号都得住进能力表 ✓，
+而表在判据那一侧本来就紧 ✓（`install.xl.md` 的 `BuiltinSlots` 上面那段写着账 ✓）——
+同一件事多传一格实参，比多占一个号便宜得多 ✓。
+
 ```ts
-const window = this.Reserve(4);
+const count = flags < 0 ? 4 : 5;
+const window = this.Reserve(count);
 this.Emit(Op.Const, window, this.IntConst(SetHiddenId), -1, -1);
 this.Emit(Op.Move, window + 1, target, -1, -1);
 this.Emit(Op.Const, window + 2, key, -1, -1);
 this.Emit(Op.Move, window + 3, value, -1, -1);
-this.EmitRt(RtOp.HostCall, window, window, 4);
+if (flags >= 0) {
+  this.Emit(Op.Const, window + 4, this.IntConst(flags), -1, -1);
+}
+this.EmitRt(RtOp.HostCall, window, window, count);
 this.Release(window);
 ```
 
@@ -5461,7 +5471,7 @@ this.PatchTarget(skip, this.Here());
 this.Release(current);
 ```
 
-## method AttachPrototype:(closure:int)=>void
+## method AttachPrototype:(closure:int, writablePrototype:bool)=>void
 
 **给一个函数值挂上它的 `prototype` 对象**——JS 里**每个 `function` 都自带一个**
 （不是等到有人写 `F.prototype.x = …` 时才现造）。
@@ -5469,6 +5479,18 @@ this.Release(current);
 **不是所有函数值都该有**：箭头函数没有（它不可构造），对象字面量与类里的**方法**也没有
 （它们同样不是构造函数）。所以**由调用方决定要不要调这个**——「哪种函数能当构造函数」
 是语言层的判断，引擎不必知道。
+
+**`writablePrototype` 是第 605 轮加的一格** ✓：JS 里**类**的那一格是
+`{ writable: false, enumerable: false, configurable: false }` ✓，而**普通函数**的是
+`{ writable: true, … }` ✓（规范 `MakeConstructor` 的那两个分支 ✓）。
+**不可写这一位不是装饰** ✗：`C.prototype = {}` 在 JS 里**静默无效** ✓
+（类体是严格模式，但那句话通常写在**外面** ✓），于是 `instanceof` 的答案不变 ✓——
+本仓原来那格可写 ✓ ⇒ 赋值真的换了原型 ⇒ `c instanceof C` 从真变假 ✓
+（**静默错值** ✓，判据 `c371-rt-instanceof-and-prototype` 量的就是它 ✓）。
+
+**标志位怎么传** ✗：`set_hidden` 的第四格给 `0` = **一位都不置** ✓
+（不可写 ✓、不可枚举 ✓、不可配置 ✓——正好是 JS 类的那三格 ✓）；
+普通函数那一档照旧给缺省 `-1` ✓（可写 + 可配置 ✓，第 194 轮起的口径 ✓）。
 
 **`prototype.constructor` 的回指今天不挂**：那个回指是为 `instanceof` 服务的，
 要和它一起做；现在挂上去，反而会让人以为 `instanceof` 已经能用。
@@ -5483,7 +5505,8 @@ this.Release(current);
 const proto = this.Reserve(1);
 this.EmitRt(RtOp.NewObject, proto, proto, 0);
 const key = this.Program().AddConst(Constant.OfString(UnitsOf("prototype")));
-this.EmitHiddenSet(closure, key, proto);
+// **类那一格不可写** ✓（见方法开头那一格 ✓）：`writablePrototype` 假时给 `0` 位 ✓。
+this.EmitHiddenSet(closure, key, proto, writablePrototype ? -1 : 0);
 // **`prototype.constructor` 回指**：JS 里每个函数的原型都指回函数自己
 // （`x.constructor` 那种写法靠它，`instanceof` 的语义也要求这个形状）。
 //
@@ -5585,8 +5608,9 @@ item.HasRest = this.HasRestParam(node);
 // 类那条路只要不再自己抛 ✓，标记就自然对上了 ✓。
 const slot = this.EmitClosure(item);
 // **函数表达式自带 `prototype`**（箭头与对象方法不——它们不可构造）。
+// **这一档可写** ✓（普通函数的 `prototype` 就是可写的 ✓，与类相反 ✓，见 `AttachPrototype` ✓）。
 if (NodeKind(node) === "FunctionExpression") {
-  this.AttachPrototype(slot);
+  this.AttachPrototype(slot, true);
 }
 return slot;
 ```
@@ -6726,7 +6750,9 @@ if (this.Pending.length > 0 && allInstanceFields.length > 0) {
 if (this.Pending.length > 0) {
   this.Pending[this.Pending.length - 1].Slot = ctor;
 }
-this.AttachPrototype(ctor);
+// **类的那一格不可写** ✓（第 605 轮 ✓）：`C.prototype = {}` 在 JS 里静默无效 ✓，
+// 于是 `c instanceof C` 不变 ✓——可写时赋值真的换掉原型 ⇒ 答案由真变假 ✗（静默错值 ✓）。
+this.AttachPrototype(ctor, false);
 // **绑定放在造闭包之后**（与函数声明同一条规矩）：名字被内层捕获时，
 // 绑定在**环境格**里，而 `DeclareLocal` 会把当时那一格（还是空的）搬进格——
 // 那样后面写进槽的值根本没人读，表现是「调用了非闭包的值」。
@@ -6981,7 +7007,8 @@ item.IsAsync = this.NodeIsAsync(node);
 item.HasRest = this.HasRestParam(node);
 const slot = this.EmitClosure(item);
 // **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。
-this.AttachPrototype(slot);
+// **这一档可写** ✓（与类相反 ✓，见 `AttachPrototype` ✓）。
+this.AttachPrototype(slot, true);
 // **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
 // 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
 this.DeclareLocal(TextOf(name), slot);

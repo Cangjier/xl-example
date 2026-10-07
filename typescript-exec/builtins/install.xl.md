@@ -1232,7 +1232,12 @@ if (id === SetHiddenId) {
   if (args[1].Tag !== ValueTag.String && args[1].Tag !== ValueTag.Symbol) {
     throw new Error("unimplemented: set_hidden with a key that is not a string or a symbol");
   }
-  SetHiddenProperty(room, table, args[0], args[1], args[2]);
+  // **第四格是标志位**（第 605 轮 ✓）：给了就按它写 ✓（类 `prototype` 那一格要「不可写」✓，
+  // 见 `props.xl.md` 的 `SetHiddenProperty` 与 `lowering.xl.md` 的 `AttachPrototype` ✓）；
+  // 不给就是老口径 ✓——**不新开能力号** ✗：这一段是「号段 700..799 的分派」，
+  // 多一个号就多一格要登记的能力表（那张表在判据那一侧本来就紧 ✓，见 `BuiltinSlots` 上面那段 ✓）。
+  const hiddenFlags = args.length > 3 ? args[3].AsInt() : -1;
+  SetHiddenProperty(room, table, args[0], args[1], args[2], hiddenFlags);
   return Value.Undefined();
 }
 throw new Error("unimplemented: object helper " + id);
