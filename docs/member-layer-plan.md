@@ -2910,3 +2910,27 @@ decl-class-private-field-in-operator.ts / decl-class-private-field.ts / decl-cla
 **下一块**（就做它 ?）：在 `RunCloseRules` 里加一条私有名合并规则 ?
 （`SymbolToken("#")` + 名字 ? 一个文本为 `#name` 的单元 ?，位置在 `PropertyAccess` 之前 ?），
 拿那 11 份当靶子量 ? —— 做法与第 490–497 轮搬规则时一模一样 ?。
+
+## 一百三十三、私有名合并：两条实现路线，选**投影侧**那一侧（第 529 轮，设计定稿）
+
+目标很小也很清楚 ?：让产物里出现**一个**文本为 `#name` 的单元 / 节点 ?
+（`print-ast-common.xl.md:652` 的 `leafKindOfText` 一看到文本以 `#` 开头就投 `PrivateIdentifier` ?）。
+
+两条路线 ?：
+
+| 路线 | 做法 | 风险 |
+| --- | --- | --- |
+| ① 规则侧 | 在 `RunCloseRules` 里把 `SymbolToken("#")` + 名字换成一个单元 ? | **要新造一种单元**（文本 `#name` ?）——哪一族能装下这个文本没有把握 ?（`SymbolToken` 的内容是符号表 ?、`Identifier` 是字母 ?），造错的代价是一大片文件 ? |
+| ② **投影侧** ? | 在投影里**先把平铺的孩子归一化** ?：遇到「`SymbolToken(#)` + `Identifier`/`Keyword`」这一对 ?，就按 :1974 那段**现成的**合成逻辑 ? 先合出一个 `PrivateIdentifier` 节点 ?，再走原来的语句/表达式投影 ? | **小** ?：只碰一列孩子 ?、复用已有代码 ?、不动单元类型 ? |
+
+**选 ②** ? —— 理由三条 ?：
+1. :1974 那段逻辑**已经在仓库里** ?（含 `foldBinaryFrom` 之后的收尾 ?），只是**入口没走到** ?
+   （它要求 `kids[0]` 就是 `#` ?，而实际列表是 `[return, #, x, in, o]` ?）；
+2. 不动产物结构 ? ? 不会像前几轮那样动辄 ?9 ~ ?27 ?；
+3. 那 11 份文件是**一鱼多吃** ?（一份同时补 `ReturnStatement` / `PrivateIdentifier` /
+   `PropertyAccessExpression` / `BinaryExpression` ?）。
+
+**下一块（实现）** ?：在投影把平铺孩子送进语句/表达式那一步之前 ?，
+加一个「**归一化私有名**」的小步骤 ?（扫一遍 `kids` ?，把 `#` + 名字对替换成合成的 `PrivateIdentifier` 节点 ?），
+然后拿那 11 份当靶子 ?（`cls-hash-in-operator.ts` / `cls-private-fields.ts` / … ?），
+再跑整份尺子 ?；坏了连同 `xl build` 一起回滚 ?。
