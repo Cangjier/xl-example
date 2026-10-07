@@ -1888,5 +1888,37 @@ cases:check 1050 全过、coverage 142/1713 ✓）—— 没有弄坏东西 ✓�
 `Decorator`(1) 要插到最前 ✓。**成员那一簇**（`MethodDeclaration` ＋ `Field` ＋ `Signature` ＋ `Label` ✓）
 正是这份计划最初的主题 ✓，权重也大（1187 / 651 / 163 / …✓）。
 
+## 一百〇七、成员那一簇接上（第 490 轮）：221 → **290 / 1037**
+
+接上 `Decorator`(1) → `Function`(2) → `Signature`(3) → `MethodDeclaration`(4) → `Label`(5) → `Field`(7) ✓，
+次序照队列 ✓；**`Let`(6) 跳过** ✗：解析期已经有 `LetBranch` ✓，再跑 `LetReorganization` 会两次成形 ✗。
+
+分成两次量的账（同一份 `cases` 语料 ✓）：
+
+| 接上的 | 完全一致 | 缺 | 漂移 | 多出来 | 字段名 |
+| --- | --- | --- | --- | --- | --- |
+| 基线（第 489 轮） | 221 | 5759 | 573 | 3786 | 79 |
+| ＋`Signature` / `MethodDeclaration` / `Label` / `Field` | 264 | 5495 | 598 ✗ | 3800 ✗ | 91 ✗ |
+| ＋`Decorator`（插到 `Function` 之前） | **290** | **5242** | 598 ✗ | **3598** | 95 ✗ |
+
+⇒ `Decorator` 那一格值 **+26** ✓（它是「类头 / 成员前面那串 `@…`」✓，在队列里排第一 ✓）。
+
+**一处容易误判的对照**：`tmp/recon/i37.ts`（`class A { b: number = 1; }`）在尺子上
+**禁用 reorg 与对照态逐项相同** ✓（缺 3 / 漂 0 / 多 4 ✓）——那个形状是**绿树自己也差**的一处 ✗
+（不是这一轮引入的 ✗；它是这一轮临时造的探针文件 ✓，不在语料里 ✓）。
+
+**工具**：`tmp/recon/r490-members.cjs` ✓（可回滚的 JS 实验 ✓，备份在 `r490-backup/` ✓；
+`--only=field,signature` 可以只上指定几条 ✓）。
+
+**门**：`runtime:check` 124 → **125 / 242** ✓；`coverage` 146 → **147 / 1713** ✓；
+其余与上一轮逐道相同 ✓（runtime:cli 1/78、cases:tsast 红、samples 红、cases:check 1050 全过 ✓）。
+对照态 **859** 不动 ✓（这一趟在对照态不跑 ✓）。
+
+**下一块**：继续往队列下游走 ✓ —— `New`(8) / `Method`(9) / `NullConditionalOperator`(10) /
+`Namespace`(11) / `TypeLiteral`(12) / `Block`(13) / `JsonObject`(14) / `TypeBracket`(15) … ✓
+（表达式与字面量那一簇 ✓，权重里 `Method` 831 / `JsonArray` 860 / `PropertyAccess` 940 ✓）。
+**另有一笔待解**（第 488 轮就记下了 ✓）：`StatementReorganization3`（774 / 154 / 101 ✓）的时机是
+「容器关闭时最后那一格」✓，与这一趟天然重合 ✓，但它还不在这一趟里 ✓。
+
 
 

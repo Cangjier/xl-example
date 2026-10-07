@@ -741,13 +741,23 @@ Statement.FormFrom(unit, terminator);
   当场从 OK 变 MISS ✗，与 `Function` 一起搬就是**四个方向全零** ✓。
 - **`TypeAssign`（第 35）排在 `TypeDefine`（第 37）之前** ✓（第 489 轮接上的 ✓）：
   `type X = …` 的整段先收成别名 ✓，那条声明里的类型标注才轮到 `TypeDefine` ✓。
+- **`Let`（队列第 6）跳过** ✗（第 490 轮 ✓）：解析期已经有 `LetBranch` ✓，
+  再跑 `LetReorganization` 会**两次成形** ✗ —— 那一格从此由解析期独占 ✓。
+- **成员那一簇照队列次序接上** ✓（第 490 轮 ✓）：`Decorator`(1) → `Function`(2) → `Signature`(3)
+  → `MethodDeclaration`(4) → `Label`(5) → `Field`(7) ✓；实测这一簇（连 `Decorator` ✓）
+  把读数从 221 推到 **290 / 1037** ✓。
 
 **每条规则还是它自己那一份实现** ✓：`XxxReorganization.Instance.ApplyTo(unit)` ✓
 （那个循环只有一份 ✓，见 `core/syntax/reorganization.xl.md` ✓）——
 这一轮搬的是**调用时机** ✓，规则本体的逐条内联留到后面一块一块做 ✓。
 
 ```ts
+DecoratorReorganization.Instance.ApplyTo(unit);
 FunctionReorganization.Instance.ApplyTo(unit);
+SignatureReorganization.Instance.ApplyTo(unit);
+MethodDeclarationReorganization.Instance.ApplyTo(unit);
+LabelReorganization.Instance.ApplyTo(unit);
+FieldReorganization.Instance.ApplyTo(unit);
 ParameterReorganization.Instance.ApplyTo(unit);
 TypeAssignReorganization.Instance.ApplyTo(unit);
 TypeDefineReorganization.Instance.ApplyTo(unit);
