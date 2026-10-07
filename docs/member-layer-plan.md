@@ -1488,7 +1488,35 @@ reorg 已按用户指示**默认关掉**（`DSH_XL_REORG=1` 才恢复对照态 �
 
 （对照态 `DSH_XL_REORG=1`：1037 / 1037 ✓。）
 
-## 九十七、每步都要钉住的三件事
+## 九十八、接线本身就会破坏字符派发（第 473–474 轮）
+
+把 `Let` 那块装回来、修掉两个坑（去重导入 ✓、去掉截断后的 `RemoveSelf` ✓、
+`Success` 改用 `ReplaceCountAt` 原位替换 ✓）之后，**抛异常仍是 323** ✗。逐条排除：
+
+| 试验 | 结果 |
+| --- | --- |
+| 在 `Success` 里包 try/catch 打堆栈 | **没有日志** ✗（`cjcli` 可能吞了 stderr ✗） |
+| 在 `Condition` 里包 try/catch 打堆栈 | 同样没有 ✗ |
+| `Condition` 开头加硬守卫（`unit` 空 / `Data` 非数组直接拒绝 ✓） | **仍然 323** ✗ |
+| **去掉接线**（分支定义留着 ✗） | **异常回到 0** ✓ —— `i29.ts` 正常解析 ✓ |
+| 再接线（重建 `parse-pipeline` ✓） | 又 323 ✗ |
+
+⇒ **是「把分支插进 `BranchTemplate.DefaultValue`」这件事本身**破坏了字符派发 ✗ ——
+哪怕这个分支对任何字符都直接拒绝（硬守卫那一次 ✓）也一样 ✗。
+
+**下一轮要查的**（问题已经收得很窄 ✓）：`ParsePipeline.CreateGeneralQueue()` 那一列
+（`parse-pipeline.xl.md` 第 129–145 行 ✓）里每一项都是 `Branch` ✓，`InsertedBefore` 本身也没问题
+（`sequence.xl.md` 第 75 行 ✓ 是真插入 ✓），所以**差异很可能在「默认队列与通用队列不是同一份」** ✗
+——`Install` 里 `BranchTemplate.DefaultValue = CreateGeneralQueue()` ✓，
+而 `CreateGeneralQueue()` 每次调用都**新建一份** ✓（注释里特意说了这一点 ✓）。
+⇒ 下一轮照 **`IfSetBranch` 当初的加法**来 ✓（见同文件第 118–126 行的部署说明 ✓：
+「插在 `Identifier.AppendIn` 之前」✓），或者直接把 `LetBranch.JumpIn` 写进 `CreateGeneralQueue()`
+的那张表里 ✓ ——**这才是与既有做法一致的位置** ✓。
+
+**本轮读数（关掉 reorg 的 AST，`cases`）**：解析成功 1037 / 抛异常 **0** ✓、
+逐位置完全一致 **29 / 1037** ✓、缺 **8214（153 类）** ✓、漂移 61、多 8023（35 类）、字段名 16。
+
+## 九十九、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
