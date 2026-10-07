@@ -3776,3 +3776,65 @@ cls-super-newtarget.ts 仍是：MISS BinaryExpression / EqualsEqualsEqualsToken 
 本会话累计 **748 → 884 / 1037** ✓；工作区干净 ✓、`dist` / `build` 与源码一致 ✓、
 `cases:check` 1050 条用例 0 条不合格 ✓。台账里现在有 **9 轮**的记录 ✓（6 正 3 负 ✓），
 负面的三处（第 532 / 537 / 540 轮）**各自都留了「哪条路走不通」的结论** ✓。
+## 一百四十五、`new.target === A` 的第三试：把运算符那一截摊平再交（第 541 轮，负面，已回滚）
+
+起点 **884 / 1037** ✓。第 540 轮试的是「摊平之后接在 `meta` 后面」✗、读数不动 ✓；
+本轮把 `foldBinaryFrom` 的**契约**读清楚了 ✓，于是换一个更像对的做法 ✓。
+
+### 一、读清楚的那条契约
+
+`foldBinaryFrom(left, rest, ctx)` 的正文第一句 ✓：
+
+```ts
+if (rest.length < 2 || !isOperatorUnit(rest[0], ctx)) return left;
+```
+
+注释里写着 `rest` 的口径是「**以运算符开头**的 `[op, 操作数, op, 操作数, …]`」✓。
+
+⇒ 第 540 轮那一次为什么不动 ✓：摊平之后 `rest[0]` 是**操作数**（`Identifier(target)` ✓），
+`foldBinaryFrom` 当场 `return left` ✗ —— **`meta` 是已经投好的节点 ✓、它压根没参与** ✗。
+
+**于是本轮的做法** ✓：摊平之后**丢掉最左边那个操作数** ✓（它就是 `meta` 盖住的那一段 ✓），
+让 `rest` 真的以运算符开头 ✓：
+
+```ts
+const tail: Array<any> = [];
+for (const one of rest) for (const deep of spreadBinary(one, 0)) tail.push(deep);
+if (tail.length > 0 && tail[0] instanceof Map && !isOperatorUnit(tail[0], ctx)) {
+  return foldBinaryFrom(meta, tail.slice(1), ctx);
+}
+return foldBinaryFrom(meta, tail, ctx);
+```
+
+### 二、结果：**仍然逐项不变** ✗
+
+```
+完全一致 884 → 884 ✗（缺 860 / 漂 71 / 多 273 / 字段名 58 全同 ✗）
+cls-super-newtarget.ts 仍是 MISS BinaryExpression / EqualsEqualsEqualsToken / Identifier(A)
+```
+
+又试了一次把递归上界从 32 提到 4096 ✓（怀疑是嵌套太深、摊不到底 ✓）—— **同样不动** ✗。
+⇒ 两处都**回滚** ✓（源码 `git checkout` ✓、带 `force` 重建 ✓，确认回到 884 ✓）。
+
+### 三、又排除掉的一条路
+
+把两次负面（第 540 / 541 轮）合起来看 ✓，结论是**很硬的那一条** ✓：
+
+- `foldBinaryFrom` 那条路**用不上** ✗（它的 `rest` 只吃「产物单元 + 以运算符开头」✓，
+  而这里左操作数已经是一个**投好的节点** ✓，两者不同源 ✗）；
+- 递归摊平也不是瓶颈 ✗（上界提到 4096 一样不动 ✓）。
+
+⇒ **投影侧手工拼这条路走不通** ✓。**下一轮只剩解析侧** ✓：
+让 `new.target` **在二元折之前就成为一个单元** ✓ —— 与 `import.meta` 完全同款 ✓
+（`ImportReorganization` 排在 `WrapSymbol`(889) / `PropertyAccess`(890) **之前** ✓，
+所以 `import . meta` 到它手里时还没被折 ✓；`new` 没有任何规则排在那儿 ✗）。
+**落点**（第 9 轮已经摸清 ✓）：在 `parse-pipeline.xl.md` 的 `RunCloseRules` 里、
+`PropertyAccess` 之前，加一条认出 `[Keyword(new), SymbolToken(.), 名字]` 的关闭前规则 ✓，
+再把它交给投影的 `MetaProperty` 那一支 ✓。
+
+### 四、状态
+
+本会话累计 **748 → 884 / 1037** ✓；工作区干净 ✓、`dist` / `build` 与源码一致 ✓、
+`cases:check` 1050 条用例 0 条不合格 ✓。台账 **10 轮**（6 正 4 负 ✓）——
+负面的四处各留一条「哪条路走不通」✓，其中这一处（`new.target`）已经**把投影侧整条路排除干净** ✓，
+下一轮直接打解析侧 ✓。
