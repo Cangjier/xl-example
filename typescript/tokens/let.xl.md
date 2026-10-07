@@ -454,7 +454,17 @@ if (!(keywordUnit instanceof Identifier) && !(keywordUnit instanceof Keyword)) {
   return result;
 }
 const word = this.WordOf(keywordUnit);
-if (word !== "let" && word !== "const" && word !== "var") {
+// **`using` 也算声明词**（第 538 轮 ✓）：显式资源管理声明 `using res = open()` 与
+// `await using res = openAsync()` 在 TS 那边同样是 `VariableDeclaration` ✓
+//（`VariableDeclarationList` 上带 `Using` 标志 ✓），形态与 `const` 一模一样 ✓。
+// 重组那条（`LetReorganization.Previous`）**早就认 `using`** ✓
+//（`let.xl.md` 那一处写着「`using` 是显式资源管理声明……所以它该有自己的 `Let` 节点」✓），
+// 解析期这一支漏了它 ✗ ⇒ `await using res = openAsync()` 整条退化成
+// `Keyword(await) + Keyword(using) + Identifier(res) + = + Method` ✗
+//（实测 `decl-await-using-basic.ts` 一族 **31 份**文件 ✓：缺 `VariableStatement` /
+//  `VariableDeclarationList` / `VariableDeclaration` / `Identifier` ✓、多出
+//  `ExpressionStatement` / `AwaitExpression` / `BinaryExpression` / `Identifier(using)` ✓）。
+if (word !== "let" && word !== "const" && word !== "var" && word !== "using") {
   return result;
 }
 result.Success = true;
@@ -516,6 +526,16 @@ if (keywordUnit instanceof Identifier || keywordUnit instanceof Keyword) {
 while (start > 0) {
   const previous = Get(data, start - 1);
   if (previous instanceof LineWrap) {
+    start = start - 1;
+    continue;
+  }
+  // **`await using` 的 `await` 也是修饰词**（第 538 轮 ✓）：重组那条
+  // （`LetReorganization.Process`）写着「`await using res = open()`：`await` 是显式资源管理
+  // 声明的一部分，收进 modifiers 才不会留成一个悬空的关键词」✓ —— 解析期这一支漏了它 ✗
+  // ⇒ `await` 留在 `Let` 外面 ✗ ⇒ 投影把它连同后面整段投成 `AwaitExpression` ✗。
+  // **两种身份都要认** ✓（`await` 这时通常已经是 `Keyword` ✓，见 `Success` 开头那一句 ✓）。
+  if ((previous instanceof Keyword || previous instanceof Identifier) && this.WordOf(previous) === "await") {
+    modifiers.unshift("await");
     start = start - 1;
     continue;
   }

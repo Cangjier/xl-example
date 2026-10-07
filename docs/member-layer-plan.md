@@ -3524,3 +3524,76 @@ IF2DBG ch="i" prevType=Statement isIdent=false isKw=false restricted=false   ←
   `ExpressionStatement[33,34)` ✓（TS 那边抛掉最外层块、把 `a: 1` 当对象字面量 ✓），
   但它牵动「`{` 到底是块还是对象」那条解析期判据 ✓，量与风险都要先摸 ✓；
 - 清点头两名未变：`Identifier` 118 份 ✓、`VariableDeclaration`/`List` 34+33 份 ✓。
+## 一百四十一、`using` / `await using` 那两条声明（第 538 轮）：879 → **883 / 1037**
+
+起点 **879 / 1037** ✓。上一轮的 `if` 定界查到了死胡同（见第 140 节 ✓），这一轮换清点里
+「`VariableDeclaration` 31 份 + `List` 30 份」那一簇 ✓ ——
+`decl-await-using-basic.ts` / `decl-using-basic.ts` / `decl-using-in-for.ts` 一族 ✓。
+
+### 一、现场
+
+```
+MISS   VariableStatement      TS[103,132)  "await using res = openAsync()"
+MISS   VariableDeclarationList TS[103,132)
+MISS   VariableDeclaration     TS[115,132)  "res = openAsync()"
+MISS   Identifier              TS[115,118)  "res"
+EXTRA  ExpressionStatement                 [103,132)
+EXTRA  AwaitExpression                     [103,132)
+EXTRA  BinaryExpression                    [109,132)  "using res = openAsync()"
+EXTRA  Identifier                          [109,114)  "using"
+```
+
+原树（`rootdump.cjs` ✓）：
+
+```
+Statement [103,132)
+  Keyword  v="await"
+  Keyword  v="using"
+  Identifier t="res"
+  SymbolToken t="="
+  Method src="openAsync()"
+```
+
+⇒ 声明**一个都没成形** ✗：`await` / `using` 还是两个平级的 `Keyword` ✓，
+整条落到通用支 ✓ ⇒ 投出 `ExpressionStatement > AwaitExpression > BinaryExpression` ✗。
+
+### 二、真因：**重组那条早就认 `using`，解析期这一支漏了**
+
+`let.xl.md` 的 `LetReorganization.Previous` 那一处自己写着 ✓：
+
+> **`using` 是显式资源管理声明**（`using res = open()`）：形态与 `const` 完全一样，
+> TypeScript 的 AST 里它同样是 `VariableDeclaration`（`VariableDeclarationList` 上带 `Using` 标志），
+> 所以它该有自己的 `Let` 节点。
+
+而 `LetBranch`（解析期那一支 ✓）的名字/关键词判据只认 `let` / `const` / `var` ✗ ⇒ 同一个形状
+在关掉 reorg 之后**没有第二条路** ✗。
+
+### 三、修法（两处，都在 `LetBranch.Success` / `Condition`）
+
+1. **`Condition` 的词表加 `using`** ✓ —— `WordOf` 那一步之后多一个 `word !== "using"` ✓；
+2. **`Success` 的修饰词循环认出 `await`** ✓ —— 重组那条写着「`await using res = open()`：
+   `await` 是显式资源管理声明的一部分，收进 `modifiers` 才不会留成一个悬空的关键词」✓，
+   解析期这一支同样漏了 ✗ ⇒ `await` 留在 `Let` 外面 ⇒ 投影把整段投成 `AwaitExpression` ✗。
+   两种身份都要认 ✓（`await` 这时通常已经是 `Keyword` ✓，走 `WordOf` ✓）。
+
+### 四、读数
+
+| 项 | 第 537 轮（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 879 | **883 / 1037** ✓（+4 ✓） |
+| 缺节点 | 874（94 类） | **858**（94 类）✓（−16 ✓） |
+| 多出来的节点 | 299（45 类） | **281**（45 类）✓（−18 ✓） |
+| 区间漂移 | 71 | **71** ✓（持平 ✓） |
+| 字段名不符 | 58 | **58** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+
+`decl-await-using-basic.ts` 与 `decl-using-basic.ts` 都变成**四个方向全零** ✓
+（`let` 那一族的两处「同一形状两条路」现在两边都认 `using` 了 ✓）。
+
+### 五、下一块
+
+清点头两名未变（`Identifier` 102 份 ✓、`ExpressionStatement` 30 份 ✓），
+而 `using` 那一簇退掉之后 ✓，「声明层」剩下的主要是 `decl-label-*` 与 `decl-*destructure*` 的尾巴 ✓。
+下一轮回到**上一轮那条死胡同** ✓：`if` 单语句体的 `IsLineBreakBoundary(data, last - 1)` ✓ ——
+现场已经缩到「它看到的换行前一格不是 `continue` 而是 `loop`（下标差一格）」✓，
+而这一轮又多了两支探针（`probe-ifall.cjs` / `probe-ifwrap.cjs` ✓）可以逐格看 `Data` 的下标 ✓。
