@@ -911,7 +911,48 @@ error[E0005]: source file contains a carriage return; *.xl.md uses LF line endin
   tsc 报 `ClassMember.MemberNameText` 不存在 ✗，看着像「重建坏了」其实是构建范围不对 ✓；
 - 访问修饰符要跟基类一致 ✗：`Process` 在基类是 `public` ✓ ⇒ 自己写 `protected` 会编译不过 ✓。
 
-## 五十八、每步都要钉住的三件事
+## 五十九、`TypeParameter` 误投的真因（第 452 轮）：判据把「返回类型的实参段」也当参数表
+
+**现场**（在 `ClassMember.Process` 里打的 `MPROC` 行）把整条流讲清楚了 ✓：
+
+```
+MPROC char="(" len=1 mounted=Bracket units=Bracket      ← 参数表期间挂载在 Bracket 上（成员看不到里面的 `:`）
+MPROC char=")" len=1 mounted=- units=Bracket            ← 括号关闭、卸载
+MPROC char=":" len=2 mounted=- units=Bracket|SymbolToken ← 返回类型的 `:` 到达**顶层**
+MPROC char="}" len=2 mounted=- units=Bracket|ReturnType  ← 收尾时已是两层 ✓
+```
+
+⇒ 上一轮挂载失败的**真因不是挂载目标** ✗，而是：挂上之后成员自己就**再也看不到边界**了 ✗
+（基类 `Process` 在有挂载单元时提前返回 ✓）⇒ 成员永不收尾 ✗（`缺 338` ✗）。
+
+**而 `T` 被投成 `TypeParameter` 的真因在别处** ✓：`type-parameter.xl.md` 的 `IsParameterList`
+有一条判据是「父单元是 `MethodDeclaration` ⇒ 这是参数表」✗（那是给 `m<K>(…)` 写的 ✓）——
+解析期成形的成员把 `Bracket`、`:`、类型都挂在自己名下 ✗ ⇒ **返回类型里的实参段**
+（`Promise<T>` ✓）父单元也是 `MethodDeclaration` ✗ ⇒ `T` 被当成参数 ✗
+（实测 `lib.es2018.promise.d.ts`：同一区间、TS 是 `TypeReference` ✗）。
+
+**修正**（第 452 轮，一处判据 ✓）：那一支里再往前扫一遍 ✗——
+**前面出现过顶层 `:` 就不是参数表** ✓（成员自己的参数表是「头一段」，前面只有修饰词与名字 ✓）。
+
+**另一处**（同一轮 ✓）：`,` 那一支也要**签出到它的终点** ✓
+（TS 那边 `UNDEFINED: 1,` 的成员区间是 `[980,993)` 而产物给 `[980,992)` ✗，与 `;` 同一条口径 ✓）。
+
+**读数**（本轮，都是实测）：
+
+| 状态 | `cases` | 全语料 |
+| --- | --- | --- |
+| 两层收尾生效 | 1032 | 65 |
+| ＋ `IsParameterList` 排除「前面有 `:`」 | 1033 | 36 |
+| ＋ 逗号计入区间 | **1033** | **34** |
+
+`lib.dom.d.ts` 从「缺 523 / 多 400」降到「缺 76 / 多 71」✓，
+`undici-types/webidl.d.ts` 的漂移从 8 降到 2 ✓。**这一版整份存在 `tmp/recon/r52/`** ✓，
+主脚本（`build-member-state.cjs` + `round52.cjs`）可一键重建 ✓。
+
+**剩下的头号目标**（下一轮）：`undici-types/webidl.d.ts` 的 `缺 240` ✗ ——
+头几条是 `MISS FunctionType "(arg: any) => arg is I"` ✗（**类型谓词**形式的函数类型 ✓）。
+
+## 六十、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
