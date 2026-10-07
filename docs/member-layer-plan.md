@@ -6983,4 +6983,131 @@ ASI 之后 `{ a: 1 }` 是**块** ✓，块里是一条**标签语句** ✓：
    而那条合并只写在 `Statement` 那一支里 ✗）、`type-cond-multiline.ts`（`0 2 3` ✓ ——
    跨行条件类型的 `: any` 那一截没被收进 `ConditionalType` ✓）。
 
+## 一百八十一、`export default` 后面那条声明：顶层是**两格平级**（第 579 轮）1029 → **1030 / 1037**
+
+**用户指示**（同一条 ✓）：**禁用并逐步移除 reorg，预算 3 轮** ✓（`ast100%` 是方向 ✓）、
+**每一轮一次提交** ✓ —— 本条是这个新对话的**第一轮** ✓。改的是 `typescript/print-ast-common.xl.md`
+**一个文件** ✓。
+
+### 一、靶子：上一节第七小节第 4 条点名的那份
+
+`decl-interface-export-default.ts`（起点四栏 `1 0 2` ✓，第 578 轮末的八份红账之一 ✓）：
+
+    MISS   InterfaceDeclaration  TS[81,123)  "export default interface I {"
+    EXTRA  ExportDeclaration     [81,95)   "export default"
+    EXTRA  InterfaceDeclaration  [96,123)  "interface I {"
+
+产物 XML 一眼看得出 ✓（`node build/ts/cjcli.js …` ✓）：
+
+    <Export From="" typeOnly="false" namespace="" exported="">
+      <Keyword>export</Keyword>
+      <Keyword>default</Keyword>
+    </Export>
+    <Interface name="I" extends="" export="false">…</Interface>
+
+两格**平级**挂在 `Root` 下 ✗（不是 `Statement > [Export, Interface]` ✗）。
+
+### 二、机制：合并那一套第 153 轮就有，只是挂在**另一个入口**上
+
+`projectExport`（第 153 轮 ✓）里已经有一支「`Export` 单元 + 一条声明 ⇒ 修饰词并进声明、
+起点从 `export` 起」✓ —— 判据写在 `DECLARATION_UNITS` 上 ✓、起点那一句写着
+「TS 的 `Node.getStart()` 跳过前导 trivia，带修饰词的声明就是从 `export` 起」✓。
+可它只从 `projectStatement` 那一支被叫 ✓，而那一支的前提是**整条语句被包在一个
+`Statement` 单元里** ✗ ⇒ 顶层这种「两格平级」的形状**一次都进不去** ✗（`projectRoot`
+走的是 `projectEach` ✓）⇒ `Export` 落进通用支投成 `ExportDeclaration` ✗、
+`Interface` 从 `interface` 起算 ✗ —— 正是那对「缺 1 / 多 2」✓。
+
+**为什么只有接口这一族露出来** ✓（两处都量过 ✓）：
+
+- `export default class C {}` 的产物**只有一格** ✓ `<Class name="C" … modifiers="export,default">` ✓
+  ——`class` 那一支把两个词折进自己的属性 ✓（`h-export-default-abstract-class.ts` 也是
+  `modifiers="export,default,abstract"` ✓，同样一格 ✓）；
+- `export default function f() {}` 同样只有一格 ✓；
+- 而 `Interface.Success` **只往前吃一个 `export` 词** ✓（`interface.xl.md` 的
+  `exportIndex = previous.Is("export") ? interfaceIndex - 1 : interfaceIndex` ✓），
+  `default` 吃不下 ✗ ⇒ 两个词留在外面成了 `Export` 单元 ✗。
+
+### 三、改法：名单收到一份，两个入口问同一句
+
+`projectEach` 里补一支 ✓（与它上面那一支「前缀 `Keyword` + 一条声明」**同一件事** ✓，
+缺的只是「前缀词住在 `Export` 单元里」这一形状 ✓），判据两道 ✓：
+
+1. 这一格的文本**以 `default` 收尾** ✓（`export = X` / `export { a }` 都排除在外 ✓ ——
+   `export { a }` 后面跟一条声明是**另一种排版** ✓，实测在 `a-export-list-then-decl.ts` 里
+   四栏全零 ✓，这一支不许碰它 ✗）；
+2. 紧跟那一格的标签在 `DECLARATION_UNITS` 里 ✓。
+
+合并那一段**不在这里重写** ✗：直接叫 `projectExport` ✓（两个入口问同一句 ✓，
+与第 507 / 556 轮「各写一份会漂」同一条理由 ✓）。为此把那个原来写在函数体里的
+`const DECLARATION_UNITS = new Set([…])` 提到**模块一层** ✓（名单内容一字不动 ✓）。
+
+**试过又放回来的一处** ✗：把名单收窄到 `interface` / `class` / `function` 三种 ✓
+（TS 那边能把 `export default` 收成修饰词的确实只有这三种 ✓）。九种形状**逐份量了两遍** ✓
+（`tmp/recon/r579-shapes/*.ts` ✓ ——量基线时用 `git stash push` 把源码退回第 578 轮、
+`xl build` + `tsc` 重建、量完 `stash pop` 再重建 ✓，两版读数都留在这里 ✓）：
+
+| 形状 | 第 578 轮 | 名单收窄到三种 | 本轮（名单不动） |
+| --- | --- | --- | --- |
+| `export default interface I { … }` | 缺 1 / 多 2 | **四栏全零** | **四栏全零** ✓ |
+| `export default interface I { … }` 后面还跟一条语句 | 缺 1 / 多 2 | **四栏全零** | **四栏全零** ✓ |
+| `export default interface Box<T> extends Array<T> { … }` | 缺 1 / 多 2 | **四栏全零** | **四栏全零** ✓ |
+| `export { a }` + `interface I { … }` | 四栏全零 | 四栏全零 | 四栏全零 ✓ |
+| `export default class C {}` / `abstract class` | 四栏全零 | 四栏全零 | 四栏全零 ✓ |
+| `export = X;` | 四栏全零 | 四栏全零 | 四栏全零 ✓ |
+| `export default enum E { A }` | 缺 3 / 多 3 | 缺 3 / 多 3 | 缺 3 / 多 3 ✓ |
+| `export default namespace N { … }` | 缺 4 / 多 4 | 缺 3 / **漂 1** / 多 3 | 缺 4 / 多 4 ✓ |
+
+⇒ **收窄是一处变好、一处变差**（`namespace` 那一格把「缺 + 多」换成了「漂」✗，
+而漂移更难收拾 ✓：一个区间要挪、两个节点要挪 ✓），而这两种本来**都不是合法 TS** ✓
+（`export default enum` 两个词在 `ts.createSourceFile` 那边是一个 `ExportAssignment` ✓ ——
+实测 `MISS ExportAssignment TS[0,14)` + `MISS Identifier TS[14,14)` ✓），两版都不可能是零 ✓
+⇒ **这一轮不动名单** ✓，只把「哪一格问哪一份」收成一份 ✓。
+
+### 四、读数
+
+| 项 | 第 578 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1029 | **1030 / 1037** ✓（**+1** ✓） |
+| 缺节点 | 21（9 类） | **20（8 类）** ✓（−1 ✓） |
+| 区间漂移 | 9（7 类） | **9（7 类）** ✓（持平 ✓） |
+| 多出来的节点 | 18（13 类） | **16（11 类）** ✓（−2 ✓） |
+| 字段名不符 | 1 | **1** ✓（持平 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21724 | **21724** ✓（持平 ✓） |
+| 未映射 / 缺 range / 区间越界 / trivia 越界 | 0 / 0 / 0 / 1 | **0 / 0 / 0 / 1** ✓ |
+
+**逐文件**（`r579-a-perfile.txt` ✓）：红的 **8 → 7** ✓，**变绿的那一份正是它** ✓
+（四栏全零 ✓），其余七份**逐项一字不差** ✓。
+**真实语料（`r579-a-real.txt` ✓，十六片合计）** ✓：缺 **1345** / 漂 **391** / 多 **741** /
+字段名 **3** —— 与 `r578-a-real.txt` **逐项持平** ✓（`完全一致 359 / 414` 也持平 ✓；
+trivia 越界十六片合计 1046 ✓ 持平 ✓，**没有一片变差** ✓）。这一轮动的形状在真实语料里本来就少 ✓
+（`export default interface` 只在 `.d.ts` 里偶见 ✓）。
+
+### 五、六道门（与第 578 轮逐项相同 ✓）
+
+`runtime:check` **240 / 242** ✓、`runtime:cli` **79 / 79** ✓、`cases:check` **1050 条 0 不合格** ✓、
+`coverage` **1630 / 1713（94.4%）** ✓、`samples` **三份全绿** ✓、`cases:tsast` **16 片 3 片通过** ✓
+（七份红文件就是上表 ✓）。`xl build`（本文件）**0 error 0 warning** ✓、
+`xl check`（本文件）**0 error 0 warning** ✓、`tsc` **0 错** ✓。
+
+### 六、下一块（预算剩两轮）
+
+1. **`new.target`** ✓（`cls-super-newtarget.ts` / `decl-class-new-target.ts` 各缺 3 ✓ ——
+   本轮顺手量了 `decl-class-new-target.ts`：缺的是 `BinaryExpression TS[112,128)` /
+   `EqualsEqualsEqualsToken` / `Identifier`，也就是**整个 `new.target === C` 一格都没有** ✓
+   ⇒ 第 540 / 541 两轮那条入口要往前挪一格：先量「`new.target` 在产物里到底剩什么」✓）；
+2. **`else` 那一格** ✓（第 175 / 176 节留下的入口 ✓）：收尾必须**晚于** `else` 到达 ✓ ——
+   `stmt-adversarial-shapes.ts` 剩下的 `2 0 3` + `FIELD` 那一栏 ✓（本轮复核：缺的正是
+   `BreakStatement TS[644,656)` / `Identifier TS[650,656)` ✓，多出来的是
+   `Block[622,656)` / `ExpressionStatement[639,656)` / `Identifier[639,643)` ✓）；
+3. **`(` / `[` 那一档** ✓（`am-block-lambda-array-compound.ts` `5 2 4` ✓、
+   `lex-generic-multiline-constraints.ts` `7 1 1` ✓、`stmt-asi-paren-call.ts` `0 4 5` ✓）——
+   **机器层面**的一件事 ✓；
+4. **最后一份小账** ✓：`type-cond-multiline.ts`（`0 2 3` ✓ —— 跨行条件类型的 `: any` 那一截
+   没被收进 `ConditionalType` ✓；本轮探针 `tmp/recon/r579-cond-probe.cjs` 已经把入口量出来 ✓：
+   `ConditionalTypeCloseRule.Process` 被叫时**手上的 `units` 到真分支就完了** ✗
+   ——`[type, V, =, ReturnType, GenericType, extends, LineWrap, Iterator, GenericType, ?, TReturn]`，
+   连那个换行与 `:` 都**还没到场** ✗，所以 `Process` 里那三条「换行后面紧跟 `:`」的放行一次都不响 ✓。
+   下一轮要做的是「收壳发生在**下一个单元到了以后**」✓，与第 3 条是**同一件事** ✓）。
+
 

@@ -1396,6 +1396,35 @@ new Set(["IndexSignature", "Field", "MethodDeclaration", "Signature", "EnumMembe
         }
       }
     }
+    // **`export default` + 一条声明**（第 579 轮）：与上面那一支**同一件事**，
+    // 缺的是「前缀词住在 `Export` 单元里」这一形状。
+    //
+    // `export default interface I {}` 的产物是 `[Export(export default), Interface]` **两格平级**：
+    // `Interface.Success` 只往前吃**一个** `export` 词（`interface.xl.md`），吃不下 `default`
+    // ⇒ 两个词留在外面成了 `Export` 单元；而 `export default class C {}` 走的是 `Class` 自己那条
+    // `modifiers="export,default"` 的路（**一个单元**）⇒ 只有接口这一族露出来
+    // （实测 `decl-interface-export-default.ts`：缺 `InterfaceDeclaration`、
+    // 多出 `ExportDeclaration` + 平级的 `InterfaceDeclaration`）。
+    //
+    // 合并那一套**不在这里重写**：`projectExport` 里第 153 轮就有一支
+    // 「`Export` 单元 + 一条声明 ⇒ 修饰词并进声明、起点从 `export` 起」，它只挂在
+    // `projectStatement` 那一支上——而这一格**根本没有语句壳**（顶层平级）。两个入口问同一句
+    // （与第 507 / 556 轮同一条理由：各写一份会漂）。
+    //
+    // 判据两道：① 这一格的文本以 `default` 收尾（`export = X` / `export { a }` 都排除在外——
+    // `export { a }` 后面跟一条声明时**不是**这个形状，语料里有那种排版）；
+    // ② 紧跟那一格的标签在 `DECLARATION_UNITS` 里。
+    if (items[i].get("type") === "Export" && i + 1 < items.length) {
+      const unitText = ctx.source.slice(startOf(items[i]), endOf(items[i]) + 1).trim();
+      if (/\bdefault$/.test(unitText) && DECLARATION_UNITS.has(items[i + 1].get("type"))) {
+        const merged = projectExport(items[i], ctx, items.slice(i + 1), endOf(items[i + 1]));
+        if (merged !== undefined) {
+          out.push(merged);
+          i += 2;
+          continue;
+        }
+      }
+    }
     // `undefined` = 这个单元在 TS 那边是 trivia（例如只有注释的语句），**不收**。
     const projected = projectNode(items[i], ctx, parentKind);
     if (projected !== undefined) {
@@ -1607,6 +1636,34 @@ new Set([
   "VariableStatement",
   "WhileStatement",
 ])
+```
+
+# private const DECLARATION_UNITS:Set<string>
+
+`export` 前缀后面那几种**声明**的产物标签（第 153 轮起在 `projectExport` 里，第 579 轮提到这一层）。
+
+两个入口问**同一份**名单：`projectExport`（`Export` 单元 + 声明的合并）与
+`projectEach`（顶层 / 段的平级列表上同一个合并）。各写一份就会漂——第 579 轮之前
+只有 `projectStatement` 那一支接得上 `Export` 单元，顶层那两格平级的形状
+（`export default interface I {}`）就漏在外面。
+
+**名单仍是第 153 轮那一份**（第 579 轮试过收窄到 `interface` / `class` / `function` 三种，
+又放回来了）：TS 那边能把 `export default` 收成**修饰词**的确实只有这三种，
+可三种别的形状一量，收窄的净效果是**一处变好、一处变差**——
+
+| 形状（`tmp/recon/r579-shapes/`） | 第 578 轮 | 收窄后 |
+| --- | --- | --- |
+| `export default interface I { … }` | 缺 1 / 多 2 | **四栏全零** |
+| `export default namespace N { … }` | 缺 4 / 多 4 | 缺 3 / **漂 1** / 多 3 |
+| `export default enum E { A }` | 缺 3 / 多 3 | 缺 3 / 多 3 |
+
+后两种本来就**不是合法 TS**（`export default enum` 两个词实测在 `ts.createSourceFile`
+那边是**一个 `ExportAssignment`**：`MISS ExportAssignment TS[0,14)` + `MISS Identifier TS[14,14)` ✓），
+两版都不可能是零；而「漂移」比「缺 + 多」难收拾（一个区间要挪、两个节点要挪），
+所以**这一轮不动名单**——只把「哪一格问哪一份」这件事收成一份。
+
+```ts
+new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
 ```
 
 # private method projectStatement:(v:any, ctx:any)=>any
@@ -5714,7 +5771,6 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   // 照「`default` 后面跟表达式」那一支投会得到一个 `ExportAssignment` 包着整条接口声明
   // （实测 `decl-interface-export-default.ts`：缺 `InterfaceDeclaration` / `ExportKeyword` /
   // `DefaultKeyword`，多出 `ExportAssignment`）。
-  const DECLARATION_UNITS = new Set(["Interface", "Class", "Function", "Enum", "Namespace"]);
   const declared = (following ?? []).find(
     (k) => k instanceof Map && DECLARATION_UNITS.has(k.get("type")),
   );
