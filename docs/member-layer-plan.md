@@ -3728,3 +3728,51 @@ const inner = firstName !== undefined && !(firstName instanceof Map && firstName
 **重建一次就把探针冲掉** ✓，第二次跑 `probe-meta.cjs` 打的是 `already instrumented` ✓
 而 `build/` 里那个探针早没了 ✗。**口径**：探针用完立刻跑、跑完再重建 ✓；
 要连着跑两轮探针就在每轮之前**重新打** ✓（本轮就是这么确认 `firstName` 的 ✓）。
+## 一百四十四、把 `new.target === A` 的运算符接回来：**一个数字都没动**（第 540 轮，负面，已回滚）
+
+起点 **884 / 1037** ✓（漂移 71 / 多出来 273 / 缺 860 / 字段名 58 ✓）。按上一轮留下的入口 ✓：
+`cls-super-newtarget.ts` 里 `new.target === A` 那一行还缺三格 ✓
+（`BinaryExpression` / `EqualsEqualsEqualsToken` / `Identifier(A)` ✓）。
+
+### 一、试的做法
+
+`print-ast-common.xl.md` 的 `MetaProperty` 那一支 ✓：名字被折成 `BinaryOperator(target === A)` 之后 ✓，
+把那一格的**操作数表摊到最里层** ✓、接在 `meta` 后面 ✓，一起交给 `foldBinaryFrom` ✓
+（与「后面那些 `.名字` 也要继续接上」那一支同源 ✓）：
+
+```ts
+const spread = (unit: any, guard: int): Array<any> => { … 递归摊到不是 BinaryOperator 为止 … };
+const tail: Array<any> = [];
+for (const one of rest) for (const deep of spread(one, 0)) tail.push(deep);
+if (rest.length === 0) return meta;
+return foldBinaryFrom(meta, tail, ctx);
+```
+
+### 二、结果：**逐项不变** ✗
+
+```
+完全一致 884 → 884 ✗（缺 860 / 漂 71 / 多 273 / 字段名 58 全同 ✗）
+cls-super-newtarget.ts 仍是：MISS BinaryExpression / EqualsEqualsEqualsToken / Identifier(A)
+```
+
+⇒ 按纪律**回滚** ✓（源码 `git checkout` ✓、带 `force` 重建 ✓，读数确认回到 884 ✓）。
+
+### 三、这一轮的收获（负数也是数）
+
+上一轮那条「修法方向」写的是「把操作数表接在 `meta` 后面一起交给 `foldBinaryFrom`」✗ ——
+**这一轮把它试掉了** ✓，说明 **`foldBinaryFrom` 那条路不是这里的入口** ✗：
+`meta` 是**已经投好的节点** ✓、`tail` 是**产物的 `Map` 单元** ✓ —— 把两者混在一个数组里递进去，
+`foldBinaryFrom` 大概按「整条都是产物单元」的口径处理 ✓ ⇒ 它看不到 `meta` ✓。
+
+**下一轮的正确入口** ✓：不要在 `MetaProperty` 这一支里手工拼 ✓，而要让
+**`new.target` 在二元折之前就成为一个单元** ✓ —— 与 `import.meta` 那条路同款 ✓
+（`ImportReorganization` 那一族在解析期就把 `import . meta` 收好 ✓）。
+具体地说：给 `new . 名字` 加一条**关闭前那一趟**的规则 ✓（`RunCloseRules` ✓），
+或者在 `IsArrayAt` / `IsChainBase` 那一层就把 `new .` 这一对**跳过** ✓ ——
+两种都要先量再动 ✓（本轮这一试已经把「投影侧手工拼」这条路排除掉了 ✓）。
+
+### 四、状态
+
+本会话累计 **748 → 884 / 1037** ✓；工作区干净 ✓、`dist` / `build` 与源码一致 ✓、
+`cases:check` 1050 条用例 0 条不合格 ✓。台账里现在有 **9 轮**的记录 ✓（6 正 3 负 ✓），
+负面的三处（第 532 / 537 / 540 轮）**各自都留了「哪条路走不通」的结论** ✓。
