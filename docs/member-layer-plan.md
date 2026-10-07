@@ -849,7 +849,45 @@ error[E0005]: source file contains a carriage return; *.xl.md uses LF line endin
 回滚用 HEAD ✓、子步骤容错 ✓），重跑一次就该看到两层收尾**真正生效** ✓，
 再看 `cases` 与全语料 ✓。
 
-## 五十四、每步都要钉住的三件事
+## 五十五、第八次动手（第 450 轮）：**全语料第一次转正** —— 120 → 65，`cases 1032`
+
+把主脚本按第四十九节那三条教训重写之后（`tmp/recon/build-member-state.cjs` 现在是自洽的 ✓：
+每步自己读文件 ✓、子步骤容错 ✓、两层收尾最后跑 ✓，配合 `git checkout HEAD -- .` 使用 ✓），
+两层收尾**第一次真正生效** ✓，读数：
+
+| 状态 | `cases` | 全语料 | `lib.dom.d.ts` |
+| --- | --- | --- | --- |
+| 只搬字段（`38a73ed`） | 1037 ✓ | 5 ✗ | — |
+| 上一层（空 `ReturnType`） | 1030 ✗ | 120 ✗ | 缺 523 / **多 3304** ✗ |
+| **两层收尾真正生效（本轮）** | **1032** ✓ | **65** ✗ | 缺 523 / **多 400** ✓（多余节点少了一个量级 ✓） |
+
+`cache.d.ts` 的成员现在**与绿形状一致** ✓：
+
+```xml
+<MethodDeclaration name="match" modifiers="">
+  <Bracket …><Parameter>…</Parameter><SymbolToken>,</SymbolToken><Parameter>…</Parameter></Bracket>
+  <ReturnType><TypeDefine>
+    <Identifier>Promise</Identifier>
+    <GenericType …><TypeParameter><UnionType>…</UnionType></TypeParameter></GenericType>
+  </TypeDefine></ReturnType>
+</MethodDeclaration>
+<SymbolToken>,</SymbolToken>      ← 逗号像绿形状一样留在体里 ✓
+```
+
+**剩下 65 个文件的下一个系统性成因已经定位**（拿最小的失败文件量出来的 ✓）：
+`lib.es2018.promise.d.ts` 里 `finally(…): Promise<T>;` 的返回类型，产物把 `T` 投成
+`TypeParameter` ✗ 而 TS 是 `TypeReference` ✗（**同一区间、不同 kind** ✓）。
+
+**根因**：类型单元是在**还没进 `TypeDefine`** 的时候就被成形的 ✗（它们在成员自己的 `Data` 里
+先被那一趟重组收成了 `GenericType`/`TypeParameter` ✓），而绿形状里它们是在
+`ReturnType → TypeDefine` **里面**成形的 ✓（`<>` 于是按**类型实参**走 ✓）。
+⇒ **下一轮的正解**：不要等收尾再搬 ✗ —— 在看到那个顶层 `:` 的那一刻就把 `ReturnType`
+与 `TypeDefine` 建好、并把 `TypeDefine` **挂载**成成员的 `MountedUnit` ✓，
+让后面的类型字符**直接进它** ✓（就像绿形状那样在正确上下文里成形 ✓）。
+（顺手记一条：`Context` **不是** `TypeDefine`/`MethodDeclaration` 的属性 ✗ —— 想靠
+`typeDefine.Context = this.Context` 抄上下文编译不过 ✓，这条试过了 ✗。）
+
+## 五十六、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
