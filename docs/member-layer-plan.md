@@ -433,7 +433,44 @@ return i;
 这一条一旦解决，成员层的字段那一支就全绿；之后是：全语料 `--per-file` → `samples` → 再搬
 `MethodDeclaration`（判别符 `(`）。
 
-## 二十六、每步都要钉住的三件事
+## 二十七、两条硬教训（第 436 轮）：构建会按指纹跳过、调试要走 stderr
+
+**一、`xl build` 会按指纹跳过，改了 `.xl.md` 也可能不重建** ✗✗（这一轮白花的功夫全在这儿）：
+`dist/ts/typescript/tokens/interface/interface-body.ts` 里一直是旧的
+`ProcessQueue = CreateMemberListQueue()`（**没有**我插的 `InterfaceMemberBranch`），
+而 `.xl.md` 里明明写着 ✗。于是「分支似乎从不进门」的一切推断都是假的 ✗。
+⇒ **改完 `.xl.md` 之后用 `force: true` 重建，并核对 `dist/…ts` 里那一行确实变了** ✓
+（这一轮的教训：我连着两轮怀疑自己的设计，真凶是构建跳过了 ✗）。
+
+**二、`console.log` 在 CLI / 尺子里看不见，要用 `process.stderr.write`** ✗：
+`cjcli` 与尺子的批量分片都会把 stdout 吞掉/串进 JSON ✗ ⇒ 调试一律
+`process.stderr.write(... + "\n")` ✓，并用 **`--jobs 1`** 跑（批量模式连 stderr 也吞 ✗）。
+
+**这两条一放开，调试立刻给了决定性证据**（`itf-basic.ts`，`DBG` 行）：
+
+```
+DBG wrap=2 len=3 boundary=false units=SymbolToken@86|Identifier@88|LineWrap@94
+DBG wrap=2 len=4 boundary=false units=…|Identifier@97
+DBG wrap=2 len=5 boundary=true  units=…|Identifier@97|SymbolToken@98      ← 边界在 `?` 那一格才成立
+```
+
+**成因**：`?` 与 `:` 在这一层被并成**一个** `SymbolToken`（`?:`）✓，于是
+「边界成立」比「成员该收」晚一格 ✗——成员是在**下一个字符**（`:`）上退出的，
+退出时把 `[LineWrap, Identifier(b), SymbolToken(?:)]` **整块**搬回给体 ✓，
+体上的判别符分支看到最后一个是 `SymbolToken(?:)` ✗（既不是名字、也不是 `:` 这个**字符**）
+⇒ 分支不接 ✗ ⇒ 第二个成员改由**重组**在关闭时造 ✓，而重组的 `MemberEnd` 在
+这张「我的成员 + 搬回来的 `?:`」的平列表上把第三个成员圈进了第二个的 `TypeDefine` 里 ✗。
+
+**下一轮的两条路**（选一条）：
+1. **退出时不整块搬**：搬家遇到 `SymbolToken("?:")` 就把它**拆回字符** `?` / `:` 再还 ✓
+   （下一格 `:` 就会以**字符**身份到达体，判别符分支照常接住 ✓）；
+2. **判别符再认一格**：分支的 `Condition` 也认「最后一个是 `SymbolToken("?:")`」，
+   此时**不再喂当前字符**（那个 `:` 已经在 `?:` 里了 ✗），成员头从 `?` 那一格起算 ✓。
+
+两条都要连带处理：`IsMemberBoundary` 报「是」之后，成员**多吃的**正是 `[wrap, name, ?:]` ✓，
+所以还回去的单元顺序与「谁该拥有 `?`」必须一次说清 ✓。
+
+## 二十八、每步都要钉住的三件事
 
 - **注释保留**（用户口径）：注释单元照旧进树，只是位置从「被语句层切出来的边界」变回「trivia 原位」；
 - **区间**：成员与体的区间要逐位置与 TS 对齐（`--file` 单文件尺子看四个方向 + 缺 range / 越界）；
