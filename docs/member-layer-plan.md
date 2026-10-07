@@ -2205,5 +2205,42 @@ cases:check 1050 全过 ✓）。对照态 **859** 不动 ✓。
 `coverage` 383 → **523 / 1713**（加权 17.9% → **24.6%** ✓）；
 `cases:tsast` 仍是 0 片通过 ✗、`samples` 红 ✗、`cases:check` 1050 全过 ✓。
 
+## 一百一十六、语句壳那一支一直是**死代码**（第 499 轮）：515 → **552 / 1037**
+
+这一轮的入口是 `samples` 那道门长期红着的那一处 ✓：`let answer = 0`（换行结尾 ✓）
+投影出来是 `VariableStatement > VariableDeclarationList[]`（**空的声明表** ✗）＋
+`=` 与 `0` 落到 `SourceFile` 上成了平级兄弟 ✗。dump 原树（`tmp/recon/tree.cjs` ✓）看得更清楚：
+**根下根本没有 `Statement`** ✗ —— `[Let, SymbolToken(=), Identifier(0)]` 直接排在 `Root` 上 ✓。
+
+**真因** ✗：`StatementBranch.JumpIn` 排在 `LineWrap.AppendIn` **之后** ✓ ——
+派发循环遇到第一个 `Done` 就 `return` ✓，而 `LineWrap.AppendIn`（`WrapSymbolBranch` ✓）
+会把换行吃掉并返回 `Done` ✗ ⇒ 这一支**一次都没被问到** ✗。
+也就是说：第 487 轮把 `;` 那一档交给钩子之后 ✓，它**只剩软换行那一档** ✓，而那一档**从来没生效** ✗ ——
+语句壳在「换行结尾」的语言里（这个语料里遍地都是 ✓）等于没有 ✓。
+
+**修法一处** ✓：把 `StatementBranch.JumpIn` 挪到 `LineWrap.AppendIn` **之前** ✓
+（`tmp/recon/r499b-queue.cjs` ✓）。这一支的 `Success` 本来就按「终结符还没进 `Data`」写 ✓，
+挪到 appender 之前正好 ✓。
+
+**读数**：
+
+| 项 | 第 498 轮 | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 515 | **552 / 1037** ✓ |
+| 漂移 | 555 | **216** ✓（−339 ✓） |
+| 缺 | 2561 | 2845 ✗ |
+| 多出来 | 2009 | 2075 ✗ |
+| 字段名 | 72 | 74 ✗ |
+| 抛异常 | 1037 / 0 | 1036 / **1** ✗ |
+
+**那一份炸的要记名** ✗：`tests/parse/cases/statements/stmt-do-while-no-block.ts` ✓ ——
+报「`while(...)` 后需要跟语句」✓（`do … while` 不带块的那一档 ✓，新出现的确定性解析失败 ✗，
+下一块先修它 ✓；其余 1036 份 0 异常 ✓）。
+
+**门**：`runtime:check` 146 → **154 / 242** ✓、`coverage` 523 → **596 / 1713**（加权 24.6% → **28.9%** ✓）、
+`cases:check` 1050 全过 ✓；`runtime:cli` 8 → **7 / 79** ✗（少了一份 ✓）、
+`samples` 换成另一处差（`for` 的 incrementor 被投成两层 `PrefixUnaryExpression` ✗）、
+`cases:tsast` 仍 0 片 ✗。
+
 
 

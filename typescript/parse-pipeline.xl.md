@@ -141,6 +141,13 @@ return new Sequence<Branch>([
   InterfaceBranch.JumpIn,
   Bracket.JumpIn,
   GenericType.JumpIn,
+  // **语句壳（软换行那一档）必须排在 `LineWrap.AppendIn` 之前** ✓（第 499 轮 ✓）：
+  // 派发循环遇到第一个 `Done` 就 `return` ✓，而 `LineWrap.AppendIn`（`WrapSymbolBranch` ✓）
+  // 会把换行吃掉并返回 `Done` ✗ ⇒ 排在它之后的 `StatementBranch.JumpIn` **一次都没被问到** ✗
+  // （第 481–497 轮它一直是这样 ✗ —— 实测 `samples/hello.ts` 的 `let answer = 0` 换行那一格
+  // **根本没成壳** ✓，`=` 与 `0` 落到 `Root` 上成了平级兄弟 ✗）。这一支的 `Success` 本来就按
+  // 「终结符还没进 `Data`」写 ✓，挪到 appender 之前正好 ✓。
+  StatementBranch.JumpIn,
   LineWrap.AppendIn,
   // **`Let` 在解析期成形**：认的是 `=` / `:` / `;` / `,` / 换行 这几格 ✓，
   // 所以只要排在 `SymbolToken.AppendIn` 之前就行 ✓（与 `IfSetBranch` 当初的加法同一处表 ✓）。
@@ -150,7 +157,6 @@ return new Sequence<Branch>([
   // 被接手并返回 `Done` ✓ ⇒ 排在它之后的任何一格**一次都没被问到** ✓——第 478 / 480 两轮
   // 都撞在这上面 ✓），所以壳必须排在 appender **之前** ✓；而那时 `;` 还没进 `Data` ✓，
   // 于是判据与切片都按「终结符尚未入列」写 ✓（见 `tokens/statement.xl.md` 的 `Condition` / `Success` ✓）。
-  StatementBranch.JumpIn,
   SymbolToken.AppendIn,
   Identifier.AppendIn,
 ]);
