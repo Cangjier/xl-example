@@ -459,6 +459,14 @@ return false;
 
 `index` 处是不是一个类型字面量的开头。
 
+**`for (const { x, y } of items)` 那一格不是**（第 547 轮 ✓）：这条规则跑在
+**根那一层**（`Foreach` 还没成形 ✓），`( … )` 的内容是**根那个括号的 `Data`** ✗、
+`for` 在括号外面 ✗ ⇒ 回扫撞到的第一个实义词是 `const` ✓，而 `const` 那一支答的是
+`crossedAssignment === false` ⇒ **真** ✗ ⇒ `{ x, y }` 被收成 `TypeLiteral` ✗
+（实测产物是 `<TypeLiteral><TypeLiteralBody><Field name="x">…` ✗）。
+判据见下面 `IsForeachDeclareHead` ✓：**左边是 `const` / `let` / `var`、右边是 `of` / `in`**
+⇒ 这一格是**循环头里的声明段** ⇒ 绑定模式、不是类型 ✓。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Bracket) || current.startBracket !== "{") {
@@ -467,7 +475,51 @@ if (!(current instanceof Bracket) || current.startBracket !== "{") {
 if (current.Parent instanceof TypeLiteralBody) {
   return false;
 }
+if (this.IsForeachDeclareHead(units, index)) {
+  return false;
+}
 return this.IsTypePosition(units, index);
+```
+
+## private method IsForeachDeclareHead:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `{` 是不是 `for (const { … } of …)` 那个**循环头**里的绑定模式（第 547 轮）。
+
+**判据挂在右侧**（第 547 轮实测之后改的 ✓）：这一格回扫**看不到 `for`** ✗ ——
+规则跑在根那一层时，`for` 与 `( … )` 的内容**不在同一张表里** ✗（`( … )` 是根的一个括号 ✓，
+它的 `Data` 才是 `const { … } of items` ✓），所以「回扫找 `for`」这条初版判据**从来答否** ✗。
+能看见的是**右边** ✓：
+
+1. 从 `{` 往左找第一个 `let` / `var` / `const` 那一格 ✓；
+2. 从 `{` 往右跳过它配对的 `}`（`SkipNextWrapSymbol` ✓）✓，下一格是不是 `of` / `in` ✓。
+   两个都成立 ⇒ **循环头里的声明段** ✓。
+
+**为什么「右边是 `of` / `in`」不会误伤类型位** ✓：类型位的对象类型后面只可能是
+`=` / `)` / `;` / `,` / `:` / `|` / `&` / `>` 这些 ✓ —— `of` / `in` 是**词** ✓，
+在类型里它们只能是属性名（那需要一个 `.` 或者前面是 `,` / `{` ✗），两种都过不了第 1 步 ✓。
+
+```ts
+let wordAt = -1;
+for (let at = index - 1; at >= 0; at--) {
+  const one = Get(units, at);
+  if (one === null || one instanceof LineWrap || one instanceof LineAnnotation || one instanceof AreaAnnotation) {
+    continue;
+  }
+  if (one instanceof Identifier) {
+    const text = one.TempToString();
+    if (text === "const" || text === "let" || text === "var") {
+      wordAt = at;
+      break;
+    }
+  }
+  return false;
+}
+if (wordAt < 0) {
+  return false;
+}
+const afterAt = SkipNextWrapSymbol(units, index);
+const after = Get(units, afterAt);
+return after instanceof Identifier && (after.TempToString() === "of" || after.TempToString() === "in");
 ```
 
 ## method Process:(template:Template, units:Array<Token>, index:int)=>int

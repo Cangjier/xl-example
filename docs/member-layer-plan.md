@@ -4208,4 +4208,82 @@ differ 304 / bad 0 ✓、整体加权 **72.8%** ✓，落盘 `tests/coverage/rep
    （大概与本节第二处同源：段里的单元与外层 `Data` 不是同一层 ✓）；
 2. **`for (const [a, b] of pairs)` 的 `st-for-of-destructure.ts`** ✓：本轮已从 9 缺降到 5 缺 ✓，
    剩下的是同一族（`initializer` 那一格的字段名 ✓ 见 `--file` 输出 ✓）。
+## 一百五十、`for (const { x, y } of items)` 的花括号被当成类型字面量（第 547 轮）：917 → **919 / 1037**
+
+起点 **917 / 1037** ✓（缺 771 / 漂 68 / 多 226 / 字段名 46 ✓）。接上一节第六节留的第 1 条入口 ✓。
+
+### 一、现场：`{ x, y }` 成了 `TypeLiteral`
+
+```
+<Foreach>
+  <ForeachDefine>
+    <Keyword>const</Keyword>
+    <TypeLiteral>                      ← 应当是 <ObjectLiteral> + <BindingElement>
+      <TypeLiteralBody>
+        <Field name="x" modifiers=""></Field>
+        <Field name="y" modifiers=""></Field>
+```
+
+⇒ 投影侧 `projectHeadDeclare` 的 `isPatternKid` 认不出它 ✗（它只认 `ObjectLiteral` /
+`ArrayLiteral` / `{` `[` 括号 ✓）⇒ `initializer` **整个不投** ✗（字段名那一栏 −1 ✓）。
+
+### 二、真因：`TypeLiteralReorganization` 看见的是**根那一层的括号**
+
+`{ x, y }` 在根那一层是**条件括号 `( … )` 的 `Data`** ✓，而规则问的是那一张表 ✗ ——
+插桩（`tmp/recon/probe-tl7.cjs` ✓：给 `IsTypePosition` 的 19 处 `return` 前面各挂一句打标 ✓）
+一下就把行号指出来了 ✓：
+
+```
+TL7DBG idx=1 line=312 expr=true     ← 走的是 `const` 那一支（`return crossedAssignment === false`）
+   units=[Identifier{const} | Bracket{} | Identifier{of} | Identifier{items}]
+```
+
+`IsTypePosition` 从 `{` 回扫 ✓，撞到的第一个实义词是 `const` ✓，而 `const` 那一支答的是
+**「跨过 `=` 之前都算类型位」** ✓ ⇒ 真 ✗。**`for` 根本不在这一张表里** ✗
+（它在括号外面 ✓）——所以「回扫找 `for`」这条判据**从来答否** ✗（初版就是这么写的 ✗，
+一轮插桩之后才看明白 ✓）。
+
+### 三、修法：判据挂在**右边**（`typescript/tokens/type-literal/type-literal.xl.md`）
+
+新增 `IsForeachDeclareHead(units, index)` ✓，`Previous` 里在 `IsTypePosition` **之前**问一次 ✓：
+
+1. 从 `{` 往左找第一个 `let` / `var` / `const` ✓（别的实义词一律答否 ✓）；
+2. 从 `{` 往右跳过它配对的 `}` ✓（`SkipNextWrapSymbol` ✓），下一格是不是 `of` / `in` ✓。
+
+两条都成立 ⇒ **循环头里的声明段** ✓ ⇒ 不是类型字面量 ✓。
+
+**为什么不误伤类型位** ✓：类型位的对象类型后面只可能是 `=` / `)` / `;` / `,` / `:` / `|` / `&` / `>`
+这些 ✓ —— `of` / `in` 是**词** ✓，在类型里它们只能是属性名（那前面得是 `.` 或 `,` / `{` ✗），
+过不了第 1 步 ✓。`for (const x: { a: number } of xs)` 那一格左边是 `:` ✓（不是声明词 ✓）
+⇒ 照旧走 `IsTypePosition` ✓。
+
+### 四、读数
+
+| 项 | 第 546 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 917 | **919 / 1037** ✓（+2 ✓） |
+| 缺节点 | 771（90 类） | **759**（88 类）✓（−12 ✓） |
+| 多出来的节点 | 226（43 类） | **226** ✓（持平 ✓） |
+| 区间漂移 | 68（18 类） | **68** ✓（持平 ✓） |
+| 字段名不符 | 46 | **44** ✓（−2 ✓） |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 24419 | **24421** ✓（+2 ✓） |
+
+逐文件前后名单做差 ✓：**变绿 2 份、变红 0 份** ✓ ——
+`stmt-for-of-object-destructure`（本轮那一处 ✓）与 `st-for-of-destructure` ✓
+（它上一轮还是 `5/0/0/1` ✓——本轮的 `IsForeachDeclareHead` 把那 5 个缺节点一起收干净了 ✓）。
+
+**门**：`cases:check` **1050 条 0 不合格** ✓；`runtime:check` **208 / 242** ✓（+1 ✓，
+第 546 轮末是 207 ✓）；`runtime:cli` **39 / 79** ✓（与第 546 轮末持平 ✓）；
+`samples` 仍红 ✗（两处差分与 HEAD **逐字相同** ✓）。
+
+### 五、下一块的入口
+
+1. **`export { a, b }` 那一族**（`expr-as-then-value-operator.ts` ✓：缺 `NamedExports` +
+   每一格 `ExportSpecifier` / `Identifier` ✓，`ExportDeclaration` 的区间还差**一格右端** ✗
+   `[801,879)` 对 TS `[801,880)` ✓）——单文件 38 缺 ✓，是当前**最大的一处** ✓，
+   入口是 `export.xl.md` 的具名导出那一支 ✓；
+2. **嵌套解构那两族**（`decl-arr-destructure-nested.ts` / `decl-destructure-nested-names.ts` ✓）：
+   本轮的 `ForeachDefine` 宿主与类型字面量两处都已落地 ✓，下一块看的是**嵌套**那一层 ✓
+   （`BindingElement` 里再套 `{` / `[` ✓）。
 
