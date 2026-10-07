@@ -5197,7 +5197,116 @@ interface ByStdio<I extends null | Writable, O extends null | Readable>
    与重载签名同形 ✓，要分开得先量出「有体 / 没有体」的**读时**判据 ✓；
 3. `stmt-adversarial-shapes.ts` 的一个壳里两个段头 ✓（同上 ✓）与 `as` + 联合那一族 ✓（同上 ✓）。
 
+## 一百六十一、换行左边还没写完时**不收壳**（第 558 轮）：998 → **1002 / 1037**
 
+起点 **998 / 1037** ✓（缺 99 / 漂 36 / 多 109 / 字段名 2 ✓，39 份不为零 ✓）。上一节第五节列的第 3 条入口 ✓。
 
+### 一、现场：`const a =` 换行 `1 + 2` 被劈成两条语句
+
+本轮从「上一节留下的那个 `as` + 联合家族」入手 ✓，缩到最小之后发现它们**不是**一族，
+而是**同一个入口**上的两个方向 ✗：
+
+```ts
+const a =           // ← 本行结尾是要右操作数的符号
+  1 + 2             //   下一行是它的右操作数
+```
+
+产物是**两个** `Statement` ✓（第一个是 `Let` + `=` ✗）——`ans` 那两条语句各自半截 ✗。
+同样形状的还有 ✓：
+
+| 排版 | 产物（改前） |
+| --- | --- |
+| `const a =` 换行 `1 + 2` | 两个 `Statement` ✗（`stmt-continuation-after-equals.ts` ✓） |
+| `const v = x as` 换行 `A;` | 第二行单独成壳 ✗ ⇒ `As` 收不到它的类型 ✓（`expr-as-newline.ts` ✓） |
+| `const v = x as A \|` 换行 `B;` | `As` 只收到 `A \|` ✗（`expr-as-union-multiline.ts` ✓） |
+| `const multi = 1,` 换行 `other = 2;` | 两条语句 ✗（`expr-comma-sequence.ts` ✓） |
+
+### 二、真因：收壳的判据只有「最后一个单元是不是语句边界」
+
+`StatementBranch` 在 `\n` 上的判据是「最后一个单元是语句边界 ⇒ 上一条已经收完 ✓；
+否则库里正开着一条语句 ✓ ⇒ 收」✗（第 481 轮写下、第 557 轮补了一条声明头的护栏 ✓）。
+**「一条语句才写了半截」当然不是语句边界** ✗ ⇒ 半截语句被收进壳里 ✓
+⇒ 下一行那几个单元落在**另一个** `Statement` 里 ✗。
+
+而整套 ASI 判据（`Statement.IsLineBreakBoundary` ✓）就在同一个文件里 ✓，只是它是**事后**的 ✗：
+它要问右边（「下一行的第一个单元能不能续接」✓ `ContinuesExpression` ✓），
+而解析期在换行那一刻**还没有下一行** ✗。
+
+### 三、修法：把 ASI 判据的**左半截**抽出来，解析期问它
+
+左半截只用**已经读到的单元** ✓ —— 把 `IsLineBreakBoundary` 里那一段原样提成
+`Statement.IsLineBreakIncompleteOnLeft` ✓，两处都问它 ✓（各写一份必然会漂 ✗），
+`StatementBranch` 在收壳前加一问 ✓。
+
+**两处「两可」的词形必须排除** ✗ —— 这是实测逼出来的 ✓（第一版直接上，当场 998 → **993** ✗，
+新红 8 份 ✓）：
+
+| 词形 | 为什么两可 | 少了排除会怎样（实测 ✓） |
+| --- | --- | --- |
+| `void` | 既是运算符（`void 0` ✓）又是**预定义类型名** ✓ | `fn-overloads.ts` 缺 **13** ✓、`ty-variance.ts` / `ty-function-ctor.ts` / `type-param-variance-in-out.ts` / `type-fn-declaration-boundary.ts` 各缺 8 ✓、`ns-declare-module.ts` 缺 5 ✓ —— 六份全是「上一行以 `=> void` / `): void` 收尾」✗ |
+| `:` | `case 1:` / `default:` / `label:` 都以它**收尾** ✓ | `st-switch.ts` / `stmt-switch-empty-cases.ts` / `stmt-switch-fallthrough.ts` 三份把相邻两个 `case` 并进一个壳 ✓（各缺 5 / 多 3 ✓） |
+
+⇒ 解析期那一问单独落成一个方法 `Statement.LineCannotEnd` ✓：**只认「左边一定没写完」** ✓，
+`:` 与 `void` 都不算 ✓。**只在这里排除** ✗（不动 `IsLineBreakIncompleteOnLeft` ✓）：
+`IsLineBreakBoundary` 问的是「ASI 该不该断句」✓，那里 `x:` 换行 `number` **必须**算续接 ✓
+（`const x:` 换行 `number = 1` 的排版 ✓）——两个问题不同 ✓，所以两个方法 ✓。
+
+另外补一条同族的判据 ✓：**后缀 `!`**（`a!` 换行是被断句的 ✓）与 `++` / `--` 同一套判法 ✓
+（按**它前面那一格**分辨前缀 / 后缀 ✓，`EndsOperand` ✓）——`IsLineBreakBoundary` 一起受益 ✓。
+
+**它管不到的那一半写在明处** ✗：**右半截**（「下一行以 `|` / `&` / `.` / 运算符开头」✓）
+要**下一个单元**才问得出来 ✗ ⇒ `x as` 换行 `| A` 换行 `| B` 那一族仍然在第二行那个换行上收壳 ✓
+（三份用例的读数只是**变好**、没有归零 ✓，见下表 ✓）——那是**另一个入口** ✓（下一块的入口第 1 条 ✓）。
+
+### 四、读数
+
+| 项 | 第 557 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 998 | **1002 / 1037** ✓（+4 ✓） |
+| 缺节点 | 99（28 类） | **73**（23 类）✓（−26 ✓） |
+| 多出来的节点 | 109（33 类） | **80**（30 类）✓（−29 ✓） |
+| 区间漂移 | 36（15 类） | **30**（17 类）✓（−6 ✓） |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21740 | **21740** ✓ |
+
+逐文件前后名单做差 ✓（`tmp/recon/r558-base-perfile.txt` ↔ `tmp/recon/r558-b-perfile.txt` ✓）：
+**变绿 4 份、没有任何一份变差** ✓。
+
+- 变绿 ✓：`expr-as-newline.ts` ✓、`expr-as-union-multiline.ts` ✓、`expr-comma-sequence.ts` ✓、
+  `stmt-continuation-after-equals.ts` ✓（都是本节第一张表里那四种排版 ✓）；
+- 变好但没归零 ✓：`type-cond-multiline.ts` `[7,1,13,0] → [0,2,3,0]` ✓（缺 −7 / 多 −10 ✓）、
+  `type-union-leading-bar.ts` `[5,1,5,0] → [2,2,4,0]` ✓、
+  `expr-as-leading-pipe-union.ts` / `type-union-in-as-expression.ts` `[6,3,7,0] → [2,5,7,0]` ✓、
+  `stmt-if-multiline-condition.ts` `[3,0,1,0] → [0,0,1,0]` ✓。
+
+**真实语料同时变好** ✓（`node tests/parse/ts-ast.mjs real --per-file` ✓，414 份 ✓）：
+**不为零 110 → 100 份** ✓、**抛异常 2 → 1 份** ✗→✓——
+那两份抛异常里的一份是 `dist/ts/runtime/vm.ts` ✓（改前 `LamdaReorganization` 在
+`(callee: Value, thisValue: Value, args: Value[]) =>` 上抛 `SourceRange` 空 ✓；
+改后它**能解析了** ✓，读数 `[37,16,24,0]` ✓ —— 从「整份进不来」到「有一笔账」✓，
+所以它在本轮名单里是 **NEW** 而不是回归 ✓，看名单时容易读反 ✗，记在这里 ✓）。
+变绿的 10 份里大的几处 ✓：`properties-access.ts` `[124,18,4,0] → [0,0,4,0]` ✓、
+`if-set.ts` `[37,6,3,0] → [0,1,3,0]` ✓、`label.ts` `[30,6,1,0] → [0,0,1,0]` ✓、
+`text-common-util.ts` `[203,40,22,0] → [0,0,8,0]` ✓、`@types/node/http2.d.ts` `[331,11,13,0] → [10,0,2,0]` ✓。
+
+**门**：`runtime:check` **239 / 242** ✓（持平 ✓）；`runtime:cli` **76 / 79** ✓（持平 ✓）；
+`cases:check` **1050 条 0 不合格** ✓；`samples` 仍红 ✗（还是那两处 ✓）；
+`coverage` **1608 / 1713（93.0%）** ✓（持平 ✓：blocked 65 ✓、differ 40 ✓、bad 0 ✓）；
+**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 五、下一块的入口
+
+1. **ASI 的右半截** ✓（本轮最大的那一块 ✓）：`x as` 换行 `| A` 换行 `| B` ✓、
+   `[1, 2]` 换行 `.forEach(f)` ✓（`stmt-asi-array-then-dot.ts` `[4,1,3,0]` ✓）、
+   `a` 换行 `&& b` ✓ —— 判据在 `Statement.ContinuesExpression` ✓，
+   缺的是「**在换行那一刻**还没有下一个单元」✗ ⇒ 要么**延迟收壳**（等下一个实义单元到了再判 ✓），
+   要么把它做成**容器关闭时那一趟**的拆分 ✓（`Statement.FormTail` 已经是那一趟的入口 ✓，
+   但它只收**末尾**那一段 ✓）。**三份用例 + 真实语料一片**都指着这一条 ✓；
+2. **折行的类型参数表** ✓（上一节第 1 条 ✓，本轮没动 ✓）：`lex-generic-multiline-constraints.ts` 的
+   `[7,1,1,0]` ✓ —— 两个 `TypeParameter` 被并成一个 ✗（判据在 `type-parameter.xl.md` 的分段那一趟 ✓）；
+3. **函数头换行 `{`** ✓（上一节第 2 条 ✓）：`function f()` 换行 `{` ✓ 与重载签名同形 ✗，
+   要分开得先量出「有体 / 没有体」的**读时**判据 ✓；
+4. `stmt-adversarial-shapes.ts` 的一个壳里两个段头 ✓（同上 ✓）。
 
 

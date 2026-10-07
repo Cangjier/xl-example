@@ -888,6 +888,91 @@ if (item instanceof SymbolToken) {
 return true;
 ```
 
+## static method IsLineBreakIncompleteOnLeft:(units:Array<Token>, index:int)=>bool
+
+`index` 处（将要）是一个软换行时，**左边那一行还没写完**吗——写不完就**一定不是**语句边界。
+
+这是 ASI 判据的**左半截**（第 558 轮从 `IsLineBreakBoundary` 里原样提出来的 ✓）。
+两半问的东西不一样 ✗：
+
+- **右半截**问「下一行第一个单元能不能续接这个表达式」（`ContinuesExpression` ✓）——那要**下一个单元** ✓，
+  所以只有事后（列表已经读全 ✓）才问得出来 ✓；
+- **左半截**只用**已经读到的单元** ✓ ⇒ **解析期在换行那一刻就能问** ✓ ——
+  `StatementBranch` 正是靠它才不在「`const a =` 换行 `1 + 2`」这种排版上收壳 ✓
+  （那一档实测的账见 `FormFrom` / `StatementBranch` 两处 ✓）。
+
+顺序是硬的 ✗（与 `IsLineBreakBoundary` 一字不差 ✓）：**受限产生式**（`return` / `throw` /
+`break` / `continue` / `yield` ✓）之后**就是**边界 ✓，所以那几种先排除 ✓；后缀的
+`++` / `--` / `!` 也一样 ✓（它们前面已经有操作数末尾 ⇒ 左边写完了 ✓）。
+
+**`!` 是两可的** ✗（前缀 `!x` ✓ / 后缀 `a!` ✓），所以按**它前面那一格**分辨 ✓：
+`a!` 换行是边界 ✓、`a = !` 换行不是 ✓ —— 与 `++` / `--` 同一套判法 ✓
+（`EndsOperand` ✓，它本来就是为这两可符号写的 ✓）。
+
+**点号后面的名字不算「期待操作数」** ✓：`import("./m").default` 换行 `const y = …` 里那个
+`default` 是**成员名** ✗（`default` / `new` / `in` / `is` / `readonly` 都在 `ExpectsOperand`
+的词表里 ✓）——判据落在左边那一格上 ✓（第 124 轮定下的那条 ✓）。
+
+```ts
+const previousIndex = SkipPreviousWrapSymbol(units, index);
+if (previousIndex < 0) {
+  return false;
+}
+const previousRealIndex = SkipPreviousTrivia(units, index);
+const previous = Get(units, previousRealIndex);
+if (previous === null) {
+  return false;
+}
+if (Statement.IsRestrictedKeyword(previous)) {
+  return false;
+}
+if (previous instanceof SymbolToken && (previous.Is("++") || previous.Is("--") || previous.Is("!"))) {
+  const before = Get(units, SkipPreviousTrivia(units, previousRealIndex));
+  if (Statement.EndsOperand(before)) {
+    return false;
+  }
+}
+const beforePrevious = Get(units, SkipPreviousTrivia(units, previousRealIndex));
+const previousIsMember =
+  beforePrevious instanceof SymbolToken && (beforePrevious.Is(".") || beforePrevious.Is("?."));
+if (previousIsMember === false && Statement.ExpectsOperand(previous)) {
+  return true;
+}
+return false;
+```
+
+## static method LineCannotEnd:(units:Array<Token>, index:int)=>bool
+
+`index` 处那个换行**不可能是这一行的终点**吗——**解析期那一问**（`StatementBranch` 用它 ✓）。
+
+它与 `IsLineBreakIncompleteOnLeft` 差的不是判据，而是**口径的松紧** ✗：解析期一旦判「不是终点」✓，
+这一行就会与**下一行**并进同一个壳 ✓ —— 判错一次就是两条语句合一 ✗（而且很难看出是哪儿错的 ✗）。
+所以这里只认「**左边一定没写完**」那一档 ✓，把两个**两可**的词形排除掉 ✓：
+
+| 词形 | 为什么两可 | 少了这条排除会怎样（实测 ✓） |
+| --- | --- | --- |
+| `:` | `case 1:` / `default:` / `label:` 都以它**收尾** ✓，而 `x:` 换行 `number` 是**续接** ✓ | `st-switch.ts` / `stmt-switch-empty-cases.ts` / `stmt-switch-fallthrough.ts` 三份把相邻两个 `case` 并进一个壳 ✓（各缺 5 / 多 3 ✓） |
+| `void` | 它既是运算符（`void 0` ✓）又是**预定义类型名** ✓，而 `): void` 收尾的排版遍地都是 ✓ | `fn-overloads.ts` 缺 **13** ✓、`ty-variance.ts` / `ty-function-ctor.ts` / `type-param-variance-in-out.ts` / `type-fn-declaration-boundary.ts` 各缺 8 ✓、`ns-declare-module.ts` 缺 5 ✓ —— 六份全是「上一行以 `=> void` / `): void` 收尾」✗ |
+
+**`:` 那一档只在这里排除** ✗（不动 `IsLineBreakIncompleteOnLeft` ✓）：`IsLineBreakBoundary` 问的是
+「ASI 该不该断句」✓，那里 `x:` 换行 `number` **必须**算续接 ✓（`const x:` 换行 `number = 1` 的排版 ✓）；
+而解析期这一问只敢在**一定没写完**时收手 ✓ —— 两个问题不同 ✓，所以两个方法 ✓。
+
+```ts
+if (Statement.IsLineBreakIncompleteOnLeft(units, index) === false) {
+  return false;
+}
+const previousRealIndex = SkipPreviousTrivia(units, index);
+const previous = Get(units, previousRealIndex);
+if (previous instanceof SymbolToken && previous.Is(":")) {
+  return false;
+}
+if (Statement.WordOf(previous) === "void") {
+  return false;
+}
+return true;
+```
+
 ## static method IsLineBreakBoundary:(units:Array<Token>, index:int)=>bool
 
 `index` 处那个**软换行**是不是一个语句边界。这就是本工程的 ASI 判据，只判这一件事：
@@ -961,10 +1046,10 @@ if (
 // 判据落在左边那一格上：点号（或可选链的点号）之后的名字永远是成员名。
 // 这一条只挡「期待操作数」那一支，**不挡**下面 `ContinuesExpression` 那一支——
 // `a.export` 换行 `= 1` 仍然续行（`=` 是运算符）。
-const beforePrevious = Get(units, SkipPreviousTrivia(units, previousRealIndex));
-const previousIsMember =
-  beforePrevious instanceof SymbolToken && (beforePrevious.Is(".") || beforePrevious.Is("?."));
-if (previousIsMember === false && Statement.ExpectsOperand(previous)) {
+// **左半截只留一份实现** ✓（第 558 轮 ✓）：这里那一支（「`ExpectsOperand` 且不是成员名」✓）
+// 与解析期在换行那一刻问的是**同一个问题** ✗ ⇒ 抽成 `IsLineBreakIncompleteOnLeft` ✓，
+// 两处都问它 ✓（各写一份必然会漂 ✓ —— 第 556 / 555 轮各踩过一次 ✓）。
+if (Statement.IsLineBreakIncompleteOnLeft(units, index)) {
   return false;
 }
 if (Statement.ContinuesExpression(next)) {
@@ -1277,6 +1362,28 @@ if (declarationWords.indexOf(word) >= 0) {
   if (hasBody === false) {
     return result;
   }
+}
+// **上一行还没写完时，换行不收壳** ✓（第 558 轮 ✓）：把 ASI 判据的**左半截**搬进解析期 ✓
+// （`IsLineBreakIncompleteOnLeft` ✓，与 `IsLineBreakBoundary` 共用那一份 ✓）——
+// 它只用**已经读到的单元** ✓，所以在这一刻问得出来 ✓。
+//
+// **少了它会怎样** ✗（实测）：这一支原来的判据只有「最后一个单元是不是语句边界」✓——
+// 而「一条语句才写了半截」当然不是边界 ✓ ⇒ **半截语句被收进壳里** ✗ ⇒
+// 下一行那几个单元落在**另一个** `Statement` 里 ✓ ⇒ 同一条表达式被换行劈成两半 ✓。
+// 实测三份用例都是这个形状 ✓：
+// `const a =` 换行 `1 + 2`（`stmt-continuation-after-equals.ts` ✓）、
+// `const v = x as` 换行 `A;`（`expr-as-newline.ts` ✓）、
+// `const v = x as A |` 换行 `B;`（`expr-as-union-multiline.ts` ✓ —— `As` 收不到那个 `B` ✗）。
+//
+// **它管不到的那一半写在明处** ✗：**右半截**（「下一行以 `|` / `&` / `.` / 运算符开头」✓）
+// 要**下一个单元**才问得出来 ✗ ⇒ `x as` 换行 `| A` 换行 `| B` 那一族
+//（`expr-as-leading-pipe-union.ts` / `type-union-in-as-expression.ts` / `type-union-leading-bar.ts` ✓）
+// 仍然在第二行那个换行上收壳 ✓ —— 那是**另一个入口**（见台账 ✓），不在这一条里 ✓。
+//
+// **`index` 传 `data.length`** ✓：那个软换行**此刻还没进 `Data`** ✓（这一支排在
+// `LineWrap.AppendIn` 之前 ✓）——判据只往前看 ✓，虚拟下标正好 ✓。
+if (Statement.LineCannotEnd(data, data.length)) {
+  return result;
 }
 result.Success = true;
 return result;
