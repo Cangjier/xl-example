@@ -4,6 +4,7 @@ import { SyntaxException } from "../../../core/exceptions/syntax-exception.xl.md
 import { IndependentToken } from "../../../core/syntax/independent-token.xl.md"
 import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TokenField } from "../../../core/syntax/token-field.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SkipNext } from "../../../core/extensions/list-extension.xl.md"
 import { Bracket } from "../bracket.xl.md"
@@ -95,6 +96,9 @@ tryBody.SignIn(bracket.SourceRange.Start!);
 tryBody.SignOut(bracket.SourceRange.End!);
 bracket.MoveDataTo(tryBody);
 tryBody.TryToClose();
+// **体的花括号当场记进字段** ✓（第 586 轮 ✓）：投影于是不用回原文里找那一对括号 ✓
+//（见下面 `Try.TryBrace` 那一处的说明 ✓）。
+result.TryBrace.Set(bracket.SourceRange.Start!.Index, bracket.SourceRange);
 // endIndex 就是 tryBody 的下标
 const tryBodyEndIndex = endIndex;
 endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
@@ -109,6 +113,7 @@ while (true) {
     break;
   }
   containsCatch = true;
+  result.CatchWord.Set(catchFirst.SourceRange.Start!.Index, catchFirst.SourceRange);
   endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
   const catchSecond = Get(units, endIndex)!;
   if (!(catchSecond instanceof Bracket)) {
@@ -133,6 +138,7 @@ while (true) {
       catchThirdBracket.MoveDataTo(catchBody);
       catchBody.Sign(catchThirdBracket);
       catchBody.TryToClose();
+      result.CatchBrace.Set(catchThirdBracket.SourceRange.Start!.Index, catchThirdBracket.SourceRange);
     } else {
       throw new SyntaxException(catchThird.SourceRange, "catchThirdBracket.startBracket is not '{'", null);
     }
@@ -141,6 +147,7 @@ while (true) {
     catchSecondBracket.MoveDataTo(catchBody);
     catchBody.Sign(catchSecondBracket);
     catchBody.TryToClose();
+    result.CatchBrace.Set(catchSecondBracket.SourceRange.Start!.Index, catchSecondBracket.SourceRange);
   } else {
     throw new SyntaxException(catchSecondBracket.SourceRange, "catchSecondBracket.startBracket is not '(' or '{'", null);
   }
@@ -150,6 +157,7 @@ endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
 // endIndex 是 finally 关键字的下标
 const finiallyKeyword = Get(units, endIndex);
 if (finiallyKeyword instanceof Identifier && finiallyKeyword.Is("finally")) {
+  result.FinallyWord.Set(finiallyKeyword.SourceRange.Start!.Index, finiallyKeyword.SourceRange);
   endIndex = SkipNext(units, endIndex, (item: Token) => item instanceof LineWrap);
   // endIndex 是 finally body 的下标
   const finiallySecond = Get(units, endIndex)!;
@@ -161,6 +169,7 @@ if (finiallyKeyword instanceof Identifier && finiallyKeyword.Is("finally")) {
     finiallySecond.MoveDataTo(finiallyBody);
     finiallyBody.Sign(finiallySecond);
     finiallyBody.TryToClose();
+    result.FinallyBrace.Set(finiallySecond.SourceRange.Start!.Index, finiallySecond.SourceRange);
   } else {
     throw new SyntaxException(finiallySecond.SourceRange, "finiallySecondBracket.startBracket is not '{'", null);
   }
@@ -177,6 +186,31 @@ return ReplaceCountAt(units, index, endIndex - index + 1, result);
 `try` 语句。
 
 它**没有覆写 `ToXmlString`**，所以 XML 由基类 `Token` 产出：标签名是运行时类名 `Try`，内容是全部子单元的 XML 串接。子单元的顺序是 `TryBody`、若干 `CatchDefine` / `CatchBody`、可选的 `FinallyBody`——这个顺序由 `TryCloseRule.Process` 的扫描顺序决定。
+
+## field TryBrace:TokenField<number> = new TokenField<number>(-1)
+
+`try` 体那一对花括号：**值是开括号的偏移** ✓，`Range` 是**整对括号**（含两边 ✓）。
+
+**为什么要有这一格** ✗：投影原来**回原文里找** ✓——`ctx.source.indexOf("{", tryAt)` 再 `ctx.MatchingBrace` ✓
+（见下面 `PrintAst` 第 586 轮之前那一版 ✓）。那是**第二份位置答案** ✗：块里的字符串与注释同样有
+花括号 ✓，而打包那一刻（`TryCloseRule.Process` ✓）**括号就在手上** ✓ ⇒ 当场记下来 ✓，
+投影只读这一格 ✓。`TokenField` 的「值 + 区间」正好装下「开括号在哪、整对到哪」 ✓。
+
+## field CatchWord:TokenField<number> = new TokenField<number>(-1)
+
+`catch` 那个词的偏移（`Range` 是它自己的区间）；没有 `catch` 段时是 `-1` / `null`。
+
+## field CatchBrace:TokenField<number> = new TokenField<number>(-1)
+
+`catch` 体那一对花括号（值的含义与 `TryBrace` 同）；`catch` 体不是带花括号的块时是 `-1` / `null`。
+
+## field FinallyWord:TokenField<number> = new TokenField<number>(-1)
+
+`finally` 那个词的偏移；没有 `finally` 段时是 `-1` / `null`。
+
+## field FinallyBrace:TokenField<number> = new TokenField<number>(-1)
+
+`finally` 体那一对花括号；没有 `finally` 段时是 `-1` / `null`。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
@@ -202,22 +236,22 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
 ```ts
   const seg = (key: any) => ctx.KidsOf(v, key).filter((k: any) => !ctx.Invisible.has(k.get("type")));
   const props: any = {};
-  const blockAfter = (from: any, statements: any) => {
-    const brace = ctx.source.indexOf("{", from);
-    if (brace < 0) return undefined;
-    const close = ctx.MatchingBrace(ctx.source, brace);
-    if (close < brace) return undefined;
-    return { kind: "Block", statements, pos: brace, end: close + 1 };
+  // **三段花括号的坐标全部读字段** ✓（第 586 轮 ✓）：`TryCloseRule.Process` 打包那一刻
+  // 括号就在手上 ✓ ⇒ 当场记进 `TryBrace` / `CatchBrace` / `FinallyBrace` ✓。
+  // **不再回原文里找** ✗：原来那两句是 `ctx.source.indexOf("{", …)` + `ctx.MatchingBrace` ✓，
+  // 而块里的字符串与注释同样有花括号 ✓ —— 那是**第二份位置答案** ✓（而且它与 token 的区间
+  // 可能不一致 ✓，尺子上就是「漂移 + 多出」成对出现 ✓）。
+  const blockOf = (field: any, statements: any) => {
+    const range = field.Range;
+    if (range === null || range.Start === null || range.End === null) return undefined;
+    return { kind: "Block", statements, pos: range.Start.Index, end: range.End.Index + 1 };
   };
-  const tryAt = ctx.source.indexOf("try", v.start);
-  const tryBlock = blockAfter(tryAt < 0 ? v.start : tryAt, ctx.ProjectEach(seg("body"), "Block"));
+  const tryBlock = blockOf(this.TryBrace, ctx.ProjectEach(seg("body"), "Block"));
   if (tryBlock !== undefined) props.tryBlock = tryBlock;
   const catches = seg("catches");
   const catchDefine = catches.find((k: any) => k.get("type") === "CatchDefine");
   const catchBody = catches.find((k: any) => k.get("type") === "CatchBody");
   if (catchDefine !== undefined || catchBody !== undefined) {
-    const anchor = catchDefine !== undefined ? ctx.StartOf(catchDefine) : ctx.StartOf(catchBody);
-    const at = ctx.source.lastIndexOf("catch", anchor);
     const inner: any = {};
     if (catchDefine !== undefined) {
       const binding = ctx.AllKids(catchDefine).find((k: any) => !ctx.Invisible.has(k.get("type")));
@@ -238,21 +272,21 @@ TS 那边是 `TryStatement > [tryBlock?, catchClause?, finallyBlock?]`：
       }
     }
     if (catchBody !== undefined) inner.block = ctx.Project(catchBody);
+    // **`catch` 那个词的位置也读字段** ✓：`CatchWord` 是打包时记下的关键字偏移 ✓
+    //（原来用 `ctx.source.lastIndexOf("catch", anchor)` ✓ —— 同一个位置，但那是回原文找 ✓）。
+    const at = this.CatchWord.Value >= 0 ? this.CatchWord.Value : ctx.StartOf(catchDefine !== undefined ? catchDefine : catchBody);
     props.catchClause = {
       kind: "CatchClause",
-      pos: at >= 0 ? at : anchor,
+      pos: at,
       end: catchBody !== undefined ? ctx.EndOf(catchBody) : ctx.EndOf(catchDefine),
       ...inner,
     };
   }
-  const finallyFrom =
-    catchBody !== undefined ? ctx.EndOf(catchBody) : tryBlock !== undefined ? tryBlock.end : v.start;
-  const finallyAt = ctx.source.indexOf("finally", finallyFrom);
-  if (finallyAt >= 0 && finallyAt <= ctx.StmtEndOf(v)) {
-    const finallyStatements = ctx.ProjectEach(seg("finally"), "Block");
-    const finallyBlock = blockAfter(finallyAt, finallyStatements);
-    if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
-  }
+  // **空的 `finally { }` 也要造块** ✓（第 177 轮 ✓）：按语句数判会把它整个跳过 ✓，
+  // 而 TS 那边照样有一个空 `Block` ✓ —— 这一格现在由 `FinallyBrace` 直接给出 ✓，
+  // 与体里有没有语句无关 ✓（原来要在**原文里找** `finally` 那个词、还要与 `StmtEndOf` 比 ✓）。
+  const finallyBlock = blockOf(this.FinallyBrace, ctx.ProjectEach(seg("finally"), "Block"));
+  if (finallyBlock !== undefined) props.finallyBlock = finallyBlock;
   return ctx.NodeHead("TryStatement", props, v);
 ```
 
@@ -383,6 +417,13 @@ return result;
 ```ts
 const result = new Try(this.Template);
 result.Sign(this);
+// **五个位置字段都要抄** ✓：漏了克隆体就丢掉那三段花括号的坐标 ✓，
+// 投影于是退回「一个 `Block` 都不出」✗（与 `class.xl.md` 的 `Clone` 同一口径 ✓）。
+result.TryBrace = this.TryBrace;
+result.CatchWord = this.CatchWord;
+result.CatchBrace = this.CatchBrace;
+result.FinallyWord = this.FinallyWord;
+result.FinallyBrace = this.FinallyBrace;
 result.AddRange(this.Data.map((item) => item.Clone()));
 result.TryToClose();
 return result;

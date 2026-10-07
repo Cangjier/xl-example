@@ -550,8 +550,14 @@ rebuilt.push(parameter);
       props.constraint = {
         kind: wrapped.get("type"),
         types,
-        pos: types[0].pos,
-        end: types[types.length - 1].end,
+        // **坐标取那个 `UnionType` 单元自己的** ✓（第 586 轮 ✓）：重切出来的 `types` 里
+        // **没有分隔符** ✓，按 `types[0].pos` 起会从第一个**成员**起 ✗ —— 而前导 `|` 那种写法
+        //（`T extends` 换行 `| A` 换行 `| B` ✓）在 TS 那边 `UnionType` 正是**从那个 `|` 起** ✓
+        // ⇒ 每一处记「漂移 1 + 多出 1」✓
+        //（真实语料 `vm.d.ts` / `fs.d.ts` / `querystring.d.ts` / `lib.es5.d.ts` / `globals.ts`
+        // 五份一共 14 + 18 + 3 + 11 + 16 处 ✓）。
+        pos: ctx.StartOf(wrapped),
+        end: ctx.EndOf(wrapped),
       };
     }
   }

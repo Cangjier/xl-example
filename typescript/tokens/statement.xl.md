@@ -1514,8 +1514,18 @@ if (value !== "\n") {
 }
 // **成员列表里不收语句壳** ✓（第 503 轮 ✓，与 `FormFrom` 那一处同一口径 ✓）：
 // `ClassBody` / `InterfaceBody` / `TypeLiteralBody` / `EnumBody` 的子单元是**成员** ✓。
+// **`EnumMember` 也是成员住的地方** ✓（第 586 轮 ✓）：枚举**最后一名**成员后面**没有逗号** ✗，
+// 紧跟的就是那个换行 ✓ ⇒ 那一刻的当前单元是 `EnumMember`、不是 `EnumBody` ✗
+// ⇒ 成员名被包成一个 `Statement` ✓（XML 实测 `<EnumMember><Statement><Identifier>B</Identifier>…` ✓）
+// ⇒ 投影多一个 `ExpressionStatement` ✓（`dist/ts/runtime/heap.ts` 一份里就有 3 处 ✓）。
 const owner = unit.constructor.name;
-if (owner === "ClassBody" || owner === "InterfaceBody" || owner === "TypeLiteralBody" || owner === "EnumBody") {
+if (
+  owner === "ClassBody" ||
+  owner === "InterfaceBody" ||
+  owner === "TypeLiteralBody" ||
+  owner === "EnumBody" ||
+  owner === "EnumMember"
+) {
   return result;
 }
 // **`[` / `(` 括号里也不收语句壳** ✓（第 515 轮 ✓，与 `FormFrom` 那一处同一口径 ✓）。

@@ -366,7 +366,16 @@ let startIndex = index;
 let scan = SkipPreviousWrapSymbol(units, index);
 while (scan >= 0) {
   const item = Get(units, scan);
-  if (conditionalAhead && this.IsExtendsWord(item)) {
+  // **`extends` 是左扫的硬边界** ✓（第 586 轮 ✓）：`T extends | A | B`（泛型形参的约束 ✓）与
+  // `A extends B | C ? D : E`（条件类型 ✓）两处，联合都**不含**那个 `extends` ✓ ——
+  // TS 那边它属于 `TypeParameter` / `ConditionalType` ✓，从不落在 `UnionType` 里 ✓。
+  // **原来只在「同一段里还有 `?`」时才挡** ✗（见 `IsConditionalAhead` ✓），
+  // 于是泛型形参那一族把 `T extends` 整段吞进联合 ✓
+  //（实测 `interface A<T extends` 换行 `| string` 换行 `| number>` 的产物是
+  // `UnionType > [Identifier(T), Keyword(extends), |, string, |, number]` ✗，
+  // 而 TS 那边 `UnionType` **只从那个 `|` 起** ✓，`T` 是 `TypeParameter.name` ✓）。
+  // 真实语料 `vm.d.ts` / `fs.d.ts` / `querystring.d.ts` 那一族 14 + 18 + 3 处漂移全是它 ✓。
+  if (this.IsExtendsWord(item)) {
     break;
   }
   const sameFamily = item instanceof SymbolToken && (item.Is(operator) || (operator === "|" && item.Is("&")));

@@ -8001,6 +8001,58 @@ return head === "|" || head === "&" || head === ".";
    （`Date` 一族 ✓、承诺组合子 ✓、`Map` / `Set` 的原型格 ✓）与
    `c37x-ex-` 那一批**降级层没接的形状** ✓（`new.target` ✓、尖括号断言 ✓、`\u{…}` ✓）。
 
+## 一百八十九、枚举末名 + 前导 `|` 的联合 + `Try` 的位置字段（第 587 轮）`real` 398 → **406 / 414**、`cases` 1037 / 1037
+
+### 一、枚举最后一名成员被包成语句壳（上一节「下一块」第 2 条 ✓）
+
+`export enum E {` 换行 `A,` 换行 `B` 换行 `}` 里 `B` 是**最后一名、后面没有逗号** ✗
+⇒ 换行那一刻的当前单元是 **`EnumMember`**（不是 `EnumBody` ✓），
+而 `StatementBranch.Condition` 的黑名单里只有 `EnumBody` ✗ ⇒ 包出一个
+`EnumMember > Statement` ✓ ⇒ 投影多一个 `ExpressionStatement` ✓。
+**改法一行**：黑名单补 `EnumMember` ✓。`dist/ts/runtime/heap.ts` 一份里 3 处、全语料 8 份文件
+（**`real` 398 → 406** ✓）——**这是这一轮唯一动了 `real` 读数的一处** ✓。
+
+### 二、前导 `|` 的联合：两处根子（**`real` 没动**，记在明处）
+
+| # | 形状 | 根子 | 改法 |
+| --- | --- | --- | --- |
+| 1 | `T extends` 换行 `\| A` 换行 `\| B` 的联合里**含 `T extends`** | 左扫只在「同一段里还有 `?`」时挡 `extends` ✗ | 左扫**无条件**在 `extends` 处停 ✓ |
+| 2 | 联合的 `pos` 从**第一个成员**起（TS 从那个 `\|` 起） | `TypeParameter.PrintAst` 重切联合时 `pos: types[0].pos` ✗ | 取 `ctx.StartOf(wrapped)` ✓ |
+
+两条都在**最小复现**上当场归零 ✓（`interface A<T extends` 换行 `| string` 换行 `| number>` ✓ 与
+`declare function f<T extends` 换行 `| …>` ✓ 两份逐节点完全一致 ✓），
+**而 `real` 那两份（`vm.d.ts` / `fs.d.ts` / `querystring.d.ts`）一个数字都没动** ✗ ——
+它们红的是**另一条根**（下一节 ✓）：缺的是整个 `InterfaceDeclaration` ✓，不是那个联合的区间 ✓。
+**两处都留着** ✓：它们让 token 树与 TS 的**形状**先对 ✓（XML 实测 `UnionType > [|, string, |, number]` ✓），
+那是后面那条根修好之后**必须已经是对**的东西 ✓。
+
+### 三、`Try` 的位置字段（**token 直出 ast** 的第一块）
+
+`Try.PrintAst` 原来**回原文里找**位置 ✓：`ctx.source.indexOf("{", …)` + `ctx.MatchingBrace` ✓、
+`lastIndexOf("catch", anchor)` ✓、`indexOf("finally", …)` ✓ —— 那是**第二份位置答案** ✗
+（块里的字符串与注释同样有花括号与这两个词 ✓），而且它**不读 token 自己的区间** ✗。
+改法：**打包那一刻括号就在手上** ✓（`TryCloseRule.Process` ✓）⇒ 当场记进五个 `TokenField` ✓：
+`TryBrace` / `CatchWord` / `CatchBrace` / `FinallyWord` / `FinallyBrace` ✓
+（**值是开括号的偏移、`Range` 是整对括号** ✓），`PrintAst` 只读这五格 ✓、`Clone` 抄这五格 ✓。
+`MatchingBrace` 那一趟因此在 `Try` 这一格上**整个消失** ✓。
+**读数**：`cases:tsast` 16 片 **11 片通过** ✓（第 586 轮是 8 片 ✓）、`coverage` **1666 / 1713** ✓ 持平 ✓。
+
+### 四、下一块
+
+1. **`@types/node` 那三份的 `InterfaceDeclaration` 整个缺** ✓（`vm.d.ts` `61 0 14` ✓ /
+   `fs.d.ts` `30 0 18` ✓ / `querystring.d.ts` `21 0 3` ✓）：现场都是**声明头折行**
+   （`interface X<T extends …>` 换行 `extends Y` 换行 `{` ✓、
+   `interface P extends` 换行 `NodeJS.Dict<` 换行 `| string` … `>` 换行 `{}` ✓）——
+   而这三份**最小复现都过** ✓（第 587 轮试过三份 ✓）⇒ 差异在**更大的上下文**里
+   （候选：`declare module "x" { }` 体里的折行 ✓、或同一个名字的**声明合并** ✓），
+   下一轮从「把那一份语料从 `interface` 起逐段删到最小」查 ✓；
+2. **`globals.ts` / `inspect.ts` 的左结合链漂移** ✓（16 + 14 处 ✓）：
+   `whiteText = whiteText + (…)` 换行处少了后半截 ✓（与第 585 轮 `?` / `:` 那一条同族 ✓——
+   `+` / `-` **起得了语句** ✗ ⇒ 要护栏 ✓，与第 582 轮 `(` / `[` 那两道同形 ✓）；
+3. **coverage 那 47 条** ✓（16 blocked + 31 differ ✓）按簇收 ✓：第 586 轮补的台账里
+   写着三簇（类型字面量当值 ✓ / `new.target` 与三元 ✓ / 两个独立现场 ✓），
+   加上 `c371-` 那一批标准库深水区 ✓。
+
 
 
 
