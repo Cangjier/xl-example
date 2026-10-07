@@ -437,6 +437,9 @@ for (let i = 0; i < program.Functions.length; i++) {
   // **第 4 位是「这一帧要一个 `arguments`」** ✓（第 332 轮 ✓）——同一条规矩 ✓：
   // `flags` **只追加位** ✓，老程序那一位是 0 ✓（= 不要 `arguments` ✓）。
   if (item.NeedsArguments) flags = flags + 8;
+  // **第 5 位是「这是一个类的构造函数」** ✓（第 613 轮 ✓）——同一条规矩 ✓：
+  // `flags` **只追加位** ✓，老程序那一位是 0 ✓（= 不是类 ✓）。
+  if (item.IsClass) flags = flags + 16;
   writer.WriteByte(flags);
 }
 for (let i = 0; i < program.Handlers.length; i++) {
@@ -525,6 +528,7 @@ for (let i = 0; i < functionCount; i++) {
   item.IsAsync = (flags & 2) !== 0;
   item.HasRest = (flags & 4) !== 0;
   item.NeedsArguments = (flags & 8) !== 0;
+  item.IsClass = (flags & 16) !== 0;
   program.Functions.push(item);
 }
 for (let i = 0; i < handlerCount; i++) {

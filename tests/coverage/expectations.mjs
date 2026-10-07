@@ -981,7 +981,6 @@ export const EXPECTATIONS = {
   // ---- `findIndex` / `find` 要**访问洞**（Node 给 1），本仓把洞跳过了（给 -1）。
 
   // ---- `console.log(class C {})` 的标签应当是 `[class C]` 而不是 `[Function: C]`。
-  "c371-rt-console-inspect-shapes": { expect: "differ", why: "`console.log(class C {})` 的标签应当是 `[class C]` 而不是 `[Function: C]`。" },
 
   // ---- **步数预算**在万级循环上耗尽（与 `gc-churn` 同一条已知缺口）。
 
@@ -1013,7 +1012,6 @@ export const EXPECTATIONS = {
   // ---- `Promise.resolve(p) === p` 要是 `true`（同一个承诺原样返回）。
 
   // ---- `Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。
-  "c371-stdlib-promise-allsettled-any-race": { expect: "differ", why: "`Promise.any` 全拒时抛的是 `AggregateError`，本仓那个对象的 `constructor` 取不到。" },
 
   // ---- `finally` 的回调抛时**少一跳**（第 611 轮定根）：Node 的 `finally` 是 `then` 拼出来的，
   // 回调那一抛落在 `then` 的回调里 ⇒ 派生承诺在**同一 tick** 里被拒绝 ⇒ `.catch` 早一跳跑

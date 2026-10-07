@@ -5901,12 +5901,24 @@ vm.RegisterConstructorProto(ErrorCtor, protos.Error);
 // **`TypeError` / `RangeError` 两个号也登记**（第 137 轮）✓，并且挂成全局名 ✓
 // （`GlobalNames` 那张名单 ✓——两边是同一份约定 ✓，少一处就是「声明了却没提供」✗）。
 const typeErrorKey = Value.FromString(table.CreateString(Units("TypeError")));
-const typeErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(TypeErrorCtor, 0));
+const typeErrorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(typeErrorObject.Ref, TypeErrorCtor, 0);
+const typeErrorTarget = typeErrorObject;
 SetProperty(vm.Room(), NeverCall, table, globals, typeErrorKey, typeErrorTarget);
+SetHiddenProperty(vm.Room(), table, typeErrorObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("TypeError"))));
+SetProperty(vm.Room(), NeverCall, table, typeErrorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.TypeError));
 vm.RegisterConstructorProto(TypeErrorCtor, protos.TypeError);
 const rangeErrorKey = Value.FromString(table.CreateString(Units("RangeError")));
-const rangeErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(RangeErrorCtor, 0));
+const rangeErrorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(rangeErrorObject.Ref, RangeErrorCtor, 0);
+const rangeErrorTarget = rangeErrorObject;
 SetProperty(vm.Room(), NeverCall, table, globals, rangeErrorKey, rangeErrorTarget);
+SetHiddenProperty(vm.Room(), table, rangeErrorObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("RangeError"))));
+SetProperty(vm.Room(), NeverCall, table, rangeErrorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.RangeError));
 vm.RegisterConstructorProto(RangeErrorCtor, protos.RangeError);
 // **`SyntaxError` 那三样**（第 277 轮 ✓）：挂全局名 ✓、登记原型 ✓、原型上三个属性 ✓——
 // 与上面那两条一字不差 ✓。**三处缺一处的表现各不相同** ✗（都记在明处 ✓）：
@@ -5914,19 +5926,37 @@ vm.RegisterConstructorProto(RangeErrorCtor, protos.RangeError);
 // 登记了原型但没挂 `name` ⇒ `new SyntaxError().name` 读到 `Error.prototype` 的 `"Error"` ✓
 //（**看着对** ✓）；没挂 `constructor` ⇒ `e.constructor === SyntaxError` 给假 ✓。
 const syntaxErrorKey = Value.FromString(table.CreateString(Units("SyntaxError")));
-const syntaxErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SyntaxErrorCtor, 0));
+const syntaxErrorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(syntaxErrorObject.Ref, SyntaxErrorCtor, 0);
+const syntaxErrorTarget = syntaxErrorObject;
 SetProperty(vm.Room(), NeverCall, table, globals, syntaxErrorKey, syntaxErrorTarget);
+SetHiddenProperty(vm.Room(), table, syntaxErrorObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("SyntaxError"))));
+SetProperty(vm.Room(), NeverCall, table, syntaxErrorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.SyntaxError));
 vm.RegisterConstructorProto(SyntaxErrorCtor, protos.SyntaxError);
 // **`ReferenceError` / `AggregateError` 两格**（第 295 轮 ✓）：挂全局名 ✓、登记原型 ✓——
 // 与上面那三条一字不差 ✓。**原型上的 `name` / `message` / `constructor` 三格**
 // 由下面那段循环一起挂 ✓（它们就在那张名单里 ✓）。
 const referenceErrorKey = Value.FromString(table.CreateString(Units("ReferenceError")));
-const referenceErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ReferenceErrorCtor, 0));
+const referenceErrorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(referenceErrorObject.Ref, ReferenceErrorCtor, 0);
+const referenceErrorTarget = referenceErrorObject;
 SetProperty(vm.Room(), NeverCall, table, globals, referenceErrorKey, referenceErrorTarget);
+SetHiddenProperty(vm.Room(), table, referenceErrorObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("ReferenceError"))));
+SetProperty(vm.Room(), NeverCall, table, referenceErrorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.ReferenceError));
 vm.RegisterConstructorProto(ReferenceErrorCtor, protos.ReferenceError);
 const aggregateErrorKey = Value.FromString(table.CreateString(Units("AggregateError")));
-const aggregateErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(AggregateErrorCtor, 0));
+const aggregateErrorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(aggregateErrorObject.Ref, AggregateErrorCtor, 0);
+const aggregateErrorTarget = aggregateErrorObject;
 SetProperty(vm.Room(), NeverCall, table, globals, aggregateErrorKey, aggregateErrorTarget);
+SetHiddenProperty(vm.Room(), table, aggregateErrorObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("AggregateError"))));
+SetProperty(vm.Room(), NeverCall, table, aggregateErrorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.AggregateError));
 vm.RegisterConstructorProto(AggregateErrorCtor, protos.AggregateError);
 // **`URIError` / `EvalError` 两格**（第 376 轮 ✓）：挂全局名 ✓、登记原型 ✓——
 // 与上面那四条一字不差 ✓。**原型上的 `name` / `message` / `constructor` 三格**在下面 ✓。
@@ -5935,12 +5965,24 @@ vm.RegisterConstructorProto(AggregateErrorCtor, protos.AggregateError);
 //（`DecodePercent` 抛的是**宿主的** `URIError` ✓，映射在那一侧做 ✓——与第 277 轮
 // 「内建那边一个字都不用改」是同一条做法 ✓）。
 const uriErrorKey = Value.FromString(table.CreateString(Units("URIError")));
-const uriErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(URIErrorCtor, 0));
+const uriErrorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(uriErrorObject.Ref, URIErrorCtor, 0);
+const uriErrorTarget = uriErrorObject;
 SetProperty(vm.Room(), NeverCall, table, globals, uriErrorKey, uriErrorTarget);
+SetHiddenProperty(vm.Room(), table, uriErrorObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("URIError"))));
+SetProperty(vm.Room(), NeverCall, table, uriErrorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.URIError));
 vm.RegisterConstructorProto(URIErrorCtor, protos.URIError);
 const evalErrorKey = Value.FromString(table.CreateString(Units("EvalError")));
-const evalErrorTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(EvalErrorCtor, 0));
+const evalErrorObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(evalErrorObject.Ref, EvalErrorCtor, 0);
+const evalErrorTarget = evalErrorObject;
 SetProperty(vm.Room(), NeverCall, table, globals, evalErrorKey, evalErrorTarget);
+SetHiddenProperty(vm.Room(), table, evalErrorObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("EvalError"))));
+SetProperty(vm.Room(), NeverCall, table, evalErrorObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.EvalError));
 vm.RegisterConstructorProto(EvalErrorCtor, protos.EvalError);
 // **`WeakMap` / `WeakSet`**（第 295 轮 ✓）：**值就是 `Map` / `Set` 那两个构造** ✓——
 // 本仓**没有弱引用那一档** ✗（回收器不认「弱」这个属性 ✓），
@@ -6470,9 +6512,13 @@ SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapObject);
 SetProperty(vm.Room(), NeverCall, table, mapObject,
   Value.FromString(table.CreateString(Units("groupBy"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapGroupBy, 0)));
-// `Set` 同样是**宿主引用值**（`new Set()` 走 `Op.New` 的宿主构造函数那条分支）。
+// `Set` 从前是**宿主的引用值** ✓，第 613 轮起改成**可调用对象** ✓（与 `Map` 同款 ✓）——
+// 理由与 `Map` 那一格一字不差 ✓：`Set.name` / `new Set().constructor.name` 要读得到 ✓，
+// 而宿主引用**没有属性表** ✗（第 343 轮给 `Error` 换壳时踩的就是同一个坎 ✓）。
 const setKey = Value.FromString(table.CreateString(Units("Set")));
-const setTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(SetCtor, 0));
+const setObject = NewPlainObject(vm.Room(), table, protos);
+table.AttachCallable(setObject.Ref, SetCtor, 0);
+const setTarget = setObject;
 SetProperty(vm.Room(), NeverCall, table, globals, setKey, setTarget);
 // `Symbol` 从**宿主引用**改成**带可调用载荷的对象**（第 183 轮）✓：
 // 它现在要挂**知名符号**（`Symbol.iterator` 等 ✓），而**宿主引用没有属性表** ✗
@@ -6629,7 +6675,17 @@ SetProperty(vm.Room(), NeverCall, table, globals, dateKey, dateObject);
 // 这里只负责**挂进全局对象** ✓——与 `Date` 那一格同一个形状 ✓
 // （既是对象 ✓、也能被 `new` ✓）。
 const promiseKey = Value.FromString(table.CreateString(Units("Promise")));
-SetProperty(vm.Room(), NeverCall, table, globals, promiseKey, BuildPromise(vm, protos));
+const promiseObject = BuildPromise(vm, protos);
+SetProperty(vm.Room(), NeverCall, table, globals, promiseKey, promiseObject);
+// **`Promise` 自己的 `name` 与 `prototype`** ✓（第 613 轮 ✓）：与 `Map` / `Set` 那两格
+// **同一个形状** ✓——`Promise.resolve(1).constructor === Promise` 要靠
+// `protos.Promise.constructor` ✓（`BuildPromise` 里挂 ✓），而 `Promise.name` 要靠这一格 ✓。
+SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "name"),
+  Value.FromString(table.CreateString(Units("Promise"))));
+// **不能进上面那张 `builtinNames` 表** ✗：`promiseObject` 在这一句之前**还不存在** ✓
+// （它是 `BuildPromise` 造的 ✓），所以它只能在这里补一格 ✓——表里放的是**已经造好的变量** ✓。
+SetProperty(vm.Room(), NeverCall, table, promiseObject, NameValue(table, "prototype"),
+  Value.FromObject(protos.Promise));
 // **`Map` / `Set` / `Date` / `Array` 四格的 `prototype` 与 `constructor`**（第 138 轮）✓：
 // `new Map() instanceof Map` 要靠原型那一格 ✓，`new Map().constructor === Map` 要靠
 // `constructor` 那一格 ✓——**两格都要** ✗（只补一格就是「一半对」✓）。
@@ -6639,6 +6695,11 @@ SetProperty(vm.Room(), NeverCall, table, globals, promiseKey, BuildPromise(vm, p
 // `new Map().constructor === Map` 给 **`false`** ✗（判据现场就是这么红的 ✓）。
 // 所以这里用的是上面那几个变量 **本身** ✓，不是再造一个 ✓。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Map), NameValue(table, "constructor"), mapObject);
+// **`Set.prototype` 上的 `constructor` 与 `prototype` 两格** ✓（第 613 轮 ✓）：
+// 与 `Map` 那两行**同一个形状** ✓（`Set` 第 613 轮才换成可调用对象 ✓，
+// 在那之前它是宿主引用值 ✓ ⇒ 这两格**一格都挂不上去** ✗）。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Set), NameValue(table, "constructor"), setObject);
+SetProperty(vm.Room(), NeverCall, table, setObject, NameValue(table, "prototype"), Value.FromObject(protos.Set));
 // **`Map.prototype` 也要挂上** ✓（第 327 轮 ✓）：`Map` 现在是**对象** ✓，
 // 而 `instanceof` 走「读右边的 `prototype` 属性」那一条 ✓（登记表现在只给宿主引用值用 ✗）——
 // 不挂的话 `m instanceof Map` 报 `the right side of instanceof has no prototype object` ✓
@@ -6648,5 +6709,30 @@ SetProperty(vm.Room(), NeverCall, table, mapObject, NameValue(table, "prototype"
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Set), NameValue(table, "constructor"), setTarget);
 SetProperty(vm.Room(), NeverCall, table, dateObject, NameValue(table, "prototype"), Value.FromObject(protos.Date));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Date), NameValue(table, "constructor"), dateObject);
+// **每一个内建构造自己的 `name`** ✓（第 613 轮 ✓）——**一次写完，一处也不漏** ✓。
+//
+// **为什么必须逐个挂** ✗：JS 里 `Array.name` 是**自有属性** ✓，而本仓的内建构造是
+// **普通对象 + 一格可调用载荷** ✓（第 145 轮 ✓）——它们**不真的以某个原型为原型** ✗
+// （`Function.prototype` 那一格不存在 ✓），所以**没有一处能替它们回答** ✓。
+//
+// **少了它是什么样** ✗：`Error.name` / `Array.name` 全给 `undefined` ✓
+// ⇒ `x.constructor.name` 跟着给 `undefined` ✓——**静默错值** ✗，
+// 一句异常都没有 ✓，所以从第 343 轮（`Error` 换壳 ✓）到第 612 轮一直没被量到 ✓。
+// 现场：判据 `c371-stdlib-promise-allsettled-any-race` 的 `e.constructor.name` ✓。
+//
+// **它与「原型上那一格」是两件事** ✗：`Error.prototype.name` 是 `"Error"` ✓
+// （那是 `e.name` 的落点 ✓），而 `Error.name` 是**构造自己的名字** ✓——
+// 同名不同物 ✓，JS 里两格都真的存在 ✓。
+//
+// **挂成不可枚举** ✓（与 JS 同款 ✓）：`Object.keys(Array)` 在 Node 里给
+// `["isArray","from","of","fromAsync"]` ✓——没有 `name` ✓、也没有 `prototype` ✓。
+const builtinNames: string[] = ["Object", "Function", "Array", "Number", "String", "Boolean",
+  "Symbol", "Map", "Set", "WeakMap", "WeakSet", "Date", "Error"];
+const builtinNameTargets: Value[] = [objectObject, functionObject, arrayObject, numberObject, stringObject,
+  booleanObject, symbolObject, mapObject, setObject, weakMapObject, weakSetObject, dateObject, errorObject];
+for (let i = 0; i < builtinNames.length; i++) {
+  SetHiddenProperty(vm.Room(), table, builtinNameTargets[i], NameValue(table, "name"),
+    Value.FromString(table.CreateString(Units(builtinNames[i]))));
+}
 return globals;
 ```

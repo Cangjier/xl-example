@@ -772,6 +772,18 @@ return -1;
 降级期就该报出来）。**它不影响调用方式**——这一点与生成器**恰好相反**，
 差别写在文首那张表里（那是这一轮最要紧的一条已知语义差）。
 
+## field IsClass:bool = false
+
+**这一个函数体是一个类的构造函数** ✓（第 613 轮 ✓）。
+
+**它原样递给函数表** ✓（`FunctionInfo.IsClass` ✓ → `new_closure` 第四格的最低位 ✓ →
+`HeapClosure.IsClass` ✓ → `console.log` 印 `[class C]` ✓）。
+
+**为什么不能在运行期现认** ✗：类在值模型里就是一个普通闭包 ✓——
+`HeapClosure` 上那五格（代码 / 环境 / 名字 / 形参 / 源码）里没有一个说得清这件事 ✓，
+而 `Function.prototype.toString` 在本仓**拿不到源码** ✓（源码那一格是降级层切好放进去的 ✓，
+不是从函数对象里反读的 ✓）。**只有降级层知道** ✓（它手里正拿着类节点 ✓）。
+
 ## field HasRest:bool = false
 
 **最后一个形参是不是剩余参数**（第 133 轮）——原样递给函数表那一位 ✓
@@ -1212,6 +1224,19 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成 ✓，不会把同一
 **为什么它们不进 `Loops`** ✗：那一摞还管着两件事 ✓——`continue` 要找到**一个循环** ✓
 （JS 的规矩：块上的 `continue` 非法 ✓）、以及「循环体每轮新建绑定」✓。
 把块混进去会让块里的 `continue` 找到一层不是循环的东西 ✓（**静默错值** ✗）。
+
+## field PendingClassNode:AstNode | null = null
+
+**「这一趟降的构造函数是不是一个类的」** ✓（第 613 轮 ✓）——`null` 表示「不是」✓。
+
+**为什么必须在进 `LowerFunctionValue` 之前挂上** ✗：那一趟里就发了 `new_closure` ✓，
+而 `EmitClosure` 在**那一刻**就把「这是不是一个类」拼进第四格（`item.Arity * 2 + 1`）✓
+——**事后补补不上** ✗（与 `SuperName` 不同：那一位到**降级函数体那一趟**才被读 ✓）。
+所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原 ✓（`LowerClass` 一处写、一处还原 ✓）。
+
+**它读出来干什么** ✓：`lowering.xl.md` 的 `LowerFunctionValue` 拿它比**当前那个节点** ✓，
+相同就把 `PendingFunction.IsClass` 置真 ✓——那一位一路走到 `HeapClosure.IsClass` ✓，
+最后让 `console.log` 印出 `[class C]` ✓（`inspect.xl.md` ✓）。
 
 ## field FunctionNameHint:string = ""
 
@@ -1910,6 +1935,9 @@ for (let i = 0; i < this.Pending.length; i++) {
   // **生成器函数**：调用它**只造对象、不跑体**（引擎的 `DoCallValue` 那条分支）。
   info.IsGenerator = item.IsGenerator;
   info.IsAsync = item.IsAsync;
+  // **类那一位** ✓（第 613 轮 ✓）：`console.log(class C {})` 要印 `[class C]` ✓——
+  // 它一路跟到 `HeapClosure.IsClass` ✓（见 `vm.xl.md` 的 `MakeClosure` ✓）。
+  info.IsClass = item.IsClass;
   // **剩余参数**（第 133 轮）：这一位交给**开帧的人** ✓——它在那一刻手上才有
   // 「这次实际传了几个」✓，而被调方自己的帧里**没有格子**放多出来的实参 ✓
   //（`ir.xl.md` 的 `FunctionInfo.HasRest` 那一段写着为什么 ✓）。
@@ -2252,7 +2280,13 @@ item.Patch = this.Program().AddConst(Constant.OfInt(0));
 const nameConst = item.Name === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(item.Name)));
-const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity));
+// **第四格：形参个数，最低一位借给「这是一个类」** ✓（第 613 轮 ✓）——
+// `MakeClosure`（`vm.xl.md` ✓）把这一位摘掉之后再交给闭包那一格 ✓。
+// **为什么借这一格** ✗：`new_closure` 的五个操作数已经排满了 ✓（环境 / code / 名字 /
+// 形参 / 源码 ✓），加第六格要同时改枚举、验证层与四个目标 ✓；而这两样东西的来处
+// **本来就是同一处** ✓（都在这里、都只在那一次求值时定死 ✓）。
+// **代价写在 `MakeClosure` 那一段** ✓：第四格从此不是形参个数本身 ✓。
+const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 2 + (item.IsClass ? 1 : 0)));
 const window = this.Reserve(5);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
@@ -5579,6 +5613,12 @@ item.IsArrow = NodeKind(node) === "ArrowFunction";
 // `suspend outside a generator`：体里那对 suspend/resume 落在了一个普通帧上）。
 item.IsGenerator = node["asteriskToken"] !== undefined && node["asteriskToken"] !== null;
 item.IsAsync = this.NodeIsAsync(node);
+// **「这一趟是个类的构造函数」** ✓（第 613 轮 ✓）：`LowerClass` 进门前把那个节点挂在
+// `PendingClassNode` 上 ✓（那一段写着为什么**必须**在进这里之前就位 ✓）——
+// 比的是**节点身份** ✓，不是名字 ✗（同名的方法多的是 ✓）。
+// **它必须在 `EmitClosure` 之前落进 `item`** ✗：`EmitClosure` 当场就把这一位拼进
+// `new_closure` 的第四格 ✓。
+item.IsClass = this.PendingClassNode !== null && this.PendingClassNode === node;
 // **具名函数表达式的词法绑定** ✓（第 332 轮 ✓）：`function self() { … self … }` 里的
 // `self` 只在**它自己那个体**里可见 ✓——这一行把名字交给 `EmitClosure` ✓，
 // 由它单开一层环境装 ✓（那一段写着为什么不能绑在外层 ✓）。
@@ -6730,9 +6770,15 @@ for (let i = 0; i < members.length; i++) {
 const allInstanceFields: AstNode[] = [];
 for (let i = 0; i < ctorDecls.length; i++) allInstanceFields.push(ctorDecls[i]);
 for (let i = 0; i < instanceFields.length; i++) allInstanceFields.push(instanceFields[i]);
+// **「这是一个类」这一位要在进 `LowerFunctionValue` 之前就位** ✗（第 613 轮 ✓，**实测踩过** ✓）：
+// 那一趟里就发了 `new_closure` ✓，而 `EmitClosure` 正是在**那一刻**把这一位拼进
+// 第四格（`arity * 2 + (IsClass ? 1 : 0)` ✓）——**事后补是补不上的** ✗
+//（`SuperName` 能事后补 ✓ 是因为它到**降级函数体那一趟**才被读 ✓）。
+// 所以照 `FunctionNameHint` 那个形状：进门前挂上、出门就还原 ✓。
+const savedClassNode = this.PendingClassNode;
+this.PendingClassNode = ctorNode;
 const ctor = this.LowerFunctionValue(ctorNode, name);
-// **构造函数那一项就是刚推进去的最后一项**（`LowerFunctionValue` 只推一项）。
-// 把基类名记在它身上：`super(...)` 只允许出现在这一层，判定靠它。
+this.PendingClassNode = savedClassNode;
 if (baseName !== "" && this.Pending.length > 0) {
   this.Pending[this.Pending.length - 1].SuperName = baseName;
 }

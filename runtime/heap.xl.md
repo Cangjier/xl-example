@@ -483,6 +483,17 @@ return total;
 （`const f = () => 1` 在循环里 ✓）——**字符串是不可变的** ✓，多一份只是多一份计费 ✓，
 语义上察觉不到 ✓（JS 自己也是每次求值造一个新的函数对象 ✓）。
 
+## field IsClass:bool = false
+
+**这个闭包是不是一个类的构造函数** ✓（第 613 轮 ✓）。
+
+**为什么它必须住在闭包上** ✗：`console.log(class C {})` 在 Node 里印
+**`[class C]`** ✓（`util.inspect` 的判据是 `Function.prototype.toString` 以 `class` 开头 ✓），
+而**类在值模型里就是一个普通闭包** ✗——运行期没有别的地方看得出这件事 ✓
+（这一层手上只有代码 / 环境 / 名字 / 形参 / 源码五格 ✓）。
+只有**造它的那一方**知道 ✓（降级层手里正拿着那个类节点 ✓），
+与 `Arity` / `Name` / `Source` 三格**同一条分工** ✓。
+
 ## constructor:(code:int, env:int, arity:int, name:int, source:int)=>void
 
 造一个闭包。
@@ -493,6 +504,7 @@ this.Env = env;
 this.Arity = arity;
 this.Name = name;
 this.Source = source;
+this.IsClass = false;
 ```
 
 ## method Charge:()=>int

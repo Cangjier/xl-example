@@ -38,17 +38,17 @@
       "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
     }
   ],
-  "progressPercent": 99.4,
+  "progressPercent": 99.49,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
       "total": 502,
-      "pass": 498,
+      "pass": 499,
       "blocked": 0,
-      "differ": 4,
+      "differ": 3,
       "nodefail": 0,
-      "coverage": 99.2
+      "coverage": 99.4
     },
     {
       "layer": "exec",
@@ -64,11 +64,11 @@
       "layer": "stdlib",
       "weight": 0.25,
       "total": 634,
-      "pass": 627,
+      "pass": 628,
       "blocked": 0,
-      "differ": 7,
+      "differ": 6,
       "nodefail": 0,
-      "coverage": 98.9
+      "coverage": 99.05
     },
     {
       "layer": "e2e",
@@ -96,12 +96,6 @@
       "detail": "stdout 不同：第 3 行：node «closed» vs tsrun «{\"value\":1,\"done\":false} {\"value\":2,\"done\":false}»"
     },
     {
-      "id": "c371-rt-console-inspect-shapes",
-      "layer": "runtime",
-      "title": "console.log 对复杂值的渲染",
-      "detail": "stdout 不同：第 6 行：node «{ fn: [Function: named], arrow: [Function: arrow], cls: [class C] }» vs tsrun «{ fn: [Function: named], arrow: [Function: arrow], cls: [Function: C] }»"
-    },
-    {
       "id": "c371-rt-function-name-and-length",
       "layer": "runtime",
       "title": "函数的 name / length 在各种定义形态下",
@@ -118,12 +112,6 @@
       "layer": "stdlib",
       "title": "Map / Set 的 size 是访问器、Object.keys 看不到条目",
       "detail": "退出码 node=0 tsrun=1｜tsrun: 脚本抛出：cannot read properties of undefined"
-    },
-    {
-      "id": "c371-stdlib-promise-allsettled-any-race",
-      "layer": "stdlib",
-      "title": "allSettled / any / race 的形状",
-      "detail": "stdout 不同：第 3 行：node «agg AggregateError 2» vs tsrun «agg undefined 2»"
     },
     {
       "id": "c371-stdlib-promise-finally-passthrough",

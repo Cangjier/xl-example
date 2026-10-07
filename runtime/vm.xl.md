@@ -4592,6 +4592,20 @@ const carried = args.length > 0 ? args[args.length - 1] : Value.Undefined();
 // 或者这一步本来就是 \`.finally\` （\`4\` ✓）——把**源那一档**灌进结果承诺 ✓。
 const matched = wants >= 2 || (wants === 1) === reject;
 const passThrough = wants === 4;
+// **`.finally` 那一档要排在「认不认这一档」之前** ✗（第 613 轮 ✓，**实测撞到的** ✓）：
+// JS 里 `Promise.prototype.finally(cb)` 是 **`then` 拼出来的** ✓（规范那一步
+// `thenCallbacks = [cb, cb]` + `then(...)` ✓）——所以 `.finally` 的**结果承诺就是
+// 那一跳 `then` 的结果** ✓，而 `cb` 里抛的错**落在那一跳的同一个 tick 里** ✓。
+// 本仓原来把它当成「认这一档、跑回调、再传下去」三件事 ✗ ⇒ 拒绝**晚一跳** ✓
+//（判据 `c371-stdlib-promise-finally-passthrough` 量的就是这个行序 ✓：
+// Node 给 `c3 replaced` 在 `v 1` 之前 ✓，本仓给它在之后 ✗）。
+//
+// **`.finally` 的 `matched` 恒真** ✓（`4 >= 2` ✓）⇒ 下面那个 `!matched` 那一支
+// **接不接得到它都不影响** ✓——**不能**用「先结清再跑回调」那种写法 ✗：
+// 回调抛了的时候，先结清等于拿**源那一档**把结果承诺定死了 ✓
+// ⇒ 后面那句「回调抛出来的错」**再也写不进去** ✗（实测：打出 `c3 orig3` ✗，
+// 而 Node 给 `c3 replaced` ✓）——**静默错值**，比行序错更坏 ✓。
+// 所以这里换的只有**次序** ✓：`matched` 那一格照旧先算 ✓。
 if (!matched) {
   if (reject) {
     this.RejectPromise(result, carried);
@@ -4832,6 +4846,15 @@ try {
 **算它的活不在这里** ✗（降级层的 `FunctionArity` ✓：那是**语法上的事** ✓，
 从 IR 里读不出「第一个默认值之前有几个形参」✓）。这一处只是把它**交给闭包那一格** ✓。
 
+**第 613 轮起它的最低位是「这是一个类」** ✓（**不是**形参个数的一位 ✗）：
+那一位由 `EmitClosure` 读 `item.IsClass` 之后拼进来 ✓（`arity * 2 + (是不是类 ? 1 : 0)` ✓），
+这一处把它**摘回去** ✓ 再交给闭包那一格 ✓。
+**为什么借 `arity` 这一格、不另开一格** ✗：`new_closure` 的五个操作数**排满了** ✓
+（环境 / code / 名字 / 形参 / 源码 ✓）——加第六格要同时改枚举、验证层与四个目标 ✓，
+而这两样东西的**来处是同一个** ✓（都在 `EmitClosure` 手里 ✓、都只在那一次求值时定死 ✓）。
+**代价是一条不变量** ✗：`new_closure` 的第四格**从此不是形参个数本身** ✓——
+所以**任何看这一格的地方都要先摘位** ✓（今天只有这一处读它 ✓）。
+
 **闭包要挂上 `Function.prototype`** ✓（第 228 轮 ✓）——这是**所有脚本函数**出生的那一道门 ✓
 （降级层每个函数声明 / 函数表达式 / 箭头 / 方法都发 `new_closure` ✓，见
 `typescript-exec/lowering.xl.md` ✓）。
@@ -4852,10 +4875,19 @@ try {
 没接上时不说谎，只是不特殊 ✓）。
 
 ```ts
-const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code, arity, 0));
+// **第四格的最低位是「这是一个类」** ✓（第 613 轮 ✓，见上面那一段 ✓）。
+const isClass = (arity & 1) !== 0;
+const paramCount = (arity - (arity & 1)) / 2;
+const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code,
+  paramCount, 0));
 // **`Guard` 可能什么都没造出来** ✓（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined` ✓）——
 // 那种情况下再去读 `Ref` 会撞上「这不是一个引用值」✗，而那句话离现场很远 ✓。
 if (!created.IsRef()) return created;
+if (isClass) {
+  // **类那一位落进闭包自己那一格** ✓（第 613 轮 ✓）：`console.log(class C {})` 要印
+  // `[class C]` ✓（`inspect.xl.md` 读的正是这一格 ✓）。
+  this.Table.Get(created.Ref).AsClosure().IsClass = true;
+}
 const protos = this.Protos;
 if (protos !== null && protos.Function > 0) {
   this.Table.Get(created.Ref).Proto = protos.Function;

@@ -1082,5 +1082,12 @@ SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "withResolve
 // **它是「同步跑、异步收」那一格** ✓：回调当场跑 ✓，而结果承诺照样让出一个 tick ✓。
 SetProperty(room, NeverCall, table, promiseObject, NameValue(table, "try"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseTry, 0)));
+// **`Promise.prototype.constructor` 指回这一份** ✓（第 613 轮 ✓）：
+// `Promise.resolve(1).constructor === Promise` 要走**原型上那一格** ✓
+// （实例没有自有的 `constructor` ✓），少了它 `x.constructor.name` 给
+// `undefined` ✓——**静默错值** ✗（判据 `c371-stdlib-promise-allsettled-any-race` ✓）。
+// **`prototype` 属性本身由 `globals.xl.md` 挂** ✓（那是「全局名 → 那一份值」的关系 ✓，
+// 属于挂全局表那一层的活 ✓，与 `Array` / `Map` 那几格同一个分工 ✓）。
+SetHiddenProperty(room, table, Value.FromObject(protos.Promise), NameValue(table, "constructor"), promiseObject);
 return promiseObject;
 ```

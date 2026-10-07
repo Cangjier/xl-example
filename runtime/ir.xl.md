@@ -781,6 +781,20 @@ this.FrameDepth = frameDepth;
 
 是不是 `async` 函数。
 
+## field IsClass:bool = false
+
+**这一项是不是一个类的构造函数** ✓（第 613 轮 ✓）。
+
+**为什么要有这一位** ✗：`console.log(class C {})` 在 Node 里印 **`[class C]`** ✓
+（`util.inspect` 的判据是 `Function.prototype.toString` 以 `class` 开头 ✓），
+而**类在值模型里就是一个闭包** ✗——运行期没有别的地方看得出这件事 ✓
+（`HeapClosure` 上那几格只有代码 / 环境 / 名字 / 形参 / 源码 ✓）。
+**只有造它的那一方知道** ✓（降级层手里正拿着那个 `ClassDeclaration` / `ClassExpression` 节点 ✓），
+与 `Arity` / `Name` / `Source` 三格**同一条分工** ✓。
+
+**它借 flags 字节的第 5 位**（1 = 生成器 ✓、2 = `async` ✓、4 = 剩余 ✓、8 = `arguments` ✓）——
+线形态**只追加** ✓，老程序那一位是 0 ✓，读出来就是「不是类」✓。
+
 ## field HasRest:bool = false
 
 **最后一个形参是不是剩余参数**（第 133 轮）。
@@ -820,6 +834,7 @@ this.ParamCount = paramCount;
 this.Name = -1;
 this.IsGenerator = false;
 this.IsAsync = false;
+this.IsClass = false;
 this.HasRest = false;
 this.NeedsArguments = false;
 ```

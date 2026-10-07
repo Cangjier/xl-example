@@ -33,7 +33,7 @@ import { DateParts, TextFrom } from "./globals.xl.md"
 | **折行的预算在嵌套里更宽** | 顶层 `[ 'x'*65 ]`（71 字符）平铺 ✓、`'x'*66`（72）折行 ✓——**边界正好是 `breakLength - 9`** ✓。可是同一个数组放进对象里当下属（缩进 2）时，**140 甚至 1000 字符都还平铺** ✓。这一层**统一用顶层那条规则** ✓——于是**嵌套的容器比 Node 更容易折行** ✗。这是记着的一处差 ✓，不是没量 ✗ |
 | **循环引用** | Node 给 `<ref *1> { … [Circular *1] }` ✓；这一层靠**深度上限**兜住 ✓（不会转圈 ✓，宿主栈溢出是不可捕获的 ✗），形状上与 Node 不同 ✗ |
 | **类实例不带类名** | Node 给 `P { a: 1 }` ✓；这一层给 `{ a: 1 }` ✗（`prototype.constructor` 的回指还没做 ✓） |
-| **`[class P]` vs `[Function: P]`** | 类在值模型里就是闭包 ✓，没有「这是类」这一位 ✗ |
+| **`[class P]` vs `[Function: P]`** | 第 613 轮做掉了 ✓（`HeapClosure.IsClass` 那一格 ✓，由降级层盖上 ✓） |
 | **`console.log(err)`** | Node 印的是**调用栈** ✗，这一层拿不到（`Error` 上没有 `stack` ✓）——只能记着 ✗ |
 
 # const InspectDepth:int = 2
@@ -225,15 +225,26 @@ return "[Object]";
 
 # method InspectFunction:(table:HeapTable, value:Value, level:int)=>string
 
-**函数值**。Node 给 `[Function: f]` ✓ / `[Function (anonymous)]` ✓。
+**函数值**。Node 给 `[Function: f]` ✓ / `[Function (anonymous)]` ✓ / **`[class C]`** ✓。
 
 **闭包与宿主函数的差别只在名字从哪来** ✓：脚本闭包的名字在 `HeapClosure.Name` 上 ✓，
 宿主函数在 `HeapFunction.Name` 上 ✓——两处都读同一件事 ✓。
+
+**类那一档读的是闭包上的一位** ✓（第 613 轮 ✓）：Node 的判据是
+`Function.prototype.toString` 以 `class` 开头 ✓，而本仓的运行期拿不到源码 ✓——
+那一位由降级层在造闭包时盖上 ✓（`HeapClosure.IsClass` ✓，见 `heap.xl.md` ✓）。
+**名字那一格照旧** ✓：`[class C]` 里的 `C` 还是 `Name` ✓——
+**类名与「是不是类」是两件事** ✗（匿名类表达式给 `[class ]` ✓，与 Node 一致 ✓）。
 
 ```ts
 if (level > InspectDepth) return "[Function]";
 if (value.Tag === ValueTag.Closure) {
   const name = table.Get(value.Ref).AsClosure().Name;
+  // **类那一档先答** ✓（它的形状不是 `[Function: …]` ✗）。
+  if (table.Get(value.Ref).AsClosure().IsClass) {
+    if (name > 0) return "[class " + TextFrom(table, Value.FromString(name)) + "]";
+    return "[class ]";
+  }
   if (name > 0) return "[Function: " + TextFrom(table, Value.FromString(name)) + "]";
   return "[Function (anonymous)]";
 }
