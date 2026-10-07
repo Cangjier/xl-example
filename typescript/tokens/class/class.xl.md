@@ -8,11 +8,12 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { Get } from "../../../core/extensions/list-extension.xl.md"
+import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
 import { DeclarationModifiers, DeclarationStart } from "../declaration-common.xl.md"
 import { IsTriviaUnit, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { ClassBody } from "./class-body.xl.md"
+import { HeritageClause } from "../heritage-clause.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { GenericType } from "../generic-type.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -300,6 +301,8 @@ return result;
    `class` 那个词也**不进树** ✓（TS 的 `ClassDeclaration` 里没有它 ✓）。
 3. **`unit.AddToMounted(cls)`** ✓：`Class` 从此是这个宿主的挂载单元 ✓，
    而它同时**已经在最终那一格上了** ✓（先挂载、再喂字符 ✓——`if` 那一族量出来的次序 ✓）。
+3.5 **类头当场收成形** ✓（本轮加）：`extends` / `implements` 两段在这里就收成 `HeritageClause` ✓
+   ——见 `OrganizeHeritage` ✓。
 4. **`{` 由本类消费** ✓（它是体的**开口** ✓，与 `BracketBranch.Success` 对 `Bracket` 的做法一模一样 ✓）：
    建 `ClassBody`、`SignIn(source)`、把 `Class` 的路由指过去 ✓。喂进去的话产物里会多一个 `{` ✗。
 
@@ -370,7 +373,10 @@ const last = cls.Last();
 if (last !== null && last.Closed === false && last.SourceRange.Start !== null && last.SourceRange.End !== null) {
   last.TryToClose();
 }
-// **第三步、第四步** ✓。
+// **第四步：类头当场收成形**（本轮加）：`extends` / `implements` 两段在这里就收成
+// `HeritageClause` ✓，不再等 `Class` 关闭时由重组队列扫一遍平列表 ✓。
+cls.OrganizeHeritage();
+// **第五步、第六步** ✓。
 unit.AddToMounted(cls);
 const body = new ClassBody(unit.Template);
 cls.Add(body);
@@ -435,6 +441,43 @@ return BranchStates.Undo;
 ## field modifiers:string = ""
 
 `ClassBranch` 认下的声明修饰词，按源码顺序用 `,` 连接；没有修饰词时是空串。
+
+## method OrganizeHeritage:()=>void
+
+把类头里 `extends` / `implements` 那两段收成 `HeritageClause` —— **在 `{` 那一刻就做** ✓。
+
+**为什么这一刻能做** ✓：整个类头刚刚搬进来 ✓、里面每一格都已经闭合 ✓
+（类型实参段在 `>` 上就关了 ✓、继承表达式里的括号也在 `)` 上关了 ✓）⇒ 收完就能直接 `TryToClose` ✓，
+子句自己的那一趟重组当场跑 ✓（`extends` 升级成 `<Keyword>` 就是那一趟做的 ✓）。
+**不需要**再等 `Class` 关闭时扫一遍平列表 ✗。
+
+**判据、扫描、分组三件事都是与接口那边共用的一份** ✓：
+`HeritageClause.IsClauseWord` / `HeritageClause.ClauseEnd` / `HeritageClause.Take` ✓
+——接口仍走 `HeritageClauseReorganization` ✓，两条路一份答案 ✓。
+
+**类体此刻还没进 `Data`** ✓（`ClassBody` 是下一步才 `Add` 的 ✓）⇒ 子句自然止于列表末尾 ✓
+（`ClauseEnd` 里那两句「遇到体节点 / 体括号就停」是给接口那一趟用的 ✓，这里用不上 ✓）。
+
+```ts
+let index = 0;
+while (index < this.Data.length) {
+  const item = Get(this.Data, index);
+  if (item === null || HeritageClause.IsClauseWord(item) === false) {
+    index = index + 1;
+    continue;
+  }
+  const end = HeritageClause.ClauseEnd(this.Data, index);
+  const items: Array<Token> = [];
+  for (let i = index; i <= end; i++) {
+    const one = Get(this.Data, i);
+    if (one !== null) {
+      items.push(one);
+    }
+  }
+  const clause = HeritageClause.Take(this.Template, this, items);
+  index = ReplaceCountAt(this.Data, index, end - index + 1, clause) + 1;
+}
+```
 
 ## property Body:ClassBody
 

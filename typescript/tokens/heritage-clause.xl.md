@@ -49,19 +49,6 @@ TypeScript 那边的形状（实测 AST）：
 
 唯一的实例。
 
-## private method IsClauseWord:(item:Token | null)=>bool
-
-这个单元是不是 `extends` / `implements` 这两个词之一（两种形态都认：没升级的 `Identifier`
-与已升级的 `Keyword` ✓）。
-
-```ts
-if (item === null) {
-  return false;
-}
-const word = WordText(item);
-return word === "extends" || word === "implements";
-```
-
 ## private method OwnerOf:(item:Token | null)=>Token | null
 
 `item` 的宿主是不是 `Class` / `Interface`；是就给宿主，否则 `null`。
@@ -79,36 +66,13 @@ return null;
 
 ## private method ClauseEnd:(units:Array<Token>, index:int)=>int
 
-这条子句的终点（含）：走到**下一个 `implements`** 之前、或者**体括号**之前。
+这条子句的终点（含）：走到**下一个 `implements`** 之前、或者**体节点 / 体括号**之前。
+
+**它与 `HeritageClause.Take` 一样，已经搬到 `HeritageClause` 上**（那里是**一份**答案 ✓，
+类头在 `{` 那一刻也要用同一个扫描 ✓）。这里只留一句转调 ✓。
 
 ```ts
-let end = index;
-for (let i = index + 1; i < units.length; i++) {
-  const item = Get(units, i);
-  if (item === null) {
-    break;
-  }
-  // **体节点也要停**（实测踩过）：`Class` 的子单元是 `ClassBody` 节点、不是 `{` 括号，
-  // 只认 `Bracket` 时最后一段会把整个类体吞进 `ExpressionWithTypeArguments`
-  // （`class C extends B implements J {}` 的 `J` 后面挂着 `<ClassBody>`）。
-  const name = item.constructor.name;
-  if (name === "ClassBody" || name === "InterfaceBody") {
-    break;
-  }
-  // 体是 `{` 括号（有些写法里进得来），`(` **不是**边界：
-  // `class A extends (Base) {}` / `class B extends mixin(C) {}` 是合法的继承表达式，
-  // 括号属于那个实体名（实测漏过 1 处：`decl-class-extends-parenthesized`）。
-  if (item instanceof Bracket && item.startBracket === "{") {
-    break;
-  }
-  if (this.IsClauseWord(item) && WordText(item) === "implements") {
-    break;
-  }
-  if (!(item instanceof LineWrap)) {
-    end = i;
-  }
-}
-return end;
+return HeritageClause.ClauseEnd(units, index);
 ```
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
@@ -120,7 +84,7 @@ return end;
 
 ```ts
 const current = Get(units, index);
-if (this.IsClauseWord(current) === false) {
+if (HeritageClause.IsClauseWord(current) === false) {
   return false;
 }
 if (this.OwnerOf(current) === null) {
@@ -144,6 +108,9 @@ return true;
 把这条子句收成一个 `HeritageClause`（里面的实体名各套一个 `ExpressionWithTypeArguments`），
 **返回新的下标**。
 
+**分组这一件事只有一份答案** ✓：算法在 `HeritageClause.Take` 上 ✓——
+类头那边（`Class` 在 `{` 那一刻 ✓）用的是**同一个** ✓，这里只负责「在平列表上圈出范围、换掉」✓。
+
 **`Replace` 之前不许先 `Add`**（`type-bracket.xl.md` 记过这个坑）：`Token.Replace` 读的是
 `this.Parent.Data`，先 `AddAndCloseLast` 会把 `Parent` 改成新节点。
 这里要搬走一整段，所以统一用 `ReplaceCountAt`（只做 `splice`、不看 `Parent`）。
@@ -154,42 +121,14 @@ if (current === null) {
   throw new Error("HeritageClauseReorganization.Process: current is null");
 }
 const endIndex = this.ClauseEnd(units, index);
-const clause = new HeritageClause(current.Template);
-clause.Parent = current.Parent;
-clause.SignIn(current.SourceRange.Start!);
-clause.SignOut(Get(units, endIndex)!.SourceRange.End!);
-// 子句词自己作为一个子单元进节点（TS 的 HeritageClause 区间含 `extends` ✓）
-clause.AddAndCloseLast(current);
-// 逗号分段的实体名：每段一个 `ExpressionWithTypeArguments`
-let segment: Token[] = [];
-let segmentStart = -1;
-for (let i = index + 1; i <= endIndex + 1; i++) {
-  const item = i <= endIndex ? Get(units, i) : null;
-  if (item === null || (item instanceof SymbolToken && item.Is(","))) {
-    if (segmentStart >= 0) {
-      const target = new ExpressionWithTypeArguments(current.Template);
-      target.Parent = clause;
-      target.SignIn(Get(units, segmentStart)!.SourceRange.Start!);
-      target.SignOut(Get(units, segmentStart + segment.length - 1)!.SourceRange.End!);
-      for (const unit of segment) {
-        target.AddAndCloseLast(unit);
-      }
-      target.TryToClose();
-      clause.AddAndCloseLast(target);
-      segment = [];
-      segmentStart = -1;
-    }
-    if (item instanceof SymbolToken && item.Is(",")) {
-      clause.AddAndCloseLast(item);
-    }
-    continue;
+const items: Array<Token> = [];
+for (let i = index; i <= endIndex; i++) {
+  const one = Get(units, i);
+  if (one !== null) {
+    items.push(one);
   }
-  if (segmentStart < 0) {
-    segmentStart = i;
-  }
-  segment.push(item);
 }
-clause.TryToClose();
+const clause = HeritageClause.Take(template, current.Parent, items);
 return ReplaceCountAt(units, index, endIndex - index + 1, clause);
 ```
 
@@ -198,6 +137,111 @@ return ReplaceCountAt(units, index, endIndex - index + 1, clause);
 一条继承子句（`extends B` / `implements I, J`）。类名必须与产物的标签名一致。
 
 内容：子句词（`extends` / `implements`）、逗号、以及每个实体名的 `ExpressionWithTypeArguments`。
+
+## static method IsClauseWord:(item:Token | null)=>bool
+
+这个单元是不是 `extends` / `implements` 这两个词之一（两种形态都认：没升级的 `Identifier`
+与已升级的 `Keyword` ✓）。
+
+**这一条原来在 `HeritageClauseReorganization` 上** ✓，现在搬到这里 ✓：
+类头在 `{` 那一刻也要用同一个判据 ✓（同一个问题一份答案 ✓）。
+
+```ts
+if (item === null) {
+  return false;
+}
+const word = WordText(item);
+return word === "extends" || word === "implements";
+```
+
+## static method ClauseEnd:(units:Array<Token>, index:int)=>int
+
+这条子句的终点（含）：走到**下一个 `implements`** 之前、或者**体节点 / 体括号**之前。
+
+**这一条原来也在 `HeritageClauseReorganization` 上** ✓，同样搬过来共用 ✓——
+两处的差别只有一处：类头那边此刻**类体还没进 `Data`** ✓（`ClassBody` 是下一步才 `Add` 的 ✓），
+所以它自然止于列表末尾 ✓；接口那边走的是重组队列，体节点已经在表里 ✓，靠下面那两句停住 ✓。
+
+```ts
+let end = index;
+for (let i = index + 1; i < units.length; i++) {
+  const item = Get(units, i);
+  if (item === null) {
+    break;
+  }
+  // **体节点也要停**（实测踩过）：`Class` 的子单元是 `ClassBody` 节点、不是 `{` 括号，
+  // 只认 `Bracket` 时最后一段会把整个类体吞进 `ExpressionWithTypeArguments`
+  // （`class C extends B implements J {}` 的 `J` 后面挂着 `<ClassBody>`）。
+  const name = item.constructor.name;
+  if (name === "ClassBody" || name === "InterfaceBody") {
+    break;
+  }
+  // 体是 `{` 括号（有些写法里进得来），`(` **不是**边界：
+  // `class A extends (Base) {}` / `class B extends mixin(C) {}` 是合法的继承表达式，
+  // 括号属于那个实体名（实测漏过 1 处：`decl-class-extends-parenthesized`）。
+  if (item instanceof Bracket && item.startBracket === "{") {
+    break;
+  }
+  if (HeritageClause.IsClauseWord(item) && WordText(item) === "implements") {
+    break;
+  }
+  if (!(item instanceof LineWrap)) {
+    end = i;
+  }
+}
+return end;
+```
+
+## static method Take:(template:Template, owner:Token | null, items:Array<Token>)=>HeritageClause
+
+把**一整段平列表**（`items` = 子句词 + 后面到终点为止的每一个单元）收成一个 `HeritageClause`，
+返回它——**这是「一条继承子句长什么样」的唯一一份答案** ✓。
+
+两个调用方共用它 ✓：
+
+- `HeritageClauseReorganization.Process` ✓（接口那边仍走重组队列 ✓）；
+- `Class.OrganizeHeritage` ✓（**类头在 `{` 那一刻就收** ✓，整个头刚刚搬进 `Class` ✓、
+  每一格都已经闭合 ✓ ⇒ 这里做完就能直接 `TryToClose` ✓）。
+
+**`items` 的第一格必须是子句词** ✓（调用方已经判过 ✓）。子句词自己作为一个子单元进节点 ✓
+（TS 的 `HeritageClause` 区间含 `extends` ✓）；**逗号分段的实体名每段套一个
+`ExpressionWithTypeArguments`** ✓，逗号留在子句下当同级单元 ✓（TS 那边逗号不参与遍历 ✓，
+投影侧把它筛掉 ✓）。
+
+```ts
+const word = items[0];
+const last = items[items.length - 1];
+const clause = new HeritageClause(template);
+clause.Parent = owner;
+clause.SignIn(word.SourceRange.Start!);
+clause.SignOut(last.SourceRange.End!);
+clause.AddAndCloseLast(word);
+let segment: Token[] = [];
+for (let i = 1; i <= items.length; i++) {
+  const item = i < items.length ? items[i] : null;
+  if (item === null || (item instanceof SymbolToken && item.Is(","))) {
+    if (segment.length > 0) {
+      const target = new ExpressionWithTypeArguments(template);
+      target.Parent = clause;
+      target.SignIn(segment[0].SourceRange.Start!);
+      target.SignOut(segment[segment.length - 1].SourceRange.End!);
+      for (const unit of segment) {
+        target.AddAndCloseLast(unit);
+      }
+      target.TryToClose();
+      clause.AddAndCloseLast(target);
+      segment = [];
+    }
+    if (item instanceof SymbolToken && item.Is(",")) {
+      clause.AddAndCloseLast(item);
+    }
+    continue;
+  }
+  segment.push(item);
+}
+clause.TryToClose();
+return clause;
+```
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
