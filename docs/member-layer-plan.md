@@ -6629,4 +6629,33 @@ git ls-files "*.xl.md"        # 181 份（受版本控制的就是「这一版�
 `stmt-adversarial-shapes.ts` ✓、`new.target` ✓、四份小账 ✓），
 **外加这一节的第 1 条** ✗：「`else` 之前不许收尾」是本轮**量清楚、没敢动**的那一处 ✓。
 
+## 一百七十七、`switch (x) { case 1: case 2: … }` 那一格的**入口位置量清了**（第 574 轮）
+
+**账**：`stmt-adversarial-shapes.ts` 里 `DRIFT CaseClause TS[740,747) vs 产物[740,767)` ✓ +
+缺 `CaseClause [748,767)` / `NumericLiteral` / `ExpressionStatement` / `CallExpression` / `Identifier` ✓
+—— 也就是「**两个 `case` 被并进同一个 `CaseClause`**」✓。
+
+**机制（**逐字符探针** ✓，`tmp/recon/r573-if-probe2.cjs` 那一路）**：`switch (x) { case 1: case 2: y(); break; … }`
+写在一行时 ✓，`case 1:` 里那个 `:` **不是终结符** ✓ ⇒ 收壳的那一问（`Statement.IsStatementEnd` 的
+`IsValueOrAny(";", [",", …])` ✓）一次都不响 ✓ ⇒ 壳一直收着 ✓ ⇒ 到 `y();` 那个 `;` 时
+`FormFrom` 从 `case 1:` 一路收到它 ✓ ⇒ **两个 `case` 进了同一个壳** ✗
+（探针原文 ✓：`FORMFROM-IN unit=Bracket term@759 Data=[Identifier@740-743|Identifier@745-745|SymbolToken@746-746|Identifier@748-751|Identifier@753-753|SymbolToken@754-754|Identifier@756-756|Bracket@757-758|SymbolToken@759-759]` ✓
+⇒ `FORMFROM-OUT unit=Bracket Data=[Statement@740-759]` ✓）。
+
+**关键的一格：宿主是 `Bracket`** ✗（那条 `switch` 体的 `{ }` ✓），**不是 `SwitchStatement`** ✓ ——
+`SwitchStatement` 是**后面**由 `SwitchCloseRule` 分段时**才造出来**的 ✓
+（`switch.xl.md` 的 `Process` ✓：它按段头把体括号的 `Data` 逐个搬进 `SwitchCase` / `SwitchStatement` ✓）。
+⇒ 「切在 `case` / `default` 前」这一句若写在 `Statement.FormFrom` 里 ✓，**必须挂在 `Bracket` 那一路**上 ✓，
+挂在 `SwitchStatement` 上**一次都不会响** ✗（第 574 轮实测：读数**一个数字都没动** ✓，1027 持平 ✓）。
+
+**试过一版、又退回来的** ✗（两次都被实测咬 ✓，都写在这里省下一轮）：
+在 `FormFrom` 里（**不分宿主** ✓）从 `frontIndex + 2` 起找 `case` / `default` ✓ ⇒
+① `a.default;` 被切开 ✓（`DRIFT ExpressionStatement TS[136,146) vs 产物[136,138)` ✓、
+缺 `PropertyAccessExpression` ✓）、② `export default c;` 被切开 ✓
+（`MISS ExportAssignment TS[116,133)` ✓）⇒ **1027 → 1025** ✗；
+加上「宿主是不是 `SwitchStatement`」这道闸之后**回到 1027** ✓（两次的净变化都是 0 ✓）。
+**下一轮照这条做** ✓：切点挂在 **`Bracket`（`{`）那一路**上 ✓，
+并且**只在「这个 `{` 是 `switch` 的体」时**切 ✓（`Bracket` 自己认不出 ✓，
+要么由 `Switch` 那一段在**关闭前那一趟**做 ✓，要么给那个括号打个「这是 switch 体」的记号 ✓）。
+
 
