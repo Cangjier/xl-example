@@ -6,7 +6,7 @@ import { BranchConditionResult } from "../../core/syntax/branch-condition-result
 import { Branch } from "../../core/syntax/branch.xl.md"
 import { IndependentToken } from "../../core/syntax/independent-token.xl.md"
 import { Reorganization } from "../../core/syntax/reorganization.xl.md"
-import { StatementFormer } from "../../core/syntax/statement-former.xl.md"
+import { TokenFormer } from "../../core/syntax/token-former.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt, SearchBackIndexed, SearchFrontIndexed, SkipNext } from "../../core/extensions/list-extension.xl.md"
@@ -406,6 +406,11 @@ if (first.SourceRange.Start !== null && last.SourceRange.End !== null) {
   throw new Error("Statement.FormFrom source range is not complete.");
 }
 ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
+// **造完就关一次**（第 487 轮 ✓）：`TryToClose` 会跑 `UpgradeWords` ✓ —— 壳里的
+// `return` / `throw` / `const` 那类词要升成 `Keyword` ✓，投影侧「关键字开头的语句」那一支才认得 ✓
+//（实测 i42：`return;` 从 `ExpressionStatement` 变成 `ReturnStatement` ✓）。
+// 重组那条当年也是这么写的（`StatementReorganization2.Process` 末尾一句 `statement.TryToClose()` ✓）。
+statement.TryToClose();
 ```
 
 ## static method IsStatementUnit:(item:Token)=>bool
@@ -1105,21 +1110,33 @@ if (first.SourceRange.Start !== null && lastUnit.SourceRange.End !== null) {
 ReplaceCountAt(data, frontIndex + 1, index - frontIndex, statement);
 ```
 
-# class StatementFormerImpl extends StatementFormer
+# class TokenFormerImpl extends TokenFormer
 
-把 `Token.FormStatement` 落到 `Statement.FormFrom` 上的那一份实现（第 486 轮）。
+把 `Token` 上两个钩子落到 `typescript` 层的那一份实现：
+`FormStatement` → `Statement.FormFrom`（第 486 轮 ✓）、`UpgradeWords` → `Keyword.UpgradeIn`（第 487 轮 ✓）。
 
-`Token` 那一层不认识 `Statement` ✗（见 `core/syntax/statement-former.xl.md` 那一处说明 ✓），
+`Token` 那一层不认识 `Statement` 与 `Keyword` ✗（见 `core/syntax/token-former.xl.md` 那一处说明 ✓），
 所以装配时把这一份装进 `Token.Former` ✓（`parse-pipeline.xl.md` 的 `Install` ✓）。
 
-## static readonly field Instance:StatementFormerImpl = new StatementFormerImpl()
+**为什么落在这一份文件里** ✓：它同时要 `Statement`（本文件 ✓）与 `Keyword`（本文件已经 import ✓），
+而 `keyword.xl.md` **不能** import 本文件 ✗（本文件已经 import 它 ✓，反过来就是环 ✓）。
+
+## static readonly field Instance:TokenFormerImpl = new TokenFormerImpl()
 
 唯一实例，供 `ParsePipeline.Install` 装进 `Token.Former`。
 
-## method Form:(unit:Token, terminator:Token)=>void
+## method FormStatement:(unit:Token, terminator:Token)=>void
 
 转发给 `Statement.FormFrom`——判据、切片、区间只有那一份实现。
 
 ```ts
 Statement.FormFrom(unit, terminator);
+```
+
+## method UpgradeWords:(unit:Token)=>void
+
+转发给 `Keyword.UpgradeIn`——判据与替换只有那一份实现（重组那条规则也走它 ✓）。
+
+```ts
+Keyword.UpgradeIn(unit);
 ```

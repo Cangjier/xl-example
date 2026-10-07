@@ -3,7 +3,7 @@
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { Branch } from "./branch.xl.md"
 import { Reorganization } from "./reorganization.xl.md"
-import { StatementFormer } from "./statement-former.xl.md"
+import { TokenFormer } from "./token-former.xl.md"
 import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -129,16 +129,40 @@ throw new Error("abstract member: Close");
 
 ## method TryToClose:()=>void
 
-尝试关闭：范围必须已签入签出，然后关闭并跑一遍重组。
+尝试关闭：范围必须已签入签出，然后**先补解析期那一手**、再关闭并跑一遍重组。
 
 约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
+
+**`UpgradeWords` 的位置**（第 487 轮 ✓）：夹在 `Close` 与 `Reorganize` 之间 ✓ ——
+重组那一趟里关键字升级跑的就是「每个单元关闭时、在它自己的 `Data` 上」✓，
+放这里与对照态**同一时机** ✓；而解析期那些端口（`LetBranch` 那一族）跑在关闭**之前** ✓，
+所以它们照旧看得见 `Identifier` 形态的 `let` / `const` ✓。**放进 `Close` 之前会当场踩到那一片** ✗。
 
 ```ts
 if (this.SourceRange.Start === null || this.SourceRange.End === null) {
   throw SourceException.SourceRangeContainsNull;
 }
 this.Close();
+this.UpgradeWords();
 this.Reorganize();
+```
+
+## method UpgradeWords:()=>void
+
+**关闭之前**的一次机会：把这一层里该升级成关键字的标识符换成 `Keyword` 单元（第 487 轮）。
+
+**只转发给成形器** ✓：`core` 这一层不认识 `Keyword` 与关键字表 ✗（见 `token-former.xl.md` ✓）。
+
+**对照态里这一支关着** ✓（`DSH_XL_REORG=1` ✓）：那一档的关键字升级是**重组那一趟按队列次序**做的 ✓，
+这里再提前做一遍会改掉别的规则的输入 ✗ —— 实测不关的对照态从 855 / 1037 掉到 **401** ✗，
+而关掉之后禁用 reorg 那一档照旧是 164 ✓（`FormStatement` 那条钩子**不关** ✗：
+实测对照态里让它照跑反而更好，855 对 692 ✓，见 `typescript/tokens/statement.xl.md` ✓）。
+
+```ts
+if (process.env.DSH_XL_REORG === "1") {
+  return;
+}
+Token.Former.UpgradeWords(this);
 ```
 
 ## method Reorganize:()=>void
@@ -300,11 +324,11 @@ return this.Parent;
 return false;
 ```
 
-## static field Former:StatementFormer = new StatementFormer()
+## static field Former:TokenFormer = new TokenFormer()
 
-**语句成形器**（第 486 轮）：`FormStatement` 的落地实现。
+**成形器**（第 486 轮）：`FormStatement` 与 `UpgradeWords` 的落地实现。
 
-默认就是抽象那一份（调用即抛 ✗）——`ParsePipeline.Install` 会把 `StatementFormerImpl.Instance` 装进来 ✓。
+默认就是抽象那一份（调用即抛 ✗）——`ParsePipeline.Install` 会把 `TokenFormerImpl.Instance` 装进来 ✓。
 「装配是调用方的责任」这句与模板那一套是同一条口径 ✓：解析不可能早于 `Install` ✓
 （`typescript/tokens/root.xl.md` 的构造器里那条契约检查管着 ✓）。
 
@@ -313,13 +337,13 @@ return false;
 终结符（`;` / 软换行）**已经进 `Data` 之后**的一次机会：宿主可以据此把刚才那一段收成一条语句壳。
 
 **它是空钩子，但转发给成形器** ✓：`core` 这一层不认识 `typescript` 的语句类 ✗（见
-`statement-former.xl.md` 那一处说明 ✓），所以这里只问 `Token.Former` ✓。
+`token-former.xl.md` 那一处说明 ✓），所以这里只问 `Token.Former` ✓。
 两个调用点在 `typescript/tokens/symbol-token.xl.md` 与 `line-wrap.xl.md` 的 appender 里，
 **紧跟 append 之后** ✓ —— 那是唯一同时满足「轮得到」「终结符已在列」「切片口径正确」三条的位置 ✓
 （第 481–486 轮逐条量出来的 ✓）。
 
 ```ts
-Token.Former.Form(this, terminator);
+Token.Former.FormStatement(this, terminator);
 ```
 
 ## method Process:(context:SyntaxContext, source:Source)=>void

@@ -1739,3 +1739,77 @@ appender **之前** ✓，它按旧口径「除最后一个」切片 ✗ ⇒ 内
 3. 回到缺节点清单：`VariableDeclaration(List)` 625/605 → `VariableStatement` 571 →
    `FunctionDeclaration` 134 → `Parameter` 303 → 表达式层 ✓。
 
+## 一百〇四、关键字升级搬进解析期（第 487 轮）：156 → **164 / 1037**
+
+**为什么先搬这一条** ✓：`KeywordReorganization` 是整套重组里**唯一位置无关**的一条 ✓
+（判定就是「这个词命中 `KeywordTemplate`」✓），而投影侧一大片分支**以 `<Keyword>` 为门** ✓——
+`print-ast-common.xl.md` 里「关键字开头的语句」那一支写的是 `if (headType === "Keyword")` ✓、
+`KEYWORD_KIND` / `KEYWORD_STATEMENT_KINDS` 两张表都按 `Keyword` 查 ✓。
+关掉 reorg 之后这些词全留在 `Identifier` 形态 ✗ ⇒ `return` / `throw` / `void` 这些是**整类地缺** ✓
+（实测 `i42.ts`：`return;` 投成 `ExpressionStatement` + 裸 `Identifier` ✗，TS 是 `ReturnStatement` ✗）。
+
+**时机**：`Token.TryToClose` 里，夹在 `Close` 与 `Reorganize` 之间 ✓ ——
+重组那一趟里关键字升级跑的就是「每个单元关闭时、在它自己的 `Data` 上」✓（通用队列与类型队列都带它 ✓）
+⇒ 与对照态**同一时机** ✓；而解析期那些端口（`LetBranch` 那一族）跑在关闭**之前** ✓，
+所以它们照旧看得见 `Identifier` 形态的 `let` / `const` / `var` ✓（**放进 `Close` 之前会当场踩到那一片** ✗）。
+
+**一份答案** ✓：判据抽成 `Keyword.IsUpgradable` ✓、替换抽成 `Keyword.UpgradeAt` ✓，
+重组规则那两条转调它们 ✓；解析期那一趟是 `Keyword.UpgradeIn(unit)` ✓（一换一 ⇒ 长度不变 ⇒ 不必回退下标 ✓）。
+两个例外（`as const` / `override` 的上下文判定）因此仍然只有一处 ✓。
+
+**壳要自己关一次** ✓：`Statement.FormFrom` 末尾补 `statement.TryToClose()` ✓
+（重组那条当年也是这么写的 ✓）——否则钩子造出来的壳**永远不会**走 `UpgradeWords` ✓，
+壳里的 `return` 升不成关键字 ✗（实测：补上之前 `i42` 的 `ReturnStatement` 仍然缺 ✓）。
+
+**成形器泛化** ✓：`StatementFormer` → `TokenFormer`（`core/syntax/token-former.xl.md` ✓），
+两个方法 `FormStatement` / `UpgradeWords` ✓，实现仍是装配时装上的 `TokenFormerImpl.Instance` ✓。
+
+**读数（整份 `cases` 语料，force 重建 ✓）**：
+
+| 状态 | 第 486 轮 | 本轮 |
+| --- | --- | --- |
+| **禁用 reorg（默认，主指标）** | 156 | **164 / 1037** ✓ |
+| —— 缺 / 漂移 / 多出来 / 字段名 | 7122 / 493 / 6738 / 51 | **6726 / 497 / 6365 / 51** ✓ |
+| `DSH_XL_REORG=1`（对照态） | 855（缺 1188 那一版之前） | **859 / 1037** ✓ |
+
+**对照态里这一支必须关着** ✗：不关时实测 855 → **401** ✗ ——
+提前升级会改掉**别的重组规则的输入** ✓（它们大多在「升级成 `Keyword` 之前」才认得出那些词 ✓）。
+所以 `Token.UpgradeWords` 第一句就是 `DSH_XL_REORG === "1"` 直接返回 ✓；
+关掉之后对照态回到 **859** ✓（比上一轮还多 4 个 ✓）。
+**与 `FormStatement` 那条钩子的取舍相反** ✓：那条在对照态里让它照跑反而更好（855 对 692 ✓），
+所以两条钩子的开关策略是**分别量出来的** ✓，不是一刀切 ✓。
+
+**六道门与 HEAD 逐道相同** ✓：runtime:check 116/242、runtime:cli 1/78、cases:tsast 红、
+samples 红（同一处 `VariableDeclarationList.declarations` 空 ✗）、cases:check ok 1050/1050、
+coverage 142/1713（blocked 1566、differ 5、bad 0、加权 6.4%）⇒ 没弄坏东西 ✓。
+
+**工具（都在 `tmp/recon/` ✓）**：
+
+| 脚本 | 作用 |
+| --- | --- |
+| `r487-keyword.cjs` | 可回滚地往 `build/ts` 打这套接线（备份在 `r487-backup/` ✓） |
+| `r487-rule-weights.cjs` | **按「谁造的」给重组规则排权重** ✓（对照态跑；`CreatedByRule` ＋ 子树单元数 ＋ 文件数 ✓） |
+| `r487-newline-eaters.cjs` | 量「起点落在换行上」的单元 ✓ —— 结论 **0 处** ✓：第 486 轮那笔已经扫干净 ✓，不用再扫 ✓ |
+
+**规则权重（对照态实测，`nodes` = 该规则造出来的子树单元数）**：
+
+```
+   nodes   units   files  rule
+   15529    2766   1048  StatementReorganization2      ← 已搬（软换行那一档 + FormFrom 那一档）
+    2901     262    174  TypeAssignReorganization     ← 下一块的入口（`type X = …`）
+    1937     146    123  FunctionReorganization
+    1734     616    271  TypeDefineReorganization     ← 类型标注 `: T`（几乎所有声明都过它）
+    1191     177    124  ParameterReorganization
+    1187     148     99  MethodDeclarationReorganization
+    1119     213     88  BinaryOperatorReorganization
+     940     136     85  PropertyAccessReorganization
+     860     136     78  JsonArrayReorganization
+     831     286    184  MethodReorganization         ← 调用表达式
+     774     154    101  StatementReorganization3     ← 「列表末尾那一格」（还没有对应钩子）
+```
+
+⇒ **下一块**：`TypeDefine` ＋ `Parameter`（`i42` 那一簇：`function f(a: number): void {}` 里
+「形参表 → `Parameter` → `TypeDefine` → 返回类型」是一条链 ✓，投影侧那几张表（`PRIMITIVE_TYPE_KIND` ✓）
+就是照这条链写的 ✓），然后 `TypeAssign`（`type X = …` ✓）与 `Function` ✓。
+
+

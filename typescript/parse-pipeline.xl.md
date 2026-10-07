@@ -68,7 +68,7 @@ import { PropertyAccessReorganization } from "./tokens/property-access.xl.md"
 import { RegexToken } from "./tokens/regex-token.xl.md"
 import { SignatureReorganization } from "./tokens/signature/signature.xl.md"
 import { StatementReorganization2, StatementReorganization3 } from "./tokens/statement.xl.md"
-import { StatementFormerImpl } from "./tokens/statement.xl.md"
+import { TokenFormerImpl } from "./tokens/statement.xl.md"
 import { StringGuide, StringGuideBranch } from "./tokens/string/string-guide.xl.md"
 import { SwitchReorganization } from "./tokens/switch/switch.xl.md"
 import { SymbolToken } from "./tokens/symbol-token.xl.md"
@@ -556,10 +556,11 @@ return [
 
 ```ts
 template.Initialize((self: Template) => {
-  // **语句成形器**（第 486 轮）：把 `Token.FormStatement` 落到 `Statement.FormFrom` 上。
+  // **成形器**（第 486 / 487 轮）：把 `Token.FormStatement` 落到 `Statement.FormFrom`、
+  // 把 `Token.UpgradeWords` 落到 `Keyword.UpgradeIn` 上。
   // 它是**进程级的一份**（`Token` 上的静态字段 ✓），装一次就够 ✓——装在这里是因为
   // 「装配是调用方的责任」这条口径只有这一个入口 ✓（`Statement` 与 `Token` 这里都 import 得到 ✓）。
-  Token.Former = StatementFormerImpl.Instance;
+  Token.Former = TokenFormerImpl.Instance;
   self.BranchTemplate.DefaultValue = ParsePipeline.CreateGeneralQueue();
   self.ReorganizationTemplate.DefaultValue = ParsePipeline.GeneralReorganize;
   self.KeywordTemplate.Allow(ParsePipeline.KeyWords());

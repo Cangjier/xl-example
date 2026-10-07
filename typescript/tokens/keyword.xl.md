@@ -23,11 +23,42 @@ import { SkipNextWrapSymbol } from "../text-common-util.xl.md"
 
 `Previous` 认的是「内容被 `KeywordTemplate` 判定为关键字的 `Identifier`」。判定发生在字符块上，所以这一步只是**换个身份**：不产生新内容，只把普通字符块升级成关键字单元。
 
+**判据与替换都抽到了 `Keyword` 的静态方法上** ✓（第 487 轮 ✓）：解析期那一趟
+（`Token.TryToClose` → `Keyword.UpgradeIn` ✓）与这条规则走**同一份实现** ✓，
+所以「哪些词升级」「`as const` / `override` 两个例外」只有一处答案 ✓。
+
 ## static readonly field Instance:KeywordReorganization = new KeywordReorganization()
 
 唯一的实例。
 
 ## method Previous:(template:Template, units:Array<Token>, index:int)=>bool
+
+转调 `Keyword.IsUpgradable` ✓（判定器取自那个 `Identifier` **自己的**模板 ✓，见那一处 ✓）。
+
+```ts
+return Keyword.IsUpgradable(units, index);
+```
+
+## method Process:(template:Template, units:Array<Token>, index:int)=>int
+
+转调 `Keyword.UpgradeAt` ✓：把这个 `Identifier` 换成一个 `Keyword`，**返回新的下标** ✓。
+
+```ts
+return Keyword.UpgradeAt(units, index);
+```
+
+# class Keyword extends IndependentToken
+
+关键字。
+
+单元值类型是单字符的 `string`。
+
+它覆写了 `ToXmlString`，且标签名是**写死的 `Keyword`**（不是运行时类名）——这一点与大多数 token 不同。
+
+**三个静态方法都在这个类上** ✓（第 487 轮抽出 ✓）：判据 `IsUpgradable`、替换 `UpgradeAt`、
+解析期那一趟 `UpgradeIn` ✓ —— 重组规则与解析期共用同一份 ✓。
+
+## static method IsUpgradable:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `Identifier` 的内容是不是关键字。
 
@@ -85,7 +116,7 @@ if (unit instanceof Identifier && unit.Is("override")) {
 return unit instanceof Identifier && unit.Template.KeywordTemplate.IsKeyword(unit.TempToString());
 ```
 
-## method Process:(template:Template, units:Array<Token>, index:int)=>int
+## static method UpgradeAt:(units:Array<Token>, index:int)=>int
 
 把这个 `Identifier` 换成一个 `Keyword`，**返回新的下标**。
 
@@ -109,20 +140,36 @@ const keyword = Keyword.FromIdentifier(commonUnit.Parent, commonUnit);
 return ReplaceCountAt(units, index, 1, keyword);
 ```
 
-# class Keyword extends IndependentToken
-关键字。
+## static method UpgradeIn:(unit:Token)=>void
 
-单元值类型是单字符的 `string`。
+**解析期那一趟**（第 487 轮）：把 `unit` 自己这一层（`Data`）里该升级的标识符都升掉。
 
-它覆写了 `ToXmlString`，且标签名是**写死的 `Keyword`**（不是运行时类名）——这一点与大多数 token 不同。
+时机由 `core/syntax/token.xl.md` 的 `TryToClose` 定：夹在 `Close` 与 `Reorganize` 之间 ✓
+（与重组那一趟同一时机 ✓，而解析期那些端口跑在关闭之前 ✓）。
+**判定与替换一个字都不另写** ✓：走的就是上面那两个静态方法 ✓ —— 所以「哪些词升级」
+「`as const` / `override` 两个例外」仍然只有一份答案 ✓。
+
+**长度不变** ✓：`UpgradeAt` 是「一换一」✓，所以这个 `for` 不必回退下标 ✓。
+
+```ts
+const units = unit.Data;
+if (Array.isArray(units) === false || units.length === 0) {
+  return;
+}
+for (let i = 0; i < units.length; i++) {
+  if (Keyword.IsUpgradable(units, i)) {
+    i = Keyword.UpgradeAt(units, i);
+  }
+}
+```
 
 ## static method FromIdentifier:(owner:Token | null, item:Identifier)=>Keyword
 
 把一个内容为关键字的 `Identifier` 造成 `Keyword` 单元——**一份答案**。
 
-两个调用方：
+三个调用方：
 
-- `KeywordReorganization.Process`（**事后那一趟**，仍然服务着通用队列里的所有位置）；
+- `Keyword.UpgradeAt`（**替换那一格**）：重组那条规则与解析期那一趟（`UpgradeIn`）都走它 ✓；
 - `HeritageClause.Take`（**解析期**那一趟）：类头 / 接口头在 `{` 那一刻整理时，
   子句词当场升成 `<Keyword>`，所以 `HeritageClause` 自己**不用挂重组队列**。
 
