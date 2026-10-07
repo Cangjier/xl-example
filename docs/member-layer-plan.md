@@ -2376,3 +2376,19 @@ dump 原树看得清楚 ?：`private static readonly b: number` 被包成一个 **`Statement
 
 **下一块**：① `{ type: 1 }` 那一处（对象字面量与 `Label` 的次序/时机 ?）；
 ② `export default <表达式>`（`ExportAssignment` ?，两档都缺 ?，属重组层老缺口 ?）。
+
+## 一百二十二、对象字面量里那个 `Label` 到底谁造的（第 505 轮）：**负面**，两句都试了、都没动读数
+
+第 504 轮留下的那条「我这版特有」的差 ?（`am-prop-named-keywords.ts` 的 `{ type: 1 }` ?），这一轮试了两处 ?：
+
+1. **`Label` 在 `ObjectLiteral` 里不跑** ?（`if (unit.constructor.name !== "ObjectLiteral")` ?）——
+   读数**一个数字都没动** ?（676 / 缺 1929 / 漂 209 / 多 1163 / 字段名 77 ?，那条例句也还是缺 3 / 多 1 ?）
+   ? **撤掉** ?（源码回到第 504 轮 ?，只留这笔账 ?）。
+2. 顺手把那一格的原树 dump 出来 ?（`tmp/recon/tree.cjs` ?）：`ObjectLiteral [89,114)` **是成形的** ?，
+   里面却是 `Label [91,96)` ＋ `Identifier(1)` ? —— 也就是说 **`Label` 确实是在对象字面量**里面**造出来的** ?，
+   可第 1 条那道闸没拦住它 ? ? 只能说明它**不是**在 `ObjectLiteral` 这个单元自己的那一趟里造的 ?
+   （更可能是在**语句那一层**的平铺列表上先造好 ?、随后被 `JsonObjectReorganization` 连同内容一起收进对象 ?）。
+
+**下一块**：给 `LabelReorganization.Previous` 打一次点 ?（`tmp/recon/` 的探针套路 ?），
+把「造它的那一刻 `unit.constructor.name` 是谁」量出来 ? —— 这一笔量清之后，
+要么把闸下在正确的那一层 ?，要么确认「对象字面量的键在平铺阶段就不该被 `Label` 认」?。
