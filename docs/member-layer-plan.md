@@ -2468,3 +2468,34 @@ am-prop-named-keywords.ts: Label 命中 1 次
 **下一块**：`FunctionType` 那一格**还没好** ?（`cls-abstract-new-type.ts` 仍是缺 2 / 多 10 ?）——
 说明它在**有队列**的那一层就套起来了 ?，要按第 506/507 那一路**打点找容器** ?；
 另外 `多出来` 还剩 932 ?、`缺` 1612 ?。
+
+## 一百二十五、`=>` 已经在 `FunctionType` 里面就不再折（第 509 轮）：739 → **746 / 1037**
+
+上一节留下的那一格 ?（`abstract new () => A` 被套 8 层 ?），这一轮**打点量清楚了** ?
+（`tmp/recon/r509-ftype-probe.cjs` ?，在 `FunctionTypeReorganization.Process` 上记「容器是谁、有没有队列」?）：
+
+```
+tmp/recon/i52.ts（`type Ctor = abstract new () => A;`）: FunctionType 成形 8 次
+    x1  container=Statement    queue=set
+    x7  container=FunctionType queue=set      ← 自己套自己
+```
+
+? 它的**队列是有的** ?（`queue=set` ?）所以第 508 轮那道闸拦不住 ? —— 对照态只成形 **1 次** ?。
+**修法一处** ?（`typescript/tokens/function-type.xl.md` 的 `Previous` ?）：
+`current.Parent` 的类名是 `FunctionType` 时直接返回 `false` ?
+（用**类名**判定 ?，本文件引 `lamda` ?，再 `instanceof FunctionType` 会绕出环 ? —— 与 `statement.xl.md` 里 `Let` 同一条纪律 ?）。
+
+| 项 | 第 508 轮 | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 739 | **746 / 1037** ?（+7 ?） |
+| 多出来 | 932 | **815** ?（?117 ?） |
+| 缺 | 1612 | **1600** ? |
+| 字段名 | 64 | **58** ? |
+| 漂移 | 163 | 163 ?（持平 ?） |
+
+那条用例（`cls-abstract-new-type.ts`）**四个方向全零** ?。**门**：`runtime:check` 172 / 242 ?、
+`runtime:cli` 19 / 79 ?、`coverage` 954 / 1713（49.8% ?）、`samples` 的 `hello.ts` 仍绿 ?、
+`cases:check` 1050 全过 ?；`cases:tsast` 0 片 ?。
+
+**下一块**：同一个套路（打点 → 找容器 → 下闸 ?）接着收「自己套自己」那一族 ? ——
+`多出来` 还剩 815 ?（`ExpressionStatement` / `BinaryExpression` 仍是候选 ?）、`缺` 1600 ?。
