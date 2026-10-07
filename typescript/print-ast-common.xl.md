@@ -2137,6 +2137,21 @@ new Set([
     //
     //     MP1DBG kids=Keyword(new),SymbolToken(.),BinaryOperator()
     const namedKids = named.get("type") === "PropertyAccess" ? projectableKids(view(named)) : [named];
+    // **「名字那一格是不是被折进了二元单元」要单独记下来** ✗（第 560 轮 ✓）：
+    // 下面那个「一直往左走到不是二元运算符为止」的循环只有在**第一格就是二元单元**时才有意义 ✓
+    //（`new.target === A` ✓：`target === A` 被折成一格 ✓，名字要从它左边取 ✓）。
+    // 原来那一句 `inner` 的写法**没有把这件事记下来** ✗ —— 它写的是
+    // 「`firstName` 不是二元单元 ⇒ `inner = [firstName]`」✓，而那对**普通名字**也成立 ✗
+    // ⇒ `import.meta.url` 的 `meta.url` 是**一个 `PropertyAccess`** ✓、`namedKids` 是
+    // `[meta, ., url]` ✓，`firstName` 就是那个 `meta` ✓ ⇒ `inner` 被砍成 `[meta]` ✗
+    // ⇒ 下面那个「往后接 `.名字`」的循环一格都接不上 ✗ ⇒ 投出来只有 `MetaProperty(meta)` ✗
+    //（实测 `expr-call-import-meta.ts` / `ex-meta-props.ts`：缺 `PropertyAccessExpression`
+    //  + `Identifier(url)` 两个 ✓ ——而 `[PropertyAccessExpression, Identifier]` 正好是
+    //  「`.url` 整段丢了」的形状 ✓）。
+    const headIsBinary =
+      namedKids.length > 0 &&
+      namedKids[0] instanceof Map &&
+      namedKids[0].get("type") === "BinaryOperator";
     // **一直往左走到不是二元运算符为止** ✗（第 539 轮实测 ✓）：那个 `BinaryOperator` 是**嵌套**的 ✓
     //（`target === A` 折了好几层 ✓，探针打出来 `first` 仍然是 `BinaryOperator` ✗）——
     // 只剥一层不够 ✓，要剥到最左边那个真正的名字 ✓。
@@ -2152,7 +2167,10 @@ new Set([
       firstName = down[0];
       guard = guard + 1;
     }
-    const inner = firstName !== undefined && !(firstName instanceof Map && firstName.get("type") === "BinaryOperator") ? [firstName] : namedKids;
+    // **只有「剥过」才把 `inner` 收成一格** ✓：`new.target === A` 的名字是剥出来的那一格 ✓
+    //（运算符与右操作数属于**外面**那一折 ✓，第 539 轮把区间修对 ✓、接运算符那一截是另一笔账 ✓）；
+    // 其余情形 `inner` 就是**整个 `namedKids`** ✓ ——`meta.url` 那两格要在下面接上 ✓。
+    const inner = headIsBinary && firstName !== undefined ? [firstName] : namedKids;
     let meta: any = {
       kind: "MetaProperty",
       name: nameOf(inner[0], ctx),

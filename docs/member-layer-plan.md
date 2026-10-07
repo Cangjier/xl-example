@@ -5379,4 +5379,84 @@ class C { x!: number }  // 成员位那一半**一直是对的** ✓（`Field` �
    （`let a!` 换行 `use()` ✓）——本轮只量了带 `:` 的那一种 ✓；
 5. `stmt-adversarial-shapes.ts` 的一个壳里两个段头 ✓（同上 ✓）。
 
+## 一百六十三、`import.meta.url` 的 `.url` 被砍掉了（第 560 轮）：1005 → **1007 / 1037**
+
+起点 **1005 / 1037** ✓（缺 61 / 漂 30 / 多 71 / 字段名 2 ✓，32 份不为零 ✓）。
+名单里有两份 `[2,0,0,0]` ✓（`expr-call-import-meta.ts` ✓、`ex-meta-props.ts` ✓）——
+**没有多出来的节点** ✓、只缺两个 ✓，形状是「`.url` 整段丢了」✓：
+
+```
+MISS PropertyAccessExpression  «import.meta.url»
+MISS Identifier                «url»
+OK   MetaProperty              «import.meta»
+OK   Identifier                «meta»
+```
+
+### 一、真因：那一句 `inner` 把「剥过二元单元」和「普通名字」混成了一个答案
+
+`projectExpression` 的元属性那一支（第 141 轮 ✓）里，名字那两格是这样取的 ✓：
+
+```ts
+const namedKids = named.get("type") === "PropertyAccess" ? projectableKids(view(named)) : [named];
+let firstName = namedKids[0];                       // 名字
+while (firstName is BinaryOperator) { 往左剥一层 }   // 第 539 轮：`target === A` 折了好几层
+const inner = firstName !== undefined && !(firstName is BinaryOperator) ? [firstName] : namedKids;
+```
+
+那一句 `inner` 的**本意**是「剥过之后就只取剥出来的那个名字」✗，可它写成了
+「`firstName` 不是二元单元 ⇒ `inner = [firstName]`」✓ —— 而**普通名字**当然也不是二元单元 ✓
+⇒ `import.meta.url` 的 `named` 是一个 `PropertyAccess(meta . url)` ✓、`namedKids` 是
+`[meta, ., url]` ✓、`firstName` 就是那个 `meta` ✓ ⇒ `inner` 被砍成 `[meta]` ✗
+⇒ 下面那个「往后接 `.名字`」的循环**一格都接不上** ✗ ⇒ 只剩一个 `MetaProperty(meta)` ✓。
+
+### 二、修法：把「第一格是不是二元单元」单独记下来（`print-ast-common.xl.md`）
+
+```ts
+const headIsBinary = namedKids.length > 0 && namedKids[0] instanceof Map
+  && namedKids[0].get("type") === "BinaryOperator";
+...
+const inner = headIsBinary && firstName !== undefined ? [firstName] : namedKids;
+```
+
+⇒ 普通名字那一档 `inner` 就是**整个 `namedKids`** ✓（`meta` / `.` / `url` 三格 ✓），
+后面那个循环把 `.url` 接成一个 `PropertyAccessExpression` ✓；
+`new.target === A` 那一档**一字未动** ✓（`headIsBinary` 为真 ⇒ 照旧只取剥出来的名字 ✓，
+「把运算符那一截接回来」仍是**另一笔账** ✓，见 `print-ast-common.xl.md` 第 2195 行那一处 ✓）。
+
+### 三、读数
+
+| 项 | 第 559 轮末（起点） | 本轮 |
+| --- | --- | --- |
+| **完全一致** | 1005 | **1007 / 1037** ✓（+2 ✓） |
+| 缺节点 | 61（21 类） | **57**（21 类）✓（−4 ✓） |
+| 多出来的节点 | 71（30 类） | **71**（30 类）✓ |
+| 区间漂移 | 30（17 类） | **30**（17 类）✓ |
+| 字段名不符 | 2 | **2** ✓ |
+| 解析成功 / 抛异常 | 1037 / 0 | **1037 / 0** ✓ |
+| 产物节点 | 21737 | **21737** ✓ |
+
+逐文件做差 ✓（`tmp/recon/r559-b-perfile.txt` ↔ `tmp/recon/r560-a-perfile.txt` ✓）：
+**变绿 2 份、没有任何一份变差** ✓ —— `expr-call-import-meta.ts` ✓、`ex-meta-props.ts` ✓
+（都是 `[2,0,0,0] → 四个方向全零` ✓）。
+真实语料**一字未动** ✓（414 份：不为零仍 100 份 ✓、抛异常仍 1 份 ✓、逐文件名单完全相同 ✓）。
+
+**门**：`runtime:check` **239 / 242** ✓（持平 ✓）；`runtime:cli` **76 / 79** ✓（持平 ✓）；
+`cases:check` **1050 条 0 不合格** ✓；`samples` 仍红 ✗（还是那两处 ✓）；
+`coverage` **1608 / 1713（93.0%）** ✓（持平 ✓）；**`cases:tsast` 自己这一道就是上表** ✓。
+
+### 四、下一块的入口
+
+1. **ASI 的右半截** ✓（第 558 节第 1 条 ✓，连排三轮仍是最大的一块 ✓）：`x as` 换行 `| A` 换行 `| B` ✓
+   （三份用例 ✓：`expr-as-leading-pipe-union.ts` ✓、`type-union-in-as-expression.ts` ✓、
+   `type-union-leading-bar.ts` ✓ —— 第 558 轮那一改已经把它们从 `[6,3,7,0]` 压到 `[2,5,7,0]` ✓）、
+   `[1, 2]` 换行 `.forEach(f)` ✓、`a` 换行 `&& b` ✓。判据在 `Statement.ContinuesExpression` ✓，
+   缺的是「换行那一刻还没有下一个单元」✗ ⇒ **延迟收壳** ✓ 或**容器关闭时拆分** ✓ 二选一 ✓；
+2. **`new.target === A` 那一截运算符** ✓：`print-ast-common.xl.md` 第 2195 行写着修法方向 ✓
+   （把那个 `BinaryOperator` 的操作数表接在 `meta` 后面一起交给 `foldBinaryFrom` ✓）——
+   第 540 / 541 两轮试过两次、读数一个数字都没动 ✗（都回滚了 ✓），第三次要先量「那个
+   `BinaryOperator` 里到底还剩什么」✓；
+3. **折行的类型参数表** ✓（第 558 节第 2 条 ✓）：`lex-generic-multiline-constraints.ts` `[7,1,1,0]` ✓；
+4. **函数头换行 `{`** ✓（第 558 节第 3 条 ✓）：与重载签名同形 ✗；
+5. `stmt-adversarial-shapes.ts` 的一个壳里两个段头 ✓（同上 ✓）。
+
 
