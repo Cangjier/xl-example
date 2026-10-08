@@ -828,6 +828,42 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7402 / 7759 → 7407 / 7766**、`blocked 261`（没涨）、`differ 96 → 98`
   （两条新登记）、`bad` 0、`regressions` 0，加权 **96.1%**。
 
+### 第 726 轮：`await` / `yield` / `delete` 后面跟括号字面量——**整份文件跑不起来**
+
+上一轮那批探针里剩下的两条红（`await { v: 1 }` 报 `unimplemented: expression Block`、
+`await [1, 2]` 报 `unimplemented: expression Bracket`）是**同一族**：
+**前缀运算符后面那个括号字面量没被认出来**。两条都不是「值算错了」——
+它们在**降级期**就断，整份文件一行都不打印。
+
+| 写法 | Node | 本仓原来 |
+| --- | --- | --- |
+| `await { v: 1 }`（当语句 / 初始化式 / 箭头体 / `return` 后面） | 那个对象 | **`unimplemented: expression Block`** |
+| `await [1, 2]` | 那个数组 | **`unimplemented: expression Bracket`** |
+| `yield { v: 1 }` | 那个对象 | **`unimplemented: expression Block`** |
+| `delete o["a"]` 那一格（方括号跟在 `delete` 后面） | 下标删除 | 同上那一族的接线 |
+
+- **两个落点，同一个形状**（两张「前面是标识符 ⇒ 这不是字面量」的表）：
+  - `text-common-util.xl.md` 的 `IsObjectLiteralBrace`：**任何名字**后面那个 `{` 都判成**块**
+    （`class A {` / `else {` / `do {` 靠的正是它）——豁免名单里只有
+    `return` / `throw` / `typeof` 与类型位那五个词；
+  - `tokens/json/array-literal.xl.md` 的 `IsArrayAt`：前面是标识符 ⇒ 那个 `[` 是**下标**
+    ——豁免名单里只有 `return` / `typeof` / `of` / `in` 与声明词。
+  两个名单都漏了**只可能做前缀的那几个词**，于是 `await { … }` 被收成块
+  （`v: 1` 成了标签 + 表达式语句）、`await [ … ]` 被收成下标
+  （链在 `await` 上起头 ⇒ `PropertyAccess[Keyword(await), Bracket[]]`）。
+- **补法**：两张名单各加 `delete` / `await` / `yield`——与已经在名单里的
+  `return` / `throw` / `typeof` **同源**（词法位置上它们都只可能做前缀）。
+- **`void` 故意没收**（**实测撞到的**）：它在 TypeScript 里还是**类型位的一个词**——
+  `function f(): void {` 与 `on(…): () => void {` 那两处的 `{` 是**函数体**。
+  第一版把 `void` 一起加进去，**当场坏掉 64 条**（函数体变成对象字面量 ⇒
+  `unimplemented: statement Identifier`；`coverage` 从 7407 掉到 7347）。
+  改成「看 `void` 前面那一格是不是 `:`」之后**还剩 `() => void {` 那一档**（前面是 `=>`），
+  所以这一轮把 `void` **原样退回**、缺口登在用例台账里（`p726a-b01`：
+  `void { … }` / `void [ … ]` 照旧是那两条 `unimplemented`）。
+- 语料 **+5 条**（`runtime/round726/p726a-a01` … `a04` 过掉的四条 + `p726a-b01` 登记的缺口）。
+- 五类 **7407 / 7766 → 7411 / 7771**、`blocked 261 → 262`（`void` 那一格新登的）、
+  `differ 98`（没涨）、`bad` 0、`regressions` 0，加权 **96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -840,7 +876,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1404 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7407 / 7766**，加权 **96.1%**：token 1185/1404（另有 219 条登记缺口走另一条账）、exec 2112/2166、runtime 806/815、stdlib 3062/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7411 / 7771**，加权 **96.0%**：token 1185/1404（另有 219 条登记缺口走另一条账）、exec 2112/2166、runtime 810/820、stdlib 3062/3135、e2e 242/246。差的那些是**真缺口**（`blocked` 262 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~40s**） |
 
 ### 口径与已知缺口

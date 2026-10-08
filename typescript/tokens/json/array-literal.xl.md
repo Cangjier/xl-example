@@ -66,9 +66,23 @@ if (current instanceof Bracket && current.startBracket === "[") {
   // 豁免名单里的词都不是操作数（`return [1]` / `typeof [1]` / `const [a]` 里那个 `[`
   // 只能是别的东西），所以没有副作用。
   const declarationWords = ["let", "const", "var", "using"];
+  // **前缀运算符后面那个 `[` 是数组字面量**（第 726 轮）：`await [1, 2]` / `delete [1]` /
+  // `void [1]` 里那个方括号**只能**是数组字面量（前面那个词不是操作数）。
+  // 少了它们，`[` 被判成**下标访问** ⇒ 链在 `await` / `void` 上起头
+  // （`PropertyAccess[Keyword(await), Bracket[]]`）⇒ 降级层报
+  // `unimplemented: expression Bracket`（**整份文件跑不起来**）。
+  // **`return` / `typeof` / `of` / `in` 早就在名单里**，这几个与它们**同源**。
+  //
+  // **`void` 故意不在名单里**（与 `IsObjectLiteralBrace` 那一处同一个理由，第 726 轮实测）：
+  // `void` 还是 TypeScript 类型位的一个词，`let x: void[]` 那种写法要照旧收成类型括号。
+  // 所以这里只收 **`delete` / `await` / `yield`**；`void [ … ]` 照旧按下标收
+  // （那是 `p726a-b01` 登记的缺口）。
+  const prefixWord =
+    previous instanceof Identifier && previous.IsAny(["delete", "await", "yield"]);
   if (
     previous instanceof Identifier &&
     previous.IsAny(["return", "typeof", "of", "in"]) === false &&
+    prefixWord === false &&
     previous.IsAny(declarationWords) === false
   ) {
     return false;

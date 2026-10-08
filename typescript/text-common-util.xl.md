@@ -1080,7 +1080,26 @@ if (current instanceof Bracket && current.startBracket === "{") {
   // （`import type { A } from "m"` 的导出列表更是绝不能当对象收）。
   // **为什么默认仍必须是「标识符 ⇒ 块」**：`class Foo {` / `interface Foo {` / `enum E {`
   // 那几处前面是**任意名字**，一张关键字表认不出来。
-  if (previous instanceof Identifier && previous.IsAny(["return", "throw", "typeof"]) === false) {
+  // **前缀运算符后面那个 `{` 是值位的对象字面量**（第 726 轮）：这一支把**任何**标识符
+  // 都判成块（`class A {` / `else {` / `do {` 那些靠的正是它），可 `delete` / `await` /
+  // `yield` 后面顶着一个花括号时，那个 `{` 只能是**被运算的那个对象字面量**。
+  // 少了这三个词，`async function f() { await { v: 1 }; }` 里那个 `{` 被收成**块**
+  // （`v: 1` 于是成了标签 + 表达式语句）⇒ 降级层报
+  // `unimplemented: expression Block`（**整份文件跑不起来**）。
+  // **`return` / `throw` / `typeof` 早就在名单里**（前两格是受限产生式、`typeof` 是运算符），
+  // 这三个与它们**同源**：词法位置上它们都只可能做前缀。
+  //
+  // **`void` 故意不在名单里**（第 726 轮**实测撞到的**）：它在 TS 里还是**类型位的一个词**
+  // （`function f(): void {` / `on(…): () => void {`），而那两处的 `{` 是**函数体**（块）。
+  // 第一版把 `void` 也加进豁免名单，**当场坏掉 64 条**（函数体变成对象字面量 ⇒
+  // `unimplemented: statement Identifier`）；改成「看 `void` 前面那一格是不是 `:`」之后
+  // 还剩 `() => void {` 那一档（前面是 `=>`）——**要收它得先分清那个 `=>` 是不是类型位的**，
+  // 那是另一处改动 ⇒ 这里**只收 `delete` / `await` / `yield`**，
+  // `void { … }` / `void [ … ]` 照旧按块 / 下标收，**登在用例台账里**（`p726a-b01`）。
+  const valuePrefixBeforeBrace =
+    previous instanceof Identifier &&
+    previous.IsAny(["return", "throw", "typeof", "delete", "await", "yield"]);
+  if (previous instanceof Identifier && valuePrefixBeforeBrace === false) {
     if (previous.IsAny(["extends", "keyof", "as", "satisfies", "is"]) === false) {
       return false;
     }
