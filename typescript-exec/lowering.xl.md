@@ -978,6 +978,15 @@ this.Label = label;
 `EnterLoop` 再吃进去，而给构造器加一个参数要动**六个调用点**——
 改签名换来的只是「少一个可变字段」，不划算（`ContinueTarget` 也是可变字段，同一条账）。
 
+## field Labels:Array<string> = []
+
+**这一层挂着的那一摞标签**（第 692 轮）——`first: second: for (…)` 里那个循环
+**两个名字都挂着**，`break first` / `continue second` 都该找到它。
+
+**为什么不复用 `Label`**：那一格是**单数**的（`EnterLoop` 从 `PendingLabel` 抄一个名字），
+而 JS 的 `a: b: stmt` 是「同一个语句挂两个标签」——`Label` 留着给单标签那一路读，
+**判据（`LowerBreak` / `LowerContinue`）读这一摞**，两处一起看才不会漏。
+
 ## field Breaks:Array<int> = []
 
 这一层里 `break` 那些跳转的下标（出去时统一回填）。
@@ -1287,6 +1296,22 @@ JS 里 `finally` 自己 `return` 会**接管**这次完成，不会把同一层�
 中间隔着好几层语句分派。待用字段让「谁写标签」与「谁消费标签」解耦，
 而**消费方吃完就清**（这一点是关键：不清的话下一个没有标签的循环会**继承**上一个标签，
 于是 `break outer` 会跳到毫不相干的循环去）。
+
+## field PendingLabels:Array<string> = []
+
+**待用标签的那一摞**（第 692 轮）——`first: second: for (…) { … break first; … }`
+里那个循环**同时**被两个名字标着（JS 里 `a: b: stmt` 就是「同一个语句挂两个标签」）。
+
+**为什么单靠 `PendingLabel` 不够**：它只存**一个**名字。嵌套的两层
+`LabeledStatement` 依次写它 ⇒ 写第二次时**把第一个顶掉了** ⇒ 外层那个标签
+**谁也没吃**，`break first` 随后报 `unknown label \`first\``
+（那句话把责任推给语法层，而它是**合法的 JS**）。实测：`first: second: for` +
+`break first` 在修之前**整份脚本进不来**。
+
+**它怎么被填满**：`LabeledStatement` 那一支**按嵌套次序压进来**（外层先、内层后），
+`EnterLoop` 一次全吃掉（`Labels` 收一整摞），`switch` 那一档同样。
+**压进来之后要收回去**（体不是循环时那一摞得原样退掉，与 `PendingLabel` 那句
+「无论体是什么都要清」同一条纪律）。
 
 ## field Globals:Array<string> = []
 
@@ -2973,8 +2998,18 @@ if (kind === "LabeledStatement") {
   }
   // **无论体是什么都要清**：①那一支里若体不是循环（不该发生），
   // 留着标签就会让**后面第一个**循环白白继承它。
+  // **一摞标签一起压**（第 692 轮）：`first: second: for (…)` 是**两层**
+  // `LabeledStatement` 包着同一个循环——只写 `PendingLabel` 的话，
+  // 内层写的时候**把外层顶掉**，那个名字谁也没吃（`break first` 于是报
+  // `unknown label`，而它是**合法的 JS**）。压进来之后由 `EnterLoop` 一次吃掉。
   this.PendingLabel = TextOf(Child(node, "label"));
+  this.PendingLabels.push(this.PendingLabel);
   this.LowerStatement(Child(node, "statement"));
+  // **没被消费掉的要退回去**（体不是循环时），且**只退自己那一格**：
+  // 循环那一档早就把整摞吃空了，这一句自然什么都不做。
+  if (this.PendingLabels.length > 0) {
+    this.PendingLabels.pop();
+  }
   this.PendingLabel = "";
   return;
 }
@@ -5162,7 +5197,11 @@ const context = new LoopContext(isLoop, continueTarget);
 // **吃掉待用标签**（`outer: for (…)`）：消费方负责清空——不清的话，下一个没有标签的循环
 // 会继承上一个标签（`break outer` 于是跳到毫不相干的循环去）。
 context.Label = this.PendingLabel;
+// **一摞一起收**（第 692 轮）：`first: second: for (…)` 里那个循环挂着**两个**名字，
+// 两个都要能当 `break` / `continue` 的目标（JS 的口径）。
+context.Labels = this.PendingLabels.slice();
 this.PendingLabel = "";
+this.PendingLabels = [];
 this.Loops.push(context);
 return context;
 ```
@@ -5218,8 +5257,11 @@ let index = this.Loops.length - 1;
 if (labelNode !== null) {
   // **带标签的 `break`**：从里往外找**同名**那一层。它可以是循环，也可以是 `switch`
   // （标签就是给「跳出某一层」用的，是什么语句无关）。
+  // **一摞标签一起认**（第 692 轮）：`first: second: for (…)` 里那个循环挂着两个名字，
+  // `break first` 与 `break second` 都该找到它（只看 `Label` 那一格会漏掉外层的名字）。
   const label = TextOf(labelNode);
-  while (index >= 0 && this.Loops[index].Label !== label) {
+  while (index >= 0 && this.Loops[index].Label !== label
+    && this.Loops[index].Labels.indexOf(label) < 0) {
     index = index - 1;
   }
   if (index < 0) {
@@ -5251,8 +5293,11 @@ let index = this.Loops.length - 1;
 if (labelNode !== null) {
   // **带标签的 `continue` 只认循环**：`switch` 也能带标签，但它不是循环——
   // 对它 `continue` 在 JS 里是语法错误，所以这里必须同时看 `IsLoop`。
+  // **一摞标签一起认**（第 692 轮，与 `LowerBreak` 那一句同一条）：多标签的循环
+  // 两个名字都是 `continue` 的合法目标。
   const label = TextOf(labelNode);
-  while (index >= 0 && !(this.Loops[index].IsLoop && this.Loops[index].Label === label)) {
+  while (index >= 0 && !(this.Loops[index].IsLoop
+    && (this.Loops[index].Label === label || this.Loops[index].Labels.indexOf(label) >= 0))) {
     index = index - 1;
   }
   if (index < 0) {

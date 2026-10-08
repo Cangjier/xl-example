@@ -2726,21 +2726,45 @@ if (id === NumberToFixed || id === NumberToPrecision || id === NumberToExponenti
     // JS 要**尽可能多的位数**（`(0.000123).toExponential()` 是 `"1.23e-4"`），
     // 而 `toFixed()` / `toPrecision()` 都按 `0`——所以三格**不能共用一个缺省值**，
     // 这也正是「同一张表上的兄弟只差一处、而那一处最容易写错」那条老形状。
-    const digits = args.length > 0 ? NumericOf(args[0])
-      : (id === NumberToExponential ? -1 : 0);
-    // **`toPrecision` 与 `toFixed` 只差最后那一个调用**（第 182 轮）——
-    // 两张语义都借宿主、理由同一个（见号那两段）。
-    // **`toExponential` 的「不给位数」借宿主的 `undefined`**（宿主把 `undefined`
-    // 读成「尽可能多」，与 JS 一字不差）。
+    //
+    // **第 692 轮把这一格量细了**（普查当场红的）：规范对这三格**各有一套缺省口径**，
+    // 而且「不给实参」与「显式给 `undefined`」是**同一档**（先问「是不是 `undefined`」、
+    // 再谈 `ToIntegerOrInfinity`）——实测 Node：
+    //
+    // | 写法 | Node |
+    // | --- | --- |
+    // | `(0.1).toPrecision()` / `(0.1).toPrecision(undefined)` | `"0.1"`（= `toString`） |
+    // | `(0.1).toPrecision(NaN)` | `RangeError`（`NaN` → 0，小于下限 1） |
+    // | `(1.5).toFixed()` / `(1.5).toFixed(undefined)` / `(1.5).toFixed(NaN)` | `"2"`（一律 0 位） |
+    // | `(0.000123).toExponential()` / `(undefined)` | `"1.23e-4"`（尽量多） |
+    // | `(0.000123).toExponential(NaN)` | `"1e-4"`（`NaN` → 0 位） |
+    //
+    // 原来这里把「不给实参」与「给 `NaN`」**混成同一档**（都按 0）——
+    // 于是 `(0.1).toPrecision()` **抛 `RangeError`**（0 位不是合法精度），
+    // 而 `(5).toString(undefined)` 也抛（基数被算成 `NaN`）。
+    // 三格现在**各写各的缺省**，判据就是上面那张表。
+    const given = args.length > 0 && args[0].Tag !== ValueTag.Undefined;
+    const digits = given ? NumericOf(args[0]) : -1;
     let text = "";
-    if (id === NumberToFixed) text = number.toFixed(digits);
-    else if (id === NumberToPrecision) text = number.toPrecision(digits);
-    else if (digits < 0) text = number.toExponential();
-    else text = number.toExponential(digits);
+    if (id === NumberToFixed) {
+      // **`toFixed` 缺省给 0**（`NaN` 那一档也归它——实测 Node 给 `"2"`，不是抛）。
+      text = number.toFixed(given ? digits : 0);
+    } else if (id === NumberToPrecision) {
+      // **不给位数 = `toString`**（借宿主那一格不带实参的形态）。
+      text = given ? number.toPrecision(digits) : number.toPrecision();
+    } else if (given) {
+      text = number.toExponential(digits);
+    } else {
+      text = number.toExponential();
+    }
     if (!room(ObjectCharge + CodeUnitCharge * text.length)) throw new Error("out of room");
     return Value.FromString(table.CreateString(Units(text)));
   }
-  const radix = args.length > 0 ? NumericOf(args[0]) : 10;
+  // **基数的「不给」与「给 `undefined`」也是同一档**（第 692 轮，与上面同一句）：
+  // 实测 Node `(5).toString(undefined)` 是 `"5"`，而 `(5).toString(NaN)` 抛 `RangeError`
+  //（`NaN` → 0 → 小于下限 2；而**字面的 `0`** 规范里映射成 10，宿主自己办得到）。
+  const radixGiven = args.length > 0 && args[0].Tag !== ValueTag.Undefined;
+  const radix = radixGiven ? NumericOf(args[0]) : 10;
   // **基数 10 走语言层那一处**（`text.xl.md` 的 `NumberToJsText`——它在
   // `NumberToHostText` 之上补了 `-0` 那一格：JS 的 `(-0).toString()` 是 `"0"`）；
   // **其余基数借宿主**（见号那一段的说明）。
@@ -3753,12 +3777,20 @@ if (id === ObjectGetOwnPropertyDescriptor) {
   // 「用符号键装一格、再读回描述符」是**同一条链的两半**——上半截放开了、下半截还窄着，
   // 那条链照样断在第二步（实测 `r678-sym-getownpropertydescriptor-symbol`）。
   // 下面那一段本来就按 `key.Ref` 走（堆引用对字符串与符号是同一种东西）。
-  if (args.length < 2 || (args[1].Tag !== ValueTag.String && args[1].Tag !== ValueTag.Symbol)
+  if (args.length < 2
     || (!args[0].IsObject() && args[0].Tag !== ValueTag.String)) {
     throw new Error("unimplemented: Object.getOwnPropertyDescriptor needs (object or string, string or symbol key)");
   }
   const receiver = args[0];
-  const ownKey = args[1];
+  // **键先过一趟 `ToPropertyKey`**（第 692 轮，普查当场红的）：JS 里
+  // `Object.getOwnPropertyDescriptor([1], 0)` 与 `(…, "0")` **问的是同一格**，
+  // 而这里原来只收字符串 / 符号 ⇒ **数字键响亮地抛**
+  //（`Object.getOwnPropertyDescriptor(arr, 0)` 是最普通的写法之一；
+  //  `Object.hasOwn([1], 0)` 那一支第 691 轮就收数字了——两套口径不该分家）。
+  // **符号键不走这一趟**（`TextFrom` 对符号抛）：下面那一支按**身份**找。
+  const ownKey = args[1].Tag === ValueTag.String || args[1].Tag === ValueTag.Symbol
+    ? args[1]
+    : Value.FromString(table.CreateString(Units(TextFrom(table, args[1]))));
   // **符号键跳过「取文本」那一格**（第 680 轮）：符号值不能被读成码元表
   //（`TextFrom` 会当场抛 `cannot convert a Symbol value to a string`），
   // 而下面那几支判据（下标键 / `length` / 自有属性表）**本来就只对字符串键有意义**

@@ -275,6 +275,17 @@ return units;
 调用方会以为它成功了。
 
 ```ts
+// **`null` / `undefined` 那一档要 `TypeError`**（第 692 轮，普查当场红的）：
+// JS 在这一步做 `ToObject`——`Array.prototype.map.call(null, f)` 与
+// `.forEach.call(undefined, f)` 都是 `TypeError`，而本仓原来给一个**普通 `Error`**：
+// `catch (e) { if (e instanceof TypeError) … }` 那种写法**在这里分不出来**
+//（`e.constructor.name` 是 `"Error"`）。两档分开之后，`null` / `undefined` 与 JS 一致。
+// **其余非数组仍然响亮地抛**（本仓这些方法是**数组专用**的窄口径，不是 JS 的泛用口径）：
+// 「`Array.prototype.map.call(类数组, f)` 该照类数组跑」是**待做项**，
+// 记在台账里——不因为「改成 `TypeError` 就看着像对了」而把那一档并进来。
+if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
+  throw new TypeError("Array.prototype method called on null or undefined");
+}
 if (self.Tag !== ValueTag.Array) {
   throw new Error("this method needs an array receiver");
 }

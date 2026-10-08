@@ -404,8 +404,25 @@ statement.TryToClose();
 `ForOfStatement` / `TryStatement` —— 降级层报的那句话离现场很远）。
 
 **只在「第一个孩子就是语句级单元」时拆**：那一格一定是**自己成句**的，
-它后面的东西不可能属于它（`Label` 是唯一的例外 —— 标签与它标的那条语句合起来是
-**一条** `LabeledStatement`，拆开就劈成两条，所以那一格不拆）。
+它后面的东西不可能属于它。
+
+**`Label` 那一格要连它标的那条语句一起算「头」**（第 692 轮，**实测撞到的**）：
+原来这里是**一律 `return`**（理由写的是「标签与它标的那条语句合起来是一条
+`LabeledStatement`，拆开就劈成两条」）——可那个理由只说明**头是两格**，
+不说明「后面那些格子也属于它」。一律让开的后果是**壳里剩下的全被丢掉**：
+
+    <Statement><Label label="outer" /><For>…</For><PropertyAccess>console.log(…)</PropertyAccess></Statement>
+
+投影的标签那一支只吃「标签 + 被标的语句」，**尾巴那一截连投影都轮不到**——
+`console.log` 整条不见（实测 `outer: for (…) { … } console.log(…)` 只打印循环里那几条，
+`let out = …` 之后的收尾语句一句都不跑）；在**函数体**里更响：
+`function f() { lbl: { …; break lbl; } return out; }` 的 `return` 也被吞进壳里
+⇒ 函数返回 `undefined`（**静默错值**，三条探针同时红）。
+
+**修法**：头是「一串连续标签 + 被它们标的那一格」，尾巴照旧另收一条壳。
+「被标的那一格」有两档：**语句级单元**（`For` / `While` / `IfSet` / `Try`…），
+或者**裸块** `{ … }`（`IsStatementUnit` 不含裸块，而 `lbl: { … }` 是合法 JS）。
+**头里只有标签、没有可标的语句时一律不动**（`a: b:` 这种残形不该被拆）。
 
 **尾巴的右端借壳自己那一格**：壳的区间**含终结符**（`FormFrom` 的签出），
 而终结符不在 `Data` 里 ⇒ 只看尾巴最后一格会少一格。
@@ -434,9 +451,6 @@ const head = Get(data, 0);
 if (head === null || Statement.IsStatementUnit(head) === false) {
   return;
 }
-if (head.constructor.name === "Label") {
-  return;
-}
 const parent = unit.Parent;
 if (parent === null || Array.isArray(parent.Data) === false) {
   return;
@@ -446,6 +460,56 @@ if (at < 0) {
   return;
 }
 const shellEnd = unit.SourceRange.End;
+// **标签开头那一档：头是「一串标签 + 被标的那一格」**（第 692 轮）——
+// 见上面那一整段说明。头之后的尾巴照旧另收一条壳，只是**头上的格子从一格变成两格以上**。
+if (head.constructor.name === "Label") {
+  // **连续标签要一起走**：`a: b: for (…)` 在产物里是三格（`Label(a)` / `Label(b)` / `For`）。
+  let bodyAt = 1;
+  while (bodyAt < data.length) {
+    const one = Get(data, bodyAt);
+    if (one === null || one.constructor.name !== "Label") {
+      break;
+    }
+    bodyAt = bodyAt + 1;
+  }
+  const body = Get(data, bodyAt);
+  if (body === null) {
+    return;
+  }
+  // **被标的那一格是「语句」**：语句级单元，或者裸块 `{ … }`（`lbl: { … }`）。
+  const labeledBody = Statement.IsStatementUnit(body)
+    || (body.constructor.name === "Bracket" && (body as Bracket).startBracket === "{");
+  if (labeledBody === false) {
+    return;
+  }
+  const headCount = bodyAt + 1;
+  const labeledTail = data.slice(headCount);
+  if (labeledTail.length === 0) {
+    return;
+  }
+  const labeledFirst = Statement.FirstMeaningful(labeledTail);
+  const labeledLast = labeledTail[labeledTail.length - 1];
+  if (labeledFirst.SourceRange.Start === null || labeledLast.SourceRange.End === null) {
+    return;
+  }
+  const labeledRest = new Statement(unit.Template);
+  labeledRest.Parent = parent;
+  labeledRest.AddRange(labeledTail);
+  labeledRest.SourceRange.Start = labeledFirst.SourceRange.Start;
+  labeledRest.SourceRange.End = shellEnd !== null && shellEnd.Index > labeledLast.SourceRange.End.Index
+    ? shellEnd
+    : labeledLast.SourceRange.End;
+  // **头上的格子按原顺序搬回父亲那里**（`Label` + 被标的语句），壳换成尾巴那一条。
+  const labeledHead = data.slice(0, headCount);
+  data.splice(0, headCount);
+  for (let k = 0; k < labeledHead.length; k++) {
+    parent.Data.splice(at + k, 0, labeledHead[k]);
+    labeledHead[k].Parent = parent;
+  }
+  parent.Data.splice(at + labeledHead.length, 1, labeledRest);
+  labeledRest.TryToClose();
+  return;
+}
 const tail = data.slice(1);
 // **壳里只有这一格、而壳的区间比它还长** ⇒ 末尾那个 `;` 单独成一条空语句。
 if (tail.length === 0) {

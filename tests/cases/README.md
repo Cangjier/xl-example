@@ -77,19 +77,55 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **4377** 条（token 1416 / exec 758 / runtime 632 / stdlib 1339 / e2e 246）。
+语料 **4527** 条（token 1416 / exec 823 / runtime 632 / stdlib 1424 / e2e 246）。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 757 | **739** | 1 / 17 | 另有 1 条不进分母 |
+| `exec` | 822 | **803** | 1 / 18 | 另有 1 条不进分母 |
 | `runtime` | 632 | **628** | 1 / 3 | |
-| `stdlib` | 1339 | **1284** | 20 / 35 | |
+| `stdlib` | 1424 | **1360** | 20 / 44 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **4377** | **4077** | 245 / 55 | 加权 **95.8%** |
+| **合计** | **4527** | **4217** | 245 / 65 | 加权 **95.8%** |
 
-**第 692 轮再加 385 条**（分母 3992 → **4377**）：两批一次性的**角落普查**——
+**第 692 轮（其二）再加 150 条**（分母 4377 → **4527**）：第二批原子探针，
+专问**属性描述符与访问器**、`Array.prototype` 的**泛用**写法（类数组接收者）、
+**数字格式化**（`toPrecision` / `toExponential` 的缺省与 `undefined`）、`Math` 的边角、
+类的 `super` 与私有名、解构 / 展开、装箱与 `ToPrimitive`、控制流
+（`finally` 覆盖 `return`、带标签的跳出）。这一批**收掉五处**：
+
+1. **带标签的语句后面那一截被壳吞掉**（**静默错值**，最响的一处）：
+   token 层把 `outer: for (…) { … }` 与**它后面那条语句**收进**同一个** `Statement` 壳
+   （`SplitShell` 遇到 `Label` 开头时一律让开），而投影的标签那一支只吃
+   「标签 + 被标的语句」⇒ 壳里剩下的整段丢掉。顶层是「循环后面的语句一句都不跑」，
+   **函数体里更响**：`function f() { lbl: { …; break lbl; } return out; }` 的 `return`
+   也在壳里 ⇒ **函数返回 `undefined`**。修法：头是「一串连续标签 + 被它们标的那一格」
+   （语句级单元，或者裸块 `lbl: { … }`），尾巴另收一条壳。
+2. **多标签的循环**（`first: second: for (…)` + `break first`）：`PendingLabel` 只存
+   **一个**名字，内层标签写的时候把外层**顶掉** ⇒ 那个名字谁也没吃、
+   `break first` 报 `unknown label`（**整份脚本进不来**）。改成一摞
+   （`PendingLabels` / `LoopContext.Labels`），`break` / `continue` 两个判据一起认。
+3. **`(0.1).toPrecision()` 抛 `RangeError`**：规范对 `toFixed` / `toPrecision` /
+   `toExponential` **各有一套缺省口径**，而且「不给实参」与「显式 `undefined`」是
+   **同一档**（先问是不是 `undefined`，再做 `ToIntegerOrInfinity`）。原来把
+   「不给实参」与「给 `NaN`」混成一档 ⇒ `toPrecision()` 抛、`(5).toString(undefined)`
+   也抛。现在三格各写各的缺省（那一张实测表就在 `globals.xl.md` 里）。
+4. **`Object.getOwnPropertyDescriptor(对象, 数字键)` 响亮地抛**：
+   `Object.getOwnPropertyDescriptor([1], 0)` 与 `(…, "0")` 在 JS 里问的是**同一格**，
+   而那一支只收字符串 / 符号键（`Object.hasOwn([1], 0)` 第 691 轮就收数字了）。
+   现在键先过一趟 `ToPropertyKey`。
+5. **`Array.prototype.map.call(null, f)` 给的是普通 `Error`**（JS 给 `TypeError`）：
+   `catch (e) { if (e instanceof TypeError) … }` 那种写法在这里分不出来。
+   `null` / `undefined` 与 JS 对齐；**其余非数组仍然响亮地抛**——
+   「`Array.prototype.*.call(类数组)` 该照类数组跑」是**待做项**（下面那 10 条缺口）。
+
+另登记 10 条新缺口（`differ` +10）：**类数组接收者**那一族（`map` / `indexOf` /
+`filter` / `push` / `reverse` / `sort` / `every` / `slice(字符串)` 共 8 条，
+其中 `slice.call("abc")` 是**不抛、给错值**）、函数自己的 `arguments` / `caller` 两格、
+**计算键成员**（`class A { [1 + 1]() { … } }`，降级层明写不做）。
+
+**第 692 轮（其三）再加 385 条**（分母 3992 → **4377**）：两批一次性的**角落普查**——
 ① 手写的 81 条（属性枚举次序 / 数组的洞 / 字符串与数字格式化 / 位运算 / `Map`-`Set`
 的键 / `JSON` / 类与访问器）；② **原子探针 299 条**（`probe-*`：一条只问一个表达式，
 期望值由**真 `node` 现给**，打印口径钉成 `typeof:值`，免得把控制台渲染那一族的

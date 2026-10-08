@@ -113,6 +113,23 @@
    再按 `coverage:sweep --json` 的判决把候选写成**带文件头的真用例**
    （非 pass 的把 `xl:want` / `xl:why` 一起写进去）——「加宽」与「记缺口」是同一次动作，
    不靠人手抄。
+   **同一轮（其二）又 150 条**（第二批原子探针：属性描述符与访问器 / `Array.prototype`
+   的**泛用**写法 / 数字格式化 / `Math` 边角 / 类的 `super` 与私有名 / 解构与展开 /
+   装箱与 `ToPrimitive` / 控制流）：通过 **4077 → 4217**、分母 **4377 → 4527**、
+   `blocked` **245 没涨**、`differ 55 → 65`、`bad` 仍 **0**、`regressions` 0。
+   **收掉五处**，其中一处是**函数返回 `undefined`** 的静默错值：
+   ① 带标签的语句后面那一截被 `Statement` 壳吞掉（`SplitShell` 遇到 `Label` 一律让开
+   —— 壳里剩下的连投影都轮不到）；② 多标签的循环（`first: second: for` +
+   `break first` 报 `unknown label`，**整份脚本进不来**）；③ `(0.1).toPrecision()`
+   抛 `RangeError`（规范对三格各有一套缺省口径，「不给实参」与「显式 `undefined`」
+   是同一档）；④ `Object.getOwnPropertyDescriptor([1], 0)` 响亮地抛（键没过
+   `ToPropertyKey`）；⑤ `Array.prototype.map.call(null, f)` 给普通 `Error`
+   （JS 给 `TypeError`——`e instanceof TypeError` 分不出来）。
+   另登记 10 条新缺口（**类数组接收者**那一族 8 条、函数的 `arguments` / `caller`、
+   **计算键成员**）。加权 **95.8%**（两个数都在这一位）。
+   **第 692 轮的四处修法都留了指纹**：`isCallFirstUnit`（投影层）、
+   `IsOperand` 里的 `Function`（两份名单）、`SplitShell` 的标签头、
+   `PendingLabels` / `LoopContext.Labels`（多标签）——四处的判据都在用例里钉着。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
