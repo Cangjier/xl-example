@@ -2522,8 +2522,6 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
   {
     id: "c639-e2e-async-iterator-for-await",
     title: "端到端：异步迭代器 + for await + 提前 break + return 收尾",
-    expect: "differ",
-    why: "`get_iterator` 只认 `Symbol.iterator`（第 184 轮那条路），`[Symbol.asyncIterator]` 的自定义异步可迭代物还没有那一档：引擎的 `iter_new` 于是报 `iter_new on this kind of object`。AST 那一层已经修好（对象字面量里的关键字方法名 `return()` / `throw()`，第 640 轮）",
     src: "\nconst trace: string[] = [];\nconst source = {\n  [Symbol.asyncIterator]() {\n    let i = 0;\n    return {\n      next(): Promise<IteratorResult<number>> {\n        i += 1;\n        return Promise.resolve(i <= 5 ? { value: i, done: false } : { value: 0, done: true });\n      },\n      return(): Promise<IteratorResult<number>> {\n        trace.push(\"closed\");\n        return Promise.resolve({ value: 0, done: true });\n      },\n    };\n  },\n};\nasync function main(): Promise<void> {\n  for await (const n of source) {\n    trace.push(\"got \" + n);\n    if (n === 3) break;\n  }\n  console.log(trace.join(\"|\"));\n}\nmain();\n",
   },
   {

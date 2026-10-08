@@ -43,7 +43,7 @@
       "why": true
     }
   ],
-  "progressPercent": 99.89,
+  "progressPercent": 100,
   "layers": [
     {
       "layer": "runtime",
@@ -79,22 +79,15 @@
       "layer": "e2e",
       "weight": 0.2,
       "total": 186,
-      "pass": 185,
+      "pass": 186,
       "blocked": 0,
-      "differ": 1,
+      "differ": 0,
       "nodefail": 0,
-      "coverage": 99.46
+      "coverage": 100
     }
   ],
   "blocked": [],
-  "differ": [
-    {
-      "id": "c639-e2e-async-iterator-for-await",
-      "layer": "e2e",
-      "title": "端到端：异步迭代器 + for await + 提前 break + return 收尾",
-      "detail": "stdout 不同：第 1 行：node «got 1|got 2|got 3|closed» vs tsrun «»"
-    }
-  ],
+  "differ": [],
   "bad": [],
   "moved": [],
   "newlyPassing": [],

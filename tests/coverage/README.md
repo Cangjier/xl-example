@@ -111,7 +111,7 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 5. **产物新鲜度**：规范比产物新就直接红（与 `runtime:check` / `runtime:cli` 同一条规矩）——
    判据读的是 `build/**/*.js`，跳过 `xl build` 量的是上一版。
 
-## 当前的读数与缺口
+## 当前的读数
 
 **这一节的表只列覆盖度自己的四层**；七道门的读数合起来放在根目录
 [README](../../README.md) 的「当前状态」，不在这里再抄一遍。
@@ -121,18 +121,18 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | runtime | **515 / 515** | **100%** |
 | exec | **427 / 427** | **100%** |
 | stdlib | **698 / 698** | **100%** |
-| e2e | **185 / 186** | **99.5%** |
-| **合计（加权）** | **1825 / 1826** | **99.9%** |
+| e2e | **186 / 186** | **100%** |
+| **合计（加权）** | **1826 / 1826** | **100%** |
 
-一格没过（第 639 轮加宽时量到的，记在台账上）：`for await` 的自定义
-**异步**可迭代物（`[Symbol.asyncIterator]`）还没有那一档——`get_iterator` 只认
-`Symbol.iterator`（第 184 轮那条路），于是引擎的 `iter_new` 报
-`iter_new on this kind of object`；同一轮里它的 **AST 那一层**（对象字面量里的
-关键字方法名 `return()`）已经修好。另有一条**口径外**：`matchAll` 要正则字面量，
-而 `RegExp` 是明确不做的那一档。
+四层全绿（第 643 轮）。让 e2e 那一格落地的是 `for await` 的**自定义异步可迭代物**
+（`[Symbol.asyncIterator]`）：`install.xl.md` 的 `GetIterator` 多认一格、把异步迭代器
+**收成承诺的数组**（`promise.xl.md` 的 `AsyncIterableValues` ✓），降级层那条 `for await`
+在拿到结果之后 `await` 一次 ✓——`break` 时用户写的 `return()` 照旧经数组上的 `__close` 被调 ✓。
+**一条已知边界**：异步那一档是**收完再迭代**（与自定义**同步**迭代器那条路同一取舍 ✓），
+所以「无穷异步可迭代物」会一直收下去——口径外的写法，不设第二份上限。
 
-`report.json` 是**最后一次整跑**的完整清单：`blocked` **0** 条、`differ` **1** 条、
-`bad`（裁判自己都跑不动的用例）**0** 条。加宽矩阵时从哪儿下手就看这一份。
+`report.json` 是**最后一次整跑**的完整清单：`blocked` **0** 条、`differ` **0** 条、
+`bad`（裁判自己都跑不动的用例）**0** 条。
 
 **加宽的历史不进这里**（在 git 历史里）。只有一条经验值得留着：**分母是活的**，
 所以加宽之前先普查（上一节）、加宽之后要 `--emit-expectations` 重打台账骨架——

@@ -284,19 +284,19 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 641 轮实测）
+### 当前状态（第 643 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **1504 / 1504 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
+| `cases:tsast` | **1505 / 1505 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1102** 条用例，0 条不合格 |
-| `cases:tags` | **1102 条全部带期望**（2804 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:check` | **1103** 条用例，0 条不合格 |
+| `cases:tags` | **1103 条全部带期望**（2816 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1825 / 1826**：runtime / exec / stdlib 三层各 **100%**，e2e **185 / 186**；台账上 1 条（differ） |
-| `npm run gates` | 上面七道一次跑完（实测墙钟 **~28s**） |
+| `coverage` | **1826 / 1826**：四层各 **100%**（runtime 515、exec 427、stdlib 698、e2e 186） |
+| `npm run gates` | 上面七道一次跑完（实测墙钟 **~29s**） |
 
 ### 口径与已知缺口
 

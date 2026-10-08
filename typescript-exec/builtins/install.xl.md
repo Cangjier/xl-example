@@ -8,7 +8,7 @@ import { Vm, TaskScheduler, TaskSettler, IteratorDrain, RootKeeper, InvokeCallba
 import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units } from "./array.xl.md"
-import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId } from "./promise.xl.md"
+import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId, AsyncIterableValues, AsyncIterableStepId, WellKnownSymbolValue } from "./promise.xl.md"
 import { JsTextUnits, ValueText } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
@@ -129,6 +129,9 @@ if (id === PromiseThenableAdopt) return InvokePromise(room, table, protos, id, s
 // 号为什么在外面：家族里 **230..249 一个不剩** ✓（第 359 轮的账 ✓）。
 if (id === PromiseArrayFromStepId) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 if (id === PromiseArrayFromMapStepId) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
+// **`for await` 那条自定义异步迭代器路的「等一步」** ✓（第 643 轮 ✓）：同一条形状 ✓
+// （`262` 同样落在 230..249 外面 ✗——那一段一个不剩 ✓）。
+if (id === AsyncIterableStepId) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 if (id === PromiseQueueMicrotask) return InvokePromise(room, table, protos, id, self, args, schedule, settle, invoke, takeThrown);
 // **集合那两段也要 `drain`**（第 199 轮 ✓）：`new Set(生成器)` / `new Map(生成器)` 是
 // 「拿一个可迭代物当初始值」✓——而生成器只有引擎走得完 ✓（见 `DrainIterator` ✓）。
@@ -168,7 +171,10 @@ if (id === MapGroupBy || id === MapSizeGet || (id >= 600 && id < 611)) {
 // 不收 `protos`——把这一支留在这一层，就不必为了一个参数去改那个签名。
 if (id === GetIteratorId) {
   if (args.length < 1) throw new Error("unimplemented: get_iterator needs (value)");
-  return GetIterator(room, table, protos, args[0], call, keep);
+  // **第二个实参是「这一次是不是 `for await`」** ✓（第 643 轮 ✓）：只有那时才认
+  // `Symbol.asyncIterator` ✓——普通 `for..of` 撞见一个只有异步迭代器的对象要照旧抛 ✓。
+  const wantAsync = args.length > 1 && RtToBoolean(table, args[1]).AsBool();
+  return GetIterator(room, table, protos, args[0], call, keep, wantAsync, invoke, schedule, settle, takeThrown);
 }
 // **展开与数组剩余也要 `protos`**（第 132 轮）✓：两个都**造新数组**（或往数组里填）✓，
 // 理由与上面那一条一字不差 ✓。它们排在 `InvokeObjectHelper` **前面** ✓——
@@ -312,7 +318,35 @@ return Value.Undefined();
 return IteratorMethodOf(room, table, protos, value, call).Tag !== ValueTag.Undefined;
 ```
 
-# method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null, keep:RootKeeper | null)=>Value
+# method AsyncIteratorMethodOf:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null)=>Value
+
+**取 `value[Symbol.asyncIterator]` 那一格** ✓（第 643 轮 ✓）——取不到就给 `undefined` ✓。
+
+**判据与 `IteratorMethodOf` 一字不差** ✓（同一张众所周知符号表、同一条「取到的东西必须能被调」✓），
+只差**名字**与**一处排除**：
+
+**生成器不走这一格** ✗。异步生成器身上**确实挂着** `Symbol.asyncIterator` ✓
+（`props.xl.md` ✓），可引擎的 `iter_next` **本来就能推它** ✓（`DoIterNext` 自己排空微任务 ✓）
+——让它改走这一格等于把一条跑了三百多轮的**同步**通路换成承诺回调 ✓，
+换来的只是「两条路合并」✓，代价是那一片判据一起动 ✗。**按载荷认** ✓：
+`Generator !== null` 的值照旧原样交给引擎 ✓。
+
+```ts
+if (call === null || protos.WellKnownSymbols <= 0) return Value.Undefined();
+if (!value.IsObject()) return Value.Undefined();
+const item = table.Get(value.Ref);
+if (item.Generator !== null) return Value.Undefined();
+const symbolTable = Value.FromObject(protos.WellKnownSymbols);
+const iteratorKey = GetProperty(room, call, protos, table, symbolTable,
+  Value.FromString(table.CreateString(Units("asyncIterator"))));
+if (iteratorKey.Tag !== ValueTag.Symbol) return Value.Undefined();
+const method = GetProperty(room, call, protos, table, value, iteratorKey);
+if (method.Tag === ValueTag.Object && method.Ref > 0) return method;
+if (method.IsCallable()) return method;
+return Value.Undefined();
+```
+
+# method GetIterator:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, call:NativeCall | null, keep:RootKeeper | null, useAsync:bool = false, invoke:InvokeCallback | null = null, schedule:TaskScheduler | null = null, settle:TaskSettler | null = null, takeThrown:ThrownTaker | null = null)=>Value
 
 **它对五种输入做什么**：
 
@@ -322,7 +356,13 @@ return IteratorMethodOf(room, table, protos, value, call).Tag !== ValueTag.Undef
 | **Set**（有 `__v`） | **值的数组**（与 `Set.values()` 同形 ✓） |
 | **数组 / 字符串 / 生成器** | **原样**（这三种引擎自己认 ✓，`iter_next` 就在引擎里 ✓） |
 | **有 `Symbol.iterator` 的对象**（第 184 轮 ✓） | **跑一遍迭代协议**，把产出收集成数组 ✓ |
+| **有 `Symbol.asyncIterator` 的对象**（第 643 轮 ✓，仅 `for await` ✓） | **同一条路**，只是每一步要**等承诺** ✓——**给的是承诺的数组** ✓ |
 | 其它值 | **原样**（由引擎那边报错，报的是引擎的话 ✓） |
+
+**异步那一档为什么给的是承诺** ✗（第 643 轮 ✓）：它的每一步都要等一个承诺 ✓，
+而这一层是**同步**的 ✓——只能把「等」交给调用方 ✓。降级层那条 `for await`
+在拿到结果之后会 `await` 一次 ✓（普通值 `await` 出来就是它自己 ✓），
+于是**同步那一档一行都不用改** ✓（`lowering.xl.md` 的 `LowerForOf` ✓）。
 
 **按「有没有那两格」认，而不是按名字认**：`Map` / `Set` 在引擎里就是「挂着 `__k` / `__v`
 的普通对象」——**这里也只认这两格** ✓。于是两个集合将来换内部表示（真的哈希表）时，
@@ -348,6 +388,14 @@ return IteratorMethodOf(room, table, protos, value, call).Tag !== ValueTag.Undef
 
 ```ts
 if (!value.IsObject()) return value;
+// **`for await` 先认异步那一格** ✓（第 643 轮 ✓）：JS 的 `GetIterator(obj, async)` 认的是
+// `Symbol.asyncIterator` **优先于** `Symbol.iterator` ✓（`Array.fromAsync` 那一格同一顺序 ✓）。
+// 排在这里**必须**排在 `Map` / `Set` 那两格之前 ✗：那是**按载荷认**的两格 ✓，
+// 而一个既有 `__k` 又有异步迭代器的对象该走协议 ✓（口径与 `Symbol.iterator` 那条一致 ✓）。
+const asyncMethod = useAsync ? AsyncIteratorMethodOf(room, table, protos, value, call) : Value.Undefined();
+if (asyncMethod.Tag !== ValueTag.Undefined) {
+  return AsyncIterableValues(room, table, protos, value, asyncMethod, invoke, schedule, settle, takeThrown);
+}
 const mapMarker = FindProperty(NeverRoom, table, value.Ref, NameValue(table, "__k"));
 const setMarker = FindProperty(NeverRoom, table, value.Ref, NameValue(table, "__v"));
 if (mapMarker === null && setMarker === null) {

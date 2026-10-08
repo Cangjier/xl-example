@@ -4108,13 +4108,35 @@ const awaits = modifier !== undefined && modifier !== null;
 // **宿主不必知道它**：格数由 `BuiltinSlots()` 公布、登记由 `InstallBuiltins` 包掉（第 111 轮）。
 const iterableSource = this.Reserve(1);
 this.LowerInto(iterableSource, Child(node, "expression"));
-const iterableWindow = this.Reserve(2);
+// **`for await` 要多带一个实参** ✓（第 643 轮 ✓）：第二个实参是「这一次是不是 `for await`」✓
+// ——语言层只在那时认 `Symbol.asyncIterator` ✓（`install.xl.md` 的 `GetIterator` ✓）。
+const iterableArgs = awaits ? 3 : 2;
+const iterableWindow = this.Reserve(iterableArgs);
 this.Emit(Op.Const, iterableWindow, this.IntConst(GetIteratorId), -1, -1);
 this.Emit(Op.Move, iterableWindow + 1, iterableSource, -1, -1);
-this.EmitRt(RtOp.HostCall, iterableWindow, iterableWindow, 2);
-// 结果落在窗口第一格；退到它「之上」（参数那一格可以还回去了）。
-this.Release(iterableWindow + 1);
-this.LowerIterationLoop(iterableWindow, node, awaits);
+if (awaits) {
+  this.Emit(Op.Const, iterableWindow + 2, this.Program().AddConst(Constant.OfBool(true)), -1, -1);
+}
+this.EmitRt(RtOp.HostCall, iterableWindow, iterableWindow, iterableArgs);
+// 结果落在窗口第一格；退到它「之上」（参数那几格可以还回去了）。
+for (let i = iterableArgs - 1; i >= 1; i--) {
+  this.Release(iterableWindow + i);
+}
+// **自定义异步迭代器那一档给的是承诺** ✓（第 643 轮 ✓）：语言层把「等每一步」交给这一层 ✓
+// （那一层是同步的 ✗），所以这里先等它结清 ✓。**同步那一档 `await` 出来就是它自己** ✓
+// ——多一跳微任务 ✓，次序与 JS 已经差着一跳 ✓（下面每一轮本来就 `Await` 两次 ✓）。
+// **两个键（承诺 / 值）都要跨过 `Await`** ✓：`Await` 之后原来那一格不再有意义 ✓，
+// 兑现值要落进**另一格** ✓（与下面 `iter_next` 那一对同一个写法 ✓）。
+let iterableSlot = iterableWindow;
+if (awaits) {
+  if (!this.InAsync) {
+    throw new Error("unimplemented: for await outside an async function");
+  }
+  this.Emit(Op.Await, iterableWindow, -1, -1, -1);
+  iterableSlot = this.Reserve(1);
+  this.Emit(Op.Resume, iterableSlot, -1, -1, -1);
+}
+this.LowerIterationLoop(iterableSlot, node, awaits);
 ```
 
 ## method LowerIterationLoop:(iterableSlot:int, node:AstNode, awaits:bool = false)=>void

@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, PropertyCharge, PromiseState } from "../../runtime/heap.xl.md"
-import { RoomChecker, IsCallableValue } from "../../runtime/rt.xl.md"
+import { RoomChecker, IsCallableValue, RtToBoolean } from "../../runtime/rt.xl.md"
 import { Protos, SetProperty, SetHiddenProperty, GetProperty, NewPlainObject, NewPlainArray, NeverRoom } from "../../runtime/props.xl.md"
 import { Vm, TaskScheduler, TaskSettler, InvokeCallback, ThrownTaker } from "../../runtime/vm.xl.md"
 import { Units, NeverCall } from "./array.xl.md"
@@ -403,6 +403,127 @@ ArrayFromAsyncPump(room, table, protos, state.Ref, invoke, schedule, settle, tak
 return Value.Undefined();
 ```
 
+# const AsyncIterableStepId:int = 262
+
+**`for await` 走自定义异步迭代器时的「等一步」** ✓（第 643 轮 ✓）。
+
+**与 `PromiseArrayFromStepId` 同一形状** ✓：状态走 `schedule` 的实参表 ✓、结清值接在
+实参后面 ✓。**号也在家族外面** ✗——230..249 一个不剩 ✓（与那两步同一条账 ✓），
+这里是 261 之后第一格 ✓。
+
+**为什么不是新的一套机器** ✗：`iter_next` 走的是**同步**通路 ✓（引擎把异步生成器
+自己排空微任务 ✓），而用户自己写的 `[Symbol.asyncIterator]` 给的是一**承诺** ✓——
+「等它 → 再走一步」这条链只有承诺回调接得起来 ✓，而这条链 `Array.fromAsync` 已经有一条 ✓。
+
+# method AsyncIterableValues:(room:RoomChecker, table:HeapTable, protos:Protos, value:Value, method:Value, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
+
+**把一个自定义异步可迭代物收成一个数组** ✓（第 643 轮 ✓）——返回的是**承诺** ✓。
+
+**为什么收成数组** ✗：引擎的 `iter_new` 只认数组 / 生成器 / 字符串 ✓，
+而语言层**造不出生成器** ✗（那是引擎从 IR 起的 ✓）⇒ 与自定义**同步**迭代器
+（`install.xl.md` 的 `GetIterator` ✓）同一条路 ✓：先摊平、再交给引擎 ✓。
+
+**收尾那一格 `__close` 也照抄那一条** ✓：数组上挂一个绑好的 `return` ✓，
+`break` / `return` 出循环时降级层问的就是它 ✓（判据 `c639-e2e-async-iterator-for-await` ✓）。
+
+```ts
+if (invoke === null || schedule === null || settle === null) {
+  throw new Error("unimplemented: an async iterable needs the settle channel (the host did not provide it)");
+}
+const out = NewPlainArray(room, table, protos);
+const result = MakePromise(room, table, protos, PromiseState.Pending, Value.Undefined());
+const iterator = invoke(method, value, []);
+if (!iterator.IsObject()) {
+  throw new Error("unimplemented: Symbol.asyncIterator did not return an object");
+}
+const state = NewPlainObject(room, table, protos);
+SetNumberProp(room, table, state, "out", out);
+SetNumberProp(room, table, state, "result", result);
+SetNumberProp(room, table, state, "iterator", iterator);
+const nextMethod = GetProperty(room, invoke, protos, table, iterator, NameValue(table, "next"));
+SetNumberProp(room, table, state, "next", nextMethod);
+// **`return` 先绑好** ✓：它要在「读到 done」那一刻才写进数组 ✓，
+// 而那时脚本已经跑过好几轮了 ✓ ⇒ 现在取、现在绑、存在状态里 ✓（与 `IteratorMethodOf` 那一段同理 ✓）。
+const closeMethod = GetProperty(room, invoke, protos, table, iterator,
+  Value.FromString(table.CreateString(Units("return"))));
+if (IsCallableValue(table, closeMethod)) {
+  const bindFn = GetProperty(room, invoke, protos, table, Value.FromObject(protos.Function),
+    Value.FromString(table.CreateString(Units("bind"))));
+  if (IsCallableValue(table, bindFn)) {
+    SetNumberProp(room, table, state, "close", invoke(bindFn, closeMethod, [iterator]));
+  }
+}
+AsyncIterablePump(room, table, protos, state.Ref, invoke, schedule, settle, takeThrown);
+return result;
+```
+
+# method AsyncIterablePump:(room:RoomChecker, table:HeapTable, protos:Protos, stateRef:int, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>void
+
+**走一步** ✓：调一次 `next()` ✓，让调度器在它结清之后接着走 ✓。
+
+**判据是「它是不是承诺」** ✓（与 `ArrayFromAsyncPump` 一字不差 ✓）：
+异步迭代器的 `next()` 给承诺 ✓，也给得出普通对象 ✓（`[Symbol.asyncIterator]` 里
+返回 `{ value, done }` 的写法一样合法 ✓）。
+
+```ts
+if (invoke === null || schedule === null || settle === null) return;
+const state = Value.FromRef(ValueTag.Object, stateRef);
+const iterator = ReadProp(room, table, protos, state, "iterator");
+const nextMethod = ReadProp(room, table, protos, state, "next");
+const raw = invoke(nextMethod, iterator, []);
+const thrown = takeThrown === null ? Value.Undefined() : takeThrown();
+if (thrown.Tag !== ValueTag.Undefined) {
+  settle(ReadProp(room, table, protos, state, "result"), thrown, true);
+  return;
+}
+const one = IsPromise(table, raw) ? raw : MakePromise(room, table, protos, PromiseState.Fulfilled, raw);
+const stepValue = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(AsyncIterableStepId, 0));
+schedule(one, stepValue, [state], ReadProp(room, table, protos, state, "result"), 0, false, Value.Undefined());
+```
+
+# method AsyncIterableStep:(room:RoomChecker, table:HeapTable, protos:Protos, args:Array<Value>, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>Value
+
+**「等一步」那一步** ✓（号 `AsyncIterableStepId` ✓）——`args[0]` 是状态 ✓、`args[1]` 是结清值 ✓。
+
+```ts
+const state = args.length > 0 ? args[0] : Value.Undefined();
+const record = args.length > 1 ? args[1] : Value.Undefined();
+if (!state.IsObject()) return Value.Undefined();
+AsyncIterableReceive(room, table, protos, record, state, invoke, schedule, settle, takeThrown);
+return Value.Undefined();
+```
+
+# method AsyncIterableReceive:(room:RoomChecker, table:HeapTable, protos:Protos, record:Value, state:Value, invoke:InvokeCallback | null, schedule:TaskScheduler | null, settle:TaskSettler | null, takeThrown:ThrownTaker | null)=>void
+
+**拿到了一步的结果** ✓：完事就绑上 `__close` 再结清 ✓，否则推一项、再走一步 ✓。
+
+**`next()` 兑现成不是对象的东西要响亮地抛** ✗（JS 是 `TypeError` ✓）：
+静默当作 `done` 会把「一个坏迭代器」读成「一个空可迭代物」✓——
+那种错值没有任何一处看得见 ✗。抛在回调里 ⇒ **结果承诺被拒** ✓，
+于是 `await` 它的那个异步函数收到这一抛 ✓（与 JS 的位置一致 ✓）。
+
+```ts
+if (invoke === null || schedule === null || settle === null) return;
+if (!record.IsObject()) {
+  throw new Error("unimplemented: an async iterator's next() must fulfil with an object");
+}
+const result = ReadProp(room, table, protos, state, "result");
+const done = RtToBoolean(table, ReadProp(room, table, protos, record, "done")).AsBool();
+const out = ReadProp(room, table, protos, state, "out");
+if (done) {
+  const close = ReadProp(room, table, protos, state, "close");
+  if (IsCallableValue(table, close)) {
+    SetHiddenProperty(room, table, out, Value.FromString(table.CreateString(Units("__close"))), close);
+  }
+  settle(result, out, false);
+  return;
+}
+const item = ReadProp(room, table, protos, record, "value");
+if (!room(ValueCharge)) throw new Error("out of room");
+table.Get(out.Ref).AsArray().Push(item);
+AsyncIterablePump(room, table, protos, state.Ref, invoke, schedule, settle, takeThrown);
+```
+
 # method ThenMethodOf:(room:RoomChecker, table:HeapTable, protos:Protos, candidate:Value, call:InvokeCallback | null)=>Value
 
 **可采纳对象的那一格 `then`** ✓——不是就给 `undefined` ✓。
@@ -576,6 +697,8 @@ if (id === PromiseAllStepId) return PromiseAllStep(room, table, protos, self, ar
 // 号在家族里 ✓、状态走 `schedule` 的实参表 ✓。
 if (id === PromiseArrayFromStepId) return PromiseArrayFromStep(room, table, protos, args, invoke, schedule, settle, takeThrown);
 if (id === PromiseArrayFromMapStepId) return PromiseArrayFromMapStep(room, table, protos, args, invoke, schedule, settle, takeThrown);
+// **`for await` 那条异步迭代器路的「等一步」** ✓（第 643 轮 ✓）：与上面两步同一形状 ✓。
+if (id === AsyncIterableStepId) return AsyncIterableStep(room, table, protos, args, invoke, schedule, settle, takeThrown);
 if (id === PromiseThenableAdopt) {
   // **引擎问的这一句** ✓（第 359 轮 ✓）：见那个号与 `PromiseThenableStep` 的账 ✓。
   return PromiseThenableStep(room, table, protos, args, invoke, settle, takeThrown);
