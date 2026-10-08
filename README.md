@@ -169,11 +169,14 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   （`Try` 的 `TryBrace`、`IfSegment` 的 `BodyBrace`，以及 `For` / `Foreach` / `While` /
   `DoWhile` 的 `BodyBrace`——第 641 轮收齐）——投影那一侧**直读字段**，
   不再回原文 `indexOf` + `MatchingBrace` 重扫一遍（那种二次搜刮遇到块里的字符串或注释里的
-  假括号就会给错位置）。同一条线上的还有 `Namespace` 的字符串模块名区间
-  （`NameAt` / `NameEnd` / `NameRange`，第 641 / 645 轮）与声明名的 `NameStart` / `NameEnd`，
-  以及**名字那一格**的 `NameAt` / `NameRange`（`Field` 与 `Namespace`，第 645 轮）——
-  投影只按那一格自己推文本区间（开头是引号 ⇒ 取引号之间），字符串名不再回原文猜。
-  这是「token 直出 AST」那条线的落点：**判据只算一次，投影不做第二次近似**。
+  假括号就会给错位置）。同一条线上的还有 `Namespace` 的**名字那一格**
+  与声明名的 `NameStart` / `NameEnd`：`Namespace.NameAt` / `NameEnd` / `NameRange` 三种名字共用
+  （引号模块名指向那个 `String` 单元、`global` 指向那个词、标识符名与点号名的**每一段**指向那一段），
+  投影只按那一格自己推文本区间（开头是引号 ⇒ 取引号之间），
+  点号名的全名在原文里根本不连续，所以那里**不能再有第二份答案**。
+  这是「token 直出 AST」那条线的落点：**判据只算一次，投影不做第二次近似**——
+  全语料里投影回原文猜名字的次数从 **270 处降到 7 处**（第 646 轮，见
+  [print-ast-common.xl.md](typescript/print-ast-common.xl.md) 的 `synthName`）。
 
 ## 支持的语法构造
 
@@ -293,8 +296,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:tsast` | **1506 / 1506 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1105** 条用例，0 条不合格 |
-| `cases:tags` | **1105 条全部带期望**（2825 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:check` | **1106** 条用例，0 条不合格 |
+| `cases:tags` | **1106 条全部带期望**（2829 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1826 / 1826**：四层各 **100%**（runtime 515、exec 427、stdlib 698、e2e 186） |

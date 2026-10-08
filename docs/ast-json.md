@@ -101,7 +101,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `Class` | `type` `name` `extends` `implements` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `implements` 用 `","` 拼；名字有区间时才写那对下标 |
 | `Enum` / `Function` / `MethodDeclaration` | `type` `name` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `Enum` / `MethodDeclaration` 写名字那对下标（`Function` 还没记，见下）；有修饰词时才写 `modifierSpans` |
 | `Interface` | `type` `name` `extends` `export` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `export` 是真布尔（XML 出口的拼法）；`modifiers` 是投影要的那串文本，两者由**同一次**声明头扫描定出来 |
-| `Namespace` | `type` `namespace` `modifiers` + 可选 `modifierSpans` `bodyBraceAt` `firstNameAt` `nameAt` `nameEnd` `nameRange` + `children` | `bodyBraceAt` / `firstNameAt` 是第 621 轮的位置格；`nameAt` / `nameEnd` 是**字符串模块名**（`declare module "m"`）那个 `String` 单元的整段区间（**含引号**，第 641 轮加）——投影拿它直接合出 `StringLiteral`，不再回原文找引号对；`nameRange` 是同一对下标的 `"起,止"` 拼法（第 645 轮），给「声明名」那条共用路直读 |
+| `Namespace` | `type` `namespace` `modifiers` + 可选 `modifierSpans` `nameAt` `nameEnd` `nameRange` + `children` | `nameAt` / `nameEnd` 是**名字那一格**的整段闭区间（第 646 轮起三种名字共用）：引号模块名指向那个 `String` 单元（**含引号**）、`global` 指向那个词、标识符名（点号名的**第一段**）指向那一段；`nameRange` 是同一对下标的 `"起,止"` 拼法（第 645 轮），「声明名」那条共用路只读它——按「开头是引号 ⇒ 取引号之间」自己推文本区间，不再回原文 `indexOf`（点号名的全名在原文里根本不连续）。修饰词只写在外层那一格，点号名的里层不写（与 TS 的 `ModuleDeclaration` 一致） |
 | `Field` | `type` `name` `modifiers` `nameStart` `nameEnd` + 可选 `nameAt` `nameRange` `modifierSpans` + `children` | 字符串名的 `nameStart` / `nameEnd` 是**引号里那一段**（第 645 轮），`nameAt` / `nameRange` 是名字那一格（含引号）；计算名 / 索引签名 / 私有名的两对下标按各自口径给 |
 | `Method` | `type` `name` + `children` | 名字为空时**照样写 `name`**：与 `<Method name="">` 一致 |
 | `Decorator` | `type` `name` + `children` | |

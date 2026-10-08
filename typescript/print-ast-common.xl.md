@@ -517,11 +517,10 @@ new Map([
 这套补偿是**第二份近似**：它按文本猜位置，猜不中时（名字的首字母落在修饰词里、注释里有同样的词）
 给出的区间与 token 自己记的那个不一致。字段那条路就是为了**把这份近似从投影里删掉**。
 
-**第 645 轮之后还剩多少**（全语料实测，`nameRange` 那一格上线前后）：补偿从 **1324 处降到 270 处**
-——`Field` **917 → 0**（字符串名的整段区间由 token 写下 ✓）、`Namespace` **401 → 264**。
-剩下的是**点号模块名**（`declare module a.b.c`：名字是**多段**，`nameAt` / `nameRange` 只说得清
-一个 `String` 单元，那种形态今天仍走 `indexOf`）与 `MethodDeclaration` 4 / `NamespaceExport` 2。
-下一轮的落点就是「把点号名整段的区间也记成一格」。
+**还剩多少**（全语料 1291 份实测）：第 645 轮从 **1324 处降到 270 处**（`Field` **917 → 0**、
+`Namespace` **401 → 264**）；第 646 轮把 `Namespace` 那 264 处清掉之后**再降到 7 处**
+（`Namespace` **60 → 0**，同一把尺子量的是同一份语料）。剩下七处是 `MethodDeclaration` 4 与
+`NamespaceExport` 3——两档都还没记位置字段，下一步就是把它们也记上。
 
 ```ts
   // **私有名 `#x` 的 kind 是 `PrivateIdentifier`**（第 131 轮）：类字段 / 私有方法的名字
@@ -5428,8 +5427,15 @@ TS 那边成员名有四种形态，判据在这里**收口**——`projectField
   if (name === "") {
     return { name: undefined, computed: null, unit: null };
   }
-  const direct = projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === name);
-  const at = direct === undefined ? synthName(name, v, ctx) : projectNode(direct, ctx);
+  // **点号模块名只取第一段**（`namespace A.B.C` 外层的名字是 `A`——TS 那边是
+  // `ModuleDeclaration(A) > ModuleDeclaration(B) > …`）：那一段的区间由 `Namespace`
+  // 重组时记进 `nameRange`，这里直读。只有 `namespace` 这一个属性会带点号
+  // （引号名 `"a.b"` 走的是别的属性），所以按它分流不会误伤。
+  const rawNamespace = v.attrs.get("namespace");
+  const dotAt = typeof rawNamespace === "string" ? rawNamespace.indexOf(".") : -1;
+  const lookup = dotAt > 0 ? rawNamespace.substring(0, dotAt) : name;
+  const direct = projectableKids(v).find((k) => k.get("type") === "Identifier" && textOfNode(k, ctx) === lookup);
+  const at = direct === undefined ? synthName(lookup, v, ctx) : projectNode(direct, ctx);
   if (at === undefined) {
     return { name: undefined, computed: null, unit: direct === undefined ? null : direct };
   }

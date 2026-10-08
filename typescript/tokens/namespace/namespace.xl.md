@@ -209,6 +209,12 @@ if (bracketIndex < 0) {
 const isStringName = current.Is("global") === false && Get(units, SkipNextTrivia(units, keywordIndex)) instanceof String;
 if (current.Is("global")) {
   namespaceInstance.namespace = "global";
+  // **`global` 那个词就是名字那一格**（第 646 轮）：TS 那边 `declare global { … }` 的
+  // `ModuleDeclaration.name` 是一个 `Identifier("global")`，区间正是这个词。
+  if (current.SourceRange.Start !== null && current.SourceRange.End !== null) {
+    namespaceInstance.NameAt = current.SourceRange.Start.Index;
+    namespaceInstance.NameEnd = current.SourceRange.End.Index;
+  }
 } else {
   const nameStart = SkipNextTrivia(units, keywordIndex);
   const nameUnit = Get(units, nameStart);
@@ -235,6 +241,7 @@ let innermost: Namespace = namespaceInstance;
 // `SourceRange.Start` 是 **`Source` 对象**、不是下标（与 `inner.SourceRange.Start` 同一类型），
 // 所以这里存的是它本身。
 const nameStarts: Array<any> = [];
+const nameEnds: Array<any> = [];
 {
   let cursor = SkipNextTrivia(units, keywordIndex);
   for (;;) {
@@ -243,6 +250,7 @@ const nameStarts: Array<any> = [];
       break;
     }
     nameStarts.push(unit.SourceRange.Start);
+    nameEnds.push(unit.SourceRange.End);
     const dotIndex = SkipNextTrivia(units, cursor);
     const dot = Get(units, dotIndex);
     if (!(dot instanceof SymbolToken) || dot.Is(".") === false) {
@@ -258,8 +266,9 @@ if (isStringName === false && nameParts.length > 1) {
   for (let partIndex = 1; partIndex < nameParts.length; partIndex++) {
     const inner = new Namespace(template);
     inner.namespace = nameParts[partIndex];
-    inner.modifiers = namespaceInstance.modifiers;
-    inner.ModifierSpans = namespaceInstance.ModifierSpans;
+    // **修饰词只属于最外层那一格**：TS 那边 `declare module a.b.c { … }` 只有外层
+    // `ModuleDeclaration` 带 `modifiers`，里层两层一个都没有——照抄给里层会多出
+    // 两个 `modifiers` 字段（实测 `declare module a.b.c`：字段名不符 2）。
     // 起止都要在 `AddAndCloseLast` 之前设好：那个方法会 `Close()`，
     // 而 `TryToClose` 要求范围完整（实测缺 End 时抛 `SourceRange.End is null`）。
     // 也不能改用 `SignOut` —— 它会递归签出「最后一个子单元」，同一层会被签两次
@@ -267,6 +276,15 @@ if (isStringName === false && nameParts.length > 1) {
     const segmentStart = nameStarts[partIndex];
     inner.SourceRange.Start = segmentStart === undefined ? outerStart : segmentStart;
     inner.SourceRange.End = outerEnd;
+    // **每一段名字自己那一格**（第 646 轮）：投影按 `nameRange` 直读文本区间，
+    // 不再回原文 `indexOf(那一段)` 找（里层是从自己那一段起找的，往前找不到）。
+    if (segmentStart !== undefined) {
+      const segmentEnd = nameEnds[partIndex];
+      if (segmentEnd !== undefined && segmentEnd !== null) {
+        inner.NameAt = segmentStart.Index;
+        inner.NameEnd = segmentEnd.Index;
+      }
+    }
     if (partIndex > 1) {
       parentNamespace.AddAndCloseLast(inner);
     }
@@ -286,11 +304,17 @@ const body = Get(units, bracketIndex);
 if (!(body instanceof Bracket)) {
   throw new Error("namespace 语句不满足格式要求：namespace Name{...}");
 }
-// **体的 `{` 与点号名字第一段的位置当场记下**（用户口径：token 出字段、投影直读）：
-// 两样都在这一格里（`body` 与 `nameStarts[0]`），投影不再回原文 `indexOf` 找。
-namespaceInstance.BodyBraceAt = body.SourceRange.Start!.Index;
+// **名字那一格的整段区间当场记下**（用户口径：token 出字段、投影直读）：
+// 那一段的起止就在 `nameStarts` / `nameEnds` 里，投影不再回原文 `indexOf` 找。
+// 平坦名就是唯一那段；点号名的外层记**第一段**（TS 那边 `namespace A.B` 的外层名字只有 `A`，
+// 里层各记自己那一段——见上面的创建循环）。投影的 `synthName` 直读 `nameRange`
+//（`namespace a.b.c` 全名在原文里根本不连续，`indexOf` 只会给错答案）。
 if (isStringName === false && nameStarts.length > 0) {
-  namespaceInstance.FirstNameAt = nameStarts[0].Index;
+  const firstEnd = nameEnds[0];
+  if (firstEnd !== undefined && firstEnd !== null) {
+    namespaceInstance.NameAt = nameStarts[0].Index;
+    namespaceInstance.NameEnd = firstEnd.Index;
+  }
 }
 // **字符串模块名那一格的位置也当场记下**（第 641 轮）：`declare module "m" { … }` 的名字
 // 是**含引号**的一个 `String` 单元 ✓，它就在手上 ✓——投影不必再去原文里找那对引号 ✗
@@ -328,70 +352,17 @@ return ReplaceCountAt(units, startIndex, declarationEnd - startIndex + 1, namesp
 `namespace N { … }` / `module M { … }` / **`declare module "m" { … }`** → `ModuleDeclaration`
 （**从 `ts-ast.xl.md` 的 `projectNamespace` 搬来**，第 191 轮）。
 
-**字符串模块名的名字是 `StringLiteral`**（第 100 轮）：`declare module "module" { … }` 的 TS 是
-`ModuleDeclaration.name = StringLiteral("module")`（区间**含那对引号**），而产物把名字收进
-`namespace` 属性——照通用支会投成一个 `Identifier`（实测「多出 `Identifier`」112 里的一片）。
+**三种名字都走通用支那一份判据**（`memberNameOf` / `synthName`），这里一个都不重造：
 
-**判据的来处**：那对引号的下标由 token 在重组那一刻记进 `NameAt` / `NameEnd`
-（第 641 轮 ✓，见那两个字段 ✓）——投影**直读字段**，不再回原文找引号 ✗
-（第 621 轮之前那一路是「在体的 `{` 之前找第一个引号、再找它配对的另一个」✓，
-名字前面有注释或别的字符串时会挑错 ✓）。没有这对字段时（`Clone` 出来的克隆体）
-才退回那条搜索 ✓。
-
-**点号名字的 `name` 只是第一段**（第 156 轮）：`namespace A.B { … }` 在 TS 那边是
-`ModuleDeclaration(A) > [Identifier(A), ModuleDeclaration(B)]`——外层那个名字只有 `A`
-（实测 `decl-namespace-dotted.ts`：`Identifier` 漂移 1 + 缺两层 `ModuleDeclaration`）。
+| 名字 | 名字节点 | 位置从哪来 |
+| --- | --- | --- |
+| `namespace N` / `module M` | `Identifier` | `nameRange`（那一段 `Identifier` 的整段区间） |
+| `namespace A.B.C` | `Identifier(A)`——TS 那边是 `ModuleDeclaration(A) > ModuleDeclaration(B) > …` | 外层的 `nameRange` 就是第一段；每层内层各记自己那一段 |
+| `declare module "m"` | `StringLiteral`（区间**含那对引号**） | `nameRange` 指向那个引号 `String` 单元，投影按「开头是引号 ⇒ 取引号之间」推 |
+| `declare global` | `Identifier("global")` | `nameRange` 就是 `global` 那个词 |
 
 ```ts
-  const props = ctx.Structural(v, "ModuleDeclaration");
-  // **不能用全局 `String(...)`**：本文件 import 了本工程的 `String` 类（字符串 token），
-  // 它把全局那个遮蔽掉了——`String(x)` 会去 `new` 一个 token 类，直接抛
-  // `Class constructor String cannot be invoked without 'new'`。用 typeof 判一下就行。
-  const rawName = v.attrs.get("namespace");
-  const name = typeof rawName === "string" ? rawName : "";
-  const dotted = name.split(".");
-  // **点号名字第一段的位置读字段**（第 621 轮）：重组那一刻那个 `Identifier` 就在手上，
-  // 而 `indexOf(dotted[0], v.start)` 会命中注释里的同名标识符。
-  const rawFirstNameAt = ctx.Attr(v, "firstNameAt");
-  const firstNameAt = typeof rawFirstNameAt === "number" ? rawFirstNameAt : -1;
-  if (dotted.length > 1 && dotted[0] !== "") {
-    const at = firstNameAt >= 0 ? firstNameAt : ctx.source.indexOf(dotted[0], v.start);
-    if (at >= 0) {
-      props.name = { kind: "Identifier", text: dotted[0], pos: at, end: at + dotted[0].length };
-    }
-  }
-  if (name !== "") {
-    // **字符串模块名整段读字段**（第 641 轮）：那对引号的下标在重组那一刻就记下了
-    // （`String` 单元自己带的区间 ✓），所以这一段**不再回原文找引号** ✗——
-    // 下面那条搜索只是给「没有这对字段」的那一档兜底（`Clone` 出来的克隆体，
-    // 见 `Clone` 那一节：它不复制这几个位置字段）。
-    const rawNameAt = ctx.Attr(v, "nameAt");
-    const rawNameEnd = ctx.Attr(v, "nameEnd");
-    const nameAt = typeof rawNameAt === "number" ? rawNameAt : -1;
-    const nameEnd = typeof rawNameEnd === "number" ? rawNameEnd : -1;
-    if (nameAt >= 0 && nameEnd >= nameAt) {
-      props.name = { kind: "StringLiteral", text: name, pos: nameAt, end: nameEnd + 1 };
-      return ctx.Node("ModuleDeclaration", props, v);
-    }
-    // **体的 `{` 也读字段**（第 621 轮）：它是字符串模块名那一趟的**搜索上界**。
-    const rawBodyBrace = ctx.Attr(v, "bodyBraceAt");
-    const brace = typeof rawBodyBrace === "number" && rawBodyBrace >= 0
-      ? rawBodyBrace
-      : ctx.source.indexOf("{", v.start);
-    const limit = brace < 0 ? v.end : brace;
-    const dq = ctx.source.indexOf('"', v.start);
-    const sq = ctx.source.indexOf("'", v.start);
-    let at = -1;
-    if (dq >= 0 && dq < limit) at = sq >= 0 && sq < dq ? sq : dq;
-    else if (sq >= 0 && sq < limit) at = sq;
-    if (at >= 0) {
-      const close = ctx.source.indexOf(ctx.source[at], at + 1);
-      if (close > at && close < limit) {
-        props.name = { kind: "StringLiteral", text: name, pos: at, end: close + 1 };
-      }
-    }
-  }
-  return ctx.Node("ModuleDeclaration", props, v);
+  return ctx.Node("ModuleDeclaration", ctx.Structural(v, "ModuleDeclaration"), v);
 ```
 
 ## constructor:(template:Template)=>void
@@ -416,30 +387,18 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 修饰词自己的区间，`"起:止"`（闭区间）；没有修饰词时空串。
 来由与 `Class.ModifierSpans` 同一条：修饰词不进 `Data`，位置只有认下声明那一刻知道。
 
-## field FirstNameAt:int = -1
-
-**点号名字第一段（那一段 `Identifier`）的下标**；不是点号名字时是 `-1`。
-
-**为什么让 token 记着**（用户口径：token 出字段、投影直读）：重组那一刻
-**每一段的 `Source` 就在手上**（`nameStarts` 那一摞），第一段就是它。
-投影原来用 `indexOf(dotted[0], v.start)` **回原文里找**——那是**第二份位置答案**：
-`/* A */ namespace A.B {}` 会命中注释里那个 `A`。
-
-## field BodyBraceAt:int = -1
-
-**体那个 `{` 的下标**；没有体（`declare module "m";` 那种）时是 `-1`。
-
-**为什么让 token 记着**：重组那一刻 `body`（那个 `Bracket`）就在手上。投影用它做两件事——
-字符串模块名的**搜索上界**、以及（点号名字之外的）位置判据，都不再回原文 `indexOf("{")`。
-
 ## field NameAt:int = -1
 
-**字符串模块名那个 `String` 单元的起点**（含引号，闭区间）；名字不是字符串字面量时是 `-1`。
+**名字那一格的起点**（闭区间）。三种名字都在这一格里：
+
+- 字符串模块名——那个 `String` 单元（**含引号**）；
+- `global`——`global` 那个词自己；
+- 标识符名（含点号名的**第一段**）——那一段的 `Identifier`。
 
 ## field NameEnd:int = -1
 
-与 `NameAt` 同进退的**终点**（含收尾那个引号）。投影拿它直接合出 `StringLiteral`
-（TS 那边的区间**含引号**），不再回原文找引号对。
+与 `NameAt` 同进退的**终点**。投影按 `nameRange` 直读：开头是引号 ⇒ 取引号之间，
+否则整格就是名字——不再回原文 `indexOf(名字)` 猜（点号名的全名在原文里根本不连续）。
 
 ## method ToXmlString:()=>string
 
@@ -474,21 +433,13 @@ result.set("modifiers", this.modifiers);
 if (this.ModifierSpans !== "") {
   result.set("modifierSpans", this.ModifierSpans);
 }
-// **体的 `{` 与点号名字第一段**（第 621 轮）：投影直读，不再回原文 `indexOf` 找。
-if (this.BodyBraceAt >= 0) {
-  result.set("bodyBraceAt", this.BodyBraceAt);
-}
-if (this.FirstNameAt >= 0) {
-  result.set("firstNameAt", this.FirstNameAt);
-}
-// **字符串模块名的整段区间**（第 641 轮）：含那对引号，投影直读。
+// **名字那一格的整段区间**：含引号的字符串名、`global` 那个词、标识符名（点号名的第一段）。
 if (this.NameAt >= 0 && this.NameEnd >= this.NameAt) {
   result.set("nameAt", this.NameAt);
   result.set("nameEnd", this.NameEnd);
   // **整段区间也照 `bodyBraceRange` 那一格报一份**（第 645 轮）：投影里「声明名」那条共用路
-  // （`synthName`）按**这一格**自己推断文本区间（引号名去掉首尾各一格 ✓），
-  // 于是「模块名是引号名」这件事**只剩一条路**说 ✓——不必再在投影里按节点类型分派 ✗
-  //（`Namespace` 当成员出现时走的正是那条共用路 ✓）。上面那两格仍归它自己那一支用 ✓。
+  //（`synthName`）按**这一格**自己推断文本区间（引号名去掉首尾各一格），
+  // 于是「模块名是什么形状」这件事**只剩一条路**说。
   result.set("nameRange", this.NameAt + "," + this.NameEnd);
 }
 if (this.Data.length !== 0) {
