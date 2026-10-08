@@ -464,6 +464,32 @@
    点号链后一级对、两级 `?.` 不带运算符也对）、**`Error.stack`**
    （`p749b-b06`，与第 697 / 704 / 708 轮同一条根）。加权 **95.9% → 95.8%**
    （分子 +23、分母 +26）。
+   **第 750 轮全矩阵**（26 条新语料，收掉四处、新登 5 条）：通过
+   **7754 → 7775**、分母 **8121 → 8147**、`blocked 261`（**没动**）、
+   `differ 106 → 111`（+5 新登）、`bad` 仍 **0**、`regressions` **0**、
+   `moved` 0、`newlyPassing` 0——**收掉四处**：
+   ① **对象键的 `ToPropertyKey`**（`p750b-b02` / `p750b-b03` 那一族，**整份文件跑不起来**）：
+      `t[new Set()] = "x"` 在 JS 里给 `"[object Set]"`，本仓在取键那一步就抛
+      （`get_index` / `set_index` 落到 `RtToString`，而 `TextUnitsOf` 对对象**响亮地抛**）。
+      修法是**开一格语言层能力号**（`PropertyKeyId = 714`）+ `text.xl.md` 的
+      `PropertyKeyName`（对象先 `ToPrimitiveOf`，符号原样返回），引擎那一侧添
+      `PropertyKeyHookId` / `RegisterPropertyKeyHook` / `PropertyKeyOf`，
+      `get_index` 与 `set_index` 两处调用点同改；**没登记钩子就照旧抛**
+      （不做 ≠ 换个行为）。
+   ② **`Object.freeze` / `Object.seal` 打在原始值上**（`p750a-a02`）：JS 给**实参本身**
+      （`Object.freeze(1)` ⇒ `1`），本仓响亮地抛——`preventExtensions` 那一格
+      第 304 轮就是这么写的，只有这两格漏了。
+   ③ **`console.log("%i", …)`**（`p750b-b08`）：Node 的 `%i` 走 `parseInt`、
+      `%d` 走 `Number`，两者只在小数上分岔，本仓把两档并成了一句。
+   ④ **往原始值上写属性**（`p750a-a04`）：`s.x = 1` 在 JS 里一声不响，
+      本仓报 `assigning a property on a primitive receiver`——修法是
+      `SetPropertySearched` 那一支返回**假**（与「不可写的属性」同一条口径）。
+   本批另登记 5 条新缺口（`differ` +5）：**原始值目标该抛 `TypeError`**
+   （`p750a-a01`）、**内建方法不是同一个对象**（`p750a-a04` 第五行）、
+   **`a.length = "2"` 该截到 2**（`p750a-a06`——要 `protos`，而那是每一次属性写入都要过的路）、
+   **`Reflect.setPrototypeOf` 在不可扩展对象上该给假**（`p750a-a08`）、
+   **内建函数的描述符**（`p750b-b03`——缺宿主引用那一档的读值）。加权
+   **95.8% → 95.7%**（分子 +21、分母 +26）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。
@@ -592,6 +618,12 @@ node tests/coverage/run.mjs --emit-ledger        # 按现状打一份台账骨�
 各条的当前读数见根目录 [README](../../README.md) 的「当前状态」。
 
 ## 已知的账（**不是口径**，是待做项）
+
+**第 750 轮新登的 5 条**：`runtime/round750/p750a-a01`（原始值目标该抛 `TypeError`——
+与第 748 轮收掉的 `Object.assign(null, …)` 同一条根）、`p750a-a04`（内建方法不是同一个对象：
+`n["toFixed"] === Number.prototype.toFixed`）、`p750a-a06`（`a.length = "2"` 该截到 2）、
+`p750a-a08`（`Reflect.setPrototypeOf` 在不可扩展对象上该给假且不改原型）、
+`stdlib/round750/p750b-b03`（内建函数的描述符——缺**宿主引用**那一档的读值）。
 
 **第 749 轮新登的 3 条**：`runtime/round749/p749a-a12`（松散模式下形参与 `arguments`
 的别名——**两份存储**：形参在帧槽、`arguments` 是开帧时另造的数组）、

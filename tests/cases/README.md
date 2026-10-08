@@ -77,17 +77,66 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **8121** 条（token 1427 / exec 2216 / runtime 1039 / stdlib 3206 / e2e 246），判过 **8121** 条。
+语料 **8147** 条（token 1427 / exec 2216 / runtime 1055 / stdlib 3216 / e2e 246），判过 **8147** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1414 | **1196** | 218 | 缺的那 218 条**全是** `xl:known-gap`；另有 13 条不进分母 |
 | `exec` | 2216 | **2171** | 12 / 33 | 另有 1 条不进分母 |
-| `runtime` | 1039 | **1012** | 2 / 25 | |
-| `stdlib` | 3206 | **3133** | 25 / 48 | |
+| `runtime` | 1055 | **1024** | 2 / 29 | |
+| `stdlib` | 3216 | **3142** | 25 / 49 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **8121** | **7754** | 261 / 106 | 加权 **95.8%** |
+| **合计** | **8147** | **7775** | 261 / 111 | 加权 **95.7%** |
+
+**第 750 轮再加 26 条**（分母 8121 → **8147**）、另新登 5 条：
+**原始值接收者与装箱 / 数组的洞与长度 / 数字与字符串的边界 / 对象整体操作**
+（`runtime/round750` 16 条、`stdlib/round750` 10 条）——**21 条当场通过**、
+同一轮里**收掉四处根**：
+
+- **对象键的 `ToPropertyKey`**（`p750b-b02` / `p750b-b03` 那一族，**整份文件跑不起来**）：
+  `t[new Set()] = "x"` 在 JS 里给 `"[object Set]"`（`Object.keys(t)` 是一格），
+  而本仓在**取键那一步**就抛（`unimplemented: ToString of this kind of value`）
+  ——`get_index` / `set_index` 的键落到 `RtToString` 上，而 `TextUnitsOf` 对**对象**
+  是**响亮地抛**（那一处的注释写着「对象要 `ToPrimitive`，那是建库层的事」）。
+  修法是**开一格语言层能力号**（`PropertyKeyId = 714`）+ `PropertyKeyName`
+  （`text.xl.md`：对象先走 `ToPrimitiveOf`，与 `Symbol.toPrimitive` 给出的符号原样返回），
+  引擎那一侧添 `PropertyKeyHookId` / `RegisterPropertyKeyHook` / `PropertyKeyOf`
+  ——**没登记钩子就照旧抛**（与第 750 轮之前**一字不差**：不做 ≠ 换个行为）。
+- **`Object.freeze` / `Object.seal` 打在原始值上**（`p750a-a02`，**整份文件进不来**）：
+  JS 的 `Object.freeze(1)` 给 **`1`**（`ToObject` 的包装对象当场丢掉、返回值是实参本身），
+  本仓**响亮地抛**。`preventExtensions` 那一格第 304 轮就是这么写的，只有这两格漏了
+  ——修法是同一条（非对象 ⇒ 原样返回）。
+- **`console.log("%i", …)` 是 `parseInt`**（`p750b-b08`）：Node 的 `util.format` 里
+  `%i` 走 `parseInt(value, 10)`、`%d` 走 `Number(value)`，两者**只在小数上分岔**
+  （`%i` 接 `"42.9"` 给 `42`、`%d` 给 `42.9`），而本仓把两档**并成了一句**。
+- **往原始值上写属性**（`p750a-a04`，**整份文件进不来**）：`let s = "abc"; s.x = 1`
+  在 JS 里**一声不响**（那一格建在临时包装对象上、随它丢掉），
+  本仓报 `assigning a property on a primitive receiver`。修法是 `SetPropertySearched`
+  那一支返回**假**（「没写下去」，与「不可写的属性」同一条口径）——
+  它连带把「字符串的 `length` 只读」那一档也答对了（JS 里那也是静默失败）。
+- **新登的 5 条**：① **原始值目标该抛 `TypeError`、本仓抛普通 `Error`**
+  （`p750a-a01`：`defineProperty` / `setPrototypeOf` / `Reflect.defineProperty` 三处——
+  与第 748 轮收掉的 `Object.assign(null, …)` 同一条根）；
+  ② **内建方法不是同一个对象**（`p750a-a04` 的第五行：
+  `n["toFixed"] === Number.prototype.toFixed` Node 给真、本仓给假——
+  `CreateHostRef` 每次新造句柄那条教训的第 733 轮同族）；
+  ③ **`a.length = "2"` 该截到 2**（`p750a-a06`：规范先走 `ToNumber`，
+  本仓非数字一律抛——**要 `protos` 才能收**，而那是每一次属性写入都要过的路）；
+  ④ **`Reflect.setPrototypeOf` 在不可扩展对象上该给假**（`p750a-a08`：
+   Node 给假且不改原型，本仓给真且改了）；
+  ⑤ **内建函数的描述符**（`p750b-b03`：`d(Math, "max")` 本仓抛、
+  `d(Math, "PI")` 两边都对——缺的是**宿主引用**那一档的读值）。
+- **这一批的探针面**：原始值接收者（`setPrototypeOf` / `defineProperty` /
+  `keys` / `hasOwn` / `freeze` / `preventExtensions`）、装箱三兄弟、
+  原始值上的属性读、数组的洞（`in` / `keys` / 映射 / 展开 / `length` 读写）、
+  非法长度与越界下标、对象整体操作、`Reflect` 两套口径、访问器与不可枚举、
+  `NaN` 与 `-0` 的渲染比较、`==` 的七种组合、稀疏与密集的传递、
+  `Object.entries` / `assign` / 展开的落点、`typeof` / `instanceof` / `Array.isArray`、
+  字符串的越界与代理对、大小写与正规化；`Array.from` / `Map`·`Set` 迭代器形状、
+  描述符在数组 / 字符串 / 函数上、`JSON` 的 `toJSON` / 键次序、`String` / `Number`
+  转换矩阵、`indexOf` 家族的起点、函数 `length` / `name` 六种写法、
+  `console` 两条流与格式串边界、`Date` 形状、`WeakMap` / `WeakSet`。
 
 **第 749 轮再加 26 条**（分母 8095 → **8121**）、另新登 3 条、**撤掉 2 条旧台账**：
 **生成器与迭代协议 / `for await` / 模板字面量 / 属性次序与描述符**

@@ -137,6 +137,42 @@ if (value.Tag === ValueTag.Float64) return HostTextUnits(NumberToJsText(value.Db
 return TextUnitsOf(table, value);
 ```
 
+# method PropertyKeyName:(room:RoomChecker, call:NativeCall | null, protos:Protos, table:HeapTable, key:Value)=>Value
+
+**`ToPropertyKey`：任意值 → 属性键**（第 706 轮立的口径、**第 750 轮补上对象那一档**）
+——**符号留着、其余 `ToString`（对象先 `ToPrimitive`）**。
+
+**对象那一档为什么这一轮才补**（**普查当场红的**，判据 `p750b-b02` / `p750b-b03`）：
+本仓原来这一句直接落到 `RtToString` 上，而 `rt.xl.md` 的 `TextUnitsOf` 对**对象**
+是**响亮地抛**（`unimplemented: ToString of this kind of value`，那一处的注释写着
+「对象要 `ToPrimitive`，那是建库层的事」）——**而这一层就是建库层**。
+于是 `t[new Set()] = "x"`（键是一个对象）让**整份文件跑不起来**，
+而 JS 里它给 `"[object Set]"`（`Object.keys(t)` 是一格）。
+**收法是走现成的那一格**：`ToPrimitiveOf(…, hint "string")` 就是 `ToString` 的第一步
+（`ToPrimitiveString` 那个常数就是「hint 是字符串」）——**不写第二份转换表**。
+
+**为什么另开一个方法、而不是把 `PropertyKeyValue` 改了**：那个名字在别处被当
+「`key.Tag === Symbol ? key : RtToString(…)`」用（`set_hidden` / `define_data`
+那几处），它们的键**本来就不是对象**；把 `protos` 那一格塞进它的签名要连累
+那几处。这一格是**引擎那条路要的那一个**（`get_index` / `set_index` 的键）。
+
+**`Symbol` 原样返回**（身份，不许字符串化）：与 `PropertyKeyValue` 同一句、
+同一个理由——`o[Symbol("k")] = 1; o["k"] = 2` 在 JS 里是**两格**。
+
+```ts
+if (key.Tag === ValueTag.Symbol) return key;
+if (key.IsObject() && call !== null) {
+  // **对象先 `ToPrimitive`（hint 字符串）**——`Set` / `{}` / 数组都走这儿。
+  const primitive = ToPrimitiveOf(room, call, protos, table, key, ToPrimitiveString);
+  if (primitive.Tag === ValueTag.Symbol) {
+    // `Symbol.toPrimitive` 给出一个符号 ⇒ 它**就是那个键**（与上面那一句同一条）。
+    return primitive;
+  }
+  return RtToString(room, table, primitive);
+}
+return RtToString(room, table, key);
+```
+
 # method PropertyKeyValue:(room:RoomChecker, table:HeapTable, key:Value)=>Value
 
 **`ToPropertyKey`：任意值 → 属性键**（第 706 轮）——**符号留着、其余 `ToString`**。

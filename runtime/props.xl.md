@@ -1073,16 +1073,21 @@ bug 的形状**。原型那一格只有在「直接对原型对象赋值」时�
 
 ```ts
 if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
-  if (!value.IsNumber()) throw new RangeError("Invalid array length");
-  // **`length` 的取值范围也要判**（第 376 轮）——`Array.prototype.length` 是一个
-  // **合法的数组下标**（`0 .. 2^32 - 1`）：
-  // `xs.length = -1` / `xs.length = 1.5` 在 JS 里都抛 **`RangeError: Invalid array length`**
-  //（判据 `c371-stdlib-array-length-write-forms` 量的就是这两格）。
-  // **原来直接交给 `Truncate`** ⇒ 抛出来的是宿主的一个普通 `Error` ⇒ 脚本里
-  // `e.name` 给 `"Error"`（Node 给 `"RangeError"`）——**抛**是对的、**族**不对。
-  // **`RangeError` 这个族第 137 轮就在**，只是没人从这里抛它。
+  // **非数字要抛 `RangeError`**（第 376 轮）——`xs.length = -1` / `xs.length = 1.5`
+  // 在 JS 里都抛 `RangeError: Invalid array length`（判据
+  // `c371-stdlib-array-length-write-forms` 量的就是这两格）。
+  //
+  // **量与数都留着的那一处**（第 750 轮，**普查当场量到的**）：规范在
+  // `ArraySetLength` 里先走一步 `ToNumber`，所以 `a.length = "2"` 在 Node 里
+  // **是好的**（数组截到 2），而本仓对**非数字一律抛**（判据 `p750a-a06` 的第 3 行：
+  // Node 打 `ok:2`、本仓打 `throw:RangeError`）。**这一轮没有收它**，理由写在明处：
+  // `ToNumber` 的对象那一档要 `ToPrimitive`，而那要 `protos`——`SetPropertySearched`
+  // 的签名里没有它，`ToNumberOf` 的三处调用点（`SetProperty` / `SetPropertyFrom` /
+  // 引擎那一个 rt 算子）**全都要跟着加一格**，而这是**每一次属性写入**都要过的那条路。
+  // 「把 `protos` 递进来」本身不难，难的是**量清楚它有没有副作用**
+  //（`SetProperty` 是整份实现里最热的一格）——所以先登记、不顺手改。
   const asked = value.AsInt();
-  if (asked < 0 || value.AsDouble() !== value.AsDouble()
+  if (!value.IsNumber() || asked < 0 || value.AsDouble() !== value.AsDouble()
     || value.AsDouble() !== Math.floor(value.AsDouble()) || value.AsDouble() > 4294967295) {
     throw new RangeError("Invalid array length");
   }
@@ -1111,7 +1116,23 @@ if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
 // 字符串的 `length` 确实是只读的，但它**不是对象**——下面那条
 // 「primitive receiver」自己会挡（`"ab".length = 1` 照样抛）。
 if (!receiver.IsObject()) {
-  throw new Error("unimplemented: assigning a property on a primitive receiver");
+  // **原始值接收者：一声不响什么都没做**（第 750 轮，**普查当场红的**）——
+  // 返回**假**（「没写下去」），与「不可写的属性」那一格**同一条口径**。
+  //
+  // **JS 的两个形状都落到这里**（Node 实测，两处都**不抛**、也都不留痕迹）：
+  // ① **自有（或继承来）的属性**：`"abc".length = 5` 会去找严格模式那条路，
+  //    松散模式下那一步在**装箱出来的临时对象**上失败 ⇒ 一声不响
+  //    （`a = 9; return a` 读回来还是原值）；
+  // ② **根本不存在的属性**：`let s = "abc"; s.x = 1` 建在**那个临时的包装对象**上、
+  //    随它一起丢掉 ⇒ `s.x` 还是 `undefined`。
+  // **原来这里响亮地抛**（`unimplemented: assigning a property on a primitive receiver`）
+  // ⇒ **整份文件进不来**，而 `s.x = 1` 这种「探测一下」的写法遍地都是
+  //（判据 `p750a-a04` 现场就是这个：Node 三行都打出来、本仓第一行就断）。
+  //
+  // **这一句只管「写属性」这一条路**：`"ab".length = 1` 也是从这里过（上面那一支
+  // 只认数组），所以它连带把「字符串的 `length` 只读」那一档也答对了
+  //（**不是**抛——JS 里那也是静默失败）。
+  return false;
 }
 // **起点另给时走同一套分支**（`< 0` 就是「不找」 ⇒ 直接落到第 4 条）——
 // 三条语义（访问器调 setter / 数据属性写到**接收者**上 / 没找到就新建）

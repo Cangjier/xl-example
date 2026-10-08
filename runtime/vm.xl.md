@@ -699,6 +699,19 @@ return result;
 **「问一句：这个值是可采纳对象吗」那个能力号**（第 359 轮）——由语言层在
 `RegisterThenableHook` 里告诉引擎，与 `BoundCallId` **同一条形状**。
 
+## field PropertyKeyHookId:int = 0
+
+**「把这个值变成一个属性键」那个能力号**（第 750 轮）——由语言层在
+`RegisterPropertyKeyHook` 里告诉引擎，与 `ThenableHookId` **同一条形状**。
+
+**为什么这一档要问语言层**：`ToPropertyKey` 对**对象**的第一步是 `ToPrimitive`
+（先 `toString` 后 `valueOf`，还有 `Symbol.toPrimitive`）——那要**读属性、还可能要调它**，
+而引擎侧的 `TextUnitsOf` 对对象是**响亮地抛**（那一处的注释写着「那是建库层的事」）。
+**谁需要它**：`get_index` / `set_index` 那两条 rt 算子的键
+（`t[new Set()] = "x"`——**整份文件跑不起来的**那一档）。
+**给 `0` 表示语言层没登记过**：那时对象键照旧走引擎那条路（响亮地抛，
+与第 750 轮之前**一字不差**——**行为不变**是这一格的纪律）。
+
 **为什么这件事要问语言层**：判据是「有没有一格**可调的** `then`」——
 那要**读属性、还可能要调它**，而引擎**不认识那个名字**（`Symbol.hasInstance` /
 `Symbol.toPrimitive` 那两处也是把名字交给语言层的小表，同一条分界）。
@@ -2982,9 +2995,18 @@ if (id === RtOp.GetIndex) {
   //   · 别的键（\`s["length"]\` / \`arr["map"]\` / \`o["k"]\`）→ **属性**那条路。
   // **符号键原样**（属性查找按 \`Id\` 比，字符串化会与同名的字符串键撞上——**静默错值**）。
   const rawIndexKey = slots[base + 1];
-  const indexKeyText = rawIndexKey.Tag === ValueTag.Symbol
-    ? rawIndexKey
-    : RtToString(this.Room(), this.Table, rawIndexKey);
+  // **键归一走 `PropertyKeyOf`**（第 750 轮）：符号原样、其余 `ToString`，
+  // **对象那一档先 `ToPrimitive`**（原来对象落进 `RtToString` ⇒ 响亮地抛 ⇒
+  // 整份文件跑不起来；JS 里 `t[new Set()]` 给 `"[object Set]"`）。
+  //
+  // **`null` = 那个 `toString` 里抛了、控制流已经交给处理点**（见 `PropertyKeyOf`）：
+  // 这一格**不许再往下走**（`DoThrow` 已经安排好了）。
+  // **交回的是一个值、不是一个裸 `return`**：这个算子的返回类型是 `Value`
+  //（`tsc` 当场报 `Type 'undefined' is not assignable to type 'Value'`，
+  //  第 750 轮实测踩到），而**它不会被写进结果格**——引擎每一趟在写之前都看
+  // `Status`，`DoThrow` 已经把它置成 `Threw` 了（`Guard` 那条路同一个形状）。
+  const indexKeyText: Value | null = this.PropertyKeyOf(rawIndexKey);
+  if (indexKeyText === null) return Value.Undefined();
   const indexAt = ArrayIndexAt(this.Table, indexKeyText);
   // **数组与字符串**：下标那一档走 \`GetIndex\`（数组给元素、字符串给**一个码元**），
   // 其余走属性（数组的方法 / 字符串的 \`length\` 与原型）。
@@ -3029,11 +3051,12 @@ if (id === RtOp.SetIndex) {
   // 两档都要认（与 `delete` 那一支同一条理由）：`xs[1]` 的键是**数字**、
   // `xs["1"]` 的键是**文本**，而「`"1"` 是不是下标」这件事只有 `ArrayIndexAt` 有答案
   //（它写着前导零不算、超 `i32` 不算）——不在这里另写一份判据。
-  // **符号键原样**（`o[sym] = v` 的键就是那个符号，字符串化会与同名的字符串键撞上）。
+  // **符号键原样**（`o[sym] = v` 的键就是那个符号，字符串化会与同名的字符串键撞上）；
+  // **对象键先 `ToPrimitive`**（第 750 轮，与 `get_index` 那一处**同一个落点**）。
+  // 交回一个值而不是裸 `return` 的理由与上面那一处一字不差（返回类型是 `Value`）。
   const rawSetKey = slots[base + 1];
-  const setKeyText = rawSetKey.Tag === ValueTag.Symbol
-    ? rawSetKey
-    : RtToString(this.Room(), this.Table, rawSetKey);
+  const setKeyText: Value | null = this.PropertyKeyOf(rawSetKey);
+  if (setKeyText === null) return Value.Undefined();
   const setAt = ArrayIndexAt(this.Table, setKeyText);
   const setValue = slots[base + 2];
   if (indexTarget.Tag === ValueTag.Array) {
@@ -4138,6 +4161,45 @@ return (iterator: Value, sent: Value, keep: RootKeeper | null = null): Value =>
 ```ts
 this.ThenableHookId = id;
 return this.RegisterCapability(id, Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(id, 0)));
+```
+
+## method RegisterPropertyKeyHook:(id:int)=>bool
+
+**把「这个值是什么属性键」那个能力号登记进能力表**（第 750 轮）——与
+`RegisterThenableHook` **同一条形状、同一个理由**（号是语言层的，
+引擎只记「回调的时候那个载荷号是不是这一格」）。
+
+```ts
+this.PropertyKeyHookId = id;
+return this.RegisterCapability(id, Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(id, 0)));
+```
+
+## method PropertyKeyOf:(rawKey:Value)=>Value | null
+
+**把 `get_index` / `set_index` 那一格的键归一成属性键**（第 750 轮）。
+
+**两档与第 305 轮那两句一字不差**：**符号原样**（身份，字符串化会与同名文本键撞上）、
+其余走 `RtToString`。**新加的是对象那一档**：原来对象会落进 `RtToString` ⇒
+`TextUnitsOf` 对对象**响亮地抛**（`unimplemented: ToString of this kind of value`）
+⇒ **整份文件跑不起来**，而 JS 里 `t[new Set()] = "x"` 给 `"[object Set]"`。
+
+**没登记钩子（`0`）就照旧走 `RtToString`**：那一档仍然抛，与第 750 轮之前
+**一字不差**——「不做」不等于「换个行为」，与 `ThenableHookId` 那条纪律同源。
+
+**`null` 的意思是「展开已经发生」**（脚本在那个 `toString` 里抛了，`DoThrow` 已经
+把控制流交给处理点）——与 `CallHostValue` 那条纪律一字不差：调用方**必须立刻收手**，
+连结果都不许往槽里写。
+
+```ts
+if (rawKey.Tag === ValueTag.Symbol) return rawKey;
+if (rawKey.IsObject() && this.PropertyKeyHookId > 0) {
+  const hookValue = Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(this.PropertyKeyHookId, 0));
+  const hookArgs: Value[] = [rawKey];
+  const converted = this.CallHostValue(hookValue, Value.Undefined(), hookArgs);
+  if (converted === null) return null;
+  return converted;
+}
+return RtToString(this.Room(), this.Table, rawKey);
 ```
 
 ## method RegisterGeneratorMethods:(nextId:int, returnId:int, throwId:int)=>bool

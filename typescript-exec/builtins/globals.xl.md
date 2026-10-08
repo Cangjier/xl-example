@@ -4326,8 +4326,18 @@ if (id === ConsoleLog || id === ConsoleError || id === ConsoleWarn || id === Con
       const arg = args[used];
       used = used + 1;
       if (code === "s") { text.push(renderArg(arg)); }
-      else if (code === "d" || code === "i") {
+      else if (code === "d") {
+        // **`%d` 是 `Number()`**（Node 的口径）。
         text.push(NumberToHostText(ToNumberOf(room, call, protos, table, arg)));
+      } else if (code === "i") {
+        // **`%i` 是 `parseInt()`，与 `%d` 不是一回事**（第 750 轮，**普查当场红的**）：
+        // Node 的 `util.format` 对 `%i` 走的是 `parseInt(value, 10)`，而 `%d` 走 `Number(value)`
+        // ——两者只在**小数**上分岔：`console.log("%i", "42.9")` Node 给 **`42`**、
+        // `console.log("%d", "42.9")` 给 `42.9`。本仓原来把 `i` 与 `d` **并成一档**，
+        // 于是每一句 `%i` 都多带了小数部分（判据 `p750b-b08` 的第 3 行就是这个现场）。
+        // **`parseInt` 的实参按 Node 那一句取**：`renderArg` 先给文本（字符串原样、
+        // 其余走 `inspect`），与 `%f` 那一档**同一个形状**——两处都是「先成文本、再解析」。
+        text.push(NumberToHostText(parseInt(renderArg(arg))));
       } else if (code === "f") {
         // **`%f` 是 `parseFloat`**（Node 的口径）：`%f` 接 `"1.5abc"` 给 `1.5`、
         // 接 `"abc"` 给 `NaN`——**不是** `Number()`（那个给 `NaN`，两处只在字符串上分岔）。
@@ -4522,10 +4532,16 @@ if (id === ObjectFreeze) {
   // **第 276 轮补上另一半**：JS 的 `freeze` 是 `seal` **再加一步**——
   // 「不可配置」那一半原来没做（`isSealed(frozen)` 会答**假**，而 JS 答**真**）。
   // 顺带接上「不可扩展」那个标记（`seal` / `isSealed` / `isFrozen` 三格都要它）。
-  if (args.length < 1 || !args[0].IsObject()) {
-    throw new Error("unimplemented: Object.freeze needs an object "
-      + "(boxing a primitive is not supported)");
-  }
+  // **原始值一律原样返回**（第 750 轮，**普查当场红的**）：JS 的 `Object.freeze` 第一句是
+  // `ToObject(实参)`——原始值**装箱出来的那个包装对象当场丢掉**，而返回值是
+  // **原来那个实参**。Node 实测：`Object.freeze(1)` 给 `1`、`Object.freeze("s")` 给 `"s"`、
+  // `Object.freeze(null)` 给 `null`（`seal` / `preventExtensions` 三格同一条口径——
+  // 下面 `preventExtensions` 那一支第 304 轮就是这么写的，只有这两格漏了）。
+  // **原来这里响亮地抛**（`unimplemented: Object.freeze needs an object`）⇒
+  // `Object.freeze(1)` 这种「顺手把参数冻一下」的写法让**整份文件进不来**
+  //（判据 `p750a-a02` 的第 4 行：Node 打 `ok:1`、本仓打 `throw:Error`）。
+  if (args.length < 1) return Value.Undefined();
+  if (!args[0].IsObject()) return args[0];
   const frozen = table.Get(args[0].Ref);
   // **数组的 `length` 也要跟着冻结**（第 722 轮）：它**不住在属性表里**，
   // 所以下面那一趟扫不到它 ⇒ `Object.freeze(a)` 之后 `a.length = 5` 照样改
@@ -4948,10 +4964,11 @@ if (id === ObjectSeal) {  // **`Object.seal(对象)`**（第 276 轮）——**�
   // 两条判据（`object-freeze` 与这一条）量的就是这两样的**差**。
   // **访问器跳过**（与 `freeze` 同一条）：它的「可配置」挂在访问器那一格上，
   // 而这一层还没有那一格的门。
-  if (args.length < 1 || !args[0].IsObject()) {
-    throw new Error("unimplemented: Object.seal needs an object "
-      + "(boxing a primitive is not supported)");
-  }
+  // **原始值原样返回**（第 750 轮，与 `freeze` / `preventExtensions` 同一条口径）：
+  // `Object.seal(1)` 在 Node 里给 `1`（`ToObject` 的包装对象丢掉、返回值是实参本身）。
+  // 这一格原来也响亮地抛（判据 `p750a-a02` 的第 4 行那一族）。
+  if (args.length < 1) return Value.Undefined();
+  if (!args[0].IsObject()) return args[0];
   const sealTarget = table.Get(args[0].Ref);
   // **元素那一摞也要补影子**（第 723 轮）：`seal` 只清「可配置」——
   // 写完 `a[1] = 9` 照样写得进去、`delete a[1]` 该给假（判据 `p723a-r03`）。

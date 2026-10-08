@@ -9,7 +9,7 @@ import { Host } from "../../runtime/host-abi.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { InvokeArray, NeverCall, Units, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { InvokePromise, BuildPromise, PromiseCtor, PromiseResolve, PromiseReject, PromiseAll, PromiseRace, PromiseThen, PromiseCatch, PromiseFinally, PromiseAllStepId, PromiseRaceStepId, PromiseResolveCallbackId, PromiseRejectCallbackId, PromiseQueueMicrotask, PromiseThenableAdopt, ArrayFromAsyncValues, PromiseArrayFromStepId, PromiseArrayFromMapStepId, AsyncIterableValues, AsyncIterableStepId, WellKnownSymbolValue } from "./promise.xl.md"
-import { JsTextUnits, ValueText, PropertyKeyValue } from "./text.xl.md"
+import { JsTextUnits, ValueText, PropertyKeyValue, PropertyKeyName } from "./text.xl.md"
 import { InstallArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayOfValues, ArrayIteratorNext, ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray, ThisArgOf } from "./array.xl.md"
 import { InvokeString, InstallString, SplitString, StringSplit } from "./string.xl.md"
 import { InvokeGlobal, LogSink, NewError, NewErrorLike, StringConcat, TemplateConcat, ObjectAssign, PowId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId, AsyncGeneratorSelf, GeneratorSelf, SymbolToString, SpeciesGetterId, InstallDatePrototype, BoundCall, ReflectApply, ReflectConstruct, ReflectDefineProperty, ReflectDeleteProperty, ReflectGet, ReflectGetOwnPropertyDescriptor, ReflectGetPrototypeOf, ReflectHas, ReflectIsExtensible, ReflectOwnKeys, ReflectPreventExtensions, ReflectSet, ReflectSetPrototypeOf, DefineOwnFromDescriptor, PrototypeOfValue, MarkUnextensible, IsUnextensible, ObjectGetOwnPropertyNames, ObjectGetOwnPropertySymbols, ObjectGetOwnPropertyDescriptor } from "./globals.xl.md"
@@ -205,6 +205,16 @@ if (id === IterDrainId) {
   if (args.length < 1) throw new Error("unimplemented: iter_drain needs (source)");
   return IterDrain(room, table, protos, args[0], call, drain, keep, failed);
 }
+// **`ToPropertyKey` 那一步**（第 750 轮）——**引擎里只有这一处需要它**：
+// `get_index` / `set_index` 的键可能是**对象**（`t[new Set()] = "x"`），
+// 而引擎侧的 `TextUnitsOf` 对对象**响亮地抛**（「对象要 `ToPrimitive`，
+// 那是建库层的事」）——这一层就是建库层，`PropertyKeyName` 就是那一格。
+// **排在 `InvokeObjectHelper` 之前**（与上面那几条同一个理由：它要 `protos`，
+// 而那一支不收）。
+if (id === PropertyKeyId) {
+  if (args.length < 1) throw new Error("unimplemented: property_key needs (value)");
+  return PropertyKeyName(room, call, protos, table, args[0]);
+}
 // **`new C(...xs)` 的入口**（第 197 轮）：降级层把「构造函数」与「装着实参的数组」
 // 交给它——与 `spread_into` 同一个号段、同一个理由（这里要 `protos` 造实例）。
 if (id === NewApplyId) {
@@ -282,8 +292,22 @@ return InvokeBuiltin(room, table, protos, call, id, self, args, keep, failed);
 **它不是全局名**：脚本里没有叫这个名字的东西，是**降级层**为了落实现
 「私有字段（`#n = 1`）要藏起来」而发的内部调用（理由写在 `InvokeObjectHelper` 那一支里）。
 
-# const DefineDataId:int = 713
+# const PropertyKeyId:int = 714
 
+**`ToPropertyKey` 那一步**（第 750 轮）——把**任意值**变成一个属性键
+（符号留着、其余 `ToString`，对象先 `ToPrimitive`）。
+
+**它不是全局名、也不是降级层发的家务事**（与这一段的另外几个号不同）：
+**引擎**在 `get_index` / `set_index` 那两条 rt 算子里遇到**对象键**时要问这一句
+（`t[new Set()] = "x"`）。引擎自己**做不到**这一档——`rt.xl.md` 的 `TextUnitsOf`
+对对象是响亮地抛，而「对象要 `ToPrimitive`」正是那一处写明「属于建库层」的那一半。
+
+**号取 `714`**（`700..713` 已经被占满，见 `DefineDataId` 那一格）——
+**`BuiltinSlots` 的名单里也要加一行**：漏了它的症状是
+`capability id is out of range: 714`（那句话说不出「有一个号忘了登记」，与这一段的
+另外三处一模一样）。
+
+# const DefineDataId:int = 713
 **`define_data(对象, 键, 值)`**（第 699 轮）——写一格自有的、**可写 + 可枚举 + 可配置**的数据属性。
 
 **它不是全局名**：脚本里没有叫这个名字的东西，是**降级层**为了落实现
@@ -1292,6 +1316,9 @@ if (SetHiddenId > highest) highest = SetHiddenId;
 // **`DefineDataId`**（第 699 轮）：同一条纪律——漏了它的症状是
 // `capability id is out of range: 713`（离现场很远，与上面那两格一模一样）。
 if (DefineDataId > highest) highest = DefineDataId;
+// **`PropertyKeyId`**（第 750 轮）：同一条纪律——漏了它的症状是
+// `capability id is out of range: 714`（与上面那三格一模一样）。
+if (PropertyKeyId > highest) highest = PropertyKeyId;
 if (GeneratorNextId > highest) highest = GeneratorNextId;
 // **`return` / `throw` 两格**（第 313 轮）：同一条纪律——漏了它们的症状是
 // `capability id is out of range: 711`（**三格一起加**：只加 `next` 那一格
@@ -1478,7 +1505,7 @@ for (const slot of promiseSlots) {
 // 第 197 轮实测踩过一次：号改了、名单忘改）。
 const helpers = [DefineAccessorId, GetIteratorId, SpreadIntoId, NewApplyId, IterDrainId, ArrayRestId, RestObjectId, StringConcat,
   TemplateConcat,
-  ObjectAssign, PowId, SetHiddenId, DefineDataId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
+  ObjectAssign, PowId, SetHiddenId, DefineDataId, PropertyKeyId, GeneratorNextId, GeneratorReturnId, GeneratorThrowId,
   PromiseResolveCallbackId, PromiseRejectCallbackId, AsyncGeneratorSelf, GeneratorSelf, ArrayIteratorNext, SpeciesGetterId,
   ArrayIteratorTake, ArrayIteratorDrop, ArrayIteratorToArray];
 for (let i = 0; i < helpers.length; i++) {
@@ -1508,6 +1535,12 @@ host.Machine.RegisterBoundCall(BoundCall);
 // `PromiseThenableAdopt` 与 `vm.xl.md` 的 `ResolvePromise`）。
 // **不登记就等于没有这一档**（引擎那一段整段跳过）——那正是这一轮之前的行为。
 host.Machine.RegisterThenableHook(PromiseThenableAdopt);
+// **第 750 轮：属性键那一格也要登记**——引擎在 `get_index` / `set_index`
+// 遇到**对象键**时回调进来问一句（`t[new Set()] = "x"`，见 `vm.xl.md` 的
+// `PropertyKeyOf`）。**号是这一层的 `PropertyKeyId`**，引擎只记它。
+// **不登记就等于没有这一档**（`PropertyKeyHookId` 是 `0` ⇒ 对象键照旧响亮地抛，
+// 与第 750 轮之前**一字不差**——「不做」不等于「换个行为」）。
+host.Machine.RegisterPropertyKeyHook(PropertyKeyId);
 // **`bind` 那一格也要额外告诉引擎一声**（第 343 轮）：与上面那一句**同一个形状**——
 // 上面登记的是「这三格该由引擎答」，这一句登记的是「**这一格的 `this` 给对象自己**」
 // （那三样载荷藏在它自己的隐藏属性里）。**不登记会怎样**：`bound.call(x)` 那一档

@@ -1673,6 +1673,65 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` **2 → 0**（撤掉那两行），
   加权 **95.9% → 95.8%**（新登记缺口的账，不是回归）。
 
+### 第 750 轮：**原始值接收者 / 装箱 / 数组的洞 / 对象整体操作**那一侧的普查——收掉四处、新登 5 条（coverage 7754/8121 → **7775/8147**）
+
+这一轮的探针换到**「原始值与对象边界」**那一面：原始值接收者上的
+`setPrototypeOf` / `defineProperty` / `keys` / `hasOwn` / `freeze` / `preventExtensions`、
+装箱三兄弟、数组的洞与 `length`、`Reflect` 两套口径、`NaN` 与 `-0`、
+`==` 的七种组合、字符串的代理对与正规化、描述符在四类接收者上、`Date` / `WeakMap` 形状。
+26 条探针 **21 条当场通过**，**收掉四处根**、新登 5 条：
+
+- **对象键的 `ToPropertyKey`**（判据 `p750b-b02` / `p750b-b03`，**整份文件跑不起来**）：
+  `t[new Set()] = "x"` 在 JS 里给 `"[object Set]"`（`Object.keys(t)` 是一格），
+  而本仓在**取键那一步**就抛（`unimplemented: ToString of this kind of value`）
+  ——`get_index` / `set_index` 的键落到 `RtToString` 上，而 `TextUnitsOf` 对**对象**
+  是**响亮地抛**（那一处的注释写着「对象要 `ToPrimitive`，那是建库层的事」，
+  而这一层**就是**建库层）。`Object.keys(t)` 那一句本来也跑不到。**修法**是
+  **开一格语言层能力号**（`PropertyKeyId = 714`）+ `PropertyKeyName`
+  （`text.xl.md`：对象先走 `ToPrimitiveOf`，若 `Symbol.toPrimitive` 给出的**是符号**
+  就原样当键返回），引擎那一侧添 `PropertyKeyHookId` / `RegisterPropertyKeyHook` /
+  `PropertyKeyOf`（`get_index` 与 `set_index` 两处调用点同改）。
+  **没登记钩子（`0`）就照旧抛**——「不做」不等于「换个行为」，与 `ThenableHookId`
+  那条纪律同源。
+- **`Object.freeze` / `Object.seal` 打在原始值上**（判据 `p750a-a02`，**整份文件进不来**）：
+  JS 的 `Object.freeze(1)` 给 **`1`**（`ToObject` 造出来的包装对象当场丢掉、
+  返回值是**实参本身**），本仓**响亮地抛**。`preventExtensions` 那一格第 304 轮
+  就是这么写的（「原始值原样返回」），**只有这两格漏了**——修法是同一条
+  （非对象 ⇒ 原样返回）。
+- **`console.log("%i", …)` 是 `parseInt`、`%d` 是 `Number`**（判据 `p750b-b08`）：
+  Node 的 `util.format` 里 `%i` 走 `parseInt(value, 10)`、`%d` 走 `Number(value)`，
+  两者**只在小数上分岔**（`%i` 接 `"42.9"` 给 `42`、`%d` 给 `42.9`），
+  而本仓把 `i` 与 `d` **并成了一句**（`globals.xl.md` 那一支）。
+- **往原始值上写属性**（判据 `p750a-a04`，**整份文件进不来**）：
+  `let s = "abc"; s.x = 1` 在 JS 里**一声不响**（那一格建在临时的包装对象上、
+  随它一起丢掉；`"abc".length = 1` 同样是静默失败），而本仓报
+  `assigning a property on a primitive receiver`。修法是 `props.xl.md` 的
+  `SetPropertySearched` 那一支**返回假**（「没写下去」——与「不可写的属性」
+  那一格同一条口径，而不是抛）。
+- **新登 5 条**（根因逐条写在用例的 `xl:why` 里）：
+  ① **原始值目标该抛 `TypeError`、本仓抛普通 `Error`**（`p750a-a01`：
+     `Object.defineProperty(1, …)` / `Object.setPrototypeOf(1, …)` /
+     `Reflect.defineProperty(1, …)` 三处——与第 748 轮收掉的
+     `Object.assign(null, {})` 是**同一条根**，这一轮只量清了另外三个落点）；
+  ② **内建方法不是同一个对象**（`p750a-a04` 第五行：
+     `n["toFixed"] === Number.prototype.toFixed` Node 给**真**、本仓给假
+     ——`CreateHostRef` 每次都新造句柄那条教训（第 733 轮）的同族，
+     只是落在 `Number.prototype` 这一格上）；
+  ③ **`a.length = "2"` 该截到 2**（`p750a-a06`：规范在 `ArraySetLength` 里先走
+     一步 `ToNumber`，本仓对非数字一律抛——**这一轮没有收**：`ToNumber` 的对象那一档
+     要 `ToPrimitive`，而 `SetPropertySearched` 的签名里没有 `protos`，
+     `ToNumberOf` 的三处调用点**全都要跟着加一格**，而那是**每一次属性写入**都要过的路，
+     得先量清副作用）；
+  ④ **`Reflect.setPrototypeOf` 在不可扩展对象上该给假**（`p750a-a08`：
+     Node 给假**且不改原型**，本仓给真**且改了**——它与第 720 轮收掉的
+     `Object.setPrototypeOf` 那一族**不是同一句**，那一格要求抛）；
+  ⑤ **内建函数的描述符**（`p750b-b03`：`d(Math, "max")` 本仓抛、`d(Math, "PI")`
+     两边都对——缺的是**宿主引用**那一档的读值，与第 733 轮那一族同根、落点不同）。
+- 用例：`runtime/round750` 16 条、`stdlib/round750` 10 条。
+- 五类 **7754 / 8121 → 7775 / 8147**（+12 runtime、+9 stdlib、另 5 条是新登记的台账）、
+  `blocked 261`（**没动**）、`differ 106 → 111`（+5 新登）、`bad` 0、`regressions` 0、
+  `moved` 0、`newlyPassing` 0，加权 **95.8% → 95.7%**（新登记缺口的账，不是回归）。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1685,7 +1744,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7754 / 8121**，加权 **95.8%**：token 1196/1414、exec 2171/2216、runtime 1012/1039、stdlib 3133/3206、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 106），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
+| `coverage` | **五类 7775 / 8147**，加权 **95.7%**：token 1196/1414、exec 2171/2216、runtime 1024/1055、stdlib 3142/3216、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 111），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条**、`newlyPassing` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 
