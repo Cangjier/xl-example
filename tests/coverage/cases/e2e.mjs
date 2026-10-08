@@ -2581,4 +2581,19 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     title: "端到端：switch 贯穿 + 标签跳出外层循环 + continue 到标签",
     src: "\nfunction grade(n: number): string {\n  let out = \"\";\n  switch (n) {\n    case 90:\n    case 91:\n      out += \"A\";\n      break;\n    case 80:\n      out += \"B\";\n    default:\n      out += \"?\";\n  }\n  return out;\n}\nconsole.log(grade(90), grade(80), grade(1));\nconst found: string[] = [];\nouter: for (let i = 0; i < 4; i++) {\n  for (let j = 0; j < 4; j++) {\n    if (j === 1) continue outer;\n    if (i === 2) break outer;\n    found.push(`${i}${j}`);\n  }\n}\nconsole.log(found.join(\",\"));\n",
   },
+  {
+    id: "c653-e2e-resource-pool-with-dispose",
+    title: "资源池：借出 / 归还 / 超时释放的顺序（不用 using）",
+    src: "\nclass Pool {\n  free: number[] = [1, 2];\n  used: number[] = [];\n  acquire(): number | null {\n    const id = this.free.shift();\n    if (id === undefined) return null;\n    this.used.push(id);\n    return id;\n  }\n  release(id: number): boolean {\n    const at = this.used.indexOf(id);\n    if (at < 0) return false;\n    this.used.splice(at, 1);\n    this.free.push(id);\n    return true;\n  }\n}\nconst pool = new Pool();\nconst a = pool.acquire();\nconst b = pool.acquire();\nconsole.log(a, b, pool.acquire(), pool.free.join(\",\"), pool.used.join(\",\"));\nconsole.log(pool.release(a as number), pool.release(9), pool.free.join(\",\"), pool.used.join(\",\"));\n",
+  },
+  {
+    id: "c653-e2e-text-table-align",
+    title: "文本表格：宽度计算 / 对齐 / 分隔线",
+    src: "\nconst rows = [[\"id\", \"name\"], [\"1\", \"alice\"], [\"22\", \"bob\"]];\nconst widths = rows[0].map((_, c) => Math.max(...rows.map((r) => r[c].length)));\nconst line = widths.map((w) => \"-\".repeat(w + 2)).join(\"+\");\nconst out: string[] = [line];\nfor (const r of rows) {\n  out.push(r.map((cell, i) => \" \" + cell.padEnd(widths[i]) + \" \").join(\"|\"));\n}\nout.push(line);\nconsole.log(out.join(\"\\n\"));\n",
+  },
+  {
+    id: "c653-e2e-state-machine-table",
+    title: "状态机：转移表 + 非法转移 + 事件日志",
+    src: "\ntype State = \"idle\" | \"run\" | \"done\";\nconst table: Record<string, Record<string, State>> = {\n  idle: { start: \"run\" },\n  run: { finish: \"done\", reset: \"idle\" },\n  done: { reset: \"idle\" },\n};\nlet state = (\"idle\" as State);\nconst log: string[] = [];\nfunction send(event: string): boolean {\n  const next = table[state][event];\n  if (next === undefined) {\n    log.push(state + \"!\" + event);\n    return false;\n  }\n  log.push(state + \">\" + next);\n  state = next;\n  return true;\n}\nconsole.log(send(\"finish\"), send(\"start\"), send(\"finish\"), send(\"reset\"), send(\"reset\"));\nconsole.log(state, log.join(\",\"));\n",
+  },
 ];

@@ -6216,4 +6216,44 @@ console.log(Object.keys(obj).join(","), obj[key], Object.getOwnPropertySymbols(o
 `,
   },
 
+  {
+    id: "c653-stdlib-array-sort-comparator-forms",
+    title: "sort 的返回同一数组 / 比较器返回小数 / 稳定",
+    src: "\nconst xs = [3, 1, 2];\nconst same = xs.sort((a, b) => a - b);\nconsole.log(same === xs, xs.join(\",\"));\nconst ys = [3, 1, 2];\nconsole.log(ys.sort((a, b) => a / 1000 - b / 1000).join(\",\"), ys.join(\",\"));\nconst recs = [{ k: 1, t: \"a\" }, { k: 1, t: \"b\" }, { k: 0, t: \"c\" }];\nconsole.log(recs.sort((a, b) => a.k - b.k).map((r) => r.t).join(\",\"));\nconsole.log([10, 9, 1].sort().join(\",\"));\n",
+  },
+  {
+    id: "c653-stdlib-array-reduce-side-effects",
+    title: "reduce 的初值省略 / 空数组 / 稀疏数组",
+    src: "\nconsole.log([1, 2, 3].reduce((a, b) => a + b));\nconsole.log([].reduce((a, b) => a + b, 10));\ntry { [].reduce((a: any, b: any) => a + b); } catch (e) { console.log((e as Error).constructor.name); }\nconst holes = [1, , 3];\nconsole.log(holes.reduce((a, b) => a + b, 0), holes.filter(() => true).length);\nconsole.log([1, 2].reduce((a, b, i) => a + b + i, 0));\n",
+  },
+  {
+    id: "c653-stdlib-string-split-captures-free",
+    title: "split 的极限 / 空分隔 / 尾随空串",
+    src: "\nconsole.log(\"a,b,,\".split(\",\").length, JSON.stringify(\"a,b,,\".split(\",\")));\nconsole.log(JSON.stringify(\"abc\".split(\"\")), JSON.stringify(\"abc\".split(\"\", 2)));\nconsole.log(JSON.stringify(\"\".split(\",\")), JSON.stringify(\"a b\".split(\" \")));\nconsole.log(JSON.stringify(\"aaa\".split(\"a\")), \"x\".split(\"y\").length);\n",
+  },
+  {
+    id: "c653-stdlib-number-tostring-and-parse-edge",
+    title: "toString(radix) / parseInt / toFixed 边界",
+    src: "\nconsole.log((255).toString(16), (255).toString(2), (-255).toString(16), (0.5).toString(2));\nconsole.log(parseInt(\"0x1f\", 16), parseInt(\"12px\", 10), parseInt(\"  7 \"), parseInt(\"z\", 36));\nconsole.log((1.005).toFixed(2), (0).toFixed(2), (1234.5678).toFixed(3), (1e21).toFixed(2));\nconsole.log((-0).toString(), Object.is(-0, 0), 1 / -0);\n",
+  },
+  {
+    id: "c653-stdlib-json-stringify-key-order-and-gaps",
+    title: "stringify 的键序 / 稀疏数组 / 函数与 symbol",
+    src: "\nconsole.log(JSON.stringify({ 2: \"b\", 1: \"a\", x: 1, 0: \"c\" }));\nconsole.log(JSON.stringify([1, , 3]), JSON.stringify({ a: undefined, b: () => 1, c: Symbol(\"s\"), d: 1 }));\nconsole.log(JSON.stringify([undefined, null, NaN, Infinity]));\nconsole.log(JSON.stringify({ a: [1, { b: 2 }] }, null, 1).split(\"\\n\").join(\"|\"));\n",
+  },
+  {
+    id: "c653-stdlib-map-object-key-forms",
+    title: "Map 的键：对象 / NaN / -0 / 迭代顺序",
+    src: "\nconst m = new Map<any, any>();\nconst k1 = { id: 1 };\nconst k2 = () => 1;\nm.set(k1, \"obj\").set(k2, \"fn\").set(NaN, \"nan\").set(-0, \"zero\").set(0, \"zero2\");\nconsole.log(m.size, m.get(k1), m.get(k2), m.get(NaN), m.get(0), m.get(-0));\nconsole.log([...m.keys()].map((k: any) => typeof k).join(\",\"));\nm.delete(NaN);\nconsole.log(m.size, m.has(NaN));\n",
+  },
+  {
+    id: "c653-stdlib-object-keys-getters-only",
+    title: "Object.keys / getOwnPropertyNames / 描述符：原型、不可枚举与访问器",
+    src: "\nconst proto = { p: 1 };\nconst o: any = Object.create(proto);\no.a = 1;\nObject.defineProperty(o, \"hidden\", { value: 2, enumerable: false });\nObject.defineProperty(o, \"acc\", { get: () => 3, enumerable: true });\nconsole.log(Object.keys(o).join(\",\"), Object.getOwnPropertyNames(o).sort().join(\",\"));\nconsole.log(\"p\" in o, Object.prototype.hasOwnProperty.call(o, \"p\"), o.acc);\nconsole.log(Object.getOwnPropertyDescriptor(o, \"acc\") !== undefined, Object.getOwnPropertyDescriptor(o, \"hidden\")!.enumerable);\n",
+  },
+  {
+    id: "c653-stdlib-date-utc-and-string-roundtrip",
+    title: "Date 的 UTC getter / toISOString / 时间戳往返",
+    src: "\nconst d = new Date(Date.UTC(2020, 0, 2, 3, 4, 5, 6));\nconsole.log(d.getTime(), d.toISOString(), d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());\nconsole.log(d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds(), d.getUTCDay());\nconst back = new Date(d.toISOString());\nconsole.log(back.getTime() === d.getTime(), Date.parse(d.toISOString()) === d.getTime());\n",
+  },
 ];

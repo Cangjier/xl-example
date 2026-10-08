@@ -306,7 +306,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1102 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **1864 / 1864**：四层各 **100%**（runtime 523、exec 429、stdlib 726、e2e 186） |
+| `coverage` | **1875 / 1875**：四层各 **100%**（runtime 523、exec 429、stdlib 734、e2e 189） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
@@ -341,8 +341,15 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   这两个被更早的规则 / 解析期向导抢走，细节与「试过什么」见
   [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
 
-执行侧只剩一条：
+执行侧只剩两条：
 
+- **`Object.values` / `Object.entries` 跳过访问器**（第 653 轮普查量到的）：JS 走的是 `[[Get]]`，
+  所以 `{ get a() { return 1 } }` 的 `Object.values` 应该**调一次 getter**（`node` 给 `[1]`，
+  本仓给 `[]`）。`Object.keys` / `getOwnPropertyNames` / 直接读 `o.acc` **都是对的**，
+  差的就是「取值的那个内建要不要真读一次」。**修法有现成的先例**：
+  `Object.assign` 第 306 轮把「访问器的值」推迟到**紧挨着用它的那一句**再读
+  （getter 的结果不属于任何对象，提前抄进宿主数组就是让一个没人指着的值跨越一次分配）
+  ——`values` / `entries` 要走同一条纪律。它现在**没有进矩阵**（进了就红）。
 - **`using` / `await using` 只在 token 层成形，降级层不认它**：`using r = new Res()` 被当成普通
   `const` 降级，块结束时**不会**调 `r[Symbol.dispose]()`（`await using` 同理欠 `Symbol.asyncDispose`）——
   `node` 对这两个声明有运行期语义，`tsrun` 静默少一次释放。上面的 `Symbol.dispose` /
