@@ -510,6 +510,8 @@ return Value.FromRef(table.Get(proto).Tag, proto);
 **接收者必须是对象**：不是就抛——「给原始值设原型」在 JS 里是**静默无效**的，
 而静默无效正是这一层最不该有的行为。
 **而原型那一格第 278 轮改成了「不是对象就**不做事**」**（见下面那一段）。
+**`null` 除外**（第 697 轮）：它是**真的换**（`Proto = 0`），
+与「原型是数字」那一档**不是同一个答案**——见下面代码里那一段的账。
 
 **自环当场拒绝**：`set_proto(a, a)` 会让下一次属性查找绕着自己转。
 虽然 `MaxProtoDepth` 也会拦（**抛**，不是挂住），但**能当场说清楚的错不要留给下游**。
@@ -532,7 +534,19 @@ return Value.FromRef(table.Get(proto).Tag, proto);
 if (!receiver.IsObject()) {
   throw new Error("set_proto needs an object receiver");
 }
-// **原型那一格不是对象就不做事**（JS 的口径）——见上面那一段的理由。
+// **`null` 与「随便什么非对象」不是一档**（第 697 轮）：
+// JS 里 `Object.setPrototypeOf(o, null)` 是**真的换**——`Object.getPrototypeOf(o)` 给 `null`、
+// `o.toString` 变 `undefined`、`o instanceof Object` 变假。
+// 原来它和「原型是数字」挤在同一句 `return receiver` 里 ⇒ **静默不做事**，
+// 而症状是「链看起来还在」，离现场很远（判据 `exec/expressions/128-beh-setproto-change`
+// 第 2 行：Node 给 `undefined null`、本仓给 `base { tag: 'base' }`）。
+// **`Proto = 0` 就是「没有原型」**（`RtGetProto` 那一句读的正是它）。
+// **其余非对象仍然不做事**（那是第 278 轮的账：`class E extends Error {}` 的父类
+// 是宿主引用值，改成抛会把一条完全合法的 `extends` 挡住——见下面那一段）。
+if (proto.Tag === ValueTag.Null) {
+  table.Get(receiver.Ref).Proto = 0;
+  return receiver;
+}
 if (!proto.IsObject()) {
   return receiver;
 }

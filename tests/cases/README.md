@@ -77,17 +77,52 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **5743** 条（token 1416 / exec 1244 / runtime 767 / stdlib 2070 / e2e 246），判过 **5729** 条。
+语料 **5902** 条（token 1416 / exec 1244 / runtime 796 / stdlib 2200 / e2e 246），判过 **5888** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1243 | **1211** | 6 / 26 | 另有 1 条不进分母 |
-| `runtime` | 767 | **758** | 1 / 8 | |
-| `stdlib` | 2070 | **2000** | 23 / 47 | |
+| `exec` | 1243 | **1213** | 6 / 24 | 另有 1 条不进分母 |
+| `runtime` | 796 | **778** | 1 / 17 | |
+| `stdlib` | 2200 | **2126** | 25 / 49 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **5729** | **5395** | 253 / 81 | 加权 **95.8%** |
+| **合计** | **5888** | **5543** | 255 / 90 | 加权 **95.6%** |
+
+**第 697 轮再加 159 条**（分母 5729 → **5888**，三批：95 + 50 + 15）：第八批原子探针，专问
+`Symbol` 与知名符号、`Error` 家族与 `cause`、`Promise` / `async` 的**形状**、
+`Number` 与 `Math` 的格式化边界、`Object` 的冻结那一族与**属性枚举次序**，以及 `for..in`；
+后两批**专钉本轮修的那一处**（原型那一格）。**收掉一处、而且它底下压着三小处**：
+
+- **`Object.prototype.__proto__` 那个访问器没装**（**静默错值**，第 678 轮就登在台账里）：
+  读 `o.__proto__` 给 `undefined`；**写**它更坏——`SetProperty` 对不存在的键造的是**数据属性**
+  ⇒ `o.__proto__ = p` 写出一格**叫 `__proto__` 的普通自有属性**、链**一点没变**
+  （`o.greet` 是 `undefined`、而 `o.__proto__ === p` 却为**真**——**半对**，最难查的一种）。
+  修法：`ObjectProtoGet` / `ObjectProtoSet` 两个号 + `DefineAccessor` 挂到 `protos.Object` 上
+  （与 `Map.prototype.size` 第 613 轮**同一条教训**：`SetProperty` 造的是数据属性，
+  **造不出访问器**）。取法**与 `Object.getPrototypeOf` 共用 `PrototypeOfValue`**——
+  规范里那一格的正身就是一句 `Return ? O.[[GetPrototypeOf]]()`，不写第二份。
+  **`null` 那一档`与「原型是数字」不是同一个答案**：`o.__proto__ = null` / `Object.setPrototypeOf(o, null)`
+  **真的断开链**（`RtSetProto` 原来把 `null` 与「随便什么非对象」挤在同一句 `return receiver` 里）。
+- **写那一侧漏了「宿主可调用」这一档**（**这一轮实测撞到的，也是最要紧的一处**）：
+  `SetPropertySearched` 判 setter 能不能调，用的是 `property.Setter.IsCallable()`——
+  而**语言层往内建身上挂的 setter 是宿主引用**，`Value.IsCallable()` 看不到它
+  ⇒ **继承来的宿主 setter 永远不调**（`o.__proto__ = p` 于是被静默当成「写了个不存在的名字」）。
+  **读那一侧第 601 轮就修过了**（`ReadProperty` 用的正是 `IsCallableValue`，
+  注释里还写着「实测撞到的」）——**同一个根长在两条路上，只修了一条**；
+  这一轮把写那一侧对齐（判据 `exec/decorators-modifiers/051-beh-proto-accessor`）。
+  修完当场红了三条 JSON 用例，引出下面那一处。
+- **「按数据造对象」不能走 `[[Set]]`**：`JSON.parse('{"__proto__": {…}}')` 在 JS 里造的是
+  **一格叫 `__proto__` 的普通自有属性**，而 `[[Set]]` 会**沿原型链调 setter** ⇒ 去**改原型**；
+  装库期更响（`SetProperty(…, NeverCall, …)` 真调起来抛
+  `unreachable: installing a builtin never calls a function`，**整份文件进不来**）。
+  原来那三条用例**只是碰巧过**（setter 恰好被上面那一条挡在门外 ⇒ 静默变成「新建一格」）。
+  修法：`props.xl.md` 添一格 `CreateDataProperty`（就是 `SetHiddenProperty` 那一趟 + 三个标志全开），
+  `JSON.parse` 与 reviver 两处换成它。
+
+**加权 95.8% → 95.6%**（分子 +148：收掉的 2 条 + 新过的 146 条；分母 +159，
+另登记 13 条新缺口：`Error.stack` / `async` 函数那一层壳 / `Object.setPrototypeOf(o, 1)` 该抛
+/ 两条 `blocked`——「函数体里的内建基类」与「查不到的名字」）。
 
 **第 696 轮再加 152 条**（分母 5577 → **5729**，两批：102 + 50）：第七批原子探针，专问
 **稀疏数组与洞**（`map` / `filter` / `indexOf` / `includes` / `reduce` 五条对洞的口径都不一样）、

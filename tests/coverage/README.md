@@ -211,6 +211,36 @@
    第二批那 50 条**专钉这一处**（洞的四种口径、接收者身份、文本接收者、
    原始值接收者、数组接收者原样），**全 pass**。加权 **95.7% → 95.8%**
    （分子 +154、分母 +152）。
+   **第 697 轮全矩阵**（三批原子探针 159 份新语料：95 + 50 + 15）：通过 **5395 → 5543**、
+   分母 **5729 → 5888**、`blocked 253 → 255`、`differ 79 → 90`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` 0、`newlyPassing` **2**——收掉的是
+   **`Object.prototype.__proto__` 那个访问器**（第 678 轮就登在台账里的两格：
+   `exec/decorators-modifiers/051-beh-proto-accessor` 与
+   `exec/expressions/128-beh-setproto-change`）。**底下压着三小处**：
+   ① **读**那一支要一个取法，于是把 `Object.getPrototypeOf` 的取法抽成 `PrototypeOfValue`
+   两支共用（规范里 `__proto__` 的正身就是一句转交）；
+   ② **`RtSetProto` 把 `null` 与「随便什么非对象」挤在同一句 `return receiver` 里** ⇒
+   `Object.setPrototypeOf(o, null)` **静默不断链**（Node 给 `undefined null`、本仓给
+   `base { tag: 'base' }`）；③ **最要紧的那一处**：`SetPropertySearched` 判 setter 能不能调
+   用的是 `property.Setter.IsCallable()`，而**语言层往内建身上挂的 setter 是宿主引用**、
+   `Value.IsCallable()` 看不到它 ⇒ **继承来的宿主 setter 永远不调**，
+   `o.__proto__ = p` 被静默当成「写了不存在的名字」。**读那一侧第 601 轮就修过了**
+   （`ReadProperty` 用的正是 `IsCallableValue`，注释里写着「实测撞到的」）——
+   **同一个根长在两条路上、只修了一条**。
+   修完当场红三条 JSON 用例（`038` / `044` / `061`），引出最后一处：
+   **「按数据造对象」不能走 `[[Set]]`**——`JSON.parse('{"__proto__": {…}}')` 在 JS 里造的是
+   **普通自有属性**，而 `[[Set]]` 会沿链调 setter（去**改原型**），装库期还会撞上 `NeverCall`
+   （`unreachable: installing a builtin never calls a function`，整份文件进不来）。
+   原来那三条**只是碰巧过**。修法是 `props.xl.md` 添一格 `CreateDataProperty`
+   （`SetHiddenProperty` 那一趟 + 三个标志全开），`JSON.parse` 与 reviver 两处换成它。
+   本批另登记 13 条新缺口（`Error.stack`、`async` 函数那一层壳四格、
+   `Promise` 实例上多一份自有 `then`、`Object.setPrototypeOf(o, 1)` 该抛而本仓不抛，
+   以及两条 `blocked`：**函数体里的内建基类** `class M extends Error {}` 报
+   `heap object is not an environment`、**查不到的名字**在降级期就报而不是运行期 `ReferenceError`）。
+   第二批那 50 条**专钉原型这一格**（读/写/`null`/原始值接收者/自有属性遮蔽/枚举不可见/
+   `for..in`/`JSON.parse` 的 `__proto__` 键/四档 `setPrototypeOf`/脚本 setter 走链），
+   47 pass（一条 unhandled rejection 换成了合法形状、一条 `setPrototypeOf(o, 1)` 如实登记）。
+   加权 **95.8% → 95.6%**（分子 +148、分母 +159）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

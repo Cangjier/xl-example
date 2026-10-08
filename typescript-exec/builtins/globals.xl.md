@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, ArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt } from "./array.xl.md"
 import { StringFromCharCode, StringFromCodePoint, StringRaw } from "./string.xl.md"
@@ -326,6 +326,29 @@ import { BuildPromise, PromiseQueueMicrotask, PromiseThen, PromiseCatch, Promise
 **`700..799` 是对象辅助函数那一段**（`install.xl.md` 的 `InvokeObjectHelper` 先接走），
 `713` 落在里面 ⇒ 报 `unimplemented: object helper 713`（**这一轮实测撞到的**）。
 `500` 那一段只有 `501..503` 三格（JSON 两格 + `Date.toJSON`），`504` 是空的。
+
+# const ObjectProtoGet:int = 505
+
+**`Object.prototype.__proto__` 那个访问器的 getter 的号**（第 697 轮）——
+**它不是脚本看得到的名字**：这一层自己挂上去的一个宿主引用（见文末装库那一趟）。
+
+**它与 `Object.getPrototypeOf` 是同一件事**（规范里那一格的正身就是
+`get Object.prototype.__proto__`，算法里只有一句「Return ? O.[[GetPrototypeOf]]()」），
+所以两支**共用 `PrototypeOfValue`**——不为同一件事写第二份实现。
+
+**号为什么落在这里**（`505`）：`500` 那一段只有 `501..503`（JSON 两格 + `Date.toJSON`）
+与 `504`（`toLocaleString`），`505` 是接着的第一格；
+而 `700..799` 是**对象辅助函数那一段**（`install.xl.md` 的 `InvokeObjectHelper` 先接走），
+`600..699` 是 `Map` / `Set`——都进不来。
+
+# const ObjectProtoSet:int = 506
+
+**`__proto__` 那个访问器的 setter 的号**（第 697 轮）——与 `ObjectProtoGet` 成对。
+
+**它的口径与 `Object.setPrototypeOf` **不是**同一条**（JS 里就是两条，写在这里免得被「顺手统一」）：
+`Object.setPrototypeOf(o, 1)` 抛 `TypeError`、而 `o.__proto__ = 1` **静默不做事**；
+`Object.setPrototypeOf(1, {})` 抛、而 `1 .__proto__ = {}` **静默不做事**。
+所以这一支**自己不抛**，只把那两档筛掉之后交给 `RtSetProto`（`null` 那一档在那边刚补上）。
 
 # const ObjectDefineProperties:int = 413
 **`Object.defineProperties(对象, 描述符表)`**（第 276 轮）——一趟写多格。
@@ -2301,6 +2324,44 @@ return MakeNumber(value);
 return MakeNumber(ToNumberOf(room, call, protos, table, value));
 ```
 
+# method PrototypeOfValue:(protos:Protos, table:HeapTable, target:Value)=>Value
+
+**取一个值的原型，当值交出去**（第 697 轮从 `ObjectGetPrototypeOf` 那一支抽出来）——
+两个调用点：`Object.getPrototypeOf(o)` 与 **`({}).__proto__` 那个访问器的 getter**
+（规范里那一格的正身就是一句 `Return ? O.[[GetPrototypeOf]]()`，同一件事）。
+
+**原始值给它的原型**（JS 会**装箱**再取）：`Object.getPrototypeOf("a")` 是 `String.prototype`——
+本仓不装箱，所以这里按**原始值原型表**（`protos.String` / `Number` / `Boolean`）直接答。
+
+**闭包 / 函数也要认**（第 357 轮，**实测撞到的**）：`class B extends A { }` 里
+**类对象自己**也是一个对象（`Object.getPrototypeOf(B) === A`，判据
+`c291-rt-class-shapes` 第 6 格量的就是它）——而函数那一档原来**一律抛**
+（`unimplemented: Object.getPrototypeOf over this kind of value`，
+**一句话里没有一个字提到「函数也是对象」**）。
+它们在值模型里同样住堆上（`HeapClosure` / `HeapFunction` 都有 `Proto` 那一格），
+所以这里只是**放行**、下面那句读法一个字都不用改。
+
+```ts
+if (target.Tag === ValueTag.String) return Value.FromObject(protos.String);
+if (target.Tag === ValueTag.Int32 || target.Tag === ValueTag.Float64) return Value.FromObject(protos.Number);
+if (target.Tag === ValueTag.Bool) return Value.FromObject(protos.Boolean);
+if (target.Tag !== ValueTag.Object && target.Tag !== ValueTag.Array
+  && target.Tag !== ValueTag.Closure && target.Tag !== ValueTag.Function) {
+  throw new Error("unimplemented: Object.getPrototypeOf over this kind of value");
+}
+const protoHandle = table.Get(target.Ref).Proto;
+if (protoHandle === 0) return Value.Null();
+// **标签要跟着那一格自己的**（第 357 轮，**实测撞到的**）：`class B extends A {}` 的
+// **`B` 自己**是一条 `set_proto` 到 **`A` 那个闭包**上的（`LowerClass` 里那句
+// `SetProto(ctor, staticBaseSlot)`）——而这里原来一律 `Value.FromObject`
+// ⇒ 拿到的是一个 **Object 标签**的值，与 `A`（**Closure 标签**）用 `===` 一比
+// **永远是假**（症状：`Object.getPrototypeOf(B) === A` 给 `false`，而链上**确实**是 `A`
+// ——`c291-rt-class-shapes` 第 6 格量的就是它）。
+// **`HeapObject.Tag` 就是为这件事留的**（堆上每一项都记着自己是什么）——
+// 不再猜、也不再写第二份「哪些 tag 算对象」的名单。
+return Value.FromRef(table.Get(protoHandle).Tag, protoHandle);
+```
+
 # method InvokeGlobal:(room:RoomChecker, call:NativeCall | null, table:HeapTable, protos:Protos, id:int, self:Value, args:Array<Value>, sink:LogSink, failed:CallFailed | null = null, constructing:bool = false, constructThis:Value = new Value())=>Value
 
 **全局内建的分派与实现**。
@@ -2955,35 +3016,29 @@ if (id === ObjectCreate) {
 if (id === ObjectGetPrototypeOf) {
   // **`Object.getPrototypeOf(o)`**（第 209 轮）：把那一格原型**当值**交出去
   //（`Object.getPrototypeOf([]) === Array.prototype`、`Object.getPrototypeOf(new A()) === A.prototype`）。
-  // **原始值也给它的原型**（JS 会**装箱**再取）：`Object.getPrototypeOf("a")` 是 `String.prototype`——
-  // 本仓不装箱，所以这一支按**原始值原型表**（`protos.String` / `Number` / `Boolean`）直接答。
+  // **取法抽成了 `PrototypeOfValue`**（第 697 轮）：`__proto__` 那个访问器的 getter
+  // 与这一格是**同一件事**（规范里就是一句转交），两份就是两处会漂的答案。
   if (args.length < 1) throw new Error("this method needs an argument");
-  const target = args[0];
-  if (target.Tag === ValueTag.String) return Value.FromObject(protos.String);
-  if (target.Tag === ValueTag.Int32 || target.Tag === ValueTag.Float64) return Value.FromObject(protos.Number);
-  if (target.Tag === ValueTag.Bool) return Value.FromObject(protos.Boolean);
-  // **闭包 / 函数也要认**（第 357 轮，**实测撞到的**）：`class B extends A { }` 里
-  // **类对象自己**也是一个对象（`Object.getPrototypeOf(B) === A`，判据
-  // `c291-rt-class-shapes` 第 6 格量的就是它）——而函数那一档原来**一律抛**
-  //（`unimplemented: Object.getPrototypeOf over this kind of value`，
-  // **一句话里没有一个字提到「函数也是对象」**）。
-  // 它们在值模型里同样住堆上（`HeapClosure` / `HeapFunction` 都有 `Proto` 那一格），
-  // 所以这里只是**放行**、下面那句读法一个字都不用改。
-  if (target.Tag !== ValueTag.Object && target.Tag !== ValueTag.Array
-    && target.Tag !== ValueTag.Closure && target.Tag !== ValueTag.Function) {
-    throw new Error("unimplemented: Object.getPrototypeOf over this kind of value");
-  }
-  const protoHandle = table.Get(target.Ref).Proto;
-  if (protoHandle === 0) return Value.Null();
-  // **标签要跟着那一格自己的**（第 357 轮，**实测撞到的**）：`class B extends A {}` 的
-  // **`B` 自己**是一条 `set_proto` 到 **`A` 那个闭包**上的（`LowerClass` 里那句
-  // `SetProto(ctor, staticBaseSlot)`）——而这里原来一律 `Value.FromObject`
-  // ⇒ 拿到的是一个 **Object 标签**的值，与 `A`（**Closure 标签**）用 `===` 一比
-  // **永远是假**（症状：`Object.getPrototypeOf(B) === A` 给 `false`，而链上**确实**是 `A`
-  // ——`c291-rt-class-shapes` 第 6 格量的就是它）。
-  // **`HeapObject.Tag` 就是为这件事留的**（堆上每一项都记着自己是什么）——
-  // 不再猜、也不再写第二份「哪些 tag 算对象」的名单。
-  return Value.FromRef(table.Get(protoHandle).Tag, protoHandle);
+  return PrototypeOfValue(protos, table, args[0]);
+}
+if (id === ObjectProtoGet) {
+  // **`({}).__proto__`**（第 697 轮）：与 `getPrototypeOf` **同一处取法**——
+  // 差别只有「接收者从哪儿来」：那一支读 `args[0]`、这一支读 `self`（访问器的接收者）。
+  // **原始值接收者也照答**（JS 会先 `ToObject`）：`(1).__proto__` 是 `Number.prototype`——
+  // 与 `Object.getPrototypeOf(1)` 同一条表。
+  return PrototypeOfValue(protos, table, self);
+}
+if (id === ObjectProtoSet) {
+  // **`o.__proto__ = p`**（第 697 轮）——**两档静默不做事**（JS 的口径，见号那一段）：
+  // 接收者不是对象（`(1).__proto__ = {}`）、原型不是对象也不是 `null`（`o.__proto__ = 1`）。
+  // **其余交给 `RtSetProto`**：那一条已经有「自环当场拒」「深度上限」两处保护，
+  // 而 `null` 那一档（`o.__proto__ = null` 真的断开链）这一轮刚在那边补上——
+  // 这里再写一遍就是第二份会漂的答案。
+  if (!self.IsObject()) return Value.Undefined();
+  const wanted = args.length > 0 ? args[0] : Value.Undefined();
+  if (!wanted.IsObject() && wanted.Tag !== ValueTag.Null) return Value.Undefined();
+  RtSetProto(table, self, wanted);
+  return Value.Undefined();
 }
 if (id === ErrorToString) {
   // **`Error.prototype.toString`**（第 213 轮）——JS 的三条规矩：
@@ -6088,7 +6143,15 @@ if (unit === 123) {
     // `Object.keys(JSON.parse(...))` 在 JS 里看得见它们——「不可枚举」只给
     // **内部件与方法**用（`__t` / `__k` / `message` / 那一批方法）。
     // 判据当场抓住了这一格：那条 check 报的是「期望 {...}、实际 {}」。
-    SetProperty(room, NeverCall, table, created, Value.FromString(table.CreateString(key)), value);
+    //
+    // **走 `CreateDataProperty`、不走 `SetProperty`**（第 697 轮，**实测撞到的**）：
+    // JSON 解析是「按数据造对象」，JS 那一步是 `CreateDataProperty`——
+    // 而 `[[Set]]` 会**沿原型链调访问器的 setter**：`{"__proto__": {…}}` 于是去**改原型**
+    //（`044-json-parse-proto-key` 量的正是「它是普通自有属性」），
+    // 而且这里手里只有 `NeverCall` ⇒ 真调起来抛的是
+    // `unreachable: installing a builtin never calls a function`（**整份文件进不来**，
+    // 判据 `038-json-parse-forms-r371` / `044` / `061` 三条一起红）。
+    CreateDataProperty(room, table, created, Value.FromString(table.CreateString(key)), value);
     JsonSkipSpace(text, cursor);
     if (cursor.At >= text.length) throw new SyntaxError("JSON.parse: unterminated object");
     if (text[cursor.At] === 44) {
@@ -6219,7 +6282,10 @@ if (current.IsObject()) {
         // **`undefined` ⇒ 删掉这一格**（JS 的 `DeletePropertyOrThrow`）。
         DeleteProperty(table, current.Ref, childKey);
       } else {
-        SetProperty(room, NeverCall, table, current, childKey, walked);
+        // **与解析那一趟同一条规矩**（第 697 轮）：JS 的 `InternalizeJSONProperty`
+        // 这一步也是 `CreateDataProperty`——reviver 返回的值**按数据写回那一格**，
+        // 不沿原型链找 setter（`{"__proto__": …}` 在 reviver 这一趟同样只是普通自有属性）。
+        CreateDataProperty(room, table, current, childKey, walked);
       }
     }
   }
@@ -6990,6 +7056,22 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
   Value.FromString(table.CreateString(Units("toLocaleString"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectToLocaleString, 0)));
+// **`__proto__` 那个访问器**（第 697 轮，**判据 `exec/decorators-modifiers/051-beh-proto-accessor`
+// 与 `exec/expressions/128-beh-setproto-change` 钉着它**）：`Object.prototype.__proto__`。
+// 原来那一格**根本没装** ⇒ 读 `o.__proto__` 给 `undefined`；而**写**它更坏：
+// `SetProperty` 对不存在的键造的是**数据属性** ⇒ `o.__proto__ = proto` 写出一格
+// **叫 `__proto__` 的普通自有属性**，链**一点没变**——
+// `o.greet` 是 `undefined`、而 `o.__proto__ === proto` 却为**真**（**半对**，最难查的一种）。
+//
+// **必须走 `DefineAccessor`**（与 `Map.prototype.size` 第 613 轮**同一条教训**）：
+// `SetProperty` 造的是数据属性，造不出访问器。
+// **不可枚举**（Node 那边 `Object.getOwnPropertyDescriptor(Object.prototype, "__proto__")`
+// 给 `{ enumerable: false, configurable: true }`）。
+// **`Object.keys({})` 必须还是空的**——这一格是**访问器**，而按上面那一条它不进枚举。
+DefineAccessor(vm.Room(), vm.Table, Value.FromObject(protos.Object),
+  Value.FromString(table.CreateString(Units("__proto__"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectProtoGet, 0)),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectProtoSet, 0)), false);
 // **`Object.create` / `Object.getPrototypeOf`**（第 209 轮）：与 `keys` / `values` 那几张
 // **同一张对象**（都是 `Object` 的静态方法），分派在 `InvokeGlobal` 里（那一支有 `table`）。
 SetProperty(vm.Room(), NeverCall, table, objectObject,

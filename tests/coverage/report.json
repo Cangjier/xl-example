@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5729,
+  "total": 5888,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.8,
+  "progressPercent": 95.57,
   "categories": [
     {
       "category": "token",
@@ -91,31 +91,31 @@
       "category": "exec",
       "weight": 0.25,
       "total": 1243,
-      "pass": 1211,
+      "pass": 1213,
       "blocked": 6,
-      "differ": 26,
+      "differ": 24,
       "nodefail": 0,
-      "coverage": 97.43
+      "coverage": 97.59
     },
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 767,
-      "pass": 758,
+      "total": 796,
+      "pass": 778,
       "blocked": 1,
-      "differ": 8,
+      "differ": 17,
       "nodefail": 0,
-      "coverage": 98.83
+      "coverage": 97.74
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2070,
-      "pass": 2000,
-      "blocked": 23,
-      "differ": 47,
+      "total": 2200,
+      "pass": 2126,
+      "blocked": 25,
+      "differ": 49,
       "nodefail": 0,
-      "coverage": 96.62
+      "coverage": 96.64
     },
     {
       "category": "e2e",
@@ -1518,6 +1518,18 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
     },
     {
+      "id": "stdlib/error/probe697-e16",
+      "category": "stdlib",
+      "title": "(function () { class M extends Error {} const m = new M(\"x\"); return [m.name, m.message, m instanceof Error].join(\",\"); })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：heap object is not an environment"
+    },
+    {
+      "id": "stdlib/error/probe697-e17",
+      "category": "stdlib",
+      "title": "(function () { try { undefinedFn(); } catch (e) { return e.constructor.name; } })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
+    },
+    {
       "id": "stdlib/globals/006-regexp-literal-basic",
       "category": "stdlib",
       "title": "正则字面量与 exec / test",
@@ -1682,12 +1694,6 @@
       "detail": "stdout 不同：第 1 行：node «string:has» vs tsrun «string:no»"
     },
     {
-      "id": "exec/decorators-modifiers/051-beh-proto-accessor",
-      "category": "exec",
-      "title": "__proto__ 这个访问器读与写",
-      "detail": "stdout 不同：第 1 行：node «hi true» vs tsrun «undefined true»"
-    },
-    {
       "id": "exec/decorators-modifiers/057-private-brand",
       "category": "exec",
       "title": "私有名的品牌检查与错接收者",
@@ -1710,12 +1716,6 @@
       "category": "exec",
       "title": "await using 声明：块结束时该调 Symbol.asyncDispose",
       "detail": "stdout 不同：第 3 行：node «dispose a» vs tsrun «»"
-    },
-    {
-      "id": "exec/expressions/128-beh-setproto-change",
-      "category": "exec",
-      "title": "setPrototypeOf 换链之后读到的成员与 instanceof",
-      "detail": "stdout 不同：第 2 行：node «undefined null» vs tsrun «base { tag: 'base' }»"
     },
     {
       "id": "exec/expressions/136-beh-instanceof-hasinstance",
@@ -1824,6 +1824,60 @@
       "category": "runtime",
       "title": "(function () { const f = async () => 1; return f() instanceof Promise; })()",
       "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
+    },
+    {
+      "id": "runtime/async/probe697-p03",
+      "category": "runtime",
+      "title": "(async function () { return 1; })().constructor.name",
+      "detail": "stdout 不同：第 1 行：node «string:Promise» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "runtime/async/probe697-p04",
+      "category": "runtime",
+      "title": "(async function () { return 1; })() instanceof Promise",
+      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
+    },
+    {
+      "id": "runtime/async/probe697-p11",
+      "category": "runtime",
+      "title": "(async function () { return await 1; })().constructor.name",
+      "detail": "stdout 不同：第 1 行：node «string:Promise» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "runtime/async/probe697-p13",
+      "category": "runtime",
+      "title": "(async function () {}).constructor.name",
+      "detail": "stdout 不同：第 1 行：node «string:AsyncFunction» vs tsrun «string:Function»"
+    },
+    {
+      "id": "runtime/async/probe697-z04",
+      "category": "runtime",
+      "title": "Object.prototype.toString.call(async function () {})",
+      "detail": "stdout 不同：第 1 行：node «string:[object AsyncFunction]» vs tsrun «string:[object Function]»"
+    },
+    {
+      "id": "runtime/async/probe697-z07",
+      "category": "runtime",
+      "title": "typeof (async function () {}).prototype",
+      "detail": "stdout 不同：第 1 行：node «string:undefined» vs tsrun «string:object»"
+    },
+    {
+      "id": "runtime/async/probe697-z08",
+      "category": "runtime",
+      "title": "(function* () {}).constructor.name",
+      "detail": "stdout 不同：第 1 行：node «string:GeneratorFunction» vs tsrun «string:Function»"
+    },
+    {
+      "id": "runtime/async/probe697-z09",
+      "category": "runtime",
+      "title": "Object.prototype.toString.call(function* () {})",
+      "detail": "stdout 不同：第 1 行：node «string:[object GeneratorFunction]» vs tsrun «string:[object Function]»"
+    },
+    {
+      "id": "runtime/async/probe697-z15",
+      "category": "runtime",
+      "title": "(function () { const p = Promise.reject(1); p.catch(() => {}); return Object.getOwnPropertyNames(Object(p)).includes(\"then\"); })()",
+      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
     },
     {
       "id": "runtime/iterators/039-map-mutation-during-forof",
@@ -1961,7 +2015,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27028/src/3884.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27612/src/3913.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1974,6 +2028,12 @@
       "category": "stdlib",
       "title": "typeof Error.captureStackTrace",
       "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
+    },
+    {
+      "id": "stdlib/error/probe697-e11",
+      "category": "stdlib",
+      "title": "typeof new Error(\"m\").stack",
+      "detail": "stdout 不同：第 1 行：node «string:string» vs tsrun «string:undefined»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",
@@ -2106,6 +2166,12 @@
       "category": "stdlib",
       "title": "(function () { return Object.assign([], [1, 2]).length; })()",
       "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «number:0»"
+    },
+    {
+      "id": "stdlib/object/probe697-q32",
+      "category": "stdlib",
+      "title": "(function () { try { Object.setPrototypeOf({}, 1); return \"no\"; } catch (e) { return e.constructor.name; } })()",
+      "detail": "stdout 不同：第 1 行：node «string:TypeError» vs tsrun «string:no»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

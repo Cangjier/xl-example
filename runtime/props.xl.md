@@ -2,7 +2,7 @@
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
 import { HeapTable, Property, PropertyKind, ObjectCharge, PropertyCharge } from "./heap.xl.md"
-import { PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagEnumerable } from "./heap.xl.md"
+import { PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagEnumerable, PropertyFlagsAll } from "./heap.xl.md"
 import { RootSet } from "./gc.xl.md"
 import { RoomChecker, IsCallableValue } from "./rt.xl.md"
 ```
@@ -863,7 +863,17 @@ if (found !== null) {
     // `this should throw a TypeError (accessor without a setter)`（**同一句话两种结局**）。
     // **严格模式要抛**——那是另一档（本仓选定非严格，与 `this` 那一条是同一条设计决定）：
     // 谁需要「抛」谁自己看返回值（`push` 那一族，见 `SetProperty` 那一段）。
-    if (!property.Setter.IsCallable()) {
+    //
+    // **判据是 `IsCallableValue`、不是 `Value.IsCallable`**（第 697 轮，**实测撞到的**）：
+    // 与**读**那一侧第 601 轮修的是**同一处、同一个根**——`Value.IsCallable()` 看不到
+    // **宿主引用**，而语言层往内建身上挂的 setter 正是宿主引用
+    //（`Object.prototype.__proto__` 那一格，第 697 轮刚装上）。
+    // 拿后者判 ⇒ **继承来的宿主 setter 永远不调**，于是 `o.__proto__ = p`
+    // 被静默当成「写了个不存在的名字」：链一点没变、`o.greet` 是 `undefined`
+    //（判据 `exec/decorators-modifiers/051-beh-proto-accessor`）。
+    // **读那一侧修了、写这一侧没修**，是因为当时那一格只装了 getter——
+    // 「同一个根长在两条路上」正是本项目反复踩过的那种形状（见第 283 / 307 轮的账）。
+    if (!IsCallableValue(table, property.Setter)) {
       return false;
     }
     call(property.Setter, receiver, [value]);
@@ -1117,6 +1127,32 @@ const hiddenCreated = new Property(key.Ref, value);
 hiddenCreated.Flags = wanted;
 table.Get(receiver.Ref).Props.push(hiddenCreated);
 table.Recount(receiver.Ref);
+```
+
+# method CreateDataProperty:(room:RoomChecker, table:HeapTable, receiver:Value, key:Value, value:Value)=>void
+
+**`CreateDataProperty`**（第 697 轮）——「**造/改一格自有的、可写、可枚举、可配置的数据属性**」。
+
+**它与 `SetProperty` 的差别不是「省一步」，是两条不同的规矩**（第 697 轮**实测撞到的**）：
+`[[Set]]` 会**沿原型链找访问器并调它的 setter**。于是：
+
+- `JSON.parse('{"__proto__": {…}}')` 会去**改那个新对象的原型**——而 JS 的口径是
+  **造一格叫 `__proto__` 的普通自有属性**（判据 `stdlib/json/044-json-parse-proto-key`
+  一直量着它，**它原来只是碰巧过**：那一轮那一格 setter 还是个宿主引用、
+  被 `Value.IsCallable()` 挡在门外 ⇒ 静默变成「新建一格」，正好是 JS 的答案）；
+- 装库期那一档更响：`SetProperty(…, NeverCall, …)` 一旦真去调 setter，
+  抛的是 `unreachable: installing a builtin never calls a function`（**整份文件进不来**）。
+
+所以「**按数据造对象**」的地方（`JSON.parse` / `reviver` / `Object.fromEntries` 那一族）
+一律走这一格，`[[Set]]` 那一格留给**赋值语句**。
+
+**实现只有一份**：它就是 `SetHiddenProperty` 那一趟（找自有那一格改值、没有就新开一格，
+**不看数组的 `length`、不调 setter**），差别只在标志位——
+这里固定给 `PropertyFlagsAll`（`SetHiddenProperty` 的缺省是「不可枚举」，
+那是给内部件用的另一档）。
+
+```ts
+SetHiddenProperty(room, table, receiver, key, value, PropertyFlagsAll);
 ```
 
 # method NewPlainObject:(room:RoomChecker, table:HeapTable, protos:Protos)=>Value
