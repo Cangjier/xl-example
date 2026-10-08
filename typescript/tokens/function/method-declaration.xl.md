@@ -500,10 +500,13 @@ return false;
 **`import` 单独在这里再挡一次**：`typeof import("assert")`（模块查询类型）也是「名字 + 括号」的形状，
 但 `import` **不能**加进 `BanedMethodNames`——那张表是「能不能当方法名」的唯一判据，
 调用规则（`Method`）与声明规则共用它，加进去会连带挡掉动态 `import("m")` 的调用节点。
-所以这里就地拒一次：`import` 不在成员位置当方法名。**这一条不按成员体放开**（第 640 轮试过、退回了）：
-成员体里 `typeof import("m").A` 的那个 `import` 的**父单元也是成员体**（平铺列表），
-按成员体放开就会把它收成 `MethodDeclaration`（判据 `types/type-import-typeof-member`
-当场报「`absent MethodDeclaration` 却出了 2 个」）。`{ import(): T { … } }` 这一格今天让掉。
+所以这里就地拒一次：`import` 不在成员位置当方法名。
+
+**唯一的例外是对象字面量**（第 654 轮）：`{ import(): T { … } }` 里它是**成员名**，
+判据是「名字的父单元就是 `ObjectLiteral`」——比「父单元是成员体」窄一格。第 640 轮按成员体放开被退回，
+原因是成员体里 `typeof import("m").A` 的那个 `import` 的**父单元也是成员体**（平铺列表）；
+而 `typeof import("m")` 那个 `import` 只可能待在 `TypeLiteralBody` / `InterfaceBody` / `ClassBody` 里，
+不会待在一个**值位的** `ObjectLiteral` 里 ⇒ 这一格是安全的。
 
 **成员位置反而要放开禁用表**：`class A { delete() {} if() {} for() {} new() {} }` /
 `interface I { for(): void }` 里的方法名正是关键字——它们是**成员名**，不存在
@@ -589,7 +592,7 @@ if (isComputedName === false && inMemberBody) {
     }
   }
 }
-if (name instanceof Identifier && name.Is("import")) {
+if (name instanceof Identifier && name.Is("import") && !(name.Parent instanceof ObjectLiteral)) {
   return false;
 }
 const parametersIndex = this.ParameterIndex(units, nameIndex);

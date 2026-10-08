@@ -55,21 +55,9 @@
 
 ## 已知仍开着的缺口
 
-四条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
+两条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
 **不在语料里**——所以 `npm run gates` 是绿的，而它们是真实存在的形状：
 
-- **对象字面量里的两个「语句关键字」当成员名**：`{ function(): T { … } }` /
-  `{ import(): T { … } }`。`{ if(): T { … } }` 与**其余三十来个保留字都已经对了**
-  （[`expr-object-keyword-method-names.ts`](../tests/parse/cases/expressions/expr-object-keyword-method-names.ts)、
-  [`expr-object-member-named-if.ts`](../tests/parse/cases/expressions/expr-object-member-named-if.ts)）：
-  `if` 是第 647 轮收掉的——`IfSetBranch` 加了一条**位置闸**（宿主那个 `{` 是值位花括号 ⇒
-  那个 `if` 是成员名，判据问的是 `IsObjectLiteralBrace`，与 `JsonObjectCloseRule` 同一句）。
-  剩下这两个被**更早的规则**抢走：`function` 由 `FunctionCloseRule`、`import` 由
-  `MethodDeclarationCloseRule` 里那条**就地拒收**；而两条规则各自又都有「这个词不许当方法名」
-  那一侧（`BanedMethodNames` 里就有 `function`）——所以拒收之后还得让方法那一侧**在成员位上收下它**，
-  一处改不成。
-  试过一版按父单元分开 `import`——`typeof import("m")` 与 `{ import(): T { … } }` 的父单元
-  都是成员体，当场被 `types/type-import-typeof-member` 拦下。
 - **`do` 的体本身是一条 `while` 语句**：`do while (a) x++; while (b);`。体起手就是 `while` 词，
   `DoWhileCloseRule.BodyEnd` 的「往后找到那个 `while`」于是找到**体自己**，返回的结尾落在体起点之前
   （实测体空、`x++` 掉在 `DoWhile` 外面，多出 4 个节点）。要修得先能算出「一条 `while` 语句到哪结束」

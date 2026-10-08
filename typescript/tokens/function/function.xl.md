@@ -5,8 +5,8 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
-import { SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { DeclarationModifierSpans, DeclarationModifiers, DeclarationStart, IsDeclarationModifier, ScanDeclarationBody, ScanDeclarationTailEnd, TakeDeclarationDecorators } from "../declaration-common.xl.md"
+import { GetSkipPreviousTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { FunctionBody } from "./function-body.xl.md"
@@ -97,15 +97,48 @@ return i;
 `<InterfaceBody><Function name="" …>`）。类体同理：`class C { function() {} }` 是名字叫
 `function` 的方法。接口体 / 类型字面量体 / 类体里不可能有函数**声明**。
 
+**对象字面量里的 `function` 要看前面那一格**（第 654 轮）：`{ function(): T { … } }` 是**名叫
+`function` 的方法**（前面的 `{` / `,` 是成员起点），而 `{ f: function () {} }` 是**函数表达式**
+（值位，前面是 `:` / `=` / `(` …）。同一个词、同一个父单元，分开它们的只有名字**前面那一格**——
+与 `MethodDeclarationCloseRule` 里 `readonly` 那一段（第 609 轮）用的是同一条判据。
+少了这道闸，`{ function(): T { … } }` 会被收成一个**没有名字的 `Function`**，
+方法名 `function` 消失（实测：`FunctionExpression` 挂在 `ShorthandPropertyAssignment` 的 `name` 上）。
+
+**点号后面的 `function` 同理**：`table.function()` 里的 `function` 是**属性名**。
+
 ```ts
 const current = Get(units, index);
 if (!(current instanceof Identifier) || !current.Is("function")) {
+  return false;
+}
+// **点号后面的 `function` 是属性名，不是函数表达式**（第 654 轮）：`table.function()` 的形状
+// 与匿名函数 `function () {}` 一模一样，分开它们的只有名字**前面那一格**——
+// 判据与 `IfSetBranch.Condition` 里那道 `if` 的闸同款（`.method()` / `?.method()` 是成员访问，
+// 不可能是语句 / 表达式起手）。少了它，`table.function()` 整条被收成一个**没有名字的 `Function`**，
+// `PropertyAccessExpression` / `CallExpression` 一起消失（实测 `const r = table.function();`
+// 产物是 `<Identifier>table</Identifier><SymbolToken>.</SymbolToken><Function name="">`）。
+const previous = GetSkipPreviousTrivia(units, index);
+if (previous instanceof SymbolToken && (previous.Is(".") || previous.Is("?."))) {
+  return false;
+}
+if (previous !== null && previous.constructor.name === "NullConditionalOperator") {
   return false;
 }
 if (current.Parent !== null) {
   const parentName = current.Parent.constructor.name;
   if (parentName === "InterfaceBody" || parentName === "TypeLiteralBody" || parentName === "ClassBody") {
     return false;
+  }
+  // **对象字面量里「函数声明」与「函数表达式」的分界是名字前面那一格**：
+  // 成员起点（`{` / `,` / `;`）或一个修饰词（`async` / `get` / `set`）⇒ 它是成员名。
+  if (parentName === "ObjectLiteral") {
+    const before = GetSkipPreviousTrivia(units, index);
+    const atMemberStart =
+      before === null ||
+      (before instanceof SymbolToken && (before.Is("{") || before.Is(",") || before.Is(";")));
+    if (atMemberStart || IsDeclarationModifier(before)) {
+      return false;
+    }
   }
 }
 return this.ParameterIndex(units, index) >= 0;
