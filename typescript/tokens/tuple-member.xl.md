@@ -6,6 +6,7 @@ import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
 import { Identifier } from "./identifier.xl.md"
+import { IsAnnotationUnit } from "../text-common-util.xl.md"
 import { LineWrap } from "./line-wrap.xl.md"
 import { SymbolToken } from "./symbol-token.xl.md"
 ```
@@ -111,14 +112,11 @@ for (const item of original) {
     rebuilt.push(item);
     continue;
   }
-  // **注释不进成员**（与 `enum-member.xl.md` 同一条口径）：注释是 TS 的 trivia、
-  // 不属于任何节点，包进成员会让成员区间与 TS 对不上。留在容器里 ✓。
-  if (item.constructor.name === "AreaAnnotation" || item.constructor.name === "LineAnnotation") {
-    this.AppendSegment(rebuilt, segment, owner);
-    segment = [];
-    rebuilt.push(item);
-    continue;
-  }
+  // **注释不再切段**（第 631 轮）：`[a /* c */?: number]` 里那条注释落在名字与 `?:` **中间**，
+  // 一切段就把一条成员劈成两半——前半是裸名字、后半成了没有名字的 `NamedTupleMember`
+  // （判据 `cm-tuple-question`：缺 `NamedTupleMember` / `QuestionToken` / `NumberKeyword`，
+  // 多出一个 `TypeReference`）。注释是 trivia，交 `AppendSegment` 一起处理：
+  // **不参与判定、也不进成员的 `Data`**，只在容器里原样留着。
   segment.push(item);
 }
 this.AppendSegment(rebuilt, segment, owner);
@@ -148,14 +146,30 @@ for (const item of segment) {
 if (content.length === 0) {
   return;
 }
-const first = content[0];
-const last = content[content.length - 1];
+// **注释既不是内容、也不该撑开成员的区间**（第 631 轮）：`name /* c */?: T` 的成员区间
+// 在 TS 那边从名字一直到类型（注释落在中间，属于这个区间），而 `A? /* c */,` 的可选元素
+// 区间只到那个 `?`。两者的分界是「第一个 / 最后一个**实义**单元」，所以判定与 `Build`
+// 的范围都按 `visible` 算，注释留在容器里（与 `enum-member.xl.md` 同一条口径）。
+const visible: Token[] = [];
+for (const item of content) {
+  if (!IsAnnotationUnit(item)) {
+    visible.push(item);
+  }
+}
+if (visible.length === 0) {
+  for (const item of content) {
+    rebuilt.push(item);
+  }
+  return;
+}
+const first = visible[0];
+const last = visible[visible.length - 1];
 // **`...` 可能已经被 `SpreadCloseRule` 收成一个 `Spread` 节点**（它排在通用队列更前面），
 // 所以两种形态都要认：裸的 `...` 符号、或者已经成形的 `Spread` ✓。
 const isRest =
   (first instanceof SymbolToken && first.Is("...")) || first.constructor.name === "Spread";
 let hasColon = false;
-for (const item of content) {
+for (const item of visible) {
   if (item instanceof SymbolToken && item.Is(":")) {
     hasColon = true;
   }
@@ -179,17 +193,23 @@ if (hasColon === false && isRest === false && isOptional === false) {
   return;
 }
 if (isRest && hasColon === false) {
-  rebuilt.push(this.Build(new RestType(owner.Template), this.UnpackSpread(content), owner));
+  rebuilt.push(this.Build(new RestType(owner.Template), this.UnpackSpread(visible), owner));
   return;
 }
 if (isOptional && hasColon === false) {
-  rebuilt.push(this.Build(new OptionalType(owner.Template), content, owner));
+  rebuilt.push(this.Build(new OptionalType(owner.Template), visible, owner));
   return;
 }
-const member = this.Build(new NamedTupleMember(owner.Template), content, owner);
+const member = this.Build(new NamedTupleMember(owner.Template), this.UnpackSpread(visible), owner);
 this.LiftOptional(member);
 rebuilt.push(member);
 ```
+
+**具名的那一支也要摊开 `Spread`**（第 631 轮）：`[...rest /* c */: boolean[]]` 里那条注释
+让 `...rest` 先被 `SpreadCloseRule` 收成了一个 `Spread`——不摊开的话它留在
+`NamedTupleMember` 里，投影按「有 `Spread` 子单元」投出一个 `SpreadElement`，
+而 TS 要的是 `dotDotDotToken` + `name`（判据 `type-tuple-member-comment`：
+缺 `DotDotDotToken` + 多出 `SpreadElement` + 字段名差一格）。摊开之后两种来路同形。
 
 ## private method LiftOptional:(member:IndependentToken)=>void
 

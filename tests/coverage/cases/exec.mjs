@@ -4518,4 +4518,9 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     title: "被调用者是括号 / 一次调用时的可选链（(x as T)?.m?.() / f()?.m?.()）",
     src: "\nconst o: any = { m: () => 7 };\nconst p: any = { n: { m: () => 3 } };\nconst f = () => ({ m: () => 5 });\nconsole.log((o as any)?.m?.(), (o as any).m?.(), (p.n)?.m?.(), (p.n).m?.(), f()?.m?.());\nconsole.log((o as any)?.m?.(1, 2), (o as any)?.nope?.());\n",
   },
+  {
+    id: "c631-ex-comment-adjacency",
+    title: "注释夹在语法相邻位置之间（new / for-of / 字段 / 元组成员）",
+    src: "\nclass A {\n  v: number;\n  constructor(v: number) {\n    this.v = v;\n  }\n}\nclass B {\n  x /* c */ = 1;\n  y /* c */ ?: number;\n}\nconst a = new /* c */ A(7);\nlet sum = 0;\nfor (const n /* in */ of [1, 2, 3]) {\n  sum += n;\n}\ntype T = [p /* c */?: number, ...rest /* c */: string[]];\nconst t: T = [1, \"a\"];\nconsole.log(a.v, new B().x, sum, t.length);\n",
+  },
 ];

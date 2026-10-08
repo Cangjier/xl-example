@@ -7,7 +7,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get } from "../../../core/extensions/list-extension.xl.md"
 import { ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, IsAnnotationUnit, SkipNextTrivia, SkipNextWrapSymbol } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { SymbolToken } from "../symbol-token.xl.md"
@@ -49,13 +49,13 @@ const current = Get(units, index);
 if (!(current instanceof Identifier) || !current.Is("new")) {
   return false;
 }
-const nextIndex = SkipNextWrapSymbol(units, index);
+const nextIndex = SkipNextTrivia(units, index);
 const next = Get(units, nextIndex);
 if (next instanceof Bracket) {
   if (next.startBracket !== "(") {
     return false;
   }
-  const afterBracket = Get(units, SkipNextWrapSymbol(units, nextIndex));
+  const afterBracket = Get(units, SkipNextTrivia(units, nextIndex));
   if (afterBracket instanceof SymbolToken && afterBracket.Is("=>")) {
     return false;
   }
@@ -63,6 +63,10 @@ if (next instanceof Bracket) {
 }
 return next instanceof Identifier;
 ```
+
+**`new` 与类型名之间的注释要跳过去**（第 631 轮）：`new /* c */ A()` 里紧接着 `new` 的是
+那条 `AreaAnnotation`——只跳软换行时它在判定这一步就把形状打断了，`new` 留在树里当 `Keyword`
+（判据 `cm-new-paren`）。注释是 trivia，与软换行同一条口径：`SkipNextTrivia` 两样都跳。
 
 **`(` 括号那一支是给「括号里的被构造者」的**：`new (class {})()` / `new (getCtor())()`——
 被构造的表达式可以先用括号包起来。不认这一支时 `new` 留在树里、拿不到 `New` 节点。
@@ -92,11 +96,15 @@ return next instanceof Identifier;
 
 ```ts
 const current = Get(units, index) as Identifier;
-let i = index + 1;
+// **扫描也要跳 trivia**（第 631 轮）：与 `Previous` 同一处口径。跳的是注释与软换行，
+// 但**注释仍留在 `NewType` 里**（它们落在被替换的那一段里，不显式收下就等于删掉，
+// 与 `Foreach` 的 `CommentsIn` 同一个理由；软换行照旧丢掉）。
+const calleeIndex = SkipNextTrivia(units, index);
+let i = calleeIndex;
 let bracketIndex = -1;
 const callee = Get(units, i);
 if (callee instanceof Bracket && callee.startBracket === "(") {
-  i = i + 1;
+  i = SkipNextTrivia(units, i);
 }
 while (i < units.length) {
   const item = Get(units, i);
@@ -108,6 +116,10 @@ while (i < units.length) {
   }
   if (item instanceof LineWrap) {
     break;
+  }
+  if (IsAnnotationUnit(item)) {
+    i = i + 1;
+    continue;
   }
   if (item instanceof SymbolToken && item.Is(".") === false) {
     break;

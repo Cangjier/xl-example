@@ -13,7 +13,7 @@ import { IndexSignature } from "./index-signature.xl.md"
 import { Parameter } from "./lamda/lamda-parameter.xl.md"
 import { InterfaceBody } from "./interface/interface-body.xl.md"
 import { TypeLiteralBody } from "./type-literal/type-literal-body.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { SkipNextAnnotation, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Statement } from "./statement.xl.md"
 import { ConstString } from "./string/const-string.xl.md"
 import { Keyword } from "./keyword.xl.md"
@@ -303,7 +303,12 @@ const previous = Get(units, previousIndex);
 if (previous instanceof SymbolToken && !(previous.Is(";") || previous.Is(","))) {
   return false;
 }
-const immediate = Get(units, nameIndex + 1);
+// **名字与延续符号之间的注释要跳过去**（第 631 轮）：`a /* deprecated */ = 1;` 里
+// 紧跟名字的是那条 `AreaAnnotation`，按原来那一句它既不是软换行也不是符号 ⇒ 判否 ⇒
+// 整条成员散成 `<Identifier>a</Identifier><AreaAnnotation/><SymbolToken>=</SymbolToken>`
+// （判据 `cm-member-question`：缺 `PropertyDeclaration` + 多出 `EqualsToken` /
+// `SemicolonClassElement`）。软换行**不能**一起跳（`a` 换行是「只有名字的字段」）。
+const immediate = Get(units, SkipNextAnnotation(units, nameIndex));
 if (immediate === null || immediate instanceof LineWrap) {
   return true;
 }

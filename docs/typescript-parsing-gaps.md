@@ -55,11 +55,28 @@
 
 ## 已知仍开着的缺口
 
-**这一节现在是空的**。最后一条（括号 / 一次调用当被调用者时的可选链：
-`(x as T)?.m?.()` / `f()?.m?.()`）在第 630 轮修掉——`Method.PrintAst` 里
-「名字为空 + 第一个子单元是括号」那一支原先抢在可选链那一支前面，把两个
-`NullConditionalOperator` 当成实参投了出去；判据是**有没有 NCO 子单元**。
-`README.md` 的「开着的缺口」列的是**另一类**（口径上认下来的形态差异），不重复在这里。
+两条都是**探针量出来的**（`tmp/` 里那种一次一条的小片段，见「怎么量缺口」第 4 条），
+**不在语料里**——所以六道门是绿的，而它们是真实存在的形状：
+
+- **`switch` 体里同一行写完一个块，后面再跟 `case` / `default`**：
+  `switch (1) { case 1: { break; } default: break; }`。语句层把 `default:` 那一截并进了
+  **同一个 `Statement` 壳**，而 `switch` 的分段是在体括号的**顶层单元**上找 `case` / `default`
+  （`switch.xl.md` 的 `SegmentWordOf`）——壳只有一个，于是只有一段，`default` 整条落进前一段的
+  `SwitchStatement`。**换行写法是好的**（`default:` 自己一条壳），所以只有单行 / 压缩过的代码中招。
+  同族的那条「块后面紧跟着表达式」在 [README](../README.md) 的「开着的缺口」里，改法已被否决过
+  （块当语句边界会切断复合赋值的展开），这一条要修得先能区分「块 + `case`」与「块 + 操作数」。
+- **带两个以上实参的泛型出现在下标访问的方括号里**：`type X = K[A<B, C>]`。
+  括号的内容是在**括号关闭那一刻**重组的，那时它的父单元还是 `Bracket`，
+  `IsTypeContainerUnit` 判否 ⇒ `A<B, C>` 一个节点都不成形（实测产物里是散着的
+  `< A B , C >`，投影于是丢掉第二个实参）⇒ TS 那边多出 `TypeReference(C)`。
+  顶层（`A<B, C>`）与嵌在别的泛型里（`Array<A<B, C>>`）都是好的——
+  修法在 `type-bracket.xl.md` 这一侧：像 `ParenthesizedTypeCloseRule` 那样，
+  在括号换父成 `IndexedAccessType` 之后**重跑一遍括号自己的队列**（`text-common-util.xl.md`
+  的 `IsTypeContainerUnit` 已经认 `IndexedAccessType`，缺的只是那一趟）。
+
+**已经修掉的**（留着是为了说明「哪一类形状值得先探」）：括号 / 一次调用当被调用者时的可选链
+（`(x as T)?.m?.()`，第 630 轮）、注释夹在语法相邻位置之间（`new /* c */ A()`、
+`for (const a /* in */ of xs)`、`a /* c */ = 1`、`[a /* c */?: T]`，第 631 轮）。
 
 ## 被否决的改法（不要再试）
 

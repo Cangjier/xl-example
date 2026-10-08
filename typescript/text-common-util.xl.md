@@ -56,6 +56,41 @@ for (const child of unit.Data) {
 return false;
 ```
 
+# method IsAnnotationUnit:(item:Token | null)=>bool
+
+`item` 是不是一条**注释或预处理指令**——`LineAnnotation` / `AreaAnnotation` / `PreprocessorDirectives`。
+
+**与 `IsTriviaUnit` 的分别只有一个**：**不含软换行**。要它的地方是那些「软换行有语义、注释没有」的
+相邻判定——字段的「名字后面紧跟延续符号」（`a` 换行是**只有名字的字段** ✓，
+而 `a /* c */ = 1` 里的注释不该把这条成员切断 ✗）、元组成员的「名字 + `?`/`:`」、
+`new` 与类型名之间那一格。
+
+按**类名**判而不是 `instanceof`：与 `IsTriviaUnit` 同一条理由（向上 import 那些类会绕出环）。
+
+```ts
+if (item === null) {
+  return false;
+}
+const name = item.constructor.name;
+return name === "LineAnnotation" || name === "AreaAnnotation" || name === "PreprocessorDirectives";
+```
+
+# method SkipNextAnnotation:(units:Array<Token>, index:number)=>int
+
+从 `index + 1` 起向后跳过所有注释 / 预处理指令，返回第一个别的单元的下标；一路跳到底返回 `units.length`。
+
+```ts
+return SkipNext(units, index, IsAnnotationUnit);
+```
+
+# method SkipPreviousAnnotation:(units:Array<Token>, index:number)=>int
+
+从 `index - 1` 起向前跳过所有注释 / 预处理指令，返回第一个别的单元的下标；一路跳到底返回 `-1`。
+
+```ts
+return SkipPrevious(units, index, IsAnnotationUnit);
+```
+
 # method SkipNextWrapSymbol:(units:Array<Token>, index:number)=>int
 
 从 `index + 1` 起向后跳过所有 `LineWrap`，返回第一个非 `LineWrap` 的下标。

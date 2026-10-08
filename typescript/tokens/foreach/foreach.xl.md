@@ -121,6 +121,10 @@ const defineEnd = SearchBack(conditionBracket.Data, -1, (x) => IsWordUnit(x, "in
 if (defineEnd === -1) {
   throw SyntaxException.FromMessage(conditionBracket.SourceRange, "foreach/for(...){...} 的`(...)`中语句不满足格式要求：`(... in/of ...)`");
 }
+// **那个词是 `in` 还是 `of`，当场记进字段**（第 631 轮）：投影从前是拿
+// `source.slice(定义段末尾, 枚举对象开头)` 做 `/\bin\b/` 正则——注释里写个 `in`
+// （`for (const a /* in */ of [1])`）就把它判成 `ForInStatement` ✗。词在这一刻就在手上。
+result.IsForIn = IsWordUnit(conditionBracket.Data[defineEnd], "in");
 const define = result.CreateDefine();
 define.SignIn(conditionBracket.Data[0].SourceRange.Start!);
 define.SignOut(conditionBracket.Data[defineEnd].SourceRange.End!);
@@ -220,6 +224,14 @@ return index;
 `for (const x of xs) {}` 的空块在 `ToList` 时**整个摊掉**了 ✓，
 而 TS 那边 `ForOfStatement.statement` 仍有一个空 `Block` ✓。
 
+## field IsForIn:bool = false
+
+**声明与枚举对象之间那个词是 `in`**（`for (const k in o)`）时为 `true`，是 `of` 时为 `false`。
+
+`Process` 切 Define / Enumable 时手里就有那个词（`conditionBracket.Data[defineEnd]`），
+当场记下来；投影据此分 `ForInStatement` / `ForOfStatement`，不再回原文做正则
+（见 `PrintAst` 那段说明）。
+
 ## method PrintAst:(ctx:any, v:any)=>any
 
 `for (const x of xs) { … }` / `for (const k in o) { … }` → `ForOfStatement` / `ForInStatement`
@@ -251,9 +263,11 @@ return index;
   }
   const enumable = ctx.KidsOf(v, "enumable").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   if (enumable.length > 0) props.expression = ctx.Expression(enumable);
-  const from = define.length > 0 ? ctx.EndOf(define[define.length - 1]) : v.start;
-  const to = enumable.length > 0 ? ctx.StartOf(enumable[0]) : v.end;
-  const kind = /\bin\b/.test(ctx.source.slice(from, to)) ? "ForInStatement" : "ForOfStatement";
+  // **`in` / `of` 读字段**（第 631 轮）：收尾规则在切 Define / Enumable 的那一刻就见过那个词
+  // （`conditionBracket.Data[defineEnd]`），当场记成 `IsForIn`。从前这里拿定义段末尾到枚举对象
+  // 开头之间的**原文**做 `/\bin\b/` ——那是第二份答案：`for (const a /* in */ of [1])` 里
+  // 注释中的 `in` 会被命中，整条投成 `ForInStatement`（判据 `cm-foreach-in`）。
+  const kind = v.attrs.get("isForIn") === true ? "ForInStatement" : "ForOfStatement";
   const body = ctx.KidsOf(v, "body").filter((k: any) => !ctx.Invisible.has(k.get("type")));
   // **空体那一格先读 token 上的字段**（第 590 轮，与 `for` / `while` 同一条）：
   // 有它就不必配对括号 + 扫原文。
@@ -387,6 +401,9 @@ result.set("body", this.Body.ToList());
 result.set("emptyBodyAt", this.EmptyBodyAt);
 // **体那个 `{` 的位置也写出去** ✓（第 619 轮 ✓，与 `While` / `DoWhile` 同一条 ✓）。
 result.set("bodyBraceAt", this.BodyBraceAt);
+// **`in` / `of` 那一格也写出去**（第 631 轮）：投影靠它分 `ForInStatement` / `ForOfStatement`——
+// 与 `emptyBodyAt` / `bodyBraceAt` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
+result.set("isForIn", this.IsForIn);
 const children: Array<any> = [];
 for (const item of this.Data) {
   if (item instanceof ForeachDefine || item instanceof ForeachEnumable || item instanceof ForeachBody) {
@@ -404,11 +421,12 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 抄 `EmptyBodyAt` / `BodyBraceAt` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 抄 `IsForIn` / `EmptyBodyAt` / `BodyBraceAt` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new Foreach(this.Template);
 result.Sign(this);
+result.IsForIn = this.IsForIn;
 result.EmptyBodyAt = this.EmptyBodyAt;
 result.BodyBraceAt = this.BodyBraceAt;
 result.AddRange(this.Data.map((item) => item.Clone()));
