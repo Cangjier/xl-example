@@ -306,6 +306,52 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 而「新坏了」与「本来就还没做」仍然是两件事：前者红，后者进那张表。
 规矩与 `coverage` 的台账同源（登记过的照样每次真跑，收掉了提示删行）。
 
+### 第 767 轮：`Date` 那一族的**两个入口**——无实参要问时钟、`Date` 实参要拷时刻
+
+**一句话**：这一轮的普查面是**类静态那一侧 / 错误家族 / `for..in` / 可选 `catch` 绑定**
+与**数组的洞 / 属性继承 / `instanceof` / 标签模板**；量出四条根，**收掉两条**
+（都在 `Date` 上），另**新登两条**（各是一条独立的根）。
+
+- **① `new Date()` 给死 `0`**（`stdlib/round767/r767a-01`）：JS 的 `new Date()` 是「现在」，
+  而这一族**本来就有那条通道**——`Date.now()` 走的就是 `ClockNow`（那一号按设计由宿主回答）。
+  原来构造那一支**没接上去** ⇒ `new Date().getFullYear()` 给 1970、`new Date().getTime() > 0` 给假
+  ——**静默错值**，而同一台机器上 `Date.now()` 明明是对的。**不新开能力号**：
+  `ClockNow` 就是那一号，这里只是**同一个号多一个调用点**（宿主要是不接，报的话与
+  `Date.now()` 一字不差）；没有调用通道那一档照旧给 `0`（**不做 ≠ 换个行为**）。
+- **② `new Date(另一个 Date)` 响亮地抛**（同上）：它原来把对象直接落进「毫秒数」那一支 ⇒
+  `unimplemented: new Date(x) needs a number of milliseconds or an ISO string`。
+  JS 的口径是先把单个实参 `ToPrimitive(hint "string")`；而本仓的 `Date.prototype.toString`
+  是**我们自己按 UTC 渲染的**、`DateParseUnits` 只认 ISO 子集 ⇒ 拿自己印出来的文本再解析
+  只会得到 `NaN`。**时刻的唯一来源就是那一格**，所以 `Date` 实参那一档**直接读它**
+  （`new Date(d).getTime() === d.getTime()`，与 Node 一致），其余对象照旧走 `ToPrimitive`。
+- **新登的一条：`yield*` 的 `throw` 不转交**（`runtime/round767/r767b-01`）：
+  外层挂在 `yield*` 上时，`it.throw(e)` 在 JS 里要**转给被委托那个迭代器** ⇒ 内层 `catch`
+  接得住；本仓把这一抛留在**外层帧**上展开（内层的帧不在栈上、处理点被留着但落不到）
+  ⇒ 内层 `catch` **一次都不跑**、异常直接从 `it.throw()` 冒出去。**第 766 轮改好的是
+  「同一个生成器自己那一层」**（`runtime/round766/r766a-01` 四种排版全过），
+  跨生成器这一档要的是**在挂起点先把这一抛转交出去**（与 `.next()` 那条对称）——
+  那是降级层的一条新路（认得出当前挂起点是不是 `yield*`、是就调它的 `throw`），先如实登记。
+- **新登的另一条：`Function.prototype[Symbol.hasInstance]` 那一格是空的**
+  （`stdlib/round767/r767b-01`）：JS 里它是**普通 `instanceof` 的正身**，所以每个函数 / 类
+  都取得到；本仓没装 ⇒ `typeof C[Symbol.hasInstance]` 给 `"undefined"`、
+  直接调它报 `cannot call a non-closure value`（听起来像「调用写错了」——
+  与第 761 轮 `console.count` 同一副面孔）。**`instanceof` 本身照旧是对的**
+  （引擎先问那一格、问不到才回落原型链）。**为什么只登记不收**：装上之后
+  **每一次 `instanceof` 的右边都会先命中它**，而内建构造函数（`Array` / `Date` …）是
+  **宿主引用、没有属性表**，`this.prototype` 在它们身上读不出来 ⇒ 那一格得转而问
+  `ConstructorProtos` 那张登记表。**不是补一格属性，是给 `instanceof` 换入口**。
+- **两处量过、按既有口径不登记**：① **内建原型上自有属性名的次序**逐个家族都不一样
+  （`Array.prototype` 的 `at,concat,…` 与 V8 的插入序不同）——那是**安装次序**，
+  既有用例（`runtime/round733/p733a-a04`）本来就**逐个 `typeof` 查、不比次序**；
+  ② `Object.getOwnPropertyNames(new Date())`：Node 给 `[]`、本仓给 `["__t"]`
+  （时刻只有那一格可放，`DateCtor` 那一段写着），新用例里**明写不量它**。
+- **另有一条量过、同一台机器上本来就不同**：`new Date(2020, 0, 2)` 与
+  `Date.UTC(...)` 那一对——本仓**本地时间就是 UTC**（写在明处），UTC+8 的机器上两边差一个偏移
+  （已登在 `stdlib/date/042-r676-std-date-local-time` 那一条上）。
+- 语料 **+12 条**（`runtime/round767` 7 条 + `stdlib/round767` 5 条；**10 条通过**、2 条登记），
+  五类 **7849 / 8235 → 7859 / 8247**、`blocked 264`（没动）、`differ 122 → 124`（+2 新登）、
+  `bad` 仍 **0**、`regressions` **0**、`moved` 0、`newlyPassing` 0，加权 **95.6%**。
+
 ### 第 766 轮：**展开时挑处理点按帧的层深**——生成器里 `throw` 进去的 `catch` / `finally` 一声不响
 
 **一句话**：这一轮的普查从**数组 / 字符串 / 数字的方法面**扫到**类与访问器 / 反射 / 符号协议**，

@@ -5918,11 +5918,49 @@ if (id === DateCtor) {
   // 而**混用**本地与 UTC 的程序会与 Node 差一个时区偏移（例如 `new Date(0).getHours()`
   // 在 UTC+8 的机器上 Node 给 `8`、本仓给 `0`）——记在台账里。
   let ms = Value.FromInt(0);
-  if (args.length === 1) {
-    if (args[0].Tag === ValueTag.String) {
-      ms = Value.FromDouble(DateParseUnits(JsTextUnits(table, args[0])));
+  if (args.length === 0) {
+    // **不给实参 ⇒ 问一次时钟**（第 767 轮）：JS 的 `new Date()` 就是「现在」，
+    // 而这一族**本来就有那条通道**——`Date.now()` 走的就是 `ClockNow`
+    //（那一号按设计由宿主回答，见 `ClockNow` 那一段）。原来这里**给死 `0`** ⇒
+    // `new Date().getFullYear()` 给 1970、`new Date().getTime() > 0` 给假
+    //（Node 给今年 / 真）——**静默错值**，而同一台机器上 `Date.now()` 明明是对的
+    //（判据 `runtime/round767/r767a-03`）。
+    // **不新开能力号**：`ClockNow` 就是那一号，这里只是**同一个号多一个调用点**——
+    // 宿主要是不接，报的话与 `Date.now()` **一字不差**（同一件事给同一个答案）。
+    // **没有调用通道那一档照旧给 `0`**（`call === null` 是「宿主那一侧没驱动起来」，
+    // 与这一族别处同一条口径：**不做 ≠ 换个行为**）。
+    ms = call === null
+      ? Value.FromInt(0)
+      : call(Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 0)),
+        Value.Undefined(), []);
+  } else if (args.length === 1) {
+    // **对象实参先过 `ToPrimitive(hint "string")`**（第 767 轮）：JS 的 `new Date(value)`
+    // 只认「数字」与「字符串」两种**原始值**，其余**先 `ToPrimitive`**——
+    // 所以 `new Date(另一个 Date)` 走的是 `Date.prototype.toString` 再 `Date.parse`
+    //（判据 `runtime/round767/r767a-02`：本仓原来把它直接当毫秒数交给下面那一句，
+    //  于是**响亮地抛** `needs a number of milliseconds or an ISO string`；
+    //  Node 给同一个时刻——`new Date(d)` 是「拷贝一个 Date」最日常的写法）。
+    //
+    // **`Date` 实参那一档读的是它自己那一格时刻**（不绕文本）：本仓的
+    // `Date.prototype.toString` 是**我们自己渲染的**（按 UTC，第 616 轮），
+    // 而 `DateParseUnits` 只认 **ISO 子集**（那一头写着「其余一律给 NaN，不猜」）⇒
+    // 拿自己印出来的文本再解析一遍只会得到 `NaN`。**时刻的唯一来源就是那一格**，
+    // 所以这一档直接读它（`new Date(d).getTime() === d.getTime()`，与 Node 一致）。
+    // 其余对象照旧走 `ToPrimitive` 那一趟（转出来是字符串就 `Date.parse`）。
+    const stored = args[0].IsObject() && protos.Date > 0 && RtChainHas(table, args[0], protos.Date)
+      ? FindProperty(room, table, args[0].Ref, Value.FromString(table.CreateString(Units("__t"))))
+      : null;
+    if (stored !== null) {
+      ms = Value.FromDouble(NumericOf(table.Get(stored.Owner).Props[stored.Index].Value));
     } else {
-      ms = args[0];
+      const only = args[0].IsObject()
+        ? ToPrimitiveOf(room, call, protos, table, args[0], ToPrimitiveString)
+        : args[0];
+      if (only.Tag === ValueTag.String) {
+        ms = Value.FromDouble(DateParseUnits(JsTextUnits(table, only)));
+      } else {
+        ms = only;
+      }
     }
   } else if (args.length > 1) {
     // **年那一格看 `MakeFullYear`**（第 702 轮）：它在 `NaN` 的**输入**上给 `+0`

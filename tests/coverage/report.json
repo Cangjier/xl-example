@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8235,
+  "total": 8247,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.58,
+  "progressPercent": 95.56,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 1099,
-      "pass": 1061,
+      "total": 1106,
+      "pass": 1067,
       "blocked": 5,
-      "differ": 33,
+      "differ": 34,
       "nodefail": 0,
-      "coverage": 96.54
+      "coverage": 96.47
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3260,
-      "pass": 3178,
+      "total": 3265,
+      "pass": 3182,
       "blocked": 25,
-      "differ": 57,
+      "differ": 58,
       "nodefail": 0,
-      "coverage": 97.48
+      "coverage": 97.46
     },
     {
       "category": "e2e",
@@ -1853,7 +1853,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20784/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19064/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2114,6 +2114,12 @@
       "detail": "stdout 不同：第 1 行：node «1 undefined» vs tsrun «1 object»"
     },
     {
+      "id": "runtime/round767/r767b-01",
+      "category": "runtime",
+      "title": "`yield*` 的 `throw` 转发：`it.throw(e)` 该送进**被委托**那个生成器",
+      "detail": "stdout 不同：第 5 行：node «  inner caught boom» vs tsrun «04 escaped boom»"
+    },
+    {
       "id": "stdlib/array/150-array-species-subclass",
       "category": "stdlib",
       "title": "继承数组的子类上 `map` / `concat` 交出什么",
@@ -2135,7 +2141,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20784/src/5271.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19064/src/5278.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2159,7 +2165,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-20784/src/5321.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19064/src/5328.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2406,6 +2412,12 @@
       "category": "stdlib",
       "title": "`.finally` 的链与另一条链谁先：本仓比 Node 早一跳",
       "detail": "stdout 不同：第 5 行：node «04 fin» vs tsrun «09 keep»"
+    },
+    {
+      "id": "stdlib/round767/r767b-01",
+      "category": "stdlib",
+      "title": "缺省的 `Function.prototype[Symbol.hasInstance]`：本仓那一格是空的",
+      "detail": "stdout 不同：第 1 行：node «01 function» vs tsrun «01 undefined»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
