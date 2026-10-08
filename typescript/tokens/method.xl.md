@@ -297,6 +297,9 @@ return groups.filter((group) => group.length > 0);
   const rawName = v.attrs.get("name");
   const calleeText = typeof rawName === "string" ? rawName : "";
   const calleeEnd = v.start + calleeText.length;
+  // **可选链子单元要在最前面数出来**：下面「名字为空」那两条支路（IIFE / 链）
+  // 在「名字为空 + 第一个子单元是括号」上长得一模一样，唯一的区别就是这一格。
+  const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
   if (calleeText === "") {
     // **被调用者本身是一次调用**（`f()()`，第 134 轮）：产物把外面那次调用收成
     // `Method(name="")`，而**里面那次调用是它的第一个子单元** ✓——与 IIFE 那条
@@ -304,7 +307,11 @@ return groups.filter((group) => group.length > 0);
     // **外层那对括号不在树里**（与 IIFE 一字不差 ✓）：终点要**从被调用者之后重新配对** ✓，
     // 否则 `f()()` 的区间只到 `f()` 为止 ✓（实测：投出来的外层调用终点短一截 ✓）。
     const innerCall = kids.find((k: any) => k.get("type") === "Method");
-    if (innerCall !== undefined) {
+    // **有 NCO 子单元时这一支也要让开**（第 630 轮）：`f()?.m?.()` 的第一个子单元
+    // 正是内层那次调用（`Method(name="f")`），可它不是「对调用结果再调一次」——
+    // 整条 `?.m?.()` 才是这次调用的内容。让开之后落到下面那条链的支路，
+    // 由 `beforeNco`（那一格 Method）投出被调用者，再逐格接 `?.m` / `?.(…)`。
+    if (ncos.length === 0 && innerCall !== undefined) {
       const rest = kids.filter(
         (k: any) => k !== innerCall && k.get("type") !== "GenericType",
       );
@@ -328,7 +335,14 @@ return groups.filter((group) => group.length > 0);
     const brace = kids.find(
       (k: any) => k.get("type") === "Bracket" && k.get("startBracket") === "(",
     );
-    if (brace !== undefined && ctx.Kids(brace).length > 0) {
+    // **有 NCO 子单元就不是 IIFE**（第 630 轮）：`(x as T)?.m?.()` / `f()?.m?.()` /
+    // `(a.b)?.c?.()` 的被调用者也是「名字为空 + 第一个子单元是括号」，但从
+    // `OptionalCallCloseRule` 出来时**整条链都塞在 `Method` 里**
+    // （`[被调用者, NCO(?.m), NCO(?.(…))]`）。原先这一支抢在下面那条链的支路前面，
+    // 于是把两个 NCO **当成实参**、投出一个 `(x as T)(?.m, ?.())` ✗（实测：缺
+    // `PropertyAccessExpression` + 两个 `QuestionDotToken`，多出 `NullConditionalOperator`）。
+    // IIFE（`(function () {})()`）的产物里只有那一对括号**一个**子单元，撞不到这里。
+    if (ncos.length === 0 && brace !== undefined && ctx.Kids(brace).length > 0) {
       const rest = kids.filter((k: any) => k !== brace && k.get("type") !== "GenericType");
       let end = ctx.StmtEndOf(v);
       const calleeClose = ctx.MatchingParen(ctx.source, ctx.StartOf(brace));
@@ -405,7 +419,6 @@ return groups.filter((group) => group.length > 0);
       (k.get("type") !== "Bracket" ||
         (ctx.StartOf(k) >= calleeEnd && (ctx.Kids(k).length > 0 || (kids[0] !== k && anonymousCallee === undefined)))),
   );
-  const ncos = kids.filter((k: any) => k.get("type") === "NullConditionalOperator");
   // **这一支只认「被调用者自己带着可选链」那一形状** ✓（第 147 轮修）：
   // 判据是**第一个子单元就是被调用者自己** ✓——`x?.y?.(1)` 的 `Identifier(x)` 与
   // `name="x"` 同名 ✓，`f(g?.(1))` 里内层那个 `Method(name="g")` 也一样 ✓

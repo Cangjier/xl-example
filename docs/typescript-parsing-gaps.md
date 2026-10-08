@@ -55,10 +55,11 @@
 
 ## 已知仍开着的缺口
 
-- **括号断言的表达式当链底**（第 623 轮发现）：`(x as T)?.m?.()` 与 `(x as T).m?.()`。
-  `MethodCloseRule` 抢在链规则前面，把那个 `Bracket` 读成一次调用 ⇒ 降级层报
-  `unimplemented: expression DotToken` / `NullConditionalOperator`。
-  `(x as T)?.v` / `(x as T)?.m()` / `o.m?.()` / `o?.m?.()` 都是好的，只有这两格断。
+**这一节现在是空的**。最后一条（括号 / 一次调用当被调用者时的可选链：
+`(x as T)?.m?.()` / `f()?.m?.()`）在第 630 轮修掉——`Method.PrintAst` 里
+「名字为空 + 第一个子单元是括号」那一支原先抢在可选链那一支前面，把两个
+`NullConditionalOperator` 当成实参投了出去；判据是**有没有 NCO 子单元**。
+`README.md` 的「开着的缺口」列的是**另一类**（口径上认下来的形态差异），不重复在这里。
 
 ## 被否决的改法（不要再试）
 

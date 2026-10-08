@@ -4513,4 +4513,9 @@ console.log(String.raw\`p\\tq\`.length, \`p\\tq\`.length);
     title: "原型上的访问器被继承，赋值走 setter",
     src: "\nclass A {\n  private _v = 1;\n  get v() { return this._v; }\n  set v(x: number) { this._v = x * 3; }\n}\nclass B extends A {}\nconst b = new B();\nb.v = 2;\nconsole.log(b.v, Object.getOwnPropertyNames(b).join(\",\"));\n",
   },
+  {
+    id: "c630-ex-callee-optional-chain",
+    title: "被调用者是括号 / 一次调用时的可选链（(x as T)?.m?.() / f()?.m?.()）",
+    src: "\nconst o: any = { m: () => 7 };\nconst p: any = { n: { m: () => 3 } };\nconst f = () => ({ m: () => 5 });\nconsole.log((o as any)?.m?.(), (o as any).m?.(), (p.n)?.m?.(), (p.n).m?.(), f()?.m?.());\nconsole.log((o as any)?.m?.(1, 2), (o as any)?.nope?.());\n",
+  },
 ];
