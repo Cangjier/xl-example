@@ -2798,4 +2798,14 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     title: "完整程序：文本报表（split / padStart / join / 数值格式化）",
     src: "\nconst rows = [\n  { item: \"apple\", qty: 3, price: 1.5 },\n  { item: \"banana\", qty: 12, price: 0.25 },\n  { item: \"cherry\", qty: 7, price: 3 },\n];\nlet total = 0;\nconst lines: string[] = [];\nfor (const r of rows) {\n  const sum = r.qty * r.price;\n  total += sum;\n  lines.push(r.item.padEnd(8, \".\") + String(r.qty).padStart(4, \" \") + sum.toFixed(2).padStart(8, \" \"));\n}\nlines.push(\"-\".repeat(20));\nlines.push(\"TOTAL\".padEnd(8, \".\") + total.toFixed(2).padStart(12, \" \"));\nconsole.log(lines.join(\"\\n\"));\n",
   },
+  {
+    id: "r676-e2e-generator-map-pipeline",
+    title: "完整程序：生成器 + Map + 模板串的流水线",
+    src: "\nfunction* range(n: number) {\n  for (let i = 0; i < n; i += 1) yield i;\n}\nconst seen = new Map<string, number>();\nfor (const n of range(5)) {\n  if (n % 2 === 0) seen.set(`k${n}`, n * n);\n}\nconst parts: string[] = [];\nfor (const [k, v] of seen) parts.push(`${k}=${v}`);\nconsole.log(parts.join(\" \"), seen.size);\n",
+  },
+  {
+    id: "r676-e2e-text-report-split",
+    title: "完整程序：文本报表（split / Number / toFixed / padEnd）",
+    src: "\nconst rows = [\"alice:30\", \"bob:25\", \"carol:35\"];\nconst names: string[] = [];\nlet total = 0;\nfor (const row of rows) {\n  const parts = row.split(\":\");\n  const n = Number(parts[1]);\n  if (!Number.isFinite(n)) continue;\n  names.push(parts[0].toUpperCase());\n  total += n;\n}\nconst avg = (total / rows.length).toFixed(2);\nconsole.log(names.join(\",\"), total, avg.padEnd(6, \"0\"));\n",
+  },
 ];

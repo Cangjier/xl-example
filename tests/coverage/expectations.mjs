@@ -1133,4 +1133,66 @@ export const EXPECTATIONS = {
     expect: "differ",
     why: "`new Object(null)` 被当成 `Object(null)`：构造那一半该造 `{}`，这里原样返回 `null`（静默错值）",
   },
+
+  // ===== 第 676 轮：加宽四层矩阵时**新量到**的缺口（3 条）=====
+  //
+  // 这一轮的候选是拿**已装面**去比（`typescript-exec/builtins/*.xl.md` 的 entries 表 + 矩阵里
+  // 名字出现得少的那些），所以量出来的都是「成员本身还没装」或「装出来的形状不同」这一档。
+  //
+  // ---- `Date` 那一族只装到 ISO / UTC 取值那几格：
+  // `toISOString` / `toJSON` / `getTime` / `getUTC*` 都是好的（`r676-std-date-iso` 过了），
+  // 而 `getTimezoneOffset` 与 `toDateString` / `toTimeString` **在成员表里没有那一格** ——
+  // 走到调用那一格报的是「cannot call a non-closure value」。修法是给 `Date` 段补两个号，
+  // 形状照 `node`：`getTimezoneOffset` 是本地时区相对 UTC 的**分钟**数（东八区给 `-480`），
+  // `toDateString` 是 `Thu Jan 02 2020`、`toTimeString` 是 `03:04:05 GMT+0800 (中国标准时间)`——
+  // 后两个要的那张本地时区名表在宿主那一侧，与 `console.log(new Date())` 走的是同一份。
+  "gap-r676-std-date-getTimezoneOffset": {
+    expect: "blocked",
+    why: "`Date.prototype.getTimezoneOffset` 没装：成员表里没有那一格，调用报 cannot call a non-closure value",
+  },
+  "gap-r676-std-date-toDateString": {
+    expect: "blocked",
+    why: "`Date.prototype.toDateString` / `toTimeString` 没装：同上一格，本地时区名的渲染还没有那一支",
+  },
+
+  // ---- `Object.groupBy` 装出来了，但**给的是普通对象**：
+  // `node` 的分组表是 **null 原型**（`Object.getPrototypeOf(grouped) === null`，
+  // 打印成 `[Object: null prototype] {…}`），这里给的是带 `Object.prototype` 的普通对象，
+  // 于是 `Object.getPrototypeOf` 打出 `{`。做对要么在造表时换 `NewPlainObject` 的那条 null 原型路，
+  // 要么给 `Object.groupBy` 单独一格「造表」的内建（与 `Map.groupBy` 那条分开）。
+  "gap-r676-std-object-groupBy-prototype": {
+    expect: "differ",
+    why: "`Object.groupBy` 的分组表该是 null 原型对象，这里给了带 Object.prototype 的普通对象（静默错值）",
+  },
+
+  // ---- `Date` 的**本地时间构造**没走时区换算（第 676 轮 `r676-std-date-iso` 量到）：
+  // `new Date(2020, 0, 2, 3, 4, 5)` 那些分量是**本地时间**，时间戳该等于
+  // `Date.UTC(...) - 本地偏移`；这里给的是 `Date.UTC(...)`，于是 `getTime()` 差一个偏移，
+  // `toISOString()` 把本地墙上时间当 UTC 打（东八区差 8 小时），而 `getHours()` 又照本地回读 ——
+  // 两个出口互相矛盾。`new Date(数字)` / `new Date("…Z")` / `new Date(Date.UTC(...))` 都是对的，
+  // 缺的只是**多分量构造那一支**要带上宿主给的本地偏移。
+  "gap-r676-std-date-local-time": {
+    expect: "differ",
+    why: "多分量 `new Date(y, m, d, …)` 按 UTC 记时间戳：getTime 差一个时区偏移、toISOString 把本地时间当 UTC",
+  },
+
+  // ---- 正则那一档**进矩阵的只有这一格**：`RegExp` 是 v1 写死的非目标
+  //（`docs/runtime-architecture.md` §15），正则字面量那一侧本来就不做，所以**不立用例**
+  //（矩阵里已有的 `regexp-literal-basic` 那几条记的是 `skip`，那才是口径外的正确记法）。
+  // 剩下这一格问的是另一件事：**`String.prototype.matchAll` 这个成员本身在不在**——
+  // 它的第一个动作是「读参数上的 `Symbol.matchAll`」，可本仓连成员都没登记，
+  // 走到调用那一格直接报 `cannot call a non-closure value`。
+  // **同一条协议换成普通对象也是同一个根**（成员不在，谁当参数都一样），所以只留这一格。
+  "r676-std-string-matchAll-iterable": {
+    expect: "blocked",
+    why: "`String.prototype.matchAll` 没装：成员表里没有那一格，调用报 cannot call a non-closure value",
+  },
+
+  // ---- 同一条 `Date` 用例的**另一面**：`r676-std-date-iso` 也在这条缺口上，
+  // 它比的是 `toISOString` 那一串 UTC 文本（`node` 给 `2020-01-01T19:04:05.006Z`）。
+  // 两格一起登记，是因为它们量的是同一个根（本地时间没换算），只是各自的出口不同。
+  "r676-std-date-iso": {
+    expect: "differ",
+    why: "`new Date(2020, 0, 2, 3, 4, 5, 6)` 的本地分量没换算成 UTC：toISOString 把本地墙上时间打成了 UTC",
+  },
 };

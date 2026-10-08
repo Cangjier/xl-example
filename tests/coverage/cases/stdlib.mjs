@@ -6734,4 +6734,89 @@ console.log("sync");
     title: "Array.prototype.sort：默认字典序、稳定性、比较器",
     src: "\nconsole.log([10, 9, 1].sort().join(\",\"));\nconst items = [{ k: 1, n: \"a\" }, { k: 0, n: \"b\" }, { k: 1, n: \"c\" }];\nitems.sort((x, y) => x.k - y.k);\nconsole.log(items.map((i) => i.n).join(\"\"));\nconst mixed = [3, 1, 2];\nconsole.log(mixed.sort().join(\",\"), mixed.join(\",\"));\n",
   },
+  {
+    id: "r676-std-map-groupBy",
+    title: "Map.groupBy：按数值键分组（分组表是 Map）",
+    src: "\nconst xs = [1, 2, 3, 4, 5];\nconst byParity = Map.groupBy(xs, (n: number) => n % 2);\nconsole.log(byParity.get(0)?.join(\",\"), byParity.get(1)?.join(\",\"));\nconsole.log(byParity.size, byParity instanceof Map);\n",
+  },
+  {
+    id: "r676-std-object-groupBy",
+    title: "Object.groupBy：按字符串键分组",
+    src: "\nconst grouped = Object.groupBy([\"a\", \"bb\", \"c\", \"dd\"], (s: string) => String(s.length));\nconsole.log(grouped[\"1\"]?.join(\",\"), grouped[\"2\"]?.join(\",\"), Object.keys(grouped).join(\"|\"));\n",
+  },
+  {
+    id: "gap-r676-std-object-groupBy-prototype",
+    title: "Object.groupBy：分组表该是 null 原型的对象",
+    src: "\nconst grouped = Object.groupBy([1, 2, 3], (n: number) => (n % 2 ? \"odd\" : \"even\"));\nconsole.log(Object.getPrototypeOf(grouped));\nconsole.log(grouped.odd?.join(\",\"), grouped.even?.join(\",\"));\n",
+  },
+  {
+    id: "gap-r676-std-date-getTimezoneOffset",
+    title: "Date.getTimezoneOffset：与 UTC 的分钟差",
+    src: "\nconst offset = new Date(0).getTimezoneOffset();\nconsole.log(typeof offset, offset >= -1440 && offset <= 1440);\n",
+  },
+  {
+    id: "gap-r676-std-date-toDateString",
+    title: "Date.toDateString / toTimeString",
+    src: "\nconst d = new Date(2020, 0, 2, 3, 4, 5);\nconsole.log(d.toDateString());\nconsole.log(d.toTimeString());\n",
+  },
+  {
+    id: "r676-std-date-iso",
+    title: "Date.toISOString / toJSON / getTime 与 UTC 取值",
+    src: "\nconst d = new Date(2020, 0, 2, 3, 4, 5, 6);\nconsole.log(d.toISOString(), d.toJSON() === d.toISOString());\nconst epoch = new Date(0);\nconsole.log(epoch.toISOString(), epoch.getUTCFullYear(), epoch.getUTCHours(), epoch.getTime());\n",
+  },
+  {
+    id: "r676-std-string-normalize",
+    title: "String.normalize：NFC / NFD / NFKC 的形状",
+    src: "\nconst s = \"\\u00e9\";\nconsole.log(s.length, s.normalize(\"NFD\").length, s.normalize(\"NFC\").length);\nconsole.log(s.normalize(\"NFD\").codePointAt(0), s.normalize(\"NFD\").codePointAt(1));\nconsole.log(\"\\uFB01\".normalize(\"NFKC\"), \"\\uFB01\".length);\n",
+  },
+  {
+    id: "r676-std-string-wellformed",
+    title: "String.isWellFormed / toWellFormed：孤立代理项",
+    src: "\nconst lone = \"a\\uD800b\";\nconsole.log(lone.isWellFormed(), \"ab\".isWellFormed());\nconsole.log(lone.toWellFormed().isWellFormed(), lone.toWellFormed().length);\n",
+  },
+  {
+    id: "r676-std-array-copyWithin",
+    title: "Array.copyWithin：区间、负索引与重叠",
+    src: "\nconst xs = [1, 2, 3, 4, 5];\nconsole.log(xs.copyWithin(0, 3).join(\",\"));\nconsole.log([1, 2, 3, 4].copyWithin(1, -2).join(\",\"));\nconsole.log(xs.copyWithin(0, 1, 2).join(\",\"));\n",
+  },
+  {
+    id: "r676-std-object-getOwnPropertySymbols",
+    title: "Object.getOwnPropertySymbols：符号键与不可枚举属性",
+    src: "\nconst k = Symbol(\"k\");\nconst o: any = { a: 1 };\no[k] = 2;\nObject.defineProperty(o, \"hidden\", { value: 3, enumerable: false });\nconsole.log(Object.getOwnPropertySymbols(o).length, o[k]);\nconsole.log(Object.keys(o).join(\",\"), Object.getOwnPropertyNames(o).join(\",\"));\n",
+  },
+  {
+    id: "r676-std-object-create-prototype",
+    title: "Object.create：null 原型 / 带原型 / 第二参数",
+    src: "\nconst bare: any = Object.create(null);\nbare.x = 1;\nconsole.log(Object.getPrototypeOf(bare), bare.x, \"toString\" in bare);\nconst child: any = Object.create({ greet: \"hi\" });\nconsole.log(child.greet, Object.getPrototypeOf(child).greet);\nconst props: any = Object.create({}, { v: { value: 7, enumerable: true } });\nconsole.log(props.v, Object.keys(props).join(\",\"));\n",
+  },
+  {
+    id: "r676-std-json-replacer-reviver",
+    title: "JSON.stringify 的 replacer 与 JSON.parse 的 reviver",
+    src: "\nconst o = { a: 1, b: \"x\", c: [1, 2] };\nconsole.log(JSON.stringify(o, [\"a\", \"c\"]));\nconsole.log(JSON.stringify(o, (k: string, v: any) => (typeof v === \"number\" ? v * 2 : v)));\nconst back = JSON.parse('{\"n\":1,\"s\":\"y\"}', (k: string, v: any) => (typeof v === \"string\" ? v + \"!\" : v));\nconsole.log(JSON.stringify(back));\n",
+  },
+  {
+    id: "r676-std-number-format",
+    title: "Number.toFixed / toPrecision / toString(radix) 与安全整数",
+    src: "\nconst n = 1234.5678;\nconsole.log(n.toFixed(2), n.toPrecision(6), n.toString(16));\nconsole.log((255).toString(2), (0.5).toFixed(1), (-0).toFixed(0));\nconsole.log(Number.isSafeInteger(2 ** 53 - 1), Number.isSafeInteger(2 ** 53));\n",
+  },
+  {
+    id: "r676-std-string-pad-end",
+    title: "String.padEnd / padStart：截断、填充串与默认空格",
+    src: "\nconsole.log(\"ab\".padEnd(5, \"xy\"), \"ab\".padEnd(1, \"x\"), \"ab\".padStart(5, \"12\"));\nconsole.log(\"a\".padEnd(4).length, \"|\" + \"a\".padStart(3) + \"|\");\n",
+  },
+  {
+    id: "r676-std-array-sort-numeric-nan",
+    title: "Array.sort：数字比较器与 NaN 的位置",
+    src: "\nconst xs = [10, 9, 100, 1];\nconsole.log(xs.slice().sort((a, b) => a - b).join(\",\"));\nconsole.log([3, NaN, 1, 2].sort((a, b) => a - b).length);\nconsole.log([3, NaN, 1, 2].sort((a, b) => a - b).join(\",\"));\n",
+  },
+  {
+    id: "gap-r676-std-date-local-time",
+    title: "Date 的本地时间构造：本地字段 → 时间戳 → UTC 取值",
+    src: "\nconst local = new Date(2020, 0, 2, 3, 4, 5);\nconsole.log(Number.isInteger(local.getTime()));\nconsole.log(local.getTime() === new Date(\"2020-01-02T03:04:05Z\").getTime());\nconsole.log(local.getHours(), local.getUTCHours(), local.toISOString().slice(11, 19));\n",
+  },
+  {
+    id: "r676-std-string-matchAll-iterable",
+    title: "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
+    src: "\nconsole.log(typeof \"abc\".matchAll);\nconst matches = \"abc\".matchAll(/b/g);\nconsole.log([...matches].map((m: any) => m[0] + \"@\" + m.index).join(\" \"));\n",
+  },
 ];

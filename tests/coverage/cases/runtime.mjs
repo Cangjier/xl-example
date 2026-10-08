@@ -6120,4 +6120,24 @@ console.log(s2.join(","));
     title: "switch 的严格相等与 fallthrough、块级 case",
     src: "\nfunction kind(v: any) {\n  switch (v) {\n    case \"1\": return \"string\";\n    case 1: return \"number\";\n    case true: return \"bool\";\n    case null: return \"null\";\n    default: return \"other\";\n  }\n}\nconsole.log(kind(\"1\"), kind(1), kind(true), kind(null), kind(undefined));\nlet acc = \"\";\nswitch (2) { case 1: acc += \"a\"; case 2: acc += \"b\"; case 3: acc += \"c\"; break; case 4: acc += \"d\"; }\nconsole.log(acc);\n",
   },
+  {
+    id: "r676-rt-generator-return-finally",
+    title: "生成器 return()：值、finally 与之后的 done",
+    src: "\nfunction* g() {\n  try {\n    yield 1;\n    yield 2;\n  } finally {\n    console.log(\"cleanup\");\n  }\n  return \"done\";\n}\nconst it = g();\nconsole.log(it.next().value);\nconsole.log(JSON.stringify(it.return(\"early\")));\nconsole.log(it.next().done);\n",
+  },
+  {
+    id: "r676-rt-for-of-custom-iterator",
+    title: "for-of 走自定义 Symbol.iterator，break 触发 return()",
+    src: "\nconst custom: any = {};\ncustom[Symbol.iterator] = function () {\n  let i = 0;\n  return {\n    next() {\n      i += 1;\n      if (i <= 3) return { value: i * 10, done: false };\n      return { value: undefined, done: true };\n    },\n    return() {\n      console.log(\"closed\");\n      return { value: undefined, done: true };\n    },\n  };\n};\nfor (const v of custom) {\n  console.log(v);\n  if (v === 20) break;\n}\n",
+  },
+  {
+    id: "r676-rt-tagged-template",
+    title: "带标签的模板：strings、raw 与 rest 值",
+    src: "\nfunction tag(strings: TemplateStringsArray, ...values: any[]) {\n  console.log(strings.length, values.length, JSON.stringify(strings.raw));\n  return strings.join(\"|\") + \"::\" + values.join(\",\");\n}\nconst a = 1;\nconst b = \"x\";\nconsole.log(tag`p${a}q${b}r`);\nconsole.log(tag`no-substitution`);\nconsole.log(tag`\\n${a}`);\n",
+  },
+  {
+    id: "r676-rt-symbol-dispose",
+    title: "Symbol.dispose / Symbol.asyncDispose 与符号键方法",
+    src: "\nconsole.log(typeof Symbol.dispose, typeof Symbol.asyncDispose);\nconsole.log(Symbol.dispose === Symbol.dispose, Symbol.dispose.description);\nconst holder: any = { [Symbol.dispose]() { console.log(\"disposed\"); } };\nholder[Symbol.dispose]();\n",
+  },
 ];

@@ -4907,4 +4907,29 @@ main();
     title: "三元链、?? 与 || 的优先级和短路",
     src: "\nlet log: string[] = [];\nfunction t(name: string, v: any) { log.push(name); return v; }\nconsole.log(t(\"a\", 0) ?? t(\"b\", 1));\nconsole.log(t(\"c\", 0) || t(\"d\", 1));\nconsole.log(t(\"e\", 1) && t(\"f\", 0));\nconsole.log(log.join(\"\"));\nconst grade = (n: number) => n >= 90 ? \"A\" : n >= 80 ? \"B\" : \"C\";\nconsole.log(grade(95), grade(85), grade(10));\n",
   },
+  {
+    id: "r676-ex-private-in-operator",
+    title: "私有名检查 #x in obj 与私有字段读写",
+    src: "\nclass Box {\n  #v = 1;\n  static has(o: any): boolean {\n    return #v in o;\n  }\n  get v(): number {\n    return this.#v;\n  }\n}\nconst b = new Box();\nconsole.log(Box.has(b), Box.has({}), b.v);\nconsole.log(b.v + (b.v = 5));\n",
+  },
+  {
+    id: "r676-ex-optional-and-rest-params",
+    title: "可选形参与剩余形参的实参个数",
+    src: "\nfunction f(a: number, b?: number, ...rest: number[]): string {\n  return [a, b, rest.length].join(\"/\");\n}\nconsole.log(f(1), f(1, 2), f(1, 2, 3, 4));\n",
+  },
+  {
+    id: "r676-ex-spread-call-and-literal",
+    title: "展开实参、展开数组元素与展开对象属性",
+    src: "\nfunction sum(...ns: number[]): number {\n  return ns.reduce((a, b) => a + b, 0);\n}\nconst xs = [1, 2];\nconsole.log(sum(...xs, 3), sum(...[4, 5]));\nconsole.log([0, ...xs, 3].join(\",\"));\nconst o = { a: 1 };\nconsole.log(JSON.stringify({ ...o, b: 2 }));\n",
+  },
+  {
+    id: "r676-ex-error-cause-and-subclass",
+    title: "Error 的 cause 与自定义错误子类",
+    src: "\nconst inner = new Error(\"inner\");\nconst outer = new Error(\"outer\", { cause: inner });\nconsole.log(outer.message, outer.cause === inner, outer.name);\nclass MyError extends Error {\n  constructor(m: string) {\n    super(m);\n    this.name = \"MyError\";\n  }\n}\nconst e = new MyError(\"boom\");\nconsole.log(e instanceof Error, e instanceof MyError, e.name, e.message);\n",
+  },
+  {
+    id: "r676-ex-optional-catch-binding",
+    title: "可选 catch 绑定：不接那个异常对象",
+    src: "\ntry {\n  throw new Error(\"x\");\n} catch {\n  console.log(\"caught without binding\");\n}\nconsole.log(\"after\");\n",
+  },
 ];

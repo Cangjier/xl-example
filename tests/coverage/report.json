@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2127,
+  "matrix": 2155,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -83,13 +83,13 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 99.76,
+  "progressPercent": 99.58,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 591,
-      "pass": 591,
+      "total": 595,
+      "pass": 595,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -98,28 +98,28 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 493,
-      "pass": 490,
+      "total": 498,
+      "pass": 495,
       "blocked": 1,
       "differ": 2,
       "nodefail": 0,
-      "coverage": 99.39
+      "coverage": 99.4
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 820,
-      "pass": 818,
-      "blocked": 1,
-      "differ": 1,
+      "total": 837,
+      "pass": 829,
+      "blocked": 4,
+      "differ": 4,
       "nodefail": 0,
-      "coverage": 99.76
+      "coverage": 99.04
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 223,
-      "pass": 223,
+      "total": 225,
+      "pass": 225,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -138,6 +138,24 @@
       "layer": "stdlib",
       "title": "宿主 ABI：setTimeout（单文件 tsrun 只给微任务那一档）",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: setTimeout"
+    },
+    {
+      "id": "gap-r676-std-date-getTimezoneOffset",
+      "layer": "stdlib",
+      "title": "Date.getTimezoneOffset：与 UTC 的分钟差",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "gap-r676-std-date-toDateString",
+      "layer": "stdlib",
+      "title": "Date.toDateString / toTimeString",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
+    },
+    {
+      "id": "r676-std-string-matchAll-iterable",
+      "layer": "stdlib",
+      "title": "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     }
   ],
   "differ": [
@@ -157,6 +175,24 @@
       "id": "gap-std-new-object-null",
       "layer": "stdlib",
       "title": "new Object(null)：构造调用该造一个空对象（不是原样返回 null）",
+      "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
+    },
+    {
+      "id": "gap-r676-std-object-groupBy-prototype",
+      "layer": "stdlib",
+      "title": "Object.groupBy：分组表该是 null 原型的对象",
+      "detail": "stdout 不同：第 1 行：node «null» vs tsrun «{»"
+    },
+    {
+      "id": "r676-std-date-iso",
+      "layer": "stdlib",
+      "title": "Date.toISOString / toJSON / getTime 与 UTC 取值",
+      "detail": "stdout 不同：第 1 行：node «2020-01-01T19:04:05.006Z true» vs tsrun «2020-01-02T03:04:05.006Z true»"
+    },
+    {
+      "id": "gap-r676-std-date-local-time",
+      "layer": "stdlib",
+      "title": "Date 的本地时间构造：本地字段 → 时间戳 → UTC 取值",
       "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
     }
   ],
