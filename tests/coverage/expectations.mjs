@@ -1431,4 +1431,25 @@ export const EXPECTATIONS = {
     why: "`Object.defineProperty` 只收**字符串键**：symbol 键直接抛 `unimplemented: Object.defineProperty needs (object, string key, descriptor object)` ⇒ `Symbol.hasInstance` / `Symbol.toPrimitive` 这类「用 symbol 键装一格」的写法整条断（同族的 `r678-beh-instanceof-hasinstance` 就是被它挡住的）",
   },
 
+  // ===== 第 678 轮（其三）：符号键 / 私有名那一族量出的缺口（用例在 `cases/exec.mjs` 的 `r678-sym-*`）=====
+  // 这一族 19 条里 **17 条 pass** —— 符号键当属性键的读写、`in`、`keys` 与
+  // `getOwnPropertySymbols` 的分家、展开与 `assign` 保留符号键、`for` / `keyFor` 的注册表、
+  // 自定义 `Symbol.iterator` / `toPrimitive` / `toStringTag`、私有字段 / 私有静态 / 私有方法
+  // 全都对。缺的是下面两格。
+  "r678-sym-wellknown-presence": {
+    expect: "differ",
+    why: "well-known symbol 只装了一半：13 个里 `iterator` / `asyncIterator` / `toPrimitive` / "
+      + "`toStringTag` / `species` / `hasInstance` 在，缺 `isConcatSpreadable` / `unscopables` 与 "
+      + "`match` / `replace` / `search` / `split` / `matchAll` 五个 —— 后五个正是 `RegExp` 协议那一族 "
+      + "（`RegExp` 是非目标），但 **`isConcatSpreadable` / `unscopables` 与 `RegExp` 无关**，"
+      + "它们是 `Array.prototype.concat` / `with` 与 `with` 语句那两个协议的名字，属于「少装两格」；"
+      + "与（其一）`r678-names-symbol` 同一处成员表（那条记的是同一件事的名单形态）",
+  },
+  "r678-sym-getownpropertydescriptor-symbol": {
+    expect: "blocked",
+    why: "同（其二）`r678-beh-defineproperty-symbol-key` 那一格：`Object.defineProperty` 只收字符串键，"
+      + "所以「用 symbol 键装一格再 `getOwnPropertyDescriptor` 读回来」这条链子**从第一步就断**，"
+      + "量不到描述符那一半（`getOwnPropertyDescriptor` 自己收字符串键是好的）",
+  },
+
 };

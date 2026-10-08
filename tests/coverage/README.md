@@ -119,12 +119,12 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | 层 | 条数 | 覆盖度 |
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
-| exec | **548 / 558** | 98.2% |
+| exec | **565 / 577** | 97.9% |
 | stdlib | **850 / 888** | 95.7% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2218 / 2266** | **98.4%** |
+| **合计（加权）** | **2235 / 2285** | **98.3%** |
 
-那 48 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 50 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
 `Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
 `String.prototype.matchAll` 没装（六条 `blocked`）、
@@ -147,7 +147,9 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 读数 99.3% → **98.7%**——**分母再一次变诚实**，不是倒退；
 同一轮（其二）又换了个问法问**同一层**：名字装上了、**行为对不对**（原型与描述符、
 枚举、数组的洞、`instanceof`、盒子对象、ToPrimitive），21 条里 15 条 pass、量出 **4 个根**
-（6 条），读数 98.7% → **98.4%**，同一个道理。
+（6 条），读数 98.7% → **98.4%**，同一个道理；
+（其三）顺着那两批指出的位置问**符号键与私有名**那一族（19 条），17 条 pass、
+量出 well-known symbol 缺的那 7 格，读数 98.4% → **98.3%**，同一个道理。
 
 ### 第 678 轮：**名字逐个点名**做成生成器——28 条一次进矩阵，量出 23 条缺口
 
@@ -214,6 +216,28 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 低得多——**名字那一层是「没装修」，行为那一层是「装修得不错、缝在几个结构性的地方」**。
 两批一起看，缺口的位置很集中：**`[[Prototype]]` 的写、symbol 键的属性、内建的内部标签、
 本地时区**——都不是「少装一个成员」，而是「缺一条机制」。
+
+### 第 678 轮（其三）：顺着前两批指出的位置问**符号键与私有名**那一族
+
+前两批把缺口聚到一处：`Symbol` 的 well-known 只装了一半、`Symbol.prototype` 三格全缺、
+`defineProperty` 只收字符串键。于是这一批 19 条把 **symbol 当属性键**用一遍：
+计算成员、`in`、`keys` 与 `getOwnPropertySymbols` 的分家、展开与 `assign` 保不保留符号键、
+`Symbol.for` / `keyFor` 的全局注册表、自定义 `Symbol.iterator` / `toPrimitive` / `toStringTag`、
+`delete` 一个符号键、符号当 `Map` / `Set` 的键（身份而不是名字）、`JSON.stringify` 丢掉符号、
+类里的计算成员名，以及类里的私有名（`#x in o`、私有静态成员、私有方法）。
+
+**17 条 pass** —— 这一族的基本盘是对的（这是最有用的读数：缺口不是「symbol 没做」，
+而是「symbol 的成员表缺七格」）。**2 条缺口**：
+
+| 用例 | 根子 |
+| --- | --- |
+| `r678-sym-wellknown-presence` | well-known symbol **只装了一半**：13 个里 `iterator` / `asyncIterator` / `toPrimitive` / `toStringTag` / `species` / `hasInstance` 在，缺 `isConcatSpreadable` / `unscopables` 与 `match` / `replace` / `search` / `split` / `matchAll` 五个。后五个正对 `RegExp` 协议那一族（`RegExp` 是非目标），但 **`isConcatSpreadable` / `unscopables` 与 `RegExp` 无关**——它们是 `Array.prototype.concat` 与 `with` 语句那两个协议的名字，属于「少装两格」 |
+| `r678-sym-getownpropertydescriptor-symbol` | 同（其二）那一格：`defineProperty` 只收字符串键 ⇒「用符号键装一格再读回来」整条链**从第一步就断**，量不到描述符那一半（`getOwnPropertyDescriptor` 自己收字符串键是好的） |
+
+**一条探针自己的教训**：`r678-sym-private-accessor` 被判 `nodefail` —— `#n in d` 写在类**外面**
+是**语法错误**（私有名只在声明它的类体里可见），`node` 自己就报 `SyntaxError`。
+这就是 README 里那条规矩的实例：**`nodefail` 的不要进矩阵**（那是用例自己不合法），
+所以那一条**没有**收进来。私有名本身是好的（同批里 `#x in o` 与私有方法那几条都 pass）。
 
 ### 第 677 轮（其一）：**AST 语料**当候选池——1407 份解析用例里量出 3 条
 

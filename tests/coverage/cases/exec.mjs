@@ -5241,4 +5241,108 @@ main();
     src: "\nconsole.log(1 + \"2\", \"3\" - 1, \"3\" * \"2\", [] + {}, [] + []);\nconsole.log(+[], +[5], +[1, 2], +\"\", +\" \", +\"x\");\nconsole.log(String(null), String(undefined), String([]), String({}));\nconsole.log(Number(null), Number(undefined), Number(true), Number(\"\"));\n",
   },
 
+  // ===== 第 678 轮（其三）：**符号键与私有名**这一族的行为探针（19 条）=====
+  // 为什么是这一族：（其一）量到 well-known symbol 只装了一半、`Symbol.prototype` 三格全缺，
+  //（其二）量到 `Object.defineProperty` 只收字符串键 —— 于是「用 symbol 当属性键」的写法
+  // 整族都值得单独问一遍：计算成员、`in`、`keys` 的取舍、`getOwnPropertySymbols`、展开、
+  // `for` / `keyFor` 注册表、自定义 `Symbol.iterator` / `toPrimitive` / `toStringTag`、
+  // 以及类里的私有名（`#x in o`、私有静态成员、私有方法、私有访问器）。
+  // 17 条 pass（这一族的基本盘是对的），1 条缺口（well-known 缺的那 7 个名字），
+  // 1 条与（其二）同根（用 symbol 键调 `defineProperty`）。
+  {
+    id: "r678-sym-computed-member",
+    title: "计算成员名：读写一个 symbol 键的属性",
+    src: "\nconst s = Symbol(\"k\");\nconst o: any = {};\no[s] = 1;\nconsole.log(o[s], typeof s);\nconst o2: any = { [s]: 2 };\nconsole.log(o2[s]);\n",
+  },
+  {
+    id: "r678-sym-in-operator",
+    title: "in 能不能问 symbol 键；字符串键与 symbol 键分不分家",
+    src: "\nconst s = Symbol(\"k\");\nconst o: any = { [s]: 1, plain: 2 };\nconsole.log(s in o, \"plain\" in o, \"missing\" in o);\nconst o2: any = { plain: 2 };\nconsole.log(s in o2);\n",
+  },
+  {
+    id: "r678-sym-keys-vs-symbols",
+    title: "keys 只看字符串键，getOwnPropertySymbols 只看 symbol 键",
+    src: "\nconst s = Symbol(\"k\");\nconst o: any = { a: 1, [s]: 2 };\nconsole.log(Object.keys(o).join(\",\"));\nconsole.log(Object.getOwnPropertySymbols(o).length);\nconsole.log(Object.getOwnPropertyNames(o).join(\",\"));\n",
+  },
+  {
+    id: "r678-sym-spread-keeps-symbol-keys",
+    title: "展开与 assign 对 symbol 键的取舍",
+    src: "\nconst s = Symbol(\"k\");\nconst src: any = { a: 1, [s]: 2 };\nconst spread: any = { ...src };\nconst assigned: any = Object.assign({}, src);\nconsole.log(spread.a, spread[s]);\nconsole.log(assigned.a, assigned[s]);\n",
+  },
+  {
+    id: "r678-sym-registry",
+    title: "Symbol.for / keyFor 的全局注册表与它和 Symbol() 的区别",
+    src: "\nconst a = Symbol.for(\"shared\");\nconst b = Symbol.for(\"shared\");\nconst c = Symbol(\"shared\");\nconsole.log(a === b, a === c);\nconsole.log(Symbol.keyFor(a), Symbol.keyFor(c));\nconsole.log(typeof a, typeof c);\n",
+  },
+  {
+    id: "r678-sym-description-and-tostring",
+    title: "symbol 的 description 与 String(symbol)",
+    src: "\nconst s = Symbol(\"desc\");\nconsole.log(s.description, String(s), s.toString());\nconst bare = Symbol();\nconsole.log(bare.description, String(bare));\n",
+  },
+  {
+    id: "r678-sym-wellknown-presence",
+    title: "well-known symbol 的名字在不在（只问名字，不调协议）",
+    src: "\nconst names: string[] = [\"iterator\", \"asyncIterator\", \"toPrimitive\", \"toStringTag\", \"species\", \"hasInstance\", \"isConcatSpreadable\", \"match\", \"replace\", \"split\", \"search\", \"matchAll\", \"unscopables\"];\nfor (const n of names) {\n  console.log(n, String(typeof (Symbol as any)[n]));\n}\n",
+  },
+  {
+    id: "r678-sym-iterator-protocol",
+    title: "自定义 Symbol.iterator 让对象可被 for-of",
+    src: "\nconst o: any = {\n  [Symbol.iterator]() {\n    let i = 0;\n    return {\n      next() {\n        i += 1;\n        return i <= 3 ? { value: i, done: false } : { value: undefined, done: true };\n      },\n    };\n  },\n};\nconst seen: number[] = [];\nfor (const v of o) seen.push(v);\nconsole.log(seen.join(\",\"));\nconsole.log([...o].join(\",\"));\n",
+  },
+  {
+    id: "r678-sym-tagged-template-toPrimitive",
+    title: "ToPrimitive 与 Symbol.toPrimitive",
+    src: "\nconst o: any = {\n  [Symbol.toPrimitive](hint: string) {\n    return hint === \"number\" ? 42 : \"str\";\n  },\n};\nconsole.log(o + 1, `${o}`, String(o));\n",
+  },
+  {
+    id: "r678-sym-hasinstance-protocol",
+    title: "Symbol.hasInstance 走自定义判定",
+    src: "\nconst even: any = {};\neven[Symbol.hasInstance] = (v: any) => typeof v === \"number\" && v % 2 === 0;\nconsole.log(typeof (even as any)[Symbol.hasInstance]);\ntry {\n  console.log(2 instanceof even, 3 instanceof even);\n} catch (e: any) {\n  console.log(\"抛了\");\n}\n",
+  },
+  {
+    id: "r678-sym-tostringtag",
+    title: "Symbol.toStringTag 改写 Object.prototype.toString 的输出",
+    src: "\nconst o: any = { [Symbol.toStringTag]: \"Mine\" };\nconsole.log(Object.prototype.toString.call(o));\nclass C { get [Symbol.toStringTag]() { return \"Cee\"; } }\nconsole.log(Object.prototype.toString.call(new C()));\n",
+  },
+  {
+    id: "r678-sym-private-in-operator",
+    title: "私有名检查：`#x in obj` 与私有字段的读写",
+    src: "\nclass Box {\n  #v = 1;\n  static has(o: any): boolean {\n    return #v in o;\n  }\n  get v(): number {\n    return this.#v;\n  }\n}\nconst b = new Box();\nconsole.log(Box.has(b), Box.has({}));\nconsole.log(b.v, b.v + (b.v = 5));\n",
+  },
+  {
+    id: "r678-sym-private-static-and-method",
+    title: "私有静态成员与私有方法",
+    src: "\nclass C {\n  static #count = 0;\n  #secret = \"s\";\n  static bump(): number {\n    C.#count += 1;\n    return C.#count;\n  }\n  #reveal(): string {\n    return this.#secret;\n  }\n  show(): string {\n    return this.#reveal();\n  }\n}\nconsole.log(C.bump(), C.bump());\nconsole.log(new C().show());\n",
+  },
+  {
+    id: "r678-sym-private-field-in-object-literal",
+    title: "对象字面量里的计算键写成 symbol 变量",
+    src: "\nconst s = Symbol(\"k\");\nlet i = 0;\nconst o: any = {\n  [s]: \"sym\",\n  [\"str\" + i]: \"dyn\",\n  [1 + 1]: \"num\",\n};\nconsole.log(o[s], o.str0, o[2]);\nconsole.log(Object.keys(o).sort().join(\",\"));\n",
+  },
+  {
+    id: "r678-sym-delete-symbol-key",
+    title: "delete 一个 symbol 键，以及 delete 之后的 in",
+    src: "\nconst s = Symbol(\"k\");\nconst o: any = { [s]: 1, plain: 2 };\nconsole.log(delete o[s], s in o);\nconsole.log(delete o.plain, \"plain\" in o);\nconsole.log(Object.getOwnPropertySymbols(o).length);\n",
+  },
+  {
+    id: "r678-sym-getownpropertydescriptor-symbol",
+    title: "getOwnPropertyDescriptor 取 symbol 键那一格",
+    src: "\nconst s = Symbol(\"k\");\nconst o: any = {};\nObject.defineProperty(o, s, { value: 7, enumerable: true, writable: true, configurable: true });\nconst d: any = Object.getOwnPropertyDescriptor(o, s);\nconsole.log(d.value, d.enumerable, d.writable, d.configurable);\nconsole.log(o[s], Object.getOwnPropertySymbols(o).length);\n",
+  },
+  {
+    id: "r678-sym-array-of-symbols-in-map",
+    title: "symbol 当 Map / Set 的键：身份而不是名字",
+    src: "\nconst a = Symbol(\"same\");\nconst b = Symbol(\"same\");\nconst m = new Map<any, string>();\nm.set(a, \"A\");\nm.set(b, \"B\");\nconsole.log(m.size, m.get(a), m.get(b));\nconst set = new Set<any>([a, b, a]);\nconsole.log(set.size, set.has(a), set.has(Symbol(\"same\")));\n",
+  },
+  {
+    id: "r678-sym-json-drops-symbols",
+    title: "JSON.stringify 丢掉 symbol 键与 symbol 值",
+    src: "\nconst s = Symbol(\"k\");\nconst o: any = { a: 1, [s]: 2, b: undefined, c: () => 1 };\nconsole.log(JSON.stringify(o));\nconsole.log(JSON.stringify({ x: [1, undefined, () => 1] }));\nconsole.log(JSON.stringify(s));\n",
+  },
+  {
+    id: "r678-sym-computed-class-member",
+    title: "类里的计算成员名（symbol 与表达式）",
+    src: "\nconst s = Symbol(\"m\");\nclass C {\n  [s](): string {\n    return \"sym-method\";\n  }\n  [\"plain\" + \"\"](): string {\n    return \"plain-method\";\n  }\n}\nconst c = new C();\nconsole.log((c as any)[s](), (c as any).plain());\nconsole.log(Object.getOwnPropertyNames(C.prototype).join(\",\"));\n",
+  },
+
 ];
