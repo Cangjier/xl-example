@@ -3206,6 +3206,32 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     }
     out.push(unit);
   };
+  // **把那个二元单元拆成两段**（第 744 轮）：续格那一格（归**操作数**）与
+  // 「运算符 + 右操作数」（归**外层折二元**）。`typeof o["f"]().v + ""` 要的就是这个分法——
+  // 一元比二元**紧**，`+ ""` 不在一元的操作数里。
+  // **续格给的是那一格单元本身、不是摊平的几格**：它要递回 `projectExpression` 的链那一支，
+  // 而那一支认的是**没摊开**的形状（与上面那一支注释里写的是同一条理由——
+  // 裸的 `(` 兄弟不在链那一支的入口判据里）。
+  const splitChainTailInOperator = (unit: any) => {
+    const rest: Array<any> = [];
+    let tail: any = undefined;
+    const walk = (one: any) => {
+      const inner = projectableKids(view(one));
+      if (inner.length >= 2 && isCallFirstUnit(inner[0], ctx)) {
+        tail = inner[0];
+        for (let j = 1; j < inner.length; j++) rest.push(inner[j]);
+        return;
+      }
+      if (inner.length >= 2 && chainTailInOperator(inner[0])) {
+        walk(inner[0]);
+        for (let j = 1; j < inner.length; j++) rest.push(inner[j]);
+        return;
+      }
+      rest.push(one);
+    };
+    walk(unit);
+    return { tail: tail, rest: rest };
+  };
   if (
     kids.length >= 2 &&
     (isSymbol(kids[1], ".") || isIndexBracket(kids[1]) ||
@@ -3358,6 +3384,54 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
           operandAt -= 1;
         }
       }
+      // **操作数那一格有两个名字**（实测踩过一次）：`typeof` / `void` / `delete` / `await`
+      // 是 `TypeOfExpression` 那一族（字段叫 **`expression`**），而 `!` / `~` / `+` / `-` /
+      // `++` / `--` 是 **`PrefixUnaryExpression`**（字段叫 **`operand`**）——
+      // 只认 `expression` 的话 `!o[k]().v` 会**退回**旧路（投成 `(!o[k])().v`，
+      // 运行期报 `cannot call a non-closure value`），而 `typeof o[k]().v` 是好的
+      // ——**同一个形状两种结局**，最费时间的那一种。
+      // **两个名字都认不出来时按 `op` 定**（第 739 轮）：`typeof await p` 里那个一元
+      // 单元的**操作数本来就缺**（它掉在单元外面）⇒ `TypeOfExpression` 投出来的是
+      // `expression: undefined` ⇒ 上面那两句「字段在不在」都不成立、整条支路白走
+      //（症状是 `typeof await p` 报 `unimplemented: expression AwaitKeyword`）。
+      // 判据用**运算符自己的文本**（`typeof` / `void` / `delete` 是**词**，三格独立 kind、
+      // 字段叫 `expression`；其余是符号，`PrefixUnaryExpression` 那一族的字段叫 `operand`）。
+      // **两处调用点共用它**（第 744 轮抽出来）：下面那一支与「续格在二元单元里」那一支
+      // 都要把操作数挂回同一个一元节点上——各写一遍就是两处会漂。
+      const attachToUnary = (operand: any) => {
+        const unaryHead = projectNode(ck[0], ctx);
+        if (operand === undefined || unaryHead === undefined) return undefined;
+        const outerWord = ck[0].get("op");
+        const wordKinds = ["typeof", "void", "delete"];
+        const preferExpression =
+          (typeof outerWord === "string" && wordKinds.includes(outerWord)) ||
+          unaryHead.expression !== undefined;
+        if (preferExpression) {
+          return { ...unaryHead, expression: operand, end: operand.end };
+        }
+        if (unaryHead.operand !== undefined) {
+          return { ...unaryHead, operand: operand, end: operand.end };
+        }
+        return { ...unaryHead, expression: operand, end: operand.end };
+      };
+      // **续格与更松的运算符在同一个单元里**（第 744 轮）：`typeof o["f"]().v + ""` 的产物是
+      //
+      //     [UnaryOperator(typeof o["f"]), BinaryOperator( PropertyAccess(Bracket(()), ., v), «+», "" )]
+      //
+      // ——一元单元里装的是**操作数的头**，续格与运算符一起在**下一个单元**里。
+      // **照下面那一支走会错**：它把 `kids.slice(1)` 整段（含运算符）都递进去递归，
+      // 而链那一支现在会把 `+ ""` 一起折进操作数 ⇒ 那个一元单元盖住整段
+      //（TS 只盖 `o["f"]().v`：缺 1 漂 1 多 2）。
+      // **一元比二元紧**，所以这里把那个单元拆开：续格归操作数、运算符与右操作数
+      // 交给 `foldBinaryFrom` 在外层折（`!o["f"]().v + ""` 同理）。
+      if (kids.length >= 2 && chainTailInOperator(kids[1])) {
+        const split = splitChainTailInOperator(kids[1]);
+        const operand = projectExpression([...unaryKids.slice(operandAt), split.tail], ctx);
+        const attached = attachToUnary(operand);
+        if (attached !== undefined) {
+          return foldBinaryFrom(attached, [...split.rest, ...kids.slice(2)], ctx);
+        }
+      }
       if (operandAt < unaryKids.length) {
         // **链上其余格用「摊开之前」的那一份**（`kids`，不是 `ck`）：`ck` 里第二格
         // （`PropertyAccess(Bracket(()), ., v)`）已经被摊成三格平级
@@ -3366,33 +3440,8 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
         // 折出一个**操作符是 `DotToken` 的 `BinaryExpression`**，
         // 降级期报 `name is not a local or a capture: v`（实测踩过一次）。
         const operand = projectExpression([...unaryKids.slice(operandAt), ...kids.slice(1)], ctx);
-        const unaryHead = projectNode(ck[0], ctx);
-        // **操作数那一格有两个名字**（实测踩过一次）：`typeof` / `void` / `delete` / `await`
-        // 是 `TypeOfExpression` 那一族（字段叫 **`expression`**），而 `!` / `~` / `+` / `-` /
-        // `++` / `--` 是 **`PrefixUnaryExpression`**（字段叫 **`operand`**）——
-        // 只认 `expression` 的话 `!o[k]().v` 会**退回**旧路（投成 `(!o[k])().v`，
-        // 运行期报 `cannot call a non-closure value`），而 `typeof o[k]().v` 是好的
-        // ——**同一个形状两种结局**，最费时间的那一种。
-        if (operand !== undefined && unaryHead !== undefined) {
-          // **两个名字都认不出来时按 `op` 定**（第 739 轮）：`typeof await p` 里那个一元
-          // 单元的**操作数本来就缺**（它掉在单元外面）⇒ `TypeOfExpression` 投出来的是
-          // `expression: undefined` ⇒ 上面那两句「字段在不在」都不成立、整条支路白走
-          //（症状是 `typeof await p` 报 `unimplemented: expression AwaitKeyword`）。
-          // 判据用**运算符自己的文本**（`typeof` / `void` / `delete` 是**词**，三格独立 kind、
-          // 字段叫 `expression`；其余是符号，`PrefixUnaryExpression` 那一族的字段叫 `operand`）。
-          const outerWord = ck[0].get("op");
-          const wordKinds = ["typeof", "void", "delete"];
-          const preferExpression =
-            (typeof outerWord === "string" && wordKinds.includes(outerWord)) ||
-            unaryHead.expression !== undefined;
-          if (preferExpression) {
-            return { ...unaryHead, expression: operand, end: operand.end };
-          }
-          if (unaryHead.operand !== undefined) {
-            return { ...unaryHead, operand: operand, end: operand.end };
-          }
-          return { ...unaryHead, expression: operand, end: operand.end };
-        }
+        const attached = attachToUnary(operand);
+        if (attached !== undefined) return attached;
       }
     }
     let left =
