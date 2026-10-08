@@ -713,15 +713,24 @@ if (computedName) {
 } else {
   result.name = "#" + this.MethodNameOf(nameUnit);
 }
-// **名字的位置当场记进字段**（见 `NameStart`）：普通标识符与**关键字名**都记——
-// 字符串名与计算名的分派留给投影（它读的是 `name` 的**文本**位置）；
+// **名字的位置当场记进字段**（见 `NameStart`）：普通标识符、关键字名与**字符串名**都记——
+// 只有计算名留给投影（它要的是方括号那一对，另有分派）。
+// 字符串名记的是**引号里那一段**（与 `Field.NameStart` 同一口径）：投影按 `name` 的文本位置
+// 自己判「左边一格是不是引号」，于是 `"a-b"()` 也**不再回原文 `indexOf("a-b")` 猜**
+//（带转义的名字 `indexOf` 根本找不到）。
 // 私有名的区间从 `#` 那一格算起（`name` 记的是 `#x` 整个名字）。
-if (!computedName && (nameUnit instanceof Identifier || nameUnit.constructor.name === "Keyword")) {
-  const nameStart = privateMark === null ? nameUnit.SourceRange.Start : privateMark.SourceRange.Start;
-  const nameEnd = nameUnit.SourceRange.End;
-  if (nameStart !== null && nameEnd !== null) {
-    result.NameStart = nameStart.Index;
-    result.NameEnd = nameEnd.Index;
+if (!computedName && (nameUnit instanceof Identifier || nameUnit.constructor.name === "Keyword" || nameUnit instanceof String)) {
+  const isStringName = nameUnit instanceof String;
+  // 标识符那一档取的是 `Source` 对象（私有名取 `#` 那一格），字符串名直接算下标。
+  const head = privateMark === null ? nameUnit.SourceRange.Start : privateMark.SourceRange.Start;
+  const tail = nameUnit.SourceRange.End;
+  const plainStart = head === null ? -1 : head.Index;
+  const plainEnd = tail === null ? -1 : tail.Index;
+  const nameStart = isStringName ? nameUnit.SourceRange.Start!.Index + 1 : plainStart;
+  const nameEnd = isStringName ? nameUnit.SourceRange.End!.Index - 1 : plainEnd;
+  if (nameStart >= 0 && nameEnd >= nameStart) {
+    result.NameStart = nameStart;
+    result.NameEnd = nameEnd;
   }
 }
 result.modifiers = DeclarationModifiers(units, startIndex, index).join(",");
@@ -829,7 +838,10 @@ this.CloseRuleQueue = template.CloseRuleTemplate.Get(this.constructor);
 
 ## field NameStart:int = -1
 
-名字在源码里的起点（闭区间下标）；名字不是普通标识符 / 关键字（字符串名 / 计算名）时是 `-1`。
+名字在源码里的起点（闭区间下标）；只有计算名（`[Symbol.toPrimitive]()`）时是 `-1`。
+
+**字符串名记的是引号里那一段**（与 `../field.xl.md` 的 `NameStart` 同一口径）：投影按
+「名字左边那一格是不是引号」判出 `StringLiteral`，于是 `"a-b"()` 不必回原文 `indexOf` 猜。
 
 **私有名 `#x` 从 `#` 算起**——`name` 记的是 `#x` 整个名字，投影合出来的是一个
 `PrivateIdentifier`，区间要盖住那个 `#`（见 `../field.xl.md` 的 `NameStart`，同一个来由）。

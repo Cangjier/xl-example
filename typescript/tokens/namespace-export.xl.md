@@ -81,6 +81,10 @@ if (!(nameUnit instanceof Identifier)) {
 const result = new NamespaceExport(template);
 result.Parent = current.Parent;
 result.name = nameUnit.TempToString();
+// **名字的位置当场记进字段**（见 `NameStart`）：四个词里只有名字要位置，
+// 而它就在手上——投影直读，不再回原文 `indexOf("Foo")` 猜（注释里的同名标识符会先被找到）。
+result.NameStart = nameUnit.SourceRange.Start!.Index;
+result.NameEnd = nameUnit.SourceRange.End!.Index;
 result.SignIn(current.SourceRange.Start!);
 // **右端要把尾分号算上** ✓（第 572 轮 ✓，与第 569 轮 `do-while` 那一处同一条口径 ✓）：
 // `;` 是语句终结符 ✓ —— `Statement.FormFrom` 把它**切进壳体的区间**却不放进 `Data` ✗
@@ -111,6 +115,15 @@ return ReplaceCountAt(units, index, nameIndex - index + 1, result);
 
 被导出的全局名（`export as namespace Foo` → `Foo`）。
 
+## field NameStart:int = -1
+
+**名字那一格的下标**（闭区间）。四个词本身不进 `Data`，位置只有认下这一趟知道——
+投影的 `synthName` 直读它，不再回原文 `indexOf(名字)` 找。
+
+## field NameEnd:int = -1
+
+与 `NameStart` 同进退的终点（闭区间下标）。
+
 ## method ToXmlString:()=>string
 
 产出**自闭合**标签：`<NamespaceExport name="Foo" />`。
@@ -137,6 +150,11 @@ XML 那次 `CommonUtil.XmlDecode` 是属性转义，JSON 的字符串不需要�
 const result: Map<string, any> = new Map();
 result.set("type", this.constructor.name);
 result.set("name", this.name);
+// **名字的位置**（见 `NameStart` / `NameEnd`）：投影直读，不再回原文 `indexOf` 猜。
+if (this.NameStart >= 0 && this.NameEnd >= this.NameStart) {
+  result.set("nameStart", this.NameStart);
+  result.set("nameEnd", this.NameEnd);
+}
 return result;
 ```
 
@@ -148,6 +166,8 @@ return result;
 const result = new NamespaceExport(this.Template);
 result.Sign(this);
 result.name = this.name;
+result.NameStart = this.NameStart;
+result.NameEnd = this.NameEnd;
 result.TryToClose();
 return result;
 ```

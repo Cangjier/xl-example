@@ -99,7 +99,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `BinaryOperator` / `UnaryOperator` | `type` `op` + `children` | |
 | `LogicalOperator` | `type` `op` + `children` | `op` 的值与 XML 同一处表达式：`this.op === "\|\|" ? "Or" : "And"` |
 | `Class` | `type` `name` `extends` `implements` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `implements` 用 `","` 拼；名字有区间时才写那对下标 |
-| `Enum` / `Function` / `MethodDeclaration` | `type` `name` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `Enum` / `MethodDeclaration` 写名字那对下标（`Function` 还没记，见下）；有修饰词时才写 `modifierSpans` |
+| `Enum` / `Function` / `MethodDeclaration` | `type` `name` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `Enum` / `MethodDeclaration` 写名字那对下标（`Function` 还没记，见下）；**字符串名记的是引号里那一段**（第 646 轮起，与 `Field` 同口径），投影按「左边一格是不是引号」判出 `StringLiteral`，不再回原文 `indexOf`；有修饰词时才写 `modifierSpans` |
 | `Interface` | `type` `name` `extends` `export` `modifiers` + 可选 `nameStart` `nameEnd` `modifierSpans` + `children` | `export` 是真布尔（XML 出口的拼法）；`modifiers` 是投影要的那串文本，两者由**同一次**声明头扫描定出来 |
 | `Namespace` | `type` `namespace` `modifiers` + 可选 `modifierSpans` `nameAt` `nameEnd` `nameRange` + `children` | `nameAt` / `nameEnd` 是**名字那一格**的整段闭区间（第 646 轮起三种名字共用）：引号模块名指向那个 `String` 单元（**含引号**）、`global` 指向那个词、标识符名（点号名的**第一段**）指向那一段；`nameRange` 是同一对下标的 `"起,止"` 拼法（第 645 轮），「声明名」那条共用路只读它——按「开头是引号 ⇒ 取引号之间」自己推文本区间，不再回原文 `indexOf`（点号名的全名在原文里根本不连续）。修饰词只写在外层那一格，点号名的里层不写（与 TS 的 `ModuleDeclaration` 一致） |
 | `Field` | `type` `name` `modifiers` `nameStart` `nameEnd` + 可选 `nameAt` `nameRange` `modifierSpans` + `children` | 字符串名的 `nameStart` / `nameEnd` 是**引号里那一段**（第 645 轮），`nameAt` / `nameRange` 是名字那一格（含引号）；计算名 / 索引签名 / 私有名的两对下标按各自口径给 |
@@ -111,7 +111,7 @@ const array = context.Root.ToList();       // 还没序列化的那一层（Map�
 | `Import` | `type` `From` `typeOnly` `defaultImport` `namespace` `imported` + `children` | 同上 |
 | `Let` | `type` + 三选一（`fieldName` / `arrayPattern` / `objectPattern`）+ `modifiers` `nameStart` `nameEnd` + 可选 `modifierSpans` + `children` | 分支判据与 XML 同一处 `LetType` 链；两个出口共用同一套形态，最后那个 `throw new Error("形态不成立")` 也各有一份 |
 | `Label` | `type` `label` | 自闭合标签，无子单元 |
-| `NamespaceExport` | `type` `name` | 同上 |
+| `NamespaceExport` | `type` `name` + 可选 `nameStart` `nameEnd` | 同上；名字那一格由 token 记下（第 646 轮），投影不再回原文 `indexOf` |
 | `While` / `DoWhile` | `type` `compare` `body` | 两个键都是 `ToList()` 的数组；`DoWhile` 的键序是 `body` → `compare` |
 | `For` | `type` `initial` `compare` `next` `body` `emptyBodyAt` `bodyBraceAt` `headerCloseAt` | `emptyBodyAt` 是**体为那条空语句（`for (…);`）时那个 `;` 的下标**，否则 `-1`；`bodyBraceAt` 是**体那个 `{` 的下标**（体不是花括号块时 `-1`）；`headerCloseAt` 是**头部那个 `)` 的下标**（第 634 轮加，`While` / `Foreach` 同名同义）——三格都让投影**直接读**，不再按原文重扫 |
 | `Foreach` | `type` `define` `enumable` `body` `emptyBodyAt` | 同上（另有 `bodyBraceAt` `isForIn` `headerCloseAt`） |
