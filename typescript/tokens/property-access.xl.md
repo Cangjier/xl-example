@@ -243,7 +243,7 @@ while (true) {
   // 不吞它的后果是**链从这里断** ⇒ `fn!().k` 在产物里是
   // `[NotNull(fn), PropertyAccess(Bracket(), ., k)]` ⇒ 投影把 `()` 当成链底
   // ⇒ TS 侧那三格（`CallExpression` / `PropertyAccessExpression` / `Identifier(k)`）整片消失
-  //（`tests/parse/cases/expressions/zz-probe-nonnull-chain.ts` 实测缺 3）。
+  //（`tests/cases/token/expressions/expr-nonnull-chain-links.ts` 实测缺 3）。
   // **只吞「紧跟在 `NotNull` 之后」的那一格**：`o["m"]()` 那一族的既有形状是
   // `[o, Bracket([m]), Bracket(())]`（三格平级、靠投影折），放开会换掉它。
   //

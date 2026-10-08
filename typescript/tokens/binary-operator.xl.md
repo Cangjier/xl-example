@@ -1158,7 +1158,7 @@ return result;
 只克隆自己会让产物里出现 `<BinaryOperator op="+" />` 这样的**空壳**——两个操作数整段消失。
 克隆只在复合赋值展开（`compound-assignment-operator.xl.md`）里被调用，而被克隆的正是左侧表达式：
 `a[b + c] += 1` 展开成 `a[b + c] = a[b + c] + 1`，克隆出来的那个下标里 `b + c` 会丢成空的
-（`tests/parse/cases/expressions/expr-compound-assign-clone-operands.ts` 钉住）。
+（`tests/cases/token/expressions/expr-compound-assign-clone-operands.ts` 钉住）。
 
 顺序是 `Sign(this)` → 抄 `op` → 子单元逐个克隆后整批加入 → `TryToClose()`；批量加入用 `AddRange`。
 

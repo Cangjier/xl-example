@@ -1490,8 +1490,8 @@ return MathResult(Number(literal));
 而 `new Object(null)` 在普通 `.ts` 里**几乎不写**（判据 `global-array-object-ctors`
 用的正是 `new Object(null as any) !== null`——**按 JS 那是 `true`**，
 所以那一条判据还差**这一格**（第 675 轮起它**在矩阵里**：
-[`gap-std-new-object-null`](../../tests/coverage/cases/stdlib.mjs)，登在
-`tests/coverage/expectations.mjs`）。
+[`gap-std-new-object-null`](../../tests/cases/stdlib/object/109-std-new-object-null.ts)，登在
+它的 `xl:why`）。
 **要做对它得先给宿主 ABI 加一位「这次是不是构造」**——那是另一件事。
 
 # const PowId:int = 224

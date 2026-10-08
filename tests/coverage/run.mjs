@@ -1,31 +1,61 @@
 #!/usr/bin/env node
-// 判据：**场景覆盖度**——exec（降级层）/ runtime（引擎）/ 标准库（builtins）/ 端到端。
+// 判据：**场景覆盖度**——五类语料，两种尺子。
 //
-//   node tests/coverage/run.mjs                     全矩阵 + 覆盖度报告
-//   node tests/coverage/run.mjs --layer stdlib      只跑一层
+//   node tests/coverage/run.mjs                     五类全跑 + 覆盖度报告
+//   node tests/coverage/run.mjs --category stdlib   只跑一类
 //   node tests/coverage/run.mjs --filter array-map  只跑 id 里带这个子串的
-//   node tests/coverage/run.mjs --list              只列 id（一层一行）
-//   node tests/coverage/run.mjs --verbose           连 stderr 第一行与耗时都打出来
+//   node tests/coverage/run.mjs --list              只列 id（一类一行）
+//   node tests/coverage/run.mjs --verbose           每条一行（含判定与耗时）
 //   node tests/coverage/run.mjs --strict            只要有一条不是 pass 就红
 //   node tests/coverage/run.mjs --no-report         不写 report.json
+//   node tests/coverage/run.mjs --no-batch          一条一个进程（权威口径，用来与批量对拍）
 //
-// ## 这条判据的口径（写在这里，因为它就是全部）
+// ## 五类与两种尺子
 //
-// 1. **一条用例 = 一个场景**：`matrix.mjs` 里一条 `{ id, title, src }`，
-//    就是「普通 `.ts` 里会出现的一种写法」。判据把它**写成真的 `.ts` 文件**，
-//    分别交给 `node` 与 `tsrun`，比 **stdout 逐字节 + 退出码**（口径与 `runtime:cli` 同）。
-// 2. **裁判是真 Node**：与 `runtime:cli` 同一条纪律——两个进程、两条完整链路、中间没有打桩。
-//    `expect: "blocked"` 的那几条**不是免检**：它们照样每次真跑，只是「现在过不了」被记在账上。
-// 3. **覆盖度 = pass / 矩阵条数**（按层加权）——这是**唯一**的进度读数，
-//    其余百分比（README 里那些估计）都是折算，不是读数。
-// 4. **每一条都必须有 stdout**：什么都不打印的「通过」等于什么都没验（判据自己拦）。
-// 5. **`expect` 是台账**：`"pass"` 的那条一旦过不了 ⇒ **REGRESSION**（红）；
-//    `"blocked"` 的那条（被修好了）⇒ **NEWLY-PASSING**（绿，并提示去改台账）。
-//    也就是说：**红只红在「比昨天差」**，不红在「还差多少」。
-// 6. **产物新鲜度**：规范比产物新就直接红（与 `runtime:check` / `runtime:cli` 同一条规矩）。
-// 7. **`nodeArgs`**：默认裁判是 `node <file>`（TypeScript 的类型剥离）；
-//    `enum` / `namespace` 这类**有运行期语义**的 TS 语法，类型剥离会拒收，
-//    所以那几条显式给 `nodeArgs: ["--experimental-transform-types"]`（写在 `matrix.mjs` 里）。
+// | 类别 | 目录 | 权重 | 尺子 |
+// | --- | --- | --- | --- |
+// | `token` | `tests/cases/token/<功能域>/` | 15% | **AST 尺子**：逐节点对 `ts.createSourceFile` |
+// | `exec` | `tests/cases/exec/<功能域>/` | 25% | **执行尺子**：`node` 与 `tsrun` 各跑一遍，比 stdout 逐字节 + 退出码 |
+// | `runtime` | `tests/cases/runtime/<功能域>/` | 25% | 同上 |
+// | `stdlib` | `tests/cases/stdlib/<功能域>/` | 20% | 同上 |
+// | `e2e` | `tests/cases/e2e/<功能域>/` | 15% | 同上 |
+//
+// **两种尺子，两套口径，都摆在这里**：
+//
+// 1. **执行尺子**（原来那四层）：一条 = 一个真跑的 `.ts`，裁判是**真 Node**，
+//    比 **stdout 逐字节 + 退出码**。`nodeArgs` 那一档给有运行期语义、
+//    类型剥离拒收的语法（`enum` / `namespace`）换 `--experimental-transform-types`。
+// 2. **AST 尺子**（token）：一条 = 一份被解析的 `.ts`，裁判是 `ts.createSourceFile`，
+//    比 **逐节点的 kind / 区间 / 字段名**，外加未映射 / 缺 range / 区间越界。
+//    它**不开进程**（同一个进程里对拍），而且借的是 `cases:tsast` 的**同一份实现**
+//    （`compareSource`）——两份实现就是两个口径。
+//
+// ## token 那两个数（第 685 轮）
+//
+// 原来 token 只有一把**布尔门**（`cases:tsast`：七项全 0 才退出码 0），
+// 于是「还剩多少」在读数里看不见。这里把它折成百分比，**两个数都报**：
+//
+// - **A. 逐文件完全一致**：每个文件的四个方向 + 三栏地基都为 0。口径最严。
+// - **B. 逐条用例还有没有差额**：上面这一条**再排除** `xl:known-gap` 与
+//   `xl:ts-invalid` / `.tsx`（口径外的两类）。**加权用的是 B**。
+//
+// **为什么要 B**：`xl:known-gap` 那 218 条是**已经量出来的缺口**，
+// 门把它们排除在七项之外（否则门永远红，红里分不出「新坏了」与「本来就还没做」）。
+// 可「还差多少」不该跟着一起消失——B 把分子定成「没有差额的用例数」，
+// 218 条缺口就在分母里，收掉一条涨一格。这与执行尺子的台账（`xl:want`）同一精神。
+//
+// ## 台账（`xl:want` / `xl:skip`，写在用例文件头）
+//
+// | 判决 | 含义 | 红不红 |
+// | --- | --- | --- |
+// | `ok` | 台账记 pass、现在 pass | — |
+// | `known` | 台账记 blocked/differ、现在还是 | —（还差多少由覆盖度那一栏说） |
+// | `MOVED` | 原来进不了门、现在跑得出来但还不对 | —（提示改台账） |
+// | `NEWLY-PASSING` | 台账记没过、现在过了 | —（提示删掉那一行） |
+// | `REGRESSION` | 台账记 pass、现在过不了 | **红** |
+// | `BAD-CASE` | 裁判自己都跑不动（用例写错了） | **红** |
+//
+// 也就是说：**红只红在「比昨天差」，不红在「还差多少」**。
 //
 // 判据读的是 `build/**/*.js`——**跳过 `xl build` 的话，它量的是上一版的产物**。
 
@@ -34,7 +64,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { LAYER_ORDER, LAYER_WEIGHTS, MATRIX } from "./matrix.mjs";
+import { CATEGORIES, isSkipped, listAll, listCategory } from "../cases/corpus.mjs";
+import { LAYER_WEIGHTS } from "./matrix.mjs";
+import { compareSource } from "../parse/ts-ast.mjs";
+import { caseBody } from "../parse/tags.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 
@@ -48,17 +82,13 @@ const listOnly = flag("--list");
 const verbose = flag("--verbose");
 const strict = flag("--strict");
 const writeReport = !flag("--no-report");
-const layerFilter = value("--layer");
+const categoryFilter = value("--category");
 const idFilter = value("--filter");
 const jobs = Math.max(1, Number(value("--jobs", String(Math.min(8, os.cpus().length)))));
+const useBatch = !flag("--no-batch");
 
 const tsrun = path.join(root, "build", "ts", "tsrun.js");
-// **每个实例一个工作目录**（第 320 轮按用户口径改）：原来是一个共用的 `.work`，
-// 而这一趟开头会 `rm -rf` 它 ⇒ 两个实例同时跑时，先跑的那一个会开始报
-// 「找不到输入文件」——那看起来像**三条回归**，其实是**另一个进程把它的文件删了**
-// （实测过）。**按 pid 分开之后两个实例互不相干**，连锁都不必了
-// （唯一还共用的是 `report.json`：它本来就是「最后一次整跑」的产物，
-//  两个实例同时写就是后写的那一份——**读数不会互相污染**）。
+// **每个实例一个工作目录**：共用一份时，两个实例并行会互相 `rm -rf` 掉对方的输入。
 const workDir = path.join(here, `.work-${process.pid}`);
 const reportPath = path.join(here, "report.json");
 
@@ -98,25 +128,36 @@ function checkFreshness() {
   }
 }
 
-const hits = MATRIX.filter((entry) => (layerFilter === "" || entry.layer === layerFilter)
+// ---------------------------------------------------------------------------
+// 选中的语料
+// ---------------------------------------------------------------------------
+const all = listAll();
+const hits = all.filter((entry) => (categoryFilter === "" || entry.category === categoryFilter)
   && (idFilter === "" || entry.id.includes(idFilter)));
-const selected = hits.filter((entry) => !entry.skip);
-const skipped = hits.filter((entry) => entry.skip);
-
 if (hits.length === 0) {
-  console.log(layerFilter === "" && idFilter === ""
-    ? "矩阵是空的：tests/coverage/matrix.mjs 一条都没有"
-    : `没有命中的用例（--layer ${layerFilter} --filter ${idFilter}）`);
+  console.log(categoryFilter === "" && idFilter === ""
+    ? "语料是空的：tests/cases/ 下一份用例都没有"
+    : `没有命中的用例（--category ${categoryFilter} --filter ${idFilter}）`);
   process.exit(1);
 }
+// **口径外的不进分母，但要看得见**（`--list` 与报告里都单列）。
+const selected = hits.filter((entry) => !isSkipped(entry));
+const skipped = hits.filter((entry) => isSkipped(entry));
+// **AST 尺子算不了的**：`xl:ts-invalid`（故意写非法 TS）与 `.tsx`（TSX 语法）——
+// 它们与 `cases:tsast` 的门是同一份排除表，**不算进 token 的分母**，也不进报告的分母。
+const tokenExcluded = (entry) =>
+  entry.category === "token" && (entry.directives.tsInvalid || entry.file.endsWith(".tsx"));
+const scored = selected.filter((entry) => !tokenExcluded(entry));
+const excluded = selected.filter(tokenExcluded);
+
 if (listOnly) {
-  for (const entry of selected) console.log(`${entry.layer.padEnd(8)} ${entry.id}`);
-  for (const entry of skipped) console.log(`${entry.layer.padEnd(8)} ${entry.id}  （口径外）`);
+  for (const entry of scored) console.log(`${entry.category.padEnd(8)} ${entry.id}`);
+  for (const entry of excluded) console.log(`${entry.category.padEnd(8)} ${entry.id}  （口径外：故意非法 TS / TSX）`);
+  for (const entry of skipped) console.log(`${entry.category.padEnd(8)} ${entry.id}  （口径外：${entry.directives.skip}）`);
   process.exit(0);
 }
 
-// **退出时删掉自己那一份工作目录**（第 320 轮）：留着的话每跑一次就多一个
-// `.work-<pid>`（`.gitignore` 里挡着，但磁盘上会越堆越多）。
+// **退出时删掉自己那一份工作目录**：留着的话每跑一次就多一个 `.work-<pid>`。
 process.on("exit", () => {
   try {
     fs.rmSync(workDir, { recursive: true, force: true });
@@ -127,27 +168,27 @@ process.on("exit", () => {
 checkFreshness();
 fs.rmSync(workDir, { recursive: true, force: true });
 fs.mkdirSync(workDir, { recursive: true });
+/** 裁判侧那一份份 `.ts` 落在哪儿（见 `judgeSourceFile` 的说明）。 */
+const srcDir = path.join(workDir, "src");
+fs.mkdirSync(srcDir, { recursive: true });
+// **哨兵包**：这一层要 **CommonJS / 松散模式**——与这一层语料一直以来的执行形态一致
+// （期望值全是照松散模式写的：写只读属性静默、`delete` 不可配置属性静默、
+// 非严格调用里 `this` 指向全局）。仓根那份也是 commonjs，这里**显式写下来**，
+// 免得哪天有人在 `tests/` 或 `tests/cases/` 放一份 `"type": "module"` 把它悄悄换掉
+// ——实测换成 module 会让 12 条用例从 pass 变 nodefail、9 条 stdout 不同。
+fs.writeFileSync(
+  path.join(srcDir, "package.json"),
+  `${JSON.stringify({ "//": "用例语料的运行形态：CommonJS / 松散模式。见 tests/coverage/run.mjs 的 judgeSourceFile。", type: "commonjs" }, null, 2)}\n`,
+  "utf8",
+);
 
-/**
- * **异步**跑一个进程（第 318 轮）——并发池真正并行起来靠的就是它。
- *
- * **为什么非改不可**：原来那一个是 `spawnSync`，而它是**同步**的——
- * 它一进去就把整个事件循环**堵住** ⇒ 那 8 个「并发」worker 一个接一个地跑
- * ⇒ **`--jobs` 形同虚设**（用户实测：CPU 只有 12%、`--jobs 8` 与 `--jobs 16`
- * 只差 6 秒——两件事都是这一条造成的）。
- * 换成 `spawn` + Promise 之后，同一时刻真的有 8 个 `node` 在跑。
- */
+/** **异步**跑一个进程——并发池真正并行起来靠的就是它（`spawnSync` 会堵住事件循环）。 */
 function runAsync(argv) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, argv, {
-      cwd: root,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const child = spawn(process.execPath, argv, { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
     const out = [];
     const err = [];
-    const timer = setTimeout(() => {
-      child.kill();
-    }, 30000);
+    const timer = setTimeout(() => child.kill(), 30000);
     child.stdout.on("data", (chunk) => out.push(chunk));
     child.stderr.on("data", (chunk) => err.push(chunk));
     child.on("error", (error) => {
@@ -173,127 +214,131 @@ function firstDifference(left, right) {
   return "（逐行相同——差异在行尾字节上）";
 }
 
-/** 判定一条：把「裁判那一对」与「被测那一对」比出结论（第 319 轮抽出来）。 */
+/** 执行尺子判一条：把「裁判那一对」与「被测那一对」比出结论。 */
 function verdictOf(entry, oracle, ours) {
-  const elapsed = 0;
   const mine = ours.stderr.toString("utf8").split("\n").find((line) => line.trim() !== "") || "";
-  // `nodeMayFail`：这一条**本来就是**「两边都非零退出」那一档（`exc-uncaught-exit-code`）——
-  // 裁判非零退出不算用例坏，只是**退出码也要对得上**。
-  if (oracle.status !== 0 && !entry.nodeMayFail) {
+  const mayFail = entry.directives.nodeMayFail;
+  if (oracle.status !== 0 && !mayFail) {
     const first = oracle.stderr.toString("utf8").split("\n").find((line) => line.trim() !== "") || "";
-    return { actual: "nodefail", detail: `node 自己跑不动：${first.trim().slice(0, 120)}`, elapsed };
+    return { actual: "nodefail", detail: `node 自己跑不动：${first.trim().slice(0, 120)}` };
   }
   if (oracle.stdout.length === 0) {
-    return { actual: "nodefail", detail: "node 一行都没打印（用例不合格：不打印的通过等于没验）", elapsed };
+    return { actual: "nodefail", detail: "node 一行都没打印（用例不合格：不打印的通过等于没验）" };
   }
   if (ours.stdout.length === 0 && ours.status !== 0) {
-    return { actual: "blocked", detail: mine.trim().slice(0, 120), elapsed };
+    return { actual: "blocked", detail: mine.trim().slice(0, 120) };
   }
   if (ours.status !== oracle.status) {
     return {
       actual: "differ",
       detail: `退出码 node=${oracle.status} tsrun=${ours.status}${mine ? `｜${mine.trim().slice(0, 90)}` : ""}`,
-      elapsed,
     };
   }
   if (Buffer.compare(oracle.stdout, ours.stdout) !== 0) {
-    return { actual: "differ", detail: `stdout 不同：${firstDifference(oracle.stdout, ours.stdout)}`, elapsed };
+    return { actual: "differ", detail: `stdout 不同：${firstDifference(oracle.stdout, ours.stdout)}` };
   }
-  return { actual: "pass", detail: "", elapsed };
+  return { actual: "pass", detail: "" };
+}
+
+/** AST 尺子判一条：与 `cases:tsast` 的七项同一口径（同一份 `compareSource`）。 */
+function verdictOfToken(entry) {
+  let row;
+  try {
+    row = compareSource(entry.source, entry.file, { list: false, limit: 0 });
+  } catch (error) {
+    return { actual: "blocked", detail: `产物抛异常：${String(error && error.Message ? error.Message : error).split("\n")[0].slice(0, 120)}`, diff: -1 };
+  }
+  const diff = row.missing + row.drift + row.extra + row.fieldDiff + row.unmapped.length + row.missingRange + row.outOfRange;
+  if (diff === 0) return { actual: "pass", detail: "", diff: 0 };
+  const parts = [];
+  if (row.missing) parts.push(`缺 ${row.missing}`);
+  if (row.drift) parts.push(`漂 ${row.drift}`);
+  if (row.extra) parts.push(`多 ${row.extra}`);
+  if (row.fieldDiff) parts.push(`字段 ${row.fieldDiff}`);
+  if (row.unmapped.length) parts.push(`未映射 ${row.unmapped.length}`);
+  if (row.missingRange) parts.push(`缺 range ${row.missingRange}`);
+  if (row.outOfRange) parts.push(`越界 ${row.outOfRange}`);
+  return { actual: "blocked", detail: `${parts.join("　")}　${entry.directives.knownGap || ""}`.trim().slice(0, 160), diff };
 }
 
 // ---------------------------------------------------------------------------
-// **被测侧：一个进程跑一批**（第 319 轮加，用户口径：「一次 tsrun（一个进程跑多个 case），
-// 同时起 CPU 核心数那么多个」）。
-//
-// **为什么**：裁判那一半已经缓存了，剩下的全在**被测侧**——1111 条就是 1111 次
-// `node` 启动（~265ms 里大半是启动）。`tsrun --batch 清单` 让**一个进程**跑一整批
-// ⇒ 启动次数从「条数」降到「批数」（16 批就是 16 次）。
-//
-// **批与批并行**：`--jobs`（默认 `min(核数, 16)`）就是**进程数**——
-// 这正是用户要的那个形状。
-//
-// **每条用例仍然是独立的**：清单里每一条各自一次 `RunSources`（新的机器、新的表），
-// 与「一条一个进程」**同一个入口** ⇒ 语义没变、读数没变（唯一的差别是 stdout 被
-// 逐条捕获，见 `tsrun.xl.md` 的 `RunBatch`）。
-//
-// **兜底**：某一条没出现在记录里（整批崩了 / 那条自己把进程带崩了）⇒
-// **按单条重跑那一条**——批量是加速手段，不许改变任何一条的判定。
-const useBatch = !flag("--no-batch");
+// 被测侧：一个进程跑一批（`tsrun --batch 清单`），**只有执行尺子那一类需要**
+// ---------------------------------------------------------------------------
+const stdoutEntries = scored.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.category !== "token");
 const manifestsDir = path.join(workDir, "manifests");
 fs.mkdirSync(manifestsDir, { recursive: true });
 
-/** 把选中的用例铺成 `jobs` 批（轮转分，长的短的混在一起）。 */
-function makeBatches() {
-  const batchCount = Math.max(1, Math.min(jobs, selected.length));
-  const groups = Array.from({ length: batchCount }, () => []);
-  for (let i = 0; i < selected.length; i++) groups[i % batchCount].push(i);
-  return groups;
+/**
+ * **被测侧跑哪一份文件**：仓库里那一条 `.ts`（唯一的事实来源）。
+ * `tsrun` 吃 `.ts`，与这一层原来的口径一字不差。
+ */
+function caseFile(entry) {
+  return entry.file;
 }
 
 /**
- * 一条用例的**裁判**能不能进批（第 320 轮）。
+ * **裁判侧跑哪一份文件**：`.work-<pid>/src/<下标>.ts`（每次现写，跑完就删）。
  *
- * **只剩一条排除**：**会把进程带走的**（`process.exit` / `require(`）——
- * 真出现时这一批提前结束，调用方发现「某几条没交回结果」就**按单条重跑**。
+ * 为什么裁判不能直接吃仓库里那份 `.ts`（第 685 轮实测三次才定下来）：
+ * `.ts` 的执行形态由**最近的 `package.json`** 决定，而语料树在 `tests/cases/` 下、
+ * 最近的是仓根那个 `"type": "commonjs"`，于是 `node <那份 .ts>` 把 `export` 当成
+ * CJS 语法错（实测 `SyntaxError: Unexpected token 'export'`）。
+ * 两条弯路也量过了：（a）给 `tests/cases/` 放一份 `"type": "module"` ⇒ `export` 通了，
+ * 但 ESM 一律是**严格模式**，于是 12 条「写只读属性该静默」的用例变成抛错
+ *（`Object.freeze` 之后写属性、`delete` 不可配置属性——它们的期望值正是照松散模式写的）；
+ *（b）改写成 `.mjs` ⇒ **Node 只对 `.ts` 做类型剥离**，`.mjs` 里的类型注解全成语法错
+ *（实测 1510 条 `nodefail`）。
  *
- * **会排异步工作的也进来了**（第 320 轮第二轮）：`judge-batch.mjs` 在每条之后
- * **让两个 `setImmediate` 的 tick** 再收工——`node file.ts` 会在**退出前**把微任务跑干净，
- * 那两个 tick 覆盖的正是「`main()` 没人在等它」那一类。
- * **它是一处近似，写在明处**：还没到点的定时器（`setTimeout(f, 100)`）等不到；
- * 所以配一句**可执行的验证**：`--no-batch`（一条一进程）跑一整轮，与批量那一轮
- * **逐条对拍**——第 320 轮实测 **1113 条逐条一致**（加权同为 95.17%）。
- * **第一轮试过「碰全局 + 异步」两条都排除**：稳妥 但慢（裁判侧 10s 里大半是那 65 条）；
- * **第二轮试过「每条等它安静下来」**：判据用了 `process._getActiveHandles()`，
- * 它在**批进程自己**身上本来就有波动 ⇒ 每条都判成「没安静」 ⇒ 整批不交结果
- * ⇒ 1113 条全部退回单跑（实测 **121.9s**，比不批还慢）。
- * **一个错误的判据会把整条加速路吃掉**——与第 318 / 319 轮那两条是同一类。
+ * 所以落点是：**`.ts` 扩展名**（类型剥离照旧生效）+ **这一份目录里的
+ * `package.json` 写 `"type": "module"`**（ES 模块，`import` / `export` 有意义，
+ * 而严格模式那一档由这一层的口径自己决定，见 `judgeSourceDir`）。
+ *
+ * `.work-<pid>/` 本来就是每次跑完就删的临时目录，所以这里没有引入第二份要维护的源码：
+ * **仓库里的 `.ts` 是唯一的事实来源**，跑的时候按判据的形态各落一份。
  */
-function judgeGroup(entry) {
-  // **不能进批的三类**（`judge-batch.mjs` 的开头写着为什么）：
-  //   · `process.exit` / `require(` —— 会把批进程带走或换掉模块语义；
-  //   · **排宏任务的**（`setTimeout` / `setInterval` / `setImmediate`）—— 批里一条 `import()`
-  //     返回之后只让两个 `setImmediate` tick 就收工，定时器还没到点 ⇒ **它的输出会落进
-  //     下一条的缓冲**（第 670 轮实测：`gap-std-set-timeout` 里那个 `setTimeout(…, 0)` 让
-  //     排在它后面的 `e2e-event-emitter` 被记成 `stdout 不同：node «timer» vs tsrun «»`
-  //     ——看起来像它**倒退**了，其实那行 `timer` 是上一条迟到的输出）。
-  // **这一条按源码认，不按台账认**：台账说的是「现在过不过」，而它管的是「能不能进批」，
-  // 两件事的寿命不一样（一条用例修好了照样会排定时器）。
-  if (/process\.exit|require\(|setTimeout|setInterval|setImmediate/.test(entry.src)) return null;
-  return (entry.nodeArgs || []).join(" ");
+function judgeSourceFile(row) {
+  return path.join(srcDir, `${row.index}.ts`);
 }
 
-/** 把选中的用例按「裁判组」分成若干批（同组之内再按 jobs 切）。 */
+function makeBatches() {
+  const batchCount = Math.max(1, Math.min(jobs, stdoutEntries.length));
+  const groups = Array.from({ length: batchCount }, () => []);
+  for (let i = 0; i < stdoutEntries.length; i++) groups[i % batchCount].push(stdoutEntries[i]);
+  return groups.filter((g) => g.length > 0);
+}
+
+/**
+ * **不能进裁判批的**（`judge-batch.mjs` 一个进程跑一批，每条之后只让两个 `setImmediate` tick）：
+ *   · `process.exit` / `require(` —— 会把批进程带走或换掉模块语义；
+ *   · **排宏任务的**（`setTimeout` / `setInterval` / `setImmediate`）——定时器还没到点，
+ *     输出会落进**下一条**的缓冲。
+ * **按源码认，不按台账认**——台账说的是「现在过不过」，它管的是「能不能进批」。
+ */
+function judgeGroup(entry) {
+  if (/process\.exit|require\(|setTimeout|setInterval|setImmediate/.test(caseBody(entry.body))) return null;
+  return entry.directives.nodeArgs.join(" ");
+}
+
 function makeJudgeBatches() {
   const groups = new Map();
-  for (let i = 0; i < selected.length; i++) {
-    const key = judgeGroup(selected[i]);
+  for (const row of stdoutEntries) {
+    const key = judgeGroup(row.entry);
     if (key === null) continue;
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(i);
+    groups.get(key).push(row);
   }
-  const batchCount = Math.max(1, Math.min(jobs, selected.length));
+  const batchCount = Math.max(1, Math.min(jobs, stdoutEntries.length));
   const batches = [];
-  for (const [key, indices] of groups) {
-    const slices = Array.from({ length: Math.min(batchCount, indices.length) }, () => []);
-    for (let i = 0; i < indices.length; i++) slices[i % slices.length].push(indices[i]);
-    for (const slice of slices) if (slice.length > 0) batches.push({ key, indices: slice });
+  for (const [key, rows] of groups) {
+    const slices = Array.from({ length: Math.min(batchCount, rows.length) }, () => []);
+    for (let i = 0; i < rows.length; i++) slices[i % slices.length].push(rows[i]);
+    for (const slice of slices) if (slice.length > 0) batches.push({ key, rows: slice });
   }
   return batches;
 }
 
-/** 跑一批裁判：返回 `Map<index, {status, stdout, stderr}>`（缺的就是没跑出来的）。 */
-async function runJudgeProcess(batch) {
-  const manifestPath = path.join(workDir, `judge-${batch.indices[0]}.json`);
-  const items = batch.indices.map((index) => ({
-    id: String(index),
-    path: caseFile(selected[index]),
-  }));
-  fs.writeFileSync(manifestPath, JSON.stringify(items), "utf8");
-  const nodeArgs = batch.key === "" ? [] : batch.key.split(" ");
-  const out = await runAsync([...nodeArgs, path.join(here, "judge-batch.mjs"), manifestPath]);
-  const found = new Map();
-  for (const line of out.stdout.toString("utf8").split("\n")) {
+/** 解析批进程交回的一行行 JSON。 */function parseRecords(stdout, into) {
+  for (const line of stdout.toString("utf8").split("\n")) {
     if (line.trim() === "" || line.startsWith('{"begin"')) continue;
     let record = null;
     try {
@@ -302,38 +347,53 @@ async function runJudgeProcess(batch) {
       continue;
     }
     if (record === null || record.id === undefined) continue;
-    found.set(Number(record.id), {
+    into.set(Number(record.id), {
       status: record.status,
       stdout: Buffer.from(record.stdout, "utf8"),
       stderr: Buffer.from(record.stderr, "utf8"),
     });
   }
-  return found;
+  return into;
 }
 
-/** 裁判那一半：先跑批，缺的按单条补。 */
+async function runJudgeProcess(batch) {
+  const manifestPath = path.join(workDir, `judge-${batch.rows[0].index}.json`);
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify(batch.rows.map((row) => ({ id: String(row.index), path: judgeSourceFile(row) }))),
+    "utf8",
+  );
+  const nodeArgs = batch.key === "" ? [] : batch.key.split(" ");
+  const out = await runAsync([...nodeArgs, path.join(here, "judge-batch.mjs"), manifestPath]);
+  return parseRecords(out.stdout, new Map());
+}
+
 async function runJudge() {
-  const oracleAll = new Array(selected.length);
+  const oracleAll = new Array(scored.length);
+  // **裁判侧那一份份 `.mjs`**：先全部落地，再开跑（见 `judgeSourceFile` 的说明）。
+  for (const row of stdoutEntries) {
+    fs.writeFileSync(judgeSourceFile(row), caseBody(row.entry.body).trimEnd() + "\n", "utf8");
+  }
   if (!useBatch) {
+    const rows = stdoutEntries;
     let at = 0;
     await Promise.all(
-      Array.from({ length: Math.min(jobs, selected.length) }, async () => {
+      Array.from({ length: Math.min(jobs, rows.length) }, async () => {
         for (;;) {
-          const index = at++;
-          if (index >= selected.length) return;
-          oracleAll[index] = await runAsync([...(selected[index].nodeArgs || []), caseFile(selected[index])]);
+          const slot = at++;
+          if (slot >= rows.length) return;
+          const row = rows[slot];
+          oracleAll[row.index] = await runAsync([...row.entry.directives.nodeArgs, judgeSourceFile(row)]);
         }
       }),
     );
     return oracleAll;
   }
   const batches = makeJudgeBatches();
-  // **把「一个进程跑多少条」说出来**（第 320 轮）：这一条是用户要的形状的直接证据
-  //（**不是**「一条一个进程、凑一批并行跑」）。
-  const batched = batches.reduce((sum, batch) => sum + batch.indices.length, 0);
+  const batched = batches.reduce((sum, batch) => sum + batch.rows.length, 0);
   console.log(
     `裁判：${batches.length} 个进程跑 ${batched} 条（每个进程约 ${Math.round(batched / Math.max(1, batches.length))} 条）`
-    + `；另有 ${selected.length - batched} 条按单条跑`,
+    + `；另有 ${stdoutEntries.length - batched} 条按单条跑（排宏任务 / 会带走进程的那种）`,
   );
   let cursor = 0;
   await Promise.all(
@@ -347,7 +407,7 @@ async function runJudge() {
     }),
   );
   const missing = [];
-  for (let i = 0; i < oracleAll.length; i++) if (oracleAll[i] === undefined) missing.push(i);
+  for (const { index } of stdoutEntries) if (oracleAll[index] === undefined) missing.push(index);
   if (missing.length > 0) {
     console.log(`（裁判批里有 ${missing.length} 条没交回结果：按单条重跑）`);
     let at = 0;
@@ -357,7 +417,8 @@ async function runJudge() {
           const slot = at++;
           if (slot >= missing.length) return;
           const index = missing[slot];
-          oracleAll[index] = await runAsync([...(selected[index].nodeArgs || []), caseFile(selected[index])]);
+          const row = stdoutEntries.find((r) => r.index === index);
+          oracleAll[index] = await runAsync([...scored[index].directives.nodeArgs, judgeSourceFile(row)]);
         }
       }),
     );
@@ -365,55 +426,26 @@ async function runJudge() {
   return oracleAll;
 }
 
-/** 跑一批：返回 `Map<index, {status, stdout, stderr}>`（缺的就是没跑出来的）。 */
-async function runBatchProcess(indices) {
-  const manifestPath = path.join(manifestsDir, `batch-${indices[0]}.json`);
-  const items = indices.map((index) => ({
-    id: String(index),
-    path: caseFile(selected[index]),
-  }));
-  fs.writeFileSync(manifestPath, JSON.stringify(items), "utf8");
+async function runBatchProcess(rows) {
+  const manifestPath = path.join(manifestsDir, `batch-${rows[0].index}.json`);
+  fs.writeFileSync(manifestPath, JSON.stringify(rows.map(({ entry, index }) => ({ id: String(index), path: caseFile(entry) }))), "utf8");
   const out = await runAsync([tsrun, "--batch", manifestPath]);
-  const found = new Map();
-  for (const line of out.stdout.toString("utf8").split("\n")) {
-    if (line.trim() === "" || line.startsWith('{"begin"')) continue;
-    let record = null;
-    try {
-      record = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (record === null || record.id === undefined) continue;
-    found.set(Number(record.id), {
-      status: record.status,
-      stdout: Buffer.from(record.stdout, "utf8"),
-      stderr: Buffer.from(record.stderr, "utf8"),
-    });
-  }
-  return found;
+  return parseRecords(out.stdout, new Map());
 }
 
-/** 被测侧的结果：先跑批，缺的按单条补。 */
 async function runOurs() {
-  const ours = new Array(selected.length);
+  const ours = new Array(scored.length);
   if (!useBatch) {
-    const pool = async (itemsArray, run) => {
-      let cursor = 0;
-      await Promise.all(
-        Array.from({ length: Math.min(jobs, itemsArray.length) }, async () => {
-          for (;;) {
-            const index = cursor++;
-            if (index >= itemsArray.length) return;
-            ours[index] = await runAsync([tsrun, caseFile(selected[index])]);
-          }
-        }),
-      );
-    };
-    await pool(
-      selected.map((_, i) => i),
-      async (index) => {
-        ours[index] = await runAsync([tsrun, caseFile(selected[index])]);
-      },
+    let at = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(jobs, stdoutEntries.length) }, async () => {
+        for (;;) {
+          const slot = at++;
+          if (slot >= stdoutEntries.length) return;
+          const { entry, index } = stdoutEntries[slot];
+          ours[index] = await runAsync([tsrun, caseFile(entry)]);
+        }
+      }),
     );
     return ours;
   }
@@ -429,9 +461,8 @@ async function runOurs() {
       }
     }),
   );
-  // **没跑出来的按单条补**（批量是加速手段，不许改变判定）。
   const missing = [];
-  for (let i = 0; i < ours.length; i++) if (ours[i] === undefined) missing.push(i);
+  for (const { index } of stdoutEntries) if (ours[index] === undefined) missing.push(index);
   if (missing.length > 0) {
     console.log(`（批里有 ${missing.length} 条没交回结果：按单条重跑）`);
     let at = 0;
@@ -441,7 +472,7 @@ async function runOurs() {
           const slot = at++;
           if (slot >= missing.length) return;
           const index = missing[slot];
-          ours[index] = await runAsync([tsrun, caseFile(selected[index])]);
+          ours[index] = await runAsync([tsrun, caseFile(scored[index])]);
         }
       }),
     );
@@ -449,16 +480,10 @@ async function runOurs() {
   return ours;
 }
 
-/** 一条用例的源码落在哪儿（批量与单条两条路都用它）。 */
-function caseFile(entry) {
-  return path.join(workDir, `${entry.id}.ts`);
-}
-
-// 一个很小的并发池：用例是**两个真进程**，串行跑一条要几百毫秒。
-const results = new Array(selected.length);
-for (const entry of selected) {
-  fs.writeFileSync(caseFile(entry), entry.src.trimEnd() + "\n", "utf8");
-}
+// ---------------------------------------------------------------------------
+// 跑
+// ---------------------------------------------------------------------------
+const results = new Array(scored.length);
 const startedAll = process.hrtime.bigint();
 const oursAll = await runOurs();
 const oursMs = Number(process.hrtime.bigint() - startedAll) / 1e6;
@@ -467,71 +492,129 @@ const oracleAll = await runJudge();
 const judgeMs = Number(process.hrtime.bigint() - judgeStarted) / 1e6;
 console.log(`被测侧 ${(oursMs / 1000).toFixed(1)}s、裁判侧 ${(judgeMs / 1000).toFixed(1)}s`);
 
+const astStarted = process.hrtime.bigint();
+// **先把每条落到自己的下标上**：不得用 `push`（那样同一条会被写两遍——
+// stdout 那一条既在 worker 里写、又在下面统一判，条数直接翻倍）。
+const indexOfEntry = new Map();
+for (let index = 0; index < scored.length; index++) {
+  indexOfEntry.set(scored[index], index);
+  const entry = scored[index];
+  if (entry.category !== "token") continue;
+  results[index] = { entry, ...verdictOfToken(entry) };
+}
+const astMs = Number(process.hrtime.bigint() - astStarted) / 1e6;
+
 let cursor = 0;
-const workers = Array.from({ length: Math.min(jobs, selected.length) }, async () => {
+const workers = Array.from({ length: Math.min(jobs, Math.max(1, stdoutEntries.length)) }, async () => {
   for (;;) {
     const index = cursor++;
-    if (index >= selected.length) return;
-    const entry = selected[index];
-    const started = process.hrtime.bigint();
+    if (index >= stdoutEntries.length) return;
+    const { entry, index: at } = stdoutEntries[index];
     let outcome;
     try {
-      const oracle = oracleAll[index];
-      outcome = verdictOf(entry, oracle, oursAll[index]);
+      outcome = verdictOf(entry, oracleAll[at], oursAll[at]);
     } catch (error) {
-      outcome = { actual: "nodefail", detail: `跑不起来：${error.message}`, elapsed: 0 };
+      outcome = { actual: "nodefail", detail: `跑不起来：${error.message}` };
     }
-    outcome.ms = Number(process.hrtime.bigint() - started) / 1e6;
-    results[index] = { entry, ...outcome };
+    results[at] = { entry, ...outcome };
   }
 });
 await Promise.all(workers);
+console.log(`AST 尺子 ${(astMs / 1000).toFixed(1)}s`);
 
-const expectation = (entry) => entry.expect || "pass";
-let red = 0;
-
-const layers = new Map();
-for (const result of results) {
+// ---------------------------------------------------------------------------
+// 判决与覆盖度
+//
+// **只用一次遍历、只从 `results` 里算**（第 685 轮重写）：原来这里是"边判边累加"
+// （`bucket.pass += 1` 与 `bucket[actual] += 1` 两套计数），于是同一个数在两个地方各长一次，
+// 症状是**分类那一行的 pass 恰好是逐条通过数的两倍**，而总数又是对的——
+// 排查它花的时间比写这段代码还多。现在改成：判定一趟、统计一趟，统计**不持有累加器**，
+// 每个数都是当场 `filter().length` 出来的。
+// ---------------------------------------------------------------------------
+/**
+ * 一条用例的**台账**（红只红在「比昨天差」）。
+ *
+ * 两套尺子各有自己的登记方式，但**语义是同一个**：
+ *
+ *   · 执行尺子（exec / runtime / stdlib / e2e）：`xl:want blocked|differ`；
+ *   · AST 尺子（token）：`xl:known-gap` —— 登记着就是 `blocked`，没登记就是 `pass`。
+ *
+ * 两者都遵守同一条纪律：**登记过的照样每次真跑**；哪天对上了，判 `NEWLY-PASSING`
+ * 提示把那一行登记删掉。token 那一侧由 `cases:tsast` 的 `knownGapCheck` 负责红，
+ * 这里负责把它折进百分比（219 条留在分母里，收掉一条涨一格）。
+ */
+const wantOf = (entry) => {
+  if (entry.category === "token") return entry.directives.knownGap !== "" ? "blocked" : "pass";
+  return entry.directives.want || "pass";
+};
+const decisions = results.filter((result) => result !== undefined && result.actual !== undefined);
+for (const result of decisions) {
   const { entry, actual } = result;
-  const want = expectation(entry);
+  const want = wantOf(entry);
   if (actual === "pass") result.verdict = want === "pass" ? "ok" : "NEWLY-PASSING";
   else if (actual === "nodefail") result.verdict = "BAD-CASE";
   else if (want === actual) result.verdict = "known";
-  // 台账记「进不了门」、现在「跑得出来但不对」= **进了门**，是进步（不是倒退）：
-  // 单独报 **MOVED**，提醒把台账那一行改掉。
   else if (want === "blocked" && actual === "differ") result.verdict = "MOVED";
   else result.verdict = "REGRESSION";
-  if (result.verdict === "REGRESSION" || result.verdict === "BAD-CASE") red += 1;
-
-  const bucket = layers.get(entry.layer) || { layer: entry.layer, total: 0, weight: 0, pass: 0, blocked: 0, differ: 0, nodefail: 0 };
-  bucket.total += 1;
-  bucket.weight += entry.weight || 1;
-  bucket[actual] = (bucket[actual] || 0) + 1;
-  layers.set(entry.layer, bucket);
 }
+const red = decisions.filter((r) => r.verdict === "REGRESSION" || r.verdict === "BAD-CASE").length;
 
-const rows = [...layers.values()].sort((a, b) => LAYER_ORDER.indexOf(a.layer) - LAYER_ORDER.indexOf(b.layer));
-const weightOf = (layer) => LAYER_WEIGHTS[layer] || 0;
+const rows = CATEGORIES.map((category) => {
+  const list = decisions.filter((r) => r.entry.category === category);
+  return {
+    category,
+    weight: LAYER_WEIGHTS[category] ?? 0,
+    total: list.length,
+    pass: list.filter((r) => r.actual === "pass").length,
+    blocked: list.filter((r) => r.actual === "blocked").length,
+    differ: list.filter((r) => r.actual === "differ").length,
+    nodefail: list.filter((r) => r.actual === "nodefail").length,
+  };
+}).filter((bucket) => bucket.total > 0);
 
-console.log("=== 场景覆盖度：exec / runtime / 标准库 / 端到端 ===");
-console.log(`矩阵 ${selected.length} 条、裁判 node${selected.some((e) => e.nodeArgs) ? "（含 --experimental-transform-types）" : ""}、被测 ${path.relative(root, tsrun)}`);
+if (process.env.XL_COVERAGE_SELFCHECK === "1") {
+  const sum = rows.reduce((a, b) => a + b.total, 0);
+  console.log(`[自查] results.length=${results.length} 已判定=${decisions.length} 进桶=${sum}`);
+}
 console.log("");
-console.log("层        覆盖度                     条数                     贡献（权重 × 覆盖度）");
+console.log("=== 场景覆盖度：token / exec / runtime / stdlib / e2e ===");
+console.log(`${scored.length} 条（另有口径外 ${skipped.length + excluded.length} 条：skip ${skipped.length}、故意非法 TS / TSX ${excluded.length}）`);
+console.log("");
+console.log("类       覆盖度                     条数                     贡献（权重 × 覆盖度）");
 let progress = 0;
 for (const bucket of rows) {
   const coverage = bucket.pass / bucket.total;
-  const contribution = weightOf(bucket.layer) * coverage;
+  const contribution = bucket.weight * coverage;
   progress += contribution;
-  console.log(`  ${bucket.layer.padEnd(8)} ${(coverage * 100).toFixed(1).padStart(5)}%   `
-    + `${String(bucket.pass).padStart(3)}/${String(bucket.total).padEnd(3)}  `
+  console.log(`  ${bucket.category.padEnd(8)} ${(coverage * 100).toFixed(1).padStart(5)}%   `
+    + `${String(bucket.pass).padStart(4)}/${String(bucket.total).padEnd(4)}  `
     + `(pass ${bucket.pass} · blocked ${bucket.blocked} · differ ${bucket.differ} · bad ${bucket.nodefail})`
-    + `   ${(weightOf(bucket.layer) * 100).toFixed(0).padStart(3)}% × ${(coverage * 100).toFixed(1)}% = ${contribution.toFixed(2)}`);
+    + `   ${(bucket.weight * 100).toFixed(0).padStart(3)}% × ${(coverage * 100).toFixed(1)}% = ${contribution.toFixed(2)}`);
 }
 console.log(`  ${"合计".padEnd(7)} ${(progress * 100).toFixed(2)} / 100  →  **整体 ${(progress * 100).toFixed(1)}%**`);
+
+// token 的**两个数**（口径见文件头）
+const tokenAll = results.filter((r) => r.entry.category === "token");
+const tokenGap = tokenAll.filter((r) => r.entry.directives.knownGap !== "");
+const tokenNoGap = tokenAll.filter((r) => r.entry.directives.knownGap === "");
+if (tokenAll.length > 0) {
+  // **两个数（口径见文件头）**：
+  //   A = 逐文件完全一致（含缺口里已经对上的那些）
+  //   B = **只看没有登记缺口的那些**——登记了缺口的**整条**排除在分母外，
+  //       所以 B 的分母是"本来该全对的用例"，它掉下来就是**真的坏了**。
+  const exact = tokenAll.filter((r) => (r.diff ?? -1) === 0).length;
+  const exactNoGap = tokenNoGap.filter((r) => (r.diff ?? -1) === 0).length;
+  const gapStillOpen = tokenGap.filter((r) => (r.diff ?? -1) !== 0).length;
+  console.log("");
+  console.log("token 的两个数：");
+  console.log(`  A 逐文件完全一致（七项全 0）        ${String(exact).padStart(4)} / ${String(tokenAll.length).padEnd(4)}  = ${((100 * exact) / tokenAll.length).toFixed(1)}%   ← 含 ${tokenGap.length} 条已登记缺口`);
+  console.log(`  B 没登记缺口的用例里全对的           ${String(exactNoGap).padStart(4)} / ${String(tokenNoGap.length).padEnd(4)}  = ${((100 * exactNoGap) / Math.max(1, tokenNoGap.length)).toFixed(1)}%   ← 加权用的是这个`);
+  console.log(`  （xl:known-gap ${tokenGap.length} 条：还对不上 ${gapStillOpen}、已收掉 ${tokenGap.length - gapStillOpen}——收掉的要来删指令）`);
+}
 console.log("");
 if (skipped.length > 0) {
-  console.log(`口径外（不测，${skipped.length} 条）：`);
-  for (const entry of skipped) console.log(`  ${entry.layer.padEnd(8)} ${entry.id.padEnd(34)} ${entry.skip}`);
+  console.log(`口径外（不测，${skipped.length} 条）——**理由写在用例文件头的 xl:skip 里**：`);
+  for (const entry of skipped) console.log(`  ${entry.category.padEnd(8)} ${entry.id.padEnd(46)} ${entry.directives.skip}`);
   console.log("");
 }
 
@@ -549,22 +632,23 @@ const show = (title, list, line) => {
   console.log("");
 };
 // 台账里写过的用**台账那句话**（人话），没写过的用实测的第一手信息。
-const reason = (result) => result.entry.why || result.detail;
-show("进不了门（blocked）", blocked, (r) => `${r.entry.layer.padEnd(8)} ${r.entry.id.padEnd(34)} ${reason(r)}`);
-show("跑得出来但 stdout / 退出码不同（differ）", differ, (r) => `${r.entry.layer.padEnd(8)} ${r.entry.id.padEnd(34)} ${reason(r)}`);
-show("用例自己不合法（bad）", bad, (r) => `${r.entry.layer.padEnd(8)} ${r.entry.id.padEnd(34)} ${r.detail}`);
-show("台账该更新了（原来记 blocked、现在过了）", newly, (r) => `${r.entry.layer.padEnd(8)} ${r.entry.id}`);
-show("进了一步（原来进不了门，现在跑得出来但还不对）", moved, (r) => `${r.entry.layer.padEnd(8)} ${r.entry.id.padEnd(34)} ${r.detail}`);
-show("**倒退**（台账记 pass、现在过不了）", regressions, (r) => `${r.entry.layer.padEnd(8)} ${r.entry.id.padEnd(34)} ${r.detail}`);
+const reason = (result) => result.entry.directives.why || result.detail;
+show("进不了门（blocked）", blocked, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id.padEnd(46)} ${reason(r)}`);
+show("跑得出来但 stdout / 退出码不同（differ）", differ, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id.padEnd(46)} ${reason(r)}`);
+show("用例自己不合法（bad）", bad, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id.padEnd(46)} ${r.detail}`);
+show("台账该更新了（原来记 blocked、现在过了）", newly, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id}`);
+show("进了一步（原来进不了门，现在跑得出来但还不对）", moved, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id.padEnd(46)} ${r.detail}`);
+show("**倒退**（台账记 pass、现在过不了）", regressions, (r) => `${r.entry.category.padEnd(8)} ${r.entry.id.padEnd(46)} ${r.detail}`);
 
 const summary = {
   round: value("--round", ""),
-  matrix: selected.length,
-  skipped: skipped.map((entry) => ({ id: entry.id, layer: entry.layer, why: entry.skip })),
+  total: scored.length,
+  skipped: skipped.map((entry) => ({ id: entry.id, category: entry.category, why: entry.directives.skip })),
+  excluded: excluded.map((entry) => ({ id: entry.id, category: entry.category, why: entry.directives.tsInvalid ? "xl:ts-invalid（故意写非法 TS）" : "TSX（TSX 语法）" })),
   progressPercent: Number((progress * 100).toFixed(2)),
-  layers: rows.map((bucket) => ({
-    layer: bucket.layer,
-    weight: weightOf(bucket.layer),
+  categories: rows.map((bucket) => ({
+    category: bucket.category,
+    weight: bucket.weight,
     total: bucket.total,
     pass: bucket.pass,
     blocked: bucket.blocked,
@@ -572,20 +656,27 @@ const summary = {
     nodefail: bucket.nodefail,
     coverage: Number(((bucket.pass / bucket.total) * 100).toFixed(2)),
   })),
-  blocked: blocked.map((r) => ({ id: r.entry.id, layer: r.entry.layer, title: r.entry.title, detail: r.detail })),
-  differ: differ.map((r) => ({ id: r.entry.id, layer: r.entry.layer, title: r.entry.title, detail: r.detail })),
-  bad: bad.map((r) => ({ id: r.entry.id, layer: r.entry.layer, detail: r.detail })),
-  moved: moved.map((r) => ({ id: r.entry.id, layer: r.entry.layer, why: r.entry.why || "", detail: r.detail })),
-  newlyPassing: newly.map((r) => ({ id: r.entry.id, layer: r.entry.layer })),
-  regressions: regressions.map((r) => ({ id: r.entry.id, layer: r.entry.layer, detail: r.detail })),
+  token: tokenAll.length === 0 ? null : {
+    total: tokenAll.length,
+    knownGap: tokenGap.length,
+    knownGapStillOpen: tokenGap.filter((r) => (r.diff ?? -1) !== 0).length,
+    exactFiles: tokenAll.filter((r) => (r.diff ?? -1) === 0).length,
+    scoredWithoutGap: tokenNoGap.length,
+    passedWithoutGap: tokenNoGap.filter((r) => (r.diff ?? -1) === 0).length,
+  },
+  blocked: blocked.map((r) => ({ id: r.entry.id, category: r.entry.category, title: r.entry.directives.title, detail: r.detail })),
+  differ: differ.map((r) => ({ id: r.entry.id, category: r.entry.category, title: r.entry.directives.title, detail: r.detail })),
+  bad: bad.map((r) => ({ id: r.entry.id, category: r.entry.category, detail: r.detail })),
+  moved: moved.map((r) => ({ id: r.entry.id, category: r.entry.category, why: r.entry.directives.why || "", detail: r.detail })),
+  newlyPassing: newly.map((r) => ({ id: r.entry.id, category: r.entry.category })),
+  regressions: regressions.map((r) => ({ id: r.entry.id, category: r.entry.category, detail: r.detail })),
 };
 
-// **过滤过的一次运行不覆盖读数**（第 205 轮补的）：`report.json` 是**整张矩阵**的读数，
-// 而 `--layer` / `--filter` 只是一次查看——让它覆盖的话，那一次**部分**运行会被当成全局读数
-//（**静默**：文件里还是那份 JSON，只是分母悄悄变了几条）。
-const filteredRun = layerFilter !== "" || idFilter !== "";
+// **过滤过的一次运行不覆盖读数**：`report.json` 是**整张矩阵**的读数，
+// 而 `--category` / `--filter` 只是一次查看——让它覆盖的话，那一次**部分**运行会被当成全局读数。
+const filteredRun = categoryFilter !== "" || idFilter !== "";
 if (writeReport && filteredRun) {
-  console.log("（这是**过滤后**的一次运行，`report.json` 不覆盖——去掉 `--layer` / `--filter` 再跑才会写读数）");
+  console.log("（这是**过滤后**的一次运行，`report.json` 不覆盖——去掉 `--category` / `--filter` 再跑才会写读数）");
 }
 if (writeReport && !filteredRun) {
   fs.writeFileSync(reportPath, JSON.stringify(summary, null, 2) + "\n", "utf8");
@@ -594,23 +685,25 @@ if (writeReport && !filteredRun) {
 if (verbose) {
   console.log("");
   for (const result of results) {
-    console.log(`${result.verdict.padEnd(14)} ${result.entry.id.padEnd(34)} ${result.ms.toFixed(0).padStart(5)} ms`);
+    console.log(`${result.verdict.padEnd(14)} ${result.entry.category.padEnd(8)} ${result.entry.id}`);
   }
 }
-console.log(`覆盖度：${results.filter((r) => r.actual === "pass").length} / ${results.length} 条通过；`
+console.log(`覆盖度：${results.filter((r) => r && r.actual === "pass").length} / ${results.length} 条通过；`
   + `blocked ${blocked.length}、differ ${differ.length}、bad ${bad.length}；`
   + `整体加权 ${(progress * 100).toFixed(1)}%`);
+if (verbose) {
+  const sum = rows.reduce((a, b) => a + b.total, 0);
+  console.log(`（自查：results 长度 ${results.length}、聚合进桶 ${sum}、判决行 ${results.filter((r) => r && r.verdict).length}）`);
+}
 
-// `--emit-expectations`：把**现状**打成一份台账骨架（给人改，然后贴进 expectations.mjs）。
-// 它只生成 `expect` 与 `why` 两栏——`why` 是从失败信息里抄的，**必须再读一遍**：
-// 台账写的是「这条为什么现在过不了」，不是「它现在过不了」。
-if (flag("--emit-expectations")) {
+// `--emit-ledger`：按现状打一份台账骨架（给人改），逐类的键是**新 id**。
+if (flag("--emit-ledger")) {
   console.log("");
-  console.log("export const EXPECTATIONS = {");
+  console.log("export const LEDGER = {");
   for (const result of results) {
-    if (result.actual === "pass" && expectation(result.entry) === "pass") continue;
+    if (result.actual === "pass" && wantOf(result.entry) === "pass") continue;
     const kind = result.actual === "pass" ? "pass" : result.actual === "differ" ? "differ" : "blocked";
-    console.log(`  ${JSON.stringify(result.entry.id)}: { expect: ${JSON.stringify(kind)}, why: ${JSON.stringify(result.detail.slice(0, 110))} },`);
+    console.log(`  ${JSON.stringify(result.entry.id)}: { want: ${JSON.stringify(kind)}, why: ${JSON.stringify(result.detail.slice(0, 110))} },`);
   }
   console.log("};");
 }

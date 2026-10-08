@@ -947,7 +947,7 @@ return word === "as" || word === "satisfies" || word === "in" || word === "of" |
    报 `unimplemented: assignment to a non-identifier (left is FunctionDeclaration)`，
    `tests/runtime/check.mjs` 的「求值顺序与赋值表达式的值」一条一起红 —— 见第四节）。
 
-**语料把两道护栏的必要性分得很清**：只加符号、两道护栏都不加 ⇒ `tests/parse/cases` 那一栏
+**语料把两道护栏的必要性分得很清**：只加符号、两道护栏都不加 ⇒ `tests/cases/token` 那一栏
 **看不出来**（1035 / 1037、**零抛异常**，与加满护栏时**一模一样**），
 红的是 `runtime:*` 两道门 —— 这是本仓第一次出现「四方向尺子全绿、而门是红的」，
 所以第 582 轮起，**动这一类判据必须两道门一起看**（见第五节）。
@@ -1833,7 +1833,7 @@ if (Statement.IsStatementBoundary(data, data.length - 1)) {
 // `do x++` 换行 `while (x < 10)` 是**一条**语句（TypeScript 的 ASI 在这里不插分号），
 // 可壳一收就把 `do` 关进壳里 ⇒ `DoWhileCloseRule.Previous` 再也认不出它
 // ⇒ 落到 `WhileCloseRule` 手里、再因为「`while` 后面没有语句」抛错
-//（`tests/parse/cases/statements/stmt-do-while-no-block.ts`；对照态同样炸 —— 这是重组层的老缺口）。
+//（`tests/cases/token/statements/stmt-do-while-no-block.ts`；对照态同样炸 —— 这是重组层的老缺口）。
 // 判据只看**这一段**的第一个实义单元是不是 `do` 这个词（`Statement.WordOf` 两种形态都认）。
 const frontIndex = SearchFrontIndexed(data, data.length - 1, (itemIndex, item) => Statement.IsStatementBoundary(data, itemIndex));
 const head = Statement.WordOf(Statement.FirstMeaningful(data.slice(frontIndex + 1)));

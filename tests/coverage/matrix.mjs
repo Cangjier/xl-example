@@ -1,67 +1,37 @@
-// 覆盖矩阵：**四层合起来的那一份名单**。
+// 覆盖矩阵的**类目表**（这一份是判据唯一的"分类"输入）。
 //
 // ```
-// runtime  引擎（值 / 堆 / GC / 帧 / IR / 执行器 / 宿主 ABI）   权重 25%
-// exec     降级层（含 token / 投影）——TS 形状 → 运行期语义     权重 30%
-// stdlib   标准库（builtins/）——内建成员与标准形状             权重 25%
-// e2e      端到端——一份普通 `.ts` 的完整程序                   权重 20%
+// token    AST 语料——逐节点对 ts.createSourceFile         权重 15%
+// exec     降级层——TS 形状能不能被读成正确的运行期语义      权重 25%
+// runtime  引擎——值 / 堆 / GC / 帧 / IR / 执行器 / 宿主 ABI  权重 25%
+// stdlib   标准库——内建成员与标准形状                       权重 20%
+// e2e      端到端——几族合起来的完整程序                      权重 15%
 // ```
 //
-// 权重的来处与 `typescript-exec/README.md` 那张表**同一份**（引擎 25 / 降级 30 /
-// 标准库 25 / 端到端 20）——所以这里的**覆盖度**与那边的**估计**可以直接对着看：
-// 一个是从「机器还剩多少没造」折算的，一个是从「场景过没过」量出来的。
+// ## 权重是怎么来的（第 685 轮：五类重新配）
 //
-// 一条的形状：
+// 原来那张表（引擎 25 / 降级 30 / 标准库 25 / 端到端 20）是**没有 token 这一类的**
+// 时候配的——那时 token 只是另一道布尔门（`cases:tsast`：「七项全 0」）。
+// token 折成百分比进来之后，那一份要重新分：
 //
-// ```js
-// { id,            // 唯一；一条 = 一个场景（也就是一个真跑的 `.ts` 文件）
-//   title,         // 一句话说清这条考什么
-//   src,           // 一段**真的普通 `.ts`**（交给 node 与 tsrun 各跑一遍）
-//   expect,        // "pass"（默认）| "blocked"（台账：现在过不了）| "differ"
-//   nodeArgs,      // 裁判的额外实参（只有类型剥离拒收的那几条用得上）
-//   skip }         // 口径外：不测，但要**看得见**（记在报告里，不算进分母）
-// ```
+// - **token 15%**：语料最大（1411 条），但它的缺口是 **218 条已知缺口**，
+//   属于"长期活"——权重给太高会让整体读数被一个本来就慢的维度拖住。
+// - **exec 从 30% 降到 25%**：降级层是**主战场**（571 条、9 条缺口），但它不该
+//   在五类里独大。
+// - **runtime 25% 不动**：612 条 100%，是"已经装修好"的那一层，权重高代表它不能被弄坏。
+// - **stdlib 25% → 20%**、**e2e 20% → 15%**：各自让出 5 / 5 个点，正是 token 那 15% 的来源。
 //
-// `expect: "blocked"` **不是免检**：它照样每次真跑，只是「现在过不了」被记在账上；
-// 哪天修好了，判据会报 **NEWLY-PASSING** 提醒把台账改掉（口径见 run.mjs）。
+// 三类的**同源条目**按"一份源只算一次"处理（分母不重复计）：
+//   · `runtime/functions/001-closure-counter`（原 `rt-nested-closure-counter` 与
+//     `c323-rt-closure-counter-and-shared-state` 逐字同源）；
+//   · `exec` 里 39 条 `l677-*` 与 token 语料同源——它们**留在 exec**（量的是 stdout 语义，
+//     token 那把尺子量不了），但在 token 那一类的报告里列为同一族。
+//
+// 「一条用例 = 一个 `.ts` 文件」的形态见 `tests/cases/README.md`；
+// 语料的发现与读出见 `tests/cases/corpus.mjs`。
 
-import { e2eCases } from "./cases/e2e.mjs";
-import { execCases } from "./cases/exec.mjs";
-import { runtimeCases } from "./cases/runtime.mjs";
-import { stdlibCases } from "./cases/stdlib.mjs";
-import { EXPECTATIONS } from "./expectations.mjs";
+/** 报告里的顺序（也是权重的方向：AST → 降级 → 引擎 → 标准库 → 端到端）。 */
+export const LAYER_ORDER = ["token", "exec", "runtime", "stdlib", "e2e"];
 
-/** 报告里的顺序（也是权重的方向：引擎 → 降级 → 标准库 → 端到端）。 */
-export const LAYER_ORDER = ["runtime", "exec", "stdlib", "e2e"];
-
-/** 与 `typescript-exec/README.md` 那张加权表同一份权重。 */
-export const LAYER_WEIGHTS = { runtime: 0.25, exec: 0.3, stdlib: 0.25, e2e: 0.2 };
-
-const tag = (layer, list) => list.map((entry) => ({ weight: 1, ...entry, ...(EXPECTATIONS[entry.id] || {}), layer }));
-
-/** 全矩阵（这一份是判据唯一的输入）。 */
-export const MATRIX = [
-  ...tag("runtime", runtimeCases),
-  ...tag("exec", execCases),
-  ...tag("stdlib", stdlibCases),
-  ...tag("e2e", e2eCases),
-];
-
-// id 撞车是**静默**的：报告里少一条、覆盖度悄悄变好看。所以这里当场拦。
-const seen = new Map();
-for (const entry of MATRIX) {
-  if (seen.has(entry.id)) throw new Error(`覆盖矩阵里 id 撞车：${entry.id}（${seen.get(entry.id)} 与 ${entry.layer}）`);
-  seen.set(entry.id, entry.layer);
-  if (typeof entry.src !== "string" || entry.src.trim() === "") throw new Error(`覆盖矩阵里 ${entry.id} 没有 src`);
-  if (entry.skip && entry.expect) throw new Error(`覆盖矩阵里 ${entry.id} 既 skip 又 expect——两样只能有一样`);
-}
-// 台账里留着一个**矩阵里已经没有的 id** 也是静默的（那一行永远不会被跑到）。同样当场拦。
-for (const id of Object.keys(EXPECTATIONS)) {
-  if (!seen.has(id)) throw new Error(`台账里的 ${id} 在矩阵里不存在（改过 id？删掉这一行）`);
-}
-
-/** 每一层有几条（报告开头的「矩阵 N 条」用的就是这一份）。 */
-export const LAYER_COUNTS = Object.fromEntries(LAYER_ORDER.map((layer) => [
-  layer,
-  MATRIX.filter((entry) => entry.layer === layer && !entry.skip).length,
-]));
+/** 五类的权重（和为 1）。 */
+export const LAYER_WEIGHTS = { token: 0.15, exec: 0.25, runtime: 0.25, stdlib: 0.2, e2e: 0.15 };

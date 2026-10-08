@@ -1247,7 +1247,7 @@ throw new Error("unimplemented: loose equality did not settle");
 
 **它原来只是 `Value.AsBool` 的一层包装**：所以建库层当时「**少一次绕路**」，
 直接写 `answered.AsBool()`——那时两句话在**字面上**确实一样
-（那一条的账记在 `docs/typescript-parsing-gaps.md` 里），
+（那一条的账记在 `tests/parse/typescript-parsing-gaps.md` 里），
 但**语义上不一样**：`""` 是假，而 `AsBool` 看不到码元长度。
 于是 `if ("")` 与 `[""].filter(x => x)` 给出**两个答案**——正是这一轮根除的形状。
 **绕路那一次现在是真的在干活**（`TruthyOf` 要读堆），所以建库层**必须**走它。

@@ -1,423 +1,1836 @@
 {
   "round": "",
-  "matrix": 2388,
+  "total": 3802,
   "skipped": [
     {
-      "id": "rt-bigint-forms",
-      "layer": "runtime",
-      "why": "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）"
-    },
-    {
-      "id": "ex-decorators-on-class",
-      "layer": "exec",
-      "why": "装饰器的运行期语义是明确不做的那一档；`node` 的类型剥离 / 变换两种模式都拒收，裁判给不出来"
-    },
-    {
-      "id": "ex-module-export",
-      "layer": "exec",
-      "why": "多文件模块加载由宿主决定（README 的口径外那一条）；单文件直接跑时 export 本身无输出"
-    },
-    {
-      "id": "ex-module-import",
-      "layer": "exec",
-      "why": "模块解析 / 加载语义由宿主的装载器决定，tsrun 的口径是**单文件**"
-    },
-    {
-      "id": "console-log-error-stack",
-      "layer": "stdlib",
-      "why": "口径外：Node 的栈里含宿主/V8 内部帧（行号随宿主版本变），逐字复现不在本工程的目标里；引擎自己的 Error 首行由 console-log-special 量着"
-    },
-    {
-      "id": "regexp-literal-basic",
-      "layer": "stdlib",
-      "why": "口径外：`RegExp` 是 v1 写死的非目标（docs/runtime-architecture.md §15）——留在矩阵里看得见，不算进分母"
-    },
-    {
-      "id": "string-match-and-split-regex",
-      "layer": "stdlib",
-      "why": "口径外：同上——收正则的那几个字符串方法要 `RegExp`，它不在目标里"
-    },
-    {
-      "id": "string-regex-in-strings",
-      "layer": "stdlib",
-      "why": "口径外：`RegExp` 字面量是 v1 写死的非目标（docs/runtime-architecture.md §15）"
-    },
-    {
-      "id": "string-split-limit-and-capture",
-      "layer": "stdlib",
-      "why": "口径外：同上——按正则切分要 `RegExp`"
-    },
-    {
-      "id": "builtin-regexp-constructor",
-      "layer": "stdlib",
-      "why": "口径外：同上——`RegExp` 构造器不在目标里（`RegExp` 这个全局名不登记）"
-    },
-    {
-      "id": "json-stringify-bigint",
-      "layer": "stdlib",
-      "why": "口径外：同上——`BigInt` 字面量与 `JSON.stringify` 的 BigInt 分支都不在目标里"
-    },
-    {
-      "id": "builtin-bigint-conversion-forms",
-      "layer": "stdlib",
-      "why": "口径外：`BigInt` 在 docs/runtime-architecture.md §15 那张「明确不做」的表里（与 RegExp / Proxy / Intl 同档）"
-    },
-    {
-      "id": "l677p-dynamic-import",
-      "layer": "stdlib",
-      "why": "口径外：多文件模块加载由宿主的装载器决定（README 的口径外那一条）；`import()` 的返回形状不是单文件 `tsrun` 的目标"
-    },
-    {
-      "id": "c639-e2e-string-matchall-and-index",
-      "layer": "e2e",
-      "why": true
-    },
-    {
-      "id": "k7-e2e-number-to-chinese",
-      "layer": "e2e",
-      "why": "口径外：这条 e2e 只用正则做切分，换成 `RegExp` 以外写法的版本已经另收（见同批 pass 的候选）"
-    },
-    {
-      "id": "k7-e2e-word-frequency",
-      "layer": "e2e",
-      "why": "口径外：同上"
-    },
-    {
-      "id": "k7-e2e-template-engine",
-      "layer": "e2e",
-      "why": "口径外：同上"
+      "id": "exec/classes/001-decorators-on-class",
+      "category": "exec",
+      "why": "裁判给不出来：`node` 的类型剥离 / 变换 / `--experimental-strip-types` 三种模式都在 `@tag` 那一行报语法错，没有基准可比。**装饰器本身的实现**是待做项（见 README 的「明确不做」与 §15）——那件事落地后这一条要换一个能跑的裁判"
     }
   ],
-  "progressPercent": 98.51,
-  "layers": [
+  "excluded": [
     {
-      "layer": "runtime",
-      "weight": 0.25,
-      "total": 612,
-      "pass": 612,
-      "blocked": 0,
-      "differ": 0,
-      "nodefail": 0,
-      "coverage": 100
+      "id": "token/declarations/decl-class-computed-field-then-template-method",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
     },
     {
-      "layer": "exec",
-      "weight": 0.3,
-      "total": 607,
+      "id": "token/lexical/lex-jsx-children",
+      "category": "token",
+      "why": "TSX（TSX 语法）"
+    },
+    {
+      "id": "token/lexical/lex-jsx-expression-attribute",
+      "category": "token",
+      "why": "TSX（TSX 语法）"
+    },
+    {
+      "id": "token/lexical/lex-jsx-fragment",
+      "category": "token",
+      "why": "TSX（TSX 语法）"
+    },
+    {
+      "id": "token/lexical/lex-jsx-self-closing",
+      "category": "token",
+      "why": "TSX（TSX 语法）"
+    },
+    {
+      "id": "token/lexical/lex-preprocessor-if",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
+      "id": "token/lexical/lex-regex-not-close-tag",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
+      "id": "token/lexical/lex-regex-unterminated",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
+      "id": "token/lexical/lex-string-dollar-prefix-intact",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
+      "id": "token/lexical/lex-string-octal-escape",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
+      "id": "token/lexical/lex-string-unterminated",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
+      "id": "token/lexical/lex-unterminated-block-comment",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    },
+    {
+      "id": "token/lexical/lex-unterminated-template",
+      "category": "token",
+      "why": "xl:ts-invalid（故意写非法 TS）"
+    }
+  ],
+  "progressPercent": 95.89,
+  "categories": [
+    {
+      "category": "token",
+      "weight": 0.15,
+      "total": 1398,
+      "pass": 1179,
+      "blocked": 219,
+      "differ": 0,
+      "nodefail": 0,
+      "coverage": 84.33
+    },
+    {
+      "category": "exec",
+      "weight": 0.25,
+      "total": 609,
       "pass": 597,
       "blocked": 1,
       "differ": 9,
-      "nodefail": 0,
-      "coverage": 98.35
+      "nodefail": 2,
+      "coverage": 98.03
     },
     {
-      "layer": "stdlib",
+      "category": "runtime",
       "weight": 0.25,
-      "total": 927,
-      "pass": 890,
-      "blocked": 7,
-      "differ": 30,
-      "nodefail": 0,
-      "coverage": 96.01
-    },
-    {
-      "layer": "e2e",
-      "weight": 0.2,
-      "total": 242,
-      "pass": 242,
-      "blocked": 0,
+      "total": 613,
+      "pass": 612,
+      "blocked": 1,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 100
+      "coverage": 99.84
+    },
+    {
+      "category": "stdlib",
+      "weight": 0.2,
+      "total": 936,
+      "pass": 890,
+      "blocked": 14,
+      "differ": 31,
+      "nodefail": 1,
+      "coverage": 95.09
+    },
+    {
+      "category": "e2e",
+      "weight": 0.15,
+      "total": 246,
+      "pass": 242,
+      "blocked": 4,
+      "differ": 0,
+      "nodefail": 0,
+      "coverage": 98.37
     }
   ],
+  "token": {
+    "total": 1398,
+    "knownGap": 219,
+    "knownGapStillOpen": 219,
+    "exactFiles": 1179,
+    "scoredWithoutGap": 1179,
+    "passedWithoutGap": 1179
+  },
   "blocked": [
     {
-      "id": "gap-ex-object-value-paren-binary",
-      "layer": "exec",
+      "id": "token/declarations/decl-declare-function-trailing-comment",
+      "category": "token",
+      "title": "无体环境声明的返回类型后面夹一条注释、再跟 `;`",
+      "detail": "漂 1　多 1　无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 到 `;` 为止）"
+    },
+    {
+      "id": "token/declarations/destr-object-newline-after-keyword",
+      "category": "token",
+      "title": "换行落在 `const` 与解构模式之间",
+      "detail": "缺 11　多 15　`Let` 那一趟按「紧邻」找模式，中间那个换行让它整条解体（缺 11 / 多 15）"
+    },
+    {
+      "id": "token/declarations/gap-r676-method-comment-before-paren-abstract",
+      "category": "token",
+      "title": "抽象方法（无体签名）的成员名与形参括号之间夹一条注释",
+      "detail": "缺 1　多 1　注释夹在成员名与形参表之间：`MethodDeclaration` 缺，形参表单独落成 `CallSignature`（与类里那条同族，签名形态另立一条，r676 探针 method-comment-before-paren-abstract）"
+    },
+    {
+      "id": "token/declarations/gap-r676-method-comment-before-paren-signature",
+      "category": "token",
+      "title": "接口里方法签名的成员名与形参括号之间夹一条注释",
+      "detail": "缺 1　多 1　注释夹在成员名与形参表之间：`MethodSignature` 缺，形参表单独落成 `CallSignature`（r676 探针 method-comment-before-paren-signature）"
+    },
+    {
+      "id": "token/declarations/gap-r676-method-comment-before-paren",
+      "category": "token",
+      "title": "类方法的成员名与形参括号之间夹一条注释",
+      "detail": "缺 2　多 1　未映射 1　注释夹在成员名与形参表之间：`()` 被当成类型位的括号（未映射 Bracket），`MethodDeclaration` 与它的 `Block` 都不成形（r676 探针 method-comment-before-paren）"
+    },
+    {
+      "id": "token/declarations/gap-sweep-comment-class-01",
+      "category": "token",
+      "title": "SWEEP-comment/class 落点（657 审计语料）",
+      "detail": "缺 1　多 1　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/class）：MISS MethodDeclaration TS[20,42) «m/*c*/() { return 1; }»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-comment-class-02",
+      "category": "token",
+      "title": "SWEEP-comment/class 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/class）：FIELD MethodDeclaration [20,42) 产物[body,name,parameters] TS[body,name] «m(/*c*/) { return 1; }»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-comment-clsmod-01",
+      "category": "token",
+      "title": "SWEEP-comment/clsmod 落点（657 审计语料）",
+      "detail": "缺 1　多 1　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/clsmod）：MISS MethodDeclaration TS[40,60) «private m/*c*/() { }»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-comment-clsmod-02",
+      "category": "token",
+      "title": "SWEEP-comment/clsmod 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/clsmod）：FIELD MethodDeclaration [40,60) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «private m(/*c*/) { "
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-class-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/class 落点（657 审计语料）",
+      "detail": "缺 4　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/class）：MISS MethodDeclaration TS[20,41) «m//c () { return 1; }»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-class-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/class 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/class）：FIELD MethodDeclaration [20,41) 产物[body,name,parameters] TS[body,name] «m(//c ) { return 1; }»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-clsmod-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：DRIFT PropertyDeclaration TS[10,43) 产物[10,23) «public static //c readonly a = 1;»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-clsmod-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：DRIFT PropertyDeclaration TS[10,43) 产物[10,36) «public static readonly a = //c 1;»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-clsmod-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：DRIFT PropertyDeclaration TS[10,43) 产物[10,38) «public static readonly a = 1//c ;»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-clsmod-04",
+      "category": "token",
+      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
+      "detail": "缺 3　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：MISS PropertyDeclaration TS[40,47) «private»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-clsmod-05",
+      "category": "token",
+      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
+      "detail": "缺 1　多 2　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：MISS MethodDeclaration TS[40,59) «private m//c () { }»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-linecomment-clsmod-06",
+      "category": "token",
+      "title": "SWEEP-linecomment/clsmod 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/clsmod）：FIELD MethodDeclaration [40,59) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «private m(//c )"
+    },
+    {
+      "id": "token/declarations/gap-sweep-newline-clsmod-01",
+      "category": "token",
+      "title": "SWEEP-newline/clsmod 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/clsmod）：DRIFT PropertyDeclaration TS[10,40) 产物[10,23) «public static readonly a = 1;»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-newline-clsmod-02",
+      "category": "token",
+      "title": "SWEEP-newline/clsmod 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/clsmod）：DRIFT PropertyDeclaration TS[10,40) 产物[10,38) «public static readonly a = 1 ;»"
+    },
+    {
+      "id": "token/declarations/gap-sweep-newline-clsmod-03",
+      "category": "token",
+      "title": "SWEEP-newline/clsmod 落点（657 审计语料）",
+      "detail": "缺 3　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/clsmod）：MISS PropertyDeclaration TS[40,47) «private»"
+    },
+    {
+      "id": "token/declarations/mut-cls-generic-method-arrow-field-58",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 6　多 3　未映射 1　注释夹在方法名与泛型段 / 参数表之间，或字段 `=` 与箭头函数之间（r660 探针池 mut-cls-generic-method-arrow-field-58）"
+    },
+    {
+      "id": "token/declarations/mut-cls-generic-method-arrow-field-61",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 6　多 3　未映射 1　注释夹在方法名与泛型段 / 参数表之间，或字段 `=` 与箭头函数之间（r660 探针池 mut-cls-generic-method-arrow-field-61）"
+    },
+    {
+      "id": "token/declarations/mut-cls-generic-method-arrow-field-95",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 3　多 1　注释夹在方法名与泛型段 / 参数表之间，或字段 `=` 与箭头函数之间（r660 探针池 mut-cls-generic-method-arrow-field-95）"
+    },
+    {
+      "id": "token/declarations/mut-cls-generic-method-arrow-field-96",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 3　多 1　注释夹在方法名与泛型段 / 参数表之间，或字段 `=` 与箭头函数之间（r660 探针池 mut-cls-generic-method-arrow-field-96）"
+    },
+    {
+      "id": "token/declarations/mut-fn-decl-71",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 3　漂 1　多 1　注释夹在函数名与它的参数表之间：`Function` 认不出那个 `(`（r660 探针池 mut-fn-decl-71）"
+    },
+    {
+      "id": "token/declarations/mut-fn-decl-90",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 3　注释夹在二元运算符与操作数之间：整条 `BinaryOperator` 不成形（r660 探针池 mut-fn-decl-90）"
+    },
+    {
+      "id": "token/declarations/mut-fn-decl-91",
+      "category": "token",
+      "title": "基线用例（来自缺口审计语料）",
+      "detail": "缺 3　注释夹在二元运算符与操作数之间：整条 `BinaryOperator` 不成形（r660 探针池 mut-fn-decl-91）"
+    },
+    {
+      "id": "token/expressions/expr-function-expression-plus",
+      "category": "token",
+      "title": "函数表达式后面直接接运算符",
+      "detail": "缺 4　多 1　函数表达式那一格收完就断，后面那个 `+ 1` 整段落成别的形状（缺 4）"
+    },
+    {
+      "id": "token/expressions/expr-generic-instantiation",
+      "category": "token",
+      "title": "泛型实例化表达式（TS 4.7）",
+      "detail": "缺 2　多 3　没有这条规则：产物是 `BinaryOperator(f < string)`，TS 是 `ExpressionWithTypeArguments`（缺 2 多 3）"
+    },
+    {
+      "id": "token/expressions/gap-r676-call-comment-before-args-generic",
+      "category": "token",
+      "title": "调用泛型实参段之后、实参括号之前夹一条注释",
+      "detail": "缺 2　多 6　注释夹在泛型实参段与实参括号之间：调用整条落成 `BinaryExpression(g < number > (1))`，`CallExpression` 缺（与「被调用者与泛型段之间」那条同族，落点不同，r676 探针 call-comment-before-args-generic）"
+    },
+    {
+      "id": "token/expressions/gap-r676-generic-comment-before-args",
+      "category": "token",
+      "title": "调用被调用者与它的泛型实参段之间夹一条注释",
+      "detail": "缺 2　多 6　注释夹在 `f` 与 `<string>` 之间：整条调用落成 `BinaryExpression(f < string > (1))`，`CallExpression` 缺（与 `f<string>(1)` 那条泛型实例化同族，这里是**带注释**的排版，r676 探针 generic-comment"
+    },
+    {
+      "id": "token/expressions/gap-r676-new-comment-before-args-dotted",
+      "category": "token",
+      "title": "带点号的类型名与实参括号之间夹一条注释",
+      "detail": "多 4　注释夹在 `new A.B` 与它的实参括号之间：实参被折成两层逗号运算符（`1, 2, 3` 与 `1, 2`），`new` 的实参段落空（与 `new C /* c */ (…)` 同族，带点号类型名三个实参另立一条，r676 探针 new-comment-before-args-two）"
+    },
+    {
+      "id": "token/expressions/gap-r676-new-comment-before-args",
+      "category": "token",
+      "title": "new 的类型名与实参括号之间夹一条注释",
+      "detail": "多 2　注释夹在 `new C` 与它的实参括号之间：实参那一段被折成逗号运算符（BinaryExpression `1, 2` + CommaToken），`new` 的实参段落空（r676 探针 new-comment-before-paren）"
+    },
+    {
+      "id": "token/lexical/mut-lex-private-field-141",
+      "category": "token",
+      "title": "private name used as a class field",
+      "detail": "缺 1　多 1　未映射 1　注释夹在私有字段那个类的方法名 / 参数表里（r660 探针池 mut-lex-private-field-141）"
+    },
+    {
+      "id": "token/lexical/mut-lex-private-field-142",
+      "category": "token",
+      "title": "private name used as a class field",
+      "detail": "多 1　字段 1　注释夹在私有字段那个类的方法名 / 参数表里（r660 探针池 mut-lex-private-field-142）"
+    },
+    {
+      "id": "token/modules/gap-j-import-export-01",
+      "category": "token",
+      "title": "J-import-export 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 1　字段 1　注释 / 换行落在语法相邻位置之间（J-import-export）：FIELD ImportSpecifier [15,21) 产物[name] TS[name,propertyName] «b as c»"
+    },
+    {
+      "id": "token/modules/gap-m-misc-03",
+      "category": "token",
+      "title": "M-misc 落点（657 审计语料）",
+      "detail": "缺 2　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：MISS ModuleDeclaration TS[0,23) «declare module \"*.css\";»"
+    },
+    {
+      "id": "token/modules/gap-sweep-comment-import-01",
+      "category": "token",
+      "title": "SWEEP-comment/import 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/import）：DRIFT ImportDeclaration TS[0,35) 产物[0,29) «import { a, b as c } from \"m\"/*c*/;»"
+    },
+    {
+      "id": "token/modules/gap-sweep-linecomment-export-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/export 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/export）：MISS VariableStatement TS[0,16) «const //c a = 1;»"
+    },
+    {
+      "id": "token/modules/gap-sweep-linecomment-export-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/export 落点（657 审计语料）",
+      "detail": "缺 5　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/export）：MISS VariableStatement TS[0,16) «const a //c = 1;»"
+    },
+    {
+      "id": "token/modules/gap-sweep-linecomment-import-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/import 落点（657 审计语料）",
+      "detail": "缺 5　漂 1　多 8　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/import）：DRIFT ImportDeclaration TS[0,34) 产物[0,6) «import //c { a, b as c } from \"m\";»"
+    },
+    {
+      "id": "token/modules/gap-sweep-linecomment-import-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/import 落点（657 审计语料）",
+      "detail": "缺 1　漂 2　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/import）：DRIFT ImportSpecifier TS[12,18) 产物[12,22) «b as c»"
+    },
+    {
+      "id": "token/modules/gap-sweep-linecomment-import-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/import 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/import）：DRIFT ImportDeclaration TS[0,34) 产物[0,20) «import { a, b as c } //c from \"m\";»"
+    },
+    {
+      "id": "token/modules/gap-sweep-linecomment-import-04",
+      "category": "token",
+      "title": "SWEEP-linecomment/import 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/import）：DRIFT ImportDeclaration TS[0,34) 产物[0,25) «import { a, b as c } from //c \"m\";»"
+    },
+    {
+      "id": "token/modules/gap-sweep-newline-export-01",
+      "category": "token",
+      "title": "SWEEP-newline/export 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/export）：DRIFT ExportDeclaration TS[13,27) 产物[13,25) «export { a } ;»"
+    },
+    {
+      "id": "token/modules/gap-sweep-newline-import-01",
+      "category": "token",
+      "title": "SWEEP-newline/import 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/import）：FIELD ImportSpecifier [12,18) 产物[name] TS[name,propertyName] «b as c»"
+    },
+    {
+      "id": "token/modules/gap-sweep-newline-import-02",
+      "category": "token",
+      "title": "SWEEP-newline/import 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/import）：DRIFT ImportDeclaration TS[0,31) 产物[0,20) «import { a, b as c } from \"m\";»"
+    },
+    {
+      "id": "token/modules/gap-sweep-newline-import-03",
+      "category": "token",
+      "title": "SWEEP-newline/import 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/import）：DRIFT ImportDeclaration TS[0,31) 产物[0,25) «import { a, b as c } from \"m\";»"
+    },
+    {
+      "id": "token/modules/mod-declare-module-shorthand",
+      "category": "token",
+      "title": "简写环境模块声明（没有体）",
+      "detail": "缺 2　多 1　`declare module \"mm\";` 的简写形态不成形（缺 2 多 1）；带 `{}` 的那一条是好的（r663 探针池 c-declare-module-shorthand）"
+    },
+    {
+      "id": "token/modules/mut-mod-import-default-71",
+      "category": "token",
+      "title": "default import binding",
+      "detail": "漂 1　多 1　注释夹在 `import a from \"m\"` 与 `;` 之间：那一段没被收进 `Import`（r660 探针池 mut-mod-import-default-71）"
+    },
+    {
+      "id": "token/statements/expr-async-generic-arrow-spaced",
+      "category": "token",
+      "title": "`async` 泛型箭头函数（`async` 与 `<` 之间留空格）",
+      "detail": "缺 9　同上一族（`async <T>(x: T) => x`，缺 9）（r663 探针池 c-async-generic-lamda2）"
+    },
+    {
+      "id": "token/statements/expr-async-generic-arrow",
+      "category": "token",
+      "title": "`async` 泛型箭头函数（类型参数紧跟 `async`）",
+      "detail": "缺 7　`async<T>(x) => x` 那一段不成形（缺 7）：`async` 与泛型段谁先认领没有定义（r663 探针池 c-async-generic-lamda）"
+    },
+    {
+      "id": "token/statements/expr-generic-inst-let",
+      "category": "token",
+      "title": "泛型实例化表达式当 `let` 的初始化式",
+      "detail": "缺 2　多 3　同上一族（`let g = f<string>;`）：TS 是 `ExpressionWithTypeArguments`（r663 探针池 c-generic-inst-let）"
+    },
+    {
+      "id": "token/statements/expr-generic-inst-statement",
+      "category": "token",
+      "title": "泛型实例化表达式独立成一条语句",
+      "detail": "缺 2　多 3　没有这条规则：产物是 `BinaryOperator(f < string)`，TS 是 `ExpressionWithTypeArguments`（r663 探针池 c-generic-inst）"
+    },
+    {
+      "id": "token/statements/gap-a-comment-01",
+      "category": "token",
+      "title": "A-comment 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（A-comment）：DRIFT BreakStatement TS[22,34) 产物[22,33) «break label;»"
+    },
+    {
+      "id": "token/statements/gap-a-comment-02",
+      "category": "token",
+      "title": "A-comment 落点（657 审计语料）",
+      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（A-comment）：MISS SpreadAssignment TS[12,29) «.../*c*/ { a: 1 }»"
+    },
+    {
+      "id": "token/statements/gap-a-comment-03",
+      "category": "token",
+      "title": "A-comment 落点（657 审计语料）",
+      "detail": "缺 2　多 1　注释 / 换行落在语法相邻位置之间（A-comment）：MISS PrefixUnaryExpression TS[30,38) «-/*c*/ a»"
+    },
+    {
+      "id": "token/statements/gap-a-comment-04",
+      "category": "token",
+      "title": "A-comment 落点（657 审计语料）",
+      "detail": "缺 2　多 2　字段 1　注释 / 换行落在语法相邻位置之间（A-comment）：FIELD VariableDeclaration [26,38) 产物[exclamationToken,initializer,name] TS[initializer,name] «x = !/*c*/ a»"
+    },
+    {
+      "id": "token/statements/gap-a-comment-05",
+      "category": "token",
+      "title": "A-comment 落点（657 审计语料）",
+      "detail": "缺 1　注释 / 换行落在语法相邻位置之间（A-comment）：MISS PostfixUnaryExpression TS[22,32) «a /*c*/ ++»"
+    },
+    {
+      "id": "token/statements/gap-a-comment-06",
+      "category": "token",
+      "title": "A-comment 落点（657 审计语料）",
+      "detail": "缺 3　注释 / 换行落在语法相邻位置之间（A-comment）：MISS MethodDeclaration TS[12,26) «* /*c*/ g() {}»"
+    },
+    {
+      "id": "token/statements/gap-b-oneline-01",
+      "category": "token",
+      "title": "B-oneline 落点（657 审计语料）",
+      "detail": "缺 2　漂 1　多 3　注释 / 换行落在语法相邻位置之间（B-oneline）：DRIFT CaseClause TS[13,31) 产物[13,47) «case 1: { break; }»"
+    },
+    {
+      "id": "token/statements/gap-b-oneline-02",
+      "category": "token",
+      "title": "B-oneline 落点（657 审计语料）",
+      "detail": "缺 3　漂 1　多 3　注释 / 换行落在语法相邻位置之间（B-oneline）：DRIFT CaseClause TS[13,31) 产物[13,46) «case 1: { break; }»"
+    },
+    {
+      "id": "token/statements/gap-b-oneline-03",
+      "category": "token",
+      "title": "B-oneline 落点（657 审计语料）",
+      "detail": "缺 3　漂 1　多 3　注释 / 换行落在语法相邻位置之间（B-oneline）：DRIFT DefaultClause TS[13,32) 产物[13,47) «default: { break; }»"
+    },
+    {
+      "id": "token/statements/gap-c-optchain-nonnull-01",
+      "category": "token",
+      "title": "C-optchain-nonnull 落点（657 审计语料）",
+      "detail": "缺 1　漂 2　多 2　注释 / 换行落在语法相邻位置之间（C-optchain-nonnull）：MISS NonNullExpression TS[30,35) «a?.b!»"
+    },
+    {
+      "id": "token/statements/gap-c-optchain-nonnull-02",
+      "category": "token",
+      "title": "C-optchain-nonnull 落点（657 审计语料）",
+      "detail": "漂 3　多 2　注释 / 换行落在语法相邻位置之间（C-optchain-nonnull）：DRIFT NonNullExpression TS[30,38) 产物[30,35) «a?.b!.c!»"
+    },
+    {
+      "id": "token/statements/gap-d-generics-tuple-mapped-01",
+      "category": "token",
+      "title": "D-generics-tuple-mapped 落点（657 审计语料）",
+      "detail": "缺 2　多 3　注释 / 换行落在语法相邻位置之间（D-generics-tuple-mapped）：MISS ExpressionWithTypeArguments TS[40,49) «f<string>»"
+    },
+    {
+      "id": "token/statements/gap-d-generics-tuple-mapped-02",
+      "category": "token",
+      "title": "D-generics-tuple-mapped 落点（657 审计语料）",
+      "detail": "缺 13　注释 / 换行落在语法相邻位置之间（D-generics-tuple-mapped）：MISS ArrowFunction TS[10,43) «async <T,>(x: T): Promise<T> => x»"
+    },
+    {
+      "id": "token/statements/gap-m-misc-01",
+      "category": "token",
+      "title": "M-misc 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：DRIFT BreakStatement TS[9,15) 产物[9,14) «break;»"
+    },
+    {
+      "id": "token/statements/gap-m-misc-02",
+      "category": "token",
+      "title": "M-misc 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（M-misc）：DRIFT ContinueStatement TS[10,19) 产物[10,18) «continue;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-arrow-01",
+      "category": "token",
+      "title": "SWEEP-comment/arrow 落点（657 审计语料）",
+      "detail": "漂 2　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-comment/arrow）：DRIFT VariableDeclarationList TS[0,21) 产物[0,26) «const f = (a, b) => a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-async-01",
+      "category": "token",
+      "title": "SWEEP-comment/async 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/async）：FIELD FunctionDeclaration [0,38) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «async function f(/*"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-call-01",
+      "category": "token",
+      "title": "SWEEP-comment/call 落点（657 审计语料）",
+      "detail": "多 2　注释 / 换行落在语法相邻位置之间（SWEEP-comment/call）：EXTRA BinaryExpression [7,11) «1, 2»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-dowhile-01",
+      "category": "token",
+      "title": "SWEEP-comment/dowhile 落点（657 审计语料）",
+      "detail": "缺 6　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-comment/dowhile）：MISS DoStatement TS[0,27) «do { a(); } /*c*/while (b);»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-fn-01",
+      "category": "token",
+      "title": "SWEEP-comment/fn 落点（657 审计语料）",
+      "detail": "缺 3　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/fn）：DRIFT Parameter TS[16,17) 产物[16,20) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-for-01",
+      "category": "token",
+      "title": "SWEEP-comment/for 落点（657 审计语料）",
+      "detail": "缺 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/for）：MISS PostfixUnaryExpression TS[23,31) «i/*c*/++»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-gener-01",
+      "category": "token",
+      "title": "SWEEP-comment/gener 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/gener）：FIELD FunctionDeclaration [0,31) 产物[asteriskToken,body,name,parameters] TS[asteriskToken,body,name] «function* g"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-generic-01",
+      "category": "token",
+      "title": "SWEEP-comment/generic 落点（657 审计语料）",
+      "detail": "缺 11　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/generic）：MISS FunctionDeclaration TS[0,51) «function f/*c*/<T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-generic-02",
+      "category": "token",
+      "title": "SWEEP-comment/generic 落点（657 审计语料）",
+      "detail": "缺 10　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/generic）：MISS FunctionDeclaration TS[0,51) «function f<T extends U>/*c*/(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-ifelse-01",
+      "category": "token",
+      "title": "SWEEP-comment/ifelse 落点（657 审计语料）",
+      "detail": "缺 4　多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/ifelse）：FIELD IfStatement [0,34) 产物[expression,thenStatement] TS[elseStatement,expression,thenStatement] «if (a) /*"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-optchain-01",
+      "category": "token",
+      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
+      "detail": "缺 9　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：MISS CallExpression TS[10,29) «a/*c*/?.b?.[c]?.(d)»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-optchain-02",
+      "category": "token",
+      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,19) «a?.b»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-optchain-03",
+      "category": "token",
+      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
+      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：MISS ElementAccessExpression TS[10,24) «a?.b?./*c*/[c]»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-optchain-04",
+      "category": "token",
+      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：DRIFT ElementAccessExpression TS[10,19) 产物[10,24) «a?.b?.[c]»"
+    },
+    {
+      "id": "token/statements/gap-sweep-comment-optchain-05",
+      "category": "token",
+      "title": "SWEEP-comment/optchain 落点（657 审计语料）",
+      "detail": "漂 3　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-comment/optchain）：DRIFT VariableDeclarationList TS[0,24) 产物[0,29) «const v = a?.b?.[c]?.(d)»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-arr-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/arr 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arr）：MISS VariableStatement TS[0,24) «const //c a = [1, 2, 3];»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-arr-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/arr 落点（657 审计语料）",
+      "detail": "缺 8　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arr）：MISS VariableStatement TS[0,24) «const a //c = [1, 2, 3];»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-arrow-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/arrow 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arrow）：MISS VariableStatement TS[0,26) «const //c f = (a, b) => a;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-arrow-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/arrow 落点（657 审计语料）",
+      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arrow）：MISS VariableStatement TS[0,26) «const f //c = (a, b) => a;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-arrow-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/arrow 落点（657 审计语料）",
+      "detail": "缺 4　漂 3　多 7　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/arrow）：DRIFT VariableStatement TS[0,26) 产物[0,16) «const f = (a, b) //c => a;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-async-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/async 落点（657 审计语料）",
+      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：MISS Identifier TS[0,5) «async»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-async-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/async 落点（657 审计语料）",
+      "detail": "缺 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：MISS FunctionDeclaration TS[0,37) «async function //c f() { await g(); }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-async-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/async 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/async）：FIELD FunctionDeclaration [0,37) 产物[body,modifiers,name,parameters] TS[body,modifiers,name] «async function "
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-call-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/call 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/call）：EXTRA BinaryExpression [6,10) «1, 2»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-cond-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/cond 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/cond）：MISS VariableStatement TS[0,24) «const //c x = a ? b : c;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-cond-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/cond 落点（657 审计语料）",
+      "detail": "缺 10　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/cond）：MISS VariableStatement TS[0,24) «const x //c = a ? b : c;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-cond-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/cond 落点（657 审计语料）",
+      "detail": "漂 4　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/cond）：DRIFT VariableStatement TS[0,24) 产物[0,17) «const x = a ? b : //c c;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-destr-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
+      "detail": "缺 10　多 8　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：MISS VariableStatement TS[0,28) «const //c { a, b: [c] } = o;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-destr-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
+      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：MISS BindingElement TS[12,13) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-destr-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
+      "detail": "缺 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：FIELD BindingElement [8,9) 产物[] TS[name] «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-destr-04",
+      "category": "token",
+      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
+      "detail": "缺 3　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：DRIFT BindingElement TS[8,9) 产物[8,21) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-destr-05",
+      "category": "token",
+      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
+      "detail": "缺 6　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：DRIFT BindingElement TS[8,9) 产物[8,17) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-destr-06",
+      "category": "token",
+      "title": "SWEEP-linecomment/destr 落点（657 审计语料）",
+      "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/destr）：MISS VariableStatement TS[0,28) «const { a, b: [c] } //c = o;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-dowhile-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/dowhile 落点（657 审计语料）",
+      "detail": "缺 6　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/dowhile）：MISS DoStatement TS[0,26) «do { a(); } //c while (b);»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-fn-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/fn 落点（657 审计语料）",
+      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/fn）：MISS FunctionDeclaration TS[0,34) «function //c f(a, b) { return a; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-fn-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/fn 落点（657 审计语料）",
+      "detail": "缺 7　多 6　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/fn）：DRIFT Parameter TS[15,16) 产物[15,19) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-gener-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/gener 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/gener）：FIELD FunctionDeclaration [0,30) 产物[asteriskToken,body,name,parameters] TS[asteriskToken,body,name] «functio"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-generic-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/generic 落点（657 审计语料）",
+      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/generic）：MISS FunctionDeclaration TS[0,50) «function //c f<T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-generic-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/generic 落点（657 审计语料）",
+      "detail": "缺 11　多 6　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/generic）：MISS FunctionDeclaration TS[0,50) «function f//c <T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-generic-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/generic 落点（657 审计语料）",
+      "detail": "缺 10　漂 1　多 9　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/generic）：MISS FunctionDeclaration TS[0,50) «function f<T //c extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-generic-04",
+      "category": "token",
+      "title": "SWEEP-linecomment/generic 落点（657 审计语料）",
+      "detail": "缺 10　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/generic）：MISS FunctionDeclaration TS[0,50) «function f<T extends //c U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-generic-05",
+      "category": "token",
+      "title": "SWEEP-linecomment/generic 落点（657 审计语料）",
+      "detail": "缺 10　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/generic）：MISS FunctionDeclaration TS[0,50) «function f<T extends U>//c (x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-generic-06",
+      "category": "token",
+      "title": "SWEEP-linecomment/generic 落点（657 审计语料）",
+      "detail": "缺 4　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/generic）：DRIFT FunctionDeclaration TS[0,50) 产物[0,30) «function f<T extends U>(x: T): //c T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-ifelse-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/ifelse 落点（657 审计语料）",
+      "detail": "缺 4　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ifelse）：DRIFT IfStatement TS[0,33) 产物[0,19) «if (a) //c { b(); } else { c(); }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-label-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/label 落点（657 审计语料）",
+      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/label）：MISS LabeledStatement TS[0,32) «lbl: //c for (;;) { break lbl; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-label-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/label 落点（657 审计语料）",
+      "detail": "缺 4　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/label）：DRIFT LabeledStatement TS[0,32) 产物[0,8) «lbl: for //c (;;) { break lbl; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-ns-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/ns 落点（657 审计语料）",
+      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ns）：MISS VariableStatement TS[14,37) «export //c const a = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-ns-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/ns 落点（657 审计语料）",
+      "detail": "缺 3　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ns）：MISS VariableStatement TS[14,37) «export const //c a = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-ns-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/ns 落点（657 审计语料）",
+      "detail": "缺 5　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/ns）：MISS VariableStatement TS[14,37) «export const a //c = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-obj-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/obj 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/obj）：MISS VariableStatement TS[0,29) «const //c o = { a: 1, b: 2 };»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-obj-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/obj 落点（657 审计语料）",
+      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/obj）：MISS VariableStatement TS[0,29) «const o //c = { a: 1, b: 2 };»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-optchain-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：MISS VariableStatement TS[0,29) «const //c v = a?.b?.[c]?.(d);»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-optchain-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
+      "detail": "缺 14　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：MISS VariableStatement TS[0,29) «const v //c = a?.b?.[c]?.(d);»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-optchain-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
+      "detail": "缺 9　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：MISS CallExpression TS[10,28) «a//c ?.b?.[c]?.(d)»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-optchain-04",
+      "category": "token",
+      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,18) «a?.b»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-optchain-05",
+      "category": "token",
+      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
+      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：MISS ElementAccessExpression TS[10,23) «a?.b?.//c [c]»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-optchain-06",
+      "category": "token",
+      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：DRIFT ElementAccessExpression TS[10,19) 产物[10,23) «a?.b?.[c]»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-optchain-07",
+      "category": "token",
+      "title": "SWEEP-linecomment/optchain 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/optchain）：DRIFT CallExpression TS[10,24) 产物[10,27) «a?.b?.[c]?.(d)»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-switch-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/switch 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/switch）：DRIFT ExpressionStatement TS[21,29) 产物[21,22) «b//c ();»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-switch-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/switch 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/switch）：DRIFT ExpressionStatement TS[42,50) 产物[42,43) «c//c ();»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-tpl-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/tpl 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/tpl）：MISS VariableStatement TS[0,23) «const //c s = `a${b}c`;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-tpl-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/tpl 落点（657 审计语料）",
+      "detail": "缺 4　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/tpl）：MISS VariableStatement TS[0,23) «const s //c = `a${b}c`;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-tpl-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/tpl 落点（657 审计语料）",
+      "detail": "缺 3　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/tpl）：FIELD TemplateExpression [10,22) 产物[head] TS[head,templateSpans] «`a${//c b}c`»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-tpl-04",
+      "category": "token",
+      "title": "SWEEP-linecomment/tpl 落点（657 审计语料）",
+      "detail": "多 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/tpl）：EXTRA ExpressionStatement [14,15) «b»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-try-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/try 落点（657 审计语料）",
+      "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/try）：MISS TryStatement TS[0,52) «try //c { a(); } catch (e) { b(); } finally { c(); }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-var-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/var 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/var）：MISS VariableStatement TS[0,14) «let //c a = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-linecomment-var-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/var 落点（657 审计语料）",
+      "detail": "缺 5　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/var）：MISS VariableStatement TS[0,14) «let a //c = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-arr-01",
+      "category": "token",
+      "title": "SWEEP-newline/arr 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arr）：MISS VariableStatement TS[0,21) «const a = [1, 2, 3];»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-arr-02",
+      "category": "token",
+      "title": "SWEEP-newline/arr 落点（657 审计语料）",
+      "detail": "缺 8　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arr）：MISS VariableStatement TS[0,21) «const a = [1, 2, 3];»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-arrow-01",
+      "category": "token",
+      "title": "SWEEP-newline/arrow 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arrow）：MISS VariableStatement TS[0,23) «const f = (a, b) => a;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-arrow-02",
+      "category": "token",
+      "title": "SWEEP-newline/arrow 落点（657 审计语料）",
+      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arrow）：MISS VariableStatement TS[0,23) «const f = (a, b) => a;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-arrow-03",
+      "category": "token",
+      "title": "SWEEP-newline/arrow 落点（657 审计语料）",
+      "detail": "缺 4　漂 3　多 7　注释 / 换行落在语法相邻位置之间（SWEEP-newline/arrow）：DRIFT VariableStatement TS[0,23) 产物[0,16) «const f = (a, b) => a;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-async-01",
+      "category": "token",
+      "title": "SWEEP-newline/async 落点（657 审计语料）",
+      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/async）：MISS Identifier TS[0,5) «async»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-async-02",
+      "category": "token",
+      "title": "SWEEP-newline/async 落点（657 审计语料）",
+      "detail": "缺 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/async）：MISS FunctionDeclaration TS[0,34) «async function f() { await g(); }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-cond-01",
+      "category": "token",
+      "title": "SWEEP-newline/cond 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/cond）：MISS VariableStatement TS[0,21) «const x = a ? b : c;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-cond-02",
+      "category": "token",
+      "title": "SWEEP-newline/cond 落点（657 审计语料）",
+      "detail": "缺 10　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/cond）：MISS VariableStatement TS[0,21) «const x = a ? b : c;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-cond-03",
+      "category": "token",
+      "title": "SWEEP-newline/cond 落点（657 审计语料）",
+      "detail": "缺 2　漂 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/cond）：DRIFT VariableStatement TS[0,21) 产物[0,17) «const x = a ? b : c;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-destr-01",
+      "category": "token",
+      "title": "SWEEP-newline/destr 落点（657 审计语料）",
+      "detail": "缺 10　多 8　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：MISS VariableStatement TS[0,25) «const { a, b: [c] } = o;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-destr-02",
+      "category": "token",
+      "title": "SWEEP-newline/destr 落点（657 审计语料）",
+      "detail": "缺 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：FIELD BindingElement [8,9) 产物[] TS[name] «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-destr-03",
+      "category": "token",
+      "title": "SWEEP-newline/destr 落点（657 审计语料）",
+      "detail": "缺 3　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：DRIFT BindingElement TS[8,9) 产物[8,18) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-destr-04",
+      "category": "token",
+      "title": "SWEEP-newline/destr 落点（657 审计语料）",
+      "detail": "缺 6　漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：DRIFT BindingElement TS[8,9) 产物[8,17) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-destr-05",
+      "category": "token",
+      "title": "SWEEP-newline/destr 落点（657 审计语料）",
+      "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/destr）：MISS VariableStatement TS[0,25) «const { a, b: [c] } = o;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-fn-01",
+      "category": "token",
+      "title": "SWEEP-newline/fn 落点（657 审计语料）",
+      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/fn）：MISS FunctionDeclaration TS[0,31) «function f(a, b) { return a; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-fn-02",
+      "category": "token",
+      "title": "SWEEP-newline/fn 落点（657 审计语料）",
+      "detail": "缺 7　多 6　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/fn）：DRIFT Parameter TS[12,13) 产物[12,16) «a»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-generic-01",
+      "category": "token",
+      "title": "SWEEP-newline/generic 落点（657 审计语料）",
+      "detail": "缺 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/generic）：MISS FunctionDeclaration TS[0,47) «function f<T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-generic-02",
+      "category": "token",
+      "title": "SWEEP-newline/generic 落点（657 审计语料）",
+      "detail": "缺 11　多 6　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/generic）：MISS FunctionDeclaration TS[0,47) «function f <T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-generic-03",
+      "category": "token",
+      "title": "SWEEP-newline/generic 落点（657 审计语料）",
+      "detail": "缺 10　漂 1　多 9　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/generic）：MISS FunctionDeclaration TS[0,47) «function f<T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-generic-04",
+      "category": "token",
+      "title": "SWEEP-newline/generic 落点（657 审计语料）",
+      "detail": "缺 10　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/generic）：MISS FunctionDeclaration TS[0,47) «function f<T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-generic-05",
+      "category": "token",
+      "title": "SWEEP-newline/generic 落点（657 审计语料）",
+      "detail": "缺 10　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/generic）：MISS FunctionDeclaration TS[0,47) «function f<T extends U> (x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-generic-06",
+      "category": "token",
+      "title": "SWEEP-newline/generic 落点（657 审计语料）",
+      "detail": "缺 4　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/generic）：DRIFT FunctionDeclaration TS[0,47) 产物[0,30) «function f<T extends U>(x: T): T { return x; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-label-01",
+      "category": "token",
+      "title": "SWEEP-newline/label 落点（657 审计语料）",
+      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/label）：MISS LabeledStatement TS[0,29) «lbl: for (;;) { break lbl; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-label-02",
+      "category": "token",
+      "title": "SWEEP-newline/label 落点（657 审计语料）",
+      "detail": "缺 4　漂 1　多 7　未映射 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/label）：DRIFT LabeledStatement TS[0,29) 产物[0,8) «lbl: for (;;) { break lbl; }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-ns-01",
+      "category": "token",
+      "title": "SWEEP-newline/ns 落点（657 审计语料）",
+      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/ns）：MISS VariableStatement TS[14,34) «export const a = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-ns-02",
+      "category": "token",
+      "title": "SWEEP-newline/ns 落点（657 审计语料）",
+      "detail": "缺 3　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/ns）：MISS VariableStatement TS[14,34) «export const a = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-ns-03",
+      "category": "token",
+      "title": "SWEEP-newline/ns 落点（657 审计语料）",
+      "detail": "缺 5　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/ns）：MISS VariableStatement TS[14,34) «export const a = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-obj-01",
+      "category": "token",
+      "title": "SWEEP-newline/obj 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/obj）：MISS VariableStatement TS[0,26) «const o = { a: 1, b: 2 };»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-obj-02",
+      "category": "token",
+      "title": "SWEEP-newline/obj 落点（657 审计语料）",
+      "detail": "缺 11　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/obj）：MISS VariableStatement TS[0,26) «const o = { a: 1, b: 2 };»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-obj-03",
+      "category": "token",
+      "title": "SWEEP-newline/obj 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/obj）：DRIFT VariableStatement TS[0,26) 产物[0,24) «const o = { a: 1, b: 2 } ;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-optchain-01",
+      "category": "token",
+      "title": "SWEEP-newline/optchain 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：MISS VariableStatement TS[0,26) «const v = a?.b?.[c]?.(d);»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-optchain-02",
+      "category": "token",
+      "title": "SWEEP-newline/optchain 落点（657 审计语料）",
+      "detail": "缺 14　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：MISS VariableStatement TS[0,26) «const v = a?.b?.[c]?.(d);»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-optchain-03",
+      "category": "token",
+      "title": "SWEEP-newline/optchain 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：DRIFT PropertyAccessExpression TS[10,14) 产物[10,15) «a?.b»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-optchain-04",
+      "category": "token",
+      "title": "SWEEP-newline/optchain 落点（657 审计语料）",
+      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：MISS ElementAccessExpression TS[10,20) «a?.b?. [c]»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-optchain-05",
+      "category": "token",
+      "title": "SWEEP-newline/optchain 落点（657 审计语料）",
+      "detail": "漂 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/optchain）：DRIFT ElementAccessExpression TS[10,19) 产物[10,20) «a?.b?.[c]»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-switch-01",
+      "category": "token",
+      "title": "SWEEP-newline/switch 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/switch）：DRIFT ExpressionStatement TS[21,26) 产物[21,22) «b ();»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-switch-02",
+      "category": "token",
+      "title": "SWEEP-newline/switch 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 3　注释 / 换行落在语法相邻位置之间（SWEEP-newline/switch）：DRIFT ExpressionStatement TS[42,47) 产物[42,43) «c ();»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-tpl-01",
+      "category": "token",
+      "title": "SWEEP-newline/tpl 落点（657 审计语料）",
+      "detail": "多 1　注释 / 换行落在语法相邻位置之间（SWEEP-newline/tpl）：EXTRA ExpressionStatement [14,15) «b»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-try-01",
+      "category": "token",
+      "title": "SWEEP-newline/try 落点（657 审计语料）",
+      "detail": "缺 12　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/try）：MISS TryStatement TS[0,49) «try { a(); } catch (e) { b(); } finally { c(); }»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-var-01",
+      "category": "token",
+      "title": "SWEEP-newline/var 落点（657 审计语料）",
+      "detail": "缺 3　多 5　注释 / 换行落在语法相邻位置之间（SWEEP-newline/var）：MISS VariableStatement TS[0,11) «let a = 1;»"
+    },
+    {
+      "id": "token/statements/gap-sweep-newline-var-02",
+      "category": "token",
+      "title": "SWEEP-newline/var 落点（657 审计语料）",
+      "detail": "缺 5　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/var）：MISS VariableStatement TS[0,11) «let a = 1;»"
+    },
+    {
+      "id": "token/statements/mut-stmt-asi-return-newline-expr-115",
+      "category": "token",
+      "title": "ASI：return 换行后跟表达式 —— 受限产生式，等于 return; 加一条表达式语句",
+      "detail": "多 1　字段 1　`function f(/* c */)` 里那条注释让 ASI 那一族的形态漂一格（r660 探针池 mut-stmt-asi-return-newline-expr-115）"
+    },
+    {
+      "id": "token/statements/stmt-do-while-then-statement",
+      "category": "token",
+      "title": "`do…while` 后面还跟着一条语句",
+      "detail": "缺 3　多 1　那个 `while (a)` 被当成循环头，后面那条语句没被收进 `do` 那一格（缺 3）"
+    },
+    {
+      "id": "token/statements/stmt-for-comment-before-paren",
+      "category": "token",
+      "title": "`for` 与它的头括号之间夹一条注释",
+      "detail": "缺 1　漂 1　多 5　头部取括号只看紧邻那一格 ⇒ 整条 `for` 解体（缺 1 漂 1 多 5）"
+    },
+    {
+      "id": "token/statements/stmt-generator-trailing-semicolon",
+      "category": "token",
+      "title": "函数声明后面那个 `;`（空语句）",
+      "detail": "缺 1　漂 1　多 1　声明收完就断了，尾随的空语句没成壳（缺 1 漂 1 多 1）"
+    },
+    {
+      "id": "token/statements/stmt-label-comment-before-call",
+      "category": "token",
+      "title": "多层标签后面、调用前面夹一条注释",
+      "detail": "缺 1　标签那一趟看到的是注释，最后一层标签的名字没接上被标的语句（缺 1）"
+    },
+    {
+      "id": "token/statements/stmt-switch-block-then-default",
+      "category": "token",
+      "title": "单行写完一个块，后面再跟 `default`",
+      "detail": "缺 2　漂 1　多 3　语句层把 `default:` 并进了同一个壳，而分段只在顶层单元上找 `case` / `default` ⇒ 只有一段（缺 2 漂 1 多 3）"
+    },
+    {
+      "id": "token/statements/stmt-switch-comment-fallthrough",
+      "category": "token",
+      "title": "`switch` 与它的判别括号之间夹一条注释 + `case` 落空",
+      "detail": "缺 5　漂 1　多 3　判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3）"
+    },
+    {
+      "id": "token/types/gap-r676-func-type-comment-before-arrow-plain",
+      "category": "token",
+      "title": "无参函数类型的形参括号与 `=>` 之间夹一条注释",
+      "detail": "缺 2　多 1　注释夹在函数类型的 `=>` 之前：空括号留在外面当 `ParenthesizedType`、返回类型缺、`FunctionType` 整条缺（与带形参那条同族，空形参表另立一条，r676 探针 func-type-comment-before-arrow-plain）"
+    },
+    {
+      "id": "token/types/gap-r676-func-type-comment-before-arrow",
+      "category": "token",
+      "title": "函数类型的形参括号与 `=>` 之间夹一条注释（类型位，不是箭头函数）",
+      "detail": "缺 3　多 1　未映射 1　注释夹在函数类型的 `=>` 之前：括号留在外面当 Bracket、`=>` 与返回类型落成散单元，`FunctionType` 整条缺（已登记的那两条是**泛型实参里**的同族；这里是类型别名右侧的裸位置，r676 探针 func-type-comment-before-arrow）"
+    },
+    {
+      "id": "token/types/gap-r676-keyof-comment-operand",
+      "category": "token",
+      "title": "类型运算符 `keyof` 与它的操作数之间夹一条注释",
+      "detail": "缺 2　漂 1　多 3　注释夹在 `keyof` 与操作数之间：`TypeOperator` 的区间只到自己（漂移），操作数那半落成散单元、`T` 的引用与名称都缺（映射键那一格已登记，这里是类型别名右侧的裸位置，r676 探针 keyof-comment-operand）"
+    },
+    {
+      "id": "token/types/gap-r676-readonly-comment-operand",
+      "category": "token",
+      "title": "类型运算符 `readonly` 与它的操作数之间夹一条注释",
+      "detail": "缺 2　多 3　注释夹在 `readonly` 与 `string[]` 之间：`readonly` 被当成类型引用、`ArrayType` 挂到了整段上（区间从头算起），操作数那一半缺（r676 探针 readonly-comment-operand）"
+    },
+    {
+      "id": "token/types/gap-r676-typeof-comment-operand",
+      "category": "token",
+      "title": "类型查询 `typeof` 与它的操作数之间夹一条注释",
+      "detail": "缺 1　漂 1　多 1　注释夹在 `typeof` 与操作数之间：类型查询整条缺（与 `keyof` 那条同族，`TypeQuery` 这一支同样只看紧邻，r676 探针 typeof-comment-operand）"
+    },
+    {
+      "id": "token/types/gap-r676-unique-comment-operand",
+      "category": "token",
+      "title": "类型运算符 `unique` 与它的操作数之间夹一条注释",
+      "detail": "缺 1　漂 1　多 3　注释夹在 `unique` 与 `symbol` 之间：`TypeOperator` 的区间只到自己（漂移），`unique` 还被额外投成一次类型引用与标识符，操作数缺（r676 探针 unique-comment-operand）"
+    },
+    {
+      "id": "token/types/gap-sweep-comment-iface-01",
+      "category": "token",
+      "title": "SWEEP-comment/iface 落点（657 审计语料）",
+      "detail": "缺 1　多 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/iface）：MISS MethodSignature TS[25,40) «m/*c*/(): void;»"
+    },
+    {
+      "id": "token/types/gap-sweep-comment-iface-02",
+      "category": "token",
+      "title": "SWEEP-comment/iface 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-comment/iface）：FIELD MethodSignature [25,40) 产物[name,parameters,type] TS[name,type] «m(/*c*/): void;»"
+    },
+    {
+      "id": "token/types/gap-sweep-linecomment-iface-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：DRIFT PropertySignature TS[14,28) 产物[14,16) «a: //c number;»"
+    },
+    {
+      "id": "token/types/gap-sweep-linecomment-iface-02",
+      "category": "token",
+      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：DRIFT PropertySignature TS[14,28) 产物[14,23) «a: number//c ;»"
+    },
+    {
+      "id": "token/types/gap-sweep-linecomment-iface-03",
+      "category": "token",
+      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
+      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：MISS MethodSignature TS[25,39) «m//c (): void;»"
+    },
+    {
+      "id": "token/types/gap-sweep-linecomment-iface-04",
+      "category": "token",
+      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
+      "detail": "多 1　字段 1　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：FIELD MethodSignature [25,39) 产物[name,parameters,type] TS[name,type] «m(//c ): void;»"
+    },
+    {
+      "id": "token/types/gap-sweep-linecomment-iface-05",
+      "category": "token",
+      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
+      "detail": "缺 1　漂 1　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：DRIFT MethodSignature TS[25,39) 产物[25,29) «m(): //c void;»"
+    },
+    {
+      "id": "token/types/gap-sweep-linecomment-iface-06",
+      "category": "token",
+      "title": "SWEEP-linecomment/iface 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/iface）：DRIFT MethodSignature TS[25,39) 产物[25,34) «m(): void//c ;»"
+    },
+    {
+      "id": "token/types/gap-sweep-linecomment-typeunion-01",
+      "category": "token",
+      "title": "SWEEP-linecomment/typeunion 落点（657 审计语料）",
+      "detail": "缺 7　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-linecomment/typeunion）：MISS TypeAliasDeclaration TS[0,19) «type T //c = A | B;»"
+    },
+    {
+      "id": "token/types/gap-sweep-newline-iface-01",
+      "category": "token",
+      "title": "SWEEP-newline/iface 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/iface）：DRIFT PropertySignature TS[14,25) 产物[14,23) «a: number ;»"
+    },
+    {
+      "id": "token/types/gap-sweep-newline-iface-02",
+      "category": "token",
+      "title": "SWEEP-newline/iface 落点（657 审计语料）",
+      "detail": "缺 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/iface）：MISS MethodSignature TS[25,36) «m (): void;»"
+    },
+    {
+      "id": "token/types/gap-sweep-newline-iface-03",
+      "category": "token",
+      "title": "SWEEP-newline/iface 落点（657 审计语料）",
+      "detail": "漂 1　多 2　注释 / 换行落在语法相邻位置之间（SWEEP-newline/iface）：DRIFT MethodSignature TS[25,36) 产物[25,34) «m(): void ;»"
+    },
+    {
+      "id": "token/types/gap-sweep-newline-typeunion-01",
+      "category": "token",
+      "title": "SWEEP-newline/typeunion 落点（657 审计语料）",
+      "detail": "缺 7　多 4　注释 / 换行落在语法相邻位置之间（SWEEP-newline/typeunion）：MISS TypeAliasDeclaration TS[0,16) «type T = A | B;»"
+    },
+    {
+      "id": "token/types/mut-type-cond-generic-in-true-branch-152",
+      "category": "token",
+      "title": "条件类型真分支里的类型实参：`? F<A, B> : C` 的泛型段必须成形（第 66 轮）",
+      "detail": "缺 6　漂 2　多 2　注释夹在条件类型真分支的类型名与实参段之间：`F<A, B>` 不成形（r660 探针池 mut-type-cond-generic-in-true-branch-152）"
+    },
+    {
+      "id": "token/types/mut-type-fn-generic-arg-102",
+      "category": "token",
+      "title": "函数类型作为泛型实参",
+      "detail": "缺 3　多 1　未映射 1　注释夹在函数类型的 `=>` 周围 / 泛型实参里：类型段落成散单元（带一处未映射 Bracket）（r660 探针池 mut-type-fn-generic-arg-102）"
+    },
+    {
+      "id": "token/types/mut-type-fn-generic-arg-103",
+      "category": "token",
+      "title": "函数类型作为泛型实参",
+      "detail": "缺 3　多 1　未映射 1　注释夹在函数类型的 `=>` 周围 / 泛型实参里：类型段落成散单元（带一处未映射 Bracket）（r660 探针池 mut-type-fn-generic-arg-103）"
+    },
+    {
+      "id": "token/types/mut-type-fn-generic-arg-90",
+      "category": "token",
+      "title": "函数类型作为泛型实参",
+      "detail": "缺 3　多 1　未映射 1　注释夹在函数类型的 `=>` 周围 / 泛型实参里：类型段落成散单元（带一处未映射 Bracket）（r660 探针池 mut-type-fn-generic-arg-90）"
+    },
+    {
+      "id": "token/types/mut-type-mapped-template-key-94",
+      "category": "token",
+      "title": "模板字面量类型作映射类型的键重映射",
+      "detail": "缺 2　漂 1　多 3　注释夹在映射类型键的 `keyof` 周围 / `T[K]` 的 `[` 前面：映射类型或下标访问不成形（r660 探针池 mut-type-mapped-template-key-94）"
+    },
+    {
+      "id": "token/types/mut-type-mapped-template-key-95",
+      "category": "token",
+      "title": "模板字面量类型作映射类型的键重映射",
+      "detail": "缺 2　漂 1　多 3　注释夹在映射类型键的 `keyof` 周围 / `T[K]` 的 `[` 前面：映射类型或下标访问不成形（r660 探针池 mut-type-mapped-template-key-95）"
+    },
+    {
+      "id": "token/types/mut-type-overload-interface-105",
+      "category": "token",
+      "title": "接口里的两个重载签名",
+      "detail": "缺 1　多 1　注释夹在接口重载名与参数表之间：第二条签名认不出（r660 探针池 mut-type-overload-interface-105）"
+    },
+    {
+      "id": "token/types/mut-type-overload-interface-126",
+      "category": "token",
+      "title": "接口里的两个重载签名",
+      "detail": "缺 1　多 1　注释夹在接口重载名与参数表之间：第二条签名认不出（r660 探针池 mut-type-overload-interface-126）"
+    },
+    {
+      "id": "token/types/mut-type-union-after-readonly-103",
+      "category": "token",
+      "title": "类型位修饰词后面的括号也是类型位：`readonly (A | B)[]`",
+      "detail": "缺 7　多 3　注释夹在 `readonly` 与括号之间（或类型与 `[]` 之间）：`readonly (A | B)[]` 整段不成形（r660 探针池 mut-type-union-after-readonly-103）"
+    },
+    {
+      "id": "token/types/mut-type-union-after-readonly-104",
+      "category": "token",
+      "title": "类型位修饰词后面的括号也是类型位：`readonly (A | B)[]`",
+      "detail": "缺 7　多 3　注释夹在 `readonly` 与括号之间（或类型与 `[]` 之间）：`readonly (A | B)[]` 整段不成形（r660 探针池 mut-type-union-after-readonly-104）"
+    },
+    {
+      "id": "token/types/mut-type-union-after-readonly-93",
+      "category": "token",
+      "title": "类型位修饰词后面的括号也是类型位：`readonly (A | B)[]`",
+      "detail": "缺 8　字段 1　注释夹在 `readonly` 与括号之间（或类型与 `[]` 之间）：`readonly (A | B)[]` 整段不成形（r660 探针池 mut-type-union-after-readonly-93）"
+    },
+    {
+      "id": "token/types/mut-type-union-paren-object-162",
+      "category": "token",
+      "title": "括号里的联合类型：第一个 `{` 也要判成类型位（原来第一个是 ObjectLiteral、第二个才是 TypeLiteral）",
+      "detail": "缺 4　多 2　注释夹在括号里联合类型第一个 `{` 之前：那一格被当成值位的对象字面量（r660 探针池 mut-type-union-paren-object-162）"
+    },
+    {
+      "id": "token/types/type-param-conditional-constraint",
+      "category": "token",
+      "title": "泛型约束里是一个嵌套条件类型",
+      "detail": "缺 10　字段 1　约束位上的 `A extends B ? C : D` 不成形（缺 10）"
+    },
+    {
+      "id": "token/types/type-param-template-literal-constraint",
+      "category": "token",
+      "title": "泛型约束里是一个模板字面量类型",
+      "detail": "缺 15　多 7　未映射 1　约束位上的 `` `a${A}b` `` 不成形（缺 15 多 7，还带一处未映射 Bracket）"
+    },
+    {
+      "id": "token/types/type-typeof-qualified-index",
+      "category": "token",
+      "title": "`typeof` 的操作数是一个点号名，后面再跟下标访问",
+      "detail": "缺 4　漂 2　多 1　点号名在产物里是平级单元，`typeof` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）"
+    },
+    {
+      "id": "exec/expressions/109-ex-object-value-paren-binary",
+      "category": "exec",
       "title": "对象字面量的值是一对圆括号里的二元表达式",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: x"
     },
     {
-      "id": "gap-std-set-timeout",
-      "layer": "stdlib",
-      "title": "宿主 ABI：setTimeout（单文件 tsrun 只给微任务那一档）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: setTimeout"
+      "id": "runtime/values/079-bigint-forms",
+      "category": "runtime",
+      "title": "BigInt：字面量、运算、typeof、转换",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
     },
     {
-      "id": "gap-r676-std-date-getTimezoneOffset",
-      "layer": "stdlib",
+      "id": "stdlib/date/039-r676-std-date-gettimezoneoffset",
+      "category": "stdlib",
       "title": "Date.getTimezoneOffset：与 UTC 的分钟差",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "gap-r676-std-date-toDateString",
-      "layer": "stdlib",
+      "id": "stdlib/date/040-r676-std-date-todatestring",
+      "category": "stdlib",
       "title": "Date.toDateString / toTimeString",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "r676-std-string-matchAll-iterable",
-      "layer": "stdlib",
-      "title": "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
-      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
-    },
-    {
-      "id": "gap-r676-std-date-toUTCString",
-      "layer": "stdlib",
+      "id": "stdlib/date/043-r676-std-date-toutcstring",
+      "category": "stdlib",
       "title": "Date.toUTCString：UTC 的可读文本",
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
-      "id": "gap-l677p-regex-literal",
-      "layer": "stdlib",
+      "id": "stdlib/globals/006-regexp-literal-basic",
+      "category": "stdlib",
+      "title": "正则字面量与 exec / test",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "stdlib/globals/051-builtin-regexp-constructor",
+      "category": "stdlib",
+      "title": "RegExp 构造器：new RegExp / 字面量与字面量不是一回事",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: RegExp"
+    },
+    {
+      "id": "stdlib/globals/052-builtin-bigint-conversion-forms",
+      "category": "stdlib",
+      "title": "BigInt：BigInt() 转换、1n 字面量、与 Number 互转",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: BigInt"
+    },
+    {
+      "id": "stdlib/globals/053-l677p-regex-literal",
+      "category": "stdlib",
       "title": "缺口：正则字面量在降级层直接断（整份文件进不来）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
-      "id": "l677p-eval-forms",
-      "layer": "stdlib",
+      "id": "stdlib/globals/055-l677p-eval-forms",
+      "category": "stdlib",
       "title": "点名：eval 的两种形态（直接 / 间接）与它的作用域可见性",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: eval"
+    },
+    {
+      "id": "stdlib/json/050-json-stringify-bigint",
+      "category": "stdlib",
+      "title": "JSON.stringify：BigInt 值该抛 TypeError（普通程序里会撞上）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression BigIntLiteral"
+    },
+    {
+      "id": "stdlib/map-set/093-std-set-timeout",
+      "category": "stdlib",
+      "title": "宿主 ABI：setTimeout（单文件 tsrun 只给微任务那一档）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: setTimeout"
+    },
+    {
+      "id": "stdlib/string/042-string-match-and-split-regex",
+      "category": "stdlib",
+      "title": "字符串方法收正则：match / split(/\\s+/)",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "stdlib/string/122-string-regex-in-strings",
+      "category": "stdlib",
+      "title": "正则字面量用在字符串方法上：replace / search / split（正则那一族）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "stdlib/string/123-string-split-limit-and-capture",
+      "category": "stdlib",
+      "title": "String.split：正则里的捕获组会进结果、limit 与空分隔符",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "stdlib/string/135-string-matchall-iterable",
+      "category": "stdlib",
+      "title": "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "e2e/scenarios/181-string-matchall-and-index",
+      "category": "e2e",
+      "title": "端到端：matchAll + lastIndex + 命名捕获组",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "e2e/scenarios/210-number-to-chinese",
+      "category": "e2e",
+      "title": "端到端：整数转中文读法（分组 + 单位 + 零的合并规则）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "e2e/scenarios/211-word-frequency-r7",
+      "category": "e2e",
+      "title": "端到端：词频统计 + 排序输出（Map / 数组 / 字符串归一）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "e2e/scenarios/212-template-engine",
+      "category": "e2e",
+      "title": "端到端：迷你模板引擎（占位符 / 条件段 / 转义 / 未定义变量）",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     }
   ],
   "differ": [
     {
-      "id": "gap-ex-using-declaration-dispose",
-      "layer": "exec",
-      "title": "using 声明：块结束时该调 Symbol.dispose",
-      "detail": "stdout 不同：第 4 行：node «dispose b» vs tsrun «»"
-    },
-    {
-      "id": "gap-ex-await-using-declaration-dispose",
-      "layer": "exec",
-      "title": "await using 声明：块结束时该调 Symbol.asyncDispose",
-      "detail": "stdout 不同：第 3 行：node «dispose a» vs tsrun «»"
-    },
-    {
-      "id": "r678-beh-setproto-change",
-      "layer": "exec",
-      "title": "setPrototypeOf 换链之后读到的成员与 instanceof",
-      "detail": "stdout 不同：第 2 行：node «undefined null» vs tsrun «base { constructor: [Function: Base], tag: 'base' }»"
-    },
-    {
-      "id": "r678-beh-proto-accessor",
-      "layer": "exec",
+      "id": "exec/decorators-modifiers/051-beh-proto-accessor",
+      "category": "exec",
       "title": "__proto__ 这个访问器读与写",
       "detail": "stdout 不同：第 1 行：node «hi true» vs tsrun «undefined true»"
     },
     {
-      "id": "r678-beh-instanceof-hasinstance",
-      "layer": "exec",
-      "title": "instanceof 与 Symbol.hasInstance 走的是哪条路",
-      "detail": "stdout 不同：第 2 行：node «function» vs tsrun «undefined»"
-    },
-    {
-      "id": "r678-beh-boxed-primitives",
-      "layer": "exec",
-      "title": "盒子对象：new Number/String/Boolean 的 typeof 与 valueOf",
-      "detail": "stdout 不同：第 4 行：node «[object Number]» vs tsrun «[object Object]»"
-    },
-    {
-      "id": "r678-beh-tostring-valueof-order",
-      "layer": "exec",
-      "title": "ToPrimitive 先 valueOf 后 toString，以及 Date 反过来",
-      "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
-    },
-    {
-      "id": "r678-sym-wellknown-presence",
-      "layer": "exec",
-      "title": "well-known symbol 的名字在不在（只问名字，不调协议）",
-      "detail": "stdout 不同：第 7 行：node «isConcatSpreadable symbol» vs tsrun «isConcatSpreadable undefined»"
-    },
-    {
-      "id": "r682-ex-private-brand",
-      "layer": "exec",
+      "id": "exec/decorators-modifiers/057-private-brand",
+      "category": "exec",
       "title": "私有名的品牌检查与错接收者",
       "detail": "stdout 不同：第 4 行：node «wrong-receiver ERR TypeError» vs tsrun «wrong-receiver undefined»"
     },
     {
-      "id": "gap-std-new-object-null",
-      "layer": "stdlib",
-      "title": "new Object(null)：构造调用该造一个空对象（不是原样返回 null）",
-      "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
+      "id": "exec/expressions/110-ex-using-declaration-dispose",
+      "category": "exec",
+      "title": "using 声明：块结束时该调 Symbol.dispose",
+      "detail": "stdout 不同：第 4 行：node «dispose b» vs tsrun «»"
     },
     {
-      "id": "gap-r676-std-object-groupBy-prototype",
-      "layer": "stdlib",
-      "title": "Object.groupBy：分组表该是 null 原型的对象",
-      "detail": "stdout 不同：第 1 行：node «null» vs tsrun «{»"
+      "id": "exec/expressions/111-ex-await-using-declaration-dispose",
+      "category": "exec",
+      "title": "await using 声明：块结束时该调 Symbol.asyncDispose",
+      "detail": "stdout 不同：第 3 行：node «dispose a» vs tsrun «»"
     },
     {
-      "id": "r676-std-date-iso",
-      "layer": "stdlib",
-      "title": "Date.toISOString / toJSON / getTime 与 UTC 取值",
-      "detail": "stdout 不同：第 1 行：node «2020-01-01T19:04:05.006Z true» vs tsrun «2020-01-02T03:04:05.006Z true»"
+      "id": "exec/expressions/128-beh-setproto-change",
+      "category": "exec",
+      "title": "setPrototypeOf 换链之后读到的成员与 instanceof",
+      "detail": "stdout 不同：第 2 行：node «undefined null» vs tsrun «base { constructor: [Function: Base], tag: 'base' }»"
     },
     {
-      "id": "gap-r676-std-date-local-time",
-      "layer": "stdlib",
-      "title": "Date 的本地时间构造：本地字段 → 时间戳 → UTC 取值",
-      "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
+      "id": "exec/expressions/136-beh-instanceof-hasinstance",
+      "category": "exec",
+      "title": "instanceof 与 Symbol.hasInstance 走的是哪条路",
+      "detail": "stdout 不同：第 2 行：node «function» vs tsrun «undefined»"
     },
     {
-      "id": "gap-r676-std-string-regex-members",
-      "layer": "stdlib",
-      "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
-      "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
+      "id": "exec/expressions/137-beh-boxed-primitives",
+      "category": "exec",
+      "title": "盒子对象：new Number/String/Boolean 的 typeof 与 valueOf",
+      "detail": "stdout 不同：第 4 行：node «[object Number]» vs tsrun «[object Object]»"
     },
     {
-      "id": "l677p-obj-lock-difference",
-      "layer": "stdlib",
-      "title": "口径边界：preventExtensions + defineProperty 在 node（松散）静默、本仓抛（严格）",
-      "detail": "stdout 不同：第 2 行：node «define threw TypeError» vs tsrun «define ok 3»"
+      "id": "exec/expressions/143-beh-tostring-valueof-order",
+      "category": "exec",
+      "title": "ToPrimitive 先 valueOf 后 toString，以及 Date 反过来",
+      "detail": "stdout 不同：第 2 行：node «objectThu Jan 01 1970 08:00:00 GMT+0800 (中国标准时间) string» vs tsrun «objectThu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time) string»"
     },
     {
-      "id": "r678-names-object",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Object 的静态成员（缺 2 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+      "id": "exec/expressions/150-sym-wellknown-presence",
+      "category": "exec",
+      "title": "well-known symbol 的名字在不在（只问名字，不调协议）",
+      "detail": "stdout 不同：第 7 行：node «isConcatSpreadable symbol» vs tsrun «isConcatSpreadable undefined»"
     },
     {
-      "id": "r678-names-object-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Object.prototype 的成员（缺 6 个）",
-      "detail": "stdout 不同：第 1 行：node «object __defineGetter__ function» vs tsrun «function __defineGetter__ undefined»"
-    },
-    {
-      "id": "r678-names-array",
-      "layer": "stdlib",
+      "id": "stdlib/array/113-names-array",
+      "category": "stdlib",
       "title": "名字逐个取一次：Array 的静态成员（缺 1 个）",
       "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
     },
     {
-      "id": "r678-names-string",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：String 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "r678-names-string-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：String.prototype 的成员（缺 19 个）",
-      "detail": "stdout 不同：第 1 行：node «object anchor function» vs tsrun «object anchor undefined»"
-    },
-    {
-      "id": "r678-names-number",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Number 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "r678-names-number-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Number.prototype 的成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «object toLocaleString function» vs tsrun «object toLocaleString undefined»"
-    },
-    {
-      "id": "r678-names-math",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Math 的成员（缺 2 个）",
-      "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
-    },
-    {
-      "id": "r678-names-json",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：JSON 的成员（缺 2 个）",
-      "detail": "stdout 不同：第 1 行：node «object isRawJSON function» vs tsrun «object isRawJSON undefined»"
-    },
-    {
-      "id": "r678-names-date",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Date 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "r678-names-date-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Date.prototype 的成员（缺 11 个）",
-      "detail": "stdout 不同：第 1 行：node «object getTimezoneOffset function» vs tsrun «object getTimezoneOffset undefined»"
-    },
-    {
-      "id": "r678-names-map",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Map 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "r678-names-set",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Set 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "r678-names-weakmap-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：WeakMap.prototype 的成员（缺 5 个）",
-      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
-    },
-    {
-      "id": "r678-names-weakset-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：WeakSet.prototype 的成员（缺 4 个）",
-      "detail": "stdout 不同：第 1 行：node «object add function» vs tsrun «undefined add no»"
-    },
-    {
-      "id": "r678-names-promise",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Promise 的静态成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "r678-names-promise-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Promise.prototype 的成员（缺 3 个）",
-      "detail": "stdout 不同：第 1 行：node «object catch function» vs tsrun «object catch undefined»"
-    },
-    {
-      "id": "r678-names-symbol",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Symbol 的静态成员（缺 9 个）",
-      "detail": "stdout 不同：第 1 行：node «function isConcatSpreadable symbol» vs tsrun «function isConcatSpreadable undefined»"
-    },
-    {
-      "id": "r678-names-symbol-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Symbol.prototype 的成员（缺 3 个）",
-      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
-    },
-    {
-      "id": "r678-names-error",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Error 的静态成员（缺 4 个）",
-      "detail": "stdout 不同：第 1 行：node «function captureStackTrace function» vs tsrun «function captureStackTrace undefined»"
-    },
-    {
-      "id": "r678-names-function-proto",
-      "layer": "stdlib",
-      "title": "名字逐个取一次：Function.prototype 的成员（缺 2 个）",
-      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
-    },
-    {
-      "id": "r678-names-console",
-      "layer": "stdlib",
+      "id": "stdlib/console/020-names-console",
+      "category": "stdlib",
       "title": "名字逐个取一次：console 的成员（缺 30 个）",
       "detail": "stdout 不同：第 1 行：node «object Console function» vs tsrun «object Console undefined»"
     },
     {
-      "id": "r678-names-globalthis",
-      "layer": "stdlib",
+      "id": "stdlib/date/041-date-iso",
+      "category": "stdlib",
+      "title": "Date.toISOString / toJSON / getTime 与 UTC 取值",
+      "detail": "stdout 不同：第 1 行：node «2020-01-01T19:04:05.006Z true» vs tsrun «2020-01-02T03:04:05.006Z true»"
+    },
+    {
+      "id": "stdlib/date/042-r676-std-date-local-time",
+      "category": "stdlib",
+      "title": "Date 的本地时间构造：本地字段 → 时间戳 → UTC 取值",
+      "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
+    },
+    {
+      "id": "stdlib/date/044-names-date",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Date 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/date/045-names-date-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Date.prototype 的成员（缺 11 个）",
+      "detail": "stdout 不同：第 1 行：node «object getTimezoneOffset function» vs tsrun «object getTimezoneOffset undefined»"
+    },
+    {
+      "id": "stdlib/error/001-console-log-error-stack",
+      "category": "stdlib",
+      "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-17624/src/2808.ts:2:13)» vs tsrun «»"
+    },
+    {
+      "id": "stdlib/error/031-names-error",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Error 的静态成员（缺 4 个）",
+      "detail": "stdout 不同：第 1 行：node «function captureStackTrace function» vs tsrun «function captureStackTrace undefined»"
+    },
+    {
+      "id": "stdlib/globals/057-names-globalthis",
+      "category": "stdlib",
       "title": "名字逐个取一次：globalThis 自己的名字（缺 97 个）",
       "detail": "stdout 不同：第 1 行：node «object AbortController function» vs tsrun «object AbortController undefined»"
     },
     {
-      "id": "r683-std-array-length-descriptor",
-      "layer": "stdlib",
+      "id": "stdlib/json/056-names-json",
+      "category": "stdlib",
+      "title": "名字逐个取一次：JSON 的成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «object isRawJSON function» vs tsrun «object isRawJSON undefined»"
+    },
+    {
+      "id": "stdlib/map-set/099-names-map",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Map 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/map-set/101-names-set",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Set 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/map-set/103-names-weakmap-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：WeakMap.prototype 的成员（缺 5 个）",
+      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
+    },
+    {
+      "id": "stdlib/map-set/104-names-weakset-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：WeakSet.prototype 的成员（缺 4 个）",
+      "detail": "stdout 不同：第 1 行：node «object add function» vs tsrun «undefined add no»"
+    },
+    {
+      "id": "stdlib/math/044-names-math",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Math 的成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
+    },
+    {
+      "id": "stdlib/number/064-names-number",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Number 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/number/065-names-number-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Number.prototype 的成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «object toLocaleString function» vs tsrun «object toLocaleString undefined»"
+    },
+    {
+      "id": "stdlib/object/109-std-new-object-null",
+      "category": "stdlib",
+      "title": "new Object(null)：构造调用该造一个空对象（不是原样返回 null）",
+      "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
+    },
+    {
+      "id": "stdlib/object/111-r676-std-object-groupby-prototype",
+      "category": "stdlib",
+      "title": "Object.groupBy：分组表该是 null 原型的对象",
+      "detail": "stdout 不同：第 1 行：node «null» vs tsrun «{»"
+    },
+    {
+      "id": "stdlib/object/116-l677p-obj-lock-difference",
+      "category": "stdlib",
+      "title": "口径边界：preventExtensions + defineProperty 在 node（松散）静默、本仓抛（严格）",
+      "detail": "stdout 不同：第 2 行：node «define threw TypeError» vs tsrun «define ok 3»"
+    },
+    {
+      "id": "stdlib/object/117-names-object",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Object 的静态成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/object/118-names-object-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Object.prototype 的成员（缺 6 个）",
+      "detail": "stdout 不同：第 1 行：node «object __defineGetter__ function» vs tsrun «function __defineGetter__ undefined»"
+    },
+    {
+      "id": "stdlib/object/121-names-promise-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Promise.prototype 的成员（缺 3 个）",
+      "detail": "stdout 不同：第 1 行：node «object catch function» vs tsrun «object catch undefined»"
+    },
+    {
+      "id": "stdlib/object/122-names-function-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Function.prototype 的成员（缺 2 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/object/125-array-length-descriptor",
+      "category": "stdlib",
       "title": "数组的 length 描述符（削短与越界读）",
       "detail": "stdout 不同：第 1 行：node «define-length 1:undefined» vs tsrun «define-length 3:3»"
+    },
+    {
+      "id": "stdlib/promise/045-names-promise",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Promise 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/string/136-r676-std-string-regex-members",
+      "category": "stdlib",
+      "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
+      "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
+    },
+    {
+      "id": "stdlib/string/146-names-string",
+      "category": "stdlib",
+      "title": "名字逐个取一次：String 的静态成员（缺 1 个）",
+      "detail": "stdout 不同：第 1 行：node «function length number» vs tsrun «function length undefined»"
+    },
+    {
+      "id": "stdlib/string/147-names-string-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：String.prototype 的成员（缺 19 个）",
+      "detail": "stdout 不同：第 1 行：node «object anchor function» vs tsrun «object anchor undefined»"
+    },
+    {
+      "id": "stdlib/symbol/036-names-symbol",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Symbol 的静态成员（缺 9 个）",
+      "detail": "stdout 不同：第 1 行：node «function isConcatSpreadable symbol» vs tsrun «function isConcatSpreadable undefined»"
+    },
+    {
+      "id": "stdlib/symbol/037-names-symbol-proto",
+      "category": "stdlib",
+      "title": "名字逐个取一次：Symbol.prototype 的成员（缺 3 个）",
+      "detail": "stdout 不同：第 1 行：node «object constructor function» vs tsrun «undefined constructor no»"
     }
   ],
-  "bad": [],
+  "bad": [
+    {
+      "id": "exec/enums-namespaces/006-module-export",
+      "category": "exec",
+      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-17624\\src\\1543.ts:2"
+    },
+    {
+      "id": "exec/enums-namespaces/007-module-import",
+      "category": "exec",
+      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-17624\\src\\1544.ts:2"
+    },
+    {
+      "id": "stdlib/globals/056-l677p-dynamic-import",
+      "category": "stdlib",
+      "detail": "node 自己跑不动：C:\\Users\\Admin\\Documents\\GitHub\\xl-example\\tests\\coverage\\.work-17624\\src\\2907.ts:4"
+    }
+  ],
   "moved": [],
   "newlyPassing": [],
   "regressions": []

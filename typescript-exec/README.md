@@ -32,7 +32,7 @@
 
 ## 缺口都在账上
 
-覆盖矩阵里还开着 **4 条**，全部**登在台账里**（`tests/coverage/expectations.mjs`）并**带着用例**
+覆盖矩阵里还开着 **4 条**，全部**登在台账里**（写在**每个用例文件头**的 `xl:want` / `xl:why`）并**带着用例**
 ——分别是对象字面量值里那对括号、宿主 ABI 的定时器（`blocked`），
 以及 `using` / `await using` 的降级（`differ`，静默少一次释放）。
 读数与逐条根因见 [tests/coverage/README.md](../tests/coverage/README.md)；
@@ -41,7 +41,7 @@
 
 `tests/parse/` 那一侧（token 层与投影）的缺口**也都在语料里**：
 带 `// xl:known-gap <根因>` 的用例，`cases:tsast` 每趟逐条真跑、收掉了就报红。
-清单与逐条根因见 [docs/typescript-parsing-gaps.md](../docs/typescript-parsing-gaps.md)。
+清单与逐条根因见 [tests/parse/typescript-parsing-gaps.md](../tests/parse/typescript-parsing-gaps.md)。
 
 ## 两条口径
 

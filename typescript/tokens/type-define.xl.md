@@ -83,7 +83,7 @@ return true;
 - **遇到成员边界（换行 + 下一行像新成员）也停**（`IsMemberBoundary`，见下）。
 - **遇到语句边界也停**（`Statement.IsLineBreakBoundary`）：换行后面已经是下一条语句时，
   当前这条声明的类型到头了。少了这一条，`let a!: number` 换行 `class C { … }` 里的整个类
-  会被收进 `TypeDefine`（实测 `tests/parse/cases/declarations/vars-definite.ts`）。
+  会被收进 `TypeDefine`（实测 `tests/cases/token/declarations/vars-definite.ts`）。
   合法折行不受影响：`A |` 换行 `B`（`|` 要右操作数）与 `A` 换行 `| B`（`|` 能续接）都不是语句边界。
 - 一路没遇到终止符就把 `endIndex` 取成 `units.length - 1`。
 - 收集期间每个单元都要非空，取不到就抛错。

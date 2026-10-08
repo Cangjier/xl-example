@@ -64,7 +64,7 @@ return true;
   以及「**是语句边界的软换行**」（`Statement.IsLineBreakBoundary`）。
 - **为什么要判换行**：`a?.b` 换行 `c?.d` 是两条语句，而这里原来只在运算符处断开，
   于是扫描跨过换行把 `c` 也收进第一个 `NullConditionalOperator`（实测
-  `tests/parse/cases/statements/stmt-asi-optional-chain.ts`）。
+  `tests/cases/token/statements/stmt-asi-optional-chain.ts`）。
   链式调用里的折行不受影响：`a?.b` 换行 `.c` 的下一行以 `.` 开头，不是语句边界。
 - 找不到断点（返回 `-1`）时，`count` 取「剩下全部」；否则取 `endIndex - index - 1`。
 - 取区间用 `TakeRange(units, index + 1, count)`（取出不移除），随后靠 `ReplaceCountAt` 一次性替换。

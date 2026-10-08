@@ -110,7 +110,7 @@ import { StringConcat, TemplateConcat, ObjectAssign, PowId } from "./builtins/gl
   （下一次 `scope.xl.md`）。
 - **一元运算符**：投影**没带** `PrefixUnaryExpression` 的运算符（TS 的 `operator` 是
   `SyntaxKind` 数字，投影只留了节点型字段），所以 `-1` 与 `!x` 在投影里**分不出来**。
-  这一条记在 [docs/typescript-parsing-gaps.md](../docs/typescript-parsing-gaps.md)，
+  这一条记在 [tests/parse/typescript-parsing-gaps.md](../tests/parse/typescript-parsing-gaps.md)，
   在投影补上之前，这里**抛**。
 
 # type AstNode = Record<string, any>
@@ -2878,7 +2878,7 @@ if (kind === "ReturnStatement") {
   // 加 `return` 是**普通 `.ts` 里最常见的一条**，所以这一轮把那段改写补上了。
   //
   // **第 337 轮：`return` 出 `for..of` 也要 IteratorClose**（上一轮加宽语料时量到的，
-  // 见 `expectations.mjs` 里 `c336-rt-iterator-close-forms` 那一行）：
+  // 见那一条用例文件头的 `xl:why`）：
   // `for (const v of gen()) { if (v === 2) return v }` 里生成器那句 `finally`
   // **还是要跑**（JS 的 IteratorClose）——上一轮只接了 `break` 那一档
   //（`break` 走 `LoopContext.Breaks`，而 `return` 走的是**这一支**）。
@@ -6750,7 +6750,7 @@ return false;
 ```ts
 // **`extends` 这一轮仍然抛**（引擎那半 `set_proto` 已经就位、也验证过：空类的
 // `class B extends A {}` + `new B()` 是通的；但**方法继承**那条路还有一个没查清的失败，
-// 复现写在 `docs/typescript-parsing-gaps.md`）。**查不清就不放行**——
+// 复现写在 `tests/parse/typescript-parsing-gaps.md`）。**查不清就不放行**——
 // **`extends`：方法继承就是一条 `set_proto`**（子类 prototype 的原型指向父类 prototype，
 // 于是 `b.m()` 沿链先看子类的、没有再往上走到父类的）。
 //

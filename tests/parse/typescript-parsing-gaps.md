@@ -1,0 +1,177 @@
+# TypeScript 解析：现状、口径边界与不再试的改法
+
+**这份文件只装「今天还有用」的东西**：口径边界、怎么量缺口、解析层的硬规矩、被证伪的改法。
+逐轮的现场（每次的根因、探针、差分读数）在 **git 历史**里，不再往这里堆；
+**当前读数只有一份**（根 [README](../../README.md) 的「当前状态」表），这里不再抄数字，免得两处各说一套。
+
+## 现状
+
+`cases:tsast` 的语料（`node_modules` 的 `@types` / `typescript/lib` / `undici-types`
+加本项目的 `dist/ts/**`、`samples`、`tests/cases/token/**`）**逐文件全绿**——
+四方向（缺 / 漂移 / 多出来 / 字段名）与三栏地基（未映射 / 缺 range / 区间越界）全为 0，
+**抛异常 0**。`SyntaxKind` 全表与语料的差集只剩**合成节点**
+（`Bundle` / `Count` / `SyntaxList` / `Synthetic*` / `NotEmitted*` / `PartiallyEmittedExpression`，
+它们不由源码解析产生）与 **JSX 那一族**（见下）。
+
+**但「语料全绿」不等于「构造全对」**：上面那一趟**不含**登记了缺口的用例
+（`xl:known-gap` 的 219 条走另一条账，见「已知仍开着的缺口」）。
+所以量缺口要另外两条路：**片段探针**与**语料里的缺口账**。
+
+## 怎么量缺口
+
+0. **先写小片段探针**：`node tests/parse/ts-ast.mjs --snippets <文件.mjs>`
+   在**一个进程**里把几百条一两行的片段逐条与 `ts.createSourceFile` 对拍（`{ id, src }` 的数组，
+   TS 自己非法的片段跳过、产物抛异常的片段报 `CRASH` 而不会打断整轮）。
+   `--file` 是一份文件一个进程，量小片段时进程启动就是全部成本——普查一律走这一条。
+   **量出来一条就补一个带 `xl:known-gap` 的用例**（见「已知仍开着的缺口」那一节）：
+   探针池是产线索的地方，语料才是清单的家。
+1. **语法有效性基准**是 TypeScript 自己的 parser：`ts.createSourceFile(...).parseDiagnostics`，
+   只有 TS 认为合法的样本才算缺口。
+2. **两条路一起用**：`cases:tsast` 量**形状**（与 `ts.createSourceFile` 逐节点比 kind / 区间 / 字段名，
+   坐标是地基——没有坐标就只能靠文本猜位置，一遇到壳节点就断）；`coverage` 量**语义**
+   （同一份 `.ts` 交给 `node` 与 `tsrun` 各跑一遍，比 stdout 逐字节 + 退出码）。
+3. **加宽语料之前先普查**（`npm run coverage:sweep -- <候选.mjs>`）：候选的形状与
+   `tests/cases/**` 里的用例一样（`{ id, title, src }` 数组，导出的名字当层名用），
+   但**不写读数、不看台账、不红**——拿 `run.mjs` 去试会得到一片红，
+   红里混着「真坏了」与「本来就还没做」。
+4. **搜缺口要写小片段探针**（一条一个构造、同进程对拍）：一条片段一次就翻出一处真缺口，
+   比读大文件快得多。
+
+## 口径边界（**明确不做**，不是缺口）
+
+| 边 | 为什么 |
+| --- | --- |
+| **JSX / TSX** | 独立于 TypeScript 的语法扩展，不在 `.ts` 范围内。四个 `.tsx` 用例只钉住「不抛异常 / 不吞掉后面的代码」 |
+| **`Object.freeze` 之后写属性 / 只读访问器上赋值** | 本仓一律抛（**严格模式**的选择）；`node` 把 `.ts` 当 CJS 跑是松散模式、静默失败 |
+| **装饰器的运行期语义** | 三种 `node` 模式（类型剥离 / 变换 / `--experimental-strip-types`）都在 `@tag` 那一行报语法错，**裁判给不出来**——没有基准就量不了。装饰器本身是**待做项** |
+| **`xl:ts-invalid` 的 9 份** | 故意写非法 TS（未终止的块注释 / 模板 / 字符串 / 正则、`@'…'` 逐字字符串前缀、`#if` 预处理）。判据要量的正是**错误处理**，而对拍的前提是对面能解析出来 |
+
+**不在这张表里的都是缺口**（进分母、记在台账或 `xl:known-gap` 里）：
+`RegExp` / `BigInt` / 多文件模块加载 / 动态 `import()` / `console.log(new Error(…))` 的栈
+——用户口径（第 685 轮）：**这些都要做**，`tsrun` 现在的单文件口径是**现状**，不是口径。
+
+## 解析层几条硬规矩
+
+- **ASI 按形状预判**（`typescript/tokens/statement.xl.md` 的 `Statement.IsLineBreakBoundary`）：
+  前一个单元不再要操作数、后一个单元也不能续接 ⇒ 断句，加上 `return` / `throw` / `break` /
+  `continue` / `yield` 与后缀 `++` / `--` 的受限产生式。规范里还有一条「**语法不允许时**才插分号」——
+  本工程不看完整文法、只看形状，所以极端排版仍可能与 TS 不同，这类情况由 `cases:tsast` 巡检。
+- **不看未来**那条铁律：判据只用**已经读到**的东西，所以「成员层」这类没有入口字符的构造
+  靠**体自己认边界**（见 [member-layer-plan.md](../../docs/member-layer-plan.md)）。
+- **`Parent` 不变式**（`core/syntax/close-rule.xl.md` 的 `ApplyTo`）：规则用 `ReplaceCountAt`
+  换进来的节点**不带 `Parent`**（那是核心的 `splice`），每趟 `Process` 之后就地把新换进的那一小段补齐——
+  否则「靠当前单元的父亲认容器」的规则（元组成员、方括号类型…）会判不出容器。
+- **正则不能吞代码**：`/` 只有在**本行内能找到配对的 `/`** 时才算正则开头——
+  少了这条，JSX 闭合标签 `</div>` 里的 `/` 会把文件余下内容整段吃掉。
+- **字符串起点有三种引号**（`"` / `'` / `` ` ``，见 `parse-pipeline.xl.md` 的 `ExtendStringStarts`）：
+  少了单引号 / 反引号，`import … from './x'` 里的 `/` 会被正则词法接手。
+- **`typeof` 的操作数只到名字为止**（TS 的 EntityName）：类型位那条规则排在方括号之前，
+  照面会把 `a[K]` 先收成一个单元 ⇒ `typeof` 吞下整段。所以方括号那一侧要让一趟
+  （`type-bracket.xl.md` 的 `IsTypeQueryOperand`），让 `typeof 名字` 先成形。
+  `keyof a[K]` 是**反例**（`[]` 绑得更紧），只有 `typeof` 在这个名单里。
+- **语言配置带来的差异不是缺陷**：`\a` 解成响铃字符而不是字母 `a`；
+  `@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
+
+## 收缺口的两条规矩
+
+- **一次收一族**：把量出来的那一族整个收掉；量出来的时候**先补用例**（带 `xl:known-gap` 进语料），
+  收掉的时候删掉那行指令——只修现场那一条，下一轮换个排版又回来。
+- **先探「同族的第三条」**：`do` 的体自带分号那一族、循环头部括号里出现 `)`、
+  括号 / 一次调用当被调用者时的可选链、「注释 / 换行落在语法相邻位置之间」，
+  都是这么一条一条量出来的——**最后那一族是今天最大的一族**（见下）。
+
+## 已知仍开着的缺口（**219 条**）
+
+**缺口清单长在语料里**：每条缺口就是 `tests/cases/token/<功能域>/` 下的一个用例文件，
+文件头带一行 `// xl:known-gap <根因>`。`cases:tsast` 每趟把它们逐条真跑一遍：
+
+- **还对不上** ⇒ 记 `KNOWN`，差额**不算进那七项**（所以 `npm run gates` 可以是绿的）；
+- **已经对上了** ⇒ 报「收掉了」并**红**，逼你回来删掉那行指令——清单不许只增不减。
+
+这一趟的结论就是门的那一行输出（`已知缺口：N 条还开着、M 条已经收掉`），
+所以「还差多少」在 `npm run gates` 里直接看得见，不必回 `tmp/` 翻探针。
+同一条纪律也适用于 `coverage` 那一侧（`xl:want blocked` / `differ` 的 62 条）。
+
+### 这 219 条长什么样（按根因分三段）
+
+| 段 | 条数 | 一句话 |
+| --- | --- | --- |
+| **注释 / 换行落在语法相邻位置之间** | **165** | 最大的一族，按**落点**逐条立着（见下） |
+| **注释夹在语法相邻的两格之间** | **35** | 同一族换了落点：类型运算符 / 函数类型 / `new` 实参括号 / 成员名与形参表 / 泛型实参段附近 |
+| **其它** | **19** | 各有各的根（见下） |
+
+**第一族（165 条）怎么长出来的**：它来自三次普查，每次都把「同一构造的**每一个 token 边界**
+各插一遍 `/*c*/`、`//c` 换行、换行三种变体」——于是落点不同就各自成一条。
+命名上看得见来源：`gap-sweep-{comment,linecomment,newline}-<上下文>-<序号>`，上下文有
+`optchain` / `generic` / `destr` / `clsmod` / `iface` / `import` / `export` / `tpl` / `cond` /
+`arrow` / `async` / `obj` / `arr` / `switch` / `try` / `label` / `ns` / `var` / `fn` / `class` /
+`call` / `dowhile` / `ifelse` / `typeunion` / `gener` ……另有几小批 `gap-a-*`（A-comment）/
+`gap-b-*`（B-oneline）/ `gap-c-*`（C-optchain-nonnull）/ `gap-d-*`（D-generics-tuple-mapped）/
+`gap-j-*`（J-import-export）/ `gap-m-*`（M-misc）与 `mut-*` 探针池的 23 条。
+
+**「一次收一族」在这一族上的意思**：把「注释夹在语法相邻位置之间」这条线**整个按位置过一遍**，
+而不是一条一条打补丁。已经被这条线收掉的地方（对照表，说明这类缺口长什么样）：
+
+- **声明头与它的体之间那个换行不是语句边界**（`Statement.NextLineContinuesExpression` 的
+  `IsHeaderBodyBrace`）：`while (a)` 换行 `{ … }`、`for (;;)` 换行 `/* c */` 换行 `{ … }`、
+  `switch (a)` 换行 `{ … }`、`function f<T>(x: T): T` 换行 `{ … }`，以及
+  `import` 换行 `{ a } from "m"` 的解析崩溃。**注意**：`{` 自己起得了一条语句（裸块），
+  所以判据只能认「末尾是不是一个等着体的头」，不能见 `{` 就答「续接」——
+  `foo()` 换行 `{}` 在 TS 里是两条语句。
+- **`export /* c */ { a as b }` 与 `export` 换行 `{ a as b }`**：`ExportCloseRule` 找子句时
+  只跳软换行、不跳注释，且收集循环的第一格撞上 trivia 就 `break`
+  （`SkipWrap` 与那一段收集都改成「还没有收到任何单元时跨过 trivia」）。
+- **`if` / `while` / `do…while` / `catch` 四处的 `/* c */ (`**、`else` / `else if` 那一族、
+  `var` 的声明头、`switch` 判别括号、`class A /* c */ extends B`、`namespace N /* c */ {`、
+  `enum E /* c */ {`、`type T /* c */ =`、`const a /* c */ = 1`、`f(1, /* c */ 2)`、
+  `{ get x() {} set x(v) {} }` —— 这些落点本来就是好的（探针里对上了，所以不立用例）。
+- **`catch` / `finally` 与它的体之间夹一条行注释或一个换行**（`gap-crash-try-*` 那 4 条）
+  曾经是**唯一一档「产物直接抛异常」**的：`Statement.IsHeaderBodyBrace` 只认
+  `while` / `for` / `switch` / `function` / `import` / `export` ⇒ 那个 `{` 没被认成体
+  ⇒ `TryCloseRule` 手上的单元表里 `finally` 后面**没有** `{` ⇒ 空指针。修法两处：
+  `IsHeaderBodyBrace` 收下 `catch` / `finally`；`Statement.IsDeclarationPosition` 往回跳 trivia
+  （但**行注释那一格不跳**——`//` 换行是一次 ASI，块注释不是）。
+
+**第三段（19 条）逐条**（它们不属于上面两族，各有各的根）：
+
+| 用例 | 形状 | 症状 |
+| --- | --- | --- |
+| [destr-object-newline-after-keyword.ts](../cases/token/declarations/destr-object-newline-after-keyword.ts) | `const \n{ a, b: c, d = 1, ...rest } = o` | 换行落在声明关键字与解构模式之间时整条声明解体（缺 11 / 多 15）：`Let` 那一趟与 `{` 都是按「紧邻」找模式的 |
+| [decl-declare-function-trailing-comment.ts](../cases/token/declarations/decl-declare-function-trailing-comment.ts) | `declare function f(): void /* c */ ;` | 无体声明的区间只到自己最后一个实义单元，尾随注释与 `;` 没算进去（TS 的 `FunctionDeclaration` 到 `;` 为止） |
+| [expr-function-expression-plus.ts](../cases/token/expressions/expr-function-expression-plus.ts) | `const r20 = function f() {} + 1` | 函数表达式后面还能接运算符，这里整段收成了别的形状（缺 4） |
+| [expr-generic-instantiation.ts](../cases/token/expressions/expr-generic-instantiation.ts)、`expr-generic-inst-let`、`expr-generic-inst-statement`、`gap-d-generics-tuple-mapped-01` | `const a = f<string>;` | **泛型实例化表达式**（TS 4.7）没有规则：产物是 `BinaryExpression(f < string)`，TS 是 `ExpressionWithTypeArguments` |
+| `expr-async-generic-arrow`、`-spaced`、`gap-d-generics-tuple-mapped-02` | `async <T>(x: T) => x` | `async` 与泛型段**谁先认领**没有定义（各缺 7–13） |
+| [mod-declare-module-shorthand.ts](../cases/token/modules/mod-declare-module-shorthand.ts) | `declare module "mm";` | 简写形态不成形（缺 2 多 1）；**带 `{}` 的那一条是好的** |
+| [stmt-do-while-then-statement.ts](../cases/token/statements/stmt-do-while-then-statement.ts) | `do {} while (a) b()` | `do…while` 后面还跟着一条语句时那一格没被收（缺 3） |
+| [stmt-for-comment-before-paren.ts](../cases/token/statements/stmt-for-comment-before-paren.ts) | `for /* c */ (…)` | 头部取括号只看紧邻那一格 ⇒ 整条 `for` 解体（缺 1 漂 1 多 5） |
+| [stmt-switch-comment-fallthrough.ts](../cases/token/statements/stmt-switch-comment-fallthrough.ts) | `switch /* c */ (a) { case 1: case 2: … }` | 判别括号认不出 ⇒ `case 1:` 那一格整条落空（缺 5 漂 1 多 3） |
+| [stmt-switch-block-then-default.ts](../cases/token/statements/stmt-switch-block-then-default.ts) | `switch (1) { case 1: { break; } default: break; }` | 单行写完一个块再跟 `default`：语句层把 `default:` 并进了同一个壳，分段只在顶层单元上找 `case` / `default` ⇒ 只有一段。**换行写法是好的**（见根 README 的「开着的缺口」，块当语句边界的改法已被否决） |
+| [stmt-label-comment-before-call.ts](../cases/token/statements/stmt-label-comment-before-call.ts) | `a: b: c: d/* c */ ()` | 标签那一趟看到的是注释，最后一层标签没接上被标的语句（缺 1） |
+| [stmt-generator-trailing-semicolon.ts](../cases/token/statements/stmt-generator-trailing-semicolon.ts) | `function* g() { yield* h(); };` | 尾随那个 `;`（空语句）没成壳（缺 1 漂 1 多 1） |
+| [type-param-conditional-constraint.ts](../cases/token/types/type-param-conditional-constraint.ts) | `x extends A extends B ? C : D` | 约束位上的嵌套条件类型不成形（缺 10 / 字段 1） |
+| `type-asserts-toplevel`、`type-param-asserts-constraint` | `type T = asserts x is A` / `<X extends asserts x is A>` | 断言谓词只在返回类型那一位成形（各缺 5 多 2）：`TypePredicateCloseRule.Previous` 的「起点」只认容器第一个实义单元与紧跟 `=>`，而 `=` / `extends` 右边同样是合法类型位 |
+| [type-param-template-literal-constraint.ts](../cases/token/types/type-param-template-literal-constraint.ts) | `` x extends `a${A}b` `` | 约束位上的模板字面量类型不成形（缺 15 多 7，还带一处未映射 `Bracket`） |
+| [type-typeof-qualified-index.ts](../cases/token/types/type-typeof-qualified-index.ts) | `type A = typeof a.b[K]` | 点号名在产物里是平级单元，`TypeQuery` 于是吞下整个 `a.b[K]`（缺 4 漂 2 多 1）。**不带点号的** `typeof a[K]` / `typeof a[]` / `typeof a[K][L]` 已经收掉 |
+| `mut-stmt-asi-return-newline-expr-115` | `function f(/* c */)` | 那条注释让 ASI 那一族的形态漂一格（多 1 字段 1） |
+
+**其余 16 条**在 `gap-sweep-*` / `mut-*` 那两族里，根因与上表同型（注释或换行落在某两格之间），
+只是落点更细——逐条的根因就写在各自文件头的 `xl:known-gap` 后面，不必在这里再抄一遍。
+
+**怎么收**：改完跑 `npm run cases:tsast` 看那一趟——收掉的那条会印「收掉了」，
+把它的 `xl:known-gap` 行删掉、把这一条从上面的表里拿掉，门就少一条账。
+**探针池仍然有用**：`node tests/parse/ts-ast.mjs --snippets <候选.mjs>` 是先量后收的第一站
+（`tmp/` 不进仓库，所以它是**一次普查的现场**，不是门）；量出一条就补一个带 `xl:known-gap` 的用例，
+清单与语料一起长。
+
+## 被否决的改法（不要再试）
+
+1. **`Token.Reorganize` 改成「每条规则重复扫到无改动」**：能让三层以上嵌套三元收敛，
+   但它对**所有规则**生效 —— 整批用例一起跑直接 `FATAL ERROR: heap out of memory`。
+2. **把 11 个复合赋值符号补进 `IsCombinedSymbol`**：`a ??= 1` 一族内存失控
+   （单条 200ms、整份文件 5 秒超时 + 768MB 堆爆）——「切成 `op` + `=` 再克隆左值」
+   与「克隆出来的单元又被同一条规则重新处理」叠在一起发散。
+3. **`IsMemberSignature` 要求「参数表后紧跟 `:`」+ `BodyIndex` 要求「同行的 `{`」**：两条都是**净回归**
+   （把接口里成片的多行重载、一行一条的 `get x(): number` 一起打掉）。
+   要修得先能区分「体在下一行」与「下一条成员」——只往前看分不出来。
+4. **把语句位上的裸块当语句边界**（`StatementReorganization2.Previous`）：切断了复合赋值的展开，
+   **整段内容丢失**，比边界不合严重。

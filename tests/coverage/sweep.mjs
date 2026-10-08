@@ -11,7 +11,7 @@
 // ## 它为什么是**单独一个**工具，而不是 `run.mjs` 的一个开关
 //
 // `run.mjs` 量的是**矩阵**（已经收编的语料），它要求每一条都在
-// `expectations.mjs` 里**有账**——没登记的没过就是 `REGRESSION`（红）。
+// 用例文件头的 `xl:want` 里**有账**——没登记的没过就是 `REGRESSION`（红）。
 // 而「加宽矩阵」这件事的第一步恰好相反：**还不知道哪些会过**。
 // 拿 `run.mjs` 去试，会得到一片红，而红里混着「真的坏了」与「本来就还没做」，
 // 读不出东西。
@@ -375,7 +375,7 @@ for (const result of results) tally[result.actual] += 1;
 console.log(`合计 ${total} 条：pass ${tally.pass}、blocked ${tally.blocked}、differ ${tally.differ}、nodefail ${tally.nodefail}`);
 console.log("");
 console.log("**收编的办法**：`pass` 的照原样进矩阵；`blocked` / `differ` 的也进，"
-  + "同时往 `expectations.mjs` 记一行（写清**根子**，不是抄 stderr）；"
+  + "同时把 `xl:want` / `xl:why` 写进那一条用例的文件头（写清**根子**，不是抄 stderr）；"
   + "`nodefail` 的**不要进**（裁判都跑不动 = 用例自己不合法，"
   + "要留就用 `skip` 记成「口径外」）。");
 console.log("");

@@ -352,11 +352,31 @@ void    Ts_Collect(TsVm*);               // 给判据用
 
 ---
 
-## 15. v1 明确非目标（写死，免得反复讨论）
+## 15. 目标与非目标（**第 685 轮按用户口径改写**）
 
-`RegExp` `Intl` `Proxy` `Reflect` `BigInt` `TypedArray` `WeakMap`/`WeakSet`
-`eval` / `Function` 构造器、动态 `import()` 的加载语义、decorator 的运行时语义
-（先当语法擦除 + 元数据）、压缩 / 分代 GC、`WeakRef` / finalizer、跨 VM 共享对象、线程。
+### 明确非目标（写死，免得反复讨论）
+
+`Proxy` `Reflect` `Intl` `TypedArray` `SharedArrayBuffer` / `Atomics`、压缩 / 分代 GC、
+`WeakRef` / `FinalizationRegistry`、跨 VM 共享对象、线程、`Function` 构造器。
+
+### 已从这张表里拿出去的（**都是待做项，不是「不做」**）
+
+第 685 轮之前它们在这张表上；用户口径：**这些都要做**。
+
+| 曾经写「不做」 | 现在的状态 | 量它的地方 |
+| --- | --- | --- |
+| `RegExp` | **待做**（正则字面量、`RegExp` 构造器、收正则的字符串方法都还没有） | `xl:want blocked` 的 7 条（`stdlib/globals/006-*`、`stdlib/string/042-*`、`e2e/scenarios/181-*` 等） |
+| `BigInt` | **待做**（字面量 `3n` 与 `BigInt` 全局名都没有） | `runtime/values/079-*`、`stdlib/globals/052-*`、`stdlib/json/050-*` |
+| 多文件模块加载 | **待做**（现状是单文件口径，宿主的装载器还没接） | `exec/enums-namespaces/007-*`（裸说明符要能解析） |
+| 动态 `import()` 的加载语义 | **待做**（降级层还没有 `ImportKeyword`） | `stdlib/globals/056-*` |
+| `eval` | **待做**（全局名没登记；`l677p-eval-forms` 一直在台账里） | `stdlib/globals/055-*` |
+| 装饰器的运行期语义 | **待做**，但**暂时量不了**：三种 `node` 模式都在 `@tag` 那一行报语法错，裁判给不出来 ⇒ 那一格只能记 `xl:skip`，等实现落地后换一个能跑的裁判 | `exec/classes/001-*`（口径外） |
+| `WeakMap` / `WeakSet` | **已经做了**（第 681 轮起有各自的构造号与一格 `__w`：对象键的判据在跑）——这张表一直没跟着改 | `stdlib/map-set/103-*` / `104-*` |
+
+**一条教训**：这张表是**当时**的判断，而实现会走。第 685 轮对口径时发现
+`WeakMap` / `WeakSet` / `eval` 三格早就不是「不做」了，表却还写着——
+所以判断的落点不该是这份文档，而是**用例文件头的台账**（`xl:want` / `xl:skip` + `xl:why`），
+那里每跑一次都会被核实一遍。
 
 ---
 

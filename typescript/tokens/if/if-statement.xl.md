@@ -50,7 +50,7 @@ ParsePipeline.InitialCloseRuleQueue(this);
 在换行那一格问不出结论）。可**输入到头**时后面没有字符了 ⇒ 体一直是开着的
 ⇒ 它那一趟语句重组从来没跑过。
 
-实测（`tests/parse/cases/statements/stmt-if-no-block.ts`：`if (a) f()` 后面什么都没有）：
+实测（`tests/cases/token/statements/stmt-if-no-block.ts`：`if (a) f()` 后面什么都没有）：
 `<IfStatement>` 里是散的 `Identifier(f)` + `Bracket(())` ⇒ 投影出来的 `thenStatement`
 是一个**包着 `f()` 的假 `Block`**（缺 `ExpressionStatement` + 缺 `CallExpression`）。
 

@@ -24,13 +24,30 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { readCaseFile } from "../cases/case-file.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
 const ts = require(path.join(root, "node_modules", "typescript"));
 
-export const AREAS = ["declarations", "statements", "expressions", "types", "modules", "lexical", "ambiguous"];
+/**
+ * 功能域（**旧的 area 名没变**，变的是它在目录树里的位置）。
+ *
+ * 整体布局（第 685 轮起的口径，见 `tests/cases/README.md`）：
+ *
+ * ```
+ * tests/cases/<类别>/<功能域>/<序号>-<名字>.ts     类别 = token / exec / runtime / stdlib / e2e
+ * ```
+ *
+ * 「功能域」就是原来 `tests/parse/cases/<area>/`（第 685 轮搬到 `tests/cases/token/<area>/`）里那个 area——
+ * 名字与含义一字未改，只把它从「语料根」挪成「token 类别下的一层」，
+ * 于是五类语料在目录树上终于同一形状。
+ */
+export const DOMAINS = ["declarations", "statements", "expressions", "types", "modules", "lexical", "ambiguous"];
+
+/** 旧的导出名，仍然指向同一份名单（`tags.mjs` / 调用方还在用 `AREAS`）。 */
+export const AREAS = DOMAINS;
 
 /**
  * `xl:expect` / `xl:absent` 里允许出现的**产物标签名**（`ToXmlString` 取的是类名；
@@ -92,43 +109,22 @@ export const GHOST_TAGS = new Set([
   "MetaProperty", "TemplateHead", "TemplateMiddle", "TemplateTail", "AssertClause", "AssertEntry",
 ]);
 
-export const CASES_DIR = path.join(here, "cases");
+export const CASES_DIR = path.join(root, "tests", "cases", "token");
 
-/** 解析一条用例的指令与正文。 */
+/** 解析一条用例的指令与正文（读文件这一层交给共用的 `case-file.mjs`）。 */
 export function readCase(filePath) {
-  const source = fs.readFileSync(filePath, "utf8");
-  const directives = { expect: [], absent: [], note: "", knownGap: "", tsInvalid: false, bom: false };
-  const problems = [];
-  for (const line of source.split("\n")) {
-    const m = /^\/\/\s*xl:(\S+)\s*(.*)$/.exec(line);
-    if (m === null) continue;
-    const [, key, value] = m;
-    if (key === "expect") directives.expect.push(...split(value));
-    else if (key === "absent") directives.absent.push(...split(value));
-    else if (key === "note") directives.note = value.trim();
-    else if (key === "known-gap") directives.knownGap = value.trim();
-    else if (key === "ts-invalid") directives.tsInvalid = true;
-    else if (key === "bom") directives.bom = true;
-    else problems.push(`未知指令 xl:${key}`);
-  }
-  // **已知缺口要写清根因**：指令后面那一段是给人看的（缺口清单就长在语料里），
-  // 空着等于把「为什么它挂着」留给下一个读的人去猜。
-  if (source.includes("// xl:known-gap") && directives.knownGap === "") {
-    problems.push("xl:known-gap 后面要写一句话根因");
-  }
+  const parsed = readCaseFile(filePath, "token");
+  const directives = parsed.directives;
+  const problems = [...parsed.problems];
   // BOM 不是解析器的朋友：本项目的库路径不剥 BOM，会污染第一个 token。
   // 所以用例文件默认不许有 BOM，只有显式写 xl:bom 的「BOM 用例」才带。
-  if (source.charCodeAt(0) === 0xfeff && !directives.bom) {
+  if (parsed.source.charCodeAt(0) === 0xfeff && !directives.bom) {
     problems.push("文件带 BOM；解析器不剥 BOM，第一个 token 会被污染。要测 BOM 请显式写 // xl:bom");
   }
-  return { source, directives, problems };
+  return { source: parsed.source, body: parsed.body, directives, problems };
 }
 
-function split(value) {
-  return value.split(",").map((s) => s.trim()).filter((s) => s !== "");
-}
-
-/** 列出全部用例：{ id, area, file, source, directives }。 */
+/** 列出全部用例：{ id, category, area, file, source, body, directives }。 */
 export function listCases(filterArea) {
   const cases = [];
   const seen = new Map();
@@ -140,7 +136,7 @@ export function listCases(filterArea) {
     for (const name of fs.readdirSync(areaDir).sort()) {
       if (!name.endsWith(".ts") && !name.endsWith(".tsx")) continue;
       const file = path.join(areaDir, name);
-      const id = `${area}/${name.replace(/\.tsx?$/, "")}`;
+      const id = `token/${area}/${name.replace(/\.tsx?$/, "")}`;
       const parsed = readCase(file);
       const problems = [...parsed.problems];
       if (!AREAS.includes(area)) problems.push(`area 不在 ${AREAS.join(" / ")} 里`);
@@ -164,8 +160,7 @@ export function listCases(filterArea) {
       }
       if (seen.has(id)) problems.push(`id 与 ${seen.get(id)} 重复`);
       seen.set(id, file);
-      const title = parsed.source.split("\n").find((l) => /^\/\/\s*xl:note/.test(l));
-      cases.push({ id, area, file, name, title, ...parsed, problems });
+      cases.push({ id, category: "token", area, domain: area, file, name, ...parsed, problems });
     }
   }
   return cases;

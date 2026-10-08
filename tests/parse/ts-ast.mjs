@@ -69,7 +69,7 @@ const MODIFIERS = new Set(["LineWrap", "AreaAnnotation", "LineAnnotation", "Prep
  *
  * TS 那一侧先过 `canonicalKind`：`ts.SyntaxKind[node.kind]` 会印出 `FirstStatement`
  * （其实是 `VariableStatement`）、`FirstLiteralToken`（`NumericLiteral`）这类**别名错名**，
- * 不换成真名就没法与产物侧对齐（详见 docs/typescript-parsing-gaps.md 里「枚举别名」那几轮）。
+ * 不换成真名就没法与产物侧对齐（详见 typescript-parsing-gaps.md 里「枚举别名」那几轮）。
  */
 const TS_KIND_ALIASES = new Map([
   ["FirstStatement", "VariableStatement"],
@@ -512,11 +512,21 @@ function parseWith(source, file) {
  * 按**节点**列出来，每条带源码原文。总表只能告诉你「哪一类最多」，
  * 定位「这个文件为什么不过」要用这一把。
  *
- *   node tests/parse/ts-ast.mjs --file tests/parse/cases/statements/st-for-multi.ts
+ *   node tests/parse/ts-ast.mjs --file tests/cases/token/statements/st-for-multi.ts
  *   node tests/parse/ts-ast.mjs --file <路径> --list      # 连对上的节点也列出来
  *   node tests/parse/ts-ast.mjs --file <路径> --limit 50  # 每个方向最多列几条
  */
-function compareSource(source, file, options) {
+/**
+ * **对齐本体**（导出给覆盖层复用，第 685 轮）。
+ *
+ * `tests/coverage/run.mjs` 要给 token 那一类**逐条打分**（它算的是百分比，
+ * 而这一把尺子原来是「七项全 0」的布尔门）。打分必须与门**同一口径**，
+ * 所以是**同一份实现**被借出去用，不是照着抄一遍——两份实现就是两个口径。
+ *
+ * 返回 `{ missing, drift, extra, fieldDiff, unmapped, missingRange, outOfRange, ... }`，
+ * 前四项与 `unmapped / missingRange / outOfRange` 一起就是那一门的七项。
+ */
+export function compareSource(source, file, options) {
   const { list, limit } = options;
   const stats = {
     total: 0,
@@ -683,7 +693,7 @@ function knownGapCheck() {
  *
  * 为什么单开一条路：`--file` 一份文件一个进程，量「一个构造 × 一种排版」这种一两行的小片段时，
  * 进程启动就是全部成本（几百条要按小时算）；小片段探针只解一次码、起一个进程——
- * 「搜缺口先写小片段探针」那条纪律（见 `docs/typescript-parsing-gaps.md`）要的就是这个速度。
+ * 「搜缺口先写小片段探针」那条纪律（见 `typescript-parsing-gaps.md`）要的就是这个速度。
  *
  * 片段文件导出 `{ id, src }` 的数组（`.mjs` 默认导出 `snippets`，或 `.json` 直接是数组）。
  * **TS 自己就报语法错的片段直接跳过**（无效 TS 不构成缺口），其余逐条报四个方向 + 未映射。
@@ -1359,7 +1369,7 @@ async function main() {
   // **「抛异常」也进退出码**（第 674 轮）：原来 `failed`（解析期抛异常的份数）**只印不判**，
   // 于是「语料里有一份根本解析不了」时这一门照样是绿的 —— 那是这一门唯一一处没接进退出码的读数。
   // 实测的入口：`try { … } catch (e) //c` 换行 `{ … }`（行注释夹在 `catch` 头与它的体之间）
-  // 会让产物直接抛（`docs/typescript-parsing-gaps.md` 里那两条 `KNOWN-CRASH` 用例就是它）。
+  // 会让产物直接抛（`typescript-parsing-gaps.md` 里那两条 `KNOWN-CRASH` 用例就是它）。
   process.exitCode =
     projectedMissing.size === 0 &&
     projectedDrift.size === 0 &&

@@ -59,7 +59,7 @@ cjcli.xl.md              命令行入口（不属于语法层本体）
   不必依赖 wasm、也不必依赖 JS 引擎。
 
 逐轮的变更史**不写在这里**：它在 git 历史里。两份长期文档只留**结论**——
-[docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)（口径边界、审计方法、不再试的改法）
+[tests/parse/typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md)（口径边界、审计方法、不再试的改法）
 与 [docs/member-layer-plan.md](docs/member-layer-plan.md)（成员层的结论）。
 
 **目录名不是命名空间**：`# namespace` 仍然是扁平的单个 `cangjie`，子层级只用目录表达——
@@ -180,7 +180,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   （单行是平铺的一串，跨行会被逗号运算符折成 `BinaryOperator(op=",")` 树，两种走同一条路）——
   照原文切在 `import { a /* c */ as b }` 上会把注释算进 `propertyName`、
   在 `import { "a-b" as c }` 上会把字符串名投成 `Identifier`，两处都是真缺口，
-  用例在 [im-specifier-comment.ts](tests/parse/cases/modules/im-specifier-comment.ts) 一族里。
+  用例在 [im-specifier-comment.ts](tests/cases/token/modules/im-specifier-comment.ts) 一族里。
 
 ## 支持的语法构造
 
@@ -291,11 +291,15 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `coverage` | 场景覆盖度——**尺子不是门**：它红只在「比昨天差」 |
 
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
-`samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
+`samples` + `tests/cases/token/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 `cases:shapes` 用的是它去掉 `dist/ts` 的那一份（产物自己写出来的形状不算「必须有用例」）。
 
+**用例语料住在 `tests/cases/<类别>/<功能域>/`**（第 685 轮起）：五类同一形状
+——**一条用例 = 一个 `.ts` 文件**，元数据写在文件头（`// xl:…`，以 `// xl:end` 收尾）。
+布局、文件头文法、分母口径见 [tests/cases/README.md](tests/cases/README.md)。
+
 **`xl:known-gap`：已知缺口也进语料**（第 670 轮）。凡是量出来的缺口形状，**用例照样写进
-`tests/parse/cases/`**（一条一个排版，根因写在指令后面），只是它的差额走**另一条账**：
+`tests/cases/token/`**（一条一个排版，根因写在指令后面），只是它的差额走**另一条账**：
 `cases:tsast` 每趟逐条真跑一遍，**还对不上**就记 `KNOWN`（不进那七项，门可以是绿的），
 **已经对上了**就报「收掉了」并**红**——逼你去把那行指令删掉。
 这样缺口清单长在语料里、与用例同生共死（不再只活在 `tmp/` 的探针池里），
@@ -306,7 +310,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 
 | 判据 | 结果 |
 | --- | --- |
-| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **219 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，第 679 轮起 **0 条是产物直接抛异常**） |
+| `cases:tsast` | **四方向 0、未映射 0、缺 range 0、区间越界 0、抛异常 0**；另有 **219 条 `xl:known-gap` 还开着**（每条的差额逐条印出来，**0 条是产物直接抛异常**） |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：真开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
 | `cases:check` | **1411** 条用例，0 条不合格 |
@@ -314,15 +318,19 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1398 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **2341 / 2388**（98.5%）：四层里 runtime 612/612 与 e2e 242/242 **100%**，exec 597/607、stdlib 890/927 —— 差的 47 条是**真缺口**，全登在台账里（8 条 `blocked` / 39 条 `differ`，其中 4 条是口径边界），不藏着 |
+| `coverage` | **五类 3520 / 3802**，加权 **95.9%**：token 1179/1398（另有 219 条登记缺口走另一条账）、exec 597/609、runtime 612/613、stdlib 890/936、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 40），全登在用例文件头的台账里；`bad` 3 条是 `import` / `export` 那三份的运行形态问题（见 coverage 的 README） |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~26s**） |
 
 ### 口径与已知缺口
 
-**明确不做**（不是缺陷）：`JSX / TSX`（独立于 TypeScript 的语法扩展）、
-`RegExp` / `BigInt` / `Proxy` / `Intl`（`docs/runtime-architecture.md` §15 那张表）、
-装饰器的运行期语义、多文件模块加载（`tsrun` 是单文件口径）。
-整张清单与理由见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
+**口径外**（不进分母，也不当缺口）只剩两种：**JSX / TSX**（独立于 TypeScript 的语法扩展）
+与**故意写非法 TS**的 9 份（`xl:ts-invalid`，判据要量的正是错误处理）；
+另有**装饰器**那一格因为 `node` 三种模式全拒收而**量不了**（裁判给不出来）。
+
+**其余全是待做项**（用户口径，第 685 轮）：`RegExp` / `BigInt` / 多文件模块加载 /
+动态 `import()` / `eval` / `console.log(new Error(…))` 的栈——`tsrun` 现在的**单文件口径是现状，不是口径**。
+整张清单与理由见 [tests/parse/typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md)
+与 [docs/runtime-architecture.md](docs/runtime-architecture.md) §15。
 
 **开着的缺口**（只剩这些）：
 
@@ -354,7 +362,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   而 `type T = asserts x is A`（`=` 右边）与 `<X extends asserts x is A>`（`extends` 右边）
   同样是类型位；`TypeBracketCloseRule` 与 `IsEmptyContentUnit` 原来把**注释**当成实义内容
   （`readonly (A | B)/* c */[]` 与 `(A | B)[/* c */]`）。
-  一张表 + 逐条根因见 [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)；
+  一张表 + 逐条根因见 [tests/parse/typescript-parsing-gaps.md](tests/parse/typescript-parsing-gaps.md)；
   执行侧那几条（对象字面量的值是一对括号里的二元表达式、`setTimeout` 这个全局名没登记、
   `using` / `await using` 的降级、`new Object(null)` 该造 `{}`，以及第 677 轮从
   **AST 语料**里量出的三条：类体空成员 `;`、对象解构的计算属性名 `{ [k]: v }`、
@@ -371,7 +379,7 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   每一格的症状与根子逐条登在
   [tests/coverage/README.md](tests/coverage/README.md) 的台账里。
   **第 679 轮**同样不写新片段，而是拿**已有的两份语料**各量一遍：**解析侧**用
-  `tests/parse/cases/**`（那 4 条 `gap-crash-try-*` 的同一族，全在 `try.xl.md` / `statement.xl.md` 上收掉），
+  `tests/cases/token/**`（那 4 条 `gap-crash-try-*` 的同一族，全在 `try.xl.md` / `statement.xl.md` 上收掉），
   **执行侧**从**已在矩阵里的用例**里挑出还没验过的参数位，
   `String.prototype.includes` 的 `fromIndex` 是其中唯一一格，当轮就收掉了。
   **第 681 轮**换了问法（不问名字、不问行为，只问**参数位与边界**）：45 条一次进矩阵
@@ -404,11 +412,12 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `const` 降级，块结束时**不会**调 `r[Symbol.dispose]()`（`await using` 同理欠 `Symbol.asyncDispose`）——
   `node` 对这两个声明有运行期语义，`tsrun` 静默少一次释放。上面的 `Symbol.dispose` /
   `Symbol.asyncDispose` 与符号键计算名的方法都已经能用（用例
-  [`c650-std-symbol-keyed-method`](tests/coverage/cases/stdlib.mjs)），缺的只是**声明本身的降级**。
-  解析侧的用例在 [`decl-using-basic.ts`](tests/parse/cases/declarations/decl-using-basic.ts)；
-  执行侧两格是 [`gap-ex-using-declaration-dispose`](tests/coverage/cases/exec.mjs) 与
-  `gap-ex-await-using-declaration-dispose`（第 651 轮普查过：`node` 给
-  `new a|new b|body|dispose b|dispose a`，本仓只给前三段）。投影那一格
+  [`stdlib/symbol/032-symbol-keyed-method`](tests/cases/stdlib/symbol/032-symbol-keyed-method.ts)），
+  缺的只是**声明本身的降级**。
+  解析侧的用例在 [`decl-using-basic.ts`](tests/cases/token/declarations/decl-using-basic.ts)；
+  执行侧两格是 [`exec/expressions/110-ex-using-declaration-dispose`](tests/cases/exec/expressions/110-ex-using-declaration-dispose.ts)
+  与 [`111-ex-await-using-declaration-dispose`](tests/cases/exec/expressions/111-ex-await-using-declaration-dispose.ts)
+  （第 651 轮普查过：`node` 给 `new a|new b|body|dispose b|dispose a`，本仓只给前三段）。投影那一格
   （`VariableDeclarationList.flags` 的 `Using` / `AwaitUsing`）第 655 轮已经补上，
   降级层可以直接读它。
 
@@ -510,10 +519,26 @@ TS 形状那一支尤其要这一条：`ToJsonText` 是 `cjcli` 与这个脚本*
   （`第 N 轮：…（coverage X -> **Y / Z**）`，正文写根因 / 修法 / 数字）。
   攒着不提交的话，「哪一轮把哪个数字动了」在 `git log` 里就查不到了。
 
-- **临时脚本与它们的输出不进仓库**：排查用的一次性脚本、`tmp-*` 输出、
-  `dist/` / `build/` / `.xl` 都不提交（后者由 `.gitignore` 挡着）。
-  仓库根目录历史上堆过 47 个临时脚本，所以这条是硬规矩：**能复现的才进仓库**
+- **临时脚本与它们的输出不进仓库**：排查用的一次性脚本、探针、以及它们的输出
+  （`.txt` / `.json` / `.log` / `.err`）都不提交（`.gitignore` 挡着）。
+  仓库根目录历史上堆过五六百个临时脚本，所以这条是硬规矩：**能复现的才进仓库**
   （进仓库的形态是尺子或用例，不是某次排查的脚本）。
+
+- **临时东西一律放 `tmp/`，根目录只留九个文件**（第 685 轮收口）：根目录现在是
+  `.gitattributes` / `.gitignore` / `package.json` / `package-lock.json` / `tsconfig.json` /
+  `xl.json` / `README.md` / `cjcli.xl.md` / `tsrun.xl.md`——**多出来的就是放错了地方**。
+  `tmp/` 下的分层与来历：
+
+  | 目录 | 是什么 |
+  | --- | --- |
+  | `tmp/root-probes/` | **从仓库根目录收进来的 133 个一次性探针**（`tmp-*` 前缀那批，第 685 轮）——留着是给 git 历史做旁证，**不要再往里加** |
+  | `tmp/refactor/` | 第 685 轮那次语料搬迁的脚本与读数（`plan.mjs` / `emit.mjs` / `verify.mjs` / 基线快照） |
+  | `tmp/survey/` | 普查脚本与它们的 JSON 读数 |
+  | `tmp/<轮次或名字>/` | 每一轮自己那个现场（`tmp/r678/`、`tmp/c637/` 这种） |
+
+  **`tmp/` 里的一切都可以随时删**（`.gitignore` 里 `tmp/` 与 `tmp-*` 两条都在）——
+  它的用途是「这一轮的现场别丢」，不是「留一份要维护的东西」。
+  真值得留下的**要么变成尺子、要么变成用例**（见上一条）。
 
 - **改「谁吃掉换行」之前先读 `declaration-common.xl.md` 里那一节**：
   本工程的 `LineWrap` 不只是排版，它还是语句边界本身。历史上 `DeclarationEnd`

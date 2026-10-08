@@ -4,7 +4,7 @@
 > 两个出口的关系。实现分两处：**通用支**（三张表 + 横切助手）在
 > [`typescript/print-ast-common.xl.md`](../typescript/print-ast-common.xl.md)，
 > **逐标签的投影**在各 token 自己的 `PrintAst(ctx, v)`（第 181~198 轮逐块搬完，
-> 原来的 `typescript/ts-ast.xl.md` 已删，搬迁手册见 [print-ast-migration.md](print-ast-migration.md)）；
+> 原来的 `typescript/ts-ast.xl.md` 已删，搬迁手册见 [print-ast-migration.md](history/print-ast-migration.md)）；
 > 命令行侧在 [`cjcli.xl.md`](../cjcli.xl.md) 的 `CjcliParseTsAst`。
 > 第二个出口（AST JSON）见 [ast-json.md](ast-json.md)。
 
@@ -86,12 +86,17 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
 原来的另外十七把尺子与探针（`diff` / `dashboard` / `matrix` / `lossless` / `structure` /
 `boundaries` / `noise` / `astjson` / `shapelint` / `sweep` / `recon*` / `fuzz*` / `align`）
 量的是 XML 出口与 token 树的质量，**已删除**（脚本在 git 历史里）；
-`tests/parse/` 现在只剩下 `ts-ast.mjs`、`ts-shape.mjs`（转发）、`validate.mjs`（用例体检）与用例语料。
+`tests/parse/` 现在只剩下 `ts-ast.mjs`、`ts-shape.mjs`（转发）、`validate.mjs`（用例体检）。
+**用例语料不在这里**（第 685 轮搬走）：token 那一类在 `tests/cases/token/<功能域>/`，
+与另外四类（`exec` / `runtime` / `stdlib` / `e2e`）**同一形状**——
+布局与文件头文法见 [tests/cases/README.md](../tests/cases/README.md)。
 
-`cases:tsast` **第 181 轮起是绿的**，第 199 轮把退出码从「四方向」扩到「四方向 + 三栏地基」：
-语料 1403 份**逐文件完全一致 1403 / 1403**，七条全 0（发布路径 `--cli` 同样 1403 / 1403）。
+`cases:tsast` **第 181 轮起是绿的**，第 199 轮把退出码从「四方向」扩到「四方向 + 三栏地基」，
+第 674 轮又把「抛异常 0」并进退出码。
 它原来是一把量成绩的尺子（红着的一栏就是缺口榜），现在它同时是**闸门**——
-红一条就不许合。
+红一条就不许合。**当前读数只有一份**（根 [README](../README.md) 的「当前状态」表），
+这里不抄数字；`xl:known-gap` 那 219 条走另一条账（见
+[typescript-parsing-gaps.md](../tests/parse/typescript-parsing-gaps.md)）。
 
 ---
 
@@ -107,7 +112,7 @@ const text = ToJsonText(projected);                            // 紧凑单行 J
    （数字要动，且只按预期动；现在它是**闸门**，七条里红一条就是回归）→ 其余尺子。
 3. **`PrintAst` 收到的 `v` 是「视图」不是原始 Map**（`projectNode` 开头那句 `const v = view(node)`），
    凡是从 `ctx` 出去、要吃一棵（子）树的出口，先 `node instanceof Map ? view(node) : node` 再转调；
-   搬迁手册（踩过的七个坑，按类型归并）在 [print-ast-migration.md](print-ast-migration.md)。
+   搬迁手册（踩过的七个坑，按类型归并）在 [print-ast-migration.md](history/print-ast-migration.md)。
 4. **键序是夹具的一部分**：`samples/*.expected.tsast.json` 逐字节比，JSON 的键序也算。
    搬家前那批内联写法的节点（`{ kind, pos, end, …props }`）要用 **`ctx.NodeHead`**，
    新写的节点用 `ctx.Node`（`{ kind, …props, pos, end }`）——第 199 轮把 30 处构造点
