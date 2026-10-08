@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3813,
+  "total": 3816,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.06,
+  "progressPercent": 96.04,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 942,
-      "pass": 900,
+      "total": 945,
+      "pass": 902,
       "blocked": 15,
-      "differ": 27,
+      "differ": 28,
       "nodefail": 0,
-      "coverage": 95.54
+      "coverage": 95.45
     },
     {
       "category": "e2e",
@@ -1667,7 +1667,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-21868/src/2813.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25656/src/2813.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -1680,6 +1680,12 @@
       "category": "stdlib",
       "title": "名字逐个取一次：globalThis 自己的名字（缺 97 个）",
       "detail": "stdout 不同：第 1 行：node «object AbortController function» vs tsrun «object AbortController undefined»"
+    },
+    {
+      "id": "stdlib/globals/058-missing-locale-and-regex-members",
+      "category": "stdlib",
+      "title": "三格还没装的成员：`Number.prototype.toLocaleString`、`String.match` / `search`",
+      "detail": "stdout 不同：第 2 行：node «str-match function function» vs tsrun «str-match undefined undefined»"
     },
     {
       "id": "stdlib/json/056-names-json",
@@ -1716,12 +1722,6 @@
       "category": "stdlib",
       "title": "名字逐个取一次：Math 的成员（缺 2 个）",
       "detail": "stdout 不同：第 1 行：node «object f16round function» vs tsrun «object f16round undefined»"
-    },
-    {
-      "id": "stdlib/number/065-names-number-proto",
-      "category": "stdlib",
-      "title": "名字逐个取一次：Number.prototype 的成员（缺 1 个）",
-      "detail": "stdout 不同：第 1 行：node «object toLocaleString function» vs tsrun «object toLocaleString undefined»"
     },
     {
       "id": "stdlib/object/109-std-new-object-null",
@@ -1778,6 +1778,12 @@
       "detail": "stdout 不同：第 1 行：node «fn-own-names arguments,caller,length,name,prototype» vs tsrun «fn-own-names length,name,prototype»"
     },
     {
+      "id": "stdlib/object/130-tolocalestring-forwarding-gap",
+      "category": "stdlib",
+      "title": "`toLocaleString` 那一格的**三处**还没到位：数字那一档与「转交给接收者自己的 toString」",
+      "detail": "stdout 不同：第 1 行：node «call-num 1» vs tsrun «call-num [object Number]»"
+    },
+    {
       "id": "stdlib/string/136-r676-std-string-regex-members",
       "category": "stdlib",
       "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
@@ -1808,6 +1814,10 @@
     {
       "id": "exec/expressions/109-ex-object-value-paren-binary",
       "category": "exec"
+    },
+    {
+      "id": "stdlib/number/065-names-number-proto",
+      "category": "stdlib"
     },
     {
       "id": "stdlib/promise/045-names-promise",

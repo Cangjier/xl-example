@@ -318,8 +318,8 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 | `cases:shapes` | 外部语料 **229 种签名 / 140 种 kind** 全部有用例覆盖（用例 1402 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 3536 / 3813**，加权 **96.1%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 900/942、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 37），全登在用例文件头的台账里；`bad` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~28s**） |
+| `coverage` | **五类 3538 / 3816**，加权 **96.0%**：token 1182/1402（另有 220 条登记缺口走另一条账）、exec 599/609、runtime 613/614、stdlib 902/945、e2e 242/246。差的那些是**真缺口**（`blocked` 240 / `differ` 38），全登在用例文件头的台账里；`bad` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~29s**） |
 
 ### 口径与已知缺口
 
@@ -456,6 +456,17 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   **函数不是真函数对象**——不自以 `Function.prototype` 为原型 ⇒ 少了 `arguments` / `caller`，
   `typeof Object.prototype` 打出来是 `function`（Node 给 `object`），
   `Object.prototype.toLocaleString` 没装。三格同根，不是补几格属性能了的。
+  **第 689 轮**再沿着**原型方法表**问一次（20 条候选）：`Array.prototype` 那一张**一格不缺**，
+  差的全在别处——收掉 `Object.prototype.toLocaleString`（规范里它的算法只有一句
+  `Invoke(O, "toString")`，所以**不写第二份实现**，转交给 `ObjectToString` 那一支；
+  **号落在 `504` 不是 `713`**：`700..799` 是 `InvokeObjectHelper` 那一段，
+  写进去报的是 `unimplemented: object helper 713`——这一轮**实测撞到**）。
+  **另外几格原样登着**（同源）：`Number.prototype.toLocaleString`（带**千分位分组**，
+  没有区域设置那一层就补不了，补成 `toString` 反而**静默错**）、
+  `String.prototype.match` / `search`（实参位要收**正则对象**，走 `Symbol.match` / `Symbol.search`
+  那条协议，与台账里 `RegExp` 那 7 条同源）；`Object.prototype.toLocaleString` 自己
+  **「转交给接收者」那一半**也还差（数字接收者该给 `"1"`、带自定义 `toString` 的对象该给 `"T"`），
+  登在 `[130-tolocalestring-forwarding-gap](tests/cases/stdlib/object/130-tolocalestring-forwarding-gap.ts)`。
 
 执行侧只剩这一条（**已经在矩阵里、登在台账上**，见 `coverage` 那一行）：
 

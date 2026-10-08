@@ -311,6 +311,22 @@ import { BuildPromise, PromiseQueueMicrotask } from "./promise.xl.md"
 （它们**不在属性表里**，见 `getOwnPropertyDescriptor` 那一支同一句话）：JS 里它们是
 **自有、不可枚举** ⇒ `hasOwn` 真、`propertyIsEnumerable` 假。
 
+# const ObjectToLocaleString:int = 504
+
+**`Object.prototype.toLocaleString()`**（第 689 轮）——规范里它的正身就是
+**`this.toString()`**（`Object.prototype.toLocaleString` 那一条算法只有一句
+「Return ? Invoke(O, "toString")」）。
+
+**所以这里一行实现都不新写**：原样转交给 `ObjectToString` 那一支
+（与 `Array.prototype.toLocaleString` 指到同一格是**同一条先例**，见 `array.xl.md` 文末）。
+**少了它是什么样**：`({}).toLocaleString()` 报 `cannot call a non-closure value`
+（属性根本不存在），判据 `118-names-object-proto` 量的就是这一格。
+
+**号为什么落在这里**（`504`）而不是接着上面那一串往下排：
+**`700..799` 是对象辅助函数那一段**（`install.xl.md` 的 `InvokeObjectHelper` 先接走），
+`713` 落在里面 ⇒ 报 `unimplemented: object helper 713`（**这一轮实测撞到的**）。
+`500` 那一段只有 `501..503` 三格（JSON 两格 + `Date.toJSON`），`504` 是空的。
+
 # const ObjectDefineProperties:int = 413
 **`Object.defineProperties(对象, 描述符表)`**（第 276 轮）——一趟写多格。
 **它与 `defineProperty` 共用同一个方法**（`DefineOwnFromDescriptor`）：
@@ -3049,7 +3065,11 @@ if (id === ObjectValueOf) {
   // `Object.prototype.valueOf` 是 JS 里最"空"的一个方法，而它**永远是对的**。
   return self;
 }
-if (id === ObjectToString) {
+if (id === ObjectToString || id === ObjectToLocaleString) {
+  // **`toLocaleString` 与 `toString` 走同一支**（第 689 轮）：规范里
+  // `Object.prototype.toLocaleString` 的算法只有一句「Invoke(O, "toString")」——
+  // 而**本仓没有区域设置**，所以两格给的一定是同一个串。**分成两支就是两处会漂的答案**
+  //（`Array.prototype.toLocaleString` 指到 `toString` 同一格是同一条先例）。
   // **`null` / `undefined` 也给标签**（JS 的 `Object.prototype.toString`）：
   // `Object.prototype.toString.call(null)` 是 `"[object Null]"`——
   // 本仓没有 `.call`，但接收者直接落在这两档上的形状（元编程写法）仍该给对。
@@ -6622,6 +6642,12 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
   Value.FromString(table.CreateString(Units("propertyIsEnumerable"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectPropertyIsEnumerable, 0)));
+// **`toLocaleString`**（第 689 轮）：与上面五格**同一条路**（`Object.prototype` 上的方法、
+// **隐藏**挂上）。**为什么挨着 `toString` 挂**：它是 `toString` 的**同一件事**
+//（规范里只有一句转交），放远了看不出这一点。
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object),
+  Value.FromString(table.CreateString(Units("toLocaleString"))),
+  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectToLocaleString, 0)));
 // **`Object.create` / `Object.getPrototypeOf`**（第 209 轮）：与 `keys` / `values` 那几张
 // **同一张对象**（都是 `Object` 的静态方法），分派在 `InvokeGlobal` 里（那一支有 `table`）。
 SetProperty(vm.Room(), NeverCall, table, objectObject,
