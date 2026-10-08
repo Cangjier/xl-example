@@ -1,5 +1,5 @@
-// xl:title defineProperty 的 length：削短（值、越界读、键）
-// xl:round 721
+// xl:title `delete a.length` 给假、长度不动（不可配置）
+// xl:round 722
 // xl:judge stdout
 // xl:end
 const show = (v) => (v === null ? "null"
@@ -7,5 +7,5 @@ const show = (v) => (v === null ? "null"
   : typeof v + ":" + String(v).split("\n").join("\\n"));
 const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
 const a = [1, 2, 3];
-Object.defineProperty(a, "length", { value: 1 });
-console.log(show(a.length) + "," + show(a[1]) + "," + show(a[2]) + "," + show(Object.keys(a).join(",")) + "," + show(JSON.stringify(a)));
+console.log(show(delete a.length) + "," + show(a.length) + "," + show(a.join(",")));
+console.log(show(Object.getOwnPropertyDescriptor(a, "length").configurable));

@@ -1,5 +1,5 @@
-// xl:title length 不可写之后赋值静默、length 不动
-// xl:round 721
+// xl:title 锁长度之后 `getOwnPropertyNames` 不该出现两个 length
+// xl:round 722
 // xl:judge stdout
 // xl:end
 const show = (v) => (v === null ? "null"
@@ -8,5 +8,5 @@ const show = (v) => (v === null ? "null"
 const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
 const a = [1, 2];
 Object.defineProperty(a, "length", { writable: false });
-a.length = 5;
-console.log(show(a.length) + "," + show(a.join(",")));
+console.log(show(Object.getOwnPropertyNames(a).join(",")));
+console.log(show(Object.keys(a).join(",")) + "," + show(Object.getOwnPropertyDescriptor(a, "length").writable));

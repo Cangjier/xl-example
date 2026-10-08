@@ -1,5 +1,5 @@
-// xl:title defineProperty 的 length：削短（值、越界读、键）
-// xl:round 721
+// xl:title 削短之后 push 还能写（那一格仍然可写）
+// xl:round 722
 // xl:judge stdout
 // xl:end
 const show = (v) => (v === null ? "null"
@@ -8,4 +8,5 @@ const show = (v) => (v === null ? "null"
 const run = (f) => { try { f(); } catch (e) { console.log("throw:" + (e && e.constructor ? e.constructor.name : "?")); } };
 const a = [1, 2, 3];
 Object.defineProperty(a, "length", { value: 1 });
-console.log(show(a.length) + "," + show(a[1]) + "," + show(a[2]) + "," + show(Object.keys(a).join(",")) + "," + show(JSON.stringify(a)));
+a.push(9);
+console.log(show(a.length) + "," + show(a.join(",")) + "," + show(a[1]));

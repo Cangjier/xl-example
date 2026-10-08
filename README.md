@@ -681,6 +681,48 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 - 五类 **7346 / 7699 → 7364 / 7724**、`blocked 261`（没涨）、`differ 92 → 99`、
   `bad` 0、`regressions` 0，加权 **96.1% → 96.0%**。
 
+### 第 722 轮：数组 `length` 那一格的描述符语义（收掉第 721 轮登记的第 ② 条根）
+
+第 721 轮把「下标那一格」修好之后，同一族里剩下的三条根有一条**最窄也最日常**：
+**`length` 它在 JS 里是一个真的自有属性**，可本仓**不住在属性表里**（是 `HeapArray`
+的结构属性）——于是 `DefineOwnFromDescriptor` 把它当**普通属性**写：
+造一格三个标志全假的 `Props` 项（值取描述符的 `value`），**既不截短也不加长**。
+而 `RequireArrayGrowable`（`array.xl.md`）正好读那一份的「可写」位，
+所以「锁长度」那一半**碰巧是过的**（`c305-std-array-length-nonwritable` 一直在绿），
+错的只有另一半。
+
+| 写法 | Node | 本仓原来 |
+| --- | --- | --- |
+| `defineProperty(a, "length", { value: 1 })` | 截到 1（`a[1]` / `a[2]` 没了、键只剩 `0`） | **原样不动** |
+| `defineProperty(a, "length", { value: 4 })` | 加长到 4（补洞，JSON 给 `[1,2,null,null]`） | 原样不动 |
+| `{ writable: false }` 之后 `a.length = 5` | 静默（长度停在 2） | **写成 5** |
+| `{ value: "2" }` / `{ value: true }` / `{ value: null }` | `ToNumber` 之后按 2 / 1 / 0 | **一律 `RangeError`** |
+| `delete a.length` | `false` | **`true`** |
+| `Object.freeze(a)` 之后 `a.length = 5` | 静默 | **写成 5** |
+| `{ enumerable: true }` / `{ configurable: true }` / `{ get() {} }` | 三档都 `TypeError` | 造一格访问器 / 改标志位 |
+
+- **那一格现在有完整的一支**（`DefineOwnFromDescriptor`）：`{ value: n }` 削短 / 加长
+  （削短时碰到**不可配置**的元素就抛 `TypeError`，而且**先判完再动手**——
+  删到一半才发现挡路的会留下一个「删了一半」的数组）、非法长度值给 **`RangeError`**
+  （先过 `ToNumber`：`"2"` 是 2、`true` 是 1、`null` 是 0、`undefined` 是 `NaN`）、
+  `{ writable: false }` 那一档落在属性表里那一份上（`RequireArrayGrowable` 与描述符
+  两处读的就是它）、`{ enumerable: true }` / `{ configurable: true }` / 访问器描述符
+  三档都抛、**不可写之后 `writable: true` 与改值都抛**（同值可以）。
+- **两条顺手收掉的静默错值**：① `delete a.length` 原来给 `true`（它不住在属性表里，
+  两趟都扫不到它 ⇒ 落到最后那句「本来就没有」）；② `Object.freeze(a)` 之后
+  `a.length = 5` 照样改（冻结那一趟扫不到它）——现在冻结时**先把那一份造出来**
+  再照常清标志位。`Object.getOwnPropertyNames` 也不再给出**两个** `length`。
+- **一处口径写在明处**：`{ value: 对象 }` 在 JS 里会给它过 `ToPrimitive`，而这一格的
+  签名里没有调用通道 ⇒ 这里仍然抛 `RangeError`（宁可响也不静默）。
+- **收掉 5 条台账**：`stdlib/object/125-array-length-descriptor`、
+  `exec/round707/p707b-d06`（两行量的都是这一格），以及第 721 轮登的三条
+  （`stdlib/round721/p721a-b04` / `b05` / `b06`，削短 / 加长 / `writable: false`）。
+- 语料 **+14 条**（`stdlib/round722/p722a-a01` … `a14`，**全过**：`delete` /
+  `getOwnPropertyNames` / `freeze` / 三档非法描述符 / 不可写之后的来回 / 值的四种形态 /
+  不可配置的元素挡住削短 / `Reflect.defineProperty` 两档 / 字符串与数组的描述符旁证）。
+- 五类 **7364 / 7724 → 7383 / 7738**、`blocked 261`（没涨）、`differ 99 → 94`、
+  `bad` 0、`regressions` 0、`newlyPassing` 清空，加权 **96.0% → 96.1%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -693,8 +735,8 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7364 / 7724**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 3027/3102、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 99），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~46s**） |
+| `coverage` | **五类 7383 / 7738**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2106/2158、runtime 806/815、stdlib 3045/3116、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 94），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~49s**） |
 
 ### 口径与已知缺口
 

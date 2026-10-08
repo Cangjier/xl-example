@@ -917,6 +917,21 @@ if (IsLengthKey(table, key) && receiver.Tag === ValueTag.Array) {
     || value.AsDouble() !== Math.floor(value.AsDouble()) || value.AsDouble() > 4294967295) {
     throw new RangeError("Invalid array length");
   }
+  // **长度被锁住 ⇒ 一声不响**（第 722 轮）：`Object.defineProperty(xs, "length",
+  // { writable: false })` 在**属性表里**留了一份（`array.xl.md` 的 `RequireArrayGrowable`
+  // 读它、`globals.xl.md` 的描述符那一趟也读它），而这一支原来**从不问它** ⇒
+  // `a.length = 5` 照样改（判据 `p722a-*`：Node 静默、本仓改）。
+  // **「写没写下去」是一个布尔**（第 333 轮那条纪律）：赋值语句不看它（非严格），
+  // `push` 那一档自己看（`RequireArrayGrowable` 直接抛 `TypeError`）。
+  const lengthItem = table.Get(receiver.Ref);
+  for (let i = 0; i < lengthItem.Props.length; i++) {
+    if (!KeyMatches(table, lengthItem.Props[i], key)) continue;
+    if (lengthItem.Props[i].Kind === PropertyKind.Data
+      && (lengthItem.Props[i].Flags & PropertyFlagWritable) === 0) {
+      return false;
+    }
+    break;
+  }
   table.Get(receiver.Ref).AsArray().Truncate(asked);
   table.Recount(receiver.Ref);
   return true;
@@ -1022,6 +1037,11 @@ if (item.Tag === ValueTag.Array) {
   } else {
     elementAt = ArrayIndexAt(table, key);
   }
+  // **数组的 `length` 删不掉**（第 722 轮）：它是**不可配置**的一格
+  //（`delete [1, 2].length` 在 JS 里给 `false`）——而它**不住在属性表里**，
+  // 所以下面那两趟都扫不到它，原来会落到最后那句 `return true`（**静默错值**）。
+  // 判据与「写长度」那一支**共用 `IsLengthKey`**（那一格的唯一答案）。
+  if (IsLengthKey(table, key)) return false;
 }
 // **属性表那一摞先看**（下标那一份也在这里）：不可配置 ⇒ 给 `false`、那一格留着。
 for (let i = 0; i < item.Props.length; i++) {

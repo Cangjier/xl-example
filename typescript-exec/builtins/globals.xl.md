@@ -2485,6 +2485,27 @@ if (shadow === null) return false;
 return !shadow.IsEnumerable();
 ```
 
+# method IndexLengthPropertyOf:(table:HeapTable, target:Value)=>Property | null
+
+**数组自己身上那一格 `length` 的属性表项**（第 722 轮）——没有就返回 `null`。
+
+**它为什么会在属性表里**：数组的长度本身**不住在属性表里**（`HeapArray` 的结构属性），
+可 `Object.defineProperty(xs, "length", { writable: false })` 要**把「可写吗」记在某个地方**，
+本仓记的就是这一份（`array.xl.md` 的 `RequireArrayGrowable` 读它）。
+
+**一处实现**：`Object.getOwnPropertyDescriptor` 与「写长度」两条路都要问它——
+各写一份扫描就是两处会漂的答案（与 `IndexKeyShadowOf` 同一条纪律）。
+
+```ts
+if (target.Tag !== ValueTag.Array) return null;
+const own = table.Get(target.Ref).Props;
+for (let i = 0; i < own.length; i++) {
+  if (table.Get(own[i].Key).Tag !== ValueTag.String) continue;
+  if (TextFrom(table, Value.FromString(own[i].Key)) === "length") return own[i];
+}
+return null;
+```
+
 # method IndexKeyValueAt:(room:RoomChecker, table:HeapTable, target:Value, index:int)=>Value
 
 **下标键上那个值**（第 210 轮）：数组的元素、字符串的那**一个码元**（新串）。
@@ -4246,6 +4267,21 @@ if (id === ObjectFreeze) {
       + "(boxing a primitive is not supported)");
   }
   const frozen = table.Get(args[0].Ref);
+  // **数组的 `length` 也要跟着冻结**（第 722 轮）：它**不住在属性表里**，
+  // 所以下面那一趟扫不到它 ⇒ `Object.freeze(a)` 之后 `a.length = 5` 照样改
+  //（判据 `p722a-r03`：Node 静默、本仓把长度写成了 5；`push` 那一档碰巧是好的——
+  //  它走的是 `Extensible` 那一句，不是长度这一句）。
+  // **「长度可写吗」的落点在属性表里那一份**（`array.xl.md` 的 `RequireArrayGrowable`
+  // 与描述符那一趟都读它），所以先把它造出来，再让下面那一趟照常清标志位。
+  if (args[0].Tag === ValueTag.Array && IndexLengthPropertyOf(table, args[0]) === null) {
+    if (!room(PropertyCharge)) throw new Error("out of room");
+    const frozenLengthKey = Value.FromString(table.CreateString(Units("length")));
+    const frozenLength = new Property(frozenLengthKey.Ref,
+      Value.FromInt(table.Get(args[0].Ref).AsArray().GetLength()));
+    frozenLength.Flags = 0;
+    frozen.Props.push(frozenLength);
+    table.Recount(args[0].Ref);
+  }
   for (let i = 0; i < frozen.Props.length; i++) {
     const property = frozen.Props[i];
     if (property.Kind === PropertyKind.Accessor) continue;
@@ -4509,11 +4545,22 @@ if (id === ObjectGetOwnPropertyDescriptor) {
     const lengthValue = receiver.Tag === ValueTag.Array
       ? table.Get(receiver.Ref).AsArray().GetLength()
       : table.Get(receiver.Ref).AsString().Units.length;
+    // **数组的 `length` 可写吗**（第 722 轮）：`Object.defineProperty(xs, "length",
+    // { writable: false })` 在属性表里留了一份（`RequireArrayGrowable` 读的就是它）——
+    // 原来这一支**写死 `writable: true`**，于是那一问的答案是错的（判据 `p722a-*`）。
+    // **字符串没有那一份**（它的长度本来就不可写）。
+    let lengthWritable = receiver.Tag === ValueTag.Array;
+    if (receiver.Tag === ValueTag.Array) {
+      const ownLength = IndexLengthPropertyOf(table, receiver);
+      if (ownLength !== null && ownLength.Kind === PropertyKind.Data) {
+        lengthWritable = (ownLength.Flags & PropertyFlagWritable) !== 0;
+      }
+    }
     if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
     const lengthDescriptor = NewPlainObject(room, table, protos);
     SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "value"), Value.FromInt(lengthValue));
     SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "writable"),
-      Value.FromBool(receiver.Tag === ValueTag.Array));
+      Value.FromBool(lengthWritable));
     SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "enumerable"), Value.FromBool(false));
     SetProperty(room, NeverCall, table, lengthDescriptor, NameValue(table, "configurable"), Value.FromBool(false));
     return lengthDescriptor;
@@ -5047,6 +5094,14 @@ if (id === ObjectGetOwnPropertyNames) {
   // **第 333 轮起没有那个内部标记属性了**（`heap.xl.md` 的 `Extensible`）——
   // 「把它滤掉」那一套（名字 / 判据 / 五处 `continue`）连同它一起删了。
       const text = TextFrom(table, Value.FromString(nameItem.Props[i].Key));
+      // **`length` 已经在上面那一句里推过一次**（第 722 轮）：数组 / 字符串自己那一格
+      // `length` 本来不住在属性表里，可 `Object.defineProperty(xs, "length",
+      // { writable: false })` 会在属性表里留一份（`RequireArrayGrowable` 读它）——
+      // 不筛掉的话 `Object.getOwnPropertyNames([1])` 会给出 `["0", "length", "length"]`
+      //（JS 给 `["0", "length"]`）。
+      if (text === "length" && (nameTarget.Tag === ValueTag.Array || nameTarget.Tag === ValueTag.String)) {
+        continue;
+      }
       if (IsIndexKeyText(text)) {
         let coveredName = false;
         for (let k = 0; k < nameIndexPositions.length; k++) {
@@ -5896,6 +5951,122 @@ const accessorSet = fieldOf("set");
 const wantsEnumerable = RtToBoolean(table, fieldOf("enumerable")).AsBool();
 const wantsConfigurable = RtToBoolean(table, fieldOf("configurable")).AsBool();
 const wantsWritable = RtToBoolean(table, fieldOf("writable")).AsBool();
+// **数组的 `length` 那一格**（第 722 轮，**普查当场红的**）：它**不住在属性表里**
+// （是 `HeapArray` 的结构属性），可它**在 JS 里是一个真的自有属性**——
+// `Object.defineProperty([1, 2, 3], "length", { value: 1 })` 要**把数组截到 1**、
+// `{ writable: false }` 要**锁住长度**、`{ enumerable: true }` / `{ configurable: true }`
+// 与访问器描述符都是 **`TypeError`**。原来这一格落到下面「普通属性」那条路：
+// 造一格 `Props` 里的 `length`（值取描述符的 `value`、标志位三个全假），
+// **既不截短也不加长**——而 `RequireArrayGrowable`（`array.xl.md`）正好读那一份的
+// 「可写」位，于是「锁长度」那一半**碰巧是过的**（`c305-std-array-length-nonwritable`）。
+//
+// **一份两用**：`Props` 里那一格 `length` 就是「长度可写吗」的**唯一事实来源**
+// （`RequireArrayGrowable` 与 `Object.getOwnPropertyDescriptor` 都读它）——
+// 「值」那一半仍然由 `HeapArray` 自己答（`GetProperty` 的结构属性那一段）。
+const lengthKeyText = key.Tag === ValueTag.String ? TextFrom(table, key) : "";
+if (target.Tag === ValueTag.Array && lengthKeyText === "length") {
+  // **访问器 / `enumerable: true` / `configurable: true` 三种都是 `TypeError`**
+  //（JS 的那一格不可配置、也不可枚举，所以这三档一步都改不动）。
+  if (accessorGet.Tag !== ValueTag.Undefined || accessorSet.Tag !== ValueTag.Undefined
+      || (hasField("enumerable") && wantsEnumerable)
+      || (hasField("configurable") && wantsConfigurable)) {
+    throw cannotRedefine();
+  }
+  const lengthItems = table.Get(target.Ref).AsArray();
+  const oldLength = lengthItems.GetLength();
+  // **已有那一份（`{ writable: false }` 造的）**：`ValidateAndApplyPropertyDescriptor`
+  // 里「不可配置」那一段照样管着它——`writable: false → true` 与「不可写时改值」都抛。
+  const ownLengthFound = FindProperty(room, table, target.Ref, key);
+  const hasOwnLength = ownLengthFound !== null && ownLengthFound.Owner === target.Ref;
+  const ownLength = hasOwnLength ? defineTarget.Props[ownLengthFound.Index] : null;
+  if (ownLength !== null && (ownLength.Flags & PropertyFlagConfigurable) === 0) {
+    if (hasField("writable") && wantsWritable) throw cannotRedefine();
+    if (hasField("value") && (ownLength.Flags & PropertyFlagWritable) === 0
+        && !SameValue(table, Value.FromInt(oldLength), fieldOf("value"))) {
+      throw cannotRedefine();
+    }
+  }
+  let newLength = oldLength;
+  if (hasField("value")) {
+    // **`ToUint32` 那一档先判**（JS 的顺序：先要一个合法的数组长度，再谈写不写得下去）：
+    // `-1` / `1.5` / `2 ** 32` 都是 `RangeError: Invalid array length`
+    //（判据 `p721a-r32`；`xs.length = …` 那条**赋值**第 376 轮就是这么判的，这里同一句）。
+    const wantedValue = fieldOf("value");
+    // **先过 `ToNumber`**（第 722 轮，**普查当场红的**）：JS 那一格是
+    // 「`ToUint32(v)` 与 `ToNumber(v)` 相等才算合法」，所以 `"2"` 是 2、`true` 是 1、
+    // `null` 是 0、`undefined` 是 `NaN`（⇒ `RangeError`）。
+    // 原来只认 `IsNumber()`，其余一律 `NaN` ⇒ `{ value: "2" }` 也抛（判据 `p722a-r11`）。
+    // **`Number(文本)` 是宿主那一份**（与 `IndexKeyShadowOf` 里那一句同一个写法）：
+    // 建库层本来就是宿主侧代码（`TextFrom` 那一格写着同一句话）。
+    // **对象与符号仍然走 `RangeError`**：JS 会给它们过 `ToPrimitive`，而这一格的签名里
+    // 没有调用通道 ⇒ **宁可响也不静默**（写在明处，台账里没有这一条）。
+    let wantedDouble = NaN;
+    if (wantedValue.IsNumber()) {
+      wantedDouble = wantedValue.AsDouble();
+    } else if (wantedValue.Tag === ValueTag.Bool) {
+      wantedDouble = wantedValue.AsBool() ? 1 : 0;
+    } else if (wantedValue.Tag === ValueTag.Null) {
+      wantedDouble = 0;
+    } else if (wantedValue.Tag === ValueTag.String) {
+      wantedDouble = Number(TextFrom(table, wantedValue));
+    }
+    if (!(wantedDouble >= 0 && wantedDouble <= 4294967295
+        && wantedDouble === Math.floor(wantedDouble))) {
+      throw new RangeError("Invalid array length");
+    }
+    newLength = wantedDouble;
+    // **削短：一格一格地删**——碰到**不可配置**的那一格就抛 `TypeError`
+    //（判据 `p721a-r31`：`defineProperty(a, "2", { configurable: false })` 之后削到 1）。
+    // **先判完再动手**：删到一半才发现挡路的，会留下一个「删了一半」的数组。
+    for (let i = newLength; i < oldLength; i++) {
+      const doomed = IndexKeyShadowOf(table, target, i);
+      if (doomed !== null && (doomed.Flags & PropertyFlagConfigurable) === 0) throw cannotRedefine();
+    }
+  }
+  if (newLength !== oldLength) {
+    if (newLength > oldLength && !room(ValueCharge * (newLength - oldLength))) {
+      throw new Error("out of room");
+    }
+    lengthItems.Truncate(newLength);
+    // **削掉的那些下标格，属性表里那一份也要跟着走**：`IndexKeyShadowOf` 找的是
+    // 「键是下标」的 `Props` 项，截短之后它们**就不该再被找到**（`Object.keys` /
+    // 描述符 / `hasOwnProperty` 三条路一起看这一份）。
+    const trimmed: Property[] = [];
+    for (let i = 0; i < defineTarget.Props.length; i++) {
+      const candidate = defineTarget.Props[i];
+      if (table.Get(candidate.Key).Tag !== ValueTag.String) {
+        trimmed.push(candidate);
+        continue;
+      }
+      const candidateText = TextFrom(table, Value.FromString(candidate.Key));
+      if (IsIndexKeyText(candidateText) && Number(candidateText) >= newLength) continue;
+      trimmed.push(candidate);
+    }
+    defineTarget.Props = trimmed;
+    table.Recount(target.Ref);
+  }
+  // **「长度可写吗」那一位**：只在那一位**写明了**的时候才动属性表里那一份
+  //（`{ enumerable: false }` 这种「什么都没改」的描述符**不该**顺手把长度锁上——
+  //  原来那一支会造一格三个标志全假的 `length`，于是 `a.length = 5` 静默失效）。
+  if (hasField("writable")) {
+    if (ownLength !== null) {
+      ownLength.Value = Value.FromInt(newLength);
+      ownLength.Flags = mergeFlags(ownLength.Flags, false, wantsWritable, false);
+    } else {
+      if (!room(PropertyCharge)) throw new Error("out of room");
+      const lengthProperty = new Property(key.Ref, Value.FromInt(newLength));
+      // **不可枚举、不可配置**（JS 里 `length` 那两格永远是假），可写与否按描述符。
+      let lengthFlags = 0;
+      if (wantsWritable) lengthFlags = lengthFlags + PropertyFlagWritable;
+      lengthProperty.Flags = lengthFlags;
+      defineTarget.Props.push(lengthProperty);
+      table.Recount(target.Ref);
+    }
+  } else if (ownLength !== null && hasField("value")) {
+    ownLength.Value = Value.FromInt(newLength);
+  }
+  return;
+}
 if (accessorGet.Tag !== ValueTag.Undefined || accessorSet.Tag !== ValueTag.Undefined) {
   const storedGetter = IsCallableValue(table, accessorGet) ? accessorGet : Value.Undefined();
   const storedSetter = IsCallableValue(table, accessorSet) ? accessorSet : Value.Undefined();
