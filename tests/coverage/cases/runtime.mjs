@@ -6170,4 +6170,34 @@ console.log(s2.join(","));
     title: "super 方法链与访问器组合",
     src: "class Base { get v(): number { return 1; } m(): number { return this.v; } }\nclass Mid extends Base { get v(): number { return super.v + 10; } }\nclass Top extends Mid { m(): number { return super.m() + 100; } }\ntry { console.log(\"top\", String(new Top().m())); } catch (e) { console.log(\"top\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"mid\", String(new Mid().m())); } catch (e) { console.log(\"mid\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"super-get\", String(new Mid().v)); } catch (e) { console.log(\"super-get\", \"ERR\", String(e && e.name)); }",
   },
+  {
+    id: "r682-rt-microtask-order",
+    title: "同步 → 微任务 → 下一个微任务的次序",
+    src: "(async () => {\n  const order: string[] = [];\n  order.push('sync');\n  Promise.resolve().then(() => { order.push('t1'); });\n  Promise.resolve().then(() => { order.push('t2'); }).then(() => { order.push('t3'); });\n  order.push('sync2');\n  await Promise.resolve();\n  console.log(order.join(','));\n})();",
+  },
+  {
+    id: "r682-rt-promise-all-mixed",
+    title: "Promise.all 里的普通值与承诺混着",
+    src: "(async () => {\n  const out = await Promise.all([1, Promise.resolve(2), 'x']);\n  console.log(out.join(','));\n  const nested = await Promise.all([Promise.resolve([1, 2]), Promise.resolve([3])]);\n  console.log(nested.map((a: any) => a.join('-')).join('|'));\n})();",
+  },
+  {
+    id: "r682-rt-async-thenable",
+    title: "async 返回 thenable / await 非承诺值",
+    src: "async function adopt() { return { then(res: any) { res(41); } }; }\n(async () => {\ntry { console.log(\"thenable\", String(await adopt())); } catch (e) { console.log(\"thenable\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"await-number\", String(await 7)); } catch (e) { console.log(\"await-number\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"await-then-chain\", String((await Promise.resolve(2)) + (await Promise.resolve(3)))); } catch (e) { console.log(\"await-then-chain\", \"ERR\", String(e && e.name)); }\n})();",
+  },
+  {
+    id: "r682-rt-generator-spread",
+    title: "生成器被展开、被 return 中途收走",
+    src: "function* g2() { yield 1; yield 2; yield 3; }\ntry { console.log(\"spread\", String([...g2()].join(','))); } catch (e) { console.log(\"spread\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"from\", String(Array.from(g2()).join(','))); } catch (e) { console.log(\"from\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"early-return\", String((() => { const it: any = g2(); const first = it.next().value; const done = it.return(9); return first + ':' + done.value + ':' + done.done + ':' + it.next().done; })())); } catch (e) { console.log(\"early-return\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-rt-generator-return-in-forof",
+    title: "for-of 里 break 会调 return（finally 照跑）",
+    src: "const seen: string[] = [];\nfunction* g3() { try { yield 1; yield 2; yield 3; } finally { seen.push('cleanup'); } }\nfor (const v of g3()) { seen.push('v' + v); if (v === 2) break; }\ntry { console.log(\"trace\", String(seen.join(','))); } catch (e) { console.log(\"trace\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-rt-method-extraction-prototype",
+    title: "原型上的方法摘出来之后 this 是调用者",
+    src: "class P2 { v = 5; read(this: any) { return this === undefined ? 'no-this' : this.v; } }\nconst inst: any = new P2();\nconst protoFn: any = P2.prototype.read;\ntry { console.log(\"via-instance\", String(inst.read())); } catch (e) { console.log(\"via-instance\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"via-prototype\", String((() => { try { return String(protoFn()); } catch (e: any) { return 'ERR ' + String(e.name); } })())); } catch (e) { console.log(\"via-prototype\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"call-with-instance\", String(protoFn.call(inst))); } catch (e) { console.log(\"call-with-instance\", \"ERR\", String(e && e.name)); }",
+  },
 ];

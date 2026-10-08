@@ -3588,8 +3588,22 @@ for (let i = 0; i < elements.length; i++) {
   if (kind === "ObjectBindingPattern") {
     const keyNode = this.PropertyKeyNodeOf(element);
     if (keyNode === null) throw new Error("unimplemented: object binding member");
-    const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode)));
-    value = this.RtCall2(RtOp.GetProp, source, key);
+    // **计算键**（第 682 轮，**实测撞到的**）：`const { [key]: v = 1 } = o` 的键那一格是
+    // `ComputedPropertyName`（里面装的是**表达式**），而这一支原来无条件走
+    // `KeyUnitsOf`（最后落在 `TextOf` 上）⇒ 报 `ast node ComputedPropertyName has no text`
+    //（**整份文件进不来**）。**赋值那一半（`DestructureAssign`）第 146 轮就收下了**——
+    // 同一个形状两半，声明这一半漏了（与第 183 / 284 轮那三处**同一种漏法**，
+    // 而这一处的判据 `l677-declarations-decl-obj-destructure-computed-key` 一直登在台账里）。
+    // 做法与赋值那一半**一字不差**：键当**值**用、走 `get_index`（它替我们做 `ToPropertyKey`，
+    // 于是 `{ [1]: n }` 那种数字键也对）——**不能走 `get_prop`**（那条只收字符串 / 符号键）。
+    if (NodeKind(keyNode) === "ComputedPropertyName") {
+      const keyValue = this.LowerExpression(Child(keyNode, "expression"));
+      value = this.RtCallValues(RtOp.GetIndex, source, keyValue);
+      this.Release(keyValue);
+    } else {
+      const key = this.Program().AddConst(Constant.OfString(this.KeyUnitsOf(keyNode)));
+      value = this.RtCall2(RtOp.GetProp, source, key);
+    }
   } else {
     const index = this.Program().AddConst(Constant.OfInt(i));
     value = this.RtCall2(RtOp.GetIndex, items, index);

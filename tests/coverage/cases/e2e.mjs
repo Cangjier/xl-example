@@ -2838,4 +2838,34 @@ console.log(made.greet(), Object.getPrototypeOf(made) === proto, "own" in made, 
     title: "文本统计：正则无关的字符族与排序",
     src: "const text = 'the Quick brown fox';\nconst freq: any = {};\nfor (const ch of text.toLowerCase()) { if (ch === ' ') continue; freq[ch] = (freq[ch] ?? 0) + 1; }\nconst top = Object.entries(freq).sort((a: any, b: any) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3);\nconsole.log(top.map((e: any) => e[0] + e[1]).join(','));\nconsole.log(text.split(' ').length, text.slice(0, 3), text.toUpperCase().includes('FOX'));",
   },
+  {
+    id: "r682-e2e-matrix",
+    title: "矩阵乘法：嵌套数组 + 循环 + reduce",
+    src: "const a = [[1, 2], [3, 4]];\nconst b = [[5, 6], [7, 8]];\nconst out: any = [];\nfor (let i = 0; i < a.length; i++) { const row: any = []; for (let j = 0; j < b[0].length; j++) { let sum = 0; for (let k = 0; k < b.length; k++) sum += a[i][k] * b[k][j]; row.push(sum); } out.push(row); }\nconsole.log(out.map((r: any) => r.join(',')).join('|'));",
+  },
+  {
+    id: "r682-e2e-binary-search",
+    title: "二分查找：while + 下标边界",
+    src: "function search(xs: number[], target: number): number { let lo = 0; let hi = xs.length - 1; while (lo <= hi) { const mid = (lo + hi) >> 1; if (xs[mid] === target) return mid; if (xs[mid] < target) lo = mid + 1; else hi = mid - 1; } return -1; }\nconst xs = [1, 3, 5, 7, 9, 11];\nconsole.log([search(xs, 1), search(xs, 11), search(xs, 6), search([], 1)].join(','));",
+  },
+  {
+    id: "r682-e2e-event-bus",
+    title: "事件总线：Map + 回调数组 + call",
+    src: "class Bus { handlers: Map<string, any[]> = new Map(); on(ev: string, fn: any): void { const list = this.handlers.get(ev) ?? []; list.push(fn); this.handlers.set(ev, list); } emit(ev: string, payload: any): number { const list = this.handlers.get(ev) ?? []; for (const fn of list) fn.call(null, payload); return list.length; } }\nconst bus = new Bus();\nconst seen: string[] = [];\nbus.on('a', (p: any) => { seen.push('1' + p); });\nbus.on('a', (p: any) => { seen.push('2' + p); });\nconsole.log(bus.emit('a', 'x'), bus.emit('b', 'y'), seen.join(','));",
+  },
+  {
+    id: "r682-e2e-text-wrap",
+    title: "按宽度折行：split / 累加 / padEnd",
+    src: "const words = 'the quick brown fox jumps over the lazy dog'.split(' ');\nconst lines: string[] = [];\nlet line = '';\nfor (const w of words) { if (line.length > 0 && line.length + 1 + w.length > 12) { lines.push(line); line = w; } else { line = line.length === 0 ? w : line + ' ' + w; } }\nif (line.length > 0) lines.push(line);\nfor (const l of lines) console.log(l.padEnd(13, '.') + '|');",
+  },
+  {
+    id: "r682-e2e-grade-book",
+    title: "成绩单：解构 + reduce + 排序 + 模板",
+    src: "const rows = [['ann', 90, 80], ['bob', 70, 95], ['cid', 60, 60]] as any;\nconst scored = rows.map(([name, a, b]: any) => ({ name, avg: (a + b) / 2 }));\nscored.sort((x: any, y: any) => y.avg - x.avg || (x.name < y.name ? -1 : 1));\nfor (const s of scored) console.log(s.name + '=' + s.avg.toFixed(1));\nconsole.log('class', (scored.reduce((acc: any, s: any) => acc + s.avg, 0) / scored.length).toFixed(2));",
+  },
+  {
+    id: "r682-e2e-cache-with-fn",
+    title: "函数缓存：Map + rest + apply",
+    src: "function memo(fn: any): any { const cache: Map<string, any> = new Map(); return function (this: any, ...args: any[]) { const key = args.join(','); if (!cache.has(key)) cache.set(key, fn.apply(this, args)); return cache.get(key); }; }\nlet calls = 0;\nconst slow = memo((a: number, b: number) => { calls++; return a * b; });\nconsole.log(slow(2, 3), slow(2, 3), slow(4, 5), calls);",
+  },
 ];

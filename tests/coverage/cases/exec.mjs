@@ -5410,4 +5410,59 @@ main();
     title: "try / finally 的返回值与 finally 里的 return",
     src: "function a(): string { try { return 'try'; } finally { } }\nfunction b(): string { try { return 'try'; } finally { return 'fin'; } }\nfunction d(): string { let s = ''; try { s += 't'; throw new Error('x'); } catch { s += 'c'; } finally { s += 'f'; } return s; }\ntry { console.log(\"plain\", String(a())); } catch (e) { console.log(\"plain\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"override\", String(b())); } catch (e) { console.log(\"override\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"order\", String(d())); } catch (e) { console.log(\"order\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"opt-catch\", String((() => { try { throw 1; } catch { return 'caught'; } })())); } catch (e) { console.log(\"opt-catch\", \"ERR\", String(e && e.name)); }",
   },
+  {
+    id: "r682-ex-this-binding",
+    title: "方法摘出来之后的 this / call / apply / bind",
+    src: "const obj: any = { n: 7, m() { return this === undefined || this === null ? 'no-this' : String(this.n); } };\nconst loose: any = obj.m;\ntry { console.log(\"method\", String(obj.m())); } catch (e) { console.log(\"method\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"extracted\", String(loose())); } catch (e) { console.log(\"extracted\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"call\", String(obj.m.call({ n: 9 }))); } catch (e) { console.log(\"call\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"apply\", String(obj.m.apply({ n: 8 }, []))); } catch (e) { console.log(\"apply\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"bind\", String(obj.m.bind({ n: 5 })())); } catch (e) { console.log(\"bind\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-arrow-this",
+    title: "箭头函数的 this 跟着外层，不跟调用点",
+    src: "function make(): any { const self: any = { n: 3 }; self.arrow = () => (this === undefined ? 'no-this' : 'has-this'); return self; }\nconst box: any = { n: 4, f() { const g = () => this.n; return g(); } };\ntry { console.log(\"arrow-in-method\", String(box.f())); } catch (e) { console.log(\"arrow-in-method\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"arrow-call-site\", String((() => { const o: any = { n: 1, f() { const g = () => this.n; return g.call({ n: 99 }); } }; return o.f(); })())); } catch (e) { console.log(\"arrow-call-site\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"make-arrow\", String(typeof make().arrow())); } catch (e) { console.log(\"make-arrow\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-fn-length-name",
+    title: "函数的 length 与 name（用户写的那些）",
+    src: "function two(a: number, b: number) { return a + b; }\nfunction def(a: number, b: number = 1, ...rest: number[]) { return a + b; }\nconst arrowed = (x: number, y: number, z: number) => x + y + z;\nconst obj2: any = { m(q: number) { return q; } };\ntry { console.log(\"two\", String(two.length)); } catch (e) { console.log(\"two\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"with-default\", String(def.length)); } catch (e) { console.log(\"with-default\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"arrow\", String(arrowed.length)); } catch (e) { console.log(\"arrow\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"method\", String(obj2.m.length)); } catch (e) { console.log(\"method\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"names\", String([two.name, def.name, arrowed.name, obj2.m.name].join(','))); } catch (e) { console.log(\"names\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-fn-bind-forms",
+    title: "bind 的偏应用与返回值身份",
+    src: "function add3(a: number, b: number, c: number) { return a + b + c; }\nconst step1: any = add3.bind(null, 1);\nconst step2: any = step1.bind(null, 2);\ntry { console.log(\"partial\", String(step1(2, 3))); } catch (e) { console.log(\"partial\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"double-bind\", String(step2(3))); } catch (e) { console.log(\"double-bind\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"bound-length\", String(step1.length)); } catch (e) { console.log(\"bound-length\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"bound-name\", String(step1.name)); } catch (e) { console.log(\"bound-name\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"this-ignored\", String((() => { function who(this: any) { return this === undefined ? 'no-this' : 'bound'; } const b: any = who.bind({}); return b(); })())); } catch (e) { console.log(\"this-ignored\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-class-static-inherit",
+    title: "静态成员的继承与 super 在静态方法里",
+    src: "class Base2 { static kind = 'base'; static make(): string { return 'made-' + this.kind; } }\nclass Derived2 extends Base2 { static kind = 'derived'; static make(): string { return 'd-' + super.make(); } }\ntry { console.log(\"own\", String(Base2.make())); } catch (e) { console.log(\"own\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"inherited-kind\", String(Derived2.kind)); } catch (e) { console.log(\"inherited-kind\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"super-static\", String(Derived2.make())); } catch (e) { console.log(\"super-static\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"static-in\", String('make' in Derived2)); } catch (e) { console.log(\"static-in\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-private-brand",
+    title: "私有名的品牌检查与错接收者",
+    src: "class Box2 { #v = 1; has(o: any): boolean { return #v in o; } get(): number { return this.#v; } }\nconst b2: any = new Box2();\ntry { console.log(\"brand-own\", String(b2.has(b2))); } catch (e) { console.log(\"brand-own\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"brand-other\", String(b2.has({}))); } catch (e) { console.log(\"brand-other\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"get\", String(b2.get())); } catch (e) { console.log(\"get\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"wrong-receiver\", String((() => { try { return String(Box2.prototype.get.call({})); } catch (e: any) { return 'ERR ' + String(e.name); } })())); } catch (e) { console.log(\"wrong-receiver\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-class-field-arrow",
+    title: "类字段上的箭头函数把 this 钉在实例上",
+    src: "class Counter2 { n = 0; bump = () => { this.n++; return this.n; }; m() { return this.n; } }\nconst cnt: any = new Counter2();\nconst detached: any = cnt.bump;\ntry { console.log(\"first\", String(detached())); } catch (e) { console.log(\"first\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"second\", String(cnt.bump())); } catch (e) { console.log(\"second\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"state\", String(cnt.m())); } catch (e) { console.log(\"state\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-numeric-bitwise",
+    title: "位运算与数值边界",
+    src: "try { console.log(\"ushr\", String(-8 >>> 28)); } catch (e) { console.log(\"ushr\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"shl\", String(1 << 31)); } catch (e) { console.log(\"shl\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"and-or-xor\", String([5 & 3, 5 | 3, 5 ^ 3, ~5].join(','))); } catch (e) { console.log(\"and-or-xor\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"shifts\", String([-1 >> 1, -1 >>> 1].join(','))); } catch (e) { console.log(\"shifts\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"float\", String(0.1 + 0.2)); } catch (e) { console.log(\"float\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"epsilon\", String(Number.EPSILON > 0)); } catch (e) { console.log(\"epsilon\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"infinity\", String([1 / 0, -1 / 0, 0 / 0].join(','))); } catch (e) { console.log(\"infinity\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"negzero\", String(1 / -0)); } catch (e) { console.log(\"negzero\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"pow-negative\", String(2 ** -1)); } catch (e) { console.log(\"pow-negative\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-string-unicode",
+    title: "字符串的码元与码点",
+    src: "try { console.log(\"escape-brace\", String('\\u{1F600}'.length)); } catch (e) { console.log(\"escape-brace\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"iter\", String([...'\\u{1F600}'].length)); } catch (e) { console.log(\"iter\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"hex\", String('\\x41')); } catch (e) { console.log(\"hex\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"code-points\", String(['\\u{1F600}'.charCodeAt(0), '\\u{1F600}'.codePointAt(0)].join(','))); } catch (e) { console.log(\"code-points\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"for-of-count\", String((() => { let n = 0; for (const ch of 'a\\u{1F600}b') n++; return n; })())); } catch (e) { console.log(\"for-of-count\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"compare\", String('a' < 'b')); } catch (e) { console.log(\"compare\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-destructure-when-default",
+    title: "解构默认值只在 undefined 时生效",
+    src: "const [x1 = 1, x2 = 2] = [undefined, null] as any;\nconst { a: a1 = 1, b: b1 = 2 } = { b: null } as any;\nconst key = 'k';\nconst { [key]: computed = 5 } = {} as any;\ntry { console.log(\"array\", String([x1, x2].join(','))); } catch (e) { console.log(\"array\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"object\", String([a1, b1].join(','))); } catch (e) { console.log(\"object\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"computed\", String(computed)); } catch (e) { console.log(\"computed\", \"ERR\", String(e && e.name)); }",
+  },
+  {
+    id: "r682-ex-sequence-unary",
+    title: "逗号表达式与一元运算的顺序",
+    src: "let log = '';\nconst seq = (log += 'a', log += 'b', 3);\ntry { console.log(\"sequence\", String(seq + ':' + log)); } catch (e) { console.log(\"sequence\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"void\", String(String(void 0))); } catch (e) { console.log(\"void\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"typeof-null\", String(typeof null)); } catch (e) { console.log(\"typeof-null\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"typeof-undeclared\", String(typeof notDefinedAnywhere)); } catch (e) { console.log(\"typeof-undeclared\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"double-negate\", String(- -'5')); } catch (e) { console.log(\"double-negate\", \"ERR\", String(e && e.name)); }\ntry { console.log(\"plus-plus-order\", String((() => { let n = 1; const r = n++ + ++n; return r + ':' + n; })())); } catch (e) { console.log(\"plus-plus-order\", \"ERR\", String(e && e.name)); }",
+  },
 ];

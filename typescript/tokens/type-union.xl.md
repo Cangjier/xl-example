@@ -71,6 +71,21 @@ if (IsTemplateTypeContent(parent)) {
   return true;
 }
 const name = parent.constructor.name;
+// **值位的方括号数组不是类型容器**（第 682 轮，**实测撞到的**）：元组类型 `[A | B]`
+// 与值位数组**共用 `ArrayLiteral` 这一个节点**（`json/array-literal.xl.md`），
+// 所以「父单元是 ArrayLiteral」这一条原来一律算类型位 ⇒ `const a = [x | y]` /
+// `[5 & 3]` 里的 `|` / `&` 被折成联合 / 交叉类型，降级层报
+// `unimplemented: expression UnionType`（**整份文件进不来**，而位标志数组是日常写法）。
+// 判据与括号类型那一格**同一句话**：问这个 `ArrayLiteral` 在**它自己那一层**
+// 是不是类型位（`type T = [A | B]` 前面是 `=`、再往左是 `type` ⇒ 是；
+// `const a = [x | y]` ⇒ 不是）。
+if (name === "ArrayLiteral") {
+  const owner = parent.Parent;
+  if (owner === null) {
+    return false;
+  }
+  return IsTypeBracketPosition(owner, parent);
+}
 return (
   name === "TypeDefine" ||
   name === "TypeAssign" ||
@@ -83,7 +98,6 @@ return (
   name === "IntersectionType" ||
   name === "TypeLiteral" ||
   name === "TypeLiteralBody" ||
-  name === "ArrayLiteral" ||
   name === "ArrayType" ||
   name === "TupleType" ||
   name === "IndexedAccessType" ||

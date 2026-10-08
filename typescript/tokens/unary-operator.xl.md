@@ -474,6 +474,20 @@ const current = Get(units, index);
 if (current === null) {
   throw new Error("UnaryOperatorCloseRule.Process: current is null");
 }
+// **`++` / `--` 前面紧挨着操作数 ⇒ 这是后缀，后面那格不归它**（第 682 轮，**实测撞到的**）。
+//
+// `b++ + 1` 原来被折成 `b` ＋ `UnaryOperator(++ > UnaryOperator(+ > 1))`：
+// 下面那段「套着写的前缀就地递归」看到 `++` 后面是 `+`（`IsPlusMinus`）就**把 `+1` 折了**，
+// 折完 `after` 成了一个操作数 ⇒ `++` 走**前缀**那条路，把 `(+1)` 当自己的操作数，
+// 而 `b` 留在外面平级。降级层于是只算到后半截（`n++ + ++n` 给 `1:1`，Node 给 `4:3`——
+// **静默错值**）。JS 的文法在这里没有二义：`++` **紧跟在操作数后面**（同一行）就是后缀。
+//
+// **换行要排掉**：`a` 换行 `++b` 在 JS 里是两条语句（ASI），那时 `++` 是**前缀**
+//（`SkipPreviousWrapSymbol` 会跳过软换行，所以这里看的是**紧挨着的那一格原样单元**）。
+const postfixHere =
+  this.IsPlusPlus(current)
+  && this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index)))
+  && !(Get(units, index - 1) instanceof LineWrap);
 const afterIndex = SkipNextWrapSymbol(units, index);
 let after = Get(units, afterIndex);
 // **套着写的前缀：先把里面那一处折完**（第 169 轮）。
@@ -486,7 +500,10 @@ let after = Get(units, afterIndex);
 //
 // **递归会停**：链的**最里面**那一处后面接的是真操作数（`typeof -x` 里 `-` 后面是 `x`），
 // 它按普通前缀折完返回；`typeof typeof` 这种缺操作数的写法只会多走一格（不折、不循环）。
-if (after !== null
+//
+// **后缀不递归**（第 682 轮）：`b++ + 1` 里那个 `+` 是**二元**的，
+// 折进来就再也回不去二元那一趟（上面 `postfixHere` 那一段写的就是这个症状）。
+if (!postfixHere && after !== null
   && (this.IsPrefixSymbol(after) || this.IsPlusPlus(after) || this.IsPlusMinus(after))) {
   this.Process(template, units, afterIndex);
   after = Get(units, SkipNextWrapSymbol(units, index));
@@ -495,7 +512,7 @@ if (after !== null
 // 所以判据要问「类型段**加上**后面那一格」是不是一个操作数——与 `Previous` 同一句。
 const assertedOperand =
   after instanceof GenericType && this.IsOperand(Get(units, SkipNextWrapSymbol(units, afterIndex)));
-if (this.IsOperand(after) || assertedOperand) {
+if (!postfixHere && (this.IsOperand(after) || assertedOperand)) {
   // **被操作者后面还跟着调用括号时，那个括号属于这一元运算**（第 309 轮）——
   // JS 里 `typeof o["m"]()` 是 **`typeof (o["m"]())`**（一元运算的作用范围是整个调用），
   // 而这一支只往后吃**一个**单元 ⇒ 那对 `()` 留在外面**平级**

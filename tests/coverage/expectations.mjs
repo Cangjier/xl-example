@@ -1232,13 +1232,12 @@ export const EXPECTATIONS = {
   // 它运行期什么都不产生，跳过去就对了；现在 `typescript-exec/lowering.xl.md` 里
   // 有一句显式的 `if (kind === "SemicolonClassElement") continue;`，
   // 回归哨在 `tests/runtime/cases/05-classes.ts`（类体最前面那个 `;`）。
-  // 二、**对象解构的计算属性名** `const { [k]: v } = o`：降级层要读计算名那一格的**文本**，  // 投出来的 `ComputedPropertyName` 在它那个区间里取不到文本（`has no text (at 109..112)`）。
-  // 与 `import { "a-b" as c }` 那一族同一个根子：**投影这一层自己按区间再取一次文本**，
-  // 而计算名两端的区间口径不一致（`[k]` 连同方括号一起给了节点）。
-  "l677-declarations-decl-obj-destructure-computed-key": {
-    expect: "blocked",
-    why: "对象解构的计算属性名 `{ [k]: v }`：投影出的 ComputedPropertyName 在自己的区间里取不到文本，降级层报 ast node ComputedPropertyName has no text",
-  },
+  // 二、**对象解构的计算属性名** `const { [k]: v } = o`：降级层要读计算名那一格的**文本**，
+  // 投出来的 `ComputedPropertyName` 在它那个区间里取不到文本（`has no text (at 109..112)`）。
+  // **第 682 轮收掉了**（这一行随之删掉）：根子确实在降级层那一支——
+  // **赋值那一半**（`DestructureAssign`）第 146 轮就按「键当**值**用、走 `get_index`」处理，
+  // 而**声明那一半**（`Destructure` 的对象模式）无条件走 `KeyUnitsOf`（最后落在 `TextOf` 上）。
+  // 同一个形状两半、漏了声明那一半；现在两半一字不差，用例转正。
 
   // 三、**嵌套模板字面量、内插与 `}` 之间带空白**：`node` 给 `ab1c`，本仓当时给 `ab1}c`。
   // **第 677 轮（其二）已经收掉**（这一行随之删掉）：根子在**投影**那一层不在 token 层——
@@ -1440,5 +1439,23 @@ export const EXPECTATIONS = {
       + "与（其一）`r678-names-symbol` 同一处成员表（那条记的是同一件事的名单形态）",
   },
   // ===== 第 677 轮：**AST 语料**普查量出的三条缺口（用例在 `cases/exec.mjs` 的 `l677-*` 那一段）=====
+
+  // ===== 第 682 轮：**私有名的品牌那一层**（用例在 `cases/exec.mjs` 的 `r682-ex-private-brand`）=====
+  // 这一批 34 条里 33 条 pass；唯一一条**不是「少装一格」**，而是这套实现**从一开始
+  // 就选定的表示法**：私有名就是**同键的普通属性**（第 195 轮定的口径——
+  // `this.#n` 与字段同键、`#n in o` 就是 `"#n" in o`，`KeyUnitsOf` 对 `PrivateIdentifier`
+  // 取的就是 `#n` 那个带井号的字符串）。所以：
+  //   · `#v in o` 的品牌检查**是好的**（它退化成 `in`，判据 `r682-ex-private-brand` 前两行）；
+  //   · 而**错接收者**读 `this.#v`（`Box2.prototype.get.call({})`）在本仓读的是那个普通属性
+  //     ⇒ 读不到给 `undefined`，JS 给 `TypeError`——差的正是「真私有」那一层。
+  // **为什么不补**：补它要一张「哪些对象带哪个类的品牌」的表（或者每次读都先问一次 `in`），
+  // 那是**给表示法加一层**，而不是接一条早就有的口径；而这条差异只在**程序写错**时可见。
+  // 与 `Object.freeze` 那两条（严格模式的选择）同档：**留在矩阵里看得见**，不当作「还差多少」。
+  "r682-ex-private-brand": {
+    expect: "differ",
+    why: "私有名在本仓是**同键的普通属性**（第 195 轮的口径），没有「真私有」那一层："
+      + "`Box2.prototype.get.call({})` 读 `#v` 读不到时给 `undefined`，JS 给 `TypeError`"
+      + "（品牌检查 `#v in o` 本身是好的）",
+  },
 
 };

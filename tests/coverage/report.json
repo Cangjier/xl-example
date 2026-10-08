@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2330,
+  "matrix": 2364,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -88,13 +88,13 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 98.5,
+  "progressPercent": 98.52,
   "layers": [
     {
       "layer": "runtime",
       "weight": 0.25,
-      "total": 601,
-      "pass": 601,
+      "total": 607,
+      "pass": 607,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -103,28 +103,28 @@
     {
       "layer": "exec",
       "weight": 0.3,
-      "total": 590,
-      "pass": 580,
-      "blocked": 2,
-      "differ": 8,
+      "total": 601,
+      "pass": 591,
+      "blocked": 1,
+      "differ": 9,
       "nodefail": 0,
-      "coverage": 98.31
+      "coverage": 98.34
     },
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 908,
-      "pass": 872,
+      "total": 919,
+      "pass": 883,
       "blocked": 7,
       "differ": 29,
       "nodefail": 0,
-      "coverage": 96.04
+      "coverage": 96.08
     },
     {
       "layer": "e2e",
       "weight": 0.2,
-      "total": 231,
-      "pass": 231,
+      "total": 237,
+      "pass": 237,
       "blocked": 0,
       "differ": 0,
       "nodefail": 0,
@@ -137,12 +137,6 @@
       "layer": "exec",
       "title": "对象字面量的值是一对圆括号里的二元表达式",
       "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: x"
-    },
-    {
-      "id": "l677-declarations-decl-obj-destructure-computed-key",
-      "layer": "exec",
-      "title": "AST 语料 declarations/decl-obj-destructure-computed-key.ts：decl obj destructure computed key",
-      "detail": "tsrun: 还没实现的构造或语言层错误：ast node ComputedPropertyName has no text (at 109..112)"
     },
     {
       "id": "gap-std-set-timeout",
@@ -235,6 +229,12 @@
       "layer": "exec",
       "title": "well-known symbol 的名字在不在（只问名字，不调协议）",
       "detail": "stdout 不同：第 7 行：node «isConcatSpreadable symbol» vs tsrun «isConcatSpreadable undefined»"
+    },
+    {
+      "id": "r682-ex-private-brand",
+      "layer": "exec",
+      "title": "私有名的品牌检查与错接收者",
+      "detail": "stdout 不同：第 4 行：node «wrong-receiver ERR TypeError» vs tsrun «wrong-receiver undefined»"
     },
     {
       "id": "gap-std-new-object-null",
