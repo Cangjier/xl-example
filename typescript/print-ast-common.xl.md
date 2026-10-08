@@ -737,7 +737,13 @@ new Map([
       // **字面量段从 `}` 起**（TS 的 `TemplateTail` / `TemplateMiddle` 含那个右花括号），
       // 终点是下一个常量段的末尾再加一：那个 `ConstString` 已经把 `$` 收进去了，
       // 后面紧跟的 `{`（或尾段的那个反引号）是它的后面一格。
-      pos: value.end,
+      //
+      // **起点取那个 `}` 本身，不取内插表达式的终点** ✗（第 623 轮 ✓）：两者只在
+      // 「表达式与 `}` 紧挨着」时相等 ✓ —— `` `${ `b${1}` }c` `` 里表达式终点落在
+      // 内层反引号之后一格（那个空格上 ✓），照它给起点就**多吞一个空格** ✓
+      //（实测 `op-template-nested`：`TemplateTail` 漂一格 ✓）。
+      // `InterpolationString` 的区间**到 `}` 为止** ✓（`$` 起、`}` 收 ✓）⇒ 减一就是它 ✓。
+      pos: endOf(interps[i]) - 1,
       // 尾段后面没有常量段时（`` `${a}` ``）终点就是整个字符串的终点（含那个反引号）。
       end: consts[i + 1] === undefined ? v.end : endOf(consts[i + 1]) + 1,
       text: literalText,

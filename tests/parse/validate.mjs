@@ -50,6 +50,7 @@ export const TAGS = new Set([
   "Lamda", "LamdaParameters", "Parameter", "LamdaBody",
   "New", "NewType", "NewArguments",
   "Class", "ClassBody", "Interface", "InterfaceBody", "Namespace", "NamespaceBody", "TypeLiteral", "TypeLiteralBody", "Enum", "EnumBody",
+  "SemicolonClassElement", "MetaProperty", "TemplateHead", "TemplateMiddle", "TemplateTail", "AssertClause", "AssertEntry",
   "Function", "FunctionBody", "MethodDeclaration", "MethodBody", "ReturnType", "Decorator", "Label", "Import", "Export",
   "IfSet", "IfSegment", "IfCondition", "IfStatement",
   "Switch", "SwitchCompare", "SwitchSegment", "SwitchCase", "SwitchStatement",

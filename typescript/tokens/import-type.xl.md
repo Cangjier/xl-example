@@ -216,13 +216,13 @@ TS 那边只有**两个**子字段：
   }
   const kids = flat;
   let stringUnit = kids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
+  // **实参那一层的子单元**（第 161 / 623 轮 ✓）：形状有两种 ✓ —— 值位那条调用规则先收过一遍时
+  // 是一个 `Method(name="import")` ✓（字符串与属性对象都在**它里面** ✓，不在 `kids` 上 ✓），
+  // 泛型实参段里则是一对裸圆括号 `Bracket` ✓。下面找字符串、找属性对象都从这一层看 ✓。
+  const call = kids.find((k: any) => k.get("type") === "Method" || k.get("type") === "Bracket");
+  const callKids = call === undefined ? [] : ctx.Kids(call);
   if (stringUnit === undefined) {
-    const call = kids.find((k: any) => k.get("type") === "Method" || k.get("type") === "Bracket");
-    if (call !== undefined) {
-      stringUnit = ctx
-        .Kids(call)
-        .find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
-    }
+    stringUnit = callKids.find((k: any) => k.get("type") === "String" || k.get("type") === "ConstString");
   }
   const props: any = {};
   if (stringUnit !== undefined) {
@@ -233,6 +233,54 @@ TS 那边只有**两个**子字段：
       end: ctx.EndOf(stringUnit),
     };
     props.argument = { kind: "LiteralType", literal, pos: literal.pos, end: literal.end };
+  }
+  // **导入属性**（第 623 轮 ✓）：`import("./m.json", { with: { type: "json" } })` 的第二个实参
+  // 在 TS 那边是 `ImportType.attributes` ✓（一个 `AssertClause` ✓），而产物那边它只是
+  // `Method(name="import")` 里的一个 `ObjectLiteral` ✓（外面还包着 `{ with: … }` 那层壳 ✓）⇒
+  // 不摘出来的话字段名少一格 ✓、`AssertClause` / `AssertEntry` / 名字 / 值整族都缺 ✓
+  //（实测 `type T = import("./m.json", { with: { type: "json" } }).T`：字段名 1 + 缺 4 ✓）。
+  //
+  // **取里面那一层** ✓：TS 的 `AssertClause` 区间就是那个内层 `{ … }` ✓（**不含** `with:` ✓），
+  // 而 `tokens/import.xl.md` 那边（`import … with { … }` 声明 ✓）取的是括号自己 ✓
+  // ——两种写法的属性节点是同一个 kind ✓、取值口径也一样（名字 + 字符串值 ✓）。
+  const wrapper = [...kids, ...callKids].find((k: any) => {
+    if (k.get("type") !== "ObjectLiteral") return false;
+    const word = ctx
+      .Kids(k)
+      .find((c: any) => c.get("type") === "Identifier" || c.get("type") === "Keyword");
+    if (word === undefined) return false;
+    const text = ctx.TextOf(word);
+    return text === "with" || text === "assert";
+  });
+  if (wrapper !== undefined) {
+    const brace = ctx.Kids(wrapper).find((c: any) => c.get("type") === "ObjectLiteral");
+    if (brace !== undefined) {
+      const elements = [];
+      for (const part of ctx.Split(ctx.Kids(brace), ",")) {
+        const colonAt = part.findIndex(
+          (c: any) => c.get("type") === "SymbolToken" && ctx.TextOf(c) === ":",
+        );
+        if (colonAt < 0) continue;
+        const nameUnit = part.slice(0, colonAt).find((c: any) => ctx.IsNameNode(c));
+        if (nameUnit === undefined) continue;
+        const valueUnit = part
+          .slice(colonAt + 1)
+          .find((c: any) => c.get("type") === "String" || c.get("type") === "ConstString");
+        elements.push({
+          kind: "AssertEntry",
+          name: ctx.NameOf(nameUnit),
+          value: valueUnit === undefined ? undefined : ctx.Project(valueUnit),
+          pos: ctx.StartOf(nameUnit),
+          end: valueUnit === undefined ? ctx.EndOf(nameUnit) : ctx.EndOf(valueUnit),
+        });
+      }
+      props.attributes = {
+        kind: "AssertClause",
+        elements,
+        pos: ctx.StartOf(brace),
+        end: ctx.EndOf(brace),
+      };
+    }
   }
   // **限定名里可能有被升级成 `Keyword` 的名字**（第 123 轮）：`typeof import("./d").default`
   // 的 `default` 是 `Keyword`。要滤的只有 **`typeof` 那个词**——它是 TS 节点的标志位、

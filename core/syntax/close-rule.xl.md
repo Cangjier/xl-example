@@ -2,6 +2,7 @@
 ```xl
 import { Template } from "./templates/template.xl.md"
 import { Token } from "./token.xl.md"
+import { Get } from "../extensions/list-extension.xl.md"
 ```
 
 # namespace cangjie
@@ -59,7 +60,24 @@ if (Array.isArray(units) === false || units.length === 0) {
 }
 for (let i = 0; i < units.length; i++) {
   if (this.Previous(unit.Template, units, i)) {
+    const replacedAt = i;
     i = this.Process(unit.Template, units, i);
+    // **换进来的节点当场认父亲** ✓（第 623 轮 ✓）：`Process` 走的是 `ReplaceCountAt` ✓，
+    // 那是核心的 `splice` ✓、**不设 `Parent`** ✓ ⇒ 新节点 `Parent` 为 `null` ✗，
+    // 而**同一趟里排在后面的规则**马上就要问「你的容器是谁」✗
+    //（`TupleMemberCloseRule.TupleOf` 读 `current.Parent` ✓）。
+    // 实测：`type E = [infer U, ...string[]]` 的第一格是 `InferTypeCloseRule` 换出来的 ✓、
+    // 它的 `Parent` 是 `null` ✓ ⇒ 元组成员那一条认不出容器 ✓ ⇒ `...string[]` 只剩裸 `...` ✓。
+    //
+    // **只扫刚换过的那一段** ✗（不扫整张表 ✓）：`Process` 动过的格子就在
+    // `[replacedAt, i]` 这一小段里 ✓，而整张表逐个扫会让每趟规则都变成 O(n) ✓
+    //（大 `.d.ts` 上那是实打实的代价 ✓）。`null` 才补 ✓：已有父亲的单元是**故意**挂在那儿的 ✓。
+    for (let k = replacedAt; k <= i && k < units.length; k++) {
+      const item = Get(units, k);
+      if (item !== null && item.Parent === null) {
+        item.Parent = unit;
+      }
+    }
   }
 }
 ```

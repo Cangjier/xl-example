@@ -166,8 +166,53 @@ return (
 
 `!` / `~` / `typeof` 这些前缀运算符不受影响——它们的 `after` 判定与「前一个是不是操作数」无关 ✓。
 
-## private method IsPrefixSymbol:(current:Token)=>bool
+## private method IsMetaName:(unit:Token | null)=>bool
 
+`unit` 能不能当 `import.meta` / `new.target` 里那**一格名字**。
+
+四种形态：裸名字（`Identifier` ✓）、升级过的词（`Keyword` ✓，`default` 那种 ✓）、
+**已经折好的成员链** ✓（`import.meta.url` 的 `meta.url` ✓）、以及调用 ✓（`new.target.name()` ✓）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+return (
+  unit instanceof Identifier ||
+  unit instanceof Keyword ||
+  unit instanceof PropertyAccess ||
+  unit instanceof Method
+);
+```
+
+## private method MetaHeadWord:(unit:Token | null)=>string
+
+`unit` 是不是 `import.meta` / `new.target` 的**头一个词**；是就给那个词，否则给空串。
+
+两种形态都要认 ✓：`KeywordCloseRule` 还没跑时它是 `Identifier` ✓（`Process` 的常态 ✓），
+跑过之后是 `Keyword` ✓（第二趟进来时 ✓）。
+
+```ts
+if (unit === null) {
+  return "";
+}
+if (unit instanceof Identifier) {
+  const text = unit.TempToString();
+  if (text === "import" || text === "new") {
+    return text;
+  }
+  return "";
+}
+if (unit instanceof Keyword) {
+  const word = unit.Value;
+  if (word === "import" || word === "new") {
+    return word;
+  }
+}
+return "";
+```
+
+## private method IsPrefixSymbol:(current:Token)=>bool
 `current` 是不是一个**只可能做前缀**的一元运算符：`!` / `~` / `typeof` / `void` / `delete`。
 
 `-` / `+` 不在其列（它们既是一元也是二元，要再看前面），`++` / `--` 也不在（前缀后缀都行）。
@@ -479,6 +524,32 @@ if (this.IsOperand(after) || assertedOperand) {
       operandEnd = assertedIndex;
     }
   }
+  // **`import.meta` / `new.target` 是**一格**操作数** ✓（第 623 轮 ✓）：
+  // `import` / `new` 此刻还是 `Identifier` ✓ ⇒ `IsOperand` 认它 ✓ ⇒ `typeof import.meta`
+  // 被折成 `UnaryOperator(typeof, import)` ✗ —— 后面的 `.meta` 留在**外面** ✓，
+  // 投影那一支（`print-ast-common.xl.md` 的「0。`import.meta` / `new.target`」✓）
+  // 要看到的是 `[Keyword(import), ., Identifier(meta)]` 三格 ✓ ⇒ 它一格都看不到 ✗。
+  // 实测 `typeof import.meta` / `typeof new.target`：缺 `MetaProperty` + 漂移 + 多出 3 ✓。
+  // TS 那边这两个词与后面的名字**是同一个节点** ✓ ⇒ 一并吃进来 ✓。
+  // **只认「词 + `.` + 名字」这个形状** ✗：`new X` / `import("m")` 都不在里面 ✓，
+  // 它们各自有规则管 ✓（`NewCloseRule` / 值位的动态导入 ✓）。
+  if (operandEnd === afterIndex) {
+    const headWord = this.MetaHeadWord(after);
+    if (headWord !== "") {
+      const dotIndex = SkipNextWrapSymbol(units, operandEnd);
+      const dot = Get(units, dotIndex);
+      if (dot instanceof SymbolToken && dot.Is(".")) {
+        const nameIndex = SkipNextWrapSymbol(units, dotIndex);
+        // **名字那一格可能已经是一条成员链** ✓（第 623 轮 ✓）：
+        // `import.meta.url` 在产物里是 `[import, ., PropertyAccess(meta . url)]` ✓
+        //（`import` / `new` 都不是链底 ✓，见 `property-access.xl.md` ✓）⇒
+        // 而成员访问**比一元运算紧** ✓ ⇒ 整格都是这一元运算的操作数 ✓。
+        if (this.IsMetaName(Get(units, nameIndex))) {
+          operandEnd = nameIndex;
+        }
+      }
+    }
+  }
   while (true) {
     const nextIndex = SkipNextWrapSymbol(units, operandEnd);
     const nextUnit = Get(units, nextIndex);
@@ -587,9 +658,15 @@ return index + 1;
 ```ts
   const kids = ctx.Kids(v);
   const declaredOp = typeof v.attrs.get("op") === "string" ? v.attrs.get("op") : "";
-  let opIndex = kids.findIndex((k: any) => ctx.IsOperatorUnit(k));
-  if (opIndex < 0 && declaredOp !== "") {
-    opIndex = kids.findIndex((k: any) => ctx.TextOf(k) === declaredOp);
+  // **先按 `op` 属性找那一格** ✓（第 623 轮 ✓）：`op` 是这一元运算的**真身** ✓，
+  // 而 `IsOperatorUnit` 只问「是不是 `SymbolToken`」✗ —— `typeof import.meta` 的操作数里
+  // 那个 `.` 也是 `SymbolToken` ✓ ⇒ 它先被认成运算符 ✗（实测：`TypeOfExpression.expression`
+  // 投成 `TypeOfKeyword` ✓、缺 `MetaProperty` + `Identifier` ✓）。
+  // 按**文本**找不会认错 ✓：`op` 那一格是唯一的 ✓（`typeof` / `void` / `delete` 是词 ✓，
+  // 其余是符号 ✓），而操作数那些单元（链 / 括号 / 调用 / 嵌套一元 ✓）的文本都比它长 ✓。
+  let opIndex = declaredOp !== "" ? kids.findIndex((k: any) => ctx.TextOf(k) === declaredOp) : -1;
+  if (opIndex < 0) {
+    opIndex = kids.findIndex((k: any) => ctx.IsOperatorUnit(k));
   }
   const operandKids = opIndex >= 0 ? kids.filter((_: any, i: number) => i !== opIndex) : kids;
   const operand = ctx.Expression(operandKids);

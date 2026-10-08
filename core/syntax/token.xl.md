@@ -160,8 +160,24 @@ this.ApplyCloseRules();
 「对照态」这个档位不再存在 ✓，那道早退也就没有了对象 ✓（`FormStatement` 那条钩子照旧不关 ✓：
 实测让它照跑反而更好，855 对 692 ✓，见 `typescript/tokens/statement.xl.md` ✓）。
 
+**收尾之后补一次 `Parent`** ✓（第 623 轮 ✓）：规则用 `ReplaceCountAt` 把一段单元换成一个新节点 ✓，
+而那是核心的 `splice` ✓、**不设 `Parent`** ✓（只有 `Add` / `AddRange` 才设 ✓）⇒ 换进来的节点
+`Parent` 仍是 `null` ✗。凡是从「当前单元的父亲」推容器的规则（`TupleMemberCloseRule.TupleOf` ✓、
+`type-bracket` 的 `IsTypeContainerUnit(current.Parent)` ✓ …）都会因此**判不出容器** ✗。
+实测：`type E = [infer U, ...string[]]` 的第一个实义单元是替换出来的 `InferType`（`Parent` 为 `null` ✓）
+⇒ 元组成员那一条的锚点找不到 ✓ ⇒ `...string[]` 只剩一个裸 `...` ✓（缺 `RestType` / `ArrayType` ✓）。
+
+**只补 `null`** ✗（不覆盖已有的值 ✓）：一个单元已经指着别的父亲，说明它**故意**挂在那儿 ✓
+（挂载链 / 共享单元 ✓），这里不替它改主意 ✓。这条不变式的另一面是 `Add` ✓：
+`Data` 里的单元要么指 `this`、要么还没认过父亲 ✓ —— 后者只可能来自 `splice` ✓。
+
 ```ts
 Token.Former.ApplyCloseRules(this);
+for (const item of this.Data) {
+  if (item.Parent === null) {
+    item.Parent = this;
+  }
+}
 ```
 
 ## method MoveDataTo:(target:Token)=>void

@@ -5859,3 +5859,23 @@ xl check                174 文件 0 error 0 warning
 
 **反例收成了语料**：`tests/parse/cases/expressions/expr-nonnull-unary-operand.ts`
 （第 614 轮，`cases:tsast` 逐文件一致）。
+
+## 第 623 轮：一次普查收掉的六处（AST 语料 1484 → 1491）
+
+这一轮先**量**再改：把 TS 的 `SyntaxKind` 全表与语料对一遍（只差 JSX 与合成节点），
+再按构造写一份 **203 条片段**的探针（`tmp/snips`，同进程对拍，见 `tmp/ast-probe.mjs`）——
+一次性拿到六处真缺口，逐条修完后探针 **0 不过**、`cases:tsast` 16 片全过。
+
+| 形状 | 根子 | 修在哪 |
+| --- | --- | --- |
+| `type E = [infer U, ...T[]]` 的 `...T[]` 只剩裸 `...` | 规则用 `ReplaceCountAt` 换进来的节点**不带 `Parent`**（那是核心的 `splice`），而元组成员那条规则靠「当前单元的父亲」认容器 | `core/syntax/close-rule.xl.md` 的 `ApplyTo`：每趟 `Process` 之后就地把 `[旧下标, 新下标]` 这一小段里 `Parent` 为 `null` 的补齐 |
+| `typeof import.meta` / `typeof new.target` 投成 `TypeOfExpression(ImportKeyword)` | 一元那条规则只吃**一格**操作数，而 `import` / `new` 与后面的名字在 TS 那边是**同一个节点**；另外运算符那一格是「先按 `IsOperatorUnit` 找」，于是操作数里的 `.` 被认成运算符 | `typescript/tokens/unary-operator.xl.md`：运算符**先按 `op` 属性文本找**；`import` / `new` 后面接 `.名字` 时把整格吃进操作数 |
+| `class C { ; }` 的空成员是裸 `SymbolToken` | 类体成员位由语句成形器管，`;` 在它那里只是**终结符** | 新 token `typescript/tokens/class/semicolon-member.xl.md`（`SemicolonClassElement`，token 直出 ast）+ 进通用队列 |
+| `import("m", { with: { type: "json" } })` 少 `attributes` | 投影只从 `ImportType` 的直接子单元里找，而那两个属性对象在 `Method(name="import")` **里面** | `typescript/tokens/import-type.xl.md` 的 `PrintAst`：也从实参那一层找，取**里面那一层** `{ … }` 作 `AssertClause` |
+| `case 1: break;` 写在一行时体的语句短一个 `;` | 那个 `;` 在**解析期**就被收进段头那条壳里（壳的区间到它为止、`Data` 里没有它），体内新造的语句只到自己最后一格 | `typescript/tokens/switch/switch.xl.md`：段的终点取段头壳的终点；造完体语句后，把**最后一条**的终点补到壳的终点 |
+| `` `${ `b${1}` }c` `` 的 `TemplateTail` 多吞一个空格 | 尾段的起点取的是**内插表达式的终点**，只有「表达式与 `}` 紧挨着」时它才等于那个 `}` | `typescript/print-ast-common.xl.md` 的 `projectString`：起点改取 `InterpolationString` 的终点减一 |
+
+**这一轮同时收进语料的**（七份，`tests/parse/cases/`）：`declarations/cls-semicolon-member.ts`、
+`expressions/expr-template-nested-spaced.ts`、`expressions/expr-typeof-import-meta.ts`、
+`expressions/expr-typeof-new-target.ts`、`statements/stmt-switch-inline-case-body.ts`、
+`types/ty-import-type-attributes.ts`、`types/ty-infer-constraint-tuple-rest.ts`。

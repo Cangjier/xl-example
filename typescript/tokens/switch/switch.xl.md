@@ -219,7 +219,20 @@ for (let m = 0; m < markers.length; m++) {
   }
   if (inlineUnits.length > 0 || followingUnits.length > 0) {
     const firstBody = inlineUnits.length > 0 ? inlineUnits[0] : followingUnits[0];
-    const lastBody = followingUnits.length > 0 ? followingUnits[followingUnits.length - 1] : inlineUnits[inlineUnits.length - 1];
+    // **壳的终点可能比最后一个体单元更远** ✓（第 623 轮 ✓）：`case 1: break;` 写在一行时 ✓，
+    // 那个 `;` 已经被**解析期的语句成形器**收进段头那条壳里了 ✓（`Statement.FormFrom` ✓）——
+    // 它确实是**体的终结符** ✓，而拆出来的这一截 `inlineUnits` 只剩 `break` ✓ ⇒
+    // 照 `lastBody` 收尾就把 `;` 丢了 ✓（实测一行写法：`CaseClause` / `BreakStatement` 各短一格 ✓、
+    // 漂移 6 / 多出 6 ✓）。换行写法不中 ✓ —— 那时 `;` 与 `break` 同属**平级**的一条壳 ✓、
+    // 落在 `followingUnits` 里 ✓，本来就带着 `;` ✓。
+    //
+    // 判据是「**没有**后面的平级单元」✗：有的话最后那一格才是体的终点 ✓（它自己带终结符 ✓）。
+    const lastBody =
+      followingUnits.length > 0
+        ? followingUnits[followingUnits.length - 1]
+        : inner !== null
+          ? head
+          : inlineUnits[inlineUnits.length - 1];
     const statement = segment.CreateStatement();
     statement.SignIn(firstBody.SourceRange.Start!);
     statement.SignOut(lastBody.SourceRange.End!);
@@ -248,6 +261,25 @@ for (let m = 0; m < markers.length; m++) {
       statement.Add(item);
     }
     statement.TryToClose();
+    // **被段头壳吞掉的那个终结符要补回体内** ✓（第 623 轮 ✓）：`case 1: break;` 写在一行时 ✓，
+    // 那个 `;` 在**解析期**就被收进段头那条壳里了 ✓（`Statement.FormFrom` ✓）——壳的区间到它为止 ✓、
+    // 而它的 `Data` 里**没有**这一格 ✓（终结符不进壳 ✓）。体内这条语句是自己新造的 ✓ ⇒
+    // 它的终点只到自己最后一格 ✓ ⇒ 少一个 `;` ✓。
+    //
+    // 判据是「**段头壳的终点越过了它自己最后一个子单元**」✓ ——越过去的那一截就是它吞下的终结符 ✓。
+    // 只补**最后一条**语句 ✓，而且只在它确实还没到那儿时补 ✓：
+    // `case 1: a(); break;` 里 `break;` 已经是平级的一条壳 ✓、终点本来就在壳之内 ✓ ⇒ 不动 ✓。
+    if (inner !== null && head.SourceRange.End !== null) {
+      const bodyEnd = head.SourceRange.End;
+      const tail = statement.Data[statement.Data.length - 1];
+      if (
+        tail !== undefined &&
+        tail.SourceRange.End !== null &&
+        tail.SourceRange.End!.Index < bodyEnd.Index
+      ) {
+        tail.SourceRange.End = bodyEnd;
+      }
+    }
   }
   segment.SignIn(data[from].SourceRange.Start!);
   segment.SignOut(data[to - 1].SourceRange.End!);
