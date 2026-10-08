@@ -6819,4 +6819,39 @@ console.log("sync");
     title: "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
     src: "\nconsole.log(typeof \"abc\".matchAll);\nconst matches = \"abc\".matchAll(/b/g);\nconsole.log([...matches].map((m: any) => m[0] + \"@\" + m.index).join(\" \"));\n",
   },
+  {
+    id: "gap-r676-std-string-regex-members",
+    title: "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
+    src: "\nfunction has(obj: any, key: string): string {\n  return typeof obj[key] === \"function\" ? key : \"\";\n}\nconst names = [\"at\", \"padStart\", \"replaceAll\", \"match\", \"search\", \"matchAll\", \"split\", \"trim\"];\nconsole.log(names.map((k) => has(String.prototype, k)).join(\",\"));\nconsole.log(typeof String.prototype.match, typeof String.prototype.search, typeof String.prototype.matchAll);\n",
+  },
+  {
+    id: "gap-r676-std-date-toUTCString",
+    title: "Date.toUTCString：UTC 的可读文本",
+    src: "\nconsole.log(new Date(0).toUTCString());\nconsole.log(typeof Date.prototype.toUTCString);\n",
+  },
+  {
+    id: "r676-std-string-replaceAll",
+    title: "String.replaceAll：字符串模式与替换串",
+    src: "\nconst s = \"a-b-c\";\nconsole.log(s.replaceAll(\"-\", \"+\"), s.replaceAll(\"-\", \"\"), \"aaa\".replaceAll(\"a\", \"b\"));\nconsole.log(\"abc\".replaceAll(\"\", \".\"));\n",
+  },
+  {
+    id: "r676-std-string-substring-family",
+    title: "String.substring / substr / slice 的取值规则",
+    src: "\nconst s = \"abcdef\";\nconsole.log(s.substring(1, 3), s.substring(3, 1), s.substring(-2, 2));\nconsole.log(s.substr(1, 3), s.substr(-2));\nconsole.log(s.slice(1, 3), s.slice(-2), s.slice(3, 1));\n",
+  },
+  {
+    id: "r676-std-string-index-family",
+    title: "String.indexOf / lastIndexOf / includes / charAt / charCodeAt",
+    src: "\nconst s = \"banana\";\nconsole.log(s.indexOf(\"an\"), s.indexOf(\"an\", 2), s.indexOf(\"z\"), s.lastIndexOf(\"an\"));\nconsole.log(s.includes(\"nan\"), s.includes(\"nan\", 3), s.charAt(1), s.charAt(99));\nconsole.log(s.charCodeAt(0), Number.isNaN(s.charCodeAt(99)));\n",
+  },
+  {
+    id: "r676-std-string-codePoint-iteration",
+    title: "String.codePointAt / fromCodePoint / 迭代代理对",
+    src: "\nconst s = \"a\\u{1F600}b\";\nconsole.log(s.length, [...s].length, s.codePointAt(1) === s.codePointAt(2));\nconsole.log(String.fromCodePoint(97, 0x1f600), [...s].map((c) => c.codePointAt(0)!.toString(16)).join(\",\"));\n",
+  },
+  {
+    id: "gap-r676-std-string-includes-fromIndex",
+    title: "String.includes 的 fromIndex 参数",
+    src: "\nconst s = \"banana\";\nconsole.log(s.includes(\"nan\", 3), s.includes(\"nan\", 2), s.includes(\"nan\", 4));\nconsole.log(s.includes(\"ban\", -3), s.includes(\"ana\", 99));\n",
+  },
 ];

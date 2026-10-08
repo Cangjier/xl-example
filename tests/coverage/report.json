@@ -1,6 +1,6 @@
 {
   "round": "",
-  "matrix": 2155,
+  "matrix": 2162,
   "skipped": [
     {
       "id": "rt-bigint-forms",
@@ -83,7 +83,7 @@
       "why": "口径外：同上"
     }
   ],
-  "progressPercent": 99.58,
+  "progressPercent": 99.46,
   "layers": [
     {
       "layer": "runtime",
@@ -108,12 +108,12 @@
     {
       "layer": "stdlib",
       "weight": 0.25,
-      "total": 837,
-      "pass": 829,
-      "blocked": 4,
-      "differ": 4,
+      "total": 844,
+      "pass": 832,
+      "blocked": 5,
+      "differ": 7,
       "nodefail": 0,
-      "coverage": 99.04
+      "coverage": 98.58
     },
     {
       "layer": "e2e",
@@ -156,6 +156,12 @@
       "layer": "stdlib",
       "title": "String.prototype.matchAll：成员本身在不在（用正则字面量取结果）",
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
+    },
+    {
+      "id": "gap-r676-std-date-toUTCString",
+      "layer": "stdlib",
+      "title": "Date.toUTCString：UTC 的可读文本",
+      "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     }
   ],
   "differ": [
@@ -194,6 +200,24 @@
       "layer": "stdlib",
       "title": "Date 的本地时间构造：本地字段 → 时间戳 → UTC 取值",
       "detail": "stdout 不同：第 2 行：node «false» vs tsrun «true»"
+    },
+    {
+      "id": "gap-r676-std-string-regex-members",
+      "layer": "stdlib",
+      "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
+      "detail": "stdout 不同：第 1 行：node «at,padStart,replaceAll,match,search,matchAll,split,trim» vs tsrun «at,padStart,replaceAll,,,,split,trim»"
+    },
+    {
+      "id": "r676-std-string-index-family",
+      "layer": "stdlib",
+      "title": "String.indexOf / lastIndexOf / includes / charAt / charCodeAt",
+      "detail": "stdout 不同：第 2 行：node «true false a » vs tsrun «true true a »"
+    },
+    {
+      "id": "gap-r676-std-string-includes-fromIndex",
+      "layer": "stdlib",
+      "title": "String.includes 的 fromIndex 参数",
+      "detail": "stdout 不同：第 1 行：node «false true false» vs tsrun «true true true»"
     }
   ],
   "bad": [],

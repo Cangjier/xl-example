@@ -1195,4 +1195,42 @@ export const EXPECTATIONS = {
     expect: "differ",
     why: "`new Date(2020, 0, 2, 3, 4, 5, 6)` 的本地分量没换算成 UTC：toISOString 把本地墙上时间打成了 UTC",
   },
+
+  // ===== 第 676 轮（其三）：**系统性点名**量到的两格（2 条）=====
+  //
+  // 这一批不是「随手挑构造」，是**把内建族逐个问一遍**（全局名 → 静态成员 → 原型成员，
+  // 名字用字符串键取，见用例正文），报出「本仓 `undefined`、`node` 有」的那些。量出来的是：
+  //
+  // ---- `String.prototype` 上**正则那一族缺三个成员**：`match` / `search` / `matchAll`
+  // （`replace` / `split` 在，只是不做「模式是正则」那一档）。它们与 `RegExp` 这个非目标
+  // **不是同一件事**：`node` 里这三个成员**存在**（`typeof` 是 `function`），
+  // 缺的是本仓成员表里的号 —— 装上号以后「非正则参数」那一支（`"abc".search("b")`）
+  // 是可以做的，就像 `replaceAll` / `split` 现在这样（`replaceAll` 那一格量过，是好的）。
+  "gap-r676-std-string-regex-members": {
+    expect: "differ",
+    why: "`String.prototype` 的 `match` / `search` / `matchAll` 三个成员没装（`node` 上是函数）：成员表里没有那三格",
+  },
+
+  // ---- `Date.prototype.toUTCString` 没装（`getTimezoneOffset` / `toDateString` / `toTimeString`
+  // 是同一族；`toISOString` 在）。它的形状是**固定英文**的 `Thu, 01 Jan 1970 00:00:00 GMT`
+  // —— 与 `toDateString` 要的那张本地时区名表不同，这一格**不需要**宿主给时区名，
+  // 只要 UTC 的星期 / 月份名表（运行时本来就有 `getUTCDay` / `getUTCMonth` 那两格）。
+  "gap-r676-std-date-toUTCString": {
+    expect: "blocked",
+    why: "`Date.prototype.toUTCString` 没装：成员表里没有那一格，调用报 cannot call a non-closure value",
+  },
+
+  // ---- 第 676 轮（其三）另外量到的一格：`String.prototype.includes` **不吃 fromIndex**
+  // （每次运行都忽略那个参数、一律从头搜）。同一条用例里 `indexOf` / `lastIndexOf` 的
+  // fromIndex 是**对的**（`"banana".indexOf("an", 4)` 给 `-1`），所以根子只在这一格的方法体里：
+  // 它把第二实参丢了（或走了「只搜第一段」的那条捷径）。修法是照 `indexOf` 那一支抄一遍，
+  // 再把结果折算成布尔。
+  "gap-r676-std-string-includes-fromIndex": {
+    expect: "differ",
+    why: "`String.prototype.includes` 忽略 fromIndex：`\"banana\".includes(\"nan\", 3)` 该是 false，这里给了 true",
+  },
+  "r676-std-string-index-family": {
+    expect: "differ",
+    why: "同上一格：这条一并量了 indexOf（对）/ lastIndexOf（对）/ includes（忽略 fromIndex）三格",
+  },
 };

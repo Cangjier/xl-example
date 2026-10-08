@@ -120,23 +120,45 @@ node tests/coverage/run.mjs --emit-expectations                    # 按现状�
 | --- | --- | --- |
 | runtime | **595 / 595** | **100%** |
 | exec | **495 / 498** | 99.4% |
-| stdlib | **829 / 837** | 99.0% |
+| stdlib | **832 / 844** | 98.6% |
 | e2e | **225 / 225** | **100%** |
-| **合计（加权）** | **2144 / 2155** | **99.6%** |
+| **合计（加权）** | **2147 / 2162** | **99.5%** |
 
-那 11 条过不了的是**真缺口**，都登了台账（写清根子）：
+那 15 条过不了的是**真缺口**，都登了台账（写清根子）：
 对象字面量的值是一对圆括号里的二元表达式、宿主 ABI 的 `setTimeout`、
-`Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` 没装、
-`String.prototype.matchAll` 没装（五条 `blocked`）、
+`Date.prototype.getTimezoneOffset` 与 `toDateString` / `toTimeString` / `toUTCString` 没装、
+`String.prototype.matchAll` 没装（六条 `blocked`）、
 `using` / `await using` 的降级、`new Object(null)` 该造 `{}`、
-`Object.groupBy` 的分组表该是 null 原型、多分量 `new Date(y, m, d, …)` 没做本地时区换算
-（六条 `differ`）。
+`Object.groupBy` 的分组表该是 null 原型、多分量 `new Date(y, m, d, …)` 没做本地时区换算、
+`String.prototype` 的 `match` / `search` / `matchAll` 三个成员没装、
+`String.prototype.includes` 忽略 `fromIndex`（九条 `differ`）。
 **第 670 / 671 / 672 / 675 轮起它们陆续进了矩阵**（`gap-*`，用户口径：凡是缺口的全部进语料）——
 原来只写在本文档与根 README 的「没有进矩阵」那几段里（还有一条只写在
 `typescript-exec/builtins/globals.xl.md` 的正文里），于是「还差多少」在读数里看不见，
 而**分母是活的、它比分子重要**：藏起来的那几条只会让百分比虚高。
-读数从 100% 掉到 99.8% 是**分母变诚实**，不是倒退；**第 676 轮**又加宽了 27 条
-（`r676-*`，第 676 轮普查量出的缺口另立 5 条 `gap-r676-*`），读数再掉到 99.6%，同一个道理。
+读数从 100% 掉到 99.8% 是**分母变诚实**，不是倒退；**第 676 轮**又加宽了 34 条
+（`r676-*`，同一轮普查量出的缺口另立 7 条 `gap-r676-*`，另有 1 条同族的另算），
+读数再掉到 99.5%，同一个道理。
+
+### 第 676 轮（其三）：**系统性点名**——把内建表面逐个问一遍
+
+上一批（`k9-*`）是「随手挑构造」；这一批换了一条更有产出的路：**不问构造，问名字**。
+顺序是三层——全局名（`globalThis` 上有哪些）→ 静态成员（`Object.is` / `Array.from` /
+`Math.trunc` … 逐个取一次）→ 原型成员（`Array.prototype.at` / `String.prototype.padStart` /
+`Date.prototype.toISOString` …），把 `undefined` 的那些打印出来，与 `node` 各跑一遍比。
+量出来的三格（都登了台账，用例也在矩阵里）：
+
+| 名字 | 症状 | 根子 |
+| --- | --- | --- |
+| `String.prototype.match` / `search` / `matchAll` | `node` 上是函数，这边 `undefined` | 成员表里没有那三格（与 `RegExp` 非目标是两件事：非正则参数那一支是可做的，`replaceAll` / `split` 现在就是好的） |
+| `Date.prototype.toUTCString` | 调用报 `cannot call a non-closure value` | 成员表里没有那一格。它要的是**固定英文**的 UTC 文本，不需要宿主给本地时区名 |
+| `String.prototype.includes` 的 `fromIndex` | `"banana".includes("nan", 3)` 给 `true`（该 `false`） | 方法体把第二实参丢了；同一条用例里 `indexOf` / `lastIndexOf` 的 `fromIndex` 是**对的** |
+
+**两个注意**：一、`.` 取法与 `["成员名"]` 取法在产物里是**两条路**，所以探针一律用**字符串键**
+（`obj[key]`）——`.` 取法撞上没装的成员会直接抛，量出来的东西会混进「取法」本身的差异。
+二、留在全局名清单里的 `BigInt` / `Reflect` / `Proxy` / `Intl` / `RegExp` / `WeakRef` /
+`FinalizationRegistry` 与定时器那一族**不是缺口**：它们是 `docs/runtime-architecture.md` §15
+点名的 v1 非目标，探针只把它们印出来「看得见」，不进台账。
 
 **一条已知边界**：异步可迭代物那一档是**收完再迭代**（与自定义**同步**迭代器那条路同一取舍），
 所以「无穷异步可迭代物」会一直收下去——口径外的写法，不设第二份上限。
