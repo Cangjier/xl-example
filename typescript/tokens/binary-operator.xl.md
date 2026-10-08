@@ -29,6 +29,7 @@ import { ParsePipeline } from "../parse-pipeline.xl.md"
 import { As } from "./as.xl.md"
 import { Satisfies } from "./satisfies.xl.md"
 import { Class } from "./class/class.xl.md"
+import { Function } from "./function/function.xl.md"
 ```
 
 # namespace cangjie
@@ -301,7 +302,12 @@ if (
   // 而 `typeof class C { }`（读那一半）靠的也是这一格的**对称补充**——
   // 两份名单**必须对齐**（`unary-operator.xl.md` 第 69 行那条纪律）：
   // 只补一边的话，`+` 会先被**一元**那一趟抢走（`UnaryOperator op="+"`）。
-  unit instanceof Class
+  unit instanceof Class ||
+  // **函数表达式也是操作数**（第 692 轮）：与 `Class` 同一族、同一份理由——
+  // `function () {} + 1` 是合法的 JS（`typeof` 给 `"string"`），而
+  // `typeof function () {}` 折不起来的那一半正是**这里**：只补 `unary-operator` 一边的话，
+  // `function () {} + 1` 里的 `+` 会被**一元**那一趟抢走（`UnaryOperator op="+"`）。
+  unit instanceof Function
 ) {
   return true;
 }

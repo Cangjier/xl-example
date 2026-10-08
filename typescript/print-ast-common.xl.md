@@ -3013,7 +3013,14 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       // 两种外壳（`NotNull` / `PropertyAccess`）都要认——判据与理由见
       // `isIndexFirstUnit` 那一段。少了它，`o.b![1]![0]` 与 `data.list![0].id`
       // **整条链都进不来**（后两个方括号连着丢）。
-      (kids[0].get("type") === "NotNull" && isIndexFirstUnit(kids[1], ctx)))
+      (kids[0].get("type") === "NotNull" && isIndexFirstUnit(kids[1], ctx)) ||
+      // **第二格以一次调用开头**（第 692 轮）：`o["f"]().v` 的产物是
+      // `[PropertyAccess(o, [f]), PropertyAccess(Bracket(()), ., v)]`——
+      // 调用那一对括号**与它后面的 `.v` 一起**折进了第二个 `PropertyAccess`
+      //（`o["f"]()` 单独出现时是三格平级 `[o, Bracket([f]), Bracket(())]`，
+      //  多了后缀之后 token 层给出的形状**就换了一个**）。
+      // 判据与理由见 `isCallFirstUnit` 那一段。
+      isCallFirstUnit(kids[1], ctx))
   ) {
     // **嵌套的链要摊平**（第 86 轮）：产物偶尔把**一整条链**塞进另一条链的成员位——
     // `this.Parent!.Data.splice(1, 2)` 实测是
@@ -3024,6 +3031,20 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     const ck = [];
     for (let at = 0; at < kids.length; at++) {
       const k = kids[at];
+      // **第二格那份「调用括号 + 后缀」要摊开**（第 692 轮）：
+      // `o["f"]().v` 的第二格是 `PropertyAccess(Bracket(()), ., v)`——
+      // 它外壳是属性访问，里层却是**两件事**：先对前面那次下标的结果**调一次**，
+      // 再把 `.v` 接上去。**不摊开的话**：循环看到的是一个 `PropertyAccess`
+      // ⇒ 既不是下标、也不是点号 ⇒ `break` ⇒ `left` 停在 `ElementAccessExpression`，
+      // 后面整段丢（`console.log(o["f"]().v)` 于是打印**那个函数自己**，
+      // Node 打印 `1`——**静默错值**；`typeof o["f"]()` 那一条既有判据钉的
+      // 是**没有后缀**的形状，所以一直没露）。
+      // **摊开之后与 `o["f"]()` 那条既有路一字不差**：`(` 那一格走循环里
+      // 「调用括号也是链上的一格」那一支，`.v` 走点号那一支。
+      if (k.get("type") === "PropertyAccess" && at > 0 && isCallFirstUnit(k, ctx)) {
+        for (const inner of projectableKids(view(k))) ck.push(inner);
+        continue;
+      }
       if (k.get("type") === "PropertyAccess" && at > 0 && isSymbol(kids[at - 1], ".")) {
         for (const inner of projectableKids(view(k))) ck.push(inner);
         continue;
@@ -3642,6 +3663,42 @@ if (kind === "ArrayLiteral" || isIndexBracket(unit)) return true;
 if (kind === "NotNull" || kind === "PropertyAccess") {
   const inner = projectableKids(view(unit));
   if (inner.length >= 1) return isIndexFirstUnit(inner[0], ctx);
+}
+return false;
+```
+
+# method isCallFirstUnit:(unit:any, ctx:any)=>bool
+
+**这一格是不是「以一次调用开头」**（第 692 轮）——`isIndexFirstUnit` 的姊妹。
+
+**为什么需要它**：`o["m"]()` 单独出现时 token 层给的是**三格平级**
+（`[o, Bracket([m]), Bracket(())]`，见 `tokens/property-access.xl.md` 里那一段：
+`MethodCloseRule` 只认 `Identifier` 当被调用者），可在它后面再接一个后缀之后，
+形状**换成了两格**：
+
+| 写法 | token 层给的形状 |
+| --- | --- |
+| `o["m"]()` | `[Identifier(o), Bracket([m]), Bracket(())]`（三格平级） |
+| `o["m"]().v` | `[PropertyAccess(o, [m]), PropertyAccess(Bracket(()), ., v)]` |
+
+第二格那份把**调用括号**与**它后面的后缀**装进了同一个 `PropertyAccess` 外壳里——
+`projectExpression` 的链那一支（判据是「`kids[1]` 是 `.` 或下标」）于是整个进不来，
+`kids[0]` 单独投出去、后面那半段丢。所以链那一支要认的不只是「第二格是个点号/下标」，
+还要认「第二格**以一次调用开头**」。
+
+**判据只往里看一层、且只认 `PropertyAccess` / `NotNull` 外壳**：
+裸的 `(` 括号兄弟（`f()()` 那一种）**不在这里**——它的归属由 `projectExpression`
+末尾那条「调用链的末尾那一格是 `(` 括号」（3b）管，放开会换掉既有形状。
+
+```ts
+if (unit === undefined || unit === null) return false;
+const kind = unit.get("type");
+if (kind === "PropertyAccess" || kind === "NotNull") {
+  const inner = projectableKids(view(unit));
+  if (inner.length >= 1) {
+    const head = inner[0];
+    return head.get("type") === "Bracket" && head.get("startBracket") === "(";
+  }
 }
 return false;
 ```

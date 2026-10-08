@@ -30,6 +30,7 @@ import { NullConditionalOperator } from "./null-conditional-operator.xl.md"
 import { As } from "./as.xl.md"
 import { Satisfies } from "./satisfies.xl.md"
 import { Class } from "./class/class.xl.md"
+import { Function } from "./function/function.xl.md"
 ```
 
 # namespace cangjie
@@ -154,7 +155,22 @@ return (
   //（听起来像「`typeof` 没实现」——**别的 `typeof` 全是好的**）。
   // **两份名单一起补**（本文件第 69 行那条纪律）：`x + class { }` 是合法的 JS，
   // 二元那一份少了它，`+` 就会被**一元**那一趟抢走（`UnaryOperator op="+"`）。
-  unit instanceof Class
+  unit instanceof Class ||
+  // **函数表达式也是操作数**（第 692 轮）：`typeof function () {}` 在 TS 里是
+  // `TypeOfExpression(FunctionExpression)`——与 `typeof class C { }`（第 328 轮）
+  // **一字不差的同一族**，第 328 轮补的是 `Class`、漏的是 `Function`。
+  // **少了它的症状**：`typeof function () { }` 折不起来 ⇒ 投影只吐一个光秃秃的
+  // `TypeOfKeyword`（**后面那个函数整格丢**），降级层报
+  // `unimplemented: expression TypeOfKeyword`（听起来像「`typeof` 没实现」——
+  // 别的 `typeof` 全是好的）；`!function () {}` 同理（那一刻还不是 `UnaryOperator`，
+  // 报的是 `unimplemented: expression ExclamationToken`）；
+  // 而 `function () {} + 1` 更远：`+` 被当**前缀一元** ⇒ 那一格按
+  // `FunctionDeclaration` 投出去，降级层报 `unimplemented: expression FunctionDeclaration`。
+  // **为什么它安全**（与 `Class` 同一份理由）：函数**声明**虽然也是同一个 `Function`
+  // 单元，但语句各自是一个容器（`Statement` / `Root`），`SkipPreviousWrapSymbol`
+  // 在同一个容器里走不到别条语句的 `Function`——实测 `function f() {} ++n;` 与
+  // `class A {} ++n;` 的产物都还是「`++` 当**前缀**」（`postfixHere` 不成立）。
+  unit instanceof Function
 );
 ```
 
@@ -487,7 +503,22 @@ if (current === null) {
 const postfixHere =
   this.IsPlusPlus(current)
   && this.IsOperand(Get(units, SkipPreviousWrapSymbol(units, index)))
-  && !(Get(units, index - 1) instanceof LineWrap);
+  && !(Get(units, index - 1) instanceof LineWrap)
+  // **字面量不能当后缀的操作数**（第 692 轮，**实测撞到的**）：
+  // `function f() {} ++n;` 里 `++` 前面紧挨着的正是那个 `Function` 单元——
+  // 而 `IsOperand` 第 692 轮刚把 `Function` 补进名单（`typeof function () {}` 要它，
+  // 见下面那一格），于是这一句当场给真 ⇒ `++` 被读成**后缀**、把**函数声明**
+  // 折成了它的操作数（实测产物是 `UnaryOperator(op="++") > Function`，降级层报
+  // `unimplemented: update expression on FunctionExpression`——
+  // 而 Node 跑这一份是**两句普通语句**）。
+  //
+  // **判据是文法**：后缀 `++` / `--` 要的是一个**引用**（名字 / 成员 / 下标），
+  // 而函数字面量与类字面量**给不出引用**——所以它们出现在这一格时，`++` 一定是
+  // **下一句的前缀**。`Class` 一并排掉：第 328 轮把 `Class` 补进名单时漏了这一格
+  //（那一轮没露是因为 `class A {}` 会被 `ClassCloseRule` 放到**容器外层**、
+  //  而函数声明留在同一个容器里——`function f() {} ++n` 才撞得到）。
+  && !(Get(units, SkipPreviousWrapSymbol(units, index)) instanceof Function)
+  && !(Get(units, SkipPreviousWrapSymbol(units, index)) instanceof Class);
 const afterIndex = SkipNextWrapSymbol(units, index);
 let after = Get(units, afterIndex);
 // **套着写的前缀：先把里面那一处折完**（第 169 轮）。

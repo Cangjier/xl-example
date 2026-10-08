@@ -77,69 +77,51 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **3992** 条（token 1415 / exec 645 / runtime 632 / stdlib 1067 / e2e 246）。
+语料 **4377** 条（token 1416 / exec 758 / runtime 632 / stdlib 1339 / e2e 246）。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
-| `token` | 1402 | **1182** | 220 | 缺的那 220 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 645 | **631** | 1 / 13 | 另有 1 条不进分母 |
+| `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
+| `exec` | 757 | **739** | 1 / 17 | 另有 1 条不进分母 |
 | `runtime` | 632 | **628** | 1 / 3 | |
-| `stdlib` | 1067 | **1014** | 19 / 34 | |
+| `stdlib` | 1339 | **1284** | 20 / 35 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **3992** | **3697** | 245 / 50 | 加权 **95.7%** |
+| **合计** | **4377** | **4077** | 245 / 55 | 加权 **95.8%** |
 
-**第 691 轮（其三）再加 34 条**：这一批问的是**微任务次序 / 生成器清理 /
-迭代中改集合 / 属性查询的边角**，收掉两处**直接崩**的：
+**第 692 轮再加 385 条**（分母 3992 → **4377**）：两批一次性的**角落普查**——
+① 手写的 81 条（属性枚举次序 / 数组的洞 / 字符串与数字格式化 / 位运算 / `Map`-`Set`
+的键 / `JSON` / 类与访问器）；② **原子探针 299 条**（`probe-*`：一条只问一个表达式，
+期望值由**真 `node` 现给**，打印口径钉成 `typeof:值`，免得把控制台渲染那一族的
+已知缺口混进来）。这一批**加宽本身收掉四处**：
 
-1. `o.propertyIsEnumerable(符号)` 与 `o.hasOwnProperty(符号)` 原来**整份脚本挂掉**
-   （`cannot convert a Symbol value to a string`——键先过了一趟 `ToString`，
-   而符号本来就该**按身份**问）；
-2. `Object.prototype.hasOwnProperty.call(null, "x")` 原来答**假**，
-   JS 在这一步 `RequireObjectCoercible` ⇒ `TypeError`。
+1. **`o["f"]().v` 这一族整段丢**（**静默错值**，最响的一处）：token 层把这种写法给成
+   **两格**（`PropertyAccess(o["f"])` 与 `PropertyAccess(Bracket(()), ., v)`），
+   而投影层的链那一支只看「`kids[1]` 是不是 `.` 或下标」⇒ 整个让开 ⇒ 只投 `kids[0]`：
+   `console.log(o["f"]().v)` **打印那个函数自己**（Node 打印 `1`），
+   `a["values"]().next().value` / `"ab"[Symbol.iterator]().next().value` 同样。
+   修法：链那一支认「第二格**以一次调用开头**」（`isCallFirstUnit`），摊开之后与
+   `o["f"]()` 那条既有路一字不差。
+2. **`IsOperand` 不认 `Function`**（只认 `Class`，第 328 轮补漏的另一半）：
+   `typeof function () {}` 折不起来 ⇒ 投影只吐一个光秃秃的 `TypeOfKeyword`
+   （降级层报 `unimplemented: expression TypeOfKeyword`）；`!function () {}` 报
+   `ExclamationToken`；`function () {} + 1` 里 `+` 被读成**前缀一元** ⇒ 报
+   `FunctionDeclaration`。两份名单（`unary-operator` / `binary-operator`）一起补齐。
+3. **补 `Function` 带出来的回归，同一轮当场收掉**：`function f() {} ++n;` 里 `++`
+   的前一格成了「操作数」⇒ 被读成**后缀**、把函数声明折进操作数。判据是文法——
+   后缀 `++` / `--` 要一个**引用**，字面量给不出来（`Class` 一并排掉）。
+4. **`"abc".hasOwnProperty("length")` / `hasOwnProperty(0)` 原来答假**（JS 答真）：
+   这一支在 `self.Tag !== Object && !== Array` 上就返回了，而**同一个问题**在
+   `Object.hasOwn` 那一支（第 691 轮收下字符串）**早就是真**——两套答案。
+   现在字符串走 `getOwnPropertyDescriptor`（越界给 `undefined` ⇒ 假），
+   函数自己那两格（`length` / `name`，不住在属性表里）另认一句。
 
-另登记五族新缺口（`differ` +5、`blocked` +1）：`await` 一个 thenable 不调它的 `then`、
-`for...of` 遍历 `Map` / `Set` 时不是**活视图**（与 `stdlib/map-set/110` 同一条根）、
-`concat` 不认 `Symbol.isConcatSpreadable`、数组子类不走 `Symbol.species`、
-`replace` 的函数形式要正则字面量（`RegExp` 那一族）。
-
-**第 691 轮（其二）又加了 25 条**，钉的是**属性描述符那一族**与几处新角落——
-这一批**同时**把上一批登记的四处缺口收掉了（所以 `differ` 只从 43 涨到 45）：
-
-1. **`defineProperty` 没做 `ValidateAndApplyPropertyDescriptor`**：不可配置的格子上改
-   值 / 改可枚举 / 改可配置 / 换成访问器，JS 一律抛 `TypeError`，本仓照写；
-   连**没写的字段当 `false` 重算**也一起收掉了（`Object.freeze(o)` 之后**同值**改写
-   该静默通过，原来因为「没写的 `enumerable` 被当成假」而误抛）；
-   另外补上「不可扩展的对象上新建一格抛」——`stdlib/object/116-l677p-obj-lock-difference`
-   原来那条台账**量错了**（它记的是「node 松散所以静默」，而 `defineProperty`
-   在松散模式下照样抛），现在两边逐字相同，台账也翻了过来。
-2. **`console.log` 的格式说明符**（`util.format`）：`%s` / `%d` / `%i` / `%f` / `%o` / `%O`
-   各消耗一个实参、`%c` 与 `%%` 不消耗，认不出的与没有实参可消耗的都原样留着；
-   **`%j` 还没做**（写在 `globals.xl.md` 那一处）。
-3. **`sort` 把 `undefined` 与洞排到最后，且比较器一次都不为它们调**——
-   原来 `3 - undefined` 给 `NaN` ⇒ 判成「不用挪」⇒
-   `[3, undefined, 1, undefined, 2].sort((a, b) => a - b)` **一句都不报、数组原样**。
-4. **`Object.create(null, 描述表)`** 与 `console.log` 那四处（见上一节）。
-
-**第 691 轮加了 106 条**（分母 3827 → **3933**）：两批一次性的**角落普查**——
-核心库（`Array` / `String` / `Object` / `JSON` / `Number` / `Math` / `Map` / `Set` / `Symbol` /
-`console` 的渲染）与语言层（运算符表、解构、闭包捕获、`this`、`try`/`finally`、
-带标签的循环、可选链与逻辑赋值）各问一遍。**加宽本身就收掉了五个静默错值**：
-
-1. `Object.create(null, 描述表)` 那一档**当场 `return`**（无原型那一支写完 `Proto = 0`
-   就交回对象），第二格实参连看都没看——`o.a` 与 `Object.keys(o)` 一起静默；
-2. `console.log` 把**不可枚举**的自有属性照印（`Object.defineProperty(o, "h", { value: 3 })`
-   那一格），而 `Object.keys` 一直是过滤的：**同一个对象「有几格」有两个答案**；
-3. 符号键在渲染里**不存在**（`o[Symbol("s")] = 2` 那一格被 `Tag !== String` 跳过）；
-4. 可枚举的访问器**整格跳过**，于是 `{ get x() { return 1; } }` 与 `{}` 印出来一模一样
-   （Node 给 `[Getter]` / `[Setter]` / `[Getter/Setter]`，且**不调用**取值器）；
-5. 匿名**类**印成 `[class ]`，Node 给 `[class (anonymous)]`。
-
-另登记 **8 族新缺口**（`blocked` +4 / `differ` +12，含 3 条 `Reflect` / `RegExp` / `BigInt`
-那一档本来就该做的）：`Object.create` 之外的 `defineProperty` 重定义不可配置属性、
-`Array.prototype.toString` 不现读 `this.join`、`console.log` 的 `%s` 族、循环引用的
-`[Circular *1]`、异步/生成器函数的渲染、`new` 一个 `bind` 出来的构造时的 `new.target`、
-数组下标上的访问器、`in` 的右操作数不是对象时该在运行期抛。
+另登记 6 条新缺口（`differ` +5 / `blocked` +1）：`typeof eval` 没有那一格、
+**没声明过的名字**在降级期就抛（JS 要到运行期才抛 `ReferenceError`）、
+`Error` 的静态成员、生成器对象的内部标签（`[object Generator]`）、
+私有名的品牌检查、**类表达式**静态块里类名没绑上。
+另外 `token/expressions/expr-function-expression-plus` 这一条**收掉了**
+（`xl:known-gap` 撤掉，`xl:expect` 从 `UnaryOperator` 改成 `BinaryOperator`）。
 
 **不进分母的只有两档**（`xl:skip` 1 条 + `.tsx` / `xl:ts-invalid` 13 条 = 14 条）：
 

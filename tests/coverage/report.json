@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 3992,
+  "total": 4377,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,27 +75,27 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.71,
+  "progressPercent": 95.84,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1402,
-      "pass": 1182,
-      "blocked": 220,
+      "total": 1403,
+      "pass": 1184,
+      "blocked": 219,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.31
+      "coverage": 84.39
     },
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 645,
-      "pass": 631,
+      "total": 757,
+      "pass": 739,
       "blocked": 1,
-      "differ": 13,
+      "differ": 17,
       "nodefail": 0,
-      "coverage": 97.83
+      "coverage": 97.62
     },
     {
       "category": "runtime",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 1067,
-      "pass": 1014,
-      "blocked": 19,
-      "differ": 34,
+      "total": 1339,
+      "pass": 1284,
+      "blocked": 20,
+      "differ": 35,
       "nodefail": 0,
-      "coverage": 95.03
+      "coverage": 95.89
     },
     {
       "category": "e2e",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1402,
-    "knownGap": 220,
-    "knownGapStillOpen": 220,
-    "exactFiles": 1182,
-    "scoredWithoutGap": 1182,
-    "passedWithoutGap": 1182
+    "total": 1403,
+    "knownGap": 219,
+    "knownGapStillOpen": 219,
+    "exactFiles": 1184,
+    "scoredWithoutGap": 1184,
+    "passedWithoutGap": 1184
   },
   "blocked": [
     {
@@ -298,12 +298,6 @@
       "category": "token",
       "title": "基线用例（来自缺口审计语料）",
       "detail": "缺 3　注释夹在二元运算符与操作数之间：整条 `BinaryOperator` 不成形（r660 探针池 mut-fn-decl-91）"
-    },
-    {
-      "id": "token/expressions/expr-function-expression-plus",
-      "category": "token",
-      "title": "函数表达式后面直接接运算符",
-      "detail": "缺 4　多 1　函数表达式那一格收完就断，后面那个 `+ 1` 整段落成别的形状（缺 4）"
     },
     {
       "id": "token/expressions/expr-generic-instantiation",
@@ -1488,6 +1482,12 @@
       "detail": "tsrun: 脚本抛出：cannot call a non-closure value (it is not a function)"
     },
     {
+      "id": "stdlib/error/probe-e07",
+      "category": "stdlib",
+      "title": "(function () { try { undefinedFn(); } catch (e) { return e instanceof ReferenceError; } })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：name is not a local or a capture: undefinedFn"
+    },
+    {
       "id": "stdlib/globals/006-regexp-literal-basic",
       "category": "stdlib",
       "title": "正则字面量与 exec / test",
@@ -1610,6 +1610,18 @@
   ],
   "differ": [
     {
+      "id": "exec/classes/probe-c05",
+      "category": "exec",
+      "title": "(class { #p = 1; get() { return this.#p; } }).prototype.get.call({})",
+      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «undefined:undefined»"
+    },
+    {
+      "id": "exec/classes/probe-c09",
+      "category": "exec",
+      "title": "(class A { static { A.y = 2; } }).y",
+      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «throw:Error»"
+    },
+    {
       "id": "exec/decorators-modifiers/051-beh-proto-accessor",
       "category": "exec",
       "title": "__proto__ 这个访问器读与写",
@@ -1686,6 +1698,18 @@
       "category": "exec",
       "title": "`new.target` 与 `bind` 出来的构造",
       "detail": "stdout 不同：第 3 行：node «target true» vs tsrun «target false»"
+    },
+    {
+      "id": "exec/functions/probe-f18",
+      "category": "exec",
+      "title": "typeof eval",
+      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
+    },
+    {
+      "id": "exec/iterators/probe-y14",
+      "category": "exec",
+      "title": "(function* () { const x = yield 1; return x; })()",
+      "detail": "stdout 不同：第 1 行：node «object:[object Generator]» vs tsrun «object:[object Object]»"
     },
     {
       "id": "runtime/async/041-await-thenable",
@@ -1781,13 +1805,19 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19628/src/2911.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26756/src/3083.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
       "category": "stdlib",
       "title": "名字逐个取一次：Error 的静态成员（缺 4 个）",
       "detail": "stdout 不同：第 1 行：node «function captureStackTrace function» vs tsrun «function captureStackTrace undefined»"
+    },
+    {
+      "id": "stdlib/error/probe-e09",
+      "category": "stdlib",
+      "title": "typeof Error.captureStackTrace",
+      "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «string:undefined»"
     },
     {
       "id": "stdlib/globals/057-names-globalthis",

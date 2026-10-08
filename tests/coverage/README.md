@@ -97,6 +97,22 @@
    `hasOwnProperty.call(null, …)` 该抛而答了假），另登记五族新缺口。
    （`tests/cases/package.json` 那一份是给「直接 `node <用例>.ts`」用的，实测改它**不影响**读数
    ——判据跑的是 `.work-<pid>/src/` 里现写的那一份。）
+   **第 692 轮全矩阵**（两批角落普查、385 份新语料）：通过 **3697 → 4077**、
+   分母 **3992 → 4377**、`blocked` **245（没涨**：新登记 1 条、收掉 1 条）、
+   `differ 50 → 55`、`bad` 仍 **0**、`regressions` 0——**加宽这一件事本身**收掉四处：
+   ① `o["f"]().v` 那一族**整段丢**（**静默错值**：打印出来的是那个函数自己）；
+   ② `IsOperand` 不认 `Function`（`typeof function () {}` / `!function () {}` /
+   `function () {} + 1` 三条一起断，第 328 轮补 `Class` 时漏的另一半）；
+   ③ 补 `Function` 带出来的**后缀回归**（`function f() {} ++n`，同一轮当场收掉）；
+   ④ `"abc".hasOwnProperty("length"|0)` 答假（与 `Object.hasOwn` 那一支**两套答案**）。
+   另登记 6 条新缺口（见 [tests/cases/README.md](../cases/README.md) 那一节）。
+   **加权 95.7% → 95.8%**：新收的 380 条通过是分子，6 条登记缺口是分母。
+   **这一轮的量法**：原子探针的期望值**不写死在语料里**——一条只问一个表达式、
+   由 `node` 现给答案，打印口径钉成 `typeof:值`（免得把控制台渲染那一族的已知缺口
+   混进来），299 条一次量完只用 **~3s**（批：被测 1.8s、裁判 1.0s）；
+   再按 `coverage:sweep --json` 的判决把候选写成**带文件头的真用例**
+   （非 pass 的把 `xl:want` / `xl:why` 一起写进去）——「加宽」与「记缺口」是同一次动作，
+   不靠人手抄。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

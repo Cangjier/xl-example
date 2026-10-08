@@ -2761,13 +2761,35 @@ if (id === ObjectHasOwnProperty) {
   if (self.Tag === ValueTag.Null || self.Tag === ValueTag.Undefined) {
     throw new TypeError("Cannot convert undefined or null to object");
   }
-  if (self.Tag !== ValueTag.Object && self.Tag !== ValueTag.Array) return Value.FromBool(false);
   // **非字符串的键先过 `ToString`**（JS 的 `ToPropertyKey`）：`o.hasOwnProperty(1)` 是通的。
   // **符号键不走这一趟**（第 691 轮）：`TextFrom` 对符号抛，而那正是「整份脚本挂掉」；
   // 符号键本来就该**按身份**问（`KeyMatches` 那条路）。
   const askedKey = args[0].Tag === ValueTag.String || args[0].Tag === ValueTag.Symbol
     ? args[0]
     : Value.FromString(table.CreateString(Units(TextFrom(table, args[0]))));
+  // **字符串接收者**（第 692 轮，普查当场量到的）：`"abc".hasOwnProperty("length")` 与
+  // `"abc".hasOwnProperty(0)` 在 JS 里都是**真**（每一个码元下标 + `length` 都是
+  // **自有**属性），本仓原来在下面那句 `self.Tag !== Object && !== Array` 上**答假**——
+  // **静默错值**，而且同一个问题在这里与 `Object.hasOwn` 那一支（第 691 轮已经收下字符串）
+  // 是**两个答案**（`Object.hasOwn("ab", 0)` 早就是真）。
+  // **走同一支**：`getOwnPropertyDescriptor` 那一支早就收字符串（下标 / `length` /
+  // 越界给 `undefined`），所以「不是自有属性」的判据就是**它给 `undefined`**——
+  // 不另写一份「哪些键算自有」的名单（那正是两份答案的来源）。
+  if (self.Tag === ValueTag.String) {
+    const stringDescriptor = InvokeGlobal(room, call, table, protos, ObjectGetOwnPropertyDescriptor,
+      self, [self, askedKey],
+      sink, failed, false);
+    return Value.FromBool(!stringDescriptor.IsNullish());
+  }
+  // **函数自己那两格**（第 692 轮，与 `Object.hasOwn` 那一支同一句话）：
+  // `length` / `name` **不住在属性表里**（`getOwnPropertyDescriptor` 对函数响亮地抛），
+  // 而 JS 里它们都是**自有、不可枚举** ⇒ `(function (a) {}).hasOwnProperty("length")` 是**真**。
+  if ((self.Tag === ValueTag.Function || self.Tag === ValueTag.Closure)
+    && askedKey.Tag === ValueTag.String
+    && (TextFrom(table, askedKey) === "length" || TextFrom(table, askedKey) === "name")) {
+    return Value.FromBool(true);
+  }
+  if (self.Tag !== ValueTag.Object && self.Tag !== ValueTag.Array) return Value.FromBool(false);
   const ownProps = table.Get(self.Ref).Props;
   for (let i = 0; i < ownProps.length; i++) {
     if (KeyMatches(table, ownProps[i], askedKey)) return Value.FromBool(true);
