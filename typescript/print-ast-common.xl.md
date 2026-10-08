@@ -3525,7 +3525,26 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
     // 的产物是 `[a, As(const), Satisfies(B)]` 三格——只取第一个就把后面那个整个丢了
     // （实测 `stmt-adversarial-shapes.ts`：缺 `SatisfiesExpression` / `TypeReference` / `Identifier`）。
     // 折法与 TS 一致：外层 `SatisfiesExpression`、里面套 `AsExpression`。
+    // **展开位上的 `as` / `satisfies`**（第 724 轮）：`f(...xs as T)` 的产物是两个
+    // **平级**单元 `[Spread(…xs), As(T)]`，而 TS 那边 `as` 是**更松**的那一层——
+    // `...(xs as T)` ⇒ `SpreadElement{ expression: AsExpression }`。
+    // 照平级折就成了 `AsExpression{ expression: SpreadElement }`：**两层套反了**。
+    //
+    // 症状不是「形状漂了」而是**静默错值**：降级层看 `arguments` 里那一格是
+    // `AsExpression`（不是 `SpreadElement`）⇒ 那条实参**不展开**、整个数组被原样
+    // 当成**一个**实参递进去（`rest(...[1, 2, 3] as any)` 的 `a.length` 给 **1**、
+    // `Math.max(...[1, 5, 3] as any)` 给 **NaN**、`mixed(...xs as any)` 的 `a` 是那个数组）。
+    //
+    // 修法：左边那一格是 `Spread` 时，先把它照常投影（`[Spread]` 给的就是
+    // `SpreadElement{ expression }`），**把里面那个操作数取出来**当 `as` 的左操作数，
+    // 再把整条 `as` / `satisfies` 链**套回 `SpreadElement` 里面**——
+    // 括号化那一档（`...([1, 2, 3] as any)`）产物本来就把它装在同一格，所以一直是对的，
+    // 这一句只是把**同一件事的另一种排版**折成同一个形状。
+    const spreadFirst = asIndex === 1 && kids[0].get("type") === "Spread";
     let node = projectExpression(kids.slice(0, asIndex), ctx);
+    if (spreadFirst && node !== undefined && node.kind === "SpreadElement") {
+      node = node.expression;
+    }
     let at = asIndex;
     while (at < kids.length) {
       const unit = kids[at];
@@ -3543,8 +3562,12 @@ new Set(["Interface", "Class", "Function", "Enum", "Namespace"])
       };
       at += 1;
     }
-    if (at >= kids.length) return node;
-    return foldBinaryFrom(node, kids.slice(at), ctx);
+    // **套回 `SpreadElement` 里**（`end` 跟着里面那个节点走，`pos` 从 `...` 起算）。
+    const wrapSpread = (result:any) => spreadFirst && result !== undefined
+      ? { kind: "SpreadElement", expression: result, pos: startOf(kids[0]), end: result.end }
+      : result;
+    if (at >= kids.length) return wrapSpread(node);
+    return wrapSpread(foldBinaryFrom(node, kids.slice(at), ctx));
   }
   // ---- 3. 二元 / 赋值 ----
   //

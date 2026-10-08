@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7750,
+  "total": 7759,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,27 +75,27 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.08,
+  "progressPercent": 96.06,
   "categories": [
     {
       "category": "token",
       "weight": 0.15,
-      "total": 1403,
-      "pass": 1184,
+      "total": 1404,
+      "pass": 1185,
       "blocked": 219,
       "differ": 0,
       "nodefail": 0,
-      "coverage": 84.39
+      "coverage": 84.4
     },
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2158,
-      "pass": 2106,
+      "total": 2166,
+      "pass": 2112,
       "blocked": 12,
-      "differ": 40,
+      "differ": 42,
       "nodefail": 0,
-      "coverage": 97.59
+      "coverage": 97.51
     },
     {
       "category": "runtime",
@@ -129,12 +129,12 @@
     }
   ],
   "token": {
-    "total": 1403,
+    "total": 1404,
     "knownGap": 219,
     "knownGapStillOpen": 219,
-    "exactFiles": 1184,
-    "scoredWithoutGap": 1184,
-    "passedWithoutGap": 1184
+    "exactFiles": 1185,
+    "scoredWithoutGap": 1185,
+    "passedWithoutGap": 1185
   },
   "blocked": [
     {
@@ -1877,7 +1877,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16868/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19236/src/3203.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1938,6 +1938,18 @@
       "category": "exec",
       "title": "下标调用链当相等比较的左操作数",
       "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «function:() => ({ v: 1 })»"
+    },
+    {
+      "id": "exec/round724/p724a-b01",
+      "category": "exec",
+      "title": "Error 子类自己那一格的原型链（第 724 轮新登记的缺口）",
+      "detail": "stdout 不同：第 1 行：node «true» vs tsrun «false»"
+    },
+    {
+      "id": "exec/round724/p724a-b02",
+      "category": "exec",
+      "title": "稀疏数组的复制族：洞要变成 undefined（第 724 轮新登记的缺口）",
+      "detail": "stdout 不同：第 3 行：node «[3,null,1] true» vs tsrun «[3,null,1] false»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -2033,7 +2045,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16868/src/4918.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19236/src/4927.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2057,7 +2069,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-16868/src/4968.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19236/src/4977.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
