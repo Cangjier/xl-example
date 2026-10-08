@@ -784,6 +784,17 @@ return -1;
 而 `Function.prototype.toString` 在本仓**拿不到源码**（源码那一格是降级层切好放进去的，
 不是从函数对象里反读的）。**只有降级层知道**（它手里正拿着类节点）。
 
+## field HasRestricted:bool = false
+
+**这个闭包带不带 `arguments` / `caller` 那两格受限属性**（第 709 轮）。
+
+**判据是语法种类**（真 `node` 现量的）：**松散的普通函数**（函数声明 / 函数表达式）
+有这两格，而**箭头 / 方法 / 访问器 / 生成器 / `async` / 类 / 严格代码**都没有。
+降级层手里正拿着那个节点，所以这里能一句话答出来；到了运行期就答不出来了
+（与 `IsClass` / `IsStrict` **同一条分工**）。
+
+**它进的是 `new_closure` 第四格的第三位**（值 4）——见 `EmitClosure` 那一段。
+
 ## field HasRest:bool = false
 
 **最后一个形参是不是剩余参数**（第 133 轮）——原样递给函数表那一位
@@ -2387,13 +2398,15 @@ item.Patch = this.Program().AddConst(Constant.OfInt(0));
 const nameConst = item.Name === ""
   ? this.Program().AddConst(Constant.OfUndefined())
   : this.Program().AddConst(Constant.OfString(UnitsOf(item.Name)));
-// **第四格：形参个数，最低两位借给「这是一个类」与「这是严格代码」**（第 613 / 620 轮）——
-// `MakeClosure`（`vm.xl.md`）把这两位摘掉之后再交给闭包那一格。
+// **第四格：形参个数，最低三位借给三个标记**（第 613 / 620 / 709 轮）——
+// `MakeClosure`（`vm.xl.md`）把这三位摘掉之后再交给闭包那一格。
 // **为什么借这一格**：`new_closure` 的五个操作数已经排满了（环境 / code / 名字 /
-// 形参 / 源码），加第六格要同时改枚举、验证层与四个目标；而这三样东西的来处
+// 形参 / 源码），加第六格要同时改枚举、验证层与四个目标；而这几样东西的来处
 // **本来就是同一处**（都在这里、都只在那一次求值时定死）。
 // **代价写在 `MakeClosure` 那一段**：第四格从此不是形参个数本身。
-const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 4 + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0)));
+// **位 1 / 2 / 4**（第 709 轮把「松散普通函数」那一位也拼了进来，于是**步长 4 → 8**）。
+const arityConst = this.Program().AddConst(Constant.OfInt(item.Arity * 8
+  + (item.IsClass ? 1 : 0) + (item.IsStrict ? 2 : 0) + (item.HasRestricted ? 4 : 0)));
 const window = this.Reserve(5);
 const enclosing = this.Env.Last();
 if (enclosing === null) {
@@ -5950,6 +5963,18 @@ item.IsClass = this.PendingClassNode !== null && this.PendingClassNode === node;
 // ⇒ `typeof this` 给 `"undefined"`（Node 给 `"object"`：外层是松散代码）。
 // **外层本来就严格的话它照样严格**（`InStrict` 那一半没动）。
 item.IsStrict = this.InStrict || (!item.IsArrow && this.HasUseStrictDirective(node));
+// **`arguments` / `caller` 那两格受限属性带不带**（第 709 轮）：
+// 判据是**语法种类**，而这里正好有全部素材——**松散的普通函数**才有
+//（真 `node` 现量：函数声明与函数表达式给 `["length","name","arguments","caller","prototype"]`，
+// 而箭头 / 方法 / 访问器 / 生成器 / `async` / 类都只给 `["length","name"]` 那两格）。
+// **方法要看节点种类**（`{ m() {} }` 与 `class { m() {} }` 两条路都从这里过）：
+// 对象方法 / 类方法 / `get` / `set` 的 kind 各是 `MethodDeclaration` / `GetAccessor` /
+// `SetAccessor`，而 `{ m: function () {} }` 那种写法**是**普通函数（kind 是 `FunctionExpression`）。
+// **它也要在 `EmitClosure` 之前落进 `item`**：与 `IsClass` / `IsStrict` 同一处拼进第四格。
+const nodeKind = NodeKind(node);
+const isMethodLike = nodeKind === "MethodDeclaration" || nodeKind === "GetAccessor" || nodeKind === "SetAccessor";
+item.HasRestricted = !isMethodLike && !item.IsArrow && !item.IsClass && !item.IsStrict
+  && !item.IsGenerator && !item.IsAsync;
 // **具名函数表达式的词法绑定**（第 332 轮）：`function self() { … self … }` 里的
 // `self` 只在**它自己那个体**里可见——这一行把名字交给 `EmitClosure`，
 // 由它单开一层环境装（那一段写着为什么不能绑在外层）。
@@ -5982,8 +6007,12 @@ item.HasRest = this.HasRestParam(node);
 // 类那条路只要不再自己抛，标记就自然对上了。
 const slot = this.EmitClosure(item);
 // **函数表达式自带 `prototype`**（箭头与对象方法不——它们不可构造）。
+// **`async` 函数也没有**（第 709 轮，普查量到的）：JS 里 `async function` 不可 `new`，
+// 于是它**没有 `prototype` 那一格**（`Object.getOwnPropertyNames(async function a(b) {})`
+// 在 Node 里给 `["length","name"]`，本仓给 `["length","name","prototype"]`）。
+// 生成器**照旧有**（`function* g() {}` 在 Node 里就有 `prototype`）——所以只排 `async`。
 // **这一档可写**（普通函数的 `prototype` 就是可写的，与类相反，见 `AttachPrototype`）。
-if (NodeKind(node) === "FunctionExpression") {
+if (NodeKind(node) === "FunctionExpression" && !item.IsAsync) {
   this.AttachPrototype(slot, true);
 }
 return slot;
@@ -7536,10 +7565,18 @@ item.IsAsync = this.NodeIsAsync(node);
 // **剩余参数那位**（第 133 轮）：与 IsGenerator / IsAsync 一起从树上读一次，
 // 之后由函数表那一格带着走（开帧的人要用它）。
 item.HasRest = this.HasRestParam(node);
+// **`arguments` / `caller` 那两格**（第 709 轮）：**函数声明这条路也要问一遍**
+//（与 `NeedsArguments` 那一条同一个教训——`LowerFunctionValue` 那一处的判断
+// 走不到这条路上：它自己建 `PendingFunction`、自己调 `EmitClosure`）。
+// 声明这一档**没有箭头 / 方法那两种形状**，所以只问剩下三格。
+item.HasRestricted = !item.IsStrict && !item.IsGenerator && !item.IsAsync;
 const slot = this.EmitClosure(item);
 // **函数声明也自带 `prototype`**（`new F()` 靠它把方法落到实例上）。
+// **`async` 函数声明同样没有**（第 709 轮，与函数表达式那一处一字不差：
+// `Object.getOwnPropertyNames(async function a(b) {})` 在 Node 里给 `["length","name"]`）——
+// 两处**都要排**，只改一处就是「同一个形状两种结局」。
 // **这一档可写**（与类相反，见 `AttachPrototype`）。
-this.AttachPrototype(slot, true);
+if (!item.IsAsync) this.AttachPrototype(slot, true);
 // **声明放在造闭包之后**：这个名字可能被内层捕获，那样 `DeclareLocal` 会把这一格的
 // 值搬进环境格——搬早了搬的就是一个空槽（判据报的是几十条指令之外的「调用了非闭包」）。
 this.DeclareLocal(TextOf(name), slot);

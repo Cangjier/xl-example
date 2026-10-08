@@ -3,7 +3,7 @@
 import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, CodeUnitCharge, ValueCharge } from "../../runtime/heap.xl.md"
 import { RoomChecker, IsCallableValue, ToPrimitiveOf, ToPrimitiveString } from "../../runtime/rt.xl.md"
-import { SetProperty, GetProperty, GetIndex, FindProperty, ReadProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, GetProperty, GetIndex, FindProperty, ReadProperty, NativeCall, Protos, NewPlainArray } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { Units, NeverCall, IntArgOr, NormalizeRangeIndex } from "./array.xl.md"
 import { JsTextUnits, ValueUnits, UnwrapBox } from "./text.xl.md"
@@ -1241,7 +1241,7 @@ const ids: number[] = [StringCharAt, StringCharCodeAt, StringIndexOf, StringSlic
 for (let i = 0; i < entries.length; i++) {
   const key = Value.FromString(table.CreateString(Units(entries[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ids[i], 0));
-  SetProperty(vm.Room(), NeverCall, table, proto, key, target);
+  SetHiddenProperty(vm.Room(), table, proto, key, target);
 }
 ```
 

@@ -3089,6 +3089,14 @@ if (id === ObjectHasOwnProperty) {
     && (TextFrom(table, askedKey) === "length" || TextFrom(table, askedKey) === "name")) {
     return Value.FromBool(true);
   }
+  // **受限属性那两格也是自有的**（第 709 轮）：`(function f() {}).hasOwnProperty("arguments")`
+  // 在 Node 里是**真**（`arguments` / `caller` 是松散普通函数的自有属性）——
+  // 与上面 `length` / `name` 同一句话，只是**多问一位**（箭头 / 方法那一档答假）。
+  if (self.Tag === ValueTag.Closure && askedKey.Tag === ValueTag.String
+    && table.Get(self.Ref).AsClosure().HasRestricted
+    && (TextFrom(table, askedKey) === "arguments" || TextFrom(table, askedKey) === "caller")) {
+    return Value.FromBool(true);
+  }
   // **数组的下标也是自有属性**（第 706 轮，**普查当场红的**）：元素**不住在 `Props` 里**
   // （在 `Elements` 上），所以下面那一趟扫描**一格都碰不到它** ⇒ `[7].hasOwnProperty(0)`
   // 答**假**，而 JS 答**真**（判据 `p706c-x07`：node 给 `true,true`、本仓给 `true,false`）。
@@ -3104,7 +3112,17 @@ if (id === ObjectHasOwnProperty) {
       sink, failed, false);
     return Value.FromBool(!arrayDescriptor.IsNullish());
   }
-  if (self.Tag !== ValueTag.Object && self.Tag !== ValueTag.Array) return Value.FromBool(false);
+  // **闭包自己的属性表也要扫**（第 709 轮，**普查当场量到的**）：
+  // `(function f() {}).hasOwnProperty("prototype")` 在 Node 里是**真**
+  //（`prototype` 是函数**自有**的一格，`AttachPrototype` 写的），而本仓原来在这里
+  // 就把闭包挡在外面（`self.Tag !== Object && !== Array` ⇒ 答假）——
+  // **同一个属性两种问法两个答案**（`Object.getOwnPropertyNames` 列得出它、
+  // `hasOwnProperty` 说没有）。所以闭包与 `Function` **一起走下面那一趟扫描**：
+  // 箭头 / 方法没有 `prototype` 那一格，扫描自然答假——**不另写一份名单**。
+  if (self.Tag !== ValueTag.Object && self.Tag !== ValueTag.Array
+    && self.Tag !== ValueTag.Closure && self.Tag !== ValueTag.Function) {
+    return Value.FromBool(false);
+  }
   const ownProps = table.Get(self.Ref).Props;
   for (let i = 0; i < ownProps.length; i++) {
     if (KeyMatches(table, ownProps[i], askedKey)) return Value.FromBool(true);
@@ -4862,6 +4880,15 @@ if (id === ObjectGetOwnPropertyNames) {
   if (nameTarget.Tag === ValueTag.Closure) {
     ownNames.push("length");
     ownNames.push("name");
+    // **受限属性那两格**（第 709 轮）：`arguments` / `caller` 也**不住在属性表里**——
+    // 只有**松散的普通函数**有它们（箭头 / 方法 / 生成器 / `async` / 类 / 严格代码都没有，
+    // 判据由降级层量好放在 `HeapClosure.HasRestricted` 上）。
+    // **次序是 Node 的次序**：`["length","name","arguments","caller","prototype"]`
+    // ——`prototype` 那一格在属性表里（`AttachPrototype` 写的），由下面那一趟接在**后面**。
+    if (nameItem !== null && table.Get(nameTarget.Ref).AsClosure().HasRestricted) {
+      ownNames.push("arguments");
+      ownNames.push("caller");
+    }
   }
   const ownIntNames: string[] = [];
   const ownPlainNames: string[] = [];
@@ -7000,17 +7027,23 @@ const mathIds: number[] = [MathFloor, MathAbs, MathMax, MathMin, MathRound, Math
 for (let i = 0; i < mathNames.length; i++) {
   const key = Value.FromString(table.CreateString(Units(mathNames[i])));
   const target = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(mathIds[i], 0));
-  SetProperty(vm.Room(), NeverCall, table, math, key, target);
+  SetHiddenProperty(vm.Room(), table, math, key, target);
 }
 // **`Math.PI` / `Math.E` 是属性，不是方法**（第 206 轮）：它们是**数**，
 // 所以挂的是 `Value.FromDouble(...)` 本身——挂成 HostRef 的话
 // `Math.PI` 取出来会是一个「能被调用的号」（`Math.PI * 2` 于是算不对）。
 // **`Math.PI` 遍地都是**（圆的面积、角度换算），而判据 `e2e-inheritance-hierarchy` /
 // `math-logs-constants` 拖着的正是它。
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("PI"))), Value.FromDouble(Math.PI));
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("E"))), Value.FromDouble(Math.E));
+// **第 709 轮：这八个常量改成「不可写 / 不可枚举 / 不可配置」**（`flags = 0`）——
+// 规范的 `Math` 常量全是这样，而本仓原来用 `SetProperty` 挂 ⇒ **三个标志全真**
+// （判据 `probe705-o-b07`：`Object.getOwnPropertyDescriptor(Math, "PI").writable`
+//  Node 给 `false`、本仓给 `true`——**静默错值**，一句异常都没有）。
+// **`flags = 0` 就是那一档**（`props.xl.md` 的 `SetHiddenProperty`：给 `-1` 才是
+// 「可写 + 可配置」那个缺省）；`enumerable` 本来就不在 `SetProperty` 那一位上。
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("PI"))), Value.FromDouble(Math.PI), 0);
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("E"))), Value.FromDouble(Math.E), 0);
 // **第 291 轮补的六个常量**（`LN2` / `LN10` / `LOG2E` / `LOG10E` / `SQRT2` / `SQRT1_2`）。
 // **`Math.PI` 与 `Math.E` 两条先例的照抄**：常量是**数**，挂的是 `Value.FromDouble(...)` 本身
 // ——**不是** `HostRef`（挂错的话 `Math.LN2` 会变成一个「能被调用的号」，
@@ -7018,27 +7051,37 @@ SetProperty(vm.Room(), NeverCall, table, math,
 // **它们是第 291 轮普查量到的**：判据 `c291-math-constants-and-pow` 量到
 // `Math.LN2 > 0.69` 与 `Math.SQRT2 > 1.41` 都给**假**——即**那两格根本没装**
 //（PI / E / pow 一直是好的）。**静默错值**：一句异常都没有。
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("LN2"))), Value.FromDouble(Math.LN2));
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("LN10"))), Value.FromDouble(Math.LN10));
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("LOG2E"))), Value.FromDouble(Math.LOG2E));
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("LOG10E"))), Value.FromDouble(Math.LOG10E));
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("SQRT2"))), Value.FromDouble(Math.SQRT2));
-SetProperty(vm.Room(), NeverCall, table, math,
-  Value.FromString(table.CreateString(Units("SQRT1_2"))), Value.FromDouble(Math.SQRT1_2));
+// **标志位与上面两格同一条**（第 709 轮）。
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("LN2"))), Value.FromDouble(Math.LN2), 0);
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("LN10"))), Value.FromDouble(Math.LN10), 0);
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("LOG2E"))), Value.FromDouble(Math.LOG2E), 0);
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("LOG10E"))), Value.FromDouble(Math.LOG10E), 0);
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("SQRT2"))), Value.FromDouble(Math.SQRT2), 0);
+SetHiddenProperty(vm.Room(), table, math,
+  Value.FromString(table.CreateString(Units("SQRT1_2"))), Value.FromDouble(Math.SQRT1_2), 0);
 const consoleObject = NewPlainObject(vm.Room(), table, protos);
 const logKey = Value.FromString(table.CreateString(Units("log")));
 const logTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ConsoleLog, 0));
+// **`console` 是那一族里的例外：它的成员在 Node 上「可枚举」**（第 709 轮，普查量到的）。
+// 第 709 轮把这一族命名空间的成员统一改成 `SetHiddenProperty`（`Math` / `JSON` /
+// `Object` / `Number` / `String.prototype` … 在 JS 里全是**不可枚举**的），
+// 而 `console` **不在规范里**——Node 的实现把方法挂成普通属性：
+// `Object.getOwnPropertyDescriptor(console, "log").enumerable` 在 Node 里是 **`true`**、
+// `for (const k in console)` 数得出 **25** 个名字（本仓只有 `log` 一个成员，
+// 那是 `stdlib/console/020-names-console` 那条台账管的事）。
+// **所以这一格要留在 `SetProperty` 上**：跟规范走的那一族统一收口，
+// 而这一档按实现走——两种口径**写在明处**，不混。
 SetProperty(vm.Room(), NeverCall, table, consoleObject, logKey, logTarget);
 
 const objectObject = NewPlainObject(vm.Room(), table, protos);
 const keysKey = Value.FromString(table.CreateString(Units("keys")));
 const keysTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectKeys, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, keysKey, keysTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, keysKey, keysTarget);
 // **`for..in` 那一格藏在 `Object` 上**（第 340 轮）：降级层按**名字**取它
 //（与它取 `keys` 是同一个形状），而**用 `SetHiddenProperty`** ⇒
 // `Object.keys(Object)` / `for..in` 都看不见它（**不可枚举**）——
@@ -7051,7 +7094,7 @@ SetHiddenProperty(vm.Room(), table, objectObject, forInKey, forInTarget);
 //（与 `JSON.stringify` / `parse` 那两格的写法一字不差）。
 const isKey = Value.FromString(table.CreateString(Units("is")));
 const isTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectIs, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, isKey, isTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, isKey, isTarget);
 // **第 276 轮补的五格**（`Object` 那一段的 `412..416`）——**名字与号一一对齐**
 //（按下标配，错一格就是**静默**换语义）。它们围着**描述符**这一件事：
 // 读一格 / 写多格 / 标志位的三种问法。
@@ -7076,49 +7119,49 @@ const objectExtraIds: number[] = [ObjectGetOwnPropertyDescriptor, ObjectDefinePr
 for (let i = 0; i < objectExtraNames.length; i++) {
   const extraKey = Value.FromString(table.CreateString(Units(objectExtraNames[i])));
   const extraTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(objectExtraIds[i], 0));
-  SetProperty(vm.Room(), NeverCall, table, objectObject, extraKey, extraTarget);
+  SetHiddenProperty(vm.Room(), table, objectObject, extraKey, extraTarget);
 }
 // **`Object.hasOwn`**（第 372 轮）——**单开一句**（不进上面那两张按下标对齐的表）：
 // 那两张表的口径是「**名字与号一一对齐**」，而这一格是**追加**的（号开在 `429`，
 // 与表里那一段 `412..420` / `428` 不连号）⇒ 塞进去反而要重新对一遍下标，
 // 而那正是第 280 轮**号撞车**那一类错的温床。**摆在这里**（描述符那一族后面）
 // 是因为它是**同一个问法的静态版**——`hasOwnProperty` 就在下面 `Object.prototype` 那一摞里。
-SetProperty(vm.Room(), NeverCall, table, objectObject,
+SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("hasOwn"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectHasOwn, 0)));
 
 const jsonObject = NewPlainObject(vm.Room(), table, protos);
 const stringifyKey = Value.FromString(table.CreateString(Units("stringify")));
 const stringifyTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(JsonStringify, 0));
-SetProperty(vm.Room(), NeverCall, table, jsonObject, stringifyKey, stringifyTarget);
+SetHiddenProperty(vm.Room(), table, jsonObject, stringifyKey, stringifyTarget);
 // `JSON.parse`（第 122 轮）：与 `stringify` 同一张对象上再挂一个号。
 const parseKey = Value.FromString(table.CreateString(Units("parse")));
 const parseTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(JsonParse, 0));
-SetProperty(vm.Room(), NeverCall, table, jsonObject, parseKey, parseTarget);
+SetHiddenProperty(vm.Room(), table, jsonObject, parseKey, parseTarget);
 
 // `Object.values` / `Object.entries`（第 120 轮补）：与 `keys` 同一张对象上再挂两个号。
 const valuesKey = Value.FromString(table.CreateString(Units("values")));
 const valuesTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectValues, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, valuesKey, valuesTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, valuesKey, valuesTarget);
 const entriesKey = Value.FromString(table.CreateString(Units("entries")));
 const entriesTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectEntries, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, entriesKey, entriesTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, entriesKey, entriesTarget);
 // `Object.assign`（第 130 轮）：与上面三个同一张对象。
 const assignKey = Value.FromString(table.CreateString(Units("assign")));
 const assignTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectAssign, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, assignKey, assignTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, assignKey, assignTarget);
 // **`Object.freeze` / `Object.defineProperty`**（第 182 轮）：与上面四个同一张对象。
 // 两个都只动**属性表里的标志位**（`SetProperty` / `DeleteProperty` 早就照着它们抛）。
 const freezeKey = Value.FromString(table.CreateString(Units("freeze")));
 const freezeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectFreeze, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, freezeKey, freezeTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, freezeKey, freezeTarget);
 const definePropertyKey = Value.FromString(table.CreateString(Units("defineProperty")));
 const definePropertyTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectDefineProperty, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, definePropertyKey, definePropertyTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, definePropertyKey, definePropertyTarget);
 // **`Object.groupBy`**（第 295 轮）：与上面那些**同一张对象**上再挂一格。
 const groupByKey = Value.FromString(table.CreateString(Units("groupBy")));
 const groupByTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGroupBy, 0));
-SetProperty(vm.Room(), NeverCall, table, objectObject, groupByKey, groupByTarget);
+SetHiddenProperty(vm.Room(), table, objectObject, groupByKey, groupByTarget);
 
 // `Error` 是一个**宿主构造函数**（`new Error(msg)` 走 `Op.New` 的宿主那条分支，
 // `Error(msg)` 走 `Op.Call`——同一个号两支都通，见 `ErrorCtor` 的说明）。
@@ -7134,8 +7177,8 @@ const errorKey = Value.FromString(table.CreateString(Units("Error")));
 // 两条都对了——所以这一格现在落得下来。
 const errorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(errorObject.Ref, ErrorCtor, 0);
-SetProperty(vm.Room(), NeverCall, table, globals, errorKey, errorObject);
-SetProperty(vm.Room(), NeverCall, table, errorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, globals, errorKey, errorObject);
+SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.Error));
 // **`Error.isError(v)`**（第 343 轮）：判据是「链上有没有 `Error.prototype`」——
 // 与 `instanceof Error` **同一个判据**（`Object.create(Error.prototype)` 也算，
@@ -7145,16 +7188,26 @@ SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "isError"),
 // **第 703 轮补的四格**（V8 的扩展 + 构造自己的 `length`）——
 // 判据 `stdlib/error/031-names-error` 与 `probe-e09` 量的是**名字在不在**
 // （四条 `typeof` 分别是 function / number / function / number，与 Node 逐字相同）。
-// **走 `SetHiddenProperty`**（与上面 `isError` 同一条路）：Node 上这四格**都不可枚举**
-// ——`Object.keys(Error)` 在 Node 里是 `[]`，而 `Error.prototype` 那一格本仓历史上
-// 就是可枚举的（不属这一轮的账）。
+// **走 `SetHiddenProperty`**（与上面 `isError` 同一条路）：Node 上这几格**都不可枚举**
+// ——`Object.keys(Error)` 在 Node 里只有 `stackTraceLimit` 那一格（见下面那一句），
+// 而 `Error.prototype` 那一格本仓历史上就是可枚举的（不属这一轮的账）。
 // **`stackTraceLimit` 给 `10`**（Node 的缺省值）：判据只问 `typeof`，
 // 可这一格**本来就是个数**，挂成函数就是「答一个形状不对的东西」。
 SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "captureStackTrace"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorCaptureStackTrace, 0)));
 SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "prepareStackTrace"),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ErrorPrepareStackTrace, 0)));
-SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "stackTraceLimit"),
+// **`stackTraceLimit` 是 `Error` 上**唯一可枚举**的一格**（第 709 轮，**实测**）：
+// `Object.keys(Error)` 在 Node 24 里给 **`["stackTraceLimit"]`**
+//（它的描述符是 `{ writable: true, enumerable: true, configurable: true }`，
+//  那是 V8 自己挂的扩展，不是规范那一档）。
+// **这一句原来写的是 `SetHiddenProperty`，而注释还说「Node 里 `Object.keys(Error)` 是 `[]`」**
+// ——那个说法在 Node 24 上**不成立**。判据 `stdlib/error/probe704-e-a23`
+//（`Object.keys(Error).length`）原来**是碰巧过的**：那时 `Error.prototype` 那一格
+// 还是可枚举的（`SetProperty` 挂的），于是长度也是 **1**——**两个不同的键、同一个数**。
+// 第 709 轮把那一族命名空间统一改成不可枚举之后，这一格的真面目才露出来（**倒退**一条）。
+// **收法就是按实现走**：这一格给 `SetProperty`（可枚举），与 Node 逐字相同。
+SetProperty(vm.Room(), NeverCall, table, errorObject, NameValue(table, "stackTraceLimit"),
   Value.FromInt(10));
 SetHiddenProperty(vm.Room(), table, errorObject, NameValue(table, "length"),
   Value.FromInt(1));
@@ -7169,20 +7222,20 @@ const typeErrorKey = Value.FromString(table.CreateString(Units("TypeError")));
 const typeErrorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(typeErrorObject.Ref, TypeErrorCtor, 0);
 const typeErrorTarget = typeErrorObject;
-SetProperty(vm.Room(), NeverCall, table, globals, typeErrorKey, typeErrorTarget);
+SetHiddenProperty(vm.Room(), table, globals, typeErrorKey, typeErrorTarget);
 SetHiddenProperty(vm.Room(), table, typeErrorObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("TypeError"))));
-SetProperty(vm.Room(), NeverCall, table, typeErrorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, typeErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.TypeError));
 vm.RegisterConstructorProto(TypeErrorCtor, protos.TypeError);
 const rangeErrorKey = Value.FromString(table.CreateString(Units("RangeError")));
 const rangeErrorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(rangeErrorObject.Ref, RangeErrorCtor, 0);
 const rangeErrorTarget = rangeErrorObject;
-SetProperty(vm.Room(), NeverCall, table, globals, rangeErrorKey, rangeErrorTarget);
+SetHiddenProperty(vm.Room(), table, globals, rangeErrorKey, rangeErrorTarget);
 SetHiddenProperty(vm.Room(), table, rangeErrorObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("RangeError"))));
-SetProperty(vm.Room(), NeverCall, table, rangeErrorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, rangeErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.RangeError));
 vm.RegisterConstructorProto(RangeErrorCtor, protos.RangeError);
 // **`SyntaxError` 那三样**（第 277 轮）：挂全局名、登记原型、原型上三个属性——
@@ -7194,10 +7247,10 @@ const syntaxErrorKey = Value.FromString(table.CreateString(Units("SyntaxError"))
 const syntaxErrorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(syntaxErrorObject.Ref, SyntaxErrorCtor, 0);
 const syntaxErrorTarget = syntaxErrorObject;
-SetProperty(vm.Room(), NeverCall, table, globals, syntaxErrorKey, syntaxErrorTarget);
+SetHiddenProperty(vm.Room(), table, globals, syntaxErrorKey, syntaxErrorTarget);
 SetHiddenProperty(vm.Room(), table, syntaxErrorObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("SyntaxError"))));
-SetProperty(vm.Room(), NeverCall, table, syntaxErrorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, syntaxErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.SyntaxError));
 vm.RegisterConstructorProto(SyntaxErrorCtor, protos.SyntaxError);
 // **`ReferenceError` / `AggregateError` 两格**（第 295 轮）：挂全局名、登记原型——
@@ -7207,20 +7260,20 @@ const referenceErrorKey = Value.FromString(table.CreateString(Units("ReferenceEr
 const referenceErrorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(referenceErrorObject.Ref, ReferenceErrorCtor, 0);
 const referenceErrorTarget = referenceErrorObject;
-SetProperty(vm.Room(), NeverCall, table, globals, referenceErrorKey, referenceErrorTarget);
+SetHiddenProperty(vm.Room(), table, globals, referenceErrorKey, referenceErrorTarget);
 SetHiddenProperty(vm.Room(), table, referenceErrorObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("ReferenceError"))));
-SetProperty(vm.Room(), NeverCall, table, referenceErrorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, referenceErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.ReferenceError));
 vm.RegisterConstructorProto(ReferenceErrorCtor, protos.ReferenceError);
 const aggregateErrorKey = Value.FromString(table.CreateString(Units("AggregateError")));
 const aggregateErrorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(aggregateErrorObject.Ref, AggregateErrorCtor, 0);
 const aggregateErrorTarget = aggregateErrorObject;
-SetProperty(vm.Room(), NeverCall, table, globals, aggregateErrorKey, aggregateErrorTarget);
+SetHiddenProperty(vm.Room(), table, globals, aggregateErrorKey, aggregateErrorTarget);
 SetHiddenProperty(vm.Room(), table, aggregateErrorObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("AggregateError"))));
-SetProperty(vm.Room(), NeverCall, table, aggregateErrorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, aggregateErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.AggregateError));
 vm.RegisterConstructorProto(AggregateErrorCtor, protos.AggregateError);
 // **`URIError` / `EvalError` 两格**（第 376 轮）：挂全局名、登记原型——
@@ -7233,20 +7286,20 @@ const uriErrorKey = Value.FromString(table.CreateString(Units("URIError")));
 const uriErrorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(uriErrorObject.Ref, URIErrorCtor, 0);
 const uriErrorTarget = uriErrorObject;
-SetProperty(vm.Room(), NeverCall, table, globals, uriErrorKey, uriErrorTarget);
+SetHiddenProperty(vm.Room(), table, globals, uriErrorKey, uriErrorTarget);
 SetHiddenProperty(vm.Room(), table, uriErrorObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("URIError"))));
-SetProperty(vm.Room(), NeverCall, table, uriErrorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, uriErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.URIError));
 vm.RegisterConstructorProto(URIErrorCtor, protos.URIError);
 const evalErrorKey = Value.FromString(table.CreateString(Units("EvalError")));
 const evalErrorObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(evalErrorObject.Ref, EvalErrorCtor, 0);
 const evalErrorTarget = evalErrorObject;
-SetProperty(vm.Room(), NeverCall, table, globals, evalErrorKey, evalErrorTarget);
+SetHiddenProperty(vm.Room(), table, globals, evalErrorKey, evalErrorTarget);
 SetHiddenProperty(vm.Room(), table, evalErrorObject, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("EvalError"))));
-SetProperty(vm.Room(), NeverCall, table, evalErrorObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, evalErrorObject, NameValue(table, "prototype"),
   Value.FromObject(protos.EvalError));
 vm.RegisterConstructorProto(EvalErrorCtor, protos.EvalError);
 // **`WeakMap` / `WeakSet`**（第 295 轮）：**值就是 `Map` / `Set` 那两个构造**——
@@ -7267,11 +7320,11 @@ vm.RegisterConstructorProto(EvalErrorCtor, protos.EvalError);
 const weakMapKey = Value.FromString(table.CreateString(Units("WeakMap")));
 const weakMapObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(weakMapObject.Ref, WeakMapCtor, 0);
-SetProperty(vm.Room(), NeverCall, table, globals, weakMapKey, weakMapObject);
+SetHiddenProperty(vm.Room(), table, globals, weakMapKey, weakMapObject);
 const weakSetKey = Value.FromString(table.CreateString(Units("WeakSet")));
 const weakSetObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(weakSetObject.Ref, WeakSetCtor, 0);
-SetProperty(vm.Room(), NeverCall, table, globals, weakSetKey, weakSetObject);
+SetHiddenProperty(vm.Room(), table, globals, weakSetKey, weakSetObject);
 // **`Map` / `Set` 两个号登记**（第 138 轮）：它们是**宿主引用值**（与 `Error` 同款），
 // 只能走登记表。**`Date` 不走这条路**——它的全局值是**普通对象**
 // （`new Date()` 由降级层落成一条 `host_call(DateCtor, …)`，见 `DateCtor` 的说明），
@@ -7282,9 +7335,9 @@ vm.RegisterConstructorProto(SetCtor, protos.Set);
 // `name` 是 `e.name` 在没有自有属性时的落点，`constructor` 是 `e.constructor === Error`。
 // **`message` 给空串**（JS 的 `Error.prototype.message` 就是 `""`）。
 const errorProtoValue = Value.FromObject(protos.Error);
-SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, errorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("Error"))));
-SetProperty(vm.Room(), NeverCall, table, errorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, errorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 // **`constructor` 指回那个对象**（第 343 轮起 `Error` 是对象）：
 // `Error.prototype.constructor === Error` 在 JS 里是**真**。
@@ -7302,54 +7355,54 @@ SetHiddenProperty(vm.Room(), table, errorProtoValue,
 // **三格一次写完**（`protos.TypeError` / `protos.RangeError`）——
 // 漏一格的表现是 `e.name` 读成 `"Error"`（错得**很像对的**）。
 const typeErrorProtoValue = Value.FromObject(protos.TypeError);
-SetProperty(vm.Room(), NeverCall, table, typeErrorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, typeErrorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("TypeError"))));
-SetProperty(vm.Room(), NeverCall, table, typeErrorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, typeErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, typeErrorProtoValue, NameValue(table, "constructor"), typeErrorTarget);
 const rangeErrorProtoValue = Value.FromObject(protos.RangeError);
-SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, rangeErrorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("RangeError"))));
-SetProperty(vm.Room(), NeverCall, table, rangeErrorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, rangeErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, rangeErrorProtoValue, NameValue(table, "constructor"), rangeErrorTarget);
 // **`SyntaxError.prototype` 上的同名三格**（第 277 轮）——**一字不差地照上面那两族写**。
 // **`toString` 不必再挂一份**：它挂在 `Error.prototype` 上，
 // 而这一格的原型链接着 `Error.prototype`（第 137 轮那条链）——挂两份就是两处会漂的答案。
 const syntaxErrorProtoValue = Value.FromObject(protos.SyntaxError);
-SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, syntaxErrorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("SyntaxError"))));
-SetProperty(vm.Room(), NeverCall, table, syntaxErrorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, syntaxErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, syntaxErrorProtoValue, NameValue(table, "constructor"), syntaxErrorTarget);
 // **`ReferenceError.prototype` / `AggregateError.prototype` 上的同名三格**（第 295 轮）——
 // **一字不差地照上面那三族写**。**`toString` 同样不必再挂一份**（挂在 `Error.prototype` 上，
 // 而这两格的原型链都接着它）。
 const referenceErrorProtoValue = Value.FromObject(protos.ReferenceError);
-SetProperty(vm.Room(), NeverCall, table, referenceErrorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, referenceErrorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("ReferenceError"))));
-SetProperty(vm.Room(), NeverCall, table, referenceErrorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, referenceErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, referenceErrorProtoValue, NameValue(table, "constructor"), referenceErrorTarget);
 const aggregateErrorProtoValue = Value.FromObject(protos.AggregateError);
-SetProperty(vm.Room(), NeverCall, table, aggregateErrorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, aggregateErrorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("AggregateError"))));
-SetProperty(vm.Room(), NeverCall, table, aggregateErrorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, aggregateErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, aggregateErrorProtoValue, NameValue(table, "constructor"), aggregateErrorTarget);
 // **`URIError.prototype` / `EvalError.prototype` 上的同名三格**（第 376 轮）——
 // **一字不差地照上面那五族写**。**`toString` 同样不必再挂一份**（挂在 `Error.prototype` 上，
 // 而这两格的原型链都接着它）。
 const uriErrorProtoValue = Value.FromObject(protos.URIError);
-SetProperty(vm.Room(), NeverCall, table, uriErrorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, uriErrorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("URIError"))));
-SetProperty(vm.Room(), NeverCall, table, uriErrorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, uriErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, uriErrorProtoValue, NameValue(table, "constructor"), uriErrorTarget);
 const evalErrorProtoValue = Value.FromObject(protos.EvalError);
-SetProperty(vm.Room(), NeverCall, table, evalErrorProtoValue, NameValue(table, "name"),
+SetHiddenProperty(vm.Room(), table, evalErrorProtoValue, NameValue(table, "name"),
   Value.FromString(table.CreateString(Units("EvalError"))));
-SetProperty(vm.Room(), NeverCall, table, evalErrorProtoValue, NameValue(table, "message"),
+SetHiddenProperty(vm.Room(), table, evalErrorProtoValue, NameValue(table, "message"),
   Value.FromString(table.CreateString(Units(""))));
 SetHiddenProperty(vm.Room(), table, evalErrorProtoValue, NameValue(table, "constructor"), evalErrorTarget);
 
@@ -7361,27 +7414,27 @@ const arrayObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(arrayObject.Ref, ArrayCtor, 0);
 const isArrayKey = Value.FromString(table.CreateString(Units("isArray")));
 const isArrayTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayIsArray, 0));
-SetProperty(vm.Room(), NeverCall, table, arrayObject, isArrayKey, isArrayTarget);
+SetHiddenProperty(vm.Room(), table, arrayObject, isArrayKey, isArrayTarget);
 // `Array.from`（第 130 轮）：与 `isArray` 同一张对象（这两个都是 `Array` 的**静态方法**）。
 // **号在数组段、分派在 `install.xl.md`**——它要原型表（返回新数组），
 // 理由与 `String.split` 那条一字不差。
 const fromKey = Value.FromString(table.CreateString(Units("from")));
 const fromTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFrom, 0));
-SetProperty(vm.Room(), NeverCall, table, arrayObject, fromKey, fromTarget);
+SetHiddenProperty(vm.Room(), table, arrayObject, fromKey, fromTarget);
 // **`Array.of`**（第 206 轮）：与 `isArray` / `from` 同一张对象（都是静态方法）——
 // **号在数组段、分派在 `install.xl.md`**，理由与 `from` 那条一字不差（要原型表）。
 const ofKey = Value.FromString(table.CreateString(Units("of")));
 const ofTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayOf, 0));
-SetProperty(vm.Room(), NeverCall, table, arrayObject, ofKey, ofTarget);
+SetHiddenProperty(vm.Room(), table, arrayObject, ofKey, ofTarget);
 // **`Array.fromAsync`**（第 369 轮）：与 `from` / `of` 同一张对象、同一个形状
 //（静态方法、号在数组段、分派在 `install.xl.md`）。
 // **它比那两个多要一条通道**：承诺那条（`schedule` / `settle` / `invoke`）——
 // 而 `InvokeArray` 那一支递不下来，所以走 `install` 这条（与 `from` 同一个理由，**多一条**）。
 const fromAsyncKey = Value.FromString(table.CreateString(Units("fromAsync")));
 const fromAsyncTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ArrayFromAsync, 0));
-SetProperty(vm.Room(), NeverCall, table, arrayObject, fromAsyncKey, fromAsyncTarget);
+SetHiddenProperty(vm.Room(), table, arrayObject, fromAsyncKey, fromAsyncTarget);
 const arrayKey = Value.FromString(table.CreateString(Units("Array")));
-SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
+SetHiddenProperty(vm.Room(), table, globals, arrayKey, arrayObject);
 // **`Array.prototype`**（第 137 轮）：`Array` 是**普通对象**，所以直接挂一个属性就行——
 // `[] instanceof Array` 于是走「读右边那个 `prototype` 属性」那条老路（不需要登记表）。
 // **这一格必须是 `protos.Array`**（数组造出来时挂的就是它）：挂一个**新对象**，
@@ -7390,7 +7443,7 @@ SetProperty(vm.Room(), NeverCall, table, globals, arrayKey, arrayObject);
 //（`props.xl.md` 的 `InitProtos`），所以这里要用 `FromArray` 而不是 `FromObject` ——
 // 用错的话读出来那个值的 `Tag` 是 `Object` ⇒ `Array.isArray(Array.prototype)` 还是 `false`
 //（`ArrayIsArray` 判的正是 `Tag`）。
-SetProperty(vm.Room(), NeverCall, table, arrayObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, arrayObject, NameValue(table, "prototype"),
   Value.FromArray(protos.Array));
 // **`Array.prototype.constructor === Array`**（第 137 轮顺手补的）：
 // 与 `Error.prototype.constructor` 那三格同一条规矩——少了它，
@@ -7412,78 +7465,78 @@ const parseIntTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(Parse
 const parseFloatTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ParseFloat, 0));
 const isIntegerKey = Value.FromString(table.CreateString(Units("isInteger")));
 const isIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsInteger, 0));
-SetProperty(vm.Room(), NeverCall, table, numberObject, isIntegerKey, isIntegerTarget);
+SetHiddenProperty(vm.Room(), table, numberObject, isIntegerKey, isIntegerTarget);
 // **`Number.isSafeInteger`**（第 288 轮）：与 `isInteger` **同一支实现**
 //（只差一句区间判据，见那一支的理由）——所以这里挂的是**另一个能力号**，
 // 而**不是另一份实现**。
 const isSafeIntegerKey = Value.FromString(table.CreateString(Units("isSafeInteger")));
 const isSafeIntegerTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsSafeInteger, 0));
-SetProperty(vm.Room(), NeverCall, table, numberObject, isSafeIntegerKey, isSafeIntegerTarget);
+SetHiddenProperty(vm.Room(), table, numberObject, isSafeIntegerKey, isSafeIntegerTarget);
 const isNaNAKey = Value.FromString(table.CreateString(Units("isNaN")));
 const isNaNTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsNaN, 0));
-SetProperty(vm.Room(), NeverCall, table, numberObject, isNaNAKey, isNaNTarget);
+SetHiddenProperty(vm.Room(), table, numberObject, isNaNAKey, isNaNTarget);
 // **`Number.isFinite`**（第 149 轮）：与全局的 `isFinite` 不是一个东西
 //（那个先转、这个不转），所以两处各挂一格。
 const isFiniteKey = Value.FromString(table.CreateString(Units("isFinite")));
 const isFiniteTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberIsFinite, 0));
-SetProperty(vm.Room(), NeverCall, table, numberObject, isFiniteKey, isFiniteTarget);
+SetHiddenProperty(vm.Room(), table, numberObject, isFiniteKey, isFiniteTarget);
 // **`Number.parseInt` / `Number.parseFloat`**（第 206 轮）：它们与**全局那两个是同一个个函数**
 //（JS 就是这么定的：`Number.parseInt === parseInt` 为真）——所以这里挂的是**同一个能力号**，
 // 而不是另写一份（`parseInt` 那一段的规矩不少：跳空白 / 认符号 / 基数 / 最长合法前缀，
 // 写第二份就是第二处会漂的答案）。
 const numberParseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
-SetProperty(vm.Room(), NeverCall, table, numberObject, numberParseIntKey, parseIntTarget);
+SetHiddenProperty(vm.Room(), table, numberObject, numberParseIntKey, parseIntTarget);
 const numberParseFloatKey = Value.FromString(table.CreateString(Units("parseFloat")));
-SetProperty(vm.Room(), NeverCall, table, numberObject, numberParseFloatKey, parseFloatTarget);
+SetHiddenProperty(vm.Room(), table, numberObject, numberParseFloatKey, parseFloatTarget);
 // **数值常量是属性，不是方法**（与 `Math.PI` 同一条规矩）。
 // `MAX_SAFE_INTEGER` 是 **2^53-1**（`9007199254740991`）——它**超出 int32**，
 // 所以必须是 `FromDouble`（写成 Int32 会溢出成另一个数，而那是最难查的一种「看起来存进去了」）。
 // **`MAX_SAFE_INTEGER` 拖着的判据是 `num-float-bits` / `number-constants`**。
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("MAX_SAFE_INTEGER"))), Value.FromDouble(9007199254740991));
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("MIN_SAFE_INTEGER"))), Value.FromDouble(-9007199254740991));
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("EPSILON"))), Value.FromDouble(2.220446049250313e-16));
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("MAX_VALUE"))), Value.FromDouble(1.7976931348623157e308));
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("MIN_VALUE"))), Value.FromDouble(5e-324));
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("POSITIVE_INFINITY"))), Value.FromDouble(Infinity));
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("NEGATIVE_INFINITY"))), Value.FromDouble(-Infinity));
-SetProperty(vm.Room(), NeverCall, table, numberObject,
+SetHiddenProperty(vm.Room(), table, numberObject,
   Value.FromString(table.CreateString(Units("NaN"))), Value.FromDouble(NaN));
 const numberKey = Value.FromString(table.CreateString(Units("Number")));
-SetProperty(vm.Room(), NeverCall, table, globals, numberKey, numberObject);
+SetHiddenProperty(vm.Room(), table, globals, numberKey, numberObject);
 // **`Number.prototype` 与 `Boolean.prototype`**（第 150 轮）：与 `String.prototype` 同款——
 // **挂的必须是 `protos.Number` / `protos.Boolean` 那一格**（现造一个新对象的话，
 // 原始值接收者那条路找不到它：`(1.5).toFixed(2)` 会报
 // `unimplemented: calling a non-closure value`——听起来像调用写错了）。
 // **方法挂在原型上**（与字符串那一族相同：`GetProperty` 对原始值接收者
 // 从原型上找，`this` 仍然是那个原始值）。
-SetProperty(vm.Room(), NeverCall, table, numberObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, numberObject, NameValue(table, "prototype"),
   Value.FromObject(protos.Number));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number), NameValue(table, "constructor"),
   numberObject);
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toFixed"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToFixed, 0)));
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toString"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToStringRadix, 0)));
 // **`toPrecision` 与 `valueOf`**（第 182 轮）：与上面两个同一格原型
 // （`toPrecision` 是 `toFixed` 的同族、`valueOf` 只是「返回接收者自己」）。
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toPrecision"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToPrecision, 0)));
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("valueOf"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberValueOf, 0)));
 // **`toExponential`**（第 291 轮）：与 `toFixed` / `toPrecision` 同一格原型
 //（三格同一张表、只差缺省位数与那个宿主调用，见号那一段）。
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Number),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Number),
   Value.FromString(table.CreateString(Units("toExponential"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(NumberToExponential, 0)));
 // **`String` 也是一个普通对象**（第 130 轮，与 `Array` / `Number` 同款），
@@ -7494,14 +7547,14 @@ const stringObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(stringObject.Ref, StringCtor, 0);
 const fromCharCodeKey = Value.FromString(table.CreateString(Units("fromCharCode")));
 const fromCharCodeTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCharCode, 0));
-SetProperty(vm.Room(), NeverCall, table, stringObject, fromCharCodeKey, fromCharCodeTarget);
+SetHiddenProperty(vm.Room(), table, stringObject, fromCharCodeKey, fromCharCodeTarget);
 // **`String.fromCodePoint`**（第 275 轮）：与 `fromCharCode` **同一张对象**上再挂一格。
 // **两者不是一回事**（一个是码元、一个是码位，越界一个夹住一个抛）——
 // 所以这一格**不能**指到上面那个号上顶替（指过去就是**静默**换语义，
 // `String.fromCodePoint(0x1F600)` 会变成一个越界码元）。
 const fromCodePointKey = Value.FromString(table.CreateString(Units("fromCodePoint")));
 const fromCodePointTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringFromCodePoint, 0));
-SetProperty(vm.Room(), NeverCall, table, stringObject, fromCodePointKey, fromCodePointTarget);
+SetHiddenProperty(vm.Room(), table, stringObject, fromCodePointKey, fromCodePointTarget);
 // **`String.raw`**（第 333 轮）：它是**静态**（`String.raw\`…\``），
 // 所以挂在这一张**构造函数对象**上——**不是** `protos.String` 上
 //（挂到原型上就是「所有字符串都有 `.raw()`」，而 JS 里 `"x".raw` 是 `undefined`）。
@@ -7509,14 +7562,14 @@ SetProperty(vm.Room(), NeverCall, table, stringObject, fromCodePointKey, fromCod
 // `cannot call a non-closure value`（**离现场很远**）。
 const rawKey = Value.FromString(table.CreateString(Units("raw")));
 const rawTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StringRaw, 0));
-SetProperty(vm.Room(), NeverCall, table, stringObject, rawKey, rawTarget);
+SetHiddenProperty(vm.Room(), table, stringObject, rawKey, rawTarget);
 const stringKey = Value.FromString(table.CreateString(Units("String")));
-SetProperty(vm.Room(), NeverCall, table, globals, stringKey, stringObject);
+SetHiddenProperty(vm.Room(), table, globals, stringKey, stringObject);
 // **`String.prototype` / `Object.prototype`**（第 137 轮）：与 `Array` 同款
 // （两个都是普通对象）。**`"x" instanceof String` 在 JS 里是 `false`**——
 // 原始值不是对象——所以这一格在 `instanceof` 上只对**装箱过的**字符串有意义，
 // 而本仓不装箱：这一格今天的作用是「原型链有个正经的落点」（不是「字符串 instanceof」）。
-SetProperty(vm.Room(), NeverCall, table, stringObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, stringObject, NameValue(table, "prototype"),
   Value.FromObject(protos.String));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.String), NameValue(table, "constructor"),
   stringObject);
@@ -7529,19 +7582,19 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.String), NameValue(t
 const booleanObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(booleanObject.Ref, BooleanCtor, 0);
 const booleanKey = Value.FromString(table.CreateString(Units("Boolean")));
-SetProperty(vm.Room(), NeverCall, table, globals, booleanKey, booleanObject);
+SetHiddenProperty(vm.Room(), table, globals, booleanKey, booleanObject);
 // **`Boolean.prototype` + `constructor` + `toString`**（第 150 轮）：
 // 与 `String.prototype` / `Number.prototype` 同款——**挂的必须是 `protos.Boolean`**
 // （现造一个新对象的话，原始值接收者那条路找不到它）。
-SetProperty(vm.Room(), NeverCall, table, booleanObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, booleanObject, NameValue(table, "prototype"),
   Value.FromObject(protos.Boolean));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Boolean), NameValue(table, "constructor"),
   booleanObject);
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Boolean),
   Value.FromString(table.CreateString(Units("toString"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanToString, 0)));
 // **`Boolean.prototype.valueOf`**（第 182 轮）：与 `Number.prototype.valueOf` 同一支实现。
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Boolean),
   Value.FromString(table.CreateString(Units("valueOf"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(BooleanValueOf, 0)));
 // **`Function` 与它的原型**（第 228 轮）——`FunctionCall` / `FunctionApply` / `FunctionBind`
@@ -7561,8 +7614,8 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Boolean),
 const functionObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(functionObject.Ref, FunctionCtor, 0);
 const functionKey = Value.FromString(table.CreateString(Units("Function")));
-SetProperty(vm.Room(), NeverCall, table, globals, functionKey, functionObject);
-SetProperty(vm.Room(), NeverCall, table, functionObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, globals, functionKey, functionObject);
+SetHiddenProperty(vm.Room(), table, functionObject, NameValue(table, "prototype"),
   Value.FromObject(protos.Function));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function), NameValue(table, "constructor"),
   functionObject);
@@ -7628,7 +7681,7 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Function),
 // 那是**指令**，宿主侧的内建调不到它。
 const generatorNext = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorNext.Ref, GeneratorNextId, 0);
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("next"))), generatorNext);
 // **`return` / `throw` 两格**（第 313 轮）：与 `next` **同一个形状**
 //（带可调用载荷的对象、载荷号由引擎认）。
@@ -7639,11 +7692,11 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
 // 挂上去报的是「还差什么」。
 const generatorReturn = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorReturn.Ref, GeneratorReturnId, 0);
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("return"))), generatorReturn);
 const generatorThrow = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(generatorThrow.Ref, GeneratorThrowId, 0);
-SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
+SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Generator),
   Value.FromString(table.CreateString(Units("throw"))), generatorThrow);
 // **同一批方法还要挂到异步生成器那一格上**（第 320 轮）——**不能靠继承**：
 // 异步生成器的原型指 `Object`（`props.xl.md` 写着理由：继承 `Generator` 会**顺带**
@@ -7653,41 +7706,41 @@ SetProperty(vm.Room(), NeverCall, table, Value.FromObject(protos.Generator),
 //（`next` / `return` / `throw` 的语义两族本来就一致），所以这不是两份实现。
 if (protos.AsyncGenerator > 0) {
   const asyncGeneratorProto = Value.FromObject(protos.AsyncGenerator);
-  SetProperty(vm.Room(), NeverCall, table, asyncGeneratorProto,
+  SetHiddenProperty(vm.Room(), table, asyncGeneratorProto,
     Value.FromString(table.CreateString(Units("next"))), generatorNext);
-  SetProperty(vm.Room(), NeverCall, table, asyncGeneratorProto,
+  SetHiddenProperty(vm.Room(), table, asyncGeneratorProto,
     Value.FromString(table.CreateString(Units("return"))), generatorReturn);
-  SetProperty(vm.Room(), NeverCall, table, asyncGeneratorProto,
+  SetHiddenProperty(vm.Room(), table, asyncGeneratorProto,
     Value.FromString(table.CreateString(Units("throw"))), generatorThrow);
 }
 // **`parseInt` / `parseFloat` 是全局函数**（不是某个对象的方法）。
 const parseIntKey = Value.FromString(table.CreateString(Units("parseInt")));
-SetProperty(vm.Room(), NeverCall, table, globals, parseIntKey, parseIntTarget);
+SetHiddenProperty(vm.Room(), table, globals, parseIntKey, parseIntTarget);
 const parseFloatKey = Value.FromString(table.CreateString(Units("parseFloat")));
-SetProperty(vm.Room(), NeverCall, table, globals, parseFloatKey, parseFloatTarget);
+SetHiddenProperty(vm.Room(), table, globals, parseFloatKey, parseFloatTarget);
 // **`queueMicrotask` 也是全局函数**（第 332 轮）——与上面两个同一形状。
 // **它的能力号在承诺那一段**（`PromiseQueueMicrotask = 250`）：那一支手上才有
 // 「把一次调用排进微任务队列」那条通道（`schedule`）——理由写在 `promise.xl.md` 那一段。
 const queueMicrotaskKey = Value.FromString(table.CreateString(Units("queueMicrotask")));
-SetProperty(vm.Room(), NeverCall, table, globals, queueMicrotaskKey,
+SetHiddenProperty(vm.Room(), table, globals, queueMicrotaskKey,
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseQueueMicrotask, 0)));
 // **`structuredClone` 也是全局函数**（第 338 轮）——与上面三个同一形状
 //（`String.raw` 那次踩过「挂在原型上 ⇒ cannot call a non-closure value」，
 //  所以这里照旧挂在**全局对象**上）。
 const structuredCloneKey = Value.FromString(table.CreateString(Units("structuredClone")));
-SetProperty(vm.Room(), NeverCall, table, globals, structuredCloneKey,
+SetHiddenProperty(vm.Room(), table, globals, structuredCloneKey,
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(StructuredCloneId, 0)));
 
 const mathKey = Value.FromString(table.CreateString(Units("Math")));
 const consoleKey = Value.FromString(table.CreateString(Units("console")));
 const objectKey = Value.FromString(table.CreateString(Units("Object")));
 const jsonKey = Value.FromString(table.CreateString(Units("JSON")));
-SetProperty(vm.Room(), NeverCall, table, globals, mathKey, math);
-SetProperty(vm.Room(), NeverCall, table, globals, consoleKey, consoleObject);
-SetProperty(vm.Room(), NeverCall, table, globals, objectKey, objectObject);
-SetProperty(vm.Room(), NeverCall, table, globals, jsonKey, jsonObject);
+SetHiddenProperty(vm.Room(), table, globals, mathKey, math);
+SetHiddenProperty(vm.Room(), table, globals, consoleKey, consoleObject);
+SetHiddenProperty(vm.Room(), table, globals, objectKey, objectObject);
+SetHiddenProperty(vm.Room(), table, globals, jsonKey, jsonObject);
 // **`Object.prototype`**（第 137 轮）：与 `Array` / `String` 同款（`Object` 也是普通对象）。
-SetProperty(vm.Room(), NeverCall, table, objectObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, objectObject, NameValue(table, "prototype"),
   Value.FromObject(protos.Object));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Object), NameValue(table, "constructor"),
   objectObject);
@@ -7761,21 +7814,21 @@ for (let i = 0; i < protoHelperNames.length; i++) {
 }
 // **`Object.create` / `Object.getPrototypeOf`**（第 209 轮）：与 `keys` / `values` 那几张
 // **同一张对象**（都是 `Object` 的静态方法），分派在 `InvokeGlobal` 里（那一支有 `table`）。
-SetProperty(vm.Room(), NeverCall, table, objectObject,
+SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("create"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectCreate, 0)));
-SetProperty(vm.Room(), NeverCall, table, objectObject,
+SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("getPrototypeOf"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetPrototypeOf, 0)));
-SetProperty(vm.Room(), NeverCall, table, objectObject,
+SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("getOwnPropertyNames"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertyNames, 0)));
 // **`Object.getOwnPropertySymbols`**（第 288 轮）：与 `getOwnPropertyNames` **挨着挂**
 //（同一族、同一趟扫描、同一个 `417` 的号——放远了看不出它们是镜像）。
-SetProperty(vm.Room(), NeverCall, table, objectObject,
+SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("getOwnPropertySymbols"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectGetOwnPropertySymbols, 0)));
-SetProperty(vm.Room(), NeverCall, table, objectObject,
+SetHiddenProperty(vm.Room(), table, objectObject,
   Value.FromString(table.CreateString(Units("fromEntries"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ObjectFromEntries, 0)));
 // **`Object` 这个名字自己可以被调、也可以被 `new`**（第 232 轮）：
@@ -7789,21 +7842,24 @@ SetProperty(vm.Room(), NeverCall, table, objectObject,
 // 挂到 `protos.Object` 就是「所有普通对象都可调用」（**静默错值**，而且整份脚本都受影响）。
 table.AttachCallable(objectObject.Ref, ObjectCtor, 0);
 const undefinedKey = Value.FromString(table.CreateString(Units("undefined")));
-SetProperty(vm.Room(), NeverCall, table, globals, undefinedKey, Value.Undefined());
+SetHiddenProperty(vm.Room(), table, globals, undefinedKey, Value.Undefined(), 0);
 // **`NaN` / `Infinity` 也是全局对象上的属性**（第 149 轮）：与 `undefined` 同一条路——
-// 它们是**只读**的（JS 里 `Infinity = 1` 在严格模式下抛），但这一层没有「只读」那一格，
-// 所以照普通属性挂：**已知差异**写在明处（脚本给它们赋值在这里会成功）。
+// 它们是**只读**的（JS 里 `Infinity = 1` 在严格模式下抛）。
+// **第 709 轮把「只读」那一格补上了**：`SetHiddenProperty` 的第六格给 `0`
+// 就是「不可写、不可枚举、不可配置」——正是 Node 上问这三格描述符得到的答案。
+// **原来那一段注释写着「这一层没有『只读』那一格」**：那个说法在
+// `SetHiddenProperty` 收下 `flags` 之后就不再成立了（常量那一族的标志位同一条）。
 // 值本身是 `Float64`（`NaN` 用 `Value.FromDouble(NaN)`——与 `0 / 0` 算出来的**同一档**）。
 const nanKey = Value.FromString(table.CreateString(Units("NaN")));
-SetProperty(vm.Room(), NeverCall, table, globals, nanKey, Value.FromDouble(NaN));
+SetHiddenProperty(vm.Room(), table, globals, nanKey, Value.FromDouble(NaN), 0);
 const infinityKey = Value.FromString(table.CreateString(Units("Infinity")));
-SetProperty(vm.Room(), NeverCall, table, globals, infinityKey, Value.FromDouble(Infinity));
+SetHiddenProperty(vm.Room(), table, globals, infinityKey, Value.FromDouble(Infinity), 0);
 // **全局的 `isNaN` / `isFinite`**（第 149 轮）——与 `Number.isNaN` / `Number.isFinite`
 // 是**两个**东西（那两个挂在上面的 `Number` 对象上），所以这里各挂一格。
-SetProperty(vm.Room(), NeverCall, table, globals,
+SetHiddenProperty(vm.Room(), table, globals,
   Value.FromString(table.CreateString(Units("isNaN"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(IsNaN, 0)));
-SetProperty(vm.Room(), NeverCall, table, globals,
+SetHiddenProperty(vm.Room(), table, globals,
   Value.FromString(table.CreateString(Units("isFinite"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(IsFinite, 0)));
 // **百分号编解码四个名字**（第 311 轮）：与 `isNaN` / `isFinite` **同一条路**
@@ -7811,14 +7867,14 @@ SetProperty(vm.Room(), NeverCall, table, globals,
 const percentNames: string[] = ["encodeURI", "encodeURIComponent", "decodeURI", "decodeURIComponent"];
 const percentIds: number[] = [EncodeURI, EncodeURIComponent, DecodeURI, DecodeURIComponent];
 for (let i = 0; i < percentNames.length; i++) {
-  SetProperty(vm.Room(), NeverCall, table, globals,
+  SetHiddenProperty(vm.Room(), table, globals,
     Value.FromString(table.CreateString(Units(percentNames[i]))),
     Value.FromRef(ValueTag.HostRef, table.CreateHostRef(percentIds[i], 0)));
 }
 // **`globalThis` 指向那个环境对象自己**（第 149 轮）：`globalThis.Math === Math`。
 // **加它的直接原因是 `typeof` 那一格的新规矩**：未声明的名字给 `"undefined"`，
 // 而 `globalThis` 在 Node 里是 `"object"`——不补这一格就是一处**静默**的不一致。
-SetProperty(vm.Room(), NeverCall, table, globals,
+SetHiddenProperty(vm.Room(), table, globals,
   Value.FromString(table.CreateString(Units("globalThis"))), globals);
 // **`Map` 从「宿主引用」改成「带可调用载荷的对象」**（第 327 轮）：
 // 它现在要挂一格**静态方法**（`Map.groupBy`），而**宿主引用没有属性表**
@@ -7829,10 +7885,10 @@ SetProperty(vm.Room(), NeverCall, table, globals,
 const mapObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(mapObject.Ref, MapCtor, 0);
 const mapKey = Value.FromString(table.CreateString(Units("Map")));
-SetProperty(vm.Room(), NeverCall, table, globals, mapKey, mapObject);
+SetHiddenProperty(vm.Room(), table, globals, mapKey, mapObject);
 // **`Map.groupBy`**（第 327 轮）：挂在**那个对象**上（它现在有属性表了）。
 // **号是 660**（不是 `611`）：`600..610` 满了、`611..659` 是 `Set` 的——见 `map.xl.md`。
-SetProperty(vm.Room(), NeverCall, table, mapObject,
+SetHiddenProperty(vm.Room(), table, mapObject,
   Value.FromString(table.CreateString(Units("groupBy"))),
   Value.FromRef(ValueTag.HostRef, table.CreateHostRef(MapGroupBy, 0)));
 // `Set` 从前是**宿主的引用值**，第 613 轮起改成**可调用对象**（与 `Map` 同款）——
@@ -7842,7 +7898,7 @@ const setKey = Value.FromString(table.CreateString(Units("Set")));
 const setObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(setObject.Ref, SetCtor, 0);
 const setTarget = setObject;
-SetProperty(vm.Room(), NeverCall, table, globals, setKey, setTarget);
+SetHiddenProperty(vm.Room(), table, globals, setKey, setTarget);
 // `Symbol` 从**宿主引用**改成**带可调用载荷的对象**（第 183 轮）：
 // 它现在要挂**知名符号**（`Symbol.iterator` 等），而**宿主引用没有属性表**
 // （与第 137 轮 `Error.prototype` 那条同一个坎——那边靠 `Protos` 绕开了，
@@ -7853,7 +7909,7 @@ SetProperty(vm.Room(), NeverCall, table, globals, setKey, setTarget);
 const symbolObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(symbolObject.Ref, SymbolCtor, 0);
 const symbolKey = Value.FromString(table.CreateString(Units("Symbol")));
-SetProperty(vm.Room(), NeverCall, table, globals, symbolKey, symbolObject);
+SetHiddenProperty(vm.Room(), table, globals, symbolKey, symbolObject);
 // **`Symbol.for` / `Symbol.keyFor` 两格**（第 277 轮）：与 `String.fromCharCode` 那几格一样，
 // **挂在那个全局对象上**（`Symbol` 既是一个普通对象、又带一格可调用载荷——
 // 两件事同时成立，见第 145 轮）。
@@ -7865,7 +7921,7 @@ const symbolStaticIds: number[] = [SymbolFor, SymbolKeyFor];
 for (let i = 0; i < symbolStaticNames.length; i++) {
   const symbolStaticKey = Value.FromString(table.CreateString(Units(symbolStaticNames[i])));
   const symbolStaticTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(symbolStaticIds[i], 0));
-  SetProperty(vm.Room(), NeverCall, table, symbolObject, symbolStaticKey, symbolStaticTarget);
+  SetHiddenProperty(vm.Room(), table, symbolObject, symbolStaticKey, symbolStaticTarget);
 }
 // **知名符号**：每个名字造**一次**——JS 要求 `Symbol.iterator` **永远是同一个值**
 //（`o[Symbol.iterator] === o[Symbol.iterator]`、拿它当键的两处要落到同一格）。
@@ -8004,25 +8060,25 @@ const dateObject = NewPlainObject(vm.Room(), table, protos);
 table.AttachCallable(dateObject.Ref, DateCtor, 0);
 const nowKey = Value.FromString(table.CreateString(Units("now")));
 const nowTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(ClockNow, 0));
-SetProperty(vm.Room(), NeverCall, table, dateObject, nowKey, nowTarget);
+SetHiddenProperty(vm.Room(), table, dateObject, nowKey, nowTarget);
 // **`Date.UTC`**（第 280 轮）：与 `now` **同一张对象**上再挂一格
 //（`Date` 既是对象、也能被 `new`——两件事同时成立，见第 145 轮）。
 const utcKey = Value.FromString(table.CreateString(Units("UTC")));
 const utcTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DateUTC, 0));
-SetProperty(vm.Room(), NeverCall, table, dateObject, utcKey, utcTarget);
+SetHiddenProperty(vm.Room(), table, dateObject, utcKey, utcTarget);
 // **`Date.parse`**（第 293 轮）：与 `now` / `UTC` **同一张对象**上再挂一格
 //（`Date` 既是对象、也能被 `new`——两件事同时成立，见第 145 轮）。
 const dateParseKey = Value.FromString(table.CreateString(Units("parse")));
 const dateParseTarget = Value.FromRef(ValueTag.HostRef, table.CreateHostRef(DateParse, 0));
-SetProperty(vm.Room(), NeverCall, table, dateObject, dateParseKey, dateParseTarget);
+SetHiddenProperty(vm.Room(), table, dateObject, dateParseKey, dateParseTarget);
 const dateKey = Value.FromString(table.CreateString(Units("Date")));
-SetProperty(vm.Room(), NeverCall, table, globals, dateKey, dateObject);
+SetHiddenProperty(vm.Room(), table, globals, dateKey, dateObject);
 // **`Promise`**（第 185 轮）：值由 `promise.xl.md` 造（那里有四个静态方法），
 // 这里只负责**挂进全局对象**——与 `Date` 那一格同一个形状
 // （既是对象、也能被 `new`）。
 const promiseKey = Value.FromString(table.CreateString(Units("Promise")));
 const promiseObject = BuildPromise(vm, protos);
-SetProperty(vm.Room(), NeverCall, table, globals, promiseKey, promiseObject);
+SetHiddenProperty(vm.Room(), table, globals, promiseKey, promiseObject);
 // **`Promise` 自己的 `name` 与 `prototype`**（第 613 轮）：与 `Map` / `Set` 那两格
 // **同一个形状**——`Promise.resolve(1).constructor === Promise` 要靠
 // `protos.Promise.constructor`（`BuildPromise` 里挂），而 `Promise.name` 要靠这一格。
@@ -8033,7 +8089,7 @@ SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "name"),
 SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "length"), Value.FromInt(1));
 // **不能进上面那张 `builtinNames` 表**：`promiseObject` 在这一句之前**还不存在**
 // （它是 `BuildPromise` 造的），所以它只能在这里补一格——表里放的是**已经造好的变量**。
-SetProperty(vm.Room(), NeverCall, table, promiseObject, NameValue(table, "prototype"),
+SetHiddenProperty(vm.Room(), table, promiseObject, NameValue(table, "prototype"),
   Value.FromObject(protos.Promise));
 // **`Promise.prototype` 上那三格**（第 690 轮）：JS 里 `then` / `catch` / `finally`
 // **就在原型上**（`Promise.prototype.then` 是函数、`.length` 是 2）。
@@ -8066,15 +8122,15 @@ SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Map), NameValue(tabl
 // 与 `Map` 那两行**同一个形状**（`Set` 第 613 轮才换成可调用对象，
 // 在那之前它是宿主引用值 ⇒ 这两格**一格都挂不上去**）。
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Set), NameValue(table, "constructor"), setObject);
-SetProperty(vm.Room(), NeverCall, table, setObject, NameValue(table, "prototype"), Value.FromObject(protos.Set));
+SetHiddenProperty(vm.Room(), table, setObject, NameValue(table, "prototype"), Value.FromObject(protos.Set));
 // **`Map.prototype` 也要挂上**（第 327 轮）：`Map` 现在是**对象**，
 // 而 `instanceof` 走「读右边的 `prototype` 属性」那一条（登记表现在只给宿主引用值用）——
 // 不挂的话 `m instanceof Map` 报 `the right side of instanceof has no prototype object`
 //（**响亮的错**，但它是一处**回归**：改壳之前那一条是好的，
 // 所以六道门里 `runtime:check` 与覆盖矩阵一起验过）。与 `Date` 那一行**同一个形状**。
-SetProperty(vm.Room(), NeverCall, table, mapObject, NameValue(table, "prototype"), Value.FromObject(protos.Map));
+SetHiddenProperty(vm.Room(), table, mapObject, NameValue(table, "prototype"), Value.FromObject(protos.Map));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Set), NameValue(table, "constructor"), setTarget);
-SetProperty(vm.Room(), NeverCall, table, dateObject, NameValue(table, "prototype"), Value.FromObject(protos.Date));
+SetHiddenProperty(vm.Room(), table, dateObject, NameValue(table, "prototype"), Value.FromObject(protos.Date));
 SetHiddenProperty(vm.Room(), table, Value.FromObject(protos.Date), NameValue(table, "constructor"), dateObject);
 // **每一个内建构造自己的 `name`**（第 613 轮）——**一次写完，一处也不漏**。
 //

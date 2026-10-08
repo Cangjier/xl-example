@@ -504,6 +504,26 @@ return total;
 所以「摘下来的方法」`const f = d.m; f()` 里那句 `this.v` **该抛**
 （松散那一档给全局对象，第 337 轮选定、`c304` / `c337` 两条钉着它）。
 
+## field HasRestricted:bool = false
+
+**这个闭包带不带那两格「受限属性」`arguments` / `caller`**（第 709 轮）。
+
+**JS 的口径**（真 `node` 现量的，CJS 松散模式）：**松散的普通函数**——
+函数声明与函数表达式——**自有**这两格
+（`Object.getOwnPropertyNames(function f(a, b) {})` 给
+`["length","name","arguments","caller","prototype"]`），
+而**箭头 / 方法 / 访问器 / 生成器 / `async` / 类 / 严格代码**都**没有**这两格
+（`Object.getOwnPropertyNames((a) => {})` 给 `["length","name"]`、
+`Object.getOwnPropertyNames({ m() {} }.m)` 也一样）。
+
+**为什么它必须住在闭包上**：这是**语法种类**决定的（是不是方法、是不是箭头、
+有没有指令序言），运行期从值上看不出来——与 `IsClass` / `IsStrict` **同一条分工**：
+只有造它的那一方（降级层手里正拿着那个节点）知道。
+
+**读出来的值**：不在调用中时两格都是 `null`（`typeof f.arguments` 给 `"object"`），
+那一档由 `props.xl.md` 的 `GetProperty` 现答——它**不在属性表里**
+（与 `Arity` / `Name` 那两格同一个形状）。
+
 ## constructor:(code:int, env:int, arity:int, name:int, source:int)=>void
 
 造一个闭包。
@@ -516,6 +536,7 @@ this.Name = name;
 this.Source = source;
 this.IsClass = false;
 this.IsStrict = false;
+this.HasRestricted = false;
 ```
 
 ## method Charge:()=>int

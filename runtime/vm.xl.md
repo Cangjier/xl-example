@@ -3074,13 +3074,19 @@ if (id === RtOp.IterNew) {
     if (target.Tag === ValueTag.String) {
       return Value.FromObject(this.Table.CreateIterator(target.Ref));
     }
-    if (!target.IsObject()) throw new Error("unimplemented: iterating a non-object");
+    if (!target.IsObject()) throw new TypeError("unimplemented: iterating a non-object");
     const item = this.Table.Get(target.Ref);
     if (item.Generator !== null) return target;
     if (target.Tag === ValueTag.Array) {
       return Value.FromObject(this.Table.CreateIterator(target.Ref));
     }
-    throw new Error("unimplemented: iter_new on this kind of object");
+    // **不可迭代的东西抛的是 `TypeError`**（第 709 轮）：JS 里
+    // `[...{ length: 2 }]` / `for (const x of 42)` 都是 `TypeError`，
+    // 而这一层原来抛的是**普通 `Error`** ⇒ `catch (e) { if (e instanceof TypeError) }`
+    // 那种写法分不出来（判据 `probe696-i08` / `probe705-i-c13` 钉的就是它）。
+    // **抛宿主 `TypeError`**：`Guard`（`vm.xl.md`）按宿主异常的类折成 `ErrorKindType`
+    // ——那是这一层唯一的翻译点，不另写一句 `MakeError`。
+    throw new TypeError("unimplemented: iter_new on this kind of object");
   });
 }
 if (id === RtOp.IterNext) {
@@ -3860,11 +3866,18 @@ if (source.Tag === ValueTag.String) {
   const item = this.Table.Get(source.Ref);
   // **生成器就是它自己**（`iter_next` 对生成器直接推它）；数组要造一个游标。
   if (item.Generator === null) {
-    if (source.Tag !== ValueTag.Array) throw new Error("unimplemented: iterating a non-array source");
+    if (source.Tag !== ValueTag.Array) {
+      // **不可迭代的东西抛的是 `TypeError`**（第 709 轮）：`[...{ length: 2 }]` 在 JS 里
+      // 是 `TypeError`，而这一层原来抛**普通 `Error`**（`Guard` 于是折成
+      // `ErrorKindGeneric`）⇒ `catch (e) { e instanceof TypeError }` 分不出来。
+      // 语言层的 `GetIterator` 对「其它值」**原样返回**，判据就落在这一句上
+      //（`runtime/iterators/probe696-i08` / `probe705-i-c13`）。
+      throw new TypeError("unimplemented: iterating a non-array source");
+    }
     iterator = Value.FromObject(this.Table.CreateIterator(source.Ref));
   }
 } else {
-  throw new Error("unimplemented: iterating a non-object");
+  throw new TypeError("unimplemented: iterating a non-object");
 }
 const protos = this.Protos;
 if (protos === null) throw new Error("no prototype table");
@@ -5115,10 +5128,16 @@ try {
 没接上时不说谎，只是不特殊）。
 
 ```ts
-// **第四格的最低两位是「这是一个类」与「这是严格代码」**（第 613 / 620 轮，见上面那一段）。
+// **第四格的最低三位是「这是一个类」「这是严格代码」「这是松散普通函数」**
+//（第 613 / 620 / 709 轮，见上面那一段）。
+// **第三位（值 4）是第 709 轮添的**：它决定这个闭包带不带 `arguments` / `caller`
+// 那两格「受限属性」（`HeapClosure.HasRestricted`）——位宽从两位加到三位，
+// 于是形参个数那一半的**步长从 4 变成 8**（降级层 `EmitClosure` 那一处**同步**改，
+// 两边是同一份规约的两半）。
 const isClass = (arity & 1) !== 0;
 const isStrict = (arity & 2) !== 0;
-const paramCount = (arity - (arity & 3)) / 4;
+const isRestricted = (arity & 4) !== 0;
+const paramCount = (arity - (arity & 7)) / 8;
 const created = this.Guard(() => RtNewClosure(this.Room(), this.Table, env, code,
   paramCount, 0));
 // **`Guard` 可能什么都没造出来**（room 不够时它把状态置成 `OutOfMemory` 并给 `undefined`）——
@@ -5133,6 +5152,11 @@ if (isStrict) {
   // **严格那一位落进闭包自己那一格**（第 620 轮）：调用点要拿它决定
   // 「没有接收者时 `this` 给谁」（见 `DoCallValue` 那一支）。
   this.Table.Get(created.Ref).AsClosure().IsStrict = true;
+}
+if (isRestricted) {
+  // **受限属性那一位落进闭包自己那一格**（第 709 轮）：`props.xl.md` 的读路径
+  // 与 `Object.getOwnPropertyNames` 各要问它一次（见 `HeapClosure.HasRestricted`）。
+  this.Table.Get(created.Ref).AsClosure().HasRestricted = true;
 }
 const protos = this.Protos;
 if (protos !== null && protos.Function > 0) {

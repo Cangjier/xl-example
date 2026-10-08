@@ -495,6 +495,42 @@ if (units[3] !== 101) return false;
 return true;
 ```
 
+# method IsRestrictedKey:(table:HeapTable, key:Value)=>bool
+
+这个键是不是 `"arguments"` 或 `"caller"`（第 709 轮）。
+
+**与 `IsLengthKey` / `IsNameKey` 同一个写法、同一个理由**（按码元逐个比，
+不造中间字符串）：这两格是**松散的普通函数**自带的受限属性，
+**不住在属性表里**（住在「这个闭包是不是那一档」这一位上，见
+`heap.xl.md` 的 `HeapClosure.HasRestricted`）——所以读与枚举都要先认出它们。
+
+**两格合成一次判定**：它们的语义、来处、开关都是同一处，分开写就是两份会漂的答案。
+
+```ts
+if (key.Tag !== ValueTag.String) return false;
+const units = table.Get(key.Ref).AsString().Units;
+if (units.length === 9) {
+  if (units[0] !== 97) return false;
+  if (units[1] !== 114) return false;
+  if (units[2] !== 103) return false;
+  if (units[3] !== 117) return false;
+  if (units[4] !== 109) return false;
+  if (units[5] !== 101) return false;
+  if (units[6] !== 110) return false;
+  if (units[7] !== 116) return false;
+  if (units[8] !== 115) return false;
+  return true;
+}
+if (units.length !== 6) return false;
+if (units[0] !== 99) return false;
+if (units[1] !== 97) return false;
+if (units[2] !== 108) return false;
+if (units[3] !== 108) return false;
+if (units[4] !== 101) return false;
+if (units[5] !== 114) return false;
+return true;
+```
+
 # method KeyMatches:(table:HeapTable, property:Property, key:Value)=>bool
 
 这一格属性的键是不是 `key`。
@@ -709,6 +745,18 @@ if (receiver.Tag === ValueTag.Closure && IsNameKey(table, key)) {
   const nameHandle = table.Get(receiver.Ref).AsClosure().Name;
   if (nameHandle === 0) return Value.FromString(table.CreateString([]));
   return Value.FromString(nameHandle);
+}
+// **松散普通函数那两格受限属性**（第 709 轮）：`fn.arguments` / `fn.caller` 是
+// **自有、不可枚举、不可写、不可配置**的两格，**不在属性表里**——
+// 与上面 `length` / `name` 同一档结构属性，所以也只能在这里答。
+// **值给 `null`**：不在调用中时 JS 就是 `null`
+//（`typeof f.arguments` 给 `"object"`；本仓不模拟「调用中给出实参对象」那一半——
+//  那是 `[[ParameterMap]]` 同族的待做项，见 `exec/functions/095-arguments-length` 的台账）。
+// **只有 `HasRestricted` 那一位为真的闭包才有**（箭头 / 方法 / 生成器 / `async` /
+// 类 / 严格代码都没有这两格，判据在降级层现量）。
+if (receiver.Tag === ValueTag.Closure && IsRestrictedKey(table, key)
+  && table.Get(receiver.Ref).AsClosure().HasRestricted) {
+  return Value.Null();
 }
 if (!receiver.IsObject()) {
   // **原始值接收者：从它自己的原型起步**（第 150 轮把数字与布尔接了进来）——

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7449,
+  "total": 7505,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.78,
+  "progressPercent": 95.9,
   "categories": [
     {
       "category": "token",
@@ -90,10 +90,10 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 2051,
-      "pass": 1998,
+      "total": 2089,
+      "pass": 2035,
       "blocked": 12,
-      "differ": 41,
+      "differ": 42,
       "nodefail": 0,
       "coverage": 97.42
     },
@@ -101,21 +101,21 @@
       "category": "runtime",
       "weight": 0.25,
       "total": 815,
-      "pass": 801,
+      "pass": 804,
       "blocked": 1,
-      "differ": 13,
+      "differ": 10,
       "nodefail": 0,
-      "coverage": 98.28
+      "coverage": 98.65
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2934,
-      "pass": 2852,
+      "total": 2952,
+      "pass": 2874,
       "blocked": 31,
-      "differ": 51,
+      "differ": 47,
       "nodefail": 0,
-      "coverage": 97.21
+      "coverage": 97.36
     },
     {
       "category": "e2e",
@@ -1880,12 +1880,6 @@
       "detail": "stdout 不同：第 1 行：node «throw:ReferenceError» vs tsrun «undefined:undefined»"
     },
     {
-      "id": "exec/functions/probe700-f-t05",
-      "category": "exec",
-      "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); function f() { return arguments[1]; } console.log(show(f(1, 2)) + \"|\" + show(typeof f.arguments));",
-      "detail": "stdout 不同：第 1 行：node «number:2|string:object» vs tsrun «number:2|string:undefined»"
-    },
-    {
       "id": "exec/functions/probe701-s-t06",
       "category": "exec",
       "title": "const show = (v) => (v === null ? \"null\" : typeof v + \":\" + String(v)); console.log(show((() => { \"use strict\"; return this === undefined ? \"u\" : typeof this; })()));",
@@ -1920,12 +1914,6 @@
       "category": "exec",
       "title": "Object.prototype.toString.call(function* () {})",
       "detail": "stdout 不同：第 1 行：node «string:[object GeneratorFunction]» vs tsrun «string:[object Function]»"
-    },
-    {
-      "id": "exec/functions/probe703-f-g27",
-      "category": "exec",
-      "title": "Object.getOwnPropertyNames(function f() {}).length",
-      "detail": "stdout 不同：第 1 行：node «number:5» vs tsrun «number:3»"
     },
     {
       "id": "exec/functions/probe703-f-g30",
@@ -1973,13 +1961,31 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14644/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10308/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
       "category": "exec",
       "title": "search / match 的字符串实参",
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:TypeError»"
+    },
+    {
+      "id": "exec/round709/p709a-a16",
+      "category": "exec",
+      "title": "严格函数读 arguments",
+      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «string:undefined»"
+    },
+    {
+      "id": "exec/round709/p709a-a19",
+      "category": "exec",
+      "title": "函数声明在严格模块里",
+      "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
+    },
+    {
+      "id": "exec/round709/p709d-d06",
+      "category": "exec",
+      "title": "严格函数的自有名字表",
+      "detail": "stdout 不同：第 1 行：node «string:length,name,prototype» vs tsrun «string:length,name,arguments,caller,prototype»"
     },
     {
       "id": "exec/statements/probe693b-s30",
@@ -2004,12 +2010,6 @@
       "category": "runtime",
       "title": "Object.prototype.toString.call(async function () {})",
       "detail": "stdout 不同：第 1 行：node «string:[object AsyncFunction]» vs tsrun «string:[object Function]»"
-    },
-    {
-      "id": "runtime/async/probe697-z07",
-      "category": "runtime",
-      "title": "typeof (async function () {}).prototype",
-      "detail": "stdout 不同：第 1 行：node «string:undefined» vs tsrun «string:object»"
     },
     {
       "id": "runtime/async/probe697-z08",
@@ -2052,18 +2052,6 @@
       "category": "runtime",
       "title": "(function () { return typeof [][Symbol.iterator]().next; })()",
       "detail": "stdout 不同：第 1 行：node «string:function» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "runtime/iterators/probe696-i08",
-      "category": "runtime",
-      "title": "(function () { const o = { length: 2, 0: \"a\", 1: \"b\" }; return [...o].length; })()",
-      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «throw:Error»"
-    },
-    {
-      "id": "runtime/iterators/probe705-i-c13",
-      "category": "runtime",
-      "title": "[...{ length: 2 }].length",
-      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «throw:Error»"
     },
     {
       "id": "stdlib/array/140-array-tostring-custom-join",
@@ -2141,7 +2129,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14644/src/4811.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10308/src/4849.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2165,7 +2153,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-14644/src/4861.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-10308/src/4899.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2252,34 +2240,10 @@
       "detail": "stdout 不同：第 1 行：node «define-length 1:undefined» vs tsrun «define-length 3:3»"
     },
     {
-      "id": "stdlib/object/128-function-prototype-layer-gap",
-      "category": "stdlib",
-      "title": "函数的两条**原型**那一半还没接：`Function.prototype` 自己的格子与两个内建构造的原型种类",
-      "detail": "stdout 不同：第 1 行：node «fn-own-names arguments,caller,length,name,prototype» vs tsrun «fn-own-names length,name,prototype»"
-    },
-    {
       "id": "stdlib/object/130-tolocalestring-forwarding-gap",
       "category": "stdlib",
       "title": "`toLocaleString` 那一格的**三处**还没到位：数字那一档与「转交给接收者自己的 toString」",
       "detail": "stdout 不同：第 1 行：node «call-num 1» vs tsrun «call-num [object Number]»"
-    },
-    {
-      "id": "stdlib/object/151-getownpropertynames-array",
-      "category": "stdlib",
-      "title": "数组的 `getOwnPropertyNames` 含 `length`",
-      "detail": "stdout 不同：第 3 行：node «length,name,arguments,caller,prototype» vs tsrun «length,name,prototype»"
-    },
-    {
-      "id": "stdlib/object/probe2-d22",
-      "category": "stdlib",
-      "title": "(function () { function f(a, b) {} return Object.getOwnPropertyNames(f).join(\",\"); })()",
-      "detail": "stdout 不同：第 1 行：node «string:length,name,arguments,caller,prototype» vs tsrun «string:length,name,prototype»"
-    },
-    {
-      "id": "stdlib/object/probe693-o06",
-      "category": "stdlib",
-      "title": "Object.getOwnPropertyNames(function f(a, b) {}).sort().join(\",\")",
-      "detail": "stdout 不同：第 1 行：node «string:arguments,caller,length,name,prototype» vs tsrun «string:length,name,prototype»"
     },
     {
       "id": "stdlib/object/probe693-o46",
@@ -2300,16 +2264,16 @@
       "detail": "stdout 不同：第 1 行：node «number:1» vs tsrun «throw:Error»"
     },
     {
-      "id": "stdlib/object/probe703-o-a41",
+      "id": "stdlib/round709/p709b-b17",
       "category": "stdlib",
-      "title": "Object.getOwnPropertyNames(function f(a, b) {}).join(\",\")",
-      "detail": "stdout 不同：第 1 行：node «string:length,name,arguments,caller,prototype» vs tsrun «string:length,name,prototype»"
+      "title": "Math.max 的长度",
+      "detail": "stdout 不同：第 1 行：node «number:2» vs tsrun «undefined:undefined»"
     },
     {
-      "id": "stdlib/object/probe705-o-b07",
+      "id": "stdlib/round709/p709b-b18",
       "category": "stdlib",
-      "title": "Object.getOwnPropertyDescriptor(Math, \"PI\").writable",
-      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
+      "title": "Math.random 的名字",
+      "detail": "stdout 不同：第 1 行：node «string:random» vs tsrun «undefined:undefined»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

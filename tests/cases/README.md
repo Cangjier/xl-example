@@ -77,17 +77,64 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **7463** 条（token 1416 / exec 2052 / runtime 815 / stdlib 2934 / e2e 246），判过 **7449** 条。
+语料 **7519** 条（token 1416 / exec 2090 / runtime 815 / stdlib 2952 / e2e 246），判过 **7505** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 2051 | **1999** | 11 / 41 | 另有 1 条不进分母 |
-| `runtime` | 815 | **801** | 1 / 13 | |
-| `stdlib` | 2934 | **2851** | 32 / 51 | |
+| `exec` | 2089 | **2035** | 12 / 42 | 另有 1 条不进分母 |
+| `runtime` | 815 | **804** | 1 / 10 | |
+| `stdlib` | 2952 | **2874** | 31 / 47 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **7449** | **7077** | 267 / 105 | 加权 **95.8%** |
+| **合计** | **7505** | **7139** | 267 / 99 | 加权 **95.9%** |
+
+**第 709 轮再加 56 条**（分母 7449 → **7505**）：第十九批原子探针，三层——
+**函数对象自己那几格**（松散普通函数 / 箭头 / 方法 / 访问器 / 生成器 / `async` 六档的
+自有名字表、`arguments` 与 `caller` 的取值与 `hasOwnProperty`、`prototype` 那一格）、
+**内建命名空间的成员标志位**（`Math` 的八个常量与方法、`JSON` / `Object` / `Number` /
+`String.prototype` 的 `enumerable`、`Math` 上的 `for..in`）、
+**不可迭代物的抛出种类**（`[...42]` / `for..of` 一个对象 / 数组解构一个数字 /
+`Array.from({length:2})`）。
+**这一批 51 条当场 pass，另登记 5 条缺口**（`p709a-a16` / `p709a-a19` / `p709d-d06` /
+`p709b-b17` / `p709b-b18`），而**普查本身收掉了四族**：
+
+1. **松散普通函数的 `arguments` / `caller` 两格从来没装**（**静默错值**，一条根串起 11 条）：
+   JS 里函数声明与函数表达式**自有**这两格（`Object.getOwnPropertyNames(function f(a, b) {})`
+   给 `["length","name","arguments","caller","prototype"]`），而**箭头 / 方法 / 访问器 /
+   生成器 / `async` / 类 / 严格代码**都没有。本仓一格都没有 ⇒ `Object.getOwnPropertyNames`
+   少两个名字、`f.arguments` 给 `undefined`（Node 给 `null`）。
+   **修法**是在闭包上添一位 `HasRestricted`（`heap.xl.md`）——`new_closure` 第四格
+   **原来借了两位给「这是类」与「这是严格代码」，这一轮借第三位（值 4），步长 4 → 8**；
+   降级层按**节点种类**那一句话算出来（它手里正拿着那个节点），读那一侧在 `props.xl.md`
+   的 `GetProperty` 里现答 `null`。台账里 `stdlib/object/151` / `128` / `probe2-d22` /
+   `probe693-o06` / `probe703-o-a41` 与 `exec/functions/probe700-f-t05` / `probe703-f-g27`
+   **七条一起转绿、台账已撤**。
+2. **内建命名空间的成员全是「可枚举」的**（**静默错值**）：`Math` / `JSON` / `Object` /
+   `Number` / `String.prototype` 上的成员在 JS 里**全是不可枚举**的
+   （`Object.getOwnPropertyDescriptor(Math, "PI").writable` 给 `false`、
+   `for (const k in Math)` **一个键都不给**），而本仓用 `SetProperty` 挂 ⇒ 三个标志全真、
+   `Object.keys(Math)` 有 **36** 个名字。**128 处安装点一次改齐**（`SetHiddenProperty`
+   的缺省就是「可写 + 可配置、不可枚举」），`undefined` / `NaN` / `Infinity` 三格
+   另给 `flags = 0`（只读）；**唯一的例外是 `console`**——它不在规范里，Node 的实现
+   把方法挂成**可枚举**（`Object.keys(console)` 数得出 25 个名字），所以那一格留在
+   `SetProperty` 上，**两种口径写在明处**。
+3. **`async` 函数不该有 `prototype`**（`Object.getOwnPropertyNames(async function a(b) {})`
+   在 Node 里是 `["length","name"]`）：函数表达式与函数声明**两处**都会挂，
+   这一轮两处一起排掉 `IsAsync`（生成器照旧有）。台账
+   `runtime/async/probe697-z07` 转绿、已撤。
+4. **不可迭代物抛的是 `TypeError`**（本仓抛普通 `Error`，`e instanceof TypeError` 分不出来）：
+   `iter_new` 与 `DrainIterator` 两处改成抛宿主 `TypeError`（`Guard` 按宿主异常的类
+   折成 `ErrorKindType`）。台账 `runtime/iterators/probe696-i08` / `probe705-i-c13` 转绿、已撤。
+
+**另外两处顺带收掉**：`(function f() {}).hasOwnProperty("prototype")` 原来答**假**
+（闭包在 `hasOwnProperty` 那一支被 `Tag` 白名单挡在扫描之外，而 `Object.getOwnPropertyNames`
+列得出它——**同一个属性两种问法两个答案**）；`Object.keys(Error)` 那一格的真面目
+（Node 24 上唯一可枚举的是 `stackTraceLimit`，本仓原来是 `prototype` 顶的——
+**两个不同的键、同一个长度 1**，第 709 轮改齐命名空间的标志位之后当场露出来，判据
+`stdlib/error/probe704-e-a23` 报了**倒退**一条，收法是把 `stackTraceLimit` 按实现挂成可枚举）。
+
+**加权 95.8% → 95.9%**（分子 +62：收掉的 11 条 + 新过的 51 条；分母 +56）。
 
 **第 708 轮再加 81 条**（分母 7368 → **7449**）：第十八批原子探针，三层——
 **类内部件与成员形状**（缺省构造函数的 `length`、派生类 `super` 前后的 `this`、
