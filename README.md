@@ -1493,6 +1493,55 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   `differ 97 → 98`（+1 新登）、`bad` 0、`regressions` 0、`moved` 0、`newlyPassing` 0，
   加权 **96.0%**（分子 +10、分母 +11——新登的那一条是分母）。
 
+### 第 746 轮：**运行时那一侧的边界普查**——四处收掉、两条新登（coverage 7683/8042 → **7695/8052**）
+
+上一轮量的是内建函数的边界，这一轮换一组面：**生成器 / 访问器 / 迭代协议 / Date / 描述符**。
+30 条原子探针量出**四处真错值**，全在这一轮收掉：
+
+1. **`it.return(v)` / `it.throw(v)` 打在还没跑过的生成器上**（`runtime/round746/p746a-a01`）。
+   JS 的生成器有一个本仓没有的 `suspendedStart` 状态：体一次都没跑过时
+   `GeneratorResumeAbrupt` **不执行体、也不跑 `finally`**，直接把生成器关掉
+   （`throw` 把值抛给调用方、`return` 把它当完成值）。本仓三档
+   （`Suspended` / `Running` / `Done`）把「还没开始」记成了「挂起」⇒
+   `function* g() { yield 1; }` 的 `g().return(9)` 给 `{value: 1, done: false}`
+   （Node 给 `{value: 9, done: true}`），**而且体里的副作用真的跑了**
+   （`g().return(9)` 会执行 `console.log("body")`，Node 一个字都不打）。
+   修法：`HeapGenerator.Started` 一格（`heap.xl.md`）+ `DoIterNext` 里那一档。
+   **这就是第 713 轮试过、因为 128 条回归而撤回的那一处**——当时的判据只写「函数体开始跑过没有」，
+   于是**正常恢复那一档也被拦了**；这一版把闸门收在 `(raises || returns)` 上，
+   实测回归 0（那一族的账留在 `probe694-g04` / `p737a-a10` 两条用例的历次 `xl:why` 里）。
+   顺带把**完成值**记下来（`HeapGenerator.CompletedValue`，GC 那一趟也要标记）：
+   `it.return(8)` 问两次给同一个答案，`yield* g()` 那个表达式的值才不是静默的 `undefined`。
+   两条旧台账因此转绿并撤掉指令（`differ 98 → 96`）。
+2. **方法调用那一侧的 `return()` 漏了一档**（第 336 轮做的 `return()` 只接在
+   `DoCallValue` 上）。`CallNative`（重入路）原来对 `stepKind === 2` **响亮地抛**——
+   而第 336 轮把 `return()` 做掉之后那一句**没有跟着改**，于是它变成了
+   **另一句话**：把 `return(9)` 当成 `next(9)` 跑。两条路的修法现在一字不差。
+3. **数组下标位上的访问器**（`stdlib/round746/p746b-b01`）。数组的元素住在**独立的一段**里，
+   而访问器只能住在属性表里 ⇒ 两摞都在时访问器**永远读不到**：
+   `Object.defineProperty([1,2,3], 1, { get: () => 99 })` 的 `a[1]` 本仓给 `2`。
+   三处一起修：① 装访问器那一处（`DefineAccessor` 与 `DefineOwnFromDescriptor`）
+   把元素那格**摘成洞**（越界那一档先把数组撑长）；② 读那一趟（`RtOp.GetIndex`）
+   用新判据 `IndexAccessorAt` 问一句，是访问器就改走 `GetProperty`（只有它调 getter）；
+   ③ `JSON.stringify` 那一趟同理（原来洞读成 `undefined` ⇒ `[1,null,3]`）。
+   顺带把**枚举次序**修对：整数键要**合并排序**再push（`Object.keys` 与
+   `getOwnPropertyNames` 各一处），`length` 排在全部整数键之后——`p721a-a15` 当场红过。
+4. **冻结的数组上 `sort()` 该抛 `TypeError`**（判据 `p746d-d01`）。排序要写每一格，
+   而冻结之后没有一格可写——本仓原来**一声不响地把整趟跑完**。判据用 `Extensible`
+   （与 `RequireArrayGrowable` 同一处），只管**就地**那一档（`toSorted` 跑在副本上）。
+
+- **两条新登记**（都量清了根子、都写了 `xl:why`）：
+  `gap746-forof-early-exit-not-lazy`（`for..of` 的**惰性**：本仓 `GetIterator` 对
+  `Symbol.iterator` 那一档是「跑干再当数组用」，于是 `next()` 的次数、
+  提前退出时的 `return()`、以及**无限迭代器**三件事都错——收它要引擎侧一个新载具，
+  不是接线）；`gap746-array-accessor-out-of-range-enumerable`（**越界**下标访问器的可枚举位：
+  已有的那一格缺省是真、越界那一格缺省是假，本仓两条都按真走——**差的是一个键不是一个值**）。
+- 用例：`runtime/round746` 3 条（生成器两档 + 迭代协议）、`stdlib/round746` 8 条
+  （访问器读 / Date / 描述符 / 展开解构 / 迭代 / 冻结与 `structuredClone` + 两条台账）。
+- 五类 **7683 / 8042 → 7695 / 8052**（+1 exec、+9 stdlib、+2 runtime）、
+  `blocked 261`（没动）、`differ 97 → 96`（−2 收掉、+1 新登，另两条是这一轮自己量的）、
+  `bad` 0、`regressions` 0、`moved` 0、`newlyPassing` **2**，加权 **96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -1505,7 +1554,7 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **229 份**（用例 1414 份）里出现过的 kind / 形状签名**全部有用例覆盖**，未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7683 / 8042**，加权 **96.0%**：token 1196/1414、exec 2171/2216、runtime 970/991、stdlib 3104/3175、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 98），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `coverage` | **五类 7695 / 8052**，加权 **96.0%**：token 1196/1414、exec 2171/2216、runtime 975/994、stdlib 3111/3182、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 96），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
 | `npm run gates` | 上面各道一次跑完（实测墙钟 **~39s**） |
 ### 口径与已知缺口
 

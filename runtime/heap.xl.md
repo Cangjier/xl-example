@@ -642,6 +642,40 @@ return this.Slots.length * ValueCharge;
 
 `GeneratorState` 的值。
 
+## field Started:bool = false
+
+**这个生成器的体跑过没有**（第 746 轮）——`GeneratorState` 那一格**答不了这个问题**：
+本仓的三档（`Suspended` / `Running` / `Done`）在「还没开始」与「跑过一轮之后挂起」
+这两种情况下**都是 `Suspended`**（`heap.xl.md` 的 `GeneratorState` 那一段写着它只有三档），
+而 JS 那边是**两个**状态（`suspendedStart` 与 `suspendedYield`）。
+
+**为什么这一格必须分开**：`it.return(v)` 与 `it.throw(v)` 打在**还没开始**的生成器上时，
+JS 的 `GeneratorResumeAbrupt` **不执行体、也不跑 `finally`**——直接把生成器关掉，
+`throw` 把那个值抛给调用方、`return` 把它当完成值交出去；
+而打在**已经挂起**的生成器上时，它要跑体（`return` 只跑 `finally`、`catch` 不接）。
+两档的**字面写法一模一样**（都是 `it.return(v)`），差别**只在这一格**。
+
+**谁写**：`vm.xl.md` 的 `DoIterNext` —— 每一次恢复（不论方向）在**真正开跑之前**置真；
+于是「第二次以后」的 `return` / `throw` 自然走正常那条路。
+**它不是根**（一个布尔）；初值 `false`。
+
+## field CompletedValue:Value = new Value()
+
+**这个生成器关掉时那个「完成值」**（第 746 轮）——一个跑完的生成器**不是一个黑洞**：
+JS 里它记着自己是怎么结束的。
+
+**为什么需要这一格**：`{ value, done }` 的那一对里 `value` 在**结束之后**不是 `undefined`。
+实测（判据 `runtime/round746/p746a-a02`）：
+`function* g() { yield 1; yield 2; }` 跑起来、`it.return(8)` 交出去 `{value: 8, done: true}`
+之后**再问一次** `it.return(8)`，`node` 还是给 `{value: 8, done: true}`——
+而本仓原来把「已经 `Done`」那一档**一律**答成 `{value: undefined, done: true}`，
+于是 `yield* g()` 那个表达式的值**静默变成 `undefined`**（JS 里它是 `8`）。
+
+**为什么不做成「`Done` 之后再问一次就交它」**：`next()` 那一档 JS 给的是
+`{value: undefined, done: true}`（不是完成值）——所以这一格**只由 `return` 那两条路**填
+（`DoIterNext` 的两处 `returns` 分支），不由 `next()` 的结束填。
+**它是根**（可能是一个对象），`vm.xl.md` 的 `SnapshotRoots` 那一份名单里要带上它。
+
 ## constructor:(frame:int)=>void
 
 造一个生成器，初始挂起（帧还没跑，等第一次 `next()`）。
@@ -649,6 +683,8 @@ return this.Slots.length * ValueCharge;
 ```ts
 this.Frame = frame;
 this.State = GeneratorState.Suspended;
+this.Started = false;
+this.CompletedValue = Value.Undefined();
 ```
 
 ## method Charge:()=>int

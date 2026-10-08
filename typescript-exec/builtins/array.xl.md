@@ -1295,6 +1295,18 @@ if (id === ArraySort || id === ArrayToSorted) {
   const comparator = args.length > 0 && IsCallableValue(table, args[0]) ? args[0] : Value.Undefined();
   const hasComparator = IsCallableValue(table, comparator);
   const inPlace = id === ArraySort;
+  // **`sort` 就地改，所以冻结的数组要抛 `TypeError`**（第 746 轮，普查当场红的）。
+  // `Object.freeze(a); a.sort()` 在 `node` 里给
+  // `TypeError: Cannot assign to read only property '0' of object '[object Array]'`——
+  // 排序**要写每一格**，而冻结之后没有一格可写。
+  // 本仓原来**一声不响地把整趟排序跑完**（`a` 还是原样，但**没有抛**）：
+  // 判据 `p746d-d01` 的第 2 行量的就是它。
+  // **判据用 `Extensible`**（与 `RequireArrayGrowable` 第 333 轮那一句同一处）：
+  // `Object.freeze` 把它置假，而「一格都写不进去」在数组上等价于「不可扩展」。
+  // **只管就地那一档**：`toSorted` 跑在副本上（副本是可扩展的），照旧。
+  if (inPlace && !table.Get(self.Ref).Extensible) {
+    throw new TypeError("Cannot assign to read only property of an object that is not extensible");
+  }
   // **`toSorted` 先拷一份**（第 274 轮）：排序**跑在副本上**，原数组一个字节都不动。
   // 那一段排序循环第 274 轮**抽成了方法**（`SortArrayInPlace`）——
   // 理由写在那个方法的说明里：不是「顺手抽一下」，是因为那段里有两处

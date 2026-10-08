@@ -4,7 +4,7 @@ import { Value, ValueTag } from "../../runtime/value.xl.md"
 import { HeapTable, ObjectCharge, ValueCharge, CodeUnitCharge, PropertyKind, HoleCharge, Property, PropertyCharge, PropertyFlagEnumerable, PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagsAll } from "../../runtime/heap.xl.md"
 import { RoomChecker, RtToBoolean, MakeNumber, RtChainHas, RtSetProto, ToNumberOf, ToPrimitiveOf, ToPrimitiveDefault, ToPrimitiveString, IsCallableValue, SameValue, FunctionSourceText } from "../../runtime/rt.xl.md"
 import { HostUnitsText, NumberFromHostText, NumberToHostText, NumberToJsText } from "../../runtime/host-text.xl.md"
-import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt } from "../../runtime/props.xl.md"
+import { SetProperty, SetHiddenProperty, CreateDataProperty, GetProperty, DefineAccessor, NativeCall, CallFailed, Protos, NewPlainObject, NewPlainArray, FindProperty, KeyMatches, NeverRoom, DeleteProperty, ArrayIndexAt, IndexAccessorAt } from "../../runtime/props.xl.md"
 import { Vm } from "../../runtime/vm.xl.md"
 import { BuiltinBase } from "../../runtime/ir.xl.md"
 import { Units, NeverCall, IntArgOr, IntArgStrict, IntOfNumberStrict, NumArgOr, ArrayIsArray, ArrayFrom, ArrayFromAsync, ArrayOf, ArrayValues, AttachArrayIterator, ArrayLikeLength, ArrayLikeAt, ArrayPush, ArrayUnshift, ArrayFill, ArrayFind, ArrayFindIndex, ArrayFindLast, ArrayFindLastIndex, ArrayLastIndexOf, ArrayIncludes, ArrayIndexOf, ArrayJoin, ArraySort, ArrayForEach, ArrayFilter, ArrayFlatMap, ArrayMap, ArrayEvery, ArraySome, ArrayReduce, ArrayReduceRight, ArrayToSorted, ArraySlice, ArraySplice, ArrayCopyWithin, ArrayToSpliced, ArrayWith, ArrayPop, ArrayReverse, ArrayShift, ArrayKeys, ArrayEntries, ArrayFlat, ArrayToReversed, ArrayToString, ArrayConcat } from "./array.xl.md"
@@ -2211,11 +2211,19 @@ const names: string[] = [];
 // **被不可枚举的那一格压住的下标不算键**（第 706 轮）：`IndexKeyPositions` 只看
 // 「元素区在不在」，而 `Object.defineProperty([], 0, { value: 5 })` 造的那一格
 // **在 `Props` 里、不可枚举**（见 `IndexKeyShadowed` 那一段的账）。
+//
+// **第 746 轮：下标键先凑齐、最后统一排序**——原来是「元素区那一摞先 push 进 `names`、
+// 属性表里的下标键另收一摞**排在它们后面**」，两摞**没有合并排序**：
+// `Object.defineProperty([1,2,3], 1, { get() { return 99; } })` 于是给
+// `["0","2","1"]`（元素区报 0、2，属性表报 1），而 JS 的次序是**所有整数键一起升序**
+// ⇒ `["0","1","2"]`（判据 `p721a-a15` 当场红，那一格两摞都在）。
+// 所以这一趟只**收数**、不 push；push 在下面排序之后。
+const indexNames: string[] = [];
 for (let i = 0; i < indexPositions.length; i++) {
   if (IndexKeyShadowed(table, value, indexPositions[i])) continue;
-  names.push("" + indexPositions[i]);
+  indexNames.push("" + indexPositions[i]);
 }
-const intNames: string[] = [];
+const intNames: string[] = indexNames;
 const plainNames: string[] = [];
 if (ownItem !== null) {
   for (let i = 0; i < ownItem.Props.length; i++) {
@@ -2226,12 +2234,20 @@ if (ownItem !== null) {
     if (!ownItem.Props[i].IsEnumerable()) continue;
     const text = TextFrom(table, Value.FromString(ownItem.Props[i].Key));
     // **已经被下标键覆盖的那些不再收**（越界写过的下标可能两处都有一份）。
+    // **但「下标键」未必报得出来**（第 746 轮）：`IndexKeyPositions` 只看**元素区**在不在，
+    // 而 `Object.defineProperty(a, 1, { get() { … }, enumerable: true })` 把那一格摘成了洞
+    // ⇒ 元素区不报它，于是它**只能从 `Props` 这一趟收**。原来这里对「下标形态的文本」
+    // 无条件 `continue`（理由是「元素区报过了」）——那一句在下标格被摘成洞之后就错了：
+    // 键**两边都没有**（`Object.keys(a)` 给 `["0","2"]`，Node 给 `["0","1","2"]`）。
+    // **所以判据改成「元素区真的报了那个位置吗」**，不是「文本长得像下标吗」。
     if (IsIndexKeyText(text)) {
       let covered = false;
       for (let k = 0; k < indexPositions.length; k++) {
         if (indexPositions[k] === Number(text)) covered = true;
       }
       if (covered) continue;
+      // **没收过就收**：它进 `intNames`，下面那一趟排序把它放回**下标该在的位置**
+      //（`0, 2` 与 `1` 三格一起排 ⇒ `0,1,2`——与 JS 的次序一致）。
       intNames.push(text);
       continue;
     }
@@ -2649,6 +2665,10 @@ return null;
 
 **判据只有「不可枚举」这一位**：可枚举的落点本来就在元素区那一摞里，
 `Object.keys` 该看见它（`IndexKeyShadowOf` 找得到那一份，但它可枚举）。
+
+**访问器也走这一句**（第 746 轮）：那一格在 `Props` 里，标志位是 `defineProperty`
+按描述符给的——所以「可枚举的访问器」只由 `Props` 那一趟收（元素区那一格早被摘成洞、
+`IndexKeyPositions` 根本不会报它），**这一句照旧只看标志位**。
 
 ```ts
 const shadow = IndexKeyShadowOf(table, target, at);
@@ -5304,14 +5324,19 @@ if (id === ObjectGetOwnPropertyNames) {
   const nameItem = nameIsText ? null : table.Get(nameTarget.Ref);
   const nameIndexPositions = IndexKeyPositions(table, nameTarget);
   const ownNames: string[] = [];
-  for (let i = 0; i < nameIndexPositions.length; i++) ownNames.push("" + nameIndexPositions[i]);
+  // **第 746 轮：整数键要在属性表那一趟之后才 push**（与 `Object.keys` 那一处同一件事）。
+  // 原来是「元素区那一摞先 push」，于是属性表里的下标键（`defineProperty` 装出来的访问器
+  // 把元素摘成了洞）**排在它们后面**：`Object.getOwnPropertyNames([1,2,3])` 给
+  // `["0","2","length","1"]`，而 JS 的次序是**所有整数键一起升序、`length` 最后**
+  //（判据 `p721a-a15`）。所以这一趟只**收数**，统一排序在下面。
+  const ownIndexNames: string[] = [];
+  for (let i = 0; i < nameIndexPositions.length; i++) ownIndexNames.push("" + nameIndexPositions[i]);
   // **`length` 也是自有属性**（第 214 轮实测）：JS 的 `Object.getOwnPropertyNames([1, 2])`
   // 是 `["0", "1", "length"]`、字符串同理——而本仓的 `length` **不住在属性表里**
   //（它在 `HeapArray` 上，`keys` 那一支看不见它是因为它**不可枚举** 在这里却是**要看见**的）。
   // 次序对：下标在前、`length` 在后（JS 的整数键优先那一套）。
-  if (nameTarget.Tag === ValueTag.Array || nameTarget.Tag === ValueTag.String) {
-    ownNames.push("length");
-  }
+  // **数组那一档不能在这里 push**（见上）：它要等整数键排完——所以真正的 push 在下面
+  //（`nameTarget.Tag === ValueTag.Array || String` 那一处）。
   // **闭包自己那两格**（第 687 轮）：`length` 住在 `HeapClosure.Arity`、`name` 住在 `Name`，
   // **都不在属性表里** ⇒ 上面那一趟扫不到它们。JS 里普通函数给
   // `["length", "name", "prototype"]`、箭头函数给 `["length", "name"]`——
@@ -5379,6 +5404,9 @@ if (id === ObjectGetOwnPropertyNames) {
       ownPlainNames.push(text);
     }
   }
+  // **整数键：元素区那一摞与属性表里的下标键**合并**之后再排序**（第 746 轮）——
+  // 两摞分开排、分开 push 就是 `["0","2","length","1"]` 那一种错（见上面那一段）。
+  for (let i = 0; i < ownIndexNames.length; i++) ownIntNames.push(ownIndexNames[i]);
   for (let i = 1; i < ownIntNames.length; i++) {
     const curName = ownIntNames[i];
     let j = i - 1;
@@ -5389,6 +5417,13 @@ if (id === ObjectGetOwnPropertyNames) {
     ownIntNames[j + 1] = curName;
   }
   for (let i = 0; i < ownIntNames.length; i++) ownNames.push(ownIntNames[i]);
+  // **字符串与数组一样，`length` 排在全部整数键之后**（第 746 轮）：两档的做法
+  // **一字不差**——`Object.getOwnPropertyNames("ab")` 在 JS 里是 `["0","1","length"]`。
+  // （第一版把字符串那一档留在「先 push」那一边，症状是 `["length","0","1"]`——
+  //  真数组与字符串在 JS 里走的是**同一条** `OrdinaryOwnPropertyKeys`。）
+  if (nameTarget.Tag === ValueTag.Array || nameTarget.Tag === ValueTag.String) {
+    ownNames.push("length");
+  }
   for (let i = 0; i < ownPlainNames.length; i++) ownNames.push(ownPlainNames[i]);
   if (!room(ObjectCharge + ValueCharge * ownNames.length + CodeUnitCharge * ownNames.length * 4)) {
     throw new Error("out of room");
@@ -6216,6 +6251,18 @@ const accessorSet = fieldOf("set");
 const wantsEnumerable = RtToBoolean(table, fieldOf("enumerable")).AsBool();
 const wantsConfigurable = RtToBoolean(table, fieldOf("configurable")).AsBool();
 const wantsWritable = RtToBoolean(table, fieldOf("writable")).AsBool();
+// **数组下标那一格：`enumerable` 的缺省是**真**（第 746 轮，`node` 现问的答案）。
+// 这一格与普通对象**不一样**，而本仓原来两处共用一句「不写就是假」
+//（规范 `ValidateAndApplyPropertyDescriptor` 对新建属性写的确实是假）——
+// `node` 在这一格上的实测与那一句相反：
+//     const a = [1, 2, 3];
+//     Object.defineProperty(a, 1, { get() { return 99; } });
+//     Object.keys(a)                  // ["0","1","2"]  ← 那一格**看得见**
+//     Object.getOwnPropertyNames(a)   // ["0","1","2","length"]
+// 而同一份描述符写在普通对象上（`Object.defineProperty({}, "x", { get() {} })`）时，
+// `Object.keys` 给 **`[]`**（看不见）——两档的差别就在「落在数组下标上」这一点。
+// **只改下标那一档**（`indexSlotAt >= 0`）：普通对象照旧按描述符给的那一位算。
+const accessorWantsEnumerable = (indexSlotAt >= 0 && !hasField("enumerable")) ? true : wantsEnumerable;
 // **数组的 `length` 那一格**（第 722 轮，**普查当场红的**）：它**不住在属性表里**
 // （是 `HeapArray` 的结构属性），可它**在 JS 里是一个真的自有属性**——
 // `Object.defineProperty([1, 2, 3], "length", { value: 1 })` 要**把数组截到 1**、
@@ -6335,6 +6382,32 @@ if (target.Tag === ValueTag.Array && lengthKeyText === "length") {
 if (accessorGet.Tag !== ValueTag.Undefined || accessorSet.Tag !== ValueTag.Undefined) {
   const storedGetter = IsCallableValue(table, accessorGet) ? accessorGet : Value.Undefined();
   const storedSetter = IsCallableValue(table, accessorSet) ? accessorSet : Value.Undefined();
+  // **数组下标 + 访问器描述符：元素区那一格要先摘掉**（第 746 轮）。
+  // 数组的元素住在**独立的一段**里，而访问器只能住在属性表里；**读下标那一趟先看元素区**
+  // ⇒「元素区还有值 + 属性表新装了一格访问器」等于**访问器永远读不到**。
+  // 实测：`const a = [1, 2, 3]; Object.defineProperty(a, 1, { get: () => 99 })`
+  // 在 Node 里 `a[1]` 是 `99`、`a` 是 `[1, 99, 3]`、`Object.keys(a)` 是 `["0","1","2"]`；
+  // 本仓原来给 `2` / `[1,2,3]` / `["0","2"]`——**静默错值**（判据 `stdlib/round746/p746b-b01`）。
+  // 与 `props.xl.md` 的 `DefineAccessor` 那一处**同一件事**（对象字面量 / 类里的访问器走那边，
+  // `Object.defineProperty` 走这边——**两条路都要摘**：只修一条就是「换个写法就错」）。
+  // **摘成洞、不缩长度**（`delete` / `defineProperty` 都不缩）；**越界那一档要把数组撑到那么长**
+  //（`Object.defineProperty([], 2, { get })` 在 JS 里 `length` 是 3）。
+  // **`length` 那一格不走这里**（上面那一支已经 `return` 了），所以这里只有真下标。
+  if (target.Tag === ValueTag.Array) {
+    const accessorElementAt = key.Tag === ValueTag.Int32 ? key.Int : ArrayIndexAt(table, key);
+    if (accessorElementAt >= 0) {
+      const accessorElements = table.Get(target.Ref).AsArray();
+      if (accessorElementAt >= accessorElements.GetLength()) {
+        if (!room(ValueCharge * (accessorElementAt + 1 - accessorElements.GetLength()))) {
+          throw new Error("out of room");
+        }
+        accessorElements.Truncate(accessorElementAt + 1);
+      } else {
+        accessorElements.SetHole(accessorElementAt);
+      }
+      table.Recount(target.Ref);
+    }
+  }
   const accessorExisting = FindProperty(room, table, target.Ref, key);
   if (accessorExisting !== null && accessorExisting.Owner === target.Ref) {
     const oldAccessor = defineTarget.Props[accessorExisting.Index];
@@ -6352,14 +6425,14 @@ if (accessorGet.Tag !== ValueTag.Undefined || accessorSet.Tag !== ValueTag.Undef
     oldAccessor.Kind = PropertyKind.Accessor;
     oldAccessor.Getter = storedGetter;
     oldAccessor.Setter = storedSetter;
-    oldAccessor.Flags = mergeFlags(oldAccessor.Flags, wantsEnumerable, false, wantsConfigurable);
+    oldAccessor.Flags = mergeFlags(oldAccessor.Flags, accessorWantsEnumerable, false, wantsConfigurable);
     return;
   }
   if (!room(PropertyCharge)) throw new Error("out of room");
   if (!defineTarget.Extensible) throw cannotDefineOn();
   const createdAccessor = Property.Accessor(key.Ref, storedGetter, storedSetter);
   let accessorFlags = 0;
-  if (wantsEnumerable) accessorFlags = accessorFlags + PropertyFlagEnumerable;
+  if (accessorWantsEnumerable) accessorFlags = accessorFlags + PropertyFlagEnumerable;
   if (wantsConfigurable) accessorFlags = accessorFlags + PropertyFlagConfigurable;
   createdAccessor.Flags = accessorFlags;
   defineTarget.Props.push(createdAccessor);
@@ -7011,6 +7084,19 @@ if (value.Tag === ValueTag.Function || value.Tag === ValueTag.Closure
 if (value.Tag === ValueTag.Array) {
   const array = table.Get(value.Ref).AsArray();
   const count = array.GetLength();
+  // **下标位上有访问器的那一格要读 getter**（第 746 轮）：
+  // `Object.defineProperty([1,2,3], 1, { get() { return 99; } })` 之后那一格**在元素区是洞**
+  // （装访问器那一处把它摘掉了，否则访问器永远读不到），而 JS 的 `JSON.stringify`
+  // 走的是**读属性**那条路 ⇒ 给 `[1,99,3]`。原来这里直接 `array.GetAt(i)`（元素区），
+  // 洞读成 `undefined` ⇒ 交出来的是 `[1,null,3]`——**静默错值**（判据 `p746b-b01`）。
+  // **判据用 `IndexAccessorAt`**（`props.xl.md`）：它只答「是不是访问器」，
+  // 是的话就把这一格交给 `GetProperty`（那一条会调 getter、`this` 是接收者）。
+  // **不是访问器就照旧走元素区**（热路径：绝大多数数组一个 `Props` 都没有）。
+  // **没有通道时照旧走元素区**（`call === null` 是宿主驱动的那一档）——
+  // 与 `JsonMemberValue` 那一句「没有通道就跳过」同一条纪律：**不凭空造一个值**。
+  const elementAt = (i: number) => call !== null && IndexAccessorAt(table, value, i)
+    ? GetProperty(room, call, protos, table, value, Value.FromInt(i))
+    : array.GetAt(i);
   // **缩进那一档**（第 192 轮）：`JSON.stringify(x, null, 2)` 要的是**多行**形状——
   // 原来第三、四个实参被**整段忽略**，于是永远给紧凑形状（**静默**与 Node 不同）。
   // **空数组照旧是 `[]`**（JS 的口径：缩进不作用在空容器上）。
@@ -7018,7 +7104,7 @@ if (value.Tag === ValueTag.Array) {
     let text = "[\n";
     for (let i = 0; i < count; i++) {
       if (i > 0) text = text + ",\n";
-      const rendered = JsonText(room, call, protos, table, anchor, replacer, array.GetAt(i),
+      const rendered = JsonText(room, call, protos, table, anchor, replacer, elementAt(i),
         Value.FromInt(i), value, depth + 1, true, indent);
       text = text + JsonIndent(depth + 1, indent) + (rendered === null ? "null" : rendered);
     }
@@ -7027,7 +7113,7 @@ if (value.Tag === ValueTag.Array) {
   let text = "[";
   for (let i = 0; i < count; i++) {
     if (i > 0) text = text + ",";
-    const rendered = JsonText(room, call, protos, table, anchor, replacer, array.GetAt(i),
+    const rendered = JsonText(room, call, protos, table, anchor, replacer, elementAt(i),
       Value.FromInt(i), value, depth + 1, true, indent);
     text = text + (rendered === null ? "null" : rendered);
   }

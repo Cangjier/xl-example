@@ -249,6 +249,12 @@ if (item.Frame !== null) {
 }
 if (item.Generator !== null) {
   if (item.Generator.Frame > 0) stack.push(item.Generator.Frame);
+  // **生成器的「完成值」也是根**（第 746 轮）：`it.return(obj)` 交出去的那个对象
+  // 记在生成器身上（`HeapGenerator.CompletedValue`），而生成器自己**可能还在脚本手里**
+  //（`yield* g()` 那一支正是这样：内层生成器跑完了，外层还要读它的完成值）。
+  // 漏了它的症状与这一族的每一条一字不差：**某一天那个值被收走**，
+  // 只在堆压满时出现。
+  this.MarkValue(item.Generator.CompletedValue, stack);
 }
 if (item.Promise !== null) {
   this.MarkValue(item.Promise.Value, stack);

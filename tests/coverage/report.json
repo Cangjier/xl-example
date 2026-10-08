@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 8042,
+  "total": 8052,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.96,
+  "progressPercent": 96.01,
   "categories": [
     {
       "category": "token",
@@ -100,22 +100,22 @@
     {
       "category": "runtime",
       "weight": 0.25,
-      "total": 991,
-      "pass": 970,
+      "total": 994,
+      "pass": 975,
       "blocked": 2,
-      "differ": 19,
+      "differ": 17,
       "nodefail": 0,
-      "coverage": 97.88
+      "coverage": 98.09
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3175,
-      "pass": 3104,
+      "total": 3182,
+      "pass": 3111,
       "blocked": 25,
       "differ": 46,
       "nodefail": 0,
-      "coverage": 97.76
+      "coverage": 97.77
     },
     {
       "category": "e2e",
@@ -1841,7 +1841,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26740/src/3213.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3692/src/3213.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -1922,12 +1922,6 @@
       "detail": "stdout 不同：第 1 行：node «1,3,4 1,3,4» vs tsrun «1,2,3 1,3,4»"
     },
     {
-      "id": "runtime/iterators/probe694-g04",
-      "category": "runtime",
-      "title": "(function () { function* g() { yield 1; yield 2; } const it = g(); return it.return(7).value; })()",
-      "detail": "stdout 不同：第 1 行：node «number:7» vs tsrun «number:1»"
-    },
-    {
       "id": "runtime/round729/p729a-a01",
       "category": "runtime",
       "title": "`new` 与可选链 / 非空断言 / 下标混用（第 729 轮量出来的两条根都在这里）",
@@ -1964,22 +1958,10 @@
       "detail": "stdout 不同：第 1 行：node «m s n1» vs tsrun «  »"
     },
     {
-      "id": "runtime/round736/p736b-b08",
-      "category": "runtime",
-      "title": "`JSON.stringify` 会读 getter（取值一次、按读到的值序列化）",
-      "detail": "stdout 不同：第 2 行：node «[1,\"g\"]» vs tsrun «[1]»"
-    },
-    {
       "id": "runtime/round737/p737a-a05",
       "category": "runtime",
       "title": "手动迭代：`next()` 的 `this` 与取出方法再调用",
       "detail": "stdout 不同：第 2 行：node «2» vs tsrun «1,2»"
-    },
-    {
-      "id": "runtime/round737/p737a-a10",
-      "category": "runtime",
-      "title": "生成器里 `return` / `finally` 的次序（`for..of` 提前退出）",
-      "detail": "stdout 不同：第 2 行：node «{\"value\":9,\"done\":true}  {\"done\":true}» vs tsrun «{\"value\":1,\"done\":false}  {\"done\":true}»"
     },
     {
       "id": "runtime/round737/p737a-a16",
@@ -2018,10 +2000,16 @@
       "detail": "stdout 不同：第 3 行：node «3» vs tsrun «{ m: [Function: m] }»"
     },
     {
+      "id": "runtime/round746/gap746-forof-early-exit-not-lazy",
+      "category": "runtime",
+      "title": "`for..of` 提前退出：迭代器的 `next()` 该只走一步、并且要调 `return()`",
+      "detail": "stdout 不同：第 1 行：node «n0,v0,r» vs tsrun «n0,n1,n2,n3,v0,r»"
+    },
+    {
       "id": "stdlib/array/143-getter-array-index",
       "category": "stdlib",
       "title": "数组下标位置上的访问器（`defineProperty`）",
-      "detail": "stdout 不同：第 1 行：node «99 1,99,3 [1,99,3] 3» vs tsrun «2 1,2,3 [1,2,3] 3»"
+      "detail": "stdout 不同：第 1 行：node «99 1,99,3 [1,99,3] 3» vs tsrun «99 1,,3 [1,99,3] 3»"
     },
     {
       "id": "stdlib/array/149-concat-spreadable",
@@ -2051,7 +2039,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26740/src/5163.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3692/src/5166.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2075,7 +2063,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26740/src/5213.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-3692/src/5216.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2165,31 +2153,25 @@
       "id": "stdlib/round721/p721a-b01",
       "category": "stdlib",
       "title": "下标上的访问器：读那一格",
-      "detail": "stdout 不同：第 1 行：node «number:99,string:1,99,3,string:[1,99,3],number:3» vs tsrun «number:2,string:1,2,3,string:[1,2,3],number:3»"
+      "detail": "stdout 不同：第 1 行：node «number:99,string:1,99,3,string:[1,99,3],number:3» vs tsrun «number:99,string:1,,3,string:[1,99,3],number:3»"
     },
     {
       "id": "stdlib/round721/p721a-b02",
       "category": "stdlib",
       "title": "下标上的访问器：get + set",
-      "detail": "stdout 不同：第 1 行：node «number:14,number:14,string:1,14,3» vs tsrun «number:5,number:7,string:1,7,3»"
+      "detail": "stdout 不同：第 1 行：node «number:14,number:14,string:1,14,3» vs tsrun «number:5,number:5,string:1,7,3»"
     },
     {
       "id": "stdlib/round721/p721a-b03",
       "category": "stdlib",
       "title": "下标上的访问器：展开与 for..of 该调 getter",
-      "detail": "stdout 不同：第 1 行：node «string:1,99,3|string:1,99,3» vs tsrun «string:1,2,3|string:1,2,3»"
-    },
-    {
-      "id": "stdlib/round721/p721a-b08",
-      "category": "stdlib",
-      "title": "空数组上装下标访问器：length 该跟着长",
-      "detail": "stdout 不同：第 1 行：node «number:2,number:5,string:[null,5]» vs tsrun «number:0,undefined,string:[]»"
+      "detail": "stdout 不同：第 1 行：node «string:1,99,3|string:1,99,3» vs tsrun «string:1,,3|string:1,,3»"
     },
     {
       "id": "stdlib/round723/p723a-b01",
       "category": "stdlib",
       "title": "冻结的数组上 `sort` / `reverse`（原地改那两格）",
-      "detail": "stdout 不同：第 1 行：node «throw:TypeError» vs tsrun «sorted:1,2,3»"
+      "detail": "stdout 不同：第 2 行：node «throw:TypeError» vs tsrun «reversed:2,1,3»"
     },
     {
       "id": "stdlib/round725/p725a-b01",
@@ -2232,6 +2214,12 @@
       "category": "stdlib",
       "title": "`flat(NaN)` 与同一句里的浮点字面量：那个 `NaN` 被前一个字面量顶掉",
       "detail": "stdout 不同：第 1 行：node «[1,2,[3]] [1,[2,[3]]]» vs tsrun «[1,2,[3]] [1,2,[3]]»"
+    },
+    {
+      "id": "stdlib/round746/gap746-array-accessor-out-of-range-enumerable",
+      "category": "stdlib",
+      "title": "`defineProperty` 装一个**越界**下标访问器时的可枚举性",
+      "detail": "stdout 不同：第 1 行：node «3 5 » vs tsrun «3 5 2»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",
@@ -2296,6 +2284,15 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "runtime/round736/p736b-b08",
+      "category": "runtime"
+    },
+    {
+      "id": "stdlib/round721/p721a-b08",
+      "category": "stdlib"
+    }
+  ],
   "regressions": []
 }

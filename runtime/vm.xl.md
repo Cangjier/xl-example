@@ -9,7 +9,7 @@ import { FrameStack } from "./frame.xl.md"
 import { RtAdd, RtSub, RtMul, RtDiv, RtMod, RtNeg, RtNot, RtBitAnd, RtBitOr, RtBitXor, RtBitNot, RtShl, RtShr, RtUShr } from "./rt.xl.md"
 import { RtCmpLt, RtCmpLe, RtCmpGt, RtCmpGe, RtCmpEqStrict, RtCmpEqLoose, RtToBoolean, RtIsNullish } from "./rt.xl.md"
 import { RtNewClosure, RoomChecker, RtToString, RtTypeOf, RtSetProto, RtGetProto, RtInstanceOf, RtChainHas, TextUnitsOf, TruthyOf, ToNumberOf, MakeNumber } from "./rt.xl.md"
-import { GetProperty, SetProperty, SetHiddenProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey } from "./props.xl.md"
+import { GetProperty, SetProperty, SetHiddenProperty, DeleteProperty, HasProperty, GetIndex, SetIndex, ArrayIndexAt, IsLengthKey, IndexAccessorAt } from "./props.xl.md"
 import { GetPropertyFrom, SetPropertyFrom } from "./props.xl.md"
 import { NewPlainObject, NewPlainArray, InitProtos, Protos, NativeCall } from "./props.xl.md"
 import { HostTextUnits } from "./host-text.xl.md"
@@ -2984,6 +2984,16 @@ if (id === RtOp.GetIndex) {
     const shapeProtoTable = this.Protos;
     if (shapeProtoTable === null) throw new Error("no prototype table");
     if (indexAt >= 0) {
+      // **下标位上装了访问器就改走 `GetProperty`**（第 746 轮）：数组的元素住在独立一段、
+      // 访问器只能住在属性表里，而装访问器那一处**把那一格摘成了洞** ⇒
+      // 快路径「先看元素区」会读到一个洞、给 `undefined`。
+      // 判据是 `IndexAccessorAt`（`props.xl.md`）——它只答「是不是访问器」，
+      // 值 / getter 的调用由 `GetProperty` 那一份**唯一的**读属性实现负责
+      //（`this` 是接收者、getter 要重入，这两件事只有那一条路有通道）。
+      if (IndexAccessorAt(this.Table, indexReceiver, indexAt)) {
+        return this.Guard(() => GetProperty(this.Room(), this.Native(), shapeProtoTable, this.Table,
+          indexReceiver, indexKeyText));
+      }
       return GetIndex(this.Table, indexReceiver, Value.FromInt(indexAt));
     }
     return this.Guard(() => GetProperty(this.Room(), this.Native(), shapeProtoTable, this.Table,
@@ -3215,6 +3225,13 @@ if (id === RtOp.In) {
       if (IsLengthKey(this.Table, inKey)) return Value.FromBool(true);
       const at = ArrayIndexAt(this.Table, inKey);
       if (at >= 0) {
+        // **属性表里那一份要先看**（第 746 轮）——这一句是**次序**，不是优化：
+        // 下标位上装了访问器时（`Object.defineProperty(a, 1, { get() { … } })`）
+        // 元素区那一格已经被摘成洞，而**属性表里那一份才是那个属性**：
+        // 先看元素区就会把 `1 in a` 答成**假**（JS 给真，判据 `p746b-b01`）。
+        // **数据属性的影子也一样**（第 721 轮那一族）：两摞都有的时候以属性表为准——
+        // 本仓的纪律一直是「属性表是标志位与访问器的家」（`IndexKeyShadowOf` 那一段）。
+        if (HasProperty(this.Table, inReceiver.Ref, inKey)) return Value.FromBool(true);
         const array = this.Table.Get(inReceiver.Ref).AsArray();
         return Value.FromBool(at < array.GetLength() && !array.IsHole(at));
       }
@@ -3393,8 +3410,25 @@ if (this.GeneratorStepKind(callee) !== 0) {
   //（那边从槽里取、这边从实参表取，两处的「第 0 个」是同一件事）。
   const sentByCaller = args.length > 0 ? args[0] : Value.Undefined();
   const stepKind = this.GeneratorStepKind(callee);
+  // **`return()` 这一档在 `DoCallValue` 里做掉了、这里却漏了**（第 746 轮）——
+  // 而**方法调用走的正是这一条路**（`it.return(9)` 是 `DoCallMethod` → 这里；
+  // `DoCallValue` 那一支给的是「生成器方法**被当值取出来再调**」`const r = it.return; r.call(it, 9)`）。
+  // 原来这一格**响亮地抛**（"generator return() needs the finally chain"），
+  // 而那一句是第 313 轮的说法——第 336 轮把 `return()` 做掉之后**没有跟着改这一处**，
+  // 于是第 336 轮之后这里变成了**另一句话**：
+  // 抛的那一句被删掉之后，`stepKind === 2` 直接落到下面那句 `NextStepOf(…, false)`——
+  // 也就是**把 `return(9)` 当成 `next(9)` 跑**：那个挂起的 `yield` 收到 `9`、
+  // 生成器接着跑到**下一个 `yield`**，交出来的是下一项。
+  // 症状是**静默错值**：`function* g() { yield 1; yield 2; }` 的 `it.return(9)` 给
+  // `{value: 1, done: false}`（Node 给 `{value: 9, done: true}`），
+  // 而 `it.return(9)` 之后再 `next()` 给 `{value: 2, done: false}`（Node 给 `{done: true}`）。
+  // **判据 `runtime/round746/p746a-a02` 钉的就是它**。
+  //
+  // 修法与 `DoCallValue` 那一处**一字不差**（两处共用同一个 `NextStepOf` 的 `returns` 参数）：
+  // 送的是**一次「完成」**而不是一个值，方向由 `returns = true` 分开
+  //（`return` 只跑 `finally`、`catch` 不接——见 `ir.xl.md` 的 `CheckGeneratorReturn`）。
   if (stepKind === 2) {
-    throw new Error("unimplemented: generator return() needs the finally chain (a lowering-level construct)");
+    return this.NextStepOf(thisValue, sentByCaller, false, null, true);
   }
   return this.NextStepOf(thisValue, sentByCaller, stepKind === 3, null);
 }
@@ -3761,7 +3795,50 @@ const generator = item.Generator;
 if (generator.State === GeneratorState.Running) {
   throw new Error("unimplemented: this should throw a TypeError (generator is already running)");
 }
-if (generator.State === GeneratorState.Done) return this.MakeIterResult(Value.Undefined(), true);
+if (generator.State === GeneratorState.Done) {
+  // **已经结束的生成器不是黑洞**（第 746 轮）：`it.return(v)` 之后它记着那个完成值
+  //（`HeapGenerator.CompletedValue`）——`next()` 那一档仍然给 `{value: undefined, done: true}`，
+  // 只有 `return` 这一条路把完成值交回去（JS 的 `GeneratorResumeAbrupt` 对 `Done` 就是这一步）。
+  if (returns) {
+    generator.CompletedValue = sent;
+    return this.MakeIterResult(sent, true);
+  }
+  return this.MakeIterResult(Value.Undefined(), true);
+}
+// **「还没开始过」那一档：`it.return(v)` / `it.throw(v)` 不许跑体**（第 746 轮）。
+//
+// JS 的生成器有一个**独立的** `suspendedStart` 状态（`%GeneratorState%` 的初值），
+// 它与 `suspendedYield` **不是同一档**：体一次都没跑过时，
+// `GeneratorResumeAbrupt` **不执行体、也不跑 `finally`**——直接把生成器关掉
+// （`Done`），`throw` 把那个值**抛给调用方**、`return` 把它当**完成值**交出去。
+// 本仓原来只有 `Suspended` / `Running` / `Done` 三档，**「还没开始」被记成了「挂起」**
+// ⇒ 这一档落到下面那条正常恢复的路上：**体被跑起来了**。
+// 症状是**静默错值**（判据 `runtime/round746/p746a-a01`）：
+//   · `function* g() { yield 1; }` 的 `g().return(9)` 本仓给 `{value: 1, done: false}`
+//     （Node 给 `{value: 9, done: true}`）——**第一次 `yield` 被当成产出交了出去**；
+//   · 同一形状的 `g().throw(e)` 本仓给 `{value: 1, done: false}`（Node 把 `e` 抛给调用方）；
+//   · 最要命的是**体的副作用跑了**：`function* g() { console.log("body"); yield 1; }` 的
+//     `g().return(9)` 在 Node 里**一个字都不打**，本仓把那句 `console.log` 执行了。
+//
+// **判据是「有没有开始过」，不是「帧跑到哪了」**：`Started` 是生成器身上的一格
+//（`heap.xl.md` 的 `HeapGenerator.Started`），`next()` 与「已经挂起之后的 return / throw」
+// 都从下面那条路走（它们**该跑体**）。
+if (!generator.Started && (raises || returns)) {
+  generator.Started = true;
+  generator.State = GeneratorState.Done;
+  // **完成值记下来**（第 746 轮，见 `HeapGenerator.CompletedValue`）：
+  // `it.return(v)` 打在**还没开始**的生成器上时，`v` 就是它的完成值——
+  // 之后**再问一次**要给同一个答案（`it.return(8)` 两次都给 `{value: 8, done: true}`）。
+  generator.CompletedValue = returns ? sent : Value.Undefined();
+  if (raises) this.ThrowValue(sent);
+  return this.MakeIterResult(generator.CompletedValue, true);
+}
+// **`next()` 这一档（以及「已经挂起之后的 return / throw」）要把这一格置真**：
+// 下面那条路会**真的把体跑起来**，从这一刻起它就不再是「还没开始」了。
+// **不能把这一句写在上面那个 `if` 之前**（**实测踩过一次**）：
+// 那样第一次 `next()` 也会被那个 `if` 认成「没开始 + 有人叫停」——
+// 症状是 `g().next()` 给 `{done: true}`（**体一次都没跑**，判据 `gen-basics` 当场红）。
+generator.Started = true;
 if (this.NativeDepth >= MaxNativeDepth) {
   throw new Error("native re-entry is too deep: " + this.NativeDepth);
 }
@@ -3838,6 +3915,10 @@ if (this.Status !== VmStatus.Ready && this.Status !== VmStatus.Halted) {
 }
 if (generator.State === GeneratorState.Suspended) return this.MakeIterResult(produced, false);
 generator.State = GeneratorState.Done;
+// **体自己跑完那一档也要记完成值**（第 746 轮）：`return "done"` 的生成器
+// 第三次 `next()` 给的是 `"done"`，而 `it.return(9)` 在这一档上给 `9`
+//（两次给同一个答案——与「还没开始」那一档一字不差）。
+generator.CompletedValue = produced;
 return this.MakeIterResult(produced, true);
 ```
 

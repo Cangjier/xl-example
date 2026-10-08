@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { Value, ValueTag } from "./value.xl.md"
-import { HeapTable, Property, PropertyKind, ObjectCharge, PropertyCharge } from "./heap.xl.md"
+import { HeapTable, Property, PropertyKind, ObjectCharge, PropertyCharge, ValueCharge } from "./heap.xl.md"
 import { PropertyFlagWritable, PropertyFlagConfigurable, PropertyFlagEnumerable, PropertyFlagsAll } from "./heap.xl.md"
 import { RootSet } from "./gc.xl.md"
 import { RoomChecker, IsCallableValue } from "./rt.xl.md"
@@ -1318,11 +1318,47 @@ for (let i = 0; i < units.length; i++) {
 return index;
 ```
 
+# method IndexAccessorAt:(table:HeapTable, receiver:Value, index:int)=>bool
+
+**这个数组下标位上装的是一格访问器吗**（第 746 轮）——给 `vm.xl.md` 的 `RtOp.GetIndex`
+问「这一读要不要改走 `GetProperty`」。
+
+**为什么必须有它**：数组的元素住在**独立的一段**里，而访问器只能住在属性表里。
+装访问器那一处（本文件的 `DefineAccessor` 与 `globals.xl.md` 的 `DefineOwnFromDescriptor`）
+**把那一格摘成洞**（否则「元素区还有值 + 属性表有访问器」会让访问器**永远读不到**），
+于是「先看元素区」那条快路径会**读到一个洞 ⇒ `undefined`**——
+`const a = [1, 2, 3]; Object.defineProperty(a, 1, { get: () => 99 })` 的 `a[1]`
+在 JS 里是 `99`，本仓原来是 `2`（**静默错值**），摘洞之后是 `undefined`（**还是错**）。
+
+**判据只答「是不是访问器」**，不答值：调用方拿到真就走 `GetProperty`
+（那一条会调 getter、`this` 是接收者、也会沿原型链），拿到假就走 `GetIndex` 那条快路径。
+
+**两种键形态都要问**：`a[1]` 在投影里给的是**整数**键、`a["1"]` 给的是**字符串**键，
+而 `KeyMatches` 对 `Int32` 只有「十进制整数文本」那一档——只问一个就是「换个写法就错」。
+
+**只扫自有那一摞**（下标那一份一定是自有的）：`FindProperty` 会顺原型链走，
+而这是热路径——多走两层表是白花的。
+
+```ts
+if (receiver.Tag !== ValueTag.Array) return false;
+const item = table.Get(receiver.Ref);
+for (let i = 0; i < item.Props.length; i++) {
+  const entry = item.Props[i];
+  if (entry.Kind !== PropertyKind.Accessor) continue;
+  if (KeyMatches(table, entry, Value.FromInt(index))) return true;
+}
+return false;
+```
+
 # method GetIndex:(table:HeapTable, receiver:Value, index:Value)=>Value
 
 `receiver[index]` 的**快路径**：数组给元素，字符串给**一个码元的字符串**。
 
 **越界给 `undefined`，不是错误**；洞也给 `undefined`（`heap.xl.md` 的 `GetAt` 已经这样答）。
+
+**这一支不认访问器**（它没有 `protos` / 调用通道）：下标上的访问器由**调用方**
+（`vm.xl.md` 的 `RtOp.GetIndex`，那一层手上两样都有）**先问一句 `IndexAccessorAt`**
+再决定走这里还是走 `GetProperty`——第 746 轮的账写在 `IndexAccessorAt` 那一段。
 
 ```ts
 if (receiver.Tag === ValueTag.Array) {
@@ -1564,6 +1600,40 @@ return Value.FromArray(handle);
 ```ts
 if (!receiver.IsObject()) {
   throw new Error("unimplemented: defining an accessor on a primitive receiver");
+}
+// **数组下标那一格：先把元素那一段摘掉**（第 746 轮）。
+//
+// 数组的元素住在**独立的一段**里（`HeapArray.Elements`），而访问器只能住在属性表里
+//（`Property.Kind = Accessor`）。**读下标那一趟先看元素区**（下面 `ReadProperty` 那一段的
+// `IndexKeyShadowOf` 与元素区那一摞）——于是「元素区还有值 + 属性表新装了一格访问器」
+// 等于**访问器永远读不到**：
+//   `const a = [1, 2, 3]; Object.defineProperty(a, 1, { get: () => 99 })`
+//   在 JS 里 `a[1]` 是 `99`、`a` 是 `[1, 99, 3]`、`Object.keys(a)` 是 `["0","1","2"]`；
+//   本仓原来给 `2` / `[1,2,3]` / `["0","2"]`——**静默错值**，而且第 721 轮那一族
+//   （下标上的访问器读 / 写 / 展开）量到的正是同一条根，只是没人在这一支上问过
+//  （判据 `stdlib/round746/p746b-b01`）。
+//
+// **摘成洞而不是删掉**：`delete` 不缩数组，而 `defineProperty` 更不缩——
+// `a.length` 还是 3，那两格变成洞（JS 里它们成了**访问器格**，不在元素区里）。
+// **越界那一档要先把数组撑到那么长**（`Object.defineProperty([], 2, { get })` 在 JS 里
+// 让 `length` 变成 3）——`Truncate` 就是「把长度改成这么多」，变长时新增的格子全是洞。
+// **键有两种形态**（与 `DeleteProperty` 那一支一字不差）：`a[1]` 的键是整数、
+// `a["1"]` 的键是字符串（`ArrayIndexAt` 只认字符串）。
+const accessorItem = table.Get(receiver.Ref);
+let accessorAt = -1;
+if (accessorItem.Tag === ValueTag.Array) {
+  accessorAt = key.Tag === ValueTag.Int32 ? key.Int : ArrayIndexAt(table, key);
+  if (accessorAt >= 0) {
+    const elements = accessorItem.AsArray();
+    if (accessorAt >= elements.GetLength()) {
+      if (!room(ValueCharge * (accessorAt + 1 - elements.GetLength()))) {
+        throw new Error("out of room");
+      }
+      elements.Truncate(accessorAt + 1);
+    } else {
+      elements.SetHole(accessorAt);
+    }
+  }
 }
 for (let i = 0; i < table.Get(receiver.Ref).Props.length; i++) {
   if (!KeyMatches(table, table.Get(receiver.Ref).Props[i], key)) continue;
