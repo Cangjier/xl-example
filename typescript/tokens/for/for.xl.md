@@ -146,10 +146,10 @@ let tailEnd = unit.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
-  // **体那个 `{` 当场记进 `BodyBraceAt`**（第 598 轮）：空块（`for (;;) {}`）的体段
-  // 一个可见子单元都没有，投影那边要造一个空 `Block` 就只能回原文里
+  // **体那一对花括号当场记进 `BodyBrace`**（第 598 轮那一格，第 641 轮带上整段）：
+  // 空块（`for (;;) {}`）的体段一个可见子单元都没有，投影那边要造一个空 `Block` 就只能回原文里
   // `indexOf(")")` + `indexOf("{")` + `MatchingBrace` 重扫一遍（那是同一条判据的第二份近似）。
-  // 记成字段之后投影直读（见 `PrintAst`）。
+  // 记成**整对区间**之后投影直读（见 `PrintAst`），连配对那一趟都不走。
   result.BodyBrace.Set(statementBracket.SourceRange.Start!.Index, statementBracket.SourceRange);
   statementBracket.MoveDataTo(forBody);
   forBody.SignIn(statementBracket.SourceRange.Start!);
@@ -225,13 +225,13 @@ C 风格 `for` 语句单元。
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
-**体那个 `{` 的下标**；体不是花括号块时就是 `-1`。
+**体那一对花括号的整段区间**；体不是花括号块时**没记过**（`IsSet` 为假）。
 
 与 `EmptyBodyAt` 同一个来由、同一条纪律：`for (;;) {}` 的空块在 `ToList` 时**整个摊掉**了
 （体段一个可见子单元都没有），而 TS 那边 `ForStatement.statement` 仍有一个空 `Block`——
 投影原来靠 `indexOf(")")` + `indexOf("{")` + `MatchingBrace` **回原文里找**，
 那是同一条判据的第二份近似（块里的字符串与注释里同样有括号）。
-记成字段之后，空 `Block` 的起点直读这一格、终点就是**本单元的终点**（`}` 正好在末尾）。
+**两端都在手上**（第 641 轮换成了 `TokenField`）⇒ 投影连配对那一趟都不走。
 
 ## field HeaderCloseAt:int = -1
 
@@ -424,7 +424,7 @@ return result;
 克隆自身。
 
 顺序是 `Sign(this)` → 克隆全部子单元 → `TryToClose()`——**三个位置字段也要一起带走**
-（漏了 `EmptyBodyAt` 的克隆体认不出 `for (…);`、漏了 `BodyBraceAt` 的认不出空块、
+（漏了 `EmptyBodyAt` 的克隆体认不出 `for (…);`、漏了 `BodyBrace` 的认不出花括号体、
 漏了 `HeaderCloseAt` 的又得回原文重扫头部那个 `)`）。
 
 ```ts

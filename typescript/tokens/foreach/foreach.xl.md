@@ -154,7 +154,8 @@ let tailEnd = current.SourceRange.End!;
 const statementCandidate = Get(units, currentIndex);
 if (statementCandidate instanceof Bracket && statementCandidate.startBracket === "{") {
   const statementBracket = statementCandidate;
-  // **体那个 `{` 当场记进 `BodyBraceAt`** ✓（第 619 轮 ✓，与 `For` / `While` 同一条口径 ✓）：
+  // **体那一对花括号当场记进 `BodyBrace`** ✓（第 619 轮那一格，第 641 轮带上整段 ✓，
+  // 与 `For` / `While` 同一条口径 ✓）：
   // `for (const x of xs) {}` 的空块在 `ToList` 里**整个摊掉**了 ✓，
   // 而 TS 那边 `ForOfStatement.statement` 仍有一个**空 `Block`** ✓——
   // 投影原来靠「配对头部 `)` + `indexOf("{")` + `MatchingBrace`」**回原文重扫** ✗。
@@ -221,11 +222,12 @@ return index;
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
-**体那个 `{` 的下标** ✓；体不是花括号块时就是 `-1` ✓（第 619 轮 ✓）。
+**体那一对花括号的整段区间** ✓（值取 `{` 的下标 ✓）；体不是花括号块时**没记过** ✓（`IsSet` 为假 ✓）。
 
-与 `For.BodyBraceAt` / `While.BodyBraceAt` **同一个来由、同一条纪律** ✓：
+与 `For.BodyBrace` / `While.BodyBrace` **同一个来由、同一份形状** ✓：
 `for (const x of xs) {}` 的空块在 `ToList` 时**整个摊掉**了 ✓，
 而 TS 那边 `ForOfStatement.statement` 仍有一个空 `Block` ✓。
+**两端都在手上** ✓（第 641 轮换成了 `TokenField` ✓）⇒ 投影不必回原文配对 ✓。
 
 ## field HeaderCloseAt:int = -1
 
@@ -417,7 +419,7 @@ if (this.BodyBrace.IsSet) {
   }
 }
 // **`in` / `of` 那一格也写出去**（第 631 轮）：投影靠它分 `ForInStatement` / `ForOfStatement`——
-// 与 `emptyBodyAt` / `bodyBraceAt` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
+// 与 `emptyBodyAt` / `bodyBraceRange` 同一条纪律：判据在收尾规则那一处算得起，这里只出字段。
 result.set("isForIn", this.IsForIn);
 // **头部那个 `)` 也写出去** ✓（第 634 轮 ✓，与 `For` / `While` 同一条 ✓）。
 result.set("headerCloseAt", this.HeaderCloseAt);
@@ -438,7 +440,7 @@ return result;
 
 克隆自身。
 
-顺序是 `Sign(this)` → 抄 `IsForIn` / `EmptyBodyAt` / `BodyBraceAt` / `HeaderCloseAt` → 克隆全部子单元 → `TryToClose()`。
+顺序是 `Sign(this)` → 抄 `IsForIn` / `EmptyBodyAt` / `BodyBrace` / `HeaderCloseAt` → 克隆全部子单元 → `TryToClose()`。
 
 ```ts
 const result = new Foreach(this.Template);

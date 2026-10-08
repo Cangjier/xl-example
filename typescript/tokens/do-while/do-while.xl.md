@@ -237,7 +237,8 @@ if (bodyEnd < 0) {
 const bodySegment = result.CreateBody();
 const bodyCandidate = Get(units, bodyStart);
 if (bodyCandidate instanceof Bracket && bodyCandidate.startBracket === "{") {
-  // **体那个 `{` 当场记进 `BodyBraceAt`** ✓（第 619 轮 ✓，与 `While` / `For` 同一条口径 ✓）：
+  // **体那一对花括号当场记进 `BodyBrace`** ✓（第 619 轮那一格，第 641 轮带上整段 ✓，
+  // 与 `While` / `For` 同一条口径 ✓）：
   // `do {} while (c)` 的空块在 `ToList` 里**整个摊掉**了 ✓，
   // 而 TS 那边 `DoStatement.statement` 仍有一个**空 `Block`** ✓——
   // 投影原来靠 `indexOf("{")` + `MatchingBrace` **回原文重扫** ✗（同一条判据的第二份近似 ✓）。
@@ -295,11 +296,12 @@ return index;
 
 ## field BodyBrace:TokenField<number> = new TokenField<number>(-1)
 
-**体那个 `{` 的下标** ✓；体不是花括号块时就是 `-1` ✓（第 619 轮 ✓）。
+**体那一对花括号的整段区间** ✓（值取 `{` 的下标 ✓）；体不是花括号块时**没记过** ✓（`IsSet` 为假 ✓）。
 
-与 `While.BodyBraceAt` / `For.BodyBraceAt` **同一个来由、同一条纪律** ✓：
+与 `While.BodyBrace` / `For.BodyBrace` **同一个来由、同一份形状** ✓：
 `do {} while (c)` 的空块在 `ToList` 时**整个摊掉**了 ✓，
 而 TS 那边 `DoStatement.statement` 仍有一个空 `Block` ✓。
+**两端都在手上** ✓（第 641 轮换成了 `TokenField` ✓）⇒ 投影不必回原文配对 ✓。
 
 ## field EmptyBodyAt:int = -1
 

@@ -172,7 +172,7 @@ return index;
 
 **体那一对花括号的整段区间** ✓（值取 `{` 的下标 ✓）；体不是花括号块时**没记过** ✓（`IsSet` 为假 ✓）。
 
-与 `For` / `Foreach` / `DoWhile` 的 `BodyBraceAt` **同一个来由** ✓：`while (c) {}` 的空块在 `ToList` 时
+与 `For` / `Foreach` / `DoWhile` 的 `BodyBrace` **同一个来由、同一份形状** ✓：`while (c) {}` 的空块在 `ToList` 时
 **整个摊掉**了 ✓（体段一个可见子单元都没有 ✓），而 TS 那边 `WhileStatement.statement`
 仍有一个 `Block` ✓——投影原来靠 `MatchingParen` + `indexOf("{")` + `MatchingBrace`
 **回原文里找** ✗，那是同一条判据的第二份近似 ✓。
@@ -188,7 +188,7 @@ return index;
 而投影原来拿 `ctx.MatchingParen(ctx.source, v.start)` **从 `while` 往回扫原文** ✓——
 同一件事的第二份近似 ✗，而且它在注释 / 字符串里同样会数括号 ✓
 （`while (g(")")) ;` 这种形状里第一份判据是对的、第二份要错 ✓）。
-**只在「体不是空块」那一支用它** ✓：空块那一支由 `BodyBraceAt` 说了算 ✓（连终点都齐了 ✓）。
+**只在「体带了这一格」的那条路之外用它** ✓：体是花括号块时由 `BodyBrace` 说了算 ✓（连终点都齐了 ✓）。
 
 ## method PrintAst:(ctx:any, v:any)=>any
 
