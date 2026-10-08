@@ -298,6 +298,9 @@ if (!this.BodyBrace.IsSet || this.BodyBrace.Range === null ||
     this.BodyBrace.Range.Start === null || this.BodyBrace.Range.End === null) {
   return "";
 }
+// **不写成 `A.B!.C + "," + A.B.D`**（第 638 轮 ✓）：那个形状还开着一条缺口 ✓
+//（见 `docs/typescript-parsing-gaps.md` 的「`!` 断言的成员链再接二元运算符」✓）——
+// 规范源码自己就是 `cases:tsast` 的语料 ✓，踩上它这一整个文件就不过 ✓。
 const from = String(this.BodyBrace.Range.Start!.Index);
 const to = String(this.BodyBrace.Range.End!.Index);
 return from + "," + to;

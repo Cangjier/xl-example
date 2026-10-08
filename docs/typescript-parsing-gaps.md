@@ -78,16 +78,20 @@
   修法在 `type-bracket.xl.md` 这一侧：像 `ParenthesizedTypeCloseRule` 那样，
   在括号换父成 `IndexedAccessType` 之后**重跑一遍括号自己的队列**（`text-common-util.xl.md`
   的 `IsTypeContainerUnit` 已经认 `IndexedAccessType`，缺的只是那一趟）。
-- **`!` 断言的成员链再接二元运算符**（第 637 轮实测）：`return a.b!.c() + "," + d;`
-  ——产物把 `+` 右边那一截**并进了标识符的文本**（那一格的值成了 `c() + ","` 一类），
-  于是 TS 那边缺 `PlusToken` / `StringLiteral`，产物这边多出同名节点。
-  最小形状是「非空断言 + 成员访问 + 调用，再接 `+`」：`a.b! + "x"`、`a.b! + 1`、
-  `o.V! + "," + o.W!` 三种**都是好的**，而 `this.V!.toString() + "," + …` 中招
-  ⇒ 比「非空断言接二元运算」窄得多，还要继续缩。
-  **它是加 `IfSegment.BraceRangeText` 时被 `cases:tsast` 当场抓出来的**：
-  那一句当时写成 `return A.B.C!.D + "," + A.B.E!.F;`，产物自己就是语料的一份
-  ⇒ 规范源码改成「先各取一个 `String`，再拼两个局部量」绕开了它
-  （`if-segment.xl.md` 的 `BraceRangeText` 现在就是这么写的）。
+- **非空断言的成员链后面**`再**接一个字符串**（第 638 轮又缩了一次 ✓）：
+  `o.a!.toString() + "x" + "y"` 里**第一个 `+`** 折不出来 ✓ ⇒ 后面那个 `"y"` 反而被
+  `PropertyAccessCloseRule` 当成成员链收了 ✗（实测缺 `CallExpression` / `PlusToken` /
+  `StringLiteral` 各一 ✓）。
+  **缩到只差一步** ✓：`o.a.toString() + "x" + "y"`（**没有 `!`**）是好的 ✓、
+  `o.a! + "x"` 是好的 ✓、`f() + "x" + "y"` 是好的 ✓ ⇒ 触发条件是
+  「**`!` 断言的成员链 + 一次调用，再接两个以上的 `+`**」✓。
+  这一条的**另外两条**已经修掉 ✓（同一轮 ✓）：
+  `!` 后面跟 `.` 被误判成明确赋值断言（`not-null.xl.md` 的 `IsDefiniteAssignment` ✓）、
+  「调用结果接字符串」被误当成模板标签而放过（`binary-operator.xl.md` 的 `CanBeTag` ✓）。
+  两条都进了用例：`tests/parse/cases/expressions/ex-nonnull-member-chain.ts` 与
+  `ex-call-plus-string-chain.ts`。
+  剩下那一档**还没定位到是哪条收尾规则抢跑** ✓——加 `IfSegment.BraceRangeText` 时踩到过 ✓，
+  规范源码暂时写成「先各取一个 `String`、再拼两个局部量」绕开 ✓。
 
 **已经修掉的**（留着是为了说明「哪一类形状值得先探」）：`do` 的体自带分号那一族
 （`do x++; while (c);` / `do ; while (c);` / `do f(); while (c);`，第 635 轮）、

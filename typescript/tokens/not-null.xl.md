@@ -134,6 +134,22 @@ return (
 
 ```ts
 const after = Get(units, SkipNextWrapSymbol(units, index));
+// **`!` 后面紧跟一个 `.` ⇒ 这是非空断言，不是明确赋值断言**（第 638 轮 ✓）。
+//
+// 不挡会怎样 ✗：`this.V!.toString() + ","` 里 `PropertyAccessCloseRule`（比本条**早** ✓，
+// 见 `../parse-pipeline.xl.md` 的 `GeneralCloseRule` ✓）先把 `this.V!.toString` 认成
+// **属性访问 + 类型标注** ✓（成员名后面那个 `(` 于是被 `MethodCloseRule` 收成一次调用 ✓，
+// 整条链成了一次**类型位**的调用形状 ✓）⇒ 这一格拿到的是 `after instanceof TypeDefine` ✓、
+// 名字前面又是行首 ✓ ⇒ 判成明确赋值断言 ✓ ⇒ 整条链折成 `NotNull(this.V, !)`，
+// `.toString()` 被留在外面成了平级兄弟 ✗（实测产物：`<NotNull>…</NotNull><SymbolToken>.</SymbolToken>`
+// 之后才是一个装着 `Method` 的 `BinaryOperator` ✓）。
+// 而**明确赋值断言后面永远不可能跟 `.`** ✓——`a!: T` 的 `!` 与 `.` 是互斥的两种读法 ✓
+// ⇒ 这一格可以直接当判据 ✓。
+// 症状是**静默错值** ✓：TS 那边缺 `PlusToken` / `StringLiteral`、多出同名节点 ✓
+//（`return this.V!.toString() + "x";` 实测缺 3 / 漂移 3 / 多出 2 ✓）。
+if (after instanceof SymbolToken && after.TempToString() === ".") {
+  return false;
+}
 if (after instanceof TypeDefine) {
   return true;
 }

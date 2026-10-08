@@ -281,15 +281,15 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
 语料 = `node_modules` 下的 `@types` / `typescript/lib` / `undici-types` + 本项目 `dist/ts/**` +
 `samples` + `tests/parse/cases/**`（`tests/parse/ts-ast.mjs` 的 `corpus()`）。
 
-### 当前状态（第 637 轮实测）
+### 当前状态（第 638 轮实测）
 
 | 判据 | 结果 |
 | --- | --- |
 | `cases:tsast` | **1501 / 1501 逐文件完全一致**，四方向 0、未映射 0、缺 range 0、区间越界 0 |
 | `cases:tsast:cli` | 发布路径（慢，按需跑）：开 `cjcli … --ts-ast` 进程逐文件对拍，与库路径同一条口径 |
 | `samples` | hello / declarations / generic 三份 TS 形状夹具**逐字节**一致，且「命令行 = 库 API」 |
-| `cases:check` | **1099** 条用例，0 条不合格 |
-| `cases:tags` | **1099 条全部带期望**（2792 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
+| `cases:check` | **1101** 条用例，0 条不合格 |
+| `cases:tags` | **1101 条全部带期望**（2799 条断言），0 条不一致；标签表 **117** 种全被产出过，幽灵标签 **12** 种一个都没漏进产物 |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
 | `coverage` | **1814 / 1814**（**100%**）：引擎 / 降级 / 标准库 / 端到端四层各 **100%**，台账里 0 条待修 |
@@ -315,6 +315,15 @@ XML 出口与 token 树质量的那些旧尺子都不在判据里，`coverage` �
   `const [[a, b], [, c = 0]] = m` 记成 `a,b,c,0`。
 - **语言配置带来的两处差异**（不是解析器缺陷，是这套语言这么定义）：
   `\a` 解成响铃字符而不是字母 `a`；`@'…'` / `@"…"` 是逐字字符串前缀、不是装饰器。
+- **非空断言的成员链后面再接两个以上的 `+` 与字符串**（第 638 轮缩过一次）：
+  `o.a!.toString() + "x" + "y"` 里**第一个 `+`** 折不出来，后面那个 `"y"` 于是被当成成员链收走。
+  `o.a.toString() + "x" + "y"`（没有 `!`）、`o.a! + "x"`、`f() + "x" + "y"` 三种**都是好的**——
+  触发条件是「`!` 断言的成员链 + 一次调用，再接两个以上的 `+`」。
+  同族的两条已经修掉（`!` 后面跟 `.` 被误判成明确赋值断言、调用结果接字符串被误当成模板标签），
+  用例在 [`ex-nonnull-member-chain.ts`](tests/parse/cases/expressions/ex-nonnull-member-chain.ts) 与
+  [`ex-call-plus-string-chain.ts`](tests/parse/cases/expressions/ex-call-plus-string-chain.ts)；
+  剩下这一档还没定位到是哪条收尾规则抢跑，细节见
+  [docs/typescript-parsing-gaps.md](docs/typescript-parsing-gaps.md)。
 - **块与表达式之间没有分隔符时**（`{ A }a += 1`：块紧跟着表达式，中间既没有 `;` 也没有换行），
   产物里块与后一条语句仍然**并进同一个 `<Statement>`**（与 TypeScript 的「两条语句」不一致）——
   这一条在 token 树（XML）上仍然是缺口，但**投影到 TS 形状时按 TS 的划分出节点**，

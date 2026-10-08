@@ -522,14 +522,25 @@ if (rightAssociative) {
 // 于是标签与模板被**拆进两棵子树** ✓——投影拿到 `[BinaryOperator(1,+,t), PropertyAccess(模板,.,length)]` ✓
 // ⇒ 右操作数只剩 `t` ✓、后缀整片丢掉 ✗（实测：`` 1 + t`xy`.length `` 报
 // `unimplemented: ToPrimitive of a function` ✓，Node 给 `3` ✓——**静默错值** ✗）。
-const rightOperandIndex = SkipNextWrapSymbol(units, index);
-const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
+//
+// **左操作数也得「能当标签」** ✗（第 638 轮 ✓）：上面那条推理只说了「字符串跟在操作数后面」，
+// 可**它只对「标签」这一种成立** ✓。`a.b() + "x" + "y"` 里左操作数是一次**调用** ✓
+// ——调用结果后面永远不可能跟模板 ✓ ⇒ 这里的 `+` 就是加法 ✓，不能放过 ✗。
+// 原来的判据只看右边 ✗ ⇒ 这一格每趟都放过 ✓ ⇒ 折不出来 ✓ ⇒ 后面那个 `"y"` 反而被
+// `PropertyAccessCloseRule` 当成成员链收了 ✗（实测 `this.V!.toString() + "x" + "y"`：
+// TS 那边缺 `CallExpression` / `PlusToken` / `StringLiteral`、产物这边多出两格 ✓）。
+// 所以补一条：**左操作数得是一个标识符（或一条以标识符开头的成员链）** ✓——
+// 那才是标签的形状 ✓；`a.b()` / `a!` / `a[0]` 这些都不是 ✓。
+//
 // **两种形状都算** ✗（第一版只认 `String` ✓，实测不够 ✓）：
 // 模板后面**还跟着后缀**时（`` t`x`.length `` ✓），产物那一格是
 // **`PropertyAccess(模板, ., length)`** ✓——标签在外面、模板与后缀在同一个 `PropertyAccess` 里 ✓
 //（投影 0c 那一段写着这个形状 ✓）。所以判据是「**这个单元以模板开头**」✓：
 // 它自己就是 `String` ✓，或者它是一个 `PropertyAccess` 、**第一个可投影子单元是 `String`** ✓。
-if (StartsWithTemplate(afterOperand)) {
+const rightOperandIndex = SkipNextWrapSymbol(units, index);
+const afterOperand = Get(units, SkipNextWrapSymbol(units, rightOperandIndex));
+const leftOperandIndex = SkipPreviousWrapSymbol(units, index);
+if (StartsWithTemplate(afterOperand) && this.CanBeTag(Get(units, leftOperandIndex))) {
   return false;
 }
 // **右操作数后面还跟着一个 `.` ⇒ 这一格先放过** ✓（第 598 轮 ✓）——
@@ -561,6 +572,37 @@ if (current instanceof SymbolToken && current.FromCompoundAssignment
   return false;
 }
 return this.IsOperand(Get(units, SkipNextWrapSymbol(units, index)));
+```
+
+## private method CanBeTag:(unit:Token | null)=>bool
+
+`unit` 能不能当**模板标签**（第 638 轮 ✓）——判据是「**一条从标识符开始的成员链**」。
+
+模板标签有两种写法：`` t`x` ``（`Identifier` ✓）与 `` a.b.c`x` ``（`PropertyAccess` 链 ✓）。
+链的**最内层**必须是 `Identifier` ✓，因为标签要绑定到一个名字 ✓
+（`Keyword` 不认 ✓：`this` 那种不是合法的模板标签 ✓）。
+
+**为什么需要它** ✗：`StartsWithTemplate` 只看**右操作数** ✓，而「字符串紧跟操作数」
+这条相邻关系在**调用结果**后面也成立 ✗（`f() + "x" + "y"` ✓）——
+那种位置的 `+` 就是加法 ✓，放过它就折不出来 ✓（实测见 `Previous` 里那一段 ✓）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof Identifier) {
+  return true;
+}
+if (unit instanceof PropertyAccess) {
+  for (const item of unit.Data) {
+    if (item instanceof PropertyAccess) {
+      continue;
+    }
+    return item instanceof Identifier;
+  }
+  return false;
+}
+return false;
 ```
 
 ## private method ExtendsRightOperand:(unit:Token | null)=>bool
