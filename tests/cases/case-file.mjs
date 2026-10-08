@@ -84,7 +84,12 @@ export const DIRECTIVE_KEYS = [...DIRECTIVE_OWNER.keys()];
  *      不参与判定——想读全文的调用方可以拿它。
  */
 export function parseDirectives(source) {
-  const lines = source.split("\n");
+  // **先把行尾归一成 LF**（第 685 轮实测的坑）：按 `\n` 切出来的行尾会留一个 `\r`，
+  // 而 `^//\s*xl:(\S+)\s*(.*)$` 里的 `$` 在 `\r` **之前**不成立、`.` 也不吃 `\r`
+  // ⇒ **整条 exec 失败、一条指令都收不到**（纯 LF 的文件正常，所以这个坑只在
+  // 「盘上带 CRLF」的用例上现形：`lex-crlf` 那两份）。
+  // 归一之后 `bodyStart` 的**行号**仍然对得上（只去掉了行尾那一个字符）。
+  const lines = source.split("\n").map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
   // 前导：跳过开头所有「不是指令、也不是终止行」的行（BOM / 说明注释 / 空行）。
   let start = 0;
   while (start < lines.length) {

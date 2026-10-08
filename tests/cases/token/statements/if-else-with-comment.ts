@@ -1,4 +1,5 @@
 // xl:expect IfStatement,LogicalOperator,IfBody,IfCondition
+// xl:note `if` 体与 `else` 之间夹一条注释：续段判定要跳过 trivia
 // if 体与 else 之间夹一条注释——续段判定要跳过 trivia（注释也是 trivia）
 function pick(value: number, best: number): number {
   if (value > best) best = value;

@@ -1,4 +1,5 @@
 // xl:expect ParenthesizedType,TupleType,FunctionType,ArrayType
+// xl:note 实参表里的括号是值位（`f("x", (a & b))`）；类型位那一半在同名的 type- 用例里
 // 第 162 轮：**实参表里的括号是值位**。
 //
 // token 层的 `IsTypeBracketPosition` 原来把「前面是 `,` 或 `(`」一律当**类型位**——

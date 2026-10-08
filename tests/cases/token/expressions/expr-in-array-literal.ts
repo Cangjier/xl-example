@@ -1,4 +1,5 @@
 // xl:expect LogicalOperator,IndexSignature,TernaryOperator,TernaryOperatorCondition
+// xl:note 值位数组里的 `in` 是二元运算符，不是映射键；类型位那一半（映射 / 键重映射）同时钉住
 // 第 165 轮：值位数组里的 `in` 是**二元运算符**，不是映射键。
 //
 // `[x in y, 2]` 里的 `in` 是 JS 的关系运算符（结果是布尔），而映射类型的键写成
