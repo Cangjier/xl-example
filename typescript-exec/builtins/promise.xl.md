@@ -625,15 +625,19 @@ return Value.FromObject(payload.Opaque);
 
 # method MakePromise:(room:RoomChecker, table:HeapTable, protos:Protos, state:int, settled:Value)=>Value
 
-**造一个承诺，并把三个方法挂在它自己身上**。
+**造一个承诺**。
 
-**为什么方法挂在实例上**：与 `Map` / `Set` 同一条口径（那两族的原型**不挂方法**）。
-**原型那一格还是要有**（第 601 轮）：`x instanceof Promise` 要看它，
-`Symbol.toStringTag`（`"[object Promise]"`）也挂在它上面——
-一个空对象，方法一个都不放（与 `Generator` 那一格同一条分界）。
+**方法不挂在实例上**（第 697 轮改）：`then` / `catch` / `finally` 第 690 轮就在
+`Promise.prototype` 上（`Object.getOwnPropertyNames(Promise.prototype)` 与 Node
+逐字相同：`constructor` / `then` / `catch` / `finally`），再在实例上挂一份就是**第二份账**——
+它的症状是 `Object.getOwnPropertyNames(promise)` 里凭空多出三格
+（Node 给 `[]`，判据 `runtime/async/probe697-z15`）。
+**原来是「与 `Map` / `Set` 同一条口径（实例方法）」**：那两族第 341 轮就搬到原型上了，
+所以这条口径**在自己的注释里就已经过期**。
 
-**三个方法都是宿主引用**——所以它们是**同一份**实现，
-每造一个承诺只花三次属性写的钱。
+**原型那一格必须有**（第 601 轮）：`x instanceof Promise` 要看它，
+`Symbol.toStringTag`（`"[object Promise]"`）与 `constructor` 也挂在它上面——
+一个空对象，方法一个都不放。
 
 ```ts
 if (!room(ObjectCharge + ValueCharge * 3)) throw new Error("out of room");
@@ -642,12 +646,6 @@ const promise = Value.FromObject(handle);
 if (protos.Promise > 0) {
   table.Get(promise.Ref).Proto = protos.Promise;
 }
-SetProperty(room, NeverCall, table, promise, NameValue(table, "then"),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseThen, 0)));
-SetProperty(room, NeverCall, table, promise, NameValue(table, "catch"),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseCatch, 0)));
-SetProperty(room, NeverCall, table, promise, NameValue(table, "finally"),
-  Value.FromRef(ValueTag.HostRef, table.CreateHostRef(PromiseFinally, 0)));
 return promise;
 ```
 

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 5888,
+  "total": 5973,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 95.57,
+  "progressPercent": 95.74,
   "categories": [
     {
       "category": "token",
@@ -90,32 +90,32 @@
     {
       "category": "exec",
       "weight": 0.25,
-      "total": 1243,
-      "pass": 1213,
+      "total": 1278,
+      "pass": 1248,
       "blocked": 6,
       "differ": 24,
       "nodefail": 0,
-      "coverage": 97.59
+      "coverage": 97.65
     },
     {
       "category": "runtime",
       "weight": 0.25,
       "total": 796,
-      "pass": 778,
+      "pass": 783,
       "blocked": 1,
-      "differ": 17,
+      "differ": 12,
       "nodefail": 0,
-      "coverage": 97.74
+      "coverage": 98.37
     },
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 2200,
-      "pass": 2126,
-      "blocked": 25,
-      "differ": 49,
+      "total": 2250,
+      "pass": 2173,
+      "blocked": 26,
+      "differ": 51,
       "nodefail": 0,
-      "coverage": 96.64
+      "coverage": 96.58
     },
     {
       "category": "e2e",
@@ -1602,6 +1602,12 @@
       "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: expression RegularExpressionLiteral"
     },
     {
+      "id": "stdlib/object/probe698-b14",
+      "category": "stdlib",
+      "title": "(function () { const o = { toString: () => \"k\" }; return { [o]: 1 }.k; })()",
+      "detail": "tsrun: 还没实现的构造或语言层错误：unimplemented: ToString of this kind of value"
+    },
+    {
       "id": "stdlib/string/042-string-match-and-split-regex",
       "category": "stdlib",
       "title": "字符串方法收正则：match / split(/\\s+/)",
@@ -1820,30 +1826,6 @@
       "detail": "stdout 不同：第 2 行：node «then called» vs tsrun «got { then: [Function: then] }»"
     },
     {
-      "id": "runtime/async/probe3-a12",
-      "category": "runtime",
-      "title": "(function () { const f = async () => 1; return f() instanceof Promise; })()",
-      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
-    },
-    {
-      "id": "runtime/async/probe697-p03",
-      "category": "runtime",
-      "title": "(async function () { return 1; })().constructor.name",
-      "detail": "stdout 不同：第 1 行：node «string:Promise» vs tsrun «throw:TypeError»"
-    },
-    {
-      "id": "runtime/async/probe697-p04",
-      "category": "runtime",
-      "title": "(async function () { return 1; })() instanceof Promise",
-      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
-    },
-    {
-      "id": "runtime/async/probe697-p11",
-      "category": "runtime",
-      "title": "(async function () { return await 1; })().constructor.name",
-      "detail": "stdout 不同：第 1 行：node «string:Promise» vs tsrun «throw:TypeError»"
-    },
-    {
       "id": "runtime/async/probe697-p13",
       "category": "runtime",
       "title": "(async function () {}).constructor.name",
@@ -1872,12 +1854,6 @@
       "category": "runtime",
       "title": "Object.prototype.toString.call(function* () {})",
       "detail": "stdout 不同：第 1 行：node «string:[object GeneratorFunction]» vs tsrun «string:[object Function]»"
-    },
-    {
-      "id": "runtime/async/probe697-z15",
-      "category": "runtime",
-      "title": "(function () { const p = Promise.reject(1); p.catch(() => {}); return Object.getOwnPropertyNames(Object(p)).includes(\"then\"); })()",
-      "detail": "stdout 不同：第 1 行：node «boolean:false» vs tsrun «boolean:true»"
     },
     {
       "id": "runtime/iterators/039-map-mutation-during-forof",
@@ -2015,7 +1991,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-27612/src/3913.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-19760/src/3958.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/031-names-error",
@@ -2172,6 +2148,18 @@
       "category": "stdlib",
       "title": "(function () { try { Object.setPrototypeOf({}, 1); return \"no\"; } catch (e) { return e.constructor.name; } })()",
       "detail": "stdout 不同：第 1 行：node «string:TypeError» vs tsrun «string:no»"
+    },
+    {
+      "id": "stdlib/object/probe698-c09",
+      "category": "stdlib",
+      "title": "(function () { const xs = [1, 2, 3]; Object.defineProperty(xs, \"1\", { value: 9 }); return [xs[1], xs.length, Object.keys(xs).join(\",\")].join(\"|\"); })()",
+      "detail": "stdout 不同：第 1 行：node «string:9|3|0,1,2» vs tsrun «string:2|3|0,1,2»"
+    },
+    {
+      "id": "stdlib/object/probe698-f09",
+      "category": "stdlib",
+      "title": "(function () { const o = { [\"__proto__\"]: { z: 1 } }; return Object.getPrototypeOf(o) === Object.prototype; })()",
+      "detail": "stdout 不同：第 1 行：node «boolean:true» vs tsrun «boolean:false»"
     },
     {
       "id": "stdlib/string/136-r676-std-string-regex-members",

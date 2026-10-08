@@ -1146,13 +1146,45 @@ table.Recount(receiver.Ref);
 所以「**按数据造对象**」的地方（`JSON.parse` / `reviver` / `Object.fromEntries` 那一族）
 一律走这一格，`[[Set]]` 那一格留给**赋值语句**。
 
-**实现只有一份**：它就是 `SetHiddenProperty` 那一趟（找自有那一格改值、没有就新开一格，
-**不看数组的 `length`、不调 setter**），差别只在标志位——
-这里固定给 `PropertyFlagsAll`（`SetHiddenProperty` 的缺省是「不可枚举」，
-那是给内部件用的另一档）。
+**实现**：**只找自有那一格**（原型链上一概不算——这正是它与 `[[Set]]` 的分界）：
+
+- 自有 + 数据属性 → 改值、标志位一律置回三个全开；
+- 自有 + 访问器 → **原地**换成数据属性（位置不变——`Object.keys` 的次序是语义）；
+  **不可配置的换不动**，JS 在那里抛 `TypeError`，这里也抛（静默跳过就是错值）；
+- 没有自有那一格 → 新开一格（三个标志全开）。
+
+**不看 `Extensible`**：这一格的两个调用点（JSON 解析 / 对象字面量）面对的都是**刚造出来的
+对象**，它一定可扩展；真要对不可扩展的对象用它，得先把那一问补上（写在明处）。
 
 ```ts
-SetHiddenProperty(room, table, receiver, key, value, PropertyFlagsAll);
+if (!receiver.IsObject()) {
+  throw new Error("unimplemented: create_data_property on a primitive receiver");
+}
+const found = FindProperty(room, table, receiver.Ref, key);
+if (found !== null && found.Owner === receiver.Ref) {
+  const property = table.Get(found.Owner).Props[found.Index];
+  if (property.Kind !== PropertyKind.Accessor) {
+    property.Value = value;
+    property.Flags = PropertyFlagsAll;
+    table.Recount(receiver.Ref);
+    return;
+  }
+  if ((property.Flags & PropertyFlagConfigurable) === 0) {
+    throw new TypeError("cannot redefine a non-configurable accessor as a data property");
+  }
+  property.Kind = PropertyKind.Data;
+  property.Value = value;
+  property.Getter = Value.Undefined();
+  property.Setter = Value.Undefined();
+  property.Flags = PropertyFlagsAll;
+  table.Recount(receiver.Ref);
+  return;
+}
+if (!room(PropertyCharge)) throw new Error("out of room");
+const created = new Property(key.Ref, value);
+created.Flags = PropertyFlagsAll;
+table.Get(receiver.Ref).Props.push(created);
+table.Recount(receiver.Ref);
 ```
 
 # method NewPlainObject:(room:RoomChecker, table:HeapTable, protos:Protos)=>Value

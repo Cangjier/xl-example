@@ -77,17 +77,51 @@ console.log(Box.of(1));
 
 ## 分母里有什么（数字是最近一次全量实测）
 
-语料 **5902** 条（token 1416 / exec 1244 / runtime 796 / stdlib 2200 / e2e 246），判过 **5888** 条。
+语料 **5987** 条（token 1416 / exec 1279 / runtime 796 / stdlib 2250 / e2e 246），判过 **5973** 条。
 覆盖度按类算，**每一类的分母是那一类判过的条数**：
 
 | 类 | 判过 | 过 | 缺口（blocked / differ） | 备注 |
 | --- | --- | --- | --- | --- |
 | `token` | 1403 | **1184** | 219 | 缺的那 219 条**全是** `xl:known-gap`；另有 13 条不进分母 |
-| `exec` | 1243 | **1213** | 6 / 24 | 另有 1 条不进分母 |
-| `runtime` | 796 | **778** | 1 / 17 | |
-| `stdlib` | 2200 | **2126** | 25 / 49 | |
+| `exec` | 1278 | **1248** | 6 / 24 | 另有 1 条不进分母 |
+| `runtime` | 796 | **783** | 1 / 12 | |
+| `stdlib` | 2250 | **2173** | 26 / 51 | |
 | `e2e` | 246 | **242** | 4 / 0 | |
-| **合计** | **5888** | **5543** | 255 / 90 | 加权 **95.6%** |
+| **合计** | **5973** | **5630** | 256 / 87 | 加权 **95.7%** |
+
+**第 698 轮再加 85 条**（分母 5888 → **5973**）：第九批原子探针，专问**排序与比较器**、
+`ToPrimitive` 三件套（`Symbol.toPrimitive` / `valueOf` / `toString`）、属性描述符的迁移、
+解构与默认值、`try/finally` 与标签的控制流、对象字面量的 getter / 展开，以及 `delete` / `in`。
+**收掉两处**：
+
+- **`async` 函数的返回值不是一个「真的承诺」**（第 692 轮就登在台账里的
+  `runtime/async/probe3-a12` 与第 697 轮新登的四条）：`(async function () { return 1; })()`
+  **有** `then`（第 285 轮把三个方法挂在实例上了），但它的原型一直是 `protos.Object` ⇒
+  `instanceof Promise` **假**、`Object.prototype.toString` 给 `[object Object]`、
+  `.constructor` 干脆**没有**（`p.constructor.name` 抛 `TypeError`）。
+  修法：`vm.xl.md` 的 `MakeAsyncPromise` **把原型接上 `protos.Promise`**，
+  并且**不再在实例上挂那三个方法**——第 690 轮它们已经在 `Promise.prototype` 上了
+  （`Object.getOwnPropertyNames(Promise.prototype)` 与 Node 逐字相同），
+  再挂一份就是**第二份账**（症状是 `Object.getOwnPropertyNames(promise)` 多出三格）。
+  同一个根的第二处在建库层：`promise.xl.md` 的 `MakePromise` 也照改
+  （注释里那句「与 `Map` / `Set` 同一条口径（实例方法）」在第 341 轮就已经过期）。
+- **裸块里带 `in` 的数组字面量整份文件进不来**（**实测撞到的**）：
+  `{ const r = ["a" in o]; }` 报 `unimplemented: expression TypeParameter`。
+  根子：`IsMappedKeyBracket` 判「这个 `[` 是不是映射类型的键」时，容器那一问
+  **只问了「父单元是不是一个 `{` 括号」，而块的花括号与类型字面量的花括号是同一个类**
+  ⇒ 整个数组被当成映射键、投成 `TypeParameter`。
+  修法：花括号那一档**再问一句「本单元是不是它的第一个实义单元」**——
+  判据与 `type-literal/type-literal.xl.md` 的 `IsMappedTypeBrace` **同一条**
+  （映射类型的键一定是花括号里的第一个；`readonly` / `+` / `-` 前缀要跳过），
+  按类名判、不 import（那份文件向上 import 这一个文件，反过来会绕出环）。
+  **试过又退回来的一条**：改用括号自己的 `Context === "type"` —— 真映射键那个 `{`
+  不是 `"type"`，六条 token 用例（`ty-mapped` / `ty-mapped-as-remap` / `lex-keyword-in-of` …）
+  当场判成「缺 16 多 7」，`cases:tsast` 与 `coverage` 同时红，所以那一版没有留下。
+
+**加权仍是 95.7%**（分子 +87：收掉的 5 条 + 新过的 82 条；分母 +85，
+另登记 3 条新缺口：计算键是对象时的 `ToPropertyKey`、`Object.defineProperty` 写数组下标、
+**计算键写的 `__proto__` 不该改原型**——最后一条是第 697 轮那个访问器带出来的，
+根子在「对象字面量的成员走 `[[Set]]`、而 JS 走 `CreateDataProperty`」）。
 
 **第 697 轮再加 159 条**（分母 5729 → **5888**，三批：95 + 50 + 15）：第八批原子探针，专问
 `Symbol` 与知名符号、`Error` 家族与 `cause`、`Promise` / `async` 的**形状**、

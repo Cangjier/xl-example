@@ -1930,8 +1930,40 @@ const container = unit.Parent;
 if (container !== null) {
   const containerName = container.constructor.name;
   const isTypeLiteral = containerName === "TypeLiteral";
-  const isBraceBracket = container instanceof Bracket && container.startBracket === "{";
-  if (isTypeLiteral === false && isBraceBracket === false) {
+  // **花括号那一档还要问一句「本单元是不是它的第一个实义单元」**（第 698 轮，**实测撞到的**）：
+  // `Bracket` 这一档**块的花括号与类型字面量的花括号是同一个类**，
+  // 于是「父单元是一个 `{` 括号」这句话把**语句块**也放行了 ——
+  // `{ const r = ["a" in o]; }`（裸块里一个带 `in` 的数组字面量）因此被当成映射键，
+  // 整个数组被投成 `TypeParameter` ⇒ 降级期报
+  // `unimplemented: expression TypeParameter`（**整份文件进不来**，判据
+  // `token/expressions/expr-in-array-literal` 与 `exec` 侧那一批）。
+  //
+  // **判据与 `type-literal/type-literal.xl.md` 的 `IsMappedTypeBrace` 是同一条**
+  //（映射类型的键**一定**是花括号里的第一个实义单元；`readonly` / `+` / `-`
+  // 那三个修饰前缀要跳过）——**为什么不引用它**：那个文件向上 import 这一个文件，
+  // 反过来 import 会绕出环（与上面 `IsTriviaUnit` 那条按类名判的理由同款）。
+  // 于是这里照它写一遍，**并写明另一份在哪儿**（漂了要能一眼找到）。
+  //
+  // **为什么不看 `Context`**（试过、退回来了）：真映射键那个 `{` 的 `Context` 不是 `"type"`
+  // ——按它筛会把六条 token 用例（`ty-mapped` / `ty-mapped-as-remap` / `lex-keyword-in-of` …）
+  // 当场判成「缺 16 多 7」（`cases:tsast` 与 `coverage` 同时红），所以那一版没有留下。
+  let leadsBrace = false;
+  if (container instanceof Bracket && container.startBracket === "{") {
+    for (const item of container.Data) {
+      if (IsTriviaUnit(item)) {
+        continue;
+      }
+      if (item instanceof Identifier && item.Is("readonly")) {
+        continue;
+      }
+      if (item instanceof SymbolToken && (item.Is("+") || item.Is("-"))) {
+        continue;
+      }
+      leadsBrace = item === unit;
+      break;
+    }
+  }
+  if (isTypeLiteral === false && leadsBrace === false) {
     return false;
   }
 }

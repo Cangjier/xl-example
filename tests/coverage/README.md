@@ -241,6 +241,31 @@
    `for..in`/`JSON.parse` 的 `__proto__` 键/四档 `setPrototypeOf`/脚本 setter 走链），
    47 pass（一条 unhandled rejection 换成了合法形状、一条 `setPrototypeOf(o, 1)` 如实登记）。
    加权 **95.8% → 95.6%**（分子 +148、分母 +159）。
+   **第 698 轮全矩阵**（一批原子探针 85 份新语料）：通过 **5543 → 5630**、
+   分母 **5888 → 5973**、`blocked 255 → 256`、`differ 90 → 87`、`bad` 仍 **0**、
+   `regressions` **0**、`moved` 0、`newlyPassing` **0**——收掉两处：
+   ① **`async` 函数的返回值不是一个「真的承诺」**（第 692 轮登记的 `probe3-a12` 与第 697 轮
+   新登的四条一起转绿）：它有 `then`（第 285 轮挂在实例上），可原型一直是 `protos.Object`
+   ⇒ `instanceof Promise` 假、`Object.prototype.toString` 给 `[object Object]`、
+   `.constructor` 没有。修法：`MakeAsyncPromise` **把原型接上 `protos.Promise`**、
+   **不再在实例上挂那三个方法**（第 690 轮它们已经在 `Promise.prototype` 上——
+   再挂一份的症状就是 `Object.getOwnPropertyNames(promise)` 多三格）；
+   建库层的 `MakePromise` 照改（它那句「与 `Map` / `Set` 同一条口径」第 341 轮就过期了）。
+   ② **裸块里带 `in` 的数组字面量整份文件进不来**：`{ const r = ["a" in o]; }` 报
+   `unimplemented: expression TypeParameter`——`IsMappedKeyBracket` 的容器那一问
+   只问了「父单元是不是一个 `{` 括号」，而**块的花括号与类型字面量的花括号是同一个类**
+   ⇒ 整个数组被当成映射键、投成 `TypeParameter`。修法：花括号那一档再问一句
+   「**本单元是不是它的第一个实义单元**」（与 `type-literal.xl.md` 的 `IsMappedTypeBrace`
+   同一条判据，按类名判以避免环形 import）。**试过又退回来的一版**用括号自己的
+   `Context === "type"`：真映射键那个 `{` 不是 `"type"`，六条 token 用例当场判成
+   「缺 16 多 7」，`cases:tsast` 与 `coverage` 同时红——那一版没有留下。
+   本批另登记 3 条：计算键是对象时的 `ToPropertyKey`（`blocked`）、
+   `Object.defineProperty(数组, "1", …)` **静默不改元素**（`differ`，数组的元素住在
+   `Elements` 上，而那一趟只扫属性表），以及**计算键写的 `__proto__` 会改原型**
+   （`differ`，第 697 轮那个访问器带出来的：对象字面量的成员走 `[[Set]]`，
+   而 JS 那一步是 `CreateDataProperty`——`props.xl.md` 里那一格已经有了，
+   缺的是让降级层改走它并把键的 `ToPropertyKey` 一起搬过去）。加权 **95.7%**
+   （分子 +87、分母 +85）。
 2. **AST 尺子**（`token`）：裁判是 `ts.createSourceFile`，比**逐节点的 kind / 区间 / 字段名**，
    外加未映射 / 缺 range / 区间越界。它**不开进程**，而且借的是 `cases:tsast` 的**同一份实现**
    （`compareSource`）——两份实现就是两个口径。

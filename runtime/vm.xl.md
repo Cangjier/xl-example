@@ -4344,8 +4344,7 @@ if (!this.IsAwaitedBy(innerPromise, promise.Ref)) innerPromise.Reactions.push(pr
 
 ## method MakeAsyncPromise:(state:int, settled:Value)=>Value
 
-**造一个承诺，并把 `then` / `catch` / `finally` 挂在它身上**（第 285 轮）——
-async 帧（以及执行器那一格）的承诺都由这里造。
+**造一个承诺**（第 285 轮）——async 帧（以及执行器那一格）的承诺都由这里造。
 
 **为什么引擎要自己造、不能借建库层的 `MakePromise`**（**第一版就是直接 `CreatePromise`**）：
 两个调用点**在引擎内部**——`DoCallValue` 的 async 那一支 与 `DoThrow` 的拒绝那一支，
@@ -4355,34 +4354,44 @@ async 帧（以及执行器那一格）的承诺都由这里造。
 （症状：`f().then(v => …)` 报「调了一个不是函数的东西」，
 听起来像脚本写错了，其实是**`f()` 返回的那个承诺少了三个方法**）。
 
-**三个号从哪来**：引擎造**宿主引用**（`HostRef`），而号是**语言层的约定**
-（`promise.xl.md` 的 `PromiseThen` = 235、`PromiseCatch` = 236、`PromiseFinally` = 237）。
+**第 285 轮的做法是「把 `then` / `catch` / `finally` 三个方法挂在实例上」**——
+引擎自己造三个宿主引用，号是**语言层的约定**（`promise.xl.md` 的
+`PromiseThen` = 235、`PromiseCatch` = 236、`PromiseFinally` = 237；
 这与 `ConstructorProtos` / `SetErrorFactory` / `PrototypeKey` 是**同一套分界**：
-**引擎不认识「then」这个词是什么意思**，它只是把一个号放进一个属性格；
-那个号**必须已经在能力表里**（`install.xl.md` 那一趟登记，
-漏了就是 `capability is not registered: 235`）。
+引擎不认识「then」这个词，它只是把一个号放进一个属性格）。
 
-**三格属性 + 三个宿主引用 + 一格承诺 + 三个字符串句柄**——
-`room` 一次问够（少问一格就是**分配中途**才说不）。
+**第 697 轮改成「把原型那一格接上」**——两条理由都是量出来的：
+
+1. **挂实例上修不了「它是不是一个承诺」**：`instanceof Promise` 看的是**原型链**
+   （`protos.Promise`）、`Object.prototype.toString` 看的是那一格，
+   而这里造出来的东西原型一直是 `protos.Object` ⇒
+   `(async function () { return 1; })() instanceof Promise` 给**假**、
+   `Object.prototype.toString.call(…)` 给 `[object Object]`、
+   `.constructor` 干脆**没有**（`p.constructor.name` 抛 `TypeError`，
+   判据 `runtime/async/probe697-p03` / `p04` / `p11`）。
+2. **那三个方法第 690 轮已经在 `Promise.prototype` 上了**
+   （`Object.getOwnPropertyNames(Promise.prototype)` 与 Node 逐字相同：
+   `constructor` / `then` / `catch` / `finally`）——再在实例上挂一份就是**第二份账**，
+   而它的症状是 `Object.getOwnPropertyNames(promise)` 里凭空多出三格
+   （判据 `runtime/async/probe697-z15`）。
+
+**原型那一格照旧是「可选服务」的口径**：`protos.Promise > 0` 才接
+（`protos` 没接那一格时退回原型为 `Object` 的老行为，与 `AttachGeneratorProto` 同款）。
 
 ```ts
 const protos = this.Protos;
 if (protos === null) throw new Error("no prototype table");
 return this.Guard(() => {
   const room = this.Room();
-  if (!room(ObjectCharge + PropertyCharge * 4 + ValueCharge * 8)) {
+  // **只问承诺自己那一格**（与建库层 `MakePromise` 同一个数）：
+  // 三个方法的钱第 697 轮起不用再问——它们不在实例上。
+  if (!room(ObjectCharge + ValueCharge * 3)) {
     throw new Error("out of room");
   }
   const promise = Value.FromObject(this.Table.CreatePromise(state, settled));
-  SetProperty(room, this.NeverCall, this.Table, promise,
-    Value.FromString(this.Table.CreateString(HostTextUnits("then"))),
-    Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(PromiseThenId, 0)));
-  SetProperty(room, this.NeverCall, this.Table, promise,
-    Value.FromString(this.Table.CreateString(HostTextUnits("catch"))),
-    Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(PromiseCatchId, 0)));
-  SetProperty(room, this.NeverCall, this.Table, promise,
-    Value.FromString(this.Table.CreateString(HostTextUnits("finally"))),
-    Value.FromRef(ValueTag.HostRef, this.Table.CreateHostRef(PromiseFinallyId, 0)));
+  if (protos.Promise > 0) {
+    this.Table.Get(promise.Ref).Proto = protos.Promise;
+  }
   return promise;
 });
 ```
