@@ -999,29 +999,31 @@ return true;
 （判据 `rt-delete-array-element` 量的就是它：`1 in xs` 还是真、`xs[1]` 还是原值；
  而 JS 给的是「那一格变成**洞**」：`1 in xs` 假、`xs.length` **不变**）。
 
+**下标那一格要先问 `Props`**（第 721 轮）：数组下标的**标志位**住在属性表里那一份
+（`globals.xl.md` 的 `IndexKeyShadowOf` 写着账），于是
+`Object.defineProperty(a, "1", { value: 9, configurable: false }); delete a[1]`
+在 JS 里给 **`false`**、那一格还在——而元素那一段**无条件成功**，值当场变洞
+（判据 `p721a-r10`：node 给 `false,9`、本仓给 `true,undefined`）。
+**两件事一起做**：删掉属性表那一份（标志位没了）**并且**把元素那格变成洞。
+
 判据与 `ArrayIndexAt` **共用同一个答案**（它写着「前导零不算下标」、「超出 `i32` 不算」）——
 另写一份「数字键」的判据就是第二处会漂的答案。
 **越界不算删掉什么**：`delete xs[9]` 在 JS 里是「本来就没有」⇒ 成功（落到下面那句 `return true`）。
 
 ```ts
 const item = table.Get(receiver);
+// **键有两种形态**：`xs[1]` 的键是一个**整数**（`rt.xl.md` 的 `ArrayIndexAt` 只认字符串），
+// 而 `xs[i]` 里 `i` 是数字时同样落成一个数字键——所以两档都要认。
+// **浮点不算下标**（`xs[1.5]` 是属性）；**负下标不算**（JS 里那是属性）。
+let elementAt = -1;
 if (item.Tag === ValueTag.Array) {
-  // **键有两种形态**：`xs[1]` 的键是一个**整数**（`rt.xl.md` 的 `ArrayIndexAt` 只认字符串），
-  // 而 `xs[i]` 里 `i` 是数字时同样落成一个数字键——所以两档都要认。
-  // **浮点不算下标**（`xs[1.5]` 是属性）；**负下标不算**（JS 里那是属性）。
-  let at = -1;
   if (key.Tag === ValueTag.Int32) {
-    at = key.Int;
+    elementAt = key.Int;
   } else {
-    at = ArrayIndexAt(table, key);
-  }
-  const elements = item.AsArray();
-  if (at >= 0 && at < elements.GetLength()) {
-    elements.SetHole(at);
-    table.Recount(receiver);
-    return true;
+    elementAt = ArrayIndexAt(table, key);
   }
 }
+// **属性表那一摞先看**（下标那一份也在这里）：不可配置 ⇒ 给 `false`、那一格留着。
 for (let i = 0; i < item.Props.length; i++) {
   if (!KeyMatches(table, item.Props[i], key)) continue;
   if ((item.Props[i].Flags & PropertyFlagConfigurable) === 0) {
@@ -1037,6 +1039,16 @@ for (let i = 0; i < item.Props.length; i++) {
     return false;
   }
   item.Props = RemoveAt(item.Props, i);
+  // **下标那一格：元素区那一摞一起删**（第 721 轮）——只删属性表那一份的话，
+  // `a[1]` 照样读得到值（`IndexKeyShadowOf` 没了、元素区还在）。
+  if (item.Tag === ValueTag.Array && elementAt >= 0 && elementAt < item.AsArray().GetLength()) {
+    item.AsArray().SetHole(elementAt);
+  }
+  table.Recount(receiver);
+  return true;
+}
+if (item.Tag === ValueTag.Array && elementAt >= 0 && elementAt < item.AsArray().GetLength()) {
+  item.AsArray().SetHole(elementAt);
   table.Recount(receiver);
   return true;
 }
@@ -1147,6 +1159,21 @@ throw new Error("unimplemented: indexed access on a non-array receiver");
 `receiver[index] = value` 的**快路径**：数组写元素（下标超长时补洞，`heap.xl.md` 的
 `SetAt` 已经这样答）。
 
+**下标那一格的标志位住在 `Props` 里那一份**（第 721 轮，见 `globals.xl.md` 的
+`IndexKeyShadowOf`）：`Object.defineProperty(a, "1", { writable: false })` 之后
+`a[1] = 42` 在 JS 里**静默无效**——而这条快路径原来**从不问属性表**，值照写
+（判据 `p721a-r09`：node 给 `9`、本仓给 `42`）。
+
+**可写那一档要把值同步进属性表那一份**：两摞都存着值（元素区是 `a[i]` 那条路的事实来源、
+属性表那一份是描述符那条路的事实来源），不同步就是「读出来一个值、
+`Object.getOwnPropertyDescriptor` 另一个值」——两处会漂的答案。
+
+**访问器那一档仍然不管**（记在台账里）：这一格没有调用通道
+（`ReadProperty` / `SetProperty` 要一个 `NativeCall`，而这条 op 的签名里没有），
+所以「下标上的 getter / setter 真的被调」是另一件事（见
+`tests/cases/README.md` 第 721 轮那一段）。这里**不假装调过**，也不额外抛——
+保持原来的写法，差别写在明处。
+
 ```ts
 if (receiver.Tag === ValueTag.Array) {
   if (!index.IsNumber()) {
@@ -1154,6 +1181,23 @@ if (receiver.Tag === ValueTag.Array) {
   }
   const at = index.AsInt();
   if (at < 0) throw new Error("unimplemented: negative index needs ToString");
+  const slotItem = table.Get(receiver.Ref);
+  // **只扫自有那一摞**（下标那一份一定是自有的）：`FindProperty` 会顺原型链走，
+  // 而这条路是 `a[i] = v` 的热路径——多走两层表是白花的。
+  // **只有非负整数键才比**（`KeyMatches` 对 `Int32` 有「十进制整数文本」那一档；
+  // 浮点键在 JS 里是普通属性名，落不到下标那一支）。
+  if (index.Tag === ValueTag.Int32 && slotItem.Props.length > 0) {
+    for (let i = 0; i < slotItem.Props.length; i++) {
+      if (!KeyMatches(table, slotItem.Props[i], index)) continue;
+      const slot = slotItem.Props[i];
+      if (slot.Kind === PropertyKind.Accessor) break;
+      // **不可写 ⇒ 一声不响什么都没做**（非严格赋值的口径，与 `SetPropertySearched`
+      // 那一句一字不差）；**可写 ⇒ 值两摞一起写**。
+      if ((slot.Flags & PropertyFlagWritable) === 0) return value;
+      slot.Value = value;
+      break;
+    }
+  }
   table.Get(receiver.Ref).AsArray().SetAt(at, value);
   table.Recount(receiver.Ref);
   return value;

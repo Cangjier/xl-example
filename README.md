@@ -631,6 +631,56 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
   （`probe697-q32` 转绿）、`bad` 0、`regressions` 0、`moved` 0、`newlyPassing` 0，
   加权 **96.1%**。
 
+### 第 721 轮：数组下标那一格——**值在元素区、标志位在属性表**
+
+这一轮的普查专门问**数组下标那一格**（34 条原子探针：`defineProperty` 的数据属性 /
+访问器 / 三个标志位 / `length` 描述符 / `delete` / `in` / `slice`），**34 条里 22 条红**——
+第 706 轮把「下标上 `defineProperty` 要落进元素区」修好之后，**那一格剩下的四件事**
+一次全露出来了：
+
+| 写法 | Node | 本仓原来 |
+| --- | --- | --- |
+| `defineProperty(a, "1", { enumerable: false })`（**没写 `value`**） | 值还是 `9` | **值被抹成 `undefined`**（JSON 给 `null`） |
+| 同上（`{ value: 9, writable: false }` 之后 `a[1] = 42`） | 静默不动，还是 `9` | 照写，变 `42` |
+| `{ value: 9, configurable: false }` 之后 `delete a[1]` | `false`，那一格还在 | **`true`**，那一格变洞 |
+| 下标上的**访问器**：`a[1]` / `a.join()` / `JSON.stringify(a)` | 调 getter | 读元素区（旧值） |
+| `defineProperty(a, "length", { value: 1 })` | 截到 1 | 原样不动 |
+
+**根子是一条内部约定**：元素区（`HeapArray` 的 `Elements` / `Holes`）**没有逐格标志位**，
+所以属性表里那一份（第 706 轮为「不可枚举」造的 `IndexKeyShadowed`）是**标志位的唯一落点**，
+而**四条路原来各自不知道这件事**：
+
+- **`DefineOwnFromDescriptor` 只分了一档**（第 706 轮按 `enumerable` 分流）：
+  `writable` / `configurable` 一律按描述符的缺省（假）算 ⇒ `{ enumerable: false }` 顺手把
+  那一格变成**不可写 + 不可配置**；而不写 `value` 时又**无条件回写** `fieldOf("value")`
+  （没写就是 `undefined`）⇒ **值被抹掉**。现在三格各自一档
+  （**没写的沿用元素那一格的性质**：可写 + 可枚举 + 可配置），`value` 没写就**不动值**；
+  只要有一位不是元素的常态，就在属性表里留一份。
+- **`SetIndex`（`a[i] = v`）从来不问属性表**：不可写那一格照样写得进去。
+  现在先扫**自有那一摞**（`a[i] = v` 是热路径，所以不顺原型链走）：
+  不可写 ⇒ **一声不响**（非严格赋值的口径，与 `SetPropertySearched` 一字不差）、
+  可写 ⇒ **值两摞一起写**（不然 `a[1]` 与描述符里的 `value` 会各说各话）。
+- **`DeleteProperty` 先走元素那一段、无条件成功**：不可配置那一格删得掉。
+  现在**属性表那一摞先看**——不可配置 ⇒ 给假、那一格留着；可配置 ⇒ 两份一起删。
+- **描述符那一趟只在「不可枚举」时才认属性表**：`writable: false` 是可枚举的，
+  于是答「三个全真」。判据改成「**有没有那一份**」，并且**访问器那一份也一并认**
+  （下标上的 getter 现在读得到 `descriptor.get`）。
+- **顺手收掉一处同族的静默错值**：`slice` 把洞接成了**显式的 `undefined`**
+  （`const a = [1,2,3]; delete a[1]; 1 in a.slice()` 从假变真）——`concat` 早就用
+  `AppendSlot` 处理过同一件事，这一处是同一个坑的另一半。
+- **仍然开着的三个根**（都登在用例里，`p721a-b01` … `b08`）：
+  ① **下标上的访问器调不到**（读、写、展开、`map` / `reduce`、`JSON` 全走元素区）——
+  `get_index` / `set_index` 这两条快路径的签名里**没有调用通道**，要收得把 `NativeCall`
+  一路递进去、并让元素区那三十来处读取都问一遍属性表；
+  ② **`length` 那一格的描述符语义**（削短 / 加长 / `writable: false` 之后赋值与 `push`）——
+  与 `stdlib/object/125` / `exec/round707/p707b-d06` 同根，要 `HeapArray` 上多一格标志位；
+  ③ **`Object.seal` / `freeze` 管不到元素区**（本轮给下标补的标志位只覆盖
+  「`defineProperty` 显式写了标志位」那一档）。
+- 语料 **+25 条**（`stdlib/round721/p721a-a01` … `a17` 过掉的、
+  `p721a-b01` … `b08` 登记的缺口）；**收掉台账一条**（`stdlib/array/144` 转绿）。
+- 五类 **7346 / 7699 → 7364 / 7724**、`blocked 261`（没涨）、`differ 92 → 99`、
+  `bad` 0、`regressions` 0，加权 **96.1% → 96.0%**。
+
 ### 当前状态（最近一次全量实测）
 
 | 判据 | 结果 |
@@ -643,8 +693,8 @@ JS 不执行函数体、当场给 `{ value: 7, done: true }`，本仓给 `{ valu
 | `cases:shapes` | 外部语料 **260 种签名 / 140 种 kind** 全部有用例覆盖（用例 1403 份），未覆盖 **0** |
 | `runtime:check` | **243 / 243** |
 | `runtime:cli` | 直接执行 `.ts`：**79 / 79** 份与 `node` 逐字节相同 |
-| `coverage` | **五类 7346 / 7699**，加权 **96.1%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 3009/3077、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 92），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
-| `npm run gates` | 上面各道一次跑完（实测墙钟 **~48s**） |
+| `coverage` | **五类 7364 / 7724**，加权 **96.0%**：token 1184/1403（另有 219 条登记缺口走另一条账）、exec 2105/2158、runtime 806/815、stdlib 3027/3102、e2e 242/246。差的那些是**真缺口**（`blocked` 261 / `differ` 99），全登在用例文件头的台账里；`bad` **0 条**、`regressions` **0 条** |
+| `npm run gates` | 上面各道一次跑完（实测墙钟 **~46s**） |
 
 ### 口径与已知缺口
 

@@ -1,6 +1,6 @@
 {
   "round": "",
-  "total": 7699,
+  "total": 7724,
   "skipped": [
     {
       "id": "exec/classes/001-decorators-on-class",
@@ -75,7 +75,7 @@
       "why": "xl:ts-invalid（故意写非法 TS）"
     }
   ],
-  "progressPercent": 96.08,
+  "progressPercent": 96.04,
   "categories": [
     {
       "category": "token",
@@ -110,12 +110,12 @@
     {
       "category": "stdlib",
       "weight": 0.2,
-      "total": 3077,
-      "pass": 3009,
+      "total": 3102,
+      "pass": 3027,
       "blocked": 25,
-      "differ": 43,
+      "differ": 50,
       "nodefail": 0,
-      "coverage": 97.79
+      "coverage": 97.58
     },
     {
       "category": "e2e",
@@ -1883,7 +1883,7 @@
       "id": "exec/round708/p708b-l09",
       "category": "exec",
       "title": "console.log 的 Error",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26980/src/3202.ts:7:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25184/src/3202.ts:7:13)» vs tsrun «»"
     },
     {
       "id": "exec/round708/p708b-s03",
@@ -2006,12 +2006,6 @@
       "detail": "stdout 不同：第 1 行：node «99 1,99,3 [1,99,3] 3» vs tsrun «2 1,2,3 [1,2,3] 3»"
     },
     {
-      "id": "stdlib/array/144-define-on-array-index",
-      "category": "stdlib",
-      "title": "数组下标上的数据属性改写（与访问器那一档分开量）",
-      "detail": "stdout 不同：第 2 行：node «0,2 9 [1,9,3]» vs tsrun «0,2 undefined [1,null,3]»"
-    },
-    {
       "id": "stdlib/array/149-concat-spreadable",
       "category": "stdlib",
       "title": "`concat` 展不展一个带 `Symbol.isConcatSpreadable` 的对象",
@@ -2045,7 +2039,7 @@
       "id": "stdlib/console/probe705-c-e18",
       "category": "stdlib",
       "title": "e18",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26980/src/4918.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25184/src/4918.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/date/041-date-iso",
@@ -2069,7 +2063,7 @@
       "id": "stdlib/error/001-console-log-error-stack",
       "category": "stdlib",
       "title": "console.log(一个错误对象)：栈里带宿主的内部帧",
-      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-26980/src/4968.ts:2:13)» vs tsrun «»"
+      "detail": "stdout 不同：第 2 行：node «    at Object.<anonymous> (file:///C:/Users/Admin/Documents/GitHub/xl-example/tests/coverage/.work-25184/src/4968.ts:2:13)» vs tsrun «»"
     },
     {
       "id": "stdlib/error/probe697-e11",
@@ -2198,6 +2192,54 @@
       "detail": "stdout 不同：第 2 行：node «string:2|random» vs tsrun «string:undefined|undefined»"
     },
     {
+      "id": "stdlib/round721/p721a-b01",
+      "category": "stdlib",
+      "title": "下标上的访问器：读那一格",
+      "detail": "stdout 不同：第 1 行：node «number:99,string:1,99,3,string:[1,99,3],number:3» vs tsrun «number:2,string:1,2,3,string:[1,2,3],number:3»"
+    },
+    {
+      "id": "stdlib/round721/p721a-b02",
+      "category": "stdlib",
+      "title": "下标上的访问器：get + set",
+      "detail": "stdout 不同：第 1 行：node «number:14,number:14,string:1,14,3» vs tsrun «number:5,number:7,string:1,7,3»"
+    },
+    {
+      "id": "stdlib/round721/p721a-b03",
+      "category": "stdlib",
+      "title": "下标上的访问器：展开与 for..of 该调 getter",
+      "detail": "stdout 不同：第 1 行：node «string:1,99,3|string:1,99,3» vs tsrun «string:1,2,3|string:1,2,3»"
+    },
+    {
+      "id": "stdlib/round721/p721a-b04",
+      "category": "stdlib",
+      "title": "defineProperty 的 length：削短（值、越界读、键）",
+      "detail": "stdout 不同：第 1 行：node «number:1,undefined,undefined,string:0,string:[1]» vs tsrun «number:3,number:2,number:3,string:0,1,2,string:[1,2,3]»"
+    },
+    {
+      "id": "stdlib/round721/p721a-b05",
+      "category": "stdlib",
+      "title": "defineProperty 的 length：加长（空洞与 JSON）",
+      "detail": "stdout 不同：第 1 行：node «number:4,undefined,string:[1,2,null,null],string:0,1» vs tsrun «number:2,undefined,string:[1,2],string:0,1»"
+    },
+    {
+      "id": "stdlib/round721/p721a-b06",
+      "category": "stdlib",
+      "title": "length 不可写之后赋值静默、length 不动",
+      "detail": "stdout 不同：第 1 行：node «number:2,string:1,2» vs tsrun «number:5,string:1,2,,,»"
+    },
+    {
+      "id": "stdlib/round721/p721a-b07",
+      "category": "stdlib",
+      "title": "seal 之后 delete 下标给假、写还是可以",
+      "detail": "stdout 不同：第 1 行：node «boolean:false,number:9,number:3» vs tsrun «boolean:true,undefined,number:3»"
+    },
+    {
+      "id": "stdlib/round721/p721a-b08",
+      "category": "stdlib",
+      "title": "空数组上装下标访问器：length 该跟着长",
+      "detail": "stdout 不同：第 1 行：node «number:2,number:5,string:[null,5]» vs tsrun «number:0,undefined,string:[]»"
+    },
+    {
       "id": "stdlib/string/136-r676-std-string-regex-members",
       "category": "stdlib",
       "title": "String 原型上的成员表：正则那一族在不在（字符串键问一遍）",
@@ -2260,6 +2302,11 @@
   ],
   "bad": [],
   "moved": [],
-  "newlyPassing": [],
+  "newlyPassing": [
+    {
+      "id": "stdlib/array/144-define-on-array-index",
+      "category": "stdlib"
+    }
+  ],
   "regressions": []
 }

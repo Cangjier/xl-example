@@ -1029,7 +1029,13 @@ if (id === ArraySlice) {
   table.Get(handle).Proto = table.Get(self.Ref).Proto;
   const slice = table.Get(handle).AsArray();
   for (let i = start; i < end; i++) {
-    slice.Push(source.GetAt(i));
+    // **洞要跟着走**（第 721 轮，**普查当场红的**）：`const a = [1, 2, 3]; delete a[1];
+    // a.slice()` 在 JS 里结果**第 1 格还是洞**（`1 in a.slice()` 给假）——
+    // 原来这里写的是 `slice.Push(source.GetAt(i))`，而 `GetAt` 对洞给 `undefined`
+    // ⇒ 洞被接成一个**显式的 `undefined`**，`1 in result` 从假变真（形状变了）。
+    // `concat` 那一支早就用 `AppendSlot` 处理过同一件事（第 123 轮）——
+    // 这一处是同一个坑的另一半（判据 `p721a-r33`）。
+    AppendSlot(slice, source, i);
   }
   return Value.FromArray(handle);
 }

@@ -2434,33 +2434,55 @@ if (target.Tag === ValueTag.String) {
 return positions;
 ```
 
-# method IndexKeyShadowed:(table:HeapTable, target:Value, at:int)=>bool
+# method IndexKeyShadowOf:(table:HeapTable, target:Value, at:int)=>Property | null
 
-**数组第 `at` 格是不是被 `Props` 里同名的那一格「压住」了**（第 706 轮）——
-即 `Object.defineProperty(数组, 下标, { … })` 里那些**不可枚举**的落点。
+**数组第 `at` 格在属性表里的那一份「标志位影子」**（第 721 轮）——没有就返回 `null`。
 
-**为什么需要这一格**：元素区（`HeapArray` 的 `Elements` / `Holes`）**没有逐格标志位**，
-而 `Object.defineProperty([], 0, { value: 5 })` 在 JS 里造的是**不可枚举**的一格
-（缺省 `enumerable: false`）——它**照样把 `length` 顶到 `1`**，却**不进 `Object.keys`**。
-所以「下标在不在」与「下标算不算可枚举键」在这一层是两个问题：
-前者看两摞（`IndexKeyPositions` 那一趟 + 属性表），**后者看这一格**。
+**为什么元素那一格会在属性表里另有一份**：元素区（`HeapArray` 的 `Elements` / `Holes`）
+**没有逐格标志位**，而 `Object.defineProperty([1, 2, 3], "1", { enumerable: false })`
+在 JS 里那一格**还在**（`a[1]` 照样读得到值），变的只是三个标志里的一位。
+所以这一层把「标志位」那一份放进 `Props`，与元素区那一格**同时存在**：
 
-**同一条判据两处要用**：`OwnEnumerableKeyTexts`（`Object.keys` / `for..in` 的键表）
-与 `ObjectGetOwnPropertyDescriptor`（读那一格的标志位是 `Props` 说了算）——
-抄一份就是两处会漂的答案。
+| 问 | 答在哪一摞 |
+| --- | --- |
+| 那一格在不在 / 值是多少 | **元素区**（`HeapArray`） |
+| 可写 / 可枚举 / 可配置 | **`Props` 里这一份**（有这一份时） |
+
+**第 706 轮只写了「不可枚举」那一档**（那时缺省 `enumerable: false` 是唯一会分叉的字段），
+**第 721 轮**把 `writable` / `configurable` 也放进同一份：
+`Object.defineProperty(a, "1", { writable: false })` 之后 `a[1] = 42` 该**静默无效**、
+`{ configurable: false }` 之后 `delete a[1]` 该给**假**——两处都要读这一份。
+
+**一处实现**：`Object.keys` / `for..in` 那一趟（`IndexKeyShadowed`）、
+`Object.getOwnPropertyDescriptor`、「写下标」与「删下标」四处都问它，
+谁都不许按自己的写法再找一遍（找法的判据是 `IsIndexKeyText` + 数值相等，
+抄一份就是第二处会漂的答案）。
 
 ```ts
-if (target.Tag !== ValueTag.Array) return false;
+if (target.Tag !== ValueTag.Array) return null;
 const shadowed = table.Get(target.Ref).Props;
 for (let i = 0; i < shadowed.length; i++) {
   if (table.Get(shadowed[i].Key).Tag !== ValueTag.String) continue;
-  if (!IsIndexKeyText(TextFrom(table, Value.FromString(shadowed[i].Key)))) continue;
-  if (Number(TextFrom(table, Value.FromString(shadowed[i].Key))) !== at) continue;
-  // **只有「不可枚举」那一格才算压住**：可枚举的落点本来就在元素区那一摞里
-  //（`defineProperty` 那一支按这个标志分流），两边不会同时存在。
-  return !shadowed[i].IsEnumerable();
+  const keyText = TextFrom(table, Value.FromString(shadowed[i].Key));
+  if (!IsIndexKeyText(keyText)) continue;
+  if (Number(keyText) !== at) continue;
+  return shadowed[i];
 }
-return false;
+return null;
+```
+
+# method IndexKeyShadowed:(table:HeapTable, target:Value, at:int)=>bool
+
+**数组第 `at` 格算不算「被属性表那一份压成不可枚举」**（第 706 轮）——
+`OwnEnumerableKeyTexts`（`Object.keys` / `for..in` 的键表）用它把元素区那一格筛掉。
+
+**判据只有「不可枚举」这一位**：可枚举的落点本来就在元素区那一摞里，
+`Object.keys` 该看见它（`IndexKeyShadowOf` 找得到那一份，但它可枚举）。
+
+```ts
+const shadow = IndexKeyShadowOf(table, target, at);
+if (shadow === null) return false;
+return !shadow.IsEnumerable();
 ```
 
 # method IndexKeyValueAt:(room:RoomChecker, table:HeapTable, target:Value, index:int)=>Value
@@ -4393,29 +4415,36 @@ if (id === ObjectGetOwnPropertyDescriptor) {
         element = items.GetAt(at);
         present = true;
       }
-      // **不可枚举的那一格由 `Props` 说了算**（第 706 轮）：元素区没有标志位，
-      // 而 `Object.defineProperty([], 0, { value: 5 })` 造的那一格在 `Props` 里
-      // （三标志全假）——上面那一趟看元素区会答「三个全真」，那是**静默错值**
-      //（判据 `p706f-w03`：node 给 `enumerable=false`、本仓给 `true`）。
-      // 判据与 `Object.keys` 那一趟**共用 `IndexKeyShadowed`**：一处说「不算可枚举键」、
-      // 另一处说「标志位按属性表答」，两句话说的是同一格。
-      if (IndexKeyShadowed(table, receiver, at)) {
-        const shadowFound = FindProperty(room, table, receiver.Ref, ownKey);
-        if (shadowFound !== null && shadowFound.Owner === receiver.Ref) {
-          const shadowProperty = table.Get(receiver.Ref).Props[shadowFound.Index];
-          if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
-          const shadowDescriptor = NewPlainObject(room, table, protos);
-          // **数据那一档**：`defineProperty` 的访问器落点走的是上面那一支
-          //（「下标 + 访问器」在 JS 里不动 `length`），所以这里只可能是数据属性。
-          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "value"), shadowProperty.Value);
+      // **属性表里有那一份的，标志位就由它说了算**（第 706 轮开的口子，第 721 轮放宽）：
+      // 元素区没有标志位，而 `Object.defineProperty` 在下标上写下的
+      // `enumerable` / `writable` / `configurable` 三位**只有那一份记着**——
+      // 上面那一趟看元素区会答「三个全真」，那是**静默错值**
+      //（判据 `p706f-w03`：node 给 `enumerable=false`、本仓给 `true`；
+      //  `p721a-r08`：下标上的**访问器**该给 `get` / `set`，原来给的是元素区的数据那一档）。
+      //
+      // **第 706 轮只在这一份「不可枚举」时才走这一支**（那时只有它一个字段会分叉）；
+      // 第 721 轮起判据是「**有没有这一份**」——`writable: false` / `configurable: false`
+      // 同样住在这里，而它们**可枚举**，按老判据会落到元素区那一档去。
+      const indexShadow = IndexKeyShadowOf(table, receiver, at);
+      if (indexShadow !== null) {
+        if (!room(ObjectCharge + PropertyCharge * 4)) throw new Error("out of room");
+        const shadowDescriptor = NewPlainObject(room, table, protos);
+        // **两档形状**：访问器给 `get` / `set`，数据属性给 `value` / `writable`——
+        // 与 `Object.getOwnPropertyDescriptor` 在普通属性上那一趟**同一套字段**
+        //（`{ get }` 与 `{ value }` 不会同时出现）。
+        if (indexShadow.Kind === PropertyKind.Accessor) {
+          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "get"), indexShadow.Getter);
+          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "set"), indexShadow.Setter);
+        } else {
+          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "value"), indexShadow.Value);
           SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "writable"),
-            Value.FromBool((shadowProperty.Flags & PropertyFlagWritable) !== 0));
-          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "enumerable"),
-            Value.FromBool((shadowProperty.Flags & PropertyFlagEnumerable) !== 0));
-          SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "configurable"),
-            Value.FromBool((shadowProperty.Flags & PropertyFlagConfigurable) !== 0));
-          return shadowDescriptor;
+            Value.FromBool((indexShadow.Flags & PropertyFlagWritable) !== 0));
         }
+        SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "enumerable"),
+          Value.FromBool((indexShadow.Flags & PropertyFlagEnumerable) !== 0));
+        SetProperty(room, NeverCall, table, shadowDescriptor, NameValue(table, "configurable"),
+          Value.FromBool((indexShadow.Flags & PropertyFlagConfigurable) !== 0));
+        return shadowDescriptor;
       }
     } else if (receiver.Tag === ValueTag.String) {
       elementUnits = table.Get(receiver.Ref).AsString().Units;
@@ -5775,6 +5804,13 @@ return !table.Get(target.Ref).Extensible;
 ```ts
 const defineTarget = table.Get(target.Ref);
 const descriptorObject = table.Get(descriptor.Ref);
+// **这一格是不是数组的下标**（第 721 轮）：下标那一格的**值住在元素区**、
+// **标志位住在属性表里那一份**（见 `IndexKeyShadowOf`），所以「重定义一个已有的
+// 下标格」那一支改完值之后**必须把它同步回元素区**——只改属性表那一份的话
+// `a[1]`（`get_index` 那条快路径）读回来还是旧值（判据 `p721a-r09` 那一族的另一半）。
+// 判据与 `delete` / `in` / `GetIndex` 那几处**共用 `ArrayIndexAt`**（一处答案）。
+const indexSlotAt = target.Tag === ValueTag.Array && key.Tag === ValueTag.String
+  ? ArrayIndexAt(table, key) : -1;
 // **读描述符的字段**：描述符是一个**普通对象字面量**，所以直接扫它的属性表
 // （访问器跳过——理由与 `Object.values` 那一条相同：这一层不调 getter）。
 const fieldOf = (name: string) => {
@@ -5936,6 +5972,15 @@ if (existing !== null && existing.Owner === target.Ref) {
     // **没写 `value` 就不动那一格**（原来看不出「没写」与「写成 `undefined`」的差别）。
     property.Value = fieldOf("value");
   }
+  // **下标那一格：值同步回元素区**（第 721 轮，见 `indexSlotAt` 那一段的账）。
+  // **洞与越界不算**：那一格在元素区根本不在（`Object.defineProperty` 的定义
+  // 已经由上面「新造一格」那一支负责把 `length` 顶上去）。
+  if (indexSlotAt >= 0 && indexSlotAt < table.Get(target.Ref).AsArray().GetLength()
+      && property.Kind === PropertyKind.Data) {
+    if (!room(ValueCharge)) throw new Error("out of room");
+    table.Get(target.Ref).AsArray().SetAt(indexSlotAt, property.Value);
+    table.Recount(target.Ref);
+  }
   property.Flags = mergeFlags(property.Flags, wantsEnumerable, wantsWritable, wantsConfigurable);
   return;
 }
@@ -5979,17 +6024,44 @@ if (elementAt >= 0) {
   //     （JS 的口径），所以它只进属性表。
   const items = table.Get(target.Ref).AsArray();
   const wasElement = elementAt < items.GetLength() && !items.IsHole(elementAt);
+  // **三个标志各自一档**（第 706 轮只分了 `enumerable`，第 721 轮把三格一起分）：
+  // 描述符里**写明的**按它、**没写的**沿用那一格原来的性质——
+  // 而「下标那一格原来的性质」就是元素的常态：**可写 + 可枚举 + 可配置**
+  //（JS 里 `const a = [1]; Object.defineProperty(a, "0", { enumerable: false })`
+  // 之后 `a[0] = 5` 照样写下去、`delete a[0]` 照样删得掉）。
+  // 原来只算 `enumerable`、另外两位一律按描述符的缺省（假）——
+  // 于是 `{ enumerable: false }` 顺手把那一格变成**不可写 + 不可配置**（静默错值，
+  // 判据 `p721a-r02` / `p721a-r09` / `p721a-r10`）。
   const slotEnumerable = hasField("enumerable") ? wantsEnumerable : wasElement;
+  const slotWritable = hasField("writable") ? wantsWritable : wasElement;
+  const slotConfigurable = hasField("configurable") ? wantsConfigurable : wasElement;
+  // **没写 `value` 就不动值**（第 721 轮，**普查当场红的**）：
+  // `Object.defineProperty(a, "1", { enumerable: false })` 在 JS 里**只改枚举性**，
+  // 而这里原来无条件写 `fieldOf("value")`（没写就是 `undefined`）⇒ 那一格被抹掉
+  //（判据 `p721a-r02`：node 给 `9`、本仓给 `undefined`，`JSON.stringify` 跟着给 `null`）。
+  const slotValue = hasField("value") ? fieldOf("value")
+    : (wasElement ? items.GetAt(elementAt) : Value.Undefined());
   // **元素区那一格一定要写**——下标一旦被定义，**`length` 就要跟着长**
   //（`Object.defineProperty([], 3, { value: 5 })` 之后 JS 的 `length` 是 `4`），
   // 只写属性表那一摞的话 `length` 不动（**同一次普查里红的两条是同一件事的两半**）。
   if (!room(ValueCharge)) throw new Error("out of room");
-  items.SetAt(elementAt, fieldOf("value"));
+  items.SetAt(elementAt, slotValue);
   table.Recount(target.Ref);
-  if (slotEnumerable) return;
-  // **不可枚举那一档再记一格标志位**（`new Property` 那一趟在下面，与普通键同一条路）：
-  // 元素区没有逐格标志位，所以「算不算可枚举键」只能由 `Props` 里这一份答
-  //（`IndexKeyShadowed` 那一句把元素区那一格筛掉）。
+  // **三项都是元素的常态** ⇒ 元素区那一格就是全部，不必再留标志位那一份
+  //（绝大多数 `defineProperty` 落在这一档——多留一份会让 `IndexKeyShadowOf` 天天白找）。
+  if (slotEnumerable && slotWritable && slotConfigurable) return;
+  // **否则在 `Props` 里留一份**（标志位的唯一落点）：不可枚举、不可写、不可配置
+  // 三位里只要有一位不是元素的常态，就要有这一份——`Object.keys`（`IndexKeyShadowed`）、
+  // 描述符那一趟、`a[i] = v`（`SetIndex`）与 `delete a[i]`（`DeleteProperty`）四处都问它。
+  const slotCreated = new Property(key.Ref, slotValue);
+  let slotFlags = 0;
+  if (slotEnumerable) slotFlags = slotFlags + PropertyFlagEnumerable;
+  if (slotWritable) slotFlags = slotFlags + PropertyFlagWritable;
+  if (slotConfigurable) slotFlags = slotFlags + PropertyFlagConfigurable;
+  slotCreated.Flags = slotFlags;
+  defineTarget.Props.push(slotCreated);
+  table.Recount(target.Ref);
+  return;
 }
 // **不可枚举那一档落到下面的 `Props`**：那里**有标志位**，于是 `Object.keys` 看不见它、
 // `getOwnPropertyDescriptor` 读得到真标志（那一支最后就是「自有属性表」那一趟）、
