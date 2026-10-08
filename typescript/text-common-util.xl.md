@@ -2070,7 +2070,11 @@ if (at < 0) {
 }
 for (let i = at - 1; i >= 0; i--) {
   const item = Get(parent.Data, i);
-  if (item === null || item instanceof LineWrap) {
+  // **注释也要跳过**（第 666 轮）：`{ /*a*/ [K in B]: C }` 里那个 `[` 前面是一条注释，
+  // 只跳软换行时循环停在这条注释上 ⇒ 答「不是成员开头」⇒ 这个方括号被
+  // `TypeBracketCloseRule` 当成下标访问收成 `IndexedAccessType`，映射类型整片投不出来
+  //（实测缺 `MappedType` 的 `typeParameter` / 值类型）。
+  if (item === null || IsTriviaUnit(item)) {
     continue;
   }
   if (item instanceof SymbolToken) {

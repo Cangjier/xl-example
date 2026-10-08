@@ -5,7 +5,7 @@ import { CloseRule } from "../../../core/syntax/close-rule.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../../core/extensions/list-extension.xl.md"
-import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, IsSwitchLabelColon } from "../../text-common-util.xl.md"
+import { SkipNextWrapSymbol, SkipPreviousWrapSymbol, IsSwitchLabelColon, IsTriviaUnit } from "../../text-common-util.xl.md"
 import { Bracket } from "../bracket.xl.md"
 import { Identifier } from "../identifier.xl.md"
 import { Keyword } from "../keyword.xl.md"
@@ -586,7 +586,10 @@ return ReplaceCountAt(units, index, 1, result);
 
 ```ts
 for (const item of bracket.Data) {
-  if (item instanceof LineWrap) {
+  // **注释也跳过**（第 666 轮）：`{ /*a*/ [K in B]: C }` 里第一个实义单元仍是那个 `[`，
+  // 只跳软换行时撞上的是注释 ⇒ 整片映射类型退化成 `TypeLiteral`
+  //（实测缺 `MappedType`、多出 `TypeLiteral` / `PropertySignature` / `ComputedPropertyName`）。
+  if (IsTriviaUnit(item)) {
     continue;
   }
   if (item instanceof Identifier && item.Is("readonly")) {

@@ -1136,7 +1136,10 @@ for (let i = start; i < data.length; i++) {
   if (item === null) {
     continue;
   }
-  if (item instanceof LineWrap) {
+  // **注释也是 trivia**（第 666 轮）：`@a // x` 换行 `@b class C {}` 里，
+  // 装饰器与换行之间夹着一条行注释；只跳软换行时循环停在注释上 ⇒ 答否 ⇒ 换行处收壳
+  // ⇒ 两个装饰器被劈成两条语句（实测缺 `ClassDeclaration`、多一个 `ExpressionStatement`）。
+  if (IsTriviaUnit(item)) {
     continue;
   }
   if (item instanceof SymbolToken && (item.Is("@") || item.Is("."))) {

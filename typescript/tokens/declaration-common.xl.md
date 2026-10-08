@@ -2,7 +2,7 @@
 ```xl
 import { Token } from "../../core/syntax/token.xl.md"
 import { Get } from "../../core/extensions/list-extension.xl.md"
-import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, HasTypeColonBefore, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { GetSkipNextWrapSymbol, GetSkipPreviousWrapSymbol, HasTypeColonBefore, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { Class } from "./class/class.xl.md"
 import { DecoratorCloseRule } from "./decorator.xl.md"
@@ -157,7 +157,12 @@ return adjusted;
 ```ts
 let start = index;
 while (true) {
-  const previousIndex = SkipPreviousWrapSymbol(units, start);
+  // **注释也要跳过**（第 666 轮）：`@a /*x*/ class C {}` 里装饰器与 `class` 之间夹着注释，
+  // 只跳软换行时循环停在注释上 ⇒ 声明头从 `class` 起算 ⇒ `@a` 被留在 `Class` **外面**
+  //（实测缺整条 `ClassDeclaration`、多一个 `ExpressionStatement`）。同一根子盖着一整族：
+  // `@a /*x*/ @b class C {}` / `@a @b /*x*/ class C {}` / `@a /*x*/ export class C {}`
+  // / 成员上的 `@a /*x*/ m() {}`。
+  const previousIndex = SkipPreviousTrivia(units, start);
   if (previousIndex < 0) {
     break;
   }

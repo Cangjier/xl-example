@@ -5,7 +5,7 @@ import { CloseRule } from "../../core/syntax/close-rule.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { Get, ReplaceCountAt } from "../../core/extensions/list-extension.xl.md"
-import { IsAssertableOperand, SkipNextWrapSymbol, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
+import { IsAssertableOperand, SkipNextWrapSymbol, SkipPreviousTrivia, SkipPreviousWrapSymbol } from "../text-common-util.xl.md"
 import { Bracket } from "./bracket.xl.md"
 import { ArrayLiteral } from "./json/array-literal.xl.md"
 import { Identifier } from "./identifier.xl.md"
@@ -52,7 +52,11 @@ TypeScript 自己的 AST 里它就是 `NonNullExpression`，差分引擎能直�
 第二个 `!` 前面于是不再是 `Identifier`——不认它的话第二个 `!` 会留在原地成为悬空符号。
 
 ```ts
-const previous = Get(units, index - 1);
+// **被断言者要跨过注释往回找**（第 666 轮）：`a /*c*/ !` 在 TypeScript 里是
+// `NonNullExpression`（注释是 trivia，它的区间把注释包在里面）。
+// 拿 `index - 1` 时撞上的是那条注释 ⇒ `IsAssertableOperand` 答否 ⇒ 整条断言不成形
+//（实测缺 `NonNullExpression`）。
+const previous = Get(units, SkipPreviousTrivia(units, index));
 const current = Get(units, index);
 if (!(current instanceof SymbolToken)) {
   return false;
@@ -119,7 +123,7 @@ const afterText = after.TempToString();
 if (afterText !== ":" && afterText !== "?:" && afterText !== "!:") {
   return false;
 }
-const nameIndex = index - 1;
+const nameIndex = SkipPreviousTrivia(units, index);
 const beforeIndex = SkipPreviousWrapSymbol(units, nameIndex);
 const before = Get(units, beforeIndex);
 if (before === null) {
@@ -143,7 +147,12 @@ return before instanceof LineWrap;
 替换用四参数的 `ReplaceCountAt`（三个参数的版本才叫 `ReplaceAt`）。
 
 ```ts
-const previous = Get(units, index - 1);
+// **左端要跨过注释**（第 666 轮）：`a /*c*/ !` 的三个单元是
+// `[Identifier, AreaAnnotation, SymbolToken]` —— 断言节点要把注释一起装进去
+//（TS 的 `NonNullExpression` 区间就是 `a/*c*/!`），所以起点取「上一个实义单元」，
+// 中间那段 trivia 原样收进节点。
+const previousIndex = SkipPreviousTrivia(units, index);
+const previous = Get(units, previousIndex);
 const current = Get(units, index);
 if (previous === null || current === null) {
   throw new Error("非空断言两侧缺单元");
@@ -159,9 +168,15 @@ notNull.Parent = holder;
 notNull.SignIn(previous.SourceRange.Start!);
 notNull.SignOut(current.SourceRange.End!);
 notNull.AddAndCloseLast(previous);
+for (let i = previousIndex + 1; i < index; i++) {
+  const between = Get(units, i);
+  if (between !== null) {
+    notNull.AddAndCloseLast(between);
+  }
+}
 notNull.AddAndCloseLast(current);
 notNull.TryToClose();
-return ReplaceCountAt(units, index - 1, 2, notNull);
+return ReplaceCountAt(units, previousIndex, index - previousIndex + 1, notNull);
 ```
 
 # class NotNull extends IndependentToken

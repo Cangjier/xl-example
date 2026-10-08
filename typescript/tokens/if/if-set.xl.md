@@ -652,6 +652,26 @@ for (const item of tailUnits) {
     for (let i = start.Index; i <= end.Index; i++) {
       context.Messages.push(new ReloadMessage(host, this, start.Document.At(i)));
     }
+    continue;
+  }
+  // **还没闭合的尾巴单元也要逐字归还**（第 666 轮）：`Lex` 只吃一个字符，
+  // 于是 `if (a) {}` 换行 `[1].forEach(f)` 里那个 `[` 此刻是一个**开着**的 `Bracket`
+  // （`End === null`）——原来那一支要求两端俱全才归还，开着的单元一个字符都没还
+  // ⇒ `[` 连同它已经吃下的字符一起消失，宿主从 `1]` 重新词法化
+  //（实测缺 `ArrayLiteral` / `CallExpression` / `PropertyAccessExpression`）。
+  //
+  // 同一根子盖着另外两族：换行后以**模板串**或**正则**开头时，`Lex` 收的是一个开着的
+  // `String` / `RegexToken`（实测缺 `NoSubstitutionTemplateLiteral` / `RegularExpressionLiteral`）。
+  // 三族的形状一样：链已经收完，尾巴上那些字本来就属于宿主。
+  //
+  // **归还到哪一格**：`consumed` 说当前这一格有没有被吃进某个单元 ——
+  // 吃了就还到它，没吃就还到它前面那一格（当前这一格由末尾那一句单独还）。
+  // **倒序入队**：`DrainMessages` 把每条 `ReloadMessage` 插到队首，正序入队会得到反序。
+  if (start !== null) {
+    const stop = consumed ? source.Index : source.Index - 1;
+    for (let i = stop; i >= start.Index; i--) {
+      context.Messages.push(new ReloadMessage(host, this, start.Document.At(i)));
+    }
   }
 }
 if (this.SourceRange.End === null && lastSegment !== undefined && lastSegment.SourceRange.End !== null) {
